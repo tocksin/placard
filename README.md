@@ -18,7 +18,7 @@ There are not many good retro options for ALUs today.  Gigatron uses 10 MUX chip
 
 | Mode | S1 | S0 | Function  | Instruction |
 |------|----|----|-----------|------|
-| 0    |  0 |  0 | A AND B   | ADD  |
+| 0    |  0 |  0 | A AND B   | AND  |
 | 0    |  0 |  1 | A OR B    | OR   |
 | 0    |  1 |  0 | A XOR B   | XOR  |
 | 0    |  1 |  1 | NOT A     | NOT  |
