@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="tb_alu_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="logging_pkg" />
+            <top_module name="tb_alu" />
+            <top_module name="tools_pkg" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="0.000 ns"></ZoomStartTime>
+      <ZoomEndTime time="2,602.834 ns"></ZoomEndTime>
+      <Cursor1Time time="517.861 ns"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="236"></NameColumnWidth>
+      <ValueColumnWidth column_width="88"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="17" />
+   <wvobject fp_name="/tb_alu/aluComStr" type="array">
+      <obj_property name="ElementShortName">aluComStr[1:3]</obj_property>
+      <obj_property name="ObjectShortName">aluComStr[1:3]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/s" type="array">
+      <obj_property name="ElementShortName">s[2:0]</obj_property>
+      <obj_property name="ObjectShortName">s[2:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/carryin" type="logic">
+      <obj_property name="ElementShortName">carryin</obj_property>
+      <obj_property name="ObjectShortName">carryin</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/a" type="array">
+      <obj_property name="ElementShortName">a[7:0]</obj_property>
+      <obj_property name="ObjectShortName">a[7:0]</obj_property>
+      <obj_property name="Radix">BINARYRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/b" type="array">
+      <obj_property name="ElementShortName">b[7:0]</obj_property>
+      <obj_property name="ObjectShortName">b[7:0]</obj_property>
+      <obj_property name="Radix">BINARYRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/q" type="array">
+      <obj_property name="ElementShortName">q[7:0]</obj_property>
+      <obj_property name="ObjectShortName">q[7:0]</obj_property>
+      <obj_property name="Radix">BINARYRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/z" type="array">
+      <obj_property name="ElementShortName">z[1:0]</obj_property>
+      <obj_property name="ObjectShortName">z[1:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/v" type="array">
+      <obj_property name="ElementShortName">v[1:0]</obj_property>
+      <obj_property name="ObjectShortName">v[1:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/result" type="array">
+      <obj_property name="ElementShortName">result[7:0]</obj_property>
+      <obj_property name="ObjectShortName">result[7:0]</obj_property>
+      <obj_property name="Radix">BINARYRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/carryout" type="logic">
+      <obj_property name="ElementShortName">carryout</obj_property>
+      <obj_property name="ObjectShortName">carryout</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/a" type="array">
+      <obj_property name="ElementShortName">a[7:0]</obj_property>
+      <obj_property name="ObjectShortName">a[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/b" type="array">
+      <obj_property name="ElementShortName">b[7:0]</obj_property>
+      <obj_property name="ObjectShortName">b[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/result" type="array">
+      <obj_property name="ElementShortName">result[7:0]</obj_property>
+      <obj_property name="ObjectShortName">result[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="group20" type="group">
+      <obj_property name="label">DUT</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <wvobject fp_name="/tb_alu/aluLsbComp/A0" type="logic">
+         <obj_property name="ElementShortName">A0</obj_property>
+         <obj_property name="ObjectShortName">A0</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/A1" type="logic">
+         <obj_property name="ElementShortName">A1</obj_property>
+         <obj_property name="ObjectShortName">A1</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/A2" type="logic">
+         <obj_property name="ElementShortName">A2</obj_property>
+         <obj_property name="ObjectShortName">A2</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/A3" type="logic">
+         <obj_property name="ElementShortName">A3</obj_property>
+         <obj_property name="ObjectShortName">A3</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/B0" type="logic">
+         <obj_property name="ElementShortName">B0</obj_property>
+         <obj_property name="ObjectShortName">B0</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/B1" type="logic">
+         <obj_property name="ElementShortName">B1</obj_property>
+         <obj_property name="ObjectShortName">B1</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/B2" type="logic">
+         <obj_property name="ElementShortName">B2</obj_property>
+         <obj_property name="ObjectShortName">B2</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/B3" type="logic">
+         <obj_property name="ElementShortName">B3</obj_property>
+         <obj_property name="ObjectShortName">B3</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/S0" type="logic">
+         <obj_property name="ElementShortName">S0</obj_property>
+         <obj_property name="ObjectShortName">S0</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/S1" type="logic">
+         <obj_property name="ElementShortName">S1</obj_property>
+         <obj_property name="ObjectShortName">S1</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/M" type="logic">
+         <obj_property name="ElementShortName">M</obj_property>
+         <obj_property name="ObjectShortName">M</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/CIN" type="logic">
+         <obj_property name="ElementShortName">CIN</obj_property>
+         <obj_property name="ObjectShortName">CIN</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/F0" type="logic">
+         <obj_property name="ElementShortName">F0</obj_property>
+         <obj_property name="ObjectShortName">F0</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/F1" type="logic">
+         <obj_property name="ElementShortName">F1</obj_property>
+         <obj_property name="ObjectShortName">F1</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/F2" type="logic">
+         <obj_property name="ElementShortName">F2</obj_property>
+         <obj_property name="ObjectShortName">F2</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/F3" type="logic">
+         <obj_property name="ElementShortName">F3</obj_property>
+         <obj_property name="ObjectShortName">F3</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/C1" type="logic">
+         <obj_property name="ElementShortName">C1</obj_property>
+         <obj_property name="ObjectShortName">C1</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/C2" type="logic">
+         <obj_property name="ElementShortName">C2</obj_property>
+         <obj_property name="ObjectShortName">C2</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/C3" type="logic">
+         <obj_property name="ElementShortName">C3</obj_property>
+         <obj_property name="ObjectShortName">C3</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/C4" type="logic">
+         <obj_property name="ElementShortName">C4</obj_property>
+         <obj_property name="ObjectShortName">C4</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/Z" type="logic">
+         <obj_property name="ElementShortName">Z</obj_property>
+         <obj_property name="ObjectShortName">Z</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_alu/aluLsbComp/V" type="logic">
+         <obj_property name="ElementShortName">V</obj_property>
+         <obj_property name="ObjectShortName">V</obj_property>
+      </wvobject>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/a" type="array">
+      <obj_property name="ElementShortName">a[7:0]</obj_property>
+      <obj_property name="ObjectShortName">a[7:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/b" type="array">
+      <obj_property name="ElementShortName">b[7:0]</obj_property>
+      <obj_property name="ObjectShortName">b[7:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_alu/result" type="array">
+      <obj_property name="ElementShortName">result[7:0]</obj_property>
+      <obj_property name="ObjectShortName">result[7:0]</obj_property>
+      <obj_property name="Radix">SIGNEDDECRADIX</obj_property>
+   </wvobject>
+</wave_config>
