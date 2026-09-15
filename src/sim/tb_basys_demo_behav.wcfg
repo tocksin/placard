@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wave_config>
+   <wave_state>
+   </wave_state>
+   <db_ref_list>
+      <db_ref path="tb_basys_demo_behav.wdb" id="1">
+         <top_modules>
+            <top_module name="glbl" />
+            <top_module name="logging_pkg" />
+            <top_module name="sys_description_pkg" />
+            <top_module name="tb_basys_demo" />
+            <top_module name="tools_pkg" />
+         </top_modules>
+      </db_ref>
+   </db_ref_list>
+   <zoom_setting>
+      <ZoomStartTime time="16,029.500000 us"></ZoomStartTime>
+      <ZoomEndTime time="16,718.000001 us"></ZoomEndTime>
+      <Cursor1Time time="32,522.841969 us"></Cursor1Time>
+   </zoom_setting>
+   <column_width_setting>
+      <NameColumnWidth column_width="236"></NameColumnWidth>
+      <ValueColumnWidth column_width="68"></ValueColumnWidth>
+   </column_width_setting>
+   <WVObjectSize size="17" />
+   <wvobject fp_name="/tb_basys_demo/clkSys" type="logic">
+      <obj_property name="ElementShortName">clkSys</obj_property>
+      <obj_property name="ObjectShortName">clkSys</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/rstSys" type="logic">
+      <obj_property name="ElementShortName">rstSys</obj_property>
+      <obj_property name="ObjectShortName">rstSys</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/switches" type="array">
+      <obj_property name="ElementShortName">switches[15:0]</obj_property>
+      <obj_property name="ObjectShortName">switches[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/buttons" type="array">
+      <obj_property name="ElementShortName">buttons[4:0]</obj_property>
+      <obj_property name="ObjectShortName">buttons[4:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/leds" type="array">
+      <obj_property name="ElementShortName">leds[15:0]</obj_property>
+      <obj_property name="ObjectShortName">leds[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/vgaRed" type="array">
+      <obj_property name="ElementShortName">vgaRed[3:0]</obj_property>
+      <obj_property name="ObjectShortName">vgaRed[3:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/vgaBlue" type="array">
+      <obj_property name="ElementShortName">vgaBlue[3:0]</obj_property>
+      <obj_property name="ObjectShortName">vgaBlue[3:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/vgaGreen" type="array">
+      <obj_property name="ElementShortName">vgaGreen[3:0]</obj_property>
+      <obj_property name="ObjectShortName">vgaGreen[3:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/vgaVertSync" type="logic">
+      <obj_property name="ElementShortName">vgaVertSync</obj_property>
+      <obj_property name="ObjectShortName">vgaVertSync</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/vgaHorSync" type="logic">
+      <obj_property name="ElementShortName">vgaHorSync</obj_property>
+      <obj_property name="ObjectShortName">vgaHorSync</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/videoEn" type="logic">
+      <obj_property name="ElementShortName">videoEn</obj_property>
+      <obj_property name="ObjectShortName">videoEn</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/pixelRow" type="array">
+      <obj_property name="ElementShortName">pixelRow[9:0]</obj_property>
+      <obj_property name="ObjectShortName">pixelRow[9:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/pixelCol" type="array">
+      <obj_property name="ElementShortName">pixelCol[9:0]</obj_property>
+      <obj_property name="ObjectShortName">pixelCol[9:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/videoAddr" type="array">
+      <obj_property name="ElementShortName">videoAddr[15:0]</obj_property>
+      <obj_property name="ObjectShortName">videoAddr[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/videoPixel" type="array">
+      <obj_property name="ElementShortName">videoPixel[7:0]</obj_property>
+      <obj_property name="ObjectShortName">videoPixel[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/pixelBuffer" type="array">
+      <obj_property name="ElementShortName">pixelBuffer[7:0]</obj_property>
+      <obj_property name="ObjectShortName">pixelBuffer[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/loadPixel" type="logic">
+      <obj_property name="ElementShortName">loadPixel</obj_property>
+      <obj_property name="ObjectShortName">loadPixel</obj_property>
+   </wvobject>
+</wave_config>
