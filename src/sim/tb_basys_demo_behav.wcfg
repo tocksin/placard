@@ -14,15 +14,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="1,048,508.002 ns"></ZoomStartTime>
-      <ZoomEndTime time="1,049,883.003 ns"></ZoomEndTime>
-      <Cursor1Time time="1,049,185.002 ns"></Cursor1Time>
+      <ZoomStartTime time="16,683,291.579 ns"></ZoomStartTime>
+      <ZoomEndTime time="16,685,740.425 ns"></ZoomEndTime>
+      <Cursor1Time time="16,683,827.221 ns"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
-      <NameColumnWidth column_width="236"></NameColumnWidth>
-      <ValueColumnWidth column_width="60"></ValueColumnWidth>
+      <NameColumnWidth column_width="230"></NameColumnWidth>
+      <ValueColumnWidth column_width="58"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="22" />
+   <WVObjectSize size="24" />
    <wvobject fp_name="/tb_basys_demo/clkSys" type="logic">
       <obj_property name="ElementShortName">clkSys</obj_property>
       <obj_property name="ObjectShortName">clkSys</obj_property>
@@ -81,6 +81,11 @@
       <obj_property name="ElementShortName">videoAddr[15:0]</obj_property>
       <obj_property name="ObjectShortName">videoAddr[15:0]</obj_property>
    </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/videoAddr" type="array">
+      <obj_property name="ElementShortName">videoAddr[15:0]</obj_property>
+      <obj_property name="ObjectShortName">videoAddr[15:0]</obj_property>
+      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
+   </wvobject>
    <wvobject fp_name="/tb_basys_demo/dut/videoPixel" type="array">
       <obj_property name="ElementShortName">videoPixel[7:0]</obj_property>
       <obj_property name="ObjectShortName">videoPixel[7:0]</obj_property>
@@ -115,5 +120,9 @@
    <wvobject fp_name="/tb_basys_demo/dut/lineCode" type="array">
       <obj_property name="ElementShortName">lineCode[7:0]</obj_property>
       <obj_property name="ObjectShortName">lineCode[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/vidRamEn" type="logic">
+      <obj_property name="ElementShortName">vidRamEn</obj_property>
+      <obj_property name="ObjectShortName">vidRamEn</obj_property>
    </wvobject>
 </wave_config>

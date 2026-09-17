@@ -8,7 +8,7 @@ This design is implemented in an **ATF22V10** PLD.
 ## Color Modes
 
 | `MODE1 MODE0` | Mode | Colors |
-|---|---|---:|
+|:-------------:|:----:|:------:|
 | `00` | 1-bit | 2 |
 | `01` | 2-bit | 4 |
 | `10` | 4-bit | 16 |
@@ -27,7 +27,7 @@ This design is implemented in an **ATF22V10** PLD.
 The eight outputs are mapped as:
 
 | Output | VGA Signal |
-|---|---|
+|:------:|:--------------:|
 | `OUT0` | `VGA_RED(1)` |
 | `OUT1` | `VGA_RED(2)` |
 | `OUT2` | `VGA_RED(3)` |
@@ -44,7 +44,7 @@ The eight outputs are mapped as:
 `SEL2:SEL0` selects one of the eight input bits.
 
 | `SEL2:SEL0` | Selected Bit |
-|---|---|
+|:-----------:|:------------:|
 | `000` | `D0` |
 | `001` | `D1` |
 | `010` | `D2` |
@@ -66,7 +66,7 @@ The selected bit is replicated to all eight VGA outputs.
 `SEL1:SEL0` selects one of four adjacent two-bit values.
 
 | `SEL1:SEL0` | Input Bits |
-|---|---|
+|:-----------:|:----------:|
 | `00` | `D1:D0` |
 | `01` | `D3:D2` |
 | `10` | `D5:D4` |
@@ -74,12 +74,12 @@ The selected bit is replicated to all eight VGA outputs.
 
 The 2-bit palette is:
 
-| Value | Color | Red | Green | Blue |
-|---:|---|---|---|---|
-| `00` | Black | `000` | `000` | `00` |
-| `01` | Blue | `000` | `000` | `11` |
-| `10` | Green | `111` | `111` | `00` |
-| `11` | White | `111` | `111` | `11` |
+| Value | Color  | Red   | Green | Blue |
+|:-----:|:------:|:-----:|:-----:|:----:|
+| `00`  | Black  | `000` | `000` | `00` |
+| `01`  | Blue   | `000` | `000` | `11` |
+| `10`  | Yellow | `111` | `111` | `00` |
+| `11`  | White  | `111` | `111` | `11` |
 
 The selected low bit controls blue, while the selected high bit controls red and green.
 
@@ -89,33 +89,33 @@ The selected low bit controls blue, while the selected high bit controls red and
 
 `SEL0` selects which four-bit nibble is decoded.
 
-| `SEL0` | Input |
-|---:|---|
-| `0` | `D3:D0` |
-| `1` | `D7:D4` |
+| `SEL0` | Input   |
+|:------:|:-------:|
+| `0`    | `D3:D0` |
+| `1`    | `D7:D4` |
 
 The palette is an EGA/CGA-inspired 16-color palette adapted to the available **3-bit red / 3-bit green / 2-bit blue** output.
 
 ### 4-bit Color Table
 
-| Hex | Color | Red `R3:R1` | Green `G3:G1` | Blue `B3:B2` |
-|---:|---|---|---|---|
-| `0` | Black | `000` | `000` | `00` |
-| `1` | Blue | `000` | `000` | `11` |
-| `2` | Green | `000` | `111` | `00` |
-| `3` | Cyan | `000` | `111` | `11` |
-| `4` | Red | `111` | `000` | `00` |
-| `5` | Magenta | `111` | `000` | `11` |
-| `6` | Brown | `101` | `011` | `00` |
-| `7` | Light Gray | `101` | `101` | `01` |
-| `8` | Dark Gray | `010` | `010` | `01` |
-| `9` | Bright Blue | `010` | `010` | `11` |
-| `A` | Bright Green | `010` | `111` | `00` |
-| `B` | Bright Cyan | `010` | `111` | `11` |
-| `C` | Bright Red | `111` | `010` | `00` |
+| Hex | Color          | Red   | Green | Blue |
+|-----|----------------| ------|-------|------|
+| `0` | Black          | `000` | `000` | `00` |
+| `1` | Blue           | `000` | `000` | `11` |
+| `2` | Green          | `000` | `111` | `00` |
+| `3` | Cyan           | `000` | `111` | `11` |
+| `4` | Red            | `111` | `000` | `00` |
+| `5` | Magenta        | `111` | `000` | `11` |
+| `6` | Brown          | `101` | `011` | `00` |
+| `7` | Light Gray     | `101` | `101` | `01` |
+| `8` | Dark Gray      | `010` | `010` | `01` |
+| `9` | Bright Blue    | `010` | `010` | `11` |
+| `A` | Bright Green   | `010` | `111` | `00` |
+| `B` | Bright Cyan    | `010` | `111` | `11` |
+| `C` | Bright Red     | `111` | `010` | `00` |
 | `D` | Bright Magenta | `111` | `010` | `11` |
-| `E` | Yellow | `111` | `111` | `00` |
-| `F` | White | `111` | `111` | `11` |
+| `E` | Yellow         | `111` | `111` | `00` |
+| `F` | White          | `111` | `111` | `11` |
 
 For selected nibble `X3:X0`, the minimized decoder equations are:
 
@@ -158,7 +158,7 @@ This gives a 256-color `RRRBBGGG`-style output according to the physical VGA bit
 The design uses the 24-pin ATF22V10 package.
 
 | Pin | Signal | Function |
-|---:|---|---|
+|:---:|:------:|:--------:|
 | 1 | `CLK/IN` | Unused |
 | 2 | `D0` | Data input |
 | 3 | `D1` | Data input |
@@ -255,7 +255,7 @@ These resistor values assume a 5 V PLD supply and a 75 Ω VGA load. Actual outpu
 # Design Summary
 
 | Feature | Configuration |
-|---|---|
+|---------|---------------|
 | PLD | ATF22V10 |
 | Package | 24-pin |
 | Supply | +5 V |
