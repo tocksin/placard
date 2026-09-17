@@ -14,15 +14,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="16,029.500000 us"></ZoomStartTime>
-      <ZoomEndTime time="16,718.000001 us"></ZoomEndTime>
-      <Cursor1Time time="32,522.841969 us"></Cursor1Time>
+      <ZoomStartTime time="1,048,508.002 ns"></ZoomStartTime>
+      <ZoomEndTime time="1,049,883.003 ns"></ZoomEndTime>
+      <Cursor1Time time="1,049,185.002 ns"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="236"></NameColumnWidth>
-      <ValueColumnWidth column_width="68"></ValueColumnWidth>
+      <ValueColumnWidth column_width="60"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="17" />
+   <WVObjectSize size="22" />
    <wvobject fp_name="/tb_basys_demo/clkSys" type="logic">
       <obj_property name="ElementShortName">clkSys</obj_property>
       <obj_property name="ObjectShortName">clkSys</obj_property>
@@ -92,5 +92,28 @@
    <wvobject fp_name="/tb_basys_demo/dut/loadPixel" type="logic">
       <obj_property name="ElementShortName">loadPixel</obj_property>
       <obj_property name="ObjectShortName">loadPixel</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/VGA_RED" type="array">
+      <obj_property name="ElementShortName">VGA_RED[3:0]</obj_property>
+      <obj_property name="ObjectShortName">VGA_RED[3:0]</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/VGA_BLUE" type="array">
+      <obj_property name="ElementShortName">VGA_BLUE[3:0]</obj_property>
+      <obj_property name="ObjectShortName">VGA_BLUE[3:0]</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/VGA_GREEN" type="array">
+      <obj_property name="ElementShortName">VGA_GREEN[3:0]</obj_property>
+      <obj_property name="ObjectShortName">VGA_GREEN[3:0]</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/loadCode" type="logic">
+      <obj_property name="ElementShortName">loadCode</obj_property>
+      <obj_property name="ObjectShortName">loadCode</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/lineCode" type="array">
+      <obj_property name="ElementShortName">lineCode[7:0]</obj_property>
+      <obj_property name="ObjectShortName">lineCode[7:0]</obj_property>
    </wvobject>
 </wave_config>

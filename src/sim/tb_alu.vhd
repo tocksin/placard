@@ -19,11 +19,11 @@ end tb_alu;
 
 architecture behavioral of tb_alu is
 
-    type aluCommandType is (F_AND, F_OR, F_XOR, F_NOT, F_ADD, F_SUB, F_INC, F_DEC);
+    type aluCommandType is (F_PASSB, F_AND, F_OR, F_XOR, F_ADD, F_SUB, F_SHR, F_NOT);
 
     signal aluCommand   : aluCommandType := F_AND;
-    signal a            : slv(7 downto 0) := x"00";
-    signal b            : slv(7 downto 0) := x"FF";
+    signal a            : slv(7 downto 0) := x"02";
+    signal b            : slv(7 downto 0) := x"01";
     signal q            : slv(7 downto 0);
     signal c            : slv(8 downto 1);
     signal s            : slv(2 downto 0);
@@ -36,24 +36,25 @@ architecture behavioral of tb_alu is
     
 begin
 
-    aluComStr <= "AND" when aluCommand = F_AND else
+    aluComStr <= "PAS" when aluCommand = F_PASSB else
+                 "AND" when aluCommand = F_AND else
                  "OR " when aluCommand = F_OR else
                  "XOR" when aluCommand = F_XOR else
-                 "NOT" when aluCommand = F_NOT else
                  "ADD" when aluCommand = F_ADD else
                  "SUB" when aluCommand = F_SUB else
-                 "INC" when aluCommand = F_INC else
-                 "DEC";
-    s         <= "000" when aluCommand = F_AND else
-                 "001" when aluCommand = F_OR else
-                 "010" when aluCommand = F_XOR else
-                 "011" when aluCommand = F_NOT else
+                 "SHR" when aluCommand = F_SHR else
+                 "NOT" when aluCommand = F_NOT else
+                 "XXX";
+    s         <= "000" when aluCommand = F_PASSB else
+                 "001" when aluCommand = F_AND else
+                 "010" when aluCommand = F_OR else
+                 "011" when aluCommand = F_XOR else
                  "100" when aluCommand = F_ADD else
                  "101" when aluCommand = F_SUB else
-                 "110" when aluCommand = F_INC else
-                 "111";
+                 "110" when aluCommand = F_SHR else
+                 "111" when aluCommand = F_NOT else
+                 "XXX";
 
-                 
     aluLsbComp : entity work.alu
     port map (
         -- Inputs
@@ -67,20 +68,20 @@ begin
         B3  => b(3), -- PIN 8
         S0  => s(0), -- PIN 9
         S1  => s(1), -- PIN 10
-        M   => s(2), -- PIN 11
+        S2  => s(2), -- PIN 11
         CIN => carryin, -- PIN 13
-
+        SHIFT_RIGHT_IN => a(4),
+        
         -- Outputs
         F0  => q(0), -- PIN 18
         F1  => q(1), -- PIN 19
         F2  => q(2), -- PIN 17
         F3  => q(3), -- PIN 20
-        C1  => c(1), -- PIN 14
-        C2  => c(2), -- PIN 23
-        C3  => c(3), -- PIN 15
-        C4  => c(4), -- PIN 22
-        Z   => z(0), -- PIN 16
-        V   => v(0) -- PIN 21
+--        C1  => c(1), -- PIN 14
+--        C2  => c(2), -- PIN 23
+--        C3  => c(3), -- PIN 15
+        COUT  => c(4), -- PIN 22
+        Z   => z(0) -- PIN 16
     );
 
     aluMsbComp : entity work.alu
@@ -96,20 +97,20 @@ begin
         B3  => b(7), -- PIN 8
         S0  => s(0), -- PIN 9
         S1  => s(1), -- PIN 10
-        M   => s(2), -- PIN 11
+        S2  => s(2), -- PIN 11
         CIN => c(4), -- PIN 13
+        SHIFT_RIGHT_IN => '0',
 
         -- Outputs
         F0  => q(4), -- PIN 18
         F1  => q(5), -- PIN 19
         F2  => q(6), -- PIN 17
         F3  => q(7), -- PIN 20
-        C1  => c(5), -- PIN 14
-        C2  => c(6), -- PIN 23
-        C3  => c(7), -- PIN 15
-        C4  => c(8), -- PIN 22
-        Z   => z(1), -- PIN 16
-        V   => v(1) -- PIN 21
+--        C1  => c(5), -- PIN 14
+--        C2  => c(6), -- PIN 23
+--        C3  => c(7), -- PIN 15
+        COUT  => c(8), -- PIN 22
+        Z   => z(1) -- PIN 16
     );
 
     carryout <= c(8);
@@ -144,29 +145,15 @@ begin
         wait for 100 ns;
         errCnt := errCnt + check(q, result, "A - B - C doesn't match");
 
-        aluCommand <= F_INC;
-        result <= slv(unsigned(a) + carryin);
+        aluCommand <= F_PASSB;
+        result <= b(7 downto 0);
         wait for 100 ns;
-        errCnt := errCnt + check(q, result, "A + C doesn't match");
+        errCnt := errCnt + check(q, result, "PASS B doesn't match");
 
-        aluCommand <= F_DEC;
-        result <= slv(unsigned(a) - carryin);
+        aluCommand <= F_SHR;
+        result <= '0' & a(7 downto 1);
         wait for 100 ns;
-        errCnt := errCnt + check(q, result, "A - C doesn't match");
-
-        a <= x"55";
-        wait for 1 ns;
-        aluCommand <= F_DEC;
-        result <= slv(unsigned(a) - carryin);
-        wait for 100 ns;
-        errCnt := errCnt + check(q, result, "A - C doesn't match");
-
-        a <= x"FF";
-        wait for 1 ns;
-        aluCommand <= F_DEC;
-        result <= slv(unsigned(a) - carryin);
-        wait for 100 ns;
-        errCnt := errCnt + check(q, result, "A - C doesn't match");
+        errCnt := errCnt + check(q, result, "A SHR doesn't match");
 
 --------------------------------------------------------------------------------
         report "Carryin=1 tests";
@@ -200,17 +187,18 @@ begin
         wait for 100 ns;
         errCnt := errCnt + check(q, result, "A - B - C doesn't match");
 
-        aluCommand <= F_INC;
-        result <= slv(unsigned(a) + carryin);
+        aluCommand <= F_PASSB;
+        result <= b(7 downto 0);
         wait for 100 ns;
-        errCnt := errCnt + check(q, result, "A + C doesn't match");
+        errCnt := errCnt + check(q, result, "PASS B doesn't match");
 
-        aluCommand <= F_DEC;
-        result <= slv(unsigned(a) - carryin);
+        aluCommand <= F_SHR;
+        result <= '0' & a(7 downto 1);
         wait for 100 ns;
-        errCnt := errCnt + check(q, result, "A - C doesn't match");
+        errCnt := errCnt + check(q, result, "A SHR doesn't match");
 
         report "THERE IS A TOTAL OF " & integer'IMAGE(errCnt) & " ERROR(S)";
+
         wait;
     end process;
     
