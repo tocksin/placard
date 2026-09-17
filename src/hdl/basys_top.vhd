@@ -14,8 +14,6 @@ library work;           use work.sys_description_pkg.all;
                         use work.tools_pkg.all;
 
 entity basys_top is
- generic ( DATE_CODE    : slv(31 downto 0) := x"00000000";
-           HASH_CODE    : slv(31 downto 0) := x"00000000");
     port ( SW           : in  slv (15 downto 0);
            BTN          : in  slv (4 downto 0);
            CLK          : in  sl;
@@ -64,13 +62,6 @@ architecture Behavioral of basys_top is
      );
     end component;
 
-
-    constant TMR_CNTR_INT   : integer := 100000000;
-    constant TMR_CNTR_SIZE  : integer := log2(TMR_CNTR_INT,UP);
-    constant TMR_CNTR_MAX   : slv(TMR_CNTR_SIZE-1 downto 0) := slv(to_unsigned(TMR_CNTR_INT, TMR_CNTR_SIZE));
-
-    constant TMR_VAL_MAX    : slv(3 downto 0) := "1111"; --9
-
     constant DEBOUNCE_CLKS  : integer := 2**16
     -- synthesis translate_off
      -2**16 + 10              -- reduce debounce time to 10 clocks in simulation
@@ -80,22 +71,6 @@ architecture Behavioral of basys_top is
     --Used to determine when a button press has occured
     signal btnReg    : slv (3 downto 0);
     signal btnPulse  : slv (3 downto 0);
-
-    --UART_TX_CTRL control signals
-    signal uartRdy          : sl;
-    signal uartSend         : sl := '0';
-    signal uartTx           : sl;
-    signal recvByte         : slv(7 downto 0);
-    signal uartStrb         : sl;
-    signal uartRxFifoData   : slv(7 downto 0);
-    signal uartTxFifoData   : slv(7 downto 0);
-    signal uartRdFifo       : sl;
-    signal uartRxEmpty      : sl;
-    signal uartTxFull       : sl;
-    signal uartTxEn         : sl;
-    signal uartRxEn         : sl;
-    signal uartTxFullEn     : sl;
-    signal uartRxEmptyEn    : sl;
 
     --Debounced btn signals used to prevent single button presses
     --from being interpreted as multiple button presses.
@@ -137,6 +112,8 @@ architecture Behavioral of basys_top is
     
     signal pixelBuffer      : slv(7 downto 0);
     signal loadPixel        : sl;
+    signal loadCode         : sl;
+    signal lineCode         : slv(7 downto 0);
     
 begin
 
@@ -173,9 +150,7 @@ begin
         if (rstVGA = '1') then
             ledR <= (others => '0');
         elsif (rising_edge(clkVGA)) then
-            if (ledEn='1') then
-                ledR <= dipRR;
-            end if;
+            ledR <= dipRR;
         end if;
     end process ledProcess;
 
@@ -218,13 +193,9 @@ begin
                 subpixelColOut  => subpixelCol
     );
 
-    VGA_VS <= vSync;
-    VGA_HS <= hSync;
-    VGA_RED <= pixelBuffer(7 downto 5) & "0";
-    VGA_BLUE <= pixelBuffer(4 downto 3) & "00";
-    VGA_GREEN <= pixelBuffer(2 downto 0) & "0";
-        
     loadPixel <= '1' when pixelCol(2 downto 0) = "000" else '0';
+    loadCode <= '1' when pixelCol(9 downto 0) = "0000000000" else '0';
+    videoAddr <= (pixelRow(8 downto 0) & pixelCol(9 downto 3));
     
     ramComp : entity work.sp_ram 
     port map(   iClk    => clkVGA,
@@ -234,18 +205,59 @@ begin
                 iData   => (videoPixel'range => '0'),
                 oData   => videoPixel);  -- must be same size as input data
 
-    videoAddr <= (pixelRow(8 downto 0) & pixelCol(9 downto 3));
-
     videoOutProc : process (clkVGA, rstVGA)
     begin
         if (rstVGA = '1') then
              pixelBuffer <= (others => '0');
+             lineCode <= (others => '0');
         elsif (rising_edge(clkVGA)) then
             if loadPixel = '1' then
                 pixelBuffer <= videoPixel;
             end if;
+
+            if loadCode = '1' then
+                lineCode <= videoPixel;
+            end if;
         end if;
     end process videoOutProc;
+
+    colorDecoderComp : entity work.color_decoder
+    Port map(
+        -- Input Data
+        D0    => pixelBuffer(0),
+        D1    => pixelBuffer(1),
+        D2    => pixelBuffer(2),
+        D3    => pixelBuffer(3),
+        D4    => pixelBuffer(4),
+        D5    => pixelBuffer(5),
+        D6    => pixelBuffer(6),
+        D7    => pixelBuffer(7),
+
+        -- Mode Selection
+        MODE0 => lineCode(0),
+        MODE1 => lineCode(1),
+
+        -- Selection Signals
+        SEL0  => pixelCol(0),
+        SEL1  => pixelCol(1),
+        SEL2  => pixelCol(2),
+
+        -- VGA Outputs
+        OUT0  => VGA_RED(1),   -- VGA_RED(1)
+        OUT1  => VGA_RED(2),   -- VGA_RED(2)
+        OUT2  => VGA_RED(3),   -- VGA_RED(3)
+        OUT3  => VGA_BLUE(2),  -- VGA_BLUE(2)
+        OUT4  => VGA_BLUE(3),  -- VGA_BLUE(3)
+        OUT5  => VGA_GREEN(1), -- VGA_GREEN(1)
+        OUT6  => VGA_GREEN(2), -- VGA_GREEN(2)
+        OUT7  => VGA_GREEN(3)  -- VGA_GREEN(3)
+    );
+
+    VGA_VS <= vSync;
+    VGA_HS <= hSync;
+    VGA_RED(0) <= VGA_RED(1);
+    VGA_BLUE(1 downto 0) <= VGA_BLUE(2) & VGA_BLUE(2);
+    VGA_GREEN(0) <= VGA_GREEN(1);
 
     -- Stall CPU one cycle when reading from RAM
 --    onePulse(clkVGA, rstSystem, ramEn, ramEnR, ramStall);
