@@ -86,6 +86,7 @@ architecture Behavioral of basys_top is
     signal locked           : sl;
 
     signal videoEn          : sl;
+    signal vidRamEn         : sl;
     signal pixelRow         : slv(9 downto 0);
     signal pixelCol         : slv(9 downto 0);
     signal subpixelRow      : slv(8 downto 0);
@@ -115,6 +116,9 @@ architecture Behavioral of basys_top is
     signal loadPixel        : sl;
     signal loadCode         : sl;
     signal lineCode         : slv(7 downto 0);
+    signal vRed             : slv(3 downto 0);
+    signal vBlue            : slv(3 downto 0);
+    signal vGreen           : slv(3 downto 0);
     
 begin
 
@@ -188,6 +192,7 @@ begin
                 hSyncOut        => hSync,
                 vSyncOut        => vSync,
                 videoEnOut      => videoEn,
+                ramEnOut        => vidRamEn,
                 pixelRowOut     => pixelRow,
                 pixelColOut     => pixelCol,
                 subpixelRowOut  => subpixelRow,
@@ -195,36 +200,34 @@ begin
     );
 
     loadPixel <= '1' when pixelCol(2 downto 0) = "000" else '0';
-    loadCode <= '1' when pixelCol(9 downto 0) = "0000000000" else '0';
+    loadCode <= '1' when pixelCol(9 downto 0) = "0000000001" else '0';
     videoAddr <= (pixelRow(8 downto 0) & pixelCol(9 downto 3));
-    
+
     ramComp : entity work.sp_ram 
     port map(   iClk    => clkVGA,
                 iWrEn   => '0',
-                iRamEn  => '1',
+                iRamEn  => vidRamEn,
                 iAddr   => videoAddr,
                 iData   => (videoPixel'range => '0'),
                 oData   => videoPixel);  -- must be same size as input data
 
-    videoOutProc : process (clkVGA, rstVGA)
+    pixelBuffer <= videoPixel when videoEn='1' else x"00";
+
+    lineCodeProc : process (clkVGA, rstVGA)
     begin
         if (rstVGA = '1') then
-             pixelBuffer <= (others => '0');
              lineCode <= (others => '0');
         elsif (rising_edge(clkVGA)) then
-            if loadPixel = '1' then
-                pixelBuffer <= videoPixel;
-            end if;
-
             if loadCode = '1' then
                 lineCode <= videoPixel;
             end if;
         end if;
-    end process videoOutProc;
+    end process lineCodeProc;
 
     colorDecoderComp : entity work.color_decoder
     Port map(
         -- Input Data
+
         D0    => pixelBuffer(0),
         D1    => pixelBuffer(1),
         D2    => pixelBuffer(2),
@@ -238,27 +241,72 @@ begin
         MODE0 => lineCode(0),
         MODE1 => lineCode(1),
 
+/*
+        D0    => dipRR(0),
+        D1    => dipRR(1),
+        D2    => dipRR(2),
+        D3    => dipRR(3),
+        D4    => dipRR(4),
+        D5    => dipRR(5),
+        D6    => dipRR(6),
+        D7    => dipRR(7),
+*/
+/*
+        -- Mode Selection
+        MODE0 => dipRR(8),
+        MODE1 => dipRR(9),
+*/
         -- Selection Signals
         SEL0  => pixelCol(0),
         SEL1  => pixelCol(1),
         SEL2  => pixelCol(2),
 
         -- VGA Outputs
-        OUT0  => VGA_RED(1),   -- VGA_RED(1)
-        OUT1  => VGA_RED(2),   -- VGA_RED(2)
-        OUT2  => VGA_RED(3),   -- VGA_RED(3)
-        OUT3  => VGA_BLUE(2),  -- VGA_BLUE(2)
-        OUT4  => VGA_BLUE(3),  -- VGA_BLUE(3)
-        OUT5  => VGA_GREEN(1), -- VGA_GREEN(1)
-        OUT6  => VGA_GREEN(2), -- VGA_GREEN(2)
-        OUT7  => VGA_GREEN(3)  -- VGA_GREEN(3)
+        OUT0  => vRed(1),   -- VGA_RED(1)
+        OUT1  => vRed(2),   -- VGA_RED(2)
+        OUT2  => vRed(3),   -- VGA_RED(3)
+        OUT3  => vBlue(2),  -- VGA_BLUE(2)
+        OUT4  => vBlue(3),  -- VGA_BLUE(3)
+        OUT5  => vGreen(1), -- VGA_GREEN(1)
+        OUT6  => vGreen(2), -- VGA_GREEN(2)
+        OUT7  => vGreen(3)  -- VGA_GREEN(3)
     );
 
+    vRed(0) <= vRed(1);
+    vBlue(1 downto 0) <= vBlue(2) & vBlue(2);
+    vGreen(0) <= vGreen(1);
+
+    VGA_RED   <= vRed;
+    VGA_BLUE  <= vBlue;
+    VGA_GREEN <= vGreen;
     VGA_VS <= vSync;
     VGA_HS <= hSync;
-    VGA_RED(0) <= VGA_RED(1);
-    VGA_BLUE(1 downto 0) <= VGA_BLUE(2) & VGA_BLUE(2);
-    VGA_GREEN(0) <= VGA_GREEN(1);
+
+/*
+    -- Clocked output for video signals to see if there's a quality change
+    videoOutProc : process (clkVGA, rstVGA)
+    begin
+        if (rstVGA = '1') then
+            VGA_RED   <= (others => '0');
+            VGA_BLUE  <= (others => '0');
+            VGA_GREEN <= (others => '0');
+            VGA_VS <= '1';
+            VGA_HS <= '1';
+        elsif (rising_edge(clkVGA)) then
+            if videoEn='1' then
+                VGA_RED   <= vRed;
+                VGA_BLUE  <= vBlue;
+                VGA_GREEN <= vGreen;
+            else 
+                VGA_RED   <= (others => '0');
+                VGA_BLUE  <= (others => '0');
+                VGA_GREEN <= (others => '0');
+            end if;
+            VGA_VS <= vSync;
+            VGA_HS <= hSync;
+        end if;
+    end process videoOutProc;
+*/
 
     -- Stall CPU one cycle when reading from RAM
 --    onePulse(clkVGA, rstSystem, ramEn, ramEnR, ramStall);

@@ -17,6 +17,7 @@ entity vgaSync is
          hSyncOut         : out sl;
          vSyncOut         : out sl;
          videoEnOut       : out sl;
+         ramEnOut         : out sl;
          pixelRowOut      : out slv(9 downto 0);
          pixelColOut      : out slv(9 downto 0);
          subpixelRowOut   : out slv(8 downto 0);
@@ -29,10 +30,12 @@ architecture rtl of vgaSync is
     
     --  Horiz_sync  ------------------------------------__________--------
     --  H_count     0                 639             655       751    799
-    constant H_VIS_END    : integer := 639;
+    constant H_VIS_START  : integer := 8;
+    constant H_VIS_END    : integer := H_VIS_START+639;
     constant H_SYNC_START : integer := H_VIS_END + 16;
     constant H_SYNC_END   : integer := H_SYNC_START + 96;
     constant H_SCREEN_END : integer := 799;
+--    constant H_SCREEN_END : integer := H_SYNC_END+48;
 
     --  Vert_sync      ----------------------------------_______------------
     --  V_count        0                         479     489-491         524
@@ -100,7 +103,8 @@ begin
         end if;
     
             -- Generate Video on Screen Signals for Pixel Data
-        if (h_count <= to_unsigned(H_VIS_END, h_count'length)) then
+        if (h_count >= to_unsigned(H_VIS_START, h_count'length)) and
+           (h_count <= to_unsigned(H_VIS_END, h_count'length)) then
             video_on_h <= '1';
         else
             video_on_h <= '0';
@@ -111,6 +115,13 @@ begin
         else
             video_on_v <= '0';
         end if;
+
+            -- Generate Video on Screen Signals for Pixel Data
+        if (h_count <= to_unsigned(H_VIS_END, h_count'length)) then
+            ramEnOut <= '1';
+        else
+            ramEnOut <= '0';
+        end if;
     
     end process syncProc;
 
@@ -119,7 +130,7 @@ begin
 
     -- videoEnOut is high only when RGB data is being displayed
     videoEnOut <= video_on_H and video_on_V;
-
+    
     pixelColOut <= slv(h_count);
     pixelRowOut <= slv(v_count);
 

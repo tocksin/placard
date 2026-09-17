@@ -73,37 +73,58 @@ begin
     -- 1-BIT MODE LOGIC
     -- SEL2:SEL0 selects one of D0-D7. The selected bit is replicated.
     ------------------------------------------------------------
-    SEL_D1 <= (D0 AND (NOT SEL2) AND (NOT SEL1) AND (NOT SEL0)) OR
-              (D1 AND (NOT SEL2) AND (NOT SEL1) AND SEL0) OR
-              (D2 AND (NOT SEL2) AND SEL1 AND (NOT SEL0)) OR
-              (D3 AND (NOT SEL2) AND SEL1 AND SEL0) OR
-              (D4 AND SEL2 AND (NOT SEL1) AND (NOT SEL0)) OR
-              (D5 AND SEL2 AND (NOT SEL1) AND SEL0) OR
-              (D6 AND SEL2 AND SEL1 AND (NOT SEL0)) OR
-              (D7 AND SEL2 AND SEL1 AND SEL0);
+    SEL_D1 <= (D7 AND (NOT SEL2) AND (NOT SEL1) AND (NOT SEL0)) OR
+              (D6 AND (NOT SEL2) AND (NOT SEL1) AND SEL0) OR
+              (D5 AND (NOT SEL2) AND SEL1 AND (NOT SEL0)) OR
+              (D4 AND (NOT SEL2) AND SEL1 AND SEL0) OR
+              (D3 AND SEL2 AND (NOT SEL1) AND (NOT SEL0)) OR
+              (D2 AND SEL2 AND (NOT SEL1) AND SEL0) OR
+              (D1 AND SEL2 AND SEL1 AND (NOT SEL0)) OR
+              (D0 AND SEL2 AND SEL1 AND SEL0);
 
     ------------------------------------------------------------
     -- 2-BIT MODE LOGIC
     -- SEL1:SEL0 selects one of four 2-bit values.
     ------------------------------------------------------------
-    C0 <= (D0 AND (NOT SEL1) AND (NOT SEL0)) OR
-          (D2 AND (NOT SEL1) AND SEL0) OR
-          (D4 AND SEL1 AND (NOT SEL0)) OR
-          (D6 AND SEL1 AND SEL0);
+    C0 <= (D6 AND (NOT SEL2) AND (NOT SEL1)) OR
+          (D4 AND (NOT SEL2) AND SEL1) OR
+          (D2 AND SEL2 AND (NOT SEL1)) OR
+          (D0 AND SEL2 AND SEL1);
 
-    C1 <= (D1 AND (NOT SEL1) AND (NOT SEL0)) OR
-          (D3 AND (NOT SEL1) AND SEL0) OR
-          (D5 AND SEL1 AND (NOT SEL0)) OR
-          (D7 AND SEL1 AND SEL0);
+    C1 <= (D7 AND (NOT SEL2) AND (NOT SEL1)) OR
+          (D5 AND (NOT SEL2) AND SEL1) OR
+          (D3 AND SEL2 AND (NOT SEL1)) OR
+          (D1 AND SEL2 AND SEL1);
 
     ------------------------------------------------------------
     -- 4-BIT MODE LOGIC
     -- SEL0 selects which nibble is used.
     ------------------------------------------------------------
-    X0 <= (D0 AND (NOT SEL0)) OR (D4 AND SEL0);
-    X1 <= (D1 AND (NOT SEL0)) OR (D5 AND SEL0);
-    X2 <= (D2 AND (NOT SEL0)) OR (D6 AND SEL0);
-    X3 <= (D3 AND (NOT SEL0)) OR (D7 AND SEL0);
+/*
+    | Hex | Color          | Red   | Green | Blue |
+    |-----|----------------| ------|-------|------|
+    | `0` | Black          | `000` | `000` | `00` |
+    | `1` | Blue           | `000` | `000` | `11` |
+    | `2` | Green          | `000` | `111` | `00` |
+    | `3` | Cyan           | `000` | `111` | `11` |
+    | `4` | Red            | `111` | `000` | `00` |
+    | `5` | Magenta        | `111` | `000` | `11` |
+    | `6` | Brown          | `101` | `011` | `00` |
+    | `7` | Light Gray     | `101` | `101` | `01` |
+    | `8` | Dark Gray      | `010` | `010` | `01` |
+    | `9` | Bright Blue    | `010` | `010` | `11` |
+    | `A` | Bright Green   | `010` | `111` | `00` |
+    | `B` | Bright Cyan    | `010` | `111` | `11` |
+    | `C` | Bright Red     | `111` | `010` | `00` |
+    | `D` | Bright Magenta | `111` | `010` | `11` |
+    | `E` | Yellow         | `111` | `111` | `00` |
+    | `F` | White          | `111` | `111` | `11` |
+*/
+
+    X0 <= (D0 AND SEL2) OR (D4 AND (NOT SEL2));
+    X1 <= (D1 AND SEL2) OR (D5 AND (NOT SEL2));
+    X2 <= (D2 AND SEL2) OR (D6 AND (NOT SEL2));
+    X3 <= (D3 AND SEL2) OR (D7 AND (NOT SEL2));
 
     ------------------------------------------------------------
     -- 4-BIT PALETTE LOGIC
