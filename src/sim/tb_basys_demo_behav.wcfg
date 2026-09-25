@@ -14,15 +14,20 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="16,683,291.579 ns"></ZoomStartTime>
-      <ZoomEndTime time="16,685,740.425 ns"></ZoomEndTime>
+      <ZoomStartTime time="16,682,649.221 ns"></ZoomStartTime>
+      <ZoomEndTime time="16,685,447.222 ns"></ZoomEndTime>
       <Cursor1Time time="16,683,827.221 ns"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
-      <NameColumnWidth column_width="230"></NameColumnWidth>
+      <NameColumnWidth column_width="214"></NameColumnWidth>
       <ValueColumnWidth column_width="58"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="24" />
+   <WVObjectSize size="29" />
+   <wave_markers>
+      <marker time="26511943" label="" />
+      <marker time="58275000" label="" />
+      <marker time="35140956388" label="" />
+   </wave_markers>
    <wvobject fp_name="/tb_basys_demo/clkSys" type="logic">
       <obj_property name="ElementShortName">clkSys</obj_property>
       <obj_property name="ObjectShortName">clkSys</obj_property>
@@ -30,6 +35,14 @@
    <wvobject fp_name="/tb_basys_demo/rstSys" type="logic">
       <obj_property name="ElementShortName">rstSys</obj_property>
       <obj_property name="ObjectShortName">rstSys</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/clkVGA" type="logic">
+      <obj_property name="ElementShortName">clkVGA</obj_property>
+      <obj_property name="ObjectShortName">clkVGA</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/rstVGA" type="logic">
+      <obj_property name="ElementShortName">rstVGA</obj_property>
+      <obj_property name="ObjectShortName">rstVGA</obj_property>
    </wvobject>
    <wvobject fp_name="/tb_basys_demo/switches" type="array">
       <obj_property name="ElementShortName">switches[15:0]</obj_property>
@@ -67,6 +80,10 @@
       <obj_property name="ElementShortName">videoEn</obj_property>
       <obj_property name="ObjectShortName">videoEn</obj_property>
    </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/videoEnR" type="logic">
+      <obj_property name="ElementShortName">videoEnR</obj_property>
+      <obj_property name="ObjectShortName">videoEnR</obj_property>
+   </wvobject>
    <wvobject fp_name="/tb_basys_demo/dut/pixelRow" type="array">
       <obj_property name="ElementShortName">pixelRow[9:0]</obj_property>
       <obj_property name="ObjectShortName">pixelRow[9:0]</obj_property>
@@ -98,20 +115,37 @@
       <obj_property name="ElementShortName">loadPixel</obj_property>
       <obj_property name="ObjectShortName">loadPixel</obj_property>
    </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/pixelSel" type="array">
+      <obj_property name="ElementShortName">pixelSel[2:0]</obj_property>
+      <obj_property name="ObjectShortName">pixelSel[2:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="vbus41" type="vbus">
+      <obj_property name="label">pixelcol</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <wvobject fp_name="/tb_basys_demo/dut/pixelCol[2]" type="logic">
+         <obj_property name="ElementShortName">[2]</obj_property>
+         <obj_property name="ObjectShortName">[2]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/pixelCol[1]" type="logic">
+         <obj_property name="ElementShortName">[1]</obj_property>
+         <obj_property name="ObjectShortName">[1]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/pixelCol[0]" type="logic">
+         <obj_property name="ElementShortName">[0]</obj_property>
+         <obj_property name="ObjectShortName">[0]</obj_property>
+      </wvobject>
+   </wvobject>
    <wvobject fp_name="/tb_basys_demo/dut/VGA_RED" type="array">
       <obj_property name="ElementShortName">VGA_RED[3:0]</obj_property>
       <obj_property name="ObjectShortName">VGA_RED[3:0]</obj_property>
-      <obj_property name="isExpanded"></obj_property>
    </wvobject>
    <wvobject fp_name="/tb_basys_demo/dut/VGA_BLUE" type="array">
       <obj_property name="ElementShortName">VGA_BLUE[3:0]</obj_property>
       <obj_property name="ObjectShortName">VGA_BLUE[3:0]</obj_property>
-      <obj_property name="isExpanded"></obj_property>
    </wvobject>
    <wvobject fp_name="/tb_basys_demo/dut/VGA_GREEN" type="array">
       <obj_property name="ElementShortName">VGA_GREEN[3:0]</obj_property>
       <obj_property name="ObjectShortName">VGA_GREEN[3:0]</obj_property>
-      <obj_property name="isExpanded"></obj_property>
    </wvobject>
    <wvobject fp_name="/tb_basys_demo/dut/loadCode" type="logic">
       <obj_property name="ElementShortName">loadCode</obj_property>

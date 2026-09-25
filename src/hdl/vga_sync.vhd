@@ -28,21 +28,38 @@ end entity vgaSync;
 architecture rtl of vgaSync is
     constant divider      : integer := 4;
     
+    --  As implemented:
     --  Horiz_sync  ------------------------------------__________--------
     --  H_count     0                 639             655       751    799
-    constant H_VIS_START  : integer := 8;
-    constant H_VIS_END    : integer := H_VIS_START+639;
-    constant H_SYNC_START : integer := H_VIS_END + 16;
-    constant H_SYNC_END   : integer := H_SYNC_START + 96;
-    constant H_SCREEN_END : integer := 799;
---    constant H_SCREEN_END : integer := H_SYNC_END+48;
 
+    --  Alternatives:
+    --  Horiz_sync  ------------------------------------__________--------
+    --  H_count     224               863             879       975   1023
+    --
+    --  Active video___________________________------------------------------
+    --  Horiz_sync  --------__________---------------------------------------
+    --  H_count     224     240       336      384                       1023
+    constant H_CNT_START  : integer := 224;
+    constant H_SYNC_START : integer := H_CNT_START + 16;
+    constant H_SYNC_END   : integer := H_SYNC_START + 96;
+    constant H_VIS_START  : integer := H_SYNC_END+48;
+    constant H_VIS_END    : integer := H_VIS_START+639;
+    constant H_SCREEN_END : integer := 1023;
+
+    --  As implemented:
     --  Vert_sync      ----------------------------------_______------------
     --  V_count        0                         479     489-491         524
-    constant V_VIS_END    : integer := 479;
-    constant V_SYNC_START : integer := V_VIS_END + 10;
+    --
+    --  Alternatives:
+    --  Active video   _______________________------------------------------
+    --  Vert_sync      --------_______--------------------------------------
+    --  V_count        499     532    534     544                       1023
+    constant V_CNT_START  : integer := 499;
+    constant V_SYNC_START : integer := V_CNT_START + 33;
     constant V_SYNC_END   : integer := V_SYNC_START + 2;
-    constant V_SCREEN_END : integer := 524;
+    constant V_VIS_START  : integer := V_SYNC_END + 10;
+    constant V_VIS_END    : integer := V_VIS_START+479;
+    constant V_SCREEN_END : integer := 1023;
    
     signal horiz_sync     : sl; 
     signal vert_sync      : sl;
@@ -62,16 +79,16 @@ begin
     cntProc : process (clkIn, rstIn)
     begin
         if (rstIn = '1') then
-            h_count <= (others => '0');
-            v_count <= (others => '0');
+            h_count <= to_unsigned(H_CNT_START, h_count'length);
+            v_count <= to_unsigned(V_CNT_START, h_count'length);
         elsif rising_edge(clkIn) then
             -- H_count counts horizontal pixels
             if (h_terminal = '1') then 
-                h_count <= "0000000000";
+                h_count <= to_unsigned(H_CNT_START, h_count'length);
                 -- V_count counts rows of pixels
                 -- increment only at the end of row
                 if (v_terminal = '1') then 
-                    v_count <= "0000000000";
+                    v_count <= to_unsigned(V_CNT_START, h_count'length);
                 else 
                     v_count <= v_count + 1;
                 end if;
@@ -103,21 +120,25 @@ begin
         end if;
     
             -- Generate Video on Screen Signals for Pixel Data
-        if (h_count >= to_unsigned(H_VIS_START, h_count'length)) and
+        if (h_count >= to_unsigned(H_VIS_START+1, h_count'length)) and
            (h_count <= to_unsigned(H_VIS_END, h_count'length)) then
             video_on_h <= '1';
         else
             video_on_h <= '0';
         end if;
     
-        if (v_count <= to_unsigned(V_VIS_END, v_count'length)) then
+        if (v_count >= to_unsigned(V_VIS_START, h_count'length)) and
+           (v_count <= to_unsigned(V_VIS_END, v_count'length)) then
             video_on_v <= '1';
         else
             video_on_v <= '0';
         end if;
 
             -- Generate Video on Screen Signals for Pixel Data
-        if (h_count <= to_unsigned(H_VIS_END, h_count'length)) then
+        if (h_count >= to_unsigned(H_VIS_START, h_count'length)) and
+           (h_count <= to_unsigned(H_VIS_END, h_count'length)) and 
+           (v_count >= to_unsigned(V_VIS_START, h_count'length)) and
+           (v_count <= to_unsigned(V_VIS_END, v_count'length)) then
             ramEnOut <= '1';
         else
             ramEnOut <= '0';

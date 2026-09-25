@@ -52,15 +52,17 @@ architecture rtl of sp_ram is
             prng_value := prng_lfsr32(prng_value);
         end loop;
 
-        temp_mem(0)     := x"00";
-        temp_mem(128)   := x"00";
-        temp_mem(256)   := x"00";
-        temp_mem(384)   := x"00";
-        temp_mem(512)   := x"00";
-        temp_mem(640)   := x"00";
-        temp_mem(768)   := x"00";
-        temp_mem(896)   := x"00";
-        temp_mem(1024)  := x"00";
+        -- every 8th pixel
+        /* 
+        temp_mem(0)   := x"00";
+        temp_mem(1)   := x"00";
+        temp_mem(2)   := x"00";
+        temp_mem(3)   := x"00";
+        temp_mem(4)   := x"00";
+        temp_mem(5)   := x"00";
+        temp_mem(6)   := x"00";
+        temp_mem(7)   := x"00";
+        temp_mem(8)   := x"00";
         
         temp_mem(1)      := "00000000";
         temp_mem(128+1)  := "00011000";
@@ -101,6 +103,50 @@ architecture rtl of sp_ram is
         temp_mem(1920+1) := x"B8";
         temp_mem(2048+1) := x"B8";
         temp_mem(2176+1) := x"FF";
+
+        temp_mem(1152+2) := x"4E";
+        temp_mem(1280+2) := x"4E";
+        temp_mem(1408+2) := x"4E";
+        temp_mem(1536+2) := x"4E";
+        temp_mem(1664+2) := x"56";
+        temp_mem(1792+2) := x"56";
+        temp_mem(1920+2) := x"56";
+        temp_mem(2048+2) := x"56";
+        temp_mem(2176+2) := x"FF";
+        */
+
+        -- every 4th pixel
+/*
+        temp_mem(0)     := x"01";
+        temp_mem(256)   := x"01";
+        temp_mem(512)   := x"01";
+        temp_mem(768)   := x"01";
+        temp_mem(1024)  := x"01";
+        temp_mem(1280)  := x"01";
+        temp_mem(1536)  := x"01";
+        temp_mem(1792)  := x"01";
+        temp_mem(2048)  := x"01";
+        
+        temp_mem(1)      := "00000000";  temp_mem(2)      := "00000000";
+        temp_mem(256+1)  := "00000011";  temp_mem(256+2)  := "11000000";
+        temp_mem(512+1)  := "00001100";  temp_mem(512+2)  := "00110000";
+        temp_mem(768+1)  := "00110000";  temp_mem(768+2)  := "00001100";
+        temp_mem(1024+1) := "00111111";  temp_mem(1024+2) := "11111100";
+        temp_mem(1280+1) := "00110000";  temp_mem(1280+2) := "00001100";
+        temp_mem(1536+1) := "00110000";  temp_mem(1536+2) := "00001100";
+        temp_mem(1792+1) := "00110000";  temp_mem(1792+2) := "00001100";
+        temp_mem(2048+1) := "00000000";  temp_mem(2048+2) := "00000000";
+
+        temp_mem(3)      := "00000000";  temp_mem(4)      := "00000000";
+        temp_mem(256+3)  := "00000000";  temp_mem(256+4)  := "00000000";
+        temp_mem(512+3)  := "00000000";  temp_mem(512+4)  := "00000000";
+        temp_mem(768+3)  := "00000000";  temp_mem(768+4)  := "00000000";
+        temp_mem(1024+3) := "00000000";  temp_mem(1024+4) := "00000000";
+        temp_mem(1280+3) := "00000000";  temp_mem(1280+4) := "00000000";
+        temp_mem(1536+3) := "00000000";  temp_mem(1536+4) := "00000000";
+        temp_mem(1792+3) := "00000000";  temp_mem(1792+4) := "00000000";
+        temp_mem(2048+3) := "00000000";  temp_mem(2048+4) := "00000000";
+*/
         
         return temp_mem;
     end function;

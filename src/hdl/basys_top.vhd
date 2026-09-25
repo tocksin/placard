@@ -86,6 +86,7 @@ architecture Behavioral of basys_top is
     signal locked           : sl;
 
     signal videoEn          : sl;
+    signal videoEnR         : sl;
     signal vidRamEn         : sl;
     signal pixelRow         : slv(9 downto 0);
     signal pixelCol         : slv(9 downto 0);
@@ -113,6 +114,7 @@ architecture Behavioral of basys_top is
     signal blank            : sl;
     
     signal pixelBuffer      : slv(7 downto 0);
+    signal pixelSel         : slv(2 downto 0);
     signal loadPixel        : sl;
     signal loadCode         : sl;
     signal lineCode         : slv(7 downto 0);
@@ -199,9 +201,36 @@ begin
                 subpixelColOut  => subpixelCol
     );
 
+    -- Line code:
+    -- bit 0: color mode 0
+    -- bit 1: color mode 1
+    -- bit 2: address-per-pixel 0
+    -- bit 3: address-per-pixel 1
+    
+    -- Address per pixel
+    -- 11 - every 8th
+    -- 10 - every 4th
+    -- 01 - every 2nd (every other)
+    -- 00 - every pixel
+
+    -- 640x480x1 - reads every 8th pixel and every row
+    -- videoAddr <= (pixelRow(8 downto 0) & pixelCol(9 downto 3));
+    -- reversed layout
+    videoAddr <= (pixelCol(9 downto 3) & pixelRow(8 downto 0));
     loadPixel <= '1' when pixelCol(2 downto 0) = "000" else '0';
-    loadCode <= '1' when pixelCol(9 downto 0) = "0000000001" else '0';
-    videoAddr <= (pixelRow(8 downto 0) & pixelCol(9 downto 3));
+
+    -- 640x240x1 - reads every 8th pixel and every other row
+    -- videoAddr <= (pixelRow(8 downto 1) & '0' & pixelCol(9 downto 3));
+    -- loadPixel <= '1' when pixelCol(2 downto 0) = "000" else '0';
+
+    -- 640x120x1 - reads every 8th pixel and every 4th row
+    -- videoAddr <= (pixelRow(8 downto 2) & "00" & pixelCol(9 downto 3));
+    -- loadPixel <= '1' when pixelCol(2 downto 0) = "000" else '0';
+
+    -- 640x240x1 - reads every 4th pixel and every other row
+    -- videoAddr <= (pixelRow(8 downto 1) & pixelCol(9 downto 2));
+    -- loadPixel <= '1' when pixelCol(1 downto 0) = "00" else '0';
+    loadCode  <= '1' when pixelCol(9 downto 0) = "0110000001" else '0'; -- 385
 
     ramComp : entity work.sp_ram 
     port map(   iClk    => clkVGA,
@@ -211,16 +240,47 @@ begin
                 iData   => (videoPixel'range => '0'),
                 oData   => videoPixel);  -- must be same size as input data
 
-    pixelBuffer <= videoPixel when videoEn='1' else x"00";
+    pixelBuffer <= videoPixel when videoEnR='1' else x"00";
 
     lineCodeProc : process (clkVGA, rstVGA)
     begin
         if (rstVGA = '1') then
              lineCode <= (others => '0');
+             pixelSel <= (others => '0');
+             videoEnR <= '0';
         elsif (rising_edge(clkVGA)) then
             if loadCode = '1' then
                 lineCode <= videoPixel;
             end if;
+            
+            pixelSel <= pixelCol(2 downto 0);  -- delay for timing
+            
+--            if videoEn='1' then
+/*
+                if lineCode(3 downto 2) = "00" then
+                    videoEnR <= videoEn;               -- delay for timing
+                end if;
+
+                if lineCode(3 downto 2) = "01" and pixelSel(0) = '1' then
+                    videoEnR <= videoEn;               -- delay for timing
+                end if;
+
+                if lineCode(3 downto 2) = "10" and pixelSel(1) = '1' then
+                    videoEnR <= videoEn;               -- delay for timing
+                end if;
+
+                if lineCode(3 downto 2) = "11" and pixelSel(2) = '1' then
+                    videoEnR <= videoEn;               -- delay for timing
+                end if;
+*/
+/*
+                if pixelCol(2) = '1' then
+                    videoEnR <= videoEn;               -- delay for timing
+                end if;
+*/
+--            end if;
+            videoEnR <= videoEn;               -- delay for timing
+          
         end if;
     end process lineCodeProc;
 
@@ -241,25 +301,10 @@ begin
         MODE0 => lineCode(0),
         MODE1 => lineCode(1),
 
-/*
-        D0    => dipRR(0),
-        D1    => dipRR(1),
-        D2    => dipRR(2),
-        D3    => dipRR(3),
-        D4    => dipRR(4),
-        D5    => dipRR(5),
-        D6    => dipRR(6),
-        D7    => dipRR(7),
-*/
-/*
-        -- Mode Selection
-        MODE0 => dipRR(8),
-        MODE1 => dipRR(9),
-*/
         -- Selection Signals
-        SEL0  => pixelCol(0),
-        SEL1  => pixelCol(1),
-        SEL2  => pixelCol(2),
+        SEL0  => pixelSel(0),
+        SEL1  => pixelSel(1),
+        SEL2  => pixelSel(2),
 
         -- VGA Outputs
         OUT0  => vRed(1),   -- VGA_RED(1)
@@ -282,17 +327,19 @@ begin
     VGA_VS <= vSync;
     VGA_HS <= hSync;
 
-/*
     -- Clocked output for video signals to see if there's a quality change
     videoOutProc : process (clkVGA, rstVGA)
     begin
         if (rstVGA = '1') then
+/*        
             VGA_RED   <= (others => '0');
             VGA_BLUE  <= (others => '0');
             VGA_GREEN <= (others => '0');
             VGA_VS <= '1';
             VGA_HS <= '1';
+*/
         elsif (rising_edge(clkVGA)) then
+/*
             if videoEn='1' then
                 VGA_RED   <= vRed;
                 VGA_BLUE  <= vBlue;
@@ -304,9 +351,10 @@ begin
             end if;
             VGA_VS <= vSync;
             VGA_HS <= hSync;
+*/
         end if;
     end process videoOutProc;
-*/
+
 
     -- Stall CPU one cycle when reading from RAM
 --    onePulse(clkVGA, rstSystem, ramEn, ramEnR, ramStall);
