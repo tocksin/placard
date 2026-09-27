@@ -1,108 +1,192 @@
-Name     VGA640x480;
+Name     SYNC;
 PartNo   01;
 Date     09/10/2026;
 Revision 01;
-Designer OpenAI;
-Company  TTL_VGA;
-Assembly None;
-Location None;
+Designer ;
+Company  ;
+Assembly ;
+Location ;
 Device   ATF22V10;
 
-
-/* ---------------------------------------------------------
+/* =================================================
    INPUTS
-   --------------------------------------------------------- */
+   ================================================= */
 
-/* Horizontal counter bits */
-PIN 1  = H9;
-PIN 2  = H8;
-PIN 3  = H7;
-PIN 4  = H6;
-PIN 5  = H5;
-PIN 6  = H4;
+PIN 1  = CLK;
 
-/* Vertical counter bits */
-PIN 7  = V9;
-PIN 8  = V8;
+/* Vertical counter */
+PIN 2  = V0;
+PIN 3  = V1;
+PIN 4  = V2;
+PIN 5  = V3;
+PIN 6  = V4;
+PIN 7  = V5;
+PIN 8  = V6;
 PIN 9  = V7;
-PIN 10 = V6;
-PIN 11 = V5;
-PIN 13 = V4;
-PIN 14 = V3;
-PIN 15 = V2;
-PIN 16 = V1;
+PIN 10 = V8;
+PIN 11 = V9;
+
+/* Horizontal active-video state */
+PIN 13 = H_VIDEO_ACTIVE;
 
 
-/* ---------------------------------------------------------
+/* =================================================
    OUTPUTS
-   --------------------------------------------------------- */
+   ================================================= */
 
-PIN 18 = HSYNC;
-PIN 19 = VSYNC;
-PIN 20 = VIDEO_ENABLE;
+/* Pixel-within-byte counter */
+PIN 14 = H0;
+PIN 15 = H1;
+PIN 16 = H2;
 
+/* Combined video active */
+PIN 17 = VIDEO_ACTIVE;
 
-/* ---------------------------------------------------------
-   HORIZONTAL ACTIVE VIDEO
-   HCOUNT = 0..639
-   --------------------------------------------------------- */
+/* VGA vertical sync */
+PIN 18 = VSYNC;
 
-H_ACTIVE =
-       !H9
-     # (!H8 & !H7);
-
-
-/* ---------------------------------------------------------
-   HORIZONTAL SYNC
-   Active LOW
-   HCOUNT = 656..751
-   --------------------------------------------------------- */
-
-HSYNC_ACTIVE =
-       (H9 & H7 & !H8 & !H5 & H4)
-     # (H9 & H7 & !H8 & H6 & H5)
-     # (H9 & H7 & !H8 & !H6 & !H4);
-
-HSYNC = !HSYNC_ACTIVE;
+/* Load framebuffer byte */
+PIN 19 = BYTE_LOAD;
 
 
-/* ---------------------------------------------------------
-   VERTICAL ACTIVE VIDEO
-   VCOUNT = 0..479
-   --------------------------------------------------------- */
+/* =================================================
+   H0:H2 PIXEL COUNTER
+   =================================================
 
-V_ACTIVE =
-       (!V9 & !V8)
-     # (!V9 & !V7)
-     # (!V9 & !V6)
-     # (!V9 & !V5);
+   Counts continuously:
+
+       000
+       001
+       010
+       011
+       100
+       101
+       110
+       111
+       000
+       ...
+
+   H2:H0 are also sent to the H Counter PLD.
+   The H Counter PLD uses 111 as its count enable.
+   ================================================= */
+
+H0.D = !H0;
+
+H1.D = H1 $ H0;
+
+H2.D = H2 $ (H1 & H0);
 
 
-/* ---------------------------------------------------------
-   VERTICAL SYNC
-   Active LOW
-   VCOUNT = 490..491
-   --------------------------------------------------------- */
+/* =================================================
+   VIDEO ACTIVE
+   =================================================
 
-VSYNC_ACTIVE =
-       !V9 & V8 & V7 & V6 & V5 & !V4
-     & V3 & !V2 & V1;
+   Vertical active video is:
 
-VSYNC = !VSYNC_ACTIVE;
+       V = 544 through 1023
+
+   Vertical active begins when:
+
+       V9 = 1
+       V5 = 1
+
+   Once active, it remains active while V9 = 1
+   and V5 = 0.
+
+   Horizontal blanking clears VIDEO_ACTIVE every
+   line, allowing it to become active again when
+   H_VIDEO_ACTIVE returns high.
+
+   Therefore:
+
+       Start:
+           H_VIDEO_ACTIVE & V9 & V5
+
+       Hold:
+           H_VIDEO_ACTIVE & V9 & !V5
+           & VIDEO_ACTIVE
+   ================================================= */
+
+VIDEO_ACTIVE.D =
+      (H_VIDEO_ACTIVE & V9 & V5)
+    # (VIDEO_ACTIVE & H_VIDEO_ACTIVE & V9 & !V5);
 
 
-/* ---------------------------------------------------------
-   VIDEO ENABLE
-   HCOUNT = 0..639
-   VCOUNT = 0..479
-   --------------------------------------------------------- */
+/* =================================================
+   VSYNC
+   =================================================
 
-VIDEO_ENABLE =
-       (!H9 & !V9 & !V8)
-     # (!H9 & !V9 & !V7)
-     # (!H9 & !V9 & !V6)
-     # (!H9 & !V9 & !V5)
-     # (!H8 & !H7 & !V9 & !V8)
-     # (!H8 & !H7 & !V9 & !V7)
-     # (!H8 & !H7 & !V9 & !V6)
-     # (!H8 & !H7 & !V9 & !V5);
+   VGA VSYNC is ACTIVE LOW.
+
+   Active interval:
+
+       V = 532
+       V = 533
+
+   Start condition:
+
+       V4 = 1
+       V3 = 0
+       V2 = 1
+       V1 = 0
+
+   At V=534, V1 becomes 1 and VSYNC returns high.
+
+   VSYNC itself is the registered state.
+   ================================================= */
+
+/* Force VSYNC LOW during V=532..533.
+   Otherwise hold the previous state, and V1
+   releases it high at V=534. */
+
+VSYNC.D =
+      !(V4 & !V3 & V2 & !V1)
+    & (VSYNC # V1);
+
+
+/* =================================================
+   BYTE LOAD
+   =================================================
+
+   Combinational output.
+
+   During active video, assert BYTE_LOAD when
+   H2:H0 = 000.
+
+   This corresponds to the first pixel of the
+   newly loaded 8-pixel byte.
+
+   The byte latch therefore captures the RAM data
+   at the beginning of the 8-pixel group.
+   ================================================= */
+
+BYTE_LOAD =
+      VIDEO_ACTIVE
+    & !H2
+    & !H1
+    & !H0;
+
+
+/* =================================================
+   MIXED REGISTERED / COMBINATIONAL OUTPUTS
+   =================================================
+
+   Explicitly disable asynchronous reset and
+   synchronous preset for registered outputs.
+   This prevents warnings in mixed designs.
+   ================================================= */
+
+H0.AR = 'b'0;
+H0.SP = 'b'0;
+
+H1.AR = 'b'0;
+H1.SP = 'b'0;
+
+H2.AR = 'b'0;
+H2.SP = 'b'0;
+
+VIDEO_ACTIVE.AR = 'b'0;
+VIDEO_ACTIVE.SP = 'b'0;
+
+VSYNC.AR = 'b'0;
+VSYNC.SP = 'b'0;
