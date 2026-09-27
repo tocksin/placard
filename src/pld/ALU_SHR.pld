@@ -1,0 +1,265 @@
+Name     ALU4;
+PartNo   00;
+Date     09/15/2026;
+Revision 01;
+Designer ;
+Company  ;
+Assembly ;
+Location ;
+Device   f22v10;
+
+
+/* =========================================================
+   ATF22V10 4-BIT ALU
+
+   FUNCTION SELECT
+
+       S2 S1 S0
+       --------
+       0  0  0     AND
+       0  0  1     OR
+       0  1  0     XOR
+       0  1  1     NOT A
+       1  0  0     ADD
+       1  0  1     SUB
+       1  1  0     PASS B
+       1  1  1     SHIFT RIGHT
+
+   SUBTRACTION:
+
+       A - B - CIN
+       = A + !B + !CIN
+
+   SHIFT RIGHT:
+
+       F3 = SHIFT_RIGHT_IN
+       F2 = A3
+       F1 = A2
+       F0 = A1
+
+   For an 8-bit ALU constructed from two of these:
+
+       MSB ALU SHIFT_RIGHT_IN = 0
+
+       LSB ALU SHIFT_RIGHT_IN = A4
+
+   Therefore:
+
+       A7 A6 A5 A4 | A3 A2 A1 A0
+       --------------------------------
+       0  A7 A6 A5 | A4 A3 A2 A1
+
+   Pin 17, formerly V/overflow, is now
+   SHIFT_RIGHT_IN.
+
+   ========================================================= */
+
+
+/* =========================================================
+   PIN ASSIGNMENTS
+   ========================================================= */
+
+A0              PIN 1;
+A1              PIN 2;
+A2              PIN 3;
+A3              PIN 4;
+
+B0              PIN 5;
+B1              PIN 6;
+B2              PIN 7;
+B3              PIN 8;
+
+S0              PIN 9;
+S1              PIN 10;
+S2              PIN 11;
+
+CIN             PIN 12;
+
+SHIFT_RIGHT_IN  PIN 17;
+
+COUT            PIN 18;
+Z               PIN 19;
+
+F0              PIN 20;
+F1              PIN 21;
+F2              PIN 22;
+F3              PIN 23;
+
+
+/* =========================================================
+   FUNCTION SELECT TERMS
+   ========================================================= */
+
+AND_SEL  = !S2 & !S1 & !S0;
+OR_SEL   = !S2 & !S1 &  S0;
+XOR_SEL  = !S2 &  S1 & !S0;
+NOT_SEL  = !S2 &  S1 &  S0;
+ADD_SEL  =  S2 & !S1 & !S0;
+SUB_SEL  =  S2 & !S1 &  S0;
+PASS_SEL =  S2 &  S1 & !S0;
+SHR_SEL  =  S2 &  S1 &  S0;
+
+
+/* =========================================================
+   ADDITION
+   A + B + CIN
+   ========================================================= */
+
+ADD_F0 = A0 ^ B0 ^ CIN;
+
+ADD_C1 =
+      (A0 & B0)
+    # (A0 & CIN)
+    # (B0 & CIN);
+
+ADD_F1 = A1 ^ B1 ^ ADD_C1;
+
+ADD_C2 =
+      (A1 & B1)
+    # (A1 & ADD_C1)
+    # (B1 & ADD_C1);
+
+ADD_F2 = A2 ^ B2 ^ ADD_C2;
+
+ADD_C3 =
+      (A2 & B2)
+    # (A2 & ADD_C2)
+    # (B2 & ADD_C2);
+
+ADD_F3 = A3 ^ B3 ^ ADD_C3;
+
+ADD_C4 =
+      (A3 & B3)
+    # (A3 & ADD_C3)
+    # (B3 & ADD_C3);
+
+
+/* =========================================================
+   SUBTRACTION
+   A - B - CIN
+   = A + !B + !CIN
+
+   COUT = 1 means no borrow
+   COUT = 0 means borrow
+   ========================================================= */
+
+SUB_F0 = A0 ^ !B0 ^ !CIN;
+
+SUB_C1 =
+      (A0 & !B0)
+    # (A0 & !CIN)
+    # (!B0 & !CIN);
+
+SUB_F1 = A1 ^ !B1 ^ SUB_C1;
+
+SUB_C2 =
+      (A1 & !B1)
+    # (A1 & SUB_C1)
+    # (!B1 & SUB_C1);
+
+SUB_F2 = A2 ^ !B2 ^ SUB_C2;
+
+SUB_C3 =
+      (A2 & !B2)
+    # (A2 & SUB_C2)
+    # (!B2 & SUB_C2);
+
+SUB_F3 = A3 ^ !B3 ^ SUB_C3;
+
+SUB_C4 =
+      (A3 & !B3)
+    # (A3 & SUB_C3)
+    # (!B3 & SUB_C3);
+
+
+/* =========================================================
+   FUNCTION OUTPUT F0
+   ========================================================= */
+
+F0 =
+      (AND_SEL  & (A0 & B0))
+    # (OR_SEL   & (A0 | B0))
+    # (XOR_SEL  & (A0 ^ B0))
+    # (NOT_SEL  & !A0)
+    # (ADD_SEL  & ADD_F0)
+    # (SUB_SEL  & SUB_F0)
+    # (PASS_SEL & B0)
+    # (SHR_SEL  & A1);
+
+
+/* =========================================================
+   FUNCTION OUTPUT F1
+   ========================================================= */
+
+F1 =
+      (AND_SEL  & (A1 & B1))
+    # (OR_SEL   & (A1 | B1))
+    # (XOR_SEL  & (A1 ^ B1))
+    # (NOT_SEL  & !A1)
+    # (ADD_SEL  & ADD_F1)
+    # (SUB_SEL  & SUB_F1)
+    # (PASS_SEL & B1)
+    # (SHR_SEL  & A2);
+
+
+/* =========================================================
+   FUNCTION OUTPUT F2
+   ========================================================= */
+
+F2 =
+      (AND_SEL  & (A2 & B2))
+    # (OR_SEL   & (A2 | B2))
+    # (XOR_SEL  & (A2 ^ B2))
+    # (NOT_SEL  & !A2)
+    # (ADD_SEL  & ADD_F2)
+    # (SUB_SEL  & SUB_F2)
+    # (PASS_SEL & B2)
+    # (SHR_SEL  & A3);
+
+
+/* =========================================================
+   FUNCTION OUTPUT F3
+   ========================================================= */
+
+F3 =
+      (AND_SEL  & (A3 & B3))
+    # (OR_SEL   & (A3 | B3))
+    # (XOR_SEL  & (A3 ^ B3))
+    # (NOT_SEL  & !A3)
+    # (ADD_SEL  & ADD_F3)
+    # (SUB_SEL  & SUB_F3)
+    # (PASS_SEL & B3)
+    # (SHR_SEL  & SHIFT_RIGHT_IN);
+
+
+/* =========================================================
+   CARRY OUTPUT
+
+   ADD:
+       normal arithmetic carry
+
+   SUB:
+       carry/no-borrow output
+
+   SHR:
+       A0 is the bit shifted out
+   ========================================================= */
+
+COUT =
+      (ADD_SEL & ADD_C4)
+    # (SUB_SEL & SUB_C4)
+    # (SHR_SEL & A0);
+
+
+/* =========================================================
+   ZERO FLAG
+
+   Z = 1 when the ALU result is zero.
+   ========================================================= */
+
+Z = !(F0 | F1 | F2 | F3);
+
+
+/* =========================================================
+   END
+   ========================================================= */

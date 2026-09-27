@@ -1,0 +1,126 @@
+Name     H_COUNTER;
+PartNo   00;
+Date     09/26/2026;
+Revision 04;
+Designer ;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+PIN 1  = CLK;
+PIN 2  = RESET;
+
+PIN 3  = H0;
+PIN 4  = H1;
+PIN 5  = H2;
+
+PIN 14 = H3;
+PIN 15 = H4;
+PIN 16 = H5;
+PIN 17 = H6;
+PIN 18 = H7;
+PIN 19 = H8;
+PIN 20 = H9;
+
+PIN 21 = HSYNC;
+PIN 22 = H_VIDEO_ACTIVE;
+PIN 23 = H_TC;
+
+
+/* -------------------------------------------------
+   H3:H9 = 7-bit horizontal group counter
+
+   H2:H0 come from the Sync PLD and count
+   the individual pixels within each 8-pixel group.
+
+   H3:H9 advance whenever H2:H0 = 111.
+
+   Counter sequence:
+       28 -> 29 -> ... -> 127 -> 28
+   ------------------------------------------------- */
+
+H_ENABLE = H2 & H1 & H0;
+
+
+/* Terminal count: H9:H3 = 1111111 */
+
+H_TC = H9 & H8 & H7 & H6 & H5 & H4 & H3;
+
+
+/* -------------------------------------------------
+   Counter next-state equations
+   ------------------------------------------------- */
+
+/* H3 = bit 0 */
+H3.D = H_ENABLE & !H3 & !H_TC;
+
+
+/* H4 = bit 1 */
+H4.D = H_ENABLE & (H4 $ H3) & !H_TC;
+
+
+/* H5 = bit 2 */
+H5.D = (H_ENABLE & (H5 $ (H4 & H3)))
+      # H_TC;
+
+
+/* H6 = bit 3 */
+H6.D = (H_ENABLE & (H6 $ (H5 & H4 & H3)))
+      # H_TC;
+
+
+/* H7 = bit 4 */
+H7.D = (H_ENABLE & (H7 $ (H6 & H5 & H4 & H3)))
+      # H_TC;
+
+
+/* H8 = bit 5 */
+H8.D = H_ENABLE
+     & (H8 $ (H7 & H6 & H5 & H4 & H3))
+     & !H_TC;
+
+
+/* H9 = bit 6 */
+H9.D = H_ENABLE
+     & (H9 $ (H8 & H7 & H6 & H5 & H4 & H3))
+     & !H_TC;
+
+
+/* -------------------------------------------------
+   Horizontal sync state
+   ------------------------------------------------- */
+
+/* H=30: 0011110
+   H9..H3 = 0011110
+*/
+HSYNC_START = !H9 & !H8 & H7 & H6 & H5 & H4;
+
+
+/* H=42: 0101010
+   H9..H3 = 0101010
+*/
+HSYNC_STOP = !H9 & H8 & !H7 & H6 & !H5 & H4;
+
+
+/* Registered HSYNC state */
+HSYNC.D = HSYNC_START
+        # (HSYNC & !HSYNC_STOP);
+
+
+/* -------------------------------------------------
+   Horizontal active-video state
+   ------------------------------------------------- */
+
+/* H=28: 0011100 */
+VIDEO_OFF = !H9 & !H8 & H7 & H6 & H5 & !H4;
+
+
+/* H=48: 0110000 */
+VIDEO_ON = !H9 & H8 & H7 & !H6 & !H5 & !H4;
+
+
+/* Registered horizontal active-video state */
+H_VIDEO_ACTIVE.D = VIDEO_ON
+                 # (H_VIDEO_ACTIVE & !VIDEO_OFF);
