@@ -202,9 +202,9 @@ from accessing the RAM/ROM during video reads.
 | 14 | `H0` | Output | Horizontal pixel bit 0 |
 | 15 | `H1` | Output | Horizontal pixel bit 1 |
 | 16 | `H2` | Output | Horizontal pixel bit 2 |
-| 17 | `VIDEO_ENABLE` | Output | Combined horizontal/vertical active video |
+| 17 | `VIDEO_ACTIVE` | Output | Combined horizontal/vertical active video |
 | 18 | `VSYNC` | Output | Vertical sync |
-| 19 | - | Output | Unused |
+| 19 | 'BYTE_ENABLE' | Output | VIDEO_ACTIVE but only when H2:H0 = "000" |
 | 20 | — | — | Unused |
 | 21 | — | — | Unused |
 | 22 | — | — | Unused |
@@ -213,9 +213,9 @@ from accessing the RAM/ROM during video reads.
 
 H2:H0 = 3-bit pixel-within-byte counter
 
-VIDEO_ACTIVE = H_VIDEO_ACTIVE & V9 & V5
-
+VIDEO_ACTIVE.D = (V9 & V5 & !V4 & !V3 & !V2 & !V1)
+               # (VIDEO_ACTIVE & V9);
+               
 VSYNC = !(V4 & !V3 & V2 & !V1)
 
-BYTE_LOAD = VIDEO_ACTIVE & !H2 & !H1 & !H0
-
+BYTE_ENABLE = VIDEO_ACTIVE & !H2 & !H1 & !H0
