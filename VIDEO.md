@@ -168,8 +168,7 @@ bits.  These bits select the individual pixel within an 8-pixel video byte.
 It also generates:
 
 - VSYNC
-- Combined video-active signal
-- Byte-load signal
+- Video-enable signal
 
 ### Vertical Timing
 | Line range | Function |
@@ -179,7 +178,7 @@ It also generates:
 | 534-543 | Back Porch |
 | 544-1023 | Active Video |
 
-The byte-load signal indicates when the RAM/ROM should be enabled to load an
+The video-enable signal indicates when the RAM/ROM should be enabled to load an
 active-video pixel.  This signal is also used to stall the CPU to prevent it 
 from accessing the RAM/ROM during video reads.
 
@@ -188,16 +187,16 @@ from accessing the RAM/ROM during video reads.
 | Pin | Signal | Direction | Function |
 |---:|---|---|---|
 | 1 | `CLK` | Input | Pixel clock |
-| 2 | `V0` | Input | Vertical count bit 0 |
-| 3 | `V1` | Input | Vertical count bit 1 |
-| 4 | `V2` | Input | Vertical count bit 2 |
-| 5 | `V3` | Input | Vertical count bit 3 |
-| 6 | `V4` | Input | Vertical count bit 4 |
-| 7 | `V5` | Input | Vertical count bit 5 |
-| 8 | `V6` | Input | Vertical count bit 6 |
-| 9 | `V7` | Input | Vertical count bit 7 |
-| 10 | `V8` | Input | Vertical count bit 8 |
-| 11 | `V9` | Input | Vertical count bit 9 (MSB) |
+| 2 | `V1` | Input | Vertical count bit 1 |
+| 3 | `V2` | Input | Vertical count bit 2 |
+| 4 | `V3` | Input | Vertical count bit 3 |
+| 5 | `V4` | Input | Vertical count bit 4 |
+| 6 | `V5` | Input | Vertical count bit 5 |
+| 7 | `V9` | Input | Vertical count bit 9 |
+| 8 | - | Input | Unused |
+| 9 | - | Input | Unused |
+| 10 | - | Input | Unused |
+| 11 | - | Input | Unused |
 | 12 | `GND` | Power | Ground |
 | 13 | `H_VIDEO_ACTIVE` | Input | Horizontal active-video state |
 | 14 | `H0` | Output | Horizontal pixel bit 0 |
@@ -205,7 +204,7 @@ from accessing the RAM/ROM during video reads.
 | 16 | `H2` | Output | Horizontal pixel bit 2 |
 | 17 | `VIDEO_ACTIVE` | Output | Combined horizontal/vertical active video |
 | 18 | `VSYNC` | Output | Vertical sync |
-| 19 | `BYTE_LOAD` | Output | Loads the next 8-pixel byte |
+| 19 | 'BYTE_ENABLE' | Output | VIDEO_ACTIVE but only when H2:H0 = "000" |
 | 20 | — | — | Unused |
 | 21 | — | — | Unused |
 | 22 | — | — | Unused |
@@ -214,9 +213,9 @@ from accessing the RAM/ROM during video reads.
 
 H2:H0 = 3-bit pixel-within-byte counter
 
-VIDEO_ACTIVE = H_VIDEO_ACTIVE & V9 & V5
-
+VIDEO_ACTIVE.D = (V9 & V5 & !V4 & !V3 & !V2 & !V1)
+               # (VIDEO_ACTIVE & V9);
+               
 VSYNC = !(V4 & !V3 & V2 & !V1)
 
-BYTE_LOAD = VIDEO_ACTIVE & !H2 & !H1 & !H0
-
+BYTE_ENABLE = VIDEO_ACTIVE & !H2 & !H1 & !H0
