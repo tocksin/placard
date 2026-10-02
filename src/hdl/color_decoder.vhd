@@ -5,7 +5,7 @@
 -- Date: 09/16/2026
 -------------------------------------------------------------------------------
 library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_1164.all;
 
 entity color_decoder is
     Port (
