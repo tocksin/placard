@@ -4,7 +4,7 @@
 *        Experimental test platform for various ideas.
 * @author Justin Davis
 *
-* Copyright: ©2023 by Southwest Research Institute®; all rights reserved
+* Copyright: ï¿½2023 by Southwest Research Instituteï¿½; all rights reserved
 **************************************************************************/
 library ieee;           use ieee.std_logic_1164.all;
                         use ieee.numeric_std.all;

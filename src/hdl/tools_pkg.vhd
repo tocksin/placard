@@ -565,7 +565,7 @@ package body tools_pkg is
 
     ----------------------------------------------------------------------------
     -- onePulse - output one pulse until input signal returns to non-edge level
-    -- EDGE = '1' => RISING-EDGE DETECTION ;  '0' => FALLING-EDGE DETECTION
+    -- EDGE = '1' => RISING-EDGE DETECTION ;  '0' => FallING-EDGE DETECTION
     ----------------------------------------------------------------------------
     procedure onePulse
        (signal   clk        : in sl;
@@ -582,7 +582,7 @@ package body tools_pkg is
             delayed <= edge xor newInput;
         end if;
 
-        pulse <= (not(edge) and not(newInput) and delayed) or      -- FALLING-EDGE DETECTION
+        pulse <= (not(edge) and not(newInput) and delayed) or      -- FallING-EDGE DETECTION
                  (    edge  and     newInput  and delayed);        -- RISING-EDGE  DETECTION
 
     end procedure onePulse;
