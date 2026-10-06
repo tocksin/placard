@@ -2,14 +2,14 @@
 -- Name     H_COUNTER
 -- PartNo   00
 -- Date     09/26/2026
--- Revision 05
+-- Revision 06
 -- Designer
 -- Company
 -- Assembly
 -- Location
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_HCOUNT.pld (Revision 05)
+-- Converted from WinCUPL source ATF22V10_HCOUNT.pld (Revision 06)
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP/SOIC; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = CLK
@@ -27,7 +27,7 @@
 --   PIN 19 = H8                (registered output)
 --   PIN 20 = H9                (registered output)
 --
---   PIN 21 = HSYNC             (registered output)
+--   PIN 21 = HSYNC             (registered output, ACTIVE LOW)
 --   PIN 22 = H_VIDEO_ACTIVE    (registered output)
 --   PIN 23 = H_TC              (combinatorial output)
 --------------------------------------------------------------------------------
@@ -52,7 +52,7 @@ entity hcount_pld is
         H8             : out std_logic;   -- PIN 19
         H9             : out std_logic;   -- PIN 20
 
-        HSYNC          : out std_logic;   -- PIN 21
+        HSYNC          : out std_logic;   -- PIN 21  (active low)
         H_VIDEO_ACTIVE : out std_logic;   -- PIN 22
         H_TC           : out std_logic    -- PIN 23
     );
@@ -205,7 +205,10 @@ begin
                   and (not H4_Q) and H3_Q;
 
 
-    -- Registered HSYNC state (active high)
+    -- Registered HSYNC state.
+    -- HSYNC_Q is logically true during sync; the HSYNC pin is the
+    -- inverse (active low), so it is low during groups 30-41.
+    -- The register powers up to 0, which is the inactive (high) pin level.
     HSYNC_D <= HSYNC_START
                or (HSYNC_Q and (not HSYNC_STOP));
 
@@ -262,7 +265,7 @@ begin
     H7             <= H7_Q;
     H8             <= H8_Q;
     H9             <= H9_Q;
-    HSYNC          <= HSYNC_Q;
+    HSYNC          <= not HSYNC_Q;   -- active-low pin
     H_VIDEO_ACTIVE <= H_VIDEO_ACTIVE_Q;
     H_TC           <= H_TC_I;       -- combinatorial output, pin 23
 

@@ -53,27 +53,27 @@ architecture rtl of sp_ram is
         end loop;
 
         -- every 8th pixel
-        /* 
-        temp_mem(0)   := x"00";
-        temp_mem(1)   := x"00";
-        temp_mem(2)   := x"00";
-        temp_mem(3)   := x"00";
-        temp_mem(4)   := x"00";
-        temp_mem(5)   := x"00";
-        temp_mem(6)   := x"00";
-        temp_mem(7)   := x"00";
-        temp_mem(8)   := x"00";
+         
+        temp_mem(24608)     := x"00";
+        temp_mem(24608+1)   := x"00";
+        temp_mem(24608+2)   := x"00";
+        temp_mem(24608+3)   := x"00";
+        temp_mem(24608+4)   := x"00";
+        temp_mem(24608+5)   := x"00";
+        temp_mem(24608+6)   := x"00";
+        temp_mem(24608+7)   := x"00";
+        temp_mem(24608+8)   := x"00";
         
-        temp_mem(1)      := "00000000";
-        temp_mem(128+1)  := "00011000";
-        temp_mem(256+1)  := "00100100";
-        temp_mem(384+1)  := "01000010";
-        temp_mem(512+1)  := "01111110";
-        temp_mem(640+1)  := "01000010";
-        temp_mem(768+1)  := "00100100";
-        temp_mem(896+1)  := "00011000";
-        temp_mem(1024+1) := "00000000";
-
+        temp_mem(25120)    := "00000000";
+        temp_mem(25120+1)  := "00011000";
+        temp_mem(25120+2)  := "00100100";
+        temp_mem(25120+3)  := "01000010";
+        temp_mem(25120+4)  := "01111110";
+        temp_mem(25120+5)  := "01000010";
+        temp_mem(25120+6)  := "00100100";
+        temp_mem(25120+7)  := "00011000";
+        temp_mem(25120+8)  := "00000000";
+/*
         temp_mem(2)      := "10000000";
         temp_mem(128+2)  := "01000000";
         temp_mem(256+2)  := "00100000";
@@ -154,11 +154,10 @@ architecture rtl of sp_ram is
     signal RAM : ramType := initMemory(x"ACE1ACE1");
 --    signal RAM : ramType := (others => (others => '0'));
 
-    attribute ram_style : string;
-    attribute ram_style of RAM : signal is "block";
+--    attribute ram_style : string;
+--    attribute ram_style of RAM : signal is "block";
 
 begin
-
 
     process(iClk)
     begin

@@ -1,7 +1,7 @@
 Name     VGA_SYNC;
 PartNo   01;
 Date     2026-09-30;
-Revision 03;
+Revision 04;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -170,6 +170,16 @@ VSYNC = !(V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1);
         01   X/Y register
         10   Video address
         11   Program counter
+
+   Priority (highest first):
+
+       1. Video address    BYTE_ENABLE            -> 10
+       2. Program counter  PC_ENABLE              -> 11
+       3. X / Y registers  X_ENABLE, Y_ENABLE     -> 01
+       4. Default                                 -> 00
+
+   BYTE_ENABLE overrides PC_ENABLE, X_ENABLE and Y_ENABLE.
+   PC_ENABLE overrides X_ENABLE and Y_ENABLE.
 */
 
 
@@ -193,11 +203,14 @@ ADDR_SEL =
        01 = Y register
        10 = Video address
        11 = PC
+
+   S0 is forced low during BYTE_ENABLE so that S1 S0 = 10
+   (video) regardless of PC_ENABLE and Y_ENABLE.
 */
 
 ADDR_SEL_HI =
-      PC_ENABLE
-    # Y_ENABLE;
+      !BYTE_ENABLE
+    & (PC_ENABLE # Y_ENABLE);
 
 
 /*
@@ -208,8 +221,11 @@ ADDR_SEL_HI =
        01 = X register
        10 = Video address
        11 = PC
+
+   S0 is forced low during BYTE_ENABLE so that S1 S0 = 10
+   (video) regardless of PC_ENABLE and X_ENABLE.
 */
 
 ADDR_SEL_LO =
-      PC_ENABLE
-    # X_ENABLE;
+      !BYTE_ENABLE
+    & (PC_ENABLE # X_ENABLE);

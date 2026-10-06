@@ -1,0 +1,95 @@
+Name     STATE_CTRL;
+PartNo   00;
+Date     2026-10-05;
+Revision 03;
+Designer Justin;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   INPUTS
+   ============================================================ */
+
+PIN 1  = CLK;
+
+/* From the Sync PLD.  High during the one clock in every eight
+   (active video only) where video owns the address/data bus.
+   While high, the CPU is stalled. */
+PIN 2  = BYTE_ENABLE;
+
+/* Pins 3-11 and 13 unused */
+
+
+/* ============================================================
+   OUTPUTS
+   ============================================================ */
+
+/* Binary state registers (22V10 has no buried registers,
+   so they are brought out to pins).
+
+       Q1 Q0
+        0  0   FETCH  (instruction fetch -> instruction FF)
+        0  1   IMM    (immediate fetch   -> D FF)
+        1  0   EXEC   (execute)
+        1  1   unused (returns to FETCH on the next clock
+                       where BYTE_ENABLE = 0)
+
+   The 22V10 registers power up to 0, which is FETCH, so no
+   power-up recovery term is needed. */
+PIN 14 = Q0;
+PIN 15 = Q1;
+
+/* Address-select request to the Sync PLD.  Pure state decode
+   (no BYTE_ENABLE term): the Sync PLD gives video priority. */
+PIN 17 = PC_ENABLE;
+
+/* Bus-cycle strobes.  Each is the state ANDed with !BYTE_ENABLE,
+   so it is only active on a clock where the CPU really owns the
+   bus and the cycle completes. */
+PIN 18 = FETCH_EN;     /* clock-enable / latch for instruction FF */
+PIN 19 = IMM_EN;       /* clock-enable / latch for D FF           */
+PIN 20 = EXEC_EN;      /* execute-state indicator                 */
+PIN 21 = PC_INC;       /* program counter increment enable        */
+
+/* Pins 16, 22 and 23 free */
+
+
+/* ============================================================
+   BINARY STATE MACHINE
+   ============================================================ */
+
+/*
+   Sequence:  FETCH (00) -> IMM (01) -> EXEC (10) -> FETCH ...
+
+   Each state advances only on a clock where BYTE_ENABLE = 0.
+   When BYTE_ENABLE = 1 both bits hold (CPU stalled).
+*/
+
+Q0.D = (Q0 & BYTE_ENABLE)
+     # (!Q1 & !Q0 & !BYTE_ENABLE);
+
+Q1.D = (Q1 & BYTE_ENABLE)
+     # (!Q1 & Q0 & !BYTE_ENABLE);
+
+
+/* ============================================================
+   OUTPUT DECODE
+   ============================================================ */
+
+/* Address-source request.  On a stalled clock this stays high,
+   but the Sync PLD overrides it (ADDR_SEL:HI/LO = 1:0). */
+PC_ENABLE = !Q1;
+
+/* Completed-cycle strobes */
+FETCH_EN  = !Q1 & !Q0 & !BYTE_ENABLE;
+
+IMM_EN    = !Q1 &  Q0 & !BYTE_ENABLE;
+
+EXEC_EN   =  Q1 & !Q0 & !BYTE_ENABLE;
+
+/* PC must not advance on a stalled clock, or the fetch that
+   repeats would skip an address. */
+PC_INC    = !Q1 & !BYTE_ENABLE;

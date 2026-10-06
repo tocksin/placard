@@ -14,20 +14,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="16,682,649.221 ns"></ZoomStartTime>
-      <ZoomEndTime time="16,685,447.222 ns"></ZoomEndTime>
-      <Cursor1Time time="16,683,827.221 ns"></Cursor1Time>
+      <ZoomStartTime time="1,455,168.000 ns"></ZoomStartTime>
+      <ZoomEndTime time="1,457,050.001 ns"></ZoomEndTime>
+      <Cursor1Time time="1,455,968.000 ns"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
-      <NameColumnWidth column_width="214"></NameColumnWidth>
-      <ValueColumnWidth column_width="58"></ValueColumnWidth>
+      <NameColumnWidth column_width="209"></NameColumnWidth>
+      <ValueColumnWidth column_width="106"></ValueColumnWidth>
    </column_width_setting>
    <WVObjectSize size="29" />
-   <wave_markers>
-      <marker time="26511943" label="" />
-      <marker time="58275000" label="" />
-      <marker time="35140956388" label="" />
-   </wave_markers>
    <wvobject fp_name="/tb_basys_demo/clkSys" type="logic">
       <obj_property name="ElementShortName">clkSys</obj_property>
       <obj_property name="ObjectShortName">clkSys</obj_property>
@@ -44,29 +39,45 @@
       <obj_property name="ElementShortName">rstVGA</obj_property>
       <obj_property name="ObjectShortName">rstVGA</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_basys_demo/switches" type="array">
-      <obj_property name="ElementShortName">switches[15:0]</obj_property>
-      <obj_property name="ObjectShortName">switches[15:0]</obj_property>
+   <wvobject fp_name="/tb_basys_demo/dut/clkSystem" type="logic">
+      <obj_property name="ElementShortName">clkSystem</obj_property>
+      <obj_property name="ObjectShortName">clkSystem</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_basys_demo/buttons" type="array">
-      <obj_property name="ElementShortName">buttons[4:0]</obj_property>
-      <obj_property name="ObjectShortName">buttons[4:0]</obj_property>
+   <wvobject fp_name="/tb_basys_demo/dut/rstSystem" type="logic">
+      <obj_property name="ElementShortName">rstSystem</obj_property>
+      <obj_property name="ObjectShortName">rstSystem</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_basys_demo/leds" type="array">
-      <obj_property name="ElementShortName">leds[15:0]</obj_property>
-      <obj_property name="ObjectShortName">leds[15:0]</obj_property>
+   <wvobject fp_name="/tb_basys_demo/dut/clkCPU" type="logic">
+      <obj_property name="ElementShortName">clkCPU</obj_property>
+      <obj_property name="ObjectShortName">clkCPU</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_basys_demo/vgaRed" type="array">
-      <obj_property name="ElementShortName">vgaRed[3:0]</obj_property>
-      <obj_property name="ObjectShortName">vgaRed[3:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_basys_demo/vgaBlue" type="array">
-      <obj_property name="ElementShortName">vgaBlue[3:0]</obj_property>
-      <obj_property name="ObjectShortName">vgaBlue[3:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_basys_demo/vgaGreen" type="array">
-      <obj_property name="ElementShortName">vgaGreen[3:0]</obj_property>
-      <obj_property name="ObjectShortName">vgaGreen[3:0]</obj_property>
+   <wvobject fp_name="group141" type="group">
+      <obj_property name="label">Basys</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <wvobject fp_name="/tb_basys_demo/switches" type="array">
+         <obj_property name="ElementShortName">switches[15:0]</obj_property>
+         <obj_property name="ObjectShortName">switches[15:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/buttons" type="array">
+         <obj_property name="ElementShortName">buttons[4:0]</obj_property>
+         <obj_property name="ObjectShortName">buttons[4:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/leds" type="array">
+         <obj_property name="ElementShortName">leds[15:0]</obj_property>
+         <obj_property name="ObjectShortName">leds[15:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/vgaRed" type="array">
+         <obj_property name="ElementShortName">vgaRed[3:0]</obj_property>
+         <obj_property name="ObjectShortName">vgaRed[3:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/vgaBlue" type="array">
+         <obj_property name="ElementShortName">vgaBlue[3:0]</obj_property>
+         <obj_property name="ObjectShortName">vgaBlue[3:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/vgaGreen" type="array">
+         <obj_property name="ElementShortName">vgaGreen[3:0]</obj_property>
+         <obj_property name="ObjectShortName">vgaGreen[3:0]</obj_property>
+      </wvobject>
    </wvobject>
    <wvobject fp_name="/tb_basys_demo/vgaVertSync" type="logic">
       <obj_property name="ElementShortName">vgaVertSync</obj_property>
@@ -75,14 +86,6 @@
    <wvobject fp_name="/tb_basys_demo/vgaHorSync" type="logic">
       <obj_property name="ElementShortName">vgaHorSync</obj_property>
       <obj_property name="ObjectShortName">vgaHorSync</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_basys_demo/dut/videoEn" type="logic">
-      <obj_property name="ElementShortName">videoEn</obj_property>
-      <obj_property name="ObjectShortName">videoEn</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_basys_demo/dut/videoEnR" type="logic">
-      <obj_property name="ElementShortName">videoEnR</obj_property>
-      <obj_property name="ObjectShortName">videoEnR</obj_property>
    </wvobject>
    <wvobject fp_name="/tb_basys_demo/dut/pixelRow" type="array">
       <obj_property name="ElementShortName">pixelRow[9:0]</obj_property>
@@ -94,6 +97,18 @@
       <obj_property name="ObjectShortName">pixelCol[9:0]</obj_property>
       <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
    </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/videoActive" type="logic">
+      <obj_property name="ElementShortName">videoActive</obj_property>
+      <obj_property name="ObjectShortName">videoActive</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/videoActiveR" type="logic">
+      <obj_property name="ElementShortName">videoActiveR</obj_property>
+      <obj_property name="ObjectShortName">videoActiveR</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/pixelEn" type="logic">
+      <obj_property name="ElementShortName">pixelEn</obj_property>
+      <obj_property name="ObjectShortName">pixelEn</obj_property>
+   </wvobject>
    <wvobject fp_name="/tb_basys_demo/dut/videoAddr" type="array">
       <obj_property name="ElementShortName">videoAddr[15:0]</obj_property>
       <obj_property name="ObjectShortName">videoAddr[15:0]</obj_property>
@@ -103,17 +118,25 @@
       <obj_property name="ObjectShortName">videoAddr[15:0]</obj_property>
       <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_basys_demo/dut/videoPixel" type="array">
-      <obj_property name="ElementShortName">videoPixel[7:0]</obj_property>
-      <obj_property name="ObjectShortName">videoPixel[7:0]</obj_property>
+   <wvobject fp_name="/tb_basys_demo/dut/ramAddress" type="array">
+      <obj_property name="ElementShortName">ramAddress[15:0]</obj_property>
+      <obj_property name="ObjectShortName">ramAddress[15:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/ramData" type="array">
+      <obj_property name="ElementShortName">ramData[7:0]</obj_property>
+      <obj_property name="ObjectShortName">ramData[7:0]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/dataBus" type="array">
+      <obj_property name="ElementShortName">dataBus[7:0]</obj_property>
+      <obj_property name="ObjectShortName">dataBus[7:0]</obj_property>
    </wvobject>
    <wvobject fp_name="/tb_basys_demo/dut/pixelBuffer" type="array">
       <obj_property name="ElementShortName">pixelBuffer[7:0]</obj_property>
       <obj_property name="ObjectShortName">pixelBuffer[7:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_basys_demo/dut/loadPixel" type="logic">
-      <obj_property name="ElementShortName">loadPixel</obj_property>
-      <obj_property name="ObjectShortName">loadPixel</obj_property>
+   <wvobject fp_name="/tb_basys_demo/dut/lineCode" type="array">
+      <obj_property name="ElementShortName">lineCode[7:0]</obj_property>
+      <obj_property name="ObjectShortName">lineCode[7:0]</obj_property>
    </wvobject>
    <wvobject fp_name="/tb_basys_demo/dut/pixelSel" type="array">
       <obj_property name="ElementShortName">pixelSel[2:0]</obj_property>
@@ -147,16 +170,81 @@
       <obj_property name="ElementShortName">VGA_GREEN[3:0]</obj_property>
       <obj_property name="ObjectShortName">VGA_GREEN[3:0]</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_basys_demo/dut/loadCode" type="logic">
-      <obj_property name="ElementShortName">loadCode</obj_property>
-      <obj_property name="ObjectShortName">loadCode</obj_property>
+   <wvobject fp_name="group33" type="group">
+      <obj_property name="label">Video PLDs</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <wvobject fp_name="/tb_basys_demo/dut/vgaPLDComp/hSyncOut" type="logic">
+         <obj_property name="ElementShortName">hSyncOut</obj_property>
+         <obj_property name="ObjectShortName">hSyncOut</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/vgaPLDComp/vSyncOut" type="logic">
+         <obj_property name="ElementShortName">vSyncOut</obj_property>
+         <obj_property name="ObjectShortName">vSyncOut</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/vgaPLDComp/hcount" type="array">
+         <obj_property name="ElementShortName">hcount[9:0]</obj_property>
+         <obj_property name="ObjectShortName">hcount[9:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/vgaPLDComp/vcount" type="array">
+         <obj_property name="ElementShortName">vcount[9:0]</obj_property>
+         <obj_property name="ObjectShortName">vcount[9:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/vgaPLDComp/hVideoActive" type="logic">
+         <obj_property name="ElementShortName">hVideoActive</obj_property>
+         <obj_property name="ObjectShortName">hVideoActive</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/vgaPLDComp/vVideoActive" type="logic">
+         <obj_property name="ElementShortName">vVideoActive</obj_property>
+         <obj_property name="ObjectShortName">vVideoActive</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/vgaPLDComp/videoActive" type="logic">
+         <obj_property name="ElementShortName">videoActive</obj_property>
+         <obj_property name="ObjectShortName">videoActive</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/vgaPLDComp/hTerminal" type="logic">
+         <obj_property name="ElementShortName">hTerminal</obj_property>
+         <obj_property name="ObjectShortName">hTerminal</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/vgaPLDComp/pixelEnable" type="logic">
+         <obj_property name="ElementShortName">pixelEnable</obj_property>
+         <obj_property name="ObjectShortName">pixelEnable</obj_property>
+      </wvobject>
    </wvobject>
-   <wvobject fp_name="/tb_basys_demo/dut/lineCode" type="array">
-      <obj_property name="ElementShortName">lineCode[7:0]</obj_property>
-      <obj_property name="ObjectShortName">lineCode[7:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_basys_demo/dut/vidRamEn" type="logic">
-      <obj_property name="ElementShortName">vidRamEn</obj_property>
-      <obj_property name="ObjectShortName">vidRamEn</obj_property>
+   <wvobject fp_name="group822" type="group">
+      <obj_property name="label">State</obj_property>
+      <obj_property name="DisplayName">label</obj_property>
+      <obj_property name="isExpanded"></obj_property>
+      <wvobject fp_name="/tb_basys_demo/dut/pixelEn" type="logic">
+         <obj_property name="ElementShortName">pixelEn</obj_property>
+         <obj_property name="ObjectShortName">pixelEn</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/state" type="array">
+         <obj_property name="ElementShortName">state[1:0]</obj_property>
+         <obj_property name="ObjectShortName">state[1:0]</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/pcEnable" type="logic">
+         <obj_property name="ElementShortName">pcEnable</obj_property>
+         <obj_property name="ObjectShortName">pcEnable</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/instEn" type="logic">
+         <obj_property name="ElementShortName">instEn</obj_property>
+         <obj_property name="ObjectShortName">instEn</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/immEn" type="logic">
+         <obj_property name="ElementShortName">immEn</obj_property>
+         <obj_property name="ObjectShortName">immEn</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/execute" type="logic">
+         <obj_property name="ElementShortName">execute</obj_property>
+         <obj_property name="ObjectShortName">execute</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/pcInc" type="logic">
+         <obj_property name="ElementShortName">pcInc</obj_property>
+         <obj_property name="ObjectShortName">pcInc</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/programCounter" type="array">
+         <obj_property name="ElementShortName">programCounter[15:0]</obj_property>
+         <obj_property name="ObjectShortName">programCounter[15:0]</obj_property>
+      </wvobject>
    </wvobject>
 </wave_config>
