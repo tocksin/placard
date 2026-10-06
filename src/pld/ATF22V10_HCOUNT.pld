@@ -1,7 +1,7 @@
 Name     H_COUNTER;
 PartNo   00;
 Date     09/26/2026;
-Revision 04;
+Revision 06;
 Designer ;
 Company  ;
 Assembly ;
@@ -10,7 +10,7 @@ Device   g22v10;
 
 
 PIN 1  = CLK;
-PIN 2  = RESET;
+PIN 2  = RESET;      /* declared, not used in any equation */
 
 PIN 3  = H0;
 PIN 4  = H1;
@@ -24,7 +24,7 @@ PIN 18 = H7;
 PIN 19 = H8;
 PIN 20 = H9;
 
-PIN 21 = HSYNC;
+PIN 21 = !HSYNC;     /* active-low output pin; equations below use HSYNC as logical true */
 PIN 22 = H_VIDEO_ACTIVE;
 PIN 23 = H_TC;
 
@@ -36,75 +36,107 @@ PIN 23 = H_TC;
    the individual pixels within each 8-pixel group.
 
    H3:H9 advance whenever H2:H0 = 111.
+   At all other times they HOLD their value.
 
    Counter sequence:
        28 -> 29 -> ... -> 127 -> 28
+
+   100 groups x 8 pixels = 800 clocks per line.
    ------------------------------------------------- */
 
 H_ENABLE = H2 & H1 & H0;
 
 
-/* Terminal count: H9:H3 = 1111111 */
+/* Terminal count: H9:H3 = 1111111 and H2:H0 = 111
+   i.e. the last clock of the line.  One clock wide.
+   Used to reload the counter and as the line-end
+   pulse for the external vertical counter. */
 
-H_TC = H9 & H8 & H7 & H6 & H5 & H4 & H3;
+H_TC = H_ENABLE & H9 & H8 & H7 & H6 & H5 & H4 & H3;
 
 
 /* -------------------------------------------------
    Counter next-state equations
+
+   Each bit toggles when H_ENABLE is high and all
+   lower bits are 1, otherwise it holds.
+
+   At terminal count every bit toggles to 0
+   (127 + 1 = 0).  The reload value is 28 = 0011100,
+   so H5, H6 and H7 are forced to 1 by H_TC.
+   H3, H4, H8 and H9 need no extra term because
+   they are already 0 after the toggle.
    ------------------------------------------------- */
 
 /* H3 = bit 0 */
-H3.D = H_ENABLE & !H3 & !H_TC;
+H3.D = H3 $ H_ENABLE;
 
 
 /* H4 = bit 1 */
-H4.D = H_ENABLE & (H4 $ H3) & !H_TC;
+H4.D = H4 $ (H_ENABLE & H3);
 
 
 /* H5 = bit 2 */
-H5.D = (H_ENABLE & (H5 $ (H4 & H3)))
+H5.D = (H5 $ (H_ENABLE & H4 & H3))
       # H_TC;
 
 
 /* H6 = bit 3 */
-H6.D = (H_ENABLE & (H6 $ (H5 & H4 & H3)))
+H6.D = (H6 $ (H_ENABLE & H5 & H4 & H3))
       # H_TC;
 
 
 /* H7 = bit 4 */
-H7.D = (H_ENABLE & (H7 $ (H6 & H5 & H4 & H3)))
+H7.D = (H7 $ (H_ENABLE & H6 & H5 & H4 & H3))
       # H_TC;
 
 
 /* H8 = bit 5 */
-H8.D = H_ENABLE
-     & (H8 $ (H7 & H6 & H5 & H4 & H3))
-     & !H_TC;
+H8.D = H8 $ (H_ENABLE & H7 & H6 & H5 & H4 & H3);
 
 
 /* H9 = bit 6 */
-H9.D = H_ENABLE
-     & (H9 $ (H8 & H7 & H6 & H5 & H4 & H3))
-     & !H_TC;
+H9.D = H9 $ (H_ENABLE & H8 & H7 & H6 & H5 & H4 & H3);
+
+
+/* -------------------------------------------------
+   Horizontal timing (per line, in groups of 8 clocks)
+
+       28 - 29    front porch    (2 groups =  16 clocks)
+       30 - 41    HSYNC          (12 groups = 96 clocks)
+       42 - 47    back porch     (6 groups =  48 clocks)
+       48 - 127   active video   (80 groups = 640 clocks)
+
+   HSYNC and H_VIDEO_ACTIVE are registered, so each
+   change is decoded on the LAST clock of the previous
+   group (H_ENABLE = 1).  The register then changes on
+   the same clock edge as the group counter, and the
+   new state is in place for the first clock (H2:H0 = 000)
+   of the new group.
+   ------------------------------------------------- */
 
 
 /* -------------------------------------------------
    Horizontal sync state
    ------------------------------------------------- */
 
-/* H=30: 0011110
-   H9..H3 = 0011110
+/* HSYNC starts at H=30: 0011110
+   decode H=29:  H9..H3 = 0011101, last clock of the group
 */
-HSYNC_START = !H9 & !H8 & H7 & H6 & H5 & H4;
+HSYNC_START = H_ENABLE & !H9 & !H8 & H7 & H6 & H5 & !H4 & H3;
 
 
-/* H=42: 0101010
-   H9..H3 = 0101010
+/* HSYNC stops at H=42: 0101010
+   decode H=41:  H9..H3 = 0101001, last clock of the group
 */
-HSYNC_STOP = !H9 & H8 & !H7 & H6 & !H5 & H4;
+HSYNC_STOP = H_ENABLE & !H9 & H8 & !H7 & H6 & !H5 & !H4 & H3;
 
 
-/* Registered HSYNC state */
+/* Registered HSYNC state.
+   HSYNC is logically true during sync, and the pin is
+   active low (declared !HSYNC), so the pin is low during
+   groups 30-41 and high otherwise.  The register still
+   powers up to 0, which is the inactive (high) pin level. */
 HSYNC.D = HSYNC_START
         # (HSYNC & !HSYNC_STOP);
 
@@ -113,12 +145,16 @@ HSYNC.D = HSYNC_START
    Horizontal active-video state
    ------------------------------------------------- */
 
-/* H=28: 0011100 */
-VIDEO_OFF = !H9 & !H8 & H7 & H6 & H5 & !H4;
+/* Video turns off at H=28: 0011100 (start of the next line).
+   decode H=127, last clock of the line: this is H_TC.
+*/
+VIDEO_OFF = H_TC;
 
 
-/* H=48: 0110000 */
-VIDEO_ON = !H9 & H8 & H7 & !H6 & !H5 & !H4;
+/* Video turns on at H=48: 0110000
+   decode H=47:  H9..H3 = 0101111, last clock of the group
+*/
+VIDEO_ON = H_ENABLE & !H9 & H8 & !H7 & H6 & H5 & H4 & H3;
 
 
 /* Registered horizontal active-video state */

@@ -54,34 +54,34 @@ end entity vcount_pld;
 architecture RTL of vcount_pld is
 
     -- Internal state registers (flip-flop outputs)
-    signal Q0_r : std_logic;
-    signal Q1_r : std_logic;
-    signal Q2_r : std_logic;
-    signal Q3_r : std_logic;
-    signal Q4_r : std_logic;
-    signal Q5_r : std_logic;
-    signal Q6_r : std_logic;
-    signal Q7_r : std_logic;
-    signal Q8_r : std_logic;
-    signal Q9_r : std_logic;
+    signal Q0_r : std_logic := '0';
+    signal Q1_r : std_logic := '0';
+    signal Q2_r : std_logic := '0';
+    signal Q3_r : std_logic := '0';
+    signal Q4_r : std_logic := '0';
+    signal Q5_r : std_logic := '0';
+    signal Q6_r : std_logic := '0';
+    signal Q7_r : std_logic := '0';
+    signal Q8_r : std_logic := '0';
+    signal Q9_r : std_logic := '0';
 
     -- D-input signals
-    signal Q0_d : std_logic;
-    signal Q1_d : std_logic;
-    signal Q2_d : std_logic;
-    signal Q3_d : std_logic;
-    signal Q4_d : std_logic;
-    signal Q5_d : std_logic;
-    signal Q6_d : std_logic;
-    signal Q7_d : std_logic;
-    signal Q8_d : std_logic;
-    signal Q9_d : std_logic;
+    signal Q0_d : std_logic := '0';
+    signal Q1_d : std_logic := '0';
+    signal Q2_d : std_logic := '0';
+    signal Q3_d : std_logic := '0';
+    signal Q4_d : std_logic := '0';
+    signal Q5_d : std_logic := '0';
+    signal Q6_d : std_logic := '0';
+    signal Q7_d : std_logic := '0';
+    signal Q8_d : std_logic := '0';
+    signal Q9_d : std_logic := '0';
 
     -- Derived combinational signals
     -- all  = Q9 & Q8 & Q7 & Q6 & Q5 & Q4 & Q3 & Q2 & Q1 & Q0
     -- ZERO = !Q9 & !Q8 & !Q7 & !Q6 & !Q5 & !Q4 & !Q3 & !Q2 & !Q1 & !Q0
-    signal ALLx  : std_logic;
-    signal ZERO : std_logic;
+    signal ALLx : std_logic := '0';
+    signal ZERO : std_logic := '0';
 
 begin
 

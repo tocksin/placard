@@ -2,14 +2,14 @@
 -- Name     VGA_SYNC
 -- PartNo   01
 -- Date     2026-09-30
--- Revision 03
+-- Revision 04
 -- Designer Justin
 -- Company
 -- Assembly
 -- Location
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 03)
+-- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 04)
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP/SOIC; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = CLK
@@ -233,10 +233,20 @@ begin
     --      10   Video address
     --      11   Program counter
     --
+    -- Priority (highest first):
+    --
+    --     1. Video address    BYTE_ENABLE            -> 10
+    --     2. Program counter  PC_ENABLE              -> 11
+    --     3. X / Y registers  X_ENABLE, Y_ENABLE     -> 01
+    --     4. Default                                 -> 00
+    --
+    -- BYTE_ENABLE overrides PC_ENABLE, X_ENABLE and Y_ENABLE.
+    -- PC_ENABLE overrides X_ENABLE and Y_ENABLE.
+    --
 
 
     --
-    -- Shared S1 input to all FOUR 4:1 muxes.
+    -- Shared S1 input to ALL FOUR 4:1 muxes.
     --
     -- Video is selected only during BYTE_ENABLE.
     -- PC is selected whenever PC_ENABLE is active.
@@ -256,10 +266,13 @@ begin
     --     10 = Video address
     --     11 = PC
     --
+    -- S0 is forced low during BYTE_ENABLE so that S1 S0 = 10
+    -- (video) regardless of PC_ENABLE and Y_ENABLE.
+    --
 
     ADDR_SEL_HI <=
-          PC_ENABLE
-       or Y_ENABLE;
+          (not BYTE_ENABLE_I)
+      and (PC_ENABLE or Y_ENABLE);
 
 
     --
@@ -271,10 +284,13 @@ begin
     --     10 = Video address
     --     11 = PC
     --
+    -- S0 is forced low during BYTE_ENABLE so that S1 S0 = 10
+    -- (video) regardless of PC_ENABLE and X_ENABLE.
+    --
 
     ADDR_SEL_LO <=
-          PC_ENABLE
-       or X_ENABLE;
+          (not BYTE_ENABLE_I)
+      and (PC_ENABLE or X_ENABLE);
 
 
     -- ============================================================

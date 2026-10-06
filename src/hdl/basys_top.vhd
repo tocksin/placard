@@ -57,6 +57,7 @@ architecture Behavioral of basys_top is
       clk_in1           : in     sl;
       -- Clock out ports
       clk_out1          : out    sl;
+      clk_out2          : out    sl;
       reset             : in     sl;
       locked            : out    sl
      );
@@ -77,6 +78,8 @@ architecture Behavioral of basys_top is
     signal btnDeBnc         : slv(4 downto 0);
 
     signal clkVGA           : sl;
+    signal clkSystem        : sl;
+    signal clkCPU           : sl;
 
     signal rstSystem        : sl;
     signal rstVGA           : sl;
@@ -84,18 +87,18 @@ architecture Behavioral of basys_top is
     signal rstBtn           : sl;
     signal locked           : sl;
 
-    signal videoEn          : sl;
-    signal videoEnR         : sl;
-    signal vidRamEn         : sl;
+    signal videoActive          : sl;
+    signal videoActiveR         : sl;
+    signal pixelEn         : sl;
     signal pixelRow         : slv(9 downto 0);
     signal pixelCol         : slv(9 downto 0);
-    signal subpixelRow      : slv(8 downto 0);
-    signal subpixelCol      : slv(8 downto 0);
     signal hSync            : sl;
     signal vSync            : sl;
-    signal videoPixel       : slv(7 downto 0);
-    signal videoAddr        : slv(15 downto 0);
+    signal ramData          : slv(7 downto 0);
+    signal dataBus          : slv(7 downto 0);
+    signal videoAddr        : slv(15 downto 0) := x"0000";
 
+    signal ramAddress       : slv(15 downto 0);
     signal addrRom          : slv(10 downto 0);
     signal dataRom          : slv(15 downto 0);
     signal romEn            : sl;
@@ -112,14 +115,27 @@ architecture Behavioral of basys_top is
     signal sync             : sl;
     signal blank            : sl;
     
+    
     signal pixelBuffer      : slv(7 downto 0);
     signal pixelSel         : slv(2 downto 0);
     signal loadPixel        : sl;
     signal loadCode         : sl;
-    signal lineCode         : slv(7 downto 0);
+    signal lineCode         : slv(7 downto 0) := x"00";
     signal vRed             : slv(3 downto 0);
     signal vBlue            : slv(3 downto 0);
     signal vGreen           : slv(3 downto 0);
+    
+    signal muxSelBoth       : sl;
+    signal muxSelLo         : sl;
+    signal muxSelHi         : sl;
+    
+    signal programCounter   : slv(15 downto 0) := x"0000";
+    signal pcEnable         : sl;
+    signal instEn           : sl;
+    signal immEn            : sl;
+    signal execute          : sl;
+    signal pcInc            : sl;
+    signal state            : slv(1 downto 0);
     
 begin
 
@@ -129,7 +145,8 @@ begin
     clk_wiz_0_inst : clk_wiz_0
     port map (
         clk_in1  => CLK,        -- expecting 100 MHz
-        clk_out1 => clkVGA,     -- requesting 25.17483  MHz
+        clk_out1 => clkVGA,     -- requesting 25  MHz
+        clk_out2 => clkSystem,  -- requesting 100 MHz
         locked   => locked,
         reset    => rstBtn
      );
@@ -185,19 +202,77 @@ begin
     onePulse(clkVGA, rstVGA, btnDeBnc(3), btnReg(3), btnPulse(3));
 
     ----------------------------------------------------------
+    ------              CPU Control                    -------
+    ----------------------------------------------------------
+/*
+    cpuClockGateProc : process (all)
+    begin
+        if pixelEn='0' then
+            clkCPU <= clkVGA;  -- never do this
+        else 
+            clkCPU <= '0';
+        end if;
+    end process cpuClockGateProc;
+*/
+    clkCPU <= clkVGA;
+    
+    stateMachineProc: entity work.state_ctrl
+    port map (
+        clk         => clkCPU,
+        byte_enable => pixelEn,
+
+        q0          => state(0),
+        q1          => state(1),
+
+        pc_enable   => pcEnable,
+        fetch_en    => instEn,
+        imm_en      => immEn,
+        exec_en     => execute,
+        pc_inc      => pcInc
+    );
+    
+    programCounterProc : process (clkCPU)
+    begin
+        if rising_edge(clkCPU) then
+            if pcInc='1' then
+                programCounter <= slv(unsigned(programCounter) + 1);
+            end if;
+        end if;
+    end process programCounterProc;
+    
+    ----------------------------------------------------------
     ------              VGA Control                    -------
     ----------------------------------------------------------
     vgaGenComp: entity work.vgaSync
     port map(   clkIn           => clkVGA,
                 rstIn           => rstVGA,
+                hSyncOut        => open,
+                vSyncOut        => open,
+                videoEnOut      => open,
+                ramEnOut        => open,
+                pixelRowOut     => open,
+                pixelColOut     => open,
+                subpixelRowOut  => open,
+                subpixelColOut  => open
+    );
+
+    vgaPLDComp: entity work.vga_gen_pld
+    port map(   clkIn           => clkVGA,
+                rstIn           => rstVGA,
                 hSyncOut        => hSync,
                 vSyncOut        => vSync,
-                videoEnOut      => videoEn,
-                ramEnOut        => vidRamEn,
+                videoActiveOut  => videoActive,
+                pixelEnOut      => pixelEn,
                 pixelRowOut     => pixelRow,
                 pixelColOut     => pixelCol,
-                subpixelRowOut  => subpixelRow,
-                subpixelColOut  => subpixelCol
+                
+                pcEnableIn      => '1',
+                xEnableIn       => '0',
+                yEnableIn       => '0',
+                
+                muxSelBothOut   => muxSelBoth,
+                muxSelLoOut     => muxSelLo,
+                muxSelHiOut     => muxSelHi
     );
 
     -- Line code:
@@ -216,7 +291,7 @@ begin
     -- videoAddr <= (pixelRow(8 downto 0) & pixelCol(9 downto 3));
     -- reversed layout
     videoAddr <= (pixelCol(9 downto 3) & pixelRow(8 downto 0));
-    loadPixel <= '1' when pixelCol(2 downto 0) = "000" else '0';
+    -- loadPixel <= '1' when pixelCol(2 downto 0) = "000" else '0';
 
     -- 640x240x1 - reads every 8th pixel and every other row
     -- videoAddr <= (pixelRow(8 downto 1) & '0' & pixelCol(9 downto 3));
@@ -229,59 +304,72 @@ begin
     -- 640x240x1 - reads every 4th pixel and every other row
     -- videoAddr <= (pixelRow(8 downto 1) & pixelCol(9 downto 2));
     -- loadPixel <= '1' when pixelCol(1 downto 0) = "00" else '0';
-    loadCode  <= '1' when pixelCol(9 downto 0) = "0110000001" else '0'; -- 385
+
+    lowerMuxComp: entity work.full_mux
+    port map( sel          => muxSelBoth & muxSelLo,
+           aPort        => x"00",
+           bPort        => x"01",
+           cPort        => videoAddr(7 downto 0),
+           dPort        => programCounter(7 downto 0),
+           yPort        => ramAddress(7 downto 0)
+    );
+
+    higherMuxComp: entity work.full_mux
+    port map ( sel          => muxSelBoth & muxSelHi,
+           aPort        => x"00",
+           bPort        => x"01",
+           cPort        => videoAddr(15 downto 8),
+           dPort        => programCounter(15 downto 8),
+           yPort        => ramAddress(15 downto 8)
+    );
 
     ramComp : entity work.sp_ram 
-    port map(   iClk    => clkVGA,
+    port map(   iClk    => clkSystem,  -- faster clock to simulate async RAM
                 iWrEn   => '0',
-                iRamEn  => vidRamEn,
-                iAddr   => videoAddr,
-                iData   => (videoPixel'range => '0'),
-                oData   => videoPixel);  -- must be same size as input data
+                iRamEn  => '1',
+                iAddr   => ramAddress,
+                iData   => (ramData'range => '0'),
+                oData   => ramData);  -- must be same size as input data
 
-    pixelBuffer <= videoPixel when videoEnR='1' else x"00";
+    -- Replaces the tri-state databus which selects between the RAM or ROM
+    rambusSelectorProc: process (all)
+    begin
+        dataBus <= x"00";
+        if pixelEn='1' then
+            databus <= ramData;
+        end if;        
+    end process rambusSelectorProc;
 
-    lineCodeProc : process (clkVGA, rstVGA)
+    -- Load Code register process 
+    --   uses videoActiveR as clock to load once at the beginning of the video line
+    loadCodeProc : process (videoActiveR)
+    begin
+        if rising_edge(videoActiveR) then
+            lineCode <= databus;
+        end if;
+    end process loadCodeProc;
+ 
+    -- Pixel register process
+    --   Holds the 8-bit dataword represting the pixel(s)
+    pixelProc : process (clkVGA)
+    begin
+        if rising_edge(clkVGA) then
+            if pixelEn='1' then
+                pixelBuffer <= databus;
+            end if;
+        end if;
+    end process pixelProc;
+
+    delayPixelProc : process (clkVGA, rstVGA)
     begin
         if (rstVGA = '1') then
-             lineCode <= (others => '0');
              pixelSel <= (others => '0');
-             videoEnR <= '0';
+             videoActiveR <= '0';
         elsif (rising_edge(clkVGA)) then
-            if loadCode = '1' then
-                lineCode <= videoPixel;
-            end if;
-            
+            videoActiveR <= videoActive;              
             pixelSel <= pixelCol(2 downto 0);  -- delay for timing
-            
---            if videoEn='1' then
-/*
-                if lineCode(3 downto 2) = "00" then
-                    videoEnR <= videoEn;               -- delay for timing
-                end if;
-
-                if lineCode(3 downto 2) = "01" and pixelSel(0) = '1' then
-                    videoEnR <= videoEn;               -- delay for timing
-                end if;
-
-                if lineCode(3 downto 2) = "10" and pixelSel(1) = '1' then
-                    videoEnR <= videoEn;               -- delay for timing
-                end if;
-
-                if lineCode(3 downto 2) = "11" and pixelSel(2) = '1' then
-                    videoEnR <= videoEn;               -- delay for timing
-                end if;
-*/
-/*
-                if pixelCol(2) = '1' then
-                    videoEnR <= videoEn;               -- delay for timing
-                end if;
-*/
---            end if;
-            videoEnR <= videoEn;               -- delay for timing
-          
         end if;
-    end process lineCodeProc;
+    end process delayPixelProc;
 
     colorDecoderComp : entity work.color_decoder
     Port map(
@@ -304,16 +392,18 @@ begin
         SEL0  => pixelSel(0),
         SEL1  => pixelSel(1),
         SEL2  => pixelSel(2),
+        
+        VIDEN => videoActiveR,
 
         -- VGA Outputs
-        OUT0  => vRed(1),   -- VGA_RED(1)
-        OUT1  => vRed(2),   -- VGA_RED(2)
-        OUT2  => vRed(3),   -- VGA_RED(3)
-        OUT3  => vBlue(2),  -- VGA_BLUE(2)
-        OUT4  => vBlue(3),  -- VGA_BLUE(3)
-        OUT5  => vGreen(1), -- VGA_GREEN(1)
-        OUT6  => vGreen(2), -- VGA_GREEN(2)
-        OUT7  => vGreen(3)  -- VGA_GREEN(3)
+        RED1  => vRed(1),   -- VGA_RED(1)
+        RED2  => vRed(2),   -- VGA_RED(2)
+        RED3  => vRed(3),   -- VGA_RED(3)
+        BLU2  => vBlue(2),  -- VGA_BLUE(2)
+        BLU3  => vBlue(3),  -- VGA_BLUE(3)
+        GRN1  => vGreen(1), -- VGA_GREEN(1)
+        GRN2  => vGreen(2), -- VGA_GREEN(2)
+        GRN3  => vGreen(3)  -- VGA_GREEN(3)
     );
 
     vRed(0) <= vRed(1);
@@ -339,7 +429,7 @@ begin
 */
         elsif (rising_edge(clkVGA)) then
 /*
-            if videoEn='1' then
+            if videoActive='1' then
                 VGA_RED   <= vRed;
                 VGA_BLUE  <= vBlue;
                 VGA_GREEN <= vGreen;
