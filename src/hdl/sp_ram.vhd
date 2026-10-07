@@ -47,8 +47,12 @@ architecture rtl of sp_ram is
         prng_value := seed;
         for i in ramType'range loop
 --            temp_mem(i) := std_logic_vector(to_unsigned(i,dataLength));
-            temp_mem(i) := prng_value(7 downto 0) ;
-            prng_value := prng_lfsr32(prng_value);
+            if i<24576 then 
+                temp_mem(i) := x"00";
+            else
+                temp_mem(i) := prng_value(7 downto 0) ;
+                prng_value := prng_lfsr32(prng_value);
+            end if;
         end loop;
 
         -- every 8th pixel

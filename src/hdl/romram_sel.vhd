@@ -28,7 +28,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
-entity romram_sel is
+entity romram_sel_pld is
     port (
         wr_clk  : in  std_logic;   -- pin 1
         a15     : in  std_logic;   -- pin 2
@@ -54,9 +54,9 @@ entity romram_sel is
         ramsel6 : out std_logic;   -- pin 21
         ramsel7 : out std_logic    -- pin 22
     );
-end entity romram_sel;
+end entity romram_sel_pld;
 
-architecture rtl of romram_sel is
+architecture rtl of romram_sel_pld is
 
     -- stored map registers (power up to 0)
     signal ramsel0_q : std_logic := '0';

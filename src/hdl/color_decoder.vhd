@@ -35,7 +35,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
-entity COLOR_DECODER is
+entity color_decoder is
   port (
     -- ---------------- INPUTS ----------------
     D0    : in  std_logic;   -- PIN 2
@@ -66,9 +66,9 @@ entity COLOR_DECODER is
     GRN2  : out    std_logic;   -- PIN 20
     GRN3  : buffer std_logic    -- PIN 19  (also the 1 bpp pixel source)
   );
-end entity COLOR_DECODER;
+end entity color_decoder;
 
-architecture RTL of COLOR_DECODER is
+architecture RTL of color_decoder is
 
   signal M1, M2, M4, M8 : std_logic;
   signal C0, C1         : std_logic;
