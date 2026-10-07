@@ -1,0 +1,198 @@
+Name     PC_COUNTER8;
+PartNo   00;
+Date     10/06/2026;
+Revision 02;
+Designer ;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   8-BIT LOADABLE COUNTER   (ATF22V10C, DIP-24 / PLCC-28)
+   ============================================================
+
+   Use two of these for the 16-bit program counter.  Same
+   JED file for both.
+
+       LOW  byte:  CIN = tied HIGH,  EN = PC_ENABLE
+       HIGH byte:  CIN = CO of LOW,  EN = PC_ENABLE
+
+   Both chips share CLK, LOAD, PC_ENABLE and PIXEL_ENABLE.
+   No external gate is needed for PC_INC.
+
+   COUNT CONDITION
+       CNT = EN & CIN & !PIXEL_ENABLE
+
+       PIXEL_ENABLE = 1 means video owns the bus: the counter
+       HOLDS (unless LOAD = 1).
+
+   FUNCTION (on the rising edge of CLK)
+       LOAD = 1                   Q <- D7:D0   (LOAD has priority,
+                                                not gated by PIXEL_ENABLE)
+       LOAD = 0, CNT = 1          Q <- Q + 1
+       LOAD = 0, CNT = 0          Q <- Q       (hold)
+
+   CARRY OUT
+       CO = CIN & (Q7:Q0 = 11111111)
+
+       CO does NOT include EN or PIXEL_ENABLE.  The high byte
+       applies EN and !PIXEL_ENABLE itself, so the two chips
+       act as one 16-bit counter.  Because CO is combinational
+       from the registers, the carry is "look-ahead" between
+       bytes (no extra clock of delay).
+
+   PIN BUDGET
+       Inputs : D7:D0, LOAD, EN, CIN, PIXEL_ENABLE  = 12
+                (pins 2-11 and 13 are dedicated inputs; pin 14
+                 is an I/O pin used as an input)
+       Outputs: Q7:Q0 (registered), CO (pin 23)     =  9
+
+   PRODUCT TERMS (bit n needs n + 5)
+       Q0 =  5   Q1 =  6   Q2 =  7   Q3 =  8
+       Q4 =  9   Q5 = 10   Q6 = 11   Q7 = 12
+       Bits were placed on pins with enough terms available:
+           pin 15 (10) Q0      pin 22 (10) Q1
+           pin 21 (12) Q2      pin 16 (12) Q3
+           pin 20 (14) Q4      pin 17 (14) Q5
+           pin 19 (16) Q6      pin 18 (16) Q7
+           pin 23 ( 8) CO (1 term)
+
+   POWER-UP
+       The ATF22V10C clears its registers at power-up, so Q = 0.
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 1  = CLK;
+
+PIN 2  = D0;
+PIN 3  = D1;
+PIN 4  = D2;
+PIN 5  = D3;
+PIN 6  = D4;
+PIN 7  = D5;
+PIN 8  = D6;
+PIN 9  = D7;
+
+PIN 10 = LOAD;           /* synchronous load, active high */
+PIN 11 = EN;             /* count enable, active high (PC_ENABLE) */
+PIN 13 = CIN;            /* carry in, active high (tie high on low byte) */
+
+PIN 14 = PIXEL_ENABLE;    /* 1 = video owns the bus, counting inhibited (I/O pin used as input) */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+PIN 15 = Q0;
+PIN 22 = Q1;
+PIN 21 = Q2;
+PIN 16 = Q3;
+PIN 20 = Q4;
+PIN 17 = Q5;
+PIN 19 = Q6;
+PIN 18 = Q7;
+
+PIN 23 = CO;             /* carry out, active high */
+
+
+/* ---------------- CARRY OUT ---------------- */
+
+CO = CIN & Q7 & Q6 & Q5 & Q4 & Q3 & Q2 & Q1 & Q0;
+
+
+/* ---------------- COUNTER ----------------
+
+   Each bit:
+       LOAD            -> Dn
+       hold (no count) -> Qn
+       toggle          -> when CNT = EN & CIN & !PIXEL_ENABLE
+                          and all lower bits are 1
+
+   Hold terms: !EN, !CIN, PIXEL_ENABLE, and each lower bit low.
+   ------------------------------------------------------------ */
+
+Q0.D = LOAD & D0
+     # !LOAD & Q0 & !EN
+     # !LOAD & Q0 & !CIN
+     # !LOAD & Q0 &  PIXEL_ENABLE
+     # !LOAD & !Q0 & EN & CIN & !PIXEL_ENABLE;
+
+
+Q1.D = LOAD & D1
+     # !LOAD & Q1 & !EN
+     # !LOAD & Q1 & !CIN
+     # !LOAD & Q1 &  PIXEL_ENABLE
+     # !LOAD & Q1 & !Q0
+     # !LOAD & !Q1 & Q0 & EN & CIN & !PIXEL_ENABLE;
+
+
+Q2.D = LOAD & D2
+     # !LOAD & Q2 & !EN
+     # !LOAD & Q2 & !CIN
+     # !LOAD & Q2 &  PIXEL_ENABLE
+     # !LOAD & Q2 & !Q0
+     # !LOAD & Q2 & !Q1
+     # !LOAD & !Q2 & Q1 & Q0 & EN & CIN & !PIXEL_ENABLE;
+
+
+Q3.D = LOAD & D3
+     # !LOAD & Q3 & !EN
+     # !LOAD & Q3 & !CIN
+     # !LOAD & Q3 &  PIXEL_ENABLE
+     # !LOAD & Q3 & !Q0
+     # !LOAD & Q3 & !Q1
+     # !LOAD & Q3 & !Q2
+     # !LOAD & !Q3 & Q2 & Q1 & Q0 & EN & CIN & !PIXEL_ENABLE;
+
+
+Q4.D = LOAD & D4
+     # !LOAD & Q4 & !EN
+     # !LOAD & Q4 & !CIN
+     # !LOAD & Q4 &  PIXEL_ENABLE
+     # !LOAD & Q4 & !Q0
+     # !LOAD & Q4 & !Q1
+     # !LOAD & Q4 & !Q2
+     # !LOAD & Q4 & !Q3
+     # !LOAD & !Q4 & Q3 & Q2 & Q1 & Q0 & EN & CIN & !PIXEL_ENABLE;
+
+
+Q5.D = LOAD & D5
+     # !LOAD & Q5 & !EN
+     # !LOAD & Q5 & !CIN
+     # !LOAD & Q5 &  PIXEL_ENABLE
+     # !LOAD & Q5 & !Q0
+     # !LOAD & Q5 & !Q1
+     # !LOAD & Q5 & !Q2
+     # !LOAD & Q5 & !Q3
+     # !LOAD & Q5 & !Q4
+     # !LOAD & !Q5 & Q4 & Q3 & Q2 & Q1 & Q0 & EN & CIN & !PIXEL_ENABLE;
+
+
+Q6.D = LOAD & D6
+     # !LOAD & Q6 & !EN
+     # !LOAD & Q6 & !CIN
+     # !LOAD & Q6 &  PIXEL_ENABLE
+     # !LOAD & Q6 & !Q0
+     # !LOAD & Q6 & !Q1
+     # !LOAD & Q6 & !Q2
+     # !LOAD & Q6 & !Q3
+     # !LOAD & Q6 & !Q4
+     # !LOAD & Q6 & !Q5
+     # !LOAD & !Q6 & Q5 & Q4 & Q3 & Q2 & Q1 & Q0 & EN & CIN & !PIXEL_ENABLE;
+
+
+Q7.D = LOAD & D7
+     # !LOAD & Q7 & !EN
+     # !LOAD & Q7 & !CIN
+     # !LOAD & Q7 &  PIXEL_ENABLE
+     # !LOAD & Q7 & !Q0
+     # !LOAD & Q7 & !Q1
+     # !LOAD & Q7 & !Q2
+     # !LOAD & Q7 & !Q3
+     # !LOAD & Q7 & !Q4
+     # !LOAD & Q7 & !Q5
+     # !LOAD & Q7 & !Q6
+     # !LOAD & !Q7 & Q6 & Q5 & Q4 & Q3 & Q2 & Q1 & Q0 & EN & CIN & !PIXEL_ENABLE;
