@@ -12,10 +12,20 @@
 --     1  0  0     ADD
 --     1  0  1     SUB
 --     1  1  0     SHIFT RIGHT
---     1  1  1     NOT A
+--     1  1  1     NEG A (2s complement of A)
 --
 -- SUBTRACTION:  A - B - CIN = A + not B + not CIN
 --     COUT = 1 means no borrow, COUT = 0 means borrow
+--
+-- NEG A:  F = 0 - A - CIN  (4-bit 2s complement of A when CIN = 0)
+--     Same borrow convention as SUB: CIN = 1 is a borrow in,
+--     COUT = 1 means no borrow, so COUT = 1 only when A = 0 and
+--     CIN = 0.  Chain it exactly like SUB (borrow = not COUT of
+--     the lower chip) to negate a number wider than 4 bits.
+--     F0 = A0 xor CIN
+--     F1 = A1 xor (A0 or CIN)
+--     F2 = A2 xor (A1 or A0 or CIN)
+--     F3 = A3 xor (A2 or A1 or A0 or CIN)
 --
 -- SHIFT RIGHT:
 --     F3 = SHIFT_RIGHT_IN, F2 = A3, F1 = A2, F0 = A1, COUT = A0
@@ -40,11 +50,12 @@
 -- SUGGESTED PIN ASSIGNMENT (24-pin DIP; pin 12 = GND, 24 = VCC)
 --     A0..A3  = 1,2,3,4          B0..B3 = 5,6,7,8
 --     S0..S2  = 9,10,11          CIN    = 13
---     F0..F3  = 20,19,18,17      COUT   = 15      Z = 14
+--     F0..F3  = 20,17,18,19      COUT   = 15      Z = 14
 --     SHIFT_RIGHT_IN = 23 (input only)
 --     D1 = 22, D2 = 21, D3 = 16  (internal carry nodes)
--- F0..F3 need ~10 product terms each, so they must stay on pins
--- with at least 14 terms available (pins 17, 18, 19, 20).
+-- F0..F3 need ~11 to 14 product terms each, so they must stay on
+-- pins with at least 14 terms available (pins 17, 18, 19, 20).
+-- F3 (about 14 terms) belongs on pin 18 or 19 (16 terms available).
 -- =========================================================
 
 library ieee;
@@ -72,7 +83,7 @@ architecture rtl of alu4 is
     signal or_sel    : std_logic;
     signal xor_sel   : std_logic;
     signal shr_sel   : std_logic;
-    signal not_sel   : std_logic;
+    signal neg_sel   : std_logic;
     signal arith_sel : std_logic;   -- ADD (S0=0) or SUB (S0=1)
     signal c4        : std_logic;   -- true carry out of bit 3
     signal sh        : std_logic_vector(3 downto 0);   -- shift-right source
@@ -84,7 +95,7 @@ begin
     or_sel    <= (not s(2)) and s(1) and (not s(0));
     xor_sel   <= (not s(2)) and s(1) and s(0);
     shr_sel   <= s(2) and s(1) and (not s(0));
-    not_sel   <= s(2) and s(1) and s(0);
+    neg_sel   <= s(2) and s(1) and s(0);
     arith_sel <= s(2) and (not s(1));
 
     -- shift-right source bits
@@ -108,7 +119,7 @@ begin
          or (xor_sel   and (a(0) xor b(0)))
          or (arith_sel and ((a(0) xor b(0)) xor cin))
          or (shr_sel   and sh(0))
-         or (not_sel   and (not a(0)));
+         or (neg_sel   and (a(0) xor cin));
 
     f(1) <= (pass_sel and b(1))
          or (and_sel   and (a(1) and b(1)))
@@ -116,7 +127,7 @@ begin
          or (xor_sel   and (a(1) xor b(1)))
          or (arith_sel and ((a(1) xor b(1)) xor d1))
          or (shr_sel   and sh(1))
-         or (not_sel   and (not a(1)));
+         or (neg_sel   and (a(1) xor (a(0) or cin)));
 
     f(2) <= (pass_sel and b(2))
          or (and_sel   and (a(2) and b(2)))
@@ -124,7 +135,7 @@ begin
          or (xor_sel   and (a(2) xor b(2)))
          or (arith_sel and ((a(2) xor b(2)) xor d2))
          or (shr_sel   and sh(2))
-         or (not_sel   and (not a(2)));
+         or (neg_sel   and (a(2) xor ((a(1) or a(0)) or cin)));
 
     f(3) <= (pass_sel and b(3))
          or (and_sel   and (a(3) and b(3)))
@@ -132,10 +143,13 @@ begin
          or (xor_sel   and (a(3) xor b(3)))
          or (arith_sel and ((a(3) xor b(3)) xor d3))
          or (shr_sel   and sh(3))
-         or (not_sel   and (not a(3)));
+         or (neg_sel   and (a(3) xor (((a(2) or a(1)) or a(0)) or cin)));
 
-    -- carry output: ADD/SUB carry (no-borrow), SHR shifts out A0
-    cout <= (arith_sel and c4) or (shr_sel and a(0));
+    -- carry output: ADD/SUB carry (no-borrow), SHR shifts out A0,
+    -- NEG no-borrow (A = 0 and CIN = 0)
+    cout <= (arith_sel and c4)
+         or (shr_sel and a(0))
+         or (neg_sel and (not a(3)) and (not a(2)) and (not a(1)) and (not a(0)) and (not cin));
 
     -- zero flag (uses the F pin feedback, a single product term)
     z <= (not f(0)) and (not f(1)) and (not f(2)) and (not f(3));

@@ -1,7 +1,7 @@
 Name     COLOR_DECODER;
 PartNo   00;
-Date     09/15/2026;
-Revision 05;
+Date     10/07/2026;
+Revision 06;
 Designer "Justin Davis";
 Company  "";
 Assembly "";
@@ -22,11 +22,13 @@ Device   g22v10;
       1     0        4             2           16
       1     1        8             1          256
 
-   SEL2:SEL0 chooses which pixel of the byte is shown:
-      1 bpp : SEL2:0 -> D0..D7
-      2 bpp : SEL1:0 -> D1:0 / D3:2 / D5:4 / D7:6   (SEL2 ignored)
-      4 bpp : SEL0   -> D3:0 / D7:4                 (SEL2:1 ignored)
-      8 bpp : SEL ignored
+   H2:H0 (the pixel clock count within each 8-clock byte, from the Sync
+   PLD) chooses which pixel of the byte is shown.  Each mode uses only the
+   H bits it needs, so a pixel is held for 1, 2, 4 or 8 clocks:
+      1 bpp : H2:H0 -> D0..D7                       (1 clock per pixel)
+      2 bpp : H2:H1 -> D1:0 / D3:2 / D5:4 / D7:6    (2 clocks per pixel)
+      4 bpp : H2    -> D3:0 / D7:4                  (4 clocks per pixel)
+      8 bpp : H ignored                             (8 clocks per pixel)
 
    OUTPUTS (resistor DAC, bit 3 = MSB of each channel)
       RED1..RED3 = R LSB..MSB   (3 bits)
@@ -40,7 +42,7 @@ Device   g22v10;
         old PIX helper pin is gone.  Instead GRN3 computes the 1-bpp
         pixel mux itself (in 1 bpp mode GRN3 = the selected pixel)
         and the other seven outputs feed GRN3 back into the array.
-      - SEL2 (pin 14) and VIDEN (pin 23) are on I/O pins used as inputs.
+      - H2 (pin 14) and VIDEN (pin 23) are on I/O pins used as inputs.
       - VIDEN is folded into M1/M2/M4/M8, so blanking costs no extra
         product terms: with VIDEN = 0 no mode term can be true.
    ============================================================ */
@@ -60,9 +62,9 @@ PIN 9  = D7;
 PIN 10 = MODE0;
 PIN 11 = MODE1;
 
-PIN 13 = SEL0;
-PIN 1  = SEL1;
-PIN 14 = SEL2;
+PIN 13 = H0;
+PIN 1  = H1;
+PIN 14 = H2;
 
 PIN 23 = VIDEN;      /* video enable, active high (low = black) */
 
@@ -89,15 +91,15 @@ M8 = VIDEN &  MODE1 &  MODE0;
 
 /* ---------------- 2 bpp: 4:1 mux of 2-bit pixel ---------------- */
 
-C0 =  D0 & !SEL1 & !SEL0
-    # D2 & !SEL1 &  SEL0
-    # D4 &  SEL1 & !SEL0
-    # D6 &  SEL1 &  SEL0;
+C0 =  D0 & !H2 & !H1
+    # D2 & !H2 &  H1
+    # D4 &  H2 & !H1
+    # D6 &  H2 &  H1;
 
-C1 =  D1 & !SEL1 & !SEL0
-    # D3 & !SEL1 &  SEL0
-    # D5 &  SEL1 & !SEL0
-    # D7 &  SEL1 &  SEL0;
+C1 =  D1 & !H2 & !H1
+    # D3 & !H2 &  H1
+    # D5 &  H2 & !H1
+    # D7 &  H2 &  H1;
 
 /* 2 bpp palette (high-contrast, color-blind safe, luminance ramp)
 
@@ -114,10 +116,10 @@ C1 =  D1 & !SEL1 & !SEL0
 
 /* ---------------- 4 bpp: nibble select ---------------- */
 
-X0 = D0 & !SEL0 # D4 & SEL0;
-X1 = D1 & !SEL0 # D5 & SEL0;
-X2 = D2 & !SEL0 # D6 & SEL0;
-X3 = D3 & !SEL0 # D7 & SEL0;
+X0 = D0 & !H2 # D4 & H2;
+X1 = D1 & !H2 # D5 & H2;
+X2 = D2 & !H2 # D6 & H2;
+X3 = D3 & !H2 # D7 & H2;
 
 /* 4 bpp palette: 16 colors (4 grays, 8 hues, dark/light variants).
    Black is index 0.  Index order was chosen so that GRN3 = X3 (one
@@ -191,14 +193,14 @@ GRN2 = M1 & GRN3 # M2 & C1        # M4 & GRN2_4 # M8 & D6;
 
 /* GRN3: 1 bpp 8:1 pixel mux written out (8 terms) + its own terms */
 GRN3 =
-      M1 & D0 & !SEL2 & !SEL1 & !SEL0
-    # M1 & D1 & !SEL2 & !SEL1 &  SEL0
-    # M1 & D2 & !SEL2 &  SEL1 & !SEL0
-    # M1 & D3 & !SEL2 &  SEL1 &  SEL0
-    # M1 & D4 &  SEL2 & !SEL1 & !SEL0
-    # M1 & D5 &  SEL2 & !SEL1 &  SEL0
-    # M1 & D6 &  SEL2 &  SEL1 & !SEL0
-    # M1 & D7 &  SEL2 &  SEL1 &  SEL0
+      M1 & D0 & !H2 & !H1 & !H0
+    # M1 & D1 & !H2 & !H1 &  H0
+    # M1 & D2 & !H2 &  H1 & !H0
+    # M1 & D3 & !H2 &  H1 &  H0
+    # M1 & D4 &  H2 & !H1 & !H0
+    # M1 & D5 &  H2 & !H1 &  H0
+    # M1 & D6 &  H2 &  H1 & !H0
+    # M1 & D7 &  H2 &  H1 &  H0
     # M2 & C1 & C0
     # M4 & GRN3_4
     # M8 & D7;

@@ -583,6 +583,7 @@ begin
         end if;
     end process pixelProc;
 
+/*
     delayPixelProc : process (clkVGA, rstVGA)
     begin
         if (rstVGA = '1') then
@@ -593,6 +594,9 @@ begin
             pixelSel <= pixelCol(2 downto 0);  -- delay for timing
         end if;
     end process delayPixelProc;
+*/
+            videoActiveR <= videoActive;              
+            pixelSel <= pixelCol(2 downto 0);  -- delay for timing
 
     colorDecoderComp : entity work.color_decoder
     Port map(
@@ -612,9 +616,9 @@ begin
         MODE1 => lineCode(1),
 
         -- Selection Signals
-        SEL0  => pixelSel(0),
-        SEL1  => pixelSel(1),
-        SEL2  => pixelSel(2),
+        H0  => pixelSel(0),
+        H1  => pixelSel(1),
+        H2  => pixelSel(2),
         
         VIDEN => videoActiveR,
 
