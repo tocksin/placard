@@ -1,13 +1,20 @@
 # Placard
 ## PLA computer
-This project is a computer designed using some PLA/PLD chips.  This started as a pure 7400-series chip computer, but changed over to using some PLA/PLDs to increase the usability while not greatly increasing the chip count.
+This project is a computer designed using some Programmable Logic Arrays (PLA) 
+or Programable Array Logic (PAL) or Programmable Array Devices (PLD) chips.  
+This started as a pure 7400-series chip computer, but changed over to using 
+some PLA/PLDs to increase the usability while not greatly increasing the chip 
+count.  The first PLA was created in 1970 by Texas Instruments.  The PAL was 
+created in 1978 by Monolithic Memories which is owned by Lattice Semi today. 
+There are some differences between the three types of chips, but this project 
+isn't going to distinguished between them.
 
 ## Project goals
 The project has some hard-goals to maintain:
 - Use only through-hole chips similar to the 7400-series DIP chips (or PLA of course)
 - Use only active production chips.  No hunting sketchy websites for parts.
 - Design true von Neumann CPU from scratch.  No Harvard.  Bare-metal programming on the computer is a must (native compiler).
-- Have a video output.  The video format is TBD, but probably a legacy output (VGA/Composite/etc).
+- Have a video output.  The video standard is open, but probably a legacy output (VGA/Composite/etc).
 - Make the instruction set "fun" to program.  This means no racing the beam to draw the screen.  Counting instructions is not fun.
 - Built-in keyboard.  No USB/PS2 keyboard.
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
@@ -34,24 +41,6 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 | xC000-xDFFF | RAM/ROM (Video Memory) |
 | xE000-xFFFF | RAM/ROM (Video Memory) |
 
-
-## ALU
-There are not many good retro options for ALUs today.  Gigatron uses 10 MUX chips.  Novasaur uses ROM lookup tables.  An ALU is simply a combinational truth table of operations.  There are three mode inputs for the whole chip and three data inputs (per bit).  There aren't enough logic/pins to support a full 8-bit ALU, but a 4-bit ALU is possible.  It needs 4 outputs for data, and 4 outputs for flags (carryout C, zero Z, overflow V, negative N).    
-
-| S2   | S1 | S0 | Function  | Instruction |
-|------|----|----|-----------|------|
-| 0    |  0 |  0 | PASS B    | LD   |
-| 0    |  0 |  1 | A AND B   | AND  |
-| 0    |  1 |  0 | A OR B    | OR   |
-| 0    |  1 |  1 | A XOR B   | XOR  |
-| 1    |  0 |  0 | A + B + C | ADD  |
-| 1    |  0 |  1 | A - B - C | SUB  |
-| 1    |  1 |  0 | A >> 1    | SHR  |
-| 1    |  1 |  1 | NOT A     | NOT  |
-
-Adding the three data bits (A, B, and C for carry), the entire truth table of 6 inputs can be created.  The two outputs from the table are the data bit and the carry bit, so two functions are needed for each bit.  That makes 8 total blocks.  Each output pin is coupled with a logic block, so 8 output pins are needed.
-
-For the flags, the negative flag is simply the output of the highest data bit.  The carryout is the output of the highest carry output.  So only two more pins are needed for zero and overflow.  Zero only uses the four data outputs which is trivial for one output block. 
 
 ## Video
 The video is designed to be 640x480 VGA 60Hz standard.  This means a 25.125 MHz clock.  This requires two counters: a horizontal and vertical.  They count 800 and 600 pixels.  This needs a 10-bit counter for each.  The counters form the RAM address space to read the pixel values.  The video memory is organized in a non-traditional way with H,V instead of V,H.
