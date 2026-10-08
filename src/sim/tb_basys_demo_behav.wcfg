@@ -14,15 +14,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="827.762659 us"></ZoomStartTime>
-      <ZoomEndTime time="2,225.762660 us"></ZoomEndTime>
-      <Cursor1Time time="1,060.762659 us"></Cursor1Time>
+      <ZoomStartTime time="0.000000000 ms"></ZoomStartTime>
+      <ZoomEndTime time="18.000000001 ms"></ZoomEndTime>
+      <Cursor1Time time="18.000000000 ms"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="201"></NameColumnWidth>
-      <ValueColumnWidth column_width="82"></ValueColumnWidth>
+      <ValueColumnWidth column_width="78"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="74" />
+   <WVObjectSize size="75" />
    <wave_markers>
       <marker time="1124308758" label="" />
    </wave_markers>
@@ -329,6 +329,10 @@
    <wvobject fp_name="/tb_basys_demo/dut/destMode" type="array">
       <obj_property name="ElementShortName">destMode[1:5]</obj_property>
       <obj_property name="ObjectShortName">destMode[1:5]</obj_property>
+   </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/aluMode" type="array">
+      <obj_property name="ElementShortName">aluMode[1:5]</obj_property>
+      <obj_property name="ObjectShortName">aluMode[1:5]</obj_property>
    </wvobject>
    <wvobject type="divider" fp_name="divider311">
    </wvobject>
