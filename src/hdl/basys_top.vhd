@@ -75,7 +75,8 @@ architecture Behavioral of basys_top is
     subtype memModeType is string(1 to 5);
     signal memMode : memModeType;
     signal destMode : memModeType;
-
+    signal aluMode  : memModeType;
+    
     --Used to determine when a button press has occured
     signal btnReg    : slv (3 downto 0);
     signal btnPulse  : slv (3 downto 0);
@@ -233,16 +234,6 @@ begin
     ----------------------------------------------------------
     ------              CPU Control                    -------
     ----------------------------------------------------------
-/*
-    cpuClockGateProc : process (all)
-    begin
-        if pixelEn='0' then
-            clkCPU <= clkVGA;  -- never do this
-        else 
-            clkCPU <= '0';
-        end if;
-    end process cpuClockGateProc;
-*/
     clkCPU <= clkVGA;
     
     stateMachineProc: entity work.state_pld
@@ -284,6 +275,15 @@ begin
                 " RAM " when instReg(4 downto 2)="101" else
                 " RAM " when instReg(4 downto 2)="110" else
                 " RAM " when instReg(4 downto 2)="111";
+
+    aluMode  <= "PUSHB" when instReg(7 downto 5)="000" else
+                " AND " when instReg(7 downto 5)="001" else
+                " OR  " when instReg(7 downto 5)="010" else
+                " XOR " when instReg(7 downto 5)="011" else
+                " ADD " when instReg(7 downto 5)="100" else
+                " SUB " when instReg(7 downto 5)="101" else
+                " SHR " when instReg(7 downto 5)="110" else
+                " BRA " when instReg(7 downto 5)="111";
     
     pcCntLowerComp : entity work.pc_counter8
     port map (

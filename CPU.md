@@ -89,7 +89,7 @@ Zero only uses the four data outputs which is trivial for one output block.
 ## Branching
 
 Branching happens similar to the Gigatron.  The ALU instruction bits (7:5) 
-111 indicates a branch/jump.  The instruciton memory mode bits (4:2) dictate
+111 indicates a branch/jump.  The instruction memory mode bits (4:2) dictate
 the type of branch/jump.  A value of 000 will cause a jump (16-bit load of PC).
 A value of 111 will cause a branch (8-bit load of lower PC byte).  The others
 are conditional based on the ALU result.  
