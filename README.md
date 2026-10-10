@@ -1,38 +1,49 @@
 # Placard
 ## PLA computer
-This project is a computer designed using some PLA/PLD chips.  This started as a pure 7400-series chip computer, but changed over to using some PLA/PLDs to increase the usability while not greatly increasing the chip count.
+This project is a computer designed using some Programmable Logic Arrays (PLA) 
+or Programable Array Logic (PAL) or Programmable Array Devices (PLD) chips.  
+This started as a pure 7400-series chip computer, but changed over to using 
+some PLA/PLDs to increase the usability while not greatly increasing the chip 
+count.  The first PLA was created in 1970 by Texas Instruments.  The PAL was 
+created in 1978 by Monolithic Memories which is owned by Lattice Semi today. 
+There are some differences between the three types of chips, but this project 
+isn't going to distinguished between them.
 
 ## Project goals
 The project has some hard-goals to maintain:
 - Use only through-hole chips similar to the 7400-series DIP chips (or PLA of course)
 - Use only active production chips.  No hunting sketchy websites for parts.
 - Design true von Neumann CPU from scratch.  No Harvard.  Bare-metal programming on the computer is a must (native compiler).
-- Have a video output.  The video format is TBD, but probably a legacy output (VGA/Composite/etc).
+- Have a video output.  The video standard is open, but probably a legacy output (VGA/Composite/etc).
 - Make the instruction set "fun" to program.  This means no racing the beam to draw the screen.  Counting instructions is not fun.
 - Built-in keyboard.  No USB/PS2 keyboard.
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
 
+## Memory Map
+The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databus.  The video RAM starts at x6020 and ends at xFFFF.  The memory is divided into 8kB banks which can each be selected to read the ROM instead of RAM.  The RAM will always be the target when writing even if ROM is select for that bank.  By default, ROM is selected for all banks.  There is a fixed I/O address space at x5000-x5FFF which always has priority over RAM/ROM access.
 
-## ALU
-There are not many good retro options for ALUs today.  Gigatron uses 10 MUX chips.  Novasaur uses ROM lookup tables.  An ALU is simply a combinational truth table of operations.  There are three mode inputs for the whole chip and three data inputs (per bit).  There aren't enough logic/pins to support a full 8-bit ALU, but a 4-bit ALU is possible.  It needs 4 outputs for data, and 4 outputs for flags (carryout C, zero Z, overflow V, negative N).    
+| Address | Function  |
+|---------|------|
+| x0000-x1FFF | RAM/ROM |
+| x2000-x3FFF | RAM/ROM |
+| x4000-x4FFF | RAM/ROM |
+| x5000-x50FF | Memory configuration |
+| x5100-x51FF | Sound |
+| x5200-x52FF | Keyboard |
+| x5300-x53FF | Joystick |
+| x5400-x54FF | Storage  |
+| x5500-x55FF | Expansion 1 |
+| x5600-x56FF | Expansion 2 |
+| x5700-x5FFF | RESERVED |
+| x6000-x7FFF | RAM/ROM (Video Memory) |
+| x8000-x9FFF | RAM/ROM (Video Memory) |
+| xA000-xBFFF | RAM/ROM (Video Memory) |
+| xC000-xDFFF | RAM/ROM (Video Memory) |
+| xE000-xFFFF | RAM/ROM (Video Memory) |
 
-| Mode | S1 | S0 | Function  | Instruction |
-|------|----|----|-----------|------|
-| 0    |  0 |  0 | A AND B   | AND  |
-| 0    |  0 |  1 | A OR B    | OR   |
-| 0    |  1 |  0 | A XOR B   | XOR  |
-| 0    |  1 |  1 | NOT A     | NOT  |
-| 1    |  0 |  0 | A + B + C | ADD  |
-| 1    |  0 |  1 | A - B - C | SUB  |
-| 1    |  1 |  0 | A + 1     | INC  |
-| 1    |  1 |  1 | A - 1     | DEC  |
-
-Adding the three data bits (A, B, and C for carry), the entire truth table of 6 inputs can be created.  The two outputs from the table are the data bit and the carry bit, so two functions are needed for each bit.  That makes 8 total blocks.  Each output pin is coupled with a logic block, so 8 output pins are needed.
-
-For the flags, the negative flag is simply the output of the highest data bit.  The carryout is the output of the highest carry output.  So only two more pins are needed for zero and overflow.  Zero only uses the four data outputs which is trivial for one output block.  The overflow flag only uses the top two carry outputs (C3 XOR C4).  So we get all four flags with only two extra pins.
 
 ## Video
-The standard raster RAM video output has been done many times.  I am looking to enhance what's available.  I figure more configurable hardware functions would be the next step to improve performance.  I look to old systems to see what operations they used.
+The video is designed to be 640x480 VGA 60Hz standard.  This means a 25.125 MHz clock.  This requires two counters: a horizontal and vertical.  They count 800 and 600 pixels.  This needs a 10-bit counter for each.  The counters form the RAM address space to read the pixel values.  The video memory is organized in a non-traditional way with H,V instead of V,H.
 
 ### Pixel fill
 An easy function is the fill function.  Putting a color in a pixel starts drawing that color.  That color continues to draw until that same color is placed again.  So putting two pixels one a row is enough to draw a whole row of that color.  It's much faster than having the CPU add that color along that entire row.  This is how to get to filled polygons quickly.  The CPU only needs to decide what the boundaries of a shape is, and the video circuit does the rest.  The CPU only drawing wireframes, but gets fully filled polygons.

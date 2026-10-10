@@ -1,0 +1,231 @@
+Name     VGA_SYNC;
+PartNo   01;
+Date     2026-09-30;
+Revision 04;
+Designer Justin;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   INPUTS
+   ============================================================ */
+
+PIN 1  = CLK;
+
+/* Vertical counter inputs
+   V9:V1 are bits 9..1 of the external 10-bit vertical counter.
+   V0 is not connected, so each decode below sees two counts at
+   once (e.g. 532 and 533 look identical to this PLD).
+   V8, V7 and V6 are not connected and are not needed. */
+PIN 2  = V9;
+PIN 3  = V5;
+PIN 4  = V4;
+PIN 5  = V3;
+PIN 6  = V2;
+PIN 7  = V1;
+
+/* Horizontal active-video indication */
+PIN 8  = H_VIDEO_ACTIVE;
+
+/* Address-source enables */
+PIN 9  = PC_ENABLE;
+PIN 10 = Y_ENABLE;
+PIN 11 = X_ENABLE;
+
+/* Pin 13 unused */
+
+
+/* ============================================================
+   OUTPUTS
+   ============================================================ */
+
+PIN 14 = H0;
+PIN 15 = H1;
+PIN 16 = H2;
+
+PIN 17 = VIDEO_ACTIVE;
+PIN 18 = VSYNC;
+
+PIN 19 = BYTE_ENABLE;
+
+PIN 20 = ADDR_SEL;
+PIN 21 = ADDR_SEL_HI;
+PIN 22 = ADDR_SEL_LO;
+
+/* Vertical active-region state (registered).
+   Needed internally by VIDEO_ACTIVE and VSYNC.
+   Brought out on pin 23 because the 22V10 has no buried registers. */
+PIN 23 = V_VIDEO_ACTIVE;
+
+
+/* ============================================================
+   HORIZONTAL LOW-BIT COUNTER
+   ============================================================ */
+
+/*
+   H0 toggles every clock.
+
+   H1 toggles whenever H0 is high.
+
+   H2 toggles whenever H1 and H0 are both high.
+*/
+
+H0.D = !H0;
+
+H1.D = H1 $ H0;
+
+H2.D = H2 $ (H1 & H0);
+
+
+/* ============================================================
+   VERTICAL ACTIVE-REGION STATE
+   ============================================================ */
+
+/*
+   V_VIDEO_ACTIVE is high for vertical counts 544-1023.
+
+   Counts 512-543 have V9 = 1 and V5 = 0.
+   Count 544 is the first count with V9 = 1 and V5 = 1.
+   Only V9 and V5 are needed to detect it.
+
+   Set:
+       V9 = 1
+       V5 = 1
+
+   Once set, it holds while V9 is high.  V5 returns low at
+   count 576, but the held state keeps the region active.
+
+   V9 going low (counter wraps from 1023) clears it.
+*/
+
+V_VIDEO_ACTIVE.D = V9 & (V5 # V_VIDEO_ACTIVE);
+
+
+/* ============================================================
+   VIDEO ACTIVE
+   ============================================================ */
+
+/*
+   VIDEO_ACTIVE is high when both the vertical active region
+   (counts 544-1023) and the horizontal active region are active.
+*/
+
+VIDEO_ACTIVE =
+      V_VIDEO_ACTIVE
+    & H_VIDEO_ACTIVE;
+
+
+/* ============================================================
+   BYTE ENABLE
+   ============================================================ */
+
+/*
+   One byte is read every eight clocks during active video.
+
+   H2:H0 = 000 identifies the byte-read clock.
+*/
+
+BYTE_ENABLE =
+      VIDEO_ACTIVE
+    & !H2
+    & !H1
+    & !H0;
+
+
+/* ============================================================
+   VERTICAL SYNC
+   ============================================================ */
+
+/*
+   VSYNC is active low during counts 532-533.
+
+   V0 is not available, so counts 532 and 533 are decoded together:
+
+       532 = 10 0001 0100
+       533 = 10 0001 0101
+
+   V4:V1 = 1010 selects 532-533 within any 32-count window.
+   V9 = 1 restricts the match to counts 512-1023, and
+   !V_VIDEO_ACTIVE restricts it to counts 512-543 (before the
+   active region begins at 544).  The only count in 512-543 with
+   V4:V1 = 1010 is 532-533, so V8, V7, V6 and V5 are not needed.
+*/
+
+VSYNC = !(V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1);
+
+
+/* ============================================================
+   ADDRESS MUX CONTROL
+   ============================================================ */
+
+/*
+   Four-way address selection:
+
+       S1 S0
+       -----
+        00   Default
+        01   X/Y register
+        10   Video address
+        11   Program counter
+
+   Priority (highest first):
+
+       1. Video address    BYTE_ENABLE            -> 10
+       2. Program counter  PC_ENABLE              -> 11
+       3. X / Y registers  X_ENABLE, Y_ENABLE     -> 01
+       4. Default                                 -> 00
+
+   BYTE_ENABLE overrides PC_ENABLE, X_ENABLE and Y_ENABLE.
+   PC_ENABLE overrides X_ENABLE and Y_ENABLE.
+*/
+
+
+/*
+   Shared S1 input to ALL FOUR 4:1 muxes.
+
+   Video is selected only during BYTE_ENABLE.
+   PC is selected whenever PC_ENABLE is active.
+*/
+
+ADDR_SEL =
+      BYTE_ENABLE
+    # PC_ENABLE;
+
+
+/*
+   Upper-byte S0.
+
+       S1 S0
+       00 = 00h
+       01 = Y register
+       10 = Video address
+       11 = PC
+
+   S0 is forced low during BYTE_ENABLE so that S1 S0 = 10
+   (video) regardless of PC_ENABLE and Y_ENABLE.
+*/
+
+ADDR_SEL_HI =
+      !BYTE_ENABLE
+    & (PC_ENABLE # Y_ENABLE);
+
+
+/*
+   Lower-byte S0.
+
+       S1 S0
+       00 = D register
+       01 = X register
+       10 = Video address
+       11 = PC
+
+   S0 is forced low during BYTE_ENABLE so that S1 S0 = 10
+   (video) regardless of PC_ENABLE and X_ENABLE.
+*/
+
+ADDR_SEL_LO =
+      !BYTE_ENABLE
+    & (PC_ENABLE # X_ENABLE);

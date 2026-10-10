@@ -1,0 +1,118 @@
+Name     Counter499EN;
+PartNo   U1;
+Date     10/01/2026;
+Revision 03;
+Designer Engineer;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+PIN 1  = CLK;
+PIN 2  = EN;      /* clock enable, active high */
+
+PIN 14 = Q0;    /*  8 PT avail,  4 used */
+PIN 23 = Q1;    /*  8 PT avail,  5 used */
+PIN 22 = Q2;    /* 10 PT avail,  4 used */
+PIN 15 = Q3;    /* 10 PT avail,  5 used */
+PIN 16 = Q4;    /* 12 PT avail,  8 used */
+PIN 21 = Q5;    /* 12 PT avail,  9 used */
+PIN 20 = Q6;    /* 14 PT avail, 10 used */
+PIN 17 = Q7;    /* 14 PT avail, 11 used */
+PIN 18 = Q8;    /* 16 PT avail, 12 used */
+PIN 19 = Q9;    /* 16 PT avail, 11 used */
+
+ALL  = Q9 & Q8 & Q7 & Q6 & Q5 & Q4 & Q3 & Q2 & Q1 & Q0;
+ZERO = !Q9 & !Q8 & !Q7 & !Q6 & !Q5 & !Q4 & !Q3 & !Q2 & !Q1 & !Q0;
+
+Q0.d = Q0 & !EN
+     # !Q0 & EN
+     # ALL
+     # ZERO;
+
+Q1.d = Q1 & !EN
+     # Q1 & !Q0
+     # !Q1 & Q0 & EN
+     # ALL
+     # ZERO;
+
+Q2.d = Q2 & !EN
+     # Q2 & !Q0
+     # Q2 & !Q1
+     # !Q2 & Q1 & Q0 & EN;
+
+Q3.d = Q3 & !EN
+     # Q3 & !Q0
+     # Q3 & !Q1
+     # Q3 & !Q2
+     # !Q3 & Q2 & Q1 & Q0 & EN;
+
+Q4.d = Q4 & !EN
+     # Q4 & !Q0
+     # Q4 & !Q1
+     # Q4 & !Q2
+     # Q4 & !Q3
+     # !Q4 & Q3 & Q2 & Q1 & Q0 & EN
+     # ALL
+     # ZERO;
+
+Q5.d = Q5 & !EN
+     # Q5 & !Q0
+     # Q5 & !Q1
+     # Q5 & !Q2
+     # Q5 & !Q3
+     # Q5 & !Q4
+     # !Q5 & Q4 & Q3 & Q2 & Q1 & Q0 & EN
+     # ALL
+     # ZERO;
+
+Q6.d = Q6 & !EN
+     # Q6 & !Q0
+     # Q6 & !Q1
+     # Q6 & !Q2
+     # Q6 & !Q3
+     # Q6 & !Q4
+     # Q6 & !Q5
+     # !Q6 & Q5 & Q4 & Q3 & Q2 & Q1 & Q0 & EN
+     # ALL
+     # ZERO;
+
+Q7.d = Q7 & !EN
+     # Q7 & !Q0
+     # Q7 & !Q1
+     # Q7 & !Q2
+     # Q7 & !Q3
+     # Q7 & !Q4
+     # Q7 & !Q5
+     # Q7 & !Q6
+     # !Q7 & Q6 & Q5 & Q4 & Q3 & Q2 & Q1 & Q0 & EN
+     # ALL
+     # ZERO;
+
+Q8.d = Q8 & !EN
+     # Q8 & !Q0
+     # Q8 & !Q1
+     # Q8 & !Q2
+     # Q8 & !Q3
+     # Q8 & !Q4
+     # Q8 & !Q5
+     # Q8 & !Q6
+     # Q8 & !Q7
+     # !Q8 & Q7 & Q6 & Q5 & Q4 & Q3 & Q2 & Q1 & Q0 & EN
+     # ALL
+     # ZERO;
+
+Q9.d = Q9 & !EN
+     # Q9 & !Q0
+     # Q9 & !Q1
+     # Q9 & !Q2
+     # Q9 & !Q3
+     # Q9 & !Q4
+     # Q9 & !Q5
+     # Q9 & !Q6
+     # Q9 & !Q7
+     # Q9 & !Q8
+     # !Q9 & Q8 & Q7 & Q6 & Q5 & Q4 & Q3 & Q2 & Q1 & Q0 & EN;
+
+[Q9..Q0].AR = 'b'0;
+[Q9..Q0].SP = 'b'0;
