@@ -1,0 +1,184 @@
+Name     STATE_CTRL;
+PartNo   00;
+Date     2026-10-06;
+Revision 05;
+Designer Justin;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   CPU STATE CONTROL   (ATF22V10C, DIP-24 / PLCC-28)
+   ============================================================
+
+   States (binary, Q1 Q0):
+       00  FETCH      instruction -> instruction FF, PC increments
+       01  LOAD_IMM   immediate (PC address) -> D FF, PC increments
+       10  LOAD_MEM   memory ([Y/0,X/D] address) -> D FF, PC holds
+       11  EXEC       data bus (D or ACC) -> ACC / X / Y / RAM
+
+   FETCH -> EXEC       if databus source is accumulator (or 11)
+         -> LOAD_IMM   if databus source = 00 (immediate / D)
+         -> LOAD_MEM   if databus source = 01 (RAM/ROM)
+   LOAD_IMM, LOAD_MEM -> EXEC
+   EXEC -> FETCH
+
+   Every state advances only on a clock where BYTE_ENABLE = 0
+   (BYTE_ENABLE is the pixel enable from the Sync PLD).  When it
+   is 1 the video owns the bus, the state holds, and every bus
+   strobe is forced inactive (memory write is forced to READ).
+
+   MACROCELL BUDGET
+      Requested outputs: PC Increment, PC Enable, X Enable,
+      Y Enable, Load Instruction, Load Immediate, Load X,
+      Load Y, Load AC, Memory R/W = 10, plus 2 state bits = 12.
+      The 22V10 has 10 macrocells.  Two things make it fit:
+        - Q1 is brought out on pin 15 as PC_ENABLE (PC_ENABLE
+          = !Q1), so one pin is both a state bit and an output.
+        - PC_INC is NOT generated here.  Make it outside the
+          PLD with one gate:
+              PC_INC = PC_ENABLE & !BYTE_ENABLE
+          (identical to the PC_INC equation in the old revision).
+
+   DATABUS SOURCE (instruction bits 2:0 of the databus-source
+   field, DB_SRC1:DB_SRC0)
+       00  Immediate (D register)  -> LOAD_IMM
+       01  RAM/ROM                 -> LOAD_MEM
+       10  Accumulator             -> EXEC (no load)
+       11  undefined               -> treated like 10 (no load)
+
+   MEMORY SOURCE / DESTINATION (MEM2:MEM0, from instruction FF)
+       000  [0,D]  load AC           100  [0,D]  load Y
+       001  [0,X]  load AC           101  [0,D]  store to RAM
+       010  [Y,X]  load AC           110  [0,X]  store to RAM
+       011  [0,D]  load X            111  [Y,X]  store to RAM
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 1  = CLK;
+
+/* Pixel enable from the Sync PLD: 1 = video owns the bus. */
+PIN 2  = BYTE_ENABLE;
+
+/* Databus-source field of the instruction BEING FETCHED.
+   These must come straight from the data bus bits, NOT from the
+   instruction FF: the instruction FF is only loaded at the end
+   of the FETCH clock, the same edge at which this PLD picks its
+   next state.  Only used in FETCH on a clock where
+   BYTE_ENABLE = 0. */
+PIN 3  = DB_SRC1;
+PIN 4  = DB_SRC0;
+
+/* Memory source / destination field, from the instruction FF
+   (valid from LOAD_IMM onward). */
+PIN 5  = MEM2;
+PIN 6  = MEM1;
+PIN 7  = MEM0;
+
+/* Pins 8-11 and 13 unused */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+/* State bit 0 (registered). */
+PIN 14 = Q0;
+
+/* State bit 1 (registered).  The pin is declared inverted, so the
+   pin level is !Q1 = PC_ENABLE:  high in FETCH and LOAD_IMM,
+   low in LOAD_MEM and EXEC.  The register powers up to Q1 = 0,
+   so the machine starts in FETCH. */
+PIN 15 = !Q1;
+
+/* Address-source selects to the Sync PLD (pure decode of the
+   memory field, no state or BYTE_ENABLE term).  The Sync PLD
+   gives priority to video and PC_ENABLE, so these only take
+   effect in LOAD_MEM and EXEC. */
+PIN 16 = X_ENABLE;
+PIN 17 = Y_ENABLE;
+
+/* Bus-cycle strobes.  Each includes !BYTE_ENABLE, so it is only
+   active on a clock where the CPU really owns the bus. */
+PIN 18 = LOAD_INSTR;   /* load instruction FF                          */
+PIN 19 = LOAD_IMM;     /* load D FF (LOAD_IMM and LOAD_MEM states)     */
+PIN 20 = LOAD_X;       /* load X register                              */
+PIN 21 = LOAD_Y;       /* load Y register                              */
+PIN 22 = LOAD_AC;      /* load accumulator                             */
+
+/* Memory R/W.  Pin level: 1 = read, 0 = write (same sense as the
+   ROM/RAM select PLD).  Declared inverted so the equation below
+   is the write condition.  Forced to read while BYTE_ENABLE = 1. */
+PIN 23 = !MEM_WR;
+
+
+/* ---------------- STATE DECODE ---------------- */
+
+S_FETCH = !Q1 & !Q0;
+S_LIMM  = !Q1 &  Q0;
+S_LMEM  =  Q1 & !Q0;
+S_EXEC  =  Q1 &  Q0;
+
+
+/* ---------------- STATE MACHINE ----------------
+
+   From FETCH:
+       EXEC      = 11   Q1' = 1, Q0' = 1   (DB_SRC1 = 1)
+       LOAD_IMM  = 01   Q1' = 0, Q0' = 1   (DB_SRC = 00)
+       LOAD_MEM  = 10   Q1' = 1, Q0' = 0   (DB_SRC = 01)
+   so  Q1' = DB_SRC1 # DB_SRC0,   Q0' = DB_SRC1 # !DB_SRC0.
+*/
+
+Q0.D = (Q0 & BYTE_ENABLE)
+     # (S_FETCH & !BYTE_ENABLE & (DB_SRC1 # !DB_SRC0))
+     # (S_LIMM  & !BYTE_ENABLE)
+     # (S_LMEM  & !BYTE_ENABLE);
+
+Q1.D = (Q1 & BYTE_ENABLE)
+     # (S_FETCH & !BYTE_ENABLE & (DB_SRC1 # DB_SRC0))
+     # (S_LIMM  & !BYTE_ENABLE)
+     # (S_LMEM  & !BYTE_ENABLE);
+
+
+/* ---------------- MEMORY FIELD DECODE ---------------- */
+
+/* Memory-mode address selects */
+X_ENABLE = (!MEM2 & !MEM1 &  MEM0)      /* 001 [0,X] */
+         # (!MEM2 &  MEM1 & !MEM0)      /* 010 [Y,X] */
+         # ( MEM2 &  MEM1 & !MEM0)      /* 110 [0,X] */
+         # ( MEM2 &  MEM1 &  MEM0);     /* 111 [Y,X] */
+
+Y_ENABLE = (!MEM2 &  MEM1 & !MEM0)      /* 010 [Y,X] */
+         # ( MEM2 &  MEM1 &  MEM0);     /* 111 [Y,X] */
+
+/* Destination decode */
+DEST_AC = (!MEM2 & !MEM1 & !MEM0)       /* 000 */
+        # (!MEM2 & !MEM1 &  MEM0)       /* 001 */
+        # (!MEM2 &  MEM1 & !MEM0);      /* 010 */
+
+DEST_X  =  !MEM2 &  MEM1 &  MEM0;       /* 011 */
+
+DEST_Y  =   MEM2 & !MEM1 & !MEM0;       /* 100 */
+
+DEST_RAM = ( MEM2 & !MEM1 &  MEM0)      /* 101 */
+         # ( MEM2 &  MEM1 & !MEM0)      /* 110 */
+         # ( MEM2 &  MEM1 &  MEM0);     /* 111 */
+
+
+/* ---------------- STROBES ---------------- */
+
+LOAD_INSTR = S_FETCH & !BYTE_ENABLE;
+
+LOAD_IMM   = (S_LIMM & !BYTE_ENABLE)
+           # (S_LMEM & !BYTE_ENABLE);
+
+LOAD_AC    = S_EXEC & !BYTE_ENABLE & DEST_AC;
+
+LOAD_X     = S_EXEC & !BYTE_ENABLE & DEST_X;
+
+LOAD_Y     = S_EXEC & !BYTE_ENABLE & DEST_Y;
+
+/* Write only in EXEC, only on a clock the CPU owns the bus. */
+MEM_WR     = S_EXEC & !BYTE_ENABLE & DEST_RAM;

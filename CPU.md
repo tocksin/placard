@@ -1,0 +1,128 @@
+# CPU operations
+
+The CPU in this system is made of logic gates and registers.  The CPU 
+interfaces to the memory space (RAM/ROM) by outputting a memory address, and 
+then reading/writing using the data bus.
+
+The CPU executes one instruction in either 2 or 3 clocks.  The CPU first 
+performs a FETCH to get the next instruction from memory.  The next state 
+depends on the instruction.  If it is an immediate instruction or a memory 
+load, then it goes to a LOAD state which transfers from the memory to a 
+temporary register D.  The last state is the EXECUTE state which will use the 
+ALU and write a value to a register or to memory.  The LOAD state can be 
+skipped if an instruction does not need data from memory; for example, a 
+shift-left instruction adds the Accumulator to itself.
+
+## Registers
+
+There are 4 registers in the system that are accessble for use in instructions. 
+- Accumulator
+- X
+- Y
+- D (immediate/memory)
+
+The D register can be loaded either from the program counter location (immediate
+ instruction) or from a memory location indicated in the instruction.
+
+## Memory access mode
+
+The memory can be accessed through four access modes using the X and Y 
+registers.
+- [Y,X] will access a 16-bit address based on both Registers
+- [0,D] will access the zero page of memory using an immediate value stored
+alongside the instruction.
+- [0,X] will access the zero page of memory using the X register to access one 
+of the 256 zero locations.
+- [Y,D] is a possible combination, but not supported in the instruction set.
+
+The memory space consists of both a 64kB RAM and a 64kB ROM.  All writes go to 
+the RAM module.  Reads are controlled by a memory bank selector register which 
+is configurable by software.  The memory space is divided into 8 sections. 
+Each section can be configured as either ROM or RAM.  At startup, all regions
+are selected as ROM.  The software will execute from ROM initially until 
+reconfigured.  The video hardware will always read from RAM.
+
+## Source mode
+
+The source bus drives to three locations: the B-input of the ALU, the low-side 
+of the program counter, and into the memory.  The instruction determines which 
+source is placed on the source bus.
+- D register containing the immediate value
+- D register containing a memory value
+- Accumulator 
+
+The source bus is how the CPU writes data back into the RAM.  It's possible to
+read a location from the ROM and then write it back to the RAM in one
+instruction.
+
+Note: there is a chance to expand this since there is one more decoded mode 
+available.
+
+## ALU
+
+There are not many good retro options for ALUs today.  Gigatron uses 10 MUX 
+chips.  Novasaur uses ROM lookup tables.  An ALU is simply a combinational 
+truth table of operations.  There are three mode inputs for the whole chip and 
+two input data ports (4-bits per port).  There aren't enough logic/pins to 
+support a full 8-bit ALU, but a 4-bit ALU is possible.  It needs 4 outputs for 
+data, and 2 outputs for flags (zero Z, negative N).
+
+| S2   | S1 | S0 | Function  | Instruction |
+|------|----|----|-----------|------|
+| 0    |  0 |  0 | PASS B    | LD   |
+| 0    |  0 |  1 | A AND B   | AND  |
+| 0    |  1 |  0 | A OR B    | OR   |
+| 0    |  1 |  1 | A XOR B   | XOR  |
+| 1    |  0 |  0 | A + B     | ADD  |
+| 1    |  0 |  1 | A - B     | SUB  |
+| 1    |  1 |  0 | A >> 1    | SHR  |
+| 1    |  1 |  1 | PASS A    | BRA/JMP |
+
+Adding the three data bits (A, B, and C for carry), the entire truth table of 6 
+inputs can be created.  The two outputs from the table are the data bit and the 
+carry bit, so two functions are needed for each bit.  That makes 8 total blocks.  
+Each output pin is coupled with a logic block, so 8 output pins are needed.
+
+For the flags, the negative flag is simply the output of the highest data bit.  
+Zero only uses the four data outputs which is trivial for one output block. 
+
+## Branching
+
+Branching happens similar to the Gigatron.  The ALU instruction bits (7:5) 
+111 indicates a branch/jump.  The instruction memory mode bits (4:2) dictate
+the type of branch/jump.  A value of 000 will cause a jump (16-bit load of PC).
+A value of 111 will cause a branch (8-bit load of lower PC byte).  The others
+are conditional based on the ALU result.  
+
+Using the Zero flag, the value of the Accumulator can be determined if it is 
+equal-to-zero.  The Negative flag (the MSB of the Accumulator) 
+determines if the Accumulator is positive or negative.  This determines 
+greater-than-zero or less-than-zero.  These two flags together can determine 
+all of the branching mode.
+
+| MemMode | Branch | Z | NEG | Meaning | LoadPCLow | LoadPCHigh |
+|---------|--------|---|-----|---------|-----------|------------|
+|   000   |   JMP  | X |  X  | Always  |     1     |      1     |
+|   001   |   BGT  | 0 |  0  |  AC>0   |     1     |      0     |
+|   001   |   BGT  | 0 |  1  |  AC<0   |     0     |      0     |
+|   001   |   BGT  | 1 |  0  |  AC=0   |     0     |      0     |
+|   010   |   BLT  | 0 |  0  |  AC>0   |     0     |      0     |
+|   010   |   BLT  | 0 |  1  |  AC<0   |     1     |      0     |
+|   010   |   BLT  | 1 |  0  |  AC=0   |     0     |      0     |
+|   011   |   BNE  | 0 |  0  |  AC>0   |     1     |      0     |
+|   011   |   BNE  | 0 |  1  |  AC<0   |     1     |      0     |
+|   011   |   BNE  | 1 |  0  |  AC=0   |     0     |      0     |
+|   100   |   BEQ  | 0 |  0  |  AC>0   |     0     |      0     |
+|   100   |   BEQ  | 0 |  1  |  AC<0   |     0     |      0     |
+|   100   |   BEQ  | 1 |  0  |  AC=0   |     1     |      0     |
+|   101   |   BGE  | 0 |  0  |  AC>0   |     1     |      0     |
+|   101   |   BGE  | 0 |  1  |  AC<0   |     0     |      0     |
+|   101   |   BGE  | 1 |  0  |  AC=0   |     1     |      0     |
+|   110   |   BLE  | 0 |  0  |  AC>0   |     0     |      0     |
+|   110   |   BLE  | 0 |  1  |  AC<0   |     1     |      0     |
+|   110   |   BLE  | 1 |  0  |  AC=0   |     1     |      0     |
+|   111   |   BRA  | 0 |  0  |  AC>0   |     1     |      0     |
+|   111   |   BRA  | 0 |  1  |  AC<0   |     1     |      0     |
+|   111   |   BRA  | 1 |  0  |  AC=0   |     1     |      0     |
+
+

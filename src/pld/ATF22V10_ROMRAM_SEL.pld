@@ -1,0 +1,148 @@
+Name     ROMRAM_SEL;
+PartNo   00;
+Date     10/05/2026;
+Revision 02;
+Designer ;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   ROM / RAM SECTION SELECT   (ATF22V10C, DIP-24 / PLCC-28)
+   ============================================================
+
+   The 64K address space is split into 8 sections of 8K.
+   The section is chosen by the top three address bits
+   A15:A13 (A12:A8 only select a page inside a section and
+   are not needed here).
+
+   An 8-bit map is stored in eight on-chip registers.  Each
+   map bit picks ROM or RAM for one section:
+
+       RAMSELn = 0  ->  section n is ROM
+       RAMSELn = 1  ->  section n is RAM
+
+   Section   A15 A14 A13    Address range
+      0       0   0   0     0000h - 1FFFh
+      1       0   0   1     2000h - 3FFFh
+      2       0   1   0     4000h - 5FFFh
+      3       0   1   1     6000h - 7FFFh
+      4       1   0   0     8000h - 9FFFh
+      5       1   0   1     A000h - BFFFh
+      6       1   1   0     C000h - DFFFh
+      7       1   1   1     E000h - FFFFh
+
+   READ / WRITE
+      RW = 1 is a read, RW = 0 is a write.
+
+      ROM_EN = (section is ROM) & RW
+
+      The RAM enable is the exact complement of ROM_EN, so it
+      is made with one external inverter on ROM_EN:
+
+          RAM_EN = !ROM_EN
+
+          read,  ROM section : ROM_EN = 1, RAM_EN = 0
+          read,  RAM section : ROM_EN = 0, RAM_EN = 1
+          write, any section : ROM_EN = 0, RAM_EN = 1
+
+      Writes therefore always go to RAM and never drive the
+      ROM, even if the section is mapped to ROM.  Wire the RAM
+      write enable straight from the CPU write strobe.
+
+      ROM_EN is active high.  For an active-low ROM enable
+      declare  PIN 14 = !ROM_EN;  (the equation is unchanged).
+      If the CPU gives an active-low /RD instead of R/W,
+      declare  PIN 23 = !RD;  and use RD in place of RW.
+
+   LOADING THE MAP
+      D7:D0 are latched into RAMSEL7:RAMSEL0 on the RISING edge
+      of WR_CLK.  Drive WR_CLK from a decoded I/O write strobe.
+      Bit n of the data bus is the map bit for section n.
+
+   POWER-UP
+      The ATF22V10C clears its registers at power-up, so all
+      RAMSEL bits start at 0 and every section is ROM.
+
+   PIN BUDGET
+      Dedicated inputs (pins 1-11, 13): WR_CLK, A15:A13, D7:D0
+      Macrocells: 8 map registers + ROM_EN = 9
+      The tenth macrocell (pin 23) is unused as an output, so
+      its pin is used as the RW input.
+
+      ROM_EN uses 8 product terms (pin 14 has 8 available).
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 1  = WR_CLK;     /* map write strobe, rising edge loads the map */
+
+PIN 2  = A15;
+PIN 3  = A14;
+PIN 4  = A13;
+
+PIN 5  = D0;
+PIN 6  = D1;
+PIN 7  = D2;
+PIN 8  = D3;
+PIN 9  = D4;
+PIN 10 = D5;
+PIN 11 = D6;
+PIN 13 = D7;
+
+PIN 23 = RW;         /* CPU R/W, 1 = read, 0 = write (I/O pin used as input) */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+PIN 14 = ROM_EN;     /* high only for a READ of a ROM-mapped section */
+
+/* stored map, 1 = RAM, 0 = ROM */
+PIN 15 = RAMSEL0;
+PIN 16 = RAMSEL1;
+PIN 17 = RAMSEL2;
+PIN 18 = RAMSEL3;
+PIN 19 = RAMSEL4;
+PIN 20 = RAMSEL5;
+PIN 21 = RAMSEL6;
+PIN 22 = RAMSEL7;
+
+
+/* ---------------- STORED MAP ---------------- */
+
+RAMSEL0.D = D0;
+RAMSEL1.D = D1;
+RAMSEL2.D = D2;
+RAMSEL3.D = D3;
+RAMSEL4.D = D4;
+RAMSEL5.D = D5;
+RAMSEL6.D = D6;
+RAMSEL7.D = D7;
+
+
+/* ---------------- SECTION DECODE ---------------- */
+
+SEC0 = !A15 & !A14 & !A13;
+SEC1 = !A15 & !A14 &  A13;
+SEC2 = !A15 &  A14 & !A13;
+SEC3 = !A15 &  A14 &  A13;
+SEC4 =  A15 & !A14 & !A13;
+SEC5 =  A15 & !A14 &  A13;
+SEC6 =  A15 &  A14 & !A13;
+SEC7 =  A15 &  A14 &  A13;
+
+
+/* ---------------- ROM ENABLE ---------------- */
+
+ROM_EN =
+      SEC0 & !RAMSEL0 & RW
+    # SEC1 & !RAMSEL1 & RW
+    # SEC2 & !RAMSEL2 & RW
+    # SEC3 & !RAMSEL3 & RW
+    # SEC4 & !RAMSEL4 & RW
+    # SEC5 & !RAMSEL5 & RW
+    # SEC6 & !RAMSEL6 & RW
+    # SEC7 & !RAMSEL7 & RW;
