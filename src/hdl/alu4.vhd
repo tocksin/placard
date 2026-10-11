@@ -1,5 +1,6 @@
 -- =========================================================
--- ATF22V10C 4-BIT ALU  (VHDL version of ALU_SHR.pld)
+-- ATF22V10C 4-BIT ALU  (VHDL version of ALU_SHR.pld, Rev 03)
+-- Date: 10/11/2026
 --
 -- FUNCTION SELECT
 --
@@ -12,20 +13,17 @@
 --     1  0  0     ADD
 --     1  0  1     SUB
 --     1  1  0     SHIFT RIGHT
---     1  1  1     NEG A (2s complement of A)
+--     1  1  1     PASS A
 --
 -- SUBTRACTION:  A - B - CIN = A + not B + not CIN
 --     COUT = 1 means no borrow, COUT = 0 means borrow
 --
--- NEG A:  F = 0 - A - CIN  (4-bit 2s complement of A when CIN = 0)
---     Same borrow convention as SUB: CIN = 1 is a borrow in,
---     COUT = 1 means no borrow, so COUT = 1 only when A = 0 and
---     CIN = 0.  Chain it exactly like SUB (borrow = not COUT of
---     the lower chip) to negate a number wider than 4 bits.
---     F0 = A0 xor CIN
---     F1 = A1 xor (A0 or CIN)
---     F2 = A2 xor (A1 or A0 or CIN)
---     F3 = A3 xor (A2 or A1 or A0 or CIN)
+-- PASS A:  F = A.  B and CIN are ignored and COUT = 0.
+--     Used by the branch/jump opcode (I7:I5 = 111): Z of each
+--     chip is then the zero flag of that nibble of the
+--     accumulator, and F3 of the high chip is the accumulator
+--     sign bit.  Because CIN is ignored, the zero flag of the
+--     high chip does not depend on the low chip.
 --
 -- SHIFT RIGHT:
 --     F3 = SHIFT_RIGHT_IN, F2 = A3, F1 = A2, F0 = A1, COUT = A0
@@ -78,25 +76,25 @@ entity alu4 is
 end entity alu4;
 
 architecture rtl of alu4 is
-    signal pass_sel  : std_logic;
-    signal and_sel   : std_logic;
-    signal or_sel    : std_logic;
-    signal xor_sel   : std_logic;
-    signal shr_sel   : std_logic;
-    signal neg_sel   : std_logic;
-    signal arith_sel : std_logic;   -- ADD (S0=0) or SUB (S0=1)
-    signal c4        : std_logic;   -- true carry out of bit 3
-    signal sh        : std_logic_vector(3 downto 0);   -- shift-right source
+    signal pass_sel   : std_logic;
+    signal and_sel    : std_logic;
+    signal or_sel     : std_logic;
+    signal xor_sel    : std_logic;
+    signal shr_sel    : std_logic;
+    signal passa_sel  : std_logic;
+    signal arith_sel  : std_logic;   -- ADD (S0=0) or SUB (S0=1)
+    signal c4         : std_logic;   -- true carry out of bit 3
+    signal sh         : std_logic_vector(3 downto 0);   -- shift-right source
 begin
 
     -- function select terms
-    pass_sel  <= (not s(2)) and (not s(1)) and (not s(0));
-    and_sel   <= (not s(2)) and (not s(1)) and s(0);
-    or_sel    <= (not s(2)) and s(1) and (not s(0));
-    xor_sel   <= (not s(2)) and s(1) and s(0);
-    shr_sel   <= s(2) and s(1) and (not s(0));
-    neg_sel   <= s(2) and s(1) and s(0);
-    arith_sel <= s(2) and (not s(1));
+    pass_sel   <= (not s(2)) and (not s(1)) and (not s(0));
+    and_sel    <= (not s(2)) and (not s(1)) and s(0);
+    or_sel     <= (not s(2)) and s(1) and (not s(0));
+    xor_sel    <= (not s(2)) and s(1) and s(0);
+    shr_sel    <= s(2) and s(1) and (not s(0));
+    passa_sel  <= s(2) and s(1) and s(0);
+    arith_sel  <= s(2) and (not s(1));
 
     -- shift-right source bits
     sh(0) <= a(1);
@@ -113,43 +111,42 @@ begin
     c4 <= ((((a(3) xor s(0)) and b(3)) or ((a(3) xor s(0)) and d3) or (b(3) and d3)) xor s(0));
 
     -- function outputs
-    f(0) <= (pass_sel and b(0))
+    f(0) <= (pass_sel  and b(0))
          or (and_sel   and (a(0) and b(0)))
          or (or_sel    and (a(0) or b(0)))
          or (xor_sel   and (a(0) xor b(0)))
          or (arith_sel and ((a(0) xor b(0)) xor cin))
          or (shr_sel   and sh(0))
-         or (neg_sel   and (a(0) xor cin));
+         or (passa_sel and a(0));
 
-    f(1) <= (pass_sel and b(1))
+    f(1) <= (pass_sel  and b(1))
          or (and_sel   and (a(1) and b(1)))
          or (or_sel    and (a(1) or b(1)))
          or (xor_sel   and (a(1) xor b(1)))
          or (arith_sel and ((a(1) xor b(1)) xor d1))
          or (shr_sel   and sh(1))
-         or (neg_sel   and (a(1) xor (a(0) or cin)));
+         or (passa_sel and a(1));
 
-    f(2) <= (pass_sel and b(2))
+    f(2) <= (pass_sel  and b(2))
          or (and_sel   and (a(2) and b(2)))
          or (or_sel    and (a(2) or b(2)))
          or (xor_sel   and (a(2) xor b(2)))
          or (arith_sel and ((a(2) xor b(2)) xor d2))
          or (shr_sel   and sh(2))
-         or (neg_sel   and (a(2) xor ((a(1) or a(0)) or cin)));
+         or (passa_sel and a(2));
 
-    f(3) <= (pass_sel and b(3))
+    f(3) <= (pass_sel  and b(3))
          or (and_sel   and (a(3) and b(3)))
          or (or_sel    and (a(3) or b(3)))
          or (xor_sel   and (a(3) xor b(3)))
          or (arith_sel and ((a(3) xor b(3)) xor d3))
          or (shr_sel   and sh(3))
-         or (neg_sel   and (a(3) xor (((a(2) or a(1)) or a(0)) or cin)));
+         or (passa_sel and a(3));
 
     -- carry output: ADD/SUB carry (no-borrow), SHR shifts out A0,
-    -- NEG no-borrow (A = 0 and CIN = 0)
+    -- PASS A gives 0
     cout <= (arith_sel and c4)
-         or (shr_sel and a(0))
-         or (neg_sel and (not a(3)) and (not a(2)) and (not a(1)) and (not a(0)) and (not cin));
+         or (shr_sel and a(0));
 
     -- zero flag (uses the F pin feedback, a single product term)
     z <= (not f(0)) and (not f(1)) and (not f(2)) and (not f(3));

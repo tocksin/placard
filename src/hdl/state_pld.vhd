@@ -1,6 +1,6 @@
 -- ============================================================
--- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 05)
--- Date: 2026-10-06
+-- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 06)
+-- Date: 2026-10-10
 --
 -- Binary state machine:  Q1 Q0
 --     00 FETCH, 01 LOAD_IMM, 10 LOAD_MEM, 11 EXEC
@@ -12,6 +12,9 @@
 -- Pin 15 is !Q1 (= PC_ENABLE) and pin 23 is !MEM_WR (= R/W,
 -- 1 = read), exactly as declared in the PLD.
 -- PC_INC is not generated here: PC_INC = pc_enable and not byte_enable.
+--
+-- branch_block (pin 8, from the Branch PLD, active high) forces
+-- load_ac, load_x, load_y and mem_wr inactive during a branch/jump.
 -- ============================================================
 
 library ieee;
@@ -19,24 +22,25 @@ use ieee.std_logic_1164.all;
 
 entity state_pld is
     port (
-        clk         : in  std_logic;   -- pin 1
-        byte_enable : in  std_logic;   -- pin 2, pixel enable from sync PLD
-        db_src1     : in  std_logic;   -- pin 3, databus source bit 1 (from data bus)
-        db_src0     : in  std_logic;   -- pin 4, databus source bit 0 (from data bus)
-        mem2        : in  std_logic;   -- pin 5, memory field bit 2 (from instruction FF)
-        mem1        : in  std_logic;   -- pin 6
-        mem0        : in  std_logic;   -- pin 7
+        clk          : in  std_logic;   -- pin 1
+        byte_enable  : in  std_logic;   -- pin 2, pixel enable from sync PLD
+        db_src1      : in  std_logic;   -- pin 3, databus source bit 1 (from data bus)
+        db_src0      : in  std_logic;   -- pin 4, databus source bit 0 (from data bus)
+        mem2         : in  std_logic;   -- pin 5, memory field bit 2 (from instruction FF)
+        mem1         : in  std_logic;   -- pin 6
+        mem0         : in  std_logic;   -- pin 7
+        branch_block : in  std_logic;   -- pin 8, from branch PLD, 1 = branch/jump executing
 
-        q0          : out std_logic;   -- pin 14, state bit 0
-        pc_enable   : out std_logic;   -- pin 15, = not q1
-        x_enable    : out std_logic;   -- pin 16
-        y_enable    : out std_logic;   -- pin 17
-        load_instr  : out std_logic;   -- pin 18
-        load_imm    : out std_logic;   -- pin 19
-        load_x      : out std_logic;   -- pin 20
-        load_y      : out std_logic;   -- pin 21
-        load_ac     : out std_logic;   -- pin 22
-        mem_rw      : out std_logic    -- pin 23, 1 = read, 0 = write
+        q0           : out std_logic;   -- pin 14, state bit 0
+        pc_enable    : out std_logic;   -- pin 15, = not q1
+        x_enable     : out std_logic;   -- pin 16
+        y_enable     : out std_logic;   -- pin 17
+        load_instr   : out std_logic;   -- pin 18
+        load_imm     : out std_logic;   -- pin 19
+        load_x       : out std_logic;   -- pin 20
+        load_y       : out std_logic;   -- pin 21
+        load_ac      : out std_logic;   -- pin 22
+        mem_rw       : out std_logic    -- pin 23, 1 = read, 0 = write
     );
 end entity state_pld;
 
@@ -122,13 +126,13 @@ begin
     load_imm   <= (s_limm and not byte_enable)
                or (s_lmem and not byte_enable);
 
-    load_ac    <= s_exec and not byte_enable and dest_ac;
+    load_ac    <= s_exec and not byte_enable and not branch_block and dest_ac;
 
-    load_x     <= s_exec and not byte_enable and dest_x;
+    load_x     <= s_exec and not byte_enable and not branch_block and dest_x;
 
-    load_y     <= s_exec and not byte_enable and dest_y;
+    load_y     <= s_exec and not byte_enable and not branch_block and dest_y;
 
-    mem_wr     <= s_exec and not byte_enable and dest_ram;
+    mem_wr     <= s_exec and not byte_enable and not branch_block and dest_ram;
 
     mem_rw     <= not mem_wr;
 

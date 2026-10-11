@@ -165,7 +165,12 @@ architecture Behavioral of basys_top is
     signal zeroLo           : sl;
     signal zeroHi           : sl;
     
-    
+    signal stateQ0          : sl;
+    signal branchBlock      : sl;
+    signal loadPcLow        : sl;
+    signal loadPcHigh       : sl;
+    signal acZero           : sl;
+    signal acNeg            : sl;    
     
 begin
 
@@ -247,7 +252,7 @@ begin
         mem1        => instReg(3),-- dst/mem access mode
         mem0        => instReg(2),-- dst/mem access mode
 
-        q0          => open,
+        q0          => stateQ0,
         pc_enable   => pcEnable,
         x_enable    => xEnable,
         y_enable    => yEnable,
@@ -256,9 +261,31 @@ begin
         load_x      => xLoad,
         load_y      => yLoad,
         load_ac     => acLoad,
+        branch_block => branchBlock,
         mem_rw      => memRdWr
     );
 
+    acNeg  <= acReg(7);
+
+    branchComp : entity work.branch_pld
+    port map(
+        i7           => instReg(7),
+        i6           => instReg(6),
+        i5           => instReg(5),
+        m2           => instReg(4),
+        m1           => instReg(3),
+        m0           => instReg(2),
+        z_low        => zeroLo,
+        z_high       => zeroHi,
+        neg          => acNeg,
+        byte_enable  => pixelEn,
+        q0           => stateQ0,
+        pc_enable    => pcEnable,
+        load_pc_low  => loadPcLow,
+        load_pc_high => loadPcHigh,
+        branch_block => branchBlock
+    );
+    
     memMode <= "[0,D]" when instReg(4 downto 2)="000" else
                "[0,X]" when instReg(4 downto 2)="001" else
                "[Y,X]" when instReg(4 downto 2)="010" else
@@ -299,7 +326,7 @@ begin
         d6           => srcBus(6),
         d7           => srcBus(7),
 
-        load         => '0', -- replace when branching enable
+        load         => loadPcLow,
         en           => pcEnable,
         cin          => '1',
         pixel_enable => pixelEn,
@@ -329,7 +356,7 @@ begin
         d6           => yReg(6),
         d7           => yReg(7),
 
-        load         => '0', -- replace when branching enable
+        load         => loadPcHigh,
         en           => pcEnable,
         cin          => pcCarry,
         pixel_enable => pixelEn,
