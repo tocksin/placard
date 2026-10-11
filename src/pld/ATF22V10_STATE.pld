@@ -1,7 +1,7 @@
 Name     STATE_CTRL;
 PartNo   00;
-Date     2026-10-06;
-Revision 05;
+Date     2026-10-10;
+Revision 06;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -29,6 +29,12 @@ Device   g22v10;
    (BYTE_ENABLE is the pixel enable from the Sync PLD).  When it
    is 1 the video owns the bus, the state holds, and every bus
    strobe is forced inactive (memory write is forced to READ).
+
+   BRANCH_BLOCK (from the Branch PLD, active high) is 1 while a
+   branch/jump executes (EXEC, BYTE_ENABLE = 0, taken or not).
+   It forces LOAD_AC, LOAD_X, LOAD_Y and MEM_WR inactive so a
+   branch never writes a register or RAM.  PC_ENABLE is already
+   low in EXEC (PC_ENABLE = !Q1), so the PC does not increment.
 
    MACROCELL BUDGET
       Requested outputs: PC Increment, PC Enable, X Enable,
@@ -79,7 +85,11 @@ PIN 5  = MEM2;
 PIN 6  = MEM1;
 PIN 7  = MEM0;
 
-/* Pins 8-11 and 13 unused */
+/* Branch block from the Branch PLD (pin 23): 1 = a branch/jump is
+   executing, so inhibit LOAD_AC, LOAD_X, LOAD_Y and MEM_WR. */
+PIN 8  = BRANCH_BLOCK;
+
+/* Pins 9-11 and 13 unused */
 
 
 /* ---------------- OUTPUTS ---------------- */
@@ -110,7 +120,8 @@ PIN 22 = LOAD_AC;      /* load accumulator                             */
 
 /* Memory R/W.  Pin level: 1 = read, 0 = write (same sense as the
    ROM/RAM select PLD).  Declared inverted so the equation below
-   is the write condition.  Forced to read while BYTE_ENABLE = 1. */
+   is the write condition.  Forced to read while BYTE_ENABLE = 1
+   or BRANCH_BLOCK = 1. */
 PIN 23 = !MEM_WR;
 
 
@@ -174,11 +185,12 @@ LOAD_INSTR = S_FETCH & !BYTE_ENABLE;
 LOAD_IMM   = (S_LIMM & !BYTE_ENABLE)
            # (S_LMEM & !BYTE_ENABLE);
 
-LOAD_AC    = S_EXEC & !BYTE_ENABLE & DEST_AC;
+LOAD_AC    = S_EXEC & !BYTE_ENABLE & !BRANCH_BLOCK & DEST_AC;
 
-LOAD_X     = S_EXEC & !BYTE_ENABLE & DEST_X;
+LOAD_X     = S_EXEC & !BYTE_ENABLE & !BRANCH_BLOCK & DEST_X;
 
-LOAD_Y     = S_EXEC & !BYTE_ENABLE & DEST_Y;
+LOAD_Y     = S_EXEC & !BYTE_ENABLE & !BRANCH_BLOCK & DEST_Y;
 
-/* Write only in EXEC, only on a clock the CPU owns the bus. */
-MEM_WR     = S_EXEC & !BYTE_ENABLE & DEST_RAM;
+/* Write only in EXEC, only on a clock the CPU owns the bus,
+   and never during a branch/jump. */
+MEM_WR     = S_EXEC & !BYTE_ENABLE & !BRANCH_BLOCK & DEST_RAM;

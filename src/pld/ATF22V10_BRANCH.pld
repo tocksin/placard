@@ -1,7 +1,7 @@
 Name     BRANCH_CTRL;
 PartNo   00;
 Date     10/10/2026;
-Revision 03;
+Revision 04;
 Designer ;
 Company  ;
 Assembly ;
@@ -13,7 +13,9 @@ Device   g22v10;
    BRANCH / JUMP CONTROL   (ATF22V10C, DIP-24 / PLCC-28)
    ============================================================
 
-   ALU field I7:I5 = 111 selects branch/jump.
+   ALU field I7:I5 = 111 selects branch/jump.  The ALU performs
+   PASS A for this opcode, so each ALU Z output is the zero flag
+   of one nibble of the accumulator.
    Memory-mode field M2:M0 (instruction bits 4:2) selects type:
 
        000 JMP  always, 16-bit load (PC low + PC high)
@@ -25,9 +27,12 @@ Device   g22v10;
        110 BLE  AC <= 0
        111 BRA  always, 8-bit load (PC low only)
 
-   Z   = accumulator is zero
+   Z_LOW  = low  ALU nibble is zero  (AC3:AC0 = 0)
+   Z_HIGH = high ALU nibble is zero  (AC7:AC4 = 0)
+   AC = 0 is   Z_LOW & Z_HIGH
+   AC <> 0 is  !Z_LOW # !Z_HIGH
    NEG = accumulator MSB (negative)
-   Z and NEG are never both 1.
+   AC = 0 and NEG are never both true.
 
    BYTE_ENABLE (pixel enable) = 1 means video owns the bus.
 
@@ -43,7 +48,7 @@ Device   g22v10;
    from acting during FETCH, LOAD_IMM or LOAD_MEM.
 
    BRANCH_BLOCK is active whenever a branch/jump executes,
-   whether or not it is taken.  Feed it to the State PLD to
+   whether or not it is taken.  Feed it to State PLD pin 8 to
    inhibit LOAD_AC, LOAD_X, LOAD_Y and MEM_WR.  (PC_INC is
    already low in EXEC because PC_ENABLE = 0 there.)
    Active high.  For an active-low pin declare
@@ -61,7 +66,7 @@ PIN 4  = M2;
 PIN 5  = M1;
 PIN 6  = M0;
 
-PIN 7  = Z;
+PIN 7  = Z_LOW;           /* low  ALU nibble zero flag */
 PIN 8  = NEG;
 
 PIN 9  = BYTE_ENABLE;     /* pixel enable, 1 = video owns the bus */
@@ -69,12 +74,14 @@ PIN 9  = BYTE_ENABLE;     /* pixel enable, 1 = video owns the bus */
 PIN 10 = Q0;              /* State PLD pin 14, state bit 0 */
 PIN 11 = PC_ENABLE;       /* State PLD pin 15, = !Q1 */
 
+PIN 13 = Z_HIGH;          /* high ALU nibble zero flag */
+
 
 /* ---------------- OUTPUTS ---------------- */
 
-PIN 21 = LOAD_PC_LOW;     /* 9 product terms, pin has 12 */
-PIN 22 = LOAD_PC_HIGH;    /* 1 product term,  pin has 10 */
-PIN 23 = BRANCH_BLOCK;    /* 1 product term,  pin has  8 */
+PIN 21 = LOAD_PC_LOW;     /* 12 product terms, pin has 12 */
+PIN 22 = LOAD_PC_HIGH;    /*  1 product term,  pin has 10 */
+PIN 23 = BRANCH_BLOCK;    /*  1 product term,  pin has  8 */
 
 
 /* ---------------- COMMON TERMS ---------------- */
@@ -88,16 +95,18 @@ BRANCH = I7 & I6 & I5 & EXEC & !BYTE_ENABLE;
 
 BRANCH_BLOCK = BRANCH;
 
-LOAD_PC_HIGH = BRANCH & !M2 & !M1 & !M0;            /* JMP */
+LOAD_PC_HIGH = BRANCH & !M2 & !M1 & !M0;                       /* JMP */
 
 LOAD_PC_LOW =
-      BRANCH & !M2 & !M1 & !M0                      /* JMP */
-    # BRANCH & !M2 & !M1 &  M0 & !Z & !NEG          /* BGT */
-    # BRANCH & !M2 &  M1 & !M0 & !Z &  NEG          /* BLT */
-    # BRANCH & !M2 &  M1 &  M0 & !Z                 /* BNE */
-    # BRANCH &  M2 & !M1 & !M0 &  Z                 /* BEQ */
-    # BRANCH &  M2 & !M1 &  M0 & !NEG               /* BGE */
-    # BRANCH &  M2 &  M1 & !M0 &  Z                 /* BLE, AC=0 */
-    # BRANCH &  M2 &  M1 & !M0 &  NEG               /* BLE, AC<0 */
-    # BRANCH &  M2 &  M1 &  M0;                     /* BRA */
-    
+      BRANCH & !M2 & !M1 & !M0                                 /* JMP */
+    # BRANCH & !M2 & !M1 &  M0 & !Z_LOW  & !NEG                /* BGT, low nibble <> 0  */
+    # BRANCH & !M2 & !M1 &  M0 & !Z_HIGH & !NEG                /* BGT, high nibble <> 0 */
+    # BRANCH & !M2 &  M1 & !M0 & !Z_LOW  &  NEG                /* BLT, low nibble <> 0  */
+    # BRANCH & !M2 &  M1 & !M0 & !Z_HIGH &  NEG                /* BLT, high nibble <> 0 */
+    # BRANCH & !M2 &  M1 &  M0 & !Z_LOW                        /* BNE, low nibble <> 0  */
+    # BRANCH & !M2 &  M1 &  M0 & !Z_HIGH                       /* BNE, high nibble <> 0 */
+    # BRANCH &  M2 & !M1 & !M0 &  Z_LOW & Z_HIGH               /* BEQ */
+    # BRANCH &  M2 & !M1 &  M0 & !NEG                          /* BGE */
+    # BRANCH &  M2 &  M1 & !M0 &  Z_LOW & Z_HIGH               /* BLE, AC=0 */
+    # BRANCH &  M2 &  M1 & !M0 &  NEG                          /* BLE, AC<0 */
+    # BRANCH &  M2 &  M1 &  M0;                                /* BRA */
