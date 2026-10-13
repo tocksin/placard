@@ -69,13 +69,11 @@ architecture Behavioral of basys_top is
     -- synthesis translate_on
     ;
 
-    type sourceType is (IMM, MEM, ACC, UNDEF);
-    signal source : sourceType;
-
     subtype memModeType is string(1 to 5);
     signal memMode : memModeType;
     signal destMode : memModeType;
     signal aluMode  : memModeType;
+    signal srcMode  : memModeType;
     
     --Used to determine when a button press has occured
     signal btnReg    : slv (3 downto 0);
@@ -576,15 +574,17 @@ begin
             when "00" => srcBus <= dReg;
             when "01" => srcBus <= dReg;
             when "10" => srcBus <= acReg;
-            when "11" => srcBus <= acReg;
+            when "11" => srcBus <= xReg;
             when others => srcBus <= acReg;
         end case;
     end process srcBusProc;
 
-    source <= IMM when instReg(1 downto 0)="00" else
-              MEM when instReg(1 downto 0)="01" else
-              ACC when instReg(1 downto 0)="10" else
-              UNDEF;
+    srcMode  <= " IMM " when instReg(7 downto 5)="00" else
+                " MEM " when instReg(7 downto 5)="01" else
+                " ACC " when instReg(7 downto 5)="10" else
+                "  X  " when instReg(7 downto 5)="11" else
+                "UNDEF";
+
 
     ----------------------------------------------------------
     ------              Pixel Drawing                  -------
