@@ -1,7 +1,7 @@
 Name     ALU4;
 PartNo   00;
-Date     10/07/2026;
-Revision 02;
+Date     10/11/2026;
+Revision 03;
 Designer ;
 Company  ;
 Assembly ;
@@ -23,21 +23,17 @@ Device   f22v10;
        1  0  0     ADD
        1  0  1     SUB
        1  1  0     SHIFT RIGHT
-       1  1  1     NEG A (2s complement of A)
+       1  1  1     PASS A
 
    SUBTRACTION:  A - B - CIN = A + !B + !CIN
        COUT = 1 means no borrow, COUT = 0 means borrow
 
-   NEG A:  F = 0 - A - CIN  (4-bit 2s complement of A when CIN = 0)
-       Same borrow convention as SUB: CIN = 1 is a borrow in,
-       COUT = 1 means no borrow, so COUT = 1 only when A = 0 and
-       CIN = 0.  Chain it exactly like SUB (borrow = !COUT of the
-       lower chip) to negate a number wider than 4 bits.
-       Bit i:  Fi = Ai xor Bi_in,  borrow out = Ai or Bi_in
-       F0 = A0 xor CIN
-       F1 = A1 xor (A0 or CIN)
-       F2 = A2 xor (A1 or A0 or CIN)
-       F3 = A3 xor (A2 or A1 or A0 or CIN)
+   PASS A:  F = A.  B and CIN are ignored and COUT = 0.
+       Used by the branch/jump opcode (I7:I5 = 111): Z of each
+       chip is then the zero flag of that nibble of the
+       accumulator, and F3 of the high chip is the accumulator
+       sign bit.  Because CIN is ignored, the zero flag of the
+       high chip does not depend on the low chip.
 
    SHIFT RIGHT:
        F3 = SHIFT_RIGHT_IN, F2 = A3, F1 = A2, F0 = A1, COUT = A0
@@ -107,13 +103,13 @@ PIN 16  = D3;   /* internal carry node, no external connection */
    FUNCTION SELECT TERMS
    ========================================================= */
 
-PASS_SEL = !S2 & !S1 & !S0;
-AND_SEL  = !S2 & !S1 &  S0;
-OR_SEL   = !S2 &  S1 & !S0;
-XOR_SEL  = !S2 &  S1 &  S0;
-SHR_SEL  =  S2 &  S1 & !S0;
-NEG_SEL  =  S2 &  S1 &  S0;
-ARITH_SEL = S2 & !S1;           /* ADD (S0=0) or SUB (S0=1) */
+PASS_SEL  = !S2 & !S1 & !S0;
+AND_SEL   = !S2 & !S1 &  S0;
+OR_SEL    = !S2 &  S1 & !S0;
+XOR_SEL   = !S2 &  S1 &  S0;
+SHR_SEL   =  S2 &  S1 & !S0;
+PASSA_SEL =  S2 &  S1 &  S0;
+ARITH_SEL =  S2 & !S1;         /* ADD (S0=0) or SUB (S0=1) */
 
 
 /* =========================================================
@@ -141,7 +137,7 @@ F0 =
     # (SHR_SEL   & A1)
     # (ARITH_SEL & (A0 $ B0 $ CIN))
     # (AND_SEL   & (A0 & B0))
-    # (NEG_SEL   & (A0 $ CIN));
+    # (PASSA_SEL & A0);
 
 F1 =
       (PASS_SEL  & B1)
@@ -150,7 +146,7 @@ F1 =
     # (SHR_SEL   & A2)
     # (ARITH_SEL & (A1 $ B1 $ D1))
     # (AND_SEL   & (A1 & B1))
-    # (NEG_SEL   & (A1 $ (A0 # CIN)));
+    # (PASSA_SEL & A1);
 
 F2 =
       (PASS_SEL  & B2)
@@ -159,7 +155,7 @@ F2 =
     # (SHR_SEL   & A3)
     # (ARITH_SEL & (A2 $ B2 $ D2))
     # (AND_SEL   & (A2 & B2))
-    # (NEG_SEL   & (A2 $ (A1 # A0 # CIN)));
+    # (PASSA_SEL & A2);
 
 F3 =
       (PASS_SEL  & B3)
@@ -168,20 +164,19 @@ F3 =
     # (SHR_SEL   & SHIFT_RIGHT_IN)
     # (ARITH_SEL & (A3 $ B3 $ D3))
     # (AND_SEL   & (A3 & B3))
-    # (NEG_SEL   & (A3 $ (A2 # A1 # A0 # CIN)));
+    # (PASSA_SEL & A3);
 
 
 /* =========================================================
    CARRY OUTPUT
    ADD/SUB : carry / no-borrow
    SHR     : A0 is the bit shifted out
-   NEG     : 1 (no borrow) only when A = 0 and CIN = 0
+   PASS A  : 0
    ========================================================= */
 
 COUT =
       (ARITH_SEL & C4)
-    # (SHR_SEL   & A0)
-    # (NEG_SEL   & !A3 & !A2 & !A1 & !A0 & !CIN);
+    # (SHR_SEL   & A0);
 
 
 /* =========================================================
