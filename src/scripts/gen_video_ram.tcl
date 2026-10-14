@@ -17,7 +17,7 @@
 #     customasm test_video.asm -f binary -o test_video.bin
 # (the web version offers the same "hexstr" / "binary" output formats).
 # Accepted formats: raw binary (*.bin), a hex string "10620020...", or
-# comma separated "0x10, 0x62, ...".  If the file is missing the image is
+# comma separated 0x10, 0x62, ... values.  If the file is missing the image is
 # generated without code.  Set ::ASM_FILE to "" to skip it on purpose.
 #
 # Date: 10/14/2026
@@ -190,21 +190,26 @@ proc read_asm_bytes {fileName} {
     set fh [open $fileName r]
     set text [read $fh]
     close $fh
-    if {[string first "," $text] >= 0 || [string first "0x" [string tolower $text]] >= 0} {
-        # "0x10, 0x62, ..." style
-        foreach tok [regexp -all -inline {[0-9A-Fa-f]+} \
-                         [regsub -all -nocase {0x} $text " "]] {
-            lappend bytes [expr {"0x$tok" & 0xFF}]
-        }
-    } else {
-        # continuous hex string, whitespace ignored
-        set hex [regsub -all {\s+} $text ""]
+    # drop any 0x prefixes, then turn commas / whitespace into nothing
+    set text [string map {0x {} 0X {} , { }} $text]
+    set tokens [regexp -all -inline {[0-9A-Fa-f]+} $text]
+    if {[llength $tokens] == 0} {
+        error "read_asm_bytes: no hex data in $fileName"
+    }
+    if {[llength $tokens] == 1} {
+        # one continuous hex string: split it into byte pairs
+        set hex [lindex $tokens 0]
         if {[string length $hex] % 2} {
             error "read_asm_bytes: odd number of hex digits in $fileName"
         }
+        set tokens {}
         for {set i 0} {$i < [string length $hex]} {incr i 2} {
-            lappend bytes [expr {"0x[string range $hex $i [expr {$i + 1}]]" & 0xFF}]
+            lappend tokens [string range $hex $i [expr {$i + 1}]]
         }
+    }
+    foreach tok $tokens {
+        scan $tok %x v
+        lappend bytes [expr {$v & 255}]
     }
     return $bytes
 }
