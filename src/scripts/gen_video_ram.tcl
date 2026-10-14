@@ -6,8 +6,9 @@
 # Run from the Vivado Tcl console:   source /path/to/gen_video_ram.tcl
 # or stand-alone:                    tclsh gen_video_ram.tcl
 #
-# The output file is written next to this script unless ::VIDEO_RAM_OUT is set
-# before sourcing it.
+# The image is written to ../hdl/video_ram.mem (relative to this script).  Set
+# ::VIDEO_RAM_OUT before sourcing to write to a different path instead (the
+# file is then left where you put it).
 #
 # The CPU starts at PC = 0000, so program code is merged into the same image
 # at address ::ASM_BASE (default 0).  The program is read from the customasm
@@ -317,5 +318,14 @@ proc gen_video_ram {outFile} {
 if {[info exists ::VIDEO_RAM_OUT]} {
     gen_video_ram $::VIDEO_RAM_OUT
 } else {
-    gen_video_ram [file join [file dirname [info script]] video_ram.mem]
+    # write next to this script, then move the result to ../hdl where the
+    # Vivado project (sp_ram.vhd INIT_FILE) looks for it
+    set scriptDir [file dirname [file normalize [info script]]]
+    set tmpFile   [file join $scriptDir video_ram.mem]
+    set hdlDir    [file normalize [file join $scriptDir .. hdl]]
+    gen_video_ram $tmpFile
+    file mkdir $hdlDir
+    file copy -force $tmpFile [file join $hdlDir video_ram.mem]
+    file delete $tmpFile
+    puts "gen_video_ram: moved video_ram.mem to $hdlDir"
 }
