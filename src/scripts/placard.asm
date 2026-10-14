@@ -25,14 +25,14 @@
 ;     That only works for the indexed forms, because the read overwrites
 ;     D, which holds a zero-page address:
 ;         add [x], [x]   add [y,x], [y,x]
-;   - ld n, [n] stores an immediate to zero page, but the one operand
+;   - <op> n, [n] stores an immediate to zero page, but the one operand
 ;     byte is both the value and the address (it writes n at address n),
 ;     so the assembler only accepts it when the two numbers are equal:
 ;         ld 0x30, [0x30]
-;     For an independent value and address use ld n, ac then
-;     ld ac, [0xNN], or ld n, [x] / ld n, [y,x].  and/or/xor/add/sub
-;     with the same operands behave identically (the source bus is
-;     what gets written), so only ld has a rule.
+;     The ALU op doesn't change what is written (RAM takes the source
+;     bus, not the ALU result), so all six ops accept it and store the
+;     same byte.  For an independent value and address use ld n, ac
+;     then ld ac, [0xNN], or ld n, [x] / ld n, [y,x].
 ;   - [0x30] (zero page, [0,D]) forms emit the address as one operand
 ;     byte after the opcode.
 ;   - Immediate source emits the 8-bit value as one operand byte.
@@ -130,11 +130,11 @@
     }
 
     ; immediate -> zero page: value and address share the operand byte
-    ld {v}, [{a}] =>
+    {o:alu} {v}, [{a}] =>
     {
         assert(v == a)
         assert(a >= 0 && a <= 255)
-        0b000 @ 0b101 @ 0b00 @ a[7:0]
+        o @ 0b101 @ 0b00 @ a[7:0]
     }
 
     ; ---------------- register source -> RAM ----------------
