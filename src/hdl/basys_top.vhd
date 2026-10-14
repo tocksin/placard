@@ -502,8 +502,8 @@ begin
     lowerMuxComp: entity work.full_mux
     port map( 
            sel          => muxSelBoth & muxSelLo,
-           aPort        => x"00",
-           bPort        => x"01",
+           aPort        => dReg,
+           bPort        => xReg,
            cPort        => videoAddr(7 downto 0),
            dPort        => programCounter(7 downto 0),
            yPort        => ramAddress(7 downto 0)
@@ -513,7 +513,7 @@ begin
     port map (
            sel          => muxSelBoth & muxSelHi,
            aPort        => x"00",
-           bPort        => x"01",
+           bPort        => yReg,
            cPort        => videoAddr(15 downto 8),
            dPort        => programCounter(15 downto 8),
            yPort        => ramAddress(15 downto 8)
