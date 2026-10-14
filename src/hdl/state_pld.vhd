@@ -1,5 +1,5 @@
 -- ============================================================
--- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 07)
+-- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 08)
 -- Date: 2026-10-14
 --
 -- Binary state machine:  Q1 Q0
@@ -16,8 +16,11 @@
 -- 1 = read), exactly as declared in the PLD.
 -- PC_INC is not generated here: PC_INC = pc_enable and not byte_enable.
 --
--- branch_block (pin 8, from the branch PLD) inhibits load_ac, load_x,
--- load_y and the memory write while a branch/jump executes.
+-- branch_block (pin 8, from the branch PLD) has two uses:
+--   EXEC:  inhibits load_ac, load_x, load_y and the memory write while
+--          a branch/jump executes.
+--   FETCH: 1 when the opcode on the data bus is a branch, so source 1x
+--          with mem = 101 (BGE) goes to EXEC instead of LOAD_IMM.
 -- ============================================================
 
 library ieee;
@@ -103,6 +106,7 @@ begin
                  or (s_fetch and not byte_enable and db_src1 and not db_mem2)
                  or (s_fetch and not byte_enable and db_src1 and db_mem1)
                  or (s_fetch and not byte_enable and db_src1 and not db_mem0)
+                 or (s_fetch and not byte_enable and db_src1 and branch_block)
                  or (s_limm  and not byte_enable)
                  or (s_lmem  and not byte_enable);
         end if;

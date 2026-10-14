@@ -1,7 +1,7 @@
 Name     STATE_CTRL;
 PartNo   00;
 Date     2026-10-14;
-Revision 07;
+Revision 08;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -32,9 +32,10 @@ Device   g22v10;
                        (fetch the zero-page address, then LOAD_MEM)
          -> LOAD_MEM   source 01 and [0,X] / [Y,X] mode (001, 010,
                        110, 111)
-         -> LOAD_IMM   source 1x and MEM = 101 (store to zero page,
-                       fetch the address into D)
-         -> EXEC       source 1x otherwise
+         -> LOAD_IMM   source 1x and MEM = 101 and not a branch
+                       (store to zero page, fetch the address into D)
+         -> EXEC       source 1x otherwise, including a branch with
+                       MEM = 101 (BGE with an AC or X target)
    LOAD_IMM -> LOAD_MEM  if SRC0 = 1 and MEM != 101 (zero-page read)
             -> EXEC      otherwise
               (In LOAD_IMM the source is 00, 01, or 1x with MEM = 101.
@@ -51,8 +52,10 @@ Device   g22v10;
      - Source 01 with MEM = 101 (read-modify-write of a zero-page
        location) is not supported: D holds the address, but the read
        overwrites D with the data.  Treated like [0,X] (illegal).
-     - Branches (I7:I5 = 111) with source 1x (computed branch) must
-       not use type 101 (BGE): it would look like a zero-page store.
+     - BGE with a memory target (I7:I5 = 111, MEM = 101, source 01)
+       is not supported.  Fetching the zero-page address would need
+       BRANCH_BLOCK in the LOAD_IMM decision too, and Q0 has no
+       product term left.  BGE with an immediate, AC or X target works.
      - Source 00 with MEM = 101 is illegal (D can't be value and
        address).
 
@@ -61,10 +64,16 @@ Device   g22v10;
    is 1 the video owns the bus, the state holds, and every bus
    strobe is forced inactive (memory write is forced to READ).
 
-   BRANCH_BLOCK (from the Branch PLD pin 23, active high) is 1
-   while a branch/jump executes (EXEC, BYTE_ENABLE = 0, taken or
-   not).  It forces LOAD_AC, LOAD_X, LOAD_Y and MEM_WR inactive so
-   a branch opcode cannot also write a register or RAM.
+   BRANCH_BLOCK (from the Branch PLD pin 23, active high) has two
+   uses:
+     - In EXEC (BYTE_ENABLE = 0, taken or not) it is 1 while a
+       branch/jump executes.  It forces LOAD_AC, LOAD_X, LOAD_Y and
+       MEM_WR inactive so a branch opcode cannot also write a
+       register or RAM.
+     - In FETCH it is 1 when the opcode on the data bus is a branch
+       (I7:I5 = 111, decoded by block B of the Branch PLD).  MEM = 101
+       is a zero-page store for an ALU op, but BGE for a branch, so
+       a branch with source 1x skips LOAD_IMM and goes to EXEC.
 
    MACROCELL BUDGET
       Requested outputs: PC Increment, PC Enable, X Enable,
@@ -80,7 +89,7 @@ Device   g22v10;
 
    PRODUCT TERMS
       Q0 (pin 14):  8 used, 8 available.  FULL - do not add terms.
-      Q1 (pin 15):  9 used, 10 available.
+      Q1 (pin 15):  10 used, 10 available.  FULL - do not add terms.
       The terms are reduced using the illegal MEM combinations as
       don't-cares (see the limits above).
 
@@ -122,8 +131,11 @@ PIN 5  = MEM2;
 PIN 6  = MEM1;
 PIN 7  = MEM0;
 
-/* Branch block from the Branch PLD (pin 23): 1 = a branch/jump is
-   executing, so inhibit LOAD_AC, LOAD_X, LOAD_Y and MEM_WR. */
+/* Branch block from the Branch PLD (pin 23).
+   In EXEC:  1 = a branch/jump is executing, so inhibit LOAD_AC,
+             LOAD_X, LOAD_Y and MEM_WR.
+   In FETCH: 1 = the opcode on the data bus is a branch, so
+             source 1x with MEM = 101 (BGE) goes to EXEC, not LOAD_IMM. */
 PIN 8  = BRANCH_BLOCK;
 
 /* Memory field of the instruction being fetched (data bus 4:2). */
@@ -186,11 +198,11 @@ S_EXEC  =  Q1 &  Q0;
      to LOAD_IMM (Q1'=0, Q0'=1):
          DS = 00
          DS = 01 and DM = 000, 100 (!DM1 & !DM0) or 011
-         DS = 1x and DM = 101
+         DS = 1x and DM = 101 and not BRANCH_BLOCK
      to LOAD_MEM (Q1'=1, Q0'=0):
          DS = 01 and DM = 001, 101(x), 010, 110, 111
      to EXEC (Q1'=1, Q0'=1):
-         DS = 1x and DM != 101
+         DS = 1x and (DM != 101 or BRANCH_BLOCK)
 
    Next state from LOAD_IMM:
          SRC0 = 1 and MEM != 101  -> LOAD_MEM (Q1'=1, Q0'=0)
@@ -201,10 +213,10 @@ S_EXEC  =  Q1 &  Q0;
        FETCH: DB_SRC1 # !DB_SRC0 # DM=x00-type or 011
        LOAD_IMM: !SRC0 # (MEM = 101)
        LOAD_MEM -> EXEC
-   Q1' (9 terms)
+   Q1' (10 terms)
        hold
        FETCH, DS = 01: DM = !M1&M0 (001,101), M2&M1 (110,111), 010
-       FETCH, DS = 1x: DM != 101  (!M2 # M1 # !M0)
+       FETCH, DS = 1x: DM != 101  (!M2 # M1 # !M0), or BRANCH_BLOCK
        LOAD_IMM, LOAD_MEM -> 1
 */
 
@@ -224,6 +236,7 @@ Q1.D = (Q1 & BYTE_ENABLE)
      # (S_FETCH & !BYTE_ENABLE & DB_SRC1 & !DB_MEM2)
      # (S_FETCH & !BYTE_ENABLE & DB_SRC1 & DB_MEM1)
      # (S_FETCH & !BYTE_ENABLE & DB_SRC1 & !DB_MEM0)
+     # (S_FETCH & !BYTE_ENABLE & DB_SRC1 & BRANCH_BLOCK)
      # (S_LIMM  & !BYTE_ENABLE)
      # (S_LMEM  & !BYTE_ENABLE);
 

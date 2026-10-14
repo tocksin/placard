@@ -1,6 +1,6 @@
 -- ============================================================
--- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 04)
--- Date: 10/10/2026
+-- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 05)
+-- Date: 10/14/2026
 --
 -- Branch / jump control.  Combinational only.
 --
@@ -35,16 +35,28 @@
 --     q0        = State PLD pin 14 (true polarity)
 --     pc_enable = State PLD pin 15 (= not Q1)
 --
--- Every output is active only in EXEC with byte_enable = 0.
+-- load_pc_low and load_pc_high are active only in EXEC with
+-- byte_enable = 0.
 --
--- branch_block is active whenever a branch/jump executes,
--- whether or not it is taken.  It is active high here.
+-- Two decode blocks:
+--   block A (EXEC):  i7:i5 from the instruction register
+--       branch_a = i7 and i6 and i5 and exec and not byte_enable
+--   block B (FETCH): db7:db5 from the data bus, because the instruction
+--       register still holds the previous opcode during FETCH
+--       fetch    = not q0 and pc_enable
+--       branch_b = db7 and db6 and db5 and fetch and not byte_enable
+--
+-- branch_block = branch_a or branch_b.  In FETCH it tells the State PLD
+-- that the opcode being fetched is a branch.  In EXEC it is active
+-- whenever a branch/jump executes, whether or not it is taken.
+-- It is active high here.
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP; pin 12 = GND, pin 24 = VCC):
 --   1  i7            2  i6            3  i5
 --   4  m2            5  m1            6  m0
 --   7  z_low         8  neg           9  byte_enable
 --  10  q0           11  pc_enable    13  z_high
+--  14  db7          15  db6          16  db5
 --  21  load_pc_low  22  load_pc_high 23  branch_block
 -- ============================================================
 
@@ -71,6 +83,10 @@ entity branch_pld is
 
         z_high        : in  std_logic;   -- pin 13, high ALU nibble zero
 
+        db7           : in  std_logic;   -- pin 14, data bus bit 7 (opcode being fetched)
+        db6           : in  std_logic;   -- pin 15, data bus bit 6
+        db5           : in  std_logic;   -- pin 16, data bus bit 5
+
         load_pc_low   : out std_logic;   -- pin 21
         load_pc_high  : out std_logic;   -- pin 22
         branch_block  : out std_logic    -- pin 23
@@ -80,36 +96,41 @@ end entity branch_pld;
 architecture rtl of branch_pld is
 
     -- common terms
-    signal exec   : std_logic;
-    signal branch : std_logic;
+    signal exec     : std_logic;
+    signal fetch    : std_logic;
+    signal branch_a : std_logic;   -- block A, EXEC state, instruction register
+    signal branch_b : std_logic;   -- block B, FETCH state, data bus
 
 begin
 
     -- --------------------------------------------------------
     -- Common terms
     -- --------------------------------------------------------
-    exec   <= q0 and not pc_enable;
+    exec     <= q0 and not pc_enable;
+    fetch    <= not q0 and pc_enable;
 
-    branch <= i7 and i6 and i5 and exec and not byte_enable;
+    branch_a <= i7 and i6 and i5 and exec and not byte_enable;
+
+    branch_b <= db7 and db6 and db5 and fetch and not byte_enable;
 
     -- --------------------------------------------------------
     -- Equations
     -- --------------------------------------------------------
-    branch_block <= branch;
+    branch_block <= branch_a or branch_b;
 
-    load_pc_high <= branch and not m2 and not m1 and not m0;            -- JMP
+    load_pc_high <= branch_a and not m2 and not m1 and not m0;            -- JMP
 
-    load_pc_low  <= (branch and not m2 and not m1 and not m0)                                -- JMP
-                 or (branch and not m2 and not m1 and     m0 and not z_low  and not neg)     -- BGT, low nibble <> 0
-                 or (branch and not m2 and not m1 and     m0 and not z_high and not neg)     -- BGT, high nibble <> 0
-                 or (branch and not m2 and     m1 and not m0 and not z_low  and     neg)     -- BLT, low nibble <> 0
-                 or (branch and not m2 and     m1 and not m0 and not z_high and     neg)     -- BLT, high nibble <> 0
-                 or (branch and not m2 and     m1 and     m0 and not z_low)                  -- BNE, low nibble <> 0
-                 or (branch and not m2 and     m1 and     m0 and not z_high)                 -- BNE, high nibble <> 0
-                 or (branch and     m2 and not m1 and not m0 and     z_low and z_high)       -- BEQ
-                 or (branch and     m2 and not m1 and     m0 and not neg)                    -- BGE
-                 or (branch and     m2 and     m1 and not m0 and     z_low and z_high)       -- BLE, AC=0
-                 or (branch and     m2 and     m1 and not m0 and     neg)                    -- BLE, AC<0
-                 or (branch and     m2 and     m1 and     m0);                               -- BRA
+    load_pc_low  <= (branch_a and not m2 and not m1 and not m0)                                -- JMP
+                 or (branch_a and not m2 and not m1 and     m0 and not z_low  and not neg)     -- BGT, low nibble <> 0
+                 or (branch_a and not m2 and not m1 and     m0 and not z_high and not neg)     -- BGT, high nibble <> 0
+                 or (branch_a and not m2 and     m1 and not m0 and not z_low  and     neg)     -- BLT, low nibble <> 0
+                 or (branch_a and not m2 and     m1 and not m0 and not z_high and     neg)     -- BLT, high nibble <> 0
+                 or (branch_a and not m2 and     m1 and     m0 and not z_low)                  -- BNE, low nibble <> 0
+                 or (branch_a and not m2 and     m1 and     m0 and not z_high)                 -- BNE, high nibble <> 0
+                 or (branch_a and     m2 and not m1 and not m0 and     z_low and z_high)       -- BEQ
+                 or (branch_a and     m2 and not m1 and     m0 and not neg)                    -- BGE
+                 or (branch_a and     m2 and     m1 and not m0 and     z_low and z_high)       -- BLE, AC=0
+                 or (branch_a and     m2 and     m1 and not m0 and     neg)                    -- BLE, AC<0
+                 or (branch_a and     m2 and     m1 and     m0);                               -- BRA
 
 end architecture rtl;

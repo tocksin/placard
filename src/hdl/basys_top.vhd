@@ -273,6 +273,9 @@ begin
         i7           => instReg(7),
         i6           => instReg(6),
         i5           => instReg(5),
+        db7          => dataBus(7),-- only used during fetch cycle - contains instruction bit 7
+        db6          => dataBus(6),-- only used during fetch cycle - contains instruction bit 6
+        db5          => dataBus(5),-- only used during fetch cycle - contains instruction bit 5
         m2           => instReg(4),
         m1           => instReg(3),
         m0           => instReg(2),
