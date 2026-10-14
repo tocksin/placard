@@ -248,6 +248,11 @@ begin
         mem2        => instReg(4),-- dst/mem access mode
         mem1        => instReg(3),-- dst/mem access mode
         mem0        => instReg(2),-- dst/mem access mode
+        db_mem2     => dataBus(4),-- only used during fetch cycle - contains instruction bit 4
+        db_mem1     => dataBus(3),-- only used during fetch cycle - contains instruction bit 3
+        db_mem0     => dataBus(2),-- only used during fetch cycle - contains instruction bit 2
+        src0        => instReg(0),-- source field bit 0 (used in LOAD_IMM)
+        branch_block => branchBlock,
 
         q0          => stateQ0,
         pc_enable   => pcEnable,
@@ -258,7 +263,6 @@ begin
         load_x      => xLoad,
         load_y      => yLoad,
         load_ac     => acLoad,
-        branch_block => branchBlock,
         mem_rw      => memRdWr
     );
 
@@ -610,7 +614,7 @@ begin
         end if;
     end process pixelProc;
 
-/*
+
     delayPixelProc : process (clkVGA, rstVGA)
     begin
         if (rstVGA = '1') then
@@ -621,10 +625,10 @@ begin
             pixelSel <= pixelCol(2 downto 0);  -- delay for timing
         end if;
     end process delayPixelProc;
-*/
+/*
             videoActiveR <= videoActive;              
             pixelSel <= pixelCol(2 downto 0);  -- delay for timing
-
+*/
     colorDecoderComp : entity work.color_decoder
     Port map(
         -- Input Data
