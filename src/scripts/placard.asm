@@ -41,6 +41,14 @@
 ;   jmp  16-bit: PC low = operand, PC high = Y register (load Y first)
 ;   bra and conditional branches: 8-bit, PC low only (stay in the page)
 ;   Target may also be ac or x (computed branch), e.g.  jmp x
+;   Target may also come from memory (indirect branch, source 01).  The
+;   branch type in M2:M0 also picks the address mode, so each type
+;   accepts one memory form:
+;       jmp [0xNN]   bne [0xNN]   beq [0xNN]     zero page, [0,D]
+;       bgt [x]      ble [x]                     [0,X]
+;       blt [y,x]    bra [y,x]                   [Y,X]
+;   bge has no memory or register form (MEM = 101 looks like a
+;   zero-page store).
 ; ============================================================
 
 #bankdef rom
@@ -168,4 +176,27 @@
         0b111 @ c @ 0b00 @ t[7:0]
     }
     {c:cond_reg} {s:reg_src} => 0b111 @ c @ s
+
+    ; ---------------- indirect branches: PC low from memory ----------------
+    ; source 01.  The memory field is the branch type, so it also fixes
+    ; the address mode used to read the target byte.
+    jmp [{a}] =>
+    {
+        assert(a >= 0 && a <= 255)
+        0b111 @ 0b000 @ 0b01 @ a[7:0]
+    }
+    bne [{a}] =>
+    {
+        assert(a >= 0 && a <= 255)
+        0b111 @ 0b011 @ 0b01 @ a[7:0]
+    }
+    beq [{a}] =>
+    {
+        assert(a >= 0 && a <= 255)
+        0b111 @ 0b100 @ 0b01 @ a[7:0]
+    }
+    bgt [x]   => 0b111 @ 0b001 @ 0b01
+    ble [x]   => 0b111 @ 0b110 @ 0b01
+    blt [y,x] => 0b111 @ 0b010 @ 0b01
+    bra [y,x] => 0b111 @ 0b111 @ 0b01
 }
