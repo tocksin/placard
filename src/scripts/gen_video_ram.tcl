@@ -9,7 +9,18 @@
 # The output file is written next to this script unless ::VIDEO_RAM_OUT is set
 # before sourcing it.
 #
-# Date: 10/07/2026
+# The CPU starts at PC = 0000, so program code is merged into the same image
+# at address ::ASM_BASE (default 0).  The program is read from the customasm
+# output file ::ASM_FILE (default test_video.hex next to this script).  Make
+# it with one of
+#     customasm test_video.asm -f hexstr -o test_video.hex
+#     customasm test_video.asm -f binary -o test_video.bin
+# (the web version offers the same "hexstr" / "binary" output formats).
+# Accepted formats: raw binary (*.bin), a hex string "10620020...", or
+# comma separated "0x10, 0x62, ...".  If the file is missing the image is
+# generated without code.  Set ::ASM_FILE to "" to skip it on purpose.
+#
+# Date: 10/14/2026
 #
 # Memory-to-screen mapping:
 #     A15:A9 = H9:H3 (active groups 48..127)    A8:A0 = V8:V0 (active 32..511)
@@ -162,6 +173,69 @@ proc frame_band {bpp y0 h is_first is_last edge_color corner_color} {
 }
 
 # ---------------------------------------------------------------------------
+# Read a customasm output file; returns a list of byte values (0..255)
+# ---------------------------------------------------------------------------
+proc read_asm_bytes {fileName} {
+    set bytes {}
+    if {[string tolower [file extension $fileName]] eq ".bin"} {
+        set fh [open $fileName rb]
+        set data [read $fh]
+        close $fh
+        binary scan $data c* signed
+        foreach b $signed {
+            lappend bytes [expr {$b & 0xFF}]
+        }
+        return $bytes
+    }
+    set fh [open $fileName r]
+    set text [read $fh]
+    close $fh
+    if {[string first "," $text] >= 0 || [string first "0x" [string tolower $text]] >= 0} {
+        # "0x10, 0x62, ..." style
+        foreach tok [regexp -all -inline {[0-9A-Fa-f]+} \
+                         [regsub -all -nocase {0x} $text " "]] {
+            lappend bytes [expr {"0x$tok" & 0xFF}]
+        }
+    } else {
+        # continuous hex string, whitespace ignored
+        set hex [regsub -all {\s+} $text ""]
+        if {[string length $hex] % 2} {
+            error "read_asm_bytes: odd number of hex digits in $fileName"
+        }
+        for {set i 0} {$i < [string length $hex]} {incr i 2} {
+            lappend bytes [expr {"0x[string range $hex $i [expr {$i + 1}]]" & 0xFF}]
+        }
+    }
+    return $bytes
+}
+
+# merge the assembled program into mem() at ASM_BASE
+proc load_asm {} {
+    if {![info exists ::ASM_BASE]} { set ::ASM_BASE 0 }
+    if {![info exists ::ASM_FILE]} {
+        set ::ASM_FILE [file join [file dirname [info script]] test_video.hex]
+    }
+    if {$::ASM_FILE eq ""} {
+        return
+    }
+    if {![file exists $::ASM_FILE]} {
+        puts "gen_video_ram: WARNING: $::ASM_FILE not found, image has no program"
+        return
+    }
+    set bytes [read_asm_bytes $::ASM_FILE]
+    set n [llength $bytes]
+    if {$::ASM_BASE + $n > $::MEM_SIZE} {
+        error "gen_video_ram: program ($n bytes at $::ASM_BASE) does not fit in memory"
+    }
+    set a $::ASM_BASE
+    foreach b $bytes {
+        set ::mem($a) $b
+        incr a
+    }
+    puts "gen_video_ram: merged $n program bytes at [format %04X $::ASM_BASE] from $::ASM_FILE"
+}
+
+# ---------------------------------------------------------------------------
 # Build the image
 # ---------------------------------------------------------------------------
 proc gen_video_ram {outFile} {
@@ -222,6 +296,9 @@ proc gen_video_ram {outFile} {
         fill_rect 8 $x 440 8 10 [expr {($i / 2) * 8}]                   ;# blue
         fill_rect 8 $x 452 8 10 [expr {$i + $i * 32 + ($i / 2) * 8}]    ;# white
     }
+
+    # ---- program (CPU starts at PC = 0000) ----------------------------------
+    load_asm
 
     # ---- write file ----------------------------------------------------------
     set fh [open $outFile w]
