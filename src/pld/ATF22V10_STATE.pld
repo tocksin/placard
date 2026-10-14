@@ -1,7 +1,7 @@
 Name     STATE_CTRL;
 PartNo   00;
-Date     2026-10-13;
-Revision 06;
+Date     2026-10-14;
+Revision 07;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -35,8 +35,12 @@ Device   g22v10;
          -> LOAD_IMM   source 1x and MEM = 101 (store to zero page,
                        fetch the address into D)
          -> EXEC       source 1x otherwise
-   LOAD_IMM -> LOAD_MEM  if source = 01 (zero-page read)
+   LOAD_IMM -> LOAD_MEM  if SRC0 = 1 and MEM != 101 (zero-page read)
             -> EXEC      otherwise
+              (In LOAD_IMM the source is 00, 01, or 1x with MEM = 101.
+               MEM = 101 is always a zero-page store, so it goes to
+               EXEC.  Otherwise SRC0 = 1 means source 01 = read.
+               SRC1 is therefore not needed.)
    LOAD_MEM -> EXEC
    EXEC     -> FETCH
 
@@ -56,6 +60,11 @@ Device   g22v10;
    (BYTE_ENABLE is the pixel enable from the Sync PLD).  When it
    is 1 the video owns the bus, the state holds, and every bus
    strobe is forced inactive (memory write is forced to READ).
+
+   BRANCH_BLOCK (from the Branch PLD pin 23, active high) is 1
+   while a branch/jump executes (EXEC, BYTE_ENABLE = 0, taken or
+   not).  It forces LOAD_AC, LOAD_X, LOAD_Y and MEM_WR inactive so
+   a branch opcode cannot also write a register or RAM.
 
    MACROCELL BUDGET
       Requested outputs: PC Increment, PC Enable, X Enable,
@@ -113,15 +122,18 @@ PIN 5  = MEM2;
 PIN 6  = MEM1;
 PIN 7  = MEM0;
 
-/* Memory field of the instruction being fetched (data bus 4:2). */
-PIN 8  = DB_MEM2;
-PIN 9  = DB_MEM1;
-PIN 10 = DB_MEM0;
+/* Branch block from the Branch PLD (pin 23): 1 = a branch/jump is
+   executing, so inhibit LOAD_AC, LOAD_X, LOAD_Y and MEM_WR. */
+PIN 8  = BRANCH_BLOCK;
 
-/* Source field, from the instruction FF (valid from LOAD_IMM
-   onward).  Used in LOAD_IMM to tell a zero-page read
-   (source 01) from everything else. */
-PIN 11 = SRC1;
+/* Memory field of the instruction being fetched (data bus 4:2). */
+PIN 9  = DB_MEM1;      /* data bus bit 3 */
+PIN 10 = DB_MEM0;      /* data bus bit 2 */
+PIN 11 = DB_MEM2;      /* data bus bit 4 */
+
+/* Source field bit 0, from the instruction FF (valid from LOAD_IMM
+   onward).  Used in LOAD_IMM, together with MEM2:0, to tell a
+   zero-page read (source 01) from everything else. */
 PIN 13 = SRC0;
 
 
@@ -153,7 +165,8 @@ PIN 22 = LOAD_AC;      /* load accumulator                             */
 
 /* Memory R/W.  Pin level: 1 = read, 0 = write (same sense as the
    ROM/RAM select PLD).  Declared inverted so the equation below
-   is the write condition.  Forced to read while BYTE_ENABLE = 1. */
+   is the write condition.  Forced to read while BYTE_ENABLE = 1
+   or BRANCH_BLOCK = 1. */
 PIN 23 = !MEM_WR;
 
 
@@ -180,13 +193,13 @@ S_EXEC  =  Q1 &  Q0;
          DS = 1x and DM != 101
 
    Next state from LOAD_IMM:
-         SRC = 01  -> LOAD_MEM (Q1'=1, Q0'=0)
-         else      -> EXEC     (Q1'=1, Q0'=1)
+         SRC0 = 1 and MEM != 101  -> LOAD_MEM (Q1'=1, Q0'=0)
+         else                     -> EXEC     (Q1'=1, Q0'=1)
 
    Q0' (8 terms)
        hold
        FETCH: DB_SRC1 # !DB_SRC0 # DM=x00-type or 011
-       LOAD_IMM: SRC1 # !SRC0
+       LOAD_IMM: !SRC0 # (MEM = 101)
        LOAD_MEM -> EXEC
    Q1' (9 terms)
        hold
@@ -200,8 +213,8 @@ Q0.D = (Q0 & BYTE_ENABLE)
      # (S_FETCH & !BYTE_ENABLE & !DB_SRC0)
      # (S_FETCH & !BYTE_ENABLE & !DB_MEM1 & !DB_MEM0)
      # (S_FETCH & !BYTE_ENABLE & !DB_MEM2 & DB_MEM1 & DB_MEM0)
-     # (S_LIMM  & !BYTE_ENABLE & SRC1)
      # (S_LIMM  & !BYTE_ENABLE & !SRC0)
+     # (S_LIMM  & !BYTE_ENABLE & MEM2 & !MEM1 & MEM0)
      # (S_LMEM  & !BYTE_ENABLE);
 
 Q1.D = (Q1 & BYTE_ENABLE)
@@ -247,11 +260,12 @@ LOAD_INSTR = S_FETCH & !BYTE_ENABLE;
 LOAD_IMM   = (S_LIMM & !BYTE_ENABLE)
            # (S_LMEM & !BYTE_ENABLE);
 
-LOAD_AC    = S_EXEC & !BYTE_ENABLE & DEST_AC;
+LOAD_AC    = S_EXEC & !BYTE_ENABLE & !BRANCH_BLOCK & DEST_AC;
 
-LOAD_X     = S_EXEC & !BYTE_ENABLE & DEST_X;
+LOAD_X     = S_EXEC & !BYTE_ENABLE & !BRANCH_BLOCK & DEST_X;
 
-LOAD_Y     = S_EXEC & !BYTE_ENABLE & DEST_Y;
+LOAD_Y     = S_EXEC & !BYTE_ENABLE & !BRANCH_BLOCK & DEST_Y;
 
-/* Write only in EXEC, only on a clock the CPU owns the bus. */
-MEM_WR     = S_EXEC & !BYTE_ENABLE & DEST_RAM;
+/* Write only in EXEC, only on a clock the CPU owns the bus,
+   and never during a branch/jump. */
+MEM_WR     = S_EXEC & !BYTE_ENABLE & !BRANCH_BLOCK & DEST_RAM;
