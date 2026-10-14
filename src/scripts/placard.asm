@@ -47,8 +47,11 @@
 ;       jmp [0xNN]   bne [0xNN]   beq [0xNN]     zero page, [0,D]
 ;       bgt [x]      ble [x]                     [0,X]
 ;       blt [y,x]    bra [y,x]                   [Y,X]
-;   bge has no memory or register form (MEM = 101 looks like a
-;   zero-page store).
+;   bge has no memory form.  MEM = 101 is also the zero-page store
+;   code, and the State PLD can't fetch the zero-page address for a
+;   branch.  bge with an immediate, ac or x target works: the Branch
+;   PLD flags the opcode as a branch during FETCH, so the State PLD
+;   skips the operand-byte fetch that a store would need.
 ; ============================================================
 
 #bankdef rom
@@ -93,18 +96,6 @@
     bne => 0b011
     beq => 0b100
     bge => 0b101
-    ble => 0b110
-    bra => 0b111
-}
-
-; branches allowed with a register target (bge excluded: with source
-; 1x, MEM = 101 looks like a zero-page store to the State PLD)
-#subruledef cond_reg
-{
-    bgt => 0b001
-    blt => 0b010
-    bne => 0b011
-    beq => 0b100
     ble => 0b110
     bra => 0b111
 }
@@ -175,7 +166,7 @@
         assert((t >> 8) == (($ + 2) >> 8))
         0b111 @ c @ 0b00 @ t[7:0]
     }
-    {c:cond_reg} {s:reg_src} => 0b111 @ c @ s
+    {c:cond} {s:reg_src} => 0b111 @ c @ s
 
     ; ---------------- indirect branches: PC low from memory ----------------
     ; source 01.  The memory field is the branch type, so it also fixes
