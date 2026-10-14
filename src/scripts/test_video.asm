@@ -7,7 +7,8 @@
 ; 0x20..0xFF to 0x6220..0x62FF puts the counter value in the leftmost
 ; 8 pixels of rows 0..223.
 ;
-; Assemble with:  customasm test_video.asm -f hexstr -o test_video.hex
+; Web version: paste placard.asm above this code and delete the #include.
+; Command line:  customasm test_video.asm -f hexstr -o test_video.hex
 ; then run gen_video_ram.tcl, which merges the code in at address 0000.
 
 #include "placard.asm"
