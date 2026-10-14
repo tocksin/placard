@@ -27,12 +27,16 @@
 ;         add [x], [x]   add [y,x], [y,x]
 ;   - <op> n, [n] stores an immediate to zero page, but the one operand
 ;     byte is both the value and the address (it writes n at address n),
-;     so the assembler only accepts it when the two numbers are equal:
-;         ld 0x30, [0x30]
-;     The ALU op doesn't change what is written (RAM takes the source
-;     bus, not the ALU result), so all six ops accept it and store the
-;     same byte.  For an independent value and address use ld n, ac
-;     then ld ac, [0xNN], or ld n, [x] / ld n, [y,x].
+;     so write the same number twice:  ld 0x30, [0x30]
+;     The assembler does NOT check that the two numbers match (the
+;     address is what gets emitted).  The ALU op doesn't change what is
+;     written (RAM takes the source bus, not the ALU result), so all
+;     six ops accept it.  For an independent value and address use
+;     ld n, ac then ld ac, [0xNN], or ld n, [x] / ld n, [y,x].
+;   - This file uses no assert() (older customasm builds, including the
+;     web version, reject it), so nothing checks operand ranges:
+;     values are truncated to 8 bits, and a branch target must be in
+;     the same 256-byte page as the branch (PC high is not changed).
 ;   - [0x30] (zero page, [0,D]) forms emit the address as one operand
 ;     byte after the opcode.
 ;   - Immediate source emits the 8-bit value as one operand byte.
@@ -127,25 +131,20 @@
     ; ---------------- immediate source ----------------
     {o:alu} {v}, {d:reg_dst} =>
     {
-        assert(v >= -128 && v <= 255)
         o @ d @ 0b00 @ v[7:0]
     }
     {o:alu} {v}, [x] =>
     {
-        assert(v >= -128 && v <= 255)
         o @ 0b110 @ 0b00 @ v[7:0]
     }
     {o:alu} {v}, [y,x] =>
     {
-        assert(v >= -128 && v <= 255)
         o @ 0b111 @ 0b00 @ v[7:0]
     }
 
     ; immediate -> zero page: value and address share the operand byte
     {o:alu} {v}, [{a}] =>
     {
-        assert(v == a)
-        assert(a >= 0 && a <= 255)
         o @ 0b101 @ 0b00 @ a[7:0]
     }
 
@@ -154,7 +153,6 @@
     {o:alu} {s:reg_src}, [y,x] => o @ 0b111 @ s
     {o:alu} {s:reg_src}, [{a}] =>
     {
-        assert(a >= 0 && a <= 255)
         o @ 0b101 @ s @ a[7:0]
     }
 
@@ -163,7 +161,6 @@
     {o:alu} [y,x], ac => o @ 0b010 @ 0b01
     {o:alu} [{a}], {d:reg_dst} =>
     {
-        assert(a >= 0 && a <= 255)
         o @ d @ 0b01 @ a[7:0]
     }
 
@@ -177,7 +174,6 @@
     shr [y,x]       => 0b110 @ 0b111 @ 0b10
     shr [{a}]       =>
     {
-        assert(a >= 0 && a <= 255)
         0b110 @ 0b101 @ 0b10 @ a[7:0]
     }
 
@@ -198,7 +194,6 @@
     ; the operand byte is at $+1, so PC high at execute = ($ + 2) >> 8
     {c:cond} {t} =>
     {
-        assert((t >> 8) == (($ + 2) >> 8))
         0b111 @ c @ 0b00 @ t[7:0]
     }
     {c:cond} {s:reg_src} => 0b111 @ c @ s
@@ -208,17 +203,14 @@
     ; the address mode used to read the target byte.
     jmp [{a}] =>
     {
-        assert(a >= 0 && a <= 255)
         0b111 @ 0b000 @ 0b01 @ a[7:0]
     }
     bne [{a}] =>
     {
-        assert(a >= 0 && a <= 255)
         0b111 @ 0b011 @ 0b01 @ a[7:0]
     }
     beq [{a}] =>
     {
-        assert(a >= 0 && a <= 255)
         0b111 @ 0b100 @ 0b01 @ a[7:0]
     }
     bgt [x]   => 0b111 @ 0b001 @ 0b01
