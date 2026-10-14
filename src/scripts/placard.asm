@@ -39,6 +39,18 @@
 ;   - Register names ac, x, y are reserved; don't use them as labels.
 ;   - shr takes only a destination (the source is the accumulator).
 ;
+;   - Aliases (the ALU's A input is always AC, so some ops with AC as
+;     the source collapse into useful one-byte instructions):
+;         nop        ld ac, ac           AC = AC
+;         shl ac     add ac, ac          AC = AC + AC
+;         clr ac|x|y xor ac, d           d = AC xor AC = 0
+;         inc / dec  add 1, ac / sub 1, ac
+;         not        xor 255, ac         AC = ~AC
+;     shl, clr, nop are one byte, 2 clocks.  The full forms still
+;     assemble too.  There is no neg (the ALU only does AC - B), and
+;     shl only works on AC because RAM stores take the source bus,
+;     not the ALU result.
+;
 ; ALU ops (I7:I5)
 ;   000 ld (pass B)  001 and  010 or  011 xor  100 add  101 sub
 ;   110 shr          111 branch / jump
@@ -168,6 +180,15 @@
         assert(a >= 0 && a <= 255)
         0b110 @ 0b101 @ 0b10 @ a[7:0]
     }
+
+    ; ---------------- aliases ----------------
+    nop         => 0b000 @ 0b000 @ 0b10      ; ld  ac, ac
+    shl ac      => 0b100 @ 0b000 @ 0b10      ; add ac, ac
+    shl         => 0b100 @ 0b000 @ 0b10
+    clr {d:reg_dst} => 0b011 @ d @ 0b10      ; xor ac, d
+    inc         => 0b100 @ 0b000 @ 0b00 @ 0x01   ; add 1, ac
+    dec         => 0b101 @ 0b000 @ 0b00 @ 0x01   ; sub 1, ac
+    not         => 0b011 @ 0b000 @ 0b00 @ 0xFF   ; xor 255, ac
 
     ; ---------------- jump: PC low from operand, PC high from Y ----------------
     jmp {t}         => 0b111 @ 0b000 @ 0b00 @ t[7:0]
