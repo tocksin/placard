@@ -39,6 +39,9 @@ and 7) and the write glitch, which the ALU change's STALL signal spread from
 the first byte of a line to every video byte.
 [XY_TIMING.md](XY_TIMING.md) fixes the X/Y-indexed read after FETCH
 (rank 3) and the late store address after FETCH.
+[TIMING_FIXES.md](TIMING_FIXES.md) covers the rest: the ALU wait clock
+bug, stores after FETCH, the `lineCode` race (all fixed), a write race on
+the upper 32K chip select found there, and the paths still open.
 
 The slowest path limits the clock to about 11 MHz.  If the ALU were given two
 clocks, the next limit is about 19 MHz.
@@ -94,7 +97,7 @@ checked 2026-10-15 (stock moves, so recheck before ordering).
 | State, branch, PC low/high, ALU low/high, ROM/RAM select, H/V counters, sync, colour decoder | ATF22V10C-7PX (PDIP-24) | 11 | 644 |
 | Address mux (`full_mux` = 2 × `quad_4to1_mux` per byte) | ATF22V10C-7PX | 4 | (above) |
 | `instReg`, `dReg`, `acReg`, `xReg`, `yReg`, `pixelBuffer` (D flip-flops with a load enable) | SN74F377AN | 6 | 764 |
-| `lineCode` (clocked by `videoActiveR`), `videoActiveR` + `pixelSel` delay | SN74F574N | 2 | 466 |
+| `lineCode` (F377 on the system clock since TIMING_FIXES.md; originally an F574 clocked by `videoActiveR`), `videoActiveR` + `pixelSel` delay | SN74F377AN + SN74F574N | 1 + 1 | 764 / 466 |
 | Source bus (`srcBus` = D, AC or X, selected by `instReg(1:0)`) | 3 × SN74F541N + SN74F138N decoder | 4 | 724 / 375 |
 | RAM write-data buffer (source bus onto the RAM data pins, enabled by /WE, see CPU.md) | SN74F541N | 1 | (above) |
 | `/WE = RW or CLK` | SN74F32N | 1 | 494 |

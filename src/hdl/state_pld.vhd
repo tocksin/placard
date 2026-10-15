@@ -1,5 +1,5 @@
 -- ============================================================
--- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 09)
+-- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 10)
 -- Date: 2026-10-15
 --
 -- Binary state machine:  Q1 Q0
@@ -7,6 +7,11 @@
 --
 -- Zero-page ([0,D]) accesses chain LOAD_IMM (operand byte -> D)
 -- into LOAD_MEM (D used as the address).
+--
+-- Rev 10: a store from AC or X to [0,X] or [Y,X] goes FETCH ->
+-- LOAD_MEM -> EXEC, so the write clock's address, source bus and
+-- instruction FF are a clock old (see the PLD source).  Q0 moved to
+-- pin 18 and load_instr to pin 14 for product terms.
 --
 -- Equations are transcribed directly from the PLD source
 -- without optimization.  All pins are kept as individual
@@ -41,11 +46,11 @@ entity state_pld is
         db_mem2      : in  std_logic;   -- pin 11, data bus bit 4
         src0         : in  std_logic;   -- pin 13, source field bit 0 (from instruction FF)
 
-        q0           : out std_logic;   -- pin 14, state bit 0
+        q0           : out std_logic;   -- pin 18, state bit 0
         pc_enable    : out std_logic;   -- pin 15, = not q1
         x_enable     : out std_logic;   -- pin 16, registered
         y_enable     : out std_logic;   -- pin 17, registered
-        load_instr   : out std_logic;   -- pin 18
+        load_instr   : out std_logic;   -- pin 14
         load_imm     : out std_logic;   -- pin 19
         load_x       : out std_logic;   -- pin 20
         load_y       : out std_logic;   -- pin 21
@@ -93,8 +98,9 @@ begin
     begin
         if rising_edge(clk) then
             q0_r <= (q0_r and pixel_enable)
-                 or (s_fetch and not pixel_enable and db_src1)
-                 or (s_fetch and not pixel_enable and not db_src0)
+                 or (s_fetch and not pixel_enable and db_src1 and not db_mem1)
+                 or (s_fetch and not pixel_enable and db_src1 and not db_mem2)
+                 or (s_fetch and not pixel_enable and not db_src1 and not db_src0)
                  or (s_fetch and not pixel_enable and not db_mem1 and not db_mem0)
                  or (s_fetch and not pixel_enable and not db_mem2 and db_mem1 and db_mem0)
                  or (s_limm  and not pixel_enable and not src0)

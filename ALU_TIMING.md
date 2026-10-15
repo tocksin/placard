@@ -9,7 +9,11 @@ what each fix changes in the rest of the system.  Timing figures are the
 same worst-case datasheet values as TIMING.md (ATF22V10C-7, 74F glue).
 
 **Status:** option 1 is implemented (ALU_SHR.pld revision 05, Branch PLD
-revision 06, 2026-10-15).
+revision 07, 2026-10-15).  Revision 06 put the wait clock after the load
+instead of before it; revision 07 stalls the first EXEC clock instead, with
+an ALU_DONE register in place of ALU_WAIT (see
+[TIMING_FIXES.md](TIMING_FIXES.md)).  The ALU_WAIT equations below are the
+original revision 06 description.
 
 ## Recommendation
 

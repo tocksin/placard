@@ -98,7 +98,7 @@ architecture Behavioral of basys_top is
     signal pixelEn          : sl;
     signal pixelEnAndRst    : sl;
     signal cpuStall         : sl;   -- Branch PLD STALL = pixel enable or ALU wait
-    signal aluWait          : sl;
+    signal aluDone          : sl;   -- Branch PLD ALU_DONE (second ADD/SUB clock)
     signal pixelRow         : slv(9 downto 0);
     signal pixelCol         : slv(9 downto 0);
     signal hSync            : sl;
@@ -295,7 +295,7 @@ begin
         load_pc_low  => loadPcLow,
         load_pc_high => loadPcHigh,
         branch_block => branchBlock,
-        alu_wait     => aluWait,
+        alu_done     => aluDone,
         stall        => cpuStall
     );
     
@@ -619,13 +619,20 @@ begin
     ------              Pixel Drawing                  -------
     ----------------------------------------------------------
 
-    -- Load Code register process 
-    --   uses videoActiveR as clock to load once at the beginning of the video line
-    --   (its rising edge is the end of the first byte read of the line)
-    loadCodeProc : process (videoActiveR)
+    -- Load Code register process
+    --   An F377 on the system clock, enabled while videoActiveR is low.
+    --   It loads the data bus on every clock of the blanking interval and
+    --   stops when videoActiveR rises, so it keeps the bus value from the
+    --   edge that ends the first byte read of the line (the same edge that
+    --   raises videoActiveR).  The colour decoder blanks the output while
+    --   videoActiveR is low, so the loads during blanking are not seen.
+    --   (Clocking it from videoActiveR raced the data bus by 1 ns.)
+    loadCodeProc : process (clkVGA)
     begin
-        if rising_edge(videoActiveR) then
-            lineCode <= databus;
+        if rising_edge(clkVGA) then
+            if videoActiveR = '0' then
+                lineCode <= databus;
+            end if;
         end if;
     end process loadCodeProc;
  

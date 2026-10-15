@@ -13,12 +13,14 @@ directives are supported).  Use it to check programs and to get a hex file
 when customasm is not at hand; customasm with placard.asm should produce the
 same bytes.
 
-The simulator follows the hardware instruction flow (State PLD rev 08,
-Branch PLD rev 06):
+The simulator follows the hardware instruction flow (State PLD rev 10,
+Branch PLD rev 07):
   - operand byte fetched for: immediate source; memory source with a [0,D]
     mode (MEM 000, 011, 100); register source with MEM 101 (zero-page store),
     except branches (the Branch PLD flags them during FETCH)
   - memory source reads into D (LOAD_MEM); the source bus is D, AC or X
+  - register source with MEM 110 or 111 also passes through LOAD_MEM (one
+    more clock; the read into D is not used)
   - ALU: A = AC, B = source bus
   - dest AC / X / Y load the ALU result; RAM stores take the SOURCE BUS
   - branches: Z and NEG from the accumulator; PC low <- source bus,
@@ -384,6 +386,8 @@ class Cpu:
         if s == 1:
             self.d = m_[addr()]
             clocks += 1
+        if s >= 2 and m in (6, 7):
+            clocks += 1                           # through LOAD_MEM (State PLD rev 10)
         src = [self.d, self.d, self.ac, self.x][s]
         res = self.alu(a, self.ac, src)
         if a == 7:
@@ -398,7 +402,7 @@ class Cpu:
                     self.pc = (self.y << 8) | src
         else:
             if a in (4, 5) and m <= 4:
-                clocks += 1                       # ALU wait clock (Branch PLD rev 06)
+                clocks += 1                       # ALU wait clock (Branch PLD rev 07)
             if m in (0, 1, 2):
                 self.ac = res
             elif m == 3:

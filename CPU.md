@@ -13,13 +13,16 @@ ALU and write a value to a register or to memory.  The LOAD state can be
 skipped if an instruction does not need data from memory; for example, a 
 shift-left instruction adds the Accumulator to itself.
 
-ADD and SUB with an AC, X or Y destination take one more clock: EXEC is held
-for one wait clock so the carry can ripple through both ALU PLDs at
+ADD and SUB with an AC, X or Y destination take one more clock: the first
+EXEC clock is a wait clock so the carry can ripple through both ALU PLDs at
 25.175 MHz (see [ALU_TIMING.md](ALU_TIMING.md)).  The Branch PLD makes the
-wait with its ALU_WAIT register and sends STALL (= PIXEL_ENABLE or ALU_WAIT)
-to the State PLD and the PC PLDs, the same stall the video uses.  Stores do
-not wait, because they write the source bus, not the ALU result.  So an
-instruction takes 2 to 4 clocks, plus any video stall clocks.
+wait by sending STALL to the State PLD and the PC PLDs (the same stall the
+video uses) for the first EXEC clock, and its ALU_DONE register ends the
+wait on the second.  Stores do not wait, because they write the source bus,
+not the ALU result.  A store from AC or X to [0,X] or [Y,X] goes through
+LOAD_MEM (one more clock) so its address and data settle a clock before the
+write (see [TIMING_FIXES.md](TIMING_FIXES.md)).  So an instruction takes 2
+to 4 clocks, plus any video stall clocks.
 
 ## Registers
 
