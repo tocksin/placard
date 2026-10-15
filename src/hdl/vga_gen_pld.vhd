@@ -48,7 +48,8 @@ begin
     hcountPLD: entity work.hcount_pld
     port map(
         CLK            => clkIn,
-        RESET          => rstIn,
+--        RESET          => rstIn,
+        RESET          => '0',
 
         H0             => hcount(0),
         H1             => hcount(1),
