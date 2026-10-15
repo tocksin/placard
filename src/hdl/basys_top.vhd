@@ -148,6 +148,7 @@ architecture Behavioral of basys_top is
     signal instLoad         : sl;
     signal dLoad            : sl;
     signal memRdWr          : sl;
+    signal ramWeN           : sl;   -- RAM /WE, active low
     signal srcBus           : slv(7 downto 0);
 
     signal dReg             : slv(7 downto 0) := x"00";
@@ -553,14 +554,16 @@ begin
         ramsel7 => open
     );
 
+    -- RAM write strobe gate (one OR gate in the schematic):
+    --   /WE = RW or CLK
+    -- RW = 0 is a write cycle.  /WE is low only during the low half of the
+    -- CPU clock, after the address, data and RW have settled, and returns
+    -- high at the rising edge before they change.
+    ramWeN <= memRdWr or clkVGA;
+
     ramComp : entity work.sp_ram 
     port map(   iClk    => clkSystem,  -- faster clock to simulate async RAM
-                -- Write pulse = write cycle AND clock low, like the real async
-                -- SRAM:  /WE = RW or CLK  (one OR gate).  The address, data and
-                -- RW are settled during the high half, /WE is active in the low
-                -- half and ends at the rising CPU clock edge, before the
-                -- address / data / RW change.  memRdWr: 1 = read, 0 = write.
-                iWrEn   => (not memRdWr) and (not clkVGA),
+                iWrEn   => not ramWeN,    -- stand-in for the SRAM's active-low /WE pin
                 iRamEn  => '1',
                 iAddr   => ramAddress,
                 iData   => srcBus,        -- RAM write data comes from the source bus
