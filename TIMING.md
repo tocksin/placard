@@ -101,7 +101,7 @@ checked 2026-10-15 (stock moves, so recheck before ordering).
 | Source bus (`srcBus` = D, AC or X, selected by `instReg(1:0)`) | 3 × SN74F541N + SN74F138N decoder | 4 | 724 / 375 |
 | RAM write-data buffer (source bus onto the RAM data pins, enabled by /WE, see CPU.md) | SN74F541N | 1 | (above) |
 | `/WE = RW or CLK` | SN74F32N | 1 | 494 |
-| ROM /OE from ROM_EN, /CE of the upper 32K chip from A15 | SN74F04N | 1 | 514 |
+| ROM /OE from ROM_EN, /CE of the upper 32K chip from A15 (removed in TIMING_FIXES.md: both now come from PLDs) | SN74F04N | 1 | 514 |
 | 64 KB RAM | AS7C256C-15PCN (32K × 8, PDIP-28) | 2 | 232 |
 | 64 KB ROM, interim | AS7C256C-15PCN, battery backed | 2 | (above) |
 
