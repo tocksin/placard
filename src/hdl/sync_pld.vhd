@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- Name     VGA_SYNC
 -- PartNo   01
--- Date     2026-09-30
+-- Date     2026-10-14
 -- Revision 04
 -- Designer Justin
 -- Company
@@ -30,7 +30,7 @@
 --   PIN 16 = H2                (registered output)
 --   PIN 17 = VIDEO_ACTIVE      (combinatorial output)
 --   PIN 18 = VSYNC             (combinatorial output)
---   PIN 19 = BYTE_ENABLE       (combinatorial output)
+--   PIN 19 = PIXEL_ENABLE      (combinatorial output)
 --   PIN 20 = ADDR_SEL          (combinatorial output)
 --   PIN 21 = ADDR_SEL_HI       (combinatorial output)
 --   PIN 22 = ADDR_SEL_LO       (combinatorial output)
@@ -81,7 +81,7 @@ entity sync_pld is
         VIDEO_ACTIVE     : out std_logic;   -- PIN 17
         VSYNC            : out std_logic;   -- PIN 18
 
-        BYTE_ENABLE      : out std_logic;   -- PIN 19
+        PIXEL_ENABLE     : out std_logic;   -- PIN 19
 
         ADDR_SEL         : out std_logic;   -- PIN 20
         ADDR_SEL_HI      : out std_logic;   -- PIN 21
@@ -98,7 +98,7 @@ entity sync_pld is
     attribute pin_numbers of sync_pld : entity is
         "CLK:1 V9:2 V5:3 V4:4 V3:5 V2:6 V1:7 H_VIDEO_ACTIVE:8 " &
         "PC_ENABLE:9 Y_ENABLE:10 X_ENABLE:11 " &
-        "H0:14 H1:15 H2:16 VIDEO_ACTIVE:17 VSYNC:18 BYTE_ENABLE:19 " &
+        "H0:14 H1:15 H2:16 VIDEO_ACTIVE:17 VSYNC:18 PIXEL_ENABLE:19 " &
         "ADDR_SEL:20 ADDR_SEL_HI:21 ADDR_SEL_LO:22 V_VIDEO_ACTIVE:23";
 end entity sync_pld;
 
@@ -113,7 +113,7 @@ architecture rtl of sync_pld is
     signal H2_Q              : std_logic := '0';
     signal V_VIDEO_ACTIVE_Q  : std_logic := '0';
     signal VIDEO_ACTIVE_I    : std_logic;
-    signal BYTE_ENABLE_I     : std_logic;
+    signal PIXEL_ENABLE_I    : std_logic;
 
     -- Next-state (D input) equations
     signal H0_D              : std_logic;
@@ -181,7 +181,7 @@ begin
 
 
     -- ============================================================
-    -- BYTE ENABLE
+    -- PIXEL ENABLE
     -- ============================================================
 
     --
@@ -190,7 +190,7 @@ begin
     -- H2:H0 = 000 identifies the byte-read clock.
     --
 
-    BYTE_ENABLE_I <=
+    PIXEL_ENABLE_I <=
           VIDEO_ACTIVE_I
       and (not H2_Q)
       and (not H1_Q)
@@ -235,12 +235,12 @@ begin
     --
     -- Priority (highest first):
     --
-    --     1. Video address    BYTE_ENABLE            -> 10
+    --     1. Video address    PIXEL_ENABLE            -> 10
     --     2. Program counter  PC_ENABLE              -> 11
     --     3. X / Y registers  X_ENABLE, Y_ENABLE     -> 01
     --     4. Default                                 -> 00
     --
-    -- BYTE_ENABLE overrides PC_ENABLE, X_ENABLE and Y_ENABLE.
+    -- PIXEL_ENABLE overrides PC_ENABLE, X_ENABLE and Y_ENABLE.
     -- PC_ENABLE overrides X_ENABLE and Y_ENABLE.
     --
 
@@ -248,12 +248,12 @@ begin
     --
     -- Shared S1 input to ALL FOUR 4:1 muxes.
     --
-    -- Video is selected only during BYTE_ENABLE.
+    -- Video is selected only during PIXEL_ENABLE.
     -- PC is selected whenever PC_ENABLE is active.
     --
 
     ADDR_SEL <=
-          BYTE_ENABLE_I
+          PIXEL_ENABLE_I
        or PC_ENABLE;
 
 
@@ -266,12 +266,12 @@ begin
     --     10 = Video address
     --     11 = PC
     --
-    -- S0 is forced low during BYTE_ENABLE so that S1 S0 = 10
+    -- S0 is forced low during PIXEL_ENABLE so that S1 S0 = 10
     -- (video) regardless of PC_ENABLE and Y_ENABLE.
     --
 
     ADDR_SEL_HI <=
-          (not BYTE_ENABLE_I)
+          (not PIXEL_ENABLE_I)
       and (PC_ENABLE or Y_ENABLE);
 
 
@@ -284,12 +284,12 @@ begin
     --     10 = Video address
     --     11 = PC
     --
-    -- S0 is forced low during BYTE_ENABLE so that S1 S0 = 10
+    -- S0 is forced low during PIXEL_ENABLE so that S1 S0 = 10
     -- (video) regardless of PC_ENABLE and X_ENABLE.
     --
 
     ADDR_SEL_LO <=
-          (not BYTE_ENABLE_I)
+          (not PIXEL_ENABLE_I)
       and (PC_ENABLE or X_ENABLE);
 
 
@@ -318,6 +318,6 @@ begin
     H2             <= H2_Q;
     V_VIDEO_ACTIVE <= V_VIDEO_ACTIVE_Q;
     VIDEO_ACTIVE   <= VIDEO_ACTIVE_I;
-    BYTE_ENABLE    <= BYTE_ENABLE_I;
+    PIXEL_ENABLE    <= PIXEL_ENABLE_I;
 
 end architecture rtl;

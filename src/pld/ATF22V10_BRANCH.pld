@@ -34,7 +34,7 @@ Device   g22v10;
    NEG = accumulator MSB (negative)
    AC = 0 and NEG are never both true.
 
-   BYTE_ENABLE (pixel enable) = 1 means video owns the bus.
+   PIXEL_ENABLE = 1 means video owns the bus.
 
    EXEC STATE
    The State PLD has no EXEC output, but EXEC = Q1 & Q0.
@@ -44,21 +44,21 @@ Device   g22v10;
    Wire State PLD pin 14 to Q0 and State PLD pin 15 to PC_ENABLE.
 
    LOAD_PC_LOW and LOAD_PC_HIGH are active only in EXEC with
-   BYTE_ENABLE = 0.  That keeps a stale branch opcode in the
+   PIXEL_ENABLE = 0.  That keeps a stale branch opcode in the
    instruction register from acting during FETCH, LOAD_IMM or
    LOAD_MEM.
 
    TWO DECODE BLOCKS
    Block A (EXEC):  I7:I5 from the instruction register, valid
        from LOAD_IMM onward.  Active in EXEC only.
-           BRANCH_A = I7 & I6 & I5 & EXEC & !BYTE_ENABLE
+           BRANCH_A = I7 & I6 & I5 & EXEC & !PIXEL_ENABLE
        It drives LOAD_PC_LOW and LOAD_PC_HIGH.
    Block B (FETCH): DB7:DB5 straight from the data bus.  In FETCH
        the instruction register still holds the PREVIOUS opcode
        (it loads at the end of the FETCH clock), so the opcode
        being fetched can only be seen on the data bus.
            FETCH    = !Q0 & PC_ENABLE
-           BRANCH_B = DB7 & DB6 & DB5 & FETCH & !BYTE_ENABLE
+           BRANCH_B = DB7 & DB6 & DB5 & FETCH & !PIXEL_ENABLE
 
    BRANCH_BLOCK = BRANCH_A # BRANCH_B goes to State PLD pin 8.
        During FETCH it tells the State PLD that the opcode being
@@ -90,7 +90,7 @@ PIN 6  = M0;
 PIN 7  = Z_LOW;           /* low  ALU nibble zero flag */
 PIN 8  = NEG;
 
-PIN 9  = BYTE_ENABLE;     /* pixel enable, 1 = video owns the bus */
+PIN 9  = PIXEL_ENABLE;    /* 1 = video owns the bus */
 
 PIN 10 = Q0;              /* State PLD pin 14, state bit 0 */
 PIN 11 = PC_ENABLE;       /* State PLD pin 15, = !Q1 */
@@ -116,10 +116,10 @@ EXEC   = Q0 & !PC_ENABLE;
 FETCH  = !Q0 & PC_ENABLE;
 
 /* Block A: opcode in the instruction register, EXEC state. */
-BRANCH_A = I7 & I6 & I5 & EXEC & !BYTE_ENABLE;
+BRANCH_A = I7 & I6 & I5 & EXEC & !PIXEL_ENABLE;
 
 /* Block B: opcode on the data bus, FETCH state. */
-BRANCH_B = DB7 & DB6 & DB5 & FETCH & !BYTE_ENABLE;
+BRANCH_B = DB7 & DB6 & DB5 & FETCH & !PIXEL_ENABLE;
 
 
 /* ---------------- EQUATIONS ---------------- */
