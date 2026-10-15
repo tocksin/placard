@@ -1,5 +1,6 @@
 @echo off
 rem Build mandelbrot.asm into the FPGA and load it on the board.
+rem Run "mandelbrot noasm" to skip assembly and use the existing mandelbrot.hex.
 rem Date: 10/15/2026
-call "%~dp0build_and_load.bat" mandelbrot
+call "%~dp0build_and_load.bat" mandelbrot %*
 if errorlevel 1 pause

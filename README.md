@@ -58,6 +58,7 @@ The `build` folder has one Windows batch file per assembly program
 on the PATH), writes `src/hdl/video_ram.mem` with `gen_video_ram.tcl`, runs
 Vivado in batch mode through synthesis, implementation and bitstream, and
 programs the Basys 3 over JTAG.  Any other program builds with
-`build\build_and_load.bat <program>`.  Vivado is found on the PATH or under
+`build\build_and_load.bat <program>`.  Add `noasm` (e.g. `cpu_test.bat noasm`)
+to skip assembly and use the existing `.hex` file.  Vivado is found on the PATH or under
 `C:\AMDDesignTools` / `C:\Xilinx`; set `VIVADO` to the full path of
 `vivado.bat` to pick a version.  Logs go to `build/logs`.
