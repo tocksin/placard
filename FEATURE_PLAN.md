@@ -36,15 +36,48 @@ These facts from the current design shape every choice below.
 | Feature | Added chips |
 |---|---|
 | I/O decode | 1 x ATF22V10C |
-| Video line read | 1 x 74HC541 |
+| Video line read | 1 x 74F541 |
 | Serial port (SD card + 2 SNES pads) | 74HC574, 74HCT251, CD4050, plus a 3.3 V regulator |
-| Keyboard (64 keys) | 74HC138, 74HC541 |
-| Sound (one voice) | 74HC574, 1 x ATF22V10C |
+| Keyboard (64 keys) | 74F138, 74F541 |
+| Sound (one voice) | 74F574, 1 x ATF22V10C |
 | Expansion ports (2) | none, connectors only |
 | **Total** | **10 logic chips + 1 regulator** |
 
 The RAM/ROM read gating uses two of the three spare OR gates in the existing
 74HC32 that makes /WE, so it adds nothing.
+
+## Parts rule and stock check
+
+Only DIP parts with active stock at Digikey or Mouser, and 74F where it is in
+stock, for the better timing.  Checked 2026-10-15 (stock moves, so recheck
+before ordering):
+
+| Part | DIP part number | Status |
+|---|---|---|
+| 74F541 | SN74F541N (TI) | Mouser: 723 in stock |
+| 74F574 | SN74F574N (TI) | Mouser: 466 in stock |
+| 74F138 | SN74F138N (TI) | Listed at Digikey and Mouser as 16-PDIP; stock count not confirmed |
+| 74F251 | SN74F251BN (TI) | TI lists it active but out of stock; Digikey/Mouser stock not confirmed.  Use the HCT part below unless it shows up in stock. |
+| 74HCT251 | CD74HCT251E (TI) | Mouser: 1,059 in stock |
+| CD4050 | CD4050BE (TI) | Mouser: 10,831 in stock |
+| ATF22V10C | already used in the design | n/a |
+
+**Where 74F is not used, and why:**
+
+- **Serial output latch stays 74HC574.**  74F outputs only guarantee about
+  2.7 V for a high, and the SNES pad's CMOS 4021s need 3.5 V at 5 V.  The HC
+  latch swings rail to rail.
+- **Serial mux is 74HCT251**, not HC: the SD card's 3.3 V MISO needs a
+  TTL-level input.  A 74F251 would also take 3.3 V, if it comes back into
+  stock.
+- **CD4050** has no 74F equivalent: it runs from 3.3 V to shift the SD lines
+  down, which a 5 V-only family can't do.
+
+**74F caveat on the data bus:** the 74F541s drive the CPU's read bus.  That
+is fine for TTL-level inputs (the ATF22V10C and typical SRAM), but if any
+register that latches the read bus is a plain 74HC part, its 3.5 V input
+threshold is above the 74F's guaranteed high.  Use HCT (or F) on those
+inputs, or keep HC541s on the bus.
 
 ## 1. I/O decode (one ATF22V10C)
 
@@ -81,7 +114,7 @@ Proposed equations (written out in full in the PLD when it is designed):
   LOAD_IMM so a card builds its own read and write strobes.  That keeps the
   decode PLD to 10 outputs.
 
-## 2. Video line read (x50, one 74HC541)
+## 2. Video line read (x50, one 74F541)
 
 | Address | R/W | Function |
 |---|---|---|
@@ -89,7 +122,7 @@ Proposed equations (written out in full in the PLD when it is designed):
 | x5000 | R | Upper 8 bits of the line counter, V9:V2 |
 
 - The V counter already exists in the V Counter PLD (it counts 499 to 1023).
-  One 74HC541 enabled by /LINE_RD puts V9:V2 on the data bus.  It is a
+  One 74F541 enabled by /LINE_RD puts V9:V2 on the data bus.  It is a
   single byte, so it can't tear between reads.
 - **Resolution is 4 lines** (128 us).  Visible rows start at V = 544, so
   `row / 4 = value - 136`.  A value below 136 means vertical blanking.
@@ -124,7 +157,7 @@ There is no hardware shifter.
 - **SD card:** SPI mode 0 in software.  SCK, MOSI and /CS go through a CD4050
   powered from 3.3 V.  MISO comes back directly, which needs the HCT version
   of the mux (74HCT251): plain HC wants 3.5 V for a high, and the card only
-  gives 3.3 V.  Confirm a through-hole 74HCT251 is still in production.  A 3.3 V
+  gives 3.3 V.  The CD74HCT251E is in stock in DIP.  A 3.3 V
   regulator powers the card.  Software runs at roughly 10 instructions per bit
   (an estimate), so tens of KB/s, which is fine for loading and saving
   programs.
@@ -133,7 +166,7 @@ There is no hardware shifter.
 - **Spare bits** (3 outputs, 5 inputs) can carry a third SPI device, an SD
   card-detect switch or a one-bit beeper (see Sound).
 
-## 4. Keyboard (x52, 74HC138 + 74HC541)
+## 4. Keyboard (x52, 74F138 + 74F541)
 
 A built-in 8 x 8 matrix (64 keys) with a diode per key, scanned by software.
 
@@ -141,13 +174,13 @@ A built-in 8 x 8 matrix (64 keys) with a diode per key, scanned by software.
 |---|---|---|
 | x5200 + n | R | Rows of column n (0-7), 0 = pressed |
 
-- /KEY_RD enables a 74HC138 that drives column A2:A0 low, and the same strobe
-  enables a 74HC541 that reads the 8 rows (with pull-ups).  One read per
+- /KEY_RD enables a 74F138 that drives column A2:A0 low, and the same strobe
+  enables a 74F541 that reads the 8 rows (with pull-ups).  One read per
   column.
 - Debounce, shift, rollover and repeat are all in software, run once per
   frame using the line read.
 
-## 5. Sound (x51, 74HC574 + ATF22V10C)
+## 5. Sound (x51, 74F574 + ATF22V10C)
 
 One square-wave voice that runs on its own once software sets the pitch.
 
@@ -155,7 +188,8 @@ One square-wave voice that runs on its own once software sets the pitch.
 |---|---|---|
 | x5100 | W | Pitch P (0 = silent) |
 
-- The 74HC574 holds P.  The 22V10 is clocked by HSYNC (the line rate,
+- The 74F574 holds P (it only drives the 22V10's TTL-level inputs).  The
+  22V10 is clocked by HSYNC (the line rate,
   31.25 kHz at 25.000 MHz, no prescaler needed) and counts from P up to
   255, reloads, and toggles its output.  That uses 9 of its 10 macrocells.
 - Frequency = 31250 / (2 x (256 - P)), so about 61 Hz (P = 1) up to 15.6 kHz
@@ -199,17 +233,17 @@ individual pins, lowerCamelCase signals) and a branch on the read mux in
 
 | Feature | Cost to add back |
 |---|---|
-| Full 10-bit line read | a second 74HC541 (or two 74HC574 to snapshot it) |
+| Full 10-bit line read | a second 74F541 (or two 74F574 to snapshot it) |
 | Hardware frame counter | 1 x 22V10 |
 | Hardware SPI byte shifter (faster SD) | 74HC595, 74HC165, 22V10 |
 | More sound voices, noise, volume | about 2 chips per voice |
-| Buffered expansion ports | 74HC245 + 74HC541 per port |
-| ROM/RAM map read-back | 1 x 74HC541 |
+| Buffered expansion ports | 74F245 + 74F541 per port (stock not checked) |
+| ROM/RAM map read-back | 1 x 74F541 |
 
 ## Risks and open questions
 
-- **Timing.**  One clock for reads and a 20 ns write pulse is tight.  If 74HC
-  does not close timing on the I/O path, use 74AC/74ACT parts.
+- **Timing.**  One clock for reads and a 20 ns write pulse is tight.  The plan
+  uses 74F where it is in stock; recheck read timing with 74F delays.
 - **Polling once per frame** is a rule all software must follow if it keeps
   time from the line read.
 - **Keyboard size:** 64 keys (default) or a larger matrix (needs a second
