@@ -58,14 +58,14 @@ reconfigured.  The video hardware will always read from RAM.
 - RAM: 2 × AS7C256C-15PCN (Alliance Memory, 32K × 8, 15 ns, 28-pin PDIP).
   A15 selects which chip is accessed: the lower chip's /CE is the address
   mux's A15 and the upper chip's /CE is /CE_HI from the I/O decode PLD.
-  Both chips' /OE is RAM_OE from the ROM/RAM select PLD (see
-  [TIMING_FIXES.md](TIMING_FIXES.md)).
+  Both chips' /OE is /RAM_OE and their /WE is /WE, both from the memory
+  control PLD (see [TIMING_FIXES.md](TIMING_FIXES.md)).
 - ROM: not chosen yet.  The interim solution is the same AS7C256C-15PCN
   (2 chips) with battery backup.  The AS7C256C keeps its data down to
   VCC = 2.0 V as long as /CE is held at or above VCC − 0.2 V, so the battery
   switch must hold /CE high while power is off.  The two ROM chips take
   their /CE the same way as the RAM (A15 and /CE_HI, through the battery
-  switch) and their /OE from ROM_OE.
+  switch) and their /OE from /ROM_OE (memory control PLD).
 
 See [TIMING.md](TIMING.md) for the timing analysis with these parts.
 
@@ -73,29 +73,30 @@ See [TIMING.md](TIMING.md) for the timing analysis with these parts.
 
 The RAM is asynchronous, so the write pulse must start after the address, data
 and R/W have settled and must end before they change.  The State PLD's R/W
-(pin 23, 1 = read) is a decode of the registered state, so it changes just
-after the rising clock edge.  The write strobe is gated with the clock:
+(pin 23, 1 = read) is low for the whole EXEC state of a store.  The memory
+control PLD (ATF22V10_MEM_CTRL.pld) makes the write strobe and both read
+enables from it, the clock and PIXEL_ENABLE:
 
-    /WE = RW | CLK        (one OR gate, e.g. 74HC32)
+    WRITE   = !RW & !PIXEL_ENABLE
+    READ    = RW # PIXEL_ENABLE
+    /WE     low when CLK = 0 and WRITE
+    /RAM_OE low when CLK = 0 and READ of a RAM section
+    /ROM_OE low when CLK = 0 and READ of a ROM section
 
-/WE is low only during the low half of an EXEC write cycle.  The address and
-source bus have the whole high half to settle, and /WE returns high at the
-rising edge, before the state, address and data change (the SRAM's write
-recovery and data hold times are normally 0 ns).  At 25 MHz the pulse is about
-20 ns, which suits a 10-15 ns SRAM.
-(TIMING.md shows that the gate delay and the buffer enable time break this
-at 25.175 MHz; see "RAM write cycle" there.)
+Every memory cycle, read or write, uses only the low half of the clock.  The
+address and source bus have the whole high half to settle, and /WE returns
+high at the rising edge, before the state, address and data change (the
+SRAM's write recovery and data hold times are 0 ns).  At 25 MHz the pulse is
+about 20 ns, which suits a 10-15 ns SRAM.
 
 Avoiding bus contention on the RAM data pins: the buffer that drives the
 source bus onto them is enabled only by the write pulse itself (its enable is
-/WE), and the RAM's /OE is the read strobe (/OE = !RW, active only when RW = 1).
-RW falls early in the cycle, so the RAM stops driving long before /WE goes low
-and the buffer turns on.  At the end of the cycle /WE rises on the clock edge,
-turning the buffer off, and RW rises a PLD clock-to-output delay later, so the
-RAM only starts driving after the buffer is off.  Do not enable the buffer with
-RW alone, and do not use RAM_EN (the complement of ROM_EN, which is also high
-for writes) as the RAM's /OE.  The FPGA model keeps the read bus (ROM/RAM
-data) and the source bus separate because it cannot use tri-state buses.
+/WE).  Because no memory drives the bus during the high half of any clock,
+the RAM and ROM are off before the buffer turns on at the start of a write,
+and the buffer is off before a read can start after a write.  The clock's
+high half must be 47-54 % of the period (TIMING_FIXES.md).  Do not enable the
+buffer with RW alone.  The FPGA model keeps the read bus (ROM/RAM data) and
+the source bus separate because it cannot use tri-state buses.
 
 ## Source mode
 

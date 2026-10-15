@@ -13,8 +13,8 @@ directives are supported).  Use it to check programs and to get a hex file
 when customasm is not at hand; customasm with placard.asm should produce the
 same bytes.
 
-The simulator follows the hardware instruction flow (State PLD rev 11,
-Branch PLD rev 08):
+The simulator follows the hardware instruction flow (State PLD rev 12,
+Branch PLD rev 09):
   - operand byte fetched for: immediate source; memory source with a [0,D]
     mode (MEM 000, 011, 100); register source with MEM 101 (zero-page store,
     or BGE with an AC or X target, whose second byte is a pad byte)

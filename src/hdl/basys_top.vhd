@@ -146,6 +146,13 @@ architecture Behavioral of basys_top is
     signal mapWrN           : sl;   -- /MAP_WR, ROM/RAM map write strobe
     signal romOeN           : sl;   -- ROM /OE
     signal ramOeN           : sl;   -- RAM /OE
+    signal ramSel0          : sl;   -- ROM/RAM map, 1 = RAM
+    signal ramSel1          : sl;
+    signal ramSel3          : sl;
+    signal ramSel4          : sl;
+    signal ramSel5          : sl;
+    signal ramSel6          : sl;
+    signal ramSel7          : sl;
     signal acLoad           : sl;
     signal xLoad            : sl;
     signal yLoad            : sl;
@@ -536,10 +543,6 @@ begin
     memorySelComp: entity work.romram_sel_pld
     port map(
         wr_clk   => mapWrN,          -- /MAP_WR from the I/O decode PLD
-        a15      => ramAddress(15),
-        a14      => ramAddress(14),
-        a13      => ramAddress(13),
-        a12      => ramAddress(12),
         d0       => srcBus(0),       -- map data from the source bus
         d1       => srcBus(1),
         d3       => srcBus(3),
@@ -547,17 +550,39 @@ begin
         d5       => srcBus(5),
         d6       => srcBus(6),
         d7       => srcBus(7),
-        rw       => memRdWr,
 
-        rom_oe_n => romOeN,
-        ram_oe_n => ramOeN,
-        ramsel0  => open,
-        ramsel1  => open,
-        ramsel3  => open,
-        ramsel4  => open,
-        ramsel5  => open,
-        ramsel6  => open,
-        ramsel7  => open
+        ramsel0  => ramSel0,
+        ramsel1  => ramSel1,
+        ramsel3  => ramSel3,
+        ramsel4  => ramSel4,
+        ramsel5  => ramSel5,
+        ramsel6  => ramSel6,
+        ramsel7  => ramSel7
+    );
+
+    -- Memory read and write strobes (replaces the '32 OR gate).  Every
+    -- memory cycle uses the low half of the clock only; see
+    -- ATF22V10_MEM_CTRL.pld.
+    memCtrlComp: entity work.mem_ctrl_pld
+    port map(
+        clk         => clkVGA,
+        a15         => ramAddress(15),
+        a14         => ramAddress(14),
+        a13         => ramAddress(13),
+        a12         => ramAddress(12),
+        ramsel0     => ramSel0,
+        ramsel1     => ramSel1,
+        ramsel3     => ramSel3,
+        ramsel4     => ramSel4,
+        ramsel5     => ramSel5,
+        ramsel6     => ramSel6,
+        ramsel7     => ramSel7,
+        rw          => memRdWr,
+        pixelEnable => pixelEnAndRst,
+
+        weN         => ramWeN,
+        romOeN      => romOeN,
+        ramOeN      => ramOeN
     );
     romEn <= not romOeN;
 
@@ -589,13 +614,6 @@ begin
         exp1_n      => open,
         exp2_n      => open
     );
-
-    -- RAM write strobe gate (one OR gate in the schematic):
-    --   /WE = RW or CLK
-    -- RW = 0 is a write cycle.  /WE is low only during the low half of the
-    -- CPU clock, after the address, data and RW have settled, and returns
-    -- high at the rising edge before they change.
-    ramWeN <= memRdWr or clkVGA;
 
     ramComp : entity work.sp_ram 
     port map(   iClk    => clkSystem,  -- faster clock to simulate async RAM

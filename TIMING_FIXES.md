@@ -20,7 +20,8 @@ AS7C256C-15).
 | Upper 32K RAM /CE through the '04 (writes, **found here**) | −4.4 ns | **Fixed**, new I/O decode PLD (+1.6) |
 | ROM /OE through the '04 | −3.3 ns | **Fixed**, ROM/RAM select PLD rev 03 (+2.7) |
 | Bus contention at the start of a write | up to about 10 ns | **Fixed**, RAM /OE is high for the whole write (+0.1) |
-| Bus contention at the end of a write | up to 7.6 ns | Reduced to 5.1 ns |
+| Bus contention at the end of a write | up to 7.6 ns | **Fixed**, new memory control PLD in place of the '32 (+8.9) |
+| Bus contention at the start of a write after a video stall (**found here**) | up to 5.5 ns | **Fixed**, same change (+10.9) |
 | Fetch into the branch check | −6.8 ns | **Fixed**, BGE with an AC or X target has a pad byte (State PLD rev 11, Branch PLD rev 08); the fetch is now 39.0 (+0.7) |
 
 ## Fixed
@@ -139,6 +140,9 @@ was planned.
 
 ### ROM/RAM select PLD, revision 03
 
+(Revision 04 moves ROM_OE and RAM_OE to the memory control PLD; see
+[Fixed: bus contention around a write](#fixed-bus-contention-around-a-write-memory-control-pld).)
+
 - **Two read enables, no inverter.**  ROM_OE (pin 14) and RAM_OE (pin 15)
   are separate active-low outputs, each one array pass from the address.
   Both are high on a write, and both are high in 5000h-5FFFh, so the I/O
@@ -242,9 +246,102 @@ opcode into the State PLD and the IR, which already passed (39.0 and 37.5).
   PLDs runs it to the end too, and its 81,746 RAM writes (address and data,
   in order) are identical to the simulator's.
 
-## Open: end-of-write contention (5.1 ns)
+## Fixed: bus contention around a write (memory control PLD)
 
-The write buffer turns off up to 13.1 ns after the edge, and the RAM can
-drive again 8 ns after it.  Closing it fully needs the read enables held
-off for the first half of the clock after a write, which needs CLK and a
-register in the ROM/RAM select PLD, and it has no pin left.
+### The problem
+
+The write buffer (an F541 enabled by /WE) turned off up to 13.1 ns after
+the clock edge that ends a write (F32 6.6, F541 disable 6.5).  RW rises as
+soon as the state leaves EXEC, and the ROM/RAM select PLD turned the RAM or
+ROM /OE on from it, as early as 8 ns after the edge (RW 5, PLD 3, tOLZ 0),
+so the two could drive the data bus against each other for 5.1 ns on every
+write.
+
+Working it through turned up a second overlap at the start of a write that
+the earlier table missed.  The State PLD's write strobe went through STALL,
+so on a store straight after a video stall clock RW fell 20.5 ns into the
+clock (PIXEL_ENABLE 5.5, Branch STALL 7.5, State 7.5).  The RAM's /OE was
+still low from the video read, so the RAM kept driving until the write pulse
+turned it off (tWHZ 8 ns), while the buffer turned on 2.5 ns after the
+pulse started: up to 5.5 ns of contention on a store after a video stall,
+which happens in ordinary programs.
+
+The clean fix is to keep every read off the bus for the high half of the
+clock.  That needs CLK in the read-enable decode, and the ROM/RAM select PLD
+had no pin left for it.
+
+### The fix: memory control PLD (replaces the '32)
+
+A new ATF22V10C makes the RAM write strobe and both read enables.  It takes
+the place of the SN74F32 that made /WE, so the chip count does not change.
+Every memory cycle, read or write, now uses only the low half of the clock:
+
+    WRITE  = !RW & !PIXEL_ENABLE
+    READ   = RW # PIXEL_ENABLE
+    /WE     low when !CLK & WRITE
+    /ROM_OE low when !CLK & READ & a ROM section
+    /RAM_OE low when !CLK & READ & a RAM section (or 4000h-4FFFh, not I/O)
+
+- **Memory control PLD rev 01** (`ATF22V10_MEM_CTRL.pld`, new): inputs CLK
+  (pin 1, array only), A15:A12, the seven map bits, RW and PIXEL_ENABLE;
+  outputs /WE (pin 16, also the write buffer enable and the I/O decode
+  PLD's /WE input), /ROM_OE (pin 17, 14 product terms of 14) and /RAM_OE
+  (pin 18, 16 of 16).  Pins 15 and 19-22 are free.
+- **ROM/RAM select PLD rev 04**: only the map.  ROM_OE, RAM_OE and the
+  A15:A12 and RW inputs are gone; the RAMSEL outputs go to the memory
+  control PLD.  Pins 2-5, 14, 15 and 23 are free.
+- **State PLD rev 12**: MEM_WR no longer includes STALL, so RW is low for
+  the whole EXEC state of a store and settles 10 ns into the clock.  The
+  memory control PLD blocks the write during a video stall with the real
+  PIXEL_ENABLE, which is valid at 5.5 ns.  (A store never waits for the
+  ALU, so for a store STALL and PIXEL_ENABLE are the same.)
+- **Branch PLD rev 09**: BRANCH_BLOCK = I7 & I6 & I5, straight from the
+  instruction register.  It used to include EXEC and !PIXEL_ENABLE, so it
+  arrived 13 ns into EXEC and the State PLD's MEM_WR showed a write for up
+  to 20.5 ns at the start of every BGE, BLE and BRA (memory field 101, 110,
+  111).  The '32 hid that because the clock was still high; with RW no
+  longer gated by STALL it would have been a real write after a video
+  stall.  The State PLD only uses BRANCH_BLOCK in EXEC, and those branches
+  always reach EXEC through LOAD_IMM or LOAD_MEM, so the instruction
+  register has been settled for a clock.
+
+### Timing
+
+Figures are for a 50 % clock, with the worse end of a 45-55 % duty in
+brackets.
+
+| Check | Before | After | Slack |
+|---|---:|---:|---:|
+| End of write: buffer off (/WE 7.5 + F541 disable 6.5) vs RAM or ROM driving again (clock fall + 3) | 5.1 overlap | 14.0 vs 22.9 | +8.9 (+6.9) |
+| Start of write: RAM or ROM off (clock rise + 7.5, tOHZ 7) vs buffer on (clock fall + 3 + 2.5) | +0.1 | 14.5 vs 25.4 | +10.9 (+8.9) |
+| Start of write after a video stall | up to 5.5 overlap | as above | +10.9 (+8.9) |
+| WRITE settled before the clock falls: RW 10, PIXEL_ENABLE 5.5 | | 10 vs 19.9 | +9.9 (+7.9) |
+| Write pulse width (low half) vs tWP 10 | 19.9 | 19.9 | +9.9 (+7.9) |
+| Write data before end of write: F541 enable 9.5 + tDW 8 vs low half | 17.5 vs 19.9 | 17.5 vs 19.9 | +2.4 (+0.4) |
+| Address setup to /WE low: address 20.5 vs clock fall + 3 | 20.5 vs 22.1 | 20.5 vs 22.9 | +2.4 (+0.4) |
+| Address hold after /WE high: /WE high by T + 7.5 vs address change at T + 8 | +1.4 | +0.5 | +0.5 |
+| CPU read through /OE: max(address 20.5 + 7.5, clock fall + 7.5), tOE 7, IR setup 2 | 37.0 | 37.0 | +2.7 (+1.4) |
+| Opcode through /OE into the State PLD (setup 3.5) | 38.5 | 38.5 | +1.2 (−0.1) |
+| Video read through /OE: max(17.5 + 7.5, clock fall + 7.5), tOE 7, pixel buffer setup 2 | 34.0 | 36.4 | +3.3 (+1.4) |
+
+The opcode into the State PLD is limited by tAA (39.0 ns, +0.7) as before,
+as long as the clock's high half is no more than 54.6 % of the period; at
+55 % the /OE path is 0.1 ns over.  VIDEO_TIMING.md already wants the high
+half at least 47 %, so the clock needs a 47-54 % duty.  A divided-down
+oscillator (50 %) meets it with room on both sides.
+
+Still marginal, and unchanged by this fix: on FETCH→EXEC for a register op
+straight after a store, the State PLD sees the store's memory field until
+the instruction register loads (10.5 + 7.5 = 18.0 ns), so RW glitches low
+until then.  The '32 had the same race; the write needs the clock to fall
+after 18.0 ns, which is a high half of at least 45.4 % and is inside the
+47 % already required.
+
+### Checked in simulation
+
+- `cpu_test` to completion in GHDL: all 81,746 RAM writes (address and
+  data, in order) are identical to the run before this change.
+- The map and I/O test (F9h to 5000h, 5Ah to 5100h): one /MAP_WR pulse,
+  one /SND_WR pulse, and the map reads back bits 7, 3, 1, 0 as 1, 1, 0, 1.
+- The FPGA's RAM model is zero-delay, so the simulation checks the logic
+  (no write is lost, added or moved), not the nanosecond timing above.
