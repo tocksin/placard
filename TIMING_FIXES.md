@@ -16,11 +16,12 @@ AS7C256C-15).
 | ALU wait clock came after the AC load (bug in Branch PLD rev 06) | ADD/SUB had one clock, not two | **Fixed**, Branch PLD rev 07 |
 | Store from AC/X straight after FETCH: write data | −1.1 ns | **Fixed**, State PLD rev 10 (+0.3 to 0.8 % clocks) |
 | `lineCode` hold race | −1.0 ns | **Fixed**, F377 on the system clock (same chip count) |
-| Fetch into the branch check | −6.8 ns | Open: needs one more PLD, or an instruction encoding change |
-| Upper 32K RAM /CE through the '04 (reads) | −3.8 ns | Open: needs one more PLD |
-| Upper 32K RAM /CE through the '04 (writes, **found here**) | −4.4 ns | Open: needs one more PLD |
-| ROM /OE through the '04 | −3.3 ns | Open: waits on the ROM choice |
-| End-of-write bus contention | up to 7.6 ns | Open: unchanged |
+| Upper 32K RAM /CE through the '04 (reads) | −3.8 ns | **Fixed**, new I/O decode PLD (+2.2) |
+| Upper 32K RAM /CE through the '04 (writes, **found here**) | −4.4 ns | **Fixed**, new I/O decode PLD (+1.6) |
+| ROM /OE through the '04 | −3.3 ns | **Fixed**, ROM/RAM select PLD rev 03 (+2.7) |
+| Bus contention at the start of a write | up to about 10 ns | **Fixed**, RAM /OE is high for the whole write (+0.1) |
+| Bus contention at the end of a write | up to 7.6 ns | Reduced to 5.1 ns |
+| Fetch into the branch check | −6.8 ns | Open: needs a third PLD, or an instruction encoding change |
 
 ## Fixed
 
@@ -109,83 +110,124 @@ in the second.  With a halted CPU and a different mode byte on each of the
 480 lines, the new `lineCode` register captures the same 480 values as the
 old one, and each matches the byte written for that line.
 
-## Open: needs a decision
+## Memory and I/O decode (two PLDs)
 
-### Fetch into the branch check (−6.8 ns)
+The upper chip select, the ROM /OE and the I/O decode planned in
+[FEATURE_PLAN.md](FEATURE_PLAN.md) are done together by reworking the
+ROM/RAM select PLD and adding one PLD, the I/O decode PLD.  The '04 is no
+longer needed, so the chip count stays the same as before the I/O decode
+was planned.
+
+### The problems
+
+- **Upper 32K chip select.**  The upper chip's /CE was !A15 through the
+  '04.  For reads that is TIMING.md rank 5 (43.5 ns, −3.8).  The write side
+  was missed in TIMING.md and is worse, because it corrupts memory: when a
+  store's A15 is 0 and the address before it had A15 = 1, the upper chip
+  stays selected until !A15 comes out of the '04, after /WE can go low
+  (22.1 ns), so the upper chip also takes a short write at the same low 15
+  address bits.  After a video stall in the right half of a line (video
+  A15 = H9 = 1) followed by a store to the lower 32K (zero page, for
+  example), !A15 settled at 23.5 ns (−1.4), which happens in ordinary
+  programs.  After LOAD_IMM with the program in the upper 32K it was 26.5 ns
+  (−4.4).
+- **ROM /OE.**  The ROM's /OE was !ROM_EN through the '04 (43.0 ns, −3.3),
+  because the ROM/RAM select PLD had no macrocell left for a second polarity.
+- **I/O priority.**  FEATURE_PLAN.md gated the RAM and ROM read enables with
+  spare OR gates and the I/O decoder's IO_SEL.  IO_SEL is a PLD level after
+  the address, so the RAM read through that gate would be 43.6 ns (−3.9).
+
+### ROM/RAM select PLD, revision 03
+
+- **Two read enables, no inverter.**  ROM_OE (pin 14) and RAM_OE (pin 15)
+  are separate active-low outputs, each one array pass from the address.
+  Both are high on a write, and both are high in 5000h-5FFFh, so the I/O
+  device has the bus to itself on an I/O read.
+- **Section 2 has no map bit.**  The two new outputs and the A12 input
+  needed the pins of one map bit.  Section 2 (4000h-5FFFh) is the natural
+  one to fix, because its upper half is the I/O window: 4000h-4FFFh is
+  always RAM.  Bit 2 of a map write is ignored.
+- **The map loads from the source bus** on the rising edge of /MAP_WR, at
+  the end of the write.  The source bus holds the store data well past the
+  end of the write; the RAM-side data bus does not (the write buffer turns
+  off 3.7 ns after the edge at best, and /MAP_WR can rise 7.5 ns after it).
+
+### I/O decode PLD (new)
+
+- **/CE_HI** is !A15 rebuilt from the high-byte mux's own selects and
+  sources (ADDR_SEL, ADDR_SEL_HI, PC15, H9, Y7), not from the mux output, so
+  it settles with the mux output (20.5 ns) instead of a gate after it.  The
+  lower chip's /CE stays the mux's A15.  The same rebuilt A15 is used in the
+  I/O window decode, which saves the A15 input pin.
+- **I/O strobes** as in FEATURE_PLAN.md: /MAP_WR and /LINE_RD (page 0),
+  /SND_WR (1), /PORT_WR and /PORT_RD (2), /EXP1 (5), /EXP2 (6).  Write
+  strobes are low with /WE, so a device latches on the rising edge at the
+  end of the write; read strobes are low on a read the CPU latches into D
+  (LOAD_IMM).  A11 is not decoded, so 5800h-5FFFh repeats 5000h-57FFh.
+- **Pins**: 14 inputs (/WE, ADDR_SEL, ADDR_SEL_HI, PC15, H9, Y7, A14, A13,
+  A12, A10, A9, A8, RW, LOAD_IMM) and 8 outputs, all 22 pins.  Each output
+  is 4 product terms or fewer.
+
+### Timing
+
+| Path | Before | After | Slack |
+|---|---:|---:|---:|
+| Upper 32K read through /CE: selects 13, /CE_HI 7.5, tACE 15, IR setup 2 | 43.5 | 37.5 | +2.2 |
+| Upper 32K deselected before /WE can go low (22.1 ns) | 26.5 | 20.5 | +1.6 |
+| ROM read through /OE: address 20.5, ROM_OE 7.5, tOE 7, IR setup 2 | 43.0 | 37.0 | +2.7 |
+| RAM read through /OE (unchanged) | 37.0 | 37.0 | +2.7 |
+| I/O read: address 20.5, /xx_RD 7.5, F541 enable 9.5, D setup 2 | | 39.5 | +0.2 |
+| I/O write strobe address before /WE can go low | | 20.5 vs 22.1 | +1.6 |
+| RAM stops driving before the write buffer starts: RW 10, RAM_OE 7.5, tOHZ 7 vs /WE 22.1 + F541 enable 2.5 | overlap | 24.5 vs 24.6 | +0.1 |
+| End of write: RAM drives again at RW 5 + RAM_OE 3 (minimums) vs buffer off by 13.1 | 7.6 overlap | 5.1 overlap | |
+
+The I/O read leaves only 0.2 ns, so the devices on the read bus need an
+F541 or something at least as fast (FEATURE_PLAN.md already uses F541s).
+
+### Checked in simulation
+
+- `cpu_test` to completion: all 81,746 RAM writes match.
+- A short program that writes F9h to 5000h and 5Ah to 5100h: one /MAP_WR
+  pulse, one /SND_WR pulse, and the map registers read back bits 7, 3, 1, 0
+  as 1, 1, 0, 1.  Over 25,000 clocks (including video reads), the rebuilt
+  A15 matched the mux's A15 on every clock.
+- The FPGA model reads every address from its RAM block, as it did before
+  (it used to by way of the `romEn` polarity bug noted in TIMING.md), because
+  no program sets the map yet and the map powers up as all ROM.
+
+### Changes to FEATURE_PLAN.md's I/O decode
+
+1. RAM/ROM priority is inside the ROM/RAM select PLD; no OR gates.
+2. Section 2 has no map bit; 4000h-4FFFh is always RAM.
+3. The map, and any other device latch, takes its data from the source bus
+   and latches on the rising edge of its write strobe.
+4. The decoder takes /WE instead of CLK, and the mux selects and A15
+   sources instead of A15.  A11 is not decoded.
+5. There is no IO_SEL output and no spare output; the eighth output is
+   /CE_HI.
+6. Devices that drive the read bus must enable in 9.5 ns or less.
+
+## Open: fetch into the branch check (−6.8 ns)
 
     PC_ENABLE tCO 5.5, Sync ADDR_SEL 7.5, mux 7.5, RAM tAA 15,
     Branch PLD BRANCH_BLOCK (from DB7:5) 7.5, State Q1 setup 3.5 = 46.5 ns
 
 The State PLD only uses BRANCH_BLOCK in FETCH for one case: source AC/X with
 MEM 101 goes to LOAD_IMM for a zero-page store but straight to EXEC for BGE.
-The State PLD has no spare pin for DB7:5 itself.
+The State PLD has no spare pin for DB7:5 itself, and neither of the two
+decode PLDs has room for Q1 (it needs DB7:0, STALL, Q0 and CLK).
 
-### Upper 32K RAM chip select (−3.8 ns reads, −4.4 ns writes)
+- **Pad BGE (no chip).**  BGE with an AC or X target gets a padding byte,
+  so it goes through LOAD_IMM like a zero-page store and the State PLD no
+  longer needs BRANCH_BLOCK in FETCH.  None of pi_spigot, mandelbrot or
+  game_of_life uses that form; cpu_test does 9 times.  It changes the
+  instruction encoding and the assembler.
+- **A third PLD for Q1.**  Q1 moves into it with DB7:0 straight off the
+  data bus (39.0 ns, +0.7), and State PLD pin 15 becomes the Q1 input.
 
-The upper chip's /CE is !A15 through the '04.  For reads that is TIMING.md
-rank 5 (43.5 ns).  The write side was missed in TIMING.md and is worse,
-because it can corrupt memory:
+## Open: end-of-write contention (5.1 ns)
 
-- When a write's A15 is 0 and the address before it had A15 = 1, the upper
-  chip stays selected until !A15 comes out of the '04.  /WE can go low at
-  22.1 ns, so the upper chip also sees a short write at the same low 15
-  address bits.
-- After a zero-page store that follows LOAD_IMM with the program running in
-  the upper 32K, !A15 settles at 26.5 ns (−4.4).
-- After a video stall in the right half of a line (H9 = 1, so video A15 = 1)
-  followed by a store to the lower 32K (zero page, for example), !A15
-  settles at 23.5 ns (−1.4).  That happens in ordinary programs.
-
-The reverse case (a write to the upper chip) is safe: the lower chip's /CE
-is A15 itself and deselects in time, and the upper chip's late /CE still
-leaves 15.4 ns of the 12 ns /CE-to-end-of-write time.
-
-### Options
-
-**A. Add one PLD for A15 and Q1 (recommended).**  It takes the high-byte mux
-selects (ADDR_SEL, ADDR_SEL_HI) and the three A15 sources (PC15, video H9,
-Y7), and makes A15 and !A15 from the same array, so both chip selects are
-valid when the mux output is (20.5 ns).  It also takes the State PLD's Q1
-register, with DB7:0 straight off the data bus, so the branch case no
-longer goes through the Branch PLD.
-
-| Pin use | Count |
-|---|---:|
-| Inputs: CLK, DB7:0, STALL, Q0, ADDR_SEL, ADDR_SEL_HI, PC15, H9, Y7 | 16 |
-| Outputs: PC_ENABLE (= !Q1, registered), /CE lower (A15), /CE upper (!A15) | 3 |
-| Spare I/O pins | 3 |
-
-| Path | After |
-|---|---:|
-| Fetch into Q1 (data bus straight into the new PLD's Q1 register) | 35.5 + 3.5 = 39.0 (+0.7) |
-| Upper 32K read through /CE: 20.5 + tACE 15 + IR setup 2 | 37.5 (+2.2) |
-| Upper 32K chip deselected before /WE goes low | 20.5 vs 22.1 (+1.6) |
-
-The State PLD's pin 15 becomes the Q1 input (from PC_ENABLE) and its Q1
-equation moves out, so it no longer needs BRANCH_BLOCK in FETCH.  The '04
-keeps only the ROM /OE inverter.
-
-**B. No new chip.**  Give BGE with an AC or X target a padding byte, so it
-goes through LOAD_IMM like a zero-page store and the State PLD no longer
-needs BRANCH_BLOCK in FETCH.  None of pi_spigot, mandelbrot or
-game_of_life uses that form; cpu_test does 9 times.  That fixes only the
-branch check (it changes the instruction encoding and the assembler).  The
-upper chip select problems stay.
-
-### ROM /OE (−3.3 ns)
-
-The ROM's /OE is !ROM_EN through the '04, and the RAM's /OE is ROM_EN, so the
-ROM/RAM select PLD needs both polarities, but all 10 of its macrocells are
-in use (8 map bits and ROM_EN, with pin 23 as the RW input).  The ROM part
-is still undecided, so this waits on that choice.  If the battery-backed
-AS7C256C stays, one way with no added chip is to fix section 0 as ROM (the
-reset code is there anyway), which frees a map macrocell for a separate,
-non-inverted ROM /OE.
-
-### End-of-write contention
-
-Unchanged: the write buffer turns off up to 13.1 ns after the edge while the
-RAM can drive again from about 6 ns, so the two can fight for a few ns per
-write.  Fixing it needs separate RAM and ROM read enables with a hold-off
-after a write, which also needs ROM/RAM select PLD macrocells, so it goes
-with the ROM /OE decision.
+The write buffer turns off up to 13.1 ns after the edge, and the RAM can
+drive again 8 ns after it.  Closing it fully needs the read enables held
+off for the first half of the clock after a write, which needs CLK and a
+register in the ROM/RAM select PLD, and it has no pin left.
