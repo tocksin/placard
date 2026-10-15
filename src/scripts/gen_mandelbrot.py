@@ -388,6 +388,8 @@ def build(once, delay):
             e('ld   ac, %s' % z('cnt'))
             e('bne  pt%d' % m)
         e('; write the byte to %d screen row(s)' % w)
+        if ppb > 1:
+            e('ld   %s, ac' % z('pix'))
         e('ld   %s, x' % z('rowx'))
         e('ld   %s, y' % z('rowy'))
         for r in range(w):
