@@ -34,6 +34,9 @@ register or bus delay is added, so a single-clock EXEC cannot work at
 The ALU has since been changed to a lookahead carry with one wait clock on
 ADD/SUB, which closes both ALU paths ([ALU_TIMING.md](ALU_TIMING.md)); the
 tables below are the analysis of the design before that change.
+[VIDEO_TIMING.md](VIDEO_TIMING.md) works through the video read (ranks 2
+and 7) and the write glitch, which the ALU change's STALL signal spread from
+the first byte of a line to every video byte.
 
 The slowest path limits the clock to about 11 MHz.  If the ALU were given two
 clocks, the next limit is about 19 MHz.
@@ -260,6 +263,9 @@ What these mean on the board:
   mux is switching to the video address.  The cycle is repeated after the
   stall, so the intended write is redone, but a short write can land on the
   video address.
+  Since the ALU change, STALL sits between PIXEL_ENABLE and MEM_WR, so this
+  now happens on every video byte, not just the first (see
+  [VIDEO_TIMING.md](VIDEO_TIMING.md)).
 - **Bus contention at the end of a write**: the buffer turns off d + tdis
   (up to 13.1 ns) after the edge, while RW rises 5.5 to 10 ns after the edge
   and turns the RAM's outputs back on with tOLZ = 0.  The two can drive the
