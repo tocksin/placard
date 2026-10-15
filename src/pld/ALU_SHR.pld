@@ -1,7 +1,7 @@
 Name     ALU4;
 PartNo   00;
-Date     10/11/2026;
-Revision 03;
+Date     10/15/2026;
+Revision 04;
 Designer ;
 Company  ;
 Assembly ;
@@ -26,7 +26,11 @@ Device   f22v10;
        1  1  1     PASS A
 
    SUBTRACTION:  A - B - CIN = A + !B + !CIN
-       COUT = 1 means no borrow, COUT = 0 means borrow
+       CIN = 1 means borrow in, COUT = 1 means borrow out.
+       COUT carries the raw borrow (not the adder's
+       no-borrow carry) so the low chip's COUT can drive the
+       high chip's CIN directly for both ADD and SUB, with no
+       inverter or XOR gate between the chips.
 
    PASS A:  F = A.  B and CIN are ignored and COUT = 0.
        Used by the branch/jump opcode (I7:I5 = 111): Z of each
@@ -58,7 +62,7 @@ Device   f22v10;
 
        Fi  = Ai xor Bi xor Di        (D0 = CIN)
        D(i+1) = MAJ( Ai xor S0, Bi, Di )
-       true carry out = D4 xor S0
+       D4 = carry out for ADD, borrow out for SUB  (= COUT)
 
    Timing: the carry passes through D1, D2, D3, then F3/COUT,
    so allow roughly four pin-to-pin delays for the worst path.
@@ -122,8 +126,8 @@ D2 = ((A1 $ S0) & B1) # ((A1 $ S0) & D1)  # (B1 & D1);
 
 D3 = ((A2 $ S0) & B2) # ((A2 $ S0) & D2)  # (B2 & D2);
 
-/* true carry out of bit 3 (carry for ADD, no-borrow for SUB) */
-C4 = ( ((A3 $ S0) & B3) # ((A3 $ S0) & D3) # (B3 & D3) ) $ S0;
+/* carry out of bit 3: carry for ADD, borrow for SUB */
+D4 = ((A3 $ S0) & B3) # ((A3 $ S0) & D3) # (B3 & D3);
 
 
 /* =========================================================
@@ -169,13 +173,13 @@ F3 =
 
 /* =========================================================
    CARRY OUTPUT
-   ADD/SUB : carry / no-borrow
+   ADD/SUB : carry / borrow   (matches what CIN expects)
    SHR     : A0 is the bit shifted out
    PASS A  : 0
    ========================================================= */
 
 COUT =
-      (ARITH_SEL & C4)
+      (ARITH_SEL & D4)
     # (SHR_SEL   & A0);
 
 
