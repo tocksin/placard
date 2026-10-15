@@ -94,7 +94,8 @@ architecture Behavioral of basys_top is
     signal locked           : sl;
 
     signal videoActive      : sl;
-    signal videoActiveR     : sl;
+    signal videoActiveR1    : sl;   -- first delay stage
+    signal videoActiveR     : sl;   -- second delay stage (VIDEN, lineCode clock)
     signal pixelEn          : sl;
     signal pixelEnAndRst    : sl;
     signal cpuStall         : sl;   -- Branch PLD STALL = pixel enable or ALU wait
@@ -126,6 +127,7 @@ architecture Behavioral of basys_top is
     
     
     signal pixelBuffer      : slv(7 downto 0) := x"00";
+    signal pixelSel1        : slv(2 downto 0) := "000";
     signal pixelSel         : slv(2 downto 0) := "000";
     signal loadPixel        : sl;
     signal loadCode         : sl;
@@ -620,6 +622,7 @@ begin
 
     -- Load Code register process 
     --   uses videoActiveR as clock to load once at the beginning of the video line
+    --   (its rising edge is the end of the first byte read of the line)
     loadCodeProc : process (videoActiveR)
     begin
         if rising_edge(videoActiveR) then
@@ -641,14 +644,23 @@ begin
     end process pixelProc;
 
 
+    -- Pixel select and video enable delay (one F574, two 4-bit stages)
+    --   The Sync PLD reads the byte in clock 1 of each 8-clock group
+    --   (PIXEL_ENABLE is registered), so the pixel buffer loads at the end
+    --   of clock 1.  H2:H0 and videoActive are delayed two clocks to line
+    --   up with it (see VIDEO_TIMING.md).
     delayPixelProc : process (clkVGA, rstVGA)
     begin
         if (rstVGA = '1') then
+             pixelSel1 <= (others => '0');
+             videoActiveR1 <= '0';
              pixelSel <= (others => '0');
              videoActiveR <= '0';
         elsif (rising_edge(clkVGA)) then
-            videoActiveR <= videoActive;              
-            pixelSel <= pixelCol(2 downto 0);  -- delay for timing
+            videoActiveR1 <= videoActive;
+            pixelSel1 <= pixelCol(2 downto 0);
+            videoActiveR <= videoActiveR1;
+            pixelSel <= pixelSel1;
         end if;
     end process delayPixelProc;
 /*

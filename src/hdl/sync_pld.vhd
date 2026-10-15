@@ -1,15 +1,15 @@
 --------------------------------------------------------------------------------
 -- Name     VGA_SYNC
 -- PartNo   01
--- Date     2026-10-14
--- Revision 04
+-- Date     2026-10-15
+-- Revision 05
 -- Designer Justin
 -- Company
 -- Assembly
 -- Location
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 04)
+-- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 05)
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP/SOIC; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = CLK
@@ -30,7 +30,7 @@
 --   PIN 16 = H2                (registered output)
 --   PIN 17 = VIDEO_ACTIVE      (combinatorial output)
 --   PIN 18 = VSYNC             (combinatorial output)
---   PIN 19 = PIXEL_ENABLE      (combinatorial output)
+--   PIN 19 = PIXEL_ENABLE      (registered output)
 --   PIN 20 = ADDR_SEL          (combinatorial output)
 --   PIN 21 = ADDR_SEL_HI       (combinatorial output)
 --   PIN 22 = ADDR_SEL_LO       (combinatorial output)
@@ -113,13 +113,14 @@ architecture rtl of sync_pld is
     signal H2_Q              : std_logic := '0';
     signal V_VIDEO_ACTIVE_Q  : std_logic := '0';
     signal VIDEO_ACTIVE_I    : std_logic;
-    signal PIXEL_ENABLE_I    : std_logic;
+    signal PIXEL_ENABLE_Q    : std_logic := '0';
 
     -- Next-state (D input) equations
     signal H0_D              : std_logic;
     signal H1_D              : std_logic;
     signal H2_D              : std_logic;
     signal V_VIDEO_ACTIVE_D  : std_logic;
+    signal PIXEL_ENABLE_D    : std_logic;
 
 begin
 
@@ -187,11 +188,25 @@ begin
     --
     -- One byte is read every eight clocks during active video.
     --
-    -- H2:H0 = 000 identifies the byte-read clock.
+    -- PIXEL_ENABLE is registered, so it is decoded on the clock where
+    -- H2:H0 = 000 and is high on the next one, H2:H0 = 001.  The byte is
+    -- read in the second clock of each 8-clock group.  Being registered,
+    -- it reaches ADDR_SEL through the register feedback (tCF) and the
+    -- State, PC and Branch PLDs at tCO, instead of three array passes
+    -- after the clock (see VIDEO_TIMING.md).
+    --
+    -- It is decoded from the V_VIDEO_ACTIVE register and the
+    -- H_VIDEO_ACTIVE input, not from the VIDEO_ACTIVE pin, so it is one
+    -- array pass.
+    --
+    -- The pixel buffer loads one clock later than a clock-0 read, so the
+    -- pixel select (H2:H0) and video-enable delay register on the board
+    -- has two stages.
     --
 
-    PIXEL_ENABLE_I <=
-          VIDEO_ACTIVE_I
+    PIXEL_ENABLE_D <=
+          V_VIDEO_ACTIVE_Q
+      and H_VIDEO_ACTIVE
       and (not H2_Q)
       and (not H1_Q)
       and (not H0_Q);
@@ -253,7 +268,7 @@ begin
     --
 
     ADDR_SEL <=
-          PIXEL_ENABLE_I
+          PIXEL_ENABLE_Q
        or PC_ENABLE;
 
 
@@ -271,7 +286,7 @@ begin
     --
 
     ADDR_SEL_HI <=
-          (not PIXEL_ENABLE_I)
+          (not PIXEL_ENABLE_Q)
       and (PC_ENABLE or Y_ENABLE);
 
 
@@ -289,7 +304,7 @@ begin
     --
 
     ADDR_SEL_LO <=
-          (not PIXEL_ENABLE_I)
+          (not PIXEL_ENABLE_Q)
       and (PC_ENABLE or X_ENABLE);
 
 
@@ -305,6 +320,7 @@ begin
             H1_Q             <= H1_D;
             H2_Q             <= H2_D;
             V_VIDEO_ACTIVE_Q <= V_VIDEO_ACTIVE_D;
+            PIXEL_ENABLE_Q   <= PIXEL_ENABLE_D;
         end if;
     end process;
 
@@ -318,6 +334,6 @@ begin
     H2             <= H2_Q;
     V_VIDEO_ACTIVE <= V_VIDEO_ACTIVE_Q;
     VIDEO_ACTIVE   <= VIDEO_ACTIVE_I;
-    PIXEL_ENABLE    <= PIXEL_ENABLE_I;
+    PIXEL_ENABLE    <= PIXEL_ENABLE_Q;
 
 end architecture rtl;
