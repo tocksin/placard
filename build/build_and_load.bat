@@ -1,6 +1,6 @@
 @echo off
 rem ===========================================================================
-rem build_and_load.bat  <program>
+rem build_and_load.bat  <program> [noasm]
 rem
 rem Builds one assembly program into the FPGA and loads it on the board:
 rem   1. assembles src\scripts\<program>.asm into <program>.hex
@@ -10,7 +10,9 @@ rem   2. merges the program into src\hdl\video_ram.mem (gen_video_ram.tcl)
 rem   3. runs Vivado in batch mode: synthesis, implementation, bitstream
 rem   4. programs the Basys 3 through the local hw_server
 rem
-rem Example:   build_and_load.bat cpu_test
+rem Examples:  build_and_load.bat cpu_test
+rem            build_and_load.bat cpu_test noasm    skip step 1, use the existing
+rem                                                 src\scripts\cpu_test.hex
 rem
 rem Vivado is found on the PATH, else under C:\AMDDesignTools or C:\Xilinx
 rem (newest version).  Set VIVADO to the full path of vivado.bat to override.
@@ -20,11 +22,19 @@ rem ===========================================================================
 setlocal EnableExtensions EnableDelayedExpansion
 
 if "%~1"=="" (
-    echo usage: %~nx0 ^<program^>    e.g. %~nx0 cpu_test
+    echo usage: %~nx0 ^<program^> [noasm]    e.g. %~nx0 cpu_test
     exit /b 1
 )
 
 set "PROG=%~n1"
+set "NOASM="
+if /i "%~2"=="noasm" set "NOASM=1"
+if /i "%~2"=="-noasm" set "NOASM=1"
+if /i "%~2"=="/noasm" set "NOASM=1"
+if not "%~2"=="" if not defined NOASM (
+    echo build_and_load: unknown option %~2, the only option is noasm
+    exit /b 1
+)
 set "BUILD_DIR=%~dp0"
 for %%I in ("%BUILD_DIR%..") do set "REPO_DIR=%%~fI"
 set "SCRIPTS_DIR=%REPO_DIR%\src\scripts"
@@ -37,7 +47,8 @@ if not exist "%ASM_FILE%" if not exist "%HEX_FILE%" (
 )
 
 rem ---- 1. assemble -----------------------------------------------------------
-if exist "%ASM_FILE%" (
+if defined NOASM echo build_and_load: noasm, using existing %PROG%.hex
+if not defined NOASM if exist "%ASM_FILE%" (
     pushd "%SCRIPTS_DIR%"
     where customasm >nul 2>&1
     if !errorlevel! equ 0 (
