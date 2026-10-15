@@ -244,7 +244,7 @@ begin
     stateMachineProc: entity work.state_pld
     port map(
         clk         => clkVGA,
-        byte_enable => pixelEnAndRst,
+        pixel_enable => pixelEnAndRst,
         db_src1     => dataBus(1),-- only used during fetch cycle - contains instruction bit 1
         db_src0     => dataBus(0),-- only used during fetch cycle - contains instruction bit 1 
         mem2        => instReg(4),-- dst/mem access mode
@@ -284,7 +284,7 @@ begin
         z_low        => zeroLo,
         z_high       => zeroHi,
         neg          => acNeg,
-        byte_enable  => pixelEnAndRst,
+        pixel_enable => pixelEnAndRst,
         q0           => stateQ0,
         pc_enable    => pcEnable,
         load_pc_low  => loadPcLow,

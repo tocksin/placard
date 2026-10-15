@@ -59,14 +59,14 @@ Device   g22v10;
      - Source 00 with MEM = 101 is illegal (D can't be value and
        address).
 
-   Every state advances only on a clock where BYTE_ENABLE = 0
-   (BYTE_ENABLE is the pixel enable from the Sync PLD).  When it
+   Every state advances only on a clock where PIXEL_ENABLE = 0
+   (PIXEL_ENABLE comes from the Sync PLD).  When it
    is 1 the video owns the bus, the state holds, and every bus
    strobe is forced inactive (memory write is forced to READ).
 
    BRANCH_BLOCK (from the Branch PLD pin 23, active high) has two
    uses:
-     - In EXEC (BYTE_ENABLE = 0, taken or not) it is 1 while a
+     - In EXEC (PIXEL_ENABLE = 0, taken or not) it is 1 while a
        branch/jump executes.  It forces LOAD_AC, LOAD_X, LOAD_Y and
        MEM_WR inactive so a branch opcode cannot also write a
        register or RAM.
@@ -84,7 +84,7 @@ Device   g22v10;
           = !Q1), so one pin is both a state bit and an output.
         - PC_INC is NOT generated here.  Make it outside the
           PLD with one gate:
-              PC_INC = PC_ENABLE & !BYTE_ENABLE
+              PC_INC = PC_ENABLE & !PIXEL_ENABLE
           (identical to the PC_INC equation in the old revision).
 
    PRODUCT TERMS
@@ -112,14 +112,14 @@ Device   g22v10;
 PIN 1  = CLK;
 
 /* Pixel enable from the Sync PLD: 1 = video owns the bus. */
-PIN 2  = BYTE_ENABLE;
+PIN 2  = PIXEL_ENABLE;
 
 /* Source and memory fields of the instruction BEING FETCHED.
    These must come straight from the data bus bits, NOT from the
    instruction FF: the instruction FF is only loaded at the end
    of the FETCH clock, the same edge at which this PLD picks its
    next state.  Only used in FETCH on a clock where
-   BYTE_ENABLE = 0.
+   PIXEL_ENABLE = 0.
        DB_SRC1:DB_SRC0            = data bus bits 1:0
        DB_MEM2:DB_MEM1:DB_MEM0    = data bus bits 4:2 */
 PIN 3  = DB_SRC1;
@@ -161,13 +161,13 @@ PIN 14 = Q0;
 PIN 15 = !Q1;
 
 /* Address-source selects to the Sync PLD (pure decode of the
-   memory field, no state or BYTE_ENABLE term).  The Sync PLD
+   memory field, no state or PIXEL_ENABLE term).  The Sync PLD
    gives priority to video and PC_ENABLE, so these only take
    effect in LOAD_MEM and EXEC. */
 PIN 16 = X_ENABLE;
 PIN 17 = Y_ENABLE;
 
-/* Bus-cycle strobes.  Each includes !BYTE_ENABLE, so it is only
+/* Bus-cycle strobes.  Each includes !PIXEL_ENABLE, so it is only
    active on a clock where the CPU really owns the bus. */
 PIN 18 = LOAD_INSTR;   /* load instruction FF                          */
 PIN 19 = LOAD_IMM;     /* load D FF (LOAD_IMM and LOAD_MEM states)     */
@@ -177,7 +177,7 @@ PIN 22 = LOAD_AC;      /* load accumulator                             */
 
 /* Memory R/W.  Pin level: 1 = read, 0 = write (same sense as the
    ROM/RAM select PLD).  Declared inverted so the equation below
-   is the write condition.  Forced to read while BYTE_ENABLE = 1
+   is the write condition.  Forced to read while PIXEL_ENABLE = 1
    or BRANCH_BLOCK = 1. */
 PIN 23 = !MEM_WR;
 
@@ -220,25 +220,25 @@ S_EXEC  =  Q1 &  Q0;
        LOAD_IMM, LOAD_MEM -> 1
 */
 
-Q0.D = (Q0 & BYTE_ENABLE)
-     # (S_FETCH & !BYTE_ENABLE & DB_SRC1)
-     # (S_FETCH & !BYTE_ENABLE & !DB_SRC0)
-     # (S_FETCH & !BYTE_ENABLE & !DB_MEM1 & !DB_MEM0)
-     # (S_FETCH & !BYTE_ENABLE & !DB_MEM2 & DB_MEM1 & DB_MEM0)
-     # (S_LIMM  & !BYTE_ENABLE & !SRC0)
-     # (S_LIMM  & !BYTE_ENABLE & MEM2 & !MEM1 & MEM0)
-     # (S_LMEM  & !BYTE_ENABLE);
+Q0.D = (Q0 & PIXEL_ENABLE)
+     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1)
+     # (S_FETCH & !PIXEL_ENABLE & !DB_SRC0)
+     # (S_FETCH & !PIXEL_ENABLE & !DB_MEM1 & !DB_MEM0)
+     # (S_FETCH & !PIXEL_ENABLE & !DB_MEM2 & DB_MEM1 & DB_MEM0)
+     # (S_LIMM  & !PIXEL_ENABLE & !SRC0)
+     # (S_LIMM  & !PIXEL_ENABLE & MEM2 & !MEM1 & MEM0)
+     # (S_LMEM  & !PIXEL_ENABLE);
 
-Q1.D = (Q1 & BYTE_ENABLE)
-     # (S_FETCH & !BYTE_ENABLE & !DB_SRC1 & DB_SRC0 & !DB_MEM1 & DB_MEM0)
-     # (S_FETCH & !BYTE_ENABLE & !DB_SRC1 & DB_SRC0 & DB_MEM2 & DB_MEM1)
-     # (S_FETCH & !BYTE_ENABLE & !DB_SRC1 & DB_SRC0 & !DB_MEM2 & DB_MEM1 & !DB_MEM0)
-     # (S_FETCH & !BYTE_ENABLE & DB_SRC1 & !DB_MEM2)
-     # (S_FETCH & !BYTE_ENABLE & DB_SRC1 & DB_MEM1)
-     # (S_FETCH & !BYTE_ENABLE & DB_SRC1 & !DB_MEM0)
-     # (S_FETCH & !BYTE_ENABLE & DB_SRC1 & BRANCH_BLOCK)
-     # (S_LIMM  & !BYTE_ENABLE)
-     # (S_LMEM  & !BYTE_ENABLE);
+Q1.D = (Q1 & PIXEL_ENABLE)
+     # (S_FETCH & !PIXEL_ENABLE & !DB_SRC1 & DB_SRC0 & !DB_MEM1 & DB_MEM0)
+     # (S_FETCH & !PIXEL_ENABLE & !DB_SRC1 & DB_SRC0 & DB_MEM2 & DB_MEM1)
+     # (S_FETCH & !PIXEL_ENABLE & !DB_SRC1 & DB_SRC0 & !DB_MEM2 & DB_MEM1 & !DB_MEM0)
+     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & !DB_MEM2)
+     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & DB_MEM1)
+     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & !DB_MEM0)
+     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & BRANCH_BLOCK)
+     # (S_LIMM  & !PIXEL_ENABLE)
+     # (S_LMEM  & !PIXEL_ENABLE);
 
 
 /* ---------------- MEMORY FIELD DECODE ---------------- */
@@ -268,17 +268,17 @@ DEST_RAM = ( MEM2 & !MEM1 &  MEM0)      /* 101 */
 
 /* ---------------- STROBES ---------------- */
 
-LOAD_INSTR = S_FETCH & !BYTE_ENABLE;
+LOAD_INSTR = S_FETCH & !PIXEL_ENABLE;
 
-LOAD_IMM   = (S_LIMM & !BYTE_ENABLE)
-           # (S_LMEM & !BYTE_ENABLE);
+LOAD_IMM   = (S_LIMM & !PIXEL_ENABLE)
+           # (S_LMEM & !PIXEL_ENABLE);
 
-LOAD_AC    = S_EXEC & !BYTE_ENABLE & !BRANCH_BLOCK & DEST_AC;
+LOAD_AC    = S_EXEC & !PIXEL_ENABLE & !BRANCH_BLOCK & DEST_AC;
 
-LOAD_X     = S_EXEC & !BYTE_ENABLE & !BRANCH_BLOCK & DEST_X;
+LOAD_X     = S_EXEC & !PIXEL_ENABLE & !BRANCH_BLOCK & DEST_X;
 
-LOAD_Y     = S_EXEC & !BYTE_ENABLE & !BRANCH_BLOCK & DEST_Y;
+LOAD_Y     = S_EXEC & !PIXEL_ENABLE & !BRANCH_BLOCK & DEST_Y;
 
 /* Write only in EXEC, only on a clock the CPU owns the bus,
    and never during a branch/jump. */
-MEM_WR     = S_EXEC & !BYTE_ENABLE & !BRANCH_BLOCK & DEST_RAM;
+MEM_WR     = S_EXEC & !PIXEL_ENABLE & !BRANCH_BLOCK & DEST_RAM;

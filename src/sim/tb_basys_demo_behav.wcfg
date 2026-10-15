@@ -241,9 +241,9 @@
          <obj_property name="ElementShortName">pixelEn</obj_property>
          <obj_property name="ObjectShortName">pixelEn</obj_property>
       </wvobject>
-      <wvobject fp_name="/tb_basys_demo/dut/stateMachineProc/byte_enable" type="logic">
-         <obj_property name="ElementShortName">byte_enable</obj_property>
-         <obj_property name="ObjectShortName">byte_enable</obj_property>
+      <wvobject fp_name="/tb_basys_demo/dut/stateMachineProc/pixel_enable" type="logic">
+         <obj_property name="ElementShortName">pixel_enable</obj_property>
+         <obj_property name="ObjectShortName">pixel_enable</obj_property>
       </wvobject>
       <wvobject fp_name="/tb_basys_demo/dut/stateMachineProc/q0_r" type="logic">
          <obj_property name="ElementShortName">q0_r</obj_property>
@@ -344,9 +344,9 @@
       <obj_property name="ElementShortName">clk</obj_property>
       <obj_property name="ObjectShortName">clk</obj_property>
    </wvobject>
-   <wvobject fp_name="/tb_basys_demo/dut/stateMachineProc/byte_enable" type="logic">
-      <obj_property name="ElementShortName">byte_enable</obj_property>
-      <obj_property name="ObjectShortName">byte_enable</obj_property>
+   <wvobject fp_name="/tb_basys_demo/dut/stateMachineProc/pixel_enable" type="logic">
+      <obj_property name="ElementShortName">pixel_enable</obj_property>
+      <obj_property name="ObjectShortName">pixel_enable</obj_property>
    </wvobject>
    <wvobject fp_name="/tb_basys_demo/dut/stateMachineProc/db_src1" type="logic">
       <obj_property name="ElementShortName">db_src1</obj_property>
