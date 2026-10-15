@@ -53,7 +53,8 @@ This is done by just XORing the current color with the RAM value.  So you start 
 
 ## Building and loading a program
 The `build` folder has one Windows batch file per assembly program
-(`cpu_test.bat`, `test_video.bat`, `mandelbrot.bat`).  Each one assembles
+(`cpu_test.bat`, `test_video.bat`, `mandelbrot.bat`,
+`pi_spigot.bat`).  Each one assembles
 `src/scripts/<program>.asm` (customasm, or `placard_sim.py` if customasm is not
 on the PATH), writes `src/hdl/video_ram.mem` with `gen_video_ram.tcl`, runs
 Vivado in batch mode through synthesis, implementation and bitstream, and
