@@ -9,6 +9,9 @@ PLDs already on the board, and what each fix changes in the rest of the
 system.  Timing figures are the same worst-case datasheet values as
 TIMING.md (ATF22V10C-7, 74F glue).
 
+**Status:** option A is implemented (Sync PLD revision 05, two-stage pixel
+delay in `basys_top.vhd`, 2026-10-15).
+
 ## Recommendation
 
 **Option A: register PIXEL_ENABLE in the Sync PLD, so the byte is read in
