@@ -1,5 +1,5 @@
 -- ============================================================
--- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 07)
+-- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 08)
 -- Date: 10/15/2026
 --
 -- Branch / jump control, plus the ALU wait clock (Rev 06, Rev 07).
@@ -13,6 +13,10 @@
 -- stall replaces pixel_enable on the State PLD and both PC PLDs.  The
 -- video keeps the real pixel_enable.  (Rev 06 stalled the clock after
 -- the load; see the PLD source.)
+--
+-- Rev 08: block B (the FETCH decode of db7:db5) is removed.  The State
+-- PLD no longer needs branch_block in FETCH, because BGE with an AC or
+-- X target now has a pad byte (State PLD Rev 11).  Pins 14-16 are unused.
 --
 -- Equations are transcribed directly from the PLD source
 -- without optimization.  All pins are kept as individual
@@ -48,25 +52,18 @@
 -- load_pc_low and load_pc_high are active only in EXEC with
 -- pixel_enable = 0.
 --
--- Two decode blocks:
---   block A (EXEC):  i7:i5 from the instruction register
---       branch_a = i7 and i6 and i5 and exec and not pixel_enable
---   block B (FETCH): db7:db5 from the data bus, because the instruction
---       register still holds the previous opcode during FETCH
---       fetch    = not q0 and pc_enable
---       branch_b = db7 and db6 and db5 and fetch and not pixel_enable
+-- Branch decode (EXEC): i7:i5 from the instruction register
+--     branch_a = i7 and i6 and i5 and exec and not pixel_enable
 --
--- branch_block = branch_a or branch_b.  In FETCH it tells the State PLD
--- that the opcode being fetched is a branch.  In EXEC it is active
--- whenever a branch/jump executes, whether or not it is taken.
--- It is active high here.
+-- branch_block = branch_a.  It is active whenever a branch/jump
+-- executes, whether or not it is taken.  It is active high here.
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP; pin 12 = GND, pin 24 = VCC):
 --   1  clk          17  i7            2  i6            3  i5
 --   4  m2            5  m1            6  m0
 --   7  z_low         8  neg           9  pixel_enable
 --  10  q0           11  pc_enable    13  z_high
---  14  db7          15  db6          16  db5
+--  14-16 not used
 --  18  alu_done     19  stall
 --  21  load_pc_low  22  load_pc_high 23  branch_block
 -- ============================================================
@@ -96,10 +93,6 @@ entity branch_pld is
 
         z_high        : in  std_logic;   -- pin 13, high ALU nibble zero
 
-        db7           : in  std_logic;   -- pin 14, data bus bit 7 (opcode being fetched)
-        db6           : in  std_logic;   -- pin 15, data bus bit 6
-        db5           : in  std_logic;   -- pin 16, data bus bit 5
-
         load_pc_low   : out std_logic;   -- pin 21
         load_pc_high  : out std_logic;   -- pin 22
         branch_block  : out std_logic;   -- pin 23
@@ -113,9 +106,7 @@ architecture rtl of branch_pld is
 
     -- common terms
     signal exec     : std_logic;
-    signal fetch    : std_logic;
     signal branch_a : std_logic;   -- block A, EXEC state, instruction register
-    signal branch_b : std_logic;   -- block B, FETCH state, data bus
 
     signal addsub_reg : std_logic; -- ADD/SUB with an AC, X or Y destination
     signal alu_done_q : std_logic := '0';   -- powers up to 0, as on the ATF22V10C
@@ -126,11 +117,8 @@ begin
     -- Common terms
     -- --------------------------------------------------------
     exec     <= q0 and not pc_enable;
-    fetch    <= not q0 and pc_enable;
 
     branch_a <= i7 and i6 and i5 and exec and not pixel_enable;
-
-    branch_b <= db7 and db6 and db5 and fetch and not pixel_enable;
 
     -- ADD (100) or SUB (101), destination AC, X or Y
     -- (M = 000..100; 101, 110, 111 are RAM destinations).
@@ -154,7 +142,7 @@ begin
     -- --------------------------------------------------------
     -- Equations
     -- --------------------------------------------------------
-    branch_block <= branch_a or branch_b;
+    branch_block <= branch_a;
 
     load_pc_high <= branch_a and not m2 and not m1 and not m0;            -- JMP
 

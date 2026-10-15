@@ -40,8 +40,10 @@ the first byte of a line to every video byte.
 [XY_TIMING.md](XY_TIMING.md) fixes the X/Y-indexed read after FETCH
 (rank 3) and the late store address after FETCH.
 [TIMING_FIXES.md](TIMING_FIXES.md) covers the rest: the ALU wait clock
-bug, stores after FETCH, the `lineCode` race (all fixed), a write race on
-the upper 32K chip select found there, and the paths still open.
+bug, stores after FETCH, the `lineCode` race, the chip selects, the
+fetch into the branch check (rank 4, fixed by a pad byte after BGE with an
+AC or X target), a write race on the upper 32K chip select found there, and
+the paths still open.
 
 The slowest path limits the clock to about 11 MHz.  If the ALU were given two
 clocks, the next limit is about 19 MHz.

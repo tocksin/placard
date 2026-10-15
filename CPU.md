@@ -149,6 +149,12 @@ the type of branch/jump.  A value of 000 will cause a jump (16-bit load of PC).
 A value of 111 will cause a branch (8-bit load of lower PC byte).  The others
 are conditional based on the ALU result.  
 
+BGE with an AC or X target (`bge ac`, `bge x`) is two bytes: the opcode and a
+pad byte.  Its memory field (101) is the same as a zero-page store's, and the
+State PLD sends both through LOAD_IMM rather than decoding the opcode in FETCH,
+which was too slow at 25.175 MHz (see TIMING_FIXES.md).  The assembler adds
+the pad byte.
+
 Using the Zero flag, the value of the Accumulator can be determined if it is 
 equal-to-zero.  The Negative flag (the MSB of the Accumulator) 
 determines if the Accumulator is positive or negative.  This determines 
