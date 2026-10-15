@@ -37,6 +37,8 @@ tables below are the analysis of the design before that change.
 [VIDEO_TIMING.md](VIDEO_TIMING.md) works through the video read (ranks 2
 and 7) and the write glitch, which the ALU change's STALL signal spread from
 the first byte of a line to every video byte.
+[XY_TIMING.md](XY_TIMING.md) fixes the X/Y-indexed read after FETCH
+(rank 3) and the late store address after FETCH.
 
 The slowest path limits the clock to about 11 MHz.  If the ALU were given two
 clocks, the next limit is about 19 MHz.

@@ -1,5 +1,5 @@
 -- ============================================================
--- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 08)
+-- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 09)
 -- Date: 2026-10-15
 --
 -- Binary state machine:  Q1 Q0
@@ -43,8 +43,8 @@ entity state_pld is
 
         q0           : out std_logic;   -- pin 14, state bit 0
         pc_enable    : out std_logic;   -- pin 15, = not q1
-        x_enable     : out std_logic;   -- pin 16
-        y_enable     : out std_logic;   -- pin 17
+        x_enable     : out std_logic;   -- pin 16, registered
+        y_enable     : out std_logic;   -- pin 17, registered
         load_instr   : out std_logic;   -- pin 18
         load_imm     : out std_logic;   -- pin 19
         load_x       : out std_logic;   -- pin 20
@@ -61,6 +61,8 @@ architecture rtl of state_pld is
     -- to 0 (FETCH), as on the ATF22V10C.
     signal q0_r     : std_logic := '0';
     signal q1_r     : std_logic := '0';
+    signal x_enable_r : std_logic := '0';
+    signal y_enable_r : std_logic := '0';
 
     signal s_fetch  : std_logic;
     signal s_limm   : std_logic;
@@ -109,6 +111,23 @@ begin
                  or (s_fetch and not pixel_enable and db_src1 and branch_block)
                  or (s_limm  and not pixel_enable)
                  or (s_lmem  and not pixel_enable);
+
+            -- Memory-mode address selects (registered).
+            -- Loaded from the data bus memory field on a FETCH clock the
+            -- CPU owns (the same condition as load_instr), held otherwise.
+            x_enable_r <= (s_fetch and not pixel_enable and not db_mem2 and not db_mem1 and db_mem0)
+                       or (s_fetch and not pixel_enable and not db_mem2 and db_mem1 and not db_mem0)
+                       or (s_fetch and not pixel_enable and db_mem2 and db_mem1 and not db_mem0)
+                       or (s_fetch and not pixel_enable and db_mem2 and db_mem1 and db_mem0)
+                       or (q1_r and x_enable_r)
+                       or (q0_r and x_enable_r)
+                       or (pixel_enable and x_enable_r);
+
+            y_enable_r <= (s_fetch and not pixel_enable and not db_mem2 and db_mem1 and not db_mem0)
+                       or (s_fetch and not pixel_enable and db_mem2 and db_mem1 and db_mem0)
+                       or (q1_r and y_enable_r)
+                       or (q0_r and y_enable_r)
+                       or (pixel_enable and y_enable_r);
         end if;
     end process;
 
@@ -118,13 +137,8 @@ begin
     -- --------------------------------------------------------
     -- Memory field decode
     -- --------------------------------------------------------
-    x_enable <= (not mem2 and not mem1 and mem0)
-             or (not mem2 and mem1 and not mem0)
-             or (mem2 and mem1 and not mem0)
-             or (mem2 and mem1 and mem0);
-
-    y_enable <= (not mem2 and mem1 and not mem0)
-             or (mem2 and mem1 and mem0);
+    x_enable <= x_enable_r;
+    y_enable <= y_enable_r;
 
     dest_ac  <= (not mem2 and not mem1 and not mem0)
              or (not mem2 and not mem1 and mem0)
