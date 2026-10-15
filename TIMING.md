@@ -155,6 +155,11 @@ made in DIP for these functions.
 | '04 | A to Y | 25 | 9 (min 1) |
 | '574 | CLK to Q / setup / hold | 45 / 25 / 5 | not used in a critical path |
 
+FEATURE_PLAN.md prefers 74F where it is in stock.  74F is in the same speed
+range as 74ACT (for example the SN74F574, SDFS005A: 10 ns clock to Q, 2 ns
+setup, 12.5 ns output enable, 0 to 70 °C), so the ACT column is a fair stand-in
+for an F build.  A DIP 74F377 was not checked.
+
 Sources: TI SN74HCT377 (SCLS067D), SN74HCT541 (SCLS306E), SN74HCT139
 (SCLS066E), SN74HCT32 (SCLS064G), SN74HCT04 (SCLS042F), SN74HCT574
 (SCLS177H); onsemi MC74AC377/MC74ACT377 (Rev. 11, Feb 2024; DIP part
