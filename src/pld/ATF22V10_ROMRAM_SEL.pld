@@ -1,7 +1,7 @@
 Name     ROMRAM_SEL;
 PartNo   00;
 Date     10/15/2026;
-Revision 03;
+Revision 04;
 Designer ;
 Company  ;
 Assembly ;
@@ -38,24 +38,13 @@ Device   g22v10;
       6       1   1   0     C000h - DFFFh
       7       1   1   1     E000h - FFFFh
 
-   READ ENABLES (revision 03)
-      RW = 1 is a read, RW = 0 is a write.
-
-      ROM_OE (pin 14, active low) = read of a ROM section
-      RAM_OE (pin 15, active low) = read of a RAM section,
-                                    not the I/O window
-
-      Each is decoded in one array pass from the address, so
-      neither needs an external inverter (revision 02 made the
-      RAM enable with a '04 on ROM_EN).  ROM_OE goes to the ROM
-      chips' /OE and RAM_OE to the RAM chips' /OE.  Both are high
-      on a write, so neither memory drives the data bus while the
-      write buffer does, and both are high for an I/O read, so the
-      I/O device has the bus to itself.  Writes still go to RAM
-      (the RAM's /WE is not gated), including 5000h - 5FFFh,
-      which is harmless.
-
-      ROM_OE needs no I/O term: section 2 is never ROM.
+   READ ENABLES (revision 04)
+      Revision 03 decoded ROM_OE and RAM_OE here from A15:A12 and
+      RW.  Revision 04 moves them to the memory control PLD, which
+      also has the clock, so that a read never drives the data bus
+      while the write buffer may still be on (TIMING_FIXES.md,
+      end-of-write contention).  This PLD now only holds the map;
+      its RAMSEL outputs go to the memory control PLD.
 
    LOADING THE MAP
       D7:D0 come from the CPU's source bus (not the RAM data
@@ -71,23 +60,14 @@ Device   g22v10;
       RAMSEL bits start at 0 and every mapped section is ROM.
 
    PIN BUDGET
-      Dedicated inputs (pins 1-11, 13): WR_CLK, A15:A12, D0, D1,
-      D3:D7.  Macrocells: 7 map registers + 2 read enables = 9.
-      The tenth macrocell (pin 23) is used as the RW input.
-
-      ROM_OE uses 7 product terms (pin 14 has 8).
-      RAM_OE uses 8 product terms (pin 15 has 10).
+      Inputs: WR_CLK, D0, D1, D3:D7.  Outputs: 7 map registers.
+      Pins 2-5, 14, 15 and 23 are unused (revision 04).
    ============================================================ */
 
 
 /* ---------------- INPUTS ---------------- */
 
 PIN 1  = WR_CLK;     /* /MAP_WR from the I/O decode PLD, rising edge loads */
-
-PIN 2  = A15;
-PIN 3  = A14;
-PIN 4  = A13;
-PIN 5  = A12;
 
 /* source bus bits (D2 is not used) */
 PIN 6  = D0;
@@ -98,13 +78,8 @@ PIN 10 = D5;
 PIN 11 = D6;
 PIN 13 = D7;
 
-PIN 23 = RW;         /* CPU R/W, 1 = read, 0 = write (I/O pin used as input) */
-
 
 /* ---------------- OUTPUTS ---------------- */
-
-PIN 14 = !ROM_OE;    /* low for a READ of a ROM-mapped section       */
-PIN 15 = !RAM_OE;    /* low for a READ of RAM (not the I/O window)   */
 
 /* stored map, 1 = RAM, 0 = ROM */
 PIN 16 = RAMSEL0;
@@ -125,37 +100,3 @@ RAMSEL4.D = D4;
 RAMSEL5.D = D5;
 RAMSEL6.D = D6;
 RAMSEL7.D = D7;
-
-
-/* ---------------- SECTION DECODE ---------------- */
-
-SEC0 = !A15 & !A14 & !A13;
-SEC1 = !A15 & !A14 &  A13;
-SEC2 = !A15 &  A14 & !A13;
-SEC3 = !A15 &  A14 &  A13;
-SEC4 =  A15 & !A14 & !A13;
-SEC5 =  A15 & !A14 &  A13;
-SEC6 =  A15 &  A14 & !A13;
-SEC7 =  A15 &  A14 &  A13;
-
-
-/* ---------------- READ ENABLES ---------------- */
-
-ROM_OE =
-      SEC0 & !RAMSEL0 & RW
-    # SEC1 & !RAMSEL1 & RW
-    # SEC3 & !RAMSEL3 & RW
-    # SEC4 & !RAMSEL4 & RW
-    # SEC5 & !RAMSEL5 & RW
-    # SEC6 & !RAMSEL6 & RW
-    # SEC7 & !RAMSEL7 & RW;
-
-RAM_OE =
-      SEC0 &  RAMSEL0 & RW
-    # SEC1 &  RAMSEL1 & RW
-    # SEC2 & !A12     & RW       /* 4000h - 4FFFh; 5000h - 5FFFh is I/O */
-    # SEC3 &  RAMSEL3 & RW
-    # SEC4 &  RAMSEL4 & RW
-    # SEC5 &  RAMSEL5 & RW
-    # SEC6 &  RAMSEL6 & RW
-    # SEC7 &  RAMSEL7 & RW;
