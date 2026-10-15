@@ -187,16 +187,17 @@
     not         => 0b011 @ 0b000 @ 0b00 @ 0xFF   ; xor 255, ac
 
     ; ---------------- jump: PC low from operand, PC high from Y ----------------
-    jmp {t}         => 0b111 @ 0b000 @ 0b00 @ t[7:0]
+    ; register forms first, so "ac" / "x" never get read as a label
     jmp {s:reg_src} => 0b111 @ 0b000 @ s
+    jmp {t}         => 0b111 @ 0b000 @ 0b00 @ t[7:0]
 
     ; ---------------- branches: PC low only ----------------
     ; the operand byte is at $+1, so PC high at execute = ($ + 2) >> 8
+    {c:cond} {s:reg_src} => 0b111 @ c @ s
     {c:cond} {t} =>
     {
         0b111 @ c @ 0b00 @ t[7:0]
     }
-    {c:cond} {s:reg_src} => 0b111 @ c @ s
 
     ; ---------------- indirect branches: PC low from memory ----------------
     ; source 01.  The memory field is the branch type, so it also fixes
