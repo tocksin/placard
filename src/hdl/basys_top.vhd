@@ -144,7 +144,9 @@ architecture Behavioral of basys_top is
     signal pcEnable         : sl;
     signal pcCarry          : sl;
 
-    signal memorySelEn      : sl := '0';
+    signal mapWrN           : sl;   -- /MAP_WR, ROM/RAM map write strobe
+    signal romOeN           : sl;   -- ROM /OE
+    signal ramOeN           : sl;   -- RAM /OE
     signal acLoad           : sl;
     signal xLoad            : sl;
     signal yLoad            : sl;
@@ -537,29 +539,59 @@ begin
 
     memorySelComp: entity work.romram_sel_pld
     port map(
-        wr_clk  => memorySelEn,
-        a15     => ramAddress(15),
-        a14     => ramAddress(14),
-        a13     => ramAddress(13),
-        d0      => '0',
-        d1      => '0',
-        d2      => '0',
-        d3      => '0',
-        d4      => '0',
-        d5      => '0',
-        d6      => '0',
-        d7      => '0',
-        rw      => memRdWr,
+        wr_clk   => mapWrN,          -- /MAP_WR from the I/O decode PLD
+        a15      => ramAddress(15),
+        a14      => ramAddress(14),
+        a13      => ramAddress(13),
+        a12      => ramAddress(12),
+        d0       => srcBus(0),       -- map data from the source bus
+        d1       => srcBus(1),
+        d3       => srcBus(3),
+        d4       => srcBus(4),
+        d5       => srcBus(5),
+        d6       => srcBus(6),
+        d7       => srcBus(7),
+        rw       => memRdWr,
 
-        rom_en  => romEn,
-        ramsel0 => open,
-        ramsel1 => open,
-        ramsel2 => open,
-        ramsel3 => open,
-        ramsel4 => open,
-        ramsel5 => open,
-        ramsel6 => open,
-        ramsel7 => open
+        rom_oe_n => romOeN,
+        ram_oe_n => ramOeN,
+        ramsel0  => open,
+        ramsel1  => open,
+        ramsel3  => open,
+        ramsel4  => open,
+        ramsel5  => open,
+        ramsel6  => open,
+        ramsel7  => open
+    );
+    romEn <= not romOeN;
+
+    -- I/O decode and upper 32K chip enable.  The FPGA RAM model is one
+    -- 64K block, so ce_hi_n is not used here, and no I/O devices exist yet.
+    ioDecodeComp: entity work.io_decode_pld
+    port map(
+        we_n        => ramWeN,
+        addr_sel    => muxSelBoth,
+        addr_sel_hi => muxSelHi,
+        pc15        => programCounter(15),
+        h9          => pixelCol(9),
+        y7          => yReg(7),
+        a14         => ramAddress(14),
+        a13         => ramAddress(13),
+        a12         => ramAddress(12),
+        a10         => ramAddress(10),
+        a9          => ramAddress(9),
+        a8          => ramAddress(8),
+        rw          => memRdWr,
+        load_imm    => dLoad,
+
+        ce_hi_n     => open,
+        map_wr_n    => mapWrN,
+        line_rd_n   => open,
+        snd_wr_n    => open,
+        port_wr_n   => open,
+        port_rd_n   => open,
+        exp1_n      => open,
+        exp2_n      => open
     );
 
     -- RAM write strobe gate (one OR gate in the schematic):
@@ -578,13 +610,16 @@ begin
                 oData   => ramData);  -- must be same size as input data
 
     -- Data bus process (from RAM/ROM) - replaces the tri-state databus 
+    --   The model reads every address from the RAM block.  The ROM/RAM
+    --   select PLD powers up with every mapped section set to ROM and no
+    --   program writes the map yet, so following romOeN/ramOeN would read
+    --   the unwritten ROM block everywhere.  (Before ROM/RAM select rev 03
+    --   this process tested rom_en with the wrong polarity, which had the
+    --   same effect; see TIMING.md, "Other observations".)  The ROM block
+    --   and romEn are kept for when the map is used.
     rambusSelectorProc: process (all)
     begin
-        if romEn='0' then 
-            databus <= to_01(romData);
-        else
-            databus <= to_01(ramData);
-        end if;        
+        databus <= to_01(ramData);
     end process rambusSelectorProc;
 /*
     -- D register process 

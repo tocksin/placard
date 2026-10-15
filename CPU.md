@@ -56,11 +56,16 @@ reconfigured.  The video hardware will always read from RAM.
 ### Memory parts
 
 - RAM: 2 × AS7C256C-15PCN (Alliance Memory, 32K × 8, 15 ns, 28-pin PDIP).
-  A15 selects which chip is accessed.
+  A15 selects which chip is accessed: the lower chip's /CE is the address
+  mux's A15 and the upper chip's /CE is /CE_HI from the I/O decode PLD.
+  Both chips' /OE is RAM_OE from the ROM/RAM select PLD (see
+  [TIMING_FIXES.md](TIMING_FIXES.md)).
 - ROM: not chosen yet.  The interim solution is the same AS7C256C-15PCN
   (2 chips) with battery backup.  The AS7C256C keeps its data down to
   VCC = 2.0 V as long as /CE is held at or above VCC − 0.2 V, so the battery
-  switch must hold /CE high while power is off.
+  switch must hold /CE high while power is off.  The two ROM chips take
+  their /CE the same way as the RAM (A15 and /CE_HI, through the battery
+  switch) and their /OE from ROM_OE.
 
 See [TIMING.md](TIMING.md) for the timing analysis with these parts.
 
