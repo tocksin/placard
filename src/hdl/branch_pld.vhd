@@ -29,22 +29,22 @@
 -- neg    = accumulator MSB (negative)
 -- AC = 0 and neg are never both true.
 --
--- byte_enable (pixel enable) = 1 means video owns the bus.
+-- pixel_enable = 1 means video owns the bus.
 --
 -- EXEC state: exec = q0 and not pc_enable
 --     q0        = State PLD pin 14 (true polarity)
 --     pc_enable = State PLD pin 15 (= not Q1)
 --
 -- load_pc_low and load_pc_high are active only in EXEC with
--- byte_enable = 0.
+-- pixel_enable = 0.
 --
 -- Two decode blocks:
 --   block A (EXEC):  i7:i5 from the instruction register
---       branch_a = i7 and i6 and i5 and exec and not byte_enable
+--       branch_a = i7 and i6 and i5 and exec and not pixel_enable
 --   block B (FETCH): db7:db5 from the data bus, because the instruction
 --       register still holds the previous opcode during FETCH
 --       fetch    = not q0 and pc_enable
---       branch_b = db7 and db6 and db5 and fetch and not byte_enable
+--       branch_b = db7 and db6 and db5 and fetch and not pixel_enable
 --
 -- branch_block = branch_a or branch_b.  In FETCH it tells the State PLD
 -- that the opcode being fetched is a branch.  In EXEC it is active
@@ -54,7 +54,7 @@
 -- Pin assignments (ATF22V10C, 24-pin DIP; pin 12 = GND, pin 24 = VCC):
 --   1  i7            2  i6            3  i5
 --   4  m2            5  m1            6  m0
---   7  z_low         8  neg           9  byte_enable
+--   7  z_low         8  neg           9  pixel_enable
 --  10  q0           11  pc_enable    13  z_high
 --  14  db7          15  db6          16  db5
 --  21  load_pc_low  22  load_pc_high 23  branch_block
@@ -76,7 +76,7 @@ entity branch_pld is
         z_low         : in  std_logic;   -- pin 7, low  ALU nibble zero
         neg           : in  std_logic;   -- pin 8
 
-        byte_enable   : in  std_logic;   -- pin 9, 1 = video owns the bus
+        pixel_enable  : in  std_logic;   -- pin 9, 1 = video owns the bus
 
         q0            : in  std_logic;   -- pin 10, State PLD pin 14, state bit 0
         pc_enable     : in  std_logic;   -- pin 11, State PLD pin 15, = not Q1
@@ -109,9 +109,9 @@ begin
     exec     <= q0 and not pc_enable;
     fetch    <= not q0 and pc_enable;
 
-    branch_a <= i7 and i6 and i5 and exec and not byte_enable;
+    branch_a <= i7 and i6 and i5 and exec and not pixel_enable;
 
-    branch_b <= db7 and db6 and db5 and fetch and not byte_enable;
+    branch_b <= db7 and db6 and db5 and fetch and not pixel_enable;
 
     -- --------------------------------------------------------
     -- Equations
