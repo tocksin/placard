@@ -322,7 +322,7 @@ def alu4(a, b, s, cin, sri):
     d = [cin, 0, 0, 0]
     for i in range(3):
         d[i + 1] = maj(bit(a, i) ^ s0, bit(b, i), d[i])
-    c4 = maj(bit(a, 3) ^ s0, bit(b, 3), d[3]) ^ s0
+    d4 = maj(bit(a, 3) ^ s0, bit(b, 3), d[3])   # carry (ADD) / borrow (SUB)
     f = 0
     for i in range(4):
         ai, bi = bit(a, i), bit(b, i)
@@ -330,7 +330,7 @@ def alu4(a, b, s, cin, sri):
               (xor_sel & (ai ^ bi)) | (arith_sel & (ai ^ bi ^ d[i])) |
               (shr_sel & sh[i]) | (passa_sel & ai))
         f |= fi << i
-    cout = (arith_sel & c4) | (shr_sel & bit(a, 0))
+    cout = (arith_sel & d4) | (shr_sel & bit(a, 0))
     return f, cout
 
 
