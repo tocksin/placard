@@ -62,12 +62,12 @@ begin
                 when 5 =>                                   -- SUB: A - B - CIN
                     sum   := to_unsigned(ai + (15 - bi) + (1 - ci), 5);
                     exp_f := std_logic_vector(sum(3 downto 0));
-                    exp_c := sum(4);                        -- 1 = no borrow
+                    exp_c := not sum(4);                    -- 1 = borrow
                 when 6 =>                                   -- SHIFT RIGHT
                     exp_f := sri & a(3 downto 1);
                     exp_c := a(0);
-                when others =>                              -- NOT A
-                    exp_f := not a;
+                when others =>                              -- PASS A
+                    exp_f := a;
             end case;
 
             if exp_f = "0000" then exp_z := '1'; else exp_z := '0'; end if;

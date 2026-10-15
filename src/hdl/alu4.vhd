@@ -1,6 +1,6 @@
 -- =========================================================
--- ATF22V10C 4-BIT ALU  (VHDL version of ALU_SHR.pld, Rev 03)
--- Date: 10/11/2026
+-- ATF22V10C 4-BIT ALU  (VHDL version of ALU_SHR.pld, Rev 04)
+-- Date: 10/15/2026
 --
 -- FUNCTION SELECT
 --
@@ -16,7 +16,11 @@
 --     1  1  1     PASS A
 --
 -- SUBTRACTION:  A - B - CIN = A + not B + not CIN
---     COUT = 1 means no borrow, COUT = 0 means borrow
+--     CIN = 1 means borrow in, COUT = 1 means borrow out.
+--     COUT carries the raw borrow (not the adder's no-borrow
+--     carry) so the low chip's COUT can drive the high chip's
+--     CIN directly for both ADD and SUB, with no inverter or
+--     XOR gate between the chips.
 --
 -- PASS A:  F = A.  B and CIN are ignored and COUT = 0.
 --     Used by the branch/jump opcode (I7:I5 = 111): Z of each
@@ -43,7 +47,7 @@
 -- a plain 3-input XOR:
 --     Fi     = Ai xor Bi xor Di          (D0 = CIN)
 --     D(i+1) = MAJ( Ai xor S0, Bi, Di )
---     true carry out = D4 xor S0
+--     D4 = carry out for ADD, borrow out for SUB  (= COUT)
 --
 -- SUGGESTED PIN ASSIGNMENT (24-pin DIP; pin 12 = GND, 24 = VCC)
 --     A0..A3  = 1,2,3,4          B0..B3 = 5,6,7,8
@@ -83,7 +87,7 @@ architecture rtl of alu4 is
     signal shr_sel    : std_logic;
     signal passa_sel  : std_logic;
     signal arith_sel  : std_logic;   -- ADD (S0=0) or SUB (S0=1)
-    signal c4         : std_logic;   -- true carry out of bit 3
+    signal d4         : std_logic;   -- carry (ADD) / borrow (SUB) out of bit 3
     signal sh         : std_logic_vector(3 downto 0);   -- shift-right source
 begin
 
@@ -107,8 +111,8 @@ begin
     d2 <= (((a(1) xor s(0)) and b(1)) or ((a(1) xor s(0)) and d1)  or (b(1) and d1));
     d3 <= (((a(2) xor s(0)) and b(2)) or ((a(2) xor s(0)) and d2)  or (b(2) and d2));
 
-    -- true carry out of bit 3 (carry for ADD, no-borrow for SUB)
-    c4 <= ((((a(3) xor s(0)) and b(3)) or ((a(3) xor s(0)) and d3) or (b(3) and d3)) xor s(0));
+    -- carry out of bit 3: carry for ADD, borrow for SUB
+    d4 <= (((a(3) xor s(0)) and b(3)) or ((a(3) xor s(0)) and d3) or (b(3) and d3));
 
     -- function outputs
     f(0) <= (pass_sel  and b(0))
@@ -143,9 +147,9 @@ begin
          or (shr_sel   and sh(3))
          or (passa_sel and a(3));
 
-    -- carry output: ADD/SUB carry (no-borrow), SHR shifts out A0,
+    -- carry output: ADD carry, SUB borrow, SHR shifts out A0,
     -- PASS A gives 0
-    cout <= (arith_sel and c4)
+    cout <= (arith_sel and d4)
          or (shr_sel and a(0));
 
     -- zero flag (uses the F pin feedback, a single product term)
