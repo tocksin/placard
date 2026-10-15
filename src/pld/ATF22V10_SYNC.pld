@@ -1,7 +1,7 @@
 Name     VGA_SYNC;
 PartNo   01;
-Date     2026-10-14;
-Revision 04;
+Date     2026-10-15;
+Revision 05;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -49,7 +49,7 @@ PIN 16 = H2;
 PIN 17 = VIDEO_ACTIVE;
 PIN 18 = VSYNC;
 
-PIN 19 = PIXEL_ENABLE;
+PIN 19 = PIXEL_ENABLE;     /* registered */
 
 PIN 20 = ADDR_SEL;
 PIN 21 = ADDR_SEL_HI;
@@ -125,11 +125,25 @@ VIDEO_ACTIVE =
 /*
    One byte is read every eight clocks during active video.
 
-   H2:H0 = 000 identifies the byte-read clock.
+   PIXEL_ENABLE is registered, so it is decoded on the clock where
+   H2:H0 = 000 and is high on the next one, H2:H0 = 001.  The byte is
+   read in the second clock of each 8-clock group.  Being registered,
+   it reaches ADDR_SEL through the register feedback (tCF) and the
+   State, PC and Branch PLDs at tCO, instead of three array passes
+   after the clock (see VIDEO_TIMING.md).
+
+   It is decoded from the V_VIDEO_ACTIVE register and the
+   H_VIDEO_ACTIVE input, not from the VIDEO_ACTIVE pin, so it is one
+   array pass.
+
+   The pixel buffer loads one clock later than a clock-0 read, so the
+   pixel select (H2:H0) and video-enable delay register on the board
+   has two stages.
 */
 
-PIXEL_ENABLE =
-      VIDEO_ACTIVE
+PIXEL_ENABLE.D =
+      V_VIDEO_ACTIVE
+    & H_VIDEO_ACTIVE
     & !H2
     & !H1
     & !H0;
