@@ -14,8 +14,8 @@
 #
 # Date: 10/15/2026
 
-set scriptDir [file dirname [file normalize [info script]]]
-set repoDir   [file normalize [file join $scriptDir ..]]
+set buildDir  [file dirname [file normalize [info script]]]
+set repoDir   [file normalize [file join $buildDir ..]]
 set xprFile   [file join $repoDir project placard.xpr]
 
 set hexFile [lindex $argv 0]
@@ -59,4 +59,5 @@ puts "build_and_load: bitstream $bitFile"
 close_project
 
 # ---- 3. program the board ---------------------------------------------------
-source [file join $scriptDir program_board.tcl]
+# (buildDir, not scriptDir: gen_video_ram.tcl sets its own scriptDir when sourced)
+source [file join $buildDir program_board.tcl]
