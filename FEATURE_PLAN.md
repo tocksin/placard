@@ -19,7 +19,7 @@ These facts from the current design shape every choice below.
   /EXP1 and /EXP2 (x55, x56, address only).  Write strobes are low for the
   /WE pulse; read strobes are qualified by LOAD_IMM.  A11 is not decoded, so
   x5800-x5FFF repeats x5000-x57FF, and the PLD has no spare outputs.
-  `ATF22V10_ROMRAM_SEL.pld` (rev 03) keeps both memories off the bus there,
+  `ATF22V10_MEM_CTRL.pld` (rev 01) keeps both memories off the bus there,
   and x4000-x4FFF is always RAM.  The ROM/RAM map write at x5000 works.
 - **Only `[Y,X]` reaches I/O.**  `[0,D]` and `[0,X]` only address the zero
   page, so every I/O access is `ld 0x5n, y` then `ld [y,x], ac` (read) or
@@ -27,11 +27,19 @@ These facts from the current design shape every choice below.
 - **There are no interrupts.**  All I/O is polled.
 - **There are no wait states.**  Every device must answer a read within one
   CPU clock (about 40 ns at 25 MHz) and take a write pulse of about 20 ns.
-  RAM writes use `/WE = RW | CLK`; I/O writes use the same pulse.  Devices
+  The MEM_CTRL PLD makes /WE (low only in the low half of a CPU write clock),
+  and I/O writes use the same pulse.  Memory reads also use only the low half
+  of the clock now; the I/O read strobes are qualified by LOAD_IMM, not the
+  clock, which is worth checking against that rule when the first read
+  device is designed.  Devices
   that drive the read bus must enable in 9.5 ns or less (see TIMING_FIXES.md).
 - **The CPU's speed is not a clock.**  Video reads stall the CPU on one clock
   in eight during visible lines and never during blanking, so time has to
   come from the video counters.
+- **Free PLD pins** that a feature could use instead of adding a chip:
+  ROM/RAM select PLD pins 2-5, 14, 15 and 23; MEM_CTRL PLD pins 15 and
+  19-22.  (The 74F32 that made /WE is gone; MEM_CTRL replaced it, so the
+  base chip count did not change.)
 - **Device latches take data from the source bus**, not the RAM-side data
   bus, and latch on the rising edge of their write strobe.  The source bus
   holds the data past the end of the write; the RAM-side bus does not.
