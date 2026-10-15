@@ -12,38 +12,40 @@ listed at the end in case they are wanted later.
 
 These facts from the current design shape every choice below.
 
-- **The I/O window is already reserved.**  The README memory map puts I/O at
-  x5000-x5FFF, one 256-byte page per device, with priority over RAM/ROM.
-  Nothing decodes it yet: the ROM/RAM map register in `ATF22V10_ROMRAM_SEL.pld`
-  needs "a decoded I/O write strobe" on WR_CLK, and in `basys_top.vhd` that
-  input is tied to a constant.
+- **The I/O window is reserved and now decoded.**  The README memory map puts
+  I/O at x5000-x5FFF, one 256-byte page per device, with priority over
+  RAM/ROM.  `ATF22V10_IO_DECODE.pld` (rev 01) decodes it, and
+  `ATF22V10_ROMRAM_SEL.pld` (rev 03) keeps both memories off the bus there.
+  The FPGA model (`basys_top.vhd`) still ties the map write to a constant.
 - **Only `[Y,X]` reaches I/O.**  `[0,D]` and `[0,X]` only address the zero
   page, so every I/O access is `ld 0x5n, y` then `ld [y,x], ac` (read) or
   `ld ac, [y,x]` / `ld n, [y,x]` (write).
 - **There are no interrupts.**  All I/O is polled.
 - **There are no wait states.**  Every device must answer a read within one
   CPU clock (about 40 ns at 25 MHz) and take a write pulse of about 20 ns.
-  RAM writes use `/WE = RW | CLK`; I/O writes use the same pulse and latch on
-  its rising edge.
+  RAM writes use `/WE = RW | CLK`; I/O writes use the same pulse.  Devices
+  that drive the read bus must enable in 9.5 ns or less (see TIMING_FIXES.md).
 - **The CPU's speed is not a clock.**  Video reads stall the CPU on one clock
   in eight during visible lines and never during blanking, so time has to
   come from the video counters.
-- **The ROM/RAM select PLD is full** (every pin used), so the "I/O has
-  priority" rule has to go outside it.
+- **Device latches take data from the source bus**, not the RAM-side data
+  bus, and latch on the rising edge of their write strobe.  The source bus
+  holds the data past the end of the write; the RAM-side bus does not.
 
 ## Chip count
 
 | Feature | Added chips |
 |---|---|
-| I/O decode | 1 x ATF22V10C |
+| I/O decode | 1 x ATF22V10C (replaces the '04) |
 | Video line read | 1 x 74F541 |
 | Shared port: keyboard (40 keys), 2 SNES pads, SD card | 74HC574, 74F138, 74F541, CD4050, plus a 3.3 V regulator |
 | Sound (one voice) | 74F574, 1 x ATF22V10C |
 | Expansion ports (2) | none, connectors only |
-| **Total** | **8 logic chips + 1 regulator** |
+| **Total** | **8 logic chips + 1 regulator (7 net of the '04)** |
 
-The RAM/ROM read gating uses two of the three spare OR gates in the existing
-74HC32 that makes /WE, so it adds nothing.
+The I/O decode PLD also makes /CE_HI, the upper RAM/ROM chip enable, which
+replaces the '04 on the board, so its net cost is zero chips.  RAM/ROM
+priority is inside the ROM/RAM select PLD, so no OR gates are needed either.
 
 ## Parts rule and stock check
 
@@ -77,43 +79,47 @@ inputs, or keep HC541s on the bus.
 
 ## 1. I/O decode (one ATF22V10C)
 
-Instead of one chip select plus shared read and write strobes (which would
-need an OR gate per device), the PLD puts out the exact strobe each device
-needs.  That way no device needs glue logic.
+Designed in `src/pld/ATF22V10_IO_DECODE.pld` (rev 01), from the timing work
+in TIMING_FIXES.md.  The PLD puts out the exact strobe each device needs, so
+no device needs glue logic, and it also makes the upper RAM/ROM chip enable.
 
 | Pin use | Signals |
 |---|---|
-| Inputs (11) | A15, A14, A13, A12, A11, A10, A9, A8, RW, CLK, LOAD_IMM (D register strobe from the State PLD) |
-| Outputs (10) | IO_SEL, /MAP_WR, /LINE_RD, /SND_WR, /PORT_WR, /PORT_RD, /EXP1, /EXP2, two spare |
+| Inputs (14) | /WE, ADDR_SEL, ADDR_SEL_HI, PC15, H9, Y7, A14, A13, A12, A10, A9, A8, RW, LOAD_IMM |
+| Outputs (8) | /CE_HI, /MAP_WR, /LINE_RD, /SND_WR, /PORT_WR, /PORT_RD, /EXP1, /EXP2 |
 
-Proposed equations (written out in full in the PLD when it is designed):
-
+    A15     = rebuilt from the high-byte mux selects and sources
+              (Y7, H9 or PC15), so it is valid as early as the mux output
     IO      = !A15 & A14 & !A13 & A12                 /* x5000-x5FFF        */
     RD      = IO & RW & LOAD_IMM                      /* CPU is latching D  */
-    WR      = IO & !RW & !CLK                         /* same pulse as /WE  */
+    WR      = IO & !/WE                               /* the RAM write pulse */
 
-    IO_SEL  = IO                                      /* blocks RAM/ROM     */
+    CE_HI   = A15                                     /* upper 32K chip     */
     MAP_WR  = WR & page 0     LINE_RD = RD & page 0   /* x50                */
     SND_WR  = WR & page 1                             /* x51                */
     PORT_WR = WR & page 2     PORT_RD = RD & page 2   /* x52                */
     EXP1    = IO & page 5     EXP2    = IO & page 6   /* x55, x56           */
 
-- **RAM/ROM priority.**  Spare 74HC32 gates make `/ROM_OE = /ROM_EN | IO_SEL`
-  and `/RAM_OE = !RW | IO_SEL`.  Writes to x5000-x5FFF also land in the RAM
-  underneath, which is harmless.
-- **Reads are qualified by LOAD_IMM**, which already includes !PIXEL_ENABLE,
+- **A11 is not decoded**, so x5800-x5FFF repeats x5000-x57FF.
+- **RAM/ROM priority** is in the ROM/RAM select PLD: neither memory drives
+  the bus on a read anywhere in x5000-x5FFF.  Writes there still land in the
+  RAM underneath, which is harmless.  x4000-x4FFF is always RAM.
+- **Reads are qualified by LOAD_IMM**, which already excludes stall clocks,
   so a device only sees the real CPU read.
-- **x5300 and x5400 are spare** (the controllers and the SD card moved onto
-  the shared port at x52), and so are two outputs.
-- **Expansion selects are address-only.**  The two ports also get RW, CLK and
-  LOAD_IMM so a card builds its own read and write strobes.  That keeps the
-  decode PLD to 10 outputs.
+- **Writes:** each /xx_WR is low for the /WE pulse, so a device latches from
+  the source bus on its rising edge.
+- **Read enable budget:** a device that drives the read bus must enable in
+  9.5 ns or less.  Check the 74F541 output-enable time against it.
+- **x5300 and x5400 are spare.**  There is no spare output left, so a new
+  device needs one of the existing strobes or a second decoder.
+- **Expansion selects are address-only.**  The two ports also get RW, /WE and
+  LOAD_IMM so a card builds its own read and write strobes.
 
 ## 2. Video line read (x50, one 74F541)
 
 | Address | R/W | Function |
 |---|---|---|
-| x5000 | W | ROM/RAM section map: /MAP_WR drives WR_CLK of the ROM/RAM select PLD.  Bit n = 1 makes section n RAM.  No added chip. |
+| x5000 | W | ROM/RAM section map: /MAP_WR drives WR_CLK of the ROM/RAM select PLD, which latches the source bus.  Bit n = 1 makes section n RAM; bit 2 is ignored (x4000-x4FFF is always RAM).  No added chip. |
 | x5000 | R | Upper 8 bits of the line counter, V9:V2 |
 
 - The V counter already exists in the V Counter PLD (it counts 499 to 1023).
@@ -205,10 +211,11 @@ One square-wave voice that runs on its own once software sets the pitch.
 
 | Signal | Meaning |
 |---|---|
-| D7:D0 | RAM-side data bus |
+| D7:D0 | Read bus (the card drives it on a read, enabling in 9.5 ns or less) |
+| SD7:SD0 | Source bus (the card latches writes from it) |
 | A7:A0 | Register select inside the port's page |
 | /EXPn | Port select (address only) |
-| RW, CLK, LOAD_IMM | So a card can build its own read and write strobes: read = /EXPn low, RW high and LOAD_IMM high; write = /EXPn low, RW low and CLK low |
+| RW, /WE, LOAD_IMM, CLK | So a card can build its own read and write strobes: read = /EXPn low, RW high and LOAD_IMM high; write = /EXPn low and /WE low, latching on the rising edge of /WE |
 | RESET, +5 V, GND | Several grounds between the fast signals |
 
 - **Unbuffered.**  Keep the cable short (or use a direct board-edge
@@ -228,6 +235,24 @@ One square-wave voice that runs on its own once software sets the pitch.
 For the FPGA model, each step adds its PLD as a VHDL entity (no optimization,
 individual pins, lowerCamelCase signals) and a branch on the read mux in
 `basys_top.vhd`.  `placard_sim.py` gets a matching I/O hook.
+
+## Other future tasks
+
+### Gold instead of orange in 4-color mode
+
+The 2 bpp (4-color) palette in `ATF22V10_COLORDECODER.pld` is black, blue,
+orange (R 7, G 3, B 0) and white.  Change code 10 to gold.
+
+- **Candidate gold: R 7, G 5, B 0.**  It fits the existing per-bit form by
+  swapping two green bits.  Today `GRN2 = C1` and `GRN3 = C1 & C0`; for gold,
+  `GRN2 = C1 & C0` and `GRN3 = C1`.  Blue stays G 1 and white stays G 7.  In
+  the full equations the 2 bpp term of each pin just gains or loses C0, so
+  the product-term counts do not change (GRN3 also carries the 1 bpp pixel
+  mux, so that matters).  Red and blue are unchanged.
+- Gold is brighter than orange, so it is closer to white; check that the two
+  are still easy to tell apart on screen.
+- Update the palette comment in the PLD, `color_decoder.vhd`, COLORS.md and
+  `reference/Palette.png` to match.
 
 ## Cut for now (can be added later)
 
