@@ -63,3 +63,5 @@ programs the Basys 3 over JTAG.  Any other program builds with
 to skip assembly and use the existing `.hex` file.  Vivado is found on the PATH or under
 `C:\AMDDesignTools` / `C:\Xilinx`; set `VIVADO` to the full path of
 `vivado.bat` to pick a version.  Logs go to `build/logs`.
+`build\download_latest.bat` programs the board with the last bitstream built
+(`project/placard.runs/impl_1/basys_top.bit`) without rebuilding.
