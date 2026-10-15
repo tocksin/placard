@@ -42,6 +42,23 @@ Each section can be configured as either ROM or RAM.  At startup, all regions
 are selected as ROM.  The software will execute from ROM initially until 
 reconfigured.  The video hardware will always read from RAM.
 
+### RAM write timing
+
+The RAM is asynchronous, so the write pulse must start after the address, data
+and R/W have settled and must end before they change.  The State PLD's R/W
+(pin 23, 1 = read) is a decode of the registered state, so it changes just
+after the rising clock edge.  The write strobe is gated with the clock:
+
+    /WE = RW | CLK        (one OR gate, e.g. 74HC32)
+
+/WE is low only during the low half of an EXEC write cycle.  The address and
+source bus have the whole high half to settle, and /WE returns high at the
+rising edge, before the state, address and data change (the SRAM's write
+recovery and data hold times are normally 0 ns).  At 25 MHz the pulse is about
+20 ns, which suits a 10-15 ns SRAM.  The RAM's /OE should be inactive (or the
+part must tri-state its outputs while /WE is low), and the source-bus buffer
+that drives the RAM data pins is enabled with !RW.
+
 ## Source mode
 
 The source bus drives to three locations: the B-input of the ALU, the low-side 
