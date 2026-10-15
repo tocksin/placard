@@ -49,6 +49,14 @@ if /i "%OPT%"=="fast" ( set "FAST=1" & goto nextOpt )
 echo build_and_load: unknown option %~1, the options are noasm and fast
 exit /b 1
 :optsDone
+set "OPTS_ON="
+if defined NOASM set "OPTS_ON=!OPTS_ON! noasm"
+if defined FAST set "OPTS_ON=!OPTS_ON! fast"
+if not defined OPTS_ON set "OPTS_ON= none"
+echo build_and_load: program %PROG%, options:!OPTS_ON!
+if defined NOASM (echo   noasm  on : use the existing %PROG%.hex, skip the assembler) else (echo   noasm  off: assemble %PROG%.asm)
+if defined FAST (echo   fast   on : update the memory in the last bitstream, no synthesis or implementation) else (echo   fast   off: full synthesis, implementation and bitstream)
+echo.
 set "SCRIPTS_DIR=%REPO_DIR%\src\scripts"
 set "ASM_FILE=%SCRIPTS_DIR%\%PROG%.asm"
 set "HEX_FILE=%SCRIPTS_DIR%\%PROG%.hex"
