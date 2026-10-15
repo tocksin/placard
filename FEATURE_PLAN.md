@@ -37,11 +37,10 @@ These facts from the current design shape every choice below.
 |---|---|
 | I/O decode | 1 x ATF22V10C |
 | Video line read | 1 x 74F541 |
-| Serial port (SD card + 2 SNES pads) | 74HC574, 74HCT251, CD4050, plus a 3.3 V regulator |
-| Keyboard (64 keys) | 74F138, 74F541 |
+| Shared port: keyboard (40 keys), 2 SNES pads, SD card | 74HC574, 74F138, 74F541, CD4050, plus a 3.3 V regulator |
 | Sound (one voice) | 74F574, 1 x ATF22V10C |
 | Expansion ports (2) | none, connectors only |
-| **Total** | **10 logic chips + 1 regulator** |
+| **Total** | **8 logic chips + 1 regulator** |
 
 The RAM/ROM read gating uses two of the three spare OR gates in the existing
 74HC32 that makes /WE, so it adds nothing.
@@ -57,19 +56,16 @@ before ordering):
 | 74F541 | SN74F541N (TI) | Mouser: 723 in stock |
 | 74F574 | SN74F574N (TI) | Mouser: 466 in stock |
 | 74F138 | SN74F138N (TI) | Listed at Digikey and Mouser as 16-PDIP; stock count not confirmed |
-| 74F251 | SN74F251BN (TI) | TI lists it active but out of stock; Digikey/Mouser stock not confirmed.  Use the HCT part below unless it shows up in stock. |
-| 74HCT251 | CD74HCT251E (TI) | Mouser: 1,059 in stock |
 | CD4050 | CD4050BE (TI) | Mouser: 10,831 in stock |
 | ATF22V10C | already used in the design | n/a |
 
 **Where 74F is not used, and why:**
 
-- **Serial output latch stays 74HC574.**  74F outputs only guarantee about
+- **Shared port output latch stays 74HC574.**  74F outputs only guarantee about
   2.7 V for a high, and the SNES pad's CMOS 4021s need 3.5 V at 5 V.  The HC
   latch swings rail to rail.
-- **Serial mux is 74HCT251**, not HC: the SD card's 3.3 V MISO needs a
-  TTL-level input.  A 74F251 would also take 3.3 V, if it comes back into
-  stock.
+- **No mux is needed any more.**  The SD card's 3.3 V MISO goes straight into
+  the shared port's 74F541, whose TTL-level inputs read 3.3 V as a high.
 - **CD4050** has no 74F equivalent: it runs from 3.3 V to shift the SD lines
   down, which a 5 V-only family can't do.
 
@@ -88,7 +84,7 @@ needs.  That way no device needs glue logic.
 | Pin use | Signals |
 |---|---|
 | Inputs (11) | A15, A14, A13, A12, A11, A10, A9, A8, RW, CLK, LOAD_IMM (D register strobe from the State PLD) |
-| Outputs (10) | IO_SEL, /MAP_WR, /LINE_RD, /SND_WR, /KEY_RD, /SER_WR, /SER_RD, /EXP1, /EXP2, one spare |
+| Outputs (10) | IO_SEL, /MAP_WR, /LINE_RD, /SND_WR, /PORT_WR, /PORT_RD, /EXP1, /EXP2, two spare |
 
 Proposed equations (written out in full in the PLD when it is designed):
 
@@ -99,8 +95,7 @@ Proposed equations (written out in full in the PLD when it is designed):
     IO_SEL  = IO                                      /* blocks RAM/ROM     */
     MAP_WR  = WR & page 0     LINE_RD = RD & page 0   /* x50                */
     SND_WR  = WR & page 1                             /* x51                */
-    KEY_RD  = RD & page 2                             /* x52                */
-    SER_WR  = WR & page 4     SER_RD  = RD & page 4   /* x54                */
+    PORT_WR = WR & page 2     PORT_RD = RD & page 2   /* x52                */
     EXP1    = IO & page 5     EXP2    = IO & page 6   /* x55, x56           */
 
 - **RAM/ROM priority.**  Spare 74HC32 gates make `/ROM_OE = /ROM_EN | IO_SEL`
@@ -108,8 +103,8 @@ Proposed equations (written out in full in the PLD when it is designed):
   underneath, which is harmless.
 - **Reads are qualified by LOAD_IMM**, which already includes !PIXEL_ENABLE,
   so a device only sees the real CPU read.
-- **x5300 is spare** (the controllers moved to the serial port), and so is
-  the tenth output.
+- **x5300 and x5400 are spare** (the controllers and the SD card moved onto
+  the shared port at x52), and so are two outputs.
 - **Expansion selects are address-only.**  The two ports also get RW, CLK and
   LOAD_IMM so a card builds its own read and write strobes.  That keeps the
   decode PLD to 10 outputs.
@@ -132,55 +127,60 @@ Proposed equations (written out in full in the PLD when it is designed):
 - **Software must poll at least once per frame**, or it misses a wrap.  Elapsed
   time is then frames x 16.8 ms plus the line position for finer detail.
 
-## 3. Serial port: SD card and SNES pads (x54)
+## 3. Shared port: keyboard, SNES pads and SD card (x52)
 
-Bit-banged.  Software drives the clock and data lines one bit at a time.
-There is no hardware shifter.
-
-| Address | R/W | Function |
-|---|---|---|
-| x5400 | W | Output latch (74HC574): bit 0 SD SCK, bit 1 SD MOSI, bit 2 SD /CS, bit 3 pad CLOCK, bit 4 pad LATCH, bits 5-7 spare |
-| x5400 + n | R | Input n on D7 through a 74HCT251 (8-to-1 mux, tri-state): 0 SD MISO, 1 pad 1 DATA, 2 pad 2 DATA, 3-7 spare |
-
-- **The mux picks the input from the address**, A2:A0, so there is no select
-  register, and the pad's data line, which is never tri-stated, is never
-  shared.
-- **The bit lands on D7** so that loading it into AC sets the negative flag,
-  and `blt` / `bge` can test it directly.
-- **The latch is write-only**, so software keeps a copy of it in zero page and
-  changes one bit at a time from that copy.
-- **SNES pad:** pulse LATCH, then read DATA and pulse CLOCK 16 times.  The
-  first bit (B) is ready right after LATCH.  The bits are B, Y, Select, Start,
-  Up, Down, Left, Right, A, X, L, R, then four 1s, with 0 meaning pressed.
-  Both pads share LATCH and CLOCK, so one pass reads both.  The pads run at
-  5 V and need no level shifting.
-- **SD card:** SPI mode 0 in software.  SCK, MOSI and /CS go through a CD4050
-  powered from 3.3 V.  MISO comes back directly, which needs the HCT version
-  of the mux (74HCT251): plain HC wants 3.5 V for a high, and the card only
-  gives 3.3 V.  The CD74HCT251E is in stock in DIP.  A 3.3 V
-  regulator powers the card.  Software runs at roughly 10 instructions per bit
-  (an estimate), so tens of KB/s, which is fine for loading and saving
-  programs.
-- **Software:** raw sectors first (a fixed sector range per saved program),
-  FAT later if cards need to be filled from a PC.
-- **Spare bits** (3 outputs, 5 inputs) can carry a third SPI device, an SD
-  card-detect switch or a one-bit beeper (see Sound).
-
-## 4. Keyboard (x52, 74F138 + 74F541)
-
-A built-in 8 x 8 matrix (64 keys) with a diode per key, scanned by software.
+The keyboard, the pads and the SD card are never needed at the same moment,
+so software takes turns: scan the keyboard, then read the pads, and talk to
+the SD card only when loading or saving.  They share one output latch and one
+input buffer.  Everything is bit-banged; there is no hardware shifter.
 
 | Address | R/W | Function |
 |---|---|---|
-| x5200 + n | R | Rows of column n (0-7), 0 = pressed |
+| x5200 | W | Output latch (74HC574): bit 0 SCK / pad CLOCK, bit 1 SD MOSI, bit 2 SD /CS, bit 3 pad LATCH, bits 4-7 spare |
+| x5200 + n | R | 74F541: bits 4:0 keyboard rows of column n (0 = pressed), bit 5 pad 2 DATA, bit 6 pad 1 DATA, bit 7 SD MISO |
 
-- /KEY_RD enables a 74F138 that drives column A2:A0 low, and the same strobe
-  enables a 74F541 that reads the 8 rows (with pull-ups).  One read per
-  column.
-- Debounce, shift, rollover and repeat are all in software, run once per
-  frame using the line read.
+**Keyboard: 8 columns x 5 rows = 40 keys** (the same size as the ZX
+Spectrum's).  /PORT_RD enables a 74F138 that drives column A2:A0 low for the
+length of the read, and the same strobe enables the 74F541 that reads the
+rows (with pull-ups and a diode per key).  One read per column, so a full
+scan is 8 reads.  Debounce, shift, rollover and repeat are in software, once
+per frame using the line read.  Only 5 of the buffer's 8 bits are rows,
+because the other 3 carry the serial inputs.
 
-## 5. Sound (x51, 74F574 + ATF22V10C)
+**Serial inputs ride along on every read.**  Bits 7:5 show MISO and both pad
+data lines no matter which column is addressed, so the serial code can read
+any address in the page.  MISO is on D7 so that loading it into AC sets the
+negative flag and `blt` / `bge` can test it directly.  The buffer's inputs
+are TTL level, so the card's 3.3 V MISO needs no level shifting coming back.
+
+**One clock line for both pads and the SD card.**  The SD card ignores SCK
+while its /CS is high, and the pads' extra shifting during an SD transfer
+does no harm because software pulses LATCH before every pad read.  Only the
+software's idle level differs (the pads idle with CLOCK high, SPI mode 0
+idles low), which costs nothing in bit-bang.
+
+**SNES pads:** pulse LATCH, then read DATA and pulse CLOCK 16 times.  The
+first bit (B) is ready right after LATCH.  The bits are B, Y, Select, Start,
+Up, Down, Left, Right, A, X, L, R, then four 1s, with 0 meaning pressed.  Both
+pads share LATCH and CLOCK and land on different bits, so one pass reads
+both.  The pads run at 5 V and need no level shifting.
+
+**SD card:** SPI mode 0 in software.  SCK, MOSI and /CS go through a CD4050
+powered from 3.3 V, and a 3.3 V regulator powers the card.  Software runs at
+roughly 10 instructions per bit (an estimate), so tens of KB/s, which is fine
+for loading and saving programs.  Raw sectors first (a fixed sector range per
+saved program), FAT later if cards need to be filled from a PC.
+
+**The latch is write-only**, so software keeps a copy of it in zero page and
+changes one bit at a time from that copy.  Its 4 spare bits can be a one-bit
+beeper (see Sound) or selects for more SPI devices.  The latch stays 74HC
+because the pads' CMOS inputs need a full 5 V high.
+
+**Timing to check:** a read goes /PORT_RD, 74F138, column wire, key diode,
+row, 74F541, data bus inside one clock.  The 74F parts keep that short, but
+the diode and the row's pull-up are the slow part of the path.
+
+## 4. Sound (x51, 74F574 + ATF22V10C)
 
 One square-wave voice that runs on its own once software sets the pitch.
 
@@ -198,10 +198,10 @@ One square-wave voice that runs on its own once software sets the pitch.
 - The output drives a line-out jack through a resistor and capacitor, or a
   small speaker through a transistor.  There is no volume control apart from
   a trimmer.
-- **Zero-chip fallback:** a spare serial latch bit as a one-bit beeper that
+- **Zero-chip fallback:** a spare bit in the shared port's latch as a one-bit beeper that
   software toggles.  The pitch is only as steady as the software loop.
 
-## 6. Expansion ports (x55, x56, connectors only)
+## 5. Expansion ports (x55, x56, connectors only)
 
 | Signal | Meaning |
 |---|---|
@@ -219,9 +219,9 @@ One square-wave voice that runs on its own once software sets the pitch.
 ## Suggested order
 
 1. I/O decode PLD, ROM/RAM map write and line read.
-2. Serial port with the SNES pads (the easiest way to test it).
-3. SD card on the serial port.
-4. Keyboard.
+2. Shared port with the SNES pads (the easiest way to test it).
+3. Keyboard on the shared port.
+4. SD card on the shared port.
 5. Sound.
 6. Expansion connectors (the interface is fixed by step 1).
 
@@ -246,5 +246,5 @@ individual pins, lowerCamelCase signals) and a branch on the read mux in
   uses 74F where it is in stock; recheck read timing with 74F delays.
 - **Polling once per frame** is a rule all software must follow if it keeps
   time from the line read.
-- **Keyboard size:** 64 keys (default) or a larger matrix (needs a second
-  decoder)?
+- **Keyboard size:** 40 keys fits the shared buffer.  64 keys would need a
+  second 74F541 for the serial inputs (one more chip).
