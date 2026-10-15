@@ -21,7 +21,7 @@ AS7C256C-15).
 | ROM /OE through the '04 | −3.3 ns | **Fixed**, ROM/RAM select PLD rev 03 (+2.7) |
 | Bus contention at the start of a write | up to about 10 ns | **Fixed**, RAM /OE is high for the whole write (+0.1) |
 | Bus contention at the end of a write | up to 7.6 ns | Reduced to 5.1 ns |
-| Fetch into the branch check | −6.8 ns | Open: needs a third PLD, or an instruction encoding change |
+| Fetch into the branch check | −6.8 ns | **Fixed**, BGE with an AC or X target has a pad byte (State PLD rev 11, Branch PLD rev 08); the fetch is now 39.0 (+0.7) |
 
 ## Fixed
 
@@ -209,23 +209,38 @@ F541 or something at least as fast (FEATURE_PLAN.md already uses F541s).
    /CE_HI.
 6. Devices that drive the read bus must enable in 9.5 ns or less.
 
-## Open: fetch into the branch check (−6.8 ns)
+## Fixed: fetch into the branch check (State PLD rev 11, Branch PLD rev 08)
 
-    PC_ENABLE tCO 5.5, Sync ADDR_SEL 7.5, mux 7.5, RAM tAA 15,
-    Branch PLD BRANCH_BLOCK (from DB7:5) 7.5, State Q1 setup 3.5 = 46.5 ns
+    before: PC_ENABLE tCO 5.5, Sync ADDR_SEL 7.5, mux 7.5, RAM tAA 15,
+            Branch PLD BRANCH_BLOCK (from DB7:5) 7.5, State Q1 setup 3.5 = 46.5 ns
+    after:  PC_ENABLE tCO 5.5, Sync ADDR_SEL 7.5, mux 7.5, RAM tAA 15,
+            State Q0/Q1 setup 3.5 = 39.0 ns (+0.7)
 
-The State PLD only uses BRANCH_BLOCK in FETCH for one case: source AC/X with
-MEM 101 goes to LOAD_IMM for a zero-page store but straight to EXEC for BGE.
-The State PLD has no spare pin for DB7:5 itself, and neither of the two
-decode PLDs has room for Q1 (it needs DB7:0, STALL, Q0 and CLK).
+The State PLD used BRANCH_BLOCK in FETCH for one case only: source AC/X with
+MEM 101 is a zero-page store on an ALU op (go to LOAD_IMM for the address)
+but BGE on a branch (go straight to EXEC).  The State PLD has no spare pin
+for DB7:5 itself, so the branch decode came from the Branch PLD, one array
+pass after the RAM.
 
-- **Pad BGE (no chip).**  BGE with an AC or X target gets a padding byte,
-  so it goes through LOAD_IMM like a zero-page store and the State PLD no
-  longer needs BRANCH_BLOCK in FETCH.  None of pi_spigot, mandelbrot or
-  game_of_life uses that form; cpu_test does 9 times.  It changes the
-  instruction encoding and the assembler.
-- **A third PLD for Q1.**  Q1 moves into it with DB7:0 straight off the
-  data bus (39.0 ns, +0.7), and State PLD pin 15 becomes the Q1 input.
+Now source AC/X with MEM 101 always goes to LOAD_IMM, and the assembler
+puts a pad byte (00) after `bge ac` and `bge x`.  LOAD_IMM loads the pad
+into D and steps the PC past it; EXEC then branches to AC or X as before,
+with BRANCH_BLOCK still blocking the write.  The rest of the fetch is the
+opcode into the State PLD and the IR, which already passed (39.0 and 37.5).
+
+- **Instruction set**: `bge ac` and `bge x` are 2 bytes and 3 clocks (were
+  1 byte and 2 clocks).  Every other instruction is unchanged.  None of
+  pi_spigot, mandelbrot or game_of_life uses those forms, so their hex
+  files are unchanged; cpu_test uses them 9 times.
+- **State PLD rev 11**: one Q1 term removed (Q1 9 of 10 terms), comments.
+- **Branch PLD rev 08**: the FETCH decode of DB7:5 (block B) is gone, so
+  pins 14-16 are unused and need no wires.  BRANCH_BLOCK = BRANCH_A.
+- **Assembler**: `placard.asm` (customasm) and `placard_sim.py` emit the
+  pad byte, and the simulator fetches it.
+- **Checked**: `placard_sim.py` runs the regenerated cpu_test to the end
+  with every test passing.  The GHDL model with the new State and Branch
+  PLDs runs it to the end too, and its 81,746 RAM writes (address and data,
+  in order) are identical to the simulator's.
 
 ## Open: end-of-write contention (5.1 ns)
 

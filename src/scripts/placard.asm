@@ -71,9 +71,10 @@
 ;       blt [y,x]    bra [y,x]                   [Y,X]
 ;   bge has no memory form.  MEM = 101 is also the zero-page store
 ;   code, and the State PLD can't fetch the zero-page address for a
-;   branch.  bge with an immediate, ac or x target works: the Branch
-;   PLD flags the opcode as a branch during FETCH, so the State PLD
-;   skips the operand-byte fetch that a store would need.
+;   branch.  bge with an immediate, ac or x target works.  bge ac and
+;   bge x are 2 bytes: the State PLD treats them like a zero-page
+;   store and fetches a byte after the opcode, so a pad byte (00)
+;   follows (State PLD rev 11).
 ; ============================================================
 
 #bankdef rom
@@ -118,6 +119,17 @@
     bne => 0b011
     beq => 0b100
     bge => 0b101
+    ble => 0b110
+    bra => 0b111
+}
+
+; the same without bge, whose ac / x form has a pad byte
+#subruledef cond_reg
+{
+    bgt => 0b001
+    blt => 0b010
+    bne => 0b011
+    beq => 0b100
     ble => 0b110
     bra => 0b111
 }
@@ -193,7 +205,8 @@
 
     ; ---------------- branches: PC low only ----------------
     ; the operand byte is at $+1, so PC high at execute = ($ + 2) >> 8
-    {c:cond} {s:reg_src} => 0b111 @ c @ s
+    {c:cond_reg} {s:reg_src} => 0b111 @ c @ s
+    bge {s:reg_src}          => 0b111 @ 0b101 @ s @ 0x00   ; pad byte
     {c:cond} {t} =>
     {
         0b111 @ c @ 0b00 @ t[7:0]
