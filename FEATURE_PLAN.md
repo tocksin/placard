@@ -12,11 +12,15 @@ listed at the end in case they are wanted later.
 
 These facts from the current design shape every choice below.
 
-- **The I/O window is reserved and now decoded.**  The README memory map puts
-  I/O at x5000-x5FFF, one 256-byte page per device, with priority over
-  RAM/ROM.  `ATF22V10_IO_DECODE.pld` (rev 01) decodes it, and
-  `ATF22V10_ROMRAM_SEL.pld` (rev 03) keeps both memories off the bus there.
-  The FPGA model (`basys_top.vhd`) still ties the map write to a constant.
+- **The I/O decode is built** (removed from this list).
+  `ATF22V10_IO_DECODE.pld` (rev 01, also `io_decode_pld.vhd`, wired into
+  `basys_top.vhd`) decodes x5000-x5FFF and gives each device its own strobe:
+  /MAP_WR and /LINE_RD (x50), /SND_WR (x51), /PORT_WR and /PORT_RD (x52),
+  /EXP1 and /EXP2 (x55, x56, address only).  Write strobes are low for the
+  /WE pulse; read strobes are qualified by LOAD_IMM.  A11 is not decoded, so
+  x5800-x5FFF repeats x5000-x57FF, and the PLD has no spare outputs.
+  `ATF22V10_ROMRAM_SEL.pld` (rev 03) keeps both memories off the bus there,
+  and x4000-x4FFF is always RAM.  The ROM/RAM map write at x5000 works.
 - **Only `[Y,X]` reaches I/O.**  `[0,D]` and `[0,X]` only address the zero
   page, so every I/O access is `ld 0x5n, y` then `ld [y,x], ac` (read) or
   `ld ac, [y,x]` / `ld n, [y,x]` (write).
@@ -36,16 +40,11 @@ These facts from the current design shape every choice below.
 
 | Feature | Added chips |
 |---|---|
-| I/O decode | 1 x ATF22V10C (replaces the '04) |
 | Video line read | 1 x 74F541 |
 | Shared port: keyboard (40 keys), 2 SNES pads, SD card | 74HC574, 74F138, 74F541, CD4050, plus a 3.3 V regulator |
 | Sound (one voice) | 74F574, 1 x ATF22V10C |
 | Expansion ports (2) | none, connectors only |
-| **Total** | **8 logic chips + 1 regulator (7 net of the '04)** |
-
-The I/O decode PLD also makes /CE_HI, the upper RAM/ROM chip enable, which
-replaces the '04 on the board, so its net cost is zero chips.  RAM/ROM
-priority is inside the ROM/RAM select PLD, so no OR gates are needed either.
+| **Total** | **7 logic chips + 1 regulator** |
 
 ## Parts rule and stock check
 
@@ -77,49 +76,11 @@ register that latches the read bus is a plain 74HC part, its 3.5 V input
 threshold is above the 74F's guaranteed high.  Use HCT (or F) on those
 inputs, or keep HC541s on the bus.
 
-## 1. I/O decode (one ATF22V10C)
-
-Designed in `src/pld/ATF22V10_IO_DECODE.pld` (rev 01), from the timing work
-in TIMING_FIXES.md.  The PLD puts out the exact strobe each device needs, so
-no device needs glue logic, and it also makes the upper RAM/ROM chip enable.
-
-| Pin use | Signals |
-|---|---|
-| Inputs (14) | /WE, ADDR_SEL, ADDR_SEL_HI, PC15, H9, Y7, A14, A13, A12, A10, A9, A8, RW, LOAD_IMM |
-| Outputs (8) | /CE_HI, /MAP_WR, /LINE_RD, /SND_WR, /PORT_WR, /PORT_RD, /EXP1, /EXP2 |
-
-    A15     = rebuilt from the high-byte mux selects and sources
-              (Y7, H9 or PC15), so it is valid as early as the mux output
-    IO      = !A15 & A14 & !A13 & A12                 /* x5000-x5FFF        */
-    RD      = IO & RW & LOAD_IMM                      /* CPU is latching D  */
-    WR      = IO & !/WE                               /* the RAM write pulse */
-
-    CE_HI   = A15                                     /* upper 32K chip     */
-    MAP_WR  = WR & page 0     LINE_RD = RD & page 0   /* x50                */
-    SND_WR  = WR & page 1                             /* x51                */
-    PORT_WR = WR & page 2     PORT_RD = RD & page 2   /* x52                */
-    EXP1    = IO & page 5     EXP2    = IO & page 6   /* x55, x56           */
-
-- **A11 is not decoded**, so x5800-x5FFF repeats x5000-x57FF.
-- **RAM/ROM priority** is in the ROM/RAM select PLD: neither memory drives
-  the bus on a read anywhere in x5000-x5FFF.  Writes there still land in the
-  RAM underneath, which is harmless.  x4000-x4FFF is always RAM.
-- **Reads are qualified by LOAD_IMM**, which already excludes stall clocks,
-  so a device only sees the real CPU read.
-- **Writes:** each /xx_WR is low for the /WE pulse, so a device latches from
-  the source bus on its rising edge.
-- **Read enable budget:** a device that drives the read bus must enable in
-  9.5 ns or less.  Check the 74F541 output-enable time against it.
-- **x5300 and x5400 are spare.**  There is no spare output left, so a new
-  device needs one of the existing strobes or a second decoder.
-- **Expansion selects are address-only.**  The two ports also get RW, /WE and
-  LOAD_IMM so a card builds its own read and write strobes.
-
-## 2. Video line read (x50, one 74F541)
+## 1. Video line read (x50, one 74F541)
 
 | Address | R/W | Function |
 |---|---|---|
-| x5000 | W | ROM/RAM section map: /MAP_WR drives WR_CLK of the ROM/RAM select PLD, which latches the source bus.  Bit n = 1 makes section n RAM; bit 2 is ignored (x4000-x4FFF is always RAM).  No added chip. |
+| x5000 | W | ROM/RAM section map: /MAP_WR drives WR_CLK of the ROM/RAM select PLD, which latches the source bus.  Bit n = 1 makes section n RAM; bit 2 is ignored (x4000-x4FFF is always RAM).  Already built. |
 | x5000 | R | Upper 8 bits of the line counter, V9:V2 |
 
 - The V counter already exists in the V Counter PLD (it counts 499 to 1023).
@@ -133,7 +94,7 @@ no device needs glue logic, and it also makes the upper RAM/ROM chip enable.
 - **Software must poll at least once per frame**, or it misses a wrap.  Elapsed
   time is then frames x 16.8 ms plus the line position for finer detail.
 
-## 3. Shared port: keyboard, SNES pads and SD card (x52)
+## 2. Shared port: keyboard, SNES pads and SD card (x52)
 
 The keyboard, the pads and the SD card are never needed at the same moment,
 so software takes turns: scan the keyboard, then read the pads, and talk to
@@ -186,7 +147,7 @@ because the pads' CMOS inputs need a full 5 V high.
 row, 74F541, data bus inside one clock.  The 74F parts keep that short, but
 the diode and the row's pull-up are the slow part of the path.
 
-## 4. Sound (x51, 74F574 + ATF22V10C)
+## 3. Sound (x51, 74F574 + ATF22V10C)
 
 One square-wave voice that runs on its own once software sets the pitch.
 
@@ -207,7 +168,7 @@ One square-wave voice that runs on its own once software sets the pitch.
 - **Zero-chip fallback:** a spare bit in the shared port's latch as a one-bit beeper that
   software toggles.  The pitch is only as steady as the software loop.
 
-## 5. Expansion ports (x55, x56, connectors only)
+## 4. Expansion ports (x55, x56, connectors only)
 
 | Signal | Meaning |
 |---|---|
@@ -225,12 +186,12 @@ One square-wave voice that runs on its own once software sets the pitch.
 
 ## Suggested order
 
-1. I/O decode PLD, ROM/RAM map write and line read.
+1. Line read.
 2. Shared port with the SNES pads (the easiest way to test it).
 3. Keyboard on the shared port.
 4. SD card on the shared port.
 5. Sound.
-6. Expansion connectors (the interface is fixed by step 1).
+6. Expansion connectors (the interface is fixed by the I/O decode).
 
 For the FPGA model, each step adds its PLD as a VHDL entity (no optimization,
 individual pins, lowerCamelCase signals) and a branch on the read mux in
