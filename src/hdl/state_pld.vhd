@@ -1,5 +1,5 @@
 -- ============================================================
--- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 10)
+-- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 11)
 -- Date: 2026-10-15
 --
 -- Binary state machine:  Q1 Q0
@@ -13,6 +13,10 @@
 -- instruction FF are a clock old (see the PLD source).  Q0 moved to
 -- pin 18 and load_instr to pin 14 for product terms.
 --
+-- Rev 11: source 1x with mem = 101 always goes FETCH -> LOAD_IMM.
+-- BGE with an AC or X target has a pad byte after the opcode, so
+-- branch_block is no longer used in FETCH.
+--
 -- Equations are transcribed directly from the PLD source
 -- without optimization.  All pins are kept as individual
 -- std_logic signals.
@@ -21,11 +25,8 @@
 -- 1 = read), exactly as declared in the PLD.
 -- PC_INC is not generated here: PC_INC = pc_enable and not pixel_enable.
 --
--- branch_block (pin 8, from the branch PLD) has two uses:
---   EXEC:  inhibits load_ac, load_x, load_y and the memory write while
---          a branch/jump executes.
---   FETCH: 1 when the opcode on the data bus is a branch, so source 1x
---          with mem = 101 (BGE) goes to EXEC instead of LOAD_IMM.
+-- branch_block (pin 8, from the branch PLD) inhibits load_ac, load_x,
+-- load_y and the memory write in EXEC while a branch/jump executes.
 -- ============================================================
 
 library ieee;
@@ -114,7 +115,6 @@ begin
                  or (s_fetch and not pixel_enable and db_src1 and not db_mem2)
                  or (s_fetch and not pixel_enable and db_src1 and db_mem1)
                  or (s_fetch and not pixel_enable and db_src1 and not db_mem0)
-                 or (s_fetch and not pixel_enable and db_src1 and branch_block)
                  or (s_limm  and not pixel_enable)
                  or (s_lmem  and not pixel_enable);
 
