@@ -165,8 +165,10 @@ was planned.
   end of the write; read strobes are low on a read the CPU latches into D
   (LOAD_IMM).  A11 is not decoded, so 5800h-5FFFh repeats 5000h-57FFh.
 - **Pins**: 14 inputs (/WE, ADDR_SEL, ADDR_SEL_HI, PC15, H9, Y7, A14, A13,
-  A12, A10, A9, A8, RW, LOAD_IMM) and 8 outputs, all 22 pins.  Each output
-  is 4 product terms or fewer.
+  A12, A10, A9, A8, RW, LOAD_IMM) and 8 outputs, all 22 pins.  WinCUPL fits
+  each strobe in 7 product terms (EXP2: 7 of 10, the tightest) and /CE_HI in
+  3.  The term count does not change the timing: every output is still one
+  array pass.
 
 ### Timing
 
