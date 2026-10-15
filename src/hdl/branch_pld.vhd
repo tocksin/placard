@@ -1,17 +1,18 @@
 -- ============================================================
--- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 06)
+-- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 07)
 -- Date: 10/15/2026
 --
--- Branch / jump control, plus the ALU wait clock (Rev 06).
+-- Branch / jump control, plus the ALU wait clock (Rev 06, Rev 07).
 --
--- ALU WAIT: alu_wait is a register set for one clock at the start
--- of EXEC of an ADD/SUB whose destination is AC, X or Y:
---     alu_wait.D = exec and not pixel_enable and i7 and not i6
---                  and (destination is not RAM) and not alu_wait
--- stall = pixel_enable or alu_wait replaces pixel_enable on the
--- State PLD and both PC PLDs, so the CPU holds EXEC for one clock
--- while the carry ripples through both ALU PLDs.  The video keeps
--- the real pixel_enable.
+-- ALU WAIT: the first EXEC clock of an ADD/SUB whose destination is
+-- AC, X or Y is a stall clock, so the result loads at the end of the
+-- second:
+--     stall      = pixel_enable or (exec and addsub_reg and not alu_done)
+--     alu_done.D = (exec and not pixel_enable and addsub_reg and not alu_done)
+--               or (alu_done and pixel_enable)
+-- stall replaces pixel_enable on the State PLD and both PC PLDs.  The
+-- video keeps the real pixel_enable.  (Rev 06 stalled the clock after
+-- the load; see the PLD source.)
 --
 -- Equations are transcribed directly from the PLD source
 -- without optimization.  All pins are kept as individual
@@ -41,7 +42,7 @@
 -- pixel_enable = 1 means video owns the bus.
 --
 -- EXEC state: exec = q0 and not pc_enable
---     q0        = State PLD pin 14 (true polarity)
+--     q0        = State PLD pin 18 (true polarity)
 --     pc_enable = State PLD pin 15 (= not Q1)
 --
 -- load_pc_low and load_pc_high are active only in EXEC with
@@ -66,7 +67,7 @@
 --   7  z_low         8  neg           9  pixel_enable
 --  10  q0           11  pc_enable    13  z_high
 --  14  db7          15  db6          16  db5
---  18  alu_wait     19  stall
+--  18  alu_done     19  stall
 --  21  load_pc_low  22  load_pc_high 23  branch_block
 -- ============================================================
 
@@ -75,7 +76,7 @@ use ieee.std_logic_1164.all;
 
 entity branch_pld is
     port (
-        clk           : in  std_logic;   -- pin 1, CPU clock (alu_wait register)
+        clk           : in  std_logic;   -- pin 1, CPU clock (alu_done register)
 
         i7            : in  std_logic;   -- pin 17 (I/O pin used as an input)
         i6            : in  std_logic;   -- pin 2
@@ -90,7 +91,7 @@ entity branch_pld is
 
         pixel_enable  : in  std_logic;   -- pin 9, 1 = video owns the bus
 
-        q0            : in  std_logic;   -- pin 10, State PLD pin 14, state bit 0
+        q0            : in  std_logic;   -- pin 10, State PLD pin 18, state bit 0
         pc_enable     : in  std_logic;   -- pin 11, State PLD pin 15, = not Q1
 
         z_high        : in  std_logic;   -- pin 13, high ALU nibble zero
@@ -103,8 +104,8 @@ entity branch_pld is
         load_pc_high  : out std_logic;   -- pin 22
         branch_block  : out std_logic;   -- pin 23
 
-        alu_wait      : out std_logic;   -- pin 18, registered
-        stall         : out std_logic    -- pin 19, pixel_enable or alu_wait
+        alu_done      : out std_logic;   -- pin 18, registered
+        stall         : out std_logic    -- pin 19
     );
 end entity branch_pld;
 
@@ -117,7 +118,7 @@ architecture rtl of branch_pld is
     signal branch_b : std_logic;   -- block B, FETCH state, data bus
 
     signal addsub_reg : std_logic; -- ADD/SUB with an AC, X or Y destination
-    signal alu_wait_q : std_logic := '0';   -- powers up to 0, as on the ATF22V10C
+    signal alu_done_q : std_logic := '0';   -- powers up to 0, as on the ATF22V10C
 
 begin
 
@@ -136,17 +137,19 @@ begin
     addsub_reg <= i7 and not i6 and not (m2 and (m1 or m0));
 
     -- --------------------------------------------------------
-    -- ALU wait register
+    -- ALU wait: first EXEC clock of an ADD/SUB is a stall clock
     -- --------------------------------------------------------
     process (clk)
     begin
         if rising_edge(clk) then
-            alu_wait_q <= exec and not pixel_enable and addsub_reg and not alu_wait_q;
+            alu_done_q <= (exec and not pixel_enable and addsub_reg and not alu_done_q)
+                       or (alu_done_q and pixel_enable);
         end if;
     end process;
 
-    alu_wait <= alu_wait_q;
-    stall    <= pixel_enable or alu_wait_q;
+    alu_done <= alu_done_q;
+    stall    <= pixel_enable
+             or (exec and addsub_reg and not alu_done_q);
 
     -- --------------------------------------------------------
     -- Equations

@@ -1,7 +1,7 @@
 Name     STATE_CTRL;
 PartNo   00;
 Date     2026-10-15;
-Revision 09;
+Revision 10;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -34,6 +34,8 @@ Device   g22v10;
                        110, 111)
          -> LOAD_IMM   source 1x and MEM = 101 and not a branch
                        (store to zero page, fetch the address into D)
+         -> LOAD_MEM   source 1x and [0,X] / [Y,X] mode (110, 111)
+                       (stores from AC or X: see STORE TIMING below)
          -> EXEC       source 1x otherwise, including a branch with
                        MEM = 101 (BGE with an AC or X target)
    LOAD_IMM -> LOAD_MEM  if SRC0 = 1 and MEM != 101 (zero-page read)
@@ -46,7 +48,19 @@ Device   g22v10;
    EXEC     -> FETCH
 
    Clocks: register op 2, immediate 3, [x]/[y,x] read 3,
-           zero-page store 3, zero-page read 4.
+           [x]/[y,x] store 3, zero-page store 3, zero-page read 4.
+
+   STORE TIMING (revision 10)
+     A store from AC or X to [0,X] or [Y,X] used to go straight from
+     FETCH to EXEC, so the write had the instruction FF, the source
+     decode and the RAM address all settling in the write clock, and
+     the data reached the RAM 1.1 ns too late at 25.175 MHz.  It now
+     passes through LOAD_MEM, which reads the target location into D
+     (D is not used by a store from AC or X) and holds the PC, so in
+     EXEC the address, the source bus and the instruction FF are all
+     a clock old.  BLE and BRA with an AC or X target (the branch
+     codes with MEM = 110, 111) take the same path; LOAD_MEM does not
+     touch the PC, so they still work, one clock slower.
 
    Limits of this encoding
      - Source 01 with MEM = 101 (read-modify-write of a zero-page
@@ -88,7 +102,8 @@ Device   g22v10;
           (identical to the PC_INC equation in the old revision).
 
    PRODUCT TERMS
-      Q0 (pin 14):  8 used, 8 available.  FULL - do not add terms.
+      Q0 (pin 18):  9 used, 16 available.  (Moved from pin 14, which
+                    has 8, in revision 10; LOAD_INSTR moved to pin 14.)
       Q1 (pin 15):  10 used, 10 available.  FULL - do not add terms.
       The terms are reduced using the illegal MEM combinations as
       don't-cares (see the limits above).
@@ -111,7 +126,8 @@ Device   g22v10;
 
 PIN 1  = CLK;
 
-/* STALL from the Branch PLD (pin 19) = Sync PLD PIXEL_ENABLE # ALU_WAIT.
+/* STALL from the Branch PLD (pin 19) = Sync PLD PIXEL_ENABLE, or the
+   first EXEC clock of an ADD/SUB.
    1 = hold the state and block every load and write (video owns the
    bus, or an ADD/SUB is waiting one clock for its carry). */
 PIN 2  = PIXEL_ENABLE;
@@ -154,7 +170,7 @@ PIN 13 = SRC0;
 /* ---------------- OUTPUTS ---------------- */
 
 /* State bit 0 (registered). */
-PIN 14 = Q0;
+PIN 18 = Q0;
 
 /* State bit 1 (registered).  The pin is declared inverted, so the
    pin level is !Q1 = PC_ENABLE:  high in FETCH and LOAD_IMM,
@@ -174,7 +190,7 @@ PIN 17 = Y_ENABLE;
 
 /* Bus-cycle strobes.  Each includes !PIXEL_ENABLE, so it is only
    active on a clock where the CPU really owns the bus. */
-PIN 18 = LOAD_INSTR;   /* load instruction FF                          */
+PIN 14 = LOAD_INSTR;   /* load instruction FF                          */
 PIN 19 = LOAD_IMM;     /* load D FF (LOAD_IMM and LOAD_MEM states)     */
 PIN 20 = LOAD_X;       /* load X register                              */
 PIN 21 = LOAD_Y;       /* load Y register                              */
@@ -206,16 +222,17 @@ S_EXEC  =  Q1 &  Q0;
          DS = 1x and DM = 101 and not BRANCH_BLOCK
      to LOAD_MEM (Q1'=1, Q0'=0):
          DS = 01 and DM = 001, 101(x), 010, 110, 111
+         DS = 1x and DM = 110, 111
      to EXEC (Q1'=1, Q0'=1):
-         DS = 1x and (DM != 101 or BRANCH_BLOCK)
+         DS = 1x and DM = 000-100, or DM = 101 and BRANCH_BLOCK
 
    Next state from LOAD_IMM:
          SRC0 = 1 and MEM != 101  -> LOAD_MEM (Q1'=1, Q0'=0)
          else                     -> EXEC     (Q1'=1, Q0'=1)
 
-   Q0' (8 terms)
+   Q0' (9 terms)
        hold
-       FETCH: DB_SRC1 # !DB_SRC0 # DM=x00-type or 011
+       FETCH: DB_SRC1 & DM != 11x, DS = 00, DM = x00-type or 011
        LOAD_IMM: !SRC0 # (MEM = 101)
        LOAD_MEM -> EXEC
    Q1' (10 terms)
@@ -226,8 +243,9 @@ S_EXEC  =  Q1 &  Q0;
 */
 
 Q0.D = (Q0 & PIXEL_ENABLE)
-     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1)
-     # (S_FETCH & !PIXEL_ENABLE & !DB_SRC0)
+     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & !DB_MEM1)
+     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & !DB_MEM2)
+     # (S_FETCH & !PIXEL_ENABLE & !DB_SRC1 & !DB_SRC0)
      # (S_FETCH & !PIXEL_ENABLE & !DB_MEM1 & !DB_MEM0)
      # (S_FETCH & !PIXEL_ENABLE & !DB_MEM2 & DB_MEM1 & DB_MEM0)
      # (S_LIMM  & !PIXEL_ENABLE & !SRC0)
