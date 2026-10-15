@@ -1,6 +1,6 @@
 Name     VGA_SYNC;
 PartNo   01;
-Date     2026-09-30;
+Date     2026-10-14;
 Revision 04;
 Designer Justin;
 Company  ;
@@ -49,7 +49,7 @@ PIN 16 = H2;
 PIN 17 = VIDEO_ACTIVE;
 PIN 18 = VSYNC;
 
-PIN 19 = BYTE_ENABLE;
+PIN 19 = PIXEL_ENABLE;
 
 PIN 20 = ADDR_SEL;
 PIN 21 = ADDR_SEL_HI;
@@ -119,7 +119,7 @@ VIDEO_ACTIVE =
 
 
 /* ============================================================
-   BYTE ENABLE
+   PIXEL ENABLE
    ============================================================ */
 
 /*
@@ -128,7 +128,7 @@ VIDEO_ACTIVE =
    H2:H0 = 000 identifies the byte-read clock.
 */
 
-BYTE_ENABLE =
+PIXEL_ENABLE =
       VIDEO_ACTIVE
     & !H2
     & !H1
@@ -173,12 +173,12 @@ VSYNC = !(V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1);
 
    Priority (highest first):
 
-       1. Video address    BYTE_ENABLE            -> 10
+       1. Video address    PIXEL_ENABLE            -> 10
        2. Program counter  PC_ENABLE              -> 11
        3. X / Y registers  X_ENABLE, Y_ENABLE     -> 01
        4. Default                                 -> 00
 
-   BYTE_ENABLE overrides PC_ENABLE, X_ENABLE and Y_ENABLE.
+   PIXEL_ENABLE overrides PC_ENABLE, X_ENABLE and Y_ENABLE.
    PC_ENABLE overrides X_ENABLE and Y_ENABLE.
 */
 
@@ -186,12 +186,12 @@ VSYNC = !(V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1);
 /*
    Shared S1 input to ALL FOUR 4:1 muxes.
 
-   Video is selected only during BYTE_ENABLE.
+   Video is selected only during PIXEL_ENABLE.
    PC is selected whenever PC_ENABLE is active.
 */
 
 ADDR_SEL =
-      BYTE_ENABLE
+      PIXEL_ENABLE
     # PC_ENABLE;
 
 
@@ -204,12 +204,12 @@ ADDR_SEL =
        10 = Video address
        11 = PC
 
-   S0 is forced low during BYTE_ENABLE so that S1 S0 = 10
+   S0 is forced low during PIXEL_ENABLE so that S1 S0 = 10
    (video) regardless of PC_ENABLE and Y_ENABLE.
 */
 
 ADDR_SEL_HI =
-      !BYTE_ENABLE
+      !PIXEL_ENABLE
     & (PC_ENABLE # Y_ENABLE);
 
 
@@ -222,10 +222,10 @@ ADDR_SEL_HI =
        10 = Video address
        11 = PC
 
-   S0 is forced low during BYTE_ENABLE so that S1 S0 = 10
+   S0 is forced low during PIXEL_ENABLE so that S1 S0 = 10
    (video) regardless of PC_ENABLE and X_ENABLE.
 */
 
 ADDR_SEL_LO =
-      !BYTE_ENABLE
+      !PIXEL_ENABLE
     & (PC_ENABLE # X_ENABLE);

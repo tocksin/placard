@@ -204,7 +204,7 @@ from accessing the RAM/ROM during video reads.
 | 16 | `H2` | Output | Horizontal pixel bit 2 |
 | 17 | `VIDEO_ACTIVE` | Output | Combined horizontal/vertical active video |
 | 18 | `VSYNC` | Output | Vertical sync |
-| 19 | 'BYTE_ENABLE' | Output | VIDEO_ACTIVE but only when H2:H0 = "000" |
+| 19 | 'PIXEL_ENABLE' | Output | VIDEO_ACTIVE but only when H2:H0 = "000" |
 | 20 | — | — | Unused |
 | 21 | — | — | Unused |
 | 22 | — | — | Unused |
@@ -218,4 +218,4 @@ VIDEO_ACTIVE.D = (V9 & V5 & !V4 & !V3 & !V2 & !V1)
                
 VSYNC = !(V4 & !V3 & V2 & !V1)
 
-BYTE_ENABLE = VIDEO_ACTIVE & !H2 & !H1 & !H0
+PIXEL_ENABLE = VIDEO_ACTIVE & !H2 & !H1 & !H0
