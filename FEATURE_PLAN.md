@@ -62,6 +62,8 @@ Proposed equations (written out in full in the PLD when it is designed):
   D (LOAD_IMM includes !PIXEL_ENABLE), so a device with a read side effect,
   such as "read clears the key flag", only sees the real read.  The plan still
   prefers explicit write-to-acknowledge registers over read side effects.
+- **x5300** is spare now that the controllers are on the serial port, so
+  /CS53 is free for a later device.
 - **x5700-x5FFF** stays reserved.  It costs no decode outputs today; a third
   expansion port would need either a second decoder or dropping a /CS.
 
@@ -98,23 +100,88 @@ Each device (internal or on an expansion card) sees the same signals:
   the simulator.
 - `placard.asm` can add `#const` names for the device pages and registers.
 
-## 2. Controller (x53)
+## 2. Serial port: SD card and SNES controllers (x54)
 
-Simplest device on the bus, so it is the first one to prove the read path.
+The SD card and the SNES pads are both clocked serial devices, so they share
+one byte shifter and differ only in which device is selected.  The controller
+no longer needs its own page; x5300 is free.
 
-- **Default:** two Atari/Sega-style DB9 joysticks (up, down, left, right,
-  fire).  Each port is plain switches with pull-ups, read through a 74HC541.
-  A0 picks port 1 or port 2.
-- **Alternative:** NES/SNES pads.  They hold a shift register, so the CPU
-  writes LATCH and CLOCK bits through a 74HC574 and reads the two DATA lines
-  back.  More buttons and easy to buy, but 16 write/read pairs per poll.
+### Shared shifter
+
+- **Byte shifter.**  Writing x5400 starts 8 clocks that shift the byte out on
+  MOSI (MSB first) while shifting the selected device's MISO in; reading
+  x5400 returns the received byte.  A 74HC595-style shift-out plus a
+  74HC165-style shift-in, with one 22V10 for the bit counter and clock.
+  Software writes, polls BUSY, and reads.
+- **SPI mode 0.**  SCK idles low, data is sampled on the rising edge and
+  changes on the falling edge, which is what SD cards use.
+- **Device select.**  Three control bits pick one of up to seven devices.  A
+  74HC138 turns them into the per-device selects, and a 74HC151 (8-to-1 mux)
+  routes only the selected device's data line back into the shift-in
+  register.  The mux is needed because the SNES pad's data output is never
+  tri-stated, and some SD modules don't release MISO either.
+- **Two clock rates.**  Slow (under 400 kHz) for SD initialization and for the
+  pads; fast for SD data transfers.
+- **Alternative: bit-banged.**  One 74HC574 for clock, data and selects plus
+  one buffer for the data lines.  Fewest chips, but each bit costs several
+  instructions.
 
 | Address | R/W | Function |
 |---|---|---|
-| x5300 | R | Port 1: bit 0 up, 1 down, 2 left, 3 right, 4 fire, 5 fire 2 (active low) |
-| x5301 | R | Port 2, same layout |
+| x5400 | W | Transmit byte (starts a transfer) |
+| x5400 | R | Received byte |
+| x5401 | W | Control: bits 2:0 device select, bit 3 fast clock, bit 4 pad LATCH |
+| x5401 | R | Status: bit 0 BUSY, bit 1 card detect |
 
-Parts: 2 x 74HC541, 2 x DB9 connectors, pull-up resistor networks.
+Device select codes:
+
+| Code | Device |
+|---|---|
+| 0 | None (all deselected) |
+| 1 | SD card |
+| 2 | SNES pad 1 |
+| 3 | SNES pad 2 |
+| 4-7 | Spare (for example a serial device on an expansion card) |
+
+### SNES pads
+
+- **How the pad works.**  A pad is a 16-bit parallel-in, serial-out shift
+  register (two 4021s in the original).  A high pulse on LATCH captures the
+  buttons and puts the first bit on DATA; each rising edge of CLOCK shifts the
+  next bit out.  CLOCK idles high and DATA is active low.
+- **Fit to the shifter.**  The pad's CLOCK is the shifter's SCK through an
+  inverter.  CLOCK then idles high, the shifter samples on an SCK rising edge
+  (pad CLOCK falling, data stable) and the pad shifts on an SCK falling edge.
+  The first bit is already on DATA when the first sample happens, so the
+  bits come out in order.
+- **LATCH** is a control-register bit rather than a select, because it is a
+  pulse before the transfer, not a level held during it.  Both pads share
+  LATCH and CLOCK; each has its own DATA line into the mux.
+- **Reading a pad:** set LATCH, clear LATCH, select the pad, transfer two dummy
+  bytes.  Byte 0 is B, Y, Select, Start, Up, Down, Left, Right (bit 7 = B);
+  byte 1 is A, X, L, R and four 1s.  A 0 bit means pressed.  Both pads shift
+  on every clock, so latch again before reading pad 2.
+- **Speed.**  Use the slow clock rate.  The original console clocks the pad
+  at about 83 kHz, and 4000-series CMOS (and clone pads) may not keep up with
+  MHz rates.
+- **Power:** the pads run at 5 V and connect directly, with no level shifting.
+
+### SD card
+
+Meets the "save and load programs on the computer" goal.
+
+- **Levels:** SD cards are 3.3 V.  SCK, MOSI and the card select go through a
+  CD4050 powered from 3.3 V; MISO comes back into a 74HCT input (3.3 V clears
+  the HCT input threshold).  A 3.3 V regulator powers the card.
+- **Speed:** initialize at the slow rate, then switch to the fast rate.  The
+  CD4050 at 3.3 V is slow, so the fast rate is limited to a few MHz unless a
+  faster level shifter is used.
+- **Software:** start with raw sectors (a fixed sector range per saved
+  program), then add a FAT filesystem later so cards can be filled from a PC.
+
+Parts: 74HC595, 74HC165, 22V10 (shift control), 74HC574 (control register),
+74HC138, 74HC151, 74HC04 (pad clock inverter), CD4050, 3.3 V regulator, SD
+socket, 2 x SNES controller sockets.
 
 ## 3. Keyboard (x52)
 
@@ -140,34 +207,7 @@ matrix.
 
 Parts: 74HC138, 74HC541, 64 key switches, 64 diodes, pull-ups.
 
-## 4. Storage: SD card (x54)
-
-Meets the "save and load programs on the computer" goal.
-
-- **Interface:** SD cards speak SPI at 3.3 V.  5 V to 3.3 V on SCK, MOSI and
-  /CS through a CD4050 powered from 3.3 V; MISO comes back into a 74HCT input
-  (3.3 V clears the HCT input threshold).  A 3.3 V regulator for the card.
-- **Default: hardware byte shifter.**  Writing x5400 starts 8 SCK pulses that
-  shift the byte out on MOSI while shifting MISO in; reading x5400 returns the
-  received byte.  A 74HC595-style shift-out plus 74HC165-style shift-in, or one
-  22V10 for the bit counter and clock, with the data registers outside it.
-  Software only writes, polls BUSY, and reads.
-- **Alternative: bit-banged SPI.**  One 74HC574 for SCK/MOSI/CS and one buffer
-  bit for MISO.  Fewest chips, but each bit costs several instructions.
-- **Speed select:** cards must be initialized at 400 kHz or less, then can run
-  faster.  The CD4050 at 3.3 V is slow, so the fast rate is limited to a few
-  MHz unless a faster level shifter is used.
-- **Software:** start with raw sectors (a fixed sector range per saved
-  program), add a FAT filesystem later so cards can be filled from a PC.
-
-| Address | R/W | Function |
-|---|---|---|
-| x5400 | W | Transmit byte (starts a transfer) |
-| x5400 | R | Received byte |
-| x5401 | W | Control: bit 0 card /CS, bit 1 fast clock |
-| x5401 | R | Status: bit 0 BUSY, bit 1 card detect |
-
-## 5. Sound (x51)
+## 4. Sound (x51)
 
 With no interrupts the CPU cannot feed samples at a steady rate, so the sound
 hardware has to run on its own once set up.
@@ -196,7 +236,7 @@ hardware has to run on its own once set up.
 
 Parts: about 4 x 22V10, 5 x 74HC574, resistors, amplifier.
 
-## 6. Expansion ports (x55, x56)
+## 5. Expansion ports (x55, x56)
 
 The ports carry the device interface from section 1 to a connector, so a card
 works the same as an internal device.
@@ -215,9 +255,11 @@ works the same as an internal device.
 
 1. I/O decode PLD and config page (unblocks the ROM/RAM map register and gives
    vblank status).
-2. Controller (proves the read path with one buffer).
-3. Keyboard.
-4. SD card storage.
+2. Serial port with the SNES pads (the pads are an easy first test of the
+   shifter, and the device select makes the SD card a second device, not a
+   new circuit).
+3. SD card on the serial port.
+4. Keyboard.
 5. Sound.
 6. Expansion port connectors and buffers (the interface is fixed in step 1,
    so cards can be built at any point after it).
@@ -227,7 +269,6 @@ works the same as an internal device.
 - **Timing.**  One clock for reads and a 20 ns write pulse is tight, and
   every buffer on the expansion path adds delay.  If 74HC does not close
   timing, use 74AC/74ACT parts on the I/O path.
-- **Controller type:** DB9 joystick (default) or NES/SNES pads?
 - **Keyboard size:** 64 keys (default) or a larger matrix?
 - **Sound depth:** 8-bit periods (default) or 10-bit for lower notes?
 - **SD level shifting:** confirm a through-hole, in-production 3.3 V buffer
