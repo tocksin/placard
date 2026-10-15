@@ -55,9 +55,18 @@ after the rising clock edge.  The write strobe is gated with the clock:
 source bus have the whole high half to settle, and /WE returns high at the
 rising edge, before the state, address and data change (the SRAM's write
 recovery and data hold times are normally 0 ns).  At 25 MHz the pulse is about
-20 ns, which suits a 10-15 ns SRAM.  The RAM's /OE should be inactive (or the
-part must tri-state its outputs while /WE is low), and the source-bus buffer
-that drives the RAM data pins is enabled with !RW.
+20 ns, which suits a 10-15 ns SRAM.
+
+Avoiding bus contention on the RAM data pins: the buffer that drives the
+source bus onto them is enabled only by the write pulse itself (its enable is
+/WE), and the RAM's /OE is the read strobe (/OE = !RW, active only when RW = 1).
+RW falls early in the cycle, so the RAM stops driving long before /WE goes low
+and the buffer turns on.  At the end of the cycle /WE rises on the clock edge,
+turning the buffer off, and RW rises a PLD clock-to-output delay later, so the
+RAM only starts driving after the buffer is off.  Do not enable the buffer with
+RW alone, and do not use RAM_EN (the complement of ROM_EN, which is also high
+for writes) as the RAM's /OE.  The FPGA model keeps the read bus (ROM/RAM
+data) and the source bus separate because it cannot use tri-state buses.
 
 ## Source mode
 
