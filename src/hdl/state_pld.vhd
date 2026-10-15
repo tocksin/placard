@@ -1,6 +1,6 @@
 -- ============================================================
 -- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 08)
--- Date: 2026-10-14
+-- Date: 2026-10-15
 --
 -- Binary state machine:  Q1 Q0
 --     00 FETCH, 01 LOAD_IMM, 10 LOAD_MEM, 11 EXEC
@@ -29,7 +29,7 @@ use ieee.std_logic_1164.all;
 entity state_pld is
     port (
         clk          : in  std_logic;   -- pin 1
-        pixel_enable : in  std_logic;   -- pin 2, from sync PLD
+        pixel_enable : in  std_logic;   -- pin 2, STALL from the branch PLD (pixel enable or ALU wait)
         db_src1      : in  std_logic;   -- pin 3, data bus bit 1 (instruction being fetched)
         db_src0      : in  std_logic;   -- pin 4, data bus bit 0 (instruction being fetched)
         mem2         : in  std_logic;   -- pin 5, memory field bit 2 (from instruction FF)

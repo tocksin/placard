@@ -1,7 +1,7 @@
 Name     BRANCH_CTRL;
 PartNo   00;
-Date     10/14/2026;
-Revision 05;
+Date     10/15/2026;
+Revision 06;
 Designer ;
 Company  ;
 Assembly ;
@@ -74,12 +74,34 @@ Device   g22v10;
    PIN 23 = !BRANCH_BLOCK;  (the equation is unchanged).
 
    The data bus bits use I/O macrocells 14-16 as plain inputs.
+
+   ALU WAIT CLOCK (revision 06)
+   ADD and SUB need two clocks for the carry to ripple through
+   both ALU PLDs at 25.175 MHz (see ALU_TIMING.md).  ALU_WAIT is
+   a register that is set for one clock at the start of EXEC of
+   an ADD/SUB with an AC, X or Y destination:
+
+       ALU_WAIT.D = EXEC & !PIXEL_ENABLE & I7 & !I6
+                  & (destination is not RAM) & !ALU_WAIT
+
+   STALL = PIXEL_ENABLE # ALU_WAIT goes to the State PLD (pin 2)
+   and both PC PLDs (pin 14) in place of PIXEL_ENABLE, so the
+   CPU holds EXEC for one clock with all loads blocked.  The
+   video side (Sync PLD, address mux, pixel buffer) keeps the
+   real PIXEL_ENABLE, so a wait clock never takes the bus.
+   A store (destination RAM) writes the source bus, not the ALU
+   result, so it does not wait.  If the video stalls the second
+   EXEC clock, ALU_WAIT sets once more; that only costs a clock.
+
+   Pin 1 is now the register clock, so I7 moved to pin 17.
    ============================================================ */
 
 
 /* ---------------- INPUTS ---------------- */
 
-PIN 1  = I7;
+PIN 1  = CLK;             /* CPU clock, for ALU_WAIT */
+
+PIN 17 = I7;              /* I/O pin used as an input */
 PIN 2  = I6;
 PIN 3  = I5;
 
@@ -109,6 +131,9 @@ PIN 21 = LOAD_PC_LOW;     /* 12 product terms, pin has 12 */
 PIN 22 = LOAD_PC_HIGH;    /*  1 product term,  pin has 10 */
 PIN 23 = BRANCH_BLOCK;    /*  2 product terms, pin has  8 */
 
+PIN 18 = ALU_WAIT;        /* registered, 2 product terms */
+PIN 19 = STALL;           /* PIXEL_ENABLE # ALU_WAIT, 2 product terms */
+
 
 /* ---------------- COMMON TERMS ---------------- */
 
@@ -122,7 +147,16 @@ BRANCH_A = I7 & I6 & I5 & EXEC & !PIXEL_ENABLE;
 BRANCH_B = DB7 & DB6 & DB5 & FETCH & !PIXEL_ENABLE;
 
 
+/* ADD (100) or SUB (101) with destination AC, X or Y
+   (M = 000, 001, 010, 011, 100; not 101, 110, 111 = RAM). */
+ADDSUB_REG = I7 & !I6 & !(M2 & (M1 # M0));
+
+
 /* ---------------- EQUATIONS ---------------- */
+
+ALU_WAIT.D = EXEC & !PIXEL_ENABLE & ADDSUB_REG & !ALU_WAIT;
+
+STALL = PIXEL_ENABLE # ALU_WAIT;
 
 BRANCH_BLOCK = BRANCH_A # BRANCH_B;
 

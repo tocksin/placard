@@ -1,5 +1,5 @@
 -- =========================================================
--- ATF22V10C 4-BIT ALU  (VHDL version of ALU_SHR.pld, Rev 04)
+-- ATF22V10C 4-BIT ALU  (VHDL version of ALU_SHR.pld, Rev 05)
 -- Date: 10/15/2026
 --
 -- FUNCTION SELECT
@@ -49,15 +49,19 @@
 --     D(i+1) = MAJ( Ai xor S0, Bi, Di )
 --     D4 = carry out for ADD, borrow out for SUB  (= COUT)
 --
+-- LOOKAHEAD (Rev 05): D2 and COUT look ahead two bits through the
+-- intermediate carries c1 and c3 (not pins), so the carry passes
+-- two pins in the low chip (B -> D2 -> COUT) and three in the high
+-- chip (CIN -> D2 -> D3 -> F3): five array passes for 8 bits.
+--
 -- SUGGESTED PIN ASSIGNMENT (24-pin DIP; pin 12 = GND, 24 = VCC)
 --     A0..A3  = 1,2,3,4          B0..B3 = 5,6,7,8
 --     S0..S2  = 9,10,11          CIN    = 13
---     F0..F3  = 20,17,18,19      COUT   = 15      Z = 14
+--     F0..F3  = 17,20,16,21      COUT   = 18      Z = 14
 --     SHIFT_RIGHT_IN = 23 (input only)
---     D1 = 22, D2 = 21, D3 = 16  (internal carry nodes)
--- F0..F3 need ~11 to 14 product terms each, so they must stay on
--- pins with at least 14 terms available (pins 17, 18, 19, 20).
--- F3 (about 14 terms) belongs on pin 18 or 19 (16 terms available).
+--     D1 = 15, D2 = 19, D3 = 22  (internal carry nodes)
+-- Product terms: D2 13 and COUT 14 need the 16-term pins (18, 19);
+-- F0..F3 are 10 terms each (12 unminimised); D1 and D3 are 5.
 -- =========================================================
 
 library ieee;
@@ -87,6 +91,8 @@ architecture rtl of alu4 is
     signal shr_sel    : std_logic;
     signal passa_sel  : std_logic;
     signal arith_sel  : std_logic;   -- ADD (S0=0) or SUB (S0=1)
+    signal c1         : std_logic;   -- = d1, intermediate (not a pin) for d2
+    signal c3         : std_logic;   -- = d3, intermediate (not a pin) for d4
     signal d4         : std_logic;   -- carry (ADD) / borrow (SUB) out of bit 3
     signal sh         : std_logic_vector(3 downto 0);   -- shift-right source
 begin
@@ -108,11 +114,13 @@ begin
 
     -- carry nodes (D = carry xor S0)
     d1 <= (((a(0) xor s(0)) and b(0)) or ((a(0) xor s(0)) and cin) or (b(0) and cin));
-    d2 <= (((a(1) xor s(0)) and b(1)) or ((a(1) xor s(0)) and d1)  or (b(1) and d1));
+    c1 <= (((a(0) xor s(0)) and b(0)) or ((a(0) xor s(0)) and cin) or (b(0) and cin));
+    d2 <= (((a(1) xor s(0)) and b(1)) or ((a(1) xor s(0)) and c1)  or (b(1) and c1));
     d3 <= (((a(2) xor s(0)) and b(2)) or ((a(2) xor s(0)) and d2)  or (b(2) and d2));
 
     -- carry out of bit 3: carry for ADD, borrow for SUB
-    d4 <= (((a(3) xor s(0)) and b(3)) or ((a(3) xor s(0)) and d3) or (b(3) and d3));
+    c3 <= (((a(2) xor s(0)) and b(2)) or ((a(2) xor s(0)) and d2)  or (b(2) and d2));
+    d4 <= (((a(3) xor s(0)) and b(3)) or ((a(3) xor s(0)) and c3) or (b(3) and c3));
 
     -- function outputs
     f(0) <= (pass_sel  and b(0))

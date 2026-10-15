@@ -8,6 +8,9 @@ ATF22V10C PLDs and in-stock DIP parts, using as few chips as possible, and
 what each fix changes in the rest of the system.  Timing figures are the
 same worst-case datasheet values as TIMING.md (ATF22V10C-7, 74F glue).
 
+**Status:** option 1 is implemented (ALU_SHR.pld revision 05, Branch PLD
+revision 06, 2026-10-15).
+
 ## Recommendation
 
 **Option 1: rewrite the ALU carry equations (5 PLD levels instead of 8) and
