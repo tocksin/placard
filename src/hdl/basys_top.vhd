@@ -556,7 +556,12 @@ begin
 
     ramComp : entity work.sp_ram 
     port map(   iClk    => clkSystem,  -- faster clock to simulate async RAM
-                iWrEn   => not memRdWr,   -- memRdWr: 1 = read, 0 = write
+                -- Write pulse = write cycle AND clock low, like the real async
+                -- SRAM:  /WE = RW or CLK  (one OR gate).  The address, data and
+                -- RW are settled during the high half, /WE is active in the low
+                -- half and ends at the rising CPU clock edge, before the
+                -- address / data / RW change.  memRdWr: 1 = read, 0 = write.
+                iWrEn   => (not memRdWr) and (not clkVGA),
                 iRamEn  => '1',
                 iAddr   => ramAddress,
                 iData   => srcBus,        -- RAM write data comes from the source bus
