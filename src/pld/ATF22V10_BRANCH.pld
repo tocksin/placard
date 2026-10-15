@@ -1,7 +1,7 @@
 Name     BRANCH_CTRL;
 PartNo   00;
 Date     10/15/2026;
-Revision 06;
+Revision 07;
 Designer ;
 Company  ;
 Assembly ;
@@ -38,10 +38,10 @@ Device   g22v10;
 
    EXEC STATE
    The State PLD has no EXEC output, but EXEC = Q1 & Q0.
-   Q0 is State PLD pin 14 (true polarity).  State PLD pin 15
+   Q0 is State PLD pin 18 (true polarity).  State PLD pin 15
    is declared !Q1, so its pin level is PC_ENABLE = !Q1.
        EXEC = Q0 & !PC_ENABLE
-   Wire State PLD pin 14 to Q0 and State PLD pin 15 to PC_ENABLE.
+   Wire State PLD pin 18 to Q0 and State PLD pin 15 to PC_ENABLE.
 
    LOAD_PC_LOW and LOAD_PC_HIGH are active only in EXEC with
    PIXEL_ENABLE = 0.  That keeps a stale branch opcode in the
@@ -75,23 +75,34 @@ Device   g22v10;
 
    The data bus bits use I/O macrocells 14-16 as plain inputs.
 
-   ALU WAIT CLOCK (revision 06)
+   ALU WAIT CLOCK (revisions 06 and 07)
    ADD and SUB need two clocks for the carry to ripple through
-   both ALU PLDs at 25.175 MHz (see ALU_TIMING.md).  ALU_WAIT is
-   a register that is set for one clock at the start of EXEC of
-   an ADD/SUB with an AC, X or Y destination:
+   both ALU PLDs at 25.175 MHz (see ALU_TIMING.md).  The first
+   EXEC clock of an ADD/SUB with an AC, X or Y destination is a
+   stall clock, so the result is loaded at the end of the second:
 
-       ALU_WAIT.D = EXEC & !PIXEL_ENABLE & I7 & !I6
-                  & (destination is not RAM) & !ALU_WAIT
+       STALL = PIXEL_ENABLE
+             # EXEC & ADDSUB_REG & !ALU_DONE
 
-   STALL = PIXEL_ENABLE # ALU_WAIT goes to the State PLD (pin 2)
-   and both PC PLDs (pin 14) in place of PIXEL_ENABLE, so the
-   CPU holds EXEC for one clock with all loads blocked.  The
-   video side (Sync PLD, address mux, pixel buffer) keeps the
-   real PIXEL_ENABLE, so a wait clock never takes the bus.
+       ALU_DONE.D = EXEC & !PIXEL_ENABLE & ADDSUB_REG & !ALU_DONE
+                  # ALU_DONE & PIXEL_ENABLE
+
+   ALU_DONE is set by the first EXEC clock the CPU owns and holds
+   through a video stall, so the second ALU clock can be delayed by
+   the video without adding another wait.  It clears on the clock
+   that loads the result.
+
+   (Revision 06 set the register on the first EXEC clock and used it
+   to stall the second one, but the State PLD had already loaded AC
+   and left EXEC at the end of the first, so the wait clock came
+   after the load.)
+
+   STALL goes to the State PLD (pin 2) and both PC PLDs (pin 14) in
+   place of PIXEL_ENABLE, so the CPU holds EXEC with all loads
+   blocked.  The video side (Sync PLD, address mux, pixel buffer)
+   keeps the real PIXEL_ENABLE, so a wait clock never takes the bus.
    A store (destination RAM) writes the source bus, not the ALU
-   result, so it does not wait.  If the video stalls the second
-   EXEC clock, ALU_WAIT sets once more; that only costs a clock.
+   result, so it does not wait.
 
    Pin 1 is now the register clock, so I7 moved to pin 17.
    ============================================================ */
@@ -99,7 +110,7 @@ Device   g22v10;
 
 /* ---------------- INPUTS ---------------- */
 
-PIN 1  = CLK;             /* CPU clock, for ALU_WAIT */
+PIN 1  = CLK;             /* CPU clock, for ALU_DONE */
 
 PIN 17 = I7;              /* I/O pin used as an input */
 PIN 2  = I6;
@@ -114,7 +125,7 @@ PIN 8  = NEG;
 
 PIN 9  = PIXEL_ENABLE;    /* 1 = video owns the bus */
 
-PIN 10 = Q0;              /* State PLD pin 14, state bit 0 */
+PIN 10 = Q0;              /* State PLD pin 18, state bit 0 */
 PIN 11 = PC_ENABLE;       /* State PLD pin 15, = !Q1 */
 
 PIN 13 = Z_HIGH;          /* high ALU nibble zero flag */
@@ -131,8 +142,8 @@ PIN 21 = LOAD_PC_LOW;     /* 12 product terms, pin has 12 */
 PIN 22 = LOAD_PC_HIGH;    /*  1 product term,  pin has 10 */
 PIN 23 = BRANCH_BLOCK;    /*  2 product terms, pin has  8 */
 
-PIN 18 = ALU_WAIT;        /* registered, 2 product terms */
-PIN 19 = STALL;           /* PIXEL_ENABLE # ALU_WAIT, 2 product terms */
+PIN 18 = ALU_DONE;        /* registered, 3 product terms */
+PIN 19 = STALL;           /* 3 product terms, pin has 16 */
 
 
 /* ---------------- COMMON TERMS ---------------- */
@@ -154,9 +165,11 @@ ADDSUB_REG = I7 & !I6 & !(M2 & (M1 # M0));
 
 /* ---------------- EQUATIONS ---------------- */
 
-ALU_WAIT.D = EXEC & !PIXEL_ENABLE & ADDSUB_REG & !ALU_WAIT;
+ALU_DONE.D = EXEC & !PIXEL_ENABLE & ADDSUB_REG & !ALU_DONE
+           # ALU_DONE & PIXEL_ENABLE;
 
-STALL = PIXEL_ENABLE # ALU_WAIT;
+STALL = PIXEL_ENABLE
+      # EXEC & ADDSUB_REG & !ALU_DONE;
 
 BRANCH_BLOCK = BRANCH_A # BRANCH_B;
 
