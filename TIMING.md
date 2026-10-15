@@ -289,6 +289,8 @@ In rough order of time recovered:
    output so fewer nodes are needed).  Removing the '138 + '541 source mux
    from the path (for example selecting the source a state earlier) helps,
    but not enough on its own.
+   [ALU_TIMING.md](ALU_TIMING.md) works through the options and recommends
+   the lookahead rewrite plus one wait clock on ADD/SUB (no added chips).
 2. **Register the address-mux selects**.  Decoding PIXEL_ENABLE and the mux
    selects one clock early and registering them puts the mux select at
    tCO = 5.5 ns.  The video read (ranks 3, 8) and fetch paths become
