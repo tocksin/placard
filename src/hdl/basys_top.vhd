@@ -85,7 +85,6 @@ architecture Behavioral of basys_top is
 
     signal clkVGA           : sl;
     signal clkSystem        : sl;
-    signal clkCPU           : sl;
 
     signal rstSystem        : sl;
     signal rstVGA           : sl;
@@ -93,9 +92,10 @@ architecture Behavioral of basys_top is
     signal rstBtn           : sl;
     signal locked           : sl;
 
-    signal videoActive          : sl;
-    signal videoActiveR         : sl;
-    signal pixelEn         : sl;
+    signal videoActive      : sl;
+    signal videoActiveR     : sl;
+    signal pixelEn          : sl;
+    signal pixelEnAndRst    : sl;
     signal pixelRow         : slv(9 downto 0);
     signal pixelCol         : slv(9 downto 0);
     signal hSync            : sl;
@@ -237,12 +237,13 @@ begin
     ----------------------------------------------------------
     ------              CPU Control                    -------
     ----------------------------------------------------------
-    clkCPU <= clkVGA;
+
+    pixelEnAndRst <= pixelEn or rstVGA;
     
     stateMachineProc: entity work.state_pld
     port map(
-        clk         => clkCPU,
-        byte_enable => pixelEn,
+        clk         => clkVGA,
+        byte_enable => pixelEnAndRst,
         db_src1     => dataBus(1),-- only used during fetch cycle - contains instruction bit 1
         db_src0     => dataBus(0),-- only used during fetch cycle - contains instruction bit 1 
         mem2        => instReg(4),-- dst/mem access mode
@@ -282,7 +283,7 @@ begin
         z_low        => zeroLo,
         z_high       => zeroHi,
         neg          => acNeg,
-        byte_enable  => pixelEn,
+        byte_enable  => pixelEnAndRst,
         q0           => stateQ0,
         pc_enable    => pcEnable,
         load_pc_low  => loadPcLow,
@@ -319,7 +320,7 @@ begin
     
     pcCntLowerComp : entity work.pc_counter8
     port map (
-        clk          => clkCPU,
+        clk          => clkVGA,
 
         d0           => srcBus(0),
         d1           => srcBus(1),
@@ -333,7 +334,7 @@ begin
         load         => loadPcLow,
         en           => pcEnable,
         cin          => '1',
-        pixel_enable => pixelEn,
+        pixel_enable => pixelEnAndRst,
 
         q0           => programCounter(0),
         q1           => programCounter(1),
@@ -349,7 +350,7 @@ begin
 
     pcCntUpperComp : entity work.pc_counter8
     port map (
-        clk          => clkCPU,
+        clk          => clkVGA,
 
         d0           => yReg(0),
         d1           => yReg(1),
@@ -363,7 +364,7 @@ begin
         load         => loadPcHigh,
         en           => pcEnable,
         cin          => pcCarry,
-        pixel_enable => pixelEn,
+        pixel_enable => pixelEnAndRst,
 
         q0           => programCounter(8),
         q1           => programCounter(9),
@@ -378,9 +379,15 @@ begin
     );
     
     -- All CPU registers process 
-    cpuRegProc : process (clkCPU)
+    cpuRegProc : process (clkVGA, rstVGA)
     begin
-        if rising_edge(clkCPU) then
+        if (rstVGA='1') then
+            instReg <= x"00";
+            dReg    <= x"00";
+            acReg   <= x"00";
+            xReg    <= x"00";
+            yReg    <= x"00";
+        elsif rising_edge(clkVGA) then
             if (instLoad='1') then
                 instReg <= databus;
             end if;
@@ -563,7 +570,7 @@ begin
             databus <= to_01(ramData);
         end if;        
     end process rambusSelectorProc;
-
+/*
     -- D register process 
     dRegProc : process (clkVGA)
     begin
@@ -573,7 +580,7 @@ begin
             end if;
         end if;
     end process dRegProc;
-
+*/
     -- Source bus process - replaces the tri-state bus
     srcBusProc : process (all)
     begin
@@ -608,9 +615,11 @@ begin
  
     -- Pixel register process
     --   Holds the 8-bit dataword represting the pixel(s)
-    pixelProc : process (clkVGA)
+    pixelProc : process (clkVGA, rstVGA)
     begin
-        if rising_edge(clkVGA) then
+        if (rstVGA='1') then
+            pixelBuffer <= x"00";
+        elsif rising_edge(clkVGA) then
             if pixelEn='1' then
                 pixelBuffer <= databus;
             end if;

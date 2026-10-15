@@ -14,13 +14,13 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="0.000000000 ms"></ZoomStartTime>
-      <ZoomEndTime time="18.000000001 ms"></ZoomEndTime>
-      <Cursor1Time time="18.000000000 ms"></Cursor1Time>
+      <ZoomStartTime time="6,363.500 ns"></ZoomStartTime>
+      <ZoomEndTime time="7,875.501 ns"></ZoomEndTime>
+      <Cursor1Time time="6,627.500 ns"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="201"></NameColumnWidth>
-      <ValueColumnWidth column_width="78"></ValueColumnWidth>
+      <ValueColumnWidth column_width="74"></ValueColumnWidth>
    </column_width_setting>
    <WVObjectSize size="75" />
    <wave_markers>
@@ -229,6 +229,10 @@
          <obj_property name="ObjectShortName">pixelEnable</obj_property>
       </wvobject>
    </wvobject>
+   <wvobject fp_name="/tb_basys_demo/dut/pixelEnAndRst" type="logic">
+      <obj_property name="ElementShortName">pixelEnAndRst</obj_property>
+      <obj_property name="ObjectShortName">pixelEnAndRst</obj_property>
+   </wvobject>
    <wvobject fp_name="group822" type="group">
       <obj_property name="label">State</obj_property>
       <obj_property name="DisplayName">label</obj_property>
@@ -236,6 +240,10 @@
       <wvobject fp_name="/tb_basys_demo/dut/pixelEn" type="logic">
          <obj_property name="ElementShortName">pixelEn</obj_property>
          <obj_property name="ObjectShortName">pixelEn</obj_property>
+      </wvobject>
+      <wvobject fp_name="/tb_basys_demo/dut/stateMachineProc/byte_enable" type="logic">
+         <obj_property name="ElementShortName">byte_enable</obj_property>
+         <obj_property name="ObjectShortName">byte_enable</obj_property>
       </wvobject>
       <wvobject fp_name="/tb_basys_demo/dut/stateMachineProc/q0_r" type="logic">
          <obj_property name="ElementShortName">q0_r</obj_property>
@@ -317,10 +325,6 @@
    <wvobject fp_name="/tb_basys_demo/dut/aluResult" type="array">
       <obj_property name="ElementShortName">aluResult[7:0]</obj_property>
       <obj_property name="ObjectShortName">aluResult[7:0]</obj_property>
-   </wvobject>
-   <wvobject fp_name="/tb_basys_demo/dut/source" type="other">
-      <obj_property name="ElementShortName">source</obj_property>
-      <obj_property name="ObjectShortName">source</obj_property>
    </wvobject>
    <wvobject fp_name="/tb_basys_demo/dut/memMode" type="array">
       <obj_property name="ElementShortName">memMode[1:5]</obj_property>
