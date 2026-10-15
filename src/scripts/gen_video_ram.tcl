@@ -6,6 +6,11 @@
 # Run from the Vivado Tcl console:   source /path/to/gen_video_ram.tcl
 # or stand-alone:                    tclsh gen_video_ram.tcl
 #
+# Vivado does not run this script for you (it is not a synthesis or simulation
+# hook, because a hook re-ran it with the default ASM_FILE and overwrote the
+# image you made).  video_ram.mem is a project source, so after you run this
+# script Vivado marks synthesis out of date and uses the new image.
+#
 # The image is written to ../hdl/video_ram.mem (relative to this script).  Set
 # ::VIDEO_RAM_OUT before sourcing to write to a different path instead (the
 # file is then left where you put it).
@@ -21,7 +26,7 @@
 # comma separated 0x10, 0x62, ... values.  If the file is missing the image is
 # generated without code.  Set ::ASM_FILE to "" to skip it on purpose.
 #
-# Date: 10/14/2026
+# Date: 10/15/2026
 #
 # Memory-to-screen mapping:
 #     A15:A9 = H9:H3 (active groups 48..127)    A8:A0 = V8:V0 (active 32..511)
