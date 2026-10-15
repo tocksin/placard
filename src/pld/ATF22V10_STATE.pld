@@ -1,6 +1,6 @@
 Name     STATE_CTRL;
 PartNo   00;
-Date     2026-10-14;
+Date     2026-10-15;
 Revision 08;
 Designer Justin;
 Company  ;
@@ -111,7 +111,9 @@ Device   g22v10;
 
 PIN 1  = CLK;
 
-/* Pixel enable from the Sync PLD: 1 = video owns the bus. */
+/* STALL from the Branch PLD (pin 19) = Sync PLD PIXEL_ENABLE # ALU_WAIT.
+   1 = hold the state and block every load and write (video owns the
+   bus, or an ADD/SUB is waiting one clock for its carry). */
 PIN 2  = PIXEL_ENABLE;
 
 /* Source and memory fields of the instruction BEING FETCHED.

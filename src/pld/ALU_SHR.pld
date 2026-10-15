@@ -1,7 +1,7 @@
 Name     ALU4;
 PartNo   00;
 Date     10/15/2026;
-Revision 04;
+Revision 05;
 Designer ;
 Company  ;
 Assembly ;
@@ -64,8 +64,21 @@ Device   f22v10;
        D(i+1) = MAJ( Ai xor S0, Bi, Di )
        D4 = carry out for ADD, borrow out for SUB  (= COUT)
 
-   Timing: the carry passes through D1, D2, D3, then F3/COUT,
-   so allow roughly four pin-to-pin delays for the worst path.
+   LOOKAHEAD (revision 05)
+   D2 and COUT each look ahead two bits, using intermediate
+   carries C1 and C3 that are not pins (WinCUPL expands them
+   into the equations).  The carry passes through two pins in
+   the low chip (B -> D2 -> COUT) and three in the high chip
+   (CIN -> D2 -> D3 -> F3), so the 8-bit add or subtract is
+   five array passes (37.5 ns with the -7), down from eight.
+   D1 and D3 are still pins because F1 and F3 use them.
+
+   Product terms (minimised) and the pins chosen for them:
+       D2 13 -> pin 19 (16)      COUT 14 -> pin 18 (16)
+       F0, F1 10 -> 17, 20 (14)  F2, F3 10 -> 16, 21 (12)
+       D1 5 -> 15 (10)           D3 5 -> 22 (10)
+       Z 1 -> 14 (8)
+   F0..F3 are at most 12 terms even unminimised.
    ========================================================= */
 
 
@@ -91,16 +104,16 @@ PIN 11  = S2;
 PIN 13  = CIN;
 PIN 23  = SHIFT_RIGHT_IN;   /* input only, uses an I/O pin */
 
-PIN 20  = F0;
-PIN 17  = F1;
-PIN 18  = F2;
-PIN 19  = F3;
-PIN 15  = COUT;
+PIN 17  = F0;
+PIN 20  = F1;
+PIN 16  = F2;
+PIN 21  = F3;
+PIN 18  = COUT;
 PIN 14  = Z;
 
-PIN 22  = D1;   /* internal carry node, no external connection */
-PIN 21  = D2;   /* internal carry node, no external connection */
-PIN 16  = D3;   /* internal carry node, no external connection */
+PIN 15  = D1;   /* internal carry node, no external connection */
+PIN 19  = D2;   /* internal carry node, no external connection */
+PIN 22  = D3;   /* internal carry node, no external connection */
 
 
 /* =========================================================
@@ -122,12 +135,20 @@ ARITH_SEL =  S2 & !S1;         /* ADD (S0=0) or SUB (S0=1) */
 
 D1 = ((A0 $ S0) & B0) # ((A0 $ S0) & CIN) # (B0 & CIN);
 
-D2 = ((A1 $ S0) & B1) # ((A1 $ S0) & D1)  # (B1 & D1);
+/* C1 is the same carry as D1, but as an intermediate (not a
+   pin) so D2 is computed straight from the inputs. */
+C1 = ((A0 $ S0) & B0) # ((A0 $ S0) & CIN) # (B0 & CIN);
+
+D2 = ((A1 $ S0) & B1) # ((A1 $ S0) & C1)  # (B1 & C1);
 
 D3 = ((A2 $ S0) & B2) # ((A2 $ S0) & D2)  # (B2 & D2);
 
+/* C3 is the same carry as D3, as an intermediate, so COUT is
+   two bits of lookahead from the D2 pin. */
+C3 = ((A2 $ S0) & B2) # ((A2 $ S0) & D2)  # (B2 & D2);
+
 /* carry out of bit 3: carry for ADD, borrow for SUB */
-D4 = ((A3 $ S0) & B3) # ((A3 $ S0) & D3) # (B3 & D3);
+D4 = ((A3 $ S0) & B3) # ((A3 $ S0) & C3) # (B3 & C3);
 
 
 /* =========================================================
