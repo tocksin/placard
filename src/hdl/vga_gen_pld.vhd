@@ -2,7 +2,7 @@
 -- @brief Creates VGA timing for sync signals using PLD conversions
 -- @author Justin Davis
 --
--- Date: 10/14/2026
+-- Date: 10/15/2026
 -------------------------------------------------------------------------------
 
 library ieee;           use ieee.std_logic_1164.all;
@@ -111,8 +111,8 @@ begin
         PIXEL_ENABLE     => pixelEnable,
 
         ADDR_SEL         => muxSelBothOut,
-        ADDR_SEL_HI      => muxSelLoOut,
-        ADDR_SEL_LO      => muxSelHiOut
+        ADDR_SEL_HI      => muxSelHiOut,
+        ADDR_SEL_LO      => muxSelLoOut
     );
 
     pixelRowOut <= vcount;
