@@ -81,13 +81,58 @@ Each device (internal or on an expansion card) sees the same signals:
 | RESET | System reset. |
 | CLK | 25 MHz pixel/CPU clock, for devices with their own state machine. |
 
-### Config page (x50)
+### Config page (x50): memory map, video position and timebase
+
+The CPU's own speed is no clock: video reads stall it on one clock in eight
+during active lines and never during blanking, so instruction counts don't
+give real time.  The video counters do.  They run at a fixed rate from the
+pixel clock, so the current line and a count of frames give both "where is
+the beam" and elapsed time.
 
 | Address | R/W | Function |
 |---|---|---|
 | x5000 | W | ROM/RAM section map: drives WR_CLK of the ROM/RAM select PLD.  Bit n = 1 makes section n RAM. |
-| x5000 | R | Video status: VSYNC, VIDEO_ACTIVE and (optionally) a frame counter, so software can time to the frame without interrupts.  One 74HC541. |
+| x5000 | R | Video status: bit 0 VIDEO_ACTIVE (vertical, 1 on visible lines), bit 1 VSYNC, bit 2 H_VIDEO_ACTIVE. |
 | x5001 | R | (Optional) Read back the ROM/RAM map from the RAMSEL7:0 pins. |
+| x5002 | R | Frame counter (8 bits).  This read also snapshots the line counter. |
+| x5003 | R | Line snapshot, low byte: V7:V0 |
+| x5004 | R | Line snapshot, high bits: V9:V8 in bits 1:0 |
+
+**Line counter.**  The V counter already exists in the V Counter PLD and
+counts 499 to 1023, so reading it is just two buffers onto the data bus; no
+new counting logic.  Lines 544-1023 are the 480 visible rows, so
+`row = V - 544`, and anything below 544 is vertical blanking.  Software can
+use it to start drawing right behind the beam or to wait for blanking.
+
+**Frame counter.**  A new 22V10 counts frames in 8 bits.  It ticks when V
+wraps from 1023 back to 499, which is the falling edge of VIDEO_ACTIVE (its
+equation holds it high only while V9 = 1).  Clocking the PLD from the pixel
+clock and detecting that edge internally uses 9 of its 10 macrocells and keeps
+it synchronous with the CPU.  The 22V10's per-output enable term lets it drive
+the data bus itself on a read of x5002, so it needs no separate buffer.
+
+**Snapshot.**  V is two bytes and the frame count is a third, and each can
+change between separate reads.  Reading x5002 clocks V9:V0 into two 74HC574s
+(which also drive the bus on x5003/x5004 reads through their output
+enables), so all three bytes come from the same moment.  The exact clock edge
+of the snapshot needs checking at design time so a frame wrap can't land
+between the frame read and the line capture.
+
+**Timebase.**  One line is 800 pixel clocks: 32.0 us at the FPGA's 25.000 MHz
+clock (31.8 us at the standard 25.175 MHz).  One frame is 525 lines, about
+16.8 ms (59.5 Hz at 25.000 MHz).  So:
+
+    ticks = frame x 525 + (V - 499)      /* in lines, 32 us each */
+
+The 8-bit frame counter wraps every 256 frames (about 4.3 s).  Software that
+reads it at least that often (any game or frame loop does every frame) can
+extend it to 16 or 24 bits in RAM.  A second 22V10 would make it 16 bits in
+hardware (wrap about 18 minutes) if that turns out to be worth a chip.
+
+Read decode inside the page: a 74HC138 on A2:A0, enabled by `/CS50 | /IORD`.
+
+Parts: 22V10 (frame counter), 2 x 74HC574 (line snapshot), 74HC541 (status),
+74HC138 (register decode in the page).
 
 ### FPGA model and tools
 
@@ -254,7 +299,7 @@ works the same as an internal device.
 ## Suggested order
 
 1. I/O decode PLD and config page (unblocks the ROM/RAM map register and gives
-   vblank status).
+   the video position, frame counter and vblank status).
 2. Serial port with the SNES pads (the pads are an easy first test of the
    shifter, and the device select makes the SD card a second device, not a
    new circuit).
