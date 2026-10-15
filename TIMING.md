@@ -42,8 +42,9 @@ the first byte of a line to every video byte.
 [TIMING_FIXES.md](TIMING_FIXES.md) covers the rest: the ALU wait clock
 bug, stores after FETCH, the `lineCode` race, the chip selects, the
 fetch into the branch check (rank 4, fixed by a pad byte after BGE with an
-AC or X target), a write race on the upper 32K chip select found there, and
-the paths still open.
+AC or X target), the bus contention around a write (fixed by a memory
+control PLD in place of the '32), and a write race on the upper 32K chip
+select found there.
 
 The slowest path limits the clock to about 11 MHz.  If the ALU were given two
 clocks, the next limit is about 19 MHz.
@@ -102,7 +103,7 @@ checked 2026-10-15 (stock moves, so recheck before ordering).
 | `lineCode` (F377 on the system clock since TIMING_FIXES.md; originally an F574 clocked by `videoActiveR`), `videoActiveR` + `pixelSel` delay | SN74F377AN + SN74F574N | 1 + 1 | 764 / 466 |
 | Source bus (`srcBus` = D, AC or X, selected by `instReg(1:0)`) | 3 × SN74F541N + SN74F138N decoder | 4 | 724 / 375 |
 | RAM write-data buffer (source bus onto the RAM data pins, enabled by /WE, see CPU.md) | SN74F541N | 1 | (above) |
-| `/WE = RW or CLK` | SN74F32N | 1 | 494 |
+| `/WE = RW or CLK` (replaced in TIMING_FIXES.md by the memory control PLD, which also makes the ROM and RAM /OE) | SN74F32N | 1 | 494 |
 | ROM /OE from ROM_EN, /CE of the upper 32K chip from A15 (removed in TIMING_FIXES.md: both now come from PLDs) | SN74F04N | 1 | 514 |
 | 64 KB RAM | AS7C256C-15PCN (32K × 8, PDIP-28) | 2 | 232 |
 | 64 KB ROM, interim | AS7C256C-15PCN, battery backed | 2 | (above) |

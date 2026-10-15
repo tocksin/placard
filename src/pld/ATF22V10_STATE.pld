@@ -1,7 +1,7 @@
 Name     STATE_CTRL;
 PartNo   00;
 Date     2026-10-15;
-Revision 11;
+Revision 12;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -90,12 +90,13 @@ Device   g22v10;
 
    Every state advances only on a clock where PIXEL_ENABLE = 0
    (PIXEL_ENABLE comes from the Sync PLD).  When it
-   is 1 the video owns the bus, the state holds, and every bus
-   strobe is forced inactive (memory write is forced to READ).
+   is 1 the video owns the bus, the state holds, and every load
+   strobe is forced inactive.  MEM_WR is not (revision 12): the
+   memory control PLD blocks the write strobe itself.
 
    BRANCH_BLOCK (from the Branch PLD pin 23, active high):
-     In EXEC (PIXEL_ENABLE = 0, taken or not) it is 1 while a
-     branch/jump executes.  It forces LOAD_AC, LOAD_X, LOAD_Y and
+     It is 1 whenever the instruction register holds a branch/jump
+     (Branch PLD revision 09), and is only used in EXEC.  It forces LOAD_AC, LOAD_X, LOAD_Y and
      MEM_WR inactive so a branch opcode cannot also write a
      register or RAM.  (Revision 10 and earlier also used it in
      FETCH; see BGE PAD BYTE above.)
@@ -161,8 +162,8 @@ PIN 6  = MEM1;
 PIN 7  = MEM0;
 
 /* Branch block from the Branch PLD (pin 23).
-   In EXEC:  1 = a branch/jump is executing, so inhibit LOAD_AC,
-             LOAD_X, LOAD_Y and MEM_WR. */
+   1 = the instruction register holds a branch/jump, so in EXEC
+   inhibit LOAD_AC, LOAD_X, LOAD_Y and MEM_WR. */
 PIN 8  = BRANCH_BLOCK;
 
 /* Memory field of the instruction being fetched (data bus 4:2). */
@@ -205,10 +206,17 @@ PIN 20 = LOAD_X;       /* load X register                              */
 PIN 21 = LOAD_Y;       /* load Y register                              */
 PIN 22 = LOAD_AC;      /* load accumulator                             */
 
-/* Memory R/W.  Pin level: 1 = read, 0 = write (same sense as the
-   ROM/RAM select PLD).  Declared inverted so the equation below
-   is the write condition.  Forced to read while PIXEL_ENABLE = 1
-   or BRANCH_BLOCK = 1. */
+/* Memory R/W.  Pin level: 1 = read, 0 = write.  Declared inverted
+   so the equation below is the write condition.  Forced to read
+   while BRANCH_BLOCK = 1.
+
+   Revision 12: MEM_WR no longer has !PIXEL_ENABLE.  It is low (a
+   write) for the whole EXEC state of a store, including a video
+   stall clock, and the memory control PLD blocks the write strobe
+   with the real PIXEL_ENABLE and the clock.  Through the STALL pin
+   MEM_WR used to settle 20.5 ns into the clock after a video stall,
+   which is after the clock can fall; now it settles from the state
+   registers and the instruction register alone. */
 PIN 23 = !MEM_WR;
 
 
@@ -320,6 +328,6 @@ LOAD_X     = S_EXEC & !PIXEL_ENABLE & !BRANCH_BLOCK & DEST_X;
 
 LOAD_Y     = S_EXEC & !PIXEL_ENABLE & !BRANCH_BLOCK & DEST_Y;
 
-/* Write only in EXEC, only on a clock the CPU owns the bus,
-   and never during a branch/jump. */
-MEM_WR     = S_EXEC & !PIXEL_ENABLE & !BRANCH_BLOCK & DEST_RAM;
+/* Write only in EXEC, and never during a branch/jump.  The memory
+   control PLD writes only on a clock the CPU owns the bus. */
+MEM_WR     = S_EXEC & !BRANCH_BLOCK & DEST_RAM;

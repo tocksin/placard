@@ -1,5 +1,5 @@
 -- ============================================================
--- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 11)
+-- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 12)
 -- Date: 2026-10-15
 --
 -- Binary state machine:  Q1 Q0
@@ -16,6 +16,10 @@
 -- Rev 11: source 1x with mem = 101 always goes FETCH -> LOAD_IMM.
 -- BGE with an AC or X target has a pad byte after the opcode, so
 -- branch_block is no longer used in FETCH.
+--
+-- Rev 12: mem_wr no longer has "not pixel_enable" (pixel_enable here is
+-- STALL).  The memory control PLD blocks the write strobe during a video
+-- stall with the real PIXEL_ENABLE, so mem_rw settles early in the clock.
 --
 -- Equations are transcribed directly from the PLD source
 -- without optimization.  All pins are kept as individual
@@ -172,7 +176,7 @@ begin
 
     load_y     <= s_exec and not pixel_enable and not branch_block and dest_y;
 
-    mem_wr     <= s_exec and not pixel_enable and not branch_block and dest_ram;
+    mem_wr     <= s_exec and not branch_block and dest_ram;
 
     mem_rw     <= not mem_wr;
 
