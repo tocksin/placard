@@ -66,7 +66,7 @@ Device   g22v10;
 
 /* ---------------- INPUTS ---------------- */
 
-PIN 1  = WE_N;         /* RAM /WE (RW | CLK), low = write pulse   */
+PIN 1  = WE_N;         /* RAM /WE from the memory control PLD, low = write pulse */
 
 PIN 2  = ADDR_SEL;     /* Sync PLD pin 20, mux S1 */
 PIN 3  = ADDR_SEL_HI;  /* Sync PLD pin 21, high-byte mux S0 */

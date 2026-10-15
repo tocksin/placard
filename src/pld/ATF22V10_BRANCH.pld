@@ -1,7 +1,7 @@
 Name     BRANCH_CTRL;
 PartNo   00;
 Date     10/15/2026;
-Revision 08;
+Revision 09;
 Designer ;
 Company  ;
 Assembly ;
@@ -54,10 +54,18 @@ Device   g22v10;
        BRANCH_A = I7 & I6 & I5 & EXEC & !PIXEL_ENABLE
    It drives LOAD_PC_LOW and LOAD_PC_HIGH.
 
-   BRANCH_BLOCK = BRANCH_A goes to State PLD pin 8.  It is active
-   whenever a branch/jump executes, whether or not it is taken.
-   It inhibits LOAD_AC, LOAD_X, LOAD_Y and MEM_WR.  (PC_INC is
-   already low in EXEC because PC_ENABLE = 0 there.)
+   BRANCH_BLOCK = I7 & I6 & I5 goes to State PLD pin 8 (revision
+   09).  It is high whenever the instruction register holds a
+   branch/jump.  The State PLD only uses it in EXEC, where it
+   inhibits LOAD_AC, LOAD_X, LOAD_Y and MEM_WR.  (PC_INC is already
+   low in EXEC because PC_ENABLE = 0 there.)  Revision 08 and
+   earlier used BRANCH_A, which also has EXEC and !PIXEL_ENABLE.
+   That made it valid only 13 ns into the EXEC clock, so the State
+   PLD's MEM_WR showed a write for up to 20.5 ns at the start of
+   every BGE, BLE or BRA (memory field 101, 110, 111).  The memory
+   control PLD gates the write with the clock, so MEM_WR has to be
+   settled before the clock falls; from the instruction register
+   it is (see TIMING_FIXES.md, end-of-write contention).
    Active high.  For an active-low pin declare
    PIN 23 = !BRANCH_BLOCK;  (the equation is unchanged).
 
@@ -154,7 +162,7 @@ ALU_DONE.D = EXEC & !PIXEL_ENABLE & ADDSUB_REG & !ALU_DONE
 STALL = PIXEL_ENABLE
       # EXEC & ADDSUB_REG & !ALU_DONE;
 
-BRANCH_BLOCK = BRANCH_A;
+BRANCH_BLOCK = I7 & I6 & I5;
 
 LOAD_PC_HIGH = BRANCH_A & !M2 & !M1 & !M0;                       /* JMP */
 

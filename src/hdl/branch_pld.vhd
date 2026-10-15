@@ -1,5 +1,5 @@
 -- ============================================================
--- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 08)
+-- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 09)
 -- Date: 10/15/2026
 --
 -- Branch / jump control, plus the ALU wait clock (Rev 06, Rev 07).
@@ -17,6 +17,10 @@
 -- Rev 08: block B (the FETCH decode of db7:db5) is removed.  The State
 -- PLD no longer needs branch_block in FETCH, because BGE with an AC or
 -- X target now has a pad byte (State PLD Rev 11).  Pins 14-16 are unused.
+--
+-- Rev 09: branch_block = i7 and i6 and i5, straight from the instruction
+-- register, so the State PLD's mem_wr settles early in EXEC (see the PLD
+-- source).  The State PLD only uses branch_block in EXEC.
 --
 -- Equations are transcribed directly from the PLD source
 -- without optimization.  All pins are kept as individual
@@ -55,8 +59,8 @@
 -- Branch decode (EXEC): i7:i5 from the instruction register
 --     branch_a = i7 and i6 and i5 and exec and not pixel_enable
 --
--- branch_block = branch_a.  It is active whenever a branch/jump
--- executes, whether or not it is taken.  It is active high here.
+-- branch_block = i7 and i6 and i5: high whenever the instruction
+-- register holds a branch/jump.  It is active high here.
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP; pin 12 = GND, pin 24 = VCC):
 --   1  clk          17  i7            2  i6            3  i5
@@ -142,7 +146,7 @@ begin
     -- --------------------------------------------------------
     -- Equations
     -- --------------------------------------------------------
-    branch_block <= branch_a;
+    branch_block <= i7 and i6 and i5;
 
     load_pc_high <= branch_a and not m2 and not m1 and not m0;            -- JMP
 
