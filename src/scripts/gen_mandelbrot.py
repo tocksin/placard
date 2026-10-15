@@ -40,9 +40,13 @@ ARITHMETIC
         is indexed the same way: page = table + hi, X = lo.
     Escape when x*x + y*y >= 4, or when |x'| or |y'| >= 2.
 
-RESULT (placard_sim.py, --once --delay 0)
-    See the table printed in the project thread / commit; the per-mode
-    clock counts are in the MODE_CLOCKS comment below once measured.
+RESULT (placard_sim.py, every pass matches a Python model pixel for pixel)
+    mode    clocks          25.175 MHz   with video stalls (1 clock in 8
+    1 bpp   1,898,224,795   75.4 s       83.0 s            during active
+    2 bpp     475,926,324   18.9 s       20.8 s            video)
+    4 bpp     120,171,329    4.8 s        5.3 s
+    8 bpp      30,787,288    1.2 s        1.3 s
+    The four screens are reference/mandelbrot_sim.png (1, 2 / 4, 8 bpp).
 
 MEMORY
     0000-0003   reset: jump to main
