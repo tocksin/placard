@@ -409,7 +409,7 @@ begin
     aluLowerComp: entity work.alu4
     port map(
         a              => acReg(3 downto 0),
-        b              => databus(3 downto 0),
+        b              => srcBus(3 downto 0),
         s              => instReg(7 downto 5),
         cin            => '0',
         shift_right_in => acReg(4),
@@ -424,7 +424,7 @@ begin
     aluUpperComp: entity work.alu4
     port map(
         a              => acReg(7 downto 4),
-        b              => databus(7 downto 4),
+        b              => srcBus(7 downto 4),
         s              => instReg(7 downto 5),
         cin            => carryBetween,
         shift_right_in => '0',
@@ -555,10 +555,10 @@ begin
 
     ramComp : entity work.sp_ram 
     port map(   iClk    => clkSystem,  -- faster clock to simulate async RAM
-                iWrEn   => '0',
-                iRamEn  => memRdWr,
+                iWrEn   => not memRdWr,   -- memRdWr: 1 = read, 0 = write
+                iRamEn  => '1',
                 iAddr   => ramAddress,
-                iData   => (ramData'range => '0'),
+                iData   => srcBus,        -- RAM write data comes from the source bus
                 oData   => ramData);  -- must be same size as input data
 
     -- Data bus process (from RAM/ROM) - replaces the tri-state databus 
