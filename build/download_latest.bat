@@ -2,9 +2,10 @@
 rem ===========================================================================
 rem download_latest.bat
 rem
-rem Programs the Basys 3 with the most recently built bitstream
-rem (project\placard.runs\impl_1\basys_top.bit), whichever program it was
-rem built for.  Nothing is assembled or rebuilt.
+rem Programs the Basys 3 with the newest bitstream in project\placard.runs\impl_1
+rem (basys_top.bit from a full build, or basys_top_fast.bit from a "fast"
+rem memory update), whichever program it was built for.  Nothing is assembled
+rem or rebuilt.
 rem
 rem Date: 10/15/2026
 rem ===========================================================================
@@ -12,10 +13,12 @@ setlocal EnableExtensions
 
 set "BUILD_DIR=%~dp0"
 for %%I in ("%BUILD_DIR%..") do set "REPO_DIR=%%~fI"
-set "BIT_FILE=%REPO_DIR%\project\placard.runs\impl_1\basys_top.bit"
+set "IMPL_DIR=%REPO_DIR%\project\placard.runs\impl_1"
+set "BIT_FILE="
+for /f "delims=" %%F in ('dir /b /o:d "%IMPL_DIR%\*.bit" 2^>nul') do set "BIT_FILE=%IMPL_DIR%\%%F"
 
-if not exist "%BIT_FILE%" (
-    echo download_latest: %BIT_FILE% not found, build a program first
+if not defined BIT_FILE (
+    echo download_latest: no bitstream in %IMPL_DIR%, build a program first
     goto failed
 )
 for %%F in ("%BIT_FILE%") do echo download_latest: %%~nxF built %%~tF
