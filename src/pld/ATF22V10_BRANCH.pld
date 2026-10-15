@@ -1,7 +1,7 @@
 Name     BRANCH_CTRL;
 PartNo   00;
 Date     10/15/2026;
-Revision 07;
+Revision 08;
 Designer ;
 Company  ;
 Assembly ;
@@ -48,32 +48,25 @@ Device   g22v10;
    instruction register from acting during FETCH, LOAD_IMM or
    LOAD_MEM.
 
-   TWO DECODE BLOCKS
-   Block A (EXEC):  I7:I5 from the instruction register, valid
-       from LOAD_IMM onward.  Active in EXEC only.
-           BRANCH_A = I7 & I6 & I5 & EXEC & !PIXEL_ENABLE
-       It drives LOAD_PC_LOW and LOAD_PC_HIGH.
-   Block B (FETCH): DB7:DB5 straight from the data bus.  In FETCH
-       the instruction register still holds the PREVIOUS opcode
-       (it loads at the end of the FETCH clock), so the opcode
-       being fetched can only be seen on the data bus.
-           FETCH    = !Q0 & PC_ENABLE
-           BRANCH_B = DB7 & DB6 & DB5 & FETCH & !PIXEL_ENABLE
+   BRANCH DECODE
+   I7:I5 from the instruction register, valid from LOAD_IMM
+   onward.  Active in EXEC only.
+       BRANCH_A = I7 & I6 & I5 & EXEC & !PIXEL_ENABLE
+   It drives LOAD_PC_LOW and LOAD_PC_HIGH.
 
-   BRANCH_BLOCK = BRANCH_A # BRANCH_B goes to State PLD pin 8.
-       During FETCH it tells the State PLD that the opcode being
-       fetched is a branch.  A branch with a register target and
-       MEM = 101 (BGE) must go straight to EXEC, but the same bits
-       on an ALU op are a zero-page store, which fetches an
-       operand byte first.
-       During EXEC it is active whenever a branch/jump executes,
-       whether or not it is taken.  It inhibits LOAD_AC, LOAD_X,
-       LOAD_Y and MEM_WR.  (PC_INC is already low in EXEC because
-       PC_ENABLE = 0 there.)
+   BRANCH_BLOCK = BRANCH_A goes to State PLD pin 8.  It is active
+   whenever a branch/jump executes, whether or not it is taken.
+   It inhibits LOAD_AC, LOAD_X, LOAD_Y and MEM_WR.  (PC_INC is
+   already low in EXEC because PC_ENABLE = 0 there.)
    Active high.  For an active-low pin declare
    PIN 23 = !BRANCH_BLOCK;  (the equation is unchanged).
 
-   The data bus bits use I/O macrocells 14-16 as plain inputs.
+   Revision 08 removed a second decode of the opcode on the data
+   bus (DB7:DB5, pins 14-16) during FETCH.  The State PLD used it to
+   send BGE with an AC or X target straight to EXEC, but that path
+   was too slow (TIMING_FIXES.md); BGE with an AC or X target now
+   has a pad byte and goes through LOAD_IMM like a zero-page store.
+   Pins 14-16 are unused.
 
    ALU WAIT CLOCK (revisions 06 and 07)
    ADD and SUB need two clocks for the carry to ripple through
@@ -130,17 +123,12 @@ PIN 11 = PC_ENABLE;       /* State PLD pin 15, = !Q1 */
 
 PIN 13 = Z_HIGH;          /* high ALU nibble zero flag */
 
-/* Data bus bits 7:5 (opcode being fetched), used by block B only. */
-PIN 14 = DB7;
-PIN 15 = DB6;
-PIN 16 = DB5;
-
 
 /* ---------------- OUTPUTS ---------------- */
 
 PIN 21 = LOAD_PC_LOW;     /* 12 product terms, pin has 12 */
 PIN 22 = LOAD_PC_HIGH;    /*  1 product term,  pin has 10 */
-PIN 23 = BRANCH_BLOCK;    /*  2 product terms, pin has  8 */
+PIN 23 = BRANCH_BLOCK;    /*  1 product term,  pin has  8 */
 
 PIN 18 = ALU_DONE;        /* registered, 3 product terms */
 PIN 19 = STALL;           /* 3 product terms, pin has 16 */
@@ -149,14 +137,9 @@ PIN 19 = STALL;           /* 3 product terms, pin has 16 */
 /* ---------------- COMMON TERMS ---------------- */
 
 EXEC   = Q0 & !PC_ENABLE;
-FETCH  = !Q0 & PC_ENABLE;
 
-/* Block A: opcode in the instruction register, EXEC state. */
+/* Opcode in the instruction register, EXEC state. */
 BRANCH_A = I7 & I6 & I5 & EXEC & !PIXEL_ENABLE;
-
-/* Block B: opcode on the data bus, FETCH state. */
-BRANCH_B = DB7 & DB6 & DB5 & FETCH & !PIXEL_ENABLE;
-
 
 /* ADD (100) or SUB (101) with destination AC, X or Y
    (M = 000, 001, 010, 011, 100; not 101, 110, 111 = RAM). */
@@ -171,7 +154,7 @@ ALU_DONE.D = EXEC & !PIXEL_ENABLE & ADDSUB_REG & !ALU_DONE
 STALL = PIXEL_ENABLE
       # EXEC & ADDSUB_REG & !ALU_DONE;
 
-BRANCH_BLOCK = BRANCH_A # BRANCH_B;
+BRANCH_BLOCK = BRANCH_A;
 
 LOAD_PC_HIGH = BRANCH_A & !M2 & !M1 & !M0;                       /* JMP */
 

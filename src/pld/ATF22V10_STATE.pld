@@ -1,7 +1,7 @@
 Name     STATE_CTRL;
 PartNo   00;
 Date     2026-10-15;
-Revision 10;
+Revision 11;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -32,12 +32,13 @@ Device   g22v10;
                        (fetch the zero-page address, then LOAD_MEM)
          -> LOAD_MEM   source 01 and [0,X] / [Y,X] mode (001, 010,
                        110, 111)
-         -> LOAD_IMM   source 1x and MEM = 101 and not a branch
-                       (store to zero page, fetch the address into D)
+         -> LOAD_IMM   source 1x and MEM = 101
+                       (store to zero page, fetch the address into D;
+                       or BGE with an AC or X target, which has a pad
+                       byte after the opcode, see revision 11 below)
          -> LOAD_MEM   source 1x and [0,X] / [Y,X] mode (110, 111)
                        (stores from AC or X: see STORE TIMING below)
-         -> EXEC       source 1x otherwise, including a branch with
-                       MEM = 101 (BGE with an AC or X target)
+         -> EXEC       source 1x otherwise
    LOAD_IMM -> LOAD_MEM  if SRC0 = 1 and MEM != 101 (zero-page read)
             -> EXEC      otherwise
               (In LOAD_IMM the source is 00, 01, or 1x with MEM = 101.
@@ -48,7 +49,8 @@ Device   g22v10;
    EXEC     -> FETCH
 
    Clocks: register op 2, immediate 3, [x]/[y,x] read 3,
-           [x]/[y,x] store 3, zero-page store 3, zero-page read 4.
+           [x]/[y,x] store 3, zero-page store 3, zero-page read 4,
+           BGE with an AC or X target 3 (pad byte, revision 11).
 
    STORE TIMING (revision 10)
      A store from AC or X to [0,X] or [Y,X] used to go straight from
@@ -62,14 +64,27 @@ Device   g22v10;
      codes with MEM = 110, 111) take the same path; LOAD_MEM does not
      touch the PC, so they still work, one clock slower.
 
+   BGE PAD BYTE (revision 11)
+     MEM = 101 is a zero-page store on an ALU op but BGE on a branch.
+     Revision 10 told them apart in FETCH with BRANCH_BLOCK from the
+     Branch PLD, decoded from the opcode on the data bus, so the
+     next-state path was the instruction read plus two PLD levels
+     (46.5 ns against a 39.72 ns clock, see TIMING_FIXES.md).  Now
+     source 1x with MEM = 101 always goes to LOAD_IMM, and the
+     assembler puts a pad byte after BGE with an AC or X target.
+     LOAD_IMM loads the pad byte into D and increments the PC past
+     it, and EXEC branches to the AC or X value as before (BRANCH_BLOCK
+     still blocks the write).  BGE with an AC or X target is 2 bytes
+     and 3 clocks; BGE with an immediate target is unchanged.
+
    Limits of this encoding
      - Source 01 with MEM = 101 (read-modify-write of a zero-page
        location) is not supported: D holds the address, but the read
        overwrites D with the data.  Treated like [0,X] (illegal).
      - BGE with a memory target (I7:I5 = 111, MEM = 101, source 01)
-       is not supported.  Fetching the zero-page address would need
-       BRANCH_BLOCK in the LOAD_IMM decision too, and Q0 has no
-       product term left.  BGE with an immediate, AC or X target works.
+       is not supported (it would fetch D through LOAD_MEM and use
+       it as the target).  BGE with an immediate, AC or X target
+       works.
      - Source 00 with MEM = 101 is illegal (D can't be value and
        address).
 
@@ -78,16 +93,12 @@ Device   g22v10;
    is 1 the video owns the bus, the state holds, and every bus
    strobe is forced inactive (memory write is forced to READ).
 
-   BRANCH_BLOCK (from the Branch PLD pin 23, active high) has two
-   uses:
-     - In EXEC (PIXEL_ENABLE = 0, taken or not) it is 1 while a
-       branch/jump executes.  It forces LOAD_AC, LOAD_X, LOAD_Y and
-       MEM_WR inactive so a branch opcode cannot also write a
-       register or RAM.
-     - In FETCH it is 1 when the opcode on the data bus is a branch
-       (I7:I5 = 111, decoded by block B of the Branch PLD).  MEM = 101
-       is a zero-page store for an ALU op, but BGE for a branch, so
-       a branch with source 1x skips LOAD_IMM and goes to EXEC.
+   BRANCH_BLOCK (from the Branch PLD pin 23, active high):
+     In EXEC (PIXEL_ENABLE = 0, taken or not) it is 1 while a
+     branch/jump executes.  It forces LOAD_AC, LOAD_X, LOAD_Y and
+     MEM_WR inactive so a branch opcode cannot also write a
+     register or RAM.  (Revision 10 and earlier also used it in
+     FETCH; see BGE PAD BYTE above.)
 
    MACROCELL BUDGET
       Requested outputs: PC Increment, PC Enable, X Enable,
@@ -104,7 +115,7 @@ Device   g22v10;
    PRODUCT TERMS
       Q0 (pin 18):  9 used, 16 available.  (Moved from pin 14, which
                     has 8, in revision 10; LOAD_INSTR moved to pin 14.)
-      Q1 (pin 15):  10 used, 10 available.  FULL - do not add terms.
+      Q1 (pin 15):  9 used, 10 available.
       The terms are reduced using the illegal MEM combinations as
       don't-cares (see the limits above).
 
@@ -151,9 +162,7 @@ PIN 7  = MEM0;
 
 /* Branch block from the Branch PLD (pin 23).
    In EXEC:  1 = a branch/jump is executing, so inhibit LOAD_AC,
-             LOAD_X, LOAD_Y and MEM_WR.
-   In FETCH: 1 = the opcode on the data bus is a branch, so
-             source 1x with MEM = 101 (BGE) goes to EXEC, not LOAD_IMM. */
+             LOAD_X, LOAD_Y and MEM_WR. */
 PIN 8  = BRANCH_BLOCK;
 
 /* Memory field of the instruction being fetched (data bus 4:2). */
@@ -219,12 +228,12 @@ S_EXEC  =  Q1 &  Q0;
      to LOAD_IMM (Q1'=0, Q0'=1):
          DS = 00
          DS = 01 and DM = 000, 100 (!DM1 & !DM0) or 011
-         DS = 1x and DM = 101 and not BRANCH_BLOCK
+         DS = 1x and DM = 101
      to LOAD_MEM (Q1'=1, Q0'=0):
          DS = 01 and DM = 001, 101(x), 010, 110, 111
          DS = 1x and DM = 110, 111
      to EXEC (Q1'=1, Q0'=1):
-         DS = 1x and DM = 000-100, or DM = 101 and BRANCH_BLOCK
+         DS = 1x and DM = 000-100
 
    Next state from LOAD_IMM:
          SRC0 = 1 and MEM != 101  -> LOAD_MEM (Q1'=1, Q0'=0)
@@ -235,10 +244,10 @@ S_EXEC  =  Q1 &  Q0;
        FETCH: DB_SRC1 & DM != 11x, DS = 00, DM = x00-type or 011
        LOAD_IMM: !SRC0 # (MEM = 101)
        LOAD_MEM -> EXEC
-   Q1' (10 terms)
+   Q1' (9 terms)
        hold
        FETCH, DS = 01: DM = !M1&M0 (001,101), M2&M1 (110,111), 010
-       FETCH, DS = 1x: DM != 101  (!M2 # M1 # !M0), or BRANCH_BLOCK
+       FETCH, DS = 1x: DM != 101  (!M2 # M1 # !M0)
        LOAD_IMM, LOAD_MEM -> 1
 */
 
@@ -259,7 +268,6 @@ Q1.D = (Q1 & PIXEL_ENABLE)
      # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & !DB_MEM2)
      # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & DB_MEM1)
      # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & !DB_MEM0)
-     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & BRANCH_BLOCK)
      # (S_LIMM  & !PIXEL_ENABLE)
      # (S_LMEM  & !PIXEL_ENABLE);
 

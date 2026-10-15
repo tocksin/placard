@@ -13,11 +13,11 @@ directives are supported).  Use it to check programs and to get a hex file
 when customasm is not at hand; customasm with placard.asm should produce the
 same bytes.
 
-The simulator follows the hardware instruction flow (State PLD rev 10,
-Branch PLD rev 07):
+The simulator follows the hardware instruction flow (State PLD rev 11,
+Branch PLD rev 08):
   - operand byte fetched for: immediate source; memory source with a [0,D]
-    mode (MEM 000, 011, 100); register source with MEM 101 (zero-page store),
-    except branches (the Branch PLD flags them during FETCH)
+    mode (MEM 000, 011, 100); register source with MEM 101 (zero-page store,
+    or BGE with an AC or X target, whose second byte is a pad byte)
   - memory source reads into D (LOAD_MEM); the source bus is D, AC or X
   - register source with MEM 110 or 111 also passes through LOAD_MEM (one
     more clock; the read into D is not used)
@@ -159,6 +159,8 @@ def encode(mn, ops):
         t = ops[0]
         c = 0 if mn == 'jmp' else COND[mn]
         if is_reg(t):
+            if mn == 'bge':                 # MEM 101: pad byte (State PLD rev 11)
+                return [op(7, c, REG_SRC[t]), 0]
             return [op(7, c, REG_SRC[t])]
         if t in ('[x]', '[y,x]'):
             key = (mn, t)
@@ -371,7 +373,7 @@ class Cpu:
         clocks = 2
         if s == 1 and m == 5:
             raise CpuError('%04X: unsupported opcode %02X (MEM 101 with memory source)' % (here, opc))
-        operand = (s == 0) or (s == 1 and m in (0, 3, 4)) or (s >= 2 and m == 5 and a != 7)
+        operand = (s == 0) or (s == 1 and m in (0, 3, 4)) or (s >= 2 and m == 5)
         if operand:
             self.d = m_[self.pc]
             self.pc = (self.pc + 1) & 0xFFFF
