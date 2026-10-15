@@ -217,6 +217,7 @@ ret_10:
     ld   ac, [0x32]
     bne  pt0
     ; write the byte to 1 screen row(s)
+    ld   [0x30], ac
     ld   [0x33], x
     ld   [0x34], y
     ld   ac, [y,x]
@@ -343,6 +344,7 @@ ret_12:
     ld   ac, [0x32]
     bne  pt1
     ; write the byte to 2 screen row(s)
+    ld   [0x30], ac
     ld   [0x33], x
     ld   [0x34], y
     ld   ac, [y,x]
@@ -476,6 +478,7 @@ ret_14:
     ld   ac, [0x32]
     bne  pt2
     ; write the byte to 4 screen row(s)
+    ld   [0x30], ac
     ld   [0x33], x
     ld   [0x34], y
     ld   ac, [y,x]
