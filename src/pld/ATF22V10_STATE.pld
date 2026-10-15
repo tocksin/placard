@@ -1,7 +1,7 @@
 Name     STATE_CTRL;
 PartNo   00;
 Date     2026-10-15;
-Revision 08;
+Revision 09;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -162,10 +162,13 @@ PIN 14 = Q0;
    so the machine starts in FETCH. */
 PIN 15 = !Q1;
 
-/* Address-source selects to the Sync PLD (pure decode of the
-   memory field, no state or PIXEL_ENABLE term).  The Sync PLD
+/* Address-source selects to the Sync PLD (registered).  They are
+   decoded from the memory field on the data bus during FETCH and
+   loaded on the same edge as the instruction FF, so they always
+   match the instruction FF's memory field but are valid at tCO
+   instead of after the instruction FF and a decode.  The Sync PLD
    gives priority to video and PC_ENABLE, so these only take
-   effect in LOAD_MEM and EXEC. */
+   effect in LOAD_MEM and EXEC (see XY_TIMING.md). */
 PIN 16 = X_ENABLE;
 PIN 17 = Y_ENABLE;
 
@@ -245,14 +248,24 @@ Q1.D = (Q1 & PIXEL_ENABLE)
 
 /* ---------------- MEMORY FIELD DECODE ---------------- */
 
-/* Memory-mode address selects */
-X_ENABLE = (!MEM2 & !MEM1 &  MEM0)      /* 001 [0,X] */
-         # (!MEM2 &  MEM1 & !MEM0)      /* 010 [Y,X] */
-         # ( MEM2 &  MEM1 & !MEM0)      /* 110 [0,X] */
-         # ( MEM2 &  MEM1 &  MEM0);     /* 111 [Y,X] */
+/* Memory-mode address selects (registered).
+   Loaded from the data bus memory field on a FETCH clock the CPU
+   owns (the same condition as LOAD_INSTR), held otherwise.
+   X_ENABLE: 4 load terms + 3 hold terms (pin 16 has 12).
+   Y_ENABLE: 2 load terms + 3 hold terms (pin 17 has 14). */
+X_ENABLE.D = (S_FETCH & !PIXEL_ENABLE & !DB_MEM2 & !DB_MEM1 &  DB_MEM0)   /* 001 [0,X] */
+           # (S_FETCH & !PIXEL_ENABLE & !DB_MEM2 &  DB_MEM1 & !DB_MEM0)   /* 010 [Y,X] */
+           # (S_FETCH & !PIXEL_ENABLE &  DB_MEM2 &  DB_MEM1 & !DB_MEM0)   /* 110 [0,X] */
+           # (S_FETCH & !PIXEL_ENABLE &  DB_MEM2 &  DB_MEM1 &  DB_MEM0)   /* 111 [Y,X] */
+           # (Q1 & X_ENABLE)
+           # (Q0 & X_ENABLE)
+           # (PIXEL_ENABLE & X_ENABLE);
 
-Y_ENABLE = (!MEM2 &  MEM1 & !MEM0)      /* 010 [Y,X] */
-         # ( MEM2 &  MEM1 &  MEM0);     /* 111 [Y,X] */
+Y_ENABLE.D = (S_FETCH & !PIXEL_ENABLE & !DB_MEM2 &  DB_MEM1 & !DB_MEM0)   /* 010 [Y,X] */
+           # (S_FETCH & !PIXEL_ENABLE &  DB_MEM2 &  DB_MEM1 &  DB_MEM0)   /* 111 [Y,X] */
+           # (Q1 & Y_ENABLE)
+           # (Q0 & Y_ENABLE)
+           # (PIXEL_ENABLE & Y_ENABLE);
 
 /* Destination decode */
 DEST_AC = (!MEM2 & !MEM1 & !MEM0)       /* 000 */
