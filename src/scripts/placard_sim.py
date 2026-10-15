@@ -14,7 +14,7 @@ when customasm is not at hand; customasm with placard.asm should produce the
 same bytes.
 
 The simulator follows the hardware instruction flow (State PLD rev 08,
-Branch PLD rev 05):
+Branch PLD rev 06):
   - operand byte fetched for: immediate source; memory source with a [0,D]
     mode (MEM 000, 011, 100); register source with MEM 101 (zero-page store),
     except branches (the Branch PLD flags them during FETCH)
@@ -23,6 +23,8 @@ Branch PLD rev 05):
   - dest AC / X / Y load the ALU result; RAM stores take the SOURCE BUS
   - branches: Z and NEG from the accumulator; PC low <- source bus,
     JMP also loads PC high <- Y
+  - ADD and SUB with an AC, X or Y destination take one extra clock
+    (the Branch PLD's ALU wait clock); stores do not
 
 --hw-alu evaluates the ALU with the exact alu4.vhd equations wired as in
 basys_top.vhd (low nibble CIN = 0, high nibble CIN = low nibble COUT, low
@@ -395,6 +397,8 @@ class Cpu:
                 if m == 0:
                     self.pc = (self.y << 8) | src
         else:
+            if a in (4, 5) and m <= 4:
+                clocks += 1                       # ALU wait clock (Branch PLD rev 06)
             if m in (0, 1, 2):
                 self.ac = res
             elif m == 3:

@@ -31,6 +31,9 @@ worst path is the ALU, which does not touch the RAM.  The two 4-bit ALU PLDs
 ripple the carry through eight array passes, which is 60 ns before any
 register or bus delay is added, so a single-clock EXEC cannot work at
 25.175 MHz with this ALU.
+The ALU has since been changed to a lookahead carry with one wait clock on
+ADD/SUB, which closes both ALU paths ([ALU_TIMING.md](ALU_TIMING.md)); the
+tables below are the analysis of the design before that change.
 
 The slowest path limits the clock to about 11 MHz.  If the ALU were given two
 clocks, the next limit is about 19 MHz.
@@ -289,8 +292,9 @@ In rough order of time recovered:
    output so fewer nodes are needed).  Removing the '138 + '541 source mux
    from the path (for example selecting the source a state earlier) helps,
    but not enough on its own.
-   [ALU_TIMING.md](ALU_TIMING.md) works through the options and recommends
-   the lookahead rewrite plus one wait clock on ADD/SUB (no added chips).
+   [ALU_TIMING.md](ALU_TIMING.md) works through the options.  The lookahead
+   rewrite plus one wait clock on ADD/SUB (no added chips) is now in the
+   sources, which closes ranks 1 and 2 with at least 10.9 ns to spare.
 2. **Register the address-mux selects**.  Decoding PIXEL_ENABLE and the mux
    selects one clock early and registering them puts the mux select at
    tCO = 5.5 ns.  The video read (ranks 3, 8) and fetch paths become

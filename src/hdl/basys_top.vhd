@@ -96,6 +96,8 @@ architecture Behavioral of basys_top is
     signal videoActiveR     : sl;
     signal pixelEn          : sl;
     signal pixelEnAndRst    : sl;
+    signal cpuStall         : sl;   -- Branch PLD STALL = pixel enable or ALU wait
+    signal aluWait          : sl;
     signal pixelRow         : slv(9 downto 0);
     signal pixelCol         : slv(9 downto 0);
     signal hSync            : sl;
@@ -244,7 +246,7 @@ begin
     stateMachineProc: entity work.state_pld
     port map(
         clk         => clkVGA,
-        pixel_enable => pixelEnAndRst,
+        pixel_enable => cpuStall,     -- STALL from the Branch PLD
         db_src1     => dataBus(1),-- only used during fetch cycle - contains instruction bit 1
         db_src0     => dataBus(0),-- only used during fetch cycle - contains instruction bit 1 
         mem2        => instReg(4),-- dst/mem access mode
@@ -272,6 +274,7 @@ begin
 
     branchComp : entity work.branch_pld
     port map(
+        clk          => clkVGA,
         i7           => instReg(7),
         i6           => instReg(6),
         i5           => instReg(5),
@@ -289,7 +292,9 @@ begin
         pc_enable    => pcEnable,
         load_pc_low  => loadPcLow,
         load_pc_high => loadPcHigh,
-        branch_block => branchBlock
+        branch_block => branchBlock,
+        alu_wait     => aluWait,
+        stall        => cpuStall
     );
     
     memMode <= "[0,D]" when instReg(4 downto 2)="000" else
@@ -335,7 +340,7 @@ begin
         load         => loadPcLow,
         en           => pcEnable,
         cin          => '1',
-        pixel_enable => pixelEnAndRst,
+        pixel_enable => cpuStall,     -- STALL from the Branch PLD
 
         q0           => programCounter(0),
         q1           => programCounter(1),
@@ -365,7 +370,7 @@ begin
         load         => loadPcHigh,
         en           => pcEnable,
         cin          => pcCarry,
-        pixel_enable => pixelEnAndRst,
+        pixel_enable => cpuStall,     -- STALL from the Branch PLD
 
         q0           => programCounter(8),
         q1           => programCounter(9),

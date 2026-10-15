@@ -1,6 +1,6 @@
 Name     PC_COUNTER8;
 PartNo   00;
-Date     10/06/2026;
+Date     10/15/2026;
 Revision 02;
 Designer ;
 Company  ;
@@ -81,7 +81,7 @@ PIN 10 = LOAD;           /* synchronous load, active high */
 PIN 11 = EN;             /* count enable, active high (PC_ENABLE) */
 PIN 13 = CIN;            /* carry in, active high (tie high on low byte) */
 
-PIN 14 = PIXEL_ENABLE;    /* 1 = video owns the bus, counting inhibited (I/O pin used as input) */
+PIN 14 = PIXEL_ENABLE;    /* STALL from the Branch PLD: 1 = counting inhibited (I/O pin used as input) */
 
 
 /* ---------------- OUTPUTS ---------------- */
