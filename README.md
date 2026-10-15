@@ -22,6 +22,8 @@ The project has some hard-goals to maintain:
 ## Memory Map
 The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databus.  The video RAM starts at x6020 and ends at xFFFF.  The memory is divided into 8kB banks which can each be selected to read the ROM instead of RAM.  The RAM will always be the target when writing even if ROM is select for that bank.  By default, ROM is selected for all banks.  There is a fixed I/O address space at x5000-x5FFF which always has priority over RAM/ROM access.
 
+The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen yet; for now it is the same AS7C256C-15PCN with battery backup.  See [CPU.md](CPU.md#memory-parts) and [TIMING.md](TIMING.md).
+
 | Address | Function  |
 |---------|------|
 | x0000-x1FFF | RAM/ROM |
@@ -43,7 +45,7 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 
 
 ## Video
-The video is designed to be 640x480 VGA 60Hz standard.  This means a 25.125 MHz clock.  This requires two counters: a horizontal and vertical.  They count 800 and 600 pixels.  This needs a 10-bit counter for each.  The counters form the RAM address space to read the pixel values.  The video memory is organized in a non-traditional way with H,V instead of V,H.
+The video is designed to be 640x480 VGA 60Hz standard.  This means a 25.175 MHz clock.  This requires two counters: a horizontal and vertical.  They count 800 and 600 pixels.  This needs a 10-bit counter for each.  The counters form the RAM address space to read the pixel values.  The video memory is organized in a non-traditional way with H,V instead of V,H.
 
 ### Pixel fill
 An easy function is the fill function.  Putting a color in a pixel starts drawing that color.  That color continues to draw until that same color is placed again.  So putting two pixels one a row is enough to draw a whole row of that color.  It's much faster than having the CPU add that color along that entire row.  This is how to get to filled polygons quickly.  The CPU only needs to decide what the boundaries of a shape is, and the video circuit does the rest.  The CPU only drawing wireframes, but gets fully filled polygons.

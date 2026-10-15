@@ -42,6 +42,17 @@ Each section can be configured as either ROM or RAM.  At startup, all regions
 are selected as ROM.  The software will execute from ROM initially until 
 reconfigured.  The video hardware will always read from RAM.
 
+### Memory parts
+
+- RAM: 2 × AS7C256C-15PCN (Alliance Memory, 32K × 8, 15 ns, 28-pin PDIP).
+  A15 selects which chip is accessed.
+- ROM: not chosen yet.  The interim solution is the same AS7C256C-15PCN
+  (2 chips) with battery backup.  The AS7C256C keeps its data down to
+  VCC = 2.0 V as long as /CE is held at or above VCC − 0.2 V, so the battery
+  switch must hold /CE high while power is off.
+
+See [TIMING.md](TIMING.md) for the timing analysis with these parts.
+
 ### RAM write timing
 
 The RAM is asynchronous, so the write pulse must start after the address, data
@@ -56,6 +67,8 @@ source bus have the whole high half to settle, and /WE returns high at the
 rising edge, before the state, address and data change (the SRAM's write
 recovery and data hold times are normally 0 ns).  At 25 MHz the pulse is about
 20 ns, which suits a 10-15 ns SRAM.
+(TIMING.md shows that the gate delay and the buffer enable time break this
+at 25.175 MHz; see "RAM write cycle" there.)
 
 Avoiding bus contention on the RAM data pins: the buffer that drives the
 source bus onto them is enabled only by the write pulse itself (its enable is
