@@ -10,6 +10,8 @@
 #               gen_video_ram.tcl).  "" builds the image without a program.
 #     jobs      parallel jobs for launch_runs (default 4)
 #
+# The board is programmed by program_board.tcl (also used by download_latest.bat).
+#
 # Date: 10/15/2026
 
 set scriptDir [file dirname [file normalize [info script]]]
@@ -57,22 +59,4 @@ puts "build_and_load: bitstream $bitFile"
 close_project
 
 # ---- 3. program the board ---------------------------------------------------
-open_hw_manager
-connect_hw_server -allow_non_jtag
-open_hw_target
-
-set hwDevice [lindex [get_hw_devices xc7a35t*] 0]
-if {$hwDevice eq ""} {
-    error "build_and_load: no xc7a35t found on the JTAG chain (is the board on?)"
-}
-current_hw_device $hwDevice
-refresh_hw_device -update_hw_probes false $hwDevice
-set_property PROBES.FILE {} $hwDevice
-set_property FULL_PROBES.FILE {} $hwDevice
-set_property PROGRAM.FILE $bitFile $hwDevice
-program_hw_devices $hwDevice
-
-close_hw_target
-disconnect_hw_server
-close_hw_manager
-puts "build_and_load: programmed $hwDevice with $bitFile"
+source [file join $scriptDir program_board.tcl]

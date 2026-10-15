@@ -75,19 +75,7 @@ if not exist "%HEX_FILE%" (
 )
 
 rem ---- find Vivado -------------------------------------------------------------
-if not defined VIVADO (
-    for /f "delims=" %%V in ('where vivado.bat 2^>nul') do if not defined VIVADO set "VIVADO=%%V"
-)
-if not defined VIVADO (
-    for /d %%D in ("C:\AMDDesignTools\*") do if exist "%%D\Vivado\bin\vivado.bat" set "VIVADO=%%D\Vivado\bin\vivado.bat"
-)
-if not defined VIVADO (
-    for /d %%D in ("C:\Xilinx\Vivado\*") do if exist "%%D\bin\vivado.bat" set "VIVADO=%%D\bin\vivado.bat"
-)
-if not defined VIVADO (
-    echo build_and_load: Vivado not found. Add it to the PATH or set VIVADO=^<path^>\vivado.bat
-    exit /b 1
-)
+call "%BUILD_DIR%find_vivado.bat" || exit /b 1
 echo build_and_load: using %VIVADO%
 
 rem ---- 2..4. memory image, build, program ---------------------------------------
