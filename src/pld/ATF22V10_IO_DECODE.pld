@@ -58,7 +58,9 @@ Device   g22v10;
                    A14, A13, A12, A10, A9, A8, RW, LOAD_IMM
       Outputs (8): /CE_HI, /MAP_WR, /LINE_RD, /SND_WR, /PORT_WR,
                    /PORT_RD, /EXP1, /EXP2
-      Each output is 4 product terms (the rebuilt A15).
+      WinCUPL fits each strobe in 7 product terms (the rebuilt
+      !A15 expands to several terms; EXP2 on pin 22 is 7 of 10)
+      and CE_HI in 3.  Every output is one array pass.
    ============================================================ */
 
 
