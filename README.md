@@ -50,3 +50,14 @@ An easy function is the fill function.  Putting a color in a pixel starts drawin
 
 This is done by just XORing the current color with the RAM value.  So you start with a blue pixel, then put another blue pixel to stop it.  But if you put a purple pixel instead, it will stop drawing blue and start drawing red.  It would normally require multiple chips - at least two quad XOR chips and a 8-bit FF register array.  But this is easily done in a single PLA/PLD
 
+
+## Building and loading a program
+The `build` folder has one Windows batch file per assembly program
+(`cpu_test.bat`, `test_video.bat`, `mandelbrot.bat`).  Each one assembles
+`src/scripts/<program>.asm` (customasm, or `placard_sim.py` if customasm is not
+on the PATH), writes `src/hdl/video_ram.mem` with `gen_video_ram.tcl`, runs
+Vivado in batch mode through synthesis, implementation and bitstream, and
+programs the Basys 3 over JTAG.  Any other program builds with
+`build\build_and_load.bat <program>`.  Vivado is found on the PATH or under
+`C:\AMDDesignTools` / `C:\Xilinx`; set `VIVADO` to the full path of
+`vivado.bat` to pick a version.  Logs go to `build/logs`.
