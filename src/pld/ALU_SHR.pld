@@ -6,11 +6,11 @@ Designer ;
 Company  ;
 Assembly ;
 Location ;
-Device   f22v10;
+Device   g22v10;
 
 
 /* =========================================================
-   ATF22V10C 4-BIT ALU   (WinCUPL, device f22v10)
+   ATF22V10C 4-BIT ALU   (WinCUPL, device g22v10)
 
    FUNCTION SELECT
 
