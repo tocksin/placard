@@ -52,10 +52,11 @@ is configurable by software (a write-only 74ACT273 at x5000).  The memory space 
 Each section can be configured as either ROM or RAM.  In x4000-x5FFF the
 map bit covers only x4000-x4FFF; x5000-x5FFF is the I/O window.  At startup, all regions
 are selected as ROM.  The software will execute from ROM initially until 
-reconfigured: the ROM's boot loader copies the program and the standard
-library into the RAM and maps every section to RAM (see [ROM.md](ROM.md)).  Video reads follow the same map, so the video sections must be
-mapped to RAM for the display to show the RAM, and so must x4000-x4FFF (map
-bit 2) for the row mode bytes at x4A20-x4BFF and the audio buffer.  See the [memory map](README.md#memory-map).
+reconfigured: the ROM's boot loader maps the zero page and x4000-x4FFF to
+RAM and runs the program in place from the ROM (see [ROM.md](ROM.md)).
+Video reads always read the RAM (memory control PLD revision 04), whatever
+the map says, so the CPU can run from the ROM under the video area while
+the display shows the RAM.  See the [memory map](README.md#memory-map).
 
 ### Memory parts
 

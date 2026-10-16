@@ -1,7 +1,7 @@
 Name     MEM_CTRL;
 PartNo   00;
 Date     10/16/2026;
-Revision 03;
+Revision 04;
 Designer ;
 Company  ;
 Assembly ;
@@ -38,6 +38,14 @@ Device   g22v10;
       reads.  ROM_OE moved to pin 19 (16 terms) for the two extra
       terms, and MAP_RUN moved to pin 17.
 
+   VIDEO READS ALWAYS READ RAM (revision 04)
+      A video read (PIXEL_ENABLE = 1) enables the RAM whatever the
+      map says; only CPU reads follow the map.  So the CPU can run
+      code from the ROM under the video area (6000h - FFFFh) while
+      the video shows the RAM, and a program that wants to read the
+      video RAM maps that section to RAM.  Neither memory drives the
+      bus in the I/O window, for video reads too.
+
    THE RULE
       Every memory bus cycle, read or write, uses the LOW half of
       the clock only:
@@ -73,8 +81,12 @@ Device   g22v10;
 
           READ = RW # PIXEL_ENABLE
 
-      ROM_OE  = read of a section mapped to ROM
-      RAM_OE  = read of a section mapped to RAM
+          CPU_READ   = RW & !PIXEL_ENABLE
+          VIDEO_READ = PIXEL_ENABLE
+
+      ROM_OE  = CPU read of a section mapped to ROM
+      RAM_OE  = CPU read of a section mapped to RAM,
+                or any video read (revision 04)
                 In section 2 only 4000h - 4FFFh is mapped; neither
                 memory drives the bus in the I/O window 5000h - 5FFFh.
 
@@ -90,8 +102,9 @@ Device   g22v10;
                    A15:A12, RAMSEL0-7, RW, PIXEL_ENABLE (15)
       Outputs (4): /ROM_OE, /RAM_OE, /WE, MAP_RUN
       Unused: pins 20, 21, 22.
-      ROM_OE expands to 16 product terms (pin 19 has 16).
-      RAM_OE expands to 16 product terms (pin 18 has 16).
+      ROM_OE expands to 8 product terms (pin 19 has 16).
+      RAM_OE expands to 12 product terms (pin 18 has 16): 8 for CPU
+      reads and 4 for video reads outside the I/O window.
    ============================================================ */
 
 
@@ -140,8 +153,8 @@ SEC7 =  A15 &  A14 &  A13;
 
 /* ---------------- BUS CYCLE ---------------- */
 
-READ  = !CLK & RW
-      # !CLK & PIXEL_ENABLE;
+CPU_READ   = !CLK & RW & !PIXEL_ENABLE;
+VIDEO_READ = !CLK & PIXEL_ENABLE;
 
 
 /* ---------------- EQUATIONS ---------------- */
@@ -151,21 +164,27 @@ WE = !CLK & !RW & !PIXEL_ENABLE;
 MAP_RUN.D = 'b'1;
 
 ROM_OE =
-      SEC0 & !RAMSEL0 & READ
-    # SEC1 & !RAMSEL1 & READ
-    # SEC2 & !A12 & !RAMSEL2 & READ   /* 4000h - 4FFFh; 5000h - 5FFFh is I/O */
-    # SEC3 & !RAMSEL3 & READ
-    # SEC4 & !RAMSEL4 & READ
-    # SEC5 & !RAMSEL5 & READ
-    # SEC6 & !RAMSEL6 & READ
-    # SEC7 & !RAMSEL7 & READ;
+      SEC0 & !RAMSEL0 & CPU_READ
+    # SEC1 & !RAMSEL1 & CPU_READ
+    # SEC2 & !A12 & !RAMSEL2 & CPU_READ   /* 4000h - 4FFFh; 5000h - 5FFFh is I/O */
+    # SEC3 & !RAMSEL3 & CPU_READ
+    # SEC4 & !RAMSEL4 & CPU_READ
+    # SEC5 & !RAMSEL5 & CPU_READ
+    # SEC6 & !RAMSEL6 & CPU_READ
+    # SEC7 & !RAMSEL7 & CPU_READ;
 
+/* video reads: RAM anywhere but the I/O window 5000h - 5FFFh
+   (!(!A15 & A14 & !A13 & A12) as four terms) */
 RAM_OE =
-      SEC0 &  RAMSEL0 & READ
-    # SEC1 &  RAMSEL1 & READ
-    # SEC2 & !A12 &  RAMSEL2 & READ   /* 4000h - 4FFFh; 5000h - 5FFFh is I/O */
-    # SEC3 &  RAMSEL3 & READ
-    # SEC4 &  RAMSEL4 & READ
-    # SEC5 &  RAMSEL5 & READ
-    # SEC6 &  RAMSEL6 & READ
-    # SEC7 &  RAMSEL7 & READ;
+      SEC0 &  RAMSEL0 & CPU_READ
+    # SEC1 &  RAMSEL1 & CPU_READ
+    # SEC2 & !A12 &  RAMSEL2 & CPU_READ   /* 4000h - 4FFFh; 5000h - 5FFFh is I/O */
+    # SEC3 &  RAMSEL3 & CPU_READ
+    # SEC4 &  RAMSEL4 & CPU_READ
+    # SEC5 &  RAMSEL5 & CPU_READ
+    # SEC6 &  RAMSEL6 & CPU_READ
+    # SEC7 &  RAMSEL7 & CPU_READ
+    # A15 & VIDEO_READ
+    # !A14 & VIDEO_READ
+    # A13 & VIDEO_READ
+    # !A12 & VIDEO_READ;
