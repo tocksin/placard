@@ -6,7 +6,7 @@
 # (download_latest.bat):
 #     vivado -mode batch -source program_board.tcl -tclargs <bitFile>
 #
-# Date: 10/15/2026
+# Date: 10/16/2026
 
 if {![info exists bitFile]} {
     set bitFile [file normalize [lindex $argv 0]]

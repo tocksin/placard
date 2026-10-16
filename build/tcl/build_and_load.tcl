@@ -12,10 +12,10 @@
 #
 # The board is programmed by program_board.tcl (also used by download_latest.bat).
 #
-# Date: 10/15/2026
+# Date: 10/16/2026
 
-set buildDir  [file dirname [file normalize [info script]]]
-set repoDir   [file normalize [file join $buildDir ..]]
+set tclDir    [file dirname [file normalize [info script]]]
+set repoDir   [file normalize [file join $tclDir .. ..]]
 set xprFile   [file join $repoDir project placard.xpr]
 
 set hexFile [lindex $argv 0]
@@ -59,5 +59,5 @@ puts "build_and_load: bitstream $bitFile"
 close_project
 
 # ---- 3. program the board ---------------------------------------------------
-# (buildDir, not scriptDir: gen_video_ram.tcl sets its own scriptDir when sourced)
-source [file join $buildDir program_board.tcl]
+# (tclDir, not scriptDir: gen_video_ram.tcl sets its own scriptDir when sourced)
+source [file join $tclDir program_board.tcl]
