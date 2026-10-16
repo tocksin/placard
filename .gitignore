@@ -1,0 +1,15 @@
+# Vivado project: made by build/create_project.bat (build/tcl/create_project.tcl)
+/project/
+
+# Vivado logs and journals started from the repository root
+vivado*.log
+vivado*.jou
+vivado*.str
+.Xil/
+
+# memory image, made by src/scripts/gen_video_ram.tcl on every build
+/src/hdl/video_ram.mem
+
+# IP output products, Vivado writes them next to the .xci
+/src/ip/*
+!/src/ip/*.xci
