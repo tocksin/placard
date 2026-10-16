@@ -147,6 +147,8 @@ architecture Behavioral of basys_top is
     signal mapWrN           : sl;   -- /MAP_WR, ROM/RAM map write strobe
     signal romOeN           : sl;   -- ROM /OE
     signal ramOeN           : sl;   -- RAM /OE
+    signal mapReg           : slv(7 downto 0) := (others => '0');  -- 74ACT273 map register
+    signal mapRun           : sl;   -- map register /MR, from the memory control PLD
     signal ramSel0          : sl;   -- ROM/RAM map, 1 = RAM
     signal ramSel1          : sl;
     signal ramSel3          : sl;
@@ -541,25 +543,26 @@ begin
            yPort        => ramAddress(15 downto 8)
     );
 
-    memorySelComp: entity work.romram_sel_pld
-    port map(
-        wr_clk   => mapWrN,          -- /MAP_WR from the I/O decode PLD
-        d0       => srcBus(0),       -- map data from the source bus
-        d1       => srcBus(1),
-        d3       => srcBus(3),
-        d4       => srcBus(4),
-        d5       => srcBus(5),
-        d6       => srcBus(6),
-        d7       => srcBus(7),
+    -- ROM/RAM map register: 74ACT273, an I/O device at 5000h (write only).
+    -- It loads the source bus on the rising edge of /MAP_WR, and /MR
+    -- (mapRun from the memory control PLD) clears it to all ROM until the
+    -- first clock after power-up.  Q2 is not used.
+    mapRegProc : process (mapWrN, mapRun)
+    begin
+        if mapRun = '0' then
+            mapReg <= (others => '0');
+        elsif rising_edge(mapWrN) then
+            mapReg <= srcBus;
+        end if;
+    end process mapRegProc;
 
-        ramsel0  => ramSel0,
-        ramsel1  => ramSel1,
-        ramsel3  => ramSel3,
-        ramsel4  => ramSel4,
-        ramsel5  => ramSel5,
-        ramsel6  => ramSel6,
-        ramsel7  => ramSel7
-    );
+    ramSel0 <= mapReg(0);
+    ramSel1 <= mapReg(1);
+    ramSel3 <= mapReg(3);
+    ramSel4 <= mapReg(4);
+    ramSel5 <= mapReg(5);
+    ramSel6 <= mapReg(6);
+    ramSel7 <= mapReg(7);
 
     -- Memory read and write strobes (replaces the '32 OR gate).  Every
     -- memory cycle uses the low half of the clock only; see
@@ -583,7 +586,8 @@ begin
 
         weN         => ramWeN,
         romOeN      => romOeN,
-        ramOeN      => ramOeN
+        ramOeN      => ramOeN,
+        mapRun      => mapRun
     );
     romEn <= not romOeN;
 
@@ -626,7 +630,7 @@ begin
 
     -- Data bus process (from RAM/ROM) - replaces the tri-state databus 
     --   The model reads every address from the RAM block.  The ROM/RAM
-    --   select PLD powers up with every mapped section set to ROM and no
+    --   map register clears at power-up with every mapped section set to ROM and no
     --   program writes the map yet, so following romOeN/ramOeN would read
     --   the unwritten ROM block everywhere.  (Before ROM/RAM select rev 03
     --   this process tested rom_en with the wrong polarity, which had the

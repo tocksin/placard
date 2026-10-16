@@ -1,6 +1,8 @@
 -- ============================================================
--- IO_DECODE  (VHDL conversion of ATF22V10_IO_DECODE.pld, Rev 01)
--- Date: 10/15/2026
+-- IO_DECODE  (VHDL conversion of ATF22V10_IO_DECODE.pld, Rev 02)
+-- Date: 10/16/2026
+--
+-- Rev 02: comments only.  map_wr_n clocks the 74ACT273 map register.
 --
 -- I/O decode for 5000h-5FFFh and the upper 32K chip enable.
 --
