@@ -19,12 +19,12 @@ rem
 rem fast only changes the RAM contents.  It needs one full build first, and a
 rem full build again after any HDL or constraint change.  It writes
 rem impl_1\basys_top_fast.bit and leaves basys_top.bit as built (see
-rem update_mem.tcl and write_mmi.tcl).
+rem tcl\update_mem.tcl and tcl\write_mmi.tcl).
 rem
 rem Vivado is found on the PATH, else under C:\AMDDesignTools or C:\Xilinx
 rem (newest version).  Set VIVADO to the full path of vivado.bat to override.
 rem
-rem Date: 10/15/2026
+rem Date: 10/16/2026
 rem ===========================================================================
 setlocal EnableExtensions EnableDelayedExpansion
 
@@ -36,6 +36,7 @@ if "%~1"=="" (
 set "PROG=%~n1"
 set "BUILD_DIR=%~dp0"
 for %%I in ("%BUILD_DIR%..") do set "REPO_DIR=%%~fI"
+set "TCL_DIR=%BUILD_DIR%tcl\"
 set "NOASM="
 set "FAST="
 :nextOpt
@@ -108,7 +109,7 @@ if defined FAST goto fastPath
 
 pushd "%LOG_DIR%"
 call "%VIVADO%" -mode batch -nojournal -log "%PROG%_vivado.log" ^
-    -source "%BUILD_DIR%build_and_load.tcl" -tclargs "%HEX_FILE%" %JOBS%
+    -source "%TCL_DIR%build_and_load.tcl" -tclargs "%HEX_FILE%" %JOBS%
 set "RESULT=%errorlevel%"
 popd
 
@@ -129,7 +130,7 @@ for %%I in ("%VIVADO%") do set "VIVADO_BIN=%%~dpI"
 
 pushd "%LOG_DIR%"
 call "%VIVADO%" -mode batch -nojournal -log "%PROG%_mem_vivado.log" ^
-    -source "%BUILD_DIR%update_mem.tcl" -tclargs "%HEX_FILE%"
+    -source "%TCL_DIR%update_mem.tcl" -tclargs "%HEX_FILE%"
 set "RESULT=%errorlevel%"
 popd
 if not "%RESULT%"=="0" (
@@ -156,7 +157,7 @@ if errorlevel 1 (
 
 pushd "%LOG_DIR%"
 call "%VIVADO%" -mode batch -nojournal -log "%PROG%_program_vivado.log" ^
-    -source "%BUILD_DIR%program_board.tcl" -tclargs "%FAST_BIT%"
+    -source "%TCL_DIR%program_board.tcl" -tclargs "%FAST_BIT%"
 set "RESULT=%errorlevel%"
 popd
 if not "%RESULT%"=="0" (
