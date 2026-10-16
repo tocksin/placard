@@ -110,3 +110,15 @@ again after any HDL or constraint change.
 `build\download_latest.bat` programs the board with the newest bitstream in
 `project/placard.runs/impl_1` (`basys_top.bit` or `basys_top_fast.bit`) without
 rebuilding.
+
+### Vivado project
+The Vivado project (`project/placard.xpr` and everything else in `project/`)
+is not kept in git, because Vivado rewrites the `.xpr` every time it opens it.
+`build/tcl/create_project.tcl` makes it from the sources in `src/`, with the
+part, file list, testbench and run settings.  The first build makes it by
+itself; to open the project in the GUI after a fresh clone, run
+`build\create_project.bat` once.  After adding or removing a source file, add
+it to `create_project.tcl` (adding it only in the GUI is lost the next time the
+project is made) and run `build\create_project.bat force`.
+`src/hdl/video_ram.mem` is not kept in git either; every build makes it, and
+`create_project.tcl` makes the default image if it is missing.
