@@ -84,10 +84,11 @@ programs the Basys 3 over JTAG.  Any other program builds with
 `build\build_and_load.bat <program>`.  Add `noasm` (e.g. `cpu_test.bat noasm`)
 to skip assembly and use the existing `.hex` file.  Vivado is found on the PATH or under
 `C:\AMDDesignTools` / `C:\Xilinx`; set `VIVADO` to the full path of
-`vivado.bat` to pick a version.  Logs go to `build/logs`.
+`vivado.bat` to pick a version.  Logs go to `build/logs`; the Vivado Tcl scripts
+behind the batch files are in `build/tcl`.
 Add `fast` (e.g. `mandelbrot.bat fast`) to change only the memory contents:
 the new `video_ram.mem` is written into the last implemented bitstream with
-`updatemem` (block RAM map from `build/write_mmi.tcl`), so synthesis and
+`updatemem` (block RAM map from `build/tcl/write_mmi.tcl`), so synthesis and
 implementation are skipped.  It needs one full build first, and a full build
 again after any HDL or constraint change.
 `build\download_latest.bat` programs the board with the newest bitstream in
