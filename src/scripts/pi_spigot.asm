@@ -4,7 +4,7 @@
 ;
 ;     python3 placard_sim.py pi_spigot.asm --run --max-steps 2000000000 --png pi.png
 ;
-; Date: 10/15/2026
+; Date: 10/16/2026
 
 #include "placard.asm"
 

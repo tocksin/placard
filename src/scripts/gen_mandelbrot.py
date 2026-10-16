@@ -40,12 +40,13 @@ ARITHMETIC
         is indexed the same way: page = table + hi, X = lo.
     Escape when x*x + y*y >= 4, or when |x'| or |y'| >= 2.
 
-RESULT (placard_sim.py, every pass matches a Python model pixel for pixel)
+RESULT (placard_sim.py with State PLD rev 12 / Branch PLD rev 09 timing;
+every pass matches a Python model pixel for pixel)
     mode    clocks          25.175 MHz   with video stalls (1 clock in 8
-    1 bpp   1,898,224,795   75.4 s       83.0 s            during active
-    2 bpp     475,926,324   18.9 s       20.8 s            video)
-    4 bpp     120,171,329    4.8 s        5.3 s
-    8 bpp      30,787,288    1.2 s        1.3 s
+    1 bpp   2,030,556,526   80.7 s       88.8 s            during active
+    2 bpp     509,100,055   20.2 s       22.3 s            video)
+    4 bpp     128,562,819    5.1 s        5.6 s
+    8 bpp      32,968,802    1.3 s        1.4 s
     The four screens are reference/mandelbrot_sim.png (1, 2 / 4, 8 bpp).
 
 MEMORY
@@ -57,7 +58,7 @@ MEMORY
     2800-2FFF   square table high limbs (page 28 + k/128)
     6000-FFFF   video RAM
 
-Date: 10/15/2026
+Date: 10/16/2026
 """
 
 import argparse
@@ -529,7 +530,7 @@ def build(once, delay):
     o(';')
     o(';     python3 placard_sim.py mandelbrot.asm --run --max-steps 2000000000 --png m.png')
     o(';')
-    o('; Date: 10/15/2026')
+    o('; Date: 10/16/2026')
     o('')
     o('#include "placard.asm"')
     o('')
