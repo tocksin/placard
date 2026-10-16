@@ -1,6 +1,9 @@
 # write_mmi.tcl
 #
-# write_mmi <mmiFile> <depth> <width>
+# Helpers for updating the memory contents of a bitstream with updatemem
+# (used by update_mem.tcl and build_and_load.tcl).
+#
+# write_mmi <mmiFile> <depth> <width> <bitOrder>
 #
 # Writes a memory map (MMI) file for updatemem, describing every block RAM in
 # the open implemented design.  Run it with the routed design open
@@ -16,11 +19,18 @@
 # parts of a read-only memory that hold constant data, and those parts cannot
 # be changed without a full build.
 #
+# bitOrder is how DataWidth bit numbers are written:
+#     msbFirst   bit 0 of the MMI word is the most significant data bit
+#                (updatemem's numbering; lsbFirst made the first fast builds
+#                load every byte bit-reversed)
+#     lsbFirst   bit 0 is the least significant data bit
+# update_mem.tcl checks which one reproduces the full-build bitstream.
+#
 # Returns the list of instance names.
 #
 # Date: 10/16/2026
 
-proc write_mmi {mmiFile depth width} {
+proc write_mmi {mmiFile depth width bitOrder} {
     set cells [get_cells -hierarchical -quiet -filter {PRIMITIVE_TYPE =~ BMEM.*.*}]
     if {[llength $cells] == 0} {
         error "write_mmi: no block RAM cells found (is the implemented design open?)"
@@ -112,7 +122,14 @@ proc write_mmi {mmiFile depth width} {
             foreach lane [lsort -integer -index 2 $blocks($aBegin)] {
                 lassign $lane aBegin aEnd lsb msb memType placement
                 puts $fh "        <BitLane MemType=\"$memType\" Placement=\"$placement\">"
-                puts $fh "          <DataWidth MSB=\"$msb\" LSB=\"$lsb\"/>"
+                if {$bitOrder eq "msbFirst"} {
+                    set mmiMsb [expr {$width - 1 - $lsb}]
+                    set mmiLsb [expr {$width - 1 - $msb}]
+                } else {
+                    set mmiMsb $msb
+                    set mmiLsb $lsb
+                }
+                puts $fh "          <DataWidth MSB=\"$mmiMsb\" LSB=\"$mmiLsb\"/>"
                 puts $fh "          <AddressRange Begin=\"$aBegin\" End=\"$aEnd\"/>"
                 puts $fh "          <Parity ON=\"false\" NumBits=\"0\"/>"
                 puts $fh "        </BitLane>"
@@ -127,6 +144,86 @@ proc write_mmi {mmiFile depth width} {
     puts $fh "  </Config>"
     puts $fh "</MemInfo>"
     close $fh
-    puts "write_mmi: wrote $mmiFile ([join [lsort [array names lanes]] {, }])"
+    puts "write_mmi: wrote $mmiFile ($bitOrder) - [join [lsort [array names lanes]] {, }]"
     return [lsort [array names lanes]]
+}
+
+# write_update_mem <memFile> <outFile> <depth>
+#
+# Converts a gen_video_ram.tcl image (one hex byte per line) to updatemem's
+# .mem format: @address followed by 16 data bytes per line.
+proc write_update_mem {memFile outFile depth} {
+    set fh [open $memFile r]
+    set bytes [regexp -all -inline {[0-9A-Fa-f]+} [read $fh]]
+    close $fh
+    if {[llength $bytes] != $depth} {
+        error "write_update_mem: $memFile has [llength $bytes] bytes, expected $depth"
+    }
+    set fh [open $outFile w]
+    for {set a 0} {$a < $depth} {incr a 16} {
+        puts $fh "@[format %08X $a] [join [lrange $bytes $a [expr {$a + 15}]] { }]"
+    }
+    close $fh
+}
+
+# run_updatemem <mmiFile> <bitIn> <memFile> <bitOut>
+#
+# Runs updatemem with memFile for every memory instance (<Processor>) in the
+# MMI.  updatemem.bat is run through cmd.exe on Windows.
+proc run_updatemem {mmiFile bitIn memFile bitOut} {
+    set fh [open $mmiFile r]
+    set procs [regexp -all -inline -- {InstPath="([^"]+)"} [read $fh]]
+    close $fh
+    set args [list -force -meminfo [file nativename $mmiFile] \
+                  -bit [file nativename $bitIn]]
+    foreach {match inst} $procs {
+        lappend args -data [file nativename $memFile] -proc $inst
+    }
+    lappend args -out [file nativename $bitOut]
+    set upd [file join $::env(XILINX_VIVADO) bin updatemem]
+    if {$::tcl_platform(platform) eq "windows"} {
+        set cmd [list cmd.exe /c call [file nativename $upd.bat] {*}$args]
+    } else {
+        set cmd [list $upd {*}$args]
+    }
+    file delete -force $bitOut
+    if {[catch {exec {*}$cmd 2>@1} out]} {
+        puts $out
+        error "run_updatemem: updatemem failed"
+    }
+    puts $out
+    if {![file exists $bitOut]} {
+        error "run_updatemem: updatemem did not write $bitOut"
+    }
+}
+
+# bit_diff_blocks <bitA> <bitB>
+#
+# Number of 64-byte blocks that differ between the configuration data of two
+# bitstreams (from the sync word on, so the header is ignored).  -1 if the
+# lengths differ.
+proc bit_diff_blocks {bitA bitB} {
+    set sync [binary format H8 AA995566]
+    set data {}
+    foreach f [list $bitA $bitB] {
+        set fh [open $f rb]
+        set d [read $fh]
+        close $fh
+        set i [string first $sync $d]
+        if {$i < 0} {
+            error "bit_diff_blocks: no sync word in $f"
+        }
+        lappend data [string range $d $i end]
+    }
+    lassign $data a b
+    if {[string length $a] != [string length $b]} {
+        return -1
+    }
+    set n 0
+    for {set i 0} {$i < [string length $a]} {incr i 64} {
+        if {[string range $a $i [expr {$i + 63}]] ne [string range $b $i [expr {$i + 63}]]} {
+            incr n
+        }
+    }
+    return $n
 }

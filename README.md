@@ -106,7 +106,9 @@ Add `fast` (e.g. `mandelbrot.bat fast`) to change only the memory contents:
 the new `video_ram.mem` is written into the last implemented bitstream with
 `updatemem` (block RAM map from `build/tcl/write_mmi.tcl`), so synthesis and
 implementation are skipped.  It needs one full build first, and a full build
-again after any HDL or constraint change.
+again after any HDL or constraint change.  The first `fast` run after a full
+build checks the block RAM map by putting the full build's own image back into
+its bitstream; if that does not give the same bitstream it stops with an error.
 `build\download_latest.bat` programs the board with the newest bitstream in
 `project/placard.runs/impl_1` (`basys_top.bit` or `basys_top_fast.bit`) without
 rebuilding.
