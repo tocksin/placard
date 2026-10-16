@@ -2,7 +2,7 @@
 -- @brief Creates VGA timing for sync signals using PLD conversions
 -- @author Justin Davis
 --
--- Date: 10/15/2026
+-- Date: 10/16/2026
 -------------------------------------------------------------------------------
 
 library ieee;           use ieee.std_logic_1164.all;
@@ -42,6 +42,7 @@ architecture Behavioral of vga_gen_pld is
     signal vcount : slv(9 downto 0);
     
     signal pixelEnable : sl;
+    signal audSlot : sl;    -- audio sample slot, audio PLD pin 23 to Sync PLD pin 13
     
 begin
 
@@ -84,6 +85,22 @@ begin
         Q9          => vcount(9)
     );
 
+    -- Audio sample slot: group 38 on lines 499-511, group 39 on lines
+    -- 512-1023, so the audio read address runs 4DF3h-4FFFh (see SOUND.md).
+    audioPLD : entity work.audio_pld
+    port map(
+        H9          => hcount(9),
+        H8          => hcount(8),
+        H7          => hcount(7),
+        H6          => hcount(6),
+        H5          => hcount(5),
+        H4          => hcount(4),
+        H3          => hcount(3),
+        V9          => vcount(9),
+
+        AUD_SLOT    => audSlot
+    );
+
     syncPLD : entity work.sync_pld
     port map(
         CLK              => clkIn,
@@ -100,6 +117,8 @@ begin
         PC_ENABLE        => pcEnableIn,
         Y_ENABLE         => yEnableIn,
         X_ENABLE         => xEnableIn,
+
+        AUD_SLOT         => audSlot,
 
         H0               => hcount(0),
         H1               => hcount(1),

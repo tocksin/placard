@@ -1,7 +1,7 @@
 Name     VGA_SYNC;
 PartNo   01;
-Date     2026-10-15;
-Revision 05;
+Date     2026-10-16;
+Revision 06;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -35,7 +35,10 @@ PIN 9  = PC_ENABLE;
 PIN 10 = Y_ENABLE;
 PIN 11 = X_ENABLE;
 
-/* Pin 13 unused */
+/* Audio sample slot, from the audio slot PLD (revision 06).
+   High for the whole 8-clock group (38 or 39) of each line where
+   the audio sample is read.  See SOUND.md. */
+PIN 13 = AUD_SLOT;
 
 
 /* ============================================================
@@ -139,11 +142,24 @@ VIDEO_ACTIVE =
    The pixel buffer loads one clock later than a clock-0 read, so the
    pixel select (H2:H0) and video-enable delay register on the board
    has two stages.
+
+   Audio (revision 06): one more read per line, on every line
+   including vertical blanking, in clock 1 of the group that
+   AUD_SLOT marks (group 38 or 39, in horizontal blanking).  It is
+   a video read in every way: the address mux takes the video
+   address, the CPU stalls, MEM_CTRL enables the RAM or ROM by the
+   map, and the pixel buffer loads the byte.  The pixel buffer
+   holds it until the first pixel read of the line (group 48), and
+   the DAC register copies it at the end of HSYNC (group 42).
 */
 
 PIXEL_ENABLE.D =
       V_VIDEO_ACTIVE
     & H_VIDEO_ACTIVE
+    & !H2
+    & !H1
+    & !H0
+    # AUD_SLOT
     & !H2
     & !H1
     & !H0;
