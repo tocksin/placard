@@ -1,7 +1,7 @@
 Name     AUDIO_SLOT;
 PartNo   00;
 Date     2026-10-16;
-Revision 02;
+Revision 03;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -10,81 +10,133 @@ Device   g22v10;
 
 
 /* ============================================================
-   AUDIO SAMPLE AND MODE BYTE SLOTS   (ATF22V10C, DIP-24 / PLCC-28)
+   BLANKING READS AND ROW ADDRESS   (ATF22V10C, DIP-24 / PLCC-28)
    ============================================================
 
    Picks the 8-clock groups on each scan line where the video
-   circuit reads a byte in horizontal blanking: the audio sample
-   (see SOUND.md) and, from revision 02, the line's mode byte (see
-   VIDEO.md).
+   circuit reads a byte in horizontal blanking: the line's mode
+   byte (see VIDEO.md) and the audio sample (see SOUND.md).  Since
+   revision 03 it also remaps four row address bits for the line
+   repeat modes.
 
    The reads themselves are made by the Sync PLD: BLANK_RD goes to
    Sync pin 13, and Sync raises PIXEL_ENABLE in clock 1 of each
    group it marks (the same clock as a pixel read).  The read
-   address is the video address, H9:H3 on A15:A9 and V8:V0 on A8:A0.
-   Each read lands in the pixel buffer.
+   address is the video address, H9:H3 on A15:A9 and the row
+   address (R8:R0 below) on A8:A0.  Each read lands in the pixel
+   buffer.  Video reads always come from the RAM.
 
-   MODE BYTE (revision 02)
-      Group 37 on every line, H9:H3 = 0100101, so the mode byte of
-      line V is at 4A00h + V8:V0.  Visible rows 0-479 are lines
+   REVISION 03 (2026-10-16)
+      The I/O window shrank to 5000h-53FFh, so the blanking reads
+      moved up into 5400h-5FFFh and 4000h-4FFFh is free for
+      programs.  Before: mode byte in group 37 (4A20h + row), audio
+      in groups 38/39 (4DF3h-4FFFh), DAC clocked by HSYNC.
+
+   MODE BYTE
+      Group 45 on every line, H9:H3 = 0101101, so the mode byte of
+      line V is at 5A00h + V8:V0.  Visible rows 0-479 are lines
       544-1023, V8:V0 = 32-511, so row r's mode byte is at
-      4A20h + r (4A20h-4BFFh).  Before revision 02 the mode byte was
-      the first pixel read of the line (group 48, 6000h + V8:V0), so
-      it took the first byte column of the screen.
+      5A20h + r (5A20h-5BFFh).
 
-      /MODE_LD (pin 22) is low for the whole of group 37.  It is the
+      /MODE_LD (pin 22) is low for the whole of group 45.  It is the
       /E of the line code register (F377), whose D inputs come from
       the pixel buffer outputs.  The pixel buffer loads the mode byte
       at the end of clock 1, and the line code register loads it
       again on each of clocks 2-7, so it holds the mode byte when
-      /MODE_LD goes high at group 38.  It keeps it for the rest of the
-      line, through the audio read (groups 38/39) and all of the
+      /MODE_LD goes high at group 46.  It keeps it for the rest of the
+      line, through the audio read (groups 46/47) and all of the
       active video (groups 48-127).
 
-   WHY TWO AUDIO GROUPS
+   AUDIO SAMPLE, TWO GROUPS
       The V counter runs 499-1023, 525 lines, but only V8:V0 reach
       the address.  Lines 499-511 and 1011-1023 have the same V8:V0,
       so a read in one fixed group would repeat 13 samples every
-      frame (a 60 Hz buzz).  Reading in group 38 when V9 = 0 and in
-      group 39 when V9 = 1 puts V9 on A9 (H3), so every line reads
+      frame (a 60 Hz buzz).  Reading in group 46 when V9 = 0 and in
+      group 47 when V9 = 1 puts V9 on A9 (H3), so every line reads
       its own byte:
 
           lines      V9  group  H9:H3     address
-          499-511    0   38     0100110   4C00h + 499..511 = 4DF3h-4DFFh
-          512-1023   1   39     0100111   4E00h + 0..511   = 4E00h-4FFFh
+          499-511    0   46     0101110   5C00h + 499..511 = 5DF3h-5DFFh
+          512-1023   1   47     0101111   5E00h + 0..511   = 5E00h-5FFFh
 
-      One frame plays 4DF3h-4FFFh in order: 525 bytes, one per line.
-      The buffer is just below the I/O window and follows map bit 2.
+      One frame plays 5DF3h-5FFFh in order: 525 bytes, one per line.
+
+   DAC CLOCK
+      The audio read now comes after HSYNC ends (group 42), so the
+      DAC register (74HCT574) can't be clocked by HSYNC any more.  It
+      is clocked by H_VIDEO_ACTIVE (H counter PLD pin 22) instead,
+      which is registered and rises at the start of group 48.  The
+      pixel buffer holds the sample until the first pixel read of
+      group 48 loads it (end of clock 1), so the edge (H counter tCO
+      5.5 ns into group 48) copies the sample.  On lines 499-511 the
+      sample was read in group 46, so it waits one more group; every
+      sample still lasts one line.  A registered pin can't glitch,
+      which a clock decoded here from H9:H3 could at group changes.
 
    ORDER IN THE LINE
-      37 mode byte, 38/39 audio sample, 42 the DAC register copies
-      the audio sample from the pixel buffer (end of HSYNC), 48 the
-      first pixel.  The mode read must come before the audio read,
-      or it would overwrite the sample in the pixel buffer before
-      the DAC copies it.  Groups 40-47 are the I/O window (5000h-
-      5FFFh), where no memory answers.  Group 37 is the last group
-      before the audio groups, which leaves 4000h-49FFh free for
-      programs in one piece.
+      45 mode byte, 46/47 audio sample, start of 48 the DAC register
+      copies the sample (H_VIDEO_ACTIVE rises), 48 the first pixel.  The mode read must come
+      before the audio read, or it would overwrite the sample in the
+      pixel buffer before the DAC copies it.  Groups 40-41 are the
+      I/O window (5000h-53FFh), where no memory answers.
 
    UNIQUE GROUP
-      The H counter runs 28-127.  !H9 & H8 & !H7 & !H6 is groups
-      32-39 only (40-47 have H6 set, 48 and up have H7 or H9 set).
-      H5 & H4 narrows it to 38 and 39, and H3 = V9 picks one.
-      H5 & !H4 & H3 is group 37.
+      The H counter runs 28-127.  !H9 & H8 & !H7 & H6 is groups
+      40-47 only.  H5 & H4 narrows it to 46 and 47, and H3 = V9
+      picks one.  H5 & !H4 & H3 is group 45.
 
    V9 changes at the end of the last clock of a line (H_TC), so
-   during groups 37-39 it is the new line's V9.
+   during groups 45-47 it is the new line's V9.
+
+   ROW ADDRESS (line repeat, revision 03)
+      Bits 3:2 of the line code (LC3:LC2, the line code register's
+      Q3 and Q2) pick how many lines show each row of video memory:
+      00 every line (1x), 01 two lines (2x), 10 or 11 four lines (4x).
+      The address mux's video inputs for A0, A1, A7 and A8 come from
+      R0, R1, R7 and R8 here instead of straight from the V counter
+      (A2-A6 are still V2-V6):
+
+          address   1x   2x   4x
+          A0        V0   V8   V7
+          A1        V1   V1   V8
+          A7        V7   V7   1
+          A8        V8   1    1
+
+      In 2x the row address no longer depends on V0, so two lines
+      read the same byte; in 4x it doesn't depend on V1:V0.  The
+      high bits are held at 1, so 2x rows use the upper half of each
+      byte column (offsets 256-511) and 4x rows the upper quarter
+      (384-511), and the rest of the column is free.  The bits that
+      would vary go to the bottom (a rotate), so every 2x pair and
+      every 4x group still has its own byte.  1x rows 0-223 (offsets
+      32-255) never share a byte with a 2x or 4x row.
+
+      RAW is groups 32-47 (!H9 & !H7), where the blanking reads use
+      the plain V8:V0, so the mode byte and the audio sample are
+      read from one byte per line whatever the line code says.  The
+      active groups 48-127 all have H9 or H7 set.  (Groups 28-31
+      also have H7 set but make no reads.)  The line code changes in
+      group 45, inside RAW, so it only affects the active reads.
+
+      Timing: RAW switches at the start of group 48, and R0-R8 settle
+      13 ns later (H counter tCO 5.5 ns + 7.5 ns); the first pixel
+      read is in clock 1.  V changes once per line and LC3:LC2 in
+      group 45, both long before.
 
    PIN BUDGET
-      Inputs (8): H9-H3, V9.  Outputs (2): BLANK_RD, /MODE_LD.
-      Unused: pins 1, 10, 11, 13, 14-21.
+      Inputs (14): H9-H3, V9, V0, V1, V7, V8, LC2, LC3.
+      Outputs (6): BLANK_RD, /MODE_LD, R0, R1, R7, R8.
+      Unused: pins 16, 21.
       BLANK_RD is combinational, 3 of 8 product terms on pin 23.
       /MODE_LD is combinational, 1 of 10 product terms on pin 22.
+      R0, R1, R7, R8 expand to at most 6 product terms (RAW and !RAW
+      are each one or two terms); pins 17-20 have 14-16.
    ============================================================ */
 
 
 /* ---------------- INPUTS ---------------- */
 
+PIN 1  = V0;          /* V counter PLD pin 14 (Q0) */
 PIN 2  = H9;          /* H counter PLD pin 20 */
 PIN 3  = H8;          /* H counter PLD pin 19 */
 PIN 4  = H7;          /* H counter PLD pin 18 */
@@ -93,18 +145,47 @@ PIN 6  = H5;          /* H counter PLD pin 16 */
 PIN 7  = H4;          /* H counter PLD pin 15 */
 PIN 8  = H3;          /* H counter PLD pin 14 */
 PIN 9  = V9;          /* V counter PLD pin 19 (Q9) */
+PIN 10 = V1;          /* V counter PLD pin 23 (Q1) */
+PIN 11 = V7;          /* V counter PLD pin 17 (Q7) */
+PIN 13 = V8;          /* V counter PLD pin 18 (Q8) */
+PIN 14 = LC2;         /* line code register Q2 (I/O pin used as input) */
+PIN 15 = LC3;         /* line code register Q3 (I/O pin used as input) */
 
 
 /* ---------------- OUTPUTS ---------------- */
 
+PIN 17 = R0;          /* to address mux bits 3:0, C0 input (video A0) */
+PIN 18 = R1;          /* to address mux bits 3:0, C1 input (video A1) */
+PIN 19 = R7;          /* to address mux bits 7:4, C3 input (video A7) */
+PIN 20 = R8;          /* to address mux bits 11:8, C0 input (video A8) */
 PIN 22 = !MODE_LD;    /* to line code register (F377) /E, low for the whole mode group */
 PIN 23 = BLANK_RD;    /* to Sync PLD pin 13, high for the whole audio or mode group */
 
 
 /* ---------------- EQUATIONS ---------------- */
 
-BLANK_RD = !H9 &  H8 & !H7 & !H6 &  H5 &  H4 &  H3 &  V9     /* group 39, lines 512-1023 */
-         # !H9 &  H8 & !H7 & !H6 &  H5 &  H4 & !H3 & !V9     /* group 38, lines 499-511  */
-         # !H9 &  H8 & !H7 & !H6 &  H5 & !H4 &  H3;          /* group 37, every line     */
+BLANK_RD = !H9 &  H8 & !H7 &  H6 &  H5 &  H4 &  H3 &  V9     /* group 47, lines 512-1023 */
+         # !H9 &  H8 & !H7 &  H6 &  H5 &  H4 & !H3 & !V9     /* group 46, lines 499-511  */
+         # !H9 &  H8 & !H7 &  H6 &  H5 & !H4 &  H3;          /* group 45, every line     */
 
-MODE_LD  = !H9 &  H8 & !H7 & !H6 &  H5 & !H4 &  H3;          /* group 37, every line     */
+MODE_LD  = !H9 &  H8 & !H7 &  H6 &  H5 & !H4 &  H3;          /* group 45, every line     */
+
+RAW      = !H9 & !H7;                                        /* groups 32-47: blanking reads */
+
+R0 = V0 & RAW
+   # V0 & !LC3 & !LC2
+   # V8 & !RAW & !LC3 &  LC2                                 /* 2x */
+   # V7 & !RAW &  LC3;                                       /* 4x */
+
+R1 = V1 & RAW
+   # V1 & !LC3
+   # V8 & !RAW &  LC3;                                       /* 4x */
+
+R7 = V7 & RAW
+   # V7 & !LC3
+   # !RAW & LC3;                                             /* 4x: 1 */
+
+R8 = V8 & RAW
+   # V8 & !LC3 & !LC2
+   # !RAW & LC3                                              /* 4x: 1 */
+   # !RAW & LC2;                                             /* 2x: 1 */

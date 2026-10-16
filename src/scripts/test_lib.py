@@ -63,7 +63,7 @@ def zset(*names):
 
 
 CHANGES = {
-    'vid_addr': zset('T0'),
+    'vid_addr': zset('T0', 'T1', 'T4'),
     'map_set': zset('MAP_SHADOW'),
     'frame_poll': zset('T0', 'FRAME_LO', 'FRAME_HI', 'LINE_LAST'),
     'wait_frames': zset('T0', 'T1', 'FRAME_LO', 'FRAME_HI', 'LINE_LAST'),
@@ -77,7 +77,7 @@ CHANGES = {
     'memcpy': zset('R0-R4'),
     'vid_clear': zset('T0', 'T1'),
     'vid_mode': zset('T0'),
-    'plot1': zset('T0', 'T2', 'T3'),
+    'plot1': zset('T0-T6'),
     'con_putc': zset('T0-T5', 'CUR_COL', 'CUR_ROW'),
     'con_newline': zset('T0-T5', 'CUR_COL', 'CUR_ROW'),
     'con_home': zset('CUR_COL', 'CUR_ROW'),
@@ -203,7 +203,12 @@ def byte_addr(col, row):
 
 
 def mode_addr(row):
-    return 0x4A20 + row
+    return 0x5A20 + row
+
+
+def rep_addr(col, row, mode):
+    """byte address of a row in line repeat mode (bits 3:2 of the mode byte)"""
+    return 0x6000 + col * 512 + ps.row_offset(row, mode)
 
 
 def font_rows(lib):
@@ -334,12 +339,27 @@ def t_vid_addr(lib, n):
         c, k = lib.call('vid_addr', ac=col, zp={'R2': row, 'R3': row >> 8})
         STATS.add('vid_addr', k)
         assert (c.ac << 8 | c.x) == byte_addr(col, row), 'vid_addr %d %d' % (col, row)
+    # line repeat: the row's own mode byte picks the address
+    for mode in (0x04, 0x08, 0x0C, 0x07, 0x0B):
+        seen = {}
+        for row in list(range(480)) if n else [0, 1, 223, 224, 255, 256, 479]:
+            col = random.randrange(80)
+            c = lib.cpu()
+            c.mem[mode_addr(row)] = mode
+            c, k = lib.call('vid_addr', ac=col, cpu=c, zp={'R2': row, 'R3': row >> 8})
+            STATS.add('vid_addr %dx' % (2 if mode & 0x0C == 4 else 4), k)
+            got = c.ac << 8 | c.x
+            assert got == rep_addr(col, row, mode), 'vid_addr mode %02X %d %d' % (mode, col, row)
+            off = got - 0x6000 - col * 512
+            rows = 2 if mode & 0x0C == 4 else 4
+            seen.setdefault(off, set()).add(row // rows)
+        assert all(len(v) == 1 for v in seen.values()), 'vid_addr mode %02X: groups share a byte' % mode
 
 
 def t_vid_clear(lib, n):
     for mode in (0, 3):
         c = lib.cpu()
-        for a in range(0x4A00, 0x4C00):
+        for a in range(0x5A00, 0x5C00):
             c.mem[a] = 0xA5
         for a in range(0x6000, 0x10000):
             c.mem[a] = 0xA5
@@ -347,7 +367,7 @@ def t_vid_clear(lib, n):
         STATS.add('vid_clear', k)
         assert all(c.mem[a] == 0 for a in range(0x6000, 0x10000)), 'vid_clear pixels'
         assert all(c.mem[mode_addr(r)] == mode for r in range(480)), 'vid_clear modes'
-        assert all(c.mem[a] == 0xA5 for a in range(0x4A00, 0x4A20)), 'vid_clear x4A00'
+        assert all(c.mem[a] == 0xA5 for a in range(0x5A00, 0x5A20)), 'vid_clear x5A00'
         c, k = lib.call('vid_mode', ac=2, cpu=c)
         STATS.add('vid_mode', k)
         assert all(c.mem[mode_addr(r)] == 2 for r in range(480)), 'vid_mode'
@@ -368,6 +388,17 @@ def t_plot1(lib, n):
         STATS.add('plot1', k)
         model[byte_addr(x // 8, y)] &= ~(1 << (x % 8)) & 0xFF
     assert c.mem[0x6000:] == model[0x6000:], 'plot1'
+    # 2x rows over the bottom half, 4x over rows 0-95 (1x rows 96-239 keep
+    # their own bytes): each pixel lands at its row's remapped address
+    c = lib.cpu()
+    for r in range(480):
+        c.mem[mode_addr(r)] = 0x08 if r < 96 else (0x04 if r >= 240 else 0x00)
+    model = bytearray(65536)
+    for (x, y) in sorted(pts):
+        c, k = lib.call('plot1', ac=1, cpu=c, zp={'R0': x, 'R1': x >> 8, 'R2': y, 'R3': y >> 8})
+        STATS.add('plot1 mixed', k)
+        model[rep_addr(x // 8, y, c.mem[mode_addr(y)])] |= 1 << (x % 8)
+    assert c.mem[0x6000:] == model[0x6000:], 'plot1 line repeat'
 
 
 def t_console(lib, n):

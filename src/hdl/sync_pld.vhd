@@ -70,8 +70,9 @@ entity sync_pld is
 
         -- Blanking read slot, from the audio slot PLD (revision 06; named
         -- AUD_SLOT before revision 07).  High for the whole 8-clock group
-        -- of each line where the mode byte (group 37, see VIDEO.md) or the
-        -- audio sample (group 38 or 39, see SOUND.md) is read.
+        -- of each line where the mode byte (group 45, see VIDEO.md) or the
+        -- audio sample (group 46 or 47, see SOUND.md) is read (groups
+        -- 37-39 before audio slot PLD revision 03).
         BLANK_RD         : in  std_logic;   -- PIN 13
 
         -- ============================================================

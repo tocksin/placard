@@ -36,12 +36,13 @@ Branch PLD rev 09):
     JMP also loads PC high <- Y
   - ADD and SUB with an AC, X or Y destination take one extra clock
     (the Branch PLD's ALU wait clock); stores do not
-  - a read of x5000-x50FF (or its x5800 mirror) returns the video line read,
+  - a read of x5000-x50FF returns the video line read,
     V9:V2, with one line per 800 CPU clocks and V = 499-1023 (525 lines per
     frame).  Video fetch stalls are not modeled.
   - with --boot, CPU reads follow the ROM/RAM map (a write to x5000-x50FF
-    sets it, every write also goes to the RAM) and the CPU starts with an
-    empty RAM and the map cleared to all ROM.  The video always reads the
+    sets it, every write also goes to the RAM; the I/O window is
+    x5000-x53FF, and x5400-x5FFF is memory in map section 2) and the CPU
+    starts with an empty RAM and the map cleared to all ROM.  The video always reads the
     RAM, so --png shows the RAM.  Without it every read comes from
     one memory holding the program.
 
@@ -483,7 +484,7 @@ class Cpu:
             return (self.y << 8) | self.x
         if s == 1:
             ad = addr()
-            if ad & 0xF700 == 0x5000:             # /LINE_RD (x5000-x50FF, x5800-x58FF)
+            if ad & 0xFF00 == 0x5000:             # /LINE_RD (x5000-x50FF)
                 self.d = self.line_read()
             else:
                 self.d = rd(ad)
@@ -514,7 +515,7 @@ class Cpu:
             else:
                 ad = addr()
                 m_[ad] = src                      # every write goes to the RAM
-                if ad & 0xF700 == 0x5000:         # /MAP_WR (x5000-x50FF, x5800-x58FF)
+                if ad & 0xFF00 == 0x5000:         # /MAP_WR (x5000-x50FF)
                     self.map = src
         self.steps += 1
         self.clocks += clocks
@@ -542,7 +543,20 @@ def m_is_branch(o):
 # Screen rendering (matches gen_video_ram.tcl layout)
 # ---------------------------------------------------------------------------
 VID_BASE = 48 * 512 + 32     # byte column 0, row 0 (x6020)
-MODE_BASE = 37 * 512 + 32    # row 0's mode byte (x4A20), read in group 37
+MODE_BASE = 45 * 512 + 32    # row 0's mode byte (x5A20), read in group 45
+
+
+def row_offset(row, mode):
+    """row address A8:A0 of screen row 0-479 for mode byte bits 3:2 (line
+    repeat), as the audio slot PLD makes it (VIDEO.md, line repeat)"""
+    v = 32 + row
+    rep = (mode >> 2) & 3
+    if rep == 0:
+        return v
+    v8, v7 = (v >> 8) & 1, (v >> 7) & 1
+    if rep == 1:
+        return 0x100 | (v & 0xFE) | v8
+    return 0x180 | (v & 0x7C) | (v8 << 1) | v7
 
 
 def rgb8(b):
@@ -562,10 +576,11 @@ def render(mem, path):
     px = img.load()
     pal2 = [(0, 0, 0), (0, 80, 255), (255, 182, 0), (255, 255, 255)]
     for y in range(480):
-        mode = mem[MODE_BASE + y] & 3
-        bpp = 1 << mode
+        mbyte = mem[MODE_BASE + y]
+        bpp = 1 << (mbyte & 3)
+        off = row_offset(y, mbyte)
         for col in range(80):
-            byte = mem[VID_BASE + col * 512 + y]
+            byte = mem[0x6000 + col * 512 + off]
             per = 8 // bpp
             w = 8 // per
             for i in range(per):

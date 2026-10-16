@@ -26,10 +26,10 @@
 #     address = VID_BASE + (byte_column * COL_STRIDE) + screen_row
 #     VID_BASE = (48*512)+32 = 0x6020 : byte column 0, row 0
 #
-# Each row's mode byte is read in horizontal blanking (group 37), at
-#     MODE_BASE + screen_row, MODE_BASE = (37*512)+32 = 0x4A20
+# Each row's mode byte is read in horizontal blanking (group 45), at
+#     MODE_BASE + screen_row, MODE_BASE = (45*512)+32 = 0x5A20
 # bits 1:0 = color mode 00 = 1 bpp, 01 = 2 bpp, 10 = 4 bpp, 11 = 8 bpp
-# (other bits 0).
+# (other bits 0, so every row is 1x: no line repeat).
 # Pixel data is in byte columns 0..79, LSB first within a byte.
 # Drawable width = 640 / 320 / 160 / 80 pixels for 1 / 2 / 4 / 8 bpp.
 #
@@ -42,7 +42,7 @@
 
 set COL_STRIDE 512
 set VID_BASE   [expr {48 * 512 + 32}]
-set MODE_BASE  [expr {37 * 512 + 32}]
+set MODE_BASE  [expr {45 * 512 + 32}]
 set BAND_H     120
 set MEM_SIZE   65536
 

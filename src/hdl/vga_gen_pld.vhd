@@ -18,7 +18,14 @@ entity vga_gen_pld is
         vSyncOut        : out sl;
         videoActiveOut  : out sl;
         pixelEnOut      : out sl;
-        modeLdNOut      : out sl;   -- line code register /E, low in group 37
+        modeLdNOut      : out sl;   -- line code register /E, low in group 45
+        hVideoActiveOut : out sl;   -- H counter PLD H_VIDEO_ACTIVE, rises at group 48 (audio DAC clock)
+        rowA0Out        : out sl;   -- video address A0 (row address, line repeat)
+        rowA1Out        : out sl;   -- video address A1
+        rowA7Out        : out sl;   -- video address A7
+        rowA8Out        : out sl;   -- video address A8
+        lc2In           : in  sl;   -- line code register Q2 (line repeat)
+        lc3In           : in  sl;   -- line code register Q3
         pixelRowOut     : out slv(9 downto 0);
         pixelColOut     : out slv(9 downto 0);
 
@@ -45,6 +52,10 @@ architecture Behavioral of vga_gen_pld is
     signal pixelEnable : sl;
     signal blankRd : sl;    -- blanking read slot, audio PLD pin 23 to Sync PLD pin 13
     signal modeLdN : sl;    -- mode byte load, audio PLD pin 22 (active low)
+    signal rowA0   : sl;    -- row address bits from the audio PLD, pins 17-20
+    signal rowA1   : sl;
+    signal rowA7   : sl;
+    signal rowA8   : sl;
     
 begin
 
@@ -87,12 +98,15 @@ begin
         Q9          => vcount(9)
     );
 
-    -- Blanking read slots: the mode byte in group 37 on every line, at
-    -- 4A00h + V8:V0 (see VIDEO.md), and the audio sample in group 38 on
-    -- lines 499-511 and group 39 on lines 512-1023, so the audio read
-    -- address runs 4DF3h-4FFFh (see SOUND.md).
+    -- Blanking read slots: the mode byte in group 45 on every line, at
+    -- 5A00h + V8:V0 (see VIDEO.md), and the audio sample in group 46 on
+    -- lines 499-511 and group 47 on lines 512-1023, so the audio read
+    -- address runs 5DF3h-5FFFh (see SOUND.md).  It also remaps the row
+    -- address bits A0, A1, A7 and A8 for the line repeat modes (line code
+    -- bits 3:2).
     audioPLD : entity work.audio_pld
     port map(
+        V0          => vcount(0),
         H9          => hcount(9),
         H8          => hcount(8),
         H7          => hcount(7),
@@ -101,7 +115,16 @@ begin
         H4          => hcount(4),
         H3          => hcount(3),
         V9          => vcount(9),
+        V1          => vcount(1),
+        V7          => vcount(7),
+        V8          => vcount(8),
+        LC2         => lc2In,
+        LC3         => lc3In,
 
+        R0          => rowA0,
+        R1          => rowA1,
+        R7          => rowA7,
+        R8          => rowA8,
         MODE_LD     => modeLdN,
         BLANK_RD    => blankRd
     );
@@ -144,4 +167,9 @@ begin
     videoActiveOut <= videoActive;
     pixelEnOut <= pixelEnable;
     modeLdNOut <= modeLdN;
+    hVideoActiveOut <= hVideoActive;
+    rowA0Out <= rowA0;
+    rowA1Out <= rowA1;
+    rowA7Out <= rowA7;
+    rowA8Out <= rowA8;
 end Behavioral;

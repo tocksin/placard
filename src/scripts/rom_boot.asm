@@ -45,7 +45,7 @@
 #include "placard.asm"
 
 ROM_IMAGE   = 0x60      ; ROM page that holds RAM page x00
-IMAGE_END   = 0x4A      ; first RAM page not copied (x4A00, the mode bytes' page)
+IMAGE_END   = 0x4A      ; first RAM page not copied (x4A00; the older demos fit below it)
 MAP_PORT    = 0x50      ; ROM/RAM map register page (write only)
 DST         = 0xFE      ; RAM page being written (zero page, during the copy)
 SRC         = 0xFF      ; ROM page being read

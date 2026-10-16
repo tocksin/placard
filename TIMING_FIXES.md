@@ -88,8 +88,9 @@ spare.
 
 ### Line-mode register
 
-**Superseded 2026-10-16:** the mode byte is now read in group 37 of
-horizontal blanking from x4A20 + row, and the line code F377 copies it from
+**Superseded 2026-10-16:** the mode byte is now read in horizontal
+blanking (group 37 from x4A20 + row at first, group 45 from x5A20 + row
+since the I/O window shrank), and the line code F377 copies it from
 the pixel buffer with /E from /MODE_LD (audio slot PLD revision 02), so it
 no longer takes byte column 0.  See [VIDEO.md](VIDEO.md#mode-byte).  The
 text below is the earlier fix.
@@ -176,6 +177,10 @@ The PLD itself is gone since 2026-10-16: the map is now a 74ACT273; see
   strobes are low with /WE, so a device latches on the rising edge at the
   end of the write; read strobes are low on a read the CPU latches into D
   (LOAD_IMM).  A11 is not decoded, so 5800h-5FFFh repeats 5000h-57FFh.
+  (Revision 03, 2026-10-16: the window is 5000h-53FFh, /SND_WR's pin is the
+  A11 input, and EXP1/EXP2 are pages 1 and 3.  A11 and A10 come from the
+  address mux like A12, so the strobes and the memory control PLD's read
+  enables settle at the same time as before.)
 - **Pins**: 14 inputs (/WE, ADDR_SEL, ADDR_SEL_HI, PC15, H9, Y7, A14, A13,
   A12, A10, A9, A8, RW, LOAD_IMM) and 8 outputs, all 22 pins.  WinCUPL fits
   each strobe in 7 product terms (EXP2: 7 of 10, the tightest) and /CE_HI in
