@@ -23,9 +23,8 @@ The project has some hard-goals to maintain:
 The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databus.  The video RAM starts at x6020 and ends at xFFFF.  There is a 64kB RAM and a 64kB ROM behind the same addresses.  The address space is divided into eight 8kB sections, and a write-only map register at x5000 picks whether each section reads from the RAM or the ROM.
 
 - **Writes always go to the RAM**, even in a section mapped to ROM.  The write strobe (/WE) is not decoded by address, so a write in the I/O window x5000-x5FFF also lands in the RAM underneath it.
-- **The map register** is a CD74ACT273E clocked by /MAP_WR from the I/O decode PLD; it latches the source bus at the end of the write.  Bit n = 1 makes section n read from RAM, 0 from ROM.  Bit 2 is ignored, because section 2 has no map bit.  It is write only, so software keeps a copy of the last value it wrote.
+- **The map register** is a CD74ACT273E clocked by /MAP_WR from the I/O decode PLD; it latches the source bus at the end of the write.  Bit n = 1 makes section n read from RAM, 0 from ROM.  Bit 2 maps only x4000-x4FFF, because x5000-x5FFF is the I/O window.  It is write only, so software keeps a copy of the last value it wrote.
 - **At power-up every section reads as ROM.**  The memory control PLD's MAP_RUN output holds the register's /MR low from power-up until the first clock edge, which is where the CPU starts, so the CPU boots from ROM.
-- **x4000-x4FFF is always RAM**, whatever the map says.
 - **x5000-x5FFF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  A11 is not decoded, so x5800-x5FFF repeats x5000-x57FF.
 - **Only `[Y,X]` reaches the I/O window**; `[0,D]` and `[0,X]` only address the zero page.
 - **Video reads follow the map too**: /RAM_OE and /ROM_OE are decoded the same way for a video read as for a CPU read, so a video section shows the RAM only once it is mapped to RAM.
@@ -39,7 +38,7 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen ye
 |---------|---------|------|
 | x0000-x1FFF | 0 | RAM/ROM |
 | x2000-x3FFF | 1 | RAM/ROM |
-| x4000-x4FFF | none | RAM (always) |
+| x4000-x4FFF | 2 | RAM/ROM |
 | x5000-x5FFF | none | I/O window (see below) |
 | x6000-x7FFF | 3 | RAM/ROM (Video Memory from x6020) |
 | x8000-x9FFF | 4 | RAM/ROM (Video Memory) |
