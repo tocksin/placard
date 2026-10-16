@@ -1,13 +1,18 @@
 -- ============================================================
 -- MEMORY READ AND WRITE STROBES
--- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 01)
--- Date: 10/15/2026
+-- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 02)
+-- Date: 10/16/2026
 --
 -- Replaces the '32 OR gate (/WE = RW or CLK) and the read enables
 -- of ROM/RAM select revision 03.  Every memory bus cycle uses the
 -- low half of the clock only, so nothing drives the RAM data bus in
 -- the high half and a read can't overlap the write buffer turning
 -- off (see the PLD source and TIMING_FIXES.md).
+--
+-- Revision 02: mapRun (pin 19) is a register that powers up to 0 and
+-- loads 1 on every clock, so it is low from power-up to the first
+-- clock.  It drives /MR of the 74ACT273 map register, which clears the
+-- map to all ROM before the CPU starts.
 --
 --     write  = not rw and not pixelEnable
 --     read   = rw or pixelEnable
@@ -27,8 +32,8 @@
 --   1  clk         2  a15        3  a14        4  a13       5  a12
 --   6  ramsel0     7  ramsel1    8  ramsel3    9  ramsel4  10  ramsel5
 --  11  ramsel6    13  ramsel7   14  rw        23  pixelEnable
---  16  weN        17  romOeN    18  ramOeN
---  15, 19-22 not used
+--  16  weN        17  romOeN    18  ramOeN    19  mapRun
+--  15, 20-22 not used
 -- ============================================================
 
 library ieee;
@@ -41,7 +46,7 @@ entity mem_ctrl_pld is
         a14         : in  std_logic;   -- pin 3
         a13         : in  std_logic;   -- pin 4
         a12         : in  std_logic;   -- pin 5
-        ramsel0     : in  std_logic;   -- pin 6, map from the ROM/RAM select PLD
+        ramsel0     : in  std_logic;   -- pin 6, map from the 74ACT273 map register
         ramsel1     : in  std_logic;   -- pin 7
         ramsel3     : in  std_logic;   -- pin 8
         ramsel4     : in  std_logic;   -- pin 9
@@ -53,7 +58,8 @@ entity mem_ctrl_pld is
 
         weN         : out std_logic;   -- pin 16, RAM /WE and write buffer enable
         romOeN      : out std_logic;   -- pin 17, ROM /OE
-        ramOeN      : out std_logic    -- pin 18, RAM /OE
+        ramOeN      : out std_logic;   -- pin 18, RAM /OE
+        mapRun      : out std_logic    -- pin 19, registered, map register /MR
     );
 end entity mem_ctrl_pld;
 
@@ -73,6 +79,7 @@ architecture rtl of mem_ctrl_pld is
     signal we      : std_logic;
     signal romOe   : std_logic;
     signal ramOe   : std_logic;
+    signal mapRunQ : std_logic := '0';   -- powers up to 0, as on the ATF22V10C
 
 begin
 
@@ -112,6 +119,15 @@ begin
           or (sec5 and ramsel5 and busRead)
           or (sec6 and ramsel6 and busRead)
           or (sec7 and ramsel7 and busRead);
+
+    process (clk)
+    begin
+        if rising_edge(clk) then
+            mapRunQ <= '1';
+        end if;
+    end process;
+
+    mapRun <= mapRunQ;
 
     weN    <= not we;
     romOeN <= not romOe;
