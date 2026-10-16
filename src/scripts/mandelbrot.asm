@@ -129,7 +129,7 @@ mode1:
 #addr 0x0300
 delay:
     ; about 5 s at 25.175 MHz, less the video stalls
-    ld   0xD9, ac
+    ld   0xC1, ac
     ld   ac, [0x3A]
 dly3:
     ld   0x00, ac

@@ -245,12 +245,13 @@ class Gen:
 
 
 def delay_counts(seconds):
-    """three nested down-counters; the inner loop is nop / dec / bne = 8 clocks"""
+    """three nested down-counters; the inner loop is nop / dec / bne = 9 clocks
+    (dec is a SUB to AC, which takes the ALU wait clock)"""
     if seconds <= 0:
         return None
     clocks = seconds * CLOCK_HZ * CPU_SHARE
-    inner = 256 * 8 + 15                # one middle pass
-    middle = 256 * inner + 15           # one outer pass
+    inner = 256 * 9 + 16                # one middle pass
+    middle = 256 * inner + 16           # one outer pass
     outer = max(1, min(256, round(clocks / middle)))
     return outer % 256
 
