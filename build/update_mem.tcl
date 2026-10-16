@@ -8,14 +8,15 @@
 #
 # Writes, in the impl_1 run folder:
 #     <top>.mmi           block RAM map of the implemented design (write_mmi.tcl);
-#                         remade only when the bitstream is newer than it
+#                         remade only when the bitstream or write_mmi.tcl is
+#                         newer than it
 #     <top>_update.mem    video_ram.mem in updatemem format
 #     <top>_procs.txt     memory instance names, one per line (updatemem -proc)
 #
 # The design (HDL, constraints) must not have changed since the last full
 # build; only the memory contents are replaced.
 #
-# Date: 10/15/2026
+# Date: 10/16/2026
 
 set buildDir [file dirname [file normalize [info script]]]
 set repoDir  [file normalize [file join $buildDir ..]]
@@ -45,7 +46,9 @@ set mmiFile [file join $implDir $top.mmi]
 if {[get_property PROGRESS $implRun] ne "100%" || ![file exists $bitFile]} {
     error "update_mem: no implemented bitstream yet, run a full build first"
 }
-if {![file exists $mmiFile] || [file mtime $mmiFile] < [file mtime $bitFile]} {
+if {![file exists $mmiFile]
+    || [file mtime $mmiFile] < [file mtime $bitFile]
+    || [file mtime $mmiFile] < [file mtime [file join $buildDir write_mmi.tcl]]} {
     puts "update_mem: opening the implemented design to map the block RAMs"
     open_run impl_1
     write_mmi $mmiFile $memDepth $memWidth
