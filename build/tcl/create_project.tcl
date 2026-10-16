@@ -1,0 +1,128 @@
+# create_project.tcl
+#
+# Vivado script: creates the Vivado project project/placard.xpr from the
+# sources in src/.  The project folder is not kept in git (Vivado rewrites
+# the .xpr every time it opens it), so this script is the record of the
+# project settings.  Change a setting here, not only in the GUI, or it is
+# lost the next time the project is made.
+#
+#     vivado -mode batch -source create_project.tcl [-tclargs force]
+#
+#     force     delete an existing project/ folder and make it again
+#
+# Called by create_project.bat, and by build_and_load.tcl when
+# project/placard.xpr does not exist.  If src/hdl/video_ram.mem does not
+# exist it is made first (gen_video_ram.tcl, default program).
+#
+# Date: 10/16/2026
+
+set tclDir  [file dirname [file normalize [info script]]]
+set repoDir [file normalize [file join $tclDir .. ..]]
+set projDir [file join $repoDir project]
+set srcDir  [file join $repoDir src]
+set xprFile [file join $projDir placard.xpr]
+
+set force 0
+if {[info exists argv] && [lsearch -nocase $argv force] >= 0} {
+    set force 1
+}
+if {[file exists $xprFile] && !$force} {
+    error "create_project: $xprFile already exists (pass force to make it again)"
+}
+
+# ---- memory image (a synthesis source, not kept in git) ---------------------
+set memFile [file join $srcDir hdl video_ram.mem]
+if {![file exists $memFile]} {
+    source [file join $srcDir scripts gen_video_ram.tcl]
+}
+
+# ---- project ----------------------------------------------------------------
+create_project placard $projDir -part xc7a35tcpg236-1 -force
+set_property target_language VHDL         [current_project]
+set_property default_lib     xil_defaultlib [current_project]
+
+# ---- design sources ---------------------------------------------------------
+set hdlFiles {
+    alu4.vhd
+    logging_pkg.vhd
+    tools_pkg.vhd
+    sys_description_pkg.vhd
+    debouncer.vhd
+    state_pld.vhd
+    branch_pld.vhd
+    pc_counter8.vhd
+    hcount_pld.vhd
+    vcount_pld.vhd
+    sync_pld.vhd
+    vga_gen_pld.vhd
+    quad_4to1_mux.vhd
+    full_mux.vhd
+    sp_ram.vhd
+    color_decoder.vhd
+    basys_top.vhd
+}
+set srcs {}
+foreach f $hdlFiles {
+    lappend srcs [file join $srcDir hdl $f]
+}
+add_files -fileset sources_1 $srcs
+set_property file_type {VHDL 2008} [get_files $srcs]
+add_files -fileset sources_1 $memFile
+
+add_files -fileset sources_1 [file join $srcDir ip clk_wiz_0.xci]
+if {[llength [get_ips -filter {UPGRADE_VERSIONS != ""}]] > 0} {
+    upgrade_ip [get_ips -filter {UPGRADE_VERSIONS != ""}]
+}
+
+set_property top basys_top [get_filesets sources_1]
+
+# ---- constraints ------------------------------------------------------------
+add_files -fileset constrs_1 [file join $srcDir constraints basys3_master.xdc]
+
+# ---- simulation -------------------------------------------------------------
+set tbFiles {
+    tb_basys_demo.vhd
+    tb_video.vhd
+    tb_alu.vhd
+    tb_counters.vhd
+}
+set tbs {}
+foreach f $tbFiles {
+    lappend tbs [file join $srcDir sim $f]
+}
+add_files -fileset sim_1 $tbs
+set_property file_type {VHDL 2008} [get_files -of_objects [get_filesets sim_1] $tbs]
+
+set wcfgFiles {
+    tb_alu_behav.wcfg
+    tb_counters_behav.wcfg
+    tb_video_behav.wcfg
+    tb_basys_demo_behav.wcfg
+}
+foreach f $wcfgFiles {
+    add_files -fileset sim_1 [file join $srcDir sim $f]
+}
+# only the waveform for the active testbench is loaded
+foreach f {tb_alu_behav.wcfg tb_counters_behav.wcfg tb_video_behav.wcfg} {
+    set_property is_enabled false [get_files -of_objects [get_filesets sim_1] $f]
+}
+
+set simSet [get_filesets sim_1]
+set_property top                   tb_basys_demo  $simSet
+set_property top_lib               xil_defaultlib $simSet
+set_property xsim.simulate.runtime 18ms           $simSet
+
+update_compile_order -fileset sources_1
+update_compile_order -fileset sim_1
+
+# ---- runs -------------------------------------------------------------------
+set synthRun [get_runs synth_1]
+set_property STEPS.SYNTH_DESIGN.ARGS.KEEP_EQUIVALENT_REGISTERS true $synthRun
+set_property STEPS.SYNTH_DESIGN.ARGS.BUFG                      0    $synthRun
+
+set implRun [get_runs impl_1]
+set_property STEPS.POST_ROUTE_PHYS_OPT_DESIGN.IS_ENABLED true $implRun
+set_property STEPS.WRITE_BITSTREAM.ARGS.BIN_FILE         true $implRun
+
+close_project
+puts "create_project: made $xprFile"
