@@ -5,8 +5,8 @@ Placard CPU instruction with a pass/fail grid on the video output.
 
     python3 gen_cpu_test.py            writes cpu_test.asm next to this script
 
-Then assemble with customasm (or placard_sim.py), merge into video_ram.mem
-with gen_video_ram.tcl (set ::ASM_FILE to cpu_test.hex) and run.
+Then assemble with customasm (or placard_sim.py), put into rom.mem
+with gen_rom.tcl (set ::ASM_FILE to cpu_test.hex) and run.
 
 SCREEN (8 bpp, every row)
     A grid laid out like the opcode map: 8 columns = ALU op (I7:I5:

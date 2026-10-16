@@ -1,30 +1,23 @@
 # gen_video_ram.tcl
 #
-# Generates video_ram.mem : one hex byte per line, 65536 lines, address 0..65535.
-# Loaded by sp_ram.vhd at elaboration / synthesis.
+# Generates ram.mem, the RAM's initialization file: one hex byte per line,
+# 65536 lines, address 0..65535.  Loaded by sp_ram.vhd (ramComp in
+# basys_top.vhd) at elaboration / synthesis.  It holds the video test
+# pattern only: programs are in the ROM image (gen_rom.tcl, see ROM.md),
+# and the ROM's boot loader copies them over RAM x0000-x49FF.  The real
+# RAM starts with random contents, so programs must not count on this
+# pattern; it shows what is on the screen until a program draws.
 #
 # Run from the Vivado Tcl console:   source /path/to/gen_video_ram.tcl
 # or stand-alone:                    tclsh gen_video_ram.tcl
 #
 # Vivado does not run this script for you (it is not a synthesis or simulation
-# hook, because a hook re-ran it with the default ASM_FILE and overwrote the
-# image you made).  video_ram.mem is a project source, so after you run this
-# script Vivado marks synthesis out of date and uses the new image.
+# hook).  ram.mem is a project source, so after you run this script Vivado
+# marks synthesis out of date and uses the new image.
 #
-# The image is written to ../hdl/video_ram.mem (relative to this script).  Set
+# The image is written to ../hdl/ram.mem (relative to this script).  Set
 # ::VIDEO_RAM_OUT before sourcing to write to a different path instead (the
 # file is then left where you put it).
-#
-# The CPU starts at PC = 0000, so program code is merged into the same image
-# at address ::ASM_BASE (default 0).  The program is read from the customasm
-# output file ::ASM_FILE (default test_video.hex next to this script).  Make
-# it with one of
-#     customasm test_video.asm -f hexstr -o test_video.hex
-#     customasm test_video.asm -f binary -o test_video.bin
-# (the web version offers the same "hexstr" / "binary" output formats).
-# Accepted formats: raw binary (*.bin), a hex string "10620020...", or
-# comma separated 0x10, 0x62, ... values.  If the file is missing the image is
-# generated without code.  Set ::ASM_FILE to "" to skip it on purpose.
 #
 # Date: 10/16/2026
 #
@@ -182,74 +175,6 @@ proc frame_band {bpp y0 h is_first is_last edge_color corner_color} {
 }
 
 # ---------------------------------------------------------------------------
-# Read a customasm output file; returns a list of byte values (0..255)
-# ---------------------------------------------------------------------------
-proc read_asm_bytes {fileName} {
-    set bytes {}
-    if {[string tolower [file extension $fileName]] eq ".bin"} {
-        set fh [open $fileName rb]
-        set data [read $fh]
-        close $fh
-        binary scan $data c* signed
-        foreach b $signed {
-            lappend bytes [expr {$b & 0xFF}]
-        }
-        return $bytes
-    }
-    set fh [open $fileName r]
-    set text [read $fh]
-    close $fh
-    # drop any 0x prefixes, then turn commas / whitespace into nothing
-    set text [string map {0x {} 0X {} , { }} $text]
-    set tokens [regexp -all -inline {[0-9A-Fa-f]+} $text]
-    if {[llength $tokens] == 0} {
-        error "read_asm_bytes: no hex data in $fileName"
-    }
-    if {[llength $tokens] == 1} {
-        # one continuous hex string: split it into byte pairs
-        set hex [lindex $tokens 0]
-        if {[string length $hex] % 2} {
-            error "read_asm_bytes: odd number of hex digits in $fileName"
-        }
-        set tokens {}
-        for {set i 0} {$i < [string length $hex]} {incr i 2} {
-            lappend tokens [string range $hex $i [expr {$i + 1}]]
-        }
-    }
-    foreach tok $tokens {
-        scan $tok %x v
-        lappend bytes [expr {$v & 255}]
-    }
-    return $bytes
-}
-
-# merge the assembled program into mem() at ASM_BASE
-proc load_asm {} {
-    if {![info exists ::ASM_BASE]} { set ::ASM_BASE 0 }
-    if {![info exists ::ASM_FILE]} {
-        set ::ASM_FILE [file join [file dirname [info script]] test_video.hex]
-    }
-    if {$::ASM_FILE eq ""} {
-        return
-    }
-    if {![file exists $::ASM_FILE]} {
-        puts "gen_video_ram: WARNING: $::ASM_FILE not found, image has no program"
-        return
-    }
-    set bytes [read_asm_bytes $::ASM_FILE]
-    set n [llength $bytes]
-    if {$::ASM_BASE + $n > $::MEM_SIZE} {
-        error "gen_video_ram: program ($n bytes at $::ASM_BASE) does not fit in memory"
-    }
-    set a $::ASM_BASE
-    foreach b $bytes {
-        set ::mem($a) $b
-        incr a
-    }
-    puts "gen_video_ram: merged $n program bytes at [format %04X $::ASM_BASE] from $::ASM_FILE"
-}
-
-# ---------------------------------------------------------------------------
 # Build the image
 # ---------------------------------------------------------------------------
 proc gen_video_ram {outFile} {
@@ -311,9 +236,6 @@ proc gen_video_ram {outFile} {
         fill_rect 8 $x 452 8 10 [expr {$i + $i * 32 + ($i / 2) * 8}]    ;# white
     }
 
-    # ---- program (CPU starts at PC = 0000) ----------------------------------
-    load_asm
-
     # ---- write file ----------------------------------------------------------
     set fh [open $outFile w]
     for {set i 0} {$i < $::MEM_SIZE} {incr i} {
@@ -326,14 +248,10 @@ proc gen_video_ram {outFile} {
 if {[info exists ::VIDEO_RAM_OUT]} {
     gen_video_ram $::VIDEO_RAM_OUT
 } else {
-    # write next to this script, then move the result to ../hdl where the
-    # Vivado project (sp_ram.vhd INIT_FILE) looks for it
+    # write to ../hdl, where the Vivado project (sp_ram.vhd initFile) looks
+    # for it
     set scriptDir [file dirname [file normalize [info script]]]
-    set tmpFile   [file join $scriptDir video_ram.mem]
     set hdlDir    [file normalize [file join $scriptDir .. hdl]]
-    gen_video_ram $tmpFile
     file mkdir $hdlDir
-    file copy -force $tmpFile [file join $hdlDir video_ram.mem]
-    file delete $tmpFile
-    puts "gen_video_ram: moved video_ram.mem to $hdlDir"
+    gen_video_ram [file join $hdlDir ram.mem]
 }

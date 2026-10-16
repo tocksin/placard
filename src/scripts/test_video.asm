@@ -1,5 +1,5 @@
 ; Placard video test: write a binary-count pattern down the left edge of
-; the screen.  Runs from ROM at PC = 0000.
+; the screen.  The ROM's boot loader copies it to RAM x0000 and starts it.
 ;
 ; Video RAM layout: address = 0x6020 + byte_column * 512 + screen_row, and
 ; byte column 0 is the first column of pixel data (each row's mode byte is
@@ -9,7 +9,7 @@
 ;
 ; Web version: paste placard.asm above this code and delete the #include.
 ; Command line:  customasm test_video.asm -f hexstr -o test_video.hex
-; then run gen_video_ram.tcl, which merges the code in at address 0000.
+; then run gen_rom.tcl, which puts it in the ROM image (see ROM.md).
 
 #include "placard.asm"
 

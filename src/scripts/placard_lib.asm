@@ -22,7 +22,9 @@
 ;         ...
 ;
 ; The library sits at LIB_CODE (code, 2 KB) and LIB_FONT (font, 2 KB),
-; x3000-x3FFF by default.  Change the two constants below to move it.
+; x3000-x3FFF.  These are standard places that every program shares, and
+; the ROM image stores them at x9000-x9FFF (rom_lib.asm, ROM.md), so keep
+; them; moving them means changing gen_rom.tcl and placard_sim.py too.
 ; LIB_CODE must be a multiple of 0x100, because every routine keeps its
 ; branches inside one 256-byte page.
 ;
