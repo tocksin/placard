@@ -141,7 +141,9 @@ was planned.
 ### ROM/RAM select PLD, revision 03
 
 (Revision 04 moves ROM_OE and RAM_OE to the memory control PLD; see
-[Fixed: bus contention around a write](#fixed-bus-contention-around-a-write-memory-control-pld).)
+[Fixed: bus contention around a write](#fixed-bus-contention-around-a-write-memory-control-pld).
+The PLD itself is gone since 2026-10-16: the map is now a 74ACT273; see
+[ROM/RAM map register](#romram-map-register-74act273).)
 
 - **Two read enables, no inverter.**  ROM_OE (pin 14) and RAM_OE (pin 15)
   are separate active-low outputs, each one array pass from the address.
@@ -289,7 +291,8 @@ Every memory cycle, read or write, now uses only the low half of the clock:
   (pin 18, 16 of 16).  Pins 15 and 19-22 are free.
 - **ROM/RAM select PLD rev 04**: only the map.  ROM_OE, RAM_OE and the
   A15:A12 and RW inputs are gone; the RAMSEL outputs go to the memory
-  control PLD.  Pins 2-5, 14, 15 and 23 are free.
+  control PLD.  Pins 2-5, 14, 15 and 23 are free.  (Later replaced by a
+  74ACT273; see below.)
 - **State PLD rev 12**: MEM_WR no longer includes STALL, so RW is low for
   the whole EXEC state of a store and settles 10 ns into the clock.  The
   memory control PLD blocks the write during a video stall with the real
@@ -345,3 +348,46 @@ after 18.0 ns, which is a high half of at least 45.4 % and is inside the
   one /SND_WR pulse, and the map reads back bits 7, 3, 1, 0 as 1, 1, 0, 1.
 - The FPGA's RAM model is zero-delay, so the simulation checks the logic
   (no write is lost, added or moved), not the nanosecond timing above.
+
+## ROM/RAM map register (74ACT273)
+
+Date: 2026-10-16
+
+The ROM/RAM map is now an 8-bit register chip, a write-only I/O device at
+5000h-50FFh, in place of the ROM/RAM select PLD (which by revision 04 held
+nothing but the map).  The chip count does not change.
+
+- **Part: CD74ACT273E** (TI, PDIP-20, octal D flip-flop with clear).  Mouser
+  392 and DigiKey 796 in stock (Octopart, 2026-10-16).  It needs a clear,
+  because the map must read all ROM at power-up for the CPU to boot.  The
+  74F377 has no clear.  The 74HCT273 is in stock too, but its minimum clock
+  pulse (20 ns) is longer than the /MAP_WR pulse.
+- **Wiring**: CP = /MAP_WR (I/O decode PLD, unchanged), D7:D0 = source bus,
+  Q0, Q1, Q3-Q7 = RAMSEL inputs of the memory control PLD, Q2 not used,
+  /MR = MAP_RUN (memory control PLD pin 19).
+- **Reset**: MAP_RUN is a register in the memory control PLD (revision 02)
+  with D = 1.  The ATF22V10C clears it at power-up, so it is low until the
+  first rising clock edge, which is where the CPU starts too.  The map is
+  cleared before the first instruction and no RC network is needed.
+- **I/O decode PLD rev 02**: comments only.  /MAP_WR already strobes page 0.
+
+| Check | Value | Slack |
+|---|---|---:|
+| /MAP_WR low width (low half 17.9 at 55 % high, less 4.5 of PLD skew) vs tW 5.3 | 13.4 | +8.1 |
+| Data setup to CP (source bus valid early in EXEC) vs 2 | > 15 | > +13 |
+| Data hold after CP: source bus holds until the next IR load (≥ T) vs /MAP_WR rise ≤ T + 15 | ≥ 20 | > +18 |
+| Logic levels: source bus 74F VOH 2.5 vs ACT VIH 2.0; ACT VOH 3.8 into the PLD | | +0.5 |
+| New map into the very next fetch: /MAP_WR rises by T + 15, CP→Q 12.3, MEM_CTRL 7.5, tOE 7, IR setup 2 | 43.8 | **−4.1** |
+| New map into any later clock | 34.8 from the map write's end | +44 |
+
+**Software rule**: the instruction straight after a map write must not be
+fetched from a section whose map bit that write changes, unless ROM and RAM
+hold the same byte there.  The usual shadow-copy (copy the ROM into the RAM
+underneath, then switch the section to RAM) is safe, because both hold the
+same byte, and so is putting any other instruction between the map write and
+the first fetch from the switched section.  With the map in the PLD
+(tCO 5.5) the next fetch had 2.7 ns to spare.
+
+**Checked in simulation**: `cpu_test` in GHDL makes the same 81,746 RAM
+writes as before, and the map test (F9h to 5000h) gives one /MAP_WR pulse
+and a map that reads back bits 7, 3, 1, 0 as 1, 1, 0, 1.

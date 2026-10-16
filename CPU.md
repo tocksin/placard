@@ -48,7 +48,7 @@ of the 256 zero locations.
 
 The memory space consists of both a 64kB RAM and a 64kB ROM.  All writes go to 
 the RAM module.  Reads are controlled by a memory bank selector register which 
-is configurable by software.  The memory space is divided into 8 sections. 
+is configurable by software (a write-only 74ACT273 at x5000).  The memory space is divided into 8 sections. 
 Each section can be configured as either ROM or RAM.  At startup, all regions
 are selected as ROM.  The software will execute from ROM initially until 
 reconfigured.  The video hardware will always read from RAM.
