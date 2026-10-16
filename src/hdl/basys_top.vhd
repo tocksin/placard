@@ -642,20 +642,25 @@ begin
     -- ROM or RAM on the read bus: the section decode of the memory control
     -- PLD's /ROM_OE and /RAM_OE (map bit n = 1 reads RAM), without the clock
     -- phase, so the bus does not change at the clock edge that latches it.
-    -- In the I/O window x5000-x5FFF neither memory drives the bus; the model
-    -- leaves the RAM there, as before.
+    -- A video read (pixelEnAndRst) always reads the RAM (memory control PLD
+    -- revision 04).  In the I/O window x5000-x5FFF neither memory drives the
+    -- bus; the model leaves the RAM there, as before.
     romSelProc: process (all)
     begin
-        case ramAddress(15 downto 13) is
-            when "000"  => romSel <= not ramSel0;
-            when "001"  => romSel <= not ramSel1;
-            when "010"  => romSel <= not ramSel2 and not ramAddress(12);
-            when "011"  => romSel <= not ramSel3;
-            when "100"  => romSel <= not ramSel4;
-            when "101"  => romSel <= not ramSel5;
-            when "110"  => romSel <= not ramSel6;
-            when others => romSel <= not ramSel7;
-        end case;
+        if pixelEnAndRst = '1' then
+            romSel <= '0';
+        else
+            case ramAddress(15 downto 13) is
+                when "000"  => romSel <= not ramSel0;
+                when "001"  => romSel <= not ramSel1;
+                when "010"  => romSel <= not ramSel2 and not ramAddress(12);
+                when "011"  => romSel <= not ramSel3;
+                when "100"  => romSel <= not ramSel4;
+                when "101"  => romSel <= not ramSel5;
+                when "110"  => romSel <= not ramSel6;
+                when others => romSel <= not ramSel7;
+            end case;
+        end if;
     end process romSelProc;
 
     -- Data bus process (from RAM/ROM) - replaces the tri-state databus 
