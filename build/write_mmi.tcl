@@ -18,7 +18,7 @@
 #
 # Returns the list of instance names.
 #
-# Date: 10/15/2026
+# Date: 10/16/2026
 
 proc write_mmi {mmiFile depth width} {
     set cells [get_cells -hierarchical -quiet -filter {PRIMITIVE_TYPE =~ BMEM.*.*}]
@@ -54,6 +54,9 @@ proc write_mmi {mmiFile depth width} {
         if {![regexp {^(RAMB18|RAMB36)_(X\d+Y\d+)$} $loc -> memType placement]} {
             error "write_mmi: $cell has unexpected LOC '$loc'"
         }
+        # updatemem names block RAMs by their data capacity, without parity:
+        # RAMB36 -> RAMB32, RAMB18 -> RAMB16 (Placement keeps the LOC X/Y)
+        set memType [dict get {RAMB36 RAMB32 RAMB18 RAMB16} $memType]
         set name  [get_property NAME $cell]
         set slash [string last / $name]
         if {$slash < 0} {
