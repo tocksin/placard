@@ -49,8 +49,8 @@ of the 256 zero locations.
 The memory space consists of both a 64kB RAM and a 64kB ROM.  All writes go to 
 the RAM module.  Reads are controlled by a memory bank selector register which 
 is configurable by software (a write-only 74ACT273 at x5000).  The memory space is divided into 8 sections. 
-Each section except x4000-x5FFF (always RAM, then the I/O window) can be
-configured as either ROM or RAM.  At startup, all regions
+Each section can be configured as either ROM or RAM.  In x4000-x5FFF the
+map bit covers only x4000-x4FFF; x5000-x5FFF is the I/O window.  At startup, all regions
 are selected as ROM.  The software will execute from ROM initially until 
 reconfigured.  Video reads follow the same map, so the video sections must be
 mapped to RAM for the display to show the RAM.  See the [memory map](README.md#memory-map).

@@ -1,6 +1,6 @@
 -- ============================================================
 -- MEMORY READ AND WRITE STROBES
--- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 02)
+-- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 03)
 -- Date: 10/16/2026
 --
 -- Replaces the '32 OR gate (/WE = RW or CLK) and the read enables
@@ -14,12 +14,17 @@
 -- clock.  It drives /MR of the 74ACT273 map register, which clears the
 -- map to all ROM before the CPU starts.
 --
+-- Revision 03: ramsel2 (pin 15) maps 4000h-4FFFh like the other
+-- sections (it was always RAM).  romOeN moved to pin 19 and mapRun to
+-- pin 17.
+--
 --     write  = not rw and not pixelEnable
 --     read   = rw or pixelEnable
 --     weN    = low while clk = 0 and a write
 --     romOeN = low while clk = 0 and a read of a ROM section
 --     ramOeN = low while clk = 0 and a read of a RAM section
---              (or 4000h-4FFFh; not the I/O window 5000h-5FFFh)
+--              (section 2 is mapped for 4000h-4FFFh only; neither
+--              memory reads in the I/O window 5000h-5FFFh)
 --
 -- rw is State PLD pin 23 (Rev 12: low for the whole EXEC state of a
 -- store).  pixelEnable is the Sync PLD's PIXEL_ENABLE, not STALL.
@@ -31,9 +36,10 @@
 -- Pin assignments (ATF22V10C):
 --   1  clk         2  a15        3  a14        4  a13       5  a12
 --   6  ramsel0     7  ramsel1    8  ramsel3    9  ramsel4  10  ramsel5
---  11  ramsel6    13  ramsel7   14  rw        23  pixelEnable
---  16  weN        17  romOeN    18  ramOeN    19  mapRun
---  15, 20-22 not used
+--  11  ramsel6    13  ramsel7   14  rw        15  ramsel2
+--  23  pixelEnable
+--  16  weN        17  mapRun    18  ramOeN    19  romOeN
+--  20-22 not used
 -- ============================================================
 
 library ieee;
@@ -53,13 +59,14 @@ entity mem_ctrl_pld is
         ramsel5     : in  std_logic;   -- pin 10
         ramsel6     : in  std_logic;   -- pin 11
         ramsel7     : in  std_logic;   -- pin 13
+        ramsel2     : in  std_logic;   -- pin 15 (I/O pin used as input)
         rw          : in  std_logic;   -- pin 14, State PLD pin 23, 0 = store
         pixelEnable : in  std_logic;   -- pin 23, Sync PLD PIXEL_ENABLE
 
         weN         : out std_logic;   -- pin 16, RAM /WE and write buffer enable
-        romOeN      : out std_logic;   -- pin 17, ROM /OE
+        romOeN      : out std_logic;   -- pin 19, ROM /OE
         ramOeN      : out std_logic;   -- pin 18, RAM /OE
-        mapRun      : out std_logic    -- pin 19, registered, map register /MR
+        mapRun      : out std_logic    -- pin 17, registered, map register /MR
     );
 end entity mem_ctrl_pld;
 
@@ -105,6 +112,7 @@ begin
 
     romOe <= (sec0 and (not ramsel0) and busRead)
           or (sec1 and (not ramsel1) and busRead)
+          or (sec2 and (not a12) and (not ramsel2) and busRead)
           or (sec3 and (not ramsel3) and busRead)
           or (sec4 and (not ramsel4) and busRead)
           or (sec5 and (not ramsel5) and busRead)
@@ -113,7 +121,7 @@ begin
 
     ramOe <= (sec0 and ramsel0 and busRead)
           or (sec1 and ramsel1 and busRead)
-          or (sec2 and (not a12) and busRead)
+          or (sec2 and (not a12) and ramsel2 and busRead)
           or (sec3 and ramsel3 and busRead)
           or (sec4 and ramsel4 and busRead)
           or (sec5 and ramsel5 and busRead)

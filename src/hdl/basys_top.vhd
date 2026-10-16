@@ -151,6 +151,7 @@ architecture Behavioral of basys_top is
     signal mapRun           : sl;   -- map register /MR, from the memory control PLD
     signal ramSel0          : sl;   -- ROM/RAM map, 1 = RAM
     signal ramSel1          : sl;
+    signal ramSel2          : sl;
     signal ramSel3          : sl;
     signal ramSel4          : sl;
     signal ramSel5          : sl;
@@ -546,7 +547,7 @@ begin
     -- ROM/RAM map register: 74ACT273, an I/O device at 5000h (write only).
     -- It loads the source bus on the rising edge of /MAP_WR, and /MR
     -- (mapRun from the memory control PLD) clears it to all ROM until the
-    -- first clock after power-up.  Q2 is not used.
+    -- first clock after power-up.
     mapRegProc : process (mapWrN, mapRun)
     begin
         if mapRun = '0' then
@@ -558,6 +559,7 @@ begin
 
     ramSel0 <= mapReg(0);
     ramSel1 <= mapReg(1);
+    ramSel2 <= mapReg(2);
     ramSel3 <= mapReg(3);
     ramSel4 <= mapReg(4);
     ramSel5 <= mapReg(5);
@@ -581,6 +583,7 @@ begin
         ramsel5     => ramSel5,
         ramsel6     => ramSel6,
         ramsel7     => ramSel7,
+        ramsel2     => ramSel2,
         rw          => memRdWr,
         pixelEnable => pixelEnAndRst,
 
