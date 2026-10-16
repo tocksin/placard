@@ -20,28 +20,48 @@ The project has some hard-goals to maintain:
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
 
 ## Memory Map
-The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databus.  The video RAM starts at x6020 and ends at xFFFF.  The memory is divided into 8kB banks which can each be selected to read the ROM instead of RAM, except x4000-x5FFF, which is always RAM plus the I/O window.  The RAM will always be the target when writing even if ROM is select for that bank.  By default, ROM is selected for all banks.  There is a fixed I/O address space at x5000-x5FFF which always has priority over RAM/ROM access.
+The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databus.  The video RAM starts at x6020 and ends at xFFFF.  There is a 64kB RAM and a 64kB ROM behind the same addresses.  The address space is divided into eight 8kB sections, and a write-only map register at x5000 picks whether each section reads from the RAM or the ROM.
+
+- **Writes always go to the RAM**, even in a section mapped to ROM.  The write strobe (/WE) is not decoded by address, so a write in the I/O window x5000-x5FFF also lands in the RAM underneath it.
+- **The map register** is a CD74ACT273E clocked by /MAP_WR from the I/O decode PLD; it latches the source bus at the end of the write.  Bit n = 1 makes section n read from RAM, 0 from ROM.  Bit 2 is ignored, because section 2 has no map bit.  It is write only, so software keeps a copy of the last value it wrote.
+- **At power-up every section reads as ROM.**  The memory control PLD's MAP_RUN output holds the register's /MR low from power-up until the first clock edge, which is where the CPU starts, so the CPU boots from ROM.
+- **x4000-x4FFF is always RAM**, whatever the map says.
+- **x5000-x5FFF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  A11 is not decoded, so x5800-x5FFF repeats x5000-x57FF.
+- **Only `[Y,X]` reaches the I/O window**; `[0,D]` and `[0,X]` only address the zero page.
+- **Video reads follow the map too**: /RAM_OE and /ROM_OE are decoded the same way for a video read as for a CPU read, so a video section shows the RAM only once it is mapped to RAM.
+- **After a map write**, the next instruction must not be fetched from a section whose map bit that write changed, unless the ROM and RAM hold the same byte there (the new map arrives 4.1 ns too late for that fetch).  Copying the ROM into the RAM underneath and then switching the section is safe.  See [TIMING_FIXES.md](TIMING_FIXES.md#romram-map-register-74act273).
+
+The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /WE, /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
 
 The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen yet; for now it is the same AS7C256C-15PCN with battery backup.  See [CPU.md](CPU.md#memory-parts) and [TIMING.md](TIMING.md).
 
-| Address | Function  |
-|---------|------|
-| x0000-x1FFF | RAM/ROM |
-| x2000-x3FFF | RAM/ROM |
-| x4000-x4FFF | RAM (always) |
-| x5000-x50FF | Memory configuration (write only) |
-| x5100-x51FF | Sound |
-| x5200-x52FF | Keyboard |
-| x5300-x53FF | Joystick |
-| x5400-x54FF | Storage  |
-| x5500-x55FF | Expansion 1 |
-| x5600-x56FF | Expansion 2 |
-| x5700-x5FFF | RESERVED |
-| x6000-x7FFF | RAM/ROM (Video Memory) |
-| x8000-x9FFF | RAM/ROM (Video Memory) |
-| xA000-xBFFF | RAM/ROM (Video Memory) |
-| xC000-xDFFF | RAM/ROM (Video Memory) |
-| xE000-xFFFF | RAM/ROM (Video Memory) |
+| Address | Map bit | Function  |
+|---------|---------|------|
+| x0000-x1FFF | 0 | RAM/ROM |
+| x2000-x3FFF | 1 | RAM/ROM |
+| x4000-x4FFF | none | RAM (always) |
+| x5000-x5FFF | none | I/O window (see below) |
+| x6000-x7FFF | 3 | RAM/ROM (Video Memory from x6020) |
+| x8000-x9FFF | 4 | RAM/ROM (Video Memory) |
+| xA000-xBFFF | 5 | RAM/ROM (Video Memory) |
+| xC000-xDFFF | 6 | RAM/ROM (Video Memory) |
+| xE000-xFFFF | 7 | RAM/ROM (Video Memory) |
+
+### I/O window
+Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes are low with /WE, and devices latch the source bus on the rising edge at the end of the write.  Read strobes are low on a read the CPU latches into D (LOAD_IMM).  Devices other than the map register are planned in [FEATURE_PLAN.md](FEATURE_PLAN.md) and not built yet.
+
+| Address | Strobe | R/W | Function |
+|---------|--------|-----|----------|
+| x5000-x50FF | /MAP_WR | W | ROM/RAM map register (built) |
+| x5000-x50FF | /LINE_RD | R | Video line counter, V9:V2 (planned) |
+| x5100-x51FF | /SND_WR | W | Sound pitch (planned) |
+| x5200-x52FF | /PORT_WR | W | Shared port output latch: SD card, SNES pad clock and latch (planned) |
+| x5200-x52FF | /PORT_RD | R | Shared port input: keyboard rows of column A2:A0, SNES pad data, SD card MISO (planned) |
+| x5300-x54FF | none | | Unused |
+| x5500-x55FF | /EXP1 | R/W | Expansion port 1 |
+| x5600-x56FF | /EXP2 | R/W | Expansion port 2 |
+| x5700-x57FF | none | | Unused |
+| x5800-x5FFF | | | Repeats x5000-x57FF |
 
 
 ## Video
