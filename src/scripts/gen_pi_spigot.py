@@ -42,11 +42,11 @@ SCREEN (1 bpp)
     Digits in the 8x8 font, 79 per line, "3." first.  The screen is cleared
     and every mode byte set to 1 bpp first.
 
-RESULT (placard_sim.py, 1000 digits, all match pi; 50 digits also checked
-with --hw-alu)
-    635,770,131 instructions, 2,123,927,763 clocks (about 637 per term)
-        84.4 s at 25.175 MHz with no video
-        92.9 s with the CPU stalled on every video byte fetch (1 clock in 8
+RESULT (placard_sim.py with State PLD rev 12 / Branch PLD rev 09 timing;
+1000 digits, all match pi; 50 digits also checked with --hw-alu)
+    635,770,131 instructions, 2,256,004,142 clocks (about 677 per term)
+        89.6 s at 25.175 MHz with no video
+        98.6 s with the CPU stalled on every video byte fetch (1 clock in 8
                during active video, 9.1% of all clocks)
     The screen is reference/pi_spigot_sim.png.
 
@@ -60,7 +60,7 @@ MEMORY
     3900-4DFF   product table high limbs, page 39 + m
     6000-FFFF   video RAM
 
-Date: 10/15/2026
+Date: 10/16/2026
 """
 
 import argparse
@@ -566,7 +566,7 @@ def build(ndig):
     o(';')
     o(';     python3 placard_sim.py pi_spigot.asm --run --max-steps 2000000000 --png pi.png')
     o(';')
-    o('; Date: 10/15/2026')
+    o('; Date: 10/16/2026')
     o('')
     o('#include "placard.asm"')
     o('')
