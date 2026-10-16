@@ -33,10 +33,12 @@
 #     address = VID_BASE + (byte_column * COL_STRIDE) + screen_row
 #     VID_BASE = (48*512)+32 = 0x6020 : byte column 0, row 0
 #
-# Byte column 0 of every row is the mode byte, bits 1:0 = color mode
-#     00 = 1 bpp, 01 = 2 bpp, 10 = 4 bpp, 11 = 8 bpp (other bits 0).
-# Pixel data is in byte columns 1..79, LSB first within a byte.
-# Drawable width = 632 / 316 / 158 / 79 pixels for 1 / 2 / 4 / 8 bpp.
+# Each row's mode byte is read in horizontal blanking (group 37), at
+#     MODE_BASE + screen_row, MODE_BASE = (37*512)+32 = 0x4A20
+# bits 1:0 = color mode 00 = 1 bpp, 01 = 2 bpp, 10 = 4 bpp, 11 = 8 bpp
+# (other bits 0).
+# Pixel data is in byte columns 0..79, LSB first within a byte.
+# Drawable width = 640 / 320 / 160 / 80 pixels for 1 / 2 / 4 / 8 bpp.
 #
 # Four 120-row bands, one mode each:
 #     rows   0..119  1 bpp  text, ruler
@@ -47,6 +49,7 @@
 
 set COL_STRIDE 512
 set VID_BASE   [expr {48 * 512 + 32}]
+set MODE_BASE  [expr {37 * 512 + 32}]
 set BAND_H     120
 set MEM_SIZE   65536
 
@@ -102,15 +105,15 @@ array set font [list " " {00 00 00 00 00 00 00 00}]
 # Helpers
 # ---------------------------------------------------------------------------
 
-# address of screen row y, byte column col (column 0 = mode byte)
+# address of screen row y, byte column col
 proc byte_addr {y col} {
     return [expr {$::VID_BASE + $col * $::COL_STRIDE + $y}]
 }
 
 # set one pixel; bpp = 1,2,4,8; x in pixels of that mode; y = screen row
-# pixel data starts at byte column 1
+# pixel data starts at byte column 0
 proc put_pixel {bpp x y color} {
-    set addr [byte_addr $y [expr {1 + ($x * $bpp) / 8}]]
+    set addr [byte_addr $y [expr {($x * $bpp) / 8}]]
     if {$addr < 0 || $addr >= $::MEM_SIZE} {
         return
     }
@@ -160,7 +163,7 @@ proc draw_text {bpp x0 y0 ysc str color} {
 
 # top line, left/right edges, optional bottom line, 2-byte x 8-row corner markers
 proc frame_band {bpp y0 h is_first is_last edge_color corner_color} {
-    set W  [expr {632 / $bpp}]
+    set W  [expr {640 / $bpp}]
     set CW [expr {2 * (8 / $bpp)}]
     fill_rect $bpp 0        $y0 $W 1 $edge_color
     fill_rect $bpp 0        $y0 1  $h $edge_color
@@ -254,19 +257,19 @@ proc gen_video_ram {outFile} {
         set ::mem($i) 0
     }
 
-    # mode byte (byte column 0) of every row: band n -> mode n
+    # mode byte of every row: band n -> mode n
     for {set r 0} {$r < 4 * $::BAND_H} {incr r} {
-        set ::mem([byte_addr $r 0]) [expr {$r / $::BAND_H}]
+        set ::mem([expr {$::MODE_BASE + $r}]) [expr {$r / $::BAND_H}]
     }
 
     # ---- BAND 0 : 1 bpp, color 1 = white -----------------------------------
     frame_band 1 0 $::BAND_H 1 0 1 1
-    draw_text 1 8  8 2 "1 BPP MODE - 632X480 - 2 COLORS" 1
+    draw_text 1 8  8 2 "1 BPP MODE - 640X480 - 2 COLORS" 1
     draw_text 1 8 32 2 "ABCDEFGHIJKLMNOPQRSTUVWXYZ" 1
     draw_text 1 8 56 2 "0123456789 -:./" 1
     draw_text 1 8 80 2 "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG" 1
     # ruler: tick every 8 pixels, tall tick every 64
-    for {set i 1} {$i <= 78} {incr i} {
+    for {set i 1} {$i <= 79} {incr i} {
         if {$i % 8 == 0} {
             fill_rect 1 [expr {$i * 8}] 104 1 8 1
         } else {
@@ -276,7 +279,7 @@ proc gen_video_ram {outFile} {
 
     # ---- BAND 1 : 2 bpp, 0 black, 1 blue, 2 gold, 3 white ------------------
     frame_band 2 120 $::BAND_H 0 0 3 3
-    draw_text 2 4 128 2 "2 BPP MODE - 316X480 - 4 COLORS" 3
+    draw_text 2 4 128 2 "2 BPP MODE - 320X480 - 4 COLORS" 3
     draw_text 2 4 152 2 "BLUE TEXT - COLOR 1" 1
     draw_text 2 4 176 2 "GOLD TEXT - COLOR 2" 2
     draw_text 2 4 200 2 "WHITE TEXT - COLOR 3" 3

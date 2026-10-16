@@ -24,7 +24,7 @@
 ;   0A         LINE_LAST     frames    last value read from the line read
 ;   0B         RAND_LO       rand8     random generator state, low byte
 ;   0C         RAND_HI       rand8     random generator state, high byte
-;   0D         CUR_COL       console   cursor byte column, 1-79
+;   0D         CUR_COL       console   cursor byte column, 0-79
 ;   0E         CUR_ROW       console   cursor text row, 0-59
 ;   0F         SAVE_AC       stack     AC parked by PUSH_LINK and lib_leave
 ;   10-17      R0-R7         caller    arguments and results

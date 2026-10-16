@@ -18,6 +18,7 @@ entity vga_gen_pld is
         vSyncOut        : out sl;
         videoActiveOut  : out sl;
         pixelEnOut      : out sl;
+        modeLdNOut      : out sl;   -- line code register /E, low in group 37
         pixelRowOut     : out slv(9 downto 0);
         pixelColOut     : out slv(9 downto 0);
 
@@ -42,7 +43,8 @@ architecture Behavioral of vga_gen_pld is
     signal vcount : slv(9 downto 0);
     
     signal pixelEnable : sl;
-    signal audSlot : sl;    -- audio sample slot, audio PLD pin 23 to Sync PLD pin 13
+    signal blankRd : sl;    -- blanking read slot, audio PLD pin 23 to Sync PLD pin 13
+    signal modeLdN : sl;    -- mode byte load, audio PLD pin 22 (active low)
     
 begin
 
@@ -85,8 +87,10 @@ begin
         Q9          => vcount(9)
     );
 
-    -- Audio sample slot: group 38 on lines 499-511, group 39 on lines
-    -- 512-1023, so the audio read address runs 4DF3h-4FFFh (see SOUND.md).
+    -- Blanking read slots: the mode byte in group 37 on every line, at
+    -- 4A00h + V8:V0 (see VIDEO.md), and the audio sample in group 38 on
+    -- lines 499-511 and group 39 on lines 512-1023, so the audio read
+    -- address runs 4DF3h-4FFFh (see SOUND.md).
     audioPLD : entity work.audio_pld
     port map(
         H9          => hcount(9),
@@ -98,7 +102,8 @@ begin
         H3          => hcount(3),
         V9          => vcount(9),
 
-        AUD_SLOT    => audSlot
+        MODE_LD     => modeLdN,
+        BLANK_RD    => blankRd
     );
 
     syncPLD : entity work.sync_pld
@@ -118,7 +123,7 @@ begin
         Y_ENABLE         => yEnableIn,
         X_ENABLE         => xEnableIn,
 
-        AUD_SLOT         => audSlot,
+        BLANK_RD         => blankRd,
 
         H0               => hcount(0),
         H1               => hcount(1),
@@ -138,4 +143,5 @@ begin
     pixelColOut <= hcount;
     videoActiveOut <= videoActive;
     pixelEnOut <= pixelEnable;
+    modeLdNOut <= modeLdN;
 end Behavioral;

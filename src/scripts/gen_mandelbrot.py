@@ -72,6 +72,7 @@ MEMORY
     1F00        color tables, 64 entries per mode, indexed by iterations left
     2000-27FF   square table low limbs  (k = 0..1023: page 20 + k/128, X = k%128)
     2800-2FFF   square table high limbs (page 28 + k/128)
+    4A20-4BFF   mode bytes, one per row
     6000-FFFF   video RAM
 
 Date: 10/16/2026
@@ -329,7 +330,7 @@ def build(once, delay, out_path=None):
     # ------------------------------------------------------------ clear screen
     g.block('clear')
     label('clear')
-    e('; video RAM 6000-FFFF = 0, then mode byte = [mode] for rows 6020-61FF')
+    e('; video RAM 6000-FFFF = 0, then mode byte = [mode] for rows 4A20-4BFF')
     g.st(0x60, 'tmp')
     label('clr_pg')
     e('ld   %s, y' % z('tmp'))
@@ -344,7 +345,7 @@ def build(once, delay, out_path=None):
     e('inc')
     e('ld   ac, %s' % z('tmp'))
     e('bne  clr_pg')
-    e('ld   0x60, y')
+    e('ld   0x4A, y')
     e('ld   0x20, x')
     label('mode0')
     e('ld   %s, ac' % z('mode'))
@@ -353,7 +354,7 @@ def build(once, delay, out_path=None):
     e('inc')
     e('ld   ac, x')
     e('bne  mode0')
-    e('ld   0x61, y')
+    e('ld   0x4B, y')
     label('mode1')
     e('ld   %s, ac' % z('mode'))
     e('ld   ac, [y,x]')
@@ -642,6 +643,15 @@ def build(once, delay, out_path=None):
     e('ld   ac, %s' % z('tmp'))
     e('sub  0x%02X, ac' % ((0x60 + (v0 >> 8) + 160) & 0xFF))
     e('bne  bnd')
+    e('ld   0x%02X, y' % (0x4A + (v0 >> 8)))
+    e('ld   0x%02X, x' % (v0 & 0xFF))
+    label('bndm')
+    e('ld   0x00, [y,x]')
+    e('ld   x, ac')
+    e('inc')
+    e('ld   ac, x')
+    e('sub  0x%02X, ac' % ((v0 & 0xFF) + BAND_ROWS))
+    e('bne  bndm')
     g.far('tshow2')
 
     g.block('tshow2')
