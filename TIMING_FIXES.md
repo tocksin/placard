@@ -363,8 +363,14 @@ nothing but the map).  The chip count does not change.
   74F377 has no clear.  The 74HCT273 is in stock too, but its minimum clock
   pulse (20 ns) is longer than the /MAP_WR pulse.
 - **Wiring**: CP = /MAP_WR (I/O decode PLD, unchanged), D7:D0 = source bus,
-  Q0, Q1, Q3-Q7 = RAMSEL inputs of the memory control PLD, Q2 not used,
-  /MR = MAP_RUN (memory control PLD pin 19).
+  Q0-Q7 = RAMSEL inputs of the memory control PLD, /MR = MAP_RUN (memory
+  control PLD pin 17 since revision 03).
+- **Section 2 map bit (memory control PLD rev 03)**: with the map out of
+  the PLD, Q2 maps x4000-x4FFF like the other sections; it was always RAM
+  only because the ROM/RAM select PLD had no pin for it.  RAMSEL2 is an
+  input on pin 15.  ROM_OE moved to pin 19 for its two extra product terms
+  (16 of 16) and MAP_RUN to pin 17.  The read paths are unchanged.  Like
+  every section, x4000-x4FFF now reads as ROM at power-up.
 - **Reset**: MAP_RUN is a register in the memory control PLD (revision 02)
   with D = 1.  The ATF22V10C clears it at power-up, so it is low until the
   first rising clock edge, which is where the CPU starts too.  The map is
