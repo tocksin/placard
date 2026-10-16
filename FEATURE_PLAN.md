@@ -1,8 +1,8 @@
 # Feature plan: I/O (bare bones)
 
 This is a planning list, not a design.  Nothing here is implemented yet.  It
-covers the I/O the Placard still needs: video line position, sound, keyboard,
-SNES controllers, SD card storage and two expansion ports.
+covers the I/O the Placard still needs: sound, keyboard, SNES controllers,
+SD card storage and two expansion ports.
 
 The goal is the **fewest added chips**, even at the cost of features.
 Software does whatever hardware can be left out.  Things that were cut are
@@ -25,6 +25,9 @@ These facts from the current design shape every choice below.
   of the ROM/RAM select PLD, so the base chip count did not change; its /MR
   comes from MEM_CTRL's MAP_RUN (pin 17), which clears it to all ROM until
   the first clock after power-up.
+- **The video line read is built** (removed from this list).  A 74F541
+  enabled by /LINE_RD puts V9:V2 on the data bus for a read at x5000; see
+  README.md, "Video line read".  It is wired in `basys_top.vhd`.
 - **Only `[Y,X]` reaches I/O.**  `[0,D]` and `[0,X]` only address the zero
   page, so every I/O access is `ld 0x5n, y` then `ld [y,x], ac` (read) or
   `ld ac, [y,x]` / `ld n, [y,x]` (write).
@@ -51,11 +54,10 @@ These facts from the current design shape every choice below.
 
 | Feature | Added chips |
 |---|---|
-| Video line read | 1 x 74F541 |
 | Shared port: keyboard (40 keys), 2 SNES pads, SD card | 74HC574, 74F138, 74F541, CD4050, plus a 3.3 V regulator |
 | Sound (one voice) | 74F574, 1 x ATF22V10C |
 | Expansion ports (2) | none, connectors only |
-| **Total** | **7 logic chips + 1 regulator** |
+| **Total** | **6 logic chips + 1 regulator** |
 
 ## Parts rule and stock check
 
@@ -87,25 +89,7 @@ register that latches the read bus is a plain 74HC part, its 3.5 V input
 threshold is above the 74F's guaranteed high.  Use HCT (or F) on those
 inputs, or keep HC541s on the bus.
 
-## 1. Video line read (x50, one 74F541)
-
-| Address | R/W | Function |
-|---|---|---|
-| x5000 | W | ROM/RAM section map: /MAP_WR clocks the 74ACT273 map register, which latches the source bus.  Write only.  Bit n = 1 makes section n RAM; bit 2 covers only x4000-x4FFF (x5000-x5FFF is the I/O window).  Already built. |
-| x5000 | R | Upper 8 bits of the line counter, V9:V2 |
-
-- The V counter already exists in the V Counter PLD (it counts 499 to 1023).
-  One 74F541 enabled by /LINE_RD puts V9:V2 on the data bus.  It is a
-  single byte, so it can't tear between reads.
-- **Resolution is 4 lines** (128 us).  Visible rows start at V = 544, so
-  `row / 4 = value - 136`.  A value below 136 means vertical blanking.
-- **No frame counter.**  Software keeps time by polling: each time the value
-  goes down (from 255 back to 124), a frame has passed.  At the FPGA's
-  25.000 MHz clock a frame is 525 lines, about 16.8 ms (59.5 Hz).
-- **Software must poll at least once per frame**, or it misses a wrap.  Elapsed
-  time is then frames x 16.8 ms plus the line position for finer detail.
-
-## 2. Shared port: keyboard, SNES pads and SD card (x52)
+## 1. Shared port: keyboard, SNES pads and SD card (x52)
 
 The keyboard, the pads and the SD card are never needed at the same moment,
 so software takes turns: scan the keyboard, then read the pads, and talk to
@@ -158,7 +142,7 @@ because the pads' CMOS inputs need a full 5 V high.
 row, 74F541, data bus inside one clock.  The 74F parts keep that short, but
 the diode and the row's pull-up are the slow part of the path.
 
-## 3. Sound (x51, 74F574 + ATF22V10C)
+## 2. Sound (x51, 74F574 + ATF22V10C)
 
 One square-wave voice that runs on its own once software sets the pitch.
 
@@ -179,7 +163,7 @@ One square-wave voice that runs on its own once software sets the pitch.
 - **Zero-chip fallback:** a spare bit in the shared port's latch as a one-bit beeper that
   software toggles.  The pitch is only as steady as the software loop.
 
-## 4. Expansion ports (x55, x56, connectors only)
+## 3. Expansion ports (x55, x56, connectors only)
 
 | Signal | Meaning |
 |---|---|
@@ -197,12 +181,11 @@ One square-wave voice that runs on its own once software sets the pitch.
 
 ## Suggested order
 
-1. Line read.
-2. Shared port with the SNES pads (the easiest way to test it).
-3. Keyboard on the shared port.
-4. SD card on the shared port.
-5. Sound.
-6. Expansion connectors (the interface is fixed by the I/O decode).
+1. Shared port with the SNES pads (the easiest way to test it).
+2. Keyboard on the shared port.
+3. SD card on the shared port.
+4. Sound.
+5. Expansion connectors (the interface is fixed by the I/O decode).
 
 For the FPGA model, each step adds its PLD as a VHDL entity (no optimization,
 individual pins, lowerCamelCase signals) and a branch on the read mux in

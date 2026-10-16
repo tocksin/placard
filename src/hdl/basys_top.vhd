@@ -145,6 +145,7 @@ architecture Behavioral of basys_top is
     signal pcCarry          : sl;
 
     signal mapWrN           : sl;   -- /MAP_WR, ROM/RAM map write strobe
+    signal lineRdN          : sl;   -- /LINE_RD, video line counter read strobe
     signal romOeN           : sl;   -- ROM /OE
     signal ramOeN           : sl;   -- RAM /OE
     signal mapReg           : slv(7 downto 0) := (others => '0');  -- 74ACT273 map register
@@ -595,7 +596,8 @@ begin
     romEn <= not romOeN;
 
     -- I/O decode and upper 32K chip enable.  The FPGA RAM model is one
-    -- 64K block, so ce_hi_n is not used here, and no I/O devices exist yet.
+    -- 64K block, so ce_hi_n is not used here.  The devices built so far are
+    -- the map register (/MAP_WR) and the line read buffer (/LINE_RD).
     ioDecodeComp: entity work.io_decode_pld
     port map(
         we_n        => ramWeN,
@@ -615,7 +617,7 @@ begin
 
         ce_hi_n     => open,
         map_wr_n    => mapWrN,
-        line_rd_n   => open,
+        line_rd_n   => lineRdN,
         snd_wr_n    => open,
         port_wr_n   => open,
         port_rd_n   => open,
@@ -639,9 +641,25 @@ begin
     --   this process tested rom_en with the wrong polarity, which had the
     --   same effect; see TIMING.md, "Other observations".)  The ROM block
     --   and romEn are kept for when the map is used.
+    --
+    --   Video line read: a 74F541 enabled by /LINE_RD (an I/O read at
+    --   x5000-x50FF) drives the upper 8 bits of the V counter, V9:V2, onto
+    --   the data bus.  The memory control PLD keeps the RAM and ROM off the
+    --   bus in the I/O window, so the buffer is the only driver there.
     rambusSelectorProc: process (all)
     begin
-        databus <= to_01(ramData);
+        if lineRdN = '0' then
+            databus(0) <= pixelRow(2);  -- '541 A1 = V2
+            databus(1) <= pixelRow(3);  -- '541 A2 = V3
+            databus(2) <= pixelRow(4);  -- '541 A3 = V4
+            databus(3) <= pixelRow(5);  -- '541 A4 = V5
+            databus(4) <= pixelRow(6);  -- '541 A5 = V6
+            databus(5) <= pixelRow(7);  -- '541 A6 = V7
+            databus(6) <= pixelRow(8);  -- '541 A7 = V8
+            databus(7) <= pixelRow(9);  -- '541 A8 = V9
+        else
+            databus <= to_01(ramData);
+        end if;
     end process rambusSelectorProc;
 /*
     -- D register process 
