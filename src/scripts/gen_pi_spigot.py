@@ -5,7 +5,7 @@ benchmark for the Placard CPU: exact decimal digits of pi using integer
 arithmetic only, printed in the middle of the screen as they are produced,
 timed with the video line read, and run again every 10 seconds.
 
-    python3 gen_pi_spigot.py                 1000 digits -> pi_spigot.asm
+    python3 gen_pi_spigot.py                 1000 digits -> pi_spigot.asm and .hex
     python3 gen_pi_spigot.py --digits 50     a quick test build
     python3 placard_sim.py pi_spigot.asm --run --max-steps 2000000000 --stop-at pause --png pi.png
 
@@ -94,7 +94,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from placard_sim import instr_size   # noqa: E402
+from placard_sim import assemble, instr_size, to_hexstr   # noqa: E402
 
 ALO_PG, AHI_PG = 0x08, 0x16
 TLO_PG, THI_PG = 0x24, 0x39
@@ -834,7 +834,11 @@ def build(ndig):
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pi_spigot.asm')
     with open(path, 'w') as f:
         f.write('\n'.join(out) + '\n')
-    print('wrote %s (%d digits, %d terms)' % (path, ndig, ln))
+    # write the hex too, so pi_spigot.hex always matches pi_spigot.asm
+    mem, _, _ = assemble('\n'.join(out) + '\n', os.path.dirname(path))
+    with open(path[:-4] + '.hex', 'w') as f:
+        f.write(to_hexstr(mem) + '\n')
+    print('wrote %s and pi_spigot.hex (%d digits, %d terms)' % (path, ndig, ln))
 
 
 if __name__ == '__main__':
