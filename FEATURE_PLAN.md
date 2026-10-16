@@ -54,7 +54,7 @@ These facts from the current design shape every choice below.
 
 | Feature | Added chips |
 |---|---|
-| Shared port: keyboard (40 keys), 2 SNES pads, SD card | 74HC574, 74F138, 74F541, CD4050, plus a 3.3 V regulator |
+| Shared port: keyboard (65 keys), 2 SNES pads, SD card | 74HC574, 74F138, 74F541, CD4050, plus a 3.3 V regulator |
 | Sound (one voice) | 74F574, 1 x ATF22V10C |
 | Expansion ports (2) | none, connectors only |
 | **Total** | **6 logic chips + 1 regulator** |
@@ -98,20 +98,32 @@ input buffer.  Everything is bit-banged; there is no hardware shifter.
 
 | Address | R/W | Function |
 |---|---|---|
-| x5200 | W | Output latch (74HC574): bit 0 SCK / pad CLOCK, bit 1 SD MOSI, bit 2 SD /CS, bit 3 pad LATCH, bits 4-7 spare |
-| x5200 + n | R | 74F541: bits 4:0 keyboard rows of column n (0 = pressed), bit 5 pad 2 DATA, bit 6 pad 1 DATA, bit 7 SD MISO |
+| x5200 | W | Output latch (74HC574): bit 0 SCK / pad CLOCK, bit 1 SD MOSI / pad LATCH, bit 2 SD /CS, bits 7:3 keyboard columns 8-12 (0 = drive the column) |
+| x5200 | R | 74F541 with no decoder column driven: bits 4:0 rows of whichever latch column is low, bit 5 pad 2 DATA, bit 6 pad 1 DATA, bit 7 SD MISO |
+| x5208 + n | R | The same, with decoder column n (0-7) driven low for the read |
 
-**Keyboard: 8 columns x 5 rows = 40 keys** (the same size as the ZX
-Spectrum's).  /PORT_RD enables a 74F138 that drives column A2:A0 low for the
-length of the read, and the same strobe enables the 74F541 that reads the
-rows (with pull-ups and a diode per key).  One read per column, so a full
-scan is 8 reads.  Debounce, shift, rollover and repeat are in software, once
-per frame using the line read.  Only 5 of the buffer's 8 bits are rows,
-because the other 3 carry the serial inputs.
+**Keyboard: 13 columns x 5 rows = 65 keys**, with no added chips.  Only 5 of
+the buffer's 8 bits are rows, because the other 3 carry the serial inputs, so
+the extra keys come from extra columns:
+
+- **Columns 0-7 come from the 74F138**, decoded from A2:A0 and driven low only
+  for the length of a read.  Its active-high enable (G1) is wired to A3, so
+  only reads of x5208-x520F drive a column; reads of x5200-x5207 drive none.
+  /PORT_RD goes to the active-low enable, as before.
+- **Columns 8-12 come from the output latch**, bits 7:3.  They are static, so
+  software drives one low, reads x5200 (no decoder column), then sets it high
+  again.  Keep all five high while scanning columns 0-7.
+- **The latch bits come free** by putting the pads' LATCH on the MOSI line.
+  The SD card ignores MOSI while its /CS is high, and the pads' LATCH being
+  toggled during an SD transfer only reloads their shift registers, which
+  software does again before every pad read anyway.
+- **A full scan is 13 reads and 10 latch writes.**  Debounce, shift, rollover
+  and repeat are in software, once per frame using the line read.  Each key
+  has a diode and each row a pull-up, as before.
 
 **Serial inputs ride along on every read.**  Bits 7:5 show MISO and both pad
-data lines no matter which column is addressed, so the serial code can read
-any address in the page.  MISO is on D7 so that loading it into AC sets the
+data lines on every read.  The serial code reads x5200, so it never drives a
+decoder column.  MISO is on D7 so that loading it into AC sets the
 negative flag and `blt` / `bge` can test it directly.  The buffer's inputs
 are TTL level, so the card's 3.3 V MISO needs no level shifting coming back.
 
@@ -121,7 +133,7 @@ does no harm because software pulses LATCH before every pad read.  Only the
 software's idle level differs (the pads idle with CLOCK high, SPI mode 0
 idles low), which costs nothing in bit-bang.
 
-**SNES pads:** pulse LATCH, then read DATA and pulse CLOCK 16 times.  The
+**SNES pads:** with SD /CS high, pulse LATCH (the MOSI bit), then read DATA and pulse CLOCK 16 times.  The
 first bit (B) is ready right after LATCH.  The bits are B, Y, Select, Start,
 Up, Down, Left, Right, A, X, L, R, then four 1s, with 0 meaning pressed.  Both
 pads share LATCH and CLOCK and land on different bits, so one pass reads
@@ -134,11 +146,11 @@ for loading and saving programs.  Raw sectors first (a fixed sector range per
 saved program), FAT later if cards need to be filled from a PC.
 
 **The latch is write-only**, so software keeps a copy of it in zero page and
-changes one bit at a time from that copy.  Its 4 spare bits can be a one-bit
-beeper (see Sound) or selects for more SPI devices.  The latch stays 74HC
+changes one bit at a time from that copy.  It has no spare bits now; they all
+went to keyboard columns.  The latch stays 74HC
 because the pads' CMOS inputs need a full 5 V high.
 
-**Timing to check:** a read goes /PORT_RD, 74F138, column wire, key diode,
+**Timing to check:** a decoder-column read goes /PORT_RD, 74F138, column wire, key diode,
 row, 74F541, data bus inside one clock.  The 74F parts keep that short, but
 the diode and the row's pull-up are the slow part of the path.
 
@@ -160,8 +172,10 @@ One square-wave voice that runs on its own once software sets the pitch.
 - The output drives a line-out jack through a resistor and capacitor, or a
   small speaker through a transistor.  There is no volume control apart from
   a trimmer.
-- **Zero-chip fallback:** a spare bit in the shared port's latch as a one-bit beeper that
-  software toggles.  The pitch is only as steady as the software loop.
+- **Zero-chip fallback:** a one-bit beeper that software toggles, on a latch
+  bit.  The shared port's latch has none spare now, so this costs one
+  keyboard column (5 keys, leaving 60).  The pitch is only as steady as the
+  software loop.
 
 ## 3. Expansion ports (x55, x56, connectors only)
 
@@ -226,5 +240,5 @@ orange (R 7, G 3, B 0) and white.  Change code 10 to gold.
   uses 74F where it is in stock; recheck read timing with 74F delays.
 - **Polling once per frame** is a rule all software must follow if it keeps
   time from the line read.
-- **Keyboard size:** 40 keys fits the shared buffer.  64 keys would need a
-  second 74F541 for the serial inputs (one more chip).
+- **Keyboard layout:** 65 keys (13 x 5) with no added chips.  Which 2 of the
+  65 positions stay unused, or become extra keys, is a layout choice.
