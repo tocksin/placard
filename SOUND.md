@@ -11,7 +11,7 @@ sample to a resistor DAC.  Software only keeps a 525-byte buffer filled.
 | Format | 8-bit unsigned mono, 80h = silence |
 | Sample rate | the line rate: 31.469 kHz at 25.175 MHz (31.25 kHz on the FPGA's 25.000 MHz) |
 | Buffer | 4DF3h-4FFFh, 525 bytes, one frame, played in address order and repeated |
-| Added chips | audio slot PLD (ATF22V10C), DAC register (SN74HCT574N), filter op-amp (MCP6002-I/P) |
+| Added chips | audio slot PLD (ATF22V10C) and DAC register (SN74HCT574N); the DAC, filter and headphone output are passives |
 | CPU cost | one stall clock per line (525 per frame, 0.13 %) |
 
 ## How the sample is read
@@ -92,26 +92,25 @@ change:
   clocks later shows up on the next frame instead.  None were still different
   one frame later.
 
-## DAC and filter
+## DAC, filter and headphone output
 
-    +5V ──10Ω──┬── VCC (pin 20) of the 74HCT574 ("DAC 5V")
-               ├── 220µF ── AGND
-               └── 100nF ── AGND
+All passive: the ladder drives headphones directly, so there is no op-amp.
 
-    74HCT574 Q7 (MSB) ─ 20k ─┬─────────────────────── ladder out (Rth = 10k)
-    74HCT574 Q6       ─ 20k ─┼ 10k ┐
-                              ...  (each node: 20k from its bit,
-    74HCT574 Q1       ─ 20k ─┼ 10k ┐  10k to the next node up)
-    74HCT574 Q0 (LSB) ─ 20k ─┤
-                              └─ 20k ─ AGND   (termination)
+    +5V ──2.2Ω──┬── VCC (pin 20) of the 74HCT574 ("DAC 5V")
+                ├── 220µF ── AGND
+                └── 100nF ── AGND
 
-    ladder out ── 10k (R2) ──┬── C2 1nF ── AGND
-                 │           └── MCP6002 IN+ (pin 3)
-                 └── C1 2.2nF ── MCP6002 OUT (pin 1)
-                                 MCP6002 IN- (pin 2) ── OUT (pin 1)
+    74HCT574 Q7 (MSB) ─ 2k ─┬───────────────── ladder out (Rth = 1k)
+    74HCT574 Q6       ─ 2k ─┼ 1k ┐
+                             ...  (each node: 2k from its bit,
+    74HCT574 Q1       ─ 2k ─┼ 1k ┐  1k to the next node up)
+    74HCT574 Q0 (LSB) ─ 2k ─┤
+                             └─ 2k ─ AGND   (termination)
 
-    OUT ── 100Ω ── 10µF (+ toward the op-amp) ──┬── line-out jack tip
-                                                └── 100k ── AGND
+    ladder out ──┬── 15nF ── AGND                (filter)
+                 └── 22µF (+ toward the ladder) ──┬── jack tip and ring
+                                                  └── 10k ── AGND   (bleed)
+    jack sleeve ── AGND
 
 ### The register
 
@@ -122,67 +121,72 @@ change:
   from bit to bit.
 - D7:D0 from the pixel buffer Q7:Q0.  CLK from the HSYNC pin (H counter PLD
   pin 21).  /OE (pin 1) to ground.
-- **Power it from its own filtered rail** (10 Ω, 220 µF and 100 nF above).
+- **Power it from its own filtered rail** (2.2 Ω, 220 µF and 100 nF above).
   The ladder's full scale is this chip's VCC, so any noise on it comes out in
   the audio in proportion to the sample (at silence, 80h, half of it).  The
-  chip draws almost nothing, so the 10 Ω drops only millivolts.
+  chip and ladder draw at most about 5 mA, which drops about 11 mV across the
+  2.2 Ω (0.2 % of full scale), less than one step.
 - In the FPGA model the register is `audioDacProc` in `basys_top.vhd`, and
   Q7:Q0 come out on Pmod JA (JA10 = Q7 down to JA1 = Q0, 3.3 V full scale).
-  The same ladder and filter work there.
+  The same ladder and output work there, at two thirds of the level.
 
 ### The R-2R ladder
 
 | Part | Value | Qty |
 |---|---|---:|
-| 2R: one per bit, plus the termination | 20.0 kΩ, 1 % metal film | 9 |
-| R: between neighboring nodes | 10.0 kΩ, 1 % metal film | 7 |
+| 2R: one per bit, plus the termination | 2.00 kΩ, 1 % metal film | 9 |
+| R: between neighboring nodes | 1.00 kΩ, 1 % metal film | 7 |
 
-- Output = VCC × code / 256, so 0 V to 4.98 V, 2.49 V at silence (80h).
-- The ladder's output resistance is R (10 kΩ) at every code, which becomes
-  the first resistor of the filter.
-- With 1 % parts the steps are even to about 7 bits, which is not audible as
-  distortion in sound like this.  For a true 8-bit match, use 0.1 % parts for
-  the MSB's 20 k and the two 10 k / 20 k next to it, or a ready-made 10 k R-2R
-  network (for example the Bourns 4310R-R2R-103 SIP; check stock).
-- The HCT output resistance (about 50 Ω) against 20 kΩ is a 0.25 % error,
-  smaller than the resistor tolerance.
+- Open-circuit output = VCC × code / 256, so 0 V to 4.98 V, 2.49 V at
+  silence (80h).  The ladder's output resistance is R (1 kΩ) at every code.
+- The low R (1 k instead of a more usual 10 k) is what lets it drive
+  headphones without a buffer.  Each bit sources at most about 2.5 mA, well
+  inside what a 74HCT574 output can do.
+- Linearity: with 1 % parts the steps are even to about 7 bits.  The HCT
+  output resistance (roughly 25-50 Ω) against 2 kΩ adds about one step of
+  error at the middle of the range.  Neither is audible as distortion in
+  sound like this.  For better, use 0.1 % parts for the MSB leg and the two
+  legs below it.
 
-### The filter (2nd-order Sallen-Key, unity gain)
+### The filter
 
-| Part | Value | Notes |
-|---|---|---|
-| R1 | the ladder itself (10 kΩ) | no part |
-| R2 | 10.0 kΩ, 1 % | |
-| C1 (feedback, to the op-amp output) | 2.2 nF, C0G or film | |
-| C2 (to ground) | 1.0 nF, C0G or film | |
-| U | MCP6002-I/P (dual, rail-to-rail in and out, 5 V, DIP-8) | second half unused: wire it as a follower (OUT to IN-) with IN+ tied to the first half's output |
-| Supply | 100 nF from pin 8 to AGND, powered from "DAC 5V" | |
+One capacitor, 15 nF (C0G or film), from the ladder output to AGND.
 
-- Corner fc = 1 / (2π × 10 k × √(2.2 n × 1 n)) = 10.7 kHz; Q = 0.74
-  (Butterworth is 0.71).
-- Response: about −1 dB at 8 kHz, −11 dB at 20 kHz, −19 dB at 31.5 kHz (the
-  sample rate).  The step-hold of the samples adds its own null at 31.5 kHz,
-  so the line-rate whine is well under the audio and above hearing anyway.
-- Ceramic capacitors must be C0G (NP0); X7R values move with voltage and
-  distort.
+- Into a high-impedance input (a line-in or amplifier, 10 kΩ or more) it
+  forms a single pole with the ladder's 1 kΩ: 10.6 kHz (11.7 kHz with a
+  10 kΩ load).  That softens the 31.5 kHz steps.
+- Into headphones the load sets the impedance (16-32 Ω), so the pole moves
+  far above the audio and the capacitor does nothing.  That is fine: the
+  sample-rate steps are at 31.5 kHz, above hearing, the step-hold has a null
+  right at 31.5 kHz, and headphone drivers roll off up there anyway.
+- A C0G (NP0) or film capacitor, not X7R, whose value moves with voltage.
 
-### The output
+### The headphone output
 
 | Part | Value | Why |
 |---|---|---|
-| Series resistor | 100 Ω | keeps the op-amp stable into a cable, limits a short |
-| Coupling capacitor | 10 µF, 16 V or more, + toward the op-amp | removes the 2.49 V offset; with a 10 kΩ load the low corner is 1.6 Hz |
-| Bleed resistor | 100 kΩ, jack side to AGND | keeps the jack side at 0 V so plugging in doesn't pop |
-| Jack | 3.5 mm stereo, tip and ring both to the output | mono into both ears or channels |
+| Coupling capacitor | 22 µF electrolytic, 10 V or more, + toward the ladder | blocks the 2.49 V offset; low corner about 7 Hz into 16 Ω, under 1 Hz into 10 kΩ |
+| Bleed resistor | 10 kΩ, jack side to AGND | holds the jack side at 0 V so plugging in does not pop |
+| Jack | 3.5 mm stereo; tip and ring tied together, sleeve to AGND | the same sound in both ears |
 
-- Level: about 5 V peak to peak (1.75 V rms) at full scale, a little above
-  consumer line level.  Software can keep it lower, or a 10 kΩ log trimmer can
-  replace the bleed resistor (wiper to the jack).
-- A speaker needs an amplifier: an LM386 (DIP-8) fed from the jack node,
-  with its own decoupling.  It is not counted here.
-- **Grounds:** the ladder's termination, C2, the op-amp, and the jack all
-  return to an analog ground (AGND) that meets the logic ground at one point,
-  at the power input.
+- **Level.**  With 32 Ω earpieces in parallel (16 Ω) the full-scale swing at
+  the jack is about 80 mV peak to peak (28 mV rms), about 25 µW per ear.  For
+  typical headphones (around 100 dB SPL per mW) that is about 84 dB SPL at
+  full scale: comfortably loud, not painful.  Higher-impedance headphones get
+  more voltage and play louder.  Software sets the volume by scaling the
+  samples around 80h.
+- **Line-in works too**: into 10 kΩ it gives about 4.5 V peak to peak, which
+  most inputs take.  A powered speaker or an LM386 amplifier can plug into
+  the same jack.
+- **Short circuit** (a plug going in): the 1 kΩ ladder resistance limits the
+  current, so nothing is harmed.
+- **Power-on.**  At power-up the coupling capacitor charges to 2.49 V, which
+  makes one soft thump if headphones are already plugged in.  After that the
+  output stays at mid-scale (see the click-free rules), so it happens only
+  once.
+- **Grounds:** the ladder termination, the 15 nF capacitor, the bleed
+  resistor and the jack sleeve all return to an analog ground (AGND) that
+  meets the logic ground at one point, at the power input.
 
 ## Click-free rules
 
