@@ -95,7 +95,7 @@ def z(n):
 # 4 bpp: 0-7 = R G B bits at full level, 8-15 = the same at half level
 # plus 50% grey.  Indexed by iterations done before escape.
 COLOR4 = [4, 12, 6, 14, 2, 10, 3, 11, 1, 9, 5, 13, 7, 15, 8, 4]
-COLOR2 = [1, 2, 3]          # blue, orange, white
+COLOR2 = [1, 2, 3]          # blue, gold, white
 
 
 def color8(n):

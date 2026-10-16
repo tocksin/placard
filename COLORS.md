@@ -77,11 +77,13 @@ The 2-bit palette is:
 | Value | Color  | Red   | Green | Blue |
 |:-----:|:------:|:-----:|:-----:|:----:|
 | `00`  | Black  | `000` | `000` | `00` |
-| `01`  | Blue   | `000` | `000` | `11` |
-| `10`  | Yellow | `111` | `111` | `00` |
+| `01`  | Blue   | `000` | `001` | `11` |
+| `10`  | Gold   | `111` | `101` | `00` |
 | `11`  | White  | `111` | `111` | `11` |
 
-The selected low bit controls blue, while the selected high bit controls red and green.
+The selected low bit controls blue and the selected high bit controls red.  For
+green, `G1 = C1 | C0`, `G2 = C1 & C0` and `G3 = C1`, so blue gets a little
+green (G 1), gold gets G 5 and white gets G 7.
 
 ---
 

@@ -33,7 +33,7 @@ basys_top.vhd (low nibble CIN = 0, high nibble CIN = low nibble COUT, low
 SHIFT_RIGHT_IN = AC bit 4, high SHIFT_RIGHT_IN = 0).  The default is an ideal
 8-bit ALU (A - B is a true 8-bit subtraction).
 
-Date: 10/15/2026
+Date: 10/16/2026
 """
 
 import re
@@ -450,7 +450,7 @@ def render(mem, path):
         return
     img = Image.new('RGB', (640, 480))
     px = img.load()
-    pal2 = [(0, 0, 0), (0, 80, 255), (255, 140, 0), (255, 255, 255)]
+    pal2 = [(0, 0, 0), (0, 80, 255), (255, 182, 0), (255, 255, 255)]
     for y in range(480):
         mode = mem[VID_BASE + y] & 3
         bpp = 1 << mode

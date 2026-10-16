@@ -26,7 +26,7 @@
 # comma separated 0x10, 0x62, ... values.  If the file is missing the image is
 # generated without code.  Set ::ASM_FILE to "" to skip it on purpose.
 #
-# Date: 10/15/2026
+# Date: 10/16/2026
 #
 # Memory-to-screen mapping:
 #     A15:A9 = H9:H3 (active groups 48..127)    A8:A0 = V8:V0 (active 32..511)
@@ -274,11 +274,11 @@ proc gen_video_ram {outFile} {
         }
     }
 
-    # ---- BAND 1 : 2 bpp, 0 black, 1 blue, 2 orange, 3 white ----------------
+    # ---- BAND 1 : 2 bpp, 0 black, 1 blue, 2 gold, 3 white ------------------
     frame_band 2 120 $::BAND_H 0 0 3 3
     draw_text 2 4 128 2 "2 BPP MODE - 316X480 - 4 COLORS" 3
     draw_text 2 4 152 2 "BLUE TEXT - COLOR 1" 1
-    draw_text 2 4 176 2 "ORANGE TEXT - COLOR 2" 2
+    draw_text 2 4 176 2 "GOLD TEXT - COLOR 2" 2
     draw_text 2 4 200 2 "WHITE TEXT - COLOR 3" 3
 
     # ---- BAND 2 : 4 bpp, 16 colors ------------------------------------------
