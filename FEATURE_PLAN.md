@@ -20,10 +20,10 @@ These facts from the current design shape every choice below.
   /WE pulse; read strobes are qualified by LOAD_IMM.  A11 is not decoded, so
   x5800-x5FFF repeats x5000-x57FF, and the PLD has no spare outputs.
   `ATF22V10_MEM_CTRL.pld` (rev 01) keeps both memories off the bus there,
-  and x4000-x4FFF is always RAM.  The ROM/RAM map write at x5000 works.
+  and map bit 2 covers x4000-x4FFF.  The ROM/RAM map write at x5000 works.
   The map is a write-only 74ACT273 (CD74ACT273E) clocked by /MAP_WR, in place
   of the ROM/RAM select PLD, so the base chip count did not change; its /MR
-  comes from MEM_CTRL's MAP_RUN (pin 19), which clears it to all ROM until
+  comes from MEM_CTRL's MAP_RUN (pin 17), which clears it to all ROM until
   the first clock after power-up.
 - **Only `[Y,X]` reaches I/O.**  `[0,D]` and `[0,X]` only address the zero
   page, so every I/O access is `ld 0x5n, y` then `ld [y,x], ac` (read) or
@@ -41,7 +41,7 @@ These facts from the current design shape every choice below.
   in eight during visible lines and never during blanking, so time has to
   come from the video counters.
 - **Free PLD pins** that a feature could use instead of adding a chip:
-  MEM_CTRL PLD pins 15 and 20-22.  (The 74F32 that made /WE is gone; MEM_CTRL replaced it, so the
+  MEM_CTRL PLD pins 20-22.  (The 74F32 that made /WE is gone; MEM_CTRL replaced it, so the
   base chip count did not change.)
 - **Device latches take data from the source bus**, not the RAM-side data
   bus, and latch on the rising edge of their write strobe.  The source bus
@@ -91,7 +91,7 @@ inputs, or keep HC541s on the bus.
 
 | Address | R/W | Function |
 |---|---|---|
-| x5000 | W | ROM/RAM section map: /MAP_WR clocks the 74ACT273 map register, which latches the source bus.  Write only.  Bit n = 1 makes section n RAM; bit 2 is ignored (x4000-x4FFF is always RAM).  Already built. |
+| x5000 | W | ROM/RAM section map: /MAP_WR clocks the 74ACT273 map register, which latches the source bus.  Write only.  Bit n = 1 makes section n RAM; bit 2 covers only x4000-x4FFF (x5000-x5FFF is the I/O window).  Already built. |
 | x5000 | R | Upper 8 bits of the line counter, V9:V2 |
 
 - The V counter already exists in the V Counter PLD (it counts 499 to 1023).
