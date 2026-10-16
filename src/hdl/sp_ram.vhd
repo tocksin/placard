@@ -9,7 +9,7 @@
 -- The memory is initialized from a text file (generic initFile) containing one
 -- hex byte per line, address 0 first.  basys_top.vhd uses two instances:
 --     ramComp  initFile => "ram.mem"  made by gen_video_ram.tcl (video test
---              patterns: a mode byte for each row at 4A20h + row, framed
+--              patterns: a mode byte for each row at 5A20h + row, framed
 --              1/2/4/8 bpp bands, text, and the 16 color palette)
 --     romComp  initFile => "rom.mem"  made by gen_rom.tcl (boot loader,
 --              standard library and font, and the program; see ROM.md)

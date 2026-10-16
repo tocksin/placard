@@ -20,12 +20,12 @@ The project has some hard-goals to maintain:
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
 
 ## Memory Map
-The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databus.  The video RAM starts at x6020 and ends at xFFFF, and each row's color mode byte is at x4A20 + row.  There is a 64kB RAM and a 64kB ROM behind the same addresses.  The address space is divided into eight 8kB sections, and a write-only map register at x5000 picks whether each section reads from the RAM or the ROM.
+The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databus.  The video RAM starts at x6020 and ends at xFFFF, and each row's mode byte (color mode and line repeat) is at x5A20 + row.  There is a 64kB RAM and a 64kB ROM behind the same addresses.  The address space is divided into eight 8kB sections, and a write-only map register at x5000 picks whether each section reads from the RAM or the ROM.
 
-- **Writes always go to the RAM**, even in a section mapped to ROM.  The write strobe (/WE) is not decoded by address, so a write in the I/O window x5000-x5FFF also lands in the RAM underneath it.
-- **The map register** is a CD74ACT273E clocked by /MAP_WR from the I/O decode PLD; it latches the source bus at the end of the write.  Bit n = 1 makes section n read from RAM, 0 from ROM.  Bit 2 maps only x4000-x4FFF, because x5000-x5FFF is the I/O window.  It is write only, so software keeps a copy of the last value it wrote.
+- **Writes always go to the RAM**, even in a section mapped to ROM.  The write strobe (/WE) is not decoded by address, so a write in the I/O window x5000-x53FF also lands in the RAM underneath it.
+- **The map register** is a CD74ACT273E clocked by /MAP_WR from the I/O decode PLD; it latches the source bus at the end of the write.  Bit n = 1 makes section n read from RAM, 0 from ROM.  Bit 2 maps x4000-x4FFF and x5400-x5FFF, because x5000-x53FF is the I/O window.  It is write only, so software keeps a copy of the last value it wrote.
 - **At power-up every section reads as ROM.**  The memory control PLD's MAP_RUN output holds the register's /MR low from power-up until the first clock edge, which is where the CPU starts, so the CPU boots from ROM.
-- **x5000-x5FFF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  A11 is not decoded, so x5800-x5FFF repeats x5000-x57FF.
+- **x5000-x53FF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  (Until 2026-10-16 the window was x5000-x5FFF, with x5800-x5FFF a mirror.)
 - **Only `[Y,X]` reaches the I/O window**; `[0,D]` and `[0,X]` only address the zero page.
 - **Video reads always read the RAM** (memory control PLD revision 04); only CPU reads follow the map.  The CPU can run code from the ROM under the video area while the screen shows the RAM, and a program that wants to read the video RAM maps that section to RAM.
 - **Programs run from the ROM.**  The standard library and font run in place at ROM x3000-x3FFF and a program at ROM x6000-xFBFF.  The boot loader maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  See [ROM.md](ROM.md).
@@ -39,8 +39,9 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen ye
 |---------|---------|------|
 | x0000-x1FFF | 0 | RAM/ROM |
 | x2000-x3FFF | 1 | RAM/ROM |
-| x4000-x4FFF | 2 | RAM/ROM (mode bytes at x4A20-x4BFF, audio buffer at x4DF3-x4FFF) |
-| x5000-x5FFF | none | I/O window (see below) |
+| x4000-x4FFF | 2 | RAM/ROM (free for programs) |
+| x5000-x53FF | none | I/O window (see below) |
+| x5400-x5FFF | 2 | RAM/ROM (mode bytes at x5A20-x5BFF, audio buffer at x5DF3-x5FFF) |
 | x6000-x7FFF | 3 | RAM/ROM (Video Memory from x6020) |
 | x8000-x9FFF | 4 | RAM/ROM (Video Memory) |
 | xA000-xBFFF | 5 | RAM/ROM (Video Memory) |
@@ -58,17 +59,15 @@ Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes ar
 |---------|--------|-----|----------|
 | x5000-x50FF | /MAP_WR | W | ROM/RAM map register (built) |
 | x5000-x50FF | /LINE_RD | R | Video line counter, V9:V2 (built) |
-| x5100-x51FF | /SND_WR | W | Unused (sound reads its samples from RAM, see [SOUND.md](SOUND.md)) |
+| x5100-x51FF | /EXP1 | R/W | Expansion port 1 |
 | x5200-x52FF | /PORT_WR | W | Shared port output latch: SD card, SNES pad clock and latch (planned) |
 | x5200-x52FF | /PORT_RD | R | Shared port input: keyboard rows of column A2:A0, SNES pad data, SD card MISO (planned) |
-| x5300-x54FF | none | | Unused |
-| x5500-x55FF | /EXP1 | R/W | Expansion port 1 |
-| x5600-x56FF | /EXP2 | R/W | Expansion port 2 |
-| x5700-x57FF | none | | Unused |
-| x5800-x5FFF | | | Repeats x5000-x57FF |
+| x5300-x53FF | /EXP2 | R/W | Expansion port 2 |
+
+The window was x5000-x5FFF until 2026-10-16 (the I/O decode PLD did not decode A11, and the expansion ports were at x5500 and x5600).  The unused /SND_WR pin became the A11 input.
 
 ### Sound
-The video circuit reads one 8-bit sample per scan line from x4DF3-x4FFF (525 bytes, one frame) and plays it through a 74HCT574 and a resistor ladder DAC, at the line rate of 31.47 kHz.  80h is silence.  Software refills the half of the buffer that is not playing, using the line read.  See [SOUND.md](SOUND.md).
+The video circuit reads one 8-bit sample per scan line from x5DF3-x5FFF (525 bytes, one frame) and plays it through a 74HCT574 and a resistor ladder DAC, at the line rate of 31.47 kHz.  80h is silence.  Software refills the half of the buffer that is not playing, using the line read.  See [SOUND.md](SOUND.md).
 
 ### Video line read
 A read anywhere in x5000-x50FF returns the upper 8 bits of the video line counter, V9:V2.  The V counter in the V Counter PLD counts 499 to 1023, and one 74F541 enabled by /LINE_RD puts V9:V2 on the data bus.  The ROM/RAM map register shares the page but is write only, so there is no conflict.  Read it with `ld 0x50, y` then `ld [y,x], ac`.
@@ -80,6 +79,9 @@ A read anywhere in x5000-x50FF returns the upper 8 bits of the video line counte
 
 ## Video
 The video is designed to be 640x480 VGA 60Hz standard.  This means a 25.175 MHz clock.  This requires two counters: a horizontal and vertical.  They count 800 and 600 pixels.  This needs a 10-bit counter for each.  The counters form the RAM address space to read the pixel values.  The video memory is organized in a non-traditional way with H,V instead of V,H.
+
+### Line repeat
+Bits 3:2 of a row's mode byte make each byte of video memory show on 1, 2 or 4 lines (640 × 480, 240 or 120).  A full 2x screen leaves 20 KB of the video area free (the even pages x60, x62 ... xFE) and a full 4x screen 30 KB.  The audio slot PLD remaps four row address bits, so no chips were added.  See [VIDEO.md](VIDEO.md#line-repeat).
 
 ### Pixel fill
 An easy function is the fill function.  Putting a color in a pixel starts drawing that color.  That color continues to draw until that same color is placed again.  So putting two pixels one a row is enough to draw a whole row of that color.  It's much faster than having the CPU add that color along that entire row.  This is how to get to filled polygons quickly.  The CPU only needs to decide what the boundaries of a shape is, and the video circuit does the rest.  The CPU only drawing wireframes, but gets fully filled polygons.

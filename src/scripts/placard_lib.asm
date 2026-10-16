@@ -154,33 +154,6 @@ lib_leave:
     jmp  [LINK_LO]
 
 ; ------------------------------------------------------------
-; vid_addr - address of a screen byte
-;   in:      AC = byte column, 0-79
-;            R3:R2 = row, 0-479
-;   out:     AC = address high byte, X = address low byte
-;            (then: ld ac, y / ld [y,x], ac reads the byte)
-;   changes: T0
-;   clocks:  44 or 55
-; ------------------------------------------------------------
-vid_addr:
-    shl
-    add  0x60, ac
-    add  [R3], ac
-    ld   ac, [T0]
-    ld   [R2], ac
-    add  0x20, ac
-    ld   ac, x
-    and  0xE0, ac
-    bne  va_done
-    ld   [T0], ac
-    inc
-    ld   ac, [T0]
-va_done:
-    ld   [T0], ac
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
-; ------------------------------------------------------------
 ; map_set - write the ROM/RAM map register (x5000) and its copy
 ;   in:      AC = map, bit n = 1 reads section n from RAM
 ;   out:     MAP_SHADOW = AC
@@ -681,9 +654,10 @@ mc_2:
 #addr LIB_CODE + 0x300
 
 ; ------------------------------------------------------------
-; vid_clear - clear the screen and set every row's color mode
-;   in:      AC = mode: 0 = 1 bpp, 1 = 2 bpp, 2 = 4 bpp, 3 = 8 bpp
-;   out:     x6000-xFFFF = 0, mode bytes (x4A20-x4BFF) = AC
+; vid_clear - clear the screen and set every row's mode byte
+;   in:      AC = mode byte: bits 1:0 = 1, 2, 4 or 8 bpp (0-3),
+;            bits 3:2 = line repeat (0 = 1x, 1 = 2x, 2 = 4x), see vid_mode
+;   out:     x6000-xFFFF = 0, mode bytes (x5A20-x5BFF) = AC
 ;   changes: AC, X, Y, T0, T1
 ;   clocks:  503,394 (20.0 ms)
 ; ------------------------------------------------------------
@@ -707,19 +681,23 @@ vc_b:
     ; fall into vid_mode
 
 ; ------------------------------------------------------------
-; vid_mode - set every row's color mode, leave the pixels alone
-;   in:      AC = mode, 0-3 (see vid_clear)
-;   out:     mode bytes x4A20-x4BFF = AC
+; vid_mode - set every row's mode byte, leave the pixels alone
+;   in:      AC = mode byte (see vid_clear)
+;   out:     mode bytes x5A20-x5BFF = AC
 ;   changes: AC, X, Y, T0
 ;   clocks:  8,661
 ;   To change some rows only, write their mode bytes: row r's mode
-;   byte is at x4A20 + r.  The video circuit reads it in horizontal
-;   blanking, so it follows map bit 2 (x4000-x4FFF), not the video
-;   sections.
+;   byte is at x5A20 + r.  The video circuit reads it in horizontal
+;   blanking, from the RAM.
+;   Line repeat (bits 3:2): in 2x mode each byte shows on two lines and
+;   in 4x on four, so a 2x screen uses half the video RAM and a 4x
+;   screen a quarter.  The rows move within each byte column; vid_addr
+;   and plot1 follow each row's own mode byte.  Give both lines of a 2x
+;   pair (all four of a 4x group) the same mode byte.  See VIDEO.md.
 ; ------------------------------------------------------------
 vid_mode:
     ld   ac, [T0]
-    ld   0x4A, y
+    ld   0x5A, y
     ld   0x20, ac
 vm_0:
     ld   ac, x
@@ -728,7 +706,7 @@ vm_0:
     ld   x, ac
     inc
     bne  vm_0
-    ld   0x4B, y
+    ld   0x5B, y
 vm_1:
     ld   ac, x
     ld   [T0], ac
@@ -740,18 +718,99 @@ vm_1:
     jmp  [LINK_LO]
 
 ; ------------------------------------------------------------
+; vid_addr - address of a screen byte, following the row's line repeat
+;   in:      AC = byte column, 0-79
+;            R3:R2 = row, 0-479
+;   out:     AC = address high byte, X = address low byte
+;            (then: ld ac, y / ld [y,x], ac reads the byte)
+;   changes: T0, T1, T4
+;   clocks:  see LIBRARY.md
+;   With v = row + 32 (9 bits), the byte is in page x60 + 2 * column:
+;       1x:  page + v8,  low byte v7:v0
+;       2x:  page + 1,   low byte v7:v1, v8
+;       4x:  page + 1,   low byte 1, v6:v2, v8, v7
+;   (the address bits the audio slot PLD remaps, see VIDEO.md)
+; ------------------------------------------------------------
+vid_addr:
+    shl
+    add  0x60, ac
+    ld   ac, [T0]               ; T0 = x60 + 2 * column
+    ld   [R2], ac
+    add  0x20, ac
+    ld   ac, [T1]               ; T1 = v7:v0
+    ld   ac, x
+    and  0xE0, ac
+    bne  va_nc
+    ld   1, ac                  ; row low + x20 carried
+    bra  va_v8
+va_nc:
+    clr  ac
+va_v8:
+    add  [R3], ac
+    ld   ac, [T4]               ; T4 = v8
+    add  0x5A, ac
+    ld   ac, y
+    ld   [y,x], ac              ; the row's mode byte, x5A00 + v
+    and  0x0C, ac
+    beq  va_1x
+    sub  0x04, ac
+    beq  va_2x
+    ld   [T1], ac               ; 4x: 1, v6:v2, v8, v7
+    blt  va_4h
+    ld   [T4], ac
+    shl
+    bra  va_4m
+va_4h:
+    ld   [T4], ac
+    shl
+    or   1, ac
+va_4m:
+    or   0x80, ac
+    ld   ac, x
+    ld   [T1], ac
+    and  0x7C, ac
+    or   x, ac
+    ld   ac, x
+    ld   [T0], ac
+    inc
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+va_2x:
+    ld   [T1], ac               ; 2x: v7:v1, v8
+    and  0xFE, ac
+    or   [T4], ac
+    ld   ac, x
+    ld   [T0], ac
+    inc
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+va_1x:
+    ld   [T1], ac               ; 1x: v7:v0
+    ld   ac, x
+    ld   [T0], ac
+    add  [T4], ac
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+; ------------------------------------------------------------
 ; plot1 - set or clear one pixel on a 1 bpp row
 ;   in:      R1:R0 = x, 0-639 (0 is the first visible pixel)
 ;            R3:R2 = y, 0-479
 ;            AC = 0 to clear the pixel, anything else to set it
 ;   out:     -
-;   changes: AC, X, Y, T0, T2, T3
+;   changes: AC, X, Y, T0-T6
 ;   clocks:  see LIBRARY.md
-;   It maps sections 3-7 to RAM while it reads the pixel byte (MAP_SHADOW
-;   or F8) and writes MAP_SHADOW back to the map before it returns.
+;   The row may be 1x, 2x or 4x (it calls vid_addr, which reads the
+;   row's mode byte).  It maps sections 3-7 to RAM while it reads the
+;   pixel byte (MAP_SHADOW or F8) and writes MAP_SHADOW back to the map
+;   before it returns.
 ; ------------------------------------------------------------
 plot1:
-    ld   ac, [T2]
+    ld   ac, [T2]               ; T2 = set or clear
+    ld   [LINK_LO], ac          ; keep the return address for the call
+    ld   ac, [T5]
+    ld   [LINK_HI], ac
+    ld   ac, [T6]
     ld   [R0], ac               ; mask = 1 << (x & 7)
     and  7, ac
     add  lib_bits & 0xFF, ac
@@ -771,19 +830,14 @@ plot1:
     shr  ac
     shr  ac
     or   [T0], ac
-    shl                         ; page = x60 + 2 (x >> 3) + y high + carry
-    add  0x60, ac
-    add  [R3], ac
-    ld   ac, [T0]
-    ld   [R2], ac
-    add  0x20, ac
-    ld   ac, x
-    and  0xE0, ac
-    bne  pl_nc
-    ld   [T0], ac
-    inc
-    ld   ac, [T0]
-pl_nc:
+    ld   LINK_LO, x             ; CALL vid_addr
+    ld   pl_back, [x]
+    ld   LINK_HI, x
+    ld   pl_back >> 8, [x]
+    ld   vid_addr >> 8, y
+    jmp  vid_addr
+pl_back:
+    ld   ac, [T0]               ; T0 = page, X = low byte
     ld   [MAP_SHADOW], ac       ; video sections read RAM while the byte is read
     or   0xF8, ac
     ld   0x50, y
@@ -803,8 +857,8 @@ pl_put:
     ld   [MAP_SHADOW], ac       ; map back
     ld   0x50, y
     ld   ac, [y,x]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
+    ld   [T6], y
+    jmp  [T5]
 
 ; ============================================================
 ; Page 4: text console - character output

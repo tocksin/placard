@@ -937,8 +937,8 @@ pdone:
 
 #addr 0x06E6
 clr_m:
-    ; mode bytes 4A00-4BFF = 0 (1 bpp)
-    ld   0x4A, y
+    ; mode bytes 5A00-5BFF = 0 (1 bpp)
+    ld   0x5A, y
     clr  x
 clr_m0:
     ld   0x00, [y,x]
@@ -946,7 +946,7 @@ clr_m0:
     inc
     ld   ac, x
     bne  clr_m0
-    ld   0x4B, y
+    ld   0x5B, y
 clr_m1:
     ld   0x00, [y,x]
     ld   x, ac

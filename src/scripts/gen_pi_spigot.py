@@ -44,7 +44,7 @@ SCREEN (1 bpp)
     decimals on the first row, then rows of 50 decimals under the first
     decimal (52 columns from column 14; 20 rows for 1000 digits).  One blank
     row below the block, the run time "SSS.SSS s" is centered.  The screen
-    is cleared and every mode byte (4A20-4BFF) set to 1 bpp first.
+    is cleared and every mode byte (5A20-5BFF) set to 1 bpp first.
 
 TIMER
     The line read at 5000h (V9:V2 of the line counter, 124-255, see
@@ -84,7 +84,7 @@ MEMORY
     1600-23FF   a[i] high limbs (address 1600 + i)
     2400-367F   product table low limbs,  page 24 + m, m = 0..18
     3700-497F   product table high limbs, page 37 + m
-    4A20-4BFF   mode bytes, one per row (all 0, 1 bpp)
+    5A20-5BFF   mode bytes, one per row (all 0, 1 bpp)
     6000-FFFF   video RAM
     The tables only go up to m = 18, the largest q for 1000 digits (build()
     checks it for the digit count asked for), so they end below the mode
@@ -250,8 +250,8 @@ def build(ndig):
 
     g.block('clr_m')
     label('clr_m')
-    e('; mode bytes 4A00-4BFF = 0 (1 bpp)')
-    e('ld   0x4A, y')
+    e('; mode bytes 5A00-5BFF = 0 (1 bpp)')
+    e('ld   0x5A, y')
     e('clr  x')
     label('clr_m0')
     e('ld   0x00, [y,x]')
@@ -259,7 +259,7 @@ def build(ndig):
     e('inc')
     e('ld   ac, x')
     e('bne  clr_m0')
-    e('ld   0x4B, y')
+    e('ld   0x5B, y')
     label('clr_m1')
     e('ld   0x00, [y,x]')
     e('ld   x, ac')

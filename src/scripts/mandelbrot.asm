@@ -134,7 +134,7 @@ ret_12:
 
 #addr 0x0200
 clear:
-    ; video RAM 6000-FFFF = 0, then mode byte = [mode] for rows 4A20-4BFF
+    ; video RAM 6000-FFFF = 0, then mode byte = [mode] for rows 5A20-5BFF
     ld   0x60, ac
     ld   ac, [0x38]
 clr_pg:
@@ -150,7 +150,7 @@ clr_b:
     inc
     ld   ac, [0x38]
     bne  clr_pg
-    ld   0x4A, y
+    ld   0x5A, y
     ld   0x20, x
 mode0:
     ld   [0x37], ac
@@ -159,7 +159,7 @@ mode0:
     inc
     ld   ac, x
     bne  mode0
-    ld   0x4B, y
+    ld   0x5B, y
 mode1:
     ld   [0x37], ac
     ld   ac, [y,x]
@@ -979,7 +979,7 @@ bndr:
     ld   ac, [0x38]
     sub  0x01, ac
     bne  bnd
-    ld   0x4B, y
+    ld   0x5B, y
     ld   0x08, x
 bndm:
     ld   0x00, [y,x]

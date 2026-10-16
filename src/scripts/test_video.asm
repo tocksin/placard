@@ -3,7 +3,7 @@
 ;
 ; Video RAM layout: address = 0x6020 + byte_column * 512 + screen_row, and
 ; byte column 0 is the first column of pixel data (each row's mode byte is
-; read in horizontal blanking from 0x4A20 + row, so it takes no column).
+; read in horizontal blanking from 0x5A20 + row, so it takes no column).
 ; Row r of column 0 is 0x6020 + r.  Writing 0x20..0xFF to 0x6020..0x60FF
 ; puts the counter value in the leftmost 8 pixels of rows 0..223.
 ;
