@@ -81,8 +81,7 @@ From [FEATURE_PLAN.md](FEATURE_PLAN.md).  None of these are built yet.
 | 6 | SN74F574N | Octal D flip-flop, 3-state | Sound pitch latch at x5100 |
 | 7 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Sound: square-wave counter clocked by HSYNC |
 
-The two expansion ports (x5500, x5600) need connectors only, and the gold
-palette change needs no new chips.
+The two expansion ports (x5500, x5600) need connectors only.
 
 ### Tally
 

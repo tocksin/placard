@@ -205,24 +205,6 @@ For the FPGA model, each step adds its PLD as a VHDL entity (no optimization,
 individual pins, lowerCamelCase signals) and a branch on the read mux in
 `basys_top.vhd`.  `placard_sim.py` gets a matching I/O hook.
 
-## Other future tasks
-
-### Gold instead of orange in 4-color mode
-
-The 2 bpp (4-color) palette in `ATF22V10_COLORDECODER.pld` is black, blue,
-orange (R 7, G 3, B 0) and white.  Change code 10 to gold.
-
-- **Candidate gold: R 7, G 5, B 0.**  It fits the existing per-bit form by
-  swapping two green bits.  Today `GRN2 = C1` and `GRN3 = C1 & C0`; for gold,
-  `GRN2 = C1 & C0` and `GRN3 = C1`.  Blue stays G 1 and white stays G 7.  In
-  the full equations the 2 bpp term of each pin just gains or loses C0, so
-  the product-term counts do not change (GRN3 also carries the 1 bpp pixel
-  mux, so that matters).  Red and blue are unchanged.
-- Gold is brighter than orange, so it is closer to white; check that the two
-  are still easy to tell apart on screen.
-- Update the palette comment in the PLD, `color_decoder.vhd`, COLORS.md and
-  `reference/Palette.png` to match.
-
 ## Cut for now (can be added later)
 
 | Feature | Cost to add back |
