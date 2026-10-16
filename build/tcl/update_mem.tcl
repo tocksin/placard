@@ -1,22 +1,25 @@
 # update_mem.tcl
 #
 # Vivado batch script for the fast path of build_and_load.bat (option "fast"):
-# makes video_ram.mem for one program, puts it into the existing bitstream
-# with updatemem (no synthesis or implementation) and programs the board.
+# makes ram.mem and rom.mem for one program, puts them into the existing
+# bitstream with updatemem (no synthesis or implementation) and programs the
+# board.  ramComp gets ram.mem and romComp gets rom.mem.
 #
 #     vivado -mode batch -source update_mem.tcl -tclargs <hexFile>
 #
 # Files in the impl_1 run folder:
 #     <top>.bit           full-build bitstream (not changed)
-#     <top>_built.mem     memory image <top>.bit was built with (written by
+#     <top>_built_ram.mem, <top>_built_rom.mem
+#                         memory images <top>.bit was built with (written by
 #                         build_and_load.tcl)
 #     <top>.mmi           block RAM map of the implemented design (write_mmi.tcl);
 #                         remade when the bitstream or write_mmi.tcl is newer
 #                         than it.  When it is made, both bit numberings are
-#                         tried: the one whose updatemem output with
-#                         <top>_built.mem matches <top>.bit is kept, so a wrong
+#                         tried: the one whose updatemem output with the
+#                         built images matches <top>.bit is kept, so a wrong
 #                         map is an error instead of a scrambled image.
-#     <top>_update.mem    new memory image in updatemem format
+#     <top>_update_ram.mem, <top>_update_rom.mem
+#                         new memory images in updatemem format
 #     <top>_fast.bit      result, programmed into the board
 #
 # The design (HDL, constraints) must not have changed since the last full
@@ -27,19 +30,21 @@
 set tclDir   [file dirname [file normalize [info script]]]
 set repoDir  [file normalize [file join $tclDir .. ..]]
 set xprFile  [file join $repoDir project placard.xpr]
-set memFile  [file join $repoDir src hdl video_ram.mem]
+set ramFile  [file join $repoDir src hdl ram.mem]
+set romFile  [file join $repoDir src hdl rom.mem]
 set memDepth 65536
 set memWidth 8
 
 source [file join $tclDir write_mmi.tcl]
 
-# ---- 1. memory initialization file ------------------------------------------
+# ---- 1. memory initialization files -----------------------------------------
 set hexFile [lindex $argv 0]
 if {$hexFile ne ""} {
     set hexFile [file normalize $hexFile]
 }
-set ::ASM_FILE $hexFile
 source [file join $repoDir src scripts gen_video_ram.tcl]
+set ::ASM_FILE $hexFile
+source [file join $repoDir src scripts gen_rom.tcl]
 
 # ---- 2. block RAM map of the existing implementation ------------------------
 if {![file exists $xprFile]} {
@@ -50,17 +55,21 @@ set implRun   [get_runs impl_1]
 set implDir   [get_property DIRECTORY $implRun]
 set top       [get_property TOP [current_fileset]]
 set baseBit   [file join $implDir $top.bit]
-set builtMem  [file join $implDir ${top}_built.mem]
+set builtMems [dict create ramComp [file join $implDir ${top}_built_ram.mem] \
+                           romComp [file join $implDir ${top}_built_rom.mem]]
 set mmiFile   [file join $implDir $top.mmi]
-set updateMem [file join $implDir ${top}_update.mem]
+set updateMems [dict create ramComp [file join $implDir ${top}_update_ram.mem] \
+                            romComp [file join $implDir ${top}_update_rom.mem]]
 set fastBit   [file join $implDir ${top}_fast.bit]
 
 if {[get_property PROGRESS $implRun] ne "100%" || ![file exists $baseBit]} {
     error "update_mem: no implemented bitstream yet, run a full build first"
 }
-if {![file exists $builtMem] || [file mtime $builtMem] < [file mtime $baseBit]} {
-    error "update_mem: $builtMem is missing or older than the bitstream,\
-           run one full build (without fast) first"
+dict for {inst builtMem} $builtMems {
+    if {![file exists $builtMem] || [file mtime $builtMem] < [file mtime $baseBit]} {
+        error "update_mem: $builtMem is missing or older than the bitstream,\
+               run one full build (without fast) first"
+    }
 }
 
 if {![file exists $mmiFile]
@@ -78,7 +87,7 @@ if {![file exists $mmiFile]
     # the same bitstream
     set verifyBit [file join $implDir ${top}_verify.bit]
     foreach order {msbFirst lsbFirst} {
-        run_updatemem [file join $implDir ${top}_$order.mmi] $baseBit $builtMem $verifyBit
+        run_updatemem [file join $implDir ${top}_$order.mmi] $baseBit $builtMems $verifyBit
         set diff($order) [bit_diff_blocks $baseBit $verifyBit]
         puts "update_mem: $order map, $diff($order) blocks differ from the full build"
     }
@@ -100,8 +109,9 @@ if {![file exists $mmiFile]
 close_project
 
 # ---- 3. new image into the bitstream ----------------------------------------
-write_update_mem $memFile $updateMem $memDepth
-run_updatemem $mmiFile $baseBit $updateMem $fastBit
+write_update_mem $ramFile [dict get $updateMems ramComp] $memDepth
+write_update_mem $romFile [dict get $updateMems romComp] $memDepth
+run_updatemem $mmiFile $baseBit $updateMems $fastBit
 puts "update_mem: wrote $fastBit"
 
 # ---- 4. program the board ---------------------------------------------------

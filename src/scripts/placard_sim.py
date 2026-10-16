@@ -7,6 +7,10 @@ placard_sim.py - assembler and instruction-level simulator for the Placard CPU
     python3 placard_sim.py prog.asm --run --hw-alu  run with the VHDL alu4 model
     python3 placard_sim.py prog.asm --run --png out.png   also render the screen
     python3 placard_sim.py prog.asm --run --stop-at LABEL  stop when PC = LABEL
+    python3 placard_sim.py prog.asm --run --boot    start from the ROM image
+                                                    (rom_boot.asm, the library
+                                                    and the program) like the
+                                                    hardware, see ROM.md
 
 The assembler accepts the syntax defined in placard.asm (it is not a general
 customasm replacement: only #include, #addr, #d8 and #d ("strings" and 0x
@@ -35,6 +39,10 @@ Branch PLD rev 09):
   - a read of x5000-x50FF (or its x5800 mirror) returns the video line read,
     V9:V2, with one line per 800 CPU clocks and V = 499-1023 (525 lines per
     frame).  Video fetch stalls are not modeled.
+  - with --boot, reads follow the ROM/RAM map (a write to x5000-x50FF sets
+    it, every write also goes to the RAM) and the CPU starts with an empty
+    RAM and the map cleared to all ROM.  Without it every read comes from
+    one memory holding the program.
 
 --hw-alu evaluates the ALU with the exact alu4.vhd equations wired as in
 basys_top.vhd (low nibble CIN = 0, high nibble CIN = low nibble COUT, low
@@ -425,19 +433,35 @@ class CpuError(Exception):
 
 
 class Cpu:
-    def __init__(self, mem, hw_alu=False):
+    def __init__(self, mem, hw_alu=False, rom=None):
         self.mem = bytearray(65536)
         for a, v in mem.items():
             self.mem[a] = v
+        # rom: None = one flat memory (every read from mem, as the old FPGA
+        # model did); else 64K of ROM bytes, and reads follow the ROM/RAM map
+        # register (x5000-x50FF, cleared to all ROM at reset) like the hardware
+        self.rom = None
+        if rom is not None:
+            self.rom = bytearray(65536)
+            for a, v in rom.items():
+                self.rom[a] = v
+        self.map = 0
         self.pc = 0
         self.ac = self.x = self.y = self.d = 0
         self.alu = (lambda s, a, b: alu_hw(s, a, b)) if hw_alu else alu_ideal
         self.steps = 0
         self.clocks = 0
 
+    def read(self, ad):
+        """memory read through the ROM/RAM map (8K sections, bit n = 1: RAM)"""
+        if self.rom is None or (self.map >> (ad >> 13)) & 1:
+            return self.mem[ad]
+        return self.rom[ad]
+
     def step(self):
         m_ = self.mem
-        opc = m_[self.pc]
+        rd = m_.__getitem__ if self.rom is None else self.read
+        opc = rd(self.pc)
         here = self.pc
         self.pc = (self.pc + 1) & 0xFFFF
         a, m, s = opc >> 5, (opc >> 2) & 7, opc & 3
@@ -446,7 +470,7 @@ class Cpu:
             raise CpuError('%04X: unsupported opcode %02X (MEM 101 with memory source)' % (here, opc))
         operand = (s == 0) or (s == 1 and m in (0, 3, 4)) or (s >= 2 and m == 5)
         if operand:
-            self.d = m_[self.pc]
+            self.d = rd(self.pc)
             self.pc = (self.pc + 1) & 0xFFFF
             clocks += 1
 
@@ -461,7 +485,7 @@ class Cpu:
             if ad & 0xF700 == 0x5000:             # /LINE_RD (x5000-x50FF, x5800-x58FF)
                 self.d = self.line_read()
             else:
-                self.d = m_[ad]
+                self.d = rd(ad)
             clocks += 1
         if s >= 2 and m in (6, 7):
             clocks += 1                           # through LOAD_MEM (State PLD rev 10)
@@ -487,7 +511,10 @@ class Cpu:
             elif m == 4:
                 self.y = res
             else:
-                m_[addr()] = src
+                ad = addr()
+                m_[ad] = src                      # every write goes to the RAM
+                if ad & 0xF700 == 0x5000:         # /MAP_WR (x5000-x50FF, x5800-x58FF)
+                    self.map = src
         self.steps += 1
         self.clocks += clocks
         return here
@@ -501,7 +528,7 @@ class Cpu:
             here = self.step()
             if self.pc == stop_pc:
                 return 'stop'
-            if halt_detect and self.pc == here and m_is_branch(self.mem[here]):
+            if halt_detect and self.pc == here and m_is_branch(self.read(here)):
                 return 'halt'
         return 'timeout'
 
@@ -558,6 +585,38 @@ def render(mem, path):
     img.save(path)
 
 
+# ---------------------------------------------------------------------------
+# ROM image (matches gen_rom.tcl and ROM.md)
+# ---------------------------------------------------------------------------
+ROM_IMAGE_BASE = 0x6000      # ROM address of RAM x0000
+IMAGE_SIZE = 0x4A00          # RAM x0000-x49FF is copied at boot
+LIB_START, LIB_END = 0x3000, 0x4000
+
+
+def build_rom(prog, base_dir=None):
+    """ROM bytes {addr: value} for a program image {addr: value}: rom_boot.asm,
+    then rom_lib.asm at RAM x3000-x3FFF, then the program (x0000 to its last
+    byte, gaps as 00, like its hex file), all RAM-image bytes at ROM address =
+    RAM address + x6000."""
+    import os
+    base_dir = base_dir or os.path.dirname(os.path.abspath(__file__))
+    rom = {}
+    boot, _, _ = assemble(open(os.path.join(base_dir, 'rom_boot.asm')).read(), base_dir)
+    lib, _, _ = assemble(open(os.path.join(base_dir, 'rom_lib.asm')).read(), base_dir)
+    rom.update(boot)
+    for a, v in lib.items():
+        if LIB_START <= a < LIB_END:
+            rom[ROM_IMAGE_BASE + a] = v
+    for a in prog:
+        if a >= IMAGE_SIZE:
+            raise AsmError('program byte at %04X is past the RAM image (x0000-x%04X)'
+                           % (a, IMAGE_SIZE - 1))
+    # the program's hex is padded with 00 from x0000 to its last byte
+    for a in range(max(prog) + 1 if prog else 0):
+        rom[ROM_IMAGE_BASE + a] = prog.get(a, 0)
+    return rom
+
+
 def main(argv):
     import argparse
     ap = argparse.ArgumentParser()
@@ -566,6 +625,9 @@ def main(argv):
     ap.add_argument('--run', action='store_true')
     ap.add_argument('--hw-alu', action='store_true')
     ap.add_argument('--png')
+    ap.add_argument('--boot', action='store_true',
+                    help='run from a ROM image (boot loader, library, program) with the '
+                         'ROM/RAM map, from an empty RAM, as the hardware starts')
     ap.add_argument('--max-steps', type=int, default=20_000_000)
     ap.add_argument('--stop-at', metavar='LABEL', help='stop when the PC reaches LABEL')
     args = ap.parse_args(argv)
@@ -576,7 +638,10 @@ def main(argv):
     open(hexpath, 'w').write(to_hexstr(mem) + '\n')
     print('assembled %d bytes, top %04X -> %s' % (len(mem), max(mem), hexpath))
     if args.run:
-        cpu = Cpu(mem, hw_alu=args.hw_alu)
+        if args.boot:
+            cpu = Cpu({}, hw_alu=args.hw_alu, rom=build_rom(mem))
+        else:
+            cpu = Cpu(mem, hw_alu=args.hw_alu)
         r = cpu.run(args.max_steps, stop_pc=syms[args.stop_at] if args.stop_at else None)
         print('%s after %d instructions, %d clocks, PC=%04X' % (r, cpu.steps, cpu.clocks, cpu.pc))
         if args.png:

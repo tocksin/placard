@@ -9,7 +9,7 @@ for the Placard CPU that draws the set once in each of the four video modes.
                                                 halts after the 8 bpp pass
     python3 placard_sim.py mandelbrot.asm --run --max-steps 2000000000 --png m.png
 
-Then merge mandelbrot.hex into video_ram.mem with gen_video_ram.tcl (set
+Then put mandelbrot.hex into rom.mem with gen_rom.tcl (set
 ::ASM_FILE to mandelbrot.hex) to run it on the board.
 
 SEQUENCE (repeats forever)

@@ -7,7 +7,10 @@ vivado*.jou
 vivado*.str
 .Xil/
 
-# memory image, made by src/scripts/gen_video_ram.tcl on every build
+# memory images, made by src/scripts/gen_video_ram.tcl (ram.mem) and
+# src/scripts/gen_rom.tcl (rom.mem) on every build
+/src/hdl/ram.mem
+/src/hdl/rom.mem
 /src/hdl/video_ram.mem
 
 # IP output products, Vivado writes them next to the .xci
