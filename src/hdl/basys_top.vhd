@@ -29,7 +29,8 @@ entity basys_top is
            VGA_HS       : out  sl;
            PS2_CLK      : inout sl;
            PS2_DATA     : inout sl;
-           JB           : out   slv(4 downto 0)
+           JB           : out   slv(4 downto 0);
+           JA           : out   slv(7 downto 0)   -- audio DAC register (to an R-2R ladder)
     );
 end entity basys_top;
 
@@ -131,6 +132,7 @@ architecture Behavioral of basys_top is
     signal loadPixel        : sl;
     signal loadCode         : sl;
     signal lineCode         : slv(7 downto 0) := x"00";
+    signal audioDac         : slv(7 downto 0) := x"80";  -- 74HC574 audio DAC register
     signal vRed             : slv(3 downto 0);
     signal vBlue            : slv(3 downto 0);
     signal vGreen           : slv(3 downto 0);
@@ -723,6 +725,22 @@ begin
             end if;
         end if;
     end process pixelProc;
+
+    -- Audio DAC register (74HC574, see SOUND.md)
+    --   Clocked by the rising edge of the HSYNC pin (end of sync, start of
+    --   group 42).  The audio sample was read into the pixel buffer in
+    --   group 38 or 39, and the pixel buffer next loads in group 48, so its
+    --   outputs are steady at this edge.  Q7:Q0 drive the R-2R ladder; an
+    --   HC part so the outputs swing rail to rail.  The FPGA model starts
+    --   at 80h (silence); the real part powers up random for one line.
+    audioDacProc : process (hSync)
+    begin
+        if rising_edge(hSync) then
+            audioDac <= pixelBuffer;
+        end if;
+    end process audioDacProc;
+
+    JA <= audioDac;
 
 
     -- Pixel select and video enable delay (one F574, two 4-bit stages)

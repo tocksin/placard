@@ -144,26 +144,26 @@ set_property PACKAGE_PIN U17 [get_ports {BTN[3]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {BTN[3]}]
 #set_input_delay -clock clkSystem 1.000 [get_ports BTN]
 
-
+##Pmod Header JA (audio DAC register Q7:Q0, JA[7] = MSB, see SOUND.md)
 
 ##Pmod Header JA
-#set_property IOSTANDARD LVCMOS33 [get_ports JA]
+set_property IOSTANDARD LVCMOS33 [get_ports JA]
       ## JA1 on schematic
-#set_property PACKAGE_PIN J1 [get_ports {JA[0]}]
+set_property PACKAGE_PIN J1 [get_ports {JA[0]}]
       ## JA2 on schematic
-#set_property PACKAGE_PIN L2 [get_ports {JA[1]}]
+set_property PACKAGE_PIN L2 [get_ports {JA[1]}]
       ## JA3 on schematic
-#set_property PACKAGE_PIN J2 [get_ports {JA[2]}]
+set_property PACKAGE_PIN J2 [get_ports {JA[2]}]
       ## JA4 on schematic
-#set_property PACKAGE_PIN G2 [get_ports {JA[3]}]
+set_property PACKAGE_PIN G2 [get_ports {JA[3]}]
       ## JA7 on schematic
-#set_property PACKAGE_PIN H1 [get_ports {JA[4]}]
+set_property PACKAGE_PIN H1 [get_ports {JA[4]}]
       ## JA8 on schematic
-#set_property PACKAGE_PIN K2 [get_ports {JA[5]}]
+set_property PACKAGE_PIN K2 [get_ports {JA[5]}]
       ## JA9 on schematic
-#set_property PACKAGE_PIN H2 [get_ports {JA[6]}]
+set_property PACKAGE_PIN H2 [get_ports {JA[6]}]
       ## JA10 on schematic
-#set_property PACKAGE_PIN G3 [get_ports {JA[7]}]
+set_property PACKAGE_PIN G3 [get_ports {JA[7]}]
 
 ##Pmod Header JB
 set_property IOSTANDARD LVCMOS33 [get_ports JB]
