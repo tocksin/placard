@@ -1,7 +1,7 @@
 Name     AUDIO_SLOT;
 PartNo   00;
 Date     2026-10-16;
-Revision 01;
+Revision 02;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -10,18 +10,38 @@ Device   g22v10;
 
 
 /* ============================================================
-   AUDIO SAMPLE SLOT   (ATF22V10C, DIP-24 / PLCC-28)
+   AUDIO SAMPLE AND MODE BYTE SLOTS   (ATF22V10C, DIP-24 / PLCC-28)
    ============================================================
 
-   Picks the one 8-clock group on each scan line where the video
-   circuit reads an audio sample from RAM.  See SOUND.md.
+   Picks the 8-clock groups on each scan line where the video
+   circuit reads a byte in horizontal blanking: the audio sample
+   (see SOUND.md) and, from revision 02, the line's mode byte (see
+   VIDEO.md).
 
-   The read itself is made by the Sync PLD: AUD_SLOT goes to Sync
-   pin 13, and Sync raises PIXEL_ENABLE in clock 1 of the group
-   (the same clock as a pixel read).  The read address is the video
-   address, H9:H3 on A15:A9 and V8:V0 on A8:A0.
+   The reads themselves are made by the Sync PLD: BLANK_RD goes to
+   Sync pin 13, and Sync raises PIXEL_ENABLE in clock 1 of each
+   group it marks (the same clock as a pixel read).  The read
+   address is the video address, H9:H3 on A15:A9 and V8:V0 on A8:A0.
+   Each read lands in the pixel buffer.
 
-   WHY TWO GROUPS
+   MODE BYTE (revision 02)
+      Group 37 on every line, H9:H3 = 0100101, so the mode byte of
+      line V is at 4A00h + V8:V0.  Visible rows 0-479 are lines
+      544-1023, V8:V0 = 32-511, so row r's mode byte is at
+      4A20h + r (4A20h-4BFFh).  Before revision 02 the mode byte was
+      the first pixel read of the line (group 48, 6000h + V8:V0), so
+      it took the first byte column of the screen.
+
+      /MODE_LD (pin 22) is low for the whole of group 37.  It is the
+      /E of the line code register (F377), whose D inputs come from
+      the pixel buffer outputs.  The pixel buffer loads the mode byte
+      at the end of clock 1, and the line code register loads it
+      again on each of clocks 2-7, so it holds the mode byte when
+      /MODE_LD goes high at group 38.  It keeps it for the rest of the
+      line, through the audio read (groups 38/39) and all of the
+      active video (groups 48-127).
+
+   WHY TWO AUDIO GROUPS
       The V counter runs 499-1023, 525 lines, but only V8:V0 reach
       the address.  Lines 499-511 and 1011-1023 have the same V8:V0,
       so a read in one fixed group would repeat 13 samples every
@@ -36,18 +56,30 @@ Device   g22v10;
       One frame plays 4DF3h-4FFFh in order: 525 bytes, one per line.
       The buffer is just below the I/O window and follows map bit 2.
 
+   ORDER IN THE LINE
+      37 mode byte, 38/39 audio sample, 42 the DAC register copies
+      the audio sample from the pixel buffer (end of HSYNC), 48 the
+      first pixel.  The mode read must come before the audio read,
+      or it would overwrite the sample in the pixel buffer before
+      the DAC copies it.  Groups 40-47 are the I/O window (5000h-
+      5FFFh), where no memory answers.  Group 37 is the last group
+      before the audio groups, which leaves 4000h-49FFh free for
+      programs in one piece.
+
    UNIQUE GROUP
       The H counter runs 28-127.  !H9 & H8 & !H7 & !H6 is groups
-      32-39 only (40-47 have H6 set, 48 and up have H7 or H9 set),
-      and H5 & H4 narrows it to 38 and 39.  H3 = V9 picks one.
+      32-39 only (40-47 have H6 set, 48 and up have H7 or H9 set).
+      H5 & H4 narrows it to 38 and 39, and H3 = V9 picks one.
+      H5 & !H4 & H3 is group 37.
 
    V9 changes at the end of the last clock of a line (H_TC), so
-   during group 38/39 it is the new line's V9.
+   during groups 37-39 it is the new line's V9.
 
    PIN BUDGET
-      Inputs (8): H9-H3, V9.  Output (1): AUD_SLOT.
-      Unused: pins 1, 10, 11, 13, 14-22.
-      AUD_SLOT is combinational, 2 of 8 product terms on pin 23.
+      Inputs (8): H9-H3, V9.  Outputs (2): BLANK_RD, /MODE_LD.
+      Unused: pins 1, 10, 11, 13, 14-21.
+      BLANK_RD is combinational, 3 of 8 product terms on pin 23.
+      /MODE_LD is combinational, 1 of 10 product terms on pin 22.
    ============================================================ */
 
 
@@ -65,10 +97,14 @@ PIN 9  = V9;          /* V counter PLD pin 19 (Q9) */
 
 /* ---------------- OUTPUTS ---------------- */
 
-PIN 23 = AUD_SLOT;    /* to Sync PLD pin 13, high for the whole audio group */
+PIN 22 = !MODE_LD;    /* to line code register (F377) /E, low for the whole mode group */
+PIN 23 = BLANK_RD;    /* to Sync PLD pin 13, high for the whole audio or mode group */
 
 
 /* ---------------- EQUATIONS ---------------- */
 
-AUD_SLOT = !H9 &  H8 & !H7 & !H6 &  H5 &  H4 &  H3 &  V9     /* group 39, lines 512-1023 */
-         # !H9 &  H8 & !H7 & !H6 &  H5 &  H4 & !H3 & !V9;    /* group 38, lines 499-511  */
+BLANK_RD = !H9 &  H8 & !H7 & !H6 &  H5 &  H4 &  H3 &  V9     /* group 39, lines 512-1023 */
+         # !H9 &  H8 & !H7 & !H6 &  H5 &  H4 & !H3 & !V9     /* group 38, lines 499-511  */
+         # !H9 &  H8 & !H7 & !H6 &  H5 & !H4 &  H3;          /* group 37, every line     */
+
+MODE_LD  = !H9 &  H8 & !H7 & !H6 &  H5 & !H4 &  H3;          /* group 37, every line     */

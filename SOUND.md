@@ -40,30 +40,39 @@ I/O window and follows map bit 2 (4000h-4FFFh).  Groups 40-47 would be the I/O
 window, where no memory answers, so this is as close to video memory as a
 blanking read can get.
 
-**The output.**  The pixel buffer holds the sample until the first pixel read
-of the line (group 48).  A 74HCT574 clocked by the rising edge of the HSYNC
+**The output.**  The mode byte read (group 37) comes before the audio read,
+so the pixel buffer holds the sample until the first pixel read of the line
+(group 48).  A 74HCT574 clocked by the rising edge of the HSYNC
 pin (end of sync, start of group 42) copies it.  So every sample lasts exactly
 one line (800 clocks), even though the read itself moves 8 clocks between
 group 38 and group 39.
 
 ### Audio slot PLD (`ATF22V10_AUDIO.pld`, `audio_pld.vhd`)
 
-    AUD_SLOT = !H9 & H8 & !H7 & !H6 & H5 & H4 &  H3 &  V9     /* group 39 */
-             # !H9 & H8 & !H7 & !H6 & H5 & H4 & !H3 & !V9;    /* group 38 */
+Revision 02 also marks group 37, where the video circuit reads the line's
+mode byte (see [VIDEO.md](VIDEO.md#mode-byte)), so the output to the Sync
+PLD is now called BLANK_RD (AUD_SLOT before), and pin 22 is /MODE_LD.
+
+    BLANK_RD = !H9 & H8 & !H7 & !H6 & H5 &  H4 &  H3 &  V9     /* group 39 */
+             # !H9 & H8 & !H7 & !H6 & H5 &  H4 & !H3 & !V9     /* group 38 */
+             # !H9 & H8 & !H7 & !H6 & H5 & !H4 &  H3;          /* group 37 */
+
+    MODE_LD  = !H9 & H8 & !H7 & !H6 & H5 & !H4 &  H3;          /* pin 22, active low */
 
 | Pin | Signal | From / to |
 |---:|---|---|
 | 2-8 | H9, H8, H7, H6, H5, H4, H3 | H counter PLD pins 20, 19, 18, 17, 16, 15, 14 |
 | 9 | V9 | V counter PLD pin 19 (Q9) |
-| 23 | AUD_SLOT | Sync PLD pin 13 |
-| 1, 10, 11, 13, 14-22 | unused | |
+| 22 | /MODE_LD | Line code register (F377) /E |
+| 23 | BLANK_RD | Sync PLD pin 13 |
+| 1, 10, 11, 13, 14-21 | unused | |
 
 ### Sync PLD change (revision 06)
 
-    PIN 13 = AUD_SLOT;
+    PIN 13 = BLANK_RD;     /* AUD_SLOT before revision 07 */
 
     PIXEL_ENABLE.D = V_VIDEO_ACTIVE & H_VIDEO_ACTIVE & !H2 & !H1 & !H0
-                   # AUD_SLOT & !H2 & !H1 & !H0;
+                   # BLANK_RD & !H2 & !H1 & !H0;
 
 PIXEL_ENABLE uses 2 of its 16 product terms.  Nothing else in the PLD changes.
 
@@ -71,7 +80,7 @@ PIXEL_ENABLE uses 2 of its 16 product terms.  Nothing else in the PLD changes.
 
 | Path | Total | Slack at 39.72 ns |
 |---|---:|---:|
-| AUD_SLOT to the Sync register: H counter tCO 5.5, audio PLD tPD 7.5, Sync tS 3.5 | 16.5 ns | +23.2 |
+| BLANK_RD to the Sync register: H counter tCO 5.5, audio PLD tPD 7.5, Sync tS 3.5 | 16.5 ns | +23.2 |
 | The audio read: the same path as a pixel read (VIDEO_TIMING.md, option A) | 34.5 ns | +5.2 |
 | DAC register data: the pixel buffer is steady from group 38/39 to group 48, and the clock edge is at group 42 | at least 22 clocks before the edge and 50 after | |
 

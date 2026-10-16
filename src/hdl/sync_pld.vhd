@@ -2,14 +2,14 @@
 -- Name     VGA_SYNC
 -- PartNo   01
 -- Date     2026-10-16
--- Revision 06
+-- Revision 07
 -- Designer Justin
 -- Company
 -- Assembly
 -- Location
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 06)
+-- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 07)
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP/SOIC; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = CLK
@@ -23,7 +23,7 @@
 --   PIN 9  = PC_ENABLE
 --   PIN 10 = Y_ENABLE
 --   PIN 11 = X_ENABLE
---   PIN 13 = AUD_SLOT
+--   PIN 13 = BLANK_RD
 --
 --   PIN 14 = H0                (registered output)
 --   PIN 15 = H1                (registered output)
@@ -68,10 +68,11 @@ entity sync_pld is
         Y_ENABLE         : in  std_logic;   -- PIN 10
         X_ENABLE         : in  std_logic;   -- PIN 11
 
-        -- Audio sample slot, from the audio slot PLD (revision 06).
-        -- High for the whole 8-clock group (38 or 39) of each line where
-        -- the audio sample is read.  See SOUND.md.
-        AUD_SLOT         : in  std_logic;   -- PIN 13
+        -- Blanking read slot, from the audio slot PLD (revision 06; named
+        -- AUD_SLOT before revision 07).  High for the whole 8-clock group
+        -- of each line where the mode byte (group 37, see VIDEO.md) or the
+        -- audio sample (group 38 or 39, see SOUND.md) is read.
+        BLANK_RD         : in  std_logic;   -- PIN 13
 
         -- ============================================================
         -- OUTPUTS
@@ -100,7 +101,7 @@ entity sync_pld is
     attribute pin_numbers : string;
     attribute pin_numbers of sync_pld : entity is
         "CLK:1 V9:2 V5:3 V4:4 V3:5 V2:6 V1:7 H_VIDEO_ACTIVE:8 " &
-        "PC_ENABLE:9 Y_ENABLE:10 X_ENABLE:11 AUD_SLOT:13 " &
+        "PC_ENABLE:9 Y_ENABLE:10 X_ENABLE:11 BLANK_RD:13 " &
         "H0:14 H1:15 H2:16 VIDEO_ACTIVE:17 VSYNC:18 PIXEL_ENABLE:19 " &
         "ADDR_SEL:20 ADDR_SEL_HI:21 ADDR_SEL_LO:22 V_VIDEO_ACTIVE:23";
 end entity sync_pld;
@@ -208,12 +209,18 @@ begin
     --
     -- Audio (revision 06): one more read per line, on every line
     -- including vertical blanking, in clock 1 of the group that
-    -- AUD_SLOT marks (group 38 or 39, in horizontal blanking).  It is
+    -- BLANK_RD marks (group 38 or 39, in horizontal blanking).  It is
     -- a video read in every way: the address mux takes the video
     -- address, the CPU stalls, MEM_CTRL enables the RAM or ROM by the
     -- map, and the pixel buffer loads the byte.  The pixel buffer
     -- holds it until the first pixel read of the line (group 48), and
     -- the DAC register copies it at the end of HSYNC (group 42).
+    --
+    -- Mode byte (revision 07): the audio slot PLD (revision 02) also
+    -- marks group 37 on every line, so the same term reads the line's
+    -- mode byte there, and the line code register copies it from the
+    -- pixel buffer.  The input is renamed BLANK_RD; the equations do
+    -- not change.
     --
 
     PIXEL_ENABLE_D <=
@@ -222,7 +229,7 @@ begin
       and (not H2_Q)
       and (not H1_Q)
       and (not H0_Q))
-       or (AUD_SLOT
+       or (BLANK_RD
       and (not H2_Q)
       and (not H1_Q)
       and (not H0_Q));

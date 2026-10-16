@@ -157,7 +157,7 @@ lib_leave:
 
 ; ------------------------------------------------------------
 ; vid_addr - address of a screen byte
-;   in:      AC = byte column, 0-79 (0 is the mode byte column)
+;   in:      AC = byte column, 0-79
 ;            R3:R2 = row, 0-479
 ;   out:     AC = address high byte, X = address low byte
 ;            (then: ld ac, y / ld [y,x], ac reads the byte)
@@ -685,13 +685,13 @@ mc_2:
 ; ------------------------------------------------------------
 ; vid_clear - clear the screen and set every row's color mode
 ;   in:      AC = mode: 0 = 1 bpp, 1 = 2 bpp, 2 = 4 bpp, 3 = 8 bpp
-;   out:     x6200-xFFFF = 0, mode bytes (x6020-x61FF) = AC
+;   out:     x6000-xFFFF = 0, mode bytes (x4A20-x4BFF) = AC
 ;   changes: AC, X, Y, T0, T1
-;   clocks:  497,210 (19.8 ms)
+;   clocks:  503,394 (20.0 ms)
 ; ------------------------------------------------------------
 vid_clear:
     ld   ac, [T0]
-    ld   0x62, ac
+    ld   0x60, ac
     ld   ac, [T1]
 vc_pg:
     ld   [T1], y
@@ -711,15 +711,17 @@ vc_b:
 ; ------------------------------------------------------------
 ; vid_mode - set every row's color mode, leave the pixels alone
 ;   in:      AC = mode, 0-3 (see vid_clear)
-;   out:     mode bytes x6020-x61FF = AC
+;   out:     mode bytes x4A20-x4BFF = AC
 ;   changes: AC, X, Y, T0
 ;   clocks:  8,661
 ;   To change some rows only, write their mode bytes: row r's mode
-;   byte is at x6020 + r (vid_addr with column 0).
+;   byte is at x4A20 + r.  The video circuit reads it in horizontal
+;   blanking, so it follows map bit 2 (x4000-x4FFF), not the video
+;   sections.
 ; ------------------------------------------------------------
 vid_mode:
     ld   ac, [T0]
-    ld   0x60, y
+    ld   0x4A, y
     ld   0x20, ac
 vm_0:
     ld   ac, x
@@ -728,7 +730,7 @@ vm_0:
     ld   x, ac
     inc
     bne  vm_0
-    ld   0x61, y
+    ld   0x4B, y
 vm_1:
     ld   ac, x
     ld   [T0], ac
@@ -741,7 +743,7 @@ vm_1:
 
 ; ------------------------------------------------------------
 ; plot1 - set or clear one pixel on a 1 bpp row
-;   in:      R1:R0 = x, 0-631 (0 is the first visible pixel)
+;   in:      R1:R0 = x, 0-639 (0 is the first visible pixel)
 ;            R3:R2 = y, 0-479
 ;            AC = 0 to clear the pixel, anything else to set it
 ;   out:     -
@@ -757,7 +759,7 @@ plot1:
     ld   lib_bits >> 8, y
     ld   [y,x], ac
     ld   ac, [T3]
-    ld   [R1], ac               ; byte column - 1 = x >> 3
+    ld   [R1], ac               ; byte column = x >> 3
     shl
     shl
     shl
@@ -769,8 +771,8 @@ plot1:
     shr  ac
     shr  ac
     or   [T0], ac
-    shl                         ; page = x62 + 2 (x >> 3) + y high + carry
-    add  0x62, ac
+    shl                         ; page = x60 + 2 (x >> 3) + y high + carry
+    add  0x60, ac
     add  [R3], ac
     ld   ac, [T0]
     ld   [R2], ac
@@ -799,16 +801,16 @@ pl_clr:
     jmp  [LINK_LO]
 
 ; ------------------------------------------------------------
-; con_scroll - move pixel rows 8-479 up to 0-471 in byte columns 1-79
+; con_scroll - move pixel rows 8-479 up to 0-471 in byte columns 0-79
 ; and clear rows 472-479 (scroll the text up one row)
 ;   in:      -
 ;   out:     AC unchanged; the cursor is not moved
 ;   changes: X, Y, T1-T5
-;   clocks:  1,217,807 (48.4 ms)
+;   clocks:  1,233,222 (49.0 ms)
 ; ------------------------------------------------------------
 con_scroll:
     ld   ac, [T4]
-    ld   0x62, ac
+    ld   0x60, ac
     ld   ac, [T1]               ; column's first page (rows 0-223)
 cs_col:
     ld   [T1], y                ; rows 8-223 -> 0-215, same page
@@ -878,8 +880,8 @@ cs_d:
 ; ============================================================
 ; Page 4: text console - character output
 ; ============================================================
-; 79 columns x 60 rows of 8 x 8 characters on 1 bpp rows.  The cursor is
-; CUR_COL (byte column 1-79) and CUR_ROW (text row 0-59); write them to
+; 80 columns x 60 rows of 8 x 8 characters on 1 bpp rows.  The cursor is
+; CUR_COL (byte column 0-79) and CUR_ROW (text row 0-59); write them to
 ; move the cursor.  Codes 80-FF print 00-7F in inverse video.
 #addr LIB_CODE + 0x400
 
@@ -889,7 +891,7 @@ cs_d:
 ;   out:     AC = character; cursor moved, past row 59 the screen
 ;            scrolls up one text row
 ;   changes: X, Y, T0-T5
-;   clocks:  313, or 1,217,864 (48.4 ms) when it scrolls
+;   clocks:  313, or 1,233,278 (49.0 ms) when it scrolls
 ;   The cursor must be valid: call con_clear or con_home first.
 ; ------------------------------------------------------------
 con_putc:
@@ -1004,13 +1006,13 @@ cp_nl:
 ; con_newline - move the cursor to the start of the next line,
 ; scrolling the screen up one text row past row 59
 ;   in:      -
-;   out:     AC unchanged; CUR_COL = 1, CUR_ROW + 1 (at most 59)
+;   out:     AC unchanged; CUR_COL = 0, CUR_ROW + 1 (at most 59)
 ;   changes: X, Y, T0-T5
-;   clocks:  40, or 1,217,800 (48.4 ms) when it scrolls
+;   clocks:  39, or 1,233,264 (49.0 ms) when it scrolls
 ; ------------------------------------------------------------
 con_newline:
     ld   ac, [T0]
-    ld   1, ac
+    clr  ac
     ld   ac, [CUR_COL]
     ld   [CUR_ROW], ac
     inc
@@ -1028,7 +1030,7 @@ cn_scroll:
     jmp  con_scroll
 
 ; ------------------------------------------------------------
-; con_home - put the cursor at the top left (column 1, row 0)
+; con_home - put the cursor at the top left (column 0, row 0)
 ;   in:      -
 ;   out:     AC unchanged
 ;   changes: X
@@ -1036,7 +1038,7 @@ cn_scroll:
 ; ------------------------------------------------------------
 con_home:
     ld   CUR_COL, x
-    ld   1, [x]
+    ld   0, [x]
     ld   CUR_ROW, x
     ld   0, [x]
     ld   [LINK_HI], y
@@ -1045,13 +1047,13 @@ con_home:
 ; ------------------------------------------------------------
 ; con_clear - clear the screen to 1 bpp and home the cursor
 ;   in:      -
-;   out:     every row 1 bpp, all pixels 0, cursor at column 1, row 0
+;   out:     every row 1 bpp, all pixels 0, cursor at column 0, row 0
 ;   changes: AC, X, Y, T0, T1
-;   clocks:  497,230 (19.8 ms)
+;   clocks:  503,414 (20.0 ms)
 ; ------------------------------------------------------------
 con_clear:
     ld   CUR_COL, x
-    ld   1, [x]
+    ld   0, [x]
     ld   CUR_ROW, x
     ld   0, [x]
     clr  ac
