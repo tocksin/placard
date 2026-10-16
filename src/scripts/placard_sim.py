@@ -6,6 +6,7 @@ placard_sim.py - assembler and instruction-level simulator for the Placard CPU
     python3 placard_sim.py prog.asm --run           assemble and run
     python3 placard_sim.py prog.asm --run --hw-alu  run with the VHDL alu4 model
     python3 placard_sim.py prog.asm --run --png out.png   also render the screen
+    python3 placard_sim.py prog.asm --run --stop-at LABEL  stop when PC = LABEL
 
 The assembler accepts the syntax defined in placard.asm (it is not a general
 customasm replacement: #include lines are skipped, and only #addr and #d8
@@ -27,6 +28,9 @@ Branch PLD rev 09):
     JMP also loads PC high <- Y
   - ADD and SUB with an AC, X or Y destination take one extra clock
     (the Branch PLD's ALU wait clock); stores do not
+  - a read of x5000-x50FF (or its x5800 mirror) returns the video line read,
+    V9:V2, with one line per 800 CPU clocks and V = 499-1023 (525 lines per
+    frame).  Video fetch stalls are not modeled.
 
 --hw-alu evaluates the ALU with the exact alu4.vhd equations wired as in
 basys_top.vhd (low nibble CIN = 0, high nibble CIN = low nibble COUT, low
@@ -386,7 +390,11 @@ class Cpu:
                 return self.x
             return (self.y << 8) | self.x
         if s == 1:
-            self.d = m_[addr()]
+            ad = addr()
+            if ad & 0xF700 == 0x5000:             # /LINE_RD (x5000-x50FF, x5800-x58FF)
+                self.d = self.line_read()
+            else:
+                self.d = m_[ad]
             clocks += 1
         if s >= 2 and m in (6, 7):
             clocks += 1                           # through LOAD_MEM (State PLD rev 10)
@@ -417,9 +425,15 @@ class Cpu:
         self.clocks += clocks
         return here
 
-    def run(self, max_steps=20_000_000, halt_detect=True):
+    def line_read(self):
+        """V9:V2 of the video line counter: 800 clocks per line, V = 499-1023"""
+        return (499 + (self.clocks // 800) % 525) >> 2
+
+    def run(self, max_steps=20_000_000, halt_detect=True, stop_pc=None):
         while self.steps < max_steps:
             here = self.step()
+            if self.pc == stop_pc:
+                return 'stop'
             if halt_detect and self.pc == here and m_is_branch(self.mem[here]):
                 return 'halt'
         return 'timeout'
@@ -485,6 +499,7 @@ def main(argv):
     ap.add_argument('--hw-alu', action='store_true')
     ap.add_argument('--png')
     ap.add_argument('--max-steps', type=int, default=20_000_000)
+    ap.add_argument('--stop-at', metavar='LABEL', help='stop when the PC reaches LABEL')
     args = ap.parse_args(argv)
     src = open(args.asm).read()
     mem, syms, _ = assemble(src)
@@ -493,7 +508,7 @@ def main(argv):
     print('assembled %d bytes, top %04X -> %s' % (len(mem), max(mem), hexpath))
     if args.run:
         cpu = Cpu(mem, hw_alu=args.hw_alu)
-        r = cpu.run(args.max_steps)
+        r = cpu.run(args.max_steps, stop_pc=syms[args.stop_at] if args.stop_at else None)
         print('%s after %d instructions, %d clocks, PC=%04X' % (r, cpu.steps, cpu.clocks, cpu.pc))
         if args.png:
             render(cpu.mem, args.png)
