@@ -124,45 +124,14 @@ exit /b 0
 
 rem ---- fast: new memory image into the existing bitstream ----------------------
 :fastPath
-set "IMPL_DIR=%REPO_DIR%\project\placard.runs\impl_1"
-set "FAST_BIT=%IMPL_DIR%\basys_top_fast.bit"
-for %%I in ("%VIVADO%") do set "VIVADO_BIN=%%~dpI"
-
 pushd "%LOG_DIR%"
-call "%VIVADO%" -mode batch -nojournal -log "%PROG%_mem_vivado.log" ^
+call "%VIVADO%" -mode batch -nojournal -log "%PROG%_fast_vivado.log" ^
     -source "%TCL_DIR%update_mem.tcl" -tclargs "%HEX_FILE%"
 set "RESULT=%errorlevel%"
 popd
 if not "%RESULT%"=="0" (
     echo.
-    echo build_and_load: FAILED for %PROG%, see %LOG_DIR%\%PROG%_mem_vivado.log
-    exit /b %RESULT%
-)
-
-set "UPD_ARGS="
-for /f "usebackq delims=" %%P in ("%IMPL_DIR%\basys_top_procs.txt") do (
-    set UPD_ARGS=!UPD_ARGS! -data "%IMPL_DIR%\basys_top_update.mem" -proc %%P
-)
-if not defined UPD_ARGS (
-    echo build_and_load: no memory instances in %IMPL_DIR%\basys_top.mmi
-    exit /b 1
-)
-echo build_and_load: updatemem
-call "%VIVADO_BIN%updatemem.bat" -force -meminfo "%IMPL_DIR%\basys_top.mmi" ^
-    -bit "%IMPL_DIR%\basys_top.bit" !UPD_ARGS! -out "%FAST_BIT%"
-if errorlevel 1 (
-    echo build_and_load: updatemem FAILED for %PROG%
-    exit /b 1
-)
-
-pushd "%LOG_DIR%"
-call "%VIVADO%" -mode batch -nojournal -log "%PROG%_program_vivado.log" ^
-    -source "%TCL_DIR%program_board.tcl" -tclargs "%FAST_BIT%"
-set "RESULT=%errorlevel%"
-popd
-if not "%RESULT%"=="0" (
-    echo.
-    echo build_and_load: FAILED for %PROG%, see %LOG_DIR%\%PROG%_program_vivado.log
+    echo build_and_load: FAILED for %PROG%, see %LOG_DIR%\%PROG%_fast_vivado.log
     exit /b %RESULT%
 )
 echo.

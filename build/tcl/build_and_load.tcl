@@ -63,6 +63,12 @@ if {![file exists $bitFile]} {
 puts "build_and_load: bitstream $bitFile"
 close_project
 
+# keep the image this bitstream holds, so the fast path (update_mem.tcl) can
+# check its block RAM map against it
+source [file join $tclDir write_mmi.tcl]
+write_update_mem [file join $repoDir src hdl video_ram.mem] \
+    [file join [file dirname $bitFile] [file rootname [file tail $bitFile]]_built.mem] 65536
+
 # ---- 3. program the board ---------------------------------------------------
 # (tclDir, not scriptDir: gen_video_ram.tcl sets its own scriptDir when sourced)
 source [file join $tclDir program_board.tcl]
