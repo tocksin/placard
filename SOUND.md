@@ -265,7 +265,8 @@ measured; about 380,000 CPU clocks per frame):
 
 ## Memory map impact
 
-- 4DF3h-4FFFh is the audio buffer while sound is used.  The rest of 4000h-4DF2h
-  is free.
+- 4DF3h-4FFFh is the audio buffer while sound is used.  4A20h-4BFFh holds the
+  row mode bytes (see [VIDEO.md](VIDEO.md#mode-byte)).  4000h-49FFh and
+  4C00h-4DF2h are free.
 - Sound needs map bit 2 set to RAM (or it plays whatever the ROM holds there).
 - The /SND_WR strobe at 5100h is no longer needed for sound and is free.
