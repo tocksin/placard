@@ -10,7 +10,7 @@ full 1 bpp screen (632 x 480 cells) for the Placard CPU.
     python3 gen_game_of_life.py --check 3           build, run in placard_sim and
                                                     compare with a Python model
 
-Then merge game_of_life.hex into video_ram.mem with gen_video_ram.tcl (set
+Then put game_of_life.hex into rom.mem with gen_rom.tcl (set
 ::ASM_FILE to game_of_life.hex) to run it on the board, or use
 build\\game_of_life.bat.
 

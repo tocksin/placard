@@ -28,6 +28,7 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 - **x5000-x5FFF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  A11 is not decoded, so x5800-x5FFF repeats x5000-x57FF.
 - **Only `[Y,X]` reaches the I/O window**; `[0,D]` and `[0,X]` only address the zero page.
 - **Video reads follow the map too**: /RAM_OE and /ROM_OE are decoded the same way for a video read as for a CPU read, so a video section shows the RAM only once it is mapped to RAM.
+- **The ROM boots the program.**  The ROM's boot loader copies the program, the standard library and its font from the upper ROM (x6000-xA9FF, where the RAM holds the video) to RAM x0000-x49FF, maps every section to RAM and jumps to RAM x0000.  See [ROM.md](ROM.md) for the ROM layout.
 - **After a map write**, the next instruction must not be fetched from a section whose map bit that write changed, unless the ROM and RAM hold the same byte there (the new map arrives 4.1 ns too late for that fetch).  Copying the ROM into the RAM underneath and then switching the section is safe.  See [TIMING_FIXES.md](TIMING_FIXES.md#romram-map-register-74act273).
 
 The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /WE, /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
@@ -98,7 +99,10 @@ The `build` folder has one Windows batch file per assembly program
 (`cpu_test.bat`, `test_video.bat`, `mandelbrot.bat`,
 `pi_spigot.bat`, `game_of_life.bat`, `lib_demo.bat`).  Each one assembles
 `src/scripts/<program>.asm` (customasm, or `placard_sim.py` if customasm is not
-on the PATH), writes `src/hdl/video_ram.mem` with `gen_video_ram.tcl`, runs
+on the PATH), writes the RAM's initialization file `src/hdl/ram.mem` (the
+video test pattern, `gen_video_ram.tcl`) and the ROM's `src/hdl/rom.mem`
+(boot loader, standard library and font, and the program, `gen_rom.tcl`; see
+[ROM.md](ROM.md)), runs
 Vivado in batch mode through synthesis, implementation and bitstream, and
 programs the Basys 3 over JTAG.  Any other program builds with
 `build\build_and_load.bat <program>`.  Add `noasm` (e.g. `cpu_test.bat noasm`)
@@ -107,7 +111,7 @@ to skip assembly and use the existing `.hex` file.  Vivado is found on the PATH 
 `vivado.bat` to pick a version.  Logs go to `build/logs`; the Vivado Tcl scripts
 behind the batch files are in `build/tcl`.
 Add `fast` (e.g. `mandelbrot.bat fast`) to change only the memory contents:
-the new `video_ram.mem` is written into the last implemented bitstream with
+the new `ram.mem` and `rom.mem` are written into the last implemented bitstream with
 `updatemem` (block RAM map from `build/tcl/write_mmi.tcl`), so synthesis and
 implementation are skipped.  It needs one full build first, and a full build
 again after any HDL or constraint change.  The first `fast` run after a full
@@ -128,5 +132,8 @@ source, so after adding or removing one run `build\create_project.bat force`.
 Testbenches and other settings are listed in `create_project.tcl`; change them
 there, because a change made only in the GUI is lost the next time the project
 is made.
-`src/hdl/video_ram.mem` is not kept in git either; every build makes it, and
-`create_project.tcl` makes the default image if it is missing.
+`src/hdl/ram.mem` and `src/hdl/rom.mem` are not kept in git either; every
+build makes them, and `create_project.tcl` makes the default images if they
+are missing.  A project made before the ROM had its own file lists
+`video_ram.mem`; the next build swaps it for the two new files, or run
+`build\create_project.bat force`.

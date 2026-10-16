@@ -3,10 +3,13 @@ rem ===========================================================================
 rem build_and_load.bat  <program> [noasm] [fast]
 rem
 rem Builds one assembly program into the FPGA and loads it on the board:
-rem   1. assembles src\scripts\<program>.asm into <program>.hex
+rem   1. assembles src\scripts\<program>.asm into <program>.hex, and the ROM's
+rem      boot loader and library (rom_boot.asm, rom_lib.asm)
 rem      (customasm if it is on the PATH, otherwise placard_sim.py with
-rem      Python; if neither is found the existing .hex is used)
-rem   2. merges the program into src\hdl\video_ram.mem (gen_video_ram.tcl)
+rem      Python; if neither is found the existing .hex files are used)
+rem   2. makes src\hdl\ram.mem (gen_video_ram.tcl, the video test pattern) and
+rem      src\hdl\rom.mem (gen_rom.tcl: boot loader, library and the program,
+rem      see ROM.md)
 rem   3. runs Vivado in batch mode: synthesis, implementation, bitstream
 rem   4. programs the Basys 3 through the local hw_server
 rem
@@ -16,7 +19,7 @@ rem                                                 src\scripts\cpu_test.hex
 rem            build_and_load.bat cpu_test fast     skip step 3: put the new memory
 rem                                                 image into the last bitstream
 rem
-rem fast only changes the RAM contents.  It needs one full build first, and a
+rem fast only changes the RAM and ROM contents.  It needs one full build first, and a
 rem full build again after any HDL or constraint change.  It writes
 rem impl_1\basys_top_fast.bit and leaves basys_top.bit as built (see
 rem tcl\update_mem.tcl and tcl\write_mmi.tcl).
@@ -69,26 +72,12 @@ if not exist "%ASM_FILE%" if not exist "%HEX_FILE%" (
 
 rem ---- 1. assemble -----------------------------------------------------------
 if defined NOASM echo build_and_load: noasm, using existing %PROG%.hex
-if not defined NOASM if exist "%ASM_FILE%" (
-    pushd "%SCRIPTS_DIR%"
-    where customasm >nul 2>&1
-    if !errorlevel! equ 0 (
-        echo build_and_load: customasm %PROG%.asm
-        customasm "%PROG%.asm" -f hexstr -o "%PROG%.hex"
-        if !errorlevel! neq 0 ( popd & echo build_and_load: assembly failed & exit /b 1 )
-    ) else (
-        set "PYTHON="
-        where python >nul 2>&1 && set "PYTHON=python"
-        if not defined PYTHON ( where py >nul 2>&1 && set "PYTHON=py -3" )
-        if defined PYTHON (
-            echo build_and_load: customasm not found, assembling with placard_sim.py
-            !PYTHON! placard_sim.py "%PROG%.asm" -o "%PROG%.hex"
-            if !errorlevel! neq 0 ( popd & echo build_and_load: assembly failed & exit /b 1 )
-        ) else (
-            echo build_and_load: WARNING no customasm or Python found, using existing %PROG%.hex
+if not defined NOASM (
+    for %%P in (rom_boot rom_lib %PROG%) do (
+        if exist "%SCRIPTS_DIR%\%%P.asm" (
+            call :assemble %%P || exit /b 1
         )
     )
-    popd
 )
 if not exist "%HEX_FILE%" (
     echo build_and_load: %HEX_FILE% not found
@@ -122,7 +111,30 @@ echo.
 echo build_and_load: %PROG% built and loaded on the board
 exit /b 0
 
-rem ---- fast: new memory image into the existing bitstream ----------------------
+rem ---- assemble one program: call :assemble <name> -----------------------------
+:assemble
+pushd "%SCRIPTS_DIR%"
+where customasm >nul 2>&1
+if !errorlevel! equ 0 (
+    echo build_and_load: customasm %~1.asm
+    customasm "%~1.asm" -f hexstr -o "%~1.hex"
+    if !errorlevel! neq 0 ( popd & echo build_and_load: assembly of %~1 failed & exit /b 1 )
+) else (
+    set "PYTHON="
+    where python >nul 2>&1 && set "PYTHON=python"
+    if not defined PYTHON ( where py >nul 2>&1 && set "PYTHON=py -3" )
+    if defined PYTHON (
+        echo build_and_load: customasm not found, assembling %~1.asm with placard_sim.py
+        !PYTHON! placard_sim.py "%~1.asm" -o "%~1.hex"
+        if !errorlevel! neq 0 ( popd & echo build_and_load: assembly of %~1 failed & exit /b 1 )
+    ) else (
+        echo build_and_load: WARNING no customasm or Python found, using existing %~1.hex
+    )
+)
+popd
+exit /b 0
+
+rem ---- fast: new memory images into the existing bitstream ---------------------
 :fastPath
 pushd "%LOG_DIR%"
 call "%VIVADO%" -mode batch -nojournal -log "%PROG%_fast_vivado.log" ^

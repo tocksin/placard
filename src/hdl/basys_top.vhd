@@ -113,6 +113,7 @@ architecture Behavioral of basys_top is
     signal addrRom          : slv(10 downto 0);
     signal dataRom          : slv(15 downto 0);
     signal romEn            : sl;
+    signal romSel           : sl;   -- 1 = the address reads from the ROM (map decode)
     signal romData          : slv(7 downto 0);
     signal dipR             : slv(15 downto 0);
     signal dipRR            : slv(15 downto 0);
@@ -629,6 +630,7 @@ begin
     );
 
     ramComp : entity work.sp_ram 
+    generic map( initFile => "ram.mem" )
     port map(   iClk    => clkSystem,  -- faster clock to simulate async RAM
                 iWrEn   => not ramWeN,    -- stand-in for the SRAM's active-low /WE pin
                 iRamEn  => '1',
@@ -636,14 +638,30 @@ begin
                 iData   => srcBus,        -- RAM write data comes from the source bus
                 oData   => ramData);  -- must be same size as input data
 
+    -- ROM or RAM on the read bus: the section decode of the memory control
+    -- PLD's /ROM_OE and /RAM_OE (map bit n = 1 reads RAM), without the clock
+    -- phase, so the bus does not change at the clock edge that latches it.
+    -- In the I/O window x5000-x5FFF neither memory drives the bus; the model
+    -- leaves the RAM there, as before.
+    romSelProc: process (all)
+    begin
+        case ramAddress(15 downto 13) is
+            when "000"  => romSel <= not ramSel0;
+            when "001"  => romSel <= not ramSel1;
+            when "010"  => romSel <= not ramSel2 and not ramAddress(12);
+            when "011"  => romSel <= not ramSel3;
+            when "100"  => romSel <= not ramSel4;
+            when "101"  => romSel <= not ramSel5;
+            when "110"  => romSel <= not ramSel6;
+            when others => romSel <= not ramSel7;
+        end case;
+    end process romSelProc;
+
     -- Data bus process (from RAM/ROM) - replaces the tri-state databus 
-    --   The model reads every address from the RAM block.  The ROM/RAM
-    --   map register clears at power-up with every mapped section set to ROM and no
-    --   program writes the map yet, so following romOeN/ramOeN would read
-    --   the unwritten ROM block everywhere.  (Before ROM/RAM select rev 03
-    --   this process tested rom_en with the wrong polarity, which had the
-    --   same effect; see TIMING.md, "Other observations".)  The ROM block
-    --   and romEn are kept for when the map is used.
+    --   Reads follow the ROM/RAM map (romSel).  The map clears to all ROM
+    --   at power-up, so the CPU starts in the ROM's boot loader, which
+    --   copies the program and library into the RAM and maps every section
+    --   to RAM (see ROM.md).
     --
     --   Video line read: a 74F541 enabled by /LINE_RD (an I/O read at
     --   x5000-x50FF) drives the upper 8 bits of the V counter, V9:V2, onto
@@ -660,6 +678,8 @@ begin
             databus(5) <= pixelRow(7);  -- '541 A6 = V7
             databus(6) <= pixelRow(8);  -- '541 A7 = V8
             databus(7) <= pixelRow(9);  -- '541 A8 = V9
+        elsif romSel = '1' then
+            databus <= to_01(romData);
         else
             databus <= to_01(ramData);
         end if;
@@ -853,7 +873,11 @@ begin
     port map(   addrIn      => addrRom,
                 dataOut     => dataRom);
 */
+    -- The ROM has its own initialization file (boot loader, standard
+    -- library and font, and the program; see ROM.md).  Writes always go
+    -- to the RAM, so the ROM block is never written.
     romComp : entity work.sp_ram 
+    generic map( initFile => "rom.mem" )
     port map(   iClk    => clkSystem,  -- faster clock to simulate async RAM
                 iWrEn   => '0',
                 iRamEn  => '1',
