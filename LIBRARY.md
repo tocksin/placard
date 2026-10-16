@@ -40,8 +40,9 @@ standard places that every program shares, so keep them.  A program runs in
 place from ROM x6000-xFBFF (entry at x6000).  The boot loader maps the zero
 page and x4000-x4FFF to RAM (map = 05, also in `MAP_SHADOW`) and jumps to
 x6000.  Program variables and buffers go in RAM: the zero page x20-xBF,
-x0100-x1FFF, x4000-x49FF and x4C00-x4DF2 (the mode bytes are at x4A20-x4BFF
-and the audio buffer starts at x4DF3).  The RAM is random at power-up, so set
+x0100-x1FFF, x4000-x4FFF, x5400-x5A1F and x5C00-x5DF2 (the mode bytes are
+at x5A20-x5BFF and the audio buffer is x5DF3-x5FFF).  A 2x or 4x screen
+frees part of the video area too (see `vid_mode`).  The RAM is random at power-up, so set
 variables in code.  The video always reads the RAM; to read the video RAM,
 map sections 3-7 to RAM and back (`plot1` and `con_scroll` do this
 themselves).  Both customasm and `placard_sim.py` assemble the library to the
@@ -241,20 +242,32 @@ pointers already point at the next block.
 
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
-| `vid_addr` | AC = byte column 0-79, R3:R2 = row 0-479 | AC = address high byte, X = low byte | T0 | 44 or 55 |
-| `vid_clear` | AC = mode (0 = 1 bpp, 1 = 2 bpp, 2 = 4 bpp, 3 = 8 bpp) | x6000-xFFFF = 0, every mode byte = AC | AC, X, Y, T0, T1 | 503,394 (20.0 ms) |
-| `vid_mode` | AC = mode | Every row's mode byte = AC, pixels kept | AC, X, Y, T0 | 8,661 |
-| `plot1` | R1:R0 = x 0-639, R3:R2 = y 0-479, AC = 0 clears, else sets | One pixel of a 1 bpp row | AC, X, Y, T0, T2, T3 | 148-159 |
+| `vid_addr` | AC = byte column 0-79, R3:R2 = row 0-479 | AC = address high byte, X = low byte, for the row's own line repeat | T0, T1, T4 | 78-82 (1x), 91-95 (2x), 111-115 (4x) |
+| `vid_clear` | AC = mode byte: bits 1:0 = 1, 2, 4, 8 bpp (0-3), bits 3:2 = 1x, 2x, 4x (0-2) | x6000-xFFFF = 0, every mode byte = AC | AC, X, Y, T0, T1 | 503,394 (20.0 ms) |
+| `vid_mode` | AC = mode byte | Every row's mode byte = AC, pixels kept | AC, X, Y, T0 | 8,661 |
+| `plot1` | R1:R0 = x 0-639, R3:R2 = y 0-479, AC = 0 clears, else sets | One pixel of a 1 bpp row (1x, 2x or 4x) | AC, X, Y, T0-T6 | 229-262 |
 | `map_set` | AC = map (bit n = 1: section n reads RAM) | Map register and MAP_SHADOW = AC | Y | 18 |
 | `frame_poll` | | AC = line read (V9:V2, 124-255), FRAME + 1 when a new frame started, LINE_LAST = AC | X, Y, T0 | 39-53 |
 | `wait_frames` | AC = frames 1-255 (0 = 256) | FRAME + AC | AC, X, Y, T0, T1 | Until the AC-th new frame starts |
 
 - After `vid_addr`, `ld ac, y` and then `ld [y,x], ac` or `ld ac, [y,x]`
   read or write the byte.
-- Row r's mode byte is at x4A20 + r (x4A20-x4BFF), so a program can give
-  different rows different modes.  The video circuit reads it in horizontal
-  blanking, before the row's pixels, so it takes no screen space; it follows
-  map bit 2 (x4000-x4FFF), not the video sections.
+- Row r's mode byte is at x5A20 + r (x5A20-x5BFF), so a program can give
+  different rows different modes.  The video circuit reads it from the RAM in
+  horizontal blanking, before the row's pixels, so it takes no screen space.
+  `vid_addr` and `plot1` read it too, so section 2 must read RAM (the boot
+  sets map = 05).
+- Bits 3:2 of the mode byte are the line repeat: in 2x (01) each byte shows
+  on two lines and in 4x (10) on four, and the row's bytes move within the
+  byte column (see [VIDEO.md](VIDEO.md#line-repeat)).  Use `vid_addr` rather
+  than x6020 + column × 512 + row for such rows.  Give both rows of a 2x
+  pair (all four of a 4x group) the same repeat bits.  A full 2x screen
+  leaves the even video pages x60, x62 ... xFE free (20 KB), a full 4x
+  screen x6000-x617F, x6200-x637F ... (30 KB).  1x rows 0-223 never share a
+  byte with 2x or 4x rows.
+- `plot1` became slower when it learned the line repeat (it calls
+  `vid_addr`, 148-159 clocks before).  The text console still assumes 1x
+  rows.
 - `plot1`'s x = 0 is the first visible pixel (byte column 0, bit 0).
 - `plot1` and `con_scroll` read the video RAM, so they write the map with
   `MAP_SHADOW` or F8 (sections 3-7 read RAM) for the read and write

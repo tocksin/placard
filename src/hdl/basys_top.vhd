@@ -99,6 +99,11 @@ architecture Behavioral of basys_top is
     signal videoActiveR     : sl;   -- second delay stage (VIDEN)
     signal pixelEn          : sl;
     signal modeLdN          : sl;   -- line code register /E (audio slot PLD pin 22)
+    signal hVideoActive     : sl;   -- H counter PLD H_VIDEO_ACTIVE (audio DAC clock)
+    signal rowA0            : sl;   -- video address A0 from the audio slot PLD (line repeat)
+    signal rowA1            : sl;   -- video address A1
+    signal rowA7            : sl;   -- video address A7
+    signal rowA8            : sl;   -- video address A8
     signal pixelEnAndRst    : sl;
     signal cpuStall         : sl;   -- Branch PLD STALL = pixel enable or ALU wait
     signal aluDone          : sl;   -- Branch PLD ALU_DONE (second ADD/SUB clock)
@@ -484,6 +489,13 @@ begin
                 videoActiveOut  => videoActive,
                 pixelEnOut      => pixelEn,
                 modeLdNOut      => modeLdN,
+                hVideoActiveOut => hVideoActive,
+                rowA0Out        => rowA0,
+                rowA1Out        => rowA1,
+                rowA7Out        => rowA7,
+                rowA8Out        => rowA8,
+                lc2In           => lineCode(2),
+                lc3In           => lineCode(3),
                 pixelRowOut     => pixelRow,
                 pixelColOut     => pixelCol,
                 
@@ -511,8 +523,24 @@ begin
     -- 640x480x1 - reads every 8th pixel and every row
     -- videoAddr <= (pixelRow(8 downto 0) & pixelCol(9 downto 3));
     -- reversed layout
-    videoAddr <= (pixelCol(9 downto 3) & pixelRow(8 downto 0));
+    -- videoAddr <= (pixelCol(9 downto 3) & pixelRow(8 downto 0));
     -- loadPixel <= '1' when pixelCol(2 downto 0) = "000" else '0';
+
+    -- Line repeat as built (2026-10-16, audio slot PLD revision 03): bits
+    -- 3:2 of the line code pick 1x (00), 2x (01) or 4x (10 and 11).  The
+    -- audio slot PLD makes A0, A1, A7 and A8 of the row address; A2-A6
+    -- are V2-V6.  In the blanking reads (groups 32-47) they are V0, V1,
+    -- V7 and V8 whatever the line code is.
+    --     1x: A8:A0 = V8:V0
+    --     2x: A8 = 1, A7:A1 = V7:V1, A0 = V8
+    --     4x: A8 = 1, A7 = 1, A6:A2 = V6:V2, A1 = V8, A0 = V7
+    -- See VIDEO.md (line repeat).
+    videoAddr(15 downto 9) <= pixelCol(9 downto 3);
+    videoAddr(8)           <= rowA8;
+    videoAddr(7)           <= rowA7;
+    videoAddr(6 downto 2)  <= pixelRow(6 downto 2);
+    videoAddr(1)           <= rowA1;
+    videoAddr(0)           <= rowA0;
 
     -- 640x240x1 - reads every 8th pixel and every other row
     -- videoAddr <= (pixelRow(8 downto 1) & '0' & pixelCol(9 downto 3));
@@ -592,6 +620,8 @@ begin
         ramsel2     => ramSel2,
         rw          => memRdWr,
         pixelEnable => pixelEnAndRst,
+        a11         => ramAddress(11),
+        a10         => ramAddress(10),
 
         weN         => ramWeN,
         romOeN      => romOeN,
@@ -618,12 +648,12 @@ begin
         a9          => ramAddress(9),
         a8          => ramAddress(8),
         rw          => memRdWr,
+        a11         => ramAddress(11),
         load_imm    => dLoad,
 
         ce_hi_n     => open,
         map_wr_n    => mapWrN,
         line_rd_n   => lineRdN,
-        snd_wr_n    => open,
         port_wr_n   => open,
         port_rd_n   => open,
         exp1_n      => open,
@@ -643,8 +673,9 @@ begin
     -- PLD's /ROM_OE and /RAM_OE (map bit n = 1 reads RAM), without the clock
     -- phase, so the bus does not change at the clock edge that latches it.
     -- A video read (pixelEnAndRst) always reads the RAM (memory control PLD
-    -- revision 04).  In the I/O window x5000-x5FFF neither memory drives the
-    -- bus; the model leaves the RAM there, as before.
+    -- revision 04).  In the I/O window x5000-x53FF neither memory drives the
+    -- bus; the model leaves the RAM there, as before.  x5400-x5FFF is mapped
+    -- by ramSel2 (memory control PLD revision 05).
     romSelProc: process (all)
     begin
         if pixelEnAndRst = '1' then
@@ -653,7 +684,7 @@ begin
             case ramAddress(15 downto 13) is
                 when "000"  => romSel <= not ramSel0;
                 when "001"  => romSel <= not ramSel1;
-                when "010"  => romSel <= not ramSel2 and not ramAddress(12);
+                when "010"  => romSel <= not ramSel2 and (not ramAddress(12) or ramAddress(11) or ramAddress(10));
                 when "011"  => romSel <= not ramSel3;
                 when "100"  => romSel <= not ramSel4;
                 when "101"  => romSel <= not ramSel5;
@@ -726,12 +757,13 @@ begin
 
     -- Load Code register process
     --   An F377 on the system clock.  /E is /MODE_LD from the audio slot
-    --   PLD (low for all of group 37) and D7:D0 come from the pixel buffer
+    --   PLD (low for all of group 45) and D7:D0 come from the pixel buffer
     --   outputs, not the data bus.  The video circuit reads the line's
-    --   mode byte (4A00h + V8:V0) into the pixel buffer in clock 1 of
-    --   group 37, and this register copies it on clocks 2-7, then holds it
+    --   mode byte (5A00h + V8:V0) into the pixel buffer in clock 1 of
+    --   group 45, and this register copies it on clocks 2-7, then holds it
     --   for the rest of the line.  So the mode byte no longer takes the
-    --   first byte column of the screen (see VIDEO.md).
+    --   first byte column of the screen (see VIDEO.md).  Q1:Q0 go to the
+    --   color decoder, Q3:Q2 to the audio slot PLD (line repeat).
     --   (Before: enabled while videoActiveR was low, keeping the bus value
     --   of the first pixel read of the line, byte column 0.)
     loadCodeProc : process (clkVGA)
@@ -757,16 +789,18 @@ begin
     end process pixelProc;
 
     -- Audio DAC register (74HC574, see SOUND.md)
-    --   Clocked by the rising edge of the HSYNC pin (end of sync, start of
-    --   group 42).  The audio sample was read into the pixel buffer in
-    --   group 38 or 39 (after the mode byte in group 37), and the pixel
-    --   buffer next loads in group 48, so its outputs are steady at this
-    --   edge.  Q7:Q0 drive the R-2R ladder; an
-    --   HC part so the outputs swing rail to rail.  The FPGA model starts
+    --   Clocked by the rising edge of H_VIDEO_ACTIVE (H counter PLD pin
+    --   22, start of group 48).  The audio sample was read into the pixel
+    --   buffer in group 46 or 47 (after the mode byte in group 45), and
+    --   the pixel buffer next loads at the end of clock 1 of group 48, so
+    --   its outputs are steady at this edge.  (Until 2026-10-16 the sample
+    --   was read in group 38/39 and the clock was HSYNC, group 42.)
+    --   Q7:Q0 drive the R-2R ladder; an HC part so the outputs swing rail
+    --   to rail.  The FPGA model starts
     --   at 80h (silence); the real part powers up random for one line.
-    audioDacProc : process (hSync)
+    audioDacProc : process (hVideoActive)
     begin
-        if rising_edge(hSync) then
+        if rising_edge(hVideoActive) then
             audioDac <= pixelBuffer;
         end if;
     end process audioDacProc;
