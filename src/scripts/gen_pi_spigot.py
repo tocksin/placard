@@ -9,7 +9,7 @@ timed with the video line read, and run again every 10 seconds.
     python3 gen_pi_spigot.py --digits 50     a quick test build
     python3 placard_sim.py pi_spigot.asm --run --max-steps 2000000000 --stop-at pause --png pi.png
 
-Then merge pi_spigot.hex into video_ram.mem with gen_video_ram.tcl (set
+Then put pi_spigot.hex into rom.mem with gen_rom.tcl (set
 ::ASM_FILE to pi_spigot.hex) to run it on the board.
 
 ALGORITHM (Rabinowitz & Wagon 1995, with predigit / nines handling)

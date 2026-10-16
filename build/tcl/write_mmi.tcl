@@ -12,9 +12,9 @@
 # block RAM cell: LOC, and the address range and data bits it holds
 # (bram_addr_begin/end and bram_slice_begin/end, or ram_* in newer versions).
 #
-# Each memory instance (hierarchy above the block RAM cells, e.g. ramComp)
-# becomes one <Processor> in the MMI, named by that instance path; pass that
-# name to updatemem with -proc.  Every instance must cover all depth x width
+# Each memory instance (hierarchy above the block RAM cells: ramComp and
+# romComp) becomes one <Processor> in the MMI, named by that instance path;
+# pass that name to updatemem with -proc.  Every instance must cover all depth x width
 # bits exactly once, otherwise the map is refused: synthesis can trim the
 # parts of a read-only memory that hold constant data, and those parts cannot
 # be changed without a full build.
@@ -150,7 +150,7 @@ proc write_mmi {mmiFile depth width bitOrder} {
 
 # write_update_mem <memFile> <outFile> <depth>
 #
-# Converts a gen_video_ram.tcl image (one hex byte per line) to updatemem's
+# Converts a gen_video_ram.tcl or gen_rom.tcl image (one hex byte per line) to updatemem's
 # .mem format: @address followed by 16 data bytes per line.
 proc write_update_mem {memFile outFile depth} {
     set fh [open $memFile r]
@@ -166,17 +166,30 @@ proc write_update_mem {memFile outFile depth} {
     close $fh
 }
 
-# run_updatemem <mmiFile> <bitIn> <memFile> <bitOut>
+# run_updatemem <mmiFile> <bitIn> <memFiles> <bitOut>
 #
-# Runs updatemem with memFile for every memory instance (<Processor>) in the
-# MMI.  updatemem.bat is run through cmd.exe on Windows.
-proc run_updatemem {mmiFile bitIn memFile bitOut} {
+# Runs updatemem for every memory instance (<Processor>) in the MMI.
+# memFiles is a dict from instance name to updatemem .mem file; a key
+# matches an instance whose path ends in it (ramComp matches ramComp and
+# top/ramComp).  Every instance must have a file.  updatemem.bat is run
+# through cmd.exe on Windows.
+proc run_updatemem {mmiFile bitIn memFiles bitOut} {
     set fh [open $mmiFile r]
     set procs [regexp -all -inline -- {InstPath="([^"]+)"} [read $fh]]
     close $fh
     set args [list -force -meminfo [file nativename $mmiFile] \
                   -bit [file nativename $bitIn]]
     foreach {match inst} $procs {
+        set memFile ""
+        dict for {key file} $memFiles {
+            if {$inst eq $key || [string match */$key $inst]} {
+                set memFile $file
+            }
+        }
+        if {$memFile eq ""} {
+            error "run_updatemem: no memory file for $inst\
+                   (have [join [dict keys $memFiles] {, }])"
+        }
         lappend args -data [file nativename $memFile] -proc $inst
     }
     lappend args -out [file nativename $bitOut]
