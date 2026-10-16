@@ -1,0 +1,74 @@
+Name     AUDIO_SLOT;
+PartNo   00;
+Date     2026-10-16;
+Revision 01;
+Designer Justin;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   AUDIO SAMPLE SLOT   (ATF22V10C, DIP-24 / PLCC-28)
+   ============================================================
+
+   Picks the one 8-clock group on each scan line where the video
+   circuit reads an audio sample from RAM.  See SOUND.md.
+
+   The read itself is made by the Sync PLD: AUD_SLOT goes to Sync
+   pin 13, and Sync raises PIXEL_ENABLE in clock 1 of the group
+   (the same clock as a pixel read).  The read address is the video
+   address, H9:H3 on A15:A9 and V8:V0 on A8:A0.
+
+   WHY TWO GROUPS
+      The V counter runs 499-1023, 525 lines, but only V8:V0 reach
+      the address.  Lines 499-511 and 1011-1023 have the same V8:V0,
+      so a read in one fixed group would repeat 13 samples every
+      frame (a 60 Hz buzz).  Reading in group 38 when V9 = 0 and in
+      group 39 when V9 = 1 puts V9 on A9 (H3), so every line reads
+      its own byte:
+
+          lines      V9  group  H9:H3     address
+          499-511    0   38     0100110   4C00h + 499..511 = 4DF3h-4DFFh
+          512-1023   1   39     0100111   4E00h + 0..511   = 4E00h-4FFFh
+
+      One frame plays 4DF3h-4FFFh in order: 525 bytes, one per line.
+      The buffer is just below the I/O window and follows map bit 2.
+
+   UNIQUE GROUP
+      The H counter runs 28-127.  !H9 & H8 & !H7 & !H6 is groups
+      32-39 only (40-47 have H6 set, 48 and up have H7 or H9 set),
+      and H5 & H4 narrows it to 38 and 39.  H3 = V9 picks one.
+
+   V9 changes at the end of the last clock of a line (H_TC), so
+   during group 38/39 it is the new line's V9.
+
+   PIN BUDGET
+      Inputs (8): H9-H3, V9.  Output (1): AUD_SLOT.
+      Unused: pins 1, 10, 11, 13, 14-22.
+      AUD_SLOT is combinational, 2 of 8 product terms on pin 23.
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 2  = H9;          /* H counter PLD pin 20 */
+PIN 3  = H8;          /* H counter PLD pin 19 */
+PIN 4  = H7;          /* H counter PLD pin 18 */
+PIN 5  = H6;          /* H counter PLD pin 17 */
+PIN 6  = H5;          /* H counter PLD pin 16 */
+PIN 7  = H4;          /* H counter PLD pin 15 */
+PIN 8  = H3;          /* H counter PLD pin 14 */
+PIN 9  = V9;          /* V counter PLD pin 19 (Q9) */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+PIN 23 = AUD_SLOT;    /* to Sync PLD pin 13, high for the whole audio group */
+
+
+/* ---------------- EQUATIONS ---------------- */
+
+AUD_SLOT = !H9 &  H8 & !H7 & !H6 &  H5 &  H4 &  H3 &  V9     /* group 39, lines 512-1023 */
+         # !H9 &  H8 & !H7 & !H6 &  H5 &  H4 & !H3 & !V9;    /* group 38, lines 499-511  */

@@ -47,19 +47,24 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 33 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, upper 32K (x8000-xFFFF) |
 | 34 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, lower 32K (interim: battery-backed SRAM) |
 | 35 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, upper 32K (interim: battery-backed SRAM) |
+| 36 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio sample slot: picks group 38 or 39 for the audio read (`ATF22V10_AUDIO.pld`, see SOUND.md) |
+| 37 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer at the end of HSYNC, drives the R-2R ladder |
+| 38 | MCP6002-I/P | Dual op-amp, rail-to-rail, DIP-8 | Audio reconstruction filter (Sallen-Key, 10.7 kHz) and line-out buffer |
 
 ### Tally
 
 | Part number | Type | Qty |
 |---|---|--:|
-| ATF22V10C-7PX | PLD (22V10) | 16 |
+| ATF22V10C-7PX | PLD (22V10) | 17 |
 | SN74F377AN | Octal D flip-flop with enable | 7 |
 | SN74F574N | Octal D flip-flop, 3-state | 1 |
 | CD74ACT273E | Octal D flip-flop with clear | 1 |
 | SN74F541N | Octal buffer, 3-state | 5 |
 | SN74F138N | 3-to-8 decoder | 1 |
 | AS7C256C-15PCN | SRAM, 32K x 8 | 4 |
-| **Total** | | **35** |
+| SN74HCT574N | Octal D flip-flop, 3-state | 1 |
+| MCP6002-I/P | Dual op-amp | 1 |
+| **Total** | | **38** |
 
 **Not counted, not chosen yet:** the 25.175 MHz clock oscillator, and the
 battery and power-fail switch that hold the interim ROM's /CE high while
@@ -78,8 +83,6 @@ From [FEATURE_PLAN.md](FEATURE_PLAN.md).  None of these are built yet.
 | 3 | SN74F541N | Octal buffer, 3-state | Shared port input at x5200: keyboard rows, both SNES pad DATA lines, SD MISO |
 | 4 | CD4050BE | Hex non-inverting buffer | Level shift to 3.3 V for the SD card's SCK, MOSI and /CS |
 | 5 | not chosen | 3.3 V regulator | Powers the SD card and the CD4050 |
-| 6 | SN74F574N | Octal D flip-flop, 3-state | Sound pitch latch at x5100 |
-| 7 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Sound: square-wave counter clocked by HSYNC |
 
 The two expansion ports (x5500, x5600) need connectors only.
 
@@ -88,15 +91,13 @@ The two expansion ports (x5500, x5600) need connectors only.
 | Part number | Type | Qty |
 |---|---|--:|
 | SN74HC574N | Octal D flip-flop, 3-state | 1 |
-| SN74F574N | Octal D flip-flop, 3-state | 1 |
 | SN74F138N | 3-to-8 decoder | 1 |
 | SN74F541N | Octal buffer, 3-state | 1 |
 | CD4050BE | Hex buffer / level shifter | 1 |
-| ATF22V10C-7PX | PLD (22V10) | 1 |
 | 3.3 V regulator (not chosen) | Voltage regulator | 1 |
-| **Total** | | **6 logic chips + 1 regulator** |
+| **Total** | | **4 logic chips + 1 regulator** |
 
-With the future features the Placard comes to 41 chips plus the regulator.
+With the future features the Placard comes to 42 chips plus the regulator.
 Features cut from the plan, such as the frame counter or an SPI shifter, are
 listed with their cost in FEATURE_PLAN.md, "Cut for now", and are not
 counted here.
