@@ -53,7 +53,8 @@ Each section can be configured as either ROM or RAM.  In x4000-x5FFF the
 map bit covers only x4000-x4FFF; x5000-x5FFF is the I/O window.  At startup, all regions
 are selected as ROM.  The software will execute from ROM initially until 
 reconfigured.  Video reads follow the same map, so the video sections must be
-mapped to RAM for the display to show the RAM.  See the [memory map](README.md#memory-map).
+mapped to RAM for the display to show the RAM, and so must x4000-x4FFF (map
+bit 2) for the row mode bytes at x4A20-x4BFF and the audio buffer.  See the [memory map](README.md#memory-map).
 
 ### Memory parts
 
