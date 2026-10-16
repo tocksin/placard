@@ -46,6 +46,10 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen ye
 | xC000-xDFFF | 6 | RAM/ROM (Video Memory) |
 | xE000-xFFFF | 7 | RAM/ROM (Video Memory) |
 
+![Placard memory map](reference/memory_map.png)
+
+The drawing is made by `src/scripts/gen_memory_map.py`; rerun it when the map changes.
+
 ### I/O window
 Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes are low with /WE, and devices latch the source bus on the rising edge at the end of the write.  Read strobes are low on a read the CPU latches into D (LOAD_IMM).  Devices other than the map register and the line read are planned in [FEATURE_PLAN.md](FEATURE_PLAN.md) and not built yet.
 
