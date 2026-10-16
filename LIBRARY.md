@@ -25,31 +25,28 @@ Date: 10/16/2026
 #include "placard.asm"
 #include "placard_lib.asm"      ; includes zeropage.asm and lib_font.asm
 
-#addr 0x0000
-reset:
-    ld   main >> 8, y
-    jmp  main
+count = 0x20                    ; program variables: zero page x20-xBF
 
-#addr 0x0100
+#addr 0x6000                    ; programs run in place from the ROM
 main:
     ld   STACK_TOP, ac          ; set up the stack before anything else
     ld   ac, [SP]
     ...
 ```
 
-The library takes x3000-x3FFF: code at `LIB_CODE` (x3000-x36FF, one page
-free at x3700) and the font at `LIB_FONT` (x3800-x3FFF).  These are standard
-places that every program shares, so keep them.  Program code can use
-x0100-x2FFF and x4000-x49FF, and x4C00-x4DF2 for buffers that start empty
-(the mode bytes are at x4A20-x4BFF and the audio buffer starts at x4DF3).
-Both customasm and `placard_sim.py` assemble it to the same bytes.
-
-Programs and the library are stored in the ROM.  The ROM's boot loader copies
-RAM x0000-x49FF from the upper ROM (x6000-xA9FF) at power-up, maps every
-section to RAM and jumps to x0000, so a program is written for the RAM as
-above.  The library and font are always in the ROM image (`rom_lib.asm`).  See
-[ROM.md](ROM.md).  New programs use the library routines and the zero page
-map below.
+The library and font run in place from the ROM at x3000-x3FFF: code at
+`LIB_CODE` (x3000-x37FF) and the font at `LIB_FONT` (x3800-x3FFF).  These are
+standard places that every program shares, so keep them.  A program runs in
+place from ROM x6000-xFBFF (entry at x6000).  The boot loader maps the zero
+page and x4000-x4FFF to RAM (map = 05, also in `MAP_SHADOW`) and jumps to
+x6000.  Program variables and buffers go in RAM: the zero page x20-xBF,
+x0100-x1FFF, x4000-x49FF and x4C00-x4DF2 (the mode bytes are at x4A20-x4BFF
+and the audio buffer starts at x4DF3).  The RAM is random at power-up, so set
+variables in code.  The video always reads the RAM; to read the video RAM,
+map sections 3-7 to RAM and back (`plot1` and `con_scroll` do this
+themselves).  Both customasm and `placard_sim.py` assemble the library to the
+same bytes.  See [ROM.md](ROM.md).  New programs use the library routines
+and the zero page map below.
 
 The simulator's assembler now accepts `#include`, `NAME = value` constants
 and `#d "string", 0x00` data, as customasm does, and `#addr` may go back to
@@ -181,7 +178,7 @@ complete examples.
 | 04 | `LINK_LO` | call | Return address low byte |
 | 05 | `LINK_HI` | call | Return address high byte |
 | 06 | `SP` | stack | Software stack pointer, next free byte |
-| 07 | `MAP_SHADOW` | map_set | Copy of the write-only ROM/RAM map register (the boot leaves the map at FF but does not set this byte) |
+| 07 | `MAP_SHADOW` | map_set, plot1, con_scroll | Copy of the write-only ROM/RAM map register (the boot sets it to 05 for a ROM program) |
 | 08 | `FRAME_LO` | frame_poll, wait_frames | Frame counter low byte |
 | 09 | `FRAME_HI` | frame_poll, wait_frames | Frame counter high byte |
 | 0A | `LINE_LAST` | frame_poll, wait_frames | Last line read value |
@@ -247,7 +244,7 @@ pointers already point at the next block.
 | `vid_addr` | AC = byte column 0-79, R3:R2 = row 0-479 | AC = address high byte, X = low byte | T0 | 44 or 55 |
 | `vid_clear` | AC = mode (0 = 1 bpp, 1 = 2 bpp, 2 = 4 bpp, 3 = 8 bpp) | x6000-xFFFF = 0, every mode byte = AC | AC, X, Y, T0, T1 | 503,394 (20.0 ms) |
 | `vid_mode` | AC = mode | Every row's mode byte = AC, pixels kept | AC, X, Y, T0 | 8,661 |
-| `plot1` | R1:R0 = x 0-639, R3:R2 = y 0-479, AC = 0 clears, else sets | One pixel of a 1 bpp row | AC, X, Y, T0, T2, T3 | 122-136 |
+| `plot1` | R1:R0 = x 0-639, R3:R2 = y 0-479, AC = 0 clears, else sets | One pixel of a 1 bpp row | AC, X, Y, T0, T2, T3 | 148-159 |
 | `map_set` | AC = map (bit n = 1: section n reads RAM) | Map register and MAP_SHADOW = AC | Y | 18 |
 | `frame_poll` | | AC = line read (V9:V2, 124-255), FRAME + 1 when a new frame started, LINE_LAST = AC | X, Y, T0 | 39-53 |
 | `wait_frames` | AC = frames 1-255 (0 = 256) | FRAME + AC | AC, X, Y, T0, T1 | Until the AC-th new frame starts |
@@ -259,6 +256,10 @@ pointers already point at the next block.
   blanking, before the row's pixels, so it takes no screen space; it follows
   map bit 2 (x4000-x4FFF), not the video sections.
 - `plot1`'s x = 0 is the first visible pixel (byte column 0, bit 0).
+- `plot1` and `con_scroll` read the video RAM, so they write the map with
+  `MAP_SHADOW` or F8 (sections 3-7 read RAM) for the read and write
+  `MAP_SHADOW` back before they return.  `MAP_SHADOW` must hold the map
+  (the boot sets it).
 - `frame_poll` must run at least once per frame (16.8 ms) or it misses
   frames.  Elapsed time is FRAME × 16.8 ms plus the line value for finer
   detail (4 lines, 128 µs per step); see the
@@ -283,7 +284,7 @@ after setting the modes yourself) before printing.
 | `con_home` | | Cursor at column 0, row 0 | X | 20 | |
 | `con_putc` | AC = character, 0A = newline | AC kept, cursor moved on | X, Y, T0-T5 | 313 | |
 | `con_newline` | | AC kept, cursor at the start of the next row | X, Y, T0-T5 | 39 | |
-| `con_scroll` | | AC kept, text moved up one row, bottom row cleared | X, Y, T1-T5 | 1,233,222 (49.0 ms) | |
+| `con_scroll` | | AC kept, text moved up one row, bottom row cleared | X, Y, T1-T5 | 1,233,245 (49.0 ms) | |
 | `con_puts` | R1:R0 = string ending in a 00 byte | R1:R0 = address of the 00 | AC, X, Y, T0-T5 | about 355 per character | 2 |
 | `con_hex8` | AC = value | Two hex digits, AC kept | X, Y, T0-T5 | 829 | 3 |
 | `con_dec8` | AC = value 0-255 | Decimal, no leading zeros | AC, X, Y, T0-T7 | 552-1481 | 4 |
@@ -350,4 +351,4 @@ through 525 lines.
 Keyboard, SNES pad and SD card routines wait for that hardware
 ([FEATURE_PLAN.md](FEATURE_PLAN.md)).  Sound buffer refill, pixel routines
 for 2, 4 and 8 bpp rows, and line drawing are good next additions.
-`LIB_CODE` + x700 is free for them.
+`con_scroll` moved to the last code page (x3700), so new routines need room found in pages 0-6 or a second page.

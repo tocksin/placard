@@ -39,9 +39,10 @@ Branch PLD rev 09):
   - a read of x5000-x50FF (or its x5800 mirror) returns the video line read,
     V9:V2, with one line per 800 CPU clocks and V = 499-1023 (525 lines per
     frame).  Video fetch stalls are not modeled.
-  - with --boot, reads follow the ROM/RAM map (a write to x5000-x50FF sets
-    it, every write also goes to the RAM) and the CPU starts with an empty
-    RAM and the map cleared to all ROM.  Without it every read comes from
+  - with --boot, CPU reads follow the ROM/RAM map (a write to x5000-x50FF
+    sets it, every write also goes to the RAM) and the CPU starts with an
+    empty RAM and the map cleared to all ROM.  The video always reads the
+    RAM, so --png shows the RAM.  Without it every read comes from
     one memory holding the program.
 
 --hw-alu evaluates the ALU with the exact alu4.vhd equations wired as in
@@ -588,22 +589,53 @@ def render(mem, path):
 # ---------------------------------------------------------------------------
 # ROM image (matches gen_rom.tcl and ROM.md)
 # ---------------------------------------------------------------------------
-ROM_IMAGE_BASE = 0x6000      # ROM address of RAM x0000
+ROM_IMAGE_BASE = 0x6000      # RAM image: ROM address of RAM x0000
 IMAGE_SIZE = 0x4A00          # RAM x0000-x49FF is copied at boot
 LIB_START, LIB_END = 0x3000, 0x4000
+PROG_START, PROG_END = 0x6000, 0xFC00   # ROM program area
+BOOT_MODE = 0xFC00           # 00 = ROM program, 01 = RAM image
+
+
+def is_ram_image(prog, lib):
+    """True for an older program written to run at RAM x0000 (bytes below
+    x6000 other than the library's own)"""
+    for a, v in prog.items():
+        if a >= PROG_START:
+            continue
+        if LIB_START <= a < LIB_END and v == lib.get(a, 0):
+            continue
+        if v:
+            return True
+    return False
 
 
 def build_rom(prog, base_dir=None):
-    """ROM bytes {addr: value} for a program image {addr: value}: rom_boot.asm,
-    then rom_lib.asm at RAM x3000-x3FFF, then the program (x0000 to its last
-    byte, gaps as 00, like its hex file), all RAM-image bytes at ROM address =
-    RAM address + x6000."""
+    """ROM bytes {addr: value} for a program image {addr: value}, as gen_rom.tcl
+    makes them (ROM.md): rom_boot.asm, the library (rom_lib.asm) in place at
+    x3000-x3FFF, then either
+      a ROM program (assembled at x6000-xFBFF): in place, BOOT_MODE = 00, or
+      a RAM image (older programs at RAM x0000): BOOT_MODE = 01, the library
+      again at RAM x3000-x3FFF of the image, then the program (x0000 to its
+      last byte, gaps as 00, like its hex file), at ROM = RAM + x6000."""
     import os
     base_dir = base_dir or os.path.dirname(os.path.abspath(__file__))
     rom = {}
     boot, _, _ = assemble(open(os.path.join(base_dir, 'rom_boot.asm')).read(), base_dir)
     lib, _, _ = assemble(open(os.path.join(base_dir, 'rom_lib.asm')).read(), base_dir)
     rom.update(boot)
+    for a, v in lib.items():
+        if LIB_START <= a < LIB_END:
+            rom[a] = v
+    if not is_ram_image(prog, lib):
+        for a, v in prog.items():
+            if a >= PROG_END and v:
+                raise AsmError('program byte at %04X is past the ROM program area '
+                               '(x%04X-x%04X)' % (a, PROG_START, PROG_END - 1))
+            if a >= PROG_START:
+                rom[a] = v
+        rom[BOOT_MODE] = 0
+        return rom
+    rom[BOOT_MODE] = 1
     for a, v in lib.items():
         if LIB_START <= a < LIB_END:
             rom[ROM_IMAGE_BASE + a] = v
@@ -638,6 +670,9 @@ def main(argv):
     open(hexpath, 'w').write(to_hexstr(mem) + '\n')
     print('assembled %d bytes, top %04X -> %s' % (len(mem), max(mem), hexpath))
     if args.run:
+        if not args.boot and all(a >= PROG_START or LIB_START <= a < LIB_END for a in mem):
+            print('a ROM program (code from x6000): running it from the ROM image (--boot)')
+            args.boot = True
         if args.boot:
             cpu = Cpu({}, hw_alu=args.hw_alu, rom=build_rom(mem))
         else:
