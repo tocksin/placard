@@ -38,7 +38,7 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen ye
 |---------|---------|------|
 | x0000-x1FFF | 0 | RAM/ROM |
 | x2000-x3FFF | 1 | RAM/ROM |
-| x4000-x4FFF | 2 | RAM/ROM |
+| x4000-x4FFF | 2 | RAM/ROM (audio buffer at x4DF3-x4FFF) |
 | x5000-x5FFF | none | I/O window (see below) |
 | x6000-x7FFF | 3 | RAM/ROM (Video Memory from x6020) |
 | x8000-x9FFF | 4 | RAM/ROM (Video Memory) |
@@ -53,7 +53,7 @@ Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes ar
 |---------|--------|-----|----------|
 | x5000-x50FF | /MAP_WR | W | ROM/RAM map register (built) |
 | x5000-x50FF | /LINE_RD | R | Video line counter, V9:V2 (built) |
-| x5100-x51FF | /SND_WR | W | Sound pitch (planned) |
+| x5100-x51FF | /SND_WR | W | Unused (sound reads its samples from RAM, see [SOUND.md](SOUND.md)) |
 | x5200-x52FF | /PORT_WR | W | Shared port output latch: SD card, SNES pad clock and latch (planned) |
 | x5200-x52FF | /PORT_RD | R | Shared port input: keyboard rows of column A2:A0, SNES pad data, SD card MISO (planned) |
 | x5300-x54FF | none | | Unused |
@@ -61,6 +61,9 @@ Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes ar
 | x5600-x56FF | /EXP2 | R/W | Expansion port 2 |
 | x5700-x57FF | none | | Unused |
 | x5800-x5FFF | | | Repeats x5000-x57FF |
+
+### Sound
+The video circuit reads one 8-bit sample per scan line from x4DF3-x4FFF (525 bytes, one frame) and plays it through a 74HCT574 and a resistor ladder DAC, at the line rate of 31.47 kHz.  80h is silence.  Software refills the half of the buffer that is not playing, using the line read.  See [SOUND.md](SOUND.md).
 
 ### Video line read
 A read anywhere in x5000-x50FF returns the upper 8 bits of the video line counter, V9:V2.  The V counter in the V Counter PLD counts 499 to 1023, and one 74F541 enabled by /LINE_RD puts V9:V2 on the data bus.  The ROM/RAM map register shares the page but is write only, so there is no conflict.  Read it with `ld 0x50, y` then `ld [y,x], ac`.
