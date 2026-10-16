@@ -82,10 +82,17 @@ An easy function is the fill function.  Putting a color in a pixel starts drawin
 This is done by just XORing the current color with the RAM value.  So you start with a blue pixel, then put another blue pixel to stop it.  But if you put a purple pixel instead, it will stop drawing blue and start drawing red.  It would normally require multiple chips - at least two quad XOR chips and a 8-bit FF register array.  But this is easily done in a single PLA/PLD
 
 
+## Standard library
+`src/scripts/placard_lib.asm` holds subroutines for new programs: 16-bit
+arithmetic, multiply and divide, memory fill and copy, random numbers, frame
+timing, pixels and a text console.  It also sets the calling convention, the
+software stack and the zero page variable map (`zeropage.asm`).  See
+[LIBRARY.md](LIBRARY.md).
+
 ## Building and loading a program
 The `build` folder has one Windows batch file per assembly program
 (`cpu_test.bat`, `test_video.bat`, `mandelbrot.bat`,
-`pi_spigot.bat`, `game_of_life.bat`).  Each one assembles
+`pi_spigot.bat`, `game_of_life.bat`, `lib_demo.bat`).  Each one assembles
 `src/scripts/<program>.asm` (customasm, or `placard_sim.py` if customasm is not
 on the PATH), writes `src/hdl/video_ram.mem` with `gen_video_ram.tcl`, runs
 Vivado in batch mode through synthesis, implementation and bitstream, and
