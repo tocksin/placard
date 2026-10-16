@@ -47,12 +47,12 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen ye
 | xE000-xFFFF | 7 | RAM/ROM (Video Memory) |
 
 ### I/O window
-Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes are low with /WE, and devices latch the source bus on the rising edge at the end of the write.  Read strobes are low on a read the CPU latches into D (LOAD_IMM).  Devices other than the map register are planned in [FEATURE_PLAN.md](FEATURE_PLAN.md) and not built yet.
+Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes are low with /WE, and devices latch the source bus on the rising edge at the end of the write.  Read strobes are low on a read the CPU latches into D (LOAD_IMM).  Devices other than the map register and the line read are planned in [FEATURE_PLAN.md](FEATURE_PLAN.md) and not built yet.
 
 | Address | Strobe | R/W | Function |
 |---------|--------|-----|----------|
 | x5000-x50FF | /MAP_WR | W | ROM/RAM map register (built) |
-| x5000-x50FF | /LINE_RD | R | Video line counter, V9:V2 (planned) |
+| x5000-x50FF | /LINE_RD | R | Video line counter, V9:V2 (built) |
 | x5100-x51FF | /SND_WR | W | Sound pitch (planned) |
 | x5200-x52FF | /PORT_WR | W | Shared port output latch: SD card, SNES pad clock and latch (planned) |
 | x5200-x52FF | /PORT_RD | R | Shared port input: keyboard rows of column A2:A0, SNES pad data, SD card MISO (planned) |
@@ -62,6 +62,13 @@ Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes ar
 | x5700-x57FF | none | | Unused |
 | x5800-x5FFF | | | Repeats x5000-x57FF |
 
+### Video line read
+A read anywhere in x5000-x50FF returns the upper 8 bits of the video line counter, V9:V2.  The V counter in the V Counter PLD counts 499 to 1023, and one 74F541 enabled by /LINE_RD puts V9:V2 on the data bus.  The ROM/RAM map register shares the page but is write only, so there is no conflict.  Read it with `ld 0x50, y` then `ld [y,x], ac`.
+
+- **It is a single byte**, so it can't tear between reads.
+- **Resolution is 4 lines** (128 us).  Visible rows start at V = 544, so `row / 4 = value - 136`.  A value below 136 means vertical blanking.
+- **There is no frame counter.**  Software keeps time by polling: each time the value goes down (from 255 back to 124), a frame has passed.  At the FPGA's 25.000 MHz clock a frame is 525 lines, about 16.8 ms (59.5 Hz).
+- **Software must poll at least once per frame**, or it misses a wrap.  Elapsed time is then frames x 16.8 ms plus the line position for finer detail.
 
 ## Video
 The video is designed to be 640x480 VGA 60Hz standard.  This means a 25.175 MHz clock.  This requires two counters: a horizontal and vertical.  They count 800 and 600 pixels.  This needs a 10-bit counter for each.  The counters form the RAM address space to read the pixel values.  The video memory is organized in a non-traditional way with H,V instead of V,H.
