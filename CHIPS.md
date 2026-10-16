@@ -23,7 +23,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 9 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 11:8: PC / Y / zero page / video address (`ATF22V10_QUAD_MUX.pld`) |
 | 10 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 15:12 (`ATF22V10_QUAD_MUX.pld`) |
 | 11 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Memory control: /WE, /RAM_OE, /ROM_OE from the map, and MAP_RUN reset (`ATF22V10_MEM_CTRL.pld`) |
-| 12 | ATF22V10C-7PX | PLD (22V10, 24-pin) | I/O decode: upper 32K /CE_HI and the x5000-x5FFF strobes (`ATF22V10_IO_DECODE.pld`) |
+| 12 | ATF22V10C-7PX | PLD (22V10, 24-pin) | I/O decode: upper 32K /CE_HI and the x5000-x53FF strobes (`ATF22V10_IO_DECODE.pld`) |
 | 13 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video H counter: H9:H0, HSYNC, horizontal active (`ATF22V10_HCOUNT.pld`) |
 | 14 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video V counter: V9:V0 (`ATF22V10_VCOUNT.pld`) |
 | 15 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video sync: VSYNC, video active, PIXEL_ENABLE and address-mux selects (`ATF22V10_SYNC.pld`) |
@@ -34,7 +34,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 20 | SN74F377AN | Octal D flip-flop with enable | X register |
 | 21 | SN74F377AN | Octal D flip-flop with enable | Y register |
 | 22 | SN74F377AN | Octal D flip-flop with enable | Video pixel buffer (byte read from video memory) |
-| 23 | SN74F377AN | Octal D flip-flop with enable | Video line code (color mode for the line): D from the pixel buffer outputs, /E from /MODE_LD, so it copies the mode byte read in group 37 (see VIDEO.md) |
+| 23 | SN74F377AN | Octal D flip-flop with enable | Video line code (color mode for the line): D from the pixel buffer outputs, /E from /MODE_LD, so it copies the mode byte read in group 45 (see VIDEO.md); Q1:Q0 to the color decoder, Q3:Q2 to the audio slot PLD (line repeat) |
 | 24 | SN74F574N | Octal D flip-flop, 3-state | Video delay: H2:H0 pixel select and video active, two stages |
 | 25 | CD74ACT273E | Octal D flip-flop with clear | ROM/RAM map register at x5000 (write only, cleared to all ROM at power-up) |
 | 26 | SN74F541N | Octal buffer, 3-state | Source bus driver: D register |
@@ -47,8 +47,8 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 33 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, upper 32K (x8000-xFFFF) |
 | 34 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, lower 32K (interim: battery-backed SRAM) |
 | 35 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, upper 32K (interim: battery-backed SRAM) |
-| 36 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots: picks group 37 for the mode byte read and group 38 or 39 for the audio read, and makes /MODE_LD for the line code register (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md) |
-| 37 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer at the end of HSYNC, drives the R-2R ladder, which drives headphones directly (all passive, see SOUND.md) |
+| 36 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md) |
+| 37 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer when H_VIDEO_ACTIVE rises (start of group 48), drives the R-2R ladder, which drives headphones directly (all passive, see SOUND.md) |
 
 ### Tally
 
@@ -82,7 +82,7 @@ From [FEATURE_PLAN.md](FEATURE_PLAN.md).  None of these are built yet.
 | 4 | CD4050BE | Hex non-inverting buffer | Level shift to 3.3 V for the SD card's SCK, MOSI and /CS |
 | 5 | not chosen | 3.3 V regulator | Powers the SD card and the CD4050 |
 
-The two expansion ports (x5500, x5600) need connectors only.
+The two expansion ports (x5100, x5300) need connectors only.
 
 ### Tally
 

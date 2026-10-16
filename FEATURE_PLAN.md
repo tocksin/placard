@@ -15,14 +15,15 @@ These facts from the current design shape every choice below.
 
 - **The I/O decode is built** (removed from this list).
   `ATF22V10_IO_DECODE.pld` (rev 01, also `io_decode_pld.vhd`, wired into
-  `basys_top.vhd`) decodes x5000-x5FFF and gives each device its own strobe:
-  /MAP_WR and /LINE_RD (x50), /SND_WR (x51), /PORT_WR and /PORT_RD (x52),
-  /EXP1 and /EXP2 (x55, x56, address only).  Write strobes are low for the
-  /WE pulse; read strobes are qualified by LOAD_IMM.  A11 is not decoded, so
-  x5800-x5FFF repeats x5000-x57FF, and the PLD has no spare outputs.
-  /SND_WR (x5100) is unused now that sound reads its samples from RAM.
-  `ATF22V10_MEM_CTRL.pld` (rev 01) keeps both memories off the bus there,
-  and map bit 2 covers x4000-x4FFF.  The ROM/RAM map write at x5000 works.
+  `basys_top.vhd`) decodes x5000-x53FF (rev 03, 2026-10-16) and gives each
+  device its own strobe: /MAP_WR and /LINE_RD (x50), /EXP1 (x51, address
+  only), /PORT_WR and /PORT_RD (x52), /EXP2 (x53, address only).  Write
+  strobes are low for the /WE pulse; read strobes are qualified by LOAD_IMM.
+  The PLD has no spare pins: the old /SND_WR pin is now the A11 input.
+  (Before rev 03 the window was x5000-x5FFF with A11 not decoded, and the
+  expansion ports were at x55 and x56.)
+  `ATF22V10_MEM_CTRL.pld` (rev 05) keeps both memories off the bus there,
+  and map bit 2 covers x4000-x4FFF and x5400-x5FFF.  The ROM/RAM map write at x5000 works.
   The map is a write-only 74ACT273 (CD74ACT273E) clocked by /MAP_WR, in place
   of the ROM/RAM select PLD, so the base chip count did not change; its /MR
   comes from MEM_CTRL's MAP_RUN (pin 17), which clears it to all ROM until

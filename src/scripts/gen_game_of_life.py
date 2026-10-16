@@ -22,7 +22,7 @@ SEQUENCE (repeats forever)
 THE BOARD
     Byte columns 1-79 by rows 0-479 are the cells, 632 x 480 cells, and
     byte column 0 is cleared and left black.  (Column 0 held the mode bytes
-    until they moved to 4A20-4BFF; the board was not widened.)  The edges
+    until they moved to 5A20-5BFF; the board was not widened.)  The edges
     wrap (a torus).
     Pixel i of a byte is bit i, bit 0 on the left.
 
@@ -72,7 +72,7 @@ MEMORY
     0100-       code
     4000-45FF   column buffers: A 4000-41FF, B 4200-43FF, column 1 4400-45FF
                 (laid out like a screen column, row j at page + 0x20 + j)
-    4A20-4BFF   mode bytes, one per row (all 0, 1 bpp)
+    5A20-5BFF   mode bytes, one per row (all 0, 1 bpp)
     6000-FFFF   video RAM
 
 Date: 10/16/2026
@@ -385,8 +385,8 @@ def build(gens, once, delay, seed):
     label('main')
     g.st(RING, 'ri')
     g.st(RING + 55 - LAG, 'rj')
-    e('; mode byte 0 (1 bpp) for every row: 4A20-4BFF')
-    e('ld   0x4A, y')
+    e('; mode byte 0 (1 bpp) for every row: 5A20-5BFF')
+    e('ld   0x5A, y')
     e('ld   0x20, x')
     label('md0')
     e('ld   0x00, [y,x]')
@@ -394,7 +394,7 @@ def build(gens, once, delay, seed):
     e('inc')
     e('ld   ac, x')
     e('bne  md0')
-    e('ld   0x4B, y')
+    e('ld   0x5B, y')
     label('md1')
     e('ld   0x00, [y,x]')
     e('ld   x, ac')

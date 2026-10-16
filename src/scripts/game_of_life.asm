@@ -28,8 +28,8 @@ main:
     ld   ac, [0x29]
     ld   0x9F, ac
     ld   ac, [0x2A]
-    ; mode byte 0 (1 bpp) for every row: 4A20-4BFF
-    ld   0x4A, y
+    ; mode byte 0 (1 bpp) for every row: 5A20-5BFF
+    ld   0x5A, y
     ld   0x20, x
 md0:
     ld   0x00, [y,x]
@@ -37,7 +37,7 @@ md0:
     inc
     ld   ac, x
     bne  md0
-    ld   0x4B, y
+    ld   0x5B, y
 md1:
     ld   0x00, [y,x]
     ld   x, ac

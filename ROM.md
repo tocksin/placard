@@ -27,7 +27,8 @@ change.
 | x3000-x37FF | Standard library code (`LIB_CODE`), runs in place | `rom_lib.asm` |
 | x3800-x3FFF | Standard font (`LIB_FONT`) | `rom_lib.asm` |
 | x4000-x4FFF | Free (section 2 reads RAM while a program runs) | |
-| x5000-x5FFF | I/O window, the ROM is never read here | |
+| x5000-x53FF | I/O window, the ROM is never read here | |
+| x5400-x5FFF | Free (section 2 reads RAM while a program runs) | |
 | x6000-xFBFF | Program, runs in place, entry at x6000 | the program |
 | xFC00 | Boot mode: 00 = ROM program, 01 = RAM image | `gen_rom.tcl` |
 | xFD00-xFD57 | Boot loader | `rom_boot.asm` |
@@ -41,7 +42,7 @@ The boot loader writes map = **05**:
 |---------|---------|-------|-------|
 | 0 | x0000-x1FFF | RAM | Zero page, program variables and buffers |
 | 1 | x2000-x3FFF | ROM | Standard library and font |
-| 2 | x4000-x4FFF | RAM | Program data x4000-x49FF and x4C00-x4DF2, mode bytes, audio buffer |
+| 2 | x4000-x4FFF, x5400-x5FFF | RAM | Program data x4000-x4FFF, x5400-x5A1F and x5C00-x5DF2, mode bytes, audio buffer |
 | 3-7 | x6000-xFFFF | ROM | Program code and tables (the video still shows the RAM) |
 
 `MAP_SHADOW` (x07) is set to 05.  A routine that changes the map must keep
@@ -55,13 +56,13 @@ freely.
 | What | Address | Defined in |
 |------|---------|------------|
 | Zero page variables | RAM x0004-x00FF | `zeropage.asm` |
-| Program variables and buffers | RAM x0100-x1FFF, x4000-x49FF, x4C00-x4DF2 | the program |
+| Program variables and buffers | RAM x0100-x1FFF, x4000-x4FFF, x5400-x5A1F, x5C00-x5DF2 | the program |
 | Library code | ROM x3000-x37FF | `LIB_CODE` in `placard_lib.asm` |
 | Font (8x8, printable ASCII) | ROM x3800-x3FFF | `LIB_FONT` in `placard_lib.asm` |
 | Program entry | ROM x6000 | the program (`#addr 0x6000`) |
 | Program code and tables | ROM x6000-xFBFF | the program |
-| Mode bytes | RAM x4A20-x4BFF | video hardware |
-| Audio buffer | RAM x4DF3-x4FFF | video hardware |
+| Mode bytes | RAM x5A20-x5BFF | video hardware |
+| Audio buffer | RAM x5DF3-x5FFF | video hardware |
 | Video | RAM x6000-xFFFF | video hardware |
 
 The library will grow and its routines move while it is developed, so a

@@ -1,7 +1,7 @@
 Name     MEM_CTRL;
 PartNo   00;
 Date     10/16/2026;
-Revision 04;
+Revision 05;
 Designer ;
 Company  ;
 Assembly ;
@@ -46,6 +46,16 @@ Device   g22v10;
       video RAM maps that section to RAM.  Neither memory drives the
       bus in the I/O window, for video reads too.
 
+   SMALLER I/O WINDOW (revision 05)
+      The I/O window is 5000h - 53FFh (A11 = A10 = 0); 5400h - 5FFFh
+      is memory again and is mapped by RAMSEL2 with 4000h - 4FFFh.
+      A11 is on pin 20 and A10 on pin 21 (both were unused).  The
+      video reads the line's mode byte (5A20h + row) and the audio
+      sample (5DF3h - 5FFFh) there, so a video read enables the RAM
+      everywhere but 5000h - 53FFh.  Section 2's CPU term became
+      three terms (!A12, A11, A10), and the video read gained two
+      (A11, A10): RAM_OE is 16 of 16 terms, ROM_OE 10 of 16.
+
    THE RULE
       Every memory bus cycle, read or write, uses the LOW half of
       the clock only:
@@ -87,8 +97,9 @@ Device   g22v10;
       ROM_OE  = CPU read of a section mapped to ROM
       RAM_OE  = CPU read of a section mapped to RAM,
                 or any video read (revision 04)
-                In section 2 only 4000h - 4FFFh is mapped; neither
-                memory drives the bus in the I/O window 5000h - 5FFFh.
+                In section 2, 4000h - 4FFFh and 5400h - 5FFFh are
+                mapped (revision 05); neither memory drives the bus
+                in the I/O window 5000h - 53FFh.
 
    CLOCK DUTY
       Reads and writes take the low half of the clock, so the high
@@ -99,12 +110,12 @@ Device   g22v10;
 
    PIN BUDGET
       Inputs (14): CLK (pin 1, array input and MAP_RUN's clock),
-                   A15:A12, RAMSEL0-7, RW, PIXEL_ENABLE (15)
+                   A15:A10, RAMSEL0-7, RW, PIXEL_ENABLE (17)
       Outputs (4): /ROM_OE, /RAM_OE, /WE, MAP_RUN
-      Unused: pins 20, 21, 22.
-      ROM_OE expands to 8 product terms (pin 19 has 16).
-      RAM_OE expands to 12 product terms (pin 18 has 16): 8 for CPU
-      reads and 4 for video reads outside the I/O window.
+      Unused: pin 22.
+      ROM_OE expands to 10 product terms (pin 19 has 16).
+      RAM_OE expands to 16 product terms (pin 18 has 16): 10 for CPU
+      reads and 6 for video reads outside the I/O window.
    ============================================================ */
 
 
@@ -129,6 +140,8 @@ PIN 13 = RAMSEL7;
 PIN 15 = RAMSEL2;      /* map register Q2 (I/O pin used as input) */
 PIN 14 = RW;           /* State PLD pin 23, 0 = store (I/O pin used as input) */
 PIN 23 = PIXEL_ENABLE; /* Sync PLD pin 19 (I/O pin used as input) */
+PIN 20 = A11;          /* address mux output (I/O pin used as input, revision 05) */
+PIN 21 = A10;          /* address mux output (I/O pin used as input, revision 05) */
 
 
 /* ---------------- OUTPUTS ---------------- */
@@ -166,19 +179,23 @@ MAP_RUN.D = 'b'1;
 ROM_OE =
       SEC0 & !RAMSEL0 & CPU_READ
     # SEC1 & !RAMSEL1 & CPU_READ
-    # SEC2 & !A12 & !RAMSEL2 & CPU_READ   /* 4000h - 4FFFh; 5000h - 5FFFh is I/O */
+    # SEC2 & !A12 & !RAMSEL2 & CPU_READ   /* 4000h - 4FFFh */
+    # SEC2 &  A11 & !RAMSEL2 & CPU_READ   /* 5800h - 5FFFh; 5000h - 53FFh is I/O */
+    # SEC2 &  A10 & !RAMSEL2 & CPU_READ   /* 5400h - 57FFh, 5C00h - 5FFFh */
     # SEC3 & !RAMSEL3 & CPU_READ
     # SEC4 & !RAMSEL4 & CPU_READ
     # SEC5 & !RAMSEL5 & CPU_READ
     # SEC6 & !RAMSEL6 & CPU_READ
     # SEC7 & !RAMSEL7 & CPU_READ;
 
-/* video reads: RAM anywhere but the I/O window 5000h - 5FFFh
-   (!(!A15 & A14 & !A13 & A12) as four terms) */
+/* video reads: RAM anywhere but the I/O window 5000h - 53FFh
+   (!(!A15 & A14 & !A13 & A12 & !A11 & !A10) as six terms) */
 RAM_OE =
       SEC0 &  RAMSEL0 & CPU_READ
     # SEC1 &  RAMSEL1 & CPU_READ
-    # SEC2 & !A12 &  RAMSEL2 & CPU_READ   /* 4000h - 4FFFh; 5000h - 5FFFh is I/O */
+    # SEC2 & !A12 &  RAMSEL2 & CPU_READ   /* 4000h - 4FFFh */
+    # SEC2 &  A11 &  RAMSEL2 & CPU_READ   /* 5800h - 5FFFh; 5000h - 53FFh is I/O */
+    # SEC2 &  A10 &  RAMSEL2 & CPU_READ   /* 5400h - 57FFh, 5C00h - 5FFFh */
     # SEC3 &  RAMSEL3 & CPU_READ
     # SEC4 &  RAMSEL4 & CPU_READ
     # SEC5 &  RAMSEL5 & CPU_READ
@@ -187,4 +204,6 @@ RAM_OE =
     # A15 & VIDEO_READ
     # !A14 & VIDEO_READ
     # A13 & VIDEO_READ
-    # !A12 & VIDEO_READ;
+    # !A12 & VIDEO_READ
+    # A11 & VIDEO_READ
+    # A10 & VIDEO_READ;

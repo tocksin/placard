@@ -225,39 +225,43 @@ PIXEL_ENABLE = VIDEO_ACTIVE & !H2 & !H1 & !H0
 Date: 2026-10-16
 
 Each row has a mode byte; bits 1:0 pick 1, 2, 4 or 8 bpp for that row (the
-color decoder's MODE1:MODE0).  It is read in horizontal blanking, so it
+color decoder's MODE1:MODE0), and bits 3:2 pick the line repeat (see
+[Line repeat](#line-repeat)).  It is read in horizontal blanking, so it
 takes no screen space: all 80 byte columns (x6020 + column × 512 + row,
-columns 0-79) are pixels, 640 pixels across in 1 bpp.
+columns 0-79, in 1x) are pixels, 640 pixels across in 1 bpp.
 
 | | |
 |---|---|
-| Address | row r's mode byte is at x4A20 + r (x4A20-x4BFF) |
-| When | clock 1 of group 37 (H9:H3 = 0100101), during HSYNC, on every line |
-| Map | follows map bit 2 (x4000-x4FFF), like the audio buffer |
+| Address | row r's mode byte is at x5A20 + r (x5A20-x5BFF) |
+| When | clock 1 of group 45 (H9:H3 = 0101101), in the back porch, on every line |
+| Memory | video reads always come from the RAM |
 | Chips added | none |
 | CPU cost | one stall clock per line (525 per frame, 0.13 %), the same as the audio read |
 
-**How it is read.**  The audio slot PLD (revision 02) raises BLANK_RD for
-group 37 as well as for the audio group (38 or 39), so the Sync PLD raises
-PIXEL_ENABLE in clock 1 of group 37.  That is a video read like any other:
-the address mux takes the video address, H9:H3 on A15:A9 and V8:V0 on A8:A0,
-so it is x4A00 + V8:V0, and visible row r (line 544 + r) gives x4A20 + r.
-The byte lands in the pixel buffer.
+**How it is read.**  The audio slot PLD (revision 03) raises BLANK_RD for
+group 45 as well as for the audio group (46 or 47), so the Sync PLD raises
+PIXEL_ENABLE in clock 1 of group 45.  That is a video read like any other:
+the address mux takes the video address, H9:H3 on A15:A9 and V8:V0 on A8:A0
+(the row address bits are not remapped in blanking), so it is x5A00 + V8:V0,
+and visible row r (line 544 + r) gives x5A20 + r.  The byte lands in the
+pixel buffer.
 
 **How it is kept.**  The line code register (F377) takes its D inputs from
 the pixel buffer outputs, and its /E is /MODE_LD from the audio slot PLD
-(pin 22, low for all of group 37).  It loads the mode byte from the pixel
-buffer on clocks 2-7 of group 37 and holds it until group 37 of the next
-line, so it is steady through all the active video.  The order on each line
-is: group 37 mode byte, group 38/39 audio sample, group 42 the DAC register
-copies the sample (end of HSYNC), group 48 first pixel.  The audio read
-replaces the mode byte in the pixel buffer, but by then the line code
-register has it.
+(pin 22, low for all of group 45).  It loads the mode byte from the pixel
+buffer on clocks 2-7 of group 45 and holds it until group 45 of the next
+line, so it is steady through all the active video.  Q1:Q0 go to the color
+decoder and Q3:Q2 back to the audio slot PLD for the line repeat.  The order
+on each line is: group 45 mode byte, group 46/47 audio sample, start of
+group 48 the DAC register copies the sample (H_VIDEO_ACTIVE rises), group 48
+first pixel.  The audio read replaces the mode byte in the pixel buffer, but
+by then the line code register has it.
 
-**Why group 37.**  A blanking read can only reach x3800-x5FFF (groups
-28-47).  Groups 38-39 are the audio buffer and 40-47 the I/O window, where
-no memory answers.  Group 37 is the last one before the audio read, which
-it must come before, and it leaves x4000-x49FF free for programs.
+**Why group 45.**  A blanking read can only reach x3800-x5FFF (groups
+28-47).  Since the I/O window shrank to x5000-x53FF (groups 40-41), groups
+42-47 are memory.  The audio read takes groups 46-47 (it needs a pair, see
+SOUND.md), and the mode read must come before it, so group 45 is the
+nearest.  That leaves x4000-x4FFF free for programs in one block.
 
 **Timing.**  /MODE_LD is decoded from H9:H3 alone: H counter tCO 5.5 ns plus
 the audio PLD tPD 7.5 ns is 13 ns after the group starts, long before the
@@ -266,15 +270,105 @@ the group (the F377 needs 0 ns hold).  The line code register's data is the
 pixel buffer output, which only changes at the end of clock 1, so it is
 steady for six clock edges; nothing in it races the data bus any more.
 
-**Before (until 2026-10-16).**  The mode byte was the first byte read on
-each line (group 48, x6020 + row), so byte column 0 held mode bytes and the
-screen showed 632 pixels in 1 bpp.  The line code F377 loaded the data bus
-on every clock while `videoActiveR` was low.
+**History.**  Until 2026-10-16 (first change) the mode byte was the first
+byte read on each line (group 48, x6020 + row), so byte column 0 held mode
+bytes and the screen showed 632 pixels in 1 bpp.  Then it was read in group
+37 from x4A20 + row, with the audio in groups 38/39 (x4DF3-x4FFF) and the
+DAC clocked by HSYNC, while x5000-x5FFF was all I/O.  Both moves were
+checked in GHDL against the design before them.
 
-**Checked in simulation.**  The FPGA model (`basys_top.vhd`) was run in
-GHDL for 20 ms (one frame and a bit) with the CPU halted, before and after
-the change, on a memory image with the same mode byte at x6020 + r and
-x4A20 + r.  HSYNC, VSYNC, the RGB outputs and the audio DAC were identical
-clock for clock, and on all 535 visible lines simulated `lineCode`
-matched x4A00 + V8:V0.  With different bytes at x6020 + r, the new design
-still took its modes from x4A20 + r.
+## Line repeat
+
+Date: 2026-10-16
+
+Bits 3:2 of a row's mode byte say how many lines show each byte of video
+memory, so a lower vertical resolution takes less RAM:
+
+| Bits 3:2 | Repeat | Full screen | Video RAM used | Free per byte column |
+|---|---|---|---|---|
+| 00 | 1x | 640 × 480 (1 bpp) | 480 B per column, 37.5 KB | the 32 bytes of vertical blanking |
+| 01 | 2x | 640 × 240 | 240 B per column, 18.75 KB | the low 256 bytes (page x60 + 2 × column) |
+| 10, 11 | 4x | 640 × 120 | 120 B per column, 9.4 KB | everything but the top 128 bytes |
+
+Pixels across don't change (bits 1:0 still pick 1, 2, 4 or 8 bpp).  A full
+2x screen frees the even pages x60, x62 ... xFE, 80 pages of 256 bytes
+(20 KB); a full 4x screen frees x6000-x617F, x6200-x637F and so on, 80 × 384
+bytes (30 KB).  [reference/line_repeat_map.png](reference/line_repeat_map.png)
+(made by `src/scripts/gen_line_repeat_map.py`) shows one column in each
+mode.
+
+**The row address.**  The video address is column-major (A15:A9 = H9:H3,
+A8:A0 = the row), so just ignoring V0 would free every other byte of each
+column.  Instead the audio slot PLD (revision 03) makes four of the row
+address bits, and the bits that would vary go to the bottom:
+
+| Address bit | 1x | 2x | 4x |
+|---|---|---|---|
+| A0 | V0 | V8 | V7 |
+| A1 | V1 | V1 | V8 |
+| A2-A6 | V2-V6 | V2-V6 | V2-V6 |
+| A7 | V7 | V7 | 1 |
+| A8 | V8 | 1 | 1 |
+
+With v = row + 32 (V8:V0 of the line), a row's byte in column c is at
+x6000 + c × 512 + offset:
+
+    1x:  offset = v
+    2x:  offset = x100 + (v & xFE) + v8
+    4x:  offset = x180 + (v & x7C) + 2 × v8 + v7
+
+So every 2x pair (rows 2k and 2k + 1) and every 4x group (rows 4k to 4k + 3)
+has its own byte; the order within the column is shuffled.  `vid_addr` and
+`plot1` in the library work this out from the row's own mode byte, and
+`row_offset` in `placard_sim.py` is the same thing in Python.
+
+**Each line uses its own mode byte.**  The remap is driven by that line's
+line code, so rows can mix 1x, 2x and 4x.  Rows in different modes can land
+on the same byte, though:
+
+| Rows in this mode | Use offsets | Can share bytes with |
+|---|---|---|
+| 1x, rows 0-223 | 32-255 | nothing |
+| 1x, rows 224-479 | 256-511 | 2x and 4x rows |
+| 2x, any rows | 256-511 | 1x rows 224-479, 4x rows |
+| 4x, any rows | 384-511 | 1x rows 352-479, 2x rows |
+
+The high bits are set to 1 rather than 0 so that a full-resolution band in
+rows 0-223 (a text area, say) can sit over a 2x or 4x picture without ever
+sharing a byte.  Other mixes work as long as no two drawn rows share a byte.
+Give both lines of a 2x pair, or all four lines of a 4x group, the same
+repeat bits; a pair split between modes shows two different bytes.
+
+**The hardware.**  The address mux's video (C) inputs for A0, A1, A7 and A8
+come from the audio slot PLD's R0, R1, R7 and R8 (pins 17-20) instead of
+straight from the V counter; A2-A6 are still V2-V6, and the mux PLDs are
+unchanged.  The PLD takes V0, V1, V7, V8 (pins 1, 10, 11, 13) and the line
+code register's Q2 and Q3 (pins 14, 15).  In groups 32-47 (RAW = !H9 & !H7)
+the outputs are the plain V bits, so the mode byte and audio reads are not
+remapped.
+
+**Timing.**  Only video reads use the mux's C inputs, so no CPU path
+changes.  The worst case is the switch from raw to remapped at the start of
+group 48: H counter tCO 5.5 ns + audio PLD 7.5 ns = 13 ns, while the first
+pixel read is in clock 1 (39.7 ns in), so the address has settled a whole
+clock early.  V changes once per line, and the line code in group 45, where
+RAW blocks it.
+
+**8x (not built).**  Bits 3:2 = 11 act like 10.  An 8x mode needs six bits
+remapped and doesn't fit in the audio slot PLD; a separate row address PLD
+(V8:V0 and LC3:LC2 in, nine row bits out) could do 8x and keep the rows in
+order.
+
+**Checked in simulation** (GHDL, `basys_top.vhd`, 860,000 clocks, two
+frames, CPU looping in ROM):
+
+- *1x and the moved bytes:* a random screen with random 1x mode bytes, and
+  the same bytes in x4A00-x4FFF and x5A00-x5FFF.  Against the design before
+  this change, RGB, HSYNC and VSYNC were identical on every clock, and the
+  audio DAC took the same 1068 values in the same order, each exactly 48
+  clocks later (group 48 instead of group 42).
+- *Line repeat:* rows 0-95 in 4x, 96-223 in 1x and 224-479 in 2x, with
+  random bpp per row and the pixel bytes at their remapped addresses.  The
+  RGB output was identical, clock for clock, to the design before this
+  change showing a 1x image with each 2x row pair and 4x group written out
+  in full.

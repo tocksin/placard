@@ -1,6 +1,6 @@
 -- ============================================================
 -- MEMORY READ AND WRITE STROBES
--- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 04)
+-- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 05)
 -- Date: 10/16/2026
 --
 -- Replaces the '32 OR gate (/WE = RW or CLK) and the read enables
@@ -22,6 +22,10 @@
 -- only CPU reads follow the map, so the CPU can run from the ROM under
 -- the video area while the video shows the RAM.
 --
+-- Revision 05: the I/O window is 5000h-53FFh.  a11 (pin 20) and a10
+-- (pin 21) let 5400h-5FFFh be memory again, mapped by ramsel2, and
+-- read by the video (mode bytes and the audio buffer).
+--
 --     write  = not rw and not pixelEnable
 --     cpuRead   = rw and not pixelEnable
 --     videoRead = pixelEnable
@@ -29,8 +33,8 @@
 --     romOeN = low while clk = 0 and a CPU read of a ROM section
 --     ramOeN = low while clk = 0 and a CPU read of a RAM section,
 --              or a video read
---              (section 2 is mapped for 4000h-4FFFh only; neither
---              memory reads in the I/O window 5000h-5FFFh)
+--              (section 2 is mapped for 4000h-4FFFh and 5400h-5FFFh;
+--              neither memory reads in the I/O window 5000h-53FFh)
 --
 -- rw is State PLD pin 23 (Rev 12: low for the whole EXEC state of a
 -- store).  pixelEnable is the Sync PLD's PIXEL_ENABLE, not STALL.
@@ -43,9 +47,9 @@
 --   1  clk         2  a15        3  a14        4  a13       5  a12
 --   6  ramsel0     7  ramsel1    8  ramsel3    9  ramsel4  10  ramsel5
 --  11  ramsel6    13  ramsel7   14  rw        15  ramsel2
---  23  pixelEnable
+--  20  a11        21  a10       23  pixelEnable
 --  16  weN        17  mapRun    18  ramOeN    19  romOeN
---  20-22 not used
+--  22  not used
 -- ============================================================
 
 library ieee;
@@ -68,6 +72,8 @@ entity mem_ctrl_pld is
         ramsel2     : in  std_logic;   -- pin 15 (I/O pin used as input)
         rw          : in  std_logic;   -- pin 14, State PLD pin 23, 0 = store
         pixelEnable : in  std_logic;   -- pin 23, Sync PLD PIXEL_ENABLE
+        a11         : in  std_logic;   -- pin 20 (I/O pin used as input, revision 05)
+        a10         : in  std_logic;   -- pin 21 (I/O pin used as input, revision 05)
 
         weN         : out std_logic;   -- pin 16, RAM /WE and write buffer enable
         romOeN      : out std_logic;   -- pin 19, ROM /OE
@@ -120,6 +126,8 @@ begin
     romOe <= (sec0 and (not ramsel0) and cpuRead)
           or (sec1 and (not ramsel1) and cpuRead)
           or (sec2 and (not a12) and (not ramsel2) and cpuRead)
+          or (sec2 and a11 and (not ramsel2) and cpuRead)
+          or (sec2 and a10 and (not ramsel2) and cpuRead)
           or (sec3 and (not ramsel3) and cpuRead)
           or (sec4 and (not ramsel4) and cpuRead)
           or (sec5 and (not ramsel5) and cpuRead)
@@ -129,6 +137,8 @@ begin
     ramOe <= (sec0 and ramsel0 and cpuRead)
           or (sec1 and ramsel1 and cpuRead)
           or (sec2 and (not a12) and ramsel2 and cpuRead)
+          or (sec2 and a11 and ramsel2 and cpuRead)
+          or (sec2 and a10 and ramsel2 and cpuRead)
           or (sec3 and ramsel3 and cpuRead)
           or (sec4 and ramsel4 and cpuRead)
           or (sec5 and ramsel5 and cpuRead)
@@ -137,7 +147,9 @@ begin
           or (a15 and videoRead)
           or ((not a14) and videoRead)
           or (a13 and videoRead)
-          or ((not a12) and videoRead);
+          or ((not a12) and videoRead)
+          or (a11 and videoRead)
+          or (a10 and videoRead);
 
     process (clk)
     begin
