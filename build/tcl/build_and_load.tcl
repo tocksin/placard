@@ -11,6 +11,7 @@
 #     jobs      parallel jobs for launch_runs (default 4)
 #
 # The board is programmed by program_board.tcl (also used by download_latest.bat).
+# project/placard.xpr is made by create_project.tcl if it does not exist.
 #
 # Date: 10/16/2026
 
@@ -33,6 +34,10 @@ set ::ASM_FILE $hexFile
 source [file join $repoDir src scripts gen_video_ram.tcl]
 
 # ---- 2. synthesis, implementation, bitstream --------------------------------
+# the project is not kept in git; make it on the first build
+if {![file exists $xprFile]} {
+    source [file join $tclDir create_project.tcl]
+}
 open_project $xprFile
 update_compile_order -fileset sources_1
 
