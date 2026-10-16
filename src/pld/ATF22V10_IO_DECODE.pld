@@ -1,7 +1,7 @@
 Name     IO_DECODE;
 PartNo   00;
-Date     10/15/2026;
-Revision 01;
+Date     10/16/2026;
+Revision 02;
 Designer ;
 Company  ;
 Assembly ;
@@ -35,7 +35,7 @@ Device   g22v10;
       device, as in FEATURE_PLAN.md:
 
           page  address      strobe(s)
-           0    5000h-50FFh  /MAP_WR (ROM/RAM map), /LINE_RD
+           0    5000h-50FFh  /MAP_WR (ROM/RAM map register), /LINE_RD
            1    5100h-51FFh  /SND_WR
            2    5200h-52FFh  /PORT_WR, /PORT_RD
            5    5500h-55FFh  /EXP1  (address only)
@@ -50,8 +50,15 @@ Device   g22v10;
                holds the data past the end of the write.
       Reads:   /xx_RD is low on a read that the CPU latches into D
                (LOAD_IMM strobe from the State PLD, which already
-               excludes stall clocks).  The ROM/RAM select PLD keeps
+               excludes stall clocks).  The memory control PLD keeps
                both memories off the bus for the whole I/O window.
+
+   ROM/RAM MAP (revision 02)
+      /MAP_WR clocks the map register, a 74ACT273 (write only; it
+      replaced the map registers of the ROM/RAM select PLD).  Its
+      rising edge, at the end of the write, loads the source bus
+      into the register.  The equations did not change in revision
+      02; only these notes did.
 
    PIN BUDGET
       Inputs (14): /WE, ADDR_SEL, ADDR_SEL_HI, PC15, H9, Y7,

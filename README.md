@@ -29,7 +29,7 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen ye
 | x0000-x1FFF | RAM/ROM |
 | x2000-x3FFF | RAM/ROM |
 | x4000-x4FFF | RAM (always) |
-| x5000-x50FF | Memory configuration |
+| x5000-x50FF | Memory configuration (write only) |
 | x5100-x51FF | Sound |
 | x5200-x52FF | Keyboard |
 | x5300-x53FF | Joystick |
