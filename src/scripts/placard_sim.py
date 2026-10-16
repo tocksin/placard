@@ -8,8 +8,12 @@ placard_sim.py - assembler and instruction-level simulator for the Placard CPU
     python3 placard_sim.py prog.asm --run --png out.png   also render the screen
 
 The assembler accepts the syntax defined in placard.asm (it is not a general
-customasm replacement: #include lines are skipped, and only #addr and #d8
-directives are supported).  Use it to check programs and to get a hex file
+customasm replacement: only #include, #addr, #d8 and #d ("strings" and 0x
+hex literals) directives and
+"NAME = expression" constants are supported).  #include "file" pastes the
+file in, relative to the including file, except placard.asm (the rule
+definitions), which is skipped.  A constant must be defined before an #addr
+that uses it.  Use it to check programs and to get a hex file
 when customasm is not at hand; customasm with placard.asm should produce the
 same bytes.
 
@@ -212,9 +216,52 @@ def evaluate(expr, syms):
         raise AsmError('unknown symbol in "%s": %s' % (expr, ex))
 
 
-def assemble(src):
+INCLUDE_RE = re.compile(r'^\s*#include\s+"([^"]+)"', re.I)
+CONST_RE = re.compile(r'^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$')
+
+
+def expand_includes(src, base_dir, depth=0):
+    """paste in #include files (except placard.asm, the rule definitions)"""
+    import os
+    if depth > 8:
+        raise AsmError('#include nested too deep')
+    out = []
+    for raw in src.splitlines():
+        m = INCLUDE_RE.match(raw)
+        if m and os.path.basename(m.group(1)).lower() != 'placard.asm':
+            path = os.path.join(base_dir, m.group(1))
+            try:
+                text = open(path).read()
+            except OSError:
+                raise AsmError('cannot open #include file %s' % path)
+            out.extend(expand_includes(text, os.path.dirname(path), depth + 1))
+        else:
+            out.append(raw)
+    return out
+
+
+def d8_items(text, lineno):
+    """bytes of a #d line: "strings" and 0x hex literals (2 digits per byte)"""
+    out, i = [], 0
+    for item in re.findall(r'"(?:[^"\\]|\\.)*"|[^,]+', text):
+        item = item.strip()
+        if not item:
+            continue
+        if item.startswith('"'):
+            body = item[1:-1].encode().decode('unicode_escape')
+            out.extend(body.encode('latin-1'))
+        elif re.match(r'^0x[0-9A-Fa-f]+$', item) and len(item) % 2 == 0:
+            v = int(item, 16)
+            nb = (len(item) - 2) // 2
+            out.extend((v >> (8 * k)) & 0xFF for k in reversed(range(nb)))
+        else:
+            raise AsmError('line %d: #d takes "strings" and 0x hex literals only' % lineno)
+    return out
+
+
+def assemble(src, base_dir='.'):
     """two-pass assembly; returns (mem dict addr->byte, symbols, listing)"""
-    lines = src.splitlines()
+    lines = expand_includes(src, base_dir)
     for pass_no in (1, 2):
         addr = 0
         mem = {}
@@ -230,21 +277,41 @@ def assemble(src):
                     syms[lb] = addr
             if not text:
                 continue
+            m = CONST_RE.match(text)
+            if m:
+                if pass_no == 1:
+                    if m.group(1) in syms:
+                        raise AsmError('line %d: duplicate symbol %s' % (lineno, m.group(1)))
+                    try:
+                        syms[m.group(1)] = evaluate(m.group(2), syms)
+                    except AsmError:        # forward reference: resolve in pass 2
+                        syms[m.group(1)] = 0
+                else:
+                    syms[m.group(1)] = evaluate(m.group(2), syms)
+                continue
             if text.startswith('#'):
                 d = text.split(None, 1)
                 kw = d[0].lower()
                 if kw in ('#include', '#bankdef', '#bits', '#outp', '#size', '{', '}'):
                     continue
                 if kw == '#addr':
-                    new = evaluate(d[1], syms) if pass_no == 2 else evaluate(d[1], dict(syms))
-                    if new < addr:
-                        raise AsmError('line %d: #addr goes backwards' % lineno)
-                    addr = new
+                    # may go backwards, as in customasm; overlapping bytes are an error
+                    addr = evaluate(d[1], syms) if pass_no == 2 else evaluate(d[1], dict(syms))
                     continue
                 if kw == '#d8':
                     for v in d[1].split(','):
                         if pass_no == 2:
+                            if addr in mem:
+                                raise AsmError('line %d: overlapping data at %04X' % (lineno, addr))
                             mem[addr] = evaluate(v, syms) & 0xFF
+                        addr += 1
+                    continue
+                if kw == '#d':
+                    for v in d8_items(d[1], lineno):
+                        if pass_no == 2:
+                            if addr in mem:
+                                raise AsmError('line %d: overlapping data at %04X' % (lineno, addr))
+                            mem[addr] = v
                         addr += 1
                     continue
                 raise AsmError('line %d: unsupported directive %s' % (lineno, kw))
@@ -487,7 +554,8 @@ def main(argv):
     ap.add_argument('--max-steps', type=int, default=20_000_000)
     args = ap.parse_args(argv)
     src = open(args.asm).read()
-    mem, syms, _ = assemble(src)
+    import os
+    mem, syms, _ = assemble(src, os.path.dirname(os.path.abspath(args.asm)))
     hexpath = args.hex or re.sub(r'\.asm$', '', args.asm) + '.hex'
     open(hexpath, 'w').write(to_hexstr(mem) + '\n')
     print('assembled %d bytes, top %04X -> %s' % (len(mem), max(mem), hexpath))
