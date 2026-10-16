@@ -1,7 +1,7 @@
 -- @file ATF22V10_COLORDECODER.vhd
--- @brief 8-bit pixel-pack color decoder (VHDL conversion of ATF22V10_COLORDECODER.pld, rev 06)
+-- @brief 8-bit pixel-pack color decoder (VHDL conversion of ATF22V10_COLORDECODER.pld, rev 07)
 --
--- Date: 10/07/2026
+-- Date: 10/16/2026
 --
 -- Direct conversion of the PLD equations: equations are not optimized and
 -- every pin is kept as an individual std_logic port.
@@ -128,12 +128,12 @@ begin
     --  Code  Color   R  G  B    Luminance
     --   00   Black   0  0  0      0.00
     --   01   Blue    0  1  3      0.09
-    --   10   Orange  7  3  0      0.32
+    --   10   Gold    7  5  0      0.55
     --   11   White   7  7  3      1.00
     --
     -- Per output bit (C1 = code bit 1, C0 = code bit 0):
     --    RED1..3 = C1              BLU2,3 = C0
-    --    GRN1    = C1 | C0         GRN2   = C1       GRN3 = C1 & C0
+    --    GRN1    = C1 | C0         GRN2   = C1 & C0  GRN3 = C1
 
 
     ---------------------------------------------------------------------------
@@ -203,7 +203,7 @@ begin
     BLU3 <= (M1 and GRN3_INT) or (M2 and C0) or (M4 and BLU3_4) or (M8 and D4);
 
     GRN1 <= (M1 and GRN3_INT) or (M2 and C1) or (M2 and C0) or (M4 and GRN1_4) or (M8 and D5);
-    GRN2 <= (M1 and GRN3_INT) or (M2 and C1) or (M4 and GRN2_4) or (M8 and D6);
+    GRN2 <= (M1 and GRN3_INT) or (M2 and C1 and C0) or (M4 and GRN2_4) or (M8 and D6);
 
     -- GRN3: 1 bpp 8:1 pixel mux written out (8 terms) + its own terms
     GRN3_INT <= (M1 and D0 and (not H2) and (not H1) and (not H0))
@@ -214,7 +214,7 @@ begin
              or (M1 and D5 and (    H2) and (not H1) and (    H0))
              or (M1 and D6 and (    H2) and (    H1) and (not H0))
              or (M1 and D7 and (    H2) and (    H1) and (    H0))
-             or (M2 and C1 and C0)
+             or (M2 and C1)
              or (M4 and GRN3_4)
              or (M8 and D7);
 
