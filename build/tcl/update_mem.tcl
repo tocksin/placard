@@ -18,14 +18,14 @@
 #
 # Date: 10/16/2026
 
-set buildDir [file dirname [file normalize [info script]]]
-set repoDir  [file normalize [file join $buildDir ..]]
+set tclDir   [file dirname [file normalize [info script]]]
+set repoDir  [file normalize [file join $tclDir .. ..]]
 set xprFile  [file join $repoDir project placard.xpr]
 set memFile  [file join $repoDir src hdl video_ram.mem]
 set memDepth 65536
 set memWidth 8
 
-source [file join $buildDir write_mmi.tcl]
+source [file join $tclDir write_mmi.tcl]
 
 # ---- 1. memory initialization file ------------------------------------------
 set hexFile [lindex $argv 0]
@@ -48,7 +48,7 @@ if {[get_property PROGRESS $implRun] ne "100%" || ![file exists $bitFile]} {
 }
 if {![file exists $mmiFile]
     || [file mtime $mmiFile] < [file mtime $bitFile]
-    || [file mtime $mmiFile] < [file mtime [file join $buildDir write_mmi.tcl]]} {
+    || [file mtime $mmiFile] < [file mtime [file join $tclDir write_mmi.tcl]]} {
     puts "update_mem: opening the implemented design to map the block RAMs"
     open_run impl_1
     write_mmi $mmiFile $memDepth $memWidth
