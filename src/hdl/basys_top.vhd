@@ -95,8 +95,9 @@ architecture Behavioral of basys_top is
 
     signal videoActive      : sl;
     signal videoActiveR1    : sl;   -- first delay stage
-    signal videoActiveR     : sl;   -- second delay stage (VIDEN, lineCode clock)
+    signal videoActiveR     : sl;   -- second delay stage (VIDEN)
     signal pixelEn          : sl;
+    signal modeLdN          : sl;   -- line code register /E (audio slot PLD pin 22)
     signal pixelEnAndRst    : sl;
     signal cpuStall         : sl;   -- Branch PLD STALL = pixel enable or ALU wait
     signal aluDone          : sl;   -- Branch PLD ALU_DONE (second ADD/SUB clock)
@@ -480,6 +481,7 @@ begin
                 vSyncOut        => vSync,
                 videoActiveOut  => videoActive,
                 pixelEnOut      => pixelEn,
+                modeLdNOut      => modeLdN,
                 pixelRowOut     => pixelRow,
                 pixelColOut     => pixelCol,
                 
@@ -697,18 +699,20 @@ begin
     ----------------------------------------------------------
 
     -- Load Code register process
-    --   An F377 on the system clock, enabled while videoActiveR is low.
-    --   It loads the data bus on every clock of the blanking interval and
-    --   stops when videoActiveR rises, so it keeps the bus value from the
-    --   edge that ends the first byte read of the line (the same edge that
-    --   raises videoActiveR).  The colour decoder blanks the output while
-    --   videoActiveR is low, so the loads during blanking are not seen.
-    --   (Clocking it from videoActiveR raced the data bus by 1 ns.)
+    --   An F377 on the system clock.  /E is /MODE_LD from the audio slot
+    --   PLD (low for all of group 37) and D7:D0 come from the pixel buffer
+    --   outputs, not the data bus.  The video circuit reads the line's
+    --   mode byte (4A00h + V8:V0) into the pixel buffer in clock 1 of
+    --   group 37, and this register copies it on clocks 2-7, then holds it
+    --   for the rest of the line.  So the mode byte no longer takes the
+    --   first byte column of the screen (see VIDEO.md).
+    --   (Before: enabled while videoActiveR was low, keeping the bus value
+    --   of the first pixel read of the line, byte column 0.)
     loadCodeProc : process (clkVGA)
     begin
         if rising_edge(clkVGA) then
-            if videoActiveR = '0' then
-                lineCode <= databus;
+            if modeLdN = '0' then
+                lineCode <= pixelBuffer;
             end if;
         end if;
     end process loadCodeProc;
@@ -729,8 +733,9 @@ begin
     -- Audio DAC register (74HC574, see SOUND.md)
     --   Clocked by the rising edge of the HSYNC pin (end of sync, start of
     --   group 42).  The audio sample was read into the pixel buffer in
-    --   group 38 or 39, and the pixel buffer next loads in group 48, so its
-    --   outputs are steady at this edge.  Q7:Q0 drive the R-2R ladder; an
+    --   group 38 or 39 (after the mode byte in group 37), and the pixel
+    --   buffer next loads in group 48, so its outputs are steady at this
+    --   edge.  Q7:Q0 drive the R-2R ladder; an
     --   HC part so the outputs swing rail to rail.  The FPGA model starts
     --   at 80h (silence); the real part powers up random for one line.
     audioDacProc : process (hSync)

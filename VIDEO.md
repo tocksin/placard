@@ -59,9 +59,9 @@ The horizontal video-active signal is high when the counter is in a range where
 there is active video.  It is sent to the Sync PLD and combined with the
 vertical counter to determine the full video active region.
 
-The First-active-pixel signal is high for one pixel only.  Specifically this is
-the first pixel of each video line.  It is used to capture the display mode
-value into the display mode register.
+(An earlier version also had a first-active-pixel signal to capture the
+display mode.  The mode byte is now read in horizontal blanking; see
+[Mode byte](#mode-byte).)
 
 ### Horizontal Timing
 | Pixel range | Function |
@@ -219,3 +219,62 @@ VIDEO_ACTIVE.D = (V9 & V5 & !V4 & !V3 & !V2 & !V1)
 VSYNC = !(V4 & !V3 & V2 & !V1)
 
 PIXEL_ENABLE = VIDEO_ACTIVE & !H2 & !H1 & !H0
+
+## Mode byte
+
+Date: 2026-10-16
+
+Each row has a mode byte; bits 1:0 pick 1, 2, 4 or 8 bpp for that row (the
+color decoder's MODE1:MODE0).  It is read in horizontal blanking, so it
+takes no screen space: all 80 byte columns (x6020 + column × 512 + row,
+columns 0-79) are pixels, 640 pixels across in 1 bpp.
+
+| | |
+|---|---|
+| Address | row r's mode byte is at x4A20 + r (x4A20-x4BFF) |
+| When | clock 1 of group 37 (H9:H3 = 0100101), during HSYNC, on every line |
+| Map | follows map bit 2 (x4000-x4FFF), like the audio buffer |
+| Chips added | none |
+| CPU cost | one stall clock per line (525 per frame, 0.13 %), the same as the audio read |
+
+**How it is read.**  The audio slot PLD (revision 02) raises BLANK_RD for
+group 37 as well as for the audio group (38 or 39), so the Sync PLD raises
+PIXEL_ENABLE in clock 1 of group 37.  That is a video read like any other:
+the address mux takes the video address, H9:H3 on A15:A9 and V8:V0 on A8:A0,
+so it is x4A00 + V8:V0, and visible row r (line 544 + r) gives x4A20 + r.
+The byte lands in the pixel buffer.
+
+**How it is kept.**  The line code register (F377) takes its D inputs from
+the pixel buffer outputs, and its /E is /MODE_LD from the audio slot PLD
+(pin 22, low for all of group 37).  It loads the mode byte from the pixel
+buffer on clocks 2-7 of group 37 and holds it until group 37 of the next
+line, so it is steady through all the active video.  The order on each line
+is: group 37 mode byte, group 38/39 audio sample, group 42 the DAC register
+copies the sample (end of HSYNC), group 48 first pixel.  The audio read
+replaces the mode byte in the pixel buffer, but by then the line code
+register has it.
+
+**Why group 37.**  A blanking read can only reach x3800-x5FFF (groups
+28-47).  Groups 38-39 are the audio buffer and 40-47 the I/O window, where
+no memory answers.  Group 37 is the last one before the audio read, which
+it must come before, and it leaves x4000-x49FF free for programs.
+
+**Timing.**  /MODE_LD is decoded from H9:H3 alone: H counter tCO 5.5 ns plus
+the audio PLD tPD 7.5 ns is 13 ns after the group starts, long before the
+edge at the end of clock 1, and it goes high 13 ns after the last edge of
+the group (the F377 needs 0 ns hold).  The line code register's data is the
+pixel buffer output, which only changes at the end of clock 1, so it is
+steady for six clock edges; nothing in it races the data bus any more.
+
+**Before (until 2026-10-16).**  The mode byte was the first byte read on
+each line (group 48, x6020 + row), so byte column 0 held mode bytes and the
+screen showed 632 pixels in 1 bpp.  The line code F377 loaded the data bus
+on every clock while `videoActiveR` was low.
+
+**Checked in simulation.**  The FPGA model (`basys_top.vhd`) was run in
+GHDL for 20 ms (one frame and a bit) with the CPU halted, before and after
+the change, on a memory image with the same mode byte at x6020 + r and
+x4A20 + r.  HSYNC, VSYNC, the RGB outputs and the audio DAC were identical
+clock for clock, and on all 535 visible lines simulated `lineCode`
+matched x4A00 + V8:V0.  With different bytes at x6020 + r, the new design
+still took its modes from x4A20 + r.

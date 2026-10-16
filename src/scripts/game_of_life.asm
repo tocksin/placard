@@ -5,7 +5,7 @@
 ;
 ;     python3 placard_sim.py game_of_life.asm --run --max-steps 100000000 --png g.png
 ;
-; Date: 10/15/2026
+; Date: 10/16/2026
 
 #include "placard.asm"
 
@@ -28,8 +28,8 @@ main:
     ld   ac, [0x29]
     ld   0x9F, ac
     ld   ac, [0x2A]
-    ; mode byte 0 (1 bpp) for every row: 6020-61FF
-    ld   0x60, y
+    ; mode byte 0 (1 bpp) for every row: 4A20-4BFF
+    ld   0x4A, y
     ld   0x20, x
 md0:
     ld   0x00, [y,x]
@@ -37,13 +37,29 @@ md0:
     inc
     ld   ac, x
     bne  md0
-    ld   0x61, y
+    ld   0x4B, y
 md1:
     ld   0x00, [y,x]
     ld   x, ac
     inc
     ld   ac, x
     bne  md1
+    ; byte column 0 (6020-61FF) is not part of the board: clear it
+    ld   0x60, y
+    ld   0x20, x
+md2:
+    ld   0x00, [y,x]
+    ld   x, ac
+    inc
+    ld   ac, x
+    bne  md2
+    ld   0x61, y
+md3:
+    ld   0x00, [y,x]
+    ld   x, ac
+    inc
+    ld   ac, x
+    bne  md3
 restart:
     ; random bytes into 6200-FFFF (the gaps between columns are not shown)
     ld   0x62, ac

@@ -1,6 +1,6 @@
 # Remaining timing fixes
 
-Date: 2026-10-15
+Date: 2026-10-16
 
 This covers what was left in [TIMING.md](TIMING.md) after the ALU
 ([ALU_TIMING.md](ALU_TIMING.md)), video read
@@ -87,6 +87,12 @@ spare.
   ns (+0.7), TIMING.md rank 9.
 
 ### Line-mode register
+
+**Superseded 2026-10-16:** the mode byte is now read in group 37 of
+horizontal blanking from x4A20 + row, and the line code F377 copies it from
+the pixel buffer with /E from /MODE_LD (audio slot PLD revision 02), so it
+no longer takes byte column 0.  See [VIDEO.md](VIDEO.md#mode-byte).  The
+text below is the earlier fix.
 
 `lineCode` was an F574 clocked by the rising edge of `videoActiveR`, which
 came up to 10 ns after the system clock edge and needed the data bus held

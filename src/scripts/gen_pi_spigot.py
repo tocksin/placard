@@ -44,7 +44,7 @@ SCREEN (1 bpp)
     decimals on the first row, then rows of 50 decimals under the first
     decimal (52 columns from column 14; 20 rows for 1000 digits).  One blank
     row below the block, the run time "SSS.SSS s" is centered.  The screen
-    is cleared and every mode byte set to 1 bpp first.
+    is cleared and every mode byte (4A20-4BFF) set to 1 bpp first.
 
 TIMER
     The line read at 5000h (V9:V2 of the line counter, 124-255, see
@@ -82,9 +82,13 @@ MEMORY
     0100-07FF   code, blocks packed so none crosses a page
     0800-15FF   a[i] low limbs  (address 0800 + i)
     1600-23FF   a[i] high limbs (address 1600 + i)
-    2400-38FF   product table low limbs,  page 24 + m
-    3900-4DFF   product table high limbs, page 39 + m
+    2400-367F   product table low limbs,  page 24 + m, m = 0..18
+    3700-497F   product table high limbs, page 37 + m
+    4A20-4BFF   mode bytes, one per row (all 0, 1 bpp)
     6000-FFFF   video RAM
+    The tables only go up to m = 18, the largest q for 1000 digits (build()
+    checks it for the digit count asked for), so they end below the mode
+    bytes.  Each table page uses only 00-7F.
 
 Date: 10/16/2026
 """
@@ -97,8 +101,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from placard_sim import assemble, instr_size, to_hexstr   # noqa: E402
 
 ALO_PG, AHI_PG = 0x08, 0x16
-TLO_PG, THI_PG = 0x24, 0x39
-TMAX = 20
+TLO_PG, THI_PG = 0x24, 0x37
+TMAX = 18               # largest multiplier m; build() checks q <= TMAX
 FONT_PG, FONT_LO = 0x00, 0x80     # font in the top of zero page
 CODE_PG = 0x01
 
@@ -195,10 +199,29 @@ class Gen:
         self.label(r)
 
 
+def max_q(ndig):
+    """largest q of the inner loop (the table multiplier) for ndig digits"""
+    ln = 10 * ndig // 3 + 1
+    a = [2] * (ln + 1)
+    mq = 0
+    for _ in range(ndig):
+        q = 0
+        for i in range(ln, 1, -1):
+            x = 10 * a[i] + q * i
+            a[i], q = x % (2 * i - 1), x // (2 * i - 1)
+            mq = max(mq, q)
+        x = 10 * a[1] + q
+        a[1] = x % 10
+    return mq
+
+
 def build(ndig):
     ln = 10 * ndig // 3 + 1
     if ALO_PG * 256 + ln >= AHI_PG * 256:
         raise SystemExit('too many digits for the array space')
+    if max(max_q(ndig), 10) > TMAX:
+        raise SystemExit('q reaches %d, more than the product table (TMAX = %d)'
+                         % (max_q(ndig), TMAX))
     g = Gen()
     e, label = g.e, g.label
     # digit rows, a blank row and the time row, centered on the 60 rows
@@ -208,7 +231,7 @@ def build(ndig):
 
     # ------------------------------------------------------------ setup
     g.block('main')
-    e('; clear video RAM 6000-FFFF (mode bytes 0 = 1 bpp, pixels off)')
+    e('; clear video RAM 6000-FFFF (pixels off)')
     g.st(0x60, 'tmp')
     label('clr_pg')
     e('ld   %s, y' % z('tmp'))
@@ -223,6 +246,30 @@ def build(ndig):
     e('inc')
     e('ld   ac, %s' % z('tmp'))
     e('bne  clr_pg')
+    g.far('clr_m')
+
+    g.block('clr_m')
+    label('clr_m')
+    e('; mode bytes 4A00-4BFF = 0 (1 bpp)')
+    e('ld   0x4A, y')
+    e('clr  x')
+    label('clr_m0')
+    e('ld   0x00, [y,x]')
+    e('ld   x, ac')
+    e('inc')
+    e('ld   ac, x')
+    e('bne  clr_m0')
+    e('ld   0x4B, y')
+    label('clr_m1')
+    e('ld   0x00, [y,x]')
+    e('ld   x, ac')
+    e('inc')
+    e('ld   ac, x')
+    e('bne  clr_m1')
+    g.far('tsync')
+
+    g.block('tsync')
+    label('tsync')
     e('; start the timer at the top of a frame: wait for the line read to wrap')
     g.call('poll', 'pret')
     label('sync')

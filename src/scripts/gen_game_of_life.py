@@ -20,8 +20,10 @@ SEQUENCE (repeats forever)
     then start again with a new random screen.
 
 THE BOARD
-    Every visible 1 bpp pixel is a cell: byte columns 1-79 (column 0 holds the
-    mode bytes) by rows 0-479, 632 x 480 cells.  The edges wrap (a torus).
+    Byte columns 1-79 by rows 0-479 are the cells, 632 x 480 cells, and
+    byte column 0 is cleared and left black.  (Column 0 held the mode bytes
+    until they moved to 4A20-4BFF; the board was not widened.)  The edges
+    wrap (a torus).
     Pixel i of a byte is bit i, bit 0 on the left.
 
 METHOD
@@ -70,9 +72,10 @@ MEMORY
     0100-       code
     4000-45FF   column buffers: A 4000-41FF, B 4200-43FF, column 1 4400-45FF
                 (laid out like a screen column, row j at page + 0x20 + j)
+    4A20-4BFF   mode bytes, one per row (all 0, 1 bpp)
     6000-FFFF   video RAM
 
-Date: 10/15/2026
+Date: 10/16/2026
 """
 
 import argparse
@@ -382,8 +385,8 @@ def build(gens, once, delay, seed):
     label('main')
     g.st(RING, 'ri')
     g.st(RING + 55 - LAG, 'rj')
-    e('; mode byte 0 (1 bpp) for every row: 6020-61FF')
-    e('ld   0x60, y')
+    e('; mode byte 0 (1 bpp) for every row: 4A20-4BFF')
+    e('ld   0x4A, y')
     e('ld   0x20, x')
     label('md0')
     e('ld   0x00, [y,x]')
@@ -391,13 +394,29 @@ def build(gens, once, delay, seed):
     e('inc')
     e('ld   ac, x')
     e('bne  md0')
-    e('ld   0x61, y')
+    e('ld   0x4B, y')
     label('md1')
     e('ld   0x00, [y,x]')
     e('ld   x, ac')
     e('inc')
     e('ld   ac, x')
     e('bne  md1')
+    e('; byte column 0 (6020-61FF) is not part of the board: clear it')
+    e('ld   0x60, y')
+    e('ld   0x20, x')
+    label('md2')
+    e('ld   0x00, [y,x]')
+    e('ld   x, ac')
+    e('inc')
+    e('ld   ac, x')
+    e('bne  md2')
+    e('ld   0x61, y')
+    label('md3')
+    e('ld   0x00, [y,x]')
+    e('ld   x, ac')
+    e('inc')
+    e('ld   ac, x')
+    e('bne  md3')
 
     # ------------------------------------------------------------ random screen
     atom()
@@ -604,7 +623,7 @@ def build(gens, once, delay, seed):
     o(';')
     o(';     python3 placard_sim.py game_of_life.asm --run --max-steps 100000000 --png g.png')
     o(';')
-    o('; Date: 10/15/2026')
+    o('; Date: 10/16/2026')
     o('')
     o('#include "placard.asm"')
     o('')

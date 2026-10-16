@@ -202,12 +202,16 @@ def byte_addr(col, row):
     return 0x6020 + col * 512 + row
 
 
+def mode_addr(row):
+    return 0x4A20 + row
+
+
 def font_rows(lib):
     base = lib.syms['LIB_FONT']
     return {c: tuple(lib.image[base + k * 256 + c] for k in range(8)) for c in range(256)}
 
 
-def read_text(lib, mem, row, cols=range(1, 80)):
+def read_text(lib, mem, row, cols=range(0, 80)):
     glyphs = {}
     for c, rows in font_rows(lib).items():
         glyphs.setdefault(rows, c)
@@ -335,31 +339,34 @@ def t_vid_addr(lib, n):
 def t_vid_clear(lib, n):
     for mode in (0, 3):
         c = lib.cpu()
+        for a in range(0x4A00, 0x4C00):
+            c.mem[a] = 0xA5
         for a in range(0x6000, 0x10000):
             c.mem[a] = 0xA5
         c, k = lib.call('vid_clear', ac=mode, cpu=c)
         STATS.add('vid_clear', k)
-        assert all(c.mem[a] == 0 for a in range(0x6200, 0x10000)), 'vid_clear pixels'
-        assert all(c.mem[a] == mode for a in range(0x6020, 0x6200)), 'vid_clear modes'
-        assert all(c.mem[a] == 0xA5 for a in range(0x6000, 0x6020)), 'vid_clear x6000'
+        assert all(c.mem[a] == 0 for a in range(0x6000, 0x10000)), 'vid_clear pixels'
+        assert all(c.mem[mode_addr(r)] == mode for r in range(480)), 'vid_clear modes'
+        assert all(c.mem[a] == 0xA5 for a in range(0x4A00, 0x4A20)), 'vid_clear x4A00'
         c, k = lib.call('vid_mode', ac=2, cpu=c)
         STATS.add('vid_mode', k)
-        assert all(c.mem[a] == 2 for a in range(0x6020, 0x6200)), 'vid_mode'
+        assert all(c.mem[mode_addr(r)] == 2 for r in range(480)), 'vid_mode'
+        assert all(c.mem[a] == 0 for a in range(0x6000, 0x10000)), 'vid_mode pixels'
 
 
 def t_plot1(lib, n):
     c = lib.cpu()
-    pts = {(0, 0), (631, 479), (7, 223), (8, 224), (300, 255), (300, 256)}
-    pts |= {(random.randrange(632), random.randrange(480)) for _ in range(n)}
+    pts = {(0, 0), (639, 479), (7, 223), (8, 224), (300, 255), (300, 256), (632, 0)}
+    pts |= {(random.randrange(640), random.randrange(480)) for _ in range(n)}
     model = bytearray(65536)
     for (x, y) in sorted(pts):
         c, k = lib.call('plot1', ac=1, cpu=c, zp={'R0': x, 'R1': x >> 8, 'R2': y, 'R3': y >> 8})
         STATS.add('plot1', k)
-        model[byte_addr(1 + x // 8, y)] |= 1 << (x % 8)
+        model[byte_addr(x // 8, y)] |= 1 << (x % 8)
     for (x, y) in sorted(pts)[::2]:
         c, k = lib.call('plot1', ac=0, cpu=c, zp={'R0': x, 'R1': x >> 8, 'R2': y, 'R3': y >> 8})
         STATS.add('plot1', k)
-        model[byte_addr(1 + x // 8, y)] &= ~(1 << (x % 8)) & 0xFF
+        model[byte_addr(x // 8, y)] &= ~(1 << (x % 8)) & 0xFF
     assert c.mem[0x6000:] == model[0x6000:], 'plot1'
 
 
@@ -367,7 +374,7 @@ def t_console(lib, n):
     c = lib.cpu()
     c, k = lib.call('con_clear', cpu=c)
     STATS.add('con_clear', k)
-    assert (c.mem[0x0D], c.mem[0x0E]) == (1, 0)
+    assert (c.mem[0x0D], c.mem[0x0E]) == (0, 0)
     for ch in 'Hello, Placard!':
         c, k = lib.call('con_putc', ac=ord(ch), cpu=c)
         STATS.add('con_putc', k)
@@ -384,14 +391,14 @@ def t_console(lib, n):
     assert (c.mem[0x10] | c.mem[0x11] << 8) == 0x2000 + len(s) - 1
     assert read_text(lib, c.mem, 1) == 'The quick brown fox jumps over the lazy dog 0123456789'
     assert read_text(lib, c.mem, 2) == '2nd line'
-    assert (c.mem[0x0D], c.mem[0x0E]) == (9, 2)
+    assert (c.mem[0x0D], c.mem[0x0E]) == (8, 2)
     # numbers, each on its own line
     c, _ = lib.call('con_home', cpu=c)
     c, _ = lib.call('con_clear', cpu=c)
     vals = sorted({0, 1, 9, 10, 99, 100, 127, 128, 199, 200, 209, 255} |
                   {random.randrange(256) for _ in range(n // 4)})
     for v in vals:
-        c.mem[0x0D], c.mem[0x0E] = 1, 0
+        c.mem[0x0D], c.mem[0x0E] = 0, 0
         c, k = lib.call('con_dec8', ac=v, cpu=c)
         STATS.add('con_dec8', k)
         c, k = lib.call('con_putc', ac=ord(' '), cpu=c)
@@ -400,19 +407,19 @@ def t_console(lib, n):
         assert c.ac == v
         got = read_text(lib, c.mem, 0)
         assert got.startswith('%d %02X' % (v, v)), 'dec8/hex8 %d -> %r' % (v, got)
-        for col in range(1, 9):
+        for col in range(0, 8):
             c.mem[0x0D] = col
             lib.call('con_putc', ac=ord(' '), cpu=c)
     vals = sorted({0, 7, 10, 255, 256, 9999, 10000, 65535} |
                   {random.randrange(65536) for _ in range(n // 4)})
     for v in vals:
-        c.mem[0x0D], c.mem[0x0E] = 1, 59
+        c.mem[0x0D], c.mem[0x0E] = 0, 59
         c, k = lib.call('con_dec16', cpu=c, zp={'R0': v, 'R1': v >> 8})
         STATS.add('con_dec16', k)
         got = read_text(lib, c.mem, 59)
         assert got.startswith(str(v)) and (got + ' ')[len(str(v))] == ' ', \
             'dec16 %d -> %r' % (v, got)
-        for col in range(1, 8):
+        for col in range(0, 7):
             c.mem[0x0D] = col
             lib.call('con_putc', ac=ord(' '), cpu=c)
     # inverse video
@@ -435,9 +442,9 @@ def t_scroll(lib, n):
     for r in range(57):
         assert read_text(lib, c.mem, r) == lines[r + 3], 'scroll row %d: %r' % (r, read_text(lib, c.mem, r))
     assert read_text(lib, c.mem, 59) == '', 'scroll: last row not cleared'
-    assert (c.mem[0x0D], c.mem[0x0E]) == (1, 59)
-    # pixels outside the text area (column 0, the gaps) are not touched
-    assert all(c.mem[a] == 0 for a in range(0x6020, 0x6200))
+    assert (c.mem[0x0D], c.mem[0x0E]) == (0, 59)
+    # the mode bytes are not touched
+    assert all(c.mem[mode_addr(r)] == 0 for r in range(480))
     c, k = lib.call('con_scroll', cpu=c)
     STATS.add('con_scroll', k)
     assert read_text(lib, c.mem, 0) == lines[4]
