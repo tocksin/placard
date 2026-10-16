@@ -15,6 +15,22 @@ reset:
     ld   main >> 8, y
     jmp  main
 
+#addr 0x0080
+font:      ; 0-9, ".", space, "s"; 8 bytes each, leftmost pixel in bit 0
+    #d8 0x0E, 0x11, 0x19, 0x15, 0x13, 0x11, 0x0E, 0x00
+    #d8 0x04, 0x06, 0x04, 0x04, 0x04, 0x04, 0x0E, 0x00
+    #d8 0x0E, 0x11, 0x10, 0x08, 0x04, 0x02, 0x1F, 0x00
+    #d8 0x1F, 0x08, 0x04, 0x08, 0x10, 0x11, 0x0E, 0x00
+    #d8 0x08, 0x0C, 0x0A, 0x09, 0x1F, 0x08, 0x08, 0x00
+    #d8 0x1F, 0x01, 0x0F, 0x10, 0x10, 0x11, 0x0E, 0x00
+    #d8 0x0C, 0x02, 0x01, 0x0F, 0x11, 0x11, 0x0E, 0x00
+    #d8 0x1F, 0x10, 0x08, 0x04, 0x02, 0x02, 0x02, 0x00
+    #d8 0x0E, 0x11, 0x11, 0x0E, 0x11, 0x11, 0x0E, 0x00
+    #d8 0x0E, 0x11, 0x11, 0x1E, 0x10, 0x08, 0x06, 0x00
+    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x06, 0x00
+    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x00, 0x1E, 0x01, 0x0E, 0x10, 0x0F, 0x00
+
 #addr 0x0100
 main:
     ; ---- pass 0: 1 bpp ----
@@ -31,35 +47,32 @@ ret_1:
     ld   ac, [0x2C]
     ld   ret_2 >> 8, ac
     ld   ac, [0x2D]
-    ld   delay >> 8, y
-    jmp  delay
+    ld   tshow >> 8, y
+    jmp  tshow
 ret_2:
-    ; ---- pass 1: 2 bpp ----
-    ld   0x01, ac
-    ld   ac, [0x37]
     ld   ret_3, ac
     ld   ac, [0x2C]
     ld   ret_3 >> 8, ac
     ld   ac, [0x2D]
-    ld   pass1 >> 8, y
-    jmp  pass1
+    ld   delay >> 8, y
+    jmp  delay
 ret_3:
+    ; ---- pass 1: 2 bpp ----
+    ld   0x01, ac
+    ld   ac, [0x37]
     ld   ret_4, ac
     ld   ac, [0x2C]
     ld   ret_4 >> 8, ac
     ld   ac, [0x2D]
-    ld   delay >> 8, y
-    jmp  delay
+    ld   pass1 >> 8, y
+    jmp  pass1
 ret_4:
-    ; ---- pass 2: 4 bpp ----
-    ld   0x02, ac
-    ld   ac, [0x37]
     ld   ret_5, ac
     ld   ac, [0x2C]
     ld   ret_5 >> 8, ac
     ld   ac, [0x2D]
-    ld   pass2 >> 8, y
-    jmp  pass2
+    ld   tshow >> 8, y
+    jmp  tshow
 ret_5:
     ld   ret_6, ac
     ld   ac, [0x2C]
@@ -68,23 +81,54 @@ ret_5:
     ld   delay >> 8, y
     jmp  delay
 ret_6:
-    ; ---- pass 3: 8 bpp ----
-    ld   0x03, ac
+    ; ---- pass 2: 4 bpp ----
+    ld   0x02, ac
     ld   ac, [0x37]
     ld   ret_7, ac
     ld   ac, [0x2C]
     ld   ret_7 >> 8, ac
     ld   ac, [0x2D]
-    ld   pass3 >> 8, y
-    jmp  pass3
+    ld   pass2 >> 8, y
+    jmp  pass2
 ret_7:
     ld   ret_8, ac
     ld   ac, [0x2C]
     ld   ret_8 >> 8, ac
     ld   ac, [0x2D]
+    ld   tshow >> 8, y
+    jmp  tshow
+ret_8:
+    ld   ret_9, ac
+    ld   ac, [0x2C]
+    ld   ret_9 >> 8, ac
+    ld   ac, [0x2D]
     ld   delay >> 8, y
     jmp  delay
-ret_8:
+ret_9:
+    ; ---- pass 3: 8 bpp ----
+    ld   0x03, ac
+    ld   ac, [0x37]
+    ld   ret_10, ac
+    ld   ac, [0x2C]
+    ld   ret_10 >> 8, ac
+    ld   ac, [0x2D]
+    ld   pass3 >> 8, y
+    jmp  pass3
+ret_10:
+    ld   ret_11, ac
+    ld   ac, [0x2C]
+    ld   ret_11 >> 8, ac
+    ld   ac, [0x2D]
+    ld   tshow >> 8, y
+    jmp  tshow
+ret_11:
+    ld   ret_12, ac
+    ld   ac, [0x2C]
+    ld   ret_12 >> 8, ac
+    ld   ac, [0x2D]
+    ld   delay >> 8, y
+    jmp  delay
+ret_12:
     ld   main >> 8, y
     jmp  main
 
@@ -158,13 +202,20 @@ pass0:
     ld   ac, [0x3B]
     ld   [0x2D], ac
     ld   ac, [0x3C]
-    ld   ret_9, ac
+    ld   ret_13, ac
     ld   ac, [0x2C]
-    ld   ret_9 >> 8, ac
+    ld   ret_13 >> 8, ac
     ld   ac, [0x2D]
     ld   clear >> 8, y
     jmp  clear
-ret_9:
+ret_13:
+    ld   ret_14, ac
+    ld   ac, [0x2C]
+    ld   ret_14 >> 8, ac
+    ld   ac, [0x2D]
+    ld   tstart >> 8, y
+    jmp  tstart
+ret_14:
     ld   0x00, ac
     ld   ac, [0x2B]
     ld   0x62, ac
@@ -196,13 +247,13 @@ row0:
     ld   0x08, ac
     ld   ac, [0x32]
 pt0:
-    ld   ret_10, ac
+    ld   ret_15, ac
     ld   ac, [0x2C]
-    ld   ret_10 >> 8, ac
+    ld   ret_15 >> 8, ac
     ld   ac, [0x2D]
     ld   kernel >> 8, y
     jmp  kernel
-ret_10:
+ret_15:
     ld   ac, [0x31]
     ld   [0x30], ac
     shr  ac
@@ -230,6 +281,14 @@ ret_10:
     inc
     ld   ac, [0x34]
 nw0:
+    ; once per byte: check the line read for a new frame
+    ld   ret_16, ac
+    ld   ac, [0x43]
+    ld   ret_16 >> 8, ac
+    ld   ac, [0x44]
+    ld   poll >> 8, y
+    jmp  poll
+ret_16:
     ; cy += 1/256
     ld   [0x28], ac
     add  1, ac
@@ -284,13 +343,20 @@ pass1:
     ld   ac, [0x3B]
     ld   [0x2D], ac
     ld   ac, [0x3C]
-    ld   ret_11, ac
+    ld   ret_17, ac
     ld   ac, [0x2C]
-    ld   ret_11 >> 8, ac
+    ld   ret_17 >> 8, ac
     ld   ac, [0x2D]
     ld   clear >> 8, y
     jmp  clear
-ret_11:
+ret_17:
+    ld   ret_18, ac
+    ld   ac, [0x2C]
+    ld   ret_18 >> 8, ac
+    ld   ac, [0x2D]
+    ld   tstart >> 8, y
+    jmp  tstart
+ret_18:
     ld   0x40, ac
     ld   ac, [0x2B]
     ld   0x62, ac
@@ -322,13 +388,13 @@ row1:
     ld   0x04, ac
     ld   ac, [0x32]
 pt1:
-    ld   ret_12, ac
+    ld   ret_19, ac
     ld   ac, [0x2C]
-    ld   ret_12 >> 8, ac
+    ld   ret_19 >> 8, ac
     ld   ac, [0x2D]
     ld   kernel >> 8, y
     jmp  kernel
-ret_12:
+ret_19:
     ld   ac, [0x31]
     ld   [0x30], ac
     shr  ac
@@ -362,6 +428,14 @@ ret_12:
     inc
     ld   ac, [0x34]
 nw1:
+    ; once per byte: check the line read for a new frame
+    ld   ret_20, ac
+    ld   ac, [0x43]
+    ld   ret_20 >> 8, ac
+    ld   ac, [0x44]
+    ld   poll >> 8, y
+    jmp  poll
+ret_20:
     ; cy += 2/256
     ld   [0x28], ac
     add  2, ac
@@ -416,13 +490,20 @@ pass2:
     ld   ac, [0x3B]
     ld   [0x2D], ac
     ld   ac, [0x3C]
-    ld   ret_13, ac
+    ld   ret_21, ac
     ld   ac, [0x2C]
-    ld   ret_13 >> 8, ac
+    ld   ret_21 >> 8, ac
     ld   ac, [0x2D]
     ld   clear >> 8, y
     jmp  clear
-ret_13:
+ret_21:
+    ld   ret_22, ac
+    ld   ac, [0x2C]
+    ld   ret_22 >> 8, ac
+    ld   ac, [0x2D]
+    ld   tstart >> 8, y
+    jmp  tstart
+ret_22:
     ld   0x80, ac
     ld   ac, [0x2B]
     ld   0x62, ac
@@ -454,13 +535,13 @@ row2:
     ld   0x02, ac
     ld   ac, [0x32]
 pt2:
-    ld   ret_14, ac
+    ld   ret_23, ac
     ld   ac, [0x2C]
-    ld   ret_14 >> 8, ac
+    ld   ret_23 >> 8, ac
     ld   ac, [0x2D]
     ld   kernel >> 8, y
     jmp  kernel
-ret_14:
+ret_23:
     ld   ac, [0x31]
     ld   [0x30], ac
     shr  ac
@@ -506,6 +587,14 @@ ret_14:
     inc
     ld   ac, [0x34]
 nw2:
+    ; once per byte: check the line read for a new frame
+    ld   ret_24, ac
+    ld   ac, [0x43]
+    ld   ret_24 >> 8, ac
+    ld   ac, [0x44]
+    ld   poll >> 8, y
+    jmp  poll
+ret_24:
     ; cy += 4/256
     ld   [0x28], ac
     add  4, ac
@@ -560,13 +649,20 @@ pass3:
     ld   ac, [0x3B]
     ld   [0x2D], ac
     ld   ac, [0x3C]
-    ld   ret_15, ac
+    ld   ret_25, ac
     ld   ac, [0x2C]
-    ld   ret_15 >> 8, ac
+    ld   ret_25 >> 8, ac
     ld   ac, [0x2D]
     ld   clear >> 8, y
     jmp  clear
-ret_15:
+ret_25:
+    ld   ret_26, ac
+    ld   ac, [0x2C]
+    ld   ret_26 >> 8, ac
+    ld   ac, [0x2D]
+    ld   tstart >> 8, y
+    jmp  tstart
+ret_26:
     ld   0xC0, ac
     ld   ac, [0x2B]
     ld   0x62, ac
@@ -598,13 +694,13 @@ row3:
     ld   0x01, ac
     ld   ac, [0x32]
 pt3:
-    ld   ret_16, ac
+    ld   ret_27, ac
     ld   ac, [0x2C]
-    ld   ret_16 >> 8, ac
+    ld   ret_27 >> 8, ac
     ld   ac, [0x2D]
     ld   kernel >> 8, y
     jmp  kernel
-ret_16:
+ret_27:
     ld   ac, [0x31]
     ld   ac, [0x30]
     ; write the byte to 8 screen row(s)
@@ -655,6 +751,14 @@ ret_16:
     inc
     ld   ac, [0x34]
 nw3:
+    ; once per byte: check the line read for a new frame
+    ld   ret_28, ac
+    ld   ac, [0x43]
+    ld   ret_28 >> 8, ac
+    ld   ac, [0x44]
+    ld   poll >> 8, y
+    jmp  poll
+ret_28:
     ; cy += 8/256
     ld   [0x28], ac
     add  8, ac
@@ -703,6 +807,365 @@ pdone3:
     jmp  [0x3B]
 
 #addr 0x0800
+poll:
+    ; read the line read (V9:V2, 124-255) and add one frame to the timer
+    ; when it went down.  cur - last - 96 >= 0 means it wrapped, as long as
+    ; polls are less than 95 steps (380 lines) apart.  Uses y and x.
+    ld   0x50, y
+    ld   [y,x], ac
+    ld   ac, [0x3D]
+    sub  [0x3E], ac
+    sub  96, ac
+    blt  pnw
+    ld   0x01, ac
+    ld   ac, [0x3F]
+    ld   0x10, ac
+    ld   ac, [0x40]
+    ld   ret_29, ac
+    ld   ac, [0x45]
+    ld   ret_29 >> 8, ac
+    ld   ac, [0x46]
+    ld   dadd >> 8, y
+    jmp  dadd
+ret_29:
+pnw:
+    ld   [0x3D], ac
+    ld   ac, [0x3E]
+    ld   [0x44], y
+    jmp  [0x43]
+
+#addr 0x0900
+dadd:
+    ; timer digits at 0x50 += addend digits at 0x50 + [doff], decimal
+    clr  ac
+    ld   ac, [0x41]
+    ld   0x50, x
+dl:
+    ld   [x], ac
+    add  [0x41], ac
+    ld   ac, [0x42]
+    ld   x, ac
+    add  [0x40], ac
+    ld   ac, x
+    ld   [x], ac
+    add  [0x42], ac
+    ld   ac, [0x42]
+    ld   x, ac
+    sub  [0x40], ac
+    ld   ac, x
+    ld   [0x42], ac
+    sub  10, ac
+    blt  dlt
+    ld   ac, [x]
+    ld   1, ac
+    bra  dn
+dlt:
+    ld   [0x42], ac
+    ld   ac, [x]
+    clr  ac
+dn:
+    ld   ac, [0x41]
+    ld   x, ac
+    inc
+    ld   ac, x
+    sub  0x59, ac
+    bne  dl
+    ld   [0x46], y
+    jmp  [0x45]
+
+#addr 0x0A00
+tstart:
+    ; start the timer at the top of a frame: wait for the line read to wrap
+    ld   ret_30, ac
+    ld   ac, [0x43]
+    ld   ret_30 >> 8, ac
+    ld   ac, [0x44]
+    ld   poll >> 8, y
+    jmp  poll
+ret_30:
+sync:
+    ld   0x00, ac
+    ld   ac, [0x3F]
+    ld   ret_31, ac
+    ld   ac, [0x43]
+    ld   ret_31 >> 8, ac
+    ld   ac, [0x44]
+    ld   poll >> 8, y
+    jmp  poll
+ret_31:
+    ld   [0x3F], ac
+    beq  sync
+    ld   ret_32, ac
+    ld   ac, [0x43]
+    ld   ret_32 >> 8, ac
+    ld   ac, [0x44]
+    ld   tclear >> 8, y
+    jmp  tclear
+ret_32:
+    ld   [0x2D], y
+    jmp  [0x2C]
+
+#addr 0x0B00
+tclear:
+    ; timer = 0, frame addend = 16800 us, step addend = 128 us
+    ld   0x50, x
+tcl:
+    ld   0x00, [x]
+    ld   x, ac
+    inc
+    ld   ac, x
+    sub  0x79, ac
+    bne  tcl
+    ld   8, ac
+    ld   ac, [0x62]
+    ld   6, ac
+    ld   ac, [0x63]
+    ld   1, ac
+    ld   ac, [0x64]
+    ld   8, ac
+    ld   ac, [0x70]
+    ld   2, ac
+    ld   ac, [0x71]
+    ld   1, ac
+    ld   ac, [0x72]
+    ld   [0x44], y
+    jmp  [0x43]
+
+#addr 0x0C00
+tshow:
+    ; stop the timer: whole frames are counted, add the 128 us steps since
+    ; the top of this frame
+    ld   ret_33, ac
+    ld   ac, [0x43]
+    ld   ret_33 >> 8, ac
+    ld   ac, [0x44]
+    ld   poll >> 8, y
+    jmp  poll
+ret_33:
+    ld   [0x3E], ac
+    sub  124, ac
+    ld   ac, [0x38]
+    ld   0x20, ac
+    ld   ac, [0x40]
+part:
+    ld   [0x38], ac
+    beq  pdn
+    dec
+    ld   ac, [0x38]
+    ld   ret_34, ac
+    ld   ac, [0x45]
+    ld   ret_34 >> 8, ac
+    ld   ac, [0x46]
+    ld   dadd >> 8, y
+    jmp  dadd
+ret_34:
+    bra  part
+pdn:
+    ; a black 1 bpp band, screen rows 232-247: mode bytes 0, pixels 0
+    ld   0x61, ac
+    ld   ac, [0x38]
+bnd:
+    ld   [0x38], y
+    ld   0x08, x
+bndr:
+    ld   0x00, [y,x]
+    ld   x, ac
+    inc
+    ld   ac, x
+    sub  0x18, ac
+    bne  bndr
+    ld   [0x38], ac
+    add  2, ac
+    ld   ac, [0x38]
+    sub  0x01, ac
+    bne  bnd
+    ld   tshow2 >> 8, y
+    jmp  tshow2
+
+#addr 0x0D00
+tshow2:
+    ; "SSS.SSS s", leading zeros of the seconds as spaces
+    ld   0xA9, ac
+    ld   ac, [0x4C]
+    ld   0x0C, ac
+    ld   ac, [0x4D]
+    ld   [0x58], ac
+    bne  sh1
+    ld   11, ac
+    ld   ac, [0x58]
+    ld   [0x57], ac
+    bne  sh1
+    ld   11, ac
+    ld   ac, [0x57]
+sh1:
+    ld   0x58, ac
+    ld   ac, [0x49]
+shlp:
+    ld   [0x49], x
+    ld   [x], ac
+    ld   ac, [0x4E]
+    ld   ret_35, ac
+    ld   ac, [0x47]
+    ld   ret_35 >> 8, ac
+    ld   ac, [0x48]
+    ld   gdraw >> 8, y
+    jmp  gdraw
+ret_35:
+    ld   [0x49], ac
+    sub  0x56, ac
+    bne  shnd
+    ld   0x0A, ac
+    ld   ac, [0x4E]
+    ld   ret_36, ac
+    ld   ac, [0x47]
+    ld   ret_36 >> 8, ac
+    ld   ac, [0x48]
+    ld   gdraw >> 8, y
+    jmp  gdraw
+ret_36:
+shnd:
+    ld   [0x49], ac
+    dec
+    ld   ac, [0x49]
+    sub  0x52, ac
+    bne  shlp
+    ld   0x0B, ac
+    ld   ac, [0x4E]
+    ld   ret_37, ac
+    ld   ac, [0x47]
+    ld   ret_37 >> 8, ac
+    ld   ac, [0x48]
+    ld   gdraw >> 8, y
+    jmp  gdraw
+ret_37:
+    ld   0x0C, ac
+    ld   ac, [0x4E]
+    ld   ret_38, ac
+    ld   ac, [0x47]
+    ld   ret_38 >> 8, ac
+    ld   ac, [0x48]
+    ld   gdraw >> 8, y
+    jmp  gdraw
+ret_38:
+    ld   [0x2D], y
+    jmp  [0x2C]
+
+#addr 0x0E00
+gdraw:
+    ; draw glyph [dig] at page [cpg], row byte [crow]; then cpg += 2
+    ld   [0x4E], ac
+    shl
+    shl
+    shl
+    add  0x80, ac
+    ld   ac, [0x4A]
+    ld   [0x4D], ac
+    ld   ac, [0x4B]
+    ld   [0x4A], x
+    ld   [x], ac
+    ld   ac, [0x38]
+    ld   [0x4B], x
+    ld   [0x4C], y
+    ld   [0x38], ac
+    ld   ac, [y,x]
+    ld   [0x4A], ac
+    inc
+    ld   ac, [0x4A]
+    ld   x, ac
+    inc
+    ld   ac, [0x4B]
+    ld   [0x4A], x
+    ld   [x], ac
+    ld   ac, [0x38]
+    ld   [0x4B], x
+    ld   [0x4C], y
+    ld   [0x38], ac
+    ld   ac, [y,x]
+    ld   [0x4A], ac
+    inc
+    ld   ac, [0x4A]
+    ld   x, ac
+    inc
+    ld   ac, [0x4B]
+    ld   [0x4A], x
+    ld   [x], ac
+    ld   ac, [0x38]
+    ld   [0x4B], x
+    ld   [0x4C], y
+    ld   [0x38], ac
+    ld   ac, [y,x]
+    ld   [0x4A], ac
+    inc
+    ld   ac, [0x4A]
+    ld   x, ac
+    inc
+    ld   ac, [0x4B]
+    ld   [0x4A], x
+    ld   [x], ac
+    ld   ac, [0x38]
+    ld   [0x4B], x
+    ld   [0x4C], y
+    ld   [0x38], ac
+    ld   ac, [y,x]
+    ld   [0x4A], ac
+    inc
+    ld   ac, [0x4A]
+    ld   x, ac
+    inc
+    ld   ac, [0x4B]
+    ld   [0x4A], x
+    ld   [x], ac
+    ld   ac, [0x38]
+    ld   [0x4B], x
+    ld   [0x4C], y
+    ld   [0x38], ac
+    ld   ac, [y,x]
+    ld   [0x4A], ac
+    inc
+    ld   ac, [0x4A]
+    ld   x, ac
+    inc
+    ld   ac, [0x4B]
+    ld   [0x4A], x
+    ld   [x], ac
+    ld   ac, [0x38]
+    ld   [0x4B], x
+    ld   [0x4C], y
+    ld   [0x38], ac
+    ld   ac, [y,x]
+    ld   [0x4A], ac
+    inc
+    ld   ac, [0x4A]
+    ld   x, ac
+    inc
+    ld   ac, [0x4B]
+    ld   [0x4A], x
+    ld   [x], ac
+    ld   ac, [0x38]
+    ld   [0x4B], x
+    ld   [0x4C], y
+    ld   [0x38], ac
+    ld   ac, [y,x]
+    ld   [0x4A], ac
+    inc
+    ld   ac, [0x4A]
+    ld   x, ac
+    inc
+    ld   ac, [0x4B]
+    ld   [0x4A], x
+    ld   [x], ac
+    ld   ac, [0x38]
+    ld   [0x4B], x
+    ld   [0x4C], y
+    ld   [0x38], ac
+    ld   ac, [y,x]
+    ld   [0x4C], ac
+    add  2, ac
+    ld   ac, [0x4C]
+    ld   [0x48], y
+    jmp  [0x47]
+
+#addr 0x0F00
 kernel:
     ; in: cx, cy, coff.  out: AC = color for this mode.  returns to [reth, ret]
     clr  ac
@@ -737,51 +1200,51 @@ iter:
     ; t = x*x + y*y, escape if t >= 4.0 (hi >= 8)
     ld   [0x16], ac
     add  [0x18], ac
-    bge  nc_17
+    bge  nc_39
     and  0x7F, ac
     ld   ac, [0x1A]
     ld   [0x17], ac
     add  [0x19], ac
     inc
-    bra  ad_18
-nc_17:
+    bra  ad_40
+nc_39:
     ld   ac, [0x1A]
     ld   [0x17], ac
     add  [0x19], ac
-ad_18:
+ad_40:
     ld   ac, [0x1B]
     sub  8, ac
     bge  escape
     ; x' = x*x - y*y + cx
     ld   [0x16], ac
     sub  [0x18], ac
-    bge  nb_19
+    bge  nb_41
     and  0x7F, ac
     ld   ac, [0x1C]
     ld   [0x17], ac
     sub  [0x19], ac
     dec
-    bra  sd_20
-nb_19:
+    bra  sd_42
+nb_41:
     ld   ac, [0x1C]
     ld   [0x17], ac
     sub  [0x19], ac
-sd_20:
+sd_42:
     ld   ac, [0x1D]
     ld   [0x1C], ac
     add  [0x26], ac
-    bge  nc_21
+    bge  nc_43
     and  0x7F, ac
     ld   ac, [0x1E]
     ld   [0x1D], ac
     add  [0x27], ac
     inc
-    bra  ad_22
-nc_21:
+    bra  ad_44
+nc_43:
     ld   ac, [0x1E]
     ld   [0x1D], ac
     add  [0x27], ac
-ad_22:
+ad_44:
     ld   ac, [0x1F]
     ld   kernel2 >> 8, y
     jmp  kernel2
@@ -790,12 +1253,12 @@ escape:
     ld   [0x2A], ac
     add  [0x2B], ac
     ld   ac, x
-    ld   0x10, y
+    ld   0x1F, y
     ld   [y,x], ac
     ld   [0x2D], y
     jmp  [0x2C]
 
-#addr 0x0900
+#addr 0x1000
 kernel2:
     ; s = |x + y|
     ld   [0x12], ac
@@ -803,51 +1266,51 @@ kernel2:
     bne  sdiff
     ld   [0x10], ac
     add  [0x13], ac
-    bge  nc_23
+    bge  nc_45
     and  0x7F, ac
     ld   ac, [0x22]
     ld   [0x11], ac
     add  [0x14], ac
     inc
-    bra  ad_24
-nc_23:
+    bra  ad_46
+nc_45:
     ld   ac, [0x22]
     ld   [0x11], ac
     add  [0x14], ac
-ad_24:
+ad_46:
     ld   ac, [0x23]
     bra  sdone
 sdiff:
     ld   [0x10], ac
     sub  [0x13], ac
-    bge  nb_25
+    bge  nb_47
     and  0x7F, ac
     ld   ac, [0x22]
     ld   [0x11], ac
     sub  [0x14], ac
     dec
-    bra  sd_26
-nb_25:
+    bra  sd_48
+nb_47:
     ld   ac, [0x22]
     ld   [0x11], ac
     sub  [0x14], ac
-sd_26:
+sd_48:
     ld   ac, [0x23]
     bge  sdone
     ld   [0x13], ac
     sub  [0x10], ac
-    bge  nb_27
+    bge  nb_49
     and  0x7F, ac
     ld   ac, [0x22]
     ld   [0x14], ac
     sub  [0x11], ac
     dec
-    bra  sd_28
-nb_27:
+    bra  sd_50
+nb_49:
     ld   ac, [0x22]
     ld   [0x14], ac
     sub  [0x11], ac
-sd_28:
+sd_50:
     ld   ac, [0x23]
 sdone:
     ld   [0x22], x
@@ -862,42 +1325,42 @@ sdone:
     ; y' = s*s - t + cy  (= 2xy + cy)
     ld   [0x24], ac
     sub  [0x1A], ac
-    bge  nb_29
+    bge  nb_51
     and  0x7F, ac
     ld   ac, [0x20]
     ld   [0x25], ac
     sub  [0x1B], ac
     dec
-    bra  sd_30
-nb_29:
+    bra  sd_52
+nb_51:
     ld   ac, [0x20]
     ld   [0x25], ac
     sub  [0x1B], ac
-sd_30:
+sd_52:
     ld   ac, [0x21]
     ld   [0x20], ac
     add  [0x28], ac
-    bge  nc_31
+    bge  nc_53
     and  0x7F, ac
     ld   ac, [0x20]
     ld   [0x21], ac
     add  [0x29], ac
     inc
-    bra  ad_32
-nc_31:
+    bra  ad_54
+nc_53:
     ld   ac, [0x20]
     ld   [0x21], ac
     add  [0x29], ac
-ad_32:
+ad_54:
     ld   ac, [0x21]
     ld   kernel3 >> 8, y
     jmp  kernel3
 
-#addr 0x0A00
+#addr 0x1100
 kernel3:
     ; back to magnitude + sign, escape if |x'| or |y'| >= 2
     ld   [0x1F], ac
-    blt  neg_33
+    blt  neg_55
     sub  4, ac
     bge  esc3
     ld   [0x1E], ac
@@ -906,30 +1369,30 @@ kernel3:
     ld   ac, [0x11]
     clr  ac
     ld   ac, [0x12]
-    bra  sm_36
-neg_33:
+    bra  sm_58
+neg_55:
     clr  ac                    ; magnitude = 0 - value
     sub  [0x1E], ac
-    bge  nb_34
+    bge  nb_56
     and  0x7F, ac
     ld   ac, [0x10]
     clr  ac
     sub  [0x1F], ac
     dec
-    bra  mh_35
-nb_34:
+    bra  mh_57
+nb_56:
     ld   ac, [0x10]
     clr  ac
     sub  [0x1F], ac
-mh_35:
+mh_57:
     ld   ac, [0x11]
     sub  4, ac
     bge  esc3
     ld   1, ac
     ld   ac, [0x12]
-sm_36:
+sm_58:
     ld   [0x21], ac
-    blt  neg_37
+    blt  neg_59
     sub  4, ac
     bge  esc3
     ld   [0x20], ac
@@ -938,28 +1401,28 @@ sm_36:
     ld   ac, [0x14]
     clr  ac
     ld   ac, [0x15]
-    bra  sm_40
-neg_37:
+    bra  sm_62
+neg_59:
     clr  ac                    ; magnitude = 0 - value
     sub  [0x20], ac
-    bge  nb_38
+    bge  nb_60
     and  0x7F, ac
     ld   ac, [0x13]
     clr  ac
     sub  [0x21], ac
     dec
-    bra  mh_39
-nb_38:
+    bra  mh_61
+nb_60:
     ld   ac, [0x13]
     clr  ac
     sub  [0x21], ac
-mh_39:
+mh_61:
     ld   ac, [0x14]
     sub  4, ac
     bge  esc3
     ld   1, ac
     ld   ac, [0x15]
-sm_40:
+sm_62:
     ld   [0x2A], ac
     dec
     ld   ac, [0x2A]
@@ -970,7 +1433,7 @@ esc3:
     ld   escape >> 8, y
     jmp  escape
 
-#addr 0x1000
+#addr 0x1F00
 colors:    ; mode m at offset 64*m, index = iterations left, already
            ; shifted to the top of the byte for the pixel packing
     #d8 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80, 0x00, 0x80
