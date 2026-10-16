@@ -1,8 +1,9 @@
 # Feature plan: I/O (bare bones)
 
 This is a planning list, not a design.  Nothing here is implemented yet.  It
-covers the I/O the Placard still needs: sound, keyboard, SNES controllers,
-SD card storage and two expansion ports.
+covers the I/O the Placard still needs: keyboard, SNES controllers, SD card
+storage and two expansion ports.  Sound is built (line-rate 8-bit DAC, see
+SOUND.md) and is no longer on this list.
 
 The goal is the **fewest added chips**, even at the cost of features.
 Software does whatever hardware can be left out.  Things that were cut are
@@ -19,6 +20,7 @@ These facts from the current design shape every choice below.
   /EXP1 and /EXP2 (x55, x56, address only).  Write strobes are low for the
   /WE pulse; read strobes are qualified by LOAD_IMM.  A11 is not decoded, so
   x5800-x5FFF repeats x5000-x57FF, and the PLD has no spare outputs.
+  /SND_WR (x5100) is unused now that sound reads its samples from RAM.
   `ATF22V10_MEM_CTRL.pld` (rev 01) keeps both memories off the bus there,
   and map bit 2 covers x4000-x4FFF.  The ROM/RAM map write at x5000 works.
   The map is a write-only 74ACT273 (CD74ACT273E) clocked by /MAP_WR, in place
@@ -55,9 +57,8 @@ These facts from the current design shape every choice below.
 | Feature | Added chips |
 |---|---|
 | Shared port: keyboard (65 keys), 2 SNES pads, SD card | 74HC574, 74F138, 74F541, CD4050, plus a 3.3 V regulator |
-| Sound (one voice) | 74F574, 1 x ATF22V10C |
 | Expansion ports (2) | none, connectors only |
-| **Total** | **6 logic chips + 1 regulator** |
+| **Total** | **4 logic chips + 1 regulator** |
 
 ## Parts rule and stock check
 
@@ -68,10 +69,8 @@ before ordering):
 | Part | DIP part number | Status |
 |---|---|---|
 | 74F541 | SN74F541N (TI) | Mouser: 723 in stock |
-| 74F574 | SN74F574N (TI) | Mouser: 466 in stock |
 | 74F138 | SN74F138N (TI) | Listed at Digikey and Mouser as 16-PDIP; stock count not confirmed |
 | CD4050 | CD4050BE (TI) | Mouser: 10,831 in stock |
-| ATF22V10C | already used in the design | n/a |
 
 **Where 74F is not used, and why:**
 
@@ -154,30 +153,7 @@ because the pads' CMOS inputs need a full 5 V high.
 row, 74F541, data bus inside one clock.  The 74F parts keep that short, but
 the diode and the row's pull-up are the slow part of the path.
 
-## 2. Sound (x51, 74F574 + ATF22V10C)
-
-One square-wave voice that runs on its own once software sets the pitch.
-
-| Address | R/W | Function |
-|---|---|---|
-| x5100 | W | Pitch P (0 = silent) |
-
-- The 74F574 holds P (it only drives the 22V10's TTL-level inputs).  The
-  22V10 is clocked by HSYNC (the line rate,
-  31.25 kHz at 25.000 MHz, no prescaler needed) and counts from P up to
-  255, reloads, and toggles its output.  That uses 9 of its 10 macrocells.
-- Frequency = 31250 / (2 x (256 - P)), so about 61 Hz (P = 1) up to 15.6 kHz
-  (P = 255).  High notes are coarse; the middle and low range is fine for
-  tunes and effects.
-- The output drives a line-out jack through a resistor and capacitor, or a
-  small speaker through a transistor.  There is no volume control apart from
-  a trimmer.
-- **Zero-chip fallback:** a one-bit beeper that software toggles, on a latch
-  bit.  The shared port's latch has none spare now, so this costs one
-  keyboard column (5 keys, leaving 60).  The pitch is only as steady as the
-  software loop.
-
-## 3. Expansion ports (x55, x56, connectors only)
+## 2. Expansion ports (x55, x56, connectors only)
 
 | Signal | Meaning |
 |---|---|
@@ -198,8 +174,7 @@ One square-wave voice that runs on its own once software sets the pitch.
 1. Shared port with the SNES pads (the easiest way to test it).
 2. Keyboard on the shared port.
 3. SD card on the shared port.
-4. Sound.
-5. Expansion connectors (the interface is fixed by the I/O decode).
+4. Expansion connectors (the interface is fixed by the I/O decode).
 
 For the FPGA model, each step adds its PLD as a VHDL entity (no optimization,
 individual pins, lowerCamelCase signals) and a branch on the read mux in
@@ -212,7 +187,6 @@ individual pins, lowerCamelCase signals) and a branch on the read mux in
 | Full 10-bit line read | a second 74F541 (or two 74F574 to snapshot it) |
 | Hardware frame counter | 1 x 22V10 |
 | Hardware SPI byte shifter (faster SD) | 74HC595, 74HC165, 22V10 |
-| More sound voices, noise, volume | about 2 chips per voice |
 | Buffered expansion ports | 74F245 + 74F541 per port (stock not checked) |
 | ROM/RAM map read-back | 1 x 74F541 |
 
