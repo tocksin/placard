@@ -52,13 +52,14 @@ TIMER (the same as gen_pi_spigot.py)
     128 us for each step of the line read since the top of that frame.
     Resolution 128 us.  The pause is a calibrated delay loop, not the timer.
 
-RESULT (placard_sim.py with State PLD rev 12 / Branch PLD rev 09 timing;
-every pass matches a Python model pixel for pixel)
-    mode    clocks          25.175 MHz   with video stalls (1 clock in 8
-    1 bpp   2,030,556,526   80.7 s       88.8 s            during active
-    2 bpp     509,100,055   20.2 s       22.3 s            video)
-    4 bpp     128,562,819    5.1 s        5.6 s
-    8 bpp      32,968,802    1.3 s        1.4 s
+RESULT (placard_sim.py, State PLD rev 12 / Branch PLD rev 09 timing, no
+video stalls; every pass matches a Python model pixel for pixel outside the
+time band, and the time shown matches the simulated time to 128 us)
+    mode    timed clocks    shown on screen   on the board, with video
+    1 bpp   2,035,644,487    81.425 s          about 89.6 s   stalls (1 clock
+    2 bpp     510,448,188    20.418 s          about 22.5 s   in 8 during
+    4 bpp     128,719,100     5.148 s          about  5.7 s   active video)
+    8 bpp      32,697,831     1.307 s          about  1.4 s
     The four screens are reference/mandelbrot_sim.png (1, 2 / 4, 8 bpp).
 
 MEMORY
