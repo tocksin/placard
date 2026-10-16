@@ -37,7 +37,7 @@
 ; current FPGA build reads all addresses from the RAM copy).
 ;
 ;
-; Date: 10/15/2026
+; Date: 10/16/2026
 
 #include "placard.asm"
 
@@ -113,14 +113,14 @@ clr_in:
     inc
     ld ac, [0x14]
     bne clr_pg
-    ld 0x60, y                ; mode byte of every row = 3 (8 bpp)
+    ld 0x4A, y                ; mode byte of every row = 3 (8 bpp), x4A20-x4BFF
     ld 0x20, ac
 mode1:
     ld ac, x
     ld 3, [y,x]
     inc
     bne mode1
-    ld 0x61, y
+    ld 0x4B, y
 mode2:
     ld ac, x
     ld 3, [y,x]

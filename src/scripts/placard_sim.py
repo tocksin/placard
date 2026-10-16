@@ -513,7 +513,8 @@ def m_is_branch(o):
 # ---------------------------------------------------------------------------
 # Screen rendering (matches gen_video_ram.tcl layout)
 # ---------------------------------------------------------------------------
-VID_BASE = 48 * 512 + 32
+VID_BASE = 48 * 512 + 32     # byte column 0, row 0 (x6020)
+MODE_BASE = 37 * 512 + 32    # row 0's mode byte (x4A20), read in group 37
 
 
 def rgb8(b):
@@ -533,9 +534,9 @@ def render(mem, path):
     px = img.load()
     pal2 = [(0, 0, 0), (0, 80, 255), (255, 182, 0), (255, 255, 255)]
     for y in range(480):
-        mode = mem[VID_BASE + y] & 3
+        mode = mem[MODE_BASE + y] & 3
         bpp = 1 << mode
-        for col in range(1, 80):
+        for col in range(80):
             byte = mem[VID_BASE + col * 512 + y]
             per = 8 // bpp
             w = 8 // per

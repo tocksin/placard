@@ -34,7 +34,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 20 | SN74F377AN | Octal D flip-flop with enable | X register |
 | 21 | SN74F377AN | Octal D flip-flop with enable | Y register |
 | 22 | SN74F377AN | Octal D flip-flop with enable | Video pixel buffer (byte read from video memory) |
-| 23 | SN74F377AN | Octal D flip-flop with enable | Video line code (color mode for the line, loaded during blanking) |
+| 23 | SN74F377AN | Octal D flip-flop with enable | Video line code (color mode for the line): D from the pixel buffer outputs, /E from /MODE_LD, so it copies the mode byte read in group 37 (see VIDEO.md) |
 | 24 | SN74F574N | Octal D flip-flop, 3-state | Video delay: H2:H0 pixel select and video active, two stages |
 | 25 | CD74ACT273E | Octal D flip-flop with clear | ROM/RAM map register at x5000 (write only, cleared to all ROM at power-up) |
 | 26 | SN74F541N | Octal buffer, 3-state | Source bus driver: D register |
@@ -47,7 +47,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 33 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, upper 32K (x8000-xFFFF) |
 | 34 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, lower 32K (interim: battery-backed SRAM) |
 | 35 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, upper 32K (interim: battery-backed SRAM) |
-| 36 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio sample slot: picks group 38 or 39 for the audio read (`ATF22V10_AUDIO.pld`, see SOUND.md) |
+| 36 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots: picks group 37 for the mode byte read and group 38 or 39 for the audio read, and makes /MODE_LD for the line code register (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md) |
 | 37 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer at the end of HSYNC, drives the R-2R ladder, which drives headphones directly (all passive, see SOUND.md) |
 
 ### Tally
