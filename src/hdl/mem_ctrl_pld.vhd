@@ -1,6 +1,6 @@
 -- ============================================================
 -- MEMORY READ AND WRITE STROBES
--- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 03)
+-- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 04)
 -- Date: 10/16/2026
 --
 -- Replaces the '32 OR gate (/WE = RW or CLK) and the read enables
@@ -18,11 +18,17 @@
 -- sections (it was always RAM).  romOeN moved to pin 19 and mapRun to
 -- pin 17.
 --
+-- Revision 04: a video read (pixelEnable = 1) always reads the RAM;
+-- only CPU reads follow the map, so the CPU can run from the ROM under
+-- the video area while the video shows the RAM.
+--
 --     write  = not rw and not pixelEnable
---     read   = rw or pixelEnable
+--     cpuRead   = rw and not pixelEnable
+--     videoRead = pixelEnable
 --     weN    = low while clk = 0 and a write
---     romOeN = low while clk = 0 and a read of a ROM section
---     ramOeN = low while clk = 0 and a read of a RAM section
+--     romOeN = low while clk = 0 and a CPU read of a ROM section
+--     ramOeN = low while clk = 0 and a CPU read of a RAM section,
+--              or a video read
 --              (section 2 is mapped for 4000h-4FFFh only; neither
 --              memory reads in the I/O window 5000h-5FFFh)
 --
@@ -82,7 +88,8 @@ architecture rtl of mem_ctrl_pld is
     signal sec6 : std_logic;
     signal sec7 : std_logic;
 
-    signal busRead : std_logic;
+    signal cpuRead   : std_logic;
+    signal videoRead : std_logic;
     signal we      : std_logic;
     signal romOe   : std_logic;
     signal ramOe   : std_logic;
@@ -103,30 +110,34 @@ begin
 
     -- ---------------- bus cycle ----------------
 
-    busRead <= ((not clk) and rw)
-            or ((not clk) and pixelEnable);
+    cpuRead   <= (not clk) and rw and (not pixelEnable);
+    videoRead <= (not clk) and pixelEnable;
 
     -- ---------------- equations ----------------
 
     we <= (not clk) and (not rw) and (not pixelEnable);
 
-    romOe <= (sec0 and (not ramsel0) and busRead)
-          or (sec1 and (not ramsel1) and busRead)
-          or (sec2 and (not a12) and (not ramsel2) and busRead)
-          or (sec3 and (not ramsel3) and busRead)
-          or (sec4 and (not ramsel4) and busRead)
-          or (sec5 and (not ramsel5) and busRead)
-          or (sec6 and (not ramsel6) and busRead)
-          or (sec7 and (not ramsel7) and busRead);
+    romOe <= (sec0 and (not ramsel0) and cpuRead)
+          or (sec1 and (not ramsel1) and cpuRead)
+          or (sec2 and (not a12) and (not ramsel2) and cpuRead)
+          or (sec3 and (not ramsel3) and cpuRead)
+          or (sec4 and (not ramsel4) and cpuRead)
+          or (sec5 and (not ramsel5) and cpuRead)
+          or (sec6 and (not ramsel6) and cpuRead)
+          or (sec7 and (not ramsel7) and cpuRead);
 
-    ramOe <= (sec0 and ramsel0 and busRead)
-          or (sec1 and ramsel1 and busRead)
-          or (sec2 and (not a12) and ramsel2 and busRead)
-          or (sec3 and ramsel3 and busRead)
-          or (sec4 and ramsel4 and busRead)
-          or (sec5 and ramsel5 and busRead)
-          or (sec6 and ramsel6 and busRead)
-          or (sec7 and ramsel7 and busRead);
+    ramOe <= (sec0 and ramsel0 and cpuRead)
+          or (sec1 and ramsel1 and cpuRead)
+          or (sec2 and (not a12) and ramsel2 and cpuRead)
+          or (sec3 and ramsel3 and cpuRead)
+          or (sec4 and ramsel4 and cpuRead)
+          or (sec5 and ramsel5 and cpuRead)
+          or (sec6 and ramsel6 and cpuRead)
+          or (sec7 and ramsel7 and cpuRead)
+          or (a15 and videoRead)
+          or ((not a14) and videoRead)
+          or (a13 and videoRead)
+          or ((not a12) and videoRead);
 
     process (clk)
     begin

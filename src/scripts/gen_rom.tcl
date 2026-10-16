@@ -2,27 +2,30 @@
 #
 # Generates rom.mem, the ROM's initialization file: one hex byte per line,
 # 65536 lines, address 0..65535.  Loaded by sp_ram.vhd (romComp in
-# basys_top.vhd) at elaboration / synthesis.  ROM.md describes the layout:
+# basys_top.vhd) at elaboration / synthesis.  ROM.md describes the layout.
+# Video reads always read the RAM, so the ROM under the video area holds
+# programs:
 #
 #     x0000-x0003   reset jump to the boot loader          rom_boot.hex
-#     x6000-xA9FF   RAM image, copied to RAM x0000-x49FF at boot
-#                   (ROM address = RAM address + x6000):
-#         x6000-x8FFF   program, RAM x0000-x2FFF            the program's hex
-#         x9000-x97FF   standard library code, RAM x3000    rom_lib.hex
-#         x9800-x9FFF   standard font, RAM x3800            rom_lib.hex
-#         xA000-xA9FF   program, RAM x4000-x49FF            the program's hex
+#     x3000-x37FF   standard library code (runs in place)  rom_lib.hex
+#     x3800-x3FFF   standard font                          rom_lib.hex
+#     x6000-xFBFF   ROM program (runs in place, entry x6000) the program
+#     xFC00         boot mode: 00 = ROM program, 01 = RAM image
 #     xFD00-xFE07   boot loader                             rom_boot.hex
 #
-# The library goes in first and the program over it, so a program that
-# includes placard_lib.asm puts the same bytes there, and an older program
-# that uses x3000-x3FFF for itself replaces the library (a note is printed).
+# A program assembled at x6000 and up (with the library included or not)
+# is a ROM program.  An older program written to run at RAM x0000 (bytes
+# below x6000 other than the library's) is a RAM image instead: it is
+# stored at ROM x6000-xA9FF (ROM address = RAM address + x6000) with the
+# library again at its RAM x3000-x3FFF, and the boot loader copies it to
+# RAM x0000-x49FF and runs it from the RAM.  If such a program uses
+# x3000-x3FFF for itself it replaces the library there (a note is printed).
 #
 # Run from the Vivado Tcl console:   source /path/to/gen_rom.tcl
 # or stand-alone:                    tclsh gen_rom.tcl
 #
 # The program is read from the customasm output file ::ASM_FILE (default
-# test_video.hex next to this script), assembled at its RAM address (the
-# program's reset code at x0000).  Make it with one of
+# test_video.hex next to this script).  Make it with one of
 #     customasm test_video.asm -f hexstr -o test_video.hex
 #     customasm test_video.asm -f binary -o test_video.bin
 #     python3 placard_sim.py test_video.asm
@@ -39,10 +42,13 @@
 # Date: 10/16/2026
 
 set ROM_SIZE        65536
-set ROM_IMAGE_BASE  0x6000     ;# ROM address of RAM x0000
-set IMAGE_SIZE      0x4A00     ;# RAM x0000-x49FF is copied at boot
-set LIB_START       0x3000     ;# LIB_CODE in placard_lib.asm
-set LIB_END         0x4000     ;# end of LIB_FONT
+set ROM_IMAGE_BASE  [expr {0x6000}] ;# RAM image: ROM address of RAM x0000
+set IMAGE_SIZE      [expr {0x4A00}] ;# RAM image: RAM x0000-x49FF is copied at boot
+set LIB_START       [expr {0x3000}] ;# LIB_CODE in placard_lib.asm
+set LIB_END         [expr {0x4000}] ;# end of LIB_FONT
+set PROG_START      [expr {0x6000}] ;# ROM program area and entry
+set PROG_END        [expr {0xFC00}] ;# end of the ROM program area
+set BOOT_MODE       [expr {0xFC00}] ;# 00 = ROM program, 01 = RAM image
 
 # ---------------------------------------------------------------------------
 # Read a customasm output file; returns a list of byte values (0..255)
@@ -105,35 +111,77 @@ proc gen_rom {outFile} {
     }
     set a 0
     foreach b [read_asm_bytes $bootFile] {
-        if {$b != 0 && $a >= $::ROM_IMAGE_BASE
-            && $a < $::ROM_IMAGE_BASE + $::IMAGE_SIZE} {
-            error "gen_rom: rom_boot.hex has a byte at [format %04X $a], in the RAM image"
+        if {$b != 0 && $a >= $::LIB_START && $a < $::BOOT_MODE} {
+            error "gen_rom: rom_boot.hex has a byte at [format %04X $a],\
+                   in the library or program area"
         }
         set rom($a) $b
         incr a
     }
 
-    # ---- standard library and font -------------------------------------------
+    # ---- standard library and font, in place -----------------------------------
     set libFile [file join $dir rom_lib.hex]
     if {![file exists $libFile]} {
         error "gen_rom: $libFile not found (assemble rom_lib.asm)"
     }
     set lib [read_asm_bytes $libFile]
-    for {set a $::LIB_START} {$a < $::LIB_END && $a < [llength $lib]} {incr a} {
-        set rom([expr {$::ROM_IMAGE_BASE + $a}]) [lindex $lib $a]
+    for {set a $::LIB_START} {$a < $::LIB_END} {incr a} {
+        if {$a < [llength $lib]} {
+            set rom($a) [lindex $lib $a]
+        }
     }
 
-    # ---- program --------------------------------------------------------------
+    # ---- program ----------------------------------------------------------------
     if {![info exists ::ASM_FILE]} {
         set ::ASM_FILE [file join $dir test_video.hex]
     }
+    set bytes {}
     if {$::ASM_FILE eq ""} {
         puts "gen_rom: no program"
     } elseif {![file exists $::ASM_FILE]} {
         puts "gen_rom: WARNING: $::ASM_FILE not found, image has no program"
     } else {
         set bytes [read_asm_bytes $::ASM_FILE]
-        set n [llength $bytes]
+    }
+    set n [llength $bytes]
+
+    # a RAM image has bytes below x6000 other than the library's own
+    set ramImage 0
+    for {set a 0} {$a < $n && $a < $::PROG_START} {incr a} {
+        set b [lindex $bytes $a]
+        if {$a >= $::LIB_START && $a < $::LIB_END} {
+            if {$b != $rom($a)} {
+                set ramImage 1
+                break
+            }
+        } elseif {$b != 0} {
+            set ramImage 1
+            break
+        }
+    }
+
+    if {!$ramImage} {
+        for {set a $::PROG_START} {$a < $n} {incr a} {
+            set b [lindex $bytes $a]
+            if {$a >= $::PROG_END} {
+                if {$b != 0} {
+                    error "gen_rom: program byte at [format %04X $a] is past the ROM\
+                           program area (6000-[format %04X [expr {$::PROG_END - 1}]])"
+                }
+                continue
+            }
+            set rom($a) $b
+        }
+        set rom($::BOOT_MODE) 0
+        if {$n > 0} {
+            puts "gen_rom: ROM program, [expr {$n > $::PROG_START ? $n - $::PROG_START : 0}]\
+                  bytes at 6000 from $::ASM_FILE"
+        }
+    } else {
+        # library again in the image, at RAM x3000-x3FFF
+        for {set a $::LIB_START} {$a < $::LIB_END} {incr a} {
+            set rom([expr {$::ROM_IMAGE_BASE + $a}]) $rom($a)
+        }
         # customasm pads to the last byte, so only the bytes past the image
         # that are not 0 are an error
         for {set a $::IMAGE_SIZE} {$a < $n} {incr a} {
@@ -151,11 +199,12 @@ proc gen_rom {outFile} {
             }
             set rom($r) $b
         }
+        set rom($::BOOT_MODE) 1
         if {$replaced} {
             puts "gen_rom: note: the program replaces $replaced library bytes\
-                  (x3000-x3FFF), so the standard library is not loaded"
+                  (x3000-x3FFF) in its RAM image"
         }
-        puts "gen_rom: merged $n program bytes at RAM 0000 (ROM\
+        puts "gen_rom: RAM image, $n program bytes for RAM 0000 (ROM\
               [format %04X $::ROM_IMAGE_BASE]) from $::ASM_FILE"
     }
 

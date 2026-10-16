@@ -27,8 +27,8 @@ C = {
 
 fig = plt.figure(figsize=(20, 12), dpi=130)
 fig.suptitle("PLACARD memory map (64 KB, 16-bit address, 8-bit data)", fontsize=20, weight="bold", y=0.975)
-fig.text(0.5, 0.935, "Every 8 KB section reads RAM or ROM per the map register at x5000; writes always go to RAM.  "
-         "x5000-x5FFF is the I/O window (no RAM/ROM read there).", ha="center", fontsize=11.5, color="#444")
+fig.text(0.5, 0.935, "CPU reads of each 8 KB section come from RAM or ROM per the map register at x5000; video reads and all writes "
+         "use RAM.  x5000-x5FFF is the I/O window.  Programs run from ROM (ROM.md).", ha="center", fontsize=11.5, color="#444")
 
 
 LIGHT = {C["free"], C["unused"], C["iomirror"], C["font"], C["videogap"]}
@@ -68,10 +68,10 @@ def bar(ax, regions, title, heights=None, width=1.0, label_x=1.08, fs=10.5):
 axA = fig.add_axes([0.02, 0.05, 0.20, 0.80])
 full = [
     (0x0000, 0x1FFF, C["free"], "map bit 0\nzero page + program", "0"),
-    (0x2000, 0x3FFF, C["lib"], "map bit 1\nprogram + std library", "1"),
+    (0x2000, 0x3FFF, C["lib"], "map bit 1\nstd library (ROM)", "1"),
     (0x4000, 0x4FFF, C["mode"], "map bit 2: line codes, audio", "2"),
     (0x5000, 0x5FFF, C["io"], "I/O window (no map bit)", "I/O"),
-    (0x6000, 0x7FFF, C["video"], "map bit 3\nvideo RAM", "3"),
+    (0x6000, 0x7FFF, C["video"], "map bit 3\nvideo RAM\nprogram ROM", "3"),
     (0x8000, 0x9FFF, C["video"], "map bit 4\nvideo RAM", "4"),
     (0xA000, 0xBFFF, C["video"], "map bit 5\nvideo RAM", "5"),
     (0xC000, 0xDFFF, C["video"], "map bit 6\nvideo RAM", "6"),
@@ -85,13 +85,13 @@ axA.text(0.5, 0x10000 + 0x300, "box number = map bit", ha="center", va="top", fo
 axB = fig.add_axes([0.25, 0.05, 0.19, 0.80])
 low = [
     (0x0000, 0x00FF, C["zp"], "Zero page (see below)", None),
-    (0x0100, 0x2FFF, C["free"], "Free program RAM\n(code + data)", None),
-    (0x3000, 0x36FF, C["lib"], "Standard library code\n(LIB_CODE)", "lib"),
-    (0x3700, 0x37FF, C["free"], "Library page, free", None),
-    (0x3800, 0x3FFF, C["font"], "8x8 font, 2 KB\n(LIB_FONT)", "font"),
+    (0x0100, 0x2FFF, C["free"], "Program RAM x0100-x1FFF\n(x2000-x3FFF: RAM under\nthe library ROM)", None),
+    (0x3000, 0x36FF, C["lib"], "Standard library code\n(LIB_CODE, ROM)", "lib"),
+    (0x3700, 0x37FF, C["lib"], "Library: con_scroll", None),
+    (0x3800, 0x3FFF, C["font"], "8x8 font, 2 KB\n(LIB_FONT, ROM)", "font"),
 ]
 bar(axB, low, "x0000-x3FFF  (sections 0, 1)\nnot to scale", heights=[8, 40, 14, 5, 12])
-zp = ["00-03  reset jump", "04-05  LINK_LO/HI", "06     SP", "07     MAP_SHADOW",
+zp = ["00-03  unused (old demos: reset)", "04-05  LINK_LO/HI", "06     SP", "07     MAP_SHADOW",
       "08-0A  frame counter", "0B-0C  RAND", "0D-0E  cursor col/row", "0F     SAVE_AC",
       "10-17  R0-R7 args", "18-1F  T0-T7 scratch", "20-BF  program vars", "C0-FF  software stack"]
 axB.text(0.02, 81, "Zero page x00-xFF\n" + "\n".join(zp), va="top", fontsize=9, family="monospace",

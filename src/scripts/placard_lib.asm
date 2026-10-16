@@ -11,20 +11,16 @@
 ;     #include "placard.asm"
 ;     #include "placard_lib.asm"      ; also includes zeropage.asm
 ;
-;     #addr 0x0000
-;     reset:
-;         ld   main >> 8, y
-;         jmp  main
-;     #addr 0x0100
+;     #addr 0x6000                    ; a ROM program (ROM.md)
 ;     main:
 ;         ld   STACK_TOP, ac         ; set up the stack first
 ;         ld   ac, [SP]
 ;         ...
 ;
 ; The library sits at LIB_CODE (code, 2 KB) and LIB_FONT (font, 2 KB),
-; x3000-x3FFF.  These are standard places that every program shares, and
-; the ROM image stores them at x9000-x9FFF (rom_lib.asm, ROM.md), so keep
-; them; moving them means changing gen_rom.tcl and placard_sim.py too.
+; x3000-x3FFF, and runs in place from the ROM (section 1 reads ROM).
+; These are standard places that every program shares, so keep them;
+; moving them means changing gen_rom.tcl and placard_sim.py too (ROM.md).
 ; LIB_CODE must be a multiple of 0x100, because every routine keeps its
 ; branches inside one 256-byte page.
 ;
@@ -750,7 +746,9 @@ vm_1:
 ;            AC = 0 to clear the pixel, anything else to set it
 ;   out:     -
 ;   changes: AC, X, Y, T0, T2, T3
-;   clocks:  122-136
+;   clocks:  see LIBRARY.md
+;   It maps sections 3-7 to RAM while it reads the pixel byte (MAP_SHADOW
+;   or F8) and writes MAP_SHADOW back to the map before it returns.
 ; ------------------------------------------------------------
 plot1:
     ld   ac, [T2]
@@ -786,98 +784,27 @@ plot1:
     inc
     ld   ac, [T0]
 pl_nc:
+    ld   [MAP_SHADOW], ac       ; video sections read RAM while the byte is read
+    or   0xF8, ac
+    ld   0x50, y
+    ld   ac, [y,x]
     ld   [T0], y
     ld   [T2], ac
     beq  pl_clr
     ld   [T3], ac
     or   [y,x], ac
-    ld   ac, [y,x]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
+    bra  pl_put
 pl_clr:
     ld   [T3], ac
     not
     and  [y,x], ac
+pl_put:
+    ld   ac, [y,x]
+    ld   [MAP_SHADOW], ac       ; map back
+    ld   0x50, y
     ld   ac, [y,x]
     ld   [LINK_HI], y
     jmp  [LINK_LO]
-
-; ------------------------------------------------------------
-; con_scroll - move pixel rows 8-479 up to 0-471 in byte columns 0-79
-; and clear rows 472-479 (scroll the text up one row)
-;   in:      -
-;   out:     AC unchanged; the cursor is not moved
-;   changes: X, Y, T1-T5
-;   clocks:  1,233,222 (49.0 ms)
-; ------------------------------------------------------------
-con_scroll:
-    ld   ac, [T4]
-    ld   0x60, ac
-    ld   ac, [T1]               ; column's first page (rows 0-223)
-cs_col:
-    ld   [T1], y                ; rows 8-223 -> 0-215, same page
-    ld   0x28, ac
-cs_a:
-    ld   ac, x
-    ld   [y,x], ac
-    ld   ac, [T3]
-    ld   x, ac
-    sub  8, ac
-    ld   ac, x
-    ld   [T3], ac
-    ld   ac, [y,x]
-    ld   x, ac
-    add  9, ac
-    bne  cs_a
-    ld   [T1], ac               ; rows 224-231 -> 216-223, page to page
-    inc
-    ld   ac, [T2]
-    clr  ac
-    ld   ac, [T5]
-cs_b:
-    ld   [T5], x
-    ld   [T2], y
-    ld   [y,x], ac
-    ld   ac, [T3]
-    ld   [T5], ac
-    add  0xF8, ac
-    ld   ac, x
-    ld   [T1], y
-    ld   [T3], ac
-    ld   ac, [y,x]
-    ld   [T5], ac
-    inc
-    ld   ac, [T5]
-    sub  8, ac
-    bne  cs_b
-    ld   [T2], y                ; rows 232-479 -> 224-471, same page
-    ld   0x08, ac
-cs_c:
-    ld   ac, x
-    ld   [y,x], ac
-    ld   ac, [T3]
-    ld   x, ac
-    sub  8, ac
-    ld   ac, x
-    ld   [T3], ac
-    ld   ac, [y,x]
-    ld   x, ac
-    add  9, ac
-    bne  cs_c
-    ld   0xF8, ac               ; clear rows 472-479
-cs_d:
-    ld   ac, x
-    ld   0x00, [y,x]
-    inc
-    bne  cs_d
-    ld   [T1], ac               ; next column
-    add  2, ac
-    ld   ac, [T1]
-    bne  cs_col
-    ld   [T4], ac
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
 
 ; ============================================================
 ; Page 4: text console - character output
@@ -893,7 +820,7 @@ cs_d:
 ;   out:     AC = character; cursor moved, past row 59 the screen
 ;            scrolls up one text row
 ;   changes: X, Y, T0-T5
-;   clocks:  313, or 1,233,278 (49.0 ms) when it scrolls
+;   clocks:  313, or 1,233,301 (49.0 ms) when it scrolls
 ;   The cursor must be valid: call con_clear or con_home first.
 ; ------------------------------------------------------------
 con_putc:
@@ -1010,7 +937,7 @@ cp_nl:
 ;   in:      -
 ;   out:     AC unchanged; CUR_COL = 0, CUR_ROW + 1 (at most 59)
 ;   changes: X, Y, T0-T5
-;   clocks:  39, or 1,233,264 (49.0 ms) when it scrolls
+;   clocks:  39, or 1,233,287 (49.0 ms) when it scrolls
 ; ------------------------------------------------------------
 con_newline:
     ld   ac, [T0]
@@ -1369,3 +1296,94 @@ cd_u:
 cd_back3:
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
+
+
+; ============================================================
+; Page 7: screen scroll
+; ============================================================
+#addr LIB_CODE + 0x700
+
+; ------------------------------------------------------------
+; con_scroll - move pixel rows 8-479 up to 0-471 in byte columns 0-79
+; and clear rows 472-479 (scroll the text up one row)
+;   in:      -
+;   out:     AC unchanged; the cursor is not moved
+;   changes: X, Y, T1-T5
+;   clocks:  see LIBRARY.md
+;   It maps sections 3-7 to RAM while it copies (MAP_SHADOW or F8) and
+;   writes MAP_SHADOW back to the map before it returns.
+; ------------------------------------------------------------
+con_scroll:
+    ld   ac, [T4]
+    ld   [MAP_SHADOW], ac       ; video sections read RAM while it copies
+    or   0xF8, ac
+    ld   0x50, y
+    ld   ac, [y,x]
+    ld   0x60, ac
+    ld   ac, [T1]               ; column's first page (rows 0-223)
+cs_col:
+    ld   [T1], y                ; rows 8-223 -> 0-215, same page
+    ld   0x28, ac
+cs_a:
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [T3]
+    ld   x, ac
+    sub  8, ac
+    ld   ac, x
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   x, ac
+    add  9, ac
+    bne  cs_a
+    ld   [T1], ac               ; rows 224-231 -> 216-223, page to page
+    inc
+    ld   ac, [T2]
+    clr  ac
+    ld   ac, [T5]
+cs_b:
+    ld   [T5], x
+    ld   [T2], y
+    ld   [y,x], ac
+    ld   ac, [T3]
+    ld   [T5], ac
+    add  0xF8, ac
+    ld   ac, x
+    ld   [T1], y
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   [T5], ac
+    inc
+    ld   ac, [T5]
+    sub  8, ac
+    bne  cs_b
+    ld   [T2], y                ; rows 232-479 -> 224-471, same page
+    ld   0x08, ac
+cs_c:
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [T3]
+    ld   x, ac
+    sub  8, ac
+    ld   ac, x
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   x, ac
+    add  9, ac
+    bne  cs_c
+    ld   0xF8, ac               ; clear rows 472-479
+cs_d:
+    ld   ac, x
+    ld   0x00, [y,x]
+    inc
+    bne  cs_d
+    ld   [T1], ac               ; next column
+    add  2, ac
+    ld   ac, [T1]
+    bne  cs_col
+    ld   [MAP_SHADOW], ac       ; map back
+    ld   0x50, y
+    ld   ac, [y,x]
+    ld   [T4], ac
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]

@@ -3,15 +3,21 @@
 ; ============================================================
 ;
 ; The ROM/RAM map clears to all ROM at power-up, so the CPU starts here,
-; in the ROM, at PC = 0000.  The boot loader copies the RAM image (the
-; program, the standard library and its font) from the upper ROM, where
-; the video draws in the RAM, down into the RAM, maps every section to
-; RAM and jumps to the program's reset code at RAM x0000.  ROM.md has the
-; ROM layout.
+; in the ROM, at PC = 0000.  Video reads always read the RAM (memory
+; control PLD revision 04); only CPU reads follow the map.  The byte at
+; BOOT_MODE (written by gen_rom.tcl) picks one of two ways to start the
+; program.  ROM.md has the ROM layout.
 ;
+; BOOT_MODE = 00: ROM program (the standard way).
+;   The program runs in place from ROM x6000-xFBFF and calls the standard
+;   library in place at ROM x3000-x3FFF.  The boot writes map = 05:
+;   sections 0 (zero page, x0000-x1FFF) and 2 (x4000-x4FFF: mode bytes,
+;   audio, program data) read RAM; 1 (library) and 3-7 (program) read
+;   ROM, while the video still shows the RAM.  It sets MAP_SHADOW = 05 and
+;   jumps to the program's entry at x6000.
+;
+; BOOT_MODE = 01: RAM image (the older demos, written to run at RAM x0000).
 ;     ROM x6000-xA9FF  ->  RAM x0000-x49FF      (ROM address = RAM + x6000)
-;
-; Steps
 ;   1. map = 01: section 0 (the zero page) reads RAM, so the loop can keep
 ;      its page counters there.  The boot loader runs in section 7, whose
 ;      map bit does not change, so the next fetch is safe.
@@ -24,10 +30,8 @@
 ;      seen on the screen.
 ;   4. map = FF (every section reads RAM), jump to x0000.  The RAM's zero
 ;      page is then exactly the program's page x00 (MAP_SHADOW is not set,
-;      because the older demos keep code there; a program that calls
-;      map_set stores FF in MAP_SHADOW first).
-;
-; The copy takes 25 clocks a byte, about 19 ms for the 18,944 bytes.
+;      because the older demos keep code there).
+;   The copy takes 25 clocks a byte, about 19 ms for the 18,944 bytes.
 ;
 ;     customasm rom_boot.asm -f hexstr -o rom_boot.hex
 ;     python3 placard_sim.py rom_boot.asm
@@ -45,14 +49,35 @@ IMAGE_END   = 0x4A      ; first RAM page not copied (x4A00, the mode bytes' page
 MAP_PORT    = 0x50      ; ROM/RAM map register page (write only)
 DST         = 0xFE      ; RAM page being written (zero page, during the copy)
 SRC         = 0xFF      ; ROM page being read
+MAP_SHADOW  = 0x07      ; zeropage.asm: copy of the map register
+MAP_ROM_RUN = 0x05      ; ROM program: sections 0 and 2 read RAM, 1 and 3-7 ROM
+PROG_START  = 0x6000    ; ROM program entry
+BOOT_MODE   = 0xFC00    ; 00 = ROM program, 01 = RAM image (set by gen_rom.tcl)
 
 #addr 0x0000
 reset:
     ld   boot >> 8, y
     jmp  boot
 
+#addr BOOT_MODE
+boot_mode:
+    #d8 0x00                    ; gen_rom.tcl writes the mode here
+
 #addr 0xFD00
 boot:
+    ld   BOOT_MODE >> 8, y
+    ld   BOOT_MODE & 0xFF, x
+    ld   [y,x], ac
+    bne  boot_copy
+
+    ld   MAP_PORT, y            ; ROM program
+    ld   MAP_ROM_RUN, [y,x]     ; map = 05 (section 7 keeps its bit)
+    ld   MAP_ROM_RUN, ac
+    ld   ac, [MAP_SHADOW]
+    ld   PROG_START >> 8, y
+    jmp  PROG_START & 0xFF
+
+boot_copy:                      ; RAM image
     ld   MAP_PORT, y
     ld   0x01, [y,x]            ; map = 01: section 0 reads RAM, the rest ROM
 

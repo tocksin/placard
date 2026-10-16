@@ -2,7 +2,11 @@
 ; Prints text and numbers with the console routines, does some arithmetic,
 ; draws 200 random dots with rand8 and plot1, then halts.
 ;
-;     python3 placard_sim.py lib_demo.asm --run --png demo.png
+; It is a ROM program (ROM.md): it runs in place from ROM x6000 and calls
+; the library in place at ROM x3000; its variables are in the RAM's zero
+; page.  The boot loader maps sections 0 and 2 to RAM and jumps to x6000.
+;
+;     python3 placard_sim.py lib_demo.asm --run --boot --png demo.png
 ;
 ; Date: 10/16/2026
 
@@ -14,12 +18,7 @@ count   = 0x20
 px_lo   = 0x21
 py_r    = 0x22
 
-#addr 0x0000
-reset:
-    ld   main >> 8, y
-    jmp  main
-
-#addr 0x0100
+#addr 0x6000
 main:
     ld   STACK_TOP, ac          ; stack first
     ld   ac, [SP]
@@ -151,7 +150,7 @@ row_again:
     ld   row >> 8, y
     jmp  row
 
-#addr 0x0200
+#addr 0x6100
 dots:
     ; 200 random dots in x 320-575, y 200-455
     clr  ac
@@ -219,7 +218,7 @@ dot_again:
     ld   dot >> 8, y
     jmp  dot
 
-#addr 0x0300
+#addr 0x6200
 done:
     ld   s_end, ac
     ld   ac, [R0]
