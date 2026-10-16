@@ -48,8 +48,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 34 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, lower 32K (interim: battery-backed SRAM) |
 | 35 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, upper 32K (interim: battery-backed SRAM) |
 | 36 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio sample slot: picks group 38 or 39 for the audio read (`ATF22V10_AUDIO.pld`, see SOUND.md) |
-| 37 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer at the end of HSYNC, drives the R-2R ladder |
-| 38 | MCP6002-I/P | Dual op-amp, rail-to-rail, DIP-8 | Audio reconstruction filter (Sallen-Key, 10.7 kHz) and line-out buffer |
+| 37 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer at the end of HSYNC, drives the R-2R ladder, which drives headphones directly (all passive, see SOUND.md) |
 
 ### Tally
 
@@ -63,8 +62,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | SN74F138N | 3-to-8 decoder | 1 |
 | AS7C256C-15PCN | SRAM, 32K x 8 | 4 |
 | SN74HCT574N | Octal D flip-flop, 3-state | 1 |
-| MCP6002-I/P | Dual op-amp | 1 |
-| **Total** | | **38** |
+| **Total** | | **37** |
 
 **Not counted, not chosen yet:** the 25.175 MHz clock oscillator, and the
 battery and power-fail switch that hold the interim ROM's /CE high while
@@ -97,7 +95,7 @@ The two expansion ports (x5500, x5600) need connectors only.
 | 3.3 V regulator (not chosen) | Voltage regulator | 1 |
 | **Total** | | **4 logic chips + 1 regulator** |
 
-With the future features the Placard comes to 42 chips plus the regulator.
+With the future features the Placard comes to 41 chips plus the regulator.
 Features cut from the plan, such as the frame counter or an SPI shifter, are
 listed with their cost in FEATURE_PLAN.md, "Cut for now", and are not
 counted here.
