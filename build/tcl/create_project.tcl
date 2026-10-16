@@ -1,7 +1,7 @@
 # create_project.tcl
 #
 # Vivado script: creates the Vivado project project/placard.xpr from the
-# sources in src/.  The project folder is not kept in git (Vivado rewrites
+# sources in src/ (every .vhd file in src/hdl is a design source).  The project folder is not kept in git (Vivado rewrites
 # the .xpr every time it opens it), so this script is the record of the
 # project settings.  Change a setting here, not only in the GUI, or it is
 # lost the next time the project is made.
@@ -42,28 +42,10 @@ set_property target_language VHDL         [current_project]
 set_property default_lib     xil_defaultlib [current_project]
 
 # ---- design sources ---------------------------------------------------------
-set hdlFiles {
-    alu4.vhd
-    logging_pkg.vhd
-    tools_pkg.vhd
-    sys_description_pkg.vhd
-    debouncer.vhd
-    state_pld.vhd
-    branch_pld.vhd
-    pc_counter8.vhd
-    hcount_pld.vhd
-    vcount_pld.vhd
-    sync_pld.vhd
-    vga_gen_pld.vhd
-    quad_4to1_mux.vhd
-    full_mux.vhd
-    sp_ram.vhd
-    color_decoder.vhd
-    basys_top.vhd
-}
-set srcs {}
-foreach f $hdlFiles {
-    lappend srcs [file join $srcDir hdl $f]
+# every .vhd file in src/hdl
+set srcs [lsort [glob -nocomplain -directory [file join $srcDir hdl] *.vhd]]
+if {[llength $srcs] == 0} {
+    error "create_project: no .vhd files in [file join $srcDir hdl]"
 }
 add_files -fileset sources_1 $srcs
 set_property file_type {VHDL 2008} [get_files $srcs]

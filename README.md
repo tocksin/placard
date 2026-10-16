@@ -117,8 +117,10 @@ is not kept in git, because Vivado rewrites the `.xpr` every time it opens it.
 `build/tcl/create_project.tcl` makes it from the sources in `src/`, with the
 part, file list, testbench and run settings.  The first build makes it by
 itself; to open the project in the GUI after a fresh clone, run
-`build\create_project.bat` once.  After adding or removing a source file, add
-it to `create_project.tcl` (adding it only in the GUI is lost the next time the
-project is made) and run `build\create_project.bat force`.
+`build\create_project.bat` once.  Every `.vhd` file in `src/hdl` is a design
+source, so after adding or removing one run `build\create_project.bat force`.
+Testbenches and other settings are listed in `create_project.tcl`; change them
+there, because a change made only in the GUI is lost the next time the project
+is made.
 `src/hdl/video_ram.mem` is not kept in git either; every build makes it, and
 `create_project.tcl` makes the default image if it is missing.
