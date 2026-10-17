@@ -83,6 +83,11 @@ The video is designed to be 640x480 VGA 60Hz standard.  This means a 25.175 MHz 
 ### Line repeat
 Bits 3:2 of a row's mode byte make each byte of video memory show on 1, 2 or 4 lines (640 × 480, 240 or 120).  A full 2x screen leaves 20 KB of the video area free (the even pages x60, x62 ... xFE) and a full 4x screen 30 KB.  The audio slot PLD remaps four row address bits, so no chips were added.  See [VIDEO.md](VIDEO.md#line-repeat).
 
+### Test screen
+`src/scripts/test_screen.asm` draws a test screen with the CPU and keeps a test running on it: 80 column text (1 bpp, 1x), a 16 color band (4 bpp, 4x), 40 column text (2 bpp, 2x) and all 256 colors (8 bpp, 4x).  Each frame it tests one page of RAM (14 patterns, with a progress bar, pass and error counts) and updates a frame counter, an uptime clock, a spinner, a turning color wheel and a scrolling message.  `build\test_screen.bat` loads it on the board, and `src/scripts/test_screen_sim.py` runs and checks it in the simulator (`--gif` makes an animation).
+
+![test_screen in the simulator](reference/test_screen_sim.gif)
+
 ### Pixel fill
 An easy function is the fill function.  Putting a color in a pixel starts drawing that color.  That color continues to draw until that same color is placed again.  So putting two pixels one a row is enough to draw a whole row of that color.  It's much faster than having the CPU add that color along that entire row.  This is how to get to filled polygons quickly.  The CPU only needs to decide what the boundaries of a shape is, and the video circuit does the rest.  The CPU only drawing wireframes, but gets fully filled polygons.
 
@@ -98,7 +103,7 @@ software stack and the zero page variable map (`zeropage.asm`).  See
 
 ## Building and loading a program
 The `build` folder has one Windows batch file per assembly program
-(`cpu_test.bat`, `test_video.bat`, `mandelbrot.bat`,
+(`cpu_test.bat`, `test_video.bat`, `test_screen.bat`, `mandelbrot.bat`,
 `pi_spigot.bat`, `game_of_life.bat`, `lib_demo.bat`).  Each one assembles
 `src/scripts/<program>.asm` (customasm, or `placard_sim.py` if customasm is not
 on the PATH), writes the RAM's initialization file `src/hdl/ram.mem` (the
