@@ -2,7 +2,7 @@
 
 This is a planning list, not a design.  Nothing here is implemented yet.  It
 covers the I/O the Placard still needs: keyboard, SNES controllers, SD card
-storage and two expansion ports.  Sound is built (line-rate 8-bit DAC, see
+storage and four expansion ports.  Sound is built (line-rate 8-bit DAC, see
 SOUND.md) and is no longer on this list.
 
 The goal is the **fewest added chips**, even at the cost of features.
@@ -58,7 +58,7 @@ These facts from the current design shape every choice below.
 | Feature | Added chips |
 |---|---|
 | Shared port: keyboard (65 keys), 2 SNES pads, SD card | 74HC574, 74F138, 74F541, CD4050, plus a 3.3 V regulator |
-| Expansion ports (2, or 4 if there is room) | none, connectors only |
+| Expansion ports (4) | none, connectors only |
 | **Total** | **4 logic chips + 1 regulator** |
 
 ## Parts rule and stock check
@@ -186,13 +186,13 @@ is still open; the two practical choices are below.
   mode), so it can be polled without interrupts.
 - The shared port has no spare bits, so it needs its own 2 open-collector
   outputs and 2 inputs.  An expansion card has the read and write strobes
-  for that; the unused x5100 strobe is write-only, so it can't do it alone.
+  for that.
 
 **Not considered:** quadrature (bus) mice need a hardware counter, because
 the CPU can't catch every edge without interrupts; serial (RS-232) mice need
 a ±12 V level shifter as well as a software UART.
 
-## 3. Expansion ports (x55, x56, connectors only; up to 4 ports)
+## 3. Expansion ports (x51, x53, connectors only; 4 ports)
 
 | Signal | Meaning |
 |---|---|
@@ -208,18 +208,19 @@ a ±12 V level shifter as well as a software UART.
   line.
 - A 2 x 20 box header fits all of it.
 
-### Optional ports 3 and 4 (if there is board room)
+### Four ports on two selects
 
-The I/O decode PLD has no spare outputs, so ports 3 and 4 share the selects
+The board has four expansion connectors.  The I/O decode PLD has only two
+expansion selects and no spare pins, so ports 3 and 4 share the selects
 of ports 1 and 2 and split each page in half by A7.  No main-board chips are
 added; the card does the split.
 
 | Port | Select | Card responds when | Addresses |
 |---|---|---|---|
-| 1 | /EXP1 | A7 = 0 | x5500-x557F |
-| 3 | /EXP1 | A7 = 1 | x5580-x55FF |
-| 2 | /EXP2 | A7 = 0 | x5600-x567F |
-| 4 | /EXP2 | A7 = 1 | x5680-x56FF |
+| 1 | /EXP1 | A7 = 0 | x5100-x517F |
+| 3 | /EXP1 | A7 = 1 | x5180-x51FF |
+| 2 | /EXP2 | A7 = 0 | x5300-x537F |
+| 4 | /EXP2 | A7 = 1 | x5380-x53FF |
 
 - **Each card gets 128 registers instead of 256**, which is still far more
   than a typical card uses.
@@ -230,8 +231,9 @@ added; the card does the split.
 - **Bus loading.**  With four unbuffered ports, every line sees up to four
   cards.  Keep each card to one HC/AC/F input per line and the cables short.
   If that proves too much, buffered ports are in the cut list below.
-- **Later option:** once PLD rework is allowed near the end of the project,
-  the unused /SND_WR output (x5100) could become a real /EXP3 select instead.
+- **No separate selects for ports 3 and 4.**  The old idea of turning the
+  unused /SND_WR output into /EXP3 is gone: that pin is the A11 input since
+  I/O decode rev 03 (2026-10-16).
 
 ## Suggested order
 

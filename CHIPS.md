@@ -1,6 +1,6 @@
 # Chip list
 
-Date: 2026-10-16
+Date: 2026-10-17
 
 Every chip in the Placard, one chip per line.  The current list follows
 `basys_top.vhd`, the PLD sources in `src/pld`, [CPU.md](CPU.md),
@@ -82,7 +82,7 @@ From [FEATURE_PLAN.md](FEATURE_PLAN.md).  None of these are built yet.
 | 4 | CD4050BE | Hex non-inverting buffer | Level shift to 3.3 V for the SD card's SCK, MOSI and /CS |
 | 5 | not chosen | 3.3 V regulator | Powers the SD card and the CD4050 |
 
-The two expansion ports (x5100, x5300) need connectors only.
+The four expansion ports (x5100-x517F, x5180-x51FF, x5300-x537F, x5380-x53FF) need connectors only; ports 3 and 4 share the selects of ports 1 and 2 and each card decodes A7 (FEATURE_PLAN.md).
 
 ### Tally
 

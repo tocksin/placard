@@ -59,10 +59,12 @@ Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes ar
 |---------|--------|-----|----------|
 | x5000-x50FF | /MAP_WR | W | ROM/RAM map register (built) |
 | x5000-x50FF | /LINE_RD | R | Video line counter, V9:V2 (built) |
-| x5100-x51FF | /EXP1 | R/W | Expansion port 1 |
+| x5100-x517F | /EXP1, A7 = 0 | R/W | Expansion port 1 |
+| x5180-x51FF | /EXP1, A7 = 1 | R/W | Expansion port 3 |
 | x5200-x52FF | /PORT_WR | W | Shared port output latch: SD card, SNES pad clock and latch (planned) |
 | x5200-x52FF | /PORT_RD | R | Shared port input: keyboard rows of column A2:A0, SNES pad data, SD card MISO (planned) |
-| x5300-x53FF | /EXP2 | R/W | Expansion port 2 |
+| x5300-x537F | /EXP2, A7 = 0 | R/W | Expansion port 2 |
+| x5380-x53FF | /EXP2, A7 = 1 | R/W | Expansion port 4 |
 
 The window was x5000-x5FFF until 2026-10-16 (the I/O decode PLD did not decode A11, and the expansion ports were at x5500 and x5600).  The unused /SND_WR pin became the A11 input.
 
