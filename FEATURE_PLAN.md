@@ -58,7 +58,7 @@ These facts from the current design shape every choice below.
 | Feature | Added chips |
 |---|---|
 | Shared port: keyboard (65 keys), 2 SNES pads, SD card | 74HC574, 74F138, 74F541, CD4050, plus a 3.3 V regulator |
-| Expansion ports (2) | none, connectors only |
+| Expansion ports (2, or 4 if there is room) | none, connectors only |
 | **Total** | **4 logic chips + 1 regulator** |
 
 ## Parts rule and stock check
@@ -192,7 +192,7 @@ is still open; the two practical choices are below.
 the CPU can't catch every edge without interrupts; serial (RS-232) mice need
 a ±12 V level shifter as well as a software UART.
 
-## 3. Expansion ports (x55, x56, connectors only)
+## 3. Expansion ports (x55, x56, connectors only; up to 4 ports)
 
 | Signal | Meaning |
 |---|---|
@@ -207,6 +207,31 @@ a ±12 V level shifter as well as a software UART.
   connector) and keep the card's load light: one or two HC/AC inputs per
   line.
 - A 2 x 20 box header fits all of it.
+
+### Optional ports 3 and 4 (if there is board room)
+
+The I/O decode PLD has no spare outputs, so ports 3 and 4 share the selects
+of ports 1 and 2 and split each page in half by A7.  No main-board chips are
+added; the card does the split.
+
+| Port | Select | Card responds when | Addresses |
+|---|---|---|---|
+| 1 | /EXP1 | A7 = 0 | x5500-x557F |
+| 3 | /EXP1 | A7 = 1 | x5580-x55FF |
+| 2 | /EXP2 | A7 = 0 | x5600-x567F |
+| 4 | /EXP2 | A7 = 1 | x5680-x56FF |
+
+- **Each card gets 128 registers instead of 256**, which is still far more
+  than a typical card uses.
+- **A jumper on each card** picks which half it answers (A7 = 0 or 1), so one
+  card design works in any of the four ports.  The card already builds its
+  own read and write strobes, so adding A7 to that is one more input to the
+  same gate or PLD on the card.
+- **Bus loading.**  With four unbuffered ports, every line sees up to four
+  cards.  Keep each card to one HC/AC/F input per line and the cables short.
+  If that proves too much, buffered ports are in the cut list below.
+- **Later option:** once PLD rework is allowed near the end of the project,
+  the unused /SND_WR output (x5100) could become a real /EXP3 select instead.
 
 ## Suggested order
 
