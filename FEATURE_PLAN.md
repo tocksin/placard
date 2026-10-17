@@ -2,8 +2,7 @@
 
 This is a planning list, not a design.  Nothing here is implemented yet.  It
 covers the I/O the Placard still needs: keyboard, SNES controllers, SD card
-storage and four expansion ports.  Sound is built (line-rate 8-bit DAC, see
-SOUND.md) and is no longer on this list.  The Software section lists the
+storage, a mouse and four expansion ports.  The Software section lists the
 programs planned for the machine itself.
 
 The goal is the **fewest added chips**, even at the cost of features.
@@ -14,42 +13,26 @@ listed at the end in case they are wanted later.
 
 These facts from the current design shape every choice below.
 
-- **The I/O decode is built** (removed from this list).
-  `ATF22V10_IO_DECODE.pld` (rev 01, also `io_decode_pld.vhd`, wired into
-  `basys_top.vhd`) decodes x5000-x53FF (rev 03, 2026-10-16) and gives each
-  device its own strobe: /MAP_WR and /LINE_RD (x50), /EXP1 (x51, address
-  only), /PORT_WR and /PORT_RD (x52), /EXP2 (x53, address only).  Write
-  strobes are low for the /WE pulse; read strobes are qualified by LOAD_IMM.
-  The PLD has no spare pins: the old /SND_WR pin is now the A11 input.
-  (Before rev 03 the window was x5000-x5FFF with A11 not decoded, and the
-  expansion ports were at x55 and x56.)
-  `ATF22V10_MEM_CTRL.pld` (rev 05) keeps both memories off the bus there,
-  and map bit 2 covers x4000-x4FFF and x5400-x5FFF.  The ROM/RAM map write at x5000 works.
-  The map is a write-only 74ACT273 (CD74ACT273E) clocked by /MAP_WR, in place
-  of the ROM/RAM select PLD, so the base chip count did not change; its /MR
-  comes from MEM_CTRL's MAP_RUN (pin 17), which clears it to all ROM until
-  the first clock after power-up.
-- **The video line read is built** (removed from this list).  A 74F541
-  enabled by /LINE_RD puts V9:V2 on the data bus for a read at x5000; see
-  README.md, "Video line read".  It is wired in `basys_top.vhd`.
+- **Device strobes.**  Each device gets its own strobe from the I/O decode
+  PLD: /PORT_WR and /PORT_RD (x52), /EXP1 (x51) and /EXP2 (x53), both address
+  only.  Write strobes are low for the /WE pulse; read strobes are qualified
+  by LOAD_IMM.  The PLD has no spare pins.
 - **Only `[Y,X]` reaches I/O.**  `[0,D]` and `[0,X]` only address the zero
   page, so every I/O access is `ld 0x5n, y` then `ld [y,x], ac` (read) or
   `ld ac, [y,x]` / `ld n, [y,x]` (write).
 - **There are no interrupts.**  All I/O is polled.
 - **There are no wait states.**  Every device must answer a read within one
   CPU clock (about 40 ns at 25 MHz) and take a write pulse of about 20 ns.
-  The MEM_CTRL PLD makes /WE (low only in the low half of a CPU write clock),
-  and I/O writes use the same pulse.  Memory reads also use only the low half
-  of the clock now; the I/O read strobes are qualified by LOAD_IMM, not the
-  clock, which is worth checking against that rule when the first read
-  device is designed.  Devices
-  that drive the read bus must enable in 9.5 ns or less (see TIMING_FIXES.md).
+  /WE is low only in the low half of a CPU write clock, and memory reads also
+  use only the low half.  The I/O read strobes are qualified by LOAD_IMM, not
+  the clock, which is worth checking against that rule when the first read
+  device is designed.  Devices that drive the read bus must enable in 9.5 ns
+  or less (see TIMING_FIXES.md).
 - **The CPU's speed is not a clock.**  Video reads stall the CPU on one clock
   in eight during visible lines and never during blanking, so time has to
   come from the video counters.
 - **Free PLD pins** that a feature could use instead of adding a chip:
-  MEM_CTRL PLD pins 20-22.  (The 74F32 that made /WE is gone; MEM_CTRL replaced it, so the
-  base chip count did not change.)
+  MEM_CTRL PLD pins 20-22.
 - **Device latches take data from the source bus**, not the RAM-side data
   bus, and latch on the rising edge of their write strobe.  The source bus
   holds the data past the end of the write; the RAM-side bus does not.
@@ -79,7 +62,7 @@ before ordering):
 - **Shared port output latch stays 74HC574.**  74F outputs only guarantee about
   2.7 V for a high, and the SNES pad's CMOS 4021s need 3.5 V at 5 V.  The HC
   latch swings rail to rail.
-- **No mux is needed any more.**  The SD card's 3.3 V MISO goes straight into
+- **No level shifter on MISO.**  The SD card's 3.3 V MISO goes straight into
   the shared port's 74F541, whose TTL-level inputs read 3.3 V as a high.
 - **CD4050** has no 74F equivalent: it runs from 3.3 V to shift the SD lines
   down, which a 5 V-only family can't do.
@@ -232,9 +215,6 @@ added; the card does the split.
 - **Bus loading.**  With four unbuffered ports, every line sees up to four
   cards.  Keep each card to one HC/AC/F input per line and the cables short.
   If that proves too much, buffered ports are in the cut list below.
-- **No separate selects for ports 3 and 4.**  The old idea of turning the
-  unused /SND_WR output into /EXP3 is gone: that pin is the A11 input since
-  I/O decode rev 03 (2026-10-16).
 
 ## Software
 
@@ -336,11 +316,9 @@ individual pins, lowerCamelCase signals) and a branch on the read mux in
 
 | Feature | Cost to add back |
 |---|---|
-| Full 10-bit line read | a second 74F541 (or two 74F574 to snapshot it) |
 | Hardware frame counter | 1 x 22V10 |
 | Hardware SPI byte shifter (faster SD) | 74HC595, 74HC165, 22V10 |
 | Buffered expansion ports | 74F245 + 74F541 per port (stock not checked) |
-| ROM/RAM map read-back | 1 x 74F541 |
 
 ## Risks and open questions
 
