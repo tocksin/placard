@@ -51,7 +51,7 @@ basys_top.vhd (low nibble CIN = 0, high nibble CIN = low nibble COUT, low
 SHIFT_RIGHT_IN = AC bit 4, high SHIFT_RIGHT_IN = 0).  The default is an ideal
 8-bit ALU (A - B is a true 8-bit subtraction).
 
-Date: 10/16/2026
+Date: 10/17/2026
 """
 
 import re
@@ -574,7 +574,11 @@ def render(mem, path):
         return
     img = Image.new('RGB', (640, 480))
     px = img.load()
-    pal2 = [(0, 0, 0), (0, 80, 255), (255, 182, 0), (255, 255, 255)]
+    pal2 = [(0, 0, 0), (0, 36, 255), (255, 182, 0), (255, 255, 255)]
+    # 16-color palette, COLORS.md: (R 0-7, G 0-7, B 0-3)
+    pal4 = [(r * 255 // 7, g * 255 // 7, b * 255 // 3) for r, g, b in (
+        (0, 0, 0), (0, 0, 3), (0, 7, 0), (0, 7, 3), (7, 0, 0), (7, 0, 3), (5, 3, 0), (5, 5, 1),
+        (2, 2, 1), (2, 2, 3), (2, 7, 0), (2, 7, 3), (7, 2, 0), (7, 2, 3), (7, 7, 0), (7, 7, 3))]
     for y in range(480):
         mbyte = mem[MODE_BASE + y]
         bpp = 1 << (mbyte & 3)
@@ -590,8 +594,7 @@ def render(mem, path):
                 elif bpp == 2:
                     c = pal2[v]
                 elif bpp == 4:
-                    c = ((v & 1) * 255, ((v >> 1) & 1) * 255, ((v >> 2) & 1) * 255) if v < 8 else \
-                        (128 + (v & 1) * 127, 128 + ((v >> 1) & 1) * 127, 128 + ((v >> 2) & 1) * 127)
+                    c = pal4[v]
                 else:
                     c = rgb8(v)
                 for k in range(w):
