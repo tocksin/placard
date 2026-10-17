@@ -154,7 +154,45 @@ because the pads' CMOS inputs need a full 5 V high.
 row, 74F541, data bus inside one clock.  The 74F parts keep that short, but
 the diode and the row's pull-up are the slow part of the path.
 
-## 2. Expansion ports (x55, x56, connectors only)
+## 2. Mouse (interface not chosen yet)
+
+A two-button mouse, read once per frame like the pads.  Which kind of mouse
+is still open; the two practical choices are below.
+
+| | SNES mouse (default) | PS/2 mouse |
+|---|---|---|
+| Where it plugs in | One of the two SNES pad ports on the shared port | An expansion card |
+| Added chips | none | about 2 (a latch with open-collector outputs, and a buffer) |
+| Mice to buy | Original Super NES Mouse (1992, used only) or Hyperkin Hyper Click (new) | Still sold new |
+| Uses up | One pad port while it is plugged in | One expansion port |
+
+**SNES mouse** (protocol from the SNESdev wiki):
+- Same LATCH, CLOCK and DATA as a pad, but 32 bits per read: a zero byte,
+  then signature, sensitivity and the two buttons, then 7-bit Y and X
+  movement since the last read.  Movement is sign and magnitude, not two's
+  complement.
+- Needs at least about 8 us between bits and 16 us after bit 16, so a read is
+  about 0.3 ms.  Bit-banged software has to pace itself; the Hyper Click is
+  the most sensitive to reading too fast.
+- The original mouse's sensitivity is cycled through LATCH and CLOCK; the
+  Hyper Click ignores that and uses a button on its underside.
+- Software tells a mouse from a pad by the signature bits, so either port
+  can take either.
+
+**PS/2 mouse:**
+- A two-wire serial link (clock and data, both open-collector) where the
+  mouse drives the clock at about 10-17 kHz.  The host can hold the clock low
+  to make the mouse wait, and can ask for one 3-byte packet at a time (remote
+  mode), so it can be polled without interrupts.
+- The shared port has no spare bits, so it needs its own 2 open-collector
+  outputs and 2 inputs.  An expansion card has the read and write strobes
+  for that; the unused x5100 strobe is write-only, so it can't do it alone.
+
+**Not considered:** quadrature (bus) mice need a hardware counter, because
+the CPU can't catch every edge without interrupts; serial (RS-232) mice need
+a ±12 V level shifter as well as a software UART.
+
+## 3. Expansion ports (x55, x56, connectors only)
 
 | Signal | Meaning |
 |---|---|
@@ -176,6 +214,8 @@ the diode and the row's pull-up are the slow part of the path.
 2. Keyboard on the shared port.
 3. SD card on the shared port.
 4. Expansion connectors (the interface is fixed by the I/O decode).
+5. Mouse (SNES: software only, once the pad port works; PS/2: as an
+   expansion card).
 
 For the FPGA model, each step adds its PLD as a VHDL entity (no optimization,
 individual pins, lowerCamelCase signals) and a branch on the read mux in
@@ -197,5 +237,7 @@ individual pins, lowerCamelCase signals) and a branch on the read mux in
   uses 74F where it is in stock; recheck read timing with 74F delays.
 - **Polling once per frame** is a rule all software must follow if it keeps
   time from the line read.
+- **Mouse type:** SNES mouse (no chips, uses a pad port) or PS/2 (about 2
+  chips on an expansion card)?
 - **Keyboard layout:** 65 keys (13 x 5) with no added chips.  Which 2 of the
   65 positions stay unused, or become extra keys, is a layout choice.
