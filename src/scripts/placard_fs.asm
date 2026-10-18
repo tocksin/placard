@@ -165,7 +165,9 @@ fs_shl:
     shl
     ld   ac, [T3]
     ld   [T2], ac
-    bge  sh_2
+    blt  sh_2_b7
+    bra  sh_2
+sh_2_b7:
     ld   [T3], ac
     or   1, ac
     ld   ac, [T3]
@@ -174,7 +176,9 @@ sh_2:
     shl
     ld   ac, [T2]
     ld   [T1], ac
-    bge  sh_1
+    blt  sh_1_b7
+    bra  sh_1
+sh_1_b7:
     ld   [T2], ac
     or   1, ac
     ld   ac, [T2]
@@ -183,7 +187,9 @@ sh_1:
     shl
     ld   ac, [T1]
     ld   [T0], ac
-    bge  sh_0
+    blt  sh_0_b7
+    bra  sh_0
+sh_0_b7:
     ld   [T1], ac
     or   1, ac
     ld   ac, [T1]
@@ -382,11 +388,11 @@ fs_r5:
     ld   [T1], ac               ; sector = cluster >> 8
     ld   ac, [T4]
     ld   [T0], ac
-    bge  nc_p0
-    ld   FSB + 1, ac
-    bra  nc_p
-nc_p0:
+    blt  nc_p1
     ld   FSB, ac
+    bra  nc_p
+nc_p1:
+    ld   FSB + 1, ac
 nc_p:
     ld   V_OFFP, x
     ld   ac, [y,x]
@@ -411,11 +417,11 @@ fs_r6:
     ld   V_OFF, x
     ld   ac, [y,x]
     ld   [T0], ac
-    bge  nc_q0
-    ld   FSB + 1, ac
-    bra  nc_q
-nc_q0:
+    blt  nc_q1
     ld   FSB, ac
+    bra  nc_q
+nc_q1:
+    ld   FSB + 1, ac
 nc_q:
     ld   V_OFFP, x
     ld   ac, [y,x]
@@ -1026,12 +1032,12 @@ fo_nc:
 fo_put:
     ld   [IO_T1], ac
     sub  [IO_T2], ac
-    bge  fo_char                ; too long: drop it
+    bcc  fo_char                ; too long: drop it
     ld   [IO_T3], ac
     sub  0x61, ac
     blt  fo_st
     sub  26, ac
-    bge  fo_st
+    bcc  fo_st
     ld   [IO_T3], ac            ; a-z: upper case
     sub  0x20, ac
     ld   ac, [IO_T3]

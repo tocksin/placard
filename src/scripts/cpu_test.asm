@@ -37,7 +37,7 @@
 ; current FPGA build reads all addresses from the RAM copy).
 ;
 ;
-; Date: 10/16/2026
+; Date: 10/18/2026
 
 #include "placard.asm"
 
@@ -3279,27 +3279,54 @@ tE3_land:
     ld report >> 8, y
     jmp report
 tE4:
+    ld 0xFF, ac
+    add 0x01, ac
     ld 0x00, ac
-    bgt tE4_fail              ; TEST E4, AC=00 not taken
-tE4_c1:
-    ld 0x01, ac
-    bgt tE4_c2                ; TEST E4, AC=01 taken
+    bcs tE4_c1                ; TEST E4, AC=00, carry 1 taken
     bra tE4_fail
-tE4_c2:
+tE4_c1:
     ld 0x10, ac
-    bgt tE4_c3                ; TEST E4, AC=10 taken
+    add 0x10, ac
+    ld 0x01, ac
+    bcs tE4_fail              ; TEST E4, AC=01, carry 0 not taken
+tE4_c2:
+    ld 0x00, ac
+    sub 0x01, ac
+    ld 0x10, ac
+    bcs tE4_c3                ; TEST E4, AC=10, carry 1 taken
     bra tE4_fail
 tE4_c3:
+    ld 0x05, ac
+    sub 0x03, x
     ld 0x7F, ac
-    bgt tE4_c4                ; TEST E4, AC=7F taken
-    bra tE4_fail
+    bcs tE4_fail              ; TEST E4, AC=7F, carry 0 not taken
 tE4_c4:
+    ld 0xF0, ac
+    add 0x20, y
     ld 0x80, ac
-    bgt tE4_fail              ; TEST E4, AC=80 not taken
+    bcs tE4_c5                ; TEST E4, AC=80, carry 1 taken
+    bra tE4_fail
 tE4_c5:
+    ld 0x01, ac
+    sub 0x01, ac
     ld 0xFF, ac
-    bgt tE4_fail              ; TEST E4, AC=FF not taken
+    bcs tE4_fail              ; TEST E4, AC=FF, carry 0 not taken
 tE4_c6:
+    ld 0x80, ac
+    add 0x80, ac
+    ld 0x7F, ac
+    add ac, [0x44]
+    ld 0x00, ac
+    bcs tE4_c7                ; TEST E4, AC=00, carry 1 taken
+    bra tE4_fail
+tE4_c7:
+    ld 0x00, ac
+    add 0x00, ac
+    ld 0xFF, ac
+    add ac, [0x44]
+    ld 0x01, ac
+    bcs tE4_fail              ; TEST E4, AC=01, carry 0 not taken
+tE4_c8:
     ld 0, ac
     bra tE4_rep
 tE4_fail:
@@ -3314,46 +3341,81 @@ tE4_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x2300
 tE5:
-    ld tE5_fail & 0xFF, ac
+    ld 0xFF, ac
+    add 0x01, ac
+    ld tE5_c1 & 0xFF, ac
     ld ac, [0x46]
     ld 0x46, x
     ld 0x00, ac
-    bgt [x]                   ; TEST E5, AC=00 not taken
+    bcs [x]                   ; TEST E5, AC=00, carry 1 taken
+    bra tE5_fail
 tE5_c1:
-    ld tE5_c2 & 0xFF, ac
+    ld 0x10, ac
+    add 0x10, ac
+    ld tE5_fail & 0xFF, ac
     ld ac, [0x46]
     ld 0x46, x
     ld 0x01, ac
-    bgt [x]                   ; TEST E5, AC=01 taken
-    bra tE5_fail
+    bcs [x]                   ; TEST E5, AC=01, carry 0 not taken
 tE5_c2:
+    ld 0x00, ac
+    sub 0x01, ac
     ld tE5_c3 & 0xFF, ac
     ld ac, [0x46]
     ld 0x46, x
     ld 0x10, ac
-    bgt [x]                   ; TEST E5, AC=10 taken
+    bcs [x]                   ; TEST E5, AC=10, carry 1 taken
     bra tE5_fail
 tE5_c3:
-    ld tE5_c4 & 0xFF, ac
-    ld ac, [0x46]
-    ld 0x46, x
-    ld 0x7F, ac
-    bgt [x]                   ; TEST E5, AC=7F taken
-    bra tE5_fail
-tE5_c4:
+    ld 0x05, ac
+    sub 0x03, x
     ld tE5_fail & 0xFF, ac
     ld ac, [0x46]
     ld 0x46, x
+    ld 0x7F, ac
+    bcs [x]                   ; TEST E5, AC=7F, carry 0 not taken
+tE5_c4:
+    ld 0xF0, ac
+    add 0x20, y
+    ld tE5_c5 & 0xFF, ac
+    ld ac, [0x46]
+    ld 0x46, x
     ld 0x80, ac
-    bgt [x]                   ; TEST E5, AC=80 not taken
+    bcs [x]                   ; TEST E5, AC=80, carry 1 taken
+    bra tE5_fail
 tE5_c5:
+    ld 0x01, ac
+    sub 0x01, ac
     ld tE5_fail & 0xFF, ac
     ld ac, [0x46]
     ld 0x46, x
     ld 0xFF, ac
-    bgt [x]                   ; TEST E5, AC=FF not taken
+    bcs [x]                   ; TEST E5, AC=FF, carry 0 not taken
 tE5_c6:
+    ld 0x80, ac
+    add 0x80, ac
+    ld 0x7F, ac
+    add ac, [0x44]
+    ld tE5_c7 & 0xFF, ac
+    ld ac, [0x46]
+    ld 0x46, x
+    ld 0x00, ac
+    bcs [x]                   ; TEST E5, AC=00, carry 1 taken
+    bra tE5_fail
+tE5_c7:
+    ld 0x00, ac
+    add 0x00, ac
+    ld 0xFF, ac
+    add ac, [0x44]
+    ld tE5_fail & 0xFF, ac
+    ld ac, [0x46]
+    ld 0x46, x
+    ld 0x01, ac
+    bcs [x]                   ; TEST E5, AC=01, carry 0 not taken
+tE5_c8:
     ld 0, ac
     bra tE5_rep
 tE5_fail:
@@ -3369,19 +3431,26 @@ tE5_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2300
+#addr 0x2400
 tE6_pad00:
-    bra tE6_fail              ; landing pad for AC = 00
+    bra tE6_c1                ; landing pad for AC = 00
 tE6:
+    ld 0xFF, ac
+    add 0x01, ac
     ld 0x00, ac
-    bgt ac                    ; TEST E6, AC=00 not taken
-tE6_c1:
-    ld 0x40, ac
-    bgt ac                    ; TEST E6, AC=40 taken
+    bcs ac                    ; TEST E6, AC=00, carry 1 taken
     bra tE6_fail
+tE6_c1:
+    ld 0x01, ac
+    sub 0x01, ac
+    ld 0x40, ac
+    bcs ac                    ; TEST E6, AC=40, carry 0 not taken
 tE6_c2:
+    ld 0x00, ac
+    sub 0x01, ac
     ld 0x80, ac
-    bgt ac                    ; TEST E6, AC=80 not taken
+    bcs ac                    ; TEST E6, AC=80, carry 1 taken
+    bra tE6_fail
 tE6_c3:
     ld 0, ac
     bra tE6_rep
@@ -3398,41 +3467,70 @@ tE6_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2340
+#addr 0x2440
 tE6_pad40:
-    bra tE6_c2                ; landing pad for AC = 40
+    bra tE6_fail              ; landing pad for AC = 40
 
-#addr 0x2380
+#addr 0x2480
 tE6_pad80:
-    bra tE6_fail              ; landing pad for AC = 80
+    bra tE6_c3                ; landing pad for AC = 80
 tE7:
-    ld tE7_fail & 0xFF, x
+    ld 0xFF, ac
+    add 0x01, ac
+    ld tE7_c1 & 0xFF, x
     ld 0x00, ac
-    bgt x                     ; TEST E7, AC=00 not taken
-tE7_c1:
-    ld tE7_c2 & 0xFF, x
-    ld 0x01, ac
-    bgt x                     ; TEST E7, AC=01 taken
+    bcs x                     ; TEST E7, AC=00, carry 1 taken
     bra tE7_fail
+tE7_c1:
+    ld 0x10, ac
+    add 0x10, ac
+    ld tE7_fail & 0xFF, x
+    ld 0x01, ac
+    bcs x                     ; TEST E7, AC=01, carry 0 not taken
 tE7_c2:
+    ld 0x00, ac
+    sub 0x01, ac
     ld tE7_c3 & 0xFF, x
     ld 0x10, ac
-    bgt x                     ; TEST E7, AC=10 taken
+    bcs x                     ; TEST E7, AC=10, carry 1 taken
     bra tE7_fail
 tE7_c3:
-    ld tE7_c4 & 0xFF, x
-    ld 0x7F, ac
-    bgt x                     ; TEST E7, AC=7F taken
-    bra tE7_fail
-tE7_c4:
+    ld 0x05, ac
+    sub 0x03, x
     ld tE7_fail & 0xFF, x
+    ld 0x7F, ac
+    bcs x                     ; TEST E7, AC=7F, carry 0 not taken
+tE7_c4:
+    ld 0xF0, ac
+    add 0x20, y
+    ld tE7_c5 & 0xFF, x
     ld 0x80, ac
-    bgt x                     ; TEST E7, AC=80 not taken
+    bcs x                     ; TEST E7, AC=80, carry 1 taken
+    bra tE7_fail
 tE7_c5:
+    ld 0x01, ac
+    sub 0x01, ac
     ld tE7_fail & 0xFF, x
     ld 0xFF, ac
-    bgt x                     ; TEST E7, AC=FF not taken
+    bcs x                     ; TEST E7, AC=FF, carry 0 not taken
 tE7_c6:
+    ld 0x80, ac
+    add 0x80, ac
+    ld 0x7F, ac
+    add ac, [0x44]
+    ld tE7_c7 & 0xFF, x
+    ld 0x00, ac
+    bcs x                     ; TEST E7, AC=00, carry 1 taken
+    bra tE7_fail
+tE7_c7:
+    ld 0x00, ac
+    add 0x00, ac
+    ld 0xFF, ac
+    add ac, [0x44]
+    ld tE7_fail & 0xFF, x
+    ld 0x01, ac
+    bcs x                     ; TEST E7, AC=01, carry 0 not taken
+tE7_c8:
     ld 0, ac
     bra tE7_rep
 tE7_fail:
@@ -3447,6 +3545,8 @@ tE7_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x2500
 tE8:
     ld 0x00, ac
     blt tE8_fail              ; TEST E8, AC=00 not taken
@@ -3482,8 +3582,6 @@ tE8_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x2400
 tE9:
     ld tE9_fail & 0xFF, ac
     ld 0x42, y
@@ -3544,7 +3642,7 @@ tE9_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2500
+#addr 0x2600
 tEA_pad00:
     bra tEA_fail              ; landing pad for AC = 00
 tEA:
@@ -3573,11 +3671,11 @@ tEA_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2540
+#addr 0x2640
 tEA_pad40:
     bra tEA_fail              ; landing pad for AC = 40
 
-#addr 0x2580
+#addr 0x2680
 tEA_pad80:
     bra tEA_c3                ; landing pad for AC = 80
 tEB:
@@ -3660,7 +3758,7 @@ tEC_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2600
+#addr 0x2700
 tED:
     ld tED_fail & 0xFF, ac
     ld ac, [0x45]
@@ -3712,7 +3810,7 @@ tED_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2700
+#addr 0x2800
 tEE_pad00:
     bra tEE_fail              ; landing pad for AC = 00
 tEE:
@@ -3742,11 +3840,11 @@ tEE_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2740
+#addr 0x2840
 tEE_pad40:
     bra tEE_c2                ; landing pad for AC = 40
 
-#addr 0x2780
+#addr 0x2880
 tEE_pad80:
     bra tEE_c3                ; landing pad for AC = 80
 tEF:
@@ -3828,7 +3926,7 @@ tF0_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2800
+#addr 0x2900
 tF1:
     ld tF1_c1 & 0xFF, ac
     ld ac, [0x45]
@@ -3876,7 +3974,7 @@ tF1_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2900
+#addr 0x2A00
 tF2_pad00:
     bra tF2_c1                ; landing pad for AC = 00
 tF2:
@@ -3905,11 +4003,11 @@ tF2_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2940
+#addr 0x2A40
 tF2_pad40:
     bra tF2_fail              ; landing pad for AC = 40
 
-#addr 0x2980
+#addr 0x2A80
 tF2_pad80:
     bra tF2_fail              ; landing pad for AC = 80
 tF3:
@@ -3952,29 +4050,57 @@ tF3_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x2B00
 tF4:
+    ld 0xFF, ac
+    add 0x01, ac
     ld 0x00, ac
-    bge tF4_c1                ; TEST F4, AC=00 taken
-    bra tF4_fail
+    bcc tF4_fail              ; TEST F4, AC=00, carry 1 not taken
 tF4_c1:
+    ld 0x10, ac
+    add 0x10, ac
     ld 0x01, ac
-    bge tF4_c2                ; TEST F4, AC=01 taken
+    bcc tF4_c2                ; TEST F4, AC=01, carry 0 taken
     bra tF4_fail
 tF4_c2:
+    ld 0x00, ac
+    sub 0x01, ac
     ld 0x10, ac
-    bge tF4_c3                ; TEST F4, AC=10 taken
-    bra tF4_fail
+    bcc tF4_fail              ; TEST F4, AC=10, carry 1 not taken
 tF4_c3:
+    ld 0x05, ac
+    sub 0x03, x
     ld 0x7F, ac
-    bge tF4_c4                ; TEST F4, AC=7F taken
+    bcc tF4_c4                ; TEST F4, AC=7F, carry 0 taken
     bra tF4_fail
 tF4_c4:
+    ld 0xF0, ac
+    add 0x20, y
     ld 0x80, ac
-    bge tF4_fail              ; TEST F4, AC=80 not taken
+    bcc tF4_fail              ; TEST F4, AC=80, carry 1 not taken
 tF4_c5:
+    ld 0x01, ac
+    sub 0x01, ac
     ld 0xFF, ac
-    bge tF4_fail              ; TEST F4, AC=FF not taken
+    bcc tF4_c6                ; TEST F4, AC=FF, carry 0 taken
+    bra tF4_fail
 tF4_c6:
+    ld 0x80, ac
+    add 0x80, ac
+    ld 0x7F, ac
+    add ac, [0x44]
+    ld 0x00, ac
+    bcc tF4_fail              ; TEST F4, AC=00, carry 1 not taken
+tF4_c7:
+    ld 0x00, ac
+    add 0x00, ac
+    ld 0xFF, ac
+    add ac, [0x44]
+    ld 0x01, ac
+    bcc tF4_c8                ; TEST F4, AC=01, carry 0 taken
+    bra tF4_fail
+tF4_c8:
     ld 0, ac
     bra tF4_rep
 tF4_fail:
@@ -3990,20 +4116,25 @@ tF4_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2A00
+#addr 0x2C00
 tF6_pad00:
-    bra tF6_c1                ; landing pad for AC = 00
+    bra tF6_fail              ; landing pad for AC = 00
 tF6:
+    ld 0xFF, ac
+    add 0x01, ac
     ld 0x00, ac
-    bge ac                    ; TEST F6, AC=00 taken
-    bra tF6_fail
+    bcc ac                    ; TEST F6, AC=00, carry 1 not taken
 tF6_c1:
+    ld 0x01, ac
+    sub 0x01, ac
     ld 0x40, ac
-    bge ac                    ; TEST F6, AC=40 taken
+    bcc ac                    ; TEST F6, AC=40, carry 0 taken
     bra tF6_fail
 tF6_c2:
+    ld 0x00, ac
+    sub 0x01, ac
     ld 0x80, ac
-    bge ac                    ; TEST F6, AC=80 not taken
+    bcc ac                    ; TEST F6, AC=80, carry 1 not taken
 tF6_c3:
     ld 0, ac
     bra tF6_rep
@@ -4020,42 +4151,70 @@ tF6_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2A40
+#addr 0x2C40
 tF6_pad40:
     bra tF6_c2                ; landing pad for AC = 40
 
-#addr 0x2A80
+#addr 0x2C80
 tF6_pad80:
     bra tF6_fail              ; landing pad for AC = 80
 tF7:
-    ld tF7_c1 & 0xFF, x
+    ld 0xFF, ac
+    add 0x01, ac
+    ld tF7_fail & 0xFF, x
     ld 0x00, ac
-    bge x                     ; TEST F7, AC=00 taken
-    bra tF7_fail
+    bcc x                     ; TEST F7, AC=00, carry 1 not taken
 tF7_c1:
+    ld 0x10, ac
+    add 0x10, ac
     ld tF7_c2 & 0xFF, x
     ld 0x01, ac
-    bge x                     ; TEST F7, AC=01 taken
+    bcc x                     ; TEST F7, AC=01, carry 0 taken
     bra tF7_fail
 tF7_c2:
-    ld tF7_c3 & 0xFF, x
+    ld 0x00, ac
+    sub 0x01, ac
+    ld tF7_fail & 0xFF, x
     ld 0x10, ac
-    bge x                     ; TEST F7, AC=10 taken
-    bra tF7_fail
+    bcc x                     ; TEST F7, AC=10, carry 1 not taken
 tF7_c3:
+    ld 0x05, ac
+    sub 0x03, x
     ld tF7_c4 & 0xFF, x
     ld 0x7F, ac
-    bge x                     ; TEST F7, AC=7F taken
+    bcc x                     ; TEST F7, AC=7F, carry 0 taken
     bra tF7_fail
 tF7_c4:
+    ld 0xF0, ac
+    add 0x20, y
     ld tF7_fail & 0xFF, x
     ld 0x80, ac
-    bge x                     ; TEST F7, AC=80 not taken
+    bcc x                     ; TEST F7, AC=80, carry 1 not taken
 tF7_c5:
-    ld tF7_fail & 0xFF, x
+    ld 0x01, ac
+    sub 0x01, ac
+    ld tF7_c6 & 0xFF, x
     ld 0xFF, ac
-    bge x                     ; TEST F7, AC=FF not taken
+    bcc x                     ; TEST F7, AC=FF, carry 0 taken
+    bra tF7_fail
 tF7_c6:
+    ld 0x80, ac
+    add 0x80, ac
+    ld 0x7F, ac
+    add ac, [0x44]
+    ld tF7_fail & 0xFF, x
+    ld 0x00, ac
+    bcc x                     ; TEST F7, AC=00, carry 1 not taken
+tF7_c7:
+    ld 0x00, ac
+    add 0x00, ac
+    ld 0xFF, ac
+    add ac, [0x44]
+    ld tF7_c8 & 0xFF, x
+    ld 0x01, ac
+    bcc x                     ; TEST F7, AC=01, carry 0 taken
+    bra tF7_fail
+tF7_c8:
     ld 0, ac
     bra tF7_rep
 tF7_fail:
@@ -4070,6 +4229,8 @@ tF7_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x2D00
 tF8:
     ld 0x00, ac
     ble tF8_c1                ; TEST F8, AC=00 taken
@@ -4106,8 +4267,6 @@ tF8_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x2B00
 tF9:
     ld tF9_c1 & 0xFF, ac
     ld ac, [0x46]
@@ -4163,7 +4322,7 @@ tF9_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2C00
+#addr 0x2E00
 tFA_pad00:
     bra tFA_c1                ; landing pad for AC = 00
 tFA:
@@ -4193,11 +4352,11 @@ tFA_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2C40
+#addr 0x2E40
 tFA_pad40:
     bra tFA_fail              ; landing pad for AC = 40
 
-#addr 0x2C80
+#addr 0x2E80
 tFA_pad80:
     bra tFA_c3                ; landing pad for AC = 80
 tFB:
@@ -4266,7 +4425,7 @@ tFC_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2D00
+#addr 0x2F00
 tFD:
     ld tFD_c1 & 0xFF, ac
     ld 0x42, y
@@ -4299,7 +4458,7 @@ tFD_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2E00
+#addr 0x3000
 tFE_pad00:
     bra tFE_c1                ; landing pad for AC = 00
 tFE:
@@ -4330,11 +4489,11 @@ tFE_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2E40
+#addr 0x3040
 tFE_pad40:
     bra tFE_c2                ; landing pad for AC = 40
 
-#addr 0x2E80
+#addr 0x3080
 tFE_pad80:
     bra tFE_c3                ; landing pad for AC = 80
 tFF:

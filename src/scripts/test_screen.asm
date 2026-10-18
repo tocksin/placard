@@ -36,7 +36,7 @@
 ;     python3 placard_sim.py test_screen.asm --run --max-steps 3000000 --png ts.png
 ;     python3 test_screen_sim.py                (frames and an animated GIF)
 ;
-; Date: 10/17/2026
+; Date: 10/18/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -149,7 +149,9 @@ ts_mb2:
     ld   ac, x
     ld   0x05, [y,x]
     inc
-    bge  ts_mb2
+    blt  ts_mb2_b7
+    bra  ts_mb2
+ts_mb2_b7:
 ts_mb3:
     ld   ac, x
     ld   0x0B, [y,x]
@@ -1062,7 +1064,7 @@ ts_rc1:
     bne  ts_rc_nc
     ld   [p_rlo], ac
     sub  [p_step], ac
-    bge  ts_rc_nc
+    bcc  ts_rc_nc
     ld   [p_rhi], ac
     inc
     ld   ac, [p_rhi]
@@ -1176,7 +1178,7 @@ ts_char2:
     ld   ac, [p_rhi]
     ld   [c_row], ac
     sub  2, ac
-    bge  ts_c2_hi
+    bcc  ts_c2_hi
     clr  ac
     ld   ac, [p_rhi]
 ts_c2_hi:

@@ -1,7 +1,7 @@
 Name     BRANCH_CTRL;
 PartNo   00;
 Date     10/18/2026;
-Revision 10;
+Revision 11;
 Designer ;
 Company  ;
 Assembly ;
@@ -19,11 +19,11 @@ Device   g22v10;
    Memory-mode field M2:M0 (instruction bits 4:2) selects type:
 
        000 JMP  always, 16-bit load (PC low + PC high)
-       001 BGT  AC > 0
+       001 BCS  carry flag set              (was BGT, AC > 0)
        010 BLT  AC < 0
        011 BNE  AC <> 0
        100 BEQ  AC = 0
-       101 BGE  AC >= 0
+       101 BCC  carry flag clear            (was BGE, AC >= 0)
        110 BLE  AC <= 0
        111 BRA  always, 8-bit load (PC low only)
 
@@ -62,7 +62,7 @@ Device   g22v10;
    earlier used BRANCH_A, which also has EXEC and !PIXEL_ENABLE.
    That made it valid only 13 ns into the EXEC clock, so the State
    PLD's MEM_WR showed a write for up to 20.5 ns at the start of
-   every BGE, BLE or BRA (memory field 101, 110, 111).  The memory
+   every BGE (now BCC), BLE or BRA (memory field 101, 110, 111).  The memory
    control PLD gates the write with the clock, so MEM_WR has to be
    settled before the clock falls; from the instruction register
    it is (see TIMING_FIXES.md, end-of-write contention).
@@ -74,7 +74,8 @@ Device   g22v10;
    send BGE with an AC or X target straight to EXEC, but that path
    was too slow (TIMING_FIXES.md); BGE with an AC or X target now
    has a pad byte and goes through LOAD_IMM like a zero-page store.
-   Pins 14-16 are unused.
+   (Memory field 101 is BCC since revision 11, with the same pad
+   byte.)  Pins 14-16 were unused.
 
    ALU WAIT CLOCK (revisions 06 and 07)
    ADD and SUB need two clocks for the carry to ripple through
@@ -114,6 +115,39 @@ Device   g22v10;
    PC_ENABLE and PIXEL_ENABLE straight from their pins).  SRC_EN is
    the same condition for the memory control PLD, which blocks CPU
    memory reads while the source drivers own the bus.
+
+   CARRY FLAG (revision 11)
+   BGT (001) and BGE (101) are replaced by BCS and BCC, which test a
+   carry flag.  BLE and BLT are kept, so every sign test can still be
+   made by branching the other way (AC > 0: BLE around the code;
+   AC >= 0: BLT around it).  BGT used two product terms and BCS uses
+   one (BGE and BCC one each), so LOAD_PC_LOW drops from 12 terms to 11.
+
+   COUT (pin 14) is the high ALU PLD's COUT (its pin 18): the carry out
+   of an ADD, or the borrow out of a SUB (ALU_SHR.pld).  CARRY (pin 20,
+   registered) latches it on the clock that loads the result of an ADD
+   or SUB with an AC, X or Y destination, which is the EXEC clock with
+   ALU_DONE set and PIXEL_ENABLE low (ALU_DONE is only set during the
+   second clock of such an instruction, so it needs nothing else).
+   Every other clock holds it, so loads, stores and branches between
+   the ADD/SUB and the BCS/BCC leave it alone.  An ADD or SUB that
+   stores to RAM has no wait clock and does not change it.
+
+       CARRY.D = ALU_DONE & !PIXEL_ENABLE & COUT
+               # ALU_DONE & PIXEL_ENABLE & CARRY
+               # !ALU_DONE & CARRY
+
+   The carry is settled before the ALU result: the low chip's
+   B -> D2 -> COUT and the high chip's CIN -> D2 -> COUT are four
+   array passes (30 ns), against five to F3 (ALU_TIMING.md).  From a
+   FETCH -> EXEC ADD with source AC or X: IR 10.5 + '138 9 + '541
+   enable 9.5 + 30 + CARRY setup 3.5 = 62.5 ns, inside the two clocks
+   (79.44 ns) the ALU wait clock gives, 16.9 ns to spare.  BCS and BCC
+   read CARRY through its feedback, much faster than the Z and NEG
+   path of the other branches.
+
+   Pin 20 needs no connection on the board (a test point); pin 15 is
+   unused.
    ============================================================ */
 
 
@@ -139,16 +173,19 @@ PIN 11 = PC_ENABLE;       /* State PLD pin 15, = !Q1 */
 
 PIN 13 = Z_HIGH;          /* high ALU nibble zero flag */
 
+PIN 14 = COUT;            /* high ALU PLD pin 18: carry / borrow out */
+
 
 /* ---------------- OUTPUTS ---------------- */
 
-PIN 21 = LOAD_PC_LOW;     /* 12 product terms, pin has 12 */
+PIN 21 = LOAD_PC_LOW;     /* 11 product terms, pin has 12 */
 PIN 22 = LOAD_PC_HIGH;    /*  1 product term,  pin has 10 */
 PIN 23 = BRANCH_BLOCK;    /*  1 product term,  pin has  8 */
 
 PIN 18 = ALU_DONE;        /* registered, 3 product terms */
 PIN 19 = STALL;           /* 3 product terms, pin has 16 */
 PIN 16 = SRC_EN;          /* 1 product term, to memory control PLD pin 22 */
+PIN 20 = CARRY;           /* registered, 3 product terms, pin has 14 */
 
 
 /* ---------------- COMMON TERMS ---------------- */
@@ -171,6 +208,10 @@ ALU_DONE.D = EXEC & !PIXEL_ENABLE & ADDSUB_REG & !ALU_DONE
 STALL = PIXEL_ENABLE
       # EXEC & ADDSUB_REG & !ALU_DONE;
 
+CARRY.D = ALU_DONE & !PIXEL_ENABLE & COUT
+        # ALU_DONE & PIXEL_ENABLE & CARRY
+        # !ALU_DONE & CARRY;
+
 BRANCH_BLOCK = I7 & I6 & I5;
 
 SRC_EN = EXEC & !PIXEL_ENABLE;
@@ -179,14 +220,13 @@ LOAD_PC_HIGH = BRANCH_A & !M2 & !M1 & !M0;                       /* JMP */
 
 LOAD_PC_LOW =
       BRANCH_A & !M2 & !M1 & !M0                                 /* JMP */
-    # BRANCH_A & !M2 & !M1 &  M0 & !Z_LOW  & !NEG                /* BGT, low nibble <> 0  */
-    # BRANCH_A & !M2 & !M1 &  M0 & !Z_HIGH & !NEG                /* BGT, high nibble <> 0 */
+    # BRANCH_A & !M2 & !M1 &  M0 &  CARRY                      /* BCS */
     # BRANCH_A & !M2 &  M1 & !M0 & !Z_LOW  &  NEG                /* BLT, low nibble <> 0  */
     # BRANCH_A & !M2 &  M1 & !M0 & !Z_HIGH &  NEG                /* BLT, high nibble <> 0 */
     # BRANCH_A & !M2 &  M1 &  M0 & !Z_LOW                        /* BNE, low nibble <> 0  */
     # BRANCH_A & !M2 &  M1 &  M0 & !Z_HIGH                       /* BNE, high nibble <> 0 */
     # BRANCH_A &  M2 & !M1 & !M0 &  Z_LOW & Z_HIGH               /* BEQ */
-    # BRANCH_A &  M2 & !M1 &  M0 & !NEG                          /* BGE */
+    # BRANCH_A &  M2 & !M1 &  M0 & !CARRY                      /* BCC */
     # BRANCH_A &  M2 &  M1 & !M0 &  Z_LOW & Z_HIGH               /* BLE, AC=0 */
     # BRANCH_A &  M2 &  M1 & !M0 &  NEG                          /* BLE, AC<0 */
     # BRANCH_A &  M2 &  M1 &  M0;                                /* BRA */

@@ -26,10 +26,12 @@ ALGORITHM (Rabinowitz & Wagon 1995, with predigit / nines handling)
     For N = 1000: a[i] < 6667 (13 bits), x < 2^17, q <= 18.
 
 ARITHMETIC
-    The CPU has no carry flag, so multi-byte values are kept in "base 128":
-    value = limb2 * 16384 + limb1 * 128 + limb0, limbs 0..127.  A carry or
-    borrow out of a limb lands in bit 7, the N flag, and is tested with a
-    branch.
+    The program was written before the CPU had a carry flag, so multi-byte
+    values are kept in "base 128": value = limb2 * 16384 + limb1 * 128 +
+    limb0, limbs 0..127.  A carry or borrow out of a limb lands in bit 7.
+    A borrow from a subtract of two limbs is the carry flag too, so those
+    are tested with bcc; carries from adds are tested on bit 7 with blt
+    (there is no BGE since Branch PLD rev 11).
     - 10 * a[i] and q * i come from a product table T[m][v] = m * v
       (m = 0..20, v = 0..127, two base-128 limbs), applied to each 7-bit
       limb of a[i] and i.  The table is ROM data built by this script.
@@ -90,7 +92,7 @@ MEMORY
     checks it for the digit count asked for), so they end below the mode
     bytes.  Each table page uses only 00-7F.
 
-Date: 10/16/2026
+Date: 10/18/2026
 """
 
 import argparse
@@ -172,6 +174,14 @@ class Gen:
         self.blocks.append((name, self.cur))
 
     def e(self, s):
+        if s.startswith('bge '):
+            # no BGE since Branch PLD rev 11 (BCS/BCC took its code):
+            # branch round the jump when bit 7 is set
+            skip = self.uniq('ge')
+            self.cur.append('    blt  ' + skip)
+            self.cur.append('    bra  ' + s[4:].strip())
+            self.cur.append(skip + ':')
+            return
         self.cur.append('    ' + s)
 
     def label(self, s):
@@ -333,7 +343,7 @@ def build(ndig):
         e('; k = %d' % k)
         e('ld   %s, ac' % z('x0'))
         e('sub  %s, ac' % z('d%d0' % k))
-        e('bge  %s' % n0)
+        e('bcc  %s' % n0)
         e('and  0x7F, ac')
         e('ld   ac, %s' % z('t0'))
         e('ld   %s, ac' % z('x1'))
@@ -344,7 +354,7 @@ def build(ndig):
         e('ld   %s, ac' % z('x1'))
         label(m0)
         e('sub  %s, ac' % z('d%d1' % k))
-        e('bge  %s' % n1)
+        e('bge  %s' % n1)   # AC may be FF (x1 - 1), not a limb
         e('and  0x7F, ac')
         e('ld   ac, %s' % z('t1'))
         e('ld   %s, ac' % z('x2'))
@@ -477,7 +487,7 @@ def build(ndig):
     e('ld   ac, %s' % z('px'))
     e('ld   %s, ac' % z('il'))
     e('dec')
-    e('bge  inz')
+    e('bcc  inz')
     e('and  0x7F, ac')
     e('ld   ac, %s' % z('il'))
     e('ld   %s, ac' % z('ih'))
@@ -493,12 +503,12 @@ def build(ndig):
         ok, done = g.uniq('dok'), g.uniq('dd')
         e('ld   %s, ac' % z('d%d0' % k))
         e('sub  0x%02X, ac' % (2 << k))
-        e('bge  %s' % ok)
+        e('bcc  %s' % ok)
         e('and  0x7F, ac')
         e('ld   ac, %s' % z('d%d0' % k))
         e('ld   %s, ac' % z('d%d1' % k))
         e('dec')
-        e('bge  %s' % done)
+        e('bcc  %s' % done)
         e('and  0x7F, ac')
         e('ld   ac, %s' % z('d%d1' % k))
         e('ld   %s, ac' % z('d%d2' % k))
@@ -594,7 +604,7 @@ def build(ndig):
     e('; digits left (base 128 counter)')
     e('ld   %s, ac' % z('jl'))
     e('dec')
-    e('bge  jok')
+    e('bcc  jok')
     e('and  0x7F, ac')
     e('ld   ac, %s' % z('jl'))
     e('ld   %s, ac' % z('jh'))
@@ -834,7 +844,7 @@ def build(ndig):
     o(';')
     o(';     python3 placard_sim.py pi_spigot.asm --run --max-steps 2000000000 --stop-at pause --png pi.png')
     o(';')
-    o('; Date: 10/16/2026')
+    o('; Date: 10/18/2026')
     o('')
     o('#include "placard.asm"')
     o('')

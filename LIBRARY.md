@@ -219,16 +219,17 @@ AC is listed when it does not come back as a result.
 
 ### Arithmetic
 
-The ALU has no carry flag.  These routines work on plain 8-bit bytes and
-find the carry from the top bits (see [Idioms](#idioms)).
+`add16` and `sub16` find the carry from the top bits (they were written
+before the carry flag, see [Idioms](#idioms)); `mul8`, `div8` and `div16`
+use the carry flag (`bcs`, `bcc`).
 
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
 | `add16` | R1:R0 = a, R3:R2 = b | R1:R0 = a + b (mod 65536), AC = R1 | T0-T2 | 76-80 |
 | `sub16` | R1:R0 = a, R3:R2 = b | R1:R0 = a - b (mod 65536), AC = R1 | T0-T2 | 76-80 |
-| `mul8` | R0 = a, R1 = b | R3:R2 = a × b, AC = R3 | T0-T4 | 458-993 (460 + 67 per 1 bit in b) |
-| `div8` | R0 = dividend, R1 = divisor | AC = quotient, X = remainder | T0-T3 | 611-891 |
-| `div16` | R1:R0 = dividend, R2 = divisor | R1:R0 = quotient, AC = X = remainder | T1-T3 | 1409-2170 |
+| `mul8` | R0 = a, R1 = b | R3:R2 = a × b, AC = R3 | T0, T1 | 476-719 (476 + about 12-30 per 1 bit in b) |
+| `div8` | R0 = dividend, R1 = divisor | AC = quotient, X = remainder | T0-T3 | about 580-790 |
+| `div16` | R1:R0 = dividend, R2 = divisor | R1:R0 = quotient, AC = X = remainder | T1-T3 | about 1300-1890 |
 | `rand8` | RAND_HI:RAND_LO = state (seed it once, not 0) | AC = random byte | T0, state | 73-93 |
 
 All are unsigned.  A divisor of 0 gives a quotient of all ones and the
@@ -376,30 +377,32 @@ zero page scratch.  A sector takes about 160,000 clocks (75 KB/s).
 
 ## Idioms
 
-The ALU sets only Z and N from AC, so comparisons and carries take a few
-instructions.
+Branches test AC (`blt` AC < 0, `bne`, `beq`, `ble` AC <= 0) or the carry
+flag (`bcs`, `bcc`).  There is no `bgt` or `bge`: branch the other way with
+`ble` or `blt`.
 
-**Unsigned compare a ≥ b** (both 0-255).  If the top bits differ, the one
-with bit 7 set is larger; if they match, `a - b` cannot overflow and its sign
-is the answer:
+**Carry flag.**  Every ADD or SUB with an AC, X or Y destination (`inc`,
+`dec` and `shl` too) sets it: the carry out of an add, the borrow out of a
+subtract (1 when a < b, unsigned), the bit shifted out by `shl`.  Every
+other instruction keeps it, stores and ADD/SUB to RAM included, so it can be
+tested a few instructions later (CPU.md, "Carry flag").
+
+**Unsigned compare a ≥ b** (both 0-255):
 
 ```
-    ld   [a], ac
-    xor  [b], ac
-    blt  differ                 ; top bits differ
     ld   [a], ac
     sub  [b], ac
-    bge  a_ge_b
-    bra  a_lt_b
-differ:
-    ld   [a], ac
-    blt  a_ge_b                 ; a has bit 7 set, b doesn't
-    bra  a_lt_b
+    bcc  a_ge_b                 ; no borrow
 ```
 
-**Carry out of a + b**: bit 7 of `(a & b) | ((a | b) & ~sum)`.  **Borrow
-out of a - b**: bit 7 of `(~a & b) | ((~a | b) & diff)`.  `add16` and
-`sub16` show both.
+**AC ≥ 0 / AC > 0**: `blt` or `ble` round the code that runs when it is.
+
+**Bit 7 into the carry**: `shl` (it also shifts AC).  `mul8` and `div8`
+shift a byte left and test the bit that fell out with `bcc`.
+
+**Carry without the flag** (how `add16` and `sub16` do it): the carry out
+of a + b is bit 7 of `(a & b) | ((a | b) & ~sum)`, and the borrow out of
+a - b is bit 7 of `(~a & b) | ((~a | b) & diff)`.
 
 **Branches stay in their page.**  A conditional branch changes only the low
 byte of PC, so a routine's branches and their targets must be in one

@@ -60,19 +60,27 @@
 ;   110 shr          111 branch / jump
 ;
 ; Branch / jump (I7:I5 = 111), type in M2:M0, target low byte follows
+;   000 jmp  001 bcs  010 blt  011 bne  100 beq  101 bcc  110 ble  111 bra
 ;   jmp  16-bit: PC low = operand, PC high = Y register (load Y first)
 ;   bra and conditional branches: 8-bit, PC low only (stay in the page)
+;   blt, bne, beq, ble test AC (blt: AC < 0, ble: AC <= 0).  For AC > 0
+;   or AC >= 0 branch the other way with ble or blt.
+;   bcs / bcc test the carry flag (Branch PLD rev 11): the carry out of
+;   the last ADD or SUB (inc and dec too) with an ac, x or y destination,
+;   a borrow for SUB (1 when A < B, unsigned).  Every other instruction,
+;   stores included, leaves it as it was.  shl (add ac, ac) puts AC bit 7
+;   in it.
 ;   Target may also be ac or x (computed branch), e.g.  jmp x
 ;   Target may also come from memory (indirect branch, source 01).  The
 ;   branch type in M2:M0 also picks the address mode, so each type
 ;   accepts one memory form:
 ;       jmp [0xNN]   bne [0xNN]   beq [0xNN]     zero page, [0,D]
-;       bgt [x]      ble [x]                     [0,X]
+;       bcs [x]      ble [x]                     [0,X]
 ;       blt [y,x]    bra [y,x]                   [Y,X]
-;   bge has no memory form.  MEM = 101 is also the zero-page store
+;   bcc has no memory form.  MEM = 101 is also the zero-page store
 ;   code, and the State PLD can't fetch the zero-page address for a
-;   branch.  bge with an immediate, ac or x target works.  bge ac and
-;   bge x are 2 bytes: the State PLD treats them like a zero-page
+;   branch.  bcc with an immediate, ac or x target works.  bcc ac and
+;   bcc x are 2 bytes: the State PLD treats them like a zero-page
 ;   store and fetches a byte after the opcode, so a pad byte (00)
 ;   follows (State PLD rev 11).
 ; ============================================================
@@ -114,19 +122,19 @@
 ; conditional / 8-bit branches
 #subruledef cond
 {
-    bgt => 0b001
+    bcs => 0b001
     blt => 0b010
     bne => 0b011
     beq => 0b100
-    bge => 0b101
+    bcc => 0b101
     ble => 0b110
     bra => 0b111
 }
 
-; the same without bge, whose ac / x form has a pad byte
+; the same without bcc, whose ac / x form has a pad byte
 #subruledef cond_reg
 {
-    bgt => 0b001
+    bcs => 0b001
     blt => 0b010
     bne => 0b011
     beq => 0b100
@@ -206,7 +214,7 @@
     ; ---------------- branches: PC low only ----------------
     ; the operand byte is at $+1, so PC high at execute = ($ + 2) >> 8
     {c:cond_reg} {s:reg_src} => 0b111 @ c @ s
-    bge {s:reg_src}          => 0b111 @ 0b101 @ s @ 0x00   ; pad byte
+    bcc {s:reg_src}          => 0b111 @ 0b101 @ s @ 0x00   ; pad byte
     {c:cond} {t} =>
     {
         0b111 @ c @ 0b00 @ t[7:0]
@@ -227,7 +235,7 @@
     {
         0b111 @ 0b100 @ 0b01 @ a[7:0]
     }
-    bgt [x]   => 0b111 @ 0b001 @ 0b01
+    bcs [x]   => 0b111 @ 0b001 @ 0b01
     ble [x]   => 0b111 @ 0b110 @ 0b01
     blt [y,x] => 0b111 @ 0b010 @ 0b01
     bra [y,x] => 0b111 @ 0b111 @ 0b01
