@@ -1,13 +1,16 @@
 -- ============================================================
 -- MEMORY READ AND WRITE STROBES
--- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 05)
--- Date: 10/16/2026
+-- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 06)
+-- Date: 10/18/2026
 --
 -- Replaces the '32 OR gate (/WE = RW or CLK) and the read enables
 -- of ROM/RAM select revision 03.  Every memory bus cycle uses the
--- low half of the clock only, so nothing drives the RAM data bus in
--- the high half and a read can't overlap the write buffer turning
--- off (see the PLD source and TIMING_FIXES.md).
+-- low half of the clock only, so the memories never drive the data
+-- bus in the high half (see the PLD source and TIMING_FIXES.md).
+--
+-- Revision 06: the RAM write-data buffer is gone and the source bus is
+-- the data bus.  The source F541s drive it in EXEC with pixelEnable = 0,
+-- so srcEn (pin 22, branch PLD pin 16) blocks CPU reads then.
 --
 -- Revision 02: mapRun (pin 19) is a register that powers up to 0 and
 -- loads 1 on every clock, so it is low from power-up to the first
@@ -27,7 +30,7 @@
 -- read by the video (mode bytes and the audio buffer).
 --
 --     write  = not rw and not pixelEnable
---     cpuRead   = rw and not pixelEnable
+--     cpuRead   = rw and not pixelEnable and not srcEn
 --     videoRead = pixelEnable
 --     weN    = low while clk = 0 and a write
 --     romOeN = low while clk = 0 and a CPU read of a ROM section
@@ -74,8 +77,9 @@ entity mem_ctrl_pld is
         pixelEnable : in  std_logic;   -- pin 23, Sync PLD PIXEL_ENABLE
         a11         : in  std_logic;   -- pin 20 (I/O pin used as input, revision 05)
         a10         : in  std_logic;   -- pin 21 (I/O pin used as input, revision 05)
+        srcEn       : in  std_logic;   -- pin 22, branch PLD pin 16, 1 = source F541s drive the bus (revision 06)
 
-        weN         : out std_logic;   -- pin 16, RAM /WE and write buffer enable
+        weN         : out std_logic;   -- pin 16, RAM /WE
         romOeN      : out std_logic;   -- pin 19, ROM /OE
         ramOeN      : out std_logic;   -- pin 18, RAM /OE
         mapRun      : out std_logic    -- pin 17, registered, map register /MR
@@ -116,7 +120,7 @@ begin
 
     -- ---------------- bus cycle ----------------
 
-    cpuRead   <= (not clk) and rw and (not pixelEnable);
+    cpuRead   <= (not clk) and rw and (not pixelEnable) and (not srcEn);
     videoRead <= (not clk) and pixelEnable;
 
     -- ---------------- equations ----------------

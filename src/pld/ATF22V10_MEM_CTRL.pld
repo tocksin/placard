@@ -1,7 +1,7 @@
 Name     MEM_CTRL;
 PartNo   00;
-Date     10/16/2026;
-Revision 05;
+Date     10/18/2026;
+Revision 06;
 Designer ;
 Company  ;
 Assembly ;
@@ -56,6 +56,24 @@ Device   g22v10;
       three terms (!A12, A11, A10), and the video read gained two
       (A11, A10): RAM_OE is 16 of 16 terms, ROM_OE 10 of 16.
 
+   ONE DATA BUS (revision 06)
+      The RAM write-data buffer is gone: the source bus is the
+      memory data bus.  The source F541s drive it for the whole of
+      EXEC when PIXEL_ENABLE = 0 (their '138 is enabled by Q0,
+      PC_ENABLE and PIXEL_ENABLE), so a CPU read must not happen
+      then.  SRC_EN (pin 22, from the branch PLD's pin 16) is the
+      same condition, and CPU_READ includes !SRC_EN.  The CPU never
+      needs memory data in EXEC: instructions load in FETCH, D in
+      LOAD_IMM and LOAD_MEM, and I/O reads are already limited to
+      the LOAD states (I/O decode PLD, RD = IO & RW & LOAD_IMM).
+
+      The read in the clock before EXEC ends at the rising edge,
+      and the memory can drive for up to about 14.5 ns after it
+      (/OE rise, then tOHZ), while the source F541s can turn on
+      about 7 ns after it.  That overlap of up to about 7 ns is
+      accepted; series resistors on the source F541 outputs limit
+      the current (CPU.md).
+
    THE RULE
       Every memory bus cycle, read or write, uses the LOW half of
       the clock only:
@@ -64,13 +82,13 @@ Device   g22v10;
           read   /RAM_OE  low while  CLK = 0 and a read of RAM
                  /ROM_OE  low while  CLK = 0 and a read of ROM
 
-      During the high half of every clock nothing drives the RAM
-      data bus.  The write buffer (enabled by /WE) turns off by
-      14 ns after the rising edge, and a read can't start until
-      the clock falls, about 20 ns after it, so a read straight
-      after a write can't fight the buffer.  The same gap at the
-      start of a write keeps the RAM off the bus before the buffer
-      turns on.
+      The memories drive the data bus only in the low half of a
+      clock.  The source F541s turn off by about 21 ns after the
+      edge that ends EXEC (State PLD 5.5, '138 enable 9, F541
+      disable 6.5), and a read can't start until the clock falls,
+      about 20 ns after it, plus this PLD's delay, so the read
+      after an EXEC doesn't fight them (about 1 ns to spare at a
+      47 % high half).  The overlap at the start of EXEC is above.
 
    WRITE
       RW (State PLD pin 23) is low for the whole EXEC state of a
@@ -91,7 +109,7 @@ Device   g22v10;
 
           READ = RW # PIXEL_ENABLE
 
-          CPU_READ   = RW & !PIXEL_ENABLE
+          CPU_READ   = RW & !PIXEL_ENABLE & !SRC_EN   (revision 06)
           VIDEO_READ = PIXEL_ENABLE
 
       ROM_OE  = CPU read of a section mapped to ROM
@@ -109,10 +127,10 @@ Device   g22v10;
       divided-down oscillator, leaves 2 ns at each end.
 
    PIN BUDGET
-      Inputs (14): CLK (pin 1, array input and MAP_RUN's clock),
-                   A15:A10, RAMSEL0-7, RW, PIXEL_ENABLE (17)
+      Inputs (18): CLK (pin 1, array input and MAP_RUN's clock),
+                   A15:A10, RAMSEL0-7, RW, PIXEL_ENABLE, SRC_EN
       Outputs (4): /ROM_OE, /RAM_OE, /WE, MAP_RUN
-      Unused: pin 22.
+      Unused: none.
       ROM_OE expands to 10 product terms (pin 19 has 16).
       RAM_OE expands to 16 product terms (pin 18 has 16): 10 for CPU
       reads and 6 for video reads outside the I/O window.
@@ -142,11 +160,12 @@ PIN 14 = RW;           /* State PLD pin 23, 0 = store (I/O pin used as input) */
 PIN 23 = PIXEL_ENABLE; /* Sync PLD pin 19 (I/O pin used as input) */
 PIN 20 = A11;          /* address mux output (I/O pin used as input, revision 05) */
 PIN 21 = A10;          /* address mux output (I/O pin used as input, revision 05) */
+PIN 22 = SRC_EN;       /* branch PLD pin 16, 1 = source F541s drive the bus (revision 06) */
 
 
 /* ---------------- OUTPUTS ---------------- */
 
-PIN 16 = !WE;          /* RAM /WE and write buffer enable */
+PIN 16 = !WE;          /* RAM /WE */
 PIN 19 = !ROM_OE;      /* ROM chips' /OE */
 PIN 18 = !RAM_OE;      /* RAM chips' /OE */
 PIN 17 = MAP_RUN;      /* registered: low from power-up to the first clock; map register /MR */
@@ -166,7 +185,7 @@ SEC7 =  A15 &  A14 &  A13;
 
 /* ---------------- BUS CYCLE ---------------- */
 
-CPU_READ   = !CLK & RW & !PIXEL_ENABLE;
+CPU_READ   = !CLK & RW & !PIXEL_ENABLE & !SRC_EN;
 VIDEO_READ = !CLK & PIXEL_ENABLE;
 
 

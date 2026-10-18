@@ -21,7 +21,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
-CHIPS_TOTAL = 41            # CHIPS.md, plus the 3.3 V regulator
+CHIPS_TOTAL = 40            # CHIPS.md, plus the 3.3 V regulator
 
 # fill colors by area
 CPU, CTRL, MEM, IO, VID, SND, DEV = ("#E4DAFF", "#FFF2BF", "#D3F6D8", "#FFE3C8",
@@ -88,7 +88,7 @@ mapr = box(152, 14, 30, 11, "Map register x5000", 1, "ACT273: ROM or RAM\nper 8 
 mc = box(186, 14, 31, 11, "Memory control", 1, "PLD: /WE, /RAM_OE,\n/ROM_OE from the map", MEM, fs=11.5)
 ram = box(152, 32, 30, 22, "RAM 64 KB", 2, "2 x AS7C256C\n(video reads RAM)", MEM, fs=14)
 rom = box(186, 32, 31, 22, "ROM 64 KB", 2, "2 x AS7C256C, battery,\non the ROM cartridge", MEM, fs=14)
-wb = box(152, 60, 30, 11, "RAM write buffer", 1, "F541: source bus\nonto the memory data", MEM, fs=11.5)
+wb = box(152, 60, 30, 11, "Bus resistors", None, "8 x R: the source bus is\nthe data bus in EXEC", DEV, fs=11.5)
 
 # ---------------------------------------------------------------- registers row
 sd = box(3, 50, 22, 16, "Source bus\ndrivers", 4, "3 x F541 + F138", CPU, fs=12)
@@ -141,7 +141,7 @@ wire([(14, 50), (14, 42), (148, 42)], SRC, lw=8, arrow=False, label="SOURCE BUS 
      lpos=(40, 42))
 wire([(62, 42), (62, 50)], SRC, lw=6)                      # ALU B
 wire([(87, 42), (87, 32)], SRC, lw=6, label="PC low", lpos=(91, 37), fs=10)
-wire([(144, 42), (144, 65.5), (152, 65.5)], SRC, lw=6)       # write buffer
+wire([(144, 42), (144, 65.5), (152, 65.5)], SRC, lw=6)       # series resistors
 wire([(137, 42), (137, 20), (152, 20)], SRC, lw=5, label="map", lpos=(137, 30), fs=9.5)
 wire([(144, 65.5), (144, 98), (40, 98), (40, 124)], SRC, lw=5,
      label="write data", lpos=(100, 98), fs=10)
@@ -150,7 +150,7 @@ wire([(144, 98), (200, 98), (200, 102)], SRC, lw=5)
 # data bus
 wire([(167, 54), (167, 57), (184, 57)], DATA, lw=6, arrow=False)
 wire([(201, 54), (201, 57), (184, 57)], DATA, lw=6, arrow=False)
-wire([(167, 60), (167, 57)], OTH, lw=4)                     # write buffer -> memory data
+wire([(167, 60), (167, 57)], OTH, lw=4)                     # series resistors -> memory data
 wire([(184, 57), (184, 74), (60, 74), (14, 74), (14, 76)], DATA, lw=9,
      label="DATA BUS (8)", lpos=(100, 74))
 wire([(41, 74), (41, 76)], DATA, lw=6)

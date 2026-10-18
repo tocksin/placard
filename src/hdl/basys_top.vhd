@@ -192,6 +192,7 @@ architecture Behavioral of basys_top is
     signal memRdWr          : sl;
     signal ramWeN           : sl;   -- RAM /WE, active low
     signal srcBus           : slv(7 downto 0);
+    signal srcEn            : std_logic;   -- branch PLD pin 16: source F541s drive the data bus
 
     signal dReg             : slv(7 downto 0) := x"00";
     signal instReg          : slv(7 downto 0) := x"00";
@@ -331,7 +332,8 @@ begin
         load_pc_high => loadPcHigh,
         branch_block => branchBlock,
         alu_done     => aluDone,
-        stall        => cpuStall
+        stall        => cpuStall,
+        srcEn        => srcEn
     );
     
     memMode <= "[0,D]" when instReg(4 downto 2)="000" else
@@ -637,6 +639,7 @@ begin
         pixelEnable => pixelEnAndRst,
         a11         => ramAddress(11),
         a10         => ramAddress(10),
+        srcEn       => srcEn,
 
         weN         => ramWeN,
         romOeN      => romOeN,
@@ -681,7 +684,7 @@ begin
                 iWrEn   => not ramWeN,    -- stand-in for the SRAM's active-low /WE pin
                 iRamEn  => '1',
                 iAddr   => ramAddress,
-                iData   => srcBus,        -- RAM write data comes from the source bus
+                iData   => srcBus,        -- RAM write data: the source bus is the data bus in EXEC
                 oData   => ramData);  -- must be same size as input data
 
     -- ROM or RAM on the read bus: the section decode of the memory control
@@ -842,7 +845,11 @@ begin
         end if;
     end process dRegProc;
 */
-    -- Source bus process - replaces the tri-state bus
+    -- Source bus process - replaces the tri-state bus.  On the board the
+    -- source bus and the memory data bus are one bus (no write-data
+    -- buffer): the source '138 is enabled only in EXEC with pixel enable
+    -- low (srcEn), and the memory control PLD blocks CPU reads then.  The
+    -- model keeps the two apart because it has no tri-state buses.
     srcBusProc : process (all)
     begin
         case (instReg(1 downto 0)) is

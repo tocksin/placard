@@ -1,6 +1,6 @@
 # Timing analysis at 25.175 MHz
 
-Date: 2026-10-15
+Date: 2026-10-18
 
 This is a static, worst-case timing analysis of the Placard as it sits in
 `src/hdl/basys_top.vhd` and the PLD sources in `src/pld`, for a real board
@@ -101,8 +101,8 @@ checked 2026-10-15 (stock moves, so recheck before ordering).
 | Address mux (`full_mux` = 2 × `quad_4to1_mux` per byte) | ATF22V10C-7PX | 4 | (above) |
 | `instReg`, `dReg`, `acReg`, `xReg`, `yReg`, `pixelBuffer` (D flip-flops with a load enable) | SN74F377AN | 6 | 764 |
 | `lineCode` (F377 on the system clock since TIMING_FIXES.md; originally an F574 clocked by `videoActiveR`), `videoActiveR` + `pixelSel` delay | SN74F377AN + SN74F574N | 1 + 1 | 764 / 466 |
-| Source bus (`srcBus` = D, AC or X, selected by `instReg(1:0)`) | 3 × SN74F541N + SN74F138N decoder | 4 | 724 / 375 |
-| RAM write-data buffer (source bus onto the RAM data pins, enabled by /WE, see CPU.md) | SN74F541N | 1 | (above) |
+| Source bus (`srcBus` = D, AC or X, selected by `instReg(1:0)`; since 2026-10-18 also the memory data bus, enabled only in EXEC, see CPU.md "One data bus") | 3 × SN74F541N + SN74F138N decoder | 4 | 724 / 375 |
+| RAM write-data buffer (source bus onto the RAM data pins, enabled by /WE; removed 2026-10-18, kept as a fallback in CPU.md) | SN74F541N | 1 | (above) |
 | `/WE = RW or CLK` (replaced in TIMING_FIXES.md by the memory control PLD, which also makes the ROM and RAM /OE) | SN74F32N | 1 | 494 |
 | ROM /OE from ROM_EN, /CE of the upper 32K chip from A15 (removed in TIMING_FIXES.md: both now come from PLDs) | SN74F04N | 1 | 514 |
 | 64 KB RAM | AS7C256C-15PCN (32K × 8, PDIP-28) | 2 | 232 |
@@ -113,8 +113,10 @@ one of them.  That adds a chip-select path that does not exist in the FPGA
 model (rank 5).
 
 **Logic levels**: 74F outputs guarantee only 2.5 V high (at 4.5 V, −1 mA),
-and the AS7C256C needs 2.4 V high on its inputs at 5 V.  The F541 write
-buffer meets this with 0.1 V to spare.  The ATF22V10C and AS7C256C outputs
+and the AS7C256C needs 2.4 V high on its inputs at 5 V.  The source F541s
+(the write-data buffer before 2026-10-18) meet this with 0.1 V to spare;
+the series resistors on the shared bus carry only input leakage, so they
+take almost nothing from it.  The ATF22V10C and AS7C256C outputs
 (2.4 V min) drive only TTL-level inputs (PLDs, 74F), so they are fine.  Do
 not put plain 74HC inputs on these buses.
 
@@ -232,6 +234,13 @@ Notes on the paths:
   address too, and each inverter in front of the RAM adds its full delay.
 
 ## RAM write cycle
+
+**Since 2026-10-18 there is no write-data buffer** (CPU.md, "One data
+bus"): the source F541s drive the RAM data pins directly for the whole of
+EXEC, enabled through the '138's G inputs from the State PLD (about 24 ns
+after the edge, 28.5 ns after a video stall clock), so write data is valid
+well before T + 2.2 − 8 = 33.9 ns.  The two data rows in the table below
+are the old buffer's; the address rows still apply.
 
 `/WE = RW | CLK` makes a write pulse during the low half of an EXEC write
 cycle, and the write-data buffer is enabled by /WE (CPU.md, "RAM write
