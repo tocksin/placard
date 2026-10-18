@@ -2,11 +2,11 @@
 
 Date: 2026-10-18
 
-Proposals 1 and 2 are not applied; proposal 3 was applied on 2026-10-18.
-The design was 41 chips plus a 3.3 V regulator and is now 40 (CHIPS.md).
+Proposal 1 is not applied; proposals 2 and 3 were applied on 2026-10-18.
+The design was 41 chips plus a 3.3 V regulator and is now 39 (CHIPS.md).
 Three changes remove a chip each; the rest of the design was checked and
 has no other chip to remove with parts in stock.  Per the standing note to
-hold optimization until the project is near done, 1 and 2 wait.
+hold optimization until the project is near done, 1 waits.
 
 ## Proposed
 
@@ -44,7 +44,11 @@ on pin 1 and puts out its inverse on pin 16:
   outputs).  That uses up spare pins kept for later features, so the mux
   version is better.
 
-### 2. The SD level shifter becomes three resistor dividers (-1)
+### 2. The SD level shifter becomes three resistor dividers (-1) — applied 2026-10-18
+
+Applied at Justin's request: 1.8k over 3.3k on SCK, MOSI and /CS (IO.md,
+"SD card"); MISO keeps its diode onto row 7 and needs no buffer.  The
+notes below are the proposal as written.
 
 The CD74HC4050E only shifts SCK, MOSI and /CS from 5 V to 3.3 V.  A
 divider per line (for example 1.8k from the latch, 3.3k to ground, giving
@@ -110,8 +114,8 @@ does not need a memory read in EXEC, so the two buses can be one:
   internally); the PLD files (branch, memory control) and CPU.md,
   TIMING.md and CHIPS.md change.
 
-With 3 applied the count is 40.  Adding 2 makes it 39; adding 1 as well
-(only if its clash with 3 is solved) makes it 38.
+With 2 and 3 applied the count is 39.  Adding 1 as well (only if its
+clash with 3 is solved) makes it 38.
 
 ## Checked and not worth it
 

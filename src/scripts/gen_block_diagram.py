@@ -21,7 +21,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
-CHIPS_TOTAL = 40            # CHIPS.md, plus the 3.3 V regulator
+CHIPS_TOTAL = 39            # CHIPS.md, plus the 3.3 V regulator
 
 # fill colors by area
 CPU, CTRL, MEM, IO, VID, SND, DEV = ("#E4DAFF", "#FFF2BF", "#D3F6D8", "#FFE3C8",
@@ -112,9 +112,9 @@ hp = box(136, 136, 24, 8, "Headphones", None, "", DEV, fs=11)
 
 # ---------------------------------------------------------------- I/O row
 iod = box(3, 102, 26, 14, "I/O decode", 1, "PLD: x5000-x53FF,\n/CE_HI for the ROM", IO, fs=12)
-port = box(3, 124, 68, 20, "Shared port x5200", 4,
+port = box(3, 124, 68, 20, "Shared port x5200", 3,
            "HC574 latch, port PLD (columns, pad DATA),\nF541 input (rows, MISO, PS/2),\n"
-           "CD74HC4050 to 3.3 V for the SD card", IO, fs=13)
+           "resistor dividers to 3.3 V for the SD card", IO, fs=13)
 kb = box(3, 149, 16, 9, "Keyboard", None, "8 x 8 matrix", DEV, fs=10.5)
 pads = box(21, 149, 16, 9, "2 SNES pads", None, "", DEV, fs=10.5)
 sdc = box(39, 149, 16, 9, "SD card", None, "+ 3.3 V reg.", DEV, fs=10.5)
