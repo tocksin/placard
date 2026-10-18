@@ -20,7 +20,7 @@ The project has some hard-goals to maintain:
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
 
 ## Block diagram
-Each block shows how many chips it uses (40 in all on the main board; the expansion and cartridge slots add none).  See [CHIPS.md](CHIPS.md) for the parts.
+Each block shows how many chips it uses (39 in all on the main board; the expansion and cartridge slots add none).  See [CHIPS.md](CHIPS.md) for the parts.
 
 ![Placard block diagram](reference/placard_block_diagram.png)
 
