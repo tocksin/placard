@@ -13,7 +13,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | # | Part number | Type | Function in the design |
 |--:|---|---|---|
 | 1 | ATF22V10C-7PX | PLD (22V10, 24-pin) | State machine: FETCH / LOAD / EXEC, register loads, R/W (`ATF22V10_STATE.pld`) |
-| 2 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Branch decode, LoadPCLow/High, ADD/SUB wait clock and STALL (`ATF22V10_BRANCH.pld`) |
+| 2 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Branch decode, LoadPCLow/High, ADD/SUB wait clock and STALL, SRC_EN to the memory control (`ATF22V10_BRANCH.pld`) |
 | 3 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Program counter, low byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
 | 4 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Program counter, high byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
 | 5 | ATF22V10C-7PX | PLD (22V10, 24-pin) | ALU, low nibble: 4-bit ALU with Z flag (`ALU_SHR.pld`) |
@@ -37,23 +37,22 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 23 | SN74F377AN | Octal D flip-flop with enable | Video line code (color mode for the line): D from the pixel buffer outputs, /E from /MODE_LD, so it copies the mode byte read in group 45 (see VIDEO.md); Q1:Q0 to the color decoder, Q3:Q2 to the audio slot PLD (line repeat) |
 | 24 | SN74F574N | Octal D flip-flop, 3-state | Video delay: H2:H0 pixel select and video active, two stages |
 | 25 | CD74ACT273E | Octal D flip-flop with clear | ROM/RAM map register at x5000 (write only, cleared to all ROM at power-up) |
-| 26 | SN74F541N | Octal buffer, 3-state | Source bus driver: D register |
+| 26 | SN74F541N | Octal buffer, 3-state | Source bus driver: D register (the source bus is also the memory data bus) |
 | 27 | SN74F541N | Octal buffer, 3-state | Source bus driver: accumulator |
 | 28 | SN74F541N | Octal buffer, 3-state | Source bus driver: X register |
-| 29 | SN74F541N | Octal buffer, 3-state | RAM write-data buffer: source bus onto the memory data pins, enabled by /WE |
-| 30 | SN74F541N | Octal buffer, 3-state | Video line read at x5000: V9:V2 onto the data bus, enabled by /LINE_RD |
-| 31 | SN74F138N | 3-to-8 decoder | Source bus select: enables one of the three source bus F541s from the instruction's bits 1:0 |
-| 32 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, lower 32K (x0000-x7FFF) |
-| 33 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, upper 32K (x8000-xFFFF) |
-| 34 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, lower 32K (interim: battery-backed SRAM) |
-| 35 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, upper 32K (interim: battery-backed SRAM) |
-| 36 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md) |
-| 37 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer when H_VIDEO_ACTIVE rises (start of group 48), drives the R-2R ladder, which drives headphones directly (all passive, see SOUND.md) |
-| 38 | SN74HC574N | Octal D flip-flop, 3-state | Shared port latch at x5200 (IO.md): SCK and pad CLOCK, MOSI and pad LATCH, SD /CS (also holds the PS/2 mouse off), PS/2 DATA, keyboard column code.  HC for a full 5 V high into the pads |
-| 39 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: keyboard columns /COL0-/COL7 from the latch, pad DATA onto D7/D6 on odd reads (`ATF22V10_PORT.pld`) |
-| 40 | SN74F541N | Octal buffer, 3-state | Shared port input on even reads: keyboard rows, with SD MISO and the PS/2 lines on rows 7, 6 and 5 |
-| 41 | CD74HC4050E | Hex buffer, high-to-low level shifter | SD card SCK, MOSI and /CS down to 3.3 V |
-| 42 | not chosen | 3.3 V regulator | Powers the SD card and the CD74HC4050E |
+| 29 | SN74F541N | Octal buffer, 3-state | Video line read at x5000: V9:V2 onto the data bus, enabled by /LINE_RD |
+| 30 | SN74F138N | 3-to-8 decoder | Source bus select: enables one of the three source bus F541s from the instruction's bits 1:0, only in EXEC with PIXEL_ENABLE low (G1 = Q0, /G2A = PC_ENABLE, /G2B = PIXEL_ENABLE) |
+| 31 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, lower 32K (x0000-x7FFF) |
+| 32 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, upper 32K (x8000-xFFFF) |
+| 33 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, lower 32K (interim: battery-backed SRAM) |
+| 34 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, upper 32K (interim: battery-backed SRAM) |
+| 35 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md) |
+| 36 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer when H_VIDEO_ACTIVE rises (start of group 48), drives the R-2R ladder, which drives headphones directly (all passive, see SOUND.md) |
+| 37 | SN74HC574N | Octal D flip-flop, 3-state | Shared port latch at x5200 (IO.md): SCK and pad CLOCK, MOSI and pad LATCH, SD /CS (also holds the PS/2 mouse off), PS/2 DATA, keyboard column code.  HC for a full 5 V high into the pads |
+| 38 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: keyboard columns /COL0-/COL7 from the latch, pad DATA onto D7/D6 on odd reads (`ATF22V10_PORT.pld`) |
+| 39 | SN74F541N | Octal buffer, 3-state | Shared port input on even reads: keyboard rows, with SD MISO and the PS/2 lines on rows 7, 6 and 5 |
+| 40 | CD74HC4050E | Hex buffer, high-to-low level shifter | SD card SCK, MOSI and /CS down to 3.3 V |
+| 41 | not chosen | 3.3 V regulator | Powers the SD card and the CD74HC4050E |
 
 ### Tally
 
@@ -63,19 +62,28 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | SN74F377AN | Octal D flip-flop with enable | 7 |
 | SN74F574N | Octal D flip-flop, 3-state | 1 |
 | CD74ACT273E | Octal D flip-flop with clear | 1 |
-| SN74F541N | Octal buffer, 3-state | 6 |
+| SN74F541N | Octal buffer, 3-state | 5 |
 | SN74F138N | 3-to-8 decoder | 1 |
 | AS7C256C-15PCN | SRAM, 32K x 8 | 4 |
 | SN74HCT574N | Octal D flip-flop, 3-state | 1 |
 | SN74HC574N | Octal D flip-flop, 3-state | 1 |
 | CD74HC4050E | Hex buffer / level shifter | 1 |
-| **Total** | | **41 + a 3.3 V regulator** |
+| **Total** | | **40 + a 3.3 V regulator** |
 
 **Not counted, not chosen yet:** the 25.175 MHz clock oscillator, and the
 battery and power-fail switch that hold the interim ROM's /CE high while
 power is off (CPU.md, "Memory parts").  The SN74F32 and SN74F04 in older
 versions of TIMING.md were removed (the memory control and I/O decode PLDs
 took their jobs), and the ROM/RAM select PLD became the CD74ACT273E.
+Also not counted: the series resistors (8, one per bit, for example a
+bussed or isolated resistor array) between the source F541 outputs and
+the data bus, which limit the current while the bus changes hands at the
+start of EXEC (CPU.md, "One data bus").
+
+**Removed 2026-10-18: the RAM write-data buffer** (an SN74F541N, source
+bus onto the RAM data pins, enabled by /WE).  The source bus is now the
+memory data bus.  It is kept as a fallback for the prototype: see CPU.md,
+"Fallback: the write-data buffer".
 
 ## Future features
 

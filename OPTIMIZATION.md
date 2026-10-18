@@ -2,11 +2,11 @@
 
 Date: 2026-10-18
 
-A proposal, not applied.  The design is 41 chips plus a 3.3 V regulator
-(CHIPS.md).  Two changes remove a chip each without giving up anything;
-the rest of the design was checked and has no other chip to remove with
-parts in stock.  Per the standing note to hold optimization until the
-project is near done, nothing here changes a source file yet.
+Proposals 1 and 2 are not applied; proposal 3 was applied on 2026-10-18.
+The design was 41 chips plus a 3.3 V regulator and is now 40 (CHIPS.md).
+Three changes remove a chip each; the rest of the design was checked and
+has no other chip to remove with parts in stock.  Per the standing note to
+hold optimization until the project is near done, 1 and 2 wait.
 
 ## Proposed
 
@@ -57,7 +57,61 @@ a 12 ns edge.  Many 5 V SD adapters work this way.
   threshold (0.625 x 3.3 V = 2.1 V) is met with margin.
 - The 3.3 V regulator stays: the card needs it.
 
-With both, the count goes from 41 to **39 chips plus the regulator**.
+With 1 and 2, the count goes from 41 to **39 chips plus the regulator**.
+
+### 3. One bus: drop the RAM write-data buffer (-1) — applied 2026-10-18
+
+Applied at Justin's request (branch PLD revision 10, memory control PLD
+revision 06, CPU.md "One data bus"), with the write-data buffer kept as
+a fallback for the prototype (CPU.md, "Fallback: the write-data
+buffer").  The notes below are the proposal as written.
+
+
+Today the source bus (D, AC or X through three F541s) is driven all the
+time and the RAM/ROM data bus is separate; the write F541 (CHIPS.md chip
+29) joins them only while /WE is low.  The source bus is only needed in
+EXEC (ALU, PC low byte, store data, map and port latches), and the CPU
+does not need a memory read in EXEC, so the two buses can be one:
+
+- **Source drivers on only in EXEC, off during video reads.**  The source
+  '138's three enables are unused today: G1 = Q0, /G2A = PC_ENABLE (!Q1),
+  /G2B = PIXEL_ENABLE.  No new logic.
+- **No CPU memory read in EXEC.**  The branch PLD already has Q0,
+  PC_ENABLE and PIXEL_ENABLE; one of its free pins (14-16) outputs
+  `SRC_EN = Q0 & !PC_ENABLE & !PIXEL_ENABLE` into the memory control PLD's
+  free pin 22, and `CPU_READ` gains `& !SRC_EN`.  The I/O read strobes are
+  already limited to the LOAD states (`RD = IO & RW & LOAD_IMM`,
+  ATF22V10_IO_DECODE.pld).
+- **Timing (estimated, not in TIMING.md yet).**  Source bus valid about
+  24 ns into EXEC (State PLD tCO 5.5, '138 enable 9 assumed, F541 enable
+  9.5): the same as today's FETCH→EXEC path, a single-clock logic op still
+  fits (+6), and store data is valid well before the end of the write.
+  LOAD→EXEC with source D gets later (D clock-to-Q + F541 was 16.5 ns).
+  After a video stall PIXEL_ENABLE falls at 10 ns, so the bus is valid at
+  about 28.5 ns; a single-clock logic op then has about +1.7.
+- **Cost: bus overlap at the start of EXEC.**  The read in the clock
+  before EXEC ends at the rising edge, but the RAM/ROM can drive for up to
+  about 14.5 ns after it (/OE rise plus tOHZ), while the source F541s can
+  turn on about 7 ns after it.  Up to about 7 ns of contention on every
+  instruction, the kind TIMING_FIXES.md removed.  Justin (2026-10-18):
+  acceptable with series resistors to limit the current, for example a
+  resistor array between the three source F541 outputs and the shared bus.
+  Size them against the extra RC delay on the ALU path (for example 47 R
+  into about 50 pF is about 2.4 ns).
+- **Map and port latches** load at the end of a write, up to 7.5 ns after
+  the edge; the source drivers can turn off about 7 ns after it, so the
+  bus floats for a moment (the 10k pull-ups hold it).  Check the hold.
+- **Clashes with proposal 1.**  Without the '138 there are no spare
+  enables; the gating would have to come through the high mux PLDs, and a
+  PLD-to-PLD path (branch PLD then mux PLD) leaves only about +0.2 ns for
+  a logic op.  Take one or the other, or feed Q0 and PC_ENABLE to the mux
+  PLDs directly.
+- **FPGA model:** no change needed in behaviour (it keeps the buses apart
+  internally); the PLD files (branch, memory control) and CPU.md,
+  TIMING.md and CHIPS.md change.
+
+With 3 applied the count is 40.  Adding 2 makes it 39; adding 1 as well
+(only if its clash with 3 is solved) makes it 38.
 
 ## Checked and not worth it
 

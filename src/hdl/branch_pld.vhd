@@ -1,6 +1,6 @@
 -- ============================================================
--- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 09)
--- Date: 10/15/2026
+-- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 10)
+-- Date: 10/18/2026
 --
 -- Branch / jump control, plus the ALU wait clock (Rev 06, Rev 07).
 --
@@ -21,6 +21,10 @@
 -- Rev 09: branch_block = i7 and i6 and i5, straight from the instruction
 -- register, so the State PLD's mem_wr settles early in EXEC (see the PLD
 -- source).  The State PLD only uses branch_block in EXEC.
+--
+-- Rev 10: srcEn (pin 16) = exec and not pixel_enable, the time the
+-- source F541s drive the one data bus (the RAM write-data buffer is
+-- gone).  It goes to the memory control PLD, which blocks CPU reads.
 --
 -- Equations are transcribed directly from the PLD source
 -- without optimization.  All pins are kept as individual
@@ -67,7 +71,7 @@
 --   4  m2            5  m1            6  m0
 --   7  z_low         8  neg           9  pixel_enable
 --  10  q0           11  pc_enable    13  z_high
---  14-16 not used
+--  14-15 not used   16  srcEn
 --  18  alu_done     19  stall
 --  21  load_pc_low  22  load_pc_high 23  branch_block
 -- ============================================================
@@ -102,7 +106,8 @@ entity branch_pld is
         branch_block  : out std_logic;   -- pin 23
 
         alu_done      : out std_logic;   -- pin 18, registered
-        stall         : out std_logic    -- pin 19
+        stall         : out std_logic;   -- pin 19
+        srcEn         : out std_logic    -- pin 16, source F541s drive the bus
     );
 end entity branch_pld;
 
@@ -147,6 +152,11 @@ begin
     -- Equations
     -- --------------------------------------------------------
     branch_block <= i7 and i6 and i5;
+
+    -- --------------------------------------------------------
+    -- Source bus enable (Rev 10)
+    -- --------------------------------------------------------
+    srcEn <= exec and not pixel_enable;
 
     load_pc_high <= branch_a and not m2 and not m1 and not m0;            -- JMP
 

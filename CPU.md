@@ -88,7 +88,7 @@ control PLD (ATF22V10_MEM_CTRL.pld) makes the write strobe and both read
 enables from it, the clock and PIXEL_ENABLE:
 
     WRITE   = !RW & !PIXEL_ENABLE
-    READ    = RW # PIXEL_ENABLE
+    READ    = (RW & !SRC_EN) # PIXEL_ENABLE   (SRC_EN: EXEC, see "One data bus")
     /WE     low when CLK = 0 and WRITE
     /RAM_OE low when CLK = 0 and READ of a RAM section
     /ROM_OE low when CLK = 0 and READ of a ROM section
@@ -99,14 +99,86 @@ high at the rising edge, before the state, address and data change (the
 SRAM's write recovery and data hold times are 0 ns).  At 25 MHz the pulse is
 about 20 ns, which suits a 10-15 ns SRAM.
 
-Avoiding bus contention on the RAM data pins: the buffer that drives the
-source bus onto them is enabled only by the write pulse itself (its enable is
-/WE).  Because no memory drives the bus during the high half of any clock,
-the RAM and ROM are off before the buffer turns on at the start of a write,
-and the buffer is off before a read can start after a write.  The clock's
-high half must be 47-54 % of the period (TIMING_FIXES.md).  Do not enable the
-buffer with RW alone.  The FPGA model keeps the read bus (ROM/RAM data) and
-the source bus separate because it cannot use tri-state buses.
+### One data bus
+
+The source bus is also the memory data bus: there is no separate buffer
+between the CPU's source registers and the RAM data pins (the RAM
+write-data buffer was removed on 2026-10-18).  The bus has two kinds of
+owner:
+
+- **The memories and I/O read buffers**, in the low half of a FETCH,
+  LOAD_IMM or LOAD_MEM clock (and of any video read clock), when /RAM_OE,
+  /ROM_OE or an I/O read strobe is low.
+- **The source F541s (D, AC or X)**, for the whole of EXEC while
+  PIXEL_ENABLE is low.  The source '138 is enabled by G1 = Q0,
+  /G2A = PC_ENABLE (!Q1) and /G2B = PIXEL_ENABLE, so it picks a source
+  only in EXEC, and a video read clock (including a stall in EXEC) turns
+  every source F541 off.
+
+The CPU never needs memory data in EXEC: the instruction loads in FETCH,
+D in LOAD_IMM or LOAD_MEM, and the I/O read strobes already need LOAD_IMM.
+The branch PLD's SRC_EN (pin 16, `EXEC & !PIXEL_ENABLE`) goes to the
+memory control PLD (pin 22), which leaves a CPU read out of any clock
+with SRC_EN high.  The ALU's B input, the PC low byte, the map register,
+the port latch and a store's write data all read the bus in EXEC, when
+the source drives it.
+
+Changing hands:
+
+- **Start of EXEC (accepted overlap).**  The read in the clock before EXEC
+  ends at the rising edge, but the memory can still drive for up to about
+  14.5 ns after it (memory control PLD 7.5, then tOHZ 7), and the source
+  F541 can turn on as early as about 7 ns after it.  So the two can drive
+  the bus against each other for up to about 7 ns per instruction.
+  **Series resistors** (one per bit, between the joined outputs of the
+  three source F541s and the bus) limit that current; size them against
+  the RC delay they add to the ALU path (47 ohms into about 50 pF is
+  about 2.4 ns).
+- **End of EXEC.**  The source F541s turn off by about 21 ns after the edge
+  (State PLD 5.5, '138 enable 9, F541 disable 6.5); the next read starts
+  when the clock falls, about 20 ns after it, plus the memory control
+  PLD's delay.  About 1 ns to spare at a 47 % high half.
+- **End of a write.**  /WE rises (memory control PLD) and /MAP_WR or
+  /PORT_WR rises (I/O decode PLD) at most 7.5 ns after the edge; the
+  source F541s can turn off a little before that at minimum delays.  The
+  bus then floats for a moment and holds its level (the 10k pull-ups and
+  the bus capacitance), and the SRAM's data hold time is 0 ns.
+
+Timing with the source enabled only in EXEC (estimated, '138 enable to
+output taken as 9 ns): the bus is valid about 24 ns into EXEC, the same
+as the FETCH→EXEC path before this change, so a single-clock logic op
+still fits; LOAD→EXEC with source D now waits for the enable too (was
+16.5 ns).  After a video stall PIXEL_ENABLE falls about 10 ns into the
+clock, so the bus is valid at about 28.5 ns, which leaves a single-clock
+logic op about 1.7 ns.  A store's data is valid long before the end of
+the write (needed by T + 2.2 - 8 = 33.9 ns).
+
+The FPGA model keeps the read bus (ROM/RAM data) and the source bus
+separate because it cannot use tri-state buses.
+
+### Fallback: the write-data buffer
+
+If the prototype has trouble with the shared bus (the start-of-EXEC
+overlap, or noise from it), put the buffer back.  This is how the design
+was before 2026-10-18:
+
+- **Two buses.**  The three source F541s drive the source bus all the
+  time (the '138's G1 tied high, /G2A and /G2B tied low), and it feeds
+  the ALU B input, the PC low byte, the map register and the port latch
+  only.  The RAM/ROM data pins, the I/O read buffers, the IR, D and the
+  pixel buffer are on a separate memory data bus.
+- **One more SN74F541N** (the write-data buffer): A inputs on the source
+  bus, Y outputs on the memory data bus, both /OE pins on /WE (memory
+  control PLD pin 16), so it drives only during the write pulse.  Every
+  memory cycle uses only the low half of the clock, so there is a dead
+  time on both sides of the pulse and no overlap.
+- **PLDs.**  The memory control PLD's pin 22 (SRC_EN) is tied low (or
+  revision 05 is used), so a CPU read can happen in EXEC again (it is
+  harmless then).  The branch PLD's SRC_EN output can stay; nothing reads
+  it.
+- **Timing** (TIMING.md, "RAM write cycle", as it was): write data valid
+  is the F541 enable plus tDW, 9.5 + 8 = 17.5 ns against the 19.86 ns
+  pulse.
 
 ## Source mode
 
@@ -117,7 +189,8 @@ source is placed on the source bus.
 - D register containing a memory value
 - Accumulator 
 
-The source bus is how the CPU writes data back into the RAM.  It's possible to
+The source bus is how the CPU writes data back into the RAM (it is the
+memory data bus in EXEC, see "One data bus").  It's possible to
 read a location from the ROM and then write it back to the RAM in one
 instruction.
 

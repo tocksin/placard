@@ -1,7 +1,7 @@
 Name     BRANCH_CTRL;
 PartNo   00;
-Date     10/15/2026;
-Revision 09;
+Date     10/18/2026;
+Revision 10;
 Designer ;
 Company  ;
 Assembly ;
@@ -106,6 +106,14 @@ Device   g22v10;
    result, so it does not wait.
 
    Pin 1 is now the register clock, so I7 moved to pin 17.
+
+   SOURCE BUS ENABLE (revision 10)
+   The RAM write-data buffer is gone: the source bus and the memory
+   data bus are one bus.  The source F541s drive it only in EXEC
+   with PIXEL_ENABLE = 0 (the source '138's enables take Q0,
+   PC_ENABLE and PIXEL_ENABLE straight from their pins).  SRC_EN is
+   the same condition for the memory control PLD, which blocks CPU
+   memory reads while the source drivers own the bus.
    ============================================================ */
 
 
@@ -140,6 +148,7 @@ PIN 23 = BRANCH_BLOCK;    /*  1 product term,  pin has  8 */
 
 PIN 18 = ALU_DONE;        /* registered, 3 product terms */
 PIN 19 = STALL;           /* 3 product terms, pin has 16 */
+PIN 16 = SRC_EN;          /* 1 product term, to memory control PLD pin 22 */
 
 
 /* ---------------- COMMON TERMS ---------------- */
@@ -163,6 +172,8 @@ STALL = PIXEL_ENABLE
       # EXEC & ADDSUB_REG & !ALU_DONE;
 
 BRANCH_BLOCK = I7 & I6 & I5;
+
+SRC_EN = EXEC & !PIXEL_ENABLE;
 
 LOAD_PC_HIGH = BRANCH_A & !M2 & !M1 & !M0;                       /* JMP */
 
