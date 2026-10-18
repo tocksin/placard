@@ -30,8 +30,10 @@
 ;   10-17      R0-R7         caller    arguments and results
 ;   18-1F      T0-T7         library   scratch, any library routine may
 ;                                      change these
-;   20-9F      (free)        program   128 bytes for the program's own
+;   20-8F      (free)        program   112 bytes for the program's own
 ;                                      variables
+;   90-9E      SND_*         sound     sound driver state (placard_snd.asm)
+;   9F         (spare)       sound     kept for the sound driver
 ;   A0-A7      KBD_NOW       keyboard  rows of each column, 0 = key down
 ;   A8-AF      KBD_BUF       keyboard  key buffer, 8 characters
 ;   B0         KBD_HEAD      keyboard  next free place in KBD_BUF
@@ -54,14 +56,14 @@
 ;     its documentation lists as outputs or as changed.
 ;   - T0-T7 are scratch.  Any library routine may change any of them, so
 ;     never keep a value in a T register across a call.
-;   - Program variables go in 20-9F.  Add them to the program, not here,
+;   - Program variables go in 20-8F.  Add them to the program, not here,
 ;     unless every program needs them.  A0-BF belong to the I/O drivers
-;     (placard_io.asm); a program that never calls them may use those
-;     bytes too.
+;     (placard_io.asm) and 90-9F to the sound driver (placard_snd.asm);
+;     a program that never calls them may use those bytes too.
 ;   - The stack may grow down past C0 into the program area if a program
 ;     nests deeper than 64 bytes; nothing checks for that.
 ;
-; Date: 10/17/2026
+; Date: 10/18/2026
 ; ============================================================
 
 LINK_LO    = 0x04
@@ -110,6 +112,23 @@ IO_T0      = 0xB9
 IO_T1      = 0xBA
 IO_T2      = 0xBB
 IO_T3      = 0xBC
+
+SND_ZP     = 0x90       ; first byte of the sound driver's variables
+SND_PL     = 0x90       ; next buffer byte to write, low
+SND_PH     = 0x91       ; and high
+SND_VEC    = 0x92       ; low byte of the sample maker for the sound playing
+SND_ACL    = 0x93       ; phase, low 7 bits (tone, noise, sample)
+SND_ACH    = 0x94       ; phase high byte; noise: LFSR high; sample: source low
+SND_INL    = 0x95       ; step, low 7 bits; sample: rate
+SND_INH    = 0x96       ; step high byte; noise: LFSR low; sample: source high
+SND_HIGH   = 0x97       ; level when the wave is high, 80h + volume
+SND_LOW    = 0x98       ; level when the wave is low, 80h - volume
+SND_VOL    = 0x99       ; volume, 0-127
+SND_DECAY  = 0x9A       ; volume taken off every frame
+SND_FRAMES = 0x9B       ; frames left, 0 = until stopped
+SND_LENL   = 0x9C       ; sample: bytes left, low
+SND_LENH   = 0x9D       ; and high
+SND_CLEAN  = 0x9E       ; silent buffer laps, 2 = the buffer is all 80h
 
 USER_ZP    = 0x20       ; first free byte for program variables
 IO_ZP      = 0xA0       ; first byte of the I/O drivers' variables

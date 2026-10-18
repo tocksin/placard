@@ -378,7 +378,7 @@ def t_plot1(lib, n):
     c = lib.cpu()
     pts = {(0, 0), (639, 479), (7, 223), (8, 224), (300, 255), (300, 256), (632, 0)}
     pts |= {(random.randrange(640), random.randrange(480)) for _ in range(n)}
-    model = bytearray(65536)
+    model = bytearray(c.mem)        # the library's bank 2 sits at xE000 here
     for (x, y) in sorted(pts):
         c, k = lib.call('plot1', ac=1, cpu=c, zp={'R0': x, 'R1': x >> 8, 'R2': y, 'R3': y >> 8})
         STATS.add('plot1', k)
@@ -393,7 +393,7 @@ def t_plot1(lib, n):
     c = lib.cpu()
     for r in range(480):
         c.mem[mode_addr(r)] = 0x08 if r < 96 else (0x04 if r >= 240 else 0x00)
-    model = bytearray(65536)
+    model = bytearray(c.mem)
     for (x, y) in sorted(pts):
         c, k = lib.call('plot1', ac=1, cpu=c, zp={'R0': x, 'R1': x >> 8, 'R2': y, 'R3': y >> 8})
         STATS.add('plot1 mixed', k)
