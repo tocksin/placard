@@ -56,7 +56,7 @@ basys_top.vhd (low nibble CIN = 0, high nibble CIN = low nibble COUT, low
 SHIFT_RIGHT_IN = AC bit 4, high SHIFT_RIGHT_IN = 0).  The default is an ideal
 8-bit ALU (A - B is a true 8-bit subtraction).
 
-Date: 10/17/2026
+Date: 10/18/2026
 """
 
 import re
@@ -682,12 +682,13 @@ def build_rom(prog, base_dir=None):
     for a, v in lib.items():
         if LIB_START <= a < LIB_END:
             rom[ROM_IMAGE_BASE + a] = v
-    for a in prog:
-        if a >= IMAGE_SIZE:
+    for a, v in prog.items():
+        if a >= IMAGE_SIZE and v and not (LIB2_START <= a < LIB2_END and v == lib.get(a, 0)):
             raise AsmError('program byte at %04X is past the RAM image (x0000-x%04X)'
                            % (a, IMAGE_SIZE - 1))
     # the program's hex is padded with 00 from x0000 to its last byte
-    for a in range(max(prog) + 1 if prog else 0):
+    top = max((a for a in prog if a < IMAGE_SIZE), default=-1)
+    for a in range(top + 1):
         rom[ROM_IMAGE_BASE + a] = prog.get(a, 0)
     return rom
 

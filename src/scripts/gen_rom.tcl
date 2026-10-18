@@ -195,9 +195,11 @@ proc gen_rom {outFile} {
             set rom([expr {$::ROM_IMAGE_BASE + $a}]) $rom($a)
         }
         # customasm pads to the last byte, so only the bytes past the image
-        # that are not 0 are an error
+        # that are not 0 (or the program's own copy of library bank 2) are
+        # an error.  A RAM image runs with map FF, so it can't call bank 2.
         for {set a $::IMAGE_SIZE} {$a < $n} {incr a} {
-            if {[lindex $bytes $a] != 0} {
+            set b [lindex $bytes $a]
+            if {$b != 0 && !($a >= $::LIB2_START && $a < $::LIB2_END && $b == $rom($a))} {
                 error "gen_rom: program byte at [format %04X $a] is past the RAM\
                        image (x0000-[format %04X [expr {$::IMAGE_SIZE - 1}]])"
             }
