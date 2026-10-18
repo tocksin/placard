@@ -110,13 +110,13 @@ NPAGES     = 47         ; RAM test pages per pass
 NPAT       = 14         ; RAM test patterns per page
 
 ; tables (ROM)
-EXP2_LO    = 0xF000     ; font expansion, test_screen_tables.asm
-EXP2_HI    = 0xF100
-EXP4_0     = 0xF200
-EXP4_1     = 0xF300
-EXP4_2     = 0xF400
-EXP4_3     = 0xF500
-TBL        = 0xF600     ; small tables, one page (see the end of this file)
+EXP2_LO    = 0x9000     ; font expansion, test_screen_tables.asm
+EXP2_HI    = 0x9100
+EXP4_0     = 0x9200
+EXP4_1     = 0x9300
+EXP4_2     = 0x9400
+EXP4_3     = 0x9500
+TBL        = 0x9600     ; small tables, one page (see the end of this file)
 
 ; ===========================================================================
 ; main: draw the screen, then run the frame loop

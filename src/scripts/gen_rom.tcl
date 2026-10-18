@@ -10,7 +10,9 @@
 #     x2000-x2FFF   I/O drivers (runs in place)            rom_lib.hex
 #     x3000-x37FF   standard library code (runs in place)  rom_lib.hex
 #     x3800-x3FFF   standard font                          rom_lib.hex
-#     x6000-xFBFF   ROM program (runs in place, entry x6000) the program
+#     x6000-xDFFF   ROM program (runs in place, entry x6000) the program
+#     xE000-xFBFF   library bank 2: jump table page, sound,     rom_lib.hex
+#                   FAT, expansion slots (runs in place)
 #     xFC00         boot mode: 00 = ROM program, 01 = RAM image
 #     xFD00-xFE07   boot loader                             rom_boot.hex
 #
@@ -49,7 +51,9 @@ set IO_START        [expr {0x2000}] ;# IO_CODE in placard_io.asm (ROM programs o
 set LIB_START       [expr {0x3000}] ;# LIB_CODE in placard_lib.asm
 set LIB_END         [expr {0x4000}] ;# end of LIB_FONT
 set PROG_START      [expr {0x6000}] ;# ROM program area and entry
-set PROG_END        [expr {0xFC00}] ;# end of the ROM program area
+set PROG_END        [expr {0xE000}] ;# end of the ROM program area
+set LIB2_START      [expr {0xE000}] ;# LIB2_CODE in placard_lib.asm: library bank 2
+set LIB2_END        [expr {0xFC00}] ;# end of library bank 2
 set BOOT_MODE       [expr {0xFC00}] ;# 00 = ROM program, 01 = RAM image
 
 # ---------------------------------------------------------------------------
@@ -113,7 +117,7 @@ proc gen_rom {outFile} {
     }
     set a 0
     foreach b [read_asm_bytes $bootFile] {
-        if {$b != 0 && $a >= $::IO_START && $a < $::BOOT_MODE} {
+        if {$b != 0 && $a >= $::IO_START && $a < $::LIB_END} {
             error "gen_rom: rom_boot.hex has a byte at [format %04X $a],\
                    in the library or program area"
         }
@@ -128,6 +132,11 @@ proc gen_rom {outFile} {
     }
     set lib [read_asm_bytes $libFile]
     for {set a $::IO_START} {$a < $::LIB_END} {incr a} {
+        if {$a < [llength $lib]} {
+            set rom($a) [lindex $lib $a]
+        }
+    }
+    for {set a $::LIB2_START} {$a < $::LIB2_END} {incr a} {
         if {$a < [llength $lib]} {
             set rom($a) [lindex $lib $a]
         }
@@ -166,7 +175,8 @@ proc gen_rom {outFile} {
         for {set a $::PROG_START} {$a < $n} {incr a} {
             set b [lindex $bytes $a]
             if {$a >= $::PROG_END} {
-                if {$b != 0} {
+                # the program's own copy of library bank 2 is not program
+                if {$b != 0 && !($a >= $::LIB2_START && $a < $::LIB2_END && $b == $rom($a))} {
                     error "gen_rom: program byte at [format %04X $a] is past the ROM\
                            program area (6000-[format %04X [expr {$::PROG_END - 1}]])"
                 }
@@ -185,9 +195,11 @@ proc gen_rom {outFile} {
             set rom([expr {$::ROM_IMAGE_BASE + $a}]) $rom($a)
         }
         # customasm pads to the last byte, so only the bytes past the image
-        # that are not 0 are an error
+        # that are not 0 (or the program's own copy of library bank 2) are
+        # an error.  A RAM image runs with map FF, so it can't call bank 2.
         for {set a $::IMAGE_SIZE} {$a < $n} {incr a} {
-            if {[lindex $bytes $a] != 0} {
+            set b [lindex $bytes $a]
+            if {$b != 0 && !($a >= $::LIB2_START && $a < $::LIB2_END && $b == $rom($a))} {
                 error "gen_rom: program byte at [format %04X $a] is past the RAM\
                        image (x0000-[format %04X [expr {$::IMAGE_SIZE - 1}]])"
             }

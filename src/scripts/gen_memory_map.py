@@ -9,7 +9,7 @@ Needs matplotlib (python3 -m pip install matplotlib).  The regions are typed
 in below from README.md (Memory Map), VIDEO.md (Mode byte), SOUND.md and
 LIBRARY.md; update them here when the map changes and rerun.
 
-Date: 2026-10-16
+Date: 2026-10-18
 """
 import os
 import matplotlib
@@ -68,15 +68,15 @@ def bar(ax, regions, title, heights=None, width=1.0, label_x=1.08, fs=10.5):
 axA = fig.add_axes([0.02, 0.05, 0.20, 0.80])
 full = [
     (0x0000, 0x1FFF, C["free"], "map bit 0\nzero page + program", "0"),
-    (0x2000, 0x3FFF, C["lib"], "map bit 1\nstd library (ROM)", "1"),
+    (0x2000, 0x3FFF, C["lib"], "map bit 1\nI/O drivers + library\n+ font (ROM)", "1"),
     (0x4000, 0x4FFF, C["free"], "map bit 2: free program RAM", "2"),
     (0x5000, 0x53FF, C["io"], "I/O window (no map bit)", "I/O"),
     (0x5400, 0x5FFF, C["mode"], "map bit 2: line codes, audio", "2"),
-    (0x6000, 0x7FFF, C["video"], "map bit 3\nvideo RAM\nprogram ROM", "3"),
+    (0x6000, 0x7FFF, C["video"], "map bit 3\nvideo RAM\nprogram ROM x6000-xDFFF", "3"),
     (0x8000, 0x9FFF, C["video"], "map bit 4\nvideo RAM", "4"),
     (0xA000, 0xBFFF, C["video"], "map bit 5\nvideo RAM", "5"),
     (0xC000, 0xDFFF, C["video"], "map bit 6\nvideo RAM", "6"),
-    (0xE000, 0xFFFF, C["video"], "map bit 7\nvideo RAM", "7"),
+    (0xE000, 0xFFFF, C["video"], "map bit 7\nvideo RAM\nlibrary bank 2 (ROM)", "7"),
 ]
 bar(axA, full, "Whole address space (to scale)")
 axA.set_ylim(0x10000 + 0x900, 0)
@@ -86,15 +86,16 @@ axA.text(0.5, 0x10000 + 0x300, "box number = map bit", ha="center", va="top", fo
 axB = fig.add_axes([0.25, 0.05, 0.19, 0.80])
 low = [
     (0x0000, 0x00FF, C["zp"], "Zero page (see below)", None),
-    (0x0100, 0x2FFF, C["free"], "Program RAM x0100-x1FFF\n(x2000-x3FFF: RAM under\nthe library ROM)", None),
+    (0x0100, 0x1FFF, C["free"], "Program RAM x0100-x1FFF\n(x0100: card boot code)", None),
+    (0x2000, 0x2FFF, C["lib"], "I/O drivers (IO_CODE, ROM)\nkeyboard, mouse, SD", "io"),
     (0x3000, 0x36FF, C["lib"], "Standard library code\n(LIB_CODE, ROM)", "lib"),
     (0x3700, 0x37FF, C["lib"], "Library: con_scroll", None),
     (0x3800, 0x3FFF, C["font"], "8x8 font, 2 KB\n(LIB_FONT, ROM)", "font"),
 ]
-bar(axB, low, "x0000-x3FFF  (sections 0, 1)\nnot to scale", heights=[8, 40, 14, 5, 12])
+bar(axB, low, "x0000-x3FFF  (sections 0, 1)\nnot to scale", heights=[8, 26, 14, 14, 5, 12])
 zp = ["00-03  unused (old demos: reset)", "04-05  LINK_LO/HI", "06     SP", "07     MAP_SHADOW",
       "08-0A  frame counter", "0B-0C  RAND", "0D-0E  cursor col/row", "0F     SAVE_AC",
-      "10-17  R0-R7 args", "18-1F  T0-T7 scratch", "20-BF  program vars", "C0-FF  software stack"]
+      "10-17  R0-R7 args", "18-1F  T0-T7 scratch", "20-8F  program vars", "90-9E  sound driver", "A0-BF  I/O drivers", "C0-FF  software stack"]
 axB.text(0.02, 81, "Zero page x00-xFF\n" + "\n".join(zp), va="top", fontsize=9, family="monospace",
          bbox=dict(boxstyle="round,pad=0.4", fc="#F4F4F4", ec="#999"))
 axB.set_ylim(118, 0)
@@ -104,19 +105,20 @@ for y in (0x4000,):
 # ---- Panel C: x4000-x5FFF -----------------------------------------------------
 axC = fig.add_axes([0.47, 0.05, 0.22, 0.80])
 mid = [
-    (0x4000, 0x4FFF, C["free"], "Free program RAM, 4 KB", None),
+    (0x4000, 0x4CFF, C["free"], "Free program RAM", None),
+    (0x4D00, 0x4FFF, C["lib"], "SD/FAT variables x4D00\nsector buffer x4E00-x4FFF", None),
     (0x5000, 0x50FF, C["io"], "W: map register  R: line counter", None),
     (0x5100, 0x51FF, C["io"], "/EXP1 expansion 1", None),
-    (0x5200, 0x52FF, C["io"], "Ports in/out: SD, SNES, keys", None),
+    (0x5200, 0x52FF, C["io"], "Shared port: SD, keys, mouse", None),
     (0x5300, 0x53FF, C["io"], "/EXP2 expansion 2", None),
     (0x5400, 0x5A1F, C["free"], "Free program RAM", None),
     (0x5A20, 0x5BFF, C["mode"], "LINE CODES (mode bytes)\nrow r at x5A20+r, 480 rows\nbits 1:0 = 1/2/4/8 bpp\nbits 3:2 = 1x/2x/4x repeat", "line\ncodes"),
     (0x5C00, 0x5DF2, C["free"], "Free program RAM", None),
     (0x5DF3, 0x5FFF, C["audio"], "AUDIO buffer, 525 bytes\n1 sample/line, 8-bit, 80h = silence", "audio"),
 ]
-hC = [16, 4, 4, 4, 4, 9, 13, 7, 11]
+hC = [12, 6, 4, 4, 4, 4, 9, 13, 7, 11]
 bar(axC, mid, "x4000-x5FFF  (section 2 + I/O window)\nnot to scale", heights=hC, fs=10)
-io0 = sum(hC[:1]); end = sum(hC[:5])
+io0 = sum(hC[:2]); end = sum(hC[:6])
 axC.annotate("", xy=(-0.12, io0), xytext=(-0.12, end),
              arrowprops=dict(arrowstyle="-", lw=3, color=C["io"]))
 axC.text(-0.22, (io0 + end) / 2, "I/O window", rotation=90, va="center", ha="center", fontsize=11, color=C["io"], weight="bold")
@@ -164,7 +166,7 @@ items = [("Video RAM", C["video"]), ("Line codes", C["mode"]), ("Audio buffer", 
 handles = [Rectangle((0, 0), 1, 1, fc=c, ec="#333") for _, c in items]
 fig.legend(handles, [n for n, _ in items], loc="lower right", bbox_to_anchor=(0.985, 0.04), ncol=3, fontsize=10,
            frameon=True)
-fig.text(0.985, 0.012, "Source: README.md, VIDEO.md, SOUND.md, LIBRARY.md on main, 2026-10-16", ha="right",
+fig.text(0.985, 0.012, "Source: README.md, VIDEO.md, SOUND.md, LIBRARY.md on main, 2026-10-18", ha="right",
          fontsize=8.5, color="#777")
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(

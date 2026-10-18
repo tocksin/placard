@@ -119,8 +119,15 @@
 LIB_CODE = 0x3000       ; 2 KB of code, x3000-x37FF
 LIB_FONT = 0x3800       ; 2 KB font, x3800-x3FFF (see lib_font.asm)
 
+LIB2_CODE = 0xE000      ; library bank 2, xE000-xFBFF; xE000-xE0FF is kept
+                        ; for a jump table, code starts at xE100
+
 #include "lib_font.asm"
 #include "placard_io.asm"     ; I/O drivers at IO_CODE, x2000-x2FFF (IO.md)
+#include "placard_snd.asm"    ; sound driver in bank 2 (SOUND.md)
+#include "placard_slot.asm"   ; expansion slot helpers in bank 2 (EXPANSION.md)
+#include "placard_fs.asm"     ; FAT file reading in bank 2 (IO.md)
+#include "placard_input.asm"  ; line input, mouse pointer in bank 2 (IO.md)
 
 
 ; ============================================================

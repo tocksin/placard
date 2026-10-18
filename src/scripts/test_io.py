@@ -12,6 +12,7 @@ results, the tests check the port rules from IO.md: every routine leaves
 the latch at rest (P_IDLE, FB), and /CS (which also frees the PS/2 clock)
 is never high for 50 us or more at a time, so the mouse can't start
 sending while nobody listens.
+It also checks con_gets (line input) and mouse_move (placard_input.asm).
 
 Date: 10/18/2026
 """
@@ -27,7 +28,8 @@ import placard_sim as ps    # noqa: E402
 import io_devices as iod    # noqa: E402
 
 ROUTINES = ['port_init', 'kbd_scan', 'kbd_getc', 'kbd_key', 'pad_read',
-            'spi_byte', 'sd_init', 'sd_read', 'sd_write', 'mouse_init', 'mouse_poll']
+            'spi_byte', 'sd_init', 'sd_read', 'sd_write', 'mouse_init', 'mouse_poll',
+            'con_clear', 'con_gets', 'mouse_move']
 ARG_AC, OUT_AC, OUT_X = 0x20, 0x21, 0x22
 P_IDLE = 0xFB
 CS_LIMIT = iod.us(50)
@@ -399,6 +401,61 @@ def test_mouse_late_start():
         assert r == (1, 1, 9, -9), (lat, r)
         assert mouse.aborts == 0, (lat, mouse.aborts)
     return 'packets read with the mouse starting up to 0.84 ms late'
+
+
+# ---------------------------------------------------------------------------
+# line input and the mouse pointer (placard_input.asm)
+# ---------------------------------------------------------------------------
+def test_con_gets():
+    rig = Rig()
+    rig.call('con_clear', max_steps=5_000_000)
+    cpu, m = rig.cpu, rig.cpu.mem
+    for a, v in rig.mem.items():        # one flat memory here: vid_clear also
+        if a >= 0xE000:                 # cleared bank 2, which is ROM on the board
+            m[a] = v
+    sy = rig.syms
+    # typed: "Hi" Shift+h i, "x" then Backspace, "!" Shift+1, "abc" (one
+    # too many for R2 = 4), Enter
+    keys = {c: k for k, c in enumerate(KEYS) if c not in '\x00'}
+    script = [{K_LSHIFT, keys['h']}, {keys['i']}, {keys['x']}, {keys['\x08']},
+              {K_LSHIFT, keys['1']}, {keys['a']}, {keys['b']}, {keys['c']}, {keys['\n']}]
+    frames = []
+    for ks in script:
+        frames += [{key(k) for k in ks}] * 2 + [set()] * 2
+    m[sy['R0']], m[sy['R1']], m[sy['R2']] = 0x00, 0x07, 4
+    m[ARG_AC] = 0
+    cpu.pc = sy['drv_con_gets']
+    stop = sy['halt_con_gets']
+    frame = 800 * 525
+    t0 = cpu.clocks
+    while cpu.pc != stop:
+        f = (cpu.clocks - t0) // frame
+        rig.port.keys = frames[f] if f < len(frames) else set()
+        cpu.step()
+        assert f < len(frames) + 10, 'con_gets did not end'
+    n = m[OUT_AC]
+    got = bytes(m[0x0700:0x0700 + n + 1])
+    assert got == b'Hi!a\0', got
+    assert (m[sy['CUR_COL']], m[sy['CUR_ROW']]) == (0, 1), 'cursor %d,%d' % (
+        m[sy['CUR_COL']], m[sy['CUR_ROW']])
+    return 'typed Hi x <BS> ! abc <Enter> into 4 places: "Hi!a"'
+
+
+def test_mouse_move():
+    rig = Rig()
+    m, sy = rig.cpu.mem, rig.syms
+    cases = [((320, 240), (5, -7), (325, 233)), ((0, 0), (-3, -3), (0, 0)),
+             ((637, 478), (9, 9), (639, 479)), ((250, 250), (10, 10), (260, 260)),
+             ((5, 300), (-127, -127), (0, 173)), ((600, 100), (127, 127), (639, 227)),
+             ((255, 255), (1, 1), (256, 256)), ((256, 256), (-1, -1), (255, 255)),
+             ((520, 470), (127, 0), (639, 470))]
+    for (x, y), (dx, dy), want in cases:
+        m[sy['R0']], m[sy['R1']], m[sy['R2']], m[sy['R3']] = x & 255, x >> 8, y & 255, y >> 8
+        m[sy['MOUSE_DX']], m[sy['MOUSE_DY']] = dx & 255, dy & 255
+        rig.call('mouse_move')
+        got = (m[sy['R0']] | m[sy['R1']] << 8, m[sy['R2']] | m[sy['R3']] << 8)
+        assert got == want, '%s + %s: %s, want %s' % ((x, y), (dx, dy), got, want)
+    return 'adds the packet, held to 0-639, 0-479 (%d clocks)' % rig.clocks
 
 
 TESTS = [(n, f) for n, f in sorted(globals().items()) if n.startswith('test_')]

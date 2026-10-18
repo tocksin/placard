@@ -1,6 +1,6 @@
 # Sound
 
-Date: 2026-10-16
+Date: 2026-10-18
 
 The video circuit plays sound by itself.  On every scan line it reads one
 8-bit sample from RAM, the same way it reads pixels, and a register feeds that
@@ -239,6 +239,63 @@ Software has its own part:
   refilling, the last frame repeats, which is a buzz, so fade to 80h first.
 
 ## Software
+
+### The sound driver
+
+The library's sound driver (`src/scripts/placard_snd.asm`, library bank 2
+at ROM xE100-xE57F) does the buffer work.  A program calls `snd_init` once,
+`snd_update` once every frame (from anywhere in the frame; a game loop that
+already calls `wait_frames` or `frame_poll` just adds it), and starts sounds
+with one call:
+
+```
+    (CALL snd_init)             ; once
+    ...
+    ld   69, ac                 ; A 440 Hz
+    (CALL snd_beep)             ; a short note that fades out
+    ...
+loop:
+    (CALL snd_update)           ; every frame
+    ...
+```
+
+| Routine | In | Does |
+|---------|----|------|
+| `snd_tone` | R1:R0 = step (frequency in Hz x 1.0413), AC = volume 0-127, R2 = frames (0 = until stopped), R3 = volume taken off each frame | Square wave |
+| `snd_note` | AC = MIDI note 0-127 (60 = middle C, 69 = A 440) | R1:R0 = the step for `snd_tone` |
+| `snd_beep` | AC = MIDI note | Volume 96, 12 frames, fading by 8 a frame |
+| `snd_noise` | AC = volume, R0 = rate 1-128 (128ths of the line rate), R2, R3 as `snd_tone` | Noise (a 16-bit LFSR, the same seed each time) for drums and hits |
+| `snd_play` | R1:R0 = samples (RAM or ROM), R3:R2 = count, AC = rate 1-128 (128 = 31.5 kHz, 32 = 7.9 kHz) | 8-bit unsigned samples, 80h = silence |
+| `snd_stop` | | Silent within a frame |
+| `snd_busy` | | AC = 0 when silent |
+
+One sound plays at a time; starting another replaces it.  The step is a
+16-bit phase increment per line (32768 = half a cycle per line), so the
+pitch error is under 0.01 % above 100 Hz.
+
+**How `snd_update` keeps up.**  Instead of double buffering it writes just
+behind the player: it waits for the line read to change (so it knows the
+line exactly, to 4 lines) and writes every sample from where it stopped
+last time up to the line now playing.  Sounds start within a frame.  When
+the sound is over and the buffer has been all 80h for two laps, it returns
+at once.
+
+**Measured CPU time** (`test_snd.py`, about 380,000 usable clocks per frame):
+
+| Sound | Clocks per frame | Share |
+|---|---:|---:|
+| Silence (buffer clean) | about 90 | 0 % |
+| Samples (`snd_play`) | about 18,000 | 5 % |
+| Tone | about 26,000 | 7 % |
+| Noise | about 42,000 | 11 % |
+
+Plus up to 3,200 clocks waiting for the line read to change.  The driver
+uses zero page x90-x9E and T0-T3.  `test_snd.py` checks the buffer against
+a Python model of every sound, sample for sample.
+
+### By hand
+
+A program that does not use the driver can fill the buffer itself.
 
 **Playback position.**  The sample playing is line V - 499, and the line read
 at 5000h returns V9:V2 (V / 4).

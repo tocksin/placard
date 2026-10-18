@@ -38,6 +38,9 @@ Branch PLD rev 09):
     (the Branch PLD's ALU wait clock); stores do not
   - with an io model (io_devices.SharedPort), reads and writes of
     x5200-x52FF go to the shared port (keyboard, pads, SD card, mouse)
+  - with a slots model (io_devices.Slots), reads and writes of
+    x5100-x51FF and x5300-x53FF go to the expansion slots; with --boot and
+    no cards those reads return FF (the read bus pull-ups)
   - a read of x5000-x50FF returns the video line read,
     V9:V2, with one line per 800 CPU clocks and V = 499-1023 (525 lines per
     frame).  Video fetch stalls are not modeled.
@@ -53,7 +56,7 @@ basys_top.vhd (low nibble CIN = 0, high nibble CIN = low nibble COUT, low
 SHIFT_RIGHT_IN = AC bit 4, high SHIFT_RIGHT_IN = 0).  The default is an ideal
 8-bit ALU (A - B is a true 8-bit subtraction).
 
-Date: 10/17/2026
+Date: 10/18/2026
 """
 
 import re
@@ -437,11 +440,16 @@ class CpuError(Exception):
 
 
 class Cpu:
-    def __init__(self, mem, hw_alu=False, rom=None, io=None):
+    def __init__(self, mem, hw_alu=False, rom=None, io=None, slots=None):
         self.mem = bytearray(65536)
         # io: the shared port model (io_devices.SharedPort), or None; reads
         # and writes of x5200-x52FF go to it
         self.io = io
+        # slots: the expansion slots (io_devices.Slots), or None; reads and
+        # writes of x5100-x51FF and x5300-x53FF go to it.  With no slots
+        # model those reads see the RAM (one flat memory) or FF (the ROM
+        # map: nothing answers and the read bus pull-ups give FF)
+        self.slots = slots
         for a, v in mem.items():
             self.mem[a] = v
         # rom: None = one flat memory (every read from mem, as the old FPGA
@@ -491,8 +499,11 @@ class Cpu:
             ad = addr()
             if ad & 0xFF00 == 0x5000:             # /LINE_RD (x5000-x50FF)
                 self.d = self.line_read()
-            elif ad & 0xFF00 == 0x5200 and self.io is not None:   # /PORT_RD
-                self.d = self.io.read(ad, self.clocks + clocks)
+            elif ad & 0xFF00 == 0x5200 and (self.io is not None or self.rom is not None):
+                # /PORT_RD; with no port model, no key down (FF)
+                self.d = self.io.read(ad, self.clocks + clocks) if self.io is not None else 0xFF
+            elif ad & 0xFD00 == 0x5100 and (self.slots is not None or self.rom is not None):
+                self.d = self.slots.read(ad) if self.slots is not None else 0xFF   # /EXP1, /EXP2
             else:
                 self.d = rd(ad)
             clocks += 1
@@ -526,6 +537,8 @@ class Cpu:
                     self.map = src
                 elif ad & 0xFF00 == 0x5200 and self.io is not None:   # /PORT_WR
                     self.io.write(ad, src, self.clocks + clocks)
+                elif ad & 0xFD00 == 0x5100 and self.slots is not None:
+                    self.slots.write(ad, src)
         self.steps += 1
         self.clocks += clocks
         return here
@@ -620,7 +633,8 @@ ROM_IMAGE_BASE = 0x6000      # RAM image: ROM address of RAM x0000
 IMAGE_SIZE = 0x4A00          # RAM x0000-x49FF is copied at boot
 LIB_START, LIB_END = 0x3000, 0x4000
 IO_START = 0x2000            # I/O drivers (placard_io.asm), x2000-x2FFF, ROM programs only
-PROG_START, PROG_END = 0x6000, 0xFC00   # ROM program area
+LIB2_START, LIB2_END = 0xE000, 0xFC00   # library bank 2 (last bank): jump table page, sound, FAT, slots
+PROG_START, PROG_END = 0x6000, 0xE000   # ROM program area
 BOOT_MODE = 0xFC00           # 00 = ROM program, 01 = RAM image
 
 
@@ -630,7 +644,7 @@ def is_ram_image(prog, lib):
     for a, v in prog.items():
         if a >= PROG_START:
             continue
-        if IO_START <= a < LIB_END and v == lib.get(a, 0):
+        if (IO_START <= a < LIB_END or LIB2_START <= a < LIB2_END) and v == lib.get(a, 0):
             continue
         if v:
             return True
@@ -640,8 +654,9 @@ def is_ram_image(prog, lib):
 def build_rom(prog, base_dir=None):
     """ROM bytes {addr: value} for a program image {addr: value}, as gen_rom.tcl
     makes them (ROM.md): rom_boot.asm, the library (rom_lib.asm) in place at
-    x2000-x3FFF (I/O drivers, library and font), then either
-      a ROM program (assembled at x6000-xFBFF): in place, BOOT_MODE = 00, or
+    x2000-x3FFF (I/O drivers, library and font) and xE000-xFBFF (library
+    bank 2), then either
+      a ROM program (assembled at x6000-xDFFF): in place, BOOT_MODE = 00, or
       a RAM image (older programs at RAM x0000): BOOT_MODE = 01, the library
       (not the I/O drivers) again at RAM x3000-x3FFF of the image, then the program (x0000 to its
       last byte, gaps as 00, like its hex file), at ROM = RAM + x6000."""
@@ -652,14 +667,14 @@ def build_rom(prog, base_dir=None):
     lib, _, _ = assemble(open(os.path.join(base_dir, 'rom_lib.asm')).read(), base_dir)
     rom.update(boot)
     for a, v in lib.items():
-        if IO_START <= a < LIB_END:
+        if IO_START <= a < LIB_END or LIB2_START <= a < LIB2_END:
             rom[a] = v
     if not is_ram_image(prog, lib):
         for a, v in prog.items():
-            if a >= PROG_END and v:
+            if a >= PROG_END and v and not (LIB2_START <= a < LIB2_END and v == lib.get(a, 0)):
                 raise AsmError('program byte at %04X is past the ROM program area '
                                '(x%04X-x%04X)' % (a, PROG_START, PROG_END - 1))
-            if a >= PROG_START:
+            if PROG_START <= a < PROG_END:
                 rom[a] = v
         rom[BOOT_MODE] = 0
         return rom
@@ -667,12 +682,13 @@ def build_rom(prog, base_dir=None):
     for a, v in lib.items():
         if LIB_START <= a < LIB_END:
             rom[ROM_IMAGE_BASE + a] = v
-    for a in prog:
-        if a >= IMAGE_SIZE:
+    for a, v in prog.items():
+        if a >= IMAGE_SIZE and v and not (LIB2_START <= a < LIB2_END and v == lib.get(a, 0)):
             raise AsmError('program byte at %04X is past the RAM image (x0000-x%04X)'
                            % (a, IMAGE_SIZE - 1))
     # the program's hex is padded with 00 from x0000 to its last byte
-    for a in range(max(prog) + 1 if prog else 0):
+    top = max((a for a in prog if a < IMAGE_SIZE), default=-1)
+    for a in range(top + 1):
         rom[ROM_IMAGE_BASE + a] = prog.get(a, 0)
     return rom
 
