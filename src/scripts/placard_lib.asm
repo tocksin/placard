@@ -320,75 +320,45 @@ lib_hex:        ; "0123456789ABCDEF"
 ; add16 - 16-bit add
 ;   in:      R1:R0 = a, R3:R2 = b
 ;   out:     R1:R0 = a + b (mod 65536), AC = R1
-;   changes: T0, T1, T2
-;   clocks:  76-80
+;   changes: nothing else
+;   clocks:  36-40
 ; ------------------------------------------------------------
 add16:
     ld   [R0], ac
     add  [R2], ac
-    ld   ac, [T0]               ; low byte of the sum
-    ld   [R0], ac
-    and  [R2], ac
-    ld   ac, [T1]               ; a & b
-    ld   [R0], ac
-    or   [R2], ac
-    ld   ac, [T2]               ; a | b
-    ld   [T0], ac
     ld   ac, [R0]
-    not
-    and  [T2], ac
-    or   [T1], ac               ; bit 7 = carry out of the low byte
-    blt  a16_c
     ld   [R1], ac
-    add  [R3], ac
-    ld   ac, [R1]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-a16_c:
-    ld   [R1], ac
-    add  [R3], ac
+    bcc  a16_n                  ; the carry out of the low byte
     inc
+a16_n:
+    add  [R3], ac
     ld   ac, [R1]
     ld   [LINK_HI], y
     jmp  [LINK_LO]
+
+#addr LIB_CODE + 0x134            ; entry addresses stay fixed (carry flag rewrite left a gap)
 
 ; ------------------------------------------------------------
 ; sub16 - 16-bit subtract
 ;   in:      R1:R0 = a, R3:R2 = b
 ;   out:     R1:R0 = a - b (mod 65536), AC = R1
-;   changes: T0, T1, T2
-;   clocks:  76-80
+;   changes: nothing else
+;   clocks:  36-40
 ; ------------------------------------------------------------
 sub16:
     ld   [R0], ac
     sub  [R2], ac
-    ld   ac, [T0]               ; low byte of the difference
-    ld   [R0], ac
-    not
-    ld   ac, [T1]               ; ~a
-    and  [R2], ac
-    ld   ac, [T2]               ; ~a & b
-    ld   [T1], ac
-    or   [R2], ac
-    and  [T0], ac
-    or   [T2], ac               ; bit 7 = borrow out of the low byte
-    blt  s16_b
-    ld   [T0], ac
     ld   ac, [R0]
     ld   [R1], ac
-    sub  [R3], ac
-    ld   ac, [R1]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-s16_b:
-    ld   [T0], ac
-    ld   ac, [R0]
-    ld   [R1], ac
-    sub  [R3], ac
+    bcc  s16_n                  ; the borrow out of the low byte
     dec
+s16_n:
+    sub  [R3], ac
     ld   ac, [R1]
     ld   [LINK_HI], y
     jmp  [LINK_LO]
+
+#addr LIB_CODE + 0x16C            ; entry addresses stay fixed (carry flag rewrite left a gap)
 
 ; ------------------------------------------------------------
 ; mul8 - 8 x 8 bit unsigned multiply
@@ -725,14 +695,10 @@ vid_addr:
     add  0x20, ac
     ld   ac, [T1]               ; T1 = v7:v0
     ld   ac, x
-    and  0xE0, ac
-    bne  va_nc
-    ld   1, ac                  ; row low + x20 carried
-    bra  va_v8
-va_nc:
-    clr  ac
+    ld   [R3], ac
+    bcc  va_v8
+    inc                         ; row low + x20 carried
 va_v8:
-    add  [R3], ac
     ld   ac, [T4]               ; T4 = v8
     add  0x5A, ac
     ld   ac, y
@@ -777,6 +743,8 @@ va_1x:
     add  [T4], ac
     ld   [LINK_HI], y
     jmp  [LINK_LO]
+
+#addr LIB_CODE + 0x396            ; entry addresses stay fixed (carry flag rewrite left a gap)
 
 ; ------------------------------------------------------------
 ; plot1 - set or clear one pixel on a 1 bpp row

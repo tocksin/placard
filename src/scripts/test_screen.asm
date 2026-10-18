@@ -1057,13 +1057,9 @@ ts_rc_row:
     ld   ts_fill_run >> 8, y
     jmp  ts_fill_run
 ts_rc1:
-    ld   [p_rlo], ac            ; row + step, carry into p_rhi when the
-    add  [p_step], ac           ; new low byte is below the step
+    ld   [p_rlo], ac            ; row + step, carry into p_rhi
+    add  [p_step], ac
     ld   ac, [p_rlo]
-    and  0xFC, ac
-    bne  ts_rc_nc
-    ld   [p_rlo], ac
-    sub  [p_step], ac
     bcc  ts_rc_nc
     ld   [p_rhi], ac
     inc

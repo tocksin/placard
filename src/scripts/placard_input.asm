@@ -156,39 +156,25 @@ cg_nc2:
 ;            MOUSE_DX, MOUSE_DY from mouse_poll
 ;   out:     R1:R0 = X + MOUSE_DX, R3:R2 = Y + MOUSE_DY, each held to
 ;            the screen (0-639, 0-479)
-;   changes: AC, T0-T3
-;   clocks:  about 120
+;   changes: AC
+;   clocks:  88-138
 ;   Call it after mouse_poll returns 1.
 ; ------------------------------------------------------------
 mouse_move:
-    ld   [R0], ac               ; X: low byte + DX, and its carry
+    ld   [R0], ac               ; X: low byte + DX
     add  [MOUSE_DX], ac
-    ld   ac, [T0]
-    ld   [R0], ac
-    and  [MOUSE_DX], ac
-    ld   ac, [T1]
-    ld   [R0], ac
-    or   [MOUSE_DX], ac
-    ld   ac, [T2]
-    ld   [T0], ac
     ld   ac, [R0]
-    not
-    and  [T2], ac
-    or   [T1], ac
-    blt  mm_xc
-    clr  ac
-    bra  mm_xh
-mm_xc:
-    ld   1, ac
-mm_xh:
-    add  [R1], ac               ; high byte + carry, - 1 if DX < 0
-    ld   ac, [R1]
     ld   [MOUSE_DX], ac
-    blt  mm_xp_b7
-    bra  mm_xp
-mm_xp_b7:
-    ld   [R1], ac
+    blt  mm_xn
+    ld   [R1], ac               ; DX >= 0: high byte + carry
+    bcc  mm_xp
+    inc
+    bra  mm_xh
+mm_xn:
+    ld   [R1], ac               ; DX < 0: high byte + carry - 1
+    bcs  mm_xp
     dec
+mm_xh:
     ld   ac, [R1]
 mm_xp:
     ld   [R1], ac
@@ -210,34 +196,20 @@ mm_x1:
     ld   2, ac
     ld   ac, [R1]
 mm_y:
-    ld   [R2], ac               ; Y the same way
+    ld   [R2], ac               ; Y: low byte + DY
     add  [MOUSE_DY], ac
-    ld   ac, [T0]
-    ld   [R2], ac
-    and  [MOUSE_DY], ac
-    ld   ac, [T1]
-    ld   [R2], ac
-    or   [MOUSE_DY], ac
-    ld   ac, [T2]
-    ld   [T0], ac
     ld   ac, [R2]
-    not
-    and  [T2], ac
-    or   [T1], ac
-    blt  mm_yc
-    clr  ac
-    bra  mm_yh
-mm_yc:
-    ld   1, ac
-mm_yh:
-    add  [R3], ac
-    ld   ac, [R3]
     ld   [MOUSE_DY], ac
-    blt  mm_yp_b7
-    bra  mm_yp
-mm_yp_b7:
-    ld   [R3], ac
+    blt  mm_yn
+    ld   [R3], ac               ; DY >= 0: high byte + carry
+    bcc  mm_yp
+    inc
+    bra  mm_yh
+mm_yn:
+    ld   [R3], ac               ; DY < 0: high byte + carry - 1
+    bcs  mm_yp
     dec
+mm_yh:
     ld   ac, [R3]
 mm_yp:
     ld   [R3], ac
