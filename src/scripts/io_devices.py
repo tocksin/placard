@@ -226,17 +226,250 @@ class SdCard:
 # PS/2 mouse
 # ---------------------------------------------------------------------------
 class Ps2Mouse:
-    """Placeholder: a PS/2 line pair with nothing attached (both lines idle
-    high).  The mouse model replaces it."""
+    """A PS/2 mouse, stepped in DT time steps (5 us) as the host's lines
+    change.  The host side is the port latch: host(t, clk, data) gives the
+    host's own drive at time t (1 = released); clk(t) and data(t) are the
+    mouse's own drive (1 = released).  The bus line is the AND of both.
 
+    Device to host: the mouse waits for CLK and DATA released for 50 us
+    (plus `latency`), then sends a chunk (one reply, or one 3-byte packet)
+    as 11-bit frames: start 0, 8 data bits LSB first, odd parity, stop 1.
+    It changes DATA while CLK is high and the host reads it while CLK is
+    low.  If the host pulls CLK low before a frame's 11th clock falls, the
+    mouse aborts and sends the whole chunk again later.
+
+    Host to device: the host holds CLK low (at least 100 us), pulls DATA low
+    and releases CLK.  The mouse clocks in 8 data bits, parity and the stop
+    bit (it reads DATA on rising CLK), pulls DATA low for one more clock to
+    acknowledge, then answers.  Commands: FF reset (FA, then AA 00 after
+    `bat_ms`), F6 defaults, F4 / F5 reporting on / off, F3 n sample rate,
+    E8 n resolution, F2 device ID (FA 00), others FE (resend).  A parity
+    error gets FE.
+
+    Stream mode: while reporting is on, movement (move()) and button
+    changes are sent as 3-byte packets, at most one per sample period.  The
+    counters keep adding up while the host holds the mouse off.  Y is
+    positive upward, as on the wire."""
+
+    DT = us(5)
+
+    def __init__(self, latency_us=100, bat_ms=300, half_us=40):
+        self.latency = us(latency_us)
+        self.bat = us(bat_ms * 1000)
+        self.half = us(half_us)           # CLK half period
+        self.t = 0                        # time the model has reached
+        self.hclk = 1                     # host drive
+        self.hdata = 1
+        self.dclk = 1                     # mouse drive
+        self.ddata = 1
+        self.free_since = 0               # time both lines were released
+        self.rts_since = None             # time CLK released with DATA low
+        self.inhibit_since = None
+        self.state = 'idle'
+        self.queue = []                   # chunks waiting to be sent
+        self.chunk = None                 # chunk being sent
+        self.byte_i = 0
+        self.frame = []                   # bits of the frame being sent
+        self.bit_i = 0
+        self.phase_end = 0
+        self.rx_bits = []
+        self.arg_for = None               # command waiting for its argument
+        self.reporting = False
+        self.rate = 100
+        self.next_sample = 0
+        self.bat_at = None                # time the reset's AA 00 is queued
+        self.dx = self.dy = 0
+        self.buttons = 0
+        self.sent_buttons = 0
+        self.received = []                # commands and arguments from the host
+        self.sent = []                    # bytes sent (completed frames)
+        self.aborts = 0
+
+    # --- interface ------------------------------------------------------
     def clk(self, t):
-        return 1
+        self.advance(t)
+        return self.dclk
 
     def data(self, t):
-        return 1
+        self.advance(t)
+        return self.ddata
 
     def host(self, t, clk, data):
-        pass
+        self.advance(t)
+        if (clk, data) != (self.hclk, self.hdata):
+            self.hclk, self.hdata = clk, data
+            if clk and data:
+                self.free_since = t
+            if clk and not data:
+                self.rts_since = t
+            if not clk and self.inhibit_since is None:
+                self.inhibit_since = t
+            if clk:
+                self.inhibit_since = None if data else self.inhibit_since
+
+    def move(self, dx=0, dy=0, buttons=None):
+        self.dx += dx
+        self.dy += dy
+        if buttons is not None:
+            self.buttons = buttons
+
+    # --- the device -----------------------------------------------------
+    def bus_clk(self):
+        return self.hclk & self.dclk
+
+    def bus_data(self):
+        return self.hdata & self.ddata
+
+    def advance(self, t):
+        while self.t + self.DT <= t:
+            self.t += self.DT
+            self.step(self.t)
+
+    @staticmethod
+    def frame_bits(b):
+        bits = [0] + [(b >> i) & 1 for i in range(8)]
+        bits.append(1 ^ (sum(bits[1:]) & 1))   # odd parity
+        bits.append(1)
+        return bits
+
+    def respond(self, *bs):
+        self.queue.append(list(bs))
+
+    def command(self, b):
+        self.received.append(b)
+        if self.arg_for is not None:
+            cmd, self.arg_for = self.arg_for, None
+            if cmd == 0xF3:
+                self.rate = b or 100
+            self.respond(0xFA)
+            return
+        if b == 0xFF:
+            self.reporting = False
+            self.queue = []
+            self.respond(0xFA)
+            self.bat_at = self.t + self.bat
+        elif b in (0xF6, 0xF5):
+            self.reporting = False
+            self.respond(0xFA)
+        elif b == 0xF4:
+            self.reporting = True
+            self.respond(0xFA)
+        elif b in (0xF3, 0xE8):
+            self.arg_for = b
+            self.respond(0xFA)
+        elif b == 0xF2:
+            self.respond(0xFA, 0x00)
+        else:
+            self.respond(0xFE)
+
+    def packet(self):
+        def clamp(v):
+            return max(-256, min(255, v))
+        dx, dy = clamp(self.dx), clamp(self.dy)
+        ovx = self.dx != dx
+        ovy = self.dy != dy
+        self.dx = self.dy = 0
+        self.sent_buttons = self.buttons
+        b0 = (self.buttons & 7) | 0x08 | (0x10 if dx < 0 else 0) | (0x20 if dy < 0 else 0) \
+            | (0x40 if ovx else 0) | (0x80 if ovy else 0)
+        return [b0, dx & 0xFF, dy & 0xFF]
+
+    def step(self, t):
+        if self.bat_at is not None and t >= self.bat_at:
+            self.bat_at = None
+            self.respond(0xAA, 0x00)
+        if self.state == 'idle':
+            if self.reporting and t >= self.next_sample and not self.queue \
+                    and (self.dx or self.dy or self.buttons != self.sent_buttons):
+                self.queue.append('packet')
+                self.next_sample = t + us(1_000_000 // self.rate)
+            if self.hclk and not self.hdata:
+                if self.rts_since is not None and t - self.rts_since >= us(50):
+                    self.state = 'rx'
+                    self.rx_bits = []
+                    self.dclk = 0                 # first clock low
+                    self.phase_end = t + self.half
+                return
+            if self.hclk and self.hdata and self.queue and \
+                    t - self.free_since >= us(50) + self.latency:
+                c = self.queue.pop(0)
+                self.chunk = self.packet() if c == 'packet' else c
+                self.byte_i = 0
+                self.start_frame(t)
+            return
+        if self.state == 'tx':
+            if not self.hclk and (self.bit_i < 10 or self.dclk):
+                # the host pulled CLK low before the 11th clock fell:
+                # abort and send the whole chunk again later
+                self.aborts += 1
+                self.queue.insert(0, self.chunk)
+                self.dclk = self.ddata = 1
+                self.state = 'idle'
+                return
+            if t < self.phase_end:
+                return
+            if self.dclk:                         # high half done: clock low
+                self.dclk = 0
+                self.phase_end = t + self.half
+                return
+            self.dclk = 1                         # low half done: next bit
+            self.bit_i += 1
+            if self.bit_i < 11:
+                self.ddata = self.frame[self.bit_i]
+                self.phase_end = t + self.half
+                return
+            self.ddata = 1
+            self.sent.append(self.chunk[self.byte_i])
+            self.byte_i += 1
+            if self.byte_i < len(self.chunk):
+                self.state = 'gap'
+                self.phase_end = t + us(100)
+            else:
+                self.state = 'idle'
+                self.free_since = t
+            return
+        if self.state == 'gap':
+            if not self.hclk:
+                self.aborts += 1
+                self.queue.insert(0, self.chunk)
+                self.state = 'idle'
+                return
+            if t >= self.phase_end:
+                self.start_frame(t)
+            return
+        if self.state == 'rx':
+            if t < self.phase_end:
+                return
+            if not self.dclk:                     # low half done: rising edge, read
+                self.dclk = 1
+                self.phase_end = t + self.half
+                if len(self.rx_bits) < 10:
+                    self.rx_bits.append(self.bus_data())
+                    return
+                # acknowledge clock done
+                self.ddata = 1
+                self.state = 'idle'
+                self.free_since = t
+                d = self.rx_bits
+                b = sum(d[i] << i for i in range(8))
+                if d[9] != 1 or (sum(d[:9]) & 1) != 1:
+                    self.respond(0xFE)
+                else:
+                    self.command(b)
+                return
+            self.dclk = 0                         # high half done: clock low
+            self.phase_end = t + self.half
+            if len(self.rx_bits) == 10:
+                self.ddata = 0                    # acknowledge
+            return
+
+    def start_frame(self, t):
+        self.state = 'tx'
+        self.frame = self.frame_bits(self.chunk[self.byte_i])
+        self.bit_i = 0
+        self.ddata = self.frame[0]
+        self.dclk = 1
+        self.phase_end = t + self.half
 
 
 # ---------------------------------------------------------------------------

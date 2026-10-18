@@ -27,7 +27,7 @@ import placard_sim as ps    # noqa: E402
 import io_devices as iod    # noqa: E402
 
 ROUTINES = ['port_init', 'kbd_scan', 'kbd_getc', 'kbd_key', 'pad_read',
-            'spi_byte', 'sd_init', 'sd_read', 'sd_write']
+            'spi_byte', 'sd_init', 'sd_read', 'sd_write', 'mouse_init', 'mouse_poll']
 ARG_AC, OUT_AC, OUT_X = 0x20, 0x21, 0x22
 P_IDLE = 0xFB
 CS_LIMIT = iod.us(50)
@@ -101,8 +101,10 @@ class Rig:
         assert cpu.mem[self.syms['SP']] == sp, '%s moved SP' % name
         if check_rest:
             assert self.port.latch == P_IDLE, '%s left the latch at %02X' % (name, self.port.latch)
-            # sd_init is the one exception: the card's start clocks
-            assert name == 'sd_init' or self.port.cs_longest < CS_LIMIT, \
+            # sd_init is the one exception (the card's start clocks), and
+            # the mouse routines, which listen to the mouse while /CS is high
+            assert name == 'sd_init' or name.startswith('mouse') or \
+                self.port.cs_longest < CS_LIMIT, \
                 '%s held /CS high for %d clocks' % (name, self.port.cs_longest)
         self.clocks = cpu.clocks - c0
         return cpu.mem[OUT_AC]
@@ -137,11 +139,12 @@ def drain(rig):
 
 def test_kbd_every_key():
     rig = Rig()
-    worst = 0
+    worst = cs_worst = 0
     for k in range(64):
         rig.port.keys = {key(k)}
         rig.call('kbd_scan')
         worst = max(worst, rig.clocks)
+        cs_worst = max(cs_worst, rig.port.cs_longest)
         rig.port.keys = set()
         rig.call('kbd_scan')
         got = drain(rig)
@@ -154,7 +157,7 @@ def test_kbd_every_key():
             rig.call('kbd_scan')
         assert got == want, 'key %d: %r, want %r' % (k, got, want)
     return 'scan with one new key %d clocks; /CS high at most %d clocks (%.1f us)' % (
-        worst, rig.port.cs_longest, rig.port.cs_longest / 25.175)
+        worst, cs_worst, cs_worst / 25.175)
 
 
 def test_kbd_idle_scan():
@@ -325,6 +328,77 @@ def test_sd_read_write():
         set_block(rig, 64, 0x0400)
         assert rig.call('sd_read') == 4
     return ', '.join(out)
+
+
+# ---------------------------------------------------------------------------
+# PS/2 mouse
+# ---------------------------------------------------------------------------
+def signed(v):
+    return v - 256 if v & 0x80 else v
+
+
+def mouse_rig(**kw):
+    rig = Rig()
+    rig.port.mouse = iod.Ps2Mouse(bat_ms=50, **kw)
+    ac = rig.call('mouse_init', max_steps=20_000_000)
+    assert ac == 0, 'mouse_init %d (got %s)' % (ac, rig.port.mouse.received)
+    return rig
+
+
+def poll(rig):
+    rig.cpu.clocks += iod.us(16_700)             # a frame of other work
+    ac = rig.call('mouse_poll')
+    m = rig.cpu.mem
+    return ac, m[0xB5], signed(m[0xB6]), signed(m[0xB7])
+
+
+def test_mouse_none():
+    rig = Rig()
+    assert rig.call('mouse_init') == 1
+    assert rig.call('mouse_poll') == 0
+    return 'no mouse: poll %d clocks' % rig.clocks
+
+
+def test_mouse_init_poll():
+    rig = mouse_rig()
+    mouse = rig.port.mouse
+    assert mouse.received == [0xFF, 0xF4], mouse.received
+    assert rig.zp('MOUSE_ST') == 0x80
+    assert mouse.reporting
+    assert poll(rig)[0] == 0                     # nothing to report
+    idle = rig.clocks
+    cases = [((5, 3, 1), (1, 5, -3)), ((-7, -2, 2), (2, -7, 2)),
+             ((0, 0, 4), (4, 0, 0)), ((127, -127, 0), (0, 127, 127)),
+             ((-128, 128, 0), (0, -127, -127)), ((200, -300, 3), (3, 127, 127)),
+             ((-300, 200, 0), (0, -127, -127))]
+    worst = 0
+    for (dx, dy, b), want in cases:
+        mouse.move(dx, dy, b)
+        got = poll(rig)
+        assert got == (1,) + want, '%s -> %s' % ((dx, dy, b), got)
+        worst = max(worst, rig.clocks)
+        assert poll(rig)[0] == 0
+    # movement adds up while the mouse is held off
+    mouse.move(10, 0)
+    rig.call('kbd_scan')
+    mouse.move(10, -5)
+    rig.call('pad_read')
+    assert poll(rig) == (1, 0, 20, 5)
+    assert mouse.aborts == 0, mouse.aborts
+    return 'poll: %d clocks idle, %d with a packet' % (idle, worst)
+
+
+def test_mouse_late_start():
+    # mice that start sending near the end of the poll's 1 ms window
+    out = []
+    for lat in range(0, 900, 60):
+        rig = mouse_rig(latency_us=lat)
+        mouse = rig.port.mouse
+        mouse.move(9, 9, 1)
+        r = poll(rig)
+        assert r == (1, 1, 9, -9), (lat, r)
+        assert mouse.aborts == 0, (lat, mouse.aborts)
+    return 'packets read with the mouse starting up to 0.84 ms late'
 
 
 TESTS = [(n, f) for n, f in sorted(globals().items()) if n.startswith('test_')]

@@ -140,7 +140,20 @@ under 50 us, shorter than a PS/2 device waits before it starts to send, so
 the mouse can't start a packet then.  `sd_init` is the one exception: its
 start clocks keep /CS high for about 370 us, once, when a card is started.
 
-The mouse driver is described below in "Mouse driver".
+| Routine | Does | Clocks |
+|---|---|---|
+| `mouse_init` | Resets the mouse (FF: FA, then AA 00 after its self test) and turns reporting on (F4: FA).  AC = 0 running, 1 no mouse, 2 wrong answer | up to 1 s while the mouse tests itself |
+| `mouse_poll` | Lets the mouse send for about 1 ms; reads one 3-byte packet if it starts.  AC = 1 new packet, 0 nothing, 2 bad packet.  `MOUSE_B` bit 0 left, 1 right, 2 middle; `MOUSE_DX` right and `MOUSE_DY` down, -127 to 127 | about 24,000 (1 ms) with nothing new, about 76,000 (3 ms) with a packet |
+| `mouse_cmd` | Sends one command byte and reads the FA acknowledge, for other settings (sample rate F3, resolution E8) | about 55,000 |
+
+The mouse runs in stream mode.  While it is held off it keeps adding up
+its movement, so a poll once per frame loses nothing; one packet carries
+up to 255 counts each way, and the driver clamps to ±127.  If a frame or
+the packet is cut off (the poll gives up just as the mouse starts), the
+mouse sends the whole packet again at the next poll, as PS/2 requires.
+A mouse must start sending within about 0.85 ms of being let go; if one
+is slower, raise `MOUSE_WAIT` in `placard_io.asm` (each step adds 0.25 ms
+to every poll).
 
 ## Rules for software
 
@@ -179,7 +192,9 @@ jump table, and they move with a reassembly when the library moves.
   checks that each leaves the latch at FB and keeps /CS-high times under
   50 us.
 - `src/scripts/io_demo.asm` (`build\io_demo.bat`): starts the SD card,
-  shows the end of block 0, echoes typed keys and prints pad buttons.
+  shows the end of block 0, starts the mouse, echoes typed keys and prints
+  pad buttons and mouse packets.  On the Basys3, set SW15 before reset to
+  use the mouse (the keyboard is then not connected).
 
 ## FPGA model (Basys3)
 
