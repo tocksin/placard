@@ -2,9 +2,9 @@
 ; placard_io.asm - Placard I/O drivers: keyboard, SNES pads, SD card
 ; ============================================================
 ;
-; Drivers for the shared port at x5200 (IO.md).  placard_lib.asm
+; Drivers for the shared port at x5200 (docs/IO.md).  placard_lib.asm
 ; includes this file, so a program that includes the standard library
-; has them too.  They use the library's calling convention (LIBRARY.md)
+; has them too.  They use the library's calling convention (docs/LIBRARY.md)
 ; and the I/O zero page bytes xA0-xBF (zeropage.asm).
 ;
 ; The code sits at IO_CODE, x2000-x2FFF, in section 1 next to the
@@ -199,7 +199,7 @@ pr_h2:
 ;   Shift and Ctrl change the character; Caps Lock (key K_CAPS) turns
 ;   caps lock on and off.  Keys with no character (Shift, Ctrl, Alt,
 ;   Fn) only show in KBD_NOW.  The key numbers and characters are in
-;   IO.md, "Keyboard".
+;   docs/IO.md, "Keyboard".
 ; ------------------------------------------------------------
 kbd_scan:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
@@ -655,7 +655,7 @@ sd_init:
     ld   PORT, y                ; 80 clocks with /CS high and MOSI high,
     clr  x                      ; below 400 kHz (about 200 us; the one
     ld   80, ac                 ; place /CS stays high over 50 us, see
-    ld   ac, [IO_T1]            ; IO.md)
+    ld   ac, [IO_T1]            ; docs/IO.md)
 si_clk:
     ld   0xFE, [y,x]            ; SCK low, MOSI 1, /CS high
     ld   7, ac
@@ -1962,7 +1962,7 @@ mp_out:
 ; kbd_map - the character of each key, by key number (column * 8 +
 ; row): 64 bytes without Shift, then 64 with Shift.  0 = no character.
 ; Special keys: Enter 0A, Backspace 08, Tab 09, Esc 1B, Delete 7F,
-; Up 11, Down 12, Left 13, Right 14, Home 15.  IO.md has the layout.
+; Up 11, Down 12, Left 13, Right 14, Home 15.  docs/IO.md has the layout.
 ; ------------------------------------------------------------
 kbd_map:
     ; column 0: Esc 1 2 3 4 5 6 7

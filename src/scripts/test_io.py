@@ -8,7 +8,7 @@ test_io.py - test the I/O drivers (placard_io.asm) in the simulator
 Each routine is called through the standard CALL sequence from a small
 driver, as test_lib.py does, with the shared port modeled by io_devices.py:
 the key matrix, two SNES pads, an SD card and a PS/2 mouse.  Besides the
-results, the tests check the port rules from IO.md: every routine leaves
+results, the tests check the port rules from docs/IO.md: every routine leaves
 the latch at rest (P_IDLE, FB), and /CS (which also frees the PS/2 clock)
 is never high for 50 us or more at a time, so the mouse can't start
 sending while nobody listens.

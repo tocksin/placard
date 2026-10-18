@@ -6,11 +6,11 @@
 ; and prints their buttons (pad_read's bits, in hex) when they change, and
 ; prints each PS/2 mouse packet (buttons, right, down) if a mouse started.
 ;
-; It is a ROM program (ROM.md): it runs in place from ROM x6000 and calls
+; It is a ROM program (docs/ROM.md): it runs in place from ROM x6000 and calls
 ; the library and I/O drivers in place.  Block 0 is read into x4100-x42FF.
 ;
 ;     python3 placard_sim.py io_demo.asm --run --boot --png io.png
-;     build\io_demo.bat                 (the FPGA model: IO.md has the wiring)
+;     build\io_demo.bat                 (the FPGA model: docs/IO.md has the wiring)
 ;
 ; Date: 10/18/2026
 

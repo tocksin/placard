@@ -293,7 +293,7 @@ memory, so a lower vertical resolution takes less RAM:
 Pixels across don't change (bits 1:0 still pick 1, 2, 4 or 8 bpp).  A full
 2x screen frees the even pages x60, x62 ... xFE, 80 pages of 256 bytes
 (20 KB); a full 4x screen frees x6000-x617F, x6200-x637F and so on, 80 × 384
-bytes (30 KB).  [reference/line_repeat_map.png](reference/line_repeat_map.png)
+bytes (30 KB).  [reference/line_repeat_map.png](../reference/line_repeat_map.png)
 (made by `src/scripts/gen_line_repeat_map.py`) shows one column in each
 mode.
 

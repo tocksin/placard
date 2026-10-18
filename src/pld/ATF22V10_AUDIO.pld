@@ -1,6 +1,6 @@
 Name     AUDIO_SLOT;
 PartNo   00;
-Date     2026-10-16;
+Date     2026-10-18;
 Revision 03;
 Designer Justin;
 Company  ;
@@ -15,7 +15,7 @@ Device   g22v10;
 
    Picks the 8-clock groups on each scan line where the video
    circuit reads a byte in horizontal blanking: the line's mode
-   byte (see VIDEO.md) and the audio sample (see SOUND.md).  Since
+   byte (see docs/VIDEO.md) and the audio sample (see docs/SOUND.md).  Since
    revision 03 it also remaps four row address bits for the line
    repeat modes.
 

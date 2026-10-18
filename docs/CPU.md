@@ -24,7 +24,7 @@ LOAD_MEM (one more clock) so its address and data settle a clock before the
 write (see [TIMING_FIXES.md](TIMING_FIXES.md)).  So an instruction takes 2
 to 4 clocks, plus any video stall clocks.
 
-![State PLD state diagram](reference/state_pld_state_diagram.png)
+![State PLD state diagram](../reference/state_pld_state_diagram.png)
 
 The state diagram is drawn by `src/scripts/gen_state_diagram.py` (State PLD
 revision 12, 2026-10-18); rerun it when the State PLD changes.
@@ -61,7 +61,7 @@ reconfigured: the ROM's boot loader maps the zero page and x4000-x4FFF to
 RAM and runs the program in place from the ROM (see [ROM.md](ROM.md)).
 Video reads always read the RAM (memory control PLD revision 04), whatever
 the map says, so the CPU can run from the ROM under the video area while
-the display shows the RAM.  See the [memory map](README.md#memory-map).
+the display shows the RAM.  See the [memory map](../README.md#memory-map).
 
 ### Memory parts
 

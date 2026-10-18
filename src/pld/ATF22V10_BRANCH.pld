@@ -65,21 +65,21 @@ Device   g22v10;
    every BGE (now BCC), BLE or BRA (memory field 101, 110, 111).  The memory
    control PLD gates the write with the clock, so MEM_WR has to be
    settled before the clock falls; from the instruction register
-   it is (see TIMING_FIXES.md, end-of-write contention).
+   it is (see docs/TIMING_FIXES.md, end-of-write contention).
    Active high.  For an active-low pin declare
    PIN 23 = !BRANCH_BLOCK;  (the equation is unchanged).
 
    Revision 08 removed a second decode of the opcode on the data
    bus (DB7:DB5, pins 14-16) during FETCH.  The State PLD used it to
    send BGE with an AC or X target straight to EXEC, but that path
-   was too slow (TIMING_FIXES.md); BGE with an AC or X target now
+   was too slow (docs/TIMING_FIXES.md); BGE with an AC or X target now
    has a pad byte and goes through LOAD_IMM like a zero-page store.
    (Memory field 101 is BCC since revision 11, with the same pad
    byte.)  Pins 14-16 were unused.
 
    ALU WAIT CLOCK (revisions 06 and 07)
    ADD and SUB need two clocks for the carry to ripple through
-   both ALU PLDs at 25.175 MHz (see ALU_TIMING.md).  The first
+   both ALU PLDs at 25.175 MHz (see docs/ALU_TIMING.md).  The first
    EXEC clock of an ADD/SUB with an AC, X or Y destination is a
    stall clock, so the result is loaded at the end of the second:
 
@@ -139,7 +139,7 @@ Device   g22v10;
 
    The carry is settled before the ALU result: the low chip's
    B -> D2 -> COUT and the high chip's CIN -> D2 -> COUT are four
-   array passes (30 ns), against five to F3 (ALU_TIMING.md).  From a
+   array passes (30 ns), against five to F3 (docs/ALU_TIMING.md).  From a
    FETCH -> EXEC ADD with source AC or X: IR 10.5 + '138 9 + '541
    enable 9.5 + 30 + CARRY setup 3.5 = 62.5 ns, inside the two clocks
    (79.44 ns) the ALU wait clock gives, 16.9 ns to spare.  BCS and BCC

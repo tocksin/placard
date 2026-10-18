@@ -15,7 +15,7 @@ SCREEN
     rows  32-479  8 bpp, 4x   the 3D view: 80 x 112 cells of 8 x 4 pixels,
                               256 colors (RGB 3-3-2)
     The 1x text rows use video offsets x020-x03F of each byte column and the
-    4x view rows x180-x1FF (VIDEO.md, line repeat), so they never share a
+    4x view rows x180-x1FF (docs/VIDEO.md, line repeat), so they never share a
     byte.  There is no page flip, so a view is drawn over the last one,
     column by column, while it is on the screen.
 

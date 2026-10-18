@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- Name     VGA_SYNC
 -- PartNo   01
--- Date     2026-10-16
+-- Date     2026-10-18
 -- Revision 07
 -- Designer Justin
 -- Company
@@ -70,8 +70,8 @@ entity sync_pld is
 
         -- Blanking read slot, from the audio slot PLD (revision 06; named
         -- AUD_SLOT before revision 07).  High for the whole 8-clock group
-        -- of each line where the mode byte (group 45, see VIDEO.md) or the
-        -- audio sample (group 46 or 47, see SOUND.md) is read (groups
+        -- of each line where the mode byte (group 45, see docs/VIDEO.md) or the
+        -- audio sample (group 46 or 47, see docs/SOUND.md) is read (groups
         -- 37-39 before audio slot PLD revision 03).
         BLANK_RD         : in  std_logic;   -- PIN 13
 
@@ -198,7 +198,7 @@ begin
     -- read in the second clock of each 8-clock group.  Being registered,
     -- it reaches ADDR_SEL through the register feedback (tCF) and the
     -- State, PC and Branch PLDs at tCO, instead of three array passes
-    -- after the clock (see VIDEO_TIMING.md).
+    -- after the clock (see docs/VIDEO_TIMING.md).
     --
     -- It is decoded from the V_VIDEO_ACTIVE register and the
     -- H_VIDEO_ACTIVE input, not from the VIDEO_ACTIVE pin, so it is one

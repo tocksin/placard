@@ -2,7 +2,7 @@
 -- @brief Creates VGA timing for sync signals using PLD conversions
 -- @author Justin Davis
 --
--- Date: 10/16/2026
+-- Date: 10/18/2026
 -------------------------------------------------------------------------------
 
 library ieee;           use ieee.std_logic_1164.all;
@@ -99,9 +99,9 @@ begin
     );
 
     -- Blanking read slots: the mode byte in group 45 on every line, at
-    -- 5A00h + V8:V0 (see VIDEO.md), and the audio sample in group 46 on
+    -- 5A00h + V8:V0 (see docs/VIDEO.md), and the audio sample in group 46 on
     -- lines 499-511 and group 47 on lines 512-1023, so the audio read
-    -- address runs 5DF3h-5FFFh (see SOUND.md).  It also remaps the row
+    -- address runs 5DF3h-5FFFh (see docs/SOUND.md).  It also remaps the row
     -- address bits A0, A1, A7 and A8 for the line repeat modes (line code
     -- bits 3:2).
     audioPLD : entity work.audio_pld

@@ -2,7 +2,7 @@
 ; placard_slot.asm - Placard expansion slot helpers
 ; ============================================================
 ;
-; The four expansion slots (EXPANSION.md) each answer 128 addresses.  A
+; The four expansion slots (docs/EXPANSION.md) each answer 128 addresses.  A
 ; card that wants to be found starts with a boot header in offsets 00-5F,
 ; which the boot loader (rom_boot.asm) checks and runs at power-up:
 ;
