@@ -4,14 +4,14 @@
 ;
 ; Subroutines for Placard programs: calls and a software stack, 16-bit
 ; and multiply / divide arithmetic, memory fill and copy, random numbers,
-; frame timing, pixels and a text console.  LIBRARY.md documents every
+; frame timing, pixels and a text console.  docs/LIBRARY.md documents every
 ; routine; each routine's header below lists the same facts.
 ;
 ; USE
 ;     #include "placard.asm"
 ;     #include "placard_lib.asm"      ; also includes zeropage.asm
 ;
-;     #addr 0x6000                    ; a ROM program (ROM.md)
+;     #addr 0x6000                    ; a ROM program (docs/ROM.md)
 ;     main:
 ;         ld   STACK_TOP, ac         ; set up the stack first
 ;         ld   ac, [SP]
@@ -20,7 +20,7 @@
 ; The library sits at LIB_CODE (code, 2 KB) and LIB_FONT (font, 2 KB),
 ; x3000-x3FFF, and runs in place from the ROM (section 1 reads ROM).
 ; These are standard places that every program shares, so keep them;
-; moving them means changing gen_rom.tcl and placard_sim.py too (ROM.md).
+; moving them means changing gen_rom.tcl and placard_sim.py too (docs/ROM.md).
 ; LIB_CODE must be a multiple of 0x100, because every routine keeps its
 ; branches inside one 256-byte page.
 ;
@@ -123,11 +123,11 @@ LIB2_CODE = 0xE000      ; library bank 2, xE000-xFBFF; xE000-xE0FF is kept
                         ; for a jump table, code starts at xE100
 
 #include "lib_font.asm"
-#include "placard_io.asm"     ; I/O drivers at IO_CODE, x2000-x2FFF (IO.md)
-#include "placard_snd.asm"    ; sound driver in bank 2 (SOUND.md)
-#include "placard_slot.asm"   ; expansion slot helpers in bank 2 (EXPANSION.md)
-#include "placard_fs.asm"     ; FAT file reading in bank 2 (IO.md)
-#include "placard_input.asm"  ; line input, mouse pointer in bank 2 (IO.md)
+#include "placard_io.asm"     ; I/O drivers at IO_CODE, x2000-x2FFF (docs/IO.md)
+#include "placard_snd.asm"    ; sound driver in bank 2 (docs/SOUND.md)
+#include "placard_slot.asm"   ; expansion slot helpers in bank 2 (docs/EXPANSION.md)
+#include "placard_fs.asm"     ; FAT file reading in bank 2 (docs/IO.md)
+#include "placard_input.asm"  ; line input, mouse pointer in bank 2 (docs/IO.md)
 
 
 ; ============================================================
@@ -649,7 +649,7 @@ vc_b:
 ;   in 4x on four, so a 2x screen uses half the video RAM and a 4x
 ;   screen a quarter.  The rows move within each byte column; vid_addr
 ;   and plot1 follow each row's own mode byte.  Give both lines of a 2x
-;   pair (all four of a 4x group) the same mode byte.  See VIDEO.md.
+;   pair (all four of a 4x group) the same mode byte.  See docs/VIDEO.md.
 ; ------------------------------------------------------------
 vid_mode:
     ld   ac, [T0]
@@ -680,12 +680,12 @@ vm_1:
 ;   out:     AC = address high byte, X = address low byte
 ;            (then: ld ac, y / ld [y,x], ac reads the byte)
 ;   changes: T0, T1, T4
-;   clocks:  see LIBRARY.md
+;   clocks:  see docs/LIBRARY.md
 ;   With v = row + 32 (9 bits), the byte is in page x60 + 2 * column:
 ;       1x:  page + v8,  low byte v7:v0
 ;       2x:  page + 1,   low byte v7:v1, v8
 ;       4x:  page + 1,   low byte 1, v6:v2, v8, v7
-;   (the address bits the audio slot PLD remaps, see VIDEO.md)
+;   (the address bits the audio slot PLD remaps, see docs/VIDEO.md)
 ; ------------------------------------------------------------
 vid_addr:
     shl
@@ -753,7 +753,7 @@ va_1x:
 ;            AC = 0 to clear the pixel, anything else to set it
 ;   out:     -
 ;   changes: AC, X, Y, T0-T6
-;   clocks:  see LIBRARY.md
+;   clocks:  see docs/LIBRARY.md
 ;   The row may be 1x, 2x or 4x (it calls vid_addr, which reads the
 ;   row's mode byte).  It maps sections 3-7 to RAM while it reads the
 ;   pixel byte (MAP_SHADOW or F8) and writes MAP_SHADOW back to the map
@@ -1317,7 +1317,7 @@ cd_back3:
 ;   in:      -
 ;   out:     AC unchanged; the cursor is not moved
 ;   changes: X, Y, T1-T5
-;   clocks:  see LIBRARY.md
+;   clocks:  see docs/LIBRARY.md
 ;   It maps sections 3-7 to RAM while it copies (MAP_SHADOW or F8) and
 ;   writes MAP_SHADOW back to the map before it returns.
 ; ------------------------------------------------------------

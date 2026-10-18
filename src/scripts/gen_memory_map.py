@@ -6,8 +6,8 @@ gen_memory_map.py - draw the Placard memory map as a PNG.
     python3 gen_memory_map.py out.png         writes out.png
 
 Needs matplotlib (python3 -m pip install matplotlib).  The regions are typed
-in below from README.md (Memory Map), VIDEO.md (Mode byte), SOUND.md and
-LIBRARY.md; update them here when the map changes and rerun.
+in below from README.md (Memory Map), docs/VIDEO.md (Mode byte), docs/SOUND.md and
+docs/LIBRARY.md; update them here when the map changes and rerun.
 
 Date: 2026-10-18
 """
@@ -28,7 +28,7 @@ C = {
 fig = plt.figure(figsize=(20, 12), dpi=130)
 fig.suptitle("PLACARD memory map (64 KB, 16-bit address, 8-bit data)", fontsize=20, weight="bold", y=0.975)
 fig.text(0.5, 0.935, "CPU reads of each 8 KB section come from RAM or ROM per the map register at x5000; video reads and all writes "
-         "use RAM.  x5000-x53FF is the I/O window.  Programs run from ROM (ROM.md).", ha="center", fontsize=11.5, color="#444")
+         "use RAM.  x5000-x53FF is the I/O window.  Programs run from ROM (docs/ROM.md).", ha="center", fontsize=11.5, color="#444")
 
 
 LIGHT = {C["free"], C["unused"], C["iomirror"], C["font"], C["videogap"]}
@@ -166,7 +166,7 @@ items = [("Video RAM", C["video"]), ("Line codes", C["mode"]), ("Audio buffer", 
 handles = [Rectangle((0, 0), 1, 1, fc=c, ec="#333") for _, c in items]
 fig.legend(handles, [n for n, _ in items], loc="lower right", bbox_to_anchor=(0.985, 0.04), ncol=3, fontsize=10,
            frameon=True)
-fig.text(0.985, 0.012, "Source: README.md, VIDEO.md, SOUND.md, LIBRARY.md on main, 2026-10-18", ha="right",
+fig.text(0.985, 0.012, "Source: README.md, docs/VIDEO.md, docs/SOUND.md, docs/LIBRARY.md on main, 2026-10-18", ha="right",
          fontsize=8.5, color="#777")
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(

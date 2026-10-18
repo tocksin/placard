@@ -3,7 +3,7 @@
 --
 -- FPGA model fixture (not a board part): turns the Basys3's USB keyboard,
 -- which the board's USB host presents as a PS/2 keyboard, into the
--- Placard's 8 x 8 key matrix (IO.md).  It receives scan code set 2 bytes,
+-- Placard's 8 x 8 key matrix (docs/IO.md).  It receives scan code set 2 bytes,
 -- keeps one bit per matrix key (pressed or not) and answers the column
 -- lines like the real matrix: row r is low while a key in row r of a
 -- driven (low) column is held.

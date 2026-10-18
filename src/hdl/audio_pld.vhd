@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- Name     AUDIO_SLOT
 -- PartNo   00
--- Date     2026-10-16
+-- Date     2026-10-18
 -- Revision 03
 -- Designer Justin
 -- Device   ATF22V10C (CUPL: g22v10)
@@ -13,10 +13,10 @@
 -- line repeat modes:
 --   - the mode byte: group 45 on every line, so row r's mode byte is at
 --     5A20h + r.  /MODE_LD is the line code register's /E for the whole
---     group.  See VIDEO.md.
+--     group.  See docs/VIDEO.md.
 --   - the audio sample: group 46 on lines 499-511 (V9 = 0) and group 47 on
 --     lines 512-1023 (V9 = 1).  That puts V9 on A9 (H3), so one frame reads
---     5DF3h-5FFFh in order, one byte per line.  See SOUND.md.
+--     5DF3h-5FFFh in order, one byte per line.  See docs/SOUND.md.
 --   - R0, R1, R7, R8: the video address bits A0, A1, A7, A8.  Outside
 --     groups 32-47 (RAW) they follow line code bits 3:2:
 --         1x (00): V0, V1, V7, V8   2x (01): V8, V1, V7, 1

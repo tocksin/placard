@@ -7,8 +7,8 @@ number of chips in each block.
     python3 gen_block_diagram.py out.png      writes out.png
 
 Needs matplotlib (python3 -m pip install matplotlib).  The blocks and
-their chip counts are typed in below from CHIPS.md; update them here when
-the chip list changes and rerun.  The counts must add up to the CHIPS.md
+their chip counts are typed in below from docs/CHIPS.md; update them here when
+the chip list changes and rerun.  The counts must add up to the docs/CHIPS.md
 total (the script checks).
 
 Date: 2026-10-18
@@ -21,7 +21,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
-CHIPS_TOTAL = 39            # CHIPS.md, plus the 3.3 V regulator
+CHIPS_TOTAL = 39            # docs/CHIPS.md, plus the 3.3 V regulator
 
 # fill colors by area
 CPU, CTRL, MEM, IO, VID, SND, DEV = ("#E4DAFF", "#FFF2BF", "#D3F6D8", "#FFE3C8",
@@ -73,7 +73,7 @@ def wire(pts, color, lw=6, arrow=True, label=None, lpos=None, lcolor=None, fs=11
 
 # ---------------------------------------------------------------- title
 ax.text(3, 4, "Placard: block diagram", fontsize=24, weight="bold", va="center")
-ax.text(3, 9, "%d chips and a 3.3 V regulator (CHIPS.md).  The badge on each block is its "
+ax.text(3, 9, "%d chips and a 3.3 V regulator (docs/CHIPS.md).  The badge on each block is its "
         "chip count.  Control strobes, flags and clocks are not shown." % CHIPS_TOTAL,
         fontsize=12.5, color="#495057", va="center")
 
@@ -125,7 +125,7 @@ exp = box(166, 102, 51, 20, "4 expansion slots", 0,
 cart = box(186, 60, 31, 11, "ROM cartridge slot", 0, "the ROM chips above", MEM, fs=11.5)
 
 total = sum(counted)
-assert total == CHIPS_TOTAL, "blocks add up to %d chips, CHIPS.md says %d" % (total, CHIPS_TOTAL)
+assert total == CHIPS_TOTAL, "blocks add up to %d chips, docs/CHIPS.md says %d" % (total, CHIPS_TOTAL)
 
 # ---------------------------------------------------------------- buses
 # address bus
@@ -198,7 +198,7 @@ for name, col in (("Address bus (16 bits)", ADDR), ("Data bus: memory and I/O re
     ax.text(175, ly + 1.1, name, va="center", fontsize=11.5)
     ly += 4.6
 ax.text(166, 154, "Section reads follow the map register; video reads and all writes use RAM.\n"
-        "Source: CHIPS.md, IO.md, EXPANSION.md, SOUND.md, VIDEO.md on 2026-10-18.",
+        "Source: docs/CHIPS.md, docs/IO.md, docs/EXPANSION.md, docs/SOUND.md, docs/VIDEO.md on 2026-10-18.",
         fontsize=10, color="#495057", va="top")
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(

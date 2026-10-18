@@ -554,7 +554,7 @@ begin
     --     1x: A8:A0 = V8:V0
     --     2x: A8 = 1, A7:A1 = V7:V1, A0 = V8
     --     4x: A8 = 1, A7 = 1, A6:A2 = V6:V2, A1 = V8, A0 = V7
-    -- See VIDEO.md (line repeat).
+    -- See docs/VIDEO.md (line repeat).
     videoAddr(15 downto 9) <= pixelCol(9 downto 3);
     videoAddr(8)           <= rowA8;
     videoAddr(7)           <= rowA7;
@@ -719,7 +719,7 @@ begin
     --   Reads follow the ROM/RAM map (romSel).  The map clears to all ROM
     --   at power-up, so the CPU starts in the ROM's boot loader, which
     --   copies the program and library into the RAM and maps every section
-    --   to RAM (see ROM.md).
+    --   to RAM (see docs/ROM.md).
     --
     --   Video line read: a 74F541 enabled by /LINE_RD (an I/O read at
     --   x5000-x50FF) drives the upper 8 bits of the V counter, V9:V2, onto
@@ -727,7 +727,7 @@ begin
     --   key rows on even addresses and the port PLD on odd ones.  The memory control PLD keeps the RAM and ROM off the
     --   bus in the I/O window, so the buffer is the only driver there.
     ----------------------------------------------------------
-    ------    Shared port at 5200h (IO.md)            -------
+    ------    Shared port at 5200h (docs/IO.md)            -------
     ----------------------------------------------------------
     -- Port latch: 74HC574, loads the source bus on the rising edge of
     -- /PORT_WR.  The real part powers up random; the boot loader writes
@@ -882,7 +882,7 @@ begin
     --   mode byte (5A00h + V8:V0) into the pixel buffer in clock 1 of
     --   group 45, and this register copies it on clocks 2-7, then holds it
     --   for the rest of the line.  So the mode byte no longer takes the
-    --   first byte column of the screen (see VIDEO.md).  Q1:Q0 go to the
+    --   first byte column of the screen (see docs/VIDEO.md).  Q1:Q0 go to the
     --   color decoder, Q3:Q2 to the audio slot PLD (line repeat).
     --   (Before: enabled while videoActiveR was low, keeping the bus value
     --   of the first pixel read of the line, byte column 0.)
@@ -908,7 +908,7 @@ begin
         end if;
     end process pixelProc;
 
-    -- Audio DAC register (74HC574, see SOUND.md)
+    -- Audio DAC register (74HC574, see docs/SOUND.md)
     --   Clocked by the rising edge of H_VIDEO_ACTIVE (H counter PLD pin
     --   22, start of group 48).  The audio sample was read into the pixel
     --   buffer in group 46 or 47 (after the mode byte in group 45), and
@@ -932,7 +932,7 @@ begin
     --   The Sync PLD reads the byte in clock 1 of each 8-clock group
     --   (PIXEL_ENABLE is registered), so the pixel buffer loads at the end
     --   of clock 1.  H2:H0 and videoActive are delayed two clocks to line
-    --   up with it (see VIDEO_TIMING.md).
+    --   up with it (see docs/VIDEO_TIMING.md).
     delayPixelProc : process (clkVGA, rstVGA)
     begin
         if (rstVGA = '1') then
@@ -1034,7 +1034,7 @@ begin
                 dataOut     => dataRom);
 */
     -- The ROM has its own initialization file (boot loader, standard
-    -- library and font, and the program; see ROM.md).  Writes always go
+    -- library and font, and the program; see docs/ROM.md).  Writes always go
     -- to the RAM, so the ROM block is never written.
     romComp : entity work.sp_ram 
     generic map( initFile => "rom.mem" )

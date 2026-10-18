@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
 gen_line_repeat_map.py - draw one video column's 512 bytes in each line
-repeat mode (VIDEO.md, line repeat).
+repeat mode (docs/VIDEO.md, line repeat).
 
     python3 gen_line_repeat_map.py            writes reference/line_repeat_map.png
 
-Date: 10/16/2026
+Date: 10/18/2026
 
 Offset within a column = video address A8:A0.  Column c starts at x6000 + c*x200.
 Visible row r is line V = 544 + r, so V8:V0 = 32 + r.

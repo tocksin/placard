@@ -1,14 +1,14 @@
 --------------------------------------------------------------------------------
 -- Name     PORT
 -- PartNo   00
--- Date     10/17/2026
+-- Date     10/18/2026
 -- Revision 01
 -- Designer Justin
 -- Device   ATF22V10C (CUPL: g22v10)
 --
 -- Converted from WinCUPL source ATF22V10_PORT.pld (Revision 01)
 --
--- Shared port at 5200h (IO.md): keyboard columns and the SNES pad read.
+-- Shared port at 5200h (docs/IO.md): keyboard columns and the SNES pad read.
 --   - colNN: keyboard column n is low when the port latch's bits 7:4
 --     (k3:k0) hold n (0-7); codes 8-15 drive no column.
 --   - d7, d6: pad 1 and pad 2 DATA onto the read bus on a read of an odd

@@ -9,7 +9,7 @@ rem      (customasm if it is on the PATH, otherwise placard_sim.py with
 rem      Python; if neither is found the existing .hex files are used)
 rem   2. makes src\hdl\ram.mem (gen_video_ram.tcl, the video test pattern) and
 rem      src\hdl\rom.mem (gen_rom.tcl: boot loader, library and the program,
-rem      see ROM.md)
+rem      see docs/ROM.md)
 rem   3. runs Vivado in batch mode: synthesis, implementation, bitstream
 rem   4. programs the Basys 3 through the local hw_server
 rem
