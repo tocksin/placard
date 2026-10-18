@@ -620,7 +620,8 @@ ROM_IMAGE_BASE = 0x6000      # RAM image: ROM address of RAM x0000
 IMAGE_SIZE = 0x4A00          # RAM x0000-x49FF is copied at boot
 LIB_START, LIB_END = 0x3000, 0x4000
 IO_START = 0x2000            # I/O drivers (placard_io.asm), x2000-x2FFF, ROM programs only
-PROG_START, PROG_END = 0x6000, 0xFC00   # ROM program area
+LIB2_START, LIB2_END = 0xE000, 0xFC00   # library bank 2 (last bank): jump table page, sound, FAT, slots
+PROG_START, PROG_END = 0x6000, 0xE000   # ROM program area
 BOOT_MODE = 0xFC00           # 00 = ROM program, 01 = RAM image
 
 
@@ -630,7 +631,7 @@ def is_ram_image(prog, lib):
     for a, v in prog.items():
         if a >= PROG_START:
             continue
-        if IO_START <= a < LIB_END and v == lib.get(a, 0):
+        if (IO_START <= a < LIB_END or LIB2_START <= a < LIB2_END) and v == lib.get(a, 0):
             continue
         if v:
             return True
@@ -640,8 +641,9 @@ def is_ram_image(prog, lib):
 def build_rom(prog, base_dir=None):
     """ROM bytes {addr: value} for a program image {addr: value}, as gen_rom.tcl
     makes them (ROM.md): rom_boot.asm, the library (rom_lib.asm) in place at
-    x2000-x3FFF (I/O drivers, library and font), then either
-      a ROM program (assembled at x6000-xFBFF): in place, BOOT_MODE = 00, or
+    x2000-x3FFF (I/O drivers, library and font) and xE000-xFBFF (library
+    bank 2), then either
+      a ROM program (assembled at x6000-xDFFF): in place, BOOT_MODE = 00, or
       a RAM image (older programs at RAM x0000): BOOT_MODE = 01, the library
       (not the I/O drivers) again at RAM x3000-x3FFF of the image, then the program (x0000 to its
       last byte, gaps as 00, like its hex file), at ROM = RAM + x6000."""
@@ -652,14 +654,14 @@ def build_rom(prog, base_dir=None):
     lib, _, _ = assemble(open(os.path.join(base_dir, 'rom_lib.asm')).read(), base_dir)
     rom.update(boot)
     for a, v in lib.items():
-        if IO_START <= a < LIB_END:
+        if IO_START <= a < LIB_END or LIB2_START <= a < LIB2_END:
             rom[a] = v
     if not is_ram_image(prog, lib):
         for a, v in prog.items():
-            if a >= PROG_END and v:
+            if a >= PROG_END and v and not (LIB2_START <= a < LIB2_END and v == lib.get(a, 0)):
                 raise AsmError('program byte at %04X is past the ROM program area '
                                '(x%04X-x%04X)' % (a, PROG_START, PROG_END - 1))
-            if a >= PROG_START:
+            if PROG_START <= a < PROG_END:
                 rom[a] = v
         rom[BOOT_MODE] = 0
         return rom
