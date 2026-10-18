@@ -165,38 +165,29 @@ fs_shl:
     shl
     ld   ac, [T3]
     ld   [T2], ac
-    blt  sh_2_b7
-    bra  sh_2
-sh_2_b7:
+    shl                         ; carry = T2 bit 7
+    ld   ac, [T2]
+    bcc  sh_2
     ld   [T3], ac
     or   1, ac
     ld   ac, [T3]
 sh_2:
-    ld   [T2], ac
-    shl
-    ld   ac, [T2]
     ld   [T1], ac
-    blt  sh_1_b7
-    bra  sh_1
-sh_1_b7:
+    shl
+    ld   ac, [T1]
+    bcc  sh_1
     ld   [T2], ac
     or   1, ac
     ld   ac, [T2]
 sh_1:
-    ld   [T1], ac
-    shl
-    ld   ac, [T1]
     ld   [T0], ac
-    blt  sh_0_b7
-    bra  sh_0
-sh_0_b7:
+    shl
+    ld   ac, [T0]
+    bcc  sh_0
     ld   [T1], ac
     or   1, ac
     ld   ac, [T1]
 sh_0:
-    ld   [T0], ac
-    shl
-    ld   ac, [T0]
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 
@@ -206,81 +197,45 @@ sh_0:
 ; ============================================================
 #addr LIB2_CODE + 0x700
 
-; fs_add - T0-T3 = T0-T3 + T4-T7.  Changes IO_T0-IO_T3.
+; fs_add - T0-T3 = T0-T3 + T4-T7, AC = T3.
 fs_add:
-    clr  ac
-    ld   ac, [IO_T3]            ; carry in
     ld   [T0], ac
     add  [T4], ac
-    ld   ac, [IO_T0]            ; sum
-    ld   [T0], ac
-    and  [T4], ac
-    ld   ac, [IO_T1]            ; a & b
-    ld   [T0], ac
-    or   [T4], ac
-    ld   ac, [IO_T2]            ; a | b
-    ld   [IO_T0], ac
     ld   ac, [T0]
-    not
-    and  [IO_T2], ac
-    or   [IO_T1], ac            ; bit 7 = carry out
-    blt  ad_c0
-    clr  ac
-    bra  ad_d0
-ad_c0:
-    ld   1, ac
-ad_d0:
-    ld   ac, [IO_T3]
     ld   [T1], ac
+    bcc  ad_1                   ; the carry from the byte below
+    inc
+    bcs  ad_1z                  ; T1 was FF: T1 = T5, carry out
+ad_1:
     add  [T5], ac
-    add  [IO_T3], ac
-    ld   ac, [IO_T0]
-    ld   [T1], ac
-    and  [T5], ac
-    ld   ac, [IO_T1]
-    ld   [T1], ac
-    or   [T5], ac
-    ld   ac, [IO_T2]
-    ld   [IO_T0], ac
     ld   ac, [T1]
-    not
-    and  [IO_T2], ac
-    or   [IO_T1], ac
-    blt  ad_c1
-    clr  ac
-    bra  ad_d1
-ad_c1:
-    ld   1, ac
-ad_d1:
-    ld   ac, [IO_T3]
     ld   [T2], ac
+    bcc  ad_2
+ad_2c:
+    inc
+    bcs  ad_2z                  ; T2 was FF: T2 = T6, carry out
+ad_2:
     add  [T6], ac
-    add  [IO_T3], ac
-    ld   ac, [IO_T0]
-    ld   [T2], ac
-    and  [T6], ac
-    ld   ac, [IO_T1]
-    ld   [T2], ac
-    or   [T6], ac
-    ld   ac, [IO_T2]
-    ld   [IO_T0], ac
     ld   ac, [T2]
-    not
-    and  [IO_T2], ac
-    or   [IO_T1], ac
-    blt  ad_c2
-    clr  ac
-    bra  ad_d2
-ad_c2:
-    ld   1, ac
-ad_d2:
-    ld   ac, [IO_T3]
     ld   [T3], ac
+    bcc  ad_3
+ad_3c:
+    inc
+ad_3:
     add  [T7], ac
-    add  [IO_T3], ac
     ld   ac, [T3]
     ld   [LINK_HI], y
     jmp  [LINK_LO]
+ad_1z:
+    ld   [T5], ac
+    ld   ac, [T1]
+    ld   [T2], ac
+    bra  ad_2c
+ad_2z:
+    ld   [T6], ac
+    ld   ac, [T2]
+    ld   [T3], ac
+    bra  ad_3c
 
 ; fs_clba - T0-T3 = the first sector of cluster T0-T3:
 ; V_DATA + (cluster - 2) << V_SHIFT.  Changes T4-T7, IO_T0-IO_T3, IO_TMP.

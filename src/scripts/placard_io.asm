@@ -1332,30 +1332,24 @@ sd_arg:
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 sa_byte:
-    ld   [R0], ac               ; T6 = R0 << 1
-    shl
-    ld   ac, [T6]
-    ld   [R1], ac               ; T5 = R1 << 1 | R0 >> 7
-    shl
-    ld   ac, [T5]
-    ld   [R0], ac
-    blt  sa_1_b7
-    bra  sa_1
-sa_1_b7:
-    ld   [T5], ac
-    or   1, ac
-    ld   ac, [T5]
-sa_1:
     ld   [R2], ac               ; T4 = R2 << 1 | R1 >> 7
     shl
     ld   ac, [T4]
-    ld   [R1], ac
-    blt  sa_2_b7
-    bra  sa_2
-sa_2_b7:
+    ld   [R1], ac               ; T5 = R1 << 1 | R0 >> 7
+    shl                         ; carry = R1 bit 7
+    ld   ac, [T5]
+    bcc  sa_1
     ld   [T4], ac
     or   1, ac
     ld   ac, [T4]
+sa_1:
+    ld   [R0], ac               ; T6 = R0 << 1
+    shl                         ; carry = R0 bit 7
+    ld   ac, [T6]
+    bcc  sa_2
+    ld   [T5], ac
+    or   1, ac
+    ld   ac, [T5]
 sa_2:
     clr  ac
     ld   ac, [T7]

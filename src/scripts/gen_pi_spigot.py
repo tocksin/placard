@@ -26,20 +26,21 @@ ALGORITHM (Rabinowitz & Wagon 1995, with predigit / nines handling)
     For N = 1000: a[i] < 6667 (13 bits), x < 2^17, q <= 18.
 
 ARITHMETIC
-    The program was written before the CPU had a carry flag, so multi-byte
-    values are kept in "base 128": value = limb2 * 16384 + limb1 * 128 +
-    limb0, limbs 0..127.  A carry or borrow out of a limb lands in bit 7.
-    A borrow from a subtract of two limbs is the carry flag too, so those
-    are tested with bcc; carries from adds are tested on bit 7 with blt
-    (there is no BGE since Branch PLD rev 11).
+    Multi-byte values are plain bytes, least significant first, and the
+    carry flag (Branch PLD rev 11) carries between them: after a byte's add
+    or subtract, bcc skips the inc or dec of the next byte.
     - 10 * a[i] and q * i come from a product table T[m][v] = m * v
-      (m = 0..20, v = 0..127, two base-128 limbs), applied to each 7-bit
-      limb of a[i] and i.  The table is ROM data built by this script.
+      (m = 0..18, v = 0..255, two bytes), applied to each byte of a[i]
+      and i.  q * (i >> 8) is under 256, so it needs only the low table.
+      The table is ROM data built by this script.
     - x div (2i - 1) is a software restoring division: q <= 18 < 32, so
-      five compare-and-subtract steps against (2i - 1) << k, k = 4..0.
-      The five shifted divisors are counters that step down by 2 << k as
-      i steps down, so no shifts are needed in the loop.
-    - a[i] is two byte arrays (low limb, high limb) walked by pointer.
+      five compare-and-subtract steps against D_k = (2i - 1) << k, k = 4..0,
+      with q built up in the X register.  x < 2^17, D_3 < 2^16, so after
+      the k = 3 step x fits in two bytes and the last three steps are
+      16-bit.  The five D_k are counters that step down by 2 << k as i
+      steps down, so no shifts are needed in the loop.
+    - a[i] is two byte arrays (low byte, high byte) walked by pointer; the
+      pointer's low byte is also the low byte of i.
 
 SCREEN (1 bpp)
     Digits in the 8x8 font in a block centered on the screen: "3." and 50
@@ -51,8 +52,8 @@ SCREEN (1 bpp)
 TIMER
     The line read at 5000h (V9:V2 of the line counter, 124-255, see
     README.md) is the time base.  There is no frame counter, so the program
-    polls it: every 128 terms of the inner loop (about 87,000 clocks, a
-    fifth of a frame), once per page while a[i] is filled, and in the
+    polls it: every 256 terms of the inner loop (about 100,000 clocks, a
+    quarter of a frame), once per page while a[i] is filled, and in the
     10 second wait.  A poll that sees the value go down adds one frame,
     16800 us at 25.000 MHz (525 lines x 800 clocks), to a 9 digit decimal
     count of microseconds at 0050-0058, so the result never has to be
@@ -65,15 +66,16 @@ TIMER
     - Then the time is shown, the count is cleared and polled until it
       reaches 10 s, and the program starts again from the screen clear.
 
-RESULT (placard_sim.py with State PLD rev 12 / Branch PLD rev 09 timing;
-1000 digits, all match pi; 50 digits also checked with --hw-alu before the
-timer was added)
-    637,509,809 instructions, 2,261,702,856 clocks from reset to the stop
-    (the polls add about 0.25 %).  The timer shows 90.434 s, the simulated
-    time from its start to its stop is 90.4344 s (25.000 MHz, no video
-    stalls).  With the CPU stalled on every video byte fetch (1 clock in 8
-    during active video, 9.1 % of all clocks) the board should show about
-    99 s.  The screen is reference/pi_spigot_sim.png.
+RESULT (placard_sim.py with State PLD rev 12 / Branch PLD rev 11 timing;
+1000 digits, the same screen as the base-128 build before the carry flag
+apart from the time)
+    485,958,344 instructions, 1,699,635,170 clocks from reset to the stop
+    (the polls add about 0.25 %).  The timer shows 67.949 s (25.000 MHz,
+    no video stalls).  With the CPU stalled on every video byte fetch (1
+    clock in 8 during active video, 9.1 % of all clocks) the board should
+    show about 74 s.  Before the carry flag (base-128 limbs) it was
+    2,261,702,856 clocks and 90.434 s, so the carry flag makes it 1.33x
+    faster.  The screen is reference/pi_spigot_sim.png.
 
 MEMORY
     0000-0003   reset: jump to main
@@ -82,15 +84,15 @@ MEMORY
     0060-0068   one frame (16800) as decimal digits, 0070-0078 one step (128)
     0080-00E7   font
     0100-07FF   code, blocks packed so none crosses a page
-    0800-15FF   a[i] low limbs  (address 0800 + i)
-    1600-23FF   a[i] high limbs (address 1600 + i)
-    2400-367F   product table low limbs,  page 24 + m, m = 0..18
-    3700-497F   product table high limbs, page 37 + m
+    0800-15FF   a[i] low bytes  (address 0800 + i)
+    1600-23FF   a[i] high bytes (address 1600 + i)
+    2400-36FF   product table low bytes,  page 24 + m, m = 0..18
+    3700-49FF   product table high bytes, page 37 + m
     5A20-5BFF   mode bytes, one per row (all 0, 1 bpp)
     6000-FFFF   video RAM
     The tables only go up to m = 18, the largest q for 1000 digits (build()
     checks it for the digit count asked for), so they end below the mode
-    bytes.  Each table page uses only 00-7F.
+    bytes.
 
 Date: 10/18/2026
 """
@@ -126,7 +128,7 @@ FONT = {
 
 ZP = {}
 for _i, _n in enumerate(
-        ['x0', 'x1', 'x2', 't0', 't1', 'q', 'al', 'ah', 'il', 'ih', 'px', 'py',
+        ['x0', 'x1', 'x2', 't0', 't1', 'q', 'al', 'ah', 'ih', 'px', 'py',
          'pre', 'nines', 'first', 'fill', 'dig', 'dotf', 'cpage', 'crow',
          'ccol', 'rhi', 'gx', 'sx', 'tmp', 'ret', 'reth', 'jl', 'jh',
          'cur', 'last', 'wrapped', 'doff', 'dc', 'ds', 'pret', 'preth',
@@ -160,7 +162,7 @@ def z(n):
 
 
 def limbs(v, n):
-    return [(v >> (7 * j)) & 0x7F for j in range(n)]
+    return [(v >> (8 * j)) & 0xFF for j in range(n)]
 
 
 class Gen:
@@ -229,6 +231,8 @@ def build(ndig):
     ln = 10 * ndig // 3 + 1
     if ALO_PG * 256 + ln >= AHI_PG * 256:
         raise SystemExit('too many digits for the array space')
+    if TMAX * (ln >> 8) > 255:
+        raise SystemExit('q * (i >> 8) does not fit a byte')
     if max(max_q(ndig), 10) > TMAX:
         raise SystemExit('q reaches %d, more than the product table (TMAX = %d)'
                          % (max_q(ndig), TMAX))
@@ -325,9 +329,7 @@ def build(ndig):
     e('; ---- one digit per pass ----')
     label('outer')
     g.st(0, 'q')
-    il, ih = limbs(ln, 2)
-    g.st(il, 'il')
-    g.st(ih, 'ih')
+    g.st(ln >> 8, 'ih')
     p = ALO_PG * 256 + ln
     g.st(p & 0xFF, 'px')
     g.st(p >> 8, 'py')
@@ -337,48 +339,82 @@ def build(ndig):
     g.far('inner')
 
     # ------------------------------------------------------------ x = 10 a[i] + q i
-    def csub(k):
-        """if x >= (2i-1) << k: x -= it, q += 1 << k"""
-        n0, m0, n1, m1, skip = [g.uniq(s) for s in ('n0', 'm0', 'n1', 'm1', 'ns')]
+    def ksub(k, nbytes):
+        """if x >= D_k = (2i-1) << k: x -= D_k, q (in X) += 1 << k.
+        nbytes = 2: x < 65536 and D_k < 65536"""
+        a, z, skip = g.uniq('ka'), g.uniq('kz'), g.uniq('ks')
         e('; k = %d' % k)
-        e('ld   %s, ac' % z('x0'))
-        e('sub  %s, ac' % z('d%d0' % k))
-        e('bcc  %s' % n0)
-        e('and  0x7F, ac')
-        e('ld   ac, %s' % z('t0'))
-        e('ld   %s, ac' % z('x1'))
+        e('ld   %s, ac' % z_('x0'))
+        e('sub  %s, ac' % z_('d%d0' % k))
+        e('ld   ac, %s' % z_('t0'))
+        e('ld   %s, ac' % z_('x1'))
+        e('bcc  %s' % a)
         e('dec')
-        e('bra  %s' % m0)
-        label(n0)
-        e('ld   ac, %s' % z('t0'))
-        e('ld   %s, ac' % z('x1'))
-        label(m0)
-        e('sub  %s, ac' % z('d%d1' % k))
-        e('bge  %s' % n1)   # AC may be FF (x1 - 1), not a limb
-        e('and  0x7F, ac')
-        e('ld   ac, %s' % z('t1'))
-        e('ld   %s, ac' % z('x2'))
-        e('dec')
-        e('bra  %s' % m1)
-        label(n1)
-        e('ld   ac, %s' % z('t1'))
-        e('ld   %s, ac' % z('x2'))
-        label(m1)
-        e('sub  %s, ac' % z('d%d2' % k))
-        e('blt  %s' % skip)
-        e('ld   ac, %s' % z('x2'))
-        e('ld   %s, ac' % z('t1'))
-        e('ld   ac, %s' % z('x1'))
-        e('ld   %s, ac' % z('t0'))
-        e('ld   ac, %s' % z('x0'))
-        e('ld   %s, ac' % z('q'))
-        e('or   0x%02X, ac' % (1 << k))
-        e('ld   ac, %s' % z('q'))
+        e('bcs  %s' % (skip if nbytes == 2 else z))   # x1 was 0: borrow out
+        label(a)
+        e('sub  %s, ac' % z_('d%d1' % k))
+        if nbytes == 2:
+            e('bcs  %s' % skip)
+        elif k == 3:
+            # x < 16 (2i-1) and 8 (2i-1) < 65536: with no borrow here x2 is 0;
+            # with a borrow, x >= D_3 only when x2 = 1 (then x2 becomes 0)
+            ok = g.uniq('kc')
+            e('bcc  %s' % ok)
+            y3 = g.uniq('ky')
+            label(y3)
+            e('ld   ac, %s' % z_('t1'))
+            e('ld   %s, ac' % z_('x2'))
+            e('beq  %s' % skip)
+            e('clr  ac')
+            e('ld   ac, %s' % z_('x2'))
+            e('ld   %s, ac' % z_('t1'))
+            label(ok)
+        else:
+            # three bytes (k = 4)
+            b = g.uniq('kb')
+            e('ld   ac, %s' % z_('t1'))
+            e('ld   %s, ac' % z_('x2'))
+            e('bcc  %s' % b)
+            e('dec')
+            e('bcs  %s' % skip)
+            label(b)
+            e('sub  %s, ac' % z_('d%d2' % k))
+            e('bcs  %s' % skip)
+            e('ld   ac, %s' % z_('x2'))
+            e('ld   %s, ac' % z_('t1'))
+        e('ld   ac, %s' % z_('x1'))
+        e('ld   %s, ac' % z_('t0'))
+        e('ld   ac, %s' % z_('x0'))
+        if k == 4:
+            e('ld   0x10, x')
+        else:
+            e('ld   x, ac')
+            e('or   0x%02X, ac' % (1 << k))
+            e('ld   ac, x')
+        if k == 3:
+            e('bra  %s' % skip)
+            label(z)
+            e('; x1 was 0 and borrowed: t1 = FF - D_31')
+            e('ld   %s, ac' % z_('d%d1' % k))
+            e('not')
+            e('bra  %s' % y3)
+        elif k == 4:
+            e('bra  %s' % skip)
+            label(z)
+            e('; x1 was 0 and borrowed: t1 = FF - D_41, borrow into x2')
+            e('ld   %s, ac' % z_('d%d1' % k))
+            e('not')
+            e('ld   ac, %s' % z_('t1'))
+            e('ld   %s, ac' % z_('x2'))
+            e('dec')
+            e('bcs  %s' % skip)
+            e('bra  %s' % b)
         label(skip)
 
+    z_ = z
     g.block('inner')
     label('inner')
-    e('; a[i] -> al, ah')
+    e('; a[i] -> al, ah (X = px is also the low byte of i)')
     e('ld   %s, x' % z('px'))
     e('ld   %s, y' % z('py'))
     e('ld   [y,x], ac')
@@ -387,85 +423,67 @@ def build(ndig):
     e('add  0x%02X, y' % (AHI_PG - ALO_PG))
     e('ld   [y,x], ac')
     e('ld   ac, %s' % z('ah'))
-    e('; 10 * a[i]: x0 = T[10][al].lo, x1 = T[10][al].hi, x2 = T[10][ah].hi, t0 = T[10][ah].lo')
+    e('; q * i: x0 = T[q][il].lo, t0 = T[q][il].hi, x1 = T[q][ih].lo (q * ih < 256)')
+    e('ld   %s, ac' % z('q'))
+    e('add  0x%02X, y' % TLO_PG)
+    e('ld   [y,x], ac')
+    e('ld   ac, %s' % z('x0'))
+    e('ld   %s, ac' % z('q'))
+    e('add  0x%02X, y' % THI_PG)
+    e('ld   [y,x], ac')
+    e('ld   ac, %s' % z('t0'))
+    e('ld   %s, ac' % z('q'))
+    e('add  0x%02X, y' % TLO_PG)
+    e('ld   %s, x' % z('ih'))
+    e('ld   [y,x], ac')
+    e('ld   ac, %s' % z('x1'))
+    e('; + 10 * al: x0 += T[10][al].lo, t0 += T[10][al].hi + carry (< 256)')
     e('ld   %s, x' % z('al'))
     e('ld   0x%02X, y' % (TLO_PG + 10))
     e('ld   [y,x], ac')
+    e('add  %s, ac' % z('x0'))
     e('ld   ac, %s' % z('x0'))
     e('ld   0x%02X, y' % (THI_PG + 10))
     e('ld   [y,x], ac')
+    e('bcc  qi0')
+    e('inc')
+    label('qi0')
+    e('add  %s, ac' % z('t0'))
+    e('add  %s, ac' % z('x1'))
     e('ld   ac, %s' % z('x1'))
+    e('; + 2560 * ah: x2 = T[10][ah].hi + carries, x1 += T[10][ah].lo')
     e('ld   %s, x' % z('ah'))
     e('ld   [y,x], ac')
+    e('bcc  qi1')
+    e('inc')
+    label('qi1')
     e('ld   ac, %s' % z('x2'))
     e('ld   0x%02X, y' % (TLO_PG + 10))
     e('ld   [y,x], ac')
-    e('ld   ac, %s' % z('t0'))
-    e('; + q * i, low limbs of the table')
-    e('ld   %s, ac' % z('q'))
-    e('add  0x%02X, y' % TLO_PG)
-    e('ld   %s, x' % z('il'))
-    e('ld   [y,x], ac')
-    e('add  %s, ac' % z('x0'))
-    e('bge  qi0')
-    e('and  0x7F, ac')
-    e('ld   ac, %s' % z('x0'))
-    e('ld   %s, ac' % z('x1'))
-    e('inc')
-    e('ld   ac, %s' % z('x1'))
-    e('bra  qi1')
-    label('qi0')
-    e('ld   ac, %s' % z('x0'))
-    label('qi1')
-    e('ld   %s, x' % z('ih'))
-    e('ld   [y,x], ac')
-    e('add  %s, ac' % z('t0'))
-    e('bge  qi2')
-    e('and  0x7F, ac')
-    e('ld   ac, %s' % z('t0'))
-    e('ld   %s, ac' % z('x2'))
-    e('inc')
-    e('ld   ac, %s' % z('x2'))
-    e('bra  qi3')
-    label('qi2')
-    e('ld   ac, %s' % z('t0'))
-    label('qi3')
-    e('; high limbs of the table')
-    e('ld   %s, ac' % z('q'))
-    e('add  0x%02X, y' % THI_PG)
-    e('ld   %s, x' % z('il'))
-    e('ld   [y,x], ac')
     e('add  %s, ac' % z('x1'))
-    e('add  %s, ac' % z('t0'))
-    e('bge  qi4')
-    e('and  0x7F, ac')
     e('ld   ac, %s' % z('x1'))
+    e('bcc  qi2')
     e('ld   %s, ac' % z('x2'))
     e('inc')
     e('ld   ac, %s' % z('x2'))
-    e('bra  qi5')
-    label('qi4')
-    e('ld   ac, %s' % z('x1'))
-    label('qi5')
-    e('ld   %s, x' % z('ih'))
-    e('ld   [y,x], ac')
-    e('add  %s, ac' % z('x2'))
-    e('ld   ac, %s' % z('x2'))
-    e('; x div (2i - 1)')
-    g.st(0, 'q')
-    csub(4)
+    label('qi2')
+    e('; x div (2i - 1), q in X')
+    e('clr  x')
+    ksub(4, 3)
     g.far('div2')
 
     g.block('div2')
     label('div2')
-    csub(3)
-    csub(2)
-    csub(1)
-    csub(0)
+    ksub(3, 3)
+    ksub(2, 2)
+    ksub(1, 2)
+    ksub(0, 2)
     g.far('div3')
 
     g.block('div3')
     label('div3')
+    e('ld   x, ac')
+    e('ld   ac, %s' % z('q'))
     e('; a[i] = remainder (x2 = 0)')
     e('ld   %s, x' % z('px'))
     e('ld   %s, y' % z('py'))
@@ -475,57 +493,40 @@ def build(ndig):
     e('add  0x%02X, y' % (AHI_PG - ALO_PG))
     e('ld   %s, ac' % z('x1'))
     e('ld   ac, [y,x]')
-    e('; step the pointer, i and the five divisors down')
+    e('; step the pointer (and i) and the five divisors down')
     e('ld   %s, ac' % z('px'))
     e('bne  pnz')
     e('ld   %s, ac' % z('py'))
     e('dec')
     e('ld   ac, %s' % z('py'))
-    e('ld   %s, ac' % z('px'))
-    label('pnz')
-    e('dec')
-    e('ld   ac, %s' % z('px'))
-    e('ld   %s, ac' % z('il'))
-    e('dec')
-    e('bcc  inz')
-    e('and  0x7F, ac')
-    e('ld   ac, %s' % z('il'))
     e('ld   %s, ac' % z('ih'))
     e('dec')
     e('ld   ac, %s' % z('ih'))
-    e('; every 128 terms: check the line read for a new frame')
+    e('; every 256 terms: check the line read for a new frame')
     g.call('poll', 'pret')
-    e('bra  idone')
-    label('inz')
-    e('ld   ac, %s' % z('il'))
-    label('idone')
+    e('clr  ac')
+    label('pnz')
+    e('dec')
+    e('ld   ac, %s' % z('px'))
     for k in range(5):
-        ok, done = g.uniq('dok'), g.uniq('dd')
+        ok = g.uniq('dok')
         e('ld   %s, ac' % z('d%d0' % k))
         e('sub  0x%02X, ac' % (2 << k))
-        e('bcc  %s' % ok)
-        e('and  0x7F, ac')
         e('ld   ac, %s' % z('d%d0' % k))
+        e('bcc  %s' % ok)
         e('ld   %s, ac' % z('d%d1' % k))
         e('dec')
-        e('bcc  %s' % done)
-        e('and  0x7F, ac')
         e('ld   ac, %s' % z('d%d1' % k))
-        e('ld   %s, ac' % z('d%d2' % k))
-        e('dec')
-        e('ld   ac, %s' % z('d%d2' % k))
-        e('bra  %s' % g.uniq('dx'))
-        dx = 'dx_%d' % g.n
+        if k == 4:
+            e('bcc  %s' % ok)
+            e('ld   %s, ac' % z('d%d2' % k))
+            e('dec')
+            e('ld   ac, %s' % z('d%d2' % k))
         label(ok)
-        e('ld   ac, %s' % z('d%d0' % k))
-        e('bra  %s' % dx)
-        label(done)
-        e('ld   ac, %s' % z('d%d1' % k))
-        label(dx)
     e('; loop while i > 1')
     e('ld   %s, ac' % z('ih'))
     e('bne  again')
-    e('ld   %s, ac' % z('il'))
+    e('ld   %s, ac' % z('px'))
     e('sub  1, ac')
     e('beq  last')
     label('again')
@@ -601,19 +602,15 @@ def build(ndig):
     g.call('emit')
     e('bra  flush')
     label('next')
-    e('; digits left (base 128 counter)')
+    e('; digits left')
     e('ld   %s, ac' % z('jl'))
     e('dec')
-    e('bcc  jok')
-    e('and  0x7F, ac')
     e('ld   ac, %s' % z('jl'))
+    e('bcc  jok')
     e('ld   %s, ac' % z('jh'))
     e('dec')
     e('ld   ac, %s' % z('jh'))
-    e('bra  jtest')
     label('jok')
-    e('ld   ac, %s' % z('jl'))
-    label('jtest')
     e('ld   %s, ac' % z('jl'))
     e('or   %s, ac' % z('jh'))
     e('beq  finish')
@@ -882,10 +879,10 @@ def build(ndig):
         out.extend(lines)
     for pgbase, part in ((TLO_PG, 0), (THI_PG, 1)):
         o('')
-        o('; product table %s limbs: m * v, page 0x%02X + m' % (('low', 'high')[part], pgbase))
+        o('; product table %s bytes: m * v, page 0x%02X + m' % (('low', 'high')[part], pgbase))
         for m in range(TMAX + 1):
             o('#addr 0x%04X' % ((pgbase + m) << 8))
-            for r in range(8):
+            for r in range(16):
                 vals = [limbs(m * (16 * r + c), 2)[part] for c in range(16)]
                 o('    #d8 ' + ', '.join('0x%02X' % v for v in vals))
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pi_spigot.asm')
