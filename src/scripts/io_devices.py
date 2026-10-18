@@ -10,6 +10,10 @@ for placard_sim.py (see IO.md)
     port.mouse = Ps2Mouse()             # a PS/2 mouse
     cpu = Cpu(mem, rom=rom, io=port)
 
+    slots = Slots()                     # the four expansion slots
+    slots.cards[0] = ExpansionCard(rom) # a card in slot 1
+    cpu = Cpu(mem, rom=rom, slots=slots)
+
 The CPU calls port.read(addr, t) for a read of x5200-x52FF and
 port.write(addr, value, t) for a write; t is the CPU clock count, used by
 the PS/2 mouse (25.175 MHz clocks).
@@ -541,3 +545,60 @@ class SharedPort:
                 self.sd.set_cs(1)
         if self.mouse is not None:
             self.mouse.host(t, (v >> 2) & 1, (v >> 3) & 1)
+
+
+# ---------------------------------------------------------------------------
+# expansion slots (EXPANSION.md)
+# ---------------------------------------------------------------------------
+SLOT_BASE = (0x5100, 0x5300, 0x5180, 0x5380)     # slots 1-4
+
+
+def card_rom(card_id, code, bad_sum=False):
+    """the 96-byte boot area of a card: "PLC", card ID, code length,
+    checksum (the sum of the code bytes), the code, then FF"""
+    s = sum(code) & 0xFF
+    if bad_sum:
+        s ^= 0x5A
+    rom = [0x50, 0x4C, 0x43, card_id, len(code), s] + list(code)
+    return rom + [0xFF] * (0x60 - len(rom))
+
+
+class ExpansionCard:
+    """a card: offsets 00-5F read its boot area (ROM), 60-7F are registers
+    (written values read back)"""
+
+    def __init__(self, rom):
+        self.rom = list(rom) + [0xFF] * (0x60 - len(rom))
+        self.regs = [0xFF] * 0x20
+        self.writes = []
+
+    def read(self, off):
+        return self.rom[off] if off < 0x60 else self.regs[off - 0x60]
+
+    def write(self, off, v):
+        self.writes.append((off, v))
+        if off >= 0x60:
+            self.regs[off - 0x60] = v
+
+
+class Slots:
+    """the four slots: /EXP1 is x51xx (slot 1 at A7 = 0, slot 3 at A7 = 1),
+    /EXP2 is x53xx (slots 2 and 4).  An empty slot reads FF (the pull-ups
+    on the read bus)."""
+
+    def __init__(self):
+        self.cards = [None, None, None, None]
+
+    def card(self, ad):
+        n = (1 if ad & 0x0200 else 0) + (2 if ad & 0x80 else 0)
+        return self.cards[n]
+
+    def read(self, ad):
+        c = self.card(ad)
+        return c.read(ad & 0x7F) if c is not None else 0xFF
+
+    def write(self, ad, v):
+        c = self.card(ad)
+        if c is not None:
+            c.write(ad & 0x7F, v)
+

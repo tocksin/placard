@@ -9,7 +9,7 @@
 ; program.  ROM.md has the ROM layout.
 ;
 ; BOOT_MODE = 00: ROM program (the standard way).
-;   The program runs in place from ROM x6000-xFBFF and calls the standard
+;   The program runs in place from ROM x6000-xDFFF and calls the standard
 ;   library in place at ROM x3000-x3FFF.  The boot writes map = 05:
 ;   sections 0 (zero page, x0000-x1FFF) and 2 (x4000-x4FFF: mode bytes,
 ;   audio, program data) read RAM; 1 (library) and 3-7 (program) read
@@ -36,6 +36,22 @@
 ;     customasm rom_boot.asm -f hexstr -o rom_boot.hex
 ;     python3 placard_sim.py rom_boot.asm
 ;
+;
+; EXPANSION CARDS (EXPANSION.md), before either mode, like the Apple II's
+; slot scan:
+;   1. map = 01, so the zero page is RAM.
+;   2. Unless Esc is held, for slots 4, 3, 2, 1: if the card's first bytes
+;      are "PLC", card ID, code length n (1-90), checksum (the sum of the
+;      n code bytes), then the n code bytes are copied to RAM x0100 and
+;      called (the library's CALL) with AC = slot number, R1:R0 = the
+;      slot's base address, SP = FE and MAP_SHADOW = 01.  The card's code
+;      returns to go on with the next slot and then the normal boot, or
+;      never returns to take the boot over (load its own program, start
+;      from its own ROM).  It may use the library and the I/O drivers.
+;      It must keep zero page xFF (the slot being scanned), leave map 01
+;      when it returns, and keep section 7 reading the ROM.
+;   An empty slot reads FF (the read bus pull-ups), so it fails the check.
+;
 ; gen_rom.tcl merges rom_boot.hex, rom_lib.hex and the program into
 ; rom.mem.  The CPU's PC starts at 0000, so x0000-x0003 of the ROM is
 ; this file's reset jump, not the program's.
@@ -55,6 +71,22 @@ PROG_START  = 0x6000    ; ROM program entry
 BOOT_MODE   = 0xFC00    ; 00 = ROM program, 01 = RAM image (set by gen_rom.tcl)
 PORT        = 0x5200    ; shared port latch (placard_io.asm)
 P_IDLE      = 0xFB      ; the latch at rest
+P_COL0      = 0x0B      ; the same with keyboard column 0 driven (Esc is row 0)
+MAP_ZP_RAM  = 0x01      ; section 0 reads RAM, the rest ROM
+CARD_CODE   = 0x0100    ; where a card's boot code is copied and run
+CARD_MAX    = 90        ; longest card boot code (offsets 06-5F)
+
+LINK_LO     = 0x04      ; zeropage.asm
+LINK_HI     = 0x05
+SP          = 0x06
+R0          = 0x10
+R1          = 0x11
+T0          = 0x18      ; code length
+T1          = 0x19      ; checksum from the card
+T2          = 0x1A      ; byte being copied
+T3          = 0x1B      ; sum of the bytes copied
+T4          = 0x1C
+SLOT        = 0xFF      ; slot being scanned, 4 down to 1
 
 #addr 0x0000
 reset:
@@ -70,6 +102,21 @@ boot:
     ld   PORT >> 8, y           ; shared port at rest (IO.md): no keyboard
     ld   P_IDLE, [y,x]          ; column, SD /CS low (also holds the PS/2
                                 ; mouse off), SCK and MOSI high
+    ld   MAP_PORT, y
+    ld   MAP_ZP_RAM, [y,x]      ; map = 01: the zero page is RAM
+    ld   PORT >> 8, y
+    clr  x                      ; an even address reads the key rows
+    ld   P_COL0, [y,x]
+    ld   [y,x], ac
+    ld   P_IDLE, [y,x]
+    and  1, ac
+    beq  boot_go                ; Esc held: skip the cards
+    ld   4, ac
+    ld   ac, [SLOT]
+    ld   scan >> 8, y
+    jmp  scan
+
+boot_go:
     ld   BOOT_MODE >> 8, y
     ld   BOOT_MODE & 0xFF, x
     ld   [y,x], ac
@@ -137,3 +184,94 @@ map_switch:                     ; also in the RAM: the fetches after the map wri
     ld   0xFF, [y,x]            ; map = FF: every section reads RAM
     ld   0x00, y
     jmp  0x00                   ; the program's reset code in the RAM
+
+; ------------------------------------------------------------
+; the expansion card scan, slots 4 down to 1
+; ------------------------------------------------------------
+scan:
+    ld   [SLOT], ac             ; R1:R0 = the slot's base address
+    add  (slot_hi - 1) & 0xFF, x
+    ld   slot_hi >> 8, y
+    ld   [y,x], ac
+    ld   ac, [R1]
+    ld   [SLOT], ac
+    add  (slot_lo - 1) & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   [R1], y
+    ld   [R0], x                ; "PLC"
+    ld   [y,x], ac
+    xor  0x50, ac
+    bne  next
+    ld   [R0], ac
+    add  1, x
+    ld   [y,x], ac
+    xor  0x4C, ac
+    bne  next
+    ld   [R0], ac
+    add  2, x
+    ld   [y,x], ac
+    xor  0x43, ac
+    bne  next
+    ld   [R0], ac               ; code length, 1-90
+    add  4, x
+    ld   [y,x], ac
+    ld   ac, [T0]
+    beq  next
+    blt  next
+    sub  CARD_MAX + 1, ac
+    bge  next
+    ld   [R0], ac               ; checksum
+    add  5, x
+    ld   [y,x], ac
+    ld   ac, [T1]
+    clr  ac
+    ld   ac, [T2]
+    ld   ac, [T3]
+copy_card:                      ; card offset 6 + n to RAM x0100 + n
+    ld   [R0], ac
+    add  6, ac
+    add  [T2], x
+    ld   [R1], y
+    ld   [y,x], ac
+    ld   ac, [T4]
+    add  [T3], ac
+    ld   ac, [T3]
+    ld   [T2], x
+    ld   CARD_CODE >> 8, y
+    ld   [T4], ac
+    ld   ac, [y,x]
+    ld   [T2], ac
+    inc
+    ld   ac, [T2]
+    xor  [T0], ac
+    bne  copy_card
+    ld   [T3], ac
+    xor  [T1], ac
+    bne  next
+    ld   0xFE, ac               ; run it: stack below SLOT
+    ld   ac, [SP]
+    ld   MAP_ZP_RAM, ac
+    ld   ac, [MAP_SHADOW]
+    ld   LINK_LO, x
+    ld   card_back, [x]
+    ld   LINK_HI, x
+    ld   card_back >> 8, [x]
+    ld   [SLOT], ac
+    ld   CARD_CODE >> 8, y
+    jmp  CARD_CODE & 0xFF
+card_back:
+    ld   MAP_PORT, y
+    ld   MAP_ZP_RAM, [y,x]
+next:
+    ld   [SLOT], ac
+    dec
+    ld   ac, [SLOT]
+    bne  scan
+    ld   boot_go >> 8, y
+    jmp  boot_go
+
+slot_hi:    ; slots 1-4: x5100, x5300, x5180, x5380
+    #d8 0x51, 0x53, 0x51, 0x53
+slot_lo:
+    #d8 0x00, 0x00, 0x80, 0x80

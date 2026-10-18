@@ -25,7 +25,7 @@ Date: 10/18/2026
 #include "placard.asm"
 #include "placard_lib.asm"      ; includes zeropage.asm and lib_font.asm
 
-count = 0x20                    ; program variables: zero page x20-xBF
+count = 0x20                    ; program variables: zero page x20-x8F
 
 #addr 0x6000                    ; programs run in place from the ROM
 main:
@@ -37,10 +37,15 @@ main:
 The library and font run in place from the ROM at x3000-x3FFF: code at
 `LIB_CODE` (x3000-x37FF) and the font at `LIB_FONT` (x3800-x3FFF).  These are
 standard places that every program shares, so keep them.  A program runs in
-place from ROM x6000-xFBFF (entry at x6000).  The boot loader maps the zero
+place from ROM x6000-xDFFF (entry at x6000).  Library bank 2
+(`LIB2_CODE`, ROM xE000-xFBFF) holds the sound driver, `slot_id`, the FAT
+reader, `con_gets` and `mouse_move`; xE000-xE0FF is kept for a future jump
+table.  Bank 2 runs in section 7, so section 7 must read the ROM when a
+program calls it (it does in map 05).  The boot loader maps the zero
 page and x4000-x4FFF to RAM (map = 05, also in `MAP_SHADOW`) and jumps to
 x6000.  Program variables and buffers go in RAM: the zero page x20-xBF,
-x0100-x1FFF, x4000-x4FFF, x5400-x5A1F and x5C00-x5DF2 (the mode bytes are
+x0100-x1FFF, x4000-x4CFF (x4D00-x4FFF if the program does not use the
+FAT reader), x5400-x5A1F and x5C00-x5DF2 (the mode bytes are
 at x5A20-x5BFF and the audio buffer is x5DF3-x5FFF).  A 2x or 4x screen
 frees part of the video area too (see `vid_mode`).  The RAM is random at power-up, so set
 variables in code.  The video always reads the RAM; to read the video RAM,
@@ -171,7 +176,7 @@ complete examples.
 
 ## Zero page map
 
-`zeropage.asm` defines these names.  Program variables go in x20-x9F.
+`zeropage.asm` defines these names.  Program variables go in x20-x8F.
 
 | Address | Name | Used by | Use |
 |---------|------|---------|-----|
@@ -190,7 +195,9 @@ complete examples.
 | 0F | `SAVE_AC` | stack | AC parked by PUSH_LINK and lib_leave |
 | 10-17 | `R0`-`R7` | caller | Arguments and results |
 | 18-1F | `T0`-`T7` | library | Scratch, changed by any routine |
-| 20-9F | `USER_ZP` | program | 128 bytes for the program's own variables |
+| 20-8F | `USER_ZP` | program | 112 bytes for the program's own variables |
+| 90-9E | `SND_*` | sound driver | Sound state ([SOUND.md](SOUND.md#software)); free if the program never calls `snd_*` |
+| 9F | | sound driver | Spare, kept for the sound driver |
 | A0-BF | `IO_ZP` | I/O drivers | Keyboard state and buffer, SD and mouse state, driver scratch ([IO.md](IO.md#zero-page)) |
 | C0-FF | `STACK_LOW`-`STACK_TOP` | stack | Software stack, grows down from FF |
 
@@ -313,6 +320,60 @@ title:
     #d "PLACARD", 0x0A, 0x00
 ```
 
+### Sound
+
+The sound driver (`placard_snd.asm`) keeps the audio buffer filled with one
+sound at a time.  Call `snd_init` once and `snd_update` every frame; the
+others only set a sound up.  [SOUND.md](SOUND.md#software) has the details.
+
+| Routine | In | Out | Changes | Clocks |
+|---------|----|-----|---------|--------|
+| `snd_init` | | Buffer = 80h, no sound | AC, X, Y | about 9,000 |
+| `snd_update` | | Samples written up to the line playing | AC, X, Y, T0-T3 | 18k-42k a frame while a sound plays, about 90 when silent |
+| `snd_tone` | R1:R0 = step (Hz x 1.0413), AC = volume 0-127, R2 = frames (0 = until stopped), R3 = fade per frame | | AC | about 110 |
+| `snd_note` | AC = MIDI note 0-127 (69 = A 440) | R1:R0 = step for `snd_tone` | AC, X | about 50 |
+| `snd_beep` | AC = MIDI note | A 12-frame note that fades | AC, X, Y | about 180 |
+| `snd_noise` | AC = volume, R0 = rate 1-128, R2 = frames, R3 = fade | | AC | about 110 |
+| `snd_play` | R1:R0 = samples, R3:R2 = count, AC = rate 1-128 (128 = 31.5 kHz) | | AC | about 90 |
+| `snd_stop` | | Silent within a frame | AC | 20 |
+| `snd_busy` | | AC = 0 when silent | | 17 |
+
+### Expansion cards
+
+| Routine | In | Out | Changes | Clocks |
+|---------|----|-----|---------|--------|
+| `slot_id` | AC = slot 1-4 | AC = card ID (0 = no card or no "PLC" header), R1:R0 = the slot's base address | X, Y | about 110 |
+
+The boot loader runs a card's boot code before the program starts; see
+[EXPANSION.md](EXPANSION.md#boot-code-on-a-card).
+
+### SD card files (FAT16 and FAT32)
+
+`placard_fs.asm` reads files from an SD card formatted by a PC (FAT16 or
+FAT32, with or without a partition table; short 8.3 names; read only).
+Call `sd_init` and then `fs_mount`.  [IO.md](IO.md#files-on-the-sd-card)
+has the details.
+
+| Routine | In | Out |
+|---------|----|-----|
+| `fs_mount` | | AC = 0, the root is the current folder |
+| `fs_root` | | AC = 0, the root is the current folder |
+| `fs_next` | | AC = 0 and `FS_ENTRY` = the next entry of the current folder, 1 at the end |
+| `fs_open` | R1:R0 = name ending in 00 ("GAME.BIN", "GAMES", "..") | AC = 0: a file is open (`FS_REM` = its size) or a folder is the current folder |
+| `fs_read` | R5:R4 = 512-byte buffer | AC = 0 and R5:R4 + 512, 1 at the end of the file |
+| `fs_load` | R1:R0 = name, R5:R4 = load address | AC = 0 when loaded |
+
+Errors in AC: 1 end, 2 not found, 4 and 5 SD read errors, 8 not mounted,
+9 no FAT file system, 10 FAT12.  They change R0-R5, T0-T7 and the I/O
+zero page scratch.  A sector takes about 160,000 clocks (75 KB/s).
+
+### Line input and mouse pointer
+
+| Routine | In | Out | Changes | Clocks |
+|---------|----|-----|---------|--------|
+| `con_gets` | R1:R0 = buffer, R2 = most characters (1-255) | AC = length, the line and a 00 in the buffer; Backspace works, Enter ends | R3, X, Y, T0-T7, I/O scratch | waits for keys |
+| `mouse_move` | R1:R0 = X, R3:R2 = Y, after `mouse_poll` returns 1 | X and Y moved by the packet, kept to 0-639, 0-479 | AC, T0-T3 | about 120 |
+
 ## Idioms
 
 The ALU sets only Z and N from AC, so comparisons and carries take a few
@@ -365,6 +426,7 @@ through 525 lines.
 The keyboard, SNES pad, SD card and mouse drivers are in
 `placard_io.asm` at x2000-x2FFF, included by `placard_lib.asm`, with the
 same calling convention; [IO.md](IO.md) lists them and `test_io.py` tests
-them.  FAT file system routines are not written yet.  Sound buffer refill, pixel routines
-for 2, 4 and 8 bpp rows, and line drawing are good next additions.
+them.  Pixel routines for 2, 4 and 8 bpp rows, line drawing, writing files
+to the SD card and the fixed jump table at xE000 are good next additions.
+`test_snd.py`, `test_fs.py` and `test_slots.py` test bank 2.
 `con_scroll` moved to the last code page (x3700), so new routines need room found in pages 0-6 or a second page.
