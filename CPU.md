@@ -24,6 +24,11 @@ LOAD_MEM (one more clock) so its address and data settle a clock before the
 write (see [TIMING_FIXES.md](TIMING_FIXES.md)).  So an instruction takes 2
 to 4 clocks, plus any video stall clocks.
 
+![State PLD state diagram](reference/state_pld_state_diagram.png)
+
+The state diagram is drawn by `src/scripts/gen_state_diagram.py` (State PLD
+revision 12, 2026-10-18); rerun it when the State PLD changes.
+
 ## Registers
 
 There are 4 registers in the system that are accessble for use in instructions. 

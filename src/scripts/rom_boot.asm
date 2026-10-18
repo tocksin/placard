@@ -9,7 +9,7 @@
 ; program.  ROM.md has the ROM layout.
 ;
 ; BOOT_MODE = 00: ROM program (the standard way).
-;   The program runs in place from ROM x6000-xFBFF and calls the standard
+;   The program runs in place from ROM x6000-xDFFF and calls the standard
 ;   library in place at ROM x3000-x3FFF.  The boot writes map = 05:
 ;   sections 0 (zero page, x0000-x1FFF) and 2 (x4000-x4FFF: mode bytes,
 ;   audio, program data) read RAM; 1 (library) and 3-7 (program) read
