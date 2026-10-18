@@ -38,6 +38,9 @@ Branch PLD rev 09):
     (the Branch PLD's ALU wait clock); stores do not
   - with an io model (io_devices.SharedPort), reads and writes of
     x5200-x52FF go to the shared port (keyboard, pads, SD card, mouse)
+  - with a slots model (io_devices.Slots), reads and writes of
+    x5100-x51FF and x5300-x53FF go to the expansion slots; with --boot and
+    no cards those reads return FF (the read bus pull-ups)
   - a read of x5000-x50FF returns the video line read,
     V9:V2, with one line per 800 CPU clocks and V = 499-1023 (525 lines per
     frame).  Video fetch stalls are not modeled.
@@ -437,11 +440,16 @@ class CpuError(Exception):
 
 
 class Cpu:
-    def __init__(self, mem, hw_alu=False, rom=None, io=None):
+    def __init__(self, mem, hw_alu=False, rom=None, io=None, slots=None):
         self.mem = bytearray(65536)
         # io: the shared port model (io_devices.SharedPort), or None; reads
         # and writes of x5200-x52FF go to it
         self.io = io
+        # slots: the expansion slots (io_devices.Slots), or None; reads and
+        # writes of x5100-x51FF and x5300-x53FF go to it.  With no slots
+        # model those reads see the RAM (one flat memory) or FF (the ROM
+        # map: nothing answers and the read bus pull-ups give FF)
+        self.slots = slots
         for a, v in mem.items():
             self.mem[a] = v
         # rom: None = one flat memory (every read from mem, as the old FPGA
@@ -491,8 +499,11 @@ class Cpu:
             ad = addr()
             if ad & 0xFF00 == 0x5000:             # /LINE_RD (x5000-x50FF)
                 self.d = self.line_read()
-            elif ad & 0xFF00 == 0x5200 and self.io is not None:   # /PORT_RD
-                self.d = self.io.read(ad, self.clocks + clocks)
+            elif ad & 0xFF00 == 0x5200 and (self.io is not None or self.rom is not None):
+                # /PORT_RD; with no port model, no key down (FF)
+                self.d = self.io.read(ad, self.clocks + clocks) if self.io is not None else 0xFF
+            elif ad & 0xFD00 == 0x5100 and (self.slots is not None or self.rom is not None):
+                self.d = self.slots.read(ad) if self.slots is not None else 0xFF   # /EXP1, /EXP2
             else:
                 self.d = rd(ad)
             clocks += 1
@@ -526,6 +537,8 @@ class Cpu:
                     self.map = src
                 elif ad & 0xFF00 == 0x5200 and self.io is not None:   # /PORT_WR
                     self.io.write(ad, src, self.clocks + clocks)
+                elif ad & 0xFD00 == 0x5100 and self.slots is not None:
+                    self.slots.write(ad, src)
         self.steps += 1
         self.clocks += clocks
         return here
