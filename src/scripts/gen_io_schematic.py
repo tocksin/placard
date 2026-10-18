@@ -112,24 +112,25 @@ def diode(xa, xk, y, ref, color=INK):
         T(m, y - 1.7, ref, fs=6.5, ha="center")
 
 
-def rnet(xl, xr, ytop, pinxs, ref, label):
-    """a bussed resistor network: 8 resistors from a common line (pin 1, at the
-    right end, up to +5V) down to pins 2-9.  Returns the pin stub ends."""
-    yc = ytop + 1.8
-    ax.add_patch(Rectangle((xl, ytop), xr - xl, 9, fc=CHIP, ec=INK, lw=1.4, zorder=2))
-    p1 = xr - 3
-    wire([(p1, ytop - 2), (p1, yc)], INK)
-    rail(p1, ytop - 2, "+5V")
-    T(p1 + 0.6, ytop - 0.8, "1", fs=6, color=MUTE)
-    wire([(pinxs[0], yc), (p1, yc)], INK)
+def rnet(xl, ytop, ref, label, pitch=2.2, stub=2):
+    """a bussed resistor network standing on end: pin 1 at the top to +5V, a
+    common line down the left, 8 resistors across to pins 2-9 on the right.
+    Returns the pin stub ends."""
+    w = 10
+    ys = [ytop + 3 + i * pitch for i in range(8)]
+    h = ys[-1] - ytop + 2.5
+    ax.add_patch(Rectangle((xl, ytop), w, h, fc=CHIP, ec=INK, lw=1.4, zorder=2))
+    xc = xl + 1.8
+    wire([(xc, ytop - 2), (xc, ys[-1])], INK)
+    rail(xc, ytop - 2, "+5V")
+    T(xc + 0.6, ytop - 0.8, "1", fs=6, color=MUTE)
     ends = []
-    for i, x in enumerate(pinxs):
-        dot(x, yc, INK)
-        res(x, yc, ytop + 9, "", "")
-        wire([(x, ytop + 9), (x, ytop + 11)], INK)
-        T(x + 0.5, ytop + 9.9, str(i + 2), fs=6, color=MUTE)
-        ends.append((x, ytop + 11))
-    T(xl, ytop - 1.4, ref + "  " + label, fs=7)
+    for i, y in enumerate(ys):
+        dot(xc, y, INK)
+        resh(xc, xl + w, y, "", "")
+        wire([(xl + w, y), (xl + w + stub, y)], INK)
+        ends.append((xl + w + stub, y))
+    T(xl - 1, ytop + h / 2, ref + "\n" + label, fs=7, ha="right")
     return ends
 
 
@@ -212,7 +213,7 @@ T(4, 10.5, "I/O decode, the shared port at x5200 (keyboard, SNES pads, SD card, 
    "and IO.md.  Red labels are nets: the same label is the same wire.", fs=9.5, color=MUTE)
 
 # ================================================================ U12 I/O decode
-frame(3, 14, 72, 70, "I/O decode (x5000-x53FF)")
+frame(3, 14, 72, 60, "I/O decode (x5000-x53FF)")
 u12 = ic(32, 22, 20, "U12", "ATF22V10C-7PX",
          [(1, "/WE"), (2, "ADDR_SEL"), (3, "ADDR_SEL_HI"), (4, "PC15"), (5, "H9"), (6, "Y7"),
           (7, "A14"), (8, "A13"), (9, "A12"), (18, "A11"), (10, "A10"), (11, "A9"), (13, "A8"),
@@ -237,8 +238,8 @@ for name in ("/CE_HI", "/MAP_WR", "/LINE_RD", "/EXP1", "/EXP2"):
         T(px + 0.6 + len(name) * 1.25 + 1.2, py, "(" + dest[name] + ")", fs=6.5, color=MUTE)
 
 # ================================================================ data bus pull-ups
-frame(3, 88, 72, 24, "Data bus pull-ups (empty slots read FF)")
-rn1 = rnet(8, 73, 94, [16 + i * 7 for i in range(8)], "RN1", "10k x 8, bussed SIP-9")
+frame(3, 77, 72, 31, "Data bus pull-ups (empty slots read FF)")
+rn1 = rnet(58, 85, "RN1", "10k x 8,\nbussed SIP-9")
 
 # ================================================================ U37 port latch
 frame(78, 14, 64, 134, "Shared port x5200")
@@ -301,10 +302,9 @@ dot(100, py)
 T(x0 + 1, y0 + 0.9, "/PORT_RD", fs=6.5, color=NET, weight="bold")
 
 # the data bus D7:D0: U37 inputs, U39 outputs and the RN1 pull-ups
-BX, BY = 82, 107
+BX = 82
 wire([(BX, u37["D0"][1] + 1), (BX, u39["Y8"][1] + 1)], WIRE, lw=3.5)
-wire([(rn1[0][0] + 1, BY), (BX, BY)], WIRE, lw=3.5)
-T(BX + 1, BY - 1.6, "D7:D0", fs=7, color=WIRE, weight="bold")
+T(BX + 1.2, 76, "D7:D0", fs=7, color=WIRE, weight="bold")
 for i in range(8):
     x, y = u37["D%d" % i]
     wire([(x, y), (BX + 1, y), (BX, y + 1)])
@@ -313,8 +313,8 @@ for i in range(8):
     wire([(x, y), (BX + 1, y), (BX, y + 1)])
     T(BX + 1.2, y - 0.7, "D%d" % i, fs=5.8, color=NET)
     x, y = rn1[i]
-    wire([(x, y), (x, BY - 1), (x + 1, BY)])
-    T(x + 0.5, y + 0.4, "D%d" % i, fs=5.8, color=NET)
+    wire([(x, y), (BX - 1, y), (BX, y + 1)])
+    T(x + 0.6, y - 0.7, "D%d" % i, fs=5.8, color=NET)
 # U38's pad outputs D6 and D7: around the bottom of U38 to the bus
 for name, xv, yh in (("D7", 145.5, 99.3), ("D6", 147, 100.9)):
     x, y = u38[name]
@@ -322,32 +322,32 @@ for name, xv, yh in (("D7", 145.5, 99.3), ("D6", 147, 100.9)):
     T(BX + 1.2, yh - 0.7, name, fs=5.8, color=NET)
 
 # ================================================================ row pull-ups and shared rows
-frame(3, 116, 72, 64, "Row pull-ups, shared row lines, PS/2 pull-ups")
-rn2 = rnet(8, 73, 122, [16 + i * 7 for i in range(8)], "RN2", "4.7k x 8, bussed SIP-9")
+frame(3, 110, 72, 70, "Row pull-ups, shared row lines, PS/2 pull-ups")
+rn2 = rnet(50, 118, "RN2", "4.7k x 8,\nbussed SIP-9", stub=6)
 for i in range(8):
     x, y = rn2[i]
-    T(x + 0.5, y + 1.2, "ROW%d" % i, fs=6, color=NET, weight="bold")
-# rows 5-7 carry the PS/2 and MISO lines through a diode each (anode at the row)
-#   row, wire y, diode anode, cathode, node x, pull-up, supply, second diode, its net
-for r, yy, dref, nname, rref, rval, sup, d2 in (
-        (5, 145, "D67", "PS2_CLK", "R1", "4.7k", "+5V", ("D68", "/CS")),
-        (6, 157, "D66", "PS2_DATA", "R2", "4.7k", "+5V", ("D69", "PS2D_DRV")),
-        (7, 168, "D65", "MISO", "R5", "10k", "+3.3V", None)):
+    T(x - 5.6, y - 0.7, "ROW%d" % i, fs=5.5, color=NET, weight="bold")
+# rows 5-7 carry the PS/2 and MISO lines through a diode each (anode at the row).
+# Row 7 takes the top line so the three tracks don't cross.
+#   row, line y, track x, diode, node net, pull-up, supply, second diode and its net
+for r, yy, xt, dref, nname, rref, rval, sup, d2 in (
+        (7, 149, 68, "D65", "MISO", "R5", "10k", "+3.3V", None),
+        (6, 159.5, 69.8, "D66", "PS2_DATA", "R2", "4.7k", "+5V", ("D69", "PS2D_DRV")),
+        (5, 170, 71.6, "D67", "PS2_CLK", "R1", "4.7k", "+5V", ("D68", "/CS"))):
     x, y = rn2[r]
-    wire([(x, y), (x, yy), (x - 2, yy)])
-    diode(x - 2, x - 10, yy, dref)
-    nx = 36 if d2 else 48
-    wire([(x - 10, yy), (nx if not d2 else 30, yy)])
+    wire([(x, y), (xt, y), (xt, yy), (62, yy)])
+    diode(62, 54, yy, dref)
+    nx = 46 if d2 else 48
+    wire([(54, yy), (38 if d2 else 44, yy)])
     dot(nx, yy)
     # pull-up above the line, supply on top
     rail(nx, yy - 6, sup)
     res(nx, yy - 6, yy, rref, rval, side="l")
     if d2:
-        T(nx + 0.6, yy + 1.4, nname, fs=6.5, color=NET, weight="bold")
-        diode(30, 22, yy, d2[0])
-        net(22, yy, d2[1], "l", fs=7)
+        T(nx + 1.2, yy - 1.4, nname, fs=6.5, color=NET, weight="bold")
+        diode(38, 30, yy, d2[0])
+        net(30, yy, d2[1], "l", fs=7)
     else:
-        wire([(nx, yy), (44, yy)])
         net(44, yy, nname, "l", fs=7)
 T(36, 177, "D65-D69 BAT85 (Schottky).  /CS = 0 holds the mouse off.", fs=6.5, color=MUTE)
 
