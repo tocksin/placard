@@ -1,11 +1,11 @@
 # Chip list
 
-Date: 2026-10-17
+Date: 2026-10-18
 
 Every chip in the Placard, one chip per line.  The current list follows
 `basys_top.vhd`, the PLD sources in `src/pld`, [CPU.md](CPU.md),
 [TIMING.md](TIMING.md#parts) and [TIMING_FIXES.md](TIMING_FIXES.md).  The
-future list follows [FEATURE_PLAN.md](FEATURE_PLAN.md).  Part numbers are the
+shared port is in [IO.md](IO.md).  Part numbers are the
 DIP parts those documents chose; stock moves, so recheck before ordering.
 
 ## Current design
@@ -49,20 +49,27 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 35 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, upper 32K (interim: battery-backed SRAM) |
 | 36 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md) |
 | 37 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer when H_VIDEO_ACTIVE rises (start of group 48), drives the R-2R ladder, which drives headphones directly (all passive, see SOUND.md) |
+| 38 | SN74HC574N | Octal D flip-flop, 3-state | Shared port latch at x5200 (IO.md): SCK and pad CLOCK, MOSI and pad LATCH, SD /CS (also holds the PS/2 mouse off), PS/2 DATA, keyboard column code.  HC for a full 5 V high into the pads |
+| 39 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: keyboard columns /COL0-/COL7 from the latch, pad DATA onto D7/D6 on odd reads (`ATF22V10_PORT.pld`) |
+| 40 | SN74F541N | Octal buffer, 3-state | Shared port input on even reads: keyboard rows, with SD MISO and the PS/2 lines on rows 7, 6 and 5 |
+| 41 | CD74HC4050E | Hex buffer, high-to-low level shifter | SD card SCK, MOSI and /CS down to 3.3 V |
+| 42 | not chosen | 3.3 V regulator | Powers the SD card and the CD74HC4050E |
 
 ### Tally
 
 | Part number | Type | Qty |
 |---|---|--:|
-| ATF22V10C-7PX | PLD (22V10) | 17 |
+| ATF22V10C-7PX | PLD (22V10) | 18 |
 | SN74F377AN | Octal D flip-flop with enable | 7 |
 | SN74F574N | Octal D flip-flop, 3-state | 1 |
 | CD74ACT273E | Octal D flip-flop with clear | 1 |
-| SN74F541N | Octal buffer, 3-state | 5 |
+| SN74F541N | Octal buffer, 3-state | 6 |
 | SN74F138N | 3-to-8 decoder | 1 |
 | AS7C256C-15PCN | SRAM, 32K x 8 | 4 |
 | SN74HCT574N | Octal D flip-flop, 3-state | 1 |
-| **Total** | | **37** |
+| SN74HC574N | Octal D flip-flop, 3-state | 1 |
+| CD74HC4050E | Hex buffer / level shifter | 1 |
+| **Total** | | **41 + a 3.3 V regulator** |
 
 **Not counted, not chosen yet:** the 25.175 MHz clock oscillator, and the
 battery and power-fail switch that hold the interim ROM's /CE high while
@@ -72,30 +79,8 @@ took their jobs), and the ROM/RAM select PLD became the CD74ACT273E.
 
 ## Future features
 
-From [FEATURE_PLAN.md](FEATURE_PLAN.md).  None of these are built yet.
-
-| # | Part number | Type | Function in the design |
-|--:|---|---|---|
-| 1 | SN74HC574N | Octal D flip-flop, 3-state | Shared port output latch at x5200: SCK / pad CLOCK, SD MOSI, SD /CS, pad LATCH (HC for a full 5 V high into the SNES pads) |
-| 2 | SN74F138N | 3-to-8 decoder | Keyboard column driver: drives column A2:A0 low on /PORT_RD |
-| 3 | SN74F541N | Octal buffer, 3-state | Shared port input at x5200: keyboard rows, both SNES pad DATA lines, SD MISO |
-| 4 | CD4050BE | Hex non-inverting buffer | Level shift to 3.3 V for the SD card's SCK, MOSI and /CS |
-| 5 | not chosen | 3.3 V regulator | Powers the SD card and the CD4050 |
-
-The four expansion ports (x5100-x517F, x5180-x51FF, x5300-x537F, x5380-x53FF) need connectors only; ports 3 and 4 share the selects of ports 1 and 2 and each card decodes A7 (FEATURE_PLAN.md).
-
-### Tally
-
-| Part number | Type | Qty |
-|---|---|--:|
-| SN74HC574N | Octal D flip-flop, 3-state | 1 |
-| SN74F138N | 3-to-8 decoder | 1 |
-| SN74F541N | Octal buffer, 3-state | 1 |
-| CD4050BE | Hex buffer / level shifter | 1 |
-| 3.3 V regulator (not chosen) | Voltage regulator | 1 |
-| **Total** | | **4 logic chips + 1 regulator** |
-
-With the future features the Placard comes to 41 chips plus the regulator.
-Features cut from the plan, such as the frame counter or an SPI shifter, are
-listed with their cost in FEATURE_PLAN.md, "Cut for now", and are not
-counted here.
+Nothing else is planned yet.  The four expansion slots and the ROM
+cartridge slot are connectors only ([EXPANSION.md](EXPANSION.md)).  The
+PS/2 mouse uses the shared port and adds only diodes and a socket.
+Features cut from the plan, such as the frame counter or an SPI shifter,
+are listed with their cost in FEATURE_PLAN.md, "Cut for now".

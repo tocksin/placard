@@ -28,7 +28,7 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 - **x5000-x53FF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  (Until 2026-10-16 the window was x5000-x5FFF, with x5800-x5FFF a mirror.)
 - **Only `[Y,X]` reaches the I/O window**; `[0,D]` and `[0,X]` only address the zero page.
 - **Video reads always read the RAM** (memory control PLD revision 04); only CPU reads follow the map.  The CPU can run code from the ROM under the video area while the screen shows the RAM, and a program that wants to read the video RAM maps that section to RAM.
-- **Programs run from the ROM.**  The standard library and font run in place at ROM x3000-x3FFF and a program at ROM x6000-xFBFF.  The boot loader maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  See [ROM.md](ROM.md).
+- **Programs run from the ROM.**  The I/O drivers, standard library and font run in place at ROM x2000-x3FFF and a program at ROM x6000-xFBFF.  The boot loader maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  See [ROM.md](ROM.md).
 - **After a map write**, the next instruction must not be fetched from a section whose map bit that write changed, unless the ROM and RAM hold the same byte there (the new map arrives 4.1 ns too late for that fetch).  Copying the ROM into the RAM underneath and then switching the section is safe.  See [TIMING_FIXES.md](TIMING_FIXES.md#romram-map-register-74act273).
 
 The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /WE, /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
@@ -53,18 +53,18 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen ye
 The drawing is made by `src/scripts/gen_memory_map.py`; rerun it when the map changes.
 
 ### I/O window
-Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes are low with /WE, and devices latch the source bus on the rising edge at the end of the write.  Read strobes are low on a read the CPU latches into D (LOAD_IMM).  Devices other than the map register and the line read are planned in [FEATURE_PLAN.md](FEATURE_PLAN.md) and not built yet.
+Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes are low with /WE, and devices latch the source bus on the rising edge at the end of the write.  Read strobes are low on a read the CPU latches into D (LOAD_IMM).  The shared port is described in [IO.md](IO.md) and the expansion slots in [EXPANSION.md](EXPANSION.md).
 
 | Address | Strobe | R/W | Function |
 |---------|--------|-----|----------|
 | x5000-x50FF | /MAP_WR | W | ROM/RAM map register (built) |
 | x5000-x50FF | /LINE_RD | R | Video line counter, V9:V2 (built) |
-| x5100-x517F | /EXP1, A7 = 0 | R/W | Expansion port 1 |
-| x5180-x51FF | /EXP1, A7 = 1 | R/W | Expansion port 3 |
-| x5200-x52FF | /PORT_WR | W | Shared port output latch: SD card, SNES pad clock and latch (planned) |
-| x5200-x52FF | /PORT_RD | R | Shared port input: keyboard rows of column A2:A0, SNES pad data, SD card MISO (planned) |
-| x5300-x537F | /EXP2, A7 = 0 | R/W | Expansion port 2 |
-| x5380-x53FF | /EXP2, A7 = 1 | R/W | Expansion port 4 |
+| x5100-x517F | /EXP1, A7 = 0 | R/W | Expansion slot 1 |
+| x5180-x51FF | /EXP1, A7 = 1 | R/W | Expansion slot 3 |
+| x5200-x52FF | /PORT_WR | W | Shared port latch: keyboard column, SD card SCK, MOSI and /CS, SNES pad clock and latch, PS/2 mouse lines |
+| x5200-x52FF | /PORT_RD | R | Shared port: keyboard rows, SD MISO and the PS/2 lines (even addresses), SNES pad data (odd addresses) |
+| x5300-x537F | /EXP2, A7 = 0 | R/W | Expansion slot 2 |
+| x5380-x53FF | /EXP2, A7 = 1 | R/W | Expansion slot 4 |
 
 The window was x5000-x5FFF until 2026-10-16 (the I/O decode PLD did not decode A11, and the expansion ports were at x5500 and x5600).  The unused /SND_WR pin became the A11 input.
 
