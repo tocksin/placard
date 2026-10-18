@@ -51,8 +51,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 37 | SN74HC574N | Octal D flip-flop, 3-state | Shared port latch at x5200 (IO.md): SCK and pad CLOCK, MOSI and pad LATCH, SD /CS (also holds the PS/2 mouse off), PS/2 DATA, keyboard column code.  HC for a full 5 V high into the pads |
 | 38 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: keyboard columns /COL0-/COL7 from the latch, pad DATA onto D7/D6 on odd reads (`ATF22V10_PORT.pld`) |
 | 39 | SN74F541N | Octal buffer, 3-state | Shared port input on even reads: keyboard rows, with SD MISO and the PS/2 lines on rows 7, 6 and 5 |
-| 40 | CD74HC4050E | Hex buffer, high-to-low level shifter | SD card SCK, MOSI and /CS down to 3.3 V |
-| 41 | not chosen | 3.3 V regulator | Powers the SD card and the CD74HC4050E |
+| 40 | not chosen | 3.3 V regulator | Powers the SD card (its SCK, MOSI and /CS come down to 3.3 V through resistor dividers, IO.md) |
 
 ### Tally
 
@@ -67,8 +66,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | AS7C256C-15PCN | SRAM, 32K x 8 | 4 |
 | SN74HCT574N | Octal D flip-flop, 3-state | 1 |
 | SN74HC574N | Octal D flip-flop, 3-state | 1 |
-| CD74HC4050E | Hex buffer / level shifter | 1 |
-| **Total** | | **40 + a 3.3 V regulator** |
+| **Total** | | **39 + a 3.3 V regulator** |
 
 **Not counted, not chosen yet:** the 25.175 MHz clock oscillator, and the
 battery and power-fail switch that hold the interim ROM's /CE high while
@@ -84,6 +82,10 @@ start of EXEC (CPU.md, "One data bus").
 bus onto the RAM data pins, enabled by /WE).  The source bus is now the
 memory data bus.  It is kept as a fallback for the prototype: see CPU.md,
 "Fallback: the write-data buffer".
+
+**Removed 2026-10-18: the CD74HC4050E level shifter.**  Three resistor
+dividers (1.8k over 3.3k) bring the SD card's SCK, MOSI and /CS down to
+3.2 V (IO.md, "SD card").
 
 ## Future features
 
