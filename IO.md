@@ -21,6 +21,21 @@ latch to the PS/2 lines, 8 row pull-ups, the pull-ups on the pad DATA
 lines, MISO and the PS/2 lines, the SD socket, two pad sockets and a
 mini-DIN 6 for the mouse.
 
+## Schematic
+
+![Placard I/O schematic](reference/placard_io_schematic.png)
+
+The drawing is made by `src/scripts/gen_io_schematic.py` (2026-10-18);
+rerun it when the pins change.  It shows the I/O decode PLD, the port
+chips and the connectors:
+
+| Ref | Connector | Pins |
+|---|---|---|
+| J1 | Keyboard, 1 x 16 header, 2.54 mm | 1-8 = /COL0-/COL7 (port PLD pins 14-21), 9-16 = ROW0-ROW7 (74F541 A1-A8).  The keys and their diodes are on the keyboard board; the row pull-ups stay on the main board |
+| J2, J3 | SNES pad 1 and 2 | 1 +5 V, 2 CLOCK (latch Q0), 3 LATCH (latch Q1), 4 DATA (port PLD pin 7 or 8), 5-6 not used, 7 GND |
+| J4 | Full-size SD socket (SPI) | 1 CS, 2 DI, 5 CLK from the CD74HC4050E; 7 DO = MISO; 4 VDD 3.3 V; 3, 6 GND; 8, 9 not used |
+| J5 | Mini-DIN 6, PS/2 mouse | 1 DATA, 3 GND, 4 +5 V, 5 CLK |
+
 ## The port
 
 **Write, any address x5200-x52FF (the latch):**
