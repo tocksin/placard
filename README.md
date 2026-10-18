@@ -100,6 +100,17 @@ Bits 3:2 of a row's mode byte make each byte of video memory show on 1, 2 or 4 l
 
 ![test_screen in the simulator](reference/test_screen_sim.gif)
 
+### Game demos
+Two demos show what the CPU can do with no sprite or collision hardware.  Both are ROM programs written by a Python generator (the tables, the unrolled drawing code and a bit-exact model of the picture), and each has a simulator test that checks every frame against the model.
+
+`src/scripts/raycast.asm` (`gen_raycast.py`) is a ray caster: an 80 × 112 view at 8 bpp (4x line repeat) of a maze with shaded, two-tone walls and a dithered floor and ceiling, walked by a demo script until a key or pad button takes over (arrow keys or SNES pad 1: Up / Down walk, Left / Right turn).  A view takes 143k-170k clocks (a column about 2,000), so it runs at the full 60 views a second using under 40 % of each frame.  `build\raycast.bat` loads it and `src/scripts/test_raycast_sim.py` checks it.
+
+![raycast in the simulator](reference/raycast_sim.gif)
+
+`src/scripts/scroller.asm` (`gen_scroller.py`) is a side-scrolling platformer at 160 × 112, 4 bpp: three parallax bands (clouds, mountains, hills at 1/8, 1/4 and 1/2 speed) over a tiled level, with a robot that runs, jumps, collects coins and stomps slimes, all at 60 frames a second.  The background is redrawn every frame by unrolled strips, top to bottom ahead of the beam, so nothing has to be erased.  The sprites are compiled: each frame of art is its own routine in RAM that stores its bytes (masked where a byte is half transparent) straight into video memory.  Background and sprites take about 93k of the 420k clocks in a frame.  The demo player plays until a key or pad button is pressed (arrow keys or SNES pad 1: Left / Right to run, Up, Space or pad B to jump).  `build\scroller.bat` loads it and `src/scripts/test_scroller_sim.py` checks it.
+
+![scroller in the simulator](reference/scroller_sim.gif)
+
 ### Pixel fill
 An easy function is the fill function.  Putting a color in a pixel starts drawing that color.  That color continues to draw until that same color is placed again.  So putting two pixels one a row is enough to draw a whole row of that color.  It's much faster than having the CPU add that color along that entire row.  This is how to get to filled polygons quickly.  The CPU only needs to decide what the boundaries of a shape is, and the video circuit does the rest.  The CPU only drawing wireframes, but gets fully filled polygons.
 

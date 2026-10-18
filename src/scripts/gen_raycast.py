@@ -378,19 +378,38 @@ class Asm:
         self.raw('#addr 0x%04X' % a)
         self.addr = a
 
+    def sect(self, comment, align=False):
+        """a comment line; with align, start on the next page"""
+        if align and self.addr & 0xFF:
+            self.org((self.addr + 255) & 0xFF00, comment)
+        else:
+            self.raw('')
+            self.raw('; ' + comment)
+
     @staticmethod
     def size(lines):
         n = 0
-        for ln in lines:
+        for ln in '\n'.join(lines).split('\n'):
             _, text = ps.parse_line(ln)
             if text and not text.startswith('#') and not ps.CONST_RE.match(text):
                 n += ps.instr_size(text)
         return n
 
+    def begin(self):
+        """collect every following g() / call() into one group, until end()"""
+        self.collect = []
+
+    def end(self):
+        lines, self.collect = self.collect, None
+        self.g(lines)
+
     def g(self, lines, y_live=False):
         """place lines (one string with newlines, or a list) as one group"""
         if isinstance(lines, str):
             lines = [ln for ln in lines.split('\n')]
+        if getattr(self, 'collect', None) is not None:
+            self.collect += lines
+            return
         lines = [ln for ln in lines if ln.strip() != '']
         n = self.size(lines)
         if n > 252:

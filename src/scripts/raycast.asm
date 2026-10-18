@@ -125,6 +125,7 @@ prb        = 0x53       ;   probe cell
 mvp        = 0x54       ;   move angle
 views_lo   = 0x55       ; views drawn
 views_hi   = 0x56
+vticks     = 0x57       ; frames from the last view to this one
 fxq        = 0x60       ; x60-x63: f for x by quadrant (255 - frac or frac)
 fyq        = 0x64       ; x64-x67: f for y by quadrant
 
@@ -277,6 +278,7 @@ v_fp:
     sub  [last_frame], ac
     beq  view_loop              ; (never: a view takes longer than a frame)
     ld   ac, [nticks]
+    ld   ac, [vticks]
     ld   [FRAME_LO], ac
     ld   ac, [last_frame]
     ld   LINK_LO, x             ; CALL pad_read
@@ -1274,12 +1276,11 @@ view_done:
     add  1, ac
     ld   ac, [views_hi]
 vd_1:
-    ld   RATE_COL, ac           ; "nn" views a second, from the frames this
-    ld   ac, [CUR_COL]          ; view took
+    ld   RATE_COL, ac           ; "nn" views a second, from the frames since
+    ld   ac, [CUR_COL]          ; the last view
     ld   1, ac
     ld   ac, [CUR_ROW]
-    ld   [FRAME_LO], ac
-    sub  [last_frame], ac
+    ld   [vticks], ac
     and  63, ac
     ld   ac, [tmp]
     ld   ac, x
@@ -2196,7 +2197,7 @@ FPS_O      = 0xD740
 SCRIPT     = 0xD780
     #d8 0x28, 0x00, 0x3C, 0x01, 0x18, 0x08, 0x46, 0x01, 0x20, 0x04, 0x3C, 0x01, 0x30, 0x08, 0x5A, 0x01, 0x28, 0x04, 0x32, 0x01, 0x40, 0x08, 0x50, 0x01, 0x1E, 0x09, 0x28, 0x01, 0x2D, 0x04, 0x46, 0x01, 0x5A, 0x08, 0x28, 0x00, 0x3C, 0x01, 0x24, 0x05, 0x3C, 0x01, 0x14, 0x04, 0x64, 0x01, 0x00
 RATE_COL   = 0
-MODE_COL   = 60
+MODE_COL   = 67
 
 ; text
 #addr 0x7400
