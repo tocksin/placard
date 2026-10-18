@@ -95,6 +95,11 @@ know which keys are held.  Keys are not debounced: a key bounces for less
 than a frame, so a once-per-frame scan sees at most one bounce and reads it
 either way.
 
+`con_gets` (library bank 2) reads a typed line into a buffer (R1:R0, at
+most R2 characters, ending with a 00), echoing it on the console with
+Backspace on the same text row; Enter ends it and AC = the length.  It
+scans the keyboard once a frame while it waits.
+
 ## SNES pads
 
 Two 7-pin SNES sockets: +5 V, CLOCK (latch bit 0), LATCH (latch bit 1),
@@ -122,6 +127,46 @@ lets go of it.  The 74F541's TTL inputs read 3.3 V as a high.
 
 Block numbers are always 512-byte blocks; `sd_read` and `sd_write` turn them
 into byte addresses for SDSC cards.  About 90 KB/s reading.
+
+### Files on the SD card
+
+`src/scripts/placard_fs.asm` (library bank 2, ROM xE600-xF3FF) reads files
+from a card formatted on a PC, FAT16 or FAT32, with a partition table (the
+first partition) or without one.  It is read only, finds short 8.3 names
+("LONGFI~1.TXT" for a long name), and does not read FAT12 (volumes under
+about 16 MB).
+
+```
+    (CALL sd_init)              ; AC = 0 when the card is ready
+    (CALL fs_mount)             ; AC = 0: the root is the current folder
+    ld   name & 0xFF, ac        ; R1:R0 = "GAME.BIN", 00
+    ld   ac, [R0]
+    ld   name >> 8, ac
+    ld   ac, [R1]
+    ld   0x00, ac               ; R5:R4 = x0100, where to load it
+    ld   ac, [R4]
+    ld   0x01, ac
+    ld   ac, [R5]
+    (CALL fs_load)              ; AC = 0 when loaded
+```
+
+| Routine | Does | Clocks |
+|---|---|---|
+| `fs_mount` | Finds the file system; the root becomes the current folder | about 130,000, 260,000 with a partition table |
+| `fs_root` | The root becomes the current folder | about 2,000 |
+| `fs_next` | The next entry of the current folder in `FS_ENTRY` (name 0-10, attributes 11 with 10h = folder, size 28-31); AC = 1 at the end.  Skips deleted entries, long name parts and the volume name | about 1,000, or 140,000 when it reads a sector |
+| `fs_open` | R1:R0 = a name ending in 00 (any case).  A file opens for `fs_read` with `FS_REM` = its size; a folder (or "..") becomes the current folder | about 1,000 per entry passed plus 140,000 per sector |
+| `fs_read` | The next 512 bytes of the open file to R5:R4, which moves on by 512; AC = 1 at the end | about 160,000 (75 KB/s) |
+| `fs_load` | `fs_open` and `fs_read` to the end, to R5:R4 | about 160,000 per 512 bytes |
+
+Errors in AC: 1 end, 2 not found, 4 and 5 from `sd_read`, 8 not mounted,
+9 no FAT file system, 10 FAT12.  There is one reader: after `fs_open` of a
+file, `fs_next` starts the folder over, and `fs_read` can't go on after
+`fs_next` or another `fs_open`.  The last sector is read whole, so up to
+511 bytes past the end of the file are written.  The reader's variables are
+at x4D00-x4D7F and its sector buffer at x4E00-x4FFF (section 2, RAM in map
+05).  `test_fs.py` checks it on FAT16 and FAT32 images made by `mkfs.fat`
+and `mtools` (it skips when they are not installed).
 
 ## PS/2 mouse
 
@@ -155,6 +200,10 @@ A mouse must start sending within about 0.85 ms of being let go; if one
 is slower, raise `MOUSE_WAIT` in `placard_io.asm` (each step adds 0.25 ms
 to every poll).
 
+`mouse_move` (library bank 2) adds a packet's movement to a pointer
+position in R1:R0 (X) and R3:R2 (Y), held to 0-639 and 0-479.  Call it
+after `mouse_poll` returns 1.
+
 ## Rules for software
 
 - Use the drivers, or leave the latch at FB (`P_IDLE`) when done.
@@ -165,7 +214,7 @@ to every poll).
 
 ## Zero page
 
-The drivers use xA0-xBF (`zeropage.asm`); programs have x20-x9F.
+The drivers use xA0-xBF (`zeropage.asm`); programs have x20-x8F.
 
 | Address | Name | Use |
 |---|---|---|

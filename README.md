@@ -19,6 +19,13 @@ The project has some hard-goals to maintain:
 - Built-in keyboard.  No USB/PS2 keyboard.
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
 
+## Block diagram
+Each block shows how many chips it uses (41 in all on the main board; the expansion and cartridge slots add none).  See [CHIPS.md](CHIPS.md) for the parts.
+
+![Placard block diagram](reference/placard_block_diagram.png)
+
+The drawing is made by `src/scripts/gen_block_diagram.py` (2026-10-18); rerun it when the design changes.
+
 ## Memory Map
 The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databus.  The video RAM starts at x6020 and ends at xFFFF, and each row's mode byte (color mode and line repeat) is at x5A20 + row.  There is a 64kB RAM and a 64kB ROM behind the same addresses.  The address space is divided into eight 8kB sections, and a write-only map register at x5000 picks whether each section reads from the RAM or the ROM.
 
@@ -28,7 +35,7 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 - **x5000-x53FF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  (Until 2026-10-16 the window was x5000-x5FFF, with x5800-x5FFF a mirror.)
 - **Only `[Y,X]` reaches the I/O window**; `[0,D]` and `[0,X]` only address the zero page.
 - **Video reads always read the RAM** (memory control PLD revision 04); only CPU reads follow the map.  The CPU can run code from the ROM under the video area while the screen shows the RAM, and a program that wants to read the video RAM maps that section to RAM.
-- **Programs run from the ROM.**  The I/O drivers, standard library and font run in place at ROM x2000-x3FFF and a program at ROM x6000-xFBFF.  The boot loader maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  See [ROM.md](ROM.md).
+- **Programs run from the ROM.**  The I/O drivers, standard library and font run in place at ROM x2000-x3FFF and a program at ROM x6000-xDFFF; library bank 2 (sound, SD card files, expansion cards, line input, mouse) is at ROM xE000-xFBFF.  The boot loader first gives each expansion card a chance to run its own boot code (like the Apple II), then maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  See [ROM.md](ROM.md).
 - **After a map write**, the next instruction must not be fetched from a section whose map bit that write changed, unless the ROM and RAM hold the same byte there (the new map arrives 4.1 ns too late for that fetch).  Copying the ROM into the RAM underneath and then switching the section is safe.  See [TIMING_FIXES.md](TIMING_FIXES.md#romram-map-register-74act273).
 
 The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /WE, /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
@@ -69,7 +76,7 @@ Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes ar
 The window was x5000-x5FFF until 2026-10-16 (the I/O decode PLD did not decode A11, and the expansion ports were at x5500 and x5600).  The unused /SND_WR pin became the A11 input.
 
 ### Sound
-The video circuit reads one 8-bit sample per scan line from x5DF3-x5FFF (525 bytes, one frame) and plays it through a 74HCT574 and a resistor ladder DAC, at the line rate of 31.47 kHz.  80h is silence.  Software refills the half of the buffer that is not playing, using the line read.  See [SOUND.md](SOUND.md).
+The video circuit reads one 8-bit sample per scan line from x5DF3-x5FFF (525 bytes, one frame) and plays it through a 74HCT574 and a resistor ladder DAC, at the line rate of 31.47 kHz.  80h is silence.  The library's sound driver (`snd_update` once a frame, with `snd_tone`, `snd_beep`, `snd_note`, `snd_noise` and `snd_play`) refills the buffer behind the line being played.  See [SOUND.md](SOUND.md).
 
 ### Video line read
 A read anywhere in x5000-x50FF returns the upper 8 bits of the video line counter, V9:V2.  The V counter in the V Counter PLD counts 499 to 1023, and one 74F541 enabled by /LINE_RD puts V9:V2 on the data bus.  The ROM/RAM map register shares the page but is write only, so there is no conflict.  Read it with `ld 0x50, y` then `ld [y,x], ac`.
@@ -99,7 +106,9 @@ This is done by just XORing the current color with the RAM value.  So you start 
 ## Standard library
 `src/scripts/placard_lib.asm` holds subroutines for new programs: 16-bit
 arithmetic, multiply and divide, memory fill and copy, random numbers, frame
-timing, pixels and a text console.  It also sets the calling convention, the
+timing, pixels, a text console with line input, the keyboard, SNES pad,
+PS/2 mouse and SD card drivers, a FAT16/FAT32 file reader, a sound driver
+and expansion card lookup.  It also sets the calling convention, the
 software stack and the zero page variable map (`zeropage.asm`).  See
 [LIBRARY.md](LIBRARY.md).
 

@@ -27,6 +27,52 @@ answers, so the same card works in any slot without a jumper.
 
 A card has 128 addresses (A6:A0).
 
+## Boot code on a card
+
+Like an Apple II card, a card can change the boot.  At power-up the boot
+loader (`src/scripts/rom_boot.asm`) looks at slots 4, 3, 2 and 1 before it
+starts the program.  A card that wants to run code at boot starts with
+this header in its first bytes (offsets from the slot's base address):
+
+| Offset | Holds |
+|---|---|
+| 00-02 | "PLC" (50 4C 43) |
+| 03 | Card ID, 1-255 (pick one; 0 means none) |
+| 04 | Boot code length n, 1-90 (0 = no boot code, the card is only named) |
+| 05 | Checksum: the sum of the n code bytes, mod 256 |
+| 06-5F | The boot code |
+| 60-7F | Free for the card's registers |
+
+For each slot whose header and checksum are good, the boot loader copies
+the n code bytes to RAM x0100 and calls them with the library's CALL, with
+AC = the slot number (1-4), R1:R0 = the slot's base address, SP = FE and
+`MAP_SHADOW` = 01 (map 01: the zero page reads RAM, the rest ROM).  The
+code may use the library and the I/O drivers.  It then either:
+
+- **returns**, and the scan goes on with the next slot and then the normal
+  boot (a card that only sets itself up, or adds a device), or
+- **never returns**, and takes the boot over: it can load a program from
+  its own memory or from the SD card (`fs_load`), copy its own ROM, and so
+  on.
+
+Its code must keep zero page xFF (the slot being scanned), leave map 01
+when it returns, and keep section 7 reading the ROM (the scan runs there).
+90 bytes is enough for a loader that reads more of the card through its
+registers.  **Holding Esc at power-up skips the scan**, to get past a card
+whose code hangs.
+
+An empty slot fails the "PLC" check: with nothing driving the read bus it
+reads FF from the pull-ups below, or, if the bus has not risen yet, the
+last byte on it, which is the scan's own `ld [y,x], ac` opcode (09).  A program can find cards later with the
+library's `slot_id` (AC = slot 1-4 gives AC = card ID or 0, R1:R0 = base
+address).
+
+**Read bus pull-ups.**  D7:D0 get 10k pull-ups to +5 V on the main board
+(one 9-pin bussed 10k SIP network; not a chip, no PLD logic), so an empty
+slot or an unused I/O address reads FF rather than a floating level.  They
+only set the level when nothing drives the bus and do not slow a driven
+read.  The simulator reads an empty slot as FF.
+
 ## Expansion slot pinout
 
 Side A is the card's component side.  Contact 1 is at the end nearest the
@@ -148,6 +194,11 @@ lines and the same chip selects the ROM chips have on the main board.
   on the cartridge, so a cartridge keeps its contents when it is pulled.
 
 ## To check
+
+- **Empty slot reads.**  Through 10k the bus rises in about 0.5 us, much
+  longer than the read clock, so an empty slot really reads what the bus
+  held (the opcode 09) or something between.  Either fails the header
+  check; confirm on the board that an empty-slot boot skips all four slots.
 
 - **Glitches on /EXP.**  /EXP is decoded from the address only, and /WE
   goes low (22.1 ns) before /EXP has settled (28 ns), so a card's write
