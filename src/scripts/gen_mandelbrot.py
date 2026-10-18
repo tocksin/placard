@@ -29,7 +29,9 @@ SEQUENCE (repeats forever)
     Up to MAXIT iterations per point; points that never escape are black.
 
 ARITHMETIC
-    The CPU has no carry flag and no multiply, so the program uses:
+    The program was written before the CPU had a carry flag (subtracts of
+    base-128 limbs now test the borrow with bcc; adds still test bit 7)
+    and the CPU has no multiply, so the program uses:
       - fixed point with 8 fraction bits (1.0 = 256), in every mode; the
         coarser modes just step c by 2, 4 or 8 units per point
       - z = (x, y) kept as magnitude + sign; |x|, |y| < 2 means each
@@ -75,7 +77,7 @@ MEMORY
     5A20-5BFF   mode bytes, one per row
     6000-FFFF   video RAM
 
-Date: 10/16/2026
+Date: 10/18/2026
 """
 
 import argparse
@@ -176,6 +178,14 @@ class Gen:
         self.blocks.append((name, self.cur))
 
     def e(self, s):
+        if s.startswith('bge '):
+            # no BGE since Branch PLD rev 11 (BCS/BCC took its code):
+            # branch round the jump when bit 7 is set
+            skip = self.uniq('ge')
+            self.cur.append('    blt  ' + skip)
+            self.cur.append('    bra  ' + s[4:].strip())
+            self.cur.append(skip + ':')
+            return
         self.cur.append('    ' + s)
 
     def label(self, s):
@@ -229,7 +239,7 @@ class Gen:
         nb, done = self.uniq('nb'), self.uniq('sd')
         e('ld   %s, ac' % z(a + 'l'))
         e('sub  %s, ac' % z(b + 'l'))
-        e('bge  %s' % nb)
+        e('bcc  %s' % nb)
         e('and  0x7F, ac')
         e('ld   ac, %s' % z(r + 'l'))
         e('ld   %s, ac' % z(a + 'h'))
@@ -264,7 +274,7 @@ class Gen:
         e('ld   %s, ac' % z(src + 'h'))
         e('blt  %s' % neg)
         e('sub  %d, ac' % lim)
-        e('bge  %s' % esc)
+        e('bcc  %s' % esc)
         e('ld   %s, ac' % z(src + 'l'))
         e('ld   ac, %s' % z(mag + 'l'))
         e('ld   %s, ac' % z(src + 'h'))
@@ -275,7 +285,7 @@ class Gen:
         self.label(neg)
         e('clr  ac                    ; magnitude = 0 - value')
         e('sub  %s, ac' % z(src + 'l'))
-        e('bge  %s' % nb)
+        e('bcc  %s' % nb)
         e('and  0x7F, ac')
         e('ld   ac, %s' % z(mag + 'l'))
         e('clr  ac')
@@ -289,7 +299,7 @@ class Gen:
         self.label(mh)
         e('ld   ac, %s' % z(mag + 'h'))
         e('sub  %d, ac' % lim)
-        e('bge  %s' % esc)
+        e('bcc  %s' % esc)
         e('ld   1, ac')
         e('ld   ac, %s' % z(sign))
         self.label(done)
@@ -468,15 +478,15 @@ def build(once, delay, out_path=None):
         e('; cy += %d/256' % w)
         e('ld   %s, ac' % z('cyl'))
         e('add  %d, ac' % w)
-        e('bge  cyok%d' % m)
+        e('ld   ac, %s' % z('cyl'))
+        e('blt  cyc%d' % m)        # bit 7 set: carry into the high limb
+        e('bra  cyd%d' % m)
+        label('cyc%d' % m)
         e('and  0x7F, ac')
         e('ld   ac, %s' % z('cyl'))
         e('ld   %s, ac' % z('cyh'))
         e('inc')
         e('ld   ac, %s' % z('cyh'))
-        e('bra  cyd%d' % m)
-        label('cyok%d' % m)
-        e('ld   ac, %s' % z('cyl'))
         label('cyd%d' % m)
         e('; column done after 480 rows: rowy = vpage + 2')
         e('ld   %s, ac' % z('rowy'))
@@ -488,15 +498,15 @@ def build(once, delay, out_path=None):
         e('; next byte column: cx0 += 8/256, video page += 2')
         e('ld   %s, ac' % z('cxl0'))
         e('add  8, ac')
-        e('bge  cxok%d' % m)
+        e('ld   ac, %s' % z('cxl0'))
+        e('blt  cxc%d' % m)        # bit 7 set: carry into the high limb
+        e('bra  cxd%d' % m)
+        label('cxc%d' % m)
         e('and  0x7F, ac')
         e('ld   ac, %s' % z('cxl0'))
         e('ld   %s, ac' % z('cxh0'))
         e('inc')
         e('ld   ac, %s' % z('cxh0'))
-        e('bra  cxd%d' % m)
-        label('cxok%d' % m)
-        e('ld   ac, %s' % z('cxl0'))
         label('cxd%d' % m)
         e('ld   %s, ac' % z('vpage'))
         e('add  2, ac')
@@ -739,7 +749,7 @@ def build(once, delay, out_path=None):
     e('; t = x*x + y*y, escape if t >= 4.0 (hi >= %d)' % (1 << (F - 5)))
     g.add128('t', 'xx', 'yy')
     e('sub  %d, ac' % (1 << (F - 5)))
-    e('bge  escape')
+    e('bcc  escape')
     e('; x\' = x*x - y*y + cx')
     g.sub128('d', 'xx', 'yy')
     g.add128('nx', 'd', 'cx')
@@ -798,7 +808,7 @@ def build(once, delay, out_path=None):
     o(';')
     o(';     python3 placard_sim.py mandelbrot.asm --run --max-steps 2000000000 --png m.png')
     o(';')
-    o('; Date: 10/16/2026')
+    o('; Date: 10/18/2026')
     o('')
     o('#include "placard.asm"')
     o('')

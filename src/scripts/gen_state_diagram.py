@@ -68,7 +68,7 @@ def stall_loop(name, side):
 
 # ---------------------------------------------------------------- transitions
 edge("FETCH", "LOAD_IMM", "source 00 (immediate)\nsource 01, MEM 000/011/100 ([0,D])\n"
-     "source 1x, MEM 101 (zero-page store,\nor the pad byte of BGE ac / x)", (47, 44))
+     "source 1x, MEM 101 (zero-page store,\nor the pad byte of BCC ac / x)", (47, 44))
 edge("FETCH", "LOAD_MEM", "source 01, MEM 001/010/110/111\n([0,X] or [Y,X] read)\n"
      "source 1x, MEM 110/111\n(store from AC or X, rev 10)", (45, 101))
 edge("FETCH", "EXEC", "source 1x (AC or X),\nMEM 000-100", (62, 72))

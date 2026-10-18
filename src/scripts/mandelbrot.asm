@@ -6,7 +6,7 @@
 ;
 ;     python3 placard_sim.py mandelbrot.asm --run --max-steps 2000000000 --png m.png
 ;
-; Date: 10/16/2026
+; Date: 10/18/2026
 
 #include "placard.asm"
 
@@ -292,15 +292,15 @@ ret_16:
     ; cy += 1/256
     ld   [0x28], ac
     add  1, ac
-    bge  cyok0
+    ld   ac, [0x28]
+    blt  cyc0
+    bra  cyd0
+cyc0:
     and  0x7F, ac
     ld   ac, [0x28]
     ld   [0x29], ac
     inc
     ld   ac, [0x29]
-    bra  cyd0
-cyok0:
-    ld   ac, [0x28]
 cyd0:
     ; column done after 480 rows: rowy = vpage + 2
     ld   [0x34], ac
@@ -313,15 +313,15 @@ cdone0:
     ; next byte column: cx0 += 8/256, video page += 2
     ld   [0x2E], ac
     add  8, ac
-    bge  cxok0
+    ld   ac, [0x2E]
+    blt  cxc0
+    bra  cxd0
+cxc0:
     and  0x7F, ac
     ld   ac, [0x2E]
     ld   [0x2F], ac
     inc
     ld   ac, [0x2F]
-    bra  cxd0
-cxok0:
-    ld   ac, [0x2E]
 cxd0:
     ld   [0x35], ac
     add  2, ac
@@ -439,15 +439,15 @@ ret_20:
     ; cy += 2/256
     ld   [0x28], ac
     add  2, ac
-    bge  cyok1
+    ld   ac, [0x28]
+    blt  cyc1
+    bra  cyd1
+cyc1:
     and  0x7F, ac
     ld   ac, [0x28]
     ld   [0x29], ac
     inc
     ld   ac, [0x29]
-    bra  cyd1
-cyok1:
-    ld   ac, [0x28]
 cyd1:
     ; column done after 480 rows: rowy = vpage + 2
     ld   [0x34], ac
@@ -460,15 +460,15 @@ cdone1:
     ; next byte column: cx0 += 8/256, video page += 2
     ld   [0x2E], ac
     add  8, ac
-    bge  cxok1
+    ld   ac, [0x2E]
+    blt  cxc1
+    bra  cxd1
+cxc1:
     and  0x7F, ac
     ld   ac, [0x2E]
     ld   [0x2F], ac
     inc
     ld   ac, [0x2F]
-    bra  cxd1
-cxok1:
-    ld   ac, [0x2E]
 cxd1:
     ld   [0x35], ac
     add  2, ac
@@ -598,15 +598,15 @@ ret_24:
     ; cy += 4/256
     ld   [0x28], ac
     add  4, ac
-    bge  cyok2
+    ld   ac, [0x28]
+    blt  cyc2
+    bra  cyd2
+cyc2:
     and  0x7F, ac
     ld   ac, [0x28]
     ld   [0x29], ac
     inc
     ld   ac, [0x29]
-    bra  cyd2
-cyok2:
-    ld   ac, [0x28]
 cyd2:
     ; column done after 480 rows: rowy = vpage + 2
     ld   [0x34], ac
@@ -619,15 +619,15 @@ cdone2:
     ; next byte column: cx0 += 8/256, video page += 2
     ld   [0x2E], ac
     add  8, ac
-    bge  cxok2
+    ld   ac, [0x2E]
+    blt  cxc2
+    bra  cxd2
+cxc2:
     and  0x7F, ac
     ld   ac, [0x2E]
     ld   [0x2F], ac
     inc
     ld   ac, [0x2F]
-    bra  cxd2
-cxok2:
-    ld   ac, [0x2E]
 cxd2:
     ld   [0x35], ac
     add  2, ac
@@ -762,15 +762,15 @@ ret_28:
     ; cy += 8/256
     ld   [0x28], ac
     add  8, ac
-    bge  cyok3
+    ld   ac, [0x28]
+    blt  cyc3
+    bra  cyd3
+cyc3:
     and  0x7F, ac
     ld   ac, [0x28]
     ld   [0x29], ac
     inc
     ld   ac, [0x29]
-    bra  cyd3
-cyok3:
-    ld   ac, [0x28]
 cyd3:
     ; column done after 480 rows: rowy = vpage + 2
     ld   [0x34], ac
@@ -783,15 +783,15 @@ cdone3:
     ; next byte column: cx0 += 8/256, video page += 2
     ld   [0x2E], ac
     add  8, ac
-    bge  cxok3
+    ld   ac, [0x2E]
+    blt  cxc3
+    bra  cxd3
+cxc3:
     and  0x7F, ac
     ld   ac, [0x2E]
     ld   [0x2F], ac
     inc
     ld   ac, [0x2F]
-    bra  cxd3
-cxok3:
-    ld   ac, [0x2E]
 cxd3:
     ld   [0x35], ac
     add  2, ac
@@ -1209,7 +1209,9 @@ iter:
     ; t = x*x + y*y, escape if t >= 4.0 (hi >= 8)
     ld   [0x16], ac
     add  [0x18], ac
-    bge  nc_39
+    blt  ge_41
+    bra  nc_39
+ge_41:
     and  0x7F, ac
     ld   ac, [0x1A]
     ld   [0x17], ac
@@ -1223,37 +1225,39 @@ nc_39:
 ad_40:
     ld   ac, [0x1B]
     sub  8, ac
-    bge  escape
+    bcc  escape
     ; x' = x*x - y*y + cx
     ld   [0x16], ac
     sub  [0x18], ac
-    bge  nb_41
+    bcc  nb_42
     and  0x7F, ac
     ld   ac, [0x1C]
     ld   [0x17], ac
     sub  [0x19], ac
     dec
-    bra  sd_42
-nb_41:
+    bra  sd_43
+nb_42:
     ld   ac, [0x1C]
     ld   [0x17], ac
     sub  [0x19], ac
-sd_42:
+sd_43:
     ld   ac, [0x1D]
     ld   [0x1C], ac
     add  [0x26], ac
-    bge  nc_43
+    blt  ge_46
+    bra  nc_44
+ge_46:
     and  0x7F, ac
     ld   ac, [0x1E]
     ld   [0x1D], ac
     add  [0x27], ac
     inc
-    bra  ad_44
-nc_43:
+    bra  ad_45
+nc_44:
     ld   ac, [0x1E]
     ld   [0x1D], ac
     add  [0x27], ac
-ad_44:
+ad_45:
     ld   ac, [0x1F]
     ld   kernel2 >> 8, y
     jmp  kernel2
@@ -1275,51 +1279,55 @@ kernel2:
     bne  sdiff
     ld   [0x10], ac
     add  [0x13], ac
-    bge  nc_45
+    blt  ge_49
+    bra  nc_47
+ge_49:
     and  0x7F, ac
     ld   ac, [0x22]
     ld   [0x11], ac
     add  [0x14], ac
     inc
-    bra  ad_46
-nc_45:
+    bra  ad_48
+nc_47:
     ld   ac, [0x22]
     ld   [0x11], ac
     add  [0x14], ac
-ad_46:
+ad_48:
     ld   ac, [0x23]
     bra  sdone
 sdiff:
     ld   [0x10], ac
     sub  [0x13], ac
-    bge  nb_47
+    bcc  nb_50
     and  0x7F, ac
     ld   ac, [0x22]
     ld   [0x11], ac
     sub  [0x14], ac
     dec
-    bra  sd_48
-nb_47:
+    bra  sd_51
+nb_50:
     ld   ac, [0x22]
     ld   [0x11], ac
     sub  [0x14], ac
-sd_48:
+sd_51:
     ld   ac, [0x23]
-    bge  sdone
+    blt  ge_52
+    bra  sdone
+ge_52:
     ld   [0x13], ac
     sub  [0x10], ac
-    bge  nb_49
+    bcc  nb_53
     and  0x7F, ac
     ld   ac, [0x22]
     ld   [0x14], ac
     sub  [0x11], ac
     dec
-    bra  sd_50
-nb_49:
+    bra  sd_54
+nb_53:
     ld   ac, [0x22]
     ld   [0x14], ac
     sub  [0x11], ac
-sd_50:
+sd_54:
     ld   ac, [0x23]
 sdone:
     ld   [0x22], x
@@ -1334,33 +1342,35 @@ sdone:
     ; y' = s*s - t + cy  (= 2xy + cy)
     ld   [0x24], ac
     sub  [0x1A], ac
-    bge  nb_51
+    bcc  nb_55
     and  0x7F, ac
     ld   ac, [0x20]
     ld   [0x25], ac
     sub  [0x1B], ac
     dec
-    bra  sd_52
-nb_51:
+    bra  sd_56
+nb_55:
     ld   ac, [0x20]
     ld   [0x25], ac
     sub  [0x1B], ac
-sd_52:
+sd_56:
     ld   ac, [0x21]
     ld   [0x20], ac
     add  [0x28], ac
-    bge  nc_53
+    blt  ge_59
+    bra  nc_57
+ge_59:
     and  0x7F, ac
     ld   ac, [0x20]
     ld   [0x21], ac
     add  [0x29], ac
     inc
-    bra  ad_54
-nc_53:
+    bra  ad_58
+nc_57:
     ld   ac, [0x20]
     ld   [0x21], ac
     add  [0x29], ac
-ad_54:
+ad_58:
     ld   ac, [0x21]
     ld   kernel3 >> 8, y
     jmp  kernel3
@@ -1369,69 +1379,69 @@ ad_54:
 kernel3:
     ; back to magnitude + sign, escape if |x'| or |y'| >= 2
     ld   [0x1F], ac
-    blt  neg_55
+    blt  neg_60
     sub  4, ac
-    bge  esc3
+    bcc  esc3
     ld   [0x1E], ac
     ld   ac, [0x10]
     ld   [0x1F], ac
     ld   ac, [0x11]
     clr  ac
     ld   ac, [0x12]
-    bra  sm_58
-neg_55:
+    bra  sm_63
+neg_60:
     clr  ac                    ; magnitude = 0 - value
     sub  [0x1E], ac
-    bge  nb_56
+    bcc  nb_61
     and  0x7F, ac
     ld   ac, [0x10]
     clr  ac
     sub  [0x1F], ac
     dec
-    bra  mh_57
-nb_56:
+    bra  mh_62
+nb_61:
     ld   ac, [0x10]
     clr  ac
     sub  [0x1F], ac
-mh_57:
+mh_62:
     ld   ac, [0x11]
     sub  4, ac
-    bge  esc3
+    bcc  esc3
     ld   1, ac
     ld   ac, [0x12]
-sm_58:
+sm_63:
     ld   [0x21], ac
-    blt  neg_59
+    blt  neg_64
     sub  4, ac
-    bge  esc3
+    bcc  esc3
     ld   [0x20], ac
     ld   ac, [0x13]
     ld   [0x21], ac
     ld   ac, [0x14]
     clr  ac
     ld   ac, [0x15]
-    bra  sm_62
-neg_59:
+    bra  sm_67
+neg_64:
     clr  ac                    ; magnitude = 0 - value
     sub  [0x20], ac
-    bge  nb_60
+    bcc  nb_65
     and  0x7F, ac
     ld   ac, [0x13]
     clr  ac
     sub  [0x21], ac
     dec
-    bra  mh_61
-nb_60:
+    bra  mh_66
+nb_65:
     ld   ac, [0x13]
     clr  ac
     sub  [0x21], ac
-mh_61:
+mh_66:
     ld   ac, [0x14]
     sub  4, ac
-    bge  esc3
+    bcc  esc3
     ld   1, ac
     ld   ac, [0x15]
-sm_62:
+sm_67:
     ld   [0x2A], ac
     dec
     ld   ac, [0x2A]

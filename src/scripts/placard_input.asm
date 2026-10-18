@@ -75,26 +75,15 @@ in_r3:
     blt  cg_key
     ld   [T7], ac
     sub  0x7F, ac
-    bge  cg_key
+    bcc  cg_key
     ld   [R3], ac               ; room left?
     sub  [R2], ac
-    bge  cg_key
+    bcc  cg_key
     ld   [R0], ac               ; address = R1:R0 + R3 (carry into R1)
     add  [R3], ac
-    ld   ac, [T6]
     ld   ac, x
-    ld   [R0], ac
-    and  [R3], ac
-    ld   ac, [T5]
-    ld   [R0], ac
-    or   [R3], ac
-    ld   ac, [T4]
-    ld   [T6], ac
-    not
-    and  [T4], ac
-    or   [T5], ac
     ld   [R1], y
-    bge  cg_nc
+    bcc  cg_nc                  ; the carry flag from the add
     ld   [R1], ac
     inc
     ld   ac, y
@@ -147,20 +136,9 @@ cg_end:
 in_r6:
     ld   [R0], ac               ; the 00 at the end
     add  [R3], ac
-    ld   ac, [T6]
     ld   ac, x
-    ld   [R0], ac
-    and  [R3], ac
-    ld   ac, [T5]
-    ld   [R0], ac
-    or   [R3], ac
-    ld   ac, [T4]
-    ld   [T6], ac
-    not
-    and  [T4], ac
-    or   [T5], ac
     ld   [R1], y
-    bge  cg_nc2
+    bcc  cg_nc2                  ; the carry flag from the add
     ld   [R1], ac
     inc
     ld   ac, y
@@ -206,7 +184,9 @@ mm_xh:
     add  [R1], ac               ; high byte + carry, - 1 if DX < 0
     ld   ac, [R1]
     ld   [MOUSE_DX], ac
-    bge  mm_xp
+    blt  mm_xp_b7
+    bra  mm_xp
+mm_xp_b7:
     ld   [R1], ac
     dec
     ld   ac, [R1]
@@ -253,7 +233,9 @@ mm_yh:
     add  [R3], ac
     ld   ac, [R3]
     ld   [MOUSE_DY], ac
-    bge  mm_yp
+    blt  mm_yp_b7
+    bra  mm_yp
+mm_yp_b7:
     ld   [R3], ac
     dec
     ld   ac, [R3]

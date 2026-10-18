@@ -233,8 +233,8 @@ the type of branch/jump.  A value of 000 will cause a jump (16-bit load of PC).
 A value of 111 will cause a branch (8-bit load of lower PC byte).  The others
 are conditional based on the ALU result.  
 
-BGE with an AC or X target (`bge ac`, `bge x`) is two bytes: the opcode and a
-pad byte.  Its memory field (101) is the same as a zero-page store's, and the
+BCC with an AC or X target (`bcc ac`, `bcc x`) is two bytes: the opcode and a
+pad byte (BGE had the same before it became BCC).  Its memory field (101) is the same as a zero-page store's, and the
 State PLD sends both through LOAD_IMM rather than decoding the opcode in FETCH,
 which was too slow at 25.175 MHz (see TIMING_FIXES.md).  The assembler adds
 the pad byte.
@@ -242,15 +242,46 @@ the pad byte.
 Using the Zero flag, the value of the Accumulator can be determined if it is 
 equal-to-zero.  The Negative flag (the MSB of the Accumulator) 
 determines if the Accumulator is positive or negative.  This determines 
-greater-than-zero or less-than-zero.  These two flags together can determine 
-all of the branching mode.
+greater-than-zero or less-than-zero.  BLT, BNE, BEQ and BLE use these two
+flags.  There is no BGT or BGE: branch the other way with BLE or BLT (for
+AC > 0, BLE around the code; for AC >= 0, BLT around it).
+
+### Carry flag
+
+Memory modes 001 and 101 are BCS and BCC, branch if the carry flag is set or
+clear (Branch PLD revision 11; they were BGT and BGE, which no program used
+and BLE and BLT can stand in for).  The carry flag is a register in the
+Branch PLD (pin 20).  It takes the high ALU PLD's COUT (Branch PLD pin 14)
+at the end of every ADD or SUB with an AC, X or Y destination, including
+`inc`, `dec` and `shl`:
+
+- ADD: the carry out of bit 7 (1 when A + B > 255)
+- SUB: the borrow out of bit 7 (1 when A < B, unsigned)
+- `shl` (`add ac, ac`): the bit shifted out of bit 7
+
+Every other instruction keeps it: loads, stores, AND/OR/XOR, SHR, branches,
+and ADD or SUB that stores to RAM (they have no ALU wait clock and write the
+source bus, not the result).  So it can be tested several instructions after
+the ADD or SUB, for example a 16-bit add:
+
+    ld   [lo], ac
+    add  [b_lo], ac
+    ld   ac, [lo]        ; a store keeps the carry
+    ld   [hi], ac
+    bcc  nc
+    inc
+nc: add  [b_hi], ac
+    ld   ac, [hi]
+
+It powers up clear.  The carry is settled a pass before the ALU result (four
+PLD passes to COUT, five to F3), so it fits in the ALU wait clock with 16.9 ns
+to spare (see the Branch PLD source).  No chip was added.
 
 | MemMode | Branch | Z | NEG | Meaning | LoadPCLow | LoadPCHigh |
 |---------|--------|---|-----|---------|-----------|------------|
 |   000   |   JMP  | X |  X  | Always  |     1     |      1     |
-|   001   |   BGT  | 0 |  0  |  AC>0   |     1     |      0     |
-|   001   |   BGT  | 0 |  1  |  AC<0   |     0     |      0     |
-|   001   |   BGT  | 1 |  0  |  AC=0   |     0     |      0     |
+|   001   |   BCS  | X |  X  | C=1     |     1     |      0     |
+|   001   |   BCS  | X |  X  | C=0     |     0     |      0     |
 |   010   |   BLT  | 0 |  0  |  AC>0   |     0     |      0     |
 |   010   |   BLT  | 0 |  1  |  AC<0   |     1     |      0     |
 |   010   |   BLT  | 1 |  0  |  AC=0   |     0     |      0     |
@@ -260,9 +291,8 @@ all of the branching mode.
 |   100   |   BEQ  | 0 |  0  |  AC>0   |     0     |      0     |
 |   100   |   BEQ  | 0 |  1  |  AC<0   |     0     |      0     |
 |   100   |   BEQ  | 1 |  0  |  AC=0   |     1     |      0     |
-|   101   |   BGE  | 0 |  0  |  AC>0   |     1     |      0     |
-|   101   |   BGE  | 0 |  1  |  AC<0   |     0     |      0     |
-|   101   |   BGE  | 1 |  0  |  AC=0   |     1     |      0     |
+|   101   |   BCC  | X |  X  | C=0     |     1     |      0     |
+|   101   |   BCC  | X |  X  | C=1     |     0     |      0     |
 |   110   |   BLE  | 0 |  0  |  AC>0   |     0     |      0     |
 |   110   |   BLE  | 0 |  1  |  AC<0   |     1     |      0     |
 |   110   |   BLE  | 1 |  0  |  AC=0   |     1     |      0     |

@@ -407,7 +407,7 @@ kk_tb:
     sub  0x61, ac               ; 'a'
     blt  kk_ctl
     sub  26, ac
-    bge  kk_ctl
+    bcc  kk_ctl
     ld   [IO_T3], ac
     xor  0x20, ac
     ld   ac, [IO_T3]
@@ -605,7 +605,9 @@ sc_r1:
     ld   spi_byte >> 8, y
     jmp  spi_byte
 sc_back3:
-    bge  sc_done                ; bit 7 clear: the answer
+    blt  sc_done_b7
+    bra  sc_done                ; bit 7 clear: the answer
+sc_done_b7:
     ld   [IO_TMP], ac
     dec
     ld   ac, [IO_TMP]
@@ -1116,11 +1118,11 @@ rx_byte:
     ld   0xFA, [y,x]            ; bit 7: SCK low (MOSI 1)
     ld   0xFB, [y,x]            ; SCK high
     ld   [y,x], ac              ; D7 = MISO
-    bge  rx_7
-    ld   1, ac
+    blt  rx_7
+    clr  ac
     bra  rx_7s
 rx_7:
-    clr  ac
+    ld   1, ac
 rx_7s:
     ld   ac, [T1]               ; T1 = bit 7 in bit 0; 7 more shifts move it up
     ld   0xFA, [y,x]            ; bit 6
@@ -1129,7 +1131,9 @@ rx_7s:
     shl
     ld   ac, [T1]
     ld   [y,x], ac
-    bge  rx_6
+    blt  rx_6_b7
+    bra  rx_6
+rx_6_b7:
     ld   [T1], ac
     or   1, ac
     ld   ac, [T1]
@@ -1140,7 +1144,9 @@ rx_6:
     shl
     ld   ac, [T1]
     ld   [y,x], ac
-    bge  rx_5
+    blt  rx_5_b7
+    bra  rx_5
+rx_5_b7:
     ld   [T1], ac
     or   1, ac
     ld   ac, [T1]
@@ -1151,7 +1157,9 @@ rx_5:
     shl
     ld   ac, [T1]
     ld   [y,x], ac
-    bge  rx_4
+    blt  rx_4_b7
+    bra  rx_4
+rx_4_b7:
     ld   [T1], ac
     or   1, ac
     ld   ac, [T1]
@@ -1162,7 +1170,9 @@ rx_4:
     shl
     ld   ac, [T1]
     ld   [y,x], ac
-    bge  rx_3
+    blt  rx_3_b7
+    bra  rx_3
+rx_3_b7:
     ld   [T1], ac
     or   1, ac
     ld   ac, [T1]
@@ -1173,7 +1183,9 @@ rx_3:
     shl
     ld   ac, [T1]
     ld   [y,x], ac
-    bge  rx_2
+    blt  rx_2_b7
+    bra  rx_2
+rx_2_b7:
     ld   [T1], ac
     or   1, ac
     ld   ac, [T1]
@@ -1184,7 +1196,9 @@ rx_2:
     shl
     ld   ac, [T1]
     ld   [y,x], ac
-    bge  rx_1
+    blt  rx_1_b7
+    bra  rx_1
+rx_1_b7:
     ld   [T1], ac
     or   1, ac
     ld   ac, [T1]
@@ -1195,7 +1209,9 @@ rx_1:
     shl
     ld   ac, [T1]
     ld   [y,x], ac
-    bge  rx_0
+    blt  rx_0_b7
+    bra  rx_0
+rx_0_b7:
     ld   [T1], ac
     or   1, ac
     ld   ac, [T1]
@@ -1323,7 +1339,9 @@ sa_byte:
     shl
     ld   ac, [T5]
     ld   [R0], ac
-    bge  sa_1
+    blt  sa_1_b7
+    bra  sa_1
+sa_1_b7:
     ld   [T5], ac
     or   1, ac
     ld   ac, [T5]
@@ -1332,7 +1350,9 @@ sa_1:
     shl
     ld   ac, [T4]
     ld   [R1], ac
-    bge  sa_2
+    blt  sa_2_b7
+    bra  sa_2
+sa_2_b7:
     ld   [T4], ac
     or   1, ac
     ld   ac, [T4]

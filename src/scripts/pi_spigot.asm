@@ -5,7 +5,7 @@
 ;
 ;     python3 placard_sim.py pi_spigot.asm --run --max-steps 2000000000 --stop-at pause --png pi.png
 ;
-; Date: 10/16/2026
+; Date: 10/18/2026
 
 #include "placard.asm"
 
@@ -202,124 +202,124 @@ pnz:
     ld   ac, [0x1A]
     ld   [0x18], ac
     dec
-    bge  inz
+    bcc  inz
     and  0x7F, ac
     ld   ac, [0x18]
     ld   [0x19], ac
     dec
     ld   ac, [0x19]
     ; every 128 terms: check the line read for a new frame
-    ld   ret_30, ac
+    ld   ret_38, ac
     ld   ac, [0x33]
-    ld   ret_30 >> 8, ac
+    ld   ret_38 >> 8, ac
     ld   ac, [0x34]
     ld   poll >> 8, y
     jmp  poll
-ret_30:
+ret_38:
     bra  idone
 inz:
     ld   ac, [0x18]
 idone:
     ld   [0x38], ac
     sub  0x02, ac
-    bge  dok_31
+    bcc  dok_39
     and  0x7F, ac
     ld   ac, [0x38]
     ld   [0x39], ac
     dec
-    bge  dd_32
+    bcc  dd_40
     and  0x7F, ac
     ld   ac, [0x39]
     ld   [0x3A], ac
     dec
     ld   ac, [0x3A]
-    bra  dx_33
-dok_31:
+    bra  dx_41
+dok_39:
     ld   ac, [0x38]
-    bra  dx_33
-dd_32:
+    bra  dx_41
+dd_40:
     ld   ac, [0x39]
-dx_33:
+dx_41:
     ld   [0x3B], ac
     sub  0x04, ac
-    bge  dok_34
+    bcc  dok_42
     and  0x7F, ac
     ld   ac, [0x3B]
     ld   [0x3C], ac
     dec
-    bge  dd_35
+    bcc  dd_43
     and  0x7F, ac
     ld   ac, [0x3C]
     ld   [0x3D], ac
     dec
     ld   ac, [0x3D]
-    bra  dx_36
-dok_34:
+    bra  dx_44
+dok_42:
     ld   ac, [0x3B]
-    bra  dx_36
-dd_35:
+    bra  dx_44
+dd_43:
     ld   ac, [0x3C]
-dx_36:
+dx_44:
     ld   [0x3E], ac
     sub  0x08, ac
-    bge  dok_37
+    bcc  dok_45
     and  0x7F, ac
     ld   ac, [0x3E]
     ld   [0x3F], ac
     dec
-    bge  dd_38
+    bcc  dd_46
     and  0x7F, ac
     ld   ac, [0x3F]
     ld   [0x40], ac
     dec
     ld   ac, [0x40]
-    bra  dx_39
-dok_37:
+    bra  dx_47
+dok_45:
     ld   ac, [0x3E]
-    bra  dx_39
-dd_38:
+    bra  dx_47
+dd_46:
     ld   ac, [0x3F]
-dx_39:
+dx_47:
     ld   [0x41], ac
     sub  0x10, ac
-    bge  dok_40
+    bcc  dok_48
     and  0x7F, ac
     ld   ac, [0x41]
     ld   [0x42], ac
     dec
-    bge  dd_41
+    bcc  dd_49
     and  0x7F, ac
     ld   ac, [0x42]
     ld   [0x43], ac
     dec
     ld   ac, [0x43]
-    bra  dx_42
-dok_40:
+    bra  dx_50
+dok_48:
     ld   ac, [0x41]
-    bra  dx_42
-dd_41:
+    bra  dx_50
+dd_49:
     ld   ac, [0x42]
-dx_42:
+dx_50:
     ld   [0x44], ac
     sub  0x20, ac
-    bge  dok_43
+    bcc  dok_51
     and  0x7F, ac
     ld   ac, [0x44]
     ld   [0x45], ac
     dec
-    bge  dd_44
+    bcc  dd_52
     and  0x7F, ac
     ld   ac, [0x45]
     ld   [0x46], ac
     dec
     ld   ac, [0x46]
-    bra  dx_45
-dok_43:
+    bra  dx_53
+dok_51:
     ld   ac, [0x44]
-    bra  dx_45
-dd_44:
+    bra  dx_53
+dd_52:
     ld   ac, [0x45]
-dx_45:
+dx_53:
     ; loop while i > 1
     ld   [0x19], ac
     bne  again
@@ -338,29 +338,31 @@ div2:
     ; k = 3
     ld   [0x10], ac
     sub  [0x41], ac
-    bge  n0_10
+    bcc  n0_14
     and  0x7F, ac
     ld   ac, [0x13]
     ld   [0x11], ac
     dec
-    bra  m0_11
-n0_10:
+    bra  m0_15
+n0_14:
     ld   ac, [0x13]
     ld   [0x11], ac
-m0_11:
+m0_15:
     sub  [0x42], ac
-    bge  n1_12
+    blt  ge_19
+    bra  n1_16
+ge_19:
     and  0x7F, ac
     ld   ac, [0x14]
     ld   [0x12], ac
     dec
-    bra  m1_13
-n1_12:
+    bra  m1_17
+n1_16:
     ld   ac, [0x14]
     ld   [0x12], ac
-m1_13:
+m1_17:
     sub  [0x43], ac
-    blt  ns_14
+    blt  ns_18
     ld   ac, [0x12]
     ld   [0x14], ac
     ld   ac, [0x11]
@@ -369,46 +371,11 @@ m1_13:
     ld   [0x15], ac
     or   0x08, ac
     ld   ac, [0x15]
-ns_14:
+ns_18:
     ; k = 2
     ld   [0x10], ac
     sub  [0x3E], ac
-    bge  n0_15
-    and  0x7F, ac
-    ld   ac, [0x13]
-    ld   [0x11], ac
-    dec
-    bra  m0_16
-n0_15:
-    ld   ac, [0x13]
-    ld   [0x11], ac
-m0_16:
-    sub  [0x3F], ac
-    bge  n1_17
-    and  0x7F, ac
-    ld   ac, [0x14]
-    ld   [0x12], ac
-    dec
-    bra  m1_18
-n1_17:
-    ld   ac, [0x14]
-    ld   [0x12], ac
-m1_18:
-    sub  [0x40], ac
-    blt  ns_19
-    ld   ac, [0x12]
-    ld   [0x14], ac
-    ld   ac, [0x11]
-    ld   [0x13], ac
-    ld   ac, [0x10]
-    ld   [0x15], ac
-    or   0x04, ac
-    ld   ac, [0x15]
-ns_19:
-    ; k = 1
-    ld   [0x10], ac
-    sub  [0x3B], ac
-    bge  n0_20
+    bcc  n0_20
     and  0x7F, ac
     ld   ac, [0x13]
     ld   [0x11], ac
@@ -418,8 +385,10 @@ n0_20:
     ld   ac, [0x13]
     ld   [0x11], ac
 m0_21:
-    sub  [0x3C], ac
-    bge  n1_22
+    sub  [0x3F], ac
+    blt  ge_25
+    bra  n1_22
+ge_25:
     and  0x7F, ac
     ld   ac, [0x14]
     ld   [0x12], ac
@@ -429,8 +398,45 @@ n1_22:
     ld   ac, [0x14]
     ld   [0x12], ac
 m1_23:
-    sub  [0x3D], ac
+    sub  [0x40], ac
     blt  ns_24
+    ld   ac, [0x12]
+    ld   [0x14], ac
+    ld   ac, [0x11]
+    ld   [0x13], ac
+    ld   ac, [0x10]
+    ld   [0x15], ac
+    or   0x04, ac
+    ld   ac, [0x15]
+ns_24:
+    ; k = 1
+    ld   [0x10], ac
+    sub  [0x3B], ac
+    bcc  n0_26
+    and  0x7F, ac
+    ld   ac, [0x13]
+    ld   [0x11], ac
+    dec
+    bra  m0_27
+n0_26:
+    ld   ac, [0x13]
+    ld   [0x11], ac
+m0_27:
+    sub  [0x3C], ac
+    blt  ge_31
+    bra  n1_28
+ge_31:
+    and  0x7F, ac
+    ld   ac, [0x14]
+    ld   [0x12], ac
+    dec
+    bra  m1_29
+n1_28:
+    ld   ac, [0x14]
+    ld   [0x12], ac
+m1_29:
+    sub  [0x3D], ac
+    blt  ns_30
     ld   ac, [0x12]
     ld   [0x14], ac
     ld   ac, [0x11]
@@ -439,33 +445,35 @@ m1_23:
     ld   [0x15], ac
     or   0x02, ac
     ld   ac, [0x15]
-ns_24:
+ns_30:
     ; k = 0
     ld   [0x10], ac
     sub  [0x38], ac
-    bge  n0_25
+    bcc  n0_32
     and  0x7F, ac
     ld   ac, [0x13]
     ld   [0x11], ac
     dec
-    bra  m0_26
-n0_25:
+    bra  m0_33
+n0_32:
     ld   ac, [0x13]
     ld   [0x11], ac
-m0_26:
+m0_33:
     sub  [0x39], ac
-    bge  n1_27
+    blt  ge_37
+    bra  n1_34
+ge_37:
     and  0x7F, ac
     ld   ac, [0x14]
     ld   [0x12], ac
     dec
-    bra  m1_28
-n1_27:
+    bra  m1_35
+n1_34:
     ld   ac, [0x14]
     ld   [0x12], ac
-m1_28:
+m1_35:
     sub  [0x3A], ac
-    blt  ns_29
+    blt  ns_36
     ld   ac, [0x12]
     ld   [0x14], ac
     ld   ac, [0x11]
@@ -474,7 +482,7 @@ m1_28:
     ld   [0x15], ac
     or   0x01, ac
     ld   ac, [0x15]
-ns_29:
+ns_36:
     ld   div3 >> 8, y
     jmp  div3
 
@@ -669,13 +677,13 @@ not9:
     ld   [0x1C], ac
     inc
     ld   ac, [0x20]
-    ld   ret_46, ac
+    ld   ret_54, ac
     ld   ac, [0x29]
-    ld   ret_46 >> 8, ac
+    ld   ret_54 >> 8, ac
     ld   ac, [0x2A]
     ld   emit >> 8, y
     jmp  emit
-ret_46:
+ret_54:
     ld   0x00, ac
     ld   ac, [0x1F]
     ld   0x00, ac
@@ -686,13 +694,13 @@ normal:
     bne  nofirst
     ld   [0x1C], ac
     ld   ac, [0x20]
-    ld   ret_47, ac
+    ld   ret_55, ac
     ld   ac, [0x29]
-    ld   ret_47 >> 8, ac
+    ld   ret_55 >> 8, ac
     ld   ac, [0x2A]
     ld   emit >> 8, y
     jmp  emit
-ret_47:
+ret_55:
 nofirst:
     ld   0x00, ac
     ld   ac, [0x1E]
@@ -707,19 +715,19 @@ flush:
     ld   ac, [0x1D]
     ld   [0x1F], ac
     ld   ac, [0x20]
-    ld   ret_48, ac
+    ld   ret_56, ac
     ld   ac, [0x29]
-    ld   ret_48 >> 8, ac
+    ld   ret_56 >> 8, ac
     ld   ac, [0x2A]
     ld   emit >> 8, y
     jmp  emit
-ret_48:
+ret_56:
     bra  flush
 next:
     ; digits left (base 128 counter)
     ld   [0x2B], ac
     dec
-    bge  jok
+    bcc  jok
     and  0x7F, ac
     ld   ac, [0x2B]
     ld   [0x2C], ac
@@ -737,13 +745,13 @@ jtest:
 finish:
     ld   [0x1C], ac
     ld   ac, [0x20]
-    ld   ret_49, ac
+    ld   ret_57, ac
     ld   ac, [0x29]
-    ld   ret_49 >> 8, ac
+    ld   ret_57 >> 8, ac
     ld   ac, [0x2A]
     ld   emit >> 8, y
     jmp  emit
-ret_49:
+ret_57:
     ld   stop >> 8, y
     jmp  stop
 
@@ -817,7 +825,9 @@ inner:
     ld   [0x18], x
     ld   [y,x], ac
     add  [0x10], ac
-    bge  qi0
+    blt  ge_5
+    bra  qi0
+ge_5:
     and  0x7F, ac
     ld   ac, [0x10]
     ld   [0x11], ac
@@ -830,7 +840,9 @@ qi1:
     ld   [0x19], x
     ld   [y,x], ac
     add  [0x13], ac
-    bge  qi2
+    blt  ge_6
+    bra  qi2
+ge_6:
     and  0x7F, ac
     ld   ac, [0x13]
     ld   [0x12], ac
@@ -847,7 +859,9 @@ qi3:
     ld   [y,x], ac
     add  [0x11], ac
     add  [0x13], ac
-    bge  qi4
+    blt  ge_7
+    bra  qi4
+ge_7:
     and  0x7F, ac
     ld   ac, [0x11]
     ld   [0x12], ac
@@ -867,29 +881,31 @@ qi5:
     ; k = 4
     ld   [0x10], ac
     sub  [0x44], ac
-    bge  n0_5
+    bcc  n0_8
     and  0x7F, ac
     ld   ac, [0x13]
     ld   [0x11], ac
     dec
-    bra  m0_6
-n0_5:
+    bra  m0_9
+n0_8:
     ld   ac, [0x13]
     ld   [0x11], ac
-m0_6:
+m0_9:
     sub  [0x45], ac
-    bge  n1_7
+    blt  ge_13
+    bra  n1_10
+ge_13:
     and  0x7F, ac
     ld   ac, [0x14]
     ld   [0x12], ac
     dec
-    bra  m1_8
-n1_7:
+    bra  m1_11
+n1_10:
     ld   ac, [0x14]
     ld   [0x12], ac
-m1_8:
+m1_11:
     sub  [0x46], ac
-    blt  ns_9
+    blt  ns_12
     ld   ac, [0x12]
     ld   [0x14], ac
     ld   ac, [0x11]
@@ -898,21 +914,21 @@ m1_8:
     ld   [0x15], ac
     or   0x10, ac
     ld   ac, [0x15]
-ns_9:
+ns_12:
     ld   div2 >> 8, y
     jmp  div2
 
-#addr 0x06B6
+#addr 0x06BE
 stop:
     ; stop the timer: whole frames are counted, add the 128 us steps since
     ; the top of this frame
-    ld   ret_51, ac
+    ld   ret_59, ac
     ld   ac, [0x33]
-    ld   ret_51 >> 8, ac
+    ld   ret_59 >> 8, ac
     ld   ac, [0x34]
     ld   poll >> 8, y
     jmp  poll
-ret_51:
+ret_59:
     ld   [0x2E], ac
     sub  124, ac
     ld   ac, [0x28]
@@ -923,38 +939,17 @@ part:
     beq  pdone
     dec
     ld   ac, [0x28]
-    ld   ret_52, ac
+    ld   ret_60, ac
     ld   ac, [0x35]
-    ld   ret_52 >> 8, ac
+    ld   ret_60 >> 8, ac
     ld   ac, [0x36]
     ld   dadd >> 8, y
     jmp  dadd
-ret_52:
+ret_60:
     bra  part
 pdone:
     ld   show >> 8, y
     jmp  show
-
-#addr 0x06E6
-clr_m:
-    ; mode bytes 5A00-5BFF = 0 (1 bpp)
-    ld   0x5A, y
-    clr  x
-clr_m0:
-    ld   0x00, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    bne  clr_m0
-    ld   0x5B, y
-clr_m1:
-    ld   0x00, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    bne  clr_m1
-    ld   tsync >> 8, y
-    jmp  tsync
 
 #addr 0x0700
 show:
@@ -984,25 +979,25 @@ shlp:
     ld   [0x37], x
     ld   [x], ac
     ld   ac, [0x20]
-    ld   ret_53, ac
+    ld   ret_61, ac
     ld   ac, [0x29]
-    ld   ret_53 >> 8, ac
+    ld   ret_61 >> 8, ac
     ld   ac, [0x2A]
     ld   emit >> 8, y
     jmp  emit
-ret_53:
+ret_61:
     ld   [0x37], ac
     sub  0x56, ac
     bne  shnd
     ld   10, ac
     ld   ac, [0x20]
-    ld   ret_54, ac
+    ld   ret_62, ac
     ld   ac, [0x29]
-    ld   ret_54 >> 8, ac
+    ld   ret_62 >> 8, ac
     ld   ac, [0x2A]
     ld   emit >> 8, y
     jmp  emit
-ret_54:
+ret_62:
 shnd:
     ld   [0x37], ac
     dec
@@ -1011,22 +1006,22 @@ shnd:
     bne  shlp
     ld   0x0B, ac
     ld   ac, [0x20]
-    ld   ret_55, ac
+    ld   ret_63, ac
     ld   ac, [0x29]
-    ld   ret_55 >> 8, ac
+    ld   ret_63 >> 8, ac
     ld   ac, [0x2A]
     ld   emit >> 8, y
     jmp  emit
-ret_55:
+ret_63:
     ld   0x0C, ac
     ld   ac, [0x20]
-    ld   ret_56, ac
+    ld   ret_64, ac
     ld   ac, [0x29]
-    ld   ret_56 >> 8, ac
+    ld   ret_64 >> 8, ac
     ld   ac, [0x2A]
     ld   emit >> 8, y
     jmp  emit
-ret_56:
+ret_64:
     ld   pause >> 8, y
     jmp  pause
 
@@ -1045,13 +1040,13 @@ poll:
     ld   ac, [0x2F]
     ld   0x10, ac
     ld   ac, [0x30]
-    ld   ret_50, ac
+    ld   ret_58, ac
     ld   ac, [0x35]
-    ld   ret_50 >> 8, ac
+    ld   ret_58 >> 8, ac
     ld   ac, [0x36]
     ld   dadd >> 8, y
     jmp  dadd
-ret_50:
+ret_58:
 pnw:
     ld   [0x2D], ac
     ld   ac, [0x2E]
@@ -1061,21 +1056,21 @@ pnw:
 #addr 0x07A0
 pause:
     ; wait 10 s on the timer, then run the test again
-    ld   ret_57, ac
+    ld   ret_65, ac
     ld   ac, [0x33]
-    ld   ret_57 >> 8, ac
+    ld   ret_65 >> 8, ac
     ld   ac, [0x34]
     ld   tclear >> 8, y
     jmp  tclear
-ret_57:
+ret_65:
 pw:
-    ld   ret_58, ac
+    ld   ret_66, ac
     ld   ac, [0x33]
-    ld   ret_58 >> 8, ac
+    ld   ret_66 >> 8, ac
     ld   ac, [0x34]
     ld   poll >> 8, y
     jmp  poll
-ret_58:
+ret_66:
     ld   [0x57], ac
     sub  1, ac
     bne  pw
@@ -1103,6 +1098,27 @@ clr_b:
     bne  clr_pg
     ld   clr_m >> 8, y
     jmp  clr_m
+
+#addr 0x07DD
+clr_m:
+    ; mode bytes 5A00-5BFF = 0 (1 bpp)
+    ld   0x5A, y
+    clr  x
+clr_m0:
+    ld   0x00, [y,x]
+    ld   x, ac
+    inc
+    ld   ac, x
+    bne  clr_m0
+    ld   0x5B, y
+clr_m1:
+    ld   0x00, [y,x]
+    ld   x, ac
+    inc
+    ld   ac, x
+    bne  clr_m1
+    ld   tsync >> 8, y
+    jmp  tsync
 
 ; product table low limbs: m * v, page 0x24 + m
 #addr 0x2400
