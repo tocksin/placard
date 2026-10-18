@@ -44,7 +44,7 @@ SND_SIL   = 0x80        ; silence
 ;   changes: AC, X, Y, T0-T3
 ;   clocks:  waits for the line read to change (up to 4 lines, 3200
 ;            clocks), then 30-80 per sample written, 525 samples a
-;            frame: about 18k (samples), 26k (tone) or 42k (noise)
+;            frame: about 17.6k (samples), 25.3k (tone) or 40.8k (noise)
 ;            clocks per frame, 4-10 % of the CPU (test_snd.py).
 ;            Silence, once the buffer is clean, takes about 90.
 ;   Call it once every frame or more often, from anywhere in the frame.
@@ -203,22 +203,16 @@ gen_sil:
     ld   SND_SIL, ac
     bra  su_tail
 
-; square wave: phase += step; the output is high while bit 15 is set
+; square wave: phase += step x 2; the output is high while bit 15 is set
 gen_tone:
     ld   [SND_ACL], ac
     add  [SND_INL], ac
-    blt  gt_c
     ld   ac, [SND_ACL]
     ld   [SND_ACH], ac
-    add  [SND_INH], ac
-    bra  gt_o
-gt_c:
-    and  0x7F, ac               ; carry into the high byte
-    ld   ac, [SND_ACL]
-    ld   [SND_ACH], ac
-    add  [SND_INH], ac
-    inc
+    bcc  gt_o
+    inc                         ; the carry into the high byte
 gt_o:
+    add  [SND_INH], ac
     ld   ac, [SND_ACH]
     blt  gt_h
     ld   [SND_LOW], ac
@@ -227,16 +221,13 @@ gt_h:
     ld   [SND_HIGH], ac
     bra  su_tail
 
-; noise: a 16-bit LFSR (taps xB400) steps when the rate adds past 127
+; noise: a 16-bit LFSR (taps xB400) steps when the rate x 2 adds past 255
+; (SND_INL = 256 - rate x 2, so a subtract with no borrow is a step)
 gen_noise:
     ld   [SND_ACL], ac
-    add  [SND_INL], ac
-    blt  gn_step
+    sub  [SND_INL], ac
     ld   ac, [SND_ACL]
-    bra  gn_out
-gn_step:
-    and  0x7F, ac
-    ld   ac, [SND_ACL]
+    bcs  gn_out
     ld   [SND_INH], ac          ; low byte: shift right, bit 7 from high
     and  1, ac
     ld   ac, [T0]               ; the bit shifted out
@@ -270,21 +261,20 @@ gn_l:
     ld   [SND_LOW], ac
     bra  su_tail
 
-; samples: play [source], step the source when the rate adds past 127
+; samples: play [source], step the source when the rate x 2 adds past 255
+; (SND_INL = 256 - rate x 2, as for noise)
 gen_samp:
     ld   [SND_ACH], x
     ld   [SND_INH], y
     ld   [y,x], ac
     ld   ac, [T1]
     ld   [SND_ACL], ac
-    add  [SND_INL], ac
-    blt  gs_step
+    sub  [SND_INL], ac
     ld   ac, [SND_ACL]
+    bcc  gs_step
     ld   [T1], ac
     bra  su_tail
 gs_step:
-    and  0x7F, ac
-    ld   ac, [SND_ACL]
     ld   x, ac
     inc
     ld   ac, [SND_ACH]
@@ -360,12 +350,11 @@ su_lap:
 snd_tone:
     and  0x7F, ac
     ld   ac, [SND_VOL]
-    ld   [R1], ac
+    ld   [R1], ac               ; the phase adds step x 2
     shl
     ld   ac, [SND_INH]
     ld   [R0], ac
     shl                         ; carry = R0 bit 7
-    shr  ac                     ; R0 & 7F
     ld   ac, [SND_INL]
     bcc  st_lev
     ld   [SND_INH], ac
@@ -410,7 +399,8 @@ snd_noise:
     and  0x7F, ac
     ld   ac, [SND_VOL]
     ld   [R0], ac
-    ld   ac, [SND_INL]
+    bra  sn_rate
+sn_back:
     ld   0xAC, ac
     ld   ac, [SND_ACH]
     ld   0xE1, ac
@@ -440,7 +430,8 @@ snd_noise:
 ;   clocks:  about 90
 ; ------------------------------------------------------------
 snd_play:
-    ld   ac, [SND_INL]
+    bra  sp_rate
+sp_back:
     ld   [R0], ac
     ld   ac, [SND_ACH]
     ld   [R1], ac
@@ -508,6 +499,20 @@ snd_note:
     ld   ac, [R1]
     ld   [LINK_HI], y
     jmp  [LINK_LO]
+
+; SND_INL = 256 - rate x 2, for noise and samples (rate 128 gives 0)
+sn_rate:
+    shl
+    xor  0xFF, ac
+    inc
+    ld   ac, [SND_INL]
+    bra  sn_back
+sp_rate:
+    shl
+    xor  0xFF, ac
+    inc
+    ld   ac, [SND_INL]
+    bra  sp_back
 
 
 ; ============================================================

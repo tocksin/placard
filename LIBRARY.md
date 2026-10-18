@@ -219,14 +219,13 @@ AC is listed when it does not come back as a result.
 
 ### Arithmetic
 
-`add16` and `sub16` find the carry from the top bits (they were written
-before the carry flag, see [Idioms](#idioms)); `mul8`, `div8` and `div16`
-use the carry flag (`bcs`, `bcc`).
+All of them use the carry flag (`bcs`, `bcc`, see [Idioms](#idioms)).
+`add16` and `sub16` no longer use T0-T2.
 
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
-| `add16` | R1:R0 = a, R3:R2 = b | R1:R0 = a + b (mod 65536), AC = R1 | T0-T2 | 76-80 |
-| `sub16` | R1:R0 = a, R3:R2 = b | R1:R0 = a - b (mod 65536), AC = R1 | T0-T2 | 76-80 |
+| `add16` | R1:R0 = a, R3:R2 = b | R1:R0 = a + b (mod 65536), AC = R1 | - | 36-40 |
+| `sub16` | R1:R0 = a, R3:R2 = b | R1:R0 = a - b (mod 65536), AC = R1 | - | 36-40 |
 | `mul8` | R0 = a, R1 = b | R3:R2 = a × b, AC = R3 | T0, T1 | 476-719 (476 + about 12-30 per 1 bit in b) |
 | `div8` | R0 = dividend, R1 = divisor | AC = quotient, X = remainder | T0-T3 | about 580-790 |
 | `div16` | R1:R0 = dividend, R2 = divisor | R1:R0 = quotient, AC = X = remainder | T1-T3 | about 1300-1890 |
@@ -251,10 +250,10 @@ pointers already point at the next block.
 
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
-| `vid_addr` | AC = byte column 0-79, R3:R2 = row 0-479 | AC = address high byte, X = low byte, for the row's own line repeat | T0, T1, T4 | 78-82 (1x), 91-95 (2x), 111-115 (4x) |
+| `vid_addr` | AC = byte column 0-79, R3:R2 = row 0-479 | AC = address high byte, X = low byte, for the row's own line repeat | T0, T1, T4 | 72-76 (1x), 85-89 (2x), 105-109 (4x) |
 | `vid_clear` | AC = mode byte: bits 1:0 = 1, 2, 4, 8 bpp (0-3), bits 3:2 = 1x, 2x, 4x (0-2) | x6000-xFFFF = 0, every mode byte = AC | AC, X, Y, T0, T1 | 503,394 (20.0 ms) |
 | `vid_mode` | AC = mode byte | Every row's mode byte = AC, pixels kept | AC, X, Y, T0 | 8,661 |
-| `plot1` | R1:R0 = x 0-639, R3:R2 = y 0-479, AC = 0 clears, else sets | One pixel of a 1 bpp row (1x, 2x or 4x) | AC, X, Y, T0-T6 | 229-262 |
+| `plot1` | R1:R0 = x 0-639, R3:R2 = y 0-479, AC = 0 clears, else sets | One pixel of a 1 bpp row (1x, 2x or 4x) | AC, X, Y, T0-T6 | 223-256 |
 | `map_set` | AC = map (bit n = 1: section n reads RAM) | Map register and MAP_SHADOW = AC | Y | 18 |
 | `frame_poll` | | AC = line read (V9:V2, 124-255), FRAME + 1 when a new frame started, LINE_LAST = AC | X, Y, T0 | 39-53 |
 | `wait_frames` | AC = frames 1-255 (0 = 256) | FRAME + AC | AC, X, Y, T0, T1 | Until the AC-th new frame starts |
@@ -373,7 +372,7 @@ zero page scratch.  A sector takes about 160,000 clocks (75 KB/s).
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
 | `con_gets` | R1:R0 = buffer, R2 = most characters (1-255) | AC = length, the line and a 00 in the buffer; Backspace works, Enter ends | R3, X, Y, T0-T7, I/O scratch | waits for keys |
-| `mouse_move` | R1:R0 = X, R3:R2 = Y, after `mouse_poll` returns 1 | X and Y moved by the packet, kept to 0-639, 0-479 | AC, T0-T3 | about 120 |
+| `mouse_move` | R1:R0 = X, R3:R2 = Y, after `mouse_poll` returns 1 | X and Y moved by the packet, kept to 0-639, 0-479 | AC | 88-138 |
 
 ## Idioms
 
@@ -400,9 +399,26 @@ tested a few instructions later (CPU.md, "Carry flag").
 **Bit 7 into the carry**: `shl` (it also shifts AC).  `mul8` and `div8`
 shift a byte left and test the bit that fell out with `bcc`.
 
-**Carry without the flag** (how `add16` and `sub16` do it): the carry out
-of a + b is bit 7 of `(a & b) | ((a | b) & ~sum)`, and the borrow out of
-a - b is bit 7 of `(~a & b) | ((~a | b) & diff)`.
+**16-bit add** (how `add16` does it): add the low bytes, then add the
+carry into the high byte with `inc` before adding the other high byte
+(`sub16` is the same with `sub` and `dec`):
+
+```
+    ld   [R0], ac
+    add  [R2], ac
+    ld   ac, [R0]
+    ld   [R1], ac               ; ld and stores keep the carry
+    bcc  no_carry
+    inc
+no_carry:
+    add  [R3], ac
+    ld   ac, [R1]
+```
+
+The `inc` changes the carry, so after it the flag is not the carry out of
+the whole sum.  For more bytes, `inc` sets the carry only when the byte was
+FF (and is then 00, so the add after it cannot carry): `fs_add` in
+`placard_fs.asm` adds 32 bits that way.
 
 **Branches stay in their page.**  A conditional branch changes only the low
 byte of PC, so a routine's branches and their targets must be in one

@@ -29,9 +29,7 @@ SEQUENCE (repeats forever)
     Up to MAXIT iterations per point; points that never escape are black.
 
 ARITHMETIC
-    The program was written before the CPU had a carry flag (subtracts of
-    base-128 limbs now test the borrow with bcc; adds still test bit 7)
-    and the CPU has no multiply, so the program uses:
+    The CPU has no multiply, so the program uses:
       - fixed point with 8 fraction bits (1.0 = 256), in every mode; the
         coarser modes just step c by 2, 4 or 8 units per point
       - z = (x, y) kept as magnitude + sign; |x|, |y| < 2 means each
@@ -39,10 +37,10 @@ ARITHMETIC
       - squares from a table:  x*x, y*y and (x+y)^2, then
             x' = x*x - y*y + cx
             y' = (x+y)^2 - x*x - y*y + cy     (= 2xy + cy)
-      - values in "base 128": value = hi * 128 + lo, lo = 0..127, hi
-        signed.  A carry or borrow out of lo shows up as bit 7, which is
-        the N flag, so it can be tested with a branch.  The square table
-        is indexed the same way: page = table + hi, X = lo.
+      - 16-bit values, hi signed.  The carry flag (Branch PLD rev 11)
+        carries from lo into hi: bcc skips an inc (add) or dec (subtract)
+        of hi.  The square table is indexed the same way: page = table +
+        hi, X = lo.
     Escape when x*x + y*y >= 4, or when |x'| or |y'| >= 2.
 
 TIMER (the same as gen_pi_spigot.py)
@@ -54,15 +52,18 @@ TIMER (the same as gen_pi_spigot.py)
     128 us for each step of the line read since the top of that frame.
     Resolution 128 us.  The pause is a calibrated delay loop, not the timer.
 
-RESULT (placard_sim.py, State PLD rev 12 / Branch PLD rev 09 timing, no
-video stalls; every pass matches a Python model pixel for pixel outside the
-time band, and the time shown matches the simulated time to 128 us)
+RESULT (placard_sim.py, State PLD rev 12 / Branch PLD rev 11 timing, no
+video stalls; every pass matches the base-128 build before the carry flag
+pixel for pixel outside the time band)
     mode    timed clocks    shown on screen   on the board, with video
-    1 bpp   2,035,644,487    81.425 s          about 89.6 s   stalls (1 clock
-    2 bpp     510,448,188    20.418 s          about 22.5 s   in 8 during
-    4 bpp     128,719,100     5.148 s          about  5.7 s   active video)
-    8 bpp      32,697,831     1.307 s          about  1.4 s
-    The four screens are reference/mandelbrot_sim.png (1, 2 / 4, 8 bpp).
+    1 bpp   1,936,165,656    77.446 s          about 85.2 s   stalls (1 clock
+    2 bpp     485,687,352    19.427 s          about 21.4 s   in 8 during
+    4 bpp     122,567,664     4.902 s          about  5.4 s   active video)
+    8 bpp      31,183,879     1.247 s          about  1.4 s
+    Before the carry flag it took 2,035,644,487 clocks (81.425 s) in 1 bpp:
+    the carry flag makes it about 5 % faster (most of the work is table
+    look-ups).  The four screens are reference/mandelbrot_sim.png (1, 2 /
+    4, 8 bpp).
 
 MEMORY
     0000-0003   reset: jump to main
@@ -72,8 +73,8 @@ MEMORY
     0080-00E7   font: 0-9, ".", space, "s"
     0100-1EFF   code, one block per page
     1F00        color tables, 64 entries per mode, indexed by iterations left
-    2000-27FF   square table low limbs  (k = 0..1023: page 20 + k/128, X = k%128)
-    2800-2FFF   square table high limbs (page 28 + k/128)
+    2000-23FF   square table low bytes  (k = 0..1023: page 20 + k/256, X = k%256)
+    2400-27FF   square table high bytes (page 24 + k/256)
     5A20-5BFF   mode bytes, one per row
     6000-FFFF   video RAM
 
@@ -90,7 +91,7 @@ from placard_sim import assemble, instr_size, to_hexstr   # noqa: E402
 
 MAXIT = 32
 F = 8                       # fraction bits
-SQL_PG, SQH_PG = 0x20, 0x28
+SQL_PG, SQH_PG = 0x20, 0x24
 COL_PG = 0x1F
 CODE_PG = 0x01
 
@@ -212,45 +213,33 @@ class Gen:
         self.far(target)
         self.label(r)
 
-    # ---------------- base-128 arithmetic ----------------
-    def add128(self, r, a, b):
+    # ---------------- 16-bit arithmetic ----------------
+    def add16(self, r, a, b):
         """r = a + b; leaves r hi in AC"""
         e = self.e
-        nc, done = self.uniq('nc'), self.uniq('ad')
+        nc = self.uniq('nc')
         e('ld   %s, ac' % z(a + 'l'))
         e('add  %s, ac' % z(b + 'l'))
-        e('bge  %s' % nc)
-        e('and  0x7F, ac')
         e('ld   ac, %s' % z(r + 'l'))
         e('ld   %s, ac' % z(a + 'h'))
-        e('add  %s, ac' % z(b + 'h'))
+        e('bcc  %s' % nc)
         e('inc')
-        e('bra  %s' % done)
         self.label(nc)
-        e('ld   ac, %s' % z(r + 'l'))
-        e('ld   %s, ac' % z(a + 'h'))
         e('add  %s, ac' % z(b + 'h'))
-        self.label(done)
         e('ld   ac, %s' % z(r + 'h'))
 
-    def sub128(self, r, a, b):
+    def sub16(self, r, a, b):
         """r = a - b; leaves r hi in AC"""
         e = self.e
-        nb, done = self.uniq('nb'), self.uniq('sd')
+        nb = self.uniq('nb')
         e('ld   %s, ac' % z(a + 'l'))
         e('sub  %s, ac' % z(b + 'l'))
+        e('ld   ac, %s' % z(r + 'l'))
+        e('ld   %s, ac' % z(a + 'h'))
         e('bcc  %s' % nb)
-        e('and  0x7F, ac')
-        e('ld   ac, %s' % z(r + 'l'))
-        e('ld   %s, ac' % z(a + 'h'))
-        e('sub  %s, ac' % z(b + 'h'))
         e('dec')
-        e('bra  %s' % done)
         self.label(nb)
-        e('ld   ac, %s' % z(r + 'l'))
-        e('ld   %s, ac' % z(a + 'h'))
         e('sub  %s, ac' % z(b + 'h'))
-        self.label(done)
         e('ld   ac, %s' % z(r + 'h'))
 
     def square(self, r, k):
@@ -267,10 +256,10 @@ class Gen:
         e('ld   ac, %s' % z(r + 'h'))
 
     def to_signmag(self, src, mag, sign, esc):
-        """base-128 src -> magnitude (base 128) + sign; branch to esc if |src| >= 2"""
+        """16-bit src -> magnitude + sign; branch to esc if |src| >= 2"""
         e = self.e
-        neg, nb, mh, done = [self.uniq(s) for s in ('neg', 'nb', 'mh', 'sm')]
-        lim = 1 << (F + 1 - 7)          # |value| < 2.0 -> hi < lim
+        neg, nb, done = [self.uniq(s) for s in ('neg', 'nb', 'sm')]
+        lim = 1 << (F + 1 - 8)          # |value| < 2.0 -> hi < lim
         e('ld   %s, ac' % z(src + 'h'))
         e('blt  %s' % neg)
         e('sub  %d, ac' % lim)
@@ -285,18 +274,12 @@ class Gen:
         self.label(neg)
         e('clr  ac                    ; magnitude = 0 - value')
         e('sub  %s, ac' % z(src + 'l'))
+        e('ld   ac, %s' % z(mag + 'l'))
+        e('clr  ac')
         e('bcc  %s' % nb)
-        e('and  0x7F, ac')
-        e('ld   ac, %s' % z(mag + 'l'))
-        e('clr  ac')
-        e('sub  %s, ac' % z(src + 'h'))
         e('dec')
-        e('bra  %s' % mh)
         self.label(nb)
-        e('ld   ac, %s' % z(mag + 'l'))
-        e('clr  ac')
         e('sub  %s, ac' % z(src + 'h'))
-        self.label(mh)
         e('ld   ac, %s' % z(mag + 'h'))
         e('sub  %d, ac' % lim)
         e('bcc  %s' % esc)
@@ -419,16 +402,16 @@ def build(once, delay, out_path=None):
         g.call('tstart')
         g.st(64 * m, 'coff')
         g.st(0x62, 'vpage')              # byte column 1 = 0x6220
-        e('; cx = -2.0 = -512 = (hi -4, lo 0)')
-        g.st(-4, 'cxh0')
+        e('; cx = -2.0 = -512 = (hi -2, lo 0)')
+        g.st(-2, 'cxh0')
         g.st(0, 'cxl0')
         g.st(79, 'bcnt')
         label('col%d' % m)
         e('ld   %s, ac' % z('vpage'))
         e('ld   ac, %s' % z('rowy'))
         g.st(0x20, 'rowx')
-        e('; cy = -240/256 = (hi -2, lo 16)')
-        g.st(-2, 'cyh')
+        e('; cy = -240/256 = (hi -1, lo 16)')
+        g.st(-1, 'cyh')
         g.st(16, 'cyl')
         label('row%d' % m)
         e('ld   %s, ac' % z('cxl0'))
@@ -479,11 +462,7 @@ def build(once, delay, out_path=None):
         e('ld   %s, ac' % z('cyl'))
         e('add  %d, ac' % w)
         e('ld   ac, %s' % z('cyl'))
-        e('blt  cyc%d' % m)        # bit 7 set: carry into the high limb
-        e('bra  cyd%d' % m)
-        label('cyc%d' % m)
-        e('and  0x7F, ac')
-        e('ld   ac, %s' % z('cyl'))
+        e('bcc  cyd%d' % m)
         e('ld   %s, ac' % z('cyh'))
         e('inc')
         e('ld   ac, %s' % z('cyh'))
@@ -499,11 +478,7 @@ def build(once, delay, out_path=None):
         e('ld   %s, ac' % z('cxl0'))
         e('add  8, ac')
         e('ld   ac, %s' % z('cxl0'))
-        e('blt  cxc%d' % m)        # bit 7 set: carry into the high limb
-        e('bra  cxd%d' % m)
-        label('cxc%d' % m)
-        e('and  0x7F, ac')
-        e('ld   ac, %s' % z('cxl0'))
+        e('bcc  cxd%d' % m)
         e('ld   %s, ac' % z('cxh0'))
         e('inc')
         e('ld   ac, %s' % z('cxh0'))
@@ -746,13 +721,13 @@ def build(once, delay, out_path=None):
     e('; x*x, y*y')
     g.square('xx', 'ax')
     g.square('yy', 'ay')
-    e('; t = x*x + y*y, escape if t >= 4.0 (hi >= %d)' % (1 << (F - 5)))
-    g.add128('t', 'xx', 'yy')
-    e('sub  %d, ac' % (1 << (F - 5)))
+    e('; t = x*x + y*y, escape if t >= 4.0 (hi >= %d)' % (1 << (F - 6)))
+    g.add16('t', 'xx', 'yy')
+    e('sub  %d, ac' % (1 << (F - 6)))
     e('bcc  escape')
     e('; x\' = x*x - y*y + cx')
-    g.sub128('d', 'xx', 'yy')
-    g.add128('nx', 'd', 'cx')
+    g.sub16('d', 'xx', 'yy')
+    g.add16('nx', 'd', 'cx')
     g.far('kernel2')
     label('escape')
     e('; color from the iterations left (0 = never escaped)')
@@ -770,17 +745,17 @@ def build(once, delay, out_path=None):
     e('ld   %s, ac' % z('sx'))
     e('xor  %s, ac' % z('sy'))
     e('bne  sdiff')
-    g.add128('s', 'ax', 'ay')
+    g.add16('s', 'ax', 'ay')
     e('bra  sdone')
     label('sdiff')
-    g.sub128('s', 'ax', 'ay')
+    g.sub16('s', 'ax', 'ay')
     e('bge  sdone')
-    g.sub128('s', 'ay', 'ax')
+    g.sub16('s', 'ay', 'ax')
     label('sdone')
     g.square('p', 's')
     e('; y\' = s*s - t + cy  (= 2xy + cy)')
-    g.sub128('ny', 'p', 't')
-    g.add128('ny', 'ny', 'cy')
+    g.sub16('ny', 'p', 't')
+    g.add16('ny', 'ny', 'cy')
     g.far('kernel3')
 
     g.block('kernel3')
@@ -847,13 +822,13 @@ def build(once, delay, out_path=None):
     sq = [(k * k + (1 << (F - 1))) >> F for k in range(1024)]
     for pgbase, part in ((SQL_PG, 0), (SQH_PG, 1)):
         o('')
-        o('; squares k*k/256, %s limbs, page 0x%02X + k/128, X = k%%128'
+        o('; squares k*k/256, %s bytes, page 0x%02X + k/256, X = k%%256'
           % (('low', 'high')[part], pgbase))
-        for kh in range(8):
+        for kh in range(4):
             o('#addr 0x%04X' % ((pgbase + kh) << 8))
-            for r in range(8):
-                vals = [sq[128 * kh + 16 * r + c] for c in range(16)]
-                vals = [(v & 0x7F) if part == 0 else (v >> 7) for v in vals]
+            for r in range(16):
+                vals = [sq[256 * kh + 16 * r + c] for c in range(16)]
+                vals = [(v & 0xFF) if part == 0 else (v >> 8) for v in vals]
                 o('    #d8 ' + ', '.join('0x%02X' % v for v in vals))
     here = os.path.dirname(os.path.abspath(__file__))
     path = out_path or os.path.join(here, 'mandelbrot.asm')
