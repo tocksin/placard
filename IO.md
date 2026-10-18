@@ -12,13 +12,12 @@ are described in [EXPANSION.md](EXPANSION.md).
 | SN74HC574N | Port latch: written at any x52xx, clocked by /PORT_WR (I/O decode PLD pin 19) |
 | ATF22V10C-7PX | Port PLD (`ATF22V10_PORT.pld`): keyboard columns from the latch, pad DATA onto the bus on odd reads |
 | SN74F541N | Port input: key rows on even reads (/OE1 = /PORT_RD, /OE2 = A0) |
-| CD74HC4050E | Level shift to 3.3 V for the SD card's SCK, MOSI and /CS (powered from 3.3 V) |
-| 3.3 V regulator | SD card and the CD74HC4050E (not chosen yet; an LM1117-3.3 in TO-220 is one choice) |
+| 3.3 V regulator | SD card (not chosen yet; an LM1117-3.3 in TO-220 is one choice) |
 
 Besides the chips: 64 key switches with a Schottky diode each, 3 more
 Schottky diodes on the rows (MISO, PS/2 DATA, PS/2 CLK) and 2 from the
 latch to the PS/2 lines, 8 row pull-ups, the pull-ups on the pad DATA
-lines, MISO and the PS/2 lines, the SD socket, two pad sockets and a
+lines, MISO and the PS/2 lines, three resistor dividers for the SD card, the SD socket, two pad sockets and a
 mini-DIN 6 for the mouse.
 
 ## Schematic
@@ -33,7 +32,7 @@ chips and the connectors:
 |---|---|---|
 | J1 | Keyboard, 1 x 16 header, 2.54 mm | 1-8 = /COL0-/COL7 (port PLD pins 14-21), 9-16 = ROW0-ROW7 (74F541 A1-A8).  The keys and their diodes are on the keyboard board; the row pull-ups stay on the main board |
 | J2, J3 | SNES pad 1 and 2 | 1 +5 V, 2 CLOCK (latch Q0), 3 LATCH (latch Q1), 4 DATA (port PLD pin 7 or 8), 5-6 not used, 7 GND |
-| J4 | Full-size SD socket (SPI) | 1 CS, 2 DI, 5 CLK from the CD74HC4050E; 7 DO = MISO; 4 VDD 3.3 V; 3, 6 GND; 8, 9 not used |
+| J4 | Full-size SD socket (SPI) | 1 CS, 2 DI, 5 CLK from the dividers R6-R11; 7 DO = MISO; 4 VDD 3.3 V; 3, 6 GND; 8, 9 not used |
 | J5 | Mini-DIN 6, PS/2 mouse | 1 DATA, 3 GND, 4 +5 V, 5 CLK |
 
 ## The port
@@ -129,10 +128,30 @@ socket reads 0000.
 
 ## SD card
 
-SPI mode 3, bit-banged.  SCK, MOSI and /CS go through a CD74HC4050E
-powered from 3.3 V (its inputs take 5 V).  MISO goes straight to row 7
-through its Schottky diode, with a 10k pull-up to 3.3 V for when the card
-lets go of it.  The 74F541's TTL inputs read 3.3 V as a high.
+SPI mode 3, bit-banged.  SCK, MOSI and /CS come down from the 5 V latch
+through a resistor divider each, at the SD socket: 1.8k from the latch
+(R6-R8), 3.3k to ground (R9-R11).
+
+- **Levels:** a 5 V high gives 3.24 V (3.17 V with the 74HC574's high
+  of about 4.9 V at 1 mA), inside the card's 2.06 V (0.625 x VDD) to
+  3.6 V input high.  A low is under 0.1 V.
+- **Speed:** the divider is a 1.17k source.  Into about 15 pF (card input
+  plus trace) that is a 17 ns time constant, so an edge crosses the card's
+  threshold in about 20 ns.  The drivers' fastest SCK half period is
+  several instructions (over 300 ns, SCK is under 1 MHz), and `sd_init`'s
+  slow clocks are far slower.
+- **Current:** about 1 mA per line while it is high.  At rest (FB) SCK and
+  MOSI are high and /CS is low, so about 2 mA.  The latch also drives the
+  pads' CLOCK and LATCH from the same pins at the full 5 V; 1 mA is well
+  inside the 74HC574's drive.
+
+MISO needs no buffer going the other way.  The card drives it at 3.3 V,
+and it reaches row 7 only through its Schottky diode, cathode at MISO: a
+low pulls the row down, a high turns the diode off and the row's 4.7k
+pull-up takes it to 5 V, so the 74F541 never sees the 3.3 V level at all.
+The 10k pull-up to 3.3 V holds MISO high when the card lets go of it.
+The low (card output up to 0.4 V plus the diode) is the margin listed
+under "To check before building".
 
 | Routine | Does | Clocks |
 |---|---|---|
@@ -287,6 +306,6 @@ FPGA projects, but that is not checked here.
   diode drop but slow the row's rise after a key is released: with 4.7k and
   about 50 pF a row rises past 2 V in about 120 ns, inside the drivers'
   4-instruction settle time (about 320 ns).
-- **Stock:** CD74HC4050E and the regulator are not stock-checked yet.  The
+- **Stock:** the regulator is not stock-checked yet.  The
   ATF22V10C-7PX, SN74F541N and SN74HC574N are the same parts as elsewhere
   in the design.

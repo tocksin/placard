@@ -2,7 +2,7 @@
 """
 gen_io_schematic.py - draw the Placard I/O circuitry as a schematic PNG:
 the I/O decode PLD, the shared port at x5200 (latch, port PLD, row
-buffer, SD level shifter, 3.3 V regulator) and its connectors (keyboard
+buffer, SD level-shifting dividers, 3.3 V regulator) and its connectors (keyboard
 matrix header, two SNES pads, SD card socket, PS/2 mouse).
 
     python3 gen_io_schematic.py              writes reference/placard_io_schematic.png
@@ -322,46 +322,31 @@ for i, (name, val, ref, r) in enumerate((("PS2_CLK", "4.7k", "R1", "+5V"),
     wire([(x, 174), (x, 175)])
     T(x, 176.6, name, fs=6.5, ha="center", color=NET, weight="bold")
 
-# ================================================================ SD card: U40, U41, J4
+# ================================================================ SD card: dividers, U40, J4
 frame(146, 14, 170, 36, "SD card (SPI mode 3, 3.3 V)")
-u40 = ic(170, 21, 16, "U40", "CD74HC4050E",
-         [(3, "A"), (5, "B"), (7, "C"), (9, "D"), (11, "E"), (14, "F")],
-         [(2, "G"), (4, "H"), (6, "I"), (10, "J"), (12, "K"), (15, "L")],
-         title="5 V to 3.3 V")
-# its supply is 3.3 V, so draw the power pins by hand
-px = 178
-wire([(px, 21), (px, 18)], INK)
-T(px + 0.6, 19.8, "1", fs=6, color=MUTE)
-T(px, 22.2, "VCC", fs=6.5, ha="center")
-wire([(px - 1.4, 18), (px + 1.4, 18)], PWR, lw=2)
-T(px, 16.6, "+3.3V", fs=7, ha="center", color=PWR, weight="bold")
-wire([(px, 38.5), (px, 41)], INK)
-T(px + 0.6, 39.7, "8", fs=6, color=MUTE)
-T(px, 37.3, "VSS", fs=6.5, ha="center")
-gnd(px, 41)
-for p, name in (("A", "SCK"), ("B", "MOSI"), ("C", "/CS")):
-    net(*u40[p], name, "l")
-xs = 163.5
-ys = [u40[p][1] for p in ("D", "E", "F")]
-for yy in ys:
-    wire([(u40["D"][0], yy), (xs, yy)], INK)
-wire([(xs, ys[0]), (xs, ys[-1] + 0.5)], INK)
-dot(xs, ys[1], INK)
-gnd(xs, ys[-1] + 0.5)
-T(150.5, ys[0] - 0.2, "unused", fs=6.5, color=MUTE)
-T(150.5, ys[0] + 2.2, "inputs", fs=6.5, color=MUTE)
-for p in ("J", "K", "L"):
-    T(u40[p][0] + 0.6, u40[p][1], "nc", fs=6.5, color=MUTE)
+# 5 V to 3.3 V: a divider per line, 1.8k over 3.3k = 3.2 V
+divs = {}
+for i, (name, rs, rp) in enumerate((("/CS", "R8", "R11"), ("MOSI", "R7", "R10"),
+                                     ("SCK", "R6", "R9"))):
+    yy = 19 + i * 7
+    net(160, yy, name, "l")
+    resh(160, 172, yy, rs, "1.8k")
+    wire([(172, yy), (176, yy)])
+    dot(176, yy)
+    res(176, yy, yy + 3.5, rp, "3.3k")
+    gnd(176, yy + 3.5)
+    divs[name] = (176, yy)
+T(149, 46, "R6-R11: 5 V to 3.2 V, about 1.2k source into the card", fs=6.5, color=MUTE)
 
 j4 = conn(222, 18, "J4", "SD card socket",
           [(1, "CS"), (2, "DI"), (3, "VSS1"), (4, "VDD"), (5, "CLK"), (6, "VSS2"), (7, "DO"),
            (8, "DAT1"), (9, "DAT2")], w=11, title="full-size SD socket (SPI)")
-wire([u40["G"], (200, u40["G"][1]), (200, j4["CLK"][1]), j4["CLK"]])
-wire([u40["H"], (203, u40["H"][1]), (203, j4["DI"][1]), j4["DI"]])
-wire([u40["I"], (206, u40["I"][1]), (206, j4["CS"][1]), j4["CS"]])
-T(193, u40["G"][1] - 1, "SCK_3V3", fs=6.5, color=MUTE)
-T(193, u40["H"][1] - 1, "MOSI_3V3", fs=6.5, color=MUTE)
-T(193, u40["I"][1] - 1, "/CS_3V3", fs=6.5, color=MUTE)
+wire([divs["SCK"], (200, divs["SCK"][1]), (200, j4["CLK"][1]), j4["CLK"]])
+wire([divs["MOSI"], (203, divs["MOSI"][1]), (203, j4["DI"][1]), j4["DI"]])
+wire([divs["/CS"], (206, divs["/CS"][1]), (206, j4["CS"][1]), j4["CS"]])
+T(184, divs["SCK"][1] - 1, "SCK_3V3", fs=6.5, color=MUTE)
+T(184, divs["MOSI"][1] - 1, "MOSI_3V3", fs=6.5, color=MUTE)
+T(184, divs["/CS"][1] - 1, "/CS_3V3", fs=6.5, color=MUTE)
 for p in ("VSS1", "VSS2"):
     x, y = j4[p]
     T(x - 0.6, y, "GND", fs=7, ha="right", color=PWR, weight="bold")
@@ -374,8 +359,8 @@ for p in ("DAT1", "DAT2"):
     x, y = j4[p]
     T(x - 0.6, y, "nc", fs=6.5, ha="right", color=MUTE)
 
-# U41 3.3 V regulator
-u41 = ic(268, 24, 14, "U41", "LM1117-3.3 (not chosen)",
+# U40 3.3 V regulator
+u41 = ic(268, 24, 14, "U40", "LM1117-3.3 (not chosen)",
          [(3, "VIN")], [(2, "VOUT")], bottom=(1, "GND"), title="TO-220, or any 3.3 V LDO")
 x, y = u41["VIN"]
 wire([(x, y), (258, y)], INK)
@@ -391,7 +376,7 @@ gnd(292, y + 8)
 wire([(296, y), (296, y - 3)], INK)
 wire([(294.6, y - 3), (297.4, y - 3)], PWR, lw=2)
 T(299, y - 3, "+3.3V", fs=7, color=PWR, weight="bold")
-T(268, 44.5, "+3.3V feeds U40, J4 and R5", fs=6.5, color=MUTE)
+T(268, 44.5, "+3.3V feeds J4 and R5", fs=6.5, color=MUTE)
 
 # ================================================================ J1 keyboard header + matrix
 frame(146, 53, 170, 112, "Keyboard: 8 x 8 matrix, 64 keys (key number = column x 8 + row)", "tr")
