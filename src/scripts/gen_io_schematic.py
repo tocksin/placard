@@ -112,13 +112,6 @@ def diode(xa, xk, y, ref, color=INK):
         T(m, y - 1.7, ref, fs=6.5, ha="center")
 
 
-def supply_down(x, y, name):
-    """a supply flag below a part: bar and name under it"""
-    wire([(x, y), (x, y + 1.2)], INK)
-    wire([(x - 1.4, y + 1.2), (x + 1.4, y + 1.2)], PWR, lw=2)
-    T(x, y + 2.5, name, fs=7, ha="center", color=PWR, weight="bold")
-
-
 def rnet(xl, xr, ytop, pinxs, ref, label):
     """a bussed resistor network: 8 resistors from a common line (pin 1, at the
     right end, up to +5V) down to pins 2-9.  Returns the pin stub ends."""
@@ -337,19 +330,20 @@ for i in range(8):
 # rows 5-7 carry the PS/2 and MISO lines through a diode each (anode at the row)
 #   row, wire y, diode anode, cathode, node x, pull-up, supply, second diode, its net
 for r, yy, dref, nname, rref, rval, sup, d2 in (
-        (5, 140, "D67", "PS2_CLK", "R1", "4.7k", "+5V", ("D68", "/CS")),
-        (6, 152, "D66", "PS2_DATA", "R2", "4.7k", "+5V", ("D69", "PS2D_DRV")),
-        (7, 164, "D65", "MISO", "R5", "10k", "+3.3V", None)):
+        (5, 145, "D67", "PS2_CLK", "R1", "4.7k", "+5V", ("D68", "/CS")),
+        (6, 157, "D66", "PS2_DATA", "R2", "4.7k", "+5V", ("D69", "PS2D_DRV")),
+        (7, 168, "D65", "MISO", "R5", "10k", "+3.3V", None)):
     x, y = rn2[r]
     wire([(x, y), (x, yy), (x - 2, yy)])
     diode(x - 2, x - 10, yy, dref)
     nx = 36 if d2 else 48
     wire([(x - 10, yy), (nx if not d2 else 30, yy)])
     dot(nx, yy)
-    res(nx, yy, yy + 6, rref, rval, side="l")
-    supply_down(nx, yy + 6, sup)
+    # pull-up above the line, supply on top
+    rail(nx, yy - 6, sup)
+    res(nx, yy - 6, yy, rref, rval, side="l")
     if d2:
-        T(nx + 0.4, yy - 1.4, nname, fs=6.5, color=NET, weight="bold")
+        T(nx + 0.6, yy + 1.4, nname, fs=6.5, color=NET, weight="bold")
         diode(30, 22, yy, d2[0])
         net(22, yy, d2[1], "l", fs=7)
     else:
@@ -493,8 +487,8 @@ T(189, 160.5, "Each key: switch in series with a Schottky diode (BAT85 or 1N5817
 
 # ================================================================ SNES pads and PS/2
 frame(146, 168, 170, 38, "Game pads and mouse")
-for k, (ref, padnet, x0, rref) in enumerate((("J2", "PAD1_DATA", 160, "R3"),
-                                             ("J3", "PAD2_DATA", 207, "R4"))):
+for k, (ref, padnet, x0, rref) in enumerate((("J2", "PAD1_DATA", 166, "R3"),
+                                             ("J3", "PAD2_DATA", 213, "R4"))):
     j = conn(x0 + 12, 173, ref, "SNES pad %d socket" % (k + 1),
              [(1, "+5V"), (2, "CLOCK"), (3, "LATCH"), (4, "DATA"), (5, "nc"), (6, "nc"),
               (7, "GND")], w=11)
@@ -504,11 +498,11 @@ for k, (ref, padnet, x0, rref) in enumerate((("J2", "PAD1_DATA", 160, "R3"),
     net(*j["LATCH"], "MOSI", "l")
     # DATA pull-up at the socket
     x, y = j["DATA"]
-    wire([(x, y), (x - 10, y)])
-    net(x - 10, y, padnet, "l")
-    dot(x - 6, y)
-    res(x - 6, y, y + 6, rref, "10k", side="l")
-    supply_down(x - 6, y + 6, "+5V")
+    wire([(x, y), (x - 14, y)])
+    net(x - 14, y, padnet, "l")
+    dot(x - 9, y)
+    rail(x - 9, y - 6, "+5V")
+    res(x - 9, y - 6, y, rref, "10k", side="l")
     x, y = j["GND"]
     wire([(x, y), (x - 2, y)], INK)
     gnd(x - 2, y)
