@@ -329,7 +329,7 @@ for name, xv, yh in (("D7", 145.5, 99.3), ("D6", 147, 100.9)):
     T(BX + 1.2, yh - 0.7, name, fs=5.8, color=NET)
 
 # ================================================================ row pull-ups and shared rows
-frame(3, 116, 72, 64, "Row pull-ups, shared row lines, PS/2 and pad pull-ups")
+frame(3, 116, 72, 64, "Row pull-ups, shared row lines, PS/2 pull-ups")
 rn2 = rnet(8, 73, 122, [16 + i * 7 for i in range(8)], "RN2", "4.7k x 8, bussed SIP-9")
 for i in range(8):
     x, y = rn2[i]
@@ -355,13 +355,6 @@ for r, yy, dref, nname, rref, rval, sup, d2 in (
     else:
         wire([(nx, yy), (44, yy)])
         net(44, yy, nname, "l", fs=7)
-# pad DATA pull-ups
-for i, (name, ref) in enumerate((("PAD1_DATA", "R3"), ("PAD2_DATA", "R4"))):
-    x = 10 + i * 12
-    rail(x, 164, "+5V")
-    res(x, 164, 170, ref, "10k")
-    wire([(x, 170), (x, 171)])
-    T(x, 172.6, name, fs=6.5, ha="center", color=NET, weight="bold")
 T(36, 177, "D65-D69 BAT85 (Schottky).  /CS = 0 holds the mouse off.", fs=6.5, color=MUTE)
 
 # ================================================================ SD card: dividers, U40, J4
@@ -500,7 +493,8 @@ T(189, 160.5, "Each key: switch in series with a Schottky diode (BAT85 or 1N5817
 
 # ================================================================ SNES pads and PS/2
 frame(146, 168, 170, 38, "Game pads and mouse")
-for k, (ref, padnet, x0) in enumerate((("J2", "PAD1_DATA", 160), ("J3", "PAD2_DATA", 207))):
+for k, (ref, padnet, x0, rref) in enumerate((("J2", "PAD1_DATA", 160, "R3"),
+                                             ("J3", "PAD2_DATA", 207, "R4"))):
     j = conn(x0 + 12, 173, ref, "SNES pad %d socket" % (k + 1),
              [(1, "+5V"), (2, "CLOCK"), (3, "LATCH"), (4, "DATA"), (5, "nc"), (6, "nc"),
               (7, "GND")], w=11)
@@ -508,7 +502,13 @@ for k, (ref, padnet, x0) in enumerate((("J2", "PAD1_DATA", 160), ("J3", "PAD2_DA
     T(x - 0.6, y, "+5V", fs=7, ha="right", color=PWR, weight="bold")
     net(*j["CLOCK"], "SCK", "l")
     net(*j["LATCH"], "MOSI", "l")
-    net(*j["DATA"], padnet, "l")
+    # DATA pull-up at the socket
+    x, y = j["DATA"]
+    wire([(x, y), (x - 10, y)])
+    net(x - 10, y, padnet, "l")
+    dot(x - 6, y)
+    res(x - 6, y, y + 6, rref, "10k", side="l")
+    supply_down(x - 6, y + 6, "+5V")
     x, y = j["GND"]
     wire([(x, y), (x - 2, y)], INK)
     gnd(x - 2, y)
