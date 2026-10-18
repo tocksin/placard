@@ -8,7 +8,7 @@
 ;
 ;     python3 placard_sim.py lib_demo.asm --run --boot --png demo.png
 ;
-; Date: 10/16/2026
+; Date: 10/18/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -177,7 +177,7 @@ r13:
     ld   [py_r], ac             ; high byte 1 when r >= 56 (unsigned)
     blt  y_hi
     sub  56, ac
-    bge  y_hi
+    bcc  y_hi
     clr  ac
     ld   ac, [R3]
     bra  y_set
@@ -189,9 +189,8 @@ y_set:
     add  0x40, ac
     ld   ac, [R0]
     ld   [px_lo], ac            ; high byte 2 when r >= C0 (unsigned)
-    bge  x_1
     sub  0xC0, ac
-    blt  x_1
+    bcs  x_1
     ld   2, ac
     ld   ac, [R1]
     bra  x_set

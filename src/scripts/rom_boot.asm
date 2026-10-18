@@ -220,7 +220,7 @@ scan:
     beq  next
     blt  next
     sub  CARD_MAX + 1, ac
-    bge  next
+    bcc  next
     ld   [R0], ac               ; checksum
     add  5, x
     ld   [y,x], ac

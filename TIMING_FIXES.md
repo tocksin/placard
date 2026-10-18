@@ -1,6 +1,6 @@
 # Remaining timing fixes
 
-Date: 2026-10-16
+Date: 2026-10-18
 
 This covers what was left in [TIMING.md](TIMING.md) after the ALU
 ([ALU_TIMING.md](ALU_TIMING.md)), video read
@@ -22,7 +22,7 @@ AS7C256C-15).
 | Bus contention at the start of a write | up to about 10 ns | **Fixed**, RAM /OE is high for the whole write (+0.1) |
 | Bus contention at the end of a write | up to 7.6 ns | **Fixed**, new memory control PLD in place of the '32 (+8.9) |
 | Bus contention at the start of a write after a video stall (**found here**) | up to 5.5 ns | **Fixed**, same change (+10.9) |
-| Fetch into the branch check | −6.8 ns | **Fixed**, BGE with an AC or X target has a pad byte (State PLD rev 11, Branch PLD rev 08); the fetch is now 39.0 (+0.7) |
+| Fetch into the branch check | −6.8 ns | **Fixed**, BGE with an AC or X target has a pad byte (State PLD rev 11, Branch PLD rev 08; memory field 101 is BCC since Branch PLD rev 11, with the same pad byte); the fetch is now 39.0 (+0.7) |
 
 ## Fixed
 
@@ -362,7 +362,7 @@ after 18.0 ns, which is a high half of at least 45.4 % and is inside the
 
 ## ROM/RAM map register (74ACT273)
 
-Date: 2026-10-16
+Date: 2026-10-18
 
 The ROM/RAM map is now an 8-bit register chip, a write-only I/O device at
 5000h-50FFh, in place of the ROM/RAM select PLD (which by revision 04 held

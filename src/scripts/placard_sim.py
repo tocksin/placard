@@ -23,17 +23,20 @@ when customasm is not at hand; customasm with placard.asm should produce the
 same bytes.
 
 The simulator follows the hardware instruction flow (State PLD rev 12,
-Branch PLD rev 09):
+Branch PLD rev 11):
   - operand byte fetched for: immediate source; memory source with a [0,D]
     mode (MEM 000, 011, 100); register source with MEM 101 (zero-page store,
-    or BGE with an AC or X target, whose second byte is a pad byte)
+    or BCC with an AC or X target, whose second byte is a pad byte)
   - memory source reads into D (LOAD_MEM); the source bus is D, AC or X
   - register source with MEM 110 or 111 also passes through LOAD_MEM (one
     more clock; the read into D is not used)
   - ALU: A = AC, B = source bus
   - dest AC / X / Y load the ALU result; RAM stores take the SOURCE BUS
-  - branches: Z and NEG from the accumulator; PC low <- source bus,
-    JMP also loads PC high <- Y
+  - branches: Z and NEG from the accumulator, or the carry flag (BCS, BCC);
+    PC low <- source bus, JMP also loads PC high <- Y
+  - the carry flag (Branch PLD rev 11) is the high ALU's COUT, latched at
+    the end of an ADD or SUB with an AC, X or Y destination (carry out for
+    ADD, borrow out for SUB) and held by every other instruction
   - ADD and SUB with an AC, X or Y destination take one extra clock
     (the Branch PLD's ALU wait clock); stores do not
   - with an io model (io_devices.SharedPort), reads and writes of
@@ -68,10 +71,10 @@ import sys
 ALU = {'ld': 0, 'and': 1, 'or': 2, 'xor': 3, 'add': 4, 'sub': 5}
 REG_SRC = {'ac': 2, 'x': 3}
 REG_DST = {'ac': 0, 'x': 3, 'y': 4}
-COND = {'bgt': 1, 'blt': 2, 'bne': 3, 'beq': 4, 'bge': 5, 'ble': 6, 'bra': 7}
+COND = {'bcs': 1, 'blt': 2, 'bne': 3, 'beq': 4, 'bcc': 5, 'ble': 6, 'bra': 7}
 MEM_BRANCH = {   # indirect branch forms: (mnemonic, operand) -> m
     ('jmp', 'zp'): 0, ('bne', 'zp'): 3, ('beq', 'zp'): 4,
-    ('bgt', '[x]'): 1, ('ble', '[x]'): 6,
+    ('bcs', '[x]'): 1, ('ble', '[x]'): 6,
     ('blt', '[y,x]'): 2, ('bra', '[y,x]'): 7,
 }
 
@@ -182,7 +185,7 @@ def encode(mn, ops):
         t = ops[0]
         c = 0 if mn == 'jmp' else COND[mn]
         if is_reg(t):
-            if mn == 'bge':                 # MEM 101: pad byte (State PLD rev 11)
+            if mn == 'bcc':                 # MEM 101: pad byte (State PLD rev 11)
                 return [op(7, c, REG_SRC[t]), 0]
             return [op(7, c, REG_SRC[t])]
         if t in ('[x]', '[y,x]'):
@@ -432,6 +435,20 @@ def alu_hw(s, a, b):
     return (hi << 4) | lo
 
 
+def carry_ideal(s, a, b):
+    """COUT of an 8-bit ADD (carry) or SUB (borrow)"""
+    if s == 4:
+        return (a + b) >> 8
+    return 1 if a < b else 0
+
+
+def carry_hw(s, a, b):
+    """the high alu4's COUT, wired as in basys_top.vhd"""
+    _, c = alu4(a & 15, b & 15, s, 0, (a >> 4) & 1)
+    _, cout = alu4(a >> 4, b >> 4, s, c, 0)
+    return cout
+
+
 # ---------------------------------------------------------------------------
 # CPU
 # ---------------------------------------------------------------------------
@@ -463,7 +480,9 @@ class Cpu:
         self.map = 0
         self.pc = 0
         self.ac = self.x = self.y = self.d = 0
+        self.c = 0                                # carry flag, powers up to 0
         self.alu = (lambda s, a, b: alu_hw(s, a, b)) if hw_alu else alu_ideal
+        self.carry = carry_hw if hw_alu else carry_ideal
         self.steps = 0
         self.clocks = 0
 
@@ -515,8 +534,8 @@ class Cpu:
             acv = self.alu(7, self.ac, src)       # PASS A -> Z flags
             z = acv == 0
             neg = (self.ac >> 7) & 1
-            take = [True, (not z) and not neg, (not z) and neg, not z, z,
-                    not neg, z or neg, True][m]
+            take = [True, self.c, (not z) and neg, not z, z,
+                    not self.c, z or neg, True][m]
             if take:
                 self.pc = (self.pc & 0xFF00) | src
                 if m == 0:
@@ -524,6 +543,7 @@ class Cpu:
         else:
             if a in (4, 5) and m <= 4:
                 clocks += 1                       # ALU wait clock (Branch PLD rev 07)
+                self.c = self.carry(a, self.ac, src)   # carry flag (Branch PLD rev 11)
             if m in (0, 1, 2):
                 self.ac = res
             elif m == 3:
