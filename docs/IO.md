@@ -22,7 +22,7 @@ mini-DIN 6 for the mouse.
 
 ## Schematic
 
-![Placard I/O schematic](reference/placard_io_schematic.png)
+![Placard I/O schematic](../reference/placard_io_schematic.png)
 
 The drawing is made by `src/scripts/gen_io_schematic.py` (2026-10-18);
 rerun it when the pins change.  It shows the I/O decode PLD, the port

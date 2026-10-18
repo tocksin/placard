@@ -16,7 +16,7 @@ Device   g22v10;
    Makes the RAM write strobe and the ROM and RAM read enables.
    It replaces the '32 OR gate that made /WE = RW | CLK, and took
    over the read enables from the ROM/RAM select PLD.  See
-   TIMING_FIXES.md, end-of-write contention.  Since revision 02 the
+   docs/TIMING_FIXES.md, end-of-write contention.  Since revision 02 the
    map itself is a 74ACT273 register (an I/O device at 5000h, loaded
    by /MAP_WR from the I/O decode PLD), and the ROM/RAM select PLD
    is gone.
@@ -72,7 +72,7 @@ Device   g22v10;
       (/OE rise, then tOHZ), while the source F541s can turn on
       about 7 ns after it.  That overlap of up to about 7 ns is
       accepted; series resistors on the source F541 outputs limit
-      the current (CPU.md).
+      the current (docs/CPU.md).
 
    THE RULE
       Every memory bus cycle, read or write, uses the LOW half of
@@ -123,7 +123,7 @@ Device   g22v10;
       Reads and writes take the low half of the clock, so the high
       half must be at most 54.6 % of the period for the opcode to
       reach the State PLD in time (and at least 47 % for the write
-      glitch margin in VIDEO_TIMING.md).  A 50 % clock, such as a
+      glitch margin in docs/VIDEO_TIMING.md).  A 50 % clock, such as a
       divided-down oscillator, leaves 2 ns at each end.
 
    PIN BUDGET

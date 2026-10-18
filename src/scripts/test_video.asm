@@ -9,7 +9,7 @@
 ;
 ; Web version: paste placard.asm above this code and delete the #include.
 ; Command line:  customasm test_video.asm -f hexstr -o test_video.hex
-; then run gen_rom.tcl, which puts it in the ROM image (see ROM.md).
+; then run gen_rom.tcl, which puts it in the ROM image (see docs/ROM.md).
 
 #include "placard.asm"
 

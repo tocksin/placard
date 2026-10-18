@@ -2,7 +2,7 @@
 #
 # Generates rom.mem, the ROM's initialization file: one hex byte per line,
 # 65536 lines, address 0..65535.  Loaded by sp_ram.vhd (romComp in
-# basys_top.vhd) at elaboration / synthesis.  ROM.md describes the layout.
+# basys_top.vhd) at elaboration / synthesis.  docs/ROM.md describes the layout.
 # Video reads always read the RAM, so the ROM under the video area holds
 # programs:
 #

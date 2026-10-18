@@ -2,7 +2,7 @@
 -- @brief Single-port RAM - Will synthesize in block ram
 -- @author Justin Davis
 --
--- Date: 10/16/2026
+-- Date: 10/18/2026
 -- LastEditedBy: Justin Davis
 --
 -------------------------------------------------------------------------------
@@ -12,7 +12,7 @@
 --              patterns: a mode byte for each row at 5A20h + row, framed
 --              1/2/4/8 bpp bands, text, and the 16 color palette)
 --     romComp  initFile => "rom.mem"  made by gen_rom.tcl (boot loader,
---              standard library and font, and the program; see ROM.md)
+--              standard library and font, and the program; see docs/ROM.md)
 --
 -- Vivado: add the .mem files to the project as design sources AND simulation
 -- sources (they are treated as data files), so the synthesizer and simulator

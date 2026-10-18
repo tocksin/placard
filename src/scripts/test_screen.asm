@@ -13,7 +13,7 @@
 ;                             message on the bottom row
 ;   rows 352-479  8 bpp, 4x   all 256 colors (80 x 32), a 16 x 16 grid
 ;
-; The bands are placed so no two rows share a video byte (VIDEO.md, line
+; The bands are placed so no two rows share a video byte (docs/VIDEO.md, line
 ; repeat): 1x rows 0-95 use offsets x020-x07F of each byte column, 4x rows
 ; 96-223 x181 + 4n, 2x rows 224-351 the odd offsets x101-x17F and 4x rows
 ; 352-479 x183 + 4n.
@@ -28,8 +28,8 @@
 ;     spinner, the 16-color wheel (one step every 3 frames) and the
 ;     scrolling message (one character every 8 frames).
 ;
-; It is a ROM program (ROM.md): it runs in place from ROM x6000, uses the
-; standard library (LIBRARY.md) and the zero page map, and keeps its
+; It is a ROM program (docs/ROM.md): it runs in place from ROM x6000, uses the
+; standard library (docs/LIBRARY.md) and the zero page map, and keeps its
 ; variables in the zero page x20-x6F.
 ;
 ;     python3 gen_test_screen_tables.py         (writes test_screen_tables.asm)

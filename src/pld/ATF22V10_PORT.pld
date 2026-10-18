@@ -1,6 +1,6 @@
 Name     PORT;
 PartNo   00;
-Date     10/17/2026;
+Date     10/18/2026;
 Revision 01;
 Designer Justin;
 Company  ;
@@ -13,7 +13,7 @@ Device   g22v10;
    SHARED PORT: KEYBOARD COLUMNS AND PAD READ   (ATF22V10C)
    ============================================================
 
-   One of the four chips of the shared port at 5200h (IO.md).  The
+   One of the four chips of the shared port at 5200h (docs/IO.md).  The
    keyboard, both SNES pads, the SD card and the PS/2 mouse are all
    polled, never at the same moment, so they share one output latch
    (74HC574), one input buffer (74F541) and this PLD.

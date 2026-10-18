@@ -6,7 +6,7 @@
 ; in the ROM, at PC = 0000.  Video reads always read the RAM (memory
 ; control PLD revision 04); only CPU reads follow the map.  The byte at
 ; BOOT_MODE (written by gen_rom.tcl) picks one of two ways to start the
-; program.  ROM.md has the ROM layout.
+; program.  docs/ROM.md has the ROM layout.
 ;
 ; BOOT_MODE = 00: ROM program (the standard way).
 ;   The program runs in place from ROM x6000-xDFFF and calls the standard
@@ -37,7 +37,7 @@
 ;     python3 placard_sim.py rom_boot.asm
 ;
 ;
-; EXPANSION CARDS (EXPANSION.md), before either mode, like the Apple II's
+; EXPANSION CARDS (docs/EXPANSION.md), before either mode, like the Apple II's
 ; slot scan:
 ;   1. map = 01, so the zero page is RAM.
 ;   2. Unless Esc is held, for slots 4, 3, 2, 1: if the card's first bytes
@@ -99,7 +99,7 @@ boot_mode:
 
 #addr 0xFD00
 boot:
-    ld   PORT >> 8, y           ; shared port at rest (IO.md): no keyboard
+    ld   PORT >> 8, y           ; shared port at rest (docs/IO.md): no keyboard
     ld   P_IDLE, [y,x]          ; column, SD /CS low (also holds the PS/2
                                 ; mouse off), SCK and MOSI high
     ld   MAP_PORT, y

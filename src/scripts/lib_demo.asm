@@ -2,7 +2,7 @@
 ; Prints text and numbers with the console routines, does some arithmetic,
 ; draws 200 random dots with rand8 and plot1, then halts.
 ;
-; It is a ROM program (ROM.md): it runs in place from ROM x6000 and calls
+; It is a ROM program (docs/ROM.md): it runs in place from ROM x6000 and calls
 ; the library in place at ROM x3000; its variables are in the RAM's zero
 ; page.  The boot loader maps sections 0 and 2 to RAM and jumps to x6000.
 ;

@@ -3,7 +3,7 @@
 ; ============================================================
 ;
 ; The video circuit plays one byte of the sound buffer, x5DF3-x5FFF, on
-; every scan line (SOUND.md): 525 samples per frame at 31.469 kHz,
+; every scan line (docs/SOUND.md): 525 samples per frame at 31.469 kHz,
 ; 8-bit unsigned, 80h = silence.  This driver keeps that buffer filled
 ; with one sound at a time:
 ;
