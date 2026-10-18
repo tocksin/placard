@@ -18,7 +18,7 @@ The simulator does not model the video line read at x5000, so this script
 supplies it: a read of x5000-x50FF returns V9:V2 of a V counter that steps
 every 800 clocks through 499-1023 (525 lines, one frame = 420,000 clocks).
 
-Date: 10/16/2026
+Date: 10/18/2026
 """
 
 import argparse
@@ -308,7 +308,7 @@ def t_rand8(lib, n):
 
 def t_memory(lib, n):
     for i in range(n):
-        dst = random.randrange(0x0800, 0x2E00)
+        dst = random.randrange(0x0800, 0x1E00)
         cnt = random.choice([1, 2, 255, 256, random.randrange(1, 257)])
         val = random.randrange(256)
         c = lib.cpu()
@@ -319,8 +319,8 @@ def t_memory(lib, n):
         end = dst + cnt
         assert (c.mem[0x10] | c.mem[0x11] << 8, c.mem[0x12]) == (end, 0)
         # memcpy from random data
-        src = random.randrange(0x0800, 0x1800)
-        dst = random.randrange(0x1A00, 0x2E00)
+        src = random.randrange(0x0800, 0x1300)
+        dst = random.randrange(0x1400, 0x1E00)
         data = [random.randrange(256) for _ in range(cnt)]
         c = lib.cpu()
         for j, v in enumerate(data):

@@ -30,8 +30,22 @@
 ;   10-17      R0-R7         caller    arguments and results
 ;   18-1F      T0-T7         library   scratch, any library routine may
 ;                                      change these
-;   20-BF      (free)        program   160 bytes for the program's own
+;   20-9F      (free)        program   128 bytes for the program's own
 ;                                      variables
+;   A0-A7      KBD_NOW       keyboard  rows of each column, 0 = key down
+;   A8-AF      KBD_BUF       keyboard  key buffer, 8 characters
+;   B0         KBD_HEAD      keyboard  next free place in KBD_BUF
+;   B1         KBD_TAIL      keyboard  next character to take
+;   B2         KBD_FLAGS     keyboard  bit 0 = caps lock
+;   B3         IO_TMP        I/O       scratch for the I/O drivers
+;   B4         SD_FLAGS      SD card   bit 0 = block addresses, bit 1 =
+;                                      slow clock, bit 7 = ready
+;   B5         MOUSE_B       mouse     buttons and flags of the last packet
+;   B6         MOUSE_DX      mouse     X movement of the last packet
+;   B7         MOUSE_DY      mouse     Y movement of the last packet
+;   B8         MOUSE_ST      mouse     bit 7 = the mouse is running
+;   B9-BC      IO_T0-IO_T3   I/O       scratch for the I/O drivers
+;   BD-BF      (spare)       I/O       kept for the I/O drivers
 ;   C0-FF      STACK         stack     software stack, 64 bytes, grows down
 ;                                      from FF
 ;
@@ -40,12 +54,14 @@
 ;     its documentation lists as outputs or as changed.
 ;   - T0-T7 are scratch.  Any library routine may change any of them, so
 ;     never keep a value in a T register across a call.
-;   - Program variables go in 20-BF.  Add them to the program, not here,
-;     unless every program needs them.
+;   - Program variables go in 20-9F.  Add them to the program, not here,
+;     unless every program needs them.  A0-BF belong to the I/O drivers
+;     (placard_io.asm); a program that never calls them may use those
+;     bytes too.
 ;   - The stack may grow down past C0 into the program area if a program
 ;     nests deeper than 64 bytes; nothing checks for that.
 ;
-; Date: 10/16/2026
+; Date: 10/17/2026
 ; ============================================================
 
 LINK_LO    = 0x04
@@ -79,6 +95,23 @@ T5 = 0x1D
 T6 = 0x1E
 T7 = 0x1F
 
+KBD_NOW    = 0xA0       ; A0-A7
+KBD_BUF    = 0xA8       ; A8-AF
+KBD_HEAD   = 0xB0
+KBD_TAIL   = 0xB1
+KBD_FLAGS  = 0xB2
+IO_TMP     = 0xB3
+SD_FLAGS   = 0xB4
+MOUSE_B    = 0xB5
+MOUSE_DX   = 0xB6
+MOUSE_DY   = 0xB7
+MOUSE_ST   = 0xB8
+IO_T0      = 0xB9
+IO_T1      = 0xBA
+IO_T2      = 0xBB
+IO_T3      = 0xBC
+
 USER_ZP    = 0x20       ; first free byte for program variables
+IO_ZP      = 0xA0       ; first byte of the I/O drivers' variables
 STACK_LOW  = 0xC0       ; lowest stack byte
 STACK_TOP  = 0xFF       ; SP starts here

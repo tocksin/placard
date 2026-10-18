@@ -7,6 +7,7 @@
 # programs:
 #
 #     x0000-x0003   reset jump to the boot loader          rom_boot.hex
+#     x2000-x2FFF   I/O drivers (runs in place)            rom_lib.hex
 #     x3000-x37FF   standard library code (runs in place)  rom_lib.hex
 #     x3800-x3FFF   standard font                          rom_lib.hex
 #     x6000-xFBFF   ROM program (runs in place, entry x6000) the program
@@ -17,7 +18,7 @@
 # is a ROM program.  An older program written to run at RAM x0000 (bytes
 # below x6000 other than the library's) is a RAM image instead: it is
 # stored at ROM x6000-xA9FF (ROM address = RAM address + x6000) with the
-# library again at its RAM x3000-x3FFF, and the boot loader copies it to
+# library (not the I/O drivers) again at its RAM x3000-x3FFF, and the boot loader copies it to
 # RAM x0000-x49FF and runs it from the RAM.  If such a program uses
 # x3000-x3FFF for itself it replaces the library there (a note is printed).
 #
@@ -39,11 +40,12 @@
 # The image is written to ../hdl/rom.mem (relative to this script).  Set
 # ::ROM_OUT before sourcing to write to a different path instead.
 #
-# Date: 10/16/2026
+# Date: 10/18/2026
 
 set ROM_SIZE        65536
 set ROM_IMAGE_BASE  [expr {0x6000}] ;# RAM image: ROM address of RAM x0000
 set IMAGE_SIZE      [expr {0x4A00}] ;# RAM image: RAM x0000-x49FF is copied at boot
+set IO_START        [expr {0x2000}] ;# IO_CODE in placard_io.asm (ROM programs only)
 set LIB_START       [expr {0x3000}] ;# LIB_CODE in placard_lib.asm
 set LIB_END         [expr {0x4000}] ;# end of LIB_FONT
 set PROG_START      [expr {0x6000}] ;# ROM program area and entry
@@ -111,7 +113,7 @@ proc gen_rom {outFile} {
     }
     set a 0
     foreach b [read_asm_bytes $bootFile] {
-        if {$b != 0 && $a >= $::LIB_START && $a < $::BOOT_MODE} {
+        if {$b != 0 && $a >= $::IO_START && $a < $::BOOT_MODE} {
             error "gen_rom: rom_boot.hex has a byte at [format %04X $a],\
                    in the library or program area"
         }
@@ -119,13 +121,13 @@ proc gen_rom {outFile} {
         incr a
     }
 
-    # ---- standard library and font, in place -----------------------------------
+    # ---- I/O drivers, standard library and font, in place -----------------------
     set libFile [file join $dir rom_lib.hex]
     if {![file exists $libFile]} {
         error "gen_rom: $libFile not found (assemble rom_lib.asm)"
     }
     set lib [read_asm_bytes $libFile]
-    for {set a $::LIB_START} {$a < $::LIB_END} {incr a} {
+    for {set a $::IO_START} {$a < $::LIB_END} {incr a} {
         if {$a < [llength $lib]} {
             set rom($a) [lindex $lib $a]
         }
@@ -149,7 +151,7 @@ proc gen_rom {outFile} {
     set ramImage 0
     for {set a 0} {$a < $n && $a < $::PROG_START} {incr a} {
         set b [lindex $bytes $a]
-        if {$a >= $::LIB_START && $a < $::LIB_END} {
+        if {$a >= $::IO_START && $a < $::LIB_END} {
             if {$b != $rom($a)} {
                 set ramImage 1
                 break

@@ -111,7 +111,7 @@
 ; active video) and include the 8-clock RETURN but not the 18-clock CALL.
 ; test_lib.py measures them.
 ;
-; Date: 10/16/2026
+; Date: 10/18/2026
 ; ============================================================
 
 #include "zeropage.asm"
@@ -120,6 +120,7 @@ LIB_CODE = 0x3000       ; 2 KB of code, x3000-x37FF
 LIB_FONT = 0x3800       ; 2 KB font, x3800-x3FFF (see lib_font.asm)
 
 #include "lib_font.asm"
+#include "placard_io.asm"     ; I/O drivers at IO_CODE, x2000-x2FFF (IO.md)
 
 
 ; ============================================================
