@@ -20,7 +20,7 @@ SCREEN
         cells  64-111  the level: 3 rows of      full speed
                        16 x 16 tiles
     The text rows use video offsets x020-x03F of each byte column and the
-    playfield x180-x1FF (VIDEO.md, line repeat).
+    playfield x180-x1FF (docs/VIDEO.md, line repeat).
 
 HOW IT DRAWS A FRAME (no scroll registers, no sprite hardware)
     Every frame the whole playfield is drawn again, 8,960 bytes, ahead of
@@ -94,7 +94,7 @@ IDLE_TICKS = 600
 MAX_SPR = 12
 DROWN_G = 100           # player top cell: in the water
 
-# palette (COLORS.md, 4 bpp): 0 black 1 blue 2 green 3 cyan 4 red 5 magenta
+# palette (docs/COLORS.md, 4 bpp): 0 black 1 blue 2 green 3 cyan 4 red 5 magenta
 # 6 brown 7 khaki 8 dark gray 9 light blue a light green b light cyan
 # c orange d pink e yellow f white
 

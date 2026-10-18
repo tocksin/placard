@@ -3,7 +3,7 @@
 # Generates ram.mem, the RAM's initialization file: one hex byte per line,
 # 65536 lines, address 0..65535.  Loaded by sp_ram.vhd (ramComp in
 # basys_top.vhd) at elaboration / synthesis.  It holds the video test
-# pattern only: programs are in the ROM image (gen_rom.tcl, see ROM.md),
+# pattern only: programs are in the ROM image (gen_rom.tcl, see docs/ROM.md),
 # and the ROM's boot loader copies them over RAM x0000-x49FF.  The real
 # RAM starts with random contents, so programs must not count on this
 # pattern; it shows what is on the screen until a program draws.
@@ -19,7 +19,7 @@
 # ::VIDEO_RAM_OUT before sourcing to write to a different path instead (the
 # file is then left where you put it).
 #
-# Date: 10/16/2026
+# Date: 10/18/2026
 #
 # Memory-to-screen mapping:
 #     A15:A9 = H9:H3 (active groups 48..127)    A8:A0 = V8:V0 (active 32..511)

@@ -144,7 +144,7 @@ set_property PACKAGE_PIN U17 [get_ports {BTN[3]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {BTN[3]}]
 #set_input_delay -clock clkSystem 1.000 [get_ports BTN]
 
-##Pmod Header JA (audio DAC register Q7:Q0, JA[7] = MSB, see SOUND.md)
+##Pmod Header JA (audio DAC register Q7:Q0, JA[7] = MSB, see docs/SOUND.md)
 
 ##Pmod Header JA
 set_property IOSTANDARD LVCMOS33 [get_ports JA]
@@ -165,7 +165,7 @@ set_property PACKAGE_PIN H2 [get_ports {JA[6]}]
       ## JA10 on schematic
 set_property PACKAGE_PIN G3 [get_ports {JA[7]}]
 
-##Pmod Header JB: PmodMicroSD (IO.md): JB1 /CS, JB2 MOSI, JB3 MISO, JB4 SCK
+##Pmod Header JB: PmodMicroSD (docs/IO.md): JB1 /CS, JB2 MOSI, JB3 MISO, JB4 SCK
 set_property IOSTANDARD LVCMOS33 [get_ports JB]
     ## JB1 on schematic
 set_property PACKAGE_PIN A14 [get_ports {JB[0]}]
@@ -185,7 +185,7 @@ set_property PACKAGE_PIN A15 [get_ports {JB[4]}]
     ## JB10 on schematic
 #set_property PACKAGE_PIN C16 [get_ports {JB[7]}]
 
-##Pmod Header JC: SNES pads (IO.md): JC1 CLOCK, JC2 LATCH, JC3 pad 1 DATA, JC4 pad 2 DATA
+##Pmod Header JC: SNES pads (docs/IO.md): JC1 CLOCK, JC2 LATCH, JC3 pad 1 DATA, JC4 pad 2 DATA
 set_property IOSTANDARD LVCMOS33 [get_ports JC]
     ## JC1 on schematic
 set_property PACKAGE_PIN K17 [get_ports {JC[0]}]

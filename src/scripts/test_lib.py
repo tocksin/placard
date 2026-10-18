@@ -12,7 +12,7 @@ test checks the outputs against a Python model, and also checks that the
 routine changed nothing in the zero page except what its documentation in
 placard_lib.asm says it changes (AC, X, the listed R and T registers, LINK,
 SAVE_AC and the bytes above SP).  The clock counts it prints are what
-LIBRARY.md quotes.
+docs/LIBRARY.md quotes.
 
 The simulator does not model the video line read at x5000, so this script
 supplies it: a read of x5000-x50FF returns V9:V2 of a V counter that steps

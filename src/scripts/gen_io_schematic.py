@@ -9,7 +9,7 @@ matrix header, two SNES pads, SD card socket, PS/2 mouse).
     python3 gen_io_schematic.py out.png      writes out.png
 
 Needs matplotlib (python3 -m pip install matplotlib).  The pin numbers are
-typed in from ATF22V10_IO_DECODE.pld, ATF22V10_PORT.pld, IO.md and the
+typed in from ATF22V10_IO_DECODE.pld, ATF22V10_PORT.pld, docs/IO.md and the
 parts' data sheets; update them here when those change and rerun.  Nets
 with the same label are connected.
 
@@ -219,7 +219,7 @@ def frame(x, y, w, h, label, where="tl"):
 T(4, 5, "Placard: I/O schematic", fs=20, weight="bold")
 T(4, 10.5, "I/O decode, the shared port at x5200 (keyboard, SNES pads, SD card, PS/2 mouse) and "
    "its connectors.  Pin numbers from ATF22V10_IO_DECODE.pld rev 03, ATF22V10_PORT.pld rev 01 "
-   "and IO.md.  Red labels are nets: the same label is the same wire.", fs=9.5, color=MUTE)
+   "and docs/IO.md.  Red labels are nets: the same label is the same wire.", fs=9.5, color=MUTE)
 
 # ================================================================ U12 I/O decode
 frame(3, 14, 72, 60, "I/O decode (x5000-x53FF)")
@@ -542,9 +542,9 @@ for i, (a, b) in enumerate(rows):
     T(nx, ny + 4 + i * 3.3, a, fs=7.2, weight="bold")
     T(nx + 21, ny + 4 + i * 3.3, b, fs=7.2)
 T(nx, ny + 19, "Each chip has a 100 nF capacitor across its supply pins.  D0-D7 is the shared "
-   "data bus (CPU.md).  U12 also makes the strobes for", fs=7.2, color=MUTE)
-T(nx, ny + 22.3, "the map register, the line read and the expansion slots (EXPANSION.md).  "
-   "Source: IO.md, CHIPS.md, the PLD files, 2026-10-18.", fs=7.2, color=MUTE)
+   "data bus (docs/CPU.md).  U12 also makes the strobes for", fs=7.2, color=MUTE)
+T(nx, ny + 22.3, "the map register, the line read and the expansion slots (docs/EXPANSION.md).  "
+   "Source: docs/IO.md, docs/CHIPS.md, the PLD files, 2026-10-18.", fs=7.2, color=MUTE)
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "..", "reference", "placard_io_schematic.png")

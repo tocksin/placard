@@ -17,7 +17,7 @@ Date: 10/18/2026
 | `src/scripts/test_lib.py` | Tests every routine against a Python model and measures its clocks |
 | `src/scripts/rom_lib.asm` | The library and font alone, for the ROM image (`rom_lib.hex`) |
 
-![lib_demo in the simulator](reference/lib_demo_sim.png)
+![lib_demo in the simulator](../reference/lib_demo_sim.png)
 
 ## Using the library
 
@@ -284,12 +284,12 @@ pointers already point at the next block.
 - `frame_poll` must run at least once per frame (16.8 ms) or it misses
   frames.  Elapsed time is FRAME × 16.8 ms plus the line value for finer
   detail (4 lines, 128 µs per step); see the
-  [video line read](README.md#video-line-read).
+  [video line read](../README.md#video-line-read).
 - `wait_frames` reads the line right away, so the first frame it counts may
   be partly over: the wait is between AC - 1 and AC frames.
 - `map_set` returns with its next fetch from the caller's section, so that
   section's map bit must not change, or its ROM and RAM must hold the same
-  bytes (see the [memory map](README.md#memory-map)).
+  bytes (see the [memory map](../README.md#memory-map)).
 
 ### Text console
 

@@ -19,7 +19,7 @@
 ;         cells  64-111  the level: 3 rows of      full speed
 ;                        16 x 16 tiles
 ;     The text rows use video offsets x020-x03F of each byte column and the
-;     playfield x180-x1FF (VIDEO.md, line repeat).
+;     playfield x180-x1FF (docs/VIDEO.md, line repeat).
 ;
 ; HOW IT DRAWS A FRAME (no scroll registers, no sprite hardware)
 ;     Every frame the whole playfield is drawn again, 8,960 bytes, ahead of

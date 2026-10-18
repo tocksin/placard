@@ -20,14 +20,14 @@ The project has some hard-goals to maintain:
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
 
 ## Block diagram
-Each block shows how many chips it uses (39 in all on the main board; the expansion and cartridge slots add none).  See [CHIPS.md](CHIPS.md) for the parts.
+Each block shows how many chips it uses (39 in all on the main board; the expansion and cartridge slots add none).  See [docs/CHIPS.md](docs/CHIPS.md) for the parts.
 
 ![Placard block diagram](reference/placard_block_diagram.png)
 
 The drawing is made by `src/scripts/gen_block_diagram.py` (2026-10-18); rerun it when the design changes.
 
 The I/O circuitry (keyboard, SNES pads, SD card, PS/2 mouse) is drawn as a schematic in
-[IO.md](IO.md#schematic) (`reference/placard_io_schematic.png`).
+[docs/IO.md](docs/IO.md#schematic) (`reference/placard_io_schematic.png`).
 
 ## Memory Map
 The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databus.  The video RAM starts at x6020 and ends at xFFFF, and each row's mode byte (color mode and line repeat) is at x5A20 + row.  There is a 64kB RAM and a 64kB ROM behind the same addresses.  The address space is divided into eight 8kB sections, and a write-only map register at x5000 picks whether each section reads from the RAM or the ROM.
@@ -38,12 +38,12 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 - **x5000-x53FF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  (Until 2026-10-16 the window was x5000-x5FFF, with x5800-x5FFF a mirror.)
 - **Only `[Y,X]` reaches the I/O window**; `[0,D]` and `[0,X]` only address the zero page.
 - **Video reads always read the RAM** (memory control PLD revision 04); only CPU reads follow the map.  The CPU can run code from the ROM under the video area while the screen shows the RAM, and a program that wants to read the video RAM maps that section to RAM.
-- **Programs run from the ROM.**  The I/O drivers, standard library and font run in place at ROM x2000-x3FFF and a program at ROM x6000-xDFFF; library bank 2 (sound, SD card files, expansion cards, line input, mouse) is at ROM xE000-xFBFF.  The boot loader first gives each expansion card a chance to run its own boot code (like the Apple II), then maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  See [ROM.md](ROM.md).
-- **After a map write**, the next instruction must not be fetched from a section whose map bit that write changed, unless the ROM and RAM hold the same byte there (the new map arrives 4.1 ns too late for that fetch).  Copying the ROM into the RAM underneath and then switching the section is safe.  See [TIMING_FIXES.md](TIMING_FIXES.md#romram-map-register-74act273).
+- **Programs run from the ROM.**  The I/O drivers, standard library and font run in place at ROM x2000-x3FFF and a program at ROM x6000-xDFFF; library bank 2 (sound, SD card files, expansion cards, line input, mouse) is at ROM xE000-xFBFF.  The boot loader first gives each expansion card a chance to run its own boot code (like the Apple II), then maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  See [docs/ROM.md](docs/ROM.md).
+- **After a map write**, the next instruction must not be fetched from a section whose map bit that write changed, unless the ROM and RAM hold the same byte there (the new map arrives 4.1 ns too late for that fetch).  Copying the ROM into the RAM underneath and then switching the section is safe.  See [docs/TIMING_FIXES.md](docs/TIMING_FIXES.md#romram-map-register-74act273).
 
 The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /WE, /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
 
-The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen yet; for now it is the same AS7C256C-15PCN with battery backup.  See [CPU.md](CPU.md#memory-parts) and [TIMING.md](TIMING.md).
+The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen yet; for now it is the same AS7C256C-15PCN with battery backup.  See [docs/CPU.md](docs/CPU.md#memory-parts) and [docs/TIMING.md](docs/TIMING.md).
 
 | Address | Map bit | Function  |
 |---------|---------|------|
@@ -63,7 +63,7 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen ye
 The drawing is made by `src/scripts/gen_memory_map.py`; rerun it when the map changes.
 
 ### I/O window
-Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes are low with /WE, and devices latch the source bus on the rising edge at the end of the write.  Read strobes are low on a read the CPU latches into D (LOAD_IMM).  The shared port is described in [IO.md](IO.md) and the expansion slots in [EXPANSION.md](EXPANSION.md).
+Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes are low with /WE, and devices latch the source bus on the rising edge at the end of the write.  Read strobes are low on a read the CPU latches into D (LOAD_IMM).  The shared port is described in [docs/IO.md](docs/IO.md) and the expansion slots in [docs/EXPANSION.md](docs/EXPANSION.md).
 
 | Address | Strobe | R/W | Function |
 |---------|--------|-----|----------|
@@ -79,7 +79,7 @@ Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes ar
 The window was x5000-x5FFF until 2026-10-16 (the I/O decode PLD did not decode A11, and the expansion ports were at x5500 and x5600).  The unused /SND_WR pin became the A11 input.
 
 ### Sound
-The video circuit reads one 8-bit sample per scan line from x5DF3-x5FFF (525 bytes, one frame) and plays it through a 74HCT574 and a resistor ladder DAC, at the line rate of 31.47 kHz.  80h is silence.  The library's sound driver (`snd_update` once a frame, with `snd_tone`, `snd_beep`, `snd_note`, `snd_noise` and `snd_play`) refills the buffer behind the line being played.  See [SOUND.md](SOUND.md).
+The video circuit reads one 8-bit sample per scan line from x5DF3-x5FFF (525 bytes, one frame) and plays it through a 74HCT574 and a resistor ladder DAC, at the line rate of 31.47 kHz.  80h is silence.  The library's sound driver (`snd_update` once a frame, with `snd_tone`, `snd_beep`, `snd_note`, `snd_noise` and `snd_play`) refills the buffer behind the line being played.  See [docs/SOUND.md](docs/SOUND.md).
 
 ### Video line read
 A read anywhere in x5000-x50FF returns the upper 8 bits of the video line counter, V9:V2.  The V counter in the V Counter PLD counts 499 to 1023, and one 74F541 enabled by /LINE_RD puts V9:V2 on the data bus.  The ROM/RAM map register shares the page but is write only, so there is no conflict.  Read it with `ld 0x50, y` then `ld [y,x], ac`.
@@ -93,7 +93,7 @@ A read anywhere in x5000-x50FF returns the upper 8 bits of the video line counte
 The video is designed to be 640x480 VGA 60Hz standard.  This means a 25.175 MHz clock.  This requires two counters: a horizontal and vertical.  They count 800 and 600 pixels.  This needs a 10-bit counter for each.  The counters form the RAM address space to read the pixel values.  The video memory is organized in a non-traditional way with H,V instead of V,H.
 
 ### Line repeat
-Bits 3:2 of a row's mode byte make each byte of video memory show on 1, 2 or 4 lines (640 × 480, 240 or 120).  A full 2x screen leaves 20 KB of the video area free (the even pages x60, x62 ... xFE) and a full 4x screen 30 KB.  The audio slot PLD remaps four row address bits, so no chips were added.  See [VIDEO.md](VIDEO.md#line-repeat).
+Bits 3:2 of a row's mode byte make each byte of video memory show on 1, 2 or 4 lines (640 × 480, 240 or 120).  A full 2x screen leaves 20 KB of the video area free (the even pages x60, x62 ... xFE) and a full 4x screen 30 KB.  The audio slot PLD remaps four row address bits, so no chips were added.  See [docs/VIDEO.md](docs/VIDEO.md#line-repeat).
 
 ### Test screen
 `src/scripts/test_screen.asm` draws a test screen with the CPU and keeps a test running on it: 80 column text (1 bpp, 1x), a 16 color band (4 bpp, 4x), 40 column text (2 bpp, 2x) and all 256 colors (8 bpp, 4x).  Each frame it tests one page of RAM (14 patterns, with a progress bar, pass and error counts) and updates a frame counter, an uptime clock, a spinner, a turning color wheel and a scrolling message.  `build\test_screen.bat` loads it on the board, and `src/scripts/test_screen_sim.py` runs and checks it in the simulator (`--gif` makes an animation).
@@ -124,7 +124,7 @@ timing, pixels, a text console with line input, the keyboard, SNES pad,
 PS/2 mouse and SD card drivers, a FAT16/FAT32 file reader, a sound driver
 and expansion card lookup.  It also sets the calling convention, the
 software stack and the zero page variable map (`zeropage.asm`).  See
-[LIBRARY.md](LIBRARY.md).
+[docs/LIBRARY.md](docs/LIBRARY.md).
 
 ## Building and loading a program
 The `build` folder has one Windows batch file per assembly program
@@ -134,7 +134,7 @@ The `build` folder has one Windows batch file per assembly program
 on the PATH), writes the RAM's initialization file `src/hdl/ram.mem` (the
 video test pattern, `gen_video_ram.tcl`) and the ROM's `src/hdl/rom.mem`
 (boot loader, standard library and font, and the program, `gen_rom.tcl`; see
-[ROM.md](ROM.md)), runs
+[docs/ROM.md](docs/ROM.md)), runs
 Vivado in batch mode through synthesis, implementation and bitstream, and
 programs the Basys 3 over JTAG.  Any other program builds with
 `build\build_and_load.bat <program>`.  Add `noasm` (e.g. `cpu_test.bat noasm`)

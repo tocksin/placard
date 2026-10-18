@@ -72,7 +72,7 @@ Device   g22v10;
      Revision 10 told them apart in FETCH with BRANCH_BLOCK from the
      Branch PLD, decoded from the opcode on the data bus, so the
      next-state path was the instruction read plus two PLD levels
-     (46.5 ns against a 39.72 ns clock, see TIMING_FIXES.md).  Now
+     (46.5 ns against a 39.72 ns clock, see docs/TIMING_FIXES.md).  Now
      source 1x with MEM = 101 always goes to LOAD_IMM, and the
      assembler puts a pad byte after BGE with an AC or X target.
      LOAD_IMM loads the pad byte into D and increments the PC past
@@ -197,7 +197,7 @@ PIN 15 = !Q1;
    match the instruction FF's memory field but are valid at tCO
    instead of after the instruction FF and a decode.  The Sync PLD
    gives priority to video and PC_ENABLE, so these only take
-   effect in LOAD_MEM and EXEC (see XY_TIMING.md). */
+   effect in LOAD_MEM and EXEC (see docs/XY_TIMING.md). */
 PIN 16 = X_ENABLE;
 PIN 17 = Y_ENABLE;
 
