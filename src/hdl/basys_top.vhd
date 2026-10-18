@@ -29,7 +29,8 @@ entity basys_top is
            VGA_HS       : out  sl;
            PS2_CLK      : inout sl;
            PS2_DATA     : inout sl;
-           JB           : out   slv(4 downto 0);
+           JB           : inout slv(4 downto 0);  -- PmodMicroSD: 0 /CS, 1 MOSI, 2 MISO (in), 3 SCK
+           JC           : inout slv(3 downto 0);  -- SNES pads: 0 CLOCK, 1 LATCH, 2 pad 1 DATA (in), 3 pad 2 DATA (in)
            JA           : out   slv(7 downto 0)   -- audio DAC register (to an R-2R ladder)
     );
 end entity basys_top;
@@ -154,6 +155,21 @@ architecture Behavioral of basys_top is
 
     signal mapWrN           : sl;   -- /MAP_WR, ROM/RAM map write strobe
     signal lineRdN          : sl;   -- /LINE_RD, video line counter read strobe
+    signal portWrN          : sl;   -- /PORT_WR, shared port latch clock
+    signal portRdN          : sl;   -- /PORT_RD, shared port read
+    signal portLatch        : slv(7 downto 0) := x"FF";  -- 74HC574 shared port latch
+    signal colN             : slv(7 downto 0);  -- keyboard columns, from the port PLD
+    signal keyRowN          : slv(7 downto 0);  -- keyboard rows (the key matrix)
+    signal portRows         : slv(7 downto 0);  -- 74F541 inputs: rows, MISO, PS/2 lines
+    signal padD6            : sl;   -- port PLD D6 (pad 2 DATA)
+    signal padD7            : sl;   -- port PLD D7 (pad 1 DATA)
+    signal padDEn           : sl;   -- port PLD D6/D7 output enable
+    signal mouseOn          : sl;   -- SW15 = 1: the PS/2 port is the mouse
+    signal ps2ClkR          : slv(1 downto 0) := "11";  -- PS/2 lines, synchronized
+    signal ps2DataR         : slv(1 downto 0) := "11";
+    signal sdMisoR          : slv(1 downto 0) := "11";
+    signal pad1R            : slv(1 downto 0) := "11";
+    signal pad2R            : slv(1 downto 0) := "11";
     signal romOeN           : sl;   -- ROM /OE
     signal ramOeN           : sl;   -- RAM /OE
     signal mapReg           : slv(7 downto 0) := (others => '0');  -- 74ACT273 map register
@@ -653,8 +669,8 @@ begin
         ce_hi_n     => open,
         map_wr_n    => mapWrN,
         line_rd_n   => lineRdN,
-        port_wr_n   => open,
-        port_rd_n   => open,
+        port_wr_n   => portWrN,
+        port_rd_n   => portRdN,
         exp1_n      => open,
         exp2_n      => open
     );
@@ -701,11 +717,106 @@ begin
     --
     --   Video line read: a 74F541 enabled by /LINE_RD (an I/O read at
     --   x5000-x50FF) drives the upper 8 bits of the V counter, V9:V2, onto
-    --   the data bus.  The memory control PLD keeps the RAM and ROM off the
+    --   the data bus.  The shared port (x5200-x52FF) is the 74F541 of the
+    --   key rows on even addresses and the port PLD on odd ones.  The memory control PLD keeps the RAM and ROM off the
     --   bus in the I/O window, so the buffer is the only driver there.
+    ----------------------------------------------------------
+    ------    Shared port at 5200h (IO.md)            -------
+    ----------------------------------------------------------
+    -- Port latch: 74HC574, loads the source bus on the rising edge of
+    -- /PORT_WR.  The real part powers up random; the boot loader writes
+    -- it first.  bit 0 SCK / pad CLOCK, bit 1 MOSI / pad LATCH, bit 2 SD
+    -- /CS (0 also holds the PS/2 CLK low), bit 3 (0 holds the PS/2 DATA
+    -- low), bits 7:4 keyboard column.
+    portLatchProc : process (portWrN)
+    begin
+        if rising_edge(portWrN) then
+            portLatch <= srcBus;
+        end if;
+    end process portLatchProc;
+
+    portPldComp: entity work.port_pld
+    port map(
+        portRdN => portRdN,
+        a0      => ramAddress(0),
+        k0      => portLatch(4),
+        k1      => portLatch(5),
+        k2      => portLatch(6),
+        k3      => portLatch(7),
+        pad1    => pad1R(1),
+        pad2    => pad2R(1),
+        col0N   => colN(0),
+        col1N   => colN(1),
+        col2N   => colN(2),
+        col3N   => colN(3),
+        col4N   => colN(4),
+        col5N   => colN(5),
+        col6N   => colN(6),
+        col7N   => colN(7),
+        d6      => padD6,
+        d7      => padD7,
+        dEn     => padDEn
+    );
+
+    -- The key matrix: the board's USB keyboard (PS/2) while SW15 = 0
+    keyMatrixComp: entity work.ps2_key_matrix
+    port map(
+        clk     => clkVGA,
+        rst     => rstSystem or mouseOn,
+        ps2Clk  => PS2_CLK,
+        ps2Data => PS2_DATA,
+        colN    => colN,
+        rowN    => keyRowN
+    );
+
+    -- SW15 = 1: the PS/2 port is the Placard's mouse port instead.  The
+    -- latch's /CS and bit 3 pull the lines low through Schottky diodes;
+    -- here they are open-drain pins (the xdc has the pull-ups).
+    mouseOn  <= dipRR(15);
+    PS2_CLK  <= '0' when mouseOn = '1' and portLatch(2) = '0' else 'Z';
+    PS2_DATA <= '0' when mouseOn = '1' and portLatch(3) = '0' else 'Z';
+
+    -- SD card (PmodMicroSD on JB) and SNES pads (JC)
+    JB(0) <= portLatch(2);      -- /CS
+    JB(1) <= portLatch(1);      -- MOSI
+    JB(2) <= 'Z';               -- MISO (pull-up in the xdc)
+    JB(3) <= portLatch(0);      -- SCK
+    JB(4) <= 'Z';
+    JC(0) <= portLatch(0);      -- pad CLOCK (both pads)
+    JC(1) <= portLatch(1);      -- pad LATCH (both pads)
+    JC(2) <= 'Z';               -- pad 1 DATA (pull-up in the xdc)
+    JC(3) <= 'Z';               -- pad 2 DATA
+
+    -- input pins are synchronized (the real 74F541 is just a buffer)
+    portSyncProc : process (clkVGA)
+    begin
+        if rising_edge(clkVGA) then
+            ps2ClkR  <= ps2ClkR(0)  & to_x01(PS2_CLK);
+            ps2DataR <= ps2DataR(0) & to_x01(PS2_DATA);
+            sdMisoR  <= sdMisoR(0)  & to_x01(JB(2));
+            pad1R    <= pad1R(0)    & to_x01(JC(2));
+            pad2R    <= pad2R(0)    & to_x01(JC(3));
+        end if;
+    end process portSyncProc;
+
+    -- 74F541 inputs: the rows, with MISO on row 7 and the PS/2 DATA and
+    -- CLK lines on rows 6 and 5 (Schottky diodes: either side pulls low)
+    portRows(7) <= keyRowN(7) and sdMisoR(1);
+    portRows(6) <= keyRowN(6) and (ps2DataR(1) or not mouseOn);
+    portRows(5) <= keyRowN(5) and (ps2ClkR(1) or not mouseOn);
+    portRows(4 downto 0) <= keyRowN(4 downto 0);
+
     rambusSelectorProc: process (all)
     begin
-        if lineRdN = '0' then
+        if portRdN = '0' then
+            if padDEn = '1' then
+                -- odd address: the port PLD drives D7/D6; D5:D0 float
+                -- (the model reads them as 1)
+                databus <= padD7 & padD6 & "111111";
+            else
+                databus <= portRows;    -- even address: the 74F541
+            end if;
+        elsif lineRdN = '0' then
             databus(0) <= pixelRow(2);  -- '541 A1 = V2
             databus(1) <= pixelRow(3);  -- '541 A2 = V3
             databus(2) <= pixelRow(4);  -- '541 A3 = V4

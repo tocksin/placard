@@ -189,7 +189,7 @@ pr_h2:
 ;            column c, row r is down; each key pressed since the last
 ;            scan is put in the key buffer as a character (kbd_getc)
 ;   changes: AC, X, Y, T0-T7, IO_T0-IO_T3, IO_TMP
-;   clocks:  about 520 with no new key, about 400 more per new key
+;   clocks:  about 620 with no new key, about 430 more per new key
 ;   Uses 2 stack bytes.
 ;   Call it once per frame.  The keys are not debounced: a key bounces
 ;   for less than a frame, so at most one scan sees a bounce and it

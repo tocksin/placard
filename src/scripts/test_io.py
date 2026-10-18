@@ -160,9 +160,10 @@ def test_kbd_every_key():
 def test_kbd_idle_scan():
     rig = Rig()
     rig.call('kbd_scan')
+    clocks = rig.clocks
     assert drain(rig) == ''
-    assert all(rig.zp('KBD_NOW') + 0 == 0xFF for _ in [0])
-    return 'scan with no key %d clocks' % rig.clocks
+    assert all(rig.cpu.mem[0xA0 + c] == 0xFF for c in range(8))
+    return 'scan with no key %d clocks' % clocks
 
 
 def test_kbd_shift_ctrl_caps():
