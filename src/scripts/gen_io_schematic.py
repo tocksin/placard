@@ -248,7 +248,7 @@ frame(3, 88, 72, 24, "Data bus pull-ups (empty slots read FF)")
 rn1 = rnet(8, 73, 94, [16 + i * 7 for i in range(8)], "RN1", "10k x 8, bussed SIP-9")
 
 # ================================================================ U37 port latch
-frame(78, 14, 64, 128, "Shared port x5200")
+frame(78, 14, 64, 134, "Shared port x5200")
 u37 = ic(90, 22, 16, "U37", "SN74HC574N",
          [(1, "/OE"), (11, "CLK"), None, (2, "D0"), (3, "D1"), (4, "D2"), (5, "D3"), (6, "D4"),
           (7, "D5"), (8, "D6"), (9, "D7")],
@@ -274,8 +274,6 @@ u38 = ic(122, 56, 18, "U38", "ATF22V10C-7PX",
 net(*u38["A0"], "A0", "l")
 net(*u38["PAD1"], "PAD1_DATA", "l")
 net(*u38["PAD2"], "PAD2_DATA", "l")
-net(*u38["D6"], "D6")
-net(*u38["D7"], "D7")
 # latch Q4-Q7 -> K0-K3
 for i in range(4):
     qx, qy = u37["Q%d" % (i + 4)]
@@ -292,7 +290,7 @@ wire([(xs, ys[0]), (xs, ys[-1] + 1)], INK)
 gnd(xs, ys[-1] + 1)
 
 # ================================================================ U39 row buffer
-u39 = ic(122, 107, 18, "U39", "SN74F541N",
+u39 = ic(122, 110, 18, "U39", "SN74F541N",
          [(1, "/OE1"), (19, "/OE2"), None, (18, "Y1"), (17, "Y2"), (16, "Y3"), (15, "Y4"),
           (14, "Y5"), (13, "Y6"), (12, "Y7"), (11, "Y8")],
          [None, None, None, (2, "A1"), (3, "A2"), (4, "A3"), (5, "A4"),
@@ -324,6 +322,11 @@ for i in range(8):
     x, y = rn1[i]
     wire([(x, y), (x, BY - 1), (x + 1, BY)])
     T(x + 0.5, y + 0.4, "D%d" % i, fs=5.8, color=NET)
+# U38's pad outputs D6 and D7: around the bottom of U38 to the bus
+for name, xv, yh in (("D7", 145.5, 99.3), ("D6", 147, 100.9)):
+    x, y = u38[name]
+    wire([(x, y), (xv, y), (xv, yh), (BX + 1, yh), (BX, yh + 1)])
+    T(BX + 1.2, yh - 0.7, name, fs=5.8, color=NET)
 
 # ================================================================ row pull-ups and shared rows
 frame(3, 116, 72, 64, "Row pull-ups, shared row lines, PS/2 and pad pull-ups")
