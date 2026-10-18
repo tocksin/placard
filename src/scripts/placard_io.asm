@@ -41,6 +41,7 @@ IO_CODE   = 0x2000      ; 4 KB of driver code and tables, x2000-x2FFF
 PORT      = 0x52        ; the shared port's page
 P_IDLE    = 0xFB        ; latch at rest: no column, PS/2 DATA free, /CS low, MOSI 1, SCK 1
 P_FREE    = 0xFF        ; the same with /CS high (SD deselected, PS/2 clock free)
+MOUSE_WAIT = 4          ; mouse_poll listens this many 0.25 ms steps for a packet
 
 ; key numbers (column * 8 + row) the keyboard driver treats specially
 K_CTRL    = 28          ; column 3, row 4
@@ -1341,6 +1342,601 @@ sa_2:
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 
+
+
+; ============================================================
+; Page B: PS/2 byte in and out
+; ============================================================
+#addr IO_CODE + 0xB00
+
+; ------------------------------------------------------------
+; ps2_rx - receive one byte from the mouse
+;   in:      the latch lets the PS/2 lines go (P_FREE); IO_T2:IO_T1 =
+;            how long to wait for the start bit, in steps of about
+;            0.25 ms (IO_T1 = 0 counts as 256 steps)
+;   out:     AC = 0 and T0 = the byte, or AC = 1 nothing came, 2 a bad
+;            frame (start, parity or stop bit)
+;   changes: X, Y, T0-T3, IO_T0-IO_T2, IO_TMP
+;   clocks:  about 23,000 for a byte once it starts (0.9 ms at the
+;            mouse's 12 kHz), plus the wait for the start
+;   The mouse changes DATA while CLK is high; it is read while CLK is
+;   low.  Returns after CLK has gone high at the end of the stop bit.
+;   If the time runs out just as the mouse has put out its start bit
+;   (DATA low, CLK still high), it waits about 1 ms more, so a byte that
+;   has begun is not cut off.
+; ------------------------------------------------------------
+ps2_rx:
+    ld   PORT, y
+    clr  x                      ; even address: rows (D6 DATA, D5 CLK)
+    clr  ac
+    ld   ac, [IO_T0]
+    ld   ac, [T3]               ; T3 = 1 once the wait was made longer
+pr_w:                           ; wait for CLK low: the start bit
+    ld   [y,x], ac              ; 24 clocks a try
+    and  0x20, ac
+    beq  pr_st
+    ld   [IO_T0], ac
+    dec
+    ld   ac, [IO_T0]
+    bne  pr_w
+    ld   [IO_T1], ac
+    dec
+    ld   ac, [IO_T1]
+    bne  pr_w
+    ld   [IO_T2], ac
+    beq  pr_none
+    dec
+    ld   ac, [IO_T2]
+    bra  pr_w
+pr_none:
+    ld   [T3], ac               ; out of time.  DATA already low means the
+    bne  pr_none1               ; start bit is out and its clock is due:
+    ld   [y,x], ac              ; wait about 1 ms more, once
+    and  0x40, ac
+    bne  pr_none1
+    ld   1, ac
+    ld   ac, [T3]
+    ld   4, ac
+    ld   ac, [IO_T1]
+    bra  pr_w
+pr_none1:
+    ld   1, ac                  ; nothing came
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+pr_st:
+    ld   [y,x], ac              ; the start bit must be 0
+    and  0x40, ac
+    bne  pr_bad
+    clr  ac
+    ld   ac, [T0]               ; the byte
+    ld   ac, [T1]               ; parity: 1 for each 1 bit
+    ld   10, ac                 ; 8 data bits, parity, stop
+    ld   ac, [T2]
+pr_bit:
+    ld   0, ac                  ; wait for CLK high (up to about 0.25 ms)
+    ld   ac, [IO_T0]
+pr_wh:
+    ld   [y,x], ac
+    and  0x20, ac
+    bne  pr_wl0
+    ld   [IO_T0], ac
+    dec
+    ld   ac, [IO_T0]
+    bne  pr_wh
+    bra  pr_bad
+pr_wl0:
+    clr  ac                     ; wait for CLK low
+    ld   ac, [IO_T0]
+pr_wl:
+    ld   [y,x], ac
+    ld   ac, [IO_TMP]           ; IO_TMP = the rows, DATA in bit 6
+    and  0x20, ac
+    beq  pr_got
+    ld   [IO_T0], ac
+    dec
+    ld   ac, [IO_T0]
+    bne  pr_wl
+    bra  pr_bad
+pr_got:
+    ld   [T2], ac
+    xor  1, ac
+    beq  pr_stop                ; the 10th: the stop bit
+    ld   [IO_TMP], ac
+    and  0x40, ac
+    beq  pr_zero
+    ld   [T1], ac               ; a 1
+    xor  1, ac
+    ld   ac, [T1]
+    ld   [T2], ac
+    xor  2, ac
+    beq  pr_next                ; the parity bit is not part of the byte
+    ld   [T0], ac               ; LSB first: shift right, the bit in at bit 7
+    shr  ac
+    or   0x80, ac
+    ld   ac, [T0]
+    bra  pr_next
+pr_zero:
+    ld   [T2], ac
+    xor  2, ac
+    beq  pr_next
+    ld   [T0], ac
+    shr  ac
+    ld   ac, [T0]
+pr_next:
+    ld   [T2], ac
+    dec
+    ld   ac, [T2]
+    bra  pr_bit
+pr_stop:
+    ld   [IO_TMP], ac           ; stop bit 1
+    and  0x40, ac
+    beq  pr_bad
+    ld   [T1], ac               ; odd parity: an odd number of 1s
+    xor  1, ac
+    and  1, ac
+    bne  pr_bad
+    clr  ac                     ; wait for CLK high again
+    ld   ac, [IO_T0]
+pr_end:
+    ld   [y,x], ac
+    and  0x20, ac
+    bne  pr_ok
+    ld   [IO_T0], ac
+    dec
+    ld   ac, [IO_T0]
+    bne  pr_end
+pr_bad:
+    ld   2, ac
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+pr_ok:
+    clr  ac
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+
+; ============================================================
+; Page C: PS/2 byte out, mouse start-up
+; ============================================================
+#addr IO_CODE + 0xC00
+
+; ------------------------------------------------------------
+; ps2_tx - send one byte to the mouse
+;   in:      AC = the byte
+;   out:     AC = 0 sent and acknowledged, 1 the mouse did not clock
+;            (none there), 2 no acknowledge.  The latch is left at
+;            P_FREE (lines free) so the answer can be read with ps2_rx.
+;   changes: X, Y, T0-T2, IO_T0, IO_T1
+;   clocks:  about 30,000 (1.2 ms)
+;   Holds CLK low for about 120 us, pulls DATA low and lets CLK go: the
+;   mouse then clocks the byte in.  The host changes DATA while CLK is
+;   low; the mouse reads it when CLK goes high.
+; ------------------------------------------------------------
+ps2_tx:
+    ld   ac, [T0]
+    ld   PORT, y
+    clr  x
+    ld   P_IDLE, [y,x]          ; CLK low (it already is, at rest)
+    ld   125, ac                ; about 120 us
+pt_hold:
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    dec
+    bne  pt_hold
+    ld   0xF3, [y,x]            ; DATA low too
+    ld   0xF7, [y,x]            ; CLK free: request to send
+    clr  ac                     ; T1 = 1s sent, for the parity
+    ld   ac, [T1]
+    ld   10, ac                 ; 8 data bits, parity, stop
+    ld   ac, [T2]
+    ld   0, ac                  ; the first clock can take up to 15 ms
+    ld   ac, [IO_T0]
+    ld   64, ac
+    ld   ac, [IO_T1]
+pt_bit:
+    ld   [y,x], ac              ; wait for CLK low
+    and  0x20, ac
+    beq  pt_lo
+    ld   [IO_T0], ac
+    dec
+    ld   ac, [IO_T0]
+    bne  pt_bit
+    ld   [IO_T1], ac
+    dec
+    ld   ac, [IO_T1]
+    bne  pt_bit
+    ld   1, ac                  ; the mouse never clocked
+    bra  pt_out
+pt_lo:
+    ld   [T2], ac               ; which bit?
+    xor  2, ac
+    beq  pt_par
+    xor  3, ac                  ; (T2 = 1: the stop bit)
+    beq  pt_one
+    ld   [T0], ac               ; a data bit, LSB first
+    and  1, ac
+    beq  pt_zero
+    ld   [T1], ac
+    xor  1, ac
+    ld   ac, [T1]
+pt_one:
+    ld   0xFF, [y,x]            ; DATA 1 (free)
+    bra  pt_shift
+pt_par:
+    ld   [T1], ac               ; odd parity: 1 when the data had an even count
+    and  1, ac
+    bne  pt_zero
+    ld   0xFF, [y,x]
+    bra  pt_shift
+pt_zero:
+    ld   0xF7, [y,x]            ; DATA 0
+pt_shift:
+    ld   [T0], ac
+    shr  ac
+    ld   ac, [T0]
+    clr  ac                     ; wait for CLK high
+    ld   ac, [IO_T0]
+pt_wh:
+    ld   [y,x], ac
+    and  0x20, ac
+    bne  pt_hi
+    ld   [IO_T0], ac
+    dec
+    ld   ac, [IO_T0]
+    bne  pt_wh
+    ld   2, ac
+    bra  pt_out
+pt_hi:
+    clr  ac                     ; the next clock comes within about 0.1 ms
+    ld   ac, [IO_T0]
+    ld   1, ac
+    ld   ac, [IO_T1]
+    ld   [T2], ac
+    dec
+    ld   ac, [T2]
+    bne  pt_bit
+pt_ack:                         ; the acknowledge: DATA low on the 11th clock
+    ld   [y,x], ac
+    and  0x20, ac
+    beq  pt_ackl
+    ld   [IO_T0], ac
+    dec
+    ld   ac, [IO_T0]
+    bne  pt_ack
+    ld   2, ac
+    bra  pt_out
+pt_ackl:
+    ld   [y,x], ac
+    and  0x40, ac
+    bne  pt_noack
+pt_ackh:                        ; wait for CLK high again
+    ld   [y,x], ac
+    and  0x20, ac
+    bne  pt_done
+    ld   [IO_T0], ac
+    dec
+    ld   ac, [IO_T0]
+    bne  pt_ackh
+pt_noack:
+    ld   2, ac
+    bra  pt_out
+pt_done:
+    clr  ac
+pt_out:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+; ------------------------------------------------------------
+; mouse_cmd - send a byte to the mouse and read its acknowledge (FA)
+;   in:      AC = the byte
+;   out:     AC = 0 acknowledged, 1 no mouse, 2 any other answer.  The
+;            latch is left at P_FREE.
+;   changes: X, Y, T0-T2, IO_T0-IO_T2, IO_TMP
+;   clocks:  about 55,000 (2.2 ms)
+;   Uses 2 stack bytes.
+; ------------------------------------------------------------
+mouse_cmd:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   x, ac
+    dec
+    ld   ac, x
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   x, ac
+    dec
+    ld   ac, [SP]
+    ld   [SAVE_AC], ac
+    ld   LINK_LO, x             ; CALL ps2_tx
+    ld   mc_bt, [x]
+    ld   LINK_HI, x
+    ld   mc_bt >> 8, [x]
+    ld   ps2_tx >> 8, y
+    jmp  ps2_tx
+mc_bt:
+    bne  mc_out                 ; 1 or 2
+    ld   100, ac                ; the answer within about 25 ms
+    ld   ac, [IO_T1]
+    clr  ac
+    ld   ac, [IO_T2]
+    ld   LINK_LO, x             ; CALL ps2_rx
+    ld   mc_br, [x]
+    ld   LINK_HI, x
+    ld   mc_br >> 8, [x]
+    ld   ps2_rx >> 8, y
+    jmp  ps2_rx
+mc_br:
+    bne  mc_e2
+    ld   [T0], ac
+    xor  0xFA, ac
+    beq  mc_out                 ; AC = 0
+mc_e2:
+    ld   2, ac
+mc_out:
+    ld   lib_leave >> 8, y      ; LEAVE
+    jmp  lib_leave
+
+
+; ============================================================
+; Page D: mouse start-up and poll
+; ============================================================
+#addr IO_CODE + 0xD00
+
+; ------------------------------------------------------------
+; mouse_init - reset the PS/2 mouse and start it reporting
+;   in:      -
+;   out:     AC = 0 the mouse is running (MOUSE_ST bit 7 = 1), 1 no
+;            mouse, 2 the mouse answered wrongly.  Latch = P_IDLE.
+;   changes: X, Y, T0-T2, IO_T0-IO_T2, IO_TMP, MOUSE_B, MOUSE_DX,
+;            MOUSE_DY
+;   clocks:  up to about 25,000,000 (1 s) while the mouse tests itself
+;            after the reset; 0.5 s is usual
+;   Uses 4 stack bytes.  Sends FF (reset): FA, then AA 00 when its self
+;   test is done; then F4 (reporting on): FA.  The mouse then streams
+;   packets, which mouse_poll reads.
+; ------------------------------------------------------------
+mouse_init:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   x, ac
+    dec
+    ld   ac, x
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   x, ac
+    dec
+    ld   ac, [SP]
+    ld   [SAVE_AC], ac
+    clr  ac
+    ld   ac, [MOUSE_ST]
+    ld   ac, [MOUSE_B]
+    ld   ac, [MOUSE_DX]
+    ld   ac, [MOUSE_DY]
+    ld   0xFF, ac               ; reset
+    ld   LINK_LO, x             ; CALL mouse_cmd
+    ld   mi_br, [x]
+    ld   LINK_HI, x
+    ld   mi_br >> 8, [x]
+    ld   mouse_cmd >> 8, y
+    jmp  mouse_cmd
+mi_br:
+    bne  mi_out                 ; 1 or 2
+    clr  ac                     ; AA within about 1 s
+    ld   ac, [IO_T1]
+    ld   16, ac
+    ld   ac, [IO_T2]
+    ld   LINK_LO, x             ; CALL ps2_rx
+    ld   mi_baa, [x]
+    ld   LINK_HI, x
+    ld   mi_baa >> 8, [x]
+    ld   ps2_rx >> 8, y
+    jmp  ps2_rx
+mi_baa:
+    bne  mi_e2
+    ld   [T0], ac
+    xor  0xAA, ac
+    bne  mi_e2
+    ld   100, ac                ; then 00 (the device ID)
+    ld   ac, [IO_T1]
+    clr  ac
+    ld   ac, [IO_T2]
+    ld   LINK_LO, x             ; CALL ps2_rx
+    ld   mi_bid, [x]
+    ld   LINK_HI, x
+    ld   mi_bid >> 8, [x]
+    ld   ps2_rx >> 8, y
+    jmp  ps2_rx
+mi_bid:
+    bne  mi_e2
+    ld   [T0], ac
+    bne  mi_e2
+    ld   0xF4, ac               ; reporting on
+    ld   LINK_LO, x             ; CALL mouse_cmd
+    ld   mi_bf4, [x]
+    ld   LINK_HI, x
+    ld   mi_bf4 >> 8, [x]
+    ld   mouse_cmd >> 8, y
+    jmp  mouse_cmd
+mi_bf4:
+    bne  mi_out
+    ld   0x80, ac               ; running
+    ld   ac, [MOUSE_ST]
+    clr  ac
+    bra  mi_out
+mi_e2:
+    ld   2, ac
+mi_out:
+    ld   PORT, y                ; hold the mouse off again
+    ld   P_IDLE, [y,x]
+    ld   lib_leave >> 8, y      ; LEAVE
+    jmp  lib_leave
+
+; ============================================================
+; Page E: mouse poll
+; ============================================================
+#addr IO_CODE + 0xE00
+
+; ------------------------------------------------------------
+; mouse_poll - read the mouse's movement since the last poll
+;   in:      -
+;   out:     AC = 1 and MOUSE_B, MOUSE_DX, MOUSE_DY set from a new
+;            packet, 0 nothing new, 2 a bad packet (dropped; the next
+;            poll reads the mouse again).  Latch = P_IDLE.
+;            MOUSE_B bit 0 = left, 1 = right, 2 = middle button down.
+;            MOUSE_DX = right, MOUSE_DY = down, -127 to 127 (signed).
+;   changes: X, Y, T0-T2, IO_T0-IO_T3, IO_TMP
+;   clocks:  about 26,000 (1 ms) with nothing new, about 100,000
+;            (4 ms) with a packet
+;   Uses 2 stack bytes.  Call it once per frame.  It lets the mouse
+;   send for about 1 ms; a mouse with movement to report starts within
+;   that, and otherwise keeps adding it up until the next poll.
+; ------------------------------------------------------------
+mouse_poll:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   x, ac
+    dec
+    ld   ac, x
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   x, ac
+    dec
+    ld   ac, [SP]
+    ld   [SAVE_AC], ac
+    ld   PORT, y                ; let the mouse go
+    ld   P_FREE, [y,x]
+    ld   MOUSE_WAIT, ac         ; about 1 ms for a start bit
+    ld   ac, [IO_T1]
+    clr  ac
+    ld   ac, [IO_T2]
+    ld   LINK_LO, x             ; CALL ps2_rx
+    ld   mp_b0, [x]
+    ld   LINK_HI, x
+    ld   mp_b0 >> 8, [x]
+    ld   ps2_rx >> 8, y
+    jmp  ps2_rx
+mp_b0:
+    xor  1, ac
+    beq  mp_out                 ; nothing: AC = 0
+    xor  1, ac
+    bne  mp_e2
+    ld   [T0], ac               ; byte 1: bit 3 is always 1
+    ld   ac, [IO_T3]
+    and  0x08, ac
+    beq  mp_e2
+    ld   8, ac                  ; byte 2 (X) follows within about 2 ms
+    ld   ac, [IO_T1]
+    clr  ac
+    ld   ac, [IO_T2]
+    ld   LINK_LO, x             ; CALL ps2_rx
+    ld   mp_b1, [x]
+    ld   LINK_HI, x
+    ld   mp_b1 >> 8, [x]
+    ld   ps2_rx >> 8, y
+    jmp  ps2_rx
+mp_b1:
+    bne  mp_e2
+    ld   [T0], ac
+    ld   ac, [MOUSE_DX]
+    ld   8, ac                  ; byte 3 (Y)
+    ld   ac, [IO_T1]
+    clr  ac
+    ld   ac, [IO_T2]
+    ld   LINK_LO, x             ; CALL ps2_rx
+    ld   mp_b2, [x]
+    ld   LINK_HI, x
+    ld   mp_b2 >> 8, [x]
+    ld   ps2_rx >> 8, y
+    jmp  ps2_rx
+mp_b2:
+    bne  mp_e2
+    ld   PORT, y                ; hold the mouse off
+    ld   P_IDLE, [y,x]
+    ld   [IO_T3], ac            ; buttons
+    and  0x07, ac
+    ld   ac, [MOUSE_B]
+    ld   [IO_T3], ac            ; X: 9 bits, sign in bit 4, overflow in bit 6
+    and  0x40, ac
+    bne  mp_xo
+    ld   [IO_T3], ac
+    and  0x10, ac
+    bne  mp_xn
+    ld   [MOUSE_DX], ac         ; 0 to 255: above 127 becomes 127
+    blt  mp_xp
+    bra  mp_y
+mp_xn:
+    ld   [MOUSE_DX], ac         ; -256 to -1: below -127 becomes -127
+    blt  mp_xn1
+    bra  mp_xm                  ; 00-7F: -256 to -129
+mp_xn1:
+    xor  0x80, ac               ; 80 is -128
+    bne  mp_y
+mp_xm:
+    ld   0x81, ac
+    ld   ac, [MOUSE_DX]
+    bra  mp_y
+mp_xo:
+    ld   [IO_T3], ac
+    and  0x10, ac
+    bne  mp_xm
+mp_xp:
+    ld   0x7F, ac
+    ld   ac, [MOUSE_DX]
+mp_y:
+    ld   [IO_T3], ac            ; Y: sign in bit 5, overflow in bit 7
+    and  0x80, ac
+    bne  mp_yo
+    ld   [IO_T3], ac
+    and  0x20, ac
+    bne  mp_yn
+    ld   [T0], ac
+    blt  mp_yp
+    bra  mp_yneg
+mp_yn:
+    ld   [T0], ac
+    blt  mp_yn1
+    bra  mp_ym
+mp_yn1:
+    xor  0x80, ac
+    bne  mp_yneg
+mp_ym:
+    ld   0x81, ac
+    ld   ac, [T0]
+    bra  mp_yneg
+mp_yo:
+    ld   [IO_T3], ac
+    and  0x20, ac
+    bne  mp_ym
+mp_yp:
+    ld   0x7F, ac
+    ld   ac, [T0]
+mp_yneg:
+    ld   [T0], ac               ; down is positive on the screen
+    xor  0xFF, ac
+    add  1, ac
+    ld   ac, [MOUSE_DY]
+    ld   1, ac
+    bra  mp_out
+mp_e2:
+    ld   2, ac
+mp_out:
+    ld   PORT, y                ; hold the mouse off
+    ld   P_IDLE, [y,x]
+    ld   lib_leave >> 8, y      ; LEAVE
+    jmp  lib_leave
 
 
 ; ============================================================

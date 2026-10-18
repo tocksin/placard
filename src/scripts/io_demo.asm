@@ -2,8 +2,9 @@
 ;
 ; Starts the SD card and shows the result and the last two bytes of block 0
 ; (55 AA on a card with a partition table or a FAT boot sector).  Then, once
-; per frame, it scans the keyboard and echoes what is typed, and reads both
-; pads and prints their buttons (pad_read's bits, in hex) when they change.
+; per frame, it scans the keyboard and echoes what is typed, reads both pads
+; and prints their buttons (pad_read's bits, in hex) when they change, and
+; prints each PS/2 mouse packet (buttons, right, down) if a mouse started.
 ;
 ; It is a ROM program (ROM.md): it runs in place from ROM x6000 and calls
 ; the library and I/O drivers in place.  Block 0 is read into x4100-x42FF.
@@ -22,6 +23,7 @@ pad1_hi = 0x21
 pad2_lo = 0x22
 pad2_hi = 0x23
 sd_rc   = 0x24          ; sd_init's answer
+mouse   = 0x25          ; mouse_init's answer (0 = running)
 BUF     = 0x4100        ; block 0
 
 #addr 0x6000
@@ -153,6 +155,32 @@ m12:
 
 #addr 0x6100
 go:
+    ld   s_mouse, ac
+    ld   ac, [R0]
+    ld   s_mouse >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL con_puts
+    ld   g0a, [x]
+    ld   LINK_HI, x
+    ld   g0a >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+g0a:
+    ld   LINK_LO, x             ; CALL mouse_init
+    ld   g0b, [x]
+    ld   LINK_HI, x
+    ld   g0b >> 8, [x]
+    ld   mouse_init >> 8, y
+    jmp  mouse_init
+g0b:
+    ld   ac, [mouse]
+    ld   LINK_LO, x             ; CALL con_hex8
+    ld   g0c, [x]
+    ld   LINK_HI, x
+    ld   g0c >> 8, [x]
+    ld   con_hex8 >> 8, y
+    jmp  con_hex8
+g0c:
     ld   s_help, ac
     ld   ac, [R0]
     ld   s_help >> 8, ac
@@ -218,7 +246,9 @@ p1:
     bne  p_new
     ld   [R3], ac
     xor  [pad2_hi], ac
-    beq  loop
+    bne  p_new
+    ld   mouse_chk >> 8, y
+    jmp  mouse_chk
 p_new:
     ld   [R0], ac
     ld   ac, [pad1_lo]
@@ -292,17 +322,88 @@ q6:
     ld   con_putc >> 8, y
     jmp  con_putc
 q7:
+    ld   mouse_chk >> 8, y
+    jmp  mouse_chk
+
+#addr 0x6300
+mouse_chk:
+    ld   [mouse], ac            ; a mouse running?
+    bne  mc_done
+    ld   LINK_LO, x             ; CALL mouse_poll
+    ld   mc1, [x]
+    ld   LINK_HI, x
+    ld   mc1 >> 8, [x]
+    ld   mouse_poll >> 8, y
+    jmp  mouse_poll
+mc1:
+    xor  1, ac
+    bne  mc_done                ; no new packet
+    ld   s_mpk, ac              ; "\nmouse bb xx yy"
+    ld   ac, [R0]
+    ld   s_mpk >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL con_puts
+    ld   mc2, [x]
+    ld   LINK_HI, x
+    ld   mc2 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+mc2:
+    ld   [MOUSE_B], ac
+    ld   LINK_LO, x             ; CALL con_hex8
+    ld   mc3, [x]
+    ld   LINK_HI, x
+    ld   mc3 >> 8, [x]
+    ld   con_hex8 >> 8, y
+    jmp  con_hex8
+mc3:
+    ld   0x20, ac
+    ld   LINK_LO, x             ; CALL con_putc
+    ld   mc4, [x]
+    ld   LINK_HI, x
+    ld   mc4 >> 8, [x]
+    ld   con_putc >> 8, y
+    jmp  con_putc
+mc4:
+    ld   [MOUSE_DX], ac
+    ld   LINK_LO, x             ; CALL con_hex8
+    ld   mc5, [x]
+    ld   LINK_HI, x
+    ld   mc5 >> 8, [x]
+    ld   con_hex8 >> 8, y
+    jmp  con_hex8
+mc5:
+    ld   0x20, ac
+    ld   LINK_LO, x             ; CALL con_putc
+    ld   mc6, [x]
+    ld   LINK_HI, x
+    ld   mc6 >> 8, [x]
+    ld   con_putc >> 8, y
+    jmp  con_putc
+mc6:
+    ld   [MOUSE_DY], ac
+    ld   LINK_LO, x             ; CALL con_hex8
+    ld   mc_done, [x]
+    ld   LINK_HI, x
+    ld   mc_done >> 8, [x]
+    ld   con_hex8 >> 8, y
+    jmp  con_hex8
+mc_done:
     ld   loop >> 8, y
     jmp  loop
 
-#addr 0x6300
+#addr 0x6400
 s_title:
     #d "PLACARD I/O DEMO", 0x0A, 0x0A, "SD card: ", 0x00
 s_codes:
-    #d " (00 ready, 01 no card, 02 did not start, 03 unusable)", 0x0A, 0x00
+    #d " (00 ready, 01 none, 02 did not start, 03 unusable)", 0x0A, 0x00
 s_block:
     #d "block 0: ", 0x00
 s_help:
     #d 0x0A, 0x0A, "Type on the keyboard and press pad buttons.", 0x0A, 0x0A, 0x00
 s_pads:
     #d 0x0A, "pads ", 0x00
+s_mouse:
+    #d 0x0A, "Mouse: ", 0x00
+s_mpk:
+    #d 0x0A, "mouse ", 0x00
