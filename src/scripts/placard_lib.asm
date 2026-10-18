@@ -127,6 +127,7 @@ LIB2_CODE = 0xE000      ; library bank 2, xE000-xFBFF; xE000-xE0FF is kept
 #include "placard_snd.asm"    ; sound driver in bank 2 (SOUND.md)
 #include "placard_slot.asm"   ; expansion slot helpers in bank 2 (EXPANSION.md)
 #include "placard_fs.asm"     ; FAT file reading in bank 2 (IO.md)
+#include "placard_input.asm"  ; line input, mouse pointer in bank 2 (IO.md)
 
 
 ; ============================================================
