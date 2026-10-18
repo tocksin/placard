@@ -231,7 +231,10 @@ gt_h:
 gen_noise:
     ld   [SND_ACL], ac
     add  [SND_INL], ac
-    bge  gn_keep
+    blt  gn_step
+    ld   ac, [SND_ACL]
+    bra  gn_out
+gn_step:
     and  0x7F, ac
     ld   ac, [SND_ACL]
     ld   [SND_INH], ac          ; low byte: shift right, bit 7 from high
@@ -257,9 +260,6 @@ gn_1:
     ld   [SND_ACH], ac
     xor  0xB4, ac
     ld   ac, [SND_ACH]
-    bra  gn_out
-gn_keep:
-    ld   ac, [SND_ACL]
 gn_out:
     ld   [SND_INH], ac
     and  1, ac
@@ -360,14 +360,14 @@ su_lap:
 snd_tone:
     and  0x7F, ac
     ld   ac, [SND_VOL]
-    ld   [R0], ac
-    and  0x7F, ac
-    ld   ac, [SND_INL]
     ld   [R1], ac
     shl
     ld   ac, [SND_INH]
     ld   [R0], ac
-    bge  st_lev
+    shl                         ; carry = R0 bit 7
+    shr  ac                     ; R0 & 7F
+    ld   ac, [SND_INL]
+    bcc  st_lev
     ld   [SND_INH], ac
     or   1, ac
     ld   ac, [SND_INH]
@@ -405,6 +405,7 @@ st_lev:                         ; levels, time and fade, then start
 ;   The noise starts from the same seed every time, so a sound effect
 ;   sounds the same each time it plays.
 ; ------------------------------------------------------------
+#addr LIB2_CODE + 0x33C            ; entry addresses stay fixed (carry flag rewrite left a gap)
 snd_noise:
     and  0x7F, ac
     ld   ac, [SND_VOL]
@@ -567,7 +568,7 @@ su_lap2:
     bne  su_snd
     ld   [SND_CLEAN], ac        ; silent: count clean laps, up to 2
     sub  2, ac
-    bge  su_end
+    bcc  su_end
     ld   [SND_CLEAN], ac
     inc
     ld   ac, [SND_CLEAN]

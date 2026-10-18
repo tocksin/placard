@@ -13,7 +13,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | # | Part number | Type | Function in the design |
 |--:|---|---|---|
 | 1 | ATF22V10C-7PX | PLD (22V10, 24-pin) | State machine: FETCH / LOAD / EXEC, register loads, R/W (`ATF22V10_STATE.pld`) |
-| 2 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Branch decode, LoadPCLow/High, ADD/SUB wait clock and STALL, SRC_EN to the memory control (`ATF22V10_BRANCH.pld`) |
+| 2 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Branch decode, LoadPCLow/High, ADD/SUB wait clock and STALL, SRC_EN to the memory control, carry flag for BCS/BCC (COUT from the high ALU PLD on pin 14) (`ATF22V10_BRANCH.pld`) |
 | 3 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Program counter, low byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
 | 4 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Program counter, high byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
 | 5 | ATF22V10C-7PX | PLD (22V10, 24-pin) | ALU, low nibble: 4-bit ALU with Z flag (`ALU_SHR.pld`) |

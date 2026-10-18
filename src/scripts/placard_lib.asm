@@ -196,8 +196,8 @@ frame_poll:
     blt  fp_diff
     ld   [T0], ac               ; same top bit: the difference has the sign
     sub  [LINE_LAST], ac
-    bge  fp_same
-    bra  fp_tick
+    blt  fp_tick
+    bra  fp_same
 fp_diff:
     ld   [T0], ac               ; top bits differ: new < last if new < 128
     blt  fp_same
@@ -235,8 +235,8 @@ wf_loop:
     blt  wf_diff
     ld   [T0], ac
     sub  [LINE_LAST], ac
-    bge  wf_same
-    bra  wf_tick
+    blt  wf_tick
+    bra  wf_same
 wf_diff:
     ld   [T0], ac
     blt  wf_same
@@ -394,8 +394,8 @@ s16_b:
 ; mul8 - 8 x 8 bit unsigned multiply
 ;   in:      R0 = a, R1 = b
 ;   out:     R3:R2 = a * b, AC = R3
-;   changes: T0, T1, T2, T3, T4
-;   clocks:  about 460 + 67 per 1 bit in b (458-993)
+;   changes: T0, T1
+;   clocks:  476-719 (476 + about 12-30 per 1 bit in b)
 ; ------------------------------------------------------------
 mul8:
     clr  ac
@@ -410,14 +410,13 @@ m8_loop:
     shl
     ld   ac, [R3]
     ld   [R2], ac
-    bge  m8_s
+    shl                         ; carry = bit 7 of the low byte
+    ld   ac, [R2]
+    bcc  m8_s
     ld   [R3], ac
     or   1, ac
     ld   ac, [R3]
-    ld   [R2], ac
 m8_s:
-    shl
-    ld   ac, [R2]
     ld   [T0], ac               ; next multiplier bit
     blt  m8_add
     shl
@@ -427,18 +426,9 @@ m8_add:
     shl
     ld   ac, [T0]
     ld   [R2], ac               ; product += a
-    and  [R0], ac
-    ld   ac, [T3]
-    ld   [R2], ac
-    or   [R0], ac
-    ld   ac, [T4]
-    ld   [R2], ac
     add  [R0], ac
     ld   ac, [R2]
-    not
-    and  [T4], ac
-    or   [T3], ac               ; bit 7 = carry
-    bge  m8_next
+    bcc  m8_next                ; the carry flag from the add
     ld   [R3], ac
     inc
     ld   ac, [R3]
@@ -459,6 +449,7 @@ m8_next:
 ;   clocks:  12 + 41 per byte
 ;   Any address, including the I/O window, so be careful with x5000.
 ; ------------------------------------------------------------
+#addr LIB_CODE + 0x1C7            ; entry addresses stay fixed (carry flag rewrite left a gap)
 memset:
     ld   ac, [T0]
 ms_loop:
@@ -493,7 +484,7 @@ ms_nc:
 ;   out:     AC = quotient, X = remainder
 ;            (divisor 0 gives quotient 255, remainder = dividend)
 ;   changes: T0, T1, T2, T3
-;   clocks:  611-891
+;   clocks:  about 580-790
 ; ------------------------------------------------------------
 div8:
     ld   [R0], ac
@@ -510,26 +501,19 @@ d8_loop:
     shl
     ld   ac, [T1]
     ld   [T0], ac
-    bge  d8_s
+    shl                         ; carry = quotient bit 7
+    ld   ac, [T0]
+    bcc  d8_s
     ld   [T1], ac
     or   1, ac
     ld   ac, [T1]
-    ld   [T0], ac
 d8_s:
-    shl
-    ld   ac, [T0]
     ld   [T3], ac               ; remainder >= 256: subtract
     bne  d8_sub
-    ld   [T1], ac               ; unsigned remainder >= divisor ?
-    xor  [R1], ac
-    blt  d8_diff
-    ld   [T1], ac
+    ld   [T1], ac               ; remainder >= divisor ?
     sub  [R1], ac
-    blt  d8_next
+    bcs  d8_next                ; a borrow: no
     bra  d8_one
-d8_diff:
-    ld   [T1], ac               ; top bits differ: >= if remainder bit 7
-    bge  d8_next
 d8_sub:
     ld   [T1], ac
     sub  [R1], ac
@@ -554,8 +538,9 @@ d8_next:
 ;   in:      R1:R0 = dividend, R2 = divisor (not 0)
 ;   out:     R1:R0 = quotient, AC = X = remainder
 ;   changes: T1, T2, T3
-;   clocks:  1409-2170
+;   clocks:  about 1300-1890
 ; ------------------------------------------------------------
+#addr LIB_CODE + 0x257            ; entry addresses stay fixed (carry flag rewrite left a gap)
 div16:
     clr  ac
     ld   ac, [T1]               ; remainder
@@ -569,35 +554,27 @@ d16_loop:
     shl
     ld   ac, [T1]
     ld   [R1], ac
-    bge  d16_s1
+    shl                         ; carry = R1 bit 7
+    ld   ac, [R1]
+    bcc  d16_s1
     ld   [T1], ac
     or   1, ac
     ld   ac, [T1]
-    ld   [R1], ac
 d16_s1:
-    shl
-    ld   ac, [R1]
     ld   [R0], ac
-    bge  d16_s2
+    shl                         ; carry = R0 bit 7
+    ld   ac, [R0]
+    bcc  d16_s2
     ld   [R1], ac
     or   1, ac
     ld   ac, [R1]
-    ld   [R0], ac
 d16_s2:
-    shl
-    ld   ac, [R0]
     ld   [T3], ac
     bne  d16_sub
-    ld   [T1], ac
-    xor  [R2], ac
-    blt  d16_diff
-    ld   [T1], ac
+    ld   [T1], ac               ; remainder >= divisor ?
     sub  [R2], ac
-    blt  d16_next
+    bcs  d16_next               ; a borrow: no
     bra  d16_one
-d16_diff:
-    ld   [T1], ac
-    bge  d16_next
 d16_sub:
     ld   [T1], ac
     sub  [R2], ac
@@ -624,6 +601,7 @@ d16_next:
 ;   clocks:  9 + 64 per byte
 ;   Overlap is fine when the destination is below the source.
 ; ------------------------------------------------------------
+#addr LIB_CODE + 0x2B8            ; entry addresses stay fixed (carry flag rewrite left a gap)
 memcpy:
 mc_loop:
     ld   [R0], x

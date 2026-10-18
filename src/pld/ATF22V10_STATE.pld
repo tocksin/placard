@@ -1,6 +1,6 @@
 Name     STATE_CTRL;
 PartNo   00;
-Date     2026-10-15;
+Date     2026-10-18;
 Revision 12;
 Designer Justin;
 Company  ;
@@ -65,6 +65,9 @@ Device   g22v10;
      touch the PC, so they still work, one clock slower.
 
    BGE PAD BYTE (revision 11)
+     (Branch PLD revision 11 turned memory field 101 from BGE into BCC,
+     branch if carry clear.  The equations here are unchanged:
+     everything below about BGE now applies to BCC.)
      MEM = 101 is a zero-page store on an ALU op but BGE on a branch.
      Revision 10 told them apart in FETCH with BRANCH_BLOCK from the
      Branch PLD, decoded from the opcode on the data bus, so the

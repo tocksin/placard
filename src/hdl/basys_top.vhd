@@ -334,7 +334,9 @@ begin
         branch_block => branchBlock,
         alu_done     => aluDone,
         stall        => cpuStall,
-        srcEn        => srcEn
+        srcEn        => srcEn,
+        cout         => carryout,
+        carry        => open
     );
     
     memMode <= "[0,D]" when instReg(4 downto 2)="000" else

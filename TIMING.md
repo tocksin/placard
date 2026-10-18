@@ -33,7 +33,10 @@ register or bus delay is added, so a single-clock EXEC cannot work at
 25.175 MHz with this ALU.
 The ALU has since been changed to a lookahead carry with one wait clock on
 ADD/SUB, which closes both ALU paths ([ALU_TIMING.md](ALU_TIMING.md)); the
-tables below are the analysis of the design before that change.
+tables below are the analysis of the design before that change.  The carry
+flag (Branch PLD revision 11) latches the high ALU's COUT in the same two
+clocks: IR 10.5 + '138 9 + '541 enable 9.5 + four ALU passes 30 + setup 3.5
+= 62.5 ns against 79.44 ns, 16.9 ns to spare.
 [VIDEO_TIMING.md](VIDEO_TIMING.md) works through the video read (ranks 2
 and 7) and the write glitch, which the ALU change's STALL signal spread from
 the first byte of a line to every video byte.
@@ -41,8 +44,8 @@ the first byte of a line to every video byte.
 (rank 3) and the late store address after FETCH.
 [TIMING_FIXES.md](TIMING_FIXES.md) covers the rest: the ALU wait clock
 bug, stores after FETCH, the `lineCode` race, the chip selects, the
-fetch into the branch check (rank 4, fixed by a pad byte after BGE with an
-AC or X target), the bus contention around a write (fixed by a memory
+fetch into the branch check (rank 4, fixed by a pad byte after BGE, now
+BCC, with an AC or X target), the bus contention around a write (fixed by a memory
 control PLD in place of the '32), and a write race on the upper 32K chip
 select found there.
 
