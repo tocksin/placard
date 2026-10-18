@@ -112,6 +112,34 @@ def diode(xa, xk, y, ref, color=INK):
         T(m, y - 1.7, ref, fs=6.5, ha="center")
 
 
+def supply_down(x, y, name):
+    """a supply flag below a part: bar and name under it"""
+    wire([(x, y), (x, y + 1.2)], INK)
+    wire([(x - 1.4, y + 1.2), (x + 1.4, y + 1.2)], PWR, lw=2)
+    T(x, y + 2.5, name, fs=7, ha="center", color=PWR, weight="bold")
+
+
+def rnet(xl, xr, ytop, pinxs, ref, label):
+    """a bussed resistor network: 8 resistors from a common line (pin 1, at the
+    right end, up to +5V) down to pins 2-9.  Returns the pin stub ends."""
+    yc = ytop + 1.8
+    ax.add_patch(Rectangle((xl, ytop), xr - xl, 9, fc=CHIP, ec=INK, lw=1.4, zorder=2))
+    p1 = xr - 3
+    wire([(p1, ytop - 2), (p1, yc)], INK)
+    rail(p1, ytop - 2, "+5V")
+    T(p1 + 0.6, ytop - 0.8, "1", fs=6, color=MUTE)
+    wire([(pinxs[0], yc), (p1, yc)], INK)
+    ends = []
+    for i, x in enumerate(pinxs):
+        dot(x, yc, INK)
+        res(x, yc, ytop + 9, "", "")
+        wire([(x, ytop + 9), (x, ytop + 11)], INK)
+        T(x + 0.5, ytop + 9.9, str(i + 2), fs=6, color=MUTE)
+        ends.append((x, ytop + 11))
+    T(xl, ytop - 1.4, ref + "  " + label, fs=7)
+    return ends
+
+
 def cap(x, y0, y1, ref, val):
     m = (y0 + y1) / 2
     wire([(x, y0), (x, m - 0.4)], INK)
@@ -209,7 +237,7 @@ for name in ("/WE", "ADDR_SEL", "ADDR_SEL_HI", "PC15", "H9", "Y7", "A14", "A13",
     net(px, py, lab, "l")
 dest = {"/CE_HI": "upper 32K /CE", "/MAP_WR": "map reg U25",
         "/LINE_RD": "line read U29", "/EXP1": "slots 1, 3", "/EXP2": "slots 2, 4"}
-for name in ("/CE_HI", "/MAP_WR", "/LINE_RD", "/PORT_WR", "/PORT_RD", "/EXP1", "/EXP2"):
+for name in ("/CE_HI", "/MAP_WR", "/LINE_RD", "/EXP1", "/EXP2"):
     px, py = u12[name]
     net(px, py, name)
     if name in dest:
@@ -217,14 +245,7 @@ for name in ("/CE_HI", "/MAP_WR", "/LINE_RD", "/PORT_WR", "/PORT_RD", "/EXP1", "
 
 # ================================================================ data bus pull-ups
 frame(3, 88, 72, 24, "Data bus pull-ups (empty slots read FF)")
-rail(10, 97, "+5V")
-ax.add_patch(Rectangle((8, 97), 60, 3.2, fc=CHIP, ec=INK, lw=1.4, zorder=2))
-T(38, 98.6, "RN1  10k x 8, bussed SIP-9 (pin 1 common)", fs=7, ha="center")
-for i in range(8):
-    x = 16 + i * 7
-    wire([(x, 100.2), (x, 104)], INK)
-    T(x + 0.5, 101.3, str(i + 2), fs=6, color=MUTE)
-    net(x, 104.8, "D%d" % i, "r", fs=7)
+rn1 = rnet(8, 73, 94, [16 + i * 7 for i in range(8)], "RN1", "10k x 8, bussed SIP-9")
 
 # ================================================================ U37 port latch
 frame(78, 14, 64, 128, "Shared port x5200")
@@ -236,13 +257,12 @@ u37 = ic(90, 22, 16, "U37", "SN74HC574N",
          top=(20, "VCC"), bottom=(10, "GND"), title="port latch, rests at FB")
 x, y = u37["/OE"]
 T(x - 0.6, y, "GND", fs=7, ha="right", color=PWR, weight="bold")
-net(*u37["CLK"], "/PORT_WR", "l")
-for i in range(8):
-    net(*u37["D%d" % i], "D%d" % i, "l")
-for q, name in (("Q0", "SCK"), ("Q1", "MOSI"), ("Q2", "/CS"), ("Q3", "PS2D_DRV")):
-    net(*u37[q], name)
-T(u37["Q0"][0] + 6.5, u37["Q0"][1], "(pad CLOCK)", fs=6.5, color=MUTE)
-T(u37["Q1"][0] + 7.5, u37["Q1"][1], "(pad LATCH)", fs=6.5, color=MUTE)
+net(*u37["Q3"], "PS2D_DRV")
+# /PORT_WR from U12 to the latch clock
+x0, y0 = u12["/PORT_WR"]
+cx, cy = u37["CLK"]
+wire([(x0, y0), (80, y0), (80, cy), (cx, cy)])
+T(x0 + 1, y0 - 0.8, "/PORT_WR", fs=6.5, color=NET, weight="bold")
 
 # ================================================================ U38 port PLD
 u38 = ic(122, 56, 18, "U38", "ATF22V10C-7PX",
@@ -251,7 +271,6 @@ u38 = ic(122, 56, 18, "U38", "ATF22V10C-7PX",
          [(14, "/COL0"), (15, "/COL1"), (16, "/COL2"), (17, "/COL3"), (18, "/COL4"),
           (19, "/COL5"), (20, "/COL6"), (21, "/COL7"), None, (22, "D6"), (23, "D7")],
          top=(24, "VCC"), bottom=(12, "GND"), title="ATF22V10_PORT.pld")
-net(*u38["/PORT_RD"], "/PORT_RD", "l")
 net(*u38["A0"], "A0", "l")
 net(*u38["PAD1"], "PAD1_DATA", "l")
 net(*u38["PAD2"], "PAD2_DATA", "l")
@@ -274,68 +293,95 @@ gnd(xs, ys[-1] + 1)
 
 # ================================================================ U39 row buffer
 u39 = ic(122, 107, 18, "U39", "SN74F541N",
-         [(1, "/OE1"), (19, "/OE2"), None, (2, "A1"), (3, "A2"), (4, "A3"), (5, "A4"),
+         [(1, "/OE1"), (19, "/OE2"), None, (18, "Y1"), (17, "Y2"), (16, "Y3"), (15, "Y4"),
+          (14, "Y5"), (13, "Y6"), (12, "Y7"), (11, "Y8")],
+         [None, None, None, (2, "A1"), (3, "A2"), (4, "A3"), (5, "A4"),
           (6, "A5"), (7, "A6"), (8, "A7"), (9, "A8")],
-         [None, None, None, (18, "Y1"), (17, "Y2"), (16, "Y3"), (15, "Y4"), (14, "Y5"),
-          (13, "Y6"), (12, "Y7"), (11, "Y8")],
          top=(20, "VCC"), bottom=(10, "GND"), title="rows on even reads")
-net(*u39["/OE1"], "/PORT_RD", "l")
 net(*u39["/OE2"], "A0", "l")
+
+# /PORT_RD from U12 to the port PLD and the row buffer
+x0, y0 = u12["/PORT_RD"]
+px, py = u38["/PORT_RD"]
+ox, oy = u39["/OE1"]
+wire([(x0, y0), (78, y0), (78, py), (px, py)])
+wire([(100, py), (100, oy), (ox, oy)])
+dot(100, py)
+T(x0 + 1, y0 + 0.9, "/PORT_RD", fs=6.5, color=NET, weight="bold")
+
+# the data bus D7:D0: U37 inputs, U39 outputs and the RN1 pull-ups
+BX, BY = 82, 107
+wire([(BX, u37["D0"][1] + 1), (BX, u39["Y8"][1] + 1)], WIRE, lw=3.5)
+wire([(rn1[0][0] + 1, BY), (BX, BY)], WIRE, lw=3.5)
+T(BX + 1, BY - 1.6, "D7:D0", fs=7, color=WIRE, weight="bold")
 for i in range(8):
-    net(*u39["A%d" % (i + 1)], "ROW%d" % i, "l")
-    net(*u39["Y%d" % (i + 1)], "D%d" % i)
+    x, y = u37["D%d" % i]
+    wire([(x, y), (BX + 1, y), (BX, y + 1)])
+    T(BX + 1.2, y - 0.7, "D%d" % i, fs=5.8, color=NET)
+    x, y = u39["Y%d" % (i + 1)]
+    wire([(x, y), (BX + 1, y), (BX, y + 1)])
+    T(BX + 1.2, y - 0.7, "D%d" % i, fs=5.8, color=NET)
+    x, y = rn1[i]
+    wire([(x, y), (x, BY - 1), (x + 1, BY)])
+    T(x + 0.5, y + 0.4, "D%d" % i, fs=5.8, color=NET)
 
 # ================================================================ row pull-ups and shared rows
 frame(3, 116, 72, 64, "Row pull-ups, shared row lines, PS/2 and pad pull-ups")
-rail(10, 125, "+5V")
-ax.add_patch(Rectangle((8, 125), 60, 3.2, fc=CHIP, ec=INK, lw=1.4, zorder=2))
-T(38, 126.6, "RN2  4.7k x 8, bussed SIP-9 (pin 1 common)", fs=7, ha="center")
+rn2 = rnet(8, 73, 122, [16 + i * 7 for i in range(8)], "RN2", "4.7k x 8, bussed SIP-9")
 for i in range(8):
-    x = 16 + i * 7
-    wire([(x, 128.2), (x, 132)], INK)
-    T(x + 0.5, 129.3, str(i + 2), fs=6, color=MUTE)
-    net(x - 1.6, 133.6, "ROW%d" % i, "r", fs=6.5)
-# diodes: anode at the row, cathode at the line that pulls it low
-dy = 140
-for i, (a, k, ref) in enumerate((("ROW7", "MISO", "D65"), ("ROW6", "PS2_DATA", "D66"),
-                                 ("ROW5", "PS2_CLK", "D67"), ("PS2_CLK", "/CS", "D68"),
-                                 ("PS2_DATA", "PS2D_DRV", "D69"))):
-    yy = dy + i * 4.2
-    net(22, yy, a, "l", fs=7)
-    diode(22, 32, yy, ref)
-    net(32, yy, k, "r", fs=7)
-T(48, dy + 0.0, "MISO low pulls ROW7 low", fs=6.5, color=MUTE)
-T(48, dy + 4.2, "PS/2 DATA read on row 6", fs=6.5, color=MUTE)
-T(48, dy + 8.4, "PS/2 CLK read on row 5", fs=6.5, color=MUTE)
-T(48, dy + 12.6, "/CS = 0 holds the mouse off", fs=6.5, color=MUTE)
-T(48, dy + 16.8, "Q3 = 0 sends to the mouse", fs=6.5, color=MUTE)
-T(6, 162.5, "D65-D69 BAT85 (Schottky)", fs=6.5, color=MUTE)
-# pull-ups on single lines
-for i, (name, val, ref, r) in enumerate((("PS2_CLK", "4.7k", "R1", "+5V"),
-                                         ("PS2_DATA", "4.7k", "R2", "+5V"),
-                                         ("PAD1_DATA", "10k", "R3", "+5V"),
-                                         ("PAD2_DATA", "10k", "R4", "+5V"),
-                                         ("MISO", "10k", "R5", "+3.3V"))):
-    x = 9 + i * 14
-    rail(x, 168, r)
-    res(x, 168, 174, ref, val)
-    wire([(x, 174), (x, 175)])
-    T(x, 176.6, name, fs=6.5, ha="center", color=NET, weight="bold")
+    x, y = rn2[i]
+    T(x + 0.5, y + 1.2, "ROW%d" % i, fs=6, color=NET, weight="bold")
+# rows 5-7 carry the PS/2 and MISO lines through a diode each (anode at the row)
+#   row, wire y, diode anode, cathode, node x, pull-up, supply, second diode, its net
+for r, yy, dref, nname, rref, rval, sup, d2 in (
+        (5, 140, "D67", "PS2_CLK", "R1", "4.7k", "+5V", ("D68", "/CS")),
+        (6, 152, "D66", "PS2_DATA", "R2", "4.7k", "+5V", ("D69", "PS2D_DRV")),
+        (7, 164, "D65", "MISO", "R5", "10k", "+3.3V", None)):
+    x, y = rn2[r]
+    wire([(x, y), (x, yy), (x - 2, yy)])
+    diode(x - 2, x - 10, yy, dref)
+    nx = 36 if d2 else 48
+    wire([(x - 10, yy), (nx if not d2 else 30, yy)])
+    dot(nx, yy)
+    res(nx, yy, yy + 6, rref, rval, side="l")
+    supply_down(nx, yy + 6, sup)
+    if d2:
+        T(nx + 0.4, yy - 1.4, nname, fs=6.5, color=NET, weight="bold")
+        diode(30, 22, yy, d2[0])
+        net(22, yy, d2[1], "l", fs=7)
+    else:
+        wire([(nx, yy), (44, yy)])
+        net(44, yy, nname, "l", fs=7)
+# pad DATA pull-ups
+for i, (name, ref) in enumerate((("PAD1_DATA", "R3"), ("PAD2_DATA", "R4"))):
+    x = 10 + i * 12
+    rail(x, 164, "+5V")
+    res(x, 164, 170, ref, "10k")
+    wire([(x, 170), (x, 171)])
+    T(x, 172.6, name, fs=6.5, ha="center", color=NET, weight="bold")
+T(36, 177, "D65-D69 BAT85 (Schottky).  /CS = 0 holds the mouse off.", fs=6.5, color=MUTE)
 
 # ================================================================ SD card: dividers, U40, J4
-frame(146, 14, 170, 36, "SD card (SPI mode 3, 3.3 V)")
+frame(146, 14, 170, 36, "SD card (SPI mode 3, 3.3 V)", "tr")
 # 5 V to 3.3 V: a divider per line, 1.8k over 3.3k = 3.2 V
 divs = {}
 for i, (name, rs, rp) in enumerate((("/CS", "R8", "R11"), ("MOSI", "R7", "R10"),
                                      ("SCK", "R6", "R9"))):
-    yy = 19 + i * 7
-    net(160, yy, name, "l")
+    yy = 18 + i * 7
     resh(160, 172, yy, rs, "1.8k")
     wire([(172, yy), (176, yy)])
     dot(176, yy)
     res(176, yy, yy + 3.5, rp, "3.3k")
     gnd(176, yy + 3.5)
     divs[name] = (176, yy)
+# from the latch: SCK straight across, MOSI and /CS step up (they cross SCK)
+qy = {n: u37[q][1] for n, q in (("SCK", "Q0"), ("MOSI", "Q1"), ("/CS", "Q2"))}
+qx = u37["Q0"][0]
+wire([(qx, qy["SCK"]), (160, qy["SCK"])])
+wire([(qx, qy["MOSI"]), (150, qy["MOSI"]), (150, 25), (160, 25)])
+wire([(qx, qy["/CS"]), (153, qy["/CS"]), (153, 18), (160, 18)])
+for n, extra in (("SCK", "  (pad CLOCK)"), ("MOSI", "  (pad LATCH)"), ("/CS", "")):
+    T(qx + 1, qy[n] - 0.8, n + extra, fs=6.5, color=NET, weight="bold")
 T(149, 46, "R6-R11: 5 V to 3.2 V, about 1.2k source into the card", fs=6.5, color=MUTE)
 
 j4 = conn(222, 18, "J4", "SD card socket",
@@ -393,10 +439,13 @@ for i in range(8):
     else:
         wire([(ux, uy), (153, uy), (153, jy), (jx, jy)])
     T(ux + 3.5, uy - 0.7, "/COL%d" % i, fs=6, color=NET, weight="bold")
+# the rows from U39 up to J1 pins 9-16
 for i in range(8):
     jx, jy = j1["p%d" % (i + 9)]
-    wire([(jx, jy), (jx - 2, jy)])
-    net(jx - 2, jy, "ROW%d" % i, "l", fs=7)
+    ux, uy = u39["A%d" % (i + 1)]
+    xv = 150 + i * 1.5
+    wire([(ux, uy), (xv, uy), (xv, jy), (jx, jy)])
+    T(ux + 0.4, uy - 0.7, "ROW%d" % i, fs=5.8, color=NET, weight="bold")
 # the matrix on the keyboard board
 keys = [["Esc", "1", "2", "3", "4", "5", "6", "7"],
         ["8", "9", "0", "-", "=", "Bksp", "Tab", "Q"],
