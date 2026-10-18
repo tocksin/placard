@@ -165,7 +165,7 @@ set_property PACKAGE_PIN H2 [get_ports {JA[6]}]
       ## JA10 on schematic
 set_property PACKAGE_PIN G3 [get_ports {JA[7]}]
 
-##Pmod Header JB
+##Pmod Header JB: PmodMicroSD (IO.md): JB1 /CS, JB2 MOSI, JB3 MISO, JB4 SCK
 set_property IOSTANDARD LVCMOS33 [get_ports JB]
     ## JB1 on schematic
 set_property PACKAGE_PIN A14 [get_ports {JB[0]}]
@@ -173,6 +173,7 @@ set_property PACKAGE_PIN A14 [get_ports {JB[0]}]
 set_property PACKAGE_PIN A16 [get_ports {JB[1]}]
     ## JB3 on schematic
 set_property PACKAGE_PIN B15 [get_ports {JB[2]}]
+set_property PULLUP true [get_ports {JB[2]}]
     ## JB4 on schematic
 set_property PACKAGE_PIN B16 [get_ports {JB[3]}]
     ## JB7 on schematic
@@ -184,24 +185,26 @@ set_property PACKAGE_PIN A15 [get_ports {JB[4]}]
     ## JB10 on schematic
 #set_property PACKAGE_PIN C16 [get_ports {JB[7]}]
 
-##Pmod Header JC
-#set_property IOSTANDARD LVCMOS33 [get_ports JC]
+##Pmod Header JC: SNES pads (IO.md): JC1 CLOCK, JC2 LATCH, JC3 pad 1 DATA, JC4 pad 2 DATA
+set_property IOSTANDARD LVCMOS33 [get_ports JC]
     ## JC1 on schematic
-#set_property PACKAGE_PIN K2 [get_ports {JC[0]}]
+set_property PACKAGE_PIN K17 [get_ports {JC[0]}]
     ## JC2 on schematic
-#set_property PACKAGE_PIN E7 [get_ports {JC[1]}]
+set_property PACKAGE_PIN M18 [get_ports {JC[1]}]
     ## JC3 on schematic
-#set_property PACKAGE_PIN J3 [get_ports {JC[2]}]
+set_property PACKAGE_PIN N17 [get_ports {JC[2]}]
+set_property PULLUP true [get_ports {JC[2]}]
     ## JC4 on schematic
-#set_property PACKAGE_PIN J4 [get_ports {JC[3]}]
+set_property PACKAGE_PIN P18 [get_ports {JC[3]}]
+set_property PULLUP true [get_ports {JC[3]}]
     ## JC7 on schematic
-#set_property PACKAGE_PIN K1 [get_ports {JC[4]}]
+#set_property PACKAGE_PIN L17 [get_ports {JC[4]}]
     ## JC8 on schematic
-#set_property PACKAGE_PIN E6 [get_ports {JC[5]}]
+#set_property PACKAGE_PIN M19 [get_ports {JC[5]}]
     ## JC9 on schematic
-#set_property PACKAGE_PIN J2 [get_ports {JC[6]}]
+#set_property PACKAGE_PIN P17 [get_ports {JC[6]}]
     ## JC10 on schematic
-#set_property PACKAGE_PIN G6 [get_ports {JC[7]}]
+#set_property PACKAGE_PIN R18 [get_ports {JC[7]}]
 
 
 ##Pmod Header JXADC

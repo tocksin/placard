@@ -6,7 +6,7 @@ page map that every program shares.  `src/scripts/lib_demo.asm` is a short
 example program that uses it, and `src/scripts/test_lib.py` tests every
 routine in the simulator.
 
-Date: 10/16/2026
+Date: 10/18/2026
 
 | File | What it is |
 |------|------------|
@@ -171,7 +171,7 @@ complete examples.
 
 ## Zero page map
 
-`zeropage.asm` defines these names.  Program variables go in x20-xBF.
+`zeropage.asm` defines these names.  Program variables go in x20-x9F.
 
 | Address | Name | Used by | Use |
 |---------|------|---------|-----|
@@ -190,7 +190,8 @@ complete examples.
 | 0F | `SAVE_AC` | stack | AC parked by PUSH_LINK and lib_leave |
 | 10-17 | `R0`-`R7` | caller | Arguments and results |
 | 18-1F | `T0`-`T7` | library | Scratch, changed by any routine |
-| 20-BF | `USER_ZP` | program | 160 bytes for the program's own variables |
+| 20-9F | `USER_ZP` | program | 128 bytes for the program's own variables |
+| A0-BF | `IO_ZP` | I/O drivers | Keyboard state and buffer, SD and mouse state, driver scratch ([IO.md](IO.md#zero-page)) |
 | C0-FF | `STACK_LOW`-`STACK_TOP` | stack | Software stack, grows down from FF |
 
 Section 0 (x0000-x1FFF) must read from RAM for the zero page to work.
@@ -361,7 +362,9 @@ through 525 lines.
 
 ## Not in the library yet
 
-Keyboard, SNES pad and SD card routines wait for that hardware
-([FEATURE_PLAN.md](FEATURE_PLAN.md)).  Sound buffer refill, pixel routines
+The keyboard, SNES pad, SD card and mouse drivers are in
+`placard_io.asm` at x2000-x2FFF, included by `placard_lib.asm`, with the
+same calling convention; [IO.md](IO.md) lists them and `test_io.py` tests
+them.  FAT file system routines are not written yet.  Sound buffer refill, pixel routines
 for 2, 4 and 8 bpp rows, and line drawing are good next additions.
 `con_scroll` moved to the last code page (x3700), so new routines need room found in pages 0-6 or a second page.

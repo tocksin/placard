@@ -6,7 +6,7 @@ pattern) and `src/hdl/rom.mem` (made by `src/scripts/gen_rom.tcl`).  Both use
 `sp_ram.vhd`, which takes the file name as the generic `initFile`.  Programs
 and the standard library live in the ROM.
 
-Date: 10/16/2026
+Date: 10/18/2026
 
 ## Video always reads the RAM
 
@@ -23,7 +23,8 @@ change.
 | ROM address | Contents | Made from |
 |-------------|----------|-----------|
 | x0000-x0003 | Reset jump to the boot loader (PC starts at 0000) | `rom_boot.asm` |
-| x0004-x2FFF | Free | |
+| x0004-x1FFF | Free | |
+| x2000-x2FFF | I/O drivers (`IO_CODE`): keyboard, pads, SD card, mouse ([IO.md](IO.md)), run in place | `rom_lib.asm` |
 | x3000-x37FF | Standard library code (`LIB_CODE`), runs in place | `rom_lib.asm` |
 | x3800-x3FFF | Standard font (`LIB_FONT`) | `rom_lib.asm` |
 | x4000-x4FFF | Free (section 2 reads RAM while a program runs) | |
@@ -41,7 +42,7 @@ The boot loader writes map = **05**:
 | Section | Address | Reads | Holds |
 |---------|---------|-------|-------|
 | 0 | x0000-x1FFF | RAM | Zero page, program variables and buffers |
-| 1 | x2000-x3FFF | ROM | Standard library and font |
+| 1 | x2000-x3FFF | ROM | I/O drivers, standard library and font |
 | 2 | x4000-x4FFF, x5400-x5FFF | RAM | Program data x4000-x4FFF, x5400-x5A1F and x5C00-x5DF2, mode bytes, audio buffer |
 | 3-7 | x6000-xFFFF | ROM | Program code and tables (the video still shows the RAM) |
 
@@ -57,6 +58,7 @@ freely.
 |------|---------|------------|
 | Zero page variables | RAM x0004-x00FF | `zeropage.asm` |
 | Program variables and buffers | RAM x0100-x1FFF, x4000-x4FFF, x5400-x5A1F, x5C00-x5DF2 | the program |
+| I/O drivers | ROM x2000-x2FFF | `IO_CODE` in `placard_io.asm` |
 | Library code | ROM x3000-x37FF | `LIB_CODE` in `placard_lib.asm` |
 | Font (8x8, printable ASCII) | ROM x3800-x3FFF | `LIB_FONT` in `placard_lib.asm` |
 | Program entry | ROM x6000 | the program (`#addr 0x6000`) |

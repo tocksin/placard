@@ -40,7 +40,7 @@
 ; rom.mem.  The CPU's PC starts at 0000, so x0000-x0003 of the ROM is
 ; this file's reset jump, not the program's.
 ;
-; Date: 10/16/2026
+; Date: 10/18/2026
 
 #include "placard.asm"
 
@@ -53,6 +53,8 @@ MAP_SHADOW  = 0x07      ; zeropage.asm: copy of the map register
 MAP_ROM_RUN = 0x05      ; ROM program: sections 0 and 2 read RAM, 1 and 3-7 ROM
 PROG_START  = 0x6000    ; ROM program entry
 BOOT_MODE   = 0xFC00    ; 00 = ROM program, 01 = RAM image (set by gen_rom.tcl)
+PORT        = 0x5200    ; shared port latch (placard_io.asm)
+P_IDLE      = 0xFB      ; the latch at rest
 
 #addr 0x0000
 reset:
@@ -65,6 +67,9 @@ boot_mode:
 
 #addr 0xFD00
 boot:
+    ld   PORT >> 8, y           ; shared port at rest (IO.md): no keyboard
+    ld   P_IDLE, [y,x]          ; column, SD /CS low (also holds the PS/2
+                                ; mouse off), SCK and MOSI high
     ld   BOOT_MODE >> 8, y
     ld   BOOT_MODE & 0xFF, x
     ld   [y,x], ac
