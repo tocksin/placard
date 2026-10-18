@@ -36,6 +36,8 @@ Branch PLD rev 09):
     JMP also loads PC high <- Y
   - ADD and SUB with an AC, X or Y destination take one extra clock
     (the Branch PLD's ALU wait clock); stores do not
+  - with an io model (io_devices.SharedPort), reads and writes of
+    x5200-x52FF go to the shared port (keyboard, pads, SD card, mouse)
   - a read of x5000-x50FF returns the video line read,
     V9:V2, with one line per 800 CPU clocks and V = 499-1023 (525 lines per
     frame).  Video fetch stalls are not modeled.
@@ -435,8 +437,11 @@ class CpuError(Exception):
 
 
 class Cpu:
-    def __init__(self, mem, hw_alu=False, rom=None):
+    def __init__(self, mem, hw_alu=False, rom=None, io=None):
         self.mem = bytearray(65536)
+        # io: the shared port model (io_devices.SharedPort), or None; reads
+        # and writes of x5200-x52FF go to it
+        self.io = io
         for a, v in mem.items():
             self.mem[a] = v
         # rom: None = one flat memory (every read from mem, as the old FPGA
@@ -486,6 +491,8 @@ class Cpu:
             ad = addr()
             if ad & 0xFF00 == 0x5000:             # /LINE_RD (x5000-x50FF)
                 self.d = self.line_read()
+            elif ad & 0xFF00 == 0x5200 and self.io is not None:   # /PORT_RD
+                self.d = self.io.read(ad, self.clocks + clocks)
             else:
                 self.d = rd(ad)
             clocks += 1
@@ -517,6 +524,8 @@ class Cpu:
                 m_[ad] = src                      # every write goes to the RAM
                 if ad & 0xFF00 == 0x5000:         # /MAP_WR (x5000-x50FF)
                     self.map = src
+                elif ad & 0xFF00 == 0x5200 and self.io is not None:   # /PORT_WR
+                    self.io.write(ad, src, self.clocks + clocks)
         self.steps += 1
         self.clocks += clocks
         return here
@@ -610,6 +619,7 @@ def render(mem, path):
 ROM_IMAGE_BASE = 0x6000      # RAM image: ROM address of RAM x0000
 IMAGE_SIZE = 0x4A00          # RAM x0000-x49FF is copied at boot
 LIB_START, LIB_END = 0x3000, 0x4000
+IO_START = 0x2000            # I/O drivers (placard_io.asm), x2000-x2FFF, ROM programs only
 PROG_START, PROG_END = 0x6000, 0xFC00   # ROM program area
 BOOT_MODE = 0xFC00           # 00 = ROM program, 01 = RAM image
 
@@ -620,7 +630,7 @@ def is_ram_image(prog, lib):
     for a, v in prog.items():
         if a >= PROG_START:
             continue
-        if LIB_START <= a < LIB_END and v == lib.get(a, 0):
+        if IO_START <= a < LIB_END and v == lib.get(a, 0):
             continue
         if v:
             return True
@@ -630,10 +640,10 @@ def is_ram_image(prog, lib):
 def build_rom(prog, base_dir=None):
     """ROM bytes {addr: value} for a program image {addr: value}, as gen_rom.tcl
     makes them (ROM.md): rom_boot.asm, the library (rom_lib.asm) in place at
-    x3000-x3FFF, then either
+    x2000-x3FFF (I/O drivers, library and font), then either
       a ROM program (assembled at x6000-xFBFF): in place, BOOT_MODE = 00, or
       a RAM image (older programs at RAM x0000): BOOT_MODE = 01, the library
-      again at RAM x3000-x3FFF of the image, then the program (x0000 to its
+      (not the I/O drivers) again at RAM x3000-x3FFF of the image, then the program (x0000 to its
       last byte, gaps as 00, like its hex file), at ROM = RAM + x6000."""
     import os
     base_dir = base_dir or os.path.dirname(os.path.abspath(__file__))
@@ -642,7 +652,7 @@ def build_rom(prog, base_dir=None):
     lib, _, _ = assemble(open(os.path.join(base_dir, 'rom_lib.asm')).read(), base_dir)
     rom.update(boot)
     for a, v in lib.items():
-        if LIB_START <= a < LIB_END:
+        if IO_START <= a < LIB_END:
             rom[a] = v
     if not is_ram_image(prog, lib):
         for a, v in prog.items():
@@ -688,7 +698,7 @@ def main(argv):
     open(hexpath, 'w').write(to_hexstr(mem) + '\n')
     print('assembled %d bytes, top %04X -> %s' % (len(mem), max(mem), hexpath))
     if args.run:
-        if not args.boot and all(a >= PROG_START or LIB_START <= a < LIB_END for a in mem):
+        if not args.boot and all(a >= PROG_START or IO_START <= a < LIB_END for a in mem):
             print('a ROM program (code from x6000): running it from the ROM image (--boot)')
             args.boot = True
         if args.boot:
