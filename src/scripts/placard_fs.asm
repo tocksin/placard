@@ -29,9 +29,9 @@
 ; (x4E00-x4FFF) for folder and FAT sectors, both in section 2, which must
 ; read RAM (it does in the standard map 05).  They change R0-R5 and the
 ; I/O drivers' zero page bytes, besides T0-T7.  placard_lib.asm includes
-; this file, in library bank 2.
+; this file; its code is at FS_CODE (xC700-xD4FF).
 ;
-; Date: 10/18/2026
+; Date: 10/19/2026
 ; ============================================================
 
 FS_VARS   = 0x4D00      ; the file system's variables, 128 bytes
@@ -73,7 +73,7 @@ FS_REM    = FS_VARS + V_REM     ; bytes of the open file left to read
 ; ============================================================
 ; Page 6: 32-bit helpers on T0-T3 (and T4-T7)
 ; ============================================================
-#addr LIB2_CODE + 0x600
+#addr FS_CODE
 
 ; fs_get - T0-T3 = 4 bytes of FS_VARS at offset AC.  Changes X, Y.
 fs_get:
@@ -195,7 +195,7 @@ sh_0:
 ; ============================================================
 ; Page 7: 32-bit add, cluster to sector
 ; ============================================================
-#addr LIB2_CODE + 0x700
+#addr FS_CODE + 0x100
 
 ; fs_add - T0-T3 = T0-T3 + T4-T7, AC = T3.
 fs_add:
@@ -305,7 +305,7 @@ fs_r4:
 ; ============================================================
 ; Pages 8-10: following the FAT, fs_chain
 ; ============================================================
-#addr LIB2_CODE + 0x800
+#addr FS_CODE + 0x200
 
 ; fs_nextc - V_SCLUS = the next cluster from the FAT
 ;   out: AC = 0, or 1 at the end of the chain, or an sd_read error
@@ -392,7 +392,7 @@ nc_s:
     ld   nc_sec >> 8, y
     jmp  nc_sec
 
-#addr LIB2_CODE + 0x900
+#addr FS_CODE + 0x300
 nc_sec:
     ld   V_FAT, ac
     ld   LINK_LO, x
@@ -469,7 +469,7 @@ nc_hv:
     ld   nc_have >> 8, y
     jmp  nc_have
 
-#addr LIB2_CODE + 0xA00
+#addr FS_CODE + 0x400
 nc_have:                        ; the FAT sector is in FS_BUF
     ld   FSV, y
     ld   V_OFFP, x
@@ -614,7 +614,7 @@ ch_none:
 ; ============================================================
 ; Page 11: the reader: next sector, start of a chain, the root
 ; ============================================================
-#addr LIB2_CODE + 0xB00
+#addr FS_CODE + 0x500
 
 ; fs_snext - read the reader's next sector to R5:R4
 ;   out: AC = 0 (R5:R4 + 512), 1 at the end, or an sd_read error
@@ -760,7 +760,7 @@ sn_end:
 ; ============================================================
 ; Page 12: fs_next
 ; ============================================================
-#addr LIB2_CODE + 0xC00
+#addr FS_CODE + 0x600
 
 ; ------------------------------------------------------------
 ; fs_next - the next entry of the folder the reader is on
@@ -903,7 +903,7 @@ fn_end:
 ; ============================================================
 ; Pages 13-14: fs_open
 ; ============================================================
-#addr LIB2_CODE + 0xD00
+#addr FS_CODE + 0x700
 
 ; ------------------------------------------------------------
 ; fs_open - find a name in the current folder and open it
@@ -1009,7 +1009,7 @@ fo_go:
     ld   fo_find >> 8, y
     jmp  fo_find
 
-#addr LIB2_CODE + 0xE00
+#addr FS_CODE + 0x800
 fo_find:
     ld   LINK_LO, x
     ld   fs_r28, [x]
@@ -1133,7 +1133,7 @@ fo_nf2:
 ; ============================================================
 ; Page 15: fs_read, fs_load
 ; ============================================================
-#addr LIB2_CODE + 0xF00
+#addr FS_CODE + 0x900
 
 ; ------------------------------------------------------------
 ; fs_read - read the next 512 bytes of the open file
@@ -1296,7 +1296,7 @@ ld_ret:
 ; ============================================================
 ; Pages 16-18: fs_mount
 ; ============================================================
-#addr LIB2_CODE + 0x1000
+#addr FS_CODE + 0xA00
 
 ; ------------------------------------------------------------
 ; fs_mount - find the FAT file system on the SD card
@@ -1430,7 +1430,7 @@ mt_nofs:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 
-#addr LIB2_CODE + 0x1100
+#addr FS_CODE + 0xB00
 mt_bpb:                         ; the boot sector is in FS_BUF
     ld   FSB, y
     ld   0x0B, x                ; 512 bytes per sector
@@ -1565,7 +1565,7 @@ mb_12:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 
-#addr LIB2_CODE + 0x1200
+#addr FS_CODE + 0xC00
 mb_after:                       ; T0-T3 = the first sector after the FATs
     ld   FSV, y
     ld   V_TMPT, x
@@ -1681,7 +1681,7 @@ fs_r60:
 ; ============================================================
 ; Page 19: fs_root, the current folder
 ; ============================================================
-#addr LIB2_CODE + 0x1300
+#addr FS_CODE + 0xD00
 
 ; ------------------------------------------------------------
 ; fs_root - make the root folder the current folder

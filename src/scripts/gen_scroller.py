@@ -60,7 +60,7 @@ THE GAME
     Controls: arrow keys or SNES pad 1 Left / Right, Up / Space / pad B
     or A to jump.
 
-Date: 10/18/2026
+Date: 10/19/2026
 """
 
 import argparse
@@ -673,7 +673,7 @@ ds_one:
         a.addr += 4
     src = '\n'.join(a.out) + '\n'
     mem, syms, _ = ps.assemble(src, HERE)
-    assert max(mem) < 0x2000, 'blitter too big: %04X' % max(mem)
+    assert max(mem) < 0x1F00, 'blitter too big: %04X' % max(mem)   # LIB_RAM is x1F00
     return src, syms, mem
 
 
@@ -2122,7 +2122,8 @@ hu_c3:
     # the RAM blitter as data
     top = max(BLIT_MEM) + 1
     npages = (top - 0x100 + 255) // 256
-    blit_rom = a.addr
+    assert a.addr <= 0xC000, 'program past xBFFF: %04X' % a.addr
+    blit_rom = 0x2000           # in the second ROM program area, x2000-x3FFF
     a.raw('')
     a.raw('BLIT_ROM   = 0x%04X       ; the RAM blitter (x0100-x%04X), copied at start' % (blit_rom, top - 1))
     a.raw('BLIT_PAGES = %d' % npages)
@@ -2130,7 +2131,7 @@ hu_c3:
     data = [BLIT_MEM.get(0x100 + i, 0) for i in range(npages * 256)]
     for i in range(0, len(data), 16):
         a.raw('    #d8 ' + ', '.join('0x%02X' % v for v in data[i:i + 16]))
-    assert blit_rom + len(data) <= 0xE000, hex(blit_rom + len(data))
+    assert blit_rom + len(data) <= 0x4000, hex(blit_rom + len(data))
     a.raw('POLLS_PER_PCT = %d' % POLLS_PER_PCT)
     return '\n'.join(a.out) + '\n', dict(strips_end=strips_end, blit_end=blit_rom + len(data), labels=labels)
 

@@ -19,7 +19,8 @@
 ; 352-479 x183 + 4n.
 ;
 ; While it runs, once per frame (frame_poll):
-;   - RAM test: one 256-byte page of x0100-x1FFF and x4000-x4FFF (47 pages)
+;   - RAM test: one 256-byte page of x0100-x1EFF and x4000-x4FFF (46 pages;
+;     x1F00-x1FFF holds the library's RAM code, LIB_RAM)
 ;     per frame, 14 patterns each (00, FF, 55, AA, walking 1, and the
 ;     address XOR a seed and its complement), write then read back.  The
 ;     progress bar fills a block per page (an inverse E marks a page with
@@ -36,7 +37,7 @@
 ;     python3 placard_sim.py test_screen.asm --run --max-steps 3000000 --png ts.png
 ;     python3 test_screen_sim.py                (frames and an animated GIF)
 ;
-; Date: 10/18/2026
+; Date: 10/19/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -106,7 +107,7 @@ PAGE_COL   = 37         ; RAM test page, row 7
 PASS_COL   = 47         ; RAM test passes, row 7
 ERR_COL    = 63         ; RAM test errors, row 7
 BAR_COL    = 11         ; progress bar, row 8
-NPAGES     = 47         ; RAM test pages per pass
+NPAGES     = 46         ; RAM test pages per pass
 NPAT       = 14         ; RAM test patterns per page
 
 ; tables (ROM)
@@ -217,7 +218,7 @@ ts_m4:
     ld   ts_put_range >> 8, y
     jmp  ts_put_range
 ts_m5:
-    clr  ac                     ; progress bar: 47 dots
+    clr  ac                     ; progress bar: 46 dots
     ld   ac, [pr_inc]
     ld   ac, [s_attr]
     ld   BAR_COL, ac
@@ -1784,11 +1785,11 @@ CLKLIM:                         ; uptime digit limits: h h : m m : s s
 RAINBOW:                        ; "16 COLORS"
     #d8 0xCC, 0xEE, 0x00, 0xAA, 0xBB, 0x99, 0xDD, 0xCC, 0xEE
 #addr TBL + 0x50
-PAGES:                          ; RAM test pages: x01-x1F, x40-x4F
+PAGES:                          ; RAM test pages: x01-x1E, x40-x4F
     #d8 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
     #d8 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10
     #d8 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18
-    #d8 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F
+    #d8 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E
     #d8 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47
     #d8 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F
 #addr TBL + 0x80

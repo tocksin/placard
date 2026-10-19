@@ -9,17 +9,18 @@ that was cut to keep the chip count down.
 ## Software
 
 Software that runs on the Placard itself.  It all builds on the standard
-library (LIBRARY.md: calling convention, software stack, text console at
-x3000-x3FFF, I/O drivers at x2000-x2FFF) and the ROM layout in ROM.md.
-Free ROM for it today is x0004-x1FFF (8 KB) plus x4000-x4FFF and
-x5400-x5FFF; free RAM is about 14 KB (x0100-x1FFF, x4000-x4FFF and the
-small pieces in section 2, while section 1 reads the ROM), plus up to
-20-30 KB of video RAM when rows use 2x or 4x line repeat.
+library (LIBRARY.md: calling convention, software stack, jump table, one
+library block at ROM xC600-xFBFF) and the ROM layout in ROM.md.  Free ROM
+for it today is x0004-x1EFF (8 KB), x4000-x4FFF and x5400-x5FFF, and
+xC000-xC5FF for the library to grow into; a program has x2000-x3FFF and
+x6000-xBFFF.  Free RAM is about 14 KB (x0100-x1EFF, x4000-x4FFF and the
+small pieces in section 2), plus up to 20-30 KB of video RAM when rows use
+2x or 4x line repeat.
 
 ### Drivers
 
 The keyboard, pad, SD card (raw 512-byte blocks) and mouse drivers are
-written: `placard_io.asm` at x2000-x2FFF ([IO.md](IO.md)).  Still to write:
+written: `placard_io.asm` at `IO_CODE` ([IO.md](IO.md)).  Still to write:
 
 - **FAT filesystem:** FAT16/FAT32 read first (open a file, read it, list a
   directory), write later.  This is what lets a PC put files on the card.

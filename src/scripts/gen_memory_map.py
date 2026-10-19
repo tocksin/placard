@@ -24,7 +24,7 @@ C = {
     "video": "#4C7FD9", "videogap": "#C9D7F2",
     "mode": "#E8A33D", "audio": "#3DAE6B", "io": "#D9534F", "iodim": "#F2B8B6",
     "lib": "#8E6CC9", "font": "#B9A2E0", "drv": "#5E9FB8", "fat": "#C77DB5",
-    "prog": "#F5D96B", "boot": "#555555", "zp": "#7A7A7A",
+    "prog": "#F5D96B", "boot": "#555555", "zp": "#7A7A7A", "jt": "#3B3B8F",
     "free": "#EDEDED", "unused": "#FFFFFF",
 }
 LIGHT = {C["free"], C["unused"], C["iodim"], C["font"], C["videogap"], C["prog"]}
@@ -35,8 +35,8 @@ fig.suptitle("PLACARD memory map (64 KB RAM + 64 KB ROM behind one 16-bit addres
 fig.text(0.5, 0.942,
          "Writes always go to the RAM.  CPU reads follow the map register (x5000): bit n = 1 reads section n "
          "from RAM.  Video reads always read the RAM.\n"
-         "A running program uses map = 05: sections 0 and 2 read RAM; the I/O drivers, library and the "
-         "program itself run in place from ROM.",
+         "A running program uses map = 05: sections 0 and 2 read RAM; the program (x2000-x3FFF, x6000-xBFFF) "
+         "and the library (xC600-xFBFF) run in place from ROM.",
          ha="center", va="top", fontsize=12, color="#444", linespacing=1.5)
 
 
@@ -92,12 +92,12 @@ ram = [
 ]
 rom = [
     (0x0000, 0x1FFF, C["free"], "", "0"),
-    (0x2000, 0x3FFF, C["lib"], "", "1\nROM"),
+    (0x2000, 0x3FFF, C["prog"], "", "1\nROM"),
     (0x4000, 0x4FFF, C["free"], "", "2"),
     (0x5000, 0x53FF, C["io"], "", None),
     (0x5400, 0x5FFF, C["free"], "", None),
-    (0x6000, 0xDFFF, C["prog"], "", "3-6\n\nprogram\nROM"),
-    (0xE000, 0xFFFF, C["lib"], "", "7\nbank 2\n+ boot"),
+    (0x6000, 0xBFFF, C["prog"], "", "3-5\n\nprogram\nROM"),
+    (0xC000, 0xFFFF, C["lib"], "", "6-7\n\nlibrary\n+ boot\nROM"),
 ]
 for x, regs in ((0.0, ram), (0.85, rom)):
     y = 0
@@ -119,18 +119,18 @@ axA.text(0.0, 0x10000 + 0x600, "Number = section (map bit).\nRAM or ROM in a box
 axB = fig.add_axes([0.185, 0.05, 0.215, 0.77])
 low_ram = [
     (0x0000, 0x00FF, C["zp"], "Zero page", "ZP"),
-    (0x0100, 0x1FFF, C["free"], "Program variables\nand buffers;\ncard boot code\nloads to x0100", None),
+    (0x0100, 0x1EFF, C["free"], "Program variables\nand buffers;\ncard boot code\nloads to x0100", None),
+    (0x1F00, 0x1FFF, C["lib"], "LIB_RAM: library code\ncopied here at boot", "lib"),
     (0x2000, 0x3FFF, C["unused"], "Under the ROM;\nwrites land here", None),
 ]
 low_rom = [
     (0x0000, 0x0003, C["boot"], "Reset jump", None),
-    (0x0004, 0x1FFF, C["free"], "Free ROM", None),
-    (0x2000, 0x2FFF, C["drv"], "I/O drivers (IO_CODE)\nkeyboard, pads,\nSD card, mouse", "I/O\ndrv"),
-    (0x3000, 0x37FF, C["lib"], "Std library\n(LIB_CODE)", "lib"),
-    (0x3800, 0x3FFF, C["font"], "8x8 font\n(LIB_FONT)", "font"),
+    (0x0004, 0x1EFF, C["free"], "Free ROM", None),
+    (0x1F00, 0x1FFF, C["lib"], "LIB_RAM image", "lib"),
+    (0x2000, 0x3FFF, C["prog"], "Program code\nand tables\n(more room)", "program"),
 ]
-hB_ram = [8, 52, 52]
-hB_rom = [6, 54, 28, 12, 12]
+hB_ram = [8, 44, 8, 52]
+hB_rom = [6, 46, 8, 52]
 setup(axB, 128, "x0000-x3FFF  (sections 0, 1)\nnot to scale", 6.2)
 axB.text(0.5, -1.5, "RAM", ha="center", fontsize=11, weight="bold")
 axB.text(3.4, -1.5, "ROM", ha="center", fontsize=11, weight="bold")
@@ -178,23 +178,26 @@ axC.set_ylim(sum(hC) + 12, 0)
 # ---- Panel D: x6000-xFFFF ROM ------------------------------------------------
 axD = fig.add_axes([0.625, 0.05, 0.16, 0.77])
 hi = [
-    (0x6000, 0xDFFF, C["prog"], "Program code and tables\nruns in place,\nentry at x6000", "program"),
-    (0xE000, 0xE0FF, C["unused"], "Reserved: jump table", None),
-    (0xE100, 0xE57F, C["lib"], "Sound driver", None),
-    (0xE580, 0xE5FF, C["lib"], "slot_id", None),
-    (0xE600, 0xF3FF, C["lib"], "FAT reader", None),
-    (0xF400, 0xF5FF, C["lib"], "con_gets, mouse_move", None),
-    (0xF600, 0xFBFF, C["free"], "Free", None),
+    (0x6000, 0xBFFF, C["prog"], "Program code and tables\nruns in place,\nentry at x6000", "program"),
+    (0xC000, 0xC5FF, C["free"], "Free (library grows down)", None),
+    (0xC600, 0xC6FF, C["lib"], "Slot helpers (slot_id)", None),
+    (0xC700, 0xD4FF, C["fat"], "FAT file reader", None),
+    (0xD500, 0xD6FF, C["lib"], "con_gets, mouse_move", None),
+    (0xD700, 0xDBFF, C["audio"], "Sound driver", None),
+    (0xDC00, 0xEBFF, C["drv"], "I/O drivers: keyboard,\npads, SD card, mouse", "I/O"),
+    (0xEC00, 0xF3FF, C["font"], "8x8 font (LIB_FONT)", "font"),
+    (0xF400, 0xFAFF, C["lib"], "Core routines (LIB_CODE)", "core"),
+    (0xFB00, 0xFBFF, C["jt"], "Jump table (LIB_JT)", None),
     (0xFC00, 0xFC00, C["boot"], "Boot mode byte", None),
-    (0xFD00, 0xFD7F, C["boot"], "Boot loader", None),
+    (0xFD00, 0xFD7E, C["boot"], "Boot loader", None),
     (0xFE00, 0xFEA1, C["boot"], "Map switch, card scan", None),
 ]
-hD = [40, 4, 5, 4, 7, 4, 5, 4, 4, 4]
+hD = [26, 4, 4, 6, 4, 5, 7, 6, 6, 4, 4, 4, 4]
 setup(axD, sum(hD), "x6000-xFFFF ROM  (sections 3-7)\nnot to scale", 3.7)
 column(axD, 0.0, hi, hD, desc_dx=0.0, fs=10)
-b2 = sum(hD[:1]); b2e = sum(hD[:7])
-side_label(axD, -0.12, b2, b2e, "library bank 2", C["lib"])
-side_label(axD, -0.12, b2e, sum(hD), "boot", C["boot"])
+l0 = sum(hD[:1]); l1 = sum(hD[:10])
+side_label(axD, -0.12, l0, l1, "library (most used at the top)", C["lib"])
+side_label(axD, -0.12, l1, sum(hD), "boot", C["boot"])
 axD.text(0.0, sum(hD) + 1.5, "Unlisted bytes in xFC01-xFFFF\nare free.", va="top", fontsize=9.5, color="#555")
 axD.set_ylim(sum(hD) + 10, 0)
 
@@ -245,7 +248,7 @@ axE.text(-2, 600, "Line repeat (mode byte bits 3:2) frees video RAM:\n"
 # ---- legend --------------------------------------------------------------------
 items = [("Video RAM", C["video"]), ("Line codes", C["mode"]), ("Audio buffer", C["audio"]),
          ("I/O", C["io"]), ("I/O drivers", C["drv"]), ("Library", C["lib"]), ("Font", C["font"]),
-         ("FAT buffers", C["fat"]), ("Program (ROM)", C["prog"]), ("Boot", C["boot"]),
+         ("FAT", C["fat"]), ("Jump table", C["jt"]), ("Program (ROM)", C["prog"]), ("Boot", C["boot"]),
          ("Zero page", C["zp"]), ("Free", C["free"])]
 handles = [Rectangle((0, 0), 1, 1, fc=c, ec="#333") for _, c in items]
 fig.legend(handles, [n for n, _ in items], loc="lower right", bbox_to_anchor=(0.995, 0.035), ncol=3,

@@ -20,21 +20,31 @@ change.
 
 ## ROM map
 
+The library is one block at the top of the ROM, under the boot loader,
+with the most used parts highest: the jump table, then the core routines,
+the font, the I/O drivers and the rest.  It grows down into xC000-xC5FF.
+
 | ROM address | Contents | Made from |
 |-------------|----------|-----------|
 | x0000-x0003 | Reset jump to the boot loader (PC starts at 0000) | `rom_boot.asm` |
-| x0004-x1FFF | Free | |
-| x2000-x2FFF | I/O drivers (`IO_CODE`): keyboard, pads, SD card, mouse ([IO.md](IO.md)), run in place | `rom_lib.asm` |
-| x3000-x37FF | Standard library code (`LIB_CODE`), runs in place | `rom_lib.asm` |
-| x3800-x3FFF | Standard font (`LIB_FONT`) | `rom_lib.asm` |
+| x0004-x1EFF | Free | |
+| x1F00-x1FFF | `LIB_RAM`: library code the boot copies to RAM x1F00 (the end of `plot1`, `con_scroll`) | `rom_lib.asm` |
+| x2000-x3FFF | Program, more code and tables (runs in place) | the program |
 | x4000-x4FFF | Free (section 2 reads RAM while a program runs) | |
 | x5000-x53FF | I/O window, the ROM is never read here | |
 | x5400-x5FFF | Free (section 2 reads RAM while a program runs) | |
-| x6000-xDFFF | Program, runs in place, entry at x6000 | the program |
-| xE000-xE0FF | Kept for the library's future jump table | |
-| xE100-xFBFF | Library bank 2 (`LIB2_CODE`): sound driver, slot_id, FAT reader, con_gets, mouse_move | `rom_lib.asm` |
+| x6000-xBFFF | Program, runs in place, entry at x6000 | the program |
+| xC000-xC5FF | Free, for the library to grow into | |
+| xC600-xC6FF | Expansion slot helpers (`SLOT_CODE`): `slot_id` | `rom_lib.asm` |
+| xC700-xD4FF | FAT file reader (`FS_CODE`) | `rom_lib.asm` |
+| xD500-xD6FF | Line input and mouse pointer (`INPUT_CODE`): `con_gets`, `mouse_move` | `rom_lib.asm` |
+| xD700-xDBFF | Sound driver (`SND_CODE`) | `rom_lib.asm` |
+| xDC00-xEBFF | I/O drivers (`IO_CODE`): keyboard, pads, SD card, mouse ([IO.md](IO.md)) | `rom_lib.asm` |
+| xEC00-xF3FF | Standard font (`LIB_FONT`) | `rom_lib.asm` |
+| xF400-xFAFF | Standard library core routines (`LIB_CODE`) | `rom_lib.asm` |
+| xFB00-xFBFF | Jump table (`LIB_JT`), 54 of 64 entries used ([LIBRARY.md](LIBRARY.md#jump-table)) | `rom_lib.asm` |
 | xFC00 | Boot mode: 00 = ROM program, 01 = RAM image | `gen_rom.tcl` |
-| xFD00-xFD7F | Boot loader | `rom_boot.asm` |
+| xFD00-xFD7E | Boot loader | `rom_boot.asm` |
 | xFE00-xFE07 | Map switch (RAM image boot only) | `rom_boot.asm` |
 | xFE08-xFEA1 | Expansion card scan | `rom_boot.asm` |
 
@@ -44,38 +54,46 @@ The boot loader writes map = **05**:
 
 | Section | Address | Reads | Holds |
 |---------|---------|-------|-------|
-| 0 | x0000-x1FFF | RAM | Zero page, program variables and buffers |
-| 1 | x2000-x3FFF | ROM | I/O drivers, standard library and font |
+| 0 | x0000-x1FFF | RAM | Zero page, program variables and buffers, `LIB_RAM` at x1F00 |
+| 1 | x2000-x3FFF | ROM | Program code and tables |
 | 2 | x4000-x4FFF, x5400-x5FFF | RAM | Program data x4000-x4CFF, SD/FAT buffers x4D00-x4FFF, x5400-x5A1F and x5C00-x5DF2, mode bytes, audio buffer |
-| 3-7 | x6000-xFFFF | ROM | Program code and tables, library bank 2 (the video still shows the RAM) |
+| 3-5 | x6000-xBFFF | ROM | Program code and tables (the video still shows the RAM) |
+| 6-7 | xC000-xFFFF | ROM | The library and the boot loader |
 
 `MAP_SHADOW` (x07) is set to 05.  A routine that changes the map must keep
 its own section's bit (the fetch after a map write uses the old map) and put
-the map back to `MAP_SHADOW` before it returns.  The library runs in section
-1 and the program in 3-7, so the library can switch the video sections
-freely.
+the map back to `MAP_SHADOW` before it returns.  Sections 6 and 7 must read
+ROM whenever the library is called.  The library code that reads the video
+RAM (the end of `plot1`, and `con_scroll`) maps sections 3-7 to RAM, so it
+runs from `LIB_RAM` in the RAM at x1F00-x1FFF, which the boot copies there
+first; programs must leave x1F00-x1FFF alone.
 
 ## Standard places
 
 | What | Address | Defined in |
 |------|---------|------------|
 | Zero page variables | RAM x0004-x00FF | `zeropage.asm` |
-| Program variables and buffers | RAM x0100-x1FFF, x4000-x4CFF, x5400-x5A1F, x5C00-x5DF2 | the program |
-| I/O drivers | ROM x2000-x2FFF | `IO_CODE` in `placard_io.asm` |
-| Library code | ROM x3000-x37FF | `LIB_CODE` in `placard_lib.asm` |
-| Font (8x8, printable ASCII) | ROM x3800-x3FFF | `LIB_FONT` in `placard_lib.asm` |
-| Library bank 2 | ROM xE100-xFBFF | `LIB2_CODE` in `placard_lib.asm` |
+| Program variables and buffers | RAM x0100-x1EFF, x4000-x4CFF, x5400-x5A1F, x5C00-x5DF2 | the program |
+| Library RAM code | RAM x1F00-x1FFF | `LIB_RAM` in `placard_lib.asm` |
+| Jump table | ROM xFB00-xFBFF | `LIB_JT` in `placard_lib.asm` |
+| Library core routines | ROM xF400-xFAFF | `LIB_CODE` in `placard_lib.asm` |
+| Font (8x8, printable ASCII) | ROM xEC00-xF3FF | `LIB_FONT` in `placard_lib.asm` |
+| I/O drivers | ROM xDC00-xEBFF | `IO_CODE` in `placard_lib.asm` |
+| Sound driver | ROM xD700-xDBFF | `SND_CODE` in `placard_lib.asm` |
+| Line input, mouse pointer | ROM xD500-xD6FF | `INPUT_CODE` in `placard_lib.asm` |
+| FAT file reader | ROM xC700-xD4FF | `FS_CODE` in `placard_lib.asm` |
+| Expansion slot helpers | ROM xC600-xC6FF | `SLOT_CODE` in `placard_lib.asm` |
 | SD/FAT variables and sector buffer | RAM x4D00-x4FFF | `FS_VARS`, `FS_BUF` in `placard_fs.asm` |
 | Program entry | ROM x6000 | the program (`#addr 0x6000`) |
-| Program code and tables | ROM x6000-xDFFF | the program |
+| Program code and tables | ROM x6000-xBFFF and x2000-x3FFF | the program |
 | Mode bytes | RAM x5A20-x5BFF | video hardware |
 | Audio buffer | RAM x5DF3-x5FFF | video hardware |
 | Video | RAM x6000-xFFFF | video hardware |
 
-The library will grow and its routines move while it is developed, so a
-program is assembled with the current `placard_lib.asm` (it includes it)
-rather than calling fixed numbers.  The block it lives in and the font
-address stay put.  Programs use the library routines and the zero page map.
+A program is assembled with the current `placard_lib.asm` (it includes it)
+and may call the routines directly.  Code built without it (a card's boot
+code, a program loaded from the SD card) calls the jump table entries,
+whose addresses never change.  Programs use the library routines and the zero page map.
 
 A ROM program can't keep variables in its own code area: put them in the
 zero page (x20-x8F) or the RAM areas above, and set them in code at the
@@ -98,8 +116,11 @@ main:
 ## Boot
 
 `src/scripts/rom_boot.asm`.  The map clears to all ROM at power-up, so the
-first fetch is ROM x0000, which jumps to the boot loader at xFD00.  It reads
-the boot mode byte at xFC00, after the expansion card scan below.
+first fetch is ROM x0000, which jumps to the boot loader at xFD00.  Its
+first job is to copy `LIB_RAM` (ROM x1F00-x1FFF) into the RAM under it,
+while the map is still 00 (reads from ROM, writes to RAM), about 3,000
+clocks.  It reads the boot mode byte at xFC00 after the expansion card scan
+below.
 
 **Expansion card scan (Apple II style):** the boot writes map = 01 (the
 zero page reads RAM) and, unless Esc is held, looks at slots 4, 3, 2 and 1.
@@ -116,9 +137,9 @@ needed.  The program starts a few clocks after reset.
 
 **RAM image (01):** for the older demos (pi spigot, Mandelbrot, game of life,
 CPU test, test_video), which were written to run from RAM x0000 and keep
-code and variables mixed there.  `gen_rom.tcl` stores such a program at ROM
-x6000-xA9FF (ROM address = RAM address + x6000, the library again at its RAM
-x3000) and the boot loader:
+code and variables mixed there and don't use the library.  `gen_rom.tcl`
+stores such a program at ROM x6000-xA9FF (ROM address = RAM address +
+x6000) and the boot loader:
 
 1. writes map = 01, so the zero page reads RAM for its two page counters;
 2. copies RAM pages x01-x49 from ROM x6100-xA9FF, then page x00 last;
@@ -130,9 +151,9 @@ x3000) and the boot loader:
 The copy takes about 21 ms.  It does not set `MAP_SHADOW`, because those
 programs keep code there.
 
-`gen_rom.tcl` treats a program as a RAM image when its hex has any byte
-below x6000 other than the library's own bytes; otherwise it is a ROM
-program.
+`gen_rom.tcl` treats a program as a RAM image when its hex has any byte in
+x0000-x1FFF or x4000-x5FFF other than the library's own bytes; otherwise it
+is a ROM program, with its bytes in x2000-x3FFF and x6000-xBFFF.
 
 ## Building
 

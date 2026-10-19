@@ -5,12 +5,12 @@
 ;     con_gets     type a line on the console (keyboard, with Backspace)
 ;     mouse_move   move a pointer position by the last mouse packet
 ;
-; placard_lib.asm includes this file, in library bank 2.
+; placard_lib.asm includes this file; its code is at INPUT_CODE (xD500).
 ;
-; Date: 10/18/2026
+; Date: 10/19/2026
 ; ============================================================
 
-#addr LIB2_CODE + 0x1400
+#addr INPUT_CODE
 
 ; ------------------------------------------------------------
 ; con_gets - read a line typed on the keyboard, echoed at the cursor
@@ -148,7 +148,7 @@ cg_nc2:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 
-#addr LIB2_CODE + 0x1500
+#addr INPUT_CODE + 0x100
 
 ; ------------------------------------------------------------
 ; mouse_move - move a pointer by the last mouse packet, kept on screen

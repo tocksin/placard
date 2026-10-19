@@ -7,22 +7,28 @@
 # programs:
 #
 #     x0000-x0003   reset jump to the boot loader          rom_boot.hex
-#     x2000-x2FFF   I/O drivers (runs in place)            rom_lib.hex
-#     x3000-x37FF   standard library code (runs in place)  rom_lib.hex
-#     x3800-x3FFF   standard font                          rom_lib.hex
-#     x6000-xDFFF   ROM program (runs in place, entry x6000) the program
-#     xE000-xFBFF   library bank 2: jump table page, sound,     rom_lib.hex
-#                   FAT, expansion slots (runs in place)
+#     x1F00-x1FFF   LIB_RAM: library code the boot copies  rom_lib.hex
+#                   to the RAM
+#     x2000-x3FFF   more ROM program (runs in place)       the program
+#     x6000-xBFFF   ROM program (runs in place, entry x6000) the program
+#     xC000-xC5FF   free, for the library to grow into
+#     xC600-xC6FF   expansion slot helpers                 rom_lib.hex
+#     xC700-xD4FF   FAT file reader                        rom_lib.hex
+#     xD500-xD6FF   line input, mouse pointer              rom_lib.hex
+#     xD700-xDBFF   sound driver                           rom_lib.hex
+#     xDC00-xEBFF   I/O drivers                            rom_lib.hex
+#     xEC00-xF3FF   standard font                          rom_lib.hex
+#     xF400-xFAFF   standard library core routines         rom_lib.hex
+#     xFB00-xFBFF   jump table                             rom_lib.hex
 #     xFC00         boot mode: 00 = ROM program, 01 = RAM image
 #     xFD00-xFE07   boot loader                             rom_boot.hex
 #
-# A program assembled at x6000 and up (with the library included or not)
-# is a ROM program.  An older program written to run at RAM x0000 (bytes
-# below x6000 other than the library's) is a RAM image instead: it is
-# stored at ROM x6000-xA9FF (ROM address = RAM address + x6000) with the
-# library (not the I/O drivers) again at its RAM x3000-x3FFF, and the boot loader copies it to
-# RAM x0000-x49FF and runs it from the RAM.  If such a program uses
-# x3000-x3FFF for itself it replaces the library there (a note is printed).
+# A program assembled at x6000-xBFFF and x2000-x3FFF (with the library
+# included or not) is a ROM program.  An older program written to run at
+# RAM x0000 (bytes in x0000-x1FFF or x4000-x5FFF other than the library's
+# own) is a RAM image instead: it is stored at ROM x6000-xA9FF (ROM address
+# = RAM address + x6000), and the boot loader copies it to RAM x0000-x49FF
+# and runs it from the RAM with map FF, so it can't use the library.
 #
 # Run from the Vivado Tcl console:   source /path/to/gen_rom.tcl
 # or stand-alone:                    tclsh gen_rom.tcl
@@ -42,18 +48,19 @@
 # The image is written to ../hdl/rom.mem (relative to this script).  Set
 # ::ROM_OUT before sourcing to write to a different path instead.
 #
-# Date: 10/18/2026
+# Date: 10/19/2026
 
 set ROM_SIZE        65536
 set ROM_IMAGE_BASE  [expr {0x6000}] ;# RAM image: ROM address of RAM x0000
 set IMAGE_SIZE      [expr {0x4A00}] ;# RAM image: RAM x0000-x49FF is copied at boot
-set IO_START        [expr {0x2000}] ;# IO_CODE in placard_io.asm (ROM programs only)
-set LIB_START       [expr {0x3000}] ;# LIB_CODE in placard_lib.asm
-set LIB_END         [expr {0x4000}] ;# end of LIB_FONT
+set LIB_RAM_START   [expr {0x1F00}] ;# LIB_RAM in placard_lib.asm (copied to RAM at boot)
+set LIB_RAM_END     [expr {0x2000}]
+set PROG2_START     [expr {0x2000}] ;# more ROM program area (section 1)
+set PROG2_END       [expr {0x4000}]
 set PROG_START      [expr {0x6000}] ;# ROM program area and entry
-set PROG_END        [expr {0xE000}] ;# end of the ROM program area
-set LIB2_START      [expr {0xE000}] ;# LIB2_CODE in placard_lib.asm: library bank 2
-set LIB2_END        [expr {0xFC00}] ;# end of library bank 2
+set PROG_END        [expr {0xC000}] ;# end of the ROM program area
+set SYS_START       [expr {0xC000}] ;# the library block (placard_lib.asm): slot helpers,
+set SYS_END         [expr {0xFC00}] ;# FAT, input, sound, I/O, font, code, jump table
 set BOOT_MODE       [expr {0xFC00}] ;# 00 = ROM program, 01 = RAM image
 
 # ---------------------------------------------------------------------------
@@ -99,6 +106,14 @@ proc read_asm_bytes {fileName} {
 }
 
 # ---------------------------------------------------------------------------
+# True for the addresses the library's own bytes go to in the ROM
+# ---------------------------------------------------------------------------
+proc lib_area {a} {
+    return [expr {($a >= $::SYS_START && $a < $::SYS_END) ||
+                  ($a >= $::LIB_RAM_START && $a < $::LIB_RAM_END)}]
+}
+
+# ---------------------------------------------------------------------------
 # Build the image
 # ---------------------------------------------------------------------------
 proc gen_rom {outFile} {
@@ -117,7 +132,7 @@ proc gen_rom {outFile} {
     }
     set a 0
     foreach b [read_asm_bytes $bootFile] {
-        if {$b != 0 && $a >= $::IO_START && $a < $::LIB_END} {
+        if {$b != 0 && [lib_area $a]} {
             error "gen_rom: rom_boot.hex has a byte at [format %04X $a],\
                    in the library or program area"
         }
@@ -131,14 +146,11 @@ proc gen_rom {outFile} {
         error "gen_rom: $libFile not found (assemble rom_lib.asm)"
     }
     set lib [read_asm_bytes $libFile]
-    for {set a $::IO_START} {$a < $::LIB_END} {incr a} {
-        if {$a < [llength $lib]} {
-            set rom($a) [lindex $lib $a]
-        }
-    }
-    for {set a $::LIB2_START} {$a < $::LIB2_END} {incr a} {
-        if {$a < [llength $lib]} {
-            set rom($a) [lindex $lib $a]
+    foreach {lo hi} [list $::LIB_RAM_START $::LIB_RAM_END $::SYS_START $::SYS_END] {
+        for {set a $lo} {$a < $hi} {incr a} {
+            if {$a < [llength $lib]} {
+                set rom($a) [lindex $lib $a]
+            }
         }
     }
 
@@ -156,68 +168,59 @@ proc gen_rom {outFile} {
     }
     set n [llength $bytes]
 
-    # a RAM image has bytes below x6000 other than the library's own
+    # a RAM image has bytes in x0000-x1FFF or x4000-x5FFF other than the
+    # library's own
     set ramImage 0
     for {set a 0} {$a < $n && $a < $::PROG_START} {incr a} {
+        if {$a >= $::PROG2_START && $a < $::PROG2_END} {
+            continue
+        }
         set b [lindex $bytes $a]
-        if {$a >= $::IO_START && $a < $::LIB_END} {
-            if {$b != $rom($a)} {
-                set ramImage 1
-                break
-            }
-        } elseif {$b != 0} {
+        if {$b != 0 && !([lib_area $a] && $b == $rom($a))} {
             set ramImage 1
             break
         }
     }
 
     if {!$ramImage} {
-        for {set a $::PROG_START} {$a < $n} {incr a} {
+        set progBytes 0
+        for {set a 0} {$a < $n} {incr a} {
             set b [lindex $bytes $a]
-            if {$a >= $::PROG_END} {
-                # the program's own copy of library bank 2 is not program
-                if {$b != 0 && !($a >= $::LIB2_START && $a < $::LIB2_END && $b == $rom($a))} {
-                    error "gen_rom: program byte at [format %04X $a] is past the ROM\
-                           program area (6000-[format %04X [expr {$::PROG_END - 1}]])"
+            if {($a >= $::PROG_START && $a < $::PROG_END) ||
+                ($a >= $::PROG2_START && $a < $::PROG2_END)} {
+                set rom($a) $b
+                if {$b != 0} {
+                    incr progBytes
                 }
                 continue
             }
-            set rom($a) $b
+            # the program's own copy of the library is not program
+            if {$b != 0 && !([lib_area $a] && $b == $rom($a))} {
+                error "gen_rom: program byte at [format %04X $a] is outside the ROM\
+                       program area (6000-[format %04X [expr {$::PROG_END - 1}]],\
+                       2000-3FFF)"
+            }
         }
         set rom($::BOOT_MODE) 0
         if {$n > 0} {
-            puts "gen_rom: ROM program, [expr {$n > $::PROG_START ? $n - $::PROG_START : 0}]\
-                  bytes at 6000 from $::ASM_FILE"
+            puts "gen_rom: ROM program, $progBytes bytes (not 00) in 2000-3FFF and 6000-BFFF\
+                  from $::ASM_FILE"
         }
     } else {
-        # library again in the image, at RAM x3000-x3FFF
-        for {set a $::LIB_START} {$a < $::LIB_END} {incr a} {
-            set rom([expr {$::ROM_IMAGE_BASE + $a}]) $rom($a)
-        }
         # customasm pads to the last byte, so only the bytes past the image
-        # that are not 0 (or the program's own copy of library bank 2) are
-        # an error.  A RAM image runs with map FF, so it can't call bank 2.
+        # that are not 0 (or the program's own copy of the library) are an
+        # error.  A RAM image runs with map FF, so it can't call the library.
         for {set a $::IMAGE_SIZE} {$a < $n} {incr a} {
             set b [lindex $bytes $a]
-            if {$b != 0 && !($a >= $::LIB2_START && $a < $::LIB2_END && $b == $rom($a))} {
+            if {$b != 0 && !([lib_area $a] && $b == $rom($a))} {
                 error "gen_rom: program byte at [format %04X $a] is past the RAM\
                        image (x0000-[format %04X [expr {$::IMAGE_SIZE - 1}]])"
             }
         }
-        set replaced 0
         for {set a 0} {$a < $n && $a < $::IMAGE_SIZE} {incr a} {
-            set r [expr {$::ROM_IMAGE_BASE + $a}]
-            set b [lindex $bytes $a]
-            if {$a >= $::LIB_START && $a < $::LIB_END && $b != $rom($r)} {
-                incr replaced
-            }
-            set rom($r) $b
+            set rom([expr {$::ROM_IMAGE_BASE + $a}]) [lindex $bytes $a]
         }
         set rom($::BOOT_MODE) 1
-        if {$replaced} {
-            puts "gen_rom: note: the program replaces $replaced library bytes\
-                  (x3000-x3FFF) in its RAM image"
-        }
         puts "gen_rom: RAM image, $n program bytes for RAM 0000 (ROM\
               [format %04X $::ROM_IMAGE_BASE]) from $::ASM_FILE"
     }

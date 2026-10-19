@@ -9,11 +9,12 @@
 ; program.  docs/ROM.md has the ROM layout.
 ;
 ; BOOT_MODE = 00: ROM program (the standard way).
-;   The program runs in place from ROM x6000-xDFFF and calls the standard
-;   library in place at ROM x3000-x3FFF.  The boot writes map = 05:
-;   sections 0 (zero page, x0000-x1FFF) and 2 (x4000-x4FFF: mode bytes,
-;   audio, program data) read RAM; 1 (library) and 3-7 (program) read
-;   ROM, while the video still shows the RAM.  It sets MAP_SHADOW = 05 and
+;   The program runs in place from ROM x6000-xBFFF (and x2000-x3FFF) and
+;   calls the I/O drivers, standard library and library bank 2 in place
+;   at ROM xC000-xFBFF.  The boot writes map = 05: sections 0 (zero page,
+;   x0000-x1FFF) and 2 (x4000-x5FFF: mode bytes, audio, program data)
+;   read RAM; 1 and 3-7 (program, library) read ROM, while the video
+;   still shows the RAM.  It sets MAP_SHADOW = 05 and
 ;   jumps to the program's entry at x6000.
 ;
 ; BOOT_MODE = 01: RAM image (the older demos, written to run at RAM x0000).
@@ -37,6 +38,11 @@
 ;     python3 placard_sim.py rom_boot.asm
 ;
 ;
+; LIBRARY RAM CODE, first of all: the library code that reads the video RAM
+; (LIB_RAM, placard_lib.asm) must run from the RAM, so the boot copies ROM
+; x1F00-x1FFF into RAM x1F00-x1FFF while the map is still 00 (every read
+; from ROM, every write to RAM), keeping its count in X.
+;
 ; EXPANSION CARDS (docs/EXPANSION.md), before either mode, like the Apple II's
 ; slot scan:
 ;   1. map = 01, so the zero page is RAM.
@@ -56,7 +62,7 @@
 ; rom.mem.  The CPU's PC starts at 0000, so x0000-x0003 of the ROM is
 ; this file's reset jump, not the program's.
 ;
-; Date: 10/18/2026
+; Date: 10/19/2026
 
 #include "placard.asm"
 
@@ -73,6 +79,7 @@ PORT        = 0x5200    ; shared port latch (placard_io.asm)
 P_IDLE      = 0xFB      ; the latch at rest
 P_COL0      = 0x0B      ; the same with keyboard column 0 driven (Esc is row 0)
 MAP_ZP_RAM  = 0x01      ; section 0 reads RAM, the rest ROM
+LIB_RAM     = 0x1F00    ; placard_lib.asm: library code that runs from the RAM
 CARD_CODE   = 0x0100    ; where a card's boot code is copied and run
 CARD_MAX    = 90        ; longest card boot code (offsets 06-5F)
 
@@ -102,6 +109,15 @@ boot:
     ld   PORT >> 8, y           ; shared port at rest (docs/IO.md): no keyboard
     ld   P_IDLE, [y,x]          ; column, SD /CS low (also holds the PS/2
                                 ; mouse off), SCK and MOSI high
+    ld   LIB_RAM >> 8, y        ; copy LIB_RAM from the ROM to the RAM (map 00)
+    clr  ac
+lib_copy:
+    ld   ac, x
+    ld   [y,x], ac              ; read the ROM
+    ld   ac, [y,x]              ; write the RAM
+    ld   x, ac
+    inc
+    bne  lib_copy
     ld   MAP_PORT, y
     ld   MAP_ZP_RAM, [y,x]      ; map = 01: the zero page is RAM
     ld   PORT >> 8, y
