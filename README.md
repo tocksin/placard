@@ -47,16 +47,16 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen ye
 
 | Address | Map bit | Function  |
 |---------|---------|------|
-| x0000-x1FFF | 0 | RAM/ROM |
-| x2000-x3FFF | 1 | RAM/ROM |
-| x4000-x4FFF | 2 | RAM/ROM (free for programs) |
+| x0000-x1FFF | 0 | RAM/ROM (zero page, program variables; ROM: reset jump) |
+| x2000-x3FFF | 1 | RAM/ROM (ROM: I/O drivers x2000-x2FFF, library x3000-x37FF, font x3800-x3FFF) |
+| x4000-x4FFF | 2 | RAM/ROM (program data; FAT variables and buffer at x4D00-x4FFF) |
 | x5000-x53FF | none | I/O window (see below) |
 | x5400-x5FFF | 2 | RAM/ROM (mode bytes at x5A20-x5BFF, audio buffer at x5DF3-x5FFF) |
-| x6000-x7FFF | 3 | RAM/ROM (Video Memory from x6020) |
-| x8000-x9FFF | 4 | RAM/ROM (Video Memory) |
-| xA000-xBFFF | 5 | RAM/ROM (Video Memory) |
-| xC000-xDFFF | 6 | RAM/ROM (Video Memory) |
-| xE000-xFFFF | 7 | RAM/ROM (Video Memory) |
+| x6000-x7FFF | 3 | RAM/ROM (Video Memory from x6020; ROM: program from x6000) |
+| x8000-x9FFF | 4 | RAM/ROM (Video Memory; ROM: program) |
+| xA000-xBFFF | 5 | RAM/ROM (Video Memory; ROM: program) |
+| xC000-xDFFF | 6 | RAM/ROM (Video Memory; ROM: program) |
+| xE000-xFFFF | 7 | RAM/ROM (Video Memory; ROM: library bank 2 xE000-xFBFF, boot loader) |
 
 ![Placard memory map](reference/memory_map.png)
 

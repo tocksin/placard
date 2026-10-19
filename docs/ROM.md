@@ -6,7 +6,7 @@ pattern) and `src/hdl/rom.mem` (made by `src/scripts/gen_rom.tcl`).  Both use
 `sp_ram.vhd`, which takes the file name as the generic `initFile`.  Programs
 and the standard library live in the ROM.
 
-Date: 10/18/2026
+Date: 10/19/2026
 
 ## Video always reads the RAM
 
@@ -78,7 +78,7 @@ rather than calling fixed numbers.  The block it lives in and the font
 address stay put.  Programs use the library routines and the zero page map.
 
 A ROM program can't keep variables in its own code area: put them in the
-zero page (x20-xBF) or the RAM areas above, and set them in code at the
+zero page (x20-x8F) or the RAM areas above, and set them in code at the
 start (the RAM is random at power-up).  Tables and strings stay in the ROM
 with the code.
 
@@ -86,7 +86,7 @@ with the code.
 #include "placard.asm"
 #include "placard_lib.asm"
 
-count = 0x20                    ; variables: zero page x20-xBF
+count = 0x20                    ; variables: zero page x20-x8F
 
 #addr 0x6000
 main:
