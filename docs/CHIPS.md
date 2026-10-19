@@ -1,6 +1,6 @@
 # Chip list
 
-Date: 2026-10-18
+Date: 2026-10-19
 
 Every chip in the Placard, one chip per line.  The current list follows
 `basys_top.vhd`, the PLD sources in `src/pld`, [CPU.md](CPU.md),
@@ -24,9 +24,9 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 10 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 15:12 (`ATF22V10_QUAD_MUX.pld`) |
 | 11 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Memory control: /WE, /RAM_OE, /ROM_OE from the map, and MAP_RUN reset (`ATF22V10_MEM_CTRL.pld`) |
 | 12 | ATF22V10C-7PX | PLD (22V10, 24-pin) | I/O decode: upper 32K /CE_HI and the x5000-x53FF strobes (`ATF22V10_IO_DECODE.pld`) |
-| 13 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video H counter: H9:H0, HSYNC, horizontal active (`ATF22V10_HCOUNT.pld`) |
+| 13 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video H counter: H9:H3, HSYNC, horizontal active (`ATF22V10_HCOUNT.pld`) |
 | 14 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video V counter: V9:V0 (`ATF22V10_VCOUNT.pld`) |
-| 15 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video sync: VSYNC, video active, PIXEL_ENABLE and address-mux selects (`ATF22V10_SYNC.pld`) |
+| 15 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video sync: H2:H0 (also the color decoder's pixel select), VSYNC, VIDEN, PIXEL_ENABLE and address-mux selects (`ATF22V10_SYNC.pld`) |
 | 16 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Color decoder: pixel byte and line code to VGA RGB (`ATF22V10_COLORDECODER.pld`) |
 | 17 | SN74F377AN | Octal D flip-flop with enable | Instruction register |
 | 18 | SN74F377AN | Octal D flip-flop with enable | D register (immediate / memory operand) |
@@ -35,7 +35,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 21 | SN74F377AN | Octal D flip-flop with enable | Y register |
 | 22 | SN74F377AN | Octal D flip-flop with enable | Video pixel buffer (byte read from video memory) |
 | 23 | SN74F377AN | Octal D flip-flop with enable | Video line code (color mode for the line): D from the pixel buffer outputs, /E from /MODE_LD, so it copies the mode byte read in group 45 (see VIDEO.md); Q1:Q0 to the color decoder, Q3:Q2 to the audio slot PLD (line repeat) |
-| 24 | SN74F574N | Octal D flip-flop, 3-state | Video delay: H2:H0 pixel select and video active, two stages |
+| 24 | — | — | Removed 2026-10-19: the video delay F574 (H2:H0 pixel select and video active, two stages).  The Sync PLD now makes both two clocks later itself (VIDEO_TIMING.md, "Delay register removed").  The numbers below are kept as they were |
 | 25 | CD74ACT273E | Octal D flip-flop with clear | ROM/RAM map register at x5000 (write only, cleared to all ROM at power-up) |
 | 26 | SN74F541N | Octal buffer, 3-state | Source bus driver: D register (the source bus is also the memory data bus) |
 | 27 | SN74F541N | Octal buffer, 3-state | Source bus driver: accumulator |
@@ -59,14 +59,13 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 |---|---|--:|
 | ATF22V10C-7PX | PLD (22V10) | 18 |
 | SN74F377AN | Octal D flip-flop with enable | 7 |
-| SN74F574N | Octal D flip-flop, 3-state | 1 |
 | CD74ACT273E | Octal D flip-flop with clear | 1 |
 | SN74F541N | Octal buffer, 3-state | 5 |
 | SN74F138N | 3-to-8 decoder | 1 |
 | AS7C256C-15PCN | SRAM, 32K x 8 | 4 |
 | SN74HCT574N | Octal D flip-flop, 3-state | 1 |
 | SN74HC574N | Octal D flip-flop, 3-state | 1 |
-| **Total** | | **39 + a 3.3 V regulator** |
+| **Total** | | **38 + a 3.3 V regulator** |
 
 **Not counted, not chosen yet:** the 25.175 MHz clock oscillator, and the
 battery and power-fail switch that hold the interim ROM's /CE high while

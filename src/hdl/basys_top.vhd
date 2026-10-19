@@ -95,9 +95,7 @@ architecture Behavioral of basys_top is
     signal rstBtn           : sl;
     signal locked           : sl;
 
-    signal videoActive      : sl;
-    signal videoActiveR1    : sl;   -- first delay stage
-    signal videoActiveR     : sl;   -- second delay stage (VIDEN)
+    signal viden            : sl;   -- Sync PLD VIDEN (colour decoder video enable)
     signal pixelEn          : sl;
     signal modeLdN          : sl;   -- line code register /E (audio slot PLD pin 22)
     signal hVideoActive     : sl;   -- H counter PLD H_VIDEO_ACTIVE (audio DAC clock)
@@ -136,8 +134,6 @@ architecture Behavioral of basys_top is
     
     
     signal pixelBuffer      : slv(7 downto 0) := x"00";
-    signal pixelSel1        : slv(2 downto 0) := "000";
-    signal pixelSel         : slv(2 downto 0) := "000";
     signal loadPixel        : sl;
     signal loadCode         : sl;
     signal lineCode         : slv(7 downto 0) := x"00";
@@ -506,7 +502,7 @@ begin
                 rstIn           => rstVGA,
                 hSyncOut        => hSync,
                 vSyncOut        => vSync,
-                videoActiveOut  => videoActive,
+                videnOut        => viden,
                 pixelEnOut      => pixelEn,
                 modeLdNOut      => modeLdN,
                 hVideoActiveOut => hVideoActive,
@@ -928,29 +924,12 @@ begin
     JA <= audioDac;
 
 
-    -- Pixel select and video enable delay (one F574, two 4-bit stages)
-    --   The Sync PLD reads the byte in clock 1 of each 8-clock group
-    --   (PIXEL_ENABLE is registered), so the pixel buffer loads at the end
-    --   of clock 1.  H2:H0 and videoActive are delayed two clocks to line
-    --   up with it (see docs/VIDEO_TIMING.md).
-    delayPixelProc : process (clkVGA, rstVGA)
-    begin
-        if (rstVGA = '1') then
-             pixelSel1 <= (others => '0');
-             videoActiveR1 <= '0';
-             pixelSel <= (others => '0');
-             videoActiveR <= '0';
-        elsif (rising_edge(clkVGA)) then
-            videoActiveR1 <= videoActive;
-            pixelSel1 <= pixelCol(2 downto 0);
-            videoActiveR <= videoActiveR1;
-            pixelSel <= pixelSel1;
-        end if;
-    end process delayPixelProc;
-/*
-            videoActiveR <= videoActive;              
-            pixelSel <= pixelCol(2 downto 0);  -- delay for timing
-*/
+    -- Pixel select and video enable (2026-10-19)
+    --   The colour decoder takes H2:H0 and VIDEN straight from the Sync PLD
+    --   (revision 08).  H2:H0 runs two clocks behind the 8-clock group
+    --   (000 in clock 2, the first pixel of the byte read in clock 1), and
+    --   VIDEN is registered to match, so the F574 that delayed H2:H0 and
+    --   videoActive by two clocks is gone (see docs/VIDEO_TIMING.md).
     colorDecoderComp : entity work.color_decoder
     Port map(
         -- Input Data
@@ -969,11 +948,11 @@ begin
         MODE1 => lineCode(1),
 
         -- Selection Signals
-        H0  => pixelSel(0),
-        H1  => pixelSel(1),
-        H2  => pixelSel(2),
+        H0  => pixelCol(0),
+        H1  => pixelCol(1),
+        H2  => pixelCol(2),
         
-        VIDEN => videoActiveR,
+        VIDEN => viden,
 
         -- VGA Outputs
         RED1  => vRed(1),   -- VGA_RED(1)
@@ -1007,7 +986,7 @@ begin
             VGA_VS <= '1';
             VGA_HS <= '1';
         elsif (rising_edge(clkVGA)) then
-            if videoActive='1' then
+            if viden='1' then
                 VGA_RED   <= vRed;
                 VGA_BLUE  <= vBlue;
                 VGA_GREEN <= vGreen;

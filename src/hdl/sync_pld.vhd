@@ -1,15 +1,15 @@
 --------------------------------------------------------------------------------
 -- Name     VGA_SYNC
 -- PartNo   01
--- Date     2026-10-18
--- Revision 07
+-- Date     2026-10-19
+-- Revision 08
 -- Designer Justin
 -- Company
 -- Assembly
 -- Location
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 07)
+-- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 08)
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP/SOIC; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = CLK
@@ -28,7 +28,7 @@
 --   PIN 14 = H0                (registered output)
 --   PIN 15 = H1                (registered output)
 --   PIN 16 = H2                (registered output)
---   PIN 17 = VIDEO_ACTIVE      (combinatorial output)
+--   PIN 17 = VIDEN             (registered output; VIDEO_ACTIVE before revision 08)
 --   PIN 18 = VSYNC             (combinatorial output)
 --   PIN 19 = PIXEL_ENABLE      (registered output)
 --   PIN 20 = ADDR_SEL          (combinatorial output)
@@ -83,7 +83,7 @@ entity sync_pld is
         H1               : out std_logic;   -- PIN 15
         H2               : out std_logic;   -- PIN 16
 
-        VIDEO_ACTIVE     : out std_logic;   -- PIN 17
+        VIDEN            : out std_logic;   -- PIN 17
         VSYNC            : out std_logic;   -- PIN 18
 
         PIXEL_ENABLE     : out std_logic;   -- PIN 19
@@ -93,7 +93,7 @@ entity sync_pld is
         ADDR_SEL_LO      : out std_logic;   -- PIN 22
 
         -- Vertical active-region state (registered).
-        -- Needed internally by VIDEO_ACTIVE and VSYNC.
+        -- Needed internally by VIDEN, PIXEL_ENABLE and VSYNC.
         -- Brought out on pin 23 because the 22V10 has no buried registers.
         V_VIDEO_ACTIVE   : out std_logic    -- PIN 23
     );
@@ -103,7 +103,7 @@ entity sync_pld is
     attribute pin_numbers of sync_pld : entity is
         "CLK:1 V9:2 V5:3 V4:4 V3:5 V2:6 V1:7 H_VIDEO_ACTIVE:8 " &
         "PC_ENABLE:9 Y_ENABLE:10 X_ENABLE:11 BLANK_RD:13 " &
-        "H0:14 H1:15 H2:16 VIDEO_ACTIVE:17 VSYNC:18 PIXEL_ENABLE:19 " &
+        "H0:14 H1:15 H2:16 VIDEN:17 VSYNC:18 PIXEL_ENABLE:19 " &
         "ADDR_SEL:20 ADDR_SEL_HI:21 ADDR_SEL_LO:22 V_VIDEO_ACTIVE:23";
 end entity sync_pld;
 
@@ -117,7 +117,7 @@ architecture rtl of sync_pld is
     signal H1_Q              : std_logic := '0';
     signal H2_Q              : std_logic := '0';
     signal V_VIDEO_ACTIVE_Q  : std_logic := '0';
-    signal VIDEO_ACTIVE_I    : std_logic;
+    signal VIDEN_Q           : std_logic := '0';
     signal PIXEL_ENABLE_Q    : std_logic := '0';
 
     -- Next-state (D input) equations
@@ -125,6 +125,7 @@ architecture rtl of sync_pld is
     signal H1_D              : std_logic;
     signal H2_D              : std_logic;
     signal V_VIDEO_ACTIVE_D  : std_logic;
+    signal VIDEN_D           : std_logic;
     signal PIXEL_ENABLE_D    : std_logic;
 
 begin
@@ -139,6 +140,21 @@ begin
     -- H1 toggles whenever H0 is high.
     --
     -- H2 toggles whenever H1 and H0 are both high.
+    --
+    -- Revision 08: H2:H0 goes straight to the colour decoder as its
+    -- pixel select, so the count runs two clocks behind the 8-clock
+    -- group of the H counter PLD (revision 07):
+    --
+    --     clock of the group   0    1    2    3    4    5    6    7
+    --     H2:H0               110  111  000  001  010  011  100  101
+    --
+    -- The byte is read in clock 1 (H2:H0 = 111), the pixel buffer
+    -- loads at the end of it, and its first pixel is shown in clock 2
+    -- (H2:H0 = 000).  The H counter PLD advances the group on 101.
+    -- The counter equations do not change; only the decodes that use
+    -- H2:H0 do.  Before revision 08, H2:H0 was 000 in clock 0 and a
+    -- two-stage delay register (F574) between this PLD and the colour
+    -- decoder delayed H2:H0 and VIDEO_ACTIVE by two clocks.
     --
 
     H0_D <= not H0_Q;
@@ -173,17 +189,38 @@ begin
 
 
     -- ============================================================
-    -- VIDEO ACTIVE
+    -- VIDEO ENABLE (colour decoder VIDEN)
     -- ============================================================
 
     --
-    -- VIDEO_ACTIVE is high when both the vertical active region
-    -- (counts 544-1023) and the horizontal active region are active.
+    -- VIDEN blanks the colour decoder.  It is high for the 640 clocks
+    -- in which pixels are shown: from clock 2 of group 48 (the first
+    -- pixel of the first byte) to clock 1 of group 28 of the next line
+    -- (the last pixel of the last byte), on lines where V_VIDEO_ACTIVE
+    -- is high (counts 544-1023).
+    --
+    -- Revision 08: registered, and loaded only in clock 1 of each group
+    -- (H2:H0 = 111, the video read clock).  It holds on the other seven
+    -- clocks.  In clock 1 of group 48 H_VIDEO_ACTIVE has just gone high,
+    -- so VIDEN goes high at the end of it; in clock 1 of group 28 it has
+    -- just gone low, so VIDEN goes low at the end of it.  That is
+    -- exactly the old VIDEO_ACTIVE (V_VIDEO_ACTIVE & H_VIDEO_ACTIVE,
+    -- combinational) delayed by two clocks in the delay register, which
+    -- is no longer needed.  Nothing else used VIDEO_ACTIVE.
     --
 
-    VIDEO_ACTIVE_I <=
-          V_VIDEO_ACTIVE_Q
-      and H_VIDEO_ACTIVE;
+    VIDEN_D <=
+          (V_VIDEO_ACTIVE_Q
+      and H_VIDEO_ACTIVE
+      and H2_Q
+      and H1_Q
+      and H0_Q)
+       or (VIDEN_Q
+      and (not H2_Q))
+       or (VIDEN_Q
+      and (not H1_Q))
+       or (VIDEN_Q
+      and (not H0_Q));
 
 
     -- ============================================================
@@ -193,20 +230,20 @@ begin
     --
     -- One byte is read every eight clocks during active video.
     --
-    -- PIXEL_ENABLE is registered, so it is decoded on the clock where
-    -- H2:H0 = 000 and is high on the next one, H2:H0 = 001.  The byte is
-    -- read in the second clock of each 8-clock group.  Being registered,
+    -- PIXEL_ENABLE is registered, so it is decoded in the first clock
+    -- of the group and is high in the second one, where the byte is
+    -- read.  Since revision 08 those are H2:H0 = 110 and 111 (000 and
+    -- 001 before).  Being registered,
     -- it reaches ADDR_SEL through the register feedback (tCF) and the
     -- State, PC and Branch PLDs at tCO, instead of three array passes
     -- after the clock (see docs/VIDEO_TIMING.md).
     --
     -- It is decoded from the V_VIDEO_ACTIVE register and the
-    -- H_VIDEO_ACTIVE input, not from the VIDEO_ACTIVE pin, so it is one
-    -- array pass.
+    -- H_VIDEO_ACTIVE input, so it is one array pass.
     --
-    -- The pixel buffer loads one clock later than a clock-0 read, so the
-    -- pixel select (H2:H0) and video-enable delay register on the board
-    -- has two stages.
+    -- The pixel buffer loads at the end of the second clock, so its
+    -- first pixel is shown in the third (H2:H0 = 000), and the colour
+    -- decoder takes H2:H0 and VIDEN from this PLD directly.
     --
     -- Audio (revision 06): one more read per line, on every line
     -- including vertical blanking, in clock 1 of the group that
@@ -227,12 +264,12 @@ begin
     PIXEL_ENABLE_D <=
           (V_VIDEO_ACTIVE_Q
       and H_VIDEO_ACTIVE
-      and (not H2_Q)
-      and (not H1_Q)
+      and H2_Q
+      and H1_Q
       and (not H0_Q))
        or (BLANK_RD
-      and (not H2_Q)
-      and (not H1_Q)
+      and H2_Q
+      and H1_Q
       and (not H0_Q));
 
 
@@ -344,6 +381,7 @@ begin
             H1_Q             <= H1_D;
             H2_Q             <= H2_D;
             V_VIDEO_ACTIVE_Q <= V_VIDEO_ACTIVE_D;
+            VIDEN_Q          <= VIDEN_D;
             PIXEL_ENABLE_Q   <= PIXEL_ENABLE_D;
         end if;
     end process;
@@ -357,7 +395,7 @@ begin
     H1             <= H1_Q;
     H2             <= H2_Q;
     V_VIDEO_ACTIVE <= V_VIDEO_ACTIVE_Q;
-    VIDEO_ACTIVE   <= VIDEO_ACTIVE_I;
+    VIDEN          <= VIDEN_Q;
     PIXEL_ENABLE    <= PIXEL_ENABLE_Q;
 
 end architecture rtl;

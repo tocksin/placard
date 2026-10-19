@@ -202,9 +202,9 @@ from accessing the RAM/ROM during video reads.
 | 14 | `H0` | Output | Horizontal pixel bit 0 |
 | 15 | `H1` | Output | Horizontal pixel bit 1 |
 | 16 | `H2` | Output | Horizontal pixel bit 2 |
-| 17 | `VIDEO_ACTIVE` | Output | Combined horizontal/vertical active video |
+| 17 | `VIDEN` | Output | Colour decoder video enable: active video, two clocks late (registered, revision 08; was `VIDEO_ACTIVE`) |
 | 18 | `VSYNC` | Output | Vertical sync |
-| 19 | 'PIXEL_ENABLE' | Output | VIDEO_ACTIVE but only when H2:H0 = "000" |
+| 19 | 'PIXEL_ENABLE' | Output | Video read, clock 1 of each group (H2:H0 = "111" since revision 08) |
 | 20 | — | — | Unused |
 | 21 | — | — | Unused |
 | 22 | — | — | Unused |
