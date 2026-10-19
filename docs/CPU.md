@@ -19,7 +19,7 @@ EXEC clock is a wait clock so the carry can ripple through both ALU PLDs at
 wait by sending STALL to the State PLD and the PC PLDs (the same stall the
 video uses) for the first EXEC clock, and its ALU_DONE register ends the
 wait on the second.  Stores do not wait, because they write the source bus,
-not the ALU result.  A store from AC or X to [0,X] or [Y,X] goes through
+not the ALU result.  A store from AC to [0,X] or [Y,X] goes through
 LOAD_MEM (one more clock) so its address and data settle a clock before the
 write (see [TIMING_FIXES.md](TIMING_FIXES.md)).  So an instruction takes 2
 to 4 clocks, plus any video stall clocks.
@@ -39,6 +39,13 @@ There are 4 registers in the system that are accessble for use in instructions.
 
 The D register can be loaded either from the program counter location (immediate
  instruction) or from a memory location indicated in the instruction.
+
+Only D and the Accumulator can be a source (see "Source mode").  X and Y
+are destinations and address registers: they are loaded from the ALU (an
+immediate, a zero-page byte or AC through the ALU) and read only by the
+address mux.  X was also a source until 2026-10-19; its F541 and the source
+'138 were removed, so software keeps a copy of X in RAM, or the value in AC,
+when it needs to read it.
 
 ## Memory access mode
 
@@ -109,17 +116,17 @@ owner:
 - **The memories and I/O read buffers**, in the low half of a FETCH,
   LOAD_IMM or LOAD_MEM clock (and of any video read clock), when /RAM_OE,
   /ROM_OE or an I/O read strobe is low.
-- **The source F541s (D, AC or X)**, for the whole of EXEC while
-  PIXEL_ENABLE is low.  The source '138 is enabled by G1 = Q0,
-  /G2A = PC_ENABLE (!Q1) and /G2B = PIXEL_ENABLE, so it picks a source
-  only in EXEC, and a video read clock (including a stall in EXEC) turns
-  every source F541 off.
+- **The source F541s (D or AC)**, for the whole of EXEC while
+  PIXEL_ENABLE is low.  Both F541s' /OE1 is the branch PLD's /SRC_EN
+  (pin 16, low for `EXEC & !PIXEL_ENABLE`), and /OE2 picks the source
+  (see "Source mode"), so a source drives only in EXEC, and a video read
+  clock (including a stall in EXEC) turns both off.
 
 The CPU never needs memory data in EXEC: the instruction loads in FETCH,
 D in LOAD_IMM or LOAD_MEM, and the I/O read strobes already need LOAD_IMM.
-The branch PLD's SRC_EN (pin 16, `EXEC & !PIXEL_ENABLE`) goes to the
-memory control PLD (pin 22), which leaves a CPU read out of any clock
-with SRC_EN high.  The ALU's B input, the PC low byte, the map register,
+The branch PLD's /SRC_EN (pin 16, low for `EXEC & !PIXEL_ENABLE`) also
+goes to the memory control PLD (pin 22), which leaves a CPU read out of
+any clock with /SRC_EN low.  The ALU's B input, the PC low byte, the map register,
 the port latch and a store's write data all read the bus in EXEC, when
 the source drives it.
 
@@ -131,27 +138,30 @@ Changing hands:
   F541 can turn on as early as about 7 ns after it.  So the two can drive
   the bus against each other for up to about 7 ns per instruction.
   **Series resistors** (one per bit, between the joined outputs of the
-  three source F541s and the bus) limit that current; size them against
+  two source F541s and the bus) limit that current; size them against
   the RC delay they add to the ALU path (47 ohms into about 50 pF is
   about 2.4 ns).
-- **End of EXEC.**  The source F541s turn off by about 21 ns after the edge
-  (State PLD 5.5, '138 enable 9, F541 disable 6.5); the next read starts
-  when the clock falls, about 20 ns after it, plus the memory control
-  PLD's delay.  About 1 ns to spare at a 47 % high half.
+- **End of EXEC.**  The source F541s turn off by about 19.5 ns after the
+  edge (State PLD 5.5, branch PLD /SRC_EN 7.5, F541 disable 6.5); the next
+  read starts when the clock falls, about 20 ns after it, plus the memory
+  control PLD's delay.  About 2.5 ns to spare at a 47 % high half (1 ns
+  with the '138 before 2026-10-19).
 - **End of a write.**  /WE rises (memory control PLD) and /MAP_WR or
   /PORT_WR rises (I/O decode PLD) at most 7.5 ns after the edge; the
   source F541s can turn off a little before that at minimum delays.  The
   bus then floats for a moment and holds its level (the 10k pull-ups and
   the bus capacitance), and the SRAM's data hold time is 0 ns.
 
-Timing with the source enabled only in EXEC (estimated, '138 enable to
-output taken as 9 ns): the bus is valid about 24 ns into EXEC, the same
-as the FETCH→EXEC path before this change, so a single-clock logic op
-still fits; LOAD→EXEC with source D now waits for the enable too (was
-16.5 ns).  After a video stall PIXEL_ENABLE falls about 10 ns into the
-clock, so the bus is valid at about 28.5 ns, which leaves a single-clock
-logic op about 1.7 ns.  A store's data is valid long before the end of
-the write (needed by T + 2.2 - 8 = 33.9 ns).
+Timing with the source enabled only in EXEC: /SRC_EN falls about 13 ns
+into EXEC (State PLD 5.5 + branch PLD 7.5) and the F541 enable adds 9.5,
+so source D (always after a LOAD clock, so I1 is long settled) is valid
+at about 22.5 ns.  Source AC straight after FETCH waits for /AC_SEL (IR
+10.5 + audio PLD 7.5 = 18 ns), so the bus is valid at about 27.5 ns and a
+single-clock logic op takes 27.5 + ALU 7.5 + AC setup 2 = 37 ns, 2.7 ns
+to spare (ALU_TIMING.md).  After a video stall PIXEL_ENABLE falls about
+10 ns into the clock, so the bus is valid at about 27 ns.  A store's data
+is valid long before the end of the write (needed by T + 2.2 - 8 =
+33.9 ns).
 
 The FPGA model keeps the read bus (ROM/RAM data) and the source bus
 separate because it cannot use tri-state buses.
@@ -162,8 +172,8 @@ If the prototype has trouble with the shared bus (the start-of-EXEC
 overlap, or noise from it), put the buffer back.  This is how the design
 was before 2026-10-18:
 
-- **Two buses.**  The three source F541s drive the source bus all the
-  time (the '138's G1 tied high, /G2A and /G2B tied low), and it feeds
+- **Two buses.**  The source F541s drive the source bus all the time
+  (/OE1 tied low instead of /SRC_EN, /OE2 still picks D or AC), and it feeds
   the ALU B input, the PC low byte, the map register and the port latch
   only.  The RAM/ROM data pins, the I/O read buffers, the IR, D and the
   pixel buffer are on a separate memory data bus.
@@ -183,19 +193,38 @@ was before 2026-10-18:
 ## Source mode
 
 The source bus drives to three locations: the B-input of the ALU, the low-side 
-of the program counter, and into the memory.  The instruction determines which 
-source is placed on the source bus.
-- D register containing the immediate value
-- D register containing a memory value
-- Accumulator 
+of the program counter, and into the memory.  The instruction's source bits
+(S1:S0, bits 1:0) determine which source is placed on the source bus.
+- 00: D register containing the immediate value
+- 01: D register containing a memory value
+- 10: Accumulator
+- 11: Accumulator (the same as 10; the assembler never makes it)
+
+Only bit 1 matters, so there is no decoder (since 2026-10-19).  Each of the
+two source F541s has two active-low enables:
+
+| F541 | /OE1 | /OE2 | Drives when |
+|---|---|---|---|
+| D  | /SRC_EN (branch PLD pin 16) | I1 (instruction register bit 1) | EXEC, source 00 or 01 |
+| AC | /SRC_EN (branch PLD pin 16) | /AC_SEL = !I1 (audio PLD pin 21) | EXEC, source 10 or 11 |
+
+The audio slot PLD (revision 04) had two free pins, so it makes the one
+inverter (`AC_SEL = I1`); it has to be a -7 part because it sits in the
+single-clock ALU path.  A D source always has a LOAD clock before EXEC, so
+I1 is settled a clock before /SRC_EN falls.  The only select change at the
+start of EXEC is D to AC (I1 rising after FETCH), which turns the D F541
+off (I1 directly, about 10 ns) before /SRC_EN turns either on (about
+13 ns), so the two never drive together.
+
+Before 2026-10-19 code 11 was the X register, with a third F541, and an
+SN74F138 decoded S1:S0 into the three /OE pins.  Removing X as a source
+saved both chips; reading X now takes a copy in RAM or in AC
+([LIBRARY.md](LIBRARY.md) has the idioms).
 
 The source bus is how the CPU writes data back into the RAM (it is the
 memory data bus in EXEC, see "One data bus").  It's possible to
 read a location from the ROM and then write it back to the RAM in one
 instruction.
-
-Note: there is a chance to expand this since there is one more decoded mode 
-available.
 
 ## ALU
 
@@ -233,7 +262,7 @@ the type of branch/jump.  A value of 000 will cause a jump (16-bit load of PC).
 A value of 111 will cause a branch (8-bit load of lower PC byte).  The others
 are conditional based on the ALU result.  
 
-BCC with an AC or X target (`bcc ac`, `bcc x`) is two bytes: the opcode and a
+BCC with an AC target (`bcc ac`) is two bytes: the opcode and a
 pad byte (BGE had the same before it became BCC).  Its memory field (101) is the same as a zero-page store's, and the
 State PLD sends both through LOAD_IMM rather than decoding the opcode in FETCH,
 which was too slow at 25.175 MHz (see TIMING_FIXES.md).  The assembler adds

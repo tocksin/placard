@@ -84,7 +84,7 @@
 ;   PUSH AC (6 instructions, 19 clocks; AC kept, X changed)
 ;         ld   [SP], x
 ;         ld   ac, [x]
-;         ld   x, ac
+;         ld   [SP], ac
 ;         dec
 ;         ld   ac, [SP]
 ;         ld   [x], ac
@@ -108,14 +108,13 @@
 ;         ld   [SP], x
 ;         ld   [LINK_HI], ac
 ;         ld   ac, [x]
-;         ld   x, ac
+;         ld   [SP], ac
 ;         dec
 ;         ld   ac, x
-;         ld   [LINK_LO], ac
-;         ld   ac, [x]
-;         ld   x, ac
 ;         dec
 ;         ld   ac, [SP]
+;         ld   [LINK_LO], ac
+;         ld   ac, [x]
 ;         ld   [SAVE_AC], ac
 ;
 ;   LEAVE (pops the return address and returns, 49 clocks; AC kept, X
@@ -179,12 +178,11 @@ lib_leave:
     ld   [SP], ac
     inc
     ld   ac, x
+    inc
+    ld   ac, [SP]
     ld   [x], ac
     ld   ac, [LINK_LO]
-    ld   x, ac
-    inc
-    ld   ac, x
-    ld   ac, [SP]
+    ld   [SP], x
     ld   [x], ac
     ld   ac, y
     ld   [SAVE_AC], ac
@@ -456,7 +454,7 @@ ms_loop:
     ld   [R1], y
     ld   [T0], ac
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [R0], ac
     inc
     ld   ac, [R0]
     bne  ms_nc
@@ -669,7 +667,7 @@ vc_b:
 ; vid_mode - set every row's mode byte, leave the pixels alone
 ;   in:      AC = mode byte (see vid_clear)
 ;   out:     mode bytes x5A20-x5BFF = AC
-;   changes: AC, X, Y, T0
+;   changes: AC, X, Y, T0, T1
 ;   clocks:  8,661
 ;   To change some rows only, write their mode bytes: row r's mode
 ;   byte is at x5A20 + r.  The video circuit reads it in horizontal
@@ -686,18 +684,20 @@ vid_mode:
     ld   0x20, ac
 vm_0:
     ld   ac, x
+    inc
+    ld   ac, [T1]               ; the next row
     ld   [T0], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
+    ld   [T1], ac
     bne  vm_0
     ld   0x5B, y
 vm_1:
     ld   ac, x
+    inc
+    ld   ac, [T1]
     ld   [T0], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
+    ld   [T1], ac
     bne  vm_1
     ld   [LINK_HI], y
     jmp  [LINK_LO]
@@ -747,10 +747,10 @@ va_4h:
     or   1, ac
 va_4m:
     or   0x80, ac
-    ld   ac, x
+    ld   ac, [T4]
     ld   [T1], ac
     and  0x7C, ac
-    or   x, ac
+    or   [T4], ac
     ld   ac, x
     ld   [T0], ac
     inc
@@ -773,7 +773,6 @@ va_1x:
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 
-#addr LIB_CODE + 0x396            ; entry addresses stay fixed (carry flag rewrite left a gap)
 
 ; ------------------------------------------------------------
 ; plot1 - set or clear one pixel on a 1 bpp row
@@ -871,7 +870,7 @@ cp_draw:
     ld   [T1], x
     ld   [T2], y
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [T1], ac
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 1
@@ -880,7 +879,7 @@ cp_draw:
     ld   [T1], x
     ld   [T2], y
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [T1], ac
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 2
@@ -889,7 +888,7 @@ cp_draw:
     ld   [T1], x
     ld   [T2], y
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [T1], ac
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 3
@@ -898,7 +897,7 @@ cp_draw:
     ld   [T1], x
     ld   [T2], y
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [T1], ac
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 4
@@ -907,7 +906,7 @@ cp_draw:
     ld   [T1], x
     ld   [T2], y
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [T1], ac
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 5
@@ -916,7 +915,7 @@ cp_draw:
     ld   [T1], x
     ld   [T2], y
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [T1], ac
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 6
@@ -925,7 +924,7 @@ cp_draw:
     ld   [T1], x
     ld   [T2], y
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [T1], ac
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 7
@@ -1023,14 +1022,13 @@ con_puts:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
 ps_loop:
     ld   [R0], x
@@ -1069,18 +1067,17 @@ con_hex8:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   [SP], x                ; PUSH AC
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, [SP]
     ld   [x], ac
@@ -1134,19 +1131,18 @@ con_dec16:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     clr  ac                     ; PUSH 0, the end marker
     ld   [SP], x
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, [SP]
 d16p_div:
@@ -1162,7 +1158,7 @@ d16p_back1:
     add  0x30, ac               ; PUSH the digit
     ld   [SP], x
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, [SP]
     ld   [R0], ac
@@ -1206,14 +1202,13 @@ con_dec8:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   ac, [T5]               ; T5 = value, T6 = hundreds, T7 = tens
     clr  ac
@@ -1253,14 +1248,14 @@ cd_units:
     add  0x30, ac
     ld   [SP], x
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, [SP]
     ld   [T7], ac               ; PUSH tens digit
     add  0x30, ac
     ld   [SP], x
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, [SP]
     ld   [T6], ac
@@ -1546,15 +1541,13 @@ cs_col:
     ld   [T1], y                ; rows 8-223 -> 0-215, same page
     ld   0x28, ac
 cs_a:
-    ld   ac, x
-    ld   [y,x], ac
-    ld   ac, [T3]
-    ld   x, ac
+    ld   ac, x                  ; X = the source row
     sub  8, ac
-    ld   ac, x
-    ld   [T3], ac
+    ld   ac, [T5]               ; T5 = the row 8 above
+    ld   [y,x], ac
+    ld   [T5], x
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [T5], ac
     add  9, ac
     bne  cs_a
     ld   [T1], ac               ; rows 224-231 -> 216-223, page to page
@@ -1581,15 +1574,13 @@ cs_b:
     ld   [T2], y                ; rows 232-479 -> 224-471, same page
     ld   0x08, ac
 cs_c:
-    ld   ac, x
-    ld   [y,x], ac
-    ld   ac, [T3]
-    ld   x, ac
+    ld   ac, x                  ; X = the source row
     sub  8, ac
-    ld   ac, x
-    ld   [T3], ac
+    ld   ac, [T5]               ; T5 = the row 8 above
+    ld   [y,x], ac
+    ld   [T5], x
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [T5], ac
     add  9, ac
     bne  cs_c
     ld   0xF8, ac               ; clear rows 472-479

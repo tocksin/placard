@@ -115,8 +115,6 @@ def build_source(extra=()):
         src.append('    ld   [0x%02X], ac' % ARG_AC)
         src += call(r, n)
         src += ['    ld   ac, [0x%02X]' % OUT_AC,
-                '    ld   x, ac',
-                '    ld   ac, [0x%02X]' % OUT_X,
                 'halt_%s:' % r,
                 '    bra  halt_%s' % r]
         n += 1
@@ -522,7 +520,7 @@ def t_stack(lib, n):
              '    ld   ac, [SP]']
     for v in (0x11, 0x22, 0x33):
         extra += ['    ld   0x%02X, ac' % v, '    ld   [SP], x', '    ld   ac, [x]',
-                  '    ld   x, ac', '    dec', '    ld   ac, [SP]', '    ld   [x], ac']
+                  '    ld   [SP], ac', '    dec', '    ld   ac, [SP]', '    ld   [x], ac']
     extra += ['    ld   0x40, ac']
     extra += call('outer', 100)
     extra += ['    ld   ac, [0x30]']               # outer's result
@@ -533,18 +531,18 @@ def t_stack(lib, n):
               '#addr 0x1100',
               'outer:',                            # AC + 1, then inner
               '    ld   ac, [SAVE_AC]', '    ld   [SP], x', '    ld   [LINK_HI], ac',
-              '    ld   ac, [x]', '    ld   x, ac', '    dec', '    ld   ac, x',
-              '    ld   [LINK_LO], ac', '    ld   ac, [x]', '    ld   x, ac', '    dec',
-              '    ld   ac, [SP]', '    ld   [SAVE_AC], ac',
+              '    ld   ac, [x]', '    ld   [SP], ac', '    dec', '    ld   ac, x',
+              '    dec', '    ld   ac, [SP]', '    ld   [LINK_LO], ac', '    ld   ac, [x]',
+              '    ld   [SAVE_AC], ac',
               '    inc']
     extra += call('inner', 101)
     extra += ['    ld   lib_leave >> 8, y', '    jmp  lib_leave',
               '#addr 0x1200',
               'inner:',                            # AC * 2 through con-free leaf mul
               '    ld   ac, [SAVE_AC]', '    ld   [SP], x', '    ld   [LINK_HI], ac',
-              '    ld   ac, [x]', '    ld   x, ac', '    dec', '    ld   ac, x',
-              '    ld   [LINK_LO], ac', '    ld   ac, [x]', '    ld   x, ac', '    dec',
-              '    ld   ac, [SP]', '    ld   [SAVE_AC], ac',
+              '    ld   ac, [x]', '    ld   [SP], ac', '    dec', '    ld   ac, x',
+              '    dec', '    ld   ac, [SP]', '    ld   [LINK_LO], ac', '    ld   ac, [x]',
+              '    ld   [SAVE_AC], ac',
               '    ld   ac, [R0]', '    ld   2, ac', '    ld   ac, [R1]']
     extra += call('mul8', 102)
     extra += ['    ld   [R2], ac', '    ld   lib_leave >> 8, y', '    jmp  lib_leave']

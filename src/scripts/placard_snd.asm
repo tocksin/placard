@@ -128,29 +128,23 @@ snd_init:
     ld   gen_sil & 0xFF, ac
     ld   ac, [SND_VEC]
     ld   SND_BUF >> 8, y
-    ld   SND_BUF & 0xFF, x
+    ld   SND_BUF & 0xFF, ac
 si_a:
-    ld   SND_SIL, ac
-    ld   ac, [y,x]              ; x5DF3-x5DFF
-    ld   x, ac
-    inc
     ld   ac, x
+    ld   SND_SIL, [y,x]         ; x5DF3-x5DFF
+    inc
     bne  si_a
     ld   0x5E, y
 si_b:
-    ld   SND_SIL, ac
-    ld   ac, [y,x]              ; x5E00-x5EFF
-    ld   x, ac
-    inc
     ld   ac, x
+    ld   SND_SIL, [y,x]         ; x5E00-x5EFF
+    inc
     bne  si_b
     ld   0x5F, y
 si_c:
-    ld   SND_SIL, ac
-    ld   ac, [y,x]              ; x5F00-x5FFF
-    ld   x, ac
-    inc
     ld   ac, x
+    ld   SND_SIL, [y,x]         ; x5F00-x5FFF
+    inc
     bne  si_c
     ld   SND_BUF & 0xFF, ac
     ld   ac, [SND_PL]
@@ -275,7 +269,7 @@ gen_samp:
     ld   [T1], ac
     bra  su_tail
 gs_step:
-    ld   x, ac
+    ld   [SND_ACH], ac
     inc
     ld   ac, [SND_ACH]
     bne  gs_nc
@@ -307,7 +301,7 @@ su_tail:
     ld   [SND_PH], y
     ld   [SND_PL], x
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [SND_PL], ac
     inc
     ld   ac, [SND_PL]
     beq  su_page
@@ -460,16 +454,15 @@ sp_none:
 ;   clocks:  about 180
 ; ------------------------------------------------------------
 snd_beep:
+    or   0x80, x                ; X = note + 80h, the high byte
     and  0x7F, ac
-    ld   ac, x
+    ld   ac, [R0]
     ld   snd_notes >> 8, y
     ld   [y,x], ac
-    ld   ac, [R0]
-    ld   x, ac
-    or   0x80, ac
-    ld   ac, x
-    ld   [y,x], ac
     ld   ac, [R1]
+    ld   [R0], x                ; the low byte
+    ld   [y,x], ac
+    ld   ac, [R0]
     ld   12, ac
     ld   ac, [R2]
     ld   8, ac
@@ -487,16 +480,15 @@ snd_beep:
 ;   clocks:  about 50
 ; ------------------------------------------------------------
 snd_note:
+    or   0x80, x                ; X = note + 80h, the high byte
     and  0x7F, ac
-    ld   ac, x
+    ld   ac, [R0]
     ld   snd_notes >> 8, y
     ld   [y,x], ac
-    ld   ac, [R0]
-    ld   x, ac
-    or   0x80, ac
-    ld   ac, x
-    ld   [y,x], ac
     ld   ac, [R1]
+    ld   [R0], x                ; the low byte
+    ld   [y,x], ac
+    ld   ac, [R0]
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 

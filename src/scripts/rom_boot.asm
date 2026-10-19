@@ -41,7 +41,8 @@
 ; LIBRARY RAM CODE, first of all: the library code that reads the video RAM
 ; (LIB_RAM, placard_lib.asm) must run from the RAM, so the boot copies ROM
 ; x1F00-x1FFF into RAM x1F00-x1FFF while the map is still 00 (every read
-; from ROM, every write to RAM), keeping its count in X.
+; from ROM, every write to RAM), keeping its count in AC: ld [y,x], [y,x]
+; reads the ROM and writes the RAM at the same address.
 ;
 ; EXPANSION CARDS (docs/EXPANSION.md), before either mode, like the Apple II's
 ; slot scan:
@@ -70,7 +71,8 @@ ROM_IMAGE   = 0x60      ; ROM page that holds RAM page x00
 IMAGE_END   = 0x4A      ; first RAM page not copied (x4A00; the older demos fit below it)
 MAP_PORT    = 0x50      ; ROM/RAM map register page (write only)
 DST         = 0xFE      ; RAM page being written (zero page, during the copy)
-SRC         = 0xFF      ; ROM page being read
+SRC         = 0xFF      ; ROM page being read (then page x00's count)
+CNT         = 0xFD      ; byte in the page (X is not a source)
 MAP_SHADOW  = 0x07      ; zeropage.asm: copy of the map register
 MAP_ROM_RUN = 0x05      ; ROM program: sections 0 and 2 read RAM, 1 and 3-7 ROM
 PROG_START  = 0x6000    ; ROM program entry
@@ -113,9 +115,7 @@ boot:
     clr  ac
 lib_copy:
     ld   ac, x
-    ld   [y,x], ac              ; read the ROM
-    ld   ac, [y,x]              ; write the RAM
-    ld   x, ac
+    ld   [y,x], [y,x]           ; read the ROM, write the RAM
     inc
     bne  lib_copy
     ld   MAP_PORT, y
@@ -153,14 +153,17 @@ boot_copy:                      ; RAM image
     ld   ac, [DST]
     ld   ROM_IMAGE + 1, ac
     ld   ac, [SRC]
+    clr  ac
+    ld   ac, [CNT]
     clr  x
-copy_byte:                      ; X = byte in the page, 00 at the start of a page
+copy_byte:                      ; X = CNT = byte in the page, 00 at the start of a page
     ld   [SRC], y
     ld   [y,x], ac              ; read the ROM (sections 3-7 read ROM)
     ld   [DST], y
     ld   ac, [y,x]              ; write the RAM (every write goes to RAM)
-    ld   x, ac
+    ld   [CNT], ac
     inc
+    ld   ac, [CNT]
     ld   ac, x
     bne  copy_byte
     ld   [SRC], ac              ; next page; X is 00 again
@@ -172,26 +175,30 @@ copy_byte:                      ; X = byte in the page, 00 at the start of a pag
     xor  IMAGE_END, ac
     bne  copy_byte
 
-copy_page0:                     ; page x00 last: it overwrites DST and SRC
-    ld   ROM_IMAGE, y
+    ld   ac, [SRC]              ; AC = X = 00: SRC counts page x00 now
+copy_page0:                     ; page x00 last: it overwrites DST, CNT and,
+    ld   ROM_IMAGE, y           ; last of all, SRC (xFF)
     ld   [y,x], ac
     ld   0x00, y
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [SRC], ac
     inc
+    ld   ac, [SRC]
     ld   ac, x
+    xor  0xFF, ac
     bne  copy_page0
+    ld   ROM_IMAGE, y           ; X = FF
+    ld   [y,x], ac
+    ld   0x00, y
+    ld   ac, [y,x]
 
     ld   map_switch >> 8, y     ; map_switch into the RAM under it
-    ld   map_switch, x
+    ld   7, ac
 copy_switch:
-    ld   [y,x], ac
-    ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    xor  (map_switch + 8) & 0xFF, ac
-    bne  copy_switch
+    add  map_switch & 0xFF, x   ; X = map_switch + AC, AC = 7 ... 0
+    ld   [y,x], [y,x]           ; read the ROM, write the RAM
+    sub  1, ac
+    bcc  copy_switch            ; no borrow, AC was not 0
     jmp  map_switch             ; Y is still map_switch's page
 
 #addr 0xFE00

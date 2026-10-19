@@ -13,7 +13,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | # | Part number | Type | Function in the design |
 |--:|---|---|---|
 | 1 | ATF22V10C-7PX | PLD (22V10, 24-pin) | State machine: FETCH / LOAD / EXEC, register loads, R/W (`ATF22V10_STATE.pld`) |
-| 2 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Branch decode, LoadPCLow/High, ADD/SUB wait clock and STALL, SRC_EN to the memory control, carry flag for BCS/BCC (COUT from the high ALU PLD on pin 14) (`ATF22V10_BRANCH.pld`) |
+| 2 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Branch decode, LoadPCLow/High, ADD/SUB wait clock and STALL, /SRC_EN to the source F541s' /OE1 and the memory control, carry flag for BCS/BCC (COUT from the high ALU PLD on pin 14) (`ATF22V10_BRANCH.pld`) |
 | 3 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Program counter, low byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
 | 4 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Program counter, high byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
 | 5 | ATF22V10C-7PX | PLD (22V10, 24-pin) | ALU, low nibble: 4-bit ALU with Z flag (`ALU_SHR.pld`) |
@@ -37,16 +37,16 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 23 | SN74F377AN | Octal D flip-flop with enable | Video line code (color mode for the line): D from the pixel buffer outputs, /E from /MODE_LD, so it copies the mode byte read in group 45 (see VIDEO.md); Q1:Q0 to the color decoder, Q3:Q2 to the audio slot PLD (line repeat) |
 | 24 | — | — | Removed 2026-10-19: the video delay F574 (H2:H0 pixel select and video active, two stages).  The Sync PLD now makes both two clocks later itself (VIDEO_TIMING.md, "Delay register removed").  The numbers below are kept as they were |
 | 25 | CD74ACT273E | Octal D flip-flop with clear | ROM/RAM map register at x5000 (write only, cleared to all ROM at power-up) |
-| 26 | SN74F541N | Octal buffer, 3-state | Source bus driver: D register (the source bus is also the memory data bus) |
-| 27 | SN74F541N | Octal buffer, 3-state | Source bus driver: accumulator |
-| 28 | SN74F541N | Octal buffer, 3-state | Source bus driver: X register |
+| 26 | SN74F541N | Octal buffer, 3-state | Source bus driver: D register, sources 00 and 01 (/OE1 = /SRC_EN, /OE2 = I1; the source bus is also the memory data bus) |
+| 27 | SN74F541N | Octal buffer, 3-state | Source bus driver: accumulator, sources 10 and 11 (/OE1 = /SRC_EN, /OE2 = /AC_SEL from the audio slot PLD) |
+| 28 | — | — | Removed 2026-10-19: the X register's source bus driver (X is no longer a source, CPU.md "Source mode") |
 | 29 | SN74F541N | Octal buffer, 3-state | Video line read at x5000: V9:V2 onto the data bus, enabled by /LINE_RD |
-| 30 | SN74F138N | 3-to-8 decoder | Source bus select: enables one of the three source bus F541s from the instruction's bits 1:0, only in EXEC with PIXEL_ENABLE low (G1 = Q0, /G2A = PC_ENABLE, /G2B = PIXEL_ENABLE) |
+| 30 | — | — | Removed 2026-10-19: the source select '138.  The two source F541s are picked by I1 and /AC_SEL and enabled by /SRC_EN (CPU.md, "Source mode") |
 | 31 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, lower 32K (x0000-x7FFF) |
 | 32 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, upper 32K (x8000-xFFFF) |
 | 33 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, lower 32K (interim: battery-backed SRAM) |
 | 34 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, upper 32K (interim: battery-backed SRAM) |
-| 35 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md) |
+| 35 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md).  Also /AC_SEL (= !I1, revision 04) for the AC source F541 |
 | 36 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer when H_VIDEO_ACTIVE rises (start of group 48), drives the R-2R ladder, which drives headphones directly (all passive, see SOUND.md) |
 | 37 | SN74HC574N | Octal D flip-flop, 3-state | Shared port latch at x5200 (IO.md): SCK and pad CLOCK, MOSI and pad LATCH, SD /CS (also holds the PS/2 mouse off), PS/2 DATA, keyboard column code.  HC for a full 5 V high into the pads |
 | 38 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: keyboard columns /COL0-/COL7 from the latch, pad DATA onto D7/D6 on odd reads (`ATF22V10_PORT.pld`) |
@@ -57,16 +57,15 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 
 | Part number | Type | Qty |
 |---|---|--:|
-| ATF22V10C-7PX | PLD (22V10) | 12 |
-| ATF22V10C-10PU | PLD (22V10) | 6 |
+| ATF22V10C-7PX | PLD (22V10) | 13 |
+| ATF22V10C-10PU | PLD (22V10) | 5 |
 | SN74F377AN | Octal D flip-flop with enable | 7 |
 | CD74ACT273E | Octal D flip-flop with clear | 1 |
-| SN74F541N | Octal buffer, 3-state | 5 |
-| SN74F138N | 3-to-8 decoder | 1 |
+| SN74F541N | Octal buffer, 3-state | 4 |
 | AS7C256C-15PCN | SRAM, 32K x 8 | 4 |
 | SN74HCT574N | Octal D flip-flop, 3-state | 1 |
 | SN74HC574N | Octal D flip-flop, 3-state | 1 |
-| **Total** | | **38 + a 3.3 V regulator** |
+| **Total** | | **36 + a 3.3 V regulator** |
 
 **Not counted, not chosen yet:** the 25.175 MHz clock oscillator, and the
 battery and power-fail switch that hold the interim ROM's /CE high while
@@ -77,6 +76,14 @@ Also not counted: the series resistors (8, one per bit, for example a
 bussed or isolated resistor array) between the source F541 outputs and
 the data bus, which limit the current while the bus changes hands at the
 start of EXEC (CPU.md, "One data bus").
+
+**Removed 2026-10-19: the X source F541 and the source '138.**  X is no
+longer a source: source codes 00 and 01 drive D and 10 and 11 drive AC,
+picked by instruction bit 1 (the D F541's /OE2) and the audio slot PLD's
+/AC_SEL (the AC F541's /OE2), with the branch PLD's /SRC_EN on both
+/OE1 pins.  The audio slot PLD moved to the -7 grade for it.  Software
+reads X from a copy in RAM or keeps the value in AC (CPU.md, "Source
+mode").
 
 **Removed 2026-10-18: the RAM write-data buffer** (an SN74F541N, source
 bus onto the RAM data pins, enabled by /WE).  The source bus is now the
@@ -91,15 +98,14 @@ dividers (1.8k over 3.3k) bring the SD card's SCK, MOSI and /CS down to
 
 Checked 2026-10-19 with the worst-case method of [TIMING.md](TIMING.md).
 The ATF22V10C-10PU (PDIP-24, like the -7PX) has tPD 10 ns, tCO 6.5, tS 4.5
-and tEA 10, against 7.5, 5.5, 3.5 and 7.5 for the -7PX.  Six PLDs have the
-room for it; the other twelve sit on paths with 0.2 to 1.7 ns to spare.
+and tEA 10, against 7.5, 5.5, 3.5 and 7.5 for the -7PX.  Five PLDs have the
+room for it; the other thirteen sit on paths with 0.2 to 2.7 ns to spare.
 
 | # | PLD | Worst path through it | Slack at -7 | Slack at -10 | Grade |
 |--:|---|---|---:|---:|---|
 | 3, 4 | PC low, PC high | Branch decision: IR 10.5, ALU F, Z, Branch LOAD_PC_LOW, PC setup | +3.2 | +2.2 | -10 |
 | 13 | H counter | H_TC to the V counter (both -10) | +23.2 | +19.7 | -10 |
 | 14 | V counter | V_VIDEO_ACTIVE.D: V tCO, Sync setup | +30.7 | +29.7 | -10 |
-| 35 | Audio slot | BLANK_RD to the Sync register (H counter -10 too) | +23.2 | +19.7 | -10 |
 | 16 | Color decoder | Pixel buffer 10.5, two levels, to the DAC (no register after it): settled 25.5 / 30.5 ns into a 39.7 ns pixel | | | -10 |
 | 1 | State | Opcode fetch: PC_ENABLE tCO, ADDR_SEL, mux, tAA, State setup | +0.7 | −1.3 | -7 |
 | 15 | Sync | Same fetch path (ADDR_SEL) | +0.7 | −1.8 | -7 |
@@ -109,6 +115,7 @@ room for it; the other twelve sit on paths with 0.2 to 1.7 ns to spare.
 | 5, 6 | ALU | Logic op after a video stall; branch decision (F and Z) | +1.7; +3.2 | −0.8; −1.8 | -7 |
 | 38 | Port | Pad read: address, /PORT_RD, port tEA, D setup | +2.2 | −0.3 | -7 |
 | 2 | Branch | Branch decision into the PC PLDs | +3.2 | +0.7 with the PCs at -7, −0.3 with them at -10 | -7 |
+| 35 | Audio slot | /AC_SEL (since revision 04): IR 10.5, /AC_SEL, F541 enable 9.5, ALU 7.5, AC setup 2 (the video paths have +19.7 at -10) | +2.7 | +0.2 | -7 |
 
 The branch decision runs through the Branch PLD and into both PC PLDs, so
 only one side can be -10; the PCs are two chips and keep more margin.

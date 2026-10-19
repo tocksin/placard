@@ -2,17 +2,39 @@
 
 Date: 2026-10-19
 
-Proposal 1 is not applied; proposals 2 and 3 were applied on 2026-10-18.
-The design was 41 chips plus a 3.3 V regulator and is now 39 (CHIPS.md).
-(2026-10-19: the video delay F574 was also removed, see VIDEO_TIMING.md
-"Delay register removed"; the design is now 38.)
-Three changes remove a chip each; the rest of the design was checked and
-has no other chip to remove with parts in stock.  Per the standing note to
-hold optimization until the project is near done, 1 waits.
+Proposals 2 and 3 were applied on 2026-10-18, and 4 on 2026-10-19, which
+replaces proposal 1.  The design was 41 chips plus a 3.3 V regulator and
+is now 36 (CHIPS.md): 2 and 3 took it to 39, the video delay F574 was
+removed on 2026-10-19 (VIDEO_TIMING.md, "Delay register removed") for 38,
+and 4 removed two more.  The rest of the design was checked and has no
+other chip to remove with parts in stock.
+
+## Applied 2026-10-19
+
+### 4. X is no longer a source: the X source F541 and the '138 go (-2)
+
+Justin's idea: with only D and AC as sources, instruction bit 1 alone
+picks the source, so the '138 is not needed either.  Codes 00 and 01
+drive D and 10 and 11 drive AC (CPU.md, "Source mode"):
+
+| F541 | /OE1 | /OE2 |
+|---|---|---|
+| D | /SRC_EN (branch PLD pin 16, revision 12) | I1 |
+| AC | /SRC_EN | /AC_SEL = !I1 (audio slot PLD pin 21, revision 04) |
+
+- **Timing gets a little better.**  The AC source goes through a 7.5 ns
+  PLD instead of the '138's 9 ns (single-clock logic op 37 ns, +2.7), and
+  the drivers turn off 1.5 ns sooner at the end of EXEC.  The audio slot
+  PLD has to be a -7 part for it.
+- **Cost: software.**  X can't be read, so code keeps a copy of X in RAM
+  or the value in AC.  Loops that counted in X now count in AC and set X
+  with `ld ac, x` (often faster), or keep the count in the zero page.
+  Pushing AC on the stack costs 2 clocks more (LIBRARY.md).
+- Proposal 1 below is superseded.
 
 ## Proposed
 
-### 1. The source-bus 74F138 goes into the high address-mux PLDs (-1)
+### 1. The source-bus 74F138 goes into the high address-mux PLDs (-1) — superseded by 4
 
 The '138 decodes `instReg(1:0)` into the enables of the three source-bus
 74F541s.  Each F541 has two active-low enables, so with the two inverted
