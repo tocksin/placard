@@ -1,16 +1,15 @@
 # Schematics
 
-This folder holds the Placard schematic: the EDA project files for the real
-schematic, plus exported PDFs/PNGs for reading without the tool.
+This folder holds drawings of the Placard schematic for reading without
+KiCad: exported PDFs of the real schematic, and the reference PNGs below.
 
-The PCB layout lives in [`../pcb/`](../pcb/).  Part numbers and U-numbers come
-from [docs/CHIPS.md](../docs/CHIPS.md); the PLD pinouts come from the `.pld`
-files in `src/`.
+The real schematic and the PCB layout are the KiCad project in
+[`../kicad/`](../kicad/).
 
 ## Reference drawings
 
 These PNGs are sketches drawn by Python scripts, not the real schematic.  They
-were made before the schematic capture started and show the intended wiring.
+were made before the KiCad schematic was started and show the intended wiring.
 
 | File | Made by | Shown in |
 |------|---------|----------|
