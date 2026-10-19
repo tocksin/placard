@@ -16,3 +16,31 @@ vivado*.str
 # IP output products, Vivado writes them next to the .xci
 /src/ip/*
 !/src/ip/*.xci
+
+# EDA (schematic and PCB) backups, autosaves, locks and caches
+# KiCad
+*-backups/
+_autosave-*
+*.kicad_sch-bak
+*.kicad_pcb-bak
+*.sch-bak
+*.bak
+*.lck
+~*.lck
+fp-info-cache
+*.kicad_prl
+# Eagle / Fusion Electronics
+*.s#?
+*.b#?
+*.l#?
+eagle.epf
+# Altium
+History/
+__Previews/
+Project Logs for */
+*.PcbDoc.htm
+# DipTrace / EasyEDA / generic
+*.~*
+*.tmp
+# fabrication zips made from the Gerbers (keep the Gerbers themselves)
+/pcb/fab/*.zip

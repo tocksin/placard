@@ -16,7 +16,7 @@ sample to a resistor DAC.  Software only keeps a 525-byte buffer filled.
 
 ## Schematic
 
-![Placard audio schematic](../reference/placard_audio_schematic.png)
+![Placard audio schematic](../schematics/placard_audio_schematic.png)
 
 The drawing is made by `src/scripts/gen_audio_schematic.py` (2026-10-19);
 rerun it when the pins change.  It shows the audio slot PLD (U35), the Sync
