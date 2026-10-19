@@ -97,6 +97,7 @@ architecture Behavioral of basys_top is
 
     signal viden            : sl;   -- Sync PLD VIDEN (colour decoder video enable)
     signal pixelEn          : sl;
+    signal pixLdN           : sl;   -- pixel buffer /E (Branch PLD pin 15)
     signal modeLdN          : sl;   -- line code register /E (audio slot PLD pin 22)
     signal hVideoActive     : sl;   -- H counter PLD H_VIDEO_ACTIVE (audio DAC clock)
     signal rowA0            : sl;   -- video address A0 from the audio slot PLD (line repeat)
@@ -179,13 +180,13 @@ architecture Behavioral of basys_top is
     signal ramSel5          : sl;
     signal ramSel6          : sl;
     signal ramSel7          : sl;
-    signal acLoad           : sl;
-    signal xLoad            : sl;
-    signal yLoad            : sl;
+    signal acLoadN          : sl;   -- State PLD strobes, active low (F377 /E)
+    signal xLoadN           : sl;
+    signal yLoadN           : sl;
     signal xEnable          : sl;
     signal yEnable          : sl;
-    signal instLoad         : sl;
-    signal dLoad            : sl;
+    signal instLoadN        : sl;
+    signal dLoadN           : sl;
     signal memRdWr          : sl;
     signal ramWeN           : sl;   -- RAM /WE, active low
     signal srcBus           : slv(7 downto 0);
@@ -301,11 +302,11 @@ begin
         pc_enable   => pcEnable,
         x_enable    => xEnable,
         y_enable    => yEnable,
-        load_instr  => instLoad,
-        load_imm    => dLoad,
-        load_x      => xLoad,
-        load_y      => yLoad,
-        load_ac     => acLoad,
+        load_instr_n => instLoadN,
+        load_imm_n  => dLoadN,
+        load_x_n    => xLoadN,
+        load_y_n    => yLoadN,
+        load_ac_n   => acLoadN,
         mem_rw      => memRdWr
     );
 
@@ -333,7 +334,8 @@ begin
         stall        => cpuStall,
         srcEnN       => srcEnN,
         cout         => carryout,
-        carry        => open
+        carry        => open,
+        pix_ld_n     => pixLdN
     );
     
     memMode <= "[0,D]" when instReg(4 downto 2)="000" else
@@ -433,19 +435,19 @@ begin
             xReg    <= x"00";
             yReg    <= x"00";
         elsif rising_edge(clkVGA) then
-            if (instLoad='1') then
+            if (instLoadN='0') then
                 instReg <= databus;
             end if;
-            if (dLoad='1') then
+            if (dLoadN='0') then
                 dReg <= databus;
             end if;
-            if (acLoad='1') then
+            if (acLoadN='0') then
                 acReg <= aluResult;
             end if;
-            if (xLoad = '1') then
+            if (xLoadN = '0') then
                 xReg <= aluResult;
             end if;
-            if (yLoad = '1') then
+            if (yLoadN = '0') then
                 yReg <= aluResult;
             end if;
         end if;
@@ -669,7 +671,7 @@ begin
         a8          => ramAddress(8),
         rw          => memRdWr,
         a11         => ramAddress(11),
-        load_imm    => dLoad,
+        load_imm_n  => dLoadN,
 
         ce_hi_n     => open,
         map_wr_n    => mapWrN,
@@ -841,7 +843,7 @@ begin
     dRegProc : process (clkVGA)
     begin
         if rising_edge(clkVGA) then
-            if (dLoad = '1') then
+            if (dLoadN = '0') then
                 dReg <= databus;
             end if;
         end if;
@@ -903,7 +905,7 @@ begin
         if (rstVGA='1') then
             pixelBuffer <= x"00";
         elsif rising_edge(clkVGA) then
-            if pixelEn='1' then
+            if pixLdN='0' then        -- /E from the Branch PLD's /PIX_LD
                 pixelBuffer <= databus;
             end if;
         end if;
