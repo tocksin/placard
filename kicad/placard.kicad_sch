@@ -1,0 +1,20 @@
+(kicad_sch (version 20230121) (generator eeschema)
+
+  (uuid 114dea90-c879-4185-878d-ffcd42bc99f6)
+
+  (paper "A3")
+
+  (title_block
+    (title "Placard")
+    (date "2026-10-19")
+    (rev "0")
+    (comment 1 "PLD computer: see docs/CHIPS.md for parts and U-numbers")
+  )
+
+  (lib_symbols
+  )
+
+  (sheet_instances
+    (path "/" (page "1"))
+  )
+)
