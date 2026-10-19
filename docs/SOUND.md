@@ -14,6 +14,16 @@ sample to a resistor DAC.  Software only keeps a 525-byte buffer filled.
 | Added chips | audio slot PLD (ATF22V10C) and DAC register (SN74HCT574N); the DAC, filter and headphone output are passives |
 | CPU cost | one stall clock per line (525 per frame, 0.13 %) |
 
+## Schematic
+
+![Placard audio schematic](../reference/placard_audio_schematic.png)
+
+The drawing is made by `src/scripts/gen_audio_schematic.py` (2026-10-19);
+rerun it when the pins change.  It shows the audio slot PLD (U35), the Sync
+PLD pins that make the read (U15), the pixel buffer (U22), the DAC register
+(U36) with its filtered supply, the R-2R ladder, the filter and the jack (J6),
+and the timing of one line around the read.
+
 ## How the sample is read
 
 **The read.**  The Sync PLD (revision 06) raises PIXEL_ENABLE for one more
