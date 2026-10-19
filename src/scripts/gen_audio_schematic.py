@@ -5,7 +5,7 @@ the audio slot PLD, the Sync PLD pins that make the blanking reads, the
 pixel buffer, the DAC register and its filtered supply, the R-2R ladder,
 the filter and the headphone jack, plus the timing of one line.
 
-    python3 gen_audio_schematic.py              writes reference/placard_audio_schematic.png
+    python3 gen_audio_schematic.py              writes schematics/placard_audio_schematic.png
     python3 gen_audio_schematic.py out.png      writes out.png
 
 Needs matplotlib (python3 -m pip install matplotlib).  The pin numbers are
@@ -453,6 +453,6 @@ T(nx, ny + 37, "Each chip has a 100 nF capacitor across its supply pins.  U-numb
 T(nx, ny + 39.8, "docs/VIDEO.md, the PLD files, 2026-10-19.", fs=6.8, color=MUTE)
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "..", "reference", "placard_audio_schematic.png")
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "schematics", "placard_audio_schematic.png")
 fig.savefig(out, dpi=100)
 print("wrote", os.path.normpath(out))
