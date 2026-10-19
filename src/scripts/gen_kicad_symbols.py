@@ -32,6 +32,10 @@ PLD_DIR = os.path.join(ROOT, "src", "pld")
 OUT = os.path.join(ROOT, "kicad", "lib", "placard.kicad_sym")
 
 PART = "ATF22V10C-7PX"
+# PLDs with enough timing margin for the slower -10 grade (CHIPS.md, "PLD speed grades")
+PART_10 = "ATF22V10C-10PU"
+SLOW_OK = {"ATF22V10_PC_COUNTER8", "ATF22V10_HCOUNT", "ATF22V10_VCOUNT",
+           "ATF22V10_AUDIO", "ATF22V10_COLORDECODER"}
 FOOTPRINT = "Package_DIP:DIP-24_W7.62mm"
 DATASHEET = "https://ww1.microchip.com/downloads/en/DeviceDoc/doc0735.pdf"
 G = 2.54                       # pin pitch and pin length (100 mil)
@@ -84,13 +88,13 @@ def fmt(v):
     return ("%.4f" % v).rstrip("0").rstrip(".")
 
 
-def symbol(sym, left, right, pld_text, desc, keywords):
+def symbol(sym, left, right, pld_text, desc, keywords, part=PART):
     """left/right: lists of (number, name, kind)."""
     n = max(len(left), len(right))
     lw = max([len(p[1]) for p in left] + [1])
     rw = max([len(p[1]) for p in right] + [1])
     w = (lw + rw) * CHAR_W + 4 * G
-    w = max(w, 2 * (len(PART) * CHAR_W + 2))           # the part number clears the VCC pin
+    w = max(w, 2 * (len(part) * CHAR_W + 2))           # the part number clears the VCC pin
     w = max(6, int(-(-w // (2 * G)))) * 2 * G          # whole 200 mil steps, so the centre is on grid
     h = (n + 1) * G
     x0, x1 = -w / 2, w / 2
@@ -102,7 +106,7 @@ def symbol(sym, left, right, pld_text, desc, keywords):
              % (fmt(x0), fmt(y0 + 0.6)))
     s.append('    (property "Value" "%s" (at %s %s 0)\n'
              '      (effects (font (size 1.27 1.27)) (justify right bottom))\n    )\n'
-             % (PART, fmt(x1), fmt(y0 + 0.6)))
+             % (part, fmt(x1), fmt(y0 + 0.6)))
     s.append('    (property "Footprint" "%s" (at 0 0 0)\n'
              '      (effects (font (size 1.27 1.27)) hide)\n    )\n' % FOOTPRINT)
     s.append('    (property "Datasheet" "%s" (at 0 0 0)\n'
@@ -143,7 +147,8 @@ def pld_symbol(path):
     pld_text = fname + (" rev " + rev if rev else "")
     desc = "ATF22V10C programmed with %s (Name %s, revision %s, %s), 24-pin 300 mil DIP" % (
         fname, head.get("Name", "").strip(), rev, date)
-    return sym, symbol(sym, left, right, pld_text, desc, "PLD GAL 22V10 Placard " + stem)
+    part = PART_10 if stem in SLOW_OK else PART
+    return sym, symbol(sym, left, right, pld_text, desc, "PLD GAL 22V10 Placard " + stem, part)
 
 
 def generic_symbol():

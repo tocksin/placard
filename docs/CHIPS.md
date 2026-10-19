@@ -14,8 +14,8 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 |--:|---|---|---|
 | 1 | ATF22V10C-7PX | PLD (22V10, 24-pin) | State machine: FETCH / LOAD / EXEC, register loads, R/W (`ATF22V10_STATE.pld`) |
 | 2 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Branch decode, LoadPCLow/High, ADD/SUB wait clock and STALL, SRC_EN to the memory control, carry flag for BCS/BCC (COUT from the high ALU PLD on pin 14) (`ATF22V10_BRANCH.pld`) |
-| 3 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Program counter, low byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
-| 4 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Program counter, high byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
+| 3 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Program counter, low byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
+| 4 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Program counter, high byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
 | 5 | ATF22V10C-7PX | PLD (22V10, 24-pin) | ALU, low nibble: 4-bit ALU with Z flag (`ALU_SHR.pld`) |
 | 6 | ATF22V10C-7PX | PLD (22V10, 24-pin) | ALU, high nibble: 4-bit ALU with Z flag, F3 is the sign (`ALU_SHR.pld`) |
 | 7 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 3:0: PC / D / X / video address (`ATF22V10_QUAD_MUX.pld`) |
@@ -24,10 +24,10 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 10 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 15:12 (`ATF22V10_QUAD_MUX.pld`) |
 | 11 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Memory control: /WE, /RAM_OE, /ROM_OE from the map, and MAP_RUN reset (`ATF22V10_MEM_CTRL.pld`) |
 | 12 | ATF22V10C-7PX | PLD (22V10, 24-pin) | I/O decode: upper 32K /CE_HI and the x5000-x53FF strobes (`ATF22V10_IO_DECODE.pld`) |
-| 13 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video H counter: H9:H3, HSYNC, horizontal active (`ATF22V10_HCOUNT.pld`) |
-| 14 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video V counter: V9:V0 (`ATF22V10_VCOUNT.pld`) |
+| 13 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Video H counter: H9:H3, HSYNC, horizontal active (`ATF22V10_HCOUNT.pld`) |
+| 14 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Video V counter: V9:V0 (`ATF22V10_VCOUNT.pld`) |
 | 15 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video sync: H2:H0 (also the color decoder's pixel select), VSYNC, VIDEN, PIXEL_ENABLE and address-mux selects (`ATF22V10_SYNC.pld`) |
-| 16 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Color decoder: pixel byte and line code to VGA RGB (`ATF22V10_COLORDECODER.pld`) |
+| 16 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Color decoder: pixel byte and line code to VGA RGB (`ATF22V10_COLORDECODER.pld`) |
 | 17 | SN74F377AN | Octal D flip-flop with enable | Instruction register |
 | 18 | SN74F377AN | Octal D flip-flop with enable | D register (immediate / memory operand) |
 | 19 | SN74F377AN | Octal D flip-flop with enable | Accumulator (AC) |
@@ -46,7 +46,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 32 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, upper 32K (x8000-xFFFF) |
 | 33 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, lower 32K (interim: battery-backed SRAM) |
 | 34 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, upper 32K (interim: battery-backed SRAM) |
-| 35 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md) |
+| 35 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md) |
 | 36 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer when H_VIDEO_ACTIVE rises (start of group 48), drives the R-2R ladder, which drives headphones directly (all passive, see SOUND.md) |
 | 37 | SN74HC574N | Octal D flip-flop, 3-state | Shared port latch at x5200 (IO.md): SCK and pad CLOCK, MOSI and pad LATCH, SD /CS (also holds the PS/2 mouse off), PS/2 DATA, keyboard column code.  HC for a full 5 V high into the pads |
 | 38 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: keyboard columns /COL0-/COL7 from the latch, pad DATA onto D7/D6 on odd reads (`ATF22V10_PORT.pld`) |
@@ -57,7 +57,8 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 
 | Part number | Type | Qty |
 |---|---|--:|
-| ATF22V10C-7PX | PLD (22V10) | 18 |
+| ATF22V10C-7PX | PLD (22V10) | 12 |
+| ATF22V10C-10PU | PLD (22V10) | 6 |
 | SN74F377AN | Octal D flip-flop with enable | 7 |
 | CD74ACT273E | Octal D flip-flop with clear | 1 |
 | SN74F541N | Octal buffer, 3-state | 5 |
@@ -85,6 +86,36 @@ memory data bus.  It is kept as a fallback for the prototype: see CPU.md,
 **Removed 2026-10-18: the CD74HC4050E level shifter.**  Three resistor
 dividers (1.8k over 3.3k) bring the SD card's SCK, MOSI and /CS down to
 3.2 V (IO.md, "SD card").
+
+## PLD speed grades
+
+Checked 2026-10-19 with the worst-case method of [TIMING.md](TIMING.md).
+The ATF22V10C-10PU (PDIP-24, like the -7PX) has tPD 10 ns, tCO 6.5, tS 4.5
+and tEA 10, against 7.5, 5.5, 3.5 and 7.5 for the -7PX.  Six PLDs have the
+room for it; the other twelve sit on paths with 0.2 to 1.7 ns to spare.
+
+| # | PLD | Worst path through it | Slack at -7 | Slack at -10 | Grade |
+|--:|---|---|---:|---:|---|
+| 3, 4 | PC low, PC high | Branch decision: IR 10.5, ALU F, Z, Branch LOAD_PC_LOW, PC setup | +3.2 | +2.2 | -10 |
+| 13 | H counter | H_TC to the V counter (both -10) | +23.2 | +19.7 | -10 |
+| 14 | V counter | V_VIDEO_ACTIVE.D: V tCO, Sync setup | +30.7 | +29.7 | -10 |
+| 35 | Audio slot | BLANK_RD to the Sync register (H counter -10 too) | +23.2 | +19.7 | -10 |
+| 16 | Color decoder | Pixel buffer 10.5, two levels, to the DAC (no register after it): settled 25.5 / 30.5 ns into a 39.7 ns pixel | | | -10 |
+| 1 | State | Opcode fetch: PC_ENABLE tCO, ADDR_SEL, mux, tAA, State setup | +0.7 | −1.3 | -7 |
+| 15 | Sync | Same fetch path (ADDR_SEL) | +0.7 | −1.8 | -7 |
+| 7-10 | Address mux | Same fetch path | +0.7 | −1.8 | -7 |
+| 11 | Memory control | Opcode through /OE into the State PLD; address hold after /WE | +1.2; +0.5 | −1.3; −2.0 | -7 |
+| 12 | I/O decode | I/O read: address, /xx_RD, F541 enable, D setup | +0.2 | −2.3 | -7 |
+| 5, 6 | ALU | Logic op after a video stall; branch decision (F and Z) | +1.7; +3.2 | −0.8; −1.8 | -7 |
+| 38 | Port | Pad read: address, /PORT_RD, port tEA, D setup | +2.2 | −0.3 | -7 |
+| 2 | Branch | Branch decision into the PC PLDs | +3.2 | +0.7 with the PCs at -7, −0.3 with them at -10 | -7 |
+
+The branch decision runs through the Branch PLD and into both PC PLDs, so
+only one side can be -10; the PCs are two chips and keep more margin.
+The video address (H, V and the audio PLD's row bits) changes at the start
+of clock 0 of a group and is read in clock 1, so it has over a clock to
+settle.  A slower color decoder moves every pixel later by the same amount;
+the settled part of each pixel shrinks from about 21 to about 16 ns.
 
 ## Future features
 
