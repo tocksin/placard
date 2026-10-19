@@ -31,3 +31,6 @@ _autosave-*
 fp-info-cache
 # fabrication zips (keep the Gerbers and drill files themselves)
 /kicad/fab/*.zip
+
+# Python bytecode caches
+__pycache__/
