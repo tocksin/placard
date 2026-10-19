@@ -16,4 +16,6 @@ were made before the KiCad schematic was started and show the intended wiring.
 | `placard_io_schematic.png` | `src/scripts/gen_io_schematic.py` | [docs/IO.md](../docs/IO.md#schematic) |
 | `placard_audio_schematic.png` | `src/scripts/gen_audio_schematic.py` | [docs/SOUND.md](../docs/SOUND.md#schematic) |
 
-Rerun a script (it needs matplotlib) to redraw its PNG here.
+Rerun a script (it needs matplotlib) to redraw its PNG here.  Both size their
+text last, with `src/scripts/schematic_text.py`: every label starts large and
+shrinks only where it would run into another label, a wire or a chip.

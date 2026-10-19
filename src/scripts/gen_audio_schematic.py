@@ -22,6 +22,7 @@ import sys
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from schematic_text import fit_text
 from matplotlib.patches import Rectangle, Polygon, Circle, Arc
 
 W, H = 320, 180
@@ -228,13 +229,13 @@ for name, dest in (("R0", "U7 pin 3, video A0"), ("R1", "U7 pin 7, video A1"),
     x, y = u35[name]
     net(x, y, name, fs=6.8)
     T(x + 4.5, y, "(" + dest + ")", fs=6.2, color=MUTE)
-T(6, 90, "BLANK_RD  = group 47 & V9   (lines 512-1023, x5E00-x5FFF)", fs=6.6, family="monospace")
-T(6, 93, "          # group 46 & !V9  (lines 499-511,  x5DF3-x5DFF)", fs=6.6, family="monospace")
-T(6, 96, "          # group 45        (mode byte, x5A00 + V8:V0)", fs=6.6, family="monospace")
-T(6, 99.5, "/MODE_LD  = group 45", fs=6.6, family="monospace")
-T(6, 103, "R0 R1 R7 R8: V0 V1 V7 V8 in groups 32-47, line repeat remap in 48-127", fs=6.6,
+T(6, 96.0, "BLANK_RD  = group 47 & V9   (lines 512-1023, x5E00-x5FFF)", fs=6.6, family="monospace")
+T(6, 98.4, "          # group 46 & !V9  (lines 499-511,  x5DF3-x5DFF)", fs=6.6, family="monospace")
+T(6, 100.8, "          # group 45        (mode byte, x5A00 + V8:V0)", fs=6.6, family="monospace")
+T(6, 103.2, "/MODE_LD  = group 45", fs=6.6, family="monospace")
+T(6, 105.6, "R0 R1 R7 R8: V0 V1 V7 V8 in groups 32-47, line repeat remap in 48-127", fs=6.6,
   family="monospace")
-T(6, 106.5, "group = H9:H3;  45 = 0101101, 46 = 0101110, 47 = 0101111", fs=6.6, color=MUTE,
+T(6, 108.0, "group = H9:H3;  45 = 0101101, 46 = 0101110, 47 = 0101111", fs=6.6, color=MUTE,
   family="monospace")
 
 # ================================================================ U15 sync (audio pins) and U22 pixel buffer
@@ -264,9 +265,8 @@ net(*u22["CLK"], "CLK 25 MHz", "l", fs=6.8)
 # PIXEL_ENABLE from U15 pin 19 to the pixel buffer's load enable
 x0, y0 = u15["PIXEL_ENABLE"]
 x1, y1 = u22["/E"]
-wire([(x0, y0), (156, y0), (156, 47), (116, 47), (116, y1), (x1, y1)])
+wire([(x0, y0), (156, y0), (156, 43.5), (116, 43.5), (116, y1), (x1, y1)])
 T(x0 + 1, y0 - 0.8, "PIXEL_ENABLE", fs=6.5, color=NET, weight="bold")
-T(117, 49, "load in clock 1 of a read", fs=6, color=MUTE)
 # memory data bus into D7:D0
 BX = 108
 wire([(BX, u22["D0"][1] - 1), (BX, u22["D7"][1] + 1)], WIRE, lw=3.5)
@@ -292,7 +292,7 @@ T(x - 2.6, y, "GND", fs=7, ha="right", color=PWR, weight="bold")
 x, y = u36["CLK"]
 wire([(x, y), (172, y)])
 net(172, y, "H_VIDEO_ACTIVE", "l", fs=6.8)
-T(158, y + 2.2, "(U13 pin 22, rises at group 48)", fs=6, color=MUTE, ha="left")
+T(175.5, y + 2.4, "(U13 pin 22, rises at group 48)", fs=6, color=MUTE, ha="right")
 # pixel buffer Q7:Q0 straight across to U36 D7:D0; also on to the line code reg and the colour decoder
 TAP = 160
 for i in range(8):
@@ -301,9 +301,8 @@ for i in range(8):
     wire([(xq, yq), (xd, yd)])
     dot(TAP, yq)
     T(xq + 1, yq - 0.7, "P%d" % i, fs=5.8, color=NET)
-wire([(TAP, u22["Q0"][1]), (TAP, 100)])
-T(TAP + 1, 99, "also U23 D7:D0 (line code)", fs=6, color=MUTE)
-T(TAP + 1, 101.6, "and U16 (colour decoder)", fs=6, color=MUTE)
+wire([(TAP, u22["Q0"][1]), (TAP, 104.5), (TAP - 2, 104.5)])
+T(TAP - 2.5, 104.5, "also to U23 D7:D0 (line code) and U16 (colour decoder)", fs=6, color=MUTE, ha="right")
 # DAC 5V: +5V - 2.2R - node with 220uF and 100nF to AGND - U36 VCC
 vx, vy = u36["VCC"]
 fy = 30
@@ -317,7 +316,7 @@ for cx, ref, val, pol in ((212, "C3", "220uF", True), (224, "C4", "100nF", False
     cap(cx, fy, fy + 8, ref, val, polar=pol)
     gnd(cx, fy + 8)
 T(vx + 1, fy - 1.5, "DAC 5V", fs=7, color=NET, weight="bold")
-T(180, 44, "ladder full scale = this rail, so it is filtered", fs=6.2, color=MUTE)
+T(203, 45, "ladder full scale = this rail, so it is filtered", fs=6.2, color=MUTE)
 
 # ================================================================ R-2R ladder
 frame(256, 14, 61, 96, "Filter and headphone jack", "tr")
@@ -454,5 +453,6 @@ T(nx, ny + 39.8, "docs/VIDEO.md, the PLD files, 2026-10-19.", fs=6.8, color=MUTE
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "..", "schematics", "placard_audio_schematic.png")
+fit_text(fig, ax)
 fig.savefig(out, dpi=100)
 print("wrote", os.path.normpath(out))
