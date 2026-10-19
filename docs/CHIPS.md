@@ -12,8 +12,8 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 
 | # | Part number | Type | Function in the design |
 |--:|---|---|---|
-| 1 | ATF22V10C-7PX | PLD (22V10, 24-pin) | State machine: FETCH / LOAD / EXEC, register loads, R/W (`ATF22V10_STATE.pld`) |
-| 2 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Branch decode, LoadPCLow/High, ADD/SUB wait clock and STALL, SRC_EN to the memory control, carry flag for BCS/BCC (COUT from the high ALU PLD on pin 14) (`ATF22V10_BRANCH.pld`) |
+| 1 | ATF22V10C-7PX | PLD (22V10, 24-pin) | State machine: FETCH / LOAD / EXEC, register loads (active low, to the F377 /E pins), R/W (`ATF22V10_STATE.pld`) |
+| 2 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Branch decode, LoadPCLow/High, ADD/SUB wait clock and STALL, SRC_EN to the memory control, carry flag for BCS/BCC (COUT from the high ALU PLD on pin 14), /PIX_LD for the pixel buffer (pin 15) (`ATF22V10_BRANCH.pld`) |
 | 3 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Program counter, low byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
 | 4 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Program counter, high byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
 | 5 | ATF22V10C-7PX | PLD (22V10, 24-pin) | ALU, low nibble: 4-bit ALU with Z flag (`ALU_SHR.pld`) |
@@ -28,12 +28,12 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 14 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Video V counter: V9:V0 (`ATF22V10_VCOUNT.pld`) |
 | 15 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video sync: H2:H0 (also the color decoder's pixel select), VSYNC, VIDEN, PIXEL_ENABLE and address-mux selects (`ATF22V10_SYNC.pld`) |
 | 16 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Color decoder: pixel byte and line code to VGA RGB (`ATF22V10_COLORDECODER.pld`) |
-| 17 | SN74F377AN | Octal D flip-flop with enable | Instruction register |
+| 17 | SN74F377AN | Octal D flip-flop with enable | Instruction register (/E from the State PLD's /LOAD_INSTR; the F377s load when /E is low) |
 | 18 | SN74F377AN | Octal D flip-flop with enable | D register (immediate / memory operand) |
 | 19 | SN74F377AN | Octal D flip-flop with enable | Accumulator (AC) |
 | 20 | SN74F377AN | Octal D flip-flop with enable | X register |
 | 21 | SN74F377AN | Octal D flip-flop with enable | Y register |
-| 22 | SN74F377AN | Octal D flip-flop with enable | Video pixel buffer (byte read from video memory) |
+| 22 | SN74F377AN | Octal D flip-flop with enable | Video pixel buffer (byte read from video memory); /E from the Branch PLD's /PIX_LD (pin 15), low on a video read |
 | 23 | SN74F377AN | Octal D flip-flop with enable | Video line code (color mode for the line): D from the pixel buffer outputs, /E from /MODE_LD, so it copies the mode byte read in group 45 (see VIDEO.md); Q1:Q0 to the color decoder, Q3:Q2 to the audio slot PLD (line repeat) |
 | 24 | — | — | Removed 2026-10-19: the video delay F574 (H2:H0 pixel select and video active, two stages).  The Sync PLD now makes both two clocks later itself (VIDEO_TIMING.md, "Delay register removed").  The numbers below are kept as they were |
 | 25 | CD74ACT273E | Octal D flip-flop with clear | ROM/RAM map register at x5000 (write only, cleared to all ROM at power-up) |

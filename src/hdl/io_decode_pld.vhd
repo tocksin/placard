@@ -1,10 +1,12 @@
 -- ============================================================
--- IO_DECODE  (VHDL conversion of ATF22V10_IO_DECODE.pld, Rev 03)
--- Date: 10/16/2026
+-- IO_DECODE  (VHDL conversion of ATF22V10_IO_DECODE.pld, Rev 04)
+-- Date: 10/19/2026
 --
 -- Rev 02: comments only.  map_wr_n clocks the 74ACT273 map register.
 -- Rev 03: the I/O window is 5000h-53FFh.  Pin 18 (was snd_wr_n, unused)
 -- is the a11 input; exp1_n and exp2_n moved to pages 1 and 3.
+-- Rev 04: pin 23 is load_imm_n, active low, as the State PLD (Rev 13)
+-- now drives it; the equations still use load_imm as logical true.
 --
 -- I/O decode for 5000h-53FFh and the upper 32K chip enable.
 --
@@ -25,7 +27,7 @@
 --   1  we_n        2  addr_sel    3  addr_sel_hi  4  pc15
 --   5  h9          6  y7          7  a14          8  a13
 --   9  a12        10  a10        11  a9          13  a8
---  14  rw         18  a11        23  load_imm
+--  14  rw         18  a11        23  load_imm_n
 --  15  ce_hi_n    16  map_wr_n   17  line_rd_n
 --  19  port_wr_n  20  port_rd_n  21  exp1_n      22  exp2_n
 -- ============================================================
@@ -49,7 +51,7 @@ entity io_decode_pld is
         a8          : in  std_logic;   -- pin 13
         rw          : in  std_logic;   -- pin 14, 1 = read, 0 = write
         a11         : in  std_logic;   -- pin 18 (rev 03, was snd_wr_n)
-        load_imm    : in  std_logic;   -- pin 23, State PLD D-register strobe
+        load_imm_n  : in  std_logic;   -- pin 23, State PLD D-register strobe, low = load
 
         ce_hi_n     : out std_logic;   -- pin 15
         map_wr_n    : out std_logic;   -- pin 16
@@ -64,6 +66,7 @@ end entity io_decode_pld;
 architecture rtl of io_decode_pld is
 
     signal a15   : std_logic;
+    signal load_imm : std_logic;   -- pin 23 as logical true (Rev 04)
     signal io    : std_logic;
     signal page0 : std_logic;
     signal page1 : std_logic;
@@ -73,6 +76,8 @@ architecture rtl of io_decode_pld is
     signal rd    : std_logic;
 
 begin
+
+    load_imm <= not load_imm_n;
 
     -- A15, rebuilt from the mux inputs
     a15 <= ((not addr_sel) and addr_sel_hi and y7)

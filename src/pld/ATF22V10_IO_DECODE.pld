@@ -1,7 +1,7 @@
 Name     IO_DECODE;
 PartNo   00;
-Date     10/18/2026;
-Revision 03;
+Date     10/19/2026;
+Revision 04;
 Designer ;
 Company  ;
 Assembly ;
@@ -95,7 +95,9 @@ PIN 13 = A8;
 
 PIN 14 = RW;           /* 1 = read, 0 = write (I/O pin used as input) */
 PIN 18 = A11;          /* I/O pin used as input (revision 03; was /SND_WR) */
-PIN 23 = LOAD_IMM;     /* State PLD D-register strobe (I/O pin used as input) */
+PIN 23 = !LOAD_IMM;    /* State PLD pin 19, D-register strobe, low = load (I/O pin used as input).
+                          Revision 04: active low, as the State PLD (revision 13) now drives it;
+                          the equations still use LOAD_IMM as logical true. */
 
 
 /* ---------------- OUTPUTS ---------------- */
