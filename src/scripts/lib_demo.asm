@@ -13,7 +13,7 @@
 #include "placard.asm"
 #include "placard_lib.asm"
 
-; program variables (zero page x20-xBF)
+; program variables (zero page x20-x8F)
 count   = 0x20
 px_lo   = 0x21
 py_r    = 0x22

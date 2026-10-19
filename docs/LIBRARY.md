@@ -6,7 +6,7 @@ page map that every program shares.  `src/scripts/lib_demo.asm` is a short
 example program that uses it, and `src/scripts/test_lib.py` tests every
 routine in the simulator.
 
-Date: 10/18/2026
+Date: 10/19/2026
 
 | File | What it is |
 |------|------------|
@@ -43,7 +43,7 @@ reader, `con_gets` and `mouse_move`; xE000-xE0FF is kept for a future jump
 table.  Bank 2 runs in section 7, so section 7 must read the ROM when a
 program calls it (it does in map 05).  The boot loader maps the zero
 page and x4000-x4FFF to RAM (map = 05, also in `MAP_SHADOW`) and jumps to
-x6000.  Program variables and buffers go in RAM: the zero page x20-xBF,
+x6000.  Program variables and buffers go in RAM: the zero page x20-x8F,
 x0100-x1FFF, x4000-x4CFF (x4D00-x4FFF if the program does not use the
 FAT reader), x5400-x5A1F and x5C00-x5DF2 (the mode bytes are
 at x5A20-x5BFF and the audio buffer is x5DF3-x5FFF).  A 2x or 4x screen
