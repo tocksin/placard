@@ -38,7 +38,7 @@ with its chip number.
 
 **Load the bring-up ROM.**  `python3 test_bringup_sim.py --bin` in
 `src/scripts` writes `bringup_lo.bin` (ROM x0000-x7FFF, for #33) and
-`bringup_hi.bin` (xC000-xFFFF and the rest of the upper half, for #34).
+`bringup_hi.bin` (x8000-xFFFF, for #34).
 It is a complete image with its own reset code, so it replaces the normal
 ROM (boot loader and library) until the board works; then load the normal
 image (`gen_rom.tcl`, [ROM.md](ROM.md)).  The ROM part isn't chosen yet
@@ -390,10 +390,16 @@ Read N off the PC with the meter:
   in binary, 5 V for a 1 (Q6 is the high bit); Q1 and Q0 toggle (the loop
   is a 3-clock branch, PC low goes F, F+1, F+2)
 
-For example test 13 = 01101: Q6 0 V, Q5 5 V, Q4 5 V, Q3 0 V, Q2 5 V.  A PC
-that keeps moving is either the status screen running (good) or a CPU
-lost in the weeds: go back to the free run (pull the ROM and the RAM) and
-check steps 10-16 again.
+For example test 13 = 01101: Q6 0 V, Q5 5 V, Q4 5 V, Q3 0 V, Q2 5 V.
+
+A PC that keeps moving with no status screen means the CPU is lost before
+or between the tests.  The usual cause is the ALU or a register load:
+every register (AC, X, Y, the PC's jump target) loads through the ALU, so
+one stuck ALU output can break the very first jump.  An ALU output pin
+stuck can also hide from the tests that compare with XOR (the compare goes
+through the same pin) and show up first as 1, 5 or 6.  In either case go
+back to the free run (pull the ROM and the RAM) and check steps 10-16
+again, then the ALU outputs against the accumulator as in step 14.
 
 When all pass, the ROM sets up the library, draws the status screen and
 runs a loop once a frame:
@@ -419,8 +425,9 @@ The source is `src/scripts/gen_bringup.py`, which writes `bringup.asm`.
 `python3 test_bringup_sim.py` runs it in the simulator on a good machine
 (screen, counters, keys, tone, SD retry) and with faults: a RAM data bit
 stuck (fail 13), a map register bit stuck (14), a RAM address line stuck
-(15), a line read bit stuck (16), an ALU bit stuck (2 or 5), and a RAM bit
-that goes bad after start-up (counted by the page test).
+(15), a line read bit stuck (16), an ALU output stuck (1, 5, or lost before
+the tests), and a RAM bit that goes bad after start-up (counted by the
+page test).  It takes several minutes.
 
 ## I/O and audio
 

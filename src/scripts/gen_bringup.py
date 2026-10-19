@@ -401,7 +401,7 @@ STRINGS = [
     ('s_title', 'PLACARD BRING-UP ROM                                         FRAME'),
     ('s_core', 'CPU CORE TESTS 1-16 PASSED.  REPEATED EVERY FRAME, LOOPS:'),
     ('s_core2', 'A FAILED TEST STOPS THE CPU IN A LOOP AT x0080 + 4 x TEST (SEE BRINGUP.MD)'),
-    ('s_ram', 'RAM PAGE        PASSES          ERRORS          LAST BAD     WROTE    READ'),
+    ('s_ram', 'RAM PAGE        PASSES          ERRORS          LAST BAD       WROTE     READ'),
     ('s_kbd', 'KEYBOARD COLUMNS 0-7:'),
     ('s_kbd2', 'TYPED:'),
     ('s_pad', 'SNES PADS:  1:          2:'),
@@ -561,8 +561,8 @@ def main_program(a):
     for src, dst in (('MX_LO', 'R0'), ('MX_HI', 'R1'), ('MY_LO', 'R2'), ('MY_HI', 'R3')):
         a.i('ld   [%s], ac' % dst, 'ld   ac, [0x%02X]' % ZP[src])
     a.label('mouse_show')
-    dec16_zp(a, 24, 17, ZP['MX_LO'])
-    dec16_zp(a, 33, 17, ZP['MY_LO'])
+    dec16_zp(a, 25, 17, ZP['MX_LO'])
+    dec16_zp(a, 34, 17, ZP['MY_LO'])
     at(a, 49, 17)
     a.i('ld   [MOUSE_B], ac')
     a.call('con_hex8')
@@ -577,15 +577,15 @@ def main_program(a):
     dec16_zp(a, 39, 5, ZP['RT_EL'])
     hex_zp(a, 57, 5, ZP['RT_BADH'])
     hex_zp(a, 59, 5, ZP['RT_BADL'])
-    hex_zp(a, 67, 5, ZP['RT_BADE'])
-    hex_zp(a, 75, 5, ZP['RT_BADG'])
+    hex_zp(a, 69, 5, ZP['RT_BADE'])
+    hex_zp(a, 78, 5, ZP['RT_BADG'])
     # the core tests again
     a.jump('core_loop')
     a.label('core_back')
     a.map(0x05)
     inc16(a, ZP['LOOP_LO'])
     dec16_zp(a, 58, 2, ZP['LOOP_LO'])
-    dec16_zp(a, 66, 0, 0x08)            # FRAME_HI:FRAME_LO
+    dec16_zp(a, 67, 0, 0x08)            # FRAME_HI:FRAME_LO
     a.jump('frame_loop')
 
 
