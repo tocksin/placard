@@ -103,7 +103,7 @@ checked 2026-10-15 (stock moves, so recheck before ordering).
 | State, branch, PC low/high, ALU low/high, ROM/RAM select, H/V counters, sync, colour decoder (since TIMING_FIXES.md the ROM/RAM select PLD is a CD74ACT273E map register, and the I/O decode and memory control PLDs are added) | ATF22V10C-7PX (PDIP-24) | 11 | 644 |
 | Address mux (`full_mux` = 2 × `quad_4to1_mux` per byte) | ATF22V10C-7PX | 4 | (above) |
 | `instReg`, `dReg`, `acReg`, `xReg`, `yReg`, `pixelBuffer` (D flip-flops with a load enable) | SN74F377AN | 6 | 764 |
-| `lineCode` (F377 on the system clock since TIMING_FIXES.md; originally an F574 clocked by `videoActiveR`), `videoActiveR` + `pixelSel` delay | SN74F377AN + SN74F574N | 1 + 1 | 764 / 466 |
+| `lineCode` (F377 on the system clock since TIMING_FIXES.md; originally an F574 clocked by `videoActiveR`); the `videoActiveR` + `pixelSel` delay F574 was removed 2026-10-19 (VIDEO_TIMING.md) | SN74F377AN | 1 | 764 / 466 |
 | Source bus (`srcBus` = D, AC or X, selected by `instReg(1:0)`; since 2026-10-18 also the memory data bus, enabled only in EXEC, see CPU.md "One data bus") | 3 × SN74F541N + SN74F138N decoder | 4 | 724 / 375 |
 | RAM write-data buffer (source bus onto the RAM data pins, enabled by /WE; removed 2026-10-18, kept as a fallback in CPU.md) | SN74F541N | 1 | (above) |
 | `/WE = RW or CLK` (replaced in TIMING_FIXES.md by the memory control PLD, which also makes the ROM and RAM /OE) | SN74F32N | 1 | 494 |
