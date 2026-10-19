@@ -1,15 +1,15 @@
 --------------------------------------------------------------------------------
 -- Name     H_COUNTER
 -- PartNo   00
--- Date     09/26/2026
--- Revision 06
+-- Date     10/19/2026
+-- Revision 07
 -- Designer
 -- Company
 -- Assembly
 -- Location
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_HCOUNT.pld (Revision 06)
+-- Converted from WinCUPL source ATF22V10_HCOUNT.pld (Revision 07)
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP/SOIC; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = CLK
@@ -108,7 +108,18 @@ begin
     -- H2:H0 come from the Sync PLD and count
     -- the individual pixels within each 8-pixel group.
     --
-    -- H3:H9 advance whenever H2:H0 = 111.
+    -- Revision 07: H2:H0 is the colour decoder's pixel
+    -- select, so it runs two clocks behind the group:
+    -- it is 110 on the first clock of a group, 111 on
+    -- the second (the video read), 000 on the third
+    -- (the first pixel of the byte read in the second)
+    -- and 101 on the last.  This replaces the two-stage
+    -- pixel select and video enable delay register
+    -- (F574) that used to sit between the Sync PLD and
+    -- the colour decoder (see docs/VIDEO_TIMING.md).
+    --
+    -- H3:H9 advance whenever H2:H0 = 101, the last
+    -- clock of the group (H2:H0 = 111 before revision 07).
     -- At all other times they HOLD their value.
     --
     -- Counter sequence:
@@ -117,10 +128,10 @@ begin
     -- 100 groups x 8 pixels = 800 clocks per line.
     -- -------------------------------------------------
 
-    H_ENABLE <= H2 and H1 and H0;
+    H_ENABLE <= H2 and (not H1) and H0;
 
 
-    -- Terminal count: H9:H3 = 1111111 and H2:H0 = 111
+    -- Terminal count: H9:H3 = 1111111 and H2:H0 = 101
     -- i.e. the last clock of the line.  One clock wide.
     -- Used to reload the counter and as the line-end
     -- pulse for the external vertical counter.
@@ -184,7 +195,7 @@ begin
     -- change is decoded on the LAST clock of the previous
     -- group (H_ENABLE = 1).  The register then changes on
     -- the same clock edge as the group counter, and the
-    -- new state is in place for the first clock (H2:H0 = 000)
+    -- new state is in place for the first clock (H2:H0 = 110)
     -- of the new group.
     -- -------------------------------------------------
 
