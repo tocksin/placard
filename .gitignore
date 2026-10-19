@@ -17,30 +17,17 @@ vivado*.str
 /src/ip/*
 !/src/ip/*.xci
 
-# EDA (schematic and PCB) backups, autosaves, locks and caches
-# KiCad
+# KiCad: backups, autosaves, locks, per-user settings and caches
+/kicad/placard-backups/
 *-backups/
 _autosave-*
+\#auto_saved_files\#
 *.kicad_sch-bak
 *.kicad_pcb-bak
-*.sch-bak
-*.bak
+*-bak
 *.lck
 ~*.lck
-fp-info-cache
 *.kicad_prl
-# Eagle / Fusion Electronics
-*.s#?
-*.b#?
-*.l#?
-eagle.epf
-# Altium
-History/
-__Previews/
-Project Logs for */
-*.PcbDoc.htm
-# DipTrace / EasyEDA / generic
-*.~*
-*.tmp
-# fabrication zips made from the Gerbers (keep the Gerbers themselves)
-/pcb/fab/*.zip
+fp-info-cache
+# fabrication zips (keep the Gerbers and drill files themselves)
+/kicad/fab/*.zip

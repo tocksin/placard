@@ -1,0 +1,49 @@
+(kicad_pcb (version 20221018) (generator pcbnew)
+
+  (general
+    (thickness 1.6)
+  )
+
+  (paper "A3")
+  (title_block
+    (title "Placard")
+    (date "2026-10-19")
+    (rev "0")
+  )
+
+  (layers
+    (0 "F.Cu" signal)
+    (1 "In1.Cu" power "GND")
+    (2 "In2.Cu" power "VCC")
+    (31 "B.Cu" signal)
+    (32 "B.Adhes" user "B.Adhesive")
+    (33 "F.Adhes" user "F.Adhesive")
+    (34 "B.Paste" user)
+    (35 "F.Paste" user)
+    (36 "B.SilkS" user "B.Silkscreen")
+    (37 "F.SilkS" user "F.Silkscreen")
+    (38 "B.Mask" user)
+    (39 "F.Mask" user)
+    (40 "Dwgs.User" user "User.Drawings")
+    (41 "Cmts.User" user "User.Comments")
+    (42 "Eco1.User" user "User.Eco1")
+    (43 "Eco2.User" user "User.Eco2")
+    (44 "Edge.Cuts" user)
+    (45 "Margin" user)
+    (46 "B.CrtYd" user "B.Courtyard")
+    (47 "F.CrtYd" user "F.Courtyard")
+    (48 "B.Fab" user)
+    (49 "F.Fab" user)
+  )
+
+  (setup
+    (pad_to_mask_clearance 0)
+  )
+
+  (net 0 "")
+
+  (gr_rect (start 50 50) (end 339.56 189.7)
+    (stroke (width 0.1) (type default)) (fill none) (layer "Edge.Cuts"))
+  (gr_text "Placeholder outline 11.4 x 5.5 in (hardware/pcb_size_estimate.md)" (at 194.78 45) (layer "Cmts.User")
+    (effects (font (size 1.5 1.5) (thickness 0.2))))
+)

@@ -31,7 +31,7 @@ The I/O circuitry (keyboard, SNES pads, SD card, PS/2 mouse) is drawn as a schem
 The audio circuitry (sample read, DAC register, R-2R ladder, headphone jack) is drawn in
 [docs/SOUND.md](docs/SOUND.md#schematic) (`schematics/placard_audio_schematic.png`).
 
-The real schematic goes in [schematics/](schematics/) and the PCB layout in [pcb/](pcb/).
+The real schematic and PCB layout are a KiCad project in [kicad/](kicad/).
 
 ## Memory Map
 The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databus.  The video RAM starts at x6020 and ends at xFFFF, and each row's mode byte (color mode and line repeat) is at x5A20 + row.  There is a 64kB RAM and a 64kB ROM behind the same addresses.  The address space is divided into eight 8kB sections, and a write-only map register at x5000 picks whether each section reads from the RAM or the ROM.
