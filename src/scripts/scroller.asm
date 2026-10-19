@@ -803,14 +803,13 @@ game:
     ld   [SP], x                ; PUSH_LINK
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [demo], ac
     bne  gm_demo
     ld   gm_play >> 8, y
@@ -1624,14 +1623,13 @@ hud:
     ld   [SP], x                ; PUSH_LINK
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [hud_dirty], ac
     bne  hu_s
     ld   hu_cpu >> 8, y

@@ -11,7 +11,7 @@
 ;   00  immediate  ->  12  (number)       000  ac      address [0,D]
 ;   01  memory     ->  [0x30] [x] [y,x]   001  ac      address [0,X]
 ;   10  accumulator -> ac                 010  ac      address [Y,X]
-;   11  X register  -> x                  011  x       address [0,D]
+;   11  accumulator (same as 10, unused)  011  x       address [0,D]
 ;                                         100  y       address [0,D]
 ;                                         101  [0x30]  store, address [0,D]
 ;                                         110  [x]     store, address [0,X]
@@ -70,7 +70,7 @@
 ;   a borrow for SUB (1 when A < B, unsigned).  Every other instruction,
 ;   stores included, leaves it as it was.  shl (add ac, ac) puts AC bit 7
 ;   in it.
-;   Target may also be ac or x (computed branch), e.g.  jmp x
+;   Target may also be ac (computed branch), e.g.  jmp ac
 ;   Target may also come from memory (indirect branch, source 01).  The
 ;   branch type in M2:M0 also picks the address mode, so each type
 ;   accepts one memory form:
@@ -79,8 +79,8 @@
 ;       blt [y,x]    bra [y,x]                   [Y,X]
 ;   bcc has no memory form.  MEM = 101 is also the zero-page store
 ;   code, and the State PLD can't fetch the zero-page address for a
-;   branch.  bcc with an immediate, ac or x target works.  bcc ac and
-;   bcc x are 2 bytes: the State PLD treats them like a zero-page
+;   branch.  bcc with an immediate or ac target works.  bcc ac is
+;   2 bytes: the State PLD treats it like a zero-page
 ;   store and fetches a byte after the opcode, so a pad byte (00)
 ;   follows (State PLD rev 11).
 ; ============================================================
@@ -104,11 +104,12 @@
     sub => 0b101
 }
 
-; register sources (no operand byte)
+; register sources (no operand byte).  X is not a source: the X source
+; F541 and the source '138 were removed on 2026-10-19 (source 11 drives
+; AC like 10).  Keep a copy of X in RAM, or the value in AC, to read it.
 #subruledef reg_src
 {
     ac => 0b10
-    x  => 0b11
 }
 
 ; register destinations ([0,D] address mode when used with a memory source)
@@ -131,7 +132,7 @@
     bra => 0b111
 }
 
-; the same without bcc, whose ac / x form has a pad byte
+; the same without bcc, whose ac form has a pad byte
 #subruledef cond_reg
 {
     bcs => 0b001
@@ -207,7 +208,7 @@
     not         => 0b011 @ 0b000 @ 0b00 @ 0xFF   ; xor 255, ac
 
     ; ---------------- jump: PC low from operand, PC high from Y ----------------
-    ; register forms first, so "ac" / "x" never get read as a label
+    ; register forms first, so "ac" never gets read as a label
     jmp {s:reg_src} => 0b111 @ 0b000 @ s
     jmp {t}         => 0b111 @ 0b000 @ 0b00 @ t[7:0]
 

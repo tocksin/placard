@@ -28,14 +28,13 @@ con_gets:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     clr  ac
     ld   ac, [R3]               ; characters so far

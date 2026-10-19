@@ -1197,14 +1197,13 @@ respawn:
     ld   [SP], x                ; PUSH_LINK
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
-    ld   ac, [SP]''')
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]''')
     a.begin()
     a.g('''
     ld   [demo], ac
@@ -1896,14 +1895,13 @@ go_done:
     ld   [SP], x                ; PUSH_LINK
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [hud_dirty], ac
     bne  hu_s
     ld   hu_cpu >> 8, y

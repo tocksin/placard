@@ -150,12 +150,12 @@ The stack is the top of the zero page, xC0-xFF (64 bytes).  `SP` holds the
 address of the next free byte, and the stack grows down from xFF.  It uses
 the `[0,X]` address mode, so it never touches Y.
 
-**PUSH AC** (6 instructions, 19 clocks; keeps AC, changes X)
+**PUSH AC** (6 instructions, 21 clocks; keeps AC, changes X)
 
 ```
     ld   [SP], x
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, [SP]
     ld   [x], ac
@@ -172,8 +172,26 @@ thing loaded into AC, so `beq` / `blt` can test it straight away.
     ld   [x], ac
 ```
 
-To push X, copy it to AC first (`ld x, ac`).  Nothing checks for overflow:
-pushing more than 64 bytes runs down into the program variables.
+X can't be read (it is not a source, CPU.md "Source mode"), so to push a
+value that is in X, push it from wherever X was loaded from.  Nothing checks
+for overflow: pushing more than 64 bytes runs down into the program
+variables.
+
+### Reading X
+
+X is a destination and an address register only.  Code that needs the
+value back keeps it somewhere it can read:
+
+- **Loops**: count in AC and copy it to X each pass (`ld ac, x`), or let
+  the ALU add the base on the way (`add base, x` makes X = AC + base).
+  A store of an immediate (`ld 0xFF, [y,x]`) or a same-address copy
+  (`ld [y,x], [y,x]`) leaves AC free for the count.
+- **X loaded from memory** (`ld [p], x`): read the same byte into AC
+  (`ld [p], ac`) instead of copying X.
+- **Counts that AC can't hold**: keep them in the zero page and reload X
+  from there (`ld [i], x`).
+- **Counting down to 0**: `sub 1, ac` then `bcc loop` stops after AC = 0
+  (the borrow sets the carry).
 
 ### Routines that call other routines
 
@@ -182,7 +200,7 @@ own return address on the stack when it starts, with **PUSH_LINK**, and
 returns by jumping to **lib_leave**, which pops it.  Both keep AC, so AC can
 carry an argument in and a result out.
 
-**PUSH_LINK** (13 instructions, 42 clocks; keeps AC, changes X, uses 2
+**PUSH_LINK** (12 instructions, 42 clocks; keeps AC, changes X, uses 2
 stack bytes)
 
 ```
@@ -190,14 +208,13 @@ stack bytes)
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
 ```
 

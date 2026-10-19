@@ -35,8 +35,9 @@ The ALU has since been changed to a lookahead carry with one wait clock on
 ADD/SUB, which closes both ALU paths ([ALU_TIMING.md](ALU_TIMING.md)); the
 tables below are the analysis of the design before that change.  The carry
 flag (Branch PLD revision 11) latches the high ALU's COUT in the same two
-clocks: IR 10.5 + '138 9 + '541 enable 9.5 + four ALU passes 30 + setup 3.5
-= 62.5 ns against 79.44 ns, 16.9 ns to spare.
+clocks: IR 10.5 + audio PLD /AC_SEL 7.5 + '541 enable 9.5 + four ALU
+passes 30 + setup 3.5 = 61 ns against 79.44 ns, 18.4 ns to spare (the
+source '138 was replaced by /AC_SEL on 2026-10-19, CPU.md "Source mode").
 [VIDEO_TIMING.md](VIDEO_TIMING.md) works through the video read (ranks 2
 and 7) and the write glitch, which the ALU change's STALL signal spread from
 the first byte of a line to every video byte.
@@ -106,7 +107,7 @@ checked 2026-10-15 (stock moves, so recheck before ordering).
 | Address mux (`full_mux` = 2 × `quad_4to1_mux` per byte) | ATF22V10C-7PX | 4 | (above) |
 | `instReg`, `dReg`, `acReg`, `xReg`, `yReg`, `pixelBuffer` (D flip-flops with a load enable) | SN74F377AN | 6 | 764 |
 | `lineCode` (F377 on the system clock since TIMING_FIXES.md; originally an F574 clocked by `videoActiveR`); the `videoActiveR` + `pixelSel` delay F574 was removed 2026-10-19 (VIDEO_TIMING.md) | SN74F377AN | 1 | 764 / 466 |
-| Source bus (`srcBus` = D, AC or X, selected by `instReg(1:0)`; since 2026-10-18 also the memory data bus, enabled only in EXEC, see CPU.md "One data bus") | 3 × SN74F541N + SN74F138N decoder | 4 | 724 / 375 |
+| Source bus (`srcBus` = D or AC, selected by `instReg(1)`; since 2026-10-18 also the memory data bus, enabled only in EXEC, see CPU.md "One data bus"; until 2026-10-19 also X, with a third F541 and an SN74F138N decoder) | 2 × SN74F541N | 2 | 724 |
 | RAM write-data buffer (source bus onto the RAM data pins, enabled by /WE; removed 2026-10-18, kept as a fallback in CPU.md) | SN74F541N | 1 | (above) |
 | `/WE = RW or CLK` (replaced in TIMING_FIXES.md by the memory control PLD, which also makes the ROM and RAM /OE) | SN74F32N | 1 | 494 |
 | ROM /OE from ROM_EN, /CE of the upper 32K chip from A15 (removed in TIMING_FIXES.md: both now come from PLDs) | SN74F04N | 1 | 514 |
@@ -196,7 +197,7 @@ PLD array passes at tPD = 7.5 ns each.
 
 | Rank | Path | Stages (ns) | Total | Slack |
 |---:|---|---|---:|---:|
-| 1 | **ALU, FETCH→EXEC** (source AC or X, e.g. a shift): IR clk→Q, '138 decode of `instReg(1:0)`, '541 enable, ALU low D1→D2→D3→COUT, ALU high D1→D2→D3→F3, AC setup | 10.5 + 9 + 9.5 + 8×7.5 + 2 | 91.0 | **−51.3** |
+| 1 | **ALU, FETCH→EXEC** (source AC or X, e.g. a shift): IR clk→Q, '138 decode of `instReg(1:0)` (since 2026-10-19 the audio PLD's /AC_SEL, 7.5 ns, and no X source), '541 enable, ALU low D1→D2→D3→COUT, ALU high D1→D2→D3→F3, AC setup | 10.5 + 9 + 9.5 + 8×7.5 + 2 | 91.0 | **−51.3** |
 | 2 | **ALU, LOAD→EXEC** (source D): D clk→Q, '541, 8 ALU levels, AC setup | 10.5 + 6 + 60 + 2 | 78.5 | **−38.8** |
 | 3 | **Video read, first byte of a line**: HCOUNT H_VIDEO_ACTIVE tCO, Sync VIDEO_ACTIVE, PIXEL_ENABLE (pin feedback), ADDR_SEL (pin feedback), mux, tAA, pixel buffer setup | 5.5 + 4×7.5 + 15 + 2 | 52.5 | **−12.8** |
 | 4 | **X/Y-indexed read right after FETCH** (FETCH→LOAD_MEM with [0,X] or [Y,X]): IR clk→Q, State X_ENABLE, Sync ADDR_SEL_LO, mux, tAA, D setup | 10.5 + 3×7.5 + 15 + 2 | 50.0 | **−10.3** |
@@ -208,7 +209,7 @@ PLD array passes at tPD = 7.5 ns each.
 | 10 | Fetch, opcode into IR: PC_ENABLE tCO, ADDR_SEL, mux, tAA, IR setup | 5.5 + 7.5 + 7.5 + 15 + 2 | 37.5 | +2.2 |
 | 11 | RAM /OE (= ROM_EN, no inverter): address, ROM_EN, tOE, IR setup | 20.5 + 7.5 + 7 + 2 | 37.0 | +2.7 |
 | 12 | Branch decision, FETCH→EXEC: IR clk→Q, ALU F (PASS A), Z (pin feedback), LOAD_PC_LOW, PC setup | 10.5 + 3×7.5 + 3.5 | 36.5 | +3.2 |
-| 13 | Branch target, FETCH→EXEC (source AC): IR clk→Q, '138, '541 enable, PC setup | 10.5 + 9 + 9.5 + 3.5 | 32.5 | +7.2 |
+| 13 | Branch target, FETCH→EXEC (source AC): IR clk→Q, audio PLD /AC_SEL (the '138 until 2026-10-19, 9 ns), '541 enable, PC setup | 10.5 + 7.5 + 9.5 + 3.5 | 31.0 | +8.7 |
 | 14 | PIXEL_ENABLE to a register load enable: first byte of a line, then LOAD_AC/LOAD_INSTR, '377 CE setup | 5.5 + 3×7.5 + 4.5 | 32.5 | +7.2 |
 | 15 | Branch target, LOAD→EXEC (source D): D clk→Q, '541, PC setup | 10.5 + 6 + 3.5 | 20.0 | +19.7 |
 | 16 | H_TC to the V counter: Sync H2:H0 tCO, HCOUNT H_TC, VCOUNT setup | 5.5 + 7.5 + 3.5 | 16.5 | +23.2 |
@@ -242,8 +243,9 @@ Notes on the paths:
 
 **Since 2026-10-18 there is no write-data buffer** (CPU.md, "One data
 bus"): the source F541s drive the RAM data pins directly for the whole of
-EXEC, enabled through the '138's G inputs from the State PLD (about 24 ns
-after the edge, 28.5 ns after a video stall clock), so write data is valid
+EXEC, enabled by the branch PLD's /SRC_EN and selected by I1 and the audio
+PLD's /AC_SEL (about 27.5 ns after the edge for source AC after FETCH, 27 ns
+after a video stall clock), so write data is valid
 well before T + 2.2 − 8 = 33.9 ns.  The two data rows in the table below
 are the old buffer's; the address rows still apply.
 
@@ -258,7 +260,7 @@ pulse.
 |---|---|---:|
 | Write pulse width | tWP ≥ 10 ns; pulse ≈ T/2 = 19.86 ns (17.87 ns at 45 % duty) | +9.9 (+7.9) |
 | Write data valid before end of write | F541 enable + tDW ≤ T/2: 9.5 + 8 = 17.5 ns vs 19.86 ns (17.87 ns at 45 % duty) | +2.4 (+0.4) |
-| Write data, FETCH→EXEC store (source AC) | source bus at 29 ns (IR, '138, '541 enable), plus the F541 write buffer 6 ns = 35 ns vs T + 2.2 − 8 = 33.9 ns | **−1.1** |
+| Write data, FETCH→EXEC store (source AC) | source bus at 29 ns (IR, '138, '541 enable), plus the F541 write buffer 6 ns = 35 ns vs T + 2.2 − 8 = 33.9 ns (no buffer since 2026-10-18: 27.5 ns, +6.4) | **−1.1** |
 | Address setup to /WE low (tAS = 0), LOAD_IMM→EXEC | address at 20.5 ns vs /WE low at T/2 + 2.2 = 22.1 ns | +1.6 |
 | Address setup, EXEC after a video stall cycle | address at 25.0 ns (PIXEL_ENABLE falls at 10 ns, then ADDR_SEL, mux) | **−2.9** |
 | Address setup, FETCH→EXEC store to [Y,X] | address at 33.0 ns (IR, X_ENABLE, ADDR_SEL_LO, mux) | **−10.9** |

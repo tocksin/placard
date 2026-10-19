@@ -66,6 +66,8 @@ pass_lo    = 0x3A       ;   passes done
 pass_hi    = 0x3B
 err_lo     = 0x3C       ;   bad reads
 err_hi     = 0x3D
+rt_i       = 0x3E       ;   byte in the page (X is not a source)
+dg_i       = 0x3F       ; ts_tick_frames / ts_tick_clock: digit being stepped
 
 p_col      = 0x40       ; ts_fill_run / ts_put_gbuf / ts_rect: first byte column
 p_n        = 0x41       ;   bytes across
@@ -527,14 +529,13 @@ ts_ram_page:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
 
     ld   [rt_idx], ac           ; page = PAGES[rt_idx]
@@ -564,18 +565,19 @@ ts_rp_pat:
     xor  [rt_pv], ac
     ld   ac, [rt_pv]
     ld   [rt_page], y
-    clr  x
-ts_rp_wr:
-    ld   x, ac                  ; [page, X] = (X & am) ^ pv
+    clr  ac
+ts_rp_wr:                       ; AC = rt_i = the byte in the page
+    ld   ac, x                  ; [page, X] = (X & am) ^ pv
+    ld   ac, [rt_i]
     and  [rt_am], ac
     xor  [rt_pv], ac
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [rt_i], ac
     inc
-    ld   ac, x
     bne  ts_rp_wr
 ts_rp_vf:
-    ld   x, ac                  ; read it back
+    ld   ac, x                  ; read it back
+    ld   ac, [rt_i]
     and  [rt_am], ac
     xor  [rt_pv], ac
     xor  [y,x], ac
@@ -590,9 +592,8 @@ ts_rp_vf:
     inc
     ld   ac, [err_hi]
 ts_rp_ok:
-    ld   x, ac
+    ld   [rt_i], ac
     inc
-    ld   ac, x
     bne  ts_rp_vf
     ld   [rt_pat], ac
     inc
@@ -710,30 +711,27 @@ ts_tick_frames:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
-    ld   FRM + 4, x             ; last digit first
+    ld   4, ac                  ; last digit first
 ts_tf_d:
+    ld   ac, [dg_i]
+    add  FRM, x                 ; X = FRM + digit
     ld   [x], ac
     inc
     ld   ac, [x]
     sub  0x3A, ac
     bne  ts_tf_show
     ld   0x30, [x]              ; 9 + 1: 0 and carry
-    ld   x, ac
-    sub  FRM, ac
-    beq  ts_tf_show
-    ld   x, ac
-    dec
-    ld   ac, x
-    bra  ts_tf_d
+    ld   [dg_i], ac
+    sub  1, ac
+    bcc  ts_tf_d                ; a borrow: it was the first digit
 ts_tf_show:
     ld   FRM_COL, ac
     ld   ac, [CUR_COL]
@@ -758,31 +756,28 @@ ts_tick_clock:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   TBL >> 8, y            ; TBL + x29.. holds each digit's limit
-    ld   CLK + 5, x             ; seconds digit first
+    ld   5, ac                  ; seconds digit first
 ts_tc_d:
+    ld   ac, [dg_i]
+    add  CLK, x                 ; X = CLK + digit
     ld   [x], ac
     inc
     ld   ac, [x]
     xor  [y,x], ac
     bne  ts_tc_show
     ld   0x30, [x]              ; at its limit: 0 and carry
-    ld   x, ac
-    sub  CLK, ac
-    beq  ts_tc_show
-    ld   x, ac
-    dec
-    ld   ac, x
-    bra  ts_tc_d
+    ld   [dg_i], ac
+    sub  1, ac
+    bcc  ts_tc_d                ; a borrow: it was the first digit
 ts_tc_show:
     ld   CLK_COL, ac            ; hh
     ld   ac, [CUR_COL]
@@ -840,14 +835,13 @@ ts_wheel:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     clr  ac
     ld   ac, [dot_k]
@@ -903,14 +897,13 @@ ts_marquee:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   [marq_lo], ac
     ld   ac, [R0]
@@ -992,14 +985,13 @@ ts_fill_run:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   [p_rlo], ac
     ld   ac, [R2]
@@ -1041,14 +1033,13 @@ ts_rect:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
 ts_rc_row:
     ld   LINK_LO, x             ; CALL ts_fill_run
@@ -1084,14 +1075,13 @@ ts_put_gbuf:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   [p_rlo], ac
     ld   ac, [R2]
@@ -1155,14 +1145,13 @@ ts_char2:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   [c_row], ac            ; row 224 + 16 * text row; the 8 font rows
     shl                         ; (+ 0-14) never cross a 256-row boundary
@@ -1236,14 +1225,13 @@ ts_char4:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   [c_row], ac            ; row 96 + 4 * block row
     shl
@@ -1316,14 +1304,13 @@ ts_puts4:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     clr  ac
     ld   ac, [c_i]
@@ -1375,14 +1362,13 @@ ts_text2_list:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
 ts_t2_ent:
     ld   LINK_LO, x             ; CALL ts_tbl_next: column, or FF
@@ -1474,14 +1460,13 @@ ts_text_list:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
 ts_tl_ent:
     ld   LINK_LO, x             ; CALL ts_tbl_next: column, or FF
@@ -1546,14 +1531,13 @@ ts_put_str:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
 ts_ps_ch:
     ld   [R1], y
@@ -1590,14 +1574,13 @@ ts_put_range:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   ac, [pr_c]
 ts_pr_ch:
@@ -1630,14 +1613,13 @@ ts_print_zp:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
 ts_pz_ch:
     ld   [R0], x

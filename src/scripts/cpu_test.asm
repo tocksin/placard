@@ -31,13 +31,14 @@
 ;     0320-03DA   list of valid opcodes
 ;     0400-...    framework and tests
 ;     4200-42FF   test data page for [y,x] tests
+;     4300-43FF   marks for the X-destination tests
 ;     6000-FFFF   video RAM (cleared and set to 8 bpp by the program)
 ;
 ; Every test reads memory back, so the test areas must read as RAM (the
 ; current FPGA build reads all addresses from the RAM copy).
 ;
 ;
-; Date: 10/18/2026
+; Date: 10/19/2026
 
 #include "placard.asm"
 
@@ -525,10 +526,10 @@ t02:
 
 #addr 0x0700
 t03:
-    ld 0x5A, x
+    ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    ld x, ac                  ; TEST 03
-    xor 0x5A, ac              ; expect 5A
+    #d8 0x03                  ; TEST 03 (ld ac, ac, source 11)
+    xor 0xC6, ac              ; expect C6
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x03, ac
     ld ac, [0x10]             ; opcode under test
@@ -572,11 +573,16 @@ t09:
     ld report >> 8, y
     jmp report
 t0C:
-    ld 0x00, x
+    ld 0x43, y
+    ld 0x5A, x
+    ld 0, [y,x]               ; clear [435A]
+    ld 0xA5, x                ; X != expected before the test
     ld 0xC6, ac
     ld 0x5A, x                ; TEST 0C
-    ld x, ac                  ; read X back
-    xor 0x5A, ac              ; expect 5A
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x5A, x
+    ld [y,x], ac              ; read [435A]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x0C, ac
     ld ac, [0x10]             ; opcode under test
@@ -587,13 +593,18 @@ t0C:
     ld report >> 8, y
     jmp report
 t0D:
+    ld 0x43, y
+    ld 0x5A, x
+    ld 0, [y,x]               ; clear [435A]
     ld 0x5A, ac
     ld ac, [0x40]             ; memory operand
-    ld 0x00, x
+    ld 0xA5, x                ; X != expected before the test
     ld 0xC6, ac
     ld [0x40], x              ; TEST 0D
-    ld x, ac                  ; read X back
-    xor 0x5A, ac              ; expect 5A
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x5A, x
+    ld [y,x], ac              ; read [435A]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x0D, ac
     ld ac, [0x10]             ; opcode under test
@@ -604,11 +615,16 @@ t0D:
     ld report >> 8, y
     jmp report
 t0E:
-    ld 0x00, x
+    ld 0x43, y
+    ld 0xC6, x
+    ld 0, [y,x]               ; clear [43C6]
+    ld 0x39, x                ; X != expected before the test
     ld 0xC6, ac
     ld ac, x                  ; TEST 0E
-    ld x, ac                  ; read X back
-    xor 0xC6, ac              ; expect C6
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0xC6, x
+    ld [y,x], ac              ; read [43C6]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x0E, ac
     ld ac, [0x10]             ; opcode under test
@@ -619,11 +635,16 @@ t0E:
     ld report >> 8, y
     jmp report
 t0F:
-    ld 0x5A, x
+    ld 0x43, y
+    ld 0xC6, x
+    ld 0, [y,x]               ; clear [43C6]
+    ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    ld x, x                   ; TEST 0F
-    ld x, ac                  ; read X back
-    xor 0x5A, ac              ; expect 5A
+    #d8 0x0F                  ; TEST 0F (ld ac, x, source 11)
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0xC6, x
+    ld [y,x], ac              ; read [43C6]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x0F, ac
     ld ac, [0x10]             ; opcode under test
@@ -633,6 +654,8 @@ t0F:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0800
 t10:
     ld 0x7C, y
     ld 0x08, x
@@ -654,8 +677,6 @@ t10:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0800
 t11:
     ld 0x7C, y
     ld 0x08, x
@@ -701,17 +722,17 @@ t12:
     ld report >> 8, y
     jmp report
 t13:
-    ld 0x7C, y
+    ld 0xE6, y
     ld 0x08, x
-    ld 0, [y,x]               ; clear [7C08]
+    ld 0, [y,x]               ; clear [E608]
     ld 0x42, y                ; Y != expected before the test
-    ld 0x7C, x
+    ld 0x7C, x                ; X must not be the source
     ld 0xE6, ac
-    ld x, y                   ; TEST 13, Y = 7C
+    #d8 0x13                  ; TEST 13, Y = E6 (ld ac, y, source 11)
     ld 0x08, x
     ld 0xA5, [y,x]            ; mark [Y,08]
-    ld 0x7C, y
-    ld [y,x], ac              ; read [7C08]
+    ld 0xE6, y
+    ld [y,x], ac              ; read [E608]
     xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x13, ac
@@ -759,9 +780,9 @@ t17:
     ld ac, [0x50]             ; clear
     ld 0x5A, x
     ld 0xC6, ac
-    ld x, [0x50]              ; TEST 17
+    #d8 0x17, 0x50            ; TEST 17 (ld ac, [0x50], source 11)
     ld [0x50], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x17, ac
     ld ac, [0x10]             ; opcode under test
@@ -771,6 +792,8 @@ t17:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0900
 t18:
     ld 0x31, x
     ld 0, ac
@@ -788,8 +811,6 @@ t18:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0900
 t19:
     ld 0x5A, ac
     ld ac, [0x43]
@@ -829,9 +850,9 @@ t1B:
     ld 0, ac
     ld ac, [x]                ; clear
     ld 0xC6, ac
-    ld x, [x]                 ; TEST 1B
+    #d8 0x1B                  ; TEST 1B (ld ac, [x], source 11)
     ld [x], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x1B, ac
     ld ac, [0x10]             ; opcode under test
@@ -898,9 +919,9 @@ t1F:
     ld 0x5A, x
     ld 0, [y,x]               ; clear
     ld 0xC6, ac
-    ld x, [y,x]               ; TEST 1F
+    #d8 0x1F                  ; TEST 1F (ld ac, [y,x], source 11)
     ld [y,x], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x1F, ac
     ld ac, [0x10]             ; opcode under test
@@ -910,6 +931,8 @@ t1F:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0A00
 t20:
     ld 0xC6, ac
     and 0x5A, ac              ; TEST 20
@@ -923,8 +946,6 @@ t20:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0A00
 t21:
     ld 0x5A, ac
     ld ac, [0x40]             ; memory operand
@@ -954,10 +975,10 @@ t22:
     ld report >> 8, y
     jmp report
 t23:
-    ld 0x5A, x
+    ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    and x, ac                 ; TEST 23
-    xor 0x42, ac              ; expect 42
+    #d8 0x23                  ; TEST 23 (and ac, ac, source 11)
+    xor 0xC6, ac              ; expect C6
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x23, ac
     ld ac, [0x10]             ; opcode under test
@@ -1001,11 +1022,16 @@ t29:
     ld report >> 8, y
     jmp report
 t2C:
-    ld 0x00, x
+    ld 0x43, y
+    ld 0x42, x
+    ld 0, [y,x]               ; clear [4342]
+    ld 0xBD, x                ; X != expected before the test
     ld 0xC6, ac
     and 0x5A, x               ; TEST 2C
-    ld x, ac                  ; read X back
-    xor 0x42, ac              ; expect 42
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x42, x
+    ld [y,x], ac              ; read [4342]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x2C, ac
     ld ac, [0x10]             ; opcode under test
@@ -1016,13 +1042,18 @@ t2C:
     ld report >> 8, y
     jmp report
 t2D:
+    ld 0x43, y
+    ld 0x42, x
+    ld 0, [y,x]               ; clear [4342]
     ld 0x5A, ac
     ld ac, [0x40]             ; memory operand
-    ld 0x00, x
+    ld 0xBD, x                ; X != expected before the test
     ld 0xC6, ac
     and [0x40], x             ; TEST 2D
-    ld x, ac                  ; read X back
-    xor 0x42, ac              ; expect 42
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x42, x
+    ld [y,x], ac              ; read [4342]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x2D, ac
     ld ac, [0x10]             ; opcode under test
@@ -1032,12 +1063,19 @@ t2D:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0B00
 t2E:
-    ld 0x00, x
+    ld 0x43, y
+    ld 0xC6, x
+    ld 0, [y,x]               ; clear [43C6]
+    ld 0x39, x                ; X != expected before the test
     ld 0xC6, ac
     and ac, x                 ; TEST 2E
-    ld x, ac                  ; read X back
-    xor 0xC6, ac              ; expect C6
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0xC6, x
+    ld [y,x], ac              ; read [43C6]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x2E, ac
     ld ac, [0x10]             ; opcode under test
@@ -1048,11 +1086,16 @@ t2E:
     ld report >> 8, y
     jmp report
 t2F:
-    ld 0x5A, x
+    ld 0x43, y
+    ld 0xC6, x
+    ld 0, [y,x]               ; clear [43C6]
+    ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    and x, x                  ; TEST 2F
-    ld x, ac                  ; read X back
-    xor 0x42, ac              ; expect 42
+    #d8 0x2F                  ; TEST 2F (and ac, x, source 11)
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0xC6, x
+    ld [y,x], ac              ; read [43C6]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x2F, ac
     ld ac, [0x10]             ; opcode under test
@@ -1062,8 +1105,6 @@ t2F:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0B00
 t30:
     ld 0x64, y
     ld 0x08, x
@@ -1130,17 +1171,17 @@ t32:
     ld report >> 8, y
     jmp report
 t33:
-    ld 0x64, y
+    ld 0xE6, y
     ld 0x08, x
-    ld 0, [y,x]               ; clear [6408]
+    ld 0, [y,x]               ; clear [E608]
     ld 0x42, y                ; Y != expected before the test
-    ld 0x7C, x
+    ld 0x7C, x                ; X must not be the source
     ld 0xE6, ac
-    and x, y                  ; TEST 33, Y = 64
+    #d8 0x33                  ; TEST 33, Y = E6 (and ac, y, source 11)
     ld 0x08, x
     ld 0xA5, [y,x]            ; mark [Y,08]
-    ld 0x64, y
-    ld [y,x], ac              ; read [6408]
+    ld 0xE6, y
+    ld [y,x], ac              ; read [E608]
     xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x33, ac
@@ -1151,6 +1192,8 @@ t33:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0C00
 t34:
     ld 0, ac
     ld ac, [0x61]             ; clear
@@ -1188,9 +1231,9 @@ t37:
     ld ac, [0x50]             ; clear
     ld 0x5A, x
     ld 0xC6, ac
-    and x, [0x50]             ; TEST 37
+    #d8 0x37, 0x50            ; TEST 37 (and ac, [0x50], source 11)
     ld [0x50], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x37, ac
     ld ac, [0x10]             ; opcode under test
@@ -1200,8 +1243,6 @@ t37:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0C00
 t38:
     ld 0x31, x
     ld 0, ac
@@ -1258,9 +1299,9 @@ t3B:
     ld 0, ac
     ld ac, [x]                ; clear
     ld 0xC6, ac
-    and x, [x]                ; TEST 3B
+    #d8 0x3B                  ; TEST 3B (and ac, [x], source 11)
     ld [x], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x3B, ac
     ld ac, [0x10]             ; opcode under test
@@ -1287,6 +1328,8 @@ t3C:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0D00
 t3D:
     ld 0x5A, ac
     ld 0x42, y
@@ -1327,9 +1370,9 @@ t3F:
     ld 0x5A, x
     ld 0, [y,x]               ; clear
     ld 0xC6, ac
-    and x, [y,x]              ; TEST 3F
+    #d8 0x3F                  ; TEST 3F (and ac, [y,x], source 11)
     ld [y,x], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x3F, ac
     ld ac, [0x10]             ; opcode under test
@@ -1339,8 +1382,6 @@ t3F:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0D00
 t40:
     ld 0xC6, ac
     or 0x5A, ac               ; TEST 40
@@ -1383,10 +1424,10 @@ t42:
     ld report >> 8, y
     jmp report
 t43:
-    ld 0x5A, x
+    ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    or x, ac                  ; TEST 43
-    xor 0xDE, ac              ; expect DE
+    #d8 0x43                  ; TEST 43 (or ac, ac, source 11)
+    xor 0xC6, ac              ; expect C6
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x43, ac
     ld ac, [0x10]             ; opcode under test
@@ -1429,12 +1470,19 @@ t49:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0E00
 t4C:
-    ld 0x00, x
+    ld 0x43, y
+    ld 0xDE, x
+    ld 0, [y,x]               ; clear [43DE]
+    ld 0x21, x                ; X != expected before the test
     ld 0xC6, ac
     or 0x5A, x                ; TEST 4C
-    ld x, ac                  ; read X back
-    xor 0xDE, ac              ; expect DE
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0xDE, x
+    ld [y,x], ac              ; read [43DE]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x4C, ac
     ld ac, [0x10]             ; opcode under test
@@ -1445,13 +1493,18 @@ t4C:
     ld report >> 8, y
     jmp report
 t4D:
+    ld 0x43, y
+    ld 0xDE, x
+    ld 0, [y,x]               ; clear [43DE]
     ld 0x5A, ac
     ld ac, [0x40]             ; memory operand
-    ld 0x00, x
+    ld 0x21, x                ; X != expected before the test
     ld 0xC6, ac
     or [0x40], x              ; TEST 4D
-    ld x, ac                  ; read X back
-    xor 0xDE, ac              ; expect DE
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0xDE, x
+    ld [y,x], ac              ; read [43DE]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x4D, ac
     ld ac, [0x10]             ; opcode under test
@@ -1462,11 +1515,16 @@ t4D:
     ld report >> 8, y
     jmp report
 t4E:
-    ld 0x00, x
+    ld 0x43, y
+    ld 0xC6, x
+    ld 0, [y,x]               ; clear [43C6]
+    ld 0x39, x                ; X != expected before the test
     ld 0xC6, ac
     or ac, x                  ; TEST 4E
-    ld x, ac                  ; read X back
-    xor 0xC6, ac              ; expect C6
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0xC6, x
+    ld [y,x], ac              ; read [43C6]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x4E, ac
     ld ac, [0x10]             ; opcode under test
@@ -1476,14 +1534,17 @@ t4E:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0E00
 t4F:
-    ld 0x5A, x
+    ld 0x43, y
+    ld 0xC6, x
+    ld 0, [y,x]               ; clear [43C6]
+    ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    or x, x                   ; TEST 4F
-    ld x, ac                  ; read X back
-    xor 0xDE, ac              ; expect DE
+    #d8 0x4F                  ; TEST 4F (or ac, x, source 11)
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0xC6, x
+    ld [y,x], ac              ; read [43C6]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x4F, ac
     ld ac, [0x10]             ; opcode under test
@@ -1537,6 +1598,8 @@ t51:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0F00
 t52:
     ld 0xE6, y
     ld 0x08, x
@@ -1559,17 +1622,17 @@ t52:
     ld report >> 8, y
     jmp report
 t53:
-    ld 0xFE, y
+    ld 0xE6, y
     ld 0x08, x
-    ld 0, [y,x]               ; clear [FE08]
+    ld 0, [y,x]               ; clear [E608]
     ld 0x42, y                ; Y != expected before the test
-    ld 0x7C, x
+    ld 0x7C, x                ; X must not be the source
     ld 0xE6, ac
-    or x, y                   ; TEST 53, Y = FE
+    #d8 0x53                  ; TEST 53, Y = E6 (or ac, y, source 11)
     ld 0x08, x
     ld 0xA5, [y,x]            ; mark [Y,08]
-    ld 0xFE, y
-    ld [y,x], ac              ; read [FE08]
+    ld 0xE6, y
+    ld [y,x], ac              ; read [E608]
     xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x53, ac
@@ -1612,16 +1675,14 @@ t56:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0F00
 t57:
     ld 0, ac
     ld ac, [0x50]             ; clear
     ld 0x5A, x
     ld 0xC6, ac
-    or x, [0x50]              ; TEST 57
+    #d8 0x57, 0x50            ; TEST 57 (or ac, [0x50], source 11)
     ld [0x50], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x57, ac
     ld ac, [0x10]             ; opcode under test
@@ -1665,6 +1726,8 @@ t59:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1000
 t5A:
     ld 0x30, x
     ld 0, ac
@@ -1687,9 +1750,9 @@ t5B:
     ld 0, ac
     ld ac, [x]                ; clear
     ld 0xC6, ac
-    or x, [x]                 ; TEST 5B
+    #d8 0x5B                  ; TEST 5B (or ac, [x], source 11)
     ld [x], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x5B, ac
     ld ac, [0x10]             ; opcode under test
@@ -1751,16 +1814,14 @@ t5E:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1000
 t5F:
     ld 0x42, y
     ld 0x5A, x
     ld 0, [y,x]               ; clear
     ld 0xC6, ac
-    or x, [y,x]               ; TEST 5F
+    #d8 0x5F                  ; TEST 5F (or ac, [y,x], source 11)
     ld [y,x], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x5F, ac
     ld ac, [0x10]             ; opcode under test
@@ -1811,11 +1872,13 @@ t62:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1100
 t63:
-    ld 0x5A, x
+    ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    xor x, ac                 ; TEST 63
-    xor 0x9C, ac              ; expect 9C
+    #d8 0x63                  ; TEST 63 (xor ac, ac, source 11)
+    xor 0x00, ac              ; expect 00
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x63, ac
     ld ac, [0x10]             ; opcode under test
@@ -1859,11 +1922,16 @@ t69:
     ld report >> 8, y
     jmp report
 t6C:
-    ld 0x00, x
+    ld 0x43, y
+    ld 0x9C, x
+    ld 0, [y,x]               ; clear [439C]
+    ld 0x63, x                ; X != expected before the test
     ld 0xC6, ac
     xor 0x5A, x               ; TEST 6C
-    ld x, ac                  ; read X back
-    xor 0x9C, ac              ; expect 9C
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x9C, x
+    ld [y,x], ac              ; read [439C]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x6C, ac
     ld ac, [0x10]             ; opcode under test
@@ -1874,13 +1942,18 @@ t6C:
     ld report >> 8, y
     jmp report
 t6D:
+    ld 0x43, y
+    ld 0x9C, x
+    ld 0, [y,x]               ; clear [439C]
     ld 0x5A, ac
     ld ac, [0x40]             ; memory operand
-    ld 0x00, x
+    ld 0x63, x                ; X != expected before the test
     ld 0xC6, ac
     xor [0x40], x             ; TEST 6D
-    ld x, ac                  ; read X back
-    xor 0x9C, ac              ; expect 9C
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x9C, x
+    ld [y,x], ac              ; read [439C]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x6D, ac
     ld ac, [0x10]             ; opcode under test
@@ -1890,14 +1963,17 @@ t6D:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1100
 t6E:
+    ld 0x43, y
     ld 0x00, x
+    ld 0, [y,x]               ; clear [4300]
+    ld 0xFF, x                ; X != expected before the test
     ld 0xC6, ac
     xor ac, x                 ; TEST 6E
-    ld x, ac                  ; read X back
-    xor 0x00, ac              ; expect 00
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x00, x
+    ld [y,x], ac              ; read [4300]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x6E, ac
     ld ac, [0x10]             ; opcode under test
@@ -1908,11 +1984,16 @@ t6E:
     ld report >> 8, y
     jmp report
 t6F:
-    ld 0x5A, x
+    ld 0x43, y
+    ld 0x00, x
+    ld 0, [y,x]               ; clear [4300]
+    ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    xor x, x                  ; TEST 6F
-    ld x, ac                  ; read X back
-    xor 0x9C, ac              ; expect 9C
+    #d8 0x6F                  ; TEST 6F (xor ac, x, source 11)
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x00, x
+    ld [y,x], ac              ; read [4300]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x6F, ac
     ld ac, [0x10]             ; opcode under test
@@ -1922,6 +2003,8 @@ t6F:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1200
 t70:
     ld 0x9A, y
     ld 0x08, x
@@ -1988,17 +2071,17 @@ t72:
     ld report >> 8, y
     jmp report
 t73:
-    ld 0x9A, y
+    ld 0x00, y
     ld 0x08, x
-    ld 0, [y,x]               ; clear [9A08]
+    ld 0, [y,x]               ; clear [0008]
     ld 0x42, y                ; Y != expected before the test
-    ld 0x7C, x
+    ld 0x7C, x                ; X must not be the source
     ld 0xE6, ac
-    xor x, y                  ; TEST 73, Y = 9A
+    #d8 0x73                  ; TEST 73, Y = 00 (xor ac, y, source 11)
     ld 0x08, x
     ld 0xA5, [y,x]            ; mark [Y,08]
-    ld 0x9A, y
-    ld [y,x], ac              ; read [9A08]
+    ld 0x00, y
+    ld [y,x], ac              ; read [0008]
     xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x73, ac
@@ -2025,8 +2108,6 @@ t74:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1200
 t76:
     ld 0, ac
     ld ac, [0x51]             ; clear
@@ -2048,9 +2129,9 @@ t77:
     ld ac, [0x50]             ; clear
     ld 0x5A, x
     ld 0xC6, ac
-    xor x, [0x50]             ; TEST 77
+    #d8 0x77, 0x50            ; TEST 77 (xor ac, [0x50], source 11)
     ld [0x50], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x77, ac
     ld ac, [0x10]             ; opcode under test
@@ -2060,6 +2141,8 @@ t77:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1300
 t78:
     ld 0x31, x
     ld 0, ac
@@ -2116,9 +2199,9 @@ t7B:
     ld 0, ac
     ld ac, [x]                ; clear
     ld 0xC6, ac
-    xor x, [x]                ; TEST 7B
+    #d8 0x7B                  ; TEST 7B (xor ac, [x], source 11)
     ld [x], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x7B, ac
     ld ac, [0x10]             ; opcode under test
@@ -2163,8 +2246,6 @@ t7D:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1300
 t7E:
     ld 0x42, y
     ld 0x30, x
@@ -2187,9 +2268,9 @@ t7F:
     ld 0x5A, x
     ld 0, [y,x]               ; clear
     ld 0xC6, ac
-    xor x, [y,x]              ; TEST 7F
+    #d8 0x7F                  ; TEST 7F (xor ac, [y,x], source 11)
     ld [y,x], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x7F, ac
     ld ac, [0x10]             ; opcode under test
@@ -2199,6 +2280,8 @@ t7F:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1400
 t80:
     ld 0xC6, ac
     add 0x5A, ac              ; TEST 80
@@ -2241,10 +2324,10 @@ t82:
     ld report >> 8, y
     jmp report
 t83:
-    ld 0x5A, x
+    ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    add x, ac                 ; TEST 83
-    xor 0x20, ac              ; expect 20
+    #d8 0x83                  ; TEST 83 (add ac, ac, source 11)
+    xor 0x8C, ac              ; expect 8C
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x83, ac
     ld ac, [0x10]             ; opcode under test
@@ -2288,11 +2371,16 @@ t89:
     ld report >> 8, y
     jmp report
 t8C:
-    ld 0x00, x
+    ld 0x43, y
+    ld 0x20, x
+    ld 0, [y,x]               ; clear [4320]
+    ld 0xDF, x                ; X != expected before the test
     ld 0xC6, ac
     add 0x5A, x               ; TEST 8C
-    ld x, ac                  ; read X back
-    xor 0x20, ac              ; expect 20
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x20, x
+    ld [y,x], ac              ; read [4320]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x8C, ac
     ld ac, [0x10]             ; opcode under test
@@ -2302,16 +2390,19 @@ t8C:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1400
 t8D:
+    ld 0x43, y
+    ld 0x20, x
+    ld 0, [y,x]               ; clear [4320]
     ld 0x5A, ac
     ld ac, [0x40]             ; memory operand
-    ld 0x00, x
+    ld 0xDF, x                ; X != expected before the test
     ld 0xC6, ac
     add [0x40], x             ; TEST 8D
-    ld x, ac                  ; read X back
-    xor 0x20, ac              ; expect 20
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x20, x
+    ld [y,x], ac              ; read [4320]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x8D, ac
     ld ac, [0x10]             ; opcode under test
@@ -2321,12 +2412,19 @@ t8D:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1500
 t8E:
-    ld 0x00, x
+    ld 0x43, y
+    ld 0x8C, x
+    ld 0, [y,x]               ; clear [438C]
+    ld 0x73, x                ; X != expected before the test
     ld 0xC6, ac
     add ac, x                 ; TEST 8E
-    ld x, ac                  ; read X back
-    xor 0x8C, ac              ; expect 8C
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x8C, x
+    ld [y,x], ac              ; read [438C]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x8E, ac
     ld ac, [0x10]             ; opcode under test
@@ -2337,11 +2435,16 @@ t8E:
     ld report >> 8, y
     jmp report
 t8F:
-    ld 0x5A, x
+    ld 0x43, y
+    ld 0x8C, x
+    ld 0, [y,x]               ; clear [438C]
+    ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    add x, x                  ; TEST 8F
-    ld x, ac                  ; read X back
-    xor 0x20, ac              ; expect 20
+    #d8 0x8F                  ; TEST 8F (add ac, x, source 11)
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x8C, x
+    ld [y,x], ac              ; read [438C]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x8F, ac
     ld ac, [0x10]             ; opcode under test
@@ -2417,17 +2520,17 @@ t92:
     ld report >> 8, y
     jmp report
 t93:
-    ld 0x62, y
+    ld 0xCC, y
     ld 0x08, x
-    ld 0, [y,x]               ; clear [6208]
+    ld 0, [y,x]               ; clear [CC08]
     ld 0x42, y                ; Y != expected before the test
-    ld 0x7C, x
+    ld 0x7C, x                ; X must not be the source
     ld 0xE6, ac
-    add x, y                  ; TEST 93, Y = 62
+    #d8 0x93                  ; TEST 93, Y = CC (add ac, y, source 11)
     ld 0x08, x
     ld 0xA5, [y,x]            ; mark [Y,08]
-    ld 0x62, y
-    ld [y,x], ac              ; read [6208]
+    ld 0xCC, y
+    ld [y,x], ac              ; read [CC08]
     xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x93, ac
@@ -2439,7 +2542,7 @@ t93:
     ld report >> 8, y
     jmp report
 
-#addr 0x1500
+#addr 0x1600
 t94:
     ld 0, ac
     ld ac, [0x64]             ; clear
@@ -2477,9 +2580,9 @@ t97:
     ld ac, [0x50]             ; clear
     ld 0x5A, x
     ld 0xC6, ac
-    add x, [0x50]             ; TEST 97
+    #d8 0x97, 0x50            ; TEST 97 (add ac, [0x50], source 11)
     ld [0x50], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x97, ac
     ld ac, [0x10]             ; opcode under test
@@ -2545,9 +2648,9 @@ t9B:
     ld 0, ac
     ld ac, [x]                ; clear
     ld 0xC6, ac
-    add x, [x]                ; TEST 9B
+    #d8 0x9B                  ; TEST 9B (add ac, [x], source 11)
     ld [x], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x9B, ac
     ld ac, [0x10]             ; opcode under test
@@ -2575,7 +2678,7 @@ t9C:
     ld report >> 8, y
     jmp report
 
-#addr 0x1600
+#addr 0x1700
 t9D:
     ld 0x5A, ac
     ld 0x42, y
@@ -2616,9 +2719,9 @@ t9F:
     ld 0x5A, x
     ld 0, [y,x]               ; clear
     ld 0xC6, ac
-    add x, [y,x]              ; TEST 9F
+    #d8 0x9F                  ; TEST 9F (add ac, [y,x], source 11)
     ld [y,x], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x9F, ac
     ld ac, [0x10]             ; opcode under test
@@ -2670,10 +2773,10 @@ tA2:
     ld report >> 8, y
     jmp report
 tA3:
-    ld 0x5A, x
+    ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    sub x, ac                 ; TEST A3
-    xor 0x6C, ac              ; expect 6C
+    #d8 0xA3                  ; TEST A3 (sub ac, ac, source 11)
+    xor 0x00, ac              ; expect 00
     ld ac, [0x11]             ; result (0 = pass)
     ld 0xA3, ac
     ld ac, [0x10]             ; opcode under test
@@ -2717,13 +2820,18 @@ tA9:
     ld report >> 8, y
     jmp report
 
-#addr 0x1700
+#addr 0x1800
 tAC:
-    ld 0x00, x
+    ld 0x43, y
+    ld 0x6C, x
+    ld 0, [y,x]               ; clear [436C]
+    ld 0x93, x                ; X != expected before the test
     ld 0xC6, ac
     sub 0x5A, x               ; TEST AC
-    ld x, ac                  ; read X back
-    xor 0x6C, ac              ; expect 6C
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x6C, x
+    ld [y,x], ac              ; read [436C]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0xAC, ac
     ld ac, [0x10]             ; opcode under test
@@ -2734,13 +2842,18 @@ tAC:
     ld report >> 8, y
     jmp report
 tAD:
+    ld 0x43, y
+    ld 0x6C, x
+    ld 0, [y,x]               ; clear [436C]
     ld 0x5A, ac
     ld ac, [0x40]             ; memory operand
-    ld 0x00, x
+    ld 0x93, x                ; X != expected before the test
     ld 0xC6, ac
     sub [0x40], x             ; TEST AD
-    ld x, ac                  ; read X back
-    xor 0x6C, ac              ; expect 6C
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x6C, x
+    ld [y,x], ac              ; read [436C]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0xAD, ac
     ld ac, [0x10]             ; opcode under test
@@ -2751,11 +2864,16 @@ tAD:
     ld report >> 8, y
     jmp report
 tAE:
+    ld 0x43, y
     ld 0x00, x
+    ld 0, [y,x]               ; clear [4300]
+    ld 0xFF, x                ; X != expected before the test
     ld 0xC6, ac
     sub ac, x                 ; TEST AE
-    ld x, ac                  ; read X back
-    xor 0x00, ac              ; expect 00
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x00, x
+    ld [y,x], ac              ; read [4300]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0xAE, ac
     ld ac, [0x10]             ; opcode under test
@@ -2766,11 +2884,16 @@ tAE:
     ld report >> 8, y
     jmp report
 tAF:
-    ld 0x5A, x
+    ld 0x43, y
+    ld 0x00, x
+    ld 0, [y,x]               ; clear [4300]
+    ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    sub x, x                  ; TEST AF
-    ld x, ac                  ; read X back
-    xor 0x6C, ac              ; expect 6C
+    #d8 0xAF                  ; TEST AF (sub ac, x, source 11)
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x00, x
+    ld [y,x], ac              ; read [4300]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0xAF, ac
     ld ac, [0x10]             ; opcode under test
@@ -2824,6 +2947,8 @@ tB1:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1900
 tB2:
     ld 0x00, y
     ld 0x08, x
@@ -2845,20 +2970,18 @@ tB2:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1800
 tB3:
-    ld 0x6A, y
+    ld 0x00, y
     ld 0x08, x
-    ld 0, [y,x]               ; clear [6A08]
+    ld 0, [y,x]               ; clear [0008]
     ld 0x42, y                ; Y != expected before the test
-    ld 0x7C, x
+    ld 0x7C, x                ; X must not be the source
     ld 0xE6, ac
-    sub x, y                  ; TEST B3, Y = 6A
+    #d8 0xB3                  ; TEST B3, Y = 00 (sub ac, y, source 11)
     ld 0x08, x
     ld 0xA5, [y,x]            ; mark [Y,08]
-    ld 0x6A, y
-    ld [y,x], ac              ; read [6A08]
+    ld 0x00, y
+    ld [y,x], ac              ; read [0008]
     xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0xB3, ac
@@ -2906,9 +3029,9 @@ tB7:
     ld ac, [0x50]             ; clear
     ld 0x5A, x
     ld 0xC6, ac
-    sub x, [0x50]             ; TEST B7
+    #d8 0xB7, 0x50            ; TEST B7 (sub ac, [0x50], source 11)
     ld [0x50], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0xB7, ac
     ld ac, [0x10]             ; opcode under test
@@ -2952,6 +3075,8 @@ tB9:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1A00
 tBA:
     ld 0x30, x
     ld 0, ac
@@ -2974,9 +3099,9 @@ tBB:
     ld 0, ac
     ld ac, [x]                ; clear
     ld 0xC6, ac
-    sub x, [x]                ; TEST BB
+    #d8 0xBB                  ; TEST BB (sub ac, [x], source 11)
     ld [x], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0xBB, ac
     ld ac, [0x10]             ; opcode under test
@@ -2986,8 +3111,6 @@ tBB:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1900
 tBC:
     ld 0x42, y
     ld 0x31, x
@@ -3045,9 +3168,9 @@ tBF:
     ld 0x5A, x
     ld 0, [y,x]               ; clear
     ld 0xC6, ac
-    sub x, [y,x]              ; TEST BF
+    #d8 0xBF                  ; TEST BF (sub ac, [y,x], source 11)
     ld [y,x], ac
-    xor 0x5A, ac              ; expect 5A (source bus)
+    xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
     ld 0xBF, ac
     ld ac, [0x10]             ; opcode under test
@@ -3071,11 +3194,16 @@ tC2:
     ld report >> 8, y
     jmp report
 tCE:
-    ld 0x00, x
+    ld 0x43, y
+    ld 0x6B, x
+    ld 0, [y,x]               ; clear [436B]
+    ld 0x94, x                ; X != expected before the test
     ld 0xD6, ac
     shr x                     ; TEST CE
-    ld x, ac                  ; read X back
-    xor 0x6B, ac              ; expect 6B
+    ld 0xA5, [y,x]            ; mark [43,X]
+    ld 0x6B, x
+    ld [y,x], ac              ; read [436B]
+    xor 0xA5, ac
     ld ac, [0x11]             ; result (0 = pass)
     ld 0xCE, ac
     ld ac, [0x10]             ; opcode under test
@@ -3085,6 +3213,8 @@ tCE:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1B00
 tD2:
     ld 0x66, y
     ld 0x08, x
@@ -3122,8 +3252,6 @@ tD6:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1A00
 tDA:
     ld 0x33, x
     ld 0, ac
@@ -3159,7 +3287,7 @@ tDE:
     ld report >> 8, y
     jmp report
 
-#addr 0x1B00
+#addr 0x1C00
 tE0:
     ld tE0_land >> 8, y       ; PC high comes from Y
     jmp tE0_land              ; TEST E0
@@ -3175,7 +3303,7 @@ tE0_fail:
     ld report >> 8, y
     jmp report
 
-#addr 0x1C04
+#addr 0x1D04
 tE0_land:
     ld 0, ac
     ld ac, [0x11]             ; result (0 = pass)
@@ -3188,7 +3316,7 @@ tE0_land:
     ld report >> 8, y
     jmp report
 
-#addr 0x1D00
+#addr 0x1E00
 tE1:
     ld tE1_land >> 8, y       ; PC high comes from Y
     ld tE1_land & 0xFF, ac
@@ -3206,7 +3334,7 @@ tE1_fail:
     ld report >> 8, y
     jmp report
 
-#addr 0x1E08
+#addr 0x1F08
 tE1_land:
     ld 0, ac
     ld ac, [0x11]             ; result (0 = pass)
@@ -3219,7 +3347,7 @@ tE1_land:
     ld report >> 8, y
     jmp report
 
-#addr 0x1F00
+#addr 0x2000
 tE2:
     ld tE2_land >> 8, y       ; PC high comes from Y
     ld tE2_land & 0xFF, ac
@@ -3236,7 +3364,7 @@ tE2_fail:
     ld report >> 8, y
     jmp report
 
-#addr 0x2005
+#addr 0x2105
 tE2_land:
     ld 0, ac
     ld ac, [0x11]             ; result (0 = pass)
@@ -3249,11 +3377,11 @@ tE2_land:
     ld report >> 8, y
     jmp report
 
-#addr 0x2100
+#addr 0x2200
 tE3:
     ld tE3_land >> 8, y       ; PC high comes from Y
-    ld tE3_land & 0xFF, x
-    jmp x                     ; TEST E3
+    ld tE3_land & 0xFF, ac
+    #d8 0xE3                  ; TEST E3 (jmp ac, source 11)
 tE3_fail:
     ld 1, ac                  ; fall-through or PC high not loaded
     ld ac, [0x11]             ; result (0 = pass)
@@ -3266,7 +3394,7 @@ tE3_fail:
     ld report >> 8, y
     jmp report
 
-#addr 0x2205
+#addr 0x2305
 tE3_land:
     ld 0, ac
     ld ac, [0x11]             ; result (0 = pass)
@@ -3342,7 +3470,7 @@ tE4_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2300
+#addr 0x2400
 tE5:
     ld 0xFF, ac
     add 0x01, ac
@@ -3431,7 +3559,7 @@ tE5_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2400
+#addr 0x2500
 tE6_pad00:
     bra tE6_c1                ; landing pad for AC = 00
 tE6:
@@ -3467,70 +3595,35 @@ tE6_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2440
+#addr 0x2540
 tE6_pad40:
     bra tE6_fail              ; landing pad for AC = 40
 
-#addr 0x2480
+#addr 0x2580
 tE6_pad80:
     bra tE6_c3                ; landing pad for AC = 80
+
+#addr 0x2600
+tE7_pad00:
+    bra tE7_c1                ; landing pad for AC = 00
 tE7:
     ld 0xFF, ac
     add 0x01, ac
-    ld tE7_c1 & 0xFF, x
     ld 0x00, ac
-    bcs x                     ; TEST E7, AC=00, carry 1 taken
+    #d8 0xE7                  ; TEST E7, AC=00, carry 1 taken (bcs ac, source 11)
     bra tE7_fail
 tE7_c1:
-    ld 0x10, ac
-    add 0x10, ac
-    ld tE7_fail & 0xFF, x
     ld 0x01, ac
-    bcs x                     ; TEST E7, AC=01, carry 0 not taken
+    sub 0x01, ac
+    ld 0x40, ac
+    #d8 0xE7                  ; TEST E7, AC=40, carry 0 not taken (bcs ac, source 11)
 tE7_c2:
     ld 0x00, ac
     sub 0x01, ac
-    ld tE7_c3 & 0xFF, x
-    ld 0x10, ac
-    bcs x                     ; TEST E7, AC=10, carry 1 taken
+    ld 0x80, ac
+    #d8 0xE7                  ; TEST E7, AC=80, carry 1 taken (bcs ac, source 11)
     bra tE7_fail
 tE7_c3:
-    ld 0x05, ac
-    sub 0x03, x
-    ld tE7_fail & 0xFF, x
-    ld 0x7F, ac
-    bcs x                     ; TEST E7, AC=7F, carry 0 not taken
-tE7_c4:
-    ld 0xF0, ac
-    add 0x20, y
-    ld tE7_c5 & 0xFF, x
-    ld 0x80, ac
-    bcs x                     ; TEST E7, AC=80, carry 1 taken
-    bra tE7_fail
-tE7_c5:
-    ld 0x01, ac
-    sub 0x01, ac
-    ld tE7_fail & 0xFF, x
-    ld 0xFF, ac
-    bcs x                     ; TEST E7, AC=FF, carry 0 not taken
-tE7_c6:
-    ld 0x80, ac
-    add 0x80, ac
-    ld 0x7F, ac
-    add ac, [0x44]
-    ld tE7_c7 & 0xFF, x
-    ld 0x00, ac
-    bcs x                     ; TEST E7, AC=00, carry 1 taken
-    bra tE7_fail
-tE7_c7:
-    ld 0x00, ac
-    add 0x00, ac
-    ld 0xFF, ac
-    add ac, [0x44]
-    ld tE7_fail & 0xFF, x
-    ld 0x01, ac
-    bcs x                     ; TEST E7, AC=01, carry 0 not taken
-tE7_c8:
     ld 0, ac
     bra tE7_rep
 tE7_fail:
@@ -3546,7 +3639,13 @@ tE7_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2500
+#addr 0x2640
+tE7_pad40:
+    bra tE7_fail              ; landing pad for AC = 40
+
+#addr 0x2680
+tE7_pad80:
+    bra tE7_c3                ; landing pad for AC = 80
 tE8:
     ld 0x00, ac
     blt tE8_fail              ; TEST E8, AC=00 not taken
@@ -3582,6 +3681,8 @@ tE8_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x2700
 tE9:
     ld tE9_fail & 0xFF, ac
     ld 0x42, y
@@ -3642,7 +3743,7 @@ tE9_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2600
+#addr 0x2800
 tEA_pad00:
     bra tEA_fail              ; landing pad for AC = 00
 tEA:
@@ -3671,40 +3772,28 @@ tEA_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2640
+#addr 0x2840
 tEA_pad40:
     bra tEA_fail              ; landing pad for AC = 40
 
-#addr 0x2680
+#addr 0x2880
 tEA_pad80:
     bra tEA_c3                ; landing pad for AC = 80
+
+#addr 0x2900
+tEB_pad00:
+    bra tEB_fail              ; landing pad for AC = 00
 tEB:
-    ld tEB_fail & 0xFF, x
     ld 0x00, ac
-    blt x                     ; TEST EB, AC=00 not taken
+    #d8 0xEB                  ; TEST EB, AC=00 not taken (blt ac, source 11)
 tEB_c1:
-    ld tEB_fail & 0xFF, x
-    ld 0x01, ac
-    blt x                     ; TEST EB, AC=01 not taken
+    ld 0x40, ac
+    #d8 0xEB                  ; TEST EB, AC=40 not taken (blt ac, source 11)
 tEB_c2:
-    ld tEB_fail & 0xFF, x
-    ld 0x10, ac
-    blt x                     ; TEST EB, AC=10 not taken
-tEB_c3:
-    ld tEB_fail & 0xFF, x
-    ld 0x7F, ac
-    blt x                     ; TEST EB, AC=7F not taken
-tEB_c4:
-    ld tEB_c5 & 0xFF, x
     ld 0x80, ac
-    blt x                     ; TEST EB, AC=80 taken
+    #d8 0xEB                  ; TEST EB, AC=80 taken (blt ac, source 11)
     bra tEB_fail
-tEB_c5:
-    ld tEB_c6 & 0xFF, x
-    ld 0xFF, ac
-    blt x                     ; TEST EB, AC=FF taken
-    bra tEB_fail
-tEB_c6:
+tEB_c3:
     ld 0, ac
     bra tEB_rep
 tEB_fail:
@@ -3719,6 +3808,14 @@ tEB_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x2940
+tEB_pad40:
+    bra tEB_fail              ; landing pad for AC = 40
+
+#addr 0x2980
+tEB_pad80:
+    bra tEB_c3                ; landing pad for AC = 80
 tEC:
     ld 0x00, ac
     bne tEC_fail              ; TEST EC, AC=00 not taken
@@ -3758,7 +3855,7 @@ tEC_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2700
+#addr 0x2A00
 tED:
     ld tED_fail & 0xFF, ac
     ld ac, [0x45]
@@ -3810,7 +3907,7 @@ tED_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2800
+#addr 0x2B00
 tEE_pad00:
     bra tEE_fail              ; landing pad for AC = 00
 tEE:
@@ -3840,43 +3937,29 @@ tEE_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2840
+#addr 0x2B40
 tEE_pad40:
     bra tEE_c2                ; landing pad for AC = 40
 
-#addr 0x2880
+#addr 0x2B80
 tEE_pad80:
     bra tEE_c3                ; landing pad for AC = 80
+
+#addr 0x2C00
+tEF_pad00:
+    bra tEF_fail              ; landing pad for AC = 00
 tEF:
-    ld tEF_fail & 0xFF, x
     ld 0x00, ac
-    bne x                     ; TEST EF, AC=00 not taken
+    #d8 0xEF                  ; TEST EF, AC=00 not taken (bne ac, source 11)
 tEF_c1:
-    ld tEF_c2 & 0xFF, x
-    ld 0x01, ac
-    bne x                     ; TEST EF, AC=01 taken
+    ld 0x40, ac
+    #d8 0xEF                  ; TEST EF, AC=40 taken (bne ac, source 11)
     bra tEF_fail
 tEF_c2:
-    ld tEF_c3 & 0xFF, x
-    ld 0x10, ac
-    bne x                     ; TEST EF, AC=10 taken
+    ld 0x80, ac
+    #d8 0xEF                  ; TEST EF, AC=80 taken (bne ac, source 11)
     bra tEF_fail
 tEF_c3:
-    ld tEF_c4 & 0xFF, x
-    ld 0x7F, ac
-    bne x                     ; TEST EF, AC=7F taken
-    bra tEF_fail
-tEF_c4:
-    ld tEF_c5 & 0xFF, x
-    ld 0x80, ac
-    bne x                     ; TEST EF, AC=80 taken
-    bra tEF_fail
-tEF_c5:
-    ld tEF_c6 & 0xFF, x
-    ld 0xFF, ac
-    bne x                     ; TEST EF, AC=FF taken
-    bra tEF_fail
-tEF_c6:
     ld 0, ac
     bra tEF_rep
 tEF_fail:
@@ -3891,6 +3974,14 @@ tEF_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x2C40
+tEF_pad40:
+    bra tEF_c2                ; landing pad for AC = 40
+
+#addr 0x2C80
+tEF_pad80:
+    bra tEF_c3                ; landing pad for AC = 80
 tF0:
     ld 0x00, ac
     beq tF0_c1                ; TEST F0, AC=00 taken
@@ -3925,8 +4016,6 @@ tF0_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x2900
 tF1:
     ld tF1_c1 & 0xFF, ac
     ld ac, [0x45]
@@ -3974,7 +4063,7 @@ tF1_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2A00
+#addr 0x2D00
 tF2_pad00:
     bra tF2_c1                ; landing pad for AC = 00
 tF2:
@@ -4003,39 +4092,28 @@ tF2_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2A40
+#addr 0x2D40
 tF2_pad40:
     bra tF2_fail              ; landing pad for AC = 40
 
-#addr 0x2A80
+#addr 0x2D80
 tF2_pad80:
     bra tF2_fail              ; landing pad for AC = 80
+
+#addr 0x2E00
+tF3_pad00:
+    bra tF3_c1                ; landing pad for AC = 00
 tF3:
-    ld tF3_c1 & 0xFF, x
     ld 0x00, ac
-    beq x                     ; TEST F3, AC=00 taken
+    #d8 0xF3                  ; TEST F3, AC=00 taken (beq ac, source 11)
     bra tF3_fail
 tF3_c1:
-    ld tF3_fail & 0xFF, x
-    ld 0x01, ac
-    beq x                     ; TEST F3, AC=01 not taken
+    ld 0x40, ac
+    #d8 0xF3                  ; TEST F3, AC=40 not taken (beq ac, source 11)
 tF3_c2:
-    ld tF3_fail & 0xFF, x
-    ld 0x10, ac
-    beq x                     ; TEST F3, AC=10 not taken
-tF3_c3:
-    ld tF3_fail & 0xFF, x
-    ld 0x7F, ac
-    beq x                     ; TEST F3, AC=7F not taken
-tF3_c4:
-    ld tF3_fail & 0xFF, x
     ld 0x80, ac
-    beq x                     ; TEST F3, AC=80 not taken
-tF3_c5:
-    ld tF3_fail & 0xFF, x
-    ld 0xFF, ac
-    beq x                     ; TEST F3, AC=FF not taken
-tF3_c6:
+    #d8 0xF3                  ; TEST F3, AC=80 not taken (beq ac, source 11)
+tF3_c3:
     ld 0, ac
     bra tF3_rep
 tF3_fail:
@@ -4051,7 +4129,13 @@ tF3_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2B00
+#addr 0x2E40
+tF3_pad40:
+    bra tF3_fail              ; landing pad for AC = 40
+
+#addr 0x2E80
+tF3_pad80:
+    bra tF3_fail              ; landing pad for AC = 80
 tF4:
     ld 0xFF, ac
     add 0x01, ac
@@ -4116,7 +4200,7 @@ tF4_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2C00
+#addr 0x2F00
 tF6_pad00:
     bra tF6_fail              ; landing pad for AC = 00
 tF6:
@@ -4151,70 +4235,34 @@ tF6_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2C40
+#addr 0x2F40
 tF6_pad40:
     bra tF6_c2                ; landing pad for AC = 40
 
-#addr 0x2C80
+#addr 0x2F80
 tF6_pad80:
     bra tF6_fail              ; landing pad for AC = 80
+
+#addr 0x3000
+tF7_pad00:
+    bra tF7_fail              ; landing pad for AC = 00
 tF7:
     ld 0xFF, ac
     add 0x01, ac
-    ld tF7_fail & 0xFF, x
     ld 0x00, ac
-    bcc x                     ; TEST F7, AC=00, carry 1 not taken
+    #d8 0xF7, 0x00            ; TEST F7, AC=00, carry 1 not taken (bcc ac, source 11)
 tF7_c1:
-    ld 0x10, ac
-    add 0x10, ac
-    ld tF7_c2 & 0xFF, x
     ld 0x01, ac
-    bcc x                     ; TEST F7, AC=01, carry 0 taken
+    sub 0x01, ac
+    ld 0x40, ac
+    #d8 0xF7, 0x00            ; TEST F7, AC=40, carry 0 taken (bcc ac, source 11)
     bra tF7_fail
 tF7_c2:
     ld 0x00, ac
     sub 0x01, ac
-    ld tF7_fail & 0xFF, x
-    ld 0x10, ac
-    bcc x                     ; TEST F7, AC=10, carry 1 not taken
+    ld 0x80, ac
+    #d8 0xF7, 0x00            ; TEST F7, AC=80, carry 1 not taken (bcc ac, source 11)
 tF7_c3:
-    ld 0x05, ac
-    sub 0x03, x
-    ld tF7_c4 & 0xFF, x
-    ld 0x7F, ac
-    bcc x                     ; TEST F7, AC=7F, carry 0 taken
-    bra tF7_fail
-tF7_c4:
-    ld 0xF0, ac
-    add 0x20, y
-    ld tF7_fail & 0xFF, x
-    ld 0x80, ac
-    bcc x                     ; TEST F7, AC=80, carry 1 not taken
-tF7_c5:
-    ld 0x01, ac
-    sub 0x01, ac
-    ld tF7_c6 & 0xFF, x
-    ld 0xFF, ac
-    bcc x                     ; TEST F7, AC=FF, carry 0 taken
-    bra tF7_fail
-tF7_c6:
-    ld 0x80, ac
-    add 0x80, ac
-    ld 0x7F, ac
-    add ac, [0x44]
-    ld tF7_fail & 0xFF, x
-    ld 0x00, ac
-    bcc x                     ; TEST F7, AC=00, carry 1 not taken
-tF7_c7:
-    ld 0x00, ac
-    add 0x00, ac
-    ld 0xFF, ac
-    add ac, [0x44]
-    ld tF7_c8 & 0xFF, x
-    ld 0x01, ac
-    bcc x                     ; TEST F7, AC=01, carry 0 taken
-    bra tF7_fail
-tF7_c8:
     ld 0, ac
     bra tF7_rep
 tF7_fail:
@@ -4230,7 +4278,13 @@ tF7_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2D00
+#addr 0x3040
+tF7_pad40:
+    bra tF7_c2                ; landing pad for AC = 40
+
+#addr 0x3080
+tF7_pad80:
+    bra tF7_fail              ; landing pad for AC = 80
 tF8:
     ld 0x00, ac
     ble tF8_c1                ; TEST F8, AC=00 taken
@@ -4267,6 +4321,8 @@ tF8_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x3100
 tF9:
     ld tF9_c1 & 0xFF, ac
     ld ac, [0x46]
@@ -4322,7 +4378,7 @@ tF9_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2E00
+#addr 0x3200
 tFA_pad00:
     bra tFA_c1                ; landing pad for AC = 00
 tFA:
@@ -4352,41 +4408,29 @@ tFA_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2E40
+#addr 0x3240
 tFA_pad40:
     bra tFA_fail              ; landing pad for AC = 40
 
-#addr 0x2E80
+#addr 0x3280
 tFA_pad80:
     bra tFA_c3                ; landing pad for AC = 80
+
+#addr 0x3300
+tFB_pad00:
+    bra tFB_c1                ; landing pad for AC = 00
 tFB:
-    ld tFB_c1 & 0xFF, x
     ld 0x00, ac
-    ble x                     ; TEST FB, AC=00 taken
+    #d8 0xFB                  ; TEST FB, AC=00 taken (ble ac, source 11)
     bra tFB_fail
 tFB_c1:
-    ld tFB_fail & 0xFF, x
-    ld 0x01, ac
-    ble x                     ; TEST FB, AC=01 not taken
+    ld 0x40, ac
+    #d8 0xFB                  ; TEST FB, AC=40 not taken (ble ac, source 11)
 tFB_c2:
-    ld tFB_fail & 0xFF, x
-    ld 0x10, ac
-    ble x                     ; TEST FB, AC=10 not taken
-tFB_c3:
-    ld tFB_fail & 0xFF, x
-    ld 0x7F, ac
-    ble x                     ; TEST FB, AC=7F not taken
-tFB_c4:
-    ld tFB_c5 & 0xFF, x
     ld 0x80, ac
-    ble x                     ; TEST FB, AC=80 taken
+    #d8 0xFB                  ; TEST FB, AC=80 taken (ble ac, source 11)
     bra tFB_fail
-tFB_c5:
-    ld tFB_c6 & 0xFF, x
-    ld 0xFF, ac
-    ble x                     ; TEST FB, AC=FF taken
-    bra tFB_fail
-tFB_c6:
+tFB_c3:
     ld 0, ac
     bra tFB_rep
 tFB_fail:
@@ -4401,6 +4445,14 @@ tFB_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x3340
+tFB_pad40:
+    bra tFB_fail              ; landing pad for AC = 40
+
+#addr 0x3380
+tFB_pad80:
+    bra tFB_c3                ; landing pad for AC = 80
 tFC:
     ld 0x00, ac
     bra tFC_c1                ; TEST FC, AC=00 taken
@@ -4424,8 +4476,6 @@ tFC_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x2F00
 tFD:
     ld tFD_c1 & 0xFF, ac
     ld 0x42, y
@@ -4458,7 +4508,7 @@ tFD_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x3000
+#addr 0x3400
 tFE_pad00:
     bra tFE_c1                ; landing pad for AC = 00
 tFE:
@@ -4489,24 +4539,30 @@ tFE_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x3040
+#addr 0x3440
 tFE_pad40:
     bra tFE_c2                ; landing pad for AC = 40
 
-#addr 0x3080
+#addr 0x3480
 tFE_pad80:
     bra tFE_c3                ; landing pad for AC = 80
+
+#addr 0x3500
+tFF_pad00:
+    bra tFF_c1                ; landing pad for AC = 00
 tFF:
-    ld tFF_c1 & 0xFF, x
     ld 0x00, ac
-    bra x                     ; TEST FF, AC=00 taken
+    #d8 0xFF                  ; TEST FF, AC=00 taken (bra ac, source 11)
     bra tFF_fail
 tFF_c1:
-    ld tFF_c2 & 0xFF, x
-    ld 0x80, ac
-    bra x                     ; TEST FF, AC=80 taken
+    ld 0x40, ac
+    #d8 0xFF                  ; TEST FF, AC=40 taken (bra ac, source 11)
     bra tFF_fail
 tFF_c2:
+    ld 0x80, ac
+    #d8 0xFF                  ; TEST FF, AC=80 taken (bra ac, source 11)
+    bra tFF_fail
+tFF_c3:
     ld 0, ac
     bra tFF_rep
 tFF_fail:
@@ -4521,3 +4577,11 @@ tFF_rep:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x3540
+tFF_pad40:
+    bra tFF_c2                ; landing pad for AC = 40
+
+#addr 0x3580
+tFF_pad80:
+    bra tFF_c3                ; landing pad for AC = 80

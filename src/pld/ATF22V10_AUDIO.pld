@@ -1,7 +1,7 @@
 Name     AUDIO_SLOT;
 PartNo   00;
-Date     2026-10-18;
-Revision 03;
+Date     2026-10-19;
+Revision 04;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -25,6 +25,19 @@ Device   g22v10;
    address is the video address, H9:H3 on A15:A9 and the row
    address (R8:R0 below) on A8:A0.  Each read lands in the pixel
    buffer.  Video reads always come from the RAM.
+
+   REVISION 04 (2026-10-19): /AC_SEL FOR THE CPU
+      X is no longer a source and the source '138 is gone.  The two
+      free cells of this chip make the one inverter that needed:
+      instruction register bit 1 (I1) comes in on pin 16 and /AC_SEL
+      (= !I1) goes out on pin 21 to the AC source F541's /OE2.  The
+      D source F541's /OE2 takes I1 itself, and both F541s' /OE1 take
+      /SRC_EN from the branch PLD (pin 16), so source codes 00 and 01
+      drive D and 10 and 11 drive AC (docs/CPU.md, "Source mode").
+      It is a combinational pass, nothing to do with the video
+      equations.  This path sets the single-clock ALU slack (IR, this
+      PLD, F541 enable, ALU, AC setup: 10.5 + 7.5 + 9.5 + 7.5 + 2 =
+      37 ns of 39.72 ns), so the chip is a -7 part.
 
    REVISION 03 (2026-10-16)
       The I/O window shrank to 5000h-53FFh, so the blanking reads
@@ -124,9 +137,10 @@ Device   g22v10;
       group 45, both long before.
 
    PIN BUDGET
-      Inputs (14): H9-H3, V9, V0, V1, V7, V8, LC2, LC3.
-      Outputs (6): BLANK_RD, /MODE_LD, R0, R1, R7, R8.
-      Unused: pins 16, 21.
+      Inputs (15): H9-H3, V9, V0, V1, V7, V8, LC2, LC3, I1.
+      Outputs (7): BLANK_RD, /MODE_LD, R0, R1, R7, R8, /AC_SEL.
+      Unused: none.
+      /AC_SEL is combinational, 1 of 12 product terms on pin 21.
       BLANK_RD is combinational, 3 of 8 product terms on pin 23.
       /MODE_LD is combinational, 1 of 10 product terms on pin 22.
       R0, R1, R7, R8 expand to at most 6 product terms (RAW and !RAW
@@ -150,6 +164,7 @@ PIN 11 = V7;          /* V counter PLD pin 17 (Q7) */
 PIN 13 = V8;          /* V counter PLD pin 18 (Q8) */
 PIN 14 = LC2;         /* line code register Q2 (I/O pin used as input) */
 PIN 15 = LC3;         /* line code register Q3 (I/O pin used as input) */
+PIN 16 = I1;          /* instruction register bit 1, source select (I/O pin used as input, revision 04) */
 
 
 /* ---------------- OUTPUTS ---------------- */
@@ -160,6 +175,7 @@ PIN 19 = R7;          /* to address mux bits 7:4, C3 input (video A7) */
 PIN 20 = R8;          /* to address mux bits 11:8, C0 input (video A8) */
 PIN 22 = !MODE_LD;    /* to line code register (F377) /E, low for the whole mode group */
 PIN 23 = BLANK_RD;    /* to Sync PLD pin 13, high for the whole audio or mode group */
+PIN 21 = !AC_SEL;     /* to the AC source F541's /OE2, low when I1 = 1 (revision 04) */
 
 
 /* ---------------- EQUATIONS ---------------- */
@@ -167,6 +183,8 @@ PIN 23 = BLANK_RD;    /* to Sync PLD pin 13, high for the whole audio or mode gr
 BLANK_RD = !H9 &  H8 & !H7 &  H6 &  H5 &  H4 &  H3 &  V9     /* group 47, lines 512-1023 */
          # !H9 &  H8 & !H7 &  H6 &  H5 &  H4 & !H3 & !V9     /* group 46, lines 499-511  */
          # !H9 &  H8 & !H7 &  H6 &  H5 & !H4 &  H3;          /* group 45, every line     */
+
+AC_SEL   = I1;                                               /* source 10 or 11: AC */
 
 MODE_LD  = !H9 &  H8 & !H7 &  H6 &  H5 & !H4 &  H3;          /* group 45, every line     */
 
