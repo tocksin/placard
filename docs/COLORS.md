@@ -7,44 +7,51 @@ This design is implemented in an **ATF22V10** PLD.
 
 ## Color Modes
 
-| `MODE1 MODE0` | Mode | Colors |
-|:-------------:|:----:|:------:|
-| `00` | 1-bit | 2 |
-| `01` | 2-bit | 4 |
-| `10` | 4-bit | 16 |
-| `11` | 8-bit | 256 |
+| `MODE1 MODE0` | Mode | Pixels per byte | Colors |
+|:-------------:|:----:|:---------------:|:------:|
+| `00` | 1-bit | 8 | 2 |
+| `01` | 2-bit | 4 | 4 |
+| `10` | 4-bit | 2 | 16 |
+| `11` | 8-bit | 1 | 256 |
+
+MODE1:MODE0 come from the line code register (F377 Q1:Q0), which copies
+each line's mode byte (VIDEO.md, "Mode byte").
 
 ---
 
 ### Inputs
 
-- `D0..D7` — 8-bit pixel data
-- `MODE1..MODE0` — color-depth selection
-- `SEL2..SEL0` — data pin selection for reduced-color modes
+- `D0..D7`: the pixel byte from the pixel buffer
+- `MODE1..MODE0`: color depth for the line
+- `H2..H0`: pixel select, the low three bits of the horizontal count from
+  the Sync PLD.  The pixel buffer loads in clock 1 of each 8-clock group
+  (H2:H0 = 111) and its first pixel is shown at H2:H0 = 000.
+- `VIDEN`: video enable from the Sync PLD.  Low forces every output to 0
+  (black).  It is folded into the mode decode, so it costs no product terms.
 
 ### Outputs
 
-The eight outputs are mapped as:
+| Output | VGA signal |
+|:------:|:----------:|
+| `RED1` | Red bit 1 (LSB) |
+| `RED2` | Red bit 2 |
+| `RED3` | Red bit 3 (MSB) |
+| `BLU2` | Blue bit 2 (LSB) |
+| `BLU3` | Blue bit 3 (MSB) |
+| `GRN1` | Green bit 1 (LSB) |
+| `GRN2` | Green bit 2 |
+| `GRN3` | Green bit 3 (MSB) |
 
-| Output | VGA Signal |
-|:------:|:--------------:|
-| `OUT0` | `VGA_RED(1)` |
-| `OUT1` | `VGA_RED(2)` |
-| `OUT2` | `VGA_RED(3)` |
-| `OUT3` | `VGA_BLUE(2)` |
-| `OUT4` | `VGA_BLUE(3)` |
-| `OUT5` | `VGA_GREEN(1)` |
-| `OUT6` | `VGA_GREEN(2)` |
-| `OUT7` | `VGA_GREEN(3)` |
+All outputs are combinational.
 
 ---
 
 ## 1-bit Color Mode
 
-`SEL2:SEL0` selects one of the eight input bits.
+`H2:H0` selects one of the eight input bits, one pixel per clock.
 
-| `SEL2:SEL0` | Selected Bit |
-|:-----------:|:------------:|
+| `H2:H0` | Selected Bit |
+|:-------:|:------------:|
 | `000` | `D0` |
 | `001` | `D1` |
 | `010` | `D2` |
@@ -54,19 +61,21 @@ The eight outputs are mapped as:
 | `110` | `D6` |
 | `111` | `D7` |
 
-The selected bit is replicated to all eight VGA outputs.
+GRN3 computes the selected bit itself (an 8:1 mux in its own product
+terms), and the other seven outputs take GRN3 back through the array, so
+every output carries the same bit.
 
 - `0` = Black
-- `1` = White
+- `1` = White (R 7, G 7, B 3)
 
 ---
 
 ## 2-bit Color Mode
 
-`SEL1:SEL0` selects one of four adjacent two-bit values.
+`H2:H1` selects one of four two-bit values, one pixel per two clocks.
 
-| `SEL1:SEL0` | Input Bits |
-|:-----------:|:----------:|
+| `H2:H1` | Input Bits |
+|:-------:|:----------:|
 | `00` | `D1:D0` |
 | `01` | `D3:D2` |
 | `10` | `D5:D4` |
@@ -81,87 +90,90 @@ The 2-bit palette is:
 | `10`  | Gold   | `111` | `101` | `00` |
 | `11`  | White  | `111` | `111` | `11` |
 
-The selected low bit controls blue and the selected high bit controls red.  For
-green, `G1 = C1 | C0`, `G2 = C1 & C0` and `G3 = C1`, so blue gets a little
-green (G 1), gold gets G 5 and white gets G 7.
+The selected low bit (C0) controls blue and the selected high bit (C1)
+controls red.  For green, `GRN1 = C1 | C0`, `GRN2 = C1 & C0` and
+`GRN3 = C1`, so blue gets a little green (G 1), gold gets G 5 and white
+gets G 7.
 
 ---
 
 ## 4-bit Color Mode
 
-`SEL0` selects which four-bit nibble is decoded.
+`H2` selects which four-bit nibble is decoded, one pixel per four clocks.
 
-| `SEL0` | Input   |
-|:------:|:-------:|
-| `0`    | `D3:D0` |
-| `1`    | `D7:D4` |
+| `H2` | Input   |
+|:----:|:-------:|
+| `0`  | `D3:D0` |
+| `1`  | `D7:D4` |
 
-The palette is an EGA/CGA-inspired 16-color palette adapted to the available **3-bit red / 3-bit green / 2-bit blue** output.
+The palette has 16 colors (4 grays, 8 hues, dark and light variants) on the
+**3-bit red / 3-bit green / 2-bit blue** output.  The index order was chosen
+so that GRN3 = X3 (one term) and every output fits its pin's product-term
+limit.
 
 ### 4-bit Color Table
 
-| Hex | Color          | Red   | Green | Blue |
-|-----|----------------| ------|-------|------|
-| `0` | Black          | `000` | `000` | `00` |
-| `1` | Blue           | `000` | `000` | `11` |
-| `2` | Green          | `000` | `111` | `00` |
-| `3` | Cyan           | `000` | `111` | `11` |
-| `4` | Red            | `111` | `000` | `00` |
-| `5` | Magenta        | `111` | `000` | `11` |
-| `6` | Brown          | `101` | `011` | `00` |
-| `7` | Light Gray     | `101` | `101` | `01` |
-| `8` | Dark Gray      | `010` | `010` | `01` |
-| `9` | Bright Blue    | `010` | `010` | `11` |
-| `A` | Bright Green   | `010` | `111` | `00` |
-| `B` | Bright Cyan    | `010` | `111` | `11` |
-| `C` | Bright Red     | `111` | `010` | `00` |
-| `D` | Bright Magenta | `111` | `010` | `11` |
-| `E` | Yellow         | `111` | `111` | `00` |
-| `F` | White          | `111` | `111` | `11` |
+| Hex | Color       | Red   | Green | Blue |
+|-----|-------------|-------|-------|------|
+| `0` | Black       | `000` | `000` | `00` |
+| `1` | Dark blue   | `000` | `000` | `01` |
+| `2` | Purple      | `100` | `000` | `10` |
+| `3` | Blue        | `000` | `000` | `11` |
+| `4` | Red         | `111` | `000` | `00` |
+| `5` | Magenta     | `111` | `000` | `11` |
+| `6` | Brown       | `100` | `010` | `00` |
+| `7` | Dark gray   | `010` | `010` | `01` |
+| `8` | Cyan        | `000` | `111` | `11` |
+| `9` | Dark green  | `000` | `100` | `00` |
+| `A` | White       | `111` | `111` | `11` |
+| `B` | Light gray  | `101` | `101` | `10` |
+| `C` | Pink        | `111` | `100` | `10` |
+| `D` | Orange      | `111` | `100` | `00` |
+| `E` | Yellow      | `111` | `111` | `00` |
+| `F` | Green       | `001` | `111` | `00` |
 
-For selected nibble `X3:X0`, the minimized decoder equations are:
+For selected nibble `X3:X0`, the decoder equations (from
+`ATF22V10_COLORDECODER.pld`) are:
 
 ```text
-R1_4 = X2
-R2_4 = X3 # (X2 & !X1)
-R3_4 = X2
+RED1_4 = X2 & !X1 # X3 & X1
+RED2_4 = X2 & !X1 # !X3 & X2 & X0 # X3 & X1 & !X0
+RED3_4 = X1 & !X0 # X2 & !X1 # X3 & !X2 & X1
 
-G1_4 = X1
-G2_4 = X3 # (X1 & !X0) # (X1 & !X2)
-G3_4 = (X0 & X1) # (X1 & X3) # (X1 & !X2)
+GRN1_4 = X3 & !X2 & !X0 # X3 & X1
+GRN2_4 = X2 & X1 # X3 & !X2 & !X0
+GRN3_4 = X3
 
-B2_4 = (X0 & X3) # (X0 & !X1) # (X0 & !X2)
-B3_4 = X0 # (X3 & !X1 & !X2)
+BLU2_4 = !X3 & X0 # X3 & !X2 & !X0
+BLU3_4 = !X2 & X1 # !X3 & X2 & !X1 & X0 # X3 & !X1 & !X0
 ```
 
 ---
 
 ## 8-bit Color Mode
 
-In 8-bit mode the data is passed directly to the VGA outputs:
+In 8-bit mode the data is passed directly to the VGA outputs, and H2:H0 is
+ignored (one pixel per eight clocks):
 
 ```text
-OUT0 = D0
-OUT1 = D1
-OUT2 = D2
-OUT3 = D3
-OUT4 = D4
-OUT5 = D5
-OUT6 = D6
-OUT7 = D7
+RED1 = D0    RED2 = D1    RED3 = D2
+BLU2 = D3    BLU3 = D4
+GRN1 = D5    GRN2 = D6    GRN3 = D7
 ```
 
-This gives a 256-color `RRRBBGGG`-style output according to the physical VGA bit mapping.
+So the byte is `GGGBBRRR` (D7..D0): green in bits 7:5, blue in 4:3, red in
+2:0.
 
 ---
 
 # ATF22V10 Pinout
 
-The design uses the 24-pin ATF22V10 package.
+The design uses the 24-pin ATF22V10 package and every non-power pin
+(14 inputs, 8 outputs).  Pins 14 and 23 are I/O pins used as inputs.
 
 | Pin | Signal | Function |
 |:---:|:------:|:--------:|
-| 1 | `CLK/IN` | Unused |
+| 1 | `H1` | Pixel select bit 1 (pin 1 is used as a plain input; nothing is registered) |
 | 2 | `D0` | Data input |
 | 3 | `D1` | Data input |
 | 4 | `D2` | Data input |
@@ -173,20 +185,22 @@ The design uses the 24-pin ATF22V10 package.
 | 10 | `MODE0` | Mode select |
 | 11 | `MODE1` | Mode select |
 | 12 | `GND` | Ground |
-| 13 | `SEL0` | Data select |
-| 14 | `OUT0` | `VGA_RED(1)` |
-| 15 | `OUT1` | `VGA_RED(2)` |
-| 16 | `OUT2` | `VGA_RED(3)` |
-| 17 | `OUT3` | `VGA_BLUE(2)` |
-| 18 | `OUT4` | `VGA_BLUE(3)` |
-| 19 | `OUT5` | `VGA_GREEN(1)` |
-| 20 | `OUT6` | `VGA_GREEN(2)` |
-| 21 | `OUT7` | `VGA_GREEN(3)` |
-| 22 | `SEL1` | Data select |
-| 23 | `SEL2` | Data select |
+| 13 | `H0` | Pixel select bit 0 |
+| 14 | `H2` | Pixel select bit 2 (I/O pin used as input) |
+| 15 | `RED1` | Red bit 1 |
+| 16 | `RED2` | Red bit 2 |
+| 17 | `GRN1` | Green bit 1 |
+| 18 | `BLU3` | Blue bit 3 |
+| 19 | `GRN3` | Green bit 3, also the 1-bit pixel |
+| 20 | `GRN2` | Green bit 2 |
+| 21 | `RED3` | Red bit 3 |
+| 22 | `BLU2` | Blue bit 2 |
+| 23 | `VIDEN` | Video enable (I/O pin used as input) |
 | 24 | `VCC` | +5 V |
 
-Pins 22 and 23 are bidirectional ATF22V10 I/O pins configured as inputs for this design.
+This is the fullest PLD in the design: RED1, RED2, RED3, GRN1 and BLU2 use
+every product term of their pins, and GRN3 has one to spare
+([PLD_USAGE.md](PLD_USAGE.md) has the counts).
 
 ---
 
@@ -224,26 +238,26 @@ Blue has only two output bits.
 ### Physical Connections
 
 ```text
-OUT0 / RED(1)    -- 3.24 kΩ --+
-OUT1 / RED(2)    -- 1.69 kΩ --+
-OUT2 / RED(3)    -- 825 Ω  ---+---- VGA RED
+RED1 / RED(1)    -- 3.24 kΩ --+
+RED2 / RED(2)    -- 1.69 kΩ --+
+RED3 / RED(3)    -- 825 Ω  ---+---- VGA RED
                                       |
                                      75 Ω
                                       |
                                      GND
 
 
-OUT3 / BLUE(2)   -- 1.43 kΩ --+
-OUT4 / BLUE(3)   -- 715 Ω  ---+---- VGA BLUE
+BLU2 / BLUE(2)   -- 1.43 kΩ --+
+BLU3 / BLUE(3)   -- 715 Ω  ---+---- VGA BLUE
                                       |
                                      75 Ω
                                       |
                                      GND
 
 
-OUT5 / GREEN(1)  -- 3.24 kΩ --+
-OUT6 / GREEN(2)  -- 1.69 kΩ --+
-OUT7 / GREEN(3)  -- 825 Ω  ---+---- VGA GREEN
+GRN1 / GREEN(1)  -- 3.24 kΩ --+
+GRN2 / GREEN(2)  -- 1.69 kΩ --+
+GRN3 / GREEN(3)  -- 825 Ω  ---+---- VGA GREEN
                                       |
                                      75 Ω
                                       |
@@ -258,12 +272,13 @@ These resistor values assume a 5 V PLD supply and a 75 Ω VGA load. Actual outpu
 
 | Feature | Configuration |
 |---------|---------------|
-| PLD | ATF22V10 |
+| PLD | ATF22V10C (`ATF22V10_COLORDECODER.pld`, revision 07) |
 | Package | 24-pin |
 | Supply | +5 V |
 | Pixel inputs | 8 |
 | Mode inputs | 2 |
-| Selection inputs | 3 |
+| Pixel select inputs | 3 (H2:H0) |
+| Video enable input | 1 (VIDEN) |
 | VGA outputs | 8 |
 | Color modes | 1, 2, 4, 8 bit |
 | Maximum colors | 256 |
@@ -274,7 +289,7 @@ These resistor values assume a 5 V PLD supply and a 75 Ω VGA load. Actual outpu
 | Red/green resistors | 3.24 kΩ / 1.69 kΩ / 825 Ω |
 | Blue resistors | 1.43 kΩ / 715 Ω |
 | Logic type | Combinational |
-| Pixel clock required | No |
+| Pixel clock required | No (H2:H0 come from the Sync PLD) |
 
 ## Mode Selection Summary
 
@@ -290,14 +305,14 @@ MODE1 MODE0
 ## Output Summary
 
 ```text
-OUT0 = RED(1)
-OUT1 = RED(2)
-OUT2 = RED(3)
+pin 15 RED1 = RED(1)
+pin 16 RED2 = RED(2)
+pin 21 RED3 = RED(3)
 
-OUT3 = BLUE(2)
-OUT4 = BLUE(3)
+pin 22 BLU2 = BLUE(2)
+pin 18 BLU3 = BLUE(3)
 
-OUT5 = GREEN(1)
-OUT6 = GREEN(2)
-OUT7 = GREEN(3)
+pin 17 GRN1 = GREEN(1)
+pin 20 GRN2 = GREEN(2)
+pin 19 GRN3 = GREEN(3)
 ```

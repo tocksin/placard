@@ -70,8 +70,8 @@ instructions for the rows to settle and reads.  The port PLD replaces the
 '138, so the chip count is the same.
 
 **Why the PLD and not the free pins of an existing PLD.**  The PLDs with
-free pins (branch, audio, memory control, H and V counters) do not see
-the port latch, A0 or /PORT_RD, and the I/O decode PLD has no free pins.
+free pins (branch, audio, H and V counters) do not see the port latch,
+A0 or /PORT_RD, and the I/O decode PLD has no free pins.
 Moving the column decode into one of them would need those signals routed
 in and still a part to drive the pad bits, so a small new PLD is the
 cheaper choice.  It has 4 inputs to spare.

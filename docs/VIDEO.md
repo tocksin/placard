@@ -9,10 +9,11 @@ The three PLDs are:
 
 1. **H Counter PLD** — generates the upper seven horizontal count bits and
    horizontal timing signals.
-2. **V Counter PLD** — generates the ten vertical count bits and determines
-   the end of each horizontal line.
+2. **V Counter PLD** — generates the ten vertical count bits, advancing
+   once per line on the H counter's line-end signal (H_TC).
 3. **Sync / Pixel Counter PLD** — generates the lower three horizontal count
-   bits, VGA vertical sync, combined video enable, and the byte-load signal.
+   bits, VGA vertical sync, the color decoder's video enable (VIDEN), the
+   video read (PIXEL_ENABLE) and the address-mux selects.
 
 ## Horizontal Counter (total)
 The horizontal counter is a 10-bit counter but divided between two chips:
@@ -36,10 +37,11 @@ while the upper seven bits identify the byte position within a scan line.
 ## Horizontal Counter PLD
 
 ### Function
-The Horizontal Counter PLD contains the upper seven bits of the horizontal
-counter.
+The Horizontal Counter PLD (`ATF22V10_HCOUNT.pld`, revision 07) contains the
+upper seven bits of the horizontal counter.  The low three bits, H2:H0, are
+in the Sync PLD.
 
-It counts horizontal byte positions from:
+It counts horizontal byte positions (8-clock groups) from:
 
 28 → 127
 
@@ -47,13 +49,15 @@ corresponding to:
 
 224 → 1023 pixels
 
-The counter reloads to 28 after reaching 127.
+The counter reloads to 28 after reaching 127.  H9:H3 advance on the last
+clock of each group (H2:H0 = 101, since H2:H0 runs two clocks behind the
+group; see VIDEO_TIMING.md).
 
 The PLD also generates:
 
-- Horizontal video-active state
-- First-active-pixel signal
-- Horizontal Sync
+- Horizontal sync (HSYNC, active low)
+- Horizontal video-active state (H_VIDEO_ACTIVE)
+- Line terminal count (H_TC), the vertical counter's clock enable
 
 The horizontal video-active signal is high when the counter is in a range where
 there is active video.  It is sent to the Sync PLD and combined with the
@@ -76,10 +80,10 @@ display mode.  The mode byte is now read in horizontal blanking; see
 | Pin | Signal | Direction | Function |
 |---:|---|---|---|
 | 1 | `CLK` | Input | Pixel clock |
-| 2 | `RESET` | Input | Horizontal counter reset |
-| 3 | `H0` | Input | Horizontal pixel bit 0 |
-| 4 | `H1` | Input | Horizontal pixel bit 1 |
-| 5 | `H2` | Input | Horizontal pixel bit 2 |
+| 2 | `RESET` | Input | Declared but not used in any equation (tie low) |
+| 3 | `H0` | Input | Horizontal pixel bit 0 (Sync PLD pin 14) |
+| 4 | `H1` | Input | Horizontal pixel bit 1 (Sync PLD pin 15) |
+| 5 | `H2` | Input | Horizontal pixel bit 2 (Sync PLD pin 16) |
 | 6 | — | — | Unused |
 | 7 | — | — | Unused |
 | 8 | — | — | Unused |
@@ -95,80 +99,76 @@ display mode.  The mode byte is now read in horizontal blanking; see
 | 18 | `H7` | Output | Horizontal count bit 7 |
 | 19 | `H8` | Output | Horizontal count bit 8 |
 | 20 | `H9` | Output | Horizontal count bit 9 (MSB) |
-| 21 | `HSYNC` | Output | Horizontal sync |
-| 22 | `H_VIDEO_ACTIVE` | Output | Horizontal active-video state |
-| 23 | `H_ACTIVE_START` | Output | High only at H = 384 |
+| 21 | `/HSYNC` | Output | Horizontal sync, active low (registered) |
+| 22 | `H_VIDEO_ACTIVE` | Output | Horizontal active-video state (registered) |
+| 23 | `H_TC` | Output | Last clock of the line (H = 127, H2:H0 = 101); V counter EN |
 | 24 | `VCC` | Power | +5 V |
 
-- H9:H3 = Upper 7 bits of horizontal count
-- H2:H0 = Supplied by Sync/Pixel PLD
-- HSYNC = Horizontal sync output
-- H_VIDEO_ACTIVE = Horizontal active-video indication
-- H_ACTIVE_START = One-clock pulse at H = 384
+- H9:H3 = Upper 7 bits of horizontal count (registered)
+- H2:H0 = Supplied by the Sync PLD
+- All ten output cells are used; inputs 2, 6-11 and 13 are free.
 
 ## Vertical Counter PLD
 
 ### Function
-The Vertical Counter PLD generates the ten-bit vertical count.
+The Vertical Counter PLD (`ATF22V10_VCOUNT.pld`, revision 03) generates the
+ten-bit vertical count.
 
-It receives the complete ten-bit horizontal count from the other two PLDs.
-
-This allows it to determine the exact end of each horizontal line without
-requiring a separate horizontal terminal count signal.
+Its only inputs are the clock and EN, a clock enable driven by the H
+counter PLD's H_TC, which is high on the last clock of each line.  The
+counter advances once per line.
 
 The vertical counter counts:
 
 499 → 1023
 
-and reloads to 499.
+and reloads to 499 after 1023.  An all-zero count (power-up) also loads
+499.  The global reset and preset terms are not used.
 
-There is no vertical decoding of the timing in this PLD due to the lack of 
-macrocells and outputs.  Therefore, all decoding is done in the Sync PLD.
+There is no vertical decoding of the timing in this PLD because every
+output is a counter bit.  All decoding is done in the Sync PLD and the
+audio slot PLD.
 
 ### Pinout
 | Pin | Signal | Direction | Function |
 |---:|---|---|---|
 | 1 | `CLK` | Input | Pixel clock |
-| 2 | `RESET` | Input | Vertical counter reset |
-| 3 | `H0` | Input | Horizontal count bit 0 |
-| 4 | `H1` | Input | Horizontal count bit 1 |
-| 5 | `H2` | Input | Horizontal count bit 2 |
-| 6 | `H3` | Input | Horizontal count bit 3 |
-| 7 | `H4` | Input | Horizontal count bit 4 |
-| 8 | `H5` | Input | Horizontal count bit 5 |
-| 9 | `H6` | Input | Horizontal count bit 6 |
-| 10 | `H7` | Input | Horizontal count bit 7 |
-| 11 | `H8` | Input | Horizontal count bit 8 |
+| 2 | `EN` | Input | Count enable, from H counter PLD pin 23 (H_TC) |
+| 3-11 | — | — | Unused |
 | 12 | `GND` | Power | Ground |
-| 13 | `H9` | Input | Horizontal count bit 9 (MSB) |
+| 13 | — | — | Unused |
 | 14 | `V0` | Output | Vertical count bit 0 |
-| 15 | `V1` | Output | Vertical count bit 1 |
-| 16 | `V2` | Output | Vertical count bit 2 |
-| 17 | `V3` | Output | Vertical count bit 3 |
-| 18 | `V4` | Output | Vertical count bit 4 |
-| 19 | `V5` | Output | Vertical count bit 5 |
+| 15 | `V3` | Output | Vertical count bit 3 |
+| 16 | `V4` | Output | Vertical count bit 4 |
+| 17 | `V7` | Output | Vertical count bit 7 |
+| 18 | `V8` | Output | Vertical count bit 8 |
+| 19 | `V9` | Output | Vertical count bit 9 (MSB) |
 | 20 | `V6` | Output | Vertical count bit 6 |
-| 21 | `V7` | Output | Vertical count bit 7 |
-| 22 | `V8` | Output | Vertical count bit 8 |
-| 23 | `V9` | Output | Vertical count bit 9 (MSB) |
+| 21 | `V5` | Output | Vertical count bit 5 |
+| 22 | `V2` | Output | Vertical count bit 2 |
+| 23 | `V1` | Output | Vertical count bit 1 |
 | 24 | `VCC` | Power | +5 V |
 
-- H9:H0 = Complete horizontal count input
-- V9:V0 = Vertical count
-
-Horizontal count is used to determine when to increment the vertical count.
-It calculates the terminal count internally - it is true only at H = 1023.
+The bits are placed by product terms (higher bits need more), so they are
+not in pin order.  The source names them Q9:Q0.
 
 ## Sync Decoder / Pixel counter PLD
 
 ### Function
-The Sync Decoder / Pixel Counter PLD contains the three lowest horizontal count
-bits.  These bits select the individual pixel within an 8-pixel video byte.
+The Sync Decoder / Pixel Counter PLD (`ATF22V10_SYNC.pld`, revision 08)
+contains the three lowest horizontal count bits.  These bits select the
+individual pixel within an 8-pixel video byte, and go straight to the color
+decoder.  They run two clocks behind the H counter's group: H2:H0 is 110 in
+clock 0 of a group, 111 in clock 1 (the video read) and 000 in clock 2,
+where the first pixel of the byte is shown (VIDEO_TIMING.md).
 
 It also generates:
 
 - VSYNC
-- Video-enable signal
+- VIDEN, the color decoder's video enable (registered)
+- PIXEL_ENABLE, the video read (registered)
+- The address-mux selects ADDR_SEL, ADDR_SEL_HI and ADDR_SEL_LO
+- V_VIDEO_ACTIVE, the vertical active-region state
 
 ### Vertical Timing
 | Line range | Function |
@@ -178,47 +178,64 @@ It also generates:
 | 534-543 | Back Porch |
 | 544-1023 | Active Video |
 
-The video-enable signal indicates when the RAM/ROM should be enabled to load an
-active-video pixel.  This signal is also used to stall the CPU to prevent it 
-from accessing the RAM/ROM during video reads.
+PIXEL_ENABLE is high in clock 1 of each group (H2:H0 = 111) when a byte is
+read: on active-video lines during active video, and on every line in the
+group that the audio slot PLD marks with BLANK_RD (the mode byte and audio
+reads).  It also stalls the CPU so that it does not use the RAM/ROM during
+video reads.
 
 ### Pinout
 
 | Pin | Signal | Direction | Function |
 |---:|---|---|---|
 | 1 | `CLK` | Input | Pixel clock |
-| 2 | `V1` | Input | Vertical count bit 1 |
-| 3 | `V2` | Input | Vertical count bit 2 |
-| 4 | `V3` | Input | Vertical count bit 3 |
-| 5 | `V4` | Input | Vertical count bit 4 |
-| 6 | `V5` | Input | Vertical count bit 5 |
-| 7 | `V9` | Input | Vertical count bit 9 |
-| 8 | - | Input | Unused |
-| 9 | - | Input | Unused |
-| 10 | - | Input | Unused |
-| 11 | - | Input | Unused |
+| 2 | `V9` | Input | Vertical count bit 9 |
+| 3 | `V5` | Input | Vertical count bit 5 |
+| 4 | `V4` | Input | Vertical count bit 4 |
+| 5 | `V3` | Input | Vertical count bit 3 |
+| 6 | `V2` | Input | Vertical count bit 2 |
+| 7 | `V1` | Input | Vertical count bit 1 |
+| 8 | `H_VIDEO_ACTIVE` | Input | Horizontal active-video state (H counter PLD pin 22) |
+| 9 | `PC_ENABLE` | Input | State PLD pin 15 |
+| 10 | `Y_ENABLE` | Input | State PLD pin 17 |
+| 11 | `X_ENABLE` | Input | State PLD pin 16 |
 | 12 | `GND` | Power | Ground |
-| 13 | `H_VIDEO_ACTIVE` | Input | Horizontal active-video state |
-| 14 | `H0` | Output | Horizontal pixel bit 0 |
-| 15 | `H1` | Output | Horizontal pixel bit 1 |
-| 16 | `H2` | Output | Horizontal pixel bit 2 |
-| 17 | `VIDEN` | Output | Colour decoder video enable: active video, two clocks late (registered, revision 08; was `VIDEO_ACTIVE`) |
-| 18 | `VSYNC` | Output | Vertical sync |
-| 19 | 'PIXEL_ENABLE' | Output | Video read, clock 1 of each group (H2:H0 = "111" since revision 08) |
-| 20 | — | — | Unused |
-| 21 | — | — | Unused |
-| 22 | — | — | Unused |
-| 23 | — | — | Unused |
+| 13 | `BLANK_RD` | Input | Mode byte / audio read slot (audio slot PLD pin 23) |
+| 14 | `H0` | Output | Horizontal pixel bit 0 (registered) |
+| 15 | `H1` | Output | Horizontal pixel bit 1 (registered) |
+| 16 | `H2` | Output | Horizontal pixel bit 2 (registered) |
+| 17 | `VIDEN` | Output | Color decoder video enable: active video, two clocks late (registered) |
+| 18 | `VSYNC` | Output | Vertical sync, active low |
+| 19 | `PIXEL_ENABLE` | Output | Video read, clock 1 of each group (registered) |
+| 20 | `ADDR_SEL` | Output | Address mux S1, all four muxes |
+| 21 | `ADDR_SEL_HI` | Output | High-byte address mux S0 |
+| 22 | `ADDR_SEL_LO` | Output | Low-byte address mux S0 |
+| 23 | `V_VIDEO_ACTIVE` | Output | Vertical active region, counts 544-1023 (registered) |
 | 24 | `VCC` | Power | +5 V |
 
-H2:H0 = 3-bit pixel-within-byte counter
+Every pin is used.  V0 and V8:V6 are not needed: each vertical decode
+covers two counts at once.
 
-VIDEO_ACTIVE.D = (V9 & V5 & !V4 & !V3 & !V2 & !V1)
-               # (VIDEO_ACTIVE & V9);
-               
-VSYNC = !(V4 & !V3 & V2 & !V1)
+```text
+H0.D = !H0;
+H1.D = H1 $ H0;
+H2.D = H2 $ (H1 & H0);
 
-PIXEL_ENABLE = VIDEO_ACTIVE & !H2 & !H1 & !H0
+V_VIDEO_ACTIVE.D = V9 & (V5 # V_VIDEO_ACTIVE);
+
+VIDEN.D = V_VIDEO_ACTIVE & H_VIDEO_ACTIVE & H2 & H1 & H0
+        # VIDEN & !(H2 & H1 & H0);              /* holds between reads */
+
+PIXEL_ENABLE.D = (V_VIDEO_ACTIVE & H_VIDEO_ACTIVE # BLANK_RD) & H2 & H1 & !H0;
+
+VSYNC = !(V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1);   /* counts 532-533 */
+
+ADDR_SEL    = PIXEL_ENABLE # PC_ENABLE;
+ADDR_SEL_HI = !PIXEL_ENABLE & (PC_ENABLE # Y_ENABLE);
+ADDR_SEL_LO = !PIXEL_ENABLE & (PC_ENABLE # X_ENABLE);
+```
+
+(The equations are written compactly here; the source spells them out.)
 
 ## Mode byte
 
