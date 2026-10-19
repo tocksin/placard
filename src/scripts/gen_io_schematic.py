@@ -21,6 +21,7 @@ import sys
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from schematic_text import fit_text
 from matplotlib.patches import Rectangle, Polygon, Circle
 
 W, H = 320, 222
@@ -435,7 +436,7 @@ for r, yy, dref, nname, rref, rval, sup, d2 in chains:
     rail(nx, yy - 6, sup)
     res(nx, yy - 6, yy, rref, rval)
     if d2:
-        T(nx + 0.6, yy + 1.3, nname, fs=6.5, color=NET, weight="bold")
+        T(171.5, yy + 1.6, nname, fs=6.5, ha="center", color=NET, weight="bold")
         diode(167.5, 174, yy, d2[0])
         net(174, yy, d2[1], fs=6.5)
     else:
@@ -548,5 +549,6 @@ T(nx, ny + 22.3, "the map register, the line read and the expansion slots (docs/
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "..", "schematics", "placard_io_schematic.png")
+fit_text(fig, ax)
 fig.savefig(out, dpi=100)
 print("wrote", os.path.normpath(out))
