@@ -1,6 +1,6 @@
 # Sound
 
-Date: 2026-10-18
+Date: 2026-10-19
 
 The video circuit plays sound by itself.  On every scan line it reads one
 8-bit sample from RAM, the same way it reads pixels, and a register feeds that
@@ -242,8 +242,8 @@ Software has its own part:
 
 ### The sound driver
 
-The library's sound driver (`src/scripts/placard_snd.asm`, library bank 2
-at ROM xE100-xE57F) does the buffer work.  A program calls `snd_init` once,
+The library's sound driver (`src/scripts/placard_snd.asm`, in the library
+at `SND_CODE`, ROM xD700-xDBFF) does the buffer work.  A program calls `snd_init` once,
 `snd_update` once every frame (from anywhere in the frame; a game loop that
 already calls `wait_frames` or `frame_poll` just adds it), and starts sounds
 with one call:

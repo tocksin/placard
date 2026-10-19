@@ -1,6 +1,6 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-10-18
+Date: 2026-10-19
 
 The Placard has four expansion slots and one ROM cartridge slot, all the
 same connector: a 2 x 20, 0.1" (2.54 mm) pitch card-edge socket.  The
@@ -47,7 +47,9 @@ For each slot whose header and checksum are good, the boot loader copies
 the n code bytes to RAM x0100 and calls them with the library's CALL, with
 AC = the slot number (1-4), R1:R0 = the slot's base address, SP = FE and
 `MAP_SHADOW` = 01 (map 01: the zero page reads RAM, the rest ROM).  The
-code may use the library and the I/O drivers.  It then either:
+code may use the library and the I/O drivers; it is built without the
+library source, so it calls them through the jump table at xFB00, whose
+entries never move ([LIBRARY.md](LIBRARY.md#jump-table)).  It then either:
 
 - **returns**, and the scan goes on with the next slot and then the normal
   boot (a card that only sets itself up, or adds a device), or

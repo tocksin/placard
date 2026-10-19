@@ -38,7 +38,7 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 - **x5000-x53FF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  (Until 2026-10-16 the window was x5000-x5FFF, with x5800-x5FFF a mirror.)
 - **Only `[Y,X]` reaches the I/O window**; `[0,D]` and `[0,X]` only address the zero page.
 - **Video reads always read the RAM** (memory control PLD revision 04); only CPU reads follow the map.  The CPU can run code from the ROM under the video area while the screen shows the RAM, and a program that wants to read the video RAM maps that section to RAM.
-- **Programs run from the ROM.**  The I/O drivers, standard library and font run in place at ROM x2000-x3FFF and a program at ROM x6000-xDFFF; library bank 2 (sound, SD card files, expansion cards, line input, mouse) is at ROM xE000-xFBFF.  The boot loader first gives each expansion card a chance to run its own boot code (like the Apple II), then maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  See [docs/ROM.md](docs/ROM.md).
+- **Programs run from the ROM.**  The library (jump table, core routines, font, I/O drivers, sound, line input, FAT reader and slot helpers) is one block at the top of the ROM, xC600-xFBFF, just under the boot loader, and runs in place; a program runs in place at ROM x6000-xBFFF and may use x2000-x3FFF too.  The boot loader copies the library's RAM code to x1F00, gives each expansion card a chance to run its own boot code (like the Apple II), then maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  See [docs/ROM.md](docs/ROM.md).
 - **After a map write**, the next instruction must not be fetched from a section whose map bit that write changed, unless the ROM and RAM hold the same byte there (the new map arrives 4.1 ns too late for that fetch).  Copying the ROM into the RAM underneath and then switching the section is safe.  See [docs/TIMING_FIXES.md](docs/TIMING_FIXES.md#romram-map-register-74act273).
 
 The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /WE, /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
@@ -47,16 +47,16 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen ye
 
 | Address | Map bit | Function  |
 |---------|---------|------|
-| x0000-x1FFF | 0 | RAM/ROM (zero page, program variables; ROM: reset jump) |
-| x2000-x3FFF | 1 | RAM/ROM (ROM: I/O drivers x2000-x2FFF, library x3000-x37FF, font x3800-x3FFF) |
+| x0000-x1FFF | 0 | RAM/ROM (zero page, program variables, library RAM code at x1F00; ROM: reset jump) |
+| x2000-x3FFF | 1 | RAM/ROM (ROM: program) |
 | x4000-x4FFF | 2 | RAM/ROM (program data; FAT variables and buffer at x4D00-x4FFF) |
 | x5000-x53FF | none | I/O window (see below) |
 | x5400-x5FFF | 2 | RAM/ROM (mode bytes at x5A20-x5BFF, audio buffer at x5DF3-x5FFF) |
 | x6000-x7FFF | 3 | RAM/ROM (Video Memory from x6020; ROM: program from x6000) |
 | x8000-x9FFF | 4 | RAM/ROM (Video Memory; ROM: program) |
 | xA000-xBFFF | 5 | RAM/ROM (Video Memory; ROM: program) |
-| xC000-xDFFF | 6 | RAM/ROM (Video Memory; ROM: program) |
-| xE000-xFFFF | 7 | RAM/ROM (Video Memory; ROM: library bank 2 xE000-xFBFF, boot loader) |
+| xC000-xDFFF | 6 | RAM/ROM (Video Memory; ROM: library from xC600: slot helpers, FAT reader, line input, sound, I/O drivers) |
+| xE000-xFFFF | 7 | RAM/ROM (Video Memory; ROM: I/O drivers, font xEC00, core routines xF400, jump table xFB00, boot loader xFC00) |
 
 ![Placard memory map](reference/memory_map.png)
 

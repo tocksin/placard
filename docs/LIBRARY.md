@@ -34,17 +34,35 @@ main:
     ...
 ```
 
-The library and font run in place from the ROM at x3000-x3FFF: code at
-`LIB_CODE` (x3000-x37FF) and the font at `LIB_FONT` (x3800-x3FFF).  These are
-standard places that every program shares, so keep them.  A program runs in
-place from ROM x6000-xDFFF (entry at x6000).  Library bank 2
-(`LIB2_CODE`, ROM xE000-xFBFF) holds the sound driver, `slot_id`, the FAT
-reader, `con_gets` and `mouse_move`; xE000-xE0FF is kept for a future jump
-table.  Bank 2 runs in section 7, so section 7 must read the ROM when a
-program calls it (it does in map 05).  The boot loader maps the zero
-page and x4000-x4FFF to RAM (map = 05, also in `MAP_SHADOW`) and jumps to
+The library is one block at the top of the ROM, just under the boot loader,
+and runs in place.  The most used parts are highest:
+
+| ROM address | Part | Constant | Source |
+|-------------|------|----------|--------|
+| xFB00-xFBFF | Jump table | `LIB_JT` | `placard_lib.asm` |
+| xF400-xFAFF | Core routines | `LIB_CODE` | `placard_lib.asm` |
+| xEC00-xF3FF | 8x8 font | `LIB_FONT` | `lib_font.asm` |
+| xDC00-xEBFF | I/O drivers | `IO_CODE` | `placard_io.asm` |
+| xD700-xDBFF | Sound driver | `SND_CODE` | `placard_snd.asm` |
+| xD500-xD6FF | Line input, mouse pointer | `INPUT_CODE` | `placard_input.asm` |
+| xC700-xD4FF | FAT file reader | `FS_CODE` | `placard_fs.asm` |
+| xC600-xC6FF | Expansion slot helpers | `SLOT_CODE` | `placard_slot.asm` |
+| xC000-xC5FF | Free, for the library to grow down into | | |
+| RAM x1F00-x1FFF | Code that reads the video RAM (end of `plot1`, `con_scroll`) | `LIB_RAM` | `placard_lib.asm` |
+
+`placard_lib.asm` sets every constant and includes the other files.  These
+are standard places that every program shares, so keep them.  The library
+runs in sections 6 and 7, so they must read the ROM whenever a program
+calls it (they do in map 05).  The code that reads the video RAM maps
+sections 3-7 to RAM, so it can't run from there: it is assembled at
+`LIB_RAM`, x1F00-x1FFF, and the boot loader copies it from the ROM into the
+RAM before anything else.  Programs must leave RAM x1F00-x1FFF alone.
+
+A program runs in place from ROM x6000-xBFFF (entry at x6000) and may put
+more code and tables at ROM x2000-x3FFF.  The boot loader maps the zero
+page and x4000-x5FFF to RAM (map = 05, also in `MAP_SHADOW`) and jumps to
 x6000.  Program variables and buffers go in RAM: the zero page x20-x8F,
-x0100-x1FFF, x4000-x4CFF (x4D00-x4FFF if the program does not use the
+x0100-x1EFF, x4000-x4CFF (x4D00-x4FFF if the program does not use the
 FAT reader), x5400-x5A1F and x5C00-x5DF2 (the mode bytes are
 at x5A20-x5BFF and the audio buffer is x5DF3-x5FFF).  A 2x or 4x screen
 frees part of the video area too (see `vid_mode`).  The RAM is random at power-up, so set
@@ -57,6 +75,35 @@ and the zero page map below.
 The simulator's assembler now accepts `#include`, `NAME = value` constants
 and `#d "string", 0x00` data, as customasm does, and `#addr` may go back to
 a lower address (overlapping bytes are still an error).
+
+## Jump table
+
+`LIB_JT`, xFB00-xFBFF, has one 4-byte entry per public routine
+(`ld routine >> 8, y` / `jmp routine`), labelled `jt_<name>`.  Entries are
+only ever added at the end, never moved or removed, so code built without
+`placard_lib.asm` (a card's boot code, a program loaded from the SD card)
+can CALL a routine at its table address and keep working when the library
+changes.  A program that includes `placard_lib.asm` may call the routines
+directly instead, 4 clocks faster.  64 entries fit; 54 are used:
+
+| Entry | Address | Routines |
+|-------|---------|----------|
+| 0-24 | xFB00-xFB60 | `lib_leave` `map_set` `frame_poll` `wait_frames` `rand8` `add16` `sub16` `mul8` `div8` `div16` `memset` `memcpy` `vid_clear` `vid_mode` `vid_addr` `plot1` `con_putc` `con_newline` `con_home` `con_clear` `con_puts` `con_hex8` `con_dec8` `con_dec16` `con_scroll` |
+| 25-35 | xFB64-xFB8C | `port_init` `kbd_scan` `kbd_getc` `pad_read` `spi_byte` `sd_init` `sd_read` `sd_write` `mouse_init` `mouse_poll` `mouse_cmd` |
+| 36-44 | xFB90-xFBB0 | `snd_init` `snd_update` `snd_tone` `snd_note` `snd_beep` `snd_noise` `snd_play` `snd_stop` `snd_busy` |
+| 45-53 | xFBB4-xFBD4 | `slot_id` `fs_mount` `fs_root` `fs_next` `fs_open` `fs_read` `fs_load` `con_gets` `mouse_move` |
+
+Entry n is at xFB00 + 4n.  A CALL through the table:
+
+```
+    ld   LINK_LO, x
+    ld   back, [x]
+    ld   LINK_HI, x
+    ld   back >> 8, [x]
+    ld   0xFB, y                ; jt_con_putc, entry 16
+    jmp  0x40
+back:
+```
 
 ## Calling convention
 
@@ -443,9 +490,10 @@ through 525 lines.
 ## Not in the library yet
 
 The keyboard, SNES pad, SD card and mouse drivers are in
-`placard_io.asm` at x2000-x2FFF, included by `placard_lib.asm`, with the
+`placard_io.asm` at `IO_CODE`, included by `placard_lib.asm`, with the
 same calling convention; [IO.md](IO.md) lists them and `test_io.py` tests
-them.  Pixel routines for 2, 4 and 8 bpp rows, line drawing, writing files
-to the SD card and the fixed jump table at xE000 are good next additions.
-`test_snd.py`, `test_fs.py` and `test_slots.py` test bank 2.
-`con_scroll` moved to the last code page (x3700), so new routines need room found in pages 0-6 or a second page.
+them.  Pixel routines for 2, 4 and 8 bpp rows, line drawing and writing
+files to the SD card are good next additions; new code goes in the free
+xC000-xC5FF below the library, and new public routines get the next jump
+table entries.  `test_snd.py`, `test_fs.py` and `test_slots.py` test the
+sound driver, the FAT reader and the slot helpers.
