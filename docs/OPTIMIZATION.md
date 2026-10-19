@@ -44,8 +44,9 @@ on pin 1 and puts out its inverse on pin 16:
 - **Alternative** that leaves the mux PLDs alone: the branch PLD's free
   pin 15 and the audio PLD's free pins 16 and 21.  (When this was written
   the branch PLD also had pins 14 and 16 free; since 2026-10-18 they carry
-  COUT and SRC_EN.)  That uses up spare pins kept for later features, so
-  the mux version is better.
+  COUT and SRC_EN, and since 2026-10-19 pin 15 is /PIX_LD for the pixel
+  buffer, so only the audio PLD's two pins are left.)  That uses up spare
+  pins kept for later features, so the mux version is better.
 
 ### 2. The SD level shifter becomes three resistor dividers (-1) — applied 2026-10-18
 

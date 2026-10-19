@@ -1,7 +1,7 @@
 Name     STATE_CTRL;
 PartNo   00;
-Date     2026-10-18;
-Revision 12;
+Date     2026-10-19;
+Revision 13;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -202,12 +202,19 @@ PIN 16 = X_ENABLE;
 PIN 17 = Y_ENABLE;
 
 /* Bus-cycle strobes.  Each includes !PIXEL_ENABLE, so it is only
-   active on a clock where the CPU really owns the bus. */
-PIN 14 = LOAD_INSTR;   /* load instruction FF                          */
-PIN 19 = LOAD_IMM;     /* load D FF (LOAD_IMM and LOAD_MEM states)     */
-PIN 20 = LOAD_X;       /* load X register                              */
-PIN 21 = LOAD_Y;       /* load Y register                              */
-PIN 22 = LOAD_AC;      /* load accumulator                             */
+   active on a clock where the CPU really owns the bus.
+   Revision 13: declared active low.  Each drives the /E pin of a
+   74F377 (instruction register, D, X, Y, AC), which loads when /E
+   is low.  Until revision 12 the pins were active high, so each
+   register would have loaded on every clock except its own (the
+   FPGA model used them as active-high enables and hid this).  The
+   equations do not change; the pin is low while the strobe is true.
+   The I/O decode PLD (revision 04) reads pin 19 as !LOAD_IMM. */
+PIN 14 = !LOAD_INSTR;  /* instruction register /E                      */
+PIN 19 = !LOAD_IMM;    /* D register /E (LOAD_IMM and LOAD_MEM states) */
+PIN 20 = !LOAD_X;      /* X register /E                                */
+PIN 21 = !LOAD_Y;      /* Y register /E                                */
+PIN 22 = !LOAD_AC;     /* accumulator /E                               */
 
 /* Memory R/W.  Pin level: 1 = read, 0 = write.  Declared inverted
    so the equation below is the write condition.  Forced to read
