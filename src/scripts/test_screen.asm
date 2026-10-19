@@ -42,7 +42,7 @@
 #include "placard_lib.asm"
 
 ; ---------------------------------------------------------------------------
-; program variables (zero page x20-xBF)
+; program variables (zero page x20-x8F)
 ; ---------------------------------------------------------------------------
 last_frame = 0x20       ; FRAME_LO when the last frame was handled
 spin_div   = 0x21       ; frames until the text spinner steps
