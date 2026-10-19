@@ -5,7 +5,7 @@ the I/O decode PLD, the shared port at x5200 (latch, port PLD, row
 buffer, SD level-shifting dividers, 3.3 V regulator) and its connectors (keyboard
 matrix header, two SNES pads, SD card socket, PS/2 mouse).
 
-    python3 gen_io_schematic.py              writes reference/placard_io_schematic.png
+    python3 gen_io_schematic.py              writes schematics/placard_io_schematic.png
     python3 gen_io_schematic.py out.png      writes out.png
 
 Needs matplotlib (python3 -m pip install matplotlib).  The pin numbers are
@@ -13,7 +13,7 @@ typed in from ATF22V10_IO_DECODE.pld, ATF22V10_PORT.pld, docs/IO.md and the
 parts' data sheets; update them here when those change and rerun.  Nets
 with the same label are connected.
 
-Date: 2026-10-18
+Date: 2026-10-19
 """
 import os
 import sys
@@ -547,6 +547,6 @@ T(nx, ny + 22.3, "the map register, the line read and the expansion slots (docs/
    "Source: docs/IO.md, docs/CHIPS.md, the PLD files, 2026-10-18.", fs=7.2, color=MUTE)
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "..", "reference", "placard_io_schematic.png")
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "schematics", "placard_io_schematic.png")
 fig.savefig(out, dpi=100)
 print("wrote", os.path.normpath(out))
