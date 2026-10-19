@@ -17,12 +17,37 @@
 ;         ld   ac, [SP]
 ;         ...
 ;
-; The library sits at LIB_CODE (code, 2 KB) and LIB_FONT (font, 2 KB),
-; x3000-x3FFF, and runs in place from the ROM (section 1 reads ROM).
-; These are standard places that every program shares, so keep them;
-; moving them means changing gen_rom.tcl and placard_sim.py too (docs/ROM.md).
-; LIB_CODE must be a multiple of 0x100, because every routine keeps its
-; branches inside one 256-byte page.
+; The library is one block at the top of the ROM, xC600-xFBFF (sections 6
+; and 7), below the boot loader, with the most used parts highest:
+;     xFB00-xFBFF  LIB_JT      jump table
+;     xF400-xFAFF  LIB_CODE    core routines (this file)
+;     xEC00-xF3FF  LIB_FONT    8x8 font (lib_font.asm)
+;     xDC00-xEBFF  IO_CODE     I/O drivers (placard_io.asm)
+;     xD700-xDBFF  SND_CODE    sound driver (placard_snd.asm)
+;     xD500-xD6FF  INPUT_CODE  line input, mouse pointer (placard_input.asm)
+;     xC700-xD4FF  FS_CODE     FAT file reader (placard_fs.asm)
+;     xC600-xC6FF  SLOT_CODE   expansion slot helpers (placard_slot.asm)
+; xC000-xC5FF is kept free for the library to grow down into.  It runs in
+; place from the ROM, so sections 6 and 7 must read ROM whenever a program
+; calls the library.  These are standard places that every program shares,
+; so keep them; moving them means changing gen_rom.tcl and placard_sim.py
+; too (docs/ROM.md).  Every base is a multiple of 0x100, because every
+; routine keeps its branches inside one 256-byte page.
+;
+; JUMP TABLE: LIB_JT (xFB00-xFBFF) holds one 4-byte entry per public
+; routine (ld routine >> 8, y / jmp routine), in a fixed order that only
+; ever grows, so code built without this file (a card's boot code, a
+; program loaded from the SD card) can CALL a routine at its table address
+; (jt_<name>) even after the library changes.  Code that includes this file
+; may call the routines directly (4 clocks faster).  docs/LIBRARY.md lists
+; the entries.
+;
+; LIB_RAM: the code that reads the video RAM (the end of plot1 and all of
+; con_scroll) maps sections 3-7 to RAM while it runs, which would take the
+; ROM it runs from away.  So it is assembled at LIB_RAM, x1F00-x1FFF (in
+; section 0, which is RAM in every map a program uses), and the boot loader
+; copies those bytes from the ROM into the RAM before anything else.
+; Programs must leave RAM x1F00-x1FFF alone.
 ;
 ; ------------------------------------------------------------
 ; CALLING CONVENTION
@@ -111,23 +136,27 @@
 ; active video) and include the 8-clock RETURN but not the 18-clock CALL.
 ; test_lib.py measures them.
 ;
-; Date: 10/18/2026
+; Date: 10/19/2026
 ; ============================================================
 
 #include "zeropage.asm"
 
-LIB_CODE = 0x3000       ; 2 KB of code, x3000-x37FF
-LIB_FONT = 0x3800       ; 2 KB font, x3800-x3FFF (see lib_font.asm)
-
-LIB2_CODE = 0xE000      ; library bank 2, xE000-xFBFF; xE000-xE0FF is kept
-                        ; for a jump table, code starts at xE100
+LIB_JT     = 0xFB00     ; jump table, 64 entries, xFB00-xFBFF
+LIB_CODE   = 0xF400     ; core routines, xF400-xFAFF
+LIB_FONT   = 0xEC00     ; 2 KB font, xEC00-xF3FF (see lib_font.asm)
+IO_CODE    = 0xDC00     ; I/O drivers, xDC00-xEBFF (placard_io.asm)
+SND_CODE   = 0xD700     ; sound driver, xD700-xDBFF (placard_snd.asm)
+INPUT_CODE = 0xD500     ; line input, mouse pointer, xD500-xD6FF (placard_input.asm)
+FS_CODE    = 0xC700     ; FAT file reader, xC700-xD4FF (placard_fs.asm)
+SLOT_CODE  = 0xC600     ; expansion slot helpers, xC600-xC6FF (placard_slot.asm)
+LIB_RAM    = 0x1F00     ; 256 bytes of library code copied to RAM by the boot
 
 #include "lib_font.asm"
-#include "placard_io.asm"     ; I/O drivers at IO_CODE, x2000-x2FFF (docs/IO.md)
-#include "placard_snd.asm"    ; sound driver in bank 2 (docs/SOUND.md)
-#include "placard_slot.asm"   ; expansion slot helpers in bank 2 (docs/EXPANSION.md)
-#include "placard_fs.asm"     ; FAT file reading in bank 2 (docs/IO.md)
-#include "placard_input.asm"  ; line input, mouse pointer in bank 2 (docs/IO.md)
+#include "placard_io.asm"     ; I/O drivers at IO_CODE (docs/IO.md)
+#include "placard_snd.asm"    ; sound driver at SND_CODE (docs/SOUND.md)
+#include "placard_slot.asm"   ; expansion slot helpers at SLOT_CODE (docs/EXPANSION.md)
+#include "placard_fs.asm"     ; FAT file reading at FS_CODE (docs/IO.md)
+#include "placard_input.asm"  ; line input, mouse pointer at INPUT_CODE (docs/IO.md)
 
 
 ; ============================================================
@@ -757,7 +786,7 @@ va_1x:
 ;   The row may be 1x, 2x or 4x (it calls vid_addr, which reads the
 ;   row's mode byte).  It maps sections 3-7 to RAM while it reads the
 ;   pixel byte (MAP_SHADOW or F8) and writes MAP_SHADOW back to the map
-;   before it returns.
+;   before it returns; that part (pl_back) runs from LIB_RAM.
 ; ------------------------------------------------------------
 plot1:
     ld   ac, [T2]               ; T2 = set or clear
@@ -790,29 +819,7 @@ plot1:
     ld   pl_back >> 8, [x]
     ld   vid_addr >> 8, y
     jmp  vid_addr
-pl_back:
-    ld   ac, [T0]               ; T0 = page, X = low byte
-    ld   [MAP_SHADOW], ac       ; video sections read RAM while the byte is read
-    or   0xF8, ac
-    ld   0x50, y
-    ld   ac, [y,x]
-    ld   [T0], y
-    ld   [T2], ac
-    beq  pl_clr
-    ld   [T3], ac
-    or   [y,x], ac
-    bra  pl_put
-pl_clr:
-    ld   [T3], ac
-    not
-    and  [y,x], ac
-pl_put:
-    ld   ac, [y,x]
-    ld   [MAP_SHADOW], ac       ; map back
-    ld   0x50, y
-    ld   ac, [y,x]
-    ld   [T6], y
-    jmp  [T5]
+                                ; vid_addr returns to pl_back in LIB_RAM
 
 ; ============================================================
 ; Page 4: text console - character output
@@ -1307,9 +1314,214 @@ cd_back3:
 
 
 ; ============================================================
-; Page 7: screen scroll
+; Jump table (LIB_JT, xFB00-xFBFF): entry n at xFB00 + 4n, in this order for good
 ; ============================================================
-#addr LIB_CODE + 0x700
+; Add new entries only at the end, and never reorder or remove one: code
+; built without this file CALLs the table address (jt_<name>).  64 fit.
+#addr LIB_JT
+jt_lib_leave:       ; xFB00
+    ld   lib_leave >> 8, y
+    jmp  lib_leave
+jt_map_set:         ; xFB04
+    ld   map_set >> 8, y
+    jmp  map_set
+jt_frame_poll:      ; xFB08
+    ld   frame_poll >> 8, y
+    jmp  frame_poll
+jt_wait_frames:     ; xFB0C
+    ld   wait_frames >> 8, y
+    jmp  wait_frames
+jt_rand8:           ; xFB10
+    ld   rand8 >> 8, y
+    jmp  rand8
+jt_add16:           ; xFB14
+    ld   add16 >> 8, y
+    jmp  add16
+jt_sub16:           ; xFB18
+    ld   sub16 >> 8, y
+    jmp  sub16
+jt_mul8:            ; xFB1C
+    ld   mul8 >> 8, y
+    jmp  mul8
+jt_div8:            ; xFB20
+    ld   div8 >> 8, y
+    jmp  div8
+jt_div16:           ; xFB24
+    ld   div16 >> 8, y
+    jmp  div16
+jt_memset:          ; xFB28
+    ld   memset >> 8, y
+    jmp  memset
+jt_memcpy:          ; xFB2C
+    ld   memcpy >> 8, y
+    jmp  memcpy
+jt_vid_clear:       ; xFB30
+    ld   vid_clear >> 8, y
+    jmp  vid_clear
+jt_vid_mode:        ; xFB34
+    ld   vid_mode >> 8, y
+    jmp  vid_mode
+jt_vid_addr:        ; xFB38
+    ld   vid_addr >> 8, y
+    jmp  vid_addr
+jt_plot1:           ; xFB3C
+    ld   plot1 >> 8, y
+    jmp  plot1
+jt_con_putc:        ; xFB40
+    ld   con_putc >> 8, y
+    jmp  con_putc
+jt_con_newline:     ; xFB44
+    ld   con_newline >> 8, y
+    jmp  con_newline
+jt_con_home:        ; xFB48
+    ld   con_home >> 8, y
+    jmp  con_home
+jt_con_clear:       ; xFB4C
+    ld   con_clear >> 8, y
+    jmp  con_clear
+jt_con_puts:        ; xFB50
+    ld   con_puts >> 8, y
+    jmp  con_puts
+jt_con_hex8:        ; xFB54
+    ld   con_hex8 >> 8, y
+    jmp  con_hex8
+jt_con_dec8:        ; xFB58
+    ld   con_dec8 >> 8, y
+    jmp  con_dec8
+jt_con_dec16:       ; xFB5C
+    ld   con_dec16 >> 8, y
+    jmp  con_dec16
+jt_con_scroll:      ; xFB60
+    ld   con_scroll >> 8, y
+    jmp  con_scroll
+jt_port_init:       ; xFB64
+    ld   port_init >> 8, y
+    jmp  port_init
+jt_kbd_scan:        ; xFB68
+    ld   kbd_scan >> 8, y
+    jmp  kbd_scan
+jt_kbd_getc:        ; xFB6C
+    ld   kbd_getc >> 8, y
+    jmp  kbd_getc
+jt_pad_read:        ; xFB70
+    ld   pad_read >> 8, y
+    jmp  pad_read
+jt_spi_byte:        ; xFB74
+    ld   spi_byte >> 8, y
+    jmp  spi_byte
+jt_sd_init:         ; xFB78
+    ld   sd_init >> 8, y
+    jmp  sd_init
+jt_sd_read:         ; xFB7C
+    ld   sd_read >> 8, y
+    jmp  sd_read
+jt_sd_write:        ; xFB80
+    ld   sd_write >> 8, y
+    jmp  sd_write
+jt_mouse_init:      ; xFB84
+    ld   mouse_init >> 8, y
+    jmp  mouse_init
+jt_mouse_poll:      ; xFB88
+    ld   mouse_poll >> 8, y
+    jmp  mouse_poll
+jt_mouse_cmd:       ; xFB8C
+    ld   mouse_cmd >> 8, y
+    jmp  mouse_cmd
+jt_snd_init:        ; xFB90
+    ld   snd_init >> 8, y
+    jmp  snd_init
+jt_snd_update:      ; xFB94
+    ld   snd_update >> 8, y
+    jmp  snd_update
+jt_snd_tone:        ; xFB98
+    ld   snd_tone >> 8, y
+    jmp  snd_tone
+jt_snd_note:        ; xFB9C
+    ld   snd_note >> 8, y
+    jmp  snd_note
+jt_snd_beep:        ; xFBA0
+    ld   snd_beep >> 8, y
+    jmp  snd_beep
+jt_snd_noise:       ; xFBA4
+    ld   snd_noise >> 8, y
+    jmp  snd_noise
+jt_snd_play:        ; xFBA8
+    ld   snd_play >> 8, y
+    jmp  snd_play
+jt_snd_stop:        ; xFBAC
+    ld   snd_stop >> 8, y
+    jmp  snd_stop
+jt_snd_busy:        ; xFBB0
+    ld   snd_busy >> 8, y
+    jmp  snd_busy
+jt_slot_id:         ; xFBB4
+    ld   slot_id >> 8, y
+    jmp  slot_id
+jt_fs_mount:        ; xFBB8
+    ld   fs_mount >> 8, y
+    jmp  fs_mount
+jt_fs_root:         ; xFBBC
+    ld   fs_root >> 8, y
+    jmp  fs_root
+jt_fs_next:         ; xFBC0
+    ld   fs_next >> 8, y
+    jmp  fs_next
+jt_fs_open:         ; xFBC4
+    ld   fs_open >> 8, y
+    jmp  fs_open
+jt_fs_read:         ; xFBC8
+    ld   fs_read >> 8, y
+    jmp  fs_read
+jt_fs_load:         ; xFBCC
+    ld   fs_load >> 8, y
+    jmp  fs_load
+jt_con_gets:        ; xFBD0
+    ld   con_gets >> 8, y
+    jmp  con_gets
+jt_mouse_move:      ; xFBD4
+    ld   mouse_move >> 8, y
+    jmp  mouse_move
+
+
+; ============================================================
+; LIB_RAM (x1F00-x1FFF): code that runs from the RAM
+; ============================================================
+; These routines map the video sections (3-7) to RAM, which would take
+; away the ROM the rest of the library runs from (sections 6 and 7).  They
+; are assembled at their RAM address; gen_rom.tcl puts the bytes at the
+; same address in the ROM, and the boot loader copies ROM x1F00-x1FFF to
+; RAM x1F00-x1FFF (map 00, before the first map write).  Every branch
+; stays inside this page.
+#addr LIB_RAM
+
+; ------------------------------------------------------------
+; pl_back - the end of plot1: read, change and write the pixel byte
+;   in:      AC = page, X = low byte (from vid_addr), T2 = set or clear,
+;            T3 = bit mask, T6:T5 = plot1's return address
+; ------------------------------------------------------------
+pl_back:
+    ld   ac, [T0]               ; T0 = page, X = low byte
+    ld   [MAP_SHADOW], ac       ; video sections read RAM while the byte is read
+    or   0xF8, ac
+    ld   0x50, y
+    ld   ac, [y,x]
+    ld   [T0], y
+    ld   [T2], ac
+    beq  pl_clr
+    ld   [T3], ac
+    or   [y,x], ac
+    bra  pl_put
+pl_clr:
+    ld   [T3], ac
+    not
+    and  [y,x], ac
+pl_put:
+    ld   ac, [y,x]
+    ld   [MAP_SHADOW], ac       ; map back
+    ld   0x50, y
+    ld   ac, [y,x]
+    ld   [T6], y
+    jmp  [T5]
 
 ; ------------------------------------------------------------
 ; con_scroll - move pixel rows 8-479 up to 0-471 in byte columns 0-79
@@ -1319,7 +1531,8 @@ cd_back3:
 ;   changes: X, Y, T1-T5
 ;   clocks:  see docs/LIBRARY.md
 ;   It maps sections 3-7 to RAM while it copies (MAP_SHADOW or F8) and
-;   writes MAP_SHADOW back to the map before it returns.
+;   writes MAP_SHADOW back to the map before it returns, so it runs from
+;   LIB_RAM.
 ; ------------------------------------------------------------
 con_scroll:
     ld   ac, [T4]

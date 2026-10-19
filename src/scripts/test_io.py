@@ -14,7 +14,7 @@ is never high for 50 us or more at a time, so the mouse can't start
 sending while nobody listens.
 It also checks con_gets (line input) and mouse_move (placard_input.asm).
 
-Date: 10/18/2026
+Date: 10/19/2026
 """
 
 import argparse
@@ -411,7 +411,7 @@ def test_con_gets():
     rig.call('con_clear', max_steps=5_000_000)
     cpu, m = rig.cpu, rig.cpu.mem
     for a, v in rig.mem.items():        # one flat memory here: vid_clear also
-        if a >= 0xE000:                 # cleared bank 2, which is ROM on the board
+        if a >= 0xC000:                 # cleared the library, which is ROM on the board
             m[a] = v
     sy = rig.syms
     # typed: "Hi" Shift+h i, "x" then Backspace, "!" Shift+1, "abc" (one

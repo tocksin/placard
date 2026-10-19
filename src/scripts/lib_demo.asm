@@ -3,12 +3,13 @@
 ; draws 200 random dots with rand8 and plot1, then halts.
 ;
 ; It is a ROM program (docs/ROM.md): it runs in place from ROM x6000 and calls
-; the library in place at ROM x3000; its variables are in the RAM's zero
-; page.  The boot loader maps sections 0 and 2 to RAM and jumps to x6000.
+; the library in place at the top of the ROM (xC600-xFBFF); its variables
+; are in the RAM's zero page.  The boot loader maps sections 0 and 2 to RAM
+; and jumps to x6000.
 ;
 ;     python3 placard_sim.py lib_demo.asm --run --boot --png demo.png
 ;
-; Date: 10/18/2026
+; Date: 10/19/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"

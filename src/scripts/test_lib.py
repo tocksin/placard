@@ -18,7 +18,7 @@ The simulator does not model the video line read at x5000, so this script
 supplies it: a read of x5000-x50FF returns V9:V2 of a V counter that steps
 every 800 clocks through 499-1023 (525 lines, one frame = 420,000 clocks).
 
-Date: 10/18/2026
+Date: 10/19/2026
 """
 
 import argparse
@@ -36,6 +36,7 @@ FRAME = CLOCKS_PER_LINE * LINES
 
 # driver: AC from ARG_AC, call the routine, save AC and X, halt
 ARG_AC, OUT_AC, OUT_X = 0x20, 0x21, 0x22
+MAP_SHADOW, MAP_RUN = 0x07, 0x05      # the map while a ROM program runs (docs/ROM.md)
 
 ROUTINES = ['vid_addr', 'map_set', 'frame_poll', 'wait_frames', 'rand8',
             'add16', 'sub16', 'mul8', 'memset', 'div8', 'div16', 'memcpy',
@@ -142,9 +143,15 @@ class Lib:
             self.image[a] = v
 
     def cpu(self):
-        c = ps.Cpu({})
+        # the ROM/RAM map as a program runs (map 05): the library runs in
+        # place from the ROM at xC000-xFBFF, so a routine that clears or
+        # draws the video RAM there doesn't overwrite it.  The RAM starts
+        # with the same image (zero page, test drivers, LIB_RAM).
+        c = ps.Cpu({}, rom=self.mem)
         c.mem = Mem(self.image)
         c.mem.cpu = c
+        c.map = MAP_RUN
+        c.mem[MAP_SHADOW] = MAP_RUN
         return c
 
     def call(self, name, ac=0, zp=None, cpu=None, clocks0=0, max_steps=5_000_000):
@@ -413,13 +420,13 @@ def t_console(lib, n):
     assert read_text(lib, c.mem, 0) == 'Hello, Placard!', read_text(lib, c.mem, 0)
     c, k = lib.call('con_newline', cpu=c)
     STATS.add('con_newline', k)
-    # string in RAM at x2000
+    # string in RAM at x4100
     s = b'The quick brown fox jumps over the lazy dog 0123456789\n2nd line\0'
     for j, v in enumerate(s):
-        c.mem[0x2000 + j] = v
-    c, k = lib.call('con_puts', cpu=c, zp={'R0': 0x00, 'R1': 0x20})
+        c.mem[0x4100 + j] = v
+    c, k = lib.call('con_puts', cpu=c, zp={'R0': 0x00, 'R1': 0x41})
     STATS.add('con_puts', k)
-    assert (c.mem[0x10] | c.mem[0x11] << 8) == 0x2000 + len(s) - 1
+    assert (c.mem[0x10] | c.mem[0x11] << 8) == 0x4100 + len(s) - 1
     assert read_text(lib, c.mem, 1) == 'The quick brown fox jumps over the lazy dog 0123456789'
     assert read_text(lib, c.mem, 2) == '2nd line'
     assert (c.mem[0x0D], c.mem[0x0E]) == (8, 2)
@@ -502,9 +509,9 @@ def t_frames(lib, n):
 
 
 def t_map_set(lib, n):
-    c, k = lib.call('map_set', ac=0x5A)
+    c, k = lib.call('map_set', ac=0x25)   # 0 and 2 RAM, 6 and 7 ROM (the library)
     STATS.add('map_set', k)
-    assert c.mem[0x07] == 0x5A and c.ac == 0x5A
+    assert c.mem[0x07] == 0x25 and c.ac == 0x25
 
 
 def t_stack(lib, n):

@@ -14,12 +14,12 @@
 ;                  R1:R0 = the slot's base address
 ;   60-7F  free for the card's registers
 ;
-; placard_lib.asm includes this file, in library bank 2.
+; placard_lib.asm includes this file; its code is at SLOT_CODE (xC600).
 ;
-; Date: 10/18/2026
+; Date: 10/19/2026
 ; ============================================================
 
-#addr LIB2_CODE + 0x580
+#addr SLOT_CODE
 
 ; ------------------------------------------------------------
 ; slot_id - which card is in a slot?

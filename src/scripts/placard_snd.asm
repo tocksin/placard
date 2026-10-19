@@ -20,12 +20,12 @@
 ; Tones and noise can run for a number of frames and fade by a step each
 ; frame; with neither they play until the next sound or snd_stop.
 ;
-; placard_lib.asm includes this file.  The code is in library bank 2
-; (LIB2_CODE, xE000-xFBFF, section 7), which runs in place from the ROM,
-; so section 7 must read the ROM when a program calls it.  The driver
+; placard_lib.asm includes this file.  The code is at SND_CODE (xD700),
+; part of the library in ROM sections 6-7, which runs in place, so those
+; sections must read the ROM when a program calls it.  The driver
 ; uses zero page x90-x9E (zeropage.asm) and T0-T3.
 ;
-; Date: 10/18/2026
+; Date: 10/19/2026
 ; ============================================================
 
 SND_BUF   = 0x5DF3      ; first sample of the buffer
@@ -35,7 +35,7 @@ SND_SIL   = 0x80        ; silence
 ; ============================================================
 ; Page 1: update entry, init, stop, busy
 ; ============================================================
-#addr LIB2_CODE + 0x100
+#addr SND_CODE
 
 ; ------------------------------------------------------------
 ; snd_update - write the samples the player has used since the last call
@@ -197,7 +197,7 @@ snd_busy:
 ; next sample in AC and goes to su_tail, which stores it, steps the
 ; pointer and comes back through SND_VEC until it reaches T3:T2.  All of
 ; them must stay in this page.
-#addr LIB2_CODE + 0x200
+#addr SND_CODE + 0x100
 
 gen_sil:
     ld   SND_SIL, ac
@@ -334,7 +334,7 @@ su_lap:
 ; ============================================================
 ; Page 3: starting sounds
 ; ============================================================
-#addr LIB2_CODE + 0x300
+#addr SND_CODE + 0x200
 
 ; ------------------------------------------------------------
 ; snd_tone - start a square wave tone
@@ -394,7 +394,7 @@ st_lev:                         ; levels, time and fade, then start
 ;   The noise starts from the same seed every time, so a sound effect
 ;   sounds the same each time it plays.
 ; ------------------------------------------------------------
-#addr LIB2_CODE + 0x33C            ; entry addresses stay fixed (carry flag rewrite left a gap)
+#addr SND_CODE + 0x23C            ; entry addresses stay fixed (carry flag rewrite left a gap)
 snd_noise:
     and  0x7F, ac
     ld   ac, [SND_VOL]
@@ -518,7 +518,7 @@ sp_rate:
 ; ============================================================
 ; Page 4: note table, step = 440 x 2^((n - 69) / 12) x 32768 / 31469
 ; ============================================================
-#addr LIB2_CODE + 0x400
+#addr SND_CODE + 0x300
 
 snd_notes:
     #d8 0x09, 0x09, 0x0A, 0x0A, 0x0B, 0x0B, 0x0C, 0x0D   ; lo 0-7
@@ -558,7 +558,7 @@ snd_notes:
 ; ============================================================
 ; Page 5: once per buffer lap (one frame of samples) for snd_update
 ; ============================================================
-#addr LIB2_CODE + 0x500
+#addr SND_CODE + 0x400
 
 ; the pointer wrapped from x5FFF: go back to x5DF3, count the frame,
 ; fade, and stop the sound when its time is up; back to su_cmp with AC
