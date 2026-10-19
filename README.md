@@ -33,6 +33,8 @@ The audio circuitry (sample read, DAC register, R-2R ladder, headphone jack) is 
 
 The real schematic and PCB layout are a KiCad project in [kicad/](kicad/).
 
+To build a board one chip at a time, testing each with a multimeter as it goes in, follow [docs/BRINGUP.md](docs/BRINGUP.md); it has a bring-up test ROM that checks the CPU and memory and shows the I/O on the screen.
+
 ## Memory Map
 The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databus.  The video RAM starts at x6020 and ends at xFFFF, and each row's mode byte (color mode and line repeat) is at x5A20 + row.  There is a 64kB RAM and a 64kB ROM behind the same addresses.  The address space is divided into eight 8kB sections, and a write-only map register at x5000 picks whether each section reads from the RAM or the ROM.
 

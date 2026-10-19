@@ -1,6 +1,6 @@
 -- ============================================================
--- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 12)
--- Date: 2026-10-18
+-- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 13)
+-- Date: 2026-10-19
 --
 -- Binary state machine:  Q1 Q0
 --     00 FETCH, 01 LOAD_IMM, 10 LOAD_MEM, 11 EXEC
@@ -22,6 +22,11 @@
 -- Rev 12: mem_wr no longer has "not pixel_enable" (pixel_enable here is
 -- STALL).  The memory control PLD blocks the write strobe during a video
 -- stall with the real PIXEL_ENABLE, so mem_rw settles early in the clock.
+--
+-- Rev 13: the five load strobes (pins 14, 19-22) are declared active
+-- low, because each drives a 74F377 /E (load when low).  The ports are
+-- load_instr_n, load_imm_n, load_x_n, load_y_n and load_ac_n; the
+-- equations are unchanged.
 --
 -- Equations are transcribed directly from the PLD source
 -- without optimization.  All pins are kept as individual
@@ -57,11 +62,11 @@ entity state_pld is
         pc_enable    : out std_logic;   -- pin 15, = not q1
         x_enable     : out std_logic;   -- pin 16, registered
         y_enable     : out std_logic;   -- pin 17, registered
-        load_instr   : out std_logic;   -- pin 14
-        load_imm     : out std_logic;   -- pin 19
-        load_x       : out std_logic;   -- pin 20
-        load_y       : out std_logic;   -- pin 21
-        load_ac      : out std_logic;   -- pin 22
+        load_instr_n : out std_logic;   -- pin 14, low = load (F377 /E)
+        load_imm_n   : out std_logic;   -- pin 19, low = load (F377 /E)
+        load_x_n     : out std_logic;   -- pin 20, low = load (F377 /E)
+        load_y_n     : out std_logic;   -- pin 21, low = load (F377 /E)
+        load_ac_n    : out std_logic;   -- pin 22, low = load (F377 /E)
         mem_rw       : out std_logic    -- pin 23, 1 = read, 0 = write
     );
 end entity state_pld;
@@ -87,6 +92,13 @@ architecture rtl of state_pld is
     signal dest_ram : std_logic;
 
     signal mem_wr   : std_logic;
+
+    -- load strobes as logical true (the pins are their inverse, Rev 13)
+    signal load_instr : std_logic;
+    signal load_imm   : std_logic;
+    signal load_x     : std_logic;
+    signal load_y     : std_logic;
+    signal load_ac    : std_logic;
 
 begin
 
@@ -181,5 +193,12 @@ begin
     mem_wr     <= s_exec and not branch_block and dest_ram;
 
     mem_rw     <= not mem_wr;
+
+    -- Rev 13: the strobe pins are active low (F377 /E)
+    load_instr_n <= not load_instr;
+    load_imm_n   <= not load_imm;
+    load_x_n     <= not load_x;
+    load_y_n     <= not load_y;
+    load_ac_n    <= not load_ac;
 
 end architecture rtl;

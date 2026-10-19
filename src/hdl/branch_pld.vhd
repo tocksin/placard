@@ -1,6 +1,6 @@
 -- ============================================================
--- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 11)
--- Date: 10/18/2026
+-- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 12)
+-- Date: 10/19/2026
 --
 -- Branch / jump control, plus the ALU wait clock (Rev 06, Rev 07).
 --
@@ -34,6 +34,9 @@
 --     carry.D = (alu_done and not pixel_enable and cout)
 --            or (alu_done and pixel_enable and carry)
 --            or (not alu_done and carry)
+--
+-- Rev 12: pix_ld_n (pin 15, free until now) = not pixel_enable, the
+-- pixel buffer F377's /E (it loads when /E is low, on the video read).
 --
 -- Equations are transcribed directly from the PLD source
 -- without optimization.  All pins are kept as individual
@@ -80,7 +83,7 @@
 --   4  m2            5  m1            6  m0
 --   7  z_low         8  neg           9  pixel_enable
 --  10  q0           11  pc_enable    13  z_high
---  14  cout         15  not used     16  srcEn
+--  14  cout         15  pix_ld_n     16  srcEn
 --  18  alu_done     19  stall        20  carry
 --  21  load_pc_low  22  load_pc_high 23  branch_block
 -- ============================================================
@@ -119,7 +122,8 @@ entity branch_pld is
         alu_done      : out std_logic;   -- pin 18, registered
         stall         : out std_logic;   -- pin 19
         srcEn         : out std_logic;   -- pin 16, source F541s drive the bus
-        carry         : out std_logic    -- pin 20, registered carry flag
+        carry         : out std_logic;   -- pin 20, registered carry flag
+        pix_ld_n      : out std_logic    -- pin 15, pixel buffer /E (Rev 12)
     );
 end entity branch_pld;
 
@@ -184,6 +188,9 @@ begin
     -- Source bus enable (Rev 10)
     -- --------------------------------------------------------
     srcEn <= exec and not pixel_enable;
+
+    -- Rev 12: pixel buffer load, pin declared !PIX_LD
+    pix_ld_n <= not pixel_enable;
 
     load_pc_high <= branch_a and not m2 and not m1 and not m0;            -- JMP
 
