@@ -1,6 +1,6 @@
 # Chip-count review
 
-Date: 2026-10-18
+Date: 2026-10-19
 
 Proposal 1 is not applied; proposals 2 and 3 were applied on 2026-10-18.
 The design was 41 chips plus a 3.3 V regulator and is now 39 (CHIPS.md).
@@ -42,9 +42,10 @@ on pin 1 and puts out its inverse on pin 16:
   keeps `ATF22V10_QUAD_MUX.pld`), and the FPGA model needs no change
   (`srcBusProc` already selects by `instReg(1:0)`).
 - **Alternative** that leaves the mux PLDs alone: the branch PLD's free
-  pins 14-16 and the audio PLD's free pins 16 and 21 (2 inputs, 2
-  outputs).  That uses up spare pins kept for later features, so the mux
-  version is better.
+  pin 15 and the audio PLD's free pins 16 and 21.  (When this was written
+  the branch PLD also had pins 14 and 16 free; since 2026-10-18 they carry
+  COUT and SRC_EN.)  That uses up spare pins kept for later features, so
+  the mux version is better.
 
 ### 2. The SD level shifter becomes three resistor dividers (-1) — applied 2026-10-18
 
@@ -130,18 +131,23 @@ clash with 3 is solved) makes it 38.
 | Line read: the V counter PLD drives the bus itself | Its V outputs are in use all the time, so they can't be 3-state |
 | Line read moved into the shared port | The port buffer's 8 inputs are rows; the V bits would corrupt key reads |
 | D, AC and X registers with 3-state outputs (dropping the source F541s) | Their outputs also feed the ALU and the address mux all the time; and an 8-bit register with clock enable and 3-state outputs (the 74F825 family) is unlikely to be in active DIP stock (not checked) |
-| Map register inside the memory control PLD | It has one free pin and takes all 8 map bits as inputs |
+| Map register inside the memory control PLD | It has no free pins (pin 22 became SRC_EN on 2026-10-18) and already takes all 8 map bits as inputs |
 | Audio DAC register shared with the line code register | Both hold a byte for the whole line: one the mode, one the sample |
 | Video delay F574 into the color decoder | The color decoder uses all 24 pins.  (Done another way on 2026-10-19: the Sync PLD makes H2:H0 and VIDEN two clocks later itself, so the F574 is gone; VIDEO_TIMING.md) |
 | H counter, V counter and sync in fewer PLDs | Each uses all 10 outputs |
 
-## Free PLD pins after this proposal
+## Free PLD pins
+
+As of 2026-10-19 (the design as built, without proposal 1).  Product-term
+counts and the spare terms in every cell are in [PLD_USAGE.md](PLD_USAGE.md).
 
 | PLD | Free pins |
 |---|---|
-| Branch | 14, 15, 16 (I/O) |
-| Audio | 16, 21 (I/O) |
-| Memory control | 22 (I/O) |
+| Branch | 15 (I/O, 10 terms) |
+| Audio slot | 16, 21 (I/O, 12 terms each) |
+| H counter | 6-11, 13 (inputs); 2 is declared RESET but used by no equation |
+| V counter | 3-11, 13 (inputs) |
 | Port | 9, 10, 11, 13 (inputs) |
-| High address muxes | pins 5 and 11 on each (inputs) |
-| H counter, V counter | inputs only (no free outputs) |
+| All others | none |
+
+Proposal 1 would also free pins 5 and 11 (inputs) on each high address mux.
