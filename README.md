@@ -27,9 +27,11 @@ Each block shows how many chips it uses (38 in all on the main board; the expans
 The drawing is made by `src/scripts/gen_block_diagram.py` (2026-10-18); rerun it when the design changes.
 
 The I/O circuitry (keyboard, SNES pads, SD card, PS/2 mouse) is drawn as a schematic in
-[docs/IO.md](docs/IO.md#schematic) (`reference/placard_io_schematic.png`).
+[docs/IO.md](docs/IO.md#schematic) (`schematics/placard_io_schematic.png`).
 The audio circuitry (sample read, DAC register, R-2R ladder, headphone jack) is drawn in
-[docs/SOUND.md](docs/SOUND.md#schematic) (`reference/placard_audio_schematic.png`).
+[docs/SOUND.md](docs/SOUND.md#schematic) (`schematics/placard_audio_schematic.png`).
+
+The real schematic goes in [schematics/](schematics/) and the PCB layout in [pcb/](pcb/).
 
 ## Memory Map
 The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databus.  The video RAM starts at x6020 and ends at xFFFF, and each row's mode byte (color mode and line repeat) is at x5A20 + row.  There is a 64kB RAM and a 64kB ROM behind the same addresses.  The address space is divided into eight 8kB sections, and a write-only map register at x5000 picks whether each section reads from the RAM or the ROM.
