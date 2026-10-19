@@ -21,9 +21,9 @@ port model (keyboard, pads, SD card, mouse).  Checks:
     and off; S retries the SD card
   - injected faults stop the CPU in the right fail loop (PC = x0080 + 4N):
     a RAM data bit (13), a map register bit (14), a RAM address line (15),
-    a stuck line read bit (16), an ALU result bit (2-8, the first one that
-    sees it), and a RAM bit that goes bad later is counted by the RAM page
-    test
+    a stuck line read bit (16), an ALU output pin (one of 1-8, or lost
+    before the tests: every register loads through the ALU), and a RAM bit
+    that goes bad later is counted by the RAM page test
 
 Video stalls are not modeled, so the CPU runs about 10 % faster than on
 the board; the per-frame work is bounded, so the frame loop runs once per
@@ -160,12 +160,12 @@ def check_good(rom, syms, font, args):
     press(19)
     row20 = text_row(cpu, 20, font)
     assert row20[32:35] == 'OFF', 'tone %r' % row20[30:36]
-    rig.port.mouse.move(dx=20, dy=7)
+    rig.port.mouse.move(dx=20, dy=-7)                # PS/2 Y counts up
     assert rig.frames(4) is None
     row17 = text_row(cpu, 17, font)
-    mx, my = num(row17[24:]), num(row17[33:])
+    mx, my = num(row17[25:]), num(row17[34:])
     assert (mx, my) == (20, 7), 'mouse X %d Y %d, want 20 7' % (mx, my)
-    print('mouse: moved 20, 7, shows X %d Y %d' % (mx, my))
+    print('mouse: moved right 20, down 7, shows X %d Y %d' % (mx, my))
     rig.port.sd = None                             # take the card out, retry
     press(30)                                      # s
     row14 = text_row(cpu, 14, font)
@@ -177,9 +177,30 @@ def check_good(rom, syms, font, args):
         print('wrote', args.png)
 
 
-def run_fault(rom, syms, name, want, read=None, line=None, alu=None, limit_frames=40):
+class AliasMem(bytearray):
+    """the RAM with address lines stuck low (mask): reads and writes both
+    go to the cell with those bits clear"""
+    mask = 0
+
+    def __getitem__(self, i):
+        if isinstance(i, int):
+            i &= ~self.mask
+        return bytearray.__getitem__(self, i)
+
+    def __setitem__(self, i, v):
+        if isinstance(i, int):
+            i &= ~self.mask
+        bytearray.__setitem__(self, i, v)
+
+
+def run_fault(rom, syms, name, want, read=None, line=None, alu=None, addr_mask=0,
+              limit_frames=40):
+    """want: the fail loop, or a tuple of the ones that may catch it first"""
     rig = Rig(rom, sd=False, mouse=False)
     cpu = rig.cpu
+    if addr_mask:
+        cpu.mem = AliasMem(cpu.mem)
+        cpu.mem.mask = addr_mask
     if read is not None:
         plain = cpu.read
         cpu.read = lambda ad: read(cpu, ad, plain(ad))
@@ -195,8 +216,10 @@ def run_fault(rom, syms, name, want, read=None, line=None, alu=None, limit_frame
         if cpu.pc in FAILS:
             got = FAILS[cpu.pc]
             break
-    ok = got == want
-    print('%-44s fail loop %-4s (want %d)  %s' % (name, got, want, 'ok' if ok else 'WRONG'))
+    wants = want if isinstance(want, tuple) else (want,)
+    ok = got in wants
+    print('%-44s fail loop %-4s (want %s)  %s' % (name, got, ' or '.join(map(str, wants)),
+                                                 'ok' if ok else 'WRONG'))
     return ok
 
 
@@ -225,18 +248,20 @@ def faults(rom, syms):
             return cpu.mem[ad]
         return v
     ok &= run_fault(rom, syms, 'map register bit 6 stuck high', 14, read=rd6)
-    # RAM address lines stuck low: the RAM reads the cell with that bit clear
+    # RAM address lines stuck low (both chips share A14:A0)
     for b in (0, 4, 9, 13, 14):
-        def rd(cpu, ad, v, b=b):
-            if in_ram(cpu, ad):
-                return cpu.mem[ad & ~(1 << b)]
-            return v
-        ok &= run_fault(rom, syms, 'RAM address line A%d stuck low' % b, 15 if b != 0 else 13, read=rd)
+        ok &= run_fault(rom, syms, 'RAM address line A%d stuck low' % b, 15, addr_mask=1 << b)
     # line read bit stuck
     ok &= run_fault(rom, syms, 'line read bit V5 stuck low', 16, line=lambda v: v & ~0x08)
     ok &= run_fault(rom, syms, 'line read bit V9 stuck high', 16, line=lambda v: v | 0x80)
-    # an ALU output bit stuck: AND (test 2) is the first ALU result checked
-    ok &= run_fault(rom, syms, 'ALU result bit 3 stuck low', 2, alu=lambda s, r: r & ~0x08 if s != 7 else r)
+    # an ALU output pin stuck low: every operation sees it, the XOR that
+    # checks a result too, so it can hide until a test the compare can't fix.
+    # Every register loads through the ALU, so it can also break the jumps
+    # before any test (F0 low turns the first jump's page x21 into x20):
+    # None = the CPU never reaches a fail loop (BRINGUP.md says what then)
+    for b in (0, 3, 7):
+        ok &= run_fault(rom, syms, 'ALU output F%d stuck low' % b, tuple(range(1, 9)) + (None,),
+                        alu=lambda s, r, b=b: r & ~(1 << b))
     ok &= run_fault(rom, syms, 'ADD result bit 4 stuck low', 5,
                     alu=lambda s, r: r & ~0x10 if s == 4 else r)
     return ok
@@ -267,6 +292,7 @@ def main(argv):
     ap.add_argument('--png')
     ap.add_argument('--bin', action='store_true')
     ap.add_argument('--no-faults', action='store_true')
+    ap.add_argument('--faults-only', action='store_true')
     ap.add_argument('-v', '--verbose', action='store_true')
     args = ap.parse_args(argv)
     mem, syms = build()
@@ -277,7 +303,8 @@ def main(argv):
         open(os.path.join(HERE, 'bringup_lo.bin'), 'wb').write(img[:0x8000])
         open(os.path.join(HERE, 'bringup_hi.bin'), 'wb').write(img[0x8000:])
         print('wrote bringup_lo.bin and bringup_hi.bin')
-    check_good(rom, syms, font, args)
+    if not args.faults_only:
+        check_good(rom, syms, font, args)
     ok = True
     if not args.no_faults:
         ok &= faults(rom, syms)

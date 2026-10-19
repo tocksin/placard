@@ -4991,7 +4991,7 @@ ret_539:
     ld   [R3], ac
     ld   ac, [0x57]
 mouse_show:
-    ld   24, ac
+    ld   25, ac
     ld   ac, [CUR_COL]
     ld   17, ac
     ld   ac, [CUR_ROW]
@@ -5014,7 +5014,7 @@ ret_540:
     ld   con_putc >> 8, y
     jmp  con_putc
 ret_541:
-    ld   33, ac
+    ld   34, ac
     ld   ac, [CUR_COL]
     ld   17, ac
     ld   ac, [CUR_ROW]
@@ -5151,7 +5151,7 @@ ret_552:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_553:
-    ld   67, ac
+    ld   69, ac
     ld   ac, [CUR_COL]
     ld   5, ac
     ld   ac, [CUR_ROW]
@@ -5163,7 +5163,7 @@ ret_553:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_554:
-    ld   75, ac
+    ld   78, ac
     ld   ac, [CUR_COL]
     ld   5, ac
     ld   ac, [CUR_ROW]
@@ -5216,7 +5216,7 @@ ret_557:
     ld   con_putc >> 8, y
     jmp  con_putc
 ret_559:
-    ld   66, ac
+    ld   67, ac
     ld   ac, [CUR_COL]
     ld   0, ac
     ld   ac, [CUR_ROW]
@@ -5581,7 +5581,7 @@ s_core:
 s_core2:
     #d "A FAILED TEST STOPS THE CPU IN A LOOP AT x0080 + 4 x TEST (SEE BRINGUP.MD)", 0x00
 s_ram:
-    #d "RAM PAGE        PASSES          ERRORS          LAST BAD     WROTE    READ", 0x00
+    #d "RAM PAGE        PASSES          ERRORS          LAST BAD       WROTE     READ", 0x00
 s_kbd:
     #d "KEYBOARD COLUMNS 0-7:", 0x00
 s_kbd2:
