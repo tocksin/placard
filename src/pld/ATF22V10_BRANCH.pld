@@ -1,7 +1,7 @@
 Name     BRANCH_CTRL;
 PartNo   00;
 Date     10/19/2026;
-Revision 12;
+Revision 13;
 Designer ;
 Company  ;
 Assembly ;
@@ -116,7 +116,7 @@ Device   g22v10;
    the same condition for the memory control PLD, which blocks CPU
    memory reads while the source drivers own the bus.
 
-   /SRC_EN DRIVES THE SOURCE F541s (revision 12)
+   /SRC_EN DRIVES THE SOURCE F541s (revision 13)
    X is no longer a source and the source '138 is gone.  There are two
    source F541s, D and AC, and each has two active-low enables:
        D  F541:  /OE1 = /SRC_EN (pin 16), /OE2 = I1
@@ -160,8 +160,20 @@ Device   g22v10;
    read CARRY through its feedback, much faster than the Z and NEG
    path of the other branches.
 
-   Pin 20 needs no connection on the board (a test point); pin 15 is
-   unused.
+   Pin 20 needs no connection on the board (a test point).
+
+   PIXEL BUFFER LOAD (revision 12)
+   The video pixel buffer is a 74F377, which loads when its /E is
+   low, and PIXEL_ENABLE is high on the video read clock.  No other
+   PLD had a free pin for the inverted copy, so pin 15 (free until
+   now) makes it:
+
+       PIX_LD = PIXEL_ENABLE   (pin 15 is declared !PIX_LD, so it is low on a video read)
+
+   One term, one array pass: PIXEL_ENABLE tCO 5.5 + 7.5 = 13 ns into
+   the read clock, against the F377's 4.5 ns /E setup before the
+   edge at 39.7 ns.  It goes high again at least 3 + 3 ns after that
+   edge (F377 /E hold 0 ns).
    ============================================================ */
 
 
@@ -200,6 +212,7 @@ PIN 18 = ALU_DONE;        /* registered, 3 product terms */
 PIN 19 = STALL;           /* 3 product terms, pin has 16 */
 PIN 16 = !SRC_EN;         /* 1 product term: source F541s' /OE1 and memory control PLD pin 22 */
 PIN 20 = CARRY;           /* registered, 3 product terms, pin has 14 */
+PIN 15 = !PIX_LD;         /* revision 12: pixel buffer (F377) /E, low on a video read; 1 term, pin has 10 */
 
 
 /* ---------------- COMMON TERMS ---------------- */
@@ -229,6 +242,9 @@ CARRY.D = ALU_DONE & !PIXEL_ENABLE & COUT
 BRANCH_BLOCK = I7 & I6 & I5;
 
 SRC_EN = EXEC & !PIXEL_ENABLE;
+
+/* Pixel buffer load (revision 12): pin 15 is low while PIXEL_ENABLE is high. */
+PIX_LD = PIXEL_ENABLE;
 
 LOAD_PC_HIGH = BRANCH_A & !M2 & !M1 & !M0;                       /* JMP */
 
