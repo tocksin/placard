@@ -1,6 +1,6 @@
 # Timing analysis at 25.175 MHz
 
-Date: 2026-10-18
+Date: 2026-10-19
 
 This is a static, worst-case timing analysis of the Placard as it sits in
 `src/hdl/basys_top.vhd` and the PLD sources in `src/pld`, for a real board
@@ -76,6 +76,8 @@ recover the most time.
   fastest grade still made in 24-pin DIP, **ATF22V10C-7PX**.  The
   ATF22V10C-15PU, the other DIP grade, doubles every PLD delay (tPD 15 ns)
   and makes every path here worse.
+  (2026-10-19: six PLDs with room to spare use the ATF22V10C-10PU, also
+  DIP; see CHIPS.md, "PLD speed grades".  The paths here are unchanged.)
 - **PLD pin feedback**: where a WinCUPL equation names another *combinational
   output pin* on its right-hand side (for example `ADDR_SEL = PIXEL_ENABLE #
   PC_ENABLE` in `ATF22V10_SYNC.pld`), the 22V10 takes that signal back in
