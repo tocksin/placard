@@ -7,8 +7,8 @@
 ; has them too.  They use the library's calling convention (docs/LIBRARY.md)
 ; and the I/O zero page bytes xA0-xBF (zeropage.asm).
 ;
-; The code sits at IO_CODE, x2000-x2FFF, in section 1 next to the
-; standard library, and runs in place from the ROM.
+; The code sits at IO_CODE (xDC00-xEBFF, set in placard_lib.asm), part of
+; the library block at the top of the ROM, and runs in place.
 ;
 ; ------------------------------------------------------------
 ; THE SHARED PORT (x5200-x52FF)
@@ -34,10 +34,9 @@
 ; that clock the pads or scan the keys raise /CS for less than 50 us,
 ; which is too short for the mouse to start sending.
 ;
-; Date: 10/18/2026
+; Date: 10/19/2026
 ; ============================================================
 
-IO_CODE   = 0x2000      ; 4 KB of driver code and tables, x2000-x2FFF
 PORT      = 0x52        ; the shared port's page
 P_IDLE    = 0xFB        ; latch at rest: no column, PS/2 DATA free, /CS low, MOSI 1, SCK 1
 P_FREE    = 0xFF        ; the same with /CS high (SD deselected, PS/2 clock free)

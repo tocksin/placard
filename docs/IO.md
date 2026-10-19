@@ -1,6 +1,6 @@
 # I/O: keyboard, SNES pads, SD card, PS/2 mouse
 
-Date: 2026-10-18
+Date: 2026-10-19
 
 The keyboard, both SNES pads, the SD card and a PS/2 mouse share one port
 at x5200-x52FF.  They are polled, never used at the same moment, so they
@@ -109,7 +109,7 @@ know which keys are held.  Keys are not debounced: a key bounces for less
 than a frame, so a once-per-frame scan sees at most one bounce and reads it
 either way.
 
-`con_gets` (library bank 2) reads a typed line into a buffer (R1:R0, at
+`con_gets` (in the library at `INPUT_CODE`) reads a typed line into a buffer (R1:R0, at
 most R2 characters, ending with a 00), echoing it on the console with
 Backspace on the same text row; Enter ends it and AC = the length.  It
 scans the keyboard once a frame while it waits.
@@ -164,7 +164,7 @@ into byte addresses for SDSC cards.  About 90 KB/s reading.
 
 ### Files on the SD card
 
-`src/scripts/placard_fs.asm` (library bank 2, ROM xE600-xF3FF) reads files
+`src/scripts/placard_fs.asm` (in the library at `FS_CODE`, ROM xC700-xD4FF) reads files
 from a card formatted on a PC, FAT16 or FAT32, with a partition table (the
 first partition) or without one.  It is read only, finds short 8.3 names
 ("LONGFI~1.TXT" for a long name), and does not read FAT12 (volumes under
@@ -234,7 +234,7 @@ A mouse must start sending within about 0.85 ms of being let go; if one
 is slower, raise `MOUSE_WAIT` in `placard_io.asm` (each step adds 0.25 ms
 to every poll).
 
-`mouse_move` (library bank 2) adds a packet's movement to a pointer
+`mouse_move` (in the library at `INPUT_CODE`) adds a packet's movement to a pointer
 position in R1:R0 (X) and R3:R2 (Y), held to 0-639 and 0-479.  Call it
 after `mouse_poll` returns 1.
 
@@ -263,10 +263,10 @@ The drivers use xA0-xBF (`zeropage.asm`); programs have x20-x8F.
 
 ## Code
 
-The drivers are `src/scripts/placard_io.asm`, at x2000-x2FFF next to the
-standard library, running in place from the ROM (ROM.md).  They use the
-library's calling convention, so each entry can later sit behind a fixed
-jump table, and they move with a reassembly when the library moves.
+The drivers are `src/scripts/placard_io.asm`, at `IO_CODE` (ROM
+xDC00-xEBFF), part of the library block at the top of the ROM, running in
+place (ROM.md).  They use the library's calling convention, and the public
+ones have fixed jump table entries ([LIBRARY.md](LIBRARY.md#jump-table)).
 `placard_lib.asm` includes them.
 
 - `src/scripts/io_devices.py`: models of the port, key matrix, pads, SD

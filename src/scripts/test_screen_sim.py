@@ -18,7 +18,7 @@ Video stalls are not modeled, so the CPU runs about 10 % faster than on the
 board; the program only does a bounded amount of work per frame, so the
 frame timing is the same.
 
-Date: 10/17/2026
+Date: 10/19/2026
 """
 
 import argparse
@@ -68,7 +68,7 @@ def main(argv):
     # inverse 80-FF; this reads a cell back as the character it shows)
     font = {}
     for code in list(range(0x20, 0x7F)) + list(range(0xA0, 0xFF)):
-        cell = tuple(rom[ps.LIB_START + 0x800 + k * 256 + code] for k in range(8))
+        cell = tuple(rom[ps.LIB_FONT + k * 256 + code] for k in range(8))
         font.setdefault(cell, chr(code) if code < 0x80 else chr(code - 0x80).lower()
                         if chr(code - 0x80).isalpha() else '#')
 
@@ -116,8 +116,8 @@ def main(argv):
     if secs != frm // 60:
         print('FAIL: uptime %s for %d frames' % (up, frm))
         ok = False
-    if passes != frm // 47:
-        print('FAIL: %d passes for %d frames (47 pages a pass)' % (passes, frm))
+    if passes != frm // 46:
+        print('FAIL: %d passes for %d frames (46 pages a pass)' % (passes, frm))
         ok = False
     if args.fault is None:
         if errors or 'e' in rows[8]:
@@ -125,11 +125,11 @@ def main(argv):
             ok = False
     else:
         page = args.fault >> 8
-        pages = list(range(0x01, 0x20)) + list(range(0x40, 0x50))
+        pages = list(range(0x01, 0x1F)) + list(range(0x40, 0x50))
         idx = pages.index(page)
         # a bad page: one bad read for each pattern whose bit 3 differs,
         # every pattern but none (bit 3 always matters), so 14 per pass
-        expect = 14 * (passes + (1 if (frm % 47) > idx else 0))
+        expect = 14 * (passes + (1 if (frm % 46) > idx else 0))
         if errors != expect:
             print('FAIL: %d errors, expected %d' % (errors, expect))
             ok = False

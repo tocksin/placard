@@ -63,7 +63,7 @@ CONTROLS
     (2.8 degrees) a tick.  Walls are kept 1/4 cell away; each axis is
     tried on its own, so the player slides along walls.
 
-Date: 10/18/2026
+Date: 10/19/2026
 """
 
 import argparse
@@ -91,18 +91,18 @@ SPEED = 14              # 1/256 cell a tick
 TURN = 2                # angle steps a tick
 IDLE_TICKS = 600        # back to the demo walk after this many idle ticks
 
-# table pages (ROM, program area x6000-xDFFF)
-DDXL, DDXH, DDYL, DDYH = 0xA000, 0xA400, 0xA800, 0xAC00
-HT = 0xB000                       # 24 pages
-QL0, QL1, QH0, QH1 = 0xC800, 0xC900, 0xCA00, 0xCB00
-MAP = 0xCC00
-COLTAB = 0xCD00
-PAR = 0xCE00
-COLT = 0xCF00                     # CA_LO +0, CA_HI +x50, KC +xA0
-E_CE, E_FE, E_WE, E_WP, E_WS = 0xD000, 0xD100, 0xD200, 0xD300, 0xD400
-MVX, MVY = 0xD500, 0xD600
-MISC = 0xD700                     # FPS digit tables, script, strings
-CEIL, FLOOR, WALL = 0xD800, 0xD900, 0xDA00   # store runs (WALL: 2 pages)
+# table pages (ROM, program area x6000-xBFFF)
+DDXL, DDXH, DDYL, DDYH = 0x8000, 0x8400, 0x8800, 0x8C00
+HT = 0x9000                       # 24 pages
+QL0, QL1, QH0, QH1 = 0xA800, 0xA900, 0xAA00, 0xAB00
+MAP = 0xAC00
+COLTAB = 0xAD00
+PAR = 0xAE00
+COLT = 0xAF00                     # CA_LO +0, CA_HI +x50, KC +xA0
+E_CE, E_FE, E_WE, E_WP, E_WS = 0xB000, 0xB100, 0xB200, 0xB300, 0xB400
+MVX, MVY = 0xB500, 0xB600
+MISC = 0xB700                     # FPS digit tables, script, strings
+CEIL, FLOOR, WALL = 0xB800, 0xB900, 0xBA00   # store runs (WALL: 2 pages)
 
 MAP_ROWS = [
     "AAAAAAAAAAAAAAAA",
