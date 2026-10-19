@@ -11,7 +11,7 @@ their chip counts are typed in below from docs/CHIPS.md; update them here when
 the chip list changes and rerun.  The counts must add up to the docs/CHIPS.md
 total (the script checks).
 
-Date: 2026-10-18
+Date: 2026-10-19
 """
 import os
 import sys
@@ -21,7 +21,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
-CHIPS_TOTAL = 39            # docs/CHIPS.md, plus the 3.3 V regulator
+CHIPS_TOTAL = 38            # docs/CHIPS.md, plus the 3.3 V regulator
 
 # fill colors by area
 CPU, CTRL, MEM, IO, VID, SND, DEV = ("#E4DAFF", "#FFF2BF", "#D3F6D8", "#FFE3C8",
@@ -104,7 +104,6 @@ lr = box(58, 102, 22, 12, "Line read x5000", 1, "F541: V9:V2", VID, fs=11)
 pb = box(84, 102, 22, 12, "Pixel buffer", 1, "F377", VID, fs=12)
 lc = box(110, 102, 22, 12, "Line code\nregister", 1, "F377: mode byte", VID, fs=11)
 au = box(136, 102, 24, 12, "Audio / mode slots", 1, "PLD: groups 45-47,\nline repeat rows", VID, fs=11)
-vd = box(84, 120, 22, 11, "Video delay", 1, "F574: 2 stages", VID, fs=11.5)
 cd = box(110, 120, 22, 11, "Color decoder", 1, "PLD", VID, fs=12)
 vga = box(110, 136, 22, 8, "Resistor DAC, VGA", None, "", DEV, fs=11)
 dac = box(136, 120, 24, 11, "Audio DAC register", 1, "HCT574, R-2R ladder", SND, fs=11)
@@ -175,8 +174,7 @@ wire([(25, 82), (27, 82), (27, 68), (20, 68), (20, 66)], OTH, lw=4)  # D -> driv
 wire([(87, 50), (87, 46), (114, 46), (114, 32)], OTH, lw=4)          # X -> mux
 wire([(106, 50), (106, 47), (124, 47), (124, 32)], OTH, lw=4, label="X, Y",
      lpos=(119, 47), fs=9.5)
-wire([(95, 114), (95, 120)], OTH, lw=4)                     # pixel buffer -> delay/decoder
-wire([(106, 125.5), (110, 125.5)], OTH, lw=4)
+wire([(95, 114), (95, 125.5), (110, 125.5)], OTH, lw=4)    # pixel buffer -> color decoder
 wire([(121, 114), (121, 120)], OTH, lw=4)
 wire([(121, 131), (121, 136)], OTH, lw=4)
 wire([(103, 114), (103, 117), (148, 117), (148, 120)], OTH, lw=4, label="sample",

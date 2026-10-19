@@ -4,6 +4,8 @@ Date: 2026-10-18
 
 Proposal 1 is not applied; proposals 2 and 3 were applied on 2026-10-18.
 The design was 41 chips plus a 3.3 V regulator and is now 39 (CHIPS.md).
+(2026-10-19: the video delay F574 was also removed, see VIDEO_TIMING.md
+"Delay register removed"; the design is now 38.)
 Three changes remove a chip each; the rest of the design was checked and
 has no other chip to remove with parts in stock.  Per the standing note to
 hold optimization until the project is near done, 1 waits.
@@ -130,7 +132,7 @@ clash with 3 is solved) makes it 38.
 | D, AC and X registers with 3-state outputs (dropping the source F541s) | Their outputs also feed the ALU and the address mux all the time; and an 8-bit register with clock enable and 3-state outputs (the 74F825 family) is unlikely to be in active DIP stock (not checked) |
 | Map register inside the memory control PLD | It has one free pin and takes all 8 map bits as inputs |
 | Audio DAC register shared with the line code register | Both hold a byte for the whole line: one the mode, one the sample |
-| Video delay F574 into the color decoder | The color decoder uses all 24 pins |
+| Video delay F574 into the color decoder | The color decoder uses all 24 pins.  (Done another way on 2026-10-19: the Sync PLD makes H2:H0 and VIDEN two clocks later itself, so the F574 is gone; VIDEO_TIMING.md) |
 | H counter, V counter and sync in fewer PLDs | Each uses all 10 outputs |
 
 ## Free PLD pins after this proposal
