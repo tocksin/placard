@@ -202,7 +202,7 @@ T(4, 10.5, "Line-fetched 8-bit audio: one sample per scan line read from x5DF3-x
 
 # ================================================================ U35 audio slot PLD
 frame(3, 14, 92, 96, "Audio slot PLD (blanking reads, row address)")
-u35 = ic(42, 22, 22, "U35", "ATF22V10C-7PX",
+u35 = ic(42, 22, 22, "U35", "ATF22V10C-10PU",
          [(2, "H9"), (3, "H8"), (4, "H7"), (5, "H6"), (6, "H5"), (7, "H4"), (8, "H3"), None,
           (9, "V9"), (1, "V0"), (10, "V1"), (11, "V7"), (13, "V8"), None, (14, "LC2"), (15, "LC3"),
           None, (16, "nc")],
