@@ -1,6 +1,6 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-10-19
+Date: 2026-10-20
 
 The Placard has four expansion slots and one ROM cartridge slot, all the
 same connector: a 2 x 20, 0.1" (2.54 mm) pitch card-edge socket.  The
@@ -114,7 +114,7 @@ back edge of the main board.
 | LOAD_IMM | to card | 1 when the CPU latches the read bus into D (the State PLD's strobe, stall clocks already excluded) |
 | /WE | to card | The write pulse, low in the low half of a write clock (about 20 ns) |
 | CLK | to card | The 25.175 MHz CPU clock |
-| /RESET | to card | MAP_RUN from the memory control PLD: low from power-up to the first clock edge only |
+| /RESET | to card | RUN from the ROM cartridge: low from power-up until the cartridge has loaded the ROM and lets the CPU run (ROM.md, "Loading the cartridge") |
 | +5 V, GND | | 2 power and 7 ground contacts, the grounds spread between the fast groups |
 
 ## Building a card
@@ -155,8 +155,9 @@ that, since the four slots share the main board's supply.
 
 ## ROM cartridge slot
 
-The ROM (two AS7C256C 32K x 8 chips with battery backup for now, CPU.md)
-moves to a plug-in cartridge.  The cartridge gets the address and data
+The ROM (two AS7C256C 32K x 8 SRAMs, loaded at power-up from two
+AT28C256 EEPROMs on the same cartridge, ROM.md "Loading the cartridge")
+is on a plug-in cartridge.  The cartridge gets the address and data
 lines and the same chip selects the ROM chips have on the main board.
 
 | # | Side A | Side B |
@@ -192,8 +193,15 @@ lines and the same chip selects the ROM chips have on the main board.
   pull-up reads high.  Nothing reads it yet; with no ROM the CPU would
   start on an open bus, so the board needs a cartridge to start (a boot
   ROM on the main board is the alternative).
-- The battery and the power-fail switch that keep the SRAM's /CE high are
-  on the cartridge, so a cartridge keeps its contents when it is pulled.
+- **The loader (2026-10-20)** needs five more signals that the table
+  above does not have yet (the pinout is being reworked for the new
+  connector): OSC (the 25.175 MHz oscillator, before the clock gate, to
+  the cartridge), HOLD (from the cartridge, pulled up on the main board),
+  RUN (from the cartridge, pulled down on the main board), /SRC_EN and
+  PIXEL_ENABLE (to the cartridge).  /ROM_WE is no longer needed: the
+  cartridge makes its SRAMs' /WE.  With no cartridge, HOLD's pull-up keeps
+  the board stopped, so the board needs a cartridge (or the HOLD and RUN
+  jumpers, BRINGUP.md) to start.
 
 ## To check
 

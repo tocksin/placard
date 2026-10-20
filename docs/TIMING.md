@@ -1,6 +1,6 @@
 # Timing analysis at 25.175 MHz
 
-Date: 2026-10-19
+Date: 2026-10-20
 
 This is a static, worst-case timing analysis of the Placard as it sits in
 `src/hdl/basys_top.vhd` and the PLD sources in `src/pld`, for a real board
@@ -112,7 +112,7 @@ checked 2026-10-15 (stock moves, so recheck before ordering).
 | `/WE = RW or CLK` (replaced in TIMING_FIXES.md by the memory control PLD, which also makes the ROM and RAM /OE) | SN74F32N | 1 | 494 |
 | ROM /OE from ROM_EN, /CE of the upper 32K chip from A15 (removed in TIMING_FIXES.md: both now come from PLDs) | SN74F04N | 1 | 514 |
 | 64 KB RAM | AS7C256C-15PCN (32K × 8, PDIP-28) | 2 | 232 |
-| 64 KB ROM, interim | AS7C256C-15PCN, battery backed | 2 | (above) |
+| 64 KB ROM | AS7C256C-15PCN on the cartridge, loaded from 2 × AT28C256 at power-up (ROM.md) | 2 | (above) |
 
 The AS7C256C is 32K × 8, so each 64 KB space takes two chips and A15 picks
 one of them.  That adds a chip-select path that does not exist in the FPGA
@@ -354,9 +354,8 @@ In rough order of time recovered:
 - `basys_top.vhd` puts the ROM data on the bus when `romEn = '0'`, but the
   ROM/RAM select PLD drives ROM_EN high for a ROM read.  The FPGA build does
   not show this because the "ROM" and RAM models load the same file.
-- The interim ROM (battery-backed AS7C256C) needs its /CE held at or above
-  VCC − 0.2 V while VCC falls to the 2.0 V retention level.  A power-fail
-  switch in the /CE line adds its delay to the /CE access path, so tie that
-  switch's output to /CE and select the chip with /OE (see item 4).  Because
-  the ROM/RAM select PLD never writes the ROM, loading it needs a separate
-  write path or an external programmer.
+- The ROM SRAMs are loaded by the cartridge at power-up (ROM.md, "Loading
+  the cartridge"), so no battery switch sits in their /CE path.  The clock
+  gate (CLK = OSC OR HOLD, 74AC32) delays every main-board clock by the
+  same amount, so it moves no path's slack; the cartridge's own timing is
+  in `ATF22V10_CART.pld`.

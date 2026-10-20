@@ -1,6 +1,6 @@
 # Chip list
 
-Date: 2026-10-19
+Date: 2026-10-20
 
 Every chip in the Placard, one chip per line.  The current list follows
 `basys_top.vhd`, the PLD sources in `src/pld`, [CPU.md](CPU.md),
@@ -22,7 +22,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 8 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 7:4 (`ATF22V10_QUAD_MUX.pld`) |
 | 9 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 11:8: PC / Y / zero page / video address (`ATF22V10_QUAD_MUX.pld`) |
 | 10 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 15:12 (`ATF22V10_QUAD_MUX.pld`) |
-| 11 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Memory control: /WE, /RAM_OE, /ROM_OE from the map, and MAP_RUN reset (`ATF22V10_MEM_CTRL.pld`) |
+| 11 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Memory control: /WE, /RAM_OE, /ROM_OE from the map; /ROM_OE only while RUN from the cartridge is high (revision 08, pin 17 is the RUN input) (`ATF22V10_MEM_CTRL.pld`) |
 | 12 | ATF22V10C-7PX | PLD (22V10, 24-pin) | I/O decode: upper 32K /CE_HI and the x5000-x53FF strobes (`ATF22V10_IO_DECODE.pld`) |
 | 13 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Video H counter: H9:H3, HSYNC, horizontal active (`ATF22V10_HCOUNT.pld`) |
 | 14 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Video V counter: V9:V0 (`ATF22V10_VCOUNT.pld`) |
@@ -36,7 +36,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 22 | SN74F377AN | Octal D flip-flop with enable | Video pixel buffer (byte read from video memory); /E from the Branch PLD's /PIX_LD (pin 15), low on a video read |
 | 23 | SN74F377AN | Octal D flip-flop with enable | Video line code (color mode for the line): D from the pixel buffer outputs, /E from /MODE_LD, so it copies the mode byte read in group 45 (see VIDEO.md); Q1:Q0 to the color decoder, Q3:Q2 to the audio slot PLD (line repeat) |
 | 24 | — | — | Removed 2026-10-19: the video delay F574 (H2:H0 pixel select and video active, two stages).  The Sync PLD now makes both two clocks later itself (VIDEO_TIMING.md, "Delay register removed").  The numbers below are kept as they were |
-| 25 | CD74ACT273E | Octal D flip-flop with clear | ROM/RAM map register at x5000 (write only, cleared to all ROM at power-up) |
+| 25 | CD74ACT273E | Octal D flip-flop with clear | ROM/RAM map register at x5000 (write only, /MR = RUN: all ROM until the cartridge hands off) |
 | 26 | SN74F541N | Octal buffer, 3-state | Source bus driver: D register, sources 00 and 01 (/OE1 = /SRC_EN, /OE2 = I1; the source bus is also the memory data bus) |
 | 27 | SN74F541N | Octal buffer, 3-state | Source bus driver: accumulator, sources 10 and 11 (/OE1 = /SRC_EN, /OE2 = /AC_SEL from the audio slot PLD) |
 | 28 | — | — | Removed 2026-10-19: the X register's source bus driver (X is no longer a source, CPU.md "Source mode") |
@@ -44,14 +44,15 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 30 | — | — | Removed 2026-10-19: the source select '138.  The two source F541s are picked by I1 and /AC_SEL and enabled by /SRC_EN (CPU.md, "Source mode") |
 | 31 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, lower 32K (x0000-x7FFF) |
 | 32 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, upper 32K (x8000-xFFFF) |
-| 33 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, lower 32K (interim: battery-backed SRAM) |
-| 34 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | ROM, upper 32K (interim: battery-backed SRAM) |
+| 33 | — | — | Moved to the ROM cartridge 2026-10-20 (see "ROM cartridge" below) |
+| 34 | — | — | Moved to the ROM cartridge 2026-10-20 |
 | 35 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md).  Also /AC_SEL (= !I1, revision 04) for the AC source F541 |
 | 36 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer when H_VIDEO_ACTIVE rises (start of group 48), drives the R-2R ladder, which drives headphones directly (all passive, see SOUND.md) |
 | 37 | SN74HC574N | Octal D flip-flop, 3-state | Shared port latch at x5200 (IO.md): SCK and pad CLOCK, MOSI and pad LATCH, SD /CS (also holds the PS/2 mouse off), PS/2 DATA, keyboard column code.  HC for a full 5 V high into the pads |
 | 38 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: keyboard columns /COL0-/COL7 from the latch, pad DATA onto D7/D6 on odd reads (`ATF22V10_PORT.pld`) |
 | 39 | SN74F541N | Octal buffer, 3-state | Shared port input on even reads: keyboard rows, with SD MISO and the PS/2 lines on rows 7, 6 and 5 |
 | 40 | not chosen | 3.3 V regulator | Powers the SD card (its SCK, MOSI and /CS come down to 3.3 V through resistor dividers, IO.md) |
+| 41 | SN74AC32N | Quad 2-input OR | Clock gate: CLK = OSC OR HOLD, so the ROM cartridge can hold the board while it loads (ROM.md, "Loading the cartridge"); HOLD pulled up with 10k.  Three gates spare |
 
 ### Tally
 
@@ -62,20 +63,31 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | SN74F377AN | Octal D flip-flop with enable | 7 |
 | CD74ACT273E | Octal D flip-flop with clear | 1 |
 | SN74F541N | Octal buffer, 3-state | 4 |
-| AS7C256C-15PCN | SRAM, 32K x 8 | 4 |
+| AS7C256C-15PCN | SRAM, 32K x 8 | 2 |
+| SN74AC32N | Quad 2-input OR | 1 |
 | SN74HCT574N | Octal D flip-flop, 3-state | 1 |
 | SN74HC574N | Octal D flip-flop, 3-state | 1 |
-| **Total** | | **36 + a 3.3 V regulator** |
+| **Total** | | **35 + a 3.3 V regulator** |
 
-**Not counted, not chosen yet:** the 25.175 MHz clock oscillator, and the
-battery and power-fail switch that hold the interim ROM's /CE high while
-power is off (CPU.md, "Memory parts").  The SN74F32 and SN74F04 in older
+**Not counted, not chosen yet:** the 25.175 MHz clock oscillator.  The SN74F32 and SN74F04 in older
 versions of TIMING.md were removed (the memory control and I/O decode PLDs
 took their jobs), and the ROM/RAM select PLD became the CD74ACT273E.
 Also not counted: the series resistors (8, one per bit, for example a
 bussed or isolated resistor array) between the source F541 outputs and
 the data bus, which limit the current while the bus changes hands at the
 start of EXEC (CPU.md, "One data bus").
+
+**ROM cartridge (2026-10-20), not counted above:**
+
+| Part number | Type | Function |
+|---|---|---|
+| AS7C256C-15PCN (2) | SRAM, 32K x 8, 15 ns | The ROM as the CPU sees it (was #33, #34); /WE from the cartridge PLD |
+| AT28C256-15PU (2) | EEPROM, 32K x 8, 150 ns | The ROM image, programmed off the board; copied into the SRAMs at power-up |
+| SN74AC541N | Octal buffer, 3-state | Inputs wired to 02h (`ld ac, ac`), fed to the CPU on every fetch while loading |
+| ATF22V10C-10PU | PLD (22V10, 24-pin) | Loader: holds the board's clock, steps it, makes the EEPROM /OE, SRAM /WE and 541 /OE, raises RUN at the PC wrap (`ATF22V10_CART.pld`) |
+
+The battery and power-fail switch of the interim battery-backed ROM are
+gone; the main board loses #33 and #34 and gains the 74AC32 (#41).
 
 **Removed 2026-10-19: the X source F541 and the source '138.**  X is no
 longer a source: source codes 00 and 01 drive D and 10 and 11 drive AC,

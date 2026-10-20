@@ -11,7 +11,7 @@ their chip counts are typed in below from docs/CHIPS.md; update them here when
 the chip list changes and rerun.  The counts must add up to the docs/CHIPS.md
 total (the script checks).
 
-Date: 2026-10-19
+Date: 2026-10-20
 """
 import os
 import sys
@@ -21,7 +21,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
-CHIPS_TOTAL = 36            # docs/CHIPS.md, plus the 3.3 V regulator
+CHIPS_TOTAL = 35            # docs/CHIPS.md main board, plus the 3.3 V regulator
 
 # fill colors by area
 CPU, CTRL, MEM, IO, VID, SND, DEV = ("#E4DAFF", "#FFF2BF", "#D3F6D8", "#FFE3C8",
@@ -73,13 +73,13 @@ def wire(pts, color, lw=6, arrow=True, label=None, lpos=None, lcolor=None, fs=11
 
 # ---------------------------------------------------------------- title
 ax.text(3, 4, "Placard: block diagram", fontsize=24, weight="bold", va="center")
-ax.text(3, 9, "%d chips and a 3.3 V regulator (docs/CHIPS.md).  The badge on each block is its "
+ax.text(3, 9, "%d chips and a 3.3 V regulator on the main board (docs/CHIPS.md).  The badge on each block is its "
         "chip count.  Control strobes, flags and clocks are not shown." % CHIPS_TOTAL,
         fontsize=12.5, color="#495057", va="center")
 
 # ---------------------------------------------------------------- CPU, top row
 vt = box(3, 16, 30, 16, "Video timing", 3, "H counter, V counter,\nSync PLDs", VID)
-ct = box(38, 16, 30, 16, "Control", 2, "State PLD, Branch PLD\n(ADD/SUB wait, stall)", CTRL)
+ct = box(38, 16, 30, 16, "Control", 3, "State PLD, Branch PLD,\nAC32 clock gate (HOLD)", CTRL)
 pc = box(73, 16, 28, 16, "Program counter", 2, "2 x 8-bit counter PLDs", CPU)
 am = box(106, 16, 28, 16, "Address mux", 4, "4 PLDs: PC, D/X, Y/0,\nvideo address", CPU)
 
@@ -87,7 +87,7 @@ am = box(106, 16, 28, 16, "Address mux", 4, "4 PLDs: PC, D/X, Y/0,\nvideo addres
 mapr = box(152, 14, 30, 11, "Map register x5000", 1, "ACT273: ROM or RAM\nper 8 KB section", MEM, fs=11.5)
 mc = box(186, 14, 31, 11, "Memory control", 1, "PLD: /WE, /RAM_OE,\n/ROM_OE from the map", MEM, fs=11.5)
 ram = box(152, 32, 30, 22, "RAM 64 KB", 2, "2 x AS7C256C\n(video reads RAM)", MEM, fs=14)
-rom = box(186, 32, 31, 22, "ROM 64 KB", 2, "2 x AS7C256C, battery,\non the ROM cartridge", MEM, fs=14)
+rom = box(186, 32, 31, 22, "ROM 64 KB", None, "2 x AS7C256C on the\ncartridge, loaded from\n2 x AT28C256 at power-up", MEM, fs=14)
 wb = box(152, 60, 30, 11, "Bus resistors", None, "8 x R: the source bus is\nthe data bus in EXEC", DEV, fs=11.5)
 
 # ---------------------------------------------------------------- registers row
@@ -121,7 +121,7 @@ ms = box(57, 149, 14, 9, "PS/2 mouse", None, "", DEV, fs=10.5)
 exp = box(166, 102, 51, 20, "4 expansion slots", 0,
           "x5100-x53FF, 128 bytes each; data, source\nbus, A7:A0, RW, /WE, clock.  A card\n"
           "with a \"PLC\" boot header runs at power-up", IO, fs=13)
-cart = box(186, 60, 31, 11, "ROM cartridge slot", 0, "the ROM chips above", MEM, fs=11.5)
+cart = box(186, 60, 31, 11, "ROM cartridge slot", 0, "cartridge: 6 chips, holds\nthe clock while loading", MEM, fs=11.5)
 
 total = sum(counted)
 assert total == CHIPS_TOTAL, "blocks add up to %d chips, docs/CHIPS.md says %d" % (total, CHIPS_TOTAL)

@@ -6,7 +6,7 @@ pattern) and `src/hdl/rom.mem` (made by `src/scripts/gen_rom.tcl`).  Both use
 `sp_ram.vhd`, which takes the file name as the generic `initFile`.  Programs
 and the standard library live in the ROM.
 
-Date: 10/19/2026
+Date: 10/20/2026
 
 ## Video always reads the RAM
 
@@ -113,10 +113,66 @@ main:
     ...
 ```
 
+## Loading the cartridge
+
+The ROM the CPU sees is two AS7C256C-15PCN SRAMs (15 ns) on the
+cartridge.  They lose their contents at power-off, so the image is kept
+in two AT28C256-15PU EEPROMs (32K x 8, 150 ns, PDIP-28, reprogrammable,
+programmed off the board) on the same address lines.  No production
+through-hole non-volatile part is fast enough for the fetch path, and a
+battery-backed SRAM drains a CR2032 in about two weeks (0.3 mA typical
+retention current per chip), so the cartridge copies the EEPROMs into
+the SRAMs at every power-up.
+
+The cartridge holds the main board while it loads, and the CPU's PC is
+the address counter:
+
+- **The clock is held.**  The main board's CLK is OSC OR HOLD (a 74AC32
+  gate, #41).  HOLD comes from the cartridge PLD and is pulled up on the
+  main board, so from power-up no clock edge reaches the board and every
+  PLD stays in its power-up state: FETCH, PC = x0000.
+- **RUN is low.**  RUN (cartridge to main board, pulled down there)
+  replaces MAP_RUN: the memory control PLD (revision 08, pin 17 is now
+  the RUN input) keeps /ROM_OE high while RUN is low, so the SRAMs stay
+  off the bus; RUN also holds the map register clear (all ROM) and the
+  expansion cards in reset.
+- **One clock at a time.**  The cartridge PLD (`ATF22V10_CART.pld`,
+  ATF22V10C-10PU, clocked by OSC) lets the board have one clock edge, and
+  one OSC cycle later looks at the clock the CPU is in.  On a CPU read
+  (PIXEL_ENABLE low, /SRC_EN high; while loading this is always a FETCH)
+  the address on the bus is the PC: the EEPROM drives its byte, the
+  cartridge pulses the SRAM's /WE (the chip is picked by /CE_LO or
+  /CE_HI as usual), the EEPROM lets go, and a 74AC541 with its inputs
+  wired to 02h drives the opcode `ld ac, ac` for the CPU to fetch.  02h
+  is one byte, changes nothing (not even the carry), so the PC steps
+  through every address.  On any other clock (the EXEC of 02h, a video
+  read) the board gets the next edge at once.
+- **Hand-off.**  When A15 goes from 1 to 0 between two CPU reads the PC
+  has wrapped from xFFFF to x0000, and every address has been written
+  (the I/O window's bytes too, which are not used).  The PLD raises RUN
+  and stops holding the clock in that x0000 fetch, so its low half reads
+  the SRAM.  The CPU starts at x0000 with the map clear, exactly as a
+  power-up did before, and the boot below runs.
+
+A read takes 10 OSC cycles and any other clock 2, so the load takes
+about **33 ms** (32.7 ms in `src/sim/tb_cart_load.vhd`, which runs the
+real cartridge and memory control PLD equations against a timed model of
+the board and checks all 64K, the /WE timing, the PLD setup times and bus
+overlap).  The monitor loses sync for that time.
+
+Pins between the main board and the cartridge for the loader: OSC (to
+the cartridge), HOLD and RUN (from it), /SRC_EN and PIXEL_ENABLE (to
+it).  /ROM_WE is no longer needed from the main board, because the
+cartridge makes its SRAMs' /WE.
+
+**Without a cartridge** (bring-up, or a board with SRAMs loaded some
+other way) jumper HOLD to GND and RUN to +5 V; the board then runs from
+power-up as before, but nothing loads the ROM.
+
 ## Boot
 
-`src/scripts/rom_boot.asm`.  The map clears to all ROM at power-up, so the
-first fetch is ROM x0000, which jumps to the boot loader at xFD00.  Its
+`src/scripts/rom_boot.asm`.  The map is clear (all ROM) when the cartridge
+hands off, so the first fetch is ROM x0000, which jumps to the boot loader at xFD00.  Its
 first job is to copy `LIB_RAM` (ROM x1F00-x1FFF) into the RAM under it,
 while the map is still 00 (reads from ROM, writes to RAM), about 3,000
 clocks.  It reads the boot mode byte at xFC00 after the expansion card scan

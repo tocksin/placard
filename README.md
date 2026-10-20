@@ -24,7 +24,7 @@ Each block shows how many chips it uses (38 in all on the main board; the expans
 
 ![Placard block diagram](reference/placard_block_diagram.png)
 
-The drawing is made by `src/scripts/gen_block_diagram.py` (2026-10-18); rerun it when the design changes.
+The drawing is made by `src/scripts/gen_block_diagram.py` (2026-10-20); rerun it when the design changes.
 
 The I/O circuitry (keyboard, SNES pads, SD card, PS/2 mouse) is drawn as a schematic in
 [docs/IO.md](docs/IO.md#schematic) (`schematics/placard_io_schematic.png`).
@@ -40,7 +40,7 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 
 - **Writes always go to the RAM**, even in a section mapped to ROM.  The write strobe (/WE) is not decoded by address, so a write in the I/O window x5000-x53FF also lands in the RAM underneath it.
 - **The map register** is a CD74ACT273E clocked by /MAP_WR from the I/O decode PLD; it latches the source bus at the end of the write.  Bit n = 1 makes section n read from RAM, 0 from ROM.  Bit 2 maps x4000-x4FFF and x5400-x5FFF, because x5000-x53FF is the I/O window.  It is write only, so software keeps a copy of the last value it wrote.
-- **At power-up every section reads as ROM.**  The memory control PLD's MAP_RUN output holds the register's /MR low from power-up until the first clock edge, which is where the CPU starts, so the CPU boots from ROM.
+- **At power-up every section reads as ROM.**  RUN from the ROM cartridge holds the register's /MR low while the cartridge loads its SRAM and the CPU is held, so the CPU boots from ROM ([docs/ROM.md](docs/ROM.md#loading-the-cartridge)).
 - **x5000-x53FF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  (Until 2026-10-16 the window was x5000-x5FFF, with x5800-x5FFF a mirror.)
 - **Only `[Y,X]` reaches the I/O window**; `[0,D]` and `[0,X]` only address the zero page.
 - **Video reads always read the RAM** (memory control PLD revision 04); only CPU reads follow the map.  The CPU can run code from the ROM under the video area while the screen shows the RAM, and a program that wants to read the video RAM maps that section to RAM.
@@ -49,7 +49,7 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 
 The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /WE, /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
 
-The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen yet; for now it is the same AS7C256C-15PCN with battery backup.  See [docs/CPU.md](docs/CPU.md#memory-parts) and [docs/TIMING.md](docs/TIMING.md).
+The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is two more AS7C256C-15PCN on the ROM cartridge, loaded at power-up from two AT28C256 EEPROMs by the cartridge while it holds the main board's clock ([docs/ROM.md](docs/ROM.md#loading-the-cartridge)).  See [docs/CPU.md](docs/CPU.md#memory-parts) and [docs/TIMING.md](docs/TIMING.md).
 
 | Address | Map bit | Function  |
 |---------|---------|------|

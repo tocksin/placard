@@ -386,6 +386,8 @@ nothing but the map).  The chip count does not change.
   with D = 1.  The ATF22V10C clears it at power-up, so it is low until the
   first rising clock edge, which is where the CPU starts too.  The map is
   cleared before the first instruction and no RC network is needed.
+  (Replaced 2026-10-20: memory control revision 08 takes RUN from the ROM
+  cartridge on pin 17 instead, ROM.md "Loading the cartridge".)
 - **I/O decode PLD rev 02**: comments only.  /MAP_WR already strobes page 0.
 
 | Check | Value | Slack |
