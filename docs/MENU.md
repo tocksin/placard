@@ -13,14 +13,15 @@ Date: 10/20/2026
 |---|---------|------|-----------|
 | 1 | CPU test (`cpu_test.asm`) | RAM program | every test has run; the pass / fail grid stays 10 s |
 | 2 | Pi (`pi_spigot.asm`) | RAM program | 1000 digits and the time are shown; they stay 10 s |
-| 3 | Mandelbrot (`mandelbrot.asm`) | RAM program | all four color depths are drawn |
-| 4 | Game of Life (`game_of_life.asm`) | RAM program | 1000 generations |
+| 3 | Mandelbrot (`mandelbrot.asm`) | RAM program | all four color depths are drawn (about 2 min 15 s on the board; its limit is 3 minutes) |
+| 4 | Game of Life (`game_of_life.asm`) | RAM program | 1000 generations (about 4 min 40 s, so in turn it stops at 2 minutes) |
 | 5 | Text demo (`text_demo.asm`) | ROM program | never (2 minute limit) |
 | 6 | Ray caster (`raycast.asm`) | ROM program | never (2 minute limit) |
 
 - At power-up the programs run **in turn**, in the order above: each one
-  until it is done or for 2 minutes, then the next, and after the last
-  the first again.
+  until it is done or for 2 minutes (Mandelbrot 3, so it finishes), then
+  the next, and after the last the first again.  `LIMIT_S` in
+  `gen_menu_rom.py` sets a longer limit per program.
 - **Esc** in any program shows the menu.
 - In the menu, **Up / Down** move the highlight and **Enter** (or Space)
   runs the highlighted program; **1-6** run that program at once.  A
