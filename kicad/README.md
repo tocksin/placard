@@ -17,7 +17,8 @@ when it saves them).
 
 The board outline is a placeholder, 11.4" x 5.5" (keyboard width, 4-layer),
 from the size estimate in the project files (`hardware/pcb_size_estimate.md`);
-change it once the case is settled.  Parts and U-numbers come from
+change it once the case is settled.  The sheet plan (which chips go on which sheet, and the nets between
+them) is [docs/SCHEMATIC_PLAN.md](../docs/SCHEMATIC_PLAN.md).  Parts and U-numbers come from
 [docs/CHIPS.md](../docs/CHIPS.md); the PLD pinouts come from the `.pld` files
 in `src/`.
 
