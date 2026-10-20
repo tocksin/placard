@@ -100,6 +100,13 @@ def f541(a, yn, g1, g2):
     return n
 
 
+PLD_NAMES = {"U1": "State PLD", "U2": "Branch PLD", "U3": "PC low PLD", "U4": "PC high PLD",
+             "U5": "ALU low PLD", "U6": "ALU high PLD", "U7": "Address mux 3:0", "U8": "Address mux 7:4",
+             "U9": "Address mux 11:8", "U10": "Address mux 15:12", "U11": "Memory control PLD",
+             "U12": "I/O decode PLD", "U13": "H counter PLD", "U14": "V counter PLD", "U15": "Sync PLD",
+             "U16": "Color decoder PLD", "U35": "Audio slot PLD", "U38": "Shared port PLD"}
+
+
 def pld(d):
     n = {str(k): v for k, v in d.items()}
     n["24"] = "+5V"
@@ -160,12 +167,15 @@ class Board:
     def sheet(self, fname, title, page):
         su = K.det_uuid(self.project, "sheetbox", fname)
         s = K.Sheet(self.project, fname, title, page, self.root_uuid, su, DATE)
+        s.names = PLD_NAMES
         self.sheets.append(s)
         return s
 
 
-def decap(s, n, x, y, value="100n"):
-    """Decoupling capacitor Cn beside chip Un, its +5V and GND symbols right on its pins."""
+def decap(s, n, x, y, value="100n", lift=5.08):
+    """Decoupling capacitor Cn beside chip Un, its +5V and GND symbols right on its pins.
+    It sits lift above the given point, so its GND symbol clears the chip's top pins."""
+    y -= lift
     s.part("Device:C", f"C{n}", x, y, {"1": "+5V", "2": "GND"}, value=value, footprint=FP_C, stub=0,
            ref_at=(x + 2.0, y - 0.5), value_at=(x + 2.0, y + 2.6))
 
@@ -192,15 +202,14 @@ def diode(s, ref, x, y, k, a, angle=0, value="BAT85"):
 def flag(s, net, x, y):
     """PWR_FLAG on a labelled net: flag pin at (x, y), label below it."""
     s.pwr_flag(x, y)
-    s.wire(x, y, x, y + 5.08)
-    s.nets_here.add(net)
-    s.pending_labels.append((net, x, y + 5.08, 270, "passive"))
+    s.wire(x, y, x, y + 5.08, owner=net)
+    s.terminal(net, x, y + 5.08, 270)
+    s.named.add(net)
 
 
 def lab(s, net, x, y, angle):
-    """A label on the end of a wire the caller drew."""
-    s.nets_here.add(net)
-    s.pending_labels.append((net, x, y, angle, "passive"))
+    """The end of a wire the caller drew: wired to the net's other pins, or labelled."""
+    s.terminal(net, x, y, angle)
 
 
 def note(s, x, y, lines, size=2.5):
@@ -237,21 +246,21 @@ def sheet_power(b):
     # analog ground joins logic ground at the power input
     s.part("Device:NetTie_2", "NT201", 210, 80, {"1": "GND", "2": "GNDA"}, value="AGND tie",
            footprint="NetTie:NetTie-2_THT_Pad0.3mm", ref_at=(206, 74), value_at=(206, 86))
-    s.pwr_flag(225, 92)
-    s.power("GNDA", 225, 92)
+    s.pwr_flag(234, 92)
+    s.power("GNDA", 234, 92)
     note(s, 196, 100, ["AGND (audio) meets GND", "here, at the power input"])
     # 3.3 V regulator
     s.part("Regulator_Linear:MCP1700x-330xxTO", "U40", 300, 80, {"1": "GND", "2": "+5V", "3": "+3V3"},
            value="MCP1700-3302E/TO", ref_at=(292, 72), value_at=(292, 88))
-    cap(s, "C40", 280, 100, "+5V", "GND", "1u")
-    cap(s, "C202", 322, 100, "+3V3", "GND", "1u")
+    cap(s, "C40", 280, 104, "+5V", "GND", "1u")
+    cap(s, "C202", 322, 104, "+3V3", "GND", "1u")
     s.pwr_flag(345, 112)
     s.power("+3V3", 345, 112)
-    note(s, 268, 120, ["U40: 3.3 V for the SD card only (sheet 10).", "C40 input, C202 output (1 uF ceramic)."])
+    note(s, 268, 126, ["U40: 3.3 V for the SD card only (sheet 10).", "C40 input, C202 output (1 uF ceramic)."])
     # oscillator and clock gate
     s.part("Oscillator:ACO-xxxMHz", "X1", 60, 185, {"14": "+5V", "7": "GND", "8": "OSC"},
            value="25.175 MHz", footprint="Oscillator:Oscillator_DIP-14", ref_at=(52, 175), value_at=(52, 196))
-    decap(s, 203, 80, 172)
+    decap(s, 203, 80, 172, lift=0)
     s.part("74xx:74LS32", "U41", 160, 185, {"1": "OSC", "2": "HOLD", "3": "CLK"}, unit=1,
            value="74AC32", footprint=FP_DIP14)
     for u, (x, y), pins in [(2, (160, 215), ("4", "5", "6")), (3, (160, 240), ("9", "10", "8")),
@@ -260,7 +269,7 @@ def sheet_power(b):
                value="74AC32", footprint=FP_DIP14, hide_value=True)
     s.part("74xx:74LS32", "U41", 230, 200, {"14": "+5V", "7": "GND"}, unit=5, value="74AC32",
            footprint=FP_DIP14, hide_value=True)
-    decap(s, 41, 245, 200)
+    decap(s, 41, 252, 200, lift=0)
     res(s, "R203", 120, 160, "+5V", "HOLD", "10k")
     res(s, "R204", 290, 200, "RUN", "GND", "10k")
     s.part("Jumper:Jumper_2_Open", "JP201", 120, 215, {"1": "HOLD", "2": "GND"}, value="HOLD",
@@ -369,18 +378,18 @@ def sheet_databus(b):
 def sheet_memory(b):
     s = b.sheet("memory.kicad_sch", "Memory and I/O decode", 7)
     heading(s, "Memory and I/O decode", "RAM, ROM cartridge slot, memory control, I/O decode, map register")
-    s.part("placard:ATF22V10C_MEM_CTRL", "U11", 92, 95, pld({
+    s.part("placard:ATF22V10C_MEM_CTRL", "U11", 100, 95, pld({
         1: "CLK", 2: "A15", 3: "A14", 4: "A13", 5: "A12", 6: "RAMSEL0", 7: "RAMSEL1", 8: "RAMSEL3",
         9: "RAMSEL4", 10: "RAMSEL5", 11: "RAMSEL6", 13: "RAMSEL7", 15: "RAMSEL2", 14: "RW",
         23: "PIXEL_ENABLE", 20: "A11", 21: "A10", 22: "~{SRC_EN}", 17: "RUN",
         16: "~{WE}", 19: "~{ROM_OE}", 18: "~{RAM_OE}"}))
-    decap(s, 11, 112, 63)
-    s.part("placard:ATF22V10C_IO_DECODE", "U12", 92, 205, pld({
+    decap(s, 11, 120, 63)
+    s.part("placard:ATF22V10C_IO_DECODE", "U12", 100, 205, pld({
         1: "~{WE}", 2: "ADDR_SEL", 3: "ADDR_SEL_HI", 4: "PC15", 5: "H9", 6: "Y7", 7: "A14", 8: "A13",
         9: "A12", 10: "A10", 11: "A9", 13: "A8", 14: "RW", 18: "A11", 23: "~{LOAD_IMM}",
         15: "~{CE_HI}", 16: "~{MAP_WR}", 17: "~{LINE_RD}", 19: "~{PORT_WR}", 20: "~{PORT_RD}",
         21: "~{EXP1}", 22: "~{EXP2}"}))
-    decap(s, 12, 112, 173)
+    decap(s, 12, 120, 173)
     s.part("74xx:74LS273", "U25", 212, 95, ls273(D, RAMSEL, "RUN", "~{MAP_WR}"), value="CD74ACT273E", footprint=FP_DIP20)
     decap(s, 25, 232, 66)
     s.part("placard_parts:AS7C256C", "U31", 212, 205, sram("A15", "~{RAM_OE}", "~{WE}"), value="AS7C256C-15PCN")
@@ -639,7 +648,7 @@ def build_main():
             count[net] = count.get(net, 0) + 1
     glob = {n for n, c in count.items() if c > 1}
     for sh in sheets:
-        sh.finish_labels(glob)
+        sh.finish(glob)
     root, boxes = root_sheet(b, sheets)
     return root, boxes, sheets, glob
 
@@ -649,6 +658,7 @@ def build_cart():
     s = K.Sheet("cartridge", "cartridge.kicad_sch", "ROM cartridge", 1, root_uuid, None, DATE)
     s.uid = root_uuid
     s.comment2 = "Cartridge chips U1-U5 (docs/CHIPS.md, ROM cartridge); decoupling Cn goes with Un"
+    s.names = {"U1": "Loader PLD"}
     heading(s, "ROM cartridge", "Two EEPROMs copied into two SRAMs at power-up by the loader PLD (ROM.md, \"Loading the cartridge\")")
     cart = {"A3": "A0", "B3": "A1", "A4": "A2", "B4": "A3", "A5": "A4", "B5": "A5", "A6": "A6", "B6": "A7",
             "A7": "A8", "B7": "A9", "A8": "A10", "B8": "A11", "A9": "A12", "B9": "A13", "A10": "A14",
@@ -690,7 +700,7 @@ def build_cart():
                        "/SR_WE on each fetch, then raises RUN.",
                        "/CART (B10) is tied to GND: cartridge present.",
                        "Spare contacts are unassigned (EXPANSION.md)."])
-    s.finish_labels(set())
+    s.finish(set())
     return s
 
 
@@ -786,11 +796,15 @@ def main():
         write(os.path.join(KDIR, sh.filename), sh.render())
         for o in sh.overlaps():
             print("overlap", sh.filename, o)
+        for r in sh.report:
+            print("route", sh.filename, r)
     write(os.path.join(KDIR, "placard.kicad_sch"), root.render(extra=boxes))
     cart = build_cart()
     write(os.path.join(CDIR, "cartridge.kicad_sch"), cart.render())
     for o in cart.overlaps():
         print("overlap cartridge", o)
+    for r in cart.report:
+        print("route cartridge", r)
     if "--check" in sys.argv:
         bad = compare(expected_nets(sheets, glob), kicad_nets(os.path.join(KDIR, "placard.kicad_sch")), "main board")
         bad += compare(expected_nets([cart], set()), kicad_nets(os.path.join(CDIR, "cartridge.kicad_sch")), "cartridge")

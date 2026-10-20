@@ -51,8 +51,10 @@ The nets between sheets are global labels and buses with the names below.
   silently.  The ERC catches a label with only one end ("global label not
   connected anywhere else"), so run it after each sheet and fix every one.
 - Each bit is its own net (`A0`, `A1`, ...), as the project rules ask for
-  the VHDL too.  The tables below group them as buses for reading; on the
-  sheets every pin has its own label (see "How the sheets are drawn").
+  the VHDL too.  On a sheet, a group of three or more numbered nets with
+  one name (`D0`-`D7`, `A0`-`A15`, ...) is drawn as a bus with bus entries;
+  a bus label such as `D[0..7]` carries it to the other sheets (see "How
+  the sheets are drawn").
 
 ## Inter-sheet nets
 
@@ -213,14 +215,28 @@ compares every net with the list in the script, then runs simple electrical
 checks (single-pin nets, two outputs on a net, power without a source).
 
 - **Blocks first, then nets, then text.**  Chips sit on a grid with room
-  around them; every pin gets a short wire and a label, a global label when
-  its net is on another sheet too.  Where neighbouring pins both have labels
-  the labels are staggered (short and long wires), so the 2 mm label text
-  never overlaps; references are 2.5 mm, values 2 mm.
+  around them.  References are 2.5 mm, values 2 mm, labels 2 mm; each PLD
+  also shows its job in bold under its part number ("Branch PLD",
+  "Address mux 3:0", ...).
+- **Wires between the pins of a net** (Justin, 2026-10-20): a net with two
+  or more pins on a sheet is wired pin to pin by a small grid router in
+  `src/scripts/kicad_route.py`.  Wires run on the 1.27 mm grid, may cross
+  another net at right angles but never run along it, bend on it or touch
+  its pins, and keep clear of parts and text.  A net that also goes to
+  another sheet gets one global label on one of its pins; a net with a
+  single pin on the sheet gets a label on a short wire (staggered between
+  neighbours).  Junctions mark every T, and the wires are cut there.
+- **Buses:** a group of three or more numbered nets on a sheet (`D`, `A`,
+  `SRC`, `DR`, `PC`, `H`, `V`, `VA`, `RAMSEL`, `ROW`, `DAC`, ...; not the
+  ladder `LAD` or the key columns) gets one bus per sheet: each pin has a
+  short wire with its member label (`D3`) and a bus entry onto a bus line
+  beside the chip, the router joins the bus lines of all the chips, and one
+  bus label (`D[0..7]`, global when the bus leaves the sheet) names it.
+  Where the router cannot join a bus piece it gets its own bus label.
 - **Decoupling:** Cn (100 nF) beside each Un, its +5V and GND symbols on its
-  own pins.
-- **Wired nets** where a picture helps: the R-2R ladder is a wired chain,
-  rows of pins tied to GND share one GND symbol.
+  own pins, raised a little so its GND symbol clears the chip's top pins.
+- **Hand-drawn wires** where a picture helps: the R-2R ladder is a wired
+  chain, rows of pins tied to GND share one GND symbol.
 - **PDFs** for reading without KiCad: `schematics/placard_main.pdf` and
   `schematics/placard_cartridge.pdf` (`kicad-cli sch export pdf`).
 
