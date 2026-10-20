@@ -253,5 +253,5 @@ entities, GHDL) was run before and after the change, from reset:
   audio DAC outputs after the change equal the outputs before it, two clocks
   earlier (the power-up phase above), with no mismatches on any clock.  The
   CPU's 19,344 RAM writes are the same, in the same order.
-- `test_screen` (draws all four modes and runs the RAM test), 820,000
+- `test_screen` (now `text_demo`; draws all four modes and runs the RAM test), 820,000
   clocks: the same, no mismatches, and the same 56,578 RAM writes.
