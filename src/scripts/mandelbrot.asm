@@ -139,33 +139,34 @@ clear:
     ld   ac, [0x38]
 clr_pg:
     ld   [0x38], y
-    clr  x
+    clr  ac
 clr_b:
-    ld   0x00, [y,x]
-    ld   x, ac
-    inc
     ld   ac, x
+    ld   0x00, [y,x]
+    inc
     bne  clr_b
     ld   [0x38], ac
     inc
     ld   ac, [0x38]
     bne  clr_pg
     ld   0x5A, y
-    ld   0x20, x
+    ld   0x20, ac
 mode0:
+    ld   ac, x
+    ld   ac, [0x38]
     ld   [0x37], ac
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [0x38], ac
     inc
-    ld   ac, x
     bne  mode0
     ld   0x5B, y
 mode1:
+    ld   ac, x
+    ld   ac, [0x38]
     ld   [0x37], ac
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [0x38], ac
     inc
-    ld   ac, x
     bne  mode1
     ld   [0x2D], y
     jmp  [0x2C]
@@ -272,9 +273,8 @@ ret_15:
     ld   [0x33], x
     ld   [0x34], y
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  1, ac
     ld   ac, [0x33]
     bne  nw0
     ld   [0x34], ac
@@ -406,14 +406,12 @@ ret_19:
     ld   [0x33], x
     ld   [0x34], y
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  1, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  2, ac
     ld   ac, [0x33]
     bne  nw1
     ld   [0x34], ac
@@ -547,24 +545,20 @@ ret_23:
     ld   [0x33], x
     ld   [0x34], y
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  1, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  2, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  3, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  4, ac
     ld   ac, [0x33]
     bne  nw2
     ld   [0x34], ac
@@ -683,44 +677,36 @@ ret_27:
     ld   [0x33], x
     ld   [0x34], y
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  1, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  2, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  3, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  4, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  5, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  6, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  7, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [0x33], ac
+    add  8, ac
     ld   ac, [0x33]
     bne  nw3
     ld   [0x34], ac
@@ -807,20 +793,21 @@ dadd:
     ; timer digits at 0x50 += addend digits at 0x50 + [doff], decimal
     clr  ac
     ld   ac, [0x41]
-    ld   0x50, x
+    ld   ac, [0x4F]
 dl:
+    ld   [0x4F], ac
+    add  0x50, x
     ld   [x], ac
     add  [0x41], ac
     ld   ac, [0x42]
-    ld   x, ac
+    ld   [0x4F], ac
     add  [0x40], ac
-    ld   ac, x
+    add  0x50, x
     ld   [x], ac
     add  [0x42], ac
     ld   ac, [0x42]
-    ld   x, ac
-    sub  [0x40], ac
-    ld   ac, x
+    ld   [0x4F], ac
+    add  0x50, x
     ld   [0x42], ac
     sub  10, ac
     blt  dlt
@@ -833,10 +820,10 @@ dlt:
     clr  ac
 dn:
     ld   ac, [0x41]
-    ld   x, ac
+    ld   [0x4F], ac
     inc
-    ld   ac, x
-    sub  0x59, ac
+    ld   ac, [0x4F]
+    sub  9, ac
     bne  dl
     ld   [0x46], y
     jmp  [0x45]
@@ -876,14 +863,12 @@ ret_32:
 #addr 0x0B00
 tclear:
     ; timer = 0, frame addend = 16800 us, step addend = 128 us
-    ld   0x50, x
+    ld   0x28, ac
 tcl:
+    add  0x50, x
     ld   0x00, [x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    sub  0x79, ac
-    bne  tcl
+    sub  1, ac
+    bcc  tcl
     ld   8, ac
     ld   ac, [0x62]
     ld   6, ac
@@ -934,28 +919,24 @@ pdn:
     ld   ac, [0x38]
 bnd:
     ld   [0x38], y
-    ld   0x08, x
+    ld   15, ac
 bndr:
+    add  0x08, x
     ld   0x00, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    sub  0x18, ac
-    bne  bndr
+    sub  1, ac
+    bcc  bndr
     ld   [0x38], ac
     add  2, ac
     ld   ac, [0x38]
     sub  0x01, ac
     bne  bnd
     ld   0x5B, y
-    ld   0x08, x
+    ld   15, ac
 bndm:
+    add  0x08, x
     ld   0x00, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    sub  0x18, ac
-    bne  bndm
+    sub  1, ac
+    bcc  bndm
     ld   tshow2 >> 8, y
     jmp  tshow2
 
@@ -1038,101 +1019,75 @@ gdraw:
     ld   ac, [0x4A]
     ld   [0x4D], ac
     ld   ac, [0x4B]
-    ld   [0x4A], x
+    ld   [0x4A], ac
+    add  0, x
     ld   [x], ac
     ld   ac, [0x38]
-    ld   [0x4B], x
+    ld   [0x4B], ac
+    add  0, x
     ld   [0x4C], y
     ld   [0x38], ac
     ld   ac, [y,x]
     ld   [0x4A], ac
-    inc
-    ld   ac, [0x4A]
-    ld   x, ac
-    inc
-    ld   ac, [0x4B]
-    ld   [0x4A], x
+    add  1, x
     ld   [x], ac
     ld   ac, [0x38]
-    ld   [0x4B], x
+    ld   [0x4B], ac
+    add  1, x
     ld   [0x4C], y
     ld   [0x38], ac
     ld   ac, [y,x]
     ld   [0x4A], ac
-    inc
-    ld   ac, [0x4A]
-    ld   x, ac
-    inc
-    ld   ac, [0x4B]
-    ld   [0x4A], x
+    add  2, x
     ld   [x], ac
     ld   ac, [0x38]
-    ld   [0x4B], x
+    ld   [0x4B], ac
+    add  2, x
     ld   [0x4C], y
     ld   [0x38], ac
     ld   ac, [y,x]
     ld   [0x4A], ac
-    inc
-    ld   ac, [0x4A]
-    ld   x, ac
-    inc
-    ld   ac, [0x4B]
-    ld   [0x4A], x
+    add  3, x
     ld   [x], ac
     ld   ac, [0x38]
-    ld   [0x4B], x
+    ld   [0x4B], ac
+    add  3, x
     ld   [0x4C], y
     ld   [0x38], ac
     ld   ac, [y,x]
     ld   [0x4A], ac
-    inc
-    ld   ac, [0x4A]
-    ld   x, ac
-    inc
-    ld   ac, [0x4B]
-    ld   [0x4A], x
+    add  4, x
     ld   [x], ac
     ld   ac, [0x38]
-    ld   [0x4B], x
+    ld   [0x4B], ac
+    add  4, x
     ld   [0x4C], y
     ld   [0x38], ac
     ld   ac, [y,x]
     ld   [0x4A], ac
-    inc
-    ld   ac, [0x4A]
-    ld   x, ac
-    inc
-    ld   ac, [0x4B]
-    ld   [0x4A], x
+    add  5, x
     ld   [x], ac
     ld   ac, [0x38]
-    ld   [0x4B], x
+    ld   [0x4B], ac
+    add  5, x
     ld   [0x4C], y
     ld   [0x38], ac
     ld   ac, [y,x]
     ld   [0x4A], ac
-    inc
-    ld   ac, [0x4A]
-    ld   x, ac
-    inc
-    ld   ac, [0x4B]
-    ld   [0x4A], x
+    add  6, x
     ld   [x], ac
     ld   ac, [0x38]
-    ld   [0x4B], x
+    ld   [0x4B], ac
+    add  6, x
     ld   [0x4C], y
     ld   [0x38], ac
     ld   ac, [y,x]
     ld   [0x4A], ac
-    inc
-    ld   ac, [0x4A]
-    ld   x, ac
-    inc
-    ld   ac, [0x4B]
-    ld   [0x4A], x
+    add  7, x
     ld   [x], ac
     ld   ac, [0x38]
-    ld   [0x4B], x
+    ld   [0x4B], ac
+    add  7, x
     ld   [0x4C], y
     ld   [0x38], ac
     ld   ac, [y,x]
