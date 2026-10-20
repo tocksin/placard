@@ -44,9 +44,10 @@ ATF22V10C datasheet link.
 
 `src/scripts/gen_kicad_parts.py` writes `lib/placard_parts.kicad_sym`, in
 the same style, for the parts KiCad's libraries do not have: the AS7C256C
-SRAM, the expansion and cartridge slots (2 x 20 card edge, contacts A1-A20
-and B1-B20 as in EXPANSION.md; the +5 V and GND contacts are stacked on one
-pin each), the SNES pad socket and the keyboard header (IO.md).  Make
+SRAM, the expansion slot (2 x 20 card edge, contacts A1-A20 and B1-B20)
+and the cartridge slot (Molex 87715-9106, 2 x 32 keyed, contacts A1-A32
+and B1-B32), as in EXPANSION.md, with the +5 V and GND contacts stacked on
+one pin each, the SNES pad socket and the keyboard header (IO.md).  Make
 changes in the script, since rerunning it overwrites the library.
 
 Everything else comes from KiCad's own libraries:
