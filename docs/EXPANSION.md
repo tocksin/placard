@@ -65,13 +65,18 @@ whose code hangs.
 
 An empty slot fails the "PLC" check: with nothing driving the read bus it
 reads FF from the pull-ups below, or, if the bus has not risen yet, the
-last byte on it, which is the scan's own `ld [y,x], ac` opcode (09).  A program can find cards later with the
+last byte on it, which is the scan's own `ld [y,x], ac` opcode (F4; the
+opcode byte is stored XOR FDh, CPU.md).  A program can find cards later with the
 library's `slot_id` (AC = slot 1-4 gives AC = card ID or 0, R1:R0 = base
 address).
 
-**Read bus pull-ups.**  D7:D0 get 10k pull-ups to +5 V on the main board
-(one 9-pin bussed 10k SIP network; not a chip, no PLD logic), so an empty
-slot or an unused I/O address reads FF rather than a floating level.  They
+**Read bus pull-ups.**  D7:D0 get 3.3k pull-ups to +5 V on the main board
+(one 9-pin bussed 3.3k SIP network; not a chip, no PLD logic), so an empty
+slot or an unused I/O address reads FF rather than a floating level.  The
+ROM cartridge also relies on them: while it loads, the CPU fetches the
+floating FFh as `ld ac, ac` (ROM.md).  They were 10k until 2026-10-20;
+3.3k lets the bus rise in about 0.5 µs, and is still within the 2.1 mA
+an AT28C256 EEPROM can sink.  They
 only set the level when nothing drives the bus and do not slow a driven
 read.  The simulator reads an empty slot as FF.
 
@@ -156,7 +161,8 @@ that, since the four slots share the main board's supply.
 ## ROM cartridge slot
 
 The ROM (two AS7C256C 32K x 8 SRAMs, loaded at power-up from two
-AT28C256 EEPROMs on the same cartridge, ROM.md "Loading the cartridge")
+AT28C256 EEPROMs on the same cartridge by a PLD, five chips in all, ROM.md
+"Loading the cartridge")
 is on a plug-in cartridge.  The cartridge gets the address and data
 lines and the same chip selects the ROM chips have on the main board.
 
@@ -193,7 +199,8 @@ lines and the same chip selects the ROM chips have on the main board.
   pull-up reads high.  Nothing reads it yet; with no ROM the CPU would
   start on an open bus, so the board needs a cartridge to start (a boot
   ROM on the main board is the alternative).
-- **The loader (2026-10-20)** needs five more signals that the table
+- **The loader (2026-10-20)** needs the 3.3k read bus pull-ups above
+  (the CPU fetches the floating FFh while it loads) and five more signals that the table
   above does not have yet (the pinout is being reworked for the new
   connector): OSC (the 25.175 MHz oscillator, before the clock gate, to
   the cartridge), HOLD (from the cartridge, pulled up on the main board),
@@ -205,9 +212,9 @@ lines and the same chip selects the ROM chips have on the main board.
 
 ## To check
 
-- **Empty slot reads.**  Through 10k the bus rises in about 0.5 us, much
-  longer than the read clock, so an empty slot really reads what the bus
-  held (the opcode 09) or something between.  Either fails the header
+- **Empty slot reads.**  Through 3.3k the bus rises in about 0.2-0.5 us,
+  much longer than the read clock, so an empty slot really reads what the
+  bus held (the opcode F4) or something between.  Either fails the header
   check; confirm on the board that an empty-slot boot skips all four slots.
 
 - **Glitches on /EXP.**  /EXP is decoded from the address only, and /WE

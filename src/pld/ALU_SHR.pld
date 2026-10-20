@@ -1,7 +1,7 @@
 Name     ALU4;
 PartNo   00;
-Date     10/15/2026;
-Revision 05;
+Date     10/20/2026;
+Revision 06;
 Designer ;
 Company  ;
 Assembly ;
@@ -97,9 +97,17 @@ PIN 6   = B1;
 PIN 7   = B2;
 PIN 8   = B3;
 
-PIN 9   = S0;
-PIN 10  = S1;
-PIN 11  = S2;
+/* REVISION 06 (2026-10-20): THE OPCODE BYTE IS STORED XOR FDh.
+   Instruction bits 7:2 and 0 are stored inverted, so FFh, the level of
+   the undriven (pulled-up) data bus, is ld ac, ac: the ROM cartridge
+   loader feeds it to the CPU without a buffer chip (docs/ROM.md).
+   Bit 1 is not inverted (it drives the D F541's /OE2 directly).  The
+   instruction-bit pins are declared active low here, so every equation
+   still uses the logical field values. */
+
+PIN 9   = !S0;
+PIN 10  = !S1;
+PIN 11  = !S2;
 
 PIN 13  = CIN;
 PIN 23  = SHIFT_RIGHT_IN;   /* input only, uses an I/O pin */

@@ -149,11 +149,14 @@ the address counter:
   (PIXEL_ENABLE low, /SRC_EN high; while loading this is always a FETCH)
   the address on the bus is the PC: the EEPROM drives its byte, the
   cartridge pulses the SRAM's /WE (the chip is picked by /CE_LO or
-  /CE_HI as usual), the EEPROM lets go, and a 74AC541 with its inputs
-  wired to 02h drives the opcode `ld ac, ac` for the CPU to fetch.  02h
-  is one byte, changes nothing (not even the carry), so the PC steps
-  through every address.  On any other clock (the EXEC of 02h, a video
-  read) the board gets the next edge at once.
+  /CE_HI as usual), the EEPROM lets go, and the data bus floats up to
+  FFh through the main board's 3.3k pull-ups.  The opcode byte is stored
+  XOR FDh ([CPU.md](CPU.md#opcode-byte)), so FFh is `ld ac, ac`: one
+  byte that changes nothing (not even the carry), so the PC steps
+  through every address.  No chip drives the feed byte (a 74AC541 wired
+  to 02h did until revision 02 of the cartridge PLD).  On any other
+  clock (the EXEC of `ld ac, ac`, a video read) the board gets the next
+  edge at once.
 - **Hand-off.**  When A15 goes from 1 to 0 between two CPU reads the PC
   has wrapped from xFFFF to x0000, and every address has been written
   (the I/O window's bytes too, which are not used).  The PLD raises RUN
@@ -161,11 +164,19 @@ the address counter:
   the SRAM.  The CPU starts at x0000 with the map clear, exactly as a
   power-up did before, and the boot below runs.
 
-A read takes 10 OSC cycles and any other clock 2, so the load takes
-about **33 ms** (32.7 ms in `src/sim/tb_cart_load.vhd`, which runs the
+A read takes 33 OSC cycles and any other clock 2, so the load takes
+about **93 ms** (92.6 ms in `src/sim/tb_cart_load.vhd`, which runs the
 real cartridge and memory control PLD equations against a timed model of
-the board and checks all 64K, the /WE timing, the PLD setup times and bus
-overlap).  The monitor loses sync for that time.
+the board and checks all 64K, the /WE timing, the PLD setup times, bus
+overlap and the time the bus takes to float up).  The monitor loses sync
+for that time.
+
+Most of a read is waiting for the bus to rise: the EEPROM lets go about
+8.4 OSC cycles in, and the CPU latches the opcode 24.6 cycles (0.97 µs)
+later.  Through 3.3k, with about 230 pF on the bus and the worst-case
+leakage of everything on it, the bus reaches 2.0 V in about 0.5 µs; the
+simulation passes with up to 0.95 µs.  3.3k is the lowest the AT28C256
+allows (it sinks 2.1 mA at 0.45 V, the pull-up takes 1.5 mA).
 
 Pins between the main board and the cartridge for the loader: OSC (to
 the cartridge), HOLD and RUN (from it), /SRC_EN and PIXEL_ENABLE (to

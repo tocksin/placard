@@ -103,7 +103,7 @@ LAYOUT = {
     ],
     "ATF22V10_CART": [
         (["OSC", None, "A15", "PIXEL_ENABLE", "SRC_EN"],
-         ["RELEASE", "RUN", None, "EE_OE", "SR_WE", "BUF_OE"]),
+         ["RELEASE", "RUN", None, "EE_OE", "SR_WE"]),
         (["nc"], []),
     ],
     "ATF22V10_PC_COUNTER8": [
