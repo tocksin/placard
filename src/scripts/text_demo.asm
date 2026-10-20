@@ -1,17 +1,19 @@
-; test_screen.asm - video test screen drawn by the CPU, with a live CPU test
+; text_demo.asm - text and color demo drawn by the CPU, with a live RAM test
 ;
-; Draws a test screen that uses all four color depths and the line repeat
-; modes, then keeps running and shows it on the screen:
+; Draws a screen that uses all four color depths and the line repeat modes,
+; then keeps running and shows it on the screen:
 ;
-;   rows   0-95   1 bpp, 1x   80 column text: title, the whole character set
-;                             (normal and inverse), the live status lines,
-;                             a column ruler and a legend for the bands below
+;   rows   0-95   1 bpp, 1x   80 column text (2 colors): title, the whole
+;                             character set (normal and inverse), the live
+;                             status lines, a column ruler and a legend
 ;   rows  96-223  4 bpp, 4x   16 colors (160 x 32): "16 COLORS" in big
 ;                             letters, the 16 color bars and a spinning wheel
 ;   rows 224-351  2 bpp, 2x   40 column text (320 x 64), 8 rows of 8 x 16
-;                             characters in the 4 colors, with a scrolling
-;                             message on the bottom row
-;   rows 352-479  8 bpp, 4x   all 256 colors (80 x 32), a 16 x 16 grid
+;                             characters in the 4 colors, with a message
+;                             scrolling a pixel a frame on the bottom row
+;   rows 352-479  8 bpp, 4x   256 colors (80 x 32): "256" in big digits, the
+;                             2 in shades of red, the 5 in blues and the 6 in
+;                             greens, and a turning rainbow ring
 ;
 ; The bands are placed so no two rows share a video byte (docs/VIDEO.md, line
 ; repeat): 1x rows 0-95 use offsets x020-x07F of each byte column, 4x rows
@@ -19,25 +21,29 @@
 ; 352-479 x183 + 4n.
 ;
 ; While it runs, once per frame (frame_poll):
-;   - RAM test: one 256-byte page of x0100-x1EFF and x4000-x4FFF (46 pages;
-;     x1F00-x1FFF holds the library's RAM code, LIB_RAM)
-;     per frame, 14 patterns each (00, FF, 55, AA, walking 1, and the
-;     address XOR a seed and its complement), write then read back.  The
-;     progress bar fills a block per page (an inverse E marks a page with
-;     errors); PASS counts full passes and ERRORS counts bad reads.
+;   - RAM test: one 256-byte page per frame of x0100-x1EFF, x2000-x4FFF,
+;     x5400-x59FF and x5C00-x5CFF (85 pages, 21.25 KB: all of the RAM below
+;     the video but the zero page, LIB_RAM at x1F00, the I/O window, the
+;     mode bytes and the audio buffer), 14 patterns each (00, FF, 55, AA,
+;     walking 1, and the address XOR a seed and its complement), write then
+;     read back.  The progress bar fills a block per two pages (an inverse
+;     E marks a pair with errors); PASS counts full passes and ERRORS counts
+;     failed checks (a pattern that read back wrong on a page).
 ;   - the frame counter, the uptime clock (60 frames = 1 s), the text
-;     spinner, the 16-color wheel (one step every 3 frames) and the
-;     scrolling message (one character every 8 frames).
+;     spinner, the 16-color wheel (one step every 3 frames), the scrolling
+;     message (one pixel a frame) and the 256-color ring (a step a frame).
+;   The busiest frame is about 182,000 clocks in placard_sim.
 ;
-; It is a ROM program (docs/ROM.md): it runs in place from ROM x6000, uses the
-; standard library (docs/LIBRARY.md) and the zero page map, and keeps its
-; variables in the zero page x20-x6F.
+; It is a ROM program (docs/ROM.md): it runs in place from ROM x6000-xAFFF,
+; uses the standard library (docs/LIBRARY.md) and the zero page map, and
+; keeps its variables in the zero page x20-x8A.  It doesn't use the ROM at
+; x2000-x3FFF, so it sets map 07 (section 1 reads RAM) to test that RAM too.
 ;
-;     python3 gen_test_screen_tables.py         (writes test_screen_tables.asm)
-;     python3 placard_sim.py test_screen.asm --run --max-steps 3000000 --png ts.png
-;     python3 test_screen_sim.py                (frames and an animated GIF)
+;     python3 gen_text_demo_tables.py         (writes text_demo_tables.asm)
+;     python3 placard_sim.py text_demo.asm --run --max-steps 3000000 --png td.png
+;     python3 text_demo_sim.py                (checks it; --gif for an animation)
 ;
-; Date: 10/19/2026
+; Date: 10/20/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -51,55 +57,74 @@ spin_ph    = 0x22       ; text spinner phase 0-3
 big_div    = 0x23       ; frames until the wheel steps
 big_ph     = 0x24       ; wheel phase 0-7 (the bright dot)
 sec_div    = 0x25       ; frames until the next second
-marq_div   = 0x26       ; frames until the message scrolls
-marq_lo    = 0x27       ; first character of the message window
+scr_q      = 0x26       ; scroller: pixel 0-7 in the first character
+marq_lo    = 0x27       ;   the message character in CH + 0
 marq_hi    = 0x28
 CLK        = 0x29       ; uptime "hhmmss", 6 ASCII digits x29-x2E
 FRM        = 0x2F       ; frame count, 5 ASCII digits x2F-x33
-rt_idx     = 0x34       ; RAM test: page number 0-46 in the pass
+rt_idx     = 0x34       ; RAM test: page number 0-84 in the pass
 rt_page    = 0x35       ;   page address high byte
 rt_pat     = 0x36       ;   pattern 0-13
-rt_am      = 0x37       ;   pattern address mask (00 or FF)
-rt_pv      = 0x38       ;   pattern value
-rt_bad     = 0x39       ;   1 when this page had an error
+wh_ph      = 0x37       ; 256-color ring: rainbow phase
+rt_pv      = 0x38       ; RAM test: pattern value
+rt_bad     = 0x39       ;   1 when this page pair had an error
 pass_lo    = 0x3A       ;   passes done
 pass_hi    = 0x3B
-err_lo     = 0x3C       ;   bad reads
+err_lo     = 0x3C       ;   failed checks
 err_hi     = 0x3D
 rt_i       = 0x3E       ;   byte in the page (X is not a source)
-dg_i       = 0x3F       ; ts_tick_frames / ts_tick_clock: digit being stepped
+dg_i       = 0x3F       ; td_tick_frames / td_tick_clock: digit being stepped
 
-p_col      = 0x40       ; ts_fill_run / ts_put_gbuf / ts_rect: first byte column
+p_col      = 0x40       ; td_fill_run / td_put_gbuf / td_rect: first byte column
 p_n        = 0x41       ;   bytes across
 p_rlo      = 0x42       ;   screen row 0-479
 p_rhi      = 0x43
 p_val      = 0x44       ;   fill byte
 p_hi       = 0x45       ;   (working address high byte)
-p_rows     = 0x46       ;   ts_rect: rows to fill
-p_step     = 0x47       ;   ts_rect: row step (the line repeat: 1, 2 or 4)
+p_rows     = 0x46       ;   td_rect: rows to fill
+p_step     = 0x47       ;   td_rect: row step (the line repeat: 1, 2 or 4)
 p_cnt      = 0x48       ;   (working count)
-gb0        = 0x49       ; ts_put_gbuf bytes 0-3
+gb0        = 0x49       ; td_put_gbuf bytes 0-3
 gb1        = 0x4A
 gb2        = 0x4B
 gb3        = 0x4C
-c_ch       = 0x4D       ; ts_char2 / ts_char4: character
+c_ch       = 0x4D       ; td_char2 / td_char4: character
 c_col      = 0x4E       ;   text column 0-39 (char2) or byte column (char4)
 c_row      = 0x4F       ;   text row 0-7 (char2) or block row 0-31 (char4)
 c_fr       = 0x50       ;   (font row)
 c_fg       = 0x51       ;   foreground fill XOR background fill
 c_bg       = 0x52       ;   background fill
-c_i        = 0x53       ; ts_puts4: character number
-s_attr     = 0x54       ; ts_put_str / ts_put_range: OR mask (80 = inverse)
-tp_lo      = 0x55       ; ts_tbl_next: table pointer
+c_i        = 0x53       ; td_puts4: character number
+s_attr     = 0x54       ; td_put_str / td_put_range: OR mask (80 = inverse)
+tp_lo      = 0x55       ; td_tbl_next: table pointer
 tp_hi      = 0x56
 tb_v       = 0x57
 i0         = 0x58       ; loop counters
 i1         = 0x59
-pz_n       = 0x5A       ; ts_print_zp: count
-pr_c       = 0x5B       ; ts_put_range: character
+pz_n       = 0x5A       ; td_print_zp: count
+pr_c       = 0x5B       ; td_put_range: character
 pr_n       = 0x5C       ;   count
 pr_inc     = 0x5D       ;   0 = repeat, 1 = count up
 dot_k      = 0x5E       ; wheel dot 0-7
+CH         = 0x5F       ; scroller: the 41 message characters on screen,
+                        ;   x5F-x87
+wh_k       = 0x88       ; 256-color ring: pixel
+wh_t       = 0x89       ;   its color
+wh_x       = 0x8A       ;   its row offset
+
+; td_scroll's working bytes share the drawing routines' bytes (x49-x53, x58),
+; which are only used while the screen is drawn
+sc_vy      = 0x49       ; video page of the even byte column
+sc_vo      = 0x4A       ;   of the odd byte column
+sc_vx      = 0x4B       ;   row offset of the font row
+sc_f0      = 0x4C       ;   font byte of this character
+sc_f1      = 0x4D       ;   of the next character
+sc_jp      = 0x4E       ;   CH address of the next character
+sc_fp      = 0x4F       ;   font page of the font row
+sc_tle     = 0x50       ;   table pages: even byte, this character (SL)
+sc_tre     = 0x51       ;     even byte, next character (SR)
+sc_tlo     = 0x52       ;     odd byte, this character
+sc_tro     = 0x53       ;     odd byte, next character
 
 ; screen places (80 column text)
 SPIN_COL   = 13         ; text spinner, row 6
@@ -108,18 +133,19 @@ FRM_COL    = 58         ; frame count, row 6
 PAGE_COL   = 37         ; RAM test page, row 7
 PASS_COL   = 47         ; RAM test passes, row 7
 ERR_COL    = 63         ; RAM test errors, row 7
-BAR_COL    = 11         ; progress bar, row 8
-NPAGES     = 46         ; RAM test pages per pass
-NPAT       = 14         ; RAM test patterns per page
+BAR_COL    = 11         ; progress bar, row 8, one cell per 2 pages
+NPAGES     = 85         ; RAM test pages per pass
+NBAR       = 43         ; progress bar cells
+NPAT       = 14         ; RAM test patterns per page (0-11 fixed values,
+NFIXED     = 12         ;   12-13 the address XOR a value)
+SC_X0      = 0x71       ; scroller: row offset of font row 0 (row 336, 2x)
 
 ; tables (ROM)
-EXP2_LO    = 0x9000     ; font expansion, test_screen_tables.asm
-EXP2_HI    = 0x9100
-EXP4_0     = 0x9200
-EXP4_1     = 0x9300
-EXP4_2     = 0x9400
-EXP4_3     = 0x9500
-TBL        = 0x9600     ; small tables, one page (see the end of this file)
+; text_demo_tables.asm (gen_text_demo_tables.py) has EXP2_LO-EXP4_3
+; (x9000-x95FF), the scroller tables (x9800-xA2FF), HUE (xA300), the ring
+; (xA400-xA6FF) and the unrolled RAM test routines (xA700-xAFFF)
+TBL        = 0x9600     ; small tables, one page each (see the end of
+TBL2       = 0x9700     ;   this file)
 
 ; ===========================================================================
 ; main: draw the screen, then run the frame loop
@@ -128,51 +154,55 @@ TBL        = 0x9600     ; small tables, one page (see the end of this file)
 main:
     ld   STACK_TOP, ac          ; stack first
     ld   ac, [SP]
+    ld   0x50, y                ; map 07: sections 0-2 read RAM, so the RAM
+    ld   0x07, [y,x]            ; test can use x2000-x3FFF too (this program
+    ld   0x07, ac               ; keeps all its code and tables at x6000 up)
+    ld   ac, [MAP_SHADOW]
 
     ld   LINK_LO, x             ; CALL con_clear: all 1 bpp 1x, cursor 0, 0
-    ld   ts_m1, [x]
+    ld   td_m1, [x]
     ld   LINK_HI, x
-    ld   ts_m1 >> 8, [x]
+    ld   td_m1 >> 8, [x]
     ld   con_clear >> 8, y
     jmp  con_clear
-ts_m1:
+td_m1:
     ; row mode bytes: rows 96-223 (x5A80-x5AFF) 4 bpp 4x = 0A,
     ; rows 224-351 (x5B00-x5B7F) 2 bpp 2x = 05, rows 352-479 (x5B80-x5BFF)
     ; 8 bpp 4x = 0B.  Rows 0-95 stay 1 bpp 1x (00).
     ld   0x5A, y
     ld   0x80, ac
-ts_mb1:
+td_mb1:
     ld   ac, x
     ld   0x0A, [y,x]
     inc
-    bne  ts_mb1
+    bne  td_mb1
     ld   0x5B, y
     clr  ac
-ts_mb2:
+td_mb2:
     ld   ac, x
     ld   0x05, [y,x]
     inc
-    blt  ts_mb2_b7
-    bra  ts_mb2
-ts_mb2_b7:
-ts_mb3:
+    blt  td_mb2_b7
+    bra  td_mb2
+td_mb2_b7:
+td_mb3:
     ld   ac, x
     ld   0x0B, [y,x]
     inc
-    bne  ts_mb3
+    bne  td_mb3
 
     ; ---- 80 column text -------------------------------------------------
     ld   text_a, ac             ; the text list
     ld   ac, [tp_lo]
     ld   text_a >> 8, ac
     ld   ac, [tp_hi]
-    ld   LINK_LO, x             ; CALL ts_text_list
-    ld   ts_m2, [x]
+    ld   LINK_LO, x             ; CALL td_text_list
+    ld   td_m2, [x]
     ld   LINK_HI, x
-    ld   ts_m2 >> 8, [x]
-    ld   ts_text_list >> 8, y
-    jmp  ts_text_list
-ts_m2:
+    ld   td_m2 >> 8, [x]
+    ld   td_text_list >> 8, y
+    jmp  td_text_list
+td_m2:
     ld   1, ac                  ; character set 20-6F on row 2
     ld   ac, [pr_inc]
     clr  ac
@@ -183,13 +213,13 @@ ts_m2:
     ld   80, ac
     ld   ac, [pr_n]
     ld   0x20, ac
-    ld   LINK_LO, x             ; CALL ts_put_range
-    ld   ts_m3, [x]
+    ld   LINK_LO, x             ; CALL td_put_range
+    ld   td_m3, [x]
     ld   LINK_HI, x
-    ld   ts_m3 >> 8, [x]
-    ld   ts_put_range >> 8, y
-    jmp  ts_put_range
-ts_m3:
+    ld   td_m3 >> 8, [x]
+    ld   td_put_range >> 8, y
+    jmp  td_put_range
+td_m3:
     clr  ac                     ; 70-7E on row 3
     ld   ac, [CUR_COL]
     ld   3, ac
@@ -197,13 +227,13 @@ ts_m3:
     ld   15, ac
     ld   ac, [pr_n]
     ld   0x70, ac
-    ld   LINK_LO, x             ; CALL ts_put_range
-    ld   ts_m4, [x]
+    ld   LINK_LO, x             ; CALL td_put_range
+    ld   td_m4, [x]
     ld   LINK_HI, x
-    ld   ts_m4 >> 8, [x]
-    ld   ts_put_range >> 8, y
-    jmp  ts_put_range
-ts_m4:
+    ld   td_m4 >> 8, [x]
+    ld   td_put_range >> 8, y
+    jmp  td_put_range
+td_m4:
     clr  ac                     ; 20-6F in inverse video on row 4
     ld   ac, [CUR_COL]
     ld   4, ac
@@ -213,30 +243,30 @@ ts_m4:
     ld   0x80, ac
     ld   ac, [s_attr]
     ld   0x20, ac
-    ld   LINK_LO, x             ; CALL ts_put_range
-    ld   ts_m5, [x]
+    ld   LINK_LO, x             ; CALL td_put_range
+    ld   td_m5, [x]
     ld   LINK_HI, x
-    ld   ts_m5 >> 8, [x]
-    ld   ts_put_range >> 8, y
-    jmp  ts_put_range
-ts_m5:
-    clr  ac                     ; progress bar: 46 dots
+    ld   td_m5 >> 8, [x]
+    ld   td_put_range >> 8, y
+    jmp  td_put_range
+td_m5:
+    clr  ac                     ; progress bar: 43 dots
     ld   ac, [pr_inc]
     ld   ac, [s_attr]
     ld   BAR_COL, ac
     ld   ac, [CUR_COL]
     ld   8, ac
     ld   ac, [CUR_ROW]
-    ld   NPAGES, ac
+    ld   NBAR, ac
     ld   ac, [pr_n]
     ld   0x2E, ac
-    ld   LINK_LO, x             ; CALL ts_put_range
-    ld   ts_m6, [x]
+    ld   LINK_LO, x             ; CALL td_put_range
+    ld   td_m6, [x]
     ld   LINK_HI, x
-    ld   ts_m6 >> 8, [x]
-    ld   ts_put_range >> 8, y
-    jmp  ts_put_range
-ts_m6:
+    ld   td_m6 >> 8, [x]
+    ld   td_put_range >> 8, y
+    jmp  td_put_range
+td_m6:
     ; ---- 16 colors: 4 bpp, 4x, rows 96-223 ------------------------------
     ld   s_16col, ac            ; "16 COLORS" in rainbow letters
     ld   ac, [R0]
@@ -247,22 +277,22 @@ ts_m6:
     clr  ac
     ld   ac, [c_row]
     ld   ac, [c_bg]
-    ld   LINK_LO, x             ; CALL ts_puts4
-    ld   ts_m7, [x]
+    ld   LINK_LO, x             ; CALL td_puts4
+    ld   td_m7, [x]
     ld   LINK_HI, x
-    ld   ts_m7 >> 8, [x]
-    ld   ts_puts4 >> 8, y
-    jmp  ts_puts4
-ts_m7:
-    ld   ts_bars >> 8, y
-    jmp  ts_bars
+    ld   td_m7 >> 8, [x]
+    ld   td_puts4 >> 8, y
+    jmp  td_puts4
+td_m7:
+    ld   td_bars >> 8, y
+    jmp  td_bars
 
 ; ---------------------------------------------------------------------------
 #addr 0x6200
-ts_bars:
+td_bars:
     clr  ac                     ; 16 color bars, 3 bytes (6 pixels) wide,
     ld   ac, [i0]               ; block rows 10-30
-ts_bb:
+td_bb:
     ld   [i0], ac               ; fill = color * x11
     shl
     shl
@@ -285,95 +315,135 @@ ts_bb:
     ld   ac, [p_rows]
     ld   4, ac
     ld   ac, [p_step]
-    ld   LINK_LO, x             ; CALL ts_rect
-    ld   ts_bb1, [x]
+    ld   LINK_LO, x             ; CALL td_rect
+    ld   td_bb1, [x]
     ld   LINK_HI, x
-    ld   ts_bb1 >> 8, [x]
-    ld   ts_rect >> 8, y
-    jmp  ts_rect
-ts_bb1:
+    ld   td_bb1 >> 8, [x]
+    ld   td_rect >> 8, y
+    jmp  td_rect
+td_bb1:
     ld   [i0], ac
     inc
     ld   ac, [i0]
     sub  16, ac
-    bne  ts_bb
+    bne  td_bb
 
     ; ---- 40 column text: 2 bpp, 2x, rows 224-351 ------------------------
     ld   text_c, ac
     ld   ac, [tp_lo]
     ld   text_c >> 8, ac
     ld   ac, [tp_hi]
-    ld   LINK_LO, x             ; CALL ts_text2_list
-    ld   ts_bb2, [x]
+    ld   LINK_LO, x             ; CALL td_text2_list
+    ld   td_bb2, [x]
     ld   LINK_HI, x
-    ld   ts_bb2 >> 8, [x]
-    ld   ts_text2_list >> 8, y
-    jmp  ts_text2_list
-ts_bb2:
-    ld   ts_grid >> 8, y
-    jmp  ts_grid
+    ld   td_bb2 >> 8, [x]
+    ld   td_text2_list >> 8, y
+    jmp  td_text2_list
+td_bb2:
+    ld   td_grid >> 8, y
+    jmp  td_grid
 
 ; ---------------------------------------------------------------------------
 #addr 0x6300
-ts_grid:
+td_grid:
     ; ---- 256 colors: 8 bpp, 4x, rows 352-479 ----------------------------
-    ; a 16 x 16 grid, each cell 5 bytes by 2 block rows (8 lines); the color
-    ; byte (G3 G2 G1 B3 B2 R3 R2 R1) is ROWPART[row] OR COLPART[column]
+    ; "256" in big digits on the left: each font pixel is 2 x 4 pixels
+    ; (16 x 16 screen pixels), the digits 14 pixels apart from byte column
+    ; 2, block rows 2-29.  Each font row of a digit gets the next shade of
+    ; its color (SHADES): the 2 in reds, the 5 in blues, the 6 in greens.
+    ; The ring on the right is drawn every frame (td_ring).
     clr  ac
-    ld   ac, [i0]               ; grid row
-ts_gr:
+    ld   ac, [i0]               ; digit
+td_g_d:
     clr  ac
-    ld   ac, [i1]               ; grid column
-ts_gc:
-    ld   TBL >> 8, y
-    ld   [i1], ac
-    add  COLPART & 0xFF, ac
-    ld   ac, x
-    ld   [y,x], ac
-    ld   ac, [p_val]
+    ld   ac, [i1]               ; font row
+td_g_r:
+    ld   TBL2 >> 8, y           ; character
     ld   [i0], ac
-    add  ROWPART & 0xFF, ac
+    add  DIGITS & 0xFF, ac
     ld   ac, x
     ld   [y,x], ac
-    or   [p_val], ac
-    ld   ac, [p_val]
-    ld   [i1], ac               ; byte column 5 * column
+    ld   ac, [c_ch]
+    ld   [i1], ac               ; font byte
+    add  LIB_FONT >> 8, ac
+    ld   ac, y
+    ld   [c_ch], x
+    ld   [y,x], ac
+    ld   ac, [c_fr]
+    ld   TBL2 >> 8, y           ; shade = SHADES[8 * digit + font row]
+    ld   [i0], ac
+    shl
     shl
     shl
     add  [i1], ac
+    add  SHADES & 0xFF, ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [p_val]
+    ld   [i0], ac               ; byte column 2 + 14 * digit = 16 d - 2 d + 2
+    shl
+    ld   ac, [c_col]
+    shl
+    shl
+    shl
+    sub  [c_col], ac
+    add  2, ac
+    ld   ac, [c_col]
+    clr  ac
+    ld   ac, [c_i]              ; font pixel 0-5
+td_g_b:
+    ld   [c_fr], ac
+    and  1, ac
+    beq  td_g_nb
+    ld   [c_col], ac
     ld   ac, [p_col]
-    ld   [i0], ac               ; row 352 + 8 * row = x100 + 96 + 8 * row
+    ld   [i1], ac               ; row 360 + 16 * font row = x168 + 16 r
     shl
     shl
     shl
-    add  96, ac
+    shl
+    add  0x68, ac
     ld   ac, [p_rlo]
     ld   1, ac
     ld   ac, [p_rhi]
-    ld   5, ac
-    ld   ac, [p_n]
     ld   2, ac
-    ld   ac, [p_rows]
+    ld   ac, [p_n]
     ld   4, ac
+    ld   ac, [p_rows]
     ld   ac, [p_step]
-    ld   LINK_LO, x             ; CALL ts_rect
-    ld   ts_gr1, [x]
+    ld   LINK_LO, x             ; CALL td_rect
+    ld   td_g_nb, [x]
     ld   LINK_HI, x
-    ld   ts_gr1 >> 8, [x]
-    ld   ts_rect >> 8, y
-    jmp  ts_rect
-ts_gr1:
-    ld   [i1], ac
+    ld   td_g_nb >> 8, [x]
+    ld   td_rect >> 8, y
+    jmp  td_rect
+td_g_nb:
+    ld   [c_fr], ac             ; next font pixel
+    shr  ac
+    ld   ac, [c_fr]
+    ld   [c_col], ac
+    add  2, ac
+    ld   ac, [c_col]
+    ld   [c_i], ac
+    inc
+    ld   ac, [c_i]
+    sub  6, ac
+    bne  td_g_b
+    ld   [i1], ac               ; next font row (rows 0-6; row 7 is blank)
     inc
     ld   ac, [i1]
-    sub  16, ac
-    bne  ts_gc
+    sub  7, ac
+    bne  td_g_r
     ld   [i0], ac
     inc
     ld   ac, [i0]
-    sub  16, ac
-    bne  ts_gr
+    sub  3, ac
+    bne  td_g_d
+    ld   td_vars >> 8, y
+    jmp  td_vars
 
+#addr 0x7500
+td_vars:
     ; ---- variables ----------------------------------------------------
     ld   0x30, ac               ; uptime 00:00:00, frame count 00000
     ld   ac, [CLK + 0]
@@ -390,62 +460,68 @@ ts_gr1:
     ld   1, ac                  ; every divider runs out on the first frame
     ld   ac, [spin_div]
     ld   ac, [big_div]
-    ld   ac, [marq_div]
     ld   60, ac
     ld   ac, [sec_div]
     clr  ac
     ld   ac, [spin_ph]
     ld   ac, [big_ph]
+    ld   ac, [wh_ph]
     ld   ac, [rt_idx]
     ld   ac, [pass_lo]
     ld   ac, [pass_hi]
     ld   ac, [err_lo]
     ld   ac, [err_hi]
-    ld   msg, ac
+    ld   msg, ac                ; the scroller starts at the message start;
+    ld   ac, [marq_lo]          ; the first frame steps scr_q from 7 to 0
+    ld   msg >> 8, ac           ; and moves on one character, so start one
+    ld   ac, [marq_hi]          ; character before it (the end of the
+    ld   7, ac                  ; message wraps to the start)
+    ld   ac, [scr_q]
+    ld   (msg_end - 1) & 0xFF, ac
     ld   ac, [marq_lo]
-    ld   msg >> 8, ac
+    ld   (msg_end - 1) >> 8, ac
     ld   ac, [marq_hi]
     ld   [FRAME_LO], ac
     ld   ac, [last_frame]
-    ld   ts_loop >> 8, y
-    jmp  ts_loop
+    ld   td_loop >> 8, y
+    jmp  td_loop
 
 ; ===========================================================================
 ; the frame loop
 ; ===========================================================================
 #addr 0x6400
-ts_loop:
+td_loop:
     ld   LINK_LO, x             ; CALL frame_poll
-    ld   ts_l1, [x]
+    ld   td_l1, [x]
     ld   LINK_HI, x
-    ld   ts_l1 >> 8, [x]
+    ld   td_l1 >> 8, [x]
     ld   frame_poll >> 8, y
     jmp  frame_poll
-ts_l1:
+td_l1:
     ld   [FRAME_LO], ac         ; wait for a new frame
     xor  [last_frame], ac
-    beq  ts_loop
+    beq  td_loop
     ld   [FRAME_LO], ac
     ld   ac, [last_frame]
 
-    ld   LINK_LO, x             ; CALL ts_ram_page: test one page
-    ld   ts_l2, [x]
+    ld   LINK_LO, x             ; CALL td_ram_page: test one page
+    ld   td_l2, [x]
     ld   LINK_HI, x
-    ld   ts_l2 >> 8, [x]
-    ld   ts_ram_page >> 8, y
-    jmp  ts_ram_page
-ts_l2:
-    ld   LINK_LO, x             ; CALL ts_tick_frames
-    ld   ts_l3, [x]
+    ld   td_l2 >> 8, [x]
+    ld   td_ram_page >> 8, y
+    jmp  td_ram_page
+td_l2:
+    ld   LINK_LO, x             ; CALL td_tick_frames
+    ld   td_l3, [x]
     ld   LINK_HI, x
-    ld   ts_l3 >> 8, [x]
-    ld   ts_tick_frames >> 8, y
-    jmp  ts_tick_frames
-ts_l3:
+    ld   td_l3 >> 8, [x]
+    ld   td_tick_frames >> 8, y
+    jmp  td_tick_frames
+td_l3:
     ld   [spin_div], ac         ; text spinner every 4 frames
     dec
     ld   ac, [spin_div]
-    bne  ts_l4
+    bne  td_l4
     ld   4, ac
     ld   ac, [spin_div]
     ld   [spin_ph], ac
@@ -463,68 +539,73 @@ ts_l3:
     ld   ac, [CUR_ROW]
     ld   [tb_v], ac
     ld   LINK_LO, x             ; CALL con_putc
-    ld   ts_l4, [x]
+    ld   td_l4, [x]
     ld   LINK_HI, x
-    ld   ts_l4 >> 8, [x]
+    ld   td_l4 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-ts_l4:
+td_l4:
     ld   [big_div], ac          ; wheel every 3 frames
     dec
     ld   ac, [big_div]
-    bne  ts_l5
+    bne  td_l5
     ld   3, ac
     ld   ac, [big_div]
     ld   [big_ph], ac
     inc
     and  7, ac
     ld   ac, [big_ph]
-    ld   LINK_LO, x             ; CALL ts_wheel
-    ld   ts_l5, [x]
+    ld   LINK_LO, x             ; CALL td_wheel
+    ld   td_l5, [x]
     ld   LINK_HI, x
-    ld   ts_l5 >> 8, [x]
-    ld   ts_wheel >> 8, y
-    jmp  ts_wheel
-ts_l5:
+    ld   td_l5 >> 8, [x]
+    ld   td_wheel >> 8, y
+    jmp  td_wheel
+td_l5:
     ld   [sec_div], ac          ; uptime clock every 60 frames
     dec
     ld   ac, [sec_div]
-    bne  ts_l6
+    bne  td_l6
     ld   60, ac
     ld   ac, [sec_div]
-    ld   LINK_LO, x             ; CALL ts_tick_clock
-    ld   ts_l6, [x]
+    ld   LINK_LO, x             ; CALL td_tick_clock
+    ld   td_l6, [x]
     ld   LINK_HI, x
-    ld   ts_l6 >> 8, [x]
-    ld   ts_tick_clock >> 8, y
-    jmp  ts_tick_clock
-ts_l6:
-    ld   [marq_div], ac         ; message every 8 frames
-    dec
-    ld   ac, [marq_div]
-    bne  ts_l7
-    ld   8, ac
-    ld   ac, [marq_div]
-    ld   LINK_LO, x             ; CALL ts_marquee
-    ld   ts_l7, [x]
+    ld   td_l6 >> 8, [x]
+    ld   td_tick_clock >> 8, y
+    jmp  td_tick_clock
+td_l6:
+    ld   LINK_LO, x             ; CALL td_scroll: the message, one pixel
+    ld   td_l7, [x]             ; a frame
     ld   LINK_HI, x
-    ld   ts_l7 >> 8, [x]
-    ld   ts_marquee >> 8, y
-    jmp  ts_marquee
-ts_l7:
-    ld   ts_loop >> 8, y
-    jmp  ts_loop
+    ld   td_l7 >> 8, [x]
+    ld   td_scroll >> 8, y
+    jmp  td_scroll
+td_l7:
+    ld   LINK_LO, x             ; CALL td_ring: the 256-color ring, one
+    ld   td_l8, [x]             ; step a frame
+    ld   LINK_HI, x
+    ld   td_l8 >> 8, [x]
+    ld   td_ring >> 8, y
+    jmp  td_ring
+td_l8:
+    ld   td_loop >> 8, y
+    jmp  td_loop
 
 ; ===========================================================================
-; ts_ram_page - test one page of the RAM test and show the result
+; td_ram_page - test one page of the RAM test and show the result
 ;   Writes each of the NPAT patterns to the whole page and reads it back.
-;   Fixed patterns are PAT_P; address patterns (PAT_AM = FF) are the low
-;   address byte XOR PAT_P XOR (pass_lo XOR page), so they change every
-;   pass.  Then marks the progress bar, shows the page, PASS and ERRORS,
-;   and moves on to the next page.
+;   Patterns 0-11 are fixed values (PAT_P): rt_wconst writes the value,
+;   and the page is right when the OR of all its bytes and the AND of all
+;   its bytes are both the value (rt_or, rt_and, unrolled in
+;   text_demo_tables.asm).  Patterns 12-13 are the low address byte XOR
+;   PAT_P XOR (pass_lo XOR page), so they change every pass, written and
+;   read back byte by byte.  A pattern that reads back wrong counts one
+;   ERROR.  Then marks the progress bar (one cell per two pages), shows the
+;   page, PASS and ERRORS, and moves on to the next page.
 ; ===========================================================================
 #addr 0x6600
-ts_ram_page:
+td_ram_page:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -541,97 +622,132 @@ ts_ram_page:
     ld   [rt_idx], ac           ; page = PAGES[rt_idx]
     add  PAGES & 0xFF, ac
     ld   ac, x
-    ld   TBL >> 8, y
+    ld   TBL2 >> 8, y
     ld   [y,x], ac
     ld   ac, [rt_page]
-    clr  ac
+    ld   [rt_idx], ac           ; a new bar cell on an even page
+    and  1, ac
+    bne  td_rp_odd
     ld   ac, [rt_bad]
+td_rp_odd:
+    clr  ac
     ld   ac, [rt_pat]
-ts_rp_pat:
-    ld   TBL >> 8, y            ; rt_am = PAT_AM[rt_pat]
-    ld   [rt_pat], ac
-    add  PAT_AM & 0xFF, ac
-    ld   ac, x
-    ld   [y,x], ac
-    ld   ac, [rt_am]
-    ld   [pass_lo], ac          ; rt_pv = PAT_P[rt_pat] ^ (am & (pass ^ page))
-    xor  [rt_page], ac
-    and  [rt_am], ac
-    ld   ac, [rt_pv]
+td_rp_pat:
+    ld   TBL >> 8, y            ; rt_pv = PAT_P[rt_pat]
     ld   [rt_pat], ac
     add  PAT_P & 0xFF, ac
     ld   ac, x
     ld   [y,x], ac
+    ld   ac, [rt_pv]
+    ld   [rt_pat], ac
+    sub  NFIXED, ac
+    bcs  td_rp_fixed            ; a borrow: a fixed value
+    ld   [pass_lo], ac          ; rt_pv ^= pass ^ page
+    xor  [rt_page], ac
     xor  [rt_pv], ac
     ld   ac, [rt_pv]
     ld   [rt_page], y
     clr  ac
-ts_rp_wr:                       ; AC = rt_i = the byte in the page
-    ld   ac, x                  ; [page, X] = (X & am) ^ pv
+td_rp_wr:                       ; AC = rt_i = the byte in the page
+    ld   ac, x                  ; [page, X] = X ^ pv
     ld   ac, [rt_i]
-    and  [rt_am], ac
     xor  [rt_pv], ac
     ld   ac, [y,x]
     ld   [rt_i], ac
     inc
-    bne  ts_rp_wr
-ts_rp_vf:
+    bne  td_rp_wr
+td_rp_vf:
     ld   ac, x                  ; read it back
     ld   ac, [rt_i]
-    and  [rt_am], ac
     xor  [rt_pv], ac
     xor  [y,x], ac
-    beq  ts_rp_ok
-    ld   1, ac                  ; bad read
+    bne  td_rp_bad
+    ld   [rt_i], ac
+    inc
+    bne  td_rp_vf
+    bra  td_rp_next
+td_rp_fixed:
+    ld   [rt_pv], ac            ; write the value
+    ld   LINK_LO, x             ; CALL rt_wconst
+    ld   td_rp_f1, [x]
+    ld   LINK_HI, x
+    ld   td_rp_f1 >> 8, [x]
+    ld   rt_wconst >> 8, y
+    jmp  rt_wconst
+td_rp_f1:
+    clr  ac                     ; OR of the page
+    ld   LINK_LO, x             ; CALL rt_or
+    ld   td_rp_f2, [x]
+    ld   LINK_HI, x
+    ld   td_rp_f2 >> 8, [x]
+    ld   rt_or >> 8, y
+    jmp  rt_or
+td_rp_f2:
+    xor  [rt_pv], ac
+    bne  td_rp_bad
+    ld   0xFF, ac               ; AND of the page
+    ld   LINK_LO, x             ; CALL rt_and
+    ld   td_rp_f3, [x]
+    ld   LINK_HI, x
+    ld   td_rp_f3 >> 8, [x]
+    ld   rt_and >> 8, y
+    jmp  rt_and
+td_rp_f3:
+    xor  [rt_pv], ac
+    beq  td_rp_next
+td_rp_bad:
+    ld   1, ac                  ; a failed check
     ld   ac, [rt_bad]
     ld   [err_lo], ac
     inc
     ld   ac, [err_lo]
-    bne  ts_rp_ok
+    bne  td_rp_next
     ld   [err_hi], ac
     inc
     ld   ac, [err_hi]
-ts_rp_ok:
-    ld   [rt_i], ac
-    inc
-    bne  ts_rp_vf
+td_rp_next:
     ld   [rt_pat], ac
     inc
     ld   ac, [rt_pat]
     sub  NPAT, ac
-    bne  ts_rp_pat
+    bne  td_rp_pat
+    ld   td_rp_show >> 8, y
+    jmp  td_rp_show
 
+#addr 0x6700
+td_rp_show:
     ld   [rt_idx], ac           ; progress bar cell: block, or inverse E
+    shr  ac
     add  BAR_COL, ac
     ld   ac, [CUR_COL]
     ld   8, ac
     ld   ac, [CUR_ROW]
     ld   [rt_bad], ac
-    beq  ts_rp_blk
+    beq  td_rp_blk
     ld   0xC5, ac
-    bra  ts_rp_put
-ts_rp_blk:
+    bra  td_rp_put
+td_rp_blk:
     ld   0xA0, ac
-ts_rp_put:
+td_rp_put:
     ld   LINK_LO, x             ; CALL con_putc
-    ld   ts_rp1, [x]
+    ld   td_rp1, [x]
     ld   LINK_HI, x
-    ld   ts_rp1 >> 8, [x]
+    ld   td_rp1 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-ts_rp1:
+td_rp1:
     ld   PAGE_COL, ac           ; page address
     ld   ac, [CUR_COL]
     ld   7, ac
     ld   ac, [CUR_ROW]
     ld   [rt_page], ac
     ld   LINK_LO, x             ; CALL con_hex8
-    ld   ts_rp2, [x]
+    ld   td_rp2, [x]
     ld   LINK_HI, x
-    ld   ts_rp2 >> 8, [x]
+    ld   td_rp2 >> 8, [x]
     ld   con_hex8 >> 8, y
     jmp  con_hex8
-ts_rp2:
+td_rp2:
     ld   ERR_COL, ac            ; errors
     ld   ac, [CUR_COL]
     ld   [err_lo], ac
@@ -639,35 +755,34 @@ ts_rp2:
     ld   [err_hi], ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_dec16
-    ld   ts_rp3, [x]
+    ld   td_rp3, [x]
     ld   LINK_HI, x
-    ld   ts_rp3 >> 8, [x]
+    ld   td_rp3 >> 8, [x]
     ld   con_dec16 >> 8, y
     jmp  con_dec16
-ts_rp3:
+td_rp3:
     ld   [rt_idx], ac           ; next page
     inc
     ld   ac, [rt_idx]
     sub  NPAGES, ac
-    bne  ts_rp_more
-    ld   ts_rp_pass >> 8, y
-    jmp  ts_rp_pass
-ts_rp_more:
+    bne  td_rp_more
+    ld   td_rp_pass >> 8, y
+    jmp  td_rp_pass
+td_rp_more:
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
-#addr 0x6700
-ts_rp_pass:
+td_rp_pass:
     clr  ac                     ; end of a pass: back to the first page
     ld   ac, [rt_idx]
     ld   [pass_lo], ac
     inc
     ld   ac, [pass_lo]
-    bne  ts_rp_p1
+    bne  td_rp_p1
     ld   [pass_hi], ac
     inc
     ld   ac, [pass_hi]
-ts_rp_p1:
+td_rp_p1:
     ld   PASS_COL, ac           ; passes
     ld   ac, [CUR_COL]
     ld   [pass_lo], ac
@@ -675,12 +790,12 @@ ts_rp_p1:
     ld   [pass_hi], ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_dec16
-    ld   ts_rp4, [x]
+    ld   td_rp4, [x]
     ld   LINK_HI, x
-    ld   ts_rp4 >> 8, [x]
+    ld   td_rp4 >> 8, [x]
     ld   con_dec16 >> 8, y
     jmp  con_dec16
-ts_rp4:
+td_rp4:
     clr  ac                     ; progress bar back to dots
     ld   ac, [pr_inc]
     ld   ac, [s_attr]
@@ -688,25 +803,25 @@ ts_rp4:
     ld   ac, [CUR_COL]
     ld   8, ac
     ld   ac, [CUR_ROW]
-    ld   NPAGES, ac
+    ld   NBAR, ac
     ld   ac, [pr_n]
     ld   0x2E, ac
-    ld   LINK_LO, x             ; CALL ts_put_range
-    ld   ts_rp5, [x]
+    ld   LINK_LO, x             ; CALL td_put_range
+    ld   td_rp5, [x]
     ld   LINK_HI, x
-    ld   ts_rp5 >> 8, [x]
-    ld   ts_put_range >> 8, y
-    jmp  ts_put_range
-ts_rp5:
+    ld   td_rp5 >> 8, [x]
+    ld   td_put_range >> 8, y
+    jmp  td_put_range
+td_rp5:
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ===========================================================================
-; ts_tick_frames - add one to the frame count and show it
-; ts_tick_clock  - add one second to the uptime clock and show it
+; td_tick_frames - add one to the frame count and show it
+; td_tick_clock  - add one second to the uptime clock and show it
 ; ===========================================================================
 #addr 0x6800
-ts_tick_frames:
+td_tick_frames:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -720,19 +835,19 @@ ts_tick_frames:
     ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   4, ac                  ; last digit first
-ts_tf_d:
+td_tf_d:
     ld   ac, [dg_i]
     add  FRM, x                 ; X = FRM + digit
     ld   [x], ac
     inc
     ld   ac, [x]
     sub  0x3A, ac
-    bne  ts_tf_show
+    bne  td_tf_show
     ld   0x30, [x]              ; 9 + 1: 0 and carry
     ld   [dg_i], ac
     sub  1, ac
-    bcc  ts_tf_d                ; a borrow: it was the first digit
-ts_tf_show:
+    bcc  td_tf_d                ; a borrow: it was the first digit
+td_tf_show:
     ld   FRM_COL, ac
     ld   ac, [CUR_COL]
     ld   6, ac
@@ -741,17 +856,17 @@ ts_tf_show:
     ld   ac, [R0]
     ld   5, ac
     ld   ac, [pz_n]
-    ld   LINK_LO, x             ; CALL ts_print_zp
-    ld   ts_tf1, [x]
+    ld   LINK_LO, x             ; CALL td_print_zp
+    ld   td_tf1, [x]
     ld   LINK_HI, x
-    ld   ts_tf1 >> 8, [x]
-    ld   ts_print_zp >> 8, y
-    jmp  ts_print_zp
-ts_tf1:
+    ld   td_tf1 >> 8, [x]
+    ld   td_print_zp >> 8, y
+    jmp  td_print_zp
+td_tf1:
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
-ts_tick_clock:
+td_tick_clock:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -766,19 +881,19 @@ ts_tick_clock:
     ld   [SAVE_AC], ac
     ld   TBL >> 8, y            ; TBL + x29.. holds each digit's limit
     ld   5, ac                  ; seconds digit first
-ts_tc_d:
+td_tc_d:
     ld   ac, [dg_i]
     add  CLK, x                 ; X = CLK + digit
     ld   [x], ac
     inc
     ld   ac, [x]
     xor  [y,x], ac
-    bne  ts_tc_show
+    bne  td_tc_show
     ld   0x30, [x]              ; at its limit: 0 and carry
     ld   [dg_i], ac
     sub  1, ac
-    bcc  ts_tc_d                ; a borrow: it was the first digit
-ts_tc_show:
+    bcc  td_tc_d                ; a borrow: it was the first digit
+td_tc_show:
     ld   CLK_COL, ac            ; hh
     ld   ac, [CUR_COL]
     ld   6, ac
@@ -787,50 +902,50 @@ ts_tc_show:
     ld   ac, [R0]
     ld   2, ac
     ld   ac, [pz_n]
-    ld   LINK_LO, x             ; CALL ts_print_zp
-    ld   ts_tc1, [x]
+    ld   LINK_LO, x             ; CALL td_print_zp
+    ld   td_tc1, [x]
     ld   LINK_HI, x
-    ld   ts_tc1 >> 8, [x]
-    ld   ts_print_zp >> 8, y
-    jmp  ts_print_zp
-ts_tc1:
+    ld   td_tc1 >> 8, [x]
+    ld   td_print_zp >> 8, y
+    jmp  td_print_zp
+td_tc1:
     ld   CLK_COL + 3, ac        ; mm
     ld   ac, [CUR_COL]
     ld   CLK + 2, ac
     ld   ac, [R0]
     ld   2, ac
     ld   ac, [pz_n]
-    ld   LINK_LO, x             ; CALL ts_print_zp
-    ld   ts_tc2, [x]
+    ld   LINK_LO, x             ; CALL td_print_zp
+    ld   td_tc2, [x]
     ld   LINK_HI, x
-    ld   ts_tc2 >> 8, [x]
-    ld   ts_print_zp >> 8, y
-    jmp  ts_print_zp
-ts_tc2:
+    ld   td_tc2 >> 8, [x]
+    ld   td_print_zp >> 8, y
+    jmp  td_print_zp
+td_tc2:
     ld   CLK_COL + 6, ac        ; ss
     ld   ac, [CUR_COL]
     ld   CLK + 4, ac
     ld   ac, [R0]
     ld   2, ac
     ld   ac, [pz_n]
-    ld   LINK_LO, x             ; CALL ts_print_zp
-    ld   ts_tc3, [x]
+    ld   LINK_LO, x             ; CALL td_print_zp
+    ld   td_tc3, [x]
     ld   LINK_HI, x
-    ld   ts_tc3 >> 8, [x]
-    ld   ts_print_zp >> 8, y
-    jmp  ts_print_zp
-ts_tc3:
+    ld   td_tc3 >> 8, [x]
+    ld   td_print_zp >> 8, y
+    jmp  td_print_zp
+td_tc3:
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ===========================================================================
-; ts_wheel - draw the 16-color wheel for phase big_ph
+; td_wheel - draw the 16-color wheel for phase big_ph
 ;   Eight 4 x 4 pixel dots on a circle in the 4 bpp band; dot k gets color
 ;   TAIL[(big_ph - k) & 7], so the white dot leads a fading tail and the
 ;   wheel turns clockwise as big_ph counts up.
 ; ===========================================================================
 #addr 0x6A00
-ts_wheel:
+td_wheel:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -845,7 +960,7 @@ ts_wheel:
     ld   [SAVE_AC], ac
     clr  ac
     ld   ac, [dot_k]
-ts_wh_dot:
+td_wh_dot:
     ld   TBL >> 8, y
     ld   [big_ph], ac           ; color
     sub  [dot_k], ac
@@ -871,28 +986,33 @@ ts_wh_dot:
     ld   4, ac
     ld   ac, [p_rows]
     ld   ac, [p_step]
-    ld   LINK_LO, x             ; CALL ts_rect
-    ld   ts_wh1, [x]
+    ld   LINK_LO, x             ; CALL td_rect
+    ld   td_wh1, [x]
     ld   LINK_HI, x
-    ld   ts_wh1 >> 8, [x]
-    ld   ts_rect >> 8, y
-    jmp  ts_rect
-ts_wh1:
+    ld   td_wh1 >> 8, [x]
+    ld   td_rect >> 8, y
+    jmp  td_rect
+td_wh1:
     ld   [dot_k], ac
     inc
     ld   ac, [dot_k]
     sub  8, ac
-    bne  ts_wh_dot
+    bne  td_wh_dot
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ===========================================================================
-; ts_marquee - draw 40 characters of the message on text row 7 of the
-;   40 column band, starting at marq_hi:marq_lo, then move the start on by
-;   one character (wrapping at the 00 at the end of the message)
+; td_scroll - the message on text row 7 of the 40 column band (rows
+;   336-351), moved one pixel left each frame
+;   scr_q is the pixel (0-7) of the first character, CH + 0 that the left
+;   edge shows; CH holds the 41 characters on the screen (40 and the one
+;   coming in).  Each font row of each character pair f0 f1 makes two
+;   bytes: pixels q to q+3 and q+4 to q+7 of the 16, from the tables
+;   SL_p[f0] OR SR_p[f1] (text_demo_tables.asm), as gold on blue.  At 8
+;   pixels the window moves on one character (td_fill_ch).
 ; ===========================================================================
 #addr 0x6B00
-ts_marquee:
+td_scroll:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -905,82 +1025,210 @@ ts_marquee:
     ld   [LINK_LO], ac
     ld   ac, [x]
     ld   [SAVE_AC], ac
-    ld   [marq_lo], ac
-    ld   ac, [R0]
-    ld   [marq_hi], ac
-    ld   ac, [R1]
-    clr  ac
-    ld   ac, [c_col]
-    ld   7, ac
-    ld   ac, [c_row]
-    ld   0xFF, ac               ; gold (AA) on blue (55)
-    ld   ac, [c_fg]
-    ld   0x55, ac
-    ld   ac, [c_bg]
-ts_mq_ch:
-    ld   [R1], y
-    ld   [R0], x
-    ld   [y,x], ac
-    bne  ts_mq_put
-    ld   msg, ac                ; end of the message: wrap
-    ld   ac, [R0]
-    ld   msg >> 8, ac
-    ld   ac, [R1]
-    bra  ts_mq_ch
-ts_mq_put:
-    ld   ac, [c_ch]
-    ld   LINK_LO, x             ; CALL ts_char2
-    ld   ts_mq1, [x]
-    ld   LINK_HI, x
-    ld   ts_mq1 >> 8, [x]
-    ld   ts_char2 >> 8, y
-    jmp  ts_char2
-ts_mq1:
-    ld   [R0], ac
+    ld   [scr_q], ac            ; next pixel
     inc
-    ld   ac, [R0]
-    bne  ts_mq2
-    ld   [R1], ac
-    inc
-    ld   ac, [R1]
-ts_mq2:
-    ld   [c_col], ac
-    inc
-    ld   ac, [c_col]
-    sub  40, ac
-    bne  ts_mq_ch
-    ld   [marq_hi], y           ; move the start on
-    ld   [marq_lo], ac
+    and  7, ac
+    ld   ac, [scr_q]
+    bne  td_sc_pages
+    ld   [marq_hi], y           ; next character: move the start on,
+    ld   [marq_lo], ac          ; wrapping at the 00 at the end
     inc
     ld   ac, [marq_lo]
-    bne  ts_mq3
+    bne  td_sc_1
     ld   [marq_hi], ac
     inc
     ld   ac, [marq_hi]
     ld   ac, y
-ts_mq3:
+td_sc_1:
     ld   [marq_lo], x
     ld   [y,x], ac
-    bne  ts_mq4
+    bne  td_sc_2
     ld   msg, ac
     ld   ac, [marq_lo]
     ld   msg >> 8, ac
     ld   ac, [marq_hi]
-ts_mq4:
+td_sc_2:
+    ld   LINK_LO, x             ; CALL td_fill_ch
+    ld   td_sc_pages, [x]
+    ld   LINK_HI, x
+    ld   td_sc_pages >> 8, [x]
+    ld   td_fill_ch >> 8, y
+    jmp  td_fill_ch
+td_sc_pages:
+    ld   SC_LPAGE >> 8, y       ; the table pages for p = q and q + 4
+    ld   [scr_q], ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [sc_tle]
+    ld   [scr_q], ac
+    add  0x10, x                ; SC_RPAGE = SC_LPAGE + x10
+    ld   [y,x], ac
+    ld   ac, [sc_tre]
+    ld   [scr_q], ac
+    add  4, x
+    ld   [y,x], ac
+    ld   ac, [sc_tlo]
+    ld   [scr_q], ac
+    add  0x14, x
+    ld   [y,x], ac
+    ld   ac, [sc_tro]
+    ld   LIB_FONT >> 8, ac      ; font row 0
+    ld   ac, [sc_fp]
+    ld   SC_X0, ac
+    ld   ac, [sc_vx]
+td_sc_row:
+    ld   0x61, ac               ; byte columns 0 and 1 (2x rows: odd pages)
+    ld   ac, [sc_vy]
+    ld   0x63, ac
+    ld   ac, [sc_vo]
+    ld   [CH], x                ; f0 = the first character's font byte
+    ld   [sc_fp], y
+    ld   [y,x], ac
+    ld   ac, [sc_f0]
+    ld   CH + 1, ac
+    ld   ac, [sc_jp]
+td_sc_ch:
+    ld   [sc_jp], x             ; f1 = the next character's font byte
+    ld   [x], ac
+    ld   ac, x
+    ld   [sc_fp], y
+    ld   [y,x], ac
+    ld   ac, [sc_f1]
+    ld   ac, x                  ; even byte: SR[f1] OR SL[f0]
+    ld   [sc_tre], y
+    ld   [y,x], ac
+    ld   [sc_f0], x
+    ld   [sc_tle], y
+    or   [y,x], ac
+    xor  0x55, ac               ; mask AND (gold XOR blue = FF) XOR blue
+    ld   [sc_vy], y
+    ld   [sc_vx], x
+    ld   ac, [y,x]
+    ld   [sc_f1], x             ; odd byte
+    ld   [sc_tro], y
+    ld   [y,x], ac
+    ld   [sc_f0], x
+    ld   [sc_tlo], y
+    or   [y,x], ac
+    xor  0x55, ac
+    ld   [sc_vo], y
+    ld   [sc_vx], x
+    ld   ac, [y,x]
+    ld   [sc_vy], ac            ; two byte columns on: 4 pages
+    add  4, ac
+    ld   ac, [sc_vy]
+    add  2, ac
+    ld   ac, [sc_vo]
+    ld   [sc_f1], ac            ; the next character
+    ld   ac, [sc_f0]
+    ld   [sc_jp], ac
+    inc
+    ld   ac, [sc_jp]
+    sub  CH + 41, ac
+    bne  td_sc_ch
+    ld   [sc_fp], ac            ; next font row: the next font page and
+    inc                         ; the next 2x row pair
+    ld   ac, [sc_fp]
+    ld   [sc_vx], ac
+    add  2, ac
+    ld   ac, [sc_vx]
+    sub  SC_X0 + 16, ac
+    bne  td_sc_row
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
+
+; ---------------------------------------------------------------------------
+; td_fill_ch - copy the 41 message characters from marq_hi:marq_lo to CH,
+;   wrapping at the 00 at the end of the message
+;   (a leaf routine; changes AC, X, Y, R0, R1, T2)
+; ---------------------------------------------------------------------------
+#addr 0x7600
+td_fill_ch:
+    ld   [marq_lo], ac
+    ld   ac, [R0]
+    ld   [marq_hi], ac
+    ld   ac, [R1]
+    ld   CH, ac
+    ld   ac, [T2]
+td_fc_ch:
+    ld   [R1], y
+    ld   [R0], x
+    ld   [y,x], ac
+    bne  td_fc_put
+    ld   msg, ac                ; the end of the message: wrap
+    ld   ac, [R0]
+    ld   msg >> 8, ac
+    ld   ac, [R1]
+    bra  td_fc_ch
+td_fc_put:
+    ld   [T2], x
+    ld   ac, [x]
+    ld   [R0], ac
+    inc
+    ld   ac, [R0]
+    bne  td_fc_1
+    ld   [R1], ac
+    inc
+    ld   ac, [R1]
+td_fc_1:
+    ld   [T2], ac
+    inc
+    ld   ac, [T2]
+    sub  CH + 41, ac
+    bne  td_fc_ch
+    ld   [LINK_HI], y           ; RETURN
+    jmp  [LINK_LO]
+
+; ---------------------------------------------------------------------------
+; td_ring - the 256-color ring on the right of the 8 bpp band, one step
+;   on: ring pixel k gets HUE[RING_A[k] + wh_ph], so the rainbow turns
+;   once in 64 frames
+;   (a leaf routine; changes AC, X, Y, wh_*)
+; ---------------------------------------------------------------------------
+td_ring:
+    ld   [wh_ph], ac
+    inc
+    ld   ac, [wh_ph]
+    clr  ac
+    ld   ac, [wh_k]
+td_rg_px:
+    ld   [wh_k], x              ; color
+    ld   RING_A >> 8, y
+    ld   [y,x], ac
+    add  [wh_ph], ac
+    ld   ac, x
+    ld   HUE >> 8, y
+    ld   [y,x], ac
+    ld   ac, [wh_t]
+    ld   [wh_k], x              ; place
+    ld   RING_X >> 8, y
+    ld   [y,x], ac
+    ld   ac, [wh_x]
+    ld   RING_V >> 8, y
+    ld   [y,x], ac
+    ld   ac, y
+    ld   [wh_x], x
+    ld   [wh_t], ac
+    ld   ac, [y,x]
+    ld   [wh_k], ac
+    inc
+    ld   ac, [wh_k]
+    sub  RING_N, ac
+    bne  td_rg_px
+    ld   [LINK_HI], y           ; RETURN
+    jmp  [LINK_LO]
 
 ; ===========================================================================
 ; drawing routines
 ; ===========================================================================
 
 ; ---------------------------------------------------------------------------
-; ts_fill_run - write p_val to p_n bytes across, from byte column p_col,
+; td_fill_run - write p_val to p_n bytes across, from byte column p_col,
 ;   on screen row p_rhi:p_rlo (any mode and line repeat, via vid_addr)
 ;   changes: AC, X, Y, R2, R3, T0, T1, T4, p_hi, p_cnt
 ; ---------------------------------------------------------------------------
 #addr 0x6C00
-ts_fill_run:
+td_fill_run:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -999,16 +1247,16 @@ ts_fill_run:
     ld   ac, [R3]
     ld   [p_col], ac
     ld   LINK_LO, x             ; CALL vid_addr
-    ld   ts_fr1, [x]
+    ld   td_fr1, [x]
     ld   LINK_HI, x
-    ld   ts_fr1 >> 8, [x]
+    ld   td_fr1 >> 8, [x]
     ld   vid_addr >> 8, y
     jmp  vid_addr
-ts_fr1:
+td_fr1:
     ld   ac, [p_hi]
     ld   [p_n], ac
     ld   ac, [p_cnt]
-ts_fr_loop:
+td_fr_loop:
     ld   [p_hi], y
     ld   [p_val], ac
     ld   ac, [y,x]
@@ -1018,17 +1266,17 @@ ts_fr_loop:
     ld   [p_cnt], ac
     dec
     ld   ac, [p_cnt]
-    bne  ts_fr_loop
+    bne  td_fr_loop
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ---------------------------------------------------------------------------
-; ts_rect - fill p_rows rows, p_step apart, from row p_rhi:p_rlo, with
-;   ts_fill_run (p_val, p_col, p_n).  p_step is the band's line repeat, so
+; td_rect - fill p_rows rows, p_step apart, from row p_rhi:p_rlo, with
+;   td_fill_run (p_val, p_col, p_n).  p_step is the band's line repeat, so
 ;   each row of video memory is written once.
-;   changes: as ts_fill_run, and p_rlo, p_rhi, p_rows
+;   changes: as td_fill_run, and p_rlo, p_rhi, p_rows
 ; ---------------------------------------------------------------------------
-ts_rect:
+td_rect:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -1041,36 +1289,36 @@ ts_rect:
     ld   [LINK_LO], ac
     ld   ac, [x]
     ld   [SAVE_AC], ac
-ts_rc_row:
-    ld   LINK_LO, x             ; CALL ts_fill_run
-    ld   ts_rc1, [x]
+td_rc_row:
+    ld   LINK_LO, x             ; CALL td_fill_run
+    ld   td_rc1, [x]
     ld   LINK_HI, x
-    ld   ts_rc1 >> 8, [x]
-    ld   ts_fill_run >> 8, y
-    jmp  ts_fill_run
-ts_rc1:
+    ld   td_rc1 >> 8, [x]
+    ld   td_fill_run >> 8, y
+    jmp  td_fill_run
+td_rc1:
     ld   [p_rlo], ac            ; row + step, carry into p_rhi
     add  [p_step], ac
     ld   ac, [p_rlo]
-    bcc  ts_rc_nc
+    bcc  td_rc_nc
     ld   [p_rhi], ac
     inc
     ld   ac, [p_rhi]
-ts_rc_nc:
+td_rc_nc:
     ld   [p_rows], ac
     dec
     ld   ac, [p_rows]
-    bne  ts_rc_row
+    bne  td_rc_row
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ---------------------------------------------------------------------------
-; ts_put_gbuf - write gb0.. (p_n = 1-4 bytes) across from byte column
+; td_put_gbuf - write gb0.. (p_n = 1-4 bytes) across from byte column
 ;   p_col on row p_rhi:p_rlo
 ;   changes: AC, X, Y, R2, R3, T0, T1, T4, p_hi, p_cnt
 ; ---------------------------------------------------------------------------
 #addr 0x6D00
-ts_put_gbuf:
+td_put_gbuf:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -1089,19 +1337,19 @@ ts_put_gbuf:
     ld   ac, [R3]
     ld   [p_col], ac
     ld   LINK_LO, x             ; CALL vid_addr
-    ld   ts_pg1, [x]
+    ld   td_pg1, [x]
     ld   LINK_HI, x
-    ld   ts_pg1 >> 8, [x]
+    ld   td_pg1 >> 8, [x]
     ld   vid_addr >> 8, y
     jmp  vid_addr
-ts_pg1:
+td_pg1:
     ld   ac, y
     ld   ac, [p_hi]
     ld   [gb0], ac
     ld   ac, [y,x]
     ld   [p_n], ac
     dec
-    beq  ts_pg_done
+    beq  td_pg_done
     ld   ac, [p_cnt]
     ld   [p_hi], ac
     add  2, ac
@@ -1111,7 +1359,7 @@ ts_pg1:
     ld   ac, [y,x]
     ld   [p_cnt], ac
     dec
-    beq  ts_pg_done
+    beq  td_pg_done
     ld   ac, [p_cnt]
     ld   [p_hi], ac
     add  2, ac
@@ -1121,18 +1369,18 @@ ts_pg1:
     ld   ac, [y,x]
     ld   [p_cnt], ac
     dec
-    beq  ts_pg_done
+    beq  td_pg_done
     ld   [p_hi], ac
     add  2, ac
     ld   ac, y
     ld   [gb3], ac
     ld   ac, [y,x]
-ts_pg_done:
+td_pg_done:
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ---------------------------------------------------------------------------
-; ts_char2 - one 8 x 8 character on the 2 bpp, 2x band (rows 224-351)
+; td_char2 - one 8 x 8 character on the 2 bpp, 2x band (rows 224-351)
 ;   in: c_ch, c_col = text column 0-39, c_row = text row 0-7,
 ;       c_fg = foreground fill XOR c_bg, c_bg = background fill
 ;       (fills: 00 black, 55 blue, AA gold, FF white)
@@ -1140,7 +1388,7 @@ ts_pg_done:
 ;   character is 16 lines tall.
 ;   changes: AC, X, Y, R2, R3, T0, T1, T4, p_*, gb0, gb1, c_fr
 ; ---------------------------------------------------------------------------
-ts_char2:
+td_char2:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -1164,19 +1412,19 @@ ts_char2:
     ld   ac, [p_rhi]
     ld   [c_row], ac
     sub  2, ac
-    bcc  ts_c2_hi
+    bcc  td_c2_hi
     clr  ac
     ld   ac, [p_rhi]
-ts_c2_hi:
+td_c2_hi:
     ld   [c_col], ac            ; 2 byte columns per character
     shl
     ld   ac, [p_col]
     clr  ac
     ld   ac, [c_fr]
-    ld   ts_c2_row >> 8, y
-    jmp  ts_c2_row
+    ld   td_c2_row >> 8, y
+    jmp  td_c2_row
 #addr 0x6E00
-ts_c2_row:
+td_c2_row:
     ld   [c_fr], ac             ; font byte
     add  LIB_FONT >> 8, ac
     ld   ac, y
@@ -1195,13 +1443,13 @@ ts_c2_row:
     ld   ac, [gb1]
     ld   2, ac
     ld   ac, [p_n]
-    ld   LINK_LO, x             ; CALL ts_put_gbuf
-    ld   ts_c2_1, [x]
+    ld   LINK_LO, x             ; CALL td_put_gbuf
+    ld   td_c2_1, [x]
     ld   LINK_HI, x
-    ld   ts_c2_1 >> 8, [x]
-    ld   ts_put_gbuf >> 8, y
-    jmp  ts_put_gbuf
-ts_c2_1:
+    ld   td_c2_1 >> 8, [x]
+    ld   td_put_gbuf >> 8, y
+    jmp  td_put_gbuf
+td_c2_1:
     ld   [p_rlo], ac            ; next row pair
     add  2, ac
     ld   ac, [p_rlo]
@@ -1209,18 +1457,18 @@ ts_c2_1:
     inc
     ld   ac, [c_fr]
     sub  8, ac
-    bne  ts_c2_row
+    bne  td_c2_row
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ---------------------------------------------------------------------------
-; ts_char4 - one 8 x 8 character on the 4 bpp, 4x band (rows 96-223)
+; td_char4 - one 8 x 8 character on the 4 bpp, 4x band (rows 96-223)
 ;   in: c_ch, c_col = byte column (4 per character), c_row = block row
 ;       0-24 (4 lines each), c_fg = foreground fill XOR c_bg, c_bg
 ;       (fill = color * 11)
 ;   changes: AC, X, Y, R2, R3, T0, T1, T4, p_*, gb0-gb3, c_fr
 ; ---------------------------------------------------------------------------
-ts_char4:
+td_char4:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -1243,10 +1491,10 @@ ts_char4:
     ld   ac, [c_fr]
     ld   [c_col], ac
     ld   ac, [p_col]
-    ld   ts_c4_row >> 8, y
-    jmp  ts_c4_row
+    ld   td_c4_row >> 8, y
+    jmp  td_c4_row
 #addr 0x6F00
-ts_c4_row:
+td_c4_row:
     ld   [c_fr], ac             ; font byte
     add  LIB_FONT >> 8, ac
     ld   ac, y
@@ -1275,13 +1523,13 @@ ts_c4_row:
     ld   ac, [gb3]
     ld   4, ac
     ld   ac, [p_n]
-    ld   LINK_LO, x             ; CALL ts_put_gbuf
-    ld   ts_c4_1, [x]
+    ld   LINK_LO, x             ; CALL td_put_gbuf
+    ld   td_c4_1, [x]
     ld   LINK_HI, x
-    ld   ts_c4_1 >> 8, [x]
-    ld   ts_put_gbuf >> 8, y
-    jmp  ts_put_gbuf
-ts_c4_1:
+    ld   td_c4_1 >> 8, [x]
+    ld   td_put_gbuf >> 8, y
+    jmp  td_put_gbuf
+td_c4_1:
     ld   [p_rlo], ac            ; next block row
     add  4, ac
     ld   ac, [p_rlo]
@@ -1289,17 +1537,17 @@ ts_c4_1:
     inc
     ld   ac, [c_fr]
     sub  8, ac
-    bne  ts_c4_row
+    bne  td_c4_row
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ---------------------------------------------------------------------------
-; ts_puts4 - string R1:R0 (ending in 00) on the 4 bpp band with ts_char4,
+; td_puts4 - string R1:R0 (ending in 00) on the 4 bpp band with td_char4,
 ;   from c_col, c_row, each character in the next RAINBOW color, c_bg = 00
-;   changes: AC, X, Y, R0-R3, T0, T1, T4, c_col, c_i and as ts_char4
+;   changes: AC, X, Y, R0-R3, T0, T1, T4, c_col, c_i and as td_char4
 ; ---------------------------------------------------------------------------
 #addr 0x7000
-ts_puts4:
+td_puts4:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -1314,11 +1562,11 @@ ts_puts4:
     ld   [SAVE_AC], ac
     clr  ac
     ld   ac, [c_i]
-ts_p4_ch:
+td_p4_ch:
     ld   [R1], y
     ld   [R0], x
     ld   [y,x], ac
-    beq  ts_p4_done
+    beq  td_p4_done
     ld   ac, [c_ch]
     ld   [c_i], ac              ; color
     add  RAINBOW & 0xFF, ac
@@ -1326,13 +1574,13 @@ ts_p4_ch:
     ld   TBL >> 8, y
     ld   [y,x], ac
     ld   ac, [c_fg]
-    ld   LINK_LO, x             ; CALL ts_char4
-    ld   ts_p4_1, [x]
+    ld   LINK_LO, x             ; CALL td_char4
+    ld   td_p4_1, [x]
     ld   LINK_HI, x
-    ld   ts_p4_1 >> 8, [x]
-    ld   ts_char4 >> 8, y
-    jmp  ts_char4
-ts_p4_1:
+    ld   td_p4_1 >> 8, [x]
+    ld   td_char4 >> 8, y
+    jmp  td_char4
+td_p4_1:
     ld   [c_col], ac
     add  4, ac
     ld   ac, [c_col]
@@ -1342,22 +1590,22 @@ ts_p4_1:
     ld   [R0], ac
     inc
     ld   ac, [R0]
-    bne  ts_p4_ch
+    bne  td_p4_ch
     ld   [R1], ac
     inc
     ld   ac, [R1]
-    bra  ts_p4_ch
-ts_p4_done:
+    bra  td_p4_ch
+td_p4_done:
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ---------------------------------------------------------------------------
-; ts_text2_list - draw a list of strings on the 40 column band
+; td_text2_list - draw a list of strings on the 40 column band
 ;   tp_hi:tp_lo = list of (text column, text row, fg XOR bg, bg, string low,
 ;   string high) entries, ending with FF
 ; ---------------------------------------------------------------------------
 #addr 0x7100
-ts_text2_list:
+td_text2_list:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -1370,92 +1618,92 @@ ts_text2_list:
     ld   [LINK_LO], ac
     ld   ac, [x]
     ld   [SAVE_AC], ac
-ts_t2_ent:
-    ld   LINK_LO, x             ; CALL ts_tbl_next: column, or FF
-    ld   ts_t2_1, [x]
+td_t2_ent:
+    ld   LINK_LO, x             ; CALL td_tbl_next: column, or FF
+    ld   td_t2_1, [x]
     ld   LINK_HI, x
-    ld   ts_t2_1 >> 8, [x]
-    ld   ts_tbl_next >> 8, y
-    jmp  ts_tbl_next
-ts_t2_1:
-    blt  ts_t2_done
+    ld   td_t2_1 >> 8, [x]
+    ld   td_tbl_next >> 8, y
+    jmp  td_tbl_next
+td_t2_1:
+    blt  td_t2_done
     ld   ac, [c_col]
-    ld   LINK_LO, x             ; CALL ts_tbl_next: row
-    ld   ts_t2_2, [x]
+    ld   LINK_LO, x             ; CALL td_tbl_next: row
+    ld   td_t2_2, [x]
     ld   LINK_HI, x
-    ld   ts_t2_2 >> 8, [x]
-    ld   ts_tbl_next >> 8, y
-    jmp  ts_tbl_next
-ts_t2_2:
+    ld   td_t2_2 >> 8, [x]
+    ld   td_tbl_next >> 8, y
+    jmp  td_tbl_next
+td_t2_2:
     ld   ac, [c_row]
-    ld   LINK_LO, x             ; CALL ts_tbl_next: fg XOR bg
-    ld   ts_t2_3, [x]
+    ld   LINK_LO, x             ; CALL td_tbl_next: fg XOR bg
+    ld   td_t2_3, [x]
     ld   LINK_HI, x
-    ld   ts_t2_3 >> 8, [x]
-    ld   ts_tbl_next >> 8, y
-    jmp  ts_tbl_next
-ts_t2_3:
+    ld   td_t2_3 >> 8, [x]
+    ld   td_tbl_next >> 8, y
+    jmp  td_tbl_next
+td_t2_3:
     ld   ac, [c_fg]
-    ld   LINK_LO, x             ; CALL ts_tbl_next: bg
-    ld   ts_t2_4, [x]
+    ld   LINK_LO, x             ; CALL td_tbl_next: bg
+    ld   td_t2_4, [x]
     ld   LINK_HI, x
-    ld   ts_t2_4 >> 8, [x]
-    ld   ts_tbl_next >> 8, y
-    jmp  ts_tbl_next
-ts_t2_4:
+    ld   td_t2_4 >> 8, [x]
+    ld   td_tbl_next >> 8, y
+    jmp  td_tbl_next
+td_t2_4:
     ld   ac, [c_bg]
-    ld   LINK_LO, x             ; CALL ts_tbl_next: string low
-    ld   ts_t2_5, [x]
+    ld   LINK_LO, x             ; CALL td_tbl_next: string low
+    ld   td_t2_5, [x]
     ld   LINK_HI, x
-    ld   ts_t2_5 >> 8, [x]
-    ld   ts_tbl_next >> 8, y
-    jmp  ts_tbl_next
-ts_t2_5:
+    ld   td_t2_5 >> 8, [x]
+    ld   td_tbl_next >> 8, y
+    jmp  td_tbl_next
+td_t2_5:
     ld   ac, [R0]
-    ld   LINK_LO, x             ; CALL ts_tbl_next: string high
-    ld   ts_t2_6, [x]
+    ld   LINK_LO, x             ; CALL td_tbl_next: string high
+    ld   td_t2_6, [x]
     ld   LINK_HI, x
-    ld   ts_t2_6 >> 8, [x]
-    ld   ts_tbl_next >> 8, y
-    jmp  ts_tbl_next
-ts_t2_6:
+    ld   td_t2_6 >> 8, [x]
+    ld   td_tbl_next >> 8, y
+    jmp  td_tbl_next
+td_t2_6:
     ld   ac, [R1]
-ts_t2_ch:
+td_t2_ch:
     ld   [R1], y                ; the string
     ld   [R0], x
     ld   [y,x], ac
-    beq  ts_t2_ent
+    beq  td_t2_ent
     ld   ac, [c_ch]
-    ld   LINK_LO, x             ; CALL ts_char2
-    ld   ts_t2_7, [x]
+    ld   LINK_LO, x             ; CALL td_char2
+    ld   td_t2_7, [x]
     ld   LINK_HI, x
-    ld   ts_t2_7 >> 8, [x]
-    ld   ts_char2 >> 8, y
-    jmp  ts_char2
-ts_t2_7:
+    ld   td_t2_7 >> 8, [x]
+    ld   td_char2 >> 8, y
+    jmp  td_char2
+td_t2_7:
     ld   [c_col], ac
     inc
     ld   ac, [c_col]
     ld   [R0], ac
     inc
     ld   ac, [R0]
-    bne  ts_t2_ch
+    bne  td_t2_ch
     ld   [R1], ac
     inc
     ld   ac, [R1]
-    bra  ts_t2_ch
-ts_t2_done:
+    bra  td_t2_ch
+td_t2_done:
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ---------------------------------------------------------------------------
-; ts_text_list - print a list of strings with the console
+; td_text_list - print a list of strings with the console
 ;   tp_hi:tp_lo = list of (column, row, attribute, string low, string high)
 ;   entries, ending with FF; the attribute is ORed into each character
 ;   (80 = inverse video)
 ; ---------------------------------------------------------------------------
 #addr 0x7200
-ts_text_list:
+td_text_list:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -1468,65 +1716,65 @@ ts_text_list:
     ld   [LINK_LO], ac
     ld   ac, [x]
     ld   [SAVE_AC], ac
-ts_tl_ent:
-    ld   LINK_LO, x             ; CALL ts_tbl_next: column, or FF
-    ld   ts_tl_1, [x]
+td_tl_ent:
+    ld   LINK_LO, x             ; CALL td_tbl_next: column, or FF
+    ld   td_tl_1, [x]
     ld   LINK_HI, x
-    ld   ts_tl_1 >> 8, [x]
-    ld   ts_tbl_next >> 8, y
-    jmp  ts_tbl_next
-ts_tl_1:
-    blt  ts_tl_done
+    ld   td_tl_1 >> 8, [x]
+    ld   td_tbl_next >> 8, y
+    jmp  td_tbl_next
+td_tl_1:
+    blt  td_tl_done
     ld   ac, [CUR_COL]
-    ld   LINK_LO, x             ; CALL ts_tbl_next: row
-    ld   ts_tl_2, [x]
+    ld   LINK_LO, x             ; CALL td_tbl_next: row
+    ld   td_tl_2, [x]
     ld   LINK_HI, x
-    ld   ts_tl_2 >> 8, [x]
-    ld   ts_tbl_next >> 8, y
-    jmp  ts_tbl_next
-ts_tl_2:
+    ld   td_tl_2 >> 8, [x]
+    ld   td_tbl_next >> 8, y
+    jmp  td_tbl_next
+td_tl_2:
     ld   ac, [CUR_ROW]
-    ld   LINK_LO, x             ; CALL ts_tbl_next: attribute
-    ld   ts_tl_3, [x]
+    ld   LINK_LO, x             ; CALL td_tbl_next: attribute
+    ld   td_tl_3, [x]
     ld   LINK_HI, x
-    ld   ts_tl_3 >> 8, [x]
-    ld   ts_tbl_next >> 8, y
-    jmp  ts_tbl_next
-ts_tl_3:
+    ld   td_tl_3 >> 8, [x]
+    ld   td_tbl_next >> 8, y
+    jmp  td_tbl_next
+td_tl_3:
     ld   ac, [s_attr]
-    ld   LINK_LO, x             ; CALL ts_tbl_next: string low
-    ld   ts_tl_4, [x]
+    ld   LINK_LO, x             ; CALL td_tbl_next: string low
+    ld   td_tl_4, [x]
     ld   LINK_HI, x
-    ld   ts_tl_4 >> 8, [x]
-    ld   ts_tbl_next >> 8, y
-    jmp  ts_tbl_next
-ts_tl_4:
+    ld   td_tl_4 >> 8, [x]
+    ld   td_tbl_next >> 8, y
+    jmp  td_tbl_next
+td_tl_4:
     ld   ac, [R0]
-    ld   LINK_LO, x             ; CALL ts_tbl_next: string high
-    ld   ts_tl_5, [x]
+    ld   LINK_LO, x             ; CALL td_tbl_next: string high
+    ld   td_tl_5, [x]
     ld   LINK_HI, x
-    ld   ts_tl_5 >> 8, [x]
-    ld   ts_tbl_next >> 8, y
-    jmp  ts_tbl_next
-ts_tl_5:
+    ld   td_tl_5 >> 8, [x]
+    ld   td_tbl_next >> 8, y
+    jmp  td_tbl_next
+td_tl_5:
     ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL ts_put_str
-    ld   ts_tl_ent, [x]
+    ld   LINK_LO, x             ; CALL td_put_str
+    ld   td_tl_ent, [x]
     ld   LINK_HI, x
-    ld   ts_tl_ent >> 8, [x]
-    ld   ts_put_str >> 8, y
-    jmp  ts_put_str
-ts_tl_done:
+    ld   td_tl_ent >> 8, [x]
+    ld   td_put_str >> 8, y
+    jmp  td_put_str
+td_tl_done:
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ---------------------------------------------------------------------------
-; ts_put_str - print string R1:R0 (ending in 00) at the cursor, each
+; td_put_str - print string R1:R0 (ending in 00) at the cursor, each
 ;   character ORed with s_attr
 ;   changes: AC, X, Y, R0, R1, T0-T5
 ; ---------------------------------------------------------------------------
 #addr 0x7300
-ts_put_str:
+td_put_str:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -1539,37 +1787,37 @@ ts_put_str:
     ld   [LINK_LO], ac
     ld   ac, [x]
     ld   [SAVE_AC], ac
-ts_ps_ch:
+td_ps_ch:
     ld   [R1], y
     ld   [R0], x
     ld   [y,x], ac
-    beq  ts_ps_done
+    beq  td_ps_done
     or   [s_attr], ac
     ld   LINK_LO, x             ; CALL con_putc
-    ld   ts_ps_1, [x]
+    ld   td_ps_1, [x]
     ld   LINK_HI, x
-    ld   ts_ps_1 >> 8, [x]
+    ld   td_ps_1 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-ts_ps_1:
+td_ps_1:
     ld   [R0], ac
     inc
     ld   ac, [R0]
-    bne  ts_ps_ch
+    bne  td_ps_ch
     ld   [R1], ac
     inc
     ld   ac, [R1]
-    bra  ts_ps_ch
-ts_ps_done:
+    bra  td_ps_ch
+td_ps_done:
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ---------------------------------------------------------------------------
-; ts_put_range - print pr_n characters at the cursor, starting with AC,
+; td_put_range - print pr_n characters at the cursor, starting with AC,
 ;   adding pr_inc each time (0 repeats the character), each ORed with s_attr
 ;   changes: AC, X, Y, T0-T5, pr_c, pr_n
 ; ---------------------------------------------------------------------------
-ts_put_range:
+td_put_range:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -1583,32 +1831,32 @@ ts_put_range:
     ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   ac, [pr_c]
-ts_pr_ch:
+td_pr_ch:
     ld   [pr_c], ac
     or   [s_attr], ac
     ld   LINK_LO, x             ; CALL con_putc
-    ld   ts_pr_1, [x]
+    ld   td_pr_1, [x]
     ld   LINK_HI, x
-    ld   ts_pr_1 >> 8, [x]
+    ld   td_pr_1 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-ts_pr_1:
+td_pr_1:
     ld   [pr_c], ac
     add  [pr_inc], ac
     ld   ac, [pr_c]
     ld   [pr_n], ac
     dec
     ld   ac, [pr_n]
-    bne  ts_pr_ch
+    bne  td_pr_ch
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ---------------------------------------------------------------------------
-; ts_print_zp - print pz_n characters from the zero page, from R0 on
+; td_print_zp - print pz_n characters from the zero page, from R0 on
 ;   changes: AC, X, Y, R0, T0-T5, pz_n
 ; ---------------------------------------------------------------------------
 #addr 0x7400
-ts_print_zp:
+td_print_zp:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -1621,31 +1869,31 @@ ts_print_zp:
     ld   [LINK_LO], ac
     ld   ac, [x]
     ld   [SAVE_AC], ac
-ts_pz_ch:
+td_pz_ch:
     ld   [R0], x
     ld   [x], ac
     ld   LINK_LO, x             ; CALL con_putc
-    ld   ts_pz_1, [x]
+    ld   td_pz_1, [x]
     ld   LINK_HI, x
-    ld   ts_pz_1 >> 8, [x]
+    ld   td_pz_1 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-ts_pz_1:
+td_pz_1:
     ld   [R0], ac
     inc
     ld   ac, [R0]
     ld   [pz_n], ac
     dec
     ld   ac, [pz_n]
-    bne  ts_pz_ch
+    bne  td_pz_ch
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
 ; ---------------------------------------------------------------------------
-; ts_tbl_next - AC = the byte at tp_hi:tp_lo, and move the pointer on
+; td_tbl_next - AC = the byte at tp_hi:tp_lo, and move the pointer on
 ;   (a leaf routine; changes X, Y, tb_v)
 ; ---------------------------------------------------------------------------
-ts_tbl_next:
+td_tbl_next:
     ld   [tp_hi], y
     ld   [tp_lo], x
     ld   [y,x], ac
@@ -1653,11 +1901,11 @@ ts_tbl_next:
     ld   [tp_lo], ac
     inc
     ld   ac, [tp_lo]
-    bne  ts_tn_1
+    bne  td_tn_1
     ld   [tp_hi], ac
     inc
     ld   ac, [tp_hi]
-ts_tn_1:
+td_tn_1:
     ld   [tb_v], ac
     ld   [LINK_HI], y           ; RETURN
     jmp  [LINK_LO]
@@ -1678,13 +1926,14 @@ text_a:
     #d8 42, 7, 0, s_pass & 0xFF, s_pass >> 8
     #d8 56, 7, 0, s_err & 0xFF, s_err >> 8
     #d8 0, 8, 0, s_prog & 0xFF, s_prog >> 8
-    #d8 58, 8, 0, s_close & 0xFF, s_close >> 8
+    #d8 54, 8, 0, s_close & 0xFF, s_close >> 8
+    #d8 0, 9, 0, s_area & 0xFF, s_area >> 8
     #d8 0, 10, 0, s_ruler & 0xFF, s_ruler >> 8
     #d8 0, 11, 0x80, s_legend & 0xFF, s_legend >> 8
     #d8 0xFF
 
 s_title:
-    #d " PLACARD COMPUTER  -  VIDEO TEST SCREEN             80 COLUMNS  1 BPP  1X LINES ", 0x00
+    #d " PLACARD COMPUTER  -  VIDEO TEST SCREEN                     80 COLUMNS  2-COLOR ", 0x00
 s_fox:
     #d "The quick brown fox jumps over the lazy dog.  0123456789", 0x00
 s_cpu:
@@ -1694,13 +1943,15 @@ s_up:
 s_frm:
     #d "FRAME 00000", 0x00
 s_ram:
-    #d "RAM TEST    0100-1FFF 4000-4FFF", 0x00
+    #d "RAM TEST", 0x00
 s_addr:
     #d "PAGE 0100", 0x00
 s_pass:
     #d "PASS 0", 0x00
 s_err:
     #d "ERRORS 0", 0x00
+s_area:
+    #d "RAM AREA    0100-1EFF 2000-4FFF 5400-59FF 5C00-5CFF  (85 PAGES, 21.25 KB)", 0x00
 s_prog:
     #d "PROGRESS  [", 0x00
 s_close:
@@ -1742,7 +1993,9 @@ s_16col:
 msg:
     #d "*** PLACARD: AN 8-BIT COMPUTER BUILT FROM ATF22V10C PLDS    "
     #d "*** THIS SCREEN IS DRAWN BY THE CPU IN ASSEMBLY    "
-    #d "*** LINE REPEAT: 1X, 2X AND 4X ROWS SAVE VIDEO RAM    ", 0x00
+    #d "*** BY JUSTIN DAVIS    "
+msg_end:
+    #d8 0x00
 
 ; ===========================================================================
 ; small tables (one page, TBL)
@@ -1766,29 +2019,31 @@ CLKLIM:                         ; uptime digit limits: h h : m m : s s
 #addr TBL + 0x40
 RAINBOW:                        ; "16 COLORS"
     #d8 0xCC, 0xEE, 0x00, 0xAA, 0xBB, 0x99, 0xDD, 0xCC, 0xEE
-#addr TBL + 0x50
-PAGES:                          ; RAM test pages: x01-x1E, x40-x4F
+#addr TBL + 0x90
+PAT_P:                          ; RAM test patterns: 0-11 fixed values,
+                                ;   12-13 XOR the address
+    #d8 0x00, 0xFF, 0x55, 0xAA, 0x01, 0x02, 0x04, 0x08
+    #d8 0x10, 0x20, 0x40, 0x80, 0x00, 0xFF
+#addr TBL2
+PAGES:                          ; RAM test pages: x01-x1E, x20-x4F, x54-x59,
     #d8 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08
     #d8 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10
     #d8 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18
-    #d8 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E
-    #d8 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47
-    #d8 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F
-#addr TBL + 0x80
-PAT_AM:                         ; RAM test patterns: address mask
-    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    #d8 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF
-#addr TBL + 0x90
-PAT_P:                          ;   value
-    #d8 0x00, 0xFF, 0x55, 0xAA, 0x01, 0x02, 0x04, 0x08
-    #d8 0x10, 0x20, 0x40, 0x80, 0x00, 0xFF
-#addr TBL + 0xA0
-COLPART:                        ; 256 grid: column -> B2 R3 R2 R1
-    #d8 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07
-    #d8 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F
-#addr TBL + 0xB0
-ROWPART:                        ;   row -> G3 G2 G1 B3
-    #d8 0x00, 0x20, 0x40, 0x60, 0x80, 0xA0, 0xC0, 0xE0
-    #d8 0x10, 0x30, 0x50, 0x70, 0x90, 0xB0, 0xD0, 0xF0
+    #d8 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x20, 0x21
+    #d8 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29
+    #d8 0x2A, 0x2B, 0x2C, 0x2D, 0x2E, 0x2F, 0x30, 0x31
+    #d8 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39
+    #d8 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, 0x40, 0x41
+    #d8 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49
+    #d8 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x54, 0x55
+    #d8 0x56, 0x57, 0x58, 0x59, 0x5C
+#addr TBL2 + 0x60               ;   x5C
+DIGITS:                         ; the 256 band
+    #d "256"
+#addr TBL2 + 0x68
+SHADES:                         ; font rows 0-6 of each digit: reds, blues,
+    #d8 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01, 0x00  ; greens, bright
+    #d8 0x18, 0x18, 0x18, 0x10, 0x10, 0x08, 0x08, 0x00  ; at the top
+    #d8 0xE0, 0xC0, 0xA0, 0x80, 0x60, 0x40, 0x20, 0x00
 
-#include "test_screen_tables.asm"
+#include "text_demo_tables.asm"
