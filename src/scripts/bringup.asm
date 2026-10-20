@@ -53,6 +53,8 @@ B_Y      = 0x59
 B_V      = 0x5A
 LINEV    = 0x5B
 KEYV     = 0x5C
+RT_I     = 0x5D
+B_I      = 0x5E
 
 ; reset (the CPU starts at x0000 with the map all ROM)
 #addr 0x0000
@@ -667,11 +669,12 @@ pg_81:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_82:
-; test 9: X register (AC -> X -> AC)
+; test 9: X register (AC -> X, read back through the ROM table at x3F00)
     ld   0x00, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x00, ac
     beq  ok_83
     ld   0xA4, ac
@@ -679,7 +682,7 @@ ok_82:
     jmp  fail_h
 ok_83:
     ld   0xFF, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0xFF, ac
     beq  ok_84
     ld   0xA4, ac
@@ -689,7 +692,8 @@ ok_84:
     ld   0xFF, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0xFF, ac
     beq  ok_85
     ld   0xA4, ac
@@ -697,7 +701,7 @@ ok_84:
     jmp  fail_h
 ok_85:
     ld   0x00, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0x00, ac
     beq  ok_86
     ld   0xA4, ac
@@ -707,7 +711,8 @@ ok_86:
     ld   0x55, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x55, ac
     beq  ok_87
     ld   0xA4, ac
@@ -715,7 +720,7 @@ ok_86:
     jmp  fail_h
 ok_87:
     ld   0xAA, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0xAA, ac
     beq  ok_88
     ld   0xA4, ac
@@ -725,7 +730,8 @@ ok_88:
     ld   0xAA, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0xAA, ac
     beq  ok_89
     ld   0xA4, ac
@@ -733,7 +739,7 @@ ok_88:
     jmp  fail_h
 ok_89:
     ld   0x55, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0x55, ac
     beq  ok_90
     ld   0xA4, ac
@@ -743,7 +749,8 @@ ok_90:
     ld   0x01, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x01, ac
     beq  ok_91
     ld   0xA4, ac
@@ -751,7 +758,7 @@ ok_90:
     jmp  fail_h
 ok_91:
     ld   0xFE, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0xFE, ac
     beq  ok_92
     ld   0xA4, ac
@@ -761,7 +768,8 @@ ok_92:
     ld   0x02, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x02, ac
     beq  ok_93
     ld   0xA4, ac
@@ -769,7 +777,7 @@ ok_92:
     jmp  fail_h
 ok_93:
     ld   0xFD, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0xFD, ac
     beq  ok_94
     ld   0xA4, ac
@@ -779,7 +787,8 @@ ok_94:
     ld   0x04, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x04, ac
     beq  ok_95
     ld   0xA4, ac
@@ -787,39 +796,41 @@ ok_94:
     jmp  fail_h
 ok_95:
     ld   0xFB, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0xFB, ac
     beq  ok_96
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_96:
+    ld   pg_97 >> 8, y
+    jmp  pg_97
+#addr 0x2500
+pg_97:
     ld   0x08, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x08, ac
-    beq  ok_97
-    ld   0xA4, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_97:
-    ld   0xF7, x
-    ld   x, ac
-    xor  0xF7, ac
     beq  ok_98
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_98:
+    ld   0xF7, x
+    ld   [y,x], ac
+    xor  0xF7, ac
+    beq  ok_99
+    ld   0xA4, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_99:
     ld   0x10, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
-    ld   pg_99 >> 8, y
-    jmp  pg_99
-#addr 0x2500
-pg_99:
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x10, ac
     beq  ok_100
     ld   0xA4, ac
@@ -827,7 +838,7 @@ pg_99:
     jmp  fail_h
 ok_100:
     ld   0xEF, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0xEF, ac
     beq  ok_101
     ld   0xA4, ac
@@ -837,7 +848,8 @@ ok_101:
     ld   0x20, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x20, ac
     beq  ok_102
     ld   0xA4, ac
@@ -845,7 +857,7 @@ ok_101:
     jmp  fail_h
 ok_102:
     ld   0xDF, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0xDF, ac
     beq  ok_103
     ld   0xA4, ac
@@ -855,7 +867,8 @@ ok_103:
     ld   0x40, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x40, ac
     beq  ok_104
     ld   0xA4, ac
@@ -863,7 +876,7 @@ ok_103:
     jmp  fail_h
 ok_104:
     ld   0xBF, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0xBF, ac
     beq  ok_105
     ld   0xA4, ac
@@ -873,7 +886,8 @@ ok_105:
     ld   0x80, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x80, ac
     beq  ok_106
     ld   0xA4, ac
@@ -881,7 +895,7 @@ ok_105:
     jmp  fail_h
 ok_106:
     ld   0x7F, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0x7F, ac
     beq  ok_107
     ld   0xA4, ac
@@ -946,38 +960,38 @@ ok_113:
     ld   0x40, y
     ld   0x10, x
     ld   [y,x], ac
+    ld   pg_114 >> 8, y
+    jmp  pg_114
+#addr 0x2600
+pg_114:
     xor  0x40, ac
-    beq  ok_114
-    ld   0xA8, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_114:
-    ld   0x80, y
-    ld   0x10, x
-    ld   [y,x], ac
-    xor  0x80, ac
     beq  ok_115
     ld   0xA8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_115:
+    ld   0x80, y
+    ld   0x10, x
+    ld   [y,x], ac
+    xor  0x80, ac
+    beq  ok_116
+    ld   0xA8, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_116:
 ; test 11: X register, address bits 7-0
     ld   0x0F, y
     ld   0x00, x
     ld   [y,x], ac
     xor  0x5A, ac
-    beq  ok_116
+    beq  ok_117
     ld   0xAC, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_116:
+ok_117:
     ld   0x0F, y
     ld   0x01, x
     ld   [y,x], ac
-    ld   pg_117 >> 8, y
-    jmp  pg_117
-#addr 0x2600
-pg_117:
     xor  0x5B, ac
     beq  ok_118
     ld   0xAC, ac
@@ -1058,14 +1072,13 @@ ok_125:
 ok_126:
 ; test 12: ROM data, table at x3F00
     ld   0x3F, y
-    ld   0x00, x
+    ld   0x00, ac
 t12_127:
-    ld   [y,x], ac
-    xor  x, ac
-    bne  t12f_128
-    ld   x, ac
-    inc
     ld   ac, x
+    xor  [y,x], ac
+    bne  t12f_128
+    ld   [y,x], ac
+    inc
     bne  t12_127
     bra  t12ok_129
 t12f_128:
@@ -1096,44 +1109,46 @@ ok_130:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_131:
-    ld   0x00, x
-    ld   x, [0x32]
-    ld   [0x32], ac
-    xor  0x00, ac
-    beq  ok_132
-    ld   0xB4, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_132:
-    ld   0x90, y
-    ld   0x10, x
-    ld   0x00, [y,x]
+    ld   0x32, x
     ld   0x00, ac
-    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x00, ac
+    ld   [0x32], ac
+    ld   pg_132 >> 8, y
+    jmp  pg_132
+#addr 0x2700
+pg_132:
     xor  0x00, ac
     beq  ok_133
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_133:
-    ld   0xFF, ac
-    ld   ac, [y,x]
+    ld   0x90, y
+    ld   0x10, x
+    ld   0x00, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
-    xor  0xFF, ac
+    xor  0x00, ac
     beq  ok_134
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_134:
     ld   0xFF, ac
+    ld   ac, [y,x]
+    ld   0x00, ac
+    ld   [y,x], ac
+    xor  0xFF, ac
+    beq  ok_135
+    ld   0xB4, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_135:
+    ld   0xFF, ac
     ld   ac, [0x30]
     ld   0x00, ac
     ld   [0x30], ac
-    ld   pg_135 >> 8, y
-    jmp  pg_135
-#addr 0x2700
-pg_135:
     xor  0xFF, ac
     beq  ok_136
     ld   0xB4, ac
@@ -1149,8 +1164,10 @@ ok_136:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_137:
-    ld   0xFF, x
-    ld   x, [0x32]
+    ld   0x32, x
+    ld   0xFF, ac
+    ld   ac, [x]
+    ld   0x00, ac
     ld   [0x32], ac
     xor  0xFF, ac
     beq  ok_138
@@ -1198,8 +1215,10 @@ ok_141:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_142:
-    ld   0x55, x
-    ld   x, [0x32]
+    ld   0x32, x
+    ld   0x55, ac
+    ld   ac, [x]
+    ld   0x00, ac
     ld   [0x32], ac
     xor  0x55, ac
     beq  ok_143
@@ -1247,44 +1266,46 @@ ok_146:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_147:
-    ld   0xAA, x
-    ld   x, [0x32]
-    ld   [0x32], ac
-    xor  0xAA, ac
-    beq  ok_148
-    ld   0xB4, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_148:
-    ld   0x90, y
-    ld   0x10, x
-    ld   0xAA, [y,x]
+    ld   pg_148 >> 8, y
+    jmp  pg_148
+#addr 0x2800
+pg_148:
+    ld   0x32, x
+    ld   0xAA, ac
+    ld   ac, [x]
     ld   0x00, ac
-    ld   [y,x], ac
+    ld   [0x32], ac
     xor  0xAA, ac
     beq  ok_149
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_149:
-    ld   0x55, ac
-    ld   ac, [y,x]
+    ld   0x90, y
+    ld   0x10, x
+    ld   0xAA, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
-    xor  0x55, ac
+    xor  0xAA, ac
     beq  ok_150
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_150:
+    ld   0x55, ac
+    ld   ac, [y,x]
+    ld   0x00, ac
+    ld   [y,x], ac
+    xor  0x55, ac
+    beq  ok_151
+    ld   0xB4, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_151:
     ld   0x01, ac
     ld   ac, [0x30]
     ld   0x00, ac
     ld   [0x30], ac
-    ld   pg_151 >> 8, y
-    jmp  pg_151
-#addr 0x2800
-pg_151:
     xor  0x01, ac
     beq  ok_152
     ld   0xB4, ac
@@ -1300,8 +1321,10 @@ ok_152:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_153:
-    ld   0x01, x
-    ld   x, [0x32]
+    ld   0x32, x
+    ld   0x01, ac
+    ld   ac, [x]
+    ld   0x00, ac
     ld   [0x32], ac
     xor  0x01, ac
     beq  ok_154
@@ -1349,8 +1372,10 @@ ok_157:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_158:
-    ld   0x02, x
-    ld   x, [0x32]
+    ld   0x32, x
+    ld   0x02, ac
+    ld   ac, [x]
+    ld   0x00, ac
     ld   [0x32], ac
     xor  0x02, ac
     beq  ok_159
@@ -1392,50 +1417,52 @@ ok_162:
     ld   0x31, x
     ld   0xFB, [x]
     ld   [x], ac
+    ld   pg_163 >> 8, y
+    jmp  pg_163
+#addr 0x2900
+pg_163:
     xor  0xFB, ac
-    beq  ok_163
-    ld   0xB4, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_163:
-    ld   0x04, x
-    ld   x, [0x32]
-    ld   [0x32], ac
-    xor  0x04, ac
     beq  ok_164
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_164:
-    ld   0x90, y
-    ld   0x10, x
-    ld   0x04, [y,x]
+    ld   0x32, x
+    ld   0x04, ac
+    ld   ac, [x]
     ld   0x00, ac
-    ld   [y,x], ac
+    ld   [0x32], ac
     xor  0x04, ac
     beq  ok_165
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_165:
-    ld   0xFB, ac
-    ld   ac, [y,x]
+    ld   0x90, y
+    ld   0x10, x
+    ld   0x04, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
-    xor  0xFB, ac
+    xor  0x04, ac
     beq  ok_166
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_166:
+    ld   0xFB, ac
+    ld   ac, [y,x]
+    ld   0x00, ac
+    ld   [y,x], ac
+    xor  0xFB, ac
+    beq  ok_167
+    ld   0xB4, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_167:
     ld   0x08, ac
     ld   ac, [0x30]
     ld   0x00, ac
     ld   [0x30], ac
-    ld   pg_167 >> 8, y
-    jmp  pg_167
-#addr 0x2900
-pg_167:
     xor  0x08, ac
     beq  ok_168
     ld   0xB4, ac
@@ -1451,8 +1478,10 @@ ok_168:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_169:
-    ld   0x08, x
-    ld   x, [0x32]
+    ld   0x32, x
+    ld   0x08, ac
+    ld   ac, [x]
+    ld   0x00, ac
     ld   [0x32], ac
     xor  0x08, ac
     beq  ok_170
@@ -1500,8 +1529,10 @@ ok_173:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_174:
-    ld   0x10, x
-    ld   x, [0x32]
+    ld   0x32, x
+    ld   0x10, ac
+    ld   ac, [x]
+    ld   0x00, ac
     ld   [0x32], ac
     xor  0x10, ac
     beq  ok_175
@@ -1534,59 +1565,61 @@ ok_177:
     ld   ac, [0x30]
     ld   0x00, ac
     ld   [0x30], ac
+    ld   pg_178 >> 8, y
+    jmp  pg_178
+#addr 0x2A00
+pg_178:
     xor  0x20, ac
-    beq  ok_178
-    ld   0xB4, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_178:
-    ld   0x31, x
-    ld   0xDF, [x]
-    ld   [x], ac
-    xor  0xDF, ac
     beq  ok_179
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_179:
-    ld   0x20, x
-    ld   x, [0x32]
-    ld   [0x32], ac
-    xor  0x20, ac
+    ld   0x31, x
+    ld   0xDF, [x]
+    ld   [x], ac
+    xor  0xDF, ac
     beq  ok_180
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_180:
-    ld   0x90, y
-    ld   0x10, x
-    ld   0x20, [y,x]
+    ld   0x32, x
+    ld   0x20, ac
+    ld   ac, [x]
     ld   0x00, ac
-    ld   [y,x], ac
+    ld   [0x32], ac
     xor  0x20, ac
     beq  ok_181
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_181:
-    ld   0xDF, ac
-    ld   ac, [y,x]
+    ld   0x90, y
+    ld   0x10, x
+    ld   0x20, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
-    xor  0xDF, ac
+    xor  0x20, ac
     beq  ok_182
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_182:
+    ld   0xDF, ac
+    ld   ac, [y,x]
+    ld   0x00, ac
+    ld   [y,x], ac
+    xor  0xDF, ac
+    beq  ok_183
+    ld   0xB4, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_183:
     ld   0x40, ac
     ld   ac, [0x30]
     ld   0x00, ac
     ld   [0x30], ac
-    ld   pg_183 >> 8, y
-    jmp  pg_183
-#addr 0x2A00
-pg_183:
     xor  0x40, ac
     beq  ok_184
     ld   0xB4, ac
@@ -1602,8 +1635,10 @@ ok_184:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_185:
-    ld   0x40, x
-    ld   x, [0x32]
+    ld   0x32, x
+    ld   0x40, ac
+    ld   ac, [x]
+    ld   0x00, ac
     ld   [0x32], ac
     xor  0x40, ac
     beq  ok_186
@@ -1651,8 +1686,10 @@ ok_189:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_190:
-    ld   0x80, x
-    ld   x, [0x32]
+    ld   0x32, x
+    ld   0x80, ac
+    ld   ac, [x]
+    ld   0x00, ac
     ld   [0x32], ac
     xor  0x80, ac
     beq  ok_191
@@ -1660,27 +1697,31 @@ ok_190:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_191:
+    ld   pg_192 >> 8, y
+    jmp  pg_192
+#addr 0x2B00
+pg_192:
     ld   0x90, y
     ld   0x10, x
     ld   0x80, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
     xor  0x80, ac
-    beq  ok_192
-    ld   0xB4, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_192:
-    ld   0x7F, ac
-    ld   ac, [y,x]
-    ld   0x00, ac
-    ld   [y,x], ac
-    xor  0x7F, ac
     beq  ok_193
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_193:
+    ld   0x7F, ac
+    ld   ac, [y,x]
+    ld   0x00, ac
+    ld   [y,x], ac
+    xor  0x7F, ac
+    beq  ok_194
+    ld   0xB4, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_194:
 ; test 14: ROM/RAM map register
     ld   0x01, y
     ld   0x10, x
@@ -1692,11 +1733,11 @@ ok_193:
     ld   0x10, x
     ld   [y,x], ac
     xor  0xFE, ac
-    beq  ok_194
+    beq  ok_195
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_194:
+ok_195:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
@@ -1704,14 +1745,14 @@ ok_194:
     ld   0x10, x
     ld   [y,x], ac
     xor  0x01, ac
-    beq  ok_195
+    beq  ok_196
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_195:
+ok_196:
     ld   map_s1_a >> 8, y
     jmp  map_s1_a
-t13b_196:
+t13b_197:
     ld   0x40, y
     ld   0x10, x
     ld   0xBF, [y,x]
@@ -1722,21 +1763,17 @@ t13b_196:
     ld   0x10, x
     ld   [y,x], ac
     xor  0xBF, ac
-    beq  ok_197
+    beq  ok_198
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_197:
+ok_198:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
     ld   0x40, y
     ld   0x10, x
     ld   [y,x], ac
-    ld   pg_198 >> 8, y
-    jmp  pg_198
-#addr 0x2B00
-pg_198:
     xor  0x40, ac
     beq  ok_199
     ld   0xB8, ac
@@ -1806,12 +1843,16 @@ ok_203:
     ld   0xA0, y
     ld   0x10, x
     ld   [y,x], ac
+    ld   pg_204 >> 8, y
+    jmp  pg_204
+#addr 0x2C00
+pg_204:
     xor  0x5F, ac
-    beq  ok_204
+    beq  ok_205
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_204:
+ok_205:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
@@ -1819,11 +1860,11 @@ ok_204:
     ld   0x10, x
     ld   [y,x], ac
     xor  0xA0, ac
-    beq  ok_205
+    beq  ok_206
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_205:
+ok_206:
     ld   0xC0, y
     ld   0x10, x
     ld   0x3F, [y,x]
@@ -1834,11 +1875,11 @@ ok_205:
     ld   0x10, x
     ld   [y,x], ac
     xor  0x3F, ac
-    beq  ok_206
+    beq  ok_207
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_206:
+ok_207:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
@@ -1846,11 +1887,11 @@ ok_206:
     ld   0x10, x
     ld   [y,x], ac
     xor  0xC0, ac
-    beq  ok_207
+    beq  ok_208
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_207:
+ok_208:
     ld   0xFE, y
     ld   0x10, x
     ld   0x18, [y,x]
@@ -1861,11 +1902,11 @@ ok_207:
     ld   0x10, x
     ld   [y,x], ac
     xor  0x18, ac
-    beq  ok_208
+    beq  ok_209
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_208:
+ok_209:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
@@ -1873,18 +1914,14 @@ ok_208:
     ld   0x10, x
     ld   [y,x], ac
     xor  0xE7, ac
-    beq  ok_209
+    beq  ok_210
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_209:
-    ld   pg_211 >> 8, y
-    jmp  pg_211
-#addr 0x2C00
-pg_211:
+ok_210:
     ld   ram_addr_test >> 8, y
     jmp  ram_addr_test
-t14b_210:
+t14b_211:
 ; test 16: video line read, AND and OR of about 1.5 frames of reads
     ld   0x50, y
     ld   0x00, x
@@ -1938,85 +1975,85 @@ core_loop:
     ld   0x00, x
     ld   0x00, [y,x]
 ; test 1: branches on AC
-    ld   0x00, ac
-    beq  t1t_216
-    bra  t1f_215
-t1t_216:
-    bne  t1f_215
-    blt  t1f_215
-    ble  t1t_217
-    bra  t1f_215
-t1t_217:
-    bra  t1ok_218
-t1f_215:
-    ld   0x84, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-t1ok_218:
-    ld   0x01, ac
-    beq  t1f_219
-    bne  t1t_220
-    bra  t1f_219
-t1t_220:
-    blt  t1f_219
-    ble  t1f_219
-    bra  t1ok_221
-t1f_219:
-    ld   0x84, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-t1ok_221:
-    ld   0x10, ac
-    beq  t1f_222
-    bne  t1t_223
-    bra  t1f_222
-t1t_223:
-    blt  t1f_222
-    ble  t1f_222
-    bra  t1ok_224
-t1f_222:
-    ld   0x84, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-t1ok_224:
-    ld   0x80, ac
-    beq  t1f_225
-    bne  t1t_226
-    bra  t1f_225
-t1t_226:
-    blt  t1t_227
-    bra  t1f_225
-t1t_227:
-    ble  t1t_228
-    bra  t1f_225
-t1t_228:
-    bra  t1ok_229
-t1f_225:
-    ld   0x84, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-t1ok_229:
-    ld   0xFF, ac
-    beq  t1f_230
-    bne  t1t_231
-    bra  t1f_230
-t1t_231:
-    blt  t1t_232
-    bra  t1f_230
-t1t_232:
-    ble  t1t_233
-    bra  t1f_230
-t1t_233:
-    bra  t1ok_234
-t1f_230:
-    ld   0x84, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-t1ok_234:
-    ld   pg_235 >> 8, y
-    jmp  pg_235
+    ld   pg_215 >> 8, y
+    jmp  pg_215
 #addr 0x2D00
-pg_235:
+pg_215:
+    ld   0x00, ac
+    beq  t1t_217
+    bra  t1f_216
+t1t_217:
+    bne  t1f_216
+    blt  t1f_216
+    ble  t1t_218
+    bra  t1f_216
+t1t_218:
+    bra  t1ok_219
+t1f_216:
+    ld   0x84, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+t1ok_219:
+    ld   0x01, ac
+    beq  t1f_220
+    bne  t1t_221
+    bra  t1f_220
+t1t_221:
+    blt  t1f_220
+    ble  t1f_220
+    bra  t1ok_222
+t1f_220:
+    ld   0x84, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+t1ok_222:
+    ld   0x10, ac
+    beq  t1f_223
+    bne  t1t_224
+    bra  t1f_223
+t1t_224:
+    blt  t1f_223
+    ble  t1f_223
+    bra  t1ok_225
+t1f_223:
+    ld   0x84, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+t1ok_225:
+    ld   0x80, ac
+    beq  t1f_226
+    bne  t1t_227
+    bra  t1f_226
+t1t_227:
+    blt  t1t_228
+    bra  t1f_226
+t1t_228:
+    ble  t1t_229
+    bra  t1f_226
+t1t_229:
+    bra  t1ok_230
+t1f_226:
+    ld   0x84, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+t1ok_230:
+    ld   0xFF, ac
+    beq  t1f_231
+    bne  t1t_232
+    bra  t1f_231
+t1t_232:
+    blt  t1t_233
+    bra  t1f_231
+t1t_233:
+    ble  t1t_234
+    bra  t1f_231
+t1t_234:
+    bra  t1ok_235
+t1f_231:
+    ld   0x84, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+t1ok_235:
     ld   0x7F, ac
     beq  t1f_236
     bne  t1t_237
@@ -2098,76 +2135,76 @@ ok_245:
 ok_246:
     ld   0x12, ac
     or   0x21, ac
+    ld   pg_247 >> 8, y
+    jmp  pg_247
+#addr 0x2E00
+pg_247:
     xor  0x33, ac
-    beq  ok_247
-    ld   0x8C, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_247:
-    ld   0x80, ac
-    or   0x01, ac
-    xor  0x81, ac
     beq  ok_248
     ld   0x8C, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_248:
+    ld   0x80, ac
+    or   0x01, ac
+    xor  0x81, ac
+    beq  ok_249
+    ld   0x8C, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_249:
 ; test 4: XOR
     ld   0xFF, ac
     xor  0x0F, ac
     xor  0xF0, ac
-    beq  ok_249
-    ld   0x90, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_249:
-    ld   0x55, ac
-    xor  0xFF, ac
-    xor  0xAA, ac
     beq  ok_250
     ld   0x90, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_250:
-    ld   0xA5, ac
-    xor  0xA5, ac
-    xor  0x00, ac
+    ld   0x55, ac
+    xor  0xFF, ac
+    xor  0xAA, ac
     beq  ok_251
     ld   0x90, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_251:
-    ld   0x3C, ac
-    xor  0x0F, ac
-    xor  0x33, ac
+    ld   0xA5, ac
+    xor  0xA5, ac
+    xor  0x00, ac
     beq  ok_252
     ld   0x90, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_252:
-; test 5: ADD
-    ld   0x0F, ac
-    add  0x01, ac
-    xor  0x10, ac
+    ld   0x3C, ac
+    xor  0x0F, ac
+    xor  0x33, ac
     beq  ok_253
-    ld   0x94, ac
+    ld   0x90, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_253:
-    ld   0x01, ac
-    add  0x0F, ac
+; test 5: ADD
+    ld   0x0F, ac
+    add  0x01, ac
     xor  0x10, ac
     beq  ok_254
     ld   0x94, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_254:
+    ld   0x01, ac
+    add  0x0F, ac
+    xor  0x10, ac
+    beq  ok_255
+    ld   0x94, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_255:
     ld   0x7F, ac
     add  0x01, ac
-    ld   pg_255 >> 8, y
-    jmp  pg_255
-#addr 0x2E00
-pg_255:
     xor  0x80, ac
     beq  ok_256
     ld   0x94, ac
@@ -2249,57 +2286,57 @@ ok_264:
 ok_265:
     ld   0x46, ac
     sub  0x34, ac
+    ld   pg_266 >> 8, y
+    jmp  pg_266
+#addr 0x2F00
+pg_266:
     xor  0x12, ac
-    beq  ok_266
-    ld   0x98, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_266:
-    ld   0xFF, ac
-    sub  0x0F, ac
-    xor  0xF0, ac
     beq  ok_267
     ld   0x98, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_267:
-    ld   0x01, ac
-    sub  0xFF, ac
-    xor  0x02, ac
+    ld   0xFF, ac
+    sub  0x0F, ac
+    xor  0xF0, ac
     beq  ok_268
     ld   0x98, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_268:
+    ld   0x01, ac
+    sub  0xFF, ac
+    xor  0x02, ac
+    beq  ok_269
+    ld   0x98, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_269:
 ; test 7: carry flag
     ld 0xFF, ac
     add 0x01, ac
-    bcc  t7f_269
-    bcs  t7t_271
-    bra  t7f_269
-t7t_271:
-    bra  t7ok_270
-t7f_269:
+    bcc  t7f_270
+    bcs  t7t_272
+    bra  t7f_270
+t7t_272:
+    bra  t7ok_271
+t7f_270:
     ld   0x9C, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-t7ok_270:
+t7ok_271:
     ld 0x7F, ac
     add 0x01, ac
-    bcs  t7f_272
-    bcc  t7t_274
-    bra  t7f_272
-t7t_274:
-    bra  t7ok_273
-t7f_272:
+    bcs  t7f_273
+    bcc  t7t_275
+    bra  t7f_273
+t7t_275:
+    bra  t7ok_274
+t7f_273:
     ld   0x9C, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-t7ok_273:
-    ld   pg_275 >> 8, y
-    jmp  pg_275
-#addr 0x2F00
-pg_275:
+t7ok_274:
     ld 0x00, ac
     sub 0x01, ac
     bcc  t7f_276
@@ -2411,59 +2448,62 @@ ok_295:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_296:
-; test 9: X register (AC -> X -> AC)
+; test 9: X register (AC -> X, read back through the ROM table at x3F00)
+    ld   pg_297 >> 8, y
+    jmp  pg_297
+#addr 0x3000
+pg_297:
     ld   0x00, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x00, ac
-    beq  ok_297
-    ld   0xA4, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_297:
-    ld   0xFF, x
-    ld   x, ac
-    xor  0xFF, ac
     beq  ok_298
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_298:
-    ld   0xFF, ac
-    ld   ac, x
-    ld   0x00, ac
-    ld   x, ac
+    ld   0xFF, x
+    ld   [y,x], ac
     xor  0xFF, ac
     beq  ok_299
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_299:
-    ld   0x00, x
-    ld   x, ac
-    xor  0x00, ac
+    ld   0xFF, ac
+    ld   ac, x
+    ld   0x00, ac
+    ld   0x3F, y
+    ld   [y,x], ac
+    xor  0xFF, ac
     beq  ok_300
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_300:
-    ld   0x55, ac
-    ld   ac, x
-    ld   0x00, ac
-    ld   x, ac
-    xor  0x55, ac
+    ld   0x00, x
+    ld   [y,x], ac
+    xor  0x00, ac
     beq  ok_301
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_301:
+    ld   0x55, ac
+    ld   ac, x
+    ld   0x00, ac
+    ld   0x3F, y
+    ld   [y,x], ac
+    xor  0x55, ac
+    beq  ok_302
+    ld   0xA4, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_302:
     ld   0xAA, x
-    ld   x, ac
-    ld   pg_302 >> 8, y
-    jmp  pg_302
-#addr 0x3000
-pg_302:
+    ld   [y,x], ac
     xor  0xAA, ac
     beq  ok_303
     ld   0xA4, ac
@@ -2473,7 +2513,8 @@ ok_303:
     ld   0xAA, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0xAA, ac
     beq  ok_304
     ld   0xA4, ac
@@ -2481,7 +2522,7 @@ ok_303:
     jmp  fail_h
 ok_304:
     ld   0x55, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0x55, ac
     beq  ok_305
     ld   0xA4, ac
@@ -2491,7 +2532,8 @@ ok_305:
     ld   0x01, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x01, ac
     beq  ok_306
     ld   0xA4, ac
@@ -2499,7 +2541,7 @@ ok_305:
     jmp  fail_h
 ok_306:
     ld   0xFE, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0xFE, ac
     beq  ok_307
     ld   0xA4, ac
@@ -2509,7 +2551,8 @@ ok_307:
     ld   0x02, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x02, ac
     beq  ok_308
     ld   0xA4, ac
@@ -2517,7 +2560,7 @@ ok_307:
     jmp  fail_h
 ok_308:
     ld   0xFD, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0xFD, ac
     beq  ok_309
     ld   0xA4, ac
@@ -2527,7 +2570,8 @@ ok_309:
     ld   0x04, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x04, ac
     beq  ok_310
     ld   0xA4, ac
@@ -2535,93 +2579,98 @@ ok_309:
     jmp  fail_h
 ok_310:
     ld   0xFB, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0xFB, ac
     beq  ok_311
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_311:
+    ld   pg_312 >> 8, y
+    jmp  pg_312
+#addr 0x3100
+pg_312:
     ld   0x08, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x08, ac
-    beq  ok_312
-    ld   0xA4, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_312:
-    ld   0xF7, x
-    ld   x, ac
-    xor  0xF7, ac
     beq  ok_313
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_313:
-    ld   0x10, ac
-    ld   ac, x
-    ld   0x00, ac
-    ld   x, ac
-    xor  0x10, ac
+    ld   0xF7, x
+    ld   [y,x], ac
+    xor  0xF7, ac
     beq  ok_314
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_314:
-    ld   0xEF, x
-    ld   x, ac
-    xor  0xEF, ac
+    ld   0x10, ac
+    ld   ac, x
+    ld   0x00, ac
+    ld   0x3F, y
+    ld   [y,x], ac
+    xor  0x10, ac
     beq  ok_315
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_315:
-    ld   0x20, ac
-    ld   ac, x
-    ld   0x00, ac
-    ld   x, ac
-    xor  0x20, ac
+    ld   0xEF, x
+    ld   [y,x], ac
+    xor  0xEF, ac
     beq  ok_316
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_316:
-    ld   0xDF, x
-    ld   x, ac
-    xor  0xDF, ac
+    ld   0x20, ac
+    ld   ac, x
+    ld   0x00, ac
+    ld   0x3F, y
+    ld   [y,x], ac
+    xor  0x20, ac
     beq  ok_317
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_317:
-    ld   0x40, ac
-    ld   ac, x
-    ld   0x00, ac
-    ld   x, ac
-    xor  0x40, ac
+    ld   0xDF, x
+    ld   [y,x], ac
+    xor  0xDF, ac
     beq  ok_318
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_318:
-    ld   0xBF, x
-    ld   x, ac
-    xor  0xBF, ac
+    ld   0x40, ac
+    ld   ac, x
+    ld   0x00, ac
+    ld   0x3F, y
+    ld   [y,x], ac
+    xor  0x40, ac
     beq  ok_319
     ld   0xA4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_319:
+    ld   0xBF, x
+    ld   [y,x], ac
+    xor  0xBF, ac
+    beq  ok_320
+    ld   0xA4, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_320:
     ld   0x80, ac
     ld   ac, x
     ld   0x00, ac
-    ld   x, ac
-    ld   pg_320 >> 8, y
-    jmp  pg_320
-#addr 0x3100
-pg_320:
+    ld   0x3F, y
+    ld   [y,x], ac
     xor  0x80, ac
     beq  ok_321
     ld   0xA4, ac
@@ -2629,7 +2678,7 @@ pg_320:
     jmp  fail_h
 ok_321:
     ld   0x7F, x
-    ld   x, ac
+    ld   [y,x], ac
     xor  0x7F, ac
     beq  ok_322
     ld   0xA4, ac
@@ -2694,89 +2743,89 @@ ok_328:
     ld   0x40, y
     ld   0x10, x
     ld   [y,x], ac
+    ld   pg_329 >> 8, y
+    jmp  pg_329
+#addr 0x3200
+pg_329:
     xor  0x40, ac
-    beq  ok_329
-    ld   0xA8, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_329:
-    ld   0x80, y
-    ld   0x10, x
-    ld   [y,x], ac
-    xor  0x80, ac
     beq  ok_330
     ld   0xA8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_330:
+    ld   0x80, y
+    ld   0x10, x
+    ld   [y,x], ac
+    xor  0x80, ac
+    beq  ok_331
+    ld   0xA8, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_331:
 ; test 11: X register, address bits 7-0
     ld   0x0F, y
     ld   0x00, x
     ld   [y,x], ac
     xor  0x5A, ac
-    beq  ok_331
-    ld   0xAC, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_331:
-    ld   0x0F, y
-    ld   0x01, x
-    ld   [y,x], ac
-    xor  0x5B, ac
     beq  ok_332
     ld   0xAC, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_332:
     ld   0x0F, y
-    ld   0x02, x
+    ld   0x01, x
     ld   [y,x], ac
-    xor  0x58, ac
+    xor  0x5B, ac
     beq  ok_333
     ld   0xAC, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_333:
     ld   0x0F, y
-    ld   0x04, x
+    ld   0x02, x
     ld   [y,x], ac
-    xor  0x5E, ac
+    xor  0x58, ac
     beq  ok_334
     ld   0xAC, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_334:
     ld   0x0F, y
-    ld   0x08, x
+    ld   0x04, x
     ld   [y,x], ac
-    xor  0x52, ac
+    xor  0x5E, ac
     beq  ok_335
     ld   0xAC, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_335:
     ld   0x0F, y
-    ld   0x10, x
+    ld   0x08, x
     ld   [y,x], ac
-    xor  0x4A, ac
+    xor  0x52, ac
     beq  ok_336
     ld   0xAC, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_336:
     ld   0x0F, y
-    ld   0x20, x
+    ld   0x10, x
     ld   [y,x], ac
-    xor  0x7A, ac
+    xor  0x4A, ac
     beq  ok_337
     ld   0xAC, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_337:
-    ld   pg_338 >> 8, y
-    jmp  pg_338
-#addr 0x3200
-pg_338:
+    ld   0x0F, y
+    ld   0x20, x
+    ld   [y,x], ac
+    xor  0x7A, ac
+    beq  ok_338
+    ld   0xAC, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_338:
     ld   0x0F, y
     ld   0x40, x
     ld   [y,x], ac
@@ -2806,14 +2855,13 @@ ok_340:
 ok_341:
 ; test 12: ROM data, table at x3F00
     ld   0x3F, y
-    ld   0x00, x
+    ld   0x00, ac
 t12_342:
-    ld   [y,x], ac
-    xor  x, ac
-    bne  t12f_343
-    ld   x, ac
-    inc
     ld   ac, x
+    xor  [y,x], ac
+    bne  t12f_343
+    ld   [y,x], ac
+    inc
     bne  t12_342
     bra  t12ok_344
 t12f_343:
@@ -2844,93 +2892,97 @@ ok_345:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_346:
-    ld   0x00, x
-    ld   x, [0x32]
-    ld   [0x32], ac
-    xor  0x00, ac
-    beq  ok_347
-    ld   0xB4, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_347:
-    ld   0x90, y
-    ld   0x10, x
-    ld   0x00, [y,x]
+    ld   0x32, x
     ld   0x00, ac
-    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x00, ac
+    ld   [0x32], ac
+    ld   pg_347 >> 8, y
+    jmp  pg_347
+#addr 0x3300
+pg_347:
     xor  0x00, ac
     beq  ok_348
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_348:
-    ld   0xFF, ac
-    ld   ac, [y,x]
+    ld   0x90, y
+    ld   0x10, x
+    ld   0x00, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
-    xor  0xFF, ac
+    xor  0x00, ac
     beq  ok_349
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_349:
     ld   0xFF, ac
-    ld   ac, [0x30]
+    ld   ac, [y,x]
     ld   0x00, ac
-    ld   [0x30], ac
+    ld   [y,x], ac
     xor  0xFF, ac
     beq  ok_350
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_350:
-    ld   0x31, x
-    ld   0x00, [x]
-    ld   [x], ac
-    xor  0x00, ac
+    ld   0xFF, ac
+    ld   ac, [0x30]
+    ld   0x00, ac
+    ld   [0x30], ac
+    xor  0xFF, ac
     beq  ok_351
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_351:
-    ld   0xFF, x
-    ld   x, [0x32]
-    ld   [0x32], ac
-    xor  0xFF, ac
+    ld   0x31, x
+    ld   0x00, [x]
+    ld   [x], ac
+    xor  0x00, ac
     beq  ok_352
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_352:
-    ld   0x90, y
-    ld   0x10, x
-    ld   0xFF, [y,x]
+    ld   0x32, x
+    ld   0xFF, ac
+    ld   ac, [x]
     ld   0x00, ac
-    ld   [y,x], ac
+    ld   [0x32], ac
     xor  0xFF, ac
     beq  ok_353
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_353:
-    ld   0x00, ac
-    ld   ac, [y,x]
+    ld   0x90, y
+    ld   0x10, x
+    ld   0xFF, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
-    xor  0x00, ac
+    xor  0xFF, ac
     beq  ok_354
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_354:
+    ld   0x00, ac
+    ld   ac, [y,x]
+    ld   0x00, ac
+    ld   [y,x], ac
+    xor  0x00, ac
+    beq  ok_355
+    ld   0xB4, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_355:
     ld   0x55, ac
     ld   ac, [0x30]
     ld   0x00, ac
     ld   [0x30], ac
-    ld   pg_355 >> 8, y
-    jmp  pg_355
-#addr 0x3300
-pg_355:
     xor  0x55, ac
     beq  ok_356
     ld   0xB4, ac
@@ -2946,8 +2998,10 @@ ok_356:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_357:
-    ld   0x55, x
-    ld   x, [0x32]
+    ld   0x32, x
+    ld   0x55, ac
+    ld   ac, [x]
+    ld   0x00, ac
     ld   [0x32], ac
     xor  0x55, ac
     beq  ok_358
@@ -2995,93 +3049,97 @@ ok_361:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_362:
-    ld   0xAA, x
-    ld   x, [0x32]
-    ld   [0x32], ac
-    xor  0xAA, ac
-    beq  ok_363
-    ld   0xB4, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_363:
-    ld   0x90, y
-    ld   0x10, x
-    ld   0xAA, [y,x]
+    ld   pg_363 >> 8, y
+    jmp  pg_363
+#addr 0x3400
+pg_363:
+    ld   0x32, x
+    ld   0xAA, ac
+    ld   ac, [x]
     ld   0x00, ac
-    ld   [y,x], ac
+    ld   [0x32], ac
     xor  0xAA, ac
     beq  ok_364
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_364:
-    ld   0x55, ac
-    ld   ac, [y,x]
+    ld   0x90, y
+    ld   0x10, x
+    ld   0xAA, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
-    xor  0x55, ac
+    xor  0xAA, ac
     beq  ok_365
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_365:
-    ld   0x01, ac
-    ld   ac, [0x30]
+    ld   0x55, ac
+    ld   ac, [y,x]
     ld   0x00, ac
-    ld   [0x30], ac
-    xor  0x01, ac
+    ld   [y,x], ac
+    xor  0x55, ac
     beq  ok_366
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_366:
-    ld   0x31, x
-    ld   0xFE, [x]
-    ld   [x], ac
-    xor  0xFE, ac
+    ld   0x01, ac
+    ld   ac, [0x30]
+    ld   0x00, ac
+    ld   [0x30], ac
+    xor  0x01, ac
     beq  ok_367
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_367:
-    ld   0x01, x
-    ld   x, [0x32]
-    ld   [0x32], ac
-    xor  0x01, ac
+    ld   0x31, x
+    ld   0xFE, [x]
+    ld   [x], ac
+    xor  0xFE, ac
     beq  ok_368
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_368:
-    ld   0x90, y
-    ld   0x10, x
-    ld   0x01, [y,x]
+    ld   0x32, x
+    ld   0x01, ac
+    ld   ac, [x]
     ld   0x00, ac
-    ld   [y,x], ac
+    ld   [0x32], ac
     xor  0x01, ac
     beq  ok_369
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_369:
-    ld   0xFE, ac
-    ld   ac, [y,x]
+    ld   0x90, y
+    ld   0x10, x
+    ld   0x01, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
-    xor  0xFE, ac
+    xor  0x01, ac
     beq  ok_370
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_370:
+    ld   0xFE, ac
+    ld   ac, [y,x]
+    ld   0x00, ac
+    ld   [y,x], ac
+    xor  0xFE, ac
+    beq  ok_371
+    ld   0xB4, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_371:
     ld   0x02, ac
     ld   ac, [0x30]
     ld   0x00, ac
     ld   [0x30], ac
-    ld   pg_371 >> 8, y
-    jmp  pg_371
-#addr 0x3400
-pg_371:
     xor  0x02, ac
     beq  ok_372
     ld   0xB4, ac
@@ -3097,8 +3155,10 @@ ok_372:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_373:
-    ld   0x02, x
-    ld   x, [0x32]
+    ld   0x32, x
+    ld   0x02, ac
+    ld   ac, [x]
+    ld   0x00, ac
     ld   [0x32], ac
     xor  0x02, ac
     beq  ok_374
@@ -3140,99 +3200,103 @@ ok_377:
     ld   0x31, x
     ld   0xFB, [x]
     ld   [x], ac
+    ld   pg_378 >> 8, y
+    jmp  pg_378
+#addr 0x3500
+pg_378:
     xor  0xFB, ac
-    beq  ok_378
-    ld   0xB4, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_378:
-    ld   0x04, x
-    ld   x, [0x32]
-    ld   [0x32], ac
-    xor  0x04, ac
     beq  ok_379
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_379:
-    ld   0x90, y
-    ld   0x10, x
-    ld   0x04, [y,x]
+    ld   0x32, x
+    ld   0x04, ac
+    ld   ac, [x]
     ld   0x00, ac
-    ld   [y,x], ac
+    ld   [0x32], ac
     xor  0x04, ac
     beq  ok_380
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_380:
-    ld   0xFB, ac
-    ld   ac, [y,x]
+    ld   0x90, y
+    ld   0x10, x
+    ld   0x04, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
-    xor  0xFB, ac
+    xor  0x04, ac
     beq  ok_381
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_381:
-    ld   0x08, ac
-    ld   ac, [0x30]
+    ld   0xFB, ac
+    ld   ac, [y,x]
     ld   0x00, ac
-    ld   [0x30], ac
-    xor  0x08, ac
+    ld   [y,x], ac
+    xor  0xFB, ac
     beq  ok_382
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_382:
-    ld   0x31, x
-    ld   0xF7, [x]
-    ld   [x], ac
-    xor  0xF7, ac
+    ld   0x08, ac
+    ld   ac, [0x30]
+    ld   0x00, ac
+    ld   [0x30], ac
+    xor  0x08, ac
     beq  ok_383
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_383:
-    ld   0x08, x
-    ld   x, [0x32]
-    ld   [0x32], ac
-    xor  0x08, ac
+    ld   0x31, x
+    ld   0xF7, [x]
+    ld   [x], ac
+    xor  0xF7, ac
     beq  ok_384
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_384:
-    ld   0x90, y
-    ld   0x10, x
-    ld   0x08, [y,x]
+    ld   0x32, x
+    ld   0x08, ac
+    ld   ac, [x]
     ld   0x00, ac
-    ld   [y,x], ac
+    ld   [0x32], ac
     xor  0x08, ac
     beq  ok_385
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_385:
-    ld   0xF7, ac
-    ld   ac, [y,x]
+    ld   0x90, y
+    ld   0x10, x
+    ld   0x08, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
-    xor  0xF7, ac
+    xor  0x08, ac
     beq  ok_386
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_386:
+    ld   0xF7, ac
+    ld   ac, [y,x]
+    ld   0x00, ac
+    ld   [y,x], ac
+    xor  0xF7, ac
+    beq  ok_387
+    ld   0xB4, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_387:
     ld   0x10, ac
     ld   ac, [0x30]
     ld   0x00, ac
     ld   [0x30], ac
-    ld   pg_387 >> 8, y
-    jmp  pg_387
-#addr 0x3500
-pg_387:
     xor  0x10, ac
     beq  ok_388
     ld   0xB4, ac
@@ -3248,8 +3312,10 @@ ok_388:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_389:
-    ld   0x10, x
-    ld   x, [0x32]
+    ld   0x32, x
+    ld   0x10, ac
+    ld   ac, [x]
+    ld   0x00, ac
     ld   [0x32], ac
     xor  0x10, ac
     beq  ok_390
@@ -3282,108 +3348,112 @@ ok_392:
     ld   ac, [0x30]
     ld   0x00, ac
     ld   [0x30], ac
+    ld   pg_393 >> 8, y
+    jmp  pg_393
+#addr 0x3600
+pg_393:
     xor  0x20, ac
-    beq  ok_393
-    ld   0xB4, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_393:
-    ld   0x31, x
-    ld   0xDF, [x]
-    ld   [x], ac
-    xor  0xDF, ac
     beq  ok_394
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_394:
-    ld   0x20, x
-    ld   x, [0x32]
-    ld   [0x32], ac
-    xor  0x20, ac
+    ld   0x31, x
+    ld   0xDF, [x]
+    ld   [x], ac
+    xor  0xDF, ac
     beq  ok_395
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_395:
-    ld   0x90, y
-    ld   0x10, x
-    ld   0x20, [y,x]
+    ld   0x32, x
+    ld   0x20, ac
+    ld   ac, [x]
     ld   0x00, ac
-    ld   [y,x], ac
+    ld   [0x32], ac
     xor  0x20, ac
     beq  ok_396
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_396:
-    ld   0xDF, ac
-    ld   ac, [y,x]
+    ld   0x90, y
+    ld   0x10, x
+    ld   0x20, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
-    xor  0xDF, ac
+    xor  0x20, ac
     beq  ok_397
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_397:
-    ld   0x40, ac
-    ld   ac, [0x30]
+    ld   0xDF, ac
+    ld   ac, [y,x]
     ld   0x00, ac
-    ld   [0x30], ac
-    xor  0x40, ac
+    ld   [y,x], ac
+    xor  0xDF, ac
     beq  ok_398
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_398:
-    ld   0x31, x
-    ld   0xBF, [x]
-    ld   [x], ac
-    xor  0xBF, ac
+    ld   0x40, ac
+    ld   ac, [0x30]
+    ld   0x00, ac
+    ld   [0x30], ac
+    xor  0x40, ac
     beq  ok_399
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_399:
-    ld   0x40, x
-    ld   x, [0x32]
-    ld   [0x32], ac
-    xor  0x40, ac
+    ld   0x31, x
+    ld   0xBF, [x]
+    ld   [x], ac
+    xor  0xBF, ac
     beq  ok_400
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_400:
-    ld   0x90, y
-    ld   0x10, x
-    ld   0x40, [y,x]
+    ld   0x32, x
+    ld   0x40, ac
+    ld   ac, [x]
     ld   0x00, ac
-    ld   [y,x], ac
+    ld   [0x32], ac
     xor  0x40, ac
     beq  ok_401
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_401:
-    ld   0xBF, ac
-    ld   ac, [y,x]
+    ld   0x90, y
+    ld   0x10, x
+    ld   0x40, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
-    xor  0xBF, ac
+    xor  0x40, ac
     beq  ok_402
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_402:
+    ld   0xBF, ac
+    ld   ac, [y,x]
+    ld   0x00, ac
+    ld   [y,x], ac
+    xor  0xBF, ac
+    beq  ok_403
+    ld   0xB4, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_403:
     ld   0x80, ac
     ld   ac, [0x30]
     ld   0x00, ac
     ld   [0x30], ac
-    ld   pg_403 >> 8, y
-    jmp  pg_403
-#addr 0x3600
-pg_403:
     xor  0x80, ac
     beq  ok_404
     ld   0xB4, ac
@@ -3399,8 +3469,10 @@ ok_404:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_405:
-    ld   0x80, x
-    ld   x, [0x32]
+    ld   0x32, x
+    ld   0x80, ac
+    ld   ac, [x]
+    ld   0x00, ac
     ld   [0x32], ac
     xor  0x80, ac
     beq  ok_406
@@ -3408,27 +3480,31 @@ ok_405:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_406:
+    ld   pg_407 >> 8, y
+    jmp  pg_407
+#addr 0x3700
+pg_407:
     ld   0x90, y
     ld   0x10, x
     ld   0x80, [y,x]
     ld   0x00, ac
     ld   [y,x], ac
     xor  0x80, ac
-    beq  ok_407
-    ld   0xB4, ac
-    ld   fail_h >> 8, y
-    jmp  fail_h
-ok_407:
-    ld   0x7F, ac
-    ld   ac, [y,x]
-    ld   0x00, ac
-    ld   [y,x], ac
-    xor  0x7F, ac
     beq  ok_408
     ld   0xB4, ac
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_408:
+    ld   0x7F, ac
+    ld   ac, [y,x]
+    ld   0x00, ac
+    ld   [y,x], ac
+    xor  0x7F, ac
+    beq  ok_409
+    ld   0xB4, ac
+    ld   fail_h >> 8, y
+    jmp  fail_h
+ok_409:
 ; test 14: ROM/RAM map register
     ld   0x01, y
     ld   0x10, x
@@ -3440,11 +3516,11 @@ ok_408:
     ld   0x10, x
     ld   [y,x], ac
     xor  0xFE, ac
-    beq  ok_409
+    beq  ok_410
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_409:
+ok_410:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
@@ -3452,14 +3528,14 @@ ok_409:
     ld   0x10, x
     ld   [y,x], ac
     xor  0x01, ac
-    beq  ok_410
+    beq  ok_411
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_410:
+ok_411:
     ld   map_s1_b >> 8, y
     jmp  map_s1_b
-t13b_411:
+t13b_412:
     ld   0x40, y
     ld   0x10, x
     ld   0xBF, [y,x]
@@ -3470,11 +3546,11 @@ t13b_411:
     ld   0x10, x
     ld   [y,x], ac
     xor  0xBF, ac
-    beq  ok_412
+    beq  ok_413
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_412:
+ok_413:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
@@ -3482,11 +3558,11 @@ ok_412:
     ld   0x10, x
     ld   [y,x], ac
     xor  0x40, ac
-    beq  ok_413
+    beq  ok_414
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_413:
+ok_414:
     ld   0x7E, y
     ld   0x10, x
     ld   0x81, [y,x]
@@ -3497,11 +3573,11 @@ ok_413:
     ld   0x10, x
     ld   [y,x], ac
     xor  0x81, ac
-    beq  ok_414
+    beq  ok_415
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_414:
+ok_415:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
@@ -3509,11 +3585,11 @@ ok_414:
     ld   0x10, x
     ld   [y,x], ac
     xor  0x7E, ac
-    beq  ok_415
+    beq  ok_416
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_415:
+ok_416:
     ld   0x80, y
     ld   0x10, x
     ld   0x7F, [y,x]
@@ -3524,15 +3600,11 @@ ok_415:
     ld   0x10, x
     ld   [y,x], ac
     xor  0x7F, ac
-    beq  ok_416
+    beq  ok_417
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_416:
-    ld   pg_417 >> 8, y
-    jmp  pg_417
-#addr 0x3700
-pg_417:
+ok_417:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
@@ -3554,12 +3626,16 @@ ok_418:
     ld   0xA0, y
     ld   0x10, x
     ld   [y,x], ac
+    ld   pg_419 >> 8, y
+    jmp  pg_419
+#addr 0x3800
+pg_419:
     xor  0x5F, ac
-    beq  ok_419
+    beq  ok_420
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_419:
+ok_420:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
@@ -3567,11 +3643,11 @@ ok_419:
     ld   0x10, x
     ld   [y,x], ac
     xor  0xA0, ac
-    beq  ok_420
+    beq  ok_421
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_420:
+ok_421:
     ld   0xC0, y
     ld   0x10, x
     ld   0x3F, [y,x]
@@ -3582,11 +3658,11 @@ ok_420:
     ld   0x10, x
     ld   [y,x], ac
     xor  0x3F, ac
-    beq  ok_421
+    beq  ok_422
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_421:
+ok_422:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
@@ -3594,11 +3670,11 @@ ok_421:
     ld   0x10, x
     ld   [y,x], ac
     xor  0xC0, ac
-    beq  ok_422
+    beq  ok_423
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_422:
+ok_423:
     ld   0xFE, y
     ld   0x10, x
     ld   0x18, [y,x]
@@ -3609,11 +3685,11 @@ ok_422:
     ld   0x10, x
     ld   [y,x], ac
     xor  0x18, ac
-    beq  ok_423
+    beq  ok_424
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_423:
+ok_424:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
@@ -3621,11 +3697,11 @@ ok_423:
     ld   0x10, x
     ld   [y,x], ac
     xor  0xE7, ac
-    beq  ok_424
+    beq  ok_425
     ld   0xB8, ac
     ld   fail_h >> 8, y
     jmp  fail_h
-ok_424:
+ok_425:
     ld   core_back >> 8, y
     jmp  core_back
 
@@ -3648,11 +3724,11 @@ map_s1_a:
     ld   0x10, x
     ld   [y,x], ac
     xor  0xDF, ac
-    beq  ok_425
+    beq  ok_426
     ld   0xB8, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
-ok_425:
+ok_426:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
@@ -3660,13 +3736,13 @@ ok_425:
     ld   0x10, x
     ld   [y,x], ac
     xor  0x20, ac
-    beq  ok_426
+    beq  ok_427
     ld   0xB8, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
-ok_426:
-    ld   t13b_196 >> 8, y
-    jmp  t13b_196
+ok_427:
+    ld   t13b_197 >> 8, y
+    jmp  t13b_197
 map_s1_b:
     ld   0x20, y
     ld   0x10, x
@@ -3678,11 +3754,11 @@ map_s1_b:
     ld   0x10, x
     ld   [y,x], ac
     xor  0xDF, ac
-    beq  ok_427
+    beq  ok_428
     ld   0xB8, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
-ok_427:
+ok_428:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
@@ -3690,13 +3766,13 @@ ok_427:
     ld   0x10, x
     ld   [y,x], ac
     xor  0x20, ac
-    beq  ok_428
+    beq  ok_429
     ld   0xB8, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
-ok_428:
-    ld   t13b_411 >> 8, y
-    jmp  t13b_411
+ok_429:
+    ld   t13b_412 >> 8, y
+    jmp  t13b_412
 ram_addr_test:
 ; test 15: RAM address lines.  Writes a different byte at the base of
 ; each RAM chip and at base + 2^k, then reads them all back.
@@ -3769,10 +3845,10 @@ ram_addr_test:
     ld   0x80, y
     ld   0x10, x
     ld   0x45, [y,x]
-    ld   pg_429 >> 8, y
-    jmp  pg_429
+    ld   pg_430 >> 8, y
+    jmp  pg_430
 #addr 0x6100
-pg_429:
+pg_430:
     ld   0x80, y
     ld   0x20, x
     ld   0x46, [y,x]
@@ -3807,303 +3883,303 @@ pg_429:
     ld   0x00, x
     ld   [y,x], ac
     xor  0xA5, ac
-    beq  ok_430
-    ld   0xBC, ac
-    ld   fail_h3 >> 8, y
-    jmp  fail_h3
-ok_430:
-    ld   0x00, y
-    ld   0x01, x
-    ld   [y,x], ac
-    xor  0x01, ac
     beq  ok_431
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_431:
     ld   0x00, y
-    ld   0x02, x
+    ld   0x01, x
     ld   [y,x], ac
-    xor  0x02, ac
+    xor  0x01, ac
     beq  ok_432
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_432:
     ld   0x00, y
-    ld   0x04, x
+    ld   0x02, x
     ld   [y,x], ac
-    xor  0x03, ac
+    xor  0x02, ac
     beq  ok_433
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_433:
     ld   0x00, y
-    ld   0x08, x
+    ld   0x04, x
     ld   [y,x], ac
-    xor  0x04, ac
+    xor  0x03, ac
     beq  ok_434
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_434:
     ld   0x00, y
-    ld   0x10, x
+    ld   0x08, x
     ld   [y,x], ac
-    xor  0x05, ac
+    xor  0x04, ac
     beq  ok_435
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_435:
     ld   0x00, y
-    ld   0x20, x
+    ld   0x10, x
     ld   [y,x], ac
-    xor  0x06, ac
+    xor  0x05, ac
     beq  ok_436
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_436:
     ld   0x00, y
-    ld   0x40, x
+    ld   0x20, x
     ld   [y,x], ac
-    xor  0x07, ac
+    xor  0x06, ac
     beq  ok_437
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_437:
     ld   0x00, y
-    ld   0x80, x
+    ld   0x40, x
     ld   [y,x], ac
-    xor  0x08, ac
+    xor  0x07, ac
     beq  ok_438
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_438:
-    ld   0x01, y
-    ld   0x00, x
+    ld   0x00, y
+    ld   0x80, x
     ld   [y,x], ac
-    xor  0x09, ac
+    xor  0x08, ac
     beq  ok_439
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_439:
-    ld   0x02, y
+    ld   0x01, y
     ld   0x00, x
     ld   [y,x], ac
-    xor  0x0A, ac
+    xor  0x09, ac
     beq  ok_440
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_440:
-    ld   0x04, y
+    ld   0x02, y
     ld   0x00, x
     ld   [y,x], ac
-    xor  0x0B, ac
+    xor  0x0A, ac
     beq  ok_441
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_441:
-    ld   0x08, y
+    ld   0x04, y
     ld   0x00, x
     ld   [y,x], ac
-    ld   pg_442 >> 8, y
-    jmp  pg_442
-#addr 0x6200
-pg_442:
-    xor  0x0C, ac
-    beq  ok_443
+    xor  0x0B, ac
+    beq  ok_442
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
-ok_443:
-    ld   0x10, y
+ok_442:
+    ld   0x08, y
     ld   0x00, x
     ld   [y,x], ac
-    xor  0x0D, ac
+    ld   pg_443 >> 8, y
+    jmp  pg_443
+#addr 0x6200
+pg_443:
+    xor  0x0C, ac
     beq  ok_444
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_444:
-    ld   0x20, y
+    ld   0x10, y
     ld   0x00, x
     ld   [y,x], ac
-    xor  0x0E, ac
+    xor  0x0D, ac
     beq  ok_445
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_445:
-    ld   0x40, y
+    ld   0x20, y
     ld   0x00, x
     ld   [y,x], ac
-    xor  0x0F, ac
+    xor  0x0E, ac
     beq  ok_446
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_446:
-    ld   0x80, y
+    ld   0x40, y
     ld   0x00, x
     ld   [y,x], ac
-    xor  0x5A, ac
+    xor  0x0F, ac
     beq  ok_447
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_447:
     ld   0x80, y
-    ld   0x01, x
+    ld   0x00, x
     ld   [y,x], ac
-    xor  0x41, ac
+    xor  0x5A, ac
     beq  ok_448
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_448:
     ld   0x80, y
-    ld   0x02, x
+    ld   0x01, x
     ld   [y,x], ac
-    xor  0x42, ac
+    xor  0x41, ac
     beq  ok_449
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_449:
     ld   0x80, y
-    ld   0x04, x
+    ld   0x02, x
     ld   [y,x], ac
-    xor  0x43, ac
+    xor  0x42, ac
     beq  ok_450
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_450:
     ld   0x80, y
-    ld   0x08, x
+    ld   0x04, x
     ld   [y,x], ac
-    xor  0x44, ac
+    xor  0x43, ac
     beq  ok_451
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_451:
     ld   0x80, y
-    ld   0x10, x
+    ld   0x08, x
     ld   [y,x], ac
-    xor  0x45, ac
+    xor  0x44, ac
     beq  ok_452
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_452:
     ld   0x80, y
-    ld   0x20, x
+    ld   0x10, x
     ld   [y,x], ac
-    xor  0x46, ac
+    xor  0x45, ac
     beq  ok_453
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_453:
     ld   0x80, y
-    ld   0x40, x
+    ld   0x20, x
     ld   [y,x], ac
-    xor  0x47, ac
+    xor  0x46, ac
     beq  ok_454
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_454:
     ld   0x80, y
-    ld   0x80, x
+    ld   0x40, x
     ld   [y,x], ac
-    xor  0x48, ac
+    xor  0x47, ac
     beq  ok_455
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_455:
-    ld   0x81, y
-    ld   0x00, x
+    ld   0x80, y
+    ld   0x80, x
     ld   [y,x], ac
-    xor  0x49, ac
+    xor  0x48, ac
     beq  ok_456
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_456:
-    ld   0x82, y
+    ld   0x81, y
     ld   0x00, x
     ld   [y,x], ac
-    xor  0x4A, ac
+    xor  0x49, ac
     beq  ok_457
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_457:
-    ld   0x84, y
+    ld   0x82, y
     ld   0x00, x
     ld   [y,x], ac
-    xor  0x4B, ac
+    xor  0x4A, ac
     beq  ok_458
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_458:
-    ld   0x88, y
+    ld   0x84, y
     ld   0x00, x
     ld   [y,x], ac
-    xor  0x4C, ac
+    xor  0x4B, ac
     beq  ok_459
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_459:
-    ld   pg_460 >> 8, y
-    jmp  pg_460
+    ld   0x88, y
+    ld   0x00, x
+    ld   [y,x], ac
+    xor  0x4C, ac
+    beq  ok_460
+    ld   0xBC, ac
+    ld   fail_h3 >> 8, y
+    jmp  fail_h3
+ok_460:
+    ld   pg_461 >> 8, y
+    jmp  pg_461
 #addr 0x6300
-pg_460:
+pg_461:
     ld   0x90, y
     ld   0x00, x
     ld   [y,x], ac
     xor  0x4D, ac
-    beq  ok_461
-    ld   0xBC, ac
-    ld   fail_h3 >> 8, y
-    jmp  fail_h3
-ok_461:
-    ld   0xA0, y
-    ld   0x00, x
-    ld   [y,x], ac
-    xor  0x4E, ac
     beq  ok_462
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_462:
-    ld   0xC0, y
+    ld   0xA0, y
     ld   0x00, x
     ld   [y,x], ac
-    xor  0x4F, ac
+    xor  0x4E, ac
     beq  ok_463
     ld   0xBC, ac
     ld   fail_h3 >> 8, y
     jmp  fail_h3
 ok_463:
+    ld   0xC0, y
+    ld   0x00, x
+    ld   [y,x], ac
+    xor  0x4F, ac
+    beq  ok_464
+    ld   0xBC, ac
+    ld   fail_h3 >> 8, y
+    jmp  fail_h3
+ok_464:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
-    ld   t14b_210 >> 8, y
-    jmp  t14b_210
+    ld   t14b_211 >> 8, y
+    jmp  t14b_211
 
 ; band tables
 #addr 0x6E00
@@ -4129,14 +4205,12 @@ main:
     ld   0x00, x
     ld   0x00, [y,x]
     ld   0x1F, y
-    ld   0x00, x
-cp_464:
-    ld   [y,x], ac
-    ld   ac, [y,x]
-    ld   x, ac
-    inc
+    ld   0x00, ac
+cp_465:
     ld   ac, x
-    bne  cp_464
+    ld   [y,x], [y,x]
+    inc
+    bne  cp_465
     ld   0x50, y
     ld   0x00, x
     ld   0x05, [y,x]
@@ -4186,53 +4260,48 @@ cp_464:
     ld   0xEE, ac
     ld   ac, [0x53]
     ld   LINK_LO, x
-    ld   ret_465, [x]
-    ld   LINK_HI, x
-    ld   ret_465 >> 8, [x]
-    ld   port_init >> 8, y
-    jmp  port_init
-ret_465:
-    ld   LINK_LO, x
     ld   ret_466, [x]
     ld   LINK_HI, x
     ld   ret_466 >> 8, [x]
-    ld   snd_init >> 8, y
-    jmp  snd_init
+    ld   port_init >> 8, y
+    jmp  port_init
 ret_466:
     ld   LINK_LO, x
     ld   ret_467, [x]
     ld   LINK_HI, x
     ld   ret_467 >> 8, [x]
+    ld   snd_init >> 8, y
+    jmp  snd_init
+ret_467:
+    ld   LINK_LO, x
+    ld   ret_468, [x]
+    ld   LINK_HI, x
+    ld   ret_468 >> 8, [x]
     ld   con_clear >> 8, y
     jmp  con_clear
-ret_467:
+ret_468:
 ; mode bytes: rows 368-399 4 bpp, 400-415 2 bpp, 416-479 8 bpp (all 1x)
     ld   0x5B, y
-    ld   0x90, x
-mb_468:
-    ld   0x02, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    xor  0xB0, ac
-    bne  mb_468
-    ld   0x5B, y
-    ld   0xB0, x
+    ld   0x1F, ac
 mb_469:
-    ld   0x01, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    xor  0xC0, ac
-    bne  mb_469
+    add  0x90, x
+    ld   0x02, [y,x]
+    sub  1, ac
+    bcc  mb_469
     ld   0x5B, y
-    ld   0xC0, x
+    ld   0x0F, ac
 mb_470:
+    add  0xB0, x
+    ld   0x01, [y,x]
+    sub  1, ac
+    bcc  mb_470
+    ld   0x5B, y
+    ld   0x3F, ac
+mb_471:
+    add  0xC0, x
     ld   0x03, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    bne  mb_470
+    sub  1, ac
+    bcc  mb_471
 ; pixels: byte column c is at page x61 + 2c, rows 368-479 at x90-xFF
     ld   0x00, ac
     ld   ac, [0x58]
@@ -4246,58 +4315,62 @@ band_col:
     ld   [y,x], ac
     ld   ac, [0x5A]
     ld   [0x59], y
-    ld   0x90, x
-bp_471:
+    ld   0x90, ac
+    ld   ac, [0x5E]
+bp_472:
+    ld   [0x5E], x
     ld   [0x5A], ac
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [0x5E], ac
     inc
-    ld   ac, x
+    ld   ac, [0x5E]
     xor  0xB0, ac
-    bne  bp_471
+    bne  bp_472
     ld   tbl2 >> 8, y
     ld   [0x58], x
     ld   [y,x], ac
     ld   ac, [0x5A]
-    ld   pg_472 >> 8, y
-    jmp  pg_472
+    ld   pg_473 >> 8, y
+    jmp  pg_473
 #addr 0x8200
-pg_472:
+pg_473:
     ld   [0x59], y
-    ld   0xB0, x
-bp_473:
+    ld   0xB0, ac
+    ld   ac, [0x5E]
+bp_474:
+    ld   [0x5E], x
     ld   [0x5A], ac
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [0x5E], ac
     inc
-    ld   ac, x
+    ld   ac, [0x5E]
     xor  0xC0, ac
-    bne  bp_473
+    bne  bp_474
 ; 8 bpp: colour = (row band) x 64 + (c and 63)
     ld   [0x58], ac
     and  0x3F, ac
     ld   ac, [0x5A]
     ld   [0x59], y
-    ld   0xC0, x
-b8_474:
-    ld   x, ac
+    ld   0xC0, ac
+b8_475:
+    ld   ac, x
+    ld   ac, [0x5E]
     and  0x30, ac
     shl  ac
     shl  ac
     or   [0x5A], ac
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [0x5E], ac
     inc
-    ld   ac, x
-    bne  b8_474
+    bne  b8_475
     ld   [0x58], ac
     inc
     ld   ac, [0x58]
     xor  80, ac
-    beq  bd_475
+    beq  bd_476
     ld   band_col >> 8, y
     jmp  band_col
-bd_475:
+bd_476:
     ld   0, ac
     ld   ac, [CUR_COL]
     ld   0, ac
@@ -4305,21 +4378,6 @@ bd_475:
     ld   s_title, ac
     ld   ac, [R0]
     ld   s_title >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x
-    ld   ret_476, [x]
-    ld   LINK_HI, x
-    ld   ret_476 >> 8, [x]
-    ld   con_puts >> 8, y
-    jmp  con_puts
-ret_476:
-    ld   0, ac
-    ld   ac, [CUR_COL]
-    ld   2, ac
-    ld   ac, [CUR_ROW]
-    ld   s_core, ac
-    ld   ac, [R0]
-    ld   s_core >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
     ld   ret_477, [x]
@@ -4330,11 +4388,11 @@ ret_476:
 ret_477:
     ld   0, ac
     ld   ac, [CUR_COL]
-    ld   3, ac
+    ld   2, ac
     ld   ac, [CUR_ROW]
-    ld   s_core2, ac
+    ld   s_core, ac
     ld   ac, [R0]
-    ld   s_core2 >> 8, ac
+    ld   s_core >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
     ld   ret_478, [x]
@@ -4345,11 +4403,11 @@ ret_477:
 ret_478:
     ld   0, ac
     ld   ac, [CUR_COL]
-    ld   5, ac
+    ld   3, ac
     ld   ac, [CUR_ROW]
-    ld   s_ram, ac
+    ld   s_core2, ac
     ld   ac, [R0]
-    ld   s_ram >> 8, ac
+    ld   s_core2 >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
     ld   ret_479, [x]
@@ -4360,11 +4418,11 @@ ret_478:
 ret_479:
     ld   0, ac
     ld   ac, [CUR_COL]
-    ld   8, ac
+    ld   5, ac
     ld   ac, [CUR_ROW]
-    ld   s_kbd, ac
+    ld   s_ram, ac
     ld   ac, [R0]
-    ld   s_kbd >> 8, ac
+    ld   s_ram >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
     ld   ret_480, [x]
@@ -4375,11 +4433,11 @@ ret_479:
 ret_480:
     ld   0, ac
     ld   ac, [CUR_COL]
-    ld   9, ac
+    ld   8, ac
     ld   ac, [CUR_ROW]
-    ld   s_kbd2, ac
+    ld   s_kbd, ac
     ld   ac, [R0]
-    ld   s_kbd2 >> 8, ac
+    ld   s_kbd >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
     ld   ret_481, [x]
@@ -4390,11 +4448,11 @@ ret_480:
 ret_481:
     ld   0, ac
     ld   ac, [CUR_COL]
-    ld   12, ac
+    ld   9, ac
     ld   ac, [CUR_ROW]
-    ld   s_pad, ac
+    ld   s_kbd2, ac
     ld   ac, [R0]
-    ld   s_pad >> 8, ac
+    ld   s_kbd2 >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
     ld   ret_482, [x]
@@ -4403,10 +4461,25 @@ ret_481:
     ld   con_puts >> 8, y
     jmp  con_puts
 ret_482:
-    ld   pg_483 >> 8, y
-    jmp  pg_483
+    ld   0, ac
+    ld   ac, [CUR_COL]
+    ld   12, ac
+    ld   ac, [CUR_ROW]
+    ld   s_pad, ac
+    ld   ac, [R0]
+    ld   s_pad >> 8, ac
+    ld   ac, [R1]
+    ld   pg_484 >> 8, y
+    jmp  pg_484
 #addr 0x8300
-pg_483:
+pg_484:
+    ld   LINK_LO, x
+    ld   ret_483, [x]
+    ld   LINK_HI, x
+    ld   ret_483 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+ret_483:
     ld   0, ac
     ld   ac, [CUR_COL]
     ld   14, ac
@@ -4414,21 +4487,6 @@ pg_483:
     ld   s_sd, ac
     ld   ac, [R0]
     ld   s_sd >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x
-    ld   ret_484, [x]
-    ld   LINK_HI, x
-    ld   ret_484 >> 8, [x]
-    ld   con_puts >> 8, y
-    jmp  con_puts
-ret_484:
-    ld   0, ac
-    ld   ac, [CUR_COL]
-    ld   15, ac
-    ld   ac, [CUR_ROW]
-    ld   s_sd2, ac
-    ld   ac, [R0]
-    ld   s_sd2 >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
     ld   ret_485, [x]
@@ -4439,11 +4497,11 @@ ret_484:
 ret_485:
     ld   0, ac
     ld   ac, [CUR_COL]
-    ld   17, ac
+    ld   15, ac
     ld   ac, [CUR_ROW]
-    ld   s_mouse, ac
+    ld   s_sd2, ac
     ld   ac, [R0]
-    ld   s_mouse >> 8, ac
+    ld   s_sd2 >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
     ld   ret_486, [x]
@@ -4454,11 +4512,11 @@ ret_485:
 ret_486:
     ld   0, ac
     ld   ac, [CUR_COL]
-    ld   18, ac
+    ld   17, ac
     ld   ac, [CUR_ROW]
-    ld   s_mouse2, ac
+    ld   s_mouse, ac
     ld   ac, [R0]
-    ld   s_mouse2 >> 8, ac
+    ld   s_mouse >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
     ld   ret_487, [x]
@@ -4469,11 +4527,11 @@ ret_486:
 ret_487:
     ld   0, ac
     ld   ac, [CUR_COL]
-    ld   20, ac
+    ld   18, ac
     ld   ac, [CUR_ROW]
-    ld   s_snd, ac
+    ld   s_mouse2, ac
     ld   ac, [R0]
-    ld   s_snd >> 8, ac
+    ld   s_mouse2 >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
     ld   ret_488, [x]
@@ -4484,11 +4542,11 @@ ret_487:
 ret_488:
     ld   0, ac
     ld   ac, [CUR_COL]
-    ld   22, ac
+    ld   20, ac
     ld   ac, [CUR_ROW]
-    ld   s_line, ac
+    ld   s_snd, ac
     ld   ac, [R0]
-    ld   s_line >> 8, ac
+    ld   s_snd >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
     ld   ret_489, [x]
@@ -4499,11 +4557,11 @@ ret_488:
 ret_489:
     ld   0, ac
     ld   ac, [CUR_COL]
-    ld   44, ac
+    ld   22, ac
     ld   ac, [CUR_ROW]
-    ld   s_bands, ac
+    ld   s_line, ac
     ld   ac, [R0]
-    ld   s_bands >> 8, ac
+    ld   s_line >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
     ld   ret_490, [x]
@@ -4512,6 +4570,21 @@ ret_489:
     ld   con_puts >> 8, y
     jmp  con_puts
 ret_490:
+    ld   0, ac
+    ld   ac, [CUR_COL]
+    ld   44, ac
+    ld   ac, [CUR_ROW]
+    ld   s_bands, ac
+    ld   ac, [R0]
+    ld   s_bands >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x
+    ld   ret_491, [x]
+    ld   LINK_HI, x
+    ld   ret_491 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+ret_491:
     ld   32, ac
     ld   ac, [CUR_COL]
     ld   20, ac
@@ -4521,43 +4594,43 @@ ret_490:
     ld   s_off >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
-    ld   ret_491, [x]
-    ld   LINK_HI, x
-    ld   ret_491 >> 8, [x]
-    ld   con_puts >> 8, y
-    jmp  con_puts
-ret_491:
-sd_try:
-    ld   LINK_LO, x
     ld   ret_492, [x]
     ld   LINK_HI, x
     ld   ret_492 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+ret_492:
+sd_try:
+    ld   LINK_LO, x
+    ld   ret_493, [x]
+    ld   LINK_HI, x
+    ld   ret_493 >> 8, [x]
     ld   sd_init >> 8, y
     jmp  sd_init
-ret_492:
-    ld   pg_493 >> 8, y
-    jmp  pg_493
+ret_493:
+    ld   pg_494 >> 8, y
+    jmp  pg_494
 #addr 0x8400
-pg_493:
+pg_494:
     ld   ac, [0x51]
-    beq  sdok_494
+    beq  sdok_495
     ld   0xFF, ac
     ld   ac, [0x52]
-    bra  sddn_495
-sdok_494:
+    bra  sddn_496
+sdok_495:
     ld   sd_mount >> 8, y
     jmp  sd_mount
-sddn_495:
+sddn_496:
     ld   sd_show >> 8, y
     jmp  sd_show
 sd_mount:
     ld   LINK_LO, x
-    ld   ret_496, [x]
+    ld   ret_497, [x]
     ld   LINK_HI, x
-    ld   ret_496 >> 8, [x]
+    ld   ret_497 >> 8, [x]
     ld   fs_mount >> 8, y
     jmp  fs_mount
-ret_496:
+ret_497:
     ld   ac, [0x52]
 sd_show:
     ld   17, ac
@@ -4566,38 +4639,38 @@ sd_show:
     ld   ac, [CUR_ROW]
     ld   [0x51], ac
     ld   LINK_LO, x
-    ld   ret_497, [x]
-    ld   LINK_HI, x
-    ld   ret_497 >> 8, [x]
-    ld   con_hex8 >> 8, y
-    jmp  con_hex8
-ret_497:
-    ld   31, ac
-    ld   ac, [CUR_COL]
-    ld   14, ac
-    ld   ac, [CUR_ROW]
-    ld   [0x52], ac
-    ld   LINK_LO, x
     ld   ret_498, [x]
     ld   LINK_HI, x
     ld   ret_498 >> 8, [x]
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_498:
+    ld   31, ac
+    ld   ac, [CUR_COL]
+    ld   14, ac
+    ld   ac, [CUR_ROW]
+    ld   [0x52], ac
+    ld   LINK_LO, x
+    ld   ret_499, [x]
+    ld   LINK_HI, x
+    ld   ret_499 >> 8, [x]
+    ld   con_hex8 >> 8, y
+    jmp  con_hex8
+ret_499:
 ; the first pass also starts the mouse; a retry (S) only does the card
     ld   [0x53], ac
     xor  0xEE, ac
-    beq  mgo_499
+    beq  mgo_500
     ld   frame_loop >> 8, y
     jmp  frame_loop
-mgo_499:
+mgo_500:
     ld   LINK_LO, x
-    ld   ret_500, [x]
+    ld   ret_501, [x]
     ld   LINK_HI, x
-    ld   ret_500 >> 8, [x]
+    ld   ret_501 >> 8, [x]
     ld   mouse_init >> 8, y
     jmp  mouse_init
-ret_500:
+ret_501:
     ld   ac, [0x53]
     ld   18, ac
     ld   ac, [CUR_COL]
@@ -4605,119 +4678,119 @@ ret_500:
     ld   ac, [CUR_ROW]
     ld   [0x53], ac
     ld   LINK_LO, x
-    ld   ret_501, [x]
-    ld   LINK_HI, x
-    ld   ret_501 >> 8, [x]
-    ld   con_hex8 >> 8, y
-    jmp  con_hex8
-ret_501:
-    ld   [LINE_LAST], ac
-    ld   LINK_LO, x
     ld   ret_502, [x]
     ld   LINK_HI, x
     ld   ret_502 >> 8, [x]
+    ld   con_hex8 >> 8, y
+    jmp  con_hex8
+ret_502:
+    ld   [LINE_LAST], ac
+    ld   LINK_LO, x
+    ld   ret_503, [x]
+    ld   LINK_HI, x
+    ld   ret_503 >> 8, [x]
     ld   frame_poll >> 8, y
     jmp  frame_poll
-ret_502:
+ret_503:
     ld   [FRAME_LO], ac
     ld   ac, [0x40]
 
 ; frame loop
 #addr 0x9000
 frame_loop:
-wait_503:
-    ld   LINK_LO, x
-    ld   ret_504, [x]
-    ld   LINK_HI, x
-    ld   ret_504 >> 8, [x]
-    ld   frame_poll >> 8, y
-    jmp  frame_poll
-ret_504:
-    ld   ac, [0x5B]
-    ld   [FRAME_LO], ac
-    xor  [0x40], ac
-    beq  wait_503
-    ld   [FRAME_LO], ac
-    ld   ac, [0x40]
+wait_504:
     ld   LINK_LO, x
     ld   ret_505, [x]
     ld   LINK_HI, x
     ld   ret_505 >> 8, [x]
-    ld   snd_update >> 8, y
-    jmp  snd_update
+    ld   frame_poll >> 8, y
+    jmp  frame_poll
 ret_505:
+    ld   ac, [0x5B]
+    ld   [FRAME_LO], ac
+    xor  [0x40], ac
+    beq  wait_504
+    ld   [FRAME_LO], ac
+    ld   ac, [0x40]
     ld   LINK_LO, x
     ld   ret_506, [x]
     ld   LINK_HI, x
     ld   ret_506 >> 8, [x]
-    ld   kbd_scan >> 8, y
-    jmp  kbd_scan
+    ld   snd_update >> 8, y
+    jmp  snd_update
 ret_506:
-key_loop:
     ld   LINK_LO, x
     ld   ret_507, [x]
     ld   LINK_HI, x
     ld   ret_507 >> 8, [x]
+    ld   kbd_scan >> 8, y
+    jmp  kbd_scan
+ret_507:
+key_loop:
+    ld   LINK_LO, x
+    ld   ret_508, [x]
+    ld   LINK_HI, x
+    ld   ret_508 >> 8, [x]
     ld   kbd_getc >> 8, y
     jmp  kbd_getc
-ret_507:
-    bne  key_508
+ret_508:
+    bne  key_509
     ld   keys_done >> 8, y
     jmp  keys_done
-key_508:
+key_509:
     ld   ac, [0x5C]
     ld   [0x5C], ac
     xor  0x53, ac
-    bne  nk_509
-    ld   sd_key >> 8, y
-    jmp  sd_key
-nk_509:
-    ld   [0x5C], ac
-    xor  0x73, ac
     bne  nk_510
     ld   sd_key >> 8, y
     jmp  sd_key
 nk_510:
     ld   [0x5C], ac
-    xor  0x54, ac
+    xor  0x73, ac
     bne  nk_511
-    ld   t_key >> 8, y
-    jmp  t_key
+    ld   sd_key >> 8, y
+    jmp  sd_key
 nk_511:
     ld   [0x5C], ac
-    xor  0x74, ac
+    xor  0x54, ac
     bne  nk_512
     ld   t_key >> 8, y
     jmp  t_key
 nk_512:
+    ld   [0x5C], ac
+    xor  0x74, ac
+    bne  nk_513
+    ld   t_key >> 8, y
+    jmp  t_key
+nk_513:
 echo_key:
 ; echo it on row 9 (control codes as a dot), wrapping at column 79
     ld   [0x5C], ac
     sub  0x20, ac
-    bcc  pr_513
+    bcc  pr_514
     ld   0x2E, ac
     ld   ac, [0x5C]
-pr_513:
+pr_514:
     ld   [0x4F], ac
     ld   ac, [CUR_COL]
     ld   9, ac
     ld   ac, [CUR_ROW]
     ld   [0x5C], ac
     ld   LINK_LO, x
-    ld   ret_514, [x]
+    ld   ret_515, [x]
     ld   LINK_HI, x
-    ld   ret_514 >> 8, [x]
+    ld   ret_515 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-ret_514:
+ret_515:
     ld   [0x4F], ac
     inc
     ld   ac, [0x4F]
     xor  80, ac
-    bne  nw_515
+    bne  nw_516
     ld   7, ac
     ld   ac, [0x4F]
-nw_515:
+nw_516:
     ld   key_loop >> 8, y
     jmp  key_loop
 sd_key:
@@ -4725,10 +4798,10 @@ sd_key:
     jmp  sd_try
 t_key:
     ld   [0x50], ac
-    beq  ton_516
+    beq  ton_517
     ld   tone_off >> 8, y
     jmp  tone_off
-ton_516:
+ton_517:
     ld   1, ac
     ld   ac, [0x50]
     ld   0x11, ac
@@ -4740,12 +4813,12 @@ ton_516:
     ld   ac, [R3]
     ld   48, ac
     ld   LINK_LO, x
-    ld   ret_517, [x]
+    ld   ret_518, [x]
     ld   LINK_HI, x
-    ld   ret_517 >> 8, [x]
+    ld   ret_518 >> 8, [x]
     ld   snd_tone >> 8, y
     jmp  snd_tone
-ret_517:
+ret_518:
     ld   32, ac
     ld   ac, [CUR_COL]
     ld   20, ac
@@ -4755,28 +4828,28 @@ ret_517:
     ld   s_on >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
-    ld   ret_518, [x]
+    ld   ret_519, [x]
     ld   LINK_HI, x
-    ld   ret_518 >> 8, [x]
+    ld   ret_519 >> 8, [x]
     ld   con_puts >> 8, y
     jmp  con_puts
-ret_518:
+ret_519:
     ld   key_loop >> 8, y
     jmp  key_loop
 tone_off:
     ld   0x00, ac
     ld   ac, [0x50]
     ld   LINK_LO, x
-    ld   ret_519, [x]
+    ld   ret_520, [x]
     ld   LINK_HI, x
-    ld   ret_519 >> 8, [x]
+    ld   ret_520 >> 8, [x]
     ld   snd_stop >> 8, y
     jmp  snd_stop
-ret_519:
-    ld   pg_520 >> 8, y
-    jmp  pg_520
+ret_520:
+    ld   pg_521 >> 8, y
+    jmp  pg_521
 #addr 0x9100
-pg_520:
+pg_521:
     ld   32, ac
     ld   ac, [CUR_COL]
     ld   20, ac
@@ -4786,12 +4859,12 @@ pg_520:
     ld   s_off >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x
-    ld   ret_521, [x]
+    ld   ret_522, [x]
     ld   LINK_HI, x
-    ld   ret_521 >> 8, [x]
+    ld   ret_522 >> 8, [x]
     ld   con_puts >> 8, y
     jmp  con_puts
-ret_521:
+ret_522:
     ld   key_loop >> 8, y
     jmp  key_loop
 keys_done:
@@ -4801,29 +4874,17 @@ keys_done:
     ld   ac, [CUR_ROW]
     ld   [0xA0], ac
     ld   LINK_LO, x
-    ld   ret_522, [x]
-    ld   LINK_HI, x
-    ld   ret_522 >> 8, [x]
-    ld   con_hex8 >> 8, y
-    jmp  con_hex8
-ret_522:
-    ld   25, ac
-    ld   ac, [CUR_COL]
-    ld   8, ac
-    ld   ac, [CUR_ROW]
-    ld   [0xA1], ac
-    ld   LINK_LO, x
     ld   ret_523, [x]
     ld   LINK_HI, x
     ld   ret_523 >> 8, [x]
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_523:
-    ld   28, ac
+    ld   25, ac
     ld   ac, [CUR_COL]
     ld   8, ac
     ld   ac, [CUR_ROW]
-    ld   [0xA2], ac
+    ld   [0xA1], ac
     ld   LINK_LO, x
     ld   ret_524, [x]
     ld   LINK_HI, x
@@ -4831,11 +4892,11 @@ ret_523:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_524:
-    ld   31, ac
+    ld   28, ac
     ld   ac, [CUR_COL]
     ld   8, ac
     ld   ac, [CUR_ROW]
-    ld   [0xA3], ac
+    ld   [0xA2], ac
     ld   LINK_LO, x
     ld   ret_525, [x]
     ld   LINK_HI, x
@@ -4843,11 +4904,11 @@ ret_524:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_525:
-    ld   34, ac
+    ld   31, ac
     ld   ac, [CUR_COL]
     ld   8, ac
     ld   ac, [CUR_ROW]
-    ld   [0xA4], ac
+    ld   [0xA3], ac
     ld   LINK_LO, x
     ld   ret_526, [x]
     ld   LINK_HI, x
@@ -4855,11 +4916,11 @@ ret_525:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_526:
-    ld   37, ac
+    ld   34, ac
     ld   ac, [CUR_COL]
     ld   8, ac
     ld   ac, [CUR_ROW]
-    ld   [0xA5], ac
+    ld   [0xA4], ac
     ld   LINK_LO, x
     ld   ret_527, [x]
     ld   LINK_HI, x
@@ -4867,11 +4928,11 @@ ret_526:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_527:
-    ld   40, ac
+    ld   37, ac
     ld   ac, [CUR_COL]
     ld   8, ac
     ld   ac, [CUR_ROW]
-    ld   [0xA6], ac
+    ld   [0xA5], ac
     ld   LINK_LO, x
     ld   ret_528, [x]
     ld   LINK_HI, x
@@ -4879,11 +4940,11 @@ ret_527:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_528:
-    ld   43, ac
+    ld   40, ac
     ld   ac, [CUR_COL]
     ld   8, ac
     ld   ac, [CUR_ROW]
-    ld   [0xA7], ac
+    ld   [0xA6], ac
     ld   LINK_LO, x
     ld   ret_529, [x]
     ld   LINK_HI, x
@@ -4891,34 +4952,30 @@ ret_528:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_529:
+    ld   43, ac
+    ld   ac, [CUR_COL]
+    ld   8, ac
+    ld   ac, [CUR_ROW]
+    ld   [0xA7], ac
     ld   LINK_LO, x
     ld   ret_530, [x]
     ld   LINK_HI, x
     ld   ret_530 >> 8, [x]
+    ld   con_hex8 >> 8, y
+    jmp  con_hex8
+ret_530:
+    ld   LINK_LO, x
+    ld   ret_531, [x]
+    ld   LINK_HI, x
+    ld   ret_531 >> 8, [x]
     ld   pad_read >> 8, y
     jmp  pad_read
-ret_530:
+ret_531:
     ld   15, ac
     ld   ac, [CUR_COL]
     ld   12, ac
     ld   ac, [CUR_ROW]
     ld   [0x11], ac
-    ld   LINK_LO, x
-    ld   ret_531, [x]
-    ld   LINK_HI, x
-    ld   ret_531 >> 8, [x]
-    ld   con_hex8 >> 8, y
-    jmp  con_hex8
-ret_531:
-    ld   17, ac
-    ld   ac, [CUR_COL]
-    ld   12, ac
-    ld   ac, [CUR_ROW]
-    ld   [0x10], ac
-    ld   pg_533 >> 8, y
-    jmp  pg_533
-#addr 0x9200
-pg_533:
     ld   LINK_LO, x
     ld   ret_532, [x]
     ld   LINK_HI, x
@@ -4926,23 +4983,27 @@ pg_533:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_532:
+    ld   17, ac
+    ld   ac, [CUR_COL]
+    ld   12, ac
+    ld   ac, [CUR_ROW]
+    ld   [0x10], ac
+    ld   pg_534 >> 8, y
+    jmp  pg_534
+#addr 0x9200
+pg_534:
+    ld   LINK_LO, x
+    ld   ret_533, [x]
+    ld   LINK_HI, x
+    ld   ret_533 >> 8, [x]
+    ld   con_hex8 >> 8, y
+    jmp  con_hex8
+ret_533:
     ld   27, ac
     ld   ac, [CUR_COL]
     ld   12, ac
     ld   ac, [CUR_ROW]
     ld   [0x13], ac
-    ld   LINK_LO, x
-    ld   ret_534, [x]
-    ld   LINK_HI, x
-    ld   ret_534 >> 8, [x]
-    ld   con_hex8 >> 8, y
-    jmp  con_hex8
-ret_534:
-    ld   29, ac
-    ld   ac, [CUR_COL]
-    ld   12, ac
-    ld   ac, [CUR_ROW]
-    ld   [0x12], ac
     ld   LINK_LO, x
     ld   ret_535, [x]
     ld   LINK_HI, x
@@ -4950,23 +5011,35 @@ ret_534:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_535:
+    ld   29, ac
+    ld   ac, [CUR_COL]
+    ld   12, ac
+    ld   ac, [CUR_ROW]
+    ld   [0x12], ac
+    ld   LINK_LO, x
+    ld   ret_536, [x]
+    ld   LINK_HI, x
+    ld   ret_536 >> 8, [x]
+    ld   con_hex8 >> 8, y
+    jmp  con_hex8
+ret_536:
     ld   [0x53], ac
-    beq  mp_536
+    beq  mp_537
     ld   mouse_done >> 8, y
     jmp  mouse_done
-mp_536:
+mp_537:
     ld   LINK_LO, x
-    ld   ret_537, [x]
+    ld   ret_538, [x]
     ld   LINK_HI, x
-    ld   ret_537 >> 8, [x]
+    ld   ret_538 >> 8, [x]
     ld   mouse_poll >> 8, y
     jmp  mouse_poll
-ret_537:
+ret_538:
     xor  1, ac
-    beq  mm_538
+    beq  mm_539
     ld   mouse_show >> 8, y
     jmp  mouse_show
-mm_538:
+mm_539:
     ld   [0x54], ac
     ld   ac, [R0]
     ld   [0x55], ac
@@ -4976,12 +5049,12 @@ mm_538:
     ld   [0x57], ac
     ld   ac, [R3]
     ld   LINK_LO, x
-    ld   ret_539, [x]
+    ld   ret_540, [x]
     ld   LINK_HI, x
-    ld   ret_539 >> 8, [x]
+    ld   ret_540 >> 8, [x]
     ld   mouse_move >> 8, y
     jmp  mouse_move
-ret_539:
+ret_540:
     ld   [R0], ac
     ld   ac, [0x54]
     ld   [R1], ac
@@ -5000,20 +5073,20 @@ mouse_show:
     ld   [0x55], ac
     ld   ac, [R1]
     ld   LINK_LO, x
-    ld   ret_540, [x]
-    ld   LINK_HI, x
-    ld   ret_540 >> 8, [x]
-    ld   con_dec16 >> 8, y
-    jmp  con_dec16
-ret_540:
-    ld   0x20, ac
-    ld   LINK_LO, x
     ld   ret_541, [x]
     ld   LINK_HI, x
     ld   ret_541 >> 8, [x]
+    ld   con_dec16 >> 8, y
+    jmp  con_dec16
+ret_541:
+    ld   0x20, ac
+    ld   LINK_LO, x
+    ld   ret_542, [x]
+    ld   LINK_HI, x
+    ld   ret_542 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-ret_541:
+ret_542:
     ld   34, ac
     ld   ac, [CUR_COL]
     ld   17, ac
@@ -5023,42 +5096,25 @@ ret_541:
     ld   [0x57], ac
     ld   ac, [R1]
     ld   LINK_LO, x
-    ld   ret_542, [x]
-    ld   LINK_HI, x
-    ld   ret_542 >> 8, [x]
-    ld   con_dec16 >> 8, y
-    jmp  con_dec16
-ret_542:
-    ld   0x20, ac
-    ld   LINK_LO, x
     ld   ret_543, [x]
     ld   LINK_HI, x
     ld   ret_543 >> 8, [x]
+    ld   con_dec16 >> 8, y
+    jmp  con_dec16
+ret_543:
+    ld   0x20, ac
+    ld   LINK_LO, x
+    ld   ret_544, [x]
+    ld   LINK_HI, x
+    ld   ret_544 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-ret_543:
+ret_544:
     ld   49, ac
     ld   ac, [CUR_COL]
     ld   17, ac
     ld   ac, [CUR_ROW]
     ld   [MOUSE_B], ac
-    ld   LINK_LO, x
-    ld   ret_544, [x]
-    ld   LINK_HI, x
-    ld   ret_544 >> 8, [x]
-    ld   con_hex8 >> 8, y
-    jmp  con_hex8
-ret_544:
-mouse_done:
-    ld   25, ac
-    ld   ac, [CUR_COL]
-    ld   22, ac
-    ld   ac, [CUR_ROW]
-    ld   [0x5B], ac
-    ld   pg_546 >> 8, y
-    jmp  pg_546
-#addr 0x9300
-pg_546:
     ld   LINK_LO, x
     ld   ret_545, [x]
     ld   LINK_HI, x
@@ -5066,6 +5122,23 @@ pg_546:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_545:
+mouse_done:
+    ld   25, ac
+    ld   ac, [CUR_COL]
+    ld   22, ac
+    ld   ac, [CUR_ROW]
+    ld   [0x5B], ac
+    ld   pg_547 >> 8, y
+    jmp  pg_547
+#addr 0x9300
+pg_547:
+    ld   LINK_LO, x
+    ld   ret_546, [x]
+    ld   LINK_HI, x
+    ld   ret_546 >> 8, [x]
+    ld   con_hex8 >> 8, y
+    jmp  con_hex8
+ret_546:
     ld   ram_page_test >> 8, y
     jmp  ram_page_test
 rt_back:
@@ -5075,12 +5148,12 @@ rt_back:
     ld   ac, [CUR_ROW]
     ld   [0x44], ac
     ld   LINK_LO, x
-    ld   ret_547, [x]
+    ld   ret_548, [x]
     ld   LINK_HI, x
-    ld   ret_547 >> 8, [x]
+    ld   ret_548 >> 8, [x]
     ld   con_hex8 >> 8, y
     jmp  con_hex8
-ret_547:
+ret_548:
     ld   23, ac
     ld   ac, [CUR_COL]
     ld   5, ac
@@ -5090,20 +5163,20 @@ ret_547:
     ld   [0x48], ac
     ld   ac, [R1]
     ld   LINK_LO, x
-    ld   ret_548, [x]
-    ld   LINK_HI, x
-    ld   ret_548 >> 8, [x]
-    ld   con_dec16 >> 8, y
-    jmp  con_dec16
-ret_548:
-    ld   0x20, ac
-    ld   LINK_LO, x
     ld   ret_549, [x]
     ld   LINK_HI, x
     ld   ret_549 >> 8, [x]
+    ld   con_dec16 >> 8, y
+    jmp  con_dec16
+ret_549:
+    ld   0x20, ac
+    ld   LINK_LO, x
+    ld   ret_550, [x]
+    ld   LINK_HI, x
+    ld   ret_550 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-ret_549:
+ret_550:
     ld   39, ac
     ld   ac, [CUR_COL]
     ld   5, ac
@@ -5113,37 +5186,25 @@ ret_549:
     ld   [0x4A], ac
     ld   ac, [R1]
     ld   LINK_LO, x
-    ld   ret_550, [x]
-    ld   LINK_HI, x
-    ld   ret_550 >> 8, [x]
-    ld   con_dec16 >> 8, y
-    jmp  con_dec16
-ret_550:
-    ld   0x20, ac
-    ld   LINK_LO, x
     ld   ret_551, [x]
     ld   LINK_HI, x
     ld   ret_551 >> 8, [x]
+    ld   con_dec16 >> 8, y
+    jmp  con_dec16
+ret_551:
+    ld   0x20, ac
+    ld   LINK_LO, x
+    ld   ret_552, [x]
+    ld   LINK_HI, x
+    ld   ret_552 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-ret_551:
+ret_552:
     ld   57, ac
     ld   ac, [CUR_COL]
     ld   5, ac
     ld   ac, [CUR_ROW]
     ld   [0x4B], ac
-    ld   LINK_LO, x
-    ld   ret_552, [x]
-    ld   LINK_HI, x
-    ld   ret_552 >> 8, [x]
-    ld   con_hex8 >> 8, y
-    jmp  con_hex8
-ret_552:
-    ld   59, ac
-    ld   ac, [CUR_COL]
-    ld   5, ac
-    ld   ac, [CUR_ROW]
-    ld   [0x4C], ac
     ld   LINK_LO, x
     ld   ret_553, [x]
     ld   LINK_HI, x
@@ -5151,11 +5212,11 @@ ret_552:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_553:
-    ld   69, ac
+    ld   59, ac
     ld   ac, [CUR_COL]
     ld   5, ac
     ld   ac, [CUR_ROW]
-    ld   [0x4D], ac
+    ld   [0x4C], ac
     ld   LINK_LO, x
     ld   ret_554, [x]
     ld   LINK_HI, x
@@ -5163,11 +5224,11 @@ ret_553:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_554:
-    ld   78, ac
+    ld   69, ac
     ld   ac, [CUR_COL]
     ld   5, ac
     ld   ac, [CUR_ROW]
-    ld   [0x4E], ac
+    ld   [0x4D], ac
     ld   LINK_LO, x
     ld   ret_555, [x]
     ld   LINK_HI, x
@@ -5175,6 +5236,18 @@ ret_554:
     ld   con_hex8 >> 8, y
     jmp  con_hex8
 ret_555:
+    ld   78, ac
+    ld   ac, [CUR_COL]
+    ld   5, ac
+    ld   ac, [CUR_ROW]
+    ld   [0x4E], ac
+    ld   LINK_LO, x
+    ld   ret_556, [x]
+    ld   LINK_HI, x
+    ld   ret_556 >> 8, [x]
+    ld   con_hex8 >> 8, y
+    jmp  con_hex8
+ret_556:
     ld   core_loop >> 8, y
     jmp  core_loop
 core_back:
@@ -5184,11 +5257,11 @@ core_back:
     ld   [0x41], ac
     inc
     ld   ac, [0x41]
-    bne  nc_556
+    bne  nc_557
     ld   [0x42], ac
     inc
     ld   ac, [0x42]
-nc_556:
+nc_557:
     ld   58, ac
     ld   ac, [CUR_COL]
     ld   2, ac
@@ -5197,25 +5270,25 @@ nc_556:
     ld   ac, [R0]
     ld   [0x42], ac
     ld   ac, [R1]
-    ld   pg_558 >> 8, y
-    jmp  pg_558
+    ld   pg_559 >> 8, y
+    jmp  pg_559
 #addr 0x9400
-pg_558:
+pg_559:
     ld   LINK_LO, x
-    ld   ret_557, [x]
+    ld   ret_558, [x]
     ld   LINK_HI, x
-    ld   ret_557 >> 8, [x]
+    ld   ret_558 >> 8, [x]
     ld   con_dec16 >> 8, y
     jmp  con_dec16
-ret_557:
+ret_558:
     ld   0x20, ac
     ld   LINK_LO, x
-    ld   ret_559, [x]
+    ld   ret_560, [x]
     ld   LINK_HI, x
-    ld   ret_559 >> 8, [x]
+    ld   ret_560 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-ret_559:
+ret_560:
     ld   67, ac
     ld   ac, [CUR_COL]
     ld   0, ac
@@ -5225,20 +5298,20 @@ ret_559:
     ld   [0x09], ac
     ld   ac, [R1]
     ld   LINK_LO, x
-    ld   ret_560, [x]
-    ld   LINK_HI, x
-    ld   ret_560 >> 8, [x]
-    ld   con_dec16 >> 8, y
-    jmp  con_dec16
-ret_560:
-    ld   0x20, ac
-    ld   LINK_LO, x
     ld   ret_561, [x]
     ld   LINK_HI, x
     ld   ret_561 >> 8, [x]
+    ld   con_dec16 >> 8, y
+    jmp  con_dec16
+ret_561:
+    ld   0x20, ac
+    ld   LINK_LO, x
+    ld   ret_562, [x]
+    ld   LINK_HI, x
+    ld   ret_562 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-ret_561:
+ret_562:
     ld   frame_loop >> 8, y
     jmp  frame_loop
 
@@ -5250,229 +5323,229 @@ ram_page_test:
     ld   [y,x], ac
     ld   ac, [0x44]
     ld   [0x44], y
-    ld   0x00, x
-rw_562:
-    ld   0x00, [y,x]
-    ld   x, ac
-    inc
+    ld   0x00, ac
+rw_563:
     ld   ac, x
-    bne  rw_562
-    ld   0x00, x
-rr_563:
+    ld   0x00, [y,x]
+    inc
+    bne  rw_563
+    ld   0x00, ac
+    ld   ac, [0x5D]
+rr_564:
+    ld   [0x5D], x
     ld   [0x44], y
     ld   [y,x], ac
     ld   ac, [0x45]
     ld   0x00, ac
     ld   ac, [0x46]
     xor  [0x45], ac
-    bne  rb_565
-rn_564:
-    ld   x, ac
+    bne  rb_566
+rn_565:
+    ld   [0x5D], ac
     inc
-    ld   ac, x
-    bne  rr_563
-    bra  rd_566
-rb_565:
-    ld   x, ac
+    ld   ac, [0x5D]
+    bne  rr_564
+    bra  rd_567
+rb_566:
+    ld   [0x5D], ac
     ld   ac, [0x4C]
-    ld   ac, [0x30]
     ld   0, ac
     ld   ac, [0x31]
     ld   rt_err >> 8, y
     jmp  rt_err
-rd_566:
+rd_567:
     ld   [0x44], y
-    ld   0x00, x
-rw_567:
-    ld   0xFF, [y,x]
-    ld   x, ac
-    inc
+    ld   0x00, ac
+rw_568:
     ld   ac, x
-    bne  rw_567
-    ld   0x00, x
-rr_568:
+    ld   0xFF, [y,x]
+    inc
+    bne  rw_568
+    ld   0x00, ac
+    ld   ac, [0x5D]
+rr_569:
+    ld   [0x5D], x
     ld   [0x44], y
     ld   [y,x], ac
     ld   ac, [0x45]
     ld   0xFF, ac
     ld   ac, [0x46]
     xor  [0x45], ac
-    bne  rb_570
-rn_569:
-    ld   x, ac
+    bne  rb_571
+rn_570:
+    ld   [0x5D], ac
     inc
-    ld   ac, x
-    bne  rr_568
-    bra  rd_571
-rb_570:
-    ld   x, ac
+    ld   ac, [0x5D]
+    bne  rr_569
+    bra  rd_572
+rb_571:
+    ld   [0x5D], ac
     ld   ac, [0x4C]
-    ld   ac, [0x30]
     ld   1, ac
     ld   ac, [0x31]
     ld   rt_err >> 8, y
     jmp  rt_err
-rd_571:
+rd_572:
     ld   [0x44], y
-    ld   0x00, x
-rw_572:
-    ld   0x55, [y,x]
-    ld   x, ac
-    inc
+    ld   0x00, ac
+rw_573:
     ld   ac, x
-    bne  rw_572
-    ld   0x00, x
-rr_573:
+    ld   0x55, [y,x]
+    inc
+    bne  rw_573
+    ld   0x00, ac
+    ld   ac, [0x5D]
+rr_574:
+    ld   [0x5D], x
     ld   [0x44], y
     ld   [y,x], ac
     ld   ac, [0x45]
     ld   0x55, ac
     ld   ac, [0x46]
     xor  [0x45], ac
-    bne  rb_575
-rn_574:
-    ld   x, ac
+    bne  rb_576
+rn_575:
+    ld   [0x5D], ac
     inc
-    ld   ac, x
-    bne  rr_573
-    bra  rd_576
-rb_575:
-    ld   x, ac
+    ld   ac, [0x5D]
+    bne  rr_574
+    bra  rd_577
+rb_576:
+    ld   [0x5D], ac
     ld   ac, [0x4C]
-    ld   ac, [0x30]
     ld   2, ac
     ld   ac, [0x31]
     ld   rt_err >> 8, y
     jmp  rt_err
-rd_576:
+rd_577:
     ld   [0x44], y
-    ld   0x00, x
-rw_577:
-    ld   0xAA, [y,x]
-    ld   x, ac
-    inc
+    ld   0x00, ac
+rw_578:
     ld   ac, x
-    bne  rw_577
-    ld   0x00, x
-rr_578:
+    ld   0xAA, [y,x]
+    inc
+    bne  rw_578
+    ld   0x00, ac
+    ld   ac, [0x5D]
+rr_579:
+    ld   [0x5D], x
     ld   [0x44], y
     ld   [y,x], ac
     ld   ac, [0x45]
     ld   0xAA, ac
     ld   ac, [0x46]
     xor  [0x45], ac
-    bne  rb_580
-rn_579:
-    ld   x, ac
+    bne  rb_581
+rn_580:
+    ld   [0x5D], ac
     inc
-    ld   ac, x
-    bne  rr_578
-    bra  rd_581
-rb_580:
-    ld   x, ac
+    ld   ac, [0x5D]
+    bne  rr_579
+    bra  rd_582
+rb_581:
+    ld   [0x5D], ac
     ld   ac, [0x4C]
-    ld   ac, [0x30]
     ld   3, ac
     ld   ac, [0x31]
     ld   rt_err >> 8, y
     jmp  rt_err
-rd_581:
-    ld   pg_582 >> 8, y
-    jmp  pg_582
+rd_582:
+    ld   pg_583 >> 8, y
+    jmp  pg_583
 #addr 0xA200
-pg_582:
+pg_583:
     ld   [0x44], y
-    ld   0x00, x
-rw_583:
-    ld   x, [y,x]
-    ld   x, ac
-    inc
+    ld   0x00, ac
+rw_584:
     ld   ac, x
-    bne  rw_583
-    ld   0x00, x
-rr_584:
+    ld   ac, [y,x]
+    inc
+    bne  rw_584
+    ld   0x00, ac
+    ld   ac, [0x5D]
+rr_585:
+    ld   [0x5D], x
     ld   [0x44], y
     ld   [y,x], ac
     ld   ac, [0x45]
-    ld   x, ac
+    ld   [0x5D], ac
     ld   ac, [0x46]
     xor  [0x45], ac
-    bne  rb_586
-rn_585:
-    ld   x, ac
+    bne  rb_587
+rn_586:
+    ld   [0x5D], ac
     inc
-    ld   ac, x
-    bne  rr_584
-    bra  rd_587
-rb_586:
-    ld   x, ac
+    ld   ac, [0x5D]
+    bne  rr_585
+    bra  rd_588
+rb_587:
+    ld   [0x5D], ac
     ld   ac, [0x4C]
-    ld   ac, [0x30]
     ld   4, ac
     ld   ac, [0x31]
     ld   rt_err >> 8, y
     jmp  rt_err
-rd_587:
+rd_588:
     ld   [0x44], y
-    ld   0x00, x
-rw_588:
-    ld   x, ac
+    ld   0x00, ac
+rw_589:
+    ld   ac, x
     xor  0xFF, ac
     ld   ac, [y,x]
-    ld   x, ac
+    xor  0xFF, ac
     inc
-    ld   ac, x
-    bne  rw_588
-    ld   0x00, x
-rr_589:
+    bne  rw_589
+    ld   0x00, ac
+    ld   ac, [0x5D]
+rr_590:
+    ld   [0x5D], x
     ld   [0x44], y
     ld   [y,x], ac
     ld   ac, [0x45]
-    ld   x, ac
+    ld   [0x5D], ac
     xor  0xFF, ac
     ld   ac, [0x46]
     xor  [0x45], ac
-    bne  rb_591
-rn_590:
-    ld   x, ac
+    bne  rb_592
+rn_591:
+    ld   [0x5D], ac
     inc
-    ld   ac, x
-    bne  rr_589
-    bra  rd_592
-rb_591:
-    ld   x, ac
+    ld   ac, [0x5D]
+    bne  rr_590
+    bra  rd_593
+rb_592:
+    ld   [0x5D], ac
     ld   ac, [0x4C]
-    ld   ac, [0x30]
     ld   5, ac
     ld   ac, [0x31]
     ld   rt_err >> 8, y
     jmp  rt_err
-rd_592:
+rd_593:
     ld   [0x43], ac
     inc
     ld   ac, [0x43]
     xor  49, ac
-    bne  rtw_593
+    bne  rtw_594
     ld   0x00, ac
     ld   ac, [0x43]
-rtw_593:
+rtw_594:
 ; a pass is done when the index wraps
     ld   [0x43], ac
-    bne  rtp_594
+    bne  rtp_595
     ld   rt_pass >> 8, y
     jmp  rt_pass
-rtp_594:
+rtp_595:
     ld   rt_back >> 8, y
     jmp  rt_back
 rt_pass:
     ld   [0x47], ac
     inc
     ld   ac, [0x47]
-    bne  nc_595
+    bne  nc_596
     ld   [0x48], ac
     inc
     ld   ac, [0x48]
-nc_595:
+nc_596:
     ld   rt_back >> 8, y
     jmp  rt_back
 rt_err:
@@ -5485,84 +5558,78 @@ rt_err:
     ld   [0x49], ac
     inc
     ld   ac, [0x49]
-    bne  nc_596
+    bne  nc_597
     ld   [0x4A], ac
     inc
     ld   ac, [0x4A]
-nc_596:
+nc_597:
 ; back to the right pattern (its number is in T15B)
     ld   rt_dispatch >> 8, y
     jmp  rt_dispatch
-; error return for pattern 0: X back, on to the next byte
+; error return for pattern 0: on to the next byte
 rt_ret0:
-    ld   [0x30], x
-    ld   rn_564 >> 8, y
-    jmp  rn_564
-; error return for pattern 1: X back, on to the next byte
+    ld   rn_565 >> 8, y
+    jmp  rn_565
+; error return for pattern 1: on to the next byte
 rt_ret1:
-    ld   [0x30], x
-    ld   rn_569 >> 8, y
-    jmp  rn_569
-; error return for pattern 2: X back, on to the next byte
+    ld   rn_570 >> 8, y
+    jmp  rn_570
+; error return for pattern 2: on to the next byte
 rt_ret2:
-    ld   [0x30], x
-    ld   rn_574 >> 8, y
-    jmp  rn_574
-; error return for pattern 3: X back, on to the next byte
+    ld   rn_575 >> 8, y
+    jmp  rn_575
+; error return for pattern 3: on to the next byte
 rt_ret3:
-    ld   [0x30], x
-    ld   rn_579 >> 8, y
-    jmp  rn_579
-; error return for pattern 4: X back, on to the next byte
+    ld   rn_580 >> 8, y
+    jmp  rn_580
+; error return for pattern 4: on to the next byte
 rt_ret4:
-    ld   [0x30], x
-    ld   rn_585 >> 8, y
-    jmp  rn_585
-; error return for pattern 5: X back, on to the next byte
+    ld   rn_586 >> 8, y
+    jmp  rn_586
+; error return for pattern 5: on to the next byte
 rt_ret5:
-    ld   [0x30], x
-    ld   rn_590 >> 8, y
-    jmp  rn_590
+    ld   rn_591 >> 8, y
+    jmp  rn_591
 
 ; RAM test error return and tables
 #addr 0xB000
 rt_dispatch:
     ld   [0x31], ac
     xor  0, ac
-    bne  dp_597
+    bne  dp_598
     ld   rt_ret0 >> 8, y
     jmp  rt_ret0
-dp_597:
-    ld   [0x31], ac
-    xor  1, ac
-    bne  dp_598
-    ld   rt_ret1 >> 8, y
-    jmp  rt_ret1
 dp_598:
     ld   [0x31], ac
-    xor  2, ac
+    xor  1, ac
     bne  dp_599
-    ld   rt_ret2 >> 8, y
-    jmp  rt_ret2
+    ld   rt_ret1 >> 8, y
+    jmp  rt_ret1
 dp_599:
     ld   [0x31], ac
-    xor  3, ac
+    xor  2, ac
     bne  dp_600
-    ld   rt_ret3 >> 8, y
-    jmp  rt_ret3
+    ld   rt_ret2 >> 8, y
+    jmp  rt_ret2
 dp_600:
     ld   [0x31], ac
-    xor  4, ac
+    xor  3, ac
     bne  dp_601
-    ld   rt_ret4 >> 8, y
-    jmp  rt_ret4
+    ld   rt_ret3 >> 8, y
+    jmp  rt_ret3
 dp_601:
     ld   [0x31], ac
-    xor  5, ac
+    xor  4, ac
     bne  dp_602
+    ld   rt_ret4 >> 8, y
+    jmp  rt_ret4
+dp_602:
+    ld   [0x31], ac
+    xor  5, ac
+    bne  dp_603
     ld   rt_ret5 >> 8, y
     jmp  rt_ret5
-dp_602:
+dp_603:
     ld   rt_ret0 >> 8, y
     jmp  rt_ret0
 #addr 0xB200

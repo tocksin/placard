@@ -30,35 +30,31 @@ main:
     ld   ac, [0x2A]
     ; mode byte 0 (1 bpp) for every row: 5A20-5BFF
     ld   0x5A, y
-    ld   0x20, x
+    ld   0x20, ac
 md0:
-    ld   0x00, [y,x]
-    ld   x, ac
-    inc
     ld   ac, x
+    ld   0x00, [y,x]
+    inc
     bne  md0
     ld   0x5B, y
 md1:
-    ld   0x00, [y,x]
-    ld   x, ac
-    inc
     ld   ac, x
+    ld   0x00, [y,x]
+    inc
     bne  md1
     ; byte column 0 (6020-61FF) is not part of the board: clear it
     ld   0x60, y
-    ld   0x20, x
+    ld   0x20, ac
 md2:
-    ld   0x00, [y,x]
-    ld   x, ac
-    inc
     ld   ac, x
+    ld   0x00, [y,x]
+    inc
     bne  md2
     ld   0x61, y
 md3:
-    ld   0x00, [y,x]
-    ld   x, ac
-    inc
     ld   ac, x
+    ld   0x00, [y,x]
+    inc
     bne  md3
 restart:
     ; random bytes into 6200-FFFF (the gaps between columns are not shown)

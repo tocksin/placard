@@ -3,10 +3,10 @@
 bringup_signals.py - expected multimeter readings for docs/BRINGUP.md
 
 A clock-by-clock model of the video PLDs (Sync rev 08, H counter rev 07,
-V counter rev 03, audio slot rev 03, colour decoder rev 07), the pixel
+V counter rev 03, audio slot rev 04, colour decoder rev 07), the pixel
 buffer and line code register, the address muxes and memory control as
 they are wired in the early build steps, and the CPU's "FF free run"
-(State rev 13, Branch rev 12, PC counters rev 02) with no memory on the
+(State rev 13, Branch rev 13, PC counters rev 02) with no memory on the
 data bus.  Every equation is the PLD source's, written out per clock.
 
 It runs one frame to settle, then measures one whole frame (800 x 525 =
@@ -304,9 +304,10 @@ def run_mux():
 
 
 def run_free_run(step):
-    """steps 10-13: the CPU with nothing driving the data bus, so every byte
-    it reads is FF (the 10k pull-ups): bra x, through LOAD_MEM.  The source
-    bus is FF too (no source F541s), so EXEC loads PC low = FF."""
+    """steps 10-12: the CPU with nothing driving the data bus, so every byte
+    it reads is FF (the 10k pull-ups): BRA with source 11 (AC), through
+    LOAD_MEM.  The source bus is FF too (no source F541s), so EXEC loads
+    PC low = FF."""
     vid = Video(blank_rd=True, lc_from_bus=True, bus=0xFF)
     m = Meter()
     q0 = q1 = 0
@@ -331,7 +332,6 @@ def run_free_run(step):
         load_imm = (s_limm | s_lmem) & (1 - stall)
         lo, hi = pc & 0xFF, pc >> 8
         co = int(lo == 0xFF)
-        y3 = 0 if (q0 and not pc_enable and not pe) else 1
         if clk >= 2 * FRAME:
             if step == 10:
                 m.add('State Q0 (pin 18)', q0)
@@ -346,8 +346,10 @@ def run_free_run(step):
                 m.add('Branch LOAD_PC_LOW (pin 21)', load_pc_low)
                 m.add('Branch LOAD_PC_HIGH (pin 22)', 0)
                 m.add('Branch BRANCH_BLOCK (pin 23)', 1)
-                m.add('Branch SRC_EN (pin 16)', src_en)
+                m.add('Branch /SRC_EN (pin 16)', 1 - src_en)
                 m.add('Branch ALU_DONE (pin 18)', alu_done)
+                m.add('Audio /AC_SEL (pin 21)', 0)          # I1 = 1
+                m.add('Instruction register Q0-Q7', 1)
             if step == 11:
                 pins = [15, 22, 21, 16, 20, 17, 19, 18]
                 for n in range(8):
@@ -357,9 +359,6 @@ def run_free_run(step):
                 pins = [15, 22, 21, 16, 20, 17, 19, 18]
                 for n in range(8):
                     m.add('PC high Q%d = A%d (pin %d)' % (n, n + 8, pins[n]), (hi >> n) & 1)
-            if step == 13:
-                m.add("'138 /Y3 (pin 12)", y3)
-                m.add("'138 /Y0, /Y1, /Y2 (pins 15, 14, 13)", 1)
         # clock edge
         if stall:
             n_q0, n_q1 = q0, q1
@@ -410,7 +409,7 @@ def main(argv):
         if want(8):
             print(table(mem, 'Step 8: memory control and I/O decode'))
     for s, t in ((10, 'Step 10: State PLD (and the Branch PLD), FF free run'), (11, 'Step 11: PC low'),
-                 (12, 'Step 12: PC high'), (13, "Step 13: source '138")):
+                 (12, 'Step 12: PC high')):
         if want(s):
             print(table(run_free_run(s), t))
 

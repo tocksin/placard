@@ -60,19 +60,18 @@ K_CAPS    = 54          ; column 6, row 6
 ;   out:     latch = P_IDLE; no keys down, key buffer empty, caps lock
 ;            off, SD card not initialized, mouse not initialized
 ;   changes: AC, X, Y
-;   clocks:  97
+;   clocks:  81
 ;   Call it once at the start of a program that uses the port.
 ; ------------------------------------------------------------
 port_init:
     ld   PORT, y
     ld   P_IDLE, [y,x]
-    ld   KBD_NOW, x
+    ld   7, ac
 pi_loop:
+    add  KBD_NOW, x             ; X = KBD_NOW + AC, AC = 7 ... 0
     ld   0xFF, [x]              ; every key up
-    ld   x, ac
-    add  1, x
-    sub  KBD_NOW + 7, ac
-    bne  pi_loop
+    sub  1, ac
+    bcc  pi_loop                ; no borrow, AC was not 0
     clr  ac
     ld   ac, [KBD_HEAD]
     ld   ac, [KBD_TAIL]
@@ -205,14 +204,13 @@ kbd_scan:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   PORT, y                ; scan: about 22 us with /CS high
     clr  x
@@ -504,24 +502,25 @@ sb_st:
 ;   Copies the 5 bytes to T3-T7 and goes on into sd_cmd.
 ; ------------------------------------------------------------
 sd_cmdt:
+    ld   ac, [T7]               ; keep the offset (T7 is written last)
     add  sd_cmds & 0xFF, x
     ld   sd_cmds >> 8, y
     ld   [y,x], ac
     ld   ac, [T3]
-    ld   x, ac
-    add  1, x
+    ld   [T7], ac
+    add  (sd_cmds + 1) & 0xFF, x
     ld   [y,x], ac
     ld   ac, [T4]
-    ld   x, ac
-    add  1, x
+    ld   [T7], ac
+    add  (sd_cmds + 2) & 0xFF, x
     ld   [y,x], ac
     ld   ac, [T5]
-    ld   x, ac
-    add  1, x
+    ld   [T7], ac
+    add  (sd_cmds + 3) & 0xFF, x
     ld   [y,x], ac
     ld   ac, [T6]
-    ld   x, ac
-    add  1, x
+    ld   [T7], ac
+    add  (sd_cmds + 4) & 0xFF, x
     ld   [y,x], ac
     ld   ac, [T7]
 
@@ -543,14 +542,13 @@ sd_cmd:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   T3, ac                 ; IO_TMP walks T3-T7
     ld   ac, [IO_TMP]
@@ -567,7 +565,7 @@ sc_back1:
     xor  T7 + 1, ac
     beq  sc_crc
     ld   [IO_TMP], x
-    ld   x, ac
+    ld   [IO_TMP], ac
     inc
     ld   ac, [IO_TMP]
     ld   [x], ac
@@ -640,14 +638,13 @@ sd_init:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   2, ac                  ; slow clock, not ready
     ld   ac, [SD_FLAGS]
@@ -865,14 +862,13 @@ sd_read:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   0x51, ac               ; CMD17
     ld   LINK_LO, x             ; CALL sd_arg
@@ -973,14 +969,13 @@ sd_write:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   0x58, ac               ; CMD24
     ld   LINK_LO, x             ; CALL sd_arg
@@ -1219,7 +1214,7 @@ rx_0:
     ld   [R5], y
     ld   [T1], ac
     ld   ac, [y,x]
-    ld   x, ac
+    ld   [R4], ac
     inc
     ld   ac, [R4]
     bne  rx_nc
@@ -1261,7 +1256,7 @@ tx_byte:
     ld   [R5], y
     ld   [y,x], ac
     ld   ac, [T0]
-    ld   x, ac
+    ld   [R4], ac
     inc
     ld   ac, [R4]
     bne  tx_nc
@@ -1660,14 +1655,13 @@ mouse_cmd:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   LINK_LO, x             ; CALL ps2_tx
     ld   mc_bt, [x]
@@ -1722,14 +1716,13 @@ mouse_init:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     clr  ac
     ld   ac, [MOUSE_ST]
@@ -1820,14 +1813,13 @@ mouse_poll:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   PORT, y                ; let the mouse go
     ld   P_FREE, [y,x]

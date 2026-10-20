@@ -29,11 +29,11 @@ with its chip number.
 | Chip | Source | Chip | Source |
 |---|---|---|---|
 | #1 State | `ATF22V10_STATE.pld` (rev 13) | #11 Memory control | `ATF22V10_MEM_CTRL.pld` |
-| #2 Branch | `ATF22V10_BRANCH.pld` (rev 12) | #12 I/O decode | `ATF22V10_IO_DECODE.pld` (rev 04) |
+| #2 Branch | `ATF22V10_BRANCH.pld` (rev 13) | #12 I/O decode | `ATF22V10_IO_DECODE.pld` (rev 04) |
 | #3, #4 PC low, PC high | `ATF22V10_PC_COUNTER8.pld` (two copies) | #13 H counter | `ATF22V10_HCOUNT.pld` |
 | #5, #6 ALU low, ALU high | `ALU_SHR.pld` (two copies) | #14 V counter | `ATF22V10_VCOUNT.pld` |
 | #7-#10 Address muxes | `ATF22V10_QUAD_MUX.pld` (four copies) | #15 Sync | `ATF22V10_SYNC.pld` |
-| #16 Colour decoder | `ATF22V10_COLORDECODER.pld` | #35 Audio and mode slots | `ATF22V10_AUDIO.pld` |
+| #16 Colour decoder | `ATF22V10_COLORDECODER.pld` | #35 Audio and mode slots | `ATF22V10_AUDIO.pld` (rev 04, a -7 part) |
 | #38 Shared port | `ATF22V10_PORT.pld` | | |
 
 **Load the bring-up ROM.**  `python3 test_bringup_sim.py --bin` in
@@ -59,7 +59,7 @@ places get a temporary resistor (below).
 With nothing driving it, the bus reads FF.  After a chip drives it and lets
 go, the bus keeps that byte for about 0.5 µs (the 10k and the bus
 capacitance), so "an empty bus reads FF" holds only when nothing has driven
-it for a while.  That is why steps 10-16 run with the RAM taken out.
+it for a while.  That is why steps 10-15 run with the RAM taken out.
 
 **Meter readings.**  The frequency is what the counter shows; the DC
 average is what the volts range shows for a signal that toggles faster
@@ -77,7 +77,7 @@ out when its step says so.
 
 | Strap | Where (socket pins) | Holds | From | Take out at |
 |---|---|---|---|---|
-| S1 | State #1: pins 15, 16, 17, 18 to pin 12 (GND), one 10k each | PC_ENABLE, X_ENABLE, Y_ENABLE and Q0 low: the address muxes pick D (low byte) and 00 (high byte) outside video reads, the source '138 and SRC_EN stay off | step 1 | step 10 |
+| S1 | State #1: pins 15, 16, 17, 18 to pin 12 (GND), one 10k each | PC_ENABLE, X_ENABLE, Y_ENABLE and Q0 low: the address muxes pick D (low byte) and 00 (high byte) outside video reads, /SRC_EN stays off | step 1 | step 10 |
 | S2 | State #1: pin 23 to pin 24 (+5 V) | R/W high: no writes | step 1 | step 10 |
 | S3 | State #1: pin 19 to pin 12 (GND) | /LOAD_IMM low: the D register loads the bus every clock | step 1 | step 10 |
 | S4 | Audio #35: pin 23 to pin 12 (GND) | BLANK_RD low: no mode or audio reads | step 1 | step 5 |
@@ -99,7 +99,7 @@ decoupling.  Put in straps S1-S5.
 
 - With no chips and power on, check +5 V on every socket's power pin and
   0 V on its ground pin: 24-pin PLDs 24 and 12; 20-pin chips (F377, F541,
-  ACT273, HC574, HCT574) 20 and 10; the '138 16 and 8; the 28-pin RAM and
+  ACT273, HC574, HCT574) 20 and 10; the 28-pin RAM and
   ROM 28 and 14.  Current with no chips: a few mA (the pull-ups).
 - Fit the 25.175 MHz oscillator.  Its output reads **25.175 MHz**, 2.5 V
   average.  If the meter doesn't reach that, skip it: step 2 shows the
@@ -261,14 +261,15 @@ still.  Power off and on: a different picture.
 
 ### The FF free run
 
-With no ROM and no RAM, every byte the CPU reads is FF.  FF is
-`bra x` (branch always, source X, memory mode [Y,X]), which goes FETCH,
-LOAD_MEM, EXEC: three clocks.  With no X source buffer (#28) the source
-bus is FF too, so EXEC loads PC low with FF.  The next fetch is at xxFF,
+With no ROM and no RAM, every byte the CPU reads is FF.  FF is a branch
+always (BRA) with source 11, which is the accumulator (the same as
+`bra ac`; it was X before 2026-10-19), and memory field 111, which goes
+FETCH, LOAD_MEM, EXEC: three clocks.  With no AC source buffer (#27) the
+source bus is FF too, so EXEC loads PC low with FF.  The next fetch is at xxFF,
 and its increment carries into PC high.  So the CPU runs one instruction
 every 3 clocks it owns, about 7.6 million a second, PC low goes FF, 00,
 FF, ... and PC high counts up by one every instruction.  This exercises
-the State, Branch, PC and '138 chips with no memory and no software.
+the State, Branch and PC chips with no memory and no software.
 
 ### Step 10: take out the RAM and straps S1-S3; fit the instruction register (#17) and the State PLD (#1)
 
@@ -289,8 +290,9 @@ register.  The instruction register loads FF.
 | Branch LOAD_PC_LOW (pin 21) | 7.603 MHz | 30.2 % | 1.51 V |
 | Branch LOAD_PC_HIGH (pin 22) | 0 | | 0 V |
 | Branch BRANCH_BLOCK (pin 23) | 0 | | 5 V |
-| Branch SRC_EN (pin 16) | 7.603 MHz | 30.2 % | 1.51 V |
+| Branch /SRC_EN (pin 16) | 7.603 MHz | 69.8 % | 3.49 V |
 | Branch ALU_DONE (pin 18) | 0 | | 0 V |
+| Audio /AC_SEL (pin 21) | 0 | | 0 V (instruction bit 1 is 1) |
 | Instruction register Q0-Q7 | 0 | | 5 V (FF) |
 
 ### Step 11: PC low (#3)
@@ -317,16 +319,7 @@ PC high is a binary counter now: each bit is half the one below.
 | Q6 = A14 (pin 19) | 59.4 kHz | 50 % | 2.50 V |
 | Q7 = A15 (pin 18) | 29.73 kHz | 50 % | 2.50 V |
 
-### Step 13: source select '138 (#30)
-
-| Pin | Frequency | Duty | DC average |
-|---|---|---|---|
-| /Y3 (pin 12) | 7.603 MHz | 69.8 % | 3.49 V |
-| /Y0, /Y1, /Y2 (pins 15, 14, 13) | 0 | | 5 V |
-
-/Y3 is the X source buffer's enable, which is still empty.
-
-### Step 14: accumulator (#19), ALU low (#5), ALU high (#6)
+### Step 13: accumulator (#19), ALU low (#5), ALU high (#6)
 
 The accumulator powers up random and is never loaded in the free run.  The
 ALU does PASS A for a branch, so each ALU F output must equal the
@@ -334,22 +327,25 @@ accumulator bit it comes from, at a steady 0 V or 5 V: low ALU F0-F3
 (pins 17, 20, 16, 21) = AC Q0-Q3, high ALU F0-F3 = AC Q4-Q7 (F377 pins 2,
 5, 6, 9, 12, 15, 16, 19).  Each ALU's Z (pin 14) is 5 V when its four
 bits are all 0.  Power off and on a few times to see other values.  The PC
-readings of steps 11-13 must not change.
+readings of steps 11 and 12 must not change.
 
-### Step 15: X (#20) and Y (#21) registers
+### Step 14: X (#20) and Y (#21) registers
 
 Also random and never loaded: their Q pins read steady 0 V or 5 V.  The
 free run readings must not change.
 
-### Step 16: D and AC source buffers (#26, #27)
+### Step 15: D source buffer (#26)
 
-The free run never selects them (/Y0 and /Y2 stay high), so the readings
-of steps 10-13 must not change.  If they do, a buffer is driving the bus
-when it shouldn't: check its /OE wiring to the '138.
+The free run never selects it (its /OE2 is instruction bit 1, which is 1),
+so the readings of steps 10-12 must not change.  If they do, the buffer is
+driving the bus when it shouldn't: check its /OE1 (Branch /SRC_EN, pin 16)
+and /OE2 (instruction register Q1) wiring.
 
-### Step 17: X source buffer (#28), line read buffer (#29), RAM back, the ROM
+### Step 16: AC source buffer (#27), line read buffer (#29), RAM back, the ROM
 
-Fit the X source buffer, the line read buffer, both RAM chips and both ROM
+The free run does select the AC source buffer (source 11), and the
+accumulator is random, so it goes in with the memories.  Fit the AC
+source buffer, the line read buffer, both RAM chips and both ROM
 chips with the bring-up ROM.  Power on: within about half a second the
 screen shows the bring-up ROM's status screen ([below](#the-bring-up-rom)).
 If it doesn't, read where the CPU stopped (next section).
@@ -369,7 +365,7 @@ the RAM and the map register:
 | 6 | SUB | as 5 |
 | 7 | Carry flag: BCS, BCC | high ALU COUT (pin 18) to Branch pin 14, Branch CARRY (pin 20) |
 | 8 | SHR | the ALU's shift-in wiring (SHIFT_RIGHT_IN, pin 23) |
-| 9 | AC to X and back, immediate to X | X register, AC and X source buffers, '138 |
+| 9 | AC to X, immediate to X, read back through [Y,X] from the ROM table at x3F00 | X register, AC source buffer and /AC_SEL (audio PLD pin 21); X can't be a source, so this also needs the address path of tests 10-12 |
 | 10 | Y as the address high byte | Y register, the high address muxes (#9, #10), Y_ENABLE |
 | 11 | X as the address low byte | the low address muxes (#7, #8), X_ENABLE |
 | 12 | ROM data (a 256-byte table) | the ROM chips' data and low address pins, /ROM_OE |
@@ -398,8 +394,8 @@ every register (AC, X, Y, the PC's jump target) loads through the ALU, so
 one stuck ALU output can break the very first jump.  An ALU output pin
 stuck can also hide from the tests that compare with XOR (the compare goes
 through the same pin) and show up first as 1, 5 or 6.  In either case go
-back to the free run (pull the ROM and the RAM) and check steps 10-16
-again, then the ALU outputs against the accumulator as in step 14.
+back to the free run (pull the ROM and the RAM) and check steps 10-15
+again, then the ALU outputs against the accumulator as in step 13.
 
 When all pass, the ROM sets up the library, draws the status screen and
 runs a loop once a frame:
@@ -431,7 +427,7 @@ page test).  It takes several minutes.
 
 ## I/O and audio
 
-### Step 18: shared port: latch (#37), port PLD (#38), row buffer (#39)
+### Step 17: shared port: latch (#37), port PLD (#38), row buffer (#39)
 
 Fit the three chips, the 3.3 V regulator, the SD dividers and the
 connectors ([IO.md](IO.md)).  Before plugging the SD card in, check
@@ -448,7 +444,7 @@ connectors ([IO.md](IO.md)).  Before plugging the SD card in, check
   and Y (buttons in the last column).  The mouse is started once, at
   power-up.
 
-### Step 19: audio DAC (#36)
+### Step 18: audio DAC (#36)
 
 Fit the DAC register, the R-2R ladder and the jack ([SOUND.md](SOUND.md)).
 With no sound playing the sample is 80h:

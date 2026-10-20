@@ -57,8 +57,6 @@ def build_source():
         src.append('    ld   [0x%02X], ac' % ARG_AC)
         src += call(r, n)
         src += ['    ld   ac, [0x%02X]' % OUT_AC,
-                '    ld   x, ac',
-                '    ld   ac, [0x%02X]' % OUT_X,
                 'halt_%s:' % r,
                 '    bra  halt_%s' % r]
     return '\n'.join(src) + '\n'

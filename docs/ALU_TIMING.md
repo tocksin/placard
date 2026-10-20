@@ -1,6 +1,6 @@
 # ALU timing options
 
-Date: 2026-10-15
+Date: 2026-10-19
 
 The ALU is the worst path in [TIMING.md](TIMING.md): 91 ns against a
 39.72 ns clock (25.175 MHz).  This document works out how to fix it with
@@ -137,9 +137,9 @@ source select) are all stable from the first EXEC clock:
 
 | Path | Original ALU | Lookahead ALU |
 |---|---:|---:|
-| FETCH→EXEC, source AC or X: IR, '138, '541 enable, ALU, AC setup | 91.0 | 68.5 |
-| LOAD→EXEC, source D: D, '541, ALU, AC setup | 78.5 | 56.0 |
-| Slack with 1 wait clock (79.44 ns) | −11.6 / +0.9 | **+10.9 / +23.4** |
+| FETCH→EXEC, source AC: IR, '138 (since 2026-10-19 the audio PLD's /AC_SEL), '541 enable, ALU, AC setup | 91.0 | 67.0 |
+| LOAD→EXEC, source D: D, '541 (since 2026-10-18 enabled by /SRC_EN in EXEC), ALU, AC setup | 78.5 | 62.0 |
+| Slack with 1 wait clock (79.44 ns) | −11.6 / +0.9 | **+12.4 / +17.4** |
 | Slack with 2 wait clocks (119.16 ns) | +28.2 / +40.7 | |
 
 **The other ALU functions stay single-clock.**  PASS B (LD), AND, OR, XOR,
@@ -149,8 +149,8 @@ is settled 10.5 ns into the cycle, so they cannot reach F.
 
 | Single-clock path (non-arithmetic) | Total | Slack |
 |---|---:|---:|
-| FETCH→EXEC, source AC or X: IR 10.5, '138 9, '541 enable 9.5, ALU 7.5, AC setup 2 | 38.5 | +1.2 |
-| LOAD→EXEC, source D: D 10.5, '541 6, ALU 7.5, AC setup 2 | 26.0 | +13.7 |
+| FETCH→EXEC, source AC: IR 10.5, audio PLD /AC_SEL 7.5 (the '138's 9 until 2026-10-19), '541 enable 9.5, ALU 7.5, AC setup 2 | 37.0 | +2.7 |
+| LOAD→EXEC, source D: /SRC_EN (State 5.5 + branch PLD 7.5), '541 enable 9.5, ALU 7.5, AC setup 2 | 32.0 | +7.7 |
 | Branch decision (PASS A, Z): unchanged from TIMING.md | 36.5 | +3.2 |
 
 ## Impact on the rest of the system

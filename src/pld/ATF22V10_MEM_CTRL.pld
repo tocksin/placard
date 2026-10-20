@@ -1,7 +1,7 @@
 Name     MEM_CTRL;
 PartNo   00;
-Date     10/18/2026;
-Revision 06;
+Date     10/19/2026;
+Revision 07;
 Designer ;
 Company  ;
 Assembly ;
@@ -59,10 +59,12 @@ Device   g22v10;
    ONE DATA BUS (revision 06)
       The RAM write-data buffer is gone: the source bus is the
       memory data bus.  The source F541s drive it for the whole of
-      EXEC when PIXEL_ENABLE = 0 (their '138 is enabled by Q0,
-      PC_ENABLE and PIXEL_ENABLE), so a CPU read must not happen
-      then.  SRC_EN (pin 22, from the branch PLD's pin 16) is the
-      same condition, and CPU_READ includes !SRC_EN.  The CPU never
+      EXEC when PIXEL_ENABLE = 0, so a CPU read must not happen
+      then.  /SRC_EN (pin 22, from the branch PLD's pin 16, which
+      also drives the source F541s' /OE1) is that condition, and
+      CPU_READ includes !SRC_EN.  Revision 07: the pin is active low
+      (the branch PLD's pin 16 became /SRC_EN when the source '138
+      was removed); the equations are the same.  The CPU never
       needs memory data in EXEC: instructions load in FETCH, D in
       LOAD_IMM and LOAD_MEM, and I/O reads are already limited to
       the LOAD states (I/O decode PLD, RD = IO & RW & LOAD_IMM).
@@ -160,7 +162,7 @@ PIN 14 = RW;           /* State PLD pin 23, 0 = store (I/O pin used as input) */
 PIN 23 = PIXEL_ENABLE; /* Sync PLD pin 19 (I/O pin used as input) */
 PIN 20 = A11;          /* address mux output (I/O pin used as input, revision 05) */
 PIN 21 = A10;          /* address mux output (I/O pin used as input, revision 05) */
-PIN 22 = SRC_EN;       /* branch PLD pin 16, 1 = source F541s drive the bus (revision 06) */
+PIN 22 = !SRC_EN;     /* branch PLD pin 16, low = source F541s drive the bus (revision 07) */
 
 
 /* ---------------- OUTPUTS ---------------- */

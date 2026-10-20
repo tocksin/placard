@@ -1,12 +1,16 @@
 --------------------------------------------------------------------------------
 -- Name     AUDIO_SLOT
 -- PartNo   00
--- Date     2026-10-18
--- Revision 03
+-- Date     2026-10-19
+-- Revision 04
 -- Designer Justin
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_AUDIO.pld (Revision 03)
+-- Converted from WinCUPL source ATF22V10_AUDIO.pld (Revision 04)
+--
+-- Revision 04: the two free cells make the CPU's /AC_SEL = not I1
+-- (instruction register bit 1, pin 16 in, pin 21 out) for the AC source
+-- F541's /OE2, since the source '138 is gone.
 --
 -- Picks the 8-clock groups on each scan line where the video circuit reads
 -- a byte in horizontal blanking, and remaps four row address bits for the
@@ -52,7 +56,7 @@
 --   PIN 22 = MODE_LD           (combinatorial output, ACTIVE LOW, to line
 --                               code register /E)
 --   PIN 23 = BLANK_RD          (combinatorial output, to Sync PLD pin 13)
---   Unused: pins 16, 21
+--   Unused: none (pins 16 and 21: I1 and /AC_SEL, revision 04)
 --------------------------------------------------------------------------------
 
 library ieee;
@@ -74,11 +78,13 @@ entity audio_pld is
         V8       : in  std_logic;   -- PIN 13, V counter PLD Q8
         LC2      : in  std_logic;   -- PIN 14, line code register Q2
         LC3      : in  std_logic;   -- PIN 15, line code register Q3
+        I1       : in  std_logic;   -- PIN 16, instruction register bit 1 (revision 04)
 
         R0       : out std_logic;   -- PIN 17, video address A0
         R1       : out std_logic;   -- PIN 18, video address A1
         R7       : out std_logic;   -- PIN 19, video address A7
         R8       : out std_logic;   -- PIN 20, video address A8
+        AC_SEL   : out std_logic;   -- PIN 21 (active low), to the AC source F541 /OE2 (revision 04)
         MODE_LD  : out std_logic;   -- PIN 22 (active low), to line code register /E
         BLANK_RD : out std_logic    -- PIN 23, to Sync PLD pin 13
     );
@@ -87,7 +93,7 @@ entity audio_pld is
     attribute pin_numbers : string;
     attribute pin_numbers of audio_pld : entity is
         "V0:1 H9:2 H8:3 H7:4 H6:5 H5:6 H4:7 H3:8 V9:9 V1:10 V7:11 V8:13 " &
-        "LC2:14 LC3:15 R0:17 R1:18 R7:19 R8:20 MODE_LD:22 BLANK_RD:23";
+        "LC2:14 LC3:15 I1:16 R0:17 R1:18 R7:19 R8:20 AC_SEL:21 MODE_LD:22 BLANK_RD:23";
 end entity audio_pld;
 
 
@@ -124,6 +130,8 @@ begin
     MODE_LD_Q <= (not H9) and H8 and (not H7) and H6 and H5 and (not H4) and H3;  -- group 45, every line
 
     MODE_LD <= not MODE_LD_Q;
+
+    AC_SEL <= not I1;                -- source 10 or 11: AC (revision 04)
 
     -- ============================================================
     -- ROW ADDRESS (line repeat)
