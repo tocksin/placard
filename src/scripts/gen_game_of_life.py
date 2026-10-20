@@ -85,6 +85,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from placard_sim import instr_size, COND   # noqa: E402
+from menu_hook import hook_blocks, as_lines   # noqa: E402
 
 CLOCK_HZ = 25.17483e6
 CPU_SHARE = 1 - 38400 / 420000      # video steals 1 clock in 8 during active video
@@ -100,7 +101,7 @@ ZP = {}
 _names = ['cp', 'wp', 'ep', 'ob', 'qp', 'px', 'cpb', 'wpb', 'obb', 'epb', 'ccnt',
           'L', 'R', 'T', 'SC', 'U', 'CC', 'RR', 'WW', 'NQ',
           'a0s', 'b0s', 'o0s', 'gl', 'gh', 'ri', 'rj', 'rv', 'fx', 'fy',
-          'dl1', 'dl2', 'dl3']
+          'dl1', 'dl2', 'dl3', 'hret', 'hreth']
 for _s in range(3):
     _names += ['a%d' % _s, 'b%d' % _s, 'm0%d' % _s, 'm1%d' % _s, 'c%d' % _s, 'o%d' % _s]
 for _i, _n in enumerate(_names):
@@ -144,6 +145,15 @@ class Gen:
     def st(self, v, name):
         self.e('ld   0x%02X, ac' % (v & 0xFF))
         self.e('ld   ac, %s' % z(name))
+
+    def call(self, target, slot):
+        r = self.uniq('ret')
+        self.e('ld   %s, ac' % r)
+        self.e('ld   ac, %s' % z(slot))
+        self.e('ld   %s >> 8, ac' % r)
+        self.e('ld   ac, %s' % z(slot + 'h'))
+        self.far(target)
+        self.label(r)
 
 
 def layout(atoms, start):
@@ -474,6 +484,8 @@ def build(gens, once, delay, seed):
     g.st(COLS, 'ccnt')
     atom()
     label('col')
+    e('; the program menu\'s hook (Esc, time up: menu_hook.py), once a column')
+    g.call('hk_poll', 'hret')
     e('; E page: next column, or the copy of column 1 for column 79')
     e('ld   %s, ac' % z('ccnt'))
     e('dec')
@@ -588,6 +600,7 @@ def build(gens, once, delay, seed):
             label('dly3')
             g.st(0, 'dl2')
             label('dly2')
+            g.call('hk_poll', 'hret')
             e('clr  ac')
             label('dly1')
             e('nop')
@@ -601,7 +614,13 @@ def build(gens, once, delay, seed):
             e('dec')
             e('ld   ac, %s' % z('dl3'))
             e('bne  dly3')
+        e('; done: the menu goes on to the next program now (when rotating)')
+        g.call('hk_done', 'hret')
         g.far('restart')
+
+    for name, items in hook_blocks(ZP['hret'], ZP['hreth']):
+        atom()
+        g.cur.extend(as_lines(items))
 
     code, top = layout(g.atoms, 0x0100)
     if top > BUF_A << 8:

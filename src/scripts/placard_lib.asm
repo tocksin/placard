@@ -17,7 +17,7 @@
 ;         ld   ac, [SP]
 ;         ...
 ;
-; The library is one block at the top of the ROM, xC600-xFBFF (sections 6
+; The library is one block at the top of the ROM, xC500-xFBFF (sections 6
 ; and 7), below the boot loader, with the most used parts highest:
 ;     xFB00-xFBFF  LIB_JT      jump table
 ;     xF400-xFAFF  LIB_CODE    core routines (this file)
@@ -27,7 +27,8 @@
 ;     xD500-xD6FF  INPUT_CODE  line input, mouse pointer (placard_input.asm)
 ;     xC700-xD4FF  FS_CODE     FAT file reader (placard_fs.asm)
 ;     xC600-xC6FF  SLOT_CODE   expansion slot helpers (placard_slot.asm)
-; xC000-xC5FF is kept free for the library to grow down into.  It runs in
+;     xC500-xC5FF  MENU_CODE   program menu hook (placard_menu.asm)
+; xC000-xC4FF is kept free for the library to grow down into.  It runs in
 ; place from the ROM, so sections 6 and 7 must read ROM whenever a program
 ; calls the library.  These are standard places that every program shares,
 ; so keep them; moving them means changing gen_rom.tcl and placard_sim.py
@@ -136,7 +137,7 @@
 ; active video) and include the 8-clock RETURN but not the 18-clock CALL.
 ; test_lib.py measures them.
 ;
-; Date: 10/19/2026
+; Date: 10/20/2026
 ; ============================================================
 
 #include "zeropage.asm"
@@ -149,6 +150,7 @@ SND_CODE   = 0xD700     ; sound driver, xD700-xDBFF (placard_snd.asm)
 INPUT_CODE = 0xD500     ; line input, mouse pointer, xD500-xD6FF (placard_input.asm)
 FS_CODE    = 0xC700     ; FAT file reader, xC700-xD4FF (placard_fs.asm)
 SLOT_CODE  = 0xC600     ; expansion slot helpers, xC600-xC6FF (placard_slot.asm)
+MENU_CODE  = 0xC500     ; program menu hook, xC500-xC5FF (placard_menu.asm)
 LIB_RAM    = 0x1F00     ; 256 bytes of library code copied to RAM by the boot
 
 #include "lib_font.asm"
@@ -157,6 +159,7 @@ LIB_RAM    = 0x1F00     ; 256 bytes of library code copied to RAM by the boot
 #include "placard_slot.asm"   ; expansion slot helpers at SLOT_CODE (docs/EXPANSION.md)
 #include "placard_fs.asm"     ; FAT file reading at FS_CODE (docs/IO.md)
 #include "placard_input.asm"  ; line input, mouse pointer at INPUT_CODE (docs/IO.md)
+#include "placard_menu.asm"   ; program menu hook at MENU_CODE (docs/MENU.md)
 
 
 ; ============================================================
@@ -1477,6 +1480,9 @@ jt_con_gets:        ; xFBD0
 jt_mouse_move:      ; xFBD4
     ld   mouse_move >> 8, y
     jmp  mouse_move
+jt_menu_poll:       ; xFBD8
+    ld   menu_poll >> 8, y
+    jmp  menu_poll
 
 
 ; ============================================================
