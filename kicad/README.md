@@ -33,7 +33,7 @@ not in pin-number order: the script's `LAYOUT` table puts inputs on the
 left and outputs on the right, buses together in bit order, and each
 function's pins in their own group.  Where one PLD does two unrelated jobs
 (the audio PLD's /AC_SEL, the port PLD's pad read, the memory control's
-MAP_RUN) a dashed line across the box separates them.  Active-low pins are
+RUN input) a dashed line across the box separates them.  Active-low pins are
 `/NAME`, VCC (24) is on top and GND (12) underneath, unused pins are `nc`
 (no-connect type), and the `.pld` file name is under the part number.  The
 script stops if a `.pld`'s pins and its `LAYOUT` entry no longer match.

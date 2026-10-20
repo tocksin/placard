@@ -171,7 +171,7 @@ architecture Behavioral of basys_top is
     signal romOeN           : sl;   -- ROM /OE
     signal ramOeN           : sl;   -- RAM /OE
     signal mapReg           : slv(7 downto 0) := (others => '0');  -- 74ACT273 map register
-    signal mapRun           : sl;   -- map register /MR, from the memory control PLD
+    signal run              : sl := '0';   -- RUN from the ROM cartridge: map register /MR, memory control pin 17
     signal ramSel0          : sl;   -- ROM/RAM map, 1 = RAM
     signal ramSel1          : sl;
     signal ramSel2          : sl;
@@ -599,13 +599,24 @@ begin
            yPort        => ramAddress(15 downto 8)
     );
 
+    -- RUN from the ROM cartridge (docs/ROM.md, "Loading the cartridge").
+    -- On the board the cartridge holds the clock and RUN low while it
+    -- copies its EEPROMs into its SRAM (cart_pld, src/sim/tb_cart_load.vhd).
+    -- Here the ROM model is loaded from rom.mem already, so RUN rises at
+    -- the first clock, as MAP_RUN did before memory control revision 08.
+    runProc : process (clkVGA)
+    begin
+        if rising_edge(clkVGA) then
+            run <= '1';
+        end if;
+    end process runProc;
+
     -- ROM/RAM map register: 74ACT273, an I/O device at 5000h (write only).
     -- It loads the source bus on the rising edge of /MAP_WR, and /MR
-    -- (mapRun from the memory control PLD) clears it to all ROM until the
-    -- first clock after power-up.
-    mapRegProc : process (mapWrN, mapRun)
+    -- (RUN) clears it to all ROM until the cartridge is loaded.
+    mapRegProc : process (mapWrN, run)
     begin
-        if mapRun = '0' then
+        if run = '0' then
             mapReg <= (others => '0');
         elsif rising_edge(mapWrN) then
             mapReg <= srcBus;
@@ -644,11 +655,11 @@ begin
         a11         => ramAddress(11),
         a10         => ramAddress(10),
         srcEnN      => srcEnN,
+        run         => run,
 
         weN         => ramWeN,
         romOeN      => romOeN,
-        ramOeN      => ramOeN,
-        mapRun      => mapRun
+        ramOeN      => ramOeN
     );
     romEn <= not romOeN;
 

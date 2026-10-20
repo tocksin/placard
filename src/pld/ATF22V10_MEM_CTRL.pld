@@ -1,7 +1,7 @@
 Name     MEM_CTRL;
 PartNo   00;
-Date     10/19/2026;
-Revision 07;
+Date     10/20/2026;
+Revision 08;
 Designer ;
 Company  ;
 Assembly ;
@@ -21,7 +21,7 @@ Device   g22v10;
    by /MAP_WR from the I/O decode PLD), and the ROM/RAM select PLD
    is gone.
 
-   MAP REGISTER RESET (revision 02)
+   MAP REGISTER RESET (revision 02; replaced by RUN in revision 08)
       The map must read all ROM at power-up, so the CPU boots from
       ROM.  The ATF22V10C clears its registers at power-up, so
       MAP_RUN (pin 17 since revision 03, registered, D = 1) is low from power-up until
@@ -29,6 +29,21 @@ Device   g22v10;
       the 74ACT273's /MR, which clears the map to 0 (all ROM) before
       the CPU's first clock.  It needs no RC network, and it ends at
       the same clock edge where the CPU starts.
+
+   RUN FROM THE CARTRIDGE (revision 08)
+      Pin 17 is now an input, RUN, from the ROM cartridge (10k
+      pull-down on the main board).  The cartridge holds RUN low from
+      power-up while it loads its SRAM from its EEPROMs, then raises
+      it (docs/ROM.md, "Loading the cartridge").  While RUN is low:
+        - /ROM_OE stays high, so the cartridge SRAM never drives the
+          bus and the cartridge can feed the CPU its own bytes;
+        - the map register's /MR and the expansion slots' /RESET,
+          which MAP_RUN drove before, are RUN itself, so the map
+          reads all ROM and the cards stay in reset.
+      MAP_RUN (the power-up register) is gone: RUN rises long after
+      the first clock, which does the same job.  RUN only adds a
+      literal to each ROM_OE term (still 10 terms), in the same pass,
+      so the read paths are unchanged.
 
    SECTION 2 MAP BIT (revision 03)
       4000h - 4FFFh is mapped like the other sections, by RAMSEL2
@@ -129,9 +144,9 @@ Device   g22v10;
       divided-down oscillator, leaves 2 ns at each end.
 
    PIN BUDGET
-      Inputs (18): CLK (pin 1, array input and MAP_RUN's clock),
-                   A15:A10, RAMSEL0-7, RW, PIXEL_ENABLE, SRC_EN
-      Outputs (4): /ROM_OE, /RAM_OE, /WE, MAP_RUN
+      Inputs (19): CLK (pin 1, array input), A15:A10, RAMSEL0-7, RW,
+                   PIXEL_ENABLE, SRC_EN, RUN (revision 08)
+      Outputs (3): /ROM_OE, /RAM_OE, /WE
       Unused: none.
       ROM_OE expands to 10 product terms (pin 19 has 16).
       RAM_OE expands to 16 product terms (pin 18 has 16): 10 for CPU
@@ -141,7 +156,7 @@ Device   g22v10;
 
 /* ---------------- INPUTS ---------------- */
 
-PIN 1  = CLK;          /* CPU clock: array input, and MAP_RUN's register clock */
+PIN 1  = CLK;          /* CPU clock: array input */
 
 PIN 2  = A15;          /* address mux outputs */
 PIN 3  = A14;
@@ -163,6 +178,7 @@ PIN 23 = PIXEL_ENABLE; /* Sync PLD pin 19 (I/O pin used as input) */
 PIN 20 = A11;          /* address mux output (I/O pin used as input, revision 05) */
 PIN 21 = A10;          /* address mux output (I/O pin used as input, revision 05) */
 PIN 22 = !SRC_EN;     /* branch PLD pin 16, low = source F541s drive the bus (revision 07) */
+PIN 17 = RUN;          /* ROM cartridge: low while it loads, also map register /MR and card /RESET (revision 08) */
 
 
 /* ---------------- OUTPUTS ---------------- */
@@ -170,7 +186,6 @@ PIN 22 = !SRC_EN;     /* branch PLD pin 16, low = source F541s drive the bus (re
 PIN 16 = !WE;          /* RAM /WE */
 PIN 19 = !ROM_OE;      /* ROM chips' /OE */
 PIN 18 = !RAM_OE;      /* RAM chips' /OE */
-PIN 17 = MAP_RUN;      /* registered: low from power-up to the first clock; map register /MR */
 
 
 /* ---------------- SECTION DECODE ---------------- */
@@ -195,19 +210,20 @@ VIDEO_READ = !CLK & PIXEL_ENABLE;
 
 WE = !CLK & !RW & !PIXEL_ENABLE;
 
-MAP_RUN.D = 'b'1;
+/* the cartridge SRAM reads only once it is loaded (revision 08) */
+ROM_READ = CPU_READ & RUN;
 
 ROM_OE =
-      SEC0 & !RAMSEL0 & CPU_READ
-    # SEC1 & !RAMSEL1 & CPU_READ
-    # SEC2 & !A12 & !RAMSEL2 & CPU_READ   /* 4000h - 4FFFh */
-    # SEC2 &  A11 & !RAMSEL2 & CPU_READ   /* 5800h - 5FFFh; 5000h - 53FFh is I/O */
-    # SEC2 &  A10 & !RAMSEL2 & CPU_READ   /* 5400h - 57FFh, 5C00h - 5FFFh */
-    # SEC3 & !RAMSEL3 & CPU_READ
-    # SEC4 & !RAMSEL4 & CPU_READ
-    # SEC5 & !RAMSEL5 & CPU_READ
-    # SEC6 & !RAMSEL6 & CPU_READ
-    # SEC7 & !RAMSEL7 & CPU_READ;
+      SEC0 & !RAMSEL0 & ROM_READ
+    # SEC1 & !RAMSEL1 & ROM_READ
+    # SEC2 & !A12 & !RAMSEL2 & ROM_READ   /* 4000h - 4FFFh */
+    # SEC2 &  A11 & !RAMSEL2 & ROM_READ   /* 5800h - 5FFFh; 5000h - 53FFh is I/O */
+    # SEC2 &  A10 & !RAMSEL2 & ROM_READ   /* 5400h - 57FFh, 5C00h - 5FFFh */
+    # SEC3 & !RAMSEL3 & ROM_READ
+    # SEC4 & !RAMSEL4 & ROM_READ
+    # SEC5 & !RAMSEL5 & ROM_READ
+    # SEC6 & !RAMSEL6 & ROM_READ
+    # SEC7 & !RAMSEL7 & ROM_READ;
 
 /* video reads: RAM anywhere but the I/O window 5000h - 53FFh
    (!(!A15 & A14 & !A13 & A12 & !A11 & !A10) as six terms) */
