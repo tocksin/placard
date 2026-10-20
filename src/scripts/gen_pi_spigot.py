@@ -32,7 +32,7 @@ ARITHMETIC
     - 10 * a[i] and q * i come from a product table T[m][v] = m * v
       (m = 0..18, v = 0..255, two bytes), applied to each byte of a[i]
       and i.  q * (i >> 8) is under 256, so it needs only the low table.
-      The table is ROM data built by this script.
+      init builds the table in the RAM at reset (see MEMORY).
     - x div (2i - 1) is a software restoring division: q <= 18 < 32, so
       five compare-and-subtract steps against D_k = (2i - 1) << k, k = 4..0,
       with q built up in the X register.  x < 2^17, D_3 < 2^16, so after
@@ -78,23 +78,31 @@ apart from the time)
     faster.  The screen is reference/pi_spigot_sim.png.
 
 MEMORY
-    0000-0003   reset: jump to main
-    0010-0045   variables (zero page)
+    0000-0003   reset: jump to init (builds the product table, then main)
+    0010-0048   variables (zero page)
     0050-0058   timer, decimal microseconds, least significant digit first
     0060-0068   one frame (16800) as decimal digits, 0070-0078 one step (128)
     0080-00E7   font
-    0100-07FF   code, blocks packed so none crosses a page
-    0800-15FF   a[i] low bytes  (address 0800 + i)
-    1600-23FF   a[i] high bytes (address 1600 + i)
-    2400-36FF   product table low bytes,  page 24 + m, m = 0..18
-    3700-49FF   product table high bytes, page 37 + m
+    0100-08FF   code, blocks packed so none crosses a page
+    0900-16FF   a[i] low bytes  (address 0900 + i)
+    1700-24FF   a[i] high bytes (address 1700 + i)
+    2500-37FF   product table low bytes,  page 25 + m, m = 0..18
+    3800-4AFF   product table high bytes, page 38 + m
     5A20-5BFF   mode bytes, one per row (all 0, 1 bpp)
+    5D00-5D0A   the program menu's block (menu_hook.py), when run from it
     6000-FFFF   video RAM
     The tables only go up to m = 18, the largest q for 1000 digits (build()
-    checks it for the digit count asked for), so they end below the mode
-    bytes.
+    checks it for the digit count asked for).  They are not part of the
+    program: init builds them once at reset (row m = row m - 1 + v), so the
+    program is only x0000-x08FF.
 
-Date: 10/18/2026
+PROGRAM MENU
+    In the menu ROM (docs/MENU.md) poll also calls hk_poll (menu_hook.py),
+    which goes back to the menu when Esc is pressed or the time is up, and
+    the end of the 10 s pause calls hk_done, which goes on to the next
+    program when the menu is rotating.  Run by itself both just return.
+
+Date: 10/20/2026
 """
 
 import argparse
@@ -103,9 +111,10 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from placard_sim import assemble, instr_size, to_hexstr   # noqa: E402
+from menu_hook import hook_blocks, as_lines              # noqa: E402
 
-ALO_PG, AHI_PG = 0x08, 0x16
-TLO_PG, THI_PG = 0x24, 0x37
+ALO_PG, AHI_PG = 0x09, 0x17
+TLO_PG, THI_PG = 0x25, 0x38
 TMAX = 18               # largest multiplier m; build() checks q <= TMAX
 FONT_PG, FONT_LO = 0x00, 0x80     # font in the top of zero page
 CODE_PG = 0x01
@@ -132,7 +141,7 @@ for _i, _n in enumerate(
          'pre', 'nines', 'first', 'fill', 'dig', 'dotf', 'cpage', 'crow',
          'ccol', 'rhi', 'gx', 'sx', 'tmp', 'ret', 'reth', 'jl', 'jh',
          'cur', 'last', 'wrapped', 'doff', 'dc', 'ds', 'pret', 'preth',
-         'dret', 'dreth', 'sx2', 'di'] +
+         'dret', 'dreth', 'sx2', 'di', 'hret', 'hreth'] +
         ['d%d%d' % (k, l) for k in range(5) for l in range(3)]):
     ZP[_n] = 0x10 + _i
 
@@ -244,6 +253,58 @@ def build(ndig):
     trow = drow + rows + 1
 
     # ------------------------------------------------------------ setup
+    g.block('init')
+    label('init')
+    e('; product tables T[m][v] = m * v (low bytes at page 0x%02X + m, high' % TLO_PG)
+    e('; bytes at page 0x%02X + m), built once: row m = row m - 1 + v' % THI_PG)
+    e('clr  ac')
+    label('it0')
+    e('ld   ac, x')
+    e('ld   0x%02X, y' % TLO_PG)
+    e('ld   0x00, [y,x]')
+    e('ld   0x%02X, y' % THI_PG)
+    e('ld   0x00, [y,x]')
+    e('inc')
+    e('bne  it0')
+    g.st(TLO_PG, 'tmp')
+    label('itm')
+    g.st(0, 'gx')
+    label('itv')
+    e('ld   %s, ac' % z('gx'))
+    e('ld   ac, x')
+    e('ld   %s, y' % z('tmp'))
+    e('ld   [y,x], ac')
+    e('add  %s, ac' % z('gx'))
+    e('ld   ac, %s' % z('t0'))
+    e('clr  ac')
+    e('bcc  itnc')
+    e('ld   1, ac')
+    label('itnc')
+    e('ld   ac, %s' % z('t1'))
+    e('ld   %s, ac' % z('tmp'))
+    e('add  0x%02X, y' % (THI_PG - TLO_PG))
+    e('ld   [y,x], ac')
+    e('add  %s, ac' % z('t1'))
+    e('ld   ac, %s' % z('t1'))
+    e('ld   %s, ac' % z('tmp'))
+    e('add  1, y')
+    e('ld   %s, ac' % z('t0'))
+    e('ld   ac, [y,x]')
+    e('ld   %s, ac' % z('tmp'))
+    e('add  0x%02X, y' % (THI_PG - TLO_PG + 1))
+    e('ld   %s, ac' % z('t1'))
+    e('ld   ac, [y,x]')
+    e('ld   %s, ac' % z('gx'))
+    e('inc')
+    e('ld   ac, %s' % z('gx'))
+    e('bne  itv')
+    e('ld   %s, ac' % z('tmp'))
+    e('inc')
+    e('ld   ac, %s' % z('tmp'))
+    e('sub  0x%02X, ac' % (TLO_PG + TMAX))
+    e('bne  itm')
+    g.far('main')
+
     g.block('main')
     e('; clear video RAM 6000-FFFF (pixels off)')
     g.st(0x60, 'tmp')
@@ -677,6 +738,8 @@ def build(ndig):
     e('; read the line read (V9:V2, 124-255) and add one frame to the timer')
     e('; when it went down.  cur - last - 96 >= 0 means it wrapped, as long as')
     e('; polls are less than 95 steps (380 lines) apart.  Uses y and x.')
+    e('; The menu hook first (Esc, time up: menu_hook.py).')
+    g.call('hk_poll', 'hret')
     e('ld   0x50, y')
     e('ld   [y,x], ac')
     e('ld   ac, %s' % z('cur'))
@@ -822,7 +885,13 @@ def build(ndig):
     e('sub  %d, ac' % WAIT_TENS)
     e('bne  pw')
     label('shown')
+    e('; done: the menu goes on to the next program now (when rotating)')
+    g.call('hk_done', 'hret')
     g.far('main')
+
+    for name, items in hook_blocks(ZP['hret'], ZP['hreth']):
+        g.block(name)
+        g.cur.extend(as_lines(items))
 
     # ------------------------------------------------------------ output
     out = []
@@ -834,14 +903,14 @@ def build(ndig):
     o(';')
     o(';     python3 placard_sim.py pi_spigot.asm --run --max-steps 2000000000 --stop-at pause --png pi.png')
     o(';')
-    o('; Date: 10/18/2026')
+    o('; Date: 10/20/2026')
     o('')
     o('#include "placard.asm"')
     o('')
     o('#addr 0x0000')
     o('reset:')
-    o('    ld   main >> 8, y')
-    o('    jmp  main')
+    o('    ld   init >> 8, y')
+    o('    jmp  init')
     # each block stays inside one page (branches are page relative); small
     # blocks share a page
     # first fit, largest first, in pages CODE_PG up to the a[i] arrays
@@ -870,14 +939,6 @@ def build(ndig):
         if name == 'main':
             o('main:')
         out.extend(lines)
-    for pgbase, part in ((TLO_PG, 0), (THI_PG, 1)):
-        o('')
-        o('; product table %s bytes: m * v, page 0x%02X + m' % (('low', 'high')[part], pgbase))
-        for m in range(TMAX + 1):
-            o('#addr 0x%04X' % ((pgbase + m) << 8))
-            for r in range(16):
-                vals = [limbs(m * (16 * r + c), 2)[part] for c in range(16)]
-                o('    #d8 ' + ', '.join('0x%02X' % v for v in vals))
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pi_spigot.asm')
     with open(path, 'w') as f:
         f.write('\n'.join(out) + '\n')

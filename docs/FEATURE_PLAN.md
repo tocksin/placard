@@ -10,9 +10,9 @@ that was cut to keep the chip count down.
 
 Software that runs on the Placard itself.  It all builds on the standard
 library (LIBRARY.md: calling convention, software stack, jump table, one
-library block at ROM xC600-xFBFF) and the ROM layout in ROM.md.  Free ROM
+library block at ROM xC500-xFBFF) and the ROM layout in ROM.md.  Free ROM
 for it today is x0004-x1EFF (8 KB), x4000-x4FFF and x5400-x5FFF, and
-xC000-xC5FF for the library to grow into; a program has x2000-x3FFF and
+xC000-xC4FF for the library to grow into; a program has x2000-x3FFF and
 x6000-xBFFF.  Free RAM is about 14 KB (x0100-x1EFF, x4000-x4FFF and the
 small pieces in section 2), plus up to 20-30 KB of video RAM when rows use
 2x or 4x line repeat.

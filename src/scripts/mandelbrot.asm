@@ -129,6 +129,14 @@ ret_11:
     ld   delay >> 8, y
     jmp  delay
 ret_12:
+    ; done: the menu goes on to the next program now (when rotating)
+    ld   ret_13, ac
+    ld   ac, [0xE8]
+    ld   ret_13 >> 8, ac
+    ld   ac, [0xE9]
+    ld   hk_done >> 8, y
+    jmp  hk_done
+ret_13:
     ld   main >> 8, y
     jmp  main
 
@@ -180,6 +188,13 @@ dly3:
     ld   0x00, ac
     ld   ac, [0x39]
 dly2:
+    ld   ret_14, ac
+    ld   ac, [0xE8]
+    ld   ret_14 >> 8, ac
+    ld   ac, [0xE9]
+    ld   hk_poll >> 8, y
+    jmp  hk_poll
+ret_14:
     clr  ac
 dly1:
     nop
@@ -203,20 +218,20 @@ pass0:
     ld   ac, [0x3B]
     ld   [0x2D], ac
     ld   ac, [0x3C]
-    ld   ret_13, ac
+    ld   ret_15, ac
     ld   ac, [0x2C]
-    ld   ret_13 >> 8, ac
+    ld   ret_15 >> 8, ac
     ld   ac, [0x2D]
     ld   clear >> 8, y
     jmp  clear
-ret_13:
-    ld   ret_14, ac
+ret_15:
+    ld   ret_16, ac
     ld   ac, [0x2C]
-    ld   ret_14 >> 8, ac
+    ld   ret_16 >> 8, ac
     ld   ac, [0x2D]
     ld   tstart >> 8, y
     jmp  tstart
-ret_14:
+ret_16:
     ld   0x00, ac
     ld   ac, [0x2B]
     ld   0x62, ac
@@ -248,13 +263,13 @@ row0:
     ld   0x08, ac
     ld   ac, [0x32]
 pt0:
-    ld   ret_15, ac
+    ld   ret_17, ac
     ld   ac, [0x2C]
-    ld   ret_15 >> 8, ac
+    ld   ret_17 >> 8, ac
     ld   ac, [0x2D]
     ld   kernel >> 8, y
     jmp  kernel
-ret_15:
+ret_17:
     ld   ac, [0x31]
     ld   [0x30], ac
     shr  ac
@@ -282,13 +297,13 @@ ret_15:
     ld   ac, [0x34]
 nw0:
     ; once per byte: check the line read for a new frame
-    ld   ret_16, ac
+    ld   ret_18, ac
     ld   ac, [0x43]
-    ld   ret_16 >> 8, ac
+    ld   ret_18 >> 8, ac
     ld   ac, [0x44]
     ld   poll >> 8, y
     jmp  poll
-ret_16:
+ret_18:
     ; cy += 1/256
     ld   [0x28], ac
     add  1, ac
@@ -335,20 +350,20 @@ pass1:
     ld   ac, [0x3B]
     ld   [0x2D], ac
     ld   ac, [0x3C]
-    ld   ret_17, ac
+    ld   ret_19, ac
     ld   ac, [0x2C]
-    ld   ret_17 >> 8, ac
+    ld   ret_19 >> 8, ac
     ld   ac, [0x2D]
     ld   clear >> 8, y
     jmp  clear
-ret_17:
-    ld   ret_18, ac
+ret_19:
+    ld   ret_20, ac
     ld   ac, [0x2C]
-    ld   ret_18 >> 8, ac
+    ld   ret_20 >> 8, ac
     ld   ac, [0x2D]
     ld   tstart >> 8, y
     jmp  tstart
-ret_18:
+ret_20:
     ld   0x40, ac
     ld   ac, [0x2B]
     ld   0x62, ac
@@ -380,13 +395,13 @@ row1:
     ld   0x04, ac
     ld   ac, [0x32]
 pt1:
-    ld   ret_19, ac
+    ld   ret_21, ac
     ld   ac, [0x2C]
-    ld   ret_19 >> 8, ac
+    ld   ret_21 >> 8, ac
     ld   ac, [0x2D]
     ld   kernel >> 8, y
     jmp  kernel
-ret_19:
+ret_21:
     ld   ac, [0x31]
     ld   [0x30], ac
     shr  ac
@@ -419,13 +434,13 @@ ret_19:
     ld   ac, [0x34]
 nw1:
     ; once per byte: check the line read for a new frame
-    ld   ret_20, ac
+    ld   ret_22, ac
     ld   ac, [0x43]
-    ld   ret_20 >> 8, ac
+    ld   ret_22 >> 8, ac
     ld   ac, [0x44]
     ld   poll >> 8, y
     jmp  poll
-ret_20:
+ret_22:
     ; cy += 2/256
     ld   [0x28], ac
     add  2, ac
@@ -472,20 +487,20 @@ pass2:
     ld   ac, [0x3B]
     ld   [0x2D], ac
     ld   ac, [0x3C]
-    ld   ret_21, ac
+    ld   ret_23, ac
     ld   ac, [0x2C]
-    ld   ret_21 >> 8, ac
+    ld   ret_23 >> 8, ac
     ld   ac, [0x2D]
     ld   clear >> 8, y
     jmp  clear
-ret_21:
-    ld   ret_22, ac
+ret_23:
+    ld   ret_24, ac
     ld   ac, [0x2C]
-    ld   ret_22 >> 8, ac
+    ld   ret_24 >> 8, ac
     ld   ac, [0x2D]
     ld   tstart >> 8, y
     jmp  tstart
-ret_22:
+ret_24:
     ld   0x80, ac
     ld   ac, [0x2B]
     ld   0x62, ac
@@ -517,13 +532,13 @@ row2:
     ld   0x02, ac
     ld   ac, [0x32]
 pt2:
-    ld   ret_23, ac
+    ld   ret_25, ac
     ld   ac, [0x2C]
-    ld   ret_23 >> 8, ac
+    ld   ret_25 >> 8, ac
     ld   ac, [0x2D]
     ld   kernel >> 8, y
     jmp  kernel
-ret_23:
+ret_25:
     ld   ac, [0x31]
     ld   [0x30], ac
     shr  ac
@@ -566,13 +581,13 @@ ret_23:
     ld   ac, [0x34]
 nw2:
     ; once per byte: check the line read for a new frame
-    ld   ret_24, ac
+    ld   ret_26, ac
     ld   ac, [0x43]
-    ld   ret_24 >> 8, ac
+    ld   ret_26 >> 8, ac
     ld   ac, [0x44]
     ld   poll >> 8, y
     jmp  poll
-ret_24:
+ret_26:
     ; cy += 4/256
     ld   [0x28], ac
     add  4, ac
@@ -619,20 +634,20 @@ pass3:
     ld   ac, [0x3B]
     ld   [0x2D], ac
     ld   ac, [0x3C]
-    ld   ret_25, ac
+    ld   ret_27, ac
     ld   ac, [0x2C]
-    ld   ret_25 >> 8, ac
+    ld   ret_27 >> 8, ac
     ld   ac, [0x2D]
     ld   clear >> 8, y
     jmp  clear
-ret_25:
-    ld   ret_26, ac
+ret_27:
+    ld   ret_28, ac
     ld   ac, [0x2C]
-    ld   ret_26 >> 8, ac
+    ld   ret_28 >> 8, ac
     ld   ac, [0x2D]
     ld   tstart >> 8, y
     jmp  tstart
-ret_26:
+ret_28:
     ld   0xC0, ac
     ld   ac, [0x2B]
     ld   0x62, ac
@@ -664,13 +679,13 @@ row3:
     ld   0x01, ac
     ld   ac, [0x32]
 pt3:
-    ld   ret_27, ac
+    ld   ret_29, ac
     ld   ac, [0x2C]
-    ld   ret_27 >> 8, ac
+    ld   ret_29 >> 8, ac
     ld   ac, [0x2D]
     ld   kernel >> 8, y
     jmp  kernel
-ret_27:
+ret_29:
     ld   ac, [0x31]
     ld   ac, [0x30]
     ; write the byte to 8 screen row(s)
@@ -714,13 +729,13 @@ ret_27:
     ld   ac, [0x34]
 nw3:
     ; once per byte: check the line read for a new frame
-    ld   ret_28, ac
+    ld   ret_30, ac
     ld   ac, [0x43]
-    ld   ret_28 >> 8, ac
+    ld   ret_30 >> 8, ac
     ld   ac, [0x44]
     ld   poll >> 8, y
     jmp  poll
-ret_28:
+ret_30:
     ; cy += 8/256
     ld   [0x28], ac
     add  8, ac
@@ -765,6 +780,14 @@ poll:
     ; read the line read (V9:V2, 124-255) and add one frame to the timer
     ; when it went down.  cur - last - 96 >= 0 means it wrapped, as long as
     ; polls are less than 95 steps (380 lines) apart.  Uses y and x.
+    ; The menu hook first (Esc, time up: menu_hook.py).
+    ld   ret_31, ac
+    ld   ac, [0xE8]
+    ld   ret_31 >> 8, ac
+    ld   ac, [0xE9]
+    ld   hk_poll >> 8, y
+    jmp  hk_poll
+ret_31:
     ld   0x50, y
     ld   [y,x], ac
     ld   ac, [0x3D]
@@ -775,13 +798,13 @@ poll:
     ld   ac, [0x3F]
     ld   0x10, ac
     ld   ac, [0x40]
-    ld   ret_29, ac
+    ld   ret_32, ac
     ld   ac, [0x45]
-    ld   ret_29 >> 8, ac
+    ld   ret_32 >> 8, ac
     ld   ac, [0x46]
     ld   dadd >> 8, y
     jmp  dadd
-ret_29:
+ret_32:
 pnw:
     ld   [0x3D], ac
     ld   ac, [0x3E]
@@ -789,6 +812,143 @@ pnw:
     jmp  [0x43]
 
 #addr 0x0900
+hk_poll:
+    ld 0x5D, y
+    ld 0x00, x
+    ld [y,x], ac
+    xor 0x4D, ac
+    bne hkp_ret
+    ld 0x01, x
+    ld [y,x], ac
+    xor 0x4E, ac
+    bne hkp_ret
+    ld 0x02, x
+    ld [y,x], ac
+    xor 0x55, ac
+    bne hkp_ret
+    ld 0x50, y    ; line read (V9:V2)
+    ld [y,x], ac
+    ld 0x5D, y
+    ld 0x0A, x
+    ld ac, [y,x]
+    ld 0x06, x
+    sub [y,x], ac    ; cur - last - 96 >= 0: a new frame
+    sub 96, ac
+    ld 0x0A, x
+    blt hkp_same
+    ld [y,x], ac
+    ld 0x06, x
+    ld ac, [y,x]
+    ld 0x52, y    ; Esc: key column 0, row 0
+    ld 0x00, x
+    ld 0x0F, [y,x]
+    nop
+    nop
+    nop
+    nop
+    ld [y,x], ac
+    ld 0xFB, [y,x]
+    and 1, ac
+    beq hkp_esc
+    ld 0x5D, y
+    ld 0x03, x
+    ld [y,x], ac
+    bne hkp_ret    ; picked from the menu: no time limit
+    ld 0x04, x
+    ld [y,x], ac
+    dec
+    ld ac, [y,x]
+    bcc hkp_ret    ; no borrow
+    ld 0x05, x
+    ld [y,x], ac
+    dec
+    ld ac, [y,x]
+    blt hkp_next    ; below 0: time up
+    bra hkp_ret
+hkp_same:
+    ld [y,x], ac
+    ld 0x06, x
+    ld ac, [y,x]
+hkp_ret:
+    ld [0xE9], y
+    jmp [0xE8]
+hkp_esc:
+    ld 1, ac
+    bra hkp_go
+hkp_next:
+    ld 2, ac
+hkp_go:
+    ld 0x5D, y
+    ld 0x09, x
+    ld ac, [y,x]
+    jmp 0x20    ; the menu's exit code (RAM x5D20)
+
+#addr 0x0A00
+hk_done:
+    ld 0x5D, y
+    ld 0x00, x
+    ld [y,x], ac
+    xor 0x4D, ac
+    bne hkd_ret
+    ld 0x01, x
+    ld [y,x], ac
+    xor 0x4E, ac
+    bne hkd_ret
+    ld 0x02, x
+    ld [y,x], ac
+    xor 0x55, ac
+    bne hkd_ret
+    ld 0x03, x
+    ld [y,x], ac
+    beq hkd_next    ; rotating: next program
+hkd_ret:
+    ld [0xE9], y
+    jmp [0xE8]
+hkd_next:
+    ld 2, ac
+    ld 0x09, x
+    ld ac, [y,x]
+    jmp 0x20    ; the menu's exit code (RAM x5D20)
+hk_hold:
+    ld 0x5D, y
+    ld 0x00, x
+    ld [y,x], ac
+    xor 0x4D, ac
+    bne hkd_ret
+    ld 0x01, x
+    ld [y,x], ac
+    xor 0x4E, ac
+    bne hkd_ret
+    ld 0x02, x
+    ld [y,x], ac
+    xor 0x55, ac
+    bne hkd_ret
+    ld 0x03, x
+    ld [y,x], ac
+    bne hkd_ret    ; picked from the menu: no time limit
+    ld 0x04, x    ; MB_LEFT - MB_HOLD < 0: leaves sooner anyway
+    ld [y,x], ac
+    ld 0x0B, x
+    sub [y,x], ac
+    ld 0x05, x
+    ld [y,x], ac
+    bcc hkd_nb
+    sub 1, ac
+hkd_nb:
+    ld 0x0C, x
+    sub [y,x], ac
+    blt hkd_ret
+    ld 0x0B, x    ; MB_LEFT = MB_HOLD
+    ld [y,x], ac
+    ld 0x04, x
+    ld ac, [y,x]
+    ld 0x0C, x
+    ld [y,x], ac
+    ld 0x05, x
+    ld ac, [y,x]
+    bra hkd_ret
+
+#addr 0x0B00
 dadd:
     ; timer digits at 0x50 += addend digits at 0x50 + [doff], decimal
     clr  ac
@@ -828,39 +988,39 @@ dn:
     ld   [0x46], y
     jmp  [0x45]
 
-#addr 0x0A00
+#addr 0x0C00
 tstart:
     ; start the timer at the top of a frame: wait for the line read to wrap
-    ld   ret_30, ac
+    ld   ret_33, ac
     ld   ac, [0x43]
-    ld   ret_30 >> 8, ac
+    ld   ret_33 >> 8, ac
     ld   ac, [0x44]
     ld   poll >> 8, y
     jmp  poll
-ret_30:
+ret_33:
 sync:
     ld   0x00, ac
     ld   ac, [0x3F]
-    ld   ret_31, ac
+    ld   ret_34, ac
     ld   ac, [0x43]
-    ld   ret_31 >> 8, ac
+    ld   ret_34 >> 8, ac
     ld   ac, [0x44]
     ld   poll >> 8, y
     jmp  poll
-ret_31:
+ret_34:
     ld   [0x3F], ac
     beq  sync
-    ld   ret_32, ac
+    ld   ret_35, ac
     ld   ac, [0x43]
-    ld   ret_32 >> 8, ac
+    ld   ret_35 >> 8, ac
     ld   ac, [0x44]
     ld   tclear >> 8, y
     jmp  tclear
-ret_32:
+ret_35:
     ld   [0x2D], y
     jmp  [0x2C]
 
-#addr 0x0B00
+#addr 0x0D00
 tclear:
     ; timer = 0, frame addend = 16800 us, step addend = 128 us
     ld   0x28, ac
@@ -884,17 +1044,17 @@ tcl:
     ld   [0x44], y
     jmp  [0x43]
 
-#addr 0x0C00
+#addr 0x0E00
 tshow:
     ; stop the timer: whole frames are counted, add the 128 us steps since
     ; the top of this frame
-    ld   ret_33, ac
+    ld   ret_36, ac
     ld   ac, [0x43]
-    ld   ret_33 >> 8, ac
+    ld   ret_36 >> 8, ac
     ld   ac, [0x44]
     ld   poll >> 8, y
     jmp  poll
-ret_33:
+ret_36:
     ld   [0x3E], ac
     sub  124, ac
     ld   ac, [0x38]
@@ -905,13 +1065,13 @@ part:
     beq  pdn
     dec
     ld   ac, [0x38]
-    ld   ret_34, ac
+    ld   ret_37, ac
     ld   ac, [0x45]
-    ld   ret_34 >> 8, ac
+    ld   ret_37 >> 8, ac
     ld   ac, [0x46]
     ld   dadd >> 8, y
     jmp  dadd
-ret_34:
+ret_37:
     bra  part
 pdn:
     ; a black 1 bpp band, screen rows 232-247: mode bytes 0, pixels 0
@@ -940,7 +1100,7 @@ bndm:
     ld   tshow2 >> 8, y
     jmp  tshow2
 
-#addr 0x0D00
+#addr 0x0F00
 tshow2:
     ; "SSS.SSS s", leading zeros of the seconds as spaces
     ld   0xA9, ac
@@ -962,25 +1122,25 @@ shlp:
     ld   [0x49], x
     ld   [x], ac
     ld   ac, [0x4E]
-    ld   ret_35, ac
+    ld   ret_38, ac
     ld   ac, [0x47]
-    ld   ret_35 >> 8, ac
+    ld   ret_38 >> 8, ac
     ld   ac, [0x48]
     ld   gdraw >> 8, y
     jmp  gdraw
-ret_35:
+ret_38:
     ld   [0x49], ac
     sub  0x56, ac
     bne  shnd
     ld   0x0A, ac
     ld   ac, [0x4E]
-    ld   ret_36, ac
+    ld   ret_39, ac
     ld   ac, [0x47]
-    ld   ret_36 >> 8, ac
+    ld   ret_39 >> 8, ac
     ld   ac, [0x48]
     ld   gdraw >> 8, y
     jmp  gdraw
-ret_36:
+ret_39:
 shnd:
     ld   [0x49], ac
     dec
@@ -989,26 +1149,26 @@ shnd:
     bne  shlp
     ld   0x0B, ac
     ld   ac, [0x4E]
-    ld   ret_37, ac
+    ld   ret_40, ac
     ld   ac, [0x47]
-    ld   ret_37 >> 8, ac
+    ld   ret_40 >> 8, ac
     ld   ac, [0x48]
     ld   gdraw >> 8, y
     jmp  gdraw
-ret_37:
+ret_40:
     ld   0x0C, ac
     ld   ac, [0x4E]
-    ld   ret_38, ac
+    ld   ret_41, ac
     ld   ac, [0x47]
-    ld   ret_38 >> 8, ac
+    ld   ret_41 >> 8, ac
     ld   ac, [0x48]
     ld   gdraw >> 8, y
     jmp  gdraw
-ret_38:
+ret_41:
     ld   [0x2D], y
     jmp  [0x2C]
 
-#addr 0x0E00
+#addr 0x1000
 gdraw:
     ; draw glyph [dig] at page [cpg], row byte [crow]; then cpg += 2
     ld   [0x4E], ac
@@ -1097,7 +1257,7 @@ gdraw:
     ld   [0x48], y
     jmp  [0x47]
 
-#addr 0x0F00
+#addr 0x1100
 kernel:
     ; in: cx, cy, coff.  out: AC = color for this mode.  returns to [reth, ret]
     clr  ac
@@ -1134,9 +1294,9 @@ iter:
     add  [0x18], ac
     ld   ac, [0x1A]
     ld   [0x17], ac
-    bcc  nc_39
+    bcc  nc_42
     inc
-nc_39:
+nc_42:
     add  [0x19], ac
     ld   ac, [0x1B]
     sub  4, ac
@@ -1146,18 +1306,18 @@ nc_39:
     sub  [0x18], ac
     ld   ac, [0x1C]
     ld   [0x17], ac
-    bcc  nb_40
+    bcc  nb_43
     dec
-nb_40:
+nb_43:
     sub  [0x19], ac
     ld   ac, [0x1D]
     ld   [0x1C], ac
     add  [0x26], ac
     ld   ac, [0x1E]
     ld   [0x1D], ac
-    bcc  nc_41
+    bcc  nc_44
     inc
-nc_41:
+nc_44:
     add  [0x27], ac
     ld   ac, [0x1F]
     ld   kernel2 >> 8, y
@@ -1172,7 +1332,7 @@ escape:
     ld   [0x2D], y
     jmp  [0x2C]
 
-#addr 0x1000
+#addr 0x1200
 kernel2:
     ; s = |x + y|
     ld   [0x12], ac
@@ -1182,9 +1342,9 @@ kernel2:
     add  [0x13], ac
     ld   ac, [0x22]
     ld   [0x11], ac
-    bcc  nc_42
+    bcc  nc_45
     inc
-nc_42:
+nc_45:
     add  [0x14], ac
     ld   ac, [0x23]
     bra  sdone
@@ -1193,21 +1353,21 @@ sdiff:
     sub  [0x13], ac
     ld   ac, [0x22]
     ld   [0x11], ac
-    bcc  nb_43
+    bcc  nb_46
     dec
-nb_43:
+nb_46:
     sub  [0x14], ac
     ld   ac, [0x23]
-    blt  ge_44
+    blt  ge_47
     bra  sdone
-ge_44:
+ge_47:
     ld   [0x13], ac
     sub  [0x10], ac
     ld   ac, [0x22]
     ld   [0x14], ac
-    bcc  nb_45
+    bcc  nb_48
     dec
-nb_45:
+nb_48:
     sub  [0x11], ac
     ld   ac, [0x23]
 sdone:
@@ -1225,28 +1385,28 @@ sdone:
     sub  [0x1A], ac
     ld   ac, [0x20]
     ld   [0x25], ac
-    bcc  nb_46
+    bcc  nb_49
     dec
-nb_46:
+nb_49:
     sub  [0x1B], ac
     ld   ac, [0x21]
     ld   [0x20], ac
     add  [0x28], ac
     ld   ac, [0x20]
     ld   [0x21], ac
-    bcc  nc_47
+    bcc  nc_50
     inc
-nc_47:
+nc_50:
     add  [0x29], ac
     ld   ac, [0x21]
     ld   kernel3 >> 8, y
     jmp  kernel3
 
-#addr 0x1100
+#addr 0x1300
 kernel3:
     ; back to magnitude + sign, escape if |x'| or |y'| >= 2
     ld   [0x1F], ac
-    blt  neg_48
+    blt  neg_51
     sub  2, ac
     bcc  esc3
     ld   [0x1E], ac
@@ -1255,24 +1415,24 @@ kernel3:
     ld   ac, [0x11]
     clr  ac
     ld   ac, [0x12]
-    bra  sm_50
-neg_48:
+    bra  sm_53
+neg_51:
     clr  ac                    ; magnitude = 0 - value
     sub  [0x1E], ac
     ld   ac, [0x10]
     clr  ac
-    bcc  nb_49
+    bcc  nb_52
     dec
-nb_49:
+nb_52:
     sub  [0x1F], ac
     ld   ac, [0x11]
     sub  2, ac
     bcc  esc3
     ld   1, ac
     ld   ac, [0x12]
-sm_50:
+sm_53:
     ld   [0x21], ac
-    blt  neg_51
+    blt  neg_54
     sub  2, ac
     bcc  esc3
     ld   [0x20], ac
@@ -1281,22 +1441,22 @@ sm_50:
     ld   ac, [0x14]
     clr  ac
     ld   ac, [0x15]
-    bra  sm_53
-neg_51:
+    bra  sm_56
+neg_54:
     clr  ac                    ; magnitude = 0 - value
     sub  [0x20], ac
     ld   ac, [0x13]
     clr  ac
-    bcc  nb_52
+    bcc  nb_55
     dec
-nb_52:
+nb_55:
     sub  [0x21], ac
     ld   ac, [0x14]
     sub  2, ac
     bcc  esc3
     ld   1, ac
     ld   ac, [0x15]
-sm_53:
+sm_56:
     ld   [0x2A], ac
     dec
     ld   ac, [0x2A]
