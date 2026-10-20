@@ -66,19 +66,21 @@ def expansion_slot():
 
 
 def cartridge_slot():
-    # 2 x 20 card edge, the ROM cartridge pinout (EXPANSION.md)
+    # Molex 87715-9106, 2 x 32 keyed card edge, the ROM cartridge pinout (EXPANSION.md)
     p = "passive"
     a = [("A3", "A0"), ("B3", "A1"), ("A4", "A2"), ("B4", "A3"), ("A5", "A4"),
-         ("B5", "A5"), ("A6", "A6"), ("B6", "A7"), ("A8", "A8"), ("B8", "A9"),
-         ("A9", "A10"), ("B9", "A11"), ("A10", "A12"), ("B10", "A13"), ("A11", "A14")]
-    ce = [("B11", "/CE_LO"), ("B12", "/CE_HI"), ("B17", "/ROM_OE"), ("A18", "/ROM_WE")]
-    d = [("A13", "D0"), ("B13", "D1"), ("A14", "D2"), ("B14", "D3"),
-         ("A15", "D4"), ("B15", "D5"), ("A16", "D6"), ("B16", "D7")]
-    other = [("B18", "/CART"), None, ("A19", "spare"), ("B19", "spare")]
+         ("B5", "A5"), ("A6", "A6"), ("B6", "A7"), ("A7", "A8"), ("B7", "A9"),
+         ("A8", "A10"), ("B8", "A11"), ("A9", "A12"), ("B9", "A13"), ("A10", "A14")]
+    ce = [("A16", "/CE_LO"), ("B16", "/CE_HI"), ("A17", "/ROM_OE"), None, ("B10", "/CART")]
+    d = [("A12", "D0"), ("B12", "D1"), ("A13", "D2"), ("B13", "D3"),
+         ("A14", "D4"), ("B14", "D5"), ("A15", "D6"), ("B15", "D7")]
+    ld = [("A20", "OSC"), ("B17", "/SRC_EN"), ("A18", "PIXEL_ENABLE"), ("B18", "HOLD"), ("A19", "RUN")]
+    spare = [(s + str(n), "spare") for s in "AB" for n in [19, 20] + list(range(22, 31)) + [32]
+             if s + str(n) not in ("A19", "A20")]
     e = lambda l: [(x[0], x[1], p) if x else None for x in l]
-    gnd = [(n, "GND") for n in ["A1", "B1", "A7", "B7", "A12", "A17", "A20", "B20"]]
-    return symbol("Cartridge_Slot", [(e(a) + [None] + e(ce), e(d) + [None] + e(other))],
-                  "EBC20DCAN", "ROM cartridge slot: 2 x 20 contact, 0.1 inch card-edge socket (EXPANSION.md)",
+    gnd = [(n, "GND") for n in ["A1", "B1", "A11", "B11", "A21", "B21", "A31", "B31"]]
+    return symbol("Cartridge_Slot", [(e(a) + [None] + e(ce), e(d) + [None] + e(ld)), (e(spare[:11]), e(spare[11:]))],
+                  "87715-9106", "ROM cartridge slot: Molex 87715-9106, 2 x 32 contact, 1.0 mm keyed card-edge socket (EXPANSION.md)",
                   "card edge slot cartridge ROM Placard", footprint="", datasheet="~",
                   vcc=[("A2", "+5V"), ("B2", "+5V")], gnd=gnd, ref="J", pin_len=2 * 2.54)
 
