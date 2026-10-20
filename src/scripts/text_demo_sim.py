@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-test_screen_sim.py - run test_screen.asm in placard_sim and check it
+text_demo_sim.py - run text_demo.asm in placard_sim and check it
 
-    python3 test_screen_sim.py                    run 3 s and check the screen
-    python3 test_screen_sim.py --png ts.png       also save the last frame
-    python3 test_screen_sim.py --gif ts.gif       also an animated GIF
-    python3 test_screen_sim.py --fault 0x4321     make one RAM bit fail at that
+    python3 text_demo_sim.py                    run 3 s and check the screen
+    python3 text_demo_sim.py --png ts.png       also save the last frame
+    python3 text_demo_sim.py --gif ts.gif       also an animated GIF
+    python3 text_demo_sim.py --fault 0x4321     make one RAM bit fail at that
                                                   address and check that the
                                                   RAM test reports it
 
@@ -13,12 +13,15 @@ Boots the ROM image like the board (placard_sim --boot), runs the program
 for --seconds of simulated time (60 frames per second, 420,000 clocks per
 frame, from the simulator's video line read), then checks the screen text:
 the frame count and uptime match the frames run, PASS counts up and ERRORS
-is 0 (or, with --fault, not 0 and the page is marked E on the progress bar).
+is 0 (or, with --fault, 14 a pass and the page's cell is marked E on the
+progress bar).
 Video stalls are not modeled, so the CPU runs about 10 % faster than on the
 board; the program only does a bounded amount of work per frame, so the
-frame timing is the same.
+frame timing is the same.  It also checks the pixel scroller (the message
+row of the 40 column band against the message, the font and the frame
+count) and the 256-color ring (every ring pixel against HUE and the phase).
 
-Date: 10/19/2026
+Date: 10/20/2026
 """
 
 import argparse
@@ -30,6 +33,51 @@ sys.path.insert(0, HERE)
 import placard_sim as ps  # noqa: E402
 
 CLOCKS_PER_FRAME = 525 * 800
+# the RAM test pages (PAGES in text_demo.asm)
+PAGES = list(range(0x01, 0x1F)) + list(range(0x20, 0x50)) + list(range(0x54, 0x5A)) + [0x5C]
+NPAGES = len(PAGES)
+
+
+def check_scroll(cpu, syms, rom, frm):
+    """the message row (rows 336-351, 2 bpp 2x): frame 1 shows the message
+    from its first pixel and each frame moves it one pixel left, so after
+    frm frames screen pixel x is message pixel frm - 1 + x, gold on blue"""
+    a = syms['msg']
+    msg = []
+    while rom[a]:
+        msg.append(rom[a])
+        a += 1
+    # the frame the counter shows may be one behind the frames scrolled
+    for s in (frm - 1, frm, frm - 2):
+        bad = 0
+        for r in range(8):
+            off = 0x171 + 2 * r
+            for x in range(320):
+                p = s + x
+                ch = msg[(p // 8) % len(msg)]
+                bit = (rom[ps.LIB_FONT + r * 256 + ch] >> (p % 8)) & 1
+                byte = cpu.mem[0x6000 + (x // 4) * 512 + off]
+                if ((byte >> (2 * (x % 4))) & 3) != (2 if bit else 1):
+                    bad += 1
+        if not bad:
+            print('scroller: the message row matches, %d pixels on' % s)
+            return True
+    print('FAIL: scroller row does not match the message (%d bad pixels)' % bad)
+    return False
+
+
+def check_ring(cpu, syms, rom):
+    n, ph = syms['RING_N'], cpu.mem[syms['wh_ph']]
+    bad = 0
+    for k in range(n):
+        v, x, ang = (rom[syms[t] + k] for t in ('RING_V', 'RING_X', 'RING_A'))
+        if cpu.mem[(v << 8) | x] != rom[syms['HUE'] + ((ang + ph) & 0xFF)]:
+            bad += 1
+    if bad:
+        print('FAIL: %d of %d ring pixels wrong' % (bad, n))
+        return False
+    print('ring: %d pixels, phase %d' % (n, ph))
+    return True
 
 
 def text_row(cpu, row, font):
@@ -52,7 +100,7 @@ def main(argv):
                     help='RAM address whose bit 3 always reads back flipped')
     args = ap.parse_args(argv)
 
-    src = open(os.path.join(HERE, 'test_screen.asm')).read()
+    src = open(os.path.join(HERE, 'text_demo.asm')).read()
     mem, syms, _ = ps.assemble(src, HERE)
     rom = ps.build_rom(mem)
     cpu = ps.Cpu({}, rom=rom)
@@ -73,7 +121,7 @@ def main(argv):
                         if chr(code - 0x80).isalpha() else '#')
 
     # draw the screen: run until the frame loop starts
-    r = cpu.run(50_000_000, halt_detect=False, stop_pc=syms['ts_loop'])
+    r = cpu.run(50_000_000, halt_detect=False, stop_pc=syms['td_loop'])
     if r != 'stop':
         sys.exit('did not reach the frame loop: ' + r)
     t_draw = cpu.clocks
@@ -87,7 +135,7 @@ def main(argv):
         while cpu.clocks < target:
             cpu.step()
         if args.gif and f % args.gif_step == 0:
-            path = os.path.join(HERE, '_ts_frame.png')
+            path = os.path.join(HERE, '_td_frame.png')
             ps.render(cpu.mem, path)
             from PIL import Image
             frames.append(Image.open(path).convert('P', palette=Image.ADAPTIVE, colors=255))
@@ -116,8 +164,8 @@ def main(argv):
     if secs != frm // 60:
         print('FAIL: uptime %s for %d frames' % (up, frm))
         ok = False
-    if passes != frm // 46:
-        print('FAIL: %d passes for %d frames (46 pages a pass)' % (passes, frm))
+    if passes != frm // NPAGES:
+        print('FAIL: %d passes for %d frames (%d pages a pass)' % (passes, frm, NPAGES))
         ok = False
     if args.fault is None:
         if errors or 'e' in rows[8]:
@@ -125,17 +173,17 @@ def main(argv):
             ok = False
     else:
         page = args.fault >> 8
-        pages = list(range(0x01, 0x1F)) + list(range(0x40, 0x50))
-        idx = pages.index(page)
-        # a bad page: one bad read for each pattern whose bit 3 differs,
-        # every pattern but none (bit 3 always matters), so 14 per pass
-        expect = 14 * (passes + (1 if (frm % 46) > idx else 0))
+        idx = PAGES.index(page)
+        # a bad page fails every pattern (bit 3 always matters): 14 a pass
+        expect = 14 * (passes + (1 if (frm % NPAGES) > idx else 0))
         if errors != expect:
             print('FAIL: %d errors, expected %d' % (errors, expect))
             ok = False
-        if passes == 0 and rows[8][11 + idx] != 'e':
+        if passes == 0 and frm > idx and rows[8][11 + idx // 2] != 'e':
             print('FAIL: page %02X not marked on the progress bar' % page)
             ok = False
+    ok = check_scroll(cpu, syms, rom, frm) and ok
+    ok = check_ring(cpu, syms, rom) and ok
     print('OK' if ok else 'FAILED')
     return 0 if ok else 1
 
