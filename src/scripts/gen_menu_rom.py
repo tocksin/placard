@@ -53,6 +53,10 @@ PROGRAMS = [
     ('raycast.asm', 'rom', 'main', 'Ray caster      first person 3D, walk with the arrow keys'),
 ]
 
+# programs whose whole run is longer than the usual limit (seconds); on the
+# board Mandelbrot takes about 113 s plus a 5 s pause after each of 4 modes
+LIMIT_S = {'mandelbrot.asm': 180}
+
 FRAME_HZ = 25.175e6 / (800 * 525)       # 59.94 frames a second
 MENU_CODE = (0x2000, 0x2600)            # menu.asm
 MENU_DATA = 0x2600                      # menu_data.asm tables and id code
@@ -155,6 +159,10 @@ def build(rotate_s=120.0, hold_s=10.0, idle_s=120, rotate_frames=None, hold_fram
 
     rot = rotate_frames if rotate_frames is not None else int(round(rotate_s * FRAME_HZ))
     hold = hold_frames if hold_frames is not None else int(round(hold_s * FRAME_HZ))
+    for p in progs:
+        lim = LIMIT_S.get(p['file'])
+        # (with rotate_frames, as in test_menu.py, scaled the same way)
+        p['rot'] = int(round(rot * lim / rotate_s)) if lim else rot
 
     data_start = DATA_REGIONS[0][0]
     while True:
@@ -197,6 +205,8 @@ def build(rotate_s=120.0, hold_s=10.0, idle_s=120, rotate_frames=None, hold_fram
                 o.append('    #d8 0x00')
             addr += n
         # program table, screen text
+        longer = ''.join(' (%s %d)' % (p['title'].split('  ')[0], round(p['rot'] / FRAME_HZ / 60))
+                         for p in progs if p['rot'] != rot)
         sec_text = 'With no key pressed, the programs run in turn again in'
         sec_col = LIST_COL + len(sec_text) + 1
         text = [
@@ -205,9 +215,9 @@ def build(rotate_s=120.0, hold_s=10.0, idle_s=120, rotate_frames=None, hold_fram
             (LIST_COL, 26, 'Up / Down or 1-%d choose, Enter runs it.  Esc in a program comes back.' % len(progs)),
             (LIST_COL, 30, sec_text),
             (sec_col + 4, 30, 's.'),
-            (LIST_COL, 32, 'In turn, each runs until it is done, or for %d minutes.' % round(rot / FRAME_HZ / 60)),
+            (LIST_COL, 32, 'In turn, each runs until it is done, or for %d minutes%s.' % (round(rot / FRAME_HZ / 60), longer)),
         ]
-        ntab = 7 * len(progs) + 2 * len(progs) + 4 * len(text) + 1
+        ntab = 9 * len(progs) + 2 * len(progs) + 4 * len(text) + 1
         if (addr & 0xFF) + ntab > 0x100:
             addr = (addr | 0xFF) + 1
         o.append('#addr 0x%04X' % addr)
@@ -220,6 +230,8 @@ def build(rotate_s=120.0, hold_s=10.0, idle_s=120, rotate_frames=None, hold_fram
             o.append('%s:' % label)
             o.append('    #d8 ' + ', '.join(vals))
 
+        tab('P_RL', ['0x%02X' % (p['rot'] & 0xFF) for p in progs])
+        tab('P_RH', ['0x%02X' % (p['rot'] >> 8) for p in progs])
         tab('P_KIND', ['%d' % (p['kind'] == 'ram') for p in progs])
         tab('P_EH', ['0x%02X' % (p.get('entry', 0) >> 8) for p in progs])
         tab('P_EL', ['0x%02X' % (p.get('entry', 0) & 0xFF) for p in progs])

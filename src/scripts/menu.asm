@@ -9,7 +9,8 @@
 ; ROM programs and the library into one 64 KB image, menu.hex.
 ;
 ; At power-up the programs run in turn: each one until it is done or for
-; ROT_FRAMES (2 minutes).  Esc in any program shows the menu.  Up / Down or
+; its time limit (P_RH:P_RL: 2 minutes, Mandelbrot 3).  Esc in any program
+; shows the menu.  Up / Down or
 ; 1-6 pick a program and Enter runs it until Esc.  With no key for
 ; IDLE_SECS (2 minutes) the menu goes back to running them in turn, from
 ; the highlighted one.
@@ -139,10 +140,20 @@ launch:
     ld   [m_p], ac
     ld   MB_PROG, x
     ld   ac, [y,x]
+    ld   [m_p], ac              ; its time limit (frames), P_RH:P_RL
+    add  P_RL & 0xFF, x
+    ld   P_RL >> 8, y
+    ld   [y,x], ac
+    ld   MENU_BLK >> 8, y
     ld   MB_LEFT, x
-    ld   ROT_FRAMES & 0xFF, [y,x]
+    ld   ac, [y,x]
+    ld   [m_p], ac
+    add  P_RH & 0xFF, x
+    ld   P_RH >> 8, y
+    ld   [y,x], ac
+    ld   MENU_BLK >> 8, y
     ld   MB_LEFT + 1, x
-    ld   ROT_FRAMES >> 8, [y,x]
+    ld   ac, [y,x]
     ld   MB_SYNC, x
     ld   0x00, [y,x]
     ld   MB_WHY, x
