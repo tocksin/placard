@@ -2,8 +2,9 @@
 
 Date: 2026-10-20
 
-The Placard has four expansion slots and one ROM cartridge slot, all the
-same connector: a 2 x 20, 0.1" (2.54 mm) pitch card-edge socket.  The
+The Placard has four expansion slots, each a 2 x 20, 0.1" (2.54 mm)
+pitch card-edge socket, and one ROM cartridge slot, a keyed 2 x 32,
+1.0 mm pitch socket (Molex 87715-9106, "ROM cartridge slot" below).  The
 expansion slots stand in a bay at one back corner, front to back at 0.8"
 pitch, so a card's outer end can carry its own connector at the back edge,
 like a PC card.  The cartridge slot is top loading, inboard.  Board sizes
@@ -166,6 +167,15 @@ AT28C256 EEPROMs on the same cartridge by a PLD, five chips in all, ROM.md
 is on a plug-in cartridge.  The cartridge gets the address and data
 lines and the same chip selects the ROM chips have on the main board.
 
+The connector is a Molex 87715-9106: 64 contacts (2 x 32) at 1.0 mm
+pitch, through-hole, vertical, for a 1.57 mm (0.062") card, the PCI
+Express x4 socket.  Its key sits between contacts 11 and 12, so a
+cartridge only goes in one way.  Each contact is rated 1.1 A.  The
+cartridge needs gold fingers at 1.0 mm pitch, a bevelled edge and the key
+notch.  Side A and side B are the two faces of the card; contacts 1-11
+are the short section before the key and 12-32 the long one after it, as
+on a PCI Express x4 card.
+
 | # | Side A | Side B |
 |--:|---|---|
 | 1 | GND | GND |
@@ -174,41 +184,43 @@ lines and the same chip selects the ROM chips have on the main board.
 | 4 | A2 | A3 |
 | 5 | A4 | A5 |
 | 6 | A6 | A7 |
-| 7 | GND | GND |
-| 8 | A8 | A9 |
-| 9 | A10 | A11 |
-| 10 | A12 | A13 |
-| 11 | A14 | /CE_LO (A15 from the address mux: lower chip) |
-| 12 | GND | /CE_HI (I/O decode PLD: upper chip) |
-| 13 | D0 | D1 |
-| 14 | D2 | D3 |
-| 15 | D4 | D5 |
-| 16 | D6 | D7 |
-| 17 | GND | /ROM_OE (memory control PLD) |
-| 18 | /ROM_WE (pulled high on the main board) | /CART (GND on the cartridge: one is plugged in) |
-| 19 | spare | spare |
-| 20 | GND | GND |
+| 7 | A8 | A9 |
+| 8 | A10 | A11 |
+| 9 | A12 | A13 |
+| 10 | A14 | /CART (GND on the cartridge: one is plugged in) |
+| 11 | GND | GND |
+| | *key* | *key* |
+| 12 | D0 | D1 |
+| 13 | D2 | D3 |
+| 14 | D4 | D5 |
+| 15 | D6 | D7 |
+| 16 | /CE_LO (A15 from the address mux: lower chip) | /CE_HI (I/O decode PLD: upper chip) |
+| 17 | /ROM_OE (memory control PLD) | /SRC_EN (branch PLD, to the cartridge) |
+| 18 | PIXEL_ENABLE (to the cartridge) | HOLD (from the cartridge, 10k pull-up on the main board) |
+| 19 | RUN (from the cartridge, pull-down on the main board) | spare |
+| 20 | OSC (25.175 MHz, before the clock gate, to the cartridge) | spare |
+| 21 | GND | GND |
+| 22-30 | spare | spare |
+| 31 | GND | GND |
+| 32 | spare | spare |
+
+Two +5 V contacts (2.2 A together), a GND on each side every ten
+contacts (8 in all), 32 signals and 22 spares (B19, B20, A22-A30, B22-B30,
+A32, B32), kept for programming the EEPROMs in place, battery charging,
+card detection and other functions (not assigned yet).
 
 - D7:D0 is the memory data bus that the RAM also drives.  The ROM chips'
   timing on the cartridge is the same as on the main board, plus the
   connector, so keep the cartridge's traces short.
-- **/ROM_WE** is not driven by the main board (writes always go to the
-  RAM).  It is there for a cartridge programmer, and the main board holds
-  it high through a 10k resistor.
+- **OSC** is next to the GND at 21 to keep its return path short.
 - **/CART** lets the main board tell an empty slot: with no cartridge, a
-  pull-up reads high.  Nothing reads it yet; with no ROM the CPU would
-  start on an open bus, so the board needs a cartridge to start (a boot
-  ROM on the main board is the alternative).
-- **The loader (2026-10-20)** needs the 3.3k read bus pull-ups above
-  (the CPU fetches the floating FFh while it loads) and five more signals that the table
-  above does not have yet (the pinout is being reworked for the new
-  connector): OSC (the 25.175 MHz oscillator, before the clock gate, to
-  the cartridge), HOLD (from the cartridge, pulled up on the main board),
-  RUN (from the cartridge, pulled down on the main board), /SRC_EN and
-  PIXEL_ENABLE (to the cartridge).  /ROM_WE is no longer needed: the
-  cartridge makes its SRAMs' /WE.  With no cartridge, HOLD's pull-up keeps
-  the board stopped, so the board needs a cartridge (or the HOLD and RUN
-  jumpers, BRINGUP.md) to start.
+  pull-up reads high.  Nothing reads it yet.  With no cartridge, HOLD's
+  pull-up keeps the board stopped, so the board needs a cartridge (or the
+  HOLD and RUN jumpers, BRINGUP.md) to start.
+- **The loader** (ROM.md "Loading the cartridge") needs the 3.3k read bus
+  pull-ups above (the CPU fetches the floating FFh while it loads) and
+  OSC, HOLD, RUN, /SRC_EN and PIXEL_ENABLE.  /ROM_WE is gone: the
+  cartridge makes its SRAMs' /WE.
 
 ## To check
 
@@ -227,7 +239,7 @@ lines and the same chip selects the ROM chips have on the main board.
 - **Read bus loading.**  Four slots of trace and the cards' 3-state
   outputs add capacitance to D7:D0, which every read uses.  The read path
   has 0.2 ns of margin, so measure the read timing with four cards in.
-- **Socket.**  A 2 x 20, 0.1" card-edge socket with 1.6 mm (0.062") card
+- **Expansion socket.**  A 2 x 20, 0.1" card-edge socket with 1.6 mm (0.062") card
   slot, through-hole, in active stock (for example the Sullins EBC20DCAN
   family); not stock-checked yet.  Cards need hard gold fingers with a
   bevelled edge.
