@@ -83,8 +83,12 @@ start of EXEC (CPU.md, "One data bus").
 |---|---|---|
 | AS7C256C-15PCN (2) | SRAM, 32K x 8, 15 ns | The ROM as the CPU sees it (was #33, #34); /WE from the cartridge PLD |
 | AT28C256-15PU (2) | EEPROM, 32K x 8, 150 ns | The ROM image, programmed off the board; copied into the SRAMs at power-up |
-| SN74AC541N | Octal buffer, 3-state | Inputs wired to 02h (`ld ac, ac`), fed to the CPU on every fetch while loading |
-| ATF22V10C-10PU | PLD (22V10, 24-pin) | Loader: holds the board's clock, steps it, makes the EEPROM /OE, SRAM /WE and 541 /OE, raises RUN at the PC wrap (`ATF22V10_CART.pld`) |
+| ATF22V10C-10PU | PLD (22V10, 24-pin) | Loader: holds the board's clock, steps it, makes the EEPROM /OE and SRAM /WE, raises RUN at the PC wrap (`ATF22V10_CART.pld`) |
+
+The CPU's opcode while loading, `ld ac, ac`, is FFh (the opcode byte is
+stored XOR FDh, CPU.md "Opcode byte"), which is what the data bus floats
+to through its 3.3k pull-ups, so no chip drives it.  A 74AC541 wired to
+02h did until the cartridge PLD's revision 02 (2026-10-20).
 
 The battery and power-fail switch of the interim battery-backed ROM are
 gone; the main board loses #33 and #34 and gains the 74AC32 (#41).

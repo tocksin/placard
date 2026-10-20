@@ -406,11 +406,12 @@ def test_mouse_late_start():
 # ---------------------------------------------------------------------------
 def test_con_gets():
     rig = Rig()
-    rig.call('con_clear', max_steps=5_000_000)
     cpu, m = rig.cpu, rig.cpu.mem
-    for a, v in rig.mem.items():        # one flat memory here: vid_clear also
-        if a >= 0xC000:                 # cleared the library, which is ROM on the board
-            m[a] = v
+    # as on the board: the library at xC000+ is ROM under the video RAM
+    # that con_clear clears (map 05, sections 0 and 2 read RAM)
+    cpu.rom = bytearray(m)
+    cpu.map = 0x05
+    rig.call('con_clear', max_steps=5_000_000)
     sy = rig.syms
     # typed: "Hi" Shift+h i, "x" then Backspace, "!" Shift+1, "abc" (one
     # too many for R2 = 4), Enter
