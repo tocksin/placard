@@ -7,7 +7,9 @@ when it saves them).
 | File | What it is |
 |------|------------|
 | `placard.kicad_pro` | the project; open this in KiCad |
-| `placard.kicad_sch` | the schematic (root sheet, A3) |
+| `placard.kicad_sch` | the schematic's root sheet (A3): one box per sheet, laid out like the block diagram |
+| `power.kicad_sch` ... `expansion.kicad_sch` | the ten sheets (power and clock, control, PC and address mux, ALU and registers, data bus, memory and I/O decode, video timing, video and audio out, shared port, expansion slots), docs/SCHEMATIC_PLAN.md |
+| `cartridge/` | the ROM cartridge, its own project (`cartridge.kicad_pro`, one sheet), using the same `lib/` |
 | `placard.kicad_pcb` | the board: 4 layers (F.Cu, In1.Cu = GND, In2.Cu = VCC, B.Cu) |
 | `lib/placard.kicad_sym` | PLD symbols: `ATF22V10C` (generic) and one `ATF22V10C_<name>` per `.pld` file, with its pin names |
 | `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `Keyboard_Header`, `USB_C_Power` |
@@ -73,3 +75,13 @@ Everything else comes from KiCad's own libraries:
 Set the Value to the real part number when placing them.
 `src/scripts/render_kicad_symbols.py OUTDIR` draws all of these as PNG
 review sheets (needs kicad-cli, cairosvg and Pillow).
+
+## Schematic sheets
+
+`src/scripts/gen_kicad_schematic.py` writes all the `.kicad_sch` files
+(main board and cartridge) from its pin-by-pin net lists, so change a
+connection there and rerun it; a hand edit in KiCad is lost at the next
+run.  `--check` compares KiCad's exported netlist with the script's nets and
+runs basic electrical checks; the full ERC needs KiCad 8 or newer (open the
+project, Inspect > Electrical Rules Checker).  PDFs of both are in
+[`../schematics/`](../schematics/).
