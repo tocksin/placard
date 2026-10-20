@@ -144,81 +144,85 @@
 }
 
 
+; The opcode byte is stored XOR FDh (2026-10-20): instruction bits 7:2
+; and 0 are inverted, bit 1 is not.  The fields below are the logical
+; values (CPU.md); each rule flips them.  FFh, the undriven data bus, is
+; then ld ac, ac, which the ROM cartridge feeds the CPU while it loads.
 #ruledef
 {
     ; ---------------- register source -> register ----------------
-    {o:alu} {s:reg_src}, {d:reg_dst} => o @ d @ s
+    {o:alu} {s:reg_src}, {d:reg_dst} => ((o @ d @ s) ^ 0xFD)[7:0]
 
     ; ---------------- immediate source ----------------
     {o:alu} {v}, {d:reg_dst} =>
     {
-        o @ d @ 0b00 @ v[7:0]
+        ((o @ d @ 0b00) ^ 0xFD)[7:0] @ v[7:0]
     }
     {o:alu} {v}, [x] =>
     {
-        o @ 0b110 @ 0b00 @ v[7:0]
+        ((o @ 0b110 @ 0b00) ^ 0xFD)[7:0] @ v[7:0]
     }
     {o:alu} {v}, [y,x] =>
     {
-        o @ 0b111 @ 0b00 @ v[7:0]
+        ((o @ 0b111 @ 0b00) ^ 0xFD)[7:0] @ v[7:0]
     }
 
     ; immediate -> zero page: value and address share the operand byte
     {o:alu} {v}, [{a}] =>
     {
-        o @ 0b101 @ 0b00 @ a[7:0]
+        ((o @ 0b101 @ 0b00) ^ 0xFD)[7:0] @ a[7:0]
     }
 
     ; ---------------- register source -> RAM ----------------
-    {o:alu} {s:reg_src}, [x]   => o @ 0b110 @ s
-    {o:alu} {s:reg_src}, [y,x] => o @ 0b111 @ s
+    {o:alu} {s:reg_src}, [x]   => ((o @ 0b110 @ s) ^ 0xFD)[7:0]
+    {o:alu} {s:reg_src}, [y,x] => ((o @ 0b111 @ s) ^ 0xFD)[7:0]
     {o:alu} {s:reg_src}, [{a}] =>
     {
-        o @ 0b101 @ s @ a[7:0]
+        ((o @ 0b101 @ s) ^ 0xFD)[7:0] @ a[7:0]
     }
 
     ; ---------------- memory source -> register ----------------
-    {o:alu} [x], ac   => o @ 0b001 @ 0b01
-    {o:alu} [y,x], ac => o @ 0b010 @ 0b01
+    {o:alu} [x], ac   => ((o @ 0b001 @ 0b01) ^ 0xFD)[7:0]
+    {o:alu} [y,x], ac => ((o @ 0b010 @ 0b01) ^ 0xFD)[7:0]
     {o:alu} [{a}], {d:reg_dst} =>
     {
-        o @ d @ 0b01 @ a[7:0]
+        ((o @ d @ 0b01) ^ 0xFD)[7:0] @ a[7:0]
     }
 
     ; ---------------- memory source -> same RAM location ----------------
-    {o:alu} [x], [x]     => o @ 0b110 @ 0b01
-    {o:alu} [y,x], [y,x] => o @ 0b111 @ 0b01
+    {o:alu} [x], [x]     => ((o @ 0b110 @ 0b01) ^ 0xFD)[7:0]
+    {o:alu} [y,x], [y,x] => ((o @ 0b111 @ 0b01) ^ 0xFD)[7:0]
 
     ; ---------------- shift right (source is the accumulator) ----------------
-    shr {d:reg_dst} => 0b110 @ d @ 0b10
-    shr [x]         => 0b110 @ 0b110 @ 0b10
-    shr [y,x]       => 0b110 @ 0b111 @ 0b10
+    shr {d:reg_dst} => ((0b110 @ d @ 0b10) ^ 0xFD)[7:0]
+    shr [x]         => ((0b110 @ 0b110 @ 0b10) ^ 0xFD)[7:0]
+    shr [y,x]       => ((0b110 @ 0b111 @ 0b10) ^ 0xFD)[7:0]
     shr [{a}]       =>
     {
-        0b110 @ 0b101 @ 0b10 @ a[7:0]
+        ((0b110 @ 0b101 @ 0b10) ^ 0xFD)[7:0] @ a[7:0]
     }
 
     ; ---------------- aliases ----------------
-    nop         => 0b000 @ 0b000 @ 0b10      ; ld  ac, ac
-    shl ac      => 0b100 @ 0b000 @ 0b10      ; add ac, ac
-    shl         => 0b100 @ 0b000 @ 0b10
-    clr {d:reg_dst} => 0b011 @ d @ 0b10      ; xor ac, d
-    inc         => 0b100 @ 0b000 @ 0b00 @ 0x01   ; add 1, ac
-    dec         => 0b101 @ 0b000 @ 0b00 @ 0x01   ; sub 1, ac
-    not         => 0b011 @ 0b000 @ 0b00 @ 0xFF   ; xor 255, ac
+    nop         => ((0b000 @ 0b000 @ 0b10) ^ 0xFD)[7:0]      ; ld  ac, ac
+    shl ac      => ((0b100 @ 0b000 @ 0b10) ^ 0xFD)[7:0]      ; add ac, ac
+    shl         => ((0b100 @ 0b000 @ 0b10) ^ 0xFD)[7:0]
+    clr {d:reg_dst} => ((0b011 @ d @ 0b10) ^ 0xFD)[7:0]      ; xor ac, d
+    inc         => ((0b100 @ 0b000 @ 0b00) ^ 0xFD)[7:0] @ 0x01   ; add 1, ac
+    dec         => ((0b101 @ 0b000 @ 0b00) ^ 0xFD)[7:0] @ 0x01   ; sub 1, ac
+    not         => ((0b011 @ 0b000 @ 0b00) ^ 0xFD)[7:0] @ 0xFF   ; xor 255, ac
 
     ; ---------------- jump: PC low from operand, PC high from Y ----------------
     ; register forms first, so "ac" never gets read as a label
-    jmp {s:reg_src} => 0b111 @ 0b000 @ s
-    jmp {t}         => 0b111 @ 0b000 @ 0b00 @ t[7:0]
+    jmp {s:reg_src} => ((0b111 @ 0b000 @ s) ^ 0xFD)[7:0]
+    jmp {t}         => ((0b111 @ 0b000 @ 0b00) ^ 0xFD)[7:0] @ t[7:0]
 
     ; ---------------- branches: PC low only ----------------
     ; the operand byte is at $+1, so PC high at execute = ($ + 2) >> 8
-    {c:cond_reg} {s:reg_src} => 0b111 @ c @ s
-    bcc {s:reg_src}          => 0b111 @ 0b101 @ s @ 0x00   ; pad byte
+    {c:cond_reg} {s:reg_src} => ((0b111 @ c @ s) ^ 0xFD)[7:0]
+    bcc {s:reg_src}          => ((0b111 @ 0b101 @ s) ^ 0xFD)[7:0] @ 0x00   ; pad byte
     {c:cond} {t} =>
     {
-        0b111 @ c @ 0b00 @ t[7:0]
+        ((0b111 @ c @ 0b00) ^ 0xFD)[7:0] @ t[7:0]
     }
 
     ; ---------------- indirect branches: PC low from memory ----------------
@@ -226,18 +230,18 @@
     ; the address mode used to read the target byte.
     jmp [{a}] =>
     {
-        0b111 @ 0b000 @ 0b01 @ a[7:0]
+        ((0b111 @ 0b000 @ 0b01) ^ 0xFD)[7:0] @ a[7:0]
     }
     bne [{a}] =>
     {
-        0b111 @ 0b011 @ 0b01 @ a[7:0]
+        ((0b111 @ 0b011 @ 0b01) ^ 0xFD)[7:0] @ a[7:0]
     }
     beq [{a}] =>
     {
-        0b111 @ 0b100 @ 0b01 @ a[7:0]
+        ((0b111 @ 0b100 @ 0b01) ^ 0xFD)[7:0] @ a[7:0]
     }
-    bcs [x]   => 0b111 @ 0b001 @ 0b01
-    ble [x]   => 0b111 @ 0b110 @ 0b01
-    blt [y,x] => 0b111 @ 0b010 @ 0b01
-    bra [y,x] => 0b111 @ 0b111 @ 0b01
+    bcs [x]   => ((0b111 @ 0b001 @ 0b01) ^ 0xFD)[7:0]
+    ble [x]   => ((0b111 @ 0b110 @ 0b01) ^ 0xFD)[7:0]
+    blt [y,x] => ((0b111 @ 0b010 @ 0b01) ^ 0xFD)[7:0]
+    bra [y,x] => ((0b111 @ 0b111 @ 0b01) ^ 0xFD)[7:0]
 }

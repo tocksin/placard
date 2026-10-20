@@ -1,7 +1,7 @@
 Name     BRANCH_CTRL;
 PartNo   00;
-Date     10/19/2026;
-Revision 13;
+Date     10/20/2026;
+Revision 14;
 Designer ;
 Company  ;
 Assembly ;
@@ -181,13 +181,21 @@ Device   g22v10;
 
 PIN 1  = CLK;             /* CPU clock, for ALU_DONE */
 
-PIN 17 = I7;              /* I/O pin used as an input */
-PIN 2  = I6;
-PIN 3  = I5;
+/* REVISION 14 (2026-10-20): THE OPCODE BYTE IS STORED XOR FDh.
+   Instruction bits 7:2 and 0 are stored inverted, so FFh, the level of
+   the undriven (pulled-up) data bus, is ld ac, ac: the ROM cartridge
+   loader feeds it to the CPU without a buffer chip (docs/ROM.md).
+   Bit 1 is not inverted (it drives the D F541's /OE2 directly).  The
+   instruction-bit pins are declared active low here, so every equation
+   still uses the logical field values. */
 
-PIN 4  = M2;
-PIN 5  = M1;
-PIN 6  = M0;
+PIN 17 = !I7;              /* I/O pin used as an input */
+PIN 2  = !I6;
+PIN 3  = !I5;
+
+PIN 4  = !M2;
+PIN 5  = !M1;
+PIN 6  = !M0;
 
 PIN 7  = Z_LOW;           /* low  ALU nibble zero flag */
 PIN 8  = NEG;

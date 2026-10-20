@@ -59,7 +59,7 @@ basys_top.vhd (low nibble CIN = 0, high nibble CIN = low nibble COUT, low
 SHIFT_RIGHT_IN = AC bit 4, high SHIFT_RIGHT_IN = 0).  The default is an ideal
 8-bit ALU (A - B is a true 8-bit subtraction).
 
-Date: 10/19/2026
+Date: 10/20/2026
 """
 
 import re
@@ -79,8 +79,16 @@ MEM_BRANCH = {   # indirect branch forms: (mnemonic, operand) -> m
 }
 
 
+# The opcode byte is stored XOR FDh (2026-10-20): bits 7:2 and 0 inverted,
+# bit 1 as is.  FFh, the undriven (pulled-up) data bus, is then ld ac, ac,
+# which the ROM cartridge feeds the CPU while it loads (docs/ROM.md).  The
+# State, Branch and ALU PLDs declare those instruction pins active low.
+OPC_XOR = 0xFD
+
+
 def op(a, m, s):
-    return (a << 5) | (m << 2) | s
+    """opcode byte for ALU op a, memory field m, source s"""
+    return ((a << 5) | (m << 2) | s) ^ OPC_XOR
 
 
 class AsmError(Exception):
@@ -499,13 +507,13 @@ class Cpu:
     def step(self):
         m_ = self.mem
         rd = m_.__getitem__ if self.rom is None else self.read
-        opc = rd(self.pc)
+        opc = rd(self.pc) ^ OPC_XOR               # the logical fields
         here = self.pc
         self.pc = (self.pc + 1) & 0xFFFF
         a, m, s = opc >> 5, (opc >> 2) & 7, opc & 3
         clocks = 2
         if s == 1 and m == 5:
-            raise CpuError('%04X: unsupported opcode %02X (MEM 101 with memory source)' % (here, opc))
+            raise CpuError('%04X: unsupported opcode %02X (MEM 101 with memory source)' % (here, opc ^ OPC_XOR))
         operand = (s == 0) or (s == 1 and m in (0, 3, 4)) or (s >= 2 and m == 5)
         if operand:
             self.d = rd(self.pc)
@@ -582,7 +590,7 @@ class Cpu:
 
 
 def m_is_branch(o):
-    return (o >> 5) == 7
+    return ((o ^ OPC_XOR) >> 5) == 7
 
 
 # ---------------------------------------------------------------------------

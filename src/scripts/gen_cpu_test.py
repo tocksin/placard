@@ -47,7 +47,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from placard_sim import instr_size   # noqa: E402
+from placard_sim import instr_size, OPC_XOR   # noqa: E402
 from menu_hook import hook_blocks   # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -151,7 +151,7 @@ class Block:
             self.I(text, comment)
             return
         n = instr_size(text)
-        out = '#d8 %s' % h(opc)
+        out = '#d8 %s' % h(opc ^ OPC_XOR)
         if n == 2:
             m = re.search(r'\[(0x[0-9A-Fa-f]+)\]', text)
             out += ', ' + (m.group(1) if m else '0x00')
