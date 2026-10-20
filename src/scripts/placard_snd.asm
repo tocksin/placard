@@ -122,7 +122,7 @@ su_go:
 ;   in:      -
 ;   out:     -
 ;   changes: AC, X, Y
-;   clocks:  about 9000
+;   clocks:  about 6,300
 ; ------------------------------------------------------------
 snd_init:
     ld   gen_sil & 0xFF, ac

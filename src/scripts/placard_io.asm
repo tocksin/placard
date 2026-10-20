@@ -60,7 +60,7 @@ K_CAPS    = 54          ; column 6, row 6
 ;   out:     latch = P_IDLE; no keys down, key buffer empty, caps lock
 ;            off, SD card not initialized, mouse not initialized
 ;   changes: AC, X, Y
-;   clocks:  97
+;   clocks:  81
 ;   Call it once at the start of a program that uses the port.
 ; ------------------------------------------------------------
 port_init:

@@ -303,7 +303,7 @@ x ^= x << 8`), which runs through all 65,535 non-zero states.
 
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
-| `memset` | AC = value, R1:R0 = address, R2 = count (0 = 256) | R1:R0 = end address, R2 = 0 | X, Y, T0 | 12 + 41 per byte |
+| `memset` | AC = value, R1:R0 = address, R2 = count (0 = 256) | R1:R0 = end address, R2 = 0 | X, Y, T0 | 12 + 43 per byte |
 | `memcpy` | R1:R0 = source, R3:R2 = destination, R4 = count (0 = 256) | R1:R0, R3:R2 advanced, R4 = 0 | AC, X, Y | 9 + 64 per byte |
 
 `memcpy` copies first byte first, so an overlap is safe only when the
@@ -315,8 +315,8 @@ pointers already point at the next block.
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
 | `vid_addr` | AC = byte column 0-79, R3:R2 = row 0-479 | AC = address high byte, X = low byte, for the row's own line repeat | T0, T1, T4 | 72-76 (1x), 85-89 (2x), 105-109 (4x) |
-| `vid_clear` | AC = mode byte: bits 1:0 = 1, 2, 4, 8 bpp (0-3), bits 3:2 = 1x, 2x, 4x (0-2) | x6000-xFFFF = 0, every mode byte = AC | AC, X, Y, T0, T1 | 503,394 (20.0 ms) |
-| `vid_mode` | AC = mode byte | Every row's mode byte = AC, pixels kept | AC, X, Y, T0 | 8,661 |
+| `vid_clear` | AC = mode byte: bits 1:0 = 1, 2, 4, 8 bpp (0-3), bits 3:2 = 1x, 2x, 4x (0-2) | x6000-xFFFF = 0, every mode byte = AC | AC, X, Y, T0, T1 | 505,794 (20.1 ms) |
+| `vid_mode` | AC = mode byte | Every row's mode byte = AC, pixels kept | AC, X, Y, T0 | 11,061 |
 | `plot1` | R1:R0 = x 0-639, R3:R2 = y 0-479, AC = 0 clears, else sets | One pixel of a 1 bpp row (1x, 2x or 4x) | AC, X, Y, T0-T6 | 223-256 |
 | `map_set` | AC = map (bit n = 1: section n reads RAM) | Map register and MAP_SHADOW = AC | Y | 18 |
 | `frame_poll` | | AC = line read (V9:V2, 124-255), FRAME + 1 when a new frame started, LINE_LAST = AC | X, Y, T0 | 39-53 |
@@ -365,14 +365,14 @@ after setting the modes yourself) before printing.
 
 | Routine | In | Out | Changes | Clocks | Stack |
 |---------|----|-----|---------|--------|-------|
-| `con_clear` | | Screen cleared, every row 1 bpp, cursor at 0, 0 | AC, X, Y, T0, T1 | 503,414 (20.0 ms) | |
+| `con_clear` | | Screen cleared, every row 1 bpp, cursor at 0, 0 | AC, X, Y, T0, T1 | 505,814 (20.1 ms) | |
 | `con_home` | | Cursor at column 0, row 0 | X | 20 | |
-| `con_putc` | AC = character, 0A = newline | AC kept, cursor moved on | X, Y, T0-T5 | 313 | |
+| `con_putc` | AC = character, 0A = newline | AC kept, cursor moved on | X, Y, T0-T5 | 327 | |
 | `con_newline` | | AC kept, cursor at the start of the next row | X, Y, T0-T5 | 39 | |
-| `con_scroll` | | AC kept, text moved up one row, bottom row cleared | X, Y, T1-T5 | 1,233,245 (49.0 ms) | |
-| `con_puts` | R1:R0 = string ending in a 00 byte | R1:R0 = address of the 00 | AC, X, Y, T0-T5 | about 355 per character | 2 |
-| `con_hex8` | AC = value | Two hex digits, AC kept | X, Y, T0-T5 | 829 | 3 |
-| `con_dec8` | AC = value 0-255 | Decimal, no leading zeros | AC, X, Y, T0-T7 | 552-1481 | 4 |
+| `con_scroll` | | AC kept, text moved up one row, bottom row cleared | X, Y, T1-T5 | 1,159,005 (46.0 ms) | |
+| `con_puts` | R1:R0 = string ending in a 00 byte | R1:R0 = address of the 00 | AC, X, Y, T0-T5 | about 369 per character | 2 |
+| `con_hex8` | AC = value | Two hex digits, AC kept | X, Y, T0-T5 | 859 | 3 |
+| `con_dec8` | AC = value 0-255 | Decimal, no leading zeros | AC, X, Y, T0-T7 | 570-1527 | 4 |
 | `con_dec16` | R1:R0 = value 0-65535 | Decimal, no leading zeros; R1:R0 = 0, R2 = 10 | AC, X, Y, T0-T5 | about 2,000 per digit | up to 8 |
 
 Moving past column 79 wraps to the next row, and moving past row 59 scrolls
@@ -392,7 +392,7 @@ others only set a sound up.  [SOUND.md](SOUND.md#software) has the details.
 
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
-| `snd_init` | | Buffer = 80h, no sound | AC, X, Y | about 9,000 |
+| `snd_init` | | Buffer = 80h, no sound | AC, X, Y | about 6,300 |
 | `snd_update` | | Samples written up to the line playing | AC, X, Y, T0-T3 | 18k-42k a frame while a sound plays, about 90 when silent |
 | `snd_tone` | R1:R0 = step (Hz x 1.0413), AC = volume 0-127, R2 = frames (0 = until stopped), R3 = fade per frame | | AC | about 110 |
 | `snd_note` | AC = MIDI note 0-127 (69 = A 440) | R1:R0 = step for `snd_tone` | AC, X | about 50 |
