@@ -101,10 +101,10 @@ The video is designed to be 640x480 VGA 60Hz standard.  This means a 25.175 MHz 
 ### Line repeat
 Bits 3:2 of a row's mode byte make each byte of video memory show on 1, 2 or 4 lines (640 × 480, 240 or 120).  A full 2x screen leaves 20 KB of the video area free (the even pages x60, x62 ... xFE) and a full 4x screen 30 KB.  The audio slot PLD remaps four row address bits, so no chips were added.  See [docs/VIDEO.md](docs/VIDEO.md#line-repeat).
 
-### Test screen
-`src/scripts/test_screen.asm` draws a test screen with the CPU and keeps a test running on it: 80 column text (1 bpp, 1x), a 16 color band (4 bpp, 4x), 40 column text (2 bpp, 2x) and all 256 colors (8 bpp, 4x).  Each frame it tests one page of RAM (14 patterns, with a progress bar, pass and error counts) and updates a frame counter, an uptime clock, a spinner, a turning color wheel and a scrolling message.  `build\test_screen.bat` loads it on the board, and `src/scripts/test_screen_sim.py` runs and checks it in the simulator (`--gif` makes an animation).
+### Text demo
+`src/scripts/text_demo.asm` draws a demo screen with the CPU and keeps a test running on it: 80 column text (2 colors, 1x), a 16 color band (4 bpp, 4x), 40 column text (2 bpp, 2x) and a 256 color band (8 bpp, 4x) with "256" in shades of red, blue and green and a turning rainbow ring.  Each frame it tests one page of RAM (85 pages: x0100-x1EFF, x2000-x4FFF, x5400-x59FF and x5C00-x5CFF, 14 patterns each, with a progress bar, pass and error counts) and updates a frame counter, an uptime clock, a spinner, a turning color wheel, the ring and a message that scrolls a pixel a frame.  `build\text_demo.bat` loads it on the board, and `src/scripts/text_demo_sim.py` runs and checks it in the simulator (`--gif` makes an animation).
 
-![test_screen in the simulator](reference/test_screen_sim.gif)
+![text_demo in the simulator](reference/text_demo_sim.gif)
 
 ### Game demos
 Two demos show what the CPU can do with no sprite or collision hardware.  Both are ROM programs written by a Python generator (the tables, the unrolled drawing code and a bit-exact model of the picture), and each has a simulator test that checks every frame against the model.
@@ -134,7 +134,7 @@ software stack and the zero page variable map (`zeropage.asm`).  See
 
 ## Building and loading a program
 The `build` folder has one Windows batch file per assembly program
-(`cpu_test.bat`, `test_video.bat`, `test_screen.bat`, `mandelbrot.bat`,
+(`cpu_test.bat`, `test_video.bat`, `text_demo.bat`, `mandelbrot.bat`,
 `pi_spigot.bat`, `game_of_life.bat`, `lib_demo.bat`).  Each one assembles
 `src/scripts/<program>.asm` (customasm, or `placard_sim.py` if customasm is not
 on the PATH), writes the RAM's initialization file `src/hdl/ram.mem` (the
