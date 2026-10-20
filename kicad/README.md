@@ -10,7 +10,7 @@ when it saves them).
 | `placard.kicad_sch` | the schematic (root sheet, A3) |
 | `placard.kicad_pcb` | the board: 4 layers (F.Cu, In1.Cu = GND, In2.Cu = VCC, B.Cu) |
 | `lib/placard.kicad_sym` | PLD symbols: `ATF22V10C` (generic) and one `ATF22V10C_<name>` per `.pld` file, with its pin names |
-| `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `Keyboard_Header` |
+| `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `Keyboard_Header`, `USB_C_Power` |
 | `lib/placard.pretty/` | project footprints (card-edge slots, cartridge, etc.) |
 | `sym-lib-table`, `fp-lib-table` | point KiCad at the two project libraries |
 | `fab/` | Gerbers, drill files, BOM and placement files for a board order |
@@ -47,7 +47,10 @@ the same style, for the parts KiCad's libraries do not have: the AS7C256C
 SRAM, the expansion slot (2 x 20 card edge, contacts A1-A20 and B1-B20)
 and the cartridge slot (Molex 87715-9106, 2 x 32 keyed, contacts A1-A32
 and B1-B32), as in EXPANSION.md, with the +5 V and GND contacts stacked on
-one pin each, the SNES pad socket and the keyboard header (IO.md).  Make
+one pin each, the SNES pad socket, the keyboard header (IO.md) and
+`USB_C_Power`, the 5 V input: a power-only 6-contact USB-C receptacle
+(GCT USB4125, KiCad footprint `Connector_USB:USB_C_Receptacle_GCT_USB4125-xx-x_6P_TopMnt_Horizontal`)
+with a 5.1k resistor from CC1 and from CC2 to GND so a charger gives 5 V.  Make
 changes in the script, since rerunning it overwrites the library.
 
 Everything else comes from KiCad's own libraries:
