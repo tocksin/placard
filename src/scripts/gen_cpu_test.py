@@ -33,15 +33,17 @@ MEMORY
     0320-03DA   list of valid opcodes
     0400-...    framework and tests
     4200-42FF   test data page for [y,x] tests
+    4300-43FF   marks for the X-destination tests
     6000-FFFF   video RAM (cleared and set to 8 bpp by the program)
 
 Every test reads memory back, so the test areas must read as RAM (the
 current FPGA build reads all addresses from the RAM copy).
 
-Date: 10/18/2026
+Date: 10/19/2026
 """
 
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -62,7 +64,8 @@ COLOR_NAMES = {0: 'grey', 1: 'green', 2: 'red', 3: 'white'}
 ALU = ['ld', 'and', 'or', 'xor', 'add', 'sub', 'shr', 'bra']
 BR = ['jmp', 'bcs', 'blt', 'bne', 'beq', 'bcc', 'ble', 'bra']
 DST = {0: 'ac', 3: 'x', 4: 'y'}
-SRC = {2: 'ac', 3: 'x'}
+SRC = {2: 'ac', 3: 'ac'}   # source 11 drives AC like 10 (no X source, 2026-10-19)
+XPG = 0x43           # page for the X-destination tests ([XPG, X] marks)
 
 
 def h(v):
@@ -137,6 +140,20 @@ class Block:
 
     def I(self, text, comment=''):
         self.items.append(('I', text, comment))
+
+    def T(self, opc, text, comment=''):
+        """the instruction under test.  Source 11 has no assembler syntax
+        (it drives AC like 10), so it is written as bytes: the opcode, then
+        the operand byte of the same instruction with source 10"""
+        if opc & 3 != 3:
+            self.I(text, comment)
+            return
+        n = instr_size(text)
+        out = '#d8 %s' % h(opc)
+        if n == 2:
+            m = re.search(r'\[(0x[0-9A-Fa-f]+)\]', text)
+            out += ', ' + (m.group(1) if m else '0x00')
+        self.raw('%-26s; %s (%s, source 11)' % (out, comment, text), n)
 
     def raw(self, text, size):
         self.items.append(('R', text, size))
@@ -266,13 +283,15 @@ def alu_test(b, opc, nxt):
         else:
             res = A                              # stores write the source bus (AC)
     elif m in (0, 1, 2, 3, 4):
-        bval = {0: B, 1: B, 2: A, 3: B}[s]
+        bval = {0: B, 1: B, 2: A, 3: A}[s]
         res = alu(a, A, bval)
     else:
         res = None
 
     # ---- register destinations ----
     if m in (0, 1, 2, 3) or (a == 6 and m in (0, 3)):
+        if m == 3:                                # X is checked through a mark at [XPG, X]
+            b.I('ld %s, y' % h(XPG)); b.I('ld %s, x' % h(res)); b.I('ld 0, [y,x]', 'clear [%02X%02X]' % (XPG, res))
         if s == 1:
             if m in (0, 3):
                 b.I('ld %s, ac' % h(B)); b.I('ld ac, %s' % zp(0x40), 'memory operand')
@@ -282,14 +301,18 @@ def alu_test(b, opc, nxt):
                 b.I('ld %s, ac' % h(B)); b.I('ld %s, y' % h(DATAPG)); b.I('ld 0x41, x')
                 b.I('ld ac, [y,x]')
         if s == 3:
-            b.I('ld %s, x' % h(B))
+            b.I('ld %s, x' % h(B), 'X must not be the source')
         elif m == 3:
-            b.I('ld 0x00, x')
+            b.I('ld %s, x' % h(res ^ 0xFF), 'X != expected before the test')
         b.I('ld %s, ac' % h(A))
         t = text_of(opc, imm=B, zpaddr=0x40)
-        b.I(t, 'TEST %02X' % opc)
+        b.T(opc, t, 'TEST %02X' % opc)
         if m == 3:
-            b.I('ld x, ac', 'read X back')
+            b.I('ld %s, [y,x]' % h(MARK), 'mark [%02X,X]' % XPG)
+            b.I('ld %s, x' % h(res)); b.I('ld [y,x], ac', 'read [%02X%02X]' % (XPG, res))
+            b.I('xor %s, ac' % h(MARK))
+            epilogue(b, opc, nxt)
+            return
         b.I('xor %s, ac' % h(res), 'expect %02X' % res)
         epilogue(b, opc, nxt)
         return
@@ -301,9 +324,9 @@ def alu_test(b, opc, nxt):
         if s == 1:
             b.I('ld %s, ac' % h(B)); b.I('ld ac, %s' % zp(0x40))
         if s == 3:
-            b.I('ld %s, x' % h(B))
+            b.I('ld %s, x' % h(B), 'X must not be the source')
         b.I('ld %s, ac' % h(A))
-        b.I(text_of(opc, imm=B, zpaddr=0x40), 'TEST %02X, Y = %02X' % (opc, res))
+        b.T(opc, text_of(opc, imm=B, zpaddr=0x40), 'TEST %02X, Y = %02X' % (opc, res))
         b.I('ld %s, x' % h(TX)); b.I('ld %s, [y,x]' % h(MARK), 'mark [Y,08]')
         b.I('ld %s, y' % h(res)); b.I('ld [y,x], ac', 'read [%02X%02X]' % (res, TX))
         b.I('xor %s, ac' % h(MARK))
@@ -337,14 +360,14 @@ def alu_test(b, opc, nxt):
     elif s == 2:
         val, addr_x = A, 0x30
     else:
-        val, addr_x = B, B                        # X is both value and address
+        val, addr_x = A, B                        # source 11 = AC; X is only the address
     if m == 5:
         n = {0: None, 2: 0x51, 3: 0x50}[s] if a != 6 else 0x52
         b.I('ld 0, ac'); b.I('ld ac, %s' % zp(n), 'clear')
         if s == 3:
             b.I('ld %s, x' % h(B))
         b.I('ld %s, ac' % h(A))
-        b.I(text_of(opc, zpaddr=n), 'TEST %02X' % opc)
+        b.T(opc, text_of(opc, zpaddr=n), 'TEST %02X' % opc)
         b.I('ld %s, ac' % zp(n))
     else:
         if a == 6:
@@ -357,7 +380,7 @@ def alu_test(b, opc, nxt):
         else:
             b.I('ld 0, [y,x]', 'clear')
         b.I('ld %s, ac' % h(A))
-        b.I(text_of(opc, imm=val), 'TEST %02X' % opc)
+        b.T(opc, text_of(opc, imm=val), 'TEST %02X' % opc)
         b.I('ld [x], ac' if m == 6 else 'ld [y,x], ac')
     b.I('xor %s, ac' % h(val), 'expect %02X (source bus)' % val)
     epilogue(b, opc, nxt)
@@ -371,9 +394,7 @@ CASES = [0x00, 0x01, 0x10, 0x7F, 0x80, 0xFF]
 
 def branch_target_setup(b, m, s, target):
     """make the branch under test point at label target"""
-    if s == 3:
-        b.I('ld %s & 0xFF, x' % target)
-    elif s == 1:
+    if s == 1:
         if m in (0, 3, 4):
             b.I('ld %s & 0xFF, ac' % target); b.I('ld ac, %s' % zp(0x45))
         elif m in (1, 6):
@@ -388,15 +409,13 @@ def branch_text(c, m, s, target=None):
         return '%s %s' % (BR[c], target)
     if s == 2:
         return '%s ac' % BR[c]
-    if s == 3:
-        return '%s x' % BR[c]
     if m in (0, 3, 4):
         return '%s %s' % (BR[c], zp(0x45))
     return '%s %s' % (BR[c], '[x]' if m in (1, 6) else '[y,x]')
 
 
 def cond_test(prog, entry, opc, nxt):
-    """conditional branch / BRA with an immediate, X or memory target"""
+    """conditional branch / BRA with an immediate or memory target"""
     c, m, s = opc >> 2 & 7, (opc >> 2) & 7, opc & 3
     tag = 't%02X' % opc
     b = Block(tag)
@@ -451,7 +470,7 @@ def ac_branch_test(prog, entry, opc, nxt):
             b.I(t)
         b.I('ld %s, ac' % h(v))
         cmt = 'AC=%02X' % v + (', carry %d' % cy if is_carry_branch(c) else '')
-        b.I('%s ac' % BR[c], 'TEST %02X, %s %s' % (opc, cmt, 'taken' if tk else 'not taken'))
+        b.T(opc, '%s ac' % BR[c], 'TEST %02X, %s %s' % (opc, cmt, 'taken' if tk else 'not taken'))
         if tk:
             b.I('bra %s_fail' % tag)
         b.L('%s_c%d' % (tag, i + 1))
@@ -481,13 +500,11 @@ def jmp_test(prog, entry, opc, nxt):
     b = Block(tag, page_start=True)
     b.L(entry)
     b.I('ld %s >> 8, y' % land, 'PC high comes from Y')
-    if s == 3:
-        b.I('ld %s & 0xFF, x' % land)
-    elif s == 2:
+    if s in (2, 3):
         b.I('ld %s & 0xFF, ac' % land)
     elif s == 1:
         b.I('ld %s & 0xFF, ac' % land); b.I('ld ac, %s' % zp(0x47))
-    b.I({0: 'jmp %s' % land, 1: 'jmp %s' % zp(0x47), 2: 'jmp ac', 3: 'jmp x'}[s], 'TEST %02X' % opc)
+    b.T(opc, {0: 'jmp %s' % land, 1: 'jmp %s' % zp(0x47), 2: 'jmp ac', 3: 'jmp ac'}[s], 'TEST %02X' % opc)
     b.L('%s_fail' % tag)
     b.I('ld 1, ac', 'fall-through or PC high not loaded')
     epilogue(b, opc, nxt)
@@ -649,14 +666,14 @@ def generate():
             prog.place(b)
         elif m == 0:
             jmp_test(prog, entry, opc, nxt)
-        elif s == 2:
+        elif s in (2, 3):
             ac_branch_test(prog, entry, opc, nxt)
         else:
             cond_test(prog, entry, opc, nxt)
     head = __doc__.strip().splitlines()
     lines = ['; ' + l if l else ';' for l in head[:-1]]
     lines[0] = '; cpu_test.asm - generated by gen_cpu_test.py, do not edit by hand'
-    lines += [';', '; Date: 10/18/2026', '', '#include "placard.asm"']
+    lines += [';', '; Date: 10/19/2026', '', '#include "placard.asm"']
     return '\n'.join(lines + prog.out) + '\n', prog.addr
 
 

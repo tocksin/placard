@@ -26,6 +26,8 @@ entity vga_gen_pld is
         rowA8Out        : out sl;   -- video address A8
         lc2In           : in  sl;   -- line code register Q2 (line repeat)
         lc3In           : in  sl;   -- line code register Q3
+        i1In            : in  sl;   -- instruction register bit 1 (audio PLD pin 16)
+        acSelNOut       : out sl;   -- AC source F541 /OE2 (audio PLD pin 21)
         pixelRowOut     : out slv(9 downto 0);
         pixelColOut     : out slv(9 downto 0);
 
@@ -120,11 +122,13 @@ begin
         V8          => vcount(8),
         LC2         => lc2In,
         LC3         => lc3In,
+        I1          => i1In,
 
         R0          => rowA0,
         R1          => rowA1,
         R7          => rowA7,
         R8          => rowA8,
+        AC_SEL      => acSelNOut,
         MODE_LD     => modeLdN,
         BLANK_RD    => blankRd
     );

@@ -77,23 +77,21 @@ FS_REM    = FS_VARS + V_REM     ; bytes of the open file left to read
 
 ; fs_get - T0-T3 = 4 bytes of FS_VARS at offset AC.  Changes X, Y.
 fs_get:
+    ld   ac, [FS_IDX]
     ld   ac, x
     ld   FSV, y
     ld   [y,x], ac
     ld   ac, [T0]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [FS_IDX], ac
+    add  1, x
     ld   [y,x], ac
     ld   ac, [T1]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [FS_IDX], ac
+    add  2, x
     ld   [y,x], ac
     ld   ac, [T2]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [FS_IDX], ac
+    add  3, x
     ld   [y,x], ac
     ld   ac, [T3]
     ld   [LINK_HI], y
@@ -101,35 +99,31 @@ fs_get:
 
 ; fs_getb - T4-T7 = 4 bytes of FS_VARS at offset AC.  Changes X, Y.
 fs_getb:
-    ld   ac, x
     ld   FSV, y
     bra  gb_go
 
 ; fs_bget - T4-T7 = 4 bytes of FS_BUF at offset AC (fs_bget1: FS_BUF +
 ; x100 + AC).  Changes X, Y.
 fs_bget1:
-    ld   ac, x
     ld   FSB + 1, y
     bra  gb_go
 fs_bget:
-    ld   ac, x
     ld   FSB, y
 gb_go:
+    ld   ac, [FS_IDX]
+    ld   ac, x
     ld   [y,x], ac
     ld   ac, [T4]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [FS_IDX], ac
+    add  1, x
     ld   [y,x], ac
     ld   ac, [T5]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [FS_IDX], ac
+    add  2, x
     ld   [y,x], ac
     ld   ac, [T6]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [FS_IDX], ac
+    add  3, x
     ld   [y,x], ac
     ld   ac, [T7]
     ld   [LINK_HI], y
@@ -137,23 +131,21 @@ gb_go:
 
 ; fs_put - 4 bytes of FS_VARS at offset AC = T0-T3.  Changes X, Y.
 fs_put:
+    ld   ac, [FS_IDX]
     ld   ac, x
     ld   FSV, y
     ld   [T0], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [FS_IDX], ac
+    add  1, x
     ld   [T1], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [FS_IDX], ac
+    add  2, x
     ld   [T2], ac
     ld   ac, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [FS_IDX], ac
+    add  3, x
     ld   [T3], ac
     ld   ac, [y,x]
     ld   [LINK_HI], y
@@ -244,14 +236,13 @@ fs_clba:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   0xFE, ac
     ld   ac, [T4]
@@ -314,14 +305,13 @@ fs_nextc:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   V_SCLUS, ac
     ld   LINK_LO, x
@@ -477,23 +467,21 @@ nc_have:                        ; the FAT sector is in FS_BUF
     ld   ac, [IO_T1]
     ld   V_OFF, x
     ld   [y,x], ac
+    ld   ac, [FS_IDX]
     ld   ac, x
     ld   [IO_T1], y
     ld   [y,x], ac
     ld   ac, [T0]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [FS_IDX], ac
+    add  1, x
     ld   [y,x], ac
     ld   ac, [T1]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [FS_IDX], ac
+    add  2, x
     ld   [y,x], ac
     ld   ac, [T2]
-    ld   x, ac
-    inc
-    ld   ac, x
+    ld   [FS_IDX], ac
+    add  3, x
     ld   [y,x], ac
     ld   ac, [T3]
     ld   FSV, y
@@ -555,14 +543,13 @@ fs_chain:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   V_SCLUS, ac
     ld   LINK_LO, x
@@ -623,14 +610,13 @@ fs_snext:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   FSV, y
     ld   V_UBUF, x
@@ -779,14 +765,13 @@ fs_next:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   FSV, y
     ld   V_ONDIR, x
@@ -922,14 +907,13 @@ fs_open:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   LINK_LO, x
     ld   fs_r27, [x]
@@ -943,14 +927,12 @@ fs_r27:
     jmp  lib_leave
 fo_name:
     ld   FSV, y                 ; the name as 11 characters
-    ld   V_NAME, x
+    ld   10, ac
 fo_fill:
+    add  V_NAME, x              ; X = V_NAME + AC, AC = 10 ... 0
     ld   0x20, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    xor  V_NAME + 11, ac
-    bne  fo_fill
+    sub  1, ac
+    bcc  fo_fill                ; no borrow, AC was not 0
     clr  ac
     ld   ac, [IO_T1]            ; next place in the name
     ld   8, ac
@@ -1150,14 +1132,13 @@ fs_read:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   V_REM, ac
     ld   LINK_LO, x
@@ -1245,14 +1226,13 @@ fs_load:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   FSV, y
     ld   V_LBUF, x
@@ -1314,14 +1294,13 @@ fs_mount:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   FSV, y
     ld   V_TYPE, x
@@ -1695,14 +1674,13 @@ fs_root:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     clr  ac
     ld   ac, [T0]
@@ -1734,14 +1712,13 @@ fs_cwd:
     ld   [SP], x
     ld   [LINK_HI], ac
     ld   ac, [x]
-    ld   x, ac
+    ld   [SP], ac
     dec
     ld   ac, x
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   x, ac
     dec
     ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   FSV, y
     ld   V_DIRI, x

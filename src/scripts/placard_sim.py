@@ -27,7 +27,7 @@ Branch PLD rev 11):
   - operand byte fetched for: immediate source; memory source with a [0,D]
     mode (MEM 000, 011, 100); register source with MEM 101 (zero-page store,
     or BCC with an AC or X target, whose second byte is a pad byte)
-  - memory source reads into D (LOAD_MEM); the source bus is D, AC or X
+  - memory source reads into D (LOAD_MEM); the source bus is D or AC (source 11 = AC; X has not been a source since 2026-10-19)
   - register source with MEM 110 or 111 also passes through LOAD_MEM (one
     more clock; the read into D is not used)
   - ALU: A = AC, B = source bus
@@ -69,7 +69,7 @@ import sys
 # Encoding tables (match placard.asm)
 # ---------------------------------------------------------------------------
 ALU = {'ld': 0, 'and': 1, 'or': 2, 'xor': 3, 'add': 4, 'sub': 5}
-REG_SRC = {'ac': 2, 'x': 3}
+REG_SRC = {'ac': 2}       # source 11 also drives AC; X is not a source (2026-10-19)
 REG_DST = {'ac': 0, 'x': 3, 'y': 4}
 COND = {'bcs': 1, 'blt': 2, 'bne': 3, 'beq': 4, 'bcc': 5, 'ble': 6, 'bra': 7}
 MEM_BRANCH = {   # indirect branch forms: (mnemonic, operand) -> m
@@ -142,6 +142,8 @@ def encode(mn, ops):
     if mn in ALU and n == 2:
         a = ALU[mn]
         s, d = ops
+        if s == 'x':
+            raise AsmError('X is not a source (the X source F541 was removed 2026-10-19)')
         if is_reg(s) and d in REG_DST:
             return [op(a, REG_DST[d], REG_SRC[s])]
         if is_reg(s) and d == '[x]':
@@ -184,6 +186,8 @@ def encode(mn, ops):
     if (mn == 'jmp' or mn in COND) and n == 1:
         t = ops[0]
         c = 0 if mn == 'jmp' else COND[mn]
+        if t == 'x':
+            raise AsmError('X is not a source (the X source F541 was removed 2026-10-19)')
         if is_reg(t):
             if mn == 'bcc':                 # MEM 101: pad byte (State PLD rev 11)
                 return [op(7, c, REG_SRC[t]), 0]
@@ -528,7 +532,7 @@ class Cpu:
             clocks += 1
         if s >= 2 and m in (6, 7):
             clocks += 1                           # through LOAD_MEM (State PLD rev 10)
-        src = [self.d, self.d, self.ac, self.x][s]
+        src = [self.d, self.d, self.ac, self.ac][s]   # 11 drives AC too (2026-10-19)
         res = self.alu(a, self.ac, src)
         if a == 7:
             acv = self.alu(7, self.ac, src)       # PASS A -> Z flags

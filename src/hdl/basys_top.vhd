@@ -190,7 +190,8 @@ architecture Behavioral of basys_top is
     signal memRdWr          : sl;
     signal ramWeN           : sl;   -- RAM /WE, active low
     signal srcBus           : slv(7 downto 0);
-    signal srcEn            : std_logic;   -- branch PLD pin 16: source F541s drive the data bus
+    signal srcEnN           : std_logic;   -- branch PLD pin 16: low = source F541s drive the data bus
+    signal acSelN           : std_logic;   -- audio slot PLD pin 21: low = AC source F541 selected
 
     signal dReg             : slv(7 downto 0) := x"00";
     signal instReg          : slv(7 downto 0) := x"00";
@@ -331,7 +332,7 @@ begin
         branch_block => branchBlock,
         alu_done     => aluDone,
         stall        => cpuStall,
-        srcEn        => srcEn,
+        srcEnN       => srcEnN,
         cout         => carryout,
         carry        => open,
         pix_ld_n     => pixLdN
@@ -514,6 +515,8 @@ begin
                 rowA8Out        => rowA8,
                 lc2In           => lineCode(2),
                 lc3In           => lineCode(3),
+                i1In            => instReg(1),
+                acSelNOut       => acSelN,
                 pixelRowOut     => pixelRow,
                 pixelColOut     => pixelCol,
                 
@@ -640,7 +643,7 @@ begin
         pixelEnable => pixelEnAndRst,
         a11         => ramAddress(11),
         a10         => ramAddress(10),
-        srcEn       => srcEn,
+        srcEnN      => srcEnN,
 
         weN         => ramWeN,
         romOeN      => romOeN,
@@ -848,24 +851,26 @@ begin
 */
     -- Source bus process - replaces the tri-state bus.  On the board the
     -- source bus and the memory data bus are one bus (no write-data
-    -- buffer): the source '138 is enabled only in EXEC with pixel enable
-    -- low (srcEn), and the memory control PLD blocks CPU reads then.  The
-    -- model keeps the two apart because it has no tri-state buses.
+    -- buffer): the two source F541s (D and AC; X is no longer a source)
+    -- are enabled only in EXEC with pixel enable low (/OE1 = srcEnN), and
+    -- the memory control PLD blocks CPU reads then.  /OE2 picks the one:
+    -- instruction bit 1 for D, acSelN (= not bit 1, audio slot PLD) for
+    -- AC, so source codes 00 and 01 are D and 10 and 11 are AC.  The
+    -- model keeps the two buses apart because it has no tri-state buses,
+    -- and drives the selected register whether or not srcEnN is low.
     srcBusProc : process (all)
     begin
-        case (instReg(1 downto 0)) is
-            when "00" => srcBus <= dReg;
-            when "01" => srcBus <= dReg;
-            when "10" => srcBus <= acReg;
-            when "11" => srcBus <= xReg;
-            when others => srcBus <= acReg;
-        end case;
+        if acSelN = '0' then
+            srcBus <= acReg;
+        else
+            srcBus <= dReg;
+        end if;
     end process srcBusProc;
 
     srcMode  <= " IMM " when instReg(7 downto 5)="00" else
                 " MEM " when instReg(7 downto 5)="01" else
                 " ACC " when instReg(7 downto 5)="10" else
-                "  X  " when instReg(7 downto 5)="11" else
+                " ACC " when instReg(7 downto 5)="11" else
                 "UNDEF";
 
 

@@ -31,155 +31,6 @@ font:      ; 0-9, ".", space and "s", 8 bytes each, leftmost pixel in bit 0
     #d8 0x00, 0x00, 0x1E, 0x01, 0x0E, 0x10, 0x0F, 0x00
 
 #addr 0x0100
-emit:
-    ; draw glyph [dig] at the cursor, then a "." after the first digit
-    ld   [0x1F], ac
-    shl
-    shl
-    shl
-    or   0x80, ac
-    ld   ac, [0x25]
-    ld   [0x22], ac
-    ld   ac, [0x26]
-    ld   [0x25], x
-    ld   0x00, y
-    ld   [y,x], ac
-    ld   ac, [0x27]
-    ld   [0x26], x
-    ld   [0x21], y
-    ld   [0x27], ac
-    ld   ac, [y,x]
-    ld   [0x25], ac
-    inc
-    ld   ac, [0x25]
-    ld   x, ac
-    inc
-    ld   ac, [0x26]
-    ld   [0x25], x
-    ld   0x00, y
-    ld   [y,x], ac
-    ld   ac, [0x27]
-    ld   [0x26], x
-    ld   [0x21], y
-    ld   [0x27], ac
-    ld   ac, [y,x]
-    ld   [0x25], ac
-    inc
-    ld   ac, [0x25]
-    ld   x, ac
-    inc
-    ld   ac, [0x26]
-    ld   [0x25], x
-    ld   0x00, y
-    ld   [y,x], ac
-    ld   ac, [0x27]
-    ld   [0x26], x
-    ld   [0x21], y
-    ld   [0x27], ac
-    ld   ac, [y,x]
-    ld   [0x25], ac
-    inc
-    ld   ac, [0x25]
-    ld   x, ac
-    inc
-    ld   ac, [0x26]
-    ld   [0x25], x
-    ld   0x00, y
-    ld   [y,x], ac
-    ld   ac, [0x27]
-    ld   [0x26], x
-    ld   [0x21], y
-    ld   [0x27], ac
-    ld   ac, [y,x]
-    ld   [0x25], ac
-    inc
-    ld   ac, [0x25]
-    ld   x, ac
-    inc
-    ld   ac, [0x26]
-    ld   [0x25], x
-    ld   0x00, y
-    ld   [y,x], ac
-    ld   ac, [0x27]
-    ld   [0x26], x
-    ld   [0x21], y
-    ld   [0x27], ac
-    ld   ac, [y,x]
-    ld   [0x25], ac
-    inc
-    ld   ac, [0x25]
-    ld   x, ac
-    inc
-    ld   ac, [0x26]
-    ld   [0x25], x
-    ld   0x00, y
-    ld   [y,x], ac
-    ld   ac, [0x27]
-    ld   [0x26], x
-    ld   [0x21], y
-    ld   [0x27], ac
-    ld   ac, [y,x]
-    ld   [0x25], ac
-    inc
-    ld   ac, [0x25]
-    ld   x, ac
-    inc
-    ld   ac, [0x26]
-    ld   [0x25], x
-    ld   0x00, y
-    ld   [y,x], ac
-    ld   ac, [0x27]
-    ld   [0x26], x
-    ld   [0x21], y
-    ld   [0x27], ac
-    ld   ac, [y,x]
-    ld   [0x25], ac
-    inc
-    ld   ac, [0x25]
-    ld   x, ac
-    inc
-    ld   ac, [0x26]
-    ld   [0x25], x
-    ld   0x00, y
-    ld   [y,x], ac
-    ld   ac, [0x27]
-    ld   [0x26], x
-    ld   [0x21], y
-    ld   [0x27], ac
-    ld   ac, [y,x]
-    ; next character cell
-    ld   [0x21], ac
-    add  2, ac
-    ld   ac, [0x21]
-    ld   [0x23], ac
-    dec
-    ld   ac, [0x23]
-    bne  advd
-    ld   0x32, ac
-    ld   ac, [0x23]
-    ld   [0x22], ac
-    add  8, ac
-    ld   ac, [0x22]
-    bne  nlw
-    ld   0x01, ac
-    ld   ac, [0x24]
-nlw:
-    ld   0x80, ac
-    add  [0x24], ac
-    ld   ac, [0x21]
-advd:
-    ld   [0x20], ac
-    beq  eret
-    ld   0x00, ac
-    ld   ac, [0x20]
-    ld   0x0A, ac
-    ld   ac, [0x1F]
-    bra  emit
-eret:
-    ld   [0x29], y
-    jmp  [0x28]
-
-#addr 0x0200
 tsync:
     ; start the timer at the top of a frame: wait for the line read to wrap
     ld   ret_1, ac
@@ -220,17 +71,20 @@ fill_pg:
     jmp  poll
 ret_4:
     ld   [0x27], y
-    clr  x
+    clr  ac
 fill_b:
+    ld   ac, x
     ld   0x02, [y,x]
+    inc
+    bne  fill_b
     ld   [0x27], ac
     add  0x0E, y
-    ld   0x00, [y,x]
-    ld   [0x27], y
-    ld   x, ac
-    inc
+    clr  ac
+fill_h:
     ld   ac, x
-    bne  fill_b
+    ld   0x00, [y,x]
+    inc
+    bne  fill_h
     ld   [0x27], ac
     inc
     ld   ac, [0x27]
@@ -268,49 +122,198 @@ outer:
     ld   0x15, ac
     ld   ac, [0x1A]
     ld   0x0B, ac
-    ld   ac, [0x37]
-    ld   0x1A, ac
     ld   ac, [0x38]
-    ld   0x00, ac
+    ld   0x1A, ac
     ld   ac, [0x39]
-    ld   0x16, ac
+    ld   0x00, ac
     ld   ac, [0x3A]
-    ld   0x34, ac
+    ld   0x16, ac
     ld   ac, [0x3B]
-    ld   0x00, ac
+    ld   0x34, ac
     ld   ac, [0x3C]
-    ld   0x2C, ac
+    ld   0x00, ac
     ld   ac, [0x3D]
-    ld   0x68, ac
+    ld   0x2C, ac
     ld   ac, [0x3E]
-    ld   0x00, ac
+    ld   0x68, ac
     ld   ac, [0x3F]
-    ld   0x58, ac
-    ld   ac, [0x40]
-    ld   0xD0, ac
-    ld   ac, [0x41]
     ld   0x00, ac
+    ld   ac, [0x40]
+    ld   0x58, ac
+    ld   ac, [0x41]
+    ld   0xD0, ac
     ld   ac, [0x42]
-    ld   0xB0, ac
+    ld   0x00, ac
     ld   ac, [0x43]
-    ld   0xA0, ac
+    ld   0xB0, ac
     ld   ac, [0x44]
-    ld   0x01, ac
+    ld   0xA0, ac
     ld   ac, [0x45]
+    ld   0x01, ac
+    ld   ac, [0x46]
     ld   inner >> 8, y
     jmp  inner
 
-#addr 0x02D1
+#addr 0x01D4
+poll:
+    ; read the line read (V9:V2, 124-255) and add one frame to the timer
+    ; when it went down.  cur - last - 96 >= 0 means it wrapped, as long as
+    ; polls are less than 95 steps (380 lines) apart.  Uses y and x.
+    ld   0x50, y
+    ld   [y,x], ac
+    ld   ac, [0x2C]
+    sub  [0x2D], ac
+    sub  96, ac
+    blt  pnw
+    ld   0x01, ac
+    ld   ac, [0x2E]
+    ld   0x10, ac
+    ld   ac, [0x2F]
+    ld   ret_33, ac
+    ld   ac, [0x34]
+    ld   ret_33 >> 8, ac
+    ld   ac, [0x35]
+    ld   dadd >> 8, y
+    jmp  dadd
+ret_33:
+pnw:
+    ld   [0x2C], ac
+    ld   ac, [0x2D]
+    ld   [0x33], y
+    jmp  [0x32]
+
+#addr 0x0200
+emit:
+    ; draw glyph [dig] at the cursor, then a "." after the first digit
+    ld   [0x1F], ac
+    shl
+    shl
+    shl
+    or   0x80, ac
+    ld   ac, [0x25]
+    ld   [0x22], ac
+    ld   ac, [0x26]
+    ld   [0x25], ac
+    add  0, x
+    ld   0x00, y
+    ld   [y,x], ac
+    ld   ac, [0x27]
+    ld   [0x26], ac
+    add  0, x
+    ld   [0x21], y
+    ld   [0x27], ac
+    ld   ac, [y,x]
+    ld   [0x25], ac
+    add  1, x
+    ld   0x00, y
+    ld   [y,x], ac
+    ld   ac, [0x27]
+    ld   [0x26], ac
+    add  1, x
+    ld   [0x21], y
+    ld   [0x27], ac
+    ld   ac, [y,x]
+    ld   [0x25], ac
+    add  2, x
+    ld   0x00, y
+    ld   [y,x], ac
+    ld   ac, [0x27]
+    ld   [0x26], ac
+    add  2, x
+    ld   [0x21], y
+    ld   [0x27], ac
+    ld   ac, [y,x]
+    ld   [0x25], ac
+    add  3, x
+    ld   0x00, y
+    ld   [y,x], ac
+    ld   ac, [0x27]
+    ld   [0x26], ac
+    add  3, x
+    ld   [0x21], y
+    ld   [0x27], ac
+    ld   ac, [y,x]
+    ld   [0x25], ac
+    add  4, x
+    ld   0x00, y
+    ld   [y,x], ac
+    ld   ac, [0x27]
+    ld   [0x26], ac
+    add  4, x
+    ld   [0x21], y
+    ld   [0x27], ac
+    ld   ac, [y,x]
+    ld   [0x25], ac
+    add  5, x
+    ld   0x00, y
+    ld   [y,x], ac
+    ld   ac, [0x27]
+    ld   [0x26], ac
+    add  5, x
+    ld   [0x21], y
+    ld   [0x27], ac
+    ld   ac, [y,x]
+    ld   [0x25], ac
+    add  6, x
+    ld   0x00, y
+    ld   [y,x], ac
+    ld   ac, [0x27]
+    ld   [0x26], ac
+    add  6, x
+    ld   [0x21], y
+    ld   [0x27], ac
+    ld   ac, [y,x]
+    ld   [0x25], ac
+    add  7, x
+    ld   0x00, y
+    ld   [y,x], ac
+    ld   ac, [0x27]
+    ld   [0x26], ac
+    add  7, x
+    ld   [0x21], y
+    ld   [0x27], ac
+    ld   ac, [y,x]
+    ; next character cell
+    ld   [0x21], ac
+    add  2, ac
+    ld   ac, [0x21]
+    ld   [0x23], ac
+    dec
+    ld   ac, [0x23]
+    bne  advd
+    ld   0x32, ac
+    ld   ac, [0x23]
+    ld   [0x22], ac
+    add  8, ac
+    ld   ac, [0x22]
+    bne  nlw
+    ld   0x01, ac
+    ld   ac, [0x24]
+nlw:
+    ld   0x80, ac
+    add  [0x24], ac
+    ld   ac, [0x21]
+advd:
+    ld   [0x20], ac
+    beq  eret
+    ld   0x00, ac
+    ld   ac, [0x20]
+    ld   0x0A, ac
+    ld   ac, [0x1F]
+    bra  emit
+eret:
+    ld   [0x29], y
+    jmp  [0x28]
+
+#addr 0x02D3
 tclear:
     ; timer = 0, frame addend = 16800 us, step addend = 128 us
-    ld   0x50, x
+    ld   0x28, ac
 tcl:
+    add  0x50, x
     ld   0x00, [x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    sub  0x79, ac
-    bne  tcl
+    sub  1, ac
+    bcc  tcl
     ld   8, ac
     ld   ac, [0x62]
     ld   6, ac
@@ -447,20 +450,21 @@ dadd:
     ; timer digits at 0x50 += addend digits at 0x50 + [doff], decimal
     clr  ac
     ld   ac, [0x30]
-    ld   0x50, x
+    ld   ac, [0x37]
 dl:
+    ld   [0x37], ac
+    add  0x50, x
     ld   [x], ac
     add  [0x30], ac
     ld   ac, [0x31]
-    ld   x, ac
+    ld   [0x37], ac
     add  [0x2F], ac
-    ld   ac, x
+    add  0x50, x
     ld   [x], ac
     add  [0x31], ac
     ld   ac, [0x31]
-    ld   x, ac
-    sub  [0x2F], ac
-    ld   ac, x
+    ld   [0x37], ac
+    add  0x50, x
     ld   [0x31], ac
     sub  10, ac
     blt  dlt
@@ -473,10 +477,10 @@ dlt:
     clr  ac
 dn:
     ld   ac, [0x30]
-    ld   x, ac
+    ld   [0x37], ac
     inc
-    ld   ac, x
-    sub  0x59, ac
+    ld   ac, [0x37]
+    sub  9, ac
     bne  dl
     ld   [0x35], y
     jmp  [0x34]
@@ -536,36 +540,38 @@ qi1:
     inc
     ld   ac, [0x12]
 qi2:
-    ; x div (2i - 1), q in X
-    clr  x
+    ; x div (2i - 1), q in zero page (X is not a source)
+    clr  ac
+    ld   ac, [0x15]
     ; k = 4
     ld   [0x10], ac
-    sub  [0x43], ac
+    sub  [0x44], ac
     ld   ac, [0x13]
     ld   [0x11], ac
     bcc  ka_5
     dec
     bcs  kz_6
 ka_5:
-    sub  [0x44], ac
+    sub  [0x45], ac
     ld   ac, [0x14]
     ld   [0x12], ac
     bcc  kb_8
     dec
     bcs  ks_7
 kb_8:
-    sub  [0x45], ac
+    sub  [0x46], ac
     bcs  ks_7
     ld   ac, [0x12]
     ld   [0x14], ac
     ld   ac, [0x11]
     ld   [0x13], ac
     ld   ac, [0x10]
-    ld   0x10, x
+    ld   0x10, ac
+    ld   ac, [0x15]
     bra  ks_7
 kz_6:
     ; x1 was 0 and borrowed: t1 = FF - D_41, borrow into x2
-    ld   [0x44], ac
+    ld   [0x45], ac
     not
     ld   ac, [0x14]
     ld   [0x12], ac
@@ -576,7 +582,7 @@ ks_7:
     ld   div2 >> 8, y
     jmp  div2
 
-#addr 0x0492
+#addr 0x0496
 stop:
     ; stop the timer: whole frames are counted, add the 128 us steps since
     ; the top of this frame
@@ -609,38 +615,163 @@ pdone:
     ld   show >> 8, y
     jmp  show
 
-#addr 0x04C2
-poll:
-    ; read the line read (V9:V2, 124-255) and add one frame to the timer
-    ; when it went down.  cur - last - 96 >= 0 means it wrapped, as long as
-    ; polls are less than 95 steps (380 lines) apart.  Uses y and x.
-    ld   0x50, y
-    ld   [y,x], ac
-    ld   ac, [0x2C]
-    sub  [0x2D], ac
-    sub  96, ac
-    blt  pnw
-    ld   0x01, ac
-    ld   ac, [0x2E]
-    ld   0x10, ac
-    ld   ac, [0x2F]
-    ld   ret_33, ac
-    ld   ac, [0x34]
-    ld   ret_33 >> 8, ac
-    ld   ac, [0x35]
-    ld   dadd >> 8, y
-    jmp  dadd
-ret_33:
-pnw:
-    ld   [0x2C], ac
-    ld   ac, [0x2D]
-    ld   [0x33], y
-    jmp  [0x32]
+#addr 0x04C6
+pause:
+    ; wait 10 s on the timer, then run the test again
+    ld   ret_40, ac
+    ld   ac, [0x32]
+    ld   ret_40 >> 8, ac
+    ld   ac, [0x33]
+    ld   tclear >> 8, y
+    jmp  tclear
+ret_40:
+pw:
+    ld   ret_41, ac
+    ld   ac, [0x32]
+    ld   ret_41 >> 8, ac
+    ld   ac, [0x33]
+    ld   poll >> 8, y
+    jmp  poll
+ret_41:
+    ld   [0x57], ac
+    sub  1, ac
+    bne  pw
+shown:
+    ld   main >> 8, y
+    jmp  main
+
+#addr 0x04E8
+clr_m:
+    ; mode bytes 5A00-5BFF = 0 (1 bpp)
+    ld   0x5A, y
+    clr  ac
+clr_m0:
+    ld   ac, x
+    ld   0x00, [y,x]
+    inc
+    bne  clr_m0
+    ld   0x5B, y
+clr_m1:
+    ld   ac, x
+    ld   0x00, [y,x]
+    inc
+    bne  clr_m1
+    ld   tsync >> 8, y
+    jmp  tsync
 
 #addr 0x0500
-div3:
-    ld   x, ac
+div2:
+    ; k = 3
+    ld   [0x10], ac
+    sub  [0x41], ac
+    ld   ac, [0x13]
+    ld   [0x11], ac
+    bcc  ka_9
+    dec
+    bcs  kz_10
+ka_9:
+    sub  [0x42], ac
+    bcc  kc_12
+ky_13:
+    ld   ac, [0x14]
+    ld   [0x12], ac
+    beq  ks_11
+    clr  ac
+    ld   ac, [0x12]
+    ld   [0x14], ac
+kc_12:
+    ld   ac, [0x11]
+    ld   [0x13], ac
+    ld   ac, [0x10]
+    ld   [0x15], ac
+    or   0x08, ac
     ld   ac, [0x15]
+    bra  ks_11
+kz_10:
+    ; x1 was 0 and borrowed: t1 = FF - D_31
+    ld   [0x42], ac
+    not
+    bra  ky_13
+ks_11:
+    ; k = 2
+    ld   [0x10], ac
+    sub  [0x3E], ac
+    ld   ac, [0x13]
+    ld   [0x11], ac
+    bcc  ka_14
+    dec
+    bcs  ks_16
+ka_14:
+    sub  [0x3F], ac
+    bcs  ks_16
+    ld   ac, [0x11]
+    ld   [0x13], ac
+    ld   ac, [0x10]
+    ld   [0x15], ac
+    or   0x04, ac
+    ld   ac, [0x15]
+ks_16:
+    ; k = 1
+    ld   [0x10], ac
+    sub  [0x3B], ac
+    ld   ac, [0x13]
+    ld   [0x11], ac
+    bcc  ka_17
+    dec
+    bcs  ks_19
+ka_17:
+    sub  [0x3C], ac
+    bcs  ks_19
+    ld   ac, [0x11]
+    ld   [0x13], ac
+    ld   ac, [0x10]
+    ld   [0x15], ac
+    or   0x02, ac
+    ld   ac, [0x15]
+ks_19:
+    ; k = 0
+    ld   [0x10], ac
+    sub  [0x38], ac
+    ld   ac, [0x13]
+    ld   [0x11], ac
+    bcc  ka_20
+    dec
+    bcs  ks_22
+ka_20:
+    sub  [0x39], ac
+    bcs  ks_22
+    ld   ac, [0x11]
+    ld   [0x13], ac
+    ld   ac, [0x10]
+    ld   [0x15], ac
+    or   0x01, ac
+    ld   ac, [0x15]
+ks_22:
+    ld   div3 >> 8, y
+    jmp  div3
+
+#addr 0x058F
+main:
+    ; clear video RAM 6000-FFFF (pixels off)
+    ld   0x60, ac
+    ld   ac, [0x27]
+clr_pg:
+    ld   [0x27], y
+    clr  ac
+clr_b:
+    ld   ac, x
+    ld   0x00, [y,x]
+    inc
+    bne  clr_b
+    ld   [0x27], ac
+    inc
+    ld   ac, [0x27]
+    bne  clr_pg
+    ld   clr_m >> 8, y
+    jmp  clr_m
+
+#addr 0x0600
+div3:
     ; a[i] = remainder (x2 = 0)
     ld   [0x19], x
     ld   [0x1A], y
@@ -671,49 +802,49 @@ ret_23:
 pnz:
     dec
     ld   ac, [0x19]
-    ld   [0x37], ac
-    sub  0x02, ac
-    ld   ac, [0x37]
-    bcc  dok_24
     ld   [0x38], ac
-    dec
+    sub  0x02, ac
     ld   ac, [0x38]
+    bcc  dok_24
+    ld   [0x39], ac
+    dec
+    ld   ac, [0x39]
 dok_24:
-    ld   [0x3A], ac
-    sub  0x04, ac
-    ld   ac, [0x3A]
-    bcc  dok_25
     ld   [0x3B], ac
-    dec
+    sub  0x04, ac
     ld   ac, [0x3B]
+    bcc  dok_25
+    ld   [0x3C], ac
+    dec
+    ld   ac, [0x3C]
 dok_25:
-    ld   [0x3D], ac
-    sub  0x08, ac
-    ld   ac, [0x3D]
-    bcc  dok_26
     ld   [0x3E], ac
-    dec
+    sub  0x08, ac
     ld   ac, [0x3E]
+    bcc  dok_26
+    ld   [0x3F], ac
+    dec
+    ld   ac, [0x3F]
 dok_26:
-    ld   [0x40], ac
-    sub  0x10, ac
-    ld   ac, [0x40]
-    bcc  dok_27
     ld   [0x41], ac
-    dec
+    sub  0x10, ac
     ld   ac, [0x41]
-dok_27:
-    ld   [0x43], ac
-    sub  0x20, ac
-    ld   ac, [0x43]
-    bcc  dok_28
-    ld   [0x44], ac
+    bcc  dok_27
+    ld   [0x42], ac
     dec
+    ld   ac, [0x42]
+dok_27:
+    ld   [0x44], ac
+    sub  0x20, ac
     ld   ac, [0x44]
     bcc  dok_28
     ld   [0x45], ac
     dec
     ld   ac, [0x45]
+    bcc  dok_28
+    ld   [0x46], ac
+    dec
+    ld   ac, [0x46]
 dok_28:
     ; loop while i > 1
     ld   [0x18], ac
@@ -728,165 +859,7 @@ last:
     ld   last_i >> 8, y
     jmp  last_i
 
-#addr 0x0592
-pause:
-    ; wait 10 s on the timer, then run the test again
-    ld   ret_40, ac
-    ld   ac, [0x32]
-    ld   ret_40 >> 8, ac
-    ld   ac, [0x33]
-    ld   tclear >> 8, y
-    jmp  tclear
-ret_40:
-pw:
-    ld   ret_41, ac
-    ld   ac, [0x32]
-    ld   ret_41 >> 8, ac
-    ld   ac, [0x33]
-    ld   poll >> 8, y
-    jmp  poll
-ret_41:
-    ld   [0x57], ac
-    sub  1, ac
-    bne  pw
-shown:
-    ld   main >> 8, y
-    jmp  main
-
-#addr 0x05B4
-main:
-    ; clear video RAM 6000-FFFF (pixels off)
-    ld   0x60, ac
-    ld   ac, [0x27]
-clr_pg:
-    ld   [0x27], y
-    clr  x
-clr_b:
-    ld   0x00, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    bne  clr_b
-    ld   [0x27], ac
-    inc
-    ld   ac, [0x27]
-    bne  clr_pg
-    ld   clr_m >> 8, y
-    jmp  clr_m
-
-#addr 0x05CF
-clr_m:
-    ; mode bytes 5A00-5BFF = 0 (1 bpp)
-    ld   0x5A, y
-    clr  x
-clr_m0:
-    ld   0x00, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    bne  clr_m0
-    ld   0x5B, y
-clr_m1:
-    ld   0x00, [y,x]
-    ld   x, ac
-    inc
-    ld   ac, x
-    bne  clr_m1
-    ld   tsync >> 8, y
-    jmp  tsync
-
-#addr 0x0600
-div2:
-    ; k = 3
-    ld   [0x10], ac
-    sub  [0x40], ac
-    ld   ac, [0x13]
-    ld   [0x11], ac
-    bcc  ka_9
-    dec
-    bcs  kz_10
-ka_9:
-    sub  [0x41], ac
-    bcc  kc_12
-ky_13:
-    ld   ac, [0x14]
-    ld   [0x12], ac
-    beq  ks_11
-    clr  ac
-    ld   ac, [0x12]
-    ld   [0x14], ac
-kc_12:
-    ld   ac, [0x11]
-    ld   [0x13], ac
-    ld   ac, [0x10]
-    ld   x, ac
-    or   0x08, ac
-    ld   ac, x
-    bra  ks_11
-kz_10:
-    ; x1 was 0 and borrowed: t1 = FF - D_31
-    ld   [0x41], ac
-    not
-    bra  ky_13
-ks_11:
-    ; k = 2
-    ld   [0x10], ac
-    sub  [0x3D], ac
-    ld   ac, [0x13]
-    ld   [0x11], ac
-    bcc  ka_14
-    dec
-    bcs  ks_16
-ka_14:
-    sub  [0x3E], ac
-    bcs  ks_16
-    ld   ac, [0x11]
-    ld   [0x13], ac
-    ld   ac, [0x10]
-    ld   x, ac
-    or   0x04, ac
-    ld   ac, x
-ks_16:
-    ; k = 1
-    ld   [0x10], ac
-    sub  [0x3A], ac
-    ld   ac, [0x13]
-    ld   [0x11], ac
-    bcc  ka_17
-    dec
-    bcs  ks_19
-ka_17:
-    sub  [0x3B], ac
-    bcs  ks_19
-    ld   ac, [0x11]
-    ld   [0x13], ac
-    ld   ac, [0x10]
-    ld   x, ac
-    or   0x02, ac
-    ld   ac, x
-ks_19:
-    ; k = 0
-    ld   [0x10], ac
-    sub  [0x37], ac
-    ld   ac, [0x13]
-    ld   [0x11], ac
-    bcc  ka_20
-    dec
-    bcs  ks_22
-ka_20:
-    sub  [0x38], ac
-    bcs  ks_22
-    ld   ac, [0x11]
-    ld   [0x13], ac
-    ld   ac, [0x10]
-    ld   x, ac
-    or   0x01, ac
-    ld   ac, x
-ks_22:
-    ld   div3 >> 8, y
-    jmp  div3
-
-#addr 0x0687
+#addr 0x0700
 show:
     ; "SSS.SSS s" centered below the digits, leading zeros as spaces
     ld   0xA9, ac

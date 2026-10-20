@@ -10,7 +10,7 @@ x0000: it does not use the normal boot loader, so a CPU that can't run the
 boot loader yet can still run it.  It first runs the CPU core tests, which
 need nothing but the CPU, the ROM, the RAM and the map register:
 
-     1  branches on AC (BEQ, BNE, BLT, BLE)        9  AC -> X -> AC, immediate -> X
+     1  branches on AC (BEQ, BNE, BLT, BLE)        9  AC -> X, immediate -> X (read back via x3F00)
      2  AND                                       10  Y as the address high byte
      3  OR                                        11  X as the address low byte
      4  XOR                                       12  ROM data (a 256-byte table)
@@ -68,6 +68,7 @@ ZP = dict(
     ECHO=0x4F, TONE=0x50, SD_R=0x51, FS_R=0x52,
     M_INIT=0x53, MX_LO=0x54, MX_HI=0x55, MY_LO=0x56, MY_HI=0x57,
     B_C=0x58, B_Y=0x59, B_V=0x5A, LINEV=0x5B, KEYV=0x5C,
+    RT_I=0x5D, B_I=0x5E,                              # loop indexes (X is not a source)
 )
 
 RT_PAGES = list(range(0x01, 0x1F)) + list(range(0x40, 0x4D)) + list(range(0x54, 0x5A))
@@ -242,12 +243,14 @@ def core_tests(a, tag, handler, helper_s1, startup):
         a.i('ld   0x%02X, ac' % x, 'shr  ac')
         expect(a, r, 8, h)
     # 9: AC -> X -> AC, immediate -> X
-    a.c('test 9: X register (AC -> X -> AC)')
+    a.c('test 9: X register (AC -> X, read back through the ROM table at x%04X)' % ID_TABLE)
     for v in WALK:
-        a.i('ld   0x%02X, ac' % v, 'ld   ac, x', 'ld   0x00, ac', 'ld   x, ac')
-        expect(a, v, 9, h)
-        a.i('ld   0x%02X, x' % (v ^ 0xFF), 'ld   x, ac')
-        expect(a, v ^ 0xFF, 9, h)
+        with a.block(40):                   # Y must not change at a page jump
+            a.i('ld   0x%02X, ac' % v, 'ld   ac, x', 'ld   0x00, ac', 'ld   0x%02X, y' % (ID_TABLE >> 8),
+                'ld   [y,x], ac')
+            expect(a, v, 9, h)
+            a.i('ld   0x%02X, x' % (v ^ 0xFF), 'ld   [y,x], ac')
+            expect(a, v ^ 0xFF, 9, h)
     # 10: Y as the address high byte
     a.c('test 10: Y register, address bits 15-8')
     for ad, v in Y_MARKS:
@@ -264,9 +267,10 @@ def core_tests(a, tag, handler, helper_s1, startup):
         lp = a.uniq('t12')
         f = a.uniq('t12f')
         ok = a.uniq('t12ok')
-        a.i('ld   0x%02X, y' % (ID_TABLE >> 8), 'ld   0x00, x')
+        a.i('ld   0x%02X, y' % (ID_TABLE >> 8), 'ld   0x00, ac')
         a.label(lp)
-        a.i('ld   [y,x], ac', 'xor  x, ac', 'bne  %s' % f, 'ld   x, ac', 'inc', 'ld   ac, x',
+        # AC = X = n: n xor [n] is 0, and then [n] is n again for the next pass
+        a.i('ld   ac, x', 'xor  [y,x], ac', 'bne  %s' % f, 'ld   [y,x], ac', 'inc',
             'bne  %s' % lp, 'bra  %s' % ok)
         a.label(f)
         fail_jump(a, 12, h)
@@ -280,12 +284,14 @@ def core_tests(a, tag, handler, helper_s1, startup):
         expect(a, v, 13, h)
         a.i('ld   0x%02X, x' % ZP['T15B'], 'ld   0x%02X, [x]' % (v ^ 0xFF), 'ld   [x], ac')
         expect(a, v ^ 0xFF, 13, h)
-        a.i('ld   0x%02X, x' % v, 'ld   x, [0x%02X]' % ZP['T15C'], 'ld   [0x%02X], ac' % ZP['T15C'])
+        a.i('ld   0x%02X, x' % ZP['T15C'], 'ld   0x%02X, ac' % v, 'ld   ac, [x]', 'ld   0x00, ac',
+            'ld   [0x%02X], ac' % ZP['T15C'])
         expect(a, v, 13, h)
-        a.i('ld   0x90, y', 'ld   0x10, x', 'ld   0x%02X, [y,x]' % v, 'ld   0x00, ac', 'ld   [y,x], ac')
-        expect(a, v, 13, h)
-        a.i('ld   0x%02X, ac' % (v ^ 0xFF), 'ld   ac, [y,x]', 'ld   0x00, ac', 'ld   [y,x], ac')
-        expect(a, v ^ 0xFF, 13, h)
+        with a.block(44):                   # Y must not change at a page jump
+            a.i('ld   0x90, y', 'ld   0x10, x', 'ld   0x%02X, [y,x]' % v, 'ld   0x00, ac', 'ld   [y,x], ac')
+            expect(a, v, 13, h)
+            a.i('ld   0x%02X, ac' % (v ^ 0xFF), 'ld   ac, [y,x]', 'ld   0x00, ac', 'ld   [y,x], ac')
+            expect(a, v ^ 0xFF, 13, h)
     # 14: map register.  Section 1 (this code) is done by the helper in section 3.
     a.c('test 14: ROM/RAM map register')
     for sec, (ad, m) in enumerate(SEC_MARKS):
@@ -424,9 +430,9 @@ def main_program(a):
     a.map(0x00)
     with a.block(30):
         lp = a.uniq('cp')
-        a.i('ld   0x1F, y', 'ld   0x00, x')
+        a.i('ld   0x1F, y', 'ld   0x00, ac')
         a.label(lp)
-        a.i('ld   [y,x], ac', 'ld   ac, [y,x]', 'ld   x, ac', 'inc', 'ld   ac, x', 'bne  %s' % lp)
+        a.i('ld   ac, x', 'ld   [y,x], [y,x]', 'inc', 'bne  %s' % lp)
     a.map(0x05)
     a.i('ld   0x05, ac', 'ld   ac, [MAP_SHADOW]', 'ld   STACK_TOP, ac', 'ld   ac, [SP]')
     for k in ('LOOP_LO', 'LOOP_HI', 'RT_IDX', 'RT_PL', 'RT_PH', 'RT_EL', 'RT_EH', 'RT_BADH', 'RT_BADL',
@@ -600,36 +606,38 @@ def ram_page_test(a):
     for pat in range(6):
         with a.block(60):
             wl = a.uniq('rw')
-            a.i('ld   [0x%02X], y' % ZP['RT_PAGE'], 'ld   0x00, x')
+            a.i('ld   [0x%02X], y' % ZP['RT_PAGE'], 'ld   0x00, ac')
             a.label(wl)
+            a.i('ld   ac, x')
             if pat < 4:
                 a.i('ld   0x%02X, [y,x]' % (0x00, 0xFF, 0x55, 0xAA)[pat])
             elif pat == 4:
-                a.i('ld   x, [y,x]')
+                a.i('ld   ac, [y,x]')
             else:
-                a.i('ld   x, ac', 'xor  0xFF, ac', 'ld   ac, [y,x]')
-            a.i('ld   x, ac', 'inc', 'ld   ac, x', 'bne  %s' % wl)
+                a.i('xor  0xFF, ac', 'ld   ac, [y,x]', 'xor  0xFF, ac')
+            a.i('inc', 'bne  %s' % wl)
         rl = a.uniq('rr')
         nx = a.uniq('rn')
         with a.block(70):
-            a.i('ld   0x00, x')
+            a.i('ld   0x00, ac', 'ld   ac, [0x%02X]' % ZP['RT_I'])
             a.label(rl)
+            a.i('ld   [0x%02X], x' % ZP['RT_I'])
             a.i('ld   [0x%02X], y' % ZP['RT_PAGE'], 'ld   [y,x], ac', 'ld   ac, [0x%02X]' % ZP['RT_GOT'])
             if pat < 4:
                 v = (0x00, 0xFF, 0x55, 0xAA)[pat]
                 a.i('ld   0x%02X, ac' % v, 'ld   ac, [0x%02X]' % ZP['RT_EXP'])
             elif pat == 4:
-                a.i('ld   x, ac', 'ld   ac, [0x%02X]' % ZP['RT_EXP'])
+                a.i('ld   [0x%02X], ac' % ZP['RT_I'], 'ld   ac, [0x%02X]' % ZP['RT_EXP'])
             else:
-                a.i('ld   x, ac', 'xor  0xFF, ac', 'ld   ac, [0x%02X]' % ZP['RT_EXP'])
+                a.i('ld   [0x%02X], ac' % ZP['RT_I'], 'xor  0xFF, ac', 'ld   ac, [0x%02X]' % ZP['RT_EXP'])
             bad = a.uniq('rb')
             a.i('xor  [0x%02X], ac' % ZP['RT_GOT'], 'bne  %s' % bad)
             a.label(nx)
-            a.i('ld   x, ac', 'inc', 'ld   ac, x', 'bne  %s' % rl)
+            a.i('ld   [0x%02X], ac' % ZP['RT_I'], 'inc', 'ld   ac, [0x%02X]' % ZP['RT_I'], 'bne  %s' % rl)
             done = a.uniq('rd')
             a.i('bra  %s' % done)
             a.label(bad)
-            a.i('ld   x, ac', 'ld   ac, [0x%02X]' % ZP['RT_BADL'], 'ld   ac, [0x%02X]' % ZP['T15A'],
+            a.i('ld   [0x%02X], ac' % ZP['RT_I'], 'ld   ac, [0x%02X]' % ZP['RT_BADL'],
                 'ld   %d, ac' % pat, 'ld   ac, [0x%02X]' % ZP['T15B'])
             a.jump('rt_err')
             a.label(done)
@@ -660,9 +668,8 @@ def ram_page_test(a):
     a.c('back to the right pattern (its number is in T15B)')
     a.jump('rt_dispatch')
     for pat, nx in enumerate(rets):
-        a.c('error return for pattern %d: X back, on to the next byte' % pat)
+        a.c('error return for pattern %d: on to the next byte' % pat)
         a.label('rt_ret%d' % pat)
-        a.i('ld   [0x%02X], x' % ZP['T15A'])
         a.jump(nx)
 
 
@@ -672,12 +679,10 @@ def draw_bands(a):
     for lo, hi, m in ((0x90, 0xB0, 0x02), (0xB0, 0xC0, 0x01), (0xC0, 0x100, 0x03)):
         with a.block(30):
             lp = a.uniq('mb')
-            a.i('ld   0x5B, y', 'ld   0x%02X, x' % lo)
+            a.i('ld   0x5B, y', 'ld   0x%02X, ac' % (hi - lo - 1))
             a.label(lp)
-            a.i('ld   0x%02X, [y,x]' % m, 'ld   x, ac', 'inc', 'ld   ac, x')
-            if hi < 0x100:
-                a.i('xor  0x%02X, ac' % hi)
-            a.i('bne  %s' % lp)
+            # X = lo + AC, AC counts down to 0
+            a.i('add  0x%02X, x' % lo, 'ld   0x%02X, [y,x]' % m, 'sub  1, ac', 'bcc  %s' % lp)
     a.c('pixels: byte column c is at page x61 + 2c, rows 368-479 at x90-xFF')
     a.i('ld   0x00, ac', 'ld   ac, [0x%02X]' % ZP['B_C'])
     a.label('band_col')
@@ -687,18 +692,20 @@ def draw_bands(a):
             'ld   ac, [0x%02X]' % ZP['B_V'])
         with a.block(30):
             lp = a.uniq('bp')
-            a.i('ld   [0x%02X], y' % ZP['B_Y'], 'ld   0x%02X, x' % lo)
+            a.i('ld   [0x%02X], y' % ZP['B_Y'], 'ld   0x%02X, ac' % lo, 'ld   ac, [0x%02X]' % ZP['B_I'])
             a.label(lp)
-            a.i('ld   [0x%02X], ac' % ZP['B_V'], 'ld   ac, [y,x]', 'ld   x, ac', 'inc', 'ld   ac, x',
+            a.i('ld   [0x%02X], x' % ZP['B_I'], 'ld   [0x%02X], ac' % ZP['B_V'], 'ld   ac, [y,x]',
+                'ld   [0x%02X], ac' % ZP['B_I'], 'inc', 'ld   ac, [0x%02X]' % ZP['B_I'],
                 'xor  0x%02X, ac' % hi, 'bne  %s' % lp)
     a.c('8 bpp: colour = (row band) x 64 + (c and 63)')
     a.i('ld   [0x%02X], ac' % ZP['B_C'], 'and  0x3F, ac', 'ld   ac, [0x%02X]' % ZP['B_V'])
     with a.block(40):
         lp = a.uniq('b8')
-        a.i('ld   [0x%02X], y' % ZP['B_Y'], 'ld   0xC0, x')
+        a.i('ld   [0x%02X], y' % ZP['B_Y'], 'ld   0xC0, ac')
         a.label(lp)
-        a.i('ld   x, ac', 'and  0x30, ac', 'shl  ac', 'shl  ac', 'or   [0x%02X], ac' % ZP['B_V'],
-            'ld   ac, [y,x]', 'ld   x, ac', 'inc', 'ld   ac, x', 'bne  %s' % lp)
+        a.i('ld   ac, x', 'ld   ac, [0x%02X]' % ZP['B_I'], 'and  0x30, ac', 'shl  ac', 'shl  ac',
+            'or   [0x%02X], ac' % ZP['B_V'], 'ld   ac, [y,x]', 'ld   [0x%02X], ac' % ZP['B_I'], 'inc',
+            'bne  %s' % lp)
     with a.block(20):
         a.i('ld   [0x%02X], ac' % ZP['B_C'], 'inc', 'ld   ac, [0x%02X]' % ZP['B_C'], 'xor  80, ac')
         dn = a.uniq('bd')

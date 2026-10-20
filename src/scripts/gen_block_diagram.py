@@ -21,7 +21,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
-CHIPS_TOTAL = 38            # docs/CHIPS.md, plus the 3.3 V regulator
+CHIPS_TOTAL = 36            # docs/CHIPS.md, plus the 3.3 V regulator
 
 # fill colors by area
 CPU, CTRL, MEM, IO, VID, SND, DEV = ("#E4DAFF", "#FFF2BF", "#D3F6D8", "#FFE3C8",
@@ -91,7 +91,7 @@ rom = box(186, 32, 31, 22, "ROM 64 KB", 2, "2 x AS7C256C, battery,\non the ROM c
 wb = box(152, 60, 30, 11, "Bus resistors", None, "8 x R: the source bus is\nthe data bus in EXEC", DEV, fs=11.5)
 
 # ---------------------------------------------------------------- registers row
-sd = box(3, 50, 22, 16, "Source bus\ndrivers", 4, "3 x F541 + F138", CPU, fs=12)
+sd = box(3, 50, 22, 16, "Source bus\ndrivers", 2, "2 x F541:\nD or AC", CPU, fs=12)
 acc = box(30, 50, 15, 16, "AC", 1, "F377", CPU, fs=14)
 alu = box(50, 50, 24, 16, "ALU", 2, "2 x 4-bit PLDs", CPU, fs=14)
 xr = box(80, 50, 14, 16, "X", 1, "F377", CPU, fs=14)
@@ -190,13 +190,13 @@ for d in (kb, pads, sdc, ms):
 # ---------------------------------------------------------------- legend
 ly = 128
 for name, col in (("Address bus (16 bits)", ADDR), ("Data bus: memory and I/O reads", DATA),
-                  ("Source bus: D, AC or X; write data", SRC), ("ALU result", RES),
+                  ("Source bus: D or AC; write data", SRC), ("ALU result", RES),
                   ("Other connections", OTH)):
     ax.add_patch(Rectangle((166, ly), 7, 2.2, fc=col, ec="none"))
     ax.text(175, ly + 1.1, name, va="center", fontsize=11.5)
     ly += 4.6
 ax.text(166, 154, "Section reads follow the map register; video reads and all writes use RAM.\n"
-        "Source: docs/CHIPS.md, docs/IO.md, docs/EXPANSION.md, docs/SOUND.md, docs/VIDEO.md on 2026-10-18.",
+        "Source: docs/CHIPS.md, docs/IO.md, docs/EXPANSION.md, docs/SOUND.md, docs/VIDEO.md on 2026-10-19.",
         fontsize=10, color="#495057", va="top")
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(

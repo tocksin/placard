@@ -1,7 +1,7 @@
 Name     BRANCH_CTRL;
 PartNo   00;
 Date     10/19/2026;
-Revision 12;
+Revision 13;
 Designer ;
 Company  ;
 Assembly ;
@@ -116,6 +116,20 @@ Device   g22v10;
    the same condition for the memory control PLD, which blocks CPU
    memory reads while the source drivers own the bus.
 
+   /SRC_EN DRIVES THE SOURCE F541s (revision 13)
+   X is no longer a source and the source '138 is gone.  There are two
+   source F541s, D and AC, and each has two active-low enables:
+       D  F541:  /OE1 = /SRC_EN (pin 16), /OE2 = I1
+       AC F541:  /OE1 = /SRC_EN (pin 16), /OE2 = /AC_SEL = !I1
+                 (audio PLD pin 21, revision 04)
+   so source codes 00 and 01 drive D and 10 and 11 drive AC.  Pin 16
+   is now active low (the same equation), and the memory control PLD
+   (pin 22, revision 07) reads it active low.  A source that is D always
+   has a LOAD clock before EXEC, so I1 is settled a clock before
+   /SRC_EN falls; the only select change at the start of EXEC is D to
+   AC (I1 0 -> 1), which turns D off (I1 direct, about 10 ns) before
+   /SRC_EN falls (about 13 ns), so the two never drive together.
+
    CARRY FLAG (revision 11)
    BGT (001) and BGE (101) are replaced by BCS and BCC, which test a
    carry flag.  BLE and BLT are kept, so every sign test can still be
@@ -140,9 +154,9 @@ Device   g22v10;
    The carry is settled before the ALU result: the low chip's
    B -> D2 -> COUT and the high chip's CIN -> D2 -> COUT are four
    array passes (30 ns), against five to F3 (docs/ALU_TIMING.md).  From a
-   FETCH -> EXEC ADD with source AC or X: IR 10.5 + '138 9 + '541
-   enable 9.5 + 30 + CARRY setup 3.5 = 62.5 ns, inside the two clocks
-   (79.44 ns) the ALU wait clock gives, 16.9 ns to spare.  BCS and BCC
+   FETCH -> EXEC ADD with source AC: IR 10.5 + audio PLD 7.5 + '541
+   enable 9.5 + 30 + CARRY setup 3.5 = 61 ns, inside the two clocks
+   (79.44 ns) the ALU wait clock gives, 18.4 ns to spare.  BCS and BCC
    read CARRY through its feedback, much faster than the Z and NEG
    path of the other branches.
 
@@ -196,7 +210,7 @@ PIN 23 = BRANCH_BLOCK;    /*  1 product term,  pin has  8 */
 
 PIN 18 = ALU_DONE;        /* registered, 3 product terms */
 PIN 19 = STALL;           /* 3 product terms, pin has 16 */
-PIN 16 = SRC_EN;          /* 1 product term, to memory control PLD pin 22 */
+PIN 16 = !SRC_EN;         /* 1 product term: source F541s' /OE1 and memory control PLD pin 22 */
 PIN 20 = CARRY;           /* registered, 3 product terms, pin has 14 */
 PIN 15 = !PIX_LD;         /* revision 12: pixel buffer (F377) /E, low on a video read; 1 term, pin has 10 */
 
