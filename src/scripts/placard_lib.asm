@@ -81,7 +81,7 @@
 ;         ld   STACK_TOP, ac
 ;         ld   ac, [SP]
 ;
-;   PUSH AC (6 instructions, 19 clocks; AC kept, X changed)
+;   PUSH AC (6 instructions, 21 clocks; AC kept, X changed)
 ;         ld   [SP], x
 ;         ld   ac, [x]
 ;         ld   [SP], ac
@@ -97,7 +97,8 @@
 ;         ld   ac, x
 ;         ld   [x], ac
 ;
-;   To push X, copy it first (ld x, ac) and push AC.
+;   X is not a source (CPU.md, "Source mode"): to push a value that is in
+;   X, push it from wherever X was loaded from.
 ;
 ; A routine that calls another routine (not a leaf) must save its own
 ; return address on the stack first, because the inner CALL overwrites
@@ -443,7 +444,7 @@ m8_next:
 ;   in:      AC = value, R1:R0 = address, R2 = count (0 = 256)
 ;   out:     R1:R0 = address + count, R2 = 0
 ;   changes: X, Y, T0
-;   clocks:  12 + 41 per byte
+;   clocks:  12 + 43 per byte
 ;   Any address, including the I/O window, so be careful with x5000.
 ; ------------------------------------------------------------
 #addr LIB_CODE + 0x1C7            ; entry addresses stay fixed (carry flag rewrite left a gap)
@@ -642,7 +643,7 @@ mc_2:
 ;            bits 3:2 = line repeat (0 = 1x, 1 = 2x, 2 = 4x), see vid_mode
 ;   out:     x6000-xFFFF = 0, mode bytes (x5A20-x5BFF) = AC
 ;   changes: AC, X, Y, T0, T1
-;   clocks:  503,394 (20.0 ms)
+;   clocks:  505,794 (20.1 ms)
 ; ------------------------------------------------------------
 vid_clear:
     ld   ac, [T0]
@@ -668,7 +669,7 @@ vc_b:
 ;   in:      AC = mode byte (see vid_clear)
 ;   out:     mode bytes x5A20-x5BFF = AC
 ;   changes: AC, X, Y, T0, T1
-;   clocks:  8,661
+;   clocks:  11,061
 ;   To change some rows only, write their mode bytes: row r's mode
 ;   byte is at x5A20 + r.  The video circuit reads it in horizontal
 ;   blanking, from the RAM.
@@ -834,7 +835,7 @@ plot1:
 ;   out:     AC = character; cursor moved, past row 59 the screen
 ;            scrolls up one text row
 ;   changes: X, Y, T0-T5
-;   clocks:  313, or 1,233,301 (49.0 ms) when it scrolls
+;   clocks:  327, or 1,159,075 (46.0 ms) when it scrolls
 ;   The cursor must be valid: call con_clear or con_home first.
 ; ------------------------------------------------------------
 con_putc:
@@ -951,7 +952,7 @@ cp_nl:
 ;   in:      -
 ;   out:     AC unchanged; CUR_COL = 0, CUR_ROW + 1 (at most 59)
 ;   changes: X, Y, T0-T5
-;   clocks:  39, or 1,233,287 (49.0 ms) when it scrolls
+;   clocks:  39, or 1,159,061 (46.0 ms) when it scrolls
 ; ------------------------------------------------------------
 con_newline:
     ld   ac, [T0]
@@ -992,7 +993,7 @@ con_home:
 ;   in:      -
 ;   out:     every row 1 bpp, all pixels 0, cursor at column 0, row 0
 ;   changes: AC, X, Y, T0, T1
-;   clocks:  503,414 (20.0 ms)
+;   clocks:  505,814 (20.1 ms)
 ; ------------------------------------------------------------
 con_clear:
     ld   CUR_COL, x
@@ -1014,7 +1015,7 @@ con_clear:
 ;   in:      R1:R0 = address of the string
 ;   out:     R1:R0 = address of the 0 byte
 ;   changes: AC, X, Y, T0-T5
-;   clocks:  about 355 per character
+;   clocks:  about 369 per character
 ;   Uses 2 stack bytes.
 ; ------------------------------------------------------------
 con_puts:
@@ -1059,7 +1060,7 @@ ps_done:
 ;   in:      AC = value
 ;   out:     AC = value
 ;   changes: X, Y, T0-T5
-;   clocks:  829
+;   clocks:  859
 ;   Uses 3 stack bytes.
 ; ------------------------------------------------------------
 con_hex8:
@@ -1123,7 +1124,7 @@ hx_back2:
 ;   in:      R1:R0 = value, 0-65535
 ;   out:     R1:R0 = 0, R2 = 10
 ;   changes: AC, X, Y, T0-T5
-;   clocks:  about 2,000 per digit (2,000-10,780)
+;   clocks:  about 2,000 per digit (2,000-10,860)
 ;   Uses up to 8 stack bytes.
 ; ------------------------------------------------------------
 con_dec16:
@@ -1194,7 +1195,7 @@ d16p_done:
 ;   in:      AC = value, 0-255
 ;   out:     AC = last digit printed (character)
 ;   changes: X, Y, T0-T7
-;   clocks:  552-1481
+;   clocks:  570-1527
 ;   Uses 4 stack bytes.
 ; ------------------------------------------------------------
 con_dec8:

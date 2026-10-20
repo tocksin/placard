@@ -148,7 +148,7 @@ x6000) and the boot loader:
    the first 32 bytes of byte column 79, which never show on the screen);
 4. writes map = FF and jumps to RAM x0000.
 
-The copy takes about 21 ms.  It does not set `MAP_SHADOW`, because those
+The copy takes about 23 ms.  It does not set `MAP_SHADOW`, because those
 programs keep code there.
 
 `gen_rom.tcl` treats a program as a RAM image when its hex has any byte in

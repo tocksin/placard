@@ -32,7 +32,8 @@
 ;   4. map = FF (every section reads RAM), jump to x0000.  The RAM's zero
 ;      page is then exactly the program's page x00 (MAP_SHADOW is not set,
 ;      because the older demos keep code there).
-;   The copy takes 25 clocks a byte, about 19 ms for the 18,944 bytes.
+;   The copy takes about 30 clocks a byte (the count is kept in the zero
+;   page, X is not a source), about 23 ms for the 18,944 bytes.
 ;
 ;     customasm rom_boot.asm -f hexstr -o rom_boot.hex
 ;     python3 placard_sim.py rom_boot.asm
