@@ -88,6 +88,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from placard_sim import assemble, instr_size, to_hexstr   # noqa: E402
+from menu_hook import hook_blocks, as_lines              # noqa: E402
 
 MAXIT = 32
 F = 8                       # fraction bits
@@ -109,6 +110,7 @@ for _i, _n in enumerate([
         'dret', 'dreth', 'gret', 'greth', 'sx2', 'gx', 'gsx', 'cpg', 'crow',
         'dig', 'di']):
     ZP[_n] = 0x10 + _i
+ZP['hret'], ZP['hreth'] = 0xE8, 0xE9    # the menu hook's return (above the font)
 
 
 def z(n):
@@ -318,6 +320,8 @@ def build(once, delay, out_path=None):
         label('halt')
         e('bra  halt')
     else:
+        e('; done: the menu goes on to the next program now (when rotating)')
+        g.call('hk_done', 'hret')
         g.far('main')
 
     # ------------------------------------------------------------ clear screen
@@ -369,6 +373,7 @@ def build(once, delay, out_path=None):
         label('dly3')
         g.st(0, 'dl2')
         label('dly2')
+        g.call('hk_poll', 'hret')
         e('clr  ac')
         label('dly1')
         e('nop')
@@ -506,6 +511,8 @@ def build(once, delay, out_path=None):
     e('; read the line read (V9:V2, 124-255) and add one frame to the timer')
     e('; when it went down.  cur - last - 96 >= 0 means it wrapped, as long as')
     e('; polls are less than 95 steps (380 lines) apart.  Uses y and x.')
+    e('; The menu hook first (Esc, time up: menu_hook.py).')
+    g.call('hk_poll', 'hret')
     e('ld   0x50, y')
     e('ld   [y,x], ac')
     e('ld   ac, %s' % z('cur'))
@@ -520,6 +527,10 @@ def build(once, delay, out_path=None):
     e('ld   ac, %s' % z('last'))
     e('ld   %s, y' % z('treth'))
     e('jmp  %s' % z('tret'))
+
+    for name, items in hook_blocks(ZP['hret'], ZP['hreth']):
+        g.block(name)
+        g.cur.extend(as_lines(items))
 
     g.block('dadd')
     label('dadd')

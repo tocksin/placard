@@ -6,7 +6,7 @@ page map that every program shares.  `src/scripts/lib_demo.asm` is a short
 example program that uses it, and `src/scripts/test_lib.py` tests every
 routine in the simulator.
 
-Date: 10/19/2026
+Date: 10/20/2026
 
 | File | What it is |
 |------|------------|
@@ -47,7 +47,8 @@ and runs in place.  The most used parts are highest:
 | xD500-xD6FF | Line input, mouse pointer | `INPUT_CODE` | `placard_input.asm` |
 | xC700-xD4FF | FAT file reader | `FS_CODE` | `placard_fs.asm` |
 | xC600-xC6FF | Expansion slot helpers | `SLOT_CODE` | `placard_slot.asm` |
-| xC000-xC5FF | Free, for the library to grow down into | | |
+| xC500-xC5FF | Menu hook | `MENU_CODE` | `placard_menu.asm` |
+| xC000-xC4FF | Free, for the library to grow down into | | |
 | RAM x1F00-x1FFF | Code that reads the video RAM (end of `plot1`, `con_scroll`) | `LIB_RAM` | `placard_lib.asm` |
 
 `placard_lib.asm` sets every constant and includes the other files.  These
@@ -84,7 +85,7 @@ only ever added at the end, never moved or removed, so code built without
 `placard_lib.asm` (a card's boot code, a program loaded from the SD card)
 can CALL a routine at its table address and keep working when the library
 changes.  A program that includes `placard_lib.asm` may call the routines
-directly instead, 4 clocks faster.  64 entries fit; 54 are used:
+directly instead, 4 clocks faster.  64 entries fit; 55 are used:
 
 | Entry | Address | Routines |
 |-------|---------|----------|
@@ -92,6 +93,7 @@ directly instead, 4 clocks faster.  64 entries fit; 54 are used:
 | 25-35 | xFB64-xFB8C | `port_init` `kbd_scan` `kbd_getc` `pad_read` `spi_byte` `sd_init` `sd_read` `sd_write` `mouse_init` `mouse_poll` `mouse_cmd` |
 | 36-44 | xFB90-xFBB0 | `snd_init` `snd_update` `snd_tone` `snd_note` `snd_beep` `snd_noise` `snd_play` `snd_stop` `snd_busy` |
 | 45-53 | xFBB4-xFBD4 | `slot_id` `fs_mount` `fs_root` `fs_next` `fs_open` `fs_read` `fs_load` `con_gets` `mouse_move` |
+| 54 | xFBD8 | `menu_poll` |
 
 Entry n is at xFB00 + 4n.  A CALL through the table:
 
@@ -438,6 +440,12 @@ zero page scratch.  A sector takes about 160,000 clocks (75 KB/s).
 | `con_gets` | R1:R0 = buffer, R2 = most characters (1-255) | AC = length, the line and a 00 in the buffer; Backspace works, Enter ends | R3, X, Y, T0-T7, I/O scratch | waits for keys |
 | `mouse_move` | R1:R0 = X, R3:R2 = Y, after `mouse_poll` returns 1 | X and Y moved by the packet, kept to 0-639, 0-479 | AC | 88-138 |
 
+### Demo menu
+
+| Routine | In | Out | Changes | Clocks |
+|---------|----|-----|---------|--------|
+| `menu_poll` | call about once per frame, after `frame_poll` | returns, or never returns when Esc is down or the program's time is up in the menu ROM ([MENU.md](MENU.md)) | AC, X, Y, T0 | 15 without the menu ROM, about 75 with it |
+
 ## Idioms
 
 Branches test AC (`blt` AC < 0, `bne`, `beq`, `ble` AC <= 0) or the carry
@@ -511,6 +519,6 @@ The keyboard, SNES pad, SD card and mouse drivers are in
 same calling convention; [IO.md](IO.md) lists them and `test_io.py` tests
 them.  Pixel routines for 2, 4 and 8 bpp rows, line drawing and writing
 files to the SD card are good next additions; new code goes in the free
-xC000-xC5FF below the library, and new public routines get the next jump
+xC000-xC4FF below the library, and new public routines get the next jump
 table entries.  `test_snd.py`, `test_fs.py` and `test_slots.py` test the
 sound driver, the FAT reader and the slot helpers.

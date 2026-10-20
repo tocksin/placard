@@ -119,6 +119,14 @@ gen:
     ld   0x4F, ac
     ld   ac, [0x1A]
 col:
+    ; the program menu's hook (Esc, time up: menu_hook.py), once a column
+    ld   ret_1, ac
+    ld   ac, [0x31]
+    ld   ret_1 >> 8, ac
+    ld   ac, [0x32]
+    ld   hk_poll >> 8, y
+    jmp  hk_poll
+ret_1:
     ; E page: next column, or the copy of column 1 for column 79
     ld   [0x1A], ac
     dec
@@ -150,81 +158,81 @@ col_e:
 fill_1:
     ld   [0x10], y
     ld   [y,x], ac            ; C
-    ld   ac, [0x41]
+    ld   ac, [0x43]
     ld   [0x13], y
     ld   ac, [y,x]            ; old C for the next column
-    beq  cz_6
+    beq  cz_7
     ld   [0x11], y
     ld   [y,x], ac            ; W
-    blt  w1_1
-    ld   [0x41], ac
+    blt  w1_2
+    ld   [0x43], ac
     shl
-    bra  wd_2
-w1_1:
-    ld   [0x41], ac
+    bra  wd_3
+w1_2:
+    ld   [0x43], ac
     shl
     or   1, ac
-wd_2:
+wd_3:
     ld   ac, [0x1B]
     ld   [0x12], y
     ld   [y,x], ac            ; E
     and  1, ac
-    beq  e0_3
-    ld   [0x41], ac
+    beq  e0_4
+    ld   [0x43], ac
     shr  ac
     or   0x80, ac
-    bra  ed_4
-e0_3:
-    ld   [0x41], ac
+    bra  ed_5
+e0_4:
+    ld   [0x43], ac
     shr  ac
-ed_4:
+ed_5:
     ld   ac, [0x1C]
     and  [0x1B], ac
-    ld   ac, [0x40]                ; m1 = L & R
+    ld   ac, [0x42]                ; m1 = L & R
     ld   [0x1C], ac
     xor  [0x1B], ac
-    ld   ac, [0x3F]                ; m0 = L ^ R
-    xor  [0x41], ac
-    ld   ac, [0x3D]                ; a = L ^ C ^ R
-    ld   [0x3F], ac
-    and  [0x41], ac
-    or   [0x40], ac
-    ld   ac, [0x3E]                ; b = majority(L, C, R)
-    or   [0x3D], ac
-    ld   ac, [0x42]                ; o = L | C | R
-    bra  rd_5
-cz_6:
+    ld   ac, [0x41]                ; m0 = L ^ R
+    xor  [0x43], ac
+    ld   ac, [0x3F]                ; a = L ^ C ^ R
+    ld   [0x41], ac
+    and  [0x43], ac
+    or   [0x42], ac
+    ld   ac, [0x40]                ; b = majority(L, C, R)
+    or   [0x3F], ac
+    ld   ac, [0x44]                ; o = L | C | R
+    bra  rd_6
+cz_7:
     ; C = 0: L = W bit 7, R = E bit 0 << 7, so m1 = b = 0, m0 = a = o = L | R
+    ld   ac, [0x42]
     ld   ac, [0x40]
-    ld   ac, [0x3E]
     ld   [0x11], y
     ld   [y,x], ac
     ld   [0x12], y
     or   [y,x], ac
-    beq  zk_9                ; W, C and E all 0
+    beq  zk_10                ; W, C and E all 0
     ld   [0x11], y
     ld   [y,x], ac
-    blt  zw1_7
+    blt  zw1_8
     ld   [0x12], y
     ld   [y,x], ac
     and  1, ac
-    beq  zk_9
+    beq  zk_10
     ld   0x80, ac
-    bra  zk_9
-zw1_7:
+    bra  zk_10
+zw1_8:
     ld   [0x12], y
     ld   [y,x], ac
     and  1, ac
-    beq  zk1_8
+    beq  zk1_9
     ld   0x81, ac
-    bra  zk_9
-zk1_8:
+    bra  zk_10
+zk1_9:
     ld   1, ac
-zk_9:
+zk_10:
+    ld   ac, [0x41]
     ld   ac, [0x3F]
-    ld   ac, [0x3D]
-    ld   ac, [0x42]
-rd_5:
+    ld   ac, [0x44]
+rd_6:
     nop
     ld   [0x16], ac
     ld   ac, [0x10]
@@ -241,87 +249,87 @@ rd_5:
 fill_2:
     ld   [0x10], y
     ld   [y,x], ac            ; C
-    ld   ac, [0x35]
+    ld   ac, [0x37]
     ld   [0x13], y
     ld   ac, [y,x]            ; old C for the next column
-    beq  cz_15
+    beq  cz_16
     ld   [0x11], y
     ld   [y,x], ac            ; W
-    blt  w1_10
-    ld   [0x35], ac
+    blt  w1_11
+    ld   [0x37], ac
     shl
-    bra  wd_11
-w1_10:
-    ld   [0x35], ac
+    bra  wd_12
+w1_11:
+    ld   [0x37], ac
     shl
     or   1, ac
-wd_11:
+wd_12:
     ld   ac, [0x1B]
     ld   [0x12], y
     ld   [y,x], ac            ; E
     and  1, ac
-    beq  e0_12
-    ld   [0x35], ac
+    beq  e0_13
+    ld   [0x37], ac
     shr  ac
     or   0x80, ac
-    bra  ed_13
-e0_12:
-    ld   [0x35], ac
+    bra  ed_14
+e0_13:
+    ld   [0x37], ac
     shr  ac
-ed_13:
+ed_14:
     ld   ac, [0x1C]
     and  [0x1B], ac
-    ld   ac, [0x34]                ; m1 = L & R
+    ld   ac, [0x36]                ; m1 = L & R
     ld   [0x1C], ac
     xor  [0x1B], ac
-    ld   ac, [0x33]                ; m0 = L ^ R
-    xor  [0x35], ac
-    ld   ac, [0x31]                ; a = L ^ C ^ R
-    ld   [0x33], ac
-    and  [0x35], ac
-    or   [0x34], ac
-    ld   ac, [0x32]                ; b = majority(L, C, R)
-    or   [0x31], ac
-    ld   ac, [0x36]                ; o = L | C | R
-    bra  rd_14
-cz_15:
+    ld   ac, [0x35]                ; m0 = L ^ R
+    xor  [0x37], ac
+    ld   ac, [0x33]                ; a = L ^ C ^ R
+    ld   [0x35], ac
+    and  [0x37], ac
+    or   [0x36], ac
+    ld   ac, [0x34]                ; b = majority(L, C, R)
+    or   [0x33], ac
+    ld   ac, [0x38]                ; o = L | C | R
+    bra  rd_15
+cz_16:
     ; C = 0: L = W bit 7, R = E bit 0 << 7, so m1 = b = 0, m0 = a = o = L | R
+    ld   ac, [0x36]
     ld   ac, [0x34]
-    ld   ac, [0x32]
     ld   [0x11], y
     ld   [y,x], ac
     ld   [0x12], y
     or   [y,x], ac
-    beq  zk_18                ; W, C and E all 0
+    beq  zk_19                ; W, C and E all 0
     ld   [0x11], y
     ld   [y,x], ac
-    blt  zw1_16
+    blt  zw1_17
     ld   [0x12], y
     ld   [y,x], ac
     and  1, ac
-    beq  zk_18
+    beq  zk_19
     ld   0x80, ac
-    bra  zk_18
-zw1_16:
+    bra  zk_19
+zw1_17:
     ld   [0x12], y
     ld   [y,x], ac
     and  1, ac
-    beq  zk1_17
+    beq  zk1_18
     ld   0x81, ac
-    bra  zk_18
-zk1_17:
+    bra  zk_19
+zk1_18:
     ld   1, ac
-zk_18:
+zk_19:
+    ld   ac, [0x35]
     ld   ac, [0x33]
-    ld   ac, [0x31]
-    ld   ac, [0x36]
-rd_14:
+    ld   ac, [0x38]
+rd_15:
     nop
-    ld   [0x31], ac
+    ld   [0x33], ac
     ld   ac, [0x24]
-    ld   [0x32], ac
+    ld   [0x34], ac
     ld   ac, [0x25]
-    ld   [0x36], ac
+    ld   [0x38], ac
     ld   ac, [0x26]
     ld   0x20, ac
     ld   ac, [0x15]
@@ -333,127 +341,127 @@ fill_3:
 step0:
     ld   [0x10], y
     ld   [y,x], ac            ; C
-    ld   ac, [0x3B]
+    ld   ac, [0x3D]
     ld   [0x13], y
     ld   ac, [y,x]            ; old C for the next column
-    beq  cz_24
+    beq  cz_25
     ld   [0x11], y
     ld   [y,x], ac            ; W
-    blt  w1_19
-    ld   [0x3B], ac
+    blt  w1_20
+    ld   [0x3D], ac
     shl
-    bra  wd_20
-w1_19:
-    ld   [0x3B], ac
+    bra  wd_21
+w1_20:
+    ld   [0x3D], ac
     shl
     or   1, ac
-wd_20:
+wd_21:
     ld   ac, [0x1B]
     ld   [0x12], y
     ld   [y,x], ac            ; E
     and  1, ac
-    beq  e0_21
-    ld   [0x3B], ac
+    beq  e0_22
+    ld   [0x3D], ac
     shr  ac
     or   0x80, ac
-    bra  ed_22
-e0_21:
-    ld   [0x3B], ac
+    bra  ed_23
+e0_22:
+    ld   [0x3D], ac
     shr  ac
-ed_22:
+ed_23:
     ld   ac, [0x1C]
     and  [0x1B], ac
-    ld   ac, [0x3A]                ; m1 = L & R
+    ld   ac, [0x3C]                ; m1 = L & R
     ld   [0x1C], ac
     xor  [0x1B], ac
-    ld   ac, [0x39]                ; m0 = L ^ R
-    xor  [0x3B], ac
-    ld   ac, [0x37]                ; a = L ^ C ^ R
-    ld   [0x39], ac
-    and  [0x3B], ac
-    or   [0x3A], ac
-    ld   ac, [0x38]                ; b = majority(L, C, R)
-    or   [0x37], ac
-    ld   ac, [0x3C]                ; o = L | C | R
-    bra  rd_23
-cz_24:
+    ld   ac, [0x3B]                ; m0 = L ^ R
+    xor  [0x3D], ac
+    ld   ac, [0x39]                ; a = L ^ C ^ R
+    ld   [0x3B], ac
+    and  [0x3D], ac
+    or   [0x3C], ac
+    ld   ac, [0x3A]                ; b = majority(L, C, R)
+    or   [0x39], ac
+    ld   ac, [0x3E]                ; o = L | C | R
+    bra  rd_24
+cz_25:
     ; C = 0: L = W bit 7, R = E bit 0 << 7, so m1 = b = 0, m0 = a = o = L | R
+    ld   ac, [0x3C]
     ld   ac, [0x3A]
-    ld   ac, [0x38]
     ld   [0x11], y
     ld   [y,x], ac
     ld   [0x12], y
     or   [y,x], ac
-    beq  zk_27                ; W, C and E all 0
+    beq  zk_28                ; W, C and E all 0
     ld   [0x11], y
     ld   [y,x], ac
-    blt  zw1_25
+    blt  zw1_26
     ld   [0x12], y
     ld   [y,x], ac
     and  1, ac
-    beq  zk_27
+    beq  zk_28
     ld   0x80, ac
-    bra  zk_27
-zw1_25:
+    bra  zk_28
+zw1_26:
     ld   [0x12], y
     ld   [y,x], ac
     and  1, ac
-    beq  zk1_26
+    beq  zk1_27
     ld   0x81, ac
-    bra  zk_27
-zk1_26:
+    bra  zk_28
+zk1_27:
     ld   1, ac
-zk_27:
+zk_28:
+    ld   ac, [0x3B]
     ld   ac, [0x39]
-    ld   ac, [0x37]
-    ld   ac, [0x3C]
-rd_23:
+    ld   ac, [0x3E]
+rd_24:
     nop
-    ld   [0x42], ac
-    or   [0x36], ac
-    or   [0x3C], ac
-    beq  zo_28                ; nothing alive nearby: stays 0, no write
-    ld   [0x3D], ac
-    xor  [0x37], ac
+    ld   [0x44], ac
+    or   [0x38], ac
+    or   [0x3E], ac
+    beq  zo_29                ; nothing alive nearby: stays 0, no write
+    ld   [0x3F], ac
+    xor  [0x39], ac
     ld   ac, [0x1D]
-    xor  [0x33], ac
-    or   [0x35], ac
+    xor  [0x35], ac
+    or   [0x37], ac
     ld   ac, [0x1E]                ; SC = s0 | C
-    ld   [0x3D], ac
-    and  [0x37], ac
+    ld   [0x3F], ac
+    and  [0x39], ac
     ld   ac, [0x1F]
     ld   [0x1D], ac
-    and  [0x33], ac
+    and  [0x35], ac
     or   [0x1F], ac
     ld   ac, [0x20]                ; CC = carry out of bit 0
-    xor  [0x34], ac
+    xor  [0x36], ac
     ld   ac, [0x21]
     ld   [0x20], ac
-    and  [0x34], ac
+    and  [0x36], ac
     ld   ac, [0x22]
-    ld   [0x3E], ac
-    and  [0x38], ac
+    ld   [0x40], ac
+    and  [0x3A], ac
     or   [0x22], ac
     not
     ld   ac, [0x23]
-    ld   [0x3E], ac
-    xor  [0x38], ac
+    ld   [0x40], ac
+    xor  [0x3A], ac
     xor  [0x21], ac
     and  [0x23], ac
     and  [0x1E], ac                ; k == 1 and (s0 | C)
     ld   [0x15], x
     ld   [0x10], y
     ld   ac, [y,x]
-zo_28:
+zo_29:
     ld   [0x15], ac
     inc
     ld   ac, [0x15]
     inc
     ld   ac, x
-    bne  ok_29
+    bne  ok_30
     ld   half >> 8, y
     jmp  half
-ok_29:
+ok_30:
     nop
     ld   fill_4 >> 8, y
     jmp  fill_4
@@ -462,127 +470,127 @@ fill_4:
 step1:
     ld   [0x10], y
     ld   [y,x], ac            ; C
-    ld   ac, [0x41]
+    ld   ac, [0x43]
     ld   [0x13], y
     ld   ac, [y,x]            ; old C for the next column
-    beq  cz_35
+    beq  cz_36
     ld   [0x11], y
     ld   [y,x], ac            ; W
-    blt  w1_30
-    ld   [0x41], ac
+    blt  w1_31
+    ld   [0x43], ac
     shl
-    bra  wd_31
-w1_30:
-    ld   [0x41], ac
+    bra  wd_32
+w1_31:
+    ld   [0x43], ac
     shl
     or   1, ac
-wd_31:
+wd_32:
     ld   ac, [0x1B]
     ld   [0x12], y
     ld   [y,x], ac            ; E
     and  1, ac
-    beq  e0_32
-    ld   [0x41], ac
+    beq  e0_33
+    ld   [0x43], ac
     shr  ac
     or   0x80, ac
-    bra  ed_33
-e0_32:
-    ld   [0x41], ac
+    bra  ed_34
+e0_33:
+    ld   [0x43], ac
     shr  ac
-ed_33:
+ed_34:
     ld   ac, [0x1C]
     and  [0x1B], ac
-    ld   ac, [0x40]                ; m1 = L & R
+    ld   ac, [0x42]                ; m1 = L & R
     ld   [0x1C], ac
     xor  [0x1B], ac
-    ld   ac, [0x3F]                ; m0 = L ^ R
-    xor  [0x41], ac
-    ld   ac, [0x3D]                ; a = L ^ C ^ R
-    ld   [0x3F], ac
-    and  [0x41], ac
-    or   [0x40], ac
-    ld   ac, [0x3E]                ; b = majority(L, C, R)
-    or   [0x3D], ac
-    ld   ac, [0x42]                ; o = L | C | R
-    bra  rd_34
-cz_35:
+    ld   ac, [0x41]                ; m0 = L ^ R
+    xor  [0x43], ac
+    ld   ac, [0x3F]                ; a = L ^ C ^ R
+    ld   [0x41], ac
+    and  [0x43], ac
+    or   [0x42], ac
+    ld   ac, [0x40]                ; b = majority(L, C, R)
+    or   [0x3F], ac
+    ld   ac, [0x44]                ; o = L | C | R
+    bra  rd_35
+cz_36:
     ; C = 0: L = W bit 7, R = E bit 0 << 7, so m1 = b = 0, m0 = a = o = L | R
+    ld   ac, [0x42]
     ld   ac, [0x40]
-    ld   ac, [0x3E]
     ld   [0x11], y
     ld   [y,x], ac
     ld   [0x12], y
     or   [y,x], ac
-    beq  zk_38                ; W, C and E all 0
+    beq  zk_39                ; W, C and E all 0
     ld   [0x11], y
     ld   [y,x], ac
-    blt  zw1_36
+    blt  zw1_37
     ld   [0x12], y
     ld   [y,x], ac
     and  1, ac
-    beq  zk_38
+    beq  zk_39
     ld   0x80, ac
-    bra  zk_38
-zw1_36:
+    bra  zk_39
+zw1_37:
     ld   [0x12], y
     ld   [y,x], ac
     and  1, ac
-    beq  zk1_37
+    beq  zk1_38
     ld   0x81, ac
-    bra  zk_38
-zk1_37:
+    bra  zk_39
+zk1_38:
     ld   1, ac
-zk_38:
+zk_39:
+    ld   ac, [0x41]
     ld   ac, [0x3F]
-    ld   ac, [0x3D]
-    ld   ac, [0x42]
-rd_34:
+    ld   ac, [0x44]
+rd_35:
     nop
-    ld   [0x36], ac
-    or   [0x3C], ac
-    or   [0x42], ac
-    beq  zo_39                ; nothing alive nearby: stays 0, no write
-    ld   [0x31], ac
-    xor  [0x3D], ac
+    ld   [0x38], ac
+    or   [0x3E], ac
+    or   [0x44], ac
+    beq  zo_40                ; nothing alive nearby: stays 0, no write
+    ld   [0x33], ac
+    xor  [0x3F], ac
     ld   ac, [0x1D]
-    xor  [0x39], ac
-    or   [0x3B], ac
+    xor  [0x3B], ac
+    or   [0x3D], ac
     ld   ac, [0x1E]                ; SC = s0 | C
-    ld   [0x31], ac
-    and  [0x3D], ac
+    ld   [0x33], ac
+    and  [0x3F], ac
     ld   ac, [0x1F]
     ld   [0x1D], ac
-    and  [0x39], ac
+    and  [0x3B], ac
     or   [0x1F], ac
     ld   ac, [0x20]                ; CC = carry out of bit 0
-    xor  [0x3A], ac
+    xor  [0x3C], ac
     ld   ac, [0x21]
     ld   [0x20], ac
-    and  [0x3A], ac
+    and  [0x3C], ac
     ld   ac, [0x22]
-    ld   [0x32], ac
-    and  [0x3E], ac
+    ld   [0x34], ac
+    and  [0x40], ac
     or   [0x22], ac
     not
     ld   ac, [0x23]
-    ld   [0x32], ac
-    xor  [0x3E], ac
+    ld   [0x34], ac
+    xor  [0x40], ac
     xor  [0x21], ac
     and  [0x23], ac
     and  [0x1E], ac                ; k == 1 and (s0 | C)
     ld   [0x15], x
     ld   [0x10], y
     ld   ac, [y,x]
-zo_39:
+zo_40:
     ld   [0x15], ac
     inc
     ld   ac, [0x15]
     inc
     ld   ac, x
-    bne  ok_40
+    bne  ok_41
     ld   last >> 8, y
     jmp  last
-ok_40:
+ok_41:
     nop
     ld   fill_5 >> 8, y
     jmp  fill_5
@@ -591,118 +599,118 @@ fill_5:
 step2:
     ld   [0x10], y
     ld   [y,x], ac            ; C
-    ld   ac, [0x35]
+    ld   ac, [0x37]
     ld   [0x13], y
     ld   ac, [y,x]            ; old C for the next column
-    beq  cz_46
+    beq  cz_47
     ld   [0x11], y
     ld   [y,x], ac            ; W
-    blt  w1_41
-    ld   [0x35], ac
+    blt  w1_42
+    ld   [0x37], ac
     shl
-    bra  wd_42
-w1_41:
-    ld   [0x35], ac
+    bra  wd_43
+w1_42:
+    ld   [0x37], ac
     shl
     or   1, ac
-wd_42:
+wd_43:
     ld   ac, [0x1B]
     ld   [0x12], y
     ld   [y,x], ac            ; E
     and  1, ac
-    beq  e0_43
-    ld   [0x35], ac
+    beq  e0_44
+    ld   [0x37], ac
     shr  ac
     or   0x80, ac
-    bra  ed_44
-e0_43:
-    ld   [0x35], ac
+    bra  ed_45
+e0_44:
+    ld   [0x37], ac
     shr  ac
-ed_44:
+ed_45:
     ld   ac, [0x1C]
     and  [0x1B], ac
-    ld   ac, [0x34]                ; m1 = L & R
+    ld   ac, [0x36]                ; m1 = L & R
     ld   [0x1C], ac
     xor  [0x1B], ac
-    ld   ac, [0x33]                ; m0 = L ^ R
-    xor  [0x35], ac
-    ld   ac, [0x31]                ; a = L ^ C ^ R
-    ld   [0x33], ac
-    and  [0x35], ac
-    or   [0x34], ac
-    ld   ac, [0x32]                ; b = majority(L, C, R)
-    or   [0x31], ac
-    ld   ac, [0x36]                ; o = L | C | R
-    bra  rd_45
-cz_46:
+    ld   ac, [0x35]                ; m0 = L ^ R
+    xor  [0x37], ac
+    ld   ac, [0x33]                ; a = L ^ C ^ R
+    ld   [0x35], ac
+    and  [0x37], ac
+    or   [0x36], ac
+    ld   ac, [0x34]                ; b = majority(L, C, R)
+    or   [0x33], ac
+    ld   ac, [0x38]                ; o = L | C | R
+    bra  rd_46
+cz_47:
     ; C = 0: L = W bit 7, R = E bit 0 << 7, so m1 = b = 0, m0 = a = o = L | R
+    ld   ac, [0x36]
     ld   ac, [0x34]
-    ld   ac, [0x32]
     ld   [0x11], y
     ld   [y,x], ac
     ld   [0x12], y
     or   [y,x], ac
-    beq  zk_49                ; W, C and E all 0
+    beq  zk_50                ; W, C and E all 0
     ld   [0x11], y
     ld   [y,x], ac
-    blt  zw1_47
+    blt  zw1_48
     ld   [0x12], y
     ld   [y,x], ac
     and  1, ac
-    beq  zk_49
+    beq  zk_50
     ld   0x80, ac
-    bra  zk_49
-zw1_47:
+    bra  zk_50
+zw1_48:
     ld   [0x12], y
     ld   [y,x], ac
     and  1, ac
-    beq  zk1_48
+    beq  zk1_49
     ld   0x81, ac
-    bra  zk_49
-zk1_48:
+    bra  zk_50
+zk1_49:
     ld   1, ac
-zk_49:
+zk_50:
+    ld   ac, [0x35]
     ld   ac, [0x33]
-    ld   ac, [0x31]
-    ld   ac, [0x36]
-rd_45:
+    ld   ac, [0x38]
+rd_46:
     nop
-    ld   [0x3C], ac
-    or   [0x42], ac
-    or   [0x36], ac
-    beq  zo_50                ; nothing alive nearby: stays 0, no write
-    ld   [0x37], ac
-    xor  [0x31], ac
+    ld   [0x3E], ac
+    or   [0x44], ac
+    or   [0x38], ac
+    beq  zo_51                ; nothing alive nearby: stays 0, no write
+    ld   [0x39], ac
+    xor  [0x33], ac
     ld   ac, [0x1D]
-    xor  [0x3F], ac
-    or   [0x41], ac
+    xor  [0x41], ac
+    or   [0x43], ac
     ld   ac, [0x1E]                ; SC = s0 | C
-    ld   [0x37], ac
-    and  [0x31], ac
+    ld   [0x39], ac
+    and  [0x33], ac
     ld   ac, [0x1F]
     ld   [0x1D], ac
-    and  [0x3F], ac
+    and  [0x41], ac
     or   [0x1F], ac
     ld   ac, [0x20]                ; CC = carry out of bit 0
-    xor  [0x40], ac
+    xor  [0x42], ac
     ld   ac, [0x21]
     ld   [0x20], ac
-    and  [0x40], ac
+    and  [0x42], ac
     ld   ac, [0x22]
-    ld   [0x38], ac
-    and  [0x32], ac
+    ld   [0x3A], ac
+    and  [0x34], ac
     or   [0x22], ac
     not
     ld   ac, [0x23]
-    ld   [0x38], ac
-    xor  [0x32], ac
+    ld   [0x3A], ac
+    xor  [0x34], ac
     xor  [0x21], ac
     and  [0x23], ac
     and  [0x1E], ac                ; k == 1 and (s0 | C)
     ld   [0x15], x
     ld   [0x10], y
     ld   ac, [y,x]
-zo_50:
+zo_51:
     ld   [0x15], ac
     inc
     ld   ac, [0x15]
@@ -732,118 +740,118 @@ half:
 fill_6:
     ld   [0x10], y
     ld   [y,x], ac            ; C
-    ld   ac, [0x41]
+    ld   ac, [0x43]
     ld   [0x13], y
     ld   ac, [y,x]            ; old C for the next column
-    beq  cz_56
+    beq  cz_57
     ld   [0x11], y
     ld   [y,x], ac            ; W
-    blt  w1_51
-    ld   [0x41], ac
+    blt  w1_52
+    ld   [0x43], ac
     shl
-    bra  wd_52
-w1_51:
-    ld   [0x41], ac
+    bra  wd_53
+w1_52:
+    ld   [0x43], ac
     shl
     or   1, ac
-wd_52:
+wd_53:
     ld   ac, [0x1B]
     ld   [0x12], y
     ld   [y,x], ac            ; E
     and  1, ac
-    beq  e0_53
-    ld   [0x41], ac
+    beq  e0_54
+    ld   [0x43], ac
     shr  ac
     or   0x80, ac
-    bra  ed_54
-e0_53:
-    ld   [0x41], ac
+    bra  ed_55
+e0_54:
+    ld   [0x43], ac
     shr  ac
-ed_54:
+ed_55:
     ld   ac, [0x1C]
     and  [0x1B], ac
-    ld   ac, [0x40]                ; m1 = L & R
+    ld   ac, [0x42]                ; m1 = L & R
     ld   [0x1C], ac
     xor  [0x1B], ac
-    ld   ac, [0x3F]                ; m0 = L ^ R
-    xor  [0x41], ac
-    ld   ac, [0x3D]                ; a = L ^ C ^ R
-    ld   [0x3F], ac
-    and  [0x41], ac
-    or   [0x40], ac
-    ld   ac, [0x3E]                ; b = majority(L, C, R)
-    or   [0x3D], ac
-    ld   ac, [0x42]                ; o = L | C | R
-    bra  rd_55
-cz_56:
+    ld   ac, [0x41]                ; m0 = L ^ R
+    xor  [0x43], ac
+    ld   ac, [0x3F]                ; a = L ^ C ^ R
+    ld   [0x41], ac
+    and  [0x43], ac
+    or   [0x42], ac
+    ld   ac, [0x40]                ; b = majority(L, C, R)
+    or   [0x3F], ac
+    ld   ac, [0x44]                ; o = L | C | R
+    bra  rd_56
+cz_57:
     ; C = 0: L = W bit 7, R = E bit 0 << 7, so m1 = b = 0, m0 = a = o = L | R
+    ld   ac, [0x42]
     ld   ac, [0x40]
-    ld   ac, [0x3E]
     ld   [0x11], y
     ld   [y,x], ac
     ld   [0x12], y
     or   [y,x], ac
-    beq  zk_59                ; W, C and E all 0
+    beq  zk_60                ; W, C and E all 0
     ld   [0x11], y
     ld   [y,x], ac
-    blt  zw1_57
+    blt  zw1_58
     ld   [0x12], y
     ld   [y,x], ac
     and  1, ac
-    beq  zk_59
+    beq  zk_60
     ld   0x80, ac
-    bra  zk_59
-zw1_57:
+    bra  zk_60
+zw1_58:
     ld   [0x12], y
     ld   [y,x], ac
     and  1, ac
-    beq  zk1_58
+    beq  zk1_59
     ld   0x81, ac
-    bra  zk_59
-zk1_58:
+    bra  zk_60
+zk1_59:
     ld   1, ac
-zk_59:
+zk_60:
+    ld   ac, [0x41]
     ld   ac, [0x3F]
-    ld   ac, [0x3D]
-    ld   ac, [0x42]
-rd_55:
+    ld   ac, [0x44]
+rd_56:
     nop
-    ld   [0x36], ac
-    or   [0x3C], ac
-    or   [0x42], ac
-    beq  zo_60                ; nothing alive nearby: stays 0, no write
-    ld   [0x31], ac
-    xor  [0x3D], ac
+    ld   [0x38], ac
+    or   [0x3E], ac
+    or   [0x44], ac
+    beq  zo_61                ; nothing alive nearby: stays 0, no write
+    ld   [0x33], ac
+    xor  [0x3F], ac
     ld   ac, [0x1D]
-    xor  [0x39], ac
-    or   [0x3B], ac
+    xor  [0x3B], ac
+    or   [0x3D], ac
     ld   ac, [0x1E]                ; SC = s0 | C
-    ld   [0x31], ac
-    and  [0x3D], ac
+    ld   [0x33], ac
+    and  [0x3F], ac
     ld   ac, [0x1F]
     ld   [0x1D], ac
-    and  [0x39], ac
+    and  [0x3B], ac
     or   [0x1F], ac
     ld   ac, [0x20]                ; CC = carry out of bit 0
-    xor  [0x3A], ac
+    xor  [0x3C], ac
     ld   ac, [0x21]
     ld   [0x20], ac
-    and  [0x3A], ac
+    and  [0x3C], ac
     ld   ac, [0x22]
-    ld   [0x32], ac
-    and  [0x3E], ac
+    ld   [0x34], ac
+    and  [0x40], ac
     or   [0x22], ac
     not
     ld   ac, [0x23]
-    ld   [0x32], ac
-    xor  [0x3E], ac
+    ld   [0x34], ac
+    xor  [0x40], ac
     xor  [0x21], ac
     and  [0x23], ac
     and  [0x1E], ac                ; k == 1 and (s0 | C)
     ld   [0x15], x
     ld   [0x14], y
     ld   ac, [y,x]
-zo_60:
+zo_61:
     ld   [0x15], ac
     inc
     ld   ac, [0x15]
@@ -857,34 +865,34 @@ last:
     jmp  fill_7
 #addr 0x0800
 fill_7:
-    ld   [0x3C], ac
-    or   [0x42], ac
+    ld   [0x3E], ac
+    or   [0x44], ac
     or   [0x26], ac
-    beq  zo_61                ; nothing alive nearby: stays 0, no write
-    ld   [0x37], ac
+    beq  zo_62                ; nothing alive nearby: stays 0, no write
+    ld   [0x39], ac
     xor  [0x24], ac
     ld   ac, [0x1D]
-    xor  [0x3F], ac
-    or   [0x41], ac
+    xor  [0x41], ac
+    or   [0x43], ac
     ld   ac, [0x1E]                ; SC = s0 | C
-    ld   [0x37], ac
+    ld   [0x39], ac
     and  [0x24], ac
     ld   ac, [0x1F]
     ld   [0x1D], ac
-    and  [0x3F], ac
+    and  [0x41], ac
     or   [0x1F], ac
     ld   ac, [0x20]                ; CC = carry out of bit 0
-    xor  [0x40], ac
+    xor  [0x42], ac
     ld   ac, [0x21]
     ld   [0x20], ac
-    and  [0x40], ac
+    and  [0x42], ac
     ld   ac, [0x22]
-    ld   [0x38], ac
+    ld   [0x3A], ac
     and  [0x25], ac
     or   [0x22], ac
     not
     ld   ac, [0x23]
-    ld   [0x38], ac
+    ld   [0x3A], ac
     xor  [0x25], ac
     xor  [0x21], ac
     and  [0x23], ac
@@ -892,7 +900,7 @@ fill_7:
     ld   [0x15], x
     ld   [0x10], y
     ld   ac, [y,x]
-zo_61:
+zo_62:
     ; next column: its W is this column's buffer, buffers A / B alternate
     ld   [0x18], ac
     ld   ac, [0x17]
@@ -936,6 +944,13 @@ dly3:
     ld   0x00, ac
     ld   ac, [0x2F]
 dly2:
+    ld   ret_63, ac
+    ld   ac, [0x31]
+    ld   ret_63 >> 8, ac
+    ld   ac, [0x32]
+    ld   hk_poll >> 8, y
+    jmp  hk_poll
+ret_63:
     clr  ac
 dly1:
     nop
@@ -949,5 +964,150 @@ dly1:
     dec
     ld   ac, [0x30]
     bne  dly3
+    ; done: the menu goes on to the next program now (when rotating)
+    ld   ret_64, ac
+    ld   ac, [0x31]
+    ld   ret_64 >> 8, ac
+    ld   ac, [0x32]
+    ld   hk_done >> 8, y
+    jmp  hk_done
+ret_64:
     ld   restart >> 8, y
     jmp  restart
+    ld   fill_8 >> 8, y
+    jmp  fill_8
+#addr 0x0900
+fill_8:
+hk_poll:
+    ld 0x5D, y
+    ld 0x00, x
+    ld [y,x], ac
+    xor 0x4D, ac
+    bne hkp_ret
+    ld 0x01, x
+    ld [y,x], ac
+    xor 0x4E, ac
+    bne hkp_ret
+    ld 0x02, x
+    ld [y,x], ac
+    xor 0x55, ac
+    bne hkp_ret
+    ld 0x50, y    ; line read (V9:V2)
+    ld [y,x], ac
+    ld 0x5D, y
+    ld 0x0A, x
+    ld ac, [y,x]
+    ld 0x06, x
+    sub [y,x], ac    ; cur - last - 96 >= 0: a new frame
+    sub 96, ac
+    ld 0x0A, x
+    blt hkp_same
+    ld [y,x], ac
+    ld 0x06, x
+    ld ac, [y,x]
+    ld 0x52, y    ; Esc: key column 0, row 0
+    ld 0x00, x
+    ld 0x0F, [y,x]
+    nop
+    nop
+    nop
+    nop
+    ld [y,x], ac
+    ld 0xFB, [y,x]
+    and 1, ac
+    beq hkp_esc
+    ld 0x5D, y
+    ld 0x03, x
+    ld [y,x], ac
+    bne hkp_ret    ; picked from the menu: no time limit
+    ld 0x04, x
+    ld [y,x], ac
+    dec
+    ld ac, [y,x]
+    bcc hkp_ret    ; no borrow
+    ld 0x05, x
+    ld [y,x], ac
+    dec
+    ld ac, [y,x]
+    blt hkp_next    ; below 0: time up
+    bra hkp_ret
+hkp_same:
+    ld [y,x], ac
+    ld 0x06, x
+    ld ac, [y,x]
+hkp_ret:
+    ld [0x32], y
+    jmp [0x31]
+hkp_esc:
+    ld 1, ac
+    bra hkp_go
+hkp_next:
+    ld 2, ac
+hkp_go:
+    ld 0x5D, y
+    ld 0x09, x
+    ld ac, [y,x]
+    jmp 0x20    ; the menu's exit code (RAM x5D20)
+hk_done:
+    ld 0x5D, y
+    ld 0x00, x
+    ld [y,x], ac
+    xor 0x4D, ac
+    bne hkd_ret
+    ld 0x01, x
+    ld [y,x], ac
+    xor 0x4E, ac
+    bne hkd_ret
+    ld 0x02, x
+    ld [y,x], ac
+    xor 0x55, ac
+    bne hkd_ret
+    ld 0x03, x
+    ld [y,x], ac
+    beq hkd_next    ; rotating: next program
+hkd_ret:
+    ld [0x32], y
+    jmp [0x31]
+hkd_next:
+    ld 2, ac
+    ld 0x09, x
+    ld ac, [y,x]
+    jmp 0x20    ; the menu's exit code (RAM x5D20)
+hk_hold:
+    ld 0x5D, y
+    ld 0x00, x
+    ld [y,x], ac
+    xor 0x4D, ac
+    bne hkd_ret
+    ld 0x01, x
+    ld [y,x], ac
+    xor 0x4E, ac
+    bne hkd_ret
+    ld 0x02, x
+    ld [y,x], ac
+    xor 0x55, ac
+    bne hkd_ret
+    ld 0x03, x
+    ld [y,x], ac
+    bne hkd_ret    ; picked from the menu: no time limit
+    ld 0x04, x    ; MB_LEFT - MB_HOLD < 0: leaves sooner anyway
+    ld [y,x], ac
+    ld 0x0B, x
+    sub [y,x], ac
+    ld 0x05, x
+    ld [y,x], ac
+    bcc hkd_nb
+    sub 1, ac
+hkd_nb:
+    ld 0x0C, x
+    sub [y,x], ac
+    blt hkd_ret
+    ld 0x0B, x    ; MB_LEFT = MB_HOLD
+    ld [y,x], ac
+    ld 0x04, x
+    ld ac, [y,x]
+    ld 0x0C, x
+    ld [y,x], ac
+    ld 0x05, x
+    ld ac, [y,x]
+    bra hkd_ret

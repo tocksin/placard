@@ -152,6 +152,9 @@ TBL2       = 0x9700     ;   this file)
 ; ===========================================================================
 #addr 0x6000
 main:
+    ld   td_main >> 8, y        ; (the menu ROM puts its own jump at x6000
+    jmp  td_main                ; and starts the demo at td_main)
+td_main:
     ld   STACK_TOP, ac          ; stack first
     ld   ac, [SP]
     ld   0x50, y                ; map 07: sections 0-2 read RAM, so the RAM
@@ -504,6 +507,13 @@ td_l1:
     ld   [FRAME_LO], ac
     ld   ac, [last_frame]
 
+    ld   LINK_LO, x             ; CALL menu_poll: back to the program menu
+    ld   td_l0, [x]             ; on Esc or when the time is up (only in the
+    ld   LINK_HI, x             ; menu ROM, docs/MENU.md)
+    ld   td_l0 >> 8, [x]
+    ld   menu_poll >> 8, y
+    jmp  menu_poll
+td_l0:
     ld   LINK_LO, x             ; CALL td_ram_page: test one page
     ld   td_l2, [x]
     ld   LINK_HI, x

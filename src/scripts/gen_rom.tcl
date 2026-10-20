@@ -40,15 +40,17 @@
 #     python3 placard_sim.py test_video.asm
 # (the web version offers the same "hexstr" / "binary" output formats).
 # Accepted formats: raw binary (*.bin), a hex string "10620020...", or
-# comma separated 0x10, 0x62, ... values.  If the file is missing the image is
-# generated without a program.  Set ::ASM_FILE to "" to skip it on purpose.
+# comma separated 0x10, 0x62, ... values.  A file of exactly 65536 bytes is a
+# whole ROM image (the menu ROM, menu.hex from gen_menu_rom.py) and is used
+# as it is.  If the file is missing the image is generated without a program.
+# Set ::ASM_FILE to "" to skip it on purpose.
 # rom_boot.hex and rom_lib.hex are read from this script's folder (remake them
 # from rom_boot.asm and rom_lib.asm after changing either, or the library).
 #
 # The image is written to ../hdl/rom.mem (relative to this script).  Set
 # ::ROM_OUT before sourcing to write to a different path instead.
 #
-# Date: 10/19/2026
+# Date: 10/20/2026
 
 set ROM_SIZE        65536
 set ROM_IMAGE_BASE  [expr {0x6000}] ;# RAM image: ROM address of RAM x0000
@@ -168,6 +170,27 @@ proc gen_rom {outFile} {
     }
     set n [llength $bytes]
 
+    # a whole ROM image (menu.hex from gen_menu_rom.py): used as it is; its
+    # boot loader and library should be the ones next to this script
+    if {$n == $::ROM_SIZE} {
+        set diff 0
+        for {set a 0} {$a < $n} {incr a} {
+            if {([lib_area $a] || $a >= $::BOOT_MODE) && [lindex $bytes $a] != $rom($a)} {
+                incr diff
+            }
+            set rom($a) [lindex $bytes $a]
+        }
+        if {$diff} {
+            puts "gen_rom: WARNING: $diff library or boot bytes in $::ASM_FILE differ from\
+                  rom_lib.hex / rom_boot.hex (rebuild it after changing the library)"
+        }
+        puts "gen_rom: whole ROM image from $::ASM_FILE"
+        set n 0
+        set skipProgram 1
+    } else {
+        set skipProgram 0
+    }
+
     # a RAM image has bytes in x0000-x1FFF or x4000-x5FFF other than the
     # library's own
     set ramImage 0
@@ -182,7 +205,8 @@ proc gen_rom {outFile} {
         }
     }
 
-    if {!$ramImage} {
+    if {$skipProgram} {
+    } elseif {!$ramImage} {
         set progBytes 0
         for {set a 0} {$a < $n} {incr a} {
             set b [lindex $bytes $a]
