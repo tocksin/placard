@@ -6,7 +6,7 @@ A clock-by-clock model of the video PLDs (Sync rev 08, H counter rev 07,
 V counter rev 03, audio slot rev 04, colour decoder rev 07), the pixel
 buffer and line code register, the address muxes and memory control as
 they are wired in the early build steps, and the CPU's "FF free run"
-(State rev 13, Branch rev 13, PC counters rev 02) with no memory on the
+(State rev 14, Branch rev 14, PC counters rev 02) with no memory on the
 data bus.  Every equation is the PLD source's, written out per clock.
 
 It runs one frame to settle, then measures one whole frame (800 x 525 =
@@ -305,47 +305,44 @@ def run_mux():
 
 def run_free_run(step):
     """steps 10-12: the CPU with nothing driving the data bus, so every byte
-    it reads is FF (the 10k pull-ups): BRA with source 11 (AC), through
-    LOAD_MEM.  The source bus is FF too (no source F541s), so EXEC loads
-    PC low = FF."""
+    it reads is FF (the pull-ups).  The opcode byte is stored XOR FDh
+    (2026-10-20), so FF is ld ac, ac: FETCH then EXEC, no LOAD clock, no
+    branch.  The PC goes up by one every instruction and sweeps all 64K.
+    EXEC loads AC with PASS B of the source bus, which is FF too while
+    the source F541s are out."""
     vid = Video(blank_rd=True, lc_from_bus=True, bus=0xFF)
     m = Meter()
     q0 = q1 = 0
     x_en = y_en = 0
     alu_done = 0
     pc = 0
-    ir = 0xFF
-    for clk in range(3 * FRAME):
+    frames = 30 if step == 12 else 1   # PC high's slow bits need a long window
+    for clk in range((2 + frames) * FRAME):
         c = vid.comb()
         pe = vid.pe
-        # Branch PLD (IR = FF: branch, BRA, never ADD/SUB)
+        # Branch PLD (IR = ld ac, ac: not a branch, not ADD/SUB)
         pc_enable = 1 - q1
         exec_ = q0 & (1 - pc_enable)
         stall = pe                      # ADDSUB_REG = 0
-        branch_a = exec_ & (1 - pe)
-        load_pc_low = branch_a          # BRA
         src_en = exec_ & (1 - pe)
         s_fetch = (1 - q1) & (1 - q0)
-        s_lmem = q1 & (1 - q0)
-        s_limm = (1 - q1) & q0
+        s_exec = q1 & q0
         load_instr = s_fetch & (1 - stall)
-        load_imm = (s_limm | s_lmem) & (1 - stall)
+        load_ac = s_exec & (1 - stall)  # dest AC, BRANCH_BLOCK = 0
         lo, hi = pc & 0xFF, pc >> 8
         co = int(lo == 0xFF)
         if clk >= 2 * FRAME:
             if step == 10:
                 m.add('State Q0 (pin 18)', q0)
                 m.add('State PC_ENABLE (pin 15)', pc_enable)
-                m.add('State X_ENABLE (pin 16)', x_en)
-                m.add('State Y_ENABLE (pin 17)', y_en)
+                m.add('State X_ENABLE, Y_ENABLE (pins 16, 17)', x_en)
                 m.add('State /LOAD_INSTR (pin 14)', 1 - load_instr)
-                m.add('State /LOAD_IMM (pin 19)', 1 - load_imm)
-                m.add('State /LOAD_X, /LOAD_Y, /LOAD_AC (pins 20-22)', 1)
+                m.add('State /LOAD_IMM, /LOAD_X, /LOAD_Y (pins 19-21)', 1)
+                m.add('State /LOAD_AC (pin 22)', 1 - load_ac)
                 m.add('State R/W (pin 23)', 1)
                 m.add('Branch STALL (pin 19)', stall)
-                m.add('Branch LOAD_PC_LOW (pin 21)', load_pc_low)
-                m.add('Branch LOAD_PC_HIGH (pin 22)', 0)
-                m.add('Branch BRANCH_BLOCK (pin 23)', 1)
+                m.add('Branch LOAD_PC_LOW, LOAD_PC_HIGH (pins 21, 22)', 0)
+                m.add('Branch BRANCH_BLOCK (pin 23)', 0)
                 m.add('Branch /SRC_EN (pin 16)', 1 - src_en)
                 m.add('Branch ALU_DONE (pin 18)', alu_done)
                 m.add('Audio /AC_SEL (pin 21)', 0)          # I1 = 1
@@ -363,28 +360,19 @@ def run_free_run(step):
         if stall:
             n_q0, n_q1 = q0, q1
             n_x, n_y = x_en, y_en
-        else:
-            if s_fetch:               # data bus FF: source 11, mem 111 -> LOAD_MEM
-                n_q1, n_q0 = 1, 0
-                n_x, n_y = 1, 1       # mem 111 = [Y,X]
-            elif s_lmem:
-                n_q1, n_q0 = 1, 1
-                n_x, n_y = x_en, y_en
-            elif s_limm:
-                n_q1, n_q0 = 1, 1
-                n_x, n_y = x_en, y_en
-            else:                     # EXEC -> FETCH
-                n_q1, n_q0 = 0, 0
-                n_x, n_y = x_en, y_en
-        if load_pc_low:
-            n_pc = (pc & 0xFF00) | 0xFF
-        elif pc_enable and not stall:
+        elif s_fetch:                 # data bus FF = ld ac, ac: source AC, mem 000 -> EXEC
+            n_q1, n_q0 = 1, 1
+            n_x, n_y = 0, 0           # mem 000 = [0,D]
+        else:                         # EXEC -> FETCH
+            n_q1, n_q0 = 0, 0
+            n_x, n_y = x_en, y_en
+        if pc_enable and not stall:
             n_pc = (pc + 1) & 0xFFFF
         else:
             n_pc = pc
         q0, q1, x_en, y_en, pc = n_q0, n_q1, n_x, n_y, n_pc
         vid.clock(c)
-    return m.rows()
+    return m.rows(frames * FRAME)
 
 
 def main(argv):

@@ -11,7 +11,7 @@
 ;   9 AC/X  10 Y address  11 X address  12 ROM data  13 RAM data
 ;   14 map register  15 RAM address lines  16 video line read
 ;
-; Date: 10/19/2026
+; Date: 10/20/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -4694,6 +4694,8 @@ ret_502:
 ret_503:
     ld   [FRAME_LO], ac
     ld   ac, [0x40]
+    ld   frame_loop >> 8, y
+    jmp  frame_loop
 
 ; frame loop
 #addr 0x9000
