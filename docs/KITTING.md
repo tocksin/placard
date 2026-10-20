@@ -124,6 +124,15 @@ manual needs a table of chip, image and socket, and a "verify" step), and
 a support question about a mixed-up chip is likely.  The board cannot
 program its own PLDs, since it needs all of them to run.
 
+Cheap programmers for Plan E (prices are rough retail, lower in bulk):
+
+| Programmer | Price | ATF22V10C | AT28C256 | Notes |
+|---|---|---|---|---|
+| XGecu TL866II Plus | $35-50 | Listed, test first | Yes | Most common hobby programmer; Windows app, or open-source `minipro` on Linux/Mac |
+| XGecu T48 | $60-90 | Listed, test first | Yes | TL866II successor, same software |
+| Afterburner (open source, Arduino Uno + small shield with a VPP boost converter) | $15-25 in parts | Yes, written for ATF16V8/22V10 | No | PLDs only |
+| A Placard programmer: Arduino Nano, ZIF-24 and ZIF-28 sockets, 2x 74HC595 for the address, VPP boost (Afterburner plus a Ben Eater style EEPROM writer) | $15-25 in parts | Yes | Yes | One more PCB to design; could ship as part of the kit |
+
 For Plan A, B and E the XGecu T48 programmer (about $90) programs the
 AT28C256, and its GAL22V10 support should cover the ATF22V10C; confirm
 with a test chip before buying 400 of them.  Programming, verifying and
