@@ -109,7 +109,22 @@ about 40 chips plus passives, more if they also source the parts.
 | C. Digi-Key programs and prepacks the chips | Digi-Key | Digi-Key (chips), kitter (PCB, passives, case) | Crowd Supply | +$1,000-4,000 setup | None |
 | D. Digi-Key programs, kitter does all packing | Digi-Key, shipped to the kitter | Contract kitter | Crowd Supply | Setup + kitting | None |
 
-For Plan A and B the XGecu T48 programmer (about $90) programs the
+| E. Builders program their own chips | The builder (T48 in the kit, or an add-on) | Digi-Key prepack or kitter, all stock parts | Crowd Supply | Parts only | None |
+
+**Plan E, the builder programs.**  The kit ships blank chips plus a
+programmer (or the programmer as an optional add-on, since many
+retro-computer builders already own a T48 or TL866II).  The JEDEC files
+and ROM binaries come from the repository, so a PLD fix reaches existing
+owners without new chips, and a builder can reflash the cartridge with
+new software.  Every part is then plain stock, so any kitter or a
+Digi-Key prepack can bag it with no programming setup at all.  The costs:
+the kit price goes up by the programmer (about $60 to $90), the builder
+must put the right image into each of 21 chips and label them (the
+manual needs a table of chip, image and socket, and a "verify" step), and
+a support question about a mixed-up chip is likely.  The board cannot
+program its own PLDs, since it needs all of them to run.
+
+For Plan A, B and E the XGecu T48 programmer (about $90) programs the
 AT28C256, and its GAL22V10 support should cover the ATF22V10C; confirm
 with a test chip before buying 400 of them.  Programming, verifying and
 labeling 21 chips takes about 10 to 15 minutes a kit.
@@ -127,7 +142,10 @@ labeling 21 chips takes about 10 to 15 minutes a kit.
    programmed, labeled and prepacked one bag per kit, shipped to the
    kitter.  This is the closest to one place doing everything; the
    setup fee spreads thin at this volume.
-3. Either way, before asking for quotes: finish the passive and connector
+3. **Plan E fits alongside either.**  Sell a blank-chip kit, with the
+   programmer as an add-on, for builders who want to program (and later
+   update) their own chips, next to the pre-programmed kit.
+4. Either way, before asking for quotes: finish the passive and connector
    BOM from the KiCad project, pick the oscillator and regulator, and
    write a one-page chip label list (part, image, revision, socket).
 
