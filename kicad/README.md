@@ -81,7 +81,10 @@ review sheets (needs kicad-cli, cairosvg and Pillow).
 `src/scripts/gen_kicad_schematic.py` writes all the `.kicad_sch` files
 (main board and cartridge) from its pin-by-pin net lists, so change a
 connection there and rerun it; a hand edit in KiCad is lost at the next
-run.  `--check` compares KiCad's exported netlist with the script's nets and
+run.  Nets with two or more pins on a sheet are wired by the small router in
+`src/scripts/kicad_route.py`, and numbered groups (`D0`-`D7`, ...) are drawn
+as one bus per sheet (docs/SCHEMATIC_PLAN.md, "How the sheets are drawn").
+`--check` compares KiCad's exported netlist with the script's nets and
 runs basic electrical checks; the full ERC needs KiCad 8 or newer (open the
 project, Inspect > Electrical Rules Checker).  PDFs of both are in
 [`../schematics/`](../schematics/).
