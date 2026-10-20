@@ -6,6 +6,17 @@ KiCad: exported PDFs of the real schematic, and the reference PNGs below.
 The real schematic and the PCB layout are the KiCad project in
 [`../kicad/`](../kicad/).
 
+## Schematic PDFs
+
+| File | What it is |
+|------|------------|
+| `placard_main.pdf` | the main board, 11 sheets (root and ten), exported from `kicad/placard.kicad_sch` |
+| `placard_cartridge.pdf` | the ROM cartridge, one sheet, from `kicad/cartridge/cartridge.kicad_sch` |
+
+Re-export after rerunning `src/scripts/gen_kicad_schematic.py`:
+`kicad-cli sch export pdf -o schematics/placard_main.pdf kicad/placard.kicad_sch`
+(and the same for the cartridge).
+
 ## Reference drawings
 
 These PNGs are sketches drawn by Python scripts, not the real schematic.  They
