@@ -73,6 +73,7 @@ set tbFiles {
     tb_video.vhd
     tb_alu.vhd
     tb_counters.vhd
+    tb_cart_load.vhd
 }
 set tbs {}
 foreach f $tbFiles {

@@ -17,7 +17,7 @@ The pins are placed by LAYOUT below, not by pin number: inputs on the left
 and outputs on the right, buses together and in bit order, and the pins of
 each function in their own group.  Where one PLD does two unrelated jobs
 (the audio PLD's /AC_SEL, the port PLD's pad read, the memory control's
-MAP_RUN) a dashed line across the box separates them.  Pins a PLD does not
+RUN) a dashed line across the box separates them.  Pins a PLD does not
 use are "nc" (no-connect type).  A .pld without a LAYOUT entry gets its
 inputs on the left and outputs on the right in declaration order.
 
@@ -45,7 +45,7 @@ PART = "ATF22V10C-7PX"
 # PLDs with enough timing margin for the slower -10 grade (CHIPS.md, "PLD speed grades")
 PART_10 = "ATF22V10C-10PU"
 SLOW_OK = {"ATF22V10_PC_COUNTER8", "ATF22V10_HCOUNT", "ATF22V10_VCOUNT",
-           "ATF22V10_COLORDECODER"}    # the audio PLD is -7 since rev 04 (/AC_SEL)
+           "ATF22V10_COLORDECODER", "ATF22V10_CART"}    # the audio PLD is -7 since rev 04 (/AC_SEL)
 FOOTPRINT = "Package_DIP:DIP-24_W7.62mm"
 DATASHEET = "https://ww1.microchip.com/downloads/en/DeviceDoc/doc0735.pdf"
 G = 2.54                       # pin pitch and pin length (100 mil)
@@ -99,7 +99,12 @@ LAYOUT = {
           None, "RW", "PIXEL_ENABLE", "SRC_EN"],
          ["WE", "RAM_OE", "ROM_OE"]),
         SEP,
-        (["CLK"], ["MAP_RUN"]),
+        (["CLK", "RUN"], []),
+    ],
+    "ATF22V10_CART": [
+        (["OSC", None, "A15", "PIXEL_ENABLE", "SRC_EN"],
+         ["RELEASE", "RUN", None, "EE_OE", "SR_WE", "BUF_OE"]),
+        (["nc"], []),
     ],
     "ATF22V10_PC_COUNTER8": [
         (["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", None,

@@ -1,6 +1,6 @@
 # Bring-up: build order and a test for each chip
 
-Date: 2026-10-19
+Date: 2026-10-20
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
@@ -38,17 +38,27 @@ with its chip number.
 
 **Load the bring-up ROM.**  `python3 test_bringup_sim.py --bin` in
 `src/scripts` writes `bringup_lo.bin` (ROM x0000-x7FFF, for #33) and
-`bringup_hi.bin` (x8000-xFFFF, for #34).
+`bringup_hi.bin` (x8000-xFFFF, for #34; since 2026-10-20 these are
+the cartridge's two AT28C256 EEPROMs, lower and upper).
 It is a complete image with its own reset code, so it replaces the normal
 ROM (boot loader and library) until the board works; then load the normal
-image (`gen_rom.tcl`, [ROM.md](ROM.md)).  The ROM part isn't chosen yet
-([CPU.md](CPU.md), "Memory parts"), so load the files the way the chosen
-part (or the interim battery-backed SRAM) is written.
+image (`gen_rom.tcl`, [ROM.md](ROM.md)).  Program the EEPROMs in an
+external programmer; the cartridge copies them into its SRAMs at
+power-up ([ROM.md](ROM.md#loading-the-cartridge)).
+
+**Without the cartridge.**  The main board's HOLD pull-up stops its clock
+until a cartridge lets it go, and RUN's pull-down keeps the ROM off.  For
+the steps before the cartridge is built, fit two jumpers: HOLD to GND
+(the clock runs freely) and RUN to +5 V (the board reads the ROM).  Then
+nothing loads the ROM SRAMs, so those steps only check what they can
+without a ROM image (or with SRAMs loaded some other way).  Remove both
+jumpers when the cartridge goes in.
 
 **Reset.**  There is no reset button.  At power-up the ATF22V10C registers
-start at 0, so the CPU starts in FETCH at x0000, and the memory control
-PLD's MAP_RUN clears the map register (all ROM).  To restart, switch the
-power off and on.
+start at 0, so the CPU starts in FETCH at x0000.  The cartridge holds the
+clock while it loads its SRAMs (about 33 ms, the monitor shows no sync),
+and RUN holds the map register clear (all ROM) until it hands off.  To
+restart, switch the power off and on.
 
 **Floating inputs.**  An ATF22V10C holds an input that nothing drives at
 its last level (a weak pin keeper), and an F-series input that floats reads
@@ -244,7 +254,7 @@ The screen stays white.
 | Mem ctrl /RAM_OE (pin 18) | 2.365 MHz | 95.3 % | 4.77 V |
 | Mem ctrl /ROM_OE (pin 19) | 22.81 MHz (most meters can't count it) | 54.7 % | 2.73 V |
 | Mem ctrl /WE (pin 16) | 0 | | 5 V |
-| Mem ctrl MAP_RUN (pin 17) | 0 | | 5 V |
+| Mem ctrl RUN (pin 17, input from the cartridge or the jumper) | 0 | | 5 V |
 | I/O decode /CE_HI (pin 15) | 1.841 MHz | 92.7 % | 4.63 V |
 | I/O decode /MAP_WR, /LINE_RD, /PORT_WR, /PORT_RD, /EXP1, /EXP2 (pins 16, 17, 19-22) | 0 | | 5 V |
 | Map register Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 0 V (map 00, all ROM) |
@@ -370,7 +380,7 @@ the RAM and the map register:
 | 11 | X as the address low byte | the low address muxes (#7, #8), X_ENABLE |
 | 12 | ROM data (a 256-byte table) | the ROM chips' data and low address pins, /ROM_OE |
 | 13 | RAM data: [0,D], [0,X], [Y,X] in both chips | RAM data pins, /WE, /RAM_OE, the source buffers on a store, the series resistors, map bits 0 and 4 |
-| 14 | Map register, all 8 bits | ACT273 (#25), /MAP_WR, MAP_RUN, memory control RAMSEL pins |
+| 14 | Map register, all 8 bits | ACT273 (#25), /MAP_WR, RUN, memory control RAMSEL pins |
 | 15 | RAM address lines, both chips | RAM A14:A0, the lower chip's /CE (A15) and /CE_HI |
 | 16 | Video line read (x5000) | line read buffer (#29), /LINE_RD |
 

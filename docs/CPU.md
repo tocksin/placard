@@ -77,12 +77,13 @@ the display shows the RAM.  See the [memory map](../README.md#memory-map).
   mux's A15 and the upper chip's /CE is /CE_HI from the I/O decode PLD.
   Both chips' /OE is /RAM_OE and their /WE is /WE, both from the memory
   control PLD (see [TIMING_FIXES.md](TIMING_FIXES.md)).
-- ROM: not chosen yet.  The interim solution is the same AS7C256C-15PCN
-  (2 chips) with battery backup.  The AS7C256C keeps its data down to
-  VCC = 2.0 V as long as /CE is held at or above VCC − 0.2 V, so the battery
-  switch must hold /CE high while power is off.  The two ROM chips take
-  their /CE the same way as the RAM (A15 and /CE_HI, through the battery
-  switch) and their /OE from /ROM_OE (memory control PLD).
+- ROM: 2 × AS7C256C-15PCN on the ROM cartridge, with their /CE the same
+  way as the RAM (A15 and /CE_HI) and their /OE from /ROM_OE (memory
+  control PLD).  They lose their contents at power-off, so at power-up the
+  cartridge holds the main board's clock and copies two AT28C256-15PU
+  EEPROMs into them, with the CPU's PC as the address counter (2026-10-20,
+  [ROM.md](ROM.md#loading-the-cartridge)).  The battery-backed SRAM used
+  until then drained a coin cell in about two weeks.
 
 See [TIMING.md](TIMING.md) for the timing analysis with these parts.
 
