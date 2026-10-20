@@ -37,7 +37,7 @@ THE RAY CASTER (one ray per column, DDA on a 16 x 16 map)
     4 * angle + COLANG[c], COLANG = atan(0.66 * camera x) (66 degree field
     of view).  For each ray:
       - DDX, DDY = |1 / cos|, |1 / sin| of the ray angle, 8.8, from 1 KB
-        tables (clamped to x3FFF); the steps (+-1 cell) from the quadrant
+        tables in the RAM (clamped to x3FFF); the steps (+-1 cell) from the quadrant
       - the first crossing distances side = f * dd / 256, f = the distance
         to the next cell edge in 1/256 cell (255 - frac or frac), with two
         8 x 8 quarter-square multiplies (a * b = Q(a + b) - Q(|a - b|),
@@ -45,7 +45,7 @@ THE RAY CASTER (one ray per column, DDA on a 16 x 16 map)
       - DDA: step along x when sideX < sideY, else along y, adding dd with
         the carry flag, until the map cell is a wall
       - distance = side - dd of the axis that hit (the distance along the
-        ray), half height hr = 60.6 / distance from a 6 KB table
+        ray), half height hr = 60.6 / distance from a 6 KB RAM table
         (distance high byte 0-23 picks the page, low byte the entry), then
         the fish-eye correction h = hr + hr * KC[c] / 256 (KC = 1 / cos of
         the column's angle offset, minus 1), at most 56
@@ -55,6 +55,22 @@ THE RAY CASTER (one ray per column, DDA on a 16 x 16 map)
     About 2,000 clocks a column with the drawing, so a whole view takes
     about 1.7 frames: around 30 views a second (the HUD shows the rate).
 
+MEMORY
+    ROM pages x61, x65, x69, x77-x7F, x84-x8F and xB1-xBE (the ones the text
+    demo leaves free, so both run in place from the menu ROM, docs/MENU.md);
+    x6000 holds only the jump to main.  At start the program sets map 07
+    and builds two tables in the RAM: the |1 / cos|, |1 / sin| tables at
+    x3800-x41FF from a quarter of a turn in ROM (GL, GH; by symmetry, 5
+    pages of lows H G H G H with |1 / sin| a page before |1 / cos|, and the
+    highs the same), and the 6 KB height table at x2000-x37FF from its run
+    lengths (HCL, HCH: how many entries hold each value; the table never
+    goes up).  About 0.3 M clocks.  Variables in the zero page x20-x67.
+
+PROGRAM MENU
+    Once a view the program calls menu_poll (placard_menu.asm), which goes
+    back to the menu ROM's menu on Esc, or after the time limit while the
+    menu rotates through its programs.  Run by itself it just returns.
+
 CONTROLS
     Arrow keys or SNES pad 1: Up / Down walk, Left / Right turn.  With no
     input for 10 s the demo walk (a fixed script) takes over again; it
@@ -63,7 +79,7 @@ CONTROLS
     (2.8 degrees) a tick.  Walls are kept 1/4 cell away; each axis is
     tried on its own, so the player slides along walls.
 
-Date: 10/19/2026
+Date: 10/20/2026
 """
 
 import argparse
@@ -91,18 +107,33 @@ SPEED = 14              # 1/256 cell a tick
 TURN = 2                # angle steps a tick
 IDLE_TICKS = 600        # back to the demo walk after this many idle ticks
 
-# table pages (ROM, program area x6000-xBFFF)
-DDXL, DDXH, DDYL, DDYH = 0x8000, 0x8400, 0x8800, 0x8C00
-HT = 0x9000                       # 24 pages
-QL0, QL1, QH0, QH1 = 0xA800, 0xA900, 0xAA00, 0xAB00
-MAP = 0xAC00
-COLTAB = 0xAD00
-PAR = 0xAE00
-COLT = 0xAF00                     # CA_LO +0, CA_HI +x50, KC +xA0
-E_CE, E_FE, E_WE, E_WP, E_WS = 0xB000, 0xB100, 0xB200, 0xB300, 0xB400
-MVX, MVY = 0xB500, 0xB600
-MISC = 0xB700                     # FPS digit tables, script, strings
-CEIL, FLOOR, WALL = 0xB800, 0xB900, 0xBA00   # store runs (WALL: 2 pages)
+# The program only uses ROM pages that text_demo.asm leaves free (x61, x65,
+# x69, x77-x7F, x84-x8F, xB1-xBE), so both fit in the menu ROM (docs/MENU.md)
+# and run in place.  x6000 holds only a jump to main (the boot's entry).
+
+# tables built in the RAM at start (map 07: sections 1 and 2 read RAM)
+HT = 0x2000                       # 24 pages, x2000-x37FF
+DDYL, DDXL = 0x3800, 0x3900       # 5 low-byte pages x3800-x3CFF: H G H G H
+DDYH, DDXH = 0x3D00, 0x3E00       # 5 high-byte pages x3D00-x41FF
+MAP_RUN = 0x07                    # map: sections 0-2 read RAM, 3-7 ROM
+
+# code pages (ROM)
+P_MAIN, P_VIEW, P_HIT = 0x6100, 0x6500, 0x6900
+P_TICKS, P_COLTOP, P_DDA, P_DONE = 0x7700, 0x7900, 0x7B00, 0x7F00   # 2, 2, 4, 1 pages
+P_TEXT, P_BUILD = 0x8400, 0x8500
+
+# table pages (ROM)
+QL0, QL1, QH0, QH1 = 0x8600, 0x8700, 0x8800, 0x8900
+MAP = 0x8A00
+COLTAB = 0x8B00
+PAR = 0x8C00
+COLT = 0x8D00                     # CA_LO +0, CA_HI +x50, KC +xA0
+MVX, MVY = 0x8E00, 0x8F00
+E_CE, E_FE, E_WE, E_WP, E_WS = 0xB100, 0xB200, 0xB300, 0xB400, 0xB500
+MISC = 0xB600                     # FPS digit tables, script, strings
+CEIL, FLOOR, WALL = 0xB700, 0xB800, 0xB900   # store runs (WALL: 2 pages)
+GL, GH = 0xBB00, 0xBC00           # |1 / cos| for angles 0-255 (the DD source)
+HCL, HCH = 0xBD00, 0xBE00         # HT run lengths by value (the HT source)
 
 MAP_ROWS = [
     "AAAAAAAAAAAAAAAA",
@@ -167,15 +198,23 @@ def tables():
         kc.append(int(round(256 * (1 / math.cos(off) - 1))))
     t['colang'] = colang
     t['kc'] = kc
-    ddx, ddy = [], []
-    for a in range(1024):
-        th = a * 2 * math.pi / 1024
-        for lst, v in ((ddx, math.cos(th)), (ddy, math.sin(th))):
-            lst.append(DD_MAX if abs(v) < 1e-9 else min(DD_MAX, int(round(256 / abs(v)))))
-    t['ddx'], t['ddy'] = ddx, ddy
+    # |1 / cos| for the first quarter (0-255; 256 is DD_MAX); the program
+    # builds the 1 KB tables from it by symmetry: quadrants 0 and 2 are G,
+    # 1 and 3 are H (H[l] = G[256 - l], H[0] = DD_MAX), and |1 / sin| is
+    # |1 / cos| a quadrant earlier
+    g = [min(DD_MAX, int(round(256 / math.cos(i * 2 * math.pi / 1024)))) for i in range(256)]
+    hq = [DD_MAX] + [g[256 - l] for l in range(1, 256)]
+    t['g'], t['h'] = g, hq
+    ddx = [(g if (a >> 8) % 2 == 0 else hq)[a & 255] for a in range(1024)]
+    t['ddx'] = ddx
+    t['ddy'] = [ddx[(a - 256) & 1023] for a in range(1024)]
     k = 256 * NCOL * 8 / (2 * FOV_TAN) / 4 / 2     # half height in cells * 256 at 1 cell
     t['k'] = k
     t['ht'] = [min(255, int(round(k / max(d, 1)))) for d in range(HT_PAGES * 256)]
+    # the program builds HT from its run lengths: HT_COUNT[v] entries of
+    # value v, for v = 255 down to 0 (HT never goes up)
+    assert all(x >= y for x, y in zip(t['ht'], t['ht'][1:]))
+    t['ht_count'] = [t['ht'].count(v) for v in range(256)]
     t['q'] = [n * n // 4 for n in range(512)]
     m = []
     for row in MAP_ROWS:
@@ -588,16 +627,26 @@ def gen():
                     ('HT', HT), ('QL0', QL0), ('QL1', QL1), ('QH0', QH0), ('QH1', QH1),
                     ('MAP', MAP), ('COLTAB', COLTAB), ('PAR', PAR), ('COLT', COLT),
                     ('E_CE', E_CE), ('E_FE', E_FE), ('E_WE', E_WE), ('E_WP', E_WP),
-                    ('E_WS', E_WS), ('MVX', MVX), ('MVY', MVY), ('MISC', MISC)):
+                    ('E_WS', E_WS), ('MVX', MVX), ('MVY', MVY), ('MISC', MISC),
+                    ('GL', GL), ('GH', GH), ('HCL', HCL), ('HCH', HCH)):
         a.raw('%-10s = 0x%04X' % (name, v))
     a.raw('RADIUS     = %d' % RADIUS)
 
     # ------------------------------------------------------------- main
-    a.org(0x6000, 'main: set up the screen and the player')
+    a.org(0x6000, 'the boot jumps here: on to main (the menu ROM puts its own jump here)')
+    a.raw('    ld   main >> 8, y')
+    a.raw('    jmp  main')
+    a.org(P_MAIN, 'main: set up the screen and the player')
     a.raw('main:')
     a.g('''
     ld   STACK_TOP, ac          ; stack first
-    ld   ac, [SP]''')
+    ld   ac, [SP]
+    ld   MAP_RUN, ac            ; sections 1 and 2 read RAM (the built tables)
+    ld   ac, [MAP_SHADOW]''')
+    a.raw('MAP_RUN    = 0x%02X' % MAP_RUN)
+    a.call('map_set', 'm_0')
+    a.jump('build')
+    a.raw('built:')
     a.call('port_init', 'm_1')
     a.call('con_clear', 'm_2', '(every row 1 bpp 1x, cursor 0, 0)')
     a.g('''
@@ -658,9 +707,10 @@ m_mb2:
     a.jump('view_loop')
 
     # ------------------------------------------------------------- view loop
-    a.org(0x6200, 'view_loop: input, movement, then the 80 columns')
+    a.org(P_VIEW, 'view_loop: input, movement, then the 80 columns')
     a.raw('view_loop:')
     a.call('frame_poll', 'v_fp')
+    a.call('menu_poll', 'v_mp', '(the program menu: Esc, time up)')
     a.g('''
     ld   [FRAME_LO], ac         ; ticks = frames since the last view
     sub  [last_frame], ac
@@ -765,7 +815,7 @@ v_mode:''')
     a.jump('ticks')
 
     # ------------------------------------------------------------- ticks
-    a.org(0x6400, 'ticks: move the player once per frame since the last view')
+    a.org(P_TICKS, 'ticks: move the player once per frame since the last view')
     a.raw('ticks:')
     a.g('''
     ld   [inp], ac              ; this tick's input: the player's, or the
@@ -935,7 +985,7 @@ t_end:''')
     a.jump('col_top')
 
     # ------------------------------------------------------------- column
-    a.org(0x6600, 'col_top: one ray (common part: angle, steps, first crossings)')
+    a.org(P_COLTOP, 'col_top: one ray (common part: angle, steps, first crossings)')
     a.raw('col_top:')
     a.g('''
     ld   [col], x               ; ray angle = 4 * pa + COLANG[col]
@@ -1029,7 +1079,7 @@ c_y1:
     for q in range(4):
         stx = 1 if q in (0, 3) else 255
         sty = 16 if q in (0, 1) else 240
-        a.org(0x6C00 + q * 0x100, 'DDA, quadrant %d: x step %+d, y step %+d'
+        a.org(P_DDA + q * 0x100, 'DDA, quadrant %d: x step %+d, y step %+d'
               % (q, 1 if stx == 1 else -1, 16 if sty == 16 else -16))
         if q == 0:
             a.raw('dda0:')
@@ -1102,7 +1152,7 @@ d{q}_x2:
     jmp  hit'''.format(q=q, stx=stx, sty=sty))
 
     # ------------------------------------------------------------- hit
-    a.org(0x7000, 'hit: wall height, color and the store run entry points')
+    a.org(P_HIT, 'hit: wall height, color and the store run entry points')
     a.raw('hit:')
     a.g('''
     ld   [dsh], ac              ; hr = HT[distance] (1 when 24 cells or more)
@@ -1195,7 +1245,7 @@ c_more:''')
     a.jump('col_top')
 
     # ------------------------------------------------------------- view done
-    a.org(0x7200, 'view_done: frame rate on the text rows')
+    a.org(P_DONE, 'view_done: frame rate on the text rows')
     a.raw('view_done:')
     a.g('''
     ld   [views_lo], ac         ; views drawn
@@ -1241,13 +1291,117 @@ vd_4:
     a.call('con_puts', 'vd_5')
     a.jump('view_loop')
 
+    # ------------------------------------------------------------- build
+    # The 1 KB |1 / cos|, |1 / sin| tables and the 6 KB height table are
+    # built in the RAM (x2000-x41FF) from 1 KB of ROM, so the program fits
+    # beside the text demo in the menu ROM.
+    a.org(P_BUILD, 'build: the DD and HT tables in the RAM (once, at start)')
+    a.raw('build:')
+    a.g('''
+    clr  ac                     ; DD: G into pages 1 and 3, H into 0, 2, 4
+    ld   ac, [tmp]              ;   (lows at DDYL, highs at DDYH)
+b_dd:
+    ld   [tmp], x
+    ld   GL >> 8, y
+    ld   [y,x], ac
+    ld   (DDYL >> 8) + 1, y
+    ld   ac, [y,x]
+    ld   (DDYL >> 8) + 3, y
+    ld   ac, [y,x]
+    ld   GH >> 8, y
+    ld   [y,x], ac
+    ld   (DDYH >> 8) + 1, y
+    ld   ac, [y,x]
+    ld   (DDYH >> 8) + 3, y
+    ld   ac, [y,x]
+    ld   DD_MAX & 0xFF, ac      ; H[0] = DD_MAX, H[l] = G[256 - l]
+    ld   ac, [mA]
+    ld   DD_MAX >> 8, ac
+    ld   ac, [mB]
+    ld   [tmp], ac
+    beq  b_h
+    xor  255, ac
+    add  1, ac
+    ld   ac, x
+    ld   GL >> 8, y
+    ld   [y,x], ac
+    ld   ac, [mA]
+    ld   GH >> 8, y
+    ld   [y,x], ac
+    ld   ac, [mB]
+    ld   [tmp], x
+b_h:
+    ld   [mA], ac
+    ld   (DDYL >> 8) + 0, y
+    ld   ac, [y,x]
+    ld   (DDYL >> 8) + 2, y
+    ld   ac, [y,x]
+    ld   (DDYL >> 8) + 4, y
+    ld   ac, [y,x]
+    ld   [mB], ac
+    ld   (DDYH >> 8) + 0, y
+    ld   ac, [y,x]
+    ld   (DDYH >> 8) + 2, y
+    ld   ac, [y,x]
+    ld   (DDYH >> 8) + 4, y
+    ld   ac, [y,x]
+    ld   [tmp], ac
+    add  1, ac
+    ld   ac, [tmp]
+    bne  b_dd''')
+    a.raw('DD_MAX     = 0x%04X' % DD_MAX)
+    a.g('''
+    ld   HT >> 8, ac            ; HT: HCH:HCL[v] entries of value v, v = 255
+    ld   ac, [mDL]              ;   down to 0, from x2000 on
+    clr  ac                     ;   (mDL = page, mDH = offset, mB = v,
+    ld   ac, [mDH]              ;   mRH:mRL = entries left)
+    ld   255, ac
+    ld   ac, [mB]
+b_v:
+    ld   [mB], x
+    ld   HCL >> 8, y
+    ld   [y,x], ac
+    ld   ac, [mRL]
+    ld   HCH >> 8, y
+    ld   [y,x], ac
+    ld   ac, [mRH]
+b_n:
+    ld   [mRL], ac
+    or   [mRH], ac
+    beq  b_nx
+    ld   [mDL], y
+    ld   [mDH], x
+    ld   [mB], ac
+    ld   ac, [y,x]
+    ld   [mDH], ac
+    add  1, ac
+    ld   ac, [mDH]
+    bcc  b_c
+    ld   [mDL], ac
+    add  1, ac
+    ld   ac, [mDL]
+b_c:
+    ld   [mRL], ac
+    sub  1, ac
+    ld   ac, [mRL]
+    bcc  b_n
+    ld   [mRH], ac
+    sub  1, ac
+    ld   ac, [mRH]
+    bra  b_n
+b_nx:
+    ld   [mB], ac
+    sub  1, ac
+    ld   ac, [mB]
+    bcc  b_v''')
+    a.jump('built')
+
     # ------------------------------------------------------------- data
     t = T
-    data_page(a, DDXL, [v & 255 for v in t['ddx']], 'DDXL: |1 / cos| low bytes (1024)')
-    data_page(a, DDXH, [v >> 8 for v in t['ddx']], 'DDXH: high bytes')
-    data_page(a, DDYL, [v & 255 for v in t['ddy']], 'DDYL: |1 / sin| low bytes')
-    data_page(a, DDYH, [v >> 8 for v in t['ddy']], 'DDYH: high bytes')
-    data_page(a, HT, t['ht'], 'HT: half height for distance (page = high byte)')
+    data_page(a, GL, [v & 255 for v in t['g']], 'GL: |1 / cos| low bytes, angles 0-255 (build_dd)')
+    data_page(a, GH, [v >> 8 for v in t['g']], 'GH: high bytes')
+    data_page(a, HCL, [v & 255 for v in t['ht_count']], 'HCL: how many HT entries have value v, low bytes (build_ht)')
+    data_page(a, HCH, [v >> 8 for v in t['ht_count']], 'HCH: high bytes')
     data_page(a, QL0, [v & 255 for v in t['q']], 'QL0, QL1: n * n / 4 low bytes, n = 0-511')
     data_page(a, QH0, [v >> 8 for v in t['q']], 'QH0, QH1: high bytes')
     data_page(a, MAP, t['map'], 'MAP: 16 x 16, row * 16 + column, wall type * 32')
@@ -1302,7 +1456,7 @@ vd_4:
     a.raw('MODE_COL   = 67')
 
     # strings that don't fit the MISC page go after the code
-    a.org(0x7400, 'text')
+    a.org(P_TEXT, 'text')
     a.raw('s_title: #d "PLACARD RAY CASTER                        ALL SOFTWARE: NO SPRITE OR 3D HARDWARE", 0x00')
     a.raw('s_rate:  #d "   VIEWS A SECOND    80 X 112 CELLS, 8 BPP, ONE RAY A COLUMN", 0x00')
     a.raw('s_demo:  #d "DEMO WALK   ", 0x00')

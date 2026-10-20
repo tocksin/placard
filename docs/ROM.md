@@ -6,7 +6,7 @@ pattern) and `src/hdl/rom.mem` (made by `src/scripts/gen_rom.tcl`).  Both use
 `sp_ram.vhd`, which takes the file name as the generic `initFile`.  Programs
 and the standard library live in the ROM.
 
-Date: 10/19/2026
+Date: 10/20/2026
 
 ## Video always reads the RAM
 
@@ -22,7 +22,7 @@ change.
 
 The library is one block at the top of the ROM, under the boot loader,
 with the most used parts highest: the jump table, then the core routines,
-the font, the I/O drivers and the rest.  It grows down into xC000-xC5FF.
+the font, the I/O drivers and the rest.  It grows down into xC000-xC4FF.
 
 | ROM address | Contents | Made from |
 |-------------|----------|-----------|
@@ -34,7 +34,8 @@ the font, the I/O drivers and the rest.  It grows down into xC000-xC5FF.
 | x5000-x53FF | I/O window, the ROM is never read here | |
 | x5400-x5FFF | Free (section 2 reads RAM while a program runs) | |
 | x6000-xBFFF | Program, runs in place, entry at x6000 | the program |
-| xC000-xC5FF | Free, for the library to grow into | |
+| xC000-xC4FF | Free, for the library to grow into | |
+| xC500-xC5FF | Menu hook (`MENU_CODE`): `menu_poll` ([MENU.md](MENU.md)) | `rom_lib.asm` |
 | xC600-xC6FF | Expansion slot helpers (`SLOT_CODE`): `slot_id` | `rom_lib.asm` |
 | xC700-xD4FF | FAT file reader (`FS_CODE`) | `rom_lib.asm` |
 | xD500-xD6FF | Line input and mouse pointer (`INPUT_CODE`): `con_gets`, `mouse_move` | `rom_lib.asm` |
@@ -42,11 +43,17 @@ the font, the I/O drivers and the rest.  It grows down into xC000-xC5FF.
 | xDC00-xEBFF | I/O drivers (`IO_CODE`): keyboard, pads, SD card, mouse ([IO.md](IO.md)) | `rom_lib.asm` |
 | xEC00-xF3FF | Standard font (`LIB_FONT`) | `rom_lib.asm` |
 | xF400-xFAFF | Standard library core routines (`LIB_CODE`) | `rom_lib.asm` |
-| xFB00-xFBFF | Jump table (`LIB_JT`), 54 of 64 entries used ([LIBRARY.md](LIBRARY.md#jump-table)) | `rom_lib.asm` |
+| xFB00-xFBFF | Jump table (`LIB_JT`), 55 of 64 entries used ([LIBRARY.md](LIBRARY.md#jump-table)) | `rom_lib.asm` |
 | xFC00 | Boot mode: 00 = ROM program, 01 = RAM image | `gen_rom.tcl` |
 | xFD00-xFD7E | Boot loader | `rom_boot.asm` |
 | xFE00-xFE07 | Map switch (RAM image boot only) | `rom_boot.asm` |
 | xFE08-xFEA1 | Expansion card scan | `rom_boot.asm` |
+
+## The demo menu ROM
+
+`gen_menu_rom.py` builds a different image: six demos and a menu in one
+ROM, using the free areas above for the RAM programs.  See
+[MENU.md](MENU.md).
 
 ## Map while a program runs
 

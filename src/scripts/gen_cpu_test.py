@@ -48,6 +48,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from placard_sim import instr_size   # noqa: E402
+from menu_hook import hook_blocks   # noqa: E402
 
 # ---------------------------------------------------------------------------
 # constants
@@ -66,6 +67,7 @@ BR = ['jmp', 'bcs', 'blt', 'bne', 'beq', 'bcc', 'ble', 'bra']
 DST = {0: 'ac', 3: 'x', 4: 'y'}
 SRC = {2: 'ac', 3: 'ac'}   # source 11 drives AC like 10 (no X source, 2026-10-19)
 XPG = 0x43           # page for the X-destination tests ([XPG, X] marks)
+ZHRET = 0x1E         # return address for the menu hook (0x1E, 0x1F), after the tests
 
 
 def h(v):
@@ -646,8 +648,27 @@ def framework_blocks(prog, first_test):
         b.I('ld %s, ac' % zp(ZPG)); b.I('add 2, ac'); b.I('ld ac, %s' % zp(ZPG))
         b.I('ld %s, ac' % zp(ZCNT)); b.I('add 0xFF, ac'); b.I('ld ac, %s' % zp(ZCNT))
         b.I('bne bar%d_l' % k)
+        b.I('ld halt%d & 0xFF, ac' % k, 'done: show the result (10 s when the')
+        b.I('ld ac, %s' % zp(ZHRET), 'menu is rotating, menu_hook.py)')
+        b.I('ld halt%d >> 8, ac' % k)
+        b.I('ld ac, %s' % zp(ZHRET + 1))
+        far(b, 'hk_hold')
         b.L('halt%d' % k)
-        b.I('bra halt%d' % k, 'done')
+        b.I('ld halt%d & 0xFF, ac' % k, 'then poll the menu hook (Esc, time up)')
+        b.I('ld ac, %s' % zp(ZHRET))
+        b.I('ld halt%d >> 8, ac' % k)
+        b.I('ld ac, %s' % zp(ZHRET + 1))
+        far(b, 'hk_poll')
+        prog.place(b)
+
+    for name, items in hook_blocks(ZHRET, ZHRET + 1):
+        b = Block(name)
+        for kind, text in items:
+            if kind == 'L':
+                b.L(text)
+            else:
+                code, _, comment = text.partition(';')
+                b.I(code.strip(), comment.strip())
         prog.place(b)
 
 

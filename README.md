@@ -44,7 +44,7 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 - **x5000-x53FF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  (Until 2026-10-16 the window was x5000-x5FFF, with x5800-x5FFF a mirror.)
 - **Only `[Y,X]` reaches the I/O window**; `[0,D]` and `[0,X]` only address the zero page.
 - **Video reads always read the RAM** (memory control PLD revision 04); only CPU reads follow the map.  The CPU can run code from the ROM under the video area while the screen shows the RAM, and a program that wants to read the video RAM maps that section to RAM.
-- **Programs run from the ROM.**  The library (jump table, core routines, font, I/O drivers, sound, line input, FAT reader and slot helpers) is one block at the top of the ROM, xC600-xFBFF, just under the boot loader, and runs in place; a program runs in place at ROM x6000-xBFFF and may use x2000-x3FFF too.  The boot loader copies the library's RAM code to x1F00, gives each expansion card a chance to run its own boot code (like the Apple II), then maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  See [docs/ROM.md](docs/ROM.md).
+- **Programs run from the ROM.**  The library (jump table, core routines, font, I/O drivers, sound, line input, FAT reader, slot helpers and the demo menu hook) is one block at the top of the ROM, xC500-xFBFF, just under the boot loader, and runs in place; a program runs in place at ROM x6000-xBFFF and may use x2000-x3FFF too.  The boot loader copies the library's RAM code to x1F00, gives each expansion card a chance to run its own boot code (like the Apple II), then maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  See [docs/ROM.md](docs/ROM.md).
 - **After a map write**, the next instruction must not be fetched from a section whose map bit that write changed, unless the ROM and RAM hold the same byte there (the new map arrives 4.1 ns too late for that fetch).  Copying the ROM into the RAM underneath and then switching the section is safe.  See [docs/TIMING_FIXES.md](docs/TIMING_FIXES.md#romram-map-register-74act273).
 
 The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /WE, /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
@@ -61,7 +61,7 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is not chosen ye
 | x6000-x7FFF | 3 | RAM/ROM (Video Memory from x6020; ROM: program from x6000) |
 | x8000-x9FFF | 4 | RAM/ROM (Video Memory; ROM: program) |
 | xA000-xBFFF | 5 | RAM/ROM (Video Memory; ROM: program) |
-| xC000-xDFFF | 6 | RAM/ROM (Video Memory; ROM: library from xC600: slot helpers, FAT reader, line input, sound, I/O drivers) |
+| xC000-xDFFF | 6 | RAM/ROM (Video Memory; ROM: library from xC500: menu hook, slot helpers, FAT reader, line input, sound, I/O drivers) |
 | xE000-xFFFF | 7 | RAM/ROM (Video Memory; ROM: I/O drivers, font xEC00, core routines xF400, jump table xFB00, boot loader xFC00) |
 
 ![Placard memory map](reference/memory_map.png)
@@ -106,6 +106,9 @@ Bits 3:2 of a row's mode byte make each byte of video memory show on 1, 2 or 4 l
 
 ![text_demo in the simulator](reference/text_demo_sim.gif)
 
+### Demo menu
+`build\menu.bat` loads one ROM with the CPU test, pi, Mandelbrot, the Game of Life, the text demo and the ray caster and a menu.  At power-up they run in turn, each until it is done or for 2 minutes.  Esc in any program shows the menu (Up / Down and Enter, or 1-6); a program picked there runs until Esc, and after 2 minutes with no key the menu goes back to running them in turn.  `src/scripts/gen_menu_rom.py` builds it and `src/scripts/test_menu.py` checks it in the simulator.  See [docs/MENU.md](docs/MENU.md).
+
 ### Game demos
 Two demos show what the CPU can do with no sprite or collision hardware.  Both are ROM programs written by a Python generator (the tables, the unrolled drawing code and a bit-exact model of the picture), and each has a simulator test that checks every frame against the model.
 
@@ -135,7 +138,8 @@ software stack and the zero page variable map (`zeropage.asm`).  See
 ## Building and loading a program
 The `build` folder has one Windows batch file per assembly program
 (`cpu_test.bat`, `test_video.bat`, `text_demo.bat`, `mandelbrot.bat`,
-`pi_spigot.bat`, `game_of_life.bat`, `lib_demo.bat`).  Each one assembles
+`pi_spigot.bat`, `game_of_life.bat`, `lib_demo.bat`, `raycast.bat`,
+`scroller.bat`).  Each one assembles
 `src/scripts/<program>.asm` (customasm, or `placard_sim.py` if customasm is not
 on the PATH), writes the RAM's initialization file `src/hdl/ram.mem` (the
 video test pattern, `gen_video_ram.tcl`) and the ROM's `src/hdl/rom.mem`
