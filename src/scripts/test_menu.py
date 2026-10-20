@@ -6,6 +6,7 @@ test_menu.py - run the menu ROM (menu.asm, gen_menu_rom.py) in placard_sim
     python3 test_menu.py --png m.png     also the menu screen as a PNG
 
 Builds the ROM in memory with short times (each program 40 frames in turn,
+Mandelbrot 60 (its 3 minutes scaled the same way),
 a finished result 20 frames, the menu's idle time 2 s; the files on disk
 are not changed), boots it like the board and checks:
   1. in turn: the programs start in order 1-6 and then 1 again; each RAM
@@ -102,6 +103,9 @@ def main(argv):
                     bad = [a for a in range(0x4A00) if got[a] != want[a]]
                     fail('%s: RAM differs from the image at %d bytes, first x%04X'
                          % (p['file'], len(bad), bad[0]))
+        left = cpu.mem[MB + 4] + 256 * cpu.mem[MB + 5]
+        if p['kind'] == 'ram' and mode == 0 and left != p['rot']:
+            fail('%s: time limit %d frames, not %d' % (p['file'], left, p['rot']))
         launches.append((i, mode))
         print('  start %d %-17s %s  (frame %d)' % (i + 1, p['file'],
               'in turn' if mode == 0 else 'picked', cpu.clocks // FRAME))

@@ -107,7 +107,7 @@ Bits 3:2 of a row's mode byte make each byte of video memory show on 1, 2 or 4 l
 ![text_demo in the simulator](reference/text_demo_sim.gif)
 
 ### Demo menu
-`build\menu.bat` loads one ROM with the CPU test, pi, Mandelbrot, the Game of Life, the text demo and the ray caster and a menu.  At power-up they run in turn, each until it is done or for 2 minutes.  Esc in any program shows the menu (Up / Down and Enter, or 1-6); a program picked there runs until Esc, and after 2 minutes with no key the menu goes back to running them in turn.  `src/scripts/gen_menu_rom.py` builds it and `src/scripts/test_menu.py` checks it in the simulator.  See [docs/MENU.md](docs/MENU.md).
+`build\menu.bat` loads one ROM with the CPU test, pi, Mandelbrot, the Game of Life, the text demo and the ray caster and a menu.  At power-up they run in turn, each until it is done or for 2 minutes (Mandelbrot 3).  Esc in any program shows the menu (Up / Down and Enter, or 1-6); a program picked there runs until Esc, and after 2 minutes with no key the menu goes back to running them in turn.  `src/scripts/gen_menu_rom.py` builds it and `src/scripts/test_menu.py` checks it in the simulator.  See [docs/MENU.md](docs/MENU.md).
 
 ### Game demos
 Two demos show what the CPU can do with no sprite or collision hardware.  Both are ROM programs written by a Python generator (the tables, the unrolled drawing code and a bit-exact model of the picture), and each has a simulator test that checks every frame against the model.
