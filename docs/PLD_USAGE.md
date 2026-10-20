@@ -1,6 +1,6 @@
 # PLD usage: unused pins and product terms
 
-Date: 2026-10-19. Taken from `src/pld/*.pld` on main (commit b476a68), then updated for the F377 load-enable fix (State PLD revision 13, Branch PLD revision 12, I/O decode PLD revision 04: the five State PLD load strobes are active low, and the Branch PLD's pin 15 makes the pixel buffer's /PIX_LD), and for X no longer being a source (Branch PLD revision 13: pin 16 is /SRC_EN, active low, on the source F541s' /OE1; memory control PLD revision 07; audio slot PLD revision 04 uses pins 16 and 21 for I1 and /AC_SEL).
+Date: 2026-10-20. Taken from `src/pld/*.pld` on main (commit b476a68), then updated for the F377 load-enable fix (State PLD revision 13, Branch PLD revision 12, I/O decode PLD revision 04: the five State PLD load strobes are active low, and the Branch PLD's pin 15 makes the pixel buffer's /PIX_LD), and for X no longer being a source (Branch PLD revision 13: pin 16 is /SRC_EN, active low, on the source F541s' /OE1; memory control PLD revision 07; audio slot PLD revision 04 uses pins 16 and 21 for I1 and /AC_SEL).
 
 The design has 18 ATF22V10C chips built from 13 PLD sources. Each 22V10 has 12 dedicated inputs (pins 1-11 and 13; pin 1 is also the register clock) and 10 I/O pins (14-23), each with an output macrocell (OLMC) of 8, 10, 12, 14, 16, 16, 14, 12, 10 or 8 product terms. An I/O pin used as an input gives up its cell's terms. Every chip also has one asynchronous reset (AR) and one synchronous preset (SP) term shared by all registers, and each cell has its own output-enable term.
 
@@ -127,14 +127,14 @@ Every pin is used, but six of the ten output cells are spent as inputs and the f
 
 ### `ATF22V10_MEM_CTRL.pld` (#11)
 
-No free pins. RAM_OE on pin 18 is **16 of 16 terms, completely full**. ROM_OE has 6 spare and /WE and MAP_RUN almost all of theirs.
+No free pins. RAM_OE on pin 18 is **16 of 16 terms, completely full**. ROM_OE has 6 spare and /WE almost all of its. Since revision 08 pin 17 is the RUN input from the cartridge (it was the MAP_RUN register), and RUN is ANDed into each ROM_OE term, so the term count is unchanged.
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|
 | 14 | 8 | RW | input | — | — |
 | 15 | 10 | RAMSEL2 | input | — | — |
 | 16 | 12 | !WE | combinational | 1 | 11 |
-| 17 | 14 | MAP_RUN | registered | 1 | 13 |
+| 17 | 14 | RUN | input | — | — |
 | 18 | 16 | !RAM_OE | combinational | 16 | 0 **full** |
 | 19 | 16 | !ROM_OE | combinational | 10 | 6 |
 | 20 | 14 | A11 | input | — | — |
@@ -243,6 +243,31 @@ Every pin is used since revision 04: pin 16 takes I1 (instruction register bit 1
 | 21 | 12 | !AC_SEL | combinational | 1 | 11 |
 | 22 | 10 | !MODE_LD | combinational | 1 | 9 |
 | 23 | 8 | BLANK_RD | combinational | 3 | 5 |
+
+### `ATF22V10_CART.pld` (on the ROM cartridge)
+
+Every output cell is used; pins 5-11 and 13 are free inputs.  The
+registered outputs need few terms; the step counter CNT3:CNT0 and PREV15
+are buried (no external connection).  Term counts are worked out by hand
+from the equations (a negated group such as !DECIDE becomes one term per
+literal), since this PLD has no WinCUPL fit report yet.
+
+| Pin | Terms in cell | Signal | Use | Terms used | Spare |
+|---:|---:|---|---|---:|---:|
+| 1 | — | OSC | clock | — | — |
+| 2 | — | A15 | input | — | — |
+| 3 | — | PIXEL_ENABLE | input | — | — |
+| 4 | — | !SRC_EN | input | — | — |
+| 14 | 8 | CNT0 | registered | 3 | 5 |
+| 15 | 10 | CNT1 | registered | 2 | 8 |
+| 16 | 12 | CNT2 | registered | 3 | 9 |
+| 17 | 14 | CNT3 | registered | 1 | 13 |
+| 18 | 16 | PREV15 | registered | 9 | 7 |
+| 19 | 16 | !SR_WE | registered | 1 | 15 |
+| 20 | 14 | !EE_OE | registered | 5 | 9 |
+| 21 | 12 | !BUF_OE | registered | 1 | 11 |
+| 22 | 10 | RUN | registered | 2 | 8 |
+| 23 | 8 | !RELEASE (HOLD) | registered | 5 | 3 |
 
 ### `ATF22V10_PORT.pld` (#38)
 

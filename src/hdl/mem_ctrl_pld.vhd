@@ -1,7 +1,7 @@
 -- ============================================================
 -- MEMORY READ AND WRITE STROBES
--- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 07)
--- Date: 10/18/2026
+-- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 08)
+-- Date: 10/20/2026
 --
 -- Replaces the '32 OR gate (/WE = RW or CLK) and the read enables
 -- of ROM/RAM select revision 03.  Every memory bus cycle uses the
@@ -14,7 +14,12 @@
 -- Revision 07: pin 22 is active low (srcEnN), as the branch PLD's pin 16
 -- became when the source '138 was removed.
 --
--- Revision 02: mapRun (pin 19) is a register that powers up to 0 and
+-- Revision 08: pin 17 is an input, run, from the ROM cartridge: low
+-- while the cartridge loads its SRAM.  romOeN stays high while run is
+-- low (romRead = cpuRead and run).  run also drives the map register's
+-- /MR and the cards' /RESET, so the mapRun register is gone.
+--
+-- Revision 02 (until revision 08): mapRun (pin 19) is a register that powers up to 0 and
 -- loads 1 on every clock, so it is low from power-up to the first
 -- clock.  It drives /MR of the 74ACT273 map register, which clears the
 -- map to all ROM before the CPU starts.
@@ -35,7 +40,7 @@
 --     cpuRead   = rw and not pixelEnable and srcEnN
 --     videoRead = pixelEnable
 --     weN    = low while clk = 0 and a write
---     romOeN = low while clk = 0 and a CPU read of a ROM section
+--     romOeN = low while clk = 0, run = 1 and a CPU read of a ROM section
 --     ramOeN = low while clk = 0 and a CPU read of a RAM section,
 --              or a video read
 --              (section 2 is mapped for 4000h-4FFFh and 5400h-5FFFh;
@@ -53,8 +58,8 @@
 --   6  ramsel0     7  ramsel1    8  ramsel3    9  ramsel4  10  ramsel5
 --  11  ramsel6    13  ramsel7   14  rw        15  ramsel2
 --  20  a11        21  a10       23  pixelEnable
---  16  weN        17  mapRun    18  ramOeN    19  romOeN
---  22  not used
+--  16  weN        17  run       18  ramOeN    19  romOeN
+--  22  srcEnN
 -- ============================================================
 
 library ieee;
@@ -80,11 +85,11 @@ entity mem_ctrl_pld is
         a11         : in  std_logic;   -- pin 20 (I/O pin used as input, revision 05)
         a10         : in  std_logic;   -- pin 21 (I/O pin used as input, revision 05)
         srcEnN      : in  std_logic;   -- pin 22, branch PLD pin 16, 0 = source F541s drive the bus (revision 07)
+        run         : in  std_logic;   -- pin 17, ROM cartridge, 0 = loading (revision 08)
 
         weN         : out std_logic;   -- pin 16, RAM /WE
         romOeN      : out std_logic;   -- pin 19, ROM /OE
-        ramOeN      : out std_logic;   -- pin 18, RAM /OE
-        mapRun      : out std_logic    -- pin 17, registered, map register /MR
+        ramOeN      : out std_logic    -- pin 18, RAM /OE
     );
 end entity mem_ctrl_pld;
 
@@ -102,10 +107,10 @@ architecture rtl of mem_ctrl_pld is
 
     signal cpuRead   : std_logic;
     signal videoRead : std_logic;
+    signal romRead   : std_logic;
     signal we      : std_logic;
     signal romOe   : std_logic;
     signal ramOe   : std_logic;
-    signal mapRunQ : std_logic := '0';   -- powers up to 0, as on the ATF22V10C
 
 begin
 
@@ -127,18 +132,20 @@ begin
 
     -- ---------------- equations ----------------
 
+    romRead <= cpuRead and run;
+
     we <= (not clk) and (not rw) and (not pixelEnable);
 
-    romOe <= (sec0 and (not ramsel0) and cpuRead)
-          or (sec1 and (not ramsel1) and cpuRead)
-          or (sec2 and (not a12) and (not ramsel2) and cpuRead)
-          or (sec2 and a11 and (not ramsel2) and cpuRead)
-          or (sec2 and a10 and (not ramsel2) and cpuRead)
-          or (sec3 and (not ramsel3) and cpuRead)
-          or (sec4 and (not ramsel4) and cpuRead)
-          or (sec5 and (not ramsel5) and cpuRead)
-          or (sec6 and (not ramsel6) and cpuRead)
-          or (sec7 and (not ramsel7) and cpuRead);
+    romOe <= (sec0 and (not ramsel0) and romRead)
+          or (sec1 and (not ramsel1) and romRead)
+          or (sec2 and (not a12) and (not ramsel2) and romRead)
+          or (sec2 and a11 and (not ramsel2) and romRead)
+          or (sec2 and a10 and (not ramsel2) and romRead)
+          or (sec3 and (not ramsel3) and romRead)
+          or (sec4 and (not ramsel4) and romRead)
+          or (sec5 and (not ramsel5) and romRead)
+          or (sec6 and (not ramsel6) and romRead)
+          or (sec7 and (not ramsel7) and romRead);
 
     ramOe <= (sec0 and ramsel0 and cpuRead)
           or (sec1 and ramsel1 and cpuRead)
@@ -156,15 +163,6 @@ begin
           or ((not a12) and videoRead)
           or (a11 and videoRead)
           or (a10 and videoRead);
-
-    process (clk)
-    begin
-        if rising_edge(clk) then
-            mapRunQ <= '1';
-        end if;
-    end process;
-
-    mapRun <= mapRunQ;
 
     weN    <= not we;
     romOeN <= not romOe;
