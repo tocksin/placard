@@ -295,9 +295,9 @@ at once.
 | Sound | Clocks per frame | Share |
 |---|---:|---:|
 | Silence (buffer clean) | about 90 | 0 % |
-| Samples (`snd_play`) | about 17,600 | 5 % |
-| Tone | about 25,300 | 7 % |
-| Noise | about 40,800 | 11 % |
+| Samples (`snd_play`) | about 18,300 | 5 % |
+| Tone | about 26,000 | 7 % |
+| Noise | about 42,700 | 11 % |
 
 Plus up to 3,200 clocks waiting for the line read to change.  The driver
 uses zero page x90-x9E and T0-T3.  `test_snd.py` checks the buffer against
