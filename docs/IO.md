@@ -1,6 +1,6 @@
 # I/O: keyboard, SNES pads, SD card, PS/2 mouse
 
-Date: 2026-10-19
+Date: 2026-10-20
 
 The keyboard, both SNES pads, the SD card and a PS/2 mouse share one port
 at x5200-x52FF.  They are polled, never used at the same moment, so they
@@ -32,7 +32,7 @@ chips and the connectors:
 |---|---|---|
 | J1 | Keyboard, 1 x 16 header, 2.54 mm | 1-8 = /COL0-/COL7 (port PLD pins 14-21), 9-16 = ROW0-ROW7 (74F541 A1-A8).  The keys and their diodes are on the keyboard board; the row pull-ups stay on the main board |
 | J2, J3 | SNES pad 1 and 2 | 1 +5 V, 2 CLOCK (latch Q0), 3 LATCH (latch Q1), 4 DATA (port PLD pin 7 or 8), 5-6 not used, 7 GND |
-| J4 | Full-size SD socket (SPI) | 1 CS, 2 DI, 5 CLK from the dividers R6-R11; 7 DO = MISO; 4 VDD 3.3 V; 3, 6 GND; 8, 9 not used |
+| J4 | Full-size SD socket (SPI) | 1 CS, 2 DI, 5 CLK from the dividers R1003-R1008; 7 DO = MISO; 4 VDD 3.3 V; 3, 6 GND; 8, 9 not used |
 | J5 | Mini-DIN 6, PS/2 mouse | 1 DATA, 3 GND, 4 +5 V, 5 CLK |
 
 ## The port
@@ -130,7 +130,7 @@ socket reads 0000.
 
 SPI mode 3, bit-banged.  SCK, MOSI and /CS come down from the 5 V latch
 through a resistor divider each, at the SD socket: 1.8k from the latch
-(R6-R8), 3.3k to ground (R9-R11).
+(R1003-R1005), 3.3k to ground (R1006-R1008).
 
 - **Levels:** a 5 V high gives 3.24 V (3.17 V with the 74HC574's high
   of about 4.9 V at 1 mA), inside the card's 2.06 V (0.625 x VDD) to
