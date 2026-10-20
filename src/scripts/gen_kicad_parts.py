@@ -2,9 +2,10 @@
 """
 gen_kicad_parts.py - make kicad/lib/placard_parts.kicad_sym, the project's
 symbols for the parts KiCad's own libraries do not have: the AS7C256C SRAM,
-the expansion slot, the ROM cartridge slot, the SNES pad socket and the
-keyboard header.  They are drawn like the PLD symbols (gen_kicad_symbols.py):
-pins grouped by bus and function, not by number.
+the expansion slot, the ROM cartridge slot, the SNES pad socket, the
+keyboard header and the USB-C power input.  They are drawn like the PLD
+symbols (gen_kicad_symbols.py): pins grouped by bus and function, not by
+number.
 
     python3 gen_kicad_parts.py               writes kicad/lib/placard_parts.kicad_sym
     python3 gen_kicad_parts.py out.kicad_sym
@@ -108,9 +109,24 @@ def keyboard_header():
                   datasheet="~", vcc=None, gnd=None, ref="J", min_w=4 * 2.54)
 
 
+def usb_c_power():
+    # USB-C receptacle, power only (6 contacts), the board's 5 V input.  A 5.1k
+    # resistor from each CC pin to GND asks the charger for 5 V.
+    p = "passive"
+    right = [[("A9", "VBUS", p), ("B9", "VBUS", p)], None,
+             ("A5", "CC1", p), ("B5", "CC2", p), None,
+             [("A12", "GND", p), ("B12", "GND", p)], ("S1", "SHIELD", p)]
+    return symbol("USB_C_Power", [([], right)], "USB4125-GF-A",
+                  "USB-C receptacle, power only (6P): VBUS, CC1, CC2, GND, shield; 5.1k from CC1 and CC2 to GND for 5 V",
+                  "USB C type-C power receptacle Placard",
+                  footprint="Connector_USB:USB_C_Receptacle_GCT_USB4125-xx-x_6P_TopMnt_Horizontal",
+                  datasheet="~", vcc=None, gnd=None, ref="J", min_w=4 * 2.54, pin_len=2 * 2.54)
+
+
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else OUT
-    write_lib(out, [sram(), expansion_slot(), cartridge_slot(), snes_socket(), keyboard_header()])
+    write_lib(out, [sram(), expansion_slot(), cartridge_slot(), snes_socket(), keyboard_header(),
+                    usb_c_power()])
 
 
 if __name__ == "__main__":
