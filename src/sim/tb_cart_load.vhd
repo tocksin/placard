@@ -18,15 +18,11 @@
 --   SRAM      AS7C256C-15: tOE 7 ns; a write checks the address is
 --             steady through /WE low, the pulse is 10 ns or more and
 --             the data is settled 7 ns before /WE rises
---   pull-ups  3.3k on D7:D0 (revision 02: no 74AC541): with no driver
---             the bus reads FFh only RISE_TIME after the last driver let
---             go, and X before that (RISE_TIME is a generic, 500 ns =
---             3.3k, about 230 pF and worst-case leakage)
+--   74AC541   02h, 8 ns on and off
 --   F541      the source buffer in EXEC, 9.5 ns on, 6.5 ns off
 --   RAM       video reads, 7 ns on and off
 --
--- Checks: every CPU fetch while loading reads FFh (ld ac, ac; the
--- opcode byte is stored XOR FDh); no two drivers on
+-- Checks: every CPU fetch while loading reads 02h; no two drivers on
 -- the data bus overlap by more than 8 ns (the board already accepts
 -- up to about 7 ns at the start of EXEC); after the hand-off the CPU
 -- fetches x0000 from the SRAM; the SRAM holds the whole image.
@@ -35,8 +31,6 @@
 --   ghdl -a --std=08 src/hdl/cart_pld.vhd src/hdl/mem_ctrl_pld.vhd src/sim/tb_cart_load.vhd
 --   ghdl -e --std=08 tb_cart_load
 --   ghdl -r --std=08 tb_cart_load
--- It passes with RISE_TIME up to 950 ns and fails at 1000 ns (GHDL's
--- mcode build can't override a time generic: edit the default).
 -- ============================================================
 
 library ieee;
@@ -44,9 +38,6 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 entity tb_cart_load is
-    generic (
-        RISE_TIME : time := 500 ns   -- the floating bus reaches a valid 1
-    );
 end entity tb_cart_load;
 
 architecture sim of tb_cart_load is
@@ -66,10 +57,12 @@ architecture sim of tb_cart_load is
     signal run          : std_logic;
     signal eeOeN        : std_logic;
     signal srWeN        : std_logic;
+    signal bufOeN       : std_logic;
     signal holdQ        : std_logic;
     signal runQ         : std_logic;
     signal eeOeNQ       : std_logic;
     signal srWeNQ       : std_logic;
+    signal bufOeNQ      : std_logic;
 
     signal addr         : std_logic_vector(15 downto 0) := x"0000";
     signal pixelEnable  : std_logic := '0';
@@ -82,7 +75,7 @@ architecture sim of tb_cart_load is
 
     -- driver enables (after their turn-on and turn-off delays)
     signal eeOn         : std_logic := '0';
-    signal pullOn       : std_logic := '0';
+    signal bufOn        : std_logic := '0';
     signal sramOn       : std_logic := '0';
     signal srcOn        : std_logic := '0';
     signal ramOn        : std_logic := '0';
@@ -111,10 +104,10 @@ begin
         cnt1        => open,
         cnt2        => open,
         cnt3        => open,
-        cnt4        => open,
         prev15      => open,
         srWeN       => srWeNQ,
         eeOeN       => eeOeNQ,
+        bufOeN      => bufOeNQ,
         run         => runQ,
         hold        => holdQ
     );
@@ -122,6 +115,7 @@ begin
     -- ATF22V10C-10 clock to output
     srWeN  <= srWeNQ after 7 ns;
     eeOeN  <= eeOeNQ after 7 ns;
+    bufOeN <= bufOeNQ after 7 ns;
     run    <= runQ after 7 ns;
     hold   <= holdQ after 7 ns;
 
@@ -183,15 +177,15 @@ begin
             if not inExec then
                 -- FETCH: the IR and the State PLD take the bus
                 if run = '0' then
-                    assert to_X01(dataBus) = x"FF"
+                    assert dataBus = x"02"
                         report "fetch at " & to_hstring(to_unsigned(pc, 16)) & " read "
-                               & to_hstring(to_X01(dataBus)) & ", not FFh" severity failure;
+                               & to_hstring(dataBus) & ", not 02h" severity failure;
                     fetches := fetches + 1;
                 else
                     -- first fetch from the SRAM after the hand-off
                     assert pc = 0
                         report "hand-off fetch at " & to_hstring(to_unsigned(pc, 16)) severity failure;
-                    assert to_X01(dataBus) = imageByte(0)
+                    assert dataBus = imageByte(0)
                         report "hand-off fetch read " & to_hstring(dataBus) severity failure;
                     report "hand-off at " & time'image(now) & " after " & integer'image(fetches)
                            & " fetches; first instruction from the SRAM read correctly";
@@ -256,9 +250,9 @@ begin
           else (others => 'X') when eeOn = '1'
           else (others => 'Z');
 
-    -- 3.3k pull-ups: a weak 1 once no driver has been on for RISE_TIME
-    pullOn <= '0' when (eeOn or sramOn or srcOn or ramOn) = '1' else '1' after RISE_TIME;
-    dataBus <= (others => 'H') when pullOn = '1' else (others => 'Z');
+    -- 74AC541, inputs wired to 02h
+    bufOn <= not bufOeN after 8 ns;
+    dataBus <= x"02" when bufOn = '1' else (others => 'Z');
 
     -- cartridge SRAM (AS7C256C-15): reads on /ROM_OE
     sramOn <= not romOeN after 7 ns;
@@ -286,9 +280,9 @@ begin
             report "SRAM address changed during /WE" severity failure;
         assert now - fell >= 10 ns
             report "SRAM write pulse too short" severity failure;
-        assert now - busChanged >= 7 ns and not is_x(to_X01(dataBus))
+        assert now - busChanged >= 7 ns and not is_x(dataBus)
             report "SRAM write data not settled at " & to_hstring(a) severity failure;
-        sram(to_integer(unsigned(a))) <= to_X01(dataBus);
+        sram(to_integer(unsigned(a))) <= dataBus;
     end process sramWrite;
 
     -- ---------------- contention ----------------
@@ -299,13 +293,14 @@ begin
         variable longest  : time := 0 ns;
         variable inside   : boolean := false;
     begin
-        wait on eeOn, sramOn, srcOn, ramOn, done;
+        wait on eeOn, bufOn, sramOn, srcOn, ramOn, done;
         if done then
             report "longest bus overlap: " & time'image(longest);
             wait;
         end if;
         n := 0;
         if eeOn = '1' then n := n + 1; end if;
+        if bufOn = '1' then n := n + 1; end if;
         if sramOn = '1' then n := n + 1; end if;
         if srcOn = '1' then n := n + 1; end if;
         if ramOn = '1' then n := n + 1; end if;

@@ -121,7 +121,7 @@ ms = box(57, 149, 14, 9, "PS/2 mouse", None, "", DEV, fs=10.5)
 exp = box(166, 102, 51, 20, "4 expansion slots", 0,
           "x5100-x53FF, 128 bytes each; data, source\nbus, A7:A0, RW, /WE, clock.  A card\n"
           "with a \"PLC\" boot header runs at power-up", IO, fs=13)
-cart = box(186, 60, 31, 11, "ROM cartridge slot", 0, "cartridge: 5 chips, holds\nthe clock while loading", MEM, fs=11.5)
+cart = box(186, 60, 31, 11, "ROM cartridge slot", 0, "cartridge: 6 chips, holds\nthe clock while loading", MEM, fs=11.5)
 
 total = sum(counted)
 assert total == CHIPS_TOTAL, "blocks add up to %d chips, docs/CHIPS.md says %d" % (total, CHIPS_TOTAL)
