@@ -1,6 +1,6 @@
 # PLD usage: unused pins and product terms
 
-Date: 2026-10-20. Taken from `src/pld/*.pld` on main (commit b476a68), then updated for the F377 load-enable fix (State PLD revision 13, Branch PLD revision 12, I/O decode PLD revision 04: the five State PLD load strobes are active low, and the Branch PLD's pin 15 makes the pixel buffer's /PIX_LD), for the opcode byte stored XOR FDh (State and Branch PLD revision 14, ALU revision 06: the instruction-bit pins are declared active low, with no change in terms), and for X no longer being a source (Branch PLD revision 13: pin 16 is /SRC_EN, active low, on the source F541s' /OE1; memory control PLD revision 07; audio slot PLD revision 04 uses pins 16 and 21 for I1 and /AC_SEL).
+Date: 2026-10-21. Taken from `src/pld/*.pld` on main (commit b476a68), then updated for the F377 load-enable fix (State PLD revision 13, Branch PLD revision 12, I/O decode PLD revision 04: the five State PLD load strobes are active low, and the Branch PLD's pin 15 makes the pixel buffer's /PIX_LD), and for X no longer being a source (Branch PLD revision 13: pin 16 is /SRC_EN, active low, on the source F541s' /OE1; memory control PLD revision 07; audio slot PLD revision 04 uses pins 16 and 21 for I1 and /AC_SEL). State 15, Branch 15, ALU 07 and cartridge 03 are the same logic as State 13, Branch 13, ALU 05 and cartridge 01: the revisions between them stored the opcode byte XOR FDh and were reverted on 2026-10-21.
 
 The design has 18 ATF22V10C chips built from 13 PLD sources. Each 22V10 has 12 dedicated inputs (pins 1-11 and 13; pin 1 is also the register clock) and 10 I/O pins (14-23), each with an output macrocell (OLMC) of 8, 10, 12, 14, 16, 16, 14, 12, 10 or 8 product terms. An I/O pin used as an input gives up its cell's terms. Every chip also has one asynchronous reset (AR) and one synchronous preset (SP) term shared by all registers, and each cell has its own output-enable term.
 
@@ -244,13 +244,13 @@ Every pin is used since revision 04: pin 16 takes I1 (instruction register bit 1
 | 22 | 10 | !MODE_LD | combinational | 1 | 9 |
 | 23 | 8 | BLANK_RD | combinational | 3 | 5 |
 
-### `ATF22V10_CART.pld` (on the ROM cartridge, revision 02)
+### `ATF22V10_CART.pld` (on the ROM cartridge)
 
-Every output cell is used; pins 5-11 and 13 are free inputs.  The step
-counter CNT4:CNT0 and PREV15 are buried (no external connection); CNT4 on
-pin 21 was the 74AC541's /OE until revision 02.  Term counts are worked
-out by hand from the equations (a negated group such as !DECIDE becomes
-one term per literal), since this PLD has no WinCUPL fit report yet.
+Every output cell is used; pins 5-11 and 13 are free inputs.  The
+registered outputs need few terms; the step counter CNT3:CNT0 and PREV15
+are buried (no external connection).  Term counts are worked out by hand
+from the equations (a negated group such as !DECIDE becomes one term per
+literal), since this PLD has no WinCUPL fit report yet.
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|
@@ -258,14 +258,14 @@ one term per literal), since this PLD has no WinCUPL fit report yet.
 | 2 | — | A15 | input | — | — |
 | 3 | — | PIXEL_ENABLE | input | — | — |
 | 4 | — | !SRC_EN | input | — | — |
-| 14 | 8 | CNT0 | registered | 6 | 2 |
+| 14 | 8 | CNT0 | registered | 3 | 5 |
 | 15 | 10 | CNT1 | registered | 2 | 8 |
 | 16 | 12 | CNT2 | registered | 3 | 9 |
-| 17 | 14 | CNT3 | registered | 4 | 10 |
-| 18 | 16 | PREV15 | registered | 11 | 5 |
+| 17 | 14 | CNT3 | registered | 1 | 13 |
+| 18 | 16 | PREV15 | registered | 9 | 7 |
 | 19 | 16 | !SR_WE | registered | 1 | 15 |
-| 20 | 14 | !EE_OE | registered | 7 | 7 |
-| 21 | 12 | CNT4 | registered | 5 | 7 |
+| 20 | 14 | !EE_OE | registered | 5 | 9 |
+| 21 | 12 | !BUF_OE | registered | 1 | 11 |
 | 22 | 10 | RUN | registered | 2 | 8 |
 | 23 | 8 | !RELEASE (HOLD) | registered | 5 | 3 |
 

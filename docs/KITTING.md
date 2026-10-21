@@ -1,6 +1,6 @@
 # Selling the Placard as a kit
 
-Date: 2026-10-20
+Date: 2026-10-21
 
 Who can buy the parts, program the chips, bag each kit and ship it, so
 that no one has to hand-pack every kit.  Researched 2026-10-20 from public
@@ -36,7 +36,7 @@ Two things matter more for a kit than for a single build:
 
 The rest of the kit is ordinary stock: 7 SN74F377AN, 4 SN74F541N, 2
 AS7C256C-15PCN (4 with the cartridge's), a CD74ACT273E, SN74AC32N,
-SN74HCT574N, SN74HC574N, the 3.3 V regulator and oscillator (not chosen
+SN74HCT574N, SN74HC574N, the cartridge's SN74AC541N, the 3.3 V regulator and oscillator (not chosen
 yet), sockets, passives, connectors, two PCBs and the case.  The passive
 and connector BOM comes out of the KiCad project (SCHEMATIC_PLAN.md) once
 the schematic is done.

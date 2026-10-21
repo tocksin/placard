@@ -1,6 +1,7 @@
 -- =========================================================
--- ATF22V10C 4-BIT ALU  (VHDL version of ALU_SHR.pld, Rev 06)
--- Date: 10/20/2026
+-- ATF22V10C 4-BIT ALU  (VHDL version of ALU_SHR.pld, Rev 07)
+-- Rev 07 is the same logic as Rev 05; Rev 06 (opcode byte stored XOR FDh) was reverted 2026-10-21.
+-- Date: 10/21/2026
 --
 -- FUNCTION SELECT
 --
@@ -71,7 +72,7 @@ entity alu4 is
     port (
         a              : in     std_logic_vector(3 downto 0);
         b              : in     std_logic_vector(3 downto 0);
-        s_n            : in     std_logic_vector(2 downto 0);   -- pins 9-11, stored inverted
+        s              : in     std_logic_vector(2 downto 0);
         cin            : in     std_logic;
         shift_right_in : in     std_logic;
         f              : buffer std_logic_vector(3 downto 0);
@@ -84,8 +85,6 @@ entity alu4 is
 end entity alu4;
 
 architecture rtl of alu4 is
-
-    signal s : std_logic_vector(2 downto 0);   -- logical field bit (pin s_n inverted)
     signal pass_sel   : std_logic;
     signal and_sel    : std_logic;
     signal or_sel     : std_logic;
@@ -98,10 +97,6 @@ architecture rtl of alu4 is
     signal d4         : std_logic;   -- carry (ADD) / borrow (SUB) out of bit 3
     signal sh         : std_logic_vector(3 downto 0);   -- shift-right source
 begin
-
-    -- the opcode byte is stored XOR FDh (2026-10-20), so FFh, the level
-    -- of the undriven data bus, is ld ac, ac; these pins see the stored bits
-    s <= not s_n;
 
     -- function select terms
     pass_sel   <= (not s(2)) and (not s(1)) and (not s(0));
