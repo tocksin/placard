@@ -232,6 +232,30 @@ checks (single-pin nets, two outputs on a net, power without a source).
   beside the chip, the router joins the bus lines of all the chips, and one
   bus label (`D[0..7]`, global when the bus leaves the sheet) names it.
   Where the router cannot join a bus piece it gets its own bus label.
+- **Tidying rules** (Justin, 2026-10-21): parts are spread out so no text
+  sits on other text or a symbol; wires run straight with as few bends as
+  possible; buses stay buses; nets keep off the page-exit tabs, and the tabs
+  read horizontally.  To get there a sheet can say:
+  - `label_each`: buses that come from other sheets (`D`, `A`, `ROW`, ...)
+    get a bus piece and bus label at each chip instead of one long trunk
+    looping round the sheet; a single member (one diode on `ROW7`) gets a
+    plain label.
+  - `label_nets`: busy control nets (`CLK`, `RUN`, `RW`, the port lines on
+    the shared port, the slot controls) are labelled at every pin instead of
+    wired.
+  - `force_bus`: a short group drawn as a bus anyway (`I[5..7]`).
+  - Hand layout where the router's choice is poor: `bare` pins with
+    straight `path()` wires, `bus_piece()` trunks the router joins the chip
+    pieces to (the cartridge's `D[0..7]` along the top), `name()` labels in
+    an even column instead of staggered.
+  - Some PLD and connector symbols have their pins reordered or spaced a row
+    apart so the wires run straight (for example the cartridge loader PLD's
+    pins line up with the cartridge connector's, and the expansion slot's
+    SEL pin is last, with its 1k straight off it).
+  - Power symbols on a side pin are turned to point away and their names
+    read across.
+  - A few crossings remain where two identical chips share the same pin
+    order (the select lines of the address muxes).
 - **Decoupling:** Cn (100 nF) beside each Un, its +5V and GND symbols on its
   own pins, raised a little so its GND symbol clears the chip's top pins.
 - **Hand-drawn wires** where a picture helps: the R-2R ladder is a wired
