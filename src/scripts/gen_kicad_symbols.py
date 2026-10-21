@@ -185,8 +185,8 @@ def fmt(v):
 
 def pin(kind, x, y, rot, name, num, hide=False, length=G):
     return ('      (pin %s line (at %s %s %d) (length %s)%s\n'
-            '        (name "%s" (effects (font (size 1.27 1.27))))\n'
-            '        (number "%s" (effects (font (size 1.27 1.27))))\n'
+            '        (name "%s" (effects (font (size 1.8 1.8))))\n'
+            '        (number "%s" (effects (font (size 1.5 1.5))))\n'
             '      )\n' % (kind, fmt(x), fmt(y), rot, fmt(length), " hide" if hide else "", name, num))
 
 
