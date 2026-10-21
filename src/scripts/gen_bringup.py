@@ -737,9 +737,10 @@ def generate():
     for k, v in ZP.items():
         L.append('%-8s = 0x%02X' % (k, v))
     # reset and fail loops
-    a.org(0x0000, 'reset (the CPU starts at x0000 with the map all ROM)')
+    a.org(0x0000, 'reset (the CPU starts at x0000 with the map all ROM); the nop is for\n'
+             '; the cartridge hand-off, which can skip x0000 (docs/ROM.md)')
     a.lock += 1
-    a.i('ld   start >> 8, y', 'jmp  start')
+    a.i('nop', 'ld   start >> 8, y', 'jmp  start')
     a.lock -= 1
     a.org(FAIL_BASE + 4, 'fail loops: test N stops here at x0080 + 4N')
     for n in range(1, 17):

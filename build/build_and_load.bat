@@ -7,9 +7,10 @@ rem   1. assembles src\scripts\<program>.asm into <program>.hex, and the ROM's
 rem      boot loader and library (rom_boot.asm, rom_lib.asm)
 rem      (customasm if it is on the PATH, otherwise placard_sim.py with
 rem      Python; if neither is found the existing .hex files are used)
-rem   2. makes src\hdl\ram.mem (gen_video_ram.tcl, the video test pattern) and
-rem      src\hdl\rom.mem (gen_rom.tcl: boot loader, library and the program,
-rem      see docs/ROM.md)
+rem   2. makes src\hdl\ram.mem and cart_ram.mem (gen_random_ram.tcl, random
+rem      bytes like a real SRAM at power-up) and src\hdl\rom.mem (gen_rom.tcl:
+rem      the cartridge EEPROM image, boot loader, library and the program, see
+rem      docs/ROM.md)
 rem   3. runs Vivado in batch mode: synthesis, implementation, bitstream
 rem   4. programs the Basys 3 through the local hw_server
 rem
@@ -19,7 +20,7 @@ rem                                                 src\scripts\cpu_test.hex
 rem            build_and_load.bat cpu_test fast     skip step 3: put the new memory
 rem                                                 image into the last bitstream
 rem
-rem fast only changes the RAM and ROM contents.  It needs one full build first, and a
+rem fast only changes the RAM, cartridge SRAM and ROM contents.  It needs one full build first, and a
 rem full build again after any HDL or constraint change.  It writes
 rem impl_1\basys_top_fast.bit and leaves basys_top.bit as built (see
 rem tcl\update_mem.tcl and tcl\write_mmi.tcl).
@@ -27,7 +28,7 @@ rem
 rem Vivado is found on the PATH, else under C:\AMDDesignTools or C:\Xilinx
 rem (newest version).  Set VIVADO to the full path of vivado.bat to override.
 rem
-rem Date: 10/16/2026
+rem Date: 10/21/2026
 rem ===========================================================================
 setlocal EnableExtensions EnableDelayedExpansion
 

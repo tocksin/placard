@@ -1,10 +1,13 @@
 # ROM layout and boot
 
-The ROM and the RAM have their own initialization files in the FPGA model:
-`src/hdl/ram.mem` (made by `src/scripts/gen_video_ram.tcl`, the video test
-pattern) and `src/hdl/rom.mem` (made by `src/scripts/gen_rom.tcl`).  Both use
-`sp_ram.vhd`, which takes the file name as the generic `initFile`.  Programs
-and the standard library live in the ROM.
+Each memory has its own initialization file in the FPGA model:
+`src/hdl/rom.mem` (made by `src/scripts/gen_rom.tcl`) is the ROM
+cartridge's EEPROM image, and `src/hdl/ram.mem` (the main RAM) and
+`cart_ram.mem` (the cartridge SRAM) are random bytes from
+`src/scripts/gen_random_ram.tcl`, as a real SRAM powers up.  All use
+`sp_ram.vhd`, which takes the file name as the generic `initFile`; the
+cartridge model is `src/hdl/cartridge.vhd`.  Programs and the standard
+library live in the ROM.
 
 Date: 10/21/2026
 
@@ -26,7 +29,7 @@ the font, the I/O drivers and the rest.  It grows down into xC000-xC4FF.
 
 | ROM address | Contents | Made from |
 |-------------|----------|-----------|
-| x0000-x0003 | Reset jump to the boot loader (PC starts at 0000) | `rom_boot.asm` |
+| x0000-x0004 | nop (for the cartridge hand-off), reset jump to the boot loader (PC starts at 0000) | `rom_boot.asm` |
 | x0004-x1EFF | Free | |
 | x1F00-x1FFF | `LIB_RAM`: library code the boot copies to RAM x1F00 (the end of `plot1`, `con_scroll`) | `rom_lib.asm` |
 | x2000-x3FFF | Program, more code and tables (runs in place) | the program |
@@ -131,55 +134,91 @@ battery-backed SRAM drains a CR2032 in about two weeks (0.3 mA typical
 retention current per chip), so the cartridge copies the EEPROMs into
 the SRAMs at every power-up.
 
-The cartridge holds the main board while it loads, and the CPU's PC is
-the address counter:
+The cartridge stalls the CPU while it loads, and the CPU's PC is the
+address counter.  The board clock runs free from power-up; nothing gates
+it.
 
-- **The clock is held.**  The main board's CLK is OSC OR HOLD (a 74AC32
-  gate, #41).  HOLD comes from the cartridge PLD and is pulled up on the
-  main board, so from power-up no clock edge reaches the board and every
-  PLD stays in its power-up state: FETCH, PC = x0000.
-- **RUN is low.**  RUN (cartridge to main board, pulled down there)
-  replaces MAP_RUN: the memory control PLD (revision 08, pin 17 is now
-  the RUN input) keeps /ROM_OE high while RUN is low, so the SRAMs stay
-  off the bus; RUN also holds the map register clear (all ROM) and the
-  expansion cards in reset.
-- **One clock at a time.**  The cartridge PLD (`ATF22V10_CART.pld`,
-  ATF22V10C-10PU, clocked by OSC) lets the board have one clock edge, and
-  one OSC cycle later looks at the clock the CPU is in.  On a CPU read
-  (PIXEL_ENABLE low, /SRC_EN high; while loading this is always a FETCH)
-  the address on the bus is the PC: the EEPROM drives its byte, the
-  cartridge pulses the SRAM's /WE (the chip is picked by /CE_LO or
-  /CE_HI as usual), the EEPROM lets go, and a 74AC541 with its inputs
-  wired to 02h drives the opcode `ld ac, ac` for the CPU to fetch.  02h
-  is one byte, changes nothing (not even the carry), so the PC steps
-  through every address.  On any other clock (the EXEC of 02h, a video
-  read) the board gets the next edge at once.
-- **Hand-off.**  When A15 goes from 1 to 0 between two CPU reads the PC
-  has wrapped from xFFFF to x0000, and every address has been written
-  (the I/O window's bytes too, which are not used).  The PLD raises RUN
-  and stops holding the clock in that x0000 fetch, so its low half reads
-  the SRAM.  The CPU starts at x0000 with the map clear, exactly as a
-  power-up did before, and the boot below runs.
+- **STALL is held.**  The CPU already has a line that freezes it for
+  video reads and the ALU wait: the Branch PLD's STALL, which holds the
+  State PLD (no state change, every load strobe off) and both PC PLDs.
+  It now goes through the cartridge: STALL_IN (Branch PLD pin 19) goes
+  out to the cartridge PLD, which sends back STALL_OUT = STALL_IN OR its
+  own hold, to the State PLD (pin 2) and the PC PLDs (pin 14).  The main
+  board pulls STALL_OUT up, so with no cartridge the CPU stays stalled.
+- **RUN is low.**  RUN (cartridge to main board, pulled down there): the
+  memory control PLD (pin 17) keeps /ROM_OE high while RUN is low, so the
+  SRAMs stay off the bus; RUN also holds the map register clear (all ROM)
+  and the expansion cards in reset.
+- **The CPU only walks the image.**  The instruction register is an
+  ATF22V10C-7 (`ATF22V10_IR.pld`, chip #17, in place of the 74F377) that
+  holds 02h (`ld ac, ac`) while RUN is low, whatever is on the bus.  02h
+  writes nothing (the destination comes from the IR), so the CPU can't
+  disturb anything.  The State PLD still reads the fetched byte's bits
+  4:0 for its next state, so the CPU goes from FETCH to LOAD_IMM,
+  LOAD_MEM or EXEC as the image's own instruction would.  The PC is on
+  the address bus in FETCH and LOAD_IMM (PC_ENABLE high) and steps by one
+  in each, so every address is a FETCH or a LOAD_IMM read exactly once.
+- **One copy per PC address.**  The cartridge PLD (`ATF22V10_CART.pld`
+  revision 04, ATF22V10C-7, on the board clock) holds STALL_OUT high
+  whenever RUN is low and PC_ENABLE is high, except for one release
+  clock.  A video read comes in one clock of every 8-clock group, always
+  the same one, so the PLD counts the group's clocks (K0-K7, restarting
+  after each video read) and copies in K0-K6:
 
-A read takes 10 OSC cycles and any other clock 2, so the load takes
-about **33 ms** (32.7 ms in `src/sim/tb_cart_load.vhd`, which runs the
-real cartridge and memory control PLD equations against a timed model of
-the board and checks all 64K, the /WE timing, the PLD setup times and bus
-overlap).  The monitor loses sync for that time.
+  | Clock | What happens |
+  |---|---|
+  | K0 | the CPU is stalled with the PC on the address bus (valid 20.5 ns after the edge) |
+  | K1-K4 | EEPROM /OE low (COPY); the byte is valid by K0 + 178 ns |
+  | K4 | the SRAM's /WE low (the chip is picked by /CE_LO or /CE_HI as usual) |
+  | K5 | /WE and the EEPROM's /OE go high together; the EEPROM is off the bus by K6 + 15.8 ns |
+  | K6 | release: STALL_OUT low, the CPU takes one step at the end of K6 |
+  | K7 | a video read, or the CPU's next state |
 
-Pins between the main board and the cartridge for the loader: OSC (to
-the cartridge), HOLD and RUN (from it), /SRC_EN and PIXEL_ENABLE (to
-it).  /ROM_WE is no longer needed from the main board, because the
-cartridge makes its SRAMs' /WE.
+  The State PLD reads the bus at the end of K6, after the EEPROM has let
+  go: the bus still holds the EEPROM's byte (its capacitance against the
+  10k pull-ups keeps it for microseconds).  LOAD_MEM and EXEC are not
+  held.  If the step after a release is an operand read in the I/O
+  window, an I/O device drives the bus from K6 + 37.5 ns, 21.7 ns after
+  the EEPROM let go.
+- **Hand-off.**  When a copy would start with A15 = 0 after a copy with
+  A15 = 1, the PC has wrapped from xFFFF to x0000 and every address has
+  been copied (the I/O window's bytes too, which are not used).  The PLD
+  raises RUN instead: STALL_OUT follows STALL_IN only, /ROM_OE works, the
+  map stays clear and the IR loads the next opcode.  The CPU is then at
+  x0000 in FETCH or in LOAD_IMM, depending on how the image's last
+  instruction ended, so **the image keeps a 1-byte `nop` (02h) at
+  x0000**: fetched, it does nothing; read as an operand, it is skipped.
+  The CPU fetches x0001 next.
+
+The load takes about **33 ms** (28-33 ms: the image steers how the CPU
+walks it).  `src/sim/tb_cart_load.vhd` runs the real cartridge, IR,
+State, Branch and memory control PLD equations against a timed model of
+the board and checks the setup times, that the IR is 02h in every EXEC,
+that nothing writes, bus overlap and the hand-off;
+`src/sim/tb_top_load.vhd` runs the whole FPGA model from power-up and
+checks every cartridge read after the hand-off against `rom.mem`.  The
+video runs throughout and shows whatever the random RAM holds: a quirk of
+the system.
+
+Timing: STALL_IN to STALL_OUT to the State PLD's load strobe to an F377
+/E is 32.5 ns (+7.2 ns); PC_ENABLE to STALL_OUT to the State and PC
+setup is 16.5 ns.  The IR PLD's opcode setup (3.5 ns) leaves the fetch
+path +0.7 ns, the same as the State PLD's, and its clock to output (5.5
+ns, the F377's was 10.5) gives every path that starts at the IR 5 ns
+more.
+
+Pins between the main board and the cartridge for the loader: CLK,
+PIXEL_ENABLE, PC_ENABLE and STALL_IN (to the cartridge), STALL_OUT and
+RUN (from it).  There is no clock gate and no 74AC541 on the cartridge.
 
 **Without a cartridge** (bring-up, or a board with SRAMs loaded some
-other way) jumper HOLD to GND and RUN to +5 V; the board then runs from
-power-up as before, but nothing loads the ROM.
+other way) jumper STALL_IN to STALL_OUT and RUN to +5 V; the board then
+runs from power-up, but nothing loads the ROM.
 
 ## Boot
 
 `src/scripts/rom_boot.asm`.  The map is clear (all ROM) when the cartridge
-hands off, so the first fetch is ROM x0000, which jumps to the boot loader at xFD00.  Its
+hands off, so the CPU runs ROM x0000 (the nop) and x0001, which jumps to the boot loader at xFD00.  Its
 first job is to copy `LIB_RAM` (ROM x1F00-x1FFF) into the RAM under it,
 while the map is still 00 (reads from ROM, writes to RAM), about 3,000
 clocks.  It reads the boot mode byte at xFC00 after the expansion card scan
@@ -221,15 +260,16 @@ is a ROM program, with its bytes in x2000-x3FFF and x6000-xBFFF.
 ## Building
 
 `build\build_and_load.bat <program>` assembles `rom_boot.asm`, `rom_lib.asm`
-and the program, then makes `ram.mem` and `rom.mem`.  The `fast` path puts
-both files into the last bitstream with `updatemem` (`ramComp` gets
-`ram.mem`, `romComp` gets `rom.mem`).  By hand:
+and the program, then makes `ram.mem`, `cart_ram.mem` and `rom.mem`.  The
+`fast` path puts the files into the last bitstream with `updatemem`
+(`ramComp` gets `ram.mem`, `sramComp` `cart_ram.mem`, `romComp`
+`rom.mem`).  By hand:
 
 ```
 customasm rom_boot.asm -f hexstr -o rom_boot.hex
 customasm rom_lib.asm  -f hexstr -o rom_lib.hex
 customasm lib_demo.asm -f hexstr -o lib_demo.hex
-tclsh gen_video_ram.tcl
+tclsh gen_random_ram.tcl
 tclsh gen_rom.tcl          # ::ASM_FILE = the program's hex, default test_video.hex
 ```
 

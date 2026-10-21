@@ -46,18 +46,22 @@ image (`gen_rom.tcl`, [ROM.md](ROM.md)).  Program the EEPROMs in an
 external programmer; the cartridge copies them into its SRAMs at
 power-up ([ROM.md](ROM.md#loading-the-cartridge)).
 
-**Without the cartridge.**  The main board's HOLD pull-up stops its clock
-until a cartridge lets it go, and RUN's pull-down keeps the ROM off.  For
-the steps before the cartridge is built, fit two jumpers: HOLD to GND
-(the clock runs freely) and RUN to +5 V (the board reads the ROM).  Then
+**Without the cartridge.**  The main board's STALL_OUT pull-up keeps the
+CPU stalled until a cartridge lets it go, and RUN's pull-down keeps the
+ROM off and the instruction register PLD at 02h.  For the steps before
+the cartridge is built, fit two jumpers: STALL_IN to STALL_OUT (JP201:
+the Branch PLD's STALL reaches the State and PC PLDs directly) and RUN to
++5 V (JP202: the board reads the ROM and the IR loads opcodes).  Then
 nothing loads the ROM SRAMs, so those steps only check what they can
 without a ROM image (or with SRAMs loaded some other way).  Remove both
-jumpers when the cartridge goes in.
+jumpers when the cartridge goes in.  The clock runs from power-up either
+way.
 
 **Reset.**  There is no reset button.  At power-up the ATF22V10C registers
-start at 0, so the CPU starts in FETCH at x0000.  The cartridge holds the
-clock while it loads its SRAMs (about 33 ms, the monitor shows no sync),
-and RUN holds the map register clear (all ROM) until it hands off.  To
+start at 0, so the CPU starts in FETCH at x0000.  The cartridge stalls
+the CPU while it loads its SRAMs (about 33 ms; the video runs and shows
+the random RAM), and RUN holds the map register clear (all ROM) until it
+hands off at x0000, which holds a nop.  To
 restart, switch the power off and on.
 
 **Floating inputs.**  An ATF22V10C holds an input that nothing drives at
@@ -281,7 +285,7 @@ every 3 clocks it owns, about 7.6 million a second, PC low goes FF, 00,
 FF, ... and PC high counts up by one every instruction.  This exercises
 the State, Branch and PC chips with no memory and no software.
 
-### Step 10: take out the RAM and straps S1-S3; fit the instruction register (#17) and the State PLD (#1)
+### Step 10: take out the RAM and straps S1-S3; fit the instruction register PLD (#17) and the State PLD (#1)
 
 Pull both RAM chips (the screen goes white again).  Take straps S1, S2
 and S3 out of the State socket, then fit the State PLD and the instruction
@@ -349,7 +353,7 @@ free run readings must not change.
 The free run never selects it (its /OE2 is instruction bit 1, which is 1),
 so the readings of steps 10-12 must not change.  If they do, the buffer is
 driving the bus when it shouldn't: check its /OE1 (Branch /SRC_EN, pin 16)
-and /OE2 (instruction register Q1) wiring.
+and /OE2 (instruction register PLD I1, pin 15) wiring.
 
 ### Step 16: AC source buffer (#27), line read buffer (#29), RAM back, the ROM
 

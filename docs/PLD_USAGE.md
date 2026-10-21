@@ -1,8 +1,8 @@
 # PLD usage: unused pins and product terms
 
-Date: 2026-10-21. Taken from `src/pld/*.pld` on main (commit b476a68), then updated for the F377 load-enable fix (State PLD revision 13, Branch PLD revision 12, I/O decode PLD revision 04: the five State PLD load strobes are active low, and the Branch PLD's pin 15 makes the pixel buffer's /PIX_LD), and for X no longer being a source (Branch PLD revision 13: pin 16 is /SRC_EN, active low, on the source F541s' /OE1; memory control PLD revision 07; audio slot PLD revision 04 uses pins 16 and 21 for I1 and /AC_SEL). State 15, Branch 15, ALU 07 and cartridge 03 are the same logic as State 13, Branch 13, ALU 05 and cartridge 01: the revisions between them stored the opcode byte XOR FDh and were reverted on 2026-10-21.
+Date: 2026-10-21. Taken from `src/pld/*.pld` on main (commit b476a68), then updated for the F377 load-enable fix (State PLD revision 13, Branch PLD revision 12, I/O decode PLD revision 04: the five State PLD load strobes are active low, and the Branch PLD's pin 15 makes the pixel buffer's /PIX_LD), and for X no longer being a source (Branch PLD revision 13: pin 16 is /SRC_EN, active low, on the source F541s' /OE1; memory control PLD revision 07; audio slot PLD revision 04 uses pins 16 and 21 for I1 and /AC_SEL). State 15, Branch 15, ALU 07 and cartridge 03 are the same logic as State 13, Branch 13, ALU 05 and cartridge 01: the revisions between them stored the opcode byte XOR FDh and were reverted on 2026-10-21. Later on 2026-10-21 the cartridge PLD went to revision 04 (it holds the CPU's STALL instead of the clock) and the instruction register became a PLD (`ATF22V10_IR.pld`, #17).
 
-The design has 18 ATF22V10C chips built from 13 PLD sources. Each 22V10 has 12 dedicated inputs (pins 1-11 and 13; pin 1 is also the register clock) and 10 I/O pins (14-23), each with an output macrocell (OLMC) of 8, 10, 12, 14, 16, 16, 14, 12, 10 or 8 product terms. An I/O pin used as an input gives up its cell's terms. Every chip also has one asynchronous reset (AR) and one synchronous preset (SP) term shared by all registers, and each cell has its own output-enable term.
+The main board has 19 ATF22V10C chips built from 13 PLD sources, and the ROM cartridge one more (`ATF22V10_CART.pld`). Each 22V10 has 12 dedicated inputs (pins 1-11 and 13; pin 1 is also the register clock) and 10 I/O pins (14-23), each with an output macrocell (OLMC) of 8, 10, 12, 14, 16, 16, 14, 12, 10 or 8 product terms. An I/O pin used as an input gives up its cell's terms. Every chip also has one asynchronous reset (AR) and one synchronous preset (SP) term shared by all registers, and each cell has its own output-enable term.
 
 ## How the counts were made
 
@@ -10,7 +10,7 @@ Each output equation was expanded with its intermediate variables (names that ar
 
 ## Things that apply to every PLD
 
-- **AR and SP terms**: unused on all 13 designs (VCOUNT sets them to 0 explicitly; the others leave them at the default 0).
+- **AR and SP terms**: unused on every design (VCOUNT sets them to 0 explicitly; the others leave them at the default 0).
 - **Output-enable terms**: unused (always enabled) everywhere except PORT's D6 and D7.
 - **Registers**: every combinational output cell could be registered instead; those are marked "combinational" in the tables.
 
@@ -29,12 +29,14 @@ Each output equation was expanded with its intermediate variables (names that ar
 | `ATF22V10_VCOUNT.pld` | #14 | 3, 4, 5, 6, 7, 8, 9, 10, 11, 13 | none | 0 | 10 | 79 / 120 |
 | `ATF22V10_SYNC.pld` | #15 | none | none | 0 | 10 | 26 / 120 |
 | `ATF22V10_COLORDECODER.pld` | #16 | none | none | 2 | 8 | 95 / 104 |
+| `ATF22V10_IR.pld` | #17 | 13 | 22 (10), 23 (8) | 0 | 8 | 17 / 102 |
 | `ATF22V10_AUDIO.pld` | #35 | none | none | 3 | 7 | 23 / 78 |
 | `ATF22V10_PORT.pld` | #38 | 9, 10, 11, 13 | none | 0 | 10 | 10 / 120 |
+| `ATF22V10_CART.pld` | cartridge | 6, 7, 8, 9, 10, 11, 13 | none | 0 | 10 | 28 / 120 |
 
 \* pin 2 on HCOUNT is declared (RESET) but used in no equation.
 
-Free inputs in total: HCOUNT 8, VCOUNT 10, PORT 4. Free I/O cells: none (BRANCH pin 15 became /PIX_LD in revision 12, and AUDIO pins 16 and 21 became I1 and /AC_SEL in revision 04).
+Free inputs in total: HCOUNT 8, VCOUNT 10, PORT 4, IR 1 (main board); CART 7. Free I/O cells: IR pins 22 and 23 only (BRANCH pin 15 became /PIX_LD in revision 12, and AUDIO pins 16 and 21 became I1 and /AC_SEL in revision 04).
 
 **Full or tight cells** (0-1 spare): COLORDECODER RED1, RED2, RED3, GRN1, BLU2 (full) and GRN3 (1 spare); MEM_CTRL RAM_OE (full); HCOUNT HSYNC (1 spare); STATE Q1 (1 spare).
 
@@ -246,28 +248,49 @@ Every pin is used since revision 04: pin 16 takes I1 (instruction register bit 1
 
 ### `ATF22V10_CART.pld` (on the ROM cartridge)
 
-Every output cell is used; pins 5-11 and 13 are free inputs.  The
-registered outputs need few terms; the step counter CNT3:CNT0 and PREV15
-are buried (no external connection).  Term counts are worked out by hand
-from the equations (a negated group such as !DECIDE becomes one term per
-literal), since this PLD has no WinCUPL fit report yet.
+Revision 04.  Every output cell is used; pins 6-11 and 13 are free inputs.
+The group phase G2:G0, COPY, PREV15 and SYNCED are buried (no external
+connection).  Term counts are worked out by hand from the equations,
+since this PLD has no WinCUPL fit report yet.
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|
-| 1 | — | OSC | clock | — | — |
+| 1 | — | CLK | clock | — | — |
 | 2 | — | A15 | input | — | — |
 | 3 | — | PIXEL_ENABLE | input | — | — |
-| 4 | — | !SRC_EN | input | — | — |
-| 14 | 8 | CNT0 | registered | 3 | 5 |
-| 15 | 10 | CNT1 | registered | 2 | 8 |
-| 16 | 12 | CNT2 | registered | 3 | 9 |
-| 17 | 14 | CNT3 | registered | 1 | 13 |
-| 18 | 16 | PREV15 | registered | 9 | 7 |
+| 4 | — | PC_ENABLE | input | — | — |
+| 5 | — | STALL_IN | input | — | — |
+| 14 | 8 | G0 | registered | 2 | 6 |
+| 15 | 10 | G1 | registered | 3 | 7 |
+| 16 | 12 | G2 | registered | 2 | 10 |
+| 17 | 14 | COPY | registered | 5 | 9 |
+| 18 | 16 | PREV15 | registered | 2 | 14 |
 | 19 | 16 | !SR_WE | registered | 1 | 15 |
-| 20 | 14 | !EE_OE | registered | 5 | 9 |
-| 21 | 12 | !BUF_OE | registered | 1 | 11 |
+| 20 | 14 | !EE_OE | registered | 4 | 10 |
+| 21 | 12 | SYNCED | registered | 2 | 10 |
 | 22 | 10 | RUN | registered | 2 | 8 |
-| 23 | 8 | !RELEASE (HOLD) | registered | 5 | 3 |
+| 23 | 8 | STALL_OUT | combinational | 5 | 3 |
+
+### `ATF22V10_IR.pld` (#17)
+
+The instruction register: eight registers, each the opcode bit on
+/LOAD_INSTR, held otherwise, and its bit of 02h while RUN is low.  Pin 13
+is a free input, pins 22 and 23 free I/O.
+
+| Pin | Terms in cell | Signal | Use | Terms used | Spare |
+|---:|---:|---|---|---:|---:|
+| 1 | — | CLK | clock | — | — |
+| 2-9 | — | D0-D7 | input | — | — |
+| 10 | — | !LOAD_INSTR | input | — | — |
+| 11 | — | RUN | input | — | — |
+| 14 | 8 | I0 | registered | 2 | 6 |
+| 15 | 10 | I1 | registered | 3 | 7 |
+| 16 | 12 | I2 | registered | 2 | 10 |
+| 17 | 14 | I3 | registered | 2 | 12 |
+| 18 | 16 | I4 | registered | 2 | 14 |
+| 19 | 16 | I5 | registered | 2 | 14 |
+| 20 | 14 | I6 | registered | 2 | 12 |
+| 21 | 12 | I7 | registered | 2 | 10 |
 
 ### `ATF22V10_PORT.pld` (#38)
 

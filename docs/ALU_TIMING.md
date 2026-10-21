@@ -1,6 +1,6 @@
 # ALU timing options
 
-Date: 2026-10-19
+Date: 2026-10-21
 
 The ALU is the worst path in [TIMING.md](TIMING.md): 91 ns against a
 39.72 ns clock (25.175 MHz).  This document works out how to fix it with
@@ -149,9 +149,9 @@ is settled 10.5 ns into the cycle, so they cannot reach F.
 
 | Single-clock path (non-arithmetic) | Total | Slack |
 |---|---:|---:|
-| FETCH→EXEC, source AC: IR 10.5, audio PLD /AC_SEL 7.5 (the '138's 9 until 2026-10-19), '541 enable 9.5, ALU 7.5, AC setup 2 | 37.0 | +2.7 |
+| FETCH→EXEC, source AC: IR 5.5 (the IR PLD since 2026-10-21; the F377's 10.5 before), audio PLD /AC_SEL 7.5 (the '138's 9 until 2026-10-19), '541 enable 9.5, ALU 7.5, AC setup 2 | 32.0 | +7.7 |
 | LOAD→EXEC, source D: /SRC_EN (State 5.5 + branch PLD 7.5), '541 enable 9.5, ALU 7.5, AC setup 2 | 32.0 | +7.7 |
-| Branch decision (PASS A, Z): unchanged from TIMING.md | 36.5 | +3.2 |
+| Branch decision (PASS A, Z): TIMING.md rank 12, with the IR PLD's 5.5 | 31.5 | +8.2 |
 
 ## Impact on the rest of the system
 

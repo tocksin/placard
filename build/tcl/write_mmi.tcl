@@ -12,8 +12,8 @@
 # block RAM cell: LOC, and the address range and data bits it holds
 # (bram_addr_begin/end and bram_slice_begin/end, or ram_* in newer versions).
 #
-# Each memory instance (hierarchy above the block RAM cells: ramComp and
-# romComp) becomes one <Processor> in the MMI, named by that instance path;
+# Each memory instance (hierarchy above the block RAM cells: ramComp,
+# cartComp/sramComp and cartComp/romComp) becomes one <Processor> in the MMI, named by that instance path;
 # pass that name to updatemem with -proc.  Every instance must cover all depth x width
 # bits exactly once, otherwise the map is refused: synthesis can trim the
 # parts of a read-only memory that hold constant data, and those parts cannot
@@ -28,7 +28,7 @@
 #
 # Returns the list of instance names.
 #
-# Date: 10/16/2026
+# Date: 10/21/2026
 
 proc write_mmi {mmiFile depth width bitOrder} {
     set cells [get_cells -hierarchical -quiet -filter {PRIMITIVE_TYPE =~ BMEM.*.*}]
@@ -150,7 +150,7 @@ proc write_mmi {mmiFile depth width bitOrder} {
 
 # write_update_mem <memFile> <outFile> <depth>
 #
-# Converts a gen_video_ram.tcl or gen_rom.tcl image (one hex byte per line) to updatemem's
+# Converts a gen_random_ram.tcl or gen_rom.tcl image (one hex byte per line) to updatemem's
 # .mem format: @address followed by 16 data bytes per line.
 proc write_update_mem {memFile outFile depth} {
     set fh [open $memFile r]
