@@ -56,11 +56,11 @@ def expansion_slot():
           ("A10", "SD4"), ("B10", "SD5"), ("A11", "SD6"), ("B11", "SD7")]
     a = [("A13", "A0"), ("B13", "A1"), ("A14", "A2"), ("B14", "A3"),
          ("A15", "A4"), ("B15", "A5"), ("A16", "A6"), ("B16", "A7")]
-    sel = [("A17", "/EXP"), ("B17", "SEL")]
+    sel = [("A17", "/EXP")]
     ctl = [("A18", "RW"), ("B18", "LOAD_IMM"), ("A19", "/WE"), ("B12", "CLK"), ("B19", "/RESET")]
     e = lambda l: [(n, s, p) for n, s in l]
     gnd = [(n, "GND") for n in ["A1", "B1", "A7", "B7", "A12", "A20", "B20"]]
-    return symbol("Expansion_Slot", [(e(d) + [None] + e(sd), e(a) + [None] + e(sel) + [None] + e(ctl))],
+    return symbol("Expansion_Slot", [(e(d) + [None] + e(sd), e(a) + [None] + e(sel) + [None] + e(ctl) + [None, None] + e([("B17", "SEL")]))],
                   "EBC20DCAN", "Expansion slot: 2 x 20 contact, 0.1 inch card-edge socket (EXPANSION.md)",
                   "card edge slot expansion Placard", footprint="", datasheet="~",
                   vcc=[("A2", "+5V"), ("B2", "+5V")], gnd=gnd, ref="J", pin_len=2 * 2.54)
@@ -75,8 +75,8 @@ def cartridge_slot():
     ce = [("A16", "/CE_LO"), ("B16", "/CE_HI"), ("A17", "/ROM_OE"), None, ("B10", "/CART")]
     d = [("A12", "D0"), ("B12", "D1"), ("A13", "D2"), ("B13", "D3"),
          ("A14", "D4"), ("B14", "D5"), ("A15", "D6"), ("B15", "D7")]
-    ld = [("A20", "CLK"), ("A18", "PIXEL_ENABLE"), ("B19", "PC_ENABLE"), ("B17", "STALL_IN"),
-          ("B18", "STALL_OUT"), ("A19", "RUN")]
+    ld = [("A20", "CLK"), None, ("A18", "PIXEL_ENABLE"), None, ("B19", "PC_ENABLE"), None, ("B17", "STALL_IN"),
+          None, ("B18", "STALL_OUT"), None, ("A19", "RUN")]     # a row apart, so their labels line up
     spare = [(s + str(n), "spare") for s in "AB" for n in [19, 20] + list(range(22, 31)) + [32]
              if s + str(n) not in ("A19", "A20", "B19")]
     e = lambda l: [(x[0], x[1], p) if x else None for x in l]
@@ -124,9 +124,29 @@ def usb_c_power():
                   datasheet="~", vcc=None, gnd=None, ref="J", min_w=4 * 2.54, pin_len=2 * 2.54)
 
 
+def mcp1700():
+    # MCP1700-3302E/TO, 3.3 V LDO, TO-92: drawn with the input on the left, the
+    # output on the right and GND at the bottom, so the power flows left to right
+    return symbol("MCP1700_TO92", [([None, (2, "VI", "power_in"), None], [None, (3, "VO", "power_out"), None])], "MCP1700-3302E/TO",
+                  "3.3 V 250 mA low-quiescent LDO regulator, TO-92 (pin 1 GND, 2 VI, 3 VO)",
+                  "LDO regulator 3.3V MCP1700 Placard",
+                  footprint="Package_TO_SOT_THT:TO-92_Inline", datasheet="~",
+                  vcc=None, gnd=(1, "GND"), min_w=8 * 2.54)
+
+
+def oscillator():
+    # 25.175 MHz full-can oscillator, DIP-14 footprint (pin 1 NC, 7 GND, 8 OUT, 14 VCC),
+    # drawn large enough for its pin names
+    return symbol("Oscillator_DIP14", [([None] * 5, [None, None, (8, "OUT", "output"), None, None])], "25.175 MHz",
+                  "Crystal oscillator, full can, DIP-14 footprint: 1 NC, 7 GND, 8 OUT, 14 VCC",
+                  "oscillator clock DIP-14 Placard",
+                  footprint="Oscillator:Oscillator_DIP-14", datasheet="~",
+                  vcc=(14, "VCC"), gnd=(7, "GND"), ref="X", min_w=8 * 2.54)
+
+
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else OUT
-    write_lib(out, [sram(), expansion_slot(), cartridge_slot(), snes_socket(), keyboard_header(),
+    write_lib(out, [sram(), expansion_slot(), cartridge_slot(), snes_socket(), keyboard_header(), mcp1700(), oscillator(),
                     usb_c_power()])
 
 

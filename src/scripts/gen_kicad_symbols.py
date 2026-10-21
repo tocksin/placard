@@ -51,7 +51,7 @@ FOOTPRINT = "Package_DIP:DIP-24_W7.62mm"
 DATASHEET = "https://ww1.microchip.com/downloads/en/DeviceDoc/doc0735.pdf"
 G = 2.54                       # pin pitch and pin length (100 mil)
 FILL = "(fill (type color) (color 255 248 225 1))"   # the drawings' chip colour #FFF8E1
-CHAR_W = 1.2                   # width of one 1.27 mm character, with a little to spare
+CHAR_W = 1.7                   # width of one 1.8 mm pin-name character, with a little to spare
 MIN_W = 3 * 2 * G              # 15.24 mm
 
 SEP = "---"                    # in a layout: a dashed line between unrelated functions
@@ -62,20 +62,19 @@ SEP = "---"                    # in a layout: a dashed line between unrelated fu
 # blocks draws a dashed line in that row.
 LAYOUT = {
     "ALU_SHR": [
-        (["A0", "A1", "A2", "A3", None, "B0", "B1", "B2", "B3", None, "S0", "S1", "S2"],
-         ["F0", "F1", "F2", "F3", None, "Z"]),
-        (["CIN", "SHIFT_RIGHT_IN"], ["COUT", None, "nc"]),
+        (["CIN", None, "A0", "A1", "A2", "A3", "SHIFT_RIGHT_IN", None, "B0", "B1", "B2", "B3", None, "S0", "S1", "S2"],
+         [None, None, "F0", "F1", "F2", "F3", None, None, "Z", None, None, None, None, "nc", None, "COUT"]),
     ],
     "ATF22V10_AUDIO": [
         (["H3", "H4", "H5", "H6", "H7", "H8", "H9", None,
-          "V0", "V1", "V7", "V8", "V9", None, "LC2", "LC3"],
-         ["R0", "R1", "R7", "R8", None, "MODE_LD", "BLANK_RD"]),
+          "V0", "V1", "V7", "V8", "V9", None, "LC2", None, "LC3"],
+         ["R0", "R1", "R7", "R8", None, "MODE_LD", None, "BLANK_RD"]),
         SEP,
         (["I1"], ["AC_SEL"]),
     ],
     "ATF22V10_BRANCH": [
         (["I7", "I6", "I5", None, "M2", "M1", "M0", None, "Z_LOW", "Z_HIGH", "NEG"],
-         ["LOAD_PC_LOW", "LOAD_PC_HIGH", None, "BRANCH_BLOCK"]),
+         ["BRANCH_BLOCK", None, "LOAD_PC_LOW", "LOAD_PC_HIGH"]),
         (["CLK", "Q0", "PC_ENABLE", "PIXEL_ENABLE"], ["STALL", "SRC_EN", "PIX_LD", "ALU_DONE"]),
         (["COUT"], ["CARRY"]),
     ],
@@ -85,26 +84,28 @@ LAYOUT = {
          ["RED1", "RED2", "RED3", None, "GRN1", "GRN2", "GRN3", None, "BLU2", "BLU3"]),
     ],
     "ATF22V10_HCOUNT": [
-        (["CLK", "RESET", None, "H0", "H1", "H2"],
-         ["H3", "H4", "H5", "H6", "H7", "H8", "H9", None, "HSYNC", "H_VIDEO_ACTIVE", "H_TC"]),
+        (["H0", "H1", "H2", None, "CLK", "RESET"],
+         ["H3", "H4", "H5", "H6", "H7", "H8", "H9", None, "HSYNC", None, "H_VIDEO_ACTIVE", None, "H_TC"]),
         (["nc"], []),
     ],
     "ATF22V10_IO_DECODE": [
-        (["ADDR_SEL", "ADDR_SEL_HI", "PC15", "H9", "Y7"], ["CE_HI"]),
+        (["ADDR_SEL", "ADDR_SEL_HI", "PC15", "H9", "Y7"], ["MAP_WR", None, "CE_HI"]),
         (["A14", "A13", "A12", "A11", "A10", "A9", "A8", None, "RW", "LOAD_IMM", "WE_N"],
-         ["MAP_WR", "LINE_RD", None, "PORT_WR", "PORT_RD", None, "EXP1", "EXP2"]),
+         ["LINE_RD", None, "PORT_WR", None, "PORT_RD", None, "EXP1", None, "EXP2"]),
     ],
     "ATF22V10_MEM_CTRL": [
         (["A15", "A14", "A13", "A12", "A11", "A10", None,
           "RAMSEL0", "RAMSEL1", "RAMSEL2", "RAMSEL3", "RAMSEL4", "RAMSEL5", "RAMSEL6", "RAMSEL7",
-          None, "RW", "PIXEL_ENABLE", "SRC_EN"],
-         ["WE", "RAM_OE", "ROM_OE"]),
+          None, "RW", None, "PIXEL_ENABLE", None, "SRC_EN"],
+         ["ROM_OE", "RAM_OE", "WE"]),
         SEP,
-        (["CLK", "RUN"], []),
+        (["CLK", None, "RUN"], []),
     ],
     "ATF22V10_CART": [
-        (["CLK", None, "A15", "PIXEL_ENABLE", "PC_ENABLE", None, "STALL_IN"],
-         ["RUN", None, "EE_OE", "SR_WE", None, "STALL_OUT"]),
+        # the loader pins line up with the cartridge connector's, a row apart
+        (["CLK", None, "PIXEL_ENABLE", None, "PC_ENABLE", None, "STALL_IN", None, "STALL_OUT", None, "RUN",
+          None, "A15"],
+         ["EE_OE", None, "SR_WE"]),
         (["nc"], []),
     ],
     "ATF22V10_IR": [
@@ -113,9 +114,9 @@ LAYOUT = {
         (["nc"], []),
     ],
     "ATF22V10_PC_COUNTER8": [
-        (["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", None,
-          "LOAD", "EN", "PIXEL_ENABLE", "CIN", None, "CLK"],
-         ["Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", None, None, None, None, "CO"]),
+        (["CIN", None, "D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", None,
+          "LOAD", "EN", "PIXEL_ENABLE", None, "CLK"],
+         [None, None, "Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", None, None, None, None, None, "CO"]),
     ],
     "ATF22V10_PORT": [
         (["K0", "K1", "K2", "K3"],
@@ -125,10 +126,10 @@ LAYOUT = {
         (["nc"], []),
     ],
     "ATF22V10_QUAD_MUX": [
+        (["S0", "S1"], []),
         (["A0", "A1", "A2", "A3", None, "B0", "B1", "B2", "B3", None,
           "C0", "C1", "C2", "C3", None, "D0", "D1", "D2", "D3"],
-         ["Y0", "Y1", "Y2", "Y3"]),
-        (["S0", "S1"], []),
+         [None] * 15 + ["Y0", "Y1", "Y2", "Y3"]),
     ],
     "ATF22V10_STATE": [
         (["CLK", "PIXEL_ENABLE", "BRANCH_BLOCK", None, "MEM2", "MEM1", "MEM0", "SRC0", None,
@@ -137,12 +138,12 @@ LAYOUT = {
           "LOAD_INSTR", "LOAD_IMM", "LOAD_AC", "LOAD_X", "LOAD_Y", "MEM_WR"]),
     ],
     "ATF22V10_SYNC": [
-        (["CLK", None, "H_VIDEO_ACTIVE", "BLANK_RD", None, "V9", "V5", "V4", "V3", "V2", "V1"],
-         ["H0", "H1", "H2", None, "VIDEN", "PIXEL_ENABLE", None, "VSYNC", "V_VIDEO_ACTIVE"]),
-        (["PC_ENABLE", "X_ENABLE", "Y_ENABLE"], ["ADDR_SEL", "ADDR_SEL_HI", "ADDR_SEL_LO"]),
+        (["CLK", None, "H_VIDEO_ACTIVE", None, "BLANK_RD", None, "V9", "V5", "V4", "V3", "V2", "V1"],
+         ["H0", "H1", "H2", None, "VIDEN", None, "PIXEL_ENABLE", None, "VSYNC", "V_VIDEO_ACTIVE"]),
+        (["PC_ENABLE", None, "X_ENABLE", None, "Y_ENABLE"], ["ADDR_SEL", None, "ADDR_SEL_HI", None, "ADDR_SEL_LO"]),
     ],
     "ATF22V10_VCOUNT": [
-        (["CLK", "EN"], ["Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9"]),
+        (["EN", None, "CLK"], ["Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9"]),
         (["nc"], []),
     ],
 }
