@@ -2,17 +2,19 @@
 -- @brief Single-port RAM - Will synthesize in block ram
 -- @author Justin Davis
 --
--- Date: 10/18/2026
+-- Date: 10/21/2026
 -- LastEditedBy: Justin Davis
 --
 -------------------------------------------------------------------------------
 -- The memory is initialized from a text file (generic initFile) containing one
--- hex byte per line, address 0 first.  basys_top.vhd uses two instances:
---     ramComp  initFile => "ram.mem"  made by gen_video_ram.tcl (video test
---              patterns: a mode byte for each row at 5A20h + row, framed
---              1/2/4/8 bpp bands, text, and the 16 color palette)
---     romComp  initFile => "rom.mem"  made by gen_rom.tcl (boot loader,
---              standard library and font, and the program; see docs/ROM.md)
+-- hex byte per line, address 0 first.  Three instances:
+--     ramComp   (basys_top.vhd) initFile => "ram.mem", the main RAM
+--     sramComp  (cartridge.vhd) initFile => "cart_ram.mem", the cartridge SRAM
+--               both random bytes from gen_random_ram.tcl, as a real SRAM
+--               powers up
+--     romComp   (cartridge.vhd) initFile => "rom.mem", the cartridge EEPROMs,
+--               made by gen_rom.tcl (boot loader, standard library and font,
+--               and the program; see docs/ROM.md)
 --
 -- Vivado: add the .mem files to the project as design sources AND simulation
 -- sources (they are treated as data files), so the synthesizer and simulator

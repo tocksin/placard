@@ -1,7 +1,7 @@
 Name     STATE_CTRL;
 PartNo   00;
-Date     2026-10-20;
-Revision 14;
+Date     2026-10-21;
+Revision 15;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -134,7 +134,12 @@ Device   g22v10;
        001  [0,X]  load AC           101  [0,D]  store to RAM
        010  [Y,X]  load AC           110  [0,X]  store to RAM
        011  [0,D]  load X            111  [Y,X]  store to RAM
-   ============================================================ */
+   ============================================================ 
+   REVISION 15 (2026-10-21): the same logic as revision 13.  Revision
+   14 stored the opcode byte XOR FDh (to drop the cartridge 74AC541)
+   and was reverted: the plain encoding was easier to use.
+
+*/
 
 
 /* ---------------- INPUTS ---------------- */
@@ -147,14 +152,6 @@ PIN 1  = CLK;
    bus, or an ADD/SUB is waiting one clock for its carry). */
 PIN 2  = PIXEL_ENABLE;
 
-/* REVISION 14 (2026-10-20): THE OPCODE BYTE IS STORED XOR FDh.
-   Instruction bits 7:2 and 0 are stored inverted, so FFh, the level of
-   the undriven (pulled-up) data bus, is ld ac, ac: the ROM cartridge
-   loader feeds it to the CPU without a buffer chip (docs/ROM.md).
-   Bit 1 is not inverted (it drives the D F541's /OE2 directly).  The
-   instruction-bit pins are declared active low here, so every equation
-   still uses the logical field values. */
-
 /* Source and memory fields of the instruction BEING FETCHED.
    These must come straight from the data bus bits, NOT from the
    instruction FF: the instruction FF is only loaded at the end
@@ -164,13 +161,13 @@ PIN 2  = PIXEL_ENABLE;
        DB_SRC1:DB_SRC0            = data bus bits 1:0
        DB_MEM2:DB_MEM1:DB_MEM0    = data bus bits 4:2 */
 PIN 3  = DB_SRC1;
-PIN 4  = !DB_SRC0;
+PIN 4  = DB_SRC0;
 
 /* Memory source / destination field, from the instruction FF
    (valid from LOAD_IMM onward). */
-PIN 5  = !MEM2;
-PIN 6  = !MEM1;
-PIN 7  = !MEM0;
+PIN 5  = MEM2;
+PIN 6  = MEM1;
+PIN 7  = MEM0;
 
 /* Branch block from the Branch PLD (pin 23).
    1 = the instruction register holds a branch/jump, so in EXEC
@@ -178,14 +175,14 @@ PIN 7  = !MEM0;
 PIN 8  = BRANCH_BLOCK;
 
 /* Memory field of the instruction being fetched (data bus 4:2). */
-PIN 9  = !DB_MEM1;      /* data bus bit 3 */
-PIN 10 = !DB_MEM0;      /* data bus bit 2 */
-PIN 11 = !DB_MEM2;      /* data bus bit 4 */
+PIN 9  = DB_MEM1;      /* data bus bit 3 */
+PIN 10 = DB_MEM0;      /* data bus bit 2 */
+PIN 11 = DB_MEM2;      /* data bus bit 4 */
 
 /* Source field bit 0, from the instruction FF (valid from LOAD_IMM
    onward).  Used in LOAD_IMM, together with MEM2:0, to tell a
    zero-page read (source 01) from everything else. */
-PIN 13 = !SRC0;
+PIN 13 = SRC0;
 
 
 /* ---------------- OUTPUTS ---------------- */

@@ -97,7 +97,7 @@ exactly as before.  `menu_poll` costs 15 clocks a call then.
 
 | ROM address | Contents |
 |-------------|----------|
-| x0000-x0003 | Reset jump (`rom_boot.asm`) |
+| x0000-x0004 | nop, reset jump (`rom_boot.asm`) |
 | x0100-x1EFF | CPU test's x0100-x1EFF, in place |
 | x1F00-x1FFF | `LIB_RAM` |
 | x2000-x25FF | `menu.asm` |

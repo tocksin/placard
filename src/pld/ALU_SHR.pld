@@ -1,7 +1,7 @@
 Name     ALU4;
 PartNo   00;
-Date     10/20/2026;
-Revision 06;
+Date     10/21/2026;
+Revision 07;
 Designer ;
 Company  ;
 Assembly ;
@@ -79,7 +79,12 @@ Device   g22v10;
        D1 5 -> 15 (10)           D3 5 -> 22 (10)
        Z 1 -> 14 (8)
    F0..F3 are at most 12 terms even unminimised.
-   ========================================================= */
+   ========================================================= 
+   REVISION 07 (2026-10-21): the same logic as revision 05.  Revision
+   06 stored the opcode byte XOR FDh (to drop the cartridge 74AC541)
+   and was reverted: the plain encoding was easier to use.
+
+*/
 
 
 /* =========================================================
@@ -97,17 +102,9 @@ PIN 6   = B1;
 PIN 7   = B2;
 PIN 8   = B3;
 
-/* REVISION 06 (2026-10-20): THE OPCODE BYTE IS STORED XOR FDh.
-   Instruction bits 7:2 and 0 are stored inverted, so FFh, the level of
-   the undriven (pulled-up) data bus, is ld ac, ac: the ROM cartridge
-   loader feeds it to the CPU without a buffer chip (docs/ROM.md).
-   Bit 1 is not inverted (it drives the D F541's /OE2 directly).  The
-   instruction-bit pins are declared active low here, so every equation
-   still uses the logical field values. */
-
-PIN 9   = !S0;
-PIN 10  = !S1;
-PIN 11  = !S2;
+PIN 9   = S0;
+PIN 10  = S1;
+PIN 11  = S2;
 
 PIN 13  = CIN;
 PIN 23  = SHIFT_RIGHT_IN;   /* input only, uses an I/O pin */

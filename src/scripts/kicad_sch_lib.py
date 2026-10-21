@@ -247,7 +247,7 @@ class Sheet:
         self.pwr_n = 0
         self.boxes = []          # (x0, y0, x1, y1, what) for the overlap check
         self.uid = uuidlib.uuid5(_uuid_ns, filename)
-        self.comment2 = "Chip numbers U1-U41 = docs/CHIPS.md; decoupling Cn goes with Un"
+        self.comment2 = "Chip numbers U1-U40 = docs/CHIPS.md; decoupling Cn goes with Un"
         self.n = 0
         self.grid = KR.Grid()
         self.sig = []            # signal pins waiting for finish(): dicts

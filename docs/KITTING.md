@@ -1,6 +1,6 @@
 # Selling the Placard as a kit
 
-Date: 2026-10-20
+Date: 2026-10-21
 
 Who can buy the parts, program the chips, bag each kit and ship it, so
 that no one has to hand-pack every kit.  Researched 2026-10-20 from public
@@ -10,22 +10,22 @@ quote.
 
 ## What has to be programmed
 
-Each kit needs 21 programmed chips, from 16 different images:
+Each kit needs 22 programmed chips, from 17 different images:
 
 | Chips | Part | Images | Per kit |
 |---|---|---|--:|
-| Main board PLDs | ATF22V10C-7PX | State, Branch, ALU (x2), Address mux (x4), Memory control, I/O decode, Sync, Audio slot, Port | 13 |
-| Main board PLDs | ATF22V10C-10PU | PC counter (x2), H counter, V counter, Color decoder | 5 |
+| Main board PLDs | ATF22V10C-7PX | State, Instruction register, ALU (x2), Address mux (x4), Memory control, I/O decode, Sync, Port | 12 |
+| Main board PLDs | ATF22V10C-10PU | Branch, PC counter (x2), H counter, V counter, Color decoder, Audio slot | 7 |
 | Cartridge PLD | ATF22V10C-10PU | Cartridge loader | 1 |
 | Cartridge EEPROMs | AT28C256-15PU | ROM low, ROM high | 2 |
 
-That is 14 PLD JEDEC files (`src/pld`, 19 chips) and 2 EEPROM binaries.
+That is 15 PLD JEDEC files (`src/pld`, 20 chips) and 2 EEPROM binaries.
 The same image goes into both ALU chips, both PC chips and all four
 address mux chips.
 
 Two things matter more for a kit than for a single build:
 
-- **Labels.**  Nineteen programmed 22V10s look the same.  Every chip
+- **Labels.**  Twenty programmed 22V10s look the same.  Every chip
   needs a label with its job and revision (for example "MUX r03"), or a
   builder will swap the State and Sync PLDs.  Programming services
   offer labeling or ink dots; doing it yourself means a sheet of small
@@ -34,8 +34,8 @@ Two things matter more for a kit than for a single build:
   image, so every PLD change after the first order is another setup.
   Program kits only after the prototype has passed bring-up.
 
-The rest of the kit is ordinary stock: 7 SN74F377AN, 4 SN74F541N, 2
-AS7C256C-15PCN (4 with the cartridge's), a CD74ACT273E, SN74AC32N,
+The rest of the kit is ordinary stock: 6 SN74F377AN, 4 SN74F541N, 2
+AS7C256C-15PCN (4 with the cartridge's), a CD74ACT273E,
 SN74HCT574N, SN74HC574N, the 3.3 V regulator and oscillator (not chosen
 yet), sockets, passives, connectors, two PCBs and the case.  The passive
 and connector BOM comes out of the KiCad project (SCHEMATIC_PLAN.md) once

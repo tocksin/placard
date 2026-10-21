@@ -119,7 +119,8 @@ architecture Behavioral of basys_top is
     signal dataRom          : slv(15 downto 0);
     signal romEn            : sl;
     signal romSel           : sl;   -- 1 = the address reads from the ROM (map decode)
-    signal romData          : slv(7 downto 0);
+    signal cartData         : slv(7 downto 0);  -- the ROM cartridge's byte (EEPROM, SRAM or bus charge)
+    signal cartEeDrive      : sl;   -- 1 = the cartridge EEPROMs drive the data bus (loading)
     signal dipR             : slv(15 downto 0);
     signal dipRR            : slv(15 downto 0);
     signal dipEn            : sl;
@@ -170,7 +171,8 @@ architecture Behavioral of basys_top is
     signal romOeN           : sl;   -- ROM /OE
     signal ramOeN           : sl;   -- RAM /OE
     signal mapReg           : slv(7 downto 0) := (others => '0');  -- 74ACT273 map register
-    signal run              : sl := '1';   -- RUN from the ROM cartridge: map register /MR, memory control pin 17
+    signal run              : sl;   -- RUN from the ROM cartridge: map register /MR, memory control pin 17, IR PLD pin 11
+    signal stall            : sl;   -- STALL_OUT from the ROM cartridge: State PLD pin 2, PC PLDs pin 14
     signal ramSel0          : sl;   -- ROM/RAM map, 1 = RAM
     signal ramSel1          : sl;
     signal ramSel2          : sl;
@@ -193,8 +195,7 @@ architecture Behavioral of basys_top is
     signal acSelN           : std_logic;   -- audio slot PLD pin 21: low = AC source F541 selected
 
     signal dReg             : slv(7 downto 0) := x"00";
-    signal instReg          : slv(7 downto 0) := x"00";
-    signal instField        : slv(7 downto 0);   -- the logical opcode fields: the byte is stored XOR FDh
+    signal instReg          : slv(7 downto 0);   -- IR PLD outputs I7:I0
     signal acReg            : slv(7 downto 0) := x"00";
     signal xReg             : slv(7 downto 0) := x"00";
     signal yReg             : slv(7 downto 0) := x"00";
@@ -286,16 +287,16 @@ begin
     stateMachineProc: entity work.state_pld
     port map(
         clk         => clkVGA,
-        pixel_enable => cpuStall,     -- STALL from the Branch PLD
+        pixel_enable => stall,        -- STALL_OUT from the cartridge (Branch PLD STALL, or held while loading)
         db_src1     => dataBus(1),-- only used during fetch cycle - contains instruction bit 1
-        db_src0_n     => dataBus(0),-- only used during fetch cycle - contains instruction bit 1 
-        mem2_n        => instReg(4),-- dst/mem access mode
-        mem1_n        => instReg(3),-- dst/mem access mode
-        mem0_n        => instReg(2),-- dst/mem access mode
-        db_mem2_n     => dataBus(4),-- only used during fetch cycle - contains instruction bit 4
-        db_mem1_n     => dataBus(3),-- only used during fetch cycle - contains instruction bit 3
-        db_mem0_n     => dataBus(2),-- only used during fetch cycle - contains instruction bit 2
-        src0_n        => instReg(0),-- source field bit 0 (used in LOAD_IMM)
+        db_src0     => dataBus(0),-- only used during fetch cycle - contains instruction bit 1 
+        mem2        => instReg(4),-- dst/mem access mode
+        mem1        => instReg(3),-- dst/mem access mode
+        mem0        => instReg(2),-- dst/mem access mode
+        db_mem2     => dataBus(4),-- only used during fetch cycle - contains instruction bit 4
+        db_mem1     => dataBus(3),-- only used during fetch cycle - contains instruction bit 3
+        db_mem0     => dataBus(2),-- only used during fetch cycle - contains instruction bit 2
+        src0        => instReg(0),-- source field bit 0 (used in LOAD_IMM)
         branch_block => branchBlock,
 
         q0          => stateQ0,
@@ -315,12 +316,12 @@ begin
     branchComp : entity work.branch_pld
     port map(
         clk          => clkVGA,
-        i7_n           => instReg(7),
-        i6_n           => instReg(6),
-        i5_n           => instReg(5),
-        m2_n           => instReg(4),
-        m1_n           => instReg(3),
-        m0_n           => instReg(2),
+        i7           => instReg(7),
+        i6           => instReg(6),
+        i5           => instReg(5),
+        m2           => instReg(4),
+        m1           => instReg(3),
+        m0           => instReg(2),
         z_low        => zeroLo,
         z_high       => zeroHi,
         neg          => acNeg,
@@ -338,34 +339,32 @@ begin
         pix_ld_n     => pixLdN
     );
     
-    instField <= instReg xor x"FD";
-
-    memMode <= "[0,D]" when instField(4 downto 2)="000" else
-               "[0,X]" when instField(4 downto 2)="001" else
-               "[Y,X]" when instField(4 downto 2)="010" else
-               "[0,D]" when instField(4 downto 2)="011" else
-               "[0,D]" when instField(4 downto 2)="100" else
-               "[0,D]" when instField(4 downto 2)="101" else
-               "[0,X]" when instField(4 downto 2)="110" else
-               "[Y,X]" when instField(4 downto 2)="111";
+    memMode <= "[0,D]" when instReg(4 downto 2)="000" else
+               "[0,X]" when instReg(4 downto 2)="001" else
+               "[Y,X]" when instReg(4 downto 2)="010" else
+               "[0,D]" when instReg(4 downto 2)="011" else
+               "[0,D]" when instReg(4 downto 2)="100" else
+               "[0,D]" when instReg(4 downto 2)="101" else
+               "[0,X]" when instReg(4 downto 2)="110" else
+               "[Y,X]" when instReg(4 downto 2)="111";
     
-    destMode <= " ACC " when instField(4 downto 2)="000" else
-                " ACC " when instField(4 downto 2)="001" else
-                " ACC " when instField(4 downto 2)="010" else
-                "  X  " when instField(4 downto 2)="011" else
-                "  Y  " when instField(4 downto 2)="100" else
-                " RAM " when instField(4 downto 2)="101" else
-                " RAM " when instField(4 downto 2)="110" else
-                " RAM " when instField(4 downto 2)="111";
+    destMode <= " ACC " when instReg(4 downto 2)="000" else
+                " ACC " when instReg(4 downto 2)="001" else
+                " ACC " when instReg(4 downto 2)="010" else
+                "  X  " when instReg(4 downto 2)="011" else
+                "  Y  " when instReg(4 downto 2)="100" else
+                " RAM " when instReg(4 downto 2)="101" else
+                " RAM " when instReg(4 downto 2)="110" else
+                " RAM " when instReg(4 downto 2)="111";
 
-    aluMode  <= "PUSHB" when instField(7 downto 5)="000" else
-                " AND " when instField(7 downto 5)="001" else
-                " OR  " when instField(7 downto 5)="010" else
-                " XOR " when instField(7 downto 5)="011" else
-                " ADD " when instField(7 downto 5)="100" else
-                " SUB " when instField(7 downto 5)="101" else
-                " SHR " when instField(7 downto 5)="110" else
-                " BRA " when instField(7 downto 5)="111";
+    aluMode  <= "PUSHB" when instReg(7 downto 5)="000" else
+                " AND " when instReg(7 downto 5)="001" else
+                " OR  " when instReg(7 downto 5)="010" else
+                " XOR " when instReg(7 downto 5)="011" else
+                " ADD " when instReg(7 downto 5)="100" else
+                " SUB " when instReg(7 downto 5)="101" else
+                " SHR " when instReg(7 downto 5)="110" else
+                " BRA " when instReg(7 downto 5)="111";
     
     pcCntLowerComp : entity work.pc_counter8
     port map (
@@ -383,7 +382,7 @@ begin
         load         => loadPcLow,
         en           => pcEnable,
         cin          => '1',
-        pixel_enable => cpuStall,     -- STALL from the Branch PLD
+        pixel_enable => stall,        -- STALL_OUT from the cartridge
 
         q0           => programCounter(0),
         q1           => programCounter(1),
@@ -413,7 +412,7 @@ begin
         load         => loadPcHigh,
         en           => pcEnable,
         cin          => pcCarry,
-        pixel_enable => cpuStall,     -- STALL from the Branch PLD
+        pixel_enable => stall,        -- STALL_OUT from the cartridge
 
         q0           => programCounter(8),
         q1           => programCounter(9),
@@ -427,19 +426,43 @@ begin
         co           => open
     );
     
+    -- Instruction register: an ATF22V10C-7 (ATF22V10_IR.pld) in place of
+    -- the 74F377.  It loads the opcode in FETCH and holds 02h (ld ac, ac)
+    -- while RUN is low, so the CPU only walks the image while the
+    -- cartridge loads.  Its registers power up 00h (no reset pin).
+    irComp : entity work.ir_pld
+    port map(
+        clk          => clkVGA,
+        d0           => dataBus(0),
+        d1           => dataBus(1),
+        d2           => dataBus(2),
+        d3           => dataBus(3),
+        d4           => dataBus(4),
+        d5           => dataBus(5),
+        d6           => dataBus(6),
+        d7           => dataBus(7),
+        load_instr_n => instLoadN,
+        run          => run,
+
+        i0           => instReg(0),
+        i1           => instReg(1),
+        i2           => instReg(2),
+        i3           => instReg(3),
+        i4           => instReg(4),
+        i5           => instReg(5),
+        i6           => instReg(6),
+        i7           => instReg(7)
+    );
+
     -- All CPU registers process 
     cpuRegProc : process (clkVGA, rstVGA)
     begin
         if (rstVGA='1') then
-            instReg <= x"00";
             dReg    <= x"00";
             acReg   <= x"00";
             xReg    <= x"00";
             yReg    <= x"00";
         elsif rising_edge(clkVGA) then
-            if (instLoadN='0') then
-                instReg <= databus;
-            end if;
             if (dLoadN='0') then
                 dReg <= databus;
             end if;
@@ -459,7 +482,7 @@ begin
     port map(
         a              => acReg(3 downto 0),
         b              => srcBus(3 downto 0),
-        s_n              => instReg(7 downto 5),
+        s              => instReg(7 downto 5),
         cin            => '0',
         shift_right_in => acReg(4),
         f              => aluResult(3 downto 0),
@@ -474,7 +497,7 @@ begin
     port map(
         a              => acReg(7 downto 4),
         b              => srcBus(7 downto 4),
-        s_n              => instReg(7 downto 5),
+        s              => instReg(7 downto 5),
         cin            => carryBetween,
         shift_right_in => '0',
         f              => aluResult(7 downto 4),
@@ -601,14 +624,10 @@ begin
            yPort        => ramAddress(15 downto 8)
     );
 
-    -- RUN from the ROM cartridge (docs/ROM.md, "Loading the cartridge").
-    -- On the board the cartridge holds the clock and RUN low while it
-    -- copies its EEPROMs into its SRAM (cart_pld, src/sim/tb_cart_load.vhd).
-    -- Here the ROM model is loaded from rom.mem already, so RUN is high
-    -- from the start, as it is when the cartridge hands off (the first
-    -- fetch at x0000 reads the ROM).  The map register powers up clear.
-    -- (Until 2026-10-20 RUN rose at the first clock, which kept the ROM
-    -- off the bus for the first fetch.)
+    -- RUN comes from the ROM cartridge (cartridge.vhd, docs/ROM.md,
+    -- "Loading the cartridge").  It is low for about 33 ms after power-up
+    -- while the cartridge copies its EEPROMs into its SRAM, stalling the
+    -- CPU at each address the PC reaches; then the CPU runs from x0000.
 
     -- ROM/RAM map register: 74ACT273, an I/O device at 5000h (write only).
     -- It loads the source bus on the rising edge of /MAP_WR, and /MR
@@ -712,6 +731,8 @@ begin
     begin
         if pixelEnAndRst = '1' then
             romSel <= '0';
+        elsif run = '0' then
+            romSel <= '1';      -- loading: only the cartridge is on the bus
         else
             case ramAddress(15 downto 13) is
                 when "000"  => romSel <= not ramSel0;
@@ -727,10 +748,10 @@ begin
     end process romSelProc;
 
     -- Data bus process (from RAM/ROM) - replaces the tri-state databus 
-    --   Reads follow the ROM/RAM map (romSel).  The map clears to all ROM
-    --   at power-up, so the CPU starts in the ROM's boot loader, which
-    --   copies the program and library into the RAM and maps every section
-    --   to RAM (see docs/ROM.md).
+    --   Reads follow the ROM/RAM map (romSel).  The map is clear (all ROM)
+    --   while RUN is low, so after the cartridge loads, the CPU starts in
+    --   the ROM's boot loader (see docs/ROM.md).  While the cartridge
+    --   loads, its EEPROMs drive the bus (cartEeDrive).
     --
     --   Video line read: a 74F541 enabled by /LINE_RD (an I/O read at
     --   x5000-x50FF) drives the upper 8 bits of the V counter, V9:V2, onto
@@ -842,8 +863,10 @@ begin
             databus(5) <= pixelRow(7);  -- '541 A6 = V7
             databus(6) <= pixelRow(8);  -- '541 A7 = V8
             databus(7) <= pixelRow(9);  -- '541 A8 = V9
+        elsif cartEeDrive = '1' then
+            databus <= to_01(cartData);     -- loading: the cartridge EEPROMs
         elsif romSel = '1' then
-            databus <= to_01(romData);
+            databus <= to_01(cartData);     -- the cartridge SRAM (or, loading, the bus charge)
         else
             databus <= to_01(ramData);
         end if;
@@ -877,10 +900,10 @@ begin
         end if;
     end process srcBusProc;
 
-    srcMode  <= " IMM " when instField(7 downto 5)="00" else
-                " MEM " when instField(7 downto 5)="01" else
-                " ACC " when instField(7 downto 5)="10" else
-                " ACC " when instField(7 downto 5)="11" else
+    srcMode  <= " IMM " when instReg(7 downto 5)="00" else
+                " MEM " when instReg(7 downto 5)="01" else
+                " ACC " when instReg(7 downto 5)="10" else
+                " ACC " when instReg(7 downto 5)="11" else
                 "UNDEF";
 
 
@@ -1029,16 +1052,23 @@ begin
     port map(   addrIn      => addrRom,
                 dataOut     => dataRom);
 */
-    -- The ROM has its own initialization file (boot loader, standard
-    -- library and font, and the program; see docs/ROM.md).  Writes always go
-    -- to the RAM, so the ROM block is never written.
-    romComp : entity work.sp_ram 
-    generic map( initFile => "rom.mem" )
-    port map(   iClk    => clkSystem,  -- faster clock to simulate async RAM
-                iWrEn   => '0',
-                iRamEn  => '1',
-                iAddr   => ramAddress,
-                iData   => (romData'range => '0'),
-                oData   => romData);  -- must be same size as input data
-    
+    -- The ROM cartridge (cartridge.vhd): loader PLD, EEPROMs (rom.mem:
+    -- boot loader, standard library and font, and the program; see
+    -- docs/ROM.md) and the SRAM the CPU reads after the load.  CPU writes
+    -- always go to the main RAM.
+    cartComp : entity work.cartridge
+    port map(
+        clk         => clkVGA,
+        clkSystem   => clkSystem,
+        addr        => ramAddress,
+        pixelEnable => pixelEn,
+        pcEnable    => pcEnable,
+        stallIn     => cpuStall,
+
+        data        => cartData,
+        eeDrive     => cartEeDrive,
+        run         => run,
+        stallOut    => stall
+    );
+
 end architecture Behavioral;
