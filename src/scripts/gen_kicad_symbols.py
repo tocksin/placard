@@ -29,7 +29,7 @@ stops if a pin is missing from it); the file is KiCad 7 format.
 
 symbol() is also used by gen_kicad_parts.py for the other project symbols.
 
-Date: 2026-10-20
+Date: 2026-10-21
 """
 
 import os
@@ -45,7 +45,7 @@ PART = "ATF22V10C-7PX"
 # PLDs with enough timing margin for the slower -10 grade (CHIPS.md, "PLD speed grades")
 PART_10 = "ATF22V10C-10PU"
 SLOW_OK = {"ATF22V10_PC_COUNTER8", "ATF22V10_HCOUNT", "ATF22V10_VCOUNT",
-           "ATF22V10_COLORDECODER", "ATF22V10_CART"}    # the audio PLD is -7 since rev 04 (/AC_SEL)
+           "ATF22V10_COLORDECODER"}    # the audio PLD is -7 since rev 04 (/AC_SEL), the cart PLD since rev 04 (STALL_OUT)
 FOOTPRINT = "Package_DIP:DIP-24_W7.62mm"
 DATASHEET = "https://ww1.microchip.com/downloads/en/DeviceDoc/doc0735.pdf"
 G = 2.54                       # pin pitch and pin length (100 mil)
@@ -102,8 +102,13 @@ LAYOUT = {
         (["CLK", "RUN"], []),
     ],
     "ATF22V10_CART": [
-        (["OSC", None, "A15", "PIXEL_ENABLE", "SRC_EN"],
-         ["RELEASE", "RUN", None, "EE_OE", "SR_WE", "BUF_OE"]),
+        (["CLK", None, "A15", "PIXEL_ENABLE", "PC_ENABLE", None, "STALL_IN"],
+         ["RUN", None, "EE_OE", "SR_WE", None, "STALL_OUT"]),
+        (["nc"], []),
+    ],
+    "ATF22V10_IR": [
+        (["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", None, "LOAD_INSTR", "RUN", None, "CLK"],
+         ["I0", "I1", "I2", "I3", "I4", "I5", "I6", "I7"]),
         (["nc"], []),
     ],
     "ATF22V10_PC_COUNTER8": [

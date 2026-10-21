@@ -11,7 +11,7 @@ their chip counts are typed in below from docs/CHIPS.md; update them here when
 the chip list changes and rerun.  The counts must add up to the docs/CHIPS.md
 total (the script checks).
 
-Date: 2026-10-20
+Date: 2026-10-21
 """
 import os
 import sys
@@ -21,7 +21,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
-CHIPS_TOTAL = 35            # docs/CHIPS.md main board, plus the 3.3 V regulator
+CHIPS_TOTAL = 34            # docs/CHIPS.md main board, plus the 3.3 V regulator
 
 # fill colors by area
 CPU, CTRL, MEM, IO, VID, SND, DEV = ("#E4DAFF", "#FFF2BF", "#D3F6D8", "#FFE3C8",
@@ -79,7 +79,7 @@ ax.text(3, 9, "%d chips and a 3.3 V regulator on the main board (docs/CHIPS.md).
 
 # ---------------------------------------------------------------- CPU, top row
 vt = box(3, 16, 30, 16, "Video timing", 3, "H counter, V counter,\nSync PLDs", VID)
-ct = box(38, 16, 30, 16, "Control", 3, "State PLD, Branch PLD,\nAC32 clock gate (HOLD)", CTRL)
+ct = box(38, 16, 30, 16, "Control", 2, "State PLD, Branch PLD", CTRL)
 pc = box(73, 16, 28, 16, "Program counter", 2, "2 x 8-bit counter PLDs", CPU)
 am = box(106, 16, 28, 16, "Address mux", 4, "4 PLDs: PC, D/X, Y/0,\nvideo address", CPU)
 
@@ -97,7 +97,7 @@ alu = box(50, 50, 24, 16, "ALU", 2, "2 x 4-bit PLDs", CPU, fs=14)
 xr = box(80, 50, 14, 16, "X", 1, "F377", CPU, fs=14)
 yr = box(99, 50, 14, 16, "Y", 1, "F377", CPU, fs=14)
 dr = box(3, 76, 22, 12, "D", 1, "F377: operand,\nmemory read", CPU, fs=14)
-ir = box(30, 76, 22, 12, "Instruction\nregister", 1, "F377", CTRL, fs=11.5)
+ir = box(30, 76, 22, 12, "Instruction\nregister", 1, "PLD", CTRL, fs=11.5)
 
 # ---------------------------------------------------------------- video and sound row
 lr = box(58, 102, 22, 12, "Line read x5000", 1, "F541: V9:V2", VID, fs=11)
@@ -121,7 +121,7 @@ ms = box(57, 149, 14, 9, "PS/2 mouse", None, "", DEV, fs=10.5)
 exp = box(166, 102, 51, 20, "4 expansion slots", 0,
           "x5100-x53FF, 128 bytes each; data, source\nbus, A7:A0, RW, /WE, clock.  A card\n"
           "with a \"PLC\" boot header runs at power-up", IO, fs=13)
-cart = box(186, 60, 31, 11, "ROM cartridge slot", 0, "cartridge: 6 chips, holds\nthe clock while loading", MEM, fs=11.5)
+cart = box(186, 60, 31, 11, "ROM cartridge slot", 0, "cartridge: 5 chips, stalls\nthe CPU while loading", MEM, fs=11.5)
 
 total = sum(counted)
 assert total == CHIPS_TOTAL, "blocks add up to %d chips, docs/CHIPS.md says %d" % (total, CHIPS_TOTAL)

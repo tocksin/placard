@@ -7,9 +7,10 @@ vivado*.jou
 vivado*.str
 .Xil/
 
-# memory images, made by src/scripts/gen_video_ram.tcl (ram.mem) and
-# src/scripts/gen_rom.tcl (rom.mem) on every build
+# memory images, made by src/scripts/gen_random_ram.tcl (ram.mem,
+# cart_ram.mem) and src/scripts/gen_rom.tcl (rom.mem) on every build
 /src/hdl/ram.mem
+/src/hdl/cart_ram.mem
 /src/hdl/rom.mem
 /src/hdl/video_ram.mem
 

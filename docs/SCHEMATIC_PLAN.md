@@ -6,8 +6,8 @@ How the KiCad schematic (`kicad/`) is split into sheets: how many sheets,
 which chips, connectors and passives go on each, and which nets run between
 them.  The sheets are drawn (2026-10-20, see "How the sheets are drawn"
 below).  Chip numbers are the
-`#` column of [CHIPS.md](CHIPS.md) and become the U-numbers (U1-U41, with
-the gaps U24, U28, U30, U33 and U34 left empty, so every document's chip
+`#` column of [CHIPS.md](CHIPS.md) and become the U-numbers (U1-U40, with
+the gaps U24, U28, U30, U33 and U34 left empty, and U41 gone, so every document's chip
 numbers stay right).
 
 ## Summary
@@ -20,8 +20,8 @@ a separate board (a KiCad project has one PCB).
 | Sheet | Title | Chips | Connectors and main passives |
 |--:|---|---|---|
 | 1 | Root: block diagram | none | sheet boxes only, drawn like `reference/placard_block_diagram.png` |
-| 2 | Power and clock | U40 3.3 V regulator, U41 74AC32 clock gate, oscillator X1 | USB-C power input, polyfuse, bulk capacitor, HOLD 10k pull-up, RUN pull-down, HOLD/RUN bring-up jumpers |
-| 3 | Control | U1 State, U2 Branch, U17 instruction register | bring-up straps S1-S3 (State socket pins) |
+| 2 | Power and clock | U40 3.3 V regulator, oscillator X1 | USB-C power input, polyfuse, bulk capacitor, STALL_OUT 10k pull-up, RUN pull-down, STALL/RUN bring-up jumpers |
+| 3 | Control | U1 State, U2 Branch, U17 instruction register PLD | bring-up straps S1-S3 (State socket pins) |
 | 4 | Program counter and address mux | U3, U4 PC low/high, U7-U10 address mux | none |
 | 5 | ALU and registers | U5, U6 ALU, U19 AC, U20 X, U21 Y | none |
 | 6 | Data bus | U18 D register, U26 D source F541, U27 AC source F541 | 8 series resistors (source bus to data bus), 10k read-bus pull-up SIP |
@@ -31,7 +31,7 @@ a separate board (a KiCad project has one PCB).
 | 10 | Shared port | U37 port latch, U38 port PLD, U39 row F541 | J1 keyboard, J2/J3 SNES, J4 SD (dividers R1003-R1008, MISO diode and pull-up), J5 PS/2 (diodes, 4.7k pull-ups), row pull-ups, pad DATA pull-ups |
 | 11 | Expansion slots | none | four 2 x 20 card-edge slots, SEL resistors (1k) |
 
-That puts 35 chips plus the regulator and oscillator on nine sheets, no more
+That puts 34 chips plus the regulator and oscillator on nine sheets, no more
 than six chips on a sheet, so each sheet can be drawn with large text and
 room to lay out the blocks and nets first (the drawing style for this
 project).  Each chip's 100 nF decoupling capacitor is drawn next to that
@@ -83,20 +83,19 @@ sheet that drives the net.
 
 | Net | From | To |
 |---|---|---|
-| `CLK` | 2 (U41 clock gate) | every clocked chip on 3-9, 11 |
-| `OSC` | 2 (oscillator) | 2 (U41), 7 (cartridge A20) |
-| `HOLD` | 7 (cartridge B18) | 2 (U41, 10k pull-up) |
+| `CLK` | 2 (oscillator X1) | every clocked chip on 3-9, 11; 7 (cartridge A20) |
+| `STALL_IN` | 3 (Branch pin 19) | 7 (cartridge B17), 2 (bring-up jumper JP201) |
+| `STALL_OUT` | 7 (cartridge B18) | 2 (10k pull-up, JP201), 3 (State pin 2), 4 (PC PLDs pin 14) |
 | `RUN` | 7 (cartridge A19) | 2 (pull-down), 7 (memory control pin 17, map register /MR), 11 (/RESET on every slot) |
 | `PIXEL_ENABLE` | 8 (Sync pin 19) | 3 (Branch pin 9), 7 (memory control, cartridge A18) |
-| `STALL` | 3 (Branch pin 19) | 3 (State pin 2), 4 (PC PLDs pin 14) |
 | `ADDR_SEL`, `ADDR_SEL_HI`, `ADDR_SEL_LO` | 8 (Sync) | 4 (mux selects), 7 (I/O decode) |
 | `H_VIDEO_ACTIVE`, `V_VIDEO_ACTIVE`, `VIDEN`, `HSYNC`, `VSYNC` | 8 | 9 (DAC register clock, color decoder, VGA connector) |
-| `PC_ENABLE`, `X_ENABLE`, `Y_ENABLE`, `Q0` | 3 (State) | 4 (PC, mux), 8 (Sync) |
+| `PC_ENABLE`, `X_ENABLE`, `Y_ENABLE`, `Q0` | 3 (State) | 4 (PC, mux), 8 (Sync); `PC_ENABLE` also 7 (cartridge B19) |
 | `/LOAD_INSTR`, `/LOAD_IMM`, `/LOAD_AC`, `/LOAD_X`, `/LOAD_Y` | 3 (State) | 3, 6, 5 (register /E); `/LOAD_IMM` also 7 (I/O decode) and 11 (the slots' LOAD_IMM contact, active low as drawn) |
 | `RW` | 3 (State pin 23) | 7 (memory control, I/O decode), 11 |
-| `/SRC_EN` | 3 (Branch pin 16) | 6 (U26, U27 /OE1), 7 (memory control pin 22, cartridge B17) |
+| `/SRC_EN` | 3 (Branch pin 16) | 6 (U26, U27 /OE1), 7 (memory control pin 22) |
 | `/PIX_LD` | 3 (Branch pin 15) | 9 (pixel buffer /E) |
-| `LOAD_PC_LOW`, `LOAD_PC_HIGH`, `STALL` | 3 (Branch) | 4 (PC PLDs) |
+| `LOAD_PC_LOW`, `LOAD_PC_HIGH` | 3 (Branch) | 4 (PC PLDs) |
 | `Z_LOW`, `Z_HIGH`, `COUT`, `NEG` | 5 (ALU) | 3 (Branch) |
 | `CARRY` | 3 (Branch pin 20) | none: the carry flag is a register inside the Branch PLD (the ALU's CIN is 0) |
 | `/AC_SEL` | 8 (audio PLD pin 21) | 6 (U27 /OE2) |
@@ -117,15 +116,15 @@ mutual nets (`Q0`, `PC_ENABLE`, `BRANCH_BLOCK`) stay local.
 
 **2. Power and clock.**  USB-C receptacle (power only) with the two 5.1k
 CC pull-downs, a polyfuse, a bulk electrolytic on +5 V, the MCP1700-3302
-(U40) with its 1 µF in and out, the 25.175 MHz oscillator (X1), and the
-74AC32 (U41) with the three spare gates' inputs tied to GND.  HOLD's 10k
-pull-up and RUN's pull-down sit here next to the clock gate, with the
-bring-up HOLD and RUN jumpers ([BRINGUP.md](BRINGUP.md)).  A power LED, if
+(U40) with its 1 µF in and out, and the 25.175 MHz oscillator (X1), whose
+output is CLK (no clock gate since 2026-10-21).  STALL_OUT's 10k pull-up
+and RUN's pull-down sit here, with the bring-up jumpers JP201 (STALL_IN to
+STALL_OUT) and JP202 (RUN to +5 V) ([BRINGUP.md](BRINGUP.md)).  A power LED, if
 wanted, goes here too.
 
 **Decoupling.**  Every chip's 100 nF capacitor is drawn beside that chip
 on its own sheet, between its VCC and GND pins, so a sheet shows each chip
-with its capacitor (Justin, 2026-10-20).  That is 36 capacitors spread over
+with its capacitor (Justin, 2026-10-20).  That is 35 capacitors spread over
 sheets 2-10, plus the bulk capacitors on sheet 2.  On the PCB each one is
 placed at its chip's VCC pin.
 
@@ -155,7 +154,7 @@ option.
 
 **7. Memory and I/O decode.**  The two RAMs, the memory control and I/O
 decode PLDs, the map register, and the cartridge slot with its pinout from
-EXPANSION.md (22 spares as no-connects).  The cartridge slot is here
+EXPANSION.md (21 spares as no-connects).  The cartridge slot is here
 because it carries the ROM and its chip selects.
 
 **8. Video timing.**  H and V counters, Sync, the audio/mode slot PLD and
@@ -182,21 +181,19 @@ libraries in `kicad/lib/` through its own `sym-lib-table`:
 
 - the card-edge fingers (the 87715-9106 mating footprint, same contact
   names as the slot symbol),
-- the loader PLD (`ATF22V10_CART.pld`, ATF22V10C-10PU),
+- the loader PLD (`ATF22V10_CART.pld` revision 04, ATF22V10C-7PX),
 - two AT28C256 EEPROMs and two AS7C256C SRAMs,
-- the 74AC541 with its inputs wired to 02h (`ld ac, ac`) for the CPU's
-  fetches while it loads,
 - decoupling, and the spare contacts brought to a test header or left
   open until their use is decided.
 
-Six chips, so one sheet holds them comfortably.  The main board and the
+Five chips, so one sheet holds them comfortably.  The main board and the
 cartridge share the net names on the connector (`A0`, `D0`, `/CE_HI`,
-`OSC` and so on), so the two schematics read the same.
+`STALL_OUT` and so on), so the two schematics read the same.
 
 ## Reference designators
 
 - **Chips:** U = CHIPS.md number, fixed (KiCad annotation set to keep
-  existing references).  The cartridge uses its own U1-U6.
+  existing references).  The cartridge uses its own U1-U5.
 - **Connectors:** keep J1-J6 as IO.md and SOUND.md use them; then J7 VGA,
   J8 cartridge slot, J9-J12 expansion slots 1-4, J13 USB-C.
 - **Decoupling capacitors:** C = the chip's U-number (C1 for U1),
@@ -255,9 +252,9 @@ Decisions made while drawing (2026-10-20):
 - U36 (audio DAC register) has both supply pins on the audio rail: VCC on
   DAC_5V, GND on GNDA, as its ladder returns there.
 - The bring-up straps S1-S5 are temporary wires in the chip sockets
-  (BRINGUP.md), so they are not on the schematic; JP201 (HOLD) and JP202
+  (BRINGUP.md), so they are not on the schematic; JP201 (STALL) and JP202
   (RUN) are.
-- Polyfuse 3 A hold (Bourns MF-R300 size): 18 PLDs can draw about 2.3 A.
+- Polyfuse 3 A hold (Bourns MF-R300 size): 19 PLDs can draw about 2.5 A.
 
 **Still to do:** a KiCad 8 ERC (the container's KiCad 7.0 command line has
 no ERC; open the project in KiCad 8 or 9 and run Inspect > Electrical Rules

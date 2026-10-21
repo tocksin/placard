@@ -61,10 +61,14 @@
 ;   An empty slot reads FF (the read bus pull-ups), so it fails the check.
 ;
 ; gen_rom.tcl merges rom_boot.hex, rom_lib.hex and the program into
-; rom.mem.  The CPU's PC starts at 0000, so x0000-x0003 of the ROM is
-; this file's reset jump, not the program's.
+; rom.mem.  The CPU's PC starts at 0000, so x0000-x0004 of the ROM is
+; this file's reset code, not the program's.  x0000 is a 1-byte nop:
+; the cartridge loader hands the CPU over at x0000 either in FETCH or in
+; LOAD_IMM (the operand read of the image's last instruction), so the
+; byte there is either run or skipped, and the CPU fetches x0001 next
+; (docs/ROM.md, "Loading the cartridge").
 ;
-; Date: 10/19/2026
+; Date: 10/21/2026
 
 #include "placard.asm"
 
@@ -99,6 +103,7 @@ T4          = 0x1C
 SLOT        = 0xFF      ; slot being scanned, 4 down to 1
 
 #addr 0x0000
+    nop                 ; the cartridge hands off in FETCH or LOAD_IMM at x0000
 reset:
     ld   boot >> 8, y
     jmp  boot

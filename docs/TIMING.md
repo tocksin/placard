@@ -1,6 +1,6 @@
 # Timing analysis at 25.175 MHz
 
-Date: 2026-10-20
+Date: 2026-10-21
 
 This is a static, worst-case timing analysis of the Placard as it sits in
 `src/hdl/basys_top.vhd` and the PLD sources in `src/pld`, for a real board
@@ -35,9 +35,10 @@ The ALU has since been changed to a lookahead carry with one wait clock on
 ADD/SUB, which closes both ALU paths ([ALU_TIMING.md](ALU_TIMING.md)); the
 tables below are the analysis of the design before that change.  The carry
 flag (Branch PLD revision 11) latches the high ALU's COUT in the same two
-clocks: IR 10.5 + audio PLD /AC_SEL 7.5 + '541 enable 9.5 + four ALU
-passes 30 + setup 3.5 = 61 ns against 79.44 ns, 18.4 ns to spare (the
-source '138 was replaced by /AC_SEL on 2026-10-19, CPU.md "Source mode").
+clocks: IR 5.5 (the IR PLD since 2026-10-21) + audio PLD /AC_SEL 7.5 +
+'541 enable 9.5 + four ALU passes 30 + setup 3.5 = 56 ns against 79.44 ns,
+23.4 ns to spare (the source '138 was replaced by /AC_SEL on 2026-10-19,
+CPU.md "Source mode").
 [VIDEO_TIMING.md](VIDEO_TIMING.md) works through the video read (ranks 2
 and 7) and the write glitch, which the ALU change's STALL signal spread from
 the first byte of a line to every video byte.
@@ -355,7 +356,13 @@ In rough order of time recovered:
   ROM/RAM select PLD drives ROM_EN high for a ROM read.  The FPGA build does
   not show this because the "ROM" and RAM models load the same file.
 - The ROM SRAMs are loaded by the cartridge at power-up (ROM.md, "Loading
-  the cartridge"), so no battery switch sits in their /CE path.  The clock
-  gate (CLK = OSC OR HOLD, 74AC32) delays every main-board clock by the
-  same amount, so it moves no path's slack; the cartridge's own timing is
-  in `ATF22V10_CART.pld`.
+  the cartridge"), so no battery switch sits in their /CE path.  There is
+  no clock gate (2026-10-21): the cartridge holds the CPU's STALL instead.
+  STALL now runs Branch PLD, cartridge PLD, State PLD strobe, F377 /E
+  (32.5 ns, +7.2 ns); the cartridge's own timing is in
+  `ATF22V10_CART.pld`.
+- The instruction register is an ATF22V10C-7 (`ATF22V10_IR.pld`) since
+  2026-10-21: opcode setup 3.5 ns (the F377's 2 ns) leaves the fetch
+  into it +0.7 ns, the same as the State PLD's, and its clock to output
+  of 5.5 ns (the F377's 10.5) gives every path that starts at the IR
+  (the single-clock ALU, the branch decision, /AC_SEL) 5 ns more.

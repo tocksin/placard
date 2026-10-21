@@ -14,7 +14,7 @@ The other parts come from KiCad's libraries (kicad/README.md lists which).
 Rerunning this overwrites the library, so make changes here, not in KiCad's
 symbol editor.  The pinouts are from CHIPS.md, EXPANSION.md and IO.md.
 
-Date: 2026-10-20
+Date: 2026-10-21
 """
 
 import os
@@ -75,9 +75,10 @@ def cartridge_slot():
     ce = [("A16", "/CE_LO"), ("B16", "/CE_HI"), ("A17", "/ROM_OE"), None, ("B10", "/CART")]
     d = [("A12", "D0"), ("B12", "D1"), ("A13", "D2"), ("B13", "D3"),
          ("A14", "D4"), ("B14", "D5"), ("A15", "D6"), ("B15", "D7")]
-    ld = [("A20", "OSC"), ("B17", "/SRC_EN"), ("A18", "PIXEL_ENABLE"), ("B18", "HOLD"), ("A19", "RUN")]
+    ld = [("A20", "CLK"), ("A18", "PIXEL_ENABLE"), ("B19", "PC_ENABLE"), ("B17", "STALL_IN"),
+          ("B18", "STALL_OUT"), ("A19", "RUN")]
     spare = [(s + str(n), "spare") for s in "AB" for n in [19, 20] + list(range(22, 31)) + [32]
-             if s + str(n) not in ("A19", "A20")]
+             if s + str(n) not in ("A19", "A20", "B19")]
     e = lambda l: [(x[0], x[1], p) if x else None for x in l]
     gnd = [(n, "GND") for n in ["A1", "B1", "A11", "B11", "A21", "B21", "A31", "B31"]]
     return symbol("Cartridge_Slot", [(e(a) + [None] + e(ce), e(d) + [None] + e(ld)), (e(spare[:11]), e(spare[11:]))],
