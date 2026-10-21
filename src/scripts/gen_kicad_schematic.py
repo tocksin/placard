@@ -1003,7 +1003,7 @@ def build_cart():
               "B22", "B23", "B24", "B25", "B26", "B27", "B28", "B29", "B30", "B32"]:
         cart[c] = None
     s.label_each |= {"A"}
-    s.label_nets |= {"~{CE_LO}", "~{CE_HI}", "~{ROM_OE}", "~{EE_OE}", "~{SR_WE}"}
+    s.label_nets |= {"~{CE_LO}", "~{CE_HI}", "~{CE_UP}", "~{ROM_OE}", "~{EE_OE}", "~{SR_WE}"}
     # the loader lines run straight across from the connector to U1, whose pins are a row apart like the connector's
     ld = {"A20": "1", "A18": "3", "B19": "4", "B17": "5", "B18": "23", "A19": "22"}
     j1 = s.part("placard_parts:Cartridge_Slot", "J1", 82.55, 120, cart, value="Card edge (87715-9106 mate)",
@@ -1046,13 +1046,22 @@ def build_cart():
                 name(s, n[pn], px - 5.08, py, 180)
         decap(s, int(ref[1:]), x - 20.32, y - 38.1, lift=0)
     mem("Memory_EEPROM:28C256", "U2", 270.51, 95.25, "~{CE_LO}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
-    mem("Memory_EEPROM:28C256", "U3", 365.76, 95.25, "~{CE_HI}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
+    mem("Memory_EEPROM:28C256", "U3", 365.76, 95.25, "~{CE_UP}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
     mem("placard_parts:AS7C256C", "U4", 267.97, 195.58, "~{CE_LO}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
-    mem("placard_parts:AS7C256C", "U5", 363.22, 195.58, "~{CE_HI}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
+    mem("placard_parts:AS7C256C", "U5", 363.22, 195.58, "~{CE_UP}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
+    # ROM size: the upper pair's /CE.  1-2 (as made) = GND: a 32K cart with U3, U5 only, seen in both
+    # halves; cut 1-2 and bridge 2-3 = /CE_HI: a 64K cart with U2, U4 added
+    s.part("Jumper:SolderJumper_3_Bridged12", "JP1", 175.26, 228.6,
+           {"1": "GND", "2": "~{CE_UP}", "3": "~{CE_HI}"}, value="32K / 64K",
+           footprint="Jumper:SolderJumper-3_P1.3mm_Bridged12_RoundedPad1.0x1.5mm_NumberLabels",
+           ref_at=(170, 220), value_at=(185, 220))
     note(s, 22, 192, ["U2 (lower 32K) and U3 (upper) hold the image,",
                        "programmed off the board; their /WE is tied high.",
                        "U4, U5 are the ROM the CPU reads (15 ns).",
                        "/CE_LO is the main board's A15.",
+                       "JP1 32K (as made, 1-2): fit U3, U5 only; the 32K",
+                       "reads in both halves.  64K: cut 1-2, bridge 2-3,",
+                       "and fit U2, U4.",
                        "U1 stalls the CPU at each PC address",
                        "(STALL_OUT), pulses /SR_WE, lets the CPU",
                        "step, and raises RUN when the PC wraps.",
