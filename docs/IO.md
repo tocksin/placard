@@ -30,7 +30,7 @@ chips and the connectors:
 
 | Ref | Connector | Pins |
 |---|---|---|
-| J1 | Keyboard, 1 x 16 header, 2.54 mm | 1-8 = /COL0-/COL7 (port PLD pins 14-21), 9-16 = ROW0-ROW7 (74F541 A1-A8).  The keys and their diodes are on the keyboard board; the row pull-ups stay on the main board |
+| J1 | Keyboard, 1 x 18 header, 2.54 mm | 1-8 = /COL0-/COL7 (port PLD pins 14-21), 9-16 = ROW0-ROW7 (74F541 A1-A8), 17 = +5 V, 18 = GND (planned 2026-10-21, not yet in the KiCad schematic, which still has 1 x 16).  The keys and their diodes are on the keyboard board; the row pull-ups stay on the main board |
 | J2, J3 | SNES pad 1 and 2 | 1 +5 V, 2 CLOCK (latch Q0), 3 LATCH (latch Q1), 4 DATA (port PLD pin 7 or 8), 5-6 not used, 7 GND |
 | J4 | Full-size SD socket (SPI) | 1 CS, 2 DI, 5 CLK from the dividers R1003-R1008; 7 DO = MISO; 4 VDD 3.3 V; 3, 6 GND; 8, 9 not used |
 | J5 | Mini-DIN 6, PS/2 mouse | 1 DATA, 3 GND, 4 +5 V, 5 CLK |
@@ -169,11 +169,13 @@ Fn + Left = Home (15).  Fn + Backspace = Delete (7F) is on the keycap.
   nothing.  Left/right are already told apart by the E0 prefix.
 
 **Keyboard board (no schematic yet):** 63 switches and 63 Schottky
-diodes, cathode toward the column, wired to the table above; J1
-stays 1 x 16 (8 columns, 8 rows) and the 4.7k row pull-ups stay on the
-main board.  If the caps lock LED proposal (Option A,
+diodes, cathode toward the column, wired to the table above.  J1 is
+1 x 18: 8 columns, 8 rows, +5 V (pin 17) and GND (pin 18); the matrix
+itself needs no power, but the pins are there for an LED or anything else
+the keyboard board grows.  The 4.7k row pull-ups stay on the main board.  If the caps lock LED proposal (Option A,
 `/mnt/project-files/io/caps_lock_led.md`) is taken and the LED sits on the
-keyboard board, J1 grows to 1 x 18 (+5 V, /CAPS_LED).  The layout change
+keyboard board, J1 grows to 1 x 19 (pin 19 = /CAPS_LED; +5 V is already
+on pin 17).  The layout change
 doesn't affect that proposal either way.
 
 ## SNES pads
