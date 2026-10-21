@@ -1,7 +1,7 @@
 Name     CART;
 PartNo   00;
-Date     10/20/2026;
-Revision 02;
+Date     10/21/2026;
+Revision 04;
 Designer ;
 Company  ;
 Assembly ;
@@ -10,169 +10,182 @@ Device   g22v10;
 
 
 /* ============================================================
-   ROM CARTRIDGE LOADER   (ATF22V10C, DIP-24, on the cartridge)
+   ROM CARTRIDGE LOADER   (ATF22V10C-10PU, DIP-24, on the cartridge)
    ============================================================
 
    The cartridge's ROM, as the CPU sees it, is two AS7C256C 15 ns
    SRAMs, which lose their contents at power-off.  Two AT28C256
    EEPROMs on the same address lines hold the image.  At power-up
-   this PLD holds the main board's clock, steps the CPU through the
-   whole 64K while it copies each EEPROM byte into the SRAM, then
-   lets the board run from x0000.  See docs/ROM.md, "Loading the
-   cartridge".
+   this PLD stalls the CPU at each address the PC reaches, copies
+   that EEPROM byte into the SRAM, lets the CPU take one step, and
+   when the PC has wrapped to x0000 lets the board run from the
+   SRAM.  See docs/ROM.md, "Loading the cartridge".
 
-   REVISION 02 (2026-10-20): no 74AC541.  The opcode byte is stored
-   XOR FDh (CPU.md, "Opcode byte"), so FFh is ld ac, ac, and FFh is
-   what the data bus floats to through the main board's 3.3k pull-ups
-   once the EEPROM lets go.  The 541's /OE cell (pin 21) is now CNT4,
-   so a CPU read lasts 33 OSC cycles and gives the bus about 0.97 us
-   to rise.
+   REVISION 04 (2026-10-21): no clock gating and no 74AC541.  The
+   board clock runs free from power-up (the 74AC32 clock gate is
+   gone).  Instead of holding the clock, this PLD holds the CPU's
+   STALL line, the one video reads use: the Branch PLD's STALL
+   comes in on STALL_IN and goes back to the State and PC PLDs as
 
-   HOW IT WORKS
-      The main board's clock is CLK = OSC OR HOLD (a 74AC32 gate).
-      HOLD is high from power-up, so no clock edge reaches the board
-      and every main-board PLD stays in its power-up state: FETCH,
-      PC = x0000.  The memory control PLD keeps /ROM_OE high while
-      RUN is low, so the SRAM never drives the bus, and RUN holds the
-      map register clear (all ROM) and the expansion cards in reset.
+      STALL_OUT = STALL_IN # !RUN & PC_ENABLE & !RELEASE
 
-      The PLD lets the board have one clock at a time (RELEASE high
-      for one OSC cycle, so CLK goes low for that cycle's low half).
-      One OSC cycle after each board edge (DECIDE) it looks at the
-      clock the CPU is now in:
+   While STALL_OUT is high the State PLD holds its state and every
+   load strobe is off, the PC holds, and the source F541s are off
+   (they only drive in EXEC), so the address bus shows the PC and
+   only the EEPROM drives the data bus.  The instruction register
+   (ATF22V10_IR.pld) holds 02h, `ld ac, ac`, while RUN is low, so
+   whatever byte the CPU fetches, it runs 02h: nothing is written,
+   only D and AC are loaded.  The byte on the bus still steers the
+   State PLD (FETCH -> LOAD_IMM, LOAD_MEM or EXEC), so the CPU
+   walks the image the way it would run it, 1- and 2-byte
+   instructions alike.  The PC is on the address bus in FETCH and
+   LOAD_IMM (PC_ENABLE high), and it steps by one in each, so every
+   address is a FETCH or a LOAD_IMM read once: this PLD stalls and
+   copies in both.  LOAD_MEM and EXEC are let through at once.
 
-        - A CPU read (PIXEL_ENABLE low, /SRC_EN high, which during
-          the load is always a FETCH): the address on the bus is
-          the PC.  The EEPROM drives its byte for that address, the
-          SRAM is written, the EEPROM lets go, and the bus floats up
-          to FFh through the pull-ups: the opcode `ld ac, ac` for the
-          CPU to fetch.  It is one byte, two clocks, and changes
-          nothing, so the PC steps through every address.
-        - Anything else (EXEC, a video read): release at once.
+   VIDEO KEEPS RUNNING
+      A video read (PIXEL_ENABLE) takes one clock in eight, always
+      at the same place in the 8-clock group.  G2:G0 count the
+      clocks of the group (Gray code, phase K0-K7) and restart at
+      K0 after each video read, so K7 is the only clock a video read
+      can come in.  A copy uses K0-K6 of one group:
 
-      The SRAM is written at every address the PC reaches, the I/O
-      window too (its bytes are not used).  When the PC wraps from
-      xFFFF to x0000 (A15 goes from 1 to 0 between two CPU reads),
-      every address has been written: the PLD raises RUN and
-      RELEASE together in that x0000 fetch, so its low half reads
-      the SRAM, and the CPU starts at x0000 as at a power-up.
+      K0   the CPU is stalled at the PC (address valid by 20.5 ns)
+      e1   START (sampled at the end of K0): COPY on, EEPROM /OE on
+      K4   /SR_WE low (data valid by K0 + 178 ns, /WE rises at
+           K5 + 5.5 ns = 204 ns)
+      K5   /EE_OE high with /WE, so the EEPROM is off by K5 + 55.5
+           = K6 + 15.8 ns
+      K6   RELEASE: STALL_OUT low, the CPU takes one step at the
+           end of K6.  If that step is a LOAD_IMM read in the I/O
+           window, an I/O device drives from K6 + 37.5 ns (STALL_OUT,
+           State strobe, I/O decode, F541): 21.7 ns after the
+           EEPROM let go
+      K7   a video read (the main RAM drives in the low half of the
+           clock) or the CPU's next state
 
-   OSC CYCLES OF ONE CPU READ (c0 = the board's clock edge)
-      c0   edge                           RELEASE 1 -> 0
-      c1   DECIDE: read, no wrap          EE_OE on, CNT = 1
-      c5   CNT 4 (EEPROM valid by c4+17)  SR_WE on  (/WE low c5-c6)
-      c6   CNT 5                          SR_WE off
-      c7   CNT 6                          EE_OE off (floats by c8+16)
-      c8-c32                              the bus rises to FFh (3.3k)
-      c32  CNT 31 -> 0                    RELEASE on
-      c33  edge (CLK was low c32.5-c33)   RELEASE off
-      A read takes 33 OSC cycles, any other clock 2.  ld ac, ac is a
-      FETCH and an EXEC, so one sweep of the 64K is about 64K x 35 x
-      39.7 ns = 91 ms, plus video read clocks.
+      The State PLD reads the bus (bits 4:0) at the end of K6 for
+      the next state: that is the EEPROM byte, still held on the
+      bus by its capacitance (the 10k pull-ups take microseconds).
+      Until the first video read is seen (SYNCED) no copy starts.
 
-   TIMING
-      The board edge is OSC plus the 74AC32 (up to about 7.5 ns).
-      The address is settled 21 ns after it and /SRC_EN 13 ns after
-      it, so 28.5 ns after the OSC edge, before DECIDE at 39.7 ns
-      (-10 grade input setup about 7 ns).  AT28C256-15: tACC 150 ns
-      from c0 + 28.5, tOE 70 ns from c1 + tCO, data by c5 with
-      about 20 ns to spare; tDF 50 ns, so it lets go by c8 + 16.
-      HOLD changes only while OSC is high, so CLK never has a short
-      pulse.
-      The bus floats from about c8.4 to the edge at c33, 0.97 us.
-      Through 3.3k with about 230 pF of bus and the worst-case
-      leakage of everything on it (about 0.26 mA, so the bus settles
-      at 4.1 V) it reaches 2.0 V in about 0.5 us.  3.3k is the lowest
-      the AT28C256 allows (IOL 2.1 mA at 0.45 V: 1.5 mA here).
+   HAND-OFF
+      PREV15 is A15 at the last copy.  When a copy would start with
+      A15 = 0 and PREV15 = 1, the PC has wrapped from xFFFF to
+      x0000 and every address has been copied: RUN goes high
+      instead (HANDOFF), STALL_OUT follows STALL_IN only, /ROM_OE
+      works, the IR stops holding 02h, and the CPU reads x0000 from
+      the SRAM.  The CPU is then in FETCH or in LOAD_IMM at x0000,
+      depending on how the image's last instruction ended, so the
+      image keeps a 1-byte `nop` (02h) at x0000: fetched, it does
+      nothing; read as an operand, it is skipped.  Either way the
+      next fetch is at x0001.
 
    POWER-UP
-      The ATF22V10C clears every register at power-up, so RELEASE,
-      RUN, EE_OE and SR_WE are all 0: HOLD (pin 23, active low output
-      of RELEASE) is high, /EE_OE and /SR_WE are high, RUN is low.
-      The main board's pull-up on HOLD and pull-down on RUN hold the board the same way before this PLD
-      is powered up, or when no cartridge is in.
+      Every register is 0: RUN low, COPY off, /EE_OE and /SR_WE
+      high, STALL_OUT = STALL_IN # PC_ENABLE, so the CPU (in FETCH
+      at power-up) stays stalled.  The main board pulls STALL_OUT up
+      and RUN down, so it stays stalled with no cartridge too (or a
+      bring-up jumper joins STALL_IN to STALL_OUT and RUN to +5 V).
+
+   TIMING (ATF22V10C-10PU: tPD 10, tCO 6.5, tS 4.5 ns; the Branch
+   PLD is a -10 too)
+      PIXEL_ENABLE -> Branch STALL -> STALL_OUT -> State LOAD strobe
+      -> F377 /E: 5.5 + 10 + 10 + 7.5 + 4.5 = 37.5 ns (+2.2).
+      PC_ENABLE -> STALL_OUT -> State and PC setup: 5.5 + 10 + 4.5
+      = 20 ns.  A15 is settled 20.5 ns after the edge (+14.7 to
+      the setup at the end of K0).  src/sim/tb_cart_load.vhd also
+      passes with every PLD at -10 delays.
 
    PIN BUDGET
-      Inputs (4):  OSC (pin 1), A15 (= /CE_LO), PIXEL_ENABLE, /SRC_EN
-      Outputs (10, every cell): HOLD, RUN, /EE_OE, /SR_WE,
-                   PREV15, CNT4:CNT0
-      Unused: pins 5-11, 13.
+      Inputs (5):  CLK (pin 1), A15 (= /CE_LO), PIXEL_ENABLE,
+                   PC_ENABLE, STALL_IN
+      Outputs (10, every cell): STALL_OUT, RUN, /EE_OE, /SR_WE,
+                   COPY, PREV15, SYNCED, G2:G0
+      Unused: pins 6-11, 13.
    ============================================================ */
 
 
 /* ---------------- INPUTS ---------------- */
 
-PIN 1  = OSC;          /* 25.175 MHz oscillator, before the main board's CLK gate */
+PIN 1  = CLK;          /* the board clock (the oscillator, ungated) */
 PIN 2  = A15;          /* /CE_LO from the main board: the address mux's A15 */
-PIN 3  = PIXEL_ENABLE; /* Sync PLD pin 19: video read, the CPU is stalled */
-PIN 4  = !SRC_EN;      /* branch PLD pin 16, low in EXEC (the source F541s drive the bus) */
+PIN 3  = PIXEL_ENABLE; /* Sync PLD pin 19: a video read this clock */
+PIN 4  = PC_ENABLE;    /* State PLD pin 15: FETCH or LOAD_IMM, the PC is on the address bus */
+PIN 5  = STALL_IN;     /* Branch PLD pin 19: video read or ALU wait */
 
 
 /* ---------------- OUTPUTS ---------------- */
 
-PIN 14 = CNT0;         /* step counter: no external connection */
-PIN 15 = CNT1;         /* no external connection */
-PIN 16 = CNT2;         /* no external connection */
-PIN 17 = CNT3;         /* no external connection */
-PIN 18 = PREV15;       /* A15 at the last CPU read: no external connection */
+PIN 14 = G0;           /* group phase, Gray code: no external connection */
+PIN 15 = G1;           /* no external connection */
+PIN 16 = G2;           /* no external connection */
+PIN 17 = COPY;         /* a copy is running (K1-K6): no external connection */
+PIN 18 = PREV15;       /* A15 at the last copy: no external connection */
 PIN 19 = !SR_WE;       /* /WE of both cartridge SRAMs */
 PIN 20 = !EE_OE;       /* /OE of both EEPROMs */
-PIN 21 = CNT4;         /* no external connection (revision 01: the 74AC541's /OE) */
-PIN 22 = RUN;          /* to the main board: memory control pin 17, map /MR, card /RESET */
-PIN 23 = !RELEASE;     /* HOLD to the main board's clock gate, high = clock held */
+PIN 21 = SYNCED;       /* a video read has been seen: no external connection */
+PIN 22 = RUN;          /* to the main board: memory control pin 17, IR PLD pin 11, map /MR, card /RESET */
+PIN 23 = STALL_OUT;    /* to the State PLD pin 2 and both PC PLDs pin 14 (combinational) */
 
 
 /* ---------------- DECODE ---------------- */
 
-FIELD CNT = [CNT4..CNT0];
+/* phase K0-K7 in Gray code: 000 001 011 010 110 111 101 100 */
+K0 = !G2 & !G1 & !G0;
+K3 = !G2 &  G1 & !G0;
+K6 =  G2 & !G1 &  G0;
 
-DECIDE = !RUN & !RELEASE & CNT:0;          /* one OSC cycle after a board edge, or at power-up */
-READ   = !PIXEL_ENABLE & !SRC_EN;          /* a CPU read (a FETCH while loading) */
-WRAP   = !A15 & PREV15;                    /* the PC went from xFFFF to x0000 */
-COPY   = DECIDE & READ & !WRAP;            /* start a copy and feed */
-HANDOFF = DECIDE & READ & WRAP;            /* the 64K is loaded */
+/* a stalled CPU read at the PC in K0 */
+READY   = SYNCED & !RUN & PC_ENABLE & !PIXEL_ENABLE & K0;
+WRAP    = !A15 & PREV15;                  /* the PC went from xFFFF to x0000 */
+START   = READY & !WRAP;                  /* copy this address */
+HANDOFF = READY & WRAP;                   /* the 64K is loaded */
 
 
 /* ---------------- EQUATIONS ---------------- */
 
-RELEASE.D = RUN
-          # DECIDE & !READ
-          # HANDOFF
-          # !RUN & CNT:31;
+/* phase: K0 after a video read, else the next phase */
+G0.D = !PIXEL_ENABLE & !G2 & !G1
+     # !PIXEL_ENABLE &  G2 &  G1;
+G1.D = !PIXEL_ENABLE & !G2 &  G0
+     # !PIXEL_ENABLE & !G2 &  G1
+     # !PIXEL_ENABLE &  G1 & !G0;
+G2.D = !PIXEL_ENABLE &  G1 & !G0
+     # !PIXEL_ENABLE &  G2 &  G0;
+
+SYNCED.D = SYNCED
+         # PIXEL_ENABLE;
+
+/* COPY: on from the end of K0 to the end of K6 */
+COPY.D = SYNCED & !RUN & PC_ENABLE & !PIXEL_ENABLE & K0 & A15
+       # SYNCED & !RUN & PC_ENABLE & !PIXEL_ENABLE & K0 & !PREV15
+       # COPY & !G2
+       # COPY &  G1
+       # COPY & !G0;
+
+/* PREV15 only ever goes from 0 to 1: a copy at A15 = 1 */
+PREV15.D = PREV15
+         # SYNCED & !RUN & PC_ENABLE & !PIXEL_ENABLE & K0 & A15;
 
 RUN.D = RUN
-      # HANDOFF;
+      # SYNCED & !RUN & PC_ENABLE & !PIXEL_ENABLE & K0 & !A15 & PREV15;
 
-/* CNT: 0 -> (COPY) 1 -> 2 -> ... -> 31 -> 0, a binary counter that
-   runs while it is not 0 */
-CNT0.D = COPY
-       # !CNT0 & CNT1
-       # !CNT0 & CNT2
-       # !CNT0 & CNT3
-       # !CNT0 & CNT4;
-CNT1.D = !CNT1 & CNT0
-       #  CNT1 & !CNT0;
-CNT2.D = !CNT2 & CNT1 & CNT0
-       #  CNT2 & !CNT1
-       #  CNT2 & !CNT0;
-CNT3.D = !CNT3 & CNT2 & CNT1 & CNT0
-       #  CNT3 & !CNT2
-       #  CNT3 & !CNT1
-       #  CNT3 & !CNT0;
-CNT4.D = !CNT4 & CNT3 & CNT2 & CNT1 & CNT0
-       #  CNT4 & !CNT3
-       #  CNT4 & !CNT2
-       #  CNT4 & !CNT1
-       #  CNT4 & !CNT0;
+/* SRAM /WE low for K4 */
+SR_WE.D = COPY & K3;
 
-PREV15.D = COPY & A15
-         # !DECIDE & PREV15
-         # !READ & PREV15;
+/* EEPROM /OE low for K1-K4: on with COPY, off with /WE */
+EE_OE.D = SYNCED & !RUN & PC_ENABLE & !PIXEL_ENABLE & K0 & A15
+        # SYNCED & !RUN & PC_ENABLE & !PIXEL_ENABLE & K0 & !PREV15
+        # COPY & !G2 &  G0
+        # COPY & !G2 &  G1;
 
-EE_OE.D = COPY
-        # EE_OE & !CNT:6;
+/* hold the CPU at the PC, except in K6 of a copy (RELEASE = COPY & K6) */
+STALL_OUT = STALL_IN
+          # !RUN & PC_ENABLE & !COPY
+          # !RUN & PC_ENABLE & !G2
+          # !RUN & PC_ENABLE &  G1
+          # !RUN & PC_ENABLE & !G0;
 
-SR_WE.D = CNT:4;
-
-[CNT4..CNT0, PREV15, SR_WE, EE_OE, RUN, RELEASE].AR = 'b'0;
-[CNT4..CNT0, PREV15, SR_WE, EE_OE, RUN, RELEASE].SP = 'b'0;
+[G2..G0, COPY, PREV15, SR_WE, EE_OE, SYNCED, RUN].AR = 'b'0;
+[G2..G0, COPY, PREV15, SR_WE, EE_OE, SYNCED, RUN].SP = 'b'0;

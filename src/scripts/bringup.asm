@@ -11,7 +11,7 @@
 ;   9 AC/X  10 Y address  11 X address  12 ROM data  13 RAM data
 ;   14 map register  15 RAM address lines  16 video line read
 ;
-; Date: 10/20/2026
+; Date: 10/21/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -56,8 +56,10 @@ KEYV     = 0x5C
 RT_I     = 0x5D
 B_I      = 0x5E
 
-; reset (the CPU starts at x0000 with the map all ROM)
+; reset (the CPU starts at x0000 with the map all ROM); the nop is for
+; the cartridge hand-off, which can skip x0000 (docs/ROM.md)
 #addr 0x0000
+    nop
     ld   start >> 8, y
     jmp  start
 

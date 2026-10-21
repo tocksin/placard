@@ -685,7 +685,7 @@ t02:
 t03:
     ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    #d8 0xFE                  ; TEST 03 (ld ac, ac, source 11)
+    #d8 0x03                  ; TEST 03 (ld ac, ac, source 11)
     xor 0xC6, ac              ; expect C6
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x03, ac
@@ -799,7 +799,7 @@ t0F:
     ld 0, [y,x]               ; clear [43C6]
     ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    #d8 0xF2                  ; TEST 0F (ld ac, x, source 11)
+    #d8 0x0F                  ; TEST 0F (ld ac, x, source 11)
     ld 0xA5, [y,x]            ; mark [43,X]
     ld 0xC6, x
     ld [y,x], ac              ; read [43C6]
@@ -885,7 +885,7 @@ t13:
     ld 0x42, y                ; Y != expected before the test
     ld 0x7C, x                ; X must not be the source
     ld 0xE6, ac
-    #d8 0xEE                  ; TEST 13, Y = E6 (ld ac, y, source 11)
+    #d8 0x13                  ; TEST 13, Y = E6 (ld ac, y, source 11)
     ld 0x08, x
     ld 0xA5, [y,x]            ; mark [Y,08]
     ld 0xE6, y
@@ -937,7 +937,7 @@ t17:
     ld ac, [0x50]             ; clear
     ld 0x5A, x
     ld 0xC6, ac
-    #d8 0xEA, 0x50            ; TEST 17 (ld ac, [0x50], source 11)
+    #d8 0x17, 0x50            ; TEST 17 (ld ac, [0x50], source 11)
     ld [0x50], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -1005,7 +1005,7 @@ t1B:
     ld 0, ac
     ld ac, [x]                ; clear
     ld 0xC6, ac
-    #d8 0xE6                  ; TEST 1B (ld ac, [x], source 11)
+    #d8 0x1B                  ; TEST 1B (ld ac, [x], source 11)
     ld [x], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -1076,7 +1076,7 @@ t1F:
     ld 0x5A, x
     ld 0, [y,x]               ; clear
     ld 0xC6, ac
-    #d8 0xE2                  ; TEST 1F (ld ac, [y,x], source 11)
+    #d8 0x1F                  ; TEST 1F (ld ac, [y,x], source 11)
     ld [y,x], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -1132,7 +1132,7 @@ t22:
 t23:
     ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    #d8 0xDE                  ; TEST 23 (and ac, ac, source 11)
+    #d8 0x23                  ; TEST 23 (and ac, ac, source 11)
     xor 0xC6, ac              ; expect C6
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x23, ac
@@ -1246,7 +1246,7 @@ t2F:
     ld 0, [y,x]               ; clear [43C6]
     ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    #d8 0xD2                  ; TEST 2F (and ac, x, source 11)
+    #d8 0x2F                  ; TEST 2F (and ac, x, source 11)
     ld 0xA5, [y,x]            ; mark [43,X]
     ld 0xC6, x
     ld [y,x], ac              ; read [43C6]
@@ -1334,7 +1334,7 @@ t33:
     ld 0x42, y                ; Y != expected before the test
     ld 0x7C, x                ; X must not be the source
     ld 0xE6, ac
-    #d8 0xCE                  ; TEST 33, Y = E6 (and ac, y, source 11)
+    #d8 0x33                  ; TEST 33, Y = E6 (and ac, y, source 11)
     ld 0x08, x
     ld 0xA5, [y,x]            ; mark [Y,08]
     ld 0xE6, y
@@ -1386,7 +1386,7 @@ t37:
     ld ac, [0x50]             ; clear
     ld 0x5A, x
     ld 0xC6, ac
-    #d8 0xCA, 0x50            ; TEST 37 (and ac, [0x50], source 11)
+    #d8 0x37, 0x50            ; TEST 37 (and ac, [0x50], source 11)
     ld [0x50], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -1454,7 +1454,7 @@ t3B:
     ld 0, ac
     ld ac, [x]                ; clear
     ld 0xC6, ac
-    #d8 0xC6                  ; TEST 3B (and ac, [x], source 11)
+    #d8 0x3B                  ; TEST 3B (and ac, [x], source 11)
     ld [x], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -1525,7 +1525,7 @@ t3F:
     ld 0x5A, x
     ld 0, [y,x]               ; clear
     ld 0xC6, ac
-    #d8 0xC2                  ; TEST 3F (and ac, [y,x], source 11)
+    #d8 0x3F                  ; TEST 3F (and ac, [y,x], source 11)
     ld [y,x], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -1581,7 +1581,7 @@ t42:
 t43:
     ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    #d8 0xBE                  ; TEST 43 (or ac, ac, source 11)
+    #d8 0x43                  ; TEST 43 (or ac, ac, source 11)
     xor 0xC6, ac              ; expect C6
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x43, ac
@@ -1695,7 +1695,7 @@ t4F:
     ld 0, [y,x]               ; clear [43C6]
     ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    #d8 0xB2                  ; TEST 4F (or ac, x, source 11)
+    #d8 0x4F                  ; TEST 4F (or ac, x, source 11)
     ld 0xA5, [y,x]            ; mark [43,X]
     ld 0xC6, x
     ld [y,x], ac              ; read [43C6]
@@ -1783,7 +1783,7 @@ t53:
     ld 0x42, y                ; Y != expected before the test
     ld 0x7C, x                ; X must not be the source
     ld 0xE6, ac
-    #d8 0xAE                  ; TEST 53, Y = E6 (or ac, y, source 11)
+    #d8 0x53                  ; TEST 53, Y = E6 (or ac, y, source 11)
     ld 0x08, x
     ld 0xA5, [y,x]            ; mark [Y,08]
     ld 0xE6, y
@@ -1835,7 +1835,7 @@ t57:
     ld ac, [0x50]             ; clear
     ld 0x5A, x
     ld 0xC6, ac
-    #d8 0xAA, 0x50            ; TEST 57 (or ac, [0x50], source 11)
+    #d8 0x57, 0x50            ; TEST 57 (or ac, [0x50], source 11)
     ld [0x50], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -1905,7 +1905,7 @@ t5B:
     ld 0, ac
     ld ac, [x]                ; clear
     ld 0xC6, ac
-    #d8 0xA6                  ; TEST 5B (or ac, [x], source 11)
+    #d8 0x5B                  ; TEST 5B (or ac, [x], source 11)
     ld [x], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -1974,7 +1974,7 @@ t5F:
     ld 0x5A, x
     ld 0, [y,x]               ; clear
     ld 0xC6, ac
-    #d8 0xA2                  ; TEST 5F (or ac, [y,x], source 11)
+    #d8 0x5F                  ; TEST 5F (or ac, [y,x], source 11)
     ld [y,x], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -2032,7 +2032,7 @@ t62:
 t63:
     ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    #d8 0x9E                  ; TEST 63 (xor ac, ac, source 11)
+    #d8 0x63                  ; TEST 63 (xor ac, ac, source 11)
     xor 0x00, ac              ; expect 00
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x63, ac
@@ -2146,7 +2146,7 @@ t6F:
     ld 0, [y,x]               ; clear [4300]
     ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    #d8 0x92                  ; TEST 6F (xor ac, x, source 11)
+    #d8 0x6F                  ; TEST 6F (xor ac, x, source 11)
     ld 0xA5, [y,x]            ; mark [43,X]
     ld 0x00, x
     ld [y,x], ac              ; read [4300]
@@ -2232,7 +2232,7 @@ t73:
     ld 0x42, y                ; Y != expected before the test
     ld 0x7C, x                ; X must not be the source
     ld 0xE6, ac
-    #d8 0x8E                  ; TEST 73, Y = 00 (xor ac, y, source 11)
+    #d8 0x73                  ; TEST 73, Y = 00 (xor ac, y, source 11)
     ld 0x08, x
     ld 0xA5, [y,x]            ; mark [Y,08]
     ld 0x00, y
@@ -2284,7 +2284,7 @@ t77:
     ld ac, [0x50]             ; clear
     ld 0x5A, x
     ld 0xC6, ac
-    #d8 0x8A, 0x50            ; TEST 77 (xor ac, [0x50], source 11)
+    #d8 0x77, 0x50            ; TEST 77 (xor ac, [0x50], source 11)
     ld [0x50], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -2352,7 +2352,7 @@ t7B:
     ld 0, ac
     ld ac, [x]                ; clear
     ld 0xC6, ac
-    #d8 0x86                  ; TEST 7B (xor ac, [x], source 11)
+    #d8 0x7B                  ; TEST 7B (xor ac, [x], source 11)
     ld [x], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -2423,7 +2423,7 @@ t7F:
     ld 0x5A, x
     ld 0, [y,x]               ; clear
     ld 0xC6, ac
-    #d8 0x82                  ; TEST 7F (xor ac, [y,x], source 11)
+    #d8 0x7F                  ; TEST 7F (xor ac, [y,x], source 11)
     ld [y,x], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -2479,7 +2479,7 @@ t82:
 t83:
     ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    #d8 0x7E                  ; TEST 83 (add ac, ac, source 11)
+    #d8 0x83                  ; TEST 83 (add ac, ac, source 11)
     xor 0x8C, ac              ; expect 8C
     ld ac, [0x11]             ; result (0 = pass)
     ld 0x83, ac
@@ -2593,7 +2593,7 @@ t8F:
     ld 0, [y,x]               ; clear [438C]
     ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    #d8 0x72                  ; TEST 8F (add ac, x, source 11)
+    #d8 0x8F                  ; TEST 8F (add ac, x, source 11)
     ld 0xA5, [y,x]            ; mark [43,X]
     ld 0x8C, x
     ld [y,x], ac              ; read [438C]
@@ -2681,7 +2681,7 @@ t93:
     ld 0x42, y                ; Y != expected before the test
     ld 0x7C, x                ; X must not be the source
     ld 0xE6, ac
-    #d8 0x6E                  ; TEST 93, Y = CC (add ac, y, source 11)
+    #d8 0x93                  ; TEST 93, Y = CC (add ac, y, source 11)
     ld 0x08, x
     ld 0xA5, [y,x]            ; mark [Y,08]
     ld 0xCC, y
@@ -2733,7 +2733,7 @@ t97:
     ld ac, [0x50]             ; clear
     ld 0x5A, x
     ld 0xC6, ac
-    #d8 0x6A, 0x50            ; TEST 97 (add ac, [0x50], source 11)
+    #d8 0x97, 0x50            ; TEST 97 (add ac, [0x50], source 11)
     ld [0x50], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -2801,7 +2801,7 @@ t9B:
     ld 0, ac
     ld ac, [x]                ; clear
     ld 0xC6, ac
-    #d8 0x66                  ; TEST 9B (add ac, [x], source 11)
+    #d8 0x9B                  ; TEST 9B (add ac, [x], source 11)
     ld [x], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -2872,7 +2872,7 @@ t9F:
     ld 0x5A, x
     ld 0, [y,x]               ; clear
     ld 0xC6, ac
-    #d8 0x62                  ; TEST 9F (add ac, [y,x], source 11)
+    #d8 0x9F                  ; TEST 9F (add ac, [y,x], source 11)
     ld [y,x], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -2928,7 +2928,7 @@ tA2:
 tA3:
     ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    #d8 0x5E                  ; TEST A3 (sub ac, ac, source 11)
+    #d8 0xA3                  ; TEST A3 (sub ac, ac, source 11)
     xor 0x00, ac              ; expect 00
     ld ac, [0x11]             ; result (0 = pass)
     ld 0xA3, ac
@@ -3042,7 +3042,7 @@ tAF:
     ld 0, [y,x]               ; clear [4300]
     ld 0x5A, x                ; X must not be the source
     ld 0xC6, ac
-    #d8 0x52                  ; TEST AF (sub ac, x, source 11)
+    #d8 0xAF                  ; TEST AF (sub ac, x, source 11)
     ld 0xA5, [y,x]            ; mark [43,X]
     ld 0x00, x
     ld [y,x], ac              ; read [4300]
@@ -3130,7 +3130,7 @@ tB3:
     ld 0x42, y                ; Y != expected before the test
     ld 0x7C, x                ; X must not be the source
     ld 0xE6, ac
-    #d8 0x4E                  ; TEST B3, Y = 00 (sub ac, y, source 11)
+    #d8 0xB3                  ; TEST B3, Y = 00 (sub ac, y, source 11)
     ld 0x08, x
     ld 0xA5, [y,x]            ; mark [Y,08]
     ld 0x00, y
@@ -3182,7 +3182,7 @@ tB7:
     ld ac, [0x50]             ; clear
     ld 0x5A, x
     ld 0xC6, ac
-    #d8 0x4A, 0x50            ; TEST B7 (sub ac, [0x50], source 11)
+    #d8 0xB7, 0x50            ; TEST B7 (sub ac, [0x50], source 11)
     ld [0x50], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -3252,7 +3252,7 @@ tBB:
     ld 0, ac
     ld ac, [x]                ; clear
     ld 0xC6, ac
-    #d8 0x46                  ; TEST BB (sub ac, [x], source 11)
+    #d8 0xBB                  ; TEST BB (sub ac, [x], source 11)
     ld [x], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -3321,7 +3321,7 @@ tBF:
     ld 0x5A, x
     ld 0, [y,x]               ; clear
     ld 0xC6, ac
-    #d8 0x42                  ; TEST BF (sub ac, [y,x], source 11)
+    #d8 0xBF                  ; TEST BF (sub ac, [y,x], source 11)
     ld [y,x], ac
     xor 0xC6, ac              ; expect C6 (source bus)
     ld ac, [0x11]             ; result (0 = pass)
@@ -3534,7 +3534,7 @@ tE2_land:
 tE3:
     ld tE3_land >> 8, y       ; PC high comes from Y
     ld tE3_land & 0xFF, ac
-    #d8 0x1E                  ; TEST E3 (jmp ac, source 11)
+    #d8 0xE3                  ; TEST E3 (jmp ac, source 11)
 tE3_fail:
     ld 1, ac                  ; fall-through or PC high not loaded
     ld ac, [0x11]             ; result (0 = pass)
@@ -3763,18 +3763,18 @@ tE7:
     ld 0xFF, ac
     add 0x01, ac
     ld 0x00, ac
-    #d8 0x1A                  ; TEST E7, AC=00, carry 1 taken (bcs ac, source 11)
+    #d8 0xE7                  ; TEST E7, AC=00, carry 1 taken (bcs ac, source 11)
     bra tE7_fail
 tE7_c1:
     ld 0x01, ac
     sub 0x01, ac
     ld 0x40, ac
-    #d8 0x1A                  ; TEST E7, AC=40, carry 0 not taken (bcs ac, source 11)
+    #d8 0xE7                  ; TEST E7, AC=40, carry 0 not taken (bcs ac, source 11)
 tE7_c2:
     ld 0x00, ac
     sub 0x01, ac
     ld 0x80, ac
-    #d8 0x1A                  ; TEST E7, AC=80, carry 1 taken (bcs ac, source 11)
+    #d8 0xE7                  ; TEST E7, AC=80, carry 1 taken (bcs ac, source 11)
     bra tE7_fail
 tE7_c3:
     ld 0, ac
@@ -3938,13 +3938,13 @@ tEB_pad00:
     bra tEB_fail              ; landing pad for AC = 00
 tEB:
     ld 0x00, ac
-    #d8 0x16                  ; TEST EB, AC=00 not taken (blt ac, source 11)
+    #d8 0xEB                  ; TEST EB, AC=00 not taken (blt ac, source 11)
 tEB_c1:
     ld 0x40, ac
-    #d8 0x16                  ; TEST EB, AC=40 not taken (blt ac, source 11)
+    #d8 0xEB                  ; TEST EB, AC=40 not taken (blt ac, source 11)
 tEB_c2:
     ld 0x80, ac
-    #d8 0x16                  ; TEST EB, AC=80 taken (blt ac, source 11)
+    #d8 0xEB                  ; TEST EB, AC=80 taken (blt ac, source 11)
     bra tEB_fail
 tEB_c3:
     ld 0, ac
@@ -4103,14 +4103,14 @@ tEF_pad00:
     bra tEF_fail              ; landing pad for AC = 00
 tEF:
     ld 0x00, ac
-    #d8 0x12                  ; TEST EF, AC=00 not taken (bne ac, source 11)
+    #d8 0xEF                  ; TEST EF, AC=00 not taken (bne ac, source 11)
 tEF_c1:
     ld 0x40, ac
-    #d8 0x12                  ; TEST EF, AC=40 taken (bne ac, source 11)
+    #d8 0xEF                  ; TEST EF, AC=40 taken (bne ac, source 11)
     bra tEF_fail
 tEF_c2:
     ld 0x80, ac
-    #d8 0x12                  ; TEST EF, AC=80 taken (bne ac, source 11)
+    #d8 0xEF                  ; TEST EF, AC=80 taken (bne ac, source 11)
     bra tEF_fail
 tEF_c3:
     ld 0, ac
@@ -4258,14 +4258,14 @@ tF3_pad00:
     bra tF3_c1                ; landing pad for AC = 00
 tF3:
     ld 0x00, ac
-    #d8 0x0E                  ; TEST F3, AC=00 taken (beq ac, source 11)
+    #d8 0xF3                  ; TEST F3, AC=00 taken (beq ac, source 11)
     bra tF3_fail
 tF3_c1:
     ld 0x40, ac
-    #d8 0x0E                  ; TEST F3, AC=40 not taken (beq ac, source 11)
+    #d8 0xF3                  ; TEST F3, AC=40 not taken (beq ac, source 11)
 tF3_c2:
     ld 0x80, ac
-    #d8 0x0E                  ; TEST F3, AC=80 not taken (beq ac, source 11)
+    #d8 0xF3                  ; TEST F3, AC=80 not taken (beq ac, source 11)
 tF3_c3:
     ld 0, ac
     bra tF3_rep
@@ -4403,18 +4403,18 @@ tF7:
     ld 0xFF, ac
     add 0x01, ac
     ld 0x00, ac
-    #d8 0x0A, 0x00            ; TEST F7, AC=00, carry 1 not taken (bcc ac, source 11)
+    #d8 0xF7, 0x00            ; TEST F7, AC=00, carry 1 not taken (bcc ac, source 11)
 tF7_c1:
     ld 0x01, ac
     sub 0x01, ac
     ld 0x40, ac
-    #d8 0x0A, 0x00            ; TEST F7, AC=40, carry 0 taken (bcc ac, source 11)
+    #d8 0xF7, 0x00            ; TEST F7, AC=40, carry 0 taken (bcc ac, source 11)
     bra tF7_fail
 tF7_c2:
     ld 0x00, ac
     sub 0x01, ac
     ld 0x80, ac
-    #d8 0x0A, 0x00            ; TEST F7, AC=80, carry 1 not taken (bcc ac, source 11)
+    #d8 0xF7, 0x00            ; TEST F7, AC=80, carry 1 not taken (bcc ac, source 11)
 tF7_c3:
     ld 0, ac
     bra tF7_rep
@@ -4574,14 +4574,14 @@ tFB_pad00:
     bra tFB_c1                ; landing pad for AC = 00
 tFB:
     ld 0x00, ac
-    #d8 0x06                  ; TEST FB, AC=00 taken (ble ac, source 11)
+    #d8 0xFB                  ; TEST FB, AC=00 taken (ble ac, source 11)
     bra tFB_fail
 tFB_c1:
     ld 0x40, ac
-    #d8 0x06                  ; TEST FB, AC=40 not taken (ble ac, source 11)
+    #d8 0xFB                  ; TEST FB, AC=40 not taken (ble ac, source 11)
 tFB_c2:
     ld 0x80, ac
-    #d8 0x06                  ; TEST FB, AC=80 taken (ble ac, source 11)
+    #d8 0xFB                  ; TEST FB, AC=80 taken (ble ac, source 11)
     bra tFB_fail
 tFB_c3:
     ld 0, ac
@@ -4705,15 +4705,15 @@ tFF_pad00:
     bra tFF_c1                ; landing pad for AC = 00
 tFF:
     ld 0x00, ac
-    #d8 0x02                  ; TEST FF, AC=00 taken (bra ac, source 11)
+    #d8 0xFF                  ; TEST FF, AC=00 taken (bra ac, source 11)
     bra tFF_fail
 tFF_c1:
     ld 0x40, ac
-    #d8 0x02                  ; TEST FF, AC=40 taken (bra ac, source 11)
+    #d8 0xFF                  ; TEST FF, AC=40 taken (bra ac, source 11)
     bra tFF_fail
 tFF_c2:
     ld 0x80, ac
-    #d8 0x02                  ; TEST FF, AC=80 taken (bra ac, source 11)
+    #d8 0xFF                  ; TEST FF, AC=80 taken (bra ac, source 11)
     bra tFF_fail
 tFF_c3:
     ld 0, ac

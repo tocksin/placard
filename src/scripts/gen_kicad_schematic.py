@@ -107,7 +107,7 @@ PLD_NAMES = {"U1": "State PLD", "U2": "Branch PLD", "U3": "PC low PLD", "U4": "P
              "U5": "ALU low PLD", "U6": "ALU high PLD", "U7": "Address mux 3:0", "U8": "Address mux 7:4",
              "U9": "Address mux 11:8", "U10": "Address mux 15:12", "U11": "Memory control PLD",
              "U12": "I/O decode PLD", "U13": "H counter PLD", "U14": "V counter PLD", "U15": "Sync PLD",
-             "U16": "Color decoder PLD", "U35": "Audio slot PLD", "U38": "Shared port PLD"}
+             "U16": "Color decoder PLD", "U17": "Instruction register PLD", "U35": "Audio slot PLD", "U38": "Shared port PLD"}
 
 
 def pld(d):
@@ -121,7 +121,7 @@ PC_Q = [15, 22, 21, 16, 20, 17, 19, 18]
 
 
 def pc_counter(dn, load, cin, qn, co):
-    n = {1: "CLK", 10: load, 11: "PC_ENABLE", 13: cin, 14: "STALL", 23: co}
+    n = {1: "CLK", 10: load, 11: "PC_ENABLE", 13: cin, 14: "STALL_OUT", 23: co}
     for i in range(8):
         n[2 + i] = dn[i]
         n[PC_Q[i]] = qn[i]
@@ -265,7 +265,7 @@ def name(s, net, x, y, angle=0):
 # ---------------------------------------------------------------- sheets
 def sheet_power(b):
     s = b.sheet("power.kicad_sch", "Power and clock", 2)
-    heading(s, "Power and clock", "USB-C 5 V in, 3.3 V for the SD card, 25.175 MHz oscillator, clock gate CLK = OSC OR HOLD")
+    heading(s, "Power and clock", "USB-C 5 V in, 3.3 V for the SD card, 25.175 MHz oscillator (CLK), cartridge STALL and RUN")
     # USB-C input
     s.part("placard_parts:USB_C_Power", "J13", 50, 80,
            {"A9": "VBUS", "A5": "CC1", "B5": "CC2", "A12": "GND", "S1": "GND"}, stub=5.08,
@@ -280,7 +280,7 @@ def sheet_power(b):
     s.pwr_flag(175, 96)
     s.power("GND", 175, 96)
     note(s, 30, 120, ["5.1k on CC1 and CC2: a USB-C source gives 5 V.",
-                      "18 PLDs draw up to about 2.3 A (130 mA each at -7, worst case):",
+                      "19 PLDs draw up to about 2.5 A (130 mA each at -7, worst case):",
                       "use a 3 A supply; the polyfuse trips on a short."])
     # analog ground joins logic ground at the power input
     s.part("placard_std:NetTie_2", "NT201", 210, 80, {"1": "GND", "2": "GNDA"}, value="AGND tie",
@@ -296,49 +296,44 @@ def sheet_power(b):
     s.pwr_flag(345, 112)
     s.power("+3V3", 345, 112)
     note(s, 268, 126, ["U40: 3.3 V for the SD card only (sheet 10).", "C40 input, C202 output (1 uF ceramic)."])
-    # oscillator and clock gate
-    s.part("placard_std:ACO-xxxMHz", "X1", 60, 185, {"14": "+5V", "7": "GND", "8": "OSC"},
-           value="25.175 MHz", footprint="placard_std:Oscillator_DIP-14", ref_at=(52, 175), value_at=(52, 196))
+    # oscillator, and the cartridge's STALL and RUN
+    s.part("placard_std:ACO-xxxMHz", "X1", 60, 185, {"14": "+5V", "7": "GND", "8": "CLK"},
+           value="25.175 MHz", footprint="Oscillator:Oscillator_DIP-14", ref_at=(52, 175), value_at=(52, 196))
     decap(s, 203, 80, 172, lift=0)
-    s.part("placard_std:74LS32", "U41", 160, 185, {"1": "OSC", "2": "HOLD", "3": "CLK"}, unit=1,
-           value="74AC32", footprint=FP_DIP14)
-    for u, (x, y), pins in [(2, (160, 215), ("4", "5", "6")), (3, (160, 240), ("9", "10", "8")),
-                            (4, (230, 240), ("12", "13", "11"))]:
-        s.part("placard_std:74LS32", "U41", x, y, {pins[0]: "GND", pins[1]: "GND", pins[2]: None}, unit=u,
-               value="74AC32", footprint=FP_DIP14, hide_value=True)
-    s.part("placard_std:74LS32", "U41", 230, 200, {"14": "+5V", "7": "GND"}, unit=5, value="74AC32",
-           footprint=FP_DIP14, hide_value=True)
-    decap(s, 41, 252, 200, lift=0)
-    res(s, "R203", 120, 160, "+5V", "HOLD", "10k")
+    res(s, "R203", 150, 160, "+5V", "STALL_OUT", "10k")
     res(s, "R204", 290, 200, "RUN", "GND", "10k")
-    s.part("placard_std:Jumper_2_Open", "JP201", 120, 215, {"1": "HOLD", "2": "GND"}, value="HOLD",
-           footprint=FP_JP, ref_at=(113, 209), value_at=(113, 220))
+    s.part("placard_std:Jumper_2_Open", "JP201", 150, 215, {"1": "STALL_IN", "2": "STALL_OUT"}, value="STALL",
+           footprint=FP_JP, ref_at=(143, 209), value_at=(143, 220))
     s.part("placard_std:Jumper_2_Open", "JP202", 320, 175, {"1": "RUN", "2": "+5V"}, value="RUN",
            footprint=FP_JP, ref_at=(313, 169), value_at=(313, 180))
-    note(s, 268, 222, ["HOLD (10k up) and RUN (10k down) come from the",
-                       "cartridge.  Without one, fit JP201 and JP202 for",
-                       "bring-up (BRINGUP.md); take them out with a cartridge.",
-                       "Unused OR gates: inputs to GND."])
+    note(s, 200, 222, ["STALL_OUT (10k up) and RUN (10k down) come from the",
+                       "cartridge: STALL_IN (the Branch PLD's STALL) goes out to it.",
+                       "Without one, fit JP201 and JP202 for bring-up",
+                       "(BRINGUP.md); take them out with a cartridge."])
     return s
 
 
 def sheet_control(b):
     s = b.sheet("control.kicad_sch", "Control", 3)
     heading(s, "Control", "State and Branch PLDs, instruction register")
-    s.part("placard_std:74LS377", "U17", 72, 130, f377(D, I, "~{LOAD_INSTR}"), value="SN74F377AN", footprint=FP_DIP20)
+    s.part("placard:ATF22V10C_IR", "U17", 72, 130, pld({
+        1: "CLK", 2: "D0", 3: "D1", 4: "D2", 5: "D3", 6: "D4", 7: "D5", 8: "D6", 9: "D7",
+        10: "~{LOAD_INSTR}", 11: "RUN", 14: "I0", 15: "I1", 16: "I2", 17: "I3", 18: "I4", 19: "I5",
+        20: "I6", 21: "I7"}))
     decap(s, 17, 92, 98)
     s.part("placard:ATF22V10C_STATE", "U1", 190, 130, pld({
-        1: "CLK", 2: "STALL", 3: "D1", 4: "D0", 5: "I4", 6: "I3", 7: "I2", 8: "BRANCH_BLOCK",
+        1: "CLK", 2: "STALL_OUT", 3: "D1", 4: "D0", 5: "I4", 6: "I3", 7: "I2", 8: "BRANCH_BLOCK",
         9: "D3", 10: "D2", 11: "D4", 13: "I0", 18: "Q0", 15: "PC_ENABLE", 16: "X_ENABLE", 17: "Y_ENABLE",
         14: "~{LOAD_INSTR}", 19: "~{LOAD_IMM}", 20: "~{LOAD_X}", 21: "~{LOAD_Y}", 22: "~{LOAD_AC}", 23: "RW"}))
     decap(s, 1, 210, 98)
     s.part("placard:ATF22V10C_BRANCH", "U2", 322, 130, pld({
         1: "CLK", 17: "I7", 2: "I6", 3: "I5", 4: "I4", 5: "I3", 6: "I2", 7: "Z_LOW", 8: "AC7",
         9: "PIXEL_ENABLE", 10: "Q0", 11: "PC_ENABLE", 13: "Z_HIGH", 14: "COUT",
-        21: "LOAD_PC_LOW", 22: "LOAD_PC_HIGH", 23: "BRANCH_BLOCK", 18: None, 19: "STALL",
+        21: "LOAD_PC_LOW", 22: "LOAD_PC_HIGH", 23: "BRANCH_BLOCK", 18: None, 19: "STALL_IN",
         16: "~{SRC_EN}", 20: None, 15: "~{PIX_LD}"}))
     decap(s, 2, 342, 98)
-    note(s, 40, 205, ["U17 loads the opcode in FETCH (/LOAD_INSTR).  The byte is stored XOR FDh (CPU.md).",
+    note(s, 40, 205, ["U17 loads the opcode in FETCH (/LOAD_INSTR) and holds 02h while RUN is low.",
+                      "U2's STALL (STALL_IN) goes to the cartridge; STALL_OUT comes back to U1 and the PC.",
                       "U1 State: FETCH / LOAD / EXEC, register loads (active low, F377 /E), RW (1 = read).",
                       "U2 Branch: NEG is AC7.  ALU_DONE (18) and CARRY (20) are internal registers: no connection.",
                       "Bring-up straps S1-S3 go in U1's socket (BRINGUP.md), not on the board."])
@@ -364,7 +359,7 @@ def sheet_pc_mux(b):
         s.part("placard:ATF22V10C_QUAD_MUX", ref, x, y, n)
         decap(s, int(ref[1:]), x + 20, y - 32)
     note(s, 20, 252, ["Video address: VA0, VA1, VA7, VA8 from the audio slot PLD (line repeat), A6:A2 = V6:V2, A15:A9 = H9:H3.",
-                      "U3 CIN tied high (always counts); U3 CO carries into U4.  STALL holds the PC during video reads and the ALU wait."],
+                      "U3 CIN tied high (always counts); U3 CO carries into U4.  STALL_OUT holds the PC (video reads, ALU wait, cartridge load)."],
          size=2.2)
     return s
 
@@ -383,7 +378,7 @@ def sheet_alu(b):
     s.part("placard_std:74LS377", "U21", 205, 200, f377(F, Y, "~{LOAD_Y}"), value="SN74F377AN", footprint=FP_DIP20)
     decap(s, 21, 225, 171)
     note(s, 290, 180, ["A = AC, B = the data bus (the source in EXEC).",
-                       "S2:S0 = I7:I5 (active low pins).",
+                       "S2:S0 = I7:I5.",
                        "Low nibble: CIN = 0, shift-right in = AC4.",
                        "High nibble: CIN = low COUT, shift-right in = 0.",
                        "COUT (high) is the carry for the Branch PLD.",
@@ -403,7 +398,7 @@ def sheet_databus(b):
     for i in range(8):
         res(s, f"R{601 + i}", 290, 80 + i * 14, SRC[i], D[i], "47", angle=90)
     s.part("placard_std:R_Network08", "RN601", 360, 105, {"1": "+5V", **{str(2 + i): D[i] for i in range(8)}},
-           value="3.3k", footprint=FP_SIP9, ref_at=(352, 96), value_at=(352, 114))
+           value="10k", footprint=FP_SIP9, ref_at=(352, 96), value_at=(352, 114))
     note(s, 250, 205, ["SRC7:SRC0: the two source F541s' joined outputs.",
                        "R601-R608 (47 ohm) limit the current while the",
                        "bus changes hands at the start of EXEC (CPU.md).",
@@ -439,9 +434,10 @@ def sheet_memory(b):
             "A7": "A8", "B7": "A9", "A8": "A10", "B8": "A11", "A9": "A12", "B9": "A13", "A10": "A14",
             "A16": "A15", "B16": "~{CE_HI}", "A17": "~{ROM_OE}", "B10": "~{CART}",
             "A12": "D0", "B12": "D1", "A13": "D2", "B13": "D3", "A14": "D4", "B14": "D5", "A15": "D6", "B15": "D7",
-            "A20": "OSC", "B17": "~{SRC_EN}", "A18": "PIXEL_ENABLE", "B18": "HOLD", "A19": "RUN",
+            "A20": "CLK", "B17": "STALL_IN", "A18": "PIXEL_ENABLE", "B18": "STALL_OUT", "A19": "RUN",
+            "B19": "PC_ENABLE",
             "A2": "+5V", "A1": "GND"}
-    for c in ["A22", "A23", "A24", "A25", "A26", "A27", "A28", "A29", "A30", "A32", "B19", "B20",
+    for c in ["A22", "A23", "A24", "A25", "A26", "A27", "A28", "A29", "A30", "A32", "B20",
               "B22", "B23", "B24", "B25", "B26", "B27", "B28", "B29", "B30", "B32"]:
         cart[c] = None
     s.part("placard_parts:Cartridge_Slot", "J8", 337, 95, cart, value="Molex 87715-9106",
@@ -449,7 +445,7 @@ def sheet_memory(b):
     res(s, "R701", 395, 175, "+5V", "~{CART}", "10k")
     note(s, 20, 252, ["Lower 32K: /CE = A15 (RAM U31, cartridge /CE_LO); upper: /CE_HI from U12.",
                        "RUN low (cartridge loading): /ROM_OE held off, map register clear (all ROM).",
-                       "/CART reads low with a cartridge in; nothing reads it yet.  22 spare contacts."],
+                       "/CART reads low with a cartridge in; nothing reads it yet.  21 spare contacts."],
          size=2.2)
     return s
 
@@ -588,12 +584,12 @@ def sheet_video_out(b):
     rp = s.part("placard_std:R", "R948", xn, yk[0] - 7.62, {"1": "GNDA", "2": "LAD0"}, value="2k", footprint=FP_R,
                 bare=("2",), ref_at=(xn + 2.0, yk[0] - 7.9), value_at=(xn + 2.0, yk[0] - 5.3))
     path(s, "LAD0", rp["2"], (xn, yk[0]))
-    # out: LAD7 -> C902 (15n to GNDA) -> C903 (22u) -> AUDIO -> R957 (10k to GNDA) -> J6 tip and ring
+    # out: LAD7 -> C902 (15n to GNDA) -> C903 (22u ceramic) -> AUDIO -> R957 (10k to GNDA) -> J6 tip and ring
     yo = yk[7]
     c902 = s.part("placard_std:C", "C902", 220.98, yo + 3.81, {"1": "LAD7", "2": "GNDA"}, value="15n C0G",
                   footprint=FP_C, bare=("1",), ref_at=(223.5, yo + 3.3), value_at=(223.5, yo + 6.4))
-    c903 = s.part("placard_std:C_Polarized", "C903", 238.76, yo, {"1": "LAD7", "2": "AUDIO"}, value="22u",
-                  footprint=FP_CP_S, angle=90, bare=("1", "2"), ref_at=(234.5, yo - 3.4), value_at=(241.0, yo - 3.4))
+    c903 = s.part("placard_std:C", "C903", 238.76, yo, {"1": "LAD7", "2": "AUDIO"}, value="22u",
+                  footprint=FP_C, angle=90, bare=("1", "2"), ref_at=(234.5, yo - 3.4), value_at=(241.0, yo - 3.4))
     path(s, "LAD7", (xn, yo), c903["1"])
     s.junction(c902["1"][0], yo, owner="LAD7")     # C902's pin sits on the line: cut it there
     name(s, "LAD7", xn + 7.62, yo)
@@ -714,8 +710,8 @@ def root_sheet(b, sheets):
             f"(property \"Sheetfile\" {K.q(sh.filename)} (at {x} {y + h + 0.8} 0) (effects (font (size 2 2)) (justify left top))) "
             f"(instances (project {K.q(b.project)} (path \"/{b.root_uuid}\" (page {K.q(str(page))})))))")
     contents = {
-        2: ["J13 USB-C, F201, U40 3.3 V", "X1 25.175 MHz, U41 clock gate", "HOLD / RUN jumpers"],
-        3: ["U1 State, U2 Branch", "U17 instruction register"],
+        2: ["J13 USB-C, F201, U40 3.3 V", "X1 25.175 MHz clock", "STALL / RUN jumpers"],
+        3: ["U1 State, U2 Branch", "U17 instruction register PLD"],
         4: ["U3, U4 program counter", "U7-U10 address mux"],
         7: ["U31, U32 RAM, J8 cartridge", "U11 memory control", "U12 I/O decode, U25 map"],
         5: ["U5, U6 ALU", "U19 AC, U20 X, U21 Y"],
@@ -728,7 +724,7 @@ def root_sheet(b, sheets):
     for page, x, y, w, h in ROOT_BOXES:
         for i, ln in enumerate(contents[page]):
             s.text(ln, x + 3, y + 10 + i * 7, size=2.5)
-    note(s, 20, 220, ["35 chips + U40 regulator (docs/CHIPS.md numbers; U24, U28, U30, U33, U34 are not used).",
+    note(s, 20, 220, ["34 chips + U40 regulator (docs/CHIPS.md numbers; U24, U28, U30, U33, U34 are not used).",
                       "Decoupling: every chip's 100 nF Cn sits beside Un on its own sheet.",
                       "Power: +5V, GND, +3V3 (SD card), GNDA (audio, joined to GND on sheet 2).",
                       "The ROM cartridge is its own project: kicad/cartridge/."], size=3)
@@ -762,16 +758,17 @@ def build_cart():
             "A7": "A8", "B7": "A9", "A8": "A10", "B8": "A11", "A9": "A12", "B9": "A13", "A10": "A14",
             "A16": "~{CE_LO}", "B16": "~{CE_HI}", "A17": "~{ROM_OE}", "B10": "GND",
             "A12": "D0", "B12": "D1", "A13": "D2", "B13": "D3", "A14": "D4", "B14": "D5", "A15": "D6", "B15": "D7",
-            "A20": "OSC", "B17": "~{SRC_EN}", "A18": "PIXEL_ENABLE", "B18": "HOLD", "A19": "RUN",
+            "A20": "CLK", "B17": "STALL_IN", "A18": "PIXEL_ENABLE", "B18": "STALL_OUT", "A19": "RUN",
+            "B19": "PC_ENABLE",
             "A2": "+5V", "A1": "GND"}
-    for c in ["A22", "A23", "A24", "A25", "A26", "A27", "A28", "A29", "A30", "A32", "B19", "B20",
+    for c in ["A22", "A23", "A24", "A25", "A26", "A27", "A28", "A29", "A30", "A32", "B20",
               "B22", "B23", "B24", "B25", "B26", "B27", "B28", "B29", "B30", "B32"]:
         cart[c] = None
     s.part("placard_parts:Cartridge_Slot", "J1", 72, 120, cart, value="Card edge (87715-9106 mate)",
            footprint="", ref_at=(57, 69), value_at=(57, 171))
     s.part("placard:ATF22V10C_CART", "U1", 175, 95, pld({
-        1: "OSC", 2: "~{CE_LO}", 3: "PIXEL_ENABLE", 4: "~{SRC_EN}", 14: None, 15: None, 16: None, 17: None,
-        18: None, 21: None, 19: "~{SR_WE}", 20: "~{EE_OE}", 22: "RUN", 23: "HOLD"}))
+        1: "CLK", 2: "~{CE_LO}", 3: "PIXEL_ENABLE", 4: "PC_ENABLE", 5: "STALL_IN", 14: None, 15: None,
+        16: None, 17: None, 18: None, 21: None, 19: "~{SR_WE}", 20: "~{EE_OE}", 22: "RUN", 23: "STALL_OUT"}))
     decap(s, 1, 195, 63)
     s.pwr_flag(30, 200)
     s.power("+5V", 30, 200)
@@ -790,12 +787,13 @@ def build_cart():
     mem("Memory_EEPROM:28C256", "U3", 365, 95, "~{CE_HI}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
     mem("placard_parts:AS7C256C", "U4", 270, 210, "~{CE_LO}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
     mem("placard_parts:AS7C256C", "U5", 365, 210, "~{CE_HI}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
-    note(s, 120, 175, ["U2 (lower 32K) and U3 (upper) hold the image,",
+    note(s, 30, 215, ["U2 (lower 32K) and U3 (upper) hold the image,",
                        "programmed off the board; their /WE is tied high.",
                        "U4, U5 are the ROM the CPU reads (15 ns).",
                        "/CE_LO is the main board's A15.",
-                       "U1 holds the board's clock (HOLD), pulses",
-                       "/SR_WE on each fetch, then raises RUN.",
+                       "U1 stalls the CPU at each PC address",
+                       "(STALL_OUT), pulses /SR_WE, lets the CPU",
+                       "step, and raises RUN when the PC wraps.",
                        "/CART (B10) is tied to GND: cartridge present.",
                        "Spare contacts are unassigned (EXPANSION.md)."])
     s.finish(set())

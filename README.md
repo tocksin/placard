@@ -20,7 +20,7 @@ The project has some hard-goals to maintain:
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
 
 ## Block diagram
-Each block shows how many chips it uses (38 in all on the main board; the expansion and cartridge slots add none).  See [docs/CHIPS.md](docs/CHIPS.md) for the parts.
+Each block shows how many chips it uses (34 and a 3.3 V regulator on the main board; the expansion and cartridge slots add none, the cartridge itself has 5).  See [docs/CHIPS.md](docs/CHIPS.md) for the parts.
 
 ![Placard block diagram](reference/placard_block_diagram.png)
 
@@ -49,7 +49,7 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 
 The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /WE, /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
 
-The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is two more AS7C256C-15PCN on the ROM cartridge, loaded at power-up from two AT28C256 EEPROMs by the cartridge while it holds the main board's clock ([docs/ROM.md](docs/ROM.md#loading-the-cartridge)).  See [docs/CPU.md](docs/CPU.md#memory-parts) and [docs/TIMING.md](docs/TIMING.md).
+The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is two more AS7C256C-15PCN on the ROM cartridge, loaded at power-up from two AT28C256 EEPROMs by the cartridge while it stalls the CPU ([docs/ROM.md](docs/ROM.md#loading-the-cartridge)).  See [docs/CPU.md](docs/CPU.md#memory-parts) and [docs/TIMING.md](docs/TIMING.md).
 
 | Address | Map bit | Function  |
 |---------|---------|------|
@@ -141,10 +141,11 @@ The `build` folder has one Windows batch file per assembly program
 `pi_spigot.bat`, `game_of_life.bat`, `lib_demo.bat`, `raycast.bat`,
 `scroller.bat`).  Each one assembles
 `src/scripts/<program>.asm` (customasm, or `placard_sim.py` if customasm is not
-on the PATH), writes the RAM's initialization file `src/hdl/ram.mem` (the
-video test pattern, `gen_video_ram.tcl`) and the ROM's `src/hdl/rom.mem`
-(boot loader, standard library and font, and the program, `gen_rom.tcl`; see
-[docs/ROM.md](docs/ROM.md)), runs
+on the PATH), writes the RAM initialization files `src/hdl/ram.mem` (main
+RAM) and `cart_ram.mem` (cartridge SRAM), random bytes like a real SRAM at
+power-up (`gen_random_ram.tcl`), and the cartridge EEPROM image
+`src/hdl/rom.mem` (boot loader, standard library and font, and the program,
+`gen_rom.tcl`; see [docs/ROM.md](docs/ROM.md)), runs
 Vivado in batch mode through synthesis, implementation and bitstream, and
 programs the Basys 3 over JTAG.  Any other program builds with
 `build\build_and_load.bat <program>`.  Add `noasm` (e.g. `cpu_test.bat noasm`)
@@ -153,7 +154,7 @@ to skip assembly and use the existing `.hex` file.  Vivado is found on the PATH 
 `vivado.bat` to pick a version.  Logs go to `build/logs`; the Vivado Tcl scripts
 behind the batch files are in `build/tcl`.
 Add `fast` (e.g. `mandelbrot.bat fast`) to change only the memory contents:
-the new `ram.mem` and `rom.mem` are written into the last implemented bitstream with
+the new `ram.mem`, `cart_ram.mem` and `rom.mem` are written into the last implemented bitstream with
 `updatemem` (block RAM map from `build/tcl/write_mmi.tcl`), so synthesis and
 implementation are skipped.  It needs one full build first, and a full build
 again after any HDL or constraint change.  The first `fast` run after a full
@@ -174,8 +175,8 @@ source, so after adding or removing one run `build\create_project.bat force`.
 Testbenches and other settings are listed in `create_project.tcl`; change them
 there, because a change made only in the GUI is lost the next time the project
 is made.
-`src/hdl/ram.mem` and `src/hdl/rom.mem` are not kept in git either; every
+`src/hdl/ram.mem`, `cart_ram.mem` and `rom.mem` are not kept in git either; every
 build makes them, and `create_project.tcl` makes the default images if they
 are missing.  A project made before the ROM had its own file lists
-`video_ram.mem`; the next build swaps it for the two new files, or run
+`video_ram.mem`; the next build swaps it for the new files, or run
 `build\create_project.bat force`.

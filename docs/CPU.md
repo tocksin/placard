@@ -17,7 +17,8 @@ ADD and SUB with an AC, X or Y destination take one more clock: the first
 EXEC clock is a wait clock so the carry can ripple through both ALU PLDs at
 25.175 MHz (see [ALU_TIMING.md](ALU_TIMING.md)).  The Branch PLD makes the
 wait by sending STALL to the State PLD and the PC PLDs (the same stall the
-video uses) for the first EXEC clock, and its ALU_DONE register ends the
+video uses; it passes through the ROM cartridge, which also uses it to hold
+the CPU while it loads, ROM.md) for the first EXEC clock, and its ALU_DONE register ends the
 wait on the second.  Stores do not wait, because they write the source bus,
 not the ALU result.  A store from AC to [0,X] or [Y,X] goes through
 LOAD_MEM (one more clock) so its address and data settle a clock before the
@@ -28,30 +29,6 @@ to 4 clocks, plus any video stall clocks.
 
 The state diagram is drawn by `src/scripts/gen_state_diagram.py` (State PLD
 revision 12, 2026-10-18); rerun it when the State PLD changes.
-
-## Opcode byte
-
-The instruction fields below (ALU op in bits 7:5, memory mode in 4:2,
-source in 1:0) are the **logical** values.  Since 2026-10-20 the byte in
-memory is those fields **XOR FDh**: bits 7:2 and 0 are stored inverted,
-bit 1 as it is.  So `ld ac, ac` (logical 02h) is the byte FFh, and FFh
-is what the data bus reads when nothing drives it (the 3.3k pull-ups and
-the F377 inputs both pull it high).  The ROM cartridge feeds the CPU that
-floating FFh while it loads its SRAM, so it needs no buffer chip for the
-feed byte ([ROM.md](ROM.md#loading-the-cartridge)).
-
-The hardware cost is nothing: the State, Branch and ALU PLDs declare
-their instruction-bit pins active low (`PIN 5 = !MEM2;`), which an
-ATF22V10C does for free, so every equation still uses the logical
-fields.  Bit 1 is not inverted because it drives the D source F541's
-/OE2 directly (and the audio slot PLD's /AC_SEL).  The assembler
-(`placard.asm`, and `placard_sim.py`) writes each opcode XOR FDh;
-operand bytes are unchanged.  A few results of the change:
-
-- `nop` (`ld ac, ac`) is FFh, and 00h is `bra [y,x]` (logical FDh).
-- An erased EEPROM or an unused ROM byte (FFh) is a `nop` slide.
-- With no memory at all the CPU runs `nop` and its PC sweeps all 64K
-  (the bring-up "FF free run").
 
 ## Registers
 
@@ -234,8 +211,9 @@ two source F541s has two active-low enables:
 | AC | /SRC_EN (branch PLD pin 16) | /AC_SEL = !I1 (audio PLD pin 21) | EXEC, source 10 or 11 |
 
 The audio slot PLD (revision 04) had two free pins, so it makes the one
-inverter (`AC_SEL = I1`); it has to be a -7 part because it sits in the
-single-clock ALU path.  A D source always has a LOAD clock before EXEC, so
+inverter (`AC_SEL = I1`).  It sits in the single-clock ALU path, which
+needed a -7 part until the instruction register became a PLD (2026-10-21);
+now it is a -10 (CHIPS.md, "PLD speed grades").  A D source always has a LOAD clock before EXEC, so
 I1 is settled a clock before /SRC_EN falls.  The only select change at the
 start of EXEC is D to AC (I1 rising after FETCH), which turns the D F541
 off (I1 directly, about 10 ns) before /SRC_EN turns either on (about
