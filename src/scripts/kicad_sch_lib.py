@@ -23,6 +23,7 @@ PROJ_LIB = os.path.normpath(os.path.join(HERE, "..", "..", "kicad", "lib"))
 LIBS = {
     "placard": os.path.join(PROJ_LIB, "placard.kicad_sym"),
     "placard_parts": os.path.join(PROJ_LIB, "placard_parts.kicad_sym"),
+    "placard_std": os.path.join(PROJ_LIB, "placard_std.kicad_sym"),
 }
 
 POWER_NETS = {"+5V": "power:+5V", "GND": "power:GND", "+3V3": "power:+3V3",
@@ -253,7 +254,9 @@ class Sheet:
         self.terms = []          # extra wire ends that belong to a net: (net, x, y)
         self.report = []
         self.term_angle = {}
-        self.named = set()       # local nets that keep a label (their PWR_FLAG is checked by name)
+        self.named = set()
+        self.no_arm = set()       # terminals that name a wire rather than end it
+        self.bus_pieces = {}     # prefix -> hand-drawn bus pieces [(a, b)] for finish() to join       # local nets that keep a label (their PWR_FLAG is checked by name)
         self.names = {}          # ref -> function name printed under the part (the PLDs)
 
     def u(self, *k):
@@ -310,6 +313,12 @@ class Sheet:
                            f"(stroke (width 0) (type default)) (uuid {u}))")
         return out
 
+    def bus_piece(self, pre, pts):
+        """A bus line drawn by hand (a polyline); finish() joins it to the rest of bus pre."""
+        for k in range(len(pts) - 1):
+            self.bus(pts[k][0], pts[k][1], pts[k + 1][0], pts[k + 1][1], "BUS:" + pre)
+            self.bus_pieces.setdefault(pre, []).append((pts[k], pts[k + 1]))
+
     def bus_entry(self, x, y, dx, dy, wire_owner, bus_owner):
         self.items.append(f"(bus_entry (at {R(x)} {R(y)}) (size {R(dx)} {R(dy)}) "
                           f"(stroke (width 0) (type default)) (uuid {self.u()}))")
@@ -321,9 +330,12 @@ class Sheet:
         self.items.append(f"(junction (at {R(x)} {R(y)}) (diameter 0) (color 0 0 0 0) (uuid {self.u()}))")
         self.grid.add_point(x, y, owner)
 
-    def terminal(self, net, x, y, angle=0):
-        """A wire end the caller drew that belongs to net, to be wired or labelled by finish()."""
+    def terminal(self, net, x, y, angle=0, arm=True):
+        """A wire end the caller drew that belongs to net, to be wired or labelled by finish().
+        arm=False: a point in the middle of a hand-drawn wire, used only to name it."""
         self.terms.append((net, x, y))
+        if not arm:
+            self.no_arm.add((KR.gi(x), KR.gi(y)))
         self.term_angle[(net, x, y)] = angle
         self.grid.point[(KR.gi(x), KR.gi(y))] = net
         self.nets_here.add(net)
@@ -579,11 +591,11 @@ class Sheet:
             count[net] = count.get(net, 0) + 1
         # buses: a prefix with three or more numbered nets on this sheet
         members = {}
-        for net in count:
+        for net in {p["net"] for p in sig}:     # hand-drawn wires never join a bus
             m = BUS_RE.match(net)
             if m and m.group(1) not in NOT_BUS:
                 members.setdefault(m.group(1), set()).add(net)
-        buses = {pre: ms for pre, ms in members.items() if len(ms) >= 3}
+        buses = {pre: ms for pre, ms in members.items() if len(ms) >= 4}
         bus_of = {n: pre for pre, ms in buses.items() for n in ms}
         bus_term = {n for n, _x, _y in self.terms if n in bus_of}
         if bus_term:
@@ -666,7 +678,10 @@ class Sheet:
                        if count[net] == 1 or ((net in global_nets or net in self.named) and anchor[net][1:] == (x, y))]
         for net, x, y in term_labels:
             self.label(net, x, y, self.term_angle.get((net, x, y), 0), "passive", net in global_nets)
-        # bus lines: join the pieces of each bus
+        # bus lines: join the pieces of each bus (hand-drawn pieces first, so the others join them)
+        for pre, segs in self.bus_pieces.items():
+            if pre in buses:
+                bus_segs[pre] = segs + bus_segs.get(pre, [])
         for pre, segs in bus_segs.items():
             owner = "BUS:" + pre
             conn = self._seg_cells(*segs[0])
@@ -674,6 +689,9 @@ class Sheet:
             for a, b in segs[1:]:
                 tree = conn
                 mine = self._seg_cells(a, b)
+                if mine & conn:     # already joined (the next segment of a hand-drawn piece)
+                    conn = conn | mine
+                    continue
                 best = None
                 for st in ((KR.gi(a[0]), KR.gi(a[1])), (KR.gi(b[0]), KR.gi(b[1]))):
                     path = self.grid.route(owner, st, tree - mine, avoid=mine - {st})
@@ -811,7 +829,8 @@ class Sheet:
                 have.add((KR.gi(float(m.group(1))), KR.gi(float(m.group(2)))))
         extra = {}
         for net, x, y in self.terms:
-            extra.setdefault(net, []).append((KR.gi(x), KR.gi(y)))
+            if (KR.gi(x), KR.gi(y)) not in self.no_arm:
+                extra.setdefault(net, []).append((KR.gi(x), KR.gi(y)))
         for owner, segs in self.grid.segs.items():
             if owner.startswith("~") and not owner.startswith("~{"):   # hand-drawn wires
                 continue
