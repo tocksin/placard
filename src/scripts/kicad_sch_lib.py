@@ -7,7 +7,7 @@ a power symbol for +5V, GND, +3V3 and GNDA).  Unconnected pins get a
 no-connect flag.  Symbols are copied out of the KiCad libraries into each
 sheet's lib_symbols cache, so the files open without the libraries.
 
-Date: 2026-10-20
+Date: 2026-10-21
 """
 import math
 import os
@@ -23,6 +23,7 @@ PROJ_LIB = os.path.normpath(os.path.join(HERE, "..", "..", "kicad", "lib"))
 LIBS = {
     "placard": os.path.join(PROJ_LIB, "placard.kicad_sym"),
     "placard_parts": os.path.join(PROJ_LIB, "placard_parts.kicad_sym"),
+    "placard_std": os.path.join(PROJ_LIB, "placard_std.kicad_sym"),
 }
 
 POWER_NETS = {"+5V": "power:+5V", "GND": "power:GND", "+3V3": "power:+3V3",
@@ -253,8 +254,13 @@ class Sheet:
         self.terms = []          # extra wire ends that belong to a net: (net, x, y)
         self.report = []
         self.term_angle = {}
-        self.named = set()       # local nets that keep a label (their PWR_FLAG is checked by name)
+        self.named = set()
+        self.no_arm = set()       # terminals that name a wire rather than end it
+        self.bus_pieces = {}     # prefix -> hand-drawn bus pieces [(a, b)] for finish() to join       # local nets that keep a label (their PWR_FLAG is checked by name)
         self.names = {}          # ref -> function name printed under the part (the PLDs)
+        self.label_each = set()  # bus prefixes whose pieces each get their own label (not joined)
+        self.force_bus = set()   # prefixes drawn as a bus even with fewer than four members here
+        self.label_nets = set()  # nets labelled at every pin instead of wired (a clock shared like a rail)
 
     def u(self, *k):
         self.n += 1
@@ -310,6 +316,12 @@ class Sheet:
                            f"(stroke (width 0) (type default)) (uuid {u}))")
         return out
 
+    def bus_piece(self, pre, pts):
+        """A bus line drawn by hand (a polyline); finish() joins it to the rest of bus pre."""
+        for k in range(len(pts) - 1):
+            self.bus(pts[k][0], pts[k][1], pts[k + 1][0], pts[k + 1][1], "BUS:" + pre)
+            self.bus_pieces.setdefault(pre, []).append((pts[k], pts[k + 1]))
+
     def bus_entry(self, x, y, dx, dy, wire_owner, bus_owner):
         self.items.append(f"(bus_entry (at {R(x)} {R(y)}) (size {R(dx)} {R(dy)}) "
                           f"(stroke (width 0) (type default)) (uuid {self.u()}))")
@@ -321,9 +333,12 @@ class Sheet:
         self.items.append(f"(junction (at {R(x)} {R(y)}) (diameter 0) (color 0 0 0 0) (uuid {self.u()}))")
         self.grid.add_point(x, y, owner)
 
-    def terminal(self, net, x, y, angle=0):
-        """A wire end the caller drew that belongs to net, to be wired or labelled by finish()."""
+    def terminal(self, net, x, y, angle=0, arm=True):
+        """A wire end the caller drew that belongs to net, to be wired or labelled by finish().
+        arm=False: a point in the middle of a hand-drawn wire, used only to name it."""
         self.terms.append((net, x, y))
+        if not arm:
+            self.no_arm.add((KR.gi(x), KR.gi(y)))
         self.term_angle[(net, x, y)] = angle
         self.grid.point[(KR.gi(x), KR.gi(y))] = net
         self.nets_here.add(net)
@@ -381,8 +396,8 @@ class Sheet:
                 angle = {(0, 1): 0, (0, -1): 180, (-1, 0): 270, (1, 0): 90}[(sx, sy)]
             else:
                 angle = {(0, -1): 0, (0, 1): 180, (-1, 0): 90, (1, 0): 270}[(sx, sy)]
-            if sx:
-                vx, vy = x + sx * 6.0, y - 1.5
+            if sx:      # sideways: the name reads across, past the end of the symbol
+                vx, vy = x + sx * (5.5 + len(net) * 0.95), y
             else:
                 vx, vy = x, y + sy * 6.35
         dirv = {0: (0, -1), 180: (0, 1), 90: (-1, 0), 270: (1, 0)}[angle % 360]
@@ -393,15 +408,21 @@ class Sheet:
         self.grid.block_box(min(x, ex) - (1.3 if dirv[1] else 0), min(y, ey) - (1.3 if dirv[0] else 0),
                             max(x, ex) + (1.3 if dirv[1] else 0), max(y, ey) + (1.3 if dirv[0] else 0),
                             keep={(KR.gi(x), KR.gi(y))})
+        side = angle % 180 == 90
         if not hide_val_for(net):
-            self.grid.block_box(vx - 1.0, vy - 2.2, vx + len(net) * 1.9, vy + 0.5)
+            if side:
+                self.grid.block_box(vx - len(net) * 0.95 - 0.5, vy - 1.2, vx + len(net) * 0.95 + 0.5, vy + 1.2)
+                self.boxes.append((vx - len(net) * 0.95, vy - 0.9, vx + len(net) * 0.95, vy + 0.9, "power " + net))
+            else:
+                self.grid.block_box(vx - 1.0, vy - 2.2, vx + len(net) * 1.9, vy + 0.5)
+                self.boxes.append((vx - len(net) * 0.95, vy - 1.8, vx + len(net) * 0.95, vy, "power " + net))
         val = net if lib_id.startswith("power:") and "PWR_FLAG" not in lib_id else uq(sym_props(self._lib(lib_id))["Value"][2])
         hide_val = " hide" if net in ("GND", "GNDA") else ""
         self.items.append(
             f"(symbol (lib_id {q(lib_id)}) (at {R(x)} {R(y)} {angle}) (unit 1) (in_bom yes) (on_board yes) (dnp no) "
             f"(uuid {self.u()}) "
             f"(property \"Reference\" {q(ref)} (at {R(x)} {R(y)} 0) {font(1.27, ' hide')}) "
-            f"(property \"Value\" {q(val)} (at {R(vx)} {R(vy)} 0) {font(LABEL_SIZE, hide_val)}) "
+            f"(property \"Value\" {q(val)} (at {R(vx)} {R(vy)} {90 if side else 0}) {font(LABEL_SIZE, hide_val)}) "
             f"(property \"Footprint\" \"\" (at {R(x)} {R(y)} 0) {font(1.27, ' hide')}) "
             f"(property \"Datasheet\" \"\" (at {R(x)} {R(y)} 0) {font(1.27, ' hide')}) "
             f"(pin \"1\" (uuid {self.u()})) "
@@ -556,8 +577,11 @@ class Sheet:
         wv = 0 if hide_value else len(val) * VALUE_SIZE * 0.9
         # on the page the fields read as on an unrotated part (the flipped justification undoes the turn)
         self.grid.block_box(ref_at[0], ref_at[1] - REF_SIZE * 1.1, ref_at[0] + wr, ref_at[1])
+        self.boxes.append((ref_at[0], ref_at[1] - REF_SIZE * 0.9, ref_at[0] + wr, ref_at[1], "ref " + ref))
         if wv:
             self.grid.block_box(value_at[0], value_at[1], value_at[0] + wv, value_at[1] + VALUE_SIZE * 1.1)
+            self.boxes.append((value_at[0], value_at[1], value_at[0] + wv, value_at[1] + VALUE_SIZE * 0.9,
+                               "value " + ref))
         pin_uuids = " ".join(f"(pin {q(num)} (uuid {self.u()}))" for num in placed)
         self.items.append(
             f"(symbol (lib_id {q(lib_id)}) (at {R(x)} {R(y)} {angle}) (unit {unit}) (in_bom yes) (on_board yes) "
@@ -577,13 +601,15 @@ class Sheet:
             count[p["net"]] = count.get(p["net"], 0) + 1
         for net, _x, _y in self.terms:
             count[net] = count.get(net, 0) + 1
+        for net in self.label_nets:
+            count[net] = 1
         # buses: a prefix with three or more numbered nets on this sheet
         members = {}
-        for net in count:
+        for net in {p["net"] for p in sig}:     # hand-drawn wires never join a bus
             m = BUS_RE.match(net)
             if m and m.group(1) not in NOT_BUS:
                 members.setdefault(m.group(1), set()).add(net)
-        buses = {pre: ms for pre, ms in members.items() if len(ms) >= 3}
+        buses = {pre: ms for pre, ms in members.items() if len(ms) >= 4 or (pre in self.force_bus and len(ms) > 1)}
         bus_of = {n: pre for pre, ms in buses.items() for n in ms}
         bus_term = {n for n, _x, _y in self.terms if n in bus_of}
         if bus_term:
@@ -598,6 +624,7 @@ class Sheet:
         for p in sig:
             anchor.setdefault(p["net"], ("pin", id(p)))
         bus_segs = {}     # prefix -> [((x1, y1), (x2, y2)), ...] in mm
+        piece_nets = {}   # prefix -> the member nets of each of those pieces
         seed = {}         # net -> cells already joined to the net's label (the routes grow from these)
         routes = []       # (net, start cell, avoid cells)
         for (ref, sx, sy), lst in groups.items():
@@ -611,8 +638,21 @@ class Sheet:
                 pre = bus_of.get(p["net"])
                 if pre and pre not in pres:
                     pres.append(pre)
-            for gi_, pre in enumerate(pres):
+            # a lone member of a separately labelled bus keeps its own label, not a bus
+            lone = {id(p) for p in lst if bus_of.get(p["net"]) in self.label_each and
+                    sum(bus_of.get(q["net"]) == bus_of[p["net"]] for q in lst) == 1}
+            pres = [pre for pre in pres if any(bus_of.get(p["net"]) == pre and id(p) not in lone for p in lst)]
+            # one column per bus; buses on rows apart from each other share a column distance
+            levels = []      # level -> [(lo, hi)] spans along the side
+            for pre in pres:
                 ps = [p for p in lst if bus_of.get(p["net"]) == pre]
+                lo, hi = min(along(p) for p in ps) - G, max(along(p) for p in ps) + G
+                gi_ = 0
+                while gi_ < len(levels) and any(lo <= h + 0.01 and l <= hi + 0.01 for l, h in levels[gi_]):
+                    gi_ += 1
+                if gi_ == len(levels):
+                    levels.append([])
+                levels[gi_].append((lo, hi))
                 lw = max(label_len(p["net"], False) for p in ps) + G
                 d = math.ceil((lw + G) / G - 1e-6) * G + gi_ * 2 * G
                 outer = max(outer, d + G)
@@ -628,15 +668,27 @@ class Sheet:
                 if len(pts) > 1:
                     self.bus(pts[0][0], pts[0][1], pts[-1][0], pts[-1][1], "BUS:" + pre)
                 bus_segs.setdefault(pre, []).append((pts[0], pts[-1]))
+                piece_nets.setdefault(pre, []).append([p["net"] for p in ps])
             # labelled pins: nets with one connection here, and the label pin of a net that leaves the sheet
-            rest = [p for p in lst if p["net"] not in bus_of]
-            lab = [p for p in rest if count[p["net"]] == 1 or
+            rest = [p for p in lst if p["net"] not in bus_of or id(p) in lone]
+            lab = [p for p in rest if count[p["net"]] == 1 or id(p) in lone or
                    ((p["net"] in global_nets or p["net"] in self.named) and anchor[p["net"]] == ("pin", id(p)))]
             far = [False] * len(lab)
             for i in range(1, len(lab)):
                 if abs(along(lab[i]) - along(lab[i - 1])) < 3.5 and not far[i - 1]:
                     far[i] = True
             labset = {id(p) for p in lab}
+            if sy:
+                # pins on the top or bottom: the labels still read across (page-exit tabs stay
+                # horizontal), on a staircase of wires so they clear each other
+                for k, p in enumerate(sorted(lab, key=lambda t: -t["x"])):
+                    ln = max(p["stub"], 2 * G) + k * 2 * G
+                    lx, ly = p["x"], p["y"] + sy * ln
+                    self.wire(p["x"], p["y"], lx, ly, owner=p["net"])
+                    if count[p["net"]] > 1:
+                        seed[p["net"]] = self._seg_cells((p["x"], p["y"]), (lx, ly))
+                    self.label(p["net"], lx, ly, 0, p["etype"], p["net"] in global_nets)
+                lab = []
             for i, (p, f) in enumerate(zip(lab, far)):
                 base = max(p["stub"], outer + 2 * G if outer else 0)
                 ln = base
@@ -666,7 +718,15 @@ class Sheet:
                        if count[net] == 1 or ((net in global_nets or net in self.named) and anchor[net][1:] == (x, y))]
         for net, x, y in term_labels:
             self.label(net, x, y, self.term_angle.get((net, x, y), 0), "passive", net in global_nets)
-        # bus lines: join the pieces of each bus
+        # bus lines: join the pieces of each bus (hand-drawn pieces first, so the others join them)
+        for pre, segs in self.bus_pieces.items():
+            if pre in buses:
+                bus_segs[pre] = segs + bus_segs.get(pre, [])
+        for pre in sorted(self.label_each & set(bus_segs)):
+            # a bus that comes from another sheet: each chip's piece carries its own label
+            for (a, b), ns in zip(bus_segs.pop(pre), piece_nets[pre]):
+                ns = sorted(ns, key=lambda n: int(BUS_RE.match(n).group(2)))
+                self._bus_label(pre, ns, any(n in global_nets for n in ns), self._seg_cells(a, b))
         for pre, segs in bus_segs.items():
             owner = "BUS:" + pre
             conn = self._seg_cells(*segs[0])
@@ -674,6 +734,9 @@ class Sheet:
             for a, b in segs[1:]:
                 tree = conn
                 mine = self._seg_cells(a, b)
+                if mine & conn:     # already joined (the next segment of a hand-drawn piece)
+                    conn = conn | mine
+                    continue
                 best = None
                 for st in ((KR.gi(a[0]), KR.gi(a[1])), (KR.gi(b[0]), KR.gi(b[1]))):
                     path = self.grid.route(owner, st, tree - mine, avoid=mine - {st})
@@ -770,6 +833,7 @@ class Sheet:
                           for d in perp]
         cands = [(c, d) for c, d in ends + [(c, dd) for c, _ in ends for dd in ((0, -1), (0, 1), (-1, 0), (1, 0))] + inner
                  if d != (0, 0)]
+        cands.sort(key=lambda t: t[1][1] != 0)   # horizontal labels first (Justin: tabs read across)
         nt = int(math.ceil(w / G)) + 1
 
         def free(c, d, stub, strict):
@@ -783,7 +847,8 @@ class Sheet:
                         return False
                 if strict:
                     side = [(cc[0] + d[1] * t, cc[1] + d[0] * t) for t in (-1, 1)]
-                    if cc in g.blocked or any(t in g.blocked or g.point.get(t) for t in side):
+                    if cc in g.blocked or any(t in g.blocked or g.point.get(t) or g.h.get(t) or g.v.get(t)
+                                              for t in side):
                         return False
             return True
 
@@ -811,7 +876,8 @@ class Sheet:
                 have.add((KR.gi(float(m.group(1))), KR.gi(float(m.group(2)))))
         extra = {}
         for net, x, y in self.terms:
-            extra.setdefault(net, []).append((KR.gi(x), KR.gi(y)))
+            if (KR.gi(x), KR.gi(y)) not in self.no_arm:
+                extra.setdefault(net, []).append((KR.gi(x), KR.gi(y)))
         for owner, segs in self.grid.segs.items():
             if owner.startswith("~") and not owner.startswith("~{"):   # hand-drawn wires
                 continue
@@ -847,6 +913,25 @@ class Sheet:
     def overlaps(self, frame=(12, 12, 408, 285), title=(300, 255)):
         out = []
         b = self.boxes
+        # wires through text, labels or a part's body
+        for it in self.items:
+            if isinstance(it, str):
+                continue
+            kind, x1, y1, x2, y2, _u = it
+            wx0, wx1, wy0, wy1 = min(x1, x2), max(x1, x2), min(y1, y2), max(y1, y2)
+            for r in b:
+                what = r[4]
+                if what.startswith("power"):
+                    continue
+                m = 0.4
+                if what.startswith("part"):
+                    if r[2] - r[0] < 6 or r[3] - r[1] < 6:
+                        continue    # two-pin parts: their own wires end inside the pin extent
+                    m = 1.6
+                if wx0 < r[2] - m and r[0] + m < wx1 + 0.01 and wy0 < r[3] - m and r[1] + m < wy1 + 0.01 \
+                        and (wx0 < r[2] - m and wx1 > r[0] + m if wx0 != wx1 else True) \
+                        and (wy0 < r[3] - m and wy1 > r[1] + m if wy0 != wy1 else True):
+                    out.append((kind + " over", what, round(wx0), round(wy0)))
         for i in range(len(b)):
             p = b[i]
             if p[0] < frame[0] or p[1] < frame[1] or p[2] > frame[2] or p[3] > frame[3]:

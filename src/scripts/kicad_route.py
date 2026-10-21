@@ -6,7 +6,7 @@ ends on it, and never touches another net's pin, label or wire end.  Parts,
 labels and text are obstacles.  A net with several pins is routed as a tree:
 each pin in turn is joined to the nearest point of the wires already drawn.
 
-Date: 2026-10-20
+Date: 2026-10-21
 """
 import heapq
 
@@ -141,14 +141,16 @@ class Grid:
                     return path
                 cost = 1.0
                 if d >= 0 and k != d:
-                    cost += 3.0
+                    cost += 8.0     # straight lines, few bends
                 if cross:
-                    cost += 1.5
+                    cost += 3.0
                 # keep a cell of space from other nets' parallel wires
                 side = [(c2[0], c2[1] - 1), (c2[0], c2[1] + 1)] if horiz else [(c2[0] - 1, c2[1]), (c2[0] + 1, c2[1])]
                 tab = self.h if horiz else self.v
                 if any(self.foreign(tab, s, net) for s in side):
-                    cost += 0.8
+                    cost += 1.5
+                if any(s in self.blocked for s in side):
+                    cost += 0.6     # keep a little space from parts and text
                 g2 = g + cost
                 st2 = (c2, k)
                 if g2 < best.get(st2, 1e18):
