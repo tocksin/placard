@@ -1,7 +1,7 @@
 Name     CART;
 PartNo   00;
-Date     10/20/2026;
-Revision 02;
+Date     10/21/2026;
+Revision 03;
 Designer ;
 Company  ;
 Assembly ;
@@ -21,13 +21,6 @@ Device   g22v10;
    lets the board run from x0000.  See docs/ROM.md, "Loading the
    cartridge".
 
-   REVISION 02 (2026-10-20): no 74AC541.  The opcode byte is stored
-   XOR FDh (CPU.md, "Opcode byte"), so FFh is ld ac, ac, and FFh is
-   what the data bus floats to through the main board's 3.3k pull-ups
-   once the EEPROM lets go.  The 541's /OE cell (pin 21) is now CNT4,
-   so a CPU read lasts 33 OSC cycles and gives the bus about 0.97 us
-   to rise.
-
    HOW IT WORKS
       The main board's clock is CLK = OSC OR HOLD (a 74AC32 gate).
       HOLD is high from power-up, so no clock edge reaches the board
@@ -44,10 +37,10 @@ Device   g22v10;
         - A CPU read (PIXEL_ENABLE low, /SRC_EN high, which during
           the load is always a FETCH): the address on the bus is
           the PC.  The EEPROM drives its byte for that address, the
-          SRAM is written, the EEPROM lets go, and the bus floats up
-          to FFh through the pull-ups: the opcode `ld ac, ac` for the
-          CPU to fetch.  It is one byte, two clocks, and changes
-          nothing, so the PC steps through every address.
+          SRAM is written, the EEPROM lets go, and the 74AC541
+          (inputs wired to 02h) drives the opcode 02h, `ld ac, ac`,
+          for the CPU to fetch.  02h is one byte, two clocks, and
+          changes nothing, so the PC steps through every address.
         - Anything else (EXEC, a video read): release at once.
 
       The SRAM is written at every address the PC reaches, the I/O
@@ -63,12 +56,11 @@ Device   g22v10;
       c5   CNT 4 (EEPROM valid by c4+17)  SR_WE on  (/WE low c5-c6)
       c6   CNT 5                          SR_WE off
       c7   CNT 6                          EE_OE off (floats by c8+16)
-      c8-c32                              the bus rises to FFh (3.3k)
-      c32  CNT 31 -> 0                    RELEASE on
-      c33  edge (CLK was low c32.5-c33)   RELEASE off
-      A read takes 33 OSC cycles, any other clock 2.  ld ac, ac is a
-      FETCH and an EXEC, so one sweep of the 64K is about 64K x 35 x
-      39.7 ns = 91 ms, plus video read clocks.
+      c9   CNT 8                          BUF_OE on, RELEASE on
+      c10  edge (CLK was low c9.5-c10)    BUF_OE off, RELEASE off
+      A read takes 10 OSC cycles, any other clock 2.  02h is a FETCH
+      and an EXEC, so one sweep of the 64K is about 64K x 12 x
+      39.7 ns = 31 ms, plus video read clocks.
 
    TIMING
       The board edge is OSC plus the 74AC32 (up to about 7.5 ns).
@@ -77,27 +69,31 @@ Device   g22v10;
       (-10 grade input setup about 7 ns).  AT28C256-15: tACC 150 ns
       from c0 + 28.5, tOE 70 ns from c1 + tCO, data by c5 with
       about 20 ns to spare; tDF 50 ns, so it lets go by c8 + 16.
-      HOLD changes only while OSC is high, so CLK never has a short
-      pulse.
-      The bus floats from about c8.4 to the edge at c33, 0.97 us.
-      Through 3.3k with about 230 pF of bus and the worst-case
-      leakage of everything on it (about 0.26 mA, so the bus settles
-      at 4.1 V) it reaches 2.0 V in about 0.5 us.  3.3k is the lowest
-      the AT28C256 allows (IOL 2.1 mA at 0.45 V: 1.5 mA here).
+      The 74AC541 turns on at c9 + tCO + about 8 ns and off by about
+      the same after c10: after the CPU latched it (IR hold 0 ns)
+      and before an EXEC's source F541 turns on (22 ns after the
+      board edge).  HOLD changes only while OSC is high, so CLK
+      never has a short pulse.
 
    POWER-UP
       The ATF22V10C clears every register at power-up, so RELEASE,
-      RUN, EE_OE and SR_WE are all 0: HOLD (pin 23, active low output
-      of RELEASE) is high, /EE_OE and /SR_WE are high, RUN is low.
-      The main board's pull-up on HOLD and pull-down on RUN hold the board the same way before this PLD
+      RUN, EE_OE, SR_WE and BUF_OE are all 0: HOLD (pin 23, active
+      low output of RELEASE) is high, /EE_OE, /SR_WE and /BUF_OE are
+      high, RUN is low.  The main board's pull-up on HOLD and
+      pull-down on RUN hold the board the same way before this PLD
       is powered up, or when no cartridge is in.
 
    PIN BUDGET
       Inputs (4):  OSC (pin 1), A15 (= /CE_LO), PIXEL_ENABLE, /SRC_EN
-      Outputs (10, every cell): HOLD, RUN, /EE_OE, /SR_WE,
-                   PREV15, CNT4:CNT0
+      Outputs (10, every cell): HOLD, RUN, /EE_OE, /SR_WE, /BUF_OE,
+                   PREV15, CNT3:CNT0
       Unused: pins 5-11, 13.
-   ============================================================ */
+   ============================================================ 
+   REVISION 03 (2026-10-21): the same logic as revision 01.  Revision
+   02 stored the opcode byte XOR FDh (to drop the cartridge 74AC541)
+   and was reverted: the plain encoding was easier to use.
+
+*/
 
 
 /* ---------------- INPUTS ---------------- */
@@ -117,14 +113,14 @@ PIN 17 = CNT3;         /* no external connection */
 PIN 18 = PREV15;       /* A15 at the last CPU read: no external connection */
 PIN 19 = !SR_WE;       /* /WE of both cartridge SRAMs */
 PIN 20 = !EE_OE;       /* /OE of both EEPROMs */
-PIN 21 = CNT4;         /* no external connection (revision 01: the 74AC541's /OE) */
+PIN 21 = !BUF_OE;      /* /OE1 and /OE2 of the 74AC541 (inputs wired to 02h) */
 PIN 22 = RUN;          /* to the main board: memory control pin 17, map /MR, card /RESET */
 PIN 23 = !RELEASE;     /* HOLD to the main board's clock gate, high = clock held */
 
 
 /* ---------------- DECODE ---------------- */
 
-FIELD CNT = [CNT4..CNT0];
+FIELD CNT = [CNT3..CNT0];
 
 DECIDE = !RUN & !RELEASE & CNT:0;          /* one OSC cycle after a board edge, or at power-up */
 READ   = !PIXEL_ENABLE & !SRC_EN;          /* a CPU read (a FETCH while loading) */
@@ -138,32 +134,21 @@ HANDOFF = DECIDE & READ & WRAP;            /* the 64K is loaded */
 RELEASE.D = RUN
           # DECIDE & !READ
           # HANDOFF
-          # !RUN & CNT:31;
+          # !RUN & CNT:8;
 
 RUN.D = RUN
       # HANDOFF;
 
-/* CNT: 0 -> (COPY) 1 -> 2 -> ... -> 31 -> 0, a binary counter that
-   runs while it is not 0 */
+/* CNT: 0 -> (COPY) 1 -> 2 -> ... -> 8 -> 0 */
 CNT0.D = COPY
-       # !CNT0 & CNT1
-       # !CNT0 & CNT2
-       # !CNT0 & CNT3
-       # !CNT0 & CNT4;
-CNT1.D = !CNT1 & CNT0
-       #  CNT1 & !CNT0;
-CNT2.D = !CNT2 & CNT1 & CNT0
-       #  CNT2 & !CNT1
-       #  CNT2 & !CNT0;
-CNT3.D = !CNT3 & CNT2 & CNT1 & CNT0
-       #  CNT3 & !CNT2
-       #  CNT3 & !CNT1
-       #  CNT3 & !CNT0;
-CNT4.D = !CNT4 & CNT3 & CNT2 & CNT1 & CNT0
-       #  CNT4 & !CNT3
-       #  CNT4 & !CNT2
-       #  CNT4 & !CNT1
-       #  CNT4 & !CNT0;
+       # !CNT3 & !CNT0 & CNT1          /* 2 -> 3, 6 -> 7 */
+       # !CNT3 & !CNT0 & CNT2;         /* 4 -> 5, 6 -> 7 */
+CNT1.D = !CNT3 &  CNT1 & !CNT0         /* 2 -> 3, 6 -> 7 */
+       # !CNT3 & !CNT1 &  CNT0;        /* 1 -> 2, 5 -> 6 */
+CNT2.D = !CNT3 & !CNT2 & CNT1 & CNT0   /* 3 -> 4 */
+       # !CNT3 &  CNT2 & !CNT1         /* 4 -> 5, 5 -> 6 */
+       # !CNT3 &  CNT2 & !CNT0;        /* 4 -> 5, 6 -> 7 */
+CNT3.D = !CNT3 &  CNT2 & CNT1 & CNT0;  /* 7 -> 8 */
 
 PREV15.D = COPY & A15
          # !DECIDE & PREV15
@@ -174,5 +159,7 @@ EE_OE.D = COPY
 
 SR_WE.D = CNT:4;
 
-[CNT4..CNT0, PREV15, SR_WE, EE_OE, RUN, RELEASE].AR = 'b'0;
-[CNT4..CNT0, PREV15, SR_WE, EE_OE, RUN, RELEASE].SP = 'b'0;
+BUF_OE.D = !RUN & CNT:8;
+
+[CNT3..CNT0, PREV15, SR_WE, EE_OE, BUF_OE, RUN, RELEASE].AR = 'b'0;
+[CNT3..CNT0, PREV15, SR_WE, EE_OE, BUF_OE, RUN, RELEASE].SP = 'b'0;

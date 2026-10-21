@@ -1,6 +1,6 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-10-20
+Date: 2026-10-21
 
 The Placard has four expansion slots, each a 2 x 20, 0.1" (2.54 mm)
 pitch card-edge socket, and one ROM cartridge slot, a keyed 2 x 32,
@@ -66,18 +66,13 @@ whose code hangs.
 
 An empty slot fails the "PLC" check: with nothing driving the read bus it
 reads FF from the pull-ups below, or, if the bus has not risen yet, the
-last byte on it, which is the scan's own `ld [y,x], ac` opcode (F4; the
-opcode byte is stored XOR FDh, CPU.md).  A program can find cards later with the
+last byte on it, which is the scan's own `ld [y,x], ac` opcode (09).  A program can find cards later with the
 library's `slot_id` (AC = slot 1-4 gives AC = card ID or 0, R1:R0 = base
 address).
 
-**Read bus pull-ups.**  D7:D0 get 3.3k pull-ups to +5 V on the main board
-(one 9-pin bussed 3.3k SIP network; not a chip, no PLD logic), so an empty
-slot or an unused I/O address reads FF rather than a floating level.  The
-ROM cartridge also relies on them: while it loads, the CPU fetches the
-floating FFh as `ld ac, ac` (ROM.md).  They were 10k until 2026-10-20;
-3.3k lets the bus rise in about 0.5 µs, and is still within the 2.1 mA
-an AT28C256 EEPROM can sink.  They
+**Read bus pull-ups.**  D7:D0 get 10k pull-ups to +5 V on the main board
+(one 9-pin bussed 10k SIP network; not a chip, no PLD logic), so an empty
+slot or an unused I/O address reads FF rather than a floating level.  They
 only set the level when nothing drives the bus and do not slow a driven
 read.  The simulator reads an empty slot as FF.
 
@@ -162,8 +157,7 @@ that, since the four slots share the main board's supply.
 ## ROM cartridge slot
 
 The ROM (two AS7C256C 32K x 8 SRAMs, loaded at power-up from two
-AT28C256 EEPROMs on the same cartridge by a PLD, five chips in all, ROM.md
-"Loading the cartridge")
+AT28C256 EEPROMs on the same cartridge, ROM.md "Loading the cartridge")
 is on a plug-in cartridge.  The cartridge gets the address and data
 lines and the same chip selects the ROM chips have on the main board.
 
@@ -217,16 +211,16 @@ card detection and other functions (not assigned yet).
   pull-up reads high.  Nothing reads it yet.  With no cartridge, HOLD's
   pull-up keeps the board stopped, so the board needs a cartridge (or the
   HOLD and RUN jumpers, BRINGUP.md) to start.
-- **The loader** (ROM.md "Loading the cartridge") needs the 3.3k read bus
-  pull-ups above (the CPU fetches the floating FFh while it loads) and
-  OSC, HOLD, RUN, /SRC_EN and PIXEL_ENABLE.  /ROM_WE is gone: the
-  cartridge makes its SRAMs' /WE.
+- **The loader** (ROM.md "Loading the cartridge") needs OSC, HOLD, RUN,
+  /SRC_EN and PIXEL_ENABLE.  The cartridge's 74AC541 drives 02h
+  (`ld ac, ac`) onto the bus for the CPU's fetches while it loads.
+  /ROM_WE is gone: the cartridge makes its SRAMs' /WE.
 
 ## To check
 
-- **Empty slot reads.**  Through 3.3k the bus rises in about 0.2-0.5 us,
-  much longer than the read clock, so an empty slot really reads what the
-  bus held (the opcode F4) or something between.  Either fails the header
+- **Empty slot reads.**  Through 10k the bus rises in about 0.5 us, much
+  longer than the read clock, so an empty slot really reads what the bus
+  held (the opcode 09) or something between.  Either fails the header
   check; confirm on the board that an empty-slot boot skips all four slots.
 
 - **Glitches on /EXP.**  /EXP is decoded from the address only, and /WE

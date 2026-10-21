@@ -1,6 +1,7 @@
 -- ============================================================
--- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 14)
--- Date: 10/20/2026
+-- BRANCH_CTRL  (VHDL conversion of ATF22V10_BRANCH.pld, Rev 15)
+-- Rev 15 is the same logic as Rev 13; Rev 14 (opcode byte stored XOR FDh) was reverted 2026-10-21.
+-- Date: 10/21/2026
 --
 -- Branch / jump control, plus the ALU wait clock (Rev 06, Rev 07).
 --
@@ -40,11 +41,6 @@
 -- Rev 13: pin 16 is active low, srcEnN.  It drives /OE1 of both source
 -- F541s (D and AC; X is no longer a source and the source '138 is gone)
 -- and the memory control PLD's pin 22.
---
--- Rev 14: the opcode byte is stored XOR FDh, so the undriven data bus
--- (FFh, pulled up) is ld ac, ac for the ROM cartridge loader.  The
--- instruction-bit pins are declared active low; the ports have an _n
--- suffix and the equations are unchanged.
 --
 -- Equations are transcribed directly from the PLD source
 -- without optimization.  All pins are kept as individual
@@ -103,13 +99,13 @@ entity branch_pld is
     port (
         clk           : in  std_logic;   -- pin 1, CPU clock (alu_done register)
 
-        i7_n          : in  std_logic;   -- pin 17 (I/O pin used as an input), stored inverted
-        i6_n          : in  std_logic;   -- pin 2, stored inverted
-        i5_n          : in  std_logic;   -- pin 3, stored inverted
+        i7            : in  std_logic;   -- pin 17 (I/O pin used as an input)
+        i6            : in  std_logic;   -- pin 2
+        i5            : in  std_logic;   -- pin 3
 
-        m2_n          : in  std_logic;   -- pin 4, stored inverted
-        m1_n          : in  std_logic;   -- pin 5, stored inverted
-        m0_n          : in  std_logic;   -- pin 6, stored inverted
+        m2            : in  std_logic;   -- pin 4
+        m1            : in  std_logic;   -- pin 5
+        m0            : in  std_logic;   -- pin 6
 
         z_low         : in  std_logic;   -- pin 7, low  ALU nibble zero
         neg           : in  std_logic;   -- pin 8
@@ -137,13 +133,6 @@ end entity branch_pld;
 
 architecture rtl of branch_pld is
 
-    signal i7 : std_logic;   -- logical field bit (pin i7_n inverted)
-    signal i6 : std_logic;   -- logical field bit (pin i6_n inverted)
-    signal i5 : std_logic;   -- logical field bit (pin i5_n inverted)
-    signal m2 : std_logic;   -- logical field bit (pin m2_n inverted)
-    signal m1 : std_logic;   -- logical field bit (pin m1_n inverted)
-    signal m0 : std_logic;   -- logical field bit (pin m0_n inverted)
-
     -- common terms
     signal exec     : std_logic;
     signal branch_a : std_logic;   -- block A, EXEC state, instruction register
@@ -153,15 +142,6 @@ architecture rtl of branch_pld is
     signal carry_q    : std_logic := '0';   -- powers up to 0, as on the ATF22V10C
 
 begin
-
-    -- the opcode byte is stored XOR FDh (2026-10-20), so FFh, the level
-    -- of the undriven data bus, is ld ac, ac; these pins see the stored bits
-    i7 <= not i7_n;
-    i6 <= not i6_n;
-    i5 <= not i5_n;
-    m2 <= not m2_n;
-    m1 <= not m1_n;
-    m0 <= not m0_n;
 
     -- --------------------------------------------------------
     -- Common terms

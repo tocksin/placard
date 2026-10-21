@@ -35,7 +35,7 @@ The generator keeps every block of code whose branches stay inside it in
 one 256-byte page (branches only change PC low), and jumps to the next page
 when a block does not fit.
 
-Date: 10/20/2026
+Date: 10/21/2026
 """
 
 import os
@@ -480,8 +480,7 @@ def main_program(a):
     a.i('ld   [LINE_LAST], ac')     # harmless; frame_poll sets it
     a.call('frame_poll')
     a.i('ld   [FRAME_LO], ac', 'ld   ac, [0x%02X]' % ZP['LASTF'])
-    # jump, don't fall through the unused bytes up to x9000 (00 was a
-    # harmless 2-byte load before the opcode byte was stored XOR FDh)
+    # jump, don't fall through the unused bytes up to x9000
     a.i('ld   frame_loop >> 8, y', 'jmp  frame_loop')
 
     a.org(0x9000, 'frame loop')
@@ -733,7 +732,7 @@ def generate():
         '1 branches  2 AND  3 OR  4 XOR  5 ADD  6 SUB  7 carry  8 SHR',
         '9 AC/X  10 Y address  11 X address  12 ROM data  13 RAM data',
         '14 map register  15 RAM address lines  16 video line read')]
-    L += [';', '; Date: 10/20/2026', '',
+    L += [';', '; Date: 10/21/2026', '',
           '#include "placard.asm"', '#include "placard_lib.asm"', '']
     for k, v in ZP.items():
         L.append('%-8s = 0x%02X' % (k, v))

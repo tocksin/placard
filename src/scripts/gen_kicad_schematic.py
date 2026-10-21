@@ -30,7 +30,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-10-20"
+DATE = "2026-10-21"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 CDIR = os.path.join(KDIR, "cartridge")
@@ -302,7 +302,7 @@ def sheet_control(b):
         21: "LOAD_PC_LOW", 22: "LOAD_PC_HIGH", 23: "BRANCH_BLOCK", 18: None, 19: "STALL",
         16: "~{SRC_EN}", 20: None, 15: "~{PIX_LD}"}))
     decap(s, 2, 342, 98)
-    note(s, 40, 205, ["U17 loads the opcode in FETCH (/LOAD_INSTR).  The byte is stored XOR FDh (CPU.md).",
+    note(s, 40, 205, ["U17 loads the opcode in FETCH (/LOAD_INSTR).",
                       "U1 State: FETCH / LOAD / EXEC, register loads (active low, F377 /E), RW (1 = read).",
                       "U2 Branch: NEG is AC7.  ALU_DONE (18) and CARRY (20) are internal registers: no connection.",
                       "Bring-up straps S1-S3 go in U1's socket (BRINGUP.md), not on the board."])
@@ -367,7 +367,7 @@ def sheet_databus(b):
     for i in range(8):
         res(s, f"R{601 + i}", 290, 80 + i * 14, SRC[i], D[i], "47", angle=90)
     s.part("Device:R_Network08", "RN601", 360, 105, {"1": "+5V", **{str(2 + i): D[i] for i in range(8)}},
-           value="3.3k", footprint=FP_SIP9, ref_at=(352, 96), value_at=(352, 114))
+           value="10k", footprint=FP_SIP9, ref_at=(352, 96), value_at=(352, 114))
     note(s, 250, 205, ["SRC7:SRC0: the two source F541s' joined outputs.",
                        "R601-R608 (47 ohm) limit the current while the",
                        "bus changes hands at the start of EXEC (CPU.md).",
@@ -660,7 +660,7 @@ def build_cart():
     root_uuid = K.det_uuid("cartridge", "root")
     s = K.Sheet("cartridge", "cartridge.kicad_sch", "ROM cartridge", 1, root_uuid, None, DATE)
     s.uid = root_uuid
-    s.comment2 = "Cartridge chips U1-U5 (docs/CHIPS.md, ROM cartridge); decoupling Cn goes with Un"
+    s.comment2 = "Cartridge chips U1-U6 (docs/CHIPS.md, ROM cartridge); decoupling Cn goes with Un"
     s.names = {"U1": "Loader PLD"}
     heading(s, "ROM cartridge", "Two EEPROMs copied into two SRAMs at power-up by the loader PLD (ROM.md, \"Loading the cartridge\")")
     cart = {"A3": "A0", "B3": "A1", "A4": "A2", "B4": "A3", "A5": "A4", "B5": "A5", "A6": "A6", "B6": "A7",
@@ -676,7 +676,7 @@ def build_cart():
            footprint="", ref_at=(57, 69), value_at=(57, 171))
     s.part("placard:ATF22V10C_CART", "U1", 175, 95, pld({
         1: "OSC", 2: "~{CE_LO}", 3: "PIXEL_ENABLE", 4: "~{SRC_EN}", 14: None, 15: None, 16: None, 17: None,
-        18: None, 21: None, 19: "~{SR_WE}", 20: "~{EE_OE}", 22: "RUN", 23: "HOLD"}))
+        18: None, 21: "~{BUF_OE}", 19: "~{SR_WE}", 20: "~{EE_OE}", 22: "RUN", 23: "HOLD"}))
     decap(s, 1, 195, 63)
     s.pwr_flag(30, 200)
     s.power("+5V", 30, 200)
@@ -695,12 +695,16 @@ def build_cart():
     mem("Memory_EEPROM:28C256", "U3", 365, 95, "~{CE_HI}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
     mem("placard_parts:AS7C256C", "U4", 270, 210, "~{CE_LO}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
     mem("placard_parts:AS7C256C", "U5", 365, 210, "~{CE_HI}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
-    note(s, 120, 175, ["U2 (lower 32K) and U3 (upper) hold the image,",
+    s.part("74xx:74LS541", "U6", 175, 210, f541(["GND", "+5V"] + ["GND"] * 6, D, "~{BUF_OE}", "~{BUF_OE}"),
+           value="SN74AC541N", footprint=FP_DIP20)
+    decap(s, 6, 195, 181)
+    note(s, 30, 215, ["U2 (lower 32K) and U3 (upper) hold the image,",
                        "programmed off the board; their /WE is tied high.",
                        "U4, U5 are the ROM the CPU reads (15 ns).",
                        "/CE_LO is the main board's A15.",
                        "U1 holds the board's clock (HOLD), pulses",
                        "/SR_WE on each fetch, then raises RUN.",
+                       "U6 drives 02h (ld ac, ac) for each fetch.",
                        "/CART (B10) is tied to GND: cartridge present.",
                        "Spare contacts are unassigned (EXPANSION.md)."])
     s.finish(set())
