@@ -181,7 +181,7 @@ libraries in `kicad/lib/` through its own `sym-lib-table`:
 
 - the card-edge fingers (the 87715-9106 mating footprint, same contact
   names as the slot symbol),
-- the loader PLD (`ATF22V10_CART.pld` revision 04, ATF22V10C-7PX),
+- the loader PLD (`ATF22V10_CART.pld` revision 04, ATF22V10C-10PU),
 - two AT28C256 EEPROMs and two AS7C256C SRAMs,
 - decoupling, and the spare contacts brought to a test header or left
   open until their use is decided.

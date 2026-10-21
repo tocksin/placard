@@ -1,6 +1,6 @@
 Name     AUDIO_SLOT;
 PartNo   00;
-Date     2026-10-19;
+Date     2026-10-21;
 Revision 04;
 Designer Justin;
 Company  ;
@@ -37,7 +37,10 @@ Device   g22v10;
       It is a combinational pass, nothing to do with the video
       equations.  This path sets the single-clock ALU slack (IR, this
       PLD, F541 enable, ALU, AC setup: 10.5 + 7.5 + 9.5 + 7.5 + 2 =
-      37 ns of 39.72 ns), so the chip is a -7 part.
+      37 ns of 39.72 ns), so the chip was a -7 part.  Since the
+      instruction register became a PLD (2026-10-21, tCO 5.5 ns) the
+      path is 5.5 + 10 + 9.5 + 7.5 + 2 = 34.5 ns at -10 (+5.2), so the
+      chip is an ATF22V10C-10PU.
 
    REVISION 03 (2026-10-16)
       The I/O window shrank to 5000h-53FFh, so the blanking reads

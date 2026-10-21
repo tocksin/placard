@@ -45,7 +45,8 @@ PART = "ATF22V10C-7PX"
 # PLDs with enough timing margin for the slower -10 grade (CHIPS.md, "PLD speed grades")
 PART_10 = "ATF22V10C-10PU"
 SLOW_OK = {"ATF22V10_PC_COUNTER8", "ATF22V10_HCOUNT", "ATF22V10_VCOUNT",
-           "ATF22V10_COLORDECODER"}    # the audio PLD is -7 since rev 04 (/AC_SEL), the cart PLD since rev 04 (STALL_OUT)
+           "ATF22V10_COLORDECODER", "ATF22V10_BRANCH", "ATF22V10_AUDIO", "ATF22V10_CART"}
+# (Branch and audio slot moved to -10 on 2026-10-21, when the IR PLD's faster clock to output gave their paths 5 ns)
 FOOTPRINT = "Package_DIP:DIP-24_W7.62mm"
 DATASHEET = "https://ww1.microchip.com/downloads/en/DeviceDoc/doc0735.pdf"
 G = 2.54                       # pin pitch and pin length (100 mil)

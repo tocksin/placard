@@ -78,8 +78,9 @@ recover the most time.
   fastest grade still made in 24-pin DIP, **ATF22V10C-7PX**.  The
   ATF22V10C-15PU, the other DIP grade, doubles every PLD delay (tPD 15 ns)
   and makes every path here worse.
-  (2026-10-19: six PLDs with room to spare use the ATF22V10C-10PU, also
-  DIP; see CHIPS.md, "PLD speed grades".  The paths here are unchanged.)
+  (Since 2026-10-21 seven main-board PLDs and the cartridge's, which have
+  room to spare, use the ATF22V10C-10PU, also DIP; see CHIPS.md, "PLD
+  speed grades".  The paths here are unchanged.)
 - **PLD pin feedback**: where a WinCUPL equation names another *combinational
   output pin* on its right-hand side (for example `ADDR_SEL = PIXEL_ENABLE #
   PC_ENABLE` in `ATF22V10_SYNC.pld`), the 22V10 takes that signal back in
@@ -359,7 +360,8 @@ In rough order of time recovered:
   the cartridge"), so no battery switch sits in their /CE path.  There is
   no clock gate (2026-10-21): the cartridge holds the CPU's STALL instead.
   STALL now runs Branch PLD, cartridge PLD, State PLD strobe, F377 /E
-  (32.5 ns, +7.2 ns); the cartridge's own timing is in
+  (37.5 ns with the Branch and cartridge PLDs at -10, +2.2 ns); the
+  cartridge's own timing is in
   `ATF22V10_CART.pld`.
 - The instruction register is an ATF22V10C-7 (`ATF22V10_IR.pld`) since
   2026-10-21: opcode setup 3.5 ns (the F377's 2 ns) leaves the fetch

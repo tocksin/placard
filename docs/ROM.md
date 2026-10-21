@@ -159,7 +159,7 @@ it.
   the address bus in FETCH and LOAD_IMM (PC_ENABLE high) and steps by one
   in each, so every address is a FETCH or a LOAD_IMM read exactly once.
 - **One copy per PC address.**  The cartridge PLD (`ATF22V10_CART.pld`
-  revision 04, ATF22V10C-7, on the board clock) holds STALL_OUT high
+  revision 04, ATF22V10C-10PU, on the board clock) holds STALL_OUT high
   whenever RUN is low and PC_ENABLE is high, except for one release
   clock.  A video read comes in one clock of every 8-clock group, always
   the same one, so the PLD counts the group's clocks (K0-K7, restarting
@@ -200,9 +200,10 @@ checks every cartridge read after the hand-off against `rom.mem`.  The
 video runs throughout and shows whatever the random RAM holds: a quirk of
 the system.
 
-Timing: STALL_IN to STALL_OUT to the State PLD's load strobe to an F377
-/E is 32.5 ns (+7.2 ns); PC_ENABLE to STALL_OUT to the State and PC
-setup is 16.5 ns.  The IR PLD's opcode setup (3.5 ns) leaves the fetch
+Timing (the Branch and cartridge PLDs are -10 parts): PIXEL_ENABLE
+through the Branch PLD's STALL, STALL_OUT and the State PLD's load strobe
+to an F377 /E is 37.5 ns (+2.2 ns); PC_ENABLE to STALL_OUT to the State
+and PC setup is 20 ns.  The IR PLD's opcode setup (3.5 ns) leaves the fetch
 path +0.7 ns, the same as the State PLD's, and its clock to output (5.5
 ns, the F377's was 10.5) gives every path that starts at the IR 5 ns
 more.
