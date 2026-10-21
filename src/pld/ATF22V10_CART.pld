@@ -10,7 +10,7 @@ Device   g22v10;
 
 
 /* ============================================================
-   ROM CARTRIDGE LOADER   (ATF22V10C-7, DIP-24, on the cartridge)
+   ROM CARTRIDGE LOADER   (ATF22V10C-10PU, DIP-24, on the cartridge)
    ============================================================
 
    The cartridge's ROM, as the CPU sees it, is two AS7C256C 15 ns
@@ -88,12 +88,14 @@ Device   g22v10;
       and RUN down, so it stays stalled with no cartridge too (or a
       bring-up jumper joins STALL_IN to STALL_OUT and RUN to +5 V).
 
-   TIMING (ATF22V10C-7: tPD 7.5, tCO 5.5, tS 3.5 ns)
-      STALL_IN -> STALL_OUT -> State LOAD strobe -> F377 /E:
-      5.5 + 7.5 + 7.5 + 7.5 + 4.5 = 32.5 ns (+7.2).
-      PC_ENABLE -> STALL_OUT -> State and PC setup: 5.5 + 7.5 + 3.5
-      = 16.5 ns.  A15 is settled 20.5 ns after the edge (+15.7 to
-      the setup at the end of K0).
+   TIMING (ATF22V10C-10PU: tPD 10, tCO 6.5, tS 4.5 ns; the Branch
+   PLD is a -10 too)
+      PIXEL_ENABLE -> Branch STALL -> STALL_OUT -> State LOAD strobe
+      -> F377 /E: 5.5 + 10 + 10 + 7.5 + 4.5 = 37.5 ns (+2.2).
+      PC_ENABLE -> STALL_OUT -> State and PC setup: 5.5 + 10 + 4.5
+      = 20 ns.  A15 is settled 20.5 ns after the edge (+14.7 to
+      the setup at the end of K0).  src/sim/tb_cart_load.vhd also
+      passes with every PLD at -10 delays.
 
    PIN BUDGET
       Inputs (5):  CLK (pin 1), A15 (= /CE_LO), PIXEL_ENABLE,

@@ -33,7 +33,7 @@ with its chip number.
 | #3, #4 PC low, PC high | `ATF22V10_PC_COUNTER8.pld` (two copies) | #13 H counter | `ATF22V10_HCOUNT.pld` |
 | #5, #6 ALU low, ALU high | `ALU_SHR.pld` (two copies) | #14 V counter | `ATF22V10_VCOUNT.pld` |
 | #7-#10 Address muxes | `ATF22V10_QUAD_MUX.pld` (four copies) | #15 Sync | `ATF22V10_SYNC.pld` |
-| #16 Colour decoder | `ATF22V10_COLORDECODER.pld` | #35 Audio and mode slots | `ATF22V10_AUDIO.pld` (rev 04, a -7 part) |
+| #16 Colour decoder | `ATF22V10_COLORDECODER.pld` | #35 Audio and mode slots | `ATF22V10_AUDIO.pld` (rev 04) |
 | #38 Shared port | `ATF22V10_PORT.pld` | | |
 
 **Load the bring-up ROM.**  `python3 test_bringup_sim.py --bin` in
