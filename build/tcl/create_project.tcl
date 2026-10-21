@@ -11,11 +11,11 @@
 #     force     delete an existing project/ folder and make it again
 #
 # Called by create_project.bat, and by build_and_load.tcl when
-# project/placard.xpr does not exist.  If src/hdl/ram.mem or src/hdl/rom.mem
-# does not exist it is made first (gen_video_ram.tcl, and gen_rom.tcl with
-# the default program).
+# project/placard.xpr does not exist.  If src/hdl/ram.mem, cart_ram.mem or
+# rom.mem does not exist it is made first (gen_random_ram.tcl, and
+# gen_rom.tcl with the default program).
 #
-# Date: 10/16/2026
+# Date: 10/21/2026
 
 set tclDir  [file dirname [file normalize [info script]]]
 set repoDir [file normalize [file join $tclDir .. ..]]
@@ -32,11 +32,14 @@ if {[file exists $xprFile] && !$force} {
 }
 
 # ---- memory images (synthesis sources, not kept in git) ---------------------
-# ram.mem initializes the RAM (ramComp), rom.mem the ROM (romComp)
-set ramFile [file join $srcDir hdl ram.mem]
-set romFile [file join $srcDir hdl rom.mem]
-if {![file exists $ramFile]} {
-    source [file join $srcDir scripts gen_video_ram.tcl]
+# ram.mem initializes the main RAM (ramComp), cart_ram.mem the cartridge
+# SRAM (cartComp/sramComp), both random; rom.mem the cartridge EEPROMs
+# (cartComp/romComp)
+set ramFile  [file join $srcDir hdl ram.mem]
+set cartFile [file join $srcDir hdl cart_ram.mem]
+set romFile  [file join $srcDir hdl rom.mem]
+if {![file exists $ramFile] || ![file exists $cartFile]} {
+    source [file join $srcDir scripts gen_random_ram.tcl]
 }
 if {![file exists $romFile]} {
     source [file join $srcDir scripts gen_rom.tcl]
@@ -55,7 +58,7 @@ if {[llength $srcs] == 0} {
 }
 add_files -fileset sources_1 $srcs
 set_property file_type {VHDL 2008} [get_files $srcs]
-add_files -fileset sources_1 [list $ramFile $romFile]
+add_files -fileset sources_1 [list $ramFile $cartFile $romFile]
 
 add_files -fileset sources_1 [file join $srcDir ip clk_wiz_0.xci]
 if {[llength [get_ips -filter {UPGRADE_VERSIONS != ""}]] > 0} {
@@ -74,6 +77,7 @@ set tbFiles {
     tb_alu.vhd
     tb_counters.vhd
     tb_cart_load.vhd
+    tb_top_load.vhd
 }
 set tbs {}
 foreach f $tbFiles {
@@ -99,7 +103,8 @@ foreach f {tb_alu_behav.wcfg tb_counters_behav.wcfg tb_video_behav.wcfg} {
 set simSet [get_filesets sim_1]
 set_property top                   tb_basys_demo  $simSet
 set_property top_lib               xil_defaultlib $simSet
-set_property xsim.simulate.runtime 40ms           $simSet
+# the cartridge loads for about 30 ms before the CPU boots
+set_property xsim.simulate.runtime 70ms           $simSet
 
 update_compile_order -fileset sources_1
 update_compile_order -fileset sim_1

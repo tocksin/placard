@@ -17,7 +17,8 @@ ADD and SUB with an AC, X or Y destination take one more clock: the first
 EXEC clock is a wait clock so the carry can ripple through both ALU PLDs at
 25.175 MHz (see [ALU_TIMING.md](ALU_TIMING.md)).  The Branch PLD makes the
 wait by sending STALL to the State PLD and the PC PLDs (the same stall the
-video uses) for the first EXEC clock, and its ALU_DONE register ends the
+video uses; it passes through the ROM cartridge, which also uses it to hold
+the CPU while it loads, ROM.md) for the first EXEC clock, and its ALU_DONE register ends the
 wait on the second.  Stores do not wait, because they write the source bus,
 not the ALU result.  A store from AC to [0,X] or [Y,X] goes through
 LOAD_MEM (one more clock) so its address and data settle a clock before the

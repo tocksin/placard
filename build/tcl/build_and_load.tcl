@@ -1,6 +1,6 @@
 # build_and_load.tcl
 #
-# Vivado batch script: make ram.mem and rom.mem for one program, synthesize,
+# Vivado batch script: make ram.mem, cart_ram.mem and rom.mem for one program, synthesize,
 # implement, write the bitstream and program the Basys 3 over JTAG.
 #
 # Called by build_and_load.bat:
@@ -13,7 +13,7 @@
 # The board is programmed by program_board.tcl (also used by download_latest.bat).
 # project/placard.xpr is made by create_project.tcl if it does not exist.
 #
-# Date: 10/18/2026
+# Date: 10/21/2026
 
 set tclDir    [file dirname [file normalize [info script]]]
 set repoDir   [file normalize [file join $tclDir .. ..]]
@@ -26,12 +26,12 @@ if {$jobs eq ""} {
 }
 
 # ---- 1. memory initialization files -----------------------------------------
-# gen_video_ram.tcl writes src/hdl/ram.mem and gen_rom.tcl src/hdl/rom.mem
-# (project sources)
+# gen_random_ram.tcl writes src/hdl/ram.mem and cart_ram.mem (random) and
+# gen_rom.tcl src/hdl/rom.mem (project sources)
 if {$hexFile ne ""} {
     set hexFile [file normalize $hexFile]
 }
-source [file join $repoDir src scripts gen_video_ram.tcl]
+source [file join $repoDir src scripts gen_random_ram.tcl]
 set ::ASM_FILE $hexFile
 source [file join $repoDir src scripts gen_rom.tcl]
 
@@ -42,9 +42,18 @@ if {![file exists $xprFile]} {
 }
 open_project $xprFile
 # a project made before the ROM had its own image lists video_ram.mem
-foreach f {ram.mem rom.mem} {
+foreach f {ram.mem cart_ram.mem rom.mem} {
     if {[llength [get_files -quiet -of_objects [get_filesets sources_1] $f]] == 0} {
         add_files -fileset sources_1 [file join $repoDir src hdl $f]
+    }
+}
+# .vhd files added to src/hdl since the project was made (VHDL 2008, like
+# create_project.tcl); removed ones still need create_project.bat force
+foreach f [lsort [glob -nocomplain -directory [file join $repoDir src hdl] *.vhd]] {
+    if {[llength [get_files -quiet -of_objects [get_filesets sources_1] [file tail $f]]] == 0} {
+        add_files -fileset sources_1 $f
+        set_property file_type {VHDL 2008} [get_files $f]
+        puts "build_and_load: added [file tail $f] to the project"
     }
 }
 set oldMem [get_files -quiet -of_objects [get_filesets sources_1] video_ram.mem]
@@ -53,7 +62,7 @@ if {[llength $oldMem] > 0} {
 }
 update_compile_order -fileset sources_1
 
-# always start from synthesis so the new ram.mem and rom.mem are read
+# always start from synthesis so the new memory images are read
 reset_run synth_1
 launch_runs impl_1 -to_step write_bitstream -jobs $jobs
 wait_on_run impl_1
@@ -80,8 +89,9 @@ close_project
 source [file join $tclDir write_mmi.tcl]
 set builtBase [file join [file dirname $bitFile] [file rootname [file tail $bitFile]]]
 write_update_mem [file join $repoDir src hdl ram.mem] ${builtBase}_built_ram.mem 65536
+write_update_mem [file join $repoDir src hdl cart_ram.mem] ${builtBase}_built_cart_ram.mem 65536
 write_update_mem [file join $repoDir src hdl rom.mem] ${builtBase}_built_rom.mem 65536
 
 # ---- 3. program the board ---------------------------------------------------
-# (tclDir, not scriptDir: gen_video_ram.tcl sets its own scriptDir when sourced)
+# (tclDir, not scriptDir: a sourced generator may set its own scriptDir)
 source [file join $tclDir program_board.tcl]

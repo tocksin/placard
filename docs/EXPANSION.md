@@ -189,31 +189,32 @@ on a PCI Express x4 card.
 | 14 | D4 | D5 |
 | 15 | D6 | D7 |
 | 16 | /CE_LO (A15 from the address mux: lower chip) | /CE_HI (I/O decode PLD: upper chip) |
-| 17 | /ROM_OE (memory control PLD) | /SRC_EN (branch PLD, to the cartridge) |
-| 18 | PIXEL_ENABLE (to the cartridge) | HOLD (from the cartridge, 10k pull-up on the main board) |
-| 19 | RUN (from the cartridge, pull-down on the main board) | spare |
-| 20 | OSC (25.175 MHz, before the clock gate, to the cartridge) | spare |
+| 17 | /ROM_OE (memory control PLD) | STALL_IN (the branch PLD's STALL, to the cartridge) |
+| 18 | PIXEL_ENABLE (to the cartridge) | STALL_OUT (from the cartridge to the State and PC PLDs, 10k pull-up on the main board) |
+| 19 | RUN (from the cartridge, pull-down on the main board) | PC_ENABLE (State PLD, to the cartridge) |
+| 20 | CLK (25.175 MHz board clock, to the cartridge) | spare |
 | 21 | GND | GND |
 | 22-30 | spare | spare |
 | 31 | GND | GND |
 | 32 | spare | spare |
 
 Two +5 V contacts (2.2 A together), a GND on each side every ten
-contacts (8 in all), 32 signals and 22 spares (B19, B20, A22-A30, B22-B30,
+contacts (8 in all), 33 signals and 21 spares (B20, A22-A30, B22-B30,
 A32, B32), kept for programming the EEPROMs in place, battery charging,
 card detection and other functions (not assigned yet).
 
 - D7:D0 is the memory data bus that the RAM also drives.  The ROM chips'
   timing on the cartridge is the same as on the main board, plus the
   connector, so keep the cartridge's traces short.
-- **OSC** is next to the GND at 21 to keep its return path short.
+- **CLK** is next to the GND at 21 to keep its return path short.
 - **/CART** lets the main board tell an empty slot: with no cartridge, a
-  pull-up reads high.  Nothing reads it yet.  With no cartridge, HOLD's
-  pull-up keeps the board stopped, so the board needs a cartridge (or the
-  HOLD and RUN jumpers, BRINGUP.md) to start.
-- **The loader** (ROM.md "Loading the cartridge") needs OSC, HOLD, RUN,
-  /SRC_EN and PIXEL_ENABLE.  The cartridge's 74AC541 drives 02h
-  (`ld ac, ac`) onto the bus for the CPU's fetches while it loads.
+  pull-up reads high.  Nothing reads it yet.  With no cartridge,
+  STALL_OUT's pull-up keeps the CPU stalled, so the board needs a
+  cartridge (or the STALL and RUN jumpers, BRINGUP.md) to start.
+- **The loader** (ROM.md "Loading the cartridge") needs CLK,
+  PIXEL_ENABLE, PC_ENABLE, STALL_IN, STALL_OUT and RUN.  The cartridge
+  stalls the CPU through STALL_OUT while it copies each byte; the
+  instruction register PLD holds 02h (`ld ac, ac`) while RUN is low.
   /ROM_WE is gone: the cartridge makes its SRAMs' /WE.
 
 ## To check

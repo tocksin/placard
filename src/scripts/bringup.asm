@@ -56,8 +56,10 @@ KEYV     = 0x5C
 RT_I     = 0x5D
 B_I      = 0x5E
 
-; reset (the CPU starts at x0000 with the map all ROM)
+; reset (the CPU starts at x0000 with the map all ROM); the nop is for
+; the cartridge hand-off, which can skip x0000 (docs/ROM.md)
 #addr 0x0000
+    nop
     ld   start >> 8, y
     jmp  start
 
