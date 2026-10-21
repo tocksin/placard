@@ -1,12 +1,13 @@
 # gen_rom.tcl
 #
-# Generates rom.mem, the ROM's initialization file: one hex byte per line,
+# Generates rom.mem, the ROM cartridge's EEPROM image: one hex byte per line,
 # 65536 lines, address 0..65535.  Loaded by sp_ram.vhd (romComp in
-# basys_top.vhd) at elaboration / synthesis.  docs/ROM.md describes the layout.
+# cartridge.vhd) at elaboration / synthesis; the cartridge copies it into its
+# SRAM at power-up.  docs/ROM.md describes the layout.
 # Video reads always read the RAM, so the ROM under the video area holds
 # programs:
 #
-#     x0000-x0003   reset jump to the boot loader          rom_boot.hex
+#     x0000-x0004   nop, reset jump to the boot loader     rom_boot.hex
 #     x1F00-x1FFF   LIB_RAM: library code the boot copies  rom_lib.hex
 #                   to the RAM
 #     x2000-x3FFF   more ROM program (runs in place)       the program
@@ -50,7 +51,7 @@
 # The image is written to ../hdl/rom.mem (relative to this script).  Set
 # ::ROM_OUT before sourcing to write to a different path instead.
 #
-# Date: 10/20/2026
+# Date: 10/21/2026
 
 set ROM_SIZE        65536
 set ROM_IMAGE_BASE  [expr {0x6000}] ;# RAM image: ROM address of RAM x0000
