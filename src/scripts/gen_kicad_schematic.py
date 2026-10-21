@@ -1049,19 +1049,19 @@ def build_cart():
     mem("Memory_EEPROM:28C256", "U3", 365.76, 95.25, "~{CE_UP}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
     mem("placard_parts:AS7C256C", "U4", 267.97, 195.58, "~{CE_LO}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
     mem("placard_parts:AS7C256C", "U5", 363.22, 195.58, "~{CE_UP}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
-    # ROM size: the upper pair's /CE.  1-2 (as made) = GND: a 32K cart with U3, U5 only, seen in both
-    # halves; cut 1-2 and bridge 2-3 = /CE_HI: a 64K cart with U2, U4 added
+    # ROM size: the upper pair's /CE.  1-2 (as made) = /CE_HI: the 64K cart used in development;
+    # cut 1-2 and bridge 2-3 = GND: a 32K cart with U3, U5 only, seen in both halves
     s.part("Jumper:SolderJumper_3_Bridged12", "JP1", 175.26, 228.6,
-           {"1": "GND", "2": "~{CE_UP}", "3": "~{CE_HI}"}, value="32K / 64K",
+           {"1": "~{CE_HI}", "2": "~{CE_UP}", "3": "GND"}, value="32K / 64K",
            footprint="Jumper:SolderJumper-3_P1.3mm_Bridged12_RoundedPad1.0x1.5mm_NumberLabels",
            ref_at=(170, 220), value_at=(185, 220))
     note(s, 22, 192, ["U2 (lower 32K) and U3 (upper) hold the image,",
                        "programmed off the board; their /WE is tied high.",
                        "U4, U5 are the ROM the CPU reads (15 ns).",
                        "/CE_LO is the main board's A15.",
-                       "JP1 32K (as made, 1-2): fit U3, U5 only; the 32K",
-                       "reads in both halves.  64K: cut 1-2, bridge 2-3,",
-                       "and fit U2, U4.",
+                       "JP1 64K (as made, 1-2): fit U2-U5.  32K: cut",
+                       "1-2, bridge 2-3, fit U3, U5 only; the 32K reads",
+                       "in both halves.",
                        "U1 stalls the CPU at each PC address",
                        "(STALL_OUT), pulses /SR_WE, lets the CPU",
                        "step, and raises RUN when the PC wraps.",
