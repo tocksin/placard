@@ -184,8 +184,8 @@ libraries in `kicad/lib/` through its own `sym-lib-table`:
 - the loader PLD (`ATF22V10_CART.pld` revision 04, ATF22V10C-10PU),
 - two AT28C256 EEPROMs and two AS7C256C SRAMs,
 - JP1, a 3-pad solder jumper on the upper pair's /CE (`/CE_UP`): 1-2
-  (as made) ties it to GND for a 32K cart (U3, U5 only, seen in both
-  halves); cut it and bridge 2-3 (`/CE_HI`) for 64K with U2, U4 fitted,
+  (as made) is `/CE_HI`, the 64K cart used in development; cut it and
+  bridge 2-3 (GND) for a 32K cart (U3, U5 only, seen in both halves),
 - decoupling, and the spare contacts brought to a test header or left
   open until their use is decided.
 
