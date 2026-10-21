@@ -13,9 +13,10 @@ The real schematic and the PCB layout are the KiCad project in
 | `placard_main.pdf` | the main board, 11 sheets (root and ten), exported from `kicad/placard.kicad_sch` |
 | `placard_cartridge.pdf` | the ROM cartridge, one sheet, from `kicad/cartridge/cartridge.kicad_sch` |
 
-Re-export after rerunning `src/scripts/gen_kicad_schematic.py`:
-`kicad-cli sch export pdf -o schematics/placard_main.pdf kicad/placard.kicad_sch`
-(and the same for the cartridge).
+Re-export both with `python3 src/scripts/gen_kicad_schematic.py --pdf`.  It
+runs `kicad-cli sch export pdf` and then drops the bookmarks, so the PDFs open
+without the bookmarks panel (Justin, 2026-10-21); keep it that way for any PDF
+made for the project.
 
 ## Reference drawings
 
