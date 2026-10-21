@@ -178,6 +178,33 @@ keyboard board, J1 grows to 1 x 19 (pin 19 = /CAPS_LED; +5 V is already
 on pin 17).  The layout change
 doesn't affect that proposal either way.
 
+**Switches and LEDs (Justin 2026-10-21).**  Cherry MX (PCB mount), each
+with an optional always-on 3 mm LED: +5 V, resistor, LED, GND, fed from
+J1 pins 17/18, no software control.  Leaving the LED and its resistor off
+leaves a plain key.  At about 3 mA each, 63 LEDs draw about 190 mA from
++5 V; a larger resistor dims them and saves current.
+
+Key sizes from the layout (one row is 15 u):
+
+| Size | Keys | Stabilizer |
+|---|---|---|
+| 1 u | letters, digits, punctuation, Esc, Up, /, right Alt, right Ctrl, arrows | no |
+| 1.25 u | left Ctrl, Fn, left Alt | no |
+| 1.5 u | Tab, \ | no |
+| 1.75 u | Caps Lock, right Shift | no |
+| 2 u | Backspace | yes |
+| 2.25 u | Enter, left Shift | yes |
+| 6.25 u | Space | yes |
+
+**Footprints.**  KiCad's stock `Button_Switch_Keyboard:SW_Cherry_MX_<size>_PCB`
+has every size above, and the 2 u, 2.25 u and 6.25 u ones already carry
+the Cherry PCB-mount stabilizer holes (3.05 mm and 4 mm, 11.9 mm either
+side of the switch for 2 u and 2.25 u, 50 mm for 6.25 u).  None has LED
+holes.  Plan (held): a Placard footprint `SW_Cherry_MX_LED_<size>` for each
+size = the stock footprint plus the two LED pads, 2.54 mm apart, 5.08 mm
+above the switch centre.  Symbol: stock `Switch:SW_Push_LED`, one Schottky
+diode and one LED resistor per key.
+
 ## SNES pads
 
 Two 7-pin SNES sockets: +5 V, CLOCK (latch bit 0), LATCH (latch bit 1),
