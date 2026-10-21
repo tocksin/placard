@@ -1,6 +1,7 @@
 -- ============================================================
--- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 14)
--- Date: 2026-10-20
+-- STATE_CTRL  (VHDL conversion of ATF22V10_STATE.pld, Rev 15)
+-- Rev 15 is the same logic as Rev 13; Rev 14 (opcode byte stored XOR FDh) was reverted 2026-10-21.
+-- Date: 10/21/2026
 --
 -- Binary state machine:  Q1 Q0
 --     00 FETCH, 01 LOAD_IMM, 10 LOAD_MEM, 11 EXEC
@@ -28,11 +29,6 @@
 -- load_instr_n, load_imm_n, load_x_n, load_y_n and load_ac_n; the
 -- equations are unchanged.
 --
--- Rev 14: the opcode byte is stored XOR FDh, so the undriven data bus
--- (FFh, pulled up) is ld ac, ac for the ROM cartridge loader.  The
--- instruction-bit pins are declared active low; the ports have an _n
--- suffix and the equations are unchanged.
---
 -- Equations are transcribed directly from the PLD source
 -- without optimization.  All pins are kept as individual
 -- std_logic signals.
@@ -53,15 +49,15 @@ entity state_pld is
         clk          : in  std_logic;   -- pin 1
         pixel_enable : in  std_logic;   -- pin 2, STALL from the branch PLD (pixel enable or ALU wait)
         db_src1      : in  std_logic;   -- pin 3, data bus bit 1 (instruction being fetched)
-        db_src0_n    : in  std_logic;   -- pin 4, data bus bit 0 (instruction being fetched), stored inverted
-        mem2_n       : in  std_logic;   -- pin 5, memory field bit 2 (from instruction FF), stored inverted
-        mem1_n       : in  std_logic;   -- pin 6, stored inverted
-        mem0_n       : in  std_logic;   -- pin 7, stored inverted
+        db_src0      : in  std_logic;   -- pin 4, data bus bit 0 (instruction being fetched)
+        mem2         : in  std_logic;   -- pin 5, memory field bit 2 (from instruction FF)
+        mem1         : in  std_logic;   -- pin 6
+        mem0         : in  std_logic;   -- pin 7
         branch_block : in  std_logic;   -- pin 8, from branch PLD (1 = branch/jump executing)
-        db_mem1_n    : in  std_logic;   -- pin 9, data bus bit 3 (instruction being fetched), stored inverted
-        db_mem0_n    : in  std_logic;   -- pin 10, data bus bit 2, stored inverted
-        db_mem2_n    : in  std_logic;   -- pin 11, data bus bit 4, stored inverted
-        src0_n       : in  std_logic;   -- pin 13, source field bit 0 (from instruction FF), stored inverted
+        db_mem1      : in  std_logic;   -- pin 9, data bus bit 3 (instruction being fetched)
+        db_mem0      : in  std_logic;   -- pin 10, data bus bit 2
+        db_mem2      : in  std_logic;   -- pin 11, data bus bit 4
+        src0         : in  std_logic;   -- pin 13, source field bit 0 (from instruction FF)
 
         q0           : out std_logic;   -- pin 18, state bit 0
         pc_enable    : out std_logic;   -- pin 15, = not q1
@@ -77,15 +73,6 @@ entity state_pld is
 end entity state_pld;
 
 architecture rtl of state_pld is
-
-    signal db_src0 : std_logic;   -- logical field bit (pin db_src0_n inverted)
-    signal mem2 : std_logic;   -- logical field bit (pin mem2_n inverted)
-    signal mem1 : std_logic;   -- logical field bit (pin mem1_n inverted)
-    signal mem0 : std_logic;   -- logical field bit (pin mem0_n inverted)
-    signal db_mem1 : std_logic;   -- logical field bit (pin db_mem1_n inverted)
-    signal db_mem0 : std_logic;   -- logical field bit (pin db_mem0_n inverted)
-    signal db_mem2 : std_logic;   -- logical field bit (pin db_mem2_n inverted)
-    signal src0 : std_logic;   -- logical field bit (pin src0_n inverted)
 
     -- Internal copies of the state registers so they can be
     -- read back inside the architecture.  Registers power up
@@ -115,17 +102,6 @@ architecture rtl of state_pld is
     signal load_ac    : std_logic;
 
 begin
-
-    -- the opcode byte is stored XOR FDh (2026-10-20), so FFh, the level
-    -- of the undriven data bus, is ld ac, ac; these pins see the stored bits
-    db_src0 <= not db_src0_n;
-    mem2 <= not mem2_n;
-    mem1 <= not mem1_n;
-    mem0 <= not mem0_n;
-    db_mem1 <= not db_mem1_n;
-    db_mem0 <= not db_mem0_n;
-    db_mem2 <= not db_mem2_n;
-    src0 <= not src0_n;
 
     -- --------------------------------------------------------
     -- State decode

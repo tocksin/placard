@@ -1,6 +1,6 @@
 # Bring-up: build order and a test for each chip
 
-Date: 2026-10-20
+Date: 2026-10-21
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
@@ -28,8 +28,8 @@ with its chip number.
 
 | Chip | Source | Chip | Source |
 |---|---|---|---|
-| #1 State | `ATF22V10_STATE.pld` (rev 13) | #11 Memory control | `ATF22V10_MEM_CTRL.pld` |
-| #2 Branch | `ATF22V10_BRANCH.pld` (rev 13) | #12 I/O decode | `ATF22V10_IO_DECODE.pld` (rev 04) |
+| #1 State | `ATF22V10_STATE.pld` (rev 15) | #11 Memory control | `ATF22V10_MEM_CTRL.pld` |
+| #2 Branch | `ATF22V10_BRANCH.pld` (rev 15) | #12 I/O decode | `ATF22V10_IO_DECODE.pld` (rev 04) |
 | #3, #4 PC low, PC high | `ATF22V10_PC_COUNTER8.pld` (two copies) | #13 H counter | `ATF22V10_HCOUNT.pld` |
 | #5, #6 ALU low, ALU high | `ALU_SHR.pld` (two copies) | #14 V counter | `ATF22V10_VCOUNT.pld` |
 | #7-#10 Address muxes | `ATF22V10_QUAD_MUX.pld` (four copies) | #15 Sync | `ATF22V10_SYNC.pld` |
@@ -65,10 +65,9 @@ its last level (a weak pin keeper), and an F-series input that floats reads
 high.  So a missing chip is harmless unless a level matters, and those
 places get a temporary resistor (below).
 
-**The data bus pull-ups.**  The 3.3k SIP on D7:D0 goes in with the passives
-(10k until 2026-10-20).
+**The data bus pull-ups.**  The 10k SIP on D7:D0 goes in with the passives.
 With nothing driving it, the bus reads FF.  After a chip drives it and lets
-go, the bus keeps that byte for up to about 0.5 µs (the 3.3k and the bus
+go, the bus keeps that byte for about 0.5 µs (the 10k and the bus
 capacitance), so "an empty bus reads FF" holds only when nothing has driven
 it for a while.  That is why steps 10-15 run with the RAM taken out.
 
@@ -94,11 +93,11 @@ out when its step says so.
 | S4 | Audio #35: pin 23 to pin 12 (GND) | BLANK_RD low: no mode or audio reads | step 1 | step 5 |
 | S5 | Line code #23: pins 6 and 9 (Q2, Q3) to pin 10 (GND) | line repeat 1x for the audio PLD | step 1 | step 6 |
 
-Step 6 also uses **330 Ω pull-downs** on single data bus bits, from a data pin
+Step 6 also uses **1k pull-downs** on single data bus bits, from a data pin
 of the empty RAM socket #31 to its pin 14 (GND), to set a constant byte for
 the colour decoder: D0 = pin 11, D1 = 12, D2 = 13, D3 = 15, D4 = 16,
-D5 = 17, D6 = 18, D7 = 19.  330 Ω against the 3.3k pull-up gives about
-0.45 V, a solid low (1k did against the old 10k).
+D5 = 17, D6 = 18, D7 = 19.  1k against the 10k pull-up gives about 0.45 V,
+a solid low.
 
 ## Video
 
@@ -204,7 +203,7 @@ mode 3 (8 bpp, 4x repeat) and every pixel is FF.  The monitor shows a
 | Branch /PIX_LD (pin 15) | 2.365 MHz | 90.6 % | 4.53 V |
 | Colour decoder outputs (pins 15-22), bus FF | 28.77 kHz | 73.1 % | 3.66 V |
 
-Then test each output with one 330 Ω pull-down at a time (see "Temporary
+Then test each output with one 1k pull-down at a time (see "Temporary
 resistors").  Bits 1:0 of the byte are also the mode, so pulling D1 or D0
 changes the mode:
 
@@ -262,7 +261,7 @@ The screen stays white.
 
 ### Step 9: RAM (#31, #32)
 
-Take the 330 Ω pull-down out of #31 and fit both RAM chips.  The video now
+Take the 1k pull-down out of #31 and fit both RAM chips.  The video now
 reads the RAM, which powers up random: the monitor shows **random coloured
 noise**, in a mix of modes and line repeats (each line's mode byte is
 random too).  Nothing writes the RAM yet (strap S2), so the picture holds
@@ -272,16 +271,15 @@ still.  Power off and on: a different picture.
 
 ### The FF free run
 
-With no ROM and no RAM, every byte the CPU reads is FF.  The opcode byte
-is stored XOR FDh ([CPU.md](CPU.md#opcode-byte)), so FF is `ld ac, ac`
-(`nop`): FETCH, EXEC, two clocks, no operand and no branch.  The PC goes
-up by one every instruction, so it counts through all 64K: the CPU runs
-one instruction every 2 clocks it owns, about 11.4 million a second, and
-PC low and PC high together are a 16-bit binary counter.  EXEC loads AC
-with the source bus through the ALU (PASS B); with no AC source buffer
-(#27) the source bus is FF.  This exercises the State, Branch and PC
-chips with no memory and no software.  (Until 2026-10-20 FF was a branch
-and only PC high counted.)
+With no ROM and no RAM, every byte the CPU reads is FF.  FF is a branch
+always (BRA) with source 11, which is the accumulator (the same as
+`bra ac`; it was X before 2026-10-19), and memory field 111, which goes
+FETCH, LOAD_MEM, EXEC: three clocks.  With no AC source buffer (#27) the
+source bus is FF too, so EXEC loads PC low with FF.  The next fetch is at xxFF,
+and its increment carries into PC high.  So the CPU runs one instruction
+every 3 clocks it owns, about 7.6 million a second, PC low goes FF, 00,
+FF, ... and PC high counts up by one every instruction.  This exercises
+the State, Branch and PC chips with no memory and no software.
 
 ### Step 10: take out the RAM and straps S1-S3; fit the instruction register (#17) and the State PLD (#1)
 
@@ -291,17 +289,18 @@ register.  The instruction register loads FF.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
-| State Q0 (pin 18) | 11.41 MHz | 50.0 % | 2.50 V |
-| State PC_ENABLE (pin 15) | 11.41 MHz | 50.0 % | 2.50 V |
-| State X_ENABLE, Y_ENABLE (pins 16, 17) | 0 | | 0 V |
-| State /LOAD_INSTR (pin 14) | 11.41 MHz | 54.7 % | 2.73 V |
-| State /LOAD_IMM, /LOAD_X, /LOAD_Y (pins 19-21) | 0 | | 5 V |
-| State /LOAD_AC (pin 22) | 11.41 MHz | 54.7 % | 2.73 V |
+| State Q0 (pin 18) | 7.603 MHz | 33.3 % | 1.67 V |
+| State PC_ENABLE (pin 15) | 7.603 MHz | 33.3 % | 1.67 V |
+| State X_ENABLE, Y_ENABLE (pins 16, 17) | 0 | | 5 V |
+| State /LOAD_INSTR (pin 14) | 7.603 MHz | 69.8 % | 3.49 V |
+| State /LOAD_IMM (pin 19) | 7.603 MHz | 69.8 % | 3.49 V |
+| State /LOAD_X, /LOAD_Y, /LOAD_AC (pins 20-22) | 0 | | 5 V |
 | State R/W (pin 23) | 0 | | 5 V |
 | Branch STALL (pin 19) | 2.365 MHz | 9.4 % | 0.47 V |
-| Branch LOAD_PC_LOW, LOAD_PC_HIGH (pins 21, 22) | 0 | | 0 V |
-| Branch BRANCH_BLOCK (pin 23) | 0 | | 0 V |
-| Branch /SRC_EN (pin 16) | 11.41 MHz | 54.7 % | 2.73 V |
+| Branch LOAD_PC_LOW (pin 21) | 7.603 MHz | 30.2 % | 1.51 V |
+| Branch LOAD_PC_HIGH (pin 22) | 0 | | 0 V |
+| Branch BRANCH_BLOCK (pin 23) | 0 | | 5 V |
+| Branch /SRC_EN (pin 16) | 7.603 MHz | 69.8 % | 3.49 V |
 | Branch ALU_DONE (pin 18) | 0 | | 0 V |
 | Audio /AC_SEL (pin 21) | 0 | | 0 V (instruction bit 1 is 1) |
 | Instruction register Q0-Q7 | 0 | | 5 V (FF) |
@@ -310,42 +309,35 @@ register.  The instruction register loads FF.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
-| Q0 (pin 15) | 5.703 MHz | 50 % | 2.50 V |
-| Q1 (pin 22) | 2.851 MHz | 50 % | 2.50 V |
-| Q2 (pin 21) | 1.426 MHz | 50 % | 2.50 V |
-| Q3 (pin 16) | 712.8 kHz | 50 % | 2.50 V |
-| Q4 (pin 20) | 356.4 kHz | 50 % | 2.50 V |
-| Q5 (pin 17) | 178.2 kHz | 50 % | 2.50 V |
-| Q6 (pin 19) | 89.13 kHz | 50 % | 2.50 V |
-| Q7 (pin 18) | 44.54 kHz | 50 % | 2.50 V |
-| CO (pin 23) | 44.54 kHz | 0.4 % | 0.02 V |
+| Q0-Q7 (pins 15, 22, 21, 16, 20, 17, 19, 18) | 7.603 MHz | 33.3 % | 1.67 V |
+| CO (pin 23) | 7.603 MHz | 33.3 % | 1.67 V |
 
-A binary counter: each bit is half the one below.
+All eight bits move together (FF, 00, FF).
 
 ### Step 12: PC high (#4)
 
-PC high goes on from PC low's carry: each bit is half the one below.
+PC high is a binary counter now: each bit is half the one below.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
-| Q0 = A8 (pin 15) | 22.28 kHz | 50 % | 2.50 V |
-| Q1 = A9 (pin 22) | 11.14 kHz | 50 % | 2.50 V |
-| Q2 = A10 (pin 21) | 5.568 kHz | 50 % | 2.50 V |
-| Q3 = A11 (pin 16) | 2.785 kHz | 50 % | 2.50 V |
-| Q4 = A12 (pin 20) | 1.393 kHz | 50 % | 2.50 V |
-| Q5 = A13 (pin 17) | 697 Hz | 50 % | 2.50 V |
-| Q6 = A14 (pin 19) | 348 Hz | 50 % | 2.50 V |
-| Q7 = A15 (pin 18) | 174 Hz | 50 % | 2.50 V |
+| Q0 = A8 (pin 15) | 3.802 MHz | 50 % | 2.50 V |
+| Q1 = A9 (pin 22) | 1.901 MHz | 50 % | 2.50 V |
+| Q2 = A10 (pin 21) | 950.4 kHz | 50 % | 2.50 V |
+| Q3 = A11 (pin 16) | 475.2 kHz | 50 % | 2.50 V |
+| Q4 = A12 (pin 20) | 237.6 kHz | 50 % | 2.50 V |
+| Q5 = A13 (pin 17) | 118.8 kHz | 50 % | 2.50 V |
+| Q6 = A14 (pin 19) | 59.4 kHz | 50 % | 2.50 V |
+| Q7 = A15 (pin 18) | 29.73 kHz | 50 % | 2.50 V |
 
 ### Step 13: accumulator (#19), ALU low (#5), ALU high (#6)
 
-The ALU does PASS B for `ld ac, ac`, and with no source buffers the
-source bus is FF, so every ALU F output (low ALU pins 17, 20, 16, 21,
-high ALU the same) is a steady 5 V and each ALU's Z (pin 14) is 0 V.
-The accumulator loads that FF in every EXEC, so its Q pins (F377 pins 2,
-5, 6, 9, 12, 15, 16, 19) are 5 V too.  A pin at 0 V is a stuck ALU output
-or a broken source bus line.  The PC readings of steps 11 and 12 must not
-change.
+The accumulator powers up random and is never loaded in the free run.  The
+ALU does PASS A for a branch, so each ALU F output must equal the
+accumulator bit it comes from, at a steady 0 V or 5 V: low ALU F0-F3
+(pins 17, 20, 16, 21) = AC Q0-Q3, high ALU F0-F3 = AC Q4-Q7 (F377 pins 2,
+5, 6, 9, 12, 15, 16, 19).  Each ALU's Z (pin 14) is 5 V when its four
+bits are all 0.  Power off and on a few times to see other values.  The PC
+readings of steps 11 and 12 must not change.
 
 ### Step 14: X (#20) and Y (#21) registers
 
@@ -361,9 +353,8 @@ and /OE2 (instruction register Q1) wiring.
 
 ### Step 16: AC source buffer (#27), line read buffer (#29), RAM back, the ROM
 
-The free run does select the AC source buffer (`ld ac, ac` has source
-AC), and the accumulator holds FF from step 13, so with the buffer in
-the readings of steps 10-13 don't change; it goes in with the memories.  Fit the AC
+The free run does select the AC source buffer (source 11), and the
+accumulator is random, so it goes in with the memories.  Fit the AC
 source buffer, the line read buffer, both RAM chips and both ROM
 chips with the bring-up ROM.  Power on: within about half a second the
 screen shows the bring-up ROM's status screen ([below](#the-bring-up-rom)).

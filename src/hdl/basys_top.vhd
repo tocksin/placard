@@ -195,7 +195,6 @@ architecture Behavioral of basys_top is
 
     signal dReg             : slv(7 downto 0) := x"00";
     signal instReg          : slv(7 downto 0) := x"00";
-    signal instField        : slv(7 downto 0);   -- the logical opcode fields: the byte is stored XOR FDh
     signal acReg            : slv(7 downto 0) := x"00";
     signal xReg             : slv(7 downto 0) := x"00";
     signal yReg             : slv(7 downto 0) := x"00";
@@ -289,14 +288,14 @@ begin
         clk         => clkVGA,
         pixel_enable => cpuStall,     -- STALL from the Branch PLD
         db_src1     => dataBus(1),-- only used during fetch cycle - contains instruction bit 1
-        db_src0_n     => dataBus(0),-- only used during fetch cycle - contains instruction bit 1 
-        mem2_n        => instReg(4),-- dst/mem access mode
-        mem1_n        => instReg(3),-- dst/mem access mode
-        mem0_n        => instReg(2),-- dst/mem access mode
-        db_mem2_n     => dataBus(4),-- only used during fetch cycle - contains instruction bit 4
-        db_mem1_n     => dataBus(3),-- only used during fetch cycle - contains instruction bit 3
-        db_mem0_n     => dataBus(2),-- only used during fetch cycle - contains instruction bit 2
-        src0_n        => instReg(0),-- source field bit 0 (used in LOAD_IMM)
+        db_src0     => dataBus(0),-- only used during fetch cycle - contains instruction bit 1 
+        mem2        => instReg(4),-- dst/mem access mode
+        mem1        => instReg(3),-- dst/mem access mode
+        mem0        => instReg(2),-- dst/mem access mode
+        db_mem2     => dataBus(4),-- only used during fetch cycle - contains instruction bit 4
+        db_mem1     => dataBus(3),-- only used during fetch cycle - contains instruction bit 3
+        db_mem0     => dataBus(2),-- only used during fetch cycle - contains instruction bit 2
+        src0        => instReg(0),-- source field bit 0 (used in LOAD_IMM)
         branch_block => branchBlock,
 
         q0          => stateQ0,
@@ -316,12 +315,12 @@ begin
     branchComp : entity work.branch_pld
     port map(
         clk          => clkVGA,
-        i7_n           => instReg(7),
-        i6_n           => instReg(6),
-        i5_n           => instReg(5),
-        m2_n           => instReg(4),
-        m1_n           => instReg(3),
-        m0_n           => instReg(2),
+        i7           => instReg(7),
+        i6           => instReg(6),
+        i5           => instReg(5),
+        m2           => instReg(4),
+        m1           => instReg(3),
+        m0           => instReg(2),
         z_low        => zeroLo,
         z_high       => zeroHi,
         neg          => acNeg,
@@ -339,34 +338,32 @@ begin
         pix_ld_n     => pixLdN
     );
     
-    instField <= instReg xor x"FD";
-
-    memMode <= "[0,D]" when instField(4 downto 2)="000" else
-               "[0,X]" when instField(4 downto 2)="001" else
-               "[Y,X]" when instField(4 downto 2)="010" else
-               "[0,D]" when instField(4 downto 2)="011" else
-               "[0,D]" when instField(4 downto 2)="100" else
-               "[0,D]" when instField(4 downto 2)="101" else
-               "[0,X]" when instField(4 downto 2)="110" else
-               "[Y,X]" when instField(4 downto 2)="111";
+    memMode <= "[0,D]" when instReg(4 downto 2)="000" else
+               "[0,X]" when instReg(4 downto 2)="001" else
+               "[Y,X]" when instReg(4 downto 2)="010" else
+               "[0,D]" when instReg(4 downto 2)="011" else
+               "[0,D]" when instReg(4 downto 2)="100" else
+               "[0,D]" when instReg(4 downto 2)="101" else
+               "[0,X]" when instReg(4 downto 2)="110" else
+               "[Y,X]" when instReg(4 downto 2)="111";
     
-    destMode <= " ACC " when instField(4 downto 2)="000" else
-                " ACC " when instField(4 downto 2)="001" else
-                " ACC " when instField(4 downto 2)="010" else
-                "  X  " when instField(4 downto 2)="011" else
-                "  Y  " when instField(4 downto 2)="100" else
-                " RAM " when instField(4 downto 2)="101" else
-                " RAM " when instField(4 downto 2)="110" else
-                " RAM " when instField(4 downto 2)="111";
+    destMode <= " ACC " when instReg(4 downto 2)="000" else
+                " ACC " when instReg(4 downto 2)="001" else
+                " ACC " when instReg(4 downto 2)="010" else
+                "  X  " when instReg(4 downto 2)="011" else
+                "  Y  " when instReg(4 downto 2)="100" else
+                " RAM " when instReg(4 downto 2)="101" else
+                " RAM " when instReg(4 downto 2)="110" else
+                " RAM " when instReg(4 downto 2)="111";
 
-    aluMode  <= "PUSHB" when instField(7 downto 5)="000" else
-                " AND " when instField(7 downto 5)="001" else
-                " OR  " when instField(7 downto 5)="010" else
-                " XOR " when instField(7 downto 5)="011" else
-                " ADD " when instField(7 downto 5)="100" else
-                " SUB " when instField(7 downto 5)="101" else
-                " SHR " when instField(7 downto 5)="110" else
-                " BRA " when instField(7 downto 5)="111";
+    aluMode  <= "PUSHB" when instReg(7 downto 5)="000" else
+                " AND " when instReg(7 downto 5)="001" else
+                " OR  " when instReg(7 downto 5)="010" else
+                " XOR " when instReg(7 downto 5)="011" else
+                " ADD " when instReg(7 downto 5)="100" else
+                " SUB " when instReg(7 downto 5)="101" else
+                " SHR " when instReg(7 downto 5)="110" else
+                " BRA " when instReg(7 downto 5)="111";
     
     pcCntLowerComp : entity work.pc_counter8
     port map (
@@ -460,7 +457,7 @@ begin
     port map(
         a              => acReg(3 downto 0),
         b              => srcBus(3 downto 0),
-        s_n              => instReg(7 downto 5),
+        s              => instReg(7 downto 5),
         cin            => '0',
         shift_right_in => acReg(4),
         f              => aluResult(3 downto 0),
@@ -475,7 +472,7 @@ begin
     port map(
         a              => acReg(7 downto 4),
         b              => srcBus(7 downto 4),
-        s_n              => instReg(7 downto 5),
+        s              => instReg(7 downto 5),
         cin            => carryBetween,
         shift_right_in => '0',
         f              => aluResult(7 downto 4),
@@ -878,10 +875,10 @@ begin
         end if;
     end process srcBusProc;
 
-    srcMode  <= " IMM " when instField(7 downto 5)="00" else
-                " MEM " when instField(7 downto 5)="01" else
-                " ACC " when instField(7 downto 5)="10" else
-                " ACC " when instField(7 downto 5)="11" else
+    srcMode  <= " IMM " when instReg(7 downto 5)="00" else
+                " MEM " when instReg(7 downto 5)="01" else
+                " ACC " when instReg(7 downto 5)="10" else
+                " ACC " when instReg(7 downto 5)="11" else
                 "UNDEF";
 
 

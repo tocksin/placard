@@ -24,7 +24,7 @@ a separate board (a KiCad project has one PCB).
 | 3 | Control | U1 State, U2 Branch, U17 instruction register | bring-up straps S1-S3 (State socket pins) |
 | 4 | Program counter and address mux | U3, U4 PC low/high, U7-U10 address mux | none |
 | 5 | ALU and registers | U5, U6 ALU, U19 AC, U20 X, U21 Y | none |
-| 6 | Data bus | U18 D register, U26 D source F541, U27 AC source F541 | 8 series resistors (source bus to data bus), 3.3k read-bus pull-up SIP |
+| 6 | Data bus | U18 D register, U26 D source F541, U27 AC source F541 | 8 series resistors (source bus to data bus), 10k read-bus pull-up SIP |
 | 7 | Memory and I/O decode | U11 memory control, U12 I/O decode, U25 map register, U31, U32 RAM | cartridge slot (Molex 87715-9106), /CART pull-up |
 | 8 | Video timing | U13 H counter, U14 V counter, U15 Sync, U35 audio/mode slot PLD, U29 line read F541 | strap S4 (audio PLD) |
 | 9 | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register | VGA resistor DAC (8 resistors) and DE-15, R-2R ladder, filter, headphone jack J6, strap S5 (line code) |
@@ -148,7 +148,7 @@ between them, AC, X and Y under them on `F[0..7]`.
 
 **6. Data bus.**  The D register, the two source F541s, the 8 series
 resistors from `SD[0..7]` onto `D[0..7]` (CPU.md "One data bus"), and the
-3.3k bussed SIP pulling `D[0..7]` up ([EXPANSION.md](EXPANSION.md)).  The
+10k bussed SIP pulling `D[0..7]` up ([EXPANSION.md](EXPANSION.md)).  The
 fallback write-data F541 (CPU.md "Fallback: the write-data buffer") can be
 added here as a do-not-fit footprint if the prototype should keep that
 option.
@@ -184,17 +184,19 @@ libraries in `kicad/lib/` through its own `sym-lib-table`:
   names as the slot symbol),
 - the loader PLD (`ATF22V10_CART.pld`, ATF22V10C-10PU),
 - two AT28C256 EEPROMs and two AS7C256C SRAMs,
+- the 74AC541 with its inputs wired to 02h (`ld ac, ac`) for the CPU's
+  fetches while it loads,
 - decoupling, and the spare contacts brought to a test header or left
   open until their use is decided.
 
-Five chips, so one sheet holds them comfortably.  The main board and the
+Six chips, so one sheet holds them comfortably.  The main board and the
 cartridge share the net names on the connector (`A0`, `D0`, `/CE_HI`,
 `OSC` and so on), so the two schematics read the same.
 
 ## Reference designators
 
 - **Chips:** U = CHIPS.md number, fixed (KiCad annotation set to keep
-  existing references).  The cartridge uses its own U1-U5.
+  existing references).  The cartridge uses its own U1-U6.
 - **Connectors:** keep J1-J6 as IO.md and SOUND.md use them; then J7 VGA,
   J8 cartridge slot, J9-J12 expansion slots 1-4, J13 USB-C.
 - **Decoupling capacitors:** C = the chip's U-number (C1 for U1),

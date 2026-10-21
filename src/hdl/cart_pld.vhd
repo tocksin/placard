@@ -1,15 +1,14 @@
 -- ============================================================
 -- ROM CARTRIDGE LOADER
--- VHDL conversion of ATF22V10_CART.pld (revision 02)
--- Date: 10/20/2026
+-- revision 03 is the same logic as revision 01; revision 02 (opcode byte stored XOR FDh) was reverted 2026-10-21.
+-- VHDL conversion of ATF22V10_CART.pld (revision 03)
+-- Date: 10/21/2026
 --
 -- On the ROM cartridge.  Holds the main board's clock (HOLD, pin 23)
 -- from power-up, steps the CPU through the 64K one clock at a time,
 -- copies each EEPROM byte into the cartridge SRAM at the address the
--- PC puts on the bus, lets the bus float up to FFh (ld ac, ac: the
--- opcode byte is stored XOR FDh) for the CPU to fetch, and raises RUN
--- when the PC wraps to x0000.  Revision 02: no 74AC541; its /OE cell
--- (pin 21) is CNT4, so a read lasts 33 OSC cycles.  See the PLD source and
+-- PC puts on the bus, feeds the CPU 02h (ld ac, ac) from a 74AC541,
+-- and raises RUN when the PC wraps to x0000.  See the PLD source and
 -- docs/ROM.md, "Loading the cartridge".
 --
 --     decide  = not run and not release and cnt = 0
@@ -28,7 +27,7 @@
 -- Pin assignments (ATF22V10C):
 --   1  osc        2  a15        3  pixelEnable   4  srcEnN
 --  14  cnt0      15  cnt1      16  cnt2         17  cnt3
---  18  prev15    19  srWeN     20  eeOeN        21  cnt4
+--  18  prev15    19  srWeN     20  eeOeN        21  bufOeN
 --  22  run       23  hold
 --   5-11, 13  not used
 -- ============================================================
@@ -50,7 +49,7 @@ entity cart_pld is
         prev15      : out std_logic;   -- pin 18, A15 at the last CPU read (not connected)
         srWeN       : out std_logic;   -- pin 19, cartridge SRAM /WE
         eeOeN       : out std_logic;   -- pin 20, EEPROM /OE
-        cnt4        : out std_logic;   -- pin 21
+        bufOeN      : out std_logic;   -- pin 21, 74AC541 /OE (inputs wired to 02h)
         run         : out std_logic;   -- pin 22, to memory control pin 17, map /MR, card /RESET
         hold        : out std_logic    -- pin 23, to the main board's clock gate
     );
@@ -66,14 +65,14 @@ architecture rtl of cart_pld is
     signal prev15Q  : std_logic := '0';
     signal srWeQ    : std_logic := '0';
     signal eeOeQ    : std_logic := '0';
-    signal cnt4Q    : std_logic := '0';
+    signal bufOeQ   : std_logic := '0';
     signal runQ     : std_logic := '0';
     signal releaseQ : std_logic := '0';
 
     signal cntIs0   : std_logic;
     signal cntIs4   : std_logic;
     signal cntIs6   : std_logic;
-    signal cntIs31  : std_logic;
+    signal cntIs8   : std_logic;
     signal decide   : std_logic;
     signal read     : std_logic;
     signal wrap     : std_logic;
@@ -84,10 +83,10 @@ begin
 
     -- ---------------- decode ----------------
 
-    cntIs0  <= (not cnt4Q) and (not cnt3Q) and (not cnt2Q) and (not cnt1Q) and (not cnt0Q);
-    cntIs4  <= (not cnt4Q) and (not cnt3Q) and (    cnt2Q) and (not cnt1Q) and (not cnt0Q);
-    cntIs6  <= (not cnt4Q) and (not cnt3Q) and (    cnt2Q) and (    cnt1Q) and (not cnt0Q);
-    cntIs31 <= (    cnt4Q) and (    cnt3Q) and (    cnt2Q) and (    cnt1Q) and (    cnt0Q);
+    cntIs0 <= (not cnt3Q) and (not cnt2Q) and (not cnt1Q) and (not cnt0Q);
+    cntIs4 <= (not cnt3Q) and (    cnt2Q) and (not cnt1Q) and (not cnt0Q);
+    cntIs6 <= (not cnt3Q) and (    cnt2Q) and (    cnt1Q) and (not cnt0Q);
+    cntIs8 <= (    cnt3Q) and (not cnt2Q) and (not cnt1Q) and (not cnt0Q);
 
     decide  <= (not runQ) and (not releaseQ) and cntIs0;
     read    <= (not pixelEnable) and srcEnN;
@@ -103,29 +102,19 @@ begin
             releaseQ <= runQ
                      or (decide and (not read))
                      or handoff
-                     or ((not runQ) and cntIs31);
+                     or ((not runQ) and cntIs8);
 
             runQ <= runQ or handoff;
 
             cnt0Q <= copy
-                  or ((not cnt0Q) and cnt1Q)
-                  or ((not cnt0Q) and cnt2Q)
-                  or ((not cnt0Q) and cnt3Q)
-                  or ((not cnt0Q) and cnt4Q);
-            cnt1Q <= ((not cnt1Q) and cnt0Q)
-                  or (cnt1Q and (not cnt0Q));
-            cnt2Q <= ((not cnt2Q) and cnt1Q and cnt0Q)
-                  or (cnt2Q and (not cnt1Q))
-                  or (cnt2Q and (not cnt0Q));
-            cnt3Q <= ((not cnt3Q) and cnt2Q and cnt1Q and cnt0Q)
-                  or (cnt3Q and (not cnt2Q))
-                  or (cnt3Q and (not cnt1Q))
-                  or (cnt3Q and (not cnt0Q));
-            cnt4Q <= ((not cnt4Q) and cnt3Q and cnt2Q and cnt1Q and cnt0Q)
-                  or (cnt4Q and (not cnt3Q))
-                  or (cnt4Q and (not cnt2Q))
-                  or (cnt4Q and (not cnt1Q))
-                  or (cnt4Q and (not cnt0Q));
+                  or ((not cnt3Q) and (not cnt0Q) and cnt1Q)
+                  or ((not cnt3Q) and (not cnt0Q) and cnt2Q);
+            cnt1Q <= ((not cnt3Q) and cnt1Q and (not cnt0Q))
+                  or ((not cnt3Q) and (not cnt1Q) and cnt0Q);
+            cnt2Q <= ((not cnt3Q) and (not cnt2Q) and cnt1Q and cnt0Q)
+                  or ((not cnt3Q) and cnt2Q and (not cnt1Q))
+                  or ((not cnt3Q) and cnt2Q and (not cnt0Q));
+            cnt3Q <= (not cnt3Q) and cnt2Q and cnt1Q and cnt0Q;
 
             prev15Q <= (copy and a15)
                     or ((not decide) and prev15Q)
@@ -134,6 +123,8 @@ begin
             eeOeQ <= copy or (eeOeQ and (not cntIs6));
 
             srWeQ <= cntIs4;
+
+            bufOeQ <= (not runQ) and cntIs8;
         end if;
     end process;
 
@@ -143,10 +134,10 @@ begin
     cnt1   <= cnt1Q;
     cnt2   <= cnt2Q;
     cnt3   <= cnt3Q;
-    cnt4   <= cnt4Q;
     prev15 <= prev15Q;
     srWeN  <= not srWeQ;
     eeOeN  <= not eeOeQ;
+    bufOeN <= not bufOeQ;
     run    <= runQ;
     hold   <= not releaseQ;
 
