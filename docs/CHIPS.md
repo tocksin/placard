@@ -13,7 +13,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | # | Part number | Type | Function in the design |
 |--:|---|---|---|
 | 1 | ATF22V10C-7PX | PLD (22V10, 24-pin) | State machine: FETCH / LOAD / EXEC, register loads (active low, to the F377 /E pins and the IR PLD), R/W; frozen by STALL_OUT from the cartridge (`ATF22V10_STATE.pld`) |
-| 2 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Branch decode, LoadPCLow/High, ADD/SUB wait clock and STALL, /SRC_EN to the source F541s' /OE1 and the memory control, carry flag for BCS/BCC (COUT from the high ALU PLD on pin 14), /PIX_LD for the pixel buffer (pin 15) (`ATF22V10_BRANCH.pld`) |
+| 2 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Branch decode, LoadPCLow/High, ADD/SUB wait clock and STALL, /SRC_EN to the source F541s' /OE1 and the memory control, carry flag for BCS/BCC (COUT from the high ALU PLD on pin 14), /PIX_LD for the pixel buffer (pin 15) (`ATF22V10_BRANCH.pld`) |
 | 3 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Program counter, low byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
 | 4 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Program counter, high byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
 | 5 | ATF22V10C-7PX | PLD (22V10, 24-pin) | ALU, low nibble: 4-bit ALU with Z flag (`ALU_SHR.pld`) |
@@ -46,7 +46,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 32 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, upper 32K (x8000-xFFFF) |
 | 33 | — | — | Moved to the ROM cartridge 2026-10-20 (see "ROM cartridge" below) |
 | 34 | — | — | Moved to the ROM cartridge 2026-10-20 |
-| 35 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md).  Also /AC_SEL (= !I1, revision 04) for the AC source F541 |
+| 35 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md).  Also /AC_SEL (= !I1, revision 04) for the AC source F541 |
 | 36 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer when H_VIDEO_ACTIVE rises (start of group 48), drives the R-2R ladder, which drives headphones directly (all passive, see SOUND.md) |
 | 37 | SN74HC574N | Octal D flip-flop, 3-state | Shared port latch at x5200 (IO.md): SCK and pad CLOCK, MOSI and pad LATCH, SD /CS (also holds the PS/2 mouse off), PS/2 DATA, keyboard column code.  HC for a full 5 V high into the pads |
 | 38 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: keyboard columns /COL0-/COL7 from the latch, pad DATA onto D7/D6 on odd reads (`ATF22V10_PORT.pld`) |
@@ -58,8 +58,8 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 
 | Part number | Type | Qty |
 |---|---|--:|
-| ATF22V10C-7PX | PLD (22V10) | 14 |
-| ATF22V10C-10PU | PLD (22V10) | 5 |
+| ATF22V10C-7PX | PLD (22V10) | 12 |
+| ATF22V10C-10PU | PLD (22V10) | 7 |
 | SN74F377AN | Octal D flip-flop with enable | 6 |
 | CD74ACT273E | Octal D flip-flop with clear | 1 |
 | SN74F541N | Octal buffer, 3-state | 4 |
@@ -82,7 +82,7 @@ start of EXEC (CPU.md, "One data bus").
 |---|---|---|
 | AS7C256C-15PCN (2) | SRAM, 32K x 8, 15 ns | The ROM as the CPU sees it (was #33, #34); /WE from the cartridge PLD |
 | AT28C256-15PU (2) | EEPROM, 32K x 8, 150 ns | The ROM image, programmed off the board; copied into the SRAMs at power-up |
-| ATF22V10C-7PX | PLD (22V10, 24-pin) | Loader: holds the CPU's STALL at each PC address, makes the EEPROM /OE and SRAM /WE, raises RUN at the PC wrap (`ATF22V10_CART.pld` revision 04) |
+| ATF22V10C-10PU | PLD (22V10, 24-pin) | Loader: holds the CPU's STALL at each PC address, makes the EEPROM /OE and SRAM /WE, raises RUN at the PC wrap (`ATF22V10_CART.pld` revision 04) |
 
 Five chips.  The battery and power-fail switch of the interim
 battery-backed ROM are gone; the main board loses #33 and #34.
@@ -115,14 +115,14 @@ dividers (1.8k over 3.3k) bring the SD card's SCK, MOSI and /CS down to
 
 Checked 2026-10-19 with the worst-case method of [TIMING.md](TIMING.md).
 The ATF22V10C-10PU (PDIP-24, like the -7PX) has tPD 10 ns, tCO 6.5, tS 4.5
-and tEA 10, against 7.5, 5.5, 3.5 and 7.5 for the -7PX.  Five PLDs have the
-room for it; the other fourteen on the main board, and the cartridge PLD,
-stay -7.
+and tEA 10, against 7.5, 5.5, 3.5 and 7.5 for the -7PX.  Seven main-board
+PLDs and the cartridge's have the room for it; the other twelve stay -7.
 
 2026-10-21: the instruction register is a PLD now (tCO 5.5 ns, the F377's
 was 10.5), so every path that starts at the IR gained 5 ns; the rows below
-that start at the IR show the new slack.  The Branch and audio slot PLDs
-would now have room for -10 too; their grade is left as it is.
+that start at the IR show the new slack.  That moved the Branch and audio
+slot PLDs to -10 (Justin, 2026-10-21), and the cartridge PLD with them.
+`tb_cart_load.vhd` passes with every PLD at -10 delays.
 
 | # | PLD | Worst path through it | Slack at -7 | Slack at -10 | Grade |
 |--:|---|---|---:|---:|---|
@@ -138,12 +138,12 @@ would now have room for -10 too; their grade is left as it is.
 | 12 | I/O decode | I/O read: address, /xx_RD, F541 enable, D setup | +0.2 | −2.3 | -7 |
 | 5, 6 | ALU | Logic op after a video stall; branch decision (F and Z) | +1.7; +8.2 | −0.8; +3.2 | -7 |
 | 38 | Port | Pad read: address, /PORT_RD, port tEA, D setup | +2.2 | −0.3 | -7 |
-| 2 | Branch | Branch decision into the PC PLDs; STALL_IN through the cartridge to the State strobes | +8.2; +7.2 | +4.7 with the PCs at -10 | -7 |
-| 35 | Audio slot | /AC_SEL (since revision 04): IR 5.5, /AC_SEL, F541 enable 9.5, ALU 7.5, AC setup 2 (the video paths have +19.7 at -10) | +7.7 | +5.2 | -7 |
-| cart | Cartridge loader | STALL_IN to STALL_OUT to the State PLD's strobe and an F377 /E (32.5 ns) | +7.2 | +4.7 | -7 |
+| 2 | Branch | Branch decision into the PC PLDs; PIXEL_ENABLE through STALL and the cartridge to the State strobes; /SRC_EN to the source F541s | +8.2; +7.2; +7.7 | +4.7 (PCs at -10); +2.2 (cartridge at -10); +5.2 | -10 |
+| 35 | Audio slot | /AC_SEL (since revision 04): IR 5.5, /AC_SEL, F541 enable 9.5, ALU 7.5, AC setup 2 (the video paths have +19.7 at -10) | +7.7 | +5.2 | -10 |
+| cart | Cartridge loader | STALL through it to the State PLD's strobe and an F377 /E (37.5 ns with it and the Branch PLD at -10) | +7.2 | +2.2 | -10 |
 
-The branch decision runs through the Branch PLD and into both PC PLDs, so
-only one side can be -10; the PCs are two chips and keep more margin.
+The branch decision runs through the Branch PLD and into both PC PLDs;
+until the IR became a PLD only one side could be -10, and now both are.
 The video address (H, V and the audio PLD's row bits) changes at the start
 of clock 0 of a group and is read in clock 1, so it has over a clock to
 settle.  A slower color decoder moves every pixel later by the same amount;
