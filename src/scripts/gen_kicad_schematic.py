@@ -7,16 +7,19 @@ PLD pin lists (src/pld/*.pld), basys_top.vhd and the docs (CHIPS.md, IO.md,
 SOUND.md, COLORS.md, EXPANSION.md, ROM.md).  Every pin of every part is listed
 here with its net, so a pin left out stops the script.
 
-Each pin gets a short wire and a net label (global labels for nets that run
-between sheets), each chip has its decoupling capacitor Cn beside it (n = the
+Nets with several pins on a sheet are wired (kicad_route.py), numbered groups
+are drawn as buses, nets that run between sheets get global labels, each chip has its decoupling capacitor Cn beside it (n = the
 chip's U number), and the text is large.  Rerun after a pin or part change:
 
-    python3 src/scripts/gen_kicad_schematic.py [--check]
+    python3 src/scripts/gen_kicad_schematic.py [--pdf] [--check]
+
+--pdf exports schematics/placard_main.pdf and placard_cartridge.pdf, set to
+open without the bookmarks panel.
 
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
 
-Date: 2026-10-20
+Date: 2026-10-21
 """
 import os
 import re
@@ -790,6 +793,21 @@ def erc(sch, label, flagged):
     return probs
 
 
+def export_pdf(sch, pdf):
+    """kicad-cli's PDF, set to open without the bookmarks panel (Justin, 2026-10-21):
+    the outline is dropped and the page mode is UseNone."""
+    import pypdf
+    subprocess.run(["kicad-cli", "sch", "export", "pdf", "-o", pdf, sch], check=True, capture_output=True)
+    w = pypdf.PdfWriter(clone_from=pdf)
+    root = w._root_object
+    for k in ("/Outlines", "/PageMode"):
+        if k in root:
+            del root[k]
+    w.page_mode = "/UseNone"
+    with open(pdf, "wb") as f:
+        w.write(f)
+
+
 def main():
     root, boxes, sheets, glob = build_main()
     for sh in sheets:
@@ -805,6 +823,9 @@ def main():
         print("overlap cartridge", o)
     for r in cart.report:
         print("route cartridge", r)
+    if "--pdf" in sys.argv:
+        export_pdf(os.path.join(KDIR, "placard.kicad_sch"), os.path.join(ROOT, "schematics", "placard_main.pdf"))
+        export_pdf(os.path.join(CDIR, "cartridge.kicad_sch"), os.path.join(ROOT, "schematics", "placard_cartridge.pdf"))
     if "--check" in sys.argv:
         bad = compare(expected_nets(sheets, glob), kicad_nets(os.path.join(KDIR, "placard.kicad_sch")), "main board")
         bad += compare(expected_nets([cart], set()), kicad_nets(os.path.join(CDIR, "cartridge.kicad_sch")), "cartridge")
