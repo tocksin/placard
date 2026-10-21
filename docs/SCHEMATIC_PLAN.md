@@ -1,6 +1,6 @@
 # Schematic plan
 
-Date: 2026-10-20
+Date: 2026-10-21
 
 How the KiCad schematic (`kicad/`) is split into sheets: how many sheets,
 which chips, connectors and passives go on each, and which nets run between
@@ -238,7 +238,9 @@ checks (single-pin nets, two outputs on a net, power without a source).
 - **Hand-drawn wires** where a picture helps: the R-2R ladder is a wired
   chain, rows of pins tied to GND share one GND symbol.
 - **PDFs** for reading without KiCad: `schematics/placard_main.pdf` and
-  `schematics/placard_cartridge.pdf` (`kicad-cli sch export pdf`).
+  `schematics/placard_cartridge.pdf` (`gen_kicad_schematic.py --pdf`, which
+  exports them with kicad-cli and drops the bookmarks so they open without
+  the bookmarks panel).
 
 Decisions made while drawing (2026-10-20):
 
