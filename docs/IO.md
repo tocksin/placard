@@ -114,6 +114,68 @@ most R2 characters, ending with a 00), echoing it on the console with
 Backspace on the same text row; Enter ends it and AC = the length.  It
 scans the keyboard once a frame while it waits.
 
+### Planned layout: 63 keys (2026-10-21, not built yet)
+
+Justin's chosen layout, 5 rows, 63 keys
+([keyboard_layout.png](keyboard_layout.png)):
+
+    Esc  1  2  3  4  5  6  7  8  9  0  -  =  Backspace(Delete)      14
+    Tab   Q  W  E  R  T  Y  U  I  O  P  [  ]  \                     14
+    Caps   A  S  D  F  G  H  J  K  L  ;  '  Enter                   13
+    Shift   Z  X  C  V  B  N  M  ,  .  Shift  Up  /                 13
+    Ctrl Fn Alt  [   Space   ]  Alt Ctrl Left Down Right             9
+
+Against the 64-key matrix above it drops \` ~, Delete and Home, and adds a
+right Alt and a right Ctrl.  Delete becomes Fn + Backspace (the small
+legend on the Backspace key).  "/ ?" sits right of Up.
+
+**Matrix.**  Every key that stays keeps its column and row, so key numbers,
+`kbd_map`, `KBD_NOW` and the games that read it (arrows in `raycast.asm`
+and `scroller.asm`) don't move.  The two new keys take the freed places
+and one place is left spare:
+
+| Column | Row 0 | Row 1 | Row 2 | Row 3 | Row 4 | Row 5 | Row 6 | Row 7 |
+|---|---|---|---|---|---|---|---|---|
+| 0 | Esc | 1 ! | 2 @ | 3 # | 4 $ | 5 % | 6 ^ | 7 & |
+| 1 | 8 * | 9 ( | 0 ) | - _ | = + | Backspace | Tab | Q |
+| 2 | W | E | R | T | Y | U | I | O |
+| 3 | P | [ { | ] } | \ \| | Left Ctrl | A | S | D |
+| 4 | F | G | H | J | K | L | ; : | ' " |
+| 5 | Enter | Left Shift | Z | X | C | V | B | N |
+| 6 | M | , < | . > | / ? | Right Shift | Up | Caps Lock | Fn |
+| 7 | **Right Alt** (was \`) | Left Alt | Space | **Right Ctrl** (was Delete) | *spare* (was Home) | Left | Down | Right |
+
+The matrix is just wiring on the keyboard board, so the physical position
+of a key doesn't matter to the electronics.  Column 7 row 4 (key 60) is
+free for a 64th key later.
+
+**Lost characters.**  \` ~ and Home have no key any more.  Suggested Fn
+combinations, matching common 60 % keyboards: Fn + Esc = \` (Shift: ~),
+Fn + Left = Home (15).  Fn + Backspace = Delete (7F) is on the keycap.
+
+**Driver changes (`placard_io.asm`, held until Justin says go):**
+- `kbd_map` / `kbd_map_sh`: key 56 and key 59 become 00 (right Alt, right
+  Ctrl give no character); key 60 becomes 00 (spare).
+- New `K_RCTRL = 59`; `kbd_key`'s Ctrl test checks both Ctrl keys, the way
+  it already checks both Shifts (about 4 instructions).
+- New `K_FN = 55`; in `kbd_key`, while Fn is held: Backspace (13) gives 7F,
+  Esc (0) gives 60 / 7E with Shift, Left (61) gives 15.  About 15
+  instructions, no new zero page.
+- Comments and the docs table above: the 64-key table is replaced by
+  this one.
+- `test_io.py`: Ctrl test with right Ctrl, Fn + Backspace, Fn + Esc.
+- FPGA model `ps2_key_matrix.vhd`: PC right Ctrl -> 59, right Alt -> 56,
+  backtick -> nothing (or Fn + Esc is typed by hand), Delete and Home ->
+  nothing.  Left/right are already told apart by the E0 prefix.
+
+**Keyboard board (no schematic yet):** 63 switches and 63 Schottky
+diodes, cathode toward the column, wired to the table above; J1
+stays 1 x 16 (8 columns, 8 rows) and the 4.7k row pull-ups stay on the
+main board.  If the caps lock LED proposal (Option A,
+`/mnt/project-files/io/caps_lock_led.md`) is taken and the LED sits on the
+keyboard board, J1 grows to 1 x 18 (+5 V, /CAPS_LED).  The layout change
+doesn't affect that proposal either way.
+
 ## SNES pads
 
 Two 7-pin SNES sockets: +5 V, CLOCK (latch bit 0), LATCH (latch bit 1),
