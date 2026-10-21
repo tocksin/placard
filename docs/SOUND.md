@@ -1,6 +1,6 @@
 # Sound
 
-Date: 2026-10-19
+Date: 2026-10-21
 
 The video circuit plays sound by itself.  On every scan line it reads one
 8-bit sample from RAM, the same way it reads pixels, and a register feeds that
@@ -143,7 +143,7 @@ All passive: the ladder drives headphones directly, so there is no op-amp.
                              └─ 2k ─ AGND   (termination)
 
     ladder out ──┬── 15nF ── AGND                (filter)
-                 └── 22µF (+ toward the ladder) ──┬── jack tip and ring
+                 └── 22µF ceramic ────────────────┬── jack tip and ring
                                                   └── 10k ── AGND   (bleed)
     jack sleeve ── AGND
 
@@ -200,7 +200,7 @@ One capacitor, 15 nF (C0G or film), from the ladder output to AGND.
 
 | Part | Value | Why |
 |---|---|---|
-| Coupling capacitor | 22 µF electrolytic, 10 V or more, + toward the ladder | blocks the 2.49 V offset; low corner about 7 Hz into 16 Ω, under 1 Hz into 10 kΩ |
+| Coupling capacitor | 22 µF ceramic (X5R/X7R, non-polar), 10 V or more | blocks the 2.49 V offset; low corner about 7 Hz into 16 Ω, under 1 Hz into 10 kΩ |
 | Bleed resistor | 10 kΩ, jack side to AGND | holds the jack side at 0 V so plugging in does not pop |
 | Jack | 3.5 mm stereo; tip and ring tied together, sleeve to AGND | the same sound in both ears |
 
