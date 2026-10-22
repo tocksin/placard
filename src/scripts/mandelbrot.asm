@@ -6,7 +6,7 @@
 ;
 ;     python3 placard_sim.py mandelbrot.asm --run --max-steps 2000000000 --png m.png
 ;
-; Date: 10/18/2026
+; Date: 10/22/2026
 
 #include "placard.asm"
 
@@ -34,7 +34,7 @@ font:      ; 0-9, ".", space, "s"; 8 bytes each, leftmost pixel in bit 0
 #addr 0x0100
 main:
     ; ---- pass 0: 1 bpp ----
-    ld   0x00, ac
+    ld   0x80, ac
     ld   ac, [0x37]
     ld   ret_1, ac
     ld   ac, [0x2C]
@@ -58,7 +58,7 @@ ret_2:
     jmp  delay
 ret_3:
     ; ---- pass 1: 2 bpp ----
-    ld   0x01, ac
+    ld   0x81, ac
     ld   ac, [0x37]
     ld   ret_4, ac
     ld   ac, [0x2C]
@@ -82,7 +82,7 @@ ret_5:
     jmp  delay
 ret_6:
     ; ---- pass 2: 4 bpp ----
-    ld   0x02, ac
+    ld   0x82, ac
     ld   ac, [0x37]
     ld   ret_7, ac
     ld   ac, [0x2C]
@@ -106,7 +106,7 @@ ret_8:
     jmp  delay
 ret_9:
     ; ---- pass 3: 8 bpp ----
-    ld   0x03, ac
+    ld   0x83, ac
     ld   ac, [0x37]
     ld   ret_10, ac
     ld   ac, [0x2C]
@@ -142,7 +142,8 @@ ret_13:
 
 #addr 0x0200
 clear:
-    ; video RAM 6000-FFFF = 0, then mode byte = [mode] for rows 5A20-5BFF
+    ; video RAM 6000-FFFF = 0, then mode byte = [mode] | 80 (blanked) for rows
+    ; 5A20-5BFF
     ld   0x60, ac
     ld   ac, [0x38]
 clr_pg:
@@ -234,6 +235,19 @@ ret_15:
 ret_16:
     ld   0x00, ac
     ld   ac, [0x2B]
+    ; row by row, top to bottom: every row starts blanked (clear) and
+    ; is shown when its points are done, so the video does not stall
+    ; the CPU on the rows still to come
+    ld   0x20, ac
+    ld   ac, [0x33]
+    ld   0x00, ac
+    ld   ac, [0x34]
+    ; cy = -240/256 = (hi -1, lo 16)
+    ld   0xFF, ac
+    ld   ac, [0x29]
+    ld   0x10, ac
+    ld   ac, [0x28]
+row0:
     ld   0x62, ac
     ld   ac, [0x35]
     ; cx = -2.0 = -512 = (hi -2, lo 0)
@@ -244,16 +258,6 @@ ret_16:
     ld   0x4F, ac
     ld   ac, [0x36]
 col0:
-    ld   [0x35], ac
-    ld   ac, [0x34]
-    ld   0x20, ac
-    ld   ac, [0x33]
-    ; cy = -240/256 = (hi -1, lo 16)
-    ld   0xFF, ac
-    ld   ac, [0x29]
-    ld   0x10, ac
-    ld   ac, [0x28]
-row0:
     ld   [0x2E], ac
     ld   ac, [0x26]
     ld   [0x2F], ac
@@ -284,18 +288,11 @@ ret_17:
     ld   ac, [0x32]
     bne  pt0
     ; write the byte to 1 screen row(s)
-    ld   [0x30], ac
+    ld   [0x35], ac
+    add  [0x34], y
     ld   [0x33], x
-    ld   [0x34], y
+    ld   [0x30], ac
     ld   ac, [y,x]
-    ld   [0x33], ac
-    add  1, ac
-    ld   ac, [0x33]
-    bne  nw0
-    ld   [0x34], ac
-    inc
-    ld   ac, [0x34]
-nw0:
     ; once per byte: check the line read for a new frame
     ld   ret_18, ac
     ld   ac, [0x43]
@@ -304,23 +301,6 @@ nw0:
     ld   poll >> 8, y
     jmp  poll
 ret_18:
-    ; cy += 1/256
-    ld   [0x28], ac
-    add  1, ac
-    ld   ac, [0x28]
-    bcc  cyd0
-    ld   [0x29], ac
-    inc
-    ld   ac, [0x29]
-cyd0:
-    ; column done after 480 rows: rowy = vpage + 2
-    ld   [0x34], ac
-    sub  [0x35], ac
-    sub  2, ac
-    beq  cdone0
-    ld   row0 >> 8, y
-    jmp  row0
-cdone0:
     ; next byte column: cx0 += 8/256, video page += 2
     ld   [0x2E], ac
     add  8, ac
@@ -336,14 +316,51 @@ cxd0:
     ld   [0x36], ac
     dec
     ld   ac, [0x36]
-    beq  pdone0
+    beq  rd0
     ld   col0 >> 8, y
     jmp  col0
+rd0:
+    ld   rdone0 >> 8, y
+    jmp  rdone0
 pdone0:
     ld   [0x3C], y
     jmp  [0x3B]
 
 #addr 0x0500
+rdone0:
+    ; the row is done: show its 1 screen row(s), mode byte 00
+    ld   [0x34], ac
+    add  0x5A, y
+    ld   [0x33], ac
+    add  0, x
+    ld   0x00, [y,x]
+    ; next row: rowy:rowx += 1, cy += 1/256
+    add  1, ac
+    ld   ac, [0x33]
+    bcc  rxd0
+    ld   [0x34], ac
+    inc
+    ld   ac, [0x34]
+rxd0:
+    ld   [0x28], ac
+    add  1, ac
+    ld   ac, [0x28]
+    bcc  cyd0
+    ld   [0x29], ac
+    inc
+    ld   ac, [0x29]
+cyd0:
+    ; done after 480 rows: rowy:rowx = 0x200
+    ld   [0x34], ac
+    sub  2, ac
+    beq  pd0
+    ld   row0 >> 8, y
+    jmp  row0
+pd0:
+    ld   pdone0 >> 8, y
+    jmp  pdone0
+
+#addr 0x0600
 pass1:
     ; 2 bpp: 4 points per byte, 2 x 2 pixels per point
     ld   [0x2C], ac
@@ -366,6 +383,19 @@ ret_19:
 ret_20:
     ld   0x40, ac
     ld   ac, [0x2B]
+    ; row by row, top to bottom: every row starts blanked (clear) and
+    ; is shown when its points are done, so the video does not stall
+    ; the CPU on the rows still to come
+    ld   0x20, ac
+    ld   ac, [0x33]
+    ld   0x00, ac
+    ld   ac, [0x34]
+    ; cy = -240/256 = (hi -1, lo 16)
+    ld   0xFF, ac
+    ld   ac, [0x29]
+    ld   0x10, ac
+    ld   ac, [0x28]
+row1:
     ld   0x62, ac
     ld   ac, [0x35]
     ; cx = -2.0 = -512 = (hi -2, lo 0)
@@ -376,16 +406,6 @@ ret_20:
     ld   0x4F, ac
     ld   ac, [0x36]
 col1:
-    ld   [0x35], ac
-    ld   ac, [0x34]
-    ld   0x20, ac
-    ld   ac, [0x33]
-    ; cy = -240/256 = (hi -1, lo 16)
-    ld   0xFF, ac
-    ld   ac, [0x29]
-    ld   0x10, ac
-    ld   ac, [0x28]
-row1:
     ld   [0x2E], ac
     ld   ac, [0x26]
     ld   [0x2F], ac
@@ -417,22 +437,15 @@ ret_21:
     ld   ac, [0x32]
     bne  pt1
     ; write the byte to 2 screen row(s)
-    ld   [0x30], ac
+    ld   [0x35], ac
+    add  [0x34], y
     ld   [0x33], x
-    ld   [0x34], y
+    ld   [0x30], ac
     ld   ac, [y,x]
     ld   [0x33], ac
     add  1, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   [0x33], ac
-    add  2, ac
-    ld   ac, [0x33]
-    bne  nw1
-    ld   [0x34], ac
-    inc
-    ld   ac, [0x34]
-nw1:
     ; once per byte: check the line read for a new frame
     ld   ret_22, ac
     ld   ac, [0x43]
@@ -441,23 +454,6 @@ nw1:
     ld   poll >> 8, y
     jmp  poll
 ret_22:
-    ; cy += 2/256
-    ld   [0x28], ac
-    add  2, ac
-    ld   ac, [0x28]
-    bcc  cyd1
-    ld   [0x29], ac
-    inc
-    ld   ac, [0x29]
-cyd1:
-    ; column done after 480 rows: rowy = vpage + 2
-    ld   [0x34], ac
-    sub  [0x35], ac
-    sub  2, ac
-    beq  cdone1
-    ld   row1 >> 8, y
-    jmp  row1
-cdone1:
     ; next byte column: cx0 += 8/256, video page += 2
     ld   [0x2E], ac
     add  8, ac
@@ -473,14 +469,53 @@ cxd1:
     ld   [0x36], ac
     dec
     ld   ac, [0x36]
-    beq  pdone1
+    beq  rd1
     ld   col1 >> 8, y
     jmp  col1
+rd1:
+    ld   rdone1 >> 8, y
+    jmp  rdone1
 pdone1:
     ld   [0x3C], y
     jmp  [0x3B]
 
-#addr 0x0600
+#addr 0x0700
+rdone1:
+    ; the row is done: show its 2 screen row(s), mode byte 01
+    ld   [0x34], ac
+    add  0x5A, y
+    ld   [0x33], ac
+    add  0, x
+    ld   0x01, [y,x]
+    add  1, x
+    ld   0x01, [y,x]
+    ; next row: rowy:rowx += 2, cy += 2/256
+    add  2, ac
+    ld   ac, [0x33]
+    bcc  rxd1
+    ld   [0x34], ac
+    inc
+    ld   ac, [0x34]
+rxd1:
+    ld   [0x28], ac
+    add  2, ac
+    ld   ac, [0x28]
+    bcc  cyd1
+    ld   [0x29], ac
+    inc
+    ld   ac, [0x29]
+cyd1:
+    ; done after 480 rows: rowy:rowx = 0x200
+    ld   [0x34], ac
+    sub  2, ac
+    beq  pd1
+    ld   row1 >> 8, y
+    jmp  row1
+pd1:
+    ld   pdone1 >> 8, y
+    jmp  pdone1
+
+#addr 0x0800
 pass2:
     ; 4 bpp: 2 points per byte, 4 x 4 pixels per point
     ld   [0x2C], ac
@@ -503,6 +538,19 @@ ret_23:
 ret_24:
     ld   0x80, ac
     ld   ac, [0x2B]
+    ; row by row, top to bottom: every row starts blanked (clear) and
+    ; is shown when its points are done, so the video does not stall
+    ; the CPU on the rows still to come
+    ld   0x20, ac
+    ld   ac, [0x33]
+    ld   0x00, ac
+    ld   ac, [0x34]
+    ; cy = -240/256 = (hi -1, lo 16)
+    ld   0xFF, ac
+    ld   ac, [0x29]
+    ld   0x10, ac
+    ld   ac, [0x28]
+row2:
     ld   0x62, ac
     ld   ac, [0x35]
     ; cx = -2.0 = -512 = (hi -2, lo 0)
@@ -513,16 +561,6 @@ ret_24:
     ld   0x4F, ac
     ld   ac, [0x36]
 col2:
-    ld   [0x35], ac
-    ld   ac, [0x34]
-    ld   0x20, ac
-    ld   ac, [0x33]
-    ; cy = -240/256 = (hi -1, lo 16)
-    ld   0xFF, ac
-    ld   ac, [0x29]
-    ld   0x10, ac
-    ld   ac, [0x28]
-row2:
     ld   [0x2E], ac
     ld   ac, [0x26]
     ld   [0x2F], ac
@@ -556,9 +594,10 @@ ret_25:
     ld   ac, [0x32]
     bne  pt2
     ; write the byte to 4 screen row(s)
-    ld   [0x30], ac
+    ld   [0x35], ac
+    add  [0x34], y
     ld   [0x33], x
-    ld   [0x34], y
+    ld   [0x30], ac
     ld   ac, [y,x]
     ld   [0x33], ac
     add  1, x
@@ -572,14 +611,6 @@ ret_25:
     add  3, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   [0x33], ac
-    add  4, ac
-    ld   ac, [0x33]
-    bne  nw2
-    ld   [0x34], ac
-    inc
-    ld   ac, [0x34]
-nw2:
     ; once per byte: check the line read for a new frame
     ld   ret_26, ac
     ld   ac, [0x43]
@@ -588,23 +619,6 @@ nw2:
     ld   poll >> 8, y
     jmp  poll
 ret_26:
-    ; cy += 4/256
-    ld   [0x28], ac
-    add  4, ac
-    ld   ac, [0x28]
-    bcc  cyd2
-    ld   [0x29], ac
-    inc
-    ld   ac, [0x29]
-cyd2:
-    ; column done after 480 rows: rowy = vpage + 2
-    ld   [0x34], ac
-    sub  [0x35], ac
-    sub  2, ac
-    beq  cdone2
-    ld   row2 >> 8, y
-    jmp  row2
-cdone2:
     ; next byte column: cx0 += 8/256, video page += 2
     ld   [0x2E], ac
     add  8, ac
@@ -620,14 +634,57 @@ cxd2:
     ld   [0x36], ac
     dec
     ld   ac, [0x36]
-    beq  pdone2
+    beq  rd2
     ld   col2 >> 8, y
     jmp  col2
+rd2:
+    ld   rdone2 >> 8, y
+    jmp  rdone2
 pdone2:
     ld   [0x3C], y
     jmp  [0x3B]
 
-#addr 0x0700
+#addr 0x0900
+rdone2:
+    ; the row is done: show its 4 screen row(s), mode byte 02
+    ld   [0x34], ac
+    add  0x5A, y
+    ld   [0x33], ac
+    add  0, x
+    ld   0x02, [y,x]
+    add  1, x
+    ld   0x02, [y,x]
+    add  2, x
+    ld   0x02, [y,x]
+    add  3, x
+    ld   0x02, [y,x]
+    ; next row: rowy:rowx += 4, cy += 4/256
+    add  4, ac
+    ld   ac, [0x33]
+    bcc  rxd2
+    ld   [0x34], ac
+    inc
+    ld   ac, [0x34]
+rxd2:
+    ld   [0x28], ac
+    add  4, ac
+    ld   ac, [0x28]
+    bcc  cyd2
+    ld   [0x29], ac
+    inc
+    ld   ac, [0x29]
+cyd2:
+    ; done after 480 rows: rowy:rowx = 0x200
+    ld   [0x34], ac
+    sub  2, ac
+    beq  pd2
+    ld   row2 >> 8, y
+    jmp  row2
+pd2:
+    ld   pdone2 >> 8, y
+    jmp  pdone2
+
+#addr 0x0A00
 pass3:
     ; 8 bpp: 1 points per byte, 8 x 8 pixels per point
     ld   [0x2C], ac
@@ -650,6 +707,19 @@ ret_27:
 ret_28:
     ld   0xC0, ac
     ld   ac, [0x2B]
+    ; row by row, top to bottom: every row starts blanked (clear) and
+    ; is shown when its points are done, so the video does not stall
+    ; the CPU on the rows still to come
+    ld   0x20, ac
+    ld   ac, [0x33]
+    ld   0x00, ac
+    ld   ac, [0x34]
+    ; cy = -240/256 = (hi -1, lo 16)
+    ld   0xFF, ac
+    ld   ac, [0x29]
+    ld   0x10, ac
+    ld   ac, [0x28]
+row3:
     ld   0x62, ac
     ld   ac, [0x35]
     ; cx = -2.0 = -512 = (hi -2, lo 0)
@@ -660,16 +730,6 @@ ret_28:
     ld   0x4F, ac
     ld   ac, [0x36]
 col3:
-    ld   [0x35], ac
-    ld   ac, [0x34]
-    ld   0x20, ac
-    ld   ac, [0x33]
-    ; cy = -240/256 = (hi -1, lo 16)
-    ld   0xFF, ac
-    ld   ac, [0x29]
-    ld   0x10, ac
-    ld   ac, [0x28]
-row3:
     ld   [0x2E], ac
     ld   ac, [0x26]
     ld   [0x2F], ac
@@ -689,8 +749,10 @@ ret_29:
     ld   ac, [0x31]
     ld   ac, [0x30]
     ; write the byte to 8 screen row(s)
+    ld   [0x35], ac
+    add  [0x34], y
     ld   [0x33], x
-    ld   [0x34], y
+    ld   [0x30], ac
     ld   ac, [y,x]
     ld   [0x33], ac
     add  1, x
@@ -720,14 +782,6 @@ ret_29:
     add  7, x
     ld   [0x30], ac
     ld   ac, [y,x]
-    ld   [0x33], ac
-    add  8, ac
-    ld   ac, [0x33]
-    bne  nw3
-    ld   [0x34], ac
-    inc
-    ld   ac, [0x34]
-nw3:
     ; once per byte: check the line read for a new frame
     ld   ret_30, ac
     ld   ac, [0x43]
@@ -736,23 +790,6 @@ nw3:
     ld   poll >> 8, y
     jmp  poll
 ret_30:
-    ; cy += 8/256
-    ld   [0x28], ac
-    add  8, ac
-    ld   ac, [0x28]
-    bcc  cyd3
-    ld   [0x29], ac
-    inc
-    ld   ac, [0x29]
-cyd3:
-    ; column done after 480 rows: rowy = vpage + 2
-    ld   [0x34], ac
-    sub  [0x35], ac
-    sub  2, ac
-    beq  cdone3
-    ld   row3 >> 8, y
-    jmp  row3
-cdone3:
     ; next byte column: cx0 += 8/256, video page += 2
     ld   [0x2E], ac
     add  8, ac
@@ -768,14 +805,65 @@ cxd3:
     ld   [0x36], ac
     dec
     ld   ac, [0x36]
-    beq  pdone3
+    beq  rd3
     ld   col3 >> 8, y
     jmp  col3
+rd3:
+    ld   rdone3 >> 8, y
+    jmp  rdone3
 pdone3:
     ld   [0x3C], y
     jmp  [0x3B]
 
-#addr 0x0800
+#addr 0x0B00
+rdone3:
+    ; the row is done: show its 8 screen row(s), mode byte 03
+    ld   [0x34], ac
+    add  0x5A, y
+    ld   [0x33], ac
+    add  0, x
+    ld   0x03, [y,x]
+    add  1, x
+    ld   0x03, [y,x]
+    add  2, x
+    ld   0x03, [y,x]
+    add  3, x
+    ld   0x03, [y,x]
+    add  4, x
+    ld   0x03, [y,x]
+    add  5, x
+    ld   0x03, [y,x]
+    add  6, x
+    ld   0x03, [y,x]
+    add  7, x
+    ld   0x03, [y,x]
+    ; next row: rowy:rowx += 8, cy += 8/256
+    add  8, ac
+    ld   ac, [0x33]
+    bcc  rxd3
+    ld   [0x34], ac
+    inc
+    ld   ac, [0x34]
+rxd3:
+    ld   [0x28], ac
+    add  8, ac
+    ld   ac, [0x28]
+    bcc  cyd3
+    ld   [0x29], ac
+    inc
+    ld   ac, [0x29]
+cyd3:
+    ; done after 480 rows: rowy:rowx = 0x200
+    ld   [0x34], ac
+    sub  2, ac
+    beq  pd3
+    ld   row3 >> 8, y
+    jmp  row3
+pd3:
+    ld   pdone3 >> 8, y
+    jmp  pdone3
+
+#addr 0x0C00
 poll:
     ; read the line read (V9:V2, 124-255) and add one frame to the timer
     ; when it went down.  cur - last - 96 >= 0 means it wrapped, as long as
@@ -811,7 +899,7 @@ pnw:
     ld   [0x44], y
     jmp  [0x43]
 
-#addr 0x0900
+#addr 0x0D00
 hk_poll:
     ld 0x5D, y
     ld 0x00, x
@@ -883,7 +971,7 @@ hkp_go:
     ld ac, [y,x]
     jmp 0x20    ; the menu's exit code (RAM x5D20)
 
-#addr 0x0A00
+#addr 0x0E00
 hk_done:
     ld 0x5D, y
     ld 0x00, x
@@ -948,7 +1036,7 @@ hkd_nb:
     ld ac, [y,x]
     bra hkd_ret
 
-#addr 0x0B00
+#addr 0x0F00
 dadd:
     ; timer digits at 0x50 += addend digits at 0x50 + [doff], decimal
     clr  ac
@@ -988,7 +1076,7 @@ dn:
     ld   [0x46], y
     jmp  [0x45]
 
-#addr 0x0C00
+#addr 0x1000
 tstart:
     ; start the timer at the top of a frame: wait for the line read to wrap
     ld   ret_33, ac
@@ -1020,7 +1108,7 @@ ret_35:
     ld   [0x2D], y
     jmp  [0x2C]
 
-#addr 0x0D00
+#addr 0x1100
 tclear:
     ; timer = 0, frame addend = 16800 us, step addend = 128 us
     ld   0x28, ac
@@ -1044,7 +1132,7 @@ tcl:
     ld   [0x44], y
     jmp  [0x43]
 
-#addr 0x0E00
+#addr 0x1200
 tshow:
     ; stop the timer: whole frames are counted, add the 128 us steps since
     ; the top of this frame
@@ -1100,7 +1188,7 @@ bndm:
     ld   tshow2 >> 8, y
     jmp  tshow2
 
-#addr 0x0F00
+#addr 0x1300
 tshow2:
     ; "SSS.SSS s", leading zeros of the seconds as spaces
     ld   0xA9, ac
@@ -1168,7 +1256,7 @@ ret_41:
     ld   [0x2D], y
     jmp  [0x2C]
 
-#addr 0x1000
+#addr 0x1400
 gdraw:
     ; draw glyph [dig] at page [cpg], row byte [crow]; then cpg += 2
     ld   [0x4E], ac
@@ -1257,7 +1345,7 @@ gdraw:
     ld   [0x48], y
     jmp  [0x47]
 
-#addr 0x1100
+#addr 0x1500
 kernel:
     ; in: cx, cy, coff.  out: AC = color for this mode.  returns to [reth, ret]
     clr  ac
@@ -1332,7 +1420,7 @@ escape:
     ld   [0x2D], y
     jmp  [0x2C]
 
-#addr 0x1200
+#addr 0x1600
 kernel2:
     ; s = |x + y|
     ld   [0x12], ac
@@ -1402,7 +1490,7 @@ nc_50:
     ld   kernel3 >> 8, y
     jmp  kernel3
 
-#addr 0x1300
+#addr 0x1700
 kernel3:
     ; back to magnitude + sign, escape if |x'| or |y'| >= 2
     ld   [0x1F], ac

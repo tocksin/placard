@@ -47,7 +47,11 @@ SCREEN (1 bpp)
     decimals on the first row, then rows of 50 decimals under the first
     decimal (52 columns from column 14; 20 rows for 1000 digits).  One blank
     row below the block, the run time "SSS.SSS s" is centered.  The screen
-    is cleared and every mode byte (5A20-5BFF) set to 1 bpp first.
+    is cleared and every mode byte (5A20-5BFF) set to 1 bpp, blanked (bit
+    7, VIDEO.md "Blank line") first; a character row is shown when its
+    first glyph is drawn, so the video makes no pixel reads on the empty
+    rows and does not stall the CPU there.  The digit rows have a green
+    row tint on two rows in four, like green-bar printer paper.
 
 TIMER
     The line read at 5000h (V9:V2 of the line counter, 124-255, see
@@ -76,10 +80,15 @@ apart from the time)
     show about 74 s.  Before the carry flag (base-128 limbs) it was
     2,261,702,856 clocks and 90.434 s, so the carry flag makes it 1.33x
     faster.  The screen is reference/pi_spigot_sim.png.
+    Blank lines (2026-10-22), measured with placard_sim --stalls (the video
+    read stall clocks modeled): 1,748,791,438 clocks to the stop, the timer
+    shows 69.898 s; the same program with every row shown took
+    1,894,412,435 clocks, so blanking the empty rows makes it 7.7 % faster
+    (1.083x).  On the board it should show about 70 s.
 
 MEMORY
     0000-0003   reset: jump to init (builds the product table, then main)
-    0010-0048   variables (zero page)
+    0010-004C   variables (zero page)
     0050-0058   timer, decimal microseconds, least significant digit first
     0060-0068   one frame (16800) as decimal digits, 0070-0078 one step (128)
     0080-00E7   font
@@ -88,7 +97,7 @@ MEMORY
     1700-24FF   a[i] high bytes (address 1700 + i)
     2500-37FF   product table low bytes,  page 25 + m, m = 0..18
     3800-4AFF   product table high bytes, page 38 + m
-    5A20-5BFF   mode bytes, one per row (all 0, 1 bpp)
+    5A20-5BFF   mode bytes, one per row (1 bpp; blanked, plain or green)
     5D00-5D0A   the program menu's block (menu_hook.py), when run from it
     6000-FFFF   video RAM
     The tables only go up to m = 18, the largest q for 1000 digits (build()
@@ -102,7 +111,7 @@ PROGRAM MENU
     the end of the 10 s pause calls hk_done, which goes on to the next
     program when the menu is rotating.  Run by itself both just return.
 
-Date: 10/20/2026
+Date: 10/22/2026
 """
 
 import argparse
@@ -142,7 +151,8 @@ for _i, _n in enumerate(
          'ccol', 'rhi', 'gx', 'sx', 'tmp', 'ret', 'reth', 'jl', 'jh',
          'cur', 'last', 'wrapped', 'doff', 'dc', 'ds', 'pret', 'preth',
          'dret', 'dreth', 'sx2', 'di', 'hret', 'hreth'] +
-        ['d%d%d' % (k, l) for k in range(5) for l in range(3)]):
+        ['d%d%d' % (k, l) for k in range(5) for l in range(3)] +
+        ['mtint', 'uret', 'ureth', 'mband']):
     ZP[_n] = 0x10 + _i
 
 
@@ -158,6 +168,15 @@ DCOL = 14               # "3." at column 14 (the block is 52 columns wide)
 DWID = 50               # 50 decimals per row, rows after the first at DCOL + 2
 TCOL = 36               # time "SSS.SSS s", one blank row below the digits
 WAIT_TENS = 1           # wait until the timer's tens-of-seconds digit is 1
+
+# mode bytes (VIDEO.md "Blank line", "Row tint"): every row starts blanked
+# (bit 7: black and no pixel reads, so the CPU is not stalled on it) and a
+# character row is shown when its first glyph is drawn.  The digit rows
+# alternate two rows of green tint and two without, like green-bar printer
+# paper.
+M_BLANK = 0x80
+M_DIGA, M_DIGB = 0x20, 0x00     # first digit row green, then plain, ...
+M_TIME = 0x00                   # the time row
 
 
 def cell(col, row):
@@ -324,18 +343,18 @@ def build(ndig):
 
     g.block('clr_m')
     label('clr_m')
-    e('; mode bytes 5A00-5BFF = 0 (1 bpp)')
+    e('; mode bytes 5A00-5BFF = %02X: 1 bpp, blanked until a glyph is drawn' % M_BLANK)
     e('ld   0x5A, y')
     e('clr  ac')
     label('clr_m0')
     e('ld   ac, x')
-    e('ld   0x00, [y,x]')
+    e('ld   0x%02X, [y,x]' % M_BLANK)
     e('inc')
     e('bne  clr_m0')
     e('ld   0x5B, y')
     label('clr_m1')
     e('ld   ac, x')
-    e('ld   0x00, [y,x]')
+    e('ld   0x%02X, [y,x]' % M_BLANK)
     e('inc')
     e('bne  clr_m1')
     g.far('tsync')
@@ -384,6 +403,8 @@ def build(ndig):
     g.st(lo, 'crow')
     g.st(0, 'rhi')
     g.st(DWID + 2, 'ccol')
+    g.st(M_DIGA, 'mtint')
+    g.st(0, 'mband')
     jl, jh = limbs(ndig, 2)
     g.st(jl, 'jl')
     g.st(jh, 'jh')
@@ -704,6 +725,7 @@ def build(ndig):
         e('ld   %s, y' % z('cpage'))
         e('ld   %s, ac' % z('tmp'))
         e('ld   ac, [y,x]')
+    g.call('unblank', 'uret')
     e('; next character cell')
     e('ld   %s, ac' % z('cpage'))
     e('add  2, ac')
@@ -713,6 +735,15 @@ def build(ndig):
     e('ld   ac, %s' % z('ccol'))
     e('bne  advd')
     g.st(DWID, 'ccol')
+    e('; green-bar paper: the tint changes every second row')
+    e('ld   %s, ac' % z('mband'))
+    e('xor  1, ac')
+    e('ld   ac, %s' % z('mband'))
+    e('bne  nlt')
+    e('ld   %s, ac' % z('mtint'))
+    e('xor  0x%02X, ac' % (M_DIGA ^ M_DIGB))
+    e('ld   ac, %s' % z('mtint'))
+    label('nlt')
     e('ld   %s, ac' % z('crow'))
     e('add  8, ac')
     e('ld   ac, %s' % z('crow'))
@@ -731,6 +762,21 @@ def build(ndig):
     label('eret')
     e('ld   %s, y' % z('reth'))
     e('jmp  %s' % z('ret'))
+
+    g.block('unblank')
+    label('unblank')
+    e('; show the character row at the cursor: its 8 mode bytes = [mtint]')
+    e('; (page 5A + bit 0 of the cell page, which is screen row bit 8)')
+    e('ld   %s, ac' % z('cpage'))
+    e('and  1, ac')
+    e('add  0x5A, y')
+    for r in range(8):
+        e('ld   %s, ac' % z('crow'))
+        e('add  %d, x' % r)
+        e('ld   %s, ac' % z('mtint'))
+        e('ld   ac, [y,x]')
+    e('ld   %s, y' % z('ureth'))
+    e('jmp  %s' % z('uret'))
 
     # ------------------------------------------------------------ timer
     g.block('poll')
@@ -841,6 +887,7 @@ def build(ndig):
     g.st(lo, 'crow')
     g.st(0, 'ccol')          # no line wrap
     g.st(0, 'dotf')
+    g.st(M_TIME, 'mtint')
     e('; leading zeros of the seconds become spaces (the timer is cleared next)')
     e('ld   [0x%02X], ac' % (TU + 8))
     e('bne  sh1')
@@ -903,7 +950,7 @@ def build(ndig):
     o(';')
     o(';     python3 placard_sim.py pi_spigot.asm --run --max-steps 2000000000 --stop-at pause --png pi.png')
     o(';')
-    o('; Date: 10/20/2026')
+    o('; Date: 10/22/2026')
     o('')
     o('#include "placard.asm"')
     o('')
