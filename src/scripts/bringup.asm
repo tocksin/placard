@@ -11,7 +11,7 @@
 ;   9 AC/X  10 Y address  11 X address  12 ROM data  13 RAM data
 ;   14 map register  15 RAM address lines  16 video line read
 ;
-; Date: 10/21/2026
+; Date: 10/22/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -136,8 +136,8 @@ fail16:
     #d8 0x80
 #addr 0xA010
     #d8 0xA0
-#addr 0xC010
-    #d8 0xC0
+#addr 0xC210
+    #d8 0xC2
 #addr 0xFE10
     #d8 0xE7
 
@@ -1867,16 +1867,16 @@ ok_205:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_206:
-    ld   0xC0, y
+    ld   0xC2, y
     ld   0x10, x
-    ld   0x3F, [y,x]
+    ld   0x3D, [y,x]
     ld   0x50, y
     ld   0x00, x
     ld   0x40, [y,x]
-    ld   0xC0, y
+    ld   0xC2, y
     ld   0x10, x
     ld   [y,x], ac
-    xor  0x3F, ac
+    xor  0x3D, ac
     beq  ok_207
     ld   0xB8, ac
     ld   fail_h >> 8, y
@@ -1885,10 +1885,10 @@ ok_207:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
-    ld   0xC0, y
+    ld   0xC2, y
     ld   0x10, x
     ld   [y,x], ac
-    xor  0xC0, ac
+    xor  0xC2, ac
     beq  ok_208
     ld   0xB8, ac
     ld   fail_h >> 8, y
@@ -3650,16 +3650,16 @@ ok_420:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_421:
-    ld   0xC0, y
+    ld   0xC2, y
     ld   0x10, x
-    ld   0x3F, [y,x]
+    ld   0x3D, [y,x]
     ld   0x50, y
     ld   0x00, x
     ld   0x40, [y,x]
-    ld   0xC0, y
+    ld   0xC2, y
     ld   0x10, x
     ld   [y,x], ac
-    xor  0x3F, ac
+    xor  0x3D, ac
     beq  ok_422
     ld   0xB8, ac
     ld   fail_h >> 8, y
@@ -3668,10 +3668,10 @@ ok_422:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
-    ld   0xC0, y
+    ld   0xC2, y
     ld   0x10, x
     ld   [y,x], ac
-    xor  0xC0, ac
+    xor  0xC2, ac
     beq  ok_423
     ld   0xB8, ac
     ld   fail_h >> 8, y

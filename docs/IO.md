@@ -44,23 +44,24 @@ chips and the connectors:
 |---|---|---|
 | 0 | SCK, pads' CLOCK | SPI mode 3: SCK idles high.  The pads also idle with CLOCK high |
 | 1 | MOSI, pads' LATCH | The card ignores MOSI while /CS is high; LATCH high only reloads the pads |
-| 2 | SD /CS | 0 also holds the PS/2 CLK line low through a Schottky diode, which stops the mouse |
-| 3 | PS/2 DATA | 0 holds the PS/2 DATA line low through a Schottky diode (to send to the mouse) |
+| 2 | SD /CS | 0 also holds the mouse's CLK line low through a Schottky diode, which stops the mouse |
+| 3 | PS/2 DATA | 0 holds the shared PS/2 DATA line low through a Schottky diode (to send to the mouse or the PS/2 keyboard) |
 | 7:4 | Keyboard column | 0-7 drive that column low (port PLD), 8-15 drive none.  With bit 7 = 1, bit 4 = 0 also holds the PS/2 keyboard's CLK low through a Schottky diode and picks pad 2 on odd reads |
 
 **Read an even address (74F541):** D7:D0 = rows 7:0 of the driven column,
 0 = key down.  Row 7 is also SD MISO, row 6 the PS/2 DATA line and row 5
-the PS/2 CLK line, each through a Schottky diode, so with no column driven
-a read shows those three lines.
+the mouse's CLK line, each through a Schottky diode, so with no column
+driven a read shows those three lines.
 
 **Read an odd address (port PLD):** D7 = pad 1 DATA, D6 = pad 2 DATA
 (0 = button down) while latch bit 4 is 0, or the PS/2 keyboard's CLK line
 while latch bit 4 is 1.  D5:D0 are not driven, so software masks them.
 
-**At rest** the latch holds **FB** (`P_IDLE`): no column, PS/2 DATA free,
-/CS low (card selected and idle, mouse held off), MOSI and SCK high.
-Every driver leaves the latch at FB, and the boot loader writes FB first,
-because the 74HC574 powers up with random bits.
+**At rest** the latch holds **EB** (`P_IDLE`): no column, PS/2 DATA free,
+/CS low (card selected and idle, mouse held off), bit 4 low (PS/2 keyboard
+held off), MOSI and SCK high.  Every driver leaves the latch at EB, and
+the boot loader writes EB first, because the 74HC574 powers up with
+random bits.  (Before the PS/2 keyboard socket, rest was FB.)
 
 **Why the columns come from the latch.**  The plan had a 74F138 decode the
 column from the address during the read.  That path (/PORT_RD, '138,
@@ -118,8 +119,10 @@ give their usual character.  Either Ctrl gives the character AND 1F.
 Shift, Ctrl, Alt, Fn and Caps Lock give no character; Caps Lock toggles
 caps lock.  Key 60 (column 7 row 4) is free for a 64th key.
 
-`kbd_scan` scans all 8 columns once per frame, about 620 clocks with no new
+`kbd_scan` scans all 8 columns once per frame, about 700 clocks with no new
 key, and puts each new press in an 8-entry buffer (`kbd_getc` takes them).
+With a PS/2 keyboard plugged in (below) it also reads that keyboard into
+the same `KBD_NOW` bits and buffer, so programs work with either keyboard.
 `KBD_NOW` (xA0-xA7) holds the last scan's rows, for games that want to
 know which keys are held.  Keys are not debounced: a key bounces for less
 than a frame, so a once-per-frame scan sees at most one bounce and reads it
@@ -128,7 +131,8 @@ either way.
 `con_gets` (in the library at `INPUT_CODE`) reads a typed line into a buffer (R1:R0, at
 most R2 characters, ending with a 00), echoing it on the console with
 Backspace on the same text row; Enter ends it and AC = the length.  It
-scans the keyboard once a frame while it waits.
+scans the keyboard once a frame while it waits, and waits with
+`wait_frames_io`, so a PS/2 keyboard costs it nothing extra.
 
 ### Keyboard board
 
@@ -215,7 +219,7 @@ through a resistor divider each, at the SD socket: 1.8k from the latch
   threshold in about 20 ns.  The drivers' fastest SCK half period is
   several instructions (over 300 ns, SCK is under 1 MHz), and `sd_init`'s
   slow clocks are far slower.
-- **Current:** about 1 mA per line while it is high.  At rest (FB) SCK and
+- **Current:** about 1 mA per line while it is high.  At rest (EB) SCK and
   MOSI are high and /CS is low, so about 2 mA.  The latch also drives the
   pads' CLOCK and LATCH from the same pins at the full 5 V; 1 mA is well
   inside the 74HC574's drive.
@@ -319,12 +323,79 @@ a key pulling a row low only reverse-biases the diode.
 Buyer note: the keyboard must be a PS/2 keyboard, or a USB keyboard that
 supports PS/2 through a passive adapter (many don't).
 
-Software status: the drivers above and the FPGA model still use the Fx
-latch values and have no PS/2 keyboard driver, so with a rev 02 port PLD
-pad 2 reads as no buttons until they move to the Ex values.  The planned
-driver (scan code set 2 into the same `KBD_NOW` bits and key buffer, so
-programs don't change; about 500-600 bytes) is described in the proposal
-`/mnt/project-files/io/second_ps2_port.md`.
+### The PS/2 keyboard driver
+
+`placard_ps2.asm` (2026-10-22), in the library at `PS2_CODE` (xC000-xC4FF,
+plus three small pieces in free ends of other library pages).  Programs
+don't change: `kbd_scan` reads the PS/2 keyboard into the same `KBD_NOW`
+bits and key buffer as the key matrix, using the same key numbers.
+
+- **Finding it.**  `port_init` sends ED (set the lights) and expects FA
+  twice; `KBD_FLAGS` bit 1 = 1 when it answered.  About 5 ms with a
+  keyboard, 16 ms without.  A keyboard can still be testing itself after
+  power-up, so with none found `kbd_scan` asks again every 32nd call, 4
+  times (16 ms each).  A keyboard that stops answering when its light is
+  set counts as unplugged.
+- **Scan codes.**  Set 2, the keyboard's default.  A make code clears the
+  key's bit in `KBD_NOW` and buffers its character (through `kbd_key`, so
+  Shift, Ctrl, Caps Lock and Fn work as on the matrix); a break code (F0)
+  sets the bit again.  E0 keys: the arrows, right Ctrl, right Alt, keypad
+  Enter, and either Windows key as Fn.  The PC keys the 63-key layout has
+  no key for give their character straight away: Delete 7F, Home 15,
+  \` (Shift: ~).  Pause (E1 and 7 bytes) and the keys with no place (F1-F12,
+  the keypad, End, Page Up/Down, Insert) are ignored.  The mapping is the
+  same as the FPGA's `ps2_key_matrix.vhd`.
+- **Caps Lock** (either keyboard) lights the PS/2 keyboard's Caps Lock
+  light: `kbd_scan` sends ED and the light byte when they are out of step
+  (about 110,000 clocks, once per press).
+- **Held keys** repeat: the keyboard sends the make code again by itself,
+  and each one types the character again.
+- **One byte at a time.**  A poll reads up to 6 bytes, listening again
+  before each.  The keyboard keeps about 16 bytes while it is held off,
+  so nothing is lost when a burst takes more than one frame.
+- The older RAM demos in the menu ROM (CPU test, pi, Mandelbrot, Life)
+  can't reach the library, so in them only the matrix Esc goes back to
+  the menu.  ROM programs and the menu itself take either keyboard.
+
+| Routine | Does | Clocks |
+|---|---|---|
+| `kbd_scan` | As above; with a PS/2 keyboard, also listens to it (unless `wait_frames_io` already did) and reads what it sends | about 2,500 + the listen (about 8,000-26,000) with nothing typed; about 25,000 per byte (a key press is 1-2 bytes, a release 2-3) |
+| `wait_frames_io` | `wait_frames`, listening to the mouse and the PS/2 keyboard while it waits (below) | AC frames |
+| `kbd_probe` | Looks for a PS/2 keyboard again (as `port_init` does) | about 120,000 (5 ms); 400,000 (16 ms) with none |
+| `kbd_cmd` | Sends one command byte to the PS/2 keyboard and reads its FA | about 55,000 |
+
+### Listening costs time
+
+A PS/2 device starts sending only some time after its clock is let go,
+and the CPU has to watch every clock edge of a byte (a byte takes 0.7-1.1
+ms whatever the code does).  Two things keep the cost down:
+
+- **The listen window adapts** (`ps2_listen`).  It lasts as long as the
+  device has been seen to take to start, plus 0.19 ms, up to the full 1 ms
+  (`MOUSE_WAIT` = 16 units of 64 us).  Every 32nd listen, and until the
+  device has been seen to start at all, it uses the full 1 ms, in case a
+  slower start was missed.  A window that is too short never loses data:
+  the device is held off before it starts, keeps the data and tries again.
+  Measured in the simulator with nothing typed: `kbd_scan` about 11,000
+  clocks with a keyboard that starts in 0.05 ms, 19,000 at 0.4 ms, 27,000
+  at 0.8 ms.  Real start delays get measured at bring-up (BRINGUP.md).
+- **`wait_frames_io`** listens during the time a program spends waiting for
+  the next frame.  Call it in place of `wait_frames` (same arguments, jump
+  table xFBDC).  With both devices it listens to the mouse in even frames
+  and the keyboard in odd ones; in the last frame of the wait it lets a
+  device go only while there is time to finish (a mouse packet before line
+  read 227, about 3.6 ms before the frame ends; a keyboard byte before 244,
+  about 1.4 ms), so the wait still ends at the frame's start.  `mouse_poll`
+  and `kbd_scan` then only take what it read: about 150 and 1,600 clocks.
+  A program with no spare time in its frame gets nothing from it and
+  should keep calling `mouse_poll` and `kbd_scan` as before (or poll every
+  second frame: the mouse adds up its movement and the keyboard keeps its
+  bytes, so only the delay grows).
+
+`menu_poll` checks the PS/2 keyboard's Esc too.  A ROM program that calls
+`menu_poll` but neither `kbd_scan` nor `wait_frames_io` would never hear
+that Esc, so when the keyboard hasn't been listened to for 4 frames
+`menu_poll` listens to it itself.
 
 ## PS/2 mouse
 
@@ -346,7 +417,7 @@ start clocks keep /CS high for about 370 us, once, when a card is started.
 | Routine | Does | Clocks |
 |---|---|---|
 | `mouse_init` | Resets the mouse (FF: FA, then AA 00 after its self test) and turns reporting on (F4: FA).  AC = 0 running, 1 no mouse, 2 wrong answer | up to 1 s while the mouse tests itself |
-| `mouse_poll` | Lets the mouse send for about 1 ms; reads one 3-byte packet if it starts.  AC = 1 new packet, 0 nothing, 2 bad packet.  `MOUSE_B` bit 0 left, 1 right, 2 middle; `MOUSE_DX` right and `MOUSE_DY` down, -127 to 127 | about 24,000 (1 ms) with nothing new, about 76,000 (3 ms) with a packet |
+| `mouse_poll` | Lets the mouse send (up to 1 ms, as long as it has been seen to take to start: "Listening costs time" above); reads one 3-byte packet if it starts.  After `wait_frames_io` it only returns what that read.  AC = 1 new packet, 0 nothing, 2 bad packet.  `MOUSE_B` bit 0 left, 1 right, 2 middle; `MOUSE_DX` right and `MOUSE_DY` down, -127 to 127 | up to about 25,000 (1 ms) with nothing new, about 76,000 (3 ms) with a packet; about 150 after `wait_frames_io` |
 | `mouse_cmd` | Sends one command byte and reads the FA acknowledge, for other settings (sample rate F3, resolution E8) | about 55,000 |
 
 The mouse runs in stream mode.  While it is held off it keeps adding up
@@ -355,8 +426,8 @@ up to 255 counts each way, and the driver clamps to ±127.  If a frame or
 the packet is cut off (the poll gives up just as the mouse starts), the
 mouse sends the whole packet again at the next poll, as PS/2 requires.
 A mouse must start sending within about 0.85 ms of being let go; if one
-is slower, raise `MOUSE_WAIT` in `placard_io.asm` (each step adds 0.25 ms
-to every poll).
+is slower, raise `MOUSE_WAIT` in `placard_io.asm` (each step adds 64 us
+to the full-length listens).
 
 `mouse_move` (in the library at `INPUT_CODE`) adds a packet's movement to a pointer
 position in R1:R0 (X) and R3:R2 (Y), held to 0-639 and 0-479.  Call it
@@ -364,9 +435,11 @@ after `mouse_poll` returns 1.
 
 ## Rules for software
 
-- Use the drivers, or leave the latch at FB (`P_IDLE`) when done.
-- Never hold /CS high for 50 us or more outside `sd_init` (the mouse would
-  start sending with nobody listening).
+- Use the drivers, or leave the latch at EB (`P_IDLE`) when done.
+- Never hold /CS high for 50 us or more outside `sd_init` and the mouse
+  routines, or latch bit 4 high (with bit 7 = 1) outside the PS/2 keyboard
+  routines (a device would start sending with nobody listening).
+- Only one PS/2 clock free at a time (they share DATA).
 - Scan the keyboard once per frame, not faster (bounces).
 - Mask D5:D0 when reading the pads at an odd address.
 
@@ -379,11 +452,17 @@ The drivers use xA0-xBF (`zeropage.asm`); programs have x20-x8F.
 | xA0-xA7 | KBD_NOW | Rows of each column from the last scan, 0 = down |
 | xA8-xAF | KBD_BUF | Key buffer (8 entries, holds 7) |
 | xB0, xB1 | KBD_HEAD, KBD_TAIL | Key buffer indexes |
-| xB2 | KBD_FLAGS | bit 0 caps lock |
+| xB2 | KBD_FLAGS | bit 0 caps lock, bit 1 a PS/2 keyboard answered, bit 2 its Caps Lock light is on, bit 6 `wait_frames_io` listened to it |
 | xB3 | IO_TMP | Driver scratch |
 | xB4 | SD_FLAGS | bit 0 block addressing (SDHC), bit 1 slow clock, bit 7 ready |
-| xB5-xB8 | MOUSE_B, MOUSE_DX, MOUSE_DY, MOUSE_ST | Mouse buttons, movement and state |
+| xB5-xB8 | MOUSE_B, MOUSE_DX, MOUSE_DY, MOUSE_ST | Mouse buttons, movement and state (`MOUSE_ST` bit 7 running, bit 6 `wait_frames_io` listened, bit 0 it read a packet) |
 | xB9-xBC | IO_T0-IO_T3 | Driver scratch |
+| xBD | FS_IDX | FAT reader scratch |
+| xBE, xBF | PS2_DEV, PS2_CM | The PS/2 device being talked to (0 mouse, 1 keyboard) and its CLK bit (20, 40) |
+
+The PS/2 keyboard's state is in RAM at x4D80-x4D9D (next to the FAT
+reader's x4D00-x4D7F): its keys (like `KBD_NOW`), new presses, the decoder
+state, each device's start delay and the `wait_frames_io` state.
 
 ## Code
 
@@ -393,15 +472,24 @@ place (ROM.md).  They use the library's calling convention, and the public
 ones have fixed jump table entries ([LIBRARY.md](LIBRARY.md#jump-table)).
 `placard_lib.asm` includes them.
 
+The PS/2 keyboard driver and the listening are `src/scripts/placard_ps2.asm`
+at `PS2_CODE` (above).
+
 - `src/scripts/io_devices.py`: models of the port, key matrix, pads, SD
-  card and mouse for `placard_sim.py` (`Cpu(..., io=SharedPort())`).
+  card, mouse and PS/2 keyboard (scan code set 2) for `placard_sim.py`
+  (`Cpu(..., io=SharedPort())`).  The port counts any moment both PS/2
+  devices drive the shared DATA line.
 - `src/scripts/test_io.py`: tests every driver against the models, and
-  checks that each leaves the latch at FB and keeps /CS-high times under
-  50 us.
+  checks that each leaves the latch at EB and keeps the /CS-high and
+  keyboard-clock-free times under 50 us.  The PS/2 keyboard tests cover
+  finding it (and finding it later), every key, the E0 and PC keys, the
+  light, both keyboards at once, the adaptive window, the mouse and
+  keyboard together on the shared DATA line, and `wait_frames_io`.
 - `src/scripts/io_demo.asm` (`build\io_demo.bat`): starts the SD card,
   shows the end of block 0, starts the mouse, echoes typed keys and prints
-  pad buttons and mouse packets.  On the Basys3, set SW15 before reset to
-  use the mouse (the keyboard is then not connected).
+  pad buttons and mouse packets.  It waits with `wait_frames_io`.  On the
+  Basys3, set SW15 before reset to use the mouse, or SW14 to use the USB
+  keyboard as a PS/2 keyboard (the key matrix is then not connected).
 
 ## FPGA model (Basys3)
 
@@ -412,11 +500,13 @@ ones have fixed jump table entries ([LIBRARY.md](LIBRARY.md#jump-table)).
 |---|---|
 | Key matrix | The USB keyboard, through `ps2_key_matrix.vhd`, while SW15 = 0 |
 | PS/2 mouse | The USB mouse on the same port, while SW15 = 1 (the latch drives the PS/2 pins open drain) |
+| PS/2 keyboard socket | The USB keyboard on the same port, while SW14 = 1 and SW15 = 0: latch bit 4 holds its CLK and bit 3 DATA (open drain), and the port PLD reads its CLK on pin 9, so it goes through `placard_ps2.asm`.  Not tried on a Basys3 yet: its USB-to-PS/2 bridge has to answer the ED (lights) command for `port_init` to find it |
 | SD card | PmodMicroSD on JB (top row): JB1 /CS, JB2 MOSI, JB3 MISO, JB4 SCK |
 | Pads | SNES pads on JC (top row): JC1 CLOCK, JC2 LATCH, JC3 pad 1 DATA, JC4 pad 2 DATA, plus the Pmod's 3.3 V and GND |
 
-The Basys3's USB port is one PS/2 port, so the model uses the keyboard or
-the mouse, picked by SW15.  The pads run from the Pmod's 3.3 V in the
+The Basys3's USB port is one PS/2 port, so the model uses one of the
+three, picked by SW15 and SW14 (set them before reset: the keyboard is
+looked for by `port_init`).  The pads run from the Pmod's 3.3 V in the
 model.  A SNES pad is CMOS shift registers and is generally run at 3.3 V by
 FPGA projects, but that is not checked here.
 

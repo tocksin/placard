@@ -7,7 +7,7 @@
 ;
 ; placard_lib.asm includes this file; its code is at INPUT_CODE (xD500).
 ;
-; Date: 10/19/2026
+; Date: 10/22/2026
 ; ============================================================
 
 #addr INPUT_CODE
@@ -19,9 +19,11 @@
 ;   out:     AC = number of characters; the buffer holds them and a 00.
 ;            Enter ends the line (the cursor moves to the next line);
 ;            Backspace takes back a character on the same text row.
-;   changes: R3, X, Y, T0-T7, IO_T0-IO_T3, IO_TMP
-;   clocks:  waits for the keys: one kbd_scan per frame
-;   Uses 4 stack bytes.  The console must be set up (con_clear).
+;   changes: R3, X, Y, T0-T7, IO_T0-IO_T3, IO_TMP, PS2_DEV, PS2_CM
+;   clocks:  waits for the keys: one kbd_scan per frame, after
+;            wait_frames_io (which listens to a PS/2 keyboard and the
+;            mouse while it waits)
+;   Uses 10 stack bytes.  The console must be set up (con_clear).
 ; ------------------------------------------------------------
 con_gets:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
@@ -44,8 +46,8 @@ cg_wait:
     ld   in_r1, [x]
     ld   LINK_HI, x
     ld   in_r1 >> 8, [x]
-    ld   wait_frames >> 8, y
-    jmp  wait_frames
+    ld   wait_frames_io >> 8, y
+    jmp  wait_frames_io
 in_r1:
     ld   LINK_LO, x
     ld   in_r2, [x]

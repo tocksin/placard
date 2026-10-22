@@ -35,7 +35,7 @@ The generator keeps every block of code whose branches stay inside it in
 one 256-byte page (branches only change PC low), and jumps to the next page
 when a block does not fit.
 
-Date: 10/21/2026
+Date: 10/22/2026
 """
 
 import os
@@ -47,10 +47,10 @@ FAIL_BASE = 0x0080              # fail loop N at FAIL_BASE + 4 N
 # ROM markers: (address, value).  Y walk: page p offset x10 = p.  The map
 # test uses one marker per 8 KB section, all at offsets x10 of a page whose
 # column offset is below x20, so the RAM bytes it writes there are never on
-# the screen.
+# the screen.  The library leaves xC200-xC217 free for section 6's marker.
 Y_MARKS = [(p << 8 | 0x10, p) for p in (0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80)]
 SEC_MARKS = [(0x0110, 0x01), (0x2010, 0x20), (0x4010, 0x40), (0x7E10, 0x7E),
-             (0x8010, 0x80), (0xA010, 0xA0), (0xC010, 0xC0), (0xFE10, 0xE7)]
+             (0x8010, 0x80), (0xA010, 0xA0), (0xC210, 0xC2), (0xFE10, 0xE7)]
 X_PAGE = 0x0F                   # X walk: ROM x0F00 + v = v ^ 5A
 X_VALUES = [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0xFF]
 ID_TABLE = 0x3F00               # ROM data test: x3F00 + n = n
@@ -732,7 +732,7 @@ def generate():
         '1 branches  2 AND  3 OR  4 XOR  5 ADD  6 SUB  7 carry  8 SHR',
         '9 AC/X  10 Y address  11 X address  12 ROM data  13 RAM data',
         '14 map register  15 RAM address lines  16 video line read')]
-    L += [';', '; Date: 10/21/2026', '',
+    L += [';', '; Date: 10/22/2026', '',
           '#include "placard.asm"', '#include "placard_lib.asm"', '']
     for k, v in ZP.items():
         L.append('%-8s = 0x%02X' % (k, v))
