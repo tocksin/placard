@@ -316,11 +316,11 @@ def sheet_power(b):
     path(s, "VBUS", j13["A9"], f201["1"])
     # after the fuse: the on/off toggle, then the reset button (push to open), both in series
     sw1 = s.part("placard_std:SW_SPST", "SW1", 106.68, yr, {"1": "VFUSE", "2": "VON"}, value="ANT11TFHQE",
-                 footprint="", bare=("1", "2"), ref_at=(102.0, yr - 4.6), value_at=(100.0, yr + 5.6),
+                 footprint="placard:SW_Toggle_CIT_ANT11TFHQE", bare=("1", "2"), ref_at=(102.0, yr - 4.6), value_at=(100.0, yr + 5.6),
                  extra_props={"Manufacturer": "CIT Relay and Switch", "MPN": "ANT11TFHQE",
                               "Description": "Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing"})
     sw2 = s.part("placard_std:SW_Push_Open", "SW2", 124.46, yr, {"1": "VON", "2": "+5V"}, value="E112SD1A3QE",
-                 footprint="", bare=("1", "2"), ref_at=(119.8, yr - 4.6), value_at=(117.0, yr + 2.6),
+                 footprint="placard:SW_Push_CK_E112SD1A3QE", bare=("1", "2"), ref_at=(119.8, yr - 4.6), value_at=(117.0, yr + 2.6),
                  extra_props={"Manufacturer": "C&K", "MPN": "E112SD1A3QE",
                               "Description": "Reset: SPDT momentary pushbutton, NC contact used, 4 A 28 V DC, right-angle PCB snap-in"})
     path(s, "VFUSE", f201["2"], sw1["1"])
@@ -622,7 +622,7 @@ def sheet_memory(b):
               "B22", "B23", "B24", "B25", "B26", "B27", "B28", "B29", "B30", "B32"]:
         cart[c] = None
     j8 = s.part("placard_parts:Cartridge_Slot", "J8", 320.04, 95.25, cart, value="Molex 87715-9106",
-                ref_at=(304.8, 44), value_at=(304.8, 150), bare=("B16", "A17"))
+                footprint="placard:Molex_87715-9106_PCIe_x4_Vertical", ref_at=(304.8, 44), value_at=(304.8, 150), bare=("B16", "A17"))
     # the memory strobes: U11's down to lanes under the RAMs, /CE_HI from U12 up to J8 and down to U32,
     # /MAP_WR from U12 back round to U25's clock
     yl = {"~{WE}": 246.38, "~{RAM_OE}": 248.92, "~{CE_HI}": 251.46}
@@ -771,7 +771,8 @@ def sheet_video_out(b):
     j7 = s.part("placard_std:DE15_Receptacle_HighDensity_MountingHoles", "J7", 316.23, 101.6, {
         "1": "VGA_R", "2": "VGA_G", "3": "VGA_B", "4": None, "5": "GND", "6": "GND", "7": "GND", "8": "GND",
         "9": None, "10": "GND", "11": None, "12": None, "13": "~{HSYNC}", "14": "VSYNC", "15": None, "0": "GND"},
-        value="VGA", ref_at=(311, 84), value_at=(311, 126), bare=("1", "2", "3"))
+        value="VGA", footprint="Connector_Dsub:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm",
+        ref_at=(311, 84), value_at=(311, 126), bare=("1", "2", "3"))
     xc = 264.16
     for color, pin, xj in (("VGA_R", "1", None), ("VGA_G", "2", 274.32), ("VGA_B", "3", 281.94)):
         ys = [p[1] for c, p in rpins if c == color]
@@ -842,7 +843,7 @@ def sheet_video_out(b):
     r957 = s.part("placard_std:R_US", "R39", 256.54, yo + 3.81, {"1": "AUDIO", "2": "GNDA"}, value="10k",
                   footprint=FP_R, bare=("1",), ref_at=(259.0, yo + 3.3), value_at=(259.0, yo + 6.4))
     j6 = s.part("placard_std:AudioJack3", "J6", 281.94, yo + 2.54, {"T": "AUDIO", "R": "AUDIO", "S": "GNDA"},
-                value="3.5 mm", ref_at=(278, yo - 6.5), value_at=(285, yo + 8.0), angle=180, bare=("T", "R"))
+                value="3.5 mm", footprint="Connector_Audio:Jack_3.5mm_CUI_SJ1-3523N_Horizontal", ref_at=(278, yo - 6.5), value_at=(285, yo + 8.0), angle=180, bare=("T", "R"))
     path(s, "AUDIO", c903["2"], j6["T"])
     s.junction(r957["1"][0], yo, owner="AUDIO")
     xa = j6["T"][0] - 2.54
@@ -903,7 +904,7 @@ def sheet_port(b):
     j5 = s.part("placard_parts:PS2_Dual_Stacked", "J5", 307.34, 218.44,
                 {"B5": "KBD_CLK", "B1": "PS2_DATA", "A1": "PS2_DATA", "A5": "PS2_CLK", "B6": None, "B2": None,
                  "A2": None, "A6": None, "A4": "+5V", "B4": "+5V", "A3": "GND", "B3": "GND", "SH": "GND"},
-                value="PS/2 kbd + mouse", bare=("B5", "B1", "A1", "A5"))
+                value="PS/2 kbd + mouse", footprint="placard:PS2_Kycon_KMDGX-6S-6S-S4N", bare=("B5", "B1", "A1", "A5"))
     xk, yk = 284.48, 177.8
     res(s, "R55", 243.84, yk - 3.81, "+5V", "KBD_CLK", "4.7k", bare=("2",), **vref(243.84, yk - 3.81))
     diode(s, "D6", 261.62, yk - 3.81, "K0", "KBD_CLK", angle=270, bare=("2",), **vref(261.62, yk - 3.81))
@@ -929,6 +930,7 @@ def sheet_port(b):
     s.part("placard_std:SD_Card", "J4", 373.38, 170.18, {"1": "SD_CS", "2": "SD_DI", "3": "GND", "4": "+3V3", "5": "SD_CLK",
                                                         "6": "GND", "7": "SD_MISO", "8": None, "9": None, "10": None,
                                                         "11": None, "12": "GND", "13": "GND"}, value="SD (SPI)",
+           footprint="Connector_Card:SD_Kyocera_145638009511859+",
            bare=("1", "2", "5", "7"), ref_at=(353, 153), value_at=(353, 187))
     path(s, "SD_MISO", (350.52, 177.8), (345.44, 177.8), (345.44, 213.36), (340.36, 213.36), (330.2, 213.36))
     s.junction(340.36, 213.36, owner="SD_MISO")
@@ -939,6 +941,7 @@ def sheet_port(b):
     for ref, y, data, rp in [("J2", 81.28, "PAD1_DATA", "R40"), ("J3", 121.92, "PAD2_DATA", "R41")]:
         s.part("placard_parts:SNES_Pad_Socket", ref, 388.62, y, {"1": "+5V", "2": "P_SCK", "3": "P_MOSI", "4": data,
                                                                "5": None, "6": None, "7": "GND"}, value="SNES pad",
+               footprint="placard:SNES_Pad_Socket_Horizontal",
                bare=("2", "3", "4"), value_at=(392.5, y + 17.0))
         for net, yy in [("P_SCK", y - 5.08), ("P_MOSI", y - 2.54)]:
             path(s, net, (373.38, yy), (358.14, yy))
@@ -968,7 +971,8 @@ def sheet_slots(b):
             n[["A13", "B13", "A14", "B14", "A15", "B15", "A16", "B16"][i]] = A[i]
         n.update({"A17": "~{EXP1}" if k in (0, 2) else "~{EXP2}", "B17": f"SEL{k + 1}", "A18": "RW",
                   "B18": "~{LOAD_IMM}", "A19": "~{WE}", "B12": "CLK", "B19": "RUN"})
-        j = s.part("placard_parts:Expansion_Slot", ref, x, 110, n, value=f"Slot {k + 1}", ref_at=(x - 12, 78),
+        j = s.part("placard_parts:Expansion_Slot", ref, x, 110, n, value=f"Slot {k + 1}",
+                   footprint="placard:CardEdge_2x20_P2.54mm_Vertical", ref_at=(x - 12, 78),
                    value_at=(x - 12, 142), bare=("B17",))
         # SEL: a 1k straight off the last pin to GND or +5V
         px, py = j["B17"]
