@@ -35,7 +35,7 @@
 ;     python3 gen_menu_rom.py                 menu_data.asm, menu.hex (the whole ROM)
 ;     python3 test_menu.py                    runs it in placard_sim
 ;
-; Date: 10/20/2026
+; Date: 10/22/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -49,12 +49,17 @@ m_t2    = 0x23
 m_rl    = 0x24          ; return address of draw_list / draw_secs
 m_rh    = 0x25
 m_i     = 0x26          ; draw_list: item
-m_inv   = 0x27          ;   0 or 80 (inverse)
+                        ; (x27 unused: was the inverse video flag)
 m_ptl   = 0x28          ;   string pointer
 m_pth   = 0x29
 m_sec   = 0x2A          ; seconds left before the programs run in turn again
 m_fc    = 0x2B          ;   frames into this second
 m_last  = 0x2C          ; FRAME_LO last seen
+m_bar   = 0x2D          ; draw_list: the item's first bar mode byte (low)
+
+; row tints (mode byte bits 6:4 = R, G, B, VIDEO.md "Row tint")
+BAR_TINT   = 0x40       ; the highlighted program: a blue bar
+TITLE_TINT = 0x30       ; the title: a gold band, screen rows 20-35
 
 L_PG    = 0xF0          ; loader (the zero page is cleared under it)
 L_P     = 0xF1          ;   program
@@ -268,6 +273,13 @@ ms_2:
     ld   ac, [m_i]
     bra  ms_line
 ms_done:
+    ld   0x5A, y                ; the title band (rows 20-35, text row 3)
+    ld   15, ac
+ms_tb:
+    add  0x20 + 20, x
+    ld   TITLE_TINT, [y,x]
+    sub  1, ac
+    bcc  ms_tb
     ld   MENU_BLK >> 8, y       ; highlight the program that ran last
     ld   MB_PROG, x
     ld   [y,x], ac
@@ -478,7 +490,7 @@ ds_3:
     jmp  [m_rl]
 
 ; ------------------------------------------------------------
-; draw_list - the program names, m_sel in inverse video
+; draw_list - the program names, m_sel on a tinted bar
 ;   return: m_rh:m_rl.  Changes AC, X, Y, T0-T5
 ; ------------------------------------------------------------
 #addr 0x2400
@@ -492,13 +504,30 @@ dl_item:
     ld   ac, [CUR_ROW]
     ld   LIST_COL, ac
     ld   ac, [CUR_COL]
-    clr  ac
-    ld   ac, [m_inv]
+    ld   [CUR_ROW], ac
+    shl                         ; its bar: screen rows 8 * row - 4 to
+    shl                         ; 8 * row + 11, mode bytes x5A1C + 8 * row
+    shl
+    add  0x1C, ac
+    ld   ac, [m_bar]
+    ld   0x5A, y
     ld   [m_i], ac
     xor  [m_sel], ac
-    bne  dl_1
-    ld   0x80, ac
-    ld   ac, [m_inv]
+    bne  dl_off
+    ld   15, ac                 ; the highlighted program: tinted bar
+dl_on:
+    add  [m_bar], x
+    ld   BAR_TINT, [y,x]
+    sub  1, ac
+    bcc  dl_on
+    bra  dl_1
+dl_off:
+    ld   15, ac                 ; the others: no tint
+dl_of:
+    add  [m_bar], x
+    ld   0x00, [y,x]
+    sub  1, ac
+    bcc  dl_of
 dl_1:
     ld   [m_i], ac
     add  NAME_L & 0xFF, x
@@ -514,7 +543,6 @@ dl_ch:
     ld   [m_ptl], x
     ld   [y,x], ac
     beq  dl_next
-    or   [m_inv], ac
     ld   LINK_LO, x             ; CALL con_putc
     ld   dl_2, [x]
     ld   LINK_HI, x

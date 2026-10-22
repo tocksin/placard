@@ -356,6 +356,20 @@ drawn, and a "fast mode": blank the whole picture while computing, loading
 or decompressing, with sound still playing.  The pixel bytes of a blanked
 row are not read, so they are free for other data.
 
+**In the programs** (2026-10-22, measured with `placard_sim.py --stalls`,
+which models the stall clocks and skips them on blanked rows):
+
+| Program | What is blanked | Gain |
+|---|---|---|
+| Pi spigot | every row until its first digit is drawn | 7.7 % less time (1000 digits: 75.2 s to 69.5 s) |
+| Mandelbrot | each pass now draws top to bottom; rows not drawn yet | 4.8 % less time (1 bpp: 85.0 s to 81.0 s) |
+| CPU test | the empty rows around the grid | none to see (the test runs in 40 ms) |
+| Game of Life, text demo, ray caster, scroller | nothing: every row shows something | none |
+
+The most any program can gain is the 9.1 % of clocks the pixel reads take,
+so blanking is worth about 5-9 % for a program with empty or not yet drawn
+rows, not more.
+
 ## Row tint
 
 Date: 2026-10-22
@@ -399,6 +413,12 @@ the bench with all three tint bits set.
 
 A mock-up of the look is in the project files (video/line_tint_mockup.png,
 "strong" column).
+
+**In the programs** (2026-10-22): the menu's highlight bar (blue) and title
+band (gold), the text demo's blue status panel and a rainbow raster bar that
+bounces behind its 80 column text (only 40 mode byte writes a frame, no
+pixels), green-bar paper stripes behind the pi digits, and a rainbow of
+bands behind the Game of Life.
 
 ## Line repeat
 

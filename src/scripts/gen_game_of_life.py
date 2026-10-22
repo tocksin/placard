@@ -72,10 +72,10 @@ MEMORY
     0100-       code
     4000-45FF   column buffers: A 4000-41FF, B 4200-43FF, column 1 4400-45FF
                 (laid out like a screen column, row j at page + 0x20 + j)
-    5A20-5BFF   mode bytes, one per row (all 0, 1 bpp)
+    5A20-5BFF   mode bytes, one per row (1 bpp, rainbow row tints)
     6000-FFFF   video RAM
 
-Date: 10/16/2026
+Date: 10/22/2026
 """
 
 import argparse
@@ -386,6 +386,25 @@ def ring_seed(seed):
     return r
 
 
+# row tints (mode byte bits 6:4 = R, G, B): red, yellow, green, cyan, blue,
+# magenta, top to bottom
+TINTS = [0x10, 0x30, 0x20, 0x60, 0x40, 0x50]
+TINT_ROWS = 480 // len(TINTS)
+
+
+def tint_runs():
+    """(page, low byte of the first, count, mode byte) runs that set the
+    mode bytes 5A20-5BFF, split where a band crosses a page"""
+    runs = []
+    for b, v in enumerate(TINTS):
+        a, end = 0x5A20 + b * TINT_ROWS, 0x5A20 + (b + 1) * TINT_ROWS
+        while a < end:
+            n = min(end, (a | 0xFF) + 1) - a
+            runs.append((a >> 8, a & 0xFF, n, v))
+            a += n
+    return runs
+
+
 def build(gens, once, delay, seed):
     g = Gen()
     e, label, atom = g.e, g.label, g.atom
@@ -395,20 +414,17 @@ def build(gens, once, delay, seed):
     label('main')
     g.st(RING, 'ri')
     g.st(RING + 55 - LAG, 'rj')
-    e('; mode byte 0 (1 bpp) for every row: 5A20-5BFF')
-    e('ld   0x5A, y')
-    e('ld   0x20, ac')
-    label('md0')
-    e('ld   ac, x')
-    e('ld   0x00, [y,x]')
-    e('inc')
-    e('bne  md0')
-    e('ld   0x5B, y')
-    label('md1')
-    e('ld   ac, x')
-    e('ld   0x00, [y,x]')
-    e('inc')
-    e('bne  md1')
+    e('; mode bytes 5A20-5BFF: 1 bpp, and a rainbow of row tints behind the')
+    e('; cells (VIDEO.md "Row tint"), %d rows per colour' % TINT_ROWS)
+    for page, lo, n, v in tint_runs():
+        e('ld   0x%02X, y' % page)
+        e('ld   %d, ac' % (n - 1))
+        lb = g.uniq('md')
+        label(lb)
+        e('add  0x%02X, x' % lo)
+        e('ld   0x%02X, [y,x]' % v)
+        e('sub  1, ac')
+        e('bcc  %s' % lb)
     e('; byte column 0 (6020-61FF) is not part of the board: clear it')
     e('ld   0x60, y')
     e('ld   0x20, ac')
@@ -638,7 +654,7 @@ def build(gens, once, delay, seed):
     o(';')
     o(';     python3 placard_sim.py game_of_life.asm --run --max-steps 100000000 --png g.png')
     o(';')
-    o('; Date: 10/16/2026')
+    o('; Date: 10/22/2026')
     o('')
     o('#include "placard.asm"')
     o('')
