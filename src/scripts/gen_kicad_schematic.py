@@ -49,6 +49,35 @@ FP_D = "Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal"
 FP_SIP9 = "Resistor_THT:R_Array_SIP9"
 FP_JP = "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 
+# ---------------------------------------------------------------- part numbers
+# Manufacturer and MPN fields by part value, so KiCad's BOM export carries them.
+# A part with no chosen part number gets empty fields to fill in later.
+# docs/BOM.md and docs/BOM.csv are written from the sheets by gen_bom.py.
+MPN = {
+    "ATF22V10C-7PX": ("Microchip", "ATF22V10C-7PX"),
+    "ATF22V10C-10PU": ("Microchip", "ATF22V10C-10PU"),
+    "SN74F377AN": ("Texas Instruments", "SN74F377AN"),
+    "SN74F541N": ("Texas Instruments", "SN74F541N"),
+    "CD74ACT273E": ("Texas Instruments", "CD74ACT273E"),
+    "SN74HCT574N": ("Texas Instruments", "SN74HCT574N"),
+    "SN74HC574N": ("Texas Instruments", "SN74HC574N"),
+    "AS7C256C-15PCN": ("Alliance Memory", "AS7C256C-15PCN"),
+    "AT28C256-15PU": ("Microchip", "AT28C256-15PU"),
+    "MCP1700-3302E/TO": ("Microchip", "MCP1700-3302E/TO"),
+    "USB4125-GF-A": ("GCT", "USB4125-GF-A"),
+    "3 A hold": ("Bourns", "MF-RG300"),
+    "Molex 87715-9106": ("Molex", "87715-9106"),
+    "BAT85": ("Vishay", "BAT85"),
+}
+
+
+def part_fields(lib_id, value):
+    m, p = MPN.get(value, ("", ""))
+    return {"Manufacturer": m, "MPN": p}
+
+
+K.PART_FIELDS = part_fields
+
 
 def bus(name, n, start=0):
     return [f"{name}{i}" for i in range(start, start + n)]
@@ -334,7 +363,7 @@ def sheet_power(b):
     # (each side has its power flag on the pin end and its ground symbol below)
     nt = s.part("placard_std:NetTie_2", "NT1", 165.1, 104.14, {"1": "GND", "2": "GNDA"}, value="AGND tie",
                 footprint="NetTie:NetTie-2_THT_Pad0.3mm", ref_at=(158, 97), value_at=(160.5, 107),
-                bare=("1", "2"))
+                bare=("1", "2"), in_bom=False)
     for net in ("GND", "GNDA"):
         (px, py) = nt["1" if net == "GND" else "2"]
         xa = px - 7.62 if net == "GND" else px + 7.62
@@ -1023,7 +1052,8 @@ def build_cart():
     # the loader lines run straight across from the connector to U1, whose pins are a row apart like the connector's
     ld = {"A20": "1", "A18": "3", "B19": "4", "B17": "5", "B18": "23", "A19": "22"}
     j1 = s.part("placard_parts:Cartridge_Slot", "J1", 82.55, 120, cart, value="Card edge (87715-9106 mate)",
-                footprint="", ref_at=(67, 69), value_at=(88, 176), bare=tuple(ld) + ("A16", "B16", "A17"))
+                footprint="", ref_at=(67, 69), value_at=(88, 176), bare=tuple(ld) + ("A16", "B16", "A17"),
+                in_bom=False)    # gold fingers on the cartridge PCB, not a part
     for c in ("A16", "B16", "A17"):     # labels in a column, not staggered
         path(s, cart[c], j1[c], (j1[c][0] - 5.08, j1[c][1]))
         name(s, cart[c], j1[c][0] - 5.08, j1[c][1], 180)
@@ -1070,7 +1100,7 @@ def build_cart():
     s.part("Jumper:SolderJumper_3_Bridged12", "JP1", 175.26, 228.6,
            {"1": "~{CE_HI}", "2": "~{CE_UP}", "3": "GND"}, value="32K / 64K",
            footprint="Jumper:SolderJumper-3_P1.3mm_Bridged12_RoundedPad1.0x1.5mm_NumberLabels",
-           ref_at=(170, 220), value_at=(185, 220))
+           ref_at=(170, 220), value_at=(185, 220), in_bom=False)
     note(s, 22, 192, ["U2 (lower 32K) and U3 (upper) hold the image,",
                        "programmed off the board; their /WE is tied high.",
                        "U4, U5 are the ROM the CPU reads (15 ns).",
