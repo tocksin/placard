@@ -156,12 +156,12 @@ mid = [
     (0x5200, 0x52FF, C["io"], "Shared port: keys, SD, pads, PS/2", None),
     (0x5300, 0x53FF, C["io"], "Slot 2 (x5300) / slot 4 (x5380)", None),
     (0x5400, 0x5A1F, C["free"], "Program data", None),
-    (0x5A20, 0x5BFF, C["mode"], "LINE CODES (mode bytes)\nrow r at x5A20+r, 480 rows\nbits 1:0 = 1/2/4/8 bpp\nbits 3:2 = 1x/2x/4x repeat",
+    (0x5A20, 0x5BFF, C["mode"], "LINE CODES (mode bytes)\nrow r at x5A20+r, 480 rows\nbits 1:0 = 1/2/4/8 bpp\nbits 3:2 = 1x/2x/4x repeat\nbits 6:4 = R/G/B tint, 7 = blank",
      "line\ncodes"),
     (0x5C00, 0x5DF2, C["free"], "Program data", None),
     (0x5DF3, 0x5FFF, C["audio"], "AUDIO buffer, 525 bytes\n1 sample/line, 8-bit\n80h = silence", "audio"),
 ]
-hC = [14, 4, 4, 9, 5, 5, 5, 5, 10, 14, 8, 12]
+hC = [14, 4, 4, 9, 5, 5, 5, 5, 10, 16, 8, 12]
 setup(axC, sum(hC), "x4000-x5FFF RAM  (section 2 + I/O)\nnot to scale", 4.4)
 column(axC, 0.0, mid, hC, desc_dx=0.0, fs=10)
 io0 = sum(hC[:4]); io1 = sum(hC[:8])

@@ -627,6 +627,10 @@ def render(mem, path):
         (2, 2, 1), (2, 2, 3), (2, 7, 0), (2, 7, 3), (7, 2, 0), (7, 2, 3), (7, 7, 0), (7, 7, 3))]
     for y in range(480):
         mbyte = mem[MODE_BASE + y]
+        if mbyte & 0x80:                # blank line: black, no pixel reads
+            continue
+        # row tint, bits 6:4 = R, G, B: about 0.2 V of 0.7 V on that channel
+        tint = [73 if mbyte & (0x10 << k) else 0 for k in range(3)]
         bpp = 1 << (mbyte & 3)
         off = row_offset(y, mbyte)
         for col in range(80):
@@ -643,6 +647,8 @@ def render(mem, path):
                     c = pal4[v]
                 else:
                     c = rgb8(v)
+                if mbyte & 0x70:
+                    c = tuple(min(255, c[k] + tint[k]) for k in range(3))
                 for k in range(w):
                     xx = col * 8 + i * w + k
                     if xx < 640:

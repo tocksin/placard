@@ -31,22 +31,23 @@ slots a card will use, and J1 only with the Cherry MX keyboard (a PS/2 keyboard 
 
 | Board | Components | Without optional parts | Lines estimated |
 |---|--:|--:|--:|
-| Main board | $183.12 | $164.52 | 38 |
+| Main board | $184.37 | $165.77 | 41 |
 | Cartridge | $61.36 | $61.36 | 4 |
 | Keyboard | $145.96 | $145.96 | 6 |
-| **All three** | **$390.44** | **$371.84** | |
+| **All three** | **$391.69** | **$373.09** | |
 
 ## Main board
 
-54 lines, 179 parts on the schematic.
+57 lines, 191 parts on the schematic.
 
-Components: **$183.12** for one board at these quantities, **$164.52** without the optional parts.
+Components: **$184.37** for one board at these quantities, **$165.77** without the optional parts.
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
 | 12 | U1, U5-U12, U15, U17, U38 | ATF22V10C-7PX | Microchip | PLD, 22V10, 7.5 ns, PDIP-24 0.3" (programmed) |  | 2.99 | 35.88 | Mouser | State U1; ALU U5, U6; Address mux U7-U10; Memory control U11; I/O decode U12; Sync U15; Instruction register U17; Shared port U38 |
 | 7 | U2-U4, U13, U14, U16, U35 | ATF22V10C-10PU | Microchip | PLD, 22V10, 10 ns, PDIP-24 0.3" (programmed) |  | 2.63 | 18.41 | Mouser | Branch U2; PC U3, U4; H counter U13; V counter U14; Color decoder U16; Audio slot U35 |
-| 6 | U18-U23 | SN74F377AN | Texas Instruments | Octal D flip-flop with enable, 74F, DIP-20 |  | 1.05 | 6.30 | Mouser |  |
+| 5 | U18-U22 | SN74F377AN | Texas Instruments | Octal D flip-flop with enable, 74F, DIP-20 |  | 1.05 | 5.25 | Mouser |  |
+| 1 | U23 | CD74HCT377E | Texas Instruments | Octal D flip-flop with enable, 74HCT, DIP-20 (line code: drives the row tint) |  | 1.10 | 1.10 | est.: TI CD74HCT377E; check stock |  |
 | 1 | U25 | CD74ACT273E | Texas Instruments | Octal D flip-flop with clear, 74ACT, DIP-20 |  | 2.45 | 2.45 | Mouser |  |
 | 4 | U26, U27, U29, U39 | SN74F541N | Texas Instruments | Octal buffer, 3-state, 74F, DIP-20 |  | 1.49 | 5.96 | Mouser |  |
 | 2 | U31, U32 | AS7C256C-15PCN | Alliance Memory | SRAM, 32K x 8, 15 ns, PDIP-28 0.3" |  | 15.21 | 30.42 | Mouser |  |
@@ -67,8 +68,9 @@ Components: **$183.12** for one board at these quantities, **$164.52** without t
 | 1 | SW2 | PTS645VL58-2 LFS | C&K | Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil) |  | 0.25 | 0.25 | est.: C&K PTS645VL58-2 LFS |  |
 | 1 | K1 | G5LE-1 DC5 | Omron | Reset relay: SPDT, 5 V coil (63 ohm, 80 mA), 8 A 30 V DC, through hole; NC contact carries the 5 V |  | 1.80 | 1.80 | est.: Omron G5LE-1 DC5 |  |
 | 1 | F1 | MF-RG300 | Bourns | Polyfuse, 3 A hold, radial | 3 A hold | 0.73 | 0.73 | Mouser: MF-RG300-0 | Part number from the footprint (Fuse_Bourns_MF-RG300) |
-| 25 | D1-D6, D8-D26 | BAT85 | Vishay | Schottky diode, DO-35 |  | 0.10 | 2.50 | est.: Vishay BAT85 | Any BAT85 (Vishay, Nexperia, onsemi) |
+| 28 | D1-D6, D8-D29 | BAT85 | Vishay | Schottky diode, DO-35 |  | 0.10 | 2.80 | est.: Vishay BAT85 | Any BAT85 (Vishay, Nexperia, onsemi) |
 | 1 | D7 | SA5.0A | Littelfuse | D_Zener |  | 0.40 | 0.40 | est.: Littelfuse SA5.0A, 500 W TVS, DO-15 axial |  |
+| 6 | D30-D35 | 1N4148 | Vishay | Small-signal diode, DO-35 |  | 0.10 | 0.60 | est.: Vishay 1N4148 | Any 1N4148 (Vishay, onsemi, Diodes Inc.) |
 | 2 | R1, R2 | MFR-25FBF52-5K1 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 5.1k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
 | 7 | R3, R4, R13, R39-R41, R48 | MFR-25FBF52-10K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 10k | 0.10 | 0.70 | est.: Yageo MFR-25FBF52 series |  |
 | 8 | R5-R12 | MFR-25FBF52-47R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 47 | 0.10 | 0.80 | est.: Yageo MFR-25FBF52 series |  |
@@ -83,6 +85,7 @@ Components: **$183.12** for one board at these quantities, **$164.52** without t
 | 3 | R42-R44 | MFR-25FBF52-1K8 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 1.8k | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
 | 3 | R45-R47 | MFR-25FBF52-3K3 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 3.3k | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
 | 3 | R49, R50, R55 | MFR-25FBF52-4K7 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 4.7k | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
+| 3 | R56-R58 | MFR-25FBF52-910R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 910 | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
 | 1 | RN1 | 4609X-101-103LF | Bourns | Resistor network, 8 bussed, SIP-9 | 10k | 0.40 | 0.40 | est.: Bourns 4609X-101 series |  |
 | 1 | RN2 | 4609X-101-472LF | Bourns | Resistor network, 8 bussed, SIP-9 | 4.7k | 0.40 | 0.40 | est.: Bourns 4609X-101 series |  |
 | 35 | C1-C23, C25-C27, C29, C31, C32, C35-C39, C43 | C320C104K5R5TA | KEMET | Ceramic capacitor, 5 mm pitch | 100n | 0.18 | 6.30 | est.: KEMET C320C104K5R5TA |  |

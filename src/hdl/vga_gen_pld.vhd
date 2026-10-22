@@ -2,7 +2,7 @@
 -- @brief Creates VGA timing for sync signals using PLD conversions
 -- @author Justin Davis
 --
--- Date: 10/19/2026
+-- Date: 10/22/2026
 -------------------------------------------------------------------------------
 
 library ieee;           use ieee.std_logic_1164.all;
@@ -26,6 +26,7 @@ entity vga_gen_pld is
         rowA8Out        : out sl;   -- video address A8
         lc2In           : in  sl;   -- line code register Q2 (line repeat)
         lc3In           : in  sl;   -- line code register Q3
+        lc7In           : in  sl;   -- line code register Q7 (blank line, H counter pin 6)
         i1In            : in  sl;   -- instruction register bit 1 (audio PLD pin 16)
         acSelNOut       : out sl;   -- AC source F541 /OE2 (audio PLD pin 21)
         pixelRowOut     : out slv(9 downto 0);
@@ -70,6 +71,7 @@ begin
         H0             => hcount(0),
         H1             => hcount(1),
         H2             => hcount(2),
+        LC7            => lc7In,
 
         H3             => hcount(3),
         H4             => hcount(4),
