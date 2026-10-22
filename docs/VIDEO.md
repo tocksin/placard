@@ -37,7 +37,7 @@ while the upper seven bits identify the byte position within a scan line.
 ## Horizontal Counter PLD
 
 ### Function
-The Horizontal Counter PLD (`ATF22V10_HCOUNT.pld`, revision 07) contains the
+The Horizontal Counter PLD (`ATF22V10_HCOUNT.pld`, revision 08) contains the
 upper seven bits of the horizontal counter.  The low three bits, H2:H0, are
 in the Sync PLD.
 
@@ -61,7 +61,9 @@ The PLD also generates:
 
 The horizontal video-active signal is high when the counter is in a range where
 there is active video.  It is sent to the Sync PLD and combined with the
-vertical counter to determine the full video active region.
+vertical counter to determine the full video active region.  On a line whose
+mode byte has bit 7 set it is only a one-clock pulse (revision 08, see
+[Blank line](#blank-line)).
 
 (An earlier version also had a first-active-pixel signal to capture the
 display mode.  The mode byte is now read in horizontal blanking; see
@@ -84,7 +86,7 @@ display mode.  The mode byte is now read in horizontal blanking; see
 | 3 | `H0` | Input | Horizontal pixel bit 0 (Sync PLD pin 14) |
 | 4 | `H1` | Input | Horizontal pixel bit 1 (Sync PLD pin 15) |
 | 5 | `H2` | Input | Horizontal pixel bit 2 (Sync PLD pin 16) |
-| 6 | — | — | Unused |
+| 6 | `LC7` | Input | Line code register Q7 (mode byte bit 7, blank line) |
 | 7 | — | — | Unused |
 | 8 | — | — | Unused |
 | 9 | — | — | Unused |
@@ -106,7 +108,7 @@ display mode.  The mode byte is now read in horizontal blanking; see
 
 - H9:H3 = Upper 7 bits of horizontal count (registered)
 - H2:H0 = Supplied by the Sync PLD
-- All ten output cells are used; inputs 2, 6-11 and 13 are free.
+- All ten output cells are used; inputs 2, 7-11 and 13 are free.
 
 ## Vertical Counter PLD
 
@@ -239,11 +241,22 @@ ADDR_SEL_LO = !PIXEL_ENABLE & (PC_ENABLE # X_ENABLE);
 
 ## Mode byte
 
-Date: 2026-10-16
+Date: 2026-10-22
 
 Each row has a mode byte; bits 1:0 pick 1, 2, 4 or 8 bpp for that row (the
-color decoder's MODE1:MODE0), and bits 3:2 pick the line repeat (see
-[Line repeat](#line-repeat)).  It is read in horizontal blanking, so it
+color decoder's MODE1:MODE0), bits 3:2 pick the line repeat (see
+[Line repeat](#line-repeat)), bits 6:4 tint the row (see
+[Row tint](#row-tint)) and bit 7 blanks it (see [Blank line](#blank-line)).
+
+| Bits | Name | Line code register output | Goes to |
+|---|---|---|---|
+| 1:0 | Colour mode: 1, 2, 4, 8 bpp | Q1:Q0 | Colour decoder MODE1:MODE0 |
+| 3:2 | Line repeat: 1x, 2x, 4x (10 and 11 are both 4x) | Q3:Q2 | Audio slot PLD (row address remap) |
+| 6:4 | Row tint: red, green, blue (1 = lift that channel) | Q6:Q4 | Tint resistors on the VGA lines, gated by VIDEN |
+| 7 | Blank line (1 = black, no pixel reads) | Q7 | H counter PLD pin 6 |
+
+Bits 7:4 were ignored by the hardware before 2026-10-22, so 0 in them keeps
+the old behaviour.  It is read in horizontal blanking, so it
 takes no screen space: all 80 byte columns (x6020 + column × 512 + row,
 columns 0-79, in 1x) are pixels, 640 pixels across in 1 bpp.
 
@@ -268,7 +281,10 @@ the pixel buffer outputs, and its /E is /MODE_LD from the audio slot PLD
 (pin 22, low for all of group 45).  It loads the mode byte from the pixel
 buffer on clocks 2-7 of group 45 and holds it until group 45 of the next
 line, so it is steady through all the active video.  Q1:Q0 go to the color
-decoder and Q3:Q2 back to the audio slot PLD for the line repeat.  The order
+decoder, Q3:Q2 back to the audio slot PLD for the line repeat, Q6:Q4 to the
+row tint resistors and Q7 to the H counter PLD (blank line).  It is a
+74HCT377 since 2026-10-22 (was a 74F377): the tint resistors need about
+3 mA from a high output, and the 74F377 is only rated for 1 mA.  The order
 on each line is: group 45 mode byte, group 46/47 audio sample, start of
 group 48 the DAC register copies the sample (H_VIDEO_ACTIVE rises), group 48
 first pixel.  The audio read replaces the mode byte in the pixel buffer, but
@@ -293,6 +309,90 @@ bytes and the screen showed 632 pixels in 1 bpp.  Then it was read in group
 37 from x4A20 + row, with the audio in groups 38/39 (x4DF3-x4FFF) and the
 DAC clocked by HSYNC, while x5000-x5FFF was all I/O.  Both moves were
 checked in GHDL against the design before them.
+
+## Blank line
+
+Date: 2026-10-22
+
+Bit 7 of a row's mode byte blanks every line of that row: the line is black
+and the video makes no pixel reads on it, so the CPU is not stalled for its
+80 groups.  HSYNC and VSYNC keep running, so the monitor stays locked.
+
+| | |
+|---|---|
+| Chips added | none (one trace, line code register Q7 to H counter pin 6) |
+| PLD change | H counter revision 08 |
+| CPU gain | 80 clocks per blanked line; the whole picture blanked gives about 38,400 clocks per frame back, about +10 % |
+| Audio | unaffected: the DAC register still gets its edge |
+
+**How.**  The H counter makes H_VIDEO_ACTIVE.  On a blanked line it is high
+for one clock only, the third clock of group 48 (H2:H0 = 000), instead of
+groups 48-127.  The Sync PLD raises PIXEL_ENABLE only when H_VIDEO_ACTIVE is
+high on a clock with H2:H0 = 110, and VIDEN only on H2:H0 = 111, so there
+are no reads and VIDEN stays low (black).  The audio DAC register is
+clocked by the rising edge of H_VIDEO_ACTIVE, so it still copies the line's
+sample, two clocks later than on a shown line; the sample is still in the
+pixel buffer because no pixel read has replaced it.
+
+```text
+BLANK_PULSE = LC7 & (H9:H3 = 48) & H2 & H1 & H0;
+H_VIDEO_ACTIVE.D = VIDEO_ON & !LC7
+                 # H_VIDEO_ACTIVE & !VIDEO_OFF & !LC7
+                 # BLANK_PULSE;
+```
+
+**Timing.**  LC7 changes only in group 45 and is first used at the end of
+group 47, more than two groups (640 ns) later.  H_VIDEO_ACTIVE is still a
+registered output, so nothing downstream changes.
+
+**Uses.**  Black separator rows, letterbox bars, hiding rows that are being
+drawn, and a "fast mode": blank the whole picture while computing, loading
+or decompressing, with sound still playing.  The pixel bytes of a blanked
+row are not read, so they are free for other data.
+
+## Row tint
+
+Date: 2026-10-22
+
+Bits 6:4 of a row's mode byte lift the red, green and blue levels of every
+pixel in that row by about 0.2 V (about 30 % of full scale), black pixels
+included.  So a row can have a coloured background behind 1 bpp text, and a
+program can make sky gradients or raster bars without touching the pixels.
+Each bit is one fixed level; all three together give a neutral grey lift.
+It adds to the colour, it does not remap it, and it can only lift.
+
+| | |
+|---|---|
+| Chips added | none (line code register becomes a 74HCT377, same pinout) |
+| Parts | per channel: 910 Ω, BAT85, two 1N4148 in series (3 resistors, 3 BAT85, 6 1N4148), all through-hole |
+| Level | about 200 mV on black, about 155 mV on full white (the DAC load is about 65 Ω) |
+
+```text
+U23 Q4 (red) --[910]--+--|>|--|>|--> VGA RED   (same for Q5 green, Q6 blue)
+                      |  2x 1N4148
+                    BAT85, anode at the node, cathode to VIDEN (Sync PLD pin 17)
+```
+
+**Why the diodes.**  Monitors take the back porch as their black level, and
+the line code register changes in the middle of it (group 45), so the tint
+must be off whenever the picture is blanked.  When VIDEN is low the BAT85
+holds the node at about 0.7 V (VIDEN's VOL plus the Schottky drop), which is
+too low to pass two silicon diodes (about 1.2 V), so nothing reaches the
+line: the blanking level stays at 0 V.  When VIDEN is high the BAT85 is off
+and Qn drives about 3 mA through the 910 Ω and the two 1N4148s.  With Qn low
+the 1N4148s are reversed, so a row without tint sees no extra load at all.
+
+**Loads.**  Each tint output sources about 3.1 mA (the 74HCT377 is rated for
+4 mA).  During blanking VIDEN sinks about (4.4 - 0.7) / 910 = 4.1 mA per set
+tint bit, 12.3 mA with all three, under the ATF22V10's 16 mA I_OL; its VOL
+stays well below the colour decoder's 0.8 V VIL.  Check VIDEN's low level on
+the bench with all three tint bits set.
+
+**Level spread.**  The lift follows the 74HCT377's VOH: 175-220 mV for VOH
+4.0-4.7 V.
+
+A mock-up of the look is in the project files (video/line_tint_mockup.png,
+"strong" column).
 
 ## Line repeat
 
