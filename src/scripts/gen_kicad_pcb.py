@@ -26,6 +26,14 @@ part of the case top:
   card shells) in a bay at the back left
 - keyboard header J1 just under the keyboard's back edge
 
+Since 2026-10-22 it also places every other part on the schematic as a fit
+test (no routing): chips in rows grouped by schematic sheet, each socketed
+(KiCad's "_Socket" DIP footprints) with PULL mm of chip-puller room kept
+clear past both socket ends, decoupling capacitor Cn beside Un, passives in
+blocks near what they serve.  It then checks courtyard overlaps (its own
+check and KiCad's DRC), puller room and parts off the board, prints the
+share of the board covered, and --png also draws docs/placard_placement.png.
+
 The script owns the board outline (Edge.Cuts), everything on Dwgs.User and
 Cmts.User, the mounting holes H1-H6 and the footprints it places (the table
 below); rerunning it puts those back where the table says and leaves every
@@ -54,6 +62,7 @@ ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 PCB = os.path.join(KDIR, "placard.kicad_pcb")
 PNG = os.path.join(ROOT, "docs", "placard_board_layout.png")
+PLACE_PNG = os.path.join(ROOT, "docs", "placard_placement.png")
 STOCK = os.environ.get("KICAD7_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
 LIBS = {"placard": os.path.join(KDIR, "lib", "placard.pretty")}
 
@@ -62,6 +71,7 @@ X0, Y0 = 50.0, 50.0          # back left corner on the KiCad page
 KB_LINE = 75.0               # keyboard's back edge, mm from the back edge
 TOP = "Dwgs.User"            # dimensions and notes
 NOTE = "Cmts.User"           # zones and labels
+PULL_LAYER = "Eco1.User"     # chip puller room past the socket ends
 
 FP_DSUB = "Connector_Dsub:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm"
 FP_AUDIO = "placard:Jack_3.5mm_Tensility_54-00174_Horizontal"
@@ -117,6 +127,68 @@ PLACE = [
 HOLES = [(5.0, 5.0), (W - 5.0, 5.0), (5.0, D - 5.0), (W - 5.0, D - 5.0), (145.0, D - 5.0), (240.0, 5.0)]
 
 
+# ---- component placement (a fit test: every part placed, nothing routed) ----
+#
+# Every other part on the schematic is placed by the tables below, grouped
+# by schematic sheet.  The chips sit in rows across the board with pin 1 at
+# the lower left (toward the front); every chip is socketed, so it uses
+# KiCad's "_Socket" DIP footprint (socket body outline and courtyard) and
+# keeps PULL mm clear past both ends of the socket body for a chip puller.
+# Each chip's decoupling capacitor Cn sits along the long side of Un, in the
+# channel between rows.  Passives are packed in blocks near what they serve.
+
+PULL = 2.5                   # puller room past each socket end, mm
+ROW_GAP = 2.5                # socket courtyard to socket courtyard along a row (> PULL - courtyard margin)
+CELL_GAP = 0.3               # courtyard to courtyard inside a passive block
+ROW_Y = [82.0, 98.0, 114.0, 130.0]   # chip rows under the keyboard
+
+# Rows of chips: (centre y, decap side "below"/"above", items).  An item is a
+# reference (chip, with its decap), ("at", x) to move to x, or
+# ("block", width, [refs], angle=90) for a block of passives centred on the row.
+ROWS = [
+    # under the keyboard, front to back: data bus + shared port, PC + address mux, control + ALU, video timing
+    (ROW_Y[0], "below", [("at", 8.0), ("block", 15.0, ["U40", "C40", "C42"]), "U18", "U26", "U27",
+                         ("at", 164.5), "U38", "U37", "U39"]),
+    (ROW_Y[1], "below", [("at", 8.0), "U3", "U4", "U7", "U8", "U9", "U10", "U17",
+                         ("block", 34.0, ["R3", "R4", "JP1", "JP2", "R13", "R51", "R52", "R53", "R54"])]),
+    (ROW_Y[2], "below", [("at", 8.0), "U1", "U2", "U5", "U6", "U19", "U20", "U21", "X1"]),
+    (ROW_Y[3], "below", [("at", 12.0), "U13", "U14", "U15", "U29", ("at", 151.5), "U35", "U12",
+                         ("block", 27.0, ["R5", "R6", "R7", "R8", "R9", "R10", "R11", "R12"]),
+                         ("block", 24.0, ["RN1", "RN2"], 0)]),
+    # behind the keyboard: memory under the cartridge slot, video out behind its passives
+    (66.0, "below", [("at", 112.0), "U31", "U32", "U11", "U25"]),
+    (43.0, "above", [("at", 112.0), "U16", "U22", "U23", "U36"]),
+]
+
+# Blocks of passives: (x0, y0, x1, y1, angle, refs), filled in columns left to right
+BLOCKS = [
+    # video out: DAC ladders, sync and audio, between the back-edge connectors and the video chips
+    (111.0, 14.5, 272.0, 32.0, 90,
+     ["R14", "R15", "R16", "R17", "R18", "R19", "R20", "R21", "R22", "R23", "R24", "R25", "R26", "R27",
+      "R28", "R29", "R30", "R31", "R32", "R33", "R34", "R35", "R36", "R37", "R38", "R39", "R56", "R57",
+      "R58", "D22", "D23", "D24", "D25", "D27", "D28", "D29", "D30", "D31", "D32", "D33", "D34", "D35",
+      "C45", "C46", "C44"]),
+    # shared port: PS/2, SNES, SD and keyboard protection and pull-ups, beside the cartridge slot
+    (111.0, 49.5, 154.5, 60.5, 90, ["D1", "D2", "D3", "D4", "D5", "D6", "D8", "D9", "D10", "D11", "D12", "D13"]),
+    (196.0, 49.5, 221.0, 60.5, 90, ["D14", "D15", "D16", "D17", "D18", "D19", "D20", "D21"]),
+    (222.0, 49.5, 272.3, 60.5, 0, ["R40", "R41", "R42", "R43", "R44", "R45", "R46", "R47", "R48", "R49", "R50",
+                                  "R55"]),
+]
+
+# Single parts: (ref, centre x, centre y, angle).  Power, at the back left
+# between the power switch and the expansion bay (the relay and the bulk
+# capacitor are the tallest parts, so they stay out from under the keyboard).
+FIXED = [
+    ("R1", 28.5, 3.2, 0), ("R2", 28.5, 6.6, 0),
+    ("K1", 24.75, 18.0, 90),
+    ("C41", 17.9, 31.8, 0), ("F1", 24.4, 31.8, 90), ("D7", 33.4, 34.8, 90),
+    ("D26", 18.4, 39.2, 0), ("NT1", 28.0, 40.0, 0),
+]
+
+DECAP = {"U%d" % n: "C%d" % n for n in list(range(1, 24)) + [25, 26, 27, 29, 31, 32, 35, 36, 37, 38, 39]}
+DECAP["X1"] = "C43"
+
+
 def mm(v):
     return pcbnew.FromMM(v)
 
@@ -157,6 +229,12 @@ def preload():
     for p in PLACE:
         _PRELOAD.setdefault(p[1], []).append(_load(p[1]))
     _PRELOAD[FP_HOLE] = [_load(FP_HOLE) for _ in HOLES]
+    fps = sch_footprints()
+    for ref in placed_refs():
+        if ref not in fps:
+            sys.exit("not on the schematic: " + ref)
+        _PRELOAD.setdefault(socketed(fps[ref]), []).append(_load(socketed(fps[ref])))
+        FPID[ref] = socketed(fps[ref])
 
 
 def load_fp(fpid):
@@ -194,6 +272,218 @@ def place(board, syms, ref, fpid, edge, where, angle=0):
     fp.Reference().SetTextThickness(mm(0.3))
     board.Add(fp)
     return fp
+
+
+# ---- placement engine
+
+FPID = {}                    # ref -> footprint, for the placed parts
+PULL_ZONES = []              # (ref, x0, y0, x1, y1): puller room past each socket end
+SOCKETS = []                 # refs of the socketed chips
+PROBLEMS = []                # placement problems found while placing
+LABELS = []                  # (text, x, y, angle, just) on the notes layer
+
+
+def sch_footprints():
+    out = {}
+    for fn in glob.glob(os.path.join(KDIR, "*.kicad_sch")):
+        for m in re.finditer(r'\(property "Reference" "([A-Z]+[0-9]+)".*?\(property "Footprint" "([^"]*)"',
+                             open(fn).read()):
+            out.setdefault(m.group(1), m.group(2))
+    return out
+
+
+def socketed(fpid):
+    """Every DIP chip is socketed: use the socket footprint (socket body outline and courtyard)."""
+    if fpid.startswith("Package_DIP:DIP-") and not fpid.endswith("_Socket"):
+        return fpid + "_Socket"
+    return fpid
+
+
+def placed_refs():
+    refs = []
+    for _, _, items in ROWS:
+        for it in items:
+            if isinstance(it, str):
+                refs.append(it)
+                if it in DECAP:
+                    refs.append(DECAP[it])
+            elif it[0] == "block":
+                refs += it[2]
+    for b in BLOCKS:
+        refs += b[5]
+    refs += [f[0] for f in FIXED]
+    dup = {r for r in refs if refs.count(r) > 1}
+    if dup:
+        sys.exit("placed twice: " + " ".join(sorted(dup)))
+    return refs
+
+
+def box(fp, layer):
+    """Bounding box (x0, y0, x1, y1) of a footprint's graphics on one layer, board mm."""
+    xs, ys = [], []
+    for g in fp.GraphicalItems():
+        if g.GetLayer() == layer:
+            b = g.GetBoundingBox()
+            xs += [b.GetLeft(), b.GetRight()]
+            ys += [b.GetTop(), b.GetBottom()]
+    if not xs:
+        for p in fp.Pads():
+            b = p.GetBoundingBox()
+            xs += [b.GetLeft(), b.GetRight()]
+            ys += [b.GetTop(), b.GetBottom()]
+    return (min(xs) / 1e6 - X0, min(ys) / 1e6 - Y0, max(xs) / 1e6 - X0, max(ys) / 1e6 - Y0)
+
+
+def crt(fp):
+    return box(fp, pcbnew.F_CrtYd)
+
+
+def put(board, syms, ref, angle, cy, left=None, cx=None):
+    """Place a part by its courtyard: left edge at left (or centre at cx), centre at cy."""
+    fp = load_fp(FPID[ref])
+    fp.SetReference(ref)
+    if ref in syms:
+        path, sname, sfile = syms[ref]
+        fp.SetPath(pcbnew.KIID_PATH(path))
+        fp.SetProperty("Sheetname", sname)
+        fp.SetProperty("Sheetfile", sfile)
+    fp.SetValue(VALUES.get(ref, fp.GetValue()))
+    fp.SetOrientationDegrees(angle)
+    fp.SetPosition(pt(0, 0))
+    x0, y0, x1, y1 = crt(fp)
+    tx = left - x0 if left is not None else cx - (x0 + x1) / 2
+    fp.SetPosition(pt(tx, cy - (y0 + y1) / 2))
+    fp.Reference().SetTextSize(pcbnew.VECTOR2I(mm(1.0), mm(1.0)))
+    fp.Reference().SetTextThickness(mm(0.15))
+    board.Add(fp)
+    return fp
+
+
+def block(board, syms, x0, y0, x1, y1, angle, refs):
+    """Pack parts in columns, left to right, inside the rectangle; each column is as
+    wide as its widest part."""
+    sizes = {}
+    for ref in refs:
+        fp = load_fp(FPID[ref])
+        fp.SetOrientationDegrees(angle)
+        b = crt(fp)
+        sizes[ref] = (b[2] - b[0], b[3] - b[1])
+        _PRELOAD[FPID[ref]].append(fp)
+    cols, col = [], []
+    for ref in refs:
+        if col and sum(sizes[r][1] + CELL_GAP for r in col + [ref]) - CELL_GAP > y1 - y0 + 0.01:
+            cols.append(col)
+            col = []
+        col.append(ref)
+    cols.append(col)
+    x = x0
+    for col in cols:
+        cw = max(sizes[r][0] for r in col)
+        hh = sum(sizes[r][1] + CELL_GAP for r in col) - CELL_GAP
+        y = (y0 + y1) / 2 - hh / 2
+        for r in col:
+            put(board, syms, r, angle, y + sizes[r][1] / 2, cx=x + cw / 2)
+            y += sizes[r][1] + CELL_GAP
+        x += cw + CELL_GAP
+    if x - CELL_GAP > x1 + 0.01:
+        PROBLEMS.append("block at (%g, %g) too small: %d parts need %.1f mm, have %.1f"
+                        % (x0, y0, len(refs), x - CELL_GAP - x0, x1 - x0))
+    return x - CELL_GAP
+
+
+def place_parts(board, syms):
+    for y, side, items in ROWS:
+        x = None
+        for it in items:
+            if isinstance(it, tuple) and it[0] == "at":
+                x = it[1]
+                continue
+            if isinstance(it, tuple) and it[0] == "block":
+                angle = it[3] if len(it) > 3 else 90
+                x = block(board, syms, x, y - 6.0, x + it[1], y + 6.0, angle, it[2]) + ROW_GAP
+                continue
+            fp = put(board, syms, it, 0 if it == "X1" else 90, y, left=x)
+            c = crt(fp)
+            x = c[2] + ROW_GAP
+            if FPID[it].endswith("_Socket"):
+                SOCKETS.append(it)
+                f = box(fp, pcbnew.F_Fab)
+                PULL_ZONES.append((it, f[0] - PULL, f[1], f[0], f[3]))
+                PULL_ZONES.append((it, f[2], f[1], f[2] + PULL, f[3]))
+            if it in DECAP:
+                cap = DECAP[it]
+                probe = load_fp(FPID[cap])
+                cb = crt(probe)
+                _PRELOAD[FPID[cap]].append(probe)
+                h = cb[3] - cb[1]
+                cy = c[3] + h / 2 + 0.1 if side == "below" else c[1] - h / 2 - 0.1
+                put(board, syms, cap, 0, cy, cx=c[2] - (cb[2] - cb[0]) / 2 - 1.0)
+    for x0, y0, x1, y1, angle, refs in BLOCKS:
+        block(board, syms, x0, y0, x1, y1, angle, refs)
+    for ref, x, y, angle in FIXED:
+        put(board, syms, ref, angle, y, cx=x)
+    for ref, x0, y0, x1, y1 in PULL_ZONES:
+        for a, b, c, d in [(x0, y0, x1, y0), (x1, y0, x1, y1), (x1, y1, x0, y1), (x0, y1, x0, y0)]:
+            seg(board, PULL_LAYER, a, b, c, d, 0.1)
+        for k in range(1, 4):           # hatch
+            yy = y0 + (y1 - y0) * k / 4
+            seg(board, PULL_LAYER, x0, yy, x1, yy, 0.1)
+
+
+def check(board):
+    """Courtyard overlaps, puller room, parts off the board; returns report lines."""
+    out = list(PROBLEMS)
+    fps = {fp.GetReference(): fp for fp in board.GetFootprints()}
+    boxes = {r: crt(fp) for r, fp in fps.items()}
+    placed = set(placed_refs())
+
+    def hit(a, b):
+        return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+    for ref, *z in PULL_ZONES:
+        for r, b in boxes.items():
+            if r != ref and hit(z, b):
+                out.append("puller room of %s blocked by %s" % (ref, r))
+    refs = sorted(boxes)
+    for i, a in enumerate(refs):
+        for b in refs[i + 1:]:
+            if (a in placed or b in placed) and hit(boxes[a], boxes[b]):
+                out.append("courtyard boxes overlap: %s / %s" % (a, b))
+    for r in sorted(placed):
+        x0, y0, x1, y1 = boxes[r]
+        if x0 < 0 or y0 < 0 or x1 > W or y1 > D:
+            out.append("%s courtyard off the board" % r)
+    # KiCad's own DRC (courtyard overlap, holes, edge clearance)
+    rpt = os.path.join(KDIR, "_drc.rpt")
+    board = pcbnew.LoadBoard(PCB)          # fresh copy, so the courtyard caches match the placement
+    pcbnew.WriteDRCReport(board, rpt, pcbnew.EDA_UNITS_MILLIMETRES, False)
+    text_ = open(rpt).read()
+    os.remove(rpt)
+    kinds = re.findall(r"^\[(\w+)\]", text_, re.M)
+    for k in sorted(set(kinds)):
+        out.append("DRC %s: %d" % (k, kinds.count(k)))
+    for m in re.finditer(r"^\[courtyards_overlap\].*?\n(.*?)\n(.*?)\n", text_, re.M | re.S):
+        out.append("  overlap: %s / %s" % (m.group(1).strip()[:70], m.group(2).strip()[:70]))
+    return out
+
+
+def density(board):
+    """Share of the board covered by courtyards and puller room, on a 0.5 mm grid."""
+    step = 0.5
+    nx, ny = int(W / step), int(D / step)
+    used = bytearray(nx * ny)
+    rects = [crt(fp) for fp in board.GetFootprints()] + [z[1:] for z in PULL_ZONES]
+    for x0, y0, x1, y1 in rects:
+        for j in range(max(0, int(y0 / step)), min(ny, int(math.ceil(y1 / step)))):
+            for i in range(max(0, int(x0 / step)), min(nx, int(math.ceil(x1 / step)))):
+                used[j * nx + i] = 1
+    def share(ya, yb):
+        n = t = 0
+        for j in range(int(ya / step), int(yb / step)):
+            n += sum(used[j * nx:(j + 1) * nx])
+            t += nx
+        return n / t
+    return share(0, D), share(0, KB_LINE), share(KB_LINE, D)
 
 
 VALUES = {}
@@ -258,7 +548,7 @@ def dim(board, x1, y1, x2, y2, height, size=1.5):
 
 
 def clear(board, refs):
-    owned = {board.GetLayerID(l) for l in ("Edge.Cuts", TOP, NOTE)}
+    owned = {board.GetLayerID(l) for l in ("Edge.Cuts", TOP, NOTE, PULL_LAYER)}
     for item in list(board.GetDrawings()):
         item = item.Cast()
         if item.GetLayer() in owned:
@@ -275,7 +565,7 @@ def build():
     board = pcbnew.LoadBoard(PCB)
     syms = symbols()
     schematic_values()
-    clear(board, {p[0] for p in PLACE})
+    clear(board, {p[0] for p in PLACE} | set(placed_refs()))
 
     # outline, 3 mm corner radius
     r = 3.0
@@ -293,6 +583,7 @@ def build():
 
     for p in PLACE:
         place(board, syms, *p)
+    place_parts(board, syms)
     for i, (x, y) in enumerate(HOLES):
         h = load_fp(FP_HOLE)
         h.SetReference("H%d" % (i + 1))
@@ -305,19 +596,14 @@ def build():
 
     # ---- zones and labels
     dashed(board, NOTE, 0, KB_LINE, W, KB_LINE)
-    text(board, NOTE, "KEYBOARD ABOVE (front %g mm): low parts only" % (D - KB_LINE), 225.0, KB_LINE + 4.0, 2.0)
-    text(board, NOTE, "Flat case top: user connectors, cartridge and cards in the back %g mm" % KB_LINE,
-         W / 2 + 40, KB_LINE - 4.0, 2.0)
     cx, cy = 175.0, 55.0
     for x1, y1, x2, y2 in [(cx - 41, cy - 5, cx + 41, cy - 5), (cx + 41, cy - 5, cx + 41, cy + 5),
                            (cx + 41, cy + 5, cx - 41, cy + 5), (cx - 41, cy + 5, cx - 41, cy - 5)]:
         dashed(board, NOTE, x1, y1, x2, y2, 2.0, 1.5)
-    text(board, NOTE, "cartridge shell", cx, cy + 8.5, 1.5)
     bx0, bx1 = SLOT_X[0] - 7.0, SLOT_X[-1] + 7.0
     for x1, y1, x2, y2 in [(bx0, 1.5, bx1, 1.5), (bx1, 1.5, bx1, KB_LINE - 1.5),
                            (bx1, KB_LINE - 1.5, bx0, KB_LINE - 1.5), (bx0, KB_LINE - 1.5, bx0, 1.5)]:
         dashed(board, NOTE, x1, y1, x2, y2, 2.0, 1.5)
-    text(board, NOTE, "EXPANSION BAY: cards stand up through the case top", (bx0 + bx1) / 2, KB_LINE + 4.0, 1.5)
     text(board, NOTE, "BACK", W / 2, -44.0, 3.0)
     text(board, NOTE, "FRONT (keyboard side)", W / 2, D + 32.0, 3.0)
     text(board, NOTE, "LEFT SIDE", -40.0, D / 2, 3.0, angle=90)
@@ -328,6 +614,15 @@ def build():
         "H1-H6: M3 mounting holes, 3.2 mm, 5 mm in from the edges: (5,5) (285,5) (5,135) (285,135) (145,135) (240,5)",
         "SNES ports on the right side toward the back: not settled (the front is under the keyboard)",
         "PRELIMINARY footprints (check datasheets): J2 J3 J5 J8 J9-J12 SW1 SW2, see src/scripts/gen_kicad_connectors.py",
+        "Dashed line: keyboard's back edge; the keyboard lies over the front %g mm (low parts only); the back %g mm is "
+        "under the flat case top (user connectors, cartridge, cards)" % (D - KB_LINE, KB_LINE),
+        "Dashed boxes: expansion bay (cards stand up through the case top) and the cartridge shell around J8",
+        "Placement test (no routing): every chip socketed (KiCad _Socket footprints); hatched boxes at the socket ends "
+        "= %g mm chip-puller room, kept clear" % PULL,
+        "Chip rows, front to back: video timing + data bus resistors and networks | control + ALU + oscillator | PC + address mux | "
+        "data bus + shared port (J1 between)",
+        "Behind the keyboard: memory under the cartridge slot, video out chips, video/audio passives along the back edge, "
+        "shared-port protection beside J8; power at the back left",
     ]
     for i, s in enumerate(notes):
         text(board, NOTE, s, 0, D + 40.0 + i * 4.0, 2.0, just=-1)
@@ -353,6 +648,10 @@ def build():
     board.Save(PCB)
     print("wrote", PCB)
     tidy(PCB)
+    for line in check(board):
+        print(line)
+    print("covered by courtyards + puller room: board %.0f %%, back %.0f %%, under the keyboard %.0f %%"
+          % tuple(100 * v for v in density(board)))
 
 
 def tidy(path):
@@ -373,7 +672,19 @@ def png():
     print("wrote", PNG)
 
 
+def png_placement():
+    import cairosvg
+    out = os.path.join(os.path.dirname(PNG), "_place.svg")
+    layers = "Edge.Cuts,F.Fab,F.CrtYd,F.Cu,%s,%s" % (PULL_LAYER, NOTE)
+    subprocess.run(["kicad-cli", "pcb", "export", "svg", "--layers", layers, "--exclude-drawing-sheet",
+                    "--page-size-mode", "2", "-o", out, PCB], check=True, capture_output=True)
+    cairosvg.svg2png(url=out, write_to=PLACE_PNG, output_width=5000, background_color="white")
+    os.remove(out)
+    print("wrote", PLACE_PNG)
+
+
 if __name__ == "__main__":
     build()
     if "--png" in sys.argv:
         png()
+        png_placement()
