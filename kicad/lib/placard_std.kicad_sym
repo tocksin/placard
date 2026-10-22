@@ -3343,24 +3343,24 @@
           (effects
             (font
               (size 1.5 1.5)))))))
-  (symbol "R"
+  (symbol "R_US"
     (pin_numbers hide)
     (pin_names
       (offset 0))
     (in_bom yes)
     (on_board yes)
     (property "Reference" "R"
-      (at 2.032 0 90)
+      (at 2.54 0 90)
       (effects
         (font
           (size 1.27 1.27))))
-    (property "Value" "R"
-      (at 0 0 90)
+    (property "Value" "R_US"
+      (at -2.54 0 90)
       (effects
         (font
           (size 1.27 1.27))))
     (property "Footprint" ""
-      (at -1.778 0 90)
+      (at 1.016 -0.254 90)
       (effects
         (font
           (size 1.27 1.27)) hide))
@@ -3374,7 +3374,7 @@
       (effects
         (font
           (size 1.27 1.27)) hide))
-    (property "ki_description" "Resistor"
+    (property "ki_description" "Resistor, US symbol"
       (at 0 0 0)
       (effects
         (font
@@ -3384,16 +3384,62 @@
       (effects
         (font
           (size 1.27 1.27)) hide))
-    (symbol "R_0_1"
-      (rectangle
-        (start -1.016 -2.54)
-        (end 1.016 2.54)
+    (symbol "R_US_0_1"
+      (polyline
+        (pts
+          (xy 0 -2.286)
+          (xy 0 -2.54))
         (stroke
-          (width 0.254)
+          (width 0)
+          (type default))
+        (fill
+          (type none)))
+      (polyline
+        (pts
+          (xy 0 2.286)
+          (xy 0 2.54))
+        (stroke
+          (width 0)
+          (type default))
+        (fill
+          (type none)))
+      (polyline
+        (pts
+          (xy 0 -0.762)
+          (xy 1.016 -1.143)
+          (xy 0 -1.524)
+          (xy -1.016 -1.905)
+          (xy 0 -2.286))
+        (stroke
+          (width 0)
+          (type default))
+        (fill
+          (type none)))
+      (polyline
+        (pts
+          (xy 0 0.762)
+          (xy 1.016 0.381)
+          (xy 0 0)
+          (xy -1.016 -0.381)
+          (xy 0 -0.762))
+        (stroke
+          (width 0)
+          (type default))
+        (fill
+          (type none)))
+      (polyline
+        (pts
+          (xy 0 2.286)
+          (xy 1.016 1.905)
+          (xy 0 1.524)
+          (xy -1.016 1.143)
+          (xy 0 0.762))
+        (stroke
+          (width 0)
           (type default))
         (fill
           (type none))))
-    (symbol "R_1_1"
+    (symbol "R_US_1_1"
       (pin passive line
         (at 0 3.81 270)
         (length 1.27)
@@ -3416,7 +3462,7 @@
           (effects
             (font
               (size 1.5 1.5)))))))
-  (symbol "R_Network08"
+  (symbol "R_Network08_US"
     (pin_names
       (offset 0) hide)
     (in_bom yes)
@@ -3426,7 +3472,7 @@
       (effects
         (font
           (size 1.27 1.27))))
-    (property "Value" "R_Network08"
+    (property "Value" "R_Network08_US"
       (at 10.16 0 90)
       (effects
         (font
@@ -3446,7 +3492,7 @@
       (effects
         (font
           (size 1.27 1.27)) hide))
-    (property "ki_description" "8 resistor network, star topology, bussed resistors, small symbol"
+    (property "ki_description" "8 resistor network, star topology, bussed resistors, small US symbol"
       (at 0 0 0)
       (effects
         (font
@@ -3456,7 +3502,7 @@
       (effects
         (font
           (size 1.27 1.27)) hide))
-    (symbol "R_Network08_0_1"
+    (symbol "R_Network08_US_0_1"
       (rectangle
         (start -11.43 -3.175)
         (end 8.89 3.175)
@@ -3465,14 +3511,6 @@
           (type default))
         (fill
           (type background)))
-      (rectangle
-        (start -10.922 1.524)
-        (end -9.398 -2.54)
-        (stroke
-          (width 0.254)
-          (type default))
-        (fill
-          (type none)))
       (circle
         (center -10.16 2.286)
         (radius 0.254)
@@ -3481,14 +3519,6 @@
           (type default))
         (fill
           (type outline)))
-      (rectangle
-        (start -8.382 1.524)
-        (end -6.858 -2.54)
-        (stroke
-          (width 0.254)
-          (type default))
-        (fill
-          (type none)))
       (circle
         (center -7.62 2.286)
         (radius 0.254)
@@ -3497,14 +3527,6 @@
           (type default))
         (fill
           (type outline)))
-      (rectangle
-        (start -5.842 1.524)
-        (end -4.318 -2.54)
-        (stroke
-          (width 0.254)
-          (type default))
-        (fill
-          (type none)))
       (circle
         (center -5.08 2.286)
         (radius 0.254)
@@ -3513,14 +3535,6 @@
           (type default))
         (fill
           (type outline)))
-      (rectangle
-        (start -3.302 1.524)
-        (end -1.778 -2.54)
-        (stroke
-          (width 0.254)
-          (type default))
-        (fill
-          (type none)))
       (circle
         (center -2.54 2.286)
         (radius 0.254)
@@ -3529,16 +3543,25 @@
           (type default))
         (fill
           (type outline)))
-      (rectangle
-        (start -0.762 1.524)
-        (end 0.762 -2.54)
+      (polyline
+        (pts
+          (xy -10.16 2.286)
+          (xy 7.62 2.286))
         (stroke
-          (width 0.254)
+          (width 0)
           (type default))
         (fill
           (type none)))
       (polyline
         (pts
+          (xy -10.16 2.286)
+          (xy -10.16 1.524)
+          (xy -9.398 1.1684)
+          (xy -10.922 0.508)
+          (xy -9.398 -0.1524)
+          (xy -10.922 -0.8382)
+          (xy -9.398 -1.524)
+          (xy -10.922 -2.1844)
           (xy -10.16 -2.54)
           (xy -10.16 -3.81))
         (stroke
@@ -3548,6 +3571,14 @@
           (type none)))
       (polyline
         (pts
+          (xy -7.62 2.286)
+          (xy -7.62 1.524)
+          (xy -6.858 1.1684)
+          (xy -8.382 0.508)
+          (xy -6.858 -0.1524)
+          (xy -8.382 -0.8382)
+          (xy -6.858 -1.524)
+          (xy -8.382 -2.1844)
           (xy -7.62 -2.54)
           (xy -7.62 -3.81))
         (stroke
@@ -3557,6 +3588,14 @@
           (type none)))
       (polyline
         (pts
+          (xy -5.08 2.286)
+          (xy -5.08 1.524)
+          (xy -4.318 1.1684)
+          (xy -5.842 0.508)
+          (xy -4.318 -0.1524)
+          (xy -5.842 -0.8382)
+          (xy -4.318 -1.524)
+          (xy -5.842 -2.1844)
           (xy -5.08 -2.54)
           (xy -5.08 -3.81))
         (stroke
@@ -3566,6 +3605,14 @@
           (type none)))
       (polyline
         (pts
+          (xy -2.54 2.286)
+          (xy -2.54 1.524)
+          (xy -1.778 1.1684)
+          (xy -3.302 0.508)
+          (xy -1.778 -0.1524)
+          (xy -3.302 -0.8382)
+          (xy -1.778 -1.524)
+          (xy -3.302 -2.1844)
           (xy -2.54 -2.54)
           (xy -2.54 -3.81))
         (stroke
@@ -3575,6 +3622,14 @@
           (type none)))
       (polyline
         (pts
+          (xy 0 2.286)
+          (xy 0 1.524)
+          (xy 0.762 1.1684)
+          (xy -0.762 0.508)
+          (xy 0.762 -0.1524)
+          (xy -0.762 -0.8382)
+          (xy 0.762 -1.524)
+          (xy -0.762 -2.1844)
           (xy 0 -2.54)
           (xy 0 -3.81))
         (stroke
@@ -3584,6 +3639,14 @@
           (type none)))
       (polyline
         (pts
+          (xy 2.54 2.286)
+          (xy 2.54 1.524)
+          (xy 3.302 1.1684)
+          (xy 1.778 0.508)
+          (xy 3.302 -0.1524)
+          (xy 1.778 -0.8382)
+          (xy 3.302 -1.524)
+          (xy 1.778 -2.1844)
           (xy 2.54 -2.54)
           (xy 2.54 -3.81))
         (stroke
@@ -3593,6 +3656,14 @@
           (type none)))
       (polyline
         (pts
+          (xy 5.08 2.286)
+          (xy 5.08 1.524)
+          (xy 5.842 1.1684)
+          (xy 4.318 0.508)
+          (xy 5.842 -0.1524)
+          (xy 4.318 -0.8382)
+          (xy 5.842 -1.524)
+          (xy 4.318 -2.1844)
           (xy 5.08 -2.54)
           (xy 5.08 -3.81))
         (stroke
@@ -3602,85 +3673,16 @@
           (type none)))
       (polyline
         (pts
+          (xy 7.62 2.286)
+          (xy 7.62 1.524)
+          (xy 8.382 1.1684)
+          (xy 6.858 0.508)
+          (xy 8.382 -0.1524)
+          (xy 6.858 -0.8382)
+          (xy 8.382 -1.524)
+          (xy 6.858 -2.1844)
           (xy 7.62 -2.54)
           (xy 7.62 -3.81))
-        (stroke
-          (width 0)
-          (type default))
-        (fill
-          (type none)))
-      (polyline
-        (pts
-          (xy -10.16 1.524)
-          (xy -10.16 2.286)
-          (xy -7.62 2.286)
-          (xy -7.62 1.524))
-        (stroke
-          (width 0)
-          (type default))
-        (fill
-          (type none)))
-      (polyline
-        (pts
-          (xy -7.62 1.524)
-          (xy -7.62 2.286)
-          (xy -5.08 2.286)
-          (xy -5.08 1.524))
-        (stroke
-          (width 0)
-          (type default))
-        (fill
-          (type none)))
-      (polyline
-        (pts
-          (xy -5.08 1.524)
-          (xy -5.08 2.286)
-          (xy -2.54 2.286)
-          (xy -2.54 1.524))
-        (stroke
-          (width 0)
-          (type default))
-        (fill
-          (type none)))
-      (polyline
-        (pts
-          (xy -2.54 1.524)
-          (xy -2.54 2.286)
-          (xy 0 2.286)
-          (xy 0 1.524))
-        (stroke
-          (width 0)
-          (type default))
-        (fill
-          (type none)))
-      (polyline
-        (pts
-          (xy 0 1.524)
-          (xy 0 2.286)
-          (xy 2.54 2.286)
-          (xy 2.54 1.524))
-        (stroke
-          (width 0)
-          (type default))
-        (fill
-          (type none)))
-      (polyline
-        (pts
-          (xy 2.54 1.524)
-          (xy 2.54 2.286)
-          (xy 5.08 2.286)
-          (xy 5.08 1.524))
-        (stroke
-          (width 0)
-          (type default))
-        (fill
-          (type none)))
-      (polyline
-        (pts
-          (xy 5.08 1.524)
-          (xy 5.08 2.286)
-          (xy 7.62 2.286)
-          (xy 7.62 1.524))
         (stroke
           (width 0)
           (type default))
@@ -3694,14 +3696,6 @@
           (type default))
         (fill
           (type outline)))
-      (rectangle
-        (start 1.778 1.524)
-        (end 3.302 -2.54)
-        (stroke
-          (width 0.254)
-          (type default))
-        (fill
-          (type none)))
       (circle
         (center 2.54 2.286)
         (radius 0.254)
@@ -3710,14 +3704,6 @@
           (type default))
         (fill
           (type outline)))
-      (rectangle
-        (start 4.318 1.524)
-        (end 5.842 -2.54)
-        (stroke
-          (width 0.254)
-          (type default))
-        (fill
-          (type none)))
       (circle
         (center 5.08 2.286)
         (radius 0.254)
@@ -3725,16 +3711,8 @@
           (width 0)
           (type default))
         (fill
-          (type outline)))
-      (rectangle
-        (start 6.858 1.524)
-        (end 8.382 -2.54)
-        (stroke
-          (width 0.254)
-          (type default))
-        (fill
-          (type none))))
-    (symbol "R_Network08_1_1"
+          (type outline))))
+    (symbol "R_Network08_US_1_1"
       (pin passive line
         (at -10.16 5.08 270)
         (length 2.54)

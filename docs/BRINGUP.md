@@ -1,6 +1,6 @@
 # Bring-up: build order and a test for each chip
 
-Date: 2026-10-21
+Date: 2026-10-22
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
@@ -49,9 +49,9 @@ power-up ([ROM.md](ROM.md#loading-the-cartridge)).
 **Without the cartridge.**  The main board's STALL_OUT pull-up keeps the
 CPU stalled until a cartridge lets it go, and RUN's pull-down keeps the
 ROM off and the instruction register PLD at 02h.  For the steps before
-the cartridge is built, fit two jumpers: STALL_IN to STALL_OUT (JP201:
+the cartridge is built, fit two jumpers: STALL_IN to STALL_OUT (JP1:
 the Branch PLD's STALL reaches the State and PC PLDs directly) and RUN to
-+5 V (JP202: the board reads the ROM and the IR loads opcodes).  Then
++5 V (JP2: the board reads the ROM and the IR loads opcodes).  Then
 nothing loads the ROM SRAMs, so those steps only check what they can
 without a ROM image (or with SRAMs loaded some other way).  Remove both
 jumpers when the cartridge goes in.  The clock runs from power-up either
