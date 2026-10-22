@@ -69,6 +69,8 @@ MPN = {
     "Molex 87715-9106": ("Molex", "87715-9106"),
     "BAT85": ("Vishay", "BAT85"),
     "SA5.0A": ("Littelfuse", "SA5.0A"),
+    "G5LE-1 DC5": ("Omron", "G5LE-1 DC5"),
+    "PTS645VL58-2 LFS": ("C&K", "PTS645VL58-2 LFS"),
     "PS/2 kbd + mouse": ("Kycon", "KMDGX-6S/6S-S4N"),
     "25.175 MHz": ("ECS Inc.", "ECS-100A-251.7"),
     "VGA": ("Assmann WSW", "A-HDF 15 A-KG/T"),
@@ -362,35 +364,56 @@ def sheet_power(b):
                  footprint="placard:SW_Toggle_CIT_ANT11TFHQE", bare=("1", "2"), ref_at=(119.8, yr - 4.6), value_at=(118.5, yr + 2.6),
                  extra_props={"Manufacturer": "CIT Relay and Switch", "MPN": "ANT11TFHQE",
                               "Description": "Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing"})
-    sw2 = s.part("placard_std:SW_Push_Open", "SW2", 142.24, yr, {"1": "VON", "2": "+5V"}, value="E112SD1A3QE",
-                 footprint="placard:SW_Push_CK_E112SD1A3QE", bare=("1", "2"), ref_at=(137.6, yr - 4.6), value_at=(135.5, yr + 5.6),
-                 extra_props={"Manufacturer": "C&K", "MPN": "E112SD1A3QE",
-                              "Description": "Reset: SPDT momentary pushbutton, NC contact used, 4 A 28 V DC, right-angle PCB snap-in"})
-    # TVS from the fused VBUS to GND: clamps the spike the cable's inductance throws when SW1 or SW2
+    # TVS from the fused VBUS to GND: clamps the spike the cable's inductance throws when SW1 or K1
     # opens under load (and plug-in ringing, ESD); after the fuse, so a lasting overvoltage trips F1
     tvs = s.part("placard_std:D_Zener", "D7", 104.14, yr + 3.81, {"1": "VFUSE", "2": "GND"}, value="SA5.0A",
                  footprint="Diode_THT:D_DO-15_P10.16mm_Horizontal", angle=270, bare=("1",), ref_at=(106.2, yr + 3.3), value_at=(106.2, yr + 6.4))
     path(s, "VFUSE", f201["2"], tvs["1"])
     path(s, "VFUSE", tvs["1"], sw1["1"])
     s.junction(tvs["1"][0], yr, owner="VFUSE")
-    path(s, "VON", sw1["2"], sw2["1"])
+    # reset (Justin, 2026-10-22): relay K1's NC contact carries the power; the small button SW2 drives
+    # its coil from VON, so holding it opens the contact.  D26 takes the coil's kick when SW2 lets go.
+    # C41, the bulk cap, sits on VON ahead of the relay so the board side drains fast.
+    xk = 170.18
+    k1 = s.part("placard_std:G5LE-1", "K1", xk, yr - 2.54, {"1": "VON", "4": "+5V", "3": None, "2": "KCOIL", "5": "GND"},
+                value="G5LE-1 DC5", footprint="Relay_THT:Relay_SPDT_Omron-G5LE-1", angle=270, bare=("1", "4", "2", "5"),
+                ref_at=(xk - 2.5, yr + 8.5), value_at=(xk - 2.5, yr + 11.0))
+    xt = 152.4
+    sw2 = s.part("placard_std:SW_Push", "SW2", xt + 5.08, yr - 7.62, {"1": "VON", "2": "KCOIL"}, value="PTS645VL58-2 LFS",
+                 footprint="Button_Switch_THT:SW_Tactile_SPST_Angled_PTS645Vx58-2LFS", bare=("1", "2"),
+                 ref_at=(xt + 2.5, yr - 12.6), value_at=(xt - 8.0, yr - 26.5))
+    yd = yr - 17.78
+    d26 = s.part("placard_std:D_Schottky", "D26", xk, yd, {"1": "KCOIL", "2": "GND"}, value="BAT85", footprint=FP_D,
+                 bare=("1", "2"), ref_at=(xk - 7.0, yd - 3.2), value_at=(xk + 1.0, yd - 3.2))
+    c201 = s.part("placard_std:C_Polarized", "C41", 142.24, yr + 3.81, {"1": "VON", "2": "GND"},
+                  value="220u 10V", footprint=FP_CP_L, bare=("1",), ref_at=(144.7, yr + 3.3), value_at=(144.7, yr + 6.4))
+    xj = k1["1"][0] - 2.54
+    path(s, "VON", sw1["2"], (c201["1"][0], yr), (xt, yr), (xj, yr), (xj, k1["1"][1]), k1["1"])
+    s.junction(c201["1"][0], yr, owner="VON")
+    s.junction(xt, yr, owner="VON")
+    path(s, "VON", (xt, yr), (xt, sw2["1"][1]), sw2["1"])
+    path(s, "KCOIL", sw2["2"], k1["2"])
+    path(s, "KCOIL", k1["2"], (k1["2"][0], yd), d26["1"])
+    s.junction(k1["2"][0], k1["2"][1], owner="KCOIL")
+    xg = k1["5"][0] + 5.08
+    path(s, "GND", d26["2"], (k1["5"][0], yd), k1["5"])
+    path(s, "GND", (k1["5"][0], yd), (xg, yd), (xg, yd + 2.54))
+    s.junction(k1["5"][0], yd, owner="GND")
+    s.power("GND", xg, yd + 2.54)
     for net, pin, x in (("CC2", "B5", 73.66), ("CC1", "A5", 88.9)):
         r = s.part("placard_std:R_US", "R1" if net == "CC1" else "R2", x, 104.14, R2(net, "GND"), value="5.1k",
                    footprint=FP_R, bare=("1",), ref_at=(x + 2.0, 103.6), value_at=(x + 2.0, 106.7))
         path(s, net, j13[pin], (x, j13[pin][1]), r["1"])
-    c201 = s.part("placard_std:C_Polarized", "C41", 160.02, yr + 3.81, {"1": "+5V", "2": "GND"},
-                  value="220u 10V", footprint=FP_CP_L, bare=("1",), ref_at=(162.5, yr + 3.3), value_at=(162.5, yr + 6.4))
     # 3.3 V regulator on the same line
     u40 = s.part("placard_parts:MCP1700_TO92", "U40", 233.68, yr, {"1": "GND", "2": "+5V", "3": "+3V3"},
                  value="MCP1700-3302E/TO", bare=("2", "3"), ref_at=(223.5, yr - 10.5), value_at=(223.5, yr - 9.0))
     c40 = s.part("placard_std:C", "C40", 203.2, yr + 3.81, {"1": "+5V", "2": "GND"}, value="1u", footprint=FP_C,
                  bare=("1",), ref_at=(205.7, yr + 3.3), value_at=(205.7, yr + 6.4))
-    xp, xf = 185.42, 175.26
-    for pts in ([sw2["2"], (c201["1"][0], yr)], [(c201["1"][0], yr), (xf, yr)], [(xf, yr), (xp, yr)],
+    xp, xf = 195.58, 187.96
+    for pts in ([k1["4"], (xf, yr)], [(xf, yr), (xp, yr)],
                 [(xp, yr), (c40["1"][0], yr)], [(c40["1"][0], yr), u40["2"]]):
         path(s, "+5V", *pts)
-    for x in (c201["1"][0], c40["1"][0]):
-        s.junction(x, yr, owner="+5V")
+    s.junction(c40["1"][0], yr, owner="+5V")
     s.pwr_flag(xf, yr)
     s.power("+5V", xp, yr)
     c202 = s.part("placard_std:C", "C42", 254.0, yr + 3.81, {"1": "+3V3", "2": "GND"}, value="1u", footprint=FP_C,
@@ -406,8 +429,8 @@ def sheet_power(b):
                       "19 PLDs draw up to about 2.5 A (130 mA each at",
                       "-7, worst case): use a 3 A supply; the polyfuse",
                       "trips on a short.  SW1 power: toggle, common +",
-                      "one throw.  SW2 reset: momentary, common + NC,",
-                      "so holding it cuts the power."])
+                      "one throw.  SW2 reset: holding it pulls in K1,",
+                      "whose NC contact opens the 5 V line."])
     note(s, 200, 112, ["U40: 3.3 V for the SD card only (sheet 10).", "C40 input, C42 output (1 uF ceramic)."])
     # analog ground joins logic ground at the power input
     # (each side has its power flag on the pin end and its ground symbol below)

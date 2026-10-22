@@ -20,7 +20,7 @@ a separate board (a KiCad project has one PCB).
 | Sheet | Title | Chips | Connectors and main passives |
 |--:|---|---|---|
 | 1 | Root: block diagram | none | sheet boxes only, drawn like `reference/placard_block_diagram.png` |
-| 2 | Power and clock | U40 3.3 V regulator, oscillator X1 | USB-C power input, polyfuse, on/off toggle SW1, reset button SW2 (push to open), bulk capacitor, STALL_OUT 10k pull-up, RUN pull-down, STALL/RUN bring-up jumpers |
+| 2 | Power and clock | U40 3.3 V regulator, oscillator X1 | USB-C power input, polyfuse, on/off toggle SW1, reset relay K1 (NC contact) with button SW2 and coil diode D26, bulk capacitor C41 ahead of K1, STALL_OUT 10k pull-up, RUN pull-down, STALL/RUN bring-up jumpers |
 | 3 | Control | U1 State, U2 Branch, U17 instruction register PLD | bring-up straps S1-S3 (State socket pins) |
 | 4 | Program counter and address mux | U3, U4 PC low/high, U7-U10 address mux | none |
 | 5 | ALU and registers | U5, U6 ALU, U19 AC, U20 X, U21 Y | none |
@@ -116,8 +116,9 @@ mutual nets (`Q0`, `PC_ENABLE`, `BRANCH_BLOCK`) stay local.
 
 **2. Power and clock.**  USB-C receptacle (power only) with the two 5.1k
 CC pull-downs, a polyfuse, then in series the on/off toggle SW1 and the
-reset button SW2 (normally closed: pressing it cuts the power, Justin
-2026-10-22), a bulk electrolytic on +5 V, the MCP1700-3302
+normally closed contact of reset relay K1 (pressing the small button SW2
+pulls K1 in and cuts the power, Justin 2026-10-22), the bulk electrolytic
+C41 between SW1 and K1, the MCP1700-3302
 (U40) with its 1 µF in and out, and the 25.175 MHz oscillator (X1), whose
 output is CLK (no clock gate since 2026-10-21).  STALL_OUT's 10k pull-up
 and RUN's pull-down sit here, with the bring-up jumpers JP1 (STALL_IN to
@@ -297,23 +298,30 @@ Decisions made while drawing (2026-10-20):
   (BRINGUP.md), so they are not on the schematic; JP1 (STALL) and JP2
   (RUN) are.
 - Polyfuse 3 A hold (Bourns MF-R300 size): 19 PLDs can draw about 2.5 A.
-- SW1 and SW2 carry the whole board's current, so each needs a rating of
-  5 A DC or more: the polyfuse holds 3 A and passes about 6 A before it
-  trips.  A small tactile button (about 50 mA) will not do for SW2.
-  Chosen (Justin, 2026-10-22; on the schematic as Value, MPN and
-  Manufacturer fields):
+- SW1 and K1's contact carry the whole board's current, so each needs a
+  rating of 5 A DC or more: the polyfuse holds 3 A and passes about 6 A
+  before it trips.  Chosen (Justin, 2026-10-22; on the schematic as Value,
+  MPN and Manufacturer fields):
   - SW1 power: CIT Relay and Switch **ANT11TFHQE**, SPDT on-on toggle,
     5 A / 28 V DC, right-angle PCB pins, 1/4-40 bushing (common and one
     throw wired, the other throw unused).
-  - SW2 reset: C&K **E112SD1A3QE**, SPDT momentary pushbutton, 4 A /
-    28 V DC, right-angle PCB snap-in (common and the normally closed
-    contact wired, so pressing it opens the 5 V line).
-  Both sit at the board edge for the case panel.
+  - Reset (Justin, 2026-10-22, replaces the 4 A C&K E112SD1A3QE, about
+    $11): relay K1 **Omron G5LE-1 DC5** (SPDT, 8 A 30 V DC, through hole,
+    about $1.80), COM from VON and NC to +5V.  SW2 **C&K PTS645VL58-2 LFS**
+    (right-angle tactile, about $0.25) feeds the 63 ohm coil from VON, so
+    it carries only 80 mA.  D26 (BAT85) across the coil, cathode on the
+    button side, takes the coil's kick when SW2 lets go.  Check before
+    ordering that the G5LE's NC contact is rated for 3 A (the datasheet
+    gives one rating, 8 A at 30 V DC) and note its contact resistance spec
+    (100 mohm max, initial; typically far less).
+  - C41 (220 µF) moved from +5V to VON, ahead of K1 (Justin, 2026-10-22), so
+    pressing reset leaves only the decouplers on the board side to drain.
+  SW1 and SW2 sit at the board edge for the case panel.
 - **D7, TVS on VBUS** (Justin, 2026-10-22): Littelfuse SA5.0A
   (unidirectional 500 W, 5 V standoff, about 9.2 V clamp, DO-15 axial,
   through hole; first drawn as the SMD SMAJ5.0A) from the fused VBUS
   (between F1 and SW1) to GND.  It clamps the spike the USB cable's
-  inductance throws when SW1 or SW2 opens under load, plus plug-in ringing
+  inductance throws when SW1 or K1 opens under load, plus plug-in ringing
   and ESD.  It sits after the polyfuse so a lasting overvoltage trips F1
   instead of burning the TVS.  A diode straight across a series switch
   would either bypass it or do nothing, and at 5 V the contacts cannot hold
