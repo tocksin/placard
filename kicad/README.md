@@ -15,13 +15,25 @@ when it saves them).
 | `lib/placard.kicad_sym` | PLD symbols: `ATF22V10C` (generic) and one `ATF22V10C_<name>` per `.pld` file, with its pin names |
 | `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `Keyboard_Header`, `PS2_Dual_Stacked`, `USB_C_Power` |
 | `lib/placard_std.kicad_sym` | copies of the stock KiCad symbols the sheets use (74xx, R, C, D, connectors, regulator) with larger pin text, written by `src/scripts/gen_kicad_std.py` |
-| `lib/placard.pretty/` | project footprints: `SW_Cherry_MX_LED_<size>u_PCB` key switches with LED pads and stabilizer holes (written by `src/scripts/gen_kicad_keyswitch.py`) |
+| `lib/placard.pretty/` | project footprints: `SW_Cherry_MX_LED_<size>u_PCB` key switches with LED pads and stabilizer holes (written by `src/scripts/gen_kicad_keyswitch.py`), and the main board's connectors and switches (preliminary, written by `src/scripts/gen_kicad_connectors.py`) |
 | `sym-lib-table`, `fp-lib-table` | point KiCad at the project libraries |
 | `fab/` | Gerbers, drill files, BOM and placement files for a board order |
 
-The board outline is a placeholder, 11.4" x 5.5" (keyboard width, 4-layer),
-from the size estimate in the project files (`hardware/pcb_size_estimate.md`);
-change it once the case is settled.  The sheet plan (which chips go on which sheet, and the nets between
+The board is 290 x 140 mm (the keyboard's width), 4 layers, with the
+outline, dimensions, user connectors, cartridge slot, expansion slots,
+keyboard header and mounting holes placed by `src/scripts/gen_kicad_pcb.py`
+(run with `python3.12`, which KiCad 7's Python module is built for; `--png`
+also draws [docs/placard_board_layout.png](../docs/placard_board_layout.png)).
+The back edge carries USB-C power, headphones, VGA and the stacked PS/2;
+the left side the power switch, reset button and SD card; the right side
+the two SNES ports.  The cartridge and the four expansion cards stand up
+through the case top in the back 75 mm, behind the keyboard, which lies over
+the front 65 mm.  Rerunning the script moves only the parts it places.
+The footprints KiCad has no part for (cartridge slot, expansion slots,
+PS/2, SNES, the two switches) are written by
+`src/scripts/gen_kicad_connectors.py` from typical dimensions and are
+preliminary: check their holes against the datasheets before ordering.
+The sheet plan (which chips go on which sheet, and the nets between
 them) is [docs/SCHEMATIC_PLAN.md](../docs/SCHEMATIC_PLAN.md).  Parts and U-numbers come from
 [docs/CHIPS.md](../docs/CHIPS.md); the PLD pinouts come from the `.pld` files
 in `src/`.
