@@ -14,7 +14,7 @@ The other parts come from KiCad's libraries (kicad/README.md lists which).
 Rerunning this overwrites the library, so make changes here, not in KiCad's
 symbol editor.  The pinouts are from CHIPS.md, EXPANSION.md and IO.md.
 
-Date: 2026-10-21
+Date: 2026-10-22
 """
 
 import os
@@ -99,15 +99,17 @@ def snes_socket():
 
 
 def keyboard_header():
-    # 1 x 16 header to the keyboard board (IO.md, J1)
+    # 2 x 10 shrouded (keyed) box header to the keyboard board, ribbon cable (IO.md, J1);
+    # the same part on both boards
     p = "passive"
     col = bus("/COL", range(1, 9), p)
     row = bus("ROW", range(9, 17), p)
-    return symbol("Keyboard_Header", [(col + [None] + row, [])], "Keyboard header",
-                  "Keyboard matrix connector, 1 x 16, 2.54 mm: 1-8 /COL0-/COL7, 9-16 ROW0-ROW7",
-                  "keyboard matrix header Placard",
-                  footprint="Connector_PinHeader_2.54mm:PinHeader_1x16_P2.54mm_Vertical",
-                  datasheet="~", vcc=None, gnd=None, ref="J", min_w=4 * 2.54)
+    return symbol("Keyboard_Header", [(col + [None] + row + [None, (20, "spare", "no_connect")], [])], "Keyboard",
+                  "Keyboard connector, 2 x 10 shrouded box header, 2.54 mm, keyed: 1-8 /COL0-/COL7, "
+                  "9-16 ROW0-ROW7, 17 +5V, 18-19 GND, 20 spare (caps lock LED)",
+                  "keyboard matrix header box IDC Placard",
+                  footprint="Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical",
+                  datasheet="~", vcc=(17, "+5V"), gnd=[(18, "GND"), (19, "GND")], ref="J", min_w=4 * 2.54)
 
 
 def usb_c_power():
