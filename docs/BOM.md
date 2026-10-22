@@ -31,16 +31,16 @@ slots a card will use, and J1 only with the Cherry MX keyboard (a PS/2 keyboard 
 
 | Board | Components | Without optional parts | Lines estimated |
 |---|--:|--:|--:|
-| Main board | $191.97 | $173.37 | 37 |
+| Main board | $183.12 | $164.52 | 38 |
 | Cartridge | $61.36 | $61.36 | 4 |
 | Keyboard | $145.96 | $145.96 | 6 |
-| **All three** | **$399.29** | **$380.69** | |
+| **All three** | **$390.44** | **$371.84** | |
 
 ## Main board
 
-53 lines, 177 parts on the schematic.
+54 lines, 179 parts on the schematic.
 
-Components: **$191.97** for one board at these quantities, **$173.37** without the optional parts.
+Components: **$183.12** for one board at these quantities, **$164.52** without the optional parts.
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -64,9 +64,10 @@ Components: **$191.97** for one board at these quantities, **$173.37** without t
 | 4 | J9-J12 | EBC20DCAN | Sullins | Expansion slot: 2 x 20 card-edge socket, 0.1", 1.6 mm card, TH |  | 4.50 | 18.00 | est.: Sullins EBC20DCAN | Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer runs with none.  Sullins EBC20DCAN not stock-checked (EXPANSION.md) |
 | 1 | J13 | USB4125-GF-A | GCT | USB-C receptacle, power only (6 pin), top mount |  | 0.61 | 0.61 | Mouser: USB4125-GF-A-0190 (the stocked packaging of the same part) |  |
 | 1 | SW1 | ANT11TFHQE | CIT Relay and Switch | Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing |  | 4.50 | 4.50 | est.: Digi-Key; Mouser has no stock |  |
-| 1 | SW2 | E112SD1A3QE | C&K | Reset: SPDT momentary pushbutton, NC contact used, 4 A 28 V DC, right-angle PCB |  | 11.00 | 11.00 | est.: Digi-Key; Mouser has no stock below 160 |  |
+| 1 | SW2 | PTS645VL58-2 LFS | C&K | Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil) |  | 0.25 | 0.25 | est.: C&K PTS645VL58-2 LFS |  |
+| 1 | K1 | G5LE-1 DC5 | Omron | Reset relay: SPDT, 5 V coil (63 ohm, 80 mA), 8 A 30 V DC, through hole; NC contact carries the 5 V |  | 1.80 | 1.80 | est.: Omron G5LE-1 DC5 |  |
 | 1 | F1 | MF-RG300 | Bourns | Polyfuse, 3 A hold, radial | 3 A hold | 0.73 | 0.73 | Mouser: MF-RG300-0 | Part number from the footprint (Fuse_Bourns_MF-RG300) |
-| 24 | D1-D6, D8-D25 | BAT85 | Vishay | Schottky diode, DO-35 |  | 0.10 | 2.40 | est.: Vishay BAT85 | Any BAT85 (Vishay, Nexperia, onsemi) |
+| 25 | D1-D6, D8-D26 | BAT85 | Vishay | Schottky diode, DO-35 |  | 0.10 | 2.50 | est.: Vishay BAT85 | Any BAT85 (Vishay, Nexperia, onsemi) |
 | 1 | D7 | SA5.0A | Littelfuse | D_Zener |  | 0.40 | 0.40 | est.: Littelfuse SA5.0A, 500 W TVS, DO-15 axial |  |
 | 2 | R1, R2 | MFR-25FBF52-5K1 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 5.1k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
 | 7 | R3, R4, R13, R39-R41, R48 | MFR-25FBF52-10K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 10k | 0.10 | 0.70 | est.: Yageo MFR-25FBF52 series |  |
@@ -88,7 +89,7 @@ Components: **$191.97** for one board at these quantities, **$173.37** without t
 | 2 | C40, C42 | C330C105K5R5TA | KEMET | Ceramic capacitor, 5 mm pitch | 1u | 0.50 | 1.00 | est.: KEMET C330C105K5R5TA |  |
 | 1 | C41 | EEU-FR1E221 | Panasonic | Electrolytic capacitor, radial 8.0 mm, 3.50 mm pitch | 220u 10V | 0.35 | 0.35 | est.: Panasonic FR series |  |
 | 1 | C44 | EEU-FR1C221 | Panasonic | Electrolytic capacitor, radial 6.3 mm, 2.50 mm pitch | 220u | 0.35 | 0.35 | est.: Panasonic FR series |  |
-| 1 | C45 | C320C153K1G5TA | KEMET | Ceramic capacitor, 5 mm pitch | 15n C0G | 0.40 | 0.40 | est.: KEMET C315C153J1G5TA |  |
+| 1 | C45 | C320C153K1G5TA | KEMET | Ceramic capacitor, 5 mm pitch | 15n C0G | 0.40 | 0.40 | est.: KEMET C320C153K1G5TA |  |
 | 1 | C46 | FG24X5R1A226MRT06 | TDK | Ceramic capacitor, 5 mm pitch | 22u | 1.00 | 1.00 | est.: TDK FG24X5R1A226MRT06 |  |
 | 2 | JP1, JP2 | PREC002SAAN-RC | Sullins | Pin header, 1 x 2, 2.54 mm (bring-up jumper) |  | 0.15 | 0.30 | est.: Sullins PREC002SAAN-RC |  |
 | 1 | X1 | ED14DT | On Shore | IC socket, DIP-14 0.3" |  | 0.25 | 0.25 | est.: On Shore ED14DT | Not on the schematic.  Or a 4-pin oscillator socket |
