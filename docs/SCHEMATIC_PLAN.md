@@ -27,8 +27,8 @@ a separate board (a KiCad project has one PCB).
 | 6 | Data bus | U18 D register, U26 D source F541, U27 AC source F541 | 8 series resistors (source bus to data bus), 10k read-bus pull-up SIP |
 | 7 | Memory and I/O decode | U11 memory control, U12 I/O decode, U25 map register, U31, U32 RAM | cartridge slot (Molex 87715-9106), /CART pull-up |
 | 8 | Video timing | U13 H counter, U14 V counter, U15 Sync, U35 audio/mode slot PLD, U29 line read F541 | strap S4 (audio PLD) |
-| 9 | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register | VGA resistor DAC (8 resistors) and DE-15, R-2R ladder, filter, headphone jack J6, strap S5 (line code) |
-| 10 | Shared port | U37 port latch, U38 port PLD, U39 row F541 | J1 keyboard, J2/J3 SNES, J4 SD (dividers R42-R47, MISO diode and pull-up), J5 stacked dual PS/2, mouse + keyboard (diodes, 4.7k pull-ups), row pull-ups, pad DATA pull-ups |
+| 9 | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register | VGA resistor DAC (8 resistors) and DE-15, R-2R ladder, filter, headphone jack J6, strap S5 (line code), sync ESD clamps D22-D25 |
+| 10 | Shared port | U37 port latch, U38 port PLD, U39 row F541 | J1 keyboard, J2/J3 SNES, J4 SD (dividers R42-R47, MISO diode and pull-up), J5 stacked dual PS/2, mouse + keyboard (diodes, 4.7k pull-ups), row pull-ups, pad DATA pull-ups, ESD clamps D8-D21 |
 | 11 | Expansion slots | none | four 2 x 20 card-edge slots, SEL resistors (1k) |
 
 That puts 34 chips plus the regulator and oscillator on nine sheets, no more
@@ -309,8 +309,9 @@ Decisions made while drawing (2026-10-20):
     28 V DC, right-angle PCB snap-in (common and the normally closed
     contact wired, so pressing it opens the 5 V line).
   Both sit at the board edge for the case panel.
-- **D7, TVS on VBUS** (Justin, 2026-10-22): Littelfuse SMAJ5.0A
-  (unidirectional, 5 V standoff, about 9 V clamp, SMA) from the fused VBUS
+- **D7, TVS on VBUS** (Justin, 2026-10-22): Littelfuse SA5.0A
+  (unidirectional 500 W, 5 V standoff, about 9.2 V clamp, DO-15 axial,
+  through hole; first drawn as the SMD SMAJ5.0A) from the fused VBUS
   (between F1 and SW1) to GND.  It clamps the spike the USB cable's
   inductance throws when SW1 or SW2 opens under load, plus plug-in ringing
   and ESD.  It sits after the polyfuse so a lasting overvoltage trips F1
@@ -318,6 +319,26 @@ Decisions made while drawing (2026-10-20):
   would either bypass it or do nothing, and at 5 V the contacts cannot hold
   an arc (a DC arc needs about 12 V), so no snubbers.  Their footprints are
   still to draw.
+- **Through hole wherever possible** (Justin, 2026-10-22): pick a
+  through-hole part whenever one exists, SMD only when nothing through
+  hole does the job.
+- **ESD clamps on the external connectors** (Justin, 2026-10-22): every
+  slow signal line that leaves the board gets a BAT85 Schottky pair, one up
+  to +5V and one from GND, so a zap is steered into the rails (the 5 V rail
+  has C1-C40 and D7 to soak it).  Through-hole TVS arrays (SP0504 and the
+  like) do not exist, which is why it is discrete diodes.
+  - Shared port sheet, D8-D21: PS2_DATA, PS2_CLK, KBD_CLK (J5), P_SCK
+    (pad CLOCK), P_MOSI (pad LATCH), PAD1_DATA, PAD2_DATA (J2, J3).
+  - Video sheet, D22-D25: ~HSYNC and VSYNC at J7.  The RGB lines already
+    sit behind the DAC resistors (715 ohm to 3.24k) into the monitor's
+    75 ohm, so they get none.
+  - None on the cartridge or expansion slots (the extra capacitance would
+    eat into tight bus timing), the keyboard header (inside the case), the
+    SD card (inside the slot, 3.3 V side behind the divider resistors) or
+    the audio jack (behind C46 and R39).
+  - A BAT85 is about 10 pF, harmless at PS/2 and SNES speeds.  Diode pairs
+    are less robust than a real TVS array against a full IEC 61000-4-2
+    8 kV contact hit, but they cover the everyday plug-in and finger zaps.
 
 **Still to do:** a KiCad 8 ERC (the container's KiCad 7.0 command line has
 no ERC; open the project in KiCad 8 or 9 and run Inspect > Electrical Rules

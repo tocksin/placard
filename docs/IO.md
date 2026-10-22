@@ -36,6 +36,10 @@ chips and the connectors:
 | J4 | Full-size SD socket (SPI) | 1 CS, 2 DI, 5 CLK from the dividers R42-R47; 7 DO = MISO; 4 VDD 3.3 V; 3, 6 GND; 8, 9 not used |
 | J5 | Stacked dual mini-DIN 6 (Kycon KMDGX-6S/6S-S4N): top A = PS/2 mouse, bottom B = PS/2 keyboard | Each: 1 DATA, 3 GND, 4 +5 V, 5 CLK.  The two DATA pins are joined (one PS/2 DATA line); mouse CLK = PS2_CLK, keyboard CLK = KBD_CLK |
 
+ESD (2026-10-22): every signal pin of J2, J3 and J5 has a BAT85 pair to
++5V and GND (D8-D21, shared port sheet), and so do the VGA syncs at J7
+(D22-D25).  J1 (inside the case) and J4 have none.  See SCHEMATIC_PLAN.md.
+
 ## The port
 
 **Write, any address x5200-x52FF (the latch):**

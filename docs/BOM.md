@@ -29,16 +29,16 @@ read from a price list; PCBs, the case, shipping and tax are not included.
 
 | Board | Components | Lines estimated |
 |---|--:|--:|
-| Main board | $189.93 | 40 |
+| Main board | $191.42 | 40 |
 | Cartridge | $61.36 | 4 |
 | Keyboard | $145.96 | 6 |
-| **All three** | **$397.25** | |
+| **All three** | **$398.74** | |
 
 ## Main board
 
-53 lines, 159 parts on the schematic.
+53 lines, 177 parts on the schematic.
 
-Components: **$189.93** for one board at these quantities.
+Components: **$191.42** for one board at these quantities.
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -64,8 +64,8 @@ Components: **$189.93** for one board at these quantities.
 | 1 | SW1 | ANT11TFHQE | CIT Relay and Switch | Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing |  | 4.50 | 4.50 | est.: Digi-Key; Mouser has no stock |  |
 | 1 | SW2 | E112SD1A3QE | C&K | Reset: SPDT momentary pushbutton, NC contact used, 4 A 28 V DC, right-angle PCB |  | 11.00 | 11.00 | est.: Digi-Key; Mouser has no stock below 160 |  |
 | 1 | F1 | MF-RG300 | Bourns | Polyfuse, 3 A hold, radial | 3 A hold | 0.73 | 0.73 | Mouser: MF-RG300-0 | Part number from the footprint (Fuse_Bourns_MF-RG300) |
-| 6 | D1-D6 | BAT85 | Vishay | Schottky diode, DO-35 |  | 0.16 | 0.96 | est.: Vishay BAT85 | Any BAT85 (Vishay, Nexperia, onsemi) |
-| 1 | D7 | SMAJ5.0A | Littelfuse | D_Zener |  | 0.35 | 0.35 | est.: Littelfuse SMAJ5.0A, SMA (DO-214AC) |  |
+| 24 | D1-D6, D8-D25 | BAT85 | Vishay | Schottky diode, DO-35 |  | 0.10 | 2.40 | est.: Vishay BAT85 | Any BAT85 (Vishay, Nexperia, onsemi) |
+| 1 | D7 | SA5.0A | Littelfuse | D_Zener |  | 0.40 | 0.40 | est.: Littelfuse SA5.0A, 500 W TVS, DO-15 axial |  |
 | 2 | R1, R2 |  |  | Resistor, metal film 1%, 1/4 W, axial | 5.1k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
 | 7 | R3, R4, R13, R39-R41, R48 |  |  | Resistor, metal film 1%, 1/4 W, axial | 10k | 0.10 | 0.70 | est.: Yageo MFR-25FBF52 series |  |
 | 8 | R5-R12 |  |  | Resistor, metal film 1%, 1/4 W, axial | 47 | 0.10 | 0.80 | est.: Yageo MFR-25FBF52 series |  |
