@@ -280,23 +280,30 @@ def sheet_power(b):
     path(s, "GND", j13["S1"], (xg, j13["S1"][1]), (xg, j13["S1"][1] + 5.08))
     s.junction(xg, j13["S1"][1], owner="GND")
     s.power("GND", xg, j13["S1"][1] + 5.08)
-    f201 = s.part("placard_std:Polyfuse", "F1", 91.44, yr, {"1": "VBUS", "2": "+5V"}, value="3 A hold",
+    f201 = s.part("placard_std:Polyfuse", "F1", 91.44, yr, {"1": "VBUS", "2": "VFUSE"}, value="3 A hold",
                   footprint="Fuse:Fuse_Bourns_MF-RG300", angle=90, bare=("1", "2"),
                   ref_at=(86.4, yr - 2.0), value_at=(86.4, yr + 2.0))
     path(s, "VBUS", j13["A9"], f201["1"])
+    # after the fuse: the on/off toggle, then the reset button (push to open), both in series
+    sw1 = s.part("placard_std:SW_SPST", "SW1", 106.68, yr, {"1": "VFUSE", "2": "VON"}, value="Power",
+                 footprint="", bare=("1", "2"), ref_at=(102.0, yr - 4.6), value_at=(102.0, yr + 2.6))
+    sw2 = s.part("placard_std:SW_Push_Open", "SW2", 124.46, yr, {"1": "VON", "2": "+5V"}, value="Reset NC",
+                 footprint="", bare=("1", "2"), ref_at=(119.8, yr - 4.6), value_at=(119.8, yr + 2.6))
+    path(s, "VFUSE", f201["2"], sw1["1"])
+    path(s, "VON", sw1["2"], sw2["1"])
     for net, pin, x in (("CC2", "B5", 73.66), ("CC1", "A5", 88.9)):
         r = s.part("placard_std:R_US", "R1" if net == "CC1" else "R2", x, 104.14, R2(net, "GND"), value="5.1k",
                    footprint=FP_R, bare=("1",), ref_at=(x + 2.0, 103.6), value_at=(x + 2.0, 106.7))
         path(s, net, j13[pin], (x, j13[pin][1]), r["1"])
-    c201 = s.part("placard_std:C_Polarized", "C41", 114.3, yr + 3.81, {"1": "+5V", "2": "GND"},
-                  value="220u 10V", footprint=FP_CP_L, bare=("1",), ref_at=(116.8, yr + 3.3), value_at=(116.8, yr + 6.4))
+    c201 = s.part("placard_std:C_Polarized", "C41", 142.24, yr + 3.81, {"1": "+5V", "2": "GND"},
+                  value="220u 10V", footprint=FP_CP_L, bare=("1",), ref_at=(144.7, yr + 3.3), value_at=(144.7, yr + 6.4))
     # 3.3 V regulator on the same line
     u40 = s.part("placard_parts:MCP1700_TO92", "U40", 233.68, yr, {"1": "GND", "2": "+5V", "3": "+3V3"},
                  value="MCP1700-3302E/TO", bare=("2", "3"), ref_at=(223.5, yr - 10.5), value_at=(223.5, yr - 9.0))
     c40 = s.part("placard_std:C", "C40", 203.2, yr + 3.81, {"1": "+5V", "2": "GND"}, value="1u", footprint=FP_C,
                  bare=("1",), ref_at=(205.7, yr + 3.3), value_at=(205.7, yr + 6.4))
-    xp, xf = 139.7, 127.0
-    for pts in ([f201["2"], (c201["1"][0], yr)], [(c201["1"][0], yr), (xf, yr)], [(xf, yr), (xp, yr)],
+    xp, xf = 165.1, 154.94
+    for pts in ([sw2["2"], (c201["1"][0], yr)], [(c201["1"][0], yr), (xf, yr)], [(xf, yr), (xp, yr)],
                 [(xp, yr), (c40["1"][0], yr)], [(c40["1"][0], yr), u40["2"]]):
         path(s, "+5V", *pts)
     for x in (c201["1"][0], c40["1"][0]):
@@ -315,7 +322,10 @@ def sheet_power(b):
     note(s, 25, 122, ["5.1k on CC1 and CC2: a USB-C source gives 5 V.",
                       "19 PLDs draw up to about 2.5 A",
                       "(130 mA each at -7, worst case): use a 3 A",
-                      "supply; the polyfuse trips on a short."])
+                      "supply; the polyfuse trips on a short.",
+                      "SW1 on/off toggle, SW2 reset: a push-to-open",
+                      "button that cuts the power while held.",
+                      "Both carry the whole board: 5 A DC or more."])
     note(s, 200, 112, ["U40: 3.3 V for the SD card only (sheet 10).", "C40 input, C42 output (1 uF ceramic)."])
     # analog ground joins logic ground at the power input
     # (each side has its power flag on the pin end and its ground symbol below)

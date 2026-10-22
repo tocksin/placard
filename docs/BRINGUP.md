@@ -57,12 +57,17 @@ without a ROM image (or with SRAMs loaded some other way).  Remove both
 jumpers when the cartridge goes in.  The clock runs from power-up either
 way.
 
-**Reset.**  There is no reset button.  At power-up the ATF22V10C registers
+**Reset.**  Reset is a power cycle.  SW1 (on/off toggle) and SW2 (reset, a
+normally closed push button) sit in series in the 5 V input after the
+polyfuse, so holding SW2 cuts the power and letting go powers the board up
+again (2026-10-22).  Hold it for about half a second so the rail falls well
+below 1 V (the 220 µF drains in a few ms under load, slower with chips
+missing during bring-up).  At power-up the ATF22V10C registers
 start at 0, so the CPU starts in FETCH at x0000.  The cartridge stalls
 the CPU while it loads its SRAMs (about 33 ms; the video runs and shows
 the random RAM), and RUN holds the map register clear (all ROM) until it
 hands off at x0000, which holds a nop.  To
-restart, switch the power off and on.
+restart, press SW2 or switch SW1 off and on.
 
 **Floating inputs.**  An ATF22V10C holds an input that nothing drives at
 its last level (a weak pin keeper), and an F-series input that floats reads

@@ -4098,4 +4098,182 @@
           (effects
             (font
               (size 1.5 1.5)))))))
+  (symbol "SW_SPST"
+    (pin_names
+      (offset 0) hide)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "SW"
+      (at 0 3.175 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Value" "SW_SPST"
+      (at 0 -2.54 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 0 0 0)
+      (effects
+        (font
+          (size 1.27 1.27)) hide))
+    (property "Datasheet" "~"
+      (at 0 0 0)
+      (effects
+        (font
+          (size 1.27 1.27)) hide))
+    (property "ki_keywords" "switch lever"
+      (at 0 0 0)
+      (effects
+        (font
+          (size 1.27 1.27)) hide))
+    (property "ki_description" "Single Pole Single Throw (SPST) switch"
+      (at 0 0 0)
+      (effects
+        (font
+          (size 1.27 1.27)) hide))
+    (symbol "SW_SPST_0_0"
+      (circle
+        (center -2.032 0)
+        (radius 0.508)
+        (stroke
+          (width 0)
+          (type default))
+        (fill
+          (type none)))
+      (polyline
+        (pts
+          (xy -1.524 0.254)
+          (xy 1.524 1.778))
+        (stroke
+          (width 0)
+          (type default))
+        (fill
+          (type none)))
+      (circle
+        (center 2.032 0)
+        (radius 0.508)
+        (stroke
+          (width 0)
+          (type default))
+        (fill
+          (type none))))
+    (symbol "SW_SPST_1_1"
+      (pin passive line
+        (at -5.08 0 0)
+        (length 2.54)
+        (name "A"
+          (effects
+            (font
+              (size 1.8 1.8))))
+        (number "1"
+          (effects
+            (font
+              (size 1.5 1.5)))))
+      (pin passive line
+        (at 5.08 0 180)
+        (length 2.54)
+        (name "B"
+          (effects
+            (font
+              (size 1.8 1.8))))
+        (number "2"
+          (effects
+            (font
+              (size 1.5 1.5)))))))
+  (symbol "SW_Push_Open"
+    (pin_numbers hide)
+    (pin_names
+      (offset 1.016) hide)
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "SW"
+      (at 0 2.54 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Value" "SW_Push_Open"
+      (at 0 -1.905 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" ""
+      (at 0 5.08 0)
+      (effects
+        (font
+          (size 1.27 1.27)) hide))
+    (property "Datasheet" "~"
+      (at 0 5.08 0)
+      (effects
+        (font
+          (size 1.27 1.27)) hide))
+    (property "ki_keywords" "switch normally-closed pushbutton push-button"
+      (at 0 0 0)
+      (effects
+        (font
+          (size 1.27 1.27)) hide))
+    (property "ki_description" "Push button switch, push-to-open, generic, two pins"
+      (at 0 0 0)
+      (effects
+        (font
+          (size 1.27 1.27)) hide))
+    (symbol "SW_Push_Open_0_1"
+      (circle
+        (center -2.032 0)
+        (radius 0.508)
+        (stroke
+          (width 0)
+          (type default))
+        (fill
+          (type none)))
+      (polyline
+        (pts
+          (xy -2.54 -0.635)
+          (xy 2.54 -0.635))
+        (stroke
+          (width 0)
+          (type default))
+        (fill
+          (type none)))
+      (polyline
+        (pts
+          (xy 0 -0.635)
+          (xy 0 1.27))
+        (stroke
+          (width 0)
+          (type default))
+        (fill
+          (type none)))
+      (circle
+        (center 2.032 0)
+        (radius 0.508)
+        (stroke
+          (width 0)
+          (type default))
+        (fill
+          (type none)))
+      (pin passive line
+        (at -5.08 0 0)
+        (length 2.54)
+        (name "A"
+          (effects
+            (font
+              (size 1.8 1.8))))
+        (number "1"
+          (effects
+            (font
+              (size 1.5 1.5))))))
+    (symbol "SW_Push_Open_1_1"
+      (pin passive line
+        (at 5.08 0 180)
+        (length 2.54)
+        (name "B"
+          (effects
+            (font
+              (size 1.8 1.8))))
+        (number "2"
+          (effects
+            (font
+              (size 1.5 1.5)))))))
 )
