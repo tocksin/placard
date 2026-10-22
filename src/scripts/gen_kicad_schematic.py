@@ -285,10 +285,14 @@ def sheet_power(b):
                   ref_at=(86.4, yr - 2.0), value_at=(86.4, yr + 2.0))
     path(s, "VBUS", j13["A9"], f201["1"])
     # after the fuse: the on/off toggle, then the reset button (push to open), both in series
-    sw1 = s.part("placard_std:SW_SPST", "SW1", 106.68, yr, {"1": "VFUSE", "2": "VON"}, value="Power",
-                 footprint="", bare=("1", "2"), ref_at=(102.0, yr - 4.6), value_at=(102.0, yr + 2.6))
-    sw2 = s.part("placard_std:SW_Push_Open", "SW2", 124.46, yr, {"1": "VON", "2": "+5V"}, value="Reset NC",
-                 footprint="", bare=("1", "2"), ref_at=(119.8, yr - 4.6), value_at=(119.8, yr + 2.6))
+    sw1 = s.part("placard_std:SW_SPST", "SW1", 106.68, yr, {"1": "VFUSE", "2": "VON"}, value="ANT11TFHQE",
+                 footprint="", bare=("1", "2"), ref_at=(102.0, yr - 4.6), value_at=(100.0, yr + 5.6),
+                 extra_props={"Manufacturer": "CIT Relay and Switch", "MPN": "ANT11TFHQE",
+                              "Description": "Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing"})
+    sw2 = s.part("placard_std:SW_Push_Open", "SW2", 124.46, yr, {"1": "VON", "2": "+5V"}, value="E112SD1A3QE",
+                 footprint="", bare=("1", "2"), ref_at=(119.8, yr - 4.6), value_at=(117.0, yr + 2.6),
+                 extra_props={"Manufacturer": "C&K", "MPN": "E112SD1A3QE",
+                              "Description": "Reset: SPDT momentary pushbutton, NC contact used, 4 A 28 V DC, right-angle PCB snap-in"})
     path(s, "VFUSE", f201["2"], sw1["1"])
     path(s, "VON", sw1["2"], sw2["1"])
     for net, pin, x in (("CC2", "B5", 73.66), ("CC1", "A5", 88.9)):
@@ -320,12 +324,11 @@ def sheet_power(b):
     s.power("+3V3", x3, yr)
     s.pwr_flag(xf3, yr)
     note(s, 25, 122, ["5.1k on CC1 and CC2: a USB-C source gives 5 V.",
-                      "19 PLDs draw up to about 2.5 A",
-                      "(130 mA each at -7, worst case): use a 3 A",
-                      "supply; the polyfuse trips on a short.",
-                      "SW1 on/off toggle, SW2 reset: a push-to-open",
-                      "button that cuts the power while held.",
-                      "Both carry the whole board: 5 A DC or more."])
+                      "19 PLDs draw up to about 2.5 A (130 mA each at",
+                      "-7, worst case): use a 3 A supply; the polyfuse",
+                      "trips on a short.  SW1 power: toggle, common +",
+                      "one throw.  SW2 reset: momentary, common + NC,",
+                      "so holding it cuts the power."])
     note(s, 200, 112, ["U40: 3.3 V for the SD card only (sheet 10).", "C40 input, C42 output (1 uF ceramic)."])
     # analog ground joins logic ground at the power input
     # (each side has its power flag on the pin end and its ground symbol below)

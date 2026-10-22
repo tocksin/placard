@@ -292,9 +292,17 @@ Decisions made while drawing (2026-10-20):
 - Polyfuse 3 A hold (Bourns MF-R300 size): 19 PLDs can draw about 2.5 A.
 - SW1 and SW2 carry the whole board's current, so each needs a rating of
   5 A DC or more: the polyfuse holds 3 A and passes about 6 A before it
-  trips.  A small tactile button (about 50 mA) will not do for SW2; use a
-  panel-mount momentary push-to-open (NC) switch.  Their footprints wait
-  for the case design.
+  trips.  A small tactile button (about 50 mA) will not do for SW2.
+  Chosen (Justin, 2026-10-22; on the schematic as Value, MPN and
+  Manufacturer fields):
+  - SW1 power: CIT Relay and Switch **ANT11TFHQE**, SPDT on-on toggle,
+    5 A / 28 V DC, right-angle PCB pins, 1/4-40 bushing (common and one
+    throw wired, the other throw unused).
+  - SW2 reset: C&K **E112SD1A3QE**, SPDT momentary pushbutton, 4 A /
+    28 V DC, right-angle PCB snap-in (common and the normally closed
+    contact wired, so pressing it opens the 5 V line).
+  Both sit at the board edge for the case panel.  Their footprints are
+  still to draw.
 
 **Still to do:** a KiCad 8 ERC (the container's KiCad 7.0 command line has
 no ERC; open the project in KiCad 8 or 9 and run Inspect > Electrical Rules
