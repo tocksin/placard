@@ -95,7 +95,7 @@ notes give each PLD's job; [KITTING.md](KITTING.md) lists the images.
 
 ## Keyboard
 
-11 lines, 190 parts on the schematic.
+9 lines, 190 parts on the schematic.
 
 | Qty | References | Part number | Manufacturer | Description | Value | Notes |
 |--:|---|---|---|---|---|---|
@@ -105,8 +105,6 @@ notes give each PLD's job; [KITTING.md](KITTING.md) lists the images.
 | 63 | R1-R63 |  |  | Resistor, metal film 1%, 1/4 W, axial | 1k |  |
 | 63 | SW1-SW63 |  |  | LED, 3 mm, through-hole |  | Not on the schematic.  Optional, always on; one in each key switch (pads 3 K, 4 A) |
 | 63 | SW1-SW63 |  |  | Keycap, Cherry MX stem |  | Not on the schematic.  Sizes as the key switches |
-| 1 | SW41 |  |  | Stabilizer, Cherry MX PCB mount, 2 u |  | Not on the schematic. |
-| 2 | SW6, SW14 |  |  | Stabilizer, Cherry MX PCB mount, 2.25 u |  | Not on the schematic. |
-| 1 | SW24 |  |  | Stabilizer, Cherry MX PCB mount, 6.25 u |  | Not on the schematic. |
-| 1 |  |  |  | Ribbon cable, 20 way, 1.27 mm pitch flat |  | Not on the schematic.  Keyboard to main board J1; length to suit the case |
-| 2 |  |  |  | IDC socket, 2 x 10, 2.54 mm, polarized, with strain relief |  | Not on the schematic.  Crimped on each end of the ribbon cable; mates with J1 on both boards |
+| 3 | SW6, SW14, SW41 | G99-0742 | Cherry | Stabilizer set, PCB mount, 2 u (also 2.25 u, 2.75 u): 2 housings, 2 sliders, wire |  | Not on the schematic.  One complete set per key, ordered as one part (Mouser 540-G99-0742) |
+| 1 | SW24 |  | Durock | Stabilizer set, PCB screw-in, 6.25 u: 2 housings, 2 stems, wire, 2 screws, 2 washers |  | Not on the schematic.  Durock V2 screw-in, 6.25 u option (keyboard shops, no distributor part number); Cherry sells no 6.25 u PCB set through distributors |
+| 1 |  | M3AAA-2006J | 3M | Ribbon cable assembly, 20 way, IDC socket to socket, 2.54 mm, 6 in (152 mm) |  | Not on the schematic.  Keyboard J1 to main board J1, pre-assembled, pin 1 to pin 1; check on the datasheet that the socket key fits the box header.  Last two digits = length in inches (M3AAA-2018J = 18 in) |
