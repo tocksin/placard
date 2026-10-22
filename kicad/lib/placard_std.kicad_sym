@@ -2767,7 +2767,7 @@
           (effects
             (font
               (size 1.5 1.5)))))))
-  (symbol "AudioJack3"
+  (symbol "AudioJack4"
     (in_bom yes)
     (on_board yes)
     (property "Reference" "J"
@@ -2775,7 +2775,7 @@
       (effects
         (font
           (size 1.27 1.27))))
-    (property "Value" "AudioJack3"
+    (property "Value" "AudioJack4"
       (at 0 6.35 0)
       (effects
         (font
@@ -2790,12 +2790,12 @@
       (effects
         (font
           (size 1.27 1.27)) hide))
-    (property "ki_keywords" "audio jack receptacle stereo headphones phones TRS connector"
+    (property "ki_keywords" "audio jack receptacle stereo headphones TRRS connector"
       (at 0 0 0)
       (effects
         (font
           (size 1.27 1.27)) hide))
-    (property "ki_description" "Audio Jack, 3 Poles (Stereo / TRS)"
+    (property "ki_description" "Audio Jack, 4 Poles (TRRS)"
       (at 0 0 0)
       (effects
         (font
@@ -2805,10 +2805,10 @@
       (effects
         (font
           (size 1.27 1.27)) hide))
-    (symbol "AudioJack3_0_1"
+    (symbol "AudioJack4_0_1"
       (rectangle
-        (start -5.08 -5.08)
-        (end -6.35 -2.54)
+        (start -6.35 -5.08)
+        (end -7.62 -7.62)
         (stroke
           (width 0.254)
           (type default))
@@ -2816,9 +2816,33 @@
           (type outline)))
       (polyline
         (pts
-          (xy 0 -2.54)
-          (xy 0.635 -3.175)
-          (xy 1.27 -2.54)
+          (xy 0 -5.08)
+          (xy 0.635 -5.715)
+          (xy 1.27 -5.08)
+          (xy 2.54 -5.08))
+        (stroke
+          (width 0.254)
+          (type default))
+        (fill
+          (type none)))
+      (polyline
+        (pts
+          (xy -5.715 -5.08)
+          (xy -5.08 -5.715)
+          (xy -4.445 -5.08)
+          (xy -4.445 2.54)
+          (xy 2.54 2.54))
+        (stroke
+          (width 0.254)
+          (type default))
+        (fill
+          (type none)))
+      (polyline
+        (pts
+          (xy -1.905 -5.08)
+          (xy -1.27 -5.715)
+          (xy -0.635 -5.08)
+          (xy -0.635 -2.54)
           (xy 2.54 -2.54))
         (stroke
           (width 0.254)
@@ -2827,23 +2851,11 @@
           (type none)))
       (polyline
         (pts
-          (xy -1.905 -2.54)
-          (xy -1.27 -3.175)
-          (xy -0.635 -2.54)
-          (xy -0.635 0)
-          (xy 2.54 0))
-        (stroke
-          (width 0.254)
-          (type default))
-        (fill
-          (type none)))
-      (polyline
-        (pts
-          (xy 2.54 2.54)
-          (xy -2.54 2.54)
-          (xy -2.54 -2.54)
-          (xy -3.175 -3.175)
-          (xy -3.81 -2.54))
+          (xy 2.54 0)
+          (xy -2.54 0)
+          (xy -2.54 -5.08)
+          (xy -3.175 -5.715)
+          (xy -3.81 -5.08))
         (stroke
           (width 0.254)
           (type default))
@@ -2851,13 +2863,24 @@
           (type none)))
       (rectangle
         (start 2.54 3.81)
-        (end -5.08 -5.08)
+        (end -6.35 -7.62)
         (stroke
           (width 0.254)
           (type default))
         (fill
           (type background))))
-    (symbol "AudioJack3_1_1"
+    (symbol "AudioJack4_1_1"
+      (pin passive line
+        (at 5.08 -2.54 180)
+        (length 2.54)
+        (name "~"
+          (effects
+            (font
+              (size 1.8 1.8))))
+        (number "R1"
+          (effects
+            (font
+              (size 1.5 1.5)))))
       (pin passive line
         (at 5.08 0 180)
         (length 2.54)
@@ -2865,7 +2888,7 @@
           (effects
             (font
               (size 1.8 1.8))))
-        (number "R"
+        (number "R2"
           (effects
             (font
               (size 1.5 1.5)))))
@@ -2881,7 +2904,7 @@
             (font
               (size 1.5 1.5)))))
       (pin passive line
-        (at 5.08 -2.54 180)
+        (at 5.08 -5.08 180)
         (length 2.54)
         (name "~"
           (effects

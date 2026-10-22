@@ -28,7 +28,7 @@ PIN_NUMBER = 1.5
 USED = [("74xx", "74LS273"), ("74xx", "74LS32"), ("74xx", "74LS377"), ("74xx", "74LS541"),
         ("74xx", "74LS574"),
         ("Connector", "DE15_Receptacle_HighDensity_MountingHoles"), ("Connector", "Mini-DIN-6"),
-        ("Connector", "SD_Card"), ("Connector_Audio", "AudioJack3"),
+        ("Connector", "SD_Card"), ("Connector_Audio", "AudioJack4"),
         ("Device", "C"), ("Device", "C_Polarized"), ("Device", "D_Schottky"), ("Device", "NetTie_2"),
         ("Device", "Polyfuse"), ("Device", "R_US"), ("Device", "R_Network08_US"),
         ("Jumper", "Jumper_2_Open"), ("Regulator_Linear", "MCP1700x-330xxTO"),

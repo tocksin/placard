@@ -319,6 +319,14 @@ Decisions made while drawing (2026-10-20):
   would either bypass it or do nothing, and at 5 V the contacts cannot hold
   an arc (a DC arc needs about 12 V), so no snubbers.  Their footprints are
   still to draw.
+- **Part numbers** (Justin, 2026-10-22): every schematic part now has a
+  Manufacturer and MPN (resistors Yageo MFR-25FBF52-<value>, networks Bourns
+  4609X-101, ceramics KEMET/TDK, electrolytics Panasonic FR, oscillator ECS
+  ECS-100A-251.7, VGA Assmann A-HDF 15 A-KG/T, headphones Tensility
+  54-00174).  J6 is now that 4-pole (TRRS) jack: T and R1 = AUDIO, R2 and S =
+  GNDA, footprint placard:Jack_3.5mm_Tensility_54-00174_Horizontal drawn from
+  its datasheet.  The expansion slot sockets J9-J12 and the keyboard header
+  J1 are optional (BOM.md gives the total without them).
 - **Through hole wherever possible** (Justin, 2026-10-22): pick a
   through-hole part whenever one exists, SMD only when nothing through
   hole does the job.
