@@ -266,6 +266,14 @@ GRN3 / GREEN(3)  -- 825 Ω  ---+---- VGA GREEN
 
 These resistor values assume a 5 V PLD supply and a 75 Ω VGA load. Actual output voltages will depend on the ATF22V10 output high voltage and output resistance.
 
+## Row tint (2026-10-22)
+
+Each VGA colour line also has a row tint input: the line code register's
+Q4 (red), Q5 (green) or Q6 (blue) through 910 Ω and two 1N4148s in series,
+with a BAT85 from the 910 Ω node to VIDEN so the tint is off in blanking.
+A set bit lifts that channel by about 0.2 V for the whole row.  See
+[VIDEO.md, "Row tint"](VIDEO.md#row-tint).
+
 ---
 
 # Design Summary

@@ -1,6 +1,6 @@
 # PLD usage: unused pins and product terms
 
-Date: 2026-10-22. Taken from `src/pld/*.pld` on main (commit b476a68), then updated for the F377 load-enable fix (State PLD revision 13, Branch PLD revision 12, I/O decode PLD revision 04: the five State PLD load strobes are active low, and the Branch PLD's pin 15 makes the pixel buffer's /PIX_LD), and for X no longer being a source (Branch PLD revision 13: pin 16 is /SRC_EN, active low, on the source F541s' /OE1; memory control PLD revision 07; audio slot PLD revision 04 uses pins 16 and 21 for I1 and /AC_SEL). State 15, Branch 15, ALU 07 and cartridge 03 are the same logic as State 13, Branch 13, ALU 05 and cartridge 01: the revisions between them stored the opcode byte XOR FDh and were reverted on 2026-10-21. Later on 2026-10-21 the cartridge PLD went to revision 04 (it holds the CPU's STALL instead of the clock) and the instruction register became a PLD (`ATF22V10_IR.pld`, #17). On 2026-10-22 the memory control PLD went to revision 09 (/WE output enable for a slot-1 boot card).
+Date: 2026-10-22. Taken from `src/pld/*.pld` on main (commit b476a68), then updated for the F377 load-enable fix (State PLD revision 13, Branch PLD revision 12, I/O decode PLD revision 04: the five State PLD load strobes are active low, and the Branch PLD's pin 15 makes the pixel buffer's /PIX_LD), and for X no longer being a source (Branch PLD revision 13: pin 16 is /SRC_EN, active low, on the source F541s' /OE1; memory control PLD revision 07; audio slot PLD revision 04 uses pins 16 and 21 for I1 and /AC_SEL). State 15, Branch 15, ALU 07 and cartridge 03 are the same logic as State 13, Branch 13, ALU 05 and cartridge 01: the revisions between them stored the opcode byte XOR FDh and were reverted on 2026-10-21. Later on 2026-10-21 the cartridge PLD went to revision 04 (it holds the CPU's STALL instead of the clock) and the instruction register became a PLD (`ATF22V10_IR.pld`, #17). On 2026-10-22 the memory control PLD went to revision 09 (/WE output enable for a slot-1 boot card), and the H counter PLD went to revision 08 (pin 6 = LC7, blank line).
 
 The main board has 19 ATF22V10C chips built from 13 PLD sources, and the ROM cartridge one more (`ATF22V10_CART.pld`). Each 22V10 has 12 dedicated inputs (pins 1-11 and 13; pin 1 is also the register clock) and 10 I/O pins (14-23), each with an output macrocell (OLMC) of 8, 10, 12, 14, 16, 16, 14, 12, 10 or 8 product terms. An I/O pin used as an input gives up its cell's terms. Every chip also has one asynchronous reset (AR) and one synchronous preset (SP) term shared by all registers, and each cell has its own output-enable term.
 
@@ -25,7 +25,7 @@ Each output equation was expanded with its intermediate variables (names that ar
 | `ATF22V10_QUAD_MUX.pld` | #7-#10 | none | none | 6 | 4 | 16 / 44 |
 | `ATF22V10_MEM_CTRL.pld` | #11 | none | none | 6 | 4 | 28 / 58 |
 | `ATF22V10_IO_DECODE.pld` | #12 | none | none | 3 | 7 | 27 / 88 |
-| `ATF22V10_HCOUNT.pld` | #13 | 6, 7, 8, 9, 10, 11, 13, 2* | none | 0 | 10 | 66 / 120 |
+| `ATF22V10_HCOUNT.pld` | #13 | 7, 8, 9, 10, 11, 13, 2* | none | 0 | 10 | 66 / 120 |
 | `ATF22V10_VCOUNT.pld` | #14 | 3, 4, 5, 6, 7, 8, 9, 10, 11, 13 | none | 0 | 10 | 79 / 120 |
 | `ATF22V10_SYNC.pld` | #15 | none | none | 0 | 10 | 26 / 120 |
 | `ATF22V10_COLORDECODER.pld` | #16 | none | none | 2 | 8 | 95 / 104 |
@@ -36,7 +36,7 @@ Each output equation was expanded with its intermediate variables (names that ar
 
 \* pin 2 on HCOUNT is declared (RESET) but used in no equation.
 
-Free inputs in total: HCOUNT 8, VCOUNT 10, PORT 4, IR 1 (main board); CART 7. Free I/O cells: IR pins 22 and 23 only (BRANCH pin 15 became /PIX_LD in revision 12, and AUDIO pins 16 and 21 became I1 and /AC_SEL in revision 04).
+Free inputs in total: HCOUNT 7, VCOUNT 10, PORT 4, IR 1 (main board); CART 7. Free I/O cells: IR pins 22 and 23 only (BRANCH pin 15 became /PIX_LD in revision 12, and AUDIO pins 16 and 21 became I1 and /AC_SEL in revision 04).
 
 **Full or tight cells** (0-1 spare): COLORDECODER RED1, RED2, RED3, GRN1, BLU2 (full) and GRN3 (1 spare); MEM_CTRL RAM_OE (full); HCOUNT HSYNC (1 spare); STATE Q1 (1 spare).
 
@@ -163,7 +163,7 @@ No free pins. Each strobe minimizes to 4 terms (CE_HI to 3); the source notes Wi
 
 ### `ATF22V10_HCOUNT.pld` (#13)
 
-The most free input pins in the design: pins 6-11 and 13 are not declared, and pin 2 (RESET) is declared but used in no equation (tied low in the FPGA model), so 8 inputs are free. All ten output cells are used; HSYNC on pin 21 is tight (11 of 12).
+Pins 7-11 and 13 are not declared, and pin 2 (RESET) is declared but used in no equation (tied low in the FPGA model), so 7 inputs are free.  Pin 6 is LC7 (blank line) since revision 08. All ten output cells are used; HSYNC on pin 21 is tight (11 of 12).
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|
@@ -175,7 +175,7 @@ The most free input pins in the design: pins 6-11 and 13 are not declared, and p
 | 19 | 16 | H8 | registered | 9 | 7 |
 | 20 | 14 | H9 | registered | 10 | 4 |
 | 21 | 12 | !HSYNC | registered | 11 | 1 tight |
-| 22 | 10 | H_VIDEO_ACTIVE | registered | 2 | 8 |
+| 22 | 10 | H_VIDEO_ACTIVE | registered | 3 | 7 |
 | 23 | 8 | H_TC | combinational | 1 | 7 |
 
 ### `ATF22V10_VCOUNT.pld` (#14)
