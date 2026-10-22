@@ -61,7 +61,7 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is two more AS7C
 | x6000-x7FFF | 3 | RAM/ROM (Video Memory from x6020; ROM: program from x6000) |
 | x8000-x9FFF | 4 | RAM/ROM (Video Memory; ROM: program) |
 | xA000-xBFFF | 5 | RAM/ROM (Video Memory; ROM: program) |
-| xC000-xDFFF | 6 | RAM/ROM (Video Memory; ROM: library from xC500: menu hook, slot helpers, FAT reader, line input, sound, I/O drivers) |
+| xC000-xDFFF | 6 | RAM/ROM (Video Memory; ROM: library from xC000: PS/2 keyboard, menu hook, slot helpers, FAT reader, line input, sound, I/O drivers) |
 | xE000-xFFFF | 7 | RAM/ROM (Video Memory; ROM: I/O drivers, font xEC00, core routines xF400, jump table xFB00, boot loader xFC00) |
 
 ![Placard memory map](reference/memory_map.png)

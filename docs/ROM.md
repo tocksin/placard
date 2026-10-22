@@ -9,7 +9,7 @@ cartridge's EEPROM image, and `src/hdl/ram.mem` (the main RAM) and
 cartridge model is `src/hdl/cartridge.vhd`.  Programs and the standard
 library live in the ROM.
 
-Date: 10/21/2026
+Date: 10/22/2026
 
 ## Video always reads the RAM
 
@@ -25,7 +25,7 @@ change.
 
 The library is one block at the top of the ROM, under the boot loader,
 with the most used parts highest: the jump table, then the core routines,
-the font, the I/O drivers and the rest.  It grows down into xC000-xC4FF.
+the font, the I/O drivers and the rest, down to xC000.
 
 | ROM address | Contents | Made from |
 |-------------|----------|-----------|
@@ -37,7 +37,7 @@ the font, the I/O drivers and the rest.  It grows down into xC000-xC4FF.
 | x5000-x53FF | I/O window, the ROM is never read here | |
 | x5400-x5FFF | Free (section 2 reads RAM while a program runs) | |
 | x6000-xBFFF | Program, runs in place, entry at x6000 | the program |
-| xC000-xC4FF | Free, for the library to grow into | |
+| xC000-xC4FF | PS/2 keyboard driver and listening (`PS2_CODE`): `wait_frames_io` ([IO.md](IO.md)) | `rom_lib.asm` |
 | xC500-xC5FF | Menu hook (`MENU_CODE`): `menu_poll` ([MENU.md](MENU.md)) | `rom_lib.asm` |
 | xC600-xC6FF | Expansion slot helpers (`SLOT_CODE`): `slot_id` | `rom_lib.asm` |
 | xC700-xD4FF | FAT file reader (`FS_CODE`) | `rom_lib.asm` |

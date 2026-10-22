@@ -12,7 +12,7 @@
 ;     python3 placard_sim.py io_demo.asm --run --boot --png io.png
 ;     build\io_demo.bat                 (the FPGA model: docs/IO.md has the wiring)
 ;
-; Date: 10/18/2026
+; Date: 10/22/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -198,13 +198,13 @@ g1:
     ld   ac, [pad2_lo]
     ld   ac, [pad2_hi]
 loop:
-    ld   1, ac                  ; once per frame
-    ld   LINK_LO, x             ; CALL wait_frames
+    ld   1, ac                  ; once per frame (it listens to the mouse
+    ld   LINK_LO, x             ; and the PS/2 keyboard while it waits)
     ld   l1, [x]
     ld   LINK_HI, x
     ld   l1 >> 8, [x]
-    ld   wait_frames >> 8, y
-    jmp  wait_frames
+    ld   wait_frames_io >> 8, y
+    jmp  wait_frames_io
 l1:
     ld   LINK_LO, x             ; CALL kbd_scan
     ld   l2, [x]

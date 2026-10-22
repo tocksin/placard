@@ -12,14 +12,17 @@ are not changed), boots it like the board and checks:
   1. in turn: the programs start in order 1-6 and then 1 again; each RAM
      program's RAM x0000-x49FF is exactly its image when it starts (the
      loader), and the CPU test's grid is all green when it leaves
-  2. Esc in a program (the text demo) shows the menu (MB_WHY = 1)
+  2. Esc on the PS/2 keyboard in a program (the text demo, which calls
+     menu_poll but not kbd_scan) shows the menu (MB_WHY = 1)
   3. Down moves the highlight; 3 runs Mandelbrot, picked: it runs past the
      time limit, until Esc brings the menu back
   4. with no key for the idle time the menu runs them in turn again, from
      the highlighted program
-Keys are pressed on the keyboard model (io_devices.SharedPort).
+Keys are pressed on the keyboard model (io_devices.SharedPort); a PS/2
+keyboard (io_devices.Ps2Keyboard) is plugged in too, so the menu and the
+programs run with both keyboards, and step 2 uses the PS/2 one's Esc.
 
-Date: 10/20/2026
+Date: 10/22/2026
 """
 
 import argparse
@@ -34,6 +37,7 @@ import gen_menu_rom           # noqa: E402
 
 FRAME = 525 * 800
 ESC, DOWN, ENTER, KEY3 = (0, 0), (7, 6), (5, 0), (0, 3)
+PS2_ESC = 0x76                  # set 2 code
 MB = 0x5D00
 
 
@@ -44,6 +48,7 @@ def main(argv):
     rom, syms, progs = gen_menu_rom.build(rotate_frames=40, hold_frames=20, idle_s=2,
                                           write=False, quiet=True)
     port = io_devices.SharedPort()
+    port.kbd = io_devices.Ps2Keyboard()
     cpu = ps.Cpu({}, rom=rom, io=port)
     p_launch, p_back, p_loop = syms['launch'], syms['menu_back'], syms['menu_loop']
     ok = True
@@ -134,8 +139,10 @@ def main(argv):
             break
     for _ in range(5 * FRAME // 3):
         cpu.step()
-    press(ESC)
-    if run_until(lambda: at(p_loop), 60, 'the menu after Esc'):
+    port.kbd.press(PS2_ESC)                     # Esc on the PS/2 keyboard
+    found = run_until(lambda: at(p_loop), 60, 'the menu after the PS/2 Esc')
+    port.kbd.release(PS2_ESC)
+    if found:
         if cpu.mem[MB + 9] != 1:
             fail('MB_WHY = %d, not 1 (Esc)' % cpu.mem[MB + 9])
         print('  menu shown, highlight on %d' % (cpu.mem[syms['m_sel']] + 1))

@@ -3,7 +3,7 @@
 One ROM image holds six demo programs and a menu that runs them.  It is
 built by `src/scripts/gen_menu_rom.py` and loaded with `build\menu.bat`.
 
-Date: 10/20/2026
+Date: 10/22/2026
 
 ![the menu in the simulator](../reference/menu_sim.png)
 
@@ -22,7 +22,9 @@ Date: 10/20/2026
   until it is done or for 2 minutes (Mandelbrot 3, so it finishes), then
   the next, and after the last the first again.  `LIMIT_S` in
   `gen_menu_rom.py` sets a longer limit per program.
-- **Esc** in any program shows the menu.
+- **Esc** in any program shows the menu (on the key matrix or a PS/2
+  keyboard; in the older RAM programs only the matrix Esc, since they
+  can't reach the library's PS/2 driver).
 - In the menu, **Up / Down** move the highlight and **Enter** (or Space)
   runs the highlighted program; **1-6** run that program at once.  A
   program picked from the menu has no time limit: it runs until Esc (a
