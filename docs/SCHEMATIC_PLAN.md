@@ -27,7 +27,7 @@ a separate board (a KiCad project has one PCB).
 | 6 | Data bus | U18 D register, U26 D source F541, U27 AC source F541 | 8 series resistors (source bus to data bus), 10k read-bus pull-up SIP |
 | 7 | Memory and I/O decode | U11 memory control, U12 I/O decode, U25 map register, U31, U32 RAM | cartridge slot (Molex 87715-9106), /CART pull-up |
 | 8 | Video timing | U13 H counter, U14 V counter, U15 Sync, U35 audio/mode slot PLD, U29 line read F541 | strap S4 (audio PLD) |
-| 9 | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register | VGA resistor DAC (8 resistors) and DE-15, R-2R ladder, filter, headphone jack J6, strap S5 (line code), sync ESD clamps D22-D25 |
+| 9 | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register | VGA resistor DAC (8 resistors) and DE-15, R-2R ladder, filter, headphone jack J6, strap S5 (line code), sync ESD clamps D22-D25, row tint R56-R58 + D27-D35 (2026-10-22) |
 | 10 | Shared port | U37 port latch, U38 port PLD, U39 row F541 | J1 keyboard, J2/J3 SNES, J4 SD (dividers R42-R47, MISO diode and pull-up), J5 stacked dual PS/2, mouse + keyboard (diodes, 4.7k pull-ups), row pull-ups, pad DATA pull-ups, ESD clamps D8-D21 |
 | 11 | Expansion slots | none | four 2 x 20 card-edge slots, SEL resistors (1k) |
 
@@ -101,6 +101,7 @@ sheet that drives the net.
 | `/AC_SEL` | 8 (audio PLD pin 21) | 6 (U27 /OE2) |
 | `/MODE_LD`, `BLANK_RD` | 8 (audio PLD) | 9 (line code /E), 8 (Sync) |
 | `LC2`, `LC3` | 9 (line code Q3:Q2) | 8 (audio PLD) |
+| `LC7` | 9 (line code Q7) | 8 (H counter pin 6, blank line) |
 | `/WE`, `/RAM_OE`, `/ROM_OE` | 7 (memory control) | 7 (RAM, cartridge A17), 11 (/WE on every slot) |
 | `/CE_HI` | 7 (I/O decode) | 7 (RAM upper chip, cartridge B16) |
 | `/MAP_WR`, `/LINE_RD` | 7 (I/O decode) | 7 (map register clock), 8 (U29 /OE) |
