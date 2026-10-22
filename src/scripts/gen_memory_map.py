@@ -10,7 +10,7 @@ in below from README.md (Memory Map), docs/ROM.md, docs/LIBRARY.md (zero
 page), docs/VIDEO.md (mode byte, line repeat), docs/SOUND.md, docs/IO.md and
 docs/EXPANSION.md; update them here when the map changes and rerun.
 
-Date: 2026-10-19
+Date: 2026-10-22
 """
 import os
 import sys
@@ -36,7 +36,7 @@ fig.text(0.5, 0.942,
          "Writes always go to the RAM.  CPU reads follow the map register (x5000): bit n = 1 reads section n "
          "from RAM.  Video reads always read the RAM.\n"
          "A running program uses map = 05: sections 0 and 2 read RAM; the program (x2000-x3FFF, x6000-xBFFF) "
-         "and the library (xC600-xFBFF) run in place from ROM.",
+         "and the library (xC000-xFBFF) run in place from ROM.",
          ha="center", va="top", fontsize=12, color="#444", linespacing=1.5)
 
 
@@ -149,11 +149,11 @@ axC = fig.add_axes([0.42, 0.05, 0.19, 0.77])
 mid = [
     (0x4000, 0x4CFF, C["free"], "Program data", None),
     (0x4D00, 0x4D7F, C["fat"], "FAT reader variables (FS_VARS)", None),
-    (0x4D80, 0x4DFF, C["free"], "Free", None),
+    (0x4D80, 0x4DFF, C["drv"], "PS/2 keyboard variables (to x4D9F)", None),
     (0x4E00, 0x4FFF, C["fat"], "FAT sector buffer (FS_BUF)\n512 bytes", "FAT"),
     (0x5000, 0x50FF, C["io"], "W: map register  R: line counter", None),
     (0x5100, 0x51FF, C["io"], "Slot 1 (x5100) / slot 3 (x5180)", None),
-    (0x5200, 0x52FF, C["io"], "Shared port: keys, SD, pads, mouse", None),
+    (0x5200, 0x52FF, C["io"], "Shared port: keys, SD, pads, PS/2", None),
     (0x5300, 0x53FF, C["io"], "Slot 2 (x5300) / slot 4 (x5380)", None),
     (0x5400, 0x5A1F, C["free"], "Program data", None),
     (0x5A20, 0x5BFF, C["mode"], "LINE CODES (mode bytes)\nrow r at x5A20+r, 480 rows\nbits 1:0 = 1/2/4/8 bpp\nbits 3:2 = 1x/2x/4x repeat",
@@ -179,7 +179,8 @@ axC.set_ylim(sum(hC) + 12, 0)
 axD = fig.add_axes([0.625, 0.05, 0.16, 0.77])
 hi = [
     (0x6000, 0xBFFF, C["prog"], "Program code and tables\nruns in place,\nentry at x6000", "program"),
-    (0xC000, 0xC5FF, C["free"], "Free (library grows down)", None),
+    (0xC000, 0xC4FF, C["drv"], "PS/2 keyboard, listening", None),
+    (0xC500, 0xC5FF, C["lib"], "Menu hook (menu_poll)", None),
     (0xC600, 0xC6FF, C["lib"], "Slot helpers (slot_id)", None),
     (0xC700, 0xD4FF, C["fat"], "FAT file reader", None),
     (0xD500, 0xD6FF, C["lib"], "con_gets, mouse_move", None),
@@ -192,10 +193,10 @@ hi = [
     (0xFD00, 0xFD7E, C["boot"], "Boot loader", None),
     (0xFE00, 0xFEA1, C["boot"], "Map switch, card scan", None),
 ]
-hD = [26, 4, 4, 6, 4, 5, 7, 6, 6, 4, 4, 4, 4]
+hD = [26, 4, 4, 4, 6, 4, 5, 7, 6, 6, 4, 4, 4, 4]
 setup(axD, sum(hD), "x6000-xFFFF ROM  (sections 3-7)\nnot to scale", 3.7)
 column(axD, 0.0, hi, hD, desc_dx=0.0, fs=10)
-l0 = sum(hD[:1]); l1 = sum(hD[:10])
+l0 = sum(hD[:1]); l1 = sum(hD[:11])
 side_label(axD, -0.12, l0, l1, "library (most used at the top)", C["lib"])
 side_label(axD, -0.12, l1, sum(hD), "boot", C["boot"])
 axD.text(0.0, sum(hD) + 1.5, "Unlisted bytes in xFC01-xFFFF\nare free.", va="top", fontsize=9.5, color="#555")
@@ -253,7 +254,7 @@ items = [("Video RAM", C["video"]), ("Line codes", C["mode"]), ("Audio buffer", 
 handles = [Rectangle((0, 0), 1, 1, fc=c, ec="#333") for _, c in items]
 fig.legend(handles, [n for n, _ in items], loc="lower right", bbox_to_anchor=(0.995, 0.035), ncol=3,
            fontsize=10, frameon=True)
-fig.text(0.995, 0.01, "Source: README.md and docs/ on main, 2026-10-19", ha="right", fontsize=8.5,
+fig.text(0.995, 0.01, "Source: README.md and docs/ on main, 2026-10-22", ha="right", fontsize=8.5,
          color="#777")
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(

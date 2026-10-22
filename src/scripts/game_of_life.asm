@@ -1013,7 +1013,7 @@ hk_poll:
     nop
     nop
     ld [y,x], ac
-    ld 0xFB, [y,x]
+    ld 0xEB, [y,x]
     and 1, ac
     beq hkp_esc
     ld 0x5D, y

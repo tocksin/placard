@@ -164,6 +164,7 @@ architecture Behavioral of basys_top is
     signal padD7            : sl;   -- port PLD D7 (pad 1 DATA)
     signal padDEn           : sl;   -- port PLD D6/D7 output enable
     signal mouseOn          : sl;   -- SW15 = 1: the PS/2 port is the mouse
+    signal kbdOn            : sl;   -- SW14 = 1 (SW15 = 0): the PS/2 port is the PS/2 keyboard socket
     signal ps2ClkR          : slv(1 downto 0) := "11";  -- PS/2 lines, synchronized
     signal ps2DataR         : slv(1 downto 0) := "11";
     signal sdMisoR          : slv(1 downto 0) := "11";
@@ -765,8 +766,9 @@ begin
     -- Port latch: 74HC574, loads the source bus on the rising edge of
     -- /PORT_WR.  The real part powers up random; the boot loader writes
     -- it first.  bit 0 SCK / pad CLOCK, bit 1 MOSI / pad LATCH, bit 2 SD
-    -- /CS (0 also holds the PS/2 CLK low), bit 3 (0 holds the PS/2 DATA
-    -- low), bits 7:4 keyboard column.
+    -- /CS (0 also holds the mouse's CLK low), bit 3 (0 holds the PS/2
+    -- DATA low), bits 7:4 keyboard column (bit 4 = 0 also holds the PS/2
+    -- keyboard's CLK low).
     portLatchProc : process (portWrN)
     begin
         if rising_edge(portWrN) then
@@ -784,7 +786,7 @@ begin
         k3      => portLatch(7),
         pad1    => pad1R(1),
         pad2    => pad2R(1),
-        kclk    => '1',             -- no PS/2 keyboard socket on the Basys3 (its one port is the matrix or the mouse)
+        kclk    => ps2ClkR(1) or not kbdOn,     -- the PS/2 keyboard socket's CLK (SW14)
         col0N   => colN(0),
         col1N   => colN(1),
         col2N   => colN(2),
@@ -798,11 +800,11 @@ begin
         dEn     => padDEn
     );
 
-    -- The key matrix: the board's USB keyboard (PS/2) while SW15 = 0
+    -- The key matrix: the board's USB keyboard (PS/2) while SW15 and SW14 = 0
     keyMatrixComp: entity work.ps2_key_matrix
     port map(
         clk     => clkVGA,
-        rst     => rstSystem or mouseOn,
+        rst     => rstSystem or mouseOn or kbdOn,
         ps2Clk  => PS2_CLK,
         ps2Data => PS2_DATA,
         colN    => colN,
@@ -812,9 +814,15 @@ begin
     -- SW15 = 1: the PS/2 port is the Placard's mouse port instead.  The
     -- latch's /CS and bit 3 pull the lines low through Schottky diodes;
     -- here they are open-drain pins (the xdc has the pull-ups).
+    -- SW14 = 1 (SW15 = 0): it is the PS/2 keyboard socket (the lower half
+    -- of J5): latch bit 4 holds its CLK, bit 3 the shared DATA, and the
+    -- port PLD reads its CLK on pin 9 (D6 of odd reads while bit 4 = 1),
+    -- so the USB keyboard goes to the driver in placard_ps2.asm.
     mouseOn  <= dipRR(15);
-    PS2_CLK  <= '0' when mouseOn = '1' and portLatch(2) = '0' else 'Z';
-    PS2_DATA <= '0' when mouseOn = '1' and portLatch(3) = '0' else 'Z';
+    kbdOn    <= dipRR(14) and not dipRR(15);
+    PS2_CLK  <= '0' when (mouseOn = '1' and portLatch(2) = '0') or
+                         (kbdOn = '1' and portLatch(4) = '0') else 'Z';
+    PS2_DATA <= '0' when (mouseOn = '1' or kbdOn = '1') and portLatch(3) = '0' else 'Z';
 
     -- SD card (PmodMicroSD on JB) and SNES pads (JC)
     JB(0) <= portLatch(2);      -- /CS
@@ -842,7 +850,7 @@ begin
     -- 74F541 inputs: the rows, with MISO on row 7 and the PS/2 DATA and
     -- CLK lines on rows 6 and 5 (Schottky diodes: either side pulls low)
     portRows(7) <= keyRowN(7) and sdMisoR(1);
-    portRows(6) <= keyRowN(6) and (ps2DataR(1) or not mouseOn);
+    portRows(6) <= keyRowN(6) and (ps2DataR(1) or not (mouseOn or kbdOn));
     portRows(5) <= keyRowN(5) and (ps2ClkR(1) or not mouseOn);
     portRows(4 downto 0) <= keyRowN(4 downto 0);
 

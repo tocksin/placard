@@ -463,9 +463,14 @@ connectors ([IO.md](IO.md)).  Before plugging the SD card in, check
   and Y (buttons in the last column).  The mouse is started once, at
   power-up.
 - PS/2 keyboard socket (J5 bottom): with no keyboard, port PLD pin 9 is
-  5 V.  Once the keyboard driver is in, check typing with the mouse plugged
-  in too, and that each device answers a command with the other plugged
-  in (they share DATA).
+  5 V.  Plug a PS/2 keyboard in and power on: `port_init` finds it (its
+  lights flash once as the driver sets them), typed keys echo like the
+  matrix's, and Caps Lock lights its Caps Lock light.  Check typing with
+  the mouse plugged in too, and that both keep working together (they
+  share DATA).  With a scope on its CLK, measure how long a keyboard and
+  a mouse take to start a byte after their clock is let go (a few of
+  each): the listen window adapts to it, and a device slower than about
+  0.85 ms needs `MOUSE_WAIT` raised (IO.md, "Listening costs time").
 
 ### Step 18: audio DAC (#36)
 

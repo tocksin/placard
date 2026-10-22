@@ -10,7 +10,9 @@
 ;   - a ROM program (it uses this library) calls menu_poll;
 ;   - a RAM program (the older demos, which run with map FF and can't
 ;     reach the library) carries its own copy of the same check, written
-;     by menu_hook.py.
+;     by menu_hook.py.  Its copy reads only the key matrix's Esc: in
+;     those programs a PS/2 keyboard's Esc does nothing (time up still
+;     works, and the menu itself takes either keyboard).
 ;
 ; Both talk to the menu through the menu block at RAM x5D00 (MENU_BLK),
 ; which the menu fills in before it starts a program.  Without the menu
@@ -41,7 +43,7 @@
 ;
 ; placard_lib.asm includes this file; its code is at MENU_CODE (xC500).
 ;
-; Date: 10/20/2026
+; Date: 10/22/2026
 ; ============================================================
 
 MENU_BLK  = 0x5D00
@@ -68,11 +70,19 @@ WHY_NEXT  = 2
 ;   in:      FRAME_LO kept by frame_poll (the program calls it every frame)
 ;   out:     returns when the program goes on; never returns when Esc is
 ;            down or the program's time is up (it jumps to the menu)
-;   changes: AC, X, Y, T0
-;   clocks:  15 without the menu; about 75 with it
+;   changes: AC, X, Y, T0; with a PS/2 keyboard, every 4th frame
+;            also as kbd_scan (see below)
+;   clocks:  15 without the menu; about 75 with it (about 100 with a PS/2
+;            keyboard), plus the PS/2 keyboard's listen when it runs
+;   Uses 6 stack bytes (only for that listen).
 ;   Without the menu ROM it returns at once.  The time limit counts the
 ;   frames FRAME_LO moved on since the last call, so a program can call it
 ;   less often than every frame, but at least every 255 frames.
+;   Esc on a PS/2 keyboard counts too.  A program that doesn't call
+;   kbd_scan (or wait_frames_io) never listens to the PS/2 keyboard, so
+;   when it hasn't been listened to for 4 frames menu_poll listens to it
+;   itself (kbd_ps2_poll: about 8,000-26,000 clocks, more if keys come);
+;   its Esc is then seen at the next call.
 ; ------------------------------------------------------------
 menu_poll:
     ld   MENU_BLK >> 8, y
@@ -99,6 +109,20 @@ menu_poll:
     ld   P_IDLE, [y,x]
     and  1, ac
     beq  mp_esc
+    ld   [KBD_FLAGS], ac        ; a PS/2 keyboard (placard_ps2.asm)?
+    and  KF_PS2, ac
+    beq  mp_time
+    ld   PS2V, y                ; its Esc down?
+    ld   V_NOW + (K_ESC >> 3), x
+    ld   [y,x], ac
+    and  1 << (K_ESC & 7), ac
+    beq  mp_esc
+    ld   [FRAME_LO], ac         ; not listened to for 4 frames: the program
+    ld   V_KLAST, x             ; doesn't call kbd_scan, so listen here
+    sub  [y,x], ac
+    sub  4, ac
+    bcc  mp_kpoll
+mp_time:
     ld   MENU_BLK >> 8, y
     ld   MB_MODE, x
     ld   [y,x], ac
@@ -141,3 +165,25 @@ mp_go:
     ld   MB_WHY, x
     ld   ac, [y,x]
     jmp  MB_EXIT                ; the menu's exit code in the RAM (x5D20)
+mp_kpoll:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   LINK_LO, x             ; CALL kbd_ps2_poll (Esc is seen next time)
+    ld   mp_kp, [x]
+    ld   LINK_HI, x
+    ld   mp_kp >> 8, [x]
+    ld   kbd_ps2_poll >> 8, y
+    jmp  kbd_ps2_poll
+mp_kp:
+    ld   lib_leave >> 8, y      ; LEAVE
+    jmp  lib_leave

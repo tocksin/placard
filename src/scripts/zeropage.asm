@@ -48,7 +48,8 @@
 ;   B8         MOUSE_ST      mouse     bit 7 = the mouse is running
 ;   B9-BC      IO_T0-IO_T3   I/O       scratch for the I/O drivers
 ;   BD         FS_IDX        FAT       index for the FAT reader's helpers
-;   BE-BF      (spare)       I/O       kept for the I/O drivers
+;   BE         PS2_DEV       PS/2      the PS/2 device being read: 0 mouse, 1 keyboard
+;   BF         PS2_CM        PS/2      its CLK mask: 20 mouse (row 5), 40 keyboard (D6, odd reads)
 ;   C0-FF      STACK         stack     software stack, 64 bytes, grows down
 ;                                      from FF
 ;
@@ -64,7 +65,7 @@
 ;   - The stack may grow down past C0 into the program area if a program
 ;     nests deeper than 64 bytes; nothing checks for that.
 ;
-; Date: 10/19/2026
+; Date: 10/22/2026
 ; ============================================================
 
 LINK_LO    = 0x04
@@ -114,6 +115,8 @@ IO_T1      = 0xBA
 IO_T2      = 0xBB
 IO_T3      = 0xBC
 FS_IDX     = 0xBD       ; FAT reader: index for the 4-byte helpers
+PS2_DEV    = 0xBE       ; PS/2: the device being read, 0 mouse, 1 keyboard
+PS2_CM     = 0xBF       ; PS/2: its CLK mask (0x20 mouse, 0x40 keyboard)
 
 SND_ZP     = 0x90       ; first byte of the sound driver's variables
 SND_PL     = 0x90       ; next buffer byte to write, low

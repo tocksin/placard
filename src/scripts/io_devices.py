@@ -8,6 +8,7 @@ for placard_sim.py (see docs/IO.md)
     port.pads[0].buttons = 0x0001       # pad 1: B held (bit n = button n)
     port.sd = SdCard(image)             # an SD card holding image (bytes)
     port.mouse = Ps2Mouse()             # a PS/2 mouse
+    port.kbd = Ps2Keyboard()            # a PS/2 keyboard (second socket)
     cpu = Cpu(mem, rom=rom, io=port)
 
     slots = Slots()                     # the four expansion slots
@@ -20,17 +21,23 @@ the PS/2 mouse (25.175 MHz clocks).
 
 Port latch (write any x52xx), 74HC574:
     bit 0  SCK / pad CLOCK          bit 1  MOSI / pad LATCH
-    bit 2  SD /CS; 0 also holds the PS/2 CLK line low (Schottky diode)
-    bit 3  0 holds the PS/2 DATA line low (Schottky diode)
+    bit 2  SD /CS; 0 also holds the mouse's CLK line low (Schottky diode)
+    bit 3  0 holds the shared PS/2 DATA line low (Schottky diode)
+    bit 4  0 holds the PS/2 keyboard's CLK line low (Schottky diode); it
+           is also column bit 0
     bits 7:4  keyboard column 0-7 driven low; 8-15 none
 Port read:
     even address (74F541): D7:D0 = key rows 7:0 of the driven column.
-        Row 7 is also SD MISO, row 6 PS/2 DATA and row 5 PS/2 CLK
+        Row 7 is also SD MISO, row 6 PS/2 DATA and row 5 the mouse's CLK
         (Schottky diodes), so with no column driven a read shows those.
-    odd address (port PLD): D7 = pad 1 DATA, D6 = pad 2 DATA.  D5:D0 are
-        not driven; the model returns 1s there.
+    odd address (port PLD rev 02): D7 = pad 1 DATA; D6 = pad 2 DATA while
+        latch bit 4 is 0, the PS/2 keyboard's CLK while it is 1.  D5:D0
+        are not driven; the model returns 1s there.
+The mouse and the PS/2 keyboard share the DATA line: SharedPort counts
+reads that find both driving it (collisions), which the driver must
+never cause.
 
-Date: 10/18/2026
+Date: 10/22/2026
 """
 
 CPU_HZ = 25_175_000
@@ -288,6 +295,7 @@ class Ps2Mouse:
         self.received = []                # commands and arguments from the host
         self.sent = []                    # bytes sent (completed frames)
         self.aborts = 0
+        self.peer = None                  # the other device on the shared DATA line
 
     # --- interface ------------------------------------------------------
     def clk(self, t):
@@ -322,7 +330,8 @@ class Ps2Mouse:
         return self.hclk & self.dclk
 
     def bus_data(self):
-        return self.hdata & self.ddata
+        peer = self.peer.ddata if self.peer is not None else 1
+        return self.hdata & self.ddata & peer
 
     def advance(self, t):
         while self.t + self.DT <= t:
@@ -476,6 +485,74 @@ class Ps2Mouse:
         self.phase_end = t + self.half
 
 
+class Ps2Keyboard(Ps2Mouse):
+    """A PS/2 keyboard (scan code set 2), with the same line handling as
+    Ps2Mouse.  Each byte is its own chunk: a byte cut off by the host is
+    sent again by itself, as a keyboard does.
+
+    press(code) / release(code) queue a key's make / break bytes; code is
+    a set 2 code, with 0x100 added for an E0 key (0x175 = Up).  pause()
+    queues the Pause key's 8 bytes.  Commands: FF reset (FA, then AA after
+    `bat_ms`), ED n lights (FA, FA; self.leds = n), EE echo, F2 ID
+    (FA AB 83), F3 n, F4, F5, F6 (FA), others FE.  `answers` = False is a
+    keyboard that is still testing itself (or unplugged): it neither
+    clocks nor sends."""
+
+    def __init__(self, latency_us=150, bat_ms=300, half_us=40):
+        Ps2Mouse.__init__(self, latency_us=latency_us, bat_ms=bat_ms, half_us=half_us)
+        self.leds = 0
+        self.answers = True
+
+    def _queue(self, bs):
+        for b in bs:
+            self.queue.append([b])
+
+    def press(self, code):
+        self._queue(([0xE0] if code & 0x100 else []) + [code & 0xFF])
+
+    def release(self, code):
+        self._queue(([0xE0] if code & 0x100 else []) + [0xF0, code & 0xFF])
+
+    def pause(self):
+        self._queue([0xE1, 0x14, 0x77, 0xE1, 0xF0, 0x14, 0xF0, 0x77])
+
+    def respond(self, *bs):
+        self._queue(bs)
+
+    def command(self, b):
+        self.received.append(b)
+        if self.arg_for is not None:
+            cmd, self.arg_for = self.arg_for, None
+            if cmd == 0xED:
+                self.leds = b
+            self.respond(0xFA)
+            return
+        if b == 0xFF:
+            self.queue = []
+            self.respond(0xFA)
+            self.bat_at = self.t + self.bat
+        elif b in (0xED, 0xF3):
+            self.arg_for = b
+            self.respond(0xFA)
+        elif b == 0xEE:
+            self.respond(0xEE)
+        elif b == 0xF2:
+            self.respond(0xFA, 0xAB, 0x83)
+        elif b in (0xF4, 0xF5, 0xF6):
+            self.respond(0xFA)
+        else:
+            self.respond(0xFE)
+
+    def step(self, t):
+        if self.bat_at is not None and t >= self.bat_at:
+            self.bat_at = None
+            self.respond(0xAA)            # a keyboard sends AA only
+        if not self.answers:
+            return                        # testing itself: lines left alone
+        self.reporting = False            # no mouse packets
+        Ps2Mouse.step(self, t)
+
+
 # ---------------------------------------------------------------------------
 # The shared port
 # ---------------------------------------------------------------------------
@@ -486,8 +563,14 @@ class SharedPort:
         self.pads = [SnesPad(), SnesPad()]
         self.sd = None
         self.mouse = None
+        self.kbd = None                   # a PS/2 keyboard (Ps2Keyboard) in the second socket
         self.writes = 0
         self.reads = 0
+        self.collisions = 0               # reads with both devices driving DATA
+
+    def _link(self):
+        if self.mouse is not None and self.kbd is not None:
+            self.mouse.peer, self.kbd.peer = self.kbd, self.mouse
 
     # lines from the latch
     def col(self):
@@ -516,13 +599,25 @@ class SharedPort:
 
     def ps2_data(self, t):
         host = (self.latch >> 3) & 1
-        dev = self.mouse.data(t) if self.mouse is not None else 1
+        m = self.mouse.data(t) if self.mouse is not None else 1
+        k = self.kbd.data(t) if self.kbd is not None else 1
+        if not m and not k:
+            self.collisions += 1
+        return host & m & k
+
+    def kbd_clk(self, t):
+        host = (self.latch >> 4) & 1
+        dev = self.kbd.clk(t) if self.kbd is not None else 1
         return host & dev
 
     def read(self, ad, t):
         self.reads += 1
+        self._link()
         if ad & 1:
-            return (self.pads[0].data() << 7) | (self.pads[1].data() << 6) | 0x3F
+            # port PLD rev 02: D6 = pad 2 DATA while latch bit 4 is 0, the
+            # PS/2 keyboard's CLK while it is 1
+            d6 = self.kbd_clk(t) if self.latch & 0x10 else self.pads[1].data()
+            return (self.pads[0].data() << 7) | (d6 << 6) | 0x3F
         return self.rows(t)
 
     def write(self, ad, v, t):
@@ -543,8 +638,11 @@ class SharedPort:
                 self.sd.edge(rising, mosi)
             if cs:
                 self.sd.set_cs(1)
+        self._link()
         if self.mouse is not None:
             self.mouse.host(t, (v >> 2) & 1, (v >> 3) & 1)
+        if self.kbd is not None:
+            self.kbd.host(t, (v >> 4) & 1, (v >> 3) & 1)
 
 
 # ---------------------------------------------------------------------------

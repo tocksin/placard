@@ -33,7 +33,7 @@ maps the ROM back in and returns to the menu.
     blocks = hook_blocks(ret_zp, reth_zp)   -> [(name, [(kind, text), ...])]
     kind 'L' = label, 'I' = instruction
 
-Date: 10/20/2026
+Date: 10/22/2026
 """
 
 MENU_BLK = 0x5D00
@@ -42,7 +42,7 @@ MB_CUR, MB_HOLD = 0x0A, 0x0B        # the hook's scratch byte; frames to show a 
 MB_EXIT = 0x20
 WHY_ESC, WHY_NEXT = 1, 2
 MAGIC = (0x4D, 0x4E, 0x55)          # "MNU"
-PORT, P_IDLE, P_COL0 = 0x52, 0xFB, 0x0F
+PORT, P_IDLE, P_COL0 = 0x52, 0xEB, 0x0F
 
 
 def _magic(I, fail):
