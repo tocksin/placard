@@ -12,16 +12,18 @@
 --   col 0: Esc 1 2 3 4 5 6 7          col 4: f g h j k l ; '
 --   col 1: 8 9 0 - = Backspace Tab q  col 5: Enter LShift z x c v b n
 --   col 2: w e r t y u i o            col 6: m , . / RShift Up Caps Fn
---   col 3: p [ ] \ Ctrl a s d         col 7: ` Alt Space Delete Home
+--   col 3: p [ ] \ LCtrl a s d        col 7: RAlt LAlt Space RCtrl (spare)
 --                                              Left Down Right
--- Either Ctrl or Alt key is the matrix Ctrl or Alt; the left Windows key
--- is Fn.  Keys that are not in the matrix are ignored, and so is the
+-- The left and right Ctrl and Alt keys are the matrix's left and right
+-- ones; the left Windows key is Fn.  The 63-key layout has no ` ~, Delete
+-- or Home key (they are Fn + Esc, Fn + Backspace and Fn + Left), so those
+-- PC keys are ignored, like every key that is not in the matrix and the
 -- Pause key's E1 sequence.
 --
 -- The receiver only listens (the host never sends to the keyboard), so
 -- the keyboard keeps its power-up defaults.
 --
--- Date: 10/18/2026
+-- Date: 10/22/2026
 --------------------------------------------------------------------------------
 
 library ieee;
@@ -116,20 +118,17 @@ architecture rtl of ps2_key_matrix is
                 when x"4A" => return 51;   -- /
                 when x"59" => return 52;   -- right Shift
                 when x"58" => return 54;   -- Caps Lock
-                when x"0E" => return 56;   -- `
                 when x"11" => return 57;   -- left Alt
                 when x"29" => return 58;   -- Space
                 when others => return 64;
             end case;
         else
             case code is
-                when x"14" => return 28;   -- right Ctrl
+                when x"14" => return 59;   -- right Ctrl
                 when x"5A" => return 40;   -- keypad Enter
                 when x"75" => return 53;   -- Up
                 when x"1F" => return 55;   -- left Windows = Fn
-                when x"11" => return 57;   -- right Alt
-                when x"71" => return 59;   -- Delete
-                when x"6C" => return 60;   -- Home
+                when x"11" => return 56;   -- right Alt
                 when x"6B" => return 61;   -- Left
                 when x"72" => return 62;   -- Down
                 when x"74" => return 63;   -- Right

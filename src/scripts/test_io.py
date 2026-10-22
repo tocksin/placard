@@ -14,7 +14,7 @@ is never high for 50 us or more at a time, so the mouse can't start
 sending while nobody listens.
 It also checks con_gets (line input) and mouse_move (placard_input.asm).
 
-Date: 10/19/2026
+Date: 10/22/2026
 """
 
 import argparse
@@ -118,10 +118,11 @@ class Rig:
 # ---------------------------------------------------------------------------
 # key number (column * 8 + row) -> (character, shifted character)
 KEYS = ("\x1b1234567" "890-=\x08\tq" "wertyuio" "p[]\\\x00asd"
-        "fghjkl;'" "\n\x00zxcvbn" "m,./\x00\x11\x00\x00" "`\x00 \x7f\x15\x13\x12\x14")
+        "fghjkl;'" "\n\x00zxcvbn" "m,./\x00\x11\x00\x00" "\x00\x00 \x00\x00\x13\x12\x14")
 KEYS_SH = ("\x1b!@#$%^&" "*()_+\x08\tQ" "WERTYUIO" "P{}|\x00ASD"
-           "FGHJKL:\"" "\n\x00ZXCVBN" "M<>?\x00\x11\x00\x00" "~\x00 \x7f\x15\x13\x12\x14")
+           "FGHJKL:\"" "\n\x00ZXCVBN" "M<>?\x00\x11\x00\x00" "\x00\x00 \x00\x00\x13\x12\x14")
 K_CTRL, K_LSHIFT, K_RSHIFT, K_CAPS = 28, 41, 52, 54
+K_FN, K_RCTRL, K_BKSP, K_LEFT, K_ESC = 55, 59, 13, 61, 0
 
 
 def key(k):
@@ -191,6 +192,11 @@ def test_kbd_shift_ctrl_caps():
     rig.port.keys = set()
     rig.call('kbd_scan')
     assert drain(rig) == '\x03'
+    # the right Ctrl too
+    for keys in ({key(K_RCTRL)}, {key(K_RCTRL), key(44)}, set()):
+        rig.port.keys = keys
+        rig.call('kbd_scan')
+    assert drain(rig) == '\x03'
     # Caps Lock: letters only
     for k in (K_CAPS, 29, 1, K_CAPS, 29):       # caps on, a, 1, caps off, a
         rig.port.keys = {key(k)}
@@ -204,6 +210,28 @@ def test_kbd_shift_ctrl_caps():
         rig.port.keys = keys
         rig.call('kbd_scan')
     assert drain(rig) == 'a'
+
+
+def test_kbd_fn():
+    rig = Rig()
+
+    def chord(*ks):
+        # hold the modifiers, press the last key, let go
+        mods = {key(k) for k in ks[:-1]}
+        for keys in (mods, mods | {key(ks[-1])}, set()):
+            rig.port.keys = keys
+            rig.call('kbd_scan')
+        return drain(rig)
+    assert chord(K_FN, K_BKSP) == '\x7f'          # Delete
+    assert chord(K_FN, K_ESC) == '`'
+    assert chord(K_FN, K_LSHIFT, K_ESC) == '~'
+    assert chord(K_FN, K_RSHIFT, K_ESC) == '~'
+    assert chord(K_FN, K_LEFT) == '\x15'          # Home
+    assert chord(K_FN, 29) == 'a'                  # other keys as without Fn
+    assert chord(K_FN, K_LSHIFT, 29) == 'A'
+    assert chord(K_BKSP) == '\x08' and chord(K_ESC) == '\x1b' and chord(K_LEFT) == '\x13'
+    for k in (K_FN, K_RCTRL, 56, 60):              # Fn, right Ctrl, right Alt, spare: no character
+        assert chord(k) == '', k
 
 
 def test_kbd_held_rollover_buffer():

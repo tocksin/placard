@@ -78,11 +78,21 @@ cheaper choice.  It has 4 inputs to spare.
 
 ## Keyboard
 
-An 8 x 8 matrix, 64 keys.  Columns are the port PLD's /COL0-/COL7 (push-pull,
-low when driven), rows are the 74F541's inputs with 4.7k pull-ups.  Every
-key has a Schottky diode in series, cathode toward the column, so any
-number of keys can be down at once without ghosting and a high column never
-drives a row.
+63 Cherry MX keys in 5 rows (Justin's layout, 2026-10-21):
+
+![Keyboard layout](keyboard_layout.png)
+
+    Esc  1  2  3  4  5  6  7  8  9  0  -  =  Backspace(Delete)      14
+    Tab   Q  W  E  R  T  Y  U  I  O  P  [  ]  \                     14
+    Caps   A  S  D  F  G  H  J  K  L  ;  '  Enter                   13
+    Shift   Z  X  C  V  B  N  M  ,  .  Shift  Up  /                 13
+    Ctrl Fn Alt  [   Space   ]  Alt Ctrl Left Down Right             9
+
+They sit in an 8 x 8 matrix (64 places, one spare).  Columns are the port
+PLD's /COL0-/COL7 (push-pull, low when driven), rows are the 74F541's
+inputs with 4.7k pull-ups.  Every key has a Schottky diode in series,
+cathode toward the column, so any number of keys can be down at once
+without ghosting and a high column never drives a row.
 
 Key number = column x 8 + row.  `kbd_map` in `placard_io.asm` gives the
 characters.
@@ -92,15 +102,18 @@ characters.
 | 0 | Esc | 1 ! | 2 @ | 3 # | 4 $ | 5 % | 6 ^ | 7 & |
 | 1 | 8 * | 9 ( | 0 ) | - _ | = + | Backspace | Tab | Q |
 | 2 | W | E | R | T | Y | U | I | O |
-| 3 | P | [ { | ] } | \ \| | Ctrl | A | S | D |
+| 3 | P | [ { | ] } | \ \| | Left Ctrl | A | S | D |
 | 4 | F | G | H | J | K | L | ; : | ' " |
 | 5 | Enter | Left Shift | Z | X | C | V | B | N |
 | 6 | M | , < | . > | / ? | Right Shift | Up | Caps Lock | Fn |
-| 7 | \` ~ | Alt | Space | Delete | Home | Left | Down | Right |
+| 7 | Right Alt | Left Alt | Space | Right Ctrl | *spare* | Left | Down | Right |
 
-Codes: Enter 0A, Backspace 08, Tab 09, Esc 1B, Delete 7F, Up 11, Down 12,
-Left 13, Right 14, Home 15.  Ctrl gives the character AND 1F.  Shift,
-Ctrl, Alt, Fn and Caps Lock give no character; Caps Lock toggles caps lock.
+Codes: Enter 0A, Backspace 08, Tab 09, Esc 1B, Up 11, Down 12, Left 13,
+Right 14.  With Fn held: Fn + Backspace = Delete (7F, the small legend on
+the key), Fn + Esc = \` (with Shift ~), Fn + Left = Home (15); other keys
+give their usual character.  Either Ctrl gives the character AND 1F.
+Shift, Ctrl, Alt, Fn and Caps Lock give no character; Caps Lock toggles
+caps lock.  Key 60 (column 7 row 4) is free for a 64th key.
 
 `kbd_scan` scans all 8 columns once per frame, about 620 clocks with no new
 key, and puts each new press in an 8-entry buffer (`kbd_getc` takes them).
@@ -114,62 +127,17 @@ most R2 characters, ending with a 00), echoing it on the console with
 Backspace on the same text row; Enter ends it and AC = the length.  It
 scans the keyboard once a frame while it waits.
 
-### Planned layout: 63 keys (2026-10-21, not built yet)
+### Keyboard board
 
-Justin's chosen layout, 5 rows, 63 keys
-([keyboard_layout.png](keyboard_layout.png)):
+Until 2026-10-21 the matrix held 64 keys with \` ~ at 7/0, Delete at 7/3
+and Home at 7/4, and one Ctrl and one Alt.  The 63-key layout kept every
+other key in its place, so key numbers, `KBD_NOW` and the games that read
+it (the arrows and Space in `raycast.asm` and `scroller.asm`) didn't move.
+The FPGA model (`ps2_key_matrix.vhd`) maps the PC's right Ctrl and right
+Alt to 59 and 56 and ignores \`, Delete and Home.
 
-    Esc  1  2  3  4  5  6  7  8  9  0  -  =  Backspace(Delete)      14
-    Tab   Q  W  E  R  T  Y  U  I  O  P  [  ]  \                     14
-    Caps   A  S  D  F  G  H  J  K  L  ;  '  Enter                   13
-    Shift   Z  X  C  V  B  N  M  ,  .  Shift  Up  /                 13
-    Ctrl Fn Alt  [   Space   ]  Alt Ctrl Left Down Right             9
-
-Against the 64-key matrix above it drops \` ~, Delete and Home, and adds a
-right Alt and a right Ctrl.  Delete becomes Fn + Backspace (the small
-legend on the Backspace key).  "/ ?" sits right of Up.
-
-**Matrix.**  Every key that stays keeps its column and row, so key numbers,
-`kbd_map`, `KBD_NOW` and the games that read it (arrows in `raycast.asm`
-and `scroller.asm`) don't move.  The two new keys take the freed places
-and one place is left spare:
-
-| Column | Row 0 | Row 1 | Row 2 | Row 3 | Row 4 | Row 5 | Row 6 | Row 7 |
-|---|---|---|---|---|---|---|---|---|
-| 0 | Esc | 1 ! | 2 @ | 3 # | 4 $ | 5 % | 6 ^ | 7 & |
-| 1 | 8 * | 9 ( | 0 ) | - _ | = + | Backspace | Tab | Q |
-| 2 | W | E | R | T | Y | U | I | O |
-| 3 | P | [ { | ] } | \ \| | Left Ctrl | A | S | D |
-| 4 | F | G | H | J | K | L | ; : | ' " |
-| 5 | Enter | Left Shift | Z | X | C | V | B | N |
-| 6 | M | , < | . > | / ? | Right Shift | Up | Caps Lock | Fn |
-| 7 | **Right Alt** (was \`) | Left Alt | Space | **Right Ctrl** (was Delete) | *spare* (was Home) | Left | Down | Right |
-
-The matrix is just wiring on the keyboard board, so the physical position
-of a key doesn't matter to the electronics.  Column 7 row 4 (key 60) is
-free for a 64th key later.
-
-**Lost characters.**  \` ~ and Home have no key any more.  Suggested Fn
-combinations, matching common 60 % keyboards: Fn + Esc = \` (Shift: ~),
-Fn + Left = Home (15).  Fn + Backspace = Delete (7F) is on the keycap.
-
-**Driver changes (`placard_io.asm`, held until Justin says go):**
-- `kbd_map` / `kbd_map_sh`: key 56 and key 59 become 00 (right Alt, right
-  Ctrl give no character); key 60 becomes 00 (spare).
-- New `K_RCTRL = 59`; `kbd_key`'s Ctrl test checks both Ctrl keys, the way
-  it already checks both Shifts (about 4 instructions).
-- New `K_FN = 55`; in `kbd_key`, while Fn is held: Backspace (13) gives 7F,
-  Esc (0) gives 60 / 7E with Shift, Left (61) gives 15.  About 15
-  instructions, no new zero page.
-- Comments and the docs table above: the 64-key table is replaced by
-  this one.
-- `test_io.py`: Ctrl test with right Ctrl, Fn + Backspace, Fn + Esc.
-- FPGA model `ps2_key_matrix.vhd`: PC right Ctrl -> 59, right Alt -> 56,
-  backtick -> nothing (or Fn + Esc is typed by hand), Delete and Home ->
-  nothing.  Left/right are already told apart by the E0 prefix.
-
-**Keyboard board** (`kicad/keyboard/`, `schematics/placard_keyboard.pdf`,
-drawn by `gen_kicad_schematic.py`): 63 switches, each with a BAT85
+The board (`kicad/keyboard/`, `schematics/placard_keyboard.pdf`, drawn by
+`gen_kicad_schematic.py`): 63 switches, each with a BAT85
 Schottky diode (cathode toward the column), wired to the table above.
 Keys are numbered 1-63 row by row, left to right; SWn, Dn and Rn belong to
 the same key.  J1
@@ -209,6 +177,14 @@ switch (keys on a 19.05 mm grid), plus the LED pads 2.54 mm apart, 5.08 mm
 from the middle on the side away from the switch contacts: pad 3 = LED
 cathode (square), pad 4 = anode, as the stock `Switch:SW_Push_LED` symbol
 each key uses.  LED resistor 1k (about 3 mA).
+
+![Key switch footprints](keyswitch_footprints.png)
+
+The keyboard board schematic: a ROW line along the top of each row of
+keys, a /COL line down the right of each column, a +5 V rail under each
+row for the LEDs.
+
+![Keyboard board schematic](keyboard_schematic.png)
 
 ## SNES pads
 
