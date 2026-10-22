@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Write the Placard KiCad schematic: kicad/*.kicad_sch (main board, root plus
-ten sheets) and kicad/cartridge/ (the ROM cartridge, one sheet).
+ten sheets), kicad/cartridge/ (the ROM cartridge, one sheet) and kicad/keyboard/
+(the keyboard board, one sheet).
 
 The sheet split follows docs/SCHEMATIC_PLAN.md.  The connections follow the
 PLD pin lists (src/pld/*.pld), basys_top.vhd and the docs (CHIPS.md, IO.md,
@@ -13,13 +14,13 @@ chip's U number), and the text is large.  Rerun after a pin or part change:
 
     python3 src/scripts/gen_kicad_schematic.py [--pdf] [--check]
 
---pdf exports schematics/placard_main.pdf and placard_cartridge.pdf, set to
+--pdf exports schematics/placard_main.pdf, placard_cartridge.pdf and placard_keyboard.pdf, set to
 open without the bookmarks panel.
 
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
 
-Date: 2026-10-21
+Date: 2026-10-22
 """
 import os
 import re
@@ -30,10 +31,11 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-10-21"
+DATE = "2026-10-22"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 CDIR = os.path.join(KDIR, "cartridge")
+BDIR = os.path.join(KDIR, "keyboard")
 
 # ---------------------------------------------------------------- footprints
 FP_DIP14 = "Package_DIP:DIP-14_W7.62mm"
@@ -827,7 +829,8 @@ def sheet_port(b):
     decap(s, 38, 165.1, 93.98, lift=0)
     kb = {str(1 + i): f"~{{COL{i}}}" for i in range(8)}
     kb.update({str(9 + i): f"ROW{i}" for i in range(8)})
-    j1 = s.part("placard_parts:Keyboard_Header", "J1", 231.14, 127.0, kb, value="Keyboard",
+    kb.update({"17": "+5V", "18": "GND", "19": "GND"})
+    j1 = s.part("placard_parts:Keyboard_Header", "J1", 231.14, 129.54, kb, value="Keyboard (2x10 box)",
                 bare=tuple(str(1 + i) for i in range(8)))
     for i in range(4):
         path(s, f"K{i}", u37[str(15 - i)], u38[str(3 + i)])
@@ -1071,6 +1074,111 @@ def build_cart():
     return s
 
 
+# the keyboard: (legend, keycap size) by column and row, as docs/IO.md "Planned layout: 63 keys";
+# None = the spare place (column 7 row 4)
+KEYS = [
+    [("Esc", "1.00"), ("1 !", "1.00"), ("2 @", "1.00"), ("3 #", "1.00"), ("4 $", "1.00"), ("5 %", "1.00"), ("6 ^", "1.00"), ("7 &", "1.00")],
+    [("8 *", "1.00"), ("9 (", "1.00"), ("0 )", "1.00"), ("- _", "1.00"), ("= +", "1.00"), ("Bksp", "2.00"), ("Tab", "1.50"), ("Q", "1.00")],
+    [("W", "1.00"), ("E", "1.00"), ("R", "1.00"), ("T", "1.00"), ("Y", "1.00"), ("U", "1.00"), ("I", "1.00"), ("O", "1.00")],
+    [("P", "1.00"), ("[ {", "1.00"), ("] }", "1.00"), ("\\ |", "1.50"), ("LCtrl", "1.25"), ("A", "1.00"), ("S", "1.00"), ("D", "1.00")],
+    [("F", "1.00"), ("G", "1.00"), ("H", "1.00"), ("J", "1.00"), ("K", "1.00"), ("L", "1.00"), ("; :", "1.00"), ("' \"", "1.00")],
+    [("Enter", "2.25"), ("LShift", "2.25"), ("Z", "1.00"), ("X", "1.00"), ("C", "1.00"), ("V", "1.00"), ("B", "1.00"), ("N", "1.00")],
+    [("M", "1.00"), (", <", "1.00"), (". >", "1.00"), ("/ ?", "1.00"), ("RShift", "1.75"), ("Up", "1.00"), ("Caps", "1.75"), ("Fn", "1.25")],
+    [("RAlt", "1.00"), ("LAlt", "1.25"), ("Space", "6.25"), ("RCtrl", "1.00"), None, ("Left", "1.00"), ("Down", "1.00"), ("Right", "1.00")],
+]
+
+
+def build_keyboard():
+    """The keyboard board: 63 Cherry MX switches in the 8 x 8 matrix, each with its Schottky diode
+    (cathode toward the column) and an always-on LED with its resistor.  Drawn as the matrix:
+    a ROW line along the top of each row of keys, a /COL line down the right of each column, a
+    +5V rail under each row for the LEDs.  Parts are numbered 1cr: c = column, r = row."""
+    root_uuid = K.det_uuid("keyboard", "root")
+    s = K.Sheet("keyboard", "keyboard.kicad_sch", "Keyboard", 1, root_uuid, None, DATE)
+    s.uid = root_uuid
+    s.comment2 = "Key SW1cr / D1cr / R1cr: column c, row r (docs/IO.md); LED and resistor optional"
+    heading(s, "Keyboard", "63 Cherry MX keys, 8 x 8 matrix with a diode per key, optional always-on LED per key")
+    s.label_nets |= {f"ROW{i}" for i in range(8)} | {f"~{{COL{i}}}" for i in range(8)}
+    x0, y0, cw, ch = 80.01, 48.26, 40.64, 25.4
+    for r in range(8):
+        cy = y0 + r * ch
+        rail = cy + 20.32
+        a_last = None
+        for c in range(8):
+            cx = x0 + c * cw
+            sx, sy = cx + 20.32, cy + 7.62
+            k = KEYS[c][r]
+            if k is None:
+                s.text("spare", sx - 5.08, sy + 1.27, size=2.0)
+                continue
+            legend, size = k
+            n = f"{c}{r}"
+            fp = f"placard:SW_Cherry_MX_LED_{size}u_PCB"
+            sw = s.part("Switch:SW_Push_LED", f"SW1{n}", sx, sy, {"1": f"ROW{r}", "2": f"K1{n}", "3": "GND", "4": f"LA1{n}"},
+                        value=legend, footprint=fp, bare=("1", "2", "3", "4"),
+                        ref_at=(cx + 1.27, sy - 0.25), value_at=(cx + 1.27, sy + 0.75))
+            d = s.part("placard_std:D_Schottky", f"D1{n}", sx + 11.43, cy + 5.08, {"1": f"~{{COL{c}}}", "2": f"K1{n}"},
+                       value="BAT85", footprint=FP_D, angle=180, bare=("1", "2"), hide_value=True,
+                       ref_at=(sx + 7.0, cy + 3.3), value_at=(sx + 7.0, cy + 6.5))
+            rr = s.part("placard_std:R", f"R1{n}", sx + 5.08, sy + 6.35, {"1": f"LA1{n}", "2": "+5V"},
+                        value="1k", footprint=FP_R, bare=("1", "2"), hide_value=True,
+                        ref_at=(sx + 7.0, sy + 7.6), value_at=(sx + 7.0, sy + 9.0))
+            # the switch: ROW above, diode to the /COL line on the right
+            path(s, f"ROW{r}", sw["1"], (sw["1"][0], cy))
+            s.junction(sw["1"][0], cy, owner=f"ROW{r}")
+            path(s, f"K1{n}", sw["2"], d["2"])
+            colx = cx + 38.1
+            last = all(KEYS[c][rr_] is None for rr_ in range(r + 1, 8))
+            path(s, f"~{{COL{c}}}", d["1"], (colx, cy + 5.08))
+            if not last:
+                s.junction(colx, cy + 5.08, owner=f"~{{COL{c}}}")
+            # the LED: cathode to GND, anode through the resistor down to the row's +5V rail
+            path(s, "GND", sw["3"], (sw["3"][0], sy + 2.54))
+            s.power("GND", sw["3"][0], sy + 2.54)
+            path(s, f"LA1{n}", sw["4"], rr["1"])
+            path(s, "+5V", rr["2"], (rr["2"][0], rail))
+            a_last = rr["2"][0]
+            if c < 7 and any(KEYS[cc][r] is not None for cc in range(c + 1, 8)):
+                s.junction(rr["2"][0], rail, owner="+5V")
+        path(s, "+5V", (x0 + 2.54, rail), (a_last, rail))
+        s.power("+5V", x0 + 2.54, rail)
+        # rows: one line across, named at the left
+        path(s, f"ROW{r}", (x0, cy), (x0 + 7 * cw + 15.24, cy))
+        name(s, f"ROW{r}", x0, cy, 180)
+    # columns: one line down, named at the top
+    for c in range(8):
+        colx = x0 + c * cw + 38.1
+        lastr = max(r for r in range(8) if KEYS[c][r] is not None)
+        path(s, f"~{{COL{c}}}", (colx, y0 - 7.62), (colx, y0 + lastr * ch + 5.08))
+        name(s, f"~{{COL{c}}}", colx, y0 - 7.62, 90)
+    # the connector to the main board, and its power flags
+    kb = {str(1 + i): f"~{{COL{i}}}" for i in range(8)}
+    kb.update({str(9 + i): f"ROW{i}" for i in range(8)})
+    kb.update({"17": "+5V", "18": "GND", "19": "GND"})
+    j1 = s.part("placard_parts:Keyboard_Header", "J1", 48.26, 135.89, kb, value="To main board J1",
+                bare=tuple(str(i) for i in range(1, 17)))
+    for i in range(1, 17):      # the matrix lines leave J1 by name (the rows are not drawn as a bus here)
+        px, py = j1[str(i)]
+        path(s, kb[str(i)], (px, py), (px - 5.08, py))
+        name(s, kb[str(i)], px - 5.08, py, 180)
+    s.power("+5V", 30.48, 205.74)
+    path(s, "+5V", (30.48, 205.74), (38.1, 205.74))
+    s.pwr_flag(38.1, 205.74)
+    s.pwr_flag(53.34, 205.74)
+    path(s, "GND", (53.34, 205.74), (53.34, 210.82))
+    s.power("GND", 53.34, 210.82)
+    note(s, 15, 222, ["J1: 2 x 10 keyed box header,",
+                      "ribbon to main board J1",
+                      "(same pinout both ends).",
+                      "SW: Cherry MX, PCB mount,",
+                      "footprint by keycap size.",
+                      "D: BAT85, cathode to /COL.",
+                      "LED: 3 mm, always on, optional",
+                      "(fit with its R).  R: 1k."], size=2.0)
+    s.finish(set())
+    return s
+
+
 # nets that carry a PWR_FLAG (the netlist leaves the flags out)
 FLAGGED = {"+5V", "GND", "GNDA", "DAC_5V", "+3V3"}
 
@@ -1187,14 +1295,23 @@ def main():
         print("overlap cartridge", o)
     for r in cart.report:
         print("route cartridge", r)
+    kbd = build_keyboard()
+    write(os.path.join(BDIR, "keyboard.kicad_sch"), kbd.render())
+    for o in kbd.overlaps():
+        print("overlap keyboard", o)
+    for r in kbd.report:
+        print("route keyboard", r)
     if "--pdf" in sys.argv:
+        export_pdf(os.path.join(BDIR, "keyboard.kicad_sch"), os.path.join(ROOT, "schematics", "placard_keyboard.pdf"))
         export_pdf(os.path.join(KDIR, "placard.kicad_sch"), os.path.join(ROOT, "schematics", "placard_main.pdf"))
         export_pdf(os.path.join(CDIR, "cartridge.kicad_sch"), os.path.join(ROOT, "schematics", "placard_cartridge.pdf"))
     if "--check" in sys.argv:
         bad = compare(expected_nets(sheets, glob), kicad_nets(os.path.join(KDIR, "placard.kicad_sch")), "main board")
         bad += compare(expected_nets([cart], set()), kicad_nets(os.path.join(CDIR, "cartridge.kicad_sch")), "cartridge")
+        bad += compare(expected_nets([kbd], set()), kicad_nets(os.path.join(BDIR, "keyboard.kicad_sch")), "keyboard")
         for path, label in [(os.path.join(KDIR, "placard.kicad_sch"), "main board"),
-                            (os.path.join(CDIR, "cartridge.kicad_sch"), "cartridge")]:
+                            (os.path.join(CDIR, "cartridge.kicad_sch"), "cartridge"),
+                            (os.path.join(BDIR, "keyboard.kicad_sch"), "keyboard")]:
             for it in erc(path, label, FLAGGED):
                 print("  ", it)
         sys.exit(1 if bad else 0)
