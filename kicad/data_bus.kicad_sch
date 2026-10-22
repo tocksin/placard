@@ -720,24 +720,24 @@
             (type default))
           (fill
             (type background)))))
-    (symbol "placard_std:R"
+    (symbol "placard_std:R_US"
       (pin_numbers hide)
       (pin_names
         (offset 0))
       (in_bom yes)
       (on_board yes)
       (property "Reference" "R"
-        (at 2.032 0 90)
+        (at 2.54 0 90)
         (effects
           (font
             (size 1.27 1.27))))
-      (property "Value" "R"
-        (at 0 0 90)
+      (property "Value" "R_US"
+        (at -2.54 0 90)
         (effects
           (font
             (size 1.27 1.27))))
       (property "Footprint" ""
-        (at -1.778 0 90)
+        (at 1.016 -0.254 90)
         (effects
           (font
             (size 1.27 1.27)) hide))
@@ -751,7 +751,7 @@
         (effects
           (font
             (size 1.27 1.27)) hide))
-      (property "ki_description" "Resistor"
+      (property "ki_description" "Resistor, US symbol"
         (at 0 0 0)
         (effects
           (font
@@ -761,16 +761,62 @@
         (effects
           (font
             (size 1.27 1.27)) hide))
-      (symbol "R_0_1"
-        (rectangle
-          (start -1.016 -2.54)
-          (end 1.016 2.54)
+      (symbol "R_US_0_1"
+        (polyline
+          (pts
+            (xy 0 -2.286)
+            (xy 0 -2.54))
           (stroke
-            (width 0.254)
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 2.286)
+            (xy 0 2.54))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 -0.762)
+            (xy 1.016 -1.143)
+            (xy 0 -1.524)
+            (xy -1.016 -1.905)
+            (xy 0 -2.286))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 0.762)
+            (xy 1.016 0.381)
+            (xy 0 0)
+            (xy -1.016 -0.381)
+            (xy 0 -0.762))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 2.286)
+            (xy 1.016 1.905)
+            (xy 0 1.524)
+            (xy -1.016 1.143)
+            (xy 0 0.762))
+          (stroke
+            (width 0)
             (type default))
           (fill
             (type none))))
-      (symbol "R_1_1"
+      (symbol "R_US_1_1"
         (pin passive line
           (at 0 3.81 270)
           (length 1.27)
@@ -789,7 +835,7 @@
           (number "2"
             (effects
               (font (size 1.5 1.5)))))))
-    (symbol "placard_std:R_Network08"
+    (symbol "placard_std:R_Network08_US"
       (pin_names
         (offset 0) hide)
       (in_bom yes)
@@ -799,7 +845,7 @@
         (effects
           (font
             (size 1.27 1.27))))
-      (property "Value" "R_Network08"
+      (property "Value" "R_Network08_US"
         (at 10.16 0 90)
         (effects
           (font
@@ -819,7 +865,7 @@
         (effects
           (font
             (size 1.27 1.27)) hide))
-      (property "ki_description" "8 resistor network, star topology, bussed resistors, small symbol"
+      (property "ki_description" "8 resistor network, star topology, bussed resistors, small US symbol"
         (at 0 0 0)
         (effects
           (font
@@ -829,7 +875,7 @@
         (effects
           (font
             (size 1.27 1.27)) hide))
-      (symbol "R_Network08_0_1"
+      (symbol "R_Network08_US_0_1"
         (rectangle
           (start -11.43 -3.175)
           (end 8.89 3.175)
@@ -838,14 +884,6 @@
             (type default))
           (fill
             (type background)))
-        (rectangle
-          (start -10.922 1.524)
-          (end -9.398 -2.54)
-          (stroke
-            (width 0.254)
-            (type default))
-          (fill
-            (type none)))
         (circle
           (center -10.16 2.286)
           (radius 0.254)
@@ -854,14 +892,6 @@
             (type default))
           (fill
             (type outline)))
-        (rectangle
-          (start -8.382 1.524)
-          (end -6.858 -2.54)
-          (stroke
-            (width 0.254)
-            (type default))
-          (fill
-            (type none)))
         (circle
           (center -7.62 2.286)
           (radius 0.254)
@@ -870,14 +900,6 @@
             (type default))
           (fill
             (type outline)))
-        (rectangle
-          (start -5.842 1.524)
-          (end -4.318 -2.54)
-          (stroke
-            (width 0.254)
-            (type default))
-          (fill
-            (type none)))
         (circle
           (center -5.08 2.286)
           (radius 0.254)
@@ -886,14 +908,6 @@
             (type default))
           (fill
             (type outline)))
-        (rectangle
-          (start -3.302 1.524)
-          (end -1.778 -2.54)
-          (stroke
-            (width 0.254)
-            (type default))
-          (fill
-            (type none)))
         (circle
           (center -2.54 2.286)
           (radius 0.254)
@@ -902,16 +916,25 @@
             (type default))
           (fill
             (type outline)))
-        (rectangle
-          (start -0.762 1.524)
-          (end 0.762 -2.54)
+        (polyline
+          (pts
+            (xy -10.16 2.286)
+            (xy 7.62 2.286))
           (stroke
-            (width 0.254)
+            (width 0)
             (type default))
           (fill
             (type none)))
         (polyline
           (pts
+            (xy -10.16 2.286)
+            (xy -10.16 1.524)
+            (xy -9.398 1.1684)
+            (xy -10.922 0.508)
+            (xy -9.398 -0.1524)
+            (xy -10.922 -0.8382)
+            (xy -9.398 -1.524)
+            (xy -10.922 -2.1844)
             (xy -10.16 -2.54)
             (xy -10.16 -3.81))
           (stroke
@@ -921,6 +944,14 @@
             (type none)))
         (polyline
           (pts
+            (xy -7.62 2.286)
+            (xy -7.62 1.524)
+            (xy -6.858 1.1684)
+            (xy -8.382 0.508)
+            (xy -6.858 -0.1524)
+            (xy -8.382 -0.8382)
+            (xy -6.858 -1.524)
+            (xy -8.382 -2.1844)
             (xy -7.62 -2.54)
             (xy -7.62 -3.81))
           (stroke
@@ -930,6 +961,14 @@
             (type none)))
         (polyline
           (pts
+            (xy -5.08 2.286)
+            (xy -5.08 1.524)
+            (xy -4.318 1.1684)
+            (xy -5.842 0.508)
+            (xy -4.318 -0.1524)
+            (xy -5.842 -0.8382)
+            (xy -4.318 -1.524)
+            (xy -5.842 -2.1844)
             (xy -5.08 -2.54)
             (xy -5.08 -3.81))
           (stroke
@@ -939,6 +978,14 @@
             (type none)))
         (polyline
           (pts
+            (xy -2.54 2.286)
+            (xy -2.54 1.524)
+            (xy -1.778 1.1684)
+            (xy -3.302 0.508)
+            (xy -1.778 -0.1524)
+            (xy -3.302 -0.8382)
+            (xy -1.778 -1.524)
+            (xy -3.302 -2.1844)
             (xy -2.54 -2.54)
             (xy -2.54 -3.81))
           (stroke
@@ -948,6 +995,14 @@
             (type none)))
         (polyline
           (pts
+            (xy 0 2.286)
+            (xy 0 1.524)
+            (xy 0.762 1.1684)
+            (xy -0.762 0.508)
+            (xy 0.762 -0.1524)
+            (xy -0.762 -0.8382)
+            (xy 0.762 -1.524)
+            (xy -0.762 -2.1844)
             (xy 0 -2.54)
             (xy 0 -3.81))
           (stroke
@@ -957,6 +1012,14 @@
             (type none)))
         (polyline
           (pts
+            (xy 2.54 2.286)
+            (xy 2.54 1.524)
+            (xy 3.302 1.1684)
+            (xy 1.778 0.508)
+            (xy 3.302 -0.1524)
+            (xy 1.778 -0.8382)
+            (xy 3.302 -1.524)
+            (xy 1.778 -2.1844)
             (xy 2.54 -2.54)
             (xy 2.54 -3.81))
           (stroke
@@ -966,6 +1029,14 @@
             (type none)))
         (polyline
           (pts
+            (xy 5.08 2.286)
+            (xy 5.08 1.524)
+            (xy 5.842 1.1684)
+            (xy 4.318 0.508)
+            (xy 5.842 -0.1524)
+            (xy 4.318 -0.8382)
+            (xy 5.842 -1.524)
+            (xy 4.318 -2.1844)
             (xy 5.08 -2.54)
             (xy 5.08 -3.81))
           (stroke
@@ -975,85 +1046,16 @@
             (type none)))
         (polyline
           (pts
+            (xy 7.62 2.286)
+            (xy 7.62 1.524)
+            (xy 8.382 1.1684)
+            (xy 6.858 0.508)
+            (xy 8.382 -0.1524)
+            (xy 6.858 -0.8382)
+            (xy 8.382 -1.524)
+            (xy 6.858 -2.1844)
             (xy 7.62 -2.54)
             (xy 7.62 -3.81))
-          (stroke
-            (width 0)
-            (type default))
-          (fill
-            (type none)))
-        (polyline
-          (pts
-            (xy -10.16 1.524)
-            (xy -10.16 2.286)
-            (xy -7.62 2.286)
-            (xy -7.62 1.524))
-          (stroke
-            (width 0)
-            (type default))
-          (fill
-            (type none)))
-        (polyline
-          (pts
-            (xy -7.62 1.524)
-            (xy -7.62 2.286)
-            (xy -5.08 2.286)
-            (xy -5.08 1.524))
-          (stroke
-            (width 0)
-            (type default))
-          (fill
-            (type none)))
-        (polyline
-          (pts
-            (xy -5.08 1.524)
-            (xy -5.08 2.286)
-            (xy -2.54 2.286)
-            (xy -2.54 1.524))
-          (stroke
-            (width 0)
-            (type default))
-          (fill
-            (type none)))
-        (polyline
-          (pts
-            (xy -2.54 1.524)
-            (xy -2.54 2.286)
-            (xy 0 2.286)
-            (xy 0 1.524))
-          (stroke
-            (width 0)
-            (type default))
-          (fill
-            (type none)))
-        (polyline
-          (pts
-            (xy 0 1.524)
-            (xy 0 2.286)
-            (xy 2.54 2.286)
-            (xy 2.54 1.524))
-          (stroke
-            (width 0)
-            (type default))
-          (fill
-            (type none)))
-        (polyline
-          (pts
-            (xy 2.54 1.524)
-            (xy 2.54 2.286)
-            (xy 5.08 2.286)
-            (xy 5.08 1.524))
-          (stroke
-            (width 0)
-            (type default))
-          (fill
-            (type none)))
-        (polyline
-          (pts
-            (xy 5.08 1.524)
-            (xy 5.08 2.286)
-            (xy 7.62 2.286)
-            (xy 7.62 1.524))
           (stroke
             (width 0)
             (type default))
@@ -1067,14 +1069,6 @@
             (type default))
           (fill
             (type outline)))
-        (rectangle
-          (start 1.778 1.524)
-          (end 3.302 -2.54)
-          (stroke
-            (width 0.254)
-            (type default))
-          (fill
-            (type none)))
         (circle
           (center 2.54 2.286)
           (radius 0.254)
@@ -1083,14 +1077,6 @@
             (type default))
           (fill
             (type outline)))
-        (rectangle
-          (start 4.318 1.524)
-          (end 5.842 -2.54)
-          (stroke
-            (width 0.254)
-            (type default))
-          (fill
-            (type none)))
         (circle
           (center 5.08 2.286)
           (radius 0.254)
@@ -1098,16 +1084,8 @@
             (width 0)
             (type default))
           (fill
-            (type outline)))
-        (rectangle
-          (start 6.858 1.524)
-          (end 8.382 -2.54)
-          (stroke
-            (width 0.254)
-            (type default))
-          (fill
-            (type none))))
-      (symbol "R_Network08_1_1"
+            (type outline))))
+      (symbol "R_Network08_US_1_1"
         (pin passive line
           (at -10.16 5.08 270)
           (length 2.54)
@@ -1219,14 +1197,14 @@
   (wire (pts (xy 144.78 111.76) (xy 109.22 111.76)) (stroke (width 0) (type default)) (uuid 9697056d-ab37-52f3-8806-8bd41327cc6b))
   (wire (pts (xy 109.22 111.76) (xy 109.22 210.82)) (stroke (width 0) (type default)) (uuid 5956b983-c7d6-5c40-b6b8-5af3c69b59af))
   (wire (pts (xy 109.22 210.82) (xy 144.78 210.82)) (stroke (width 0) (type default)) (uuid bc987044-5842-56c5-b9e2-f08c54c948db))
-  (symbol (lib_id "placard_std:R") (at 226.06 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 4e004bb2-5fc8-5c18-9f36-4330eac7f718) (property "Reference" "R601" (at 227.66 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 227.66 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 226.06 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 226.06 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 457112c3-f0b5-5d06-af68-7b4c26fa055e)) (pin "2" (uuid 07bca603-8e5c-5090-a99f-61bc57b40b8d)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R601") (unit 1)))))
-  (symbol (lib_id "placard_std:R") (at 238.76 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 6f68c7f8-c5d2-524e-8f26-53a2b3ec81f9) (property "Reference" "R602" (at 240.36 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 240.36 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 238.76 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 238.76 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 0e7f2a43-b0d0-51b6-8846-ebd539ca14f1)) (pin "2" (uuid ff5f2cde-070d-5d90-a517-adc26cbc8157)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R602") (unit 1)))))
-  (symbol (lib_id "placard_std:R") (at 251.46 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid a3550a32-29d1-5e4b-ac79-fd2e3e87beb3) (property "Reference" "R603" (at 253.06 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 253.06 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 251.46 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 251.46 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid dbe61cdd-24b6-51c5-9a03-c9265ce5e5fb)) (pin "2" (uuid ef1a1434-3e0b-51c1-a0f0-70b4f98674c9)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R603") (unit 1)))))
-  (symbol (lib_id "placard_std:R") (at 264.16 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 8c6270c8-acfc-5135-a6c5-0abc2b77e7d6) (property "Reference" "R604" (at 265.76 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 265.76 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 264.16 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 264.16 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 6a3ca96e-36f4-5380-b284-ccbc90da989c)) (pin "2" (uuid ed3971e3-bc67-58e4-972f-2e049e16e1f6)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R604") (unit 1)))))
-  (symbol (lib_id "placard_std:R") (at 276.86 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 350d2afa-0597-5e23-a2ba-d19f8db9b0a6) (property "Reference" "R605" (at 278.46 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 278.46 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 276.86 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 276.86 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 3d38b094-4c3b-573a-af3b-cf269cbdaaae)) (pin "2" (uuid dbbbd12a-c06c-56eb-b4d5-05f4fa851119)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R605") (unit 1)))))
-  (symbol (lib_id "placard_std:R") (at 289.56 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 53ab3ee5-1e19-5e68-9b2b-9cfbbe9bf29b) (property "Reference" "R606" (at 291.16 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 291.16 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 289.56 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 289.56 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 92e3f09c-9897-5593-9c2d-9efe393fb167)) (pin "2" (uuid 5dfc72d2-4d7d-56f2-a246-91d9d75f4729)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R606") (unit 1)))))
-  (symbol (lib_id "placard_std:R") (at 302.26 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid eb3b5909-98ae-5569-a298-437ba4af492b) (property "Reference" "R607" (at 303.86 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 303.86 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 302.26 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 302.26 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid fd44f07f-505b-5bd0-9813-839479bdabce)) (pin "2" (uuid b0292dc3-4a57-575f-8092-0f1426b39904)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R607") (unit 1)))))
-  (symbol (lib_id "placard_std:R") (at 314.96 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid a757c1c6-701a-5db6-a8f1-731bfd019472) (property "Reference" "R608" (at 316.56 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 316.56 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 314.96 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 314.96 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid ba468b93-06f7-5e58-896b-e1d7de2c0b16)) (pin "2" (uuid f07c0fef-fcba-5923-a813-1137bab2e1f9)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R608") (unit 1)))))
+  (symbol (lib_id "placard_std:R_US") (at 226.06 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 05d543aa-180f-50dd-9860-919101182514) (property "Reference" "R5" (at 227.66 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 227.66 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 226.06 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 226.06 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 457112c3-f0b5-5d06-af68-7b4c26fa055e)) (pin "2" (uuid 07bca603-8e5c-5090-a99f-61bc57b40b8d)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R5") (unit 1)))))
+  (symbol (lib_id "placard_std:R_US") (at 238.76 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 29059a21-c79a-50c6-a8fc-eb4426240efd) (property "Reference" "R6" (at 240.36 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 240.36 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 238.76 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 238.76 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 0e7f2a43-b0d0-51b6-8846-ebd539ca14f1)) (pin "2" (uuid ff5f2cde-070d-5d90-a517-adc26cbc8157)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R6") (unit 1)))))
+  (symbol (lib_id "placard_std:R_US") (at 251.46 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 07941f09-7f25-5f2a-a230-8446052a955b) (property "Reference" "R7" (at 253.06 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 253.06 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 251.46 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 251.46 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid dbe61cdd-24b6-51c5-9a03-c9265ce5e5fb)) (pin "2" (uuid ef1a1434-3e0b-51c1-a0f0-70b4f98674c9)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R7") (unit 1)))))
+  (symbol (lib_id "placard_std:R_US") (at 264.16 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid afe96080-3655-57a7-aab3-1a2042739d32) (property "Reference" "R8" (at 265.76 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 265.76 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 264.16 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 264.16 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 6a3ca96e-36f4-5380-b284-ccbc90da989c)) (pin "2" (uuid ed3971e3-bc67-58e4-972f-2e049e16e1f6)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R8") (unit 1)))))
+  (symbol (lib_id "placard_std:R_US") (at 276.86 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 48fc9088-5f8c-534f-aac9-ec9d82992be2) (property "Reference" "R9" (at 278.46 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 278.46 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 276.86 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 276.86 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 3d38b094-4c3b-573a-af3b-cf269cbdaaae)) (pin "2" (uuid dbbbd12a-c06c-56eb-b4d5-05f4fa851119)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R9") (unit 1)))))
+  (symbol (lib_id "placard_std:R_US") (at 289.56 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 1767767b-eb2c-5ca3-824e-0510c7307793) (property "Reference" "R10" (at 291.16 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 291.16 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 289.56 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 289.56 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 92e3f09c-9897-5593-9c2d-9efe393fb167)) (pin "2" (uuid 5dfc72d2-4d7d-56f2-a246-91d9d75f4729)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R10") (unit 1)))))
+  (symbol (lib_id "placard_std:R_US") (at 302.26 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 4fad3301-9e4c-5693-8d79-3a51bcf38313) (property "Reference" "R11" (at 303.86 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 303.86 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 302.26 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 302.26 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid fd44f07f-505b-5bd0-9813-839479bdabce)) (pin "2" (uuid b0292dc3-4a57-575f-8092-0f1426b39904)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R11") (unit 1)))))
+  (symbol (lib_id "placard_std:R_US") (at 314.96 147.32 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid b56f8346-702e-551f-919f-5c1985e5a7a5) (property "Reference" "R12" (at 316.56 146.3 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "47" (at 316.56 149.4 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 314.96 147.32 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 314.96 147.32 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid ba468b93-06f7-5e58-896b-e1d7de2c0b16)) (pin "2" (uuid f07c0fef-fcba-5923-a813-1137bab2e1f9)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "R12") (unit 1)))))
   (bus (pts (xy 198.12 162.56) (xy 224.79 162.56)) (stroke (width 0) (type default)) (uuid 607ac8c1-d169-5a7d-8607-a650954e5d7f))
   (bus (pts (xy 224.79 162.56) (xy 237.49 162.56)) (stroke (width 0) (type default)) (uuid e939b75c-8695-54e7-80cb-5351f8078673))
   (bus (pts (xy 237.49 162.56) (xy 250.19 162.56)) (stroke (width 0) (type default)) (uuid 112896c1-884f-5822-af79-7ebb666809cc))
@@ -1252,13 +1230,13 @@
   (bus (pts (xy 33.02 87.63) (xy 33.02 91.44)) (stroke (width 0) (type default)) (uuid a0087f17-883b-5669-91c0-9e4c243174ab))
   (wire (pts (xy 345.44 111.76) (xy 345.44 109.22)) (stroke (width 0) (type default)) (uuid 601e74df-5e94-5b58-85ae-fd8c591af5ba))
   (symbol (lib_id "power:+5V") (at 345.44 109.22 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid a4fb60b9-a9c2-5415-b0a0-f064d8cf14ac) (property "Reference" "#PWR0613" (at 345.44 109.22 0) (effects (font (size 1.27 1.27)) hide)) (property "Value" "+5V" (at 345.44 102.87 0) (effects (font (size 2 2)))) (property "Footprint" "" (at 345.44 109.22 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "" (at 345.44 109.22 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid ba12774a-c82f-52aa-999d-a724b505f523)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "#PWR0613") (unit 1)))))
-  (symbol (lib_id "placard_std:R_Network08") (at 355.6 116.84 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 9fb8e219-83d5-5932-8076-a9623a7642e8) (property "Reference" "RN601" (at 359 104.5 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "10k" (at 375 104.5 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Array_SIP9" (at 355.6 116.84 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "http://www.vishay.com/docs/31509/csc.pdf" (at 355.6 116.84 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 4b9a282c-a6b2-51b3-98f7-d58e2eadcc1e)) (pin "2" (uuid 99116529-f695-5983-a01b-3f8076867f12)) (pin "3" (uuid 99bb2168-4bc1-50b6-9b15-1b233b1debb4)) (pin "4" (uuid 8c123e88-accb-5eaa-a53e-45980e8b162d)) (pin "5" (uuid e4053c3c-2e10-5f97-bdae-c4cdc037b6d1)) (pin "6" (uuid 41e1ed6e-d068-5ed9-8208-bc2ac4edf5db)) (pin "7" (uuid e86c641b-7255-5151-a473-73aa39063af4)) (pin "8" (uuid b02086fe-5313-55ec-b490-ae1e7b8aff50)) (pin "9" (uuid afee4256-0991-5390-9415-6913b2484733)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "RN601") (unit 1)))))
+  (symbol (lib_id "placard_std:R_Network08_US") (at 355.6 116.84 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 81530331-b7a7-5838-b565-00fa14982c01) (property "Reference" "RN1" (at 359 104.5 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "10k" (at 375 104.5 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Array_SIP9" (at 355.6 116.84 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "http://www.vishay.com/docs/31509/csc.pdf" (at 355.6 116.84 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 4b9a282c-a6b2-51b3-98f7-d58e2eadcc1e)) (pin "2" (uuid 99116529-f695-5983-a01b-3f8076867f12)) (pin "3" (uuid 99bb2168-4bc1-50b6-9b15-1b233b1debb4)) (pin "4" (uuid 8c123e88-accb-5eaa-a53e-45980e8b162d)) (pin "5" (uuid e4053c3c-2e10-5f97-bdae-c4cdc037b6d1)) (pin "6" (uuid 41e1ed6e-d068-5ed9-8208-bc2ac4edf5db)) (pin "7" (uuid e86c641b-7255-5151-a473-73aa39063af4)) (pin "8" (uuid b02086fe-5313-55ec-b490-ae1e7b8aff50)) (pin "9" (uuid afee4256-0991-5390-9415-6913b2484733)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/4ad271a0-c6b7-5e11-9210-343daaa95f9a" (reference "RN1") (unit 1)))))
   (text "SRC7:SRC0: the two source F541s' joined outputs." (at 230 200 0) (effects (font (size 2.5 2.5)) (justify left bottom)) (uuid 279b6092-6416-5cff-9bfe-f2e7e3ad9bdf))
-  (text "R601-R608 (47 ohm) limit the current while the" (at 230 204 0) (effects (font (size 2.5 2.5)) (justify left bottom)) (uuid 85b69b56-77d3-51a1-9781-74dffc883273))
+  (text "R5-R12 (47 ohm) limit the current while the" (at 230 204 0) (effects (font (size 2.5 2.5)) (justify left bottom)) (uuid 85b69b56-77d3-51a1-9781-74dffc883273))
   (text "bus changes hands at the start of EXEC (CPU.md)." (at 230 208 0) (effects (font (size 2.5 2.5)) (justify left bottom)) (uuid b633b1e4-9ddd-5b6f-a5c0-485c9b43e3bd))
   (text "U26 drives D (sources 00, 01: /OE2 = I1)," (at 230 212 0) (effects (font (size 2.5 2.5)) (justify left bottom)) (uuid bf653f7c-4f2a-52b0-992e-4e93f9b7a3a0))
   (text "U27 drives AC (10, 11: /OE2 = /AC_SEL)." (at 230 216 0) (effects (font (size 2.5 2.5)) (justify left bottom)) (uuid 7ecfc14a-8a8a-5be8-bdaf-e1e4e396e085))
-  (text "RN601: D7:D0 read FFh when nothing drives them" (at 230 220 0) (effects (font (size 2.5 2.5)) (justify left bottom)) (uuid 53988b60-cd42-5c2f-9d86-cee451d03f2b))
+  (text "RN1: D7:D0 read FFh when nothing drives them" (at 230 220 0) (effects (font (size 2.5 2.5)) (justify left bottom)) (uuid 53988b60-cd42-5c2f-9d86-cee451d03f2b))
   (text "(empty slots, the cartridge loader's feed byte)." (at 230 224 0) (effects (font (size 2.5 2.5)) (justify left bottom)) (uuid da3ca16a-ea7d-546d-8586-4e482f06d969))
   (wire (pts (xy 63.5 88.9) (xy 55.88 88.9)) (stroke (width 0) (type default)) (uuid e37c5154-bfb2-5a4c-b158-a4a40c6ac5ae))
   (label "D0" (at 63.5 88.9 180) (fields_autoplaced) (effects (font (size 2 2)) (justify right bottom)) (uuid 8350413a-3764-5dd8-9dca-73d9d9b51a3a))

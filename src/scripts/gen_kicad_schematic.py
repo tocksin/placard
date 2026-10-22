@@ -187,7 +187,7 @@ def decap(s, n, x, y, value="100n", lift=5.08):
 
 def res(s, ref, x, y, a, b, value, angle=0, fp=FP_R, bare=(), ref_at=None, value_at=None):
     # angle 0: pin 1 on top; 90: pin 1 on the left
-    return s.part("placard_std:R", ref, x, y, R2(a, b), value=value, footprint=fp, angle=angle,
+    return s.part("placard_std:R_US", ref, x, y, R2(a, b), value=value, footprint=fp, angle=angle,
            ref_at=ref_at or ((x + 2.0, y - 0.5) if angle == 0 else (x - 3.5, y - 1.6)),
            value_at=value_at or ((x + 2.0, y + 2.6) if angle == 0 else (x - 3.5, y + 1.6)), bare=bare)
 
@@ -280,15 +280,15 @@ def sheet_power(b):
     path(s, "GND", j13["S1"], (xg, j13["S1"][1]), (xg, j13["S1"][1] + 5.08))
     s.junction(xg, j13["S1"][1], owner="GND")
     s.power("GND", xg, j13["S1"][1] + 5.08)
-    f201 = s.part("placard_std:Polyfuse", "F201", 91.44, yr, {"1": "VBUS", "2": "+5V"}, value="3 A hold",
+    f201 = s.part("placard_std:Polyfuse", "F1", 91.44, yr, {"1": "VBUS", "2": "+5V"}, value="3 A hold",
                   footprint="Fuse:Fuse_Bourns_MF-RG300", angle=90, bare=("1", "2"),
                   ref_at=(86.4, yr - 2.0), value_at=(86.4, yr + 2.0))
     path(s, "VBUS", j13["A9"], f201["1"])
     for net, pin, x in (("CC2", "B5", 73.66), ("CC1", "A5", 88.9)):
-        r = s.part("placard_std:R", "R201" if net == "CC1" else "R202", x, 104.14, R2(net, "GND"), value="5.1k",
+        r = s.part("placard_std:R_US", "R1" if net == "CC1" else "R2", x, 104.14, R2(net, "GND"), value="5.1k",
                    footprint=FP_R, bare=("1",), ref_at=(x + 2.0, 103.6), value_at=(x + 2.0, 106.7))
         path(s, net, j13[pin], (x, j13[pin][1]), r["1"])
-    c201 = s.part("placard_std:C_Polarized", "C201", 114.3, yr + 3.81, {"1": "+5V", "2": "GND"},
+    c201 = s.part("placard_std:C_Polarized", "C41", 114.3, yr + 3.81, {"1": "+5V", "2": "GND"},
                   value="220u 10V", footprint=FP_CP_L, bare=("1",), ref_at=(116.8, yr + 3.3), value_at=(116.8, yr + 6.4))
     # 3.3 V regulator on the same line
     u40 = s.part("placard_parts:MCP1700_TO92", "U40", 233.68, yr, {"1": "GND", "2": "+5V", "3": "+3V3"},
@@ -303,7 +303,7 @@ def sheet_power(b):
         s.junction(x, yr, owner="+5V")
     s.pwr_flag(xf, yr)
     s.power("+5V", xp, yr)
-    c202 = s.part("placard_std:C", "C202", 254.0, yr + 3.81, {"1": "+3V3", "2": "GND"}, value="1u", footprint=FP_C,
+    c202 = s.part("placard_std:C", "C42", 254.0, yr + 3.81, {"1": "+3V3", "2": "GND"}, value="1u", footprint=FP_C,
                   bare=("1",), ref_at=(256.5, yr + 3.3), value_at=(256.5, yr + 6.4))
     x3, xf3 = 264.16, 274.32
     path(s, "+3V3", u40["3"], (c202["1"][0], yr))
@@ -316,10 +316,10 @@ def sheet_power(b):
                       "19 PLDs draw up to about 2.5 A",
                       "(130 mA each at -7, worst case): use a 3 A",
                       "supply; the polyfuse trips on a short."])
-    note(s, 200, 112, ["U40: 3.3 V for the SD card only (sheet 10).", "C40 input, C202 output (1 uF ceramic)."])
+    note(s, 200, 112, ["U40: 3.3 V for the SD card only (sheet 10).", "C40 input, C42 output (1 uF ceramic)."])
     # analog ground joins logic ground at the power input
     # (each side has its power flag on the pin end and its ground symbol below)
-    nt = s.part("placard_std:NetTie_2", "NT201", 165.1, 104.14, {"1": "GND", "2": "GNDA"}, value="AGND tie",
+    nt = s.part("placard_std:NetTie_2", "NT1", 165.1, 104.14, {"1": "GND", "2": "GNDA"}, value="AGND tie",
                 footprint="NetTie:NetTie-2_THT_Pad0.3mm", ref_at=(158, 97), value_at=(160.5, 107),
                 bare=("1", "2"))
     for net in ("GND", "GNDA"):
@@ -332,20 +332,20 @@ def sheet_power(b):
     # oscillator
     s.part("placard_parts:Oscillator_DIP14", "X1", 63.5, 170.18, {"14": "+5V", "7": "GND", "8": "CLK"},
            value="25.175 MHz", ref_at=(50, 160), value_at=(66, 181.0))
-    decap(s, 203, 81.28, 160.02, lift=0)
+    decap(s, 43, 81.28, 160.02, lift=0)     # C43: the oscillator's, X1 has no U-number
     # the cartridge's STALL and RUN: pull-ups, and jumpers for bring-up without a cartridge
     yj = 170.18
-    r203 = s.part("placard_std:R", "R203", 152.4, yj - 10.16, R2("+5V", "STALL_OUT"), value="10k", footprint=FP_R,
+    r203 = s.part("placard_std:R_US", "R3", 152.4, yj - 10.16, R2("+5V", "STALL_OUT"), value="10k", footprint=FP_R,
                   bare=("2",), ref_at=(154.9, yj - 10.7), value_at=(154.9, yj - 7.6))
-    jp201 = s.part("placard_std:Jumper_2_Open", "JP201", 139.7, yj, {"1": "STALL_IN", "2": "STALL_OUT"}, value="STALL",
+    jp201 = s.part("placard_std:Jumper_2_Open", "JP1", 139.7, yj, {"1": "STALL_IN", "2": "STALL_OUT"}, value="STALL",
                    footprint=FP_JP, ref_at=(134, yj - 4.5), value_at=(134, yj + 2.5), bare=("2",))
     path(s, "STALL_OUT", r203["2"], (152.4, yj))
     path(s, "STALL_OUT", jp201["2"], (152.4, yj))
     path(s, "STALL_OUT", (152.4, yj), (162.56, yj))
     s.terminal("STALL_OUT", 162.56, yj, 0)
-    r204 = s.part("placard_std:R", "R204", 236.22, yj + 10.16, R2("RUN", "GND"), value="10k", footprint=FP_R,
+    r204 = s.part("placard_std:R_US", "R4", 236.22, yj + 10.16, R2("RUN", "GND"), value="10k", footprint=FP_R,
                   bare=("1",), ref_at=(238.7, yj + 9.6), value_at=(238.7, yj + 12.7))
-    jp202 = s.part("placard_std:Jumper_2_Open", "JP202", 251.46, yj, {"1": "RUN", "2": "+5V"}, value="RUN",
+    jp202 = s.part("placard_std:Jumper_2_Open", "JP2", 251.46, yj, {"1": "RUN", "2": "+5V"}, value="RUN",
                    footprint=FP_JP, ref_at=(246, yj - 4.5), value_at=(246, yj + 2.5), bare=("1",))
     path(s, "RUN", jp202["1"], (236.22, yj))
     path(s, "RUN", r204["1"], (236.22, yj))
@@ -353,7 +353,7 @@ def sheet_power(b):
     s.terminal("RUN", 226.06, yj, 180)
     note(s, 130, 200, ["STALL_OUT (10k up) and RUN (10k down) come from the",
                        "cartridge: STALL_IN (the Branch PLD's STALL) goes out to it.",
-                       "Without one, fit JP201 and JP202 for bring-up",
+                       "Without one, fit JP1 and JP2 for bring-up",
                        "(BRINGUP.md); take them out with a cartridge."])
     return s
 
@@ -523,18 +523,18 @@ def sheet_databus(b):
     # the series resistors in a row: SRC on the bus line under them, D on the one above
     for i in range(8):
         x = 226.06 + i * 12.7
-        s.part("placard_std:R", f"R{601 + i}", x, 147.32, R2(D[i], SRC[i]), value="47", footprint=FP_R,
+        s.part("placard_std:R_US", f"R{5 + i}", x, 147.32, R2(D[i], SRC[i]), value="47", footprint=FP_R,
                ref_at=(x + 1.6, 146.3), value_at=(x + 1.6, 149.4))
     s.bus_piece("SRC", [(198.12, 162.56), (320.04, 162.56)])
     s.bus_piece("D", [(373.38, 132.08), (215.9, 132.08), (215.9, 48.26), (33.02, 48.26), (33.02, 91.44)])
-    s.part("placard_std:R_Network08", "RN601", 355.6, 116.84, {"1": "+5V", **{str(2 + i): D[i] for i in range(8)}},
+    s.part("placard_std:R_Network08_US", "RN1", 355.6, 116.84, {"1": "+5V", **{str(2 + i): D[i] for i in range(8)}},
            value="10k", footprint=FP_SIP9, ref_at=(359, 104.5), value_at=(375, 104.5))
     note(s, 230, 200, ["SRC7:SRC0: the two source F541s' joined outputs.",
-                       "R601-R608 (47 ohm) limit the current while the",
+                       "R5-R12 (47 ohm) limit the current while the",
                        "bus changes hands at the start of EXEC (CPU.md).",
                        "U26 drives D (sources 00, 01: /OE2 = I1),",
                        "U27 drives AC (10, 11: /OE2 = /AC_SEL).",
-                       "RN601: D7:D0 read FFh when nothing drives them",
+                       "RN1: D7:D0 read FFh when nothing drives them",
                        "(empty slots, the cartridge loader's feed byte)."])
     return s
 
@@ -616,7 +616,7 @@ def sheet_memory(b):
     (px, py) = u12["16"]
     path(s, "~{MAP_WR}", (px, py), (px + 2.54, py), (px + 2.54, 154.94), (20.32, 154.94), (20.32, u25["11"][1]),
          u25["11"])
-    res(s, "R701", 271.78, 132.08, "+5V", "~{CART}", "10k")
+    res(s, "R13", 271.78, 132.08, "+5V", "~{CART}", "10k")
     note(s, 20, 258, ["Lower 32K: /CE = A15 (RAM U31, cartridge /CE_LO); upper: /CE_HI from U12.",
                        "RUN low (cartridge loading): /ROM_OE held off, map register clear (all ROM).",
                        "/CART reads low with a cartridge in; nothing reads it yet.  21 spare contacts."],
@@ -719,7 +719,7 @@ def sheet_video_out(b):
     for i, (net, pin, v) in enumerate(outs):
         yr = y0 + i * 5.08
         color = "VGA_" + net[0]
-        rp = s.part("placard_std:R", f"R{901 + i}", xr, yr, R2(net, color), value=v, footprint=FP_R, angle=90,
+        rp = s.part("placard_std:R_US", f"R{14 + i}", xr, yr, R2(net, color), value=v, footprint=FP_R, angle=90,
                     bare=("1", "2"), ref_at=(xr - 9.0, yr - 1.3), value_at=(xr + 5.6, yr - 3.4))
         links.append((net, u16[pin], rp["1"]))
         rpins.append((color, rp["2"]))
@@ -742,16 +742,16 @@ def sheet_video_out(b):
         else:
             path(s, color, (xc, ys[0]), (xj, ys[0]), (xj, jy), (jx, jy))
         name(s, color, jx - 15.24, jy)
-    # ---- audio: PIX -> U36 DAC register -> R-2R ladder -> C903 -> J6
+    # ---- audio: PIX -> U36 DAC register -> R-2R ladder -> C46 -> J6
     u36 = s.part("placard_std:74LS574", "U36", 139.7, 218.44,
                  ls574(PIX, bus("DAC", 8), "GNDA", "H_VIDEO_ACTIVE", vcc="DAC_5V", gnd="GNDA"),
                  value="SN74HCT574N", footprint=FP_DIP20, bare=tuple(str(19 - i) for i in range(8)) + ("20",))
     # U36's own filtered supply, one straight rail: +5V -> 2.2 ohm -> DAC_5V, 220u and 100n to GNDA
     yr = 187.96
-    r921 = s.part("placard_std:R", "R921", 45.72, yr, R2("+5V", "DAC_5V"), value="2.2", footprint=FP_R, angle=90,
+    r921 = s.part("placard_std:R_US", "R22", 45.72, yr, R2("+5V", "DAC_5V"), value="2.2", footprint=FP_R, angle=90,
                   bare=("2",), ref_at=(41.9, yr - 1.6), value_at=(42.9, yr + 1.6))
     taps = []
-    for ref, x, v, polar in (("C901", 60.96, "220u", True), ("C36", 78.74, "100n", False)):
+    for ref, x, v, polar in (("C44", 60.96, "220u", True), ("C36", 78.74, "100n", False)):
         c = s.part("placard_std:C_Polarized" if polar else "placard_std:C", ref, x, yr + 3.81,
                    {"1": "DAC_5V", "2": "GNDA"}, value=v, footprint=FP_CP_S if polar else FP_C, bare=("1",),
                    ref_at=(x + 2.5, yr + 3.3), value_at=(x + 2.5, yr + 6.4))
@@ -771,7 +771,7 @@ def sheet_video_out(b):
     yk = [167.64 + k * pitch for k in range(8)]
     links = []
     for k in range(8):
-        rp = s.part("placard_std:R", f"R{940 + k}", xr2, yk[k], {"1": f"DAC{k}", "2": f"LAD{k}"}, value="2k",
+        rp = s.part("placard_std:R_US", f"R{23 + k}", xr2, yk[k], {"1": f"DAC{k}", "2": f"LAD{k}"}, value="2k",
                     footprint=FP_R, angle=90, bare=("1", "2"), ref_at=(xr2 - 3.8, yk[k] - 1.3),
                     value_at=(xr2 - 1.5, yk[k] + 1.4))
         links.append((f"DAC{k}", u36[str(19 - k)], rp["1"]))
@@ -780,23 +780,23 @@ def sheet_video_out(b):
     fan(s, links, 157.48)
     for k in range(7):
         yc = yk[k] + pitch / 2
-        rp = s.part("placard_std:R", f"R{950 + k}", xn, yc, {"1": f"LAD{k}", "2": f"LAD{k + 1}"}, value="1k",
+        rp = s.part("placard_std:R_US", f"R{32 + k}", xn, yc, {"1": f"LAD{k}", "2": f"LAD{k + 1}"}, value="1k",
                     footprint=FP_R, bare=("1", "2"), ref_at=(xn + 2.0, yc - 0.3), value_at=(xn + 2.0, yc + 2.4))
         path(s, f"LAD{k}", (xn, yk[k]), rp["1"])
         path(s, f"LAD{k + 1}", rp["2"], (xn, yk[k + 1]))
-    rp = s.part("placard_std:R", "R948", xn, yk[0] - 7.62, {"1": "GNDA", "2": "LAD0"}, value="2k", footprint=FP_R,
+    rp = s.part("placard_std:R_US", "R31", xn, yk[0] - 7.62, {"1": "GNDA", "2": "LAD0"}, value="2k", footprint=FP_R,
                 bare=("2",), ref_at=(xn + 2.0, yk[0] - 7.9), value_at=(xn + 2.0, yk[0] - 5.3))
     path(s, "LAD0", rp["2"], (xn, yk[0]))
-    # out: LAD7 -> C902 (15n to GNDA) -> C903 (22u ceramic) -> AUDIO -> R957 (10k to GNDA) -> J6 tip and ring
+    # out: LAD7 -> C45 (15n to GNDA) -> C46 (22u ceramic) -> AUDIO -> R39 (10k to GNDA) -> J6 tip and ring
     yo = yk[7]
-    c902 = s.part("placard_std:C", "C902", 220.98, yo + 3.81, {"1": "LAD7", "2": "GNDA"}, value="15n C0G",
+    c902 = s.part("placard_std:C", "C45", 220.98, yo + 3.81, {"1": "LAD7", "2": "GNDA"}, value="15n C0G",
                   footprint=FP_C, bare=("1",), ref_at=(223.5, yo + 3.3), value_at=(223.5, yo + 6.4))
-    c903 = s.part("placard_std:C", "C903", 238.76, yo, {"1": "LAD7", "2": "AUDIO"}, value="22u",
+    c903 = s.part("placard_std:C", "C46", 238.76, yo, {"1": "LAD7", "2": "AUDIO"}, value="22u",
                   footprint=FP_C, angle=90, bare=("1", "2"), ref_at=(234.5, yo - 3.4), value_at=(241.0, yo - 3.4))
     path(s, "LAD7", (xn, yo), c903["1"])
-    s.junction(c902["1"][0], yo, owner="LAD7")     # C902's pin sits on the line: cut it there
+    s.junction(c902["1"][0], yo, owner="LAD7")     # C45's pin sits on the line: cut it there
     name(s, "LAD7", xn + 7.62, yo)
-    r957 = s.part("placard_std:R", "R957", 256.54, yo + 3.81, {"1": "AUDIO", "2": "GNDA"}, value="10k",
+    r957 = s.part("placard_std:R_US", "R39", 256.54, yo + 3.81, {"1": "AUDIO", "2": "GNDA"}, value="10k",
                   footprint=FP_R, bare=("1",), ref_at=(259.0, yo + 3.3), value_at=(259.0, yo + 6.4))
     j6 = s.part("placard_std:AudioJack3", "J6", 281.94, yo + 2.54, {"T": "AUDIO", "R": "AUDIO", "S": "GNDA"},
                 value="3.5 mm", ref_at=(278, yo - 6.5), value_at=(285, yo + 8.0), angle=180, bare=("T", "R"))
@@ -836,8 +836,8 @@ def sheet_port(b):
         path(s, f"K{i}", u37[str(15 - i)], u38[str(3 + i)])
     for i in range(8):
         path(s, f"~{{COL{i}}}", u38[str(14 + i)], j1[str(1 + i)])
-    # keyboard rows: U39 reads them, RN1001 pulls them up; rows 5-7 also carry PS/2 and SD MISO
-    s.part("placard_std:R_Network08", "RN1001", 152.4, 205.74, {"1": "+5V", **{str(2 + i): f"ROW{i}" for i in range(8)}},
+    # keyboard rows: U39 reads them, RN2 pulls them up; rows 5-7 also carry PS/2 and SD MISO
+    s.part("placard_std:R_Network08_US", "RN2", 152.4, 205.74, {"1": "+5V", **{str(2 + i): f"ROW{i}" for i in range(8)}},
            value="4.7k", footprint=FP_SIP9, angle=270, ref_at=(160.02, 201.93), value_at=(160.02, 204.47))
     s.part("placard_std:74LS541", "U39", 76.2, 220.98, f541(bus("ROW", 8), D, "~{PORT_RD}", "A0"), value="SN74F541N",
            footprint=FP_DIP20)
@@ -846,8 +846,8 @@ def sheet_port(b):
     href = lambda x, y: dict(ref_at=(x - 3.0, y - 3.2), value_at=(x - 3.0, y + 3.4))
     # PS/2 mouse: DATA along the top row, CLK along the bottom row, each with its row diode at the left,
     # pull-up and port diode above (P_PS2D and P_CS pull DATA and CLK low)
-    for net, row, y, dref, rref, pref, pnet in [("PS2_DATA", "ROW6", 203.2, "D1005", "R1011", "D1003", "P_PS2D"),
-                                              ("PS2_CLK", "ROW5", 233.68, "D1004", "R1010", "D1002", "P_CS")]:
+    for net, row, y, dref, rref, pref, pnet in [("PS2_DATA", "ROW6", 203.2, "D5", "R50", "D3", "P_PS2D"),
+                                              ("PS2_CLK", "ROW5", 233.68, "D4", "R49", "D2", "P_CS")]:
         diode(s, dref, 229.87, y, net, row, angle=180, bare=("1",), **href(229.87, y))
         res(s, rref, 243.84, y - 3.81, "+5V", net, "4.7k", bare=("2",), **vref(243.84, y - 3.81))
         diode(s, pref, 261.62, y - 3.81, pnet, net, angle=270, bare=("2",), **vref(261.62, y - 3.81))
@@ -859,10 +859,10 @@ def sheet_port(b):
                                                          "5": "PS2_CLK", "6": None}, value="PS/2 mouse",
            angle=180, bare=("1", "5"), ref_at=(292, 207.5), value_at=(292, 229.5))
     # SD card: 1.8k / 3.3k dividers bring SCK, MOSI and /CS down to 3.2 V; CS and DI come in from above,
-    # CLK from below, MISO goes back down to row 7 through D1001
-    for src, net, y, rs, rp, pin, xv in [("P_CS", "SD_CS", 134.62, "R1005", "R1008", 162.56, 345.44),
-                                         ("P_MOSI", "SD_DI", 152.4, "R1004", "R1007", 165.1, 342.9),
-                                         ("P_SCK", "SD_CLK", 190.5, "R1003", "R1006", 172.72, 342.9)]:
+    # CLK from below, MISO goes back down to row 7 through D1
+    for src, net, y, rs, rp, pin, xv in [("P_CS", "SD_CS", 134.62, "R44", "R47", 162.56, 345.44),
+                                         ("P_MOSI", "SD_DI", 152.4, "R43", "R46", 165.1, 342.9),
+                                         ("P_SCK", "SD_CLK", 190.5, "R42", "R45", 172.72, 342.9)]:
         res(s, rs, 309.88, y, src, net, "1.8k", angle=90, bare=("2",), **href(309.88, y))
         res(s, rp, 322.58, y + 3.81, net, "GND", "3.3k", bare=("1",), **vref(322.58, y + 3.81))
         path(s, net, (313.69, y), (322.58, y), (xv, y), (xv, pin), (350.52, pin))
@@ -873,11 +873,11 @@ def sheet_port(b):
            bare=("1", "2", "5", "7"), ref_at=(353, 153), value_at=(353, 187))
     path(s, "SD_MISO", (350.52, 177.8), (345.44, 177.8), (345.44, 213.36), (340.36, 213.36), (330.2, 213.36))
     s.junction(340.36, 213.36, owner="SD_MISO")
-    res(s, "R1009", 340.36, 209.55, "+3V3", "SD_MISO", "10k", bare=("2",), ref_at=(326.4, 206.0), value_at=(326.4, 206.6))
-    diode(s, "D1001", 330.2, 217.17, "SD_MISO", "ROW7", angle=270, bare=("1",), ref_at=(332.2, 218.4),
+    res(s, "R48", 340.36, 209.55, "+3V3", "SD_MISO", "10k", bare=("2",), ref_at=(326.4, 206.0), value_at=(326.4, 206.6))
+    diode(s, "D1", 330.2, 217.17, "SD_MISO", "ROW7", angle=270, bare=("1",), ref_at=(332.2, 218.4),
           value_at=(346.5, 215.4))
     # SNES pads, top right: CLOCK = P_SCK, LATCH = P_MOSI, DATA back to U38 with a pull-up
-    for ref, y, data, rp in [("J2", 81.28, "PAD1_DATA", "R1001"), ("J3", 121.92, "PAD2_DATA", "R1002")]:
+    for ref, y, data, rp in [("J2", 81.28, "PAD1_DATA", "R40"), ("J3", 121.92, "PAD2_DATA", "R41")]:
         s.part("placard_parts:SNES_Pad_Socket", ref, 388.62, y, {"1": "+5V", "2": "P_SCK", "3": "P_MOSI", "4": data,
                                                                "5": None, "6": None, "7": "GND"}, value="SNES pad",
                bare=("2", "3", "4"), value_at=(392.5, y + 17.0))
@@ -912,7 +912,7 @@ def sheet_slots(b):
                    value_at=(x - 12, 142), bare=("B17",))
         # SEL: a 1k straight off the last pin to GND or +5V
         px, py = j["B17"]
-        r = res(s, f"R{1101 + k}", px + 7.62, py, f"SEL{k + 1}", "GND" if k < 2 else "+5V", "1k", angle=90, bare=("1",),
+        r = res(s, f"R{51 + k}", px + 7.62, py, f"SEL{k + 1}", "GND" if k < 2 else "+5V", "1k", angle=90, bare=("1",),
                 ref_at=(px + 3.0, py + 5.5), value_at=(px + 3.0, py + 6.2))
         path(s, f"SEL{k + 1}", (px, py), r["1"])
     note(s, 30, 205, ["SEL: GND on slots 1 and 2, +5 V on slots 3 and 4 (through 1k): the A7 half the card answers.",
@@ -951,12 +951,12 @@ def root_sheet(b, sheets):
             f"(property \"Sheetfile\" {K.q(sh.filename)} (at {x} {y + h + 0.8} 0) (effects (font (size 2 2)) (justify left top))) "
             f"(instances (project {K.q(b.project)} (path \"/{b.root_uuid}\" (page {K.q(str(page))})))))")
     contents = {
-        2: ["J13 USB-C, F201, U40 3.3 V", "X1 25.175 MHz clock", "STALL / RUN jumpers"],
+        2: ["J13 USB-C, F1, U40 3.3 V", "X1 25.175 MHz clock", "STALL / RUN jumpers"],
         3: ["U1 State, U2 Branch", "U17 instruction register PLD"],
         4: ["U3, U4 program counter", "U7-U10 address mux"],
         7: ["U31, U32 RAM, J8 cartridge", "U11 memory control", "U12 I/O decode, U25 map"],
         5: ["U5, U6 ALU", "U19 AC, U20 X, U21 Y"],
-        6: ["U18 D register", "U26, U27 source drivers", "R601-R608, RN601"],
+        6: ["U18 D register", "U26, U27 source drivers", "R5-R12, RN1"],
         8: ["U13 H, U14 V counters", "U15 Sync, U35 audio slots", "U29 line read"],
         9: ["U22 pixel buffer, U23 line code", "U16 color decoder, VGA", "U36 audio DAC, J6"],
         10: ["U37 latch, U38 port PLD", "U39 rows, J1-J5"],
@@ -1092,14 +1092,16 @@ def build_keyboard():
     """The keyboard board: 63 Cherry MX switches in the 8 x 8 matrix, each with its Schottky diode
     (cathode toward the column) and an always-on LED with its resistor.  Drawn as the matrix:
     a ROW line along the top of each row of keys, a /COL line down the right of each column, a
-    +5V rail under each row for the LEDs.  Parts are numbered 1cr: c = column, r = row."""
+    +5V rail under each row for the LEDs.  Keys are numbered from 1 in reading order (row by row,
+    left to right); SWn, Dn and Rn belong to the same key."""
     root_uuid = K.det_uuid("keyboard", "root")
     s = K.Sheet("keyboard", "keyboard.kicad_sch", "Keyboard", 1, root_uuid, None, DATE)
     s.uid = root_uuid
-    s.comment2 = "Key SW1cr / D1cr / R1cr: column c, row r (docs/IO.md); LED and resistor optional"
+    s.comment2 = "Key n = SWn, Dn, Rn, numbered row by row; LED and resistor optional"
     heading(s, "Keyboard", "63 Cherry MX keys, 8 x 8 matrix with a diode per key, optional always-on LED per key")
     s.label_nets |= {f"ROW{i}" for i in range(8)} | {f"~{{COL{i}}}" for i in range(8)}
     x0, y0, cw, ch = 80.01, 48.26, 40.64, 25.4
+    key = 0
     for r in range(8):
         cy = y0 + r * ch
         rail = cy + 20.32
@@ -1113,14 +1115,15 @@ def build_keyboard():
                 continue
             legend, size = k
             n = f"{c}{r}"
+            key += 1
             fp = f"placard:SW_Cherry_MX_LED_{size}u_PCB"
-            sw = s.part("Switch:SW_Push_LED", f"SW1{n}", sx, sy, {"1": f"ROW{r}", "2": f"K1{n}", "3": "GND", "4": f"LA1{n}"},
+            sw = s.part("Switch:SW_Push_LED", f"SW{key}", sx, sy, {"1": f"ROW{r}", "2": f"K1{n}", "3": "GND", "4": f"LA1{n}"},
                         value=legend, footprint=fp, bare=("1", "2", "3", "4"),
                         ref_at=(cx + 1.27, sy - 0.25), value_at=(cx + 1.27, sy + 0.75))
-            d = s.part("placard_std:D_Schottky", f"D1{n}", sx + 11.43, cy + 5.08, {"1": f"~{{COL{c}}}", "2": f"K1{n}"},
+            d = s.part("placard_std:D_Schottky", f"D{key}", sx + 11.43, cy + 5.08, {"1": f"~{{COL{c}}}", "2": f"K1{n}"},
                        value="BAT85", footprint=FP_D, angle=180, bare=("1", "2"), hide_value=True,
                        ref_at=(sx + 7.0, cy + 3.3), value_at=(sx + 7.0, cy + 6.5))
-            rr = s.part("placard_std:R", f"R1{n}", sx + 5.08, sy + 6.35, {"1": f"LA1{n}", "2": "+5V"},
+            rr = s.part("placard_std:R_US", f"R{key}", sx + 5.08, sy + 6.35, {"1": f"LA1{n}", "2": "+5V"},
                         value="1k", footprint=FP_R, bare=("1", "2"), hide_value=True,
                         ref_at=(sx + 7.0, sy + 7.6), value_at=(sx + 7.0, sy + 9.0))
             # the switch: ROW above, diode to the /COL line on the right
@@ -1280,6 +1283,26 @@ def export_pdf(sch, pdf):
         w.write(f)
 
 
+def check_refs(sheets, label):
+    """References count up from 1 for each kind of part (Justin, 2026-10-22): no gaps, no
+    hundreds.  U and J keep the CHIPS.md / IO.md numbers, and C1-C40 go with their chips,
+    so the other capacitors start at C41."""
+    got = {}
+    for sh in sheets:
+        for ref, _num, _net in sh.pin_nets:
+            m = re.match(r"([A-Z]+)(\d+)$", ref)
+            if m and m.group(1) not in ("U", "J"):
+                got.setdefault(m.group(1), set()).add(int(m.group(2)))
+    out = []
+    for pre, nums in sorted(got.items()):
+        if pre == "C":
+            nums = {n for n in nums if n > 40} or nums
+        first = 41 if pre == "C" and min(nums) > 40 else 1
+        if nums != set(range(first, first + len(nums))):
+            out.append(f"{label}: {pre} numbers are not {pre}{first}-{pre}{first + len(nums) - 1}: {sorted(nums)}")
+    return out
+
+
 def main():
     root, boxes, sheets, glob = build_main()
     for sh in sheets:
@@ -1314,6 +1337,10 @@ def main():
                             (os.path.join(BDIR, "keyboard.kicad_sch"), "keyboard")]:
             for it in erc(path, label, FLAGGED):
                 print("  ", it)
+        for shs, label in [(sheets, "main board"), ([cart], "cartridge"), ([kbd], "keyboard")]:
+            for it in check_refs(shs, label):
+                print("  ", it)
+                bad += 1
         sys.exit(1 if bad else 0)
 
 
