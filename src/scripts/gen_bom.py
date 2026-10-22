@@ -101,7 +101,7 @@ PRICES = {
     "G99-0742": (0.39, "Mouser", ""),
     "ANT11TFHQE": (4.50, "est.", "Digi-Key; Mouser has no stock"),
     "E112SD1A3QE": (11.00, "est.", "Digi-Key; Mouser has no stock below 160"),
-    "SMAJ5.0A": (0.35, "est.", "Littelfuse SMAJ5.0A, SMA (DO-214AC)"),
+    "SA5.0A": (0.40, "est.", "Littelfuse SA5.0A, 500 W TVS, DO-15 axial"),
     "BAT85": None,                                  # by quantity, below
     "M3AAA-2006J": (6.50, "est.", "Digi-Key (3M 20-way assemblies $6-7.50)"),
     "Clock oscillator": (3.00, "est.", "ECS-100A-251.7 (Digi-Key; Mouser has no stock); no 5 V DIP 25.175 MHz part is stocked at Mouser"),
