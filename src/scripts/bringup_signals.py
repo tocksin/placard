@@ -17,7 +17,7 @@ the average DC voltage that duty gives with a 5 V swing.  The tables in
 BRINGUP.md are this script's output:
 
     python3 bringup_signals.py            all tables (markdown)
-    python3 bringup_signals.py --step 3   one step
+    python3 bringup_signals.py --step 4   one step
 
 Signals that change inside a clock (the memory control PLD's /RAM_OE,
 /ROM_OE and /WE are low only in the low half of the clock) are counted
@@ -224,23 +224,23 @@ def table(rows, title):
 
 
 def run_video(step, bus=0xFF):
-    """steps 2-6: the video chips"""
-    vid = Video(blank_rd=step >= 5, lc_from_bus=step >= 6, bus=bus)
+    """steps 3-7: the video chips"""
+    vid = Video(blank_rd=step >= 6, lc_from_bus=step >= 7, bus=bus)
     m = Meter()
     for clk in range(2 * FRAME):
         c = vid.comb()
         if clk >= FRAME:
-            if step == 2:
+            if step == 3:
                 m.add('Sync H0 (pin 14)', vid.h0)
                 m.add('Sync H1 (pin 15)', vid.h1)
                 m.add('Sync H2 (pin 16)', vid.h2)
-            if step == 3:
+            if step == 4:
                 for n in range(3, 10):
                     m.add('H counter H%d (pin %d)' % (n, 11 + n), (vid.hc >> (n - 3)) & 1)
                 m.add('H counter /HSYNC (pin 21)', 1 - vid.hsync)
                 m.add('H counter H_VIDEO_ACTIVE (pin 22)', vid.hva)
                 m.add('H counter H_TC (pin 23)', c['h_tc'])
-            if step == 4:
+            if step == 5:
                 pins = {0: 14, 1: 23, 2: 22, 3: 15, 4: 16, 5: 21, 6: 20, 7: 17, 8: 18, 9: 19}
                 for n in range(10):
                     m.add('V counter V%d (pin %d)' % (n, pins[n]), (vid.v >> n) & 1)
@@ -249,7 +249,7 @@ def run_video(step, bus=0xFF):
                 m.add('Sync PIXEL_ENABLE (pin 19)', vid.pe)
                 m.add('Sync ADDR_SEL (pin 20)', vid.pe)        # PC_ENABLE held low
                 m.add('Sync V_VIDEO_ACTIVE (pin 23)', vid.vva)
-            if step == 5:
+            if step == 6:
                 m.add('Audio BLANK_RD (pin 23)', c['blank_rd'])
                 m.add('Audio /MODE_LD (pin 22)', 1 - c['mode_ld'])
                 m.add('Audio R0 (pin 17)', c['r0'])
@@ -261,7 +261,7 @@ def run_video(step, bus=0xFF):
 
 
 def run_colors(bytes_):
-    """step 6: the colour decoder with the data bus held at each byte"""
+    """step 7: the colour decoder with the data bus held at each byte"""
     out = {}
     for bus in bytes_:
         vid = Video(blank_rd=True, lc_from_bus=True, bus=bus)
@@ -280,8 +280,8 @@ def run_colors(bytes_):
 
 
 def run_mux():
-    """step 7: address muxes with the D register loading the bus (FF),
-    PC_ENABLE, X_ENABLE and Y_ENABLE held low, and step 8: memory control"""
+    """step 8: address muxes with the D register loading the bus (FF),
+    PC_ENABLE, X_ENABLE and Y_ENABLE held low, and step 9: memory control"""
     vid = Video(blank_rd=True, lc_from_bus=True, bus=0xFF)
     m = Meter()
     m8 = Meter()
@@ -304,7 +304,7 @@ def run_mux():
 
 
 def run_free_run(step):
-    """steps 10-12: the CPU with nothing driving the data bus, so every byte
+    """steps 11-13: the CPU with nothing driving the data bus, so every byte
     it reads is FF (the 10k pull-ups): BRA with source 11 (AC), through
     LOAD_MEM.  The source bus is FF too (no source F541s), so EXEC loads
     PC low = FF."""
@@ -333,7 +333,7 @@ def run_free_run(step):
         lo, hi = pc & 0xFF, pc >> 8
         co = int(lo == 0xFF)
         if clk >= 2 * FRAME:
-            if step == 10:
+            if step == 11:
                 m.add('State Q0 (pin 18)', q0)
                 m.add('State PC_ENABLE (pin 15)', pc_enable)
                 m.add('State X_ENABLE (pin 16)', x_en)
@@ -350,12 +350,12 @@ def run_free_run(step):
                 m.add('Branch ALU_DONE (pin 18)', alu_done)
                 m.add('Audio /AC_SEL (pin 21)', 0)          # I1 = 1
                 m.add('Instruction register Q0-Q7', 1)
-            if step == 11:
+            if step == 12:
                 pins = [15, 22, 21, 16, 20, 17, 19, 18]
                 for n in range(8):
                     m.add('PC low Q%d (pin %d)' % (n, pins[n]), (lo >> n) & 1)
                 m.add('PC low CO (pin 23)', co)
-            if step == 12:
+            if step == 13:
                 pins = [15, 22, 21, 16, 20, 17, 19, 18]
                 for n in range(8):
                     m.add('PC high Q%d = A%d (pin %d)' % (n, n + 8, pins[n]), (hi >> n) & 1)
@@ -393,23 +393,23 @@ def main(argv):
         only = int(argv[argv.index('--step') + 1])
     want = lambda s: only is None or only == s
     print('Clock %.3f MHz, frame %.4f Hz, line %.4f kHz\n' % (CLK_HZ / 1e6, FPS, CLK_HZ / 800 / 1e3))
-    for s, t in ((2, 'Step 2: Sync PLD'), (3, 'Step 3: H counter PLD'), (4, 'Step 4: V counter PLD'),
-                 (5, 'Step 5: audio slot PLD')):
+    for s, t in ((3, 'Step 3: Sync PLD'), (4, 'Step 4: H counter PLD'), (5, 'Step 5: V counter PLD'),
+                 (6, 'Step 6: audio slot PLD')):
         if want(s):
             print(table(run_video(s), t))
-    if want(6):
+    if want(7):
         bytes_ = [0xFF, 0x7F, 0xBF, 0xDF, 0xEF, 0xF7, 0xFB, 0xFC, 0xFD, 0xFE]
         res = run_colors(bytes_)
         for b in bytes_:
-            print(table(res[b], 'Step 6: colour decoder, data bus = %02X' % b))
-    if want(7) or want(8):
+            print(table(res[b], 'Step 7: colour decoder, data bus = %02X' % b))
+    if want(8) or want(9):
         mux, mem = run_mux()
-        if want(7):
-            print(table(mux, 'Step 7: address mux outputs'))
         if want(8):
-            print(table(mem, 'Step 8: memory control and I/O decode'))
-    for s, t in ((10, 'Step 10: State PLD (and the Branch PLD), FF free run'), (11, 'Step 11: PC low'),
-                 (12, 'Step 12: PC high')):
+            print(table(mux, 'Step 8: address mux outputs'))
+        if want(9):
+            print(table(mem, 'Step 9: memory control and I/O decode'))
+    for s, t in ((11, 'Step 11: State PLD (and the Branch PLD), FF free run'), (12, 'Step 12: PC low'),
+                 (13, 'Step 13: PC high')):
         if want(s):
             print(table(run_free_run(s), t))
 
