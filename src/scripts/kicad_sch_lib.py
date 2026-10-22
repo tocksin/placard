@@ -34,6 +34,7 @@ LABEL_SIZE = 2.0
 REF_SIZE = 2.54
 VALUE_SIZE = 2.0
 STUB = 5.08
+PART_FIELDS = None   # callable(lib_id, value) -> {"Manufacturer": ..., "MPN": ...}
 BUS_RE = re.compile(r"^([A-Z]+)(\d+)$")
 NOT_BUS = {"LAD", "COL"}
 POWER_STUB = 2.54
@@ -447,8 +448,10 @@ class Sheet:
 
     # ------------------------------------------------------------ parts
     def part(self, lib_id, ref, x, y, nets, value=None, footprint=None, unit=1, angle=0,
-             ref_at=None, value_at=None, extra_props=None, stub=None, hide_value=False, dnp=False, bare=()):
-        """Place a symbol and connect its pins.  nets maps pin number -> net (None = no connect)."""
+             ref_at=None, value_at=None, extra_props=None, stub=None, hide_value=False, dnp=False, bare=(),
+             in_bom=True):
+        """Place a symbol and connect its pins.  nets maps pin number -> net (None = no connect).
+        PART_FIELDS (set by the caller) adds the Manufacturer and MPN fields from the value."""
         symdef = self._lib(lib_id)
         props = sym_props(symdef)
         pins = [p for p in sym_pins(symdef) if p[8] in (0, unit)]
@@ -541,6 +544,8 @@ class Sheet:
         # properties
         val = value or uq(props["Value"][2])
         fp = footprint if footprint is not None else uq(props.get("Footprint", [0, 0, '""'])[2])
+        if PART_FIELDS and in_bom:
+            extra_props = {**PART_FIELDS(lib_id, val), **(extra_props or {})}
         x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
         if ref_at is None:
             ref_at = (x0 + (x1 - x0) * 0.15 if x1 - x0 > 8 else x1 + 1.5, y0 - 1.5 if y1 - y0 > 8 else y0 - 1.0)
@@ -584,7 +589,7 @@ class Sheet:
                                "value " + ref))
         pin_uuids = " ".join(f"(pin {q(num)} (uuid {self.u()}))" for num in placed)
         self.items.append(
-            f"(symbol (lib_id {q(lib_id)}) (at {R(x)} {R(y)} {angle}) (unit {unit}) (in_bom yes) (on_board yes) "
+            f"(symbol (lib_id {q(lib_id)}) (at {R(x)} {R(y)} {angle}) (unit {unit}) (in_bom {'yes' if in_bom else 'no'}) (on_board yes) "
             f"(dnp {'yes' if dnp else 'no'}) (uuid {self.u(ref)}) " + " ".join(plist_out) + " " + pin_uuids +
             f" (instances (project {q(self.project)} (path {q(self.path)} (reference {q(ref)}) (unit {unit})))))")
         return {num: (pl[0][0], pl[0][1]) for num, pl in placed.items()}
