@@ -68,6 +68,7 @@ MPN = {
     "3 A hold": ("Bourns", "MF-RG300"),
     "Molex 87715-9106": ("Molex", "87715-9106"),
     "BAT85": ("Vishay", "BAT85"),
+    "PS/2 kbd + mouse": ("Kycon", "KMDGX-6S/6S-S4N"),
 }
 
 
@@ -855,17 +856,18 @@ def sheet_video_out(b):
 
 def sheet_port(b):
     s = b.sheet("shared_port.kicad_sch", "Shared port", 10)
-    heading(s, "Shared port x5200", "Keyboard, two SNES pads, SD card (SPI), PS/2 mouse")
+    heading(s, "Shared port x5200", "Keyboard, two SNES pads, SD card (SPI), PS/2 keyboard and mouse")
     s.label_each |= {"D", "ROW"}
     # the port lines go to three corners of the sheet, so each pin carries its name
-    s.label_nets |= {"~{PORT_RD}", "A0", "P_SCK", "P_MOSI", "P_CS", "P_PS2D", "PAD1_DATA", "PAD2_DATA"}
+    s.label_nets |= {"~{PORT_RD}", "A0", "P_SCK", "P_MOSI", "P_CS", "P_PS2D", "PAD1_DATA", "PAD2_DATA",
+                     "KBD_CLK", "K0"}
     # U37 latch -> K3:K0 straight into U38 -> /COL7:/COL0 straight into the keyboard header J1
     pq = ["P_SCK", "P_MOSI", "P_CS", "P_PS2D"]
     u37 = s.part("placard_std:74LS574", "U37", 63.5, 109.22, ls574(D, pq + ["K0", "K1", "K2", "K3"], "GND", "~{PORT_WR}"),
                  value="SN74HC574N", footprint=FP_DIP20, bare=("15", "14", "13", "12"))
     decap(s, 37, 43.18, 81.28, lift=0)
     u38 = s.part("placard:ATF22V10C_PORT", "U38", 144.78, 129.54, pld({
-        1: "~{PORT_RD}", 2: "A0", 3: "K0", 4: "K1", 5: "K2", 6: "K3", 7: "PAD1_DATA", 8: "PAD2_DATA",
+        1: "~{PORT_RD}", 2: "A0", 3: "K0", 4: "K1", 5: "K2", 6: "K3", 7: "PAD1_DATA", 8: "PAD2_DATA", 9: "KBD_CLK",
         14: "~{COL0}", 15: "~{COL1}", 16: "~{COL2}", 17: "~{COL3}", 18: "~{COL4}", 19: "~{COL5}",
         20: "~{COL6}", 21: "~{COL7}", 22: "D6", 23: "D7"}), bare=("3", "4", "5", "6") + tuple(str(n) for n in range(14, 22)))
     decap(s, 38, 165.1, 93.98, lift=0)
@@ -876,6 +878,7 @@ def sheet_port(b):
                 bare=tuple(str(1 + i) for i in range(8)))
     for i in range(4):
         path(s, f"K{i}", u37[str(15 - i)], u38[str(3 + i)])
+    name(s, "K0", u38["3"][0] - 7.62, u38["3"][1])      # K0 also holds the PS/2 keyboard's CLK (D6)
     for i in range(8):
         path(s, f"~{{COL{i}}}", u38[str(14 + i)], j1[str(1 + i)])
     # keyboard rows: U39 reads them, RN2 pulls them up; rows 5-7 also carry PS/2 and SD MISO
@@ -886,20 +889,34 @@ def sheet_port(b):
     decap(s, 39, 96.52, 193.04, lift=0)
     vref = lambda x, y: dict(ref_at=(x + 2.0, y - 1.3), value_at=(x + 2.0, y + 1.5))
     href = lambda x, y: dict(ref_at=(x - 3.0, y - 3.2), value_at=(x - 3.0, y + 3.4))
-    # PS/2 mouse: DATA along the top row, CLK along the bottom row, each with its row diode at the left,
-    # pull-up and port diode above (P_PS2D and P_CS pull DATA and CLK low)
+    # PS/2 keyboard and mouse, J5 a stacked dual socket: DATA along the middle row (shared by both),
+    # mouse CLK along the bottom row, each with its row diode at the left, pull-up and port diode
+    # above (P_PS2D and P_CS pull DATA and mouse CLK low).  The keyboard CLK along the top row has
+    # no row diode: U38 pin 9 reads it, and latch Q4 (K0) pulls it low through D6.
     for net, row, y, dref, rref, pref, pnet in [("PS2_DATA", "ROW6", 203.2, "D5", "R50", "D3", "P_PS2D"),
                                               ("PS2_CLK", "ROW5", 233.68, "D4", "R49", "D2", "P_CS")]:
         diode(s, dref, 229.87, y, net, row, angle=180, bare=("1",), **href(229.87, y))
         res(s, rref, 243.84, y - 3.81, "+5V", net, "4.7k", bare=("2",), **vref(243.84, y - 3.81))
         diode(s, pref, 261.62, y - 3.81, pnet, net, angle=270, bare=("2",), **vref(261.62, y - 3.81))
-        pin = 215.9 if net == "PS2_DATA" else 220.98
-        path(s, net, (233.68, y), (243.84, y), (261.62, y), (281.94, y), (281.94, pin), (289.56, pin))
         s.junction(243.84, y, owner=net)
         s.junction(261.62, y, owner=net)
-    s.part("placard_std:Mini-DIN-6", "J5", 297.18, 218.44, {"1": "PS2_DATA", "2": None, "3": "GND", "4": "+5V",
-                                                         "5": "PS2_CLK", "6": None}, value="PS/2 mouse",
-           angle=180, bare=("1", "5"), ref_at=(292, 207.5), value_at=(292, 229.5))
+    j5 = s.part("placard_parts:PS2_Dual_Stacked", "J5", 307.34, 218.44,
+                {"B5": "KBD_CLK", "B1": "PS2_DATA", "A1": "PS2_DATA", "A5": "PS2_CLK", "B6": None, "B2": None,
+                 "A2": None, "A6": None, "A4": "+5V", "B4": "+5V", "A3": "GND", "B3": "GND", "SH": "GND"},
+                value="PS/2 kbd + mouse", bare=("B5", "B1", "A1", "A5"))
+    xk, yk = 284.48, 177.8
+    res(s, "R55", 243.84, yk - 3.81, "+5V", "KBD_CLK", "4.7k", bare=("2",), **vref(243.84, yk - 3.81))
+    diode(s, "D6", 261.62, yk - 3.81, "K0", "KBD_CLK", angle=270, bare=("2",), **vref(261.62, yk - 3.81))
+    path(s, "KBD_CLK", (236.22, yk), (243.84, yk), (261.62, yk), (xk, yk), (xk, j5["B5"][1]), j5["B5"])
+    name(s, "KBD_CLK", 236.22, yk, 180)
+    s.junction(243.84, yk, owner="KBD_CLK")
+    s.junction(261.62, yk, owner="KBD_CLK")
+    yd = 203.2
+    path(s, "PS2_DATA", (233.68, yd), (243.84, yd), (261.62, yd), (279.4, yd), (279.4, j5["B1"][1]), j5["B1"])
+    path(s, "PS2_DATA", (279.4, j5["B1"][1]), (279.4, j5["A1"][1]), j5["A1"])
+    s.junction(279.4, j5["B1"][1], owner="PS2_DATA")
+    yc = 233.68
+    path(s, "PS2_CLK", (233.68, yc), (243.84, yc), (261.62, yc), (279.4, yc), (279.4, j5["A5"][1]), j5["A5"])
     # SD card: 1.8k / 3.3k dividers bring SCK, MOSI and /CS down to 3.2 V; CS and DI come in from above,
     # CLK from below, MISO goes back down to row 7 through D1
     for src, net, y, rs, rp, pin, xv in [("P_CS", "SD_CS", 134.62, "R44", "R47", 162.56, 345.44),
@@ -930,8 +947,9 @@ def sheet_port(b):
         path(s, data, (373.38, y), (330.2, y), (325.12, y))
         s.junction(330.2, y, owner=data)
         name(s, data, 325.12, y, 180)
-    note(s, 15, 252, ["Latch Q0 = SCK and pad CLOCK, Q1 = MOSI and pad LATCH, Q2 = SD /CS (low also holds PS/2 CLK), Q3 = PS/2 DATA,",
-                      "Q7:Q4 = key column.  SD lines come down to 3.2 V through 1.8k / 3.3k; MISO reaches row 7 through a Schottky."],
+    note(s, 15, 252, ["Latch Q0 = SCK and pad CLOCK, Q1 = MOSI and pad LATCH, Q2 = SD /CS (low also holds the mouse CLK), Q3 = PS/2 DATA,",
+                      "Q7:Q4 = key column; with Q7 = 1 (no column) Q4 low holds the keyboard CLK.  PS/2 DATA is shared by both sockets.",
+                      "SD lines come down to 3.2 V through 1.8k / 3.3k; MISO reaches row 7 through a Schottky."],
          size=2.2)
     return s
 

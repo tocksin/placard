@@ -3,7 +3,7 @@
 gen_kicad_parts.py - make kicad/lib/placard_parts.kicad_sym, the project's
 symbols for the parts KiCad's own libraries do not have: the AS7C256C SRAM,
 the expansion slot, the ROM cartridge slot, the SNES pad socket, the
-keyboard header and the USB-C power input.  They are drawn like the PLD
+keyboard header, the stacked dual PS/2 socket and the USB-C power input.  They are drawn like the PLD
 symbols (gen_kicad_symbols.py): pins grouped by bus and function, not by
 number.
 
@@ -112,6 +112,23 @@ def keyboard_header():
                   datasheet="~", vcc=(17, "+5V"), gnd=[(18, "GND"), (19, "GND")], ref="J", min_w=4 * 2.54)
 
 
+def ps2_dual():
+    # Kycon KMDGX-6S/6S-S4N: two mini-DIN 6 sockets stacked, PS/2 mouse on top (A),
+    # PS/2 keyboard below (B), as on a PC (IO.md, J5).  Each socket: 1 DATA,
+    # 2 nc, 3 GND, 4 +5 V, 5 CLK, 6 nc.  The two DATA lines are joined on the board.
+    p = "passive"
+    nc = lambda n: (n, "nc", "no_connect")
+    # keyboard pins above the mouse pins, so the wires from the board reach them without crossing
+    left = [("B5", "KCLK", p), ("B1", "KDATA", p), None, ("A1", "MDATA", p), ("A5", "MCLK", p)]
+    right = [nc("B6"), nc("B2"), None, nc("A2"), nc("A6")]
+    return symbol("PS2_Dual_Stacked", [(left, right)], "KMDGX-6S/6S-S4N",
+                  "Stacked dual mini-DIN 6 (PS/2), right angle, shielded: top A = mouse, bottom B = keyboard; "
+                  "each 1 DATA, 3 GND, 4 +5 V, 5 CLK",
+                  "PS/2 mini-DIN stacked dual keyboard mouse Placard", footprint="", datasheet="~",
+                  vcc=[("A4", "+5V"), ("B4", "+5V")], gnd=[("A3", "GND"), ("B3", "GND"), ("SH", "SHIELD")],
+                  ref="J", min_w=4 * 2.54)
+
+
 def usb_c_power():
     # USB-C receptacle, power only (6 contacts), the board's 5 V input.  A 5.1k
     # resistor from each CC pin to GND asks the charger for 5 V.
@@ -148,8 +165,8 @@ def oscillator():
 
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else OUT
-    write_lib(out, [sram(), expansion_slot(), cartridge_slot(), snes_socket(), keyboard_header(), mcp1700(), oscillator(),
-                    usb_c_power()])
+    write_lib(out, [sram(), expansion_slot(), cartridge_slot(), snes_socket(), keyboard_header(), ps2_dual(), mcp1700(),
+                    oscillator(), usb_c_power()])
 
 
 if __name__ == "__main__":

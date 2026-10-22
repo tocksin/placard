@@ -52,7 +52,7 @@ DESC_VALUE = {
     "VGA": "DE-15 high-density receptacle (VGA), with mounting holes",
     "3.5 mm": "3.5 mm stereo headphone jack",
     "SD (SPI)": "SD card socket",
-    "PS/2 mouse": "Mini-DIN-6 receptacle (PS/2)",
+    "PS/2 kbd + mouse": "Stacked dual mini-DIN-6 receptacle (PS/2), right angle, shielded: mouse top, keyboard bottom",
     "SNES pad": "SNES controller socket, 7 pin",
 }
 DESC_LIB = {

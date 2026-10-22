@@ -34,7 +34,7 @@ with its chip number.
 | #5, #6 ALU low, ALU high | `ALU_SHR.pld` (two copies) | #14 V counter | `ATF22V10_VCOUNT.pld` |
 | #7-#10 Address muxes | `ATF22V10_QUAD_MUX.pld` (four copies) | #15 Sync | `ATF22V10_SYNC.pld` |
 | #16 Colour decoder | `ATF22V10_COLORDECODER.pld` | #35 Audio and mode slots | `ATF22V10_AUDIO.pld` (rev 04) |
-| #38 Shared port | `ATF22V10_PORT.pld` | | |
+| #38 Shared port | `ATF22V10_PORT.pld` (rev 02) | | |
 
 **Load the bring-up ROM.**  `python3 test_bringup_sim.py --bin` in
 `src/scripts` writes `bringup_lo.bin` (ROM x0000-x7FFF, for #33) and
@@ -462,6 +462,10 @@ connectors ([IO.md](IO.md)).  Before plugging the SD card in, check
 - Plug the mouse in and power on: MOUSE_INIT 00, and moving it changes X
   and Y (buttons in the last column).  The mouse is started once, at
   power-up.
+- PS/2 keyboard socket (J5 bottom): with no keyboard, port PLD pin 9 is
+  5 V.  Once the keyboard driver is in, check typing with the mouse plugged
+  in too, and that each device answers a command with the other plugged
+  in (they share DATA).
 
 ### Step 18: audio DAC (#36)
 

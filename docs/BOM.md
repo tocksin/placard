@@ -23,7 +23,7 @@ notes give each PLD's job; [KITTING.md](KITTING.md) lists the images.
 
 ## Main board
 
-51 lines, 156 parts on the schematic.
+51 lines, 158 parts on the schematic.
 
 | Qty | References | Part number | Manufacturer | Description | Value | Notes |
 |--:|---|---|---|---|---|---|
@@ -40,7 +40,7 @@ notes give each PLD's job; [KITTING.md](KITTING.md) lists the images.
 | 1 | J1 |  |  | Box header, 2 x 10, 2.54 mm, shrouded and keyed, vertical |  |  |
 | 2 | J2, J3 |  |  | SNES controller socket, 7 pin | SNES pad |  |
 | 1 | J4 |  |  | SD card socket | SD (SPI) |  |
-| 1 | J5 |  |  | Mini-DIN-6 receptacle (PS/2) | PS/2 mouse |  |
+| 1 | J5 | KMDGX-6S/6S-S4N | Kycon | Stacked dual mini-DIN-6 receptacle (PS/2), right angle, shielded: mouse top, keyboard bottom | PS/2 kbd + mouse |  |
 | 1 | J6 |  |  | 3.5 mm stereo headphone jack | 3.5 mm |  |
 | 1 | J7 |  |  | DE-15 high-density receptacle (VGA), with mounting holes | VGA |  |
 | 1 | J8 | 87715-9106 | Molex | Cartridge slot: card edge, 64 contacts, 1.0 mm, keyed (PCIe x4 style), vertical TH |  |  |
@@ -49,7 +49,7 @@ notes give each PLD's job; [KITTING.md](KITTING.md) lists the images.
 | 1 | SW1 | ANT11TFHQE | CIT Relay and Switch | Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing |  |  |
 | 1 | SW2 | E112SD1A3QE | C&K | Reset: SPDT momentary pushbutton, NC contact used, 4 A 28 V DC, right-angle PCB |  |  |
 | 1 | F1 | MF-RG300 | Bourns | Polyfuse, 3 A hold, radial | 3 A hold | Part number from the footprint (Fuse_Bourns_MF-RG300) |
-| 5 | D1-D5 | BAT85 | Vishay | Schottky diode, DO-35 |  | Any BAT85 (Vishay, Nexperia, onsemi) |
+| 6 | D1-D6 | BAT85 | Vishay | Schottky diode, DO-35 |  | Any BAT85 (Vishay, Nexperia, onsemi) |
 | 2 | R1, R2 |  |  | Resistor, metal film 1%, 1/4 W, axial | 5.1k |  |
 | 7 | R3, R4, R13, R39-R41, R48 |  |  | Resistor, metal film 1%, 1/4 W, axial | 10k |  |
 | 8 | R5-R12 |  |  | Resistor, metal film 1%, 1/4 W, axial | 47 |  |
@@ -63,7 +63,7 @@ notes give each PLD's job; [KITTING.md](KITTING.md) lists the images.
 | 11 | R32-R38, R51-R54 |  |  | Resistor, metal film 1%, 1/4 W, axial | 1k |  |
 | 3 | R42-R44 |  |  | Resistor, metal film 1%, 1/4 W, axial | 1.8k |  |
 | 3 | R45-R47 |  |  | Resistor, metal film 1%, 1/4 W, axial | 3.3k |  |
-| 2 | R49, R50 |  |  | Resistor, metal film 1%, 1/4 W, axial | 4.7k |  |
+| 3 | R49, R50, R55 |  |  | Resistor, metal film 1%, 1/4 W, axial | 4.7k |  |
 | 1 | RN1 |  |  | Resistor network, 8 bussed, SIP-9 | 10k |  |
 | 1 | RN2 |  |  | Resistor network, 8 bussed, SIP-9 | 4.7k |  |
 | 35 | C1-C23, C25-C27, C29, C31, C32, C35-C39, C43 |  |  | Ceramic capacitor, 5 mm pitch | 100n |  |

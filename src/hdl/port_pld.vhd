@@ -1,18 +1,19 @@
 --------------------------------------------------------------------------------
 -- Name     PORT
 -- PartNo   00
--- Date     10/18/2026
--- Revision 01
+-- Date     10/22/2026
+-- Revision 02
 -- Designer Justin
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_PORT.pld (Revision 01)
+-- Converted from WinCUPL source ATF22V10_PORT.pld (Revision 02)
 --
 -- Shared port at 5200h (docs/IO.md): keyboard columns and the SNES pad read.
 --   - colNN: keyboard column n is low when the port latch's bits 7:4
 --     (k3:k0) hold n (0-7); codes 8-15 drive no column.
 --   - d7, d6: pad 1 and pad 2 DATA onto the read bus on a read of an odd
---     address (portRdN = 0 and a0 = 1).  The 74F541 (key rows) is enabled
+--     address (portRdN = 0 and a0 = 1).  d6 is pad 2 while latch bit 4
+--     (k0) is 0 and the PS/2 keyboard's CLK line (kclk) while it is 1.  The 74F541 (key rows) is enabled
 --     on even addresses only.  d7 and d6 are 3-state; the FPGA model has no
 --     internal 3-state bus, so the enable is a separate output (dEn) and
 --     basys_top.vhd uses it to pick the read bus source.
@@ -29,6 +30,7 @@
 --   PIN 6  = K3                (port latch Q7)
 --   PIN 7  = PAD1              (pad 1 DATA)
 --   PIN 8  = PAD2              (pad 2 DATA)
+--   PIN 9  = KCLK              (PS/2 keyboard CLK)
 --   PIN 14 = COL0              (ACTIVE LOW)
 --   PIN 15 = COL1              (ACTIVE LOW)
 --   PIN 16 = COL2              (ACTIVE LOW)
@@ -39,7 +41,7 @@
 --   PIN 21 = COL7              (ACTIVE LOW)
 --   PIN 22 = D6                (3-state, enable PORT_RD & A0)
 --   PIN 23 = D7                (3-state, enable PORT_RD & A0)
---   Unused: pins 9, 10, 11, 13
+--   Unused: pins 10, 11, 13
 --------------------------------------------------------------------------------
 
 library ieee;
@@ -55,6 +57,7 @@ entity port_pld is
         k3      : in  std_logic;   -- pin 6
         pad1    : in  std_logic;   -- pin 7
         pad2    : in  std_logic;   -- pin 8
+        kclk    : in  std_logic;   -- pin 9
 
         col0N   : out std_logic;   -- pin 14
         col1N   : out std_logic;   -- pin 15
@@ -106,7 +109,8 @@ begin
     col7N <= not col7;
 
     d7  <= pad1;
-    d6  <= pad2;
+    d6  <= ((not k0) and pad2)
+        or ((    k0) and kclk);
     dEn <= portRd and a0;
 
 end architecture rtl;

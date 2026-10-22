@@ -1,8 +1,9 @@
-# I/O: keyboard, SNES pads, SD card, PS/2 mouse
+# I/O: keyboard, SNES pads, SD card, PS/2 keyboard and mouse
 
 Date: 2026-10-22
 
-The keyboard, both SNES pads, the SD card and a PS/2 mouse share one port
+The keyboard, both SNES pads, the SD card, a PS/2 mouse and a PS/2
+keyboard (for buyers who use their own instead of the Cherry MX board) share one port
 at x5200-x52FF.  They are polled, never used at the same moment, so they
 share one output latch, one input buffer and one PLD.  The expansion slots
 are described in [EXPANSION.md](EXPANSION.md).
@@ -10,15 +11,15 @@ are described in [EXPANSION.md](EXPANSION.md).
 | Part | Job |
 |---|---|
 | SN74HC574N | Port latch: written at any x52xx, clocked by /PORT_WR (I/O decode PLD pin 19) |
-| ATF22V10C-7PX | Port PLD (`ATF22V10_PORT.pld`): keyboard columns from the latch, pad DATA onto the bus on odd reads |
+| ATF22V10C-7PX | Port PLD (`ATF22V10_PORT.pld`, rev 02): keyboard columns from the latch, pad DATA and the PS/2 keyboard's CLK onto the bus on odd reads |
 | SN74F541N | Port input: key rows on even reads (/OE1 = /PORT_RD, /OE2 = A0) |
 | 3.3 V regulator | SD card (not chosen yet; an LM1117-3.3 in TO-220 is one choice) |
 
 Besides the chips: 64 key switches with a Schottky diode each, 3 more
-Schottky diodes on the rows (MISO, PS/2 DATA, PS/2 CLK) and 2 from the
+Schottky diodes on the rows (MISO, PS/2 DATA, mouse CLK) and 3 from the
 latch to the PS/2 lines, 8 row pull-ups, the pull-ups on the pad DATA
-lines, MISO and the PS/2 lines, three resistor dividers for the SD card, the SD socket, two pad sockets and a
-mini-DIN 6 for the mouse.
+lines, MISO and the three PS/2 lines, three resistor dividers for the SD card, the SD socket, two pad sockets and a
+stacked dual mini-DIN 6 (mouse on top, keyboard below).
 
 ## Schematic
 
@@ -33,7 +34,7 @@ chips and the connectors:
 | J1 | Keyboard, 2 x 10 shrouded box header (keyed), 2.54 mm, ribbon cable | 1-8 = /COL0-/COL7 (port PLD pins 14-21), 9-16 = ROW0-ROW7 (74F541 A1-A8), 17 = +5 V, 18-19 = GND, 20 = spare (caps lock LED).  The same header on the keyboard board.  The keys and their diodes are on the keyboard board; the row pull-ups stay on the main board |
 | J2, J3 | SNES pad 1 and 2 | 1 +5 V, 2 CLOCK (latch Q0), 3 LATCH (latch Q1), 4 DATA (port PLD pin 7 or 8), 5-6 not used, 7 GND |
 | J4 | Full-size SD socket (SPI) | 1 CS, 2 DI, 5 CLK from the dividers R42-R47; 7 DO = MISO; 4 VDD 3.3 V; 3, 6 GND; 8, 9 not used |
-| J5 | Mini-DIN 6, PS/2 mouse | 1 DATA, 3 GND, 4 +5 V, 5 CLK |
+| J5 | Stacked dual mini-DIN 6 (Kycon KMDGX-6S/6S-S4N): top A = PS/2 mouse, bottom B = PS/2 keyboard | Each: 1 DATA, 3 GND, 4 +5 V, 5 CLK.  The two DATA pins are joined (one PS/2 DATA line); mouse CLK = PS2_CLK, keyboard CLK = KBD_CLK |
 
 ## The port
 
@@ -45,7 +46,7 @@ chips and the connectors:
 | 1 | MOSI, pads' LATCH | The card ignores MOSI while /CS is high; LATCH high only reloads the pads |
 | 2 | SD /CS | 0 also holds the PS/2 CLK line low through a Schottky diode, which stops the mouse |
 | 3 | PS/2 DATA | 0 holds the PS/2 DATA line low through a Schottky diode (to send to the mouse) |
-| 7:4 | Keyboard column | 0-7 drive that column low (port PLD), 8-15 drive none |
+| 7:4 | Keyboard column | 0-7 drive that column low (port PLD), 8-15 drive none.  With bit 7 = 1, bit 4 = 0 also holds the PS/2 keyboard's CLK low through a Schottky diode and picks pad 2 on odd reads |
 
 **Read an even address (74F541):** D7:D0 = rows 7:0 of the driven column,
 0 = key down.  Row 7 is also SD MISO, row 6 the PS/2 DATA line and row 5
@@ -53,7 +54,8 @@ the PS/2 CLK line, each through a Schottky diode, so with no column driven
 a read shows those three lines.
 
 **Read an odd address (port PLD):** D7 = pad 1 DATA, D6 = pad 2 DATA
-(0 = button down).  D5:D0 are not driven, so software masks them.
+(0 = button down) while latch bit 4 is 0, or the PS/2 keyboard's CLK line
+while latch bit 4 is 1.  D5:D0 are not driven, so software masks them.
 
 **At rest** the latch holds **FB** (`P_IDLE`): no column, PS/2 DATA free,
 /CS low (card selected and idle, mouse held off), MOSI and SCK high.
@@ -74,7 +76,8 @@ free pins (branch, audio, H and V counters) do not see the port latch,
 A0 or /PORT_RD, and the I/O decode PLD has no free pins.
 Moving the column decode into one of them would need those signals routed
 in and still a part to drive the pad bits, so a small new PLD is the
-cheaper choice.  It has 4 inputs to spare.
+cheaper choice.  Pin 9 reads the PS/2 keyboard's CLK (rev 02); pins 10,
+11 and 13 are spare.
 
 ## Keyboard
 
@@ -273,6 +276,55 @@ file, `fs_next` starts the folder over, and `fs_read` can't go on after
 at x4D00-x4D7F and its sector buffer at x4E00-x4FFF (section 2, RAM in map
 05).  `test_fs.py` checks it on FAT16 and FAT32 images made by `mkfs.fat`
 and `mtools` (it skips when they are not installed).
+
+## PS/2 keyboard socket (rev 02 hardware)
+
+For buyers who want to use their own keyboard, J5 is a stacked dual
+PS/2 socket (2026-10-22): the mouse on top, as before, and a PS/2 keyboard
+below.  It adds no chips: one BAT85 (D6), one 4.7k pull-up (R55) and one
+input on the port PLD.  The Cherry MX keyboard board and a PS/2 keyboard
+can both be plugged in.
+
+| PS/2 keyboard line | Pulled low by | Read on |
+|---|---|---|
+| CLK (KBD_CLK) | latch bit 4 low (with bit 7 = 1, no column) | port PLD pin 9, D6 on odd reads while latch bit 4 = 1 |
+| DATA | latch bit 3 low (shared with the mouse) | row 6 (shared with the mouse) |
+
+The two devices share one DATA line.  That works because a PS/2 device
+may only send while its CLK is free, and the driver frees one clock at a
+time: the other device's clock stays held low, so it never drives DATA.
+When the host sends a command (CLK held, DATA low, then that one CLK
+freed), the other device still sees its own CLK low, which means
+"inhibited", so it ignores it.  The keyboard clock is not read on a key
+row because latch bit 4 is low on every even column of a key scan; on a
+row it would read as keys 4, Y, K and Right Shift held down.
+
+Latch values with the keyboard socket (the high nibble moves from F to E
+so bit 4 holds the keyboard off):
+
+| Latch | Meaning |
+|---|---|
+| EB | Rest: no column, both PS/2 clocks held, /CS low |
+| EF | Listen to the mouse (mouse CLK free, keyboard held) |
+| FB | Listen to the keyboard (keyboard CLK free, mouse held by /CS low; the SD card sees no SCK edges) |
+| E8-EB | SD transfers |
+| EC, ED | Pad reads (bit 4 = 0 selects pad 2 on D6) |
+| E3, then F3 | Send to the keyboard: DATA low with both clocks held, then free the keyboard clock only |
+| 0F-7F | Key scan as before: odd columns free the keyboard clock for a few us; the whole scan is about 25 us, under the 50 us a PS/2 device waits before it starts |
+
+A key press on the Cherry MX board can't disturb the PS/2 lines or MISO:
+they reach the rows through Schottky diodes with the anode on the row, so
+a key pulling a row low only reverse-biases the diode.
+
+Buyer note: the keyboard must be a PS/2 keyboard, or a USB keyboard that
+supports PS/2 through a passive adapter (many don't).
+
+Software status: the drivers above and the FPGA model still use the Fx
+latch values and have no PS/2 keyboard driver, so with a rev 02 port PLD
+pad 2 reads as no buttons until they move to the Ex values.  The planned
+driver (scan code set 2 into the same `KBD_NOW` bits and key buffer, so
+programs don't change; about 500-600 bytes) is described in the proposal
+`/mnt/project-files/io/second_ps2_port.md`.
 
 ## PS/2 mouse
 

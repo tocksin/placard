@@ -31,7 +31,7 @@ Each output equation was expanded with its intermediate variables (names that ar
 | `ATF22V10_COLORDECODER.pld` | #16 | none | none | 2 | 8 | 95 / 104 |
 | `ATF22V10_IR.pld` | #17 | 13 | 22 (10), 23 (8) | 0 | 8 | 17 / 102 |
 | `ATF22V10_AUDIO.pld` | #35 | none | none | 3 | 7 | 23 / 78 |
-| `ATF22V10_PORT.pld` | #38 | 9, 10, 11, 13 | none | 0 | 10 | 10 / 120 |
+| `ATF22V10_PORT.pld` | #38 | 10, 11, 13 | none | 0 | 10 | 11 / 120 |
 | `ATF22V10_CART.pld` | cartridge | 6, 7, 8, 9, 10, 11, 13 | none | 0 | 10 | 28 / 120 |
 
 \* pin 2 on HCOUNT is declared (RESET) but used in no equation.
@@ -294,7 +294,7 @@ is a free input, pins 22 and 23 free I/O.
 
 ### `ATF22V10_PORT.pld` (#38)
 
-Input pins 9, 10, 11 and 13 are free (IO.md: "4 inputs to spare"). All ten output cells are used, but each uses 1 term, so 110 of 120 terms are spare. D6 and D7 are the only cells in the design that use their output-enable term.
+Input pins 10, 11 and 13 are free; pin 9 reads the PS/2 keyboard CLK since rev 02 (2026-10-22). All ten output cells are used; each uses 1 term except D6 (2), so 109 of 120 terms are spare. D6 and D7 are the only cells in the design that use their output-enable term.
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|
