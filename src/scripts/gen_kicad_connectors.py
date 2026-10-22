@@ -24,6 +24,7 @@ have no edge.
 | SNES_Pad_Socket_Horizontal | SNES pad ports J2, J3 | 1-7 |
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | 1 on throw, 2 common, 3 unused throw |
 | SW_Push_CK_E112SD1A3QE | reset button SW2 | 1 NC, 2 common, 3 unused NO |
+| Jack_3.5mm_Tensility_54-00174_Horizontal | headphone jack J6 | T (two legs), R1, R2, S |
 
 Date: 2026-10-22
 """
@@ -117,6 +118,25 @@ def exp_slot():
               (c - 35.56, -4.95, c + 35.56, 4.95), pads, extra=extra)
 
 
+def slot(num, x, y, w, h):
+    """A plated slot w x h (mm), pad 0.6 mm larger all round."""
+    return ('  (pad "%s" thru_hole oval (at %s %s) (size %s %s) (drill oval %s %s) (layers "*.Cu" "*.Mask"))\n'
+            % (num, f(x), f(y), f(w + 0.6), f(h + 0.6), f(w), f(h)))
+
+
+def audio_jack():
+    # Tensility 54-00174, 4-pole (TRRS) 3.5 mm jack, right angle, from its drawing (rev A, 2020-05-07):
+    # body 6.6 x 12.3 mm behind the face, 1.5 x 0.8 mm slots, two 1.2 mm pegs on the axis.
+    # Drawing pins: 4 tip (two legs), 3 ring 1, 2 ring 2, 1 sleeve; here named as the symbol.
+    pads = [slot("T", -3.3, 3.5, 0.8, 1.5), slot("T", 3.3, 3.5, 0.8, 1.5),
+            slot("R1", -2.85, 11.5, 0.8, 1.5), slot("R2", 2.85, 11.5, 0.8, 1.5),
+            slot("S", 0.0, 12.3, 1.5, 0.8)]
+    extra = hole(0.0, 2.0, 1.2) + hole(0.0, 9.0, 1.2)
+    footprint("Jack_3.5mm_Tensility_54-00174_Horizontal",
+              "Tensility 54-00174 3.5 mm TRRS jack, right angle, through hole, opening over the edge",
+              (-3.3, -2.5, 3.3, 12.9), pads, edge=0.0, extra=extra)
+
+
 def ps2_stacked():
     # stacked dual mini-DIN 6, right angle: 14 mm wide, 13 mm deep, front face on the edge
     pads = []
@@ -167,6 +187,7 @@ def main():
     snes()
     toggle()
     pushbutton()
+    audio_jack()
 
 
 if __name__ == "__main__":
