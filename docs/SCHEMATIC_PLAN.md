@@ -281,6 +281,13 @@ Decisions made while drawing (2026-10-20):
 - The slots' SD7:SD0 take `SRC7:SRC0`, the source drivers' side of the
   series resistors, so the cards see write data without the resistors'
   delay; D7:D0 is the bus itself.  Both are the same signal in EXEC.
+  **Changed 2026-10-22, not drawn yet (propagation hold):** the slots no
+  longer carry SD7:SD0; cards latch D7:D0 (the resistors add about 2.4 ns,
+  long settled by the end of a write).  The eight contacts become BT1-BT8:
+  on slot 1, A8 STALL_IN, B8 STALL_OUT, A9 PC_ENABLE, B9 PIXEL_ENABLE, A10
+  /CART, the rest not connected; on slots 2-4 all eight are not connected.
+  /WE gets a 10k pull-up (memory control revision 09 lets go of it while RUN
+  is low).  EXPANSION.md, "Booting from slot 1".
 - The slots' LOAD_IMM contact carries the State PLD's `/LOAD_IMM` as it is
   (low while the CPU latches D); EXPANSION.md's table says "1 when"; a card
   reads it active low.
