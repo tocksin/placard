@@ -308,7 +308,15 @@ Decisions made while drawing (2026-10-20):
   - SW2 reset: C&K **E112SD1A3QE**, SPDT momentary pushbutton, 4 A /
     28 V DC, right-angle PCB snap-in (common and the normally closed
     contact wired, so pressing it opens the 5 V line).
-  Both sit at the board edge for the case panel.  Their footprints are
+  Both sit at the board edge for the case panel.
+- **D7, TVS on VBUS** (Justin, 2026-10-22): Littelfuse SMAJ5.0A
+  (unidirectional, 5 V standoff, about 9 V clamp, SMA) from the fused VBUS
+  (between F1 and SW1) to GND.  It clamps the spike the USB cable's
+  inductance throws when SW1 or SW2 opens under load, plus plug-in ringing
+  and ESD.  It sits after the polyfuse so a lasting overvoltage trips F1
+  instead of burning the TVS.  A diode straight across a series switch
+  would either bypass it or do nothing, and at 5 V the contacts cannot hold
+  an arc (a DC arc needs about 12 V), so no snubbers.  Their footprints are
   still to draw.
 
 **Still to do:** a KiCad 8 ERC (the container's KiCad 7.0 command line has

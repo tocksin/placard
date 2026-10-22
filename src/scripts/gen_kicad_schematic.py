@@ -68,6 +68,7 @@ MPN = {
     "3 A hold": ("Bourns", "MF-RG300"),
     "Molex 87715-9106": ("Molex", "87715-9106"),
     "BAT85": ("Vishay", "BAT85"),
+    "SMAJ5.0A": ("Littelfuse", "SMAJ5.0A"),
     "PS/2 kbd + mouse": ("Kycon", "KMDGX-6S/6S-S4N"),
 }
 
@@ -315,28 +316,34 @@ def sheet_power(b):
                   ref_at=(86.4, yr - 2.0), value_at=(86.4, yr + 2.0))
     path(s, "VBUS", j13["A9"], f201["1"])
     # after the fuse: the on/off toggle, then the reset button (push to open), both in series
-    sw1 = s.part("placard_std:SW_SPST", "SW1", 106.68, yr, {"1": "VFUSE", "2": "VON"}, value="ANT11TFHQE",
-                 footprint="placard:SW_Toggle_CIT_ANT11TFHQE", bare=("1", "2"), ref_at=(102.0, yr - 4.6), value_at=(100.0, yr + 5.6),
+    sw1 = s.part("placard_std:SW_SPST", "SW1", 124.46, yr, {"1": "VFUSE", "2": "VON"}, value="ANT11TFHQE",
+                 footprint="placard:SW_Toggle_CIT_ANT11TFHQE", bare=("1", "2"), ref_at=(119.8, yr - 4.6), value_at=(118.5, yr + 2.6),
                  extra_props={"Manufacturer": "CIT Relay and Switch", "MPN": "ANT11TFHQE",
                               "Description": "Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing"})
-    sw2 = s.part("placard_std:SW_Push_Open", "SW2", 124.46, yr, {"1": "VON", "2": "+5V"}, value="E112SD1A3QE",
-                 footprint="placard:SW_Push_CK_E112SD1A3QE", bare=("1", "2"), ref_at=(119.8, yr - 4.6), value_at=(117.0, yr + 2.6),
+    sw2 = s.part("placard_std:SW_Push_Open", "SW2", 142.24, yr, {"1": "VON", "2": "+5V"}, value="E112SD1A3QE",
+                 footprint="placard:SW_Push_CK_E112SD1A3QE", bare=("1", "2"), ref_at=(137.6, yr - 4.6), value_at=(135.5, yr + 5.6),
                  extra_props={"Manufacturer": "C&K", "MPN": "E112SD1A3QE",
                               "Description": "Reset: SPDT momentary pushbutton, NC contact used, 4 A 28 V DC, right-angle PCB snap-in"})
-    path(s, "VFUSE", f201["2"], sw1["1"])
+    # TVS from the fused VBUS to GND: clamps the spike the cable's inductance throws when SW1 or SW2
+    # opens under load (and plug-in ringing, ESD); after the fuse, so a lasting overvoltage trips F1
+    tvs = s.part("placard_std:D_Zener", "D7", 104.14, yr + 3.81, {"1": "VFUSE", "2": "GND"}, value="SMAJ5.0A",
+                 footprint="Diode_SMD:D_SMA", angle=270, bare=("1",), ref_at=(106.2, yr + 3.3), value_at=(106.2, yr + 6.4))
+    path(s, "VFUSE", f201["2"], tvs["1"])
+    path(s, "VFUSE", tvs["1"], sw1["1"])
+    s.junction(tvs["1"][0], yr, owner="VFUSE")
     path(s, "VON", sw1["2"], sw2["1"])
     for net, pin, x in (("CC2", "B5", 73.66), ("CC1", "A5", 88.9)):
         r = s.part("placard_std:R_US", "R1" if net == "CC1" else "R2", x, 104.14, R2(net, "GND"), value="5.1k",
                    footprint=FP_R, bare=("1",), ref_at=(x + 2.0, 103.6), value_at=(x + 2.0, 106.7))
         path(s, net, j13[pin], (x, j13[pin][1]), r["1"])
-    c201 = s.part("placard_std:C_Polarized", "C41", 142.24, yr + 3.81, {"1": "+5V", "2": "GND"},
-                  value="220u 10V", footprint=FP_CP_L, bare=("1",), ref_at=(144.7, yr + 3.3), value_at=(144.7, yr + 6.4))
+    c201 = s.part("placard_std:C_Polarized", "C41", 160.02, yr + 3.81, {"1": "+5V", "2": "GND"},
+                  value="220u 10V", footprint=FP_CP_L, bare=("1",), ref_at=(162.5, yr + 3.3), value_at=(162.5, yr + 6.4))
     # 3.3 V regulator on the same line
     u40 = s.part("placard_parts:MCP1700_TO92", "U40", 233.68, yr, {"1": "GND", "2": "+5V", "3": "+3V3"},
                  value="MCP1700-3302E/TO", bare=("2", "3"), ref_at=(223.5, yr - 10.5), value_at=(223.5, yr - 9.0))
     c40 = s.part("placard_std:C", "C40", 203.2, yr + 3.81, {"1": "+5V", "2": "GND"}, value="1u", footprint=FP_C,
                  bare=("1",), ref_at=(205.7, yr + 3.3), value_at=(205.7, yr + 6.4))
-    xp, xf = 165.1, 154.94
+    xp, xf = 185.42, 175.26
     for pts in ([sw2["2"], (c201["1"][0], yr)], [(c201["1"][0], yr), (xf, yr)], [(xf, yr), (xp, yr)],
                 [(xp, yr), (c40["1"][0], yr)], [(c40["1"][0], yr), u40["2"]]):
         path(s, "+5V", *pts)
@@ -362,8 +369,8 @@ def sheet_power(b):
     note(s, 200, 112, ["U40: 3.3 V for the SD card only (sheet 10).", "C40 input, C42 output (1 uF ceramic)."])
     # analog ground joins logic ground at the power input
     # (each side has its power flag on the pin end and its ground symbol below)
-    nt = s.part("placard_std:NetTie_2", "NT1", 165.1, 104.14, {"1": "GND", "2": "GNDA"}, value="AGND tie",
-                footprint="NetTie:NetTie-2_THT_Pad0.3mm", ref_at=(158, 97), value_at=(160.5, 107),
+    nt = s.part("placard_std:NetTie_2", "NT1", 165.1, 109.22, {"1": "GND", "2": "GNDA"}, value="AGND tie",
+                footprint="NetTie:NetTie-2_THT_Pad0.3mm", ref_at=(158, 102), value_at=(160.5, 112),
                 bare=("1", "2"), in_bom=False)
     for net in ("GND", "GNDA"):
         (px, py) = nt["1" if net == "GND" else "2"]
