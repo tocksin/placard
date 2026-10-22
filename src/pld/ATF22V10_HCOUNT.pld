@@ -1,7 +1,7 @@
 Name     H_COUNTER;
 PartNo   00;
-Date     10/19/2026;
-Revision 07;
+Date     10/22/2026;
+Revision 08;
 Designer ;
 Company  ;
 Assembly ;
@@ -15,6 +15,8 @@ PIN 2  = RESET;      /* declared, not used in any equation */
 PIN 3  = H0;
 PIN 4  = H1;
 PIN 5  = H2;
+
+PIN 6  = LC7;        /* line code register (74HCT377) Q7: 1 = blank line (revision 08) */
 
 PIN 14 = H3;
 PIN 15 = H4;
@@ -168,6 +170,37 @@ VIDEO_OFF = H_TC;
 VIDEO_ON = H_ENABLE & !H9 & H8 & !H7 & H6 & H5 & H4 & H3;
 
 
+/* -------------------------------------------------
+   Blank line (revision 08)
+
+   Bit 7 of the mode byte (LC7, the line code
+   register's Q7) blanks the line.  It is loaded in
+   group 45 and steady until group 45 of the next
+   line, so it is settled long before it is used at
+   the end of group 47.
+
+   On a blank line H_VIDEO_ACTIVE is high for one
+   clock only: the third clock of group 48 (H2:H0 =
+   000), decoded on the second (H2:H0 = 111).
+     - The Sync PLD raises PIXEL_ENABLE only when
+       H_VIDEO_ACTIVE is high on a clock with H2:H0 =
+       110, and VIDEN only on H2:H0 = 111, so neither
+       happens: no pixel reads (the CPU is not stalled
+       for the 80 groups) and the line is black.
+     - The audio DAC register (74HCT574) is clocked by
+       the rising edge, so it still copies the line's
+       sample, two clocks later than on a shown line.
+       No pixel read has replaced the sample in the
+       pixel buffer.
+   Sync keeps running, so the monitor stays locked.
+   ------------------------------------------------- */
+
+/* decode H = 48: 0110000, second clock (H2:H0 = 111) */
+BLANK_PULSE = LC7 & !H9 & H8 & H7 & !H6 & !H5 & !H4 & !H3
+            & H2 & H1 & H0;
+
+
 /* Registered horizontal active-video state */
-H_VIDEO_ACTIVE.D = VIDEO_ON
-                 # (H_VIDEO_ACTIVE & !VIDEO_OFF);
+H_VIDEO_ACTIVE.D = VIDEO_ON & !LC7
+                 # (H_VIDEO_ACTIVE & !VIDEO_OFF & !LC7)
+                 # BLANK_PULSE;
