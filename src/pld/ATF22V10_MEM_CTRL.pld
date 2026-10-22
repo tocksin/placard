@@ -1,7 +1,7 @@
 Name     MEM_CTRL;
 PartNo   00;
-Date     10/20/2026;
-Revision 08;
+Date     10/22/2026;
+Revision 09;
 Designer ;
 Company  ;
 Assembly ;
@@ -44,6 +44,17 @@ Device   g22v10;
       the first clock, which does the same job.  RUN only adds a
       literal to each ROM_OE term (still 10 terms), in the same pass,
       so the read paths are unchanged.
+
+   /WE RELEASED WHILE RUN IS LOW (revision 09)
+      /WE (pin 16) has an output enable term, RUN, so it floats while
+      RUN is low and a 10k pull-up on the main board holds it high.
+      With no cartridge, a boot card in expansion slot 1 loads the
+      main RAM the way the cartridge loads its SRAM, and drives the
+      RAM's /WE itself (slot contact A19) while it does
+      (docs/EXPANSION.md, "Booting from slot 1").  Nothing writes
+      while RUN is low otherwise: the IR holds 02h, which writes
+      nothing.  Once RUN is high this PLD drives /WE as before.  The
+      output enable term is a separate term, so WE still uses 1 of 12.
 
    SECTION 2 MAP BIT (revision 03)
       4000h - 4FFFh is mapped like the other sections, by RAMSEL2
@@ -209,6 +220,7 @@ VIDEO_READ = !CLK & PIXEL_ENABLE;
 /* ---------------- EQUATIONS ---------------- */
 
 WE = !CLK & !RW & !PIXEL_ENABLE;
+WE.OE = RUN;           /* revision 09: a slot-1 boot card drives /WE while RUN is low */
 
 /* the cartridge SRAM reads only once it is loaded (revision 08) */
 ROM_READ = CPU_READ & RUN;

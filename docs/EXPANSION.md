@@ -1,6 +1,6 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-10-21
+Date: 2026-10-22
 
 The Placard has four expansion slots, each a 2 x 20, 0.1" (2.54 mm)
 pitch card-edge socket, and one ROM cartridge slot, a keyed 2 x 32,
@@ -11,6 +11,8 @@ like a PC card.  The cartridge slot is top loading, inboard.  Board sizes
 are in `hardware/pcb_size_estimate.md` (project files).
 
 No chips are added for the slots: they are wired straight to the buses.
+Slot 1 can also boot the machine when no cartridge is fitted ("Booting
+from slot 1" below).
 
 ## Expansion slot addresses
 
@@ -90,10 +92,10 @@ back edge of the main board.
 | 5 | D4 | D5 |
 | 6 | D6 | D7 |
 | 7 | GND | GND |
-| 8 | SD0 | SD1 |
-| 9 | SD2 | SD3 |
-| 10 | SD4 | SD5 |
-| 11 | SD6 | SD7 |
+| 8 | BT1 | BT2 |
+| 9 | BT3 | BT4 |
+| 10 | BT5 | BT6 |
+| 11 | BT7 | BT8 |
 | 12 | GND | CLK |
 | 13 | A0 | A1 |
 | 14 | A2 | A3 |
@@ -107,23 +109,28 @@ back edge of the main board.
 | Signal | Direction | Meaning |
 |---|---|---|
 | D7:D0 | card drives on its reads | The CPU's read bus (into the D register) |
-| SD7:SD0 | to card | The source bus: write data, held past the end of a write |
+| BT1-BT8 | | Boot contacts.  Slot 1: BT1 STALL_IN, BT2 STALL_OUT, BT3 PC_ENABLE, BT4 PIXEL_ENABLE, BT5 /CART, BT6-BT8 reserved ("Booting from slot 1").  Slots 2-4: not connected.  An ordinary card leaves all eight unconnected |
 | A7:A0 | to card | Address low byte |
 | /EXP | to card | /EXP1 (slots 1, 3) or /EXP2 (slots 2, 4), address only: low for any access to the page |
 | SEL | to card | GND (slots 1, 2) or +5 V (slots 3, 4) through a 1k resistor: the A7 value the card answers |
 | RW | to card | 1 = read cycle |
 | LOAD_IMM | to card | 1 when the CPU latches the read bus into D (the State PLD's strobe, stall clocks already excluded) |
-| /WE | to card | The write pulse, low in the low half of a write clock (about 20 ns) |
+| /WE | to card | The write pulse, low in the low half of a write clock (about 20 ns).  10k pull-up: the memory control PLD lets go of it while RUN is low, and a boot card in slot 1 drives it then |
 | CLK | to card | The 25.175 MHz CPU clock |
-| /RESET | to card | RUN from the ROM cartridge: low from power-up until the cartridge has loaded the ROM and lets the CPU run (ROM.md, "Loading the cartridge") |
+| /RESET | to card | RUN from the ROM cartridge: low from power-up until the cartridge has loaded the ROM and lets the CPU run (ROM.md, "Loading the cartridge").  With no cartridge, a boot card in slot 1 drives it |
 | +5 V, GND | | 2 power and 7 ground contacts, the grounds spread between the fast groups |
 
 ## Building a card
 
 **Writes.**  A card's write strobe is `/EXP low, /WE low, A7 = SEL` (plus
-any A6:A0 register select).  Latch SD7:SD0 on the strobe's rising edge, at
-the end of /WE, as the main board's devices do.  The source bus holds the
-data past that edge; the read bus does not.
+any A6:A0 register select).  Latch D7:D0 on the strobe's rising edge, at
+the end of /WE, as the RAM and the main board's devices do.  The board has
+one data bus (CPU.md, "One data bus"): in a write the source F541s drive
+it, through the 47-ohm series resistors, from the start of EXEC until
+about 19.5 ns after the clock edge that ends it, and /WE rises within 7.5
+ns of that edge.  (Until 2026-10-22 the slots also carried SD7:SD0, the
+source F541s' side of the resistors: the same data, left over from the
+two-bus design.  Those eight contacts are now BT1-BT8.)
 
 **Reads must not put a decoder after /EXP.**  An I/O read has one 39.7 ns
 clock: the address is valid at 20.5 ns and /EXP at 28 ns, which leaves
@@ -153,6 +160,77 @@ power-on reset or a reset register the software writes.
 **Power.**  Two +5 V contacts carry about 2 A together on a typical socket
 (1 A per contact; check the socket's rating).  Keep each card well under
 that, since the four slots share the main board's supply.
+
+## Booting from slot 1
+
+With no cartridge in its slot, a **boot card** in slot 1 can load the main
+RAM and start the machine.  It works like the cartridge's loader (ROM.md,
+"Loading the cartridge"), with the main RAM in place of the cartridge's
+SRAM:
+
+1. From power-up the card holds STALL_OUT high at each PC address (FETCH
+   and LOAD_IMM, PC_ENABLE high), reads the byte from its EEPROM, puts it
+   on D7:D0 and pulses the RAM's **/WE** (the memory control PLD lets go
+   of /WE while RUN is low, revision 09), then releases the CPU for one
+   step.  The IR holds 02h, so the CPU only walks the addresses.  The card
+   skips the video read clock (PIXEL_ENABLE) and writes nothing in the I/O
+   window x5000-x53FF.
+2. When the PC wraps from xFFFF to x0000 the card raises **RUN**.  The map
+   is then 00 (all ROM), and there is no ROM, so the card keeps stalling
+   each PC read and feeding the CPU the EEPROM's byte, without /WE, until
+   it sees the CPU's **first write** (/WE low from the memory control
+   PLD).
+3. The image's first write is the map write: x0000 is the 1-byte `nop`
+   (02h) as on the cartridge, and the code from x0001 loads registers
+   (immediates only: no memory reads, no ADD/SUB) and writes map = FF, all
+   RAM.  The card then lets go, and STALL_OUT follows STALL_IN.  The CPU
+   goes on from the same bytes in the RAM.
+
+The load takes about 33 ms, as the cartridge's does.
+
+**Slot 1's boot contacts** (slots 2-4 leave them unconnected):
+
+| Contact | Signal | Direction | Notes |
+|---|---|---|---|
+| A8 (BT1) | STALL_IN | to card | the Branch PLD's STALL (pin 19), as on cartridge B17 |
+| B8 (BT2) | STALL_OUT | from card | to the State PLD and PC PLDs, joined to cartridge B18 (10k pull-up) |
+| A9 (BT3) | PC_ENABLE | to card | State PLD pin 15, as on cartridge B19 |
+| B9 (BT4) | PIXEL_ENABLE | to card | Sync PLD pin 19, as on cartridge A18 |
+| A10 (BT5) | /CART | to card | cartridge B10: low when a cartridge is fitted (10k pull-up) |
+| B10, A11, B11 (BT6-BT8) | reserved | | not connected |
+
+Slot 1 also uses /RESET (RUN, B19) and /WE (A19) as outputs while it boots.
+
+**A cartridge always wins.**  The card drives STALL_OUT, RUN and /WE (and
+its EEPROM onto D7:D0) only while /CART is high.  So:
+
+| Cartridge | Boot card in slot 1 | What boots |
+|---|---|---|
+| fitted | either | the cartridge, as before.  The card is an ordinary card afterwards (a "PLC" header lets the boot's card scan find it) |
+| none | fitted | the boot card, from main RAM |
+| none | none | nothing: STALL_OUT's pull-up keeps the CPU stalled (or the bring-up jumpers, BRINGUP.md) |
+
+**Building a boot card** (3 chips, nothing designed yet):
+
+- A loader PLD (ATF22V10C-7): the cartridge PLD's equations (revision 04)
+  with /CART on every output enable, /WE in place of the SRAM's /WE, the
+  I/O window left out of /WE, and the feed of step 2.  PREV15 has no job
+  after the wrap, so it can hold the "feed until the first write" flag and
+  the design still fits 10 cells.  A -7 part leaves the STALL path +4.7 ns
+  (the cartridge's -10 leaves +2.2), which covers the longer trace to
+  slot 1.  /WE goes back into the PLD through its pin feedback.
+- A page counter PLD: A15:A8 for the EEPROM, the wrap and the I/O window
+  check, stepped when a copy at A7:A0 = FF ends (the PC walks every
+  address in order from x0000).  A7:A0 come from the slot.  A 74HC4040
+  ripple counter settles about 130 ns too late at a page boundary.
+- An AT28C256: a 32K image, seen in both halves of the RAM.
+
+**No ROM.**  A machine booted this way runs from RAM only, and x6000-xFFFF
+is the screen, so a program and its library get about 20 KB (x0100-x4FFF
+and the free parts of x5400-x5FFF), less any screen area it leaves unused.
+The standard library runs in place from the cartridge ROM at xC000-xFFFF
+and can't be used as it is.  A boot card can carry a small program, or a
+loader that loads one from the SD card or the card's own hardware.
 
 ## ROM cartridge slot
 
@@ -208,9 +286,11 @@ card detection and other functions (not assigned yet).
   connector, so keep the cartridge's traces short.
 - **CLK** is next to the GND at 21 to keep its return path short.
 - **/CART** lets the main board tell an empty slot: with no cartridge, a
-  pull-up reads high.  Nothing reads it yet.  With no cartridge,
-  STALL_OUT's pull-up keeps the CPU stalled, so the board needs a
-  cartridge (or the STALL and RUN jumpers, BRINGUP.md) to start.
+  10k pull-up reads high.  It goes to slot 1's BT5, so a boot card there
+  only boots the machine with no cartridge ("Booting from slot 1").  With
+  neither, STALL_OUT's pull-up keeps the CPU stalled, so the board needs a
+  cartridge, a boot card (or the STALL and RUN jumpers, BRINGUP.md) to
+  start.
 - **The loader** (ROM.md "Loading the cartridge") needs CLK,
   PIXEL_ENABLE, PC_ENABLE, STALL_IN, STALL_OUT and RUN.  The cartridge
   stalls the CPU through STALL_OUT while it copies each byte; the
@@ -218,6 +298,17 @@ card detection and other functions (not assigned yet).
   /ROM_WE is gone: the cartridge makes its SRAMs' /WE.
 
 ## To check
+
+- **Write data from D7:D0.**  Cards now latch the bus side of the source
+  series resistors.  Check the hold time at a card's strobe edge (the
+  card's PLD delays its strobe after /WE) against the F541s turning off,
+  on the first card.
+- **STALL_OUT on two connectors.**  STALL_OUT now runs to the cartridge
+  slot and slot 1.  Keep the stub to slot 1 short and check it for ringing:
+  it is in the +2.2 ns STALL path.
+- **The boot card** is not designed or simulated yet.  tb_cart_load.vhd is
+  the starting point (main RAM /WE, the feed until the first write, the
+  page counter, /CART).
 
 - **Empty slot reads.**  Through 10k the bus rises in about 0.5 us, much
   longer than the read clock, so an empty slot really reads what the bus

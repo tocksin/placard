@@ -102,6 +102,10 @@ enables from it, the clock and PIXEL_ENABLE:
     /RAM_OE low when CLK = 0 and READ of a RAM section
     /ROM_OE low when CLK = 0 and READ of a ROM section
 
+While RUN is low (the cartridge or a slot-1 boot card is loading) the
+PLD lets go of /WE (revision 09) and a 10k pull-up holds it high; a boot
+card drives it then (EXPANSION.md, "Booting from slot 1").
+
 Every memory cycle, read or write, uses only the low half of the clock.  The
 address and source bus have the whole high half to settle, and /WE returns
 high at the rising edge, before the state, address and data change (the
