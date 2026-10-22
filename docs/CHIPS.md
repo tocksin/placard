@@ -24,7 +24,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 10 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 15:12 (`ATF22V10_QUAD_MUX.pld`) |
 | 11 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Memory control: /WE, /RAM_OE, /ROM_OE from the map; /ROM_OE only while RUN from the cartridge is high (revision 09, pin 17 is the RUN input; /WE floats while RUN is low so a slot-1 boot card can write the RAM) (`ATF22V10_MEM_CTRL.pld`) |
 | 12 | ATF22V10C-7PX | PLD (22V10, 24-pin) | I/O decode: upper 32K /CE_HI and the x5000-x53FF strobes (`ATF22V10_IO_DECODE.pld`) |
-| 13 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Video H counter: H9:H3, HSYNC, horizontal active (`ATF22V10_HCOUNT.pld`) |
+| 13 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Video H counter: H9:H3, HSYNC, horizontal active, blank line from mode byte bit 7 (`ATF22V10_HCOUNT.pld`) |
 | 14 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Video V counter: V9:V0 (`ATF22V10_VCOUNT.pld`) |
 | 15 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video sync: H2:H0 (also the color decoder's pixel select), VSYNC, VIDEN, PIXEL_ENABLE and address-mux selects (`ATF22V10_SYNC.pld`) |
 | 16 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Color decoder: pixel byte and line code to VGA RGB (`ATF22V10_COLORDECODER.pld`) |
@@ -34,7 +34,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 20 | SN74F377AN | Octal D flip-flop with enable | X register |
 | 21 | SN74F377AN | Octal D flip-flop with enable | Y register |
 | 22 | SN74F377AN | Octal D flip-flop with enable | Video pixel buffer (byte read from video memory); /E from the Branch PLD's /PIX_LD (pin 15), low on a video read |
-| 23 | SN74F377AN | Octal D flip-flop with enable | Video line code (color mode for the line): D from the pixel buffer outputs, /E from /MODE_LD, so it copies the mode byte read in group 45 (see VIDEO.md); Q1:Q0 to the color decoder, Q3:Q2 to the audio slot PLD (line repeat) |
+| 23 | 74HCT377 (was SN74F377AN until 2026-10-22) | Octal D flip-flop with enable | Video line code (the row's mode byte): D from the pixel buffer outputs, /E from /MODE_LD, so it copies the mode byte read in group 45 (see VIDEO.md); Q1:Q0 to the color decoder, Q3:Q2 to the audio slot PLD (line repeat), Q6:Q4 to the row tint resistors, Q7 to the H counter (blank line).  HCT because the tint outputs source about 3 mA |
 | 24 | — | — | Removed 2026-10-19: the video delay F574 (H2:H0 pixel select and video active, two stages).  The Sync PLD now makes both two clocks later itself (VIDEO_TIMING.md, "Delay register removed").  The numbers below are kept as they were |
 | 25 | CD74ACT273E | Octal D flip-flop with clear | ROM/RAM map register at x5000 (write only, /MR = RUN: all ROM until the cartridge hands off) |
 | 26 | SN74F541N | Octal buffer, 3-state | Source bus driver: D register, sources 00 and 01 (/OE1 = /SRC_EN, /OE2 = I1; the source bus is also the memory data bus) |

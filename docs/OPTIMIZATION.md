@@ -168,7 +168,7 @@ counts and the spare terms in every cell are in [PLD_USAGE.md](PLD_USAGE.md).
 |---|---|
 | Branch | 15 (I/O, 10 terms) |
 | Audio slot | 16, 21 (I/O, 12 terms each) |
-| H counter | 6-11, 13 (inputs); 2 is declared RESET but used by no equation |
+| H counter | 7-11, 13 (inputs); 2 is declared RESET but used by no equation; 6 is LC7 since revision 08 |
 | V counter | 3-11, 13 (inputs) |
 | Port | 10, 11, 13 (inputs); pin 9 is the PS/2 keyboard CLK since rev 02 |
 | All others | none |
