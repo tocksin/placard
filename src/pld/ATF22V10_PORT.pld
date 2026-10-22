@@ -1,7 +1,7 @@
 Name     PORT;
 PartNo   00;
-Date     10/18/2026;
-Revision 01;
+Date     10/22/2026;
+Revision 02;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -14,7 +14,7 @@ Device   g22v10;
    ============================================================
 
    One of the four chips of the shared port at 5200h (docs/IO.md).  The
-   keyboard, both SNES pads, the SD card and the PS/2 mouse are all
+   keyboard, both SNES pads, the SD card and the two PS/2 ports are all
    polled, never at the same moment, so they share one output latch
    (74HC574), one input buffer (74F541) and this PLD.
 
@@ -31,22 +31,31 @@ Device   g22v10;
       series (cathode at the column), so a high column never drives
       a row.
 
-   PAD READ
+   PAD READ AND PS/2 KEYBOARD CLOCK
       The pads' DATA lines are never tri-stated and are low after the
       16th bit, so they can't share the matrix rows.  This PLD drives
       them onto the read bus on reads of odd addresses (A0 = 1):
-          D7 = pad 1 DATA      D6 = pad 2 DATA      D5:D0 not driven
+          D7 = pad 1 DATA      D5:D0 not driven
+          D6 = pad 2 DATA when latch bit 4 (K0) is 0,
+               the PS/2 keyboard's CLK line when K0 is 1
+      (rev 02.)  The PS/2 keyboard socket (the lower half of the stacked
+      dual socket) shares DATA with the mouse; latch bit 4 holds its CLK
+      low through a Schottky diode.  With latch bit 7 = 1 (no column),
+      bit 4 is free: 0 holds the keyboard off and picks pad 2 for pad
+      reads, 1 lets the keyboard send and shows its clock here.  Its
+      clock can't go on a key row, because bit 4 is low on every even
+      column of a key scan and would read as a key down.
       The 74F541 (rows) is enabled on even addresses only (its /OE2
       is A0), so the two never drive the bus together.  Reads of the
       pads must mask D5:D0.  The output enable is 7.5 ns from
       /PORT_RD, faster than the 74F541's 9.5 ns.
 
    PIN BUDGET
-      Inputs (8):  /PORT_RD, A0, K0-K3, PAD1, PAD2
+      Inputs (9):  /PORT_RD, A0, K0-K3, PAD1, PAD2, KCLK
       Outputs (10): /COL0-/COL7, D6, D7
-      Unused: pins 9, 10, 11, 13 (inputs).
-      Every output is one product term (the data outputs have one
-      more for the output enable), one array pass.
+      Unused: pins 10, 11, 13 (inputs).
+      Every output is one product term except D6 (two); the data
+      outputs have one more for the output enable.  One array pass.
    ============================================================ */
 
 
@@ -60,6 +69,7 @@ PIN 5  = K2;           /* port latch Q6 */
 PIN 6  = K3;           /* port latch Q7: 1 = no column */
 PIN 7  = PAD1;         /* SNES pad 1 DATA (10k pull-up: no pad reads 1) */
 PIN 8  = PAD2;         /* SNES pad 2 DATA (10k pull-up) */
+PIN 9  = KCLK;         /* PS/2 keyboard CLK (4.7k pull-up: no keyboard reads 1) */
 
 
 /* ---------------- OUTPUTS ---------------- */
@@ -89,5 +99,6 @@ COL7 = !K3 &  K2 &  K1 &  K0;
 
 D7    = PAD1;
 D7.OE = PORT_RD & A0;
-D6    = PAD2;
+D6    = !K0 & PAD2
+      #  K0 & KCLK;
 D6.OE = PORT_RD & A0;

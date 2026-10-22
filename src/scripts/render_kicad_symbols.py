@@ -11,7 +11,7 @@ OUTDIR/kicad_symbols_pld.png, kicad_symbols_parts.png, and
 kicad_symbols_stock.png with the KiCad library symbols the board uses
 (STOCK below).  Needs kicad-cli, cairosvg and Pillow.
 
-Date: 2026-10-20
+Date: 2026-10-22
 """
 
 import glob
@@ -41,7 +41,6 @@ STOCK = [
     ("Regulator_Linear", "MCP1700x-330xxTO", "U40: 3.3 V for the SD card (MCP1700-3302E/TO)"),
     ("Connector", "DE15_Receptacle_HighDensity_MountingHoles", "VGA"),
     ("Connector", "SD_Card", "J4: SD socket"),
-    ("Connector", "Mini-DIN-6", "J5: PS/2 mouse"),
     ("Connector_Audio", "AudioJack3", "J6: headphones"),
     ("Device", "R_Network08", "10k pull-ups, data bus and keyboard rows"),
 ]
