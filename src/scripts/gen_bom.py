@@ -201,16 +201,27 @@ def board_bom(files):
                         extra=True))
         out.append(dict(refs=sorted(keys, key=ref_key), mpn="", mfr="", desc="Keycap, Cherry MX stem", value="",
                         footprint="", notes="Sizes as the key switches", extra=True))
-        for size, refs in sorted(stabs.items()):
-            out.append(dict(refs=sorted(refs, key=ref_key), mpn="", mfr="",
-                            desc=f"Stabilizer, Cherry MX PCB mount, {size.rstrip('0').rstrip('.')} u", value="",
-                            footprint="", notes="", extra=True))
-        out.append(dict(refs=[], qty=1, mpn="", mfr="", desc="Ribbon cable, 20 way, 1.27 mm pitch flat",
-                        value="", footprint="", notes="Keyboard to main board J1; length to suit the case",
-                        extra=True))
-        out.append(dict(refs=[], qty=2, mpn="", mfr="",
-                        desc="IDC socket, 2 x 10, 2.54 mm, polarized, with strain relief", value="", footprint="",
-                        notes="Crimped on each end of the ribbon cable; mates with J1 on both boards", extra=True))
+        # a stabilizer is sold as one complete set per key: 2 housings, 2 stems (sliders) and the wire.
+        # 2 u and 2.25 u keys take the same 2 u stabilizer (same 23.8 mm spacing).
+        two = sorted(stabs.get("2.00", []) + stabs.get("2.25", []), key=ref_key)
+        if two:
+            out.append(dict(refs=two, mpn="G99-0742", mfr="Cherry",
+                            desc="Stabilizer set, PCB mount, 2 u (also 2.25 u, 2.75 u): 2 housings, 2 sliders, wire",
+                            value="", footprint="",
+                            notes="One complete set per key, ordered as one part (Mouser 540-G99-0742)", extra=True))
+        if stabs.get("6.25"):
+            out.append(dict(refs=stabs["6.25"], mpn="", mfr="Durock",
+                            desc="Stabilizer set, PCB screw-in, 6.25 u: 2 housings, 2 stems, wire, 2 screws, 2 washers",
+                            value="", footprint="",
+                            notes="Durock V2 screw-in, 6.25 u option (keyboard shops, no distributor part number); "
+                                  "Cherry sells no 6.25 u PCB set through distributors", extra=True))
+        # one pre-made cable: no crimping
+        out.append(dict(refs=[], qty=1, mpn="M3AAA-2006J", mfr="3M",
+                        desc="Ribbon cable assembly, 20 way, IDC socket to socket, 2.54 mm, 6 in (152 mm)",
+                        value="", footprint="",
+                        notes="Keyboard J1 to main board J1, pre-assembled, pin 1 to pin 1; check on the "
+                              "datasheet that the socket key fits the box header.  Last two digits = length in "
+                              "inches (M3AAA-2018J = 18 in)", extra=True))
     for d in out:
         d.setdefault("qty", len(d["refs"]))
     return out
