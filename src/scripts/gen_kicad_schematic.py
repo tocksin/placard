@@ -68,7 +68,7 @@ MPN = {
     "3 A hold": ("Bourns", "MF-RG300"),
     "Molex 87715-9106": ("Molex", "87715-9106"),
     "BAT85": ("Vishay", "BAT85"),
-    "SMAJ5.0A": ("Littelfuse", "SMAJ5.0A"),
+    "SA5.0A": ("Littelfuse", "SA5.0A"),
     "PS/2 kbd + mouse": ("Kycon", "KMDGX-6S/6S-S4N"),
 }
 
@@ -236,6 +236,17 @@ def diode(s, ref, x, y, k, a, angle=0, value="BAT85", bare=(), ref_at=None, valu
            ref_at=ref_at or (x - 3.5, y - 1.8), value_at=value_at or (x - 3.5, y + 1.8), bare=bare)
 
 
+def clamp(s, ref_hi, ref_lo, net, x, yn, glob=False):
+    """ESD steering pair for an external line, labelled net at the node (x, yn): a BAT85 up to +5V
+    and one up from GND, so a zap on the connector goes into the supply rail, not into a chip."""
+    hi = s.part("placard_std:D_Schottky", ref_hi, x, yn - 3.81, {"1": "+5V", "2": net}, value="BAT85", footprint=FP_D,
+                angle=270, bare=("2",), hide_value=True, ref_at=(x - 10.0, yn - 2.5), value_at=(x - 10.0, yn - 1.0))
+    s.part("placard_std:D_Schottky", ref_lo, x, yn + 3.81, {"1": net, "2": "GND"}, value="BAT85", footprint=FP_D,
+           angle=270, bare=("1",), hide_value=True, ref_at=(x - 10.0, yn + 6.3), value_at=(x - 10.0, yn + 8.0))
+    path(s, net, hi["2"], (x + 2.54, yn))
+    s.label(net, x + 2.54, yn, 0, "passive", glob)
+
+
 def flag(s, net, x, y):
     """PWR_FLAG on a labelled net: flag pin at (x, y), label below it."""
     s.pwr_flag(x, y)
@@ -326,8 +337,8 @@ def sheet_power(b):
                               "Description": "Reset: SPDT momentary pushbutton, NC contact used, 4 A 28 V DC, right-angle PCB snap-in"})
     # TVS from the fused VBUS to GND: clamps the spike the cable's inductance throws when SW1 or SW2
     # opens under load (and plug-in ringing, ESD); after the fuse, so a lasting overvoltage trips F1
-    tvs = s.part("placard_std:D_Zener", "D7", 104.14, yr + 3.81, {"1": "VFUSE", "2": "GND"}, value="SMAJ5.0A",
-                 footprint="Diode_SMD:D_SMA", angle=270, bare=("1",), ref_at=(106.2, yr + 3.3), value_at=(106.2, yr + 6.4))
+    tvs = s.part("placard_std:D_Zener", "D7", 104.14, yr + 3.81, {"1": "VFUSE", "2": "GND"}, value="SA5.0A",
+                 footprint="Diode_THT:D_DO-15_P10.16mm_Horizontal", angle=270, bare=("1",), ref_at=(106.2, yr + 3.3), value_at=(106.2, yr + 6.4))
     path(s, "VFUSE", f201["2"], tvs["1"])
     path(s, "VFUSE", tvs["1"], sw1["1"])
     s.junction(tvs["1"][0], yr, owner="VFUSE")
@@ -793,6 +804,11 @@ def sheet_video_out(b):
         else:
             path(s, color, (xc, ys[0]), (xj, ys[0]), (xj, jy), (jx, jy))
         name(s, color, jx - 15.24, jy)
+    # ESD: a BAT85 pair on each sync line at J7 (RGB already sits behind the DAC resistors)
+    for k, net in enumerate(("~{HSYNC}", "VSYNC")):
+        clamp(s, f"D{22 + 2 * k}", f"D{23 + 2 * k}", net, 312.42 + k * 30.48, 167.64, glob=True)
+    note(s, 297.18, 185.42, ["ESD clamps D22-D25 (BAT85): the syncs at J7 go to +5V", "and GND through a Schottky."],
+         size=2.2)
     # ---- audio: PIX -> U36 DAC register -> R-2R ladder -> C46 -> J6
     u36 = s.part("placard_std:74LS574", "U36", 139.7, 218.44,
                  ls574(PIX, bus("DAC", 8), "GNDA", "H_VIDEO_ACTIVE", vcc="DAC_5V", gnd="GNDA"),
@@ -924,7 +940,7 @@ def sheet_port(b):
     path(s, "PS2_DATA", (279.4, j5["B1"][1]), (279.4, j5["A1"][1]), j5["A1"])
     s.junction(279.4, j5["B1"][1], owner="PS2_DATA")
     yc = 233.68
-    path(s, "PS2_CLK", (233.68, yc), (243.84, yc), (261.62, yc), (279.4, yc), (279.4, j5["A5"][1]), j5["A5"])
+    path(s, "PS2_CLK", (233.68, yc), (243.84, yc), (261.62, yc), (276.86, yc), (276.86, j5["A5"][1]), j5["A5"])
     # SD card: 1.8k / 3.3k dividers bring SCK, MOSI and /CS down to 3.2 V; CS and DI come in from above,
     # CLK from below, MISO goes back down to row 7 through D1
     for src, net, y, rs, rp, pin, xv in [("P_CS", "SD_CS", 134.62, "R44", "R47", 162.56, 345.44),
@@ -957,6 +973,15 @@ def sheet_port(b):
         path(s, data, (373.38, y), (330.2, y), (325.12, y))
         s.junction(330.2, y, owner=data)
         name(s, data, 325.12, y, 180)
+    # ESD: a BAT85 pair on every line that leaves the board at J2, J3 and J5 (through hole, Justin 2026-10-22)
+    g = lambda v: round(v / 1.27) * 1.27
+    tag(s, "PS2_DATA", 279.4, j5["A1"][1], 90)
+    tag(s, "PS2_CLK", 276.86, yc, 90)
+    lines = ["PS2_DATA", "PS2_CLK", "KBD_CLK", "P_SCK", "P_MOSI", "PAD1_DATA", "PAD2_DATA"]
+    for k, net in enumerate(lines):
+        clamp(s, f"D{8 + 2 * k}", f"D{9 + 2 * k}", net, 106.68 + k * 27.94, 63.5)
+    note(s, 106.68, 80.0, ["ESD clamps D8-D21 (BAT85): each line at J2, J3 and J5 goes to +5V and GND through a Schottky."],
+         size=2.2)
     note(s, 15, 252, ["Latch Q0 = SCK and pad CLOCK, Q1 = MOSI and pad LATCH, Q2 = SD /CS (low also holds the mouse CLK), Q3 = PS/2 DATA,",
                       "Q7:Q4 = key column; with Q7 = 1 (no column) Q4 low holds the keyboard CLK.  PS/2 DATA is shared by both sockets.",
                       "SD lines come down to 3.2 V through 1.8k / 3.3k; MISO reaches row 7 through a Schottky."],
