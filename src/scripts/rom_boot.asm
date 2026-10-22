@@ -68,7 +68,7 @@
 ; byte there is either run or skipped, and the CPU fetches x0001 next
 ; (docs/ROM.md, "Loading the cartridge").
 ;
-; Date: 10/21/2026
+; Date: 10/22/2026
 
 #include "placard.asm"
 
@@ -83,7 +83,7 @@ MAP_ROM_RUN = 0x05      ; ROM program: sections 0 and 2 read RAM, 1 and 3-7 ROM
 PROG_START  = 0x6000    ; ROM program entry
 BOOT_MODE   = 0xFC00    ; 00 = ROM program, 01 = RAM image (set by gen_rom.tcl)
 PORT        = 0x5200    ; shared port latch (placard_io.asm)
-P_IDLE      = 0xFB      ; the latch at rest
+P_IDLE      = 0xEB      ; the latch at rest (both PS/2 clocks held)
 P_COL0      = 0x0B      ; the same with keyboard column 0 driven (Esc is row 0)
 MAP_ZP_RAM  = 0x01      ; section 0 reads RAM, the rest ROM
 LIB_RAM     = 0x1F00    ; placard_lib.asm: library code that runs from the RAM
@@ -115,8 +115,8 @@ boot_mode:
 #addr 0xFD00
 boot:
     ld   PORT >> 8, y           ; shared port at rest (docs/IO.md): no keyboard
-    ld   P_IDLE, [y,x]          ; column, SD /CS low (also holds the PS/2
-                                ; mouse off), SCK and MOSI high
+    ld   P_IDLE, [y,x]          ; column, SD /CS low (holds both PS/2 clocks
+                                ; low), SCK and MOSI high
     ld   LIB_RAM >> 8, y        ; copy LIB_RAM from the ROM to the RAM (map 00)
     clr  ac
 lib_copy:

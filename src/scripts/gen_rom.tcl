@@ -12,7 +12,8 @@
 #                   to the RAM
 #     x2000-x3FFF   more ROM program (runs in place)       the program
 #     x6000-xBFFF   ROM program (runs in place, entry x6000) the program
-#     xC000-xC5FF   free, for the library to grow into
+#     xC000-xC4FF   PS/2 keyboard driver, listening        rom_lib.hex
+#     xC500-xC5FF   program menu hook (menu_poll)          rom_lib.hex
 #     xC600-xC6FF   expansion slot helpers                 rom_lib.hex
 #     xC700-xD4FF   FAT file reader                        rom_lib.hex
 #     xD500-xD6FF   line input, mouse pointer              rom_lib.hex
@@ -51,7 +52,7 @@
 # The image is written to ../hdl/rom.mem (relative to this script).  Set
 # ::ROM_OUT before sourcing to write to a different path instead.
 #
-# Date: 10/21/2026
+# Date: 10/22/2026
 
 set ROM_SIZE        65536
 set ROM_IMAGE_BASE  [expr {0x6000}] ;# RAM image: ROM address of RAM x0000
