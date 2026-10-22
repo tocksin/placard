@@ -1,68 +1,69 @@
-Board,Qty,References,Manufacturer,Part number,Description,Value,Footprint,On schematic,Notes
-Main board,12,U1 U5 U6 U7 U8 U9 U10 U11 U12 U15 U17 U38,Microchip,ATF22V10C-7PX,"PLD, 22V10, 7.5 ns, PDIP-24 0.3"" (programmed)",,Package_DIP:DIP-24_W7.62mm,yes,"State U1; ALU U5, U6; Address mux U7-U10; Memory control U11; I/O decode U12; Sync U15; Instruction register U17; Shared port U38"
-Main board,7,U2 U3 U4 U13 U14 U16 U35,Microchip,ATF22V10C-10PU,"PLD, 22V10, 10 ns, PDIP-24 0.3"" (programmed)",,Package_DIP:DIP-24_W7.62mm,yes,"Branch U2; PC U3, U4; H counter U13; V counter U14; Color decoder U16; Audio slot U35"
-Main board,6,U18 U19 U20 U21 U22 U23,Texas Instruments,SN74F377AN,"Octal D flip-flop with enable, 74F, DIP-20",,Package_DIP:DIP-20_W7.62mm,yes,
-Main board,1,U25,Texas Instruments,CD74ACT273E,"Octal D flip-flop with clear, 74ACT, DIP-20",,Package_DIP:DIP-20_W7.62mm,yes,
-Main board,4,U26 U27 U29 U39,Texas Instruments,SN74F541N,"Octal buffer, 3-state, 74F, DIP-20",,Package_DIP:DIP-20_W7.62mm,yes,
-Main board,2,U31 U32,Alliance Memory,AS7C256C-15PCN,"SRAM, 32K x 8, 15 ns, PDIP-28 0.3""",,Package_DIP:DIP-28_W7.62mm,yes,
-Main board,1,U36,Texas Instruments,SN74HCT574N,"Octal D flip-flop, 3-state, 74HCT, DIP-20",,Package_DIP:DIP-20_W7.62mm,yes,
-Main board,1,U37,Texas Instruments,SN74HC574N,"Octal D flip-flop, 3-state, 74HC, DIP-20",,Package_DIP:DIP-20_W7.62mm,yes,
-Main board,1,U40,Microchip,MCP1700-3302E/TO,"3.3 V LDO regulator, 250 mA, TO-92",,Package_TO_SOT_THT:TO-92_Inline,yes,
-Main board,1,X1,,,"Clock oscillator, 25.175 MHz, 5 V, full-size DIP-14 can",25.175 MHz,Oscillator:Oscillator_DIP-14,yes,Not chosen yet
-Main board,1,J1,,,"Box header, 2 x 10, 2.54 mm, shrouded and keyed, vertical",,Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical,yes,
-Main board,2,J2 J3,,,"SNES controller socket, 7 pin",SNES pad,,yes,
-Main board,1,J4,,,SD card socket,SD (SPI),,yes,
-Main board,1,J5,Kycon,KMDGX-6S/6S-S4N,"Stacked dual mini-DIN-6 receptacle (PS/2), right angle, shielded: mouse top, keyboard bottom",PS/2 kbd + mouse,,yes,
-Main board,1,J6,,,3.5 mm stereo headphone jack,3.5 mm,,yes,
-Main board,1,J7,,,"DE-15 high-density receptacle (VGA), with mounting holes",VGA,,yes,
-Main board,1,J8,Molex,87715-9106,"Cartridge slot: card edge, 64 contacts, 1.0 mm, keyed (PCIe x4 style), vertical TH",,,yes,
-Main board,4,J9 J10 J11 J12,,,"Expansion slot: 2 x 20 card-edge socket, 0.1"", 1.6 mm card, TH",,,yes,"Candidate: Sullins EBC20DCAN family, not stock-checked (EXPANSION.md)"
-Main board,1,J13,GCT,USB4125-GF-A,"USB-C receptacle, power only (6 pin), top mount",,Connector_USB:USB_C_Receptacle_GCT_USB4125-xx-x_6P_TopMnt_Horizontal,yes,
-Main board,1,SW1,CIT Relay and Switch,ANT11TFHQE,"Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing",,,yes,
-Main board,1,SW2,C&K,E112SD1A3QE,"Reset: SPDT momentary pushbutton, NC contact used, 4 A 28 V DC, right-angle PCB",,,yes,
-Main board,1,F1,Bourns,MF-RG300,"Polyfuse, 3 A hold, radial",3 A hold,Fuse:Fuse_Bourns_MF-RG300,yes,Part number from the footprint (Fuse_Bourns_MF-RG300)
-Main board,6,D1 D2 D3 D4 D5 D6,Vishay,BAT85,"Schottky diode, DO-35",,Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal,yes,"Any BAT85 (Vishay, Nexperia, onsemi)"
-Main board,2,R1 R2,,,"Resistor, metal film 1%, 1/4 W, axial",5.1k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,7,R3 R4 R13 R39 R40 R41 R48,,,"Resistor, metal film 1%, 1/4 W, axial",10k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,8,R5 R6 R7 R8 R9 R10 R11 R12,,,"Resistor, metal film 1%, 1/4 W, axial",47,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,2,R14 R17,,,"Resistor, metal film 1%, 1/4 W, axial",3.24k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,2,R15 R18,,,"Resistor, metal film 1%, 1/4 W, axial",1.69k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,2,R16 R19,,,"Resistor, metal film 1%, 1/4 W, axial",825,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,1,R20,,,"Resistor, metal film 1%, 1/4 W, axial",1.43k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,1,R21,,,"Resistor, metal film 1%, 1/4 W, axial",715,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,1,R22,,,"Resistor, metal film 1%, 1/4 W, axial",2.2,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,9,R23 R24 R25 R26 R27 R28 R29 R30 R31,,,"Resistor, metal film 1%, 1/4 W, axial",2k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,11,R32 R33 R34 R35 R36 R37 R38 R51 R52 R53 R54,,,"Resistor, metal film 1%, 1/4 W, axial",1k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,3,R42 R43 R44,,,"Resistor, metal film 1%, 1/4 W, axial",1.8k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,3,R45 R46 R47,,,"Resistor, metal film 1%, 1/4 W, axial",3.3k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,3,R49 R50 R55,,,"Resistor, metal film 1%, 1/4 W, axial",4.7k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Main board,1,RN1,,,"Resistor network, 8 bussed, SIP-9",10k,Resistor_THT:R_Array_SIP9,yes,
-Main board,1,RN2,,,"Resistor network, 8 bussed, SIP-9",4.7k,Resistor_THT:R_Array_SIP9,yes,
-Main board,35,C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C25 C26 C27 C29 C31 C32 C35 C36 C37 C38 C39 C43,,,"Ceramic capacitor, 5 mm pitch",100n,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,
-Main board,2,C40 C42,,,"Ceramic capacitor, 5 mm pitch",1u,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,
-Main board,1,C41,,,"Electrolytic capacitor, radial 8.0 mm, 3.50 mm pitch",220u 10V,Capacitor_THT:CP_Radial_D8.0mm_P3.50mm,yes,
-Main board,1,C44,,,"Electrolytic capacitor, radial 6.3 mm, 2.50 mm pitch",220u,Capacitor_THT:CP_Radial_D6.3mm_P2.50mm,yes,
-Main board,1,C45,,,"Ceramic capacitor, 5 mm pitch",15n C0G,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,
-Main board,1,C46,,,"Ceramic capacitor, 5 mm pitch",22u,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,
-Main board,2,JP1 JP2,,,"Pin header, 1 x 2, 2.54 mm (bring-up jumper)",,Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical,yes,
-Main board,1,X1,,,"IC socket, DIP-14 0.3""",,,no,Or a 4-pin oscillator socket
-Main board,13,U18 U19 U20 U21 U22 U23 U25 U26 U27 U29 U36 U37 U39,,,"IC socket, DIP-20 0.3""",,,no,
-Main board,19,U1 U2 U3 U4 U5 U6 U7 U8 U9 U10 U11 U12 U13 U14 U15 U16 U17 U35 U38,,,"IC socket, DIP-24 0.3""",,,no,
-Main board,2,U31 U32,,,"IC socket, DIP-28 0.3""",,,no,
-Main board,2,JP1 JP2,,,"Jumper shunt, 2.54 mm",,,no,Bring-up jumpers
-Cartridge,1,U1,Microchip,ATF22V10C-10PU,"PLD, 22V10, 10 ns, PDIP-24 0.3"" (programmed)",,Package_DIP:DIP-24_W7.62mm,yes,Cartridge loader U1
-Cartridge,2,U2 U3,Microchip,AT28C256-15PU,"EEPROM, 32K x 8, 150 ns, PDIP-28 0.6"" (programmed)",,Package_DIP:DIP-28_W15.24mm,yes,
-Cartridge,2,U4 U5,Alliance Memory,AS7C256C-15PCN,"SRAM, 32K x 8, 15 ns, PDIP-28 0.3""",,Package_DIP:DIP-28_W7.62mm,yes,
-Cartridge,5,C1 C2 C3 C4 C5,,,"Ceramic capacitor, 5 mm pitch",100n,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,
-Cartridge,1,U1,,,"IC socket, DIP-24 0.3""",,,no,
-Cartridge,2,U4 U5,,,"IC socket, DIP-28 0.3""",,,no,
-Cartridge,2,U2 U3,,,"IC socket, DIP-28 0.6""",,,no,
-Keyboard,1,J1,,,"Box header, 2 x 10, 2.54 mm, shrouded and keyed, vertical",,Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical,yes,
-Keyboard,63,SW1 SW2 SW3 SW4 SW5 SW6 SW7 SW8 SW9 SW10 SW11 SW12 SW13 SW14 SW15 SW16 SW17 SW18 SW19 SW20 SW21 SW22 SW23 SW24 SW25 SW26 SW27 SW28 SW29 SW30 SW31 SW32 SW33 SW34 SW35 SW36 SW37 SW38 SW39 SW40 SW41 SW42 SW43 SW44 SW45 SW46 SW47 SW48 SW49 SW50 SW51 SW52 SW53 SW54 SW55 SW56 SW57 SW58 SW59 SW60 SW61 SW62 SW63,,,"Key switch, Cherry MX style, PCB mount (5 pin)",,,yes,"Switch type (color) not chosen; footprints have LED pads 3/4; sizes 1 u, 1.25 u, 1.5 u, 1.75 u, 2 u, 2.25 u, 6.25 u"
-Keyboard,63,D1 D2 D3 D4 D5 D6 D7 D8 D9 D10 D11 D12 D13 D14 D15 D16 D17 D18 D19 D20 D21 D22 D23 D24 D25 D26 D27 D28 D29 D30 D31 D32 D33 D34 D35 D36 D37 D38 D39 D40 D41 D42 D43 D44 D45 D46 D47 D48 D49 D50 D51 D52 D53 D54 D55 D56 D57 D58 D59 D60 D61 D62 D63,Vishay,BAT85,"Schottky diode, DO-35",,Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal,yes,"Any BAT85 (Vishay, Nexperia, onsemi)"
-Keyboard,63,R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 R12 R13 R14 R15 R16 R17 R18 R19 R20 R21 R22 R23 R24 R25 R26 R27 R28 R29 R30 R31 R32 R33 R34 R35 R36 R37 R38 R39 R40 R41 R42 R43 R44 R45 R46 R47 R48 R49 R50 R51 R52 R53 R54 R55 R56 R57 R58 R59 R60 R61 R62 R63,,,"Resistor, metal film 1%, 1/4 W, axial",1k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,
-Keyboard,63,SW1 SW2 SW3 SW4 SW5 SW6 SW7 SW8 SW9 SW10 SW11 SW12 SW13 SW14 SW15 SW16 SW17 SW18 SW19 SW20 SW21 SW22 SW23 SW24 SW25 SW26 SW27 SW28 SW29 SW30 SW31 SW32 SW33 SW34 SW35 SW36 SW37 SW38 SW39 SW40 SW41 SW42 SW43 SW44 SW45 SW46 SW47 SW48 SW49 SW50 SW51 SW52 SW53 SW54 SW55 SW56 SW57 SW58 SW59 SW60 SW61 SW62 SW63,,,"LED, 3 mm, through-hole",,,no,"Optional, always on; one in each key switch (pads 3 K, 4 A)"
-Keyboard,63,SW1 SW2 SW3 SW4 SW5 SW6 SW7 SW8 SW9 SW10 SW11 SW12 SW13 SW14 SW15 SW16 SW17 SW18 SW19 SW20 SW21 SW22 SW23 SW24 SW25 SW26 SW27 SW28 SW29 SW30 SW31 SW32 SW33 SW34 SW35 SW36 SW37 SW38 SW39 SW40 SW41 SW42 SW43 SW44 SW45 SW46 SW47 SW48 SW49 SW50 SW51 SW52 SW53 SW54 SW55 SW56 SW57 SW58 SW59 SW60 SW61 SW62 SW63,,,"Keycap, Cherry MX stem",,,no,Sizes as the key switches
-Keyboard,3,SW6 SW14 SW41,Cherry,G99-0742,"Stabilizer set, PCB mount, 2 u (also 2.25 u, 2.75 u): 2 housings, 2 sliders, wire",,,no,"One complete set per key, ordered as one part (Mouser 540-G99-0742)"
-Keyboard,1,SW24,Durock,,"Stabilizer set, PCB screw-in, 6.25 u: 2 housings, 2 stems, wire, 2 screws, 2 washers",,,no,"Durock V2 screw-in, 6.25 u option (keyboard shops, no distributor part number); Cherry sells no 6.25 u PCB set through distributors"
-Keyboard,1,,3M,M3AAA-2006J,"Ribbon cable assembly, 20 way, IDC socket to socket, 2.54 mm, 6 in (152 mm)",,,no,"Keyboard J1 to main board J1, pre-assembled, pin 1 to pin 1; check on the datasheet that the socket key fits the box header.  Last two digits = length in inches (M3AAA-2018J = 18 in)"
+Board,Qty,References,Manufacturer,Part number,Description,Value,Footprint,On schematic,Unit price USD,Line total USD,Price from,Notes
+Main board,12,U1 U5 U6 U7 U8 U9 U10 U11 U12 U15 U17 U38,Microchip,ATF22V10C-7PX,"PLD, 22V10, 7.5 ns, PDIP-24 0.3"" (programmed)",,Package_DIP:DIP-24_W7.62mm,yes,2.99,35.88,Mouser,"State U1; ALU U5, U6; Address mux U7-U10; Memory control U11; I/O decode U12; Sync U15; Instruction register U17; Shared port U38"
+Main board,7,U2 U3 U4 U13 U14 U16 U35,Microchip,ATF22V10C-10PU,"PLD, 22V10, 10 ns, PDIP-24 0.3"" (programmed)",,Package_DIP:DIP-24_W7.62mm,yes,2.63,18.41,Mouser,"Branch U2; PC U3, U4; H counter U13; V counter U14; Color decoder U16; Audio slot U35"
+Main board,6,U18 U19 U20 U21 U22 U23,Texas Instruments,SN74F377AN,"Octal D flip-flop with enable, 74F, DIP-20",,Package_DIP:DIP-20_W7.62mm,yes,1.05,6.30,Mouser,
+Main board,1,U25,Texas Instruments,CD74ACT273E,"Octal D flip-flop with clear, 74ACT, DIP-20",,Package_DIP:DIP-20_W7.62mm,yes,2.45,2.45,Mouser,
+Main board,4,U26 U27 U29 U39,Texas Instruments,SN74F541N,"Octal buffer, 3-state, 74F, DIP-20",,Package_DIP:DIP-20_W7.62mm,yes,1.49,5.96,Mouser,
+Main board,2,U31 U32,Alliance Memory,AS7C256C-15PCN,"SRAM, 32K x 8, 15 ns, PDIP-28 0.3""",,Package_DIP:DIP-28_W7.62mm,yes,15.21,30.42,Mouser,
+Main board,1,U36,Texas Instruments,SN74HCT574N,"Octal D flip-flop, 3-state, 74HCT, DIP-20",,Package_DIP:DIP-20_W7.62mm,yes,1.41,1.41,Mouser,
+Main board,1,U37,Texas Instruments,SN74HC574N,"Octal D flip-flop, 3-state, 74HC, DIP-20",,Package_DIP:DIP-20_W7.62mm,yes,0.93,0.93,Mouser,
+Main board,1,U40,Microchip,MCP1700-3302E/TO,"3.3 V LDO regulator, 250 mA, TO-92",,Package_TO_SOT_THT:TO-92_Inline,yes,0.50,0.50,Mouser,
+Main board,1,X1,,,"Clock oscillator, 25.175 MHz, 5 V, full-size DIP-14 can",25.175 MHz,Oscillator:Oscillator_DIP-14,yes,3.00,3.00,est.: ECS-100A-251.7 (Digi-Key; Mouser has no stock); no 5 V DIP 25.175 MHz part is stocked at Mouser,Not chosen yet
+Main board,1,J1,,,"Box header, 2 x 10, 2.54 mm, shrouded and keyed, vertical",,Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical,yes,0.60,0.60,est.: Wurth 61202021621,
+Main board,2,J2 J3,,,"SNES controller socket, 7 pin",SNES pad,,yes,4.00,8.00,est.: ZedLabz right-angle SNES port (Amazon/eBay),
+Main board,1,J4,,,SD card socket,SD (SPI),,yes,2.50,2.50,est.: through-hole SD socket,
+Main board,1,J5,Kycon,KMDGX-6S/6S-S4N,"Stacked dual mini-DIN-6 receptacle (PS/2), right angle, shielded: mouse top, keyboard bottom",PS/2 kbd + mouse,,yes,3.72,3.72,Mouser,
+Main board,1,J6,,,3.5 mm stereo headphone jack,3.5 mm,,yes,1.10,1.10,est.: CUI SJ1-3523N,
+Main board,1,J7,,,"DE-15 high-density receptacle (VGA), with mounting holes",VGA,,yes,1.50,1.50,est.: Assmann A-HDF 15 A-KG/T,
+Main board,1,J8,Molex,87715-9106,"Cartridge slot: card edge, 64 contacts, 1.0 mm, keyed (PCIe x4 style), vertical TH",,,yes,2.81,2.81,Mouser,
+Main board,4,J9 J10 J11 J12,,,"Expansion slot: 2 x 20 card-edge socket, 0.1"", 1.6 mm card, TH",,,yes,4.50,18.00,est.: Sullins EBC20DCAN,"Candidate: Sullins EBC20DCAN family, not stock-checked (EXPANSION.md)"
+Main board,1,J13,GCT,USB4125-GF-A,"USB-C receptacle, power only (6 pin), top mount",,Connector_USB:USB_C_Receptacle_GCT_USB4125-xx-x_6P_TopMnt_Horizontal,yes,0.61,0.61,Mouser: USB4125-GF-A-0190 (the stocked packaging of the same part),
+Main board,1,SW1,CIT Relay and Switch,ANT11TFHQE,"Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing",,,yes,4.50,4.50,est.: Digi-Key; Mouser has no stock,
+Main board,1,SW2,C&K,E112SD1A3QE,"Reset: SPDT momentary pushbutton, NC contact used, 4 A 28 V DC, right-angle PCB",,,yes,11.00,11.00,est.: Digi-Key; Mouser has no stock below 160,
+Main board,1,F1,Bourns,MF-RG300,"Polyfuse, 3 A hold, radial",3 A hold,Fuse:Fuse_Bourns_MF-RG300,yes,0.73,0.73,Mouser: MF-RG300-0,Part number from the footprint (Fuse_Bourns_MF-RG300)
+Main board,6,D1 D2 D3 D4 D5 D6,Vishay,BAT85,"Schottky diode, DO-35",,Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal,yes,0.16,0.96,est.: Vishay BAT85,"Any BAT85 (Vishay, Nexperia, onsemi)"
+Main board,2,R1 R2,,,"Resistor, metal film 1%, 1/4 W, axial",5.1k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.10,0.20,est.: Yageo MFR-25FBF52 series,
+Main board,7,R3 R4 R13 R39 R40 R41 R48,,,"Resistor, metal film 1%, 1/4 W, axial",10k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.10,0.70,est.: Yageo MFR-25FBF52 series,
+Main board,8,R5 R6 R7 R8 R9 R10 R11 R12,,,"Resistor, metal film 1%, 1/4 W, axial",47,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.10,0.80,est.: Yageo MFR-25FBF52 series,
+Main board,2,R14 R17,,,"Resistor, metal film 1%, 1/4 W, axial",3.24k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.10,0.20,est.: Yageo MFR-25FBF52 series,
+Main board,2,R15 R18,,,"Resistor, metal film 1%, 1/4 W, axial",1.69k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.10,0.20,est.: Yageo MFR-25FBF52 series,
+Main board,2,R16 R19,,,"Resistor, metal film 1%, 1/4 W, axial",825,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.10,0.20,est.: Yageo MFR-25FBF52 series,
+Main board,1,R20,,,"Resistor, metal film 1%, 1/4 W, axial",1.43k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.10,0.10,est.: Yageo MFR-25FBF52 series,
+Main board,1,R21,,,"Resistor, metal film 1%, 1/4 W, axial",715,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.10,0.10,est.: Yageo MFR-25FBF52 series,
+Main board,1,R22,,,"Resistor, metal film 1%, 1/4 W, axial",2.2,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.10,0.10,est.: Yageo MFR-25FBF52 series,
+Main board,9,R23 R24 R25 R26 R27 R28 R29 R30 R31,,,"Resistor, metal film 1%, 1/4 W, axial",2k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.10,0.90,est.: Yageo MFR-25FBF52 series,
+Main board,11,R32 R33 R34 R35 R36 R37 R38 R51 R52 R53 R54,,,"Resistor, metal film 1%, 1/4 W, axial",1k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.04,0.44,est.: Yageo MFR-25FBF52 series,
+Main board,3,R42 R43 R44,,,"Resistor, metal film 1%, 1/4 W, axial",1.8k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.10,0.30,est.: Yageo MFR-25FBF52 series,
+Main board,3,R45 R46 R47,,,"Resistor, metal film 1%, 1/4 W, axial",3.3k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.10,0.30,est.: Yageo MFR-25FBF52 series,
+Main board,3,R49 R50 R55,,,"Resistor, metal film 1%, 1/4 W, axial",4.7k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.10,0.30,est.: Yageo MFR-25FBF52 series,
+Main board,1,RN1,,,"Resistor network, 8 bussed, SIP-9",10k,Resistor_THT:R_Array_SIP9,yes,0.40,0.40,est.: Bourns 4609X-101 series,
+Main board,1,RN2,,,"Resistor network, 8 bussed, SIP-9",4.7k,Resistor_THT:R_Array_SIP9,yes,0.40,0.40,est.: Bourns 4609X-101 series,
+Main board,35,C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C25 C26 C27 C29 C31 C32 C35 C36 C37 C38 C39 C43,,,"Ceramic capacitor, 5 mm pitch",100n,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.18,6.30,est.: KEMET C320C104K5R5TA,
+Main board,2,C40 C42,,,"Ceramic capacitor, 5 mm pitch",1u,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.50,1.00,est.: KEMET C330C105K5R5TA,
+Main board,1,C41,,,"Electrolytic capacitor, radial 8.0 mm, 3.50 mm pitch",220u 10V,Capacitor_THT:CP_Radial_D8.0mm_P3.50mm,yes,0.35,0.35,est.: Panasonic FR series,
+Main board,1,C44,,,"Electrolytic capacitor, radial 6.3 mm, 2.50 mm pitch",220u,Capacitor_THT:CP_Radial_D6.3mm_P2.50mm,yes,0.35,0.35,est.: Panasonic FR series,
+Main board,1,C45,,,"Ceramic capacitor, 5 mm pitch",15n C0G,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.40,0.40,est.: KEMET C315C153J1G5TA,
+Main board,1,C46,,,"Ceramic capacitor, 5 mm pitch",22u,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,1.00,1.00,est.: TDK FG24X5R1A226MRT06,
+Main board,2,JP1 JP2,,,"Pin header, 1 x 2, 2.54 mm (bring-up jumper)",,Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical,yes,0.15,0.30,est.: 1 x 2 header,
+Main board,1,X1,,,"IC socket, DIP-14 0.3""",,,no,0.25,0.25,est.: On Shore ED14DT,Or a 4-pin oscillator socket
+Main board,13,U18 U19 U20 U21 U22 U23 U25 U26 U27 U29 U36 U37 U39,,,"IC socket, DIP-20 0.3""",,,no,0.30,3.90,est.: On Shore ED20DT,
+Main board,19,U1 U2 U3 U4 U5 U6 U7 U8 U9 U10 U11 U12 U13 U14 U15 U16 U17 U35 U38,,,"IC socket, DIP-24 0.3""",,,no,0.40,7.60,est.: On Shore ED24DT,
+Main board,2,U31 U32,,,"IC socket, DIP-28 0.3""",,,no,0.45,0.90,est.: On Shore ED28DT,
+Main board,1,,,,"Resistor, 10k (/WE pull-up), 1/4 W, axial",10k,,no,0.10,0.10,est.: Yageo MFR-25FBF52,"Memory control rev 09 lets go of /WE while RUN is low; not drawn on the schematic yet (EXPANSION.md, ""Booting from slot 1"")"
+Main board,2,JP1 JP2,,,"Jumper shunt, 2.54 mm",,,no,0.10,0.20,est.: 2.54 mm shunt,Bring-up jumpers
+Cartridge,1,U1,Microchip,ATF22V10C-10PU,"PLD, 22V10, 10 ns, PDIP-24 0.3"" (programmed)",,Package_DIP:DIP-24_W7.62mm,yes,2.63,2.63,Mouser,Cartridge loader U1
+Cartridge,2,U2 U3,Microchip,AT28C256-15PU,"EEPROM, 32K x 8, 150 ns, PDIP-28 0.6"" (programmed)",,Package_DIP:DIP-28_W15.24mm,yes,12.38,24.76,Mouser,
+Cartridge,2,U4 U5,Alliance Memory,AS7C256C-15PCN,"SRAM, 32K x 8, 15 ns, PDIP-28 0.3""",,Package_DIP:DIP-28_W7.62mm,yes,15.21,30.42,Mouser,
+Cartridge,5,C1 C2 C3 C4 C5,,,"Ceramic capacitor, 5 mm pitch",100n,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.27,1.35,est.: KEMET C320C104K5R5TA,
+Cartridge,1,U1,,,"IC socket, DIP-24 0.3""",,,no,0.40,0.40,est.: On Shore ED24DT,
+Cartridge,2,U4 U5,,,"IC socket, DIP-28 0.3""",,,no,0.45,0.90,est.: On Shore ED28DT,
+Cartridge,2,U2 U3,,,"IC socket, DIP-28 0.6""",,,no,0.45,0.90,est.: On Shore ED281DT,
+Keyboard,1,J1,,,"Box header, 2 x 10, 2.54 mm, shrouded and keyed, vertical",,Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical,yes,0.60,0.60,est.: Wurth 61202021621,
+Keyboard,63,SW1 SW2 SW3 SW4 SW5 SW6 SW7 SW8 SW9 SW10 SW11 SW12 SW13 SW14 SW15 SW16 SW17 SW18 SW19 SW20 SW21 SW22 SW23 SW24 SW25 SW26 SW27 SW28 SW29 SW30 SW31 SW32 SW33 SW34 SW35 SW36 SW37 SW38 SW39 SW40 SW41 SW42 SW43 SW44 SW45 SW46 SW47 SW48 SW49 SW50 SW51 SW52 SW53 SW54 SW55 SW56 SW57 SW58 SW59 SW60 SW61 SW62 SW63,,,"Key switch, Cherry MX style, PCB mount (5 pin)",,,yes,1.24,78.12,"Mouser: Cherry MX2A-L1NB (red, clear housing for the LED, PCB pins), 10+ break; not stocked at Mouser, check Digi-Key","Switch type (color) not chosen; footprints have LED pads 3/4; sizes 1 u, 1.25 u, 1.5 u, 1.75 u, 2 u, 2.25 u, 6.25 u"
+Keyboard,63,D1 D2 D3 D4 D5 D6 D7 D8 D9 D10 D11 D12 D13 D14 D15 D16 D17 D18 D19 D20 D21 D22 D23 D24 D25 D26 D27 D28 D29 D30 D31 D32 D33 D34 D35 D36 D37 D38 D39 D40 D41 D42 D43 D44 D45 D46 D47 D48 D49 D50 D51 D52 D53 D54 D55 D56 D57 D58 D59 D60 D61 D62 D63,Vishay,BAT85,"Schottky diode, DO-35",,Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal,yes,0.10,6.30,est.: Vishay BAT85,"Any BAT85 (Vishay, Nexperia, onsemi)"
+Keyboard,63,R1 R2 R3 R4 R5 R6 R7 R8 R9 R10 R11 R12 R13 R14 R15 R16 R17 R18 R19 R20 R21 R22 R23 R24 R25 R26 R27 R28 R29 R30 R31 R32 R33 R34 R35 R36 R37 R38 R39 R40 R41 R42 R43 R44 R45 R46 R47 R48 R49 R50 R51 R52 R53 R54 R55 R56 R57 R58 R59 R60 R61 R62 R63,,,"Resistor, metal film 1%, 1/4 W, axial",1k,Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal,yes,0.04,2.52,est.: Yageo MFR-25FBF52 series,
+Keyboard,63,SW1 SW2 SW3 SW4 SW5 SW6 SW7 SW8 SW9 SW10 SW11 SW12 SW13 SW14 SW15 SW16 SW17 SW18 SW19 SW20 SW21 SW22 SW23 SW24 SW25 SW26 SW27 SW28 SW29 SW30 SW31 SW32 SW33 SW34 SW35 SW36 SW37 SW38 SW39 SW40 SW41 SW42 SW43 SW44 SW45 SW46 SW47 SW48 SW49 SW50 SW51 SW52 SW53 SW54 SW55 SW56 SW57 SW58 SW59 SW60 SW61 SW62 SW63,,,"LED, 3 mm, through-hole",,,no,0.15,9.45,"est.: any 3 mm LED, 100 break","Optional, always on; one in each key switch (pads 3 K, 4 A)"
+Keyboard,63,SW1 SW2 SW3 SW4 SW5 SW6 SW7 SW8 SW9 SW10 SW11 SW12 SW13 SW14 SW15 SW16 SW17 SW18 SW19 SW20 SW21 SW22 SW23 SW24 SW25 SW26 SW27 SW28 SW29 SW30 SW31 SW32 SW33 SW34 SW35 SW36 SW37 SW38 SW39 SW40 SW41 SW42 SW43 SW44 SW45 SW46 SW47 SW48 SW49 SW50 SW51 SW52 SW53 SW54 SW55 SW56 SW57 SW58 SW59 SW60 SW61 SW62 SW63,,,"Keycap, Cherry MX stem",,,no,0.60,37.80,"est.: a full MX keycap set, about $35-40",Sizes as the key switches
+Keyboard,3,SW6 SW14 SW41,Cherry,G99-0742,"Stabilizer set, PCB mount, 2 u (also 2.25 u, 2.75 u): 2 housings, 2 sliders, wire",,,no,0.39,1.17,Mouser,"One complete set per key, ordered as one part (Mouser 540-G99-0742)"
+Keyboard,1,SW24,Durock,,"Stabilizer set, PCB screw-in, 6.25 u: 2 housings, 2 stems, wire, 2 screws, 2 washers",,,no,3.50,3.50,Divinikey: Durock V2 screw-in 6.25 u,"Durock V2 screw-in, 6.25 u option (keyboard shops, no distributor part number); Cherry sells no 6.25 u PCB set through distributors"
+Keyboard,1,,3M,M3AAA-2006J,"Ribbon cable assembly, 20 way, IDC socket to socket, 2.54 mm, 6 in (152 mm)",,,no,6.50,6.50,est.: Digi-Key (3M 20-way assemblies $6-7.50),"Keyboard J1 to main board J1, pre-assembled, pin 1 to pin 1; check on the datasheet that the socket key fits the box header.  Last two digits = length in inches (M3AAA-2018J = 18 in)"

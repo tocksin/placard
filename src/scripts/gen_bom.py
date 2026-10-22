@@ -77,6 +77,82 @@ NOTES = {
     "25.175 MHz": "Not chosen yet",
 }
 
+# ---------------------------------------------------------------- prices
+# Unit price in US dollars at the line's quantity for one build, checked 2026-10-22.
+# Mouser first, Digi-Key where Mouser has no stock (Justin).  "Mouser" = read from
+# Mouser's price breaks; "est." = a typical price for the part named under
+# "Priced as", not checked line by line; parts neither distributor sells name the shop.
+# Key: the part number, or "description start|value" for a line with none.
+PRICES = {
+    "ATF22V10C-7PX": (2.99, "Mouser", ""),
+    "ATF22V10C-10PU": (2.63, "Mouser", ""),
+    "SN74F377AN": (1.05, "Mouser", ""),            # 10+ break
+    "CD74ACT273E": (2.45, "Mouser", ""),
+    "SN74F541N": (1.49, "Mouser", ""),
+    "AS7C256C-15PCN": (15.21, "Mouser", ""),
+    "SN74HCT574N": (1.41, "Mouser", ""),
+    "SN74HC574N": (0.93, "Mouser", ""),
+    "MCP1700-3302E/TO": (0.50, "Mouser", ""),
+    "AT28C256-15PU": (12.38, "Mouser", ""),
+    "87715-9106": (2.81, "Mouser", ""),
+    "USB4125-GF-A": (0.61, "Mouser", "USB4125-GF-A-0190 (the stocked packaging of the same part)"),
+    "KMDGX-6S/6S-S4N": (3.72, "Mouser", ""),
+    "MF-RG300": (0.73, "Mouser", "MF-RG300-0"),
+    "G99-0742": (0.39, "Mouser", ""),
+    "ANT11TFHQE": (4.50, "est.", "Digi-Key; Mouser has no stock"),
+    "E112SD1A3QE": (11.00, "est.", "Digi-Key; Mouser has no stock below 160"),
+    "BAT85": None,                                  # by quantity, below
+    "M3AAA-2006J": (6.50, "est.", "Digi-Key (3M 20-way assemblies $6-7.50)"),
+    "Clock oscillator": (3.00, "est.", "ECS-100A-251.7 (Digi-Key; Mouser has no stock); no 5 V DIP 25.175 MHz part is stocked at Mouser"),
+    "Box header": (0.60, "est.", "Wurth 61202021621"),
+    "SNES controller socket": (4.00, "est.", "ZedLabz right-angle SNES port (Amazon/eBay)"),
+    "SD card socket": (2.50, "est.", "through-hole SD socket"),
+    "3.5 mm stereo": (1.10, "est.", "CUI SJ1-3523N"),
+    "DE-15": (1.50, "est.", "Assmann A-HDF 15 A-KG/T"),
+    "Expansion slot": (4.50, "est.", "Sullins EBC20DCAN"),
+    "Resistor network": (0.40, "est.", "Bourns 4609X-101 series"),
+    "Ceramic capacitor, 5 mm pitch|1u": (0.50, "est.", "KEMET C330C105K5R5TA"),
+    "Ceramic capacitor, 5 mm pitch|22u": (1.00, "est.", "TDK FG24X5R1A226MRT06"),
+    "Ceramic capacitor, 5 mm pitch|15n C0G": (0.40, "est.", "KEMET C315C153J1G5TA"),
+    "Electrolytic capacitor": (0.35, "est.", "Panasonic FR series"),
+    "Pin header": (0.15, "est.", "1 x 2 header"),
+    "Jumper shunt": (0.10, "est.", "2.54 mm shunt"),
+    "IC socket, DIP-14": (0.25, "est.", "On Shore ED14DT"),
+    "IC socket, DIP-20": (0.30, "est.", "On Shore ED20DT"),
+    "IC socket, DIP-24 0.3": (0.40, "est.", "On Shore ED24DT"),
+    "IC socket, DIP-28 0.3": (0.45, "est.", "On Shore ED28DT"),
+    "IC socket, DIP-28 0.6": (0.45, "est.", "On Shore ED281DT"),
+    "Key switch": (1.24, "Mouser", "Cherry MX2A-L1NB (red, clear housing for the LED, PCB pins), 10+ break; "
+                                   "not stocked at Mouser, check Digi-Key"),
+    "LED, 3 mm": (0.15, "est.", "any 3 mm LED, 100 break"),
+    "Keycap": (0.60, "est.", "a full MX keycap set, about $35-40"),
+    "Stabilizer set, PCB screw-in, 6.25 u": (3.50, "Divinikey", "Durock V2 screw-in 6.25 u"),
+    "Resistor, 10k (/WE": (0.10, "est.", "Yageo MFR-25FBF52"),
+}
+
+
+def tier(qty, one, ten, hundred):
+    return one if qty < 10 else ten if qty < 100 else hundred
+
+
+def price(d):
+    """(unit, source, priced as) for a BOM line, at its quantity."""
+    q = d["qty"]
+    if d["mpn"] == "BAT85":
+        return tier(q, 0.16, 0.10, 0.06), "est.", "Vishay BAT85"
+    if d["desc"].startswith("Resistor, metal film"):
+        return tier(q, 0.10, 0.04, 0.02), "est.", "Yageo MFR-25FBF52 series"
+    if d["desc"].startswith("Ceramic capacitor") and d["value"] == "100n":
+        return tier(q, 0.27, 0.18, 0.09), "est.", "KEMET C320C104K5R5TA"
+    if d["mpn"] in PRICES:
+        return PRICES[d["mpn"]]
+    key = d["desc"] + "|" + d["value"]
+    for k, v in PRICES.items():
+        if key.startswith(k) or ("|" in k and key == k):
+            return v
+    return None, "", ""
+
+
 PLD_JOB = {"STATE": "State", "BRANCH": "Branch", "PC_COUNTER8": "PC", "ALU_SHR": "ALU", "QUAD_MUX": "Address mux",
            "MEM_CTRL": "Memory control", "IO_DECODE": "I/O decode", "HCOUNT": "H counter", "VCOUNT": "V counter",
            "SYNC": "Sync", "COLORDECODER": "Color decoder", "IR": "Instruction register", "AUDIO": "Audio slot",
@@ -192,7 +268,11 @@ def board_bom(files):
                         desc=f"IC socket, DIP-{pins} {'0.6' if wide else '0.3'}\"", value="", footprint="",
                         notes="Or a 4-pin oscillator socket" if refs == ["X1"] else "",
                         extra=True))
-    if shunts:
+    if shunts:     # (main board only)
+        out.append(dict(refs=[], qty=1, mpn="", mfr="", desc="Resistor, 10k (/WE pull-up), 1/4 W, axial",
+                        value="10k", footprint="",
+                        notes="Memory control rev 09 lets go of /WE while RUN is low; not drawn on the schematic "
+                              "yet (EXPANSION.md, \"Booting from slot 1\")", extra=True))
         out.append(dict(refs=shunts, mpn="", mfr="", desc="Jumper shunt, 2.54 mm", value="", footprint="",
                         notes="Bring-up jumpers", extra=True))
     if keys:
@@ -254,26 +334,50 @@ def main():
           "notes give each PLD's job; [KITTING.md](KITTING.md) lists the images.",
           ""]
     rows = []
+    totals = []
     for name, bom in boards:
         parts = sum(d["qty"] for d in bom if not d["extra"])
         md.append(f"## {name}\n")
         md.append(f"{len(bom)} lines, {parts} parts on the schematic.\n")
-        md.append("| Qty | References | Part number | Manufacturer | Description | Value | Notes |")
-        md.append("|--:|---|---|---|---|---|---|")
+        total = 0.0
+        for d in bom:
+            d["unit"], d["src"], d["as"] = price(d)
+            total += (d["unit"] or 0) * d["qty"]
+        totals.append((name, total, sum(1 for d in bom if d["src"] == "est.")))
+        md.append(f"Components: **${total:,.2f}** for one board at these quantities.\n")
+        md.append("| Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | "
+                  "Price from | Notes |")
+        md.append("|--:|---|---|---|---|---|--:|--:|---|---|")
         for d in bom:
             refs = ranges(d["refs"]) if d["refs"] else ""
             note = ("Not on the schematic.  " if d["extra"] else "") + d["notes"]
-            md.append("| " + " | ".join(md_cell(c) for c in (str(d["qty"]), refs, d["mpn"], d["mfr"], d["desc"],
-                                                              d["value"], note.strip())) + " |")
+            u = d["unit"]
+            src = d["src"] + (f": {d['as']}" if d["as"] else "")
+            md.append("| " + " | ".join(md_cell(c) for c in (
+                str(d["qty"]), refs, d["mpn"], d["mfr"], d["desc"], d["value"],
+                f"{u:.2f}" if u is not None else "", f"{u * d['qty']:.2f}" if u is not None else "",
+                src, note.strip())) + " |")
             rows.append([name, d["qty"], " ".join(d["refs"]), d["mfr"], d["mpn"], d["desc"], d["value"],
-                         d["footprint"], "yes" if not d["extra"] else "no", d["notes"]])
+                         d["footprint"], "yes" if not d["extra"] else "no",
+                         f"{u:.2f}" if u is not None else "", f"{u * d['qty']:.2f}" if u is not None else "",
+                         src, d["notes"]])
         md.append("")
+    summ = ["## Component cost\n",
+            "One of each board, priced at the quantities below (Mouser first, Digi-Key where Mouser has",
+            "no stock), on 2026-10-22.  Lines marked *est.* are typical prices for the part named, not",
+            "read from a price list; PCBs, the case, shipping and tax are not included.\n",
+            "| Board | Components | Lines estimated |", "|---|--:|--:|"]
+    for name, t, est in totals:
+        summ.append(f"| {name} | ${t:,.2f} | {est} |")
+    summ.append(f"| **All three** | **${sum(t for _, t, _ in totals):,.2f}** | |\n")
+    i = md.index("## Main board\n")
+    md[i:i] = summ
     with open(os.path.join(ROOT, "docs", "BOM.md"), "w") as f:
         f.write("\n".join(md))
     with open(os.path.join(ROOT, "docs", "BOM.csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["Board", "Qty", "References", "Manufacturer", "Part number", "Description", "Value",
-                    "Footprint", "On schematic", "Notes"])
+                    "Footprint", "On schematic", "Unit price USD", "Line total USD", "Price from", "Notes"])
         w.writerows(rows)
     for name, bom in boards:
         print(f"{name}: {len(bom)} lines, {sum(d['qty'] for d in bom)} parts")
