@@ -32,6 +32,10 @@ Date: 10/22/2026
 - With **no key for 2 minutes** in the menu, it goes back to running them
   in turn, starting with the highlighted program.  The menu counts the
   seconds down on the screen.
+- The highlighted program sits on a blue bar and the title on a gold band.
+  Both are row tints (mode byte bits 6:4, [VIDEO.md](VIDEO.md#row-tint)):
+  16 mode bytes per program name (rows 8 x row - 4 to 8 x row + 11) say
+  which one is lit, so the names are no longer drawn in inverse video.
 
 The side scroller is not in the menu ROM; it needs the same ROM pages as
 the text demo.

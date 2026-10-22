@@ -15,13 +15,14 @@ frame, from the simulator's video line read), then checks the screen text:
 the frame count and uptime match the frames run, PASS counts up and ERRORS
 is 0 (or, with --fault, 14 a pass and the page's cell is marked E on the
 progress bar).
-Video stalls are not modeled, so the CPU runs about 10 % faster than on the
-board; the program only does a bounded amount of work per frame, so the
-frame timing is the same.  It also checks the pixel scroller (the message
-row of the 40 column band against the message, the font and the frame
-count) and the 256-color ring (every ring pixel against HUE and the phase).
+The video stall clocks are modeled (placard_sim Cpu.stalls), and the
+busiest frame's work is printed.  It also checks the pixel scroller (the
+message row of the 40 column band against the message, the font and the
+frame count), the 256-color ring (every ring pixel against HUE and the
+phase) and the row tints of rows 0-95 (TINTB, with the raster bar BARP at
+BARY[phase / 2]).
 
-Date: 10/20/2026
+Date: 10/22/2026
 """
 
 import argparse
@@ -36,6 +37,25 @@ CLOCKS_PER_FRAME = 525 * 800
 # the RAM test pages (PAGES in text_demo.asm)
 PAGES = list(range(0x01, 0x1F)) + list(range(0x20, 0x50)) + list(range(0x54, 0x5A)) + [0x5C]
 NPAGES = len(PAGES)
+
+
+def check_tint(cpu, syms, rom):
+    """rows 0-95: mode byte = TINTB[row], but the raster bar's rows, which
+    are BARP from row BARY[phase / 2]"""
+    ph = cpu.mem[0x8B]                      # tn_ph
+    pos = rom[syms['BARY'] + (ph >> 1)]
+    nbar = syms['TN_N']
+    bad = []
+    for r in range(96):
+        want = rom[syms['TINTB'] + r]
+        if pos <= r < pos + nbar:
+            want = rom[syms['BARP'] + r - pos]
+        if cpu.mem[0x5A20 + r] != want:
+            bad.append(r)
+    if bad:
+        print('FAIL: row tints wrong on rows %s (bar at row %d)' % (bad[:8], pos))
+        return False
+    return True
 
 
 def check_scroll(cpu, syms, rom, frm):
@@ -104,6 +124,7 @@ def main(argv):
     mem, syms, _ = ps.assemble(src, HERE)
     rom = ps.build_rom(mem)
     cpu = ps.Cpu({}, rom=rom)
+    cpu.stalls = True
     if args.fault is not None:
         plain = cpu.read
 
@@ -130,10 +151,17 @@ def main(argv):
     frames = []
     nframes = int(args.seconds * 60)
     start = cpu.clocks
+    p_work, p_loop = syms['td_tint'], syms['td_loop']
+    t_work, busiest = None, 0
     for f in range(1, nframes + 1):
         target = start + f * CLOCKS_PER_FRAME
         while cpu.clocks < target:
             cpu.step()
+            if cpu.pc == p_work:
+                t_work = cpu.clocks
+            elif cpu.pc == p_loop and t_work is not None:
+                busiest = max(busiest, cpu.clocks - t_work)
+                t_work = None
         if args.gif and f % args.gif_step == 0:
             path = os.path.join(HERE, '_td_frame.png')
             ps.render(cpu.mem, path)
@@ -148,6 +176,7 @@ def main(argv):
                        duration=int(1000 * args.gif_step / 60), loop=0)
         print('wrote', args.gif, len(frames), 'frames')
 
+    print('busiest frame: %d clocks of work (%d in a frame)' % (busiest, CLOCKS_PER_FRAME))
     rows = {r: text_row(cpu, r, font) for r in (6, 7, 8)}
     for r in rows.values():
         print('|' + r + '|')
@@ -184,6 +213,7 @@ def main(argv):
             ok = False
     ok = check_scroll(cpu, syms, rom, frm) and ok
     ok = check_ring(cpu, syms, rom) and ok
+    ok = check_tint(cpu, syms, rom) and ok
     print('OK' if ok else 'FAILED')
     return 0 if ok else 1
 

@@ -32,13 +32,14 @@
 ;     0400-...    framework and tests
 ;     4200-42FF   test data page for [y,x] tests
 ;     4300-43FF   marks for the X-destination tests
+;     5A20-5BFF   mode bytes: 8 bpp, and rows with nothing on them blanked
 ;     6000-FFFF   video RAM (cleared and set to 8 bpp by the program)
 ;
 ; Every test reads memory back, so the test areas must read as RAM (the
 ; current FPGA build reads all addresses from the RAM copy).
 ;
 ;
-; Date: 10/19/2026
+; Date: 10/22/2026
 
 #include "placard.asm"
 
@@ -114,19 +115,58 @@ clr_in:
     inc
     ld ac, [0x14]
     bne clr_pg
-    ld 0x5A, y                ; mode byte of every row = 3 (8 bpp), x5A20-x5BFF
+    ld 0x5A, y                ; mode byte of every row = 83 (8 bpp, blanked), x5A20-x5BFF
     ld 0x20, ac
 mode1:
     ld ac, x
-    ld 3, [y,x]
+    ld 0x83, [y,x]
     inc
     bne mode1
     ld 0x5B, y
 mode2:
     ld ac, x
-    ld 3, [y,x]
+    ld 0x83, [y,x]
     inc
     bne mode2
+    ld modes >> 8, y
+    jmp modes
+modes:
+    ld 0x5A, y                ; the bar, screen rows 8-19
+    ld 11, ac
+mbar:
+    add 0x28, x
+    ld 3, [y,x]
+    sub 1, ac
+    bcc mbar
+    ld 0x40, ac
+    ld ac, [0x15]             ; the cells, 10 of every 12 rows from row 32
+    ld 0x5A, ac
+    ld ac, [0x14]
+    ld 32, ac
+    ld ac, [0x16]
+mcell:
+    ld [0x14], y
+    ld 9, ac
+mcrow:
+    add [0x15], x
+    ld 3, [y,x]
+    sub 1, ac
+    bcc mcrow
+    ld [0x15], ac
+    add 12, ac
+    ld ac, [0x15]
+    bcc mcnc
+    ld [0x14], ac
+    inc
+    ld ac, [0x14]
+mcnc:
+    ld [0x16], ac
+    sub 1, ac
+    ld ac, [0x16]
+    bne mcell
+    ld pend >> 8, y
+    jmp pend
+pend:
     ld 0, ac
     ld ac, [0x18]
     ld ac, [0x17]
@@ -196,6 +236,8 @@ draw_c1:
 draw_c2:
     ld fill2 >> 8, y
     jmp fill2
+
+#addr 0x0500
 fill0:
     ld [0x14], y
     ld [0x15], ac
@@ -238,8 +280,6 @@ fill0:
     bne fill0
     ld [0x13], y
     jmp [0x12]                ; return
-
-#addr 0x0500
 fill1:
     ld [0x14], y
     ld [0x15], ac
@@ -324,6 +364,8 @@ fill2:
     bne fill2
     ld [0x13], y
     jmp [0x12]                ; return
+
+#addr 0x0600
 fill3:
     ld [0x14], y
     ld [0x15], ac
@@ -374,8 +416,6 @@ final:
 final_ok:
     ld bar1 >> 8, y
     jmp bar1
-
-#addr 0x0600
 bar1:
     ld 0x68, ac
     ld ac, [0x14]
@@ -440,6 +480,8 @@ halt1:
     ld ac, [0x1F]
     ld hk_poll >> 8, y
     jmp hk_poll
+
+#addr 0x0700
 bar2:
     ld 0x68, ac
     ld ac, [0x14]
@@ -504,8 +546,6 @@ halt2:
     ld ac, [0x1F]
     ld hk_poll >> 8, y
     jmp hk_poll
-
-#addr 0x0700
 hk_poll:
     ld 0x5D, y
     ld 0x00, x
@@ -576,6 +616,8 @@ hkp_go:
     ld 0x09, x
     ld ac, [y,x]
     jmp 0x20                  ; the menu's exit code (RAM x5D20)
+
+#addr 0x0800
 hk_done:
     ld 0x5D, y
     ld 0x00, x
@@ -652,8 +694,6 @@ t00:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0800
 t01:
     ld 0x5A, ac
     ld ac, [0x40]             ; memory operand
@@ -712,6 +752,8 @@ t05:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0900
 t09:
     ld 0x5A, ac
     ld 0x42, y
@@ -791,8 +833,6 @@ t0E:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0900
 t0F:
     ld 0x43, y
     ld 0xC6, x
@@ -834,6 +874,8 @@ t10:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0A00
 t11:
     ld 0x7C, y
     ld 0x08, x
@@ -966,6 +1008,8 @@ t18:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0B00
 t19:
     ld 0x5A, ac
     ld ac, [0x43]
@@ -1069,8 +1113,6 @@ t1E:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0B00
 t1F:
     ld 0x42, y
     ld 0x5A, x
@@ -1101,6 +1143,8 @@ t20:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0C00
 t21:
     ld 0x5A, ac
     ld ac, [0x40]             ; memory operand
@@ -1196,8 +1240,6 @@ t2C:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0C00
 t2D:
     ld 0x43, y
     ld 0x42, x
@@ -1240,6 +1282,8 @@ t2E:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0D00
 t2F:
     ld 0x43, y
     ld 0xC6, x
@@ -1325,8 +1369,6 @@ t32:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0D00
 t33:
     ld 0xE6, y
     ld 0x08, x
@@ -1466,8 +1508,6 @@ t3B:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0E00
 t3C:
     ld 0x42, y
     ld 0x31, x
@@ -1520,6 +1560,8 @@ t3E:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x0F00
 t3F:
     ld 0x42, y
     ld 0x5A, x
@@ -1608,8 +1650,6 @@ t45:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x0F00
 t49:
     ld 0x5A, ac
     ld 0x42, y
@@ -1647,6 +1687,8 @@ t4C:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1000
 t4D:
     ld 0x43, y
     ld 0xDE, x
@@ -1730,8 +1772,6 @@ t50:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1000
 t51:
     ld 0xFE, y
     ld 0x08, x
@@ -1776,6 +1816,8 @@ t52:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1100
 t53:
     ld 0xE6, y
     ld 0x08, x
@@ -1864,8 +1906,6 @@ t58:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1100
 t59:
     ld 0x5A, ac
     ld ac, [0x43]
@@ -1917,6 +1957,8 @@ t5B:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1200
 t5C:
     ld 0x42, y
     ld 0x31, x
@@ -1999,8 +2041,6 @@ t60:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1200
 t61:
     ld 0x5A, ac
     ld ac, [0x40]             ; memory operand
@@ -2059,6 +2099,8 @@ t65:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1300
 t69:
     ld 0x5A, ac
     ld 0x42, y
@@ -2138,8 +2180,6 @@ t6E:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1300
 t6F:
     ld 0x43, y
     ld 0x00, x
@@ -2181,6 +2221,8 @@ t70:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1400
 t71:
     ld 0x9A, y
     ld 0x08, x
@@ -2313,6 +2355,8 @@ t78:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1500
 t79:
     ld 0x5A, ac
     ld ac, [0x43]
@@ -2416,8 +2460,6 @@ t7E:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1500
 t7F:
     ld 0x42, y
     ld 0x5A, x
@@ -2448,6 +2490,8 @@ t80:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1600
 t81:
     ld 0x5A, ac
     ld ac, [0x40]             ; memory operand
@@ -2543,8 +2587,6 @@ t8C:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1600
 t8D:
     ld 0x43, y
     ld 0x20, x
@@ -2587,6 +2629,8 @@ t8E:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1700
 t8F:
     ld 0x43, y
     ld 0x8C, x
@@ -2672,8 +2716,6 @@ t92:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1700
 t93:
     ld 0xCC, y
     ld 0x08, x
@@ -2813,8 +2855,6 @@ t9B:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1800
 t9C:
     ld 0x42, y
     ld 0x31, x
@@ -2867,6 +2907,8 @@ t9E:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1900
 t9F:
     ld 0x42, y
     ld 0x5A, x
@@ -2955,8 +2997,6 @@ tA5:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1900
 tA9:
     ld 0x5A, ac
     ld 0x42, y
@@ -2994,6 +3034,8 @@ tAC:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1A00
 tAD:
     ld 0x43, y
     ld 0x6C, x
@@ -3077,8 +3119,6 @@ tB0:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1A00
 tB1:
     ld 0x6A, y
     ld 0x08, x
@@ -3123,6 +3163,8 @@ tB2:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1B00
 tB3:
     ld 0x00, y
     ld 0x08, x
@@ -3211,8 +3253,6 @@ tB8:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1B00
 tB9:
     ld 0x5A, ac
     ld ac, [0x43]
@@ -3264,6 +3304,8 @@ tBB:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1C00
 tBC:
     ld 0x42, y
     ld 0x31, x
@@ -3346,8 +3388,6 @@ tC2:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
-
-#addr 0x1C00
 tCE:
     ld 0x43, y
     ld 0x6B, x
@@ -3405,6 +3445,8 @@ tD6:
     ld ac, [0x13]             ; return to the next test
     ld report >> 8, y
     jmp report
+
+#addr 0x1D00
 tDA:
     ld 0x33, x
     ld 0, ac
@@ -3440,7 +3482,7 @@ tDE:
     ld report >> 8, y
     jmp report
 
-#addr 0x1D00
+#addr 0x1E00
 tE0:
     ld tE0_land >> 8, y       ; PC high comes from Y
     jmp tE0_land              ; TEST E0
@@ -3456,7 +3498,7 @@ tE0_fail:
     ld report >> 8, y
     jmp report
 
-#addr 0x1E04
+#addr 0x1F04
 tE0_land:
     ld 0, ac
     ld ac, [0x11]             ; result (0 = pass)
@@ -3469,7 +3511,7 @@ tE0_land:
     ld report >> 8, y
     jmp report
 
-#addr 0x1F00
+#addr 0x2000
 tE1:
     ld tE1_land >> 8, y       ; PC high comes from Y
     ld tE1_land & 0xFF, ac
@@ -3487,7 +3529,7 @@ tE1_fail:
     ld report >> 8, y
     jmp report
 
-#addr 0x2008
+#addr 0x2108
 tE1_land:
     ld 0, ac
     ld ac, [0x11]             ; result (0 = pass)
@@ -3500,7 +3542,7 @@ tE1_land:
     ld report >> 8, y
     jmp report
 
-#addr 0x2100
+#addr 0x2200
 tE2:
     ld tE2_land >> 8, y       ; PC high comes from Y
     ld tE2_land & 0xFF, ac
@@ -3517,7 +3559,7 @@ tE2_fail:
     ld report >> 8, y
     jmp report
 
-#addr 0x2205
+#addr 0x2305
 tE2_land:
     ld 0, ac
     ld ac, [0x11]             ; result (0 = pass)
@@ -3530,7 +3572,7 @@ tE2_land:
     ld report >> 8, y
     jmp report
 
-#addr 0x2300
+#addr 0x2400
 tE3:
     ld tE3_land >> 8, y       ; PC high comes from Y
     ld tE3_land & 0xFF, ac
@@ -3547,7 +3589,7 @@ tE3_fail:
     ld report >> 8, y
     jmp report
 
-#addr 0x2405
+#addr 0x2505
 tE3_land:
     ld 0, ac
     ld ac, [0x11]             ; result (0 = pass)
@@ -3623,7 +3665,7 @@ tE4_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2500
+#addr 0x2600
 tE5:
     ld 0xFF, ac
     add 0x01, ac
@@ -3712,7 +3754,7 @@ tE5_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2600
+#addr 0x2700
 tE6_pad00:
     bra tE6_c1                ; landing pad for AC = 00
 tE6:
@@ -3748,15 +3790,15 @@ tE6_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2640
+#addr 0x2740
 tE6_pad40:
     bra tE6_fail              ; landing pad for AC = 40
 
-#addr 0x2680
+#addr 0x2780
 tE6_pad80:
     bra tE6_c3                ; landing pad for AC = 80
 
-#addr 0x2700
+#addr 0x2800
 tE7_pad00:
     bra tE7_c1                ; landing pad for AC = 00
 tE7:
@@ -3792,11 +3834,11 @@ tE7_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2740
+#addr 0x2840
 tE7_pad40:
     bra tE7_fail              ; landing pad for AC = 40
 
-#addr 0x2780
+#addr 0x2880
 tE7_pad80:
     bra tE7_c3                ; landing pad for AC = 80
 tE8:
@@ -3835,7 +3877,7 @@ tE8_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2800
+#addr 0x2900
 tE9:
     ld tE9_fail & 0xFF, ac
     ld 0x42, y
@@ -3896,7 +3938,7 @@ tE9_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2900
+#addr 0x2A00
 tEA_pad00:
     bra tEA_fail              ; landing pad for AC = 00
 tEA:
@@ -3925,15 +3967,15 @@ tEA_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2940
+#addr 0x2A40
 tEA_pad40:
     bra tEA_fail              ; landing pad for AC = 40
 
-#addr 0x2980
+#addr 0x2A80
 tEA_pad80:
     bra tEA_c3                ; landing pad for AC = 80
 
-#addr 0x2A00
+#addr 0x2B00
 tEB_pad00:
     bra tEB_fail              ; landing pad for AC = 00
 tEB:
@@ -3962,11 +4004,11 @@ tEB_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2A40
+#addr 0x2B40
 tEB_pad40:
     bra tEB_fail              ; landing pad for AC = 40
 
-#addr 0x2A80
+#addr 0x2B80
 tEB_pad80:
     bra tEB_c3                ; landing pad for AC = 80
 tEC:
@@ -4008,7 +4050,7 @@ tEC_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2B00
+#addr 0x2C00
 tED:
     ld tED_fail & 0xFF, ac
     ld ac, [0x45]
@@ -4060,7 +4102,7 @@ tED_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2C00
+#addr 0x2D00
 tEE_pad00:
     bra tEE_fail              ; landing pad for AC = 00
 tEE:
@@ -4090,15 +4132,15 @@ tEE_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2C40
+#addr 0x2D40
 tEE_pad40:
     bra tEE_c2                ; landing pad for AC = 40
 
-#addr 0x2C80
+#addr 0x2D80
 tEE_pad80:
     bra tEE_c3                ; landing pad for AC = 80
 
-#addr 0x2D00
+#addr 0x2E00
 tEF_pad00:
     bra tEF_fail              ; landing pad for AC = 00
 tEF:
@@ -4128,11 +4170,11 @@ tEF_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2D40
+#addr 0x2E40
 tEF_pad40:
     bra tEF_c2                ; landing pad for AC = 40
 
-#addr 0x2D80
+#addr 0x2E80
 tEF_pad80:
     bra tEF_c3                ; landing pad for AC = 80
 tF0:
@@ -4216,7 +4258,7 @@ tF1_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2E00
+#addr 0x2F00
 tF2_pad00:
     bra tF2_c1                ; landing pad for AC = 00
 tF2:
@@ -4245,15 +4287,15 @@ tF2_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2E40
+#addr 0x2F40
 tF2_pad40:
     bra tF2_fail              ; landing pad for AC = 40
 
-#addr 0x2E80
+#addr 0x2F80
 tF2_pad80:
     bra tF2_fail              ; landing pad for AC = 80
 
-#addr 0x2F00
+#addr 0x3000
 tF3_pad00:
     bra tF3_c1                ; landing pad for AC = 00
 tF3:
@@ -4282,11 +4324,11 @@ tF3_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x2F40
+#addr 0x3040
 tF3_pad40:
     bra tF3_fail              ; landing pad for AC = 40
 
-#addr 0x2F80
+#addr 0x3080
 tF3_pad80:
     bra tF3_fail              ; landing pad for AC = 80
 tF4:
@@ -4353,7 +4395,7 @@ tF4_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x3000
+#addr 0x3100
 tF6_pad00:
     bra tF6_fail              ; landing pad for AC = 00
 tF6:
@@ -4388,15 +4430,15 @@ tF6_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x3040
+#addr 0x3140
 tF6_pad40:
     bra tF6_c2                ; landing pad for AC = 40
 
-#addr 0x3080
+#addr 0x3180
 tF6_pad80:
     bra tF6_fail              ; landing pad for AC = 80
 
-#addr 0x3100
+#addr 0x3200
 tF7_pad00:
     bra tF7_fail              ; landing pad for AC = 00
 tF7:
@@ -4431,11 +4473,11 @@ tF7_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x3140
+#addr 0x3240
 tF7_pad40:
     bra tF7_c2                ; landing pad for AC = 40
 
-#addr 0x3180
+#addr 0x3280
 tF7_pad80:
     bra tF7_fail              ; landing pad for AC = 80
 tF8:
@@ -4475,7 +4517,7 @@ tF8_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x3200
+#addr 0x3300
 tF9:
     ld tF9_c1 & 0xFF, ac
     ld ac, [0x46]
@@ -4531,7 +4573,7 @@ tF9_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x3300
+#addr 0x3400
 tFA_pad00:
     bra tFA_c1                ; landing pad for AC = 00
 tFA:
@@ -4561,15 +4603,15 @@ tFA_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x3340
+#addr 0x3440
 tFA_pad40:
     bra tFA_fail              ; landing pad for AC = 40
 
-#addr 0x3380
+#addr 0x3480
 tFA_pad80:
     bra tFA_c3                ; landing pad for AC = 80
 
-#addr 0x3400
+#addr 0x3500
 tFB_pad00:
     bra tFB_c1                ; landing pad for AC = 00
 tFB:
@@ -4599,11 +4641,11 @@ tFB_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x3440
+#addr 0x3540
 tFB_pad40:
     bra tFB_fail              ; landing pad for AC = 40
 
-#addr 0x3480
+#addr 0x3580
 tFB_pad80:
     bra tFB_c3                ; landing pad for AC = 80
 tFC:
@@ -4661,7 +4703,7 @@ tFD_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x3500
+#addr 0x3600
 tFE_pad00:
     bra tFE_c1                ; landing pad for AC = 00
 tFE:
@@ -4692,15 +4734,15 @@ tFE_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x3540
+#addr 0x3640
 tFE_pad40:
     bra tFE_c2                ; landing pad for AC = 40
 
-#addr 0x3580
+#addr 0x3680
 tFE_pad80:
     bra tFE_c3                ; landing pad for AC = 80
 
-#addr 0x3600
+#addr 0x3700
 tFF_pad00:
     bra tFF_c1                ; landing pad for AC = 00
 tFF:
@@ -4731,10 +4773,10 @@ tFF_rep:
     ld report >> 8, y
     jmp report
 
-#addr 0x3640
+#addr 0x3740
 tFF_pad40:
     bra tFF_c2                ; landing pad for AC = 40
 
-#addr 0x3680
+#addr 0x3780
 tFF_pad80:
     bra tFF_c3                ; landing pad for AC = 80
