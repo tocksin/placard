@@ -3,6 +3,8 @@
     "allow": [
       "Bash(git push origin --delete claude/*)",
       "Bash(git push -d origin claude/*)"
-    ]
+      "WebFetch(domain:www.findchips.com)",
+      "WebFetch(domain:www.mouser.com)",
+      "WebFetch(domain:www.digikey.com)"    ]
   }
 }
