@@ -73,7 +73,7 @@ FP_EXP = "placard:CardEdge_2x20_P2.54mm_Vertical"
 FP_PS2 = "placard:PS2_Kycon_KMDGX-6S-6S-S4N"
 FP_SNES = "placard:SNES_Pad_Socket_Horizontal"
 FP_SW1 = "placard:SW_Toggle_CIT_ANT11TFHQE"
-FP_SW2 = "placard:SW_Push_CK_E112SD1A3QE"
+FP_SW2 = "Button_Switch_THT:SW_Tactile_SPST_Angled_PTS645Vx58-2LFS"
 FP_HOLE = "MountingHole:MountingHole_3.2mm_M3_Pad_Via"
 
 # Each footprint's anchor, in its own coordinates: for an edge connector the
@@ -88,7 +88,7 @@ ANCHOR = {
     FP_KBD: (1.27, 11.43),        # middle of the 2 x 10 pins
     FP_CART: (16.5, 0.0),         # middle of the contacts
     FP_EXP: (24.13, 0.0),
-    FP_PS2: (0.0, 0.0), FP_SNES: (0.0, 0.0), FP_SW1: (0.0, 0.0), FP_SW2: (0.0, 0.0),
+    FP_PS2: (0.0, 0.0), FP_SNES: (0.0, 0.0), FP_SW1: (0.0, 0.0), FP_SW2: (2.25, -2.59),     # body face; the plunger reaches 3.3 mm past the edge
     FP_HOLE: (0.0, 0.0),
 }
 OPENS_UP = {FP_PS2, FP_SNES, FP_SW1, FP_SW2, FP_AUDIO}
