@@ -22,7 +22,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 8 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 7:4 (`ATF22V10_QUAD_MUX.pld`) |
 | 9 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 11:8: PC / Y / zero page / video address (`ATF22V10_QUAD_MUX.pld`) |
 | 10 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 15:12 (`ATF22V10_QUAD_MUX.pld`) |
-| 11 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Memory control: /WE, /RAM_OE, /ROM_OE from the map; /ROM_OE only while RUN from the cartridge is high (revision 08, pin 17 is the RUN input) (`ATF22V10_MEM_CTRL.pld`) |
+| 11 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Memory control: /WE, /RAM_OE, /ROM_OE from the map; /ROM_OE only while RUN from the cartridge is high (revision 09, pin 17 is the RUN input; /WE floats while RUN is low so a slot-1 boot card can write the RAM) (`ATF22V10_MEM_CTRL.pld`) |
 | 12 | ATF22V10C-7PX | PLD (22V10, 24-pin) | I/O decode: upper 32K /CE_HI and the x5000-x53FF strobes (`ATF22V10_IO_DECODE.pld`) |
 | 13 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Video H counter: H9:H3, HSYNC, horizontal active (`ATF22V10_HCOUNT.pld`) |
 | 14 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Video V counter: V9:V0 (`ATF22V10_VCOUNT.pld`) |

@@ -212,9 +212,13 @@ Pins between the main board and the cartridge for the loader: CLK,
 PIXEL_ENABLE, PC_ENABLE and STALL_IN (to the cartridge), STALL_OUT and
 RUN (from it).  There is no clock gate and no 74AC541 on the cartridge.
 
-**Without a cartridge** (bring-up, or a board with SRAMs loaded some
-other way) jumper STALL_IN to STALL_OUT and RUN to +5 V; the board then
-runs from power-up, but nothing loads the ROM.
+**Without a cartridge** a boot card in expansion slot 1 can load the
+main RAM the same way and start the machine from RAM, with no ROM
+(EXPANSION.md, "Booting from slot 1"); the memory control PLD (revision
+09) lets go of /WE while RUN is low so the card can write the RAM.  A
+fitted cartridge always wins.  For bring-up with neither, jumper STALL_IN
+to STALL_OUT and RUN to +5 V; the board then runs from power-up, but
+nothing loads the ROM.
 
 ## Boot
 
