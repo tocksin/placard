@@ -26,6 +26,13 @@ them) is [docs/SCHEMATIC_PLAN.md](../docs/SCHEMATIC_PLAN.md).  Parts and U-numbe
 [docs/CHIPS.md](../docs/CHIPS.md); the PLD pinouts come from the `.pld` files
 in `src/`.
 
+Every part carries Manufacturer and MPN fields (empty where no part number
+is chosen yet), set from the `MPN` table in `src/scripts/gen_kicad_schematic.py`,
+so KiCad's BOM export lists them.  `src/scripts/gen_bom.py` writes the grouped
+bill of materials for all three boards, [docs/BOM.md](../docs/BOM.md) and
+`docs/BOM.csv`, including the sockets and keyboard parts that are not on the
+schematic.
+
 Backups, autosaves, lock files, `*.kicad_prl` (per-user view settings) and
 `fp-info-cache` are git-ignored.
 

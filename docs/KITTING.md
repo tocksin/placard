@@ -38,9 +38,9 @@ The rest of the kit is ordinary stock: 6 SN74F377AN, 4 SN74F541N, 2
 AS7C256C-15PCN (4 with the cartridge's), a CD74ACT273E,
 SN74HCT574N, SN74HC574N, the 3.3 V regulator and oscillator (not chosen
 yet), the power toggle (CIT ANT11TFHQE) and reset button (C&K
-E112SD1A3QE), sockets, passives, connectors, two PCBs and the case.  The passive
-and connector BOM comes out of the KiCad project (SCHEMATIC_PLAN.md) once
-the schematic is done.
+E112SD1A3QE), sockets, passives, connectors, three PCBs and the case.  The full
+bill of materials, board by board, is [BOM.md](BOM.md) (and BOM.csv),
+written from the KiCad sheets.
 
 ## The services
 
