@@ -1,6 +1,6 @@
 # I/O: keyboard, SNES pads, SD card, PS/2 mouse
 
-Date: 2026-10-20
+Date: 2026-10-22
 
 The keyboard, both SNES pads, the SD card and a PS/2 mouse share one port
 at x5200-x52FF.  They are polled, never used at the same moment, so they
@@ -32,7 +32,7 @@ chips and the connectors:
 |---|---|---|
 | J1 | Keyboard, 2 x 10 shrouded box header (keyed), 2.54 mm, ribbon cable | 1-8 = /COL0-/COL7 (port PLD pins 14-21), 9-16 = ROW0-ROW7 (74F541 A1-A8), 17 = +5 V, 18-19 = GND, 20 = spare (caps lock LED).  The same header on the keyboard board.  The keys and their diodes are on the keyboard board; the row pull-ups stay on the main board |
 | J2, J3 | SNES pad 1 and 2 | 1 +5 V, 2 CLOCK (latch Q0), 3 LATCH (latch Q1), 4 DATA (port PLD pin 7 or 8), 5-6 not used, 7 GND |
-| J4 | Full-size SD socket (SPI) | 1 CS, 2 DI, 5 CLK from the dividers R1003-R1008; 7 DO = MISO; 4 VDD 3.3 V; 3, 6 GND; 8, 9 not used |
+| J4 | Full-size SD socket (SPI) | 1 CS, 2 DI, 5 CLK from the dividers R42-R47; 7 DO = MISO; 4 VDD 3.3 V; 3, 6 GND; 8, 9 not used |
 | J5 | Mini-DIN 6, PS/2 mouse | 1 DATA, 3 GND, 4 +5 V, 5 CLK |
 
 ## The port
@@ -171,7 +171,8 @@ Fn + Left = Home (15).  Fn + Backspace = Delete (7F) is on the keycap.
 **Keyboard board** (`kicad/keyboard/`, `schematics/placard_keyboard.pdf`,
 drawn by `gen_kicad_schematic.py`): 63 switches, each with a BAT85
 Schottky diode (cathode toward the column), wired to the table above.
-Parts are numbered by place: SW1cr, D1cr, R1cr for column c, row r.  J1
+Keys are numbered 1-63 row by row, left to right; SWn, Dn and Rn belong to
+the same key.  J1
 is a keyed 2 x 10 shrouded box header (`Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical`)
 on both boards, joined by a 20-way ribbon: 8 columns, 8 rows, +5 V
 (pin 17), GND (pins 18, 19) and a spare (pin 20).  The 4.7k row pull-ups
@@ -225,7 +226,7 @@ socket reads 0000.
 
 SPI mode 3, bit-banged.  SCK, MOSI and /CS come down from the 5 V latch
 through a resistor divider each, at the SD socket: 1.8k from the latch
-(R1003-R1005), 3.3k to ground (R1006-R1008).
+(R42-R44), 3.3k to ground (R45-R47).
 
 - **Levels:** a 5 V high gives 3.24 V (3.17 V with the 74HC574's high
   of about 4.9 V at 1 mA), inside the card's 2.06 V (0.625 x VDD) to

@@ -12,7 +12,7 @@ renamed to its plain name, and its pin text set to PIN_NAME / PIN_NUMBER mm.
 Because the schematic uses these copies, KiCad's ERC does not report the
 symbols as different from their library.
 
-Date: 2026-10-21
+Date: 2026-10-22
 """
 
 import os
@@ -30,7 +30,7 @@ USED = [("74xx", "74LS273"), ("74xx", "74LS32"), ("74xx", "74LS377"), ("74xx", "
         ("Connector", "DE15_Receptacle_HighDensity_MountingHoles"), ("Connector", "Mini-DIN-6"),
         ("Connector", "SD_Card"), ("Connector_Audio", "AudioJack3"),
         ("Device", "C"), ("Device", "C_Polarized"), ("Device", "D_Schottky"), ("Device", "NetTie_2"),
-        ("Device", "Polyfuse"), ("Device", "R"), ("Device", "R_Network08"),
+        ("Device", "Polyfuse"), ("Device", "R_US"), ("Device", "R_Network08_US"),
         ("Jumper", "Jumper_2_Open"), ("Regulator_Linear", "MCP1700x-330xxTO"),
         ("Oscillator", "ACO-xxxMHz")]
 

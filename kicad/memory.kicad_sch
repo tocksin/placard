@@ -1911,24 +1911,24 @@
           (number "B31"
             (effects
               (font (size 1.5 1.5)))))))
-    (symbol "placard_std:R"
+    (symbol "placard_std:R_US"
       (pin_numbers hide)
       (pin_names
         (offset 0))
       (in_bom yes)
       (on_board yes)
       (property "Reference" "R"
-        (at 2.032 0 90)
+        (at 2.54 0 90)
         (effects
           (font
             (size 1.27 1.27))))
-      (property "Value" "R"
-        (at 0 0 90)
+      (property "Value" "R_US"
+        (at -2.54 0 90)
         (effects
           (font
             (size 1.27 1.27))))
       (property "Footprint" ""
-        (at -1.778 0 90)
+        (at 1.016 -0.254 90)
         (effects
           (font
             (size 1.27 1.27)) hide))
@@ -1942,7 +1942,7 @@
         (effects
           (font
             (size 1.27 1.27)) hide))
-      (property "ki_description" "Resistor"
+      (property "ki_description" "Resistor, US symbol"
         (at 0 0 0)
         (effects
           (font
@@ -1952,16 +1952,62 @@
         (effects
           (font
             (size 1.27 1.27)) hide))
-      (symbol "R_0_1"
-        (rectangle
-          (start -1.016 -2.54)
-          (end 1.016 2.54)
+      (symbol "R_US_0_1"
+        (polyline
+          (pts
+            (xy 0 -2.286)
+            (xy 0 -2.54))
           (stroke
-            (width 0.254)
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 2.286)
+            (xy 0 2.54))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 -0.762)
+            (xy 1.016 -1.143)
+            (xy 0 -1.524)
+            (xy -1.016 -1.905)
+            (xy 0 -2.286))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 0.762)
+            (xy 1.016 0.381)
+            (xy 0 0)
+            (xy -1.016 -0.381)
+            (xy 0 -0.762))
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none)))
+        (polyline
+          (pts
+            (xy 0 2.286)
+            (xy 1.016 1.905)
+            (xy 0 1.524)
+            (xy -1.016 1.143)
+            (xy 0 0.762))
+          (stroke
+            (width 0)
             (type default))
           (fill
             (type none))))
-      (symbol "R_1_1"
+      (symbol "R_US_1_1"
         (pin passive line
           (at 0 3.81 270)
           (length 1.27)
@@ -2091,7 +2137,7 @@
   (wire (pts (xy 20.32 111.76) (xy 53.34 111.76)) (stroke (width 0) (type default)) (uuid 6da10cff-14c0-5a6c-a8f1-f0f02008fe87))
   (wire (pts (xy 271.78 128.27) (xy 271.78 125.73)) (stroke (width 0) (type default)) (uuid 6c9411ab-5530-5823-8452-a639c7027b85))
   (symbol (lib_id "power:+5V") (at 271.78 125.73 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid d4182bd5-4a20-5c9a-82eb-86d242075d6c) (property "Reference" "#PWR0723" (at 271.78 125.73 0) (effects (font (size 1.27 1.27)) hide)) (property "Value" "+5V" (at 271.78 119.38 0) (effects (font (size 2 2)))) (property "Footprint" "" (at 271.78 125.73 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "" (at 271.78 125.73 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid a0184177-487a-5a84-af26-c430011815b9)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/be6ca3b6-de05-5292-a0bc-3d79896ebd7e" (reference "#PWR0723") (unit 1)))))
-  (symbol (lib_id "placard_std:R") (at 271.78 132.08 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 3a8ba4c2-67af-5f09-a801-85d58923dbf1) (property "Reference" "R701" (at 273.78 131.58 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "10k" (at 273.78 134.68 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 271.78 132.08 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 271.78 132.08 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid f5c3182f-8fb2-5aac-86c4-bedc331c5f5f)) (pin "2" (uuid 0b5d49d6-d536-5712-9199-9459c648a4e2)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/be6ca3b6-de05-5292-a0bc-3d79896ebd7e" (reference "R701") (unit 1)))))
+  (symbol (lib_id "placard_std:R_US") (at 271.78 132.08 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid a3d7b041-6b1f-5d6c-9bf3-c681db96b1fb) (property "Reference" "R13" (at 273.78 131.58 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "10k" (at 273.78 134.68 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal" (at 271.78 132.08 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 271.78 132.08 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid f5c3182f-8fb2-5aac-86c4-bedc331c5f5f)) (pin "2" (uuid 0b5d49d6-d536-5712-9199-9459c648a4e2)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/be6ca3b6-de05-5292-a0bc-3d79896ebd7e" (reference "R13") (unit 1)))))
   (text "Lower 32K: /CE = A15 (RAM U31, cartridge /CE_LO); upper: /CE_HI from U12." (at 20 258 0) (effects (font (size 2.2 2.2)) (justify left bottom)) (uuid 040b294c-3bf3-5d82-81ef-e546487882bd))
   (text "RUN low (cartridge loading): /ROM_OE held off, map register clear (all ROM)." (at 20 261.52 0) (effects (font (size 2.2 2.2)) (justify left bottom)) (uuid 7ea84f80-5d83-5874-8a27-d4f967498e55))
   (text "/CART reads low with a cartridge in; nothing reads it yet.  21 spare contacts." (at 20 265.04 0) (effects (font (size 2.2 2.2)) (justify left bottom)) (uuid fc5fad7c-10e2-5aea-a1b5-fbcb14a4a93e))

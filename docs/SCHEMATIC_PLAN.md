@@ -1,6 +1,6 @@
 # Schematic plan
 
-Date: 2026-10-21
+Date: 2026-10-22
 
 How the KiCad schematic (`kicad/`) is split into sheets: how many sheets,
 which chips, connectors and passives go on each, and which nets run between
@@ -28,7 +28,7 @@ a separate board (a KiCad project has one PCB).
 | 7 | Memory and I/O decode | U11 memory control, U12 I/O decode, U25 map register, U31, U32 RAM | cartridge slot (Molex 87715-9106), /CART pull-up |
 | 8 | Video timing | U13 H counter, U14 V counter, U15 Sync, U35 audio/mode slot PLD, U29 line read F541 | strap S4 (audio PLD) |
 | 9 | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register | VGA resistor DAC (8 resistors) and DE-15, R-2R ladder, filter, headphone jack J6, strap S5 (line code) |
-| 10 | Shared port | U37 port latch, U38 port PLD, U39 row F541 | J1 keyboard, J2/J3 SNES, J4 SD (dividers R1003-R1008, MISO diode and pull-up), J5 PS/2 (diodes, 4.7k pull-ups), row pull-ups, pad DATA pull-ups |
+| 10 | Shared port | U37 port latch, U38 port PLD, U39 row F541 | J1 keyboard, J2/J3 SNES, J4 SD (dividers R42-R47, MISO diode and pull-up), J5 PS/2 (diodes, 4.7k pull-ups), row pull-ups, pad DATA pull-ups |
 | 11 | Expansion slots | none | four 2 x 20 card-edge slots, SEL resistors (1k) |
 
 That puts 34 chips plus the regulator and oscillator on nine sheets, no more
@@ -67,7 +67,7 @@ sheet that drives the net.
 |---|---|---|---|
 | `A[0..15]` | address bus (address mux outputs) | 4 | 7 (RAM, memory control, I/O decode, cartridge), 10 (A0 port PLD), 11 (A7:A0) |
 | `D[0..7]` | the one data bus: memory and I/O reads, and the source in EXEC | 6 (series resistors), 7 (RAM, cartridge), 8 (line read), 10 (port PLD D7/D6, row F541), 11 (cards) | 3 (instruction register, State PLD D4:D0), 4 (PC low load), 5 (ALU B), 6 (D register), 7 (map register, RAM writes), 9 (pixel buffer), 10 (port latch) |
-| `SRC[0..7]` | the source F541s' joined outputs, before the series resistors | 6 (source F541s) | 6 (R601-R608 onto `D[0..7]`), 11 (the cards' SD7:SD0) |
+| `SRC[0..7]` | the source F541s' joined outputs, before the series resistors | 6 (source F541s) | 6 (R5-R12 onto `D[0..7]`), 11 (the cards' SD7:SD0) |
 | `F[0..7]` | ALU result | 5 | 5 (AC, X, Y inputs), shown on one sheet only |
 | `I[0..7]` | instruction register outputs | 3 | 3 (State and Branch decode), 5 (ALU S2:S0, CIN), 8 (I1 to the audio PLD), 6 (I1 to U26 /OE2) |
 | `X[0..7]`, `Y[0..7]` | X and Y register outputs | 5 | 4 (address mux), 7 (Y7 to I/O decode) |
@@ -84,8 +84,8 @@ sheet that drives the net.
 | Net | From | To |
 |---|---|---|
 | `CLK` | 2 (oscillator X1) | every clocked chip on 3-9, 11; 7 (cartridge A20) |
-| `STALL_IN` | 3 (Branch pin 19) | 7 (cartridge B17), 2 (bring-up jumper JP201) |
-| `STALL_OUT` | 7 (cartridge B18) | 2 (10k pull-up, JP201), 3 (State pin 2), 4 (PC PLDs pin 14) |
+| `STALL_IN` | 3 (Branch pin 19) | 7 (cartridge B17), 2 (bring-up jumper JP1) |
+| `STALL_OUT` | 7 (cartridge B18) | 2 (10k pull-up, JP1), 3 (State pin 2), 4 (PC PLDs pin 14) |
 | `RUN` | 7 (cartridge A19) | 2 (pull-down), 7 (memory control pin 17, map register /MR), 11 (/RESET on every slot) |
 | `PIXEL_ENABLE` | 8 (Sync pin 19) | 3 (Branch pin 9), 7 (memory control, cartridge A18) |
 | `ADDR_SEL`, `ADDR_SEL_HI`, `ADDR_SEL_LO` | 8 (Sync) | 4 (mux selects), 7 (I/O decode) |
@@ -118,8 +118,8 @@ mutual nets (`Q0`, `PC_ENABLE`, `BRANCH_BLOCK`) stay local.
 CC pull-downs, a polyfuse, a bulk electrolytic on +5 V, the MCP1700-3302
 (U40) with its 1 µF in and out, and the 25.175 MHz oscillator (X1), whose
 output is CLK (no clock gate since 2026-10-21).  STALL_OUT's 10k pull-up
-and RUN's pull-down sit here, with the bring-up jumpers JP201 (STALL_IN to
-STALL_OUT) and JP202 (RUN to +5 V) ([BRINGUP.md](BRINGUP.md)).  A power LED, if
+and RUN's pull-down sit here, with the bring-up jumpers JP1 (STALL_IN to
+STALL_OUT) and JP2 (RUN to +5 V) ([BRINGUP.md](BRINGUP.md)).  A power LED, if
 wanted, goes here too.
 
 **Decoupling.**  Every chip's 100 nF capacitor is drawn beside that chip
@@ -131,7 +131,7 @@ placed at its chip's VCC pin.
 Each decoupling capacitor takes its chip's number: C1 goes with U1, C31
 with U31, and so on (Justin, 2026-10-20), so the gaps U24, U28, U30, U33
 and U34 leave C24, C28, C30, C33 and C34 unused too.  C1-C41 are kept for
-these; every other capacitor uses the sheet numbering below.
+these; every other capacitor counts on from C41 (see the numbering below).
 
 **3. Control.**  State and Branch PLDs side by side, the instruction
 register to their left feeding `I[0..7]`.  Straps S1-S3 drawn as
@@ -202,9 +202,15 @@ cartridge share the net names on the connector (`A0`, `D0`, `/CE_HI`,
 - **Decoupling capacitors:** C = the chip's U-number (C1 for U1),
   set by hand and kept by the annotation.  On the cartridge, C1-C5 go
   with its U1-U5 the same way.
-- **Other passives:** KiCad's "sheet number x 100" annotation (R201, C301, ...)
-  makes a part's sheet obvious.  IO.md's R6-R11 (the SD dividers) are
-  now R1003-R1005 (1.8k) and R1006-R1008 (3.3k).
+- **Other parts** (Justin, 2026-10-22): numbered from 1 for each kind of
+  part and counted up across the board, sheet by sheet, with no gaps and
+  no thousands: R1-R54, RN1-RN2, D1-D5, JP1-JP2, F1, NT1 on the main board;
+  capacitors other than the decoupling ones count on from C41 (C41-C46).
+  The keyboard board numbers its keys 1-63 row by row, so SWn, Dn and Rn
+  belong to the same key.  IO.md's R6-R11 (the SD dividers) are now R42-R44
+  (1.8k) and R45-R47 (3.3k).
+- **Resistor symbol** (Justin, 2026-10-22): the US / NEMA zigzag
+  (`R_US`, `R_Network08_US`), not the IEC box.
 
 ## How the sheets are drawn
 
@@ -279,7 +285,7 @@ Decisions made while drawing (2026-10-20):
 - U36 (audio DAC register) has both supply pins on the audio rail: VCC on
   DAC_5V, GND on GNDA, as its ladder returns there.
 - The bring-up straps S1-S5 are temporary wires in the chip sockets
-  (BRINGUP.md), so they are not on the schematic; JP201 (STALL) and JP202
+  (BRINGUP.md), so they are not on the schematic; JP1 (STALL) and JP2
   (RUN) are.
 - Polyfuse 3 A hold (Bourns MF-R300 size): 19 PLDs can draw about 2.5 A.
 
