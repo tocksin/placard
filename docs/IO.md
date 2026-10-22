@@ -30,7 +30,7 @@ chips and the connectors:
 
 | Ref | Connector | Pins |
 |---|---|---|
-| J1 | Keyboard, 1 x 18 header, 2.54 mm | 1-8 = /COL0-/COL7 (port PLD pins 14-21), 9-16 = ROW0-ROW7 (74F541 A1-A8), 17 = +5 V, 18 = GND (planned 2026-10-21, not yet in the KiCad schematic, which still has 1 x 16).  The keys and their diodes are on the keyboard board; the row pull-ups stay on the main board |
+| J1 | Keyboard, 2 x 10 shrouded box header (keyed), 2.54 mm, ribbon cable | 1-8 = /COL0-/COL7 (port PLD pins 14-21), 9-16 = ROW0-ROW7 (74F541 A1-A8), 17 = +5 V, 18-19 = GND, 20 = spare (caps lock LED).  The same header on the keyboard board.  The keys and their diodes are on the keyboard board; the row pull-ups stay on the main board |
 | J2, J3 | SNES pad 1 and 2 | 1 +5 V, 2 CLOCK (latch Q0), 3 LATCH (latch Q1), 4 DATA (port PLD pin 7 or 8), 5-6 not used, 7 GND |
 | J4 | Full-size SD socket (SPI) | 1 CS, 2 DI, 5 CLK from the dividers R1003-R1008; 7 DO = MISO; 4 VDD 3.3 V; 3, 6 GND; 8, 9 not used |
 | J5 | Mini-DIN 6, PS/2 mouse | 1 DATA, 3 GND, 4 +5 V, 5 CLK |
@@ -168,15 +168,16 @@ Fn + Left = Home (15).  Fn + Backspace = Delete (7F) is on the keycap.
   backtick -> nothing (or Fn + Esc is typed by hand), Delete and Home ->
   nothing.  Left/right are already told apart by the E0 prefix.
 
-**Keyboard board (no schematic yet):** 63 switches and 63 Schottky
-diodes, cathode toward the column, wired to the table above.  J1 is
-1 x 18: 8 columns, 8 rows, +5 V (pin 17) and GND (pin 18); the matrix
-itself needs no power, but the pins are there for an LED or anything else
-the keyboard board grows.  The 4.7k row pull-ups stay on the main board.  If the caps lock LED proposal (Option A,
+**Keyboard board** (`kicad/keyboard/`, `schematics/placard_keyboard.pdf`,
+drawn by `gen_kicad_schematic.py`): 63 switches, each with a BAT85
+Schottky diode (cathode toward the column), wired to the table above.
+Parts are numbered by place: SW1cr, D1cr, R1cr for column c, row r.  J1
+is a keyed 2 x 10 shrouded box header (`Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical`)
+on both boards, joined by a 20-way ribbon: 8 columns, 8 rows, +5 V
+(pin 17), GND (pins 18, 19) and a spare (pin 20).  The 4.7k row pull-ups
+stay on the main board.  If the caps lock LED proposal (Option A,
 `/mnt/project-files/io/caps_lock_led.md`) is taken and the LED sits on the
-keyboard board, J1 grows to 1 x 19 (pin 19 = /CAPS_LED; +5 V is already
-on pin 17).  The layout change
-doesn't affect that proposal either way.
+keyboard board, /CAPS_LED uses pin 20.
 
 **Switches and LEDs (Justin 2026-10-21).**  Cherry MX (PCB mount), each
 with an optional always-on 3 mm LED: +5 V, resistor, LED, GND, fed from
@@ -197,13 +198,16 @@ Key sizes from the layout (one row is 15 u):
 | 6.25 u | Space | yes |
 
 **Footprints.**  KiCad's stock `Button_Switch_Keyboard:SW_Cherry_MX_<size>_PCB`
-has every size above, and the 2 u, 2.25 u and 6.25 u ones already carry
-the Cherry PCB-mount stabilizer holes (3.05 mm and 4 mm, 11.9 mm either
-side of the switch for 2 u and 2.25 u, 50 mm for 6.25 u).  None has LED
-holes.  Plan (held): a Placard footprint `SW_Cherry_MX_LED_<size>` for each
-size = the stock footprint plus the two LED pads, 2.54 mm apart, 5.08 mm
-above the switch centre.  Symbol: stock `Switch:SW_Push_LED`, one Schottky
-diode and one LED resistor per key.
+has every size above, and the 2 u, 2.25 u and 6.25 u ones carry the Cherry
+PCB-mount stabilizer holes (3.05 mm and 4 mm, 11.9 mm either side of the
+switch for 2 u and 2.25 u, 50 mm for 6.25 u), but none has LED holes.
+`src/scripts/gen_kicad_keyswitch.py` writes the Placard versions,
+`placard:SW_Cherry_MX_LED_<size>u_PCB` in `kicad/lib/placard.pretty/`:
+the stock pads and stabilizer holes, the origin at the middle of the
+switch (keys on a 19.05 mm grid), plus the LED pads 2.54 mm apart, 5.08 mm
+from the middle on the side away from the switch contacts: pad 3 = LED
+cathode (square), pad 4 = anode, as the stock `Switch:SW_Push_LED` symbol
+each key uses.  LED resistor 1k (about 3 mA).
 
 ## SNES pads
 
