@@ -744,7 +744,7 @@ def sheet_video_timing(b):
     heading(s, "Video timing", "640 x 480 at 60 Hz: H and V counters, Sync, mode and audio slots, line read")
     s.label_nets |= {"CLK"}
     u13 = s.part("placard:ATF22V10C_HCOUNT", "U13", 76.2, 99.06, pld({
-        1: "CLK", 2: "GND", 3: "H0", 4: "H1", 5: "H2", 14: "H3", 15: "H4", 16: "H5", 17: "H6", 18: "H7",
+        1: "CLK", 2: "GND", 3: "H0", 4: "H1", 5: "H2", 6: "LC7", 14: "H3", 15: "H4", 16: "H5", 17: "H6", 18: "H7",
         19: "H8", 20: "H9", 21: "~{HSYNC}", 22: "H_VIDEO_ACTIVE", 23: "H_TC"}), bare=("23",))
     decap(s, 13, 96.52, 63.5, lift=0)
     u14 = s.part("placard:ATF22V10C_VCOUNT", "U14", 76.2, 208.28, pld({
@@ -787,6 +787,7 @@ def sheet_video_timing(b):
                        "for line repeat (VA0, VA1, VA7, VA8).",
                        "V_VIDEO_ACTIVE (U15 pin 23) is internal.",
                        "U29: x5000 read gives V9:V2.",
+                       "LC7 (mode byte bit 7, U23 Q7) blanks the line.",
                        "Strap S4 goes in U35's socket (BRINGUP.md)."])
     return s
 
@@ -815,10 +816,15 @@ def sheet_video_out(b):
         s.bus_entry(xt, y, 1.27, 1.27, PIX[i], "BUS:PIX")
     yb0 = u22[str(F377_Q[0])][1] + 1.27
     s.bus_piece("PIX", [(xt + 1.27, yb0), (xt + 1.27, u22[str(F377_Q[7])][1] + 1.27)])
-    # U23 line code: PIX in, LC1:LC0 up into U16, LC3:LC2 to the audio slot PLD (sheet 8)
+    # U23 line code: PIX in, LC1:LC0 up into U16, LC3:LC2 to the audio slot PLD and LC7 to the H counter
+    # (sheet 8), LC6:LC4 to the row tint below.  HCT: each tint output sources about 3 mA.
     u23 = s.part("placard_std:74LS377", "U23", 132.08, 152.4,
-                 f377(PIX, ["LC0", "LC1", "LC2", "LC3", None, None, None, None], "~{MODE_LD}"),
-                 value="SN74F377AN", footprint=FP_DIP20, bare=("2", "5"))
+                 f377(PIX, ["LC0", "LC1", "LC2", "LC3", "LC4", "LC5", "LC6", "LC7"], "~{MODE_LD}"),
+                 value="74HCT377", footprint=FP_DIP20, bare=("2", "5", "12", "15", "16"))
+    for k in (4, 5, 6):
+        qx, qy = u23[str(F377_Q[k])]
+        path(s, f"LC{k}", (qx, qy), (qx + 7.62, qy))
+        tag(s, f"LC{k}", qx + 2.54, qy)
     decap(s, 23, 180.34, 152.4, lift=0)
     for k, xj in ((0, 147.32), (1, 149.86)):   # clear of U16's H0-H2 and VIDEN tabs
         (qx, qy), (mx, my) = u23[str(F377_Q[k])], u16[str(10 + k)]
@@ -858,6 +864,40 @@ def sheet_video_out(b):
         else:
             path(s, color, (xc, ys[0]), (xj, ys[0]), (xj, jy), (jx, jy))
         name(s, color, jx - 15.24, jy)
+    # Row tint: LCn -> 910 -> node -> two 1N4148 -> VGA line; a BAT85 from the node to VIDEN holds the
+    # node at about 0.7 V in blanking, too low to pass the two silicon diodes, so the tint is off there.
+    # Labels only (no routing): LCn from U23, VGA_x to J7, VIDEN from the Sync PLD.
+    xv, xn = 215.9, 240.03
+    vys = []
+    for k, (lc, color) in enumerate((("LC4", "VGA_R"), ("LC5", "VGA_G"), ("LC6", "VGA_B"))):
+        yt = 144.78 + k * 20.32
+        node = f"TINT_{color[-1]}"
+        mid = f"TINT_{color[-1]}2"
+        rt = s.part("placard_std:R_US", f"R{56 + k}", 229.87, yt, R2(lc, node), value="910", footprint=FP_R,
+                    angle=90, bare=("1", "2"), ref_at=(226.5, yt - 7.0), value_at=(227.0, yt + 3.4))
+        da = s.part("placard_std:D", f"D{30 + 2 * k}", 248.92, yt, {"1": mid, "2": node}, value="1N4148",
+                    footprint=FP_D, angle=180, bare=("1", "2"), ref_at=(245.0, yt - 7.0), value_at=(245.0, yt - 4.2))
+        db = s.part("placard_std:D", f"D{31 + 2 * k}", 261.62, yt, {"1": color, "2": mid}, value="1N4148",
+                    footprint=FP_D, angle=180, bare=("1", "2"), ref_at=(257.7, yt - 7.0), value_at=(257.7, yt - 4.2))
+        dc = s.part("placard_std:D_Schottky", f"D{27 + k}", xn, yt + 3.81, {"1": "VIDEN", "2": node}, value="BAT85",
+                    footprint=FP_D, angle=90, bare=("1", "2"), ref_at=(xn + 2.5, yt + 5.0), value_at=(xn + 2.5, yt + 7.8))
+        path(s, lc, (rt["1"][0] - 3.81, yt), rt["1"])
+        tag(s, lc, rt["1"][0] - 3.81, yt)
+        path(s, node, rt["2"], (xn, yt), da["2"])
+        path(s, node, dc["2"], (xn, yt))
+        s.junction(xn, yt, owner=node)
+        path(s, mid, da["1"], db["2"])
+        path(s, color, db["1"], (db["1"][0] + 10.16, yt))
+        tag(s, color, db["1"][0] + 3.81, yt)
+        cx, cy = dc["1"]
+        path(s, "VIDEN", (cx, cy), (xv, cy))
+        vys.append(cy)
+    path(s, "VIDEN", (xv, vys[0]), (xv, vys[-1] + 5.08))
+    for cy in vys[1:]:
+        s.junction(xv, cy, owner="VIDEN")
+    s.label("VIDEN", xv, vys[-1] + 5.08, 270, "passive", True)
+    note(s, 226.06, 210.82, ["Row tint: mode byte bits 6:4 lift R, G, B by about 0.2 V",
+                             "for the whole row.  Off in blanking (BAT85 to VIDEN)."], size=2.2)
     # ESD: a BAT85 pair on each sync line at J7 (RGB already sits behind the DAC resistors)
     for k, net in enumerate(("~{HSYNC}", "VSYNC")):
         clamp(s, f"D{22 + 2 * k}", f"D{23 + 2 * k}", net, 312.42 + k * 30.48, 167.64, glob=True)
@@ -928,7 +968,8 @@ def sheet_video_out(b):
     xa = j6["T"][0] - 2.54
     path(s, "AUDIO", (xa, yo), (xa, j6["R1"][1]), j6["R1"])
     name(s, "AUDIO", r957["1"][0] + 2.54, yo)
-    note(s, 15, 262, ["U23 Q3:Q2 = line repeat to U35 (sheet 8); Q1:Q0 = color mode.  DAC_5V: U36's own filtered rail (2.2 ohm, 220u, C36).",
+    note(s, 15, 258, ["U23 Q1:Q0 = color mode; Q3:Q2 = line repeat to U35 and Q7 = blank line to U13 (sheet 8); Q6:Q4 = row tint.",
+                      "DAC_5V: U36's own filtered rail (2.2 ohm, 220u, C36).",
                       "Ladder: 2k 1 % per bit + 2k termination, 1k between nodes (LAD7 = out).  AGND (GNDA) joins GND at the power input."],
          size=2.2)
     return s
