@@ -276,7 +276,7 @@ the address mux takes the video address, H9:H3 on A15:A9 and V8:V0 on A8:A0
 and visible row r (line 544 + r) gives x5A20 + r.  The byte lands in the
 pixel buffer.
 
-**How it is kept.**  The line code register (F377) takes its D inputs from
+**How it is kept.**  The line code register (74HCT377) takes its D inputs from
 the pixel buffer outputs, and its /E is /MODE_LD from the audio slot PLD
 (pin 22, low for all of group 45).  It loads the mode byte from the pixel
 buffer on clocks 2-7 of group 45 and holds it until group 45 of the next
@@ -301,7 +301,13 @@ the audio PLD tPD 7.5 ns is 13 ns after the group starts, long before the
 edge at the end of clock 1, and it goes high 13 ns after the last edge of
 the group (the F377 needs 0 ns hold).  The line code register's data is the
 pixel buffer output, which only changes at the end of clock 1, so it is
-steady for six clock edges; nothing in it races the data bus any more.
+steady for six clock edges; nothing in it races the data bus any more.  With
+the 74HCT377 (2026-10-22, slower than the F377) the margins still hold:
+/MODE_LD is low by about 15.5 ns into group 45 (H counter tCO 5.5 + audio
+PLD 10), leaving about 24 ns before the first edge, and if the part misses
+/MODE_LD going high at the first edge of group 46 it only loads the mode
+byte again (the pixel buffer takes the audio sample one edge later).  Its
+outputs are used from group 48 on.
 
 **History.**  Until 2026-10-16 (first change) the mode byte was the first
 byte read on each line (group 48, x6020 + row), so byte column 0 held mode

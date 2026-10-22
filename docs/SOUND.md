@@ -1,6 +1,6 @@
 # Sound
 
-Date: 2026-10-21
+Date: 2026-10-22
 
 The video circuit plays sound by itself.  On every scan line it reads one
 8-bit sample from RAM, the same way it reads pixels, and a register feeds that
@@ -82,9 +82,9 @@ four row address bits for the line repeat (see
 | 2-8 | H9, H8, H7, H6, H5, H4, H3 | H counter PLD pins 20, 19, 18, 17, 16, 15, 14 |
 | 9 | V9 | V counter PLD pin 19 (Q9) |
 | 10, 11, 13 | V1, V7, V8 | V counter PLD pins 23, 17, 18 |
-| 14, 15 | LC2, LC3 | Line code register (F377) Q2, Q3 |
+| 14, 15 | LC2, LC3 | Line code register (74HCT377) Q2, Q3 |
 | 17-20 | R0, R1, R7, R8 | Address mux video inputs for A0, A1, A7, A8 |
-| 22 | /MODE_LD | Line code register (F377) /E |
+| 22 | /MODE_LD | Line code register (74HCT377) /E |
 | 23 | BLANK_RD | Sync PLD pin 13 |
 | 16, 21 | unused | |
 

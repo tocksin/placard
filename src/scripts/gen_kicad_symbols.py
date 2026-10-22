@@ -84,7 +84,7 @@ LAYOUT = {
          ["RED1", "RED2", "RED3", None, "GRN1", "GRN2", "GRN3", None, "BLU2", "BLU3"]),
     ],
     "ATF22V10_HCOUNT": [
-        (["H0", "H1", "H2", None, "CLK", "RESET"],
+        (["H0", "H1", "H2", None, "LC7", None, "CLK", "RESET"],
          ["H3", "H4", "H5", "H6", "H7", "H8", "H9", None, "HSYNC", None, "H_VIDEO_ACTIVE", None, "H_TC"]),
         (["nc"], []),
     ],

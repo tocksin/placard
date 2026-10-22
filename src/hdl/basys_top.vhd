@@ -142,6 +142,23 @@ architecture Behavioral of basys_top is
     signal vRed             : slv(3 downto 0);
     signal vBlue            : slv(3 downto 0);
     signal vGreen           : slv(3 downto 0);
+    signal tintRed          : sl;   -- row tint on (line code Q4 and VIDEN)
+    signal tintGreen        : sl;   -- line code Q5 and VIDEN
+    signal tintBlue         : sl;   -- line code Q6 and VIDEN
+
+    -- one DAC channel plus the row tint (+4 of 15), held at 15
+    function tintAdd(v : slv(3 downto 0); tint : sl) return slv is
+        variable sum : unsigned(4 downto 0);
+    begin
+        if tint = '0' then
+            return v;
+        end if;
+        sum := ('0' & unsigned(v)) + 4;
+        if sum(4) = '1' then
+            return "1111";
+        end if;
+        return slv(sum(3 downto 0));
+    end function tintAdd;
     
     signal muxSelBoth       : sl;
     signal muxSelLo         : sl;
@@ -541,6 +558,7 @@ begin
                 rowA8Out        => rowA8,
                 lc2In           => lineCode(2),
                 lc3In           => lineCode(3),
+                lc7In           => lineCode(7),
                 i1In            => instReg(1),
                 acSelNOut       => acSelN,
                 pixelRowOut     => pixelRow,
@@ -928,7 +946,9 @@ begin
     --   group 45, and this register copies it on clocks 2-7, then holds it
     --   for the rest of the line.  So the mode byte no longer takes the
     --   first byte column of the screen (see docs/VIDEO.md).  Q1:Q0 go to the
-    --   color decoder, Q3:Q2 to the audio slot PLD (line repeat).
+    --   color decoder, Q3:Q2 to the audio slot PLD (line repeat), Q6:Q4 to
+    --   the row tint resistors and Q7 to the H counter PLD (blank line).
+    --   A 74HCT377 since 2026-10-22, for the tint drive.
     --   (Before: enabled while videoActiveR was low, keeping the bus value
     --   of the first pixel read of the line, byte column 0.)
     loadCodeProc : process (clkVGA)
@@ -1018,9 +1038,17 @@ begin
     vBlue(1 downto 0) <= vBlue(2) & vBlue(2);
     vGreen(0) <= vGreen(1);
 
-    VGA_RED   <= vRed;
-    VGA_BLUE  <= vBlue;
-    VGA_GREEN <= vGreen;
+    -- Row tint (2026-10-22, docs/VIDEO.md "Row tint")
+    --   On the board, line code Q4/Q5/Q6 each feed 910 ohm and two 1N4148s
+    --   into the red/green/blue line, about 0.2 V (30 % of full scale), and a
+    --   BAT85 to VIDEN turns it off in blanking.  Here the 4-bit Basys DAC
+    --   gets +4 of 15 on that channel while VIDEN is high, held at 15.
+    tintRed   <= viden and lineCode(4);
+    tintGreen <= viden and lineCode(5);
+    tintBlue  <= viden and lineCode(6);
+    VGA_RED   <= tintAdd(vRed, tintRed);
+    VGA_GREEN <= tintAdd(vGreen, tintGreen);
+    VGA_BLUE  <= tintAdd(vBlue, tintBlue);
     VGA_VS <= vSync;
     VGA_HS <= hSync;
 
