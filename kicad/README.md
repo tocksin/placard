@@ -13,7 +13,7 @@ when it saves them).
 | `keyboard/` | the keyboard board, its own project (`keyboard.kicad_pro`, one sheet: 63 Cherry MX keys, diodes, LEDs), using the same `lib/` |
 | `placard.kicad_pcb` | the board: 4 layers (F.Cu, In1.Cu = GND, In2.Cu = VCC, B.Cu) |
 | `lib/placard.kicad_sym` | PLD symbols: `ATF22V10C` (generic) and one `ATF22V10C_<name>` per `.pld` file, with its pin names |
-| `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `Keyboard_Header`, `USB_C_Power` |
+| `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `Keyboard_Header`, `PS2_Dual_Stacked`, `USB_C_Power` |
 | `lib/placard_std.kicad_sym` | copies of the stock KiCad symbols the sheets use (74xx, R, C, D, connectors, regulator) with larger pin text, written by `src/scripts/gen_kicad_std.py` |
 | `lib/placard.pretty/` | project footprints: `SW_Cherry_MX_LED_<size>u_PCB` key switches with LED pads and stabilizer holes (written by `src/scripts/gen_kicad_keyswitch.py`) |
 | `sym-lib-table`, `fp-lib-table` | point KiCad at the project libraries |
@@ -77,7 +77,6 @@ Everything else comes from KiCad's own libraries:
 | 3.3 V regulator (MCP1700-3302E/TO) | `Regulator_Linear:MCP1700x-330xxTO` |
 | VGA | `Connector:DE15_Receptacle_HighDensity_MountingHoles` |
 | SD socket | `Connector:SD_Card` |
-| PS/2 mouse | `Connector:Mini-DIN-6` |
 | Headphones | `Connector_Audio:AudioJack3` |
 | Pull-up arrays | `Device:R_Network08` |
 

@@ -783,6 +783,7 @@ begin
         k3      => portLatch(7),
         pad1    => pad1R(1),
         pad2    => pad2R(1),
+        kclk    => '1',             -- no PS/2 keyboard socket on the Basys3 (its one port is the matrix or the mouse)
         col0N   => colN(0),
         col1N   => colN(1),
         col2N   => colN(2),
