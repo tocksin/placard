@@ -60,7 +60,8 @@ DESC_LIB = {
     "placard_parts:Keyboard_Header": "Box header, 2 x 10, 2.54 mm, shrouded and keyed, vertical",
     "placard_std:Jumper_2_Open": "Pin header, 1 x 2, 2.54 mm (bring-up jumper)",
     "placard_std:SW_SPST": "Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing",
-    "placard_std:SW_Push_Open": "Reset: SPDT momentary pushbutton, NC contact used, 4 A 28 V DC, right-angle PCB",
+    "placard_std:SW_Push": "Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil)",
+    "placard_std:G5LE-1": "Reset relay: SPDT, 5 V coil (63 ohm, 80 mA), 8 A 30 V DC, through hole; NC contact carries the 5 V",
     "Switch:SW_Push_LED": "Key switch, Cherry MX style, PCB mount (5 pin)",
     "placard_std:D_Schottky": "Schottky diode, DO-35",
     "placard_std:R_Network08_US": "Resistor network, 8 bussed, SIP-9",
@@ -103,7 +104,8 @@ PRICES = {
     "MF-RG300": (0.73, "Mouser", "MF-RG300-0"),
     "G99-0742": (0.39, "Mouser", ""),
     "ANT11TFHQE": (4.50, "est.", "Digi-Key; Mouser has no stock"),
-    "E112SD1A3QE": (11.00, "est.", "Digi-Key; Mouser has no stock below 160"),
+    "G5LE-1 DC5": (1.80, "est.", "Omron G5LE-1 DC5"),
+    "PTS645VL58-2 LFS": (0.25, "est.", "C&K PTS645VL58-2 LFS"),
     "SA5.0A": (0.40, "est.", "Littelfuse SA5.0A, 500 W TVS, DO-15 axial"),
     "BAT85": None,                                  # by quantity, below
     "M3AAA-2006J": (6.50, "est.", "Digi-Key (3M 20-way assemblies $6-7.50)"),
@@ -117,7 +119,7 @@ PRICES = {
     "Resistor network": (0.40, "est.", "Bourns 4609X-101 series"),
     "Ceramic capacitor, 5 mm pitch|1u": (0.50, "est.", "KEMET C330C105K5R5TA"),
     "Ceramic capacitor, 5 mm pitch|22u": (1.00, "est.", "TDK FG24X5R1A226MRT06"),
-    "Ceramic capacitor, 5 mm pitch|15n C0G": (0.40, "est.", "KEMET C315C153J1G5TA"),
+    "Ceramic capacitor, 5 mm pitch|15n C0G": (0.40, "est.", "KEMET C320C153K1G5TA"),
     "Electrolytic capacitor": (0.35, "est.", "Panasonic FR series"),
     "Pin header": (0.15, "est.", "Sullins PREC002SAAN-RC"),
     "Jumper shunt": (0.10, "est.", "Sullins QPC02SXGN-RC"),
@@ -166,7 +168,7 @@ PLD_JOB = {"STATE": "State", "BRANCH": "Branch", "PC_COUNTER8": "PC", "ALU_SHR":
 SOCKET = {(14, False): "ED14DT", (20, False): "ED20DT", (24, False): "ED241DT", (28, False): "ED281DT",
           (28, True): "ED28DT"}
 
-REF_ORDER = ["U", "X", "J", "SW", "F", "D", "R", "RN", "C", "JP"]
+REF_ORDER = ["U", "X", "J", "SW", "K", "F", "D", "R", "RN", "C", "JP"]
 
 
 def ref_key(r):
