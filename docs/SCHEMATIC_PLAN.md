@@ -20,7 +20,7 @@ a separate board (a KiCad project has one PCB).
 | Sheet | Title | Chips | Connectors and main passives |
 |--:|---|---|---|
 | 1 | Root: block diagram | none | sheet boxes only, drawn like `reference/placard_block_diagram.png` |
-| 2 | Power and clock | U40 3.3 V regulator, oscillator X1 | USB-C power input, polyfuse, bulk capacitor, STALL_OUT 10k pull-up, RUN pull-down, STALL/RUN bring-up jumpers |
+| 2 | Power and clock | U40 3.3 V regulator, oscillator X1 | USB-C power input, polyfuse, on/off toggle SW1, reset button SW2 (push to open), bulk capacitor, STALL_OUT 10k pull-up, RUN pull-down, STALL/RUN bring-up jumpers |
 | 3 | Control | U1 State, U2 Branch, U17 instruction register PLD | bring-up straps S1-S3 (State socket pins) |
 | 4 | Program counter and address mux | U3, U4 PC low/high, U7-U10 address mux | none |
 | 5 | ALU and registers | U5, U6 ALU, U19 AC, U20 X, U21 Y | none |
@@ -115,7 +115,9 @@ mutual nets (`Q0`, `PC_ENABLE`, `BRANCH_BLOCK`) stay local.
 ## Sheet notes
 
 **2. Power and clock.**  USB-C receptacle (power only) with the two 5.1k
-CC pull-downs, a polyfuse, a bulk electrolytic on +5 V, the MCP1700-3302
+CC pull-downs, a polyfuse, then in series the on/off toggle SW1 and the
+reset button SW2 (normally closed: pressing it cuts the power, Justin
+2026-10-22), a bulk electrolytic on +5 V, the MCP1700-3302
 (U40) with its 1 µF in and out, and the 25.175 MHz oscillator (X1), whose
 output is CLK (no clock gate since 2026-10-21).  STALL_OUT's 10k pull-up
 and RUN's pull-down sit here, with the bring-up jumpers JP1 (STALL_IN to
@@ -288,8 +290,13 @@ Decisions made while drawing (2026-10-20):
   (BRINGUP.md), so they are not on the schematic; JP1 (STALL) and JP2
   (RUN) are.
 - Polyfuse 3 A hold (Bourns MF-R300 size): 19 PLDs can draw about 2.5 A.
+- SW1 and SW2 carry the whole board's current, so each needs a rating of
+  5 A DC or more: the polyfuse holds 3 A and passes about 6 A before it
+  trips.  A small tactile button (about 50 mA) will not do for SW2; use a
+  panel-mount momentary push-to-open (NC) switch.  Their footprints wait
+  for the case design.
 
 **Still to do:** a KiCad 8 ERC (the container's KiCad 7.0 command line has
 no ERC; open the project in KiCad 8 or 9 and run Inspect > Electrical Rules
 Checker), footprints for the connectors (slots, cartridge edge, VGA, SD,
-mini-DIN, jack), and the cartridge's card-edge footprint.
+mini-DIN, jack) and the power and reset switches, and the cartridge's card-edge footprint.
