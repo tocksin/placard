@@ -26,7 +26,7 @@ Each block shows how many chips it uses (34 and a 3.3 V regulator on the main bo
 
 The drawing is made by `src/scripts/gen_block_diagram.py` (2026-10-20); rerun it when the design changes.
 
-The I/O circuitry (keyboard, SNES pads, SD card, PS/2 mouse) is drawn as a schematic in
+The I/O circuitry (keyboard, SNES pads, SD card, PS/2 keyboard and mouse) is drawn as a schematic in
 [docs/IO.md](docs/IO.md#schematic) (`schematics/placard_io_schematic.png`).
 The audio circuitry (sample read, DAC register, R-2R ladder, headphone jack) is drawn in
 [docs/SOUND.md](docs/SOUND.md#schematic) (`schematics/placard_audio_schematic.png`).
@@ -77,7 +77,7 @@ Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes ar
 | x5000-x50FF | /LINE_RD | R | Video line counter, V9:V2 (built) |
 | x5100-x517F | /EXP1, A7 = 0 | R/W | Expansion slot 1 |
 | x5180-x51FF | /EXP1, A7 = 1 | R/W | Expansion slot 3 |
-| x5200-x52FF | /PORT_WR | W | Shared port latch: keyboard column, SD card SCK, MOSI and /CS, SNES pad clock and latch, PS/2 mouse lines |
+| x5200-x52FF | /PORT_WR | W | Shared port latch: keyboard column, SD card SCK, MOSI and /CS, SNES pad clock and latch, PS/2 lines |
 | x5200-x52FF | /PORT_RD | R | Shared port: keyboard rows, SD MISO and the PS/2 lines (even addresses), SNES pad data (odd addresses) |
 | x5300-x537F | /EXP2, A7 = 0 | R/W | Expansion slot 2 |
 | x5380-x53FF | /EXP2, A7 = 1 | R/W | Expansion slot 4 |

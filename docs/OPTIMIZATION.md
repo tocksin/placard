@@ -1,6 +1,6 @@
 # Chip-count review
 
-Date: 2026-10-19
+Date: 2026-10-22
 
 Proposals 2 and 3 were applied on 2026-10-18, and 4 on 2026-10-19, which
 replaces proposal 1.  The design was 41 chips plus a 3.3 V regulator and
@@ -170,7 +170,7 @@ counts and the spare terms in every cell are in [PLD_USAGE.md](PLD_USAGE.md).
 | Audio slot | 16, 21 (I/O, 12 terms each) |
 | H counter | 6-11, 13 (inputs); 2 is declared RESET but used by no equation |
 | V counter | 3-11, 13 (inputs) |
-| Port | 9, 10, 11, 13 (inputs) |
+| Port | 10, 11, 13 (inputs); pin 9 is the PS/2 keyboard CLK since rev 02 |
 | All others | none |
 
 Proposal 1 would also free pins 5 and 11 (inputs) on each high address mux.
