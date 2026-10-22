@@ -34,7 +34,7 @@
 ; that clock the pads or scan the keys raise /CS for less than 50 us,
 ; which is too short for the mouse to start sending.
 ;
-; Date: 10/19/2026
+; Date: 10/22/2026
 ; ============================================================
 
 PORT      = 0x52        ; the shared port's page
@@ -43,10 +43,14 @@ P_FREE    = 0xFF        ; the same with /CS high (SD deselected, PS/2 clock free
 MOUSE_WAIT = 4          ; mouse_poll listens this many 0.25 ms steps for a packet
 
 ; key numbers (column * 8 + row) the keyboard driver treats specially
-K_CTRL    = 28          ; column 3, row 4
+K_CTRL    = 28          ; column 3, row 4 (left Ctrl)
 K_LSHIFT  = 41          ; column 5, row 1
 K_RSHIFT  = 52          ; column 6, row 4
 K_CAPS    = 54          ; column 6, row 6
+K_FN      = 55          ; column 6, row 7
+K_RCTRL   = 59          ; column 7, row 3
+K_BKSP    = 13          ; column 1, row 5
+K_LEFT    = 61          ; column 7, row 5
 
 
 ; ============================================================
@@ -194,9 +198,10 @@ pr_h2:
 ;   for less than a frame, so at most one scan sees a bounce and it
 ;   reads the key either way.  Scanning faster than about every 10 ms
 ;   can see a bounce twice and give a key twice.
-;   Shift and Ctrl change the character; Caps Lock (key K_CAPS) turns
-;   caps lock on and off.  Keys with no character (Shift, Ctrl, Alt,
-;   Fn) only show in KBD_NOW.  The key numbers and characters are in
+;   Shift and Ctrl (either one) change the character; Caps Lock (key
+;   K_CAPS) turns caps lock on and off.  Fn + Backspace = Delete (7F),
+;   Fn + Esc = ` (Shift: ~), Fn + Left = Home (15).  Keys with no
+;   character (Shift, Ctrl, Alt, Fn) only show in KBD_NOW.  The key numbers and characters are in
 ;   docs/IO.md, "Keyboard".
 ; ------------------------------------------------------------
 kbd_scan:
@@ -361,13 +366,13 @@ ks_next:
 
 ; ------------------------------------------------------------
 ; kbd_key - put the character of a key press in the key buffer
-;   in:      AC = key number (column * 8 + row), KBD_NOW for Shift and
-;            Ctrl
+;   in:      AC = key number (column * 8 + row), KBD_NOW for Shift,
+;            Ctrl and Fn
 ;   out:     the character in the key buffer (dropped if it is full,
 ;            nothing for a key with no character); caps lock turned
 ;            on or off for K_CAPS
 ;   changes: AC, X, Y, IO_T3, IO_TMP
-;   clocks:  about 90-130
+;   clocks:  about 90-140
 ;   kbd_scan calls it; a program can call it to type a key itself.
 ; ------------------------------------------------------------
 kbd_key:
@@ -379,6 +384,34 @@ kbd_key:
     ld   ac, [KBD_FLAGS]
     bra  kk_ret
 kk_nc:
+    ld   [KBD_NOW + (K_FN >> 3)], ac
+    and  1 << (K_FN & 7), ac
+    bne  kk_nofn
+    ld   0x7F, ac               ; Fn held: Fn + Backspace = Delete
+    ld   ac, [IO_T3]
+    ld   [IO_TMP], ac
+    xor  K_BKSP, ac
+    beq  kk_put
+    ld   0x15, ac               ; Fn + Left = Home
+    ld   ac, [IO_T3]
+    ld   [IO_TMP], ac
+    xor  K_LEFT, ac
+    beq  kk_put
+    ld   [IO_TMP], ac
+    bne  kk_nofn                ; not Esc: as without Fn
+    ld   0x60, ac               ; Fn + Esc = `
+    ld   ac, [IO_T3]
+    ld   [KBD_NOW + (K_LSHIFT >> 3)], ac
+    and  1 << (K_LSHIFT & 7), ac
+    beq  kk_tilde
+    ld   [KBD_NOW + (K_RSHIFT >> 3)], ac
+    and  1 << (K_RSHIFT & 7), ac
+    bne  kk_put
+kk_tilde:
+    ld   0x7E, ac               ; Shift: ~
+    ld   ac, [IO_T3]
+    bra  kk_put
+kk_nofn:
     ld   [KBD_NOW + (K_LSHIFT >> 3)], ac
     and  1 << (K_LSHIFT & 7), ac
     beq  kk_sh
@@ -411,7 +444,11 @@ kk_tb:
 kk_ctl:
     ld   [KBD_NOW + (K_CTRL >> 3)], ac
     and  1 << (K_CTRL & 7), ac
+    beq  kk_cc
+    ld   [KBD_NOW + (K_RCTRL >> 3)], ac
+    and  1 << (K_RCTRL & 7), ac
     bne  kk_put
+kk_cc:
     ld   [IO_T3], ac            ; Ctrl: the control code
     and  0x1F, ac
     ld   ac, [IO_T3]
@@ -1952,8 +1989,9 @@ mp_out:
 ; ------------------------------------------------------------
 ; kbd_map - the character of each key, by key number (column * 8 +
 ; row): 64 bytes without Shift, then 64 with Shift.  0 = no character.
-; Special keys: Enter 0A, Backspace 08, Tab 09, Esc 1B, Delete 7F,
-; Up 11, Down 12, Left 13, Right 14, Home 15.  docs/IO.md has the layout.
+; Special keys: Enter 0A, Backspace 08, Tab 09, Esc 1B, Up 11, Down 12,
+; Left 13, Right 14 (Delete 7F, Home 15 and ` ~ come from Fn, in
+; kbd_key).  docs/IO.md has the layout.
 ; ------------------------------------------------------------
 kbd_map:
     ; column 0: Esc 1 2 3 4 5 6 7
@@ -1962,7 +2000,7 @@ kbd_map:
     #d8 0x38, 0x39, 0x30, 0x2D, 0x3D, 0x08, 0x09, 0x71
     ; column 2: w e r t y u i o
     #d8 0x77, 0x65, 0x72, 0x74, 0x79, 0x75, 0x69, 0x6F
-    ; column 3: p [ ] \ Ctrl a s d
+    ; column 3: p [ ] \ LCtrl a s d
     #d8 0x70, 0x5B, 0x5D, 0x5C, 0x00, 0x61, 0x73, 0x64
     ; column 4: f g h j k l ; '
     #d8 0x66, 0x67, 0x68, 0x6A, 0x6B, 0x6C, 0x3B, 0x27
@@ -1970,8 +2008,8 @@ kbd_map:
     #d8 0x0A, 0x00, 0x7A, 0x78, 0x63, 0x76, 0x62, 0x6E
     ; column 6: m , . / RShift Up CapsLock Fn
     #d8 0x6D, 0x2C, 0x2E, 0x2F, 0x00, 0x11, 0x00, 0x00
-    ; column 7: ` Alt Space Delete Home Left Down Right
-    #d8 0x60, 0x00, 0x20, 0x7F, 0x15, 0x13, 0x12, 0x14
+    ; column 7: RAlt LAlt Space RCtrl (spare) Left Down Right
+    #d8 0x00, 0x00, 0x20, 0x00, 0x00, 0x13, 0x12, 0x14
 kbd_map_sh:
     #d8 0x1B, 0x21, 0x40, 0x23, 0x24, 0x25, 0x5E, 0x26
     #d8 0x2A, 0x28, 0x29, 0x5F, 0x2B, 0x08, 0x09, 0x51
@@ -1980,7 +2018,7 @@ kbd_map_sh:
     #d8 0x46, 0x47, 0x48, 0x4A, 0x4B, 0x4C, 0x3A, 0x22
     #d8 0x0A, 0x00, 0x5A, 0x58, 0x43, 0x56, 0x42, 0x4E
     #d8 0x4D, 0x3C, 0x3E, 0x3F, 0x00, 0x11, 0x00, 0x00
-    #d8 0x7E, 0x00, 0x20, 0x7F, 0x15, 0x13, 0x12, 0x14
+    #d8 0x00, 0x00, 0x20, 0x00, 0x00, 0x13, 0x12, 0x14
 
 ; ------------------------------------------------------------
 ; sd_cmds - the SD commands sd_init sends: 40 + number, then the
