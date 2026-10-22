@@ -64,7 +64,7 @@ TOP = "Dwgs.User"            # dimensions and notes
 NOTE = "Cmts.User"           # zones and labels
 
 FP_DSUB = "Connector_Dsub:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm"
-FP_AUDIO = "Connector_Audio:Jack_3.5mm_CUI_SJ1-3523N_Horizontal"
+FP_AUDIO = "placard:Jack_3.5mm_Tensility_54-00174_Horizontal"
 FP_USBC = "Connector_USB:USB_C_Receptacle_GCT_USB4125-xx-x_6P_TopMnt_Horizontal"
 FP_SD = "Connector_Card:SD_Kyocera_145638009511859+"
 FP_KBD = "Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical"
@@ -82,7 +82,7 @@ FP_HOLE = "MountingHole:MountingHole_3.2mm_M3_Pad_Via"
 # the project ones toward -y (gen_kicad_connectors.py).
 ANCHOR = {
     FP_DSUB: (-4.315, 6.99),      # shell centre, 4.94 mm from the mounting holes to the edge
-    FP_AUDIO: (0.0, 4.5),
+    FP_AUDIO: (0.0, 0.0),
     FP_USBC: (0.0, 3.4),          # the footprint's "PCB Edge" line
     FP_SD: (0.55, 17.5),          # socket front, card goes in from +y
     FP_KBD: (1.27, 11.43),        # middle of the 2 x 10 pins
@@ -91,7 +91,7 @@ ANCHOR = {
     FP_PS2: (0.0, 0.0), FP_SNES: (0.0, 0.0), FP_SW1: (0.0, 0.0), FP_SW2: (0.0, 0.0),
     FP_HOLE: (0.0, 0.0),
 }
-OPENS_UP = {FP_PS2, FP_SNES, FP_SW1, FP_SW2}
+OPENS_UP = {FP_PS2, FP_SNES, FP_SW1, FP_SW2, FP_AUDIO}
 # rotation that turns a connector's opening toward each edge
 EDGE_ROT = {"back": (180, 0), "left": (270, 90), "right": (90, 270)}   # (stock, project)
 

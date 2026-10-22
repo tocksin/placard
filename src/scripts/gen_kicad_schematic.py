@@ -70,11 +70,42 @@ MPN = {
     "BAT85": ("Vishay", "BAT85"),
     "SA5.0A": ("Littelfuse", "SA5.0A"),
     "PS/2 kbd + mouse": ("Kycon", "KMDGX-6S/6S-S4N"),
+    "25.175 MHz": ("ECS Inc.", "ECS-100A-251.7"),
+    "VGA": ("Assmann WSW", "A-HDF 15 A-KG/T"),
+    "3.5 mm": ("Tensility", "54-00174"),
+    "SD (SPI)": ("Kyocera AVX", "145638009511859+"),
+}
+
+
+# by symbol: parts whose Value is a label (slot name, net) rather than the part
+MPN_LIB = {
+    "placard_parts:Expansion_Slot": ("Sullins", "EBC20DCAN"),
+    "placard_parts:Keyboard_Header": ("Wurth Elektronik", "61202021621"),
+    "placard_std:Jumper_2_Open": ("Sullins", "PREC002SAAN-RC"),
+    "Switch:SW_Push_LED": ("Cherry", "MX2A-L1NB"),
+}
+# passives by (symbol, value): Yageo MFR-25 1 % metal film, Bourns 4609X SIP-9, KEMET/TDK ceramics,
+# Panasonic FR electrolytics (C41 8 x 11.5 mm 3.5 mm pitch, C44 6.3 x 11.2 mm 2.5 mm pitch)
+R_CODE = {"5.1k": "5K1", "10k": "10K", "47": "47R", "3.24k": "3K24", "1.69k": "1K69", "825": "825R",
+          "1.43k": "1K43", "715": "715R", "2.2": "2R2", "2k": "2K", "1k": "1K", "1.8k": "1K8", "3.3k": "3K3",
+          "4.7k": "4K7"}
+MPN_PASSIVE = {
+    ("placard_std:R_Network08_US", "10k"): ("Bourns", "4609X-101-103LF"),
+    ("placard_std:R_Network08_US", "4.7k"): ("Bourns", "4609X-101-472LF"),
+    ("placard_std:C", "100n"): ("KEMET", "C320C104K5R5TA"),
+    ("placard_std:C", "1u"): ("KEMET", "C330C105K5R5TA"),
+    ("placard_std:C", "15n C0G"): ("KEMET", "C320C153K1G5TA"),
+    ("placard_std:C", "22u"): ("TDK", "FG24X5R1A226MRT06"),
+    ("placard_std:C_Polarized", "220u 10V"): ("Panasonic", "EEU-FR1E221"),
+    ("placard_std:C_Polarized", "220u"): ("Panasonic", "EEU-FR1C221"),
 }
 
 
 def part_fields(lib_id, value):
-    m, p = MPN.get(value, ("", ""))
+    if lib_id.endswith(":R_US") and value in R_CODE:
+        m, p = "Yageo", "MFR-25FBF52-" + R_CODE[value]
+    else:
+        m, p = MPN.get(value) or MPN_LIB.get(lib_id) or MPN_PASSIVE.get((lib_id, value), ("", ""))
     return {"Manufacturer": m, "MPN": p}
 
 
@@ -865,12 +896,14 @@ def sheet_video_out(b):
     name(s, "LAD7", xn + 7.62, yo)
     r957 = s.part("placard_std:R_US", "R39", 256.54, yo + 3.81, {"1": "AUDIO", "2": "GNDA"}, value="10k",
                   footprint=FP_R, bare=("1",), ref_at=(259.0, yo + 3.3), value_at=(259.0, yo + 6.4))
-    j6 = s.part("placard_std:AudioJack3", "J6", 281.94, yo + 2.54, {"T": "AUDIO", "R": "AUDIO", "S": "GNDA"},
-                value="3.5 mm", footprint="Connector_Audio:Jack_3.5mm_CUI_SJ1-3523N_Horizontal", ref_at=(278, yo - 6.5), value_at=(285, yo + 8.0), angle=180, bare=("T", "R"))
+    # J6 is a TRRS jack: a TRS headphone plug's sleeve spans R2 and S, so both go to GNDA
+    j6 = s.part("placard_std:AudioJack4", "J6", 281.94, yo + 5.08, {"T": "AUDIO", "R1": "AUDIO", "R2": "GNDA", "S": "GNDA"},
+                value="3.5 mm", footprint="placard:Jack_3.5mm_Tensility_54-00174_Horizontal", ref_at=(278, yo - 6.5),
+                value_at=(285, yo + 11.0), angle=180, bare=("T", "R1"))
     path(s, "AUDIO", c903["2"], j6["T"])
     s.junction(r957["1"][0], yo, owner="AUDIO")
     xa = j6["T"][0] - 2.54
-    path(s, "AUDIO", (xa, yo), (xa, j6["R"][1]), j6["R"])
+    path(s, "AUDIO", (xa, yo), (xa, j6["R1"][1]), j6["R1"])
     name(s, "AUDIO", r957["1"][0] + 2.54, yo)
     note(s, 15, 262, ["U23 Q3:Q2 = line repeat to U35 (sheet 8); Q1:Q0 = color mode.  DAC_5V: U36's own filtered rail (2.2 ohm, 220u, C36).",
                       "Ladder: 2k 1 % per bit + 2k termination, 1k between nodes (LAD7 = out).  AGND (GNDA) joins GND at the power input."],
