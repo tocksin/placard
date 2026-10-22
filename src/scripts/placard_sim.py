@@ -46,7 +46,9 @@ Branch PLD rev 11):
     no cards those reads return FF (the read bus pull-ups)
   - a read of x5000-x50FF returns the video line read,
     V9:V2, with one line per 800 CPU clocks and V = 499-1023 (525 lines per
-    frame).  Video fetch stalls are not modeled.
+    frame).  Video fetch stalls are modeled only with Cpu.stalls = True
+    (or --stalls): the mode byte, audio and pixel reads each take one CPU
+    clock, and a blanked row (mode byte bit 7) makes no pixel reads.
   - with --boot, CPU reads follow the ROM/RAM map (a write to x5000-x50FF
     sets it, every write also goes to the RAM; the I/O window is
     x5000-x53FF, and x5400-x5FFF is memory in map section 2) and the CPU
@@ -59,7 +61,7 @@ basys_top.vhd (low nibble CIN = 0, high nibble CIN = low nibble COUT, low
 SHIFT_RIGHT_IN = AC bit 4, high SHIFT_RIGHT_IN = 0).  The default is an ideal
 8-bit ALU (A - B is a true 8-bit subtraction).
 
-Date: 10/19/2026
+Date: 10/22/2026
 """
 
 import re
@@ -489,6 +491,11 @@ class Cpu:
         self.carry = carry_hw if hw_alu else carry_ideal
         self.steps = 0
         self.clocks = 0
+        # stalls: model the video's stall clocks (one CPU clock lost per
+        # video read: the mode byte and audio reads on every line, and one
+        # pixel read per group on active lines whose mode byte has bit 7 = 0)
+        self.stalls = False
+        self.stall_clocks = 0
 
     def read(self, ad):
         """memory read through the ROM/RAM map (8K sections, bit n = 1: RAM)"""
@@ -564,8 +571,33 @@ class Cpu:
                 elif ad & 0xFD00 == 0x5100 and self.slots is not None:
                     self.slots.write(ad, src)
         self.steps += 1
+        if self.stalls:
+            clocks = self.with_stalls(clocks)
         self.clocks += clocks
         return here
+
+    def with_stalls(self, n):
+        """wall clocks for n CPU clocks from self.clocks: a clock with
+        H2:H0 = 111 that the video uses for a read is lost to the CPU.  The
+        line starts at pixel 224 (group 28); groups 45 and 46 read the mode
+        byte and the audio sample on every line, groups 48-127 read pixels
+        on active lines (V 544-1023) unless the row is blanked (VIDEO.md)"""
+        t = self.clocks
+        end = t + n
+        c = t | 7
+        mem = self.mem
+        while c < end:
+            pos = c % 800
+            g = 28 + (pos >> 3)
+            if g == 45 or g == 46:
+                end += 1
+            elif g >= 48:
+                line = (c // 800) % 525
+                if line >= 45 and not mem[MODE_BASE + line - 45] & 0x80:
+                    end += 1
+            c += 8
+        self.stall_clocks += end - t - n
+        return end - t
 
     def line_read(self):
         """V9:V2 of the video line counter: 800 clocks per line, V = 499-1023"""
@@ -740,6 +772,8 @@ def main(argv):
     ap.add_argument('--boot', action='store_true',
                     help='run from a ROM image (boot loader, library, program) with the '
                          'ROM/RAM map, from an empty RAM, as the hardware starts')
+    ap.add_argument('--stalls', action='store_true',
+                    help='model the video read stall clocks (blanked rows have none)')
     ap.add_argument('--max-steps', type=int, default=20_000_000)
     ap.add_argument('--stop-at', metavar='LABEL', help='stop when the PC reaches LABEL')
     args = ap.parse_args(argv)
@@ -757,6 +791,7 @@ def main(argv):
             cpu = Cpu({}, hw_alu=args.hw_alu, rom=build_rom(mem))
         else:
             cpu = Cpu(mem, hw_alu=args.hw_alu)
+        cpu.stalls = args.stalls
         r = cpu.run(args.max_steps, stop_pc=syms[args.stop_at] if args.stop_at else None)
         print('%s after %d instructions, %d clocks, PC=%04X' % (r, cpu.steps, cpu.clocks, cpu.pc))
         if args.png:

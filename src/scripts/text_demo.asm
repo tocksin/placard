@@ -5,7 +5,11 @@
 ;
 ;   rows   0-95   1 bpp, 1x   80 column text (2 colors): title, the whole
 ;                             character set (normal and inverse), the live
-;                             status lines, a column ruler and a legend
+;                             status lines, a column ruler and a legend.
+;                             Row tints (mode byte bits 6:4, VIDEO.md "Row
+;                             tint"): the status lines sit on a blue panel
+;                             and a rainbow raster bar bounces up and down
+;                             behind the text, moved only by mode bytes
 ;   rows  96-223  4 bpp, 4x   16 colors (160 x 32): "16 COLORS" in big
 ;                             letters, the 16 color bars and a spinning wheel
 ;   rows 224-351  2 bpp, 2x   40 column text (320 x 64), 8 rows of 8 x 16
@@ -29,6 +33,9 @@
 ;     read back.  The progress bar fills a block per two pages (an inverse
 ;     E marks a pair with errors); PASS counts full passes and ERRORS counts
 ;     failed checks (a pattern that read back wrong on a page).
+;   - the raster bar, first, while the video is in vertical blanking: the
+;     20 mode bytes it covered get their panel tint back (TINTB) and the
+;     20 at its new place get the bar (BARP, place from BARY)
 ;   - the frame counter, the uptime clock (60 frames = 1 s), the text
 ;     spinner, the 16-color wheel (one step every 3 frames), the scrolling
 ;     message (one pixel a frame) and the 256-color ring (a step a frame).
@@ -36,14 +43,14 @@
 ;
 ; It is a ROM program (docs/ROM.md): it runs in place from ROM x6000-xAFFF,
 ; uses the standard library (docs/LIBRARY.md) and the zero page map, and
-; keeps its variables in the zero page x20-x8A.  It doesn't use the ROM at
+; keeps its variables in the zero page x20-x8E.  It doesn't use the ROM at
 ; x2000-x3FFF, so it sets map 07 (section 1 reads RAM) to test that RAM too.
 ;
 ;     python3 gen_text_demo_tables.py         (writes text_demo_tables.asm)
 ;     python3 placard_sim.py text_demo.asm --run --max-steps 3000000 --png td.png
 ;     python3 text_demo_sim.py                (checks it; --gif for an animation)
 ;
-; Date: 10/20/2026
+; Date: 10/22/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -111,6 +118,11 @@ CH         = 0x5F       ; scroller: the 41 message characters on screen,
 wh_k       = 0x88       ; 256-color ring: pixel
 wh_t       = 0x89       ;   its color
 wh_x       = 0x8A       ;   its row offset
+tn_ph      = 0x8B       ; raster bar: phase (a step every 2 frames)
+tn_pos     = 0x8C       ;   x20 + its first row now (mode byte low address)
+tn_i       = 0x8D       ;   (row in the bar)
+tn_v       = 0x8E       ;   (its mode byte)
+TN_N       = 20         ;   rows in the bar
 
 ; td_scroll's working bytes share the drawing routines' bytes (x49-x53, x58),
 ; which are only used while the screen is drawn
@@ -193,6 +205,13 @@ td_mb3:
     ld   0x0B, [y,x]
     inc
     bne  td_mb3
+    ld   LINK_LO, x             ; CALL td_tint_init: rows 0-95 get their
+    ld   td_mb4, [x]            ; tints (TINTB)
+    ld   LINK_HI, x
+    ld   td_mb4 >> 8, [x]
+    ld   td_tint_init >> 8, y
+    jmp  td_tint_init
+td_mb4:
 
     ; ---- 80 column text -------------------------------------------------
     ld   text_a, ac             ; the text list
@@ -507,6 +526,13 @@ td_l1:
     ld   [FRAME_LO], ac
     ld   ac, [last_frame]
 
+    ld   LINK_LO, x             ; CALL td_tint: the raster bar, while the
+    ld   td_lt, [x]             ; video is still in vertical blanking
+    ld   LINK_HI, x
+    ld   td_lt >> 8, [x]
+    ld   td_tint >> 8, y
+    jmp  td_tint
+td_lt:
     ld   LINK_LO, x             ; CALL menu_poll: back to the program menu
     ld   td_l0, [x]             ; on Esc or when the time is up (only in the
     ld   LINK_HI, x             ; menu ROM, docs/MENU.md)
@@ -2006,6 +2032,103 @@ msg:
     #d "*** BY JUSTIN DAVIS    "
 msg_end:
     #d8 0x00
+
+; ===========================================================================
+; td_tint_init - rows 0-95: mode byte = TINTB (1 bpp 1x, with their tint);
+;   the raster bar starts at row 0
+;   changes: AC, X, Y
+; td_tint - move the raster bar: its old 20 rows get TINTB back, then the
+;   bar (BARP) goes to row BARY[phase / 2]; called first thing in a frame,
+;   in the vertical blanking.  About 1,600 clocks.
+;   changes: AC, X, Y
+; ===========================================================================
+#addr 0x6F60
+td_tint_init:
+    ld   95, ac
+    ld   ac, [tn_i]
+tti_l:
+    ld   [tn_i], ac             ; mode byte x5A20 + row = TINTB[row]
+    add  0x20, x                ; (TINTB is at xA220, the same low bytes)
+    ld   TINTB >> 8, y
+    ld   [y,x], ac
+    ld   0x5A, y
+    ld   ac, [y,x]
+    ld   [tn_i], ac
+    sub  1, ac
+    ld   ac, [tn_i]
+    bcc  tti_l
+    ld   0x20, ac
+    ld   ac, [tn_pos]
+    clr  ac
+    ld   ac, [tn_ph]
+    ld   [LINK_HI], y           ; RETURN
+    jmp  [LINK_LO]
+
+td_tint:
+    ld   TN_N - 1, ac         ; the rows the bar covered: TINTB again
+    ld   ac, [tn_i]
+tt_r:
+    ld   [tn_i], ac
+    add  [tn_pos], x
+    ld   TINTB >> 8, y
+    ld   [y,x], ac
+    ld   0x5A, y
+    ld   ac, [y,x]
+    ld   [tn_i], ac
+    sub  1, ac
+    ld   ac, [tn_i]
+    bcc  tt_r
+    ld   [tn_ph], ac            ; next place: BARY[phase / 2] + x20
+    add  1, ac
+    and  0x7F, ac
+    ld   ac, [tn_ph]
+    shr  ac
+    add  BARY & 0xFF, x
+    ld   BARY >> 8, y
+    ld   [y,x], ac
+    add  0x20, ac
+    ld   ac, [tn_pos]
+    ld   TN_N - 1, ac         ; the bar
+    ld   ac, [tn_i]
+tt_b:
+    ld   [tn_i], ac
+    add  BARP & 0xFF, x
+    ld   BARP >> 8, y
+    ld   [y,x], ac
+    ld   ac, [tn_v]
+    ld   [tn_i], ac
+    add  [tn_pos], x
+    ld   0x5A, y
+    ld   [tn_v], ac
+    ld   ac, [y,x]
+    ld   [tn_i], ac
+    sub  1, ac
+    ld   ac, [tn_i]
+    bcc  tt_b
+    ld   [LINK_HI], y           ; RETURN
+    jmp  [LINK_LO]
+
+; ===========================================================================
+; raster bar tables (xA220-xA2FF, after the scroller's page tables)
+; ===========================================================================
+#addr 0xA220
+TINTB:                          ; tint of rows 0-95 (x20 + row): a blue panel
+    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x40, 0x40, 0x40
+    #d8 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40
+    #d8 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40
+    #d8 0x40, 0x40, 0x40, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+#addr 0xA280                    ;   behind the status lines, rows 44-83
+BARP:                           ; the bar, 20 rows: blue, magenta, red, gold,
+    #d8 0x40, 0x40, 0x50, 0x50, 0x10, 0x10, 0x30, 0x30, 0x70, 0x70, 0x70, 0x70, 0x30, 0x30, 0x10, 0x10
+    #d8 0x50, 0x50, 0x40, 0x40
+#addr 0xA2A0                    ;   grey (all three), and back
+BARY:                           ; its first row, 64 steps of a bounce, 0-76
+    #d8 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x06, 0x09, 0x0B, 0x0E, 0x11, 0x14, 0x17, 0x1B, 0x1F, 0x22
+    #d8 0x26, 0x2A, 0x2D, 0x31, 0x35, 0x38, 0x3B, 0x3E, 0x41, 0x43, 0x46, 0x48, 0x49, 0x4A, 0x4B, 0x4C
+    #d8 0x4C, 0x4C, 0x4B, 0x4A, 0x49, 0x48, 0x46, 0x43, 0x41, 0x3E, 0x3B, 0x38, 0x35, 0x31, 0x2D, 0x2A
+    #d8 0x26, 0x22, 0x1F, 0x1B, 0x17, 0x14, 0x11, 0x0E, 0x0B, 0x09, 0x06, 0x04, 0x03, 0x02, 0x01, 0x00
 
 ; ===========================================================================
 ; small tables (one page, TBL)

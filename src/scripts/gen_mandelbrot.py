@@ -17,6 +17,10 @@ SEQUENCE (repeats forever)
     finishes the time "SSS.SSS s" is shown in a black 1 bpp band across the
     middle of the screen (rows 232-247), then the program pauses about 5 s.
     The screen is cleared (and every mode byte set) before each pass.
+    Each pass draws row by row, top to bottom.  The clear sets every row's
+    mode byte to the pass's depth with bit 7 (blank line, VIDEO.md) and a
+    row is shown when its points are done, so the video makes no pixel
+    reads, and does not stall the CPU, on the rows still to come.
 
     mode    points      screen pixels per point   colors
     1 bpp   632 x 480   1 x 1                     2   (iteration bands)
@@ -64,6 +68,15 @@ pixel for pixel outside the time band)
     the carry flag makes it about 5 % faster (most of the work is table
     look-ups).  The four screens are reference/mandelbrot_sim.png (1, 2 /
     4, 8 bpp).
+    Blank lines (2026-10-22): drawing row by row and showing each row only
+    when it is done, measured with placard_sim --stalls (the video read
+    stall clocks modeled), pass clocks including the clear:
+    mode    rows shown at once      blank rows as drawn     less time
+    1 bpp   2,140,544,259 (85.0 s)  2,038,592,042 (81.0 s)  4.8 %
+    2 bpp     538,210,331 (21.4 s)    512,505,299 (20.4 s)  4.8 %
+    4 bpp     136,618,317  (5.4 s)    130,124,589  (5.2 s)  4.8 %
+    8 bpp      35,375,886  (1.4 s)     33,909,880  (1.3 s)  4.1 %
+    Every pass is pixel for pixel the same as before (video RAM compared).
 
 MEMORY
     0000-0003   reset: jump to main
@@ -78,7 +91,7 @@ MEMORY
     5A20-5BFF   mode bytes, one per row
     6000-FFFF   video RAM
 
-Date: 10/18/2026
+Date: 10/22/2026
 """
 
 import argparse
@@ -311,7 +324,7 @@ def build(once, delay, out_path=None):
     label('main')
     for m in range(4):
         e('; ---- pass %d: %d bpp ----' % (m, 1 << m))
-        g.st(m, 'mode')
+        g.st(0x80 | m, 'mode')         # cleared to blanked rows of this depth
         g.call('pass%d' % m)
         g.call('tshow')
         if m < 3 or not once:
@@ -327,7 +340,8 @@ def build(once, delay, out_path=None):
     # ------------------------------------------------------------ clear screen
     g.block('clear')
     label('clear')
-    e('; video RAM 6000-FFFF = 0, then mode byte = [mode] for rows 5A20-5BFF')
+    e('; video RAM 6000-FFFF = 0, then mode byte = [mode] | 80 (blanked) for rows')
+    e('; 5A20-5BFF')
     g.st(0x60, 'tmp')
     label('clr_pg')
     e('ld   %s, y' % z('tmp'))
@@ -407,19 +421,21 @@ def build(once, delay, out_path=None):
         g.call('clear')
         g.call('tstart')
         g.st(64 * m, 'coff')
+        e('; row by row, top to bottom: every row starts blanked (clear) and')
+        e('; is shown when its points are done, so the video does not stall')
+        e('; the CPU on the rows still to come')
+        g.st(0x20, 'rowx')
+        g.st(0, 'rowy')                  # screen row bit 8 (rowy:rowx = 0x20 + row)
+        e('; cy = -240/256 = (hi -1, lo 16)')
+        g.st(-1, 'cyh')
+        g.st(16, 'cyl')
+        label('row%d' % m)
         g.st(0x62, 'vpage')              # byte column 1 = 0x6220
         e('; cx = -2.0 = -512 = (hi -2, lo 0)')
         g.st(-2, 'cxh0')
         g.st(0, 'cxl0')
         g.st(79, 'bcnt')
         label('col%d' % m)
-        e('ld   %s, ac' % z('vpage'))
-        e('ld   ac, %s' % z('rowy'))
-        g.st(0x20, 'rowx')
-        e('; cy = -240/256 = (hi -1, lo 16)')
-        g.st(-1, 'cyh')
-        g.st(16, 'cyl')
-        label('row%d' % m)
         e('ld   %s, ac' % z('cxl0'))
         e('ld   ac, %s' % z('cxl'))
         e('ld   %s, ac' % z('cxh0'))
@@ -445,42 +461,18 @@ def build(once, delay, out_path=None):
             e('ld   ac, %s' % z('cnt'))
             e('bne  pt%d' % m)
         e('; write the byte to %d screen row(s)' % w)
-        if ppb > 1:
-            e('ld   %s, ac' % z('pix'))
+        e('ld   %s, ac' % z('vpage'))
+        e('add  %s, y' % z('rowy'))
         e('ld   %s, x' % z('rowx'))
-        e('ld   %s, y' % z('rowy'))
+        e('ld   %s, ac' % z('pix'))
         for r in range(w):
             if r:
                 e('ld   %s, ac' % z('rowx'))
                 e('add  %d, x' % r)
                 e('ld   %s, ac' % z('pix'))
             e('ld   ac, [y,x]')
-        e('ld   %s, ac' % z('rowx'))
-        e('add  %d, ac' % w)
-        e('ld   ac, %s' % z('rowx'))
-        e('bne  nw%d' % m)
-        e('ld   %s, ac' % z('rowy'))
-        e('inc')
-        e('ld   ac, %s' % z('rowy'))
-        label('nw%d' % m)
         e('; once per byte: check the line read for a new frame')
         g.call('poll', 'tret')
-        e('; cy += %d/256' % w)
-        e('ld   %s, ac' % z('cyl'))
-        e('add  %d, ac' % w)
-        e('ld   ac, %s' % z('cyl'))
-        e('bcc  cyd%d' % m)
-        e('ld   %s, ac' % z('cyh'))
-        e('inc')
-        e('ld   ac, %s' % z('cyh'))
-        label('cyd%d' % m)
-        e('; column done after 480 rows: rowy = vpage + 2')
-        e('ld   %s, ac' % z('rowy'))
-        e('sub  %s, ac' % z('vpage'))
-        e('sub  2, ac')
-        e('beq  cdone%d' % m)
-        g.far('row%d' % m)
-        label('cdone%d' % m)
         e('; next byte column: cx0 += 8/256, video page += 2')
         e('ld   %s, ac' % z('cxl0'))
         e('add  8, ac')
@@ -496,11 +488,46 @@ def build(once, delay, out_path=None):
         e('ld   %s, ac' % z('bcnt'))
         e('dec')
         e('ld   ac, %s' % z('bcnt'))
-        e('beq  pdone%d' % m)
+        e('beq  rd%d' % m)
         g.far('col%d' % m)
+        label('rd%d' % m)
+        g.far('rdone%d' % m)
         label('pdone%d' % m)
         e('ld   %s, y' % z('preth'))
         e('jmp  %s' % z('pret'))
+
+        g.block('rdone%d' % m)
+        label('rdone%d' % m)
+        e('; the row is done: show its %d screen row(s), mode byte %02X' % (w, m))
+        e('ld   %s, ac' % z('rowy'))
+        e('add  0x5A, y')
+        e('ld   %s, ac' % z('rowx'))
+        for r in range(w):
+            e('add  %d, x' % r)
+            e('ld   0x%02X, [y,x]' % m)
+        e('; next row: rowy:rowx += %d, cy += %d/256' % (w, w))
+        e('add  %d, ac' % w)
+        e('ld   ac, %s' % z('rowx'))
+        e('bcc  rxd%d' % m)
+        e('ld   %s, ac' % z('rowy'))
+        e('inc')
+        e('ld   ac, %s' % z('rowy'))
+        label('rxd%d' % m)
+        e('ld   %s, ac' % z('cyl'))
+        e('add  %d, ac' % w)
+        e('ld   ac, %s' % z('cyl'))
+        e('bcc  cyd%d' % m)
+        e('ld   %s, ac' % z('cyh'))
+        e('inc')
+        e('ld   ac, %s' % z('cyh'))
+        label('cyd%d' % m)
+        e('; done after 480 rows: rowy:rowx = 0x200')
+        e('ld   %s, ac' % z('rowy'))
+        e('sub  2, ac')
+        e('beq  pd%d' % m)
+        g.far('row%d' % m)
+        label('pd%d' % m)
+        g.far('pdone%d' % m)
 
     # ------------------------------------------------------------ timer
     # The same timer as gen_pi_spigot.py.  The line read at 5000h (V9:V2,
@@ -786,7 +813,7 @@ def build(once, delay, out_path=None):
     o(';')
     o(';     python3 placard_sim.py mandelbrot.asm --run --max-steps 2000000000 --png m.png')
     o(';')
-    o('; Date: 10/18/2026')
+    o('; Date: 10/22/2026')
     o('')
     o('#include "placard.asm"')
     o('')
