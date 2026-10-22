@@ -1,15 +1,15 @@
 --------------------------------------------------------------------------------
 -- Name     H_COUNTER
 -- PartNo   00
--- Date     10/19/2026
--- Revision 07
+-- Date     10/22/2026
+-- Revision 08
 -- Designer
 -- Company
 -- Assembly
 -- Location
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_HCOUNT.pld (Revision 07)
+-- Converted from WinCUPL source ATF22V10_HCOUNT.pld (Revision 08)
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP/SOIC; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = CLK
@@ -18,6 +18,7 @@
 --   PIN 3  = H0                (input, from the Sync PLD)
 --   PIN 4  = H1                (input, from the Sync PLD)
 --   PIN 5  = H2                (input, from the Sync PLD)
+--   PIN 6  = LC7               (input, line code register Q7: 1 = blank line)
 --
 --   PIN 14 = H3                (registered output)
 --   PIN 15 = H4                (registered output)
@@ -43,6 +44,7 @@ entity hcount_pld is
         H0             : in  std_logic;   -- PIN 3
         H1             : in  std_logic;   -- PIN 4
         H2             : in  std_logic;   -- PIN 5
+        LC7            : in  std_logic;   -- PIN 6
 
         H3             : out std_logic;   -- PIN 14
         H4             : out std_logic;   -- PIN 15
@@ -60,7 +62,7 @@ entity hcount_pld is
     -- Pin number attributes for the fitter
     attribute pin_numbers : string;
     attribute pin_numbers of hcount_pld : entity is
-        "CLK:1 RESET:2 H0:3 H1:4 H2:5 " &
+        "CLK:1 RESET:2 H0:3 H1:4 H2:5 LC7:6 " &
         "H3:14 H4:15 H5:16 H6:17 H7:18 H8:19 H9:20 " &
         "HSYNC:21 H_VIDEO_ACTIVE:22 H_TC:23";
 end entity hcount_pld;
@@ -88,6 +90,7 @@ architecture rtl of hcount_pld is
     signal HSYNC_STOP       : std_logic;
     signal VIDEO_OFF        : std_logic;
     signal VIDEO_ON         : std_logic;
+    signal BLANK_PULSE      : std_logic;
 
     -- Next-state (D input) equations
     signal H3_D             : std_logic;
@@ -239,9 +242,28 @@ begin
                 and H4_Q and H3_Q;
 
 
+    -- -------------------------------------------------
+    -- Blank line (revision 08)
+    --
+    -- Bit 7 of the mode byte (LC7, the line code
+    -- register's Q7) blanks the line.  On a blank line
+    -- H_VIDEO_ACTIVE is high for one clock only: the
+    -- third clock of group 48 (H2:H0 = 000), decoded on
+    -- the second (H2:H0 = 111).  The Sync PLD needs it
+    -- on H2:H0 = 110 for PIXEL_ENABLE and 111 for VIDEN,
+    -- so there are no pixel reads and the line is black,
+    -- but the audio DAC register still gets its edge.
+    -- -------------------------------------------------
+
+    -- decode H = 48: 0110000, second clock (H2:H0 = 111)
+    BLANK_PULSE <= LC7 and (not H9_Q) and H8_Q and H7_Q and (not H6_Q) and (not H5_Q)
+                   and (not H4_Q) and (not H3_Q) and H2 and H1 and H0;
+
+
     -- Registered horizontal active-video state
-    H_VIDEO_ACTIVE_D <= VIDEO_ON
-                        or (H_VIDEO_ACTIVE_Q and (not VIDEO_OFF));
+    H_VIDEO_ACTIVE_D <= (VIDEO_ON and (not LC7))
+                        or (H_VIDEO_ACTIVE_Q and (not VIDEO_OFF) and (not LC7))
+                        or BLANK_PULSE;
 
 
     -- -------------------------------------------------

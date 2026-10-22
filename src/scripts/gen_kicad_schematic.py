@@ -57,6 +57,7 @@ MPN = {
     "ATF22V10C-7PX": ("Microchip", "ATF22V10C-7PX"),
     "ATF22V10C-10PU": ("Microchip", "ATF22V10C-10PU"),
     "SN74F377AN": ("Texas Instruments", "SN74F377AN"),
+    "CD74HCT377E": ("Texas Instruments", "CD74HCT377E"),
     "SN74F541N": ("Texas Instruments", "SN74F541N"),
     "CD74ACT273E": ("Texas Instruments", "CD74ACT273E"),
     "SN74HCT574N": ("Texas Instruments", "SN74HCT574N"),
@@ -68,6 +69,7 @@ MPN = {
     "3 A hold": ("Bourns", "MF-RG300"),
     "Molex 87715-9106": ("Molex", "87715-9106"),
     "BAT85": ("Vishay", "BAT85"),
+    "1N4148": ("Vishay", "1N4148"),
     "SA5.0A": ("Littelfuse", "SA5.0A"),
     "G5LE-1 DC5": ("Omron", "G5LE-1 DC5"),
     "PTS645VL58-2 LFS": ("C&K", "PTS645VL58-2 LFS"),
@@ -90,7 +92,7 @@ MPN_LIB = {
 # Panasonic FR electrolytics (C41 8 x 11.5 mm 3.5 mm pitch, C44 6.3 x 11.2 mm 2.5 mm pitch)
 R_CODE = {"5.1k": "5K1", "10k": "10K", "47": "47R", "3.24k": "3K24", "1.69k": "1K69", "825": "825R",
           "1.43k": "1K43", "715": "715R", "2.2": "2R2", "2k": "2K", "1k": "1K", "1.8k": "1K8", "3.3k": "3K3",
-          "4.7k": "4K7"}
+          "4.7k": "4K7", "910": "910R"}
 MPN_PASSIVE = {
     ("placard_std:R_Network08_US", "10k"): ("Bourns", "4609X-101-103LF"),
     ("placard_std:R_Network08_US", "4.7k"): ("Bourns", "4609X-101-472LF"),
@@ -820,7 +822,7 @@ def sheet_video_out(b):
     # (sheet 8), LC6:LC4 to the row tint below.  HCT: each tint output sources about 3 mA.
     u23 = s.part("placard_std:74LS377", "U23", 132.08, 152.4,
                  f377(PIX, ["LC0", "LC1", "LC2", "LC3", "LC4", "LC5", "LC6", "LC7"], "~{MODE_LD}"),
-                 value="74HCT377", footprint=FP_DIP20, bare=("2", "5", "12", "15", "16"))
+                 value="CD74HCT377E", footprint=FP_DIP20, bare=("2", "5", "12", "15", "16"))
     for k in (4, 5, 6):
         qx, qy = u23[str(F377_Q[k])]
         path(s, f"LC{k}", (qx, qy), (qx + 7.62, qy))

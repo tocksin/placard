@@ -38,6 +38,7 @@ DESC_VALUE = {
     "ATF22V10C-7PX": "PLD, 22V10, 7.5 ns, PDIP-24 0.3\" (programmed)",
     "ATF22V10C-10PU": "PLD, 22V10, 10 ns, PDIP-24 0.3\" (programmed)",
     "SN74F377AN": "Octal D flip-flop with enable, 74F, DIP-20",
+    "CD74HCT377E": "Octal D flip-flop with enable, 74HCT, DIP-20 (line code: drives the row tint)",
     "SN74F541N": "Octal buffer, 3-state, 74F, DIP-20",
     "CD74ACT273E": "Octal D flip-flop with clear, 74ACT, DIP-20",
     "SN74HCT574N": "Octal D flip-flop, 3-state, 74HCT, DIP-20",
@@ -64,6 +65,7 @@ DESC_LIB = {
     "placard_std:G5LE-1": "Reset relay: SPDT, 5 V coil (63 ohm, 80 mA), 8 A 30 V DC, through hole; NC contact carries the 5 V",
     "Switch:SW_Push_LED": "Key switch, Cherry MX style, PCB mount (5 pin)",
     "placard_std:D_Schottky": "Schottky diode, DO-35",
+    "placard_std:D": "Small-signal diode, DO-35",
     "placard_std:R_Network08_US": "Resistor network, 8 bussed, SIP-9",
 }
 # values that name the part, not a value worth its own column
@@ -73,6 +75,7 @@ NO_VALUE = {"Switch:SW_Push_LED", "placard_parts:Expansion_Slot", "placard_parts
 NOTES = {
     "MF-RG300": "Part number from the footprint (Fuse_Bourns_MF-RG300)",
     "BAT85": "Any BAT85 (Vishay, Nexperia, onsemi)",
+    "1N4148": "Any 1N4148 (Vishay, onsemi, Diodes Inc.)",
     "Expansion slot": "Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer "
                       "runs with none.  Sullins EBC20DCAN not stock-checked (EXPANSION.md)",
     "Key switch": "MX2A-L1NB = red linear; any MX2A color with a clear housing fits.  Footprints have LED pads 3/4",
@@ -91,6 +94,7 @@ PRICES = {
     "ATF22V10C-7PX": (2.99, "Mouser", ""),
     "ATF22V10C-10PU": (2.63, "Mouser", ""),
     "SN74F377AN": (1.05, "Mouser", ""),            # 10+ break
+    "CD74HCT377E": (1.10, "est.", "TI CD74HCT377E; check stock"),
     "CD74ACT273E": (2.45, "Mouser", ""),
     "SN74F541N": (1.49, "Mouser", ""),
     "AS7C256C-15PCN": (15.21, "Mouser", ""),
@@ -108,6 +112,7 @@ PRICES = {
     "PTS645VL58-2 LFS": (0.25, "est.", "C&K PTS645VL58-2 LFS"),
     "SA5.0A": (0.40, "est.", "Littelfuse SA5.0A, 500 W TVS, DO-15 axial"),
     "BAT85": None,                                  # by quantity, below
+    "1N4148": None,                                 # by quantity, below
     "M3AAA-2006J": (6.50, "est.", "Digi-Key (3M 20-way assemblies $6-7.50)"),
     "ECS-100A-251.7": (4.06, "Digi-Key", "Mouser has no stock (Justin, 2026-10-22)"),
     "Box header": (0.60, "est.", "Wurth 61202021621"),
@@ -146,6 +151,8 @@ def price(d):
     q = d["qty"]
     if d["mpn"] == "BAT85":
         return tier(q, 0.16, 0.10, 0.06), "est.", "Vishay BAT85"
+    if d["mpn"] == "1N4148":
+        return tier(q, 0.10, 0.05, 0.03), "est.", "Vishay 1N4148"
     if d["desc"].startswith("Resistor, metal film"):
         return tier(q, 0.10, 0.04, 0.02), "est.", "Yageo MFR-25FBF52 series"
     if d["desc"].startswith("Ceramic capacitor") and d["value"] == "100n":

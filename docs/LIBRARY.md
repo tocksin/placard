@@ -318,7 +318,7 @@ pointers already point at the next block.
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
 | `vid_addr` | AC = byte column 0-79, R3:R2 = row 0-479 | AC = address high byte, X = low byte, for the row's own line repeat | T0, T1, T4 | 72-76 (1x), 85-89 (2x), 105-109 (4x) |
-| `vid_clear` | AC = mode byte: bits 1:0 = 1, 2, 4, 8 bpp (0-3), bits 3:2 = 1x, 2x, 4x (0-2) | x6000-xFFFF = 0, every mode byte = AC | AC, X, Y, T0, T1 | 505,794 (20.1 ms) |
+| `vid_clear` | AC = mode byte: bits 1:0 = 1, 2, 4, 8 bpp (0-3), bits 3:2 = 1x, 2x, 4x (0-2), bits 6:4 = R, G, B tint, bit 7 = blank | x6000-xFFFF = 0, every mode byte = AC | AC, X, Y, T0, T1 | 505,794 (20.1 ms) |
 | `vid_mode` | AC = mode byte | Every row's mode byte = AC, pixels kept | AC, X, Y, T0 | 11,061 |
 | `plot1` | R1:R0 = x 0-639, R3:R2 = y 0-479, AC = 0 clears, else sets | One pixel of a 1 bpp row (1x, 2x or 4x) | AC, X, Y, T0-T6 | 223-256 |
 | `map_set` | AC = map (bit n = 1: section n reads RAM) | Map register and MAP_SHADOW = AC | Y | 18 |
@@ -341,6 +341,14 @@ pointers already point at the next block.
   leaves the even video pages x60, x62 ... xFE free (20 KB), a full 4x
   screen x6000-x617F, x6200-x637F ... (30 KB).  1x rows 0-223 never share a
   byte with 2x or 4x rows.
+- Bits 6:4 of the mode byte tint the row (red, green, blue: about +0.2 V on
+  that channel, black pixels included) and bit 7 blanks it (black, and no
+  pixel reads, so the CPU is not stalled on those lines).  The library
+  routines keep them as given: `vid_clear` and `vid_mode` copy the whole
+  byte, and `vid_addr` and `plot1` look at bits 3:2 only.  Write a row's
+  mode byte (x5A20 + r) to tint or blank just that row; blanking every row
+  while computing gives the CPU about 10 % more clocks per frame
+  ([VIDEO.md](VIDEO.md#blank-line)).
 - `plot1` became slower when it learned the line repeat (it calls
   `vid_addr`, 148-159 clocks before).  The text console still assumes 1x
   rows.
