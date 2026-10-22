@@ -34,7 +34,7 @@ Two things matter more for a kit than for a single build:
   image, so every PLD change after the first order is another setup.
   Program kits only after the prototype has passed bring-up.
 
-The rest of the kit is ordinary stock: 6 SN74F377AN, 4 SN74F541N, 2
+The rest of the kit is ordinary stock: 5 SN74F377AN, a CD74HCT377E, 4 SN74F541N, 2
 AS7C256C-15PCN (4 with the cartridge's), a CD74ACT273E,
 SN74HCT574N, SN74HC574N, the 3.3 V regulator and oscillator (not chosen
 yet), the power toggle (CIT ANT11TFHQE), the reset relay (Omron G5LE-1 DC5)

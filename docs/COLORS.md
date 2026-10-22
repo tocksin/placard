@@ -14,7 +14,7 @@ This design is implemented in an **ATF22V10** PLD.
 | `10` | 4-bit | 2 | 16 |
 | `11` | 8-bit | 1 | 256 |
 
-MODE1:MODE0 come from the line code register (F377 Q1:Q0), which copies
+MODE1:MODE0 come from the line code register (74HCT377 Q1:Q0), which copies
 each line's mode byte (VIDEO.md, "Mode byte").
 
 ---

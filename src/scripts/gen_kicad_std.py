@@ -32,7 +32,7 @@ USED = [("74xx", "74LS273"), ("74xx", "74LS32"), ("74xx", "74LS377"), ("74xx", "
         ("Device", "C"), ("Device", "C_Polarized"), ("Device", "D_Schottky"), ("Device", "NetTie_2"),
         ("Device", "Polyfuse"), ("Device", "R_US"), ("Device", "R_Network08_US"),
         ("Jumper", "Jumper_2_Open"), ("Regulator_Linear", "MCP1700x-330xxTO"),
-        ("Oscillator", "ACO-xxxMHz"), ("Switch", "SW_SPST"), ("Switch", "SW_Push"), ("Relay", "G5LE-1"), ("Device", "D_Zener")]
+        ("Oscillator", "ACO-xxxMHz"), ("Switch", "SW_SPST"), ("Switch", "SW_Push"), ("Relay", "G5LE-1"), ("Device", "D_Zener"), ("Device", "D")]
 
 
 def _font(e, size):

@@ -34,7 +34,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 20 | SN74F377AN | Octal D flip-flop with enable | X register |
 | 21 | SN74F377AN | Octal D flip-flop with enable | Y register |
 | 22 | SN74F377AN | Octal D flip-flop with enable | Video pixel buffer (byte read from video memory); /E from the Branch PLD's /PIX_LD (pin 15), low on a video read |
-| 23 | 74HCT377 (was SN74F377AN until 2026-10-22) | Octal D flip-flop with enable | Video line code (the row's mode byte): D from the pixel buffer outputs, /E from /MODE_LD, so it copies the mode byte read in group 45 (see VIDEO.md); Q1:Q0 to the color decoder, Q3:Q2 to the audio slot PLD (line repeat), Q6:Q4 to the row tint resistors, Q7 to the H counter (blank line).  HCT because the tint outputs source about 3 mA |
+| 23 | CD74HCT377E (was SN74F377AN until 2026-10-22) | Octal D flip-flop with enable | Video line code (the row's mode byte): D from the pixel buffer outputs, /E from /MODE_LD, so it copies the mode byte read in group 45 (see VIDEO.md); Q1:Q0 to the color decoder, Q3:Q2 to the audio slot PLD (line repeat), Q6:Q4 to the row tint resistors, Q7 to the H counter (blank line).  HCT because the tint outputs source about 3 mA |
 | 24 | — | — | Removed 2026-10-19: the video delay F574 (H2:H0 pixel select and video active, two stages).  The Sync PLD now makes both two clocks later itself (VIDEO_TIMING.md, "Delay register removed").  The numbers below are kept as they were |
 | 25 | CD74ACT273E | Octal D flip-flop with clear | ROM/RAM map register at x5000 (write only, /MR = RUN: all ROM until the cartridge hands off) |
 | 26 | SN74F541N | Octal buffer, 3-state | Source bus driver: D register, sources 00 and 01 (/OE1 = /SRC_EN, /OE2 = I1; the source bus is also the memory data bus) |
@@ -60,7 +60,8 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 |---|---|--:|
 | ATF22V10C-7PX | PLD (22V10) | 12 |
 | ATF22V10C-10PU | PLD (22V10) | 7 |
-| SN74F377AN | Octal D flip-flop with enable | 6 |
+| SN74F377AN | Octal D flip-flop with enable | 5 |
+| CD74HCT377E | Octal D flip-flop with enable (line code) | 1 |
 | CD74ACT273E | Octal D flip-flop with clear | 1 |
 | SN74F541N | Octal buffer, 3-state | 4 |
 | AS7C256C-15PCN | SRAM, 32K x 8 | 2 |
