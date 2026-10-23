@@ -16,6 +16,7 @@ when it saves them).
 | `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `Keyboard_Header`, `PS2_Dual_Stacked`, `USB_C_Power` |
 | `lib/placard_std.kicad_sym` | copies of the stock KiCad symbols the sheets use (74xx, R, C, D, connectors, regulator) with larger pin text, written by `src/scripts/gen_kicad_std.py` |
 | `lib/placard.pretty/` | project footprints: `SW_Cherry_MX_LED_<size>u_PCB` key switches with LED pads and stabilizer holes (written by `src/scripts/gen_kicad_keyswitch.py`), the main board's connectors and switches (preliminary, written by `src/scripts/gen_kicad_connectors.py`), and kit versions of KiCad's DIP socket footprints (`DIP-nn_..._Socket_Puller`: chip-puller room on User.Eco1, part number in silkscreen) and of the axial resistor (`..._Value`: value in silkscreen), written by `src/scripts/gen_kicad_kit_footprints.py` |
+| `lib/placard.3dshapes/` | 3D models (STEP) for the connectors, switches and polyfuse, named after their footprints and referenced as `${KIPRJMOD}/lib/placard.3dshapes/...`, so they show in any KiCad version without a 3D library path; written by `src/scripts/gen_kicad_3d_models.py` (CadQuery), which also copies in KiCad's own models for SW2, J7 and J13 |
 | `sym-lib-table`, `fp-lib-table` | point KiCad at the project libraries |
 | `fab/` | Gerbers, drill files, BOM and placement files for a board order |
 
@@ -40,6 +41,11 @@ The footprints KiCad has no part for (cartridge slot, expansion slots,
 PS/2, SNES, the two switches) are written by
 `src/scripts/gen_kicad_connectors.py` from typical dimensions and are
 preliminary: check their holes against the datasheets before ordering.
+Their 3D models (`src/scripts/gen_kicad_3d_models.py`, picture in
+[docs/connector_3d_models.png](../docs/connector_3d_models.png)) are drawn at typical
+dimensions too, with the leads put on the footprint pads.  J4 (SD), J7 (VGA),
+F1 and SW2 use project copies of KiCad's footprints (`placard:` library) only so
+they can point at the project's models; the pads are KiCad's.
 The sheet plan (which chips go on which sheet, and the nets between
 them) is [docs/SCHEMATIC_PLAN.md](../docs/SCHEMATIC_PLAN.md).  Parts and U-numbers come from
 [docs/CHIPS.md](../docs/CHIPS.md); the PLD pinouts come from the `.pld` files
