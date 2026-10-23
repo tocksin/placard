@@ -1,6 +1,6 @@
 # Sound
 
-Date: 2026-10-22
+Date: 2026-10-23
 
 The video circuit plays sound by itself.  On every scan line it reads one
 8-bit sample from RAM, the same way it reads pixels, and a register feeds that
@@ -11,7 +11,7 @@ sample to a resistor DAC.  Software only keeps a 525-byte buffer filled.
 | Format | 8-bit unsigned mono, 80h = silence |
 | Sample rate | the line rate: 31.469 kHz at 25.175 MHz (31.25 kHz on the FPGA's 25.000 MHz) |
 | Buffer | 5DF3h-5FFFh, 525 bytes, one frame, played in address order and repeated (4DF3h-4FFFh until 2026-10-16) |
-| Added chips | audio slot PLD (ATF22V10C) and DAC register (SN74HCT574N); the DAC, filter and headphone output are passives |
+| Added chips | audio slot PLD (ATF22V10C) and DAC register (SN74HCT574N); the DAC, filter and line output are passives |
 | CPU cost | one stall clock per line (525 per frame, 0.13 %) |
 
 ## Schematic
@@ -127,9 +127,12 @@ change:
   clocks later shows up on the next frame instead.  None were still different
   one frame later.
 
-## DAC, filter and headphone output
+## DAC, filter and audio line out
 
-All passive: the ladder drives headphones directly, so there is no op-amp.
+All passive, with no op-amp and no headphone amplifier: the jack is an
+audio **line out**, meant for a line input (an amplifier, powered speakers,
+a mixer or a capture card, 10 kΩ or more).  It is not a headphone output
+(Justin, 2026-10-23).
 
     +5V ──2.2Ω──┬── VCC (pin 20) of the 74HCT574 ("DAC 5V")
                 ├── 220µF ── AGND
@@ -174,9 +177,9 @@ All passive: the ladder drives headphones directly, so there is no op-amp.
 
 - Open-circuit output = VCC × code / 256, so 0 V to 4.98 V, 2.49 V at
   silence (80h).  The ladder's output resistance is R (1 kΩ) at every code.
-- The low R (1 k instead of a more usual 10 k) is what lets it drive
-  headphones without a buffer.  Each bit sources at most about 2.5 mA, well
-  inside what a 74HCT574 output can do.
+- The low R (1 k instead of a more usual 10 k) keeps the output impedance
+  low enough to drive a line input and its cable without a buffer.  Each bit
+  sources at most about 2.5 mA, well inside what a 74HCT574 output can do.
 - Linearity: with 1 % parts the steps are even to about 7 bits.  The HCT
   output resistance (roughly 25-50 Ω) against 2 kΩ adds about one step of
   error at the middle of the range.  Neither is audible as distortion in
@@ -187,36 +190,37 @@ All passive: the ladder drives headphones directly, so there is no op-amp.
 
 One capacitor, 15 nF (C0G or film), from the ladder output to AGND.
 
-- Into a high-impedance input (a line-in or amplifier, 10 kΩ or more) it
-  forms a single pole with the ladder's 1 kΩ: 10.6 kHz (11.7 kHz with a
-  10 kΩ load).  That softens the 31.5 kHz steps.
-- Into headphones the load sets the impedance (16-32 Ω), so the pole moves
-  far above the audio and the capacitor does nothing.  That is fine: the
-  sample-rate steps are at 31.5 kHz, above hearing, the step-hold has a null
-  right at 31.5 kHz, and headphone drivers roll off up there anyway.
+- Into a line input (10 kΩ or more) it forms a single pole with the
+  ladder's 1 kΩ: 10.6 kHz (11.7 kHz with a 10 kΩ load).  That softens the
+  31.5 kHz steps.
+- A low-impedance load (headphones, 16-32 Ω) would swamp the 1 kΩ and the
+  pole would move far above the audio.  That is one more reason the jack is
+  a line out only.
 - A C0G (NP0) or film capacitor, not X7R, whose value moves with voltage.
 
-### The headphone output
+### The line output
 
 | Part | Value | Why |
 |---|---|---|
 | Coupling capacitor | 22 µF ceramic (X5R/X7R, non-polar), 10 V or more | blocks the 2.49 V offset; low corner about 7 Hz into 16 Ω, under 1 Hz into 10 kΩ |
-| Bleed resistor | 10 kΩ, jack side to AGND | holds the jack side at 0 V so plugging in does not pop |
-| Jack | 3.5 mm stereo; tip and ring tied together, sleeve to AGND | the same sound in both ears |
+| Bleed resistor | 10 kΩ, jack side to AGND | holds the jack side at 0 V so plugging in does not pop; also the minimum load when nothing is plugged in |
+| Jack J6 | 3.5 mm, 4 pole (TRRS); tip and ring tied together, sleeve to AGND | mono on both channels of a stereo line input |
 
-- **Level.**  With 32 Ω earpieces in parallel (16 Ω) the full-scale swing at
-  the jack is about 80 mV peak to peak (28 mV rms), about 25 µW per ear.  For
-  typical headphones (around 100 dB SPL per mW) that is about 84 dB SPL at
-  full scale: comfortably loud, not painful.  Higher-impedance headphones get
-  more voltage and play louder.  Software sets the volume by scaling the
-  samples around 80h.
-- **Line-in works too**: into 10 kΩ it gives about 4.5 V peak to peak, which
-  most inputs take.  A powered speaker or an LM386 amplifier can plug into
-  the same jack.
+- **Level.**  Into a 10 kΩ line input (in parallel with the 10 kΩ bleed,
+  5 kΩ in all) a full-scale sine is about 4.2 V peak to peak (1.5 V rms,
+  +3.4 dBV); open circuit it is 5 V peak to peak.  That is hotter than the
+  consumer line level (-10 dBV, 0.9 V peak to peak) but under the 2 V rms
+  most line inputs accept.  Software sets the volume by scaling the samples
+  around 80h; a sine of 80h ± 20h is about 1 V peak to peak, close to
+  consumer line level.  Output impedance is about 1 kΩ.
+- **Headphones are not supported.**  There is no headphone amplifier: into
+  16-32 Ω headphones the swing drops to about 80-150 mV peak to peak, very
+  quiet.
+  Plug the jack into an amplifier or powered speakers instead.
 - **Short circuit** (a plug going in): the 1 kΩ ladder resistance limits the
   current, so nothing is harmed.
 - **Power-on.**  At power-up the coupling capacitor charges to 2.49 V, which
-  makes one soft thump if headphones are already plugged in.  After that the
+  makes one soft thump if an amplifier is already connected.  After that the
   output stays at mid-scale (see the click-free rules), so it happens only
   once.
 - **Grounds:** the ladder termination, the 15 nF capacitor, the bleed

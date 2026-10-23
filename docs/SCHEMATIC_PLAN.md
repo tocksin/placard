@@ -27,7 +27,7 @@ a separate board (a KiCad project has one PCB).
 | 6 | Data bus | U18 D register, U26 D source F541, U27 AC source F541 | 8 series resistors (source bus to data bus), 10k read-bus pull-up SIP |
 | 7 | Memory and I/O decode | U11 memory control, U12 I/O decode, U25 map register, U31, U32 RAM | cartridge slot (Molex 87715-9106), /CART pull-up |
 | 8 | Video timing | U13 H counter, U14 V counter, U15 Sync, U35 audio/mode slot PLD, U29 line read F541 | strap S4 (audio PLD) |
-| 9 | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register | VGA resistor DAC (8 resistors) and DE-15, R-2R ladder, filter, headphone jack J6, strap S5 (line code), sync ESD clamps D22-D25, row tint R56-R58 + D27-D35 (2026-10-22) |
+| 9 | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register | VGA resistor DAC (8 resistors) and DE-15, R-2R ladder, filter, audio line out jack J6, strap S5 (line code), sync ESD clamps D22-D25, row tint R56-R58 + D27-D35 (2026-10-22) |
 | 10 | Shared port | U37 port latch, U38 port PLD, U39 row F541 | J1 keyboard, J2/J3 SNES, J4 SD (dividers R42-R47, MISO diode and pull-up), J5 stacked dual PS/2, mouse + keyboard (diodes, 4.7k pull-ups), row pull-ups, pad DATA pull-ups, ESD clamps D8-D21 |
 | 11 | Expansion slots | none | four 2 x 20 card-edge slots, SEL resistors (1k) |
 
@@ -166,7 +166,7 @@ the line read F541 (V9:V2 onto the data bus).
 
 **9. Video and audio out.**  Pixel buffer, line code register, color
 decoder, the VGA resistor DAC from [COLORS.md](COLORS.md) and the DE-15;
-the DAC register, R-2R ladder, filter and headphone jack J6 from
+the DAC register, R-2R ladder, filter and audio line out jack J6 from
 [SOUND.md](SOUND.md).  The existing `schematics/placard_audio_schematic.png`
 is the reference for the audio half.
 
@@ -331,7 +331,7 @@ Decisions made while drawing (2026-10-20):
 - **Part numbers** (Justin, 2026-10-22): every schematic part now has a
   Manufacturer and MPN (resistors Yageo MFR-25FBF52-<value>, networks Bourns
   4609X-101, ceramics KEMET/TDK, electrolytics Panasonic FR, oscillator ECS
-  ECS-100A-251.7, VGA Assmann A-HDF 15 A-KG/T, headphones Tensility
+  ECS-100A-251.7, VGA Assmann A-HDF 15 A-KG/T, line out jack Tensility
   54-00174).  J6 is now that 4-pole (TRRS) jack: T and R1 = AUDIO, R2 and S =
   GNDA, footprint placard:Jack_3.5mm_Tensility_54-00174_Horizontal drawn from
   its datasheet.  The expansion slot sockets J9-J12 and the keyboard header

@@ -1,6 +1,6 @@
 # Bill of materials
 
-Date: 2026-10-22
+Date: 2026-10-23
 
 Every part of the three boards, one line per part number: the main
 board, the ROM cartridge and the keyboard.  Parts with the same part
@@ -58,7 +58,7 @@ Components: **$186.89** for one board at these quantities, **$168.29** without t
 | 2 | J2, J3 |  |  | SNES controller socket, 7 pin | SNES pad | 4.00 | 8.00 | est.: ZedLabz right-angle SNES port (Amazon/eBay) |  |
 | 1 | J4 | 145638009511859+ | Kyocera AVX | SD card socket | SD (SPI) | 2.50 | 2.50 | est.: Kyocera AVX 145638009511859+ (SMD; no through-hole full-size SD socket found) |  |
 | 1 | J5 | KMDGX-6S/6S-S4N | Kycon | Stacked dual mini-DIN-6 receptacle (PS/2), right angle, shielded: mouse top, keyboard bottom | PS/2 kbd + mouse | 3.72 | 3.72 | Mouser |  |
-| 1 | J6 | 54-00174 | Tensility | 3.5 mm headphone jack, 4 pole (TRRS), right angle, TH (a TRS plug's sleeve spans R2 and S) | 3.5 mm | 0.73 | 0.73 | Digi-Key: Justin, 2026-10-22 |  |
+| 1 | J6 | 54-00174 | Tensility | 3.5 mm audio line out jack, 4 pole (TRRS), right angle, TH (a TRS plug's sleeve spans R2 and S) | 3.5 mm | 0.73 | 0.73 | Digi-Key: Justin, 2026-10-22 |  |
 | 1 | J7 | A-HDF 15 A-KG/T | Assmann WSW | DE-15 high-density receptacle (VGA), with mounting holes | VGA | 1.36 | 1.36 | Digi-Key: Justin, 2026-10-22 |  |
 | 1 | J8 | 87715-9106 | Molex | Cartridge slot: card edge, 64 contacts, 1.0 mm, keyed (PCIe x4 style), vertical TH |  | 2.81 | 2.81 | Mouser |  |
 | 4 | J9-J12 | EBC20DCAN | Sullins | Expansion slot: 2 x 20 card-edge socket, 0.1", 1.6 mm card, TH |  | 4.50 | 18.00 | est.: Sullins EBC20DCAN | Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer runs with none.  Sullins EBC20DCAN not stock-checked (EXPANSION.md) |

@@ -47,7 +47,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 33 | — | — | Moved to the ROM cartridge 2026-10-20 (see "ROM cartridge" below) |
 | 34 | — | — | Moved to the ROM cartridge 2026-10-20 |
 | 35 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md).  Also /AC_SEL (= !I1, revision 04) for the AC source F541 |
-| 36 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer when H_VIDEO_ACTIVE rises (start of group 48), drives the R-2R ladder, which drives headphones directly (all passive, see SOUND.md) |
+| 36 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer when H_VIDEO_ACTIVE rises (start of group 48), drives the R-2R ladder, which drives the audio line out directly (all passive, no headphone amplifier, see SOUND.md) |
 | 37 | SN74HC574N | Octal D flip-flop, 3-state | Shared port latch at x5200 (IO.md): SCK and pad CLOCK, MOSI and pad LATCH, SD /CS (also holds the PS/2 mouse off), PS/2 DATA, keyboard column code (bit 4 also holds the PS/2 keyboard off when no column is driven).  HC for a full 5 V high into the pads |
 | 38 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: keyboard columns /COL0-/COL7 from the latch, pad DATA (and the PS/2 keyboard's CLK on D6) onto D7/D6 on odd reads (`ATF22V10_PORT.pld`, rev 02) |
 | 39 | SN74F541N | Octal buffer, 3-state | Shared port input on even reads: keyboard rows, with SD MISO and the PS/2 lines on rows 7, 6 and 5 |
