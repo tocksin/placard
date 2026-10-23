@@ -18,9 +18,13 @@ Cherry MX keyboard, which is the most expensive board:
 
 | Product | Contents |
 |---|---|
-| **Core kit** | Main board PCB and parts (no keyboard header J1, no expansion sockets J9-J12), 64K cartridge PCB and parts, 21 programmed and labelled chips (19 main PLDs, cartridge PLD, 2 EEPROMs; KITTING.md counts 22 with both EEPROMs as 2 images), sockets.  Uses a PS/2 keyboard on J5. |
+| **Core kit** | Main board PCB and parts (no keyboard header J1, no expansion sockets J9-J12), 64K cartridge PCB and parts, 21 blank chips (19 main PLDs, cartridge PLD, 2 EEPROMs) that the builder programs from the repository's JEDEC files and ROM images (KITTING.md plan E), a label sheet and a printed chip / image / socket table, sockets.  Uses a PS/2 keyboard on J5. |
 | **Keyboard kit** (add-on) | Keyboard PCB, 63 Cherry MX switches, LEDs, diodes, resistors, keycaps, stabilisers, ribbon cable, plus main board header J1 |
 | **Complete kit** | Core kit + keyboard kit + case (laser-cut acrylic sandwich with switch plate) |
+| **Programmer** (option) | XGecu T48 (or TL866II Plus) for builders without one; programs the ATF22V10C and AT28C256 |
+
+No kit ships programmed chips (Justin, 2026-10-23): the builder programs
+them, so a PLD fix reaches existing owners as a file, not new chips.
 
 Expansion slot sockets ($4.50 each, est.) are best sold as a cheap add-on or
 included with the first expansion card, not in the core kit.
@@ -38,7 +42,7 @@ included with the first expansion card, not in the core kit.
 | Keyboard PCB, ~290 x 102 mm, 2-layer | $6 | $4.50 | $3.50 | $3 | |
 | Case, acrylic sandwich + switch plate, for the 290 x 290 main board + keyboard | $45 | $38 | $30 | $25 | Case cost estimate scaled for the larger board (it assumed 140 mm deep) |
 | US tariff on China-made PCBs and case | 35 % | 35 % | 35 % | 35 % | Changes often; 30-50 % range |
-| Programming and labelling 21 chips yourself (KITTING.md plan B) | $8 | $8 | $8 | $8 | 15 min at $30/h plus label sheet; zero if Digi-Key programs at scale (then its setup fee moves to fixed costs) |
+| Label sheet and printed chip table (chips ship blank) | $0.50 | $0.50 | $0.50 | $0.50 | No programming cost: the builder programs |
 | Contract kitting (count, bag, box) | $8 | $6 | $5 | $4 | Technotronix-style kitter |
 | Packaging: retail box, ESD bags, IC foam, printed quick-start card | $9 | $8 | $7 | $6 | Complete kit; core kit $2 less, keyboard kit $3 less |
 | Inbound freight (parts to kitter, kits to Crowd Supply) | $3 | $3 | $3 | $3 | Complete kit; core $2, keyboard $1.50 |
@@ -50,9 +54,9 @@ checkout.
 
 | Product | 50 kits | 100 | 250 | 500 |
 |---|--:|--:|--:|--:|
-| Core kit | $260 | $237 | $219 | $205 |
+| Core kit | $253 | $229 | $211 | $197 |
 | Keyboard kit | $149 | $134 | $122 | $112 |
-| **Complete kit** | **$460** | **$415** | **$376** | **$347** |
+| **Complete kit** | **$453** | **$408** | **$368** | **$339** |
 
 Breakdown of the complete kit:
 
@@ -63,11 +67,11 @@ Breakdown of the complete kit:
 | PCBs (3) | $26 | $20 | $15 | $13 |
 | Case | $45 | $38 | $30 | $25 |
 | Tariff on PCBs and case | $25 | $20 | $16 | $13 |
-| Programming and labels | $8 | $8 | $8 | $8 |
+| Labels and chip table | $0.50 | $0.50 | $0.50 | $0.50 |
 | Kitting | $8 | $6 | $5 | $4 |
 | Packaging | $9 | $8 | $7 | $6 |
 | Freight in | $3 | $3 | $3 | $3 |
-| **Total** | **$460** | **$415** | **$376** | **$347** |
+| **Total** | **$453** | **$408** | **$368** | **$339** |
 
 This is higher than the $300-350 guessed in the kit price comparison,
 because the main board grew to 290 x 290 mm (bigger PCB and case) and
@@ -137,27 +141,28 @@ Margin = price - Crowd Supply fees - cost per kit, before the one-off costs.
 
 | Product, price | 50 kits | 100 | 250 | 500 |
 |---|--:|--:|--:|--:|
-| Core kit, $379 | $79 (21 %) | $102 (27 %) | $120 (32 %) | $134 (35 %) |
+| Core kit, $379 | $86 (23 %) | $109 (29 %) | $128 (34 %) | $142 (37 %) |
 | Keyboard kit, $199 | $26 (13 %) | $41 (21 %) | $53 (27 %) | $63 (32 %) |
-| Complete kit, $649 | $121 (19 %) | $166 (26 %) | $206 (32 %) | $235 (36 %) |
+| Complete kit, $649 | $129 (20 %) | $174 (27 %) | $213 (33 %) | $242 (37 %) |
+| Programmer, $109 | $20-25 a unit at any quantity | | | |
 
 Complete kit at other prices:
 
 | Price | 100 kits | 250 kits |
 |--:|--:|--:|
-| $549 | $74 (14 %) | $114 (21 %) |
-| $599 | $120 (20 %) | $160 (27 %) |
-| **$649** | **$166 (26 %)** | **$206 (32 %)** |
-| $699 | $212 (30 %) | $252 (36 %) |
+| $549 | $82 (15 %) | $121 (22 %) |
+| $599 | $128 (21 %) | $167 (28 %) |
+| **$649** | **$174 (27 %)** | **$213 (33 %)** |
+| $699 | $220 (31 %) | $259 (37 %) |
 
 Core kit at other prices:
 
 | Price | 100 kits | 250 kits |
 |--:|--:|--:|
-| $329 | $56 (17 %) | $74 (22 %) |
-| $349 | $74 (21 %) | $92 (26 %) |
-| **$379** | **$102 (27 %)** | **$120 (32 %)** |
-| $399 | $120 (30 %) | $138 (35 %) |
+| $329 | $63 (19 %) | $82 (25 %) |
+| $349 | $82 (23 %) | $100 (29 %) |
+| **$379** | **$109 (29 %)** | **$128 (34 %)** |
+| $399 | $128 (32 %) | $146 (37 %) |
 
 ## Suggested price
 
@@ -167,12 +172,13 @@ Core kit at other prices:
 | **Keyboard kit** (add-on) | **$199** | A Cherry MX 60 % keyboard kit with keycaps sells for $120-200 |
 | **Complete kit** | **$649** ($28 less than the three parts bought separately with a $99 case) | Foenix F256K2 $595 assembled; MEGA65 ~$750 |
 | Case on its own | $99 | Mostly for core kit buyers who add the keyboard later; print files free |
+| Programmer (option) | $109 | XGecu T48 retails at $60-90; at about $62 bought in bulk plus 35 % tariff it costs about $84 landed, leaving $20-25 after fees.  A TL866II Plus option at $79 leaves about the same |
 
 Why these numbers:
 
-- **At 100 kits they give 26-27 % margin on the core and complete kits,**
-  which is about $16,600 for 100 complete kits, or $12,600 after the
-  $4,000 of one-off costs.  That is thin for hardware (Crowd Supply guides and
+- **At 100 kits they give 27-29 % margin on the core and complete kits,**
+  which is about $10,900 for 100 core kits ($6,900 after the $4,000 of
+  one-off costs) or $17,400 for 100 complete kits ($13,400 after).  That is thin for hardware (Crowd Supply guides and
   small hardware sellers usually aim for 40-50 % so a distributor can
   take a cut later), but a logic-chip kit is a niche product and a
   higher price hurts more than a thin margin at this volume.
@@ -198,9 +204,13 @@ Why these numbers:
    board, but check at quote time.
 3. **The main board size**: the 290 x 290 mm 4-layer board is about $12
    at 100 plus tariff.  Not worth shrinking for cost alone.
-4. **Chip programming**: doing it yourself (plan B) is cheap in cash but
-   about 25 hours for 100 kits.  A Digi-Key setup fee ($1,000-4,000)
-   only pays off past about 250 kits.
+4. **Builder programming**: blank chips remove all programming cost and
+   setup fees, but two things must be done before launch.  Confirm on a
+   test chip that the T48 and TL866II Plus really program and verify the
+   ATF22V10C-7PX (both list it; not yet tried), and write a programming
+   guide with a verify step for each chip, since mixed-up PLDs will be
+   the most common support question.  Budget some spare programmed chip
+   sets to send to builders who get stuck.
 5. **Compliance**: unassembled kits are generally outside FCC equipment
    authorization (the rules cover marketing finished devices; see the
    CommLawBlog source), so a kit-only campaign needs no FCC test.  Selling
