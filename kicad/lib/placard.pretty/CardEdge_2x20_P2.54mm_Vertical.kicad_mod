@@ -73,4 +73,9 @@
   (pad "B19" thru_hole circle (at 45.72 -2.54) (size 1.6 1.6) (drill 1) (layers "*.Cu" "*.Mask"))
   (pad "A20" thru_hole circle (at 48.26 2.54) (size 1.6 1.6) (drill 1) (layers "*.Cu" "*.Mask"))
   (pad "B20" thru_hole circle (at 48.26 -2.54) (size 1.6 1.6) (drill 1) (layers "*.Cu" "*.Mask"))
+  (model "${KIPRJMOD}/lib/placard.3dshapes/CardEdge_2x20_P2.54mm_Vertical.step"
+    (offset (xyz 0 0 0))
+    (scale (xyz 1 1 1))
+    (rotate (xyz 0 0 0))
+  )
 )

@@ -33,4 +33,9 @@
   (pad "3" thru_hole oval (at 4.7 10) (size 2.5 2.5) (drill 1.6) (layers "*.Cu" "*.Mask"))
   (pad "MP" thru_hole circle (at -6.35 3) (size 2.8 2.8) (drill 1.8) (layers "*.Cu" "*.Mask"))
   (pad "MP" thru_hole circle (at 6.35 3) (size 2.8 2.8) (drill 1.8) (layers "*.Cu" "*.Mask"))
+  (model "${KIPRJMOD}/lib/placard.3dshapes/SW_Toggle_CIT_ANT11TFHQE.step"
+    (offset (xyz 0 0 0))
+    (scale (xyz 1 1 1))
+    (rotate (xyz 0 0 0))
+  )
 )

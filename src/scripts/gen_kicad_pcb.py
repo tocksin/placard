@@ -74,17 +74,17 @@ TOP = "Dwgs.User"            # dimensions and notes
 NOTE = "Cmts.User"           # zones and labels
 PULL_LAYER = "Eco1.User"     # chip puller room past the socket ends
 
-FP_DSUB = "Connector_Dsub:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm"
+FP_DSUB = "placard:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm"
 FP_AUDIO = "placard:Jack_3.5mm_Tensility_54-00174_Horizontal"
 FP_USBC = "placard:USB_C_Receptacle_GCT_USB4125_6P_HandSolder"
-FP_SD = "Connector_Card:SD_Kyocera_145638009511859+"
+FP_SD = "placard:SD_Kyocera_145638009511859+"
 FP_KBD = "Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical"
 FP_CART = "placard:Molex_87715-9106_PCIe_x4_Vertical"
 FP_EXP = "placard:CardEdge_2x20_P2.54mm_Vertical"
 FP_PS2 = "placard:PS2_Kycon_KMDGX-6S-6S-S4N"
 FP_SNES = "placard:SNES_Pad_Socket_Horizontal"
 FP_SW1 = "placard:SW_Toggle_CIT_ANT11TFHQE"
-FP_SW2 = "Button_Switch_THT:SW_Tactile_SPST_Angled_PTS645Vx58-2LFS"
+FP_SW2 = "placard:SW_Tactile_SPST_Angled_PTS645Vx58-2LFS"
 FP_HOLE = "MountingHole:MountingHole_3.2mm_M3_Pad_Via"
 
 # Each footprint's anchor, in its own coordinates: for an edge connector the

@@ -26,6 +26,17 @@ have no edge.
 | Jack_3.5mm_Tensility_54-00174_Horizontal | audio line out jack J6 | T (two legs), R1, R2, S |
 | USB_C_Receptacle_GCT_USB4125_6P_HandSolder | USB-C power J13 | A5 A9 A12 B5 B9 B12, S1 |
 
+Copies of KiCad's own footprints, unchanged but for the 3D model path:
+SD_Kyocera_145638009511859+ (J4), Fuse_Bourns_MF-RG300 (F1),
+SW_Tactile_SPST_Angled_PTS645Vx58-2LFS (SW2), DSUB-15-HD_Female_Horizontal_...
+(J7 VGA).
+
+3D models: every footprint here names its model as
+${KIPRJMOD}/lib/placard.3dshapes/<footprint>.step, in the repo, so the main
+board shows them whatever KiCad version or 3D library is installed.
+gen_kicad_3d_models.py makes them (generated from the drawings, or copies of
+KiCad's own models); run it after this script.
+
 The USB-C footprint is KiCad's own GCT USB4125 one (true to GCT's drawing)
 with its six SMD pads lengthened 1.5 mm out the back of the body, so a
 soldering iron has room to touch each pad beside the contact.
@@ -44,6 +55,16 @@ import re
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "..", "kicad", "lib", "placard.pretty"))
 STOCK = os.environ.get("KICAD7_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
+# 3D models live in the repo (kicad/lib/placard.3dshapes, made by gen_kicad_3d_models.py)
+# so the board shows them whatever KiCad version or 3D library path is installed
+MODELS = "${KIPRJMOD}/lib/placard.3dshapes"
+
+
+def model(name):
+    """The footprint's 3D model: kicad/lib/placard.3dshapes/<name>.step, drawn in
+    the footprint's own coordinates, so no offset or rotation."""
+    return ('  (model "%s/%s.step"\n    (offset (xyz 0 0 0))\n    (scale (xyz 1 1 1))\n'
+            '    (rotate (xyz 0 0 0))\n  )\n' % (MODELS, name))
 
 
 def f(v):
@@ -93,7 +114,7 @@ def footprint(name, descr, body, pads, edge=None, extra="", crtyd=None):
     if edge is not None:
         s += line(x0 - 2, edge, x1 + 2, edge, "Dwgs.User", 0.1)
         s += text("user", "PCB edge", (x0 + x1) / 2, edge + 1.2, "Dwgs.User", size=0.8)
-    s += extra + "".join(pads) + ")\n"
+    s += extra + "".join(pads) + model(name) + ")\n"
     with open(os.path.join(OUT, name + ".kicad_mod"), "w", newline="\n") as fh:
         fh.write(s)
     print("wrote", name)
@@ -222,59 +243,6 @@ def toggle():
               (-7.0, -9.5, 7.0, 12.5), pads, edge=0.0)
 
 
-def slot(num, x, y, w, h):
-    """A plated slot w x h (mm), pad 0.6 mm larger all round."""
-    return ('  (pad "%s" thru_hole oval (at %s %s) (size %s %s) (drill oval %s %s) (layers "*.Cu" "*.Mask"))\n'
-            % (num, f(x), f(y), f(w + 0.6), f(h + 0.6), f(w), f(h)))
-
-
-def audio_jack():
-    # Tensility 54-00174, 4-pole (TRRS) 3.5 mm jack, right angle, from its drawing (rev A, 2020-05-07):
-    # body 6.6 x 12.3 mm behind the face, 1.5 x 0.8 mm slots, two 1.2 mm pegs on the axis.
-    # Drawing pins: 4 tip (two legs), 3 ring 1, 2 ring 2, 1 sleeve; here named as the symbol.
-    pads = [slot("T", -3.3, 3.5, 0.8, 1.5), slot("T", 3.3, 3.5, 0.8, 1.5),
-            slot("R1", -2.85, 11.5, 0.8, 1.5), slot("R2", 2.85, 11.5, 0.8, 1.5),
-            slot("S", 0.0, 12.3, 1.5, 0.8)]
-    extra = hole(0.0, 2.0, 1.2) + hole(0.0, 9.0, 1.2)
-    footprint("Jack_3.5mm_Tensility_54-00174_Horizontal",
-              "Tensility 54-00174 3.5 mm TRRS jack, right angle, through hole, opening over the edge",
-              (-3.3, -2.5, 3.3, 12.9), pads, edge=0.0, extra=extra)
-
-
-def ps2_stacked():
-    # stacked dual mini-DIN 6, right angle: 14 mm wide, 13 mm deep, front face on the edge
-    pads = []
-    for num, x, y in [("A1", -1.3, 4.6), ("A2", 1.3, 4.6), ("A3", -3.4, 6.6),
-                      ("A4", 3.4, 6.6), ("A5", -3.4, 4.6), ("A6", 3.4, 4.6),
-                      ("B1", -1.3, 9.6), ("B2", 1.3, 9.6), ("B3", -3.4, 11.6),
-                      ("B4", 3.4, 11.6), ("B5", -3.4, 9.6), ("B6", 3.4, 9.6)]:
-        pads.append(pad(num, x, y, 1.5, 0.9, "rect" if num == "A1" else "circle"))
-    for x in (-6.75, 6.75):
-        pads.append(pad("SH", x, 3.0, 2.8, 2.0, "circle"))
-        pads.append(pad("SH", x, 10.0, 2.8, 2.0, "circle"))
-    footprint("PS2_Kycon_KMDGX-6S-6S-S4N",
-              "Kycon KMDGX-6S/6S-S4N stacked dual mini-DIN 6 (PS/2), right angle, shielded: A top, B bottom",
-              (-7.0, -0.5, 7.0, 13.0), pads, edge=0.0, extra=hole(0, 7.6, 2.5))
-
-
-def snes():
-    # PCB-mount SNES controller port (replacement part), right angle: 7 pins in a row
-    pads = [pad(str(n), (n - 4) * 2.54, 14.0, 1.6, 1.0) for n in range(1, 8)]
-    extra = hole(-11.0, 7.0, 3.0) + hole(11.0, 7.0, 3.0)
-    footprint("SNES_Pad_Socket_Horizontal",
-              "SNES controller port, PCB mount, right angle, 7 pins",
-              (-13.0, -0.5, 13.0, 16.0), pads, edge=0.0, extra=extra)
-
-
-def toggle():
-    # right-angle PCB toggle, 1/4-40 bushing out the case side: 3 pins at 4.7 mm, 2 bracket pins
-    pads = [pad(str(n), (n - 2) * 4.7, 10.0, 2.5, 1.6, "oval" if n != 1 else "rect") for n in (1, 2, 3)]
-    pads += [pad("MP", -6.35, 3.0, 2.8, 1.8), pad("MP", 6.35, 3.0, 2.8, 1.8)]
-    footprint("SW_Toggle_CIT_ANT11TFHQE",
-              "CIT ANT11TFHQE toggle switch, SPDT, right angle PCB, 1/4-40 bushing over the edge",
-              (-7.0, -9.5, 7.0, 12.5), pads, edge=0.0)
-
-
 def pushbutton():
     # right-angle PCB pushbutton, snap-in: 3 pins at 4.7 mm, 2 snap-in legs
     pads = [pad(str(n), (n - 2) * 4.7, 9.0, 2.2, 1.4) for n in (1, 2, 3)]
@@ -303,6 +271,22 @@ def usb_c(extend=1.5):
     s = s.replace('(at 0 -5.1 unlocked) (layer "F.SilkS")', '(at 0 %s unlocked) (layer "F.SilkS")' % f(-5.1 - extend))
     s = s.replace("(fp_rect (start -5.37 -4.35)", "(fp_rect (start -5.37 %s)" % f(-4.35 - extend))
     s = re.sub(r" \(tstamp [0-9a-f-]+\)", "", s)
+    s = re.sub(r'  \(model "[^"]+"', '  (model "%s/%s.step"' % (MODELS, name), s)
+    with open(os.path.join(OUT, name + ".kicad_mod"), "w") as fh:
+        fh.write(s)
+    print("wrote", name)
+
+
+def stock(lib, name, note):
+    """A copy of one of KiCad's own footprints, unchanged except that its 3D model is
+    the copy in kicad/lib/placard.3dshapes (KiCad's own model, or a generated one
+    where KiCad's library names a model it does not have)."""
+    with open(os.path.join(STOCK, lib + ".pretty", name + ".kicad_mod")) as fh:
+        s = fh.read()
+    s = re.sub(r" \(tstamp [0-9a-f-]+\)", "", s)
+    s = s.replace('(descr "', '(descr "Placard, gen_kicad_connectors.py: KiCad %s:%s with %s. ' % (lib, name, note), 1)
+    s = re.sub(r'  \(model "[^"]+"', '  (model "%s/%s.step"' % (MODELS, name), s)
+    assert MODELS in s
     with open(os.path.join(OUT, name + ".kicad_mod"), "w") as fh:
         fh.write(s)
     print("wrote", name)
@@ -316,6 +300,11 @@ def main():
     toggle()
     audio_jack()
     usb_c()
+    stock("Connector_Card", "SD_Kyocera_145638009511859+", "a generated 3D model (KiCad has none)")
+    stock("Fuse", "Fuse_Bourns_MF-RG300", "a generated 3D model (KiCad has none)")
+    stock("Button_Switch_THT", "SW_Tactile_SPST_Angled_PTS645Vx58-2LFS", "KiCad's 3D model, copied into the project")
+    stock("Connector_Dsub", "DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm",
+          "KiCad's 3D model, copied into the project")
 
 
 if __name__ == "__main__":

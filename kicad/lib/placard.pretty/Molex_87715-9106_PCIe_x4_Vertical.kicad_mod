@@ -100,4 +100,9 @@
   (pad "A31" thru_hole circle (at 32 2.9) (size 0.95 0.95) (drill 0.65) (layers "*.Cu" "*.Mask"))
   (pad "B32" thru_hole circle (at 33 -1) (size 0.95 0.95) (drill 0.65) (layers "*.Cu" "*.Mask"))
   (pad "A32" thru_hole circle (at 33 1) (size 0.95 0.95) (drill 0.65) (layers "*.Cu" "*.Mask"))
+  (model "${KIPRJMOD}/lib/placard.3dshapes/Molex_87715-9106_PCIe_x4_Vertical.step"
+    (offset (xyz 0 0 0))
+    (scale (xyz 1 1 1))
+    (rotate (xyz 0 0 0))
+  )
 )

@@ -349,7 +349,7 @@ def sheet_power(b):
     s.junction(xg, j13["S1"][1], owner="GND")
     s.power("GND", xg, j13["S1"][1] + 5.08)
     f201 = s.part("placard_std:Polyfuse", "F1", 91.44, yr, {"1": "VBUS", "2": "VFUSE"}, value="3 A hold",
-                  footprint="Fuse:Fuse_Bourns_MF-RG300", angle=90, bare=("1", "2"),
+                  footprint="placard:Fuse_Bourns_MF-RG300", angle=90, bare=("1", "2"),
                   ref_at=(86.4, yr - 2.0), value_at=(86.4, yr + 2.0))
     path(s, "VBUS", j13["A9"], f201["1"])
     # after the fuse: the on/off toggle, then the reset button (push to open), both in series
@@ -373,7 +373,7 @@ def sheet_power(b):
                 ref_at=(xk - 2.5, yr + 8.5), value_at=(xk - 2.5, yr + 11.0))
     xt = 152.4
     sw2 = s.part("placard_std:SW_Push", "SW2", xt + 5.08, yr - 7.62, {"1": "VON", "2": "KCOIL"}, value="PTS645VL58-2 LFS",
-                 footprint="Button_Switch_THT:SW_Tactile_SPST_Angled_PTS645Vx58-2LFS", bare=("1", "2"),
+                 footprint="placard:SW_Tactile_SPST_Angled_PTS645Vx58-2LFS", bare=("1", "2"),
                  ref_at=(xt + 2.5, yr - 12.6), value_at=(xt - 8.0, yr - 26.5))
     yd = yr - 17.78
     d8 = s.part("placard_std:D_Schottky", "D8", xk, yd, {"1": "KCOIL", "2": "GND"}, value="BAT85", footprint=FP_D,
@@ -842,7 +842,7 @@ def sheet_video_out(b):
     j7 = s.part("placard_std:DE15_Receptacle_HighDensity_MountingHoles", "J7", 316.23, 101.6, {
         "1": "VGA_R", "2": "VGA_G", "3": "VGA_B", "4": None, "5": "GND", "6": "GND", "7": "GND", "8": "GND",
         "9": None, "10": "GND", "11": None, "12": None, "13": "~{HSYNC}", "14": "~{VSYNC}", "15": None, "0": "GND"},
-        value="VGA", footprint="Connector_Dsub:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm",
+        value="VGA", footprint="placard:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm",
         ref_at=(311, 84), value_at=(311, 126), bare=("1", "2", "3"))
     xc = 264.16
     for color, pin, xj in (("VGA_R", "1", None), ("VGA_G", "2", 274.32), ("VGA_B", "3", 281.94)):
@@ -1038,7 +1038,7 @@ def sheet_port(b):
     s.part("placard_std:SD_Card", "J4", 373.38, 170.18, {"1": "SD_CS", "2": "SD_DI", "3": "GND", "4": "+3V3", "5": "SD_CLK",
                                                         "6": "GND", "7": "SD_MISO", "8": None, "9": None, "10": None,
                                                         "11": None, "12": "GND", "13": "GND"}, value="SD (SPI)",
-           footprint="Connector_Card:SD_Kyocera_145638009511859+",
+           footprint="placard:SD_Kyocera_145638009511859+",
            bare=("1", "2", "5", "7"), ref_at=(353, 153), value_at=(353, 187))
     path(s, "SD_MISO", (350.52, 177.8), (345.44, 177.8), (345.44, 213.36), (340.36, 213.36), (330.2, 213.36))
     s.junction(340.36, 213.36, owner="SD_MISO")
