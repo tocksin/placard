@@ -79,7 +79,8 @@ and the cartridge slot (Molex 87715-9106, 2 x 32 keyed, contacts A1-A32
 and B1-B32), as in EXPANSION.md, with the +5 V and GND contacts stacked on
 one pin each, the SNES pad socket, the keyboard header (IO.md) and
 `USB_C_Power`, the 5 V input: a power-only 6-contact USB-C receptacle
-(GCT USB4125, KiCad footprint `Connector_USB:USB_C_Receptacle_GCT_USB4125-xx-x_6P_TopMnt_Horizontal`)
+(GCT USB4125, footprint `placard:USB_C_Receptacle_GCT_USB4125_6P_HandSolder`:
+KiCad's USB4125 footprint with the SMD pads 1.5 mm longer for the iron, made by gen_kicad_connectors.py)
 with a 5.1k resistor from CC1 and from CC2 to GND so a charger gives 5 V.  Make
 changes in the script, since rerunning it overwrites the library.
 

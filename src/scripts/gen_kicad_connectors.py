@@ -24,14 +24,21 @@ have no edge.
 | SNES_Pad_Socket_Horizontal | SNES pad ports J2, J3 | 1-7 |
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | 1 on throw, 2 common, 3 unused throw |
 | Jack_3.5mm_Tensility_54-00174_Horizontal | headphone jack J6 | T (two legs), R1, R2, S |
+| USB_C_Receptacle_GCT_USB4125_6P_HandSolder | USB-C power J13 | A5 A9 A12 B5 B9 B12, S1 |
 
-Date: 2026-10-22
+The USB-C footprint is KiCad's own GCT USB4125 one (true to GCT's drawing)
+with its six SMD pads lengthened 1.5 mm out the back of the body, so a
+soldering iron has room to touch each pad beside the contact.
+
+Date: 2026-10-23
 """
 
 import os
+import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "..", "kicad", "lib", "placard.pretty"))
+STOCK = os.environ.get("KICAD7_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
 
 
 def f(v):
@@ -232,6 +239,30 @@ def pushbutton():
               (-6.5, -7.0, 6.5, 11.0), pads, edge=0.0)
 
 
+def usb_c(extend=1.5):
+    # KiCad's USB4125 footprint with the SMD pads lengthened toward -y (out the
+    # back of the body); each pad's inner end stays where GCT draws it
+    stock = "USB_C_Receptacle_GCT_USB4125-xx-x_6P_TopMnt_Horizontal"
+    name = "USB_C_Receptacle_GCT_USB4125_6P_HandSolder"
+    with open(os.path.join(STOCK, "Connector_USB.pretty", stock + ".kicad_mod")) as fh:
+        s = fh.read()
+
+    def longer(m):
+        x, y, rot, w, h = m.group(2), float(m.group(3)), m.group(4) or "", m.group(5), float(m.group(6))
+        return '(pad "%s" smd roundrect (at %s %s%s) (size %s %s)' % (
+            m.group(1), x, f(y - extend / 2), rot, w, f(h + extend))
+    s = re.sub(r'\(pad "(\w+)" smd roundrect \(at (\S+) (\S+)( \d+)?\) \(size (\S+) (\S+)\)', longer, s)
+    s = s.replace('(footprint "%s"' % stock, '(footprint "%s"' % name)
+    s = s.replace('(fp_text value "%s"' % stock, '(fp_text value "%s"' % name)
+    s = s.replace('(descr "USB Type C Receptacle', '(descr "Placard, gen_kicad_connectors.py: SMD pads %s mm longer for hand soldering. USB Type C Receptacle' % f(extend))
+    s = s.replace('(at 0 -5.1 unlocked) (layer "F.SilkS")', '(at 0 %s unlocked) (layer "F.SilkS")' % f(-5.1 - extend))
+    s = s.replace("(fp_rect (start -5.37 -4.35)", "(fp_rect (start -5.37 %s)" % f(-4.35 - extend))
+    s = re.sub(r" \(tstamp [0-9a-f-]+\)", "", s)
+    with open(os.path.join(OUT, name + ".kicad_mod"), "w") as fh:
+        fh.write(s)
+    print("wrote", name)
+
+
 def main():
     cart_slot()
     exp_slot()
@@ -239,6 +270,7 @@ def main():
     snes()
     toggle()
     audio_jack()
+    usb_c()
 
 
 if __name__ == "__main__":
