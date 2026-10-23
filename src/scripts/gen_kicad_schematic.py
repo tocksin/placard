@@ -38,10 +38,12 @@ CDIR = os.path.join(KDIR, "cartridge")
 BDIR = os.path.join(KDIR, "keyboard")
 
 # ---------------------------------------------------------------- footprints
-FP_DIP14 = "Package_DIP:DIP-14_W7.62mm"
-FP_DIP20 = "Package_DIP:DIP-20_W7.62mm"
-FP_DIP28W = "Package_DIP:DIP-28_W15.24mm"
-FP_R = "Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal"
+# DIPs: kit versions of KiCad's socket footprints (puller room, part number in silkscreen) and
+# resistors with their value in silkscreen, from gen_kicad_kit_footprints.py (Justin, 2026-10-23)
+FP_DIP14 = "placard:DIP-14_W7.62mm_Socket_Puller"
+FP_DIP20 = "placard:DIP-20_W7.62mm_Socket_Puller"
+FP_DIP28W = "placard:DIP-28_W15.24mm_Socket_Puller"
+FP_R = "placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value"
 FP_C = "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm"
 FP_CP_S = "Capacitor_THT:CP_Radial_D6.3mm_P2.50mm"
 FP_CP_L = "Capacitor_THT:CP_Radial_D8.0mm_P3.50mm"
