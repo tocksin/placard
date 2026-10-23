@@ -1,6 +1,6 @@
 # Bring-up: build order and a test for each chip
 
-Date: 2026-10-22
+Date: 2026-10-23
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
@@ -112,7 +112,7 @@ Leave U40, C40 and C42 (the 3.3 V regulator) for step 18, with the SD card.
 | C41 | 220 µF 10 V electrolytic on VON (between SW1 and K1) | + to VON, stripe to GND |
 | K1 | Omron G5LE-1 DC5 relay; COM (pin 1) = VON, NC (pin 4) = +5V | |
 | SW2 | PTS645VL58-2 tactile reset button, VON to the coil (KCOIL) | |
-| D26 | BAT85 across K1's coil | band (cathode) to KCOIL |
+| D8 | BAT85 across K1's coil | band (cathode) to KCOIL |
 
 **The relay's NC rating.**  The whole board's current flows through K1's
 normally closed contact.  Before fitting K1, check on the Omron G5LE
@@ -125,7 +125,7 @@ rating).  If it isn't, change the part before going on.
 - VBUS (F1's input) to GND and +5V (K1 pin 4) to GND: open, not a short.
 - D7 on diode test from GND to VFUSE: about 0.6 V forward, open the other
   way.  Reversed, it shorts the supply and F1 trips.
-- D26 on diode test from GND to KCOIL: about 0.3 V forward.  Reversed, it
+- D8 on diode test from GND to KCOIL: about 0.3 V forward.  Reversed, it
   shorts VON as soon as SW2 is pressed.
 - C41's + lead goes to VON (SW1's output side).
 
@@ -179,9 +179,8 @@ Build the rest of the board with no chips:
   (RUN to +5 V), both with a shunt on (see "Without the cartridge").
 - Cartridge slot J8 with R13 (10k, /CART pull-up), and the 10k /WE
   pull-up (in the BOM, not on the schematic yet).
-- Video output: R14-R21 (the colour resistors), D22-D25 (BAT85 ESD clamps
-  on the syncs), the row tint parts R56-R58, D27-D29 (BAT85) and D30-D35
-  (1N4148), and the VGA connector J7.
+- Video output: R14-R21 (the colour resistors), the row tint parts
+  R56-R58, D9-D11 (BAT85) and D12-D17 (1N4148), and the VGA connector J7.
 
 Then push the straps into the empty sockets.  Each is a 10k resistor
 with its leads in the socket's pins (or soldered to a spare socket that
@@ -555,7 +554,6 @@ Fit the three chips U37, U38 and U39 and their parts ([IO.md](IO.md)):
   DATA) and D2-D6 (BAT85, the row and port diodes).
 - SD card: J4, the dividers R42-R44 (1.8k) and R45-R47 (3.3k), R48 (10k
   MISO pull-up to 3.3 V) and D1 (BAT85, MISO to row 7).
-- ESD clamps D8-D21 (BAT85 pairs on the lines at J2, J3 and J5).
   Before plugging the SD card in, check 3.2-3.4 V at
 U40's output and at the SD socket's pin 4.
 

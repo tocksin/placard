@@ -20,15 +20,15 @@ a separate board (a KiCad project has one PCB).
 | Sheet | Title | Chips | Connectors and main passives |
 |--:|---|---|---|
 | 1 | Root: block diagram | none | sheet boxes only, drawn like `reference/placard_block_diagram.png` |
-| 2 | Power and clock | U40 3.3 V regulator, oscillator X1 | USB-C power input, polyfuse, on/off toggle SW1, reset relay K1 (NC contact) with button SW2 and coil diode D26, bulk capacitor C41 ahead of K1, STALL_OUT 10k pull-up, RUN pull-down, STALL/RUN bring-up jumpers |
+| 2 | Power and clock | U40 3.3 V regulator, oscillator X1 | USB-C power input, polyfuse, on/off toggle SW1, reset relay K1 (NC contact) with button SW2 and coil diode D8, bulk capacitor C41 ahead of K1, STALL_OUT 10k pull-up, RUN pull-down, STALL/RUN bring-up jumpers |
 | 3 | Control | U1 State, U2 Branch, U17 instruction register PLD | bring-up straps S1-S3 (State socket pins) |
 | 4 | Program counter and address mux | U3, U4 PC low/high, U7-U10 address mux | none |
 | 5 | ALU and registers | U5, U6 ALU, U19 AC, U20 X, U21 Y | none |
 | 6 | Data bus | U18 D register, U26 D source F541, U27 AC source F541 | 8 series resistors (source bus to data bus), 10k read-bus pull-up SIP |
 | 7 | Memory and I/O decode | U11 memory control, U12 I/O decode, U25 map register, U31, U32 RAM | cartridge slot (Molex 87715-9106), /CART pull-up |
 | 8 | Video timing | U13 H counter, U14 V counter, U15 Sync, U35 audio/mode slot PLD, U29 line read F541 | strap S4 (audio PLD) |
-| 9 | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register | VGA resistor DAC (8 resistors) and DE-15, R-2R ladder, filter, audio line out jack J6, strap S5 (line code), sync ESD clamps D22-D25, row tint R56-R58 + D27-D35 (2026-10-22) |
-| 10 | Shared port | U37 port latch, U38 port PLD, U39 row F541 | J1 keyboard, J2/J3 SNES, J4 SD (dividers R42-R47, MISO diode and pull-up), J5 stacked dual PS/2, mouse + keyboard (diodes, 4.7k pull-ups), row pull-ups, pad DATA pull-ups, ESD clamps D8-D21 |
+| 9 | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register | VGA resistor DAC (8 resistors) and DE-15, R-2R ladder, filter, audio line out jack J6, strap S5 (line code), row tint R56-R58 + D9-D17 (2026-10-22) |
+| 10 | Shared port | U37 port latch, U38 port PLD, U39 row F541 | J1 keyboard, J2/J3 SNES, J4 SD (dividers R42-R47, MISO diode and pull-up), J5 stacked dual PS/2, mouse + keyboard (diodes, 4.7k pull-ups), row pull-ups, pad DATA pull-ups |
 | 11 | Expansion slots | none | four 2 x 20 card-edge slots, SEL resistors (1k) |
 
 That puts 34 chips plus the regulator and oscillator on nine sheets, no more
@@ -310,7 +310,7 @@ Decisions made while drawing (2026-10-20):
     $11): relay K1 **Omron G5LE-1 DC5** (SPDT, 8 A 30 V DC, through hole,
     about $1.80), COM from VON and NC to +5V.  SW2 **C&K PTS645VL58-2 LFS**
     (right-angle tactile, about $0.25) feeds the 63 ohm coil from VON, so
-    it carries only 80 mA.  D26 (BAT85) across the coil, cathode on the
+    it carries only 80 mA.  D8 (BAT85) across the coil, cathode on the
     button side, takes the coil's kick when SW2 lets go.  Check before
     ordering that the G5LE's NC contact is rated for 3 A (the datasheet
     gives one rating, 8 A at 30 V DC) and note its contact resistance spec
@@ -339,23 +339,12 @@ Decisions made while drawing (2026-10-20):
 - **Through hole wherever possible** (Justin, 2026-10-22): pick a
   through-hole part whenever one exists, SMD only when nothing through
   hole does the job.
-- **ESD clamps on the external connectors** (Justin, 2026-10-22): every
-  slow signal line that leaves the board gets a BAT85 Schottky pair, one up
-  to +5V and one from GND, so a zap is steered into the rails (the 5 V rail
-  has C1-C40 and D7 to soak it).  Through-hole TVS arrays (SP0504 and the
-  like) do not exist, which is why it is discrete diodes.
-  - Shared port sheet, D8-D21: PS2_DATA, PS2_CLK, KBD_CLK (J5), P_SCK
-    (pad CLOCK), P_MOSI (pad LATCH), PAD1_DATA, PAD2_DATA (J2, J3).
-  - Video sheet, D22-D25: ~HSYNC and ~VSYNC at J7.  The RGB lines already
-    sit behind the DAC resistors (715 ohm to 3.24k) into the monitor's
-    75 ohm, so they get none.
-  - None on the cartridge or expansion slots (the extra capacitance would
-    eat into tight bus timing), the keyboard header (inside the case), the
-    SD card (inside the slot, 3.3 V side behind the divider resistors) or
-    the audio jack (behind C46 and R39).
-  - A BAT85 is about 10 pF, harmless at PS/2 and SNES speeds.  Diode pairs
-    are less robust than a real TVS array against a full IEC 61000-4-2
-    8 kV contact hit, but they cover the everyday plug-in and finger zaps.
+- **No ESD clamps on the external connectors** (Justin, 2026-10-23): the
+  BAT85 steering pairs added on 2026-10-22 (PS/2, SNES and the VGA syncs,
+  18 diodes) are taken out again.  They were cheap insurance, not needed
+  for the machine to work.  The diodes after them were renumbered (D26 is
+  now D8, D27-D35 are now D9-D17), keeping their symbol uuids so Update PCB
+  from Schematic renames their footprints.  D7 (the TVS on VBUS) stays.
 
 **Still to do:** a KiCad 8 ERC (the container's KiCad 7.0 command line has
 no ERC; open the project in KiCad 8 or 9 and run Inspect > Electrical Rules

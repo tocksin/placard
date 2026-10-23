@@ -273,17 +273,6 @@ def diode(s, ref, x, y, k, a, angle=0, value="BAT85", bare=(), ref_at=None, valu
            ref_at=ref_at or (x - 3.5, y - 1.8), value_at=value_at or (x - 3.5, y + 1.8), bare=bare)
 
 
-def clamp(s, ref_hi, ref_lo, net, x, yn, glob=False):
-    """ESD steering pair for an external line, labelled net at the node (x, yn): a BAT85 up to +5V
-    and one up from GND, so a zap on the connector goes into the supply rail, not into a chip."""
-    hi = s.part("placard_std:D_Schottky", ref_hi, x, yn - 3.81, {"1": "+5V", "2": net}, value="BAT85", footprint=FP_D,
-                angle=270, bare=("2",), hide_value=True, ref_at=(x - 10.0, yn - 2.5), value_at=(x - 10.0, yn - 1.0))
-    s.part("placard_std:D_Schottky", ref_lo, x, yn + 3.81, {"1": net, "2": "GND"}, value="BAT85", footprint=FP_D,
-           angle=270, bare=("1",), hide_value=True, ref_at=(x - 10.0, yn + 6.3), value_at=(x - 10.0, yn + 8.0))
-    path(s, net, hi["2"], (x + 2.54, yn))
-    s.label(net, x + 2.54, yn, 0, "passive", glob)
-
-
 def flag(s, net, x, y):
     """PWR_FLAG on a labelled net: flag pin at (x, y), label below it."""
     s.pwr_flag(x, y)
@@ -376,7 +365,7 @@ def sheet_power(b):
     path(s, "VFUSE", tvs["1"], sw1["1"])
     s.junction(tvs["1"][0], yr, owner="VFUSE")
     # reset (Justin, 2026-10-22): relay K1's NC contact carries the power; the small button SW2 drives
-    # its coil from VON, so holding it opens the contact.  D26 takes the coil's kick when SW2 lets go.
+    # its coil from VON, so holding it opens the contact.  D8 takes the coil's kick when SW2 lets go.
     # C41, the bulk cap, sits on VON ahead of the relay so the board side drains fast.
     xk = 170.18
     k1 = s.part("placard_std:G5LE-1", "K1", xk, yr - 2.54, {"1": "VON", "4": "+5V", "3": None, "2": "KCOIL", "5": "GND"},
@@ -387,7 +376,7 @@ def sheet_power(b):
                  footprint="Button_Switch_THT:SW_Tactile_SPST_Angled_PTS645Vx58-2LFS", bare=("1", "2"),
                  ref_at=(xt + 2.5, yr - 12.6), value_at=(xt - 8.0, yr - 26.5))
     yd = yr - 17.78
-    d26 = s.part("placard_std:D_Schottky", "D26", xk, yd, {"1": "KCOIL", "2": "GND"}, value="BAT85", footprint=FP_D,
+    d8 = s.part("placard_std:D_Schottky", "D8", xk, yd, {"1": "KCOIL", "2": "GND"}, value="BAT85", footprint=FP_D,
                  bare=("1", "2"), ref_at=(xk - 7.0, yd - 3.2), value_at=(xk + 1.0, yd - 3.2))
     c201 = s.part("placard_std:C_Polarized", "C41", 142.24, yr + 3.81, {"1": "VON", "2": "GND"},
                   value="220u 10V", footprint=FP_CP_L, bare=("1",), ref_at=(144.7, yr + 3.3), value_at=(144.7, yr + 6.4))
@@ -397,10 +386,10 @@ def sheet_power(b):
     s.junction(xt, yr, owner="VON")
     path(s, "VON", (xt, yr), (xt, sw2["1"][1]), sw2["1"])
     path(s, "KCOIL", sw2["2"], k1["2"])
-    path(s, "KCOIL", k1["2"], (k1["2"][0], yd), d26["1"])
+    path(s, "KCOIL", k1["2"], (k1["2"][0], yd), d8["1"])
     s.junction(k1["2"][0], k1["2"][1], owner="KCOIL")
     xg = k1["5"][0] + 5.08
-    path(s, "GND", d26["2"], (k1["5"][0], yd), k1["5"])
+    path(s, "GND", d8["2"], (k1["5"][0], yd), k1["5"])
     path(s, "GND", (k1["5"][0], yd), (xg, yd), (xg, yd + 2.54))
     s.junction(k1["5"][0], yd, owner="GND")
     s.power("GND", xg, yd + 2.54)
@@ -879,11 +868,11 @@ def sheet_video_out(b):
         mid = f"TINT_{color[-1]}2"
         rt = s.part("placard_std:R_US", f"R{56 + k}", 229.87, yt, R2(lc, node), value="910", footprint=FP_R,
                     angle=90, bare=("1", "2"), ref_at=(226.5, yt - 7.0), value_at=(227.0, yt + 3.4))
-        da = s.part("placard_std:D", f"D{30 + 2 * k}", 248.92, yt, {"1": mid, "2": node}, value="1N4148",
+        da = s.part("placard_std:D", f"D{12 + 2 * k}", 248.92, yt, {"1": mid, "2": node}, value="1N4148",
                     footprint=FP_D, angle=180, bare=("1", "2"), ref_at=(245.0, yt - 7.0), value_at=(245.0, yt - 4.2))
-        db = s.part("placard_std:D", f"D{31 + 2 * k}", 261.62, yt, {"1": color, "2": mid}, value="1N4148",
+        db = s.part("placard_std:D", f"D{13 + 2 * k}", 261.62, yt, {"1": color, "2": mid}, value="1N4148",
                     footprint=FP_D, angle=180, bare=("1", "2"), ref_at=(257.7, yt - 7.0), value_at=(257.7, yt - 4.2))
-        dc = s.part("placard_std:D_Schottky", f"D{27 + k}", xn, yt + 3.81, {"1": "VIDEN", "2": node}, value="BAT85",
+        dc = s.part("placard_std:D_Schottky", f"D{9 + k}", xn, yt + 3.81, {"1": "VIDEN", "2": node}, value="BAT85",
                     footprint=FP_D, angle=90, bare=("1", "2"), ref_at=(xn + 2.5, yt + 5.0), value_at=(xn + 2.5, yt + 7.8))
         path(s, lc, (rt["1"][0] - 3.81, yt), rt["1"])
         tag(s, lc, rt["1"][0] - 3.81, yt)
@@ -902,11 +891,6 @@ def sheet_video_out(b):
     s.label("VIDEN", xv, vys[-1] + 5.08, 270, "passive", True)
     note(s, 226.06, 210.82, ["Row tint: mode byte bits 6:4 lift R, G, B by about 0.2 V",
                              "for the whole row.  Off in blanking (BAT85 to VIDEN)."], size=2.2)
-    # ESD: a BAT85 pair on each sync line at J7 (RGB already sits behind the DAC resistors)
-    for k, net in enumerate(("~{HSYNC}", "~{VSYNC}")):
-        clamp(s, f"D{22 + 2 * k}", f"D{23 + 2 * k}", net, 312.42 + k * 30.48, 167.64, glob=True)
-    note(s, 297.18, 185.42, ["ESD clamps D22-D25 (BAT85): the syncs at J7 go to +5V", "and GND through a Schottky."],
-         size=2.2)
     # ---- audio: PIX -> U36 DAC register -> R-2R ladder -> C46 -> J6
     u36 = s.part("placard_std:74LS574", "U36", 139.7, 218.44,
                  ls574(PIX, bus("DAC", 8), "GNDA", "H_VIDEO_ACTIVE", vcc="DAC_5V", gnd="GNDA"),
@@ -1041,7 +1025,7 @@ def sheet_port(b):
     path(s, "PS2_DATA", (279.4, j5["B1"][1]), (279.4, j5["A1"][1]), j5["A1"])
     s.junction(279.4, j5["B1"][1], owner="PS2_DATA")
     yc = 233.68
-    path(s, "PS2_CLK", (233.68, yc), (243.84, yc), (261.62, yc), (276.86, yc), (276.86, j5["A5"][1]), j5["A5"])
+    path(s, "PS2_CLK", (233.68, yc), (243.84, yc), (261.62, yc), (279.4, yc), (279.4, j5["A5"][1]), j5["A5"])
     # SD card: 1.8k / 3.3k dividers bring SCK, MOSI and /CS down to 3.2 V; CS and DI come in from above,
     # CLK from below, MISO goes back down to row 7 through D1
     for src, net, y, rs, rp, pin, xv in [("P_CS", "SD_CS", 134.62, "R44", "R47", 162.56, 345.44),
@@ -1074,15 +1058,6 @@ def sheet_port(b):
         path(s, data, (373.38, y), (330.2, y), (325.12, y))
         s.junction(330.2, y, owner=data)
         name(s, data, 325.12, y, 180)
-    # ESD: a BAT85 pair on every line that leaves the board at J2, J3 and J5 (through hole, Justin 2026-10-22)
-    g = lambda v: round(v / 1.27) * 1.27
-    tag(s, "PS2_DATA", 279.4, j5["A1"][1], 90)
-    tag(s, "PS2_CLK", 276.86, yc, 90)
-    lines = ["PS2_DATA", "PS2_CLK", "KBD_CLK", "P_SCK", "P_MOSI", "PAD1_DATA", "PAD2_DATA"]
-    for k, net in enumerate(lines):
-        clamp(s, f"D{8 + 2 * k}", f"D{9 + 2 * k}", net, 106.68 + k * 27.94, 63.5)
-    note(s, 106.68, 80.0, ["ESD clamps D8-D21 (BAT85): each line at J2, J3 and J5 goes to +5V and GND through a Schottky."],
-         size=2.2)
     note(s, 15, 252, ["Latch Q0 = SCK and pad CLOCK, Q1 = MOSI and pad LATCH, Q2 = SD /CS (low also holds the mouse CLK), Q3 = PS/2 DATA,",
                       "Q7:Q4 = key column; with Q7 = 1 (no column) Q4 low holds the keyboard CLK.  PS/2 DATA is shared by both sockets.",
                       "SD lines come down to 3.2 V through 1.8k / 3.3k; MISO reaches row 7 through a Schottky."],
@@ -1502,6 +1477,11 @@ def check_refs(sheets, label):
 
 
 def main():
+    # keep every symbol's uuid from the files already there (Update PCB from Schematic matches on it)
+    for d in (KDIR, CDIR, BDIR):
+        for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
+            if f.endswith(".kicad_sch"):
+                K.keep_uuids(os.path.join(d, f))
     root, boxes, sheets, glob = build_main()
     for sh in sheets:
         write(os.path.join(KDIR, sh.filename), sh.render())
