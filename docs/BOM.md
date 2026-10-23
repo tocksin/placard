@@ -31,21 +31,20 @@ slots a card will use, and J1 only with the Cherry MX keyboard (a PS/2 keyboard 
 
 | Board | Components | Without optional parts | Lines estimated |
 |---|--:|--:|--:|
-| Main board | $184.37 | $165.77 | 41 |
-| Cartridge | $61.36 | $61.36 | 4 |
+| Main board | $186.89 | $168.29 | 41 |
+| Cartridge | $61.72 | $61.72 | 4 |
 | Keyboard | $145.96 | $145.96 | 6 |
-| **All three** | **$391.69** | **$373.09** | |
+| **All three** | **$394.57** | **$375.97** | |
 
 ## Main board
 
-57 lines, 191 parts on the schematic.
+56 lines, 191 parts on the schematic.
 
-Components: **$184.37** for one board at these quantities, **$165.77** without the optional parts.
+Components: **$186.89** for one board at these quantities, **$168.29** without the optional parts.
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
-| 12 | U1, U5-U12, U15, U17, U38 | ATF22V10C-7PX | Microchip | PLD, 22V10, 7.5 ns, PDIP-24 0.3" (programmed) |  | 2.99 | 35.88 | Mouser | State U1; ALU U5, U6; Address mux U7-U10; Memory control U11; I/O decode U12; Sync U15; Instruction register U17; Shared port U38 |
-| 7 | U2-U4, U13, U14, U16, U35 | ATF22V10C-10PU | Microchip | PLD, 22V10, 10 ns, PDIP-24 0.3" (programmed) |  | 2.63 | 18.41 | Mouser | Branch U2; PC U3, U4; H counter U13; V counter U14; Color decoder U16; Audio slot U35 |
+| 19 | U1-U17, U35, U38 | ATF22V10C-7PX | Microchip | PLD, 22V10, 7.5 ns, PDIP-24 0.3" (programmed) |  | 2.99 | 56.81 | Mouser | State U1; Branch U2; PC U3, U4; ALU U5, U6; Address mux U7-U10; Memory control U11; I/O decode U12; H counter U13; V counter U14; Sync U15; Color decoder U16; Instruction register U17; Audio slot U35; Shared port U38 |
 | 5 | U18-U22 | SN74F377AN | Texas Instruments | Octal D flip-flop with enable, 74F, DIP-20 |  | 1.05 | 5.25 | Mouser |  |
 | 1 | U23 | CD74HCT377E | Texas Instruments | Octal D flip-flop with enable, 74HCT, DIP-20 (line code: drives the row tint) |  | 1.10 | 1.10 | est.: TI CD74HCT377E; check stock |  |
 | 1 | U25 | CD74ACT273E | Texas Instruments | Octal D flip-flop with clear, 74ACT, DIP-20 |  | 2.45 | 2.45 | Mouser |  |
@@ -106,11 +105,11 @@ Components: **$184.37** for one board at these quantities, **$165.77** without t
 
 7 lines, 10 parts on the schematic.
 
-Components: **$61.36** for one board at these quantities.
+Components: **$61.72** for one board at these quantities.
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
-| 1 | U1 | ATF22V10C-10PU | Microchip | PLD, 22V10, 10 ns, PDIP-24 0.3" (programmed) |  | 2.63 | 2.63 | Mouser | Cartridge loader U1 |
+| 1 | U1 | ATF22V10C-7PX | Microchip | PLD, 22V10, 7.5 ns, PDIP-24 0.3" (programmed) |  | 2.99 | 2.99 | Mouser | Cartridge loader U1 |
 | 2 | U2, U3 | AT28C256-15PU | Microchip | EEPROM, 32K x 8, 150 ns, PDIP-28 0.6" (programmed) |  | 12.38 | 24.76 | Mouser |  |
 | 2 | U4, U5 | AS7C256C-15PCN | Alliance Memory | SRAM, 32K x 8, 15 ns, PDIP-28 0.3" |  | 15.21 | 30.42 | Mouser |  |
 | 5 | C1-C5 | C320C104K5R5TA | KEMET | Ceramic capacitor, 5 mm pitch | 100n | 0.27 | 1.35 | est.: KEMET C320C104K5R5TA |  |

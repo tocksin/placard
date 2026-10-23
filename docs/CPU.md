@@ -217,7 +217,8 @@ two source F541s has two active-low enables:
 The audio slot PLD (revision 04) had two free pins, so it makes the one
 inverter (`AC_SEL = I1`).  It sits in the single-clock ALU path, which
 needed a -7 part until the instruction register became a PLD (2026-10-21);
-now it is a -10 (CHIPS.md, "PLD speed grades").  A D source always has a LOAD clock before EXEC, so
+it could be a -10 now, but every PLD is a -7 since 2026-10-23 (CHIPS.md,
+"PLD speed grades").  A D source always has a LOAD clock before EXEC, so
 I1 is settled a clock before /SRC_EN falls.  The only select change at the
 start of EXEC is D to AC (I1 rising after FETCH), which turns the D F541
 off (I1 directly, about 10 ns) before /SRC_EN turns either on (about

@@ -1,6 +1,6 @@
 Name     AUDIO_SLOT;
 PartNo   00;
-Date     2026-10-21;
+Date     2026-10-23;
 Revision 04;
 Designer Justin;
 Company  ;
@@ -40,7 +40,8 @@ Device   g22v10;
       37 ns of 39.72 ns), so the chip was a -7 part.  Since the
       instruction register became a PLD (2026-10-21, tCO 5.5 ns) the
       path is 5.5 + 10 + 9.5 + 7.5 + 2 = 34.5 ns at -10 (+5.2), so the
-      chip is an ATF22V10C-10PU.
+      chip was an ATF22V10C-10PU until 2026-10-23, when every PLD
+      became an ATF22V10C-7PX (one part number): 32 ns, +7.7.
 
    REVISION 03 (2026-10-16)
       The I/O window shrank to 5000h-53FFh, so the blanking reads

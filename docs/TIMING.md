@@ -1,6 +1,6 @@
 # Timing analysis at 25.175 MHz
 
-Date: 2026-10-21
+Date: 2026-10-23
 
 This is a static, worst-case timing analysis of the Placard as it sits in
 `src/hdl/basys_top.vhd` and the PLD sources in `src/pld`, for a real board
@@ -78,9 +78,10 @@ recover the most time.
   fastest grade still made in 24-pin DIP, **ATF22V10C-7PX**.  The
   ATF22V10C-15PU, the other DIP grade, doubles every PLD delay (tPD 15 ns)
   and makes every path here worse.
-  (Since 2026-10-21 seven main-board PLDs and the cartridge's, which have
-  room to spare, use the ATF22V10C-10PU, also DIP; see CHIPS.md, "PLD
-  speed grades".  The paths here are unchanged.)
+  (From 2026-10-21 to 2026-10-23 seven main-board PLDs and the
+  cartridge's, which have room to spare, used the ATF22V10C-10PU, also
+  DIP; since 2026-10-23 every PLD is a -7PX again, one part number; see
+  CHIPS.md, "PLD speed grades".  The paths here are unchanged.)
 - **PLD pin feedback**: where a WinCUPL equation names another *combinational
   output pin* on its right-hand side (for example `ADDR_SEL = PIXEL_ENABLE #
   PC_ENABLE` in `ATF22V10_SYNC.pld`), the 22V10 takes that signal back in
@@ -360,7 +361,8 @@ In rough order of time recovered:
   the cartridge"), so no battery switch sits in their /CE path.  There is
   no clock gate (2026-10-21): the cartridge holds the CPU's STALL instead.
   STALL now runs Branch PLD, cartridge PLD, State PLD strobe, F377 /E
-  (37.5 ns with the Branch and cartridge PLDs at -10, +2.2 ns); the
+  (32.5 ns with every PLD at -7, +7.2 ns; 37.5 ns, +2.2, when the Branch
+  and cartridge PLDs were -10); the
   cartridge's own timing is in
   `ATF22V10_CART.pld`.
 - The instruction register is an ATF22V10C-7 (`ATF22V10_IR.pld`) since
