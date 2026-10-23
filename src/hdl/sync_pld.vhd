@@ -1,15 +1,15 @@
 --------------------------------------------------------------------------------
 -- Name     VGA_SYNC
 -- PartNo   01
--- Date     2026-10-19
--- Revision 08
+-- Date     2026-10-23
+-- Revision 09
 -- Designer Justin
 -- Company
 -- Assembly
 -- Location
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 08)
+-- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 09)
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP/SOIC; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = CLK
@@ -29,7 +29,7 @@
 --   PIN 15 = H1                (registered output)
 --   PIN 16 = H2                (registered output)
 --   PIN 17 = VIDEN             (registered output; VIDEO_ACTIVE before revision 08)
---   PIN 18 = VSYNC             (combinatorial output)
+--   PIN 18 = VSYNC             (combinatorial output, ACTIVE LOW)
 --   PIN 19 = PIXEL_ENABLE      (registered output)
 --   PIN 20 = ADDR_SEL          (combinatorial output)
 --   PIN 21 = ADDR_SEL_HI       (combinatorial output)
@@ -84,7 +84,7 @@ entity sync_pld is
         H2               : out std_logic;   -- PIN 16
 
         VIDEN            : out std_logic;   -- PIN 17
-        VSYNC            : out std_logic;   -- PIN 18
+        VSYNC            : out std_logic;   -- PIN 18  (active low)
 
         PIXEL_ENABLE     : out std_logic;   -- PIN 19
 
@@ -278,7 +278,8 @@ begin
     -- ============================================================
 
     --
-    -- VSYNC is active low during counts 532-533.
+    -- VSYNC is logically true during counts 532-533; the VSYNC pin is
+    -- active low (declared !VSYNC since revision 09), so it is low during sync.
     --
     -- V0 is not available, so counts 532 and 533 are decoded together:
     --
