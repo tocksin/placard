@@ -106,7 +106,7 @@ OPENS_UP = {FP_PS2, FP_SNES, FP_SW1, FP_SW2, FP_AUDIO}
 # rotation that turns a connector's opening toward each edge
 EDGE_ROT = {"back": (180, 0), "left": (270, 90), "right": (90, 270)}   # (stock, project)
 
-SLOT_PITCH = 22.86           # 0.9" between expansion slots: the card shells' keepout is 22.45 mm across
+SLOT_PITCH = 26.67           # 1.05" between expansion slots: the card shells' keepout is 25.8 mm across
 SLOT_X = [42.0 + i * SLOT_PITCH for i in range(4)]
 SLOT_Y = 39.0                # middle of each slot, from the back edge
 BAY_END = 76.5               # front end of the expansion bay
@@ -661,7 +661,7 @@ def build():
         dim(board, W, 0, W, y, -(8.0 + 4.0 * i))
     # slot pitch and length
     dim(board, SLOT_X[0], BAY_END + 4.0, SLOT_X[1], BAY_END + 4.0, -0.01, 1.2)
-    text(board, TOP, "J9-J12 at 22.86 (0.9\") pitch", SLOT_X[0], BAY_END + 8.0, 1.2, just=-1)
+    text(board, TOP, "J9-J12 at 26.67 (1.05\") pitch", SLOT_X[0], BAY_END + 8.0, 1.2, just=-1)
 
     board.Save(PCB)
     print("wrote", PCB)
