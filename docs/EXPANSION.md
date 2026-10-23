@@ -5,8 +5,8 @@ Date: 2026-10-23
 The Placard has four expansion slots, each a 2 x 20, 0.1" (2.54 mm)
 pitch card-edge socket, and one ROM cartridge slot, a keyed 2 x 32,
 1.0 mm pitch socket (Molex 87715-9106, "ROM cartridge slot" below).  The
-expansion slots stand in a bay at one back corner, front to back at 0.8"
-pitch, so a card's outer end can carry its own connector at the back edge,
+expansion slots stand in a bay at one back corner, front to back at 0.9"
+(22.86 mm) pitch or more ("Shell keepouts" below), so a card's outer end can carry its own connector at the back edge,
 like a PC card.  The cartridge slot is top loading, inboard.  Board sizes
 are in `hardware/pcb_size_estimate.md` (project files).
 
@@ -296,6 +296,63 @@ card detection and other functions (not assigned yet).
   stalls the CPU through STALL_OUT while it copies each byte; the
   instruction register PLD holds 02h (`ld ac, ac`) while RUN is low.
   /ROM_WE is gone: the cartridge makes its SRAMs' /WE.
+
+## Shell keepouts
+
+Cartridges and expansion cards are enclosed in shells whose edges come
+down to the main board surface, so nothing else may stand inside a
+shell's outline.  The keepout is the courtyard of the slot footprints
+(J8 `Molex_87715-9106_PCIe_x4_Vertical`, J9-J12
+`CardEdge_2x20_P2.54mm_Vertical`), so KiCad's courtyard check flags any
+part, or a neighbouring slot's shell, inside it.  Tracks, vias and copper
+pours may run under a shell.  The same box is drawn on User.Eco1 with a
+label, beside the chip-puller boxes.  The numbers are constants in
+`src/scripts/gen_kicad_connectors.py` (`shell_box()`), and
+`src/scripts/gen_shell_keepout.py` draws `docs/shell_keepout.png`.
+
+![Shell keepouts](shell_keepout.png)
+
+**Height of a card** (across the slot, from the card's mid-plane).  The
+tallest part is a socketed 28-pin DIP: the AT28C256 ROMs on the
+cartridge, and the same limit for expansion cards.  Parts go on side A;
+side B carries only trimmed leads.
+
+| Side A (parts) | mm | Side B (leads) | mm |
+|---|--:|---|--:|
+| Half the card (1.6 mm) | 0.8 | Half the slot body (J8 7.5 mm, J9-J12 9.9 mm wide) | 3.75 / 4.95 |
+| Socket seat (dual-wipe or machined, chip shoulders rest on it) | 4.3 | (half card 0.8 + leads 2.0 = 2.8 is less) | |
+| AT28C256 PDIP-28, max above its seating plane (28P6) | 4.83 | | |
+| (socket + chip 9.13, rounded up to 9.2) | 0.07 | | |
+| Air over the chips | 1.0 | Air | 0.5 |
+| Shell wall | 2.0 | Shell wall | 2.0 |
+| **Shell, side A** | **13.0** | **Shell, side B** | **6.25 / 7.45** |
+
+The shell's skirt goes round the slot body, so on side B it is set by the
+slot, not the card.  A ZIF socket does not fit; the 100n disc capacitors
+are lower than a socketed chip (bend one over if it stands taller).  Each
+side of the keepout adds 1 mm for the shell's placement tolerance.
+
+**Length.**  The cartridge card is 82 mm wide (its five sockets standing
+in one row: two 600-mil, three 300-mil, with puller room above and
+below), centred on the middle of J8's contacts.  An expansion card is
+72 mm wide (the slot body, 71.1 mm, plus 0.5 mm a side).  The shell adds
+0.5 mm air and a 2 mm wall each end, and the keepout 1 mm more.
+
+| Slot | Shell outside | Keepout (courtyard) | From the footprint origin |
+|---|---|---|---|
+| J8 cartridge | 87 x 19.25 mm | 89 x 21.25 mm | x -28 to 61, y -7.25 (side B) to 14 (side A) |
+| J9-J12 card | 77 x 20.45 mm | 79 x 22.45 mm | x -15.37 to 63.63, y -8.45 (side B) to 14 (side A) |
+
+**Expansion slot pitch.**  A card's keepout is 22.45 mm across, so the
+slots need at least 22.45 mm between centres; at the old 0.8" (20.32 mm)
+neighbouring shells collide.  Use 0.9" (22.86 mm) or more (Justin,
+2026-10-23: a wider pitch is fine).  A card that reaches the board's back
+edge for its own connector needs that strip kept clear too; the keepout
+covers only the shell over the slot.
+
+A two-row cartridge (the two ROMs over the three SRAM/PLD sockets) would
+be about 45 mm wide, so its keepout would be about 52 mm long, but the
+cartridge would stand about 95 mm tall.
 
 ## To check
 

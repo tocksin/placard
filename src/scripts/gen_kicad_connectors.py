@@ -18,8 +18,8 @@ have no edge.
 
 | Footprint | Part | Pads (as the symbol) |
 |---|---|---|
-| Molex_87715-9106_PCIe_x4_Vertical | cartridge slot J8 | A1-A32, B1-B32, 1.0 mm, key after 11 |
-| CardEdge_2x20_P2.54mm_Vertical | expansion slots J9-J12 (Sullins EBC20DCAN family) | A1-A20, B1-B20 |
+| Molex_87715-9106_PCIe_x4_Vertical | cartridge slot J8 (+ cartridge shell keepout) | A1-A32, B1-B32, 1.0 mm, key after 11 |
+| CardEdge_2x20_P2.54mm_Vertical | expansion slots J9-J12 (Sullins EBC20DCAN family) (+ card shell keepout) | A1-A20, B1-B20 |
 | PS2_Kycon_KMDGX-6S-6S-S4N | stacked PS/2 J5 | A1-A6 (top), B1-B6 (bottom), SH |
 | SNES_Pad_Socket_Horizontal | SNES pad ports J2, J3 | 1-7 |
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | 1 on throw, 2 common, 3 unused throw |
@@ -29,6 +29,11 @@ have no edge.
 The USB-C footprint is KiCad's own GCT USB4125 one (true to GCT's drawing)
 with its six SMD pads lengthened 1.5 mm out the back of the body, so a
 soldering iron has room to touch each pad beside the contact.
+
+The two card slots' courtyards are the keepout of the shell that encloses
+the card (shell_box(), from the constants above it), so DRC's courtyard
+check keeps other parts and neighbouring shells out; the same box is drawn
+on User.Eco1 with a label.
 
 Date: 2026-10-23
 """
@@ -71,9 +76,10 @@ def text(kind, val, x, y, layer, size=1.0, hide=False):
             % (kind, val, f(x), f(y), layer, " hide" if hide else "", f(size), f(size), f(size * 0.15)))
 
 
-def footprint(name, descr, body, pads, edge=None, extra=""):
+def footprint(name, descr, body, pads, edge=None, extra="", crtyd=None):
     """body = (x0, y0, x1, y1) of the part on the board (F.Fab, silk, courtyard).
-    edge = y of the front face for an edge connector (drawn on Dwgs.User)."""
+    edge = y of the front face for an edge connector (drawn on Dwgs.User).
+    crtyd = (x0, y0, x1, y1) of a courtyard larger than the body (a card's shell)."""
     x0, y0, x1, y1 = body
     s = '(footprint "%s" (version 20221018) (generator pcbnew)\n  (layer "F.Cu")\n' % name
     s += '  (descr "%s (Placard, gen_kicad_connectors.py; PRELIMINARY, check the datasheet)")\n' % descr
@@ -83,7 +89,7 @@ def footprint(name, descr, body, pads, edge=None, extra=""):
     s += text("user", "${REFERENCE}", (x0 + x1) / 2, (y0 + y1) / 2, "F.Fab", size=2.0)
     s += rect(x0, y0, x1, y1, "F.Fab", 0.1)
     s += rect(x0 - 0.12, y0 - 0.12, x1 + 0.12, y1 + 0.12, "F.SilkS", 0.12)
-    s += rect(x0 - 0.5, y0 - 0.5, x1 + 0.5, y1 + 0.5, "F.CrtYd", 0.05)
+    s += rect(*(crtyd or (x0 - 0.5, y0 - 0.5, x1 + 0.5, y1 + 0.5)), "F.CrtYd", 0.05)
     if edge is not None:
         s += line(x0 - 2, edge, x1 + 2, edge, "Dwgs.User", 0.1)
         s += text("user", "PCB edge", (x0 + x1) / 2, edge + 1.2, "Dwgs.User", size=0.8)
@@ -91,6 +97,40 @@ def footprint(name, descr, body, pads, edge=None, extra=""):
     with open(os.path.join(OUT, name + ".kicad_mod"), "w", newline="\n") as fh:
         fh.write(s)
     print("wrote", name)
+
+
+# Shell keepouts (EXPANSION.md "Shell keepouts").  Cartridges and expansion
+# cards are enclosed in shells whose edges come down to the main board, so
+# nothing else may stand inside a shell's outline.  Across the slot (y, mm
+# from the card's mid-plane, +y = side A, the card's component side):
+CARD_PCB = 1.6               # card thickness (both slots take 1.57 mm)
+CARD_PARTS = 9.2             # socketed 28-pin DIP, the tallest part: socket seat 4.3 + PDIP 4.83 max (AT28C256 28P6)
+CARD_LEADS = 2.0             # trimmed through-hole leads on side B
+SHELL_AIR = 0.5              # gap inside the shell, each side (1.0 over the chips)
+SHELL_WALL = 2.0             # shell wall (2 mm printed or moulded)
+MARGIN = 1.0                 # shell placement tolerance on the main board
+CART_W = 82.0                # cartridge card width: its five sockets standing in one row
+EXP_W = 72.0                 # expansion card width: the slot body (71.1 mm) plus 0.5 mm a side
+
+
+def shell_box(mid, card_w, slot_half):
+    """Outline of the shell around a vertical card slot, plus MARGIN: the slot's
+    courtyard, so KiCad's courtyard check keeps every other part, and the
+    neighbouring slots' shells, out of it (tracks, vias and pours may run under
+    the shell).  mid = x of the card's centre, slot_half = half the slot body's
+    width (the shell's skirt goes round it)."""
+    ya = CARD_PCB / 2 + CARD_PARTS + 2 * SHELL_AIR + SHELL_WALL + MARGIN
+    yb = max(CARD_PCB / 2 + CARD_LEADS, slot_half) + SHELL_AIR + SHELL_WALL + MARGIN
+    hx = card_w / 2 + SHELL_AIR + SHELL_WALL + MARGIN
+    return mid - hx, -yb, mid + hx, ya
+
+
+def shell_drawing(box, label):
+    """The shell keepout drawn on User.Eco1 (beside the puller room boxes), with a label."""
+    x0, y0, x1, y1 = box
+    return (rect(x0, y0, x1, y1, "Eco1.User", 0.15) +
+            text("user", "%s shell keepout (side A parts this way)" % label, (x0 + x1) / 2, y1 - 1.5,
+                 "Eco1.User", size=1.2))
 
 
 def cart_slot():
@@ -105,9 +145,11 @@ def cart_slot():
         pads.append(pad("A%d" % n, x, 1.0 + stag, 0.95, 0.65))
     extra = hole(-1.6, 0, 1.6) + hole(34.6, 0, 1.6)
     extra += text("user", "key", 11.5, 0, "F.Fab", size=0.8)
+    box = shell_box(16.5, CART_W, 3.75)      # card centred on the contacts; body 7.5 mm wide
+    extra += shell_drawing(box, "cartridge")
     footprint("Molex_87715-9106_PCIe_x4_Vertical",
               "Molex 87715-9106 card edge slot, PCIe x4 style, 64 contacts, 1.0 mm, vertical, through hole",
-              (-2.75, -3.75, 35.75, 3.75), pads, extra=extra)
+              (-2.75, -3.75, 35.75, 3.75), pads, extra=extra, crtyd=box)
 
 
 def exp_slot():
@@ -119,9 +161,11 @@ def exp_slot():
         pads.append(pad("B%d" % n, x, -2.54, 1.6, 1.0))
     c = 19 * 2.54 / 2
     extra = hole(c - 32.39, 0, 3.2) + hole(c + 32.39, 0, 3.2)
+    box = shell_box(c, EXP_W, 4.95)
+    extra += shell_drawing(box, "expansion card")
     footprint("CardEdge_2x20_P2.54mm_Vertical",
               "Card edge socket, 2 x 20, 2.54 mm contacts, rows 5.08 mm, 1.6 mm card, vertical, mounting ears",
-              (c - 35.56, -4.95, c + 35.56, 4.95), pads, extra=extra)
+              (c - 35.56, -4.95, c + 35.56, 4.95), pads, extra=extra, crtyd=box)
 
 
 def slot(num, x, y, w, h):
