@@ -105,6 +105,7 @@ def footprint(name, descr, body, pads, edge=None, extra="", crtyd=None):
 # from the card's mid-plane, +y = side A, the card's component side):
 CARD_PCB = 1.6               # card thickness (both slots take 1.57 mm)
 CARD_PARTS = 9.2             # socketed 28-pin DIP, the tallest part: socket seat 4.3 + PDIP 4.83 max (AT28C256 28P6)
+EXP_PARTS = 12.55            # expansion card: a right-angle VGA (DE-15) at its outer end, flange 12.55 mm from the card face
 CARD_LEADS = 2.0             # trimmed through-hole leads on side B
 SHELL_AIR = 0.5              # gap inside the shell, each side (1.0 over the chips)
 SHELL_WALL = 2.0             # shell wall (2 mm printed or moulded)
@@ -113,13 +114,13 @@ CART_W = 39.0                # cartridge card width = the J8 body (39 mm): chips
 EXP_W = 72.0                 # expansion card width: the slot body (71.1 mm) plus 0.5 mm a side
 
 
-def shell_box(mid, card_w, slot_half):
+def shell_box(mid, card_w, slot_half, parts=CARD_PARTS):
     """Outline of the shell around a vertical card slot, plus MARGIN: the slot's
     courtyard, so KiCad's courtyard check keeps every other part, and the
     neighbouring slots' shells, out of it (tracks, vias and pours may run under
     the shell).  mid = x of the card's centre, slot_half = half the slot body's
-    width (the shell's skirt goes round it)."""
-    ya = CARD_PCB / 2 + CARD_PARTS + 2 * SHELL_AIR + SHELL_WALL + MARGIN
+    width (the shell's skirt goes round it), parts = tallest part on side A."""
+    ya = CARD_PCB / 2 + parts + 2 * SHELL_AIR + SHELL_WALL + MARGIN
     yb = max(CARD_PCB / 2 + CARD_LEADS, slot_half) + SHELL_AIR + SHELL_WALL + MARGIN
     hx = card_w / 2 + SHELL_AIR + SHELL_WALL + MARGIN
     return mid - hx, -yb, mid + hx, ya
@@ -161,7 +162,7 @@ def exp_slot():
         pads.append(pad("B%d" % n, x, -2.54, 1.6, 1.0))
     c = 19 * 2.54 / 2
     extra = hole(c - 32.39, 0, 3.2) + hole(c + 32.39, 0, 3.2)
-    box = shell_box(c, EXP_W, 4.95)
+    box = shell_box(c, EXP_W, 4.95, EXP_PARTS)
     extra += shell_drawing(box, "expansion card")
     footprint("CardEdge_2x20_P2.54mm_Vertical",
               "Card edge socket, 2 x 20, 2.54 mm contacts, rows 5.08 mm, 1.6 mm card, vertical, mounting ears",
