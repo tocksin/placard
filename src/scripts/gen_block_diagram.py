@@ -11,7 +11,12 @@ their chip counts are typed in below from docs/CHIPS.md; update them here when
 the chip list changes and rerun.  The counts must add up to the docs/CHIPS.md
 total (the script checks).
 
-Date: 2026-10-21
+The blocks are grouped in three panels: the CPU on the left, memory, I/O
+and audio in the middle, video on the right.  The address, source and data
+buses run down the gap between the CPU and the middle panel; the data bus
+carries on under the middle panel and up the gap to the video panel.
+
+Date: 2026-10-23
 """
 import os
 import sys
@@ -19,6 +24,7 @@ import sys
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.patheffects as pe
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
 CHIPS_TOTAL = 34            # docs/CHIPS.md main board, plus the 3.3 V regulator
@@ -26,178 +32,247 @@ CHIPS_TOTAL = 34            # docs/CHIPS.md main board, plus the 3.3 V regulator
 # fill colors by area
 CPU, CTRL, MEM, IO, VID, SND, DEV = ("#E4DAFF", "#FFF2BF", "#D3F6D8", "#FFE3C8",
                                      "#DDEEFC", "#CDEFEA", "#F2F2F2")
+# panel backgrounds
+P_CPU, P_MID, P_VID = "#F6F2FF", "#F4FBF2", "#F1F7FE"
 # bus colors
 ADDR, DATA, SRC, RES, OTH = "#D9480F", "#1C7ED6", "#2F9E44", "#7048E8", "#868E96"
 
-fig = plt.figure(figsize=(22, 16), dpi=100)
+# x of the bus trunks
+XA, XS, XD = 85, 90, 95     # address, source, data, between the CPU and the middle
+XD2 = 176                   # data bus up to the video panel
+YD = 177                    # data bus under the middle panel
+
+fig = plt.figure(figsize=(24, 18.6), dpi=100)
 ax = fig.add_axes([0, 0, 1, 1])
-ax.set_xlim(0, 220)
-ax.set_ylim(160, 0)
+ax.set_xlim(0, 240)
+ax.set_ylim(186, 0)
 ax.axis("off")
 
 counted = []
+group_chips = {}
 
 
-def box(x, y, w, h, title, chips, parts, fc, fs=12.5):
+def panel(x, y, w, h, title, fc, key):
+    ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=2",
+                                fc=fc, ec="#ADB5BD", lw=2, ls="--", zorder=0))
+    group_chips[key] = []
+    return ax.text(x + 2, y + 4.2, title, fontsize=21, weight="bold", va="center",
+                   color="#343A40", zorder=1)
+
+
+def box(x, y, w, h, title, chips, parts, fc, group, fs=16, pfs=12.5):
     """a block: title, the parts in it, and a badge with its chip count"""
     ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=1.2",
                                 fc=fc, ec="#343A40", lw=2, zorder=3))
-    ax.text(x + w / 2, y + h / 2 - (1.6 if parts else 0), title, ha="center", va="center",
-            fontsize=fs, weight="bold", zorder=4)
+    nl = parts.count("\n") + 1 if parts else 0
+    ty = y + h / 2 - (1.0 + 1.1 * nl if parts else 0)
+    ax.text(x + w / 2, ty, title, ha="center", va="center", fontsize=fs, weight="bold", zorder=4)
     if parts:
-        ax.text(x + w / 2, y + h / 2 + 2.6, parts, ha="center", va="center", fontsize=9.5,
-                color="#495057", zorder=4)
+        ax.text(x + w / 2, ty + 2.3 + 1.1 * nl, parts, ha="center", va="center", fontsize=pfs,
+                color="#495057", zorder=4, linespacing=1.15)
     if chips is not None:
         counted.append(chips)
+        group_chips[group].append(chips)
         label = "%d chip%s" % (chips, "" if chips == 1 else "s") if chips else "no chips"
-        ax.text(x + w - 0.8, y + 0.9, label, ha="right", va="top", fontsize=9.5, weight="bold",
+        ax.text(x + w - 0.6, y + 0.7, label, ha="right", va="top", fontsize=11.5, weight="bold",
                 color="white", zorder=5,
                 bbox=dict(boxstyle="round,pad=0.25", fc="#343A40" if chips else "#868E96", ec="none"))
     return (x, y, w, h)
 
 
-def wire(pts, color, lw=6, arrow=True, label=None, lpos=None, lcolor=None, fs=11):
+def wire(pts, color, lw=5, arrow=True, label=None, lpos=None, fs=13, both=False, z=2):
     xs, ys = zip(*pts)
-    ax.plot(xs, ys, color=color, lw=lw, solid_capstyle="butt", zorder=2)
+    ax.plot(xs, ys, color=color, lw=lw, solid_capstyle="butt", solid_joinstyle="miter", zorder=z)
+
+    def head(p0, p1):
+        (x0, y0), (x1, y1) = p0, p1
+        ax.annotate("", xy=(x1, y1), xytext=(x1 - (x1 - x0) * 0.01, y1 - (y1 - y0) * 0.01),
+                    arrowprops=dict(arrowstyle="-|>,head_width=0.55,head_length=1.0", color=color,
+                                    lw=lw * 0.5, shrinkA=0, shrinkB=0), zorder=z + 0.1)
     if arrow:
-        (x0, y0), (x1, y1) = pts[-2], pts[-1]
-        ax.annotate("", xy=(x1, y1), xytext=(x0 + (x1 - x0) * 0.6, y0 + (y1 - y0) * 0.6),
-                    arrowprops=dict(arrowstyle="-|>,head_width=0.5,head_length=0.9", color=color,
-                                    lw=lw * 0.5, shrinkA=0, shrinkB=0), zorder=2)
+        head(pts[-2], pts[-1])
+    if both:
+        head(pts[1], pts[0])
     if label:
         lx, ly = lpos if lpos else ((xs[0] + xs[-1]) / 2, (ys[0] + ys[-1]) / 2)
         ax.text(lx, ly, label, ha="center", va="center", fontsize=fs, weight="bold",
-                color=lcolor or color, zorder=6,
-                bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.9))
+                color=color, zorder=6,
+                bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none", alpha=0.92))
+
+
+def trunk(pts, color, lw=10):
+    """a bus trunk, drawn over the stubs it crosses with a white edge"""
+    xs, ys = zip(*pts)
+    ax.plot(xs, ys, color=color, lw=lw, solid_capstyle="butt", solid_joinstyle="miter", zorder=2.5,
+            path_effects=[pe.Stroke(linewidth=lw + 5, foreground="white"), pe.Normal()])
+
+
+def dot(x, y, color):
+    ax.plot([x], [y], "o", ms=11, color=color, zorder=2.6)
 
 
 # ---------------------------------------------------------------- title
-ax.text(3, 4, "Placard: block diagram", fontsize=24, weight="bold", va="center")
-ax.text(3, 9, "%d chips and a 3.3 V regulator on the main board (docs/CHIPS.md).  The badge on each block is its "
-        "chip count.  Control strobes, flags and clocks are not shown." % CHIPS_TOTAL,
-        fontsize=12.5, color="#495057", va="center")
+ax.text(3, 4, "Placard: block diagram", fontsize=30, weight="bold", va="center")
+ax.text(3, 9.3, "%d chips and a 3.3 V regulator on the main board, every PLD an ATF22V10C-7PX "
+        "(docs/CHIPS.md).  The badge on each block is its chip count." % CHIPS_TOTAL,
+        fontsize=15, color="#495057", va="center")
 
-# ---------------------------------------------------------------- CPU, top row
-vt = box(3, 16, 30, 16, "Video timing", 3, "H counter, V counter,\nSync PLDs", VID)
-ct = box(38, 16, 30, 16, "Control", 2, "State PLD, Branch PLD", CTRL)
-pc = box(73, 16, 28, 16, "Program counter", 2, "2 x 8-bit counter PLDs", CPU)
-am = box(106, 16, 28, 16, "Address mux", 4, "4 PLDs: PC, D/X, Y/0,\nvideo address", CPU)
+# ---------------------------------------------------------------- panels
+h_cpu = panel(2, 15, 78, 158, "CPU", P_CPU, "cpu")
+h_mid = panel(100, 15, 71, 158, "Memory, I/O and audio", P_MID, "mid")
+h_vid = panel(181, 15, 57, 158, "Video", P_VID, "vid")
 
-# ---------------------------------------------------------------- memory column
-mapr = box(152, 14, 30, 11, "Map register x5000", 1, "ACT273: ROM or RAM\nper 8 KB section", MEM, fs=11.5)
-mc = box(186, 14, 31, 11, "Memory control", 1, "PLD: /WE, /RAM_OE,\n/ROM_OE from the map", MEM, fs=11.5)
-ram = box(152, 32, 30, 22, "RAM 64 KB", 2, "2 x AS7C256C\n(video reads RAM)", MEM, fs=14)
-rom = box(186, 32, 31, 22, "ROM 64 KB", None, "2 x AS7C256C on the\ncartridge, loaded from\n2 x AT28C256 at power-up", MEM, fs=14)
-wb = box(152, 60, 30, 11, "Bus resistors", None, "8 x R: the source bus is\nthe data bus in EXEC", DEV, fs=11.5)
+# ---------------------------------------------------------------- CPU
+pc = box(4, 24, 33, 15, "Program counter", 2, "2 x 8-bit counter PLDs", CPU, "cpu")
+am = box(43, 24, 35, 15, "Address mux", 4, "4 PLDs: PC, D or X,\nY or zero page, video", CPU, "cpu")
+ct = box(4, 45, 33, 15, "Control", 2, "State PLD, Branch PLD:\nstall, carry flag", CTRL, "cpu")
+ir = box(43, 45, 35, 15, "Instruction register", 1, "PLD: holds 02h (nop)\nwhile the cart loads",
+         CTRL, "cpu", fs=15.5)
+xr = box(4, 68, 15, 13, "X", 1, "F377", CPU, "cpu", fs=18)
+yr = box(22, 68, 15, 13, "Y", 1, "F377", CPU, "cpu", fs=18)
+alu = box(43, 68, 35, 13, "ALU", 2, "2 x 4-bit PLDs", CPU, "cpu", fs=18)
+dr = box(4, 90, 15, 13, "D", 1, "F377", CPU, "cpu", fs=18)
+acc = box(22, 90, 15, 13, "AC", 1, "F377", CPU, "cpu", fs=18)
+sd = box(43, 90, 35, 13, "Source bus drivers", 2, "2 x F541: D or AC", CPU, "cpu", fs=15.5)
 
-# ---------------------------------------------------------------- registers row
-sd = box(3, 50, 22, 16, "Source bus\ndrivers", 2, "2 x F541:\nD or AC", CPU, fs=12)
-acc = box(30, 50, 15, 16, "AC", 1, "F377", CPU, fs=14)
-alu = box(50, 50, 24, 16, "ALU", 2, "2 x 4-bit PLDs", CPU, fs=14)
-xr = box(80, 50, 14, 16, "X", 1, "F377", CPU, fs=14)
-yr = box(99, 50, 14, 16, "Y", 1, "F377", CPU, fs=14)
-dr = box(3, 76, 22, 12, "D", 1, "F377: operand,\nmemory read", CPU, fs=14)
-ir = box(30, 76, 22, 12, "Instruction\nregister", 1, "PLD", CTRL, fs=11.5)
+# ---------------------------------------------------------------- memory, I/O, audio
+mapr = box(104, 24, 31, 13, "Map register", 1, "ACT273 at x5000:\nROM or RAM per 8 KB", MEM, "mid",
+           fs=15)
+mc = box(139, 24, 30, 13, "Memory control", 1, "PLD: /WE, /RAM_OE,\n/ROM_OE", MEM, "mid", fs=15)
+ram = box(104, 44, 31, 15, "RAM 64 KB", 2, "2 x AS7C256C,\nvideo reads RAM", MEM, "mid", fs=17)
+rom = box(139, 44, 30, 15, "Cartridge slot", 0, "ROM 64 KB, 5 chips:\nstalls the CPU to load",
+          MEM, "mid", fs=15)
+wb = box(104, 63, 31, 9, "Bus resistors", None, "8 x R: write data", DEV, "mid", fs=13.5, pfs=12)
+iod = box(104, 78, 31, 14, "I/O decode", 1, "PLD: x5000-x53FF,\n/CE_HI", IO, "mid", fs=15)
+exp = box(139, 78, 30, 17, "4 expansion slots", 0, "x5100-x53FF; a card\nwith a \"PLC\" header\n"
+          "boots at power-up", IO, "mid", fs=14.5, pfs=12)
+port = box(104, 100, 65, 16, "Shared port x5200", 3,
+           "HC574 latch, port PLD, F541 input;\nresistor dividers to 3.3 V for the SD card",
+           IO, "mid", fs=16)
+devs = []
+for i, (t, p) in enumerate((("Keyboard", "8 x 8 matrix"), ("PS/2", "keyboard\n+ mouse"),
+                            ("2 SNES", "pads"), ("SD card", "3.3 V reg."))):
+    devs.append(box(104 + i * 16.5, 121, 15, 12, t, None, p, DEV, "mid", fs=13, pfs=11.5))
+aus = box(104, 141, 31, 16, "Audio / mode slots", 1, "PLD: groups 45-47,\nline repeat rows",
+          SND, "mid", fs=14.5)
+dac = box(139, 141, 30, 16, "Audio DAC", 1, "HCT574 register,\nR-2R ladder", SND, "mid", fs=15)
+hp = box(139, 162, 30, 8, "Headphones", None, "", DEV, "mid", fs=13.5)
 
-# ---------------------------------------------------------------- video and sound row
-lr = box(58, 102, 22, 12, "Line read x5000", 1, "F541: V9:V2", VID, fs=11)
-pb = box(84, 102, 22, 12, "Pixel buffer", 1, "F377", VID, fs=12)
-lc = box(110, 102, 22, 12, "Line code\nregister", 1, "F377: mode byte", VID, fs=11)
-au = box(136, 102, 24, 12, "Audio / mode slots", 1, "PLD: groups 45-47,\nline repeat rows", VID, fs=11)
-cd = box(110, 120, 22, 11, "Color decoder", 1, "PLD", VID, fs=12)
-vga = box(110, 136, 22, 8, "Resistor DAC, VGA", None, "", DEV, fs=11)
-dac = box(136, 120, 24, 11, "Audio DAC register", 1, "HCT574, R-2R ladder", SND, fs=11)
-hp = box(136, 136, 24, 8, "Headphones", None, "", DEV, fs=11)
-
-# ---------------------------------------------------------------- I/O row
-iod = box(3, 102, 26, 14, "I/O decode", 1, "PLD: x5000-x53FF,\n/CE_HI for the ROM", IO, fs=12)
-port = box(3, 124, 68, 20, "Shared port x5200", 3,
-           "HC574 latch, port PLD (columns, pad DATA),\nF541 input (rows, MISO, PS/2),\n"
-           "resistor dividers to 3.3 V for the SD card", IO, fs=13)
-kb = box(3, 149, 16, 9, "Keyboard", None, "8 x 8 matrix", DEV, fs=10.5)
-pads = box(21, 149, 16, 9, "2 SNES pads", None, "", DEV, fs=10.5)
-sdc = box(39, 149, 16, 9, "SD card", None, "+ 3.3 V reg.", DEV, fs=10.5)
-ms = box(57, 149, 14, 9, "PS/2 mouse", None, "", DEV, fs=10.5)
-exp = box(166, 102, 51, 20, "4 expansion slots", 0,
-          "x5100-x53FF, 128 bytes each; data, source\nbus, A7:A0, RW, /WE, clock.  A card\n"
-          "with a \"PLC\" boot header runs at power-up", IO, fs=13)
-cart = box(186, 60, 31, 11, "ROM cartridge slot", 0, "cartridge: 5 chips, stalls\nthe CPU while loading", MEM, fs=11.5)
+# ---------------------------------------------------------------- video
+vt = box(184, 24, 52, 16, "Video timing", 3, "H counter, V counter, Sync PLDs:\nHSYNC, VSYNC, "
+         "video address", VID, "vid")
+lr = box(184, 46, 42, 11, "Line read x5000", 1, "F541: V9:V2", VID, "vid", fs=15)
+pb = box(184, 62, 42, 12, "Pixel buffer", 1, "F377: byte read from RAM", VID, "vid", fs=15)
+lc = box(184, 80, 30, 16, "Line code", 1, "HCT377: mode,\nrepeat, tint, blank", VID, "vid", fs=15)
+cd = box(184, 103, 30, 13, "Color decoder", 1, "PLD: to RGB", VID, "vid", fs=15)
+vga = box(184, 124, 52, 13, "Resistor DAC, VGA", None, "RGB ladders and row tint\nresistors, "
+          "gated by VIDEN", DEV, "vid", fs=15)
 
 total = sum(counted)
 assert total == CHIPS_TOTAL, "blocks add up to %d chips, docs/CHIPS.md says %d" % (total, CHIPS_TOTAL)
+for h, key in ((h_cpu, "cpu"), (h_mid, "mid"), (h_vid, "vid")):
+    h.set_text("%s: %d chips" % (h.get_text(), sum(group_chips[key])))
 
-# ---------------------------------------------------------------- buses
-# address bus
-wire([(134, 24), (152, 24)], ADDR, lw=9, arrow=False)
-wire([(148, 24), (148, 28.5), (167, 28.5), (167, 32)], ADDR, lw=9)
-wire([(167, 28.5), (201, 28.5), (201, 32)], ADDR, lw=9)
-wire([(141, 24), (141, 95), (16, 95), (16, 102)], ADDR, lw=6, label="ADDRESS BUS (16)",
-     lpos=(141, 36), lcolor=ADDR)
-wire([(141, 95), (191, 95), (191, 102)], ADDR, lw=6, label="A7:A0", lpos=(178, 95))
+# ---------------------------------------------------------------- bus trunks
+trunk([(XA, 31), (XA, 85)], ADDR)
+trunk([(XS, 30.5), (XS, 112)], SRC)
+trunk([(XD, 52), (XD, YD), (XD2, YD), (XD2, 51.5)], DATA)
+ax.text(XD2, 112, "DATA (8)", rotation=90, ha="center", va="center", fontsize=13,
+        weight="bold", color=DATA, bbox=dict(boxstyle="round,pad=0.15", fc="white", ec="none"))
 
-# source bus
-wire([(14, 50), (14, 42), (148, 42)], SRC, lw=8, arrow=False, label="SOURCE BUS (8)",
-     lpos=(40, 42))
-wire([(62, 42), (62, 50)], SRC, lw=6)                      # ALU B
-wire([(87, 42), (87, 32)], SRC, lw=6, label="PC low", lpos=(91, 37), fs=10)
-wire([(144, 42), (144, 65.5), (152, 65.5)], SRC, lw=6)       # series resistors
-wire([(137, 42), (137, 20), (152, 20)], SRC, lw=5, label="map", lpos=(137, 30), fs=9.5)
-wire([(144, 65.5), (144, 98), (40, 98), (40, 124)], SRC, lw=5,
-     label="write data", lpos=(100, 98), fs=10)
-wire([(144, 98), (200, 98), (200, 102)], SRC, lw=5)
+# ---------------------------------------------------------------- address bus
+wire([(78, 31.5), (XA, 31.5)], ADDR, lw=7, arrow=False)
+wire([(XA, 40.5), (152, 40.5), (152, 44)], ADDR, lw=7)
+wire([(119, 40.5), (119, 44)], ADDR, lw=7)
+dot(119, 40.5, ADDR)
+wire([(XA, 85), (104, 85)], ADDR, lw=6)
+wire([(XA, 75), (152, 75), (152, 78)], ADDR, lw=5, label="A7:A0", lpos=(144, 75))
+ax.text(XA - 3, 63.5, "ADDRESS (16)", rotation=90, ha="center", va="center", fontsize=13,
+        weight="bold", color=ADDR)
 
-# data bus
-wire([(167, 54), (167, 57), (184, 57)], DATA, lw=6, arrow=False)
-wire([(201, 54), (201, 57), (184, 57)], DATA, lw=6, arrow=False)
-wire([(167, 60), (167, 57)], OTH, lw=4)                     # series resistors -> memory data
-wire([(184, 57), (184, 74), (60, 74), (14, 74), (14, 76)], DATA, lw=9,
-     label="DATA BUS (8)", lpos=(100, 74))
-wire([(41, 74), (41, 76)], DATA, lw=6)
-wire([(95, 74), (95, 102)], DATA, lw=6)
-wire([(121, 74), (121, 102)], DATA, lw=6)
-wire([(69, 102), (69, 74)], DATA, lw=6)                     # line read drives it
-wire([(30, 124), (30, 92), (60, 92), (60, 74)], DATA, lw=6, label="read", lpos=(45, 92), fs=10)
-wire([(172, 102), (172, 74)], DATA, lw=6, label="card reads", lpos=(172, 86), fs=10)
+# ---------------------------------------------------------------- source bus
+wire([(78, 96.5), (XS, 96.5)], SRC, lw=7, arrow=False)
+wire([(XS, 74.5), (78, 74.5)], SRC, lw=5, label="B", lpos=(81.5, 72.5), fs=12)
+wire([(XS, 42), (30, 42), (30, 39)], SRC, lw=5, label="branch target", lpos=(60, 42), fs=12)
+wire([(XS, 30.5), (104, 30.5)], SRC, lw=5)
+wire([(XS, 67.5), (104, 67.5)], SRC, lw=5)
+wire([(119, 63), (119, 59)], SRC, lw=5)
+wire([(XS, 104), (104, 104)], SRC, lw=5, label="write", lpos=(99.5, 101.5), fs=11)
+ax.text(XS + 3, 125, "SOURCE BUS (8)", rotation=90, ha="center", va="center", fontsize=13,
+        weight="bold", color=SRC)
 
-# ALU result bus
-wire([(62, 66), (62, 70), (37, 70), (37, 66)], RES, lw=6)
-wire([(62, 70), (87, 70), (87, 66)], RES, lw=6)
-wire([(87, 70), (106, 70), (106, 66)], RES, lw=6, label="ALU RESULT", lpos=(97, 70), fs=10)
+# ---------------------------------------------------------------- data bus
+wire([(XD, 52.5), (78, 52.5)], DATA, lw=6, label="opcode", lpos=(82, 55), fs=11)
+wire([(XD, 112.5), (11.5, 112.5), (11.5, 103)], DATA, lw=6, label="operand", lpos=(30, 112.5),
+     fs=12)
+wire([(112, 59), (112, 61), (XD, 61)], DATA, lw=6, arrow=False)
+wire([(160, 59), (160, 61), (137, 61)], DATA, lw=6, arrow=False)
+wire([(137, 61), (137, 61), (112, 61)], DATA, lw=6, arrow=False)
+dot(112, 61, DATA)
+wire([(104, 112), (XD, 112.0)], DATA, lw=5, label="read", lpos=(99.5, 115), fs=11)
+wire([(XD2, 86.5), (169, 86.5)], DATA, lw=5, both=True)
+wire([(XD2, 68), (184, 68)], DATA, lw=6)
+wire([(184, 51.5), (XD2, 51.5)], DATA, lw=6)
+ax.text(XD + 3, 150, "DATA BUS (8)", rotation=90, ha="center", va="center", fontsize=13,
+        weight="bold", color=DATA)
+ax.text(136, YD + 3.2, "DATA BUS (8)", ha="center", va="center", fontsize=13, weight="bold",
+        color=DATA)
 
-# other connections
-wire([(18, 16), (18, 11), (120, 11), (120, 16)], OTH, lw=4, label="video address",
-     lpos=(70, 11), fs=10)
-wire([(101, 24), (106, 24)], OTH, lw=4)
-wire([(45, 58), (50, 58)], OTH, lw=4)                       # AC -> ALU A
-wire([(30, 62), (25, 62)], OTH, lw=4)                       # AC -> drivers
-wire([(25, 82), (27, 82), (27, 68), (20, 68), (20, 66)], OTH, lw=4)  # D -> drivers
-wire([(87, 50), (87, 46), (114, 46), (114, 32)], OTH, lw=4)          # X -> mux
-wire([(106, 50), (106, 47), (124, 47), (124, 32)], OTH, lw=4, label="X, Y",
-     lpos=(119, 47), fs=9.5)
-wire([(95, 114), (95, 125.5), (110, 125.5)], OTH, lw=4)    # pixel buffer -> color decoder
-wire([(121, 114), (121, 120)], OTH, lw=4)
-wire([(121, 131), (121, 136)], OTH, lw=4)
-wire([(103, 114), (103, 117), (148, 117), (148, 120)], OTH, lw=4, label="sample",
-     lpos=(140, 117), fs=9.5)
-wire([(148, 131), (148, 136)], OTH, lw=4)
-wire([(132, 108), (136, 108)], OTH, lw=4)
-wire([(182, 19.5), (186, 19.5)], OTH, lw=4)                # map -> memory control
-wire([(29, 112), (34, 112), (34, 124)], OTH, lw=4, label="strobes", lpos=(36, 109), fs=9.5)
-for d in (kb, pads, sdc, ms):
+# ---------------------------------------------------------------- ALU result
+wire([(60, 81), (60, 85.5), (8, 85.5), (8, 81)], RES, lw=5)
+wire([(26, 85.5), (26, 81)], RES, lw=5)
+wire([(33, 85.5), (33, 90)], RES, lw=5)
+ax.text(47, 87.7, "ALU RESULT", ha="center", va="top", fontsize=11, weight="bold", color=RES)
+
+# ---------------------------------------------------------------- other CPU connections
+wire([(37, 31.5), (43, 31.5)], OTH, lw=4)                               # PC -> mux
+wire([(11.5, 68), (11.5, 64), (40, 64), (40, 36), (43, 36)], OTH, lw=4)  # X -> mux
+wire([(29.5, 68), (29.5, 64)], OTH, lw=4, arrow=False)                  # Y -> mux
+ax.text(25, 64, "X, Y", ha="center", va="center", fontsize=11.5, weight="bold", color=OTH,
+        bbox=dict(boxstyle="round,pad=0.1", fc=P_CPU, ec="none"))
+wire([(43, 52.5), (37, 52.5)], OTH, lw=4)                               # IR -> control
+wire([(37, 96.5), (43, 96.5)], OTH, lw=4)                               # AC -> drivers
+wire([(37, 99.5), (40, 99.5), (40, 74.5), (43, 74.5)], OTH, lw=4)       # AC -> ALU A
+ax.text(41.2, 77.5, "A", ha="center", va="center", fontsize=11, weight="bold", color=OTH)
+wire([(15.5, 103), (15.5, 107), (55, 107), (55, 103)], OTH, lw=4)       # D -> drivers
+
+# ---------------------------------------------------------------- other middle connections
+wire([(135, 30.5), (139, 30.5)], OTH, lw=4)                             # map -> memory control
+for d in devs:
     cx = d[0] + d[2] / 2
-    wire([(cx, 144), (cx, 149)], OTH, lw=3, arrow=False)
+    wire([(cx, 116), (cx, 121)], OTH, lw=3, arrow=False)
+wire([(154, 157), (154, 162)], OTH, lw=4)                               # DAC -> headphones
+
+# ---------------------------------------------------------------- video connections
+wire([(224, 12), (62, 12), (62, 24)], OTH, lw=5, label="video address", lpos=(143, 12))
+wire([(224, 24), (224, 12)], OTH, lw=5, arrow=False)
+wire([(205, 40), (205, 46)], OTH, lw=4)                                 # V9:V2 -> line read
+wire([(190, 74), (190, 80)], OTH, lw=4, label="mode", lpos=(194.5, 77), fs=11)
+wire([(219, 74), (219, 109.5), (214, 109.5)], OTH, lw=4, label="pixels", lpos=(219, 100), fs=11)
+wire([(199, 96), (199, 103)], OTH, lw=4)
+wire([(199, 116), (199, 124)], OTH, lw=4)
+wire([(214, 92), (228, 92), (228, 124)], OTH, lw=4, label="tint", lpos=(228, 110), fs=11)
+wire([(214, 84), (233, 84), (233, 40)], OTH, lw=4, label="blank", lpos=(233, 60), fs=11)
+wire([(184, 71), (179.5, 71), (179.5, 152), (169, 152)], OTH, lw=4, label="sample",
+     lpos=(179.5, 130), fs=11)
+ax.text(210, 147, "to the VGA connector", ha="center", va="center", fontsize=12.5, color="#495057")
+wire([(210, 137), (210, 143)], OTH, lw=4)
 
 # ---------------------------------------------------------------- legend
-ly = 128
+ly = 126
+ax.text(4, 121, "Buses", fontsize=15, weight="bold", va="center")
 for name, col in (("Address bus (16 bits)", ADDR), ("Data bus: memory and I/O reads", DATA),
                   ("Source bus: D or AC; write data", SRC), ("ALU result", RES),
                   ("Other connections", OTH)):
-    ax.add_patch(Rectangle((166, ly), 7, 2.2, fc=col, ec="none"))
-    ax.text(175, ly + 1.1, name, va="center", fontsize=11.5)
-    ly += 4.6
-ax.text(166, 154, "Section reads follow the map register; video reads and all writes use RAM.\n"
-        "Source: docs/CHIPS.md, docs/IO.md, docs/EXPANSION.md, docs/SOUND.md, docs/VIDEO.md on 2026-10-19.",
-        fontsize=10, color="#495057", va="top")
+    ax.add_patch(Rectangle((4, ly - 1.2), 8, 2.6, fc=col, ec="none"))
+    ax.text(14, ly + 0.1, name, va="center", fontsize=13.5)
+    ly += 5.2
+ax.text(4, 154, "Control strobes, flags and clocks are not\nshown.  Section reads follow the map "
+        "register;\nvideo reads and all writes use RAM.\nCartridge: 2 SRAMs, 2 EEPROMs and a\n"
+        "loader PLD that holds STALL and copies the\nEEPROMs into the SRAMs at power-up.",
+        fontsize=12, color="#495057", va="top", linespacing=1.3)
+ax.text(238, 184, "src/scripts/gen_block_diagram.py, 2026-10-23", ha="right", va="center",
+        fontsize=11, color="#868E96")
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "..", "reference", "placard_block_diagram.png")

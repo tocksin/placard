@@ -24,7 +24,7 @@ Each block shows how many chips it uses (34 and a 3.3 V regulator on the main bo
 
 ![Placard block diagram](reference/placard_block_diagram.png)
 
-The drawing is made by `src/scripts/gen_block_diagram.py` (2026-10-20); rerun it when the design changes.
+The drawing is made by `src/scripts/gen_block_diagram.py` (2026-10-23: CPU on the left, memory, I/O and audio in the middle, video on the right); rerun it when the design changes.
 
 The I/O circuitry (keyboard, SNES pads, SD card, PS/2 keyboard and mouse) is drawn as a schematic in
 [docs/IO.md](docs/IO.md#schematic) (`schematics/placard_io_schematic.png`).
