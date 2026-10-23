@@ -39,7 +39,7 @@
   (pad "S1" thru_hole oval (at -4.32 0.8) (size 1.1 1.7) (drill oval 0.6 1.2) (layers "*.Cu" "*.Mask" "F.Paste"))
   (pad "S1" thru_hole oval (at 4.32 -3) (size 1.1 1.7) (drill oval 0.6 1.2) (layers "*.Cu" "*.Mask" "F.Paste"))
   (pad "S1" thru_hole oval (at 4.32 0.8) (size 1.1 1.7) (drill oval 0.6 1.2) (layers "*.Cu" "*.Mask" "F.Paste"))
-  (model "${KICAD7_3DMODEL_DIR}/Connector_USB.3dshapes/USB_C_Receptacle_GCT_USB4125-xx-x_6P_TopMnt_Horizontal.wrl"
+  (model "${KIPRJMOD}/lib/placard.3dshapes/USB_C_Receptacle_GCT_USB4125_6P_HandSolder.step"
     (offset (xyz 0 0 0))
     (scale (xyz 1 1 1))
     (rotate (xyz 0 0 0))
