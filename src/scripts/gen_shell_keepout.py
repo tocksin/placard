@@ -120,9 +120,9 @@ def top_views(ax):
     c = 19 * 2.54 / 2
     exp_pads = [((n - 1) * 2.54, y) for n in range(1, 21) for y in (2.54, -2.54)]
     top_view(ax, 16.5, gc.CART_W, (-2.75, -3.75, 35.75, 3.75), 3.75, cart_pads,
-             "J8 cartridge (82 mm card)", 0)
+             "J8 cartridge (%g mm card)" % gc.CART_W, 0)
     top_view(ax, c, gc.EXP_W, (c - 35.56, -4.95, c + 35.56, 4.95), 4.95, exp_pads,
-             "J9-J12 expansion card (72 mm card)", -32)
+             "J9-J12 expansion card (%g mm card)" % gc.EXP_W, -32)
     ax.plot([], [], color=KEEP, lw=6, alpha=0.3, label="keepout = courtyard (DRC checks it)")
     ax.plot([], [], color=SHELL, ls="--", label="shell outside")
     ax.plot([], [], color="#1b5e20", lw=3, label="card")

@@ -109,7 +109,7 @@ CARD_LEADS = 2.0             # trimmed through-hole leads on side B
 SHELL_AIR = 0.5              # gap inside the shell, each side (1.0 over the chips)
 SHELL_WALL = 2.0             # shell wall (2 mm printed or moulded)
 MARGIN = 1.0                 # shell placement tolerance on the main board
-CART_W = 82.0                # cartridge card width: its five sockets standing in one row
+CART_W = 39.0                # cartridge card width = the J8 body (39 mm): chips lie horizontally (gen_cart_placement.py)
 EXP_W = 72.0                 # expansion card width: the slot body (71.1 mm) plus 0.5 mm a side
 
 
