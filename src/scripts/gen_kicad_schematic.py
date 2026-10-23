@@ -20,7 +20,7 @@ open without the bookmarks panel.
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
 
-Date: 2026-10-22
+Date: 2026-10-23
 """
 import os
 import re
@@ -31,7 +31,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-10-22"
+DATE = "2026-10-23"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 CDIR = os.path.join(KDIR, "cartridge")
@@ -796,7 +796,7 @@ def sheet_video_timing(b):
 
 def sheet_video_out(b):
     s = b.sheet("video_out.kicad_sch", "Video and audio out", 9)
-    heading(s, "Video and audio out", "Pixel buffer, line code, color decoder and VGA DAC; audio DAC register, R-2R ladder, headphones")
+    heading(s, "Video and audio out", "Pixel buffer, line code, color decoder and VGA DAC; audio DAC register, R-2R ladder, audio line out")
     PIXB = tuple(str(p) for p in F377_Q)
     # ---- video: D -> U22 pixel buffer -> U16 color decoder -> resistor DAC -> VGA
     u22 = s.part("placard_std:74LS377", "U22", 63.5, 101.6, f377(D, PIX, "~{PIX_LD}"), value="SN74F377AN",
@@ -961,7 +961,7 @@ def sheet_video_out(b):
     name(s, "LAD7", xn + 7.62, yo)
     r957 = s.part("placard_std:R_US", "R39", 256.54, yo + 3.81, {"1": "AUDIO", "2": "GNDA"}, value="10k",
                   footprint=FP_R, bare=("1",), ref_at=(259.0, yo + 3.3), value_at=(259.0, yo + 6.4))
-    # J6 is a TRRS jack: a TRS headphone plug's sleeve spans R2 and S, so both go to GNDA
+    # J6 is a TRRS jack: a TRS plug's sleeve spans R2 and S, so both go to GNDA
     j6 = s.part("placard_std:AudioJack4", "J6", 281.94, yo + 5.08, {"T": "AUDIO", "R1": "AUDIO", "R2": "GNDA", "S": "GNDA"},
                 value="3.5 mm", footprint="placard:Jack_3.5mm_Tensility_54-00174_Horizontal", ref_at=(278, yo - 6.5),
                 value_at=(285, yo + 11.0), angle=180, bare=("T", "R1"))

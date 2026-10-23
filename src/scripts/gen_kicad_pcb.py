@@ -18,7 +18,7 @@ side (front) at the bottom.  The keyboard lies over the front 65 mm of the
 board, so everything a user plugs in sits in the back 75 mm, under the flat
 part of the case top:
 
-- back edge: USB-C power J13, headphones J6, VGA J7, stacked PS/2 J5
+- back edge: USB-C power J13, audio line out J6, VGA J7, stacked PS/2 J5
 - left side: power switch SW1, reset button SW2, SD card J4
 - right side: the two SNES pad ports J2, J3 (toward the back; not settled,
   the other choice is the front, which the keyboard blocks)

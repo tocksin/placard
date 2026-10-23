@@ -3,7 +3,7 @@
 gen_audio_schematic.py - draw the Placard audio circuitry as a schematic PNG:
 the audio slot PLD, the Sync PLD pins that make the blanking reads, the
 pixel buffer, the DAC register and its filtered supply, the R-2R ladder,
-the filter and the headphone jack, plus the timing of one line.
+the filter and the audio line out jack, plus the timing of one line.
 
     python3 gen_audio_schematic.py              writes schematics/placard_audio_schematic.png
     python3 gen_audio_schematic.py out.png      writes out.png
@@ -14,7 +14,7 @@ ATF22V10_QUAD_MUX.pld, docs/SOUND.md, docs/CHIPS.md and the parts' data
 sheets; update them here when those change and rerun.  Nets with the same
 label are connected.  Same drawing style as gen_io_schematic.py.
 
-Date: 2026-10-19
+Date: 2026-10-23
 """
 import os
 import sys
@@ -196,7 +196,7 @@ def frame(x, y, w, h, label, where="tl"):
 # ================================================================ title
 T(4, 5, "Placard: audio schematic", fs=20, weight="bold")
 T(4, 10.5, "Line-fetched 8-bit audio: one sample per scan line read from x5DF3-x5FFF into the pixel "
-   "buffer, copied to a 74HCT574 when H_VIDEO_ACTIVE rises, an R-2R ladder straight into headphones.  "
+   "buffer, copied to a 74HCT574 when H_VIDEO_ACTIVE rises, an R-2R ladder straight to the audio line out (no headphone amp).  "
    "Pin numbers from ATF22V10_AUDIO.pld rev 03, ATF22V10_SYNC.pld rev 08 and docs/SOUND.md.  "
    "Red labels are nets.", fs=9.5, color=MUTE)
 
@@ -319,7 +319,7 @@ T(vx + 1, fy - 1.5, "DAC 5V", fs=7, color=NET, weight="bold")
 T(203, 45, "ladder full scale = this rail, so it is filtered", fs=6.2, color=MUTE)
 
 # ================================================================ R-2R ladder
-frame(256, 14, 61, 96, "Filter and headphone jack", "tr")
+frame(256, 14, 61, 96, "Filter and audio line out", "tr")
 NX = 233
 nodes = []
 for i in range(8):
@@ -353,7 +353,7 @@ dot(287, ly)
 res(287, ly, ly + 7, "R29", "10k")
 gnd(287, ly + 7)
 j6 = ic(300, 60, 10, "J6", "3.5 mm", [("", "T"), ("", "R"), ("", "S")], [], fc=CONN,
-        title="stereo jack")
+        title="line out jack")
 for k in ("T", "R"):
     x, y = j6[k]
     wire([(296, y), (x, y)])
@@ -363,7 +363,7 @@ x, y = j6["S"]
 wire([(x, y), (293, y), (293, y + 3)], INK)
 gnd(293, y + 3)
 T(298, 77.5, "tip + ring tied:", fs=6, color=MUTE)
-T(298, 80, "same in both ears", fs=6, color=MUTE)
+T(298, 80, "mono on L and R", fs=6, color=MUTE)
 
 # ================================================================ timing of one line
 TX0, TW = 40, 22
@@ -438,9 +438,9 @@ T(nx, ny, "Audio buffer and parts", fs=10, weight="bold")
 notes = [("Buffer", "x5DF3-x5FFF, 525 bytes = one frame, played in order and repeated"),
          ("Format", "8-bit unsigned mono, x80 = silence (2.49 V before C6)"),
          ("Ladder", "1k output resistance at every code; each bit sources at most 2.5 mA"),
-         ("C5", "into 10k or more: one pole at about 11 kHz; into headphones it does nothing"),
-         ("C6, R29", "blocks the 2.49 V offset (7 Hz corner into 16 ohm); R29 stops plug-in pops"),
-         ("Level", "about 80 mV p-p into 16 ohm (84 dB SPL), 4.5 V p-p into a 10k line input"),
+         ("C5", "into a 10k or higher line input: one pole at about 11 kHz"),
+         ("C6, R29", "blocks the 2.49 V offset (under 1 Hz corner into 10k); R29 stops plug-in pops"),
+         ("Level", "line out: about 4.2 V p-p full scale into a 10k line input; not for headphones"),
          ("AGND", "R21, C3-C6, R29 and the jack sleeve meet logic ground at one point"),
          ("", "at the power input"),
          ("FPGA", "basys_top.vhd audioDacProc, Q7:Q0 on Pmod JA10..JA1 (3.3 V)")]

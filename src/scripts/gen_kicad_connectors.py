@@ -23,7 +23,7 @@ have no edge.
 | PS2_Kycon_KMDGX-6S-6S-S4N | stacked PS/2 J5 | A1-A6 (top), B1-B6 (bottom), SH |
 | SNES_Pad_Socket_Horizontal | SNES pad ports J2, J3 | 1-7 |
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | 1 on throw, 2 common, 3 unused throw |
-| Jack_3.5mm_Tensility_54-00174_Horizontal | headphone jack J6 | T (two legs), R1, R2, S |
+| Jack_3.5mm_Tensility_54-00174_Horizontal | audio line out jack J6 | T (two legs), R1, R2, S |
 | USB_C_Receptacle_GCT_USB4125_6P_HandSolder | USB-C power J13 | A5 A9 A12 B5 B9 B12, S1 |
 
 The USB-C footprint is KiCad's own GCT USB4125 one (true to GCT's drawing)

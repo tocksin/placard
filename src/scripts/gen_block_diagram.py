@@ -156,7 +156,7 @@ for i, (t, p) in enumerate((("Keyboard", "8 x 8 matrix"), ("PS/2", "keyboard\n+ 
 aus = box(104, 139, 31, 16, "Audio / mode slots", 1, "PLD: groups 45-47,\nline repeat rows",
           SND, "mid", fs=14.5)
 dac = box(139, 139, 30, 16, "Audio DAC", 1, "HCT574 register,\nR-2R ladder", SND, "mid", fs=15)
-hp = box(139, 160, 30, 9, "Headphones", None, "", DEV, "mid", fs=13.5)
+hp = box(139, 160, 30, 9, "Audio line out", None, "", DEV, "mid", fs=13.5)
 
 # ---------------------------------------------------------------- video
 vt = box(184, 24, 52, 16, "Video timing", 3, "H counter, V counter, Sync PLDs:\nHSYNC, VSYNC, "
@@ -231,7 +231,7 @@ wire([(135, 30.5), (139, 30.5)], OTH, lw=4)                             # map ->
 for d in devs:
     cx = d[0] + d[2] / 2
     wire([(cx, 112), (cx, 117)], OTH, lw=3, arrow=False)
-wire([(154, 155), (154, 160)], OTH, lw=4)                               # DAC -> headphones
+wire([(154, 155), (154, 160)], OTH, lw=4)                               # DAC -> audio line out
 
 # ---------------------------------------------------------------- video connections
 wire([(224, 12), (62, 12), (62, 24)], OTH, lw=5, label="video address", lpos=(143, 12))
