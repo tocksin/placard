@@ -5,8 +5,8 @@ Date: 2026-10-23
 The Placard has four expansion slots, each a 2 x 20, 0.1" (2.54 mm)
 pitch card-edge socket, and one ROM cartridge slot, a keyed 2 x 32,
 1.0 mm pitch socket (Molex 87715-9106, "ROM cartridge slot" below).  The
-expansion slots stand in a bay at one back corner, front to back at 0.9"
-(22.86 mm) pitch or more ("Shell keepouts" below), so a card's outer end can carry its own connector at the back edge,
+expansion slots stand in a bay at one back corner, front to back at 1.05"
+(26.67 mm) pitch or more ("Shell keepouts" below), so a card's outer end can carry its own connector at the back edge,
 like a PC card.  The cartridge slot is top loading, inboard.  Board sizes
 are in `hardware/pcb_size_estimate.md` (project files).
 
@@ -314,8 +314,11 @@ label, beside the chip-puller boxes.  The numbers are constants in
 
 **Height of a card** (across the slot, from the card's mid-plane).  The
 tallest part is a socketed 28-pin DIP: the AT28C256 ROMs on the
-cartridge, and the same limit for expansion cards.  Parts go on side A;
-side B carries only trimmed leads.
+cartridge.  An expansion card may carry its own connector at its outer
+end, so its side A clears a right-angle VGA (DE-15) connector instead:
+the flange is 12.55 mm tall, taken as standing from the card face, so
+side A is 0.8 + 12.55 + 1.0 air + 2.0 wall = 16.35 mm.  Parts go on side
+A; side B carries only trimmed leads.
 
 | Side A (parts) | mm | Side B (leads) | mm |
 |---|--:|---|--:|
@@ -350,13 +353,13 @@ air and a 2 mm wall each end, and the keepout 1 mm more.
 | Slot | Shell outside | Keepout (courtyard) | From the footprint origin |
 |---|---|---|---|
 | J8 cartridge | 44 x 19.25 mm | 46 x 21.25 mm | x -6.5 to 39.5, y -7.25 (side B) to 14 (side A) |
-| J9-J12 card | 77 x 20.45 mm | 79 x 22.45 mm | x -15.37 to 63.63, y -8.45 (side B) to 14 (side A) |
+| J9-J12 card | 77 x 23.8 mm | 79 x 25.8 mm | x -15.37 to 63.63, y -8.45 (side B) to 17.35 (side A) |
 
-**Expansion slot pitch.**  A card's keepout is 22.45 mm across, so the
-slots need at least 22.45 mm between centres; at the old 0.8" (20.32 mm)
-neighbouring shells collide.  Use 0.9" (22.86 mm) or more (Justin,
-2026-10-23: a wider pitch is fine).  A card that reaches the board's back
-edge for its own connector needs that strip kept clear too; the keepout
+**Expansion slot pitch.**  A card's keepout is 25.8 mm across, so the
+slots need at least 25.8 mm between centres; at the old 0.8" (20.32 mm)
+neighbouring shells collide, and 1.0" (25.4 mm) is 0.4 mm short.  Use
+1.05" (26.67 mm) or more (Justin, 2026-10-23: a wider pitch is fine).  A
+card that reaches the board's back edge for its own connector needs that strip kept clear too; the keepout
 covers only the shell over the slot.
 
 ## To check
