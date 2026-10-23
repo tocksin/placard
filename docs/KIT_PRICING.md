@@ -22,6 +22,7 @@ Cherry MX keyboard, which is the most expensive board:
 | **Keyboard kit** (add-on) | Keyboard PCB, 63 Cherry MX switches, LEDs, diodes, resistors, keycaps, stabilisers, ribbon cable, plus main board header J1 |
 | **Complete kit** | Core kit + keyboard kit + case (laser-cut acrylic sandwich with switch plate) |
 | **Programmer** (option) | XGecu T48 (or TL866II Plus) for builders without one; programs the ATF22V10C and AT28C256 |
+| **SD card** (option) | Full-size 8-16 GB SDHC card for J4, formatted FAT32 and preloaded with the programs, demos and games; the same image is a free download for builders using their own card |
 
 No kit ships programmed chips (Justin, 2026-10-23): the builder programs
 them, so a PLD fix reaches existing owners as a file, not new chips.
@@ -172,6 +173,7 @@ Core kit at other prices:
 | **Keyboard kit** (add-on) | **$199** | A Cherry MX 60 % keyboard kit with keycaps sells for $120-200 |
 | **Complete kit** | **$649** ($28 less than the three parts bought separately with a $99 case) | Foenix F256K2 $595 assembled; MEGA65 ~$750 |
 | Case on its own | $99 | Mostly for core kit buyers who add the keyboard later; print files free |
+| SD card (option) | $15 | An 8-16 GB SDHC card bought in bulk is $3-5; with about $1 for preloading (a duplicator or the kitter), a label and case, and 35 % tariff it costs about $7 landed, leaving about $5-6 after fees if it ships in the kit's box (no extra fulfilment item) |
 | Programmer (option) | $109 | XGecu T48 retails at $60-90; at about $62 bought in bulk plus 35 % tariff it costs about $84 landed, leaving $20-25 after fees.  A TL866II Plus option at $79 leaves about the same |
 
 Why these numbers:
@@ -194,6 +196,17 @@ Why these numbers:
 - **Selling through Mouser after the campaign** (Crowd Supply's
   wholesale arrangement is negotiated) does not fit these margins.  Keep
   later sales on Crowd Supply pre-orders (10 % fee) or Tindie.
+
+### SD card notes
+
+The SD driver (`sd_init`, IO.md) takes SDSC, SDHC and SDXC cards, but the
+file system code reads FAT16 and FAT32 only.  Cards over 32 GB (SDXC)
+come formatted exFAT, and the computer only reads the card (new files are
+copied on from a PC), so the option should be an 8-16 GB SDHC card, which
+is FAT32 as sold; a builder using their own larger card must reformat it
+as FAT32.  Small cards are being dropped by the big brands, so pick a
+supplier that will keep selling one part number (industrial or
+bulk-pack cards), and make one master image to copy.
 
 ## Things that move the numbers most
 
