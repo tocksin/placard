@@ -19,7 +19,8 @@ when it saves them).
 | `sym-lib-table`, `fp-lib-table` | point KiCad at the project libraries |
 | `fab/` | Gerbers, drill files, BOM and placement files for a board order |
 
-The board is 290 x 140 mm (the keyboard's width), 4 layers, with the
+The board is 290 x 290 mm (the keyboard's width; 290 deep since 2026-10-23 so kit
+builders have room), 4 layers, with the
 outline, dimensions, user connectors, cartridge slot, expansion slots,
 keyboard header and mounting holes placed by `src/scripts/gen_kicad_pcb.py`
 (run with `python3.12`, which KiCad 7's Python module is built for; `--png`
@@ -27,13 +28,13 @@ also draws [docs/placard_board_layout.png](../docs/placard_board_layout.png)).
 The back edge carries USB-C power, headphones, VGA and the stacked PS/2;
 the left side the power switch, reset button and SD card; the right side
 the two SNES ports.  The cartridge and the four expansion cards stand up
-through the case top in the back 75 mm, behind the keyboard, which lies over
+through the case top at the back, behind the keyboard, which lies over
 the front 65 mm.  Rerunning the script moves only the parts it places.
 It also places every other part as a fit test, unrouted
-([docs/placard_placement.png](../docs/placard_placement.png)): four rows of
-socketed chips under the keyboard, memory and video chips behind it, every
-DIP on KiCad's `_Socket` footprint with 2.5 mm of chip-puller room clear past
-each socket end, Cn beside Un, and the script reports courtyard overlaps
+([docs/placard_placement.png](../docs/placard_placement.png)): six rows of
+socketed chips 35 mm apart, spread across the width, every DIP on KiCad's
+`_Socket` footprint with 2.5 mm of chip-puller room clear past each socket
+end, Cn 1 mm beside Un, and the script reports courtyard overlaps
 (KiCad DRC) and puller-room conflicts.
 The footprints KiCad has no part for (cartridge slot, expansion slots,
 PS/2, SNES, the two switches) are written by
