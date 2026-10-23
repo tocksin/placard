@@ -1,7 +1,7 @@
 Name     VGA_SYNC;
 PartNo   01;
-Date     2026-10-19;
-Revision 08;
+Date     2026-10-23;
+Revision 09;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -52,7 +52,7 @@ PIN 15 = H1;
 PIN 16 = H2;
 
 PIN 17 = VIDEN;           /* registered (revision 08; was VIDEO_ACTIVE) */
-PIN 18 = VSYNC;
+PIN 18 = !VSYNC;     /* active-low output pin (revision 09); equation below uses VSYNC as logical true */
 
 PIN 19 = PIXEL_ENABLE;     /* registered */
 
@@ -214,7 +214,10 @@ PIXEL_ENABLE.D =
    ============================================================ */
 
 /*
-   VSYNC is active low during counts 532-533.
+   VSYNC is logically true during counts 532-533, and the pin is
+   active low (declared !VSYNC, like !HSYNC in the H counter), so the
+   pin is low during sync.  Before revision 09 the pin was declared
+   active high and the equation was written VSYNC = !(...).
 
    V0 is not available, so counts 532 and 533 are decoded together:
 
@@ -228,7 +231,7 @@ PIXEL_ENABLE.D =
    V4:V1 = 1010 is 532-533, so V8, V7, V6 and V5 are not needed.
 */
 
-VSYNC = !(V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1);
+VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;
 
 
 /* ============================================================

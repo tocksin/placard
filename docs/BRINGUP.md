@@ -261,12 +261,12 @@ colour decoder isn't in yet).
 | V8 (pin 18) | 59.94 Hz | 51.2 % | 2.56 V |
 | V9 (pin 19) | 59.94 Hz | 97.5 % | 4.88 V |
 | Sync VIDEN (pin 17) | 28.77 kHz | 73.1 % | 3.66 V |
-| Sync VSYNC (pin 18) | 59.94 Hz | 99.6 % | 4.98 V |
+| Sync /VSYNC (pin 18) | 59.94 Hz | 99.6 % | 4.98 V |
 | Sync PIXEL_ENABLE (pin 19) | 2.302 MHz | 9.1 % | 0.46 V |
 | Sync ADDR_SEL (pin 20) | 2.302 MHz | 9.1 % | 0.46 V |
 | Sync V_VIDEO_ACTIVE (pin 23) | 59.94 Hz | 91.4 % | 4.57 V |
 
-**59.94 Hz** on VSYNC is the frame rate.  PIXEL_ENABLE here has only the
+**59.94 Hz** on /VSYNC is the frame rate.  PIXEL_ENABLE here has only the
 video reads; step 6 adds the mode and audio reads.
 
 ### Step 6: audio and mode slot PLD (U35)

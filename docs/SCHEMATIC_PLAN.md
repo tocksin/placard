@@ -346,7 +346,7 @@ Decisions made while drawing (2026-10-20):
   like) do not exist, which is why it is discrete diodes.
   - Shared port sheet, D8-D21: PS2_DATA, PS2_CLK, KBD_CLK (J5), P_SCK
     (pad CLOCK), P_MOSI (pad LATCH), PAD1_DATA, PAD2_DATA (J2, J3).
-  - Video sheet, D22-D25: ~HSYNC and VSYNC at J7.  The RGB lines already
+  - Video sheet, D22-D25: ~HSYNC and ~VSYNC at J7.  The RGB lines already
     sit behind the DAC resistors (715 ohm to 3.24k) into the monitor's
     75 ohm, so they get none.
   - None on the cartridge or expansion slots (the extra capacitance would

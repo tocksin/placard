@@ -157,7 +157,7 @@ not in pin order.  The source names them Q9:Q0.
 ## Sync Decoder / Pixel counter PLD
 
 ### Function
-The Sync Decoder / Pixel Counter PLD (`ATF22V10_SYNC.pld`, revision 08)
+The Sync Decoder / Pixel Counter PLD (`ATF22V10_SYNC.pld`, revision 09)
 contains the three lowest horizontal count bits.  These bits select the
 individual pixel within an 8-pixel video byte, and go straight to the color
 decoder.  They run two clocks behind the H counter's group: H2:H0 is 110 in
@@ -207,7 +207,7 @@ video reads.
 | 15 | `H1` | Output | Horizontal pixel bit 1 (registered) |
 | 16 | `H2` | Output | Horizontal pixel bit 2 (registered) |
 | 17 | `VIDEN` | Output | Color decoder video enable: active video, two clocks late (registered) |
-| 18 | `VSYNC` | Output | Vertical sync, active low |
+| 18 | `/VSYNC` | Output | Vertical sync, active low |
 | 19 | `PIXEL_ENABLE` | Output | Video read, clock 1 of each group (registered) |
 | 20 | `ADDR_SEL` | Output | Address mux S1, all four muxes |
 | 21 | `ADDR_SEL_HI` | Output | High-byte address mux S0 |
@@ -230,7 +230,7 @@ VIDEN.D = V_VIDEO_ACTIVE & H_VIDEO_ACTIVE & H2 & H1 & H0
 
 PIXEL_ENABLE.D = (V_VIDEO_ACTIVE & H_VIDEO_ACTIVE # BLANK_RD) & H2 & H1 & !H0;
 
-VSYNC = !(V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1);   /* counts 532-533 */
+VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;      /* counts 532-533; pin declared !VSYNC */
 
 ADDR_SEL    = PIXEL_ENABLE # PC_ENABLE;
 ADDR_SEL_HI = !PIXEL_ENABLE & (PC_ENABLE # Y_ENABLE);

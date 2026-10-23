@@ -27,7 +27,7 @@ Each output equation was expanded with its intermediate variables (names that ar
 | `ATF22V10_IO_DECODE.pld` | #12 | none | none | 3 | 7 | 27 / 88 |
 | `ATF22V10_HCOUNT.pld` | #13 | 7, 8, 9, 10, 11, 13, 2* | none | 0 | 10 | 66 / 120 |
 | `ATF22V10_VCOUNT.pld` | #14 | 3, 4, 5, 6, 7, 8, 9, 10, 11, 13 | none | 0 | 10 | 79 / 120 |
-| `ATF22V10_SYNC.pld` | #15 | none | none | 0 | 10 | 26 / 120 |
+| `ATF22V10_SYNC.pld` | #15 | none | none | 0 | 10 | 21 / 120 |
 | `ATF22V10_COLORDECODER.pld` | #16 | none | none | 2 | 8 | 95 / 104 |
 | `ATF22V10_IR.pld` | #17 | 13 | 22 (10), 23 (8) | 0 | 8 | 17 / 102 |
 | `ATF22V10_AUDIO.pld` | #35 | none | none | 3 | 7 | 23 / 78 |
@@ -197,7 +197,7 @@ Only CLK and EN are used: pins 3-11 and 13 (ten inputs) are free. All ten output
 
 ### `ATF22V10_SYNC.pld` (#15)
 
-Every pin is used, but the logic is light: 26 of 120 terms. VSYNC is written as !(...) on an active-high pin, which expands to 6 terms; declaring the pin active low would make it 1 term (not needed, just noted).
+Every pin is used, but the logic is light: 21 of 120 terms. Since revision 09 the VSYNC pin is declared active low (!VSYNC, like !HSYNC), so its equation is 1 term (it was 6 when written as !(...) on an active-high pin).
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|
@@ -205,7 +205,7 @@ Every pin is used, but the logic is light: 26 of 120 terms. VSYNC is written as 
 | 15 | 10 | H1 | registered | 2 | 8 |
 | 16 | 12 | H2 | registered | 3 | 9 |
 | 17 | 14 | VIDEN | registered | 4 | 10 |
-| 18 | 16 | VSYNC | combinational | 6 | 10 |
+| 18 | 16 | !VSYNC | combinational | 1 | 15 |
 | 19 | 16 | PIXEL_ENABLE | registered | 2 | 14 |
 | 20 | 14 | ADDR_SEL | combinational | 2 | 12 |
 | 21 | 12 | ADDR_SEL_HI | combinational | 2 | 10 |

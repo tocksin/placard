@@ -245,7 +245,7 @@ def run_video(step, bus=0xFF):
                 for n in range(10):
                     m.add('V counter V%d (pin %d)' % (n, pins[n]), (vid.v >> n) & 1)
                 m.add('Sync VIDEN (pin 17)', vid.viden)
-                m.add('Sync VSYNC (pin 18)', c['vsync_n'])
+                m.add('Sync /VSYNC (pin 18)', c['vsync_n'])
                 m.add('Sync PIXEL_ENABLE (pin 19)', vid.pe)
                 m.add('Sync ADDR_SEL (pin 20)', vid.pe)        # PC_ENABLE held low
                 m.add('Sync V_VIDEO_ACTIVE (pin 23)', vid.vva)
