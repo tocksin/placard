@@ -1,6 +1,6 @@
 # Chip list
 
-Date: 2026-10-22
+Date: 2026-10-23
 
 Every chip in the Placard, one chip per line.  The current list follows
 `basys_top.vhd`, the PLD sources in `src/pld`, [CPU.md](CPU.md),
@@ -13,9 +13,9 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | # | Part number | Type | Function in the design |
 |--:|---|---|---|
 | 1 | ATF22V10C-7PX | PLD (22V10, 24-pin) | State machine: FETCH / LOAD / EXEC, register loads (active low, to the F377 /E pins and the IR PLD), R/W; frozen by STALL_OUT from the cartridge (`ATF22V10_STATE.pld`) |
-| 2 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Branch decode, LoadPCLow/High, ADD/SUB wait clock and STALL, /SRC_EN to the source F541s' /OE1 and the memory control, carry flag for BCS/BCC (COUT from the high ALU PLD on pin 14), /PIX_LD for the pixel buffer (pin 15) (`ATF22V10_BRANCH.pld`) |
-| 3 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Program counter, low byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
-| 4 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Program counter, high byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
+| 2 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Branch decode, LoadPCLow/High, ADD/SUB wait clock and STALL, /SRC_EN to the source F541s' /OE1 and the memory control, carry flag for BCS/BCC (COUT from the high ALU PLD on pin 14), /PIX_LD for the pixel buffer (pin 15) (`ATF22V10_BRANCH.pld`) |
+| 3 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Program counter, low byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
+| 4 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Program counter, high byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
 | 5 | ATF22V10C-7PX | PLD (22V10, 24-pin) | ALU, low nibble: 4-bit ALU with Z flag (`ALU_SHR.pld`) |
 | 6 | ATF22V10C-7PX | PLD (22V10, 24-pin) | ALU, high nibble: 4-bit ALU with Z flag, F3 is the sign (`ALU_SHR.pld`) |
 | 7 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 3:0: PC / D / X / video address (`ATF22V10_QUAD_MUX.pld`) |
@@ -24,10 +24,10 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 10 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 15:12 (`ATF22V10_QUAD_MUX.pld`) |
 | 11 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Memory control: /WE, /RAM_OE, /ROM_OE from the map; /ROM_OE only while RUN from the cartridge is high (revision 09, pin 17 is the RUN input; /WE floats while RUN is low so a slot-1 boot card can write the RAM) (`ATF22V10_MEM_CTRL.pld`) |
 | 12 | ATF22V10C-7PX | PLD (22V10, 24-pin) | I/O decode: upper 32K /CE_HI and the x5000-x53FF strobes (`ATF22V10_IO_DECODE.pld`) |
-| 13 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Video H counter: H9:H3, HSYNC, horizontal active, blank line from mode byte bit 7 (`ATF22V10_HCOUNT.pld`) |
-| 14 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Video V counter: V9:V0 (`ATF22V10_VCOUNT.pld`) |
+| 13 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video H counter: H9:H3, HSYNC, horizontal active, blank line from mode byte bit 7 (`ATF22V10_HCOUNT.pld`) |
+| 14 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video V counter: V9:V0 (`ATF22V10_VCOUNT.pld`) |
 | 15 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video sync: H2:H0 (also the color decoder's pixel select), VSYNC, VIDEN, PIXEL_ENABLE and address-mux selects (`ATF22V10_SYNC.pld`) |
-| 16 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Color decoder: pixel byte and line code to VGA RGB (`ATF22V10_COLORDECODER.pld`) |
+| 16 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Color decoder: pixel byte and line code to VGA RGB (`ATF22V10_COLORDECODER.pld`) |
 | 17 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Instruction register: loads the opcode on /LOAD_INSTR, holds 02h (`ld ac, ac`) while RUN is low so the CPU only walks the image while the cartridge loads (`ATF22V10_IR.pld`; was an SN74F377AN until 2026-10-21) |
 | 18 | SN74F377AN | Octal D flip-flop with enable | D register (immediate / memory operand) |
 | 19 | SN74F377AN | Octal D flip-flop with enable | Accumulator (AC) |
@@ -46,7 +46,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 32 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, upper 32K (x8000-xFFFF) |
 | 33 | — | — | Moved to the ROM cartridge 2026-10-20 (see "ROM cartridge" below) |
 | 34 | — | — | Moved to the ROM cartridge 2026-10-20 |
-| 35 | ATF22V10C-10PU | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md).  Also /AC_SEL (= !I1, revision 04) for the AC source F541 |
+| 35 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md).  Also /AC_SEL (= !I1, revision 04) for the AC source F541 |
 | 36 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer when H_VIDEO_ACTIVE rises (start of group 48), drives the R-2R ladder, which drives headphones directly (all passive, see SOUND.md) |
 | 37 | SN74HC574N | Octal D flip-flop, 3-state | Shared port latch at x5200 (IO.md): SCK and pad CLOCK, MOSI and pad LATCH, SD /CS (also holds the PS/2 mouse off), PS/2 DATA, keyboard column code (bit 4 also holds the PS/2 keyboard off when no column is driven).  HC for a full 5 V high into the pads |
 | 38 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: keyboard columns /COL0-/COL7 from the latch, pad DATA (and the PS/2 keyboard's CLK on D6) onto D7/D6 on odd reads (`ATF22V10_PORT.pld`, rev 02) |
@@ -58,8 +58,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 
 | Part number | Type | Qty |
 |---|---|--:|
-| ATF22V10C-7PX | PLD (22V10) | 12 |
-| ATF22V10C-10PU | PLD (22V10) | 7 |
+| ATF22V10C-7PX | PLD (22V10) | 19 |
 | SN74F377AN | Octal D flip-flop with enable | 5 |
 | CD74HCT377E | Octal D flip-flop with enable (line code) | 1 |
 | CD74ACT273E | Octal D flip-flop with clear | 1 |
@@ -83,7 +82,7 @@ start of EXEC (CPU.md, "One data bus").
 |---|---|---|
 | AS7C256C-15PCN (2) | SRAM, 32K x 8, 15 ns | The ROM as the CPU sees it (was #33, #34); /WE from the cartridge PLD |
 | AT28C256-15PU (2) | EEPROM, 32K x 8, 150 ns | The ROM image, programmed off the board; copied into the SRAMs at power-up |
-| ATF22V10C-10PU | PLD (22V10, 24-pin) | Loader: holds the CPU's STALL at each PC address, makes the EEPROM /OE and SRAM /WE, raises RUN at the PC wrap (`ATF22V10_CART.pld` revision 04) |
+| ATF22V10C-7PX | PLD (22V10, 24-pin) | Loader: holds the CPU's STALL at each PC address, makes the EEPROM /OE and SRAM /WE, raises RUN at the PC wrap (`ATF22V10_CART.pld` revision 04) |
 
 Five chips.  The battery and power-fail switch of the interim
 battery-backed ROM are gone; the main board loses #33 and #34.
@@ -125,7 +124,12 @@ that start at the IR show the new slack.  That moved the Branch and audio
 slot PLDs to -10 (Justin, 2026-10-21), and the cartridge PLD with them.
 `tb_cart_load.vhd` passes with every PLD at -10 delays.
 
-| # | PLD | Worst path through it | Slack at -7 | Slack at -10 | Grade |
+**2026-10-23: every PLD is an ATF22V10C-7PX** (Justin): one part number
+to buy, program and kit, for $2.52 more per main board ($0.36 a chip at
+Mouser) and more timing margin.  The table keeps the grade each PLD could
+use ("Could be"); the slack at -7 is what the board has now.
+
+| # | PLD | Worst path through it | Slack at -7 | Slack at -10 | Could be |
 |--:|---|---|---:|---:|---|
 | 3, 4 | PC low, PC high | Branch decision: IR 5.5, ALU F, Z, Branch LOAD_PC_LOW, PC setup | +8.2 | +7.2 | -10 |
 | 13 | H counter | H_TC to the V counter (both -10) | +23.2 | +19.7 | -10 |
