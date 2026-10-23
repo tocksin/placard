@@ -45,7 +45,7 @@ Footprints: KiCad's own where it has the part, and the PRELIMINARY ones from
 gen_kicad_connectors.py otherwise (cartridge slot, expansion slots, PS/2,
 SNES, switches), whose hole patterns must be checked against the datasheets.
 
-Date: 2026-10-22
+Date: 2026-10-23
 """
 
 import glob
@@ -75,7 +75,7 @@ PULL_LAYER = "Eco1.User"     # chip puller room past the socket ends
 
 FP_DSUB = "Connector_Dsub:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm"
 FP_AUDIO = "placard:Jack_3.5mm_Tensility_54-00174_Horizontal"
-FP_USBC = "Connector_USB:USB_C_Receptacle_GCT_USB4125-xx-x_6P_TopMnt_Horizontal"
+FP_USBC = "placard:USB_C_Receptacle_GCT_USB4125_6P_HandSolder"
 FP_SD = "Connector_Card:SD_Kyocera_145638009511859+"
 FP_KBD = "Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical"
 FP_CART = "placard:Molex_87715-9106_PCIe_x4_Vertical"
@@ -657,7 +657,7 @@ def build():
 def tidy(path):
     """Keep the file as KiCad 7 writes it with the project's title block date."""
     s = open(path).read()
-    s = re.sub(r'\(date "[^"]*"\)', '(date "2026-10-22")', s, count=1)
+    s = re.sub(r'\(date "[^"]*"\)', '(date "2026-10-23")', s, count=1)
     open(path, "w", newline="\n").write(s)
 
 
