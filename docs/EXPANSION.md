@@ -342,8 +342,11 @@ shell's skirt has to go round the 39 mm slot anyway.  The chip-puller
 room at each socket end may hang past the card edge (the shell comes off
 to change a chip).  The card is centred on the middle of J8's contacts.
 `src/scripts/gen_cart_placement.py` draws the placement from the real
-footprints: the 64K build (5 chips) is 39 x 97 mm and the 32K build
-(U1, U3, U5) 39 x 61 mm, finger tab included.  An expansion card is 72 mm
+footprints: the 64K build (5 chips) is 39 x 101.5 mm and the 32K build
+(U1, U3, U5) 39 x 65.4 mm, finger tab included.  An M3 hole (H1) on the
+card's centre line, in the row gap under the lower ROM, screws the card
+to its shell; the gap is 7.9 mm there (the hole's 6.9 mm courtyard, room
+for the screw head or the shell's boss).  An expansion card is 72 mm
 wide (the slot body, 71.1 mm, plus 0.5 mm a side).  The shell adds 0.5 mm
 air and a 2 mm wall each end, and the keepout 1 mm more.
 
