@@ -25,7 +25,7 @@ outline, dimensions, user connectors, cartridge slot, expansion slots,
 keyboard header and mounting holes placed by `src/scripts/gen_kicad_pcb.py`
 (run with `python3.12`, which KiCad 7's Python module is built for; `--png`
 also draws [docs/placard_board_layout.png](../docs/placard_board_layout.png)).
-The back edge carries USB-C power, headphones, VGA and the stacked PS/2;
+The back edge carries USB-C power, audio line out, VGA and the stacked PS/2;
 the left side the power switch, reset button and SD card; the right side
 the two SNES ports.  The cartridge and the four expansion cards stand up
 through the case top at the back, behind the keyboard, which lies over
@@ -97,7 +97,7 @@ Everything else comes from KiCad's own libraries:
 | 3.3 V regulator (MCP1700-3302E/TO) | `Regulator_Linear:MCP1700x-330xxTO` |
 | VGA | `Connector:DE15_Receptacle_HighDensity_MountingHoles` |
 | SD socket | `Connector:SD_Card` |
-| Headphones | `Connector_Audio:AudioJack3` |
+| Audio line out | `Connector_Audio:AudioJack3` |
 | Pull-up arrays | `Device:R_Network08` |
 
 Set the Value to the real part number when placing them.

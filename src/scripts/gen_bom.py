@@ -12,7 +12,7 @@ stabilizers, keycaps, LEDs and the keyboard cable) are added here.
     python3 src/scripts/gen_kicad_schematic.py    # after a part change
     python3 src/scripts/gen_bom.py
 
-Date: 2026-10-22
+Date: 2026-10-23
 """
 import csv
 import glob
@@ -23,7 +23,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-10-22"
+DATE = "2026-10-23"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 
@@ -51,7 +51,7 @@ DESC_VALUE = {
     "3 A hold": "Polyfuse, 3 A hold, radial",
     "Molex 87715-9106": "Cartridge slot: card edge, 64 contacts, 1.0 mm, keyed (PCIe x4 style), vertical TH",
     "VGA": "DE-15 high-density receptacle (VGA), with mounting holes",
-    "3.5 mm": "3.5 mm headphone jack, 4 pole (TRRS), right angle, TH (a TRS plug's sleeve spans R2 and S)",
+    "3.5 mm": "3.5 mm audio line out jack, 4 pole (TRRS), right angle, TH (a TRS plug's sleeve spans R2 and S)",
     "SD (SPI)": "SD card socket",
     "PS/2 kbd + mouse": "Stacked dual mini-DIN-6 receptacle (PS/2), right angle, shielded: mouse top, keyboard bottom",
     "SNES pad": "SNES controller socket, 7 pin",
