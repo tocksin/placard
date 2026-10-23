@@ -11,8 +11,9 @@ Needs KiCad 7's Python module (apt-get install kicad kicad-footprints; on
 Ubuntu 24.04 it is built for python3.12) and, for --png, kicad-cli and
 cairosvg (pip install cairosvg).
 
-Board: 4 layers, 290 x 140 mm, the width of the keyboard (Justin,
-2026-10-22).  The drawing has the back edge at the top and the keyboard
+Board: 4 layers, 290 x 290 mm: the width of the keyboard (Justin,
+2026-10-22), and since 2026-10-23 twice the first 140 mm depth, so kit
+builders have room around every part (Justin).  The drawing has the back edge at the top and the keyboard
 side (front) at the bottom.  The keyboard lies over the front 65 mm of the
 board, so everything a user plugs in sits in the back 75 mm, under the flat
 part of the case top:
@@ -35,7 +36,7 @@ check and KiCad's DRC), puller room and parts off the board, prints the
 share of the board covered, and --png also draws docs/placard_placement.png.
 
 The script owns the board outline (Edge.Cuts), everything on Dwgs.User and
-Cmts.User, the mounting holes H1-H6 and the footprints it places (the table
+Cmts.User, the mounting holes H1-H8 and the footprints it places (the table
 below); rerunning it puts those back where the table says and leaves every
 other footprint and track alone.  Each placed footprint is linked to its
 schematic symbol (same path as "Update PCB from Schematic" would give), so
@@ -66,9 +67,9 @@ PLACE_PNG = os.path.join(ROOT, "docs", "placard_placement.png")
 STOCK = os.environ.get("KICAD7_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
 LIBS = {"placard": os.path.join(KDIR, "lib", "placard.pretty")}
 
-W, D = 290.0, 140.0          # board width (left-right) and depth (back-front), mm
+W, D = 290.0, 290.0          # board width (left-right) and depth (back-front), mm (290 deep since 2026-10-23)
 X0, Y0 = 50.0, 50.0          # back left corner on the KiCad page
-KB_LINE = 75.0               # keyboard's back edge, mm from the back edge
+KB_LINE = D - 65.0           # keyboard's back edge, mm from the back edge (it covers the front 65 mm)
 TOP = "Dwgs.User"            # dimensions and notes
 NOTE = "Cmts.User"           # zones and labels
 PULL_LAYER = "Eco1.User"     # chip puller room past the socket ends
@@ -108,6 +109,8 @@ EDGE_ROT = {"back": (180, 0), "left": (270, 90), "right": (90, 270)}   # (stock,
 SLOT_PITCH = 20.32           # 0.8" between expansion slots
 SLOT_X = [42.0 + i * SLOT_PITCH for i in range(4)]
 SLOT_Y = 39.0                # middle of each slot, from the back edge
+BAY_END = 76.5               # front end of the expansion bay
+J1_X, J1_Y = 200.0, 271.0    # keyboard header: in the front chip row, under the keyboard
 
 # ref, footprint, edge (or None), position along that edge or (x, y), rotation for None
 PLACE = [
@@ -121,10 +124,11 @@ PLACE = [
     ("J2", FP_SNES, "right", 22.0),
     ("J3", FP_SNES, "right", 50.0),
     ("J8", FP_CART, None, (175.0, 55.0), 0),
-    ("J1", FP_KBD, None, (145.0, 82.0), 90),
+    ("J1", FP_KBD, None, (J1_X, J1_Y), 90),
 ] + [("J%d" % (9 + i), FP_EXP, None, (x, SLOT_Y), 90) for i, x in enumerate(SLOT_X)]
 
-HOLES = [(5.0, 5.0), (W - 5.0, 5.0), (5.0, D - 5.0), (W - 5.0, D - 5.0), (145.0, D - 5.0), (240.0, 5.0)]
+HOLES = [(5.0, 5.0), (W - 5.0, 5.0), (5.0, D - 5.0), (W - 5.0, D - 5.0), (145.0, D - 5.0), (240.0, 5.0),
+         (5.0, D / 2), (W - 5.0, D / 2)]
 
 
 # ---- component placement (a fit test: every part placed, nothing routed) ----
@@ -138,41 +142,42 @@ HOLES = [(5.0, 5.0), (W - 5.0, 5.0), (5.0, D - 5.0), (W - 5.0, D - 5.0), (145.0,
 # channel between rows.  Passives are packed in blocks near what they serve.
 
 PULL = 2.5                   # puller room past each socket end, mm
-ROW_GAP = 2.5                # socket courtyard to socket courtyard along a row (> PULL - courtyard margin)
-CELL_GAP = 0.3               # courtyard to courtyard inside a passive block
-ROW_Y = [82.0, 98.0, 114.0, 130.0]   # chip rows under the keyboard
+ROW_GAP = 6.0                # socket courtyard to socket courtyard along a row: room for a kit builder's iron
+CELL_GAP = 1.5               # courtyard to courtyard inside a passive block
+ROW_Y = [96.0, 131.0, 166.0, 201.0, 236.0, 271.0]   # chip rows, 35 mm apart (the last two under the keyboard)
+X_END = 280.0                # rows spread from x = 10 to here
 
 # Rows of chips: (centre y, decap side "below"/"above", items).  An item is a
-# reference (chip, with its decap), ("at", x) to move to x, or
+# reference (chip, with its decap), ("at", x) to move to x (("at", x0, x1)
+# first spreads the row evenly from x0 to x1), or
 # ("block", width, [refs], angle=90) for a block of passives centred on the row.
+# Back to front: video, clock + memory, control + data bus, ALU, PC + address
+# mux, shared port with the keyboard header.
 ROWS = [
-    # under the keyboard, front to back: data bus + shared port, PC + address mux, control + ALU, video timing
-    (ROW_Y[0], "below", [("at", 8.0), ("block", 15.0, ["U40", "C40", "C42"]), "U18", "U26", "U27",
-                         ("at", 164.5), "U38", "U37", "U39"]),
-    (ROW_Y[1], "below", [("at", 8.0), "U3", "U4", "U7", "U8", "U9", "U10", "U17",
-                         ("block", 34.0, ["R3", "R4", "JP1", "JP2", "R13", "R51", "R52", "R53", "R54"])]),
-    (ROW_Y[2], "below", [("at", 8.0), "U1", "U2", "U5", "U6", "U19", "U20", "U21", "X1"]),
-    (ROW_Y[3], "below", [("at", 12.0), "U13", "U14", "U15", "U29", ("at", 151.5), "U35", "U12",
-                         ("block", 27.0, ["R5", "R6", "R7", "R8", "R9", "R10", "R11", "R12"]),
-                         ("block", 24.0, ["RN1", "RN2"], 0)]),
-    # behind the keyboard: memory under the cartridge slot, video out behind its passives
-    (66.0, "below", [("at", 112.0), "U31", "U32", "U11", "U25"]),
-    (43.0, "above", [("at", 112.0), "U16", "U22", "U23", "U36"]),
+    (ROW_Y[0], "below", [("at", 10.0, X_END), "U16", "U22", "U23", "U36", "U13", "U14", "U15"]),
+    (ROW_Y[1], "below", [("at", 10.0, X_END), "U35", "U29", "X1", "U31", "U32", "U11", "U25"]),
+    (ROW_Y[2], "below", [("at", 10.0, X_END), "U12", "U1", "U2", "U17", "U18", "U26",
+                         ("block", 45.0, ["R5", "R6", "R7", "R8", "R9", "R10", "R11", "R12"])]),
+    (ROW_Y[3], "below", [("at", 10.0, X_END), "U5", "U6", "U19", "U20", "U21", "U27",
+                         ("block", 50.0, ["R3", "R4", "JP1", "JP2", "R13", "R51", "R52", "R53", "R54"])]),
+    (ROW_Y[4], "below", [("at", 10.0, X_END), "U3", "U4", "U7", "U8", "U9", "U10",
+                         ("block", 30.0, ["RN1", "RN2"], 0)]),
+    (ROW_Y[5], "below", [("at", 10.0, 132.0), ("block", 22.0, ["U40", "C40", "C42"]), "U38", "U37", "U39"]),
 ]
 
 # Blocks of passives: (x0, y0, x1, y1, angle, refs), filled in columns left to right
 BLOCKS = [
-    # video out: DAC ladders, sync and audio, between the back-edge connectors and the video chips
-    (111.0, 14.5, 272.0, 32.0, 90,
+    # video out: DAC ladders, sync and audio, along the back edge behind the VGA and audio jacks
+    (111.0, 15.0, 272.0, 46.5, 90,
      ["R14", "R15", "R16", "R17", "R18", "R19", "R20", "R21", "R22", "R23", "R24", "R25", "R26", "R27",
       "R28", "R29", "R30", "R31", "R32", "R33", "R34", "R35", "R36", "R37", "R38", "R39", "R56", "R57",
       "R58", "D22", "D23", "D24", "D25", "D27", "D28", "D29", "D30", "D31", "D32", "D33", "D34", "D35",
       "C45", "C46", "C44"]),
-    # shared port: PS/2, SNES, SD and keyboard protection and pull-ups, beside the cartridge slot
-    (111.0, 49.5, 154.5, 60.5, 90, ["D1", "D2", "D3", "D4", "D5", "D6", "D8", "D9", "D10", "D11", "D12", "D13"]),
-    (196.0, 49.5, 221.0, 60.5, 90, ["D14", "D15", "D16", "D17", "D18", "D19", "D20", "D21"]),
-    (222.0, 49.5, 272.3, 60.5, 0, ["R40", "R41", "R42", "R43", "R44", "R45", "R46", "R47", "R48", "R49", "R50",
-                                  "R55"]),
+    # shared port: PS/2, SNES, SD and keyboard protection beside the cartridge slot, pull-ups under it
+    (111.0, 49.0, 154.5, 61.0, 90, ["D1", "D2", "D3", "D4", "D5", "D6", "D8", "D9", "D10", "D11"]),
+    (196.0, 49.0, 272.3, 61.0, 90, ["D12", "D13", "D14", "D15", "D16", "D17", "D18", "D19", "D20", "D21"]),
+    (111.0, 63.0, 272.0, 77.0, 90, ["R40", "R41", "R42", "R43", "R44", "R45", "R46", "R47", "R48", "R49", "R50",
+                                   "R55"]),
 ]
 
 # Single parts: (ref, centre x, centre y, angle).  Power, at the back left
@@ -391,20 +396,37 @@ def block(board, syms, x0, y0, x1, y1, angle, refs):
     return x - CELL_GAP
 
 
+def item_width(it):
+    if isinstance(it, tuple):
+        return it[1]
+    probe = load_fp(FPID[it])
+    probe.SetOrientationDegrees(0 if it == "X1" else 90)
+    b = crt(probe)
+    _PRELOAD[FPID[it]].append(probe)
+    return b[2] - b[0]
+
+
 def place_parts(board, syms):
     for y, side, items in ROWS:
         x = None
+        gap = ROW_GAP
+        if items and items[0][0] == "at" and len(items[0]) > 2:
+            # spread the row evenly from its start to its end
+            parts = [it for it in items[1:] if not (isinstance(it, tuple) and it[0] == "at")]
+            room = items[0][2] - items[0][1] - sum(item_width(it) for it in parts)
+            gap = max(ROW_GAP, room / max(1, len(parts) - 1))
         for it in items:
             if isinstance(it, tuple) and it[0] == "at":
                 x = it[1]
                 continue
             if isinstance(it, tuple) and it[0] == "block":
                 angle = it[3] if len(it) > 3 else 90
-                x = block(board, syms, x, y - 6.0, x + it[1], y + 6.0, angle, it[2]) + ROW_GAP
+                block(board, syms, x, y - 6.0, x + it[1], y + 6.0, angle, it[2])
+                x += it[1] + gap
                 continue
             fp = put(board, syms, it, 0 if it == "X1" else 90, y, left=x)
             c = crt(fp)
-            x = c[2] + ROW_GAP
+            x = c[2] + gap
             if FPID[it].endswith("_Socket"):
                 SOCKETS.append(it)
                 f = box(fp, pcbnew.F_Fab)
@@ -416,7 +438,7 @@ def place_parts(board, syms):
                 cb = crt(probe)
                 _PRELOAD[FPID[cap]].append(probe)
                 h = cb[3] - cb[1]
-                cy = c[3] + h / 2 + 0.1 if side == "below" else c[1] - h / 2 - 0.1
+                cy = c[3] + h / 2 + 1.0 if side == "below" else c[1] - h / 2 - 1.0
                 put(board, syms, cap, 0, cy, cx=c[2] - (cb[2] - cb[0]) / 2 - 1.0)
     for x0, y0, x1, y1, angle, refs in BLOCKS:
         block(board, syms, x0, y0, x1, y1, angle, refs)
@@ -601,17 +623,17 @@ def build():
                            (cx + 41, cy + 5, cx - 41, cy + 5), (cx - 41, cy + 5, cx - 41, cy - 5)]:
         dashed(board, NOTE, x1, y1, x2, y2, 2.0, 1.5)
     bx0, bx1 = SLOT_X[0] - 7.0, SLOT_X[-1] + 7.0
-    for x1, y1, x2, y2 in [(bx0, 1.5, bx1, 1.5), (bx1, 1.5, bx1, KB_LINE - 1.5),
-                           (bx1, KB_LINE - 1.5, bx0, KB_LINE - 1.5), (bx0, KB_LINE - 1.5, bx0, 1.5)]:
+    for x1, y1, x2, y2 in [(bx0, 1.5, bx1, 1.5), (bx1, 1.5, bx1, BAY_END),
+                           (bx1, BAY_END, bx0, BAY_END), (bx0, BAY_END, bx0, 1.5)]:
         dashed(board, NOTE, x1, y1, x2, y2, 2.0, 1.5)
     text(board, NOTE, "BACK", W / 2, -44.0, 3.0)
     text(board, NOTE, "FRONT (keyboard side)", W / 2, D + 32.0, 3.0)
     text(board, NOTE, "LEFT SIDE", -40.0, D / 2, 3.0, angle=90)
     text(board, NOTE, "RIGHT SIDE", W + 46.0, D / 2, 3.0, angle=90)
     notes = [
-        "PLACARD main board: 4 layers (In1 GND, In2 +5V), 1.6 mm, 290 x 140 mm, 3 mm corner radius",
+        "PLACARD main board: 4 layers (In1 GND, In2 +5V), 1.6 mm, %g x %g mm, 3 mm corner radius" % (W, D),
         "Dimensions in mm from the back left corner to connector centre lines (edge connectors: middle of the face on the edge)",
-        "H1-H6: M3 mounting holes, 3.2 mm, 5 mm in from the edges: (5,5) (285,5) (5,135) (285,135) (145,135) (240,5)",
+        "H1-H%d: M3 mounting holes, 3.2 mm, 5 mm in from the edges: %s" % (len(HOLES), " ".join("(%g,%g)" % h for h in HOLES)),
         "SNES ports on the right side toward the back: not settled (the front is under the keyboard)",
         "PRELIMINARY footprints (check datasheets): J2 J3 J5 J8 J9-J12 SW1 SW2, see src/scripts/gen_kicad_connectors.py",
         "Dashed line: keyboard's back edge; the keyboard lies over the front %g mm (low parts only); the back %g mm is "
@@ -619,10 +641,9 @@ def build():
         "Dashed boxes: expansion bay (cards stand up through the case top) and the cartridge shell around J8",
         "Placement test (no routing): every chip socketed (KiCad _Socket footprints); hatched boxes at the socket ends "
         "= %g mm chip-puller room, kept clear" % PULL,
-        "Chip rows, front to back: video timing + data bus resistors and networks | control + ALU + oscillator | PC + address mux | "
-        "data bus + shared port (J1 between)",
-        "Behind the keyboard: memory under the cartridge slot, video out chips, video/audio passives along the back edge, "
-        "shared-port protection beside J8; power at the back left",
+        "Chip rows, back to front: video | audio slot, oscillator, memory | I/O decode, control, data bus | ALU, data bus | "
+        "PC + address mux | shared port + keyboard header J1",
+        "Back: video/audio passives along the back edge, shared-port protection and pull-ups around J8, power at the back left",
     ]
     for i, s in enumerate(notes):
         text(board, NOTE, s, 0, D + 40.0 + i * 4.0, 2.0, just=-1)
@@ -631,19 +652,19 @@ def build():
     dim(board, 0, D, W, D, 22.0, 2.0)                  # overall width, below the board
     dim(board, 0, 0, 0, D, 30.0, 2.0)                  # overall depth, left of the board
     tops = [("J13", 16.0)] + [("J%d" % (9 + i), x) for i, x in enumerate(SLOT_X)] + \
-           [("J6", 135.0), ("J7", 165.0), ("J1", 145.0), ("J8", 175.0), ("J5", 205.0)]
+           [("J6", 135.0), ("J7", 165.0), ("J1", J1_X), ("J8", 175.0), ("J5", 205.0)]
     for i, (ref, x) in enumerate(sorted(tops, key=lambda t: t[1])):
         dim(board, 0, 0, x, 0, -(6.0 + 3.5 * i))
     # left side, from the back edge
     for i, y in enumerate([18.0, 34.0, 60.0]):
         dim(board, 0, 0, 0, y, 8.0 + 4.0 * i)
     # right side, from the back edge
-    rights = [22.0, 50.0, 55.0, SLOT_Y, KB_LINE, 82.0]
+    rights = [22.0, 50.0, 55.0, SLOT_Y, KB_LINE, J1_Y]
     for i, y in enumerate(sorted(rights)):
         dim(board, W, 0, W, y, -(8.0 + 4.0 * i))
     # slot pitch and length
-    dim(board, SLOT_X[0], KB_LINE + 9.0, SLOT_X[1], KB_LINE + 9.0, -0.01, 1.2)
-    text(board, TOP, "J9-J12 at 20.32 (0.8\") pitch", SLOT_X[0], KB_LINE + 14.0, 1.2, just=-1)
+    dim(board, SLOT_X[0], BAY_END + 4.0, SLOT_X[1], BAY_END + 4.0, -0.01, 1.2)
+    text(board, TOP, "J9-J12 at 20.32 (0.8\") pitch", SLOT_X[0], BAY_END + 8.0, 1.2, just=-1)
 
     board.Save(PCB)
     print("wrote", PCB)
