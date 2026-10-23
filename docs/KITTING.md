@@ -101,7 +101,8 @@ about 40 chips plus passives, more if they also source the parts.
   order, either personally or through a fulfillment house.
 
 Per-kit cost, margin, platform fees and a suggested price are in
-[KIT_PRICING.md](KIT_PRICING.md).
+[KIT_PRICING.md](KIT_PRICING.md).  Chosen 2026-10-23: kits ship blank chips and the
+builder programs them (plan E), with a programmer as a sale option.
 
 ## Options
 
