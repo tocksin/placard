@@ -942,7 +942,7 @@
     (property "Value" "USB4125-GF-A" (at -12.7 -16.04 0)
       (effects (font (size 1.27 1.27)) (justify left top))
     )
-    (property "Footprint" "Connector_USB:USB_C_Receptacle_GCT_USB4125-xx-x_6P_TopMnt_Horizontal" (at 0 0 0)
+    (property "Footprint" "placard:USB_C_Receptacle_GCT_USB4125_6P_HandSolder" (at 0 0 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "~" (at 0 0 0)
