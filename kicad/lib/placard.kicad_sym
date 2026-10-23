@@ -1887,7 +1887,7 @@
         (number "19" (effects (font (size 1.5 1.5))))
       )
       (pin output line (at 30.48 0 180) (length 2.54)
-        (name "VSYNC" (effects (font (size 1.8 1.8))))
+        (name "/VSYNC" (effects (font (size 1.8 1.8))))
         (number "18" (effects (font (size 1.5 1.5))))
       )
       (pin output line (at 30.48 -2.54 180) (length 2.54)

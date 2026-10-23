@@ -962,7 +962,7 @@
         (pin output line
           (at 30.48 0 180)
           (length 2.54)
-          (name "VSYNC"
+          (name "/VSYNC"
             (effects
               (font (size 1.8 1.8))))
           (number "18"
@@ -1782,7 +1782,7 @@
   (wire (pts (xy 264.16 93.98) (xy 275.59 93.98)) (stroke (width 0) (type default)) (uuid 96e0b834-53d4-5309-8383-c9b66b96d5f2))
   (global_label "PIXEL_ENABLE" (shape output) (at 275.59 93.98 0) (fields_autoplaced) (effects (font (size 2 2)) (justify left)) (uuid ef0be99b-601c-517e-b3ea-59d68f542e8a) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 275.59 93.98 0) (effects (font (size 2 2)) (justify left) hide)))
   (wire (pts (xy 264.16 99.06) (xy 275.59 99.06)) (stroke (width 0) (type default)) (uuid 136ed6d2-9a8f-5ea6-8d10-426efe813352))
-  (global_label "VSYNC" (shape output) (at 275.59 99.06 0) (fields_autoplaced) (effects (font (size 2 2)) (justify left)) (uuid 065c5ac2-50b4-58d3-ab73-b2f36c456e11) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 275.59 99.06 0) (effects (font (size 2 2)) (justify left) hide)))
+  (global_label "~{VSYNC}" (shape output) (at 275.59 99.06 0) (fields_autoplaced) (effects (font (size 2 2)) (justify left)) (uuid 065c5ac2-50b4-58d3-ab73-b2f36c456e11) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 275.59 99.06 0) (effects (font (size 2 2)) (justify left) hide)))
   (wire (pts (xy 264.16 111.76) (xy 275.59 111.76)) (stroke (width 0) (type default)) (uuid 13c95ebc-202c-5404-867c-021ef79da086))
   (global_label "ADDR_SEL" (shape output) (at 275.59 111.76 0) (fields_autoplaced) (effects (font (size 2 2)) (justify left)) (uuid 57db14eb-4d2a-5d06-9c2e-5306729af84d) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 275.59 111.76 0) (effects (font (size 2 2)) (justify left) hide)))
   (wire (pts (xy 264.16 116.84) (xy 275.59 116.84)) (stroke (width 0) (type default)) (uuid 2a542bbe-4cce-5039-8212-87c24d159b8c))
