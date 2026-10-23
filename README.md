@@ -28,7 +28,7 @@ The drawing is made by `src/scripts/gen_block_diagram.py` (2026-10-23: CPU on th
 
 The I/O circuitry (keyboard, SNES pads, SD card, PS/2 keyboard and mouse) is drawn as a schematic in
 [docs/IO.md](docs/IO.md#schematic) (`schematics/placard_io_schematic.png`).
-The audio circuitry (sample read, DAC register, R-2R ladder, headphone jack) is drawn in
+The audio circuitry (sample read, DAC register, R-2R ladder, audio line out jack) is drawn in
 [docs/SOUND.md](docs/SOUND.md#schematic) (`schematics/placard_audio_schematic.png`).
 
 The real schematic and PCB layout are a KiCad project in [kicad/](kicad/).
