@@ -595,7 +595,7 @@ With no sound playing the sample is 80h:
 | Q3-Q0 (pins 16-19) | 0 V | 0 V |
 
 The ladder output sits at about 2.5 V when silent.  Press T: a 1 kHz tone
-in the headphones; T again stops it.
+from the line out (into an amplifier or powered speakers); T again stops it.
 
 When everything passes, load the normal ROM image.
 
