@@ -44,9 +44,9 @@ OUT = os.path.join(ROOT, "kicad", "lib", "placard.kicad_sym")
 PART = "ATF22V10C-7PX"
 # PLDs with enough timing margin for the slower -10 grade (CHIPS.md, "PLD speed grades")
 PART_10 = "ATF22V10C-10PU"
-SLOW_OK = {"ATF22V10_PC_COUNTER8", "ATF22V10_HCOUNT", "ATF22V10_VCOUNT",
-           "ATF22V10_COLORDECODER", "ATF22V10_BRANCH", "ATF22V10_AUDIO", "ATF22V10_CART"}
-# (Branch and audio slot moved to -10 on 2026-10-21, when the IR PLD's faster clock to output gave their paths 5 ns)
+# Empty since 2026-10-23: every PLD is a -7PX (Justin: one part number; the -10PU saved $0.36 a chip).
+# Seven main-board PLDs and the cartridge's would fit the -10 grade; CHIPS.md lists them.
+SLOW_OK = set()
 FOOTPRINT = "Package_DIP:DIP-24_W7.62mm"
 DATASHEET = "https://ww1.microchip.com/downloads/en/DeviceDoc/doc0735.pdf"
 G = 2.54                       # pin pitch and pin length (100 mil)

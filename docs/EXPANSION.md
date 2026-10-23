@@ -1,6 +1,6 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-10-22
+Date: 2026-10-23
 
 The Placard has four expansion slots, each a 2 x 20, 0.1" (2.54 mm)
 pitch card-edge socket, and one ROM cartridge slot, a keyed 2 x 32,
@@ -216,8 +216,8 @@ its EEPROM onto D7:D0) only while /CART is high.  So:
   with /CART on every output enable, /WE in place of the SRAM's /WE, the
   I/O window left out of /WE, and the feed of step 2.  PREV15 has no job
   after the wrap, so it can hold the "feed until the first write" flag and
-  the design still fits 10 cells.  A -7 part leaves the STALL path +4.7 ns
-  (the cartridge's -10 leaves +2.2), which covers the longer trace to
+  the design still fits 10 cells.  A -7 part (every PLD is one) leaves
+  the STALL path about +7 ns, which covers the longer trace to
   slot 1.  /WE goes back into the PLD through its pin feedback.
 - A page counter PLD: A15:A8 for the EEPROM, the wrap and the I/O window
   check, stepped when a copy at A7:A0 = FF ends (the PC walks every

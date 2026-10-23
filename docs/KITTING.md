@@ -1,6 +1,6 @@
 # Selling the Placard as a kit
 
-Date: 2026-10-22
+Date: 2026-10-23
 
 Who can buy the parts, program the chips, bag each kit and ship it, so
 that no one has to hand-pack every kit.  Researched 2026-10-20 from public
@@ -14,9 +14,8 @@ Each kit needs 22 programmed chips, from 17 different images:
 
 | Chips | Part | Images | Per kit |
 |---|---|---|--:|
-| Main board PLDs | ATF22V10C-7PX | State, Instruction register, ALU (x2), Address mux (x4), Memory control, I/O decode, Sync, Port | 12 |
-| Main board PLDs | ATF22V10C-10PU | Branch, PC counter (x2), H counter, V counter, Color decoder, Audio slot | 7 |
-| Cartridge PLD | ATF22V10C-10PU | Cartridge loader | 1 |
+| Main board PLDs | ATF22V10C-7PX | State, Branch, PC counter (x2), Instruction register, ALU (x2), Address mux (x4), Memory control, I/O decode, H counter, V counter, Sync, Color decoder, Audio slot, Port | 19 |
+| Cartridge PLD | ATF22V10C-7PX | Cartridge loader | 1 |
 | Cartridge EEPROMs | AT28C256-15PU | ROM low, ROM high | 2 |
 
 That is 15 PLD JEDEC files (`src/pld`, 20 chips) and 2 EEPROM binaries.
@@ -55,8 +54,8 @@ written from the KiCad sheets.
   "prepacks": several parts bagged together as one kit with its own
   reorderable part number.  So **Digi-Key can, in principle, buy every
   chip, program the 21, label them and bag one chip kit per customer in
-  one place.**  Prices are quoted per job.  Check that the -10PU and the
-  AT28C256-15PU are also marked "Verified" on their product pages.
+  one place.**  Prices are quoted per job.  Check that the
+  AT28C256-15PU is also marked "Verified" on their product pages.
 - **Arrow** programs "small and large quantities", including parts not
   bought from Arrow (so it can program chips you send it), with a
   24-hour first article and 72-hour production.  It does not kit.
