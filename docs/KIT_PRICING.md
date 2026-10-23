@@ -21,7 +21,8 @@ Cherry MX keyboard, which is the most expensive board:
 | **Core kit** | Main board PCB and parts (no keyboard header J1, no expansion sockets J9-J12), 64K cartridge PCB and parts, 21 blank chips (19 main PLDs, cartridge PLD, 2 EEPROMs) that the builder programs from the repository's JEDEC files and ROM images (KITTING.md plan E), a label sheet and a printed chip / image / socket table, sockets.  Uses a PS/2 keyboard on J5. |
 | **Keyboard kit** (add-on) | Keyboard PCB, 63 Cherry MX switches, LEDs, diodes, resistors, keycaps, stabilisers, ribbon cable, plus main board header J1 |
 | **Complete kit** | Core kit + keyboard kit + case (laser-cut acrylic sandwich with switch plate) |
-| **Programmer** (option) | XGecu T48 (or TL866II Plus) for builders without one; programs the ATF22V10C and AT28C256 |
+| **Programmer** (option) | XGecu T48 for builders without one; programs the ATF22V10C and AT28C256 |
+| **Budget programmer** (option) | XGecu TL866II Plus, the older and cheaper model; same chips, same software |
 | **SD card** (option) | Full-size 8-16 GB SDHC card for J4, formatted FAT32 and preloaded with the programs, demos and games; the same image is a free download for builders using their own card |
 
 No kit ships programmed chips (Justin, 2026-10-23): the builder programs
@@ -145,7 +146,8 @@ Margin = price - Crowd Supply fees - cost per kit, before the one-off costs.
 | Core kit, $379 | $86 (23 %) | $109 (29 %) | $128 (34 %) | $142 (37 %) |
 | Keyboard kit, $199 | $26 (13 %) | $41 (21 %) | $53 (27 %) | $63 (32 %) |
 | Complete kit, $649 | $129 (20 %) | $174 (27 %) | $213 (33 %) | $242 (37 %) |
-| Programmer, $109 | $20-25 a unit at any quantity | | | |
+| Programmer (T48), $109 | $20-25 a unit at any quantity | | | |
+| Budget programmer (TL866II Plus), $79 | about $15 a unit at any quantity | | | |
 
 Complete kit at other prices:
 
@@ -174,7 +176,8 @@ Core kit at other prices:
 | **Complete kit** | **$649** ($28 less than the three parts bought separately with a $99 case) | Foenix F256K2 $595 assembled; MEGA65 ~$750 |
 | Case on its own | $99 | Mostly for core kit buyers who add the keyboard later; print files free |
 | SD card (option) | $15 | An 8-16 GB SDHC card bought in bulk is $3-5; with about $1 for preloading (a duplicator or the kitter), a label and case, and 35 % tariff it costs about $7 landed, leaving about $5-6 after fees if it ships in the kit's box (no extra fulfilment item) |
-| Programmer (option) | $109 | XGecu T48 retails at $60-90; at about $62 bought in bulk plus 35 % tariff it costs about $84 landed, leaving $20-25 after fees.  A TL866II Plus option at $79 leaves about the same |
+| Programmer (option) | $109 | XGecu T48 retails at $60-90; at about $62 bought in bulk plus 35 % tariff it costs about $84 landed, leaving $20-25 after fees |
+| Budget programmer (option) | $79 | XGecu TL866II Plus retails at $35-50; at about $38 in bulk plus tariff it costs about $51 landed, leaving about $15 after fees.  Older and slower than the T48 and it covers fewer chips, but it programs the ATF22V10C and AT28C256 with the same Xgpro software (or open-source `minipro` on Linux and Mac) |
 
 Why these numbers:
 
