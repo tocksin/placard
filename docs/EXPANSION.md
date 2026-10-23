@@ -332,15 +332,24 @@ slot, not the card.  A ZIF socket does not fit; the 100n disc capacitors
 are lower than a socketed chip (bend one over if it stands taller).  Each
 side of the keepout adds 1 mm for the shell's placement tolerance.
 
-**Length.**  The cartridge card is 82 mm wide (its five sockets standing
-in one row: two 600-mil, three 300-mil, with puller room above and
-below), centred on the middle of J8's contacts.  An expansion card is
-72 mm wide (the slot body, 71.1 mm, plus 0.5 mm a side).  The shell adds
-0.5 mm air and a 2 mm wall each end, and the keepout 1 mm more.
+**Length.**  The cartridge's chips lie horizontally (long side along the
+fingers), stacked one above another, so the card is as wide as J8's body
+(39 mm): the widest courtyard, a 28-pin socket, is 36.25 mm, and the
+shell's skirt has to go round the 39 mm slot anyway.  The chip-puller
+room at each socket end may hang past the card edge (the shell comes off
+to change a chip).  The card is centred on the middle of J8's contacts.
+`src/scripts/gen_cart_placement.py` draws the placement from the real
+footprints: the 64K build (5 chips) is 39 x 97 mm and the 32K build
+(U1, U3, U5) 39 x 61 mm, finger tab included.  An expansion card is 72 mm
+wide (the slot body, 71.1 mm, plus 0.5 mm a side).  The shell adds 0.5 mm
+air and a 2 mm wall each end, and the keepout 1 mm more.
+
+![64K cartridge placement](cart_placement_5chip.png)
+![32K cartridge placement](cart_placement_3chip.png)
 
 | Slot | Shell outside | Keepout (courtyard) | From the footprint origin |
 |---|---|---|---|
-| J8 cartridge | 87 x 19.25 mm | 89 x 21.25 mm | x -28 to 61, y -7.25 (side B) to 14 (side A) |
+| J8 cartridge | 44 x 19.25 mm | 46 x 21.25 mm | x -6.5 to 39.5, y -7.25 (side B) to 14 (side A) |
 | J9-J12 card | 77 x 20.45 mm | 79 x 22.45 mm | x -15.37 to 63.63, y -8.45 (side B) to 14 (side A) |
 
 **Expansion slot pitch.**  A card's keepout is 22.45 mm across, so the
@@ -349,10 +358,6 @@ neighbouring shells collide.  Use 0.9" (22.86 mm) or more (Justin,
 2026-10-23: a wider pitch is fine).  A card that reaches the board's back
 edge for its own connector needs that strip kept clear too; the keepout
 covers only the shell over the slot.
-
-A two-row cartridge (the two ROMs over the three SRAM/PLD sockets) would
-be about 45 mm wide, so its keepout would be about 52 mm long, but the
-cartridge would stand about 95 mm tall.
 
 ## To check
 
