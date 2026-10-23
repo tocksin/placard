@@ -29,7 +29,7 @@ stops if a pin is missing from it); the file is KiCad 7 format.
 
 symbol() is also used by gen_kicad_parts.py for the other project symbols.
 
-Date: 2026-10-22
+Date: 2026-10-23
 """
 
 import os
@@ -47,7 +47,7 @@ PART_10 = "ATF22V10C-10PU"
 # Empty since 2026-10-23: every PLD is a -7PX (Justin: one part number; the -10PU saved $0.36 a chip).
 # Seven main-board PLDs and the cartridge's would fit the -10 grade; CHIPS.md lists them.
 SLOW_OK = set()
-FOOTPRINT = "Package_DIP:DIP-24_W7.62mm"
+FOOTPRINT = "placard:DIP-24_W7.62mm_Socket_Puller"   # socket, puller room, part number (gen_kicad_kit_footprints.py)
 DATASHEET = "https://ww1.microchip.com/downloads/en/DeviceDoc/doc0735.pdf"
 G = 2.54                       # pin pitch and pin length (100 mil)
 FILL = "(fill (type color) (color 255 248 225 1))"   # the drawings' chip colour #FFF8E1

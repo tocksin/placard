@@ -38,7 +38,7 @@ def sram():
     return symbol("AS7C256C", [(a + [None] + ctl, dq)], "AS7C256C-15PCN",
                   "32K x 8 SRAM, 15 ns, 5 V, 300 mil DIP-28 (62256 pinout)",
                   "SRAM RAM 32K 62256 Placard",
-                  footprint="Package_DIP:DIP-28_W7.62mm",
+                  footprint="placard:DIP-28_W7.62mm_Socket_Puller",
                   datasheet="~",
                   vcc=(28, "VCC"), gnd=(14, "GND"))
 
