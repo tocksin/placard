@@ -14,7 +14,7 @@ The other parts come from KiCad's libraries (kicad/README.md lists which).
 Rerunning this overwrites the library, so make changes here, not in KiCad's
 symbol editor.  The pinouts are from CHIPS.md, EXPANSION.md and IO.md.
 
-Date: 2026-10-22
+Date: 2026-10-23
 """
 
 import os
@@ -139,7 +139,7 @@ def usb_c_power():
     return symbol("USB_C_Power", [([], right)], "USB4125-GF-A",
                   "USB-C receptacle, power only (6P): VBUS, CC1, CC2, GND, shield; 5.1k from CC1 and CC2 to GND for 5 V",
                   "USB C type-C power receptacle Placard",
-                  footprint="Connector_USB:USB_C_Receptacle_GCT_USB4125-xx-x_6P_TopMnt_Horizontal",
+                  footprint="placard:USB_C_Receptacle_GCT_USB4125_6P_HandSolder",
                   datasheet="~", vcc=None, gnd=None, ref="J", min_w=4 * 2.54, pin_len=2 * 2.54)
 
 
