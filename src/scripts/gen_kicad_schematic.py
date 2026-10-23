@@ -762,7 +762,7 @@ def sheet_video_timing(b):
     s.part("placard:ATF22V10C_SYNC", "U15", 233.68, 99.06, pld({
         1: "CLK", 2: "V9", 3: "V5", 4: "V4", 5: "V3", 6: "V2", 7: "V1", 8: "H_VIDEO_ACTIVE",
         9: "PC_ENABLE", 10: "Y_ENABLE", 11: "X_ENABLE", 13: "BLANK_RD", 14: "H0", 15: "H1", 16: "H2",
-        17: "VIDEN", 18: "VSYNC", 19: "PIXEL_ENABLE", 20: "ADDR_SEL", 21: "ADDR_SEL_HI", 22: "ADDR_SEL_LO",
+        17: "VIDEN", 18: "~{VSYNC}", 19: "PIXEL_ENABLE", 20: "ADDR_SEL", 21: "ADDR_SEL_HI", 22: "ADDR_SEL_LO",
         23: None}))
     decap(s, 15, 254.0, 60.96, lift=0)
     s.part("placard:ATF22V10C_AUDIO", "U35", 233.68, 205.74, pld({
@@ -852,7 +852,7 @@ def sheet_video_out(b):
     fan(s, links, 215.9)
     j7 = s.part("placard_std:DE15_Receptacle_HighDensity_MountingHoles", "J7", 316.23, 101.6, {
         "1": "VGA_R", "2": "VGA_G", "3": "VGA_B", "4": None, "5": "GND", "6": "GND", "7": "GND", "8": "GND",
-        "9": None, "10": "GND", "11": None, "12": None, "13": "~{HSYNC}", "14": "VSYNC", "15": None, "0": "GND"},
+        "9": None, "10": "GND", "11": None, "12": None, "13": "~{HSYNC}", "14": "~{VSYNC}", "15": None, "0": "GND"},
         value="VGA", footprint="Connector_Dsub:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm",
         ref_at=(311, 84), value_at=(311, 126), bare=("1", "2", "3"))
     xc = 264.16
@@ -903,7 +903,7 @@ def sheet_video_out(b):
     note(s, 226.06, 210.82, ["Row tint: mode byte bits 6:4 lift R, G, B by about 0.2 V",
                              "for the whole row.  Off in blanking (BAT85 to VIDEN)."], size=2.2)
     # ESD: a BAT85 pair on each sync line at J7 (RGB already sits behind the DAC resistors)
-    for k, net in enumerate(("~{HSYNC}", "VSYNC")):
+    for k, net in enumerate(("~{HSYNC}", "~{VSYNC}")):
         clamp(s, f"D{22 + 2 * k}", f"D{23 + 2 * k}", net, 312.42 + k * 30.48, 167.64, glob=True)
     note(s, 297.18, 185.42, ["ESD clamps D22-D25 (BAT85): the syncs at J7 go to +5V", "and GND through a Schottky."],
          size=2.2)

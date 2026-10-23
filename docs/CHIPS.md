@@ -26,7 +26,7 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 12 | ATF22V10C-7PX | PLD (22V10, 24-pin) | I/O decode: upper 32K /CE_HI and the x5000-x53FF strobes (`ATF22V10_IO_DECODE.pld`) |
 | 13 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video H counter: H9:H3, HSYNC, horizontal active, blank line from mode byte bit 7 (`ATF22V10_HCOUNT.pld`) |
 | 14 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video V counter: V9:V0 (`ATF22V10_VCOUNT.pld`) |
-| 15 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video sync: H2:H0 (also the color decoder's pixel select), VSYNC, VIDEN, PIXEL_ENABLE and address-mux selects (`ATF22V10_SYNC.pld`) |
+| 15 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video sync: H2:H0 (also the color decoder's pixel select), /VSYNC, VIDEN, PIXEL_ENABLE and address-mux selects (`ATF22V10_SYNC.pld`) |
 | 16 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Color decoder: pixel byte and line code to VGA RGB (`ATF22V10_COLORDECODER.pld`) |
 | 17 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Instruction register: loads the opcode on /LOAD_INSTR, holds 02h (`ld ac, ac`) while RUN is low so the CPU only walks the image while the cartridge loads (`ATF22V10_IR.pld`; was an SN74F377AN until 2026-10-21) |
 | 18 | SN74F377AN | Octal D flip-flop with enable | D register (immediate / memory operand) |
