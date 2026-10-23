@@ -100,6 +100,9 @@ about 40 chips plus passives, more if they also source the parts.
 - **Tindie** is a marketplace only (5% fee).  The seller ships every
   order, either personally or through a fulfillment house.
 
+Per-kit cost, margin, platform fees and a suggested price are in
+[KIT_PRICING.md](KIT_PRICING.md).
+
 ## Options
 
 | Plan | Who programs | Who bags | Who ships | Up-front cost | Your time per kit |
