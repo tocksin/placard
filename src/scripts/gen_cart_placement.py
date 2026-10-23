@@ -11,7 +11,9 @@ Draws docs/cart_placement_5chip.png and docs/cart_placement_3chip.png from
 the real footprints in kicad/lib/placard.pretty (socket outline, courtyard,
 chip-puller boxes, pads) and KiCad's disc capacitor.  No board file is
 written: this only fixes the card outline that the shell keepout on J8
-(gen_kicad_connectors.py CART_W) is sized from.
+(gen_kicad_connectors.py CART_W) is sized from.  An M3 hole (H1) in the
+row gap under the lower ROM, on the card's centre line, screws the card
+to its shell.
 
 Card coordinates: x along the edge fingers (x = 0 at the card's left edge),
 y up from the bottom of the finger tab.  The card is centred on the middle
@@ -44,6 +46,9 @@ TAB_H = 8.0                  # finger tab below the card's shoulder (inside the 
 PART_Y0 = TAB_H + 2.0        # lowest part edge: 2 mm above the shoulder, clear of the slot top
 ROW_GAP = 3.5                # courtyard to courtyard between rows: room for the row's 100n disc
 TOP_MARGIN = 1.0             # top courtyard to the card's top edge
+HOLE_D = 3.2                 # case mounting hole H1 (KiCad MountingHole_3.2mm_M3): screw through the card into the shell
+HOLE_CRTYD = 3.45            # its courtyard radius: room for the screw head / shell boss
+HOLE_GAP = 2 * HOLE_CRTYD + 1.0   # row gap that holds the hole (0.5 mm to each row's courtyard)
 
 # middle of J8's contacts in card x: the card is centred on it
 MID = CARD_W / 2
@@ -130,24 +135,32 @@ def sockets(build):
 def layout(build):
     cap = os.path.join(STOCK, "Capacitor_THT.pretty", "C_Disc_D5.0mm_W2.5mm_P5.00mm.kicad_mod")
     parts = []
+    hole = None
+    rows = sockets(build)
     y = PART_Y0
-    for ref, value, path, cref in sockets(build):
+    for i, (ref, value, path, cref) in enumerate(rows):
         # pin 1 at the bottom left: footprint +y (down the pin row) turned to card +x
         p = Part(ref, value, path, 90)
         p.place(MID, y)
         parts.append(p)
-        y = p.box("F.CrtYd")[3] + ROW_GAP
+        y0 = p.box("F.CrtYd")[3]
+        # the case mounting hole goes in the gap under the lower ROM, near the card's middle
+        if i + 1 < len(rows) and rows[i + 1][1] == "AT28C256" and hole is None:
+            hole = (MID, y0 + HOLE_GAP / 2)
+            y = y0 + HOLE_GAP
+        else:
+            y = y0 + ROW_GAP
         c = Part(cref, "100n", cap, 0)
-        c.place(CARD_W - 6.0, y - ROW_GAP / 2 - 1.5)
+        c.place(CARD_W - 6.0, y0 + 0.25)
         parts.append(c)
     top = y - ROW_GAP + TOP_MARGIN
     # the last decap sits above the top row: the card ends above it
     top = max(top, parts[-1].box("F.CrtYd")[3] + TOP_MARGIN)
-    return parts, top
+    return parts, top, hole
 
 
 def draw(build, out):
-    parts, top = layout(build)
+    parts, top, hole = layout(build)
     fig, ax = plt.subplots(figsize=(5.0, 1.5 + top / 11.0), dpi=150)
     # card: body plus the finger tab
     tab0, tab1 = FINGER_X0 - 1.25, FINGER_X0 + 33 + 1.25
@@ -161,6 +174,11 @@ def draw(build, out):
     ax.text(kx, 4.6, "key", ha="center", fontsize=6)
     for p in parts:
         p.draw(ax)
+    hx, hy = hole
+    ax.add_patch(Circle((hx, hy), HOLE_D / 2, fc="white", ec="black", lw=0.8))
+    ax.add_patch(Circle((hx, hy), HOLE_CRTYD, fc="none", ec="#d62728", lw=0.5, ls=(0, (2, 2))))
+    ax.text(hx - HOLE_CRTYD - 0.5, hy, "H1 M3\n(case)", ha="right", va="center", fontsize=6, weight="bold",
+            color="#1f3b73")
     # dimensions
     ax.annotate("", (0, top + 3), (CARD_W, top + 3), arrowprops=dict(arrowstyle="<->", lw=0.8))
     ax.text(CARD_W / 2, top + 3.6, "card %.1f mm wide (= J8 body length)" % CARD_W, ha="center", fontsize=8)
@@ -180,7 +198,8 @@ def draw(build, out):
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
     widest = max(p.box("F.CrtYd")[2] - p.box("F.CrtYd")[0] for p in parts)
-    print("wrote %s: card %.1f x %.1f mm, widest courtyard %.2f mm" % (out, CARD_W, top, widest))
+    print("wrote %s: card %.1f x %.1f mm, widest courtyard %.2f mm, hole at (%.1f, %.1f)"
+          % (out, CARD_W, top, widest, hx, hy))
 
 
 def main():
