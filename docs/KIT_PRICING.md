@@ -23,6 +23,10 @@ Cherry MX keyboard, which is the most expensive board:
 | **Complete kit** | Core kit + keyboard kit + case (laser-cut acrylic sandwich with switch plate) |
 | **Programmer** (option) | XGecu T48 for builders without one; programs the ATF22V10C and AT28C256 |
 | **Budget programmer** (option) | XGecu TL866II Plus, the older and cheaper model; same chips, same software |
+| **SNES controllers** (option) | Wired SNES-style pads (third-party reproductions) for J2 and J3, sold singly or as a pair |
+| **PS/2 keyboard** (option) | Native PS/2 compact keyboard (Perixx PERIBOARD-409P class) for buyers of the core kit without the Cherry MX keyboard |
+| **PS/2 mouse** (option) | Native PS/2 optical mouse (Perixx PERIMICE-209P class) for J5's top socket |
+| **Starter pack** (option) | PS/2 keyboard + PS/2 mouse + two SNES controllers |
 | **SD card** (option) | Full-size 8-16 GB SDHC card for J4, formatted FAT32 and preloaded with the programs, demos and games; the same image is a free download for builders using their own card |
 
 No kit ships programmed chips (Justin, 2026-10-23): the builder programs
@@ -148,6 +152,10 @@ Margin = price - Crowd Supply fees - cost per kit, before the one-off costs.
 | Complete kit, $649 | $129 (20 %) | $174 (27 %) | $213 (33 %) | $242 (37 %) |
 | Programmer (T48), $109 | $20-25 a unit at any quantity | | | |
 | Budget programmer (TL866II Plus), $79 | about $15 a unit at any quantity | | | |
+| SNES controller, $15 (pair $25) | about $4.50 ($8 a pair) | | | |
+| PS/2 keyboard, $45 | about $5 | | | |
+| PS/2 mouse, $19 | about $3 | | | |
+| Starter pack, $79 | about $11 | | | |
 
 Complete kit at other prices:
 
@@ -178,6 +186,10 @@ Core kit at other prices:
 | SD card (option) | $15 | An 8-16 GB SDHC card bought in bulk is $3-5; with about $1 for preloading (a duplicator or the kitter), a label and case, and 35 % tariff it costs about $7 landed, leaving about $5-6 after fees if it ships in the kit's box (no extra fulfilment item) |
 | Programmer (option) | $109 | XGecu T48 retails at $60-90; at about $62 bought in bulk plus 35 % tariff it costs about $84 landed, leaving $20-25 after fees |
 | Budget programmer (option) | $79 | XGecu TL866II Plus retails at $35-50; at about $38 in bulk plus tariff it costs about $51 landed, leaving about $15 after fees.  Older and slower than the T48 and it covers fewer chips, but it programs the ATF22V10C and AT28C256 with the same Xgpro software (or open-source `minipro` on Linux and Mac) |
+| SNES controllers (option) | $15 each, $25 a pair | Retail $11 each for wired reproductions (FC Twin, Mars Devices); about $4-5 each bought by the hundred from the factory, about $6 landed with tariff |
+| PS/2 keyboard (option) | $45 | Perixx PERIBOARD-409P retails at $35-50 (Commander X16 sells it at $35); about $22 wholesale, $30 landed |
+| PS/2 mouse (option) | $19 | Perixx optical PS/2 mouse retails at $15 (TexElec); about $8 wholesale, $11 landed |
+| Starter pack (option) | $79 | Keyboard, mouse and two pads ($104 bought separately); about $53 landed |
 
 Why these numbers:
 
@@ -199,6 +211,25 @@ Why these numbers:
 - **Selling through Mouser after the campaign** (Crowd Supply's
   wholesale arrangement is negotiated) does not fit these margins.  Keep
   later sales on Crowd Supply pre-orders (10 % fee) or Tindie.
+
+### Controller, keyboard and mouse notes
+
+These are conveniences for buyers, not profit lines: each makes $3-11 after
+fees, and Crowd Supply's fulfilment fee is per item, so selling them in the
+same order as a kit keeps that fee small.  Two things to check before
+buying stock:
+
+- **Native PS/2 only.**  The keyboard and mouse must speak PS/2 themselves.
+  Most USB mice and keyboards do not work through a passive USB-to-PS/2
+  adapter, so a cheap USB mouse with an adapter is not a substitute.
+- **Test the chosen models** with the PLACARD keyboard and mouse drivers
+  (scan code set 2 keyboard, standard 3-byte mouse packets) and with the
+  SNES pad driver.  Reproduction SNES pads vary; buy samples from two
+  suppliers first.
+
+Because these parts are made in China, the 35 % tariff is already in the
+landed costs above.  If Crowd Supply allows it, the starter pack is the
+simplest way to offer all three.
 
 ### SD card notes
 
