@@ -35,4 +35,9 @@
   (pad "R1" thru_hole oval (at -2.85 11.5) (size 1.4 2.1) (drill oval 0.8 1.5) (layers "*.Cu" "*.Mask"))
   (pad "R2" thru_hole oval (at 2.85 11.5) (size 1.4 2.1) (drill oval 0.8 1.5) (layers "*.Cu" "*.Mask"))
   (pad "S" thru_hole oval (at 0 12.3) (size 2.1 1.4) (drill oval 1.5 0.8) (layers "*.Cu" "*.Mask"))
+  (model "${KIPRJMOD}/lib/placard.3dshapes/Jack_3.5mm_Tensility_54-00174_Horizontal.step"
+    (offset (xyz 0 0 0))
+    (scale (xyz 1 1 1))
+    (rotate (xyz 0 0 0))
+  )
 )

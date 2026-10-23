@@ -45,4 +45,9 @@
   (pad "SH" thru_hole circle (at -6.75 10) (size 2.8 2.8) (drill 2) (layers "*.Cu" "*.Mask"))
   (pad "SH" thru_hole circle (at 6.75 3) (size 2.8 2.8) (drill 2) (layers "*.Cu" "*.Mask"))
   (pad "SH" thru_hole circle (at 6.75 10) (size 2.8 2.8) (drill 2) (layers "*.Cu" "*.Mask"))
+  (model "${KIPRJMOD}/lib/placard.3dshapes/PS2_Kycon_KMDGX-6S-6S-S4N.step"
+    (offset (xyz 0 0 0))
+    (scale (xyz 1 1 1))
+    (rotate (xyz 0 0 0))
+  )
 )
