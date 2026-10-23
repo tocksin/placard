@@ -29,7 +29,7 @@ part of the case top:
 
 Since 2026-10-22 it also places every other part on the schematic as a fit
 test (no routing): chips in rows grouped by schematic sheet, each socketed
-(KiCad's "_Socket" DIP footprints) with PULL mm of chip-puller room kept
+(placard:DIP-nn_..._Socket_Puller footprints) with PULL mm of chip-puller room kept
 clear past both socket ends, decoupling capacitor Cn beside Un, passives in
 blocks near what they serve.  It then checks courtyard overlaps (its own
 check and KiCad's DRC), puller room and parts off the board, prints the
@@ -136,7 +136,7 @@ HOLES = [(5.0, 5.0), (W - 5.0, 5.0), (5.0, D - 5.0), (W - 5.0, D - 5.0), (145.0,
 # Every other part on the schematic is placed by the tables below, grouped
 # by schematic sheet.  The chips sit in rows across the board with pin 1 at
 # the lower left (toward the front); every chip is socketed, so it uses
-# KiCad's "_Socket" DIP footprint (socket body outline and courtyard) and
+# kit socket footprint (KiCad's "_Socket" one plus puller room and part number) and
 # keeps PULL mm clear past both ends of the socket body for a chip puller.
 # Each chip's decoupling capacitor Cn sits along the long side of Un, in the
 # channel between rows.  Passives are packed in blocks near what they serve.
@@ -298,9 +298,11 @@ def sch_footprints():
 
 
 def socketed(fpid):
-    """Every DIP chip is socketed: use the socket footprint (socket body outline and courtyard)."""
-    if fpid.startswith("Package_DIP:DIP-") and not fpid.endswith("_Socket"):
-        return fpid + "_Socket"
+    """Every DIP chip is socketed.  Since 2026-10-23 the schematic names the kit socket
+    footprints (placard:DIP-nn_..._Socket_Puller, puller room on User.Eco1); a plain
+    stock DIP is mapped to one."""
+    if fpid.startswith("Package_DIP:DIP-"):
+        return "placard:" + fpid.split(":")[1].replace("_Socket", "") + "_Socket_Puller"
     return fpid
 
 
@@ -427,7 +429,7 @@ def place_parts(board, syms):
             fp = put(board, syms, it, 0 if it == "X1" else 90, y, left=x)
             c = crt(fp)
             x = c[2] + gap
-            if FPID[it].endswith("_Socket"):
+            if FPID[it].endswith("_Socket_Puller"):
                 SOCKETS.append(it)
                 f = box(fp, pcbnew.F_Fab)
                 PULL_ZONES.append((it, f[0] - PULL, f[1], f[0], f[3]))
@@ -444,12 +446,7 @@ def place_parts(board, syms):
         block(board, syms, x0, y0, x1, y1, angle, refs)
     for ref, x, y, angle in FIXED:
         put(board, syms, ref, angle, y, cx=x)
-    for ref, x0, y0, x1, y1 in PULL_ZONES:
-        for a, b, c, d in [(x0, y0, x1, y0), (x1, y0, x1, y1), (x1, y1, x0, y1), (x0, y1, x0, y0)]:
-            seg(board, PULL_LAYER, a, b, c, d, 0.1)
-        for k in range(1, 4):           # hatch
-            yy = y0 + (y1 - y0) * k / 4
-            seg(board, PULL_LAYER, x0, yy, x1, yy, 0.1)
+    # (the puller room is drawn on User.Eco1 by the socket footprints themselves)
 
 
 def check(board):
@@ -639,7 +636,7 @@ def build():
         "Dashed line: keyboard's back edge; the keyboard lies over the front %g mm (low parts only); the back %g mm is "
         "under the flat case top (user connectors, cartridge, cards)" % (D - KB_LINE, KB_LINE),
         "Dashed boxes: expansion bay (cards stand up through the case top) and the cartridge shell around J8",
-        "Placement test (no routing): every chip socketed (KiCad _Socket footprints); hatched boxes at the socket ends "
+        "Placement test (no routing): every chip socketed (kit socket footprints); hatched boxes at the socket ends "
         "= %g mm chip-puller room, kept clear" % PULL,
         "Chip rows, back to front: video | audio slot, oscillator, memory | I/O decode, control, data bus | ALU, data bus | "
         "PC + address mux | shared port + keyboard header J1",

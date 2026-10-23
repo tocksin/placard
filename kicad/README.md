@@ -15,7 +15,7 @@ when it saves them).
 | `lib/placard.kicad_sym` | PLD symbols: `ATF22V10C` (generic) and one `ATF22V10C_<name>` per `.pld` file, with its pin names |
 | `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `Keyboard_Header`, `PS2_Dual_Stacked`, `USB_C_Power` |
 | `lib/placard_std.kicad_sym` | copies of the stock KiCad symbols the sheets use (74xx, R, C, D, connectors, regulator) with larger pin text, written by `src/scripts/gen_kicad_std.py` |
-| `lib/placard.pretty/` | project footprints: `SW_Cherry_MX_LED_<size>u_PCB` key switches with LED pads and stabilizer holes (written by `src/scripts/gen_kicad_keyswitch.py`), and the main board's connectors and switches (preliminary, written by `src/scripts/gen_kicad_connectors.py`) |
+| `lib/placard.pretty/` | project footprints: `SW_Cherry_MX_LED_<size>u_PCB` key switches with LED pads and stabilizer holes (written by `src/scripts/gen_kicad_keyswitch.py`), the main board's connectors and switches (preliminary, written by `src/scripts/gen_kicad_connectors.py`), and kit versions of KiCad's DIP socket footprints (`DIP-nn_..._Socket_Puller`: chip-puller room on User.Eco1, part number in silkscreen) and of the axial resistor (`..._Value`: value in silkscreen), written by `src/scripts/gen_kicad_kit_footprints.py` |
 | `sym-lib-table`, `fp-lib-table` | point KiCad at the project libraries |
 | `fab/` | Gerbers, drill files, BOM and placement files for a board order |
 
