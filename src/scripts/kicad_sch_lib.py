@@ -47,6 +47,29 @@ def det_uuid(*parts):
     return str(uuidlib.uuid5(_uuid_ns, "/".join(str(p) for p in parts)))
 
 
+# Symbol uuids already in the files, kept when a sheet is regenerated: KiCad's Update PCB from
+# Schematic links footprints to symbols by uuid, so a part keeps its footprint (and its place on the
+# hand-edited board) when parts before it on the sheet are added or removed.
+# (filename, ref, unit) -> uuid; filled by keep_uuids().
+KEPT_UUIDS = {}
+# project -> {new ref: old ref} for parts being renumbered: each keeps the old part's uuid, so the board renames
+# its footprint instead of deleting it.  Set for one run, then emptied once the renumbered files are written
+# (ESD removal 2026-10-23 used {"placard": {"D8": "D26", ... "D17": "D35"}}).
+RENUMBERED = {}
+
+
+def keep_uuids(path):
+    """Remember the symbol uuids in an existing .kicad_sch file."""
+    if not os.path.exists(path):
+        return
+    fname = os.path.basename(path)
+    for m in re.finditer(r'^  \(symbol \(lib_id "[^"]*"\) \(at [^)]*\) \(unit (\d+)\).*?\(uuid ([0-9a-f-]+)\) '
+                         r'\(property "Reference" "([^"]+)"', open(path).read(), re.M):
+        unit, uid, ref = m.groups()
+        if not ref.startswith("#"):
+            KEPT_UUIDS[(fname, ref, int(unit))] = uid
+
+
 # ---------------------------------------------------------------- s-expr
 _tok = re.compile(r'\s*(\(|\)|"(?:[^"\\]|\\.)*"|[^\s()"]+)')
 
@@ -446,6 +469,13 @@ class Sheet:
             f"(pin \"1\" (uuid {self.u()})) "
             f"(instances (project {q(self.project)} (path {q(self.path)} (reference {q(ref)}) (unit 1)))))")
 
+    def _sym_uuid(self, ref, unit):
+        new = self.u(ref)
+        for r in (RENUMBERED.get(self.project, {}).get(ref), ref):
+            if r and (self.filename, r, unit) in KEPT_UUIDS:
+                return KEPT_UUIDS[(self.filename, r, unit)]
+        return new
+
     # ------------------------------------------------------------ parts
     def part(self, lib_id, ref, x, y, nets, value=None, footprint=None, unit=1, angle=0,
              ref_at=None, value_at=None, extra_props=None, stub=None, hide_value=False, dnp=False, bare=(),
@@ -590,7 +620,7 @@ class Sheet:
         pin_uuids = " ".join(f"(pin {q(num)} (uuid {self.u()}))" for num in placed)
         self.items.append(
             f"(symbol (lib_id {q(lib_id)}) (at {R(x)} {R(y)} {angle}) (unit {unit}) (in_bom {'yes' if in_bom else 'no'}) (on_board yes) "
-            f"(dnp {'yes' if dnp else 'no'}) (uuid {self.u(ref)}) " + " ".join(plist_out) + " " + pin_uuids +
+            f"(dnp {'yes' if dnp else 'no'}) (uuid {self._sym_uuid(ref, unit)}) " + " ".join(plist_out) + " " + pin_uuids +
             f" (instances (project {q(self.project)} (path {q(self.path)} (reference {q(ref)}) (unit {unit})))))")
         return {num: (pl[0][0], pl[0][1]) for num, pl in placed.items()}
 
