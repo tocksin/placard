@@ -165,13 +165,57 @@ size on a PC, so the FAT never has to grow it).
 - Z80 instead of 8080 (most later CP/M software) costs more decode work
   and about 20-30 % more time per instruction.
 
-### Possible later: a 6502 machine (Apple 1 style)
+## Which computers it could emulate
 
-The same approach for a 6502: about 35-45 native instructions per 6502
-instruction gives roughly a 0.5 MHz 6502.  An Apple 1 (40 × 24 terminal,
-keyboard, 8-32 KB RAM) is the simplest target that runs real software
-(Woz Monitor, Integer BASIC; check the licence of any ROM image).  Lower
-priority than CP/M, which has more useful software.
+The rule of thumb from the estimates above: an emulated 6502 runs like a
+**0.5-0.6 MHz 6502** and an emulated Z80 or 8080 like a **1-1.3 MHz Z80**,
+before any time spent on the emulated machine's video and sound.  So a
+1 MHz 6502 machine runs at about half speed, less when its screen or sound
+chip needs much work.  Machines whose screen is plain text, or that spend
+most of their time waiting for the keyboard, feel much better than that
+number.  Machines with clever video chips (most consoles) do not work.
+
+| Machine | CPU | Screen | Estimated speed | Verdict |
+|---|---|---|---|---|
+| CHIP-8, SUPER-CHIP | virtual machine | 64 × 32, 128 × 64 mono | full speed, about 5 % of the CPU | **Yes** (program 6) |
+| Apple 1, KIM-1, Ben Eater-style 6502 | 6502, 1 MHz | 40 × 24 text terminal or LEDs | CPU about 55 %, but they wait on the terminal, so they feel full speed | **Yes**, small and easy; a good first 6502 core |
+| CP/M (8080) | 8080, 2 MHz | 80 × 24 terminal | about 50-65 % | **Yes** (program 7) |
+| ZX81 | Z80, 3.25 MHz | 32 × 24 characters, mono | close to a real one in SLOW mode, which spends about three quarters of its time drawing the screen | **Probably yes**; simple screen, 1-16 KB RAM, 8 KB ROM |
+| TRS-80 Model I | Z80, 1.77 MHz | 64 × 16 text, block graphics | about 60 % | **Decent**; text screen, 4-16 KB RAM |
+| VIC-20 | 6502, 1.02 MHz | 22 × 23 characters (176 × 184), 16 colours | about 40-55 % | **Possible, at about half speed**; see below |
+| Apple II | 6502, 1 MHz | 40 × 24 text, lo-res, 280 × 192 hi-res with artifact colour | about 50 %, hi-res games slower | Text and BASIC yes, hi-res games poor |
+| ZX Spectrum | Z80, 3.5 MHz | 256 × 192 with colour per 8 × 8 cell | about 30 % | No |
+| Commodore 64, NES, Atari 2600, Game Boy | 6502 or similar with a sprite/video chip | | 15-40 % | No |
+
+**VIC-20 in more detail.**  It is one of the better fits among real home
+computers, because it is small and its screen is made of characters:
+
+- *Memory:* 5 KB of RAM and 20 KB of ROM (BASIC 8 KB, KERNAL 8 KB,
+  character set 4 KB).  It fits: ROM images in the 20 KB of freed video
+  pages (or in the cartridge ROM on a 64 KB cart), emulator code in RAM
+  x0100-x3FFF, the VIC's RAM in x4000-x4CFF.  A 3-8 KB memory expansion
+  also fits; a 24 KB one does not.
+- *CPU:* the 6502 core at about half the speed of the real 1.02 MHz one.
+- *Screen:* 506 character cells.  Redrawing a cell costs about 100 native
+  instructions, so the emulator keeps track of which cells and character
+  shapes changed and redraws only those.  BASIC and slow games look fine;
+  games that scroll the whole screen or rewrite many character shapes
+  every frame slow down further.
+- *Colour:* the hard part.  The VIC-20 gives each cell its own colour, but
+  the Placard's rows that are wide enough are 1 bpp (640 across, so the
+  VIC's 176 pixels can be shown three times wider, one colour per row with
+  the row tint) or 2 bpp (320 across, a fixed 4-colour palette).  The
+  16-colour rows are only 160 across, 16 pixels short.  Expect a
+  compromise: monochrome with tinted rows, or 16 colours with the picture
+  squeezed to 160 across.
+- *Sound:* 3 square-wave voices and noise, mixed into the audio buffer one
+  sample a line, about 15,000-25,000 clocks a frame.
+- *ROMs:* the Commodore ROMs are still copyrighted; the user would supply
+  their own images on the SD card.
+
+So a VIC-20 emulator could run BASIC and simple games at about half speed
+with simplified colour.  The Apple 1 / KIM-1 machine is the better first
+6502 target: same CPU core, far less work, and it feels full speed.
 
 ## Atari 2600: not feasible at full speed
 
@@ -223,7 +267,8 @@ Realistic instead:
 5. BASIC.
 6. CHIP-8 / SUPER-CHIP.
 7. CP/M (8080).
-8. Later: a 6502 machine, native games or a fantasy console engine.
+8. Later: a 6502 core with an Apple 1 or KIM-1 around it, then maybe a
+   ZX81, TRS-80 or VIC-20; native games or a fantasy console engine.
 
 Each program gets a Python model and a `placard_sim.py` test like the
 library and the demos, and the ROM layout in ROM.md is updated when the
