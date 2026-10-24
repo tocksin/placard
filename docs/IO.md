@@ -444,6 +444,7 @@ after `mouse_poll` returns 1.
   routines (a device would start sending with nobody listening).
 - Only one PS/2 clock free at a time (they share DATA).
 - Scan the keyboard once per frame, not faster (bounces).
+- Poll once per frame if the program keeps time from the line read.
 - Mask D5:D0 when reading the pads at an odd address.
 
 ## Zero page
