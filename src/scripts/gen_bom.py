@@ -23,7 +23,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-10-23"
+DATE = "2026-10-24"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 
@@ -66,6 +66,7 @@ DESC_LIB = {
     "Switch:SW_Push_LED": "Key switch, Cherry MX style, PCB mount (5 pin)",
     "placard_std:D_Schottky": "Schottky diode, DO-35",
     "placard_std:D": "Small-signal diode, DO-35",
+    "placard_std:LED": "Power LED, 3 mm, green diffused, through hole (on +5V after K1)",
     "placard_std:R_Network08_US": "Resistor network, 8 bussed, SIP-9",
 }
 # values that name the part, not a value worth its own column
@@ -75,6 +76,7 @@ NO_VALUE = {"Switch:SW_Push_LED", "placard_parts:Expansion_Slot", "placard_parts
 NOTES = {
     "MF-RG300": "Part number from the footprint (Fuse_Bourns_MF-RG300)",
     "BAT85": "Any BAT85 (Vishay, Nexperia, onsemi)",
+    "LTL-4231N": "D18 with R59 (1k, about 3 mA); any 3 mm LED fits, pick the color",
     "1N4148": "Any 1N4148 (Vishay, onsemi, Diodes Inc.)",
     "Expansion slot": "Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer "
                       "runs with none.  Sullins EBC20DCAN not stock-checked (EXPANSION.md)",
@@ -110,6 +112,7 @@ PRICES = {
     "ANT11TFHQE": (4.50, "est.", "Digi-Key; Mouser has no stock"),
     "G5LE-1 DC5": (1.80, "est.", "Omron G5LE-1 DC5"),
     "PTS645VL58-2 LFS": (0.25, "est.", "C&K PTS645VL58-2 LFS"),
+    "LTL-4231N": (0.20, "est.", "Lite-On LTL-4231N"),
     "SA5.0A": (0.40, "est.", "Littelfuse SA5.0A, 500 W TVS, DO-15 axial"),
     "BAT85": None,                                  # by quantity, below
     "1N4148": None,                                 # by quantity, below
