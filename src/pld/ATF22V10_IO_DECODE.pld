@@ -1,6 +1,6 @@
 Name     IO_DECODE;
 PartNo   00;
-Date     10/19/2026;
+Date     10/24/2026;
 Revision 04;
 Designer ;
 Company  ;
@@ -32,7 +32,7 @@ Device   g22v10;
               1        1          PC         PC15
 
    2. The I/O strobes for 5000h - 53FFh, one 256-byte page per
-      device, as in docs/FEATURE_PLAN.md:
+      device, as in docs/TIMING_FIXES.md:
 
           page  address      strobe(s)
            0    5000h-50FFh  /MAP_WR (ROM/RAM map register), /LINE_RD

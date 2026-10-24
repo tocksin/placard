@@ -1,6 +1,6 @@
 # I/O: keyboard, SNES pads, SD card, PS/2 keyboard and mouse
 
-Date: 2026-10-23
+Date: 2026-10-24
 
 The keyboard, both SNES pads, the SD card, a PS/2 mouse and a PS/2
 keyboard (for buyers who use their own instead of the Cherry MX board) share one port
@@ -444,6 +444,7 @@ after `mouse_poll` returns 1.
   routines (a device would start sending with nobody listening).
 - Only one PS/2 clock free at a time (they share DATA).
 - Scan the keyboard once per frame, not faster (bounces).
+- Poll once per frame if the program keeps time from the line read.
 - Mask D5:D0 when reading the pads at an odd address.
 
 ## Zero page
