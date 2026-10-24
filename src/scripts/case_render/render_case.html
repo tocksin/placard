@@ -1,0 +1,122 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:#fff;overflow:hidden}</style>
+<script type="importmap">{"imports":{"three":"./web/node_modules/three/build/three.module.js","three/addons/":"./web/node_modules/three/examples/jsm/"}}</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import {STLLoader} from 'three/addons/loaders/STLLoader.js';
+import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
+
+const q = new URLSearchParams(location.search);
+const V = JSON.parse(q.get('v'));
+const Wd = V.w || 1600, Ht = V.h || 1000;
+const renderer = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
+renderer.setSize(Wd, Ht); renderer.setPixelRatio(1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = false;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(V.bg || 0xf4f5f7);
+const pm = new THREE.PMREMGenerator(renderer);
+scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.add(new THREE.HemisphereLight(0xffffff, 0x888888, 0.6));
+const dl = new THREE.DirectionalLight(0xffffff, 1.6); dl.position.set(-200, -300, 500); scene.add(dl);
+const dl2 = new THREE.DirectionalLight(0xffffff, 1.0); dl2.position.set(300, -600, 200); scene.add(dl2);
+
+const B = await (await fetch('mesh/board.json')).json();
+const loader = new STLLoader();
+const root = new THREE.Group(); scene.add(root);
+
+const alu = new THREE.MeshStandardMaterial({color: V.alu || 0xc3c7cd, metalness: 0.55, roughness: 0.5});
+const acr = new THREE.MeshPhysicalMaterial({color: 0xe8f4ff, metalness: 0, roughness: 0.05, transparent: true,
+  opacity: 0.16, depthWrite: false, side: THREE.DoubleSide});
+const acrCap = acr.clone(); acrCap.opacity = 0.22;
+const edgeMat = new THREE.LineBasicMaterial({color: 0x7fb4d8, transparent: true, opacity: 0.9});
+const plateMat = new THREE.MeshStandardMaterial({color: V.alu || 0xc3c7cd, metalness: 0.5, roughness: 0.5});
+function mat(c, m = 0.1, r = 0.6) { return new THREE.MeshStandardMaterial({color: c, metalness: m, roughness: r}); }
+
+const aluEdge = new THREE.LineBasicMaterial({color: 0x4a4f56, transparent: true, opacity: 0.55});
+async function stl(name, material, dz = 0, edges = false) {
+  const g = await new Promise((res, rej) => loader.load('mesh/' + name + '.stl', res, undefined, rej));
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, material); m.position.z = dz;
+  const grp = new THREE.Group(); grp.add(m);
+  if (edges) { const e = new THREE.LineSegments(new THREE.EdgesGeometry(g, 25), edges === 'alu' ? aluEdge : edgeMat); e.position.z = dz; grp.add(e); }
+  root.add(grp); return grp;
+}
+function box(x0, y0, z0, x1, y1, z1, material, dz = 0, edges = false) {
+  const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
+  const m = new THREE.Mesh(g, material);
+  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2 + dz);
+  root.add(m);
+  if (edges) { const e = new THREE.LineSegments(new THREE.EdgesGeometry(g), edgeMat); e.position.copy(m.position); root.add(e); }
+  return m;
+}
+const E = V.explode || {};
+const ez = k => E[k] || 0;
+
+// ---- board
+const OFF = B.OFF, ZT = B.Z_TOP, T = B.T;
+if (!V.hide?.includes('board')) {
+  const dzb = ez('board');
+  box(OFF, OFF, -1.6, OFF + 290, OFF + 290, 0, mat(0x1d5e3a, 0.1, 0.55), dzb);
+  const colors = {J7: 0x9aa0a6, J13: 0xb0b4b8, J6: 0x222222, J5: 0x5a5f66, J8: 0x1a1a1a, J9: 0x222222, J10: 0x222222,
+    J11: 0x222222, J12: 0x222222, SW1: 0x8a8f96, SW2: 0x333333, J4: 0xa8acb0, J2: 0x3a3a3a, J3: 0x3a3a3a, F1: 0xd9b23a};
+  for (const [ref, p] of Object.entries(B.parts)) {
+    if (colors[ref] !== undefined) { await stl('model_' + ref, mat(colors[ref], ref === 'J7' || ref === 'J13' || ref === 'J4' || ref === 'SW1' ? 0.8 : 0.1, 0.5), dzb); continue; }
+    if (!p.crt) continue;
+    const [x0, y0, x1, y1] = p.crt; const pad = 0.6;
+    if (/^U\d/.test(ref)) {
+      box(x0 + 2.4, y0 + 1.2, 0, x1 - 2.4, y1 - 1.2, 3.5, mat(0x2b2b2b, 0.1, 0.7), dzb);
+      box(x0 + 3.0, y0 + 2.6, 3.5, x1 - 3.0, y1 - 2.6, 8.3, mat(0x141414, 0.05, 0.5), dzb);
+    } else if (ref === 'K1') box(x0 + 1, y0 + 1, 0, x1 - 1, y1 - 1, 15.7, mat(0x17324d, 0.1, 0.5), dzb);
+    else if (ref === 'X1') box(x0 + 1, y0 + 1, 0, x1 - 1, y1 - 1, 6.5, mat(0xb8bcc0, 0.8, 0.35), dzb);
+    else if (ref === 'C41') { const c = new THREE.Mesh(new THREE.CylinderGeometry(4, 4, 11.5, 24), mat(0x1c2f6b, 0.2, 0.4));
+      c.rotation.x = Math.PI / 2; c.position.set((x0 + x1) / 2, (y0 + y1) / 2, 5.75 + dzb); root.add(c); }
+    else if (/^C\d/.test(ref)) box(x0 + pad, y0 + pad, 0, x1 - pad, y1 - pad, 4.5, mat(0xd8a640, 0.1, 0.6), dzb);
+    else if (/^R\d/.test(ref)) box(x0 + 2, y0 + pad + 0.4, 0, x1 - 2, y1 - pad - 0.4, 2.6, mat(0xd9c39a, 0.0, 0.7), dzb);
+    else if (/^(D|LED)\d/.test(ref)) box(x0 + 2, y0 + pad + 0.4, 0, x1 - 2, y1 - pad - 0.4, 2.2, mat(0x8c3a2a, 0.0, 0.6), dzb);
+    else if (/^(JP|J1$|RN)/.test(ref)) box(x0 + pad, y0 + pad, 0, x1 - pad, y1 - pad, 8.5, mat(0x1e1e1e, 0.1, 0.6), dzb);
+  }
+  await stl('standoffs', mat(0xd4c08a, 0.9, 0.3), dzb);
+}
+// ---- cases
+if (!V.hide?.includes('lower')) await stl('lower_shell', alu, ez('lower'), V.aluEdges ? 'alu' : false);
+if (!V.hide?.includes('upper')) await stl('upper_shell', alu, ez('upper'), V.aluEdges ? 'alu' : false);
+if (!V.hide?.includes('top')) await stl('acrylic_top', acr, ez('top'), true);
+if (V.bay === 'blank') await stl('keyboard_blank', acr, ez('bay'), true);
+if (V.bay === 'keyboard') {
+  const dz = ez('bay');
+  await stl('keyboard_plate', plateMat, dz);
+  const pt = ZT + T + 1.5, pcbTop = pt - 5;
+  const kbx0 = B.keys.reduce((a, k) => Math.min(a, k[0] - k[2] * 9.525), 1e9);
+  box(B.BAY[0] + 0.5, B.BAY[2] + 0.5, pcbTop - 1.6, B.BAY[1] - 0.5, B.BAY[3] - 0.5, pcbTop, mat(0x101010, 0.1, 0.6), dz);
+  const capC = V.caps || [0x2c2f33, 0x9aa1a8];
+  for (const [x, y, w] of B.keys) {
+    const ww = w * 19.05 - 1.2, hh = 19.05 - 1.2;
+    const accent = w > 1.2 && w < 6;
+    const g = new THREE.BoxGeometry(ww, hh, 7.5);
+    const m = new THREE.Mesh(g, mat(accent ? capC[1] : capC[0], 0.05, 0.75));
+    m.position.set(x, y, pt + 4.0 + 3.75 + dz); root.add(m);
+    const t = new THREE.Mesh(new THREE.BoxGeometry(ww - 4.5, hh - 5, 0.6), mat(accent ? capC[1] : capC[0], 0.05, 0.6));
+    t.position.set(x, y + 0.6, pt + 4 + 7.8 + dz); root.add(t);
+    box(x - 7, y - 7, pt, x + 7, y + 7, pt + 4.0, mat(0x111111, 0.1, 0.6), dz);
+  }
+}
+const cov = V.covers || [1, 2, 3, 4];
+for (const i of cov) await stl('slot_cover_' + i, acrCap, ez('covers'), true);
+if (V.cartCover) await stl('cart_cover', acrCap, ez('covers'), true);
+// ---- installed cartridge / cards (shell = keepout less 1 mm)
+const shellMat = mat(V.shell || 0x2b2d31, 0.1, 0.55);
+if (V.cart) { const c = B.parts.J8.crt; box(c[0] + 1, c[1] + 1, 0, c[2] - 1, c[3] - 1, 112, shellMat, ez('board')); }
+for (const s of (V.cards || [])) { const c = B.parts[s].crt;
+  box(c[0] + 1, c[1] + 1, 0, c[2] - 1, Math.min(c[3] - 1, B.W - T - 0.2), 92, mat(V.cardShell || 0x3a4048, 0.1, 0.55), ez('board')); }
+
+// ---- camera
+const cam = new THREE.PerspectiveCamera(V.fov || 30, Wd / Ht, 5, 5000);
+cam.up.set(0, 0, 1);
+cam.position.set(...V.cam); cam.lookAt(new THREE.Vector3(...V.look));
+renderer.render(scene, cam);
+window.done = true;
+</script></body></html>
