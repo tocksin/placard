@@ -14,8 +14,9 @@ numbers stay right).
 
 **Main board: 11 sheets** (a root sheet and 10 sub-sheets), A3 landscape,
 in the one project `kicad/placard.kicad_pro`.
-**Cartridge: 1 sheet**, its own project `kicad/cartridge/`, because it is
-a separate board (a KiCad project has one PCB).
+**Cartridges: 1 sheet each**, two projects `kicad/cartridge_64k/` and
+`kicad/cartridge_32k/`, because each is a separate board (a KiCad project
+has one PCB).
 
 | Sheet | Title | Chips | Connectors and main passives |
 |--:|---|---|---|
@@ -180,34 +181,41 @@ labels).
 running across them, SEL tied per slot through 1k (slots 1, 2 GND; 3, 4
 +5 V), `/EXP1` to slots 1 and 3, `/EXP2` to 2 and 4.
 
-## Cartridge project
+## Cartridge projects
 
-`kicad/cartridge/cartridge.kicad_pro`, one A3 sheet, sharing the symbol
-libraries in `kicad/lib/` through its own `sym-lib-table`:
+Two boards since 2026-10-24 (Justin), each its own project with one A3
+sheet and a placed PCB, sharing the symbol and footprint libraries in
+`kicad/lib/` through their own `sym-lib-table` and `fp-lib-table`:
 
-- the card-edge fingers (the 87715-9106 mating footprint, same contact
-  names as the slot symbol),
-- the loader PLD (`ATF22V10_CART.pld` revision 04, ATF22V10C-7PX),
-- two AT28C256 EEPROMs and two AS7C256C SRAMs,
-- JP1, a 3-pad solder jumper on the upper pair's /CE (`/CE_UP`): 1-2
-  (as made) is `/CE_HI`, the 64K cart used in development; cut it and
-  bridge 2-3 (GND) for a 32K cart (U3, U5 only, seen in both halves),
-- decoupling, and the spare contacts brought to a test header or left
-  open until their use is decided.
+- `kicad/cartridge_64k/cartridge_64k.kicad_pro`: the loader PLD U1
+  (`ATF22V10_CART.pld` revision 04, ATF22V10C-7PX), two AT28C256 EEPROMs
+  U2 (lower) and U3 (upper), two AS7C256C SRAMs U4 (lower) and U5 (upper);
+  the lower pair's /CE is `/CE_LO`, the upper pair's `/CE_HI`.
+- `kicad/cartridge_32k/cartridge_32k.kicad_pro`: U1 the same loader PLD,
+  one AT28C256 U2 and one AS7C256C U3, both /CE tied to GND, so the 32K
+  is seen in both halves; `/CE_HI` (B16) is not connected.
 
-Five chips, so one sheet holds them comfortably.  The main board and the
-cartridge share the net names on the connector (`A0`, `D0`, `/CE_HI`,
-`STALL_OUT` and so on), so the two schematics read the same.
+Both have the card-edge fingers J1 (`placard:Card_Edge_87715-9106`, the
+87715-9106 mate, same contact names as the slot symbol, A row on the
+parts side), decoupling Cn beside each Un, and the spare contacts left
+open until their use is decided.  They replace the one board with the
+32K/64K solder jumper JP1.  The boards are placed (not routed) by
+`src/scripts/gen_kicad_cart_pcb.py` (EXPANSION.md, "Cartridge boards").
+
+The main board and the cartridges share the net names on the connector
+(`A0`, `D0`, `/CE_HI`, `STALL_OUT` and so on), so the schematics read the
+same.
 
 ## Reference designators
 
 - **Chips:** U = CHIPS.md number, fixed (KiCad annotation set to keep
-  existing references).  The cartridge uses its own U1-U5.
+  existing references).  The 64K cartridge uses its own U1-U5, the
+  32K cartridge U1-U3.
 - **Connectors:** keep J1-J6 as IO.md and SOUND.md use them; then J7 VGA,
   J8 cartridge slot, J9-J12 expansion slots 1-4, J13 USB-C.
 - **Decoupling capacitors:** C = the chip's U-number (C1 for U1),
-  set by hand and kept by the annotation.  On the cartridge, C1-C5 go
-  with its U1-U5 the same way.
+  set by hand and kept by the annotation.  On the cartridges, C1-C5
+  (64K) and C1-C3 (32K) go with their Un the same way.
 - **Other parts** (Justin, 2026-10-22): numbered from 1 for each kind of
   part and counted up across the board, sheet by sheet, with no gaps and
   no thousands: R1-R54, RN1-RN2, D1-D5, JP1-JP2, F1, NT1 on the main board;
@@ -275,8 +283,9 @@ checks (single-pin nets, two outputs on a net, power without a source).
   own pins, raised a little so its GND symbol clears the chip's top pins.
 - **Hand-drawn wires** where a picture helps: the R-2R ladder is a wired
   chain, rows of pins tied to GND share one GND symbol.
-- **PDFs** for reading without KiCad: `schematics/placard_main.pdf` and
-  `schematics/placard_cartridge.pdf` (`gen_kicad_schematic.py --pdf`, which
+- **PDFs** for reading without KiCad: `schematics/placard_main.pdf`,
+  `schematics/placard_cartridge_64k.pdf`, `placard_cartridge_32k.pdf` and
+  `placard_keyboard.pdf` (`gen_kicad_schematic.py --pdf`, which
   exports them with kicad-cli and drops the bookmarks so they open without
   the bookmarks panel).
 

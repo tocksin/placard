@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Write the Placard KiCad schematic: kicad/*.kicad_sch (main board, root plus
-ten sheets), kicad/cartridge/ (the ROM cartridge, one sheet) and kicad/keyboard/
+ten sheets), kicad/cartridge_64k/ and kicad/cartridge_32k/ (the two ROM cartridge
+boards, one sheet each) and kicad/keyboard/
 (the keyboard board, one sheet).
 
 The sheet split follows docs/SCHEMATIC_PLAN.md.  The connections follow the
@@ -14,7 +15,8 @@ chip's U number), and the text is large.  Rerun after a pin or part change:
 
     python3 src/scripts/gen_kicad_schematic.py [--pdf] [--check]
 
---pdf exports schematics/placard_main.pdf, placard_cartridge.pdf and placard_keyboard.pdf, set to
+--pdf exports schematics/placard_main.pdf, placard_cartridge_64k.pdf, placard_cartridge_32k.pdf and
+placard_keyboard.pdf, set to
 open without the bookmarks panel.
 
 --check exports the netlist with kicad-cli and compares it with the nets
@@ -34,7 +36,7 @@ import kicad_sch_lib as K  # noqa: E402
 DATE = "2026-10-24"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
-CDIR = os.path.join(KDIR, "cartridge")
+CDIRS = {64: os.path.join(KDIR, "cartridge_64k"), 32: os.path.join(KDIR, "cartridge_32k")}
 BDIR = os.path.join(KDIR, "keyboard")
 
 # ---------------------------------------------------------------- footprints
@@ -1153,7 +1155,7 @@ def root_sheet(b, sheets):
     note(s, 20, 220, ["34 chips + U40 regulator (docs/CHIPS.md numbers; U24, U28, U30, U33, U34 are not used).",
                       "Decoupling: every chip's 100 nF Cn sits beside Un on its own sheet.",
                       "Power: +5V, GND, +3V3 (SD card), GNDA (audio, joined to GND on sheet 2).",
-                      "The ROM cartridge is its own project: kicad/cartridge/."], size=3)
+                      "The ROM cartridges are their own projects: kicad/cartridge_64k/, kicad/cartridge_32k/."], size=3)
     return s, "\n  ".join(boxes)
 
 
@@ -1173,16 +1175,23 @@ def build_main():
     return root, boxes, sheets, glob
 
 
-def build_cart():
-    root_uuid = K.det_uuid("cartridge", "root")
-    s = K.Sheet("cartridge", "cartridge.kicad_sch", "ROM cartridge", 1, root_uuid, None, DATE)
+def build_cart(size):
+    """The ROM cartridge, two boards (Justin, 2026-10-24): the 64K board (U1 loader PLD, U2/U3
+    EEPROMs, U4/U5 SRAMs, /CE_LO for the lower pair and /CE_HI for the upper) and the 32K board
+    (U1 loader PLD, U2 EEPROM, U3 SRAM, /CE tied to GND, so the 32K reads in both halves)."""
+    proj = "cartridge_%dk" % size
+    # the 64K board keeps the old one-board cartridge's root uuid (its symbols keep theirs too)
+    root_uuid = K.det_uuid("cartridge" if size == 64 else proj, "root")
+    s = K.Sheet(proj, proj + ".kicad_sch", "ROM cartridge, %dK" % size, 1, root_uuid, None, DATE)
     s.uid = root_uuid
-    s.comment2 = "Cartridge chips U1-U5 (docs/CHIPS.md, ROM cartridge); decoupling Cn goes with Un"
+    s.comment2 = "Cartridge chips U1-U%d (docs/CHIPS.md, ROM cartridge); decoupling Cn goes with Un" % (5 if size == 64 else 3)
     s.names = {"U1": "Loader PLD"}
-    heading(s, "ROM cartridge", "Two EEPROMs copied into two SRAMs at power-up by the loader PLD (ROM.md, \"Loading the cartridge\")")
+    heading(s, "ROM cartridge, %dK" % size,
+            ("Two EEPROMs copied into two SRAMs" if size == 64 else "One EEPROM copied into one SRAM") +
+            " at power-up by the loader PLD (ROM.md, \"Loading the cartridge\")")
     cart = {"A3": "A0", "B3": "A1", "A4": "A2", "B4": "A3", "A5": "A4", "B5": "A5", "A6": "A6", "B6": "A7",
             "A7": "A8", "B7": "A9", "A8": "A10", "B8": "A11", "A9": "A12", "B9": "A13", "A10": "A14",
-            "A16": "~{CE_LO}", "B16": "~{CE_HI}", "A17": "~{ROM_OE}", "B10": "GND",
+            "A16": "~{CE_LO}", "B16": "~{CE_HI}" if size == 64 else None, "A17": "~{ROM_OE}", "B10": "GND",
             "A12": "D0", "B12": "D1", "A13": "D2", "B13": "D3", "A14": "D4", "B14": "D5", "A15": "D6", "B15": "D7",
             "A20": "CLK", "B17": "STALL_IN", "A18": "PIXEL_ENABLE", "B18": "STALL_OUT", "A19": "RUN",
             "B19": "PC_ENABLE",
@@ -1191,13 +1200,14 @@ def build_cart():
               "B22", "B23", "B24", "B25", "B26", "B27", "B28", "B29", "B30", "B32"]:
         cart[c] = None
     s.label_each |= {"A"}
-    s.label_nets |= {"~{CE_LO}", "~{CE_HI}", "~{CE_UP}", "~{ROM_OE}", "~{EE_OE}", "~{SR_WE}"}
+    s.label_nets |= {"~{CE_LO}", "~{CE_HI}", "~{ROM_OE}", "~{EE_OE}", "~{SR_WE}"}
     # the loader lines run straight across from the connector to U1, whose pins are a row apart like the connector's
     ld = {"A20": "1", "A18": "3", "B19": "4", "B17": "5", "B18": "23", "A19": "22"}
+    lab = ("A16", "B16", "A17") if size == 64 else ("A16", "A17")
     j1 = s.part("placard_parts:Cartridge_Slot", "J1", 82.55, 120, cart, value="Card edge (87715-9106 mate)",
-                footprint="", ref_at=(67, 69), value_at=(88, 176), bare=tuple(ld) + ("A16", "B16", "A17"),
-                in_bom=False)    # gold fingers on the cartridge PCB, not a part
-    for c in ("A16", "B16", "A17"):     # labels in a column, not staggered
+                footprint="placard:Card_Edge_87715-9106", ref_at=(67, 69), value_at=(88, 176),
+                bare=tuple(ld) + lab, in_bom=False)    # gold fingers on the cartridge PCB, not a part
+    for c in lab:     # labels in a column, not staggered
         path(s, cart[c], j1[c], (j1[c][0] - 5.08, j1[c][1]))
         name(s, cart[c], j1[c][0] - 5.08, j1[c][1], 180)
     u1 = s.part("placard:ATF22V10C_CART", "U1", 175.26, 134.62, pld({
@@ -1224,33 +1234,40 @@ def build_cart():
         for i, p in enumerate([11, 12, 13, 15, 16, 17, 18, 19]):
             n[str(p)] = D[i]
         u = s.part(lib, ref, x, y, n, value=value, footprint=fp, bare=("20", "22", "27"))
-        # /CE, /OE, /WE: labels in a column (not staggered), the tie to +5V on an arm past them
+        # /CE, /OE, /WE: labels in a column (not staggered), a tie to +5V or GND on an arm past them
         for pn in ("20", "22", "27"):
             px, py = u[pn]
-            if n[pn] == "+5V":
-                path(s, "+5V", (px, py), (px - 19.05, py))
-                s.power("+5V", px - 19.05, py, toward=(-1, 0))
+            if n[pn] in ("+5V", "GND"):
+                path(s, n[pn], (px, py), (px - 19.05, py))
+                s.power(n[pn], px - 19.05, py, toward=(-1, 0))
             else:
                 path(s, n[pn], (px, py), (px - 5.08, py))
                 name(s, n[pn], px - 5.08, py, 180)
         decap(s, int(ref[1:]), x - 20.32, y - 38.1, lift=0)
-    mem("Memory_EEPROM:28C256", "U2", 270.51, 95.25, "~{CE_LO}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
-    mem("Memory_EEPROM:28C256", "U3", 365.76, 95.25, "~{CE_UP}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
-    mem("placard_parts:AS7C256C", "U4", 267.97, 195.58, "~{CE_LO}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
-    mem("placard_parts:AS7C256C", "U5", 363.22, 195.58, "~{CE_UP}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
-    # ROM size: the upper pair's /CE.  1-2 (as made) = /CE_HI: the 64K cart used in development;
-    # cut 1-2 and bridge 2-3 = GND: a 32K cart with U3, U5 only, seen in both halves
-    s.part("Jumper:SolderJumper_3_Bridged12", "JP1", 175.26, 228.6,
-           {"1": "~{CE_HI}", "2": "~{CE_UP}", "3": "GND"}, value="32K / 64K",
-           footprint="Jumper:SolderJumper-3_P1.3mm_Bridged12_RoundedPad1.0x1.5mm_NumberLabels",
-           ref_at=(170, 220), value_at=(185, 220), in_bom=False)
-    note(s, 22, 192, ["U2 (lower 32K) and U3 (upper) hold the image,",
-                       "programmed off the board; their /WE is tied high.",
-                       "U4, U5 are the ROM the CPU reads (15 ns).",
-                       "/CE_LO is the main board's A15.",
-                       "JP1 64K (as made, 1-2): fit U2-U5.  32K: cut",
-                       "1-2, bridge 2-3, fit U3, U5 only; the 32K reads",
-                       "in both halves.",
+    if size == 64:
+        mem("Memory_EEPROM:28C256", "U2", 270.51, 95.25, "~{CE_LO}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
+        mem("Memory_EEPROM:28C256", "U3", 365.76, 95.25, "~{CE_HI}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
+        mem("placard_parts:AS7C256C", "U4", 267.97, 195.58, "~{CE_LO}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
+        mem("placard_parts:AS7C256C", "U5", 363.22, 195.58, "~{CE_HI}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
+        lines = ["U2 (lower 32K) and U3 (upper) hold the image,",
+                 "programmed off the board; their /WE is tied high.",
+                 "U4, U5 are the ROM the CPU reads (15 ns).",
+                 "/CE_LO is the main board's A15; /CE_HI the upper",
+                 "32K select.  The 32K cartridge is its own board",
+                 "(kicad/cartridge_32k)."]
+    else:
+        # one EEPROM and one SRAM, always selected: the main board's /ROM_OE picks the ROM, and the
+        # 32K is seen in both halves of the address space
+        mem("Memory_EEPROM:28C256", "U2", 270.51, 95.25, "GND", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
+        mem("placard_parts:AS7C256C", "U3", 267.97, 195.58, "GND", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
+        lines = ["U2 holds the 32K image, programmed off the board;",
+                 "its /WE is tied high.  U3 is the ROM the CPU",
+                 "reads (15 ns).  Both /CE are tied to GND: the",
+                 "32K is seen in both halves (x0000 = x8000), and",
+                 "the loader copies it twice.  /CE_HI (B16) is",
+                 "not used.  The 64K cartridge is its own board",
+                 "(kicad/cartridge_64k)."]
+    note(s, 22, 192, lines + [
                        "U1 stalls the CPU at each PC address",
                        "(STALL_OUT), pulses /SR_WE, lets the CPU",
                        "step, and raises RUN when the PC wraps.",
@@ -1491,7 +1508,7 @@ def check_refs(sheets, label):
 
 def main():
     # keep every symbol's uuid from the files already there (Update PCB from Schematic matches on it)
-    for d in (KDIR, CDIR, BDIR):
+    for d in (KDIR, *CDIRS.values(), BDIR):
         for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
             if f.endswith(".kicad_sch"):
                 K.keep_uuids(os.path.join(d, f))
@@ -1503,12 +1520,14 @@ def main():
         for r in sh.report:
             print("route", sh.filename, r)
     write(os.path.join(KDIR, "placard.kicad_sch"), root.render(extra=boxes))
-    cart = build_cart()
-    write(os.path.join(CDIR, "cartridge.kicad_sch"), cart.render())
-    for o in cart.overlaps():
-        print("overlap cartridge", o)
-    for r in cart.report:
-        print("route cartridge", r)
+    carts = {}
+    for size, cdir in CDIRS.items():
+        cart = carts[size] = build_cart(size)
+        write(os.path.join(cdir, cart.filename), cart.render())
+        for o in cart.overlaps():
+            print("overlap", cart.filename, o)
+        for r in cart.report:
+            print("route", cart.filename, r)
     kbd = build_keyboard()
     write(os.path.join(BDIR, "keyboard.kicad_sch"), kbd.render())
     for o in kbd.overlaps():
@@ -1518,17 +1537,23 @@ def main():
     if "--pdf" in sys.argv:
         export_pdf(os.path.join(BDIR, "keyboard.kicad_sch"), os.path.join(ROOT, "schematics", "placard_keyboard.pdf"))
         export_pdf(os.path.join(KDIR, "placard.kicad_sch"), os.path.join(ROOT, "schematics", "placard_main.pdf"))
-        export_pdf(os.path.join(CDIR, "cartridge.kicad_sch"), os.path.join(ROOT, "schematics", "placard_cartridge.pdf"))
+        for size, cdir in CDIRS.items():
+            export_pdf(os.path.join(cdir, carts[size].filename),
+                       os.path.join(ROOT, "schematics", "placard_cartridge_%dk.pdf" % size))
     if "--check" in sys.argv:
         bad = compare(expected_nets(sheets, glob), kicad_nets(os.path.join(KDIR, "placard.kicad_sch")), "main board")
-        bad += compare(expected_nets([cart], set()), kicad_nets(os.path.join(CDIR, "cartridge.kicad_sch")), "cartridge")
+        for size, cdir in CDIRS.items():
+            bad += compare(expected_nets([carts[size]], set()), kicad_nets(os.path.join(cdir, carts[size].filename)),
+                           "cartridge %dK" % size)
         bad += compare(expected_nets([kbd], set()), kicad_nets(os.path.join(BDIR, "keyboard.kicad_sch")), "keyboard")
         for path, label in [(os.path.join(KDIR, "placard.kicad_sch"), "main board"),
-                            (os.path.join(CDIR, "cartridge.kicad_sch"), "cartridge"),
+                            *[(os.path.join(cdir, carts[size].filename), "cartridge %dK" % size)
+                              for size, cdir in CDIRS.items()],
                             (os.path.join(BDIR, "keyboard.kicad_sch"), "keyboard")]:
             for it in erc(path, label, FLAGGED):
                 print("  ", it)
-        for shs, label in [(sheets, "main board"), ([cart], "cartridge"), ([kbd], "keyboard")]:
+        for shs, label in [(sheets, "main board"), ([carts[64]], "cartridge 64K"), ([carts[32]], "cartridge 32K"),
+                           ([kbd], "keyboard")]:
             for it in check_refs(shs, label):
                 print("  ", it)
                 bad += 1

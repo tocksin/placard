@@ -56,13 +56,20 @@ Main board,19,U1 U2 U3 U4 U5 U6 U7 U8 U9 U10 U11 U12 U13 U14 U15 U16 U17 U35 U38
 Main board,2,U31 U32,On Shore,ED281DT,"IC socket, DIP-28 0.3""",,,no,0.45,0.90,est.: On Shore ED281DT,
 Main board,1,,Yageo,MFR-25FBF52-10K,"Resistor, 10k (/WE pull-up), 1/4 W, axial",10k,,no,0.10,0.10,est.: Yageo MFR-25FBF52-10K,"Memory control rev 09 lets go of /WE while RUN is low; not drawn on the schematic yet (EXPANSION.md, ""Booting from slot 1"")"
 Main board,2,JP1 JP2,Sullins,QPC02SXGN-RC,"Jumper shunt, 2.54 mm",,,no,0.10,0.20,est.: Sullins QPC02SXGN-RC,Bring-up jumpers
-Cartridge,1,U1,Microchip,ATF22V10C-7PX,"PLD, 22V10, 7.5 ns, PDIP-24 0.3"" (programmed)",,placard:DIP-24_W7.62mm_Socket_Puller,yes,2.99,2.99,Mouser,Cartridge loader U1
-Cartridge,2,U2 U3,Microchip,AT28C256-15PU,"EEPROM, 32K x 8, 150 ns, PDIP-28 0.6"" (programmed)",,placard:DIP-28_W15.24mm_Socket_Puller,yes,12.38,24.76,Mouser,
-Cartridge,2,U4 U5,Alliance Memory,AS7C256C-15PCN,"SRAM, 32K x 8, 15 ns, PDIP-28 0.3""",,placard:DIP-28_W7.62mm_Socket_Puller,yes,15.21,30.42,Mouser,
-Cartridge,5,C1 C2 C3 C4 C5,KEMET,C320C104K5R5TA,"Ceramic capacitor, 5 mm pitch",100n,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.27,1.35,est.: KEMET C320C104K5R5TA,
-Cartridge,1,U1,On Shore,ED241DT,"IC socket, DIP-24 0.3""",,,no,0.40,0.40,est.: On Shore ED241DT,
-Cartridge,2,U4 U5,On Shore,ED281DT,"IC socket, DIP-28 0.3""",,,no,0.45,0.90,est.: On Shore ED281DT,
-Cartridge,2,U2 U3,On Shore,ED28DT,"IC socket, DIP-28 0.6""",,,no,0.45,0.90,est.: On Shore ED28DT,
+"Cartridge, 64K",1,U1,Microchip,ATF22V10C-7PX,"PLD, 22V10, 7.5 ns, PDIP-24 0.3"" (programmed)",,placard:DIP-24_W7.62mm_Socket_Puller,yes,2.99,2.99,Mouser,Cartridge loader U1
+"Cartridge, 64K",2,U2 U3,Microchip,AT28C256-15PU,"EEPROM, 32K x 8, 150 ns, PDIP-28 0.6"" (programmed)",,placard:DIP-28_W15.24mm_Socket_Puller,yes,12.38,24.76,Mouser,
+"Cartridge, 64K",2,U4 U5,Alliance Memory,AS7C256C-15PCN,"SRAM, 32K x 8, 15 ns, PDIP-28 0.3""",,placard:DIP-28_W7.62mm_Socket_Puller,yes,15.21,30.42,Mouser,
+"Cartridge, 64K",5,C1 C2 C3 C4 C5,KEMET,C320C104K5R5TA,"Ceramic capacitor, 5 mm pitch",100n,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.27,1.35,est.: KEMET C320C104K5R5TA,
+"Cartridge, 64K",1,U1,On Shore,ED241DT,"IC socket, DIP-24 0.3""",,,no,0.40,0.40,est.: On Shore ED241DT,
+"Cartridge, 64K",2,U4 U5,On Shore,ED281DT,"IC socket, DIP-28 0.3""",,,no,0.45,0.90,est.: On Shore ED281DT,
+"Cartridge, 64K",2,U2 U3,On Shore,ED28DT,"IC socket, DIP-28 0.6""",,,no,0.45,0.90,est.: On Shore ED28DT,
+"Cartridge, 32K",1,U1,Microchip,ATF22V10C-7PX,"PLD, 22V10, 7.5 ns, PDIP-24 0.3"" (programmed)",,placard:DIP-24_W7.62mm_Socket_Puller,yes,2.99,2.99,Mouser,Cartridge loader U1
+"Cartridge, 32K",1,U2,Microchip,AT28C256-15PU,"EEPROM, 32K x 8, 150 ns, PDIP-28 0.6"" (programmed)",,placard:DIP-28_W15.24mm_Socket_Puller,yes,12.38,12.38,Mouser,
+"Cartridge, 32K",1,U3,Alliance Memory,AS7C256C-15PCN,"SRAM, 32K x 8, 15 ns, PDIP-28 0.3""",,placard:DIP-28_W7.62mm_Socket_Puller,yes,15.21,15.21,Mouser,
+"Cartridge, 32K",3,C1 C2 C3,KEMET,C320C104K5R5TA,"Ceramic capacitor, 5 mm pitch",100n,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.27,0.81,est.: KEMET C320C104K5R5TA,
+"Cartridge, 32K",1,U1,On Shore,ED241DT,"IC socket, DIP-24 0.3""",,,no,0.40,0.40,est.: On Shore ED241DT,
+"Cartridge, 32K",1,U3,On Shore,ED281DT,"IC socket, DIP-28 0.3""",,,no,0.45,0.45,est.: On Shore ED281DT,
+"Cartridge, 32K",1,U2,On Shore,ED28DT,"IC socket, DIP-28 0.6""",,,no,0.45,0.45,est.: On Shore ED28DT,
 Keyboard,1,J1,Wurth Elektronik,61202021621,"Box header, 2 x 10, 2.54 mm, shrouded and keyed, vertical",,Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical,yes,0.60,0.60,est.: Wurth 61202021621,
 Keyboard,63,SW1 SW2 SW3 SW4 SW5 SW6 SW7 SW8 SW9 SW10 SW11 SW12 SW13 SW14 SW15 SW16 SW17 SW18 SW19 SW20 SW21 SW22 SW23 SW24 SW25 SW26 SW27 SW28 SW29 SW30 SW31 SW32 SW33 SW34 SW35 SW36 SW37 SW38 SW39 SW40 SW41 SW42 SW43 SW44 SW45 SW46 SW47 SW48 SW49 SW50 SW51 SW52 SW53 SW54 SW55 SW56 SW57 SW58 SW59 SW60 SW61 SW62 SW63,Cherry,MX2A-L1NB,"Key switch, Cherry MX style, PCB mount (5 pin)",,,yes,1.24,78.12,"Mouser: Cherry MX2A-L1NB (red, clear housing for the LED, PCB pins), 10+ break; not stocked at Mouser, check Digi-Key","MX2A-L1NB = red linear; any MX2A color with a clear housing fits.  Footprints have LED pads 3/4; sizes 1 u, 1.25 u, 1.5 u, 1.75 u, 2 u, 2.25 u, 6.25 u"
 Keyboard,63,D1 D2 D3 D4 D5 D6 D7 D8 D9 D10 D11 D12 D13 D14 D15 D16 D17 D18 D19 D20 D21 D22 D23 D24 D25 D26 D27 D28 D29 D30 D31 D32 D33 D34 D35 D36 D37 D38 D39 D40 D41 D42 D43 D44 D45 D46 D47 D48 D49 D50 D51 D52 D53 D54 D55 D56 D57 D58 D59 D60 D61 D62 D63,Vishay,BAT85,"Schottky diode, DO-35",,Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal,yes,0.10,6.30,est.: Vishay BAT85,"Any BAT85 (Vishay, Nexperia, onsemi)"

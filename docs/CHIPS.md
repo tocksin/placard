@@ -87,6 +87,14 @@ start of EXEC (CPU.md, "One data bus").
 Five chips.  The battery and power-fail switch of the interim
 battery-backed ROM are gone; the main board loses #33 and #34.
 
+**Two cartridge boards (2026-10-24).**  The 64K cartridge
+(`kicad/cartridge_64k`) has the five chips above: U1 loader PLD, U2/U3
+EEPROMs (lower/upper), U4/U5 SRAMs (lower/upper).  The 32K cartridge
+(`kicad/cartridge_32k`) is its own, smaller board with three: U1 loader
+PLD, U2 EEPROM, U3 SRAM, both /CE tied to GND, so its 32K is seen in both
+halves of the ROM space.  They replace the one board with a 32K/64K solder
+jumper (JP1).  The case mounting hole H1 is at the same place on both.
+
 **Changed 2026-10-21: no clock gate, no cartridge 74AC541.**  The
 cartridge holds the CPU's STALL line (STALL_IN from the Branch PLD,
 STALL_OUT back to the State and PC PLDs) instead of the board clock, and

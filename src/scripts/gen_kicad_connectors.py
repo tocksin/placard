@@ -131,7 +131,7 @@ CARD_LEADS = 2.0             # trimmed through-hole leads on side B
 SHELL_AIR = 0.5              # gap inside the shell, each side (1.0 over the chips)
 SHELL_WALL = 2.0             # shell wall (2 mm printed or moulded)
 MARGIN = 1.0                 # shell placement tolerance on the main board
-CART_W = 39.0                # cartridge card width = the J8 body (39 mm): chips lie horizontally (gen_cart_placement.py)
+CART_W = 39.0                # cartridge card width = the J8 body (39 mm): chips lie horizontally (gen_kicad_cart_pcb.py)
 EXP_W = 72.0                 # expansion card width: the slot body (71.1 mm) plus 0.5 mm a side
 
 
@@ -172,6 +172,35 @@ def cart_slot():
     footprint("Molex_87715-9106_PCIe_x4_Vertical",
               "Molex 87715-9106 card edge slot, PCIe x4 style, 64 contacts, 1.0 mm, vertical, through hole",
               (-2.75, -3.75, 35.75, 3.75), pads, extra=extra, crtyd=box)
+
+
+def card_edge():
+    # The cartridge's own fingers, the mate of J8: KiCad's Connector_PCBEdge:BUS_PCIexpress_x4
+    # contact pattern (1.0 mm, key between 11 and 12, A1 and B31 short), but with the A row on
+    # F.Cu: the cartridge's parts are on side A, the side J8's A row faces (shell keepout).
+    # No Edge.Cuts here: gen_kicad_cart_pcb.py draws the whole card outline, tab and key included.
+    # Origin = contact 1, card edge at y = +3.45 (KiCad's card), the card body toward -y.
+    name = "Card_Edge_87715-9106"
+    s = '(footprint "%s" (version 20221018) (generator pcbnew)\n  (layer "F.Cu")\n' % name
+    s += ('  (descr "Cartridge card edge fingers for Molex 87715-9106 (PCIe x4 style), 64 contacts, 1.0 mm, '
+          '1.57 mm card, A row on F.Cu (Placard, gen_kicad_connectors.py, from KiCad BUS_PCIexpress_x4)")\n')
+    s += '  (tags "card edge fingers PCIe x4")\n  (attr exclude_from_pos_files exclude_from_bom)\n'
+    s += text("reference", "REF**", 16.5, -4.0, "F.SilkS", hide=True)
+    s += text("value", name, 16.5, -6.0, "F.Fab")
+    s += text("user", "A row (side A, parts) on F.Cu, B row on B.Cu; edge at y = 3.45", 16.5, -4.0, "Cmts.User", size=0.5)
+    s += text("user", "key", 11.5, -1.0, "F.Fab", size=0.8)
+    s += rect(-0.65, -2.4, 33.65, 3.45, "F.CrtYd", 0.05)
+    for n in range(1, 33):
+        x = n - 1 if n <= 11 else n + 1
+        for row, layers in (("A", '"F.Cu" "F.Mask"'), ("B", '"B.Cu" "B.Mask"')):
+            short = (row, n) in (("A", 1), ("B", 31))
+            y, h = (-0.55, 3.2) if short else (0.0, 4.3)
+            s += ('  (pad "%s%d" connect rect (at %s %s) (size 0.7 %s) (layers %s))\n'
+                  % (row, n, f(x), f(y), f(h), layers))
+    s += ")\n"
+    with open(os.path.join(OUT, name + ".kicad_mod"), "w", newline="\n") as fh:
+        fh.write(s)
+    print("wrote", name)
 
 
 def exp_slot():
@@ -294,6 +323,7 @@ def stock(lib, name, note):
 
 def main():
     cart_slot()
+    card_edge()
     exp_slot()
     ps2_stacked()
     snes()

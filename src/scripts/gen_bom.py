@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Write the bill of materials, docs/BOM.md and docs/BOM.csv, from the KiCad
-sheets (main board kicad/*.kicad_sch, kicad/cartridge/, kicad/keyboard/).
+sheets (main board kicad/*.kicad_sch, kicad/cartridge_64k/, kicad/cartridge_32k/,
+kicad/keyboard/).
 
 Parts with the same part number share a line.  Parts with no part number
 chosen yet share a line when their description and value match, with the
@@ -12,7 +13,7 @@ stabilizers, keycaps, LEDs and the keyboard cable) are added here.
     python3 src/scripts/gen_kicad_schematic.py    # after a part change
     python3 src/scripts/gen_bom.py
 
-Date: 2026-10-23
+Date: 2026-10-24
 """
 import csv
 import glob
@@ -29,7 +30,8 @@ KDIR = os.path.join(ROOT, "kicad")
 
 BOARDS = [
     ("Main board", sorted(glob.glob(os.path.join(KDIR, "*.kicad_sch")))),
-    ("Cartridge", [os.path.join(KDIR, "cartridge", "cartridge.kicad_sch")]),
+    ("Cartridge, 64K", [os.path.join(KDIR, "cartridge_64k", "cartridge_64k.kicad_sch")]),
+    ("Cartridge, 32K", [os.path.join(KDIR, "cartridge_32k", "cartridge_32k.kicad_sch")]),
     ("Keyboard", [os.path.join(KDIR, "keyboard", "keyboard.kicad_sch")]),
 ]
 
@@ -335,14 +337,15 @@ def md_cell(s):
 def main():
     boards = [(name, board_bom(files)) for name, files in BOARDS]
     md = [f"# Bill of materials\n\nDate: {DATE}\n",
-          "Every part of the three boards, one line per part number: the main",
-          "board, the ROM cartridge and the keyboard.  Parts with the same part",
+          "Every part of the four boards, one line per part number: the main",
+          "board, the two ROM cartridges (64K and 32K, separate boards since",
+          "2026-10-24; a machine takes one) and the keyboard.  Parts with the same part",
           "number share a line; where no part number is chosen yet the column is",
           "blank and parts with the same description and value share the line.",
           "Lines marked \"not on the schematic\" are sockets, shunts, keyboard",
           "parts and the keyboard cable that KiCad's own BOM export leaves out.",
-          "The net tie NT1, the cartridge's edge fingers (its J1) and its 32K/64K",
-          "solder jumper JP1 are copper on the PCB, so they are not listed.",
+          "The net tie NT1 and the cartridges' edge fingers (their J1) are copper",
+          "on the PCB, so they are not listed.",
           "",
           "Written by `src/scripts/gen_bom.py` from the KiCad sheets (the part",
           "numbers are the Manufacturer and MPN fields set by",
@@ -399,7 +402,9 @@ def main():
             "| Board | Components | Without optional parts | Lines estimated |", "|---|--:|--:|--:|"]
     for name, t, b, est in totals:
         summ.append(f"| {name} | ${t:,.2f} | ${b:,.2f} | {est} |")
-    summ.append(f"| **All three** | **${sum(r[1] for r in totals):,.2f}** | **${sum(r[2] for r in totals):,.2f}** | |\n")
+    one = [r for r in totals if r[0] != "Cartridge, 32K"]      # a machine takes one cartridge
+    summ.append(f"| **Main, 64K cartridge, keyboard** | **${sum(r[1] for r in one):,.2f}** | "
+                f"**${sum(r[2] for r in one):,.2f}** | |\n")
     i = md.index("## Main board\n")
     md[i:i] = summ
     with open(os.path.join(ROOT, "docs", "BOM.md"), "w") as f:

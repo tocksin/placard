@@ -52,6 +52,25 @@ the font, the I/O drivers and the rest, down to xC000.
 | xFE00-xFE07 | Map switch (RAM image boot only) | `rom_boot.asm` |
 | xFE08-xFEA1 | Expansion card scan | `rom_boot.asm` |
 
+## Cartridge sizes
+
+There are two cartridge boards (2026-10-24), and a machine takes either:
+
+- **64K** (`kicad/cartridge_64k`, 5 chips): EEPROMs U2 (x0000-x7FFF,
+  `/CE_LO`) and U3 (x8000-xFFFF, `/CE_HI`), SRAMs U4 and U5.  The map
+  above is for this one; development uses it.
+- **32K** (`kicad/cartridge_32k`, 3 chips): one EEPROM U2 and one SRAM U3,
+  both always selected (/CE tied to GND), so the same 32K appears at
+  x0000-x7FFF and again at x8000-xFFFF.  The loader copies it twice (the
+  PC walks all 64K), which needs no change to the loader PLD.
+
+Not done yet: a 32K ROM layout.  The 64K image above does not fit.  The
+plan (2026-10-21) is an image of x8000-xFFFF only: the reset nop and jump
+at x8000 (read as x0000 at reset), the menu and an SD program loader in
+x8000-xBFFF, the library where it is now (xC000-xFFFF); other programs
+load from the SD card.  `gen_rom.tcl`, `placard_sim.py` and the library
+constants still build the 64K image only.
+
 ## The demo menu ROM
 
 `gen_menu_rom.py` builds a different image: six demos and a menu in one
