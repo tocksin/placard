@@ -37,12 +37,13 @@ const plateMat = new THREE.MeshStandardMaterial({color: V.alu || 0xc3c7cd, metal
 function mat(c, m = 0.1, r = 0.6) { return new THREE.MeshStandardMaterial({color: c, metalness: m, roughness: r}); }
 
 const aluEdge = new THREE.LineBasicMaterial({color: 0x4a4f56, transparent: true, opacity: 0.55});
-async function stl(name, material, dz = 0, edges = false) {
+async function stl(name, material, dz = 0, edges = false, off = [0, 0, 0]) {
   const g = await new Promise((res, rej) => loader.load('mesh/' + name + '.stl', res, undefined, rej));
   g.computeVertexNormals();
-  const m = new THREE.Mesh(g, material); m.position.z = dz;
+  const m = new THREE.Mesh(g, material);
   const grp = new THREE.Group(); grp.add(m);
-  if (edges) { const e = new THREE.LineSegments(new THREE.EdgesGeometry(g, 25), edges === 'alu' ? aluEdge : edgeMat); e.position.z = dz; grp.add(e); }
+  if (edges) { const e = new THREE.LineSegments(new THREE.EdgesGeometry(g, 25), edges === 'alu' ? aluEdge : edgeMat); grp.add(e); }
+  grp.position.set(off[0], off[1], off[2] + dz);
   root.add(grp); return grp;
 }
 function box(x0, y0, z0, x1, y1, z1, material, dz = 0, edges = false) {
@@ -60,7 +61,7 @@ const ez = k => E[k] || 0;
 const OFF = B.OFF, ZT = B.Z_TOP, T = B.T;
 if (!V.hide?.includes('board')) {
   const dzb = ez('board');
-  box(OFF, OFF, -1.6, OFF + 290, OFF + 290, 0, mat(0x1d5e3a, 0.1, 0.55), dzb);
+  box(OFF, B.Y_BF, -1.6, OFF + 290, B.D - OFF, 0, mat(0x1d5e3a, 0.1, 0.55), dzb);
   const colors = {J7: 0x9aa0a6, J13: 0xb0b4b8, J6: 0x222222, J5: 0x5a5f66, J8: 0x1a1a1a, J9: 0x222222, J10: 0x222222,
     J11: 0x222222, J12: 0x222222, SW1: 0x8a8f96, SW2: 0x333333, J4: 0xa8acb0, J2: 0x3a3a3a, J3: 0x3a3a3a, F1: 0xd9b23a};
   for (const [ref, p] of Object.entries(B.parts)) {
@@ -89,29 +90,34 @@ if (V.bay === 'blank') await stl('keyboard_blank', acr, ez('bay'), true);
 if (V.bay === 'keyboard') {
   const dz = ez('bay');
   await stl('keyboard_plate', plateMat, dz);
-  const pt = ZT + T + 1.5, pcbTop = pt - 5;
-  const kbx0 = B.keys.reduce((a, k) => Math.min(a, k[0] - k[2] * 9.525), 1e9);
-  box(B.BAY[0] + 0.5, B.BAY[2] + 0.5, pcbTop - 1.6, B.BAY[1] - 0.5, B.BAY[3] - 0.5, pcbTop, mat(0x101010, 0.1, 0.6), dz);
+  // keyboard frame: x across, y up the slope, z out of the plate's top face
+  const K = new THREE.Group(); K.position.set(0, T, B.PT0 + dz); K.rotation.x = B.KB_TILT * Math.PI / 180; root.add(K);
+  const kbox = (x0, y0, z0, x1, y1, z1, m) => { const g = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m);
+    g.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); K.add(g); };
+  const [pw, ps0, ps1] = B.KB_PCB;
+  kbox(B.W / 2 - pw / 2, ps0, -B.MX_PCB - 1.6, B.W / 2 + pw / 2, ps1, -B.MX_PCB, mat(0x101010, 0.1, 0.6));
   const capC = V.caps || [0x2c2f33, 0x9aa1a8];
   for (const [x, y, w] of B.keys) {
     const ww = w * 19.05 - 1.2, hh = 19.05 - 1.2;
     const accent = w > 1.2 && w < 6;
-    const g = new THREE.BoxGeometry(ww, hh, 7.5);
-    const m = new THREE.Mesh(g, mat(accent ? capC[1] : capC[0], 0.05, 0.75));
-    m.position.set(x, y, pt + 4.0 + 3.75 + dz); root.add(m);
-    const t = new THREE.Mesh(new THREE.BoxGeometry(ww - 4.5, hh - 5, 0.6), mat(accent ? capC[1] : capC[0], 0.05, 0.6));
-    t.position.set(x, y + 0.6, pt + 4 + 7.8 + dz); root.add(t);
-    box(x - 7, y - 7, pt, x + 7, y + 7, pt + 4.0, mat(0x111111, 0.1, 0.6), dz);
+    const cm = mat(accent ? capC[1] : capC[0], 0.05, 0.75);
+    kbox(x - ww / 2, y - hh / 2, 6.8, x + ww / 2, y + hh / 2, 14.2, cm);
+    kbox(x - ww / 2 + 2.2, y - hh / 2 + 2.5, 14.2, x + ww / 2 - 2.2, y + hh / 2 - 1.5, B.KEYCAP, cm);
+    kbox(x - 7, y - 7, 0, x + 7, y + 7, 6.6, mat(0x111111, 0.1, 0.6));
   }
 }
+await stl('keyboard_rail', alu, ez('lower'));
+for (const g of ['garage_1', 'garage_2']) await stl(g, alu, ez('upper'));
+await stl('magnets', mat(0x9a9ea4, 0.9, 0.3), ez('covers'));
+for (const n of (V.stow || [])) await stl(n, acrCap, ez('upper'), true, B.stow[n]);
 const cov = V.covers || [1, 2, 3, 4];
 for (const i of cov) await stl('slot_cover_' + i, acrCap, ez('covers'), true);
 if (V.cartCover) await stl('cart_cover', acrCap, ez('covers'), true);
 // ---- installed cartridge / cards (shell = keepout less 1 mm)
 const shellMat = mat(V.shell || 0x2b2d31, 0.1, 0.55);
-if (V.cart) { const c = B.parts.J8.crt; box(c[0] + 1, c[1] + 1, 0, c[2] - 1, c[3] - 1, 112, shellMat, ez('board')); }
+if (V.cart) { const c = B.parts.J8.crt; box(c[0] + 1, c[1] + 1, 0, c[2] - 1, c[3] - 1, 71, shellMat, ez('board')); }
 for (const s of (V.cards || [])) { const c = B.parts[s].crt;
-  box(c[0] + 1, c[1] + 1, 0, c[2] - 1, Math.min(c[3] - 1, B.W - T - 0.2), 92, mat(V.cardShell || 0x3a4048, 0.1, 0.55), ez('board')); }
+  box(c[0] + 1, c[1] + 1, 0, c[2] - 1, Math.min(c[3] - 1, B.D - T - 0.2), 92, mat(V.cardShell || 0x3a4048, 0.1, 0.55), ez('board')); }
 
 // ---- camera
 const cam = new THREE.PerspectiveCamera(V.fov || 30, Wd / Ht, 5, 5000);
