@@ -235,8 +235,8 @@ loader that loads one from the SD card or the card's own hardware.
 ## ROM cartridge slot
 
 The ROM (two AS7C256C 32K x 8 SRAMs, loaded at power-up from two
-AT28C256 EEPROMs on the same cartridge, ROM.md "Loading the cartridge")
-is on a plug-in cartridge.  The cartridge gets the address and data
+AT28C256 EEPROMs on the same cartridge, ROM.md "Loading the cartridge";
+one of each on the 32K cartridge) is on a plug-in cartridge.  The cartridge gets the address and data
 lines and the same chip selects the ROM chips have on the main board.
 
 The connector is a Molex 87715-9106: 64 contacts (2 x 32) at 1.0 mm
@@ -341,17 +341,28 @@ fingers), stacked one above another, so the card is as wide as J8's body
 shell's skirt has to go round the 39 mm slot anyway.  The chip-puller
 room at each socket end may hang past the card edge (the shell comes off
 to change a chip).  The card is centred on the middle of J8's contacts.
-`src/scripts/gen_cart_placement.py` draws the placement from the real
-footprints: the 64K build (5 chips) is 39 x 101.5 mm and the 32K build
-(U1, U3, U5) 39 x 65.4 mm, finger tab included.  An M3 hole (H1) on the
-card's centre line, in the row gap under the lower ROM, screws the card
-to its shell; the gap is 7.9 mm there (the hole's 6.9 mm courtyard, room
-for the screw head or the shell's boss).  An expansion card is 72 mm
+The 64K and 32K cartridges are two boards (Justin, 2026-10-24), placed
+by `src/scripts/gen_kicad_cart_pcb.py` in
+`kicad/cartridge_64k/cartridge_64k.kicad_pcb` (5 chips, 39 x 102.2 mm)
+and `kicad/cartridge_32k/cartridge_32k.kicad_pcb` (3 chips: U1 loader
+PLD, U2 EEPROM, U3 SRAM; 39 x 66.0 mm), finger tab included (8.4 mm,
+KiCad's PCIe card edge).  Bottom to top: the fingers, U1, the mounting
+hole, the SRAMs, the EEPROMs.  An M3 hole (H1) on the card's centre line,
+in the row gap right above U1, screws the card to its shell; the gap is
+7.9 mm (the hole's 6.9 mm courtyard, room for the screw head or the
+shell's boss).  Because everything below the gap is the same on both
+boards, H1 is at the same place on both: 19.5 mm from the card's left
+edge and 25.1 mm above the finger edge, so one shell design takes either
+card (only its height differs).  (Before 2026-10-24 the hole was under
+the lower ROM, which would have put it at a different height on the two
+boards.)  The boards are 2 layers, 1.57 mm, placed and netted but not
+routed; the script leaves an existing board file alone unless run with
+`--force`, so the layout can be finished by hand.  An expansion card is 72 mm
 wide (the slot body, 71.1 mm, plus 0.5 mm a side).  The shell adds 0.5 mm
 air and a 2 mm wall each end, and the keepout 1 mm more.
 
-![64K cartridge placement](cart_placement_5chip.png)
-![32K cartridge placement](cart_placement_3chip.png)
+![64K cartridge board](cart_placement_64k.png)
+![32K cartridge board](cart_placement_32k.png)
 
 | Slot | Shell outside | Keepout (courtyard) | From the footprint origin |
 |---|---|---|---|

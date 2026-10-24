@@ -456,10 +456,9 @@ and /OE2 (instruction register PLD I1, pin 15) wiring.
 The free run does select the AC source buffer (source 11), and the
 accumulator is random, so it goes in with the memories.  Fit the AC
 source buffer U27, the line read buffer U29 and both RAM chips U31 and
-U32.  Build the cartridge: sockets, C1-C5 (100 nF), the loader PLD
+U32.  Build the 64K cartridge: sockets, C1-C5 (100 nF), the loader PLD
 cartridge U1, the EEPROMs cartridge U2 (`bringup_lo.bin`) and U3
-(`bringup_hi.bin`), and the SRAMs cartridge U4 and U5; leave its JP1 as
-made (64K).  Take the shunts off JP1 and JP2 on the main board and plug
+(`bringup_hi.bin`), and the SRAMs cartridge U4 and U5.  Take the shunts off JP1 and JP2 on the main board and plug
 the cartridge into J8.  Power on: within about half a second the
 screen shows the bring-up ROM's status screen ([below](#the-bring-up-rom)).
 If it doesn't, read where the CPU stopped (next section).
