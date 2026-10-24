@@ -9,7 +9,8 @@ when it saves them).
 | `placard.kicad_pro` | the project; open this in KiCad |
 | `placard.kicad_sch` | the schematic's root sheet (A3): one box per sheet, laid out like the block diagram |
 | `power.kicad_sch` ... `expansion.kicad_sch` | the ten sheets (power and clock, control, PC and address mux, ALU and registers, data bus, memory and I/O decode, video timing, video and audio out, shared port, expansion slots), docs/SCHEMATIC_PLAN.md |
-| `cartridge/` | the ROM cartridge, its own project (`cartridge.kicad_pro`, one sheet), using the same `lib/` |
+| `cartridge_64k/` | the 64K ROM cartridge (5 chips), its own project (`cartridge_64k.kicad_pro`, one sheet and a placed, unrouted 2-layer board), using the same `lib/` |
+| `cartridge_32k/` | the 32K ROM cartridge (3 chips), its own project (`cartridge_32k.kicad_pro`, one sheet and a placed, unrouted 2-layer board), using the same `lib/`; mounting hole H1 at the same place as on the 64K board |
 | `keyboard/` | the keyboard board, its own project (`keyboard.kicad_pro`, one sheet: 63 Cherry MX keys, diodes, LEDs), using the same `lib/` |
 | `placard.kicad_pcb` | the board: 4 layers (F.Cu, In1.Cu = GND, In2.Cu = VCC, B.Cu) |
 | `lib/placard.kicad_sym` | PLD symbols: `ATF22V10C` (generic) and one `ATF22V10C_<name>` per `.pld` file, with its pin names |
