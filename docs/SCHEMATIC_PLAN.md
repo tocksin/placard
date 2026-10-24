@@ -1,6 +1,6 @@
 # Schematic plan
 
-Date: 2026-10-23
+Date: 2026-10-24
 
 How the KiCad schematic (`kicad/`) is split into sheets: how many sheets,
 which chips, connectors and passives go on each, and which nets run between
@@ -21,7 +21,7 @@ has one PCB).
 | Sheet | Title | Chips | Connectors and main passives |
 |--:|---|---|---|
 | 1 | Root: block diagram | none | sheet boxes only, drawn like `reference/placard_block_diagram.png` |
-| 2 | Power and clock | U40 3.3 V regulator, oscillator X1 | USB-C power input, polyfuse, on/off toggle SW1, reset relay K1 (NC contact) with button SW2 and coil diode D8, bulk capacitor C41 ahead of K1, STALL_OUT 10k pull-up, RUN pull-down, STALL/RUN bring-up jumpers |
+| 2 | Power and clock | U40 3.3 V regulator, oscillator X1 | USB-C power input, polyfuse, on/off toggle SW1, reset relay K1 (NC contact) with button SW2 and coil diode D8, bulk capacitor C41 ahead of K1, STALL_OUT 10k pull-up, RUN pull-down, STALL/RUN bring-up jumpers, power LED D18 + R59 on +5V |
 | 3 | Control | U1 State, U2 Branch, U17 instruction register PLD | bring-up straps S1-S3 (State socket pins) |
 | 4 | Program counter and address mux | U3, U4 PC low/high, U7-U10 address mux | none |
 | 5 | ALU and registers | U5, U6 ALU, U19 AC, U20 X, U21 Y | none |
@@ -124,8 +124,10 @@ C41 between SW1 and K1, the MCP1700-3302
 (U40) with its 1 µF in and out, and the 25.175 MHz oscillator (X1), whose
 output is CLK (no clock gate since 2026-10-21).  STALL_OUT's 10k pull-up
 and RUN's pull-down sit here, with the bring-up jumpers JP1 (STALL_IN to
-STALL_OUT) and JP2 (RUN to +5 V) ([BRINGUP.md](BRINGUP.md)).  A power LED, if
-wanted, goes here too.
+STALL_OUT) and JP2 (RUN to +5 V) ([BRINGUP.md](BRINGUP.md)).  The power LED
+D18 (Lite-On LTL-4231N, green 3 mm, through hole) and its 1k resistor R59
+(about 3 mA) hang from +5V after K1 (Justin, 2026-10-24), so the LED goes
+dark while the reset button is held.
 
 **Decoupling.**  Every chip's 100 nF capacitor is drawn beside that chip
 on its own sheet, between its VCC and GND pins, so a sheet shows each chip

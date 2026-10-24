@@ -1,6 +1,6 @@
 # Bring-up: build order and a test for each chip
 
-Date: 2026-10-23
+Date: 2026-10-24
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
@@ -113,6 +113,7 @@ Leave U40, C40 and C42 (the 3.3 V regulator) for step 18, with the SD card.
 | K1 | Omron G5LE-1 DC5 relay; COM (pin 1) = VON, NC (pin 4) = +5V | |
 | SW2 | PTS645VL58-2 tactile reset button, VON to the coil (KCOIL) | |
 | D8 | BAT85 across K1's coil | band (cathode) to KCOIL |
+| R59, D18 | 1k and the green 3 mm power LED, +5V (after K1) to GND | LED's long lead (anode) to R59, flat side (cathode) to GND |
 
 **The relay's NC rating.**  The whole board's current flows through K1's
 normally closed contact.  Before fitting K1, check on the Omron G5LE
@@ -139,14 +140,15 @@ points.
 | VON, +5V | off | up | 0 V |
 | Input current | off | up | under 1 mA (D7 leaks a little at 5 V) |
 | VON and +5V | on | up | the same as VFUSE, within 0.05 V |
-| Input current, no load | on | up | under 1 mA once C41 has charged |
-| +5V | on | held | 0 V; K1 clicks |
+| D18 (power LED) | on | up | lit |
+| Input current, no load | on | up | about 3 mA once C41 has charged (D18) |
+| +5V | on | held | 0 V; K1 clicks, D18 goes dark |
 | VON | on | held | still 5 V (C41 stays charged) |
 | Input current | on | held | about 80 mA more (K1's coil) |
-| +5V | on | let go | back to 5 V |
+| +5V | on | let go | back to 5 V, D18 lit |
 
 **Reset.**  Put a 100 ohm resistor (1/2 W) from +5V to GND as a load
-(50 mA).  Hold SW2 for about half a second: +5V falls below 0.1 V while it
+(50 mA; D18 and R59 add 3 mA but drain the rail too slowly to rely on).  Hold SW2 for about half a second: +5V falls below 0.1 V while it
 is held (with a scope, it falls within about 10 ms of the press, the
 relay's operate time) and comes back within about 10 ms of letting go,
 with no bounce worth noting.  Without a load nothing drains the rail but
