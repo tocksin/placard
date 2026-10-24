@@ -1,13 +1,13 @@
 {
  "assembled_keyboard": {
   "cam": [
-   -260,
-   -420,
-   380
+   -300,
+   -470,
+   330
   ],
   "look": [
    150,
-   140,
+   160,
    0
   ],
   "bay": "keyboard",
@@ -19,17 +19,22 @@
   "cards": [
    "J9",
    "J10"
+  ],
+  "stow": [
+   "slot_cover_1",
+   "slot_cover_2",
+   "cart_cover"
   ]
  },
  "assembled_blank": {
   "cam": [
-   560,
-   -400,
-   360
+   580,
+   -430,
+   330
   ],
   "look": [
    150,
-   145,
+   165,
    0
   ],
   "bay": "blank",
@@ -39,18 +44,17 @@
    3,
    4
   ],
-  "cartCover": true,
-  "aluEdges": true
+  "cartCover": true
  },
  "exploded": {
   "cam": [
-   -330,
-   -560,
+   -360,
+   -600,
    560
   ],
   "look": [
    150,
-   150,
+   170,
    60
   ],
   "fov": 32,
@@ -67,23 +71,47 @@
    "board": 45,
    "upper": 120,
    "top": 170,
-   "bay": 185,
+   "bay": 30,
    "covers": 215
   }
+ },
+ "side": {
+  "cam": [
+   -900,
+   165,
+   25
+  ],
+  "look": [
+   0,
+   165,
+   12
+  ],
+  "fov": 9.5,
+  "bay": "keyboard",
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "aluEdges": true,
+  "w": 1600,
+  "h": 600
  },
  "rear": {
   "cam": [
    -150,
-   760,
+   800,
    140
   ],
   "look": [
    150,
-   250,
+   280,
    5
   ],
   "fov": 26,
-  "bay": "blank",
+  "bay": "keyboard",
   "covers": [
    1,
    2,
@@ -93,37 +121,71 @@
   "cartCover": true,
   "aluEdges": true
  },
- "rear_right": {
+ "garage": {
   "cam": [
-   560,
-   560,
-   120
-  ],
-  "look": [
-   200,
-   220,
-   5
-  ],
-  "fov": 28,
-  "bay": "blank",
-  "covers": [
-   1,
-   2,
-   3,
-   4
-  ],
-  "cartCover": true,
-  "aluEdges": true
- },
- "black": {
-  "cam": [
-   -260,
-   -420,
-   380
+   150,
+   -330,
+   190
   ],
   "look": [
    150,
-   140,
+   150,
+   5
+  ],
+  "fov": 34,
+  "bay": "keyboard",
+  "covers": [
+   3,
+   4
+  ],
+  "cards": [
+   "J9",
+   "J10"
+  ],
+  "cart": true,
+  "stow": [
+   "slot_cover_1",
+   "slot_cover_2",
+   "cart_cover"
+  ],
+  "aluEdges": true
+ },
+ "split_detail": {
+  "cam": [
+   150,
+   600,
+   60
+  ],
+  "look": [
+   235,
+   330,
+   8
+  ],
+  "fov": 22,
+  "bay": "blank",
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "aluEdges": true,
+  "explode": {
+   "upper": 22,
+   "top": 22,
+   "covers": 22
+  }
+ },
+ "black": {
+  "cam": [
+   -300,
+   -470,
+   330
+  ],
+  "look": [
+   150,
+   160,
    0
   ],
   "bay": "keyboard",
@@ -140,62 +202,9 @@
   "caps": [
    15461355,
    13421772
+  ],
+  "stow": [
+   "cart_cover"
   ]
- },
- "split_detail": {
-  "cam": [
-   150,
-   560,
-   60
-  ],
-  "look": [
-   235,
-   295,
-   8
-  ],
-  "fov": 22,
-  "bay": "blank",
-  "covers": [
-   1,
-   2,
-   3,
-   4
-  ],
-  "cartCover": true,
-  "aluEdges": true,
-  "explode": {
-   "upper": 22,
-   "top": 22,
-   "bay": 22,
-   "covers": 22
-  }
- },
- "split_left": {
-  "cam": [
-   -420,
-   330,
-   70
-  ],
-  "look": [
-   0,
-   250,
-   6
-  ],
-  "fov": 20,
-  "bay": "blank",
-  "covers": [
-   1,
-   2,
-   3,
-   4
-  ],
-  "cartCover": true,
-  "aluEdges": true,
-  "explode": {
-   "upper": 22,
-   "top": 22,
-   "bay": 22,
-   "covers": 22
-  }
  }
 }
