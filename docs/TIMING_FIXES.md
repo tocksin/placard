@@ -121,7 +121,7 @@ old one, and each matches the byte written for that line.
 ## Memory and I/O decode (two PLDs)
 
 The upper chip select, the ROM /OE and the I/O decode planned in
-[FEATURE_PLAN.md](FEATURE_PLAN.md) are done together by reworking the
+the original feature plan are done together by reworking the
 ROM/RAM select PLD and adding one PLD, the I/O decode PLD.  The '04 is no
 longer needed, so the chip count stays the same as before the I/O decode
 was planned.
@@ -141,7 +141,7 @@ was planned.
   (−4.4).
 - **ROM /OE.**  The ROM's /OE was !ROM_EN through the '04 (43.0 ns, −3.3),
   because the ROM/RAM select PLD had no macrocell left for a second polarity.
-- **I/O priority.**  FEATURE_PLAN.md gated the RAM and ROM read enables with
+- **I/O priority.**  The original feature plan gated the RAM and ROM read enables with
   spare OR gates and the I/O decoder's IO_SEL.  IO_SEL is a PLD level after
   the address, so the RAM read through that gate would be 43.6 ns (−3.9).
 
@@ -172,7 +172,7 @@ The PLD itself is gone since 2026-10-16: the map is now a 74ACT273; see
   it settles with the mux output (20.5 ns) instead of a gate after it.  The
   lower chip's /CE stays the mux's A15.  The same rebuilt A15 is used in the
   I/O window decode, which saves the A15 input pin.
-- **I/O strobes** as in FEATURE_PLAN.md: /MAP_WR and /LINE_RD (page 0),
+- **I/O strobes** as in the original feature plan: /MAP_WR and /LINE_RD (page 0),
   /SND_WR (1), /PORT_WR and /PORT_RD (2), /EXP1 (5), /EXP2 (6).  Write
   strobes are low with /WE, so a device latches on the rising edge at the
   end of the write; read strobes are low on a read the CPU latches into D
@@ -201,7 +201,7 @@ The PLD itself is gone since 2026-10-16: the map is now a 74ACT273; see
 | End of write: RAM drives again at RW 5 + RAM_OE 3 (minimums) vs buffer off by 13.1 | 7.6 overlap | 5.1 overlap | |
 
 The I/O read leaves only 0.2 ns, so the devices on the read bus need an
-F541 or something at least as fast (FEATURE_PLAN.md already uses F541s).
+F541 or something at least as fast (the original feature plan already used F541s).
 
 ### Checked in simulation
 
@@ -214,7 +214,7 @@ F541 or something at least as fast (FEATURE_PLAN.md already uses F541s).
   (it used to by way of the `romEn` polarity bug noted in TIMING.md), because
   no program sets the map yet and the map powers up as all ROM.
 
-### Changes to FEATURE_PLAN.md's I/O decode
+### Changes to the original feature plan's I/O decode
 
 1. RAM/ROM priority is inside the ROM/RAM select PLD; no OR gates.
 2. Section 2 has no map bit; 4000h-4FFFh is always RAM.

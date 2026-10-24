@@ -1,10 +1,9 @@
 # Software roadmap
 
-Date: 2026-10-23
+Date: 2026-10-24
 
 Programs to write for the Placard, what each needs, and where it fits.
-This replaces the program list in [FEATURE_PLAN.md](FEATURE_PLAN.md)
-("Software"); the libraries it builds on are in [LIBRARY.md](LIBRARY.md)
+The libraries it builds on are in [LIBRARY.md](LIBRARY.md)
 and [IO.md](IO.md).  The sizes below are estimates, to be replaced by real
 numbers as each program is written.
 
