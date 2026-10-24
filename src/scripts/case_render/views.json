@@ -1,0 +1,201 @@
+{
+ "assembled_keyboard": {
+  "cam": [
+   -260,
+   -420,
+   380
+  ],
+  "look": [
+   150,
+   140,
+   0
+  ],
+  "bay": "keyboard",
+  "covers": [
+   3,
+   4
+  ],
+  "cart": true,
+  "cards": [
+   "J9",
+   "J10"
+  ]
+ },
+ "assembled_blank": {
+  "cam": [
+   560,
+   -400,
+   360
+  ],
+  "look": [
+   150,
+   145,
+   0
+  ],
+  "bay": "blank",
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "aluEdges": true
+ },
+ "exploded": {
+  "cam": [
+   -330,
+   -560,
+   560
+  ],
+  "look": [
+   150,
+   150,
+   60
+  ],
+  "fov": 32,
+  "bay": "keyboard",
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "explode": {
+   "lower": 0,
+   "board": 45,
+   "upper": 120,
+   "top": 170,
+   "bay": 185,
+   "covers": 215
+  }
+ },
+ "rear": {
+  "cam": [
+   -150,
+   760,
+   140
+  ],
+  "look": [
+   150,
+   250,
+   5
+  ],
+  "fov": 26,
+  "bay": "blank",
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "aluEdges": true
+ },
+ "rear_right": {
+  "cam": [
+   560,
+   560,
+   120
+  ],
+  "look": [
+   200,
+   220,
+   5
+  ],
+  "fov": 28,
+  "bay": "blank",
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "aluEdges": true
+ },
+ "black": {
+  "cam": [
+   -260,
+   -420,
+   380
+  ],
+  "look": [
+   150,
+   140,
+   0
+  ],
+  "bay": "keyboard",
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": false,
+  "cart": true,
+  "alu": 2894892,
+  "bg": 15659760,
+  "caps": [
+   15461355,
+   13421772
+  ]
+ },
+ "split_detail": {
+  "cam": [
+   150,
+   560,
+   60
+  ],
+  "look": [
+   235,
+   295,
+   8
+  ],
+  "fov": 22,
+  "bay": "blank",
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "aluEdges": true,
+  "explode": {
+   "upper": 22,
+   "top": 22,
+   "bay": 22,
+   "covers": 22
+  }
+ },
+ "split_left": {
+  "cam": [
+   -420,
+   330,
+   70
+  ],
+  "look": [
+   0,
+   250,
+   6
+  ],
+  "fov": 20,
+  "bay": "blank",
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "aluEdges": true,
+  "explode": {
+   "upper": 22,
+   "top": 22,
+   "bay": 22,
+   "covers": 22
+  }
+ }
+}
