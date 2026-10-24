@@ -1,6 +1,6 @@
 # Chip list
 
-Date: 2026-10-23
+Date: 2026-10-24
 
 Every chip in the Placard, one chip per line.  The current list follows
 `basys_top.vhd`, the PLD sources in `src/pld`, [CPU.md](CPU.md),
@@ -159,5 +159,10 @@ the settled part of each pixel shrinks from about 21 to about 16 ns.
 Nothing else is planned yet.  The four expansion slots and the ROM
 cartridge slot are connectors only ([EXPANSION.md](EXPANSION.md)).  The
 PS/2 mouse and PS/2 keyboard (stacked dual socket) use the shared port and add only diodes, pull-ups and the socket.
-Features cut from the plan, such as the frame counter or an SPI shifter,
-are listed with their cost in FEATURE_PLAN.md, "Cut for now".
+Features cut to keep the chip count down (can be added later):
+
+| Feature | Cost to add back |
+|---|---|
+| Hardware frame counter | 1 x 22V10 |
+| Hardware SPI byte shifter (faster SD) | 74HC595, 74HC165, 22V10 |
+| Buffered expansion slots | 74F245 + 74F541 per slot (stock not checked) |
