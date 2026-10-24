@@ -110,11 +110,15 @@ Bits 3:2 of a row's mode byte make each byte of video memory show on 1, 2 or 4 l
 `build\menu.bat` loads one ROM with the CPU test, pi, Mandelbrot, the Game of Life, the text demo and the ray caster and a menu.  At power-up they run in turn, each until it is done or for 2 minutes (Mandelbrot 3).  Esc in any program shows the menu (Up / Down and Enter, or 1-6); a program picked there runs until Esc, and after 2 minutes with no key the menu goes back to running them in turn.  `src/scripts/gen_menu_rom.py` builds it and `src/scripts/test_menu.py` checks it in the simulator.  See [docs/MENU.md](docs/MENU.md).
 
 ### Game demos
-Two demos show what the CPU can do with no sprite or collision hardware.  Both are ROM programs written by a Python generator (the tables, the unrolled drawing code and a bit-exact model of the picture), and each has a simulator test that checks every frame against the model.
+Three demos show what the CPU can do with no sprite or collision hardware.  All are ROM programs written by a Python generator (the tables, the unrolled drawing code and a bit-exact model of the picture), and each has a simulator test that checks every frame against the model.
 
 `src/scripts/raycast.asm` (`gen_raycast.py`) is a ray caster: an 80 × 112 view at 8 bpp (4x line repeat) of a maze with shaded, two-tone walls and a dithered floor and ceiling, walked by a demo script until a key or pad button takes over (arrow keys or SNES pad 1: Up / Down walk, Left / Right turn).  A view takes 143k-170k clocks (a column about 2,000), so it runs at the full 60 views a second using under 40 % of each frame.  `build\raycast.bat` loads it and `src/scripts/test_raycast_sim.py` checks it.
 
 ![raycast in the simulator](reference/raycast_sim.gif)
+
+`src/scripts/raycast_tex.asm` (`gen_raycast_tex.py`) is the same maze and demo walk with textured walls, in the style of Wolfenstein 3D: seven 32 × 32 textures drawn by the generator (stone, brick, wood, riveted metal, mossy stone, a circuit board with a 22V10 and a framed Mandelbrot picture), y sides darker than x sides and four levels of distance shading.  Each column finds where the ray hit the wall (two 8 × 8 multiplies), copies that texture column through a shading table into zero page, and draws the wall with a compiled scaler: one unrolled routine per wall height that stores the right texel into each cell.  A view takes 229k-261k clocks (about 3,000 a column), so it still runs at 60 views a second, with room left for sprites.  It uses the ROM x2000-x3FFF for the textures and x6000-xBFFF for the code, tables and scalers, so it is not in the demo menu ROM.  `build\raycast_tex.bat` loads it and `src/scripts/test_raycast_tex_sim.py` checks it.
+
+![textured raycast in the simulator](reference/raycast_tex_sim.gif)
 
 `src/scripts/scroller.asm` (`gen_scroller.py`) is a side-scrolling platformer at 160 × 112, 4 bpp: three parallax bands (clouds, mountains, hills at 1/8, 1/4 and 1/2 speed) over a tiled level, with a robot that runs, jumps, collects coins and stomps slimes, all at 60 frames a second.  The background is redrawn every frame by unrolled strips, top to bottom ahead of the beam, so nothing has to be erased.  The sprites are compiled: each frame of art is its own routine in RAM that stores its bytes (masked where a byte is half transparent) straight into video memory.  Background and sprites take about 93k of the 420k clocks in a frame.  The demo player plays until a key or pad button is pressed (arrow keys or SNES pad 1: Left / Right to run, Up, Space or pad B to jump).  `build\scroller.bat` loads it and `src/scripts/test_scroller_sim.py` checks it.
 
@@ -139,7 +143,7 @@ software stack and the zero page variable map (`zeropage.asm`).  See
 The `build` folder has one Windows batch file per assembly program
 (`cpu_test.bat`, `test_video.bat`, `text_demo.bat`, `mandelbrot.bat`,
 `pi_spigot.bat`, `game_of_life.bat`, `lib_demo.bat`, `raycast.bat`,
-`scroller.bat`).  Each one assembles
+`raycast_tex.bat`, `scroller.bat`).  Each one assembles
 `src/scripts/<program>.asm` (customasm, or `placard_sim.py` if customasm is not
 on the PATH), writes the RAM initialization files `src/hdl/ram.mem` (main
 RAM) and `cart_ram.mem` (cartridge SRAM), random bytes like a real SRAM at
