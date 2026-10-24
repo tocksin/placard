@@ -32,17 +32,17 @@ slots a card will use, and J1 only with the Cherry MX keyboard (a PS/2 keyboard 
 
 | Board | Components | Without optional parts | Lines estimated |
 |---|--:|--:|--:|
-| Main board | $185.09 | $166.49 | 41 |
+| Main board | $185.33 | $166.73 | 42 |
 | Cartridge, 64K | $61.72 | $61.72 | 4 |
 | Cartridge, 32K | $32.69 | $32.69 | 4 |
 | Keyboard | $145.96 | $145.96 | 6 |
-| **Main, 64K cartridge, keyboard** | **$392.77** | **$374.17** | |
+| **Main, 64K cartridge, keyboard** | **$393.01** | **$374.41** | |
 
 ## Main board
 
-56 lines, 173 parts on the schematic.
+57 lines, 175 parts on the schematic.
 
-Components: **$185.09** for one board at these quantities, **$166.49** without the optional parts.
+Components: **$185.33** for one board at these quantities, **$166.73** without the optional parts.
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -72,6 +72,7 @@ Components: **$185.09** for one board at these quantities, **$166.49** without t
 | 10 | D1-D6, D8-D11 | BAT85 | Vishay | Schottky diode, DO-35 |  | 0.10 | 1.00 | est.: Vishay BAT85 | Any BAT85 (Vishay, Nexperia, onsemi) |
 | 1 | D7 | SA5.0A | Littelfuse | D_Zener |  | 0.40 | 0.40 | est.: Littelfuse SA5.0A, 500 W TVS, DO-15 axial |  |
 | 6 | D12-D17 | 1N4148 | Vishay | Small-signal diode, DO-35 |  | 0.10 | 0.60 | est.: Vishay 1N4148 | Any 1N4148 (Vishay, onsemi, Diodes Inc.) |
+| 1 | D18 | LTL-4231N | Lite-On | Power LED, 3 mm, green diffused, through hole (on +5V after K1) |  | 0.20 | 0.20 | est.: Lite-On LTL-4231N | D18 with R59 (1k, about 3 mA); any 3 mm LED fits, pick the color |
 | 2 | R1, R2 | MFR-25FBF52-5K1 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 5.1k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
 | 7 | R3, R4, R13, R39-R41, R48 | MFR-25FBF52-10K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 10k | 0.10 | 0.70 | est.: Yageo MFR-25FBF52 series |  |
 | 8 | R5-R12 | MFR-25FBF52-47R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 47 | 0.10 | 0.80 | est.: Yageo MFR-25FBF52 series |  |
@@ -82,7 +83,7 @@ Components: **$185.09** for one board at these quantities, **$166.49** without t
 | 1 | R21 | MFR-25FBF52-715R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 715 | 0.10 | 0.10 | est.: Yageo MFR-25FBF52 series |  |
 | 1 | R22 | MFR-25FBF52-2R2 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 2.2 | 0.10 | 0.10 | est.: Yageo MFR-25FBF52 series |  |
 | 9 | R23-R31 | MFR-25FBF52-2K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 2k | 0.10 | 0.90 | est.: Yageo MFR-25FBF52 series |  |
-| 11 | R32-R38, R51-R54 | MFR-25FBF52-1K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 1k | 0.04 | 0.44 | est.: Yageo MFR-25FBF52 series |  |
+| 12 | R32-R38, R51-R54, R59 | MFR-25FBF52-1K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 1k | 0.04 | 0.48 | est.: Yageo MFR-25FBF52 series |  |
 | 3 | R42-R44 | MFR-25FBF52-1K8 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 1.8k | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
 | 3 | R45-R47 | MFR-25FBF52-3K3 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 3.3k | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
 | 3 | R49, R50, R55 | MFR-25FBF52-4K7 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 4.7k | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
