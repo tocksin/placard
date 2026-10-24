@@ -1,15 +1,16 @@
 # Bill of materials
 
-Date: 2026-10-23
+Date: 2026-10-24
 
-Every part of the three boards, one line per part number: the main
-board, the ROM cartridge and the keyboard.  Parts with the same part
+Every part of the four boards, one line per part number: the main
+board, the two ROM cartridges (64K and 32K, separate boards since
+2026-10-24; a machine takes one) and the keyboard.  Parts with the same part
 number share a line; where no part number is chosen yet the column is
 blank and parts with the same description and value share the line.
 Lines marked "not on the schematic" are sockets, shunts, keyboard
 parts and the keyboard cable that KiCad's own BOM export leaves out.
-The net tie NT1, the cartridge's edge fingers (its J1) and its 32K/64K
-solder jumper JP1 are copper on the PCB, so they are not listed.
+The net tie NT1 and the cartridges' edge fingers (their J1) are copper
+on the PCB, so they are not listed.
 
 Written by `src/scripts/gen_bom.py` from the KiCad sheets (the part
 numbers are the Manufacturer and MPN fields set by
@@ -32,9 +33,10 @@ slots a card will use, and J1 only with the Cherry MX keyboard (a PS/2 keyboard 
 | Board | Components | Without optional parts | Lines estimated |
 |---|--:|--:|--:|
 | Main board | $185.09 | $166.49 | 41 |
-| Cartridge | $61.72 | $61.72 | 4 |
+| Cartridge, 64K | $61.72 | $61.72 | 4 |
+| Cartridge, 32K | $32.69 | $32.69 | 4 |
 | Keyboard | $145.96 | $145.96 | 6 |
-| **All three** | **$392.77** | **$374.17** | |
+| **Main, 64K cartridge, keyboard** | **$392.77** | **$374.17** | |
 
 ## Main board
 
@@ -101,7 +103,7 @@ Components: **$185.09** for one board at these quantities, **$166.49** without t
 | 1 |  | MFR-25FBF52-10K | Yageo | Resistor, 10k (/WE pull-up), 1/4 W, axial | 10k | 0.10 | 0.10 | est.: Yageo MFR-25FBF52-10K | Not on the schematic.  Memory control rev 09 lets go of /WE while RUN is low; not drawn on the schematic yet (EXPANSION.md, "Booting from slot 1") |
 | 2 | JP1, JP2 | QPC02SXGN-RC | Sullins | Jumper shunt, 2.54 mm |  | 0.10 | 0.20 | est.: Sullins QPC02SXGN-RC | Not on the schematic.  Bring-up jumpers |
 
-## Cartridge
+## Cartridge, 64K
 
 7 lines, 10 parts on the schematic.
 
@@ -116,6 +118,22 @@ Components: **$61.72** for one board at these quantities.
 | 1 | U1 | ED241DT | On Shore | IC socket, DIP-24 0.3" |  | 0.40 | 0.40 | est.: On Shore ED241DT | Not on the schematic. |
 | 2 | U4, U5 | ED281DT | On Shore | IC socket, DIP-28 0.3" |  | 0.45 | 0.90 | est.: On Shore ED281DT | Not on the schematic. |
 | 2 | U2, U3 | ED28DT | On Shore | IC socket, DIP-28 0.6" |  | 0.45 | 0.90 | est.: On Shore ED28DT | Not on the schematic. |
+
+## Cartridge, 32K
+
+7 lines, 6 parts on the schematic.
+
+Components: **$32.69** for one board at these quantities.
+
+| Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
+|--:|---|---|---|---|---|--:|--:|---|---|
+| 1 | U1 | ATF22V10C-7PX | Microchip | PLD, 22V10, 7.5 ns, PDIP-24 0.3" (programmed) |  | 2.99 | 2.99 | Mouser | Cartridge loader U1 |
+| 1 | U2 | AT28C256-15PU | Microchip | EEPROM, 32K x 8, 150 ns, PDIP-28 0.6" (programmed) |  | 12.38 | 12.38 | Mouser |  |
+| 1 | U3 | AS7C256C-15PCN | Alliance Memory | SRAM, 32K x 8, 15 ns, PDIP-28 0.3" |  | 15.21 | 15.21 | Mouser |  |
+| 3 | C1-C3 | C320C104K5R5TA | KEMET | Ceramic capacitor, 5 mm pitch | 100n | 0.27 | 0.81 | est.: KEMET C320C104K5R5TA |  |
+| 1 | U1 | ED241DT | On Shore | IC socket, DIP-24 0.3" |  | 0.40 | 0.40 | est.: On Shore ED241DT | Not on the schematic. |
+| 1 | U3 | ED281DT | On Shore | IC socket, DIP-28 0.3" |  | 0.45 | 0.45 | est.: On Shore ED281DT | Not on the schematic. |
+| 1 | U2 | ED28DT | On Shore | IC socket, DIP-28 0.6" |  | 0.45 | 0.45 | est.: On Shore ED28DT | Not on the schematic. |
 
 ## Keyboard
 
