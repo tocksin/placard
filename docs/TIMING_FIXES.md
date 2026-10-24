@@ -1,6 +1,6 @@
 # Remaining timing fixes
 
-Date: 2026-10-18
+Date: 2026-10-24
 
 This covers what was left in [TIMING.md](TIMING.md) after the ALU
 ([ALU_TIMING.md](ALU_TIMING.md)), video read

@@ -1,6 +1,6 @@
 # I/O: keyboard, SNES pads, SD card, PS/2 keyboard and mouse
 
-Date: 2026-10-23
+Date: 2026-10-24
 
 The keyboard, both SNES pads, the SD card, a PS/2 mouse and a PS/2
 keyboard (for buyers who use their own instead of the Cherry MX board) share one port

@@ -1,6 +1,6 @@
 # Chip list
 
-Date: 2026-10-23
+Date: 2026-10-24
 
 Every chip in the Placard, one chip per line.  The current list follows
 `basys_top.vhd`, the PLD sources in `src/pld`, [CPU.md](CPU.md),
