@@ -151,12 +151,12 @@ every other part goes in with the step that first needs it.  X1 has no
 socket: solder it in, with the can's dot or square corner (pin 1) on
 the footprint's pin 1.
 
-- Power on: about 5 V across C43's leads (X1's +5 V and GND; its own
-  pins are under the can).  Current: a few tens of mA more than step 1
-  (X1).
-- X1's output (CLK) reads **25.175 MHz**, 2.5 V average, at U15's pin 1
-  (the Sync PLD's CLK pad; its socket isn't in until step 3, so probe the
-  bare pad).  If the meter doesn't reach that, skip it: step 3 shows the
+X1's pins are under the can, so probe at U15's bare pads (the Sync PLD;
+its socket isn't in until step 3):
+
+- Power on: +5 V on U15 pin 24 and 0 V on pin 12.  Current: a few tens
+  of mA more than step 1 (X1).
+- X1's output (CLK) reads **25.175 MHz**, 2.5 V average, at U15 pin 1.  If the meter doesn't reach that, skip it: step 3 shows the
   clock divided down.
 
 ### Step 3: Sync PLD (U15)
