@@ -24,10 +24,16 @@ by `src/scripts/gen_bringup.py` and checked by
 
 ## Before you start
 
-**Sockets.**  Put every chip in a socket.  The steps add chips one at a
-time, the CPU steps take the RAM out again for a while, and a few steps
-put temporary resistors ("straps") into empty sockets.  Each strap is
-described in the step that puts it in and the step that takes it out.
+**Sockets.**  Put every chip in a socket.  Each step fits only the
+sockets for its own chips, each with its 100 nF decoupler (Cn sits beside
+Un), and checks them before a chip goes in: power on, +5 V on the
+socket's power pin and 0 V on its ground pin (24-pin PLDs pins 24 and 12;
+20-pin chips (F377, F541, ACT273, HC574, HCT574) 20 and 10; the 28-pin
+RAMs 28 and 14).  A few sockets go in a step or more early, empty,
+because a temporary resistor ("strap") or a test pull-down plugs into
+them; the step says so.  Each strap is described in the step that puts
+it in and the step that takes it out.  The steps add chips one at a
+time, and the CPU steps take the RAM out again for a while.
 
 **Programming.**  Each PLD and EEPROM is programmed in the step that
 fits it, just before it goes in, not all at the start.  So a chip always
@@ -93,7 +99,7 @@ so its readings shift a little with the line and frame; read the average.
 ### Step 1: the power input, on/off switch and reset
 
 Fit only the power input parts on the bare board (power sheet, 2026-10-22).
-Leave U40, C40 and C42 (the 3.3 V regulator) for step 18, with the SD card.
+Leave U40, C40 and C47 (the 3.3 V regulator) for step 18, with the SD card.
 
 | Part | What | Fitting note |
 |---|---|---|
@@ -140,12 +146,9 @@ Pass when every row above reads as listed.
 
 ### Step 2: passives and the oscillator
 
-Build the rest of the board with no chips:
+Fit the board's passives, with no sockets yet (each later step fits its
+own) and no straps:
 
-- Sockets for U1-U23, U25-U27, U29, U31, U32, U35, U38, U42 and the
-  oscillator X1 (U36's socket can wait for step 19).
-- Decoupling capacitors (100 nF): C1-C23, C25-C27, C29, C31, C32, C35,
-  C38, C42 (each Cn sits beside Un), and C43 beside X1.
 - Data bus: RN1 (10k SIP, pulls D7:D0 up) and R5-R12 (47 ohm series
   resistors).
 - Cartridge STALL and RUN: R3 (10k, STALL_OUT pull-up), R4 (10k, RUN
@@ -158,36 +161,34 @@ Build the rest of the board with no chips:
   resistors R61 and R62 (47 ohm, beside U13 and U15), and the VGA
   connector J7.
 
-Then push the straps into the empty sockets.  Each is a 10k resistor
-with its leads in the socket's pins (or soldered to a spare socket that
-plugs in), holding a control line whose driver isn't in yet:
+Then the oscillator:
 
-- **S1**, in U1 (State): four 10k, from pins 15, 16, 17 and 18 each to
-  pin 12 (GND).  Holds PC_ENABLE, X_ENABLE, Y_ENABLE and Q0 low, so the
-  address muxes pick D (low byte) and 00 (high byte) outside video reads
-  and /SRC_EN stays off.  Out at step 11.
-- **S2**, in U1 (State): pin 23 to pin 24 (+5 V).  Holds R/W high: no
-  writes.  Out at step 11.
-- **S3**, in U1 (State): pin 19 to pin 12 (GND).  Holds /LOAD_IMM low, so
-  the D register loads the bus every clock.  Out at step 11.
-- **S4**, in U35 (audio): pin 23 to pin 12 (GND).  Holds BLANK_RD low: no
-  mode or audio reads.  Out at step 6.
-- **S5**, in U23 (line code): two 10k, from pins 6 and 9 (Q2, Q3) each to
-  pin 10 (GND).  Holds the line repeat at 1x for the audio PLD.  Out at
-  step 7.
-
-- With no chips and power on, check +5 V on every socket's power pin and
-  0 V on its ground pin: 24-pin PLDs 24 and 12; 20-pin chips (F377, F541,
-  ACT273, HC574, HCT574) 20 and 10; the 28-pin RAM
-  sockets U31 and U32 28 and 14.  Current with no chips: a few mA (the pull-ups).
+- Fit X1's socket and its decoupler C43 (100 nF).  Power on: +5 V and
+  0 V on the socket's supply pins.  Current with no chips: a few mA (the
+  pull-ups).
 - Fit the 25.175 MHz oscillator X1.  Its output reads **25.175 MHz**, 2.5 V
   average.  If the meter doesn't reach that, skip it: step 3 shows the
   clock divided down.
 
 ### Step 3: Sync PLD (U15)
 
+**Sockets:** U15 with C15.  Also fit the State socket U1 (with C1) and
+the audio socket U35 (with C35), empty, for straps S1 and S4.
+
 **Program first:** U15 Sync from `ATF22V10_SYNC.pld` (rev 09); verify
 and label it.
+
+**Straps.**  A strap is a 10k resistor with its leads in an empty
+socket's pins (or soldered to a spare socket that plugs in), holding a
+control line whose driver isn't in yet.  The Sync PLD reads three State
+PLD outputs and the audio PLD's BLANK_RD, so put in:
+
+- **S1**, in U1 (State): four 10k, from pins 15, 16, 17 and 18 each to
+  pin 12 (GND).  Holds PC_ENABLE, X_ENABLE, Y_ENABLE and Q0 low, so the
+  address muxes pick D (low byte) and 00 (high byte) outside video reads
+  and /SRC_EN stays off.  Out at step 11.
+- **S4**, in U35 (audio): pin 23 to pin 12 (GND).  Holds BLANK_RD low: no
+  mode or audio reads.  Out at step 6.
 
 Fit U15.  The Sync PLD's H2:H0 count the clock by itself.
 
@@ -201,8 +202,18 @@ The other Sync pins depend on the counters and are checked in step 5.
 
 ### Step 4: H counter PLD (U13)
 
+**Sockets:** U13 with C13.  Also fit the line code socket U23 (with
+C23), empty, for strap S5.
+
 **Program first:** U13 H counter from `ATF22V10_HCOUNT.pld` (rev 08);
 verify and label it.
+
+The H counter reads the line code's Q7 (blank line), so put in:
+
+- **S5**, in U23 (line code): three 10k, from pins 6, 9 and 19 (Q2, Q3,
+  Q7) each to pin 10 (GND).  Q7 low keeps every line a video line; Q3:Q2
+  low holds the line repeat at 1x for the audio PLD (step 6).  Out at
+  step 7.
 
 Fit U13.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks a line.
 
@@ -222,6 +233,8 @@ Fit U13.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks a line.
 **31.47 kHz** on /HSYNC is the VGA line rate.
 
 ### Step 5: V counter PLD (U14)
+
+**Sockets:** U14 with C14.
 
 **Program first:** U14 V counter from `ATF22V10_VCOUNT.pld` (rev 03);
 verify and label it.
@@ -253,6 +266,8 @@ video reads; step 6 adds the mode and audio reads.
 
 ### Step 6: audio and mode slot PLD (U35)
 
+**Sockets:** none new; U35's socket went in at step 3.
+
 **Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
 (rev 04); verify and label it.
 
@@ -272,13 +287,17 @@ bits (1x line repeat while S5 holds Q3:Q2 low).
 
 ### Step 7: Branch PLD (U2), pixel buffer (U22), line code (U23), colour decoder (U16)
 
+**Sockets:** U2 with C2, U22 with C22 and U16 with C16 (U23's went in at
+step 4).  Also fit the RAM socket U31 (with C31), empty, for the pull-
+down tests below.
+
 **Program first:** U2 Branch from `ATF22V10_BRANCH.pld` (rev 15) and U16
 colour decoder from `ATF22V10_COLORDECODER.pld` (rev 07); verify and
 label them.  U22 and U23 are 74-series and need no programming.
 
 The Branch PLD goes in now only for /PIX_LD (pin 15), the pixel buffer's
 load strobe; the rest of it waits for the CPU.  Take out strap S5 (the
-two 10k from U23's pins 6 and 9 to pin 10) and fit U2, U22, U23 and U16.
+three 10k from U23's pins 6, 9 and 19 to pin 10) and fit U2, U22, U23 and U16.
 
 Nothing drives the data bus, so every video read is FF: the line code is
 mode 3 (8 bpp, 4x repeat) and every pixel is FF.  The monitor shows a
@@ -315,8 +334,16 @@ whole screen is the wrong colour, check the line code register (U23) Q1:Q0
 
 ### Step 8: D register (U18) and the address muxes (U7-U10)
 
+**Sockets:** U18 with C18 and U7-U10 with C7-C10.
+
 **Program first:** U7, U8, U9 and U10 address muxes, four copies of
 `ATF22V10_QUAD_MUX.pld` (rev 01); verify and label them.
+
+The D register's load strobe /LOAD_IMM comes from the State PLD, so
+put in:
+
+- **S3**, in U1 (State): pin 19 to pin 12 (GND).  Holds /LOAD_IMM low, so
+  the D register loads the bus every clock.  Out at step 11.
 
 Fit U18 and U7-U10.  The D register loads the bus every clock (strap S3) and so holds FF.  The
 muxes give the video address during video reads and D (FF) on A7:A0, 00 on
@@ -341,9 +368,16 @@ The screen stays white.
 
 ### Step 9: memory control (U11), map register (U25), I/O decode (U12)
 
+**Sockets:** U11 with C11, U25 with C25 and U12 with C12.
+
 **Program first:** U11 memory control from `ATF22V10_MEM_CTRL.pld`
 (rev 09) and U12 I/O decode from `ATF22V10_IO_DECODE.pld` (rev 04); verify
 and label them.
+
+Memory control and I/O decode read the State PLD's R/W, so put in:
+
+- **S2**, in U1 (State): pin 23 to pin 24 (+5 V).  Holds R/W high: no
+  writes.  Out at step 11.
 
 Fit U11, U25 and U12.
 
@@ -358,6 +392,8 @@ Fit U11, U25 and U12.
 | Map register Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 0 V (map 00, all ROM) |
 
 ### Step 10: RAM (U31, U32)
+
+**Sockets:** U32 with C32 (U31's went in at step 7).
 
 Take the 1k pull-down out of U31 and fit both RAM chips, U31 and U32.
 The video now reads the RAM, which powers up random: the monitor shows
@@ -380,6 +416,8 @@ FF, ... and PC high counts up by one every instruction.  This exercises
 the State, Branch and PC chips with no memory and no software.
 
 ### Step 11: take out the RAM and straps S1-S3; fit the instruction register PLD (U17) and the State PLD (U1)
+
+**Sockets:** U17 with C17 (U1's went in at step 3).
 
 **Program first:** U1 State from `ATF22V10_STATE.pld` (rev 15) and U17
 instruction register from `ATF22V10_IR.pld` (rev 01); verify and label
@@ -410,6 +448,8 @@ PLD U1 and the instruction register U17.  The instruction register loads FF.
 
 ### Step 12: PC low (U3)
 
+**Sockets:** U3 with C3.
+
 **Program first:** U3 PC low from `ATF22V10_PC_COUNTER8.pld` (rev 02);
 verify and label it.
 
@@ -423,6 +463,8 @@ Fit U3.
 All eight bits move together (FF, 00, FF).
 
 ### Step 13: PC high (U4)
+
+**Sockets:** U4 with C4.
 
 **Program first:** U4 PC high from `ATF22V10_PC_COUNTER8.pld` (rev 02),
 the same file as U3; verify and label it.
@@ -442,6 +484,8 @@ Fit U4.  PC high is a binary counter now: each bit is half the one below.
 
 ### Step 14: accumulator (U19), ALU low (U5), ALU high (U6)
 
+**Sockets:** U19 with C19, U5 with C5 and U6 with C6.
+
 **Program first:** U5 ALU low and U6 ALU high, two copies of
 `ALU_SHR.pld` (rev 07); verify and label them.
 
@@ -455,17 +499,23 @@ readings of steps 12 and 13 must not change.
 
 ### Step 15: X (U20) and Y (U21) registers
 
-Also random and never loaded: their Q pins read steady 0 V or 5 V.  The
+**Sockets:** U20 with C20 and U21 with C21.
+
+Fit U20 and U21.  Also random and never loaded: their Q pins read steady 0 V or 5 V.  The
 free run readings must not change.
 
 ### Step 16: D source buffer (U26)
 
-The free run never selects it (its /OE2 is instruction bit 1, which is 1),
+**Sockets:** U26 with C26.
+
+Fit U26.  The free run never selects it (its /OE2 is instruction bit 1, which is 1),
 so the readings of steps 11-13 must not change.  If they do, the buffer is
 driving the bus when it shouldn't: check its /OE1 (Branch /SRC_EN, pin 16)
 and /OE2 (instruction register PLD I1, pin 15) wiring.
 
 ### Step 17: AC source buffer (U27), line read buffer (U29), RAM back, the cartridge
+
+**Sockets:** U27 with C27 and U29 with C29.
 
 The free run does select the AC source buffer (source 11), and the
 accumulator is random, so it goes in with the memories.  Fit the AC
@@ -572,6 +622,8 @@ page test).  It takes several minutes.
 
 ### Step 18: shared port: port PLD (U38) and PS/2 receiver PLD (U42)
 
+**Sockets:** U38 with C38 and U42 with C42.
+
 **Program first:** U38 shared port from `ATF22V10_PORT.pld` (rev 04) and
 U42 PS/2 receiver from `ATF22V10_PS2.pld` (rev 02); verify and label
 them.
@@ -636,7 +688,9 @@ U40's output and at the SD socket's pin 4.
 
 ### Step 19: audio DAC (U36)
 
-Fit the DAC register U36 with its decoupler C36 (100 nF), its supply
+**Sockets:** U36 with C36.
+
+Fit the DAC register U36, its supply
 filter R22 (2.2 ohm) and C44 (220 µF), the R-2R ladder R23-R31 (2k) and
 R32-R38 (1k), the output filter C45 (15 nF) and C46 (22 µF), R39 (10k)
 and the jack J6 ([SOUND.md](SOUND.md)).
