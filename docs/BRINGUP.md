@@ -27,30 +27,21 @@ time, the CPU steps take the RAM out again for a while, and a few steps
 put temporary resistors ("straps") into empty sockets.  Each strap is
 described in the step that puts it in and the step that takes it out.
 
-**Program the PLDs** from the JED files that WinCUPL makes from
-`src/pld`, with a programmer that handles the ATF22V10C.  Label each one
-with its reference designator.
+**Programming.**  Each PLD and EEPROM is programmed in the step that
+fits it, just before it goes in, not all at the start.  So a chip always
+carries the equations current when it is fitted, and a fault found in one
+step is fixed in the source before the later chips are made.  You need a
+programmer that handles the ATF22V10C (every PLD is an ATF22V10C-7PX) and
+the AT28C256 EEPROM.  Each PLD's JED file is the one WinCUPL makes from
+its `.pld` file in `src/pld`; each step names the file and its revision.
+For every chip:
 
-| Chip | Source | Chip | Source |
-|---|---|---|---|
-| U1 State | `ATF22V10_STATE.pld` (rev 15) | U11 Memory control | `ATF22V10_MEM_CTRL.pld` |
-| U2 Branch | `ATF22V10_BRANCH.pld` (rev 15) | U12 I/O decode | `ATF22V10_IO_DECODE.pld` (rev 04) |
-| U3, U4 PC low, PC high | `ATF22V10_PC_COUNTER8.pld` (two copies) | U13 H counter | `ATF22V10_HCOUNT.pld` |
-| U5, U6 ALU low, ALU high | `ALU_SHR.pld` (two copies) | U14 V counter | `ATF22V10_VCOUNT.pld` |
-| U7-U10 Address muxes | `ATF22V10_QUAD_MUX.pld` (four copies) | U15 Sync | `ATF22V10_SYNC.pld` |
-| U16 Colour decoder | `ATF22V10_COLORDECODER.pld` | U35 Audio and mode slots | `ATF22V10_AUDIO.pld` (rev 04) |
-| U17 Instruction register | `ATF22V10_IR.pld` | U38 Shared port | `ATF22V10_PORT.pld` (rev 04) |
-| cartridge U1 Cartridge loader | `ATF22V10_CART.pld` | U42 PS/2 receiver | `ATF22V10_PS2.pld` (rev 02) |
-
-**Load the bring-up ROM.**  `python3 test_bringup_sim.py --bin` in
-`src/scripts` writes `bringup_lo.bin` (ROM x0000-x7FFF, for the
-cartridge's lower AT28C256 EEPROM, cartridge U2) and `bringup_hi.bin`
-(x8000-xFFFF, for the upper one, cartridge U3).
-It is a complete image with its own reset code, so it replaces the normal
-ROM (boot loader and library) until the board works; then load the normal
-image (`gen_rom.tcl`, [ROM.md](ROM.md)).  Program the EEPROMs in an
-external programmer; the cartridge copies them into its SRAMs at
-power-up ([ROM.md](ROM.md#loading-the-cartridge)).
+1. Program it.
+2. Verify it (the programmer reads it back and compares).
+3. Label it with its reference designator and the revision (a sticker on
+   top), so chips that share a file (U3/U4, U5/U6, U7-U10) stay apart
+   from the others.
+4. Fit it.
 
 **Without the cartridge.**  The main board's STALL_OUT pull-up keeps the
 CPU stalled until a cartridge lets it go, and RUN's pull-down keeps the
@@ -216,7 +207,10 @@ plugs in), holding a control line whose driver isn't in yet:
 
 ### Step 3: Sync PLD (U15)
 
-The Sync PLD's H2:H0 count the clock by itself.
+**Program first:** U15 Sync from `ATF22V10_SYNC.pld` (rev 09); verify
+and label it.
+
+Fit U15.  The Sync PLD's H2:H0 count the clock by itself.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -228,7 +222,10 @@ The other Sync pins depend on the counters and are checked in step 5.
 
 ### Step 4: H counter PLD (U13)
 
-H9:H3 count groups of 8 clocks, 28-127, 800 clocks a line.
+**Program first:** U13 H counter from `ATF22V10_HCOUNT.pld` (rev 08);
+verify and label it.
+
+Fit U13.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks a line.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -247,7 +244,10 @@ H9:H3 count groups of 8 clocks, 28-127, 800 clocks a line.
 
 ### Step 5: V counter PLD (U14)
 
-V9:V0 count lines, 499-1023, 525 lines a frame.  Connect a VGA monitor:
+**Program first:** U14 V counter from `ATF22V10_VCOUNT.pld` (rev 03);
+verify and label it.
+
+Fit U14.  V9:V0 count lines, 499-1023, 525 lines a frame.  Connect a VGA monitor:
 it should now lock to 640 x 480 at 60 Hz and show a **black screen** (the
 colour decoder isn't in yet).
 
@@ -274,6 +274,9 @@ video reads; step 6 adds the mode and audio reads.
 
 ### Step 6: audio and mode slot PLD (U35)
 
+**Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
+(rev 04); verify and label it.
+
 Take out strap S4 (the 10k from U35's pin 23 to pin 12) and fit U35.
 BLANK_RD now picks group 45 (mode byte) and group 46
 or 47 (audio sample) on every line, and R0, R1, R7, R8 are the row address
@@ -289,6 +292,10 @@ bits (1x line repeat while S5 holds Q3:Q2 low).
 | R8 (pin 20) | 59.94 Hz | 51.2 % | 2.56 V |
 
 ### Step 7: Branch PLD (U2), pixel buffer (U22), line code (U23), colour decoder (U16)
+
+**Program first:** U2 Branch from `ATF22V10_BRANCH.pld` (rev 15) and U16
+colour decoder from `ATF22V10_COLORDECODER.pld` (rev 07); verify and
+label them.  U22 and U23 are 74-series and need no programming.
 
 The Branch PLD goes in now only for /PIX_LD (pin 15), the pixel buffer's
 load strobe; the rest of it waits for the CPU.  Take out strap S5 (the
@@ -329,7 +336,10 @@ whole screen is the wrong colour, check the line code register (U23) Q1:Q0
 
 ### Step 8: D register (U18) and the address muxes (U7-U10)
 
-The D register loads the bus every clock (strap S3) and so holds FF.  The
+**Program first:** U7, U8, U9 and U10 address muxes, four copies of
+`ATF22V10_QUAD_MUX.pld` (rev 01); verify and label them.
+
+Fit U18 and U7-U10.  The D register loads the bus every clock (strap S3) and so holds FF.  The
 muxes give the video address during video reads and D (FF) on A7:A0, 00 on
 A15:A8 the rest of the time (strap S1).  Measure A15:A0 at the mux outputs
 (or the RAM socket address pins):
@@ -351,6 +361,12 @@ A15:A8 the rest of the time (strap S1).  Measure A15:A0 at the mux outputs
 The screen stays white.
 
 ### Step 9: memory control (U11), map register (U25), I/O decode (U12)
+
+**Program first:** U11 memory control from `ATF22V10_MEM_CTRL.pld`
+(rev 09) and U12 I/O decode from `ATF22V10_IO_DECODE.pld` (rev 04); verify
+and label them.
+
+Fit U11, U25 and U12.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -386,6 +402,10 @@ the State, Branch and PC chips with no memory and no software.
 
 ### Step 11: take out the RAM and straps S1-S3; fit the instruction register PLD (U17) and the State PLD (U1)
 
+**Program first:** U1 State from `ATF22V10_STATE.pld` (rev 15) and U17
+instruction register from `ATF22V10_IR.pld` (rev 01); verify and label
+them.
+
 Pull both RAM chips U31 and U32 (the screen goes white again).  Take
 straps S1 (the four 10k from pins 15-18 to pin 12), S2 (pin 23 to pin 24)
 and S3 (pin 19 to pin 12) out of the State socket U1, then fit the State
@@ -411,6 +431,11 @@ PLD U1 and the instruction register U17.  The instruction register loads FF.
 
 ### Step 12: PC low (U3)
 
+**Program first:** U3 PC low from `ATF22V10_PC_COUNTER8.pld` (rev 02);
+verify and label it.
+
+Fit U3.
+
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
 | Q0-Q7 (pins 15, 22, 21, 16, 20, 17, 19, 18) | 7.603 MHz | 33.3 % | 1.67 V |
@@ -420,7 +445,10 @@ All eight bits move together (FF, 00, FF).
 
 ### Step 13: PC high (U4)
 
-PC high is a binary counter now: each bit is half the one below.
+**Program first:** U4 PC high from `ATF22V10_PC_COUNTER8.pld` (rev 02),
+the same file as U3; verify and label it.
+
+Fit U4.  PC high is a binary counter now: each bit is half the one below.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -435,7 +463,10 @@ PC high is a binary counter now: each bit is half the one below.
 
 ### Step 14: accumulator (U19), ALU low (U5), ALU high (U6)
 
-The accumulator powers up random and is never loaded in the free run.  The
+**Program first:** U5 ALU low and U6 ALU high, two copies of
+`ALU_SHR.pld` (rev 07); verify and label them.
+
+Fit U19, U5 and U6.  The accumulator powers up random and is never loaded in the free run.  The
 ALU does PASS A for a branch, so each ALU F output must equal the
 accumulator bit it comes from, at a steady 0 V or 5 V: low ALU F0-F3
 (pins 17, 20, 16, 21) = AC Q0-Q3, high ALU F0-F3 = AC Q4-Q7 (F377 pins 2,
@@ -460,9 +491,25 @@ and /OE2 (instruction register PLD I1, pin 15) wiring.
 The free run does select the AC source buffer (source 11), and the
 accumulator is random, so it goes in with the memories.  Fit the AC
 source buffer U27, the line read buffer U29 and both RAM chips U31 and
-U32.  Build the 64K cartridge: sockets, C1-C5 (100 nF), the loader PLD
-cartridge U1, the EEPROMs cartridge U2 (`bringup_lo.bin`) and U3
-(`bringup_hi.bin`), and the SRAMs cartridge U4 and U5.  Take the shunts off JP1 and JP2 on the main board and plug
+U32.
+
+Build the 64K cartridge: sockets and C1-C5 (100 nF) first, then program
+and fit its chips one at a time:
+
+1. **Loader PLD.**  Program cartridge U1 from `ATF22V10_CART.pld`
+   (rev 04), verify, label and fit it.
+2. **EEPROMs.**  Make the bring-up ROM image: `python3 test_bringup_sim.py
+   --bin` in `src/scripts` writes `bringup_lo.bin` (ROM x0000-x7FFF) and
+   `bringup_hi.bin` (x8000-xFFFF).  It is a complete image with its own
+   reset code, so it replaces the normal ROM (boot loader and library)
+   until the board works.  Program cartridge U2 (the lower AT28C256) with
+   `bringup_lo.bin` and cartridge U3 (the upper one) with
+   `bringup_hi.bin`, verify both, label them "lo" and "hi", and fit them.
+   The cartridge copies them into its SRAMs at power-up
+   ([ROM.md](ROM.md#loading-the-cartridge)).
+3. **SRAMs.**  Fit cartridge U4 and U5 (no programming).
+
+Take the shunts off JP1 and JP2 on the main board and plug
 the cartridge into J8.  Power on: within about half a second the
 screen shows the bring-up ROM's status screen ([below](#the-bring-up-rom)).
 If it doesn't, read where the CPU stopped (next section).
@@ -546,6 +593,10 @@ page test).  It takes several minutes.
 
 ### Step 18: shared port: port PLD (U38) and PS/2 receiver PLD (U42)
 
+**Program first:** U38 shared port from `ATF22V10_PORT.pld` (rev 04) and
+U42 PS/2 receiver from `ATF22V10_PS2.pld` (rev 02); verify and label
+them.
+
 Fit the two PLDs U38 and U42 and their parts ([IO.md](IO.md)):
 
 - The 3.3 V regulator U40, with C40 on its input and C47 on its output
@@ -622,7 +673,9 @@ With no sound playing the sample is 80h:
 The ladder output sits at about 2.5 V when silent.  Press T: a 1 kHz tone
 from the line out (into an amplifier or powered speakers); T again stops it.
 
-When everything passes, load the normal ROM image.
+When everything passes, load the normal ROM image: take cartridge U2
+and U3 out, program them with the two halves of the normal image
+(`gen_rom.tcl`, [ROM.md](ROM.md)), verify, relabel and refit them.
 
 ## Expansion slots
 
