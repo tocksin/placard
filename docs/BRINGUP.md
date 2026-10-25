@@ -182,7 +182,9 @@ Build the rest of the board with no chips:
 - Cartridge slot J8 with R13 (10k, /CART pull-up), and the 10k /WE
   pull-up (in the BOM, not on the schematic yet).
 - Video output: R14-R21 (the colour resistors), the row tint parts
-  R56-R58, D9-D11 (BAT85) and D12-D17 (1N4148), and the VGA connector J7.
+  R56-R58, D9-D11 (BAT85) and D12-D17 (1N4148), the sync series
+  resistors R61 and R62 (47 ohm, beside U13 and U15), and the VGA
+  connector J7.
 
 Then push the straps into the empty sockets.  Each is a 10k resistor
 with its leads in the socket's pins (or soldered to a spare socket that

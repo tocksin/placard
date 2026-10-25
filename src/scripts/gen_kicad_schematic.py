@@ -93,7 +93,7 @@ MPN_LIB = {
 # Panasonic FR electrolytics (C41 8 x 11.5 mm 3.5 mm pitch, C44 6.3 x 11.2 mm 2.5 mm pitch)
 R_CODE = {"5.1k": "5K1", "10k": "10K", "47": "47R", "3.24k": "3K24", "1.69k": "1K69", "825": "825R",
           "1.43k": "1K43", "715": "715R", "2.2": "2R2", "2k": "2K", "1k": "1K", "1.8k": "1K8", "3.3k": "3K3",
-          "4.7k": "4K7", "910": "910R"}
+          "4.7k": "4K7", "910": "910R", "22k": "22K"}
 MPN_PASSIVE = {
     ("placard_std:R_Network08_US", "10k"): ("Bourns", "4609X-101-103LF"),
     ("placard_std:C", "100n"): ("KEMET", "C320C104K5R5TA"),
@@ -748,7 +748,7 @@ def sheet_video_timing(b):
     s.label_nets |= {"CLK"}
     u13 = s.part("placard:ATF22V10C_HCOUNT", "U13", 76.2, 99.06, pld({
         1: "CLK", 2: "GND", 3: "H0", 4: "H1", 5: "H2", 6: "LC7", 14: "H3", 15: "H4", 16: "H5", 17: "H6", 18: "H7",
-        19: "H8", 20: "H9", 21: "~{HSYNC}", 22: "H_VIDEO_ACTIVE", 23: "H_TC"}), bare=("23",))
+        19: "H8", 20: "H9", 21: "~{HSYNC}", 22: "H_VIDEO_ACTIVE", 23: "H_TC"}), bare=("21", "23"))
     decap(s, 13, 96.52, 63.5, lift=0)
     u14 = s.part("placard:ATF22V10C_VCOUNT", "U14", 76.2, 208.28, pld({
         1: "CLK", 2: "H_TC", 14: "V0", 23: "V1", 22: "V2", 15: "V3", 16: "V4", 21: "V5", 20: "V6",
@@ -758,12 +758,24 @@ def sheet_video_timing(b):
     (ox, oy), (ix, iy) = u13["23"], u14["2"]
     yg = 152.4
     path(s, "H_TC", (ox, oy), (ox + 2.54, oy), (ox + 2.54, yg), (ix - 2.54, yg), (ix - 2.54, iy), (ix, iy))
-    s.part("placard:ATF22V10C_SYNC", "U15", 233.68, 99.06, pld({
+    u15 = s.part("placard:ATF22V10C_SYNC", "U15", 233.68, 99.06, pld({
         1: "CLK", 2: "V9", 3: "V5", 4: "V4", 5: "V3", 6: "V2", 7: "V1", 8: "H_VIDEO_ACTIVE",
         9: "PC_ENABLE", 10: "Y_ENABLE", 11: "X_ENABLE", 13: "BLANK_RD", 14: "H0", 15: "H1", 16: "H2",
         17: "VIDEN", 18: "~{VSYNC}", 19: "PIXEL_ENABLE", 20: "ADDR_SEL", 21: "ADDR_SEL_HI", 22: "ADDR_SEL_LO",
-        23: None}))
+        23: None}), bare=("18",))
     decap(s, 15, 254.0, 60.96, lift=0)
+    # Sync series resistors, right at the PLD pins: they slow the edges going down the VGA cable (less
+    # ringing and noise) and limit the current into a shorted pin.  The monitor's sync inputs are TTL.
+    # (R62 sits past U15's label column, clear of the PIXEL_ENABLE label just above.)
+    for ref, u, pin, xr in (("R61", u13, "21", 119.38), ("R62", u15, "18", 312.42)):
+        net = "~{HSYNC}" if pin == "21" else "~{VSYNC}"
+        out = "~{VGA_HSYNC}" if pin == "21" else "~{VGA_VSYNC}"
+        px, py = u[pin]
+        rp = res(s, ref, xr, py, net, out, "47", angle=90, bare=("1", "2"),
+                 ref_at=(xr - 4.5, py - 3.4), value_at=(xr + 4.0, py - 3.4))
+        path(s, net, (px, py), rp["1"])
+        path(s, out, rp["2"], (rp["2"][0] + 7.62, py))
+        name(s, out, rp["2"][0] + 7.62, py)
     s.part("placard:ATF22V10C_AUDIO", "U35", 233.68, 205.74, pld({
         1: "V0", 2: "H9", 3: "H8", 4: "H7", 5: "H6", 6: "H5", 7: "H4", 8: "H3", 9: "V9", 10: "V1",
         11: "V7", 13: "V8", 14: "LC2", 15: "LC3", 16: "I1", 17: "VA0", 18: "VA1", 19: "VA7", 20: "VA8",
@@ -851,7 +863,7 @@ def sheet_video_out(b):
     fan(s, links, 215.9)
     j7 = s.part("placard_std:DE15_Receptacle_HighDensity_MountingHoles", "J7", 316.23, 101.6, {
         "1": "VGA_R", "2": "VGA_G", "3": "VGA_B", "4": None, "5": "GND", "6": "GND", "7": "GND", "8": "GND",
-        "9": None, "10": "GND", "11": None, "12": None, "13": "~{HSYNC}", "14": "~{VSYNC}", "15": None, "0": "GND"},
+        "9": None, "10": "GND", "11": None, "12": None, "13": "~{VGA_HSYNC}", "14": "~{VGA_VSYNC}", "15": None, "0": "GND"},
         value="VGA", footprint="placard:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm",
         ref_at=(311, 84), value_at=(311, 126), bare=("1", "2", "3"))
     xc = 264.16

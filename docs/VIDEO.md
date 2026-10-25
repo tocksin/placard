@@ -101,7 +101,7 @@ display mode.  The mode byte is now read in horizontal blanking; see
 | 18 | `H7` | Output | Horizontal count bit 7 |
 | 19 | `H8` | Output | Horizontal count bit 8 |
 | 20 | `H9` | Output | Horizontal count bit 9 (MSB) |
-| 21 | `/HSYNC` | Output | Horizontal sync, active low (registered) |
+| 21 | `/HSYNC` | Output | Horizontal sync, active low (registered); to VGA pin 13 through R61 (47 ohm) |
 | 22 | `H_VIDEO_ACTIVE` | Output | Horizontal active-video state (registered) |
 | 23 | `H_TC` | Output | Last clock of the line (H = 127, H2:H0 = 101); V counter EN |
 | 24 | `VCC` | Power | +5 V |
@@ -207,7 +207,7 @@ video reads.
 | 15 | `H1` | Output | Horizontal pixel bit 1 (registered) |
 | 16 | `H2` | Output | Horizontal pixel bit 2 (registered) |
 | 17 | `VIDEN` | Output | Color decoder video enable: active video, two clocks late (registered) |
-| 18 | `/VSYNC` | Output | Vertical sync, active low |
+| 18 | `/VSYNC` | Output | Vertical sync, active low; to VGA pin 14 through R62 (47 ohm) |
 | 19 | `PIXEL_ENABLE` | Output | Video read, clock 1 of each group (registered) |
 | 20 | `ADDR_SEL` | Output | Address mux S1, all four muxes |
 | 21 | `ADDR_SEL_HI` | Output | High-byte address mux S0 |
