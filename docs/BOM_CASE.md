@@ -4,11 +4,11 @@ Date: 2026-10-25
 
 The computer in its case: the main board assembly ([BOM_MAIN_PCB.md](BOM_MAIN_PCB.md)) as one line, the case parts from [CASE.md](CASE.md), standoffs, screws and feet.  The cartridge is its own assembly.
 
-16 lines.  Cost: **$432.19** for one assembly at these quantities.  16 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_CASE.csv](BOM_CASE.csv).  The other BOMs are listed in [BOM.md](BOM.md).
+16 lines.  Cost: **$431.94** for one assembly at these quantities.  16 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_CASE.csv](BOM_CASE.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
-| 1 |  | PLACARD main board | (assembly) | Main board assembly (BOM_MAIN_PCB.md) |  | 186.79 | 186.79 | est.: BOM_MAIN_PCB.md total without the optional expansion slot sockets | Add $18.00 with J9-J12 fitted |
+| 1 |  | PLACARD main board | (assembly) | Main board assembly (BOM_MAIN_PCB.md) |  | 186.54 | 186.54 | est.: BOM_MAIN_PCB.md total without the optional expansion slot sockets | Add $18.00 with J9-J12 fitted |
 | 1 |  |  |  | Lower shell: 2.0 mm 5052-H32, bent, brushed and anodized, 8 PEM standoffs SO-M3-6 and 3 PEM nuts pressed in |  | 66.25 | 66.25 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/lower_shell.step |
 | 1 |  |  |  | Upper shell: 2.0 mm 5052-H32, bent, brushed and anodized |  | 66.25 | 66.25 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/upper_shell.step |
 | 1 |  |  |  | Keyboard rail: 1.5 mm 5052, Z-shaped, 3 PEM nuts (carries the blank) |  | 9.50 | 9.50 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/keyboard_rail.step |

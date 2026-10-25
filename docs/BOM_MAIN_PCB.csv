@@ -49,7 +49,6 @@ Qty,References,Part number,Manufacturer,Description,Value,Unit price USD,Line to
 1,C45,FG24C0G1H153JNT06,TDK,"Ceramic capacitor, 5 mm pitch",15n C0G,0.58,0.58,Mouser: TDK FG24C0G1H153JNT06 (KEMET C320C153K1G5TA non-stocked),,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
 1,C46,FG24X5R1A226MRT06,TDK,"Ceramic capacitor, 5 mm pitch",22u,1.00,1.00,est.: TDK FG24X5R1A226MRT06 (Digi-Key; Mouser does not list it),,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
 2,JP1 JP2,PREC002SAAN-RC,Sullins,"Pin header, 1 x 2, 2.54 mm (bring-up jumper)",,0.15,0.30,est.: Sullins PREC002SAAN-RC,,Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical,yes
-1,X1,ED14DT,On Shore,"IC socket, DIP-14 0.3""",,0.25,0.25,est.: On Shore ED14DT,Or a 4-pin oscillator socket,,no
 11,U18 U19 U20 U21 U22 U23 U25 U26 U27 U29 U36,ED20DT,On Shore,"IC socket, DIP-20 0.3""",,0.30,3.30,est.: On Shore ED20DT,,,no
 20,U1 U2 U3 U4 U5 U6 U7 U8 U9 U10 U11 U12 U13 U14 U15 U16 U17 U35 U38 U42,ED241DT,On Shore,"IC socket, DIP-24 0.3""",,0.40,8.00,est.: On Shore ED241DT,,,no
 2,U31 U32,ED281DT,On Shore,"IC socket, DIP-28 0.3""",,0.45,0.90,est.: On Shore ED281DT,,,no

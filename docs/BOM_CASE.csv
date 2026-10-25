@@ -1,5 +1,5 @@
 Qty,References,Part number,Manufacturer,Description,Value,Unit price USD,Line total USD,Price from,Notes,Footprint,On schematic
-1,,PLACARD main board,(assembly),Main board assembly (BOM_MAIN_PCB.md),,186.79,186.79,est.: BOM_MAIN_PCB.md total without the optional expansion slot sockets,Add $18.00 with J9-J12 fitted,,no
+1,,PLACARD main board,(assembly),Main board assembly (BOM_MAIN_PCB.md),,186.54,186.54,est.: BOM_MAIN_PCB.md total without the optional expansion slot sockets,Add $18.00 with J9-J12 fitted,,no
 1,,,,"Lower shell: 2.0 mm 5052-H32, bent, brushed and anodized, 8 PEM standoffs SO-M3-6 and 3 PEM nuts pressed in",,66.25,66.25,"est.: CASE.md ""Cost estimate"", 1 unit, China sheet metal, not quoted",case/lower_shell.step,,no
 1,,,,"Upper shell: 2.0 mm 5052-H32, bent, brushed and anodized",,66.25,66.25,"est.: CASE.md ""Cost estimate"", 1 unit, China sheet metal, not quoted",case/upper_shell.step,,no
 1,,,,"Keyboard rail: 1.5 mm 5052, Z-shaped, 3 PEM nuts (carries the blank)",,9.50,9.50,"est.: CASE.md ""Cost estimate"", 1 unit, China sheet metal, not quoted",case/keyboard_rail.step,,no
