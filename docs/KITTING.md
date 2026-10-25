@@ -163,6 +163,15 @@ labeling 21 chips takes about 10 to 15 minutes a kit.
    BOM from the KiCad project, pick the oscillator and regulator, and
    write a one-page chip label list (part, image, revision, socket).
 
+## Bring-up test lead
+
+Every kit includes one test lead, a short wire with a clip on one end and
+a probe tip on the other (Justin 2026-10-25).  BRINGUP.md step 6 uses it
+to set the colour decoder's undriven inputs high or low through a 10k
+before the pixel buffer and line code register are in.  No part number
+chosen yet (a mini-grabber to test-probe lead, est. $1-3 at volume); it
+is not on the schematic, so it is not in the BOM.
+
 ## Add-ons
 
 **USB-C power supply** (option, Justin 2026-10-25; price in
