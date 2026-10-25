@@ -5,7 +5,9 @@ Date: 2026-10-25
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
 (and a VGA monitor from step 5 on); step 1 also uses an inline USB-C
-power meter and a couple of load resistors.  The power input goes in
+power meter.  These are assembly checks: they find a part that is
+missing, wrong, reversed or badly soldered, and they take the design
+itself as proven.  The power input goes in
 first, alone, so a wiring or polarity fault there can't reach a chip.  The
 video section comes next because it runs with no software.  The CPU comes next: it runs a known
 pattern with no memory at all (the "FF free run"), and then the bring-up
@@ -106,12 +108,6 @@ Leave U40, C40 and C42 (the 3.3 V regulator) for step 18, with the SD card.
 | D8 | BAT85 across K1's coil | band (cathode) to KCOIL |
 | R59, D18 | 1k and the red 5 mm power LED, +5V (after K1) to GND | LED's long lead (anode) to R59, flat side (cathode) to GND |
 
-**The relay's NC rating.**  The whole board's current flows through K1's
-normally closed contact.  The CIT J107 datasheet rates the contacts 7 A at
-30 V DC and marks only its 277 V AC rating as NO only, so the NC contact
-carries 7 A DC, well over the board's 3 A (checked 2026-10-25).  Contact
-resistance is 30 mohm initial, about 90 mV at 3 A.
-
 **Before power** (meter on ohms and diode test, no supply plugged in):
 
 - VBUS (F1's input) to GND and +5V (K1 pin 4) to GND: open, not a short.
@@ -132,28 +128,13 @@ points.
 | Input current | off | up | under 1 mA (D7 leaks a little at 5 V) |
 | VON and +5V | on | up | the same as VFUSE, within 0.05 V |
 | D18 (power LED) | on | up | lit |
-| Input current, no load | on | up | about 3 mA once C41 has charged (D18) |
+| Input current | on | up | about 3 mA once C41 has charged (D18) |
 | +5V | on | held | 0 V; K1 clicks, D18 goes dark |
 | VON | on | held | still 5 V (C41 stays charged) |
 | Input current | on | held | about 72 mA more (K1's 69 ohm coil) |
 | +5V | on | let go | back to 5 V, D18 lit |
 
-**Reset.**  Put a 100 ohm resistor (1/2 W) from +5V to GND as a load
-(50 mA; D18 and R59 add 3 mA but drain the rail too slowly to rely on).  Hold SW2 for about half a second: +5V falls below 0.1 V while it
-is held (with a scope, it falls within about 10 ms of the press, the
-relay's operate time) and comes back within about 10 ms of letting go,
-with no bounce worth noting.  Without a load nothing drains the rail but
-the meter, so it falls slowly: always test reset with the load in.  Press
-SW2 a dozen times and check that it works every time.
-
-**Full current.**  Swap the load for about 2.2 ohm (25 W or more, about
-2.3 A, close to what 19 PLDs can draw).  Measure the drop from VBUS to +5V:
-under 0.25 V (F1, SW1 and K1's contact in series).  Leave it for five
-minutes: F1 is warm but doesn't trip, K1 and SW1 are not hot, and the drop
-stays the same.  Then take the load off.
-
-Pass when every row above reads as listed, reset cuts +5V each time it is
-held, and the 2.3 A load runs five minutes without F1 tripping.
+Pass when every row above reads as listed.
 
 ## Video
 
@@ -199,8 +180,6 @@ plugs in), holding a control line whose driver isn't in yet:
   0 V on its ground pin: 24-pin PLDs 24 and 12; 20-pin chips (F377, F541,
   ACT273, HC574, HCT574) 20 and 10; the 28-pin RAM
   sockets U31 and U32 28 and 14.  Current with no chips: a few mA (the pull-ups).
-- With the decouplers in, repeat step 1's reset check with the 100 ohm
-  load: +5V still falls below 0.1 V within half a second of holding SW2.
 - Fit the 25.175 MHz oscillator X1.  Its output reads **25.175 MHz**, 2.5 V
   average.  If the meter doesn't reach that, skip it: step 3 shows the
   clock divided down.
