@@ -261,8 +261,8 @@ color decoder isn't in yet).
 | R21 | Resistor, color | 715 ohm |  |
 | U23 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) | empty for now, holds straps S1 and S2 |
 | C23 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| S1 | Strap (temporary), in U23's socket | 10k | out at step 12 |
-| S2 | Strap (temporary), in U23's socket | 10k | out at step 12 |
+| S1 | Strap (temporary), in U23's socket | 10k | out at step 11 |
+| S2 | Strap (temporary), in U23's socket | 10k | out at step 11 |
 | (leads) | Test leads, 2: a clip on one end, a probe tip on the other | in the kit | one for ground, one for power |
 
 **Program first:** U16 color decoder from `ATF22V10_COLORDECODER.pld`
@@ -274,10 +274,10 @@ control line whose driver isn't in yet.  The H counter reads the line
 code's Q7 as "blank line", so turn off the power switch and put in:
 
 - **S1**, in U23 (line code): pin 19 (Q7) to pin 10 (GND).  Holds LC7
-  low, so every line is a video line.  Out at step 12.
+  low, so every line is a video line.  Out at step 11.
 - **S2**, in U23 (line code): pin 20 (+5 V) to pin 12 (Q4, which goes
-  only to the tint resistor R56, not fitted until step 12).  A 10k high
-  source for the power test lead.  Out at step 12.
+  only to the tint resistor R56, not fitted until step 11).  A 10k high
+  source for the power test lead.  Out at step 11.
 
 **Test leads.**  The color decoder's pixel inputs D0-D7 (pins 2-9) and
 mode inputs MODE0, MODE1 (pins 10, 11) have no driver yet (the pixel
@@ -323,7 +323,7 @@ table, which drops to 0 V when that pin is low.
 A color output that stays at 0 V when it should toggle, or toggles when it
 should be 0 V, points at that pin's wiring or the color resistors
 (R14-R21).  Turn off the power switch and unclip both test leads; S1 and
-S2 stay until step 12.
+S2 stay until step 11.
 
 ### Step 7: address muxes (U7-U10)
 
@@ -353,7 +353,7 @@ the levels the CPU side came up at, so look only for a toggling signal:
 |---|---|---|
 | A15:A9 | H9:H3 (the byte column) | toggling: a frequency, DC average between 0 and 5 V |
 | A6:A2 | V6:V2 (the line) | toggling |
-| A8, A7, A1, A0 | row bits from the audio PLD U35 (not in yet) | may sit at 0 V or 5 V until step 12 |
+| A8, A7, A1, A0 | row bits from the audio PLD U35 (not in yet) | may sit at 0 V or 5 V until step 11 |
 
 A bit in the first two rows that sits still at 0 V or 5 V points at that
 mux's wiring or its H or V input.
@@ -376,7 +376,7 @@ mux's wiring or its H or V input.
 | U11 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) | empty for now, holds strap S4 |
 | C11 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | S3 | Strap (temporary), in U2's socket | wire link | out at step 9 |
-| S4 | Strap (temporary), in U11's socket | 10k | out at step 11 |
+| S4 | Strap (temporary), in U11's socket | 10k | out at step 12 |
 
 U31 and U22 need no programming.
 
@@ -390,7 +390,7 @@ in yet, so turn off the power switch and put in:
   a 10k: an F377 input needs more current to pull low than 10k passes.
   Out at step 9.
 - **S4**, in U11 (memory control): 10k from pin 18 (/RAM_OE) to pin 12
-  (GND).  The RAM drives the bus all the time.  Out at step 11.
+  (GND).  The RAM drives the bus all the time.  Out at step 12.
 
 Insert U31 and U22 into their sockets.  Turn on the power switch.
 
@@ -447,36 +447,7 @@ read A15 is H9.  Turn off the power switch.  Insert U32 and U12 into their
 sockets.  Turn on the power switch.  All 80 byte columns now show
 **random RAM**.
 
-### Step 11: memory control (U11) and map register (U25)
-
-**Parts for this step:**
-
-| Ref | Part | Value or part number | Note |
-|---|---|---|---|
-| U11 | PLD, memory control | ATF22V10C-7PX, programmed from `ATF22V10_MEM_CTRL.pld` | socket fitted at step 8 |
-| U25 | Map register, octal D flip-flop with clear | TI CD74ACT273E |  |
-| U25 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
-| C25 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| R4 | Resistor, RUN pull-down | 10k |  |
-
-**Program first:** U11 memory control from `ATF22V10_MEM_CTRL.pld`
-(rev 09); verify and label it.  U25 needs no programming.
-
-With no cartridge and no JP2 shunt, R4 holds RUN low.  That keeps the
-ROM off, holds the map register clear and turns U11's /WE output off, so
-R63 still stops any writes.  Turn off the power switch.  Take
-strap S4 (U11 pin 18 to pin 12) out, then insert U11 and U25 into their
-sockets.  Turn on the power switch.  U11 now drives /RAM_OE only for the
-reads, and the picture is the same random RAM as in step 10.
-
-| Pin | Frequency | Duty | DC average |
-|---|---|---|---|
-| Mem ctrl RUN (pin 17, input) | 0 | | 0 V |
-| Mem ctrl /WE (pin 16) | 0 | | 5 V (output off, pull-up) |
-| Mem ctrl /ROM_OE (pin 19) | 0 | | 5 V |
-| Map register Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 0 V (held clear by RUN) |
-
-### Step 12: audio and mode slot PLD (U35), line code (U23)
+### Step 11: audio and mode slot PLD (U35), line code (U23)
 
 **Parts for this step:**
 
@@ -500,13 +471,42 @@ on the power switch.  BLANK_RD now picks group 45 (mode byte) and group
 each line's mode byte.  The RAM is random, so the monitor shows **random
 colored noise** in a mix of modes, line repeats and row tints, with about
 half the lines black (bit 7 of a random mode byte blanks the line).
-Nothing writes the RAM, so the picture holds still.  Power off and on: a
+Nothing writes the RAM (R63 holds /WE high), so the picture holds still.  Power off and on: a
 different picture.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
 | BLANK_RD (pin 23) | 62.16 kHz | 2.0 % | 0.10 V |
 | /MODE_LD (pin 22) | 31.47 kHz | 99.0 % | 4.95 V |
+
+### Step 12: memory control (U11) and map register (U25)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U11 | PLD, memory control | ATF22V10C-7PX, programmed from `ATF22V10_MEM_CTRL.pld` | socket fitted at step 8 |
+| U25 | Map register, octal D flip-flop with clear | TI CD74ACT273E |  |
+| U25 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C25 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| R4 | Resistor, RUN pull-down | 10k |  |
+
+**Program first:** U11 memory control from `ATF22V10_MEM_CTRL.pld`
+(rev 09); verify and label it.  U25 needs no programming.
+
+With no cartridge and no JP2 shunt, R4 holds RUN low.  That keeps the
+ROM off, holds the map register clear and turns U11's /WE output off, so
+R63 still stops any writes.  Turn off the power switch.  Take
+strap S4 (U11 pin 18 to pin 12) out, then insert U11 and U25 into their
+sockets.  Turn on the power switch.  U11 now drives /RAM_OE only for the
+reads, and the picture is the same as in step 11.
+
+| Pin | Frequency | Duty | DC average |
+|---|---|---|---|
+| Mem ctrl RUN (pin 17, input) | 0 | | 0 V |
+| Mem ctrl /WE (pin 16) | 0 | | 5 V (output off, pull-up) |
+| Mem ctrl /ROM_OE (pin 19) | 0 | | 5 V |
+| Map register Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 0 V (held clear by RUN) |
 
 ## CPU
 
