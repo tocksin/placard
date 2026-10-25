@@ -76,7 +76,7 @@ PULL_LAYER = "Eco1.User"     # chip puller room past the socket ends
 FP_DSUB = "placard:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm"
 FP_AUDIO = "placard:Jack_3.5mm_Tensility_54-00174_Horizontal"
 FP_USBC = "placard:USB_C_Receptacle_GCT_USB4125_6P_HandSolder"
-FP_SD = "placard:SD_Kyocera_145638009511859+"
+FP_SD = "placard:SD_Hirose_DM1AA_SF_PEJ82"
 FP_KBD = "Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical"
 FP_CART = "placard:Molex_87715-9106_PCIe_x4_Vertical"
 FP_EXP = "placard:CardEdge_2x20_P2.54mm_Vertical"
@@ -94,7 +94,7 @@ ANCHOR = {
     FP_DSUB: (-4.315, 6.99),      # shell centre, 4.94 mm from the mounting holes to the edge
     FP_AUDIO: (0.0, 0.0),
     FP_USBC: (0.0, 3.4),          # the footprint's "PCB Edge" line
-    FP_SD: (0.55, 17.5),          # socket front, card goes in from +y
+    FP_SD: (0.0, 15.45),          # socket front, card goes in from +y
     FP_KBD: (1.27, 11.43),        # middle of the 2 x 10 pins
     FP_CART: (16.5, 0.0),         # middle of the contacts
     FP_EXP: (24.13, 0.0),

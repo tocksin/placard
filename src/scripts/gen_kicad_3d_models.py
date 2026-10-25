@@ -21,7 +21,7 @@ by construction.
 | PS2_Kycon_KMDGX-6S-6S-S4N | stacked PS/2 J5 | generated: 14 x 13.5 x 25 mm shield, mouse (green) top, keyboard (purple) bottom |
 | Jack_3.5mm_Tensility_54-00174_Horizontal | audio line out J6 | generated: 6.6 x 12.3 x 5 mm body, 5 mm barrel 2.5 mm past the face |
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | generated: bracket, body, 1/4-40 bushing and lever |
-| SD_Kyocera_145638009511859+ | SD socket J4 | generated: outline from KiCad's footprint, 2.9 mm high, card opening at the +y end |
+| SD_Hirose_DM1AA_SF_PEJ82 | SD socket J4 | generated: 28.4 x 30.9 mm from KiCad's footprint outline, 2.8 mm high, card opening at the +y end |
 | Fuse_Bourns_MF-RG300 | polyfuse F1 | generated: 7.1 x 3.0 mm disc, 11 mm high, seated 3 mm up |
 | SNES_Pad_Socket_Horizontal | SNES ports J2, J3 | generated: 26 x 16.5 x 13 mm block, pad-shaped opening |
 | SW_Tactile_SPST_Angled_PTS645Vx58-2LFS | reset button SW2 | KiCad's own model, copied |
@@ -34,7 +34,7 @@ clearances in KiCad's 3D viewer and the case; replace one with the maker's
 STEP file of the same name if it is wanted exact.  KiCad's models are CC-BY-SA
 4.0 with the KiCad libraries' exception (designs using them are unaffected).
 
-Date: 2026-10-23
+Date: 2026-10-25
 """
 
 import os
@@ -223,22 +223,25 @@ def toggle():
 
 
 def sd_socket():
-    # Kyocera 5638 (145638009511859+): KiCad's footprint outline, 2.9 mm high, metal
-    # cover; the card goes in at the +y end, contact tails at -y
-    name = "SD_Kyocera_145638009511859+"
-    outline = [(-13.8, -11.5), (14.9, -11.5), (14.9, -2.1), (14.7, -2.1), (14.7, 17.5), (-13.8, 17.5)]
+    # Hirose DM1AA-SF-PEJ(82): KiCad's footprint outline (silk box 28.4 x 30.9 mm),
+    # 2.8 mm high (typical), metal cover; the card goes in at the +y end, contact
+    # tails at -y, shield tabs (12, 13) up the sides
+    name = "SD_Hirose_DM1AA_SF_PEJ82"
+    outline = [(-14.2, -14.0), (14.2, -14.0), (14.2, 15.45), (-14.2, 15.45)]
     pts = [(x, -y) for x, y in outline]
-    base = cq.Workplane("XY").polyline(pts).close().extrude(2.6)
-    base = base.cut(box(-12.6, 3.0, 12.6, 17.6, 0.4, 2.61))
-    cover = cq.Workplane("XY").polyline(pts).close().extrude(0.3).translate((0, 0, 2.6))
+    base = cq.Workplane("XY").polyline(pts).close().extrude(2.5)
+    base = base.cut(box(-12.6, 3.0, 12.6, 15.55, 0.4, 2.51))
+    cover = cq.Workplane("XY").polyline(pts).close().extrude(0.3).translate((0, 0, 2.5))
     tails = []
     for num, x, y, w, h, kind in pads(name):
         if kind == "smd":
             tw, th = (w * 0.7, h * 0.8)
             if num in ("12", "13"):
-                tails.append(box(x - tw / 2, y - th / 2, x + tw / 2, y + th / 2, 0, 2.9))
+                tails.append(box(x - tw / 2, y - th / 2, x + tw / 2, y + th / 2, 0, 2.8))
+            elif num in ("1", "2", "3", "4", "5", "6", "7", "8", "9"):
+                tails.append(box(x - tw / 2, y - th / 2, x + tw / 2, -14.0, 0, 0.15))
             else:
-                tails.append(box(x - tw / 2, y - th / 2, x + tw / 2, -11.5, 0, 0.15))
+                tails.append(box(x - tw / 2, y - th / 2, -14.2, y + th / 2, 0, 0.15))
     save(name, [("body", BLACK, [base] + pegs(name, 1.5)), ("cover", METAL, [cover] + tails)])
 
 
