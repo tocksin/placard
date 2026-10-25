@@ -77,7 +77,7 @@ restart, press SW2 or switch SW1 off and on.
 **Floating inputs.**  An ATF22V10C holds an input that nothing drives at
 its last level (a weak pin keeper), and an F-series input that floats reads
 high.  So a missing chip is harmless unless a level matters, and those
-places get a temporary resistor (a strap, from step 4 on).
+places get a temporary resistor (a strap, from step 6 on).
 
 **The data bus pull-ups.**  The 10k SIP on D7:D0 goes in at step 7.
 With nothing driving it, the bus reads FF.  After a chip drives it and lets
@@ -170,21 +170,10 @@ Insert U15 into its socket.  The Sync PLD's H2:H0 count the clock by themselves.
 
 ### Step 4: H counter PLD (U13)
 
-**Sockets:** U13 with C13.  Also fit the line code socket U23 (with
-C23), empty, for strap S4.
+**Sockets:** U13 with C13.
 
 **Program first:** U13 H counter from `ATF22V10_HCOUNT.pld` (rev 08);
 verify and label it.
-
-**Straps.**  A strap is a 10k resistor with its leads in an empty
-socket's pins (or soldered to a spare socket that plugs in), holding a
-control line whose driver isn't in yet.  The H counter reads the line
-code's Q7 (blank line), so put in:
-
-- **S4**, in U23 (line code): three 10k, from pins 6, 9 and 19 (Q2, Q3,
-  Q7) each to pin 10 (GND).  Q7 low keeps every line a video line; Q3:Q2
-  low holds the line repeat at 1x for the audio PLD (step 6).  Out at
-  step 7.
 
 Insert U13 into its socket.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks a line.
 
@@ -197,11 +186,6 @@ Insert U13 into its socket.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks 
 | H7 (pin 18) | 94.41 kHz | 52.0 % | 2.60 V |
 | H8 (pin 19) | 62.94 kHz | 64.0 % | 3.20 V |
 | H9 (pin 20) | 31.47 kHz | 64.0 % | 3.20 V |
-| /HSYNC (pin 21) | 31.47 kHz | 88.0 % | 4.40 V |
-| H_VIDEO_ACTIVE (pin 22) | 31.47 kHz | 80.0 % | 4.00 V |
-| H_TC (pin 23) | 31.47 kHz | 0.1 % | 0.01 V |
-
-**31.47 kHz** on /HSYNC is the VGA line rate.
 
 ### Step 5: V counter PLD (U14)
 
@@ -232,10 +216,19 @@ colour decoder isn't in yet).
 
 ### Step 6: audio and mode slot PLD (U35)
 
-**Sockets:** U35 with C35.
+**Sockets:** U35 with C35.  Also fit the line code socket U23 (with
+C23), empty, for strap S4.
 
 **Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
 (rev 04); verify and label it.
+
+**Straps.**  A strap is a 10k resistor with its leads in an empty
+socket's pins (or soldered to a spare socket that plugs in), holding a
+control line whose driver isn't in yet.  The audio PLD's row address
+bits follow the line code's Q3:Q2 (line repeat), so put in:
+
+- **S4**, in U23 (line code): two 10k, from pins 6 and 9 (Q2, Q3) each
+  to pin 10 (GND).  Holds the line repeat at 1x.  Out at step 7.
 
 Insert U35 into its socket.
 BLANK_RD now picks group 45 (mode byte) and group 46
@@ -254,7 +247,7 @@ bits (1x line repeat while S4 holds Q3:Q2 low).
 ### Step 7: Branch PLD (U2), pixel buffer (U22), line code (U23), colour decoder (U16)
 
 **Sockets:** U2 with C2, U22 with C22 and U16 with C16 (U23's went in at
-step 4).  Also fit the State socket U1 (with C1), empty, for strap S1,
+step 6).  Also fit the State socket U1 (with C1), empty, for strap S1,
 and the RAM socket U31 (with C31), empty, for the pull-down tests below.
 
 **Other parts:** the data bus pull-ups RN1 (10k SIP on D7:D0), the
@@ -274,7 +267,7 @@ The Branch PLD reads the State PLD's Q0 and PC_ENABLE, so put in:
 
 The Branch PLD goes in now only for /PIX_LD (pin 15), the pixel buffer's
 load strobe; the rest of it waits for the CPU.  Take out strap S4 (the
-three 10k from U23's pins 6, 9 and 19 to pin 10) and insert U2, U22, U23 and U16 into their sockets.
+two 10k from U23's pins 6 and 9 to pin 10) and insert U2, U22, U23 and U16 into their sockets.
 
 Nothing drives the data bus, so every video read is FF: the line code is
 mode 3 (8 bpp, 4x repeat) and every pixel is FF.  The monitor shows a
