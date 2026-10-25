@@ -1,6 +1,6 @@
 # Remaining timing fixes
 
-Date: 2026-10-24
+Date: 2026-10-25
 
 This covers what was left in [TIMING.md](TIMING.md) after the ALU
 ([ALU_TIMING.md](ALU_TIMING.md)), video read
@@ -102,7 +102,7 @@ an F377 on the system clock with its load enable tied to `videoActiveR`:
 it loads the data bus on every clock while `videoActiveR` is low and stops
 when it goes high, so it keeps the value from the edge that ends the first
 byte read of the line.  The loads during blanking are not seen, because the
-colour decoder blanks the output while `videoActiveR` is low.
+color decoder blanks the output while `videoActiveR` is low.
 
 - **Chips**: the F574 becomes an F377 (SN74F377AN, in stock), no gates.
 - **Timing**: data setup is the pixel buffer's (34.5 ns, +5.2), data hold is

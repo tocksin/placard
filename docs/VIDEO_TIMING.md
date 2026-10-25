@@ -1,6 +1,6 @@
 # Video read timing options
 
-Date: 2026-10-19
+Date: 2026-10-25
 
 The video read of the first byte of each line is the worst path left in
 [TIMING.md](TIMING.md) after the ALU fix: 52.5 ns against a 39.72 ns clock
@@ -120,7 +120,7 @@ for a whole clock by the time it is selected, so it is not in the path.
   delayed one clock more to stay lined up with it, which is a second stage
   in the delay F574.  That register has 4 of its 8 bits in use, so the
   second stage takes the other 4 (stage 1 Q outputs wired to stage 2 D
-  inputs).  The colour decoder takes its H2:H0 and VIDEN from stage 2.
+  inputs).  The color decoder takes its H2:H0 and VIDEN from stage 2.
 - **Line mode**: `lineCode` stays clocked by the rising edge of
   `videoActiveR`, now from stage 2.  That edge comes at the end of the first
   read (clock 1 of group 48) just as it comes at the end of clock 0 now, so
@@ -187,11 +187,11 @@ From 2 ms to 36 ms (849,998 clocks, about two frames):
 
 ## Delay register removed (2026-10-19)
 
-Option A left an F574 between the Sync PLD and the colour decoder that
+Option A left an F574 between the Sync PLD and the color decoder that
 delayed H2:H0 (the pixel select) and VIDEO_ACTIVE by two clocks, to line
 them up with the pixel buffer, which loads at the end of clock 1 of each
 group.  Both signals now come out of the Sync PLD two clocks later
-themselves, and the colour decoder takes them straight from it.  One chip
+themselves, and the color decoder takes them straight from it.  One chip
 less (38 plus the regulator), no other chip or pin changes.
 
 **Pixel select.**  H2:H0 is a free-running 3-bit counter in the Sync PLD,
@@ -209,10 +209,10 @@ name H2:H0 move two counts back:
   timing exactly.
 - Sync PLD revision 08: PIXEL_ENABLE is decoded on `H2 & H1 & !H0` (was
   `!H2 & !H1 & !H0`), so the video read stays in clock 1.
-- The colour decoder is unchanged: it sees H2:H0 = 000 on the first pixel
+- The color decoder is unchanged: it sees H2:H0 = 000 on the first pixel
   of each byte, as it did from the delay register.
 
-Rotating the pixel select inside the colour decoder instead does not fit:
+Rotating the pixel select inside the color decoder instead does not fit:
 the 4 bpp nibble select would become H2 XOR H1, which pushes BLU3 to 18
 product terms (pin 18 has 16).
 
@@ -233,12 +233,12 @@ as the old two-clock-delayed VIDEO_ACTIVE.  4 product terms (pin 17 has 14).
 
 | Path | Before | Now |
 |---|---:|---:|
-| Pixel select / VIDEN to the colour decoder | F574 clock to Q, up to 10 ns | PLD tCO, 5.5 ns |
+| Pixel select / VIDEN to the color decoder | F574 clock to Q, up to 10 ns | PLD tCO, 5.5 ns |
 | GRN3 (1 bpp pixel) at the RGB pins: select, decode, feedback | 10 + 7.5 + 7.5 = 25 ns | 5.5 + 7.5 + 7.5 = 20.5 ns |
 | F574 second-stage hold (+1.2 ns margin) | yes | gone |
 | H_ENABLE, PIXEL_ENABLE.D, VIDEN.D | one product term each | one product term each (VIDEN 4) |
 
-The Sync PLD's H2:H0 now also drives three colour decoder inputs (it
+The Sync PLD's H2:H0 now also drives three color decoder inputs (it
 already drove the H counter PLD), a fan-out of 2 PLD inputs per pin.
 
 **Power-up.**  The PLD registers power up at 0, so after power-up the first
@@ -249,7 +249,7 @@ relative to power-up than before; nothing depends on that phase.
 entities, GHDL) was run before and after the change, from reset:
 
 - `test_video` (the `ram.mem` test pattern: 1, 2, 4 and 8 bpp bands, 35
-  colours on screen), 900,000 clocks (two frames): the RGB, HSYNC, VSYNC and
+  colors on screen), 900,000 clocks (two frames): the RGB, HSYNC, VSYNC and
   audio DAC outputs after the change equal the outputs before it, two clocks
   earlier (the power-up phase above), with no mismatches on any clock.  The
   CPU's 19,344 RAM writes are the same, in the same order.

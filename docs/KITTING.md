@@ -168,7 +168,7 @@ labeling 21 chips takes about 10 to 15 minutes a kit.
 Every kit includes two test leads, short wires with a clip on one end and
 a probe tip on the other (Justin 2026-10-25), one for ground and one for
 power.  BRINGUP.md step 6 clips both on before power-up and uses them
-to set the colour decoder's undriven inputs high or low through a 10k
+to set the color decoder's undriven inputs high or low through a 10k
 before the pixel buffer and line code register are in.  No part number
 chosen yet (a mini-grabber to test-probe lead, est. $1-3 each at volume); they
 are not on the schematic, so they are not in the BOM.

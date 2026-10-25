@@ -1,6 +1,6 @@
 # Timing analysis at 25.175 MHz
 
-Date: 2026-10-23
+Date: 2026-10-25
 
 This is a static, worst-case timing analysis of the Placard as it sits in
 `src/hdl/basys_top.vhd` and the PLD sources in `src/pld`, for a real board
@@ -106,7 +106,7 @@ checked 2026-10-15 (stock moves, so recheck before ordering).
 
 | Function in `basys_top.vhd` | Part (DIP) | Qty | Mouser stock |
 |---|---|---:|---:|
-| State, branch, PC low/high, ALU low/high, ROM/RAM select, H/V counters, sync, colour decoder (since TIMING_FIXES.md the ROM/RAM select PLD is a CD74ACT273E map register, and the I/O decode and memory control PLDs are added) | ATF22V10C-7PX (PDIP-24) | 11 | 644 |
+| State, branch, PC low/high, ALU low/high, ROM/RAM select, H/V counters, sync, color decoder (since TIMING_FIXES.md the ROM/RAM select PLD is a CD74ACT273E map register, and the I/O decode and memory control PLDs are added) | ATF22V10C-7PX (PDIP-24) | 11 | 644 |
 | Address mux (`full_mux` = 2 × `quad_4to1_mux` per byte) | ATF22V10C-7PX | 4 | (above) |
 | `instReg`, `dReg`, `acReg`, `xReg`, `yReg`, `pixelBuffer` (D flip-flops with a load enable) | SN74F377AN | 6 | 764 |
 | `lineCode` (F377 on the system clock since TIMING_FIXES.md; originally an F574 clocked by `videoActiveR`); the `videoActiveR` + `pixelSel` delay F574 was removed 2026-10-19 (VIDEO_TIMING.md) | SN74F377AN | 1 | 764 / 466 |
