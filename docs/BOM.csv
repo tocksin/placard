@@ -1,11 +1,11 @@
 Board,Qty,References,Manufacturer,Part number,Description,Value,Footprint,On schematic,Unit price USD,Line total USD,Price from,Notes
 Main board,20,U1 U2 U3 U4 U5 U6 U7 U8 U9 U10 U11 U12 U13 U14 U15 U16 U17 U35 U38 U42,Microchip,ATF22V10C-7PX,"PLD, 22V10, 7.5 ns, PDIP-24 0.3"" (programmed)",,placard:DIP-24_W7.62mm_Socket_Puller,yes,2.99,59.80,Mouser,"State U1; Branch U2; PC U3, U4; ALU U5, U6; Address mux U7-U10; Memory control U11; I/O decode U12; H counter U13; V counter U14; Sync U15; Color decoder U16; Instruction register U17; Audio slot U35; Shared port U38; PS/2 receiver U42"
-Main board,5,U18 U19 U20 U21 U22,Texas Instruments,SN74F377AN,"Octal D flip-flop with enable, 74F, DIP-20",,placard:DIP-20_W7.62mm_Socket_Puller,yes,1.05,5.25,Mouser,
-Main board,1,U23,Texas Instruments,CD74HCT377E,"Octal D flip-flop with enable, 74HCT, DIP-20 (line code: drives the row tint)",,placard:DIP-20_W7.62mm_Socket_Puller,yes,1.10,1.10,est.: TI CD74HCT377E; check stock,
+Main board,5,U18 U19 U20 U21 U22,Texas Instruments,SN74F377AN,"Octal D flip-flop with enable, 74F, DIP-20",,placard:DIP-20_W7.62mm_Socket_Puller,yes,1.54,7.70,Mouser,
+Main board,1,U23,Texas Instruments,CD74HCT377E,"Octal D flip-flop with enable, 74HCT, DIP-20 (line code: drives the row tint)",,placard:DIP-20_W7.62mm_Socket_Puller,yes,1.29,1.29,Mouser,
 Main board,1,U25,Texas Instruments,CD74ACT273E,"Octal D flip-flop with clear, 74ACT, DIP-20",,placard:DIP-20_W7.62mm_Socket_Puller,yes,2.45,2.45,Mouser,
 Main board,3,U26 U27 U29,Texas Instruments,SN74F541N,"Octal buffer, 3-state, 74F, DIP-20",,placard:DIP-20_W7.62mm_Socket_Puller,yes,1.49,4.47,Mouser,
 Main board,2,U31 U32,Alliance Memory,AS7C256C-15PCN,"SRAM, 32K x 8, 15 ns, PDIP-28 0.3""",,placard:DIP-28_W7.62mm_Socket_Puller,yes,15.21,30.42,Mouser,
-Main board,1,U36,Texas Instruments,SN74HCT574N,"Octal D flip-flop, 3-state, 74HCT, DIP-20",,placard:DIP-20_W7.62mm_Socket_Puller,yes,1.41,1.41,Mouser,
+Main board,1,U36,Texas Instruments,SN74HCT574N,"Octal D flip-flop, 3-state, 74HCT, DIP-20",,placard:DIP-20_W7.62mm_Socket_Puller,yes,1.46,1.46,Mouser,
 Main board,1,U40,Microchip,MCP1700-3302E/TO,"3.3 V LDO regulator, 250 mA, TO-92",,Package_TO_SOT_THT:TO-92_Inline,yes,0.50,0.50,Mouser,
 Main board,1,X1,ECS Inc.,ECS-100A-251.7,"Clock oscillator, 25.175 MHz, 5 V, full-size DIP-14 can",25.175 MHz,Oscillator:Oscillator_DIP-14,yes,4.06,4.06,"Digi-Key: Mouser has no stock (Justin, 2026-10-22)",
 Main board,2,J2 J3,,,"SNES controller socket, 7 pin",SNES pad,placard:SNES_Pad_Socket_Horizontal,yes,4.00,8.00,est.: ZedLabz right-angle SNES port (Amazon/eBay),
@@ -13,17 +13,17 @@ Main board,1,J4,Kyocera AVX,145638009511859+,SD card socket,SD (SPI),placard:SD_
 Main board,1,J5,Kycon,KMDGX-6S/6S-S4N,"Stacked dual mini-DIN-6 receptacle (PS/2), right angle, shielded: mouse top, keyboard bottom",PS/2 kbd + mouse,placard:PS2_Kycon_KMDGX-6S-6S-S4N,yes,3.72,3.72,Mouser,
 Main board,1,J6,Tensility,54-00174,"3.5 mm audio line out jack, 4 pole (TRRS), right angle, TH (a TRS plug's sleeve spans R2 and S)",3.5 mm,placard:Jack_3.5mm_Tensility_54-00174_Horizontal,yes,0.73,0.73,"Digi-Key: Justin, 2026-10-22",
 Main board,1,J7,Assmann WSW,A-HDF 15 A-KG/T,"DE-15 high-density receptacle (VGA), with mounting holes",VGA,placard:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm,yes,1.36,1.36,"Digi-Key: Justin, 2026-10-22",
-Main board,1,J8,Molex,87715-9106,"Cartridge slot: card edge, 64 contacts, 1.0 mm, keyed (PCIe x4 style), vertical TH",,placard:Molex_87715-9106_PCIe_x4_Vertical,yes,2.81,2.81,Mouser,
+Main board,1,J8,Molex,87715-9106,"Cartridge slot: card edge, 64 contacts, 1.0 mm, keyed (PCIe x4 style), vertical TH",,placard:Molex_87715-9106_PCIe_x4_Vertical,yes,2.88,2.88,Mouser,
 Main board,4,J9 J10 J11 J12,Sullins,EBC20DCAN,"Expansion slot: 2 x 20 card-edge socket, 0.1"", 1.6 mm card, TH",,placard:CardEdge_2x20_P2.54mm_Vertical,yes,4.50,18.00,est.: Sullins EBC20DCAN,"Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer runs with none.  Sullins EBC20DCAN not stock-checked (EXPANSION.md)"
-Main board,1,J13,GCT,USB4125-GF-A,"USB-C receptacle, power only (6 pin), top mount",,placard:USB_C_Receptacle_GCT_USB4125_6P_HandSolder,yes,0.61,0.61,Mouser: USB4125-GF-A-0190 (the stocked packaging of the same part),
+Main board,1,J13,GCT,USB4125-GF-A-0190,"USB-C receptacle, power only (6 pin), top mount",USB4125-GF-A,placard:USB_C_Receptacle_GCT_USB4125_6P_HandSolder,yes,0.61,0.61,Mouser,
 Main board,1,SW1,CIT Relay and Switch,ANT11TFHQE,"Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing",,placard:SW_Toggle_CIT_ANT11TFHQE,yes,4.50,4.50,est.: Digi-Key; Mouser has no stock,
-Main board,1,SW2,C&K,PTS645VL58-2 LFS,"Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil)",,placard:SW_Tactile_SPST_Angled_PTS645Vx58-2LFS,yes,0.25,0.25,est.: C&K PTS645VL58-2 LFS,
-Main board,1,K1,Omron,G5LE-1 DC5,"Reset relay: SPDT, 5 V coil (63 ohm, 80 mA), 8 A 30 V DC, through hole; NC contact carries the 5 V",,Relay_THT:Relay_SPDT_Omron-G5LE-1,yes,1.80,1.80,est.: Omron G5LE-1 DC5,
-Main board,1,F1,Bourns,MF-RG300,"Polyfuse, 3 A hold, radial",3 A hold,placard:Fuse_Bourns_MF-RG300,yes,0.73,0.73,Mouser: MF-RG300-0,Part number from the footprint (Fuse_Bourns_MF-RG300)
-Main board,11,D1 D2 D3 D4 D5 D6 D8 D9 D10 D11 D19,Vishay,BAT85,"Schottky diode, DO-35",,Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal,yes,0.10,1.10,est.: Vishay BAT85,"Any BAT85 (Vishay, Nexperia, onsemi)"
-Main board,1,D7,Littelfuse,SA5.0A,D_Zener,,Diode_THT:D_DO-15_P10.16mm_Horizontal,yes,0.40,0.40,"est.: Littelfuse SA5.0A, 500 W TVS, DO-15 axial",
-Main board,6,D12 D13 D14 D15 D16 D17,Vishay,1N4148,"Small-signal diode, DO-35",,Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal,yes,0.10,0.60,est.: Vishay 1N4148,"Any 1N4148 (Vishay, onsemi, Diodes Inc.)"
-Main board,1,D18,Lite-On,LTL2R3KRD-EM,"Power LED, 5 mm, red diffused, through hole (on +5V after K1)",,LED_THT:LED_D5.0mm,yes,0.25,0.25,est.: Lite-On LTL2R3KRD-EM,"D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color"
+Main board,1,SW2,C&K,PTS645VL58-2 LFS,"Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil)",,placard:SW_Tactile_SPST_Angled_PTS645Vx58-2LFS,yes,0.43,0.43,est.: Digi-Key; Mouser has no stock until 12/23/2026,
+Main board,1,K1,Omron,G5LE-1 DC5,"Reset relay: SPDT, 5 V coil (63 ohm, 80 mA), 8 A 30 V DC, through hole; NC contact carries the 5 V",,Relay_THT:Relay_SPDT_Omron-G5LE-1,yes,1.85,1.85,Mouser: G5LE-1-DC5,
+Main board,1,F1,Bourns,MF-RG300-0,"Polyfuse, 3 A hold, radial",3 A hold,placard:Fuse_Bourns_MF-RG300,yes,0.73,0.73,Mouser,Part number from the footprint (Fuse_Bourns_MF-RG300)
+Main board,11,D1 D2 D3 D4 D5 D6 D8 D9 D10 D11 D19,Vishay,BAT85S-TAP,"Schottky diode, DO-35",BAT85,Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal,yes,0.22,2.42,Mouser: Vishay BAT85S-TAP,"Any BAT85 (Vishay BAT85S is the one Mouser stocks; Nexperia, onsemi)"
+Main board,1,D7,Littelfuse,SA5.0A,D_Zener,,Diode_THT:D_DO-15_P10.16mm_Horizontal,yes,0.64,0.64,Mouser,
+Main board,6,D12 D13 D14 D15 D16 D17,Vishay,1N4148-TAP,"Small-signal diode, DO-35",1N4148,Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal,yes,0.26,1.56,Mouser: Vishay 1N4148-TAP,"Any 1N4148 (Vishay, onsemi, Diodes Inc.)"
+Main board,1,D18,Kingbright,WP7113ID,"Power LED, 5 mm, red diffused, through hole (on +5V after K1)",,LED_THT:LED_D5.0mm,yes,0.21,0.21,Mouser,"D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color (was Lite-On LTL2R3KRD-EM, out of stock 2026-10-25)"
 Main board,2,R1 R2,Yageo,MFR-25FBF52-5K1,"Resistor, metal film 1%, 1/4 W, axial",5.1k,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes,0.10,0.20,est.: Yageo MFR-25FBF52 series,
 Main board,7,R3 R4 R13 R39 R40 R41 R48,Yageo,MFR-25FBF52-10K,"Resistor, metal film 1%, 1/4 W, axial",10k,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes,0.10,0.70,est.: Yageo MFR-25FBF52 series,
 Main board,10,R5 R6 R7 R8 R9 R10 R11 R12 R61 R62,Yageo,MFR-25FBF52-47R,"Resistor, metal film 1%, 1/4 W, axial",47,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes,0.04,0.40,est.: Yageo MFR-25FBF52 series,
@@ -40,13 +40,13 @@ Main board,3,R45 R46 R47,Yageo,MFR-25FBF52-3K3,"Resistor, metal film 1%, 1/4 W, 
 Main board,3,R49 R50 R55,Yageo,MFR-25FBF52-4K7,"Resistor, metal film 1%, 1/4 W, axial",4.7k,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes,0.10,0.30,est.: Yageo MFR-25FBF52 series,
 Main board,3,R56 R57 R58,Yageo,MFR-25FBF52-910R,"Resistor, metal film 1%, 1/4 W, axial",910,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes,0.10,0.30,est.: Yageo MFR-25FBF52 series,
 Main board,1,R60,Yageo,MFR-25FBF52-22K,"Resistor, metal film 1%, 1/4 W, axial",22k,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes,0.10,0.10,est.: Yageo MFR-25FBF52 series,
-Main board,1,RN1,Bourns,4609X-101-103LF,"Resistor network, 8 bussed, SIP-9",10k,Resistor_THT:R_Array_SIP9,yes,0.40,0.40,est.: Bourns 4609X-101 series,
-Main board,34,C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C25 C26 C27 C29 C31 C32 C35 C36 C38 C42 C43,KEMET,C320C104K5R5TA,"Ceramic capacitor, 5 mm pitch",100n,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.18,6.12,est.: KEMET C320C104K5R5TA,
-Main board,2,C40 C47,KEMET,C330C105K5R5TA,"Ceramic capacitor, 5 mm pitch",1u,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.50,1.00,est.: KEMET C330C105K5R5TA,
+Main board,1,RN1,Bourns,4609X-101-103LF,"Resistor network, 8 bussed, SIP-9",10k,Resistor_THT:R_Array_SIP9,yes,0.39,0.39,Mouser: Bourns 4609X-101-103LF,
+Main board,34,C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C25 C26 C27 C29 C31 C32 C35 C36 C38 C42 C43,TDK,FG28X7R1H104KNT00,"Ceramic capacitor, 5 mm pitch",100n,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.10,3.40,Mouser: TDK FG28X7R1H104KNT00 (KEMET C320C104K5R5TA is $0.66 at Mouser),
+Main board,2,C40 C47,KEMET,C330C105K5R5TA,"Ceramic capacitor, 5 mm pitch",1u,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.57,1.14,Mouser: KEMET C330C105K5R5TA,
 Main board,1,C41,Panasonic,EEU-FR1E221,"Electrolytic capacitor, radial 8.0 mm, 3.50 mm pitch",220u 10V,Capacitor_THT:CP_Radial_D8.0mm_P3.50mm,yes,0.35,0.35,est.: Panasonic FR series,
 Main board,1,C44,Panasonic,EEU-FR1C221,"Electrolytic capacitor, radial 6.3 mm, 2.50 mm pitch",220u,Capacitor_THT:CP_Radial_D6.3mm_P2.50mm,yes,0.35,0.35,est.: Panasonic FR series,
-Main board,1,C45,KEMET,C320C153K1G5TA,"Ceramic capacitor, 5 mm pitch",15n C0G,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.40,0.40,est.: KEMET C320C153K1G5TA,
-Main board,1,C46,TDK,FG24X5R1A226MRT06,"Ceramic capacitor, 5 mm pitch",22u,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,1.00,1.00,est.: TDK FG24X5R1A226MRT06,
+Main board,1,C45,TDK,FG24C0G1H153JNT06,"Ceramic capacitor, 5 mm pitch",15n C0G,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.58,0.58,Mouser: TDK FG24C0G1H153JNT06 (KEMET C320C153K1G5TA non-stocked),
+Main board,1,C46,TDK,FG24X5R1A226MRT06,"Ceramic capacitor, 5 mm pitch",22u,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,1.00,1.00,est.: TDK FG24X5R1A226MRT06 (Digi-Key; Mouser does not list it),
 Main board,2,JP1 JP2,Sullins,PREC002SAAN-RC,"Pin header, 1 x 2, 2.54 mm (bring-up jumper)",,Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical,yes,0.15,0.30,est.: Sullins PREC002SAAN-RC,
 Main board,1,X1,On Shore,ED14DT,"IC socket, DIP-14 0.3""",,,no,0.25,0.25,est.: On Shore ED14DT,Or a 4-pin oscillator socket
 Main board,11,U18 U19 U20 U21 U22 U23 U25 U26 U27 U29 U36,On Shore,ED20DT,"IC socket, DIP-20 0.3""",,,no,0.30,3.30,est.: On Shore ED20DT,
@@ -57,14 +57,14 @@ Main board,2,JP1 JP2,Sullins,QPC02SXGN-RC,"Jumper shunt, 2.54 mm",,,no,0.10,0.20
 "Cartridge, 64K",1,U1,Microchip,ATF22V10C-7PX,"PLD, 22V10, 7.5 ns, PDIP-24 0.3"" (programmed)",,placard:DIP-24_W7.62mm_Socket_Puller,yes,2.99,2.99,Mouser,Cartridge loader U1
 "Cartridge, 64K",2,U2 U3,Microchip,AT28C256-15PU,"EEPROM, 32K x 8, 150 ns, PDIP-28 0.6"" (programmed)",,placard:DIP-28_W15.24mm_Socket_Puller,yes,12.38,24.76,Mouser,
 "Cartridge, 64K",2,U4 U5,Alliance Memory,AS7C256C-15PCN,"SRAM, 32K x 8, 15 ns, PDIP-28 0.3""",,placard:DIP-28_W7.62mm_Socket_Puller,yes,15.21,30.42,Mouser,
-"Cartridge, 64K",5,C1 C2 C3 C4 C5,KEMET,C320C104K5R5TA,"Ceramic capacitor, 5 mm pitch",100n,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.27,1.35,est.: KEMET C320C104K5R5TA,
+"Cartridge, 64K",5,C1 C2 C3 C4 C5,TDK,FG28X7R1H104KNT00,"Ceramic capacitor, 5 mm pitch",100n,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.23,1.15,Mouser: TDK FG28X7R1H104KNT00 (KEMET C320C104K5R5TA is $0.66 at Mouser),
 "Cartridge, 64K",1,U1,On Shore,ED241DT,"IC socket, DIP-24 0.3""",,,no,0.40,0.40,est.: On Shore ED241DT,
 "Cartridge, 64K",2,U4 U5,On Shore,ED281DT,"IC socket, DIP-28 0.3""",,,no,0.45,0.90,est.: On Shore ED281DT,
 "Cartridge, 64K",2,U2 U3,On Shore,ED28DT,"IC socket, DIP-28 0.6""",,,no,0.45,0.90,est.: On Shore ED28DT,
 "Cartridge, 32K",1,U1,Microchip,ATF22V10C-7PX,"PLD, 22V10, 7.5 ns, PDIP-24 0.3"" (programmed)",,placard:DIP-24_W7.62mm_Socket_Puller,yes,2.99,2.99,Mouser,Cartridge loader U1
 "Cartridge, 32K",1,U2,Microchip,AT28C256-15PU,"EEPROM, 32K x 8, 150 ns, PDIP-28 0.6"" (programmed)",,placard:DIP-28_W15.24mm_Socket_Puller,yes,12.38,12.38,Mouser,
 "Cartridge, 32K",1,U3,Alliance Memory,AS7C256C-15PCN,"SRAM, 32K x 8, 15 ns, PDIP-28 0.3""",,placard:DIP-28_W7.62mm_Socket_Puller,yes,15.21,15.21,Mouser,
-"Cartridge, 32K",3,C1 C2 C3,KEMET,C320C104K5R5TA,"Ceramic capacitor, 5 mm pitch",100n,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.27,0.81,est.: KEMET C320C104K5R5TA,
+"Cartridge, 32K",3,C1 C2 C3,TDK,FG28X7R1H104KNT00,"Ceramic capacitor, 5 mm pitch",100n,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes,0.23,0.69,Mouser: TDK FG28X7R1H104KNT00 (KEMET C320C104K5R5TA is $0.66 at Mouser),
 "Cartridge, 32K",1,U1,On Shore,ED241DT,"IC socket, DIP-24 0.3""",,,no,0.40,0.40,est.: On Shore ED241DT,
 "Cartridge, 32K",1,U3,On Shore,ED281DT,"IC socket, DIP-28 0.3""",,,no,0.45,0.45,est.: On Shore ED281DT,
 "Cartridge, 32K",1,U2,On Shore,ED28DT,"IC socket, DIP-28 0.6""",,,no,0.45,0.45,est.: On Shore ED28DT,

@@ -66,13 +66,13 @@ MPN = {
     "AS7C256C-15PCN": ("Alliance Memory", "AS7C256C-15PCN"),
     "AT28C256-15PU": ("Microchip", "AT28C256-15PU"),
     "MCP1700-3302E/TO": ("Microchip", "MCP1700-3302E/TO"),
-    "USB4125-GF-A": ("GCT", "USB4125-GF-A"),
-    "3 A hold": ("Bourns", "MF-RG300"),
+    "USB4125-GF-A": ("GCT", "USB4125-GF-A-0190"),
+    "3 A hold": ("Bourns", "MF-RG300-0"),
     "Molex 87715-9106": ("Molex", "87715-9106"),
-    "BAT85": ("Vishay", "BAT85"),
-    "1N4148": ("Vishay", "1N4148"),
+    "BAT85": ("Vishay", "BAT85S-TAP"),
+    "1N4148": ("Vishay", "1N4148-TAP"),
     "SA5.0A": ("Littelfuse", "SA5.0A"),
-    "LTL2R3KRD-EM": ("Lite-On", "LTL2R3KRD-EM"),
+    "WP7113ID": ("Kingbright", "WP7113ID"),
     "G5LE-1 DC5": ("Omron", "G5LE-1 DC5"),
     "PTS645VL58-2 LFS": ("C&K", "PTS645VL58-2 LFS"),
     "PS/2 kbd + mouse": ("Kycon", "KMDGX-6S/6S-S4N"),
@@ -96,9 +96,9 @@ R_CODE = {"5.1k": "5K1", "10k": "10K", "47": "47R", "3.24k": "3K24", "1.69k": "1
           "4.7k": "4K7", "910": "910R", "22k": "22K"}
 MPN_PASSIVE = {
     ("placard_std:R_Network08_US", "10k"): ("Bourns", "4609X-101-103LF"),
-    ("placard_std:C", "100n"): ("KEMET", "C320C104K5R5TA"),
+    ("placard_std:C", "100n"): ("TDK", "FG28X7R1H104KNT00"),
     ("placard_std:C", "1u"): ("KEMET", "C330C105K5R5TA"),
-    ("placard_std:C", "15n C0G"): ("KEMET", "C320C153K1G5TA"),
+    ("placard_std:C", "15n C0G"): ("TDK", "FG24C0G1H153JNT06"),
     ("placard_std:C", "22u"): ("TDK", "FG24X5R1A226MRT06"),
     ("placard_std:C_Polarized", "220u 10V"): ("Panasonic", "EEU-FR1E221"),
     ("placard_std:C_Polarized", "220u"): ("Panasonic", "EEU-FR1C221"),
@@ -428,7 +428,7 @@ def sheet_power(b):
     xl = 304.8
     s.power("+5V", xl, yr - 2.54)
     r59 = res(s, "R59", xl, yr + 7.62, "+5V", "PWR_LED", "1k", bare=("1", "2"))
-    d18 = s.part("placard_std:LED", "D18", xl, yr + 22.86, {"1": "GND", "2": "PWR_LED"}, value="LTL2R3KRD-EM",
+    d18 = s.part("placard_std:LED", "D18", xl, yr + 22.86, {"1": "GND", "2": "PWR_LED"}, value="WP7113ID",
                  footprint=FP_LED, angle=90, bare=("1", "2"), ref_at=(xl + 3.0, yr + 22.3), value_at=(xl + 3.0, yr + 25.4))
     path(s, "+5V", (xl, yr - 2.54), r59["1"])
     path(s, "PWR_LED", r59["2"], d18["2"])
