@@ -89,7 +89,7 @@ PIN 7  = D3;
 PIN 8  = D4;
 PIN 9  = PAD1;         /* SNES pad 1 DATA (10k pull-up: no pad reads 1) */
 PIN 10 = PAD2;         /* SNES pad 2 DATA (10k pull-up) */
-PIN 11 = RXCLK;        /* the free PS/2 device's clock (KBD_CLK and PS2_CLK diode-ORed, 22k to GND) */
+PIN 11 = RXCLK;        /* the free PS/2 device's clock (KBD_CLK and MOUS_CLK diode-ORed, 22k to GND) */
 PIN 13 = MISO;         /* SD card DO, 3.3 V (10k pull-up to 3.3 V) */
 PIN 14 = A1;           /* address bit 1: 1 = the PS/2 receiver's addresses, this PLD stays off the bus */
                        /* pin 15 spare */
