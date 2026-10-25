@@ -26,7 +26,8 @@ have no edge.
 | Jack_3.5mm_Tensility_54-00174_Horizontal | audio line out jack J6 | T (two legs), R1, R2, S |
 | USB_C_Receptacle_GCT_USB4125_6P_HandSolder | USB-C power J13 | A5 A9 A12 B5 B9 B12, S1 |
 
-Copies of KiCad's own footprints, unchanged but for the 3D model path:
+Copies of KiCad's own footprints, unchanged but for the 3D model path (and,
+for J4 and J7, the silk stopped inside the board edge where they overhang it):
 SD_Kyocera_145638009511859+ (J4), Fuse_Bourns_MF-RG300 (F1),
 SW_Tactile_SPST_Angled_PTS645Vx58-2LFS (SW2), DSUB-15-HD_Female_Horizontal_...
 (J7 VGA).
@@ -380,13 +381,39 @@ def usb_c(extend=1.5):
     print("wrote", name)
 
 
-def stock(lib, name, note):
+def trim_silk_past(s, edge):
+    """Cut the F.SilkS lines of footprint text s back to SILK_EDGE_GAP short of
+    y = edge, the board edge as the part sits on the main board (the part's
+    front hangs over it, toward +y)."""
+    out = []
+    for ln in s.split("\n"):
+        m = re.match(r'(\s*)\(fp_line \(start ([-\d.]+) ([-\d.]+)\) \(end ([-\d.]+) ([-\d.]+)\)( \(layer "F.SilkS"\) \(width ([\d.]+)\)\))$', ln)
+        if m:
+            x1, y1, x2, y2, w = (float(v) for v in m.group(2, 3, 4, 5, 7))
+            lim = edge - SILK_EDGE_GAP - w / 2
+            if y1 > lim and y2 > lim:
+                continue
+            if y1 > lim:
+                x1, y1 = x1 + (x2 - x1) * (lim - y1) / (y2 - y1), lim
+                ln = '%s(fp_line (start %s %s) (end %s %s)%s' % (m.group(1), f(x1), f(y1), m.group(4), m.group(5), m.group(6))
+            elif y2 > lim:
+                x2, y2 = x2 + (x1 - x2) * (lim - y2) / (y1 - y2), lim
+                ln = '%s(fp_line (start %s %s) (end %s %s)%s' % (m.group(1), m.group(2), m.group(3), f(x2), f(y2), m.group(6))
+        out.append(ln)
+    return "\n".join(out)
+
+
+def stock(lib, name, note, edge=None):
     """A copy of one of KiCad's own footprints, unchanged except that its 3D model is
     the copy in kicad/lib/placard.3dshapes (KiCad's own model, or a generated one
-    where KiCad's library names a model it does not have)."""
+    where KiCad's library names a model it does not have), and, given edge, its
+    silk stops inside the board edge at y = edge (trim_silk_past)."""
     with open(os.path.join(STOCK, lib + ".pretty", name + ".kicad_mod")) as fh:
         s = fh.read()
     s = re.sub(r" \(tstamp [0-9a-f-]+\)", "", s)
+    if edge is not None:
+        s = trim_silk_past(s, edge)
+        note += ", silk stopped %s mm inside the board edge at y = %s" % (f(SILK_EDGE_GAP), f(edge))
     s = s.replace('(descr "', '(descr "Placard, gen_kicad_connectors.py: KiCad %s:%s with %s. ' % (lib, name, note), 1)
     s = re.sub(r'  \(model "[^"]+"', '  (model "%s/%s.step"' % (MODELS, name), s)
     assert MODELS in s
@@ -404,11 +431,12 @@ def main():
     toggle()
     audio_jack()
     usb_c()
-    stock("Connector_Card", "SD_Kyocera_145638009511859+", "a generated 3D model (KiCad has none)")
+    # J4 sits with its card opening 17.5 mm past its origin over the left board edge
+    stock("Connector_Card", "SD_Kyocera_145638009511859+", "a generated 3D model (KiCad has none)", edge=17.5)
     stock("Fuse", "Fuse_Bourns_MF-RG300", "a generated 3D model (KiCad has none)")
     stock("Button_Switch_THT", "SW_Tactile_SPST_Angled_PTS645Vx58-2LFS", "KiCad's 3D model, copied into the project")
     stock("Connector_Dsub", "DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm",
-          "KiCad's 3D model, copied into the project")
+          "KiCad's 3D model, copied into the project", edge=6.99)   # J7's flange over the back edge
 
 
 if __name__ == "__main__":
