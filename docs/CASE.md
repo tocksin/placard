@@ -1,6 +1,6 @@
 # Case
 
-Date: 2026-10-24
+Date: 2026-10-25
 
 > **2026-10-25: the Cherry MX keyboard board was dropped** (CHIPS.md).  The
 > computer uses a PS/2 keyboard on J5, so the keyboard bay, rail, plate and
@@ -160,7 +160,7 @@ above the board's top face):
 | J5 | back | 262.5 | 12.5 | 15.5 x 26 rounded | Stacked PS/2, both ports in one opening |
 | SW1 | left | 309.1 | 5.2 | 7 mm hole | Power toggle bushing; the lever stands out of the wall |
 | SW2 | left | 289.4 | 4.0 | 4.5 mm hole | Reset.  The actuator stands 0.6 mm proud of the wall (a press has to be held 0.5 s, so a knock is harmless) |
-| J4 | left | 261.7 | 1.4 | 27 x 3.6 slot + 14 x 7 thumb notch | SD card, push-push |
+| J4 | left | 261.7 | 1.4 | 27 x 3.6 slot + 14 x 7 thumb notch | SD card, push-push (Hirose DM1AA-SF-PEJ(82) since 2026-10-25; check u and z once J4 is re-placed) |
 | J2 | right | 305.1 | 6.5 | 27 x 14 rounded | SNES port 1 |
 | J3 | right | 277.1 | 6.5 | 27 x 14 rounded | SNES port 2 |
 

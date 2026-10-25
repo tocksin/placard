@@ -32,16 +32,16 @@ slot sockets J9-J12 are optional: a builder fits only the slots a card will use.
 
 | Board | Components | Without optional parts | Lines estimated |
 |---|--:|--:|--:|
-| Main board | $187.43 | $169.43 | 31 |
+| Main board | $189.49 | $171.49 | 30 |
 | Cartridge, 64K | $61.52 | $61.52 | 3 |
 | Cartridge, 32K | $32.57 | $32.57 | 3 |
-| **Main and 64K cartridge** | **$248.95** | **$230.95** | |
+| **Main and 64K cartridge** | **$251.01** | **$233.01** | |
 
 ## Main board
 
 55 lines, 175 parts on the schematic.
 
-Components: **$187.43** for one board at these quantities, **$169.43** without the optional parts.
+Components: **$189.49** for one board at these quantities, **$171.49** without the optional parts.
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -55,7 +55,7 @@ Components: **$187.43** for one board at these quantities, **$169.43** without t
 | 1 | U40 | MCP1700-3302E/TO | Microchip | 3.3 V LDO regulator, 250 mA, TO-92 |  | 0.50 | 0.50 | Mouser |  |
 | 1 | X1 | ECS-100A-251.7 | ECS Inc. | Clock oscillator, 25.175 MHz, 5 V, full-size DIP-14 can | 25.175 MHz | 4.06 | 4.06 | Digi-Key: Mouser has no stock (Justin, 2026-10-22) |  |
 | 2 | J2, J3 |  |  | SNES controller socket, 7 pin | SNES pad | 4.00 | 8.00 | est.: ZedLabz right-angle SNES port (Amazon/eBay) |  |
-| 1 | J4 | 145638009511859+ | Kyocera AVX | SD card socket | SD (SPI) | 2.50 | 2.50 | est.: Kyocera AVX 145638009511859+ (SMD; no through-hole full-size SD socket found) |  |
+| 1 | J4 | DM1AA-SF-PEJ(82) | Hirose | SD card socket | SD (SPI) | 4.56 | 4.56 | Mouser: SMD, push-push (no horizontal through-hole SD socket exists; Kyocera 145638009511859+ went obsolete 2026-10-25) |  |
 | 1 | J5 | KMDGX-6S/6S-S4N | Kycon | Stacked dual mini-DIN-6 receptacle (PS/2), right angle, shielded: mouse top, keyboard bottom | PS/2 kbd + mouse | 3.72 | 3.72 | Mouser |  |
 | 1 | J6 | 54-00174 | Tensility | 3.5 mm audio line out jack, 4 pole (TRRS), right angle, TH (a TRS plug's sleeve spans R2 and S) | 3.5 mm | 0.73 | 0.73 | Digi-Key: Justin, 2026-10-22 |  |
 | 1 | J7 | A-HDF 15 A-KG/T | Assmann WSW | DE-15 high-density receptacle (VGA), with mounting holes | VGA | 1.36 | 1.36 | Digi-Key: Justin, 2026-10-22 |  |

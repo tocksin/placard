@@ -79,7 +79,7 @@ MPN = {
     "25.175 MHz": ("ECS Inc.", "ECS-100A-251.7"),
     "VGA": ("Assmann WSW", "A-HDF 15 A-KG/T"),
     "3.5 mm": ("Tensility", "54-00174"),
-    "SD (SPI)": ("Kyocera AVX", "145638009511859+"),
+    "SD (SPI)": ("Hirose", "DM1AA-SF-PEJ(82)"),
 }
 
 
@@ -1066,7 +1066,7 @@ def sheet_port(b):
     s.part("placard_std:SD_Card", "J4", 373.38, 170.18, {"1": "SD_CS", "2": "SD_DI", "3": "GND", "4": "+3V3", "5": "SD_CLK",
                                                         "6": "GND", "7": "SD_MISO", "8": None, "9": None, "10": None,
                                                         "11": None, "12": "GND", "13": "GND"}, value="SD (SPI)",
-           footprint="placard:SD_Kyocera_145638009511859+",
+           footprint="placard:SD_Hirose_DM1AA_SF_PEJ82",
            bare=("1", "2", "5", "7"), ref_at=(353, 153), value_at=(353, 187))
     path(s, "SD_MISO", (350.52, 177.8), (345.44, 177.8), (345.44, 208.28), (353.06, 208.28), (360.68, 208.28))
     s.junction(353.06, 208.28, owner="SD_MISO")

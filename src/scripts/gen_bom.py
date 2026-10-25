@@ -114,7 +114,7 @@ PRICES = {
     "ECS-100A-251.7": (4.06, "Digi-Key", "Mouser has no stock (Justin, 2026-10-22)"),
     "Box header": (0.60, "est.", "Wurth 61202021621"),
     "SNES controller socket": (4.00, "est.", "ZedLabz right-angle SNES port (Amazon/eBay)"),
-    "SD card socket": (2.50, "est.", "Kyocera AVX 145638009511859+ (SMD; no through-hole full-size SD socket found)"),
+    "SD card socket": (4.56, "Mouser", "SMD, push-push (no horizontal through-hole SD socket exists; Kyocera 145638009511859+ went obsolete 2026-10-25)"),
     "54-00174": (0.73, "Digi-Key", "Justin, 2026-10-22"),
     "A-HDF 15 A-KG/T": (1.36, "Digi-Key", "Justin, 2026-10-22"),
     "Expansion slot": (4.50, "est.", "Sullins EBC20DCAN"),

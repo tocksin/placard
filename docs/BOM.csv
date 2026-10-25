@@ -9,7 +9,7 @@ Main board,1,U36,Texas Instruments,SN74HCT574N,"Octal D flip-flop, 3-state, 74HC
 Main board,1,U40,Microchip,MCP1700-3302E/TO,"3.3 V LDO regulator, 250 mA, TO-92",,Package_TO_SOT_THT:TO-92_Inline,yes,0.50,0.50,Mouser,
 Main board,1,X1,ECS Inc.,ECS-100A-251.7,"Clock oscillator, 25.175 MHz, 5 V, full-size DIP-14 can",25.175 MHz,Oscillator:Oscillator_DIP-14,yes,4.06,4.06,"Digi-Key: Mouser has no stock (Justin, 2026-10-22)",
 Main board,2,J2 J3,,,"SNES controller socket, 7 pin",SNES pad,placard:SNES_Pad_Socket_Horizontal,yes,4.00,8.00,est.: ZedLabz right-angle SNES port (Amazon/eBay),
-Main board,1,J4,Kyocera AVX,145638009511859+,SD card socket,SD (SPI),placard:SD_Kyocera_145638009511859+,yes,2.50,2.50,est.: Kyocera AVX 145638009511859+ (SMD; no through-hole full-size SD socket found),
+Main board,1,J4,Hirose,DM1AA-SF-PEJ(82),SD card socket,SD (SPI),placard:SD_Hirose_DM1AA_SF_PEJ82,yes,4.56,4.56,"Mouser: SMD, push-push (no horizontal through-hole SD socket exists; Kyocera 145638009511859+ went obsolete 2026-10-25)",
 Main board,1,J5,Kycon,KMDGX-6S/6S-S4N,"Stacked dual mini-DIN-6 receptacle (PS/2), right angle, shielded: mouse top, keyboard bottom",PS/2 kbd + mouse,placard:PS2_Kycon_KMDGX-6S-6S-S4N,yes,3.72,3.72,Mouser,
 Main board,1,J6,Tensility,54-00174,"3.5 mm audio line out jack, 4 pole (TRRS), right angle, TH (a TRS plug's sleeve spans R2 and S)",3.5 mm,placard:Jack_3.5mm_Tensility_54-00174_Horizontal,yes,0.73,0.73,"Digi-Key: Justin, 2026-10-22",
 Main board,1,J7,Assmann WSW,A-HDF 15 A-KG/T,"DE-15 high-density receptacle (VGA), with mounting holes",VGA,placard:DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm,yes,1.36,1.36,"Digi-Key: Justin, 2026-10-22",
