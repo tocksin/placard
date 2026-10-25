@@ -286,7 +286,8 @@ through 10k, which keeps a slip onto a wrong pin harmless:
 - **Low:** clip the test lead to strap S4's lead at U23's pin 19 (10k to
   GND) and touch the probe tip to a U16 pin.
 
-Insert U16 into its socket and connect the monitor.  Then:
+Insert U16 into its socket, and connect the monitor and USB power cable.
+Turn on the power switch.  Then:
 
 1. High: touch each of U16's pins 2-11 in turn.  Mode 3
    (8 bpp) with every pixel FF: the monitor shows a **white screen** with
