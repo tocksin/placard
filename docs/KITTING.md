@@ -1,6 +1,6 @@
 # Selling the Placard as a kit
 
-Date: 2026-10-23
+Date: 2026-10-25
 
 Who can buy the parts, program the chips, bag each kit and ship it, so
 that no one has to hand-pack every kit.  Researched 2026-10-20 from public
@@ -36,7 +36,7 @@ Two things matter more for a kit than for a single build:
 The rest of the kit is ordinary stock: 5 SN74F377AN, a CD74HCT377E, 3 SN74F541N, 2
 AS7C256C-15PCN (4 with the cartridge's), a CD74ACT273E, a
 SN74HCT574N, the 3.3 V regulator and oscillator (not chosen
-yet), the power toggle (CIT ANT11TFHQE), the reset relay (Omron G5LE-1 DC5)
+yet), the power toggle (CIT ANT11TFHQE), the reset relay (CIT J1071CS5VDC.36)
 and its button (C&K PTS645VL58-2 LFS), sockets, passives, connectors, two PCBs and the case
 (the keyboard is a PS/2 keyboard since 2026-10-25).  The full
 bill of materials, board by board, is [BOM.md](BOM.md) (and BOM.csv),
