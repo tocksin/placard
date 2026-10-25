@@ -280,10 +280,6 @@ def board_bom(files):
                         notes="",
                         extra=True))
     if shunts:     # (main board only)
-        out.append(dict(refs=[], qty=1, mpn="MFR-25FBF52-10K", mfr="Yageo", desc="Resistor, 10k (/WE pull-up), 1/4 W, axial",
-                        value="10k", footprint="",
-                        notes="Memory control rev 09 lets go of /WE while RUN is low; not drawn on the schematic "
-                              "yet (EXPANSION.md, \"Booting from slot 1\")", extra=True))
         out.append(dict(refs=shunts, mpn="QPC02SXGN-RC", mfr="Sullins", desc="Jumper shunt, 2.54 mm", value="", footprint="",
                         notes="Bring-up jumpers", extra=True))
     for d in out:
@@ -353,7 +349,7 @@ TITLES = {"Main board": "Main board assembly", "Cartridge, 64K": "64K cartridge 
           "Cartridge, 32K": "32K cartridge assembly", "Case": "Case assembly"}
 SCOPE = {
     "Main board": "The main board, built: the bare PCB, every part on the schematic, and the sockets, "
-                  "jumper shunts and /WE pull-up that are not drawn.  It is one line of the case assembly.",
+                  "jumper shunts that are not drawn.  It is one line of the case assembly.",
     "Cartridge, 64K": "The 64K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and "
                       "screw.  A machine takes one cartridge, 64K or 32K.",
     "Cartridge, 32K": "The 32K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and "
