@@ -1,6 +1,6 @@
 # PLD usage: unused pins and product terms
 
-Date: 2026-10-22. Taken from `src/pld/*.pld` on main (commit b476a68), then updated for the F377 load-enable fix (State PLD revision 13, Branch PLD revision 12, I/O decode PLD revision 04: the five State PLD load strobes are active low, and the Branch PLD's pin 15 makes the pixel buffer's /PIX_LD), and for X no longer being a source (Branch PLD revision 13: pin 16 is /SRC_EN, active low, on the source F541s' /OE1; memory control PLD revision 07; audio slot PLD revision 04 uses pins 16 and 21 for I1 and /AC_SEL). State 15, Branch 15, ALU 07 and cartridge 03 are the same logic as State 13, Branch 13, ALU 05 and cartridge 01: the revisions between them stored the opcode byte XOR FDh and were reverted on 2026-10-21. Later on 2026-10-21 the cartridge PLD went to revision 04 (it holds the CPU's STALL instead of the clock) and the instruction register became a PLD (`ATF22V10_IR.pld`, #17). On 2026-10-22 the memory control PLD went to revision 09 (/WE output enable for a slot-1 boot card), and the H counter PLD went to revision 08 (pin 6 = LC7, blank line).
+Date: 2026-10-25. Taken from `src/pld/*.pld` on main (commit b476a68), then updated for the F377 load-enable fix (State PLD revision 13, Branch PLD revision 12, I/O decode PLD revision 04: the five State PLD load strobes are active low, and the Branch PLD's pin 15 makes the pixel buffer's /PIX_LD), and for X no longer being a source (Branch PLD revision 13: pin 16 is /SRC_EN, active low, on the source F541s' /OE1; memory control PLD revision 07; audio slot PLD revision 04 uses pins 16 and 21 for I1 and /AC_SEL). State 15, Branch 15, ALU 07 and cartridge 03 are the same logic as State 13, Branch 13, ALU 05 and cartridge 01: the revisions between them stored the opcode byte XOR FDh and were reverted on 2026-10-21. Later on 2026-10-21 the cartridge PLD went to revision 04 (it holds the CPU's STALL instead of the clock) and the instruction register became a PLD (`ATF22V10_IR.pld`, #17). On 2026-10-22 the memory control PLD went to revision 09 (/WE output enable for a slot-1 boot card), and the H counter PLD went to revision 08 (pin 6 = LC7, blank line). On 2026-10-25 the port PLD went to revision 03 (the port latch moved in, the matrix keyboard dropped).
 
 The main board has 19 ATF22V10C chips built from 13 PLD sources, and the ROM cartridge one more (`ATF22V10_CART.pld`). Each 22V10 has 12 dedicated inputs (pins 1-11 and 13; pin 1 is also the register clock) and 10 I/O pins (14-23), each with an output macrocell (OLMC) of 8, 10, 12, 14, 16, 16, 14, 12, 10 or 8 product terms. An I/O pin used as an input gives up its cell's terms. Every chip also has one asynchronous reset (AR) and one synchronous preset (SP) term shared by all registers, and each cell has its own output-enable term.
 
@@ -11,7 +11,7 @@ Each output equation was expanded with its intermediate variables (names that ar
 ## Things that apply to every PLD
 
 - **AR and SP terms**: unused on every design (VCOUNT sets them to 0 explicitly; the others leave them at the default 0).
-- **Output-enable terms**: unused (always enabled) everywhere except PORT's D6 and D7.
+- **Output-enable terms**: unused (always enabled) everywhere except PORT's D5, D6 and D7.
 - **Registers**: every combinational output cell could be registered instead; those are marked "combinational" in the tables.
 
 ## Summary
@@ -31,12 +31,12 @@ Each output equation was expanded with its intermediate variables (names that ar
 | `ATF22V10_COLORDECODER.pld` | #16 | none | none | 2 | 8 | 95 / 104 |
 | `ATF22V10_IR.pld` | #17 | 13 | 22 (10), 23 (8) | 0 | 8 | 17 / 102 |
 | `ATF22V10_AUDIO.pld` | #35 | none | none | 3 | 7 | 23 / 78 |
-| `ATF22V10_PORT.pld` | #38 | 10, 11, 13 | none | 0 | 10 | 11 / 120 |
+| `ATF22V10_PORT.pld` | #38 | none | none | 2 | 8 | 11 / 102 |
 | `ATF22V10_CART.pld` | cartridge | 6, 7, 8, 9, 10, 11, 13 | none | 0 | 10 | 28 / 120 |
 
 \* pin 2 on HCOUNT is declared (RESET) but used in no equation.
 
-Free inputs in total: HCOUNT 7, VCOUNT 10, PORT 4, IR 1 (main board); CART 7. Free I/O cells: IR pins 22 and 23 only (BRANCH pin 15 became /PIX_LD in revision 12, and AUDIO pins 16 and 21 became I1 and /AC_SEL in revision 04).
+Free inputs in total: HCOUNT 7, VCOUNT 10, PORT 0 (rev 03), IR 1 (main board); CART 7. Free I/O cells: IR pins 22 and 23 only (BRANCH pin 15 became /PIX_LD in revision 12, and AUDIO pins 16 and 21 became I1 and /AC_SEL in revision 04).
 
 **Full or tight cells** (0-1 spare): COLORDECODER RED1, RED2, RED3, GRN1, BLU2 (full) and GRN3 (1 spare); MEM_CTRL RAM_OE (full); HCOUNT HSYNC (1 spare); STATE Q1 (1 spare).
 
@@ -294,17 +294,17 @@ is a free input, pins 22 and 23 free I/O.
 
 ### `ATF22V10_PORT.pld` (#38)
 
-Input pins 10, 11 and 13 are free; pin 9 reads the PS/2 keyboard CLK since rev 02 (2026-10-22). All ten output cells are used; each uses 1 term except D6 (2), so 109 of 120 terms are spare. D6 and D7 are the only cells in the design that use their output-enable term.
+Revision 03 (2026-10-25, the matrix keyboard dropped): the PLD is the port latch as well, so every pin is used. Pin 1 is /PORT_WR, the clock of the five latch registers; pins 14 and 15 are I/O cells used as inputs (mouse CLK, PS/2 DATA). Each cell uses 1 term except D6 (3) and D7 (2), so 91 of the 102 terms on the output cells are spare. D5, D6 and D7 are the only cells in the design that use their output-enable term.
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|
-| 14 | 8 | !COL0 | combinational | 1 | 7 |
-| 15 | 10 | !COL1 | combinational | 1 | 9 |
-| 16 | 12 | !COL2 | combinational | 1 | 11 |
-| 17 | 14 | !COL3 | combinational | 1 | 13 |
-| 18 | 16 | !COL4 | combinational | 1 | 15 |
-| 19 | 16 | !COL5 | combinational | 1 | 15 |
-| 20 | 14 | !COL6 | combinational | 1 | 13 |
-| 21 | 12 | !COL7 | combinational | 1 | 11 |
-| 22 | 10 | D6 | combinational, OE term (1) | 1 | 9 |
-| 23 | 8 | D7 | combinational, OE term (1) | 1 | 7 |
+| 14 | 8 | MCLK | input | — | — |
+| 15 | 10 | PDATA | input | — | — |
+| 16 | 12 | K0 | registered | 1 | 11 |
+| 17 | 14 | !DHOLD | registered | 1 | 13 |
+| 18 | 16 | SDCS | registered | 1 | 15 |
+| 19 | 16 | !MOSIN | registered | 1 | 15 |
+| 20 | 14 | !SCKN | registered | 1 | 13 |
+| 21 | 12 | D5 | combinational, OE term (1) | 1 | 11 |
+| 22 | 10 | D6 | combinational, OE term (1) | 3 | 7 |
+| 23 | 8 | D7 | combinational, OE term (1) | 2 | 6 |
