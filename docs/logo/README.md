@@ -1,7 +1,14 @@
 # PLACARD logo concepts
 
-Six candidate logos, drawn by `src/scripts/gen_logo.py`.  None is used on
-the board, case or README yet; pick one (or a mix) first.
+Logo concepts, drawn by `src/scripts/gen_logo.py`.
+
+**Chosen (2026-10-25): F, the hand holding a sign (`f_hand.svg`).**  It is
+on the main board as footprint `placard:PLACARD_Logo` (LOGO1, front
+silkscreen, 40 x 48 mm, bottom-right corner at 310, 233.9 mm).  The
+footprint is written by the same script, is board-only (no schematic
+symbol) and is left out of the BOM and position files.
+
+![on the board](f_hand_on_pcb_closeup.png)
 
 ![concepts](logo_concepts.png)
 
