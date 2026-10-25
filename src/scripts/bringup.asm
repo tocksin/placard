@@ -11,7 +11,7 @@
 ;   9 AC/X  10 Y address  11 X address  12 ROM data  13 RAM data
 ;   14 map register  15 RAM address lines  16 video line read
 ;
-; Date: 10/22/2026
+; Date: 10/25/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -5654,7 +5654,7 @@ s_core2:
 s_ram:
     #d "RAM PAGE        PASSES          ERRORS          LAST BAD       WROTE     READ", 0x00
 s_kbd:
-    #d "KEYBOARD COLUMNS 0-7:", 0x00
+    #d "KBD_NOW (KEYS HELD):", 0x00
 s_kbd2:
     #d "TYPED:", 0x00
 s_pad:

@@ -312,7 +312,7 @@ Revision 04 (2026-10-25, the matrix keyboard dropped, the PS/2 receiver added): 
 
 ### `ATF22V10_PS2.pld` (#42)
 
-Added 2026-10-25. Clocked by the PS/2 device's clock (RXCLK), not the 25 MHz clock. Six input pins are free (7-11, 13). All ten cells are registered: the eight data bits (3 terms each: hold, hold, shift), the ready bit A (2) and the state bit B (2), 28 of 120 terms. Every cell has an output-enable term: the data bits onto the bus on reads of x5202, A on reads of x5203, and B's is A (the inhibit floats while receiving). AR = a write to x5202/x5203 (the re-arm); SP is 0.
+Added 2026-10-25, revision 02 the same day. Clocked by the PS/2 device's clock (RXCLK), not the 25 MHz clock. Six input pins are free (7-11, 13). All ten cells are registered: the eight data bits (3 terms each: hold, hold, shift), the state bit A (2) and the state bit B (2), 28 of 120 terms. Every cell has an output-enable term: the data bits onto the bus on reads of x5202, A (inverted: 0 = ready) on reads of x5203 while B = 0, and B's is A (the inhibit floats while receiving and drives low only in the ready state, after the 11th clock). AR = a write to x5202/x5203 (the re-arm); SP is 0.
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|

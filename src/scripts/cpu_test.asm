@@ -573,17 +573,12 @@ hk_poll:
     ld [y,x], ac
     ld 0x06, x
     ld ac, [y,x]
-    ld 0x52, y                ; Esc: key column 0, row 0
-    ld 0x00, x
-    ld 0x0F, [y,x]
-    nop
-    nop
-    nop
-    nop
+    ld 0x52, y                ; a byte from the PS/2 keyboard (D7 = 0)?
+    ld 0x03, x
     ld [y,x], ac
-    ld 0xEB, [y,x]
-    and 1, ac
-    beq hkp_esc
+    blt hkp_time
+    bra hkp_byte
+hkp_time:
     ld 0x5D, y
     ld 0x03, x
     ld [y,x], ac
@@ -606,6 +601,25 @@ hkp_same:
 hkp_ret:
     ld [0x1F], y
     jmp [0x1E]
+hkp_byte:
+    ld 0x02, x
+    ld [y,x], ac              ; the byte
+    ld 0xFB, [y,x]            ; re-arm the receiver, the keyboard still free
+    ld 0x5D, y
+    ld 0x0A, x
+    ld ac, [y,x]
+    xor 0x76, ac
+    bne hkp_nesc
+    ld 0x10, x                ; F0 76 is Esc let go, not pressed
+    ld [y,x], ac
+    xor 0xF0, ac
+    bne hkp_esc
+hkp_nesc:
+    ld 0x0A, x
+    ld [y,x], ac
+    ld 0x10, x
+    ld ac, [y,x]
+    bra hkp_time
 hkp_esc:
     ld 1, ac
     bra hkp_go

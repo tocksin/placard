@@ -39,8 +39,8 @@ with its reference designator.
 | U5, U6 ALU low, ALU high | `ALU_SHR.pld` (two copies) | U14 V counter | `ATF22V10_VCOUNT.pld` |
 | U7-U10 Address muxes | `ATF22V10_QUAD_MUX.pld` (four copies) | U15 Sync | `ATF22V10_SYNC.pld` |
 | U16 Colour decoder | `ATF22V10_COLORDECODER.pld` | U35 Audio and mode slots | `ATF22V10_AUDIO.pld` (rev 04) |
-| U17 Instruction register | `ATF22V10_IR.pld` | U38 Shared port | `ATF22V10_PORT.pld` (rev 02) |
-| cartridge U1 Cartridge loader | `ATF22V10_CART.pld` | | |
+| U17 Instruction register | `ATF22V10_IR.pld` | U38 Shared port | `ATF22V10_PORT.pld` (rev 04) |
+| cartridge U1 Cartridge loader | `ATF22V10_CART.pld` | U42 PS/2 receiver | `ATF22V10_PS2.pld` (rev 02) |
 
 **Load the bring-up ROM.**  `python3 test_bringup_sim.py --bin` in
 `src/scripts` writes `bringup_lo.bin` (ROM x0000-x7FFF, for the
@@ -170,10 +170,10 @@ held, and the 2.3 A load runs five minutes without F1 tripping.
 
 Build the rest of the board with no chips:
 
-- Sockets for U1-U23, U25-U27, U29, U31, U32, U35, U37-U39 and the
+- Sockets for U1-U23, U25-U27, U29, U31, U32, U35, U38, U42 and the
   oscillator X1 (U36's socket can wait for step 19).
 - Decoupling capacitors (100 nF): C1-C23, C25-C27, C29, C31, C32, C35,
-  C37-C39 (each Cn sits beside Un), and C43 beside X1.
+  C38, C42 (each Cn sits beside Un), and C43 beside X1.
 - Data bus: RN1 (10k SIP, pulls D7:D0 up) and R5-R12 (47 ohm series
   resistors).
 - Cartridge STALL and RUN: R3 (10k, STALL_OUT pull-up), R4 (10k, RUN
@@ -520,7 +520,7 @@ runs a loop once a frame:
 | 0 | title, FRAME (counts 60 a second) |
 | 2-3 | the core tests (1-14) run again every frame; LOOPS counts them |
 | 5 | RAM page test: one 256-byte page a frame with 6 patterns, over the 49 pages programs use (x0100-x1EFF, x4000-x4CFF, x5400-x59FF); PASSES, ERRORS, the last bad address, what was written and what was read |
-| 8-9 | keyboard: the 8 columns' row bytes (FF = no key) and the typed keys (echoed) |
+| 8-9 | keyboard: the 8 bytes of `KBD_NOW` (FF = no key held; a held key clears its bit) and the typed keys (echoed) |
 | 12 | SNES pads 1 and 2 (pad_read, 0000 = no button) |
 | 14-15 | SD card: SD_INIT and FS_MOUNT results (S tries again) |
 | 17-18 | mouse: MOUSE_INIT result, X (0-639), Y (0-479) and buttons |
@@ -542,41 +542,65 @@ page test).  It takes several minutes.
 
 ## I/O and audio
 
-### Step 18: shared port: latch (U37), port PLD (U38), row buffer (U39)
+### Step 18: shared port: port PLD (U38) and PS/2 receiver PLD (U42)
 
-Fit the three chips U37, U38 and U39 and their parts ([IO.md](IO.md)):
+Fit the two PLDs U38 and U42 and their parts ([IO.md](IO.md)):
 
-- The 3.3 V regulator U40, with C40 on its input and C42 on its output
+- The 3.3 V regulator U40, with C40 on its input and C47 on its output
   (1 µF each).
-- Keyboard rows: RN2 (4.7k SIP, row pull-ups) and the optional Cherry MX
-  keyboard header J1.
 - SNES pads: J2 and J3 with R40 and R41 (10k data pull-ups).
 - PS/2: J5 with R49, R50 and R55 (4.7k pull-ups on the two clocks and
-  DATA) and D2-D6 (BAT85, the row and port diodes).
-- SD card: J4, the dividers R42-R44 (1.8k) and R45-R47 (3.3k), R48 (10k
-  MISO pull-up to 3.3 V) and D1 (BAT85, MISO to row 7).
+  DATA); the hold diodes D2 (/CS to the mouse CLK), D3 (DATA) and D6 (K0
+  to the keyboard CLK); the receiver's inhibit diodes D5 (mouse CLK) and
+  D19 (keyboard CLK) from U42 pin 14; and the RXCLK diode-OR D1
+  (keyboard CLK), D4 (mouse CLK) with its 22k pull-down R60 (all BAT85).
+- SD card: J4, the dividers R42-R44 (1.8k) and R45-R47 (3.3k) and R48
+  (10k MISO pull-up to 3.3 V; MISO goes straight to U38 pin 13).
   Before plugging the SD card in, check 3.2-3.4 V at
 U40's output and at the SD socket's pin 4.
 
-- The keyboard is scanned every frame: each /COL pin (port PLD pins 14-21)
-  reads about **59.94 Hz**, mostly high.  With no key down row 8 shows FF
-  in every column; hold a key and its column's byte loses a bit.  Typed
-  keys echo on row 9.
-- Press buttons on a SNES pad: row 12 changes.
+- **Port PLD high level.**  The port register drives the pads' CLOCK and
+  LATCH (CMOS, high at least 3.5 V) and the SD dividers; the ATF22V10C
+  only promises 2.4 V at 4 mA.  With a pad and a card plugged in, measure
+  U38 pins 20 (SCK) and 19 (MOSI) at rest: expect close to 5 V.  Under
+  3.5 V the pads will misread; a 4.7k pull-up on each would fix it.
+- **The port rests at EB** (the register clears at power-up): U38 pin 16
+  (K0) 0 V, pin 17 (DATA hold) 5 V, pin 18 (/CS) 0 V, pins 19 and 20 5 V.
+  Both PS/2 clock lines are held low at the socket (J5 pin 5 of each half)
+  and RXCLK (U38 pin 11, U42 pin 1) is 0 V.  With no PS/2 device the
+  keyboard CLK goes high only while the driver looks for a keyboard.
+- With no key down row 8 shows FF in every byte; hold a key and its byte
+  loses a bit.  Typed keys echo on row 9.
+- Press buttons on a SNES pad: row 12 changes.  While the pads are read
+  the mouse's clock is let go for about 30 us (after a 100 us hold): a
+  scope on J5's mouse CLK pin shows the short high pulse once a frame.
 - With no card SD_INIT is 01; with a card it should be 00, and FS_MOUNT 00
   on a FAT16 or FAT32 card.  Press S to try again after changing cards.
 - Plug the mouse in and power on: MOUSE_INIT 00, and moving it changes X
   and Y (buttons in the last column).  The mouse is started once, at
   power-up.
-- PS/2 keyboard socket (J5 bottom): with no keyboard, port PLD pin 9 is
-  5 V.  Plug a PS/2 keyboard in and power on: `port_init` finds it (its
-  lights flash once as the driver sets them), typed keys echo like the
-  matrix's, and Caps Lock lights its Caps Lock light.  Check typing with
-  the mouse plugged in too, and that both keep working together (they
-  share DATA).  With a scope on its CLK, measure how long a keyboard and
-  a mouse take to start a byte after their clock is let go (a few of
-  each): the listen window adapts to it, and a device slower than about
-  0.85 ms needs `MOUSE_WAIT` raised (IO.md, "Listening costs time").
+- PS/2 keyboard socket (J5 bottom): plug a PS/2 keyboard in and power on:
+  `port_init` finds it (its lights flash once as the driver sets them),
+  typed keys echo, and Caps Lock lights its Caps Lock light.  Check
+  typing with the mouse plugged in too, and that both keep working
+  together (they share DATA, and take turns frame by frame).
+- **RXCLK and the receiver** (scope, two channels: the device's CLK at
+  J5 and RXCLK at U42 pin 1).  A byte is 11 clock pulses; RXCLK follows
+  the free device's clock with a high of about 3.9 V (pull-up, diode,
+  22k).  Check that each pulse is one clean edge at U42 (no double
+  clocking: the PLD's clock input has no hysteresis, and the PS/2 edges
+  are slow); the fix would be a smaller pull-down (10k) or 100 pF from
+  RXCLK to ground.  After the 11th rising edge U42 pin 14 goes low and
+  the device's CLK stays low until the CPU takes the byte (within a
+  frame), then the line is let go and the next byte follows.  A device
+  that sends the same byte twice in a row points at the inhibit coming
+  too early (it should fall after the 11th pulse, not the 10th).
+- **Holding mid-byte.**  Type while a SNES pad is being read (row 12
+  changes every frame): nothing should be lost or doubled.  `ps2_pause`
+  holds both clocks for at least 100 us before a pad read, so a device
+  caught in the middle of a byte gives it up and sends its chunk again;
+  a keyboard whose keys double up on the display points at a hold the
+  keyboard does not see (it should be 100 us or more on the scope).
 
 ### Step 19: audio DAC (U36)
 

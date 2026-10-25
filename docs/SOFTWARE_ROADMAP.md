@@ -80,7 +80,7 @@ A full-screen editor for assembly source: 80 × 28 window, cursor keys,
 insert/delete, line join/split, search, go to line, load/save, and maybe
 cut/paste of a line range.
 
-- Needs: keyboard (both the matrix and PS/2 keyboards), console, FAT read
+- Needs: keyboard (PS/2), console, FAT read
   and write, faster redraw.
 - Code: 4-6 KB.  Text buffer: the 20 KB of freed video pages plus
   x4000-x4CFF, about 23 KB of text, as a list of 256-byte pages holding

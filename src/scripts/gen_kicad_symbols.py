@@ -29,7 +29,7 @@ stops if a pin is missing from it); the file is KiCad 7 format.
 
 symbol() is also used by gen_kicad_parts.py for the other project symbols.
 
-Date: 2026-10-23
+Date: 2026-10-25
 """
 
 import os
@@ -119,10 +119,17 @@ LAYOUT = {
          [None, None, "Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", None, None, None, None, None, "CO"]),
     ],
     "ATF22V10_PORT": [
-        (["K0", "K1", "K2", "K3"],
-         ["COL0", "COL1", "COL2", "COL3", "COL4", "COL5", "COL6", "COL7"]),
+        # the output register (was the 74HC574 latch) above, the reads (was the 74F541) below
+        (["PORT_WR", None, "D0", "D1", "D2", "D3", "D4"],
+         [None, None, "SCKN", "MOSIN", "SDCS", "DHOLD", "K0"]),
         SEP,
-        (["PORT_RD", "A0", None, "PAD1", "PAD2", None, "KCLK"], ["D6", "D7"]),
+        (["PORT_RD", "A0", "A1", None, "MISO", "PAD1", "PAD2", "RXCLK"], [None, None, None, None, None, "D5", "D6", "D7"]),
+        (["nc"], []),
+    ],
+    "ATF22V10_PS2": [
+        # the byte pins in bus order (N8 = d0 at the top), then the ready flag and the inhibit
+        (["RXCLK", "PDATA", None, "PORT_RD", "PORT_WR", "A0", "A1"],
+         ["N8", "N7", "N6", "N5", "N4", "N3", "N2", "N1", None, "A", None, "B"]),
         (["nc"], []),
     ],
     "ATF22V10_QUAD_MUX": [

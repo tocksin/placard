@@ -20,7 +20,7 @@ The project has some hard-goals to maintain:
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
 
 ## Block diagram
-Each block shows how many chips it uses (33 and a 3.3 V regulator on the main board since 2026-10-25, when the matrix keyboard went and a PS/2 receiver PLD came, the drawing still shows 34; the expansion and cartridge slots add none, the cartridge itself has 5).  See [docs/CHIPS.md](docs/CHIPS.md) for the parts.
+Each block shows how many chips it uses (33 and a 3.3 V regulator on the main board since 2026-10-25, when the matrix keyboard went and a PS/2 receiver PLD came; the expansion and cartridge slots add none, the cartridge itself has 5).  See [docs/CHIPS.md](docs/CHIPS.md) for the parts.
 
 ![Placard block diagram](reference/placard_block_diagram.png)
 

@@ -2,6 +2,12 @@
 
 Date: 2026-10-24
 
+> **2026-10-25: the Cherry MX keyboard board was dropped** (CHIPS.md).  The
+> computer uses a PS/2 keyboard on J5, so the keyboard bay, rail, plate and
+> ribbon slot below are moot.  The design is kept as written on 2026-10-24
+> until the case is rethought: a shallower case for the 290 x 290 board
+> alone, or the bay kept as a resting place for a separate PS/2 keyboard.
+
 A concept for the PLACARD case: a brushed, anodized aluminium shell that is
 strong on the bottom and sides, with a clear acrylic top so the board shows
 through.  The Cherry MX keyboard sits in its own bay in front of the main

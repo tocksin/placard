@@ -15,7 +15,9 @@ placard_menu.asm for the layout) and does nothing when the block has no
 Two routines, each in its own block (each fits in one page):
 
     hk_poll   call it at least every 12 ms (95 steps of the line read):
-              it reads the line, and once per frame checks Esc and counts
+              it reads the line, and once per frame takes the byte the
+              PS/2 receiver holds (the menu's launch has let the keyboard
+              send; Esc's make code, 76, goes back to the menu) and counts
               down the time left (rotating only).  Changes AC, X, Y.
     hk_done   the program has finished a run (and shown its result): when
               rotating, go on to the next program now.  Changes AC, X, Y.
@@ -33,16 +35,18 @@ maps the ROM back in and returns to the menu.
     blocks = hook_blocks(ret_zp, reth_zp)   -> [(name, [(kind, text), ...])]
     kind 'L' = label, 'I' = instruction
 
-Date: 10/22/2026
+Date: 10/25/2026
 """
 
 MENU_BLK = 0x5D00
 MB_MODE, MB_LEFT, MB_LAST, MB_WHY = 0x03, 0x04, 0x06, 0x09
 MB_CUR, MB_HOLD = 0x0A, 0x0B        # the hook's scratch byte; frames to show a result
+MB_KB = 0x10                        # the keyboard's last byte (F0 76 is Esc let go)
 MB_EXIT = 0x20
 WHY_ESC, WHY_NEXT = 1, 2
 MAGIC = (0x4D, 0x4E, 0x55)          # "MNU"
-PORT, P_IDLE, P_COL0 = 0x52, 0xEB, 0x0F
+PORT, PORT_RX, PORT_RDY, P_KFREE = 0x52, 0x02, 0x03, 0xFB
+ESC_MAKE, BREAK = 0x76, 0xF0
 
 
 def _magic(I, fail):
@@ -88,15 +92,12 @@ def hook_blocks(ret, reth):
     I('ld [y,x], ac')
     I('ld 0x%02X, x' % MB_LAST)
     I('ld ac, [y,x]')
-    I('ld 0x%02X, y' % PORT, 'Esc: key column 0, row 0')
-    I('ld 0x00, x')
-    I('ld 0x%02X, [y,x]' % P_COL0)
-    for _ in range(4):
-        I('nop')
+    I('ld 0x%02X, y' % PORT, 'a byte from the PS/2 keyboard (D7 = 0)?')
+    I('ld 0x%02X, x' % PORT_RDY)
     I('ld [y,x], ac')
-    I('ld 0x%02X, [y,x]' % P_IDLE)
-    I('and 1, ac')
-    I('beq hkp_esc')
+    I('blt hkp_time')
+    I('bra hkp_byte')
+    L('hkp_time')
     I('ld 0x%02X, y' % (MENU_BLK >> 8))
     I('ld 0x%02X, x' % MB_MODE)
     I('ld [y,x], ac')
@@ -119,6 +120,25 @@ def hook_blocks(ret, reth):
     L('hkp_ret')
     I('ld [0x%02X], y' % reth)
     I('jmp [0x%02X]' % ret)
+    L('hkp_byte')
+    I('ld 0x%02X, x' % PORT_RX)
+    I('ld [y,x], ac', 'the byte')
+    I('ld 0x%02X, [y,x]' % P_KFREE, 're-arm the receiver, the keyboard still free')
+    I('ld 0x%02X, y' % (MENU_BLK >> 8))
+    I('ld 0x%02X, x' % MB_CUR)
+    I('ld ac, [y,x]')
+    I('xor 0x%02X, ac' % ESC_MAKE)
+    I('bne hkp_nesc')
+    I('ld 0x%02X, x' % MB_KB, 'F0 76 is Esc let go, not pressed')
+    I('ld [y,x], ac')
+    I('xor 0x%02X, ac' % BREAK)
+    I('bne hkp_esc')
+    L('hkp_nesc')
+    I('ld 0x%02X, x' % MB_CUR)
+    I('ld [y,x], ac')
+    I('ld 0x%02X, x' % MB_KB)
+    I('ld ac, [y,x]')
+    I('bra hkp_time')
     _leave(I, L, 'hkp')
     out.append(('hk_poll', items))
 
