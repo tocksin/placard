@@ -160,7 +160,7 @@ its socket isn't in until step 3):
 **Program first:** U15 Sync from `ATF22V10_SYNC.pld` (rev 09); verify
 and label it.
 
-Insert U15 into its socket.  The Sync PLD's H2:H0 count the clock by themselves; no straps are needed yet.
+Insert U15 into its socket.  The Sync PLD's H2:H0 count the clock by themselves.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
