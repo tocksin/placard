@@ -253,7 +253,7 @@ def board_bom(files):
             if lib_id.startswith("placard:ATF22V10C_"):
                 ln["jobs"].append((ref, PLD_JOB.get(lib_id.split("_", 1)[1], lib_id)))
             fp = p.get("Footprint", "")
-            m = re.search(r"DIP-(\d+)_W(\d+\.\d+)mm", fp) or (re.search(r"Oscillator_DIP-(\d+)", fp))
+            m = re.search(r"DIP-(\d+)_W(\d+\.\d+)mm", fp)     # the oscillator X1 is soldered in, no socket
             if m:
                 pins = m.group(1)
                 wide = m.lastindex > 1 and m.group(2) == "15.24"
@@ -277,7 +277,7 @@ def board_bom(files):
     for (pins, wide), refs in sorted(sockets.items()):
         out.append(dict(refs=sorted(refs, key=ref_key), mpn=SOCKET[(pins, wide)], mfr="On Shore",
                         desc=f"IC socket, DIP-{pins} {'0.6' if wide else '0.3'}\"", value="", footprint="",
-                        notes="Or a 4-pin oscillator socket" if refs == ["X1"] else "",
+                        notes="",
                         extra=True))
     if shunts:     # (main board only)
         out.append(dict(refs=[], qty=1, mpn="MFR-25FBF52-10K", mfr="Yageo", desc="Resistor, 10k (/WE pull-up), 1/4 W, axial",
