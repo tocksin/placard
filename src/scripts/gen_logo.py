@@ -13,6 +13,9 @@ engraving and README art:
     c_pixel     the name in the machine's own 8x8 ROM font, on a plaque
     d_fusemap   the letters as blown/intact fuses ("X") in a PLA array
     e_raster    a sign hung from a nail, letters cut by video scan lines
+    f_hand      a hand holding up a picket sign tilted 30 degrees, letters
+                in the ROM font (f_hand.svg outline sign, f_hand_solid.svg
+                solid sign with the letters cut out)
 
 Each concept is written as <name>.svg (black ink on transparent) and
 <name>.png.  Plaques also have an _inverse.svg (solid plate, letters cut
@@ -22,7 +25,7 @@ plate.  a_plaque has a brass colour version for the README.
 All lettering is converted to outlines, so the SVGs need no fonts.  The
 outlines come from Inter Display (SIL Open Font License) and from the
 8x8 font in gen_lib_font.py.  Needs fonttools, cairosvg and Pillow
-(pip install fonttools cairosvg pillow) and the Inter font files
+(pip install fonttools cairosvg pillow shapely) and the Inter font files
 (apt-get install fonts-inter).
 
 Date: 2026-10-25
@@ -39,6 +42,9 @@ from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.transformPen import TransformPen
 from fontTools.ttLib import TTFont
 from PIL import Image, ImageDraw, ImageFont
+from shapely import affinity
+from shapely.geometry import Point, Polygon, box
+from shapely.ops import unary_union
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -347,6 +353,86 @@ def e_raster(ink=INK):
     return W, H, "\n".join(body)
 
 
+def _rbox(x0, y0, x1, y1, r):
+    """Rounded rectangle polygon."""
+    return box(x0 + r, y0 + r, x1 - r, y1 - r).buffer(r, quad_segs=16)
+
+
+def _ring(shape, w):
+    return shape.difference(shape.buffer(-w, join_style="mitre"))
+
+
+def _geom_path(g):
+    """shapely (Multi)Polygon -> SVG path data (evenodd)."""
+    polys = getattr(g, "geoms", [g])
+    out = []
+    for p in polys:
+        if p.is_empty or p.geom_type != "Polygon":
+            continue
+        for ring in [p.exterior, *p.interiors]:
+            c = list(ring.coords)
+            out.append("M" + " L".join(f"{x:.2f},{y:.2f}" for x, y in c)
+                       + " Z")
+    return " ".join(out)
+
+
+def f_hand(variant="line", ink=INK, tilt=30):
+    """Hand holding up a picket sign.  Drawn back to front: each part
+    hides what is behind it, then adds its own ink, so the result is
+    pure ink geometry (no white fills) that silkscreen import keeps."""
+    LW = 7                                   # outline width
+    px = 10
+    cells, tw = pixel_rects(NAME, 0, 0, px, gap=1)
+    sw, sh = tw + 90, 7 * px + 90            # sign board
+    sy1 = -300                               # board bottom edge
+    sy0 = sy1 - sh
+    layers = []                              # (shape, ink) back to front
+
+    stick = box(-15, sy1 - 20, 15, 190)
+    layers.append((stick, _ring(stick, LW)))
+
+    board = _rbox(-sw / 2, sy0, sw / 2, sy1, 8)
+    tx, ty = -tw / 2, sy0 + (sh - 7 * px) / 2
+    letters = unary_union([box(tx + x, ty + y, tx + x + px, ty + y + px)
+                           for x, y in cells])
+    if variant == "line":
+        board_ink = unary_union([_ring(board, LW + 1), letters])
+    else:
+        board_ink = board.difference(letters)
+    layers.append((board, board_ink))
+
+    sleeve = box(-1400, -8, -140, 118)
+    layers.append((sleeve, sleeve))
+    cuff = _rbox(-160, -26, -92, 136, 10)
+    layers.append((cuff, unary_union([_ring(cuff, LW),
+                                      Point(-126, 20).buffer(9)])))
+
+    palm = _rbox(-104, -32, 20, 126, 26)
+    layers.append((palm, _ring(palm, LW)))
+    for i in range(4):
+        y0 = -30 + i * 39
+        f = _rbox(-14, y0, 64, y0 + 39, 19)
+        layers.append((f, _ring(f, LW)))
+    thumb = _rbox(-84, -50, 34, -14, 18)
+    layers.append((thumb, _ring(thumb, LW)))
+
+    inkg = Polygon()
+    for shape, sink in layers:
+        inkg = inkg.difference(shape).union(sink)
+    # tilt about the fist; negative angle leans the sign back to the left
+    inkg = affinity.rotate(inkg, -tilt, origin=(0, 40))
+    # frame around everything but the sleeve, which runs off the edge
+    fg = affinity.rotate(unary_union([board, cuff, palm, thumb, stick]),
+                         -tilt, origin=(0, 40))
+    x0, y0, x1, y1 = fg.bounds
+    m = 24
+    frame = box(x0 - m, y0 - m, x1 + m, y1 + m)
+    inkg = inkg.intersection(frame)
+    inkg = affinity.translate(inkg, -(x0 - m), -(y0 - m))
+    W, H = round(x1 - x0 + 2 * m), round(y1 - y0 + 2 * m)
+    return W, H, fill(_geom_path(inkg), ink, "evenodd")
+
+
 # ---------------------------------------------------------------- output
 
 def write(name, wh_body, title):
@@ -441,6 +527,10 @@ def main():
                                      "PLACARD - PLA fuse map")))
     out.append(("E  Hanging sign", write("e_raster", e_raster(),
                                          "PLACARD - hanging sign")))
+    out.append(("F  Hand + sign", write("f_hand", f_hand("line"),
+                                        "PLACARD - hand holding sign")))
+    out.append(("F  Hand + sign, solid", write(
+        "f_hand_solid", f_hand("solid"), "PLACARD - hand holding sign")))
     sheet(out)
     print("wrote", os.path.normpath(OUT))
 
