@@ -95,7 +95,7 @@ architecture Behavioral of basys_top is
     signal rstBtn           : sl;
     signal locked           : sl;
 
-    signal viden            : sl;   -- Sync PLD VIDEN (colour decoder video enable)
+    signal viden            : sl;   -- Sync PLD VIDEN (color decoder video enable)
     signal pixelEn          : sl;
     signal pixLdN           : sl;   -- pixel buffer /E (Branch PLD pin 15)
     signal modeLdN          : sl;   -- line code register /E (audio slot PLD pin 22)
@@ -1031,7 +1031,7 @@ begin
 
 
     -- Pixel select and video enable (2026-10-19)
-    --   The colour decoder takes H2:H0 and VIDEN straight from the Sync PLD
+    --   The color decoder takes H2:H0 and VIDEN straight from the Sync PLD
     --   (revision 08).  H2:H0 runs two clocks behind the 8-clock group
     --   (000 in clock 2, the first pixel of the byte read in clock 1), and
     --   VIDEN is registered to match, so the F574 that delayed H2:H0 and

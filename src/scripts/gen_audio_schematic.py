@@ -14,7 +14,7 @@ ATF22V10_QUAD_MUX.pld, docs/SOUND.md, docs/CHIPS.md and the parts' data
 sheets; update them here when those change and rerun.  Nets with the same
 label are connected.  Same drawing style as gen_io_schematic.py.
 
-Date: 2026-10-23
+Date: 2026-10-25
 """
 import os
 import sys
@@ -293,7 +293,7 @@ x, y = u36["CLK"]
 wire([(x, y), (172, y)])
 net(172, y, "H_VIDEO_ACTIVE", "l", fs=6.8)
 T(175.5, y + 2.4, "(U13 pin 22, rises at group 48)", fs=6, color=MUTE, ha="right")
-# pixel buffer Q7:Q0 straight across to U36 D7:D0; also on to the line code reg and the colour decoder
+# pixel buffer Q7:Q0 straight across to U36 D7:D0; also on to the line code reg and the color decoder
 TAP = 160
 for i in range(8):
     xq, yq = u22["Q%d" % i]
@@ -302,7 +302,7 @@ for i in range(8):
     dot(TAP, yq)
     T(xq + 1, yq - 0.7, "P%d" % i, fs=5.8, color=NET)
 wire([(TAP, u22["Q0"][1]), (TAP, 104.5), (TAP - 2, 104.5)])
-T(TAP - 2.5, 104.5, "also to U23 D7:D0 (line code) and U16 (colour decoder)", fs=6, color=MUTE, ha="right")
+T(TAP - 2.5, 104.5, "also to U23 D7:D0 (line code) and U16 (color decoder)", fs=6, color=MUTE, ha="right")
 # DAC 5V: +5V - 2.2R - node with 220uF and 100nF to AGND - U36 VCC
 vx, vy = u36["VCC"]
 fy = 30

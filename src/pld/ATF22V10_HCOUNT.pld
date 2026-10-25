@@ -1,6 +1,6 @@
 Name     H_COUNTER;
 PartNo   00;
-Date     10/22/2026;
+Date     10/25/2026;
 Revision 08;
 Designer ;
 Company  ;
@@ -37,7 +37,7 @@ PIN 23 = H_TC;
    H2:H0 come from the Sync PLD and count
    the individual pixels within each 8-pixel group.
 
-   Revision 07: H2:H0 is the colour decoder's pixel
+   Revision 07: H2:H0 is the color decoder's pixel
    select, so it runs two clocks behind the group:
    it is 110 on the first clock of a group, 111 on
    the second (the video read), 000 on the third
@@ -45,7 +45,7 @@ PIN 23 = H_TC;
    and 101 on the last.  This replaces the two-stage
    pixel select and video enable delay register
    (F574) that used to sit between the Sync PLD and
-   the colour decoder (see docs/VIDEO_TIMING.md).
+   the color decoder (see docs/VIDEO_TIMING.md).
 
    H3:H9 advance whenever H2:H0 = 101, the last
    clock of the group (H2:H0 = 111 before revision 07).

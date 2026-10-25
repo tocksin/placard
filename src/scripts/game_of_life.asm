@@ -5,7 +5,7 @@
 ;
 ;     python3 placard_sim.py game_of_life.asm --run --max-steps 100000000 --png g.png
 ;
-; Date: 10/22/2026
+; Date: 10/25/2026
 
 #include "placard.asm"
 
@@ -29,7 +29,7 @@ main:
     ld   0x9F, ac
     ld   ac, [0x2A]
     ; mode bytes 5A20-5BFF: 1 bpp, and a rainbow of row tints behind the
-    ; cells (VIDEO.md "Row tint"), 80 rows per colour
+    ; cells (VIDEO.md "Row tint"), 80 rows per color
     ld   0x5A, y
     ld   79, ac
 md_1:
