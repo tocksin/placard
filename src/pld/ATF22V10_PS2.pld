@@ -1,0 +1,138 @@
+Name     PS2;
+PartNo   00;
+Date     10/25/2026;
+Revision 01;
+Designer Justin;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   PS/2 RECEIVER   (ATF22V10C)
+   ============================================================
+
+   Receives one byte from the PS/2 keyboard or the PS/2 mouse by
+   itself, holds the device off once the byte is in, and gives the
+   byte to the CPU on a read.  Without it the CPU had to watch every
+   clock edge of a byte (about 1 ms, 25,000 clocks) and busy-wait for
+   the device to start; with it a byte costs a few reads and a write.
+
+   CLOCK
+      Pin 1 is RXCLK, the clock line of whichever device is free: the
+      two PS/2 clock lines through a Schottky diode each (anodes on
+      the lines) into one node with a 22k pull-down.  The port latch
+      holds the other device's clock low, so the OR is that device's
+      clock alone; with both held it stays low.  The registers clock
+      on the RISING edge of the device's clock.  A PS/2 device holds
+      DATA for at least 5 us after its clock rises, so the bit is
+      still there, and the edge the port latch makes when it lets a
+      clock go shifts in the idle level (1), which is also the reset
+      state, so it does no harm.
+
+   SHIFT REGISTER
+      N1 (newest) to N8 shift in the INVERSE of DATA.  All registers
+      are 0 after a reset; a 1 on DATA (idle, stop bit, a released
+      clock) shifts in a 0 and changes nothing, so the first 1 to
+      appear is the start bit (DATA low).  After 8 clocks that start
+      bit is in N8; the 9th clock shifts d7 into N1 and the start bit
+      out, and sets B.  From then on the register holds d7..d0 in
+      N1..N8 (the pins are declared active low, so they show the
+      data itself) and the state counts the parity and stop clocks:
+
+          A B
+          0 0  receiving (or armed and idle)
+          0 1  9 clocks: the byte is complete
+          1 1  10 clocks (parity): ready, the CPU may read it
+          1 0  11 clocks (stop): ready; the device is held off
+
+      A is the ready bit.  B is the inhibit: its pin is enabled by
+      A and drives low only in the last state, through a Schottky
+      diode onto each PS/2 clock line (pulling the held one makes
+      no difference).  The device then keeps its next byte until
+      the CPU re-arms the receiver; it is inhibited only after the
+      11th clock, as a PS/2 host must be.
+
+   READS AND RE-ARM (x5202, x5203: A1 = 1)
+      Read x5202 (A0 = 0): D7:D0 = the byte, valid while A = 1.
+      Read x5203 (A0 = 1): D7 = A (1 = a byte is ready); D6:D0 are
+      not driven (the bus pull-ups read them as 1).
+      Write x5202 or x5203: asynchronous reset, which re-arms the
+      receiver and lets the device's clock go.  The write also
+      clocks the port latch (port PLD rev 04), so software writes
+      the latch's current value (P_IDLE or the listen value).  A
+      stop bit that arrives after an early re-arm shifts in a 0 and
+      is harmless, as above.  The port PLD drives nothing while
+      A1 = 1, so its reads and this chip's never clash.
+      While the CPU sends to a device (DATA pulled low, the device
+      clocks) the receiver counts those clocks too; the send routine
+      re-arms it half way so it never reaches 11 and holds the clock
+      before the device's acknowledge clock.
+
+   PIN BUDGET
+      Inputs (6):  RXCLK (clock), PDATA, /PORT_RD, /PORT_WR, A0, A1;
+                   pins 7-11, 13 spare.
+      Outputs (10): N1-N8 (3-state onto D7:D0), A (3-state onto D7,
+                    same wire as N1's pin), B (inhibit, open through
+                    its output enable).
+      N1-N8 use 3 product terms each, A and B 2; every data output
+      and A have an output-enable term, B's is A.  AR is the re-arm.
+      Ready 7.5 ns after /PORT_RD, like the port PLD.
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 1  = RXCLK;        /* the free device's clock: KBD_CLK and PS2_CLK diode-ORed, 22k to GND */
+PIN 2  = PDATA;        /* shared PS/2 DATA line (4.7k pull-up) */
+PIN 3  = !PORT_RD;     /* I/O decode PLD pin 20, low on a read of 5200h-52FFh */
+PIN 4  = !PORT_WR;     /* I/O decode PLD pin 19, low on a write to 5200h-52FFh */
+PIN 5  = A0;           /* address bit 0: 0 = byte, 1 = ready flag */
+PIN 6  = A1;           /* address bit 1: 1 = this chip (x5202, x5203) */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+PIN 14 = B;            /* state bit B; low after the 11th clock: Schottky diodes to KBD_CLK and PS2_CLK */
+PIN 15 = A;            /* state bit A = ready, onto D7 on reads of x5203 */
+PIN 16 = !N8;          /* d0 onto D0 on reads of x5202 (register holds !d0) */
+PIN 17 = !N7;          /* d1 onto D1 */
+PIN 18 = !N6;          /* d2 onto D2 */
+PIN 19 = !N5;          /* d3 onto D3 */
+PIN 20 = !N4;          /* d4 onto D4 */
+PIN 21 = !N3;          /* d5 onto D5 */
+PIN 22 = !N2;          /* d6 onto D6 */
+PIN 23 = !N1;          /* d7 onto D7 (newest bit) */
+
+
+/* ---------------- EQUATIONS ---------------- */
+
+/* Shift while A = B = 0, hold otherwise. */
+N1.D = A & N1  #  B & N1  #  !A & !B & !PDATA;
+N2.D = A & N2  #  B & N2  #  !A & !B & N1;
+N3.D = A & N3  #  B & N3  #  !A & !B & N2;
+N4.D = A & N4  #  B & N4  #  !A & !B & N3;
+N5.D = A & N5  #  B & N5  #  !A & !B & N4;
+N6.D = A & N6  #  B & N6  #  !A & !B & N5;
+N7.D = A & N7  #  B & N7  #  !A & !B & N6;
+N8.D = A & N8  #  B & N8  #  !A & !B & N7;
+
+/* State: 00 -> 01 when the start bit reaches N8 -> 11 -> 10 and stay. */
+B.D = !A & N8  #  !A & B;
+A.D = A  #  B;
+
+N1.OE = PORT_RD & A1 & !A0;
+N2.OE = PORT_RD & A1 & !A0;
+N3.OE = PORT_RD & A1 & !A0;
+N4.OE = PORT_RD & A1 & !A0;
+N5.OE = PORT_RD & A1 & !A0;
+N6.OE = PORT_RD & A1 & !A0;
+N7.OE = PORT_RD & A1 & !A0;
+N8.OE = PORT_RD & A1 & !A0;
+A.OE  = PORT_RD & A1 &  A0;
+B.OE  = A;
+
+/* A write to x5202 or x5203 re-arms the receiver. */
+[N1..N8, A, B].AR = PORT_WR & A1;
+[N1..N8, A, B].SP = 'b'0;
