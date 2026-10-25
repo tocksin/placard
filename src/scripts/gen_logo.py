@@ -5,7 +5,7 @@ gen_logo.py - draw the PLACARD logo concepts in docs/logo/.
     python3 gen_logo.py            writes the SVGs, PNG previews and the
                                    comparison sheet docs/logo/logo_concepts.png
 
-Five concepts, all one ink colour so they work as PCB silkscreen, case
+Five concepts, all one ink color so they work as PCB silkscreen, case
 engraving and README art:
 
     a_plaque    a screwed-on nameplate: double border, four slotted screws
@@ -24,7 +24,7 @@ the BOM or position files).
 Each concept is written as <name>.svg (black ink on transparent) and
 <name>.png.  Plaques also have an _inverse.svg (solid plate, letters cut
 out), which is the form for a filled silkscreen badge or an anodised
-plate.  a_plaque has a brass colour version for the README.
+plate.  a_plaque has a brass color version for the README.
 
 All lettering is converted to outlines, so the SVGs need no fonts.  The
 outlines come from Inter Display (SIL Open Font License) and from the
@@ -184,7 +184,7 @@ SCREW_ANGLES = (35, -20, 75, 10)   # slots point different ways, like real ones
 
 def a_plaque(variant="line", ink=INK, plate=None):
     """Nameplate.  variant line = outline plate, inverse = solid plate
-    with the letters and screws cut out; plate sets a second colour
+    with the letters and screws cut out; plate sets a second color
     (brass version) instead of cutting out."""
     W, H = 640, 220
     outer = rrect(8, 8, W - 16, H - 16, 30)
@@ -522,7 +522,7 @@ def write(name, wh_body, title):
 
 
 def render(s, width, ink=None):
-    """SVG string -> RGBA image `width` wide, optionally recoloured."""
+    """SVG string -> RGBA image `width` wide, optionally recolored."""
     if ink is not None:
         s = s.replace(INK, ink)
     png = cairosvg.svg2png(bytestring=s.encode(), output_width=width)

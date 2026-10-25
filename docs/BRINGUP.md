@@ -29,7 +29,7 @@ Un), and checks them before a chip goes in: power on, +5 V on the
 socket's power pin and 0 V on its ground pin (24-pin PLDs pins 24 and 12;
 20-pin chips (F377, F541, ACT273, HC574, HCT574) 20 and 10; the 28-pin
 RAMs 28 and 14).  A few sockets go in a step or more early, empty,
-because a temporary resistor ("strap") or a test pull-down plugs into
+because a temporary resistor ("strap") plugs into
 them; the step says so.  Each strap is described in the step that puts
 it in and the step that takes it out.  The steps add chips one at a
 time, and the CPU steps take the RAM out again for a while.
@@ -48,7 +48,8 @@ For every chip:
 3. Label it with its reference designator and the revision (a sticker on
    top), so chips that share a file (U3/U4, U5/U6, U7-U10) stay apart
    from the others.
-4. Insert it into its socket.
+4. With the power switch off, insert it into its socket, then turn the
+   power switch on to measure.
 
 **Without the cartridge.**  The main board's STALL_OUT pull-up keeps the
 CPU stalled until a cartridge lets it go, and RUN's pull-down keeps the
@@ -77,41 +78,44 @@ restart, press SW2 or switch SW1 off and on.
 **Floating inputs.**  An ATF22V10C holds an input that nothing drives at
 its last level (a weak pin keeper), and an F-series input that floats reads
 high.  So a missing chip is harmless unless a level matters, and those
-places get a temporary resistor (a strap, from step 4 on).
+places get a temporary resistor (a strap, from step 6 on).
 
-**The data bus pull-ups.**  The 10k SIP on D7:D0 goes in at step 7.
+**The data bus pull-ups.**  The 10k SIP on D7:D0 goes in at step 8.
 With nothing driving it, the bus reads FF.  After a chip drives it and lets
 go, the bus keeps that byte for about 0.5 µs (the 10k and the bus
 capacitance), so "an empty bus reads FF" holds only when nothing has driven
-it for a while.  That is why steps 11-16 run with the RAM taken out.
+it for a while.  That is why steps 13-18 run with the RAM taken out.
 
 **Meter readings.**  The frequency is what the counter shows; the DC
 average is what the volts range shows for a signal that toggles faster
 than the meter can follow (the duty cycle times 5 V).  Many meters count
 only up to about 10 MHz, so the fastest signals (the 25.175 MHz clock,
 H0 at 12.59 MHz) may read wrong or zero; the slower bits next to them show
-the same thing.  From step 11 on the CPU loses the clocks that video takes,
+the same thing.  From step 13 on the CPU loses the clocks that video takes,
 so its readings shift a little with the line and frame; read the average.
 
 ## Power
 
 ### Step 1: the power input, on/off switch and reset
 
-Fit only the power input parts on the bare board (power sheet, 2026-10-22).
-Leave U40, C40 and C47 (the 3.3 V regulator) for step 18, with the SD card.
+**Parts for this step:**
 
-| Part | What | Fitting note |
-|---|---|---|
-| J13 | USB-C receptacle (power only) | |
-| R1, R2 | 5.1k, CC1 and CC2 to GND | without them a USB-C supply gives no 5 V |
-| F1 | MF-RG300 polyfuse, 3 A hold | not polarised |
-| D7 | SA5.0A TVS, fused VBUS (VFUSE) to GND | band (cathode) to VFUSE |
-| SW1 | ANT11TFHQE toggle, on/off | |
-| C41 | 220 µF 10 V electrolytic on VON (between SW1 and K1) | + to VON, stripe to GND |
-| K1 | CIT J1071CS5VDC.36 relay; COM (pin 1) = VON, NC (pin 4) = +5V | |
-| SW2 | PTS645VL58-2 tactile reset button, VON to the coil (KCOIL) | |
-| D8 | BAT85 across K1's coil | band (cathode) to KCOIL |
-| R59, D18 | 1k and the red 5 mm power LED, +5V (after K1) to GND | LED's long lead (anode) to R59, flat side (cathode) to GND |
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| J13 | USB-C receptacle (power only) | GCT USB4125-GF-A-0190 |  |
+| R1, R2 | Resistor | 5.1k | CC1 and CC2 to GND; without them a USB-C supply gives no 5 V |
+| F1 | Polyfuse, 3 A hold | Bourns MF-RG300-0 | not polarised |
+| D7 | TVS diode, fused VBUS (VFUSE) to GND | Littelfuse SA5.0A | band (cathode) to VFUSE |
+| SW1 | Toggle switch, on/off | CIT ANT11TFHQE |  |
+| C41 | Electrolytic capacitor, on VON (between SW1 and K1) | 220 µF (Panasonic EEU-FR1E221) | + to VON, stripe to GND |
+| K1 | Relay | CIT J1071CS6VDC.36 | COM (pin 1) = VON, NC (pin 4) = +5V |
+| SW2 | Tactile reset button, VON to the coil (KCOIL) | C&K PTS645VL58-2 LFS |  |
+| D8 | Schottky diode, across K1's coil | BAT85 | band (cathode) to KCOIL |
+| R59 | Resistor, power LED | 1k |  |
+| D18 | Power LED, red 5 mm, +5V (after K1) to GND | Kingbright WP7113ID | long lead (anode) to R59, flat side (cathode) to GND |
+
+Fit only these power input parts on the bare board (power sheet, 2026-10-22).
+Leave U40, C40 and C47 (the 3.3 V regulator) for step 20, with the SD card.
 
 **Before power** (meter on ohms and diode test, no supply plugged in):
 
@@ -141,6 +145,13 @@ Pass when every row above reads as listed.
 
 ### Step 2: the oscillator (X1)
 
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| X1 | Oscillator, 25.175 MHz, full-size DIP-14 can | ECS ECS-100A-251.7 | no socket: solder it in, pin 1 (dot or square corner) on the footprint's pin 1 |
+| C43 | Capacitor, beside X1 | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+
 Fit only the 25.175 MHz oscillator X1 and its decoupler C43 (100 nF);
 every other part goes in with the step that first needs it.  X1 has no
 socket: solder it in, with the can's dot or square corner (pin 1) on
@@ -155,12 +166,19 @@ its socket isn't in until step 3):
 
 ### Step 3: Sync PLD (U15)
 
-**Sockets:** U15 with C15.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U15 | PLD, Sync | ATF22V10C-7PX, programmed from `ATF22V10_SYNC.pld` |  |
+| U15 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C15 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 **Program first:** U15 Sync from `ATF22V10_SYNC.pld` (rev 09); verify
 and label it.
 
-Insert U15 into its socket.  The Sync PLD's H2:H0 count the clock by themselves.
+Turn off the power switch.  Insert U15 into its socket.  Turn on the
+power switch.  The Sync PLD's H2:H0 count the clock by themselves.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -168,26 +186,21 @@ Insert U15 into its socket.  The Sync PLD's H2:H0 count the clock by themselves.
 | H1 (pin 15) | 6.294 MHz | 50 % | 2.50 V |
 | H2 (pin 16) | 3.147 MHz | 50 % | 2.50 V |
 
-The other Sync pins depend on the counters and are checked in step 5.
-
 ### Step 4: H counter PLD (U13)
 
-**Sockets:** U13 with C13.  Also fit the line code socket U23 (with
-C23), empty, for strap S5.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U13 | PLD, H counter | ATF22V10C-7PX, programmed from `ATF22V10_HCOUNT.pld` |  |
+| U13 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C13 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 **Program first:** U13 H counter from `ATF22V10_HCOUNT.pld` (rev 08);
 verify and label it.
 
-The H counter reads the line code's Q7 (blank line), so put in a strap
-(a 10k resistor in an empty socket's pins, holding a line whose driver
-isn't in yet; more in step 5):
-
-- **S5**, in U23 (line code): three 10k, from pins 6, 9 and 19 (Q2, Q3,
-  Q7) each to pin 10 (GND).  Q7 low keeps every line a video line; Q3:Q2
-  low holds the line repeat at 1x for the audio PLD (step 6).  Out at
-  step 7.
-
-Insert U13 into its socket.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks a line.
+Turn off the power switch.  Insert U13 into its socket.  Turn on the
+power switch.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks a line.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -198,39 +211,26 @@ Insert U13 into its socket.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks 
 | H7 (pin 18) | 94.41 kHz | 52.0 % | 2.60 V |
 | H8 (pin 19) | 62.94 kHz | 64.0 % | 3.20 V |
 | H9 (pin 20) | 31.47 kHz | 64.0 % | 3.20 V |
-| /HSYNC (pin 21) | 31.47 kHz | 88.0 % | 4.40 V |
-| H_VIDEO_ACTIVE (pin 22) | 31.47 kHz | 80.0 % | 4.00 V |
-| H_TC (pin 23) | 31.47 kHz | 0.1 % | 0.01 V |
-
-**31.47 kHz** on /HSYNC is the VGA line rate.
 
 ### Step 5: V counter PLD (U14)
 
-**Sockets:** U14 with C14.  Also fit the State socket U1 (with C1) and
-the audio socket U35 (with C35), empty, for straps S1 and S4.
+**Parts for this step:**
 
-**Other parts:** the VGA connector J7 and the sync series resistors R61
-and R62 (47 ohm, beside U13 and U15).
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U14 | PLD, V counter | ATF22V10C-7PX, programmed from `ATF22V10_VCOUNT.pld` |  |
+| U14 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C14 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| J7 | VGA connector, DE-15 | Assmann A-HDF 15 A-KG/T |  |
+| R61, R62 | Resistor, sync series (beside U13 and U15) | 47 ohm |  |
 
 **Program first:** U14 V counter from `ATF22V10_VCOUNT.pld` (rev 03);
 verify and label it.
 
-**Straps.**  A strap is a 10k resistor with its leads in an empty
-socket's pins (or soldered to a spare socket that plugs in), holding a
-control line whose driver isn't in yet.  The Sync outputs checked in
-this step (PIXEL_ENABLE, ADDR_SEL) use three State PLD outputs and the
-audio PLD's BLANK_RD, so put in:
-
-- **S1**, in U1 (State): four 10k, from pins 15, 16, 17 and 18 each to
-  pin 12 (GND).  Holds PC_ENABLE, X_ENABLE, Y_ENABLE and Q0 low, so the
-  address muxes pick D (low byte) and 00 (high byte) outside video reads
-  and /SRC_EN stays off.  Out at step 11.
-- **S4**, in U35 (audio): pin 23 to pin 12 (GND).  Holds BLANK_RD low: no
-  mode or audio reads.  Out at step 6.
-
-Insert U14 into its socket.  V9:V0 count lines, 499-1023, 525 lines a frame.  Connect a VGA monitor:
-it should now lock to 640 x 480 at 60 Hz and show a **black screen** (the
-colour decoder isn't in yet).
+Turn off the power switch.  Insert U14 into its socket, and connect a VGA
+monitor.  Turn on the power switch.  V9:V0 count lines, 499-1023, 525
+lines a frame.  The monitor should now lock to 640 x 480 at 60 Hz and show a **black screen** (the
+color decoder isn't in yet).
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -244,160 +244,269 @@ colour decoder isn't in yet).
 | V7 (pin 17) | 119.9 Hz | 51.2 % | 2.56 V |
 | V8 (pin 18) | 59.94 Hz | 51.2 % | 2.56 V |
 | V9 (pin 19) | 59.94 Hz | 97.5 % | 4.88 V |
-| Sync VIDEN (pin 17) | 28.77 kHz | 73.1 % | 3.66 V |
-| Sync /VSYNC (pin 18) | 59.94 Hz | 99.6 % | 4.98 V |
-| Sync PIXEL_ENABLE (pin 19) | 2.302 MHz | 9.1 % | 0.46 V |
-| Sync ADDR_SEL (pin 20) | 2.302 MHz | 9.1 % | 0.46 V |
-| Sync V_VIDEO_ACTIVE (pin 23) | 59.94 Hz | 91.4 % | 4.57 V |
 
-**59.94 Hz** on /VSYNC is the frame rate.  PIXEL_ENABLE here has only the
-video reads; step 6 adds the mode and audio reads.
+### Step 6: color decoder (U16)
 
-### Step 6: audio and mode slot PLD (U35)
+**Parts for this step:**
 
-**Sockets:** none new; U35's socket went in at step 5.
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U16 | PLD, color decoder | ATF22V10C-7PX, programmed from `ATF22V10_COLORDECODER.pld` |  |
+| U16 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C16 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| R14, R17 | Resistor, color | 3.24k |  |
+| R15, R18 | Resistor, color | 1.69k |  |
+| R16, R19 | Resistor, color | 825 ohm |  |
+| R20 | Resistor, color | 1.43k |  |
+| R21 | Resistor, color | 715 ohm |  |
+| U23 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) | empty for now, holds straps S1 and S2 |
+| C23 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| S1 | Strap (temporary), in U23's socket | 10k | out at step 12 |
+| S2 | Strap (temporary), in U23's socket | 10k | out at step 12 |
+| (leads) | Test leads, 2: a clip on one end, a probe tip on the other | in the kit | one for ground, one for power |
 
-**Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
+**Program first:** U16 color decoder from `ATF22V10_COLORDECODER.pld`
+(rev 07); verify and label it.
+
+**Straps.**  A strap is a 10k resistor (or a wire link, where the step says so) with its leads in an empty
+socket's pins (or soldered to a spare socket that plugs in), holding a
+control line whose driver isn't in yet.  The H counter reads the line
+code's Q7 as "blank line", so turn off the power switch and put in:
+
+- **S1**, in U23 (line code): pin 19 (Q7) to pin 10 (GND).  Holds LC7
+  low, so every line is a video line.  Out at step 12.
+- **S2**, in U23 (line code): pin 20 (+5 V) to pin 12 (Q4, which goes
+  only to the tint resistor R56, not fitted until step 12).  A 10k high
+  source for the power test lead.  Out at step 12.
+
+**Test leads.**  The color decoder's pixel inputs D0-D7 (pins 2-9) and
+mode inputs MODE0, MODE1 (pins 10, 11) have no driver yet (the pixel
+buffer U22 and the line code register U23 come later).  Each one holds
+the last level it was touched to (the pin keeper), so you set them by
+touching them through the straps' 10k, which keeps a slip onto a wrong
+pin harmless.  With the power still off, clip on both test leads, so
+nothing needs clipping while the board is powered:
+
+- **Ground lead:** clip it to strap S1's lead at U23's pin 19 (10k to GND).
+- **Power lead:** clip it to strap S2's lead at U23's pin 12 (10k to +5 V).
+
+Insert U16 into its socket, and connect the monitor and USB power cable.
+Turn on the power switch.  The screen shows a random color at first (the
+inputs power up at no particular level).  These are the pins to touch:
+
+| U16 pin | Input | What it sets |
+|---|---|---|
+| 2 | D0 | pixel bit 0 (8 bpp: RED1, pin 15) |
+| 3 | D1 | pixel bit 1 (8 bpp: RED2, pin 16) |
+| 4 | D2 | pixel bit 2 (8 bpp: RED3, pin 21) |
+| 5 | D3 | pixel bit 3 (8 bpp: BLU2, pin 22) |
+| 6 | D4 | pixel bit 4 (8 bpp: BLU3, pin 18) |
+| 7 | D5 | pixel bit 5 (8 bpp: GRN1, pin 17) |
+| 8 | D6 | pixel bit 6 (8 bpp: GRN2, pin 20) |
+| 9 | D7 | pixel bit 7 (8 bpp: GRN3, pin 19) |
+| 10 | MODE0 | color mode, with MODE1 |
+| 11 | MODE1 | color mode: MODE1 MODE0 = 00 1 bpp, 01 2 bpp, 10 4 bpp, 11 8 bpp |
+
+1. Touch the ground probe to each of these pins in turn: the screen
+   turns **black** (1 bpp, every pixel 0), and every output (pins 15-22)
+   reads 0 V.
+2. Touch the power probe to each of them in turn: the screen turns
+   **white** with a black border (8 bpp, every pixel FF), and every
+   output reads 28.77 kHz, 73.1 %, 3.66 V.
+
+You'll see each touch change the picture along the way.  Feel free to
+touch any of these pins with either the power or ground probe in any
+order to explore the different colors and color modes.  In 8 bpp
+(MODE0 and MODE1 high) each pixel pin drives the one output named in the
+table, which drops to 0 V when that pin is low.
+
+A color output that stays at 0 V when it should toggle, or toggles when it
+should be 0 V, points at that pin's wiring or the color resistors
+(R14-R21).  Turn off the power switch and unclip both test leads; S1 and
+S2 stay until step 12.
+
+### Step 7: address muxes (U7-U10)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U7-U10 | PLD, address mux | ATF22V10C-7PX, programmed from `ATF22V10_QUAD_MUX.pld` |  |
+| U7-U10 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C7-C10 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+
+**Program first:** U7, U8, U9 and U10 address muxes, four copies of
+`ATF22V10_QUAD_MUX.pld` (rev 01); verify and label them.
+
+The mux selects come from the Sync PLD, and on a video read PIXEL_ENABLE
+picks the video address whatever the missing State PLD would say, so the
+muxes need no straps.  The rest of the time they pass the CPU side's
+address, which holds still while PC, D, X and Y are missing (each mux
+input keeps whatever level it powered up at).  Turn off the power switch.
+Insert U7-U10 into their sockets.  Turn on the power switch.
+
+Measure A15:A0 at the mux outputs, pins 20-23 (Y0-Y3) of each mux: U7
+gives A3:A0, U8 A7:A4, U9 A11:A8 and U10 A15:A12.  The exact readings depend on
+the levels the CPU side came up at, so look only for a toggling signal:
+
+| Address bits | Video read gives | Reading |
+|---|---|---|
+| A15:A9 | H9:H3 (the byte column) | toggling: a frequency, DC average between 0 and 5 V |
+| A6:A2 | V6:V2 (the line) | toggling |
+| A8, A7, A1, A0 | row bits from the audio PLD U35 (not in yet) | may sit at 0 V or 5 V until step 12 |
+
+A bit in the first two rows that sits still at 0 V or 5 V points at that
+mux's wiring or its H or V input.
+
+### Step 8: RAM (U31), pixel buffer (U22)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U31 | SRAM, 32K x 8 (lower half) | Alliance AS7C256C-15PCN |  |
+| U22 | Pixel buffer, octal D flip-flop | TI SN74F377AN |  |
+| U31 socket | IC socket | DIP-28 0.3" (On Shore ED281DT) |  |
+| U22 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C31, C22 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| RN1 | Resistor network, 8 bussed, SIP-9 (data bus pull-ups) | 10k (Bourns 4609X-101-103LF) | dot (pin 1, common) to +5V |
+| R63 | Resistor, /WE pull-up | 10k |  |
+| U2 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) | empty for now, holds strap S3 |
+| C2 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| U11 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) | empty for now, holds strap S4 |
+| C11 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| S3 | Strap (temporary), in U2's socket | wire link | out at step 9 |
+| S4 | Strap (temporary), in U11's socket | 10k | out at step 11 |
+
+U31 and U22 need no programming.
+
+The video now reads the RAM.  Nothing writes it:
+with no memory control PLD, R63 holds /WE high.  The pixel
+buffer's load strobe /PIX_LD and the RAM's /OE come from PLDs that aren't
+in yet, so turn off the power switch and put in:
+
+- **S3**, in U2 (Branch): a wire link from pin 15 (/PIX_LD) to pin 12
+  (GND).  The pixel buffer loads the data bus every clock.  A wire, not
+  a 10k: an F377 input needs more current to pull low than 10k passes.
+  Out at step 9.
+- **S4**, in U11 (memory control): 10k from pin 18 (/RAM_OE) to pin 12
+  (GND).  The RAM drives the bus all the time.  Out at step 11.
+
+Insert U31 and U22 into their sockets.  Turn on the power switch.
+
+The monitor shows **one byte over and over**, with a thin stripe in every
+8 pixels.  In 7 clocks of every 8 the muxes point at the CPU side's
+address, which stays put while PC, D, X and Y are missing, and the pixel
+buffer loads that one byte; in the eighth, the video read, the byte from
+the video address shows through.  Only U31 is in, so only the left 16 byte
+columns (A15 = 0) read the RAM; the other 64 read FF from RN1.
+
+The color mode is wherever MODE1:MODE0 came up.  To try other modes, clip
+the test leads on as in step 6 before you turn the power on and touch
+only MODE0 and MODE1 (pins 10, 11); the pixel pins are driven by U22 now.
+
+### Step 9: Branch PLD (U2)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U2 | PLD, Branch | ATF22V10C-7PX, programmed from `ATF22V10_BRANCH.pld` | socket fitted at step 8 |
+
+**Program first:** U2 Branch from `ATF22V10_BRANCH.pld` (rev 15); verify
+and label it.
+
+The Branch PLD goes in now only for /PIX_LD (pin 15), which is just
+PIXEL_ENABLE inverted; the rest of it waits for the CPU, and it needs no
+straps.  Turn off the power switch.  Take strap S3 (U2 pin 15 to pin 12)
+out, then insert U2 into its socket.  Turn on the power switch.
+
+The pixel buffer now loads only on the video read, and the left 16 byte
+columns show **random RAM** in the color mode on MODE1:MODE0.  Rows
+repeat in bands (the audio slot PLD U35 isn't in, so four of the row
+address bits are stuck).  The other 64 columns read FF (white in 1 bpp
+and 8 bpp).
+
+### Step 10: RAM (U32) and I/O decode (U12)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U32 | SRAM, 32K x 8 (upper half) | Alliance AS7C256C-15PCN |  |
+| U12 | PLD, I/O decode | ATF22V10C-7PX, programmed from `ATF22V10_IO_DECODE.pld` |  |
+| U32 socket | IC socket | DIP-28 0.3" (On Shore ED281DT) |  |
+| U12 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C32, C12 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+
+**Program first:** U12 I/O decode from `ATF22V10_IO_DECODE.pld`
 (rev 04); verify and label it.
 
-Take out strap S4 (the 10k from U35's pin 23 to pin 12) and insert U35 into its socket.
-BLANK_RD now picks group 45 (mode byte) and group 46
-or 47 (audio sample) on every line, and R0, R1, R7, R8 are the row address
-bits (1x line repeat while S5 holds Q3:Q2 low).
+U32's chip enable /CE_HI (U12 pin 15) is low when A15 is 1; on a video
+read A15 is H9.  Turn off the power switch.  Insert U32 and U12 into their
+sockets.  Turn on the power switch.  All 80 byte columns now show
+**random RAM**.
+
+### Step 11: memory control (U11) and map register (U25)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U11 | PLD, memory control | ATF22V10C-7PX, programmed from `ATF22V10_MEM_CTRL.pld` | socket fitted at step 8 |
+| U25 | Map register, octal D flip-flop with clear | TI CD74ACT273E |  |
+| U25 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C25 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| R4 | Resistor, RUN pull-down | 10k |  |
+
+**Program first:** U11 memory control from `ATF22V10_MEM_CTRL.pld`
+(rev 09); verify and label it.  U25 needs no programming.
+
+With no cartridge and no JP2 shunt, R4 holds RUN low.  That keeps the
+ROM off, holds the map register clear and turns U11's /WE output off, so
+R63 still stops any writes.  Turn off the power switch.  Take
+strap S4 (U11 pin 18 to pin 12) out, then insert U11 and U25 into their
+sockets.  Turn on the power switch.  U11 now drives /RAM_OE only for the
+reads, and the picture is the same random RAM as in step 10.
+
+| Pin | Frequency | Duty | DC average |
+|---|---|---|---|
+| Mem ctrl RUN (pin 17, input) | 0 | | 0 V |
+| Mem ctrl /WE (pin 16) | 0 | | 5 V (output off, pull-up) |
+| Mem ctrl /ROM_OE (pin 19) | 0 | | 5 V |
+| Map register Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 0 V (held clear by RUN) |
+
+### Step 12: audio and mode slot PLD (U35), line code (U23)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U35 | PLD, audio and mode slots | ATF22V10C-7PX, programmed from `ATF22V10_AUDIO.pld` |  |
+| U23 | Line code register, octal D flip-flop | TI CD74HCT377E | socket fitted at step 6 |
+| U35 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C35 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| R56-R58 | Resistor, row tint | 910 ohm |  |
+| D9-D11 | Schottky diode, row tint | BAT85 | band (cathode) as on the silkscreen |
+| D12-D17 | Diode, row tint | 1N4148 | band (cathode) as on the silkscreen |
+
+**Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
+(rev 04); verify and label it.  U23 needs no programming.
+
+Turn off the power switch.  Take straps S1 (U23 pin 19 to pin 10) and S2
+(pin 20 to pin 12) out, then insert U35 and U23 into their sockets.  Turn
+on the power switch.  BLANK_RD now picks group 45 (mode byte) and group
+46 or 47 (audio sample) on every line, and the line code register loads
+each line's mode byte.  The RAM is random, so the monitor shows **random
+colored noise** in a mix of modes, line repeats and row tints, with about
+half the lines black (bit 7 of a random mode byte blanks the line).
+Nothing writes the RAM, so the picture holds still.  Power off and on: a
+different picture.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
 | BLANK_RD (pin 23) | 62.16 kHz | 2.0 % | 0.10 V |
 | /MODE_LD (pin 22) | 31.47 kHz | 99.0 % | 4.95 V |
-| R0 (pin 17) | 15.7 kHz | 50.1 % | 2.50 V |
-| R1 (pin 18) | 7.852 kHz | 50.1 % | 2.50 V |
-| R7 (pin 19) | 119.9 Hz | 51.2 % | 2.56 V |
-| R8 (pin 20) | 59.94 Hz | 51.2 % | 2.56 V |
-
-### Step 7: Branch PLD (U2), pixel buffer (U22), line code (U23), colour decoder (U16)
-
-**Sockets:** U2 with C2, U22 with C22 and U16 with C16 (U23's went in at
-step 4).  Also fit the RAM socket U31 (with C31), empty, for the pull-
-down tests below.
-
-**Other parts:** the data bus pull-ups RN1 (10k SIP on D7:D0), the
-colour resistors R14-R21 and the row tint parts R56-R58, D9-D11 (BAT85)
-and D12-D17 (1N4148).
-
-**Program first:** U2 Branch from `ATF22V10_BRANCH.pld` (rev 15) and U16
-colour decoder from `ATF22V10_COLORDECODER.pld` (rev 07); verify and
-label them.  U22 and U23 are 74-series and need no programming.
-
-The Branch PLD goes in now only for /PIX_LD (pin 15), the pixel buffer's
-load strobe; the rest of it waits for the CPU.  Take out strap S5 (the
-three 10k from U23's pins 6, 9 and 19 to pin 10) and insert U2, U22, U23 and U16 into their sockets.
-
-Nothing drives the data bus, so every video read is FF: the line code is
-mode 3 (8 bpp, 4x repeat) and every pixel is FF.  The monitor shows a
-**white screen** with a black border.
-
-| Pin | Frequency | Duty | DC average |
-|---|---|---|---|
-| Branch /PIX_LD (pin 15) | 2.365 MHz | 90.6 % | 4.53 V |
-| Colour decoder outputs (pins 15-22), bus FF | 28.77 kHz | 73.1 % | 3.66 V |
-
-Then test each output with one temporary 1k pull-down at a time: a 1k
-from a data pin of the empty RAM socket U31 to its pin 14 (GND) holds that
-data bus bit low (1k against RN1's 10k gives about 0.45 V, a solid low).
-The data pins are D0 = pin 11, D1 = 12, D2 = 13, D3 = 15, D4 = 16,
-D5 = 17, D6 = 18, D7 = 19.  Bits 1:0 of the byte are also the mode, so
-pulling D1 or D0 changes the mode:
-
-| Pull-down on | Bus | Screen | Colour decoder pins |
-|---|---|---|---|
-| D7 (RAM pin 19) | 7F | no green 3 | GRN3 (pin 19) 0 V, the rest 28.77 kHz |
-| D6 (RAM pin 18) | BF | | GRN2 (pin 20) 0 V |
-| D5 (RAM pin 17) | DF | | GRN1 (pin 17) 0 V |
-| D4 (RAM pin 16) | EF | | BLU3 (pin 18) 0 V |
-| D3 (RAM pin 15) | F7 | | BLU2 (pin 22) 0 V |
-| D2 (RAM pin 13) | FB | | RED3 (pin 21) 0 V |
-| D1 and D0 (pins 12, 11) | FC | 1 bpp: thin white and black stripes | all 8 at 2.302 MHz, 54.9 %, 2.74 V |
-| D1 (pin 12) | FD | 2 bpp | RED1-3, GRN2, GRN3 2.302 MHz 54.9 %; BLU2, BLU3, GRN1 28.77 kHz 73.1 % |
-| D0 (pin 11) | FE | 4 bpp | RED1, GRN1-3 28.77 kHz 73.1 %; RED2, RED3 2.302 MHz 36.6 %, 1.83 V; BLU2, BLU3 0 V |
-
-A pin that reads 0 V with no pull-down, or stays at 28.77 kHz with its own
-bit pulled low, points at that pin's wiring or the colour decoder.  If the
-whole screen is the wrong colour, check the line code register (U23) Q1:Q0
-(pins 5 and 2) against the bus bits 1:0.
-
-### Step 8: D register (U18) and the address muxes (U7-U10)
-
-**Sockets:** U18 with C18 and U7-U10 with C7-C10.
-
-**Program first:** U7, U8, U9 and U10 address muxes, four copies of
-`ATF22V10_QUAD_MUX.pld` (rev 01); verify and label them.
-
-The D register's load strobe /LOAD_IMM comes from the State PLD, so
-put in:
-
-- **S3**, in U1 (State): pin 19 to pin 12 (GND).  Holds /LOAD_IMM low, so
-  the D register loads the bus every clock.  Out at step 11.
-
-Insert U18 and U7-U10 into their sockets.  The D register loads the bus every clock (strap S3) and so holds FF.  The
-muxes give the video address during video reads and D (FF) on A7:A0, 00 on
-A15:A8 the rest of the time (strap S1).  Measure A15:A0 at the mux outputs
-(or the RAM socket address pins):
-
-| Pin | Frequency | Duty | DC average |
-|---|---|---|---|
-| A0, A1 | 1.106 MHz | 95.6 % | 4.78 V |
-| A2, A3, A4 | 1.182 MHz | 95.3 % | 4.77 V |
-| A5, A6 | 1.105 MHz | 95.6 % | 4.78 V |
-| A7 | 30.69 kHz | 99.9 % | 4.99 V |
-| A8 | 2.334 MHz | 9.3 % | 0.46 V |
-| A9 | 1.213 MHz | 4.8 % | 0.24 V |
-| A10 | 1.182 MHz | 4.7 % | 0.23 V |
-| A11, A12 | 1.214 MHz | 4.8 % | 0.24 V |
-| A13 | 1.381 MHz | 5.5 % | 0.27 V |
-| A14 | 1.444 MHz | 5.7 % | 0.29 V |
-| A15 | 1.841 MHz | 7.3 % | 0.37 V |
-
-The screen stays white.
-
-### Step 9: memory control (U11), map register (U25), I/O decode (U12)
-
-**Sockets:** U11 with C11, U25 with C25 and U12 with C12.
-
-**Other parts:** the 10k /WE pull-up (in the BOM, not on the schematic
-yet), and for the cartridge lines R3 (10k, STALL_OUT pull-up), R4 (10k,
-RUN pull-down) and the bring-up jumpers JP1 (STALL_IN to STALL_OUT) and
-JP2 (RUN to +5 V), both with a shunt on (see "Without the cartridge").
-
-**Program first:** U11 memory control from `ATF22V10_MEM_CTRL.pld`
-(rev 09) and U12 I/O decode from `ATF22V10_IO_DECODE.pld` (rev 04); verify
-and label them.
-
-Memory control and I/O decode read the State PLD's R/W, so put in:
-
-- **S2**, in U1 (State): pin 23 to pin 24 (+5 V).  Holds R/W high: no
-  writes.  Out at step 11.
-
-Insert U11, U25 and U12 into their sockets.
-
-| Pin | Frequency | Duty | DC average |
-|---|---|---|---|
-| Mem ctrl /RAM_OE (pin 18) | 2.365 MHz | 95.3 % | 4.77 V |
-| Mem ctrl /ROM_OE (pin 19) | 22.81 MHz (most meters can't count it) | 54.7 % | 2.73 V |
-| Mem ctrl /WE (pin 16) | 0 | | 5 V |
-| Mem ctrl RUN (pin 17, input from the cartridge or the jumper) | 0 | | 5 V |
-| I/O decode /CE_HI (pin 15) | 1.841 MHz | 92.7 % | 4.63 V |
-| I/O decode /MAP_WR, /LINE_RD, /PORT_WR, /PORT_RD, /EXP1, /EXP2 (pins 16, 17, 19-22) | 0 | | 5 V |
-| Map register Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 0 V (map 00, all ROM) |
-
-### Step 10: RAM (U31, U32)
-
-**Sockets:** U32 with C32 (U31's went in at step 7).
-
-Take the 1k pull-down out of U31 and insert both RAM chips, U31 and U32, into their sockets.
-The video now reads the RAM, which powers up random: the monitor shows
-**random coloured noise**, in a mix of modes and line repeats (each line's mode byte is
-random too).  Nothing writes the RAM yet (strap S2), so the picture holds
-still.  Power off and on: a different picture.
 
 ## CPU
 
@@ -409,119 +518,184 @@ always (BRA) with source 11, which is the accumulator (the same as
 FETCH, LOAD_MEM, EXEC: three clocks.  With no AC source buffer (U27) the
 source bus is FF too, so EXEC loads PC low with FF.  The next fetch is at xxFF,
 and its increment carries into PC high.  So the CPU runs one instruction
-every 3 clocks it owns, about 7.6 million a second, PC low goes FF, 00,
+every 3 clocks it owns, about 8.4 million a second (the lines are blank,
+so video takes only the mode and audio reads), PC low goes FF, 00,
 FF, ... and PC high counts up by one every instruction.  This exercises
 the State, Branch and PC chips with no memory and no software.
 
-### Step 11: take out the RAM and straps S1-S3; fit the instruction register PLD (U17) and the State PLD (U1)
+### Step 13: take out the RAM; fit the State PLD (U1), instruction register PLD (U17) and D register (U18)
 
-**Sockets:** U17 with C17 (U1's went in at step 5).
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U1 | PLD, State | ATF22V10C-7PX, programmed from `ATF22V10_STATE.pld` |  |
+| U17 | PLD, instruction register | ATF22V10C-7PX, programmed from `ATF22V10_IR.pld` |  |
+| U18 | D register, octal D flip-flop | TI SN74F377AN |  |
+| U1, U17 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| U18 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C1, C17, C18 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| R3 | Resistor, STALL_OUT pull-up | 10k |  |
+| JP1, JP2 | Pin header, 1 x 2 (bring-up jumpers) | Sullins PREC002SAAN-RC | JP1 STALL_IN to STALL_OUT, JP2 RUN to +5 V |
+| JP1, JP2 shunts | Jumper shunt | Sullins QPC02SXGN-RC | both on (see "Without the cartridge") |
 
 **Program first:** U1 State from `ATF22V10_STATE.pld` (rev 15) and U17
 instruction register from `ATF22V10_IR.pld` (rev 01); verify and label
-them.
+them.  U18 needs no programming.
 
-Pull both RAM chips U31 and U32 (the screen goes white again).  Take
-straps S1 (the four 10k from pins 15-18 to pin 12), S2 (pin 23 to pin 24)
-and S3 (pin 19 to pin 12) out of the State socket U1, then insert the State
-PLD U1 and the instruction register U17 into their sockets.  The instruction register loads FF.
+Turn off the power switch.  Pull both RAM chips U31 and U32.  Put the
+shunts on JP1 and JP2, then insert the State PLD U1, the instruction
+register U17 and the D register U18 into their sockets.  Turn on the
+power switch (the screen is black, with no RAM).  The instruction register
+and the D register load FF.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
-| State Q0 (pin 18) | 7.603 MHz | 33.3 % | 1.67 V |
-| State PC_ENABLE (pin 15) | 7.603 MHz | 33.3 % | 1.67 V |
+| State Q0 (pin 18) | 8.371 MHz | 33.5 % | 1.67 V |
+| State PC_ENABLE (pin 15) | 8.371 MHz | 33.3 % | 1.66 V |
 | State X_ENABLE, Y_ENABLE (pins 16, 17) | 0 | | 5 V |
-| State /LOAD_INSTR (pin 14) | 7.603 MHz | 69.8 % | 3.49 V |
-| State /LOAD_IMM (pin 19) | 7.603 MHz | 69.8 % | 3.49 V |
+| State /LOAD_INSTR (pin 14) | 8.371 MHz | 66.8 % | 3.34 V |
+| State /LOAD_IMM (pin 19) | 8.371 MHz | 66.8 % | 3.34 V |
 | State /LOAD_X, /LOAD_Y, /LOAD_AC (pins 20-22) | 0 | | 5 V |
 | State R/W (pin 23) | 0 | | 5 V |
-| Branch STALL (pin 19) | 2.365 MHz | 9.4 % | 0.47 V |
-| Branch LOAD_PC_LOW (pin 21) | 7.603 MHz | 30.2 % | 1.51 V |
+| Branch STALL (pin 19) | 62.94 kHz | 0.2 % | 0.01 V |
+| Branch LOAD_PC_LOW (pin 21) | 8.371 MHz | 33.2 % | 1.66 V |
 | Branch LOAD_PC_HIGH (pin 22) | 0 | | 0 V |
 | Branch BRANCH_BLOCK (pin 23) | 0 | | 5 V |
-| Branch /SRC_EN (pin 16) | 7.603 MHz | 69.8 % | 3.49 V |
+| Branch /SRC_EN (pin 16) | 8.371 MHz | 66.8 % | 3.34 V |
 | Branch ALU_DONE (pin 18) | 0 | | 0 V |
 | Audio /AC_SEL (pin 21) | 0 | | 0 V (instruction bit 1 is 1) |
 | Instruction register Q0-Q7 | 0 | | 5 V (FF) |
+| D register U18 Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 5 V (FF) |
 
-### Step 12: PC low (U3)
+### Step 14: PC low (U3)
 
-**Sockets:** U3 with C3.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U3 | PLD, PC low | ATF22V10C-7PX, programmed from `ATF22V10_PC_COUNTER8.pld` |  |
+| U3 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C3 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 **Program first:** U3 PC low from `ATF22V10_PC_COUNTER8.pld` (rev 02);
 verify and label it.
 
-Insert U3 into its socket.
+Turn off the power switch.  Insert U3 into its socket.  Turn on the
+power switch.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
-| Q0-Q7 (pins 15, 22, 21, 16, 20, 17, 19, 18) | 7.603 MHz | 33.3 % | 1.67 V |
-| CO (pin 23) | 7.603 MHz | 33.3 % | 1.67 V |
+| Q0-Q7 (pins 15, 22, 21, 16, 20, 17, 19, 18) | 8.371 MHz | 33.3 % | 1.66 V |
+| CO (pin 23) | 8.371 MHz | 33.3 % | 1.66 V |
 
 All eight bits move together (FF, 00, FF).
 
-### Step 13: PC high (U4)
+### Step 15: PC high (U4)
 
-**Sockets:** U4 with C4.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U4 | PLD, PC high | ATF22V10C-7PX, programmed from `ATF22V10_PC_COUNTER8.pld` |  |
+| U4 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C4 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 **Program first:** U4 PC high from `ATF22V10_PC_COUNTER8.pld` (rev 02),
 the same file as U3; verify and label it.
 
-Insert U4 into its socket.  PC high is a binary counter now: each bit is half the one below.
+Turn off the power switch.  Insert U4 into its socket.  Turn on the
+power switch.  PC high is a binary counter now: each bit is half the one below.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
-| Q0 = A8 (pin 15) | 3.802 MHz | 50 % | 2.50 V |
-| Q1 = A9 (pin 22) | 1.901 MHz | 50 % | 2.50 V |
-| Q2 = A10 (pin 21) | 950.4 kHz | 50 % | 2.50 V |
-| Q3 = A11 (pin 16) | 475.2 kHz | 50 % | 2.50 V |
-| Q4 = A12 (pin 20) | 237.6 kHz | 50 % | 2.50 V |
-| Q5 = A13 (pin 17) | 118.8 kHz | 50 % | 2.50 V |
-| Q6 = A14 (pin 19) | 59.4 kHz | 50 % | 2.50 V |
-| Q7 = A15 (pin 18) | 29.73 kHz | 50 % | 2.50 V |
+| Q0 = A8 (pin 15) | 4.185 MHz | 50 % | 2.50 V |
+| Q1 = A9 (pin 22) | 2.093 MHz | 50 % | 2.50 V |
+| Q2 = A10 (pin 21) | 1.046 MHz | 50 % | 2.50 V |
+| Q3 = A11 (pin 16) | 523.2 kHz | 50 % | 2.50 V |
+| Q4 = A12 (pin 20) | 261.6 kHz | 50 % | 2.50 V |
+| Q5 = A13 (pin 17) | 130.8 kHz | 50 % | 2.50 V |
+| Q6 = A14 (pin 19) | 65.4 kHz | 50 % | 2.50 V |
+| Q7 = A15 (pin 18) | 32.73 kHz | 50 % | 2.50 V |
 
-### Step 14: accumulator (U19), ALU low (U5), ALU high (U6)
+### Step 16: accumulator (U19), ALU low (U5), ALU high (U6)
 
-**Sockets:** U19 with C19, U5 with C5 and U6 with C6.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U5, U6 | PLD, ALU low, ALU high | ATF22V10C-7PX, programmed from `ALU_SHR.pld` |  |
+| U19 | Accumulator, octal D flip-flop | TI SN74F377AN |  |
+| U5, U6 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| U19 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C5, C6, C19 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 **Program first:** U5 ALU low and U6 ALU high, two copies of
 `ALU_SHR.pld` (rev 07); verify and label them.
 
-Insert U19, U5 and U6 into their sockets.  The accumulator powers up random and is never loaded in the free run.  The
+Turn off the power switch.  Insert U19, U5 and U6 into their sockets.
+Turn on the power switch.  The accumulator powers up random and is never loaded in the free run.  The
 ALU does PASS A for a branch, so each ALU F output must equal the
 accumulator bit it comes from, at a steady 0 V or 5 V: low ALU F0-F3
 (pins 17, 20, 16, 21) = AC Q0-Q3, high ALU F0-F3 = AC Q4-Q7 (F377 pins 2,
 5, 6, 9, 12, 15, 16, 19).  Each ALU's Z (pin 14) is 5 V when its four
 bits are all 0.  Power off and on a few times to see other values.  The PC
-readings of steps 12 and 13 must not change.
+readings of steps 14 and 15 must not change.
 
-### Step 15: X (U20) and Y (U21) registers
+### Step 17: X (U20) and Y (U21) registers
 
-**Sockets:** U20 with C20 and U21 with C21.
+**Parts for this step:**
 
-Insert U20 and U21 into their sockets.  Also random and never loaded: their Q pins read steady 0 V or 5 V.  The
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U20, U21 | X and Y registers, octal D flip-flop | TI SN74F377AN |  |
+| U20, U21 sockets | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C20, C21 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+
+Turn off the power switch.  Insert U20 and U21 into their sockets.  Turn
+on the power switch.  Also random and never loaded: their Q pins read steady 0 V or 5 V.  The
 free run readings must not change.
 
-### Step 16: D source buffer (U26)
+### Step 18: D source buffer (U26)
 
-**Sockets:** U26 with C26.
+**Parts for this step:**
 
-**Other parts:** R5-R12, the 47 ohm series resistors from the source
-buffers onto the data bus.
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U26 | D source buffer, octal 3-state buffer | TI SN74F541N |  |
+| U26 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C26 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| R5-R12 | Resistor, source buffers to the data bus | 47 ohm |  |
 
-Insert U26 into its socket.  The free run never selects it (its /OE2 is instruction bit 1, which is 1),
-so the readings of steps 11-13 must not change.  If they do, the buffer is
+Turn off the power switch.  Insert U26 into its socket.  Turn on the
+power switch.  The free run never selects it (its /OE2 is instruction bit 1, which is 1),
+so the readings of steps 13-15 must not change.  If they do, the buffer is
 driving the bus when it shouldn't: check its /OE1 (Branch /SRC_EN, pin 16)
 and /OE2 (instruction register PLD I1, pin 15) wiring.
 
-### Step 17: AC source buffer (U27), line read buffer (U29), RAM back, the cartridge
+### Step 19: AC source buffer (U27), line read buffer (U29), RAM back, the cartridge
 
-**Sockets:** U27 with C27 and U29 with C29.
+**Parts for this step:**
 
-**Other parts:** the cartridge slot J8 and R13 (10k, /CART pull-up).
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U27, U29 | AC source buffer, line read buffer, octal 3-state buffer | TI SN74F541N |  |
+| U27, U29 sockets | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C27, C29 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| U31, U32 | SRAM (out since step 13, back in now) | Alliance AS7C256C-15PCN |  |
+| J8 | Cartridge slot, card edge, 64 contacts | Molex 87715-9106 |  |
+| R13 | Resistor, /CART pull-up | 10k |  |
+| cartridge PCB | 64K cartridge board |  |  |
+| cartridge U1 | PLD, cartridge loader | ATF22V10C-7PX, programmed from `ATF22V10_CART.pld` |  |
+| cartridge U2, U3 | EEPROM, 32K x 8 | Microchip AT28C256-15PU, programmed with `bringup_lo.bin`, `bringup_hi.bin` |  |
+| cartridge U4, U5 | SRAM, 32K x 8 | Alliance AS7C256C-15PCN |  |
+| cartridge U1 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| cartridge U2, U3 sockets | IC socket | DIP-28 0.6" (On Shore ED28DT) |  |
+| cartridge U4, U5 sockets | IC socket | DIP-28 0.3" (On Shore ED281DT) |  |
+| cartridge C1-C5 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 The free run does select the AC source buffer (source 11), and the
-accumulator is random, so it goes in with the memories.  Insert the AC
+accumulator is random, so it goes in with the memories.  Turn off the power switch and insert the AC
 source buffer U27, the line read buffer U29 and both RAM chips U31 and
 U32 into their sockets.
 
@@ -542,7 +716,7 @@ and insert its chips into their sockets one at a time:
 3. **SRAMs.**  Insert cartridge U4 and U5 into their sockets (no programming).
 
 Take the shunts off JP1 and JP2 on the main board and plug
-the cartridge into J8.  Power on: within about half a second the
+the cartridge into J8.  Turn on the power switch: within about half a second the
 screen shows the bring-up ROM's status screen ([below](#the-bring-up-rom)).
 If it doesn't, read where the CPU stopped (next section).
 
@@ -590,8 +764,8 @@ every register (AC, X, Y, the PC's jump target) loads through the ALU, so
 one stuck ALU output can break the very first jump.  An ALU output pin
 stuck can also hide from the tests that compare with XOR (the compare goes
 through the same pin) and show up first as 1, 5 or 6.  In either case go
-back to the free run (pull the ROM and the RAM) and check steps 11-16
-again, then the ALU outputs against the accumulator as in step 14.
+back to the free run (pull the ROM and the RAM) and check steps 13-18
+again, then the ALU outputs against the accumulator as in step 16.
 
 When all pass, the ROM sets up the library, draws the status screen and
 runs a loop once a frame:
@@ -607,7 +781,7 @@ runs a loop once a frame:
 | 17-18 | mouse: MOUSE_INIT result, X (0-639), Y (0-479) and buttons |
 | 20 | sound: T toggles a 1 kHz test tone |
 | 22 | the video line read (V9:V2), changes every read |
-| 44 | legend for the colour bands below it: rows 368-399 16 colours (4 bpp), 400-415 4 colours (2 bpp), 416-479 256 colours (8 bpp) |
+| 44 | legend for the color bands below it: rows 368-399 16 colors (4 bpp), 400-415 4 colors (2 bpp), 416-479 256 colors (8 bpp) |
 
 A good board: FRAME and LOOPS count up together, PASSES goes up about
 every 0.8 s and ERRORS stays 0.  If a core test fails later, the CPU stops
@@ -623,15 +797,35 @@ page test).  It takes several minutes.
 
 ## I/O and audio
 
-### Step 18: shared port: port PLD (U38) and PS/2 receiver PLD (U42)
+### Step 20: shared port: port PLD (U38) and PS/2 receiver PLD (U42)
 
-**Sockets:** U38 with C38 and U42 with C42.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U38 | PLD, shared port | ATF22V10C-7PX, programmed from `ATF22V10_PORT.pld` |  |
+| U42 | PLD, PS/2 receiver | ATF22V10C-7PX, programmed from `ATF22V10_PS2.pld` |  |
+| U38, U42 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C38, C42 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| U40 | 3.3 V regulator, TO-92 | Microchip MCP1700-3302E/TO | flat face as on the silkscreen |
+| C40, C47 | Capacitor, regulator input and output | 1 µF ceramic (KEMET C330C105K5R5TA) |  |
+| J2, J3 | SNES controller socket, 7 pin |  |  |
+| R40, R41 | Resistor, SNES data pull-ups | 10k |  |
+| J5 | PS/2 stacked dual mini-DIN-6 | Kycon KMDGX-6S/6S-S4N | mouse top, keyboard bottom |
+| R49, R50, R55 | Resistor, PS/2 clock and DATA pull-ups | 4.7k |  |
+| D1-D6, D19 | Schottky diode, PS/2 hold, inhibit and RXCLK | BAT85 | band (cathode) as on the silkscreen |
+| R60 | Resistor, RXCLK pull-down | 22k |  |
+| J4 | SD card socket | Hirose DM1AA-SF-PEJ(82) |  |
+| R42-R44 | Resistor, SD dividers | 1.8k |  |
+| R45-R47 | Resistor, SD dividers | 3.3k |  |
+| R48 | Resistor, MISO pull-up to 3.3 V | 10k |  |
 
 **Program first:** U38 shared port from `ATF22V10_PORT.pld` (rev 04) and
 U42 PS/2 receiver from `ATF22V10_PS2.pld` (rev 02); verify and label
 them.
 
-Insert the two PLDs U38 and U42 into their sockets and fit their parts ([IO.md](IO.md)):
+Turn off the power switch.  Insert the two PLDs U38 and U42 into their
+sockets and fit their parts ([IO.md](IO.md)):
 
 - The 3.3 V regulator U40, with C40 on its input and C47 on its output
   (1 µF each).
@@ -643,7 +837,7 @@ Insert the two PLDs U38 and U42 into their sockets and fit their parts ([IO.md](
   (keyboard CLK), D4 (mouse CLK) with its 22k pull-down R60 (all BAT85).
 - SD card: J4, the dividers R42-R44 (1.8k) and R45-R47 (3.3k) and R48
   (10k MISO pull-up to 3.3 V; MISO goes straight to U38 pin 13).
-  Before plugging the SD card in, check 3.2-3.4 V at
+  Turn on the power switch and, before plugging the SD card in, check 3.2-3.4 V at
 U40's output and at the SD socket's pin 4.
 
 - **Port PLD high level.**  The port register drives the pads' CLOCK and
@@ -663,10 +857,10 @@ U40's output and at the SD socket's pin 4.
   scope on J5's mouse CLK pin shows the short high pulse once a frame.
 - With no card SD_INIT is 01; with a card it should be 00, and FS_MOUNT 00
   on a FAT16 or FAT32 card.  Press S to try again after changing cards.
-- Plug the mouse in and power on: MOUSE_INIT 00, and moving it changes X
+- With the power switch off, plug the mouse in, then turn the power switch on: MOUSE_INIT 00, and moving it changes X
   and Y (buttons in the last column).  The mouse is started once, at
   power-up.
-- PS/2 keyboard socket (J5 bottom): plug a PS/2 keyboard in and power on:
+- PS/2 keyboard socket (J5 bottom): with the power switch off, plug a PS/2 keyboard in, then turn the power switch on:
   `port_init` finds it (its lights flash once as the driver sets them),
   typed keys echo, and Caps Lock lights its Caps Lock light.  Check
   typing with the mouse plugged in too, and that both keep working
@@ -689,14 +883,29 @@ U40's output and at the SD socket's pin 4.
   a keyboard whose keys double up on the display points at a hold the
   keyboard does not see (it should be 100 us or more on the scope).
 
-### Step 19: audio DAC (U36)
+### Step 21: audio DAC (U36)
 
-**Sockets:** U36 with C36.
+**Parts for this step:**
 
-Insert the DAC register U36 into its socket and fit its supply
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U36 | DAC register, octal D flip-flop, 3-state | TI SN74HCT574N |  |
+| U36 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C36 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| R22 | Resistor, DAC supply filter | 2.2 ohm |  |
+| C44 | Electrolytic capacitor, DAC supply filter | 220 µF (Panasonic EEU-FR1C221) | + to DAC_5V (R22's DAC end), stripe to GNDA |
+| R23-R31 | Resistor, R-2R ladder | 2k |  |
+| R32-R38 | Resistor, R-2R ladder | 1k |  |
+| C45 | Capacitor, output filter | 15 nF C0G (TDK FG24C0G1H153JNT06) |  |
+| C46 | Capacitor, output coupling | 22 µF ceramic (TDK FG24X5R1A226MRT06) |  |
+| R39 | Resistor, output | 10k |  |
+| J6 | Audio line out jack, 3.5 mm TRRS | Tensility 54-00174 |  |
+
+Turn off the power switch.  Insert the DAC register U36 into its socket
+and fit its supply
 filter R22 (2.2 ohm) and C44 (220 µF), the R-2R ladder R23-R31 (2k) and
 R32-R38 (1k), the output filter C45 (15 nF) and C46 (22 µF), R39 (10k)
-and the jack J6 ([SOUND.md](SOUND.md)).
+and the jack J6 ([SOUND.md](SOUND.md)).  Turn on the power switch.
 With no sound playing the sample is 80h:
 
 | DAC pin | Silent | With T (1 kHz tone, 80h ± 48 = B0h / 50h) |
@@ -714,6 +923,13 @@ and U3 out, program them with the two halves of the normal image
 (`gen_rom.tcl`, [ROM.md](ROM.md)), verify, relabel and insert them into their sockets again.
 
 ## Expansion slots
+
+**Parts:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| J9-J12 | Expansion slot, 2 x 20 card edge (optional) | Sullins EBC20DCAN | fit only the ones a card will use |
+| R51-R54 | Resistor, slot select (R51 for J9 ... R54 for J12) | 1k | one per fitted slot |
 
 The slots J9-J12 are optional: fit only the ones a card will use, each
 with its select resistor (R51 for J9 through R54 for J12, 1k).  With a
