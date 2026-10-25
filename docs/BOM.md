@@ -32,16 +32,16 @@ slot sockets J9-J12 are optional: a builder fits only the slots a card will use.
 
 | Board | Components | Without optional parts | Lines estimated |
 |---|--:|--:|--:|
-| Main board | $188.79 | $170.79 | 30 |
+| Main board | $213.95 | $170.79 | 30 |
 | Cartridge, 64K | $61.52 | $61.52 | 3 |
 | Cartridge, 32K | $32.57 | $32.57 | 3 |
-| **Main and 64K cartridge** | **$250.31** | **$232.31** | |
+| **Main and 64K cartridge** | **$275.47** | **$232.31** | |
 
 ## Main board
 
-55 lines, 175 parts on the schematic.
+57 lines, 175 parts on the schematic.
 
-Components: **$188.79** for one board at these quantities, **$170.79** without the optional parts.
+Components: **$213.95** for one board at these quantities, **$170.79** without the optional parts.
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -100,6 +100,8 @@ Components: **$188.79** for one board at these quantities, **$170.79** without t
 | 2 | U31, U32 | ED281DT | On Shore | IC socket, DIP-28 0.3" |  | 0.45 | 0.90 | est.: On Shore ED281DT | Not on the schematic. |
 | 1 |  | MFR-25FBF52-10K | Yageo | Resistor, 10k (/WE pull-up), 1/4 W, axial | 10k | 0.10 | 0.10 | est.: Yageo MFR-25FBF52-10K | Not on the schematic.  Memory control rev 09 lets go of /WE while RUN is low; not drawn on the schematic yet (EXPANSION.md, "Booting from slot 1") |
 | 2 | JP1, JP2 | QPC02SXGN-RC | Sullins | Jumper shunt, 2.54 mm |  | 0.10 | 0.20 | est.: Sullins QPC02SXGN-RC | Not on the schematic.  Bring-up jumpers |
+| 1 |  | SWI20C-T-N | CUI Devices | USB-C power supply, wall plug (North America), 5 V 3 A / 9 V / 12 V, 20 W USB PD |  | 16.81 | 16.81 | Mouser | Not on the schematic.  Optional (Justin, 2026-10-25).  Any USB-C charger that gives 5 V at 3 A will do |
+| 1 |  | USB2CC1MNC | StarTech | USB-C to USB-C cable, 1 m, 3 A (60 W) |  | 8.35 | 8.35 | Mouser | Not on the schematic.  Optional (Justin, 2026-10-25).  Any USB-C to USB-C cable (all are 3 A) |
 
 ## Cartridge, 64K
 
