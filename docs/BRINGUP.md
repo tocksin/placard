@@ -263,7 +263,7 @@ colour decoder isn't in yet).
 | C23 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | S4 | Strap (temporary), in U23's socket | 10k | out at step 8 |
 | S5 | Strap (temporary), in U23's socket | 10k | out at step 8 |
-| (lead) | Test lead: a clip on one end, a probe tip on the other | in the kit | |
+| (leads) | Test leads, 2: a clip on one end, a probe tip on the other | in the kit | one for ground, one for power |
 
 **Program first:** U16 colour decoder from `ATF22V10_COLORDECODER.pld`
 (rev 07); verify and label it.
@@ -277,49 +277,53 @@ code's Q7 as "blank line", so turn off the power switch and put in:
   low, so every line is a video line.  Out at step 8.
 - **S5**, in U23 (line code): pin 20 (+5 V) to pin 12 (Q4, which goes
   only to the tint resistor R56, not fitted until step 8).  A 10k high
-  source for the test lead.  Out at step 8.
+  source for the power test lead.  Out at step 8.
 
-**Probes.**  The colour decoder's pixel inputs D0-D7 (pins 2-9) and mode
-inputs MODE0, MODE1 (pins 10, 11) have no driver yet (the pixel buffer
-U22 and the line code register U23 come later).  Each one holds the last
-level it was touched to (the pin keeper), so set them by touching them
-through 10k, which keeps a slip onto a wrong pin harmless:
+**Test leads.**  The colour decoder's pixel inputs D0-D7 (pins 2-9) and
+mode inputs MODE0, MODE1 (pins 10, 11) have no driver yet (the pixel
+buffer U22 and the line code register U23 come later).  Each one holds
+the last level it was touched to (the pin keeper), so you set them by
+touching them through the straps' 10k, which keeps a slip onto a wrong
+pin harmless.  With the power still off, clip on both test leads, so
+nothing needs clipping while the board is powered:
 
-- **High:** clip the test lead to strap S5's lead at U23's pin 12 (10k
-  to +5 V) and touch the probe tip to a U16 pin.
-- **Low:** clip the test lead to strap S4's lead at U23's pin 19 (10k to
-  GND) and touch the probe tip to a U16 pin.
+- **Ground lead:** clip it to strap S4's lead at U23's pin 19 (10k to GND).
+- **Power lead:** clip it to strap S5's lead at U23's pin 12 (10k to +5 V).
 
 Insert U16 into its socket, and connect the monitor and USB power cable.
-Turn on the power switch.  Then:
+Turn on the power switch.  The screen shows a random colour at first (the
+inputs power up at no particular level).  These are the pins to touch:
 
-1. High: touch each of U16's pins 2-11 in turn.  Mode 3
-   (8 bpp) with every pixel FF: the monitor shows a **white screen** with
-   a black border, and every output (pins 15-22) reads 28.77 kHz,
-   73.1 %, 3.66 V.
-2. Low: touch one pixel pin, read, then set the same pin high again
-   before the next.  In 8 bpp each pixel bit drives one
-   output, which drops to 0 V; the other seven stay at 28.77 kHz:
+| U16 pin | Input | What it sets |
+|---|---|---|
+| 2 | D0 | pixel bit 0 (8 bpp: RED1, pin 15) |
+| 3 | D1 | pixel bit 1 (8 bpp: RED2, pin 16) |
+| 4 | D2 | pixel bit 2 (8 bpp: RED3, pin 21) |
+| 5 | D3 | pixel bit 3 (8 bpp: BLU2, pin 22) |
+| 6 | D4 | pixel bit 4 (8 bpp: BLU3, pin 18) |
+| 7 | D5 | pixel bit 5 (8 bpp: GRN1, pin 17) |
+| 8 | D6 | pixel bit 6 (8 bpp: GRN2, pin 20) |
+| 9 | D7 | pixel bit 7 (8 bpp: GRN3, pin 19) |
+| 10 | MODE0 | colour mode, with MODE1 |
+| 11 | MODE1 | colour mode: MODE1 MODE0 = 00 1 bpp, 01 2 bpp, 10 4 bpp, 11 8 bpp |
 
-| Pin set low | Output at 0 V |
-|---|---|
-| D0 (pin 2) | RED1 (pin 15) |
-| D1 (pin 3) | RED2 (pin 16) |
-| D2 (pin 4) | RED3 (pin 21) |
-| D3 (pin 5) | BLU2 (pin 22) |
-| D4 (pin 6) | BLU3 (pin 18) |
-| D5 (pin 7) | GRN1 (pin 17) |
-| D6 (pin 8) | GRN2 (pin 20) |
-| D7 (pin 9) | GRN3 (pin 19) |
+1. Touch the ground probe to each of these pins in turn: the screen
+   turns **black** (1 bpp, every pixel 0), and every output (pins 15-22)
+   reads 0 V.
+2. Touch the power probe to each of them in turn: the screen turns
+   **white** with a black border (8 bpp, every pixel FF), and every
+   output reads 28.77 kHz, 73.1 %, 3.66 V.
 
-3. Low on MODE0 (pin 10): 4 bpp, every pixel colour F, a **green
-   screen**: RED2, RED3, BLU2 and BLU3 at 0 V, the other four at
-   28.77 kHz.  Then low on MODE1 (pin 11) as well: 1 bpp, the
-   screen is **white** again and all eight outputs read 28.77 kHz.
+You'll see each touch change the picture along the way.  Feel free to
+touch any of these pins with either the power or ground probe in any
+order to explore the different colours and colour modes.  In 8 bpp
+(MODE0 and MODE1 high) each pixel pin drives the one output named in the
+table, which drops to 0 V when that pin is low.
 
-A pin that reads 0 V when it should toggle, or toggles when it should be
-0 V, points at that pin's wiring or the colour resistors (R14-R21).
-Unclip the test lead; S4 and S5 stay until step 8.
+A colour output that stays at 0 V when it should toggle, or toggles when it
+should be 0 V, points at that pin's wiring or the colour resistors
+(R14-R21).  Turn off the power switch and unclip both test leads; S4 and
+S5 stay until step 8.
 
 ### Step 7: audio and mode slot PLD (U35)
 
