@@ -226,9 +226,9 @@ def table(rows, title):
 
 
 def run_video(step, bus=0xFF):
-    """steps 3-5 and 11: the video chips (step 11 with LC7 held low, as
+    """steps 3-5 and 12: the video chips (step 12 with LC7 held low, as
     before the line code register sees a mode byte)"""
-    vid = Video(blank_rd=step >= 11, lc_from_bus=False, bus=bus)
+    vid = Video(blank_rd=step >= 12, lc_from_bus=False, bus=bus)
     m = Meter()
     for clk in range(2 * FRAME):
         c = vid.comb()
@@ -252,7 +252,7 @@ def run_video(step, bus=0xFF):
                 m.add('Sync PIXEL_ENABLE (pin 19)', vid.pe)
                 m.add('Sync ADDR_SEL (pin 20)', vid.pe)        # PC_ENABLE held low
                 m.add('Sync V_VIDEO_ACTIVE (pin 23)', vid.vva)
-            if step == 11:
+            if step == 12:
                 m.add('Audio BLANK_RD (pin 23)', c['blank_rd'])
                 m.add('Audio /MODE_LD (pin 22)', 1 - c['mode_ld'])
         vid.clock(c)
@@ -278,7 +278,7 @@ def run_probes(cases):
 
 
 def run_free_run(step):
-    """steps 12-14: the CPU with nothing driving the data bus, so every byte
+    """steps 13-15: the CPU with nothing driving the data bus, so every byte
     it reads is FF (the 10k pull-ups): BRA with source 11 (AC), through
     LOAD_MEM.  The source bus is FF too (no source F541s), so EXEC loads
     PC low = FF."""
@@ -307,7 +307,7 @@ def run_free_run(step):
         lo, hi = pc & 0xFF, pc >> 8
         co = int(lo == 0xFF)
         if clk >= 2 * FRAME:
-            if step == 12:
+            if step == 13:
                 m.add('State Q0 (pin 18)', q0)
                 m.add('State PC_ENABLE (pin 15)', pc_enable)
                 m.add('State X_ENABLE (pin 16)', x_en)
@@ -324,12 +324,12 @@ def run_free_run(step):
                 m.add('Branch ALU_DONE (pin 18)', alu_done)
                 m.add('Audio /AC_SEL (pin 21)', 0)          # I1 = 1
                 m.add('Instruction register Q0-Q7', 1)
-            if step == 13:
+            if step == 14:
                 pins = [15, 22, 21, 16, 20, 17, 19, 18]
                 for n in range(8):
                     m.add('PC low Q%d (pin %d)' % (n, pins[n]), (lo >> n) & 1)
                 m.add('PC low CO (pin 23)', co)
-            if step == 14:
+            if step == 15:
                 pins = [15, 22, 21, 16, 20, 17, 19, 18]
                 for n in range(8):
                     m.add('PC high Q%d = A%d (pin %d)' % (n, n + 8, pins[n]), (hi >> n) & 1)
@@ -375,10 +375,10 @@ def main(argv):
         res = run_probes(cases)
         for pix, mode in cases:
             print(table(res[(pix, mode)], 'Step 6: color decoder, pixel %02X, mode %d' % (pix, mode)))
-    if want(11):
-        print(table(run_video(11), 'Step 11: audio slot PLD'))
-    for s, t in ((12, 'Step 12: State PLD (and the Branch PLD), FF free run'), (13, 'Step 13: PC low'),
-                 (14, 'Step 14: PC high')):
+    if want(12):
+        print(table(run_video(12), 'Step 12: audio slot PLD'))
+    for s, t in ((13, 'Step 13: State PLD (and the Branch PLD), FF free run'), (14, 'Step 14: PC low'),
+                 (15, 'Step 15: PC high')):
         if want(s):
             print(table(run_free_run(s), t))
 
