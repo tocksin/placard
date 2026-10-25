@@ -22,7 +22,7 @@ open without the bookmarks panel.
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
 
-Date: 2026-10-24
+Date: 2026-10-25
 """
 import os
 import re
@@ -33,7 +33,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-10-24"
+DATE = "2026-10-25"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 CDIRS = {64: os.path.join(KDIR, "cartridge_64k"), 32: os.path.join(KDIR, "cartridge_32k")}
@@ -50,7 +50,7 @@ FP_C = "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm"
 FP_CP_S = "Capacitor_THT:CP_Radial_D6.3mm_P2.50mm"
 FP_CP_L = "Capacitor_THT:CP_Radial_D8.0mm_P3.50mm"
 FP_D = "Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal"
-FP_LED = "LED_THT:LED_D3.0mm"
+FP_LED = "LED_THT:LED_D5.0mm"
 FP_SIP9 = "Resistor_THT:R_Array_SIP9"
 FP_JP = "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 
@@ -76,7 +76,7 @@ MPN = {
     "BAT85": ("Vishay", "BAT85"),
     "1N4148": ("Vishay", "1N4148"),
     "SA5.0A": ("Littelfuse", "SA5.0A"),
-    "LTL-4231N": ("Lite-On", "LTL-4231N"),
+    "LTL2R3KRD-EM": ("Lite-On", "LTL2R3KRD-EM"),
     "G5LE-1 DC5": ("Omron", "G5LE-1 DC5"),
     "PTS645VL58-2 LFS": ("C&K", "PTS645VL58-2 LFS"),
     "PS/2 kbd + mouse": ("Kycon", "KMDGX-6S/6S-S4N"),
@@ -433,13 +433,13 @@ def sheet_power(b):
     xl = 304.8
     s.power("+5V", xl, yr - 2.54)
     r59 = res(s, "R59", xl, yr + 7.62, "+5V", "PWR_LED", "1k", bare=("1", "2"))
-    d18 = s.part("placard_std:LED", "D18", xl, yr + 22.86, {"1": "GND", "2": "PWR_LED"}, value="LTL-4231N",
+    d18 = s.part("placard_std:LED", "D18", xl, yr + 22.86, {"1": "GND", "2": "PWR_LED"}, value="LTL2R3KRD-EM",
                  footprint=FP_LED, angle=90, bare=("1", "2"), ref_at=(xl + 3.0, yr + 22.3), value_at=(xl + 3.0, yr + 25.4))
     path(s, "+5V", (xl, yr - 2.54), r59["1"])
     path(s, "PWR_LED", r59["2"], d18["2"])
     path(s, "GND", d18["1"], (xl, d18["1"][1] + 2.54))
     s.power("GND", xl, d18["1"][1] + 2.54)
-    note(s, 282, 124, ["D18 power LED (green, 3 mm) on +5V,", "after K1: dark while reset is held.", "R59 1k: about 3 mA."])
+    note(s, 282, 124, ["D18 power LED (red, 5 mm) on +5V,", "after K1: dark while reset is held.", "R59 1k: about 3 mA."])
     # analog ground joins logic ground at the power input
     # (each side has its power flag on the pin end and its ground symbol below)
     nt = s.part("placard_std:NetTie_2", "NT1", 165.1, 109.22, {"1": "GND", "2": "GNDA"}, value="AGND tie",

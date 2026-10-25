@@ -1,6 +1,6 @@
 # Bring-up: build order and a test for each chip
 
-Date: 2026-10-24
+Date: 2026-10-25
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
@@ -113,7 +113,7 @@ Leave U40, C40 and C42 (the 3.3 V regulator) for step 18, with the SD card.
 | K1 | Omron G5LE-1 DC5 relay; COM (pin 1) = VON, NC (pin 4) = +5V | |
 | SW2 | PTS645VL58-2 tactile reset button, VON to the coil (KCOIL) | |
 | D8 | BAT85 across K1's coil | band (cathode) to KCOIL |
-| R59, D18 | 1k and the green 3 mm power LED, +5V (after K1) to GND | LED's long lead (anode) to R59, flat side (cathode) to GND |
+| R59, D18 | 1k and the red 5 mm power LED, +5V (after K1) to GND | LED's long lead (anode) to R59, flat side (cathode) to GND |
 
 **The relay's NC rating.**  The whole board's current flows through K1's
 normally closed contact.  Before fitting K1, check on the Omron G5LE

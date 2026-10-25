@@ -1,6 +1,6 @@
 # Schematic plan
 
-Date: 2026-10-24
+Date: 2026-10-25
 
 How the KiCad schematic (`kicad/`) is split into sheets: how many sheets,
 which chips, connectors and passives go on each, and which nets run between
@@ -125,7 +125,7 @@ C41 between SW1 and K1, the MCP1700-3302
 output is CLK (no clock gate since 2026-10-21).  STALL_OUT's 10k pull-up
 and RUN's pull-down sit here, with the bring-up jumpers JP1 (STALL_IN to
 STALL_OUT) and JP2 (RUN to +5 V) ([BRINGUP.md](BRINGUP.md)).  The power LED
-D18 (Lite-On LTL-4231N, green 3 mm, through hole) and its 1k resistor R59
+D18 (Lite-On LTL2R3KRD-EM, red 5 mm, through hole; Justin 2026-10-25, was a green 3 mm LTL-4231N) and its 1k resistor R59
 (about 3 mA) hang from +5V after K1 (Justin, 2026-10-24), so the LED goes
 dark while the reset button is held.
 

@@ -1,6 +1,6 @@
 # Bill of materials
 
-Date: 2026-10-24
+Date: 2026-10-25
 
 Every part of the four boards, one line per part number: the main
 board, the two ROM cartridges (64K and 32K, separate boards since
@@ -32,17 +32,17 @@ slots a card will use, and J1 only with the Cherry MX keyboard (a PS/2 keyboard 
 
 | Board | Components | Without optional parts | Lines estimated |
 |---|--:|--:|--:|
-| Main board | $185.33 | $166.73 | 42 |
+| Main board | $185.38 | $166.78 | 42 |
 | Cartridge, 64K | $61.72 | $61.72 | 4 |
 | Cartridge, 32K | $32.69 | $32.69 | 4 |
 | Keyboard | $145.96 | $145.96 | 6 |
-| **Main, 64K cartridge, keyboard** | **$393.01** | **$374.41** | |
+| **Main, 64K cartridge, keyboard** | **$393.06** | **$374.46** | |
 
 ## Main board
 
 57 lines, 175 parts on the schematic.
 
-Components: **$185.33** for one board at these quantities, **$166.73** without the optional parts.
+Components: **$185.38** for one board at these quantities, **$166.78** without the optional parts.
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -72,7 +72,7 @@ Components: **$185.33** for one board at these quantities, **$166.73** without t
 | 10 | D1-D6, D8-D11 | BAT85 | Vishay | Schottky diode, DO-35 |  | 0.10 | 1.00 | est.: Vishay BAT85 | Any BAT85 (Vishay, Nexperia, onsemi) |
 | 1 | D7 | SA5.0A | Littelfuse | D_Zener |  | 0.40 | 0.40 | est.: Littelfuse SA5.0A, 500 W TVS, DO-15 axial |  |
 | 6 | D12-D17 | 1N4148 | Vishay | Small-signal diode, DO-35 |  | 0.10 | 0.60 | est.: Vishay 1N4148 | Any 1N4148 (Vishay, onsemi, Diodes Inc.) |
-| 1 | D18 | LTL-4231N | Lite-On | Power LED, 3 mm, green diffused, through hole (on +5V after K1) |  | 0.20 | 0.20 | est.: Lite-On LTL-4231N | D18 with R59 (1k, about 3 mA); any 3 mm LED fits, pick the color |
+| 1 | D18 | LTL2R3KRD-EM | Lite-On | Power LED, 5 mm, red diffused, through hole (on +5V after K1) |  | 0.25 | 0.25 | est.: Lite-On LTL2R3KRD-EM | D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color |
 | 2 | R1, R2 | MFR-25FBF52-5K1 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 5.1k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
 | 7 | R3, R4, R13, R39-R41, R48 | MFR-25FBF52-10K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 10k | 0.10 | 0.70 | est.: Yageo MFR-25FBF52 series |  |
 | 8 | R5-R12 | MFR-25FBF52-47R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 47 | 0.10 | 0.80 | est.: Yageo MFR-25FBF52 series |  |
