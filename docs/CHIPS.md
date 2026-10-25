@@ -1,6 +1,6 @@
 # Chip list
 
-Date: 2026-10-24
+Date: 2026-10-25
 
 Every chip in the Placard, one chip per line.  The current list follows
 `basys_top.vhd`, the PLD sources in `src/pld`, [CPU.md](CPU.md),
@@ -48,9 +48,9 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 34 | — | — | Moved to the ROM cartridge 2026-10-20 |
 | 35 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md).  Also /AC_SEL (= !I1, revision 04) for the AC source F541 |
 | 36 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer when H_VIDEO_ACTIVE rises (start of group 48), drives the R-2R ladder, which drives the audio line out directly (all passive, no headphone amplifier, see SOUND.md) |
-| 37 | SN74HC574N | Octal D flip-flop, 3-state | Shared port latch at x5200 (IO.md): SCK and pad CLOCK, MOSI and pad LATCH, SD /CS (also holds the PS/2 mouse off), PS/2 DATA, keyboard column code (bit 4 also holds the PS/2 keyboard off when no column is driven).  HC for a full 5 V high into the pads |
-| 38 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: keyboard columns /COL0-/COL7 from the latch, pad DATA (and the PS/2 keyboard's CLK on D6) onto D7/D6 on odd reads (`ATF22V10_PORT.pld`, rev 02) |
-| 39 | SN74F541N | Octal buffer, 3-state | Shared port input on even reads: keyboard rows, with SD MISO and the PS/2 lines on rows 7, 6 and 5 |
+| 37 | — | — | Removed 2026-10-25 with the matrix keyboard: the shared port latch (SN74HC574N).  The port PLD (#38, rev 03) holds the latch bits in its registers (IO.md) |
+| 38 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: the port latch (SCK and pad CLOCK, MOSI and pad LATCH, SD /CS, PS/2 DATA hold, PS/2 keyboard CLK hold and pad select), clocked by /PORT_WR; SD MISO and the PS/2 lines onto D7:D5 on even reads, pad DATA (and the PS/2 keyboard's CLK on D6) onto D7/D6 on odd reads (`ATF22V10_PORT.pld`, rev 03) |
+| 39 | — | — | Removed 2026-10-25 with the matrix keyboard: the shared port's row buffer (SN74F541N).  The port PLD reads MISO and the PS/2 lines itself |
 | 40 | not chosen | 3.3 V regulator | Powers the SD card (its SCK, MOSI and /CS come down to 3.3 V through resistor dividers, IO.md) |
 | 41 | — | — | Removed 2026-10-21: the 74AC32 clock gate (CLK = OSC OR HOLD).  The cartridge now holds the CPU's STALL line instead of the clock (ROM.md, "Loading the cartridge") |
 
@@ -62,11 +62,10 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | SN74F377AN | Octal D flip-flop with enable | 5 |
 | CD74HCT377E | Octal D flip-flop with enable (line code) | 1 |
 | CD74ACT273E | Octal D flip-flop with clear | 1 |
-| SN74F541N | Octal buffer, 3-state | 4 |
+| SN74F541N | Octal buffer, 3-state | 3 |
 | AS7C256C-15PCN | SRAM, 32K x 8 | 2 |
 | SN74HCT574N | Octal D flip-flop, 3-state | 1 |
-| SN74HC574N | Octal D flip-flop, 3-state | 1 |
-| **Total** | | **34 + a 3.3 V regulator** |
+| **Total** | | **32 + a 3.3 V regulator** |
 
 **Not counted, not chosen yet:** the 25.175 MHz clock oscillator.  The SN74F32 and SN74F04 in older
 versions of TIMING.md were removed (the memory control and I/O decode PLDs
@@ -94,6 +93,14 @@ EEPROMs (lower/upper), U4/U5 SRAMs (lower/upper).  The 32K cartridge
 PLD, U2 EEPROM, U3 SRAM, both /CE tied to GND, so its 32K is seen in both
 halves of the ROM space.  They replace the one board with a 32K/64K solder
 jumper (JP1).  The case mounting hole H1 is at the same place on both.
+
+**Removed 2026-10-25: the port latch and the row buffer.**  Justin
+dropped the Cherry MX matrix keyboard (and its header J1) in favour of a
+PS/2 keyboard in the lower PS/2 socket.  With no key columns to drive and
+no rows to read, the port PLD (#38, rev 03) holds the five latch bits
+still in use in its own registers and reads SD MISO and the PS/2 lines
+itself, so the 74HC574 (#37) and the 74F541 (#39) are gone (IO.md).  The
+schematic and BOM still have them until the change is carried through.
 
 **Changed 2026-10-21: no clock gate, no cartridge 74AC541.**  The
 cartridge holds the CPU's STALL line (STALL_IN from the Branch PLD,
