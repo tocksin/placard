@@ -1,7 +1,7 @@
 Name     PORT;
 PartNo   00;
-Date     10/22/2026;
-Revision 02;
+Date     10/25/2026;
+Revision 03;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -10,95 +10,119 @@ Device   g22v10;
 
 
 /* ============================================================
-   SHARED PORT: KEYBOARD COLUMNS AND PAD READ   (ATF22V10C)
+   SHARED PORT: LATCH AND INPUT   (ATF22V10C)
    ============================================================
 
-   One of the four chips of the shared port at 5200h (docs/IO.md).  The
-   keyboard, both SNES pads, the SD card and the two PS/2 ports are all
-   polled, never at the same moment, so they share one output latch
-   (74HC574), one input buffer (74F541) and this PLD.
+   The whole shared port at 5200h (docs/IO.md) in one chip.  The SNES
+   pads, the SD card and the two PS/2 ports are all polled, never at
+   the same moment, so they share this PLD's output register and its
+   two read addresses.
 
-   KEYBOARD COLUMNS
-      The port latch's bits 7:4 (K3:K0) hold a column number.  Codes
-      0-7 drive that column of the 8 x 8 key matrix low; codes 8-15
-      drive none.  The columns are combinational from the latch, so a
-      column is steady long before the CPU reads the rows: the read is
-      then only the 74F541's enable, like any other I/O read.  (The
-      plan's 74F138 decoded the column from the address during the
-      read itself, which needs about 45 ns and does not fit in one
-      39.7 ns clock.)
-      The columns are push-pull.  Every key has a Schottky diode in
-      series (cathode at the column), so a high column never drives
-      a row.
+   Revision 03 (2026-10-25): the Cherry MX key matrix is gone (a PS/2
+   keyboard plugs into the lower PS/2 socket instead).  With no
+   columns to drive and no rows to read, this PLD takes over the jobs
+   of the port latch (74HC574, U37) and the row buffer (74F541, U39),
+   and both chips are removed.
 
-   PAD READ AND PS/2 KEYBOARD CLOCK
-      The pads' DATA lines are never tri-stated and are low after the
-      16th bit, so they can't share the matrix rows.  This PLD drives
-      them onto the read bus on reads of odd addresses (A0 = 1):
-          D7 = pad 1 DATA      D5:D0 not driven
-          D6 = pad 2 DATA when latch bit 4 (K0) is 0,
-               the PS/2 keyboard's CLK line when K0 is 1
-      (rev 02.)  The PS/2 keyboard socket (the lower half of the stacked
-      dual socket) shares DATA with the mouse; latch bit 4 holds its CLK
-      low through a Schottky diode.  With latch bit 7 = 1 (no column),
-      bit 4 is free: 0 holds the keyboard off and picks pad 2 for pad
-      reads, 1 lets the keyboard send and shows its clock here.  Its
-      clock can't go on a key row, because bit 4 is low on every even
-      column of a key scan and would read as a key down.
-      The 74F541 (rows) is enabled on even addresses only (its /OE2
-      is A0), so the two never drive the bus together.  Reads of the
-      pads must mask D5:D0.  The output enable is 7.5 ns from
-      /PORT_RD, faster than the 74F541's 9.5 ns.
+   OUTPUT REGISTER (was the 74HC574)
+      Pin 1 is /PORT_WR (I/O decode PLD pin 19); the five registers
+      load D4:D0 on its rising edge, the end of a write to any x52xx,
+      as the 74HC574 did.  The setup time (3.5 ns) is shorter than
+      the 74HC574's.  Data bits 7:5 are not stored any more (they
+      were the column code); software may write anything there.
+          bit 0  SCK, pads' CLOCK
+          bit 1  MOSI, pads' LATCH
+          bit 2  SD /CS; 0 also holds the mouse's CLK low (diode)
+          bit 3  0 holds the shared PS/2 DATA line low (diode)
+          bit 4  K0: 0 holds the PS/2 keyboard's CLK low (diode) and
+                 picks pad 2 on odd reads; 1 frees the keyboard and
+                 shows its CLK on odd reads
+      The registers clear at power-up.  SCK, MOSI and the DATA hold
+      are declared active low, so a cleared register leaves those
+      pins high; /CS and K0 are active high, so they start low.  The
+      port therefore powers up at its rest value EB (no PS/2 device
+      can send, the card is selected and idle); the 74HC574 powered
+      up with random bits.
+      The pads' CLOCK and LATCH inputs are CMOS (4021, high at least
+      3.5 V).  The PLD's data sheet only promises 2.4 V at 4 mA, but
+      into CMOS inputs and the SD dividers (about 1 mA) its high is
+      expected near 5 V: check with a meter at bring-up (BRINGUP.md).
+
+   READS
+      Even addresses (A0 = 0), was the 74F541:
+          D7 = SD MISO   D6 = PS/2 DATA   D5 = mouse CLK
+          D4:D0 not driven
+      Odd addresses (A0 = 1), as in revision 02:
+          D7 = pad 1 DATA
+          D6 = pad 2 DATA when K0 is 0, the PS/2 keyboard's CLK
+               when K0 is 1
+          D5:D0 not driven
+      The bits are where the 74F541 put them, so the drivers read
+      them as before.  Reads must mask the bits not driven (the data
+      bus pull-ups make them 1).  MISO is a 3.3 V signal and goes
+      straight to pin 13; the PLD's TTL input reads 2.0 V as high.
+      The output enable is 7.5 ns from /PORT_RD, faster than the
+      74F541's 9.5 ns.
 
    PIN BUDGET
-      Inputs (9):  /PORT_RD, A0, K0-K3, PAD1, PAD2, KCLK
-      Outputs (10): /COL0-/COL7, D6, D7
-      Unused: pins 10, 11, 13 (inputs).
-      Every output is one product term except D6 (two); the data
-      outputs have one more for the output enable.  One array pass.
+      Inputs (13): /PORT_WR (clock), /PORT_RD, A0, D0-D4, PAD1,
+                   PAD2, KCLK, MISO on pin 13, and PDATA and MCLK on
+                   I/O pins 14 and 15
+      Outputs (8):  SCK, MOSI, /CS, DATA hold, K0 (registered);
+                    D5, D6, D7 (combinational, 3-state)
+      Every pin is used.  D6 is three product terms, D7 two, the
+      rest one; the data outputs have one more for the output
+      enable.  One array pass.
    ============================================================ */
 
 
 /* ---------------- INPUTS ---------------- */
 
-PIN 1  = !PORT_RD;     /* I/O decode PLD pin 20, low on a read of 5200h-52FFh */
-PIN 2  = A0;           /* address bit 0: 0 = rows (74F541), 1 = pads (this PLD) */
-PIN 3  = K0;           /* port latch Q4 */
-PIN 4  = K1;           /* port latch Q5 */
-PIN 5  = K2;           /* port latch Q6 */
-PIN 6  = K3;           /* port latch Q7: 1 = no column */
-PIN 7  = PAD1;         /* SNES pad 1 DATA (10k pull-up: no pad reads 1) */
-PIN 8  = PAD2;         /* SNES pad 2 DATA (10k pull-up) */
-PIN 9  = KCLK;         /* PS/2 keyboard CLK (4.7k pull-up: no keyboard reads 1) */
+PIN 1  = !PORT_WR;     /* I/O decode PLD pin 19: clocks the registers on its rising edge */
+PIN 2  = !PORT_RD;     /* I/O decode PLD pin 20, low on a read of 5200h-52FFh */
+PIN 3  = A0;           /* address bit 0: 0 = MISO and PS/2 lines, 1 = pads */
+PIN 4  = D0;           /* data bus, written to the register */
+PIN 5  = D1;
+PIN 6  = D2;
+PIN 7  = D3;
+PIN 8  = D4;
+PIN 9  = PAD1;         /* SNES pad 1 DATA (10k pull-up: no pad reads 1) */
+PIN 10 = PAD2;         /* SNES pad 2 DATA (10k pull-up) */
+PIN 11 = KCLK;         /* PS/2 keyboard CLK (4.7k pull-up: no keyboard reads 1) */
+PIN 13 = MISO;         /* SD card DO, 3.3 V (10k pull-up to 3.3 V) */
+PIN 14 = MCLK;         /* PS/2 mouse CLK (4.7k pull-up), I/O pin used as an input */
+PIN 15 = PDATA;        /* shared PS/2 DATA (4.7k pull-up), I/O pin used as an input */
 
 
 /* ---------------- OUTPUTS ---------------- */
 
-PIN 14 = !COL0;        /* keyboard column 0, low when driven */
-PIN 15 = !COL1;
-PIN 16 = !COL2;
-PIN 17 = !COL3;
-PIN 18 = !COL4;
-PIN 19 = !COL5;
-PIN 20 = !COL6;
-PIN 21 = !COL7;
+PIN 16 = K0;           /* latch bit 4: keyboard CLK hold (diode) and pad 2 select */
+PIN 17 = !DHOLD;       /* latch bit 3: low holds PS/2 DATA low (diode); high at power-up */
+PIN 18 = SDCS;         /* latch bit 2: SD /CS, low also holds the mouse CLK (diode) */
+PIN 19 = !MOSIN;       /* latch bit 1: MOSI and pads' LATCH, pin = D1; high at power-up */
+PIN 20 = !SCKN;        /* latch bit 0: SCK and pads' CLOCK, pin = D0; high at power-up */
+PIN 21 = D5;           /* data bus bit 5, 3-state */
 PIN 22 = D6;           /* data bus bit 6, 3-state */
 PIN 23 = D7;           /* data bus bit 7, 3-state */
 
 
 /* ---------------- EQUATIONS ---------------- */
 
-COL0 = !K3 & !K2 & !K1 & !K0;
-COL1 = !K3 & !K2 & !K1 &  K0;
-COL2 = !K3 & !K2 &  K1 & !K0;
-COL3 = !K3 & !K2 &  K1 &  K0;
-COL4 = !K3 &  K2 & !K1 & !K0;
-COL5 = !K3 &  K2 & !K1 &  K0;
-COL6 = !K3 &  K2 &  K1 & !K0;
-COL7 = !K3 &  K2 &  K1 &  K0;
+/* Output register: the pin follows the data bit written. */
+SCKN.D  = !D0;
+MOSIN.D = !D1;
+SDCS.D  =  D2;
+DHOLD.D = !D3;
+K0.D    =  D4;
 
-D7    = PAD1;
-D7.OE = PORT_RD & A0;
-D6    = !K0 & PAD2
-      #  K0 & KCLK;
-D6.OE = PORT_RD & A0;
+D7    = !A0 & MISO
+      #  A0 & PAD1;
+D7.OE = PORT_RD;
+
+D6    = !A0 & PDATA
+      #  A0 & !K0 & PAD2
+      #  A0 &  K0 & KCLK;
+D6.OE = PORT_RD;
+
+D5    = MCLK;
+D5.OE = PORT_RD & !A0;
