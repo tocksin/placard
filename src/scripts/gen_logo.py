@@ -17,6 +17,10 @@ engraving and README art:
                 in the ROM font (f_hand.svg outline sign, f_hand_solid.svg
                 solid sign with the letters cut out)
 
+f_hand is also written as the footprint kicad/lib/placard.pretty/
+PLACARD_Logo.kicad_mod (front silkscreen, 40 mm wide, board only, not in
+the BOM or position files).
+
 Each concept is written as <name>.svg (black ink on transparent) and
 <name>.png.  Plaques also have an _inverse.svg (solid plate, letters cut
 out), which is the form for a filled silkscreen badge or an anodised
@@ -377,6 +381,11 @@ def _geom_path(g):
 
 
 def f_hand(variant="line", ink=INK, tilt=30):
+    W, H, inkg = f_hand_geom(variant, tilt)
+    return W, H, fill(_geom_path(inkg), ink, "evenodd")
+
+
+def f_hand_geom(variant="line", tilt=30):
     """Hand holding up a picket sign.  Drawn back to front: each part
     hides what is behind it, then adds its own ink, so the result is
     pure ink geometry (no white fills) that silkscreen import keeps."""
@@ -430,7 +439,72 @@ def f_hand(variant="line", ink=INK, tilt=30):
     inkg = inkg.intersection(frame)
     inkg = affinity.translate(inkg, -(x0 - m), -(y0 - m))
     W, H = round(x1 - x0 + 2 * m), round(y1 - y0 + 2 * m)
-    return W, H, fill(_geom_path(inkg), ink, "evenodd")
+    return W, H, inkg
+
+
+# ---------------------------------------------------------------- footprint
+
+FP_NAME = "PLACARD_Logo"
+FP_WIDTH = 40.0                              # mm, as placed on the main board
+FP_PATH = os.path.join(HERE, "..", "..", "kicad", "lib", "placard.pretty",
+                       FP_NAME + ".kicad_mod")
+
+
+def _fracture(poly):
+    """KiCad polygons cannot have holes: cut each hole open with a
+    vertical line through it until none are left."""
+    from shapely.geometry import LineString
+    from shapely.ops import split
+    if not poly.interiors:
+        return [poly]
+    x = Polygon(poly.interiors[0]).representative_point().x
+    _, y0, _, y1 = poly.bounds
+    out = []
+    for piece in split(poly, LineString([(x, y0 - 1), (x, y1 + 1)])).geoms:
+        out += _fracture(piece)
+    return out
+
+
+def footprint_polys():
+    """Concept F (outline sign) as hole-free polygons in mm, centred."""
+    W, H, inkg = f_hand_geom("line")
+    k = FP_WIDTH / W
+    g = affinity.scale(inkg, k, k, origin=(0, 0))
+    g = affinity.translate(g, -W * k / 2, -H * k / 2)
+    polys = []
+    for p in getattr(g, "geoms", [g]):
+        if p.geom_type == "Polygon" and not p.is_empty:
+            polys += _fracture(p.simplify(0.002))
+    return polys, W * k, H * k
+
+
+def write_footprint():
+    polys, w, h = footprint_polys()
+    lines = [
+        f'(footprint "{FP_NAME}" (version 20221018) (generator pcbnew)',
+        '  (layer "F.Cu")',
+        f'  (descr "PLACARD logo, hand holding a sign, {w:.1f} x {h:.1f} mm '
+        'front silkscreen (Placard, gen_logo.py)")',
+        '  (tags "logo")',
+        '  (attr board_only exclude_from_pos_files exclude_from_bom)',
+        f'  (fp_text reference "LOGO**" (at 0 {h / 2 + 1:.2f}) '
+        '(layer "F.Fab") hide',
+        '    (effects (font (size 1 1) (thickness 0.15)))',
+        '  )',
+        f'  (fp_text value "{FP_NAME}" (at 0 {h / 2 + 2.5:.2f}) '
+        '(layer "F.Fab") hide',
+        '    (effects (font (size 1 1) (thickness 0.15)))',
+        '  )',
+    ]
+    for p in polys:
+        pts = " ".join(f"(xy {x:.4f} {y:.4f})"
+                       for x, y in list(p.exterior.coords)[:-1])
+        lines.append(f'  (fp_poly (pts {pts}) (stroke (width 0) '
+                     '(type solid)) (fill solid) (layer "F.SilkS"))')
+    lines.append(")")
+    with open(FP_PATH, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    return polys
 
 
 # ---------------------------------------------------------------- output
@@ -532,7 +606,8 @@ def main():
     out.append(("F  Hand + sign, solid", write(
         "f_hand_solid", f_hand("solid"), "PLACARD - hand holding sign")))
     sheet(out)
-    print("wrote", os.path.normpath(OUT))
+    write_footprint()
+    print("wrote", os.path.normpath(OUT), "and", os.path.normpath(FP_PATH))
 
 
 if __name__ == "__main__":
