@@ -54,7 +54,7 @@ FP_JP = "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
 # ---------------------------------------------------------------- part numbers
 # Manufacturer and MPN fields by part value, so KiCad's BOM export carries them.
 # A part with no chosen part number gets empty fields to fill in later.
-# docs/BOM.md and docs/BOM.csv are written from the sheets by gen_bom.py.
+# the BOMs (docs/BOM.md and the BOM_*.md/.csv it lists) are written from the sheets by gen_bom.py.
 MPN = {
     "ATF22V10C-7PX": ("Microchip", "ATF22V10C-7PX"),
     "ATF22V10C-10PU": ("Microchip", "ATF22V10C-10PU"),
