@@ -583,8 +583,8 @@ def build():
     schematic_values()
     clear(board, {p[0] for p in PLACE} | set(placed_refs()))
 
-    # outline, 3 mm corner radius
-    r = 3.0
+    # outline, 5 mm corner radius: concentric with the M3 mounting holes 5 mm in from each edge
+    r = 5.0
     for x1, y1, x2, y2 in [(r, 0, W - r, 0), (W, r, W, D - r), (W - r, D, r, D), (0, D - r, 0, r)]:
         seg(board, "Edge.Cuts", x1, y1, x2, y2, 0.1)
     for cx, cy, a0 in [(r, r, 180), (W - r, r, 270), (W - r, D - r, 0), (r, D - r, 90)]:
@@ -625,7 +625,7 @@ def build():
     text(board, NOTE, "LEFT SIDE", -40.0, D / 2, 3.0, angle=90)
     text(board, NOTE, "RIGHT SIDE", W + 46.0, D / 2, 3.0, angle=90)
     notes = [
-        "PLACARD main board: 4 layers (In1 GND, In2 +5V), 1.6 mm, %g x %g mm, 3 mm corner radius" % (W, D),
+        "PLACARD main board: 4 layers (In1 GND, In2 +5V), 1.6 mm, %g x %g mm, 5 mm corner radius" % (W, D),
         "Dimensions in mm from the back left corner to connector centre lines (edge connectors: middle of the face on the edge)",
         "H1-H%d: M3 mounting holes, 3.2 mm, 5 mm in from the edges: %s" % (len(HOLES), " ".join("(%g,%g)" % h for h in HOLES)),
         "SNES ports on the right side toward the back: not settled (the front is under the keyboard)",

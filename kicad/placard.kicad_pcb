@@ -75992,8 +75992,8 @@
 		(uuid "c7d5d56d-6801-45bc-b35d-ab40d8861adf")
 	)
 	(gr_line
-		(start 337 265)
-		(end 53 265)
+		(start 335 265)
+		(end 55 265)
 		(stroke
 			(width 0.1)
 			(type default)
@@ -76002,8 +76002,8 @@
 		(uuid "088c358e-d41e-41a0-bdf8-23b00f3a32da")
 	)
 	(gr_line
-		(start 53 50)
-		(end 337 50)
+		(start 55 50)
+		(end 335 50)
 		(stroke
 			(width 0.1)
 			(type default)
@@ -76012,9 +76012,9 @@
 		(uuid "2453a2a2-4daa-485b-996b-b81d958c7535")
 	)
 	(gr_arc
-		(start 53 265)
-		(mid 50.87868 264.12132)
-		(end 50 262)
+		(start 55 265)
+		(mid 51.464466 263.535534)
+		(end 50 260)
 		(stroke
 			(width 0.1)
 			(type default)
@@ -76023,9 +76023,9 @@
 		(uuid "2b6842bb-6877-4df1-9caf-bc099d4cf372")
 	)
 	(gr_arc
-		(start 50 53)
-		(mid 50.87868 50.87868)
-		(end 53 50)
+		(start 50 55)
+		(mid 51.464466 51.464466)
+		(end 55 50)
 		(stroke
 			(width 0.1)
 			(type default)
@@ -76034,9 +76034,9 @@
 		(uuid "2e236b5c-0f5e-44a5-89de-0b3fbde4d339")
 	)
 	(gr_arc
-		(start 340 262)
-		(mid 339.12132 264.12132)
-		(end 337 265)
+		(start 340 260)
+		(mid 338.535534 263.535534)
+		(end 335 265)
 		(stroke
 			(width 0.1)
 			(type default)
@@ -76045,8 +76045,8 @@
 		(uuid "7de5f8e9-4264-451c-94c5-5f0d68a683ff")
 	)
 	(gr_line
-		(start 50 262)
-		(end 50 53)
+		(start 50 260)
+		(end 50 55)
 		(stroke
 			(width 0.1)
 			(type default)
@@ -76055,8 +76055,8 @@
 		(uuid "8dee8dfb-01fc-466b-8eca-095641364d28")
 	)
 	(gr_line
-		(start 340 53)
-		(end 340 262)
+		(start 340 55)
+		(end 340 260)
 		(stroke
 			(width 0.1)
 			(type default)
@@ -76065,9 +76065,9 @@
 		(uuid "952352e1-64c7-416a-a2b4-9303c77d244d")
 	)
 	(gr_arc
-		(start 337 50)
-		(mid 339.12132 50.87868)
-		(end 340 53)
+		(start 335 50)
+		(mid 338.535534 51.464466)
+		(end 340 55)
 		(stroke
 			(width 0.1)
 			(type default)
@@ -76762,7 +76762,7 @@
 			)
 		)
 	)
-	(gr_text "PLACARD main board: 4 layers (In1 GND, In2 +5V), 1.6 mm, 290 x 290 mm, 3 mm corner radius"
+	(gr_text "PLACARD main board: 4 layers (In1 GND, In2 +5V), 1.6 mm, 290 x 215 mm, 5 mm corner radius"
 		(at 54 329 0)
 		(layer "Cmts.User")
 		(uuid "ba65df75-e740-4332-adf3-4f6828bea2e3")
@@ -121272,7 +121272,7 @@
 		)
 		(polygon
 			(pts
-				(xy 53 50) (xy 337 50) (xy 340 53) (xy 340 262) (xy 337 265) (xy 53 265) (xy 50 262) (xy 50 53)
+				(xy 55 50) (xy 335 50) (xy 340 55) (xy 340 260) (xy 335 265) (xy 55 265) (xy 50 260) (xy 50 55)
 			)
 		)
 		(filled_polygon
@@ -146087,7 +146087,7 @@
 		)
 		(polygon
 			(pts
-				(xy 53 50) (xy 337 50) (xy 340 53) (xy 340 262) (xy 337 265) (xy 53 265) (xy 50 262) (xy 50 53)
+				(xy 55 50) (xy 335 50) (xy 340 55) (xy 340 260) (xy 335 265) (xy 55 265) (xy 50 260) (xy 50 55)
 			)
 		)
 		(filled_polygon
