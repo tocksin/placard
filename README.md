@@ -20,7 +20,7 @@ The project has some hard-goals to maintain:
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
 
 ## Block diagram
-Each block shows how many chips it uses (32 and a 3.3 V regulator on the main board since the matrix keyboard was dropped on 2026-10-25, the drawing still shows 34; the expansion and cartridge slots add none, the cartridge itself has 5).  See [docs/CHIPS.md](docs/CHIPS.md) for the parts.
+Each block shows how many chips it uses (33 and a 3.3 V regulator on the main board since 2026-10-25, when the matrix keyboard went and a PS/2 receiver PLD came, the drawing still shows 34; the expansion and cartridge slots add none, the cartridge itself has 5).  See [docs/CHIPS.md](docs/CHIPS.md) for the parts.
 
 ![Placard block diagram](reference/placard_block_diagram.png)
 
@@ -77,8 +77,8 @@ Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes ar
 | x5000-x50FF | /LINE_RD | R | Video line counter, V9:V2 (built) |
 | x5100-x517F | /EXP1, A7 = 0 | R/W | Expansion slot 1 |
 | x5180-x51FF | /EXP1, A7 = 1 | R/W | Expansion slot 3 |
-| x5200-x52FF | /PORT_WR | W | Shared port latch (port PLD registers): SD card SCK, MOSI and /CS, SNES pad clock and latch, PS/2 lines |
-| x5200-x52FF | /PORT_RD | R | Shared port: SD MISO and the PS/2 lines (even addresses), SNES pad data and the PS/2 keyboard clock (odd addresses) |
+| x5200-x52FF | /PORT_WR | W | Shared port latch (port PLD registers): SD card SCK, MOSI and /CS, SNES pad clock and latch, PS/2 lines; a write to x5202/x5203 also re-arms the PS/2 receiver |
+| x5200-x52FF | /PORT_RD | R | Shared port: SD MISO and the free PS/2 clock (x5200), SNES pad data (x5201), PS/2 receiver byte (x5202) and ready flag (x5203) |
 | x5300-x537F | /EXP2, A7 = 0 | R/W | Expansion slot 2 |
 | x5380-x53FF | /EXP2, A7 = 1 | R/W | Expansion slot 4 |
 
