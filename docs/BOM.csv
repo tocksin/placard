@@ -54,6 +54,8 @@ Main board,20,U1 U2 U3 U4 U5 U6 U7 U8 U9 U10 U11 U12 U13 U14 U15 U16 U17 U35 U38
 Main board,2,U31 U32,On Shore,ED281DT,"IC socket, DIP-28 0.3""",,,no,0.45,0.90,est.: On Shore ED281DT,
 Main board,1,,Yageo,MFR-25FBF52-10K,"Resistor, 10k (/WE pull-up), 1/4 W, axial",10k,,no,0.10,0.10,est.: Yageo MFR-25FBF52-10K,"Memory control rev 09 lets go of /WE while RUN is low; not drawn on the schematic yet (EXPANSION.md, ""Booting from slot 1"")"
 Main board,2,JP1 JP2,Sullins,QPC02SXGN-RC,"Jumper shunt, 2.54 mm",,,no,0.10,0.20,est.: Sullins QPC02SXGN-RC,Bring-up jumpers
+Main board,1,,CUI Devices,SWI20C-T-N,"USB-C power supply, wall plug (North America), 5 V 3 A / 9 V / 12 V, 20 W USB PD",,,no,16.81,16.81,Mouser,"Optional (Justin, 2026-10-25).  Any USB-C charger that gives 5 V at 3 A will do"
+Main board,1,,StarTech,USB2CC1MNC,"USB-C to USB-C cable, 1 m, 3 A (60 W)",,,no,8.35,8.35,Mouser,"Optional (Justin, 2026-10-25).  Any USB-C to USB-C cable (all are 3 A)"
 "Cartridge, 64K",1,U1,Microchip,ATF22V10C-7PX,"PLD, 22V10, 7.5 ns, PDIP-24 0.3"" (programmed)",,placard:DIP-24_W7.62mm_Socket_Puller,yes,2.99,2.99,Mouser,Cartridge loader U1
 "Cartridge, 64K",2,U2 U3,Microchip,AT28C256-15PU,"EEPROM, 32K x 8, 150 ns, PDIP-28 0.6"" (programmed)",,placard:DIP-28_W15.24mm_Socket_Puller,yes,12.38,24.76,Mouser,
 "Cartridge, 64K",2,U4 U5,Alliance Memory,AS7C256C-15PCN,"SRAM, 32K x 8, 15 ns, PDIP-28 0.3""",,placard:DIP-28_W7.62mm_Socket_Puller,yes,15.21,30.42,Mouser,

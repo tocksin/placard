@@ -79,7 +79,7 @@ NOTES = {
 }
 
 # parts a builder may leave out; the cost summary gives a total without them
-OPTIONAL = {("Main board", "EBC20DCAN")}
+OPTIONAL = {("Main board", "EBC20DCAN"), ("Main board", "SWI20C-T-N"), ("Main board", "USB2CC1MNC")}
 
 # ---------------------------------------------------------------- prices
 # Unit price in US dollars at the line's quantity for one build, checked 2026-10-22
@@ -125,6 +125,8 @@ PRICES = {
     "Electrolytic capacitor": (0.35, "est.", "Panasonic FR series"),
     "Pin header": (0.15, "est.", "Sullins PREC002SAAN-RC"),
     "Jumper shunt": (0.10, "est.", "Sullins QPC02SXGN-RC"),
+    "SWI20C-T-N": (16.81, "Mouser", ""),
+    "USB2CC1MNC": (8.35, "Mouser", ""),
     "IC socket, DIP-14": (0.25, "est.", "On Shore ED14DT"),
     "IC socket, DIP-20": (0.30, "est.", "On Shore ED20DT"),
     "IC socket, DIP-24 0.3": (0.40, "est.", "On Shore ED241DT"),
@@ -274,6 +276,16 @@ def board_bom(files):
                               "yet (EXPANSION.md, \"Booting from slot 1\")", extra=True))
         out.append(dict(refs=shunts, mpn="QPC02SXGN-RC", mfr="Sullins", desc="Jumper shunt, 2.54 mm", value="", footprint="",
                         notes="Bring-up jumpers", extra=True))
+        # power for J13 (Justin, 2026-10-25): J13's 5.1k CC pull-downs only draw what the source
+        # advertises, so the brick must offer 5 V 3 A on CC (a USB PD charger does)
+        out.append(dict(refs=[], qty=1, mpn="SWI20C-T-N", mfr="CUI Devices",
+                        desc="USB-C power supply, wall plug (North America), 5 V 3 A / 9 V / 12 V, 20 W USB PD",
+                        value="", footprint="",
+                        notes="Optional (Justin, 2026-10-25).  Any USB-C charger that gives 5 V at 3 A will do",
+                        extra=True))
+        out.append(dict(refs=[], qty=1, mpn="USB2CC1MNC", mfr="StarTech", desc="USB-C to USB-C cable, 1 m, 3 A (60 W)",
+                        value="", footprint="", notes="Optional (Justin, 2026-10-25).  Any USB-C to USB-C cable (all are 3 A)",
+                        extra=True))
     for d in out:
         d.setdefault("qty", len(d["refs"]))
     return out
