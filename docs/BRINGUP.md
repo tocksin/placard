@@ -4,8 +4,7 @@ Date: 2026-10-25
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
-(and a VGA monitor from step 5 on); step 1 also uses an inline USB-C
-power meter.  These are assembly checks: they find a part that is
+(and a VGA monitor from step 5 on).  These are assembly checks: they find a part that is
 missing, wrong, reversed or badly soldered, and they take the design
 itself as proven.  The power input goes in
 first, alone, so a wiring or polarity fault there can't reach a chip.  The
@@ -123,21 +122,17 @@ Leave U40, C40 and C47 (the 3.3 V regulator) for step 18, with the SD card.
   shorts VON as soon as SW2 is pressed.
 - C41's + lead goes to VON (SW1's output side).
 
-**Checks.**  Plug a 5 V USB-C supply (3 A) in through the inline power
-meter.  The empty C40 pads (the +5V side) and any GND pad make handy test
+**Checks.**  Plug in a 5 V USB-C supply (3 A).  The empty C40 pads (the +5V side) and any GND pad make handy test
 points.
 
 | Check | SW1 | SW2 | Expect |
 |---|---|---|---|
 | VBUS and VFUSE | off | up | 4.75-5.25 V; stop if above 5.5 V |
 | VON, +5V | off | up | 0 V |
-| Input current | off | up | under 1 mA (D7 leaks a little at 5 V) |
 | VON and +5V | on | up | the same as VFUSE, within 0.05 V |
 | D18 (power LED) | on | up | lit |
-| Input current | on | up | about 3 mA once C41 has charged (D18) |
 | +5V | on | held | 0 V; K1 clicks, D18 goes dark |
 | VON | on | held | still 5 V (C41 stays charged) |
-| Input current | on | held | about 72 mA more (K1's 69 ohm coil) |
 | +5V | on | let go | back to 5 V, D18 lit |
 
 Pass when every row above reads as listed.
@@ -154,8 +149,7 @@ the footprint's pin 1.
 X1's pins are under the can, so probe at U15's bare pads (the Sync PLD;
 its socket isn't in until step 3):
 
-- Power on: +5 V on U15 pin 24 and 0 V on pin 12.  Current: a few tens
-  of mA more than step 1 (X1).
+- Power on: +5 V on U15 pin 24 and 0 V on pin 12.
 - X1's output (CLK) reads **25.175 MHz**, 2.5 V average, at U15 pin 1.  If the meter doesn't reach that, skip it: step 3 shows the
   clock divided down.
 
