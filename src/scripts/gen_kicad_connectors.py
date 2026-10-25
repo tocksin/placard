@@ -46,7 +46,11 @@ the card (shell_box(), from the constants above it), so DRC's courtyard
 check keeps other parts and neighbouring shells out; the same box is drawn
 on User.Eco1 with a label.
 
-Date: 2026-10-23
+Silkscreen: the body outline in silk is cut back around the pads and holes
+(SILK_PAD_GAP) and stops SILK_EDGE_GAP inside the board edge on an edge
+connector, so DRC's silk-over-mask and silk-to-edge checks pass.
+
+Date: 2026-10-25
 """
 
 import os
@@ -92,6 +96,76 @@ def pad(num, x, y, size, drill, shape=None):
             % (num, shape, f(x), f(y), f(size), f(size), f(drill)))
 
 
+# Silkscreen is kept off the pads and holes and inside the board edge: each silk
+# line is cut back to SILK_PAD_GAP from any pad or hole (stroke edge to copper
+# or hole edge) and, on an edge connector, to SILK_EDGE_GAP inside the board
+# edge; leftover pieces shorter than SILK_MIN_LEN are dropped.
+SILK_PAD_GAP = 0.05
+SILK_EDGE_GAP = 0.2
+SILK_MIN_LEN = 0.25
+
+
+def keepouts(items):
+    """Pads and holes in footprint text -> circles (x, y, r) and boxes (x0, y0, x1, y1).
+    Generated pads are never rotated."""
+    circ, boxes = [], []
+    for m in re.finditer(r'\(pad "[^"]*" \w+ (\w+) \(at (\S+) (\S+)\) \(size (\S+) (\S+)\)', items):
+        shape, x, y, w, h = m.group(1), *map(float, m.groups()[1:])
+        if shape == "circle":
+            circ.append((x, y, w / 2))
+        elif shape == "oval":
+            r = min(w, h) / 2
+            dx, dy = (w / 2 - r, 0) if w > h else (0, h / 2 - r)
+            circ += [(x - dx, y - dy, r), (x + dx, y + dy, r)]
+            boxes.append((x - dx - (r if dy else 0), y - dy - (r if dx else 0),
+                          x + dx + (r if dy else 0), y + dy + (r if dx else 0)))
+        else:
+            boxes.append((x - w / 2, y - h / 2, x + w / 2, y + h / 2))
+    return circ, boxes
+
+
+def silk_line(x1, y1, x2, y2, w, items, edge=None):
+    """An axis-aligned F.SilkS line, cut back from the pads and holes in items
+    (and from the board edge at y = edge), as fp_lines."""
+    vert = x1 == x2
+    a, b = (y1, y2) if vert else (x1, x2)
+    c = x1 if vert else y1                  # the fixed coordinate
+    lo, hi = min(a, b), max(a, b)
+    d = w / 2 + SILK_PAD_GAP
+    cuts = []
+    circ, boxes = keepouts(items)
+    for x, y, r in circ:
+        along, across = (y, x) if vert else (x, y)
+        if abs(c - across) < r + d:
+            h = ((r + d) ** 2 - (c - across) ** 2) ** 0.5
+            cuts.append((along - h, along + h))
+    for bx0, by0, bx1, by1 in boxes:
+        (s0, s1), (t0, t1) = ((by0, by1), (bx0, bx1)) if vert else ((bx0, bx1), (by0, by1))
+        if t0 - d < c < t1 + d:
+            cuts.append((s0 - d, s1 + d))
+    if edge is not None:
+        e = edge + SILK_EDGE_GAP + w / 2
+        if vert:
+            cuts.append((-1e9, e))
+        elif c < e:
+            return ""
+    keep = [(lo, hi)]
+    for c0, c1 in cuts:
+        keep = [p for k0, k1 in keep for p in ((k0, min(k1, c0)), (max(k0, c1), k1)) if p[1] > p[0]]
+    if a > b:                               # keep the line's own direction
+        keep = [(k1, k0) for k0, k1 in reversed(keep)]
+    s = ""
+    for k0, k1 in keep:
+        if abs(k1 - k0) >= SILK_MIN_LEN:
+            s += line(x1, k0, x1, k1, "F.SilkS", w) if vert else line(k0, y1, k1, y1, "F.SilkS", w)
+    return s
+
+
+def silk_rect(x0, y0, x1, y1, w, items, edge=None):
+    return "".join(silk_line(*p, w, items, edge) for p in
+                   ((x0, y0, x1, y0), (x1, y0, x1, y1), (x1, y1, x0, y1), (x0, y1, x0, y0)))
+
+
 def text(kind, val, x, y, layer, size=1.0, hide=False):
     return ('  (fp_text %s "%s" (at %s %s) (layer "%s")%s\n    (effects (font (size %s %s) (thickness %s)))\n  )\n'
             % (kind, val, f(x), f(y), layer, " hide" if hide else "", f(size), f(size), f(size * 0.15)))
@@ -109,7 +183,7 @@ def footprint(name, descr, body, pads, edge=None, extra="", crtyd=None):
     s += text("value", name, (x0 + x1) / 2, y1 + 3.0, "F.Fab")
     s += text("user", "${REFERENCE}", (x0 + x1) / 2, (y0 + y1) / 2, "F.Fab", size=2.0)
     s += rect(x0, y0, x1, y1, "F.Fab", 0.1)
-    s += rect(x0 - 0.12, y0 - 0.12, x1 + 0.12, y1 + 0.12, "F.SilkS", 0.12)
+    s += silk_rect(x0 - 0.12, y0 - 0.12, x1 + 0.12, y1 + 0.12, 0.12, extra + "".join(pads), edge)
     s += rect(*(crtyd or (x0 - 0.5, y0 - 0.5, x1 + 0.5, y1 + 0.5)), "F.CrtYd", 0.05)
     if edge is not None:
         s += line(x0 - 2, edge, x1 + 2, edge, "Dwgs.User", 0.1)
