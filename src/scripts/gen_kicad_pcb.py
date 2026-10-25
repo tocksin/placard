@@ -45,7 +45,7 @@ Footprints: KiCad's own where it has the part, and the PRELIMINARY ones from
 gen_kicad_connectors.py otherwise (cartridge slot, expansion slots, PS/2,
 SNES, switches), whose hole patterns must be checked against the datasheets.
 
-Date: 2026-10-23
+Date: 2026-10-25
 """
 
 import glob
@@ -169,7 +169,7 @@ BLOCKS = [
     (111.0, 15.0, 272.0, 46.5, 90,
      ["R14", "R15", "R16", "R17", "R18", "R19", "R20", "R21", "R22", "R23", "R24", "R25", "R26", "R27",
       "R28", "R29", "R30", "R31", "R32", "R33", "R34", "R35", "R36", "R37", "R38", "R39", "R56", "R57",
-      "R58", "D9", "D10", "D11", "D12", "D13", "D14", "D15", "D16", "D17",
+      "R58", "R61", "R62", "D9", "D10", "D11", "D12", "D13", "D14", "D15", "D16", "D17",
       "C45", "C46", "C44"]),
     # shared port: the PS/2 diodes beside the cartridge slot, pull-ups under it
     (111.0, 49.0, 154.5, 61.0, 90, ["D1", "D2", "D3", "D4", "D5", "D6", "D19"]),
