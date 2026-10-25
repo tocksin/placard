@@ -1,6 +1,6 @@
 ; ============================================================
-; placard_io.asm - Placard I/O drivers: keyboard, SNES pads, SD card,
-; PS/2 mouse (the PS/2 keyboard is in placard_ps2.asm)
+; placard_io.asm - Placard I/O drivers: the key buffer, SNES pads, SD card
+; (the PS/2 keyboard and mouse are in placard_ps2.asm)
 ; ============================================================
 ;
 ; Drivers for the shared port at x5200 (docs/IO.md).  placard_lib.asm
@@ -14,41 +14,42 @@
 ; ------------------------------------------------------------
 ; THE SHARED PORT (x5200-x52FF)
 ; ------------------------------------------------------------
-; Write (any address, 74HC574 port latch):
+; Write (any address): the port latch, five registers in the port PLD
+; (rev 04):
 ;     bit 0  SCK, and the pads' CLOCK
 ;     bit 1  MOSI, and the pads' LATCH
 ;     bit 2  SD /CS.  0 also holds the mouse's PS/2 CLK line low (the
 ;            mouse can't send while it is low)
 ;     bit 3  0 holds the PS/2 DATA line low (one line, shared by the
 ;            mouse and the PS/2 keyboard)
-;     bits 7:4  keyboard column 0-7 to drive low; 8-15 drive none.
-;            Bit 4 = 0 also holds the PS/2 keyboard's CLK low (port PLD
-;            rev 02 hardware), so with no column the high nibble is E
-;            (keyboard held) or F (keyboard free).
-; Read an even address (74F541):
-;     D7:D0 = key rows 7:0 of the driven column, 0 = key down.
-;     With no column driven: D7 = SD MISO, D6 = PS/2 DATA,
-;     D5 = the mouse's PS/2 CLK, D4:D0 = 1.
-; Read an odd address (port PLD):
-;     D7 = pad 1 DATA; D6 = pad 2 DATA (0 = button down) while latch
-;     bit 4 is 0, the PS/2 keyboard's CLK while it is 1.  D5:D0 are not
-;     driven, so mask them.
+;     bit 4  0 holds the PS/2 keyboard's CLK line low
+;     bits 7:5  not stored (software writes 1s)
+;     A write to x5202 or x5203 also re-arms the PS/2 receiver PLD
+;     (placard_ps2.asm).
+; Read x5200: D7 = SD MISO, D5 = RXCLK (the free PS/2 device's clock).
+; Read x5201: D7 = pad 1 DATA, D6 = pad 2 DATA (0 = button down),
+;     D5 = RXCLK.
+; Read x5202: the byte the PS/2 receiver holds; x5203: D7 = 1 while a
+;     byte is ready.  The other bits read 1 (pull-ups): mask them.
 ;
-; The keyboard, pads, SD card, mouse and PS/2 keyboard are used one at a
-; time.  Every routine here leaves the latch at P_IDLE (EB): no column,
-; SD selected and idle, and both PS/2 clocks held low so the mouse and
-; the PS/2 keyboard wait.  Routines that clock the pads or scan the keys
-; free a PS/2 clock for less than 50 us, which is too short for a PS/2
-; device to start sending.
+; The pads, the SD card, the mouse and the PS/2 keyboard share the port.
+; The PS/2 device that may send is the one whose clock the latch lets
+; go: PS2_LSN holds that latch value (P_IDLE neither, P_FREE the mouse,
+; P_KFREE the keyboard; placard_ps2.asm) and every routine here leaves
+; the latch at PS2_LSN.  The pads and the SD card's start clocks change
+; the bits that hold the clocks, so those routines hold both devices
+; off first (ps2_pause) and let the listened one go again after; the SD
+; transfers only toggle SCK and MOSI.
 ;
-; Date: 10/22/2026
+; Date: 10/25/2026
 ; ============================================================
 
 PORT      = 0x52        ; the shared port's page
-P_IDLE    = 0xEB        ; latch at rest: no column, both PS/2 clocks held, PS/2 DATA free, /CS low, MOSI 1, SCK 1
+PORT_RX   = 0x02        ; x5202: the PS/2 receiver's byte; a write re-arms it
+PORT_RDY  = 0x03        ; x5203: D7 = a byte is ready; a write re-arms it too
+P_IDLE    = 0xEB        ; latch at rest: both PS/2 clocks held, PS/2 DATA free, /CS low, MOSI 1, SCK 1
 P_FREE    = 0xEF        ; the same with /CS high (SD deselected, the mouse's clock free)
 P_KFREE   = 0xFB        ; the same with the PS/2 keyboard's clock free (/CS low, the mouse held)
-MOUSE_WAIT = 16         ; longest listen for a start bit, in 64 us units (about 1 ms)
 
 ; key numbers (column * 8 + row) the keyboard driver treats specially
 K_CTRL    = 28          ; column 3, row 4 (left Ctrl)
@@ -62,27 +63,29 @@ K_LEFT    = 61          ; column 7, row 5
 
 
 ; ============================================================
-; Page 0: port, keyboard buffer, pads
+; Page 0: port, key buffer, pads
 ; ============================================================
 #addr IO_CODE
 
 ; ------------------------------------------------------------
 ; port_init - put the port at rest and clear the keyboard state
 ;   in:      -
-;   out:     latch = P_IDLE; no keys down, key buffer empty, caps lock
-;            off, SD card not initialized, mouse not initialized; looks
-;            for a PS/2 keyboard (ps2_reset, placard_ps2.asm):
-;            KBD_FLAGS bit 1 = 1 if one answered
-;   changes: AC, X, Y, T0-T7, IO_T0-IO_T3, IO_TMP, PS2_DEV, PS2_CM
+;   out:     latch = PS2_LSN = P_IDLE, the PS/2 receiver armed; no keys
+;            down, key buffer empty, caps lock off, SD card not
+;            initialized, mouse not initialized; looks for a PS/2
+;            keyboard (ps2_reset, placard_ps2.asm): KBD_FLAGS bit 1 = 1
+;            if one answered
+;   changes: AC, X, Y, T0-T7, IO_T0-IO_T3, IO_TMP, PS2_LSN
 ;   clocks:  about 400,000 (16 ms) with no PS/2 keyboard, about 120,000
 ;            (5 ms) with one
-;   Uses 8 stack bytes.  Call it once at the start of a program that
+;   Uses 10 stack bytes.  Call it once at the start of a program that
 ;   uses the port.  With no PS/2 keyboard, kbd_scan asks again a few
 ;   times in the next 2 seconds (a keyboard is still testing itself
 ;   for up to about 1 s after power-up).
 ; ------------------------------------------------------------
 port_init:
     ld   PORT, y
+    ld   PORT_RX, x
     ld   P_IDLE, [y,x]
     ld   7, ac
 pi_loop:
@@ -129,11 +132,33 @@ kg_ret:
 ;            7 Right, 8 A, 9 X, 10 L, 11 R; bits 12-15 are 0 for a pad.
 ;            An empty socket reads 0000 (its pull-up reads as no
 ;            buttons); a SNES mouse reads bits 12-15 as 1000.
-;   changes: AC, X, Y, T0, T1
-;   clocks:  about 800 (32 us, with /CS high for all of it)
+;   changes: AC, X, Y, T0-T6, IO_T3, IO_TMP
+;   clocks:  about 3,700 (32 us with /CS high, after ps2_pause's 100 us
+;            hold), plus a PS/2 byte's handling when one was ready
+;   Uses 4 stack bytes.  The PS/2 devices are held off while the pads
+;   are clocked (ps2_pause) and the listened one let go again after.
 ;   The pads' CLOCK idles high and is held low about 0.2 us per bit.
 ; ------------------------------------------------------------
 pad_read:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   LINK_LO, x             ; CALL ps2_pause
+    ld   pr_pz, [x]
+    ld   LINK_HI, x
+    ld   pr_pz >> 8, [x]
+    ld   ps2_pause >> 8, y
+    jmp  ps2_pause
+pr_pz:
     ld   PORT, y
     ld   1, x                   ; odd address: reads return the pads
     ld   P_FREE, [y,x]          ; LATCH high: the pads load
@@ -189,187 +214,10 @@ pr_h2:
     ld   [T0], ac
     shl
     bne  pr_hi
-    ld   P_IDLE, [y,x]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
-
-; ============================================================
-; Page 1: keyboard scan
-; ============================================================
-#addr IO_CODE + 0x100
-
-; ------------------------------------------------------------
-; kbd_mscan - scan the key matrix and buffer the new key presses
-;   (kbd_scan in placard_ps2.asm calls it, and adds the PS/2 keyboard)
-;   in:      -
-;   out:     KBD_NOW + c = column c's rows, bit r = 0 while the key at
-;            column c, row r is down; each key pressed since the last
-;            scan is put in the key buffer as a character (kbd_getc)
-;   changes: AC, X, Y, T0-T7, IO_T0-IO_T3, IO_TMP
-;   clocks:  about 620 with no new key, about 430 more per new key
-;   Uses 2 stack bytes.
-;   Call it once per frame.  The keys are not debounced: a key bounces
-;   for less than a frame, so at most one scan sees a bounce and it
-;   reads the key either way.  Scanning faster than about every 10 ms
-;   can see a bounce twice and give a key twice.
-;   Shift and Ctrl (either one) change the character; Caps Lock (key
-;   K_CAPS) turns caps lock on and off.  Fn + Backspace = Delete (7F),
-;   Fn + Esc = ` (Shift: ~), Fn + Left = Home (15).  Keys with no
-;   character (Shift, Ctrl, Alt, Fn) only show in KBD_NOW.  The key numbers and characters are in
-;   docs/IO.md, "Keyboard".
-; ------------------------------------------------------------
-kbd_mscan:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   PORT, y                ; scan: about 22 us with /CS high
-    clr  x
-    ld   0x0F, [y,x]            ; drive column 0 (CS high)
-    nop                         ; rows settle
-    nop
-    nop
-    nop
-    ld   [y,x], ac              ; R = rows of column 0, 0 = down
-    ld   ac, [IO_TMP]
-    not
-    and  [KBD_NOW+0], ac        ; was up, now down
-    ld   ac, [T0]
-    ld   [IO_TMP], ac
-    ld   ac, [KBD_NOW+0]
-    ld   0x1F, [y,x]            ; drive column 1 (CS high)
-    nop
-    nop
-    nop
-    nop
-    ld   [y,x], ac
-    ld   ac, [IO_TMP]
-    not
-    and  [KBD_NOW+1], ac
-    ld   ac, [T1]
-    ld   [IO_TMP], ac
-    ld   ac, [KBD_NOW+1]
-    ld   0x2F, [y,x]            ; column 2
-    nop
-    nop
-    nop
-    nop
-    ld   [y,x], ac
-    ld   ac, [IO_TMP]
-    not
-    and  [KBD_NOW+2], ac
-    ld   ac, [T2]
-    ld   [IO_TMP], ac
-    ld   ac, [KBD_NOW+2]
-    ld   0x3F, [y,x]            ; column 3
-    nop
-    nop
-    nop
-    nop
-    ld   [y,x], ac
-    ld   ac, [IO_TMP]
-    not
-    and  [KBD_NOW+3], ac
-    ld   ac, [T3]
-    ld   [IO_TMP], ac
-    ld   ac, [KBD_NOW+3]
-    ld   0x4F, [y,x]            ; column 4
-    nop
-    nop
-    nop
-    nop
-    ld   [y,x], ac
-    ld   ac, [IO_TMP]
-    not
-    and  [KBD_NOW+4], ac
-    ld   ac, [T4]
-    ld   [IO_TMP], ac
-    ld   ac, [KBD_NOW+4]
-    ld   0x5F, [y,x]            ; column 5
-    nop
-    nop
-    nop
-    nop
-    ld   [y,x], ac
-    ld   ac, [IO_TMP]
-    not
-    and  [KBD_NOW+5], ac
-    ld   ac, [T5]
-    ld   [IO_TMP], ac
-    ld   ac, [KBD_NOW+5]
-    ld   0x6F, [y,x]            ; column 6
-    nop
-    nop
-    nop
-    nop
-    ld   [y,x], ac
-    ld   ac, [IO_TMP]
-    not
-    and  [KBD_NOW+6], ac
-    ld   ac, [T6]
-    ld   [IO_TMP], ac
-    ld   ac, [KBD_NOW+6]
-    ld   0x7F, [y,x]            ; column 7
-    nop
-    nop
-    nop
-    nop
-    ld   [y,x], ac
-    ld   ac, [IO_TMP]
-    not
-    and  [KBD_NOW+7], ac
-    ld   ac, [T7]
-    ld   [IO_TMP], ac
-    ld   ac, [KBD_NOW+7]
-    ld   P_IDLE, [y,x]          ; scan done: /CS low again
-    ld   T0, ac                 ; now the new presses, T0-T7
-    ld   ac, [IO_T0]            ; IO_T0 = address of this column's T byte
-ks_col:
-    ld   [IO_T0], x
-    ld   [x], ac
-    beq  ks_next                ; no new key in this column
-    ld   ac, [IO_T1]            ; IO_T1 = presses still to handle
-    ld   [IO_T0], ac
-    sub  T0, ac
-    shl
-    shl
-    shl
-    ld   ac, [IO_T2]            ; IO_T2 = key number, column * 8 + row
-ks_bit:
-    ld   [IO_T1], ac
-    and  1, ac
-    beq  ks_nob
-    ld   [IO_T2], ac
-    ld   LINK_LO, x             ; CALL kbd_key
-    ld   ks_back, [x]
-    ld   LINK_HI, x
-    ld   ks_back >> 8, [x]
-    ld   kbd_key >> 8, y
-    jmp  kbd_key
-ks_back:
-ks_nob:
-    ld   [IO_T2], ac
-    inc
-    ld   ac, [IO_T2]
-    ld   [IO_T1], ac
-    shr  ac
-    ld   ac, [IO_T1]
-    bne  ks_bit
-ks_next:
-    ld   [IO_T0], ac
-    inc
-    ld   ac, [IO_T0]
-    xor  T0 + 8, ac
-    bne  ks_col
+    ld   PORT, y                ; the PS/2 line back to whoever had it
+    ld   PORT_RX, x
+    ld   [PS2_LSN], ac
+    ld   ac, [y,x]
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
@@ -497,7 +345,8 @@ kk_ret:
 
 ; ------------------------------------------------------------
 ; spi_byte - send and receive one byte on the SD card's SPI bus
-;   in:      AC = byte to send; /CS low (the latch at P_IDLE)
+;   in:      AC = byte to send; /CS low (the latch at P_IDLE: both PS/2
+;            devices held, ps2_pause; sd_init, sd_read and sd_write do that)
 ;   out:     AC = byte received
 ;   changes: X, Y, T0-T2
 ;   clocks:  about 480 (about 1,150 with the slow clock for sd_init)
@@ -684,10 +533,12 @@ sc_done:
 ;              3  a card this driver can't use
 ;            SD_FLAGS bit 0 = 1 for an SDHC or SDXC card (block
 ;            addresses), bit 7 = 1 when ready
-;   changes: X, Y, T0-T7, IO_T0-IO_T2, IO_TMP
+;   changes: X, Y, T0-T7, IO_T0-IO_T3, IO_TMP
 ;   clocks:  about 200,000 for a card that starts at once (8 ms)
 ;   Uses 4 stack bytes.  Runs the bus below 400 kHz, as a card needs
-;   until it has started.
+;   until it has started.  The PS/2 devices are held off meanwhile
+;   (ps2_pause: /CS is also the mouse's clock hold) and the listened
+;   one let go again at the end.
 ; ------------------------------------------------------------
 sd_init:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
@@ -704,6 +555,13 @@ sd_init:
     ld   [SAVE_AC], ac
     ld   2, ac                  ; slow clock, not ready
     ld   ac, [SD_FLAGS]
+    ld   LINK_LO, x             ; CALL ps2_pause
+    ld   si_pz, [x]
+    ld   LINK_HI, x
+    ld   si_pz >> 8, [x]
+    ld   ps2_pause >> 8, y
+    jmp  ps2_pause
+si_pz:
     ld   PORT, y                ; 80 clocks with /CS high and MOSI high,
     clr  x                      ; below 400 kHz (about 200 us; the one
     ld   80, ac                 ; place /CS stays high over 50 us, see
@@ -791,6 +649,12 @@ si_ver:
     ld   si_start >> 8, y
     jmp  si_start
 si_out1:
+    ld   ac, [IO_TMP]           ; the PS/2 line back to whoever had it
+    ld   PORT, y
+    ld   PORT_RX, x
+    ld   [PS2_LSN], ac
+    ld   ac, [y,x]
+    ld   [IO_TMP], ac
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
@@ -893,6 +757,12 @@ si_b16:
 si_bad:
     ld   3, ac
 si_out:
+    ld   ac, [IO_TMP]           ; the PS/2 line back to whoever had it
+    ld   PORT, y
+    ld   PORT_RX, x
+    ld   [PS2_LSN], ac
+    ld   ac, [y,x]
+    ld   [IO_TMP], ac
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
@@ -909,9 +779,10 @@ si_out:
 ;              4  the card refused the command
 ;              5  no data (an error token, or none in about 100 ms)
 ;            R5:R4 = buffer + 512
-;   changes: X, Y, T0-T7, IO_T0, IO_T1, IO_TMP
+;   changes: X, Y, T0-T7, IO_T0-IO_T3, IO_TMP
 ;   clocks:  about 130,000 (5 ms)
-;   Uses 4 stack bytes.  sd_init first.
+;   Uses 4 stack bytes.  sd_init first.  The PS/2 devices are held off
+;   meanwhile (ps2_pause) and the listened one let go again at the end.
 ; ------------------------------------------------------------
 sd_read:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
@@ -926,6 +797,13 @@ sd_read:
     ld   [LINK_LO], ac
     ld   ac, [x]
     ld   [SAVE_AC], ac
+    ld   LINK_LO, x             ; CALL ps2_pause
+    ld   sr_pz, [x]
+    ld   LINK_HI, x
+    ld   sr_pz >> 8, [x]
+    ld   ps2_pause >> 8, y
+    jmp  ps2_pause
+sr_pz:
     ld   0x51, ac               ; CMD17
     ld   LINK_LO, x             ; CALL sd_arg
     ld   sr_ba, [x]
@@ -999,6 +877,12 @@ sr_bk1:
 sr_bk2:
     clr  ac
 sr_out:
+    ld   ac, [IO_TMP]           ; the PS/2 line back to whoever had it
+    ld   PORT, y
+    ld   PORT_RX, x
+    ld   [PS2_LSN], ac
+    ld   ac, [y,x]
+    ld   [IO_TMP], ac
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
@@ -1016,9 +900,10 @@ sr_out:
 ;              6  the card refused the data
 ;              7  the card stayed busy (about 400 ms)
 ;            R5:R4 = buffer + 512
-;   changes: X, Y, T0-T7, IO_T0, IO_T1, IO_TMP
+;   changes: X, Y, T0-T7, IO_T0-IO_T3, IO_TMP
 ;   clocks:  about 130,000 plus the card's busy time
-;   Uses 4 stack bytes.  sd_init first.
+;   Uses 4 stack bytes.  sd_init first.  The PS/2 devices are held off
+;   meanwhile (ps2_pause) and the listened one let go again at the end.
 ; ------------------------------------------------------------
 sd_write:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
@@ -1033,6 +918,13 @@ sd_write:
     ld   [LINK_LO], ac
     ld   ac, [x]
     ld   [SAVE_AC], ac
+    ld   LINK_LO, x             ; CALL ps2_pause
+    ld   sw_pz, [x]
+    ld   LINK_HI, x
+    ld   sw_pz >> 8, [x]
+    ld   ps2_pause >> 8, y
+    jmp  ps2_pause
+sw_pz:
     ld   0x58, ac               ; CMD24
     ld   LINK_LO, x             ; CALL sd_arg
     ld   sw_ba, [x]
@@ -1141,6 +1033,12 @@ sw_e6:
 sw_e4:
     ld   4, ac
 sw_out:
+    ld   ac, [IO_TMP]           ; the PS/2 line back to whoever had it
+    ld   PORT, y
+    ld   PORT_RX, x
+    ld   [PS2_LSN], ac
+    ld   ac, [y,x]
+    ld   [IO_TMP], ac
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
@@ -1406,653 +1304,6 @@ sa_2:
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 
-
-
-; ============================================================
-; Page B: PS/2 byte in and out
-; ============================================================
-#addr IO_CODE + 0xB00
-
-; ------------------------------------------------------------
-; ps2_rx - receive one byte from a PS/2 device (the mouse or the PS/2
-;          keyboard)
-;   in:      PS2_DEV = 0 the mouse, 1 the keyboard; PS2_CM = its CLK
-;            mask (0x20 the mouse: row 5 on even reads; 0x40 the
-;            keyboard: D6 on odd reads); the latch lets that device's
-;            clock go; IO_T2:IO_T1 = how long to wait for the start bit,
-;            in steps of about 0.25 ms (IO_T1 = 0 counts as 256 steps)
-;   out:     AC = 0 and T0 = the byte, or AC = 1 nothing came, 2 a bad
-;            frame (start, parity or stop bit)
-;   changes: X, Y, T0-T3, IO_T0-IO_T2, IO_TMP
-;   clocks:  about 23,000 for a byte once it starts (0.9 ms at a
-;            12 kHz device clock), plus the wait for the start
-;   The device changes DATA while CLK is high; it is read while CLK is
-;   low.  CLK is read at address PS2_DEV (even: the rows, odd: the port
-;   PLD), DATA always on row 6 (even).  Returns after CLK has gone high
-;   at the end of the stop bit.  If the time runs out just as the device
-;   has put out its start bit (DATA low, CLK still high), it waits about
-;   1 ms more, so a byte that has begun is not cut off.
-; ------------------------------------------------------------
-ps2_rx:
-    ld   PORT, y
-    ld   [PS2_DEV], x           ; CLK: even (mouse) or odd (keyboard) address
-    clr  ac
-    ld   ac, [IO_T0]
-    ld   ac, [T3]               ; T3 = 1 once the wait was made longer
-pr_w:                           ; wait for CLK low: the start bit
-    ld   [y,x], ac              ; 24 clocks a try
-    and  [PS2_CM], ac
-    beq  pr_st
-    ld   [IO_T0], ac
-    dec
-    ld   ac, [IO_T0]
-    bne  pr_w
-    ld   [IO_T1], ac
-    dec
-    ld   ac, [IO_T1]
-    bne  pr_w
-    ld   [IO_T2], ac
-    beq  pr_none
-    dec
-    ld   ac, [IO_T2]
-    bra  pr_w
-pr_none:
-    ld   [T3], ac               ; out of time.  DATA already low means the
-    bne  pr_none1               ; start bit is out and its clock is due:
-    clr  x                      ; wait about 1 ms more, once
-    ld   [y,x], ac
-    ld   [PS2_DEV], x
-    and  0x40, ac
-    bne  pr_none1
-    ld   1, ac
-    ld   ac, [T3]
-    ld   4, ac
-    ld   ac, [IO_T1]
-    bra  pr_w
-pr_none1:
-    ld   1, ac                  ; nothing came
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-pr_st:
-    clr  x                      ; the start bit must be 0
-    ld   [y,x], ac
-    ld   [PS2_DEV], x
-    and  0x40, ac
-    bne  pr_bad
-    clr  ac
-    ld   ac, [T0]               ; the byte
-    ld   ac, [T1]               ; parity: 1 for each 1 bit
-    ld   10, ac                 ; 8 data bits, parity, stop
-    ld   ac, [T2]
-pr_bit:
-    ld   0, ac                  ; wait for CLK high (up to about 0.25 ms)
-    ld   ac, [IO_T0]
-pr_wh:
-    ld   [y,x], ac
-    and  [PS2_CM], ac
-    bne  pr_wl0
-    ld   [IO_T0], ac
-    dec
-    ld   ac, [IO_T0]
-    bne  pr_wh
-    bra  pr_bad
-pr_wl0:
-    clr  ac                     ; wait for CLK low
-    ld   ac, [IO_T0]
-pr_wl:
-    ld   [y,x], ac
-    and  [PS2_CM], ac
-    beq  pr_got
-    ld   [IO_T0], ac
-    dec
-    ld   ac, [IO_T0]
-    bne  pr_wl
-    bra  pr_bad
-pr_got:
-    clr  x                      ; DATA (row 6) while CLK is low
-    ld   [y,x], ac
-    ld   ac, [IO_TMP]           ; IO_TMP = the rows, DATA in bit 6
-    ld   [PS2_DEV], x
-    ld   [T2], ac
-    xor  1, ac
-    beq  pr_stop                ; the 10th: the stop bit
-    ld   [IO_TMP], ac
-    and  0x40, ac
-    beq  pr_zero
-    ld   [T1], ac               ; a 1
-    xor  1, ac
-    ld   ac, [T1]
-    ld   [T2], ac
-    xor  2, ac
-    beq  pr_next                ; the parity bit is not part of the byte
-    ld   [T0], ac               ; LSB first: shift right, the bit in at bit 7
-    shr  ac
-    or   0x80, ac
-    ld   ac, [T0]
-    bra  pr_next
-pr_zero:
-    ld   [T2], ac
-    xor  2, ac
-    beq  pr_next
-    ld   [T0], ac
-    shr  ac
-    ld   ac, [T0]
-pr_next:
-    ld   [T2], ac
-    dec
-    ld   ac, [T2]
-    bra  pr_bit
-pr_stop:
-    ld   [IO_TMP], ac           ; stop bit 1
-    and  0x40, ac
-    beq  pr_bad
-    ld   [T1], ac               ; odd parity: an odd number of 1s
-    xor  1, ac
-    and  1, ac
-    bne  pr_bad
-    clr  ac                     ; wait for CLK high again
-    ld   ac, [IO_T0]
-pr_end:
-    ld   [y,x], ac
-    and  [PS2_CM], ac
-    bne  pr_ok
-    ld   [IO_T0], ac
-    dec
-    ld   ac, [IO_T0]
-    bne  pr_end
-pr_bad:
-    ld   2, ac
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-pr_ok:
-    clr  ac
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
-
-; ============================================================
-; Page C: PS/2 byte out, mouse start-up
-; ============================================================
-#addr IO_CODE + 0xC00
-
-; ------------------------------------------------------------
-; ps2_tx - send one byte to a PS/2 device (the mouse or the PS/2
-;          keyboard)
-;   in:      AC = the byte; PS2_DEV and PS2_CM as for ps2_rx
-;   out:     AC = 0 sent and acknowledged, 1 the device did not clock
-;            (none there), 2 no acknowledge.  The latch is left with
-;            that device's clock and DATA free (P_FREE for the mouse,
-;            P_KFREE for the keyboard) so the answer can be read with
-;            ps2_rx.
-;   changes: X, Y, T0-T3, IO_T0, IO_T1
-;   clocks:  about 30,000 (1.2 ms)
-;   Holds both clocks low for about 120 us, pulls DATA low and lets the
-;   device's clock go (the other device's clock stays held, so it sees
-;   no request to send): the device then clocks the byte in.  The host
-;   changes DATA while CLK is low; the device reads it when CLK goes
-;   high.
-; ------------------------------------------------------------
-ps2_tx:
-    ld   ac, [T0]
-    ld   [PS2_DEV], ac          ; T3 = the latch with this device's clock
-    beq  pt_m                   ; free and DATA low
-    ld   P_KFREE & 0xF7, ac
-    bra  pt_t3
-pt_m:
-    ld   P_FREE & 0xF7, ac
-pt_t3:
-    ld   ac, [T3]
-    ld   PORT, y
-    ld   [PS2_DEV], x
-    ld   P_IDLE, [y,x]          ; both clocks low (they already are, at rest)
-    ld   125, ac                ; about 120 us
-pt_hold:
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    dec
-    bne  pt_hold
-    ld   P_IDLE & 0xF7, [y,x]   ; DATA low too
-    ld   [T3], ac               ; this clock free: request to send
-    ld   ac, [y,x]
-    clr  ac                     ; T1 = 1s sent, for the parity
-    ld   ac, [T1]
-    ld   10, ac                 ; 8 data bits, parity, stop
-    ld   ac, [T2]
-    ld   0, ac                  ; the first clock can take up to 15 ms
-    ld   ac, [IO_T0]
-    ld   64, ac
-    ld   ac, [IO_T1]
-pt_bit:
-    ld   [y,x], ac              ; wait for CLK low
-    and  [PS2_CM], ac
-    beq  pt_lo
-    ld   [IO_T0], ac
-    dec
-    ld   ac, [IO_T0]
-    bne  pt_bit
-    ld   [IO_T1], ac
-    dec
-    ld   ac, [IO_T1]
-    bne  pt_bit
-    ld   1, ac                  ; the device never clocked
-    bra  pt_out
-pt_lo:
-    ld   [T2], ac               ; which bit?
-    xor  2, ac
-    beq  pt_par
-    xor  3, ac                  ; (T2 = 1: the stop bit)
-    beq  pt_one
-    ld   [T0], ac               ; a data bit, LSB first
-    and  1, ac
-    beq  pt_zero
-    ld   [T1], ac
-    xor  1, ac
-    ld   ac, [T1]
-pt_one:
-    ld   [T3], ac               ; DATA 1 (free)
-    or   0x08, ac
-    ld   ac, [y,x]
-    bra  pt_shift
-pt_par:
-    ld   [T1], ac               ; odd parity: 1 when the data had an even count
-    and  1, ac
-    bne  pt_zero
-    ld   [T3], ac
-    or   0x08, ac
-    ld   ac, [y,x]
-    bra  pt_shift
-pt_zero:
-    ld   [T3], ac               ; DATA 0
-    ld   ac, [y,x]
-pt_shift:
-    ld   [T0], ac
-    shr  ac
-    ld   ac, [T0]
-    clr  ac                     ; wait for CLK high
-    ld   ac, [IO_T0]
-pt_wh:
-    ld   [y,x], ac
-    and  [PS2_CM], ac
-    bne  pt_hi
-    ld   [IO_T0], ac
-    dec
-    ld   ac, [IO_T0]
-    bne  pt_wh
-    ld   2, ac
-    bra  pt_out
-pt_hi:
-    clr  ac                     ; the next clock comes within about 0.1 ms
-    ld   ac, [IO_T0]
-    ld   1, ac
-    ld   ac, [IO_T1]
-    ld   [T2], ac
-    dec
-    ld   ac, [T2]
-    bne  pt_bit
-pt_ack:                         ; the acknowledge: DATA low on the 11th clock
-    ld   [y,x], ac
-    and  [PS2_CM], ac
-    beq  pt_ackl
-    ld   [IO_T0], ac
-    dec
-    ld   ac, [IO_T0]
-    bne  pt_ack
-    ld   2, ac
-    bra  pt_out
-pt_ackl:
-    clr  x                      ; DATA is on row 6 (even address)
-    ld   [y,x], ac
-    ld   [PS2_DEV], x
-    and  0x40, ac
-    bne  pt_noack
-pt_ackh:                        ; wait for CLK high again
-    ld   [y,x], ac
-    and  [PS2_CM], ac
-    bne  pt_done
-    ld   [IO_T0], ac
-    dec
-    ld   ac, [IO_T0]
-    bne  pt_ackh
-pt_noack:
-    ld   2, ac
-    bra  pt_out
-pt_done:
-    clr  ac
-pt_out:
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
-; ============================================================
-; Page D: mouse start-up and poll
-; ============================================================
-#addr IO_CODE + 0xD00
-
-; ------------------------------------------------------------
-; mouse_init - reset the PS/2 mouse and start it reporting
-;   in:      -
-;   out:     AC = 0 the mouse is running (MOUSE_ST bit 7 = 1), 1 no
-;            mouse, 2 the mouse answered wrongly.  Latch = P_IDLE.
-;   changes: X, Y, T0-T3, IO_T0-IO_T2, IO_TMP, MOUSE_B, MOUSE_DX,
-;            MOUSE_DY, PS2_DEV, PS2_CM
-;   clocks:  up to about 25,000,000 (1 s) while the mouse tests itself
-;            after the reset; 0.5 s is usual
-;   Uses 4 stack bytes.  Sends FF (reset): FA, then AA 00 when its self
-;   test is done; then F4 (reporting on): FA.  The mouse then streams
-;   packets, which mouse_poll reads.
-; ------------------------------------------------------------
-mouse_init:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    clr  ac
-    ld   ac, [MOUSE_ST]
-    ld   ac, [MOUSE_B]
-    ld   ac, [MOUSE_DX]
-    ld   ac, [MOUSE_DY]
-    ld   0xFF, ac               ; reset
-    ld   LINK_LO, x             ; CALL mouse_cmd
-    ld   mi_br, [x]
-    ld   LINK_HI, x
-    ld   mi_br >> 8, [x]
-    ld   mouse_cmd >> 8, y
-    jmp  mouse_cmd
-mi_br:
-    bne  mi_out                 ; 1 or 2
-    clr  ac                     ; AA within about 1 s
-    ld   ac, [IO_T1]
-    ld   16, ac
-    ld   ac, [IO_T2]
-    ld   LINK_LO, x             ; CALL ps2_rx
-    ld   mi_baa, [x]
-    ld   LINK_HI, x
-    ld   mi_baa >> 8, [x]
-    ld   ps2_rx >> 8, y
-    jmp  ps2_rx
-mi_baa:
-    bne  mi_e2
-    ld   [T0], ac
-    xor  0xAA, ac
-    bne  mi_e2
-    ld   100, ac                ; then 00 (the device ID)
-    ld   ac, [IO_T1]
-    clr  ac
-    ld   ac, [IO_T2]
-    ld   LINK_LO, x             ; CALL ps2_rx
-    ld   mi_bid, [x]
-    ld   LINK_HI, x
-    ld   mi_bid >> 8, [x]
-    ld   ps2_rx >> 8, y
-    jmp  ps2_rx
-mi_bid:
-    bne  mi_e2
-    ld   [T0], ac
-    bne  mi_e2
-    ld   0xF4, ac               ; reporting on
-    ld   LINK_LO, x             ; CALL mouse_cmd
-    ld   mi_bf4, [x]
-    ld   LINK_HI, x
-    ld   mi_bf4 >> 8, [x]
-    ld   mouse_cmd >> 8, y
-    jmp  mouse_cmd
-mi_bf4:
-    bne  mi_out
-    ld   0x80, ac               ; running
-    ld   ac, [MOUSE_ST]
-    clr  ac
-    bra  mi_out
-mi_e2:
-    ld   2, ac
-mi_out:
-    ld   PORT, y                ; hold the mouse off again
-    ld   P_IDLE, [y,x]
-    ld   lib_leave >> 8, y      ; LEAVE
-    jmp  lib_leave
-
-; ------------------------------------------------------------
-; mouse_poll - read the mouse's movement since the last poll
-;   in:      -
-;   out:     AC = 1 and MOUSE_B, MOUSE_DX, MOUSE_DY set from a new
-;            packet, 0 nothing new, 2 a bad packet (dropped; the next
-;            poll reads the mouse again).  Latch = P_IDLE.
-;            MOUSE_B bit 0 = left, 1 = right, 2 = middle button down.
-;            MOUSE_DX = right, MOUSE_DY = down, -127 to 127 (signed).
-;   changes: X, Y, T0-T3, IO_T0-IO_T3, IO_TMP, PS2_DEV, PS2_CM
-;   clocks:  with nothing new, about 1,600 per 64 us the mouse is let
-;            go: at most about 26,000 (1 ms) until the driver has seen
-;            how soon this mouse starts, then about 8,000-10,000 for a
-;            quick mouse; about 76,000 (3 ms) more with a packet.
-;            About 100 after wait_frames_io (below).
-;   Uses 4 stack bytes.  Call it once per frame.  It lets the mouse
-;   send for up to about 1 ms (ps2_listen); a mouse with movement to
-;   report starts within that, and otherwise keeps adding it up until
-;   the next poll.  When the program waits with wait_frames_io, that
-;   wait has already listened (MOUSE_ST bit 6), and mouse_poll only
-;   hands over the packet it read (MOUSE_ST bit 0), without listening.
-; ------------------------------------------------------------
-mouse_poll:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   [MOUSE_ST], ac         ; wait_frames_io listened already?
-    and  0x40, ac
-    beq  mp_live
-    ld   [MOUSE_ST], ac         ; AC = 1 if it read a packet
-    and  1, ac
-    ld   ac, [IO_TMP]
-    ld   [MOUSE_ST], ac         ; both flags used up
-    and  0xBE, ac
-    ld   ac, [MOUSE_ST]
-    ld   [IO_TMP], ac
-    ld   lib_leave >> 8, y      ; LEAVE
-    jmp  lib_leave
-mp_live:
-    ld   [MOUSE_ST], ac
-    and  0xFE, ac
-    ld   ac, [MOUSE_ST]
-    ld   PS2_DEV, x             ; the mouse: CLK on row 5 (even reads)
-    ld   0, [x]
-    ld   PS2_CM, x
-    ld   0x20, [x]
-    ld   PORT, y                ; let the mouse go
-    ld   P_FREE, [y,x]
-    ld   LINK_LO, x             ; CALL ps2_listen
-    ld   mp_ls, [x]
-    ld   LINK_HI, x
-    ld   mp_ls >> 8, [x]
-    ld   ps2_listen >> 8, y
-    jmp  ps2_listen
-mp_ls:
-    bne  mp_none
-    ld   mp_rx >> 8, y          ; the start bit: read the packet
-    jmp  mp_rx
-mp_none:
-    ld   PORT, y                ; nothing: hold the mouse off
-    ld   P_IDLE, [y,x]
-    clr  ac
-    ld   lib_leave >> 8, y      ; LEAVE
-    jmp  lib_leave
-
-; ============================================================
-; Page E: mouse poll
-; ============================================================
-#addr IO_CODE + 0xE00
-
-; ------------------------------------------------------------
-; mouse_pkt - read the packet the mouse has started (wait_frames_io)
-;   in:      the mouse's clock is low (its start bit), latch = P_FREE
-;   out:     as mouse_poll; MOUSE_ST bit 0 = 1 after a good packet
-;   changes: as mouse_poll
-; ------------------------------------------------------------
-mouse_pkt:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   PS2_DEV, x
-    ld   0, [x]
-    ld   PS2_CM, x
-    ld   0x20, [x]
-mp_rx:
-    ld   4, ac                  ; byte 1 (it has started)
-    ld   ac, [IO_T1]
-    clr  ac
-    ld   ac, [IO_T2]
-    ld   LINK_LO, x             ; CALL ps2_rx
-    ld   mp_b0, [x]
-    ld   LINK_HI, x
-    ld   mp_b0 >> 8, [x]
-    ld   ps2_rx >> 8, y
-    jmp  ps2_rx
-mp_b0:
-    xor  1, ac
-    beq  mp_out                 ; nothing: AC = 0
-    xor  1, ac
-    bne  mp_e2
-    ld   [T0], ac               ; byte 1: bit 3 is always 1
-    ld   ac, [IO_T3]
-    and  0x08, ac
-    beq  mp_e2
-    ld   8, ac                  ; byte 2 (X) follows within about 2 ms
-    ld   ac, [IO_T1]
-    clr  ac
-    ld   ac, [IO_T2]
-    ld   LINK_LO, x             ; CALL ps2_rx
-    ld   mp_b1, [x]
-    ld   LINK_HI, x
-    ld   mp_b1 >> 8, [x]
-    ld   ps2_rx >> 8, y
-    jmp  ps2_rx
-mp_b1:
-    bne  mp_e2
-    ld   [T0], ac
-    ld   ac, [MOUSE_DX]
-    ld   8, ac                  ; byte 3 (Y)
-    ld   ac, [IO_T1]
-    clr  ac
-    ld   ac, [IO_T2]
-    ld   LINK_LO, x             ; CALL ps2_rx
-    ld   mp_b2, [x]
-    ld   LINK_HI, x
-    ld   mp_b2 >> 8, [x]
-    ld   ps2_rx >> 8, y
-    jmp  ps2_rx
-mp_b2:
-    bne  mp_e2
-    ld   PORT, y                ; hold the mouse off
-    ld   P_IDLE, [y,x]
-    ld   [IO_T3], ac            ; buttons
-    and  0x07, ac
-    ld   ac, [MOUSE_B]
-    ld   [IO_T3], ac            ; X: 9 bits, sign in bit 4, overflow in bit 6
-    and  0x40, ac
-    bne  mp_xo
-    ld   [IO_T3], ac
-    and  0x10, ac
-    bne  mp_xn
-    ld   [MOUSE_DX], ac         ; 0 to 255: above 127 becomes 127
-    blt  mp_xp
-    bra  mp_y
-mp_xn:
-    ld   [MOUSE_DX], ac         ; -256 to -1: below -127 becomes -127
-    blt  mp_xn1
-    bra  mp_xm                  ; 00-7F: -256 to -129
-mp_xn1:
-    xor  0x80, ac               ; 80 is -128
-    bne  mp_y
-mp_xm:
-    ld   0x81, ac
-    ld   ac, [MOUSE_DX]
-    bra  mp_y
-mp_xo:
-    ld   [IO_T3], ac
-    and  0x10, ac
-    bne  mp_xm
-mp_xp:
-    ld   0x7F, ac
-    ld   ac, [MOUSE_DX]
-mp_y:
-    ld   [IO_T3], ac            ; Y: sign in bit 5, overflow in bit 7
-    and  0x80, ac
-    bne  mp_yo
-    ld   [IO_T3], ac
-    and  0x20, ac
-    bne  mp_yn
-    ld   [T0], ac
-    blt  mp_yp
-    bra  mp_yneg
-mp_yn:
-    ld   [T0], ac
-    blt  mp_yn1
-    bra  mp_ym
-mp_yn1:
-    xor  0x80, ac
-    bne  mp_yneg
-mp_ym:
-    ld   0x81, ac
-    ld   ac, [T0]
-    bra  mp_yneg
-mp_yo:
-    ld   [IO_T3], ac
-    and  0x20, ac
-    bne  mp_ym
-mp_yp:
-    ld   0x7F, ac
-    ld   ac, [T0]
-mp_yneg:
-    ld   [T0], ac               ; down is positive on the screen
-    xor  0xFF, ac
-    add  1, ac
-    ld   ac, [MOUSE_DY]
-    ld   1, ac
-    bra  mp_out
-mp_e2:
-    ld   2, ac
-mp_out:
-    ld   PORT, y                ; hold the mouse off
-    ld   P_IDLE, [y,x]
-    ld   ac, [IO_TMP]
-    xor  1, ac
-    bne  mp_lv
-    ld   [MOUSE_ST], ac         ; a new packet: MOUSE_ST bit 0
-    or   1, ac
-    ld   ac, [MOUSE_ST]
-mp_lv:
-    ld   [IO_TMP], ac
-    ld   lib_leave >> 8, y      ; LEAVE
-    jmp  lib_leave
 
 
 ; ============================================================

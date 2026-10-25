@@ -27,15 +27,15 @@ number: PC high all 0 V, PC low Q7 high and Q6:Q2 = N.
 When they all pass it copies the library's RAM code, sets the map to 05,
 draws a status screen with the standard library (text, colour bands in 4, 2
 and 8 bpp) and loops once per frame: it runs tests 1-14 again, tests
-one 256-byte RAM page, scans the keyboard (typed keys echo; S retries the
-SD card, T toggles a 1 kHz test tone), reads the SNES pads and the mouse,
-and shows the video line read.
+one 256-byte RAM page, polls the PS/2 keyboard (typed keys echo; S retries
+the SD card, T toggles a 1 kHz test tone), reads the SNES pads and the
+mouse, and shows the video line read.
 
 The generator keeps every block of code whose branches stay inside it in
 one 256-byte page (branches only change PC low), and jumps to the next page
 when a block does not fit.
 
-Date: 10/22/2026
+Date: 10/25/2026
 """
 
 import os
@@ -408,7 +408,7 @@ STRINGS = [
     ('s_core', 'CPU CORE TESTS 1-16 PASSED.  REPEATED EVERY FRAME, LOOPS:'),
     ('s_core2', 'A FAILED TEST STOPS THE CPU IN A LOOP AT x0080 + 4 x TEST (SEE BRINGUP.MD)'),
     ('s_ram', 'RAM PAGE        PASSES          ERRORS          LAST BAD       WROTE     READ'),
-    ('s_kbd', 'KEYBOARD COLUMNS 0-7:'),
+    ('s_kbd', 'KBD_NOW (KEYS HELD):'),
     ('s_kbd2', 'TYPED:'),
     ('s_pad', 'SNES PADS:  1:          2:'),
     ('s_sd', 'SD CARD: SD_INIT      FS_MOUNT      (S = TRY AGAIN)'),
@@ -544,7 +544,7 @@ def main_program(a):
     put_str(a, 32, 20, 's_off')
     a.jump('key_loop')
     a.label('keys_done')
-    # keyboard rows
+    # the key state image, KBD_NOW: FF with no key held
     for c in range(8):
         hex_zp(a, 22 + 3 * c, 8, 0xA0 + c)
     # pads
@@ -732,7 +732,7 @@ def generate():
         '1 branches  2 AND  3 OR  4 XOR  5 ADD  6 SUB  7 carry  8 SHR',
         '9 AC/X  10 Y address  11 X address  12 ROM data  13 RAM data',
         '14 map register  15 RAM address lines  16 video line read')]
-    L += [';', '; Date: 10/22/2026', '',
+    L += [';', '; Date: 10/25/2026', '',
           '#include "placard.asm"', '#include "placard_lib.asm"', '']
     for k, v in ZP.items():
         L.append('%-8s = 0x%02X' % (k, v))

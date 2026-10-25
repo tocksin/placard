@@ -18,11 +18,10 @@ are not changed), boots it like the board and checks:
      time limit, until Esc brings the menu back
   4. with no key for the idle time the menu runs them in turn again, from
      the highlighted program
-Keys are pressed on the keyboard model (io_devices.SharedPort); a PS/2
-keyboard (io_devices.Ps2Keyboard) is plugged in too, so the menu and the
-programs run with both keyboards, and step 2 uses the PS/2 one's Esc.
+Keys are pressed on the PS/2 keyboard model (io_devices.Ps2Keyboard);
+the RAM programs' hook (menu_hook.py) reads the PS/2 receiver itself.
 
-Date: 10/22/2026
+Date: 10/25/2026
 """
 
 import argparse
@@ -36,8 +35,8 @@ import io_devices             # noqa: E402
 import gen_menu_rom           # noqa: E402
 
 FRAME = 525 * 800
-ESC, DOWN, ENTER, KEY3 = (0, 0), (7, 6), (5, 0), (0, 3)
-PS2_ESC = 0x76                  # set 2 code
+ESC, DOWN, ENTER, KEY3 = 0x76, 0x172, 0x5A, 0x26     # set 2 codes (E0 = 0x100)
+PS2_ESC = ESC
 MB = 0x5D00
 
 
@@ -74,13 +73,13 @@ def main(argv):
     def press(key, frames=3):
         """hold a key for some frames; True if a program starts meanwhile
         (then it is let go there)"""
-        port.keys.add(key)
+        port.kbd.press(key)
         end = cpu.clocks + frames * FRAME
         while cpu.clocks < end:
             cpu.step()
             if at(p_launch):
                 break
-        port.keys.discard(key)
+        port.kbd.release(key)
         return at(p_launch)
 
     def expected_ram(p):

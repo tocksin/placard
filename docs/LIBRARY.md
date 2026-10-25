@@ -48,7 +48,7 @@ and runs in place.  The most used parts are highest:
 | xC700-xD4FF | FAT file reader | `FS_CODE` | `placard_fs.asm` |
 | xC600-xC6FF | Expansion slot helpers | `SLOT_CODE` | `placard_slot.asm` |
 | xC500-xC5FF | Menu hook | `MENU_CODE` | `placard_menu.asm` |
-| xC000-xC4FF | PS/2 keyboard driver, listening (`wait_frames_io`); three small pieces sit in free ends of the slot helpers' page and I/O pages 9 and A; xC200-xC217 stay free (the bring-up ROM's marker) | `PS2_CODE` | `placard_ps2.asm` |
+| xC000-xC4FF | PS/2 driver: keyboard decoding, the turns, `ps2_pause`, `wait_frames_io`; the mouse routines, `ps2_tx`/`ps2_rx`, `ps2_poll`, `ps2_cmd` and `kbd_lights` sit in free ends of I/O pages 1 and B-E; xC200-xC217 stay free (the bring-up ROM's marker) | `PS2_CODE` | `placard_ps2.asm` |
 | RAM x1F00-x1FFF | Code that reads the video RAM (end of `plot1`, `con_scroll`) | `LIB_RAM` | `placard_lib.asm` |
 
 `placard_lib.asm` sets every constant and includes the other files.  These
@@ -95,6 +95,7 @@ directly instead, 4 clocks faster.  64 entries fit; 55 are used:
 | 45-53 | xFBB4-xFBD4 | `slot_id` `fs_mount` `fs_root` `fs_next` `fs_open` `fs_read` `fs_load` `con_gets` `mouse_move` |
 | 54 | xFBD8 | `menu_poll` |
 | 55 | xFBDC | `wait_frames_io` |
+| 56 | xFBE0 | `ps2_poll` |
 
 Entry n is at xFB00 + 4n.  A CALL through the table:
 
@@ -324,7 +325,8 @@ pointers already point at the next block.
 | `map_set` | AC = map (bit n = 1: section n reads RAM) | Map register and MAP_SHADOW = AC | Y | 18 |
 | `frame_poll` | | AC = line read (V9:V2, 124-255), FRAME + 1 when a new frame started, LINE_LAST = AC | X, Y, T0 | 39-53 |
 | `wait_frames` | AC = frames 1-255 (0 = 256) | FRAME + AC | AC, X, Y, T0, T1 | Until the AC-th new frame starts |
-| `wait_frames_io` | AC = frames 1-255 (0 = 256) | as `wait_frames` | AC, X, Y, T0-T7, IO_T0-IO_T3, IO_TMP, PS2_DEV, PS2_CM | `wait_frames`, listening to the mouse and a PS/2 keyboard while it waits ([IO.md](IO.md#listening-costs-time)) |
+| `wait_frames_io` | AC = frames 1-255 (0 = 256) | as `wait_frames` | AC, X, Y, T0-T7, IO_T0-IO_T3, IO_TMP | `wait_frames`, taking the mouse's and a PS/2 keyboard's bytes from the receiver while it waits ([IO.md](IO.md#turns-who-has-the-line)) |
+| `ps2_poll` | - | - | AC, X, Y, T0-T6, IO_T0-IO_T3, IO_TMP | takes what the PS/2 devices sent (keys into the buffer, mouse packets into `mouse_poll`'s sum) and gives the line to the right device; for a program that polls more often than once a frame, or has no `kbd_scan` call; about 150 clocks with nothing in |
 
 - After `vid_addr`, `ld ac, y` and then `ld [y,x], ac` or `ld ac, [y,x]`
   read or write the byte.
@@ -454,7 +456,7 @@ zero page scratch.  A sector takes about 160,000 clocks (75 KB/s).
 
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
-| `menu_poll` | call about once per frame, after `frame_poll` | returns, or never returns when Esc (either keyboard) is down or the program's time is up in the menu ROM ([MENU.md](MENU.md)) | AC, X, Y, T0; with a PS/2 keyboard that isn't otherwise listened to, every 4th frame also as `kbd_scan` | 15 without the menu ROM, about 75 with it, plus a PS/2 listen every 4th frame when the program doesn't scan the keyboard |
+| `menu_poll` | call about once per frame, after `frame_poll` | returns, or never returns when Esc is down or the program's time is up in the menu ROM ([MENU.md](MENU.md)) | AC, X, Y, T0; when `kbd_scan` has not run this frame, also as `ps2_poll` | 15 without the menu ROM, about 75 with it, plus `ps2_poll` (about 150) when the program doesn't scan the keyboard itself |
 
 ## Idioms
 

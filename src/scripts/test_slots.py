@@ -13,7 +13,7 @@ given, so the tests check the scan order, the arguments, the checksum
 and length checks, Esc to skip, a card taking the boot over, and a card
 calling the library.
 
-Date: 10/18/2026
+Date: 10/25/2026
 """
 
 import os
@@ -101,15 +101,23 @@ def code(src):
     return [mem.get(a, 0) for a in range(0x100, max(a for a in mem if a < 0x200) + 1)]
 
 
-def boot(cards, keys=(), steps=400_000):
+def boot(cards, esc=False, steps=400_000, kbd=True):
+    """boots with the cards; kbd: a PS/2 keyboard (its self test done after
+    5 ms, so the boot's wait for Esc is short), esc: Esc held on it"""
     prog, syms, _ = ps.assemble(PROG, HERE)
     rom = ps.build_rom(prog)
     slots = iod.Slots()
     for n, c in cards.items():
         slots.cards[n - 1] = c
     port = iod.SharedPort()
-    port.keys = set(keys)
+    if kbd:
+        port.kbd = iod.Ps2Keyboard(bat_ms=5)
+        port.kbd.bat_at = port.kbd.bat                  # it sends AA when its self test is done
+        if esc:
+            port.kbd.press(0x76)
     cpu = ps.Cpu({}, rom=rom, io=port, slots=slots)
+    if cards:
+        steps = max(steps, 2_500_000)                   # the wait for Esc: about 0.18 s
     cpu.run(steps, halt_detect=False)
     return cpu, syms
 
@@ -157,7 +165,7 @@ def test_takeover():
 
 
 def test_esc_skips():
-    cpu, _ = boot({4: card(CARD_TAKE)}, keys=[(0, 0)])
+    cpu, _ = boot({4: card(CARD_TAKE)}, esc=True)
     assert cpu.mem[0x3E] == 0 and cpu.mem[0x3F] == 0x5A
     return 'Esc held at power-up: cards skipped'
 

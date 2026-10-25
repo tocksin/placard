@@ -11,6 +11,16 @@ marked *est.* is a planning number, good to roughly +/- 25 % (case and
 PCB lines +/- 50 %), to replace with real quotes before a campaign goal is
 set.  Platform fees were read from the platforms' own pages on 2026-10-23.
 
+
+> **2026-10-25: the Cherry MX keyboard board was dropped** (CHIPS.md,
+> IO.md).  PLACARD now uses a PS/2 keyboard only, so the keyboard kit, the
+> main board header J1 and the case's switch plate below no longer exist, and
+> the main board gained the PS/2 receiver PLD U42 (single-unit parts now
+> $184.77, BOM.md).  The products become the core kit, the case (with a
+> keyboard blank or a different front) and the PS/2 keyboard / starter pack
+> options; the numbers below are kept as written on 2026-10-23 until the
+> case is redesigned and the kits re-costed.
+
 ## What is sold
 
 Three products, so a buyer with a PS/2 keyboard isn't forced to pay for the

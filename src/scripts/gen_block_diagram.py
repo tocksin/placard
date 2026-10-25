@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
-CHIPS_TOTAL = 34            # docs/CHIPS.md main board, plus the 3.3 V regulator
+CHIPS_TOTAL = 33            # docs/CHIPS.md main board, plus the 3.3 V regulator
 
 # fill colors by area
 CPU, CTRL, MEM, IO, VID, SND, DEV = ("#E4DAFF", "#FFF2BF", "#D3F6D8", "#FFE3C8",
@@ -146,11 +146,11 @@ rom = box(139, 44, 30, 15, "Cartridge slot", 0, "ROM 64 KB, 5 chips:\nstalls the
 iod = box(104, 72, 31, 14, "I/O decode", 1, "PLD: x5000-x53FF,\n/CE_HI", IO, "mid", fs=15)
 exp = box(139, 72, 30, 17, "4 expansion slots", 0, "x5100-x53FF; a card\nwith a \"PLC\" header\n"
           "boots at power-up", IO, "mid", fs=14.5, pfs=12)
-port = box(104, 96, 65, 16, "Shared port x5200", 3,
-           "HC574 latch, port PLD, F541 input;\nresistor dividers to 3.3 V for the SD card",
+port = box(104, 96, 65, 16, "Shared port x5200", 2,
+           "port PLD (latch + reads), PS/2 receiver PLD;\nresistor dividers to 3.3 V for the SD card",
            IO, "mid", fs=16)
 devs = []
-for i, (t, p) in enumerate((("Keyboard", "8 x 8 matrix"), ("PS/2", "keyboard\n+ mouse"),
+for i, (t, p) in enumerate((("PS/2", "keyboard"), ("PS/2", "mouse"),
                             ("2 SNES", "pads"), ("SD card", "3.3 V reg."))):
     devs.append(box(104 + i * 16.5, 117, 15, 12, t, None, p, DEV, "mid", fs=13, pfs=11.5))
 aus = box(104, 139, 31, 16, "Audio / mode slots", 1, "PLD: groups 45-47,\nline repeat rows",

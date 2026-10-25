@@ -25,7 +25,6 @@ part of the case top:
 - top loading, standing up through the case top: the cartridge slot J8
   behind the keyboard, and the four expansion slots J9-J12 (cartridge-style
   card shells) in a bay at the back left
-- keyboard header J1 just under the keyboard's back edge
 
 Since 2026-10-22 it also places every other part on the schematic as a fit
 test (no routing): chips in rows grouped by schematic sheet, each socketed
@@ -110,7 +109,7 @@ SLOT_PITCH = 26.67           # 1.05" between expansion slots: the card shells' k
 SLOT_X = [42.0 + i * SLOT_PITCH for i in range(4)]
 SLOT_Y = 39.0                # middle of each slot, from the back edge
 BAY_END = 76.5               # front end of the expansion bay
-J1_X, J1_Y = 200.0, 271.0    # keyboard header: in the front chip row, under the keyboard
+# (the keyboard header J1 went with the matrix keyboard, 2026-10-25)
 
 # ref, footprint, edge (or None), position along that edge or (x, y), rotation for None
 PLACE = [
@@ -124,7 +123,6 @@ PLACE = [
     ("J2", FP_SNES, "right", 22.0),
     ("J3", FP_SNES, "right", 50.0),
     ("J8", FP_CART, None, (175.0, 55.0), 0),
-    ("J1", FP_KBD, None, (J1_X, J1_Y), 90),
 ] + [("J%d" % (9 + i), FP_EXP, None, (x, SLOT_Y), 90) for i, x in enumerate(SLOT_X)]
 
 HOLES = [(5.0, 5.0), (W - 5.0, 5.0), (5.0, D - 5.0), (W - 5.0, D - 5.0), (145.0, D - 5.0), (240.0, 5.0),
@@ -152,7 +150,7 @@ X_END = 280.0                # rows spread from x = 10 to here
 # first spreads the row evenly from x0 to x1), or
 # ("block", width, [refs], angle=90) for a block of passives centred on the row.
 # Back to front: video, clock + memory, control + data bus, ALU, PC + address
-# mux, shared port with the keyboard header.
+# mux, shared port (port PLD and PS/2 receiver PLD).
 ROWS = [
     (ROW_Y[0], "below", [("at", 10.0, X_END), "U16", "U22", "U23", "U36", "U13", "U14", "U15"]),
     (ROW_Y[1], "below", [("at", 10.0, X_END), "U35", "U29", "X1", "U31", "U32", "U11", "U25"]),
@@ -161,8 +159,8 @@ ROWS = [
     (ROW_Y[3], "below", [("at", 10.0, X_END), "U5", "U6", "U19", "U20", "U21", "U27",
                          ("block", 50.0, ["R3", "R4", "JP1", "JP2", "R13", "R51", "R52", "R53", "R54"])]),
     (ROW_Y[4], "below", [("at", 10.0, X_END), "U3", "U4", "U7", "U8", "U9", "U10",
-                         ("block", 30.0, ["RN1", "RN2"], 0)]),
-    (ROW_Y[5], "below", [("at", 10.0, 132.0), ("block", 22.0, ["U40", "C40", "C42"]), "U38", "U37", "U39"]),
+                         ("block", 30.0, ["RN1"], 0)]),
+    (ROW_Y[5], "below", [("at", 10.0, 132.0), ("block", 22.0, ["U40", "C40", "C47"]), "U38", "U42"]),
 ]
 
 # Blocks of passives: (x0, y0, x1, y1, angle, refs), filled in columns left to right
@@ -173,10 +171,10 @@ BLOCKS = [
       "R28", "R29", "R30", "R31", "R32", "R33", "R34", "R35", "R36", "R37", "R38", "R39", "R56", "R57",
       "R58", "D9", "D10", "D11", "D12", "D13", "D14", "D15", "D16", "D17",
       "C45", "C46", "C44"]),
-    # shared port: PS/2, SD and keyboard diodes beside the cartridge slot, pull-ups under it
-    (111.0, 49.0, 154.5, 61.0, 90, ["D1", "D2", "D3", "D4", "D5", "D6"]),
+    # shared port: the PS/2 diodes beside the cartridge slot, pull-ups under it
+    (111.0, 49.0, 154.5, 61.0, 90, ["D1", "D2", "D3", "D4", "D5", "D6", "D19"]),
     (111.0, 63.0, 272.0, 77.0, 90, ["R40", "R41", "R42", "R43", "R44", "R45", "R46", "R47", "R48", "R49", "R50",
-                                   "R55"]),
+                                   "R55", "R60"]),
 ]
 
 # Single parts: (ref, centre x, centre y, angle).  Power, at the back left
@@ -189,7 +187,7 @@ FIXED = [
     ("D8", 18.4, 39.2, 0), ("NT1", 28.0, 40.0, 0),
 ]
 
-DECAP = {"U%d" % n: "C%d" % n for n in list(range(1, 24)) + [25, 26, 27, 29, 31, 32, 35, 36, 37, 38, 39]}
+DECAP = {"U%d" % n: "C%d" % n for n in list(range(1, 24)) + [25, 26, 27, 29, 31, 32, 35, 36, 38, 42]}
 DECAP["X1"] = "C43"
 
 
@@ -638,7 +636,7 @@ def build():
         "Placement test (no routing): every chip socketed (kit socket footprints); hatched boxes at the socket ends "
         "= %g mm chip-puller room, kept clear" % PULL,
         "Chip rows, back to front: video | audio slot, oscillator, memory | I/O decode, control, data bus | ALU, data bus | "
-        "PC + address mux | shared port + keyboard header J1",
+        "PC + address mux | shared port",
         "Back: video/audio passives along the back edge, shared-port protection and pull-ups around J8, power at the back left",
     ]
     for i, s in enumerate(notes):
@@ -648,14 +646,14 @@ def build():
     dim(board, 0, D, W, D, 22.0, 2.0)                  # overall width, below the board
     dim(board, 0, 0, 0, D, 30.0, 2.0)                  # overall depth, left of the board
     tops = [("J13", 16.0)] + [("J%d" % (9 + i), x) for i, x in enumerate(SLOT_X)] + \
-           [("J6", 135.0), ("J7", 165.0), ("J1", J1_X), ("J8", 175.0), ("J5", 205.0)]
+           [("J6", 135.0), ("J7", 165.0), ("J8", 175.0), ("J5", 205.0)]
     for i, (ref, x) in enumerate(sorted(tops, key=lambda t: t[1])):
         dim(board, 0, 0, x, 0, -(6.0 + 3.5 * i))
     # left side, from the back edge
     for i, y in enumerate([18.0, 34.0, 60.0]):
         dim(board, 0, 0, 0, y, 8.0 + 4.0 * i)
     # right side, from the back edge
-    rights = [22.0, 50.0, 55.0, SLOT_Y, KB_LINE, J1_Y]
+    rights = [22.0, 50.0, 55.0, SLOT_Y, KB_LINE]
     for i, y in enumerate(sorted(rights)):
         dim(board, W, 0, W, y, -(8.0 + 4.0 * i))
     # slot pitch and length

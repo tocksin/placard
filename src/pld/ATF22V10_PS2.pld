@@ -1,7 +1,7 @@
 Name     PS2;
 PartNo   00;
 Date     10/25/2026;
-Revision 01;
+Revision 02;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -44,20 +44,31 @@ Device   g22v10;
           A B
           0 0  receiving (or armed and idle)
           0 1  9 clocks: the byte is complete
-          1 1  10 clocks (parity): ready, the CPU may read it
-          1 0  11 clocks (stop): ready; the device is held off
+          1 1  10 clocks (parity)
+          1 0  11 clocks (stop): READY; the device is held off
 
-      A is the ready bit.  B is the inhibit: its pin is enabled by
-      A and drives low only in the last state, through a Schottky
-      diode onto each PS/2 clock line (pulling the held one makes
-      no difference).  The device then keeps its next byte until
-      the CPU re-arms the receiver; it is inhibited only after the
-      11th clock, as a PS/2 host must be.
+      B is the inhibit: its pin is enabled by A and drives low only
+      in the last state, through a Schottky diode onto each PS/2
+      clock line (pulling the held one makes no difference).  The
+      device then keeps its next byte until the CPU re-arms the
+      receiver; it is inhibited only after the 11th clock, as a PS/2
+      host must be.
+      The ready flag is the same state (revision 02): the A pin is
+      enabled on a read of x5203 only while B = 0, and shows !A, so
+      D7 reads 0 when a byte is ready and 1 (the pin high, or the bus
+      pull-up) otherwise.  Ready and inhibit come together, after the
+      11th clock, so the CPU may hold the device's clock the moment
+      it has taken the byte (to send a command, or to let the other
+      device go) without cutting the device off in its stop bit,
+      which would make it send the byte again.  In revision 01 the
+      flag came after the 10th clock, 80 us earlier, and that could
+      happen.
 
    READS AND RE-ARM (x5202, x5203: A1 = 1)
       Read x5202 (A0 = 0): D7:D0 = the byte, valid while A = 1.
-      Read x5203 (A0 = 1): D7 = A (1 = a byte is ready); D6:D0 are
-      not driven (the bus pull-ups read them as 1).
+      Read x5203 (A0 = 1): D7 = 0 while a byte is ready (state 1 0),
+      1 otherwise; D6:D0 are not driven (the bus pull-ups read them
+      as 1).
       Write x5202 or x5203: asynchronous reset, which re-arms the
       receiver and lets the device's clock go.  The write also
       clocks the port latch (port PLD rev 04), so software writes
@@ -74,8 +85,8 @@ Device   g22v10;
       Inputs (6):  RXCLK (clock), PDATA, /PORT_RD, /PORT_WR, A0, A1;
                    pins 7-11, 13 spare.
       Outputs (10): N1-N8 (3-state onto D7:D0), A (3-state onto D7,
-                    same wire as N1's pin), B (inhibit, open through
-                    its output enable).
+                    same wire as N1's pin, enabled while B = 0), B
+                    (inhibit, open through its output enable).
       N1-N8 use 3 product terms each, A and B 2; every data output
       and A have an output-enable term, B's is A.  AR is the re-arm.
       Ready 7.5 ns after /PORT_RD, like the port PLD.
@@ -95,7 +106,7 @@ PIN 6  = A1;           /* address bit 1: 1 = this chip (x5202, x5203) */
 /* ---------------- OUTPUTS ---------------- */
 
 PIN 14 = B;            /* state bit B; low after the 11th clock: Schottky diodes to KBD_CLK and PS2_CLK */
-PIN 15 = A;            /* state bit A = ready, onto D7 on reads of x5203 */
+PIN 15 = !A;           /* state bit A, inverted, onto D7 on reads of x5203 while B = 0: 0 = ready */
 PIN 16 = !N8;          /* d0 onto D0 on reads of x5202 (register holds !d0) */
 PIN 17 = !N7;          /* d1 onto D1 */
 PIN 18 = !N6;          /* d2 onto D2 */
@@ -130,7 +141,7 @@ N5.OE = PORT_RD & A1 & !A0;
 N6.OE = PORT_RD & A1 & !A0;
 N7.OE = PORT_RD & A1 & !A0;
 N8.OE = PORT_RD & A1 & !A0;
-A.OE  = PORT_RD & A1 &  A0;
+A.OE  = PORT_RD & A1 &  A0 & !B;
 B.OE  = A;
 
 /* A write to x5202 or x5203 re-arms the receiver. */

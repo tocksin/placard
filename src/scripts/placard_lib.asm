@@ -28,11 +28,11 @@
 ;     xC700-xD4FF  FS_CODE     FAT file reader (placard_fs.asm)
 ;     xC600-xC6FF  SLOT_CODE   expansion slot helpers (placard_slot.asm)
 ;     xC500-xC5FF  MENU_CODE   program menu hook (placard_menu.asm)
-;     xC000-xC4FF  PS2_CODE    PS/2 keyboard, listening (placard_ps2.asm),
-;                              plus three pieces in free ends of other pages:
-;                              PS2_POLL_CODE, PS2_RX_CODE, PS2_TAB_CODE.
-;                              xC200-xC217 stay free (the bring-up ROM's
-;                              section 6 marker)
+;     xC000-xC4FF  PS2_CODE    PS/2 keyboard and mouse (placard_ps2.asm);
+;                              the rest of that driver is in I/O pages 1
+;                              and B-E and its tables at PS2_TAB_CODE (I/O
+;                              page A).  xC200-xC217 stay free (the
+;                              bring-up ROM's section 6 marker)
 ; The library has no free pages left; it can grow down below xC000, or
 ; into the free ends of pages (each page's own code stays first).  It runs in
 ; place from the ROM, so sections 6 and 7 must read ROM whenever a program
@@ -158,9 +158,8 @@ FS_CODE    = 0xC700     ; FAT file reader, xC700-xD4FF (placard_fs.asm)
 SLOT_CODE  = 0xC600     ; expansion slot helpers, xC600-xC6FF (placard_slot.asm)
 MENU_CODE  = 0xC500     ; program menu hook, xC500-xC5FF (placard_menu.asm)
 PS2_CODE   = 0xC000     ; PS/2 keyboard, listening, xC000-xC4FF (placard_ps2.asm)
-PS2_POLL_CODE = SLOT_CODE + 0x80     ; kbd_ps2_poll, in the slot helpers' page
-PS2_RX_CODE   = IO_CODE + 0x980      ; kbd_rx1, in I/O page 9
-PS2_TAB_CODE  = IO_CODE + 0xA60      ; ps2_set2, ps2_e0, in I/O page A
+PS2_TAB_CODE  = IO_CODE + 0xA60      ; ps2_set2, ps2_e0, in I/O page A (the rest of the
+                                     ; PS/2 code is in I/O pages 1 and B-E)
 LIB_RAM    = 0x1F00     ; 256 bytes of library code copied to RAM by the boot
 
 #include "lib_font.asm"
@@ -1497,6 +1496,9 @@ jt_menu_poll:       ; xFBD8
 jt_wait_frames_io:  ; xFBDC
     ld   wait_frames_io >> 8, y
     jmp  wait_frames_io
+jt_ps2_poll:        ; xFBE0
+    ld   ps2_poll >> 8, y
+    jmp  ps2_poll
 
 
 ; ============================================================
