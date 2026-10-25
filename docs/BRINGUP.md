@@ -77,7 +77,7 @@ restart, press SW2 or switch SW1 off and on.
 **Floating inputs.**  An ATF22V10C holds an input that nothing drives at
 its last level (a weak pin keeper), and an F-series input that floats reads
 high.  So a missing chip is harmless unless a level matters, and those
-places get a temporary resistor (a strap, from step 3 on).
+places get a temporary resistor (a strap, from step 4 on).
 
 **The data bus pull-ups.**  The 10k SIP on D7:D0 goes in at step 7.
 With nothing driving it, the bus reads FF.  After a chip drives it and lets
@@ -155,25 +155,12 @@ its socket isn't in until step 3):
 
 ### Step 3: Sync PLD (U15)
 
-**Sockets:** U15 with C15.  Also fit the State socket U1 (with C1) and
-the audio socket U35 (with C35), empty, for straps S1 and S4.
+**Sockets:** U15 with C15.
 
 **Program first:** U15 Sync from `ATF22V10_SYNC.pld` (rev 09); verify
 and label it.
 
-**Straps.**  A strap is a 10k resistor with its leads in an empty
-socket's pins (or soldered to a spare socket that plugs in), holding a
-control line whose driver isn't in yet.  The Sync PLD reads three State
-PLD outputs and the audio PLD's BLANK_RD, so put in:
-
-- **S1**, in U1 (State): four 10k, from pins 15, 16, 17 and 18 each to
-  pin 12 (GND).  Holds PC_ENABLE, X_ENABLE, Y_ENABLE and Q0 low, so the
-  address muxes pick D (low byte) and 00 (high byte) outside video reads
-  and /SRC_EN stays off.  Out at step 11.
-- **S4**, in U35 (audio): pin 23 to pin 12 (GND).  Holds BLANK_RD low: no
-  mode or audio reads.  Out at step 6.
-
-Fit U15.  The Sync PLD's H2:H0 count the clock by itself.
+Fit U15.  The Sync PLD's H2:H0 count the clock by themselves; no straps are needed yet.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -191,7 +178,9 @@ C23), empty, for strap S5.
 **Program first:** U13 H counter from `ATF22V10_HCOUNT.pld` (rev 08);
 verify and label it.
 
-The H counter reads the line code's Q7 (blank line), so put in:
+The H counter reads the line code's Q7 (blank line), so put in a strap
+(a 10k resistor in an empty socket's pins, holding a line whose driver
+isn't in yet; more in step 5):
 
 - **S5**, in U23 (line code): three 10k, from pins 6, 9 and 19 (Q2, Q3,
   Q7) each to pin 10 (GND).  Q7 low keeps every line a video line; Q3:Q2
@@ -217,13 +206,27 @@ Fit U13.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks a line.
 
 ### Step 5: V counter PLD (U14)
 
-**Sockets:** U14 with C14.
+**Sockets:** U14 with C14.  Also fit the State socket U1 (with C1) and
+the audio socket U35 (with C35), empty, for straps S1 and S4.
 
 **Other parts:** the VGA connector J7 and the sync series resistors R61
 and R62 (47 ohm, beside U13 and U15).
 
 **Program first:** U14 V counter from `ATF22V10_VCOUNT.pld` (rev 03);
 verify and label it.
+
+**Straps.**  A strap is a 10k resistor with its leads in an empty
+socket's pins (or soldered to a spare socket that plugs in), holding a
+control line whose driver isn't in yet.  The Sync outputs checked in
+this step (PIXEL_ENABLE, ADDR_SEL) use three State PLD outputs and the
+audio PLD's BLANK_RD, so put in:
+
+- **S1**, in U1 (State): four 10k, from pins 15, 16, 17 and 18 each to
+  pin 12 (GND).  Holds PC_ENABLE, X_ENABLE, Y_ENABLE and Q0 low, so the
+  address muxes pick D (low byte) and 00 (high byte) outside video reads
+  and /SRC_EN stays off.  Out at step 11.
+- **S4**, in U35 (audio): pin 23 to pin 12 (GND).  Holds BLANK_RD low: no
+  mode or audio reads.  Out at step 6.
 
 Fit U14.  V9:V0 count lines, 499-1023, 525 lines a frame.  Connect a VGA monitor:
 it should now lock to 640 x 480 at 60 Hz and show a **black screen** (the
@@ -252,7 +255,7 @@ video reads; step 6 adds the mode and audio reads.
 
 ### Step 6: audio and mode slot PLD (U35)
 
-**Sockets:** none new; U35's socket went in at step 3.
+**Sockets:** none new; U35's socket went in at step 5.
 
 **Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
 (rev 04); verify and label it.
@@ -412,7 +415,7 @@ the State, Branch and PC chips with no memory and no software.
 
 ### Step 11: take out the RAM and straps S1-S3; fit the instruction register PLD (U17) and the State PLD (U1)
 
-**Sockets:** U17 with C17 (U1's went in at step 3).
+**Sockets:** U17 with C17 (U1's went in at step 5).
 
 **Program first:** U1 State from `ATF22V10_STATE.pld` (rev 15) and U17
 instruction register from `ATF22V10_IR.pld` (rev 01); verify and label
