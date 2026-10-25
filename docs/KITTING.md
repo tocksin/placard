@@ -39,7 +39,7 @@ SN74HCT574N, the 3.3 V regulator and oscillator (not chosen
 yet), the power toggle (CIT ANT11TFHQE), the reset relay (CIT J1071CS5VDC.36)
 and its button (C&K PTS645VL58-2 LFS), sockets, passives, connectors, two PCBs and the case
 (the keyboard is a PS/2 keyboard since 2026-10-25).  The full
-bill of materials, board by board, is [BOM.md](BOM.md) (and BOM.csv),
+bills of materials, one per assembly (main board, each cartridge, case), are indexed in [BOM.md](BOM.md),
 written from the KiCad sheets.
 
 ## The services
@@ -167,8 +167,8 @@ labeling 21 chips takes about 10 to 15 minutes a kit.
 
 **USB-C power supply** (option, Justin 2026-10-25; price in
 [KIT_PRICING.md](KIT_PRICING.md)): a 5 V 3 A USB-C charger and a 1 m
-USB-C to USB-C cable for J13.  The reference parts are the optional BOM
-lines CUI SWI20C-T-N (20 W USB PD, North American plug) and StarTech
+USB-C to USB-C cable for J13.  It is an accessory, in no BOM; the reference
+parts are CUI SWI20C-T-N (20 W USB PD, North American plug) and StarTech
 USB2CC1MNC.  For a run, buy a generic 20 W PD charger and 3 A cable by the
 hundred instead (about $5-7 and $1-2).  Whatever is bought must offer 5 V
 at 3 A on its CC line, because J13 has only 5.1k CC pull-downs; every USB
