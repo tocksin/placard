@@ -70,10 +70,10 @@ NO_VALUE = {"placard_parts:Expansion_Slot",
             "placard_std:Jumper_2_Open"}
 
 NOTES = {
-    "MF-RG300": "Part number from the footprint (Fuse_Bourns_MF-RG300)",
-    "BAT85": "Any BAT85 (Vishay, Nexperia, onsemi)",
-    "LTL2R3KRD-EM": "D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color",
-    "1N4148": "Any 1N4148 (Vishay, onsemi, Diodes Inc.)",
+    "MF-RG300-0": "Part number from the footprint (Fuse_Bourns_MF-RG300)",
+    "BAT85S-TAP": "Any BAT85 (Vishay BAT85S is the one Mouser stocks; Nexperia, onsemi)",
+    "WP7113ID": "D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color (was Lite-On LTL2R3KRD-EM, out of stock 2026-10-25)",
+    "1N4148-TAP": "Any 1N4148 (Vishay, onsemi, Diodes Inc.)",
     "Expansion slot": "Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer "
                       "runs with none.  Sullins EBC20DCAN not stock-checked (EXPANSION.md)",
 }
@@ -82,7 +82,8 @@ NOTES = {
 OPTIONAL = {("Main board", "EBC20DCAN")}
 
 # ---------------------------------------------------------------- prices
-# Unit price in US dollars at the line's quantity for one build, checked 2026-10-22.
+# Unit price in US dollars at the line's quantity for one build, checked 2026-10-22
+# (lines marked Mouser re-checked 2026-10-25 for the first parts order, hardware/order/ORDER.md).
 # Mouser first, Digi-Key where Mouser has no stock (Justin).  "Mouser" = read from
 # Mouser's price breaks; "est." = a typical price for the part named under
 # "Priced as", not checked line by line; parts neither distributor sells name the shop.
@@ -90,25 +91,25 @@ OPTIONAL = {("Main board", "EBC20DCAN")}
 PRICES = {
     "ATF22V10C-7PX": (2.99, "Mouser", ""),
     "ATF22V10C-10PU": (2.63, "Mouser", ""),
-    "SN74F377AN": (1.05, "Mouser", ""),            # 10+ break
-    "CD74HCT377E": (1.10, "est.", "TI CD74HCT377E; check stock"),
+    "SN74F377AN": (1.54, "Mouser", ""),
+    "CD74HCT377E": (1.29, "Mouser", ""),
     "CD74ACT273E": (2.45, "Mouser", ""),
     "SN74F541N": (1.49, "Mouser", ""),
     "AS7C256C-15PCN": (15.21, "Mouser", ""),
-    "SN74HCT574N": (1.41, "Mouser", ""),
+    "SN74HCT574N": (1.46, "Mouser", ""),
     "MCP1700-3302E/TO": (0.50, "Mouser", ""),
     "AT28C256-15PU": (12.38, "Mouser", ""),
-    "87715-9106": (2.81, "Mouser", ""),
-    "USB4125-GF-A": (0.61, "Mouser", "USB4125-GF-A-0190 (the stocked packaging of the same part)"),
+    "87715-9106": (2.88, "Mouser", ""),
+    "USB4125-GF-A-0190": (0.61, "Mouser", ""),
     "KMDGX-6S/6S-S4N": (3.72, "Mouser", ""),
-    "MF-RG300": (0.73, "Mouser", "MF-RG300-0"),
+    "MF-RG300-0": (0.73, "Mouser", ""),
     "ANT11TFHQE": (4.50, "est.", "Digi-Key; Mouser has no stock"),
-    "G5LE-1 DC5": (1.80, "est.", "Omron G5LE-1 DC5"),
-    "PTS645VL58-2 LFS": (0.25, "est.", "C&K PTS645VL58-2 LFS"),
-    "LTL2R3KRD-EM": (0.25, "est.", "Lite-On LTL2R3KRD-EM"),
-    "SA5.0A": (0.40, "est.", "Littelfuse SA5.0A, 500 W TVS, DO-15 axial"),
-    "BAT85": None,                                  # by quantity, below
-    "1N4148": None,                                 # by quantity, below
+    "G5LE-1 DC5": (1.85, "Mouser", "G5LE-1-DC5"),
+    "PTS645VL58-2 LFS": (0.43, "est.", "Digi-Key; Mouser has no stock until 12/23/2026"),
+    "WP7113ID": (0.21, "Mouser", ""),
+    "SA5.0A": (0.64, "Mouser", ""),
+    "BAT85S-TAP": None,                             # by quantity, below
+    "1N4148-TAP": None,                             # by quantity, below
     "M3AAA-2006J": (6.50, "est.", "Digi-Key (3M 20-way assemblies $6-7.50)"),
     "ECS-100A-251.7": (4.06, "Digi-Key", "Mouser has no stock (Justin, 2026-10-22)"),
     "Box header": (0.60, "est.", "Wurth 61202021621"),
@@ -117,10 +118,10 @@ PRICES = {
     "54-00174": (0.73, "Digi-Key", "Justin, 2026-10-22"),
     "A-HDF 15 A-KG/T": (1.36, "Digi-Key", "Justin, 2026-10-22"),
     "Expansion slot": (4.50, "est.", "Sullins EBC20DCAN"),
-    "Resistor network": (0.40, "est.", "Bourns 4609X-101 series"),
-    "Ceramic capacitor, 5 mm pitch|1u": (0.50, "est.", "KEMET C330C105K5R5TA"),
-    "Ceramic capacitor, 5 mm pitch|22u": (1.00, "est.", "TDK FG24X5R1A226MRT06"),
-    "Ceramic capacitor, 5 mm pitch|15n C0G": (0.40, "est.", "KEMET C320C153K1G5TA"),
+    "Resistor network": (0.39, "Mouser", "Bourns 4609X-101-103LF"),
+    "Ceramic capacitor, 5 mm pitch|1u": (0.57, "Mouser", "KEMET C330C105K5R5TA"),
+    "Ceramic capacitor, 5 mm pitch|22u": (1.00, "est.", "TDK FG24X5R1A226MRT06 (Digi-Key; Mouser does not list it)"),
+    "Ceramic capacitor, 5 mm pitch|15n C0G": (0.58, "Mouser", "TDK FG24C0G1H153JNT06 (KEMET C320C153K1G5TA non-stocked)"),
     "Electrolytic capacitor": (0.35, "est.", "Panasonic FR series"),
     "Pin header": (0.15, "est.", "Sullins PREC002SAAN-RC"),
     "Jumper shunt": (0.10, "est.", "Sullins QPC02SXGN-RC"),
@@ -140,14 +141,14 @@ def tier(qty, one, ten, hundred):
 def price(d):
     """(unit, source, priced as) for a BOM line, at its quantity."""
     q = d["qty"]
-    if d["mpn"] == "BAT85":
-        return tier(q, 0.16, 0.10, 0.06), "est.", "Vishay BAT85"
-    if d["mpn"] == "1N4148":
-        return tier(q, 0.10, 0.05, 0.03), "est.", "Vishay 1N4148"
+    if d["mpn"] == "BAT85S-TAP":
+        return tier(q, 0.50, 0.22, 0.13), "Mouser", "Vishay BAT85S-TAP"
+    if d["mpn"] == "1N4148-TAP":
+        return tier(q, 0.26, 0.11, 0.05), "Mouser", "Vishay 1N4148-TAP"
     if d["desc"].startswith("Resistor, metal film"):
         return tier(q, 0.10, 0.04, 0.02), "est.", "Yageo MFR-25FBF52 series"
     if d["desc"].startswith("Ceramic capacitor") and d["value"] == "100n":
-        return tier(q, 0.27, 0.18, 0.09), "est.", "KEMET C320C104K5R5TA"
+        return tier(q, 0.23, 0.10, 0.09), "Mouser", "TDK FG28X7R1H104KNT00 (KEMET C320C104K5R5TA is $0.66 at Mouser)"
     if d["mpn"] in PRICES:
         return PRICES[d["mpn"]]
     key = d["desc"] + "|" + d["value"]
