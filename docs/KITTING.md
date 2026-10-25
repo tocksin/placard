@@ -163,6 +163,23 @@ labeling 21 chips takes about 10 to 15 minutes a kit.
    BOM from the KiCad project, pick the oscillator and regulator, and
    write a one-page chip label list (part, image, revision, socket).
 
+## Add-ons
+
+**USB-C power supply** (option, Justin 2026-10-25; price in
+[KIT_PRICING.md](KIT_PRICING.md)): a 5 V 3 A USB-C charger and a 1 m
+USB-C to USB-C cable for J13.  The reference parts are the optional BOM
+lines CUI SWI20C-T-N (20 W USB PD, North American plug) and StarTech
+USB2CC1MNC.  For a run, buy a generic 20 W PD charger and 3 A cable by the
+hundred instead (about $5-7 and $1-2).  Whatever is bought must offer 5 V
+at 3 A on its CC line, because J13 has only 5.1k CC pull-downs; every USB
+PD charger does, but check a sample on a board before the bulk order.
+They come from a different supplier than the BOM, so the kitter receives
+them as their own carton and packs one charger and one cable in the kit's
+box for orders that include the option (no extra fulfilment item).  Chargers
+need the usual safety marks (UL/ETL for North America); a buyer outside it
+needs a charger with their own plug, so offer the option only where the
+plug fits or source a multi-plug model.
+
 ## Sources
 
 - Digi-Key programming services:
