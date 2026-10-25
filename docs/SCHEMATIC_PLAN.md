@@ -27,7 +27,7 @@ has one PCB).
 | 5 | ALU and registers | U5, U6 ALU, U19 AC, U20 X, U21 Y | none |
 | 6 | Data bus | U18 D register, U26 D source F541, U27 AC source F541 | 8 series resistors (source bus to data bus), 10k read-bus pull-up SIP |
 | 7 | Memory and I/O decode | U11 memory control, U12 I/O decode, U25 map register, U31, U32 RAM | cartridge slot (Molex 87715-9106), /CART pull-up |
-| 8 | Video timing | U13 H counter, U14 V counter, U15 Sync, U35 audio/mode slot PLD, U29 line read F541 | strap S4 (audio PLD) |
+| 8 | Video timing | U13 H counter, U14 V counter, U15 Sync, U35 audio/mode slot PLD, U29 line read F541 | strap S4 (audio PLD), sync series resistors R61/R62 (47 ohm, 2026-10-25) |
 | 9 | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register | VGA resistor DAC (8 resistors) and DE-15, R-2R ladder, filter, audio line out jack J6, strap S5 (line code), row tint R56-R58 + D9-D17 (2026-10-22) |
 | 10 | Shared port | U38 port PLD (latch and reads), U42 PS/2 receiver PLD | J2/J3 SNES, J4 SD (dividers R42-R47, MISO pull-up), J5 stacked dual PS/2, mouse + keyboard (hold diodes D2/D3/D6, inhibit diodes D5/D19, RXCLK OR diodes D1/D4 with R60 22k, 4.7k pull-ups), pad DATA pull-ups |
 | 11 | Expansion slots | none | four 2 x 20 card-edge slots, SEL resistors (1k) |
@@ -219,7 +219,7 @@ same.
   (64K) and C1-C3 (32K) go with their Un the same way.
 - **Other parts** (Justin, 2026-10-22): numbered from 1 for each kind of
   part and counted up across the board, sheet by sheet, with no gaps and
-  no thousands: R1-R60, RN1, D1-D19, JP1-JP2, F1, NT1 on the main board;
+  no thousands: R1-R62, RN1, D1-D19, JP1-JP2, F1, NT1 on the main board;
   capacitors other than the decoupling ones count on from C41 (C41,
   C43-C47: C42 became U42's decoupler on 2026-10-25 and the regulator's
   output capacitor moved to C47, keeping its uuid).  IO.md's R6-R11 (the
@@ -357,6 +357,13 @@ Decisions made while drawing (2026-10-20):
   for the machine to work.  The diodes after them were renumbered (D26 is
   now D8, D27-D35 are now D9-D17), keeping their symbol uuids so Update PCB
   from Schematic renames their footprints.  D7 (the TVS on VBUS) stays.
+- **Sync series resistors** (Justin, 2026-10-25): /HSYNC (U13 pin 21) and
+  /VSYNC (U15 pin 18) reach J7 through R61 and R62, 47 ohm each, placed
+  next to the PLD.  They slow the edges going down the VGA cable (less
+  ringing and radiated noise) and limit the current if a sync pin is
+  shorted.  The nets after them are /VGA_HSYNC and /VGA_VSYNC.  47 ohm
+  keeps a monitor that terminates sync in 75 ohm above 3 V, and shares
+  the BOM line with R5-R12.
 
 **Still to do:** a KiCad 8 ERC (the container's KiCad 7.0 command line has
 no ERC; open the project in KiCad 8 or 9 and run Inspect > Electrical Rules
