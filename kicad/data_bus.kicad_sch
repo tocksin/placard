@@ -1546,7 +1546,7 @@
   (bus (pts (xy 300.99 163.83) (xy 300.99 162.56)) (stroke (width 0) (type default)) (uuid b0cd4630-ad5d-5580-bc38-3f4abbf3851d))
   (bus (pts (xy 313.69 163.83) (xy 313.69 162.56)) (stroke (width 0) (type default)) (uuid 56a45a46-a763-5c07-bf2c-fc01bbdeb1e6))
   (bus (pts (xy 320.04 162.56) (xy 322.58 162.56)) (stroke (width 0) (type default)) (uuid de3c09b9-c5c5-56fc-af92-9fb80d10ed46))
-  (global_label "SRC[0..7]" (shape bidirectional) (at 322.58 162.56 0) (fields_autoplaced) (effects (font (size 2 2)) (justify left)) (uuid 9b1f6fab-ed7f-5a39-a47a-c89924a999ce) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 322.58 162.56 0) (effects (font (size 2 2)) (justify left) hide)))
+  (label "SRC[0..7]" (at 322.58 162.56 0) (fields_autoplaced) (effects (font (size 2 2)) (justify left bottom)) (uuid 9b1f6fab-ed7f-5a39-a47a-c89924a999ce))
   (bus (pts (xy 134.62 189.23) (xy 132.08 189.23)) (stroke (width 0) (type default)) (uuid aff6fe3b-e6d0-5240-8ce3-bdd2b616864b))
   (junction (at 134.62 189.23) (diameter 0) (color 0 0 0 0) (uuid b57d3409-711a-5395-b107-93a35872c641))
   (global_label "AC[0..7]" (shape bidirectional) (at 132.08 189.23 180) (fields_autoplaced) (effects (font (size 2 2)) (justify right)) (uuid 6e130cfa-0719-54fd-a33e-4cee66eb9c04) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 132.08 189.23 0) (effects (font (size 2 2)) (justify left) hide)))
