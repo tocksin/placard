@@ -53,10 +53,10 @@ in `src/`.
 
 Every part carries Manufacturer and MPN fields (empty where no part number
 is chosen yet), set from the `MPN` table in `src/scripts/gen_kicad_schematic.py`,
-so KiCad's BOM export lists them.  `src/scripts/gen_bom.py` writes the grouped
-bill of materials for all three boards, [docs/BOM.md](../docs/BOM.md) and
-`docs/BOM.csv`, including the sockets and keyboard parts that are not on the
-schematic.
+so KiCad's BOM export lists them.  `src/scripts/gen_bom.py` writes one grouped
+bill of materials per assembly (main board, 64K and 32K cartridges, case),
+indexed in [docs/BOM.md](../docs/BOM.md), each as .md and .csv, including the
+bare PCBs, sockets, shells and screws that are not on the schematic.
 
 Backups, autosaves, lock files, `*.kicad_prl` (per-user view settings) and
 `fp-info-cache` are git-ignored.
