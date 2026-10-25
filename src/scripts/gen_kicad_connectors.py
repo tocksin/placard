@@ -28,7 +28,8 @@ have no edge.
 
 Copies of KiCad's own footprints, unchanged but for the 3D model path (and,
 for J4 and J7, the silk stopped inside the board edge where they overhang it):
-SD_Kyocera_145638009511859+ (J4), Fuse_Bourns_MF-RG300 (F1),
+SD_Hirose_DM1AA_SF_PEJ82 (J4; its pads renamed to the SD_Card symbol's pins: SW 10,
+WP 11, shield SH 12 front / 13 back, CP left without a pin), Fuse_Bourns_MF-RG300 (F1),
 SW_Tactile_SPST_Angled_PTS645Vx58-2LFS (SW2), DSUB-15-HD_Female_Horizontal_...
 (J7 VGA).
 
@@ -403,14 +404,19 @@ def trim_silk_past(s, edge):
     return "\n".join(out)
 
 
-def stock(lib, name, note, edge=None):
+def stock(lib, name, note, edge=None, rename=None):
     """A copy of one of KiCad's own footprints, unchanged except that its 3D model is
     the copy in kicad/lib/placard.3dshapes (KiCad's own model, or a generated one
     where KiCad's library names a model it does not have), and, given edge, its
-    silk stops inside the board edge at y = edge (trim_silk_past)."""
+    silk stops inside the board edge at y = edge (trim_silk_past).  rename maps
+    (pad name, pad y) to a new name, so the pads match the symbol's pin numbers."""
     with open(os.path.join(STOCK, lib + ".pretty", name + ".kicad_mod")) as fh:
         s = fh.read()
     s = re.sub(r" \(tstamp [0-9a-f-]+\)", "", s)
+    for (old, y), new in (rename or {}).items():
+        s, n = re.subn(r'\(pad "%s" (\w+ \w+ \(at \S+ %s\))' % (re.escape(old), re.escape(y)),
+                       r'(pad "%s" \1' % new, s)
+        assert n in (1, 2), (old, y)
     if edge is not None:
         s = trim_silk_past(s, edge)
         note += ", silk stopped %s mm inside the board edge at y = %s" % (f(SILK_EDGE_GAP), f(edge))
@@ -431,8 +437,11 @@ def main():
     toggle()
     audio_jack()
     usb_c()
-    # J4 sits with its card opening 17.5 mm past its origin over the left board edge
-    stock("Connector_Card", "SD_Kyocera_145638009511859+", "a generated 3D model (KiCad has none)", edge=17.5)
+    # J4 (Hirose DM1AA-SF-PEJ(82); the Kyocera 5638 went obsolete 2026-10-25) sits with
+    # its card opening 15.45 mm past its origin on the left board edge
+    stock("Connector_Card", "SD_Hirose_DM1AA_SF_PEJ82", "a generated 3D model (KiCad has none) and its "
+          "pads renamed to the SD_Card symbol's pins (SW 10, WP 11, SH 12/13)", edge=15.45,
+          rename={("SW", "8"): "10", ("WP", "5.4"): "11", ("SH", "10.45"): "12", ("SH", "-8.2"): "13"})
     stock("Fuse", "Fuse_Bourns_MF-RG300", "a generated 3D model (KiCad has none)")
     stock("Button_Switch_THT", "SW_Tactile_SPST_Angled_PTS645Vx58-2LFS", "KiCad's 3D model, copied into the project")
     stock("Connector_Dsub", "DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm",
