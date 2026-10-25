@@ -33,7 +33,6 @@ const acr = new THREE.MeshPhysicalMaterial({color: 0xe8f4ff, metalness: 0, rough
   opacity: 0.16, depthWrite: false, side: THREE.DoubleSide});
 const acrCap = acr.clone(); acrCap.opacity = 0.22;
 const edgeMat = new THREE.LineBasicMaterial({color: 0x7fb4d8, transparent: true, opacity: 0.9});
-const plateMat = new THREE.MeshStandardMaterial({color: V.alu || 0xc3c7cd, metalness: 0.5, roughness: 0.5});
 function mat(c, m = 0.1, r = 0.6) { return new THREE.MeshStandardMaterial({color: c, metalness: m, roughness: r}); }
 
 const aluEdge = new THREE.LineBasicMaterial({color: 0x4a4f56, transparent: true, opacity: 0.55});
@@ -65,7 +64,7 @@ if (!V.hide?.includes('board')) {
   const colors = {J7: 0x9aa0a6, J13: 0xb0b4b8, J6: 0x222222, J5: 0x5a5f66, J8: 0x1a1a1a, J9: 0x222222, J10: 0x222222,
     J11: 0x222222, J12: 0x222222, SW1: 0x8a8f96, SW2: 0x333333, J4: 0xa8acb0, J2: 0x3a3a3a, J3: 0x3a3a3a, F1: 0xd9b23a};
   for (const [ref, p] of Object.entries(B.parts)) {
-    if (colors[ref] !== undefined) { await stl('model_' + ref, mat(colors[ref], ref === 'J7' || ref === 'J13' || ref === 'J4' || ref === 'SW1' ? 0.8 : 0.1, 0.5), dzb); continue; }
+    if (colors[ref] !== undefined && B.models.includes(ref)) { await stl('model_' + ref, mat(colors[ref], ref === 'J7' || ref === 'J13' || ref === 'J4' || ref === 'SW1' ? 0.8 : 0.1, 0.5), dzb); continue; }
     if (!p.crt) continue;
     const [x0, y0, x1, y1] = p.crt; const pad = 0.6;
     if (/^U\d/.test(ref)) {
@@ -86,33 +85,16 @@ if (!V.hide?.includes('board')) {
 if (!V.hide?.includes('lower')) await stl('lower_shell', alu, ez('lower'), V.aluEdges ? 'alu' : false);
 if (!V.hide?.includes('upper')) await stl('upper_shell', alu, ez('upper'), V.aluEdges ? 'alu' : false);
 if (!V.hide?.includes('top')) await stl('acrylic_top', acr, ez('top'), true);
-if (V.bay === 'blank') await stl('keyboard_blank', acr, ez('bay'), true);
-if (V.bay === 'keyboard') {
-  const dz = ez('bay');
-  await stl('keyboard_plate', plateMat, dz);
-  // keyboard frame: x across, y up the slope, z out of the plate's top face
-  const K = new THREE.Group(); K.position.set(0, T, B.PT0 + dz); K.rotation.x = B.KB_TILT * Math.PI / 180; root.add(K);
-  const kbox = (x0, y0, z0, x1, y1, z1, m) => { const g = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m);
-    g.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); K.add(g); };
-  const [pw, ps0, ps1] = B.KB_PCB;
-  kbox(B.W / 2 - pw / 2, ps0, -B.MX_PCB - 1.6, B.W / 2 + pw / 2, ps1, -B.MX_PCB, mat(0x101010, 0.1, 0.6));
-  const capC = V.caps || [0x2c2f33, 0x9aa1a8];
-  for (const [x, y, w] of B.keys) {
-    const ww = w * 19.05 - 1.2, hh = 19.05 - 1.2;
-    const accent = w > 1.2 && w < 6;
-    const cm = mat(accent ? capC[1] : capC[0], 0.05, 0.75);
-    kbox(x - ww / 2, y - hh / 2, 6.8, x + ww / 2, y + hh / 2, 14.2, cm);
-    kbox(x - ww / 2 + 2.2, y - hh / 2 + 2.5, 14.2, x + ww / 2 - 2.2, y + hh / 2 - 1.5, B.KEYCAP, cm);
-    kbox(x - 7, y - 7, 0, x + 7, y + 7, 6.6, mat(0x111111, 0.1, 0.6));
-  }
-}
-await stl('keyboard_rail', alu, ez('lower'));
-for (const g of ['garage_1', 'garage_2']) await stl(g, alu, ez('upper'));
-await stl('magnets', mat(0x9a9ea4, 0.9, 0.3), ez('covers'));
-for (const n of (V.stow || [])) await stl(n, acrCap, ez('upper'), true, B.stow[n]);
-const cov = V.covers || [1, 2, 3, 4];
-for (const i of cov) await stl('slot_cover_' + i, acrCap, ez('covers'), true);
-if (V.cartCover) await stl('cart_cover', acrCap, ez('covers'), true);
+await stl('feet', mat(0x1e1e1e, 0.0, 0.9), ez('lower'));
+await stl('parking_discs', mat(0x6d7178, 0.8, 0.35), ez('lower'));
+const magMat = mat(0x9a9ea4, 0.9, 0.3);
+await stl('magnets_top', magMat, ez('top'));
+// covers in place (with their cap magnets), and covers parked under the floor
+const cov = (V.covers || [1, 2, 3, 4]).map(i => 'slot_cover_' + i);
+if (V.cartCover) cov.push('cart_cover');
+for (const n of cov) { await stl(n, acrCap, ez('covers'), true); await stl('magnets_' + n, magMat, ez('covers')); }
+for (const n of (V.parked || [])) {
+  await stl(n + '_parked', acrCap, ez('parked'), true); await stl('magnets_' + n + '_parked', magMat, ez('parked')); }
 // ---- installed cartridge / cards (shell = keepout less 1 mm)
 const shellMat = mat(V.shell || 0x2b2d31, 0.1, 0.55);
 if (V.cart) { const c = B.parts.J8.crt; box(c[0] + 1, c[1] + 1, 0, c[2] - 1, c[3] - 1, 71, shellMat, ez('board')); }
