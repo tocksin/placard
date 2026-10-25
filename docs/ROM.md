@@ -249,7 +249,11 @@ clocks.  It reads the boot mode byte at xFC00 after the expansion card scan
 below.
 
 **Expansion card scan (Apple II style):** the boot writes map = 01 (the
-zero page reads RAM) and, unless Esc is held, looks at slots 4, 3, 2 and 1.
+zero page reads RAM) and looks at slots 4, 3, 2 and 1.  When it finds a
+valid card it waits up to about a second for a PS/2 keyboard to send Esc
+(`esc_wait`: the keyboard's clock is let go and the receiver read; a
+keyboard that is still starting up sends AA first, which buys it a little
+longer); Esc skips the cards.  With no card found there is no wait.
 A card whose first bytes are "PLC", card ID, code length n (1-90) and a
 checksum (the sum of the n code bytes) has its code copied to RAM x0100 and
 called with AC = slot number, R1:R0 = the slot's base address, SP = FE and

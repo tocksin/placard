@@ -35,7 +35,7 @@
 ;     python3 gen_menu_rom.py                 menu_data.asm, menu.hex (the whole ROM)
 ;     python3 test_menu.py                    runs it in placard_sim
 ;
-; Date: 10/22/2026
+; Date: 10/25/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -178,6 +178,12 @@ launch:
     ld   [m_t], y
     jmp  ac
 ln_ram:
+    ld   MENU_BLK >> 8, y       ; the RAM program's hook reads the PS/2
+    ld   MB_KB, x               ; receiver itself (menu_hook.py): let the
+    ld   0x00, [y,x]            ; keyboard send
+    ld   PORT, y
+    ld   PORT_RX, x
+    ld   P_KFREE, [y,x]
     ld   loader >> 8, y
     jmp  loader
 

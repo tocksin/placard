@@ -7,17 +7,17 @@ test_io.py - test the I/O drivers (placard_io.asm) in the simulator
 
 Each routine is called through the standard CALL sequence from a small
 driver, as test_lib.py does, with the shared port modeled by io_devices.py:
-the key matrix, two SNES pads, an SD card and a PS/2 mouse.  Besides the
-results, the tests check the port rules from docs/IO.md: every routine leaves
-the latch at rest (P_IDLE, EB), and /CS (which also frees the mouse's
-clock) and latch bit 4 (which frees the PS/2 keyboard's clock) are never
-high for 50 us or more at a time outside the routines that listen, so a
-device can't start sending while nobody listens.  The PS/2 keyboard
-(placard_ps2.asm) is tested with io_devices.Ps2Keyboard, alone and with
-the mouse on the shared DATA line.
+the PS/2 receiver PLD, two SNES pads, an SD card, a PS/2 mouse and a PS/2
+keyboard.  Besides the results, the tests check the port rules from
+docs/IO.md: every routine leaves the latch at the value in PS2_LSN (the
+listened device let go, the receiver armed), and a write that is not a
+re-arm (x5200, x5201) never lifts /CS (the mouse's clock hold) or latch
+bit 4 (the keyboard's) for 50 us or more, so a device can't start sending
+into a receiver that isn't armed for it.  The keyboard (placard_ps2.asm)
+is tested alone and with the mouse on the shared DATA line.
 It also checks con_gets (line input) and mouse_move (placard_input.asm).
 
-Date: 10/22/2026
+Date: 10/25/2026
 """
 
 import argparse
@@ -32,9 +32,9 @@ import io_devices as iod    # noqa: E402
 
 ROUTINES = ['port_init', 'kbd_scan', 'kbd_getc', 'kbd_key', 'pad_read',
             'spi_byte', 'sd_init', 'sd_read', 'sd_write', 'mouse_init', 'mouse_poll',
-            'con_clear', 'con_gets', 'mouse_move', 'wait_frames_io']
+            'con_clear', 'con_gets', 'mouse_move', 'wait_frames_io', 'ps2_poll']
 ARG_AC, OUT_AC, OUT_X = 0x20, 0x21, 0x22
-P_IDLE = 0xEB
+P_IDLE, P_FREE, P_KFREE = 0xEB, 0xEF, 0xFB
 CS_LIMIT = iod.us(50)
 
 
@@ -66,7 +66,8 @@ def build_source():
 
 
 class LoggingPort(iod.SharedPort):
-    """the shared port, also timing how long /CS stays high"""
+    """the shared port, also timing how long a write that is not a re-arm
+    leaves /CS or latch bit 4 high"""
 
     def __init__(self):
         iod.SharedPort.__init__(self)
@@ -79,6 +80,10 @@ class LoggingPort(iod.SharedPort):
         cs_was = (self.latch >> 2) & 1
         k_was = (self.latch >> 4) & 1
         iod.SharedPort.write(self, ad, v, t)
+        if ad & 2:
+            # a re-arm: the device is let go to send into the receiver
+            self.cs_high_at = self.k_high_at = None
+            return
         cs = (v >> 2) & 1
         if cs and not cs_was:
             self.cs_high_at = t
@@ -120,15 +125,14 @@ class Rig:
         assert r == 'stop', '%s did not return (%s, PC=%04X)' % (name, r, cpu.pc)
         assert cpu.mem[self.syms['SP']] == sp, '%s moved SP' % name
         if check_rest:
-            assert self.port.latch == P_IDLE, '%s left the latch at %02X' % (name, self.port.latch)
-            # sd_init is the one exception (the card's start clocks), and
-            # the mouse routines, which listen to the mouse while /CS is high
-            assert name in ('sd_init', 'wait_frames_io') or name.startswith('mouse') or \
-                self.port.cs_longest < CS_LIMIT, \
+            lsn = self.zp('PS2_LSN')
+            assert lsn in (P_IDLE, P_FREE, P_KFREE), '%s left PS2_LSN at %02X' % (name, lsn)
+            assert self.port.latch == lsn, '%s left the latch at %02X, PS2_LSN %02X' % (
+                name, self.port.latch, lsn)
+            # sd_init is the one exception (the card's start clocks)
+            assert name == 'sd_init' or self.port.cs_longest < CS_LIMIT, \
                 '%s held /CS high for %d clocks' % (name, self.port.cs_longest)
-            # the keyboard's clock: only the routines that talk to it
-            assert name in ('port_init', 'kbd_scan', 'wait_frames_io') or \
-                self.port.k_longest < CS_LIMIT, \
+            assert self.port.k_longest < CS_LIMIT, \
                 '%s let the PS/2 keyboard go for %d clocks' % (name, self.port.k_longest)
         self.clocks = cpu.clocks - c0
         return cpu.mem[OUT_AC]
@@ -149,8 +153,12 @@ K_CTRL, K_LSHIFT, K_RSHIFT, K_CAPS = 28, 41, 52, 54
 K_FN, K_RCTRL, K_BKSP, K_LEFT, K_ESC = 55, 59, 13, 61, 0
 
 
-def key(k):
-    return (k >> 3, k & 7)
+def frame(rig, n=1):
+    """n frames of other work: the time passes and FRAME_LO moves on, as
+    frame_poll would"""
+    for _ in range(n):
+        rig.cpu.clocks += iod.us(16_700)
+        rig.cpu.mem[rig.syms['FRAME_LO']] = (rig.cpu.mem[rig.syms['FRAME_LO']] + 1) & 0xFF
 
 
 def drain(rig):
@@ -162,127 +170,15 @@ def drain(rig):
         out += chr(c)
 
 
-def test_kbd_every_key():
-    rig = Rig()
-    worst = cs_worst = 0
-    for k in range(64):
-        rig.port.keys = {key(k)}
-        rig.call('kbd_scan')
-        worst = max(worst, rig.clocks)
-        cs_worst = max(cs_worst, rig.port.cs_longest)
-        rig.port.keys = set()
-        rig.call('kbd_scan')
-        got = drain(rig)
-        want = KEYS[k].replace('\x00', '')
-        if k == K_CAPS:
-            want = ''
-            rig.port.keys = {key(k)}            # turn caps lock off again
-            rig.call('kbd_scan')
-            rig.port.keys = set()
-            rig.call('kbd_scan')
-        assert got == want, 'key %d: %r, want %r' % (k, got, want)
-    return 'scan with one new key %d clocks; /CS high at most %d clocks (%.1f us)' % (
-        worst, cs_worst, cs_worst / 25.175)
-
-
 def test_kbd_idle_scan():
     rig = Rig()
+    frame(rig)
     rig.call('kbd_scan')
     clocks = rig.clocks
     assert drain(rig) == ''
     assert all(rig.cpu.mem[0xA0 + c] == 0xFF for c in range(8))
-    return 'scan with no key %d clocks' % clocks
-
-
-def test_kbd_shift_ctrl_caps():
-    rig = Rig()
-    for sh in (K_LSHIFT, K_RSHIFT):
-        for k in range(64):
-            if k in (K_LSHIFT, K_RSHIFT, K_CAPS, K_CTRL):
-                continue
-            rig.port.keys = {key(sh)}
-            rig.call('kbd_scan')
-            rig.port.keys = {key(sh), key(k)}
-            rig.call('kbd_scan')
-            rig.port.keys = set()
-            rig.call('kbd_scan')
-            got = drain(rig)
-            assert got == KEYS_SH[k].replace('\x00', ''), 'shift+%d: %r' % (k, got)
-    # Ctrl: control codes
-    rig.port.keys = {key(K_CTRL)}
-    rig.call('kbd_scan')
-    rig.port.keys = {key(K_CTRL), key(44)}      # c
-    rig.call('kbd_scan')
-    rig.port.keys = set()
-    rig.call('kbd_scan')
-    assert drain(rig) == '\x03'
-    # the right Ctrl too
-    for keys in ({key(K_RCTRL)}, {key(K_RCTRL), key(44)}, set()):
-        rig.port.keys = keys
-        rig.call('kbd_scan')
-    assert drain(rig) == '\x03'
-    # Caps Lock: letters only
-    for k in (K_CAPS, 29, 1, K_CAPS, 29):       # caps on, a, 1, caps off, a
-        rig.port.keys = {key(k)}
-        rig.call('kbd_scan')
-        rig.port.keys = set()
-        rig.call('kbd_scan')
-    assert drain(rig) == 'A1a'
-    # caps lock and Shift together give lower case
-    for keys in ({key(K_CAPS)}, set(), {key(K_LSHIFT)}, {key(K_LSHIFT), key(29)}, set(),
-                 {key(K_CAPS)}, set()):
-        rig.port.keys = keys
-        rig.call('kbd_scan')
-    assert drain(rig) == 'a'
-
-
-def test_kbd_fn():
-    rig = Rig()
-
-    def chord(*ks):
-        # hold the modifiers, press the last key, let go
-        mods = {key(k) for k in ks[:-1]}
-        for keys in (mods, mods | {key(ks[-1])}, set()):
-            rig.port.keys = keys
-            rig.call('kbd_scan')
-        return drain(rig)
-    assert chord(K_FN, K_BKSP) == '\x7f'          # Delete
-    assert chord(K_FN, K_ESC) == '`'
-    assert chord(K_FN, K_LSHIFT, K_ESC) == '~'
-    assert chord(K_FN, K_RSHIFT, K_ESC) == '~'
-    assert chord(K_FN, K_LEFT) == '\x15'          # Home
-    assert chord(K_FN, 29) == 'a'                  # other keys as without Fn
-    assert chord(K_FN, K_LSHIFT, 29) == 'A'
-    assert chord(K_BKSP) == '\x08' and chord(K_ESC) == '\x1b' and chord(K_LEFT) == '\x13'
-    for k in (K_FN, K_RCTRL, 56, 60):              # Fn, right Ctrl, right Alt, spare: no character
-        assert chord(k) == '', k
-
-
-def test_kbd_held_rollover_buffer():
-    rig = Rig()
-    # a held key gives one character
-    rig.port.keys = {key(29)}
-    for _ in range(5):
-        rig.call('kbd_scan')
-    assert drain(rig) == 'a'
-    # several new keys in one scan, all columns
-    rig.port.keys = {key(k) for k in (1, 15, 16, 31, 32, 48, 58)}
-    rig.call('kbd_scan')
-    assert drain(rig) == '1qwdfm '
-    # the buffer holds 7, the rest are dropped
-    rig.port.keys = set()
-    rig.call('kbd_scan')
-    rig.port.keys = {key(k) for k in range(1, 11)}   # 1-9, 0
-    rig.call('kbd_scan')
-    assert drain(rig) == '1234567'
-    # KBD_NOW shows held keys
-    rig.port.keys = {key(29), key(63)}
-    rig.call('kbd_scan')
-    now = [rig.cpu.mem[0xA0 + c] for c in range(8)]
-    want = [0xFF] * 8
-    want[3] &= ~(1 << 5)
-    want[7] &= ~(1 << 7)
-    assert now == want, now
+    assert clocks < 400, clocks
+    return 'kbd_scan with no keyboard %d clocks' % clocks
 
 
 def test_kbd_key_direct():
@@ -314,6 +210,45 @@ def test_pad_read():
     m = rig.cpu.mem
     assert (m[0x10] | m[0x11] << 8, m[0x12] | m[0x13] << 8) == (0x0801, 0)
     return 'pad_read %d clocks; /CS high at most %.1f us' % (clocks, rig.port.cs_longest / 25.175)
+
+
+def test_pad_read_with_ps2():
+    # the pads clock while a keyboard byte is half in and a mouse packet
+    # waits: nothing is lost or garbled
+    kb = iod.Ps2Keyboard()
+    mouse = iod.Ps2Mouse(bat_ms=50)
+    rig = Rig(kbd=kb, mouse=mouse)
+    assert rig.call('mouse_init', max_steps=20_000_000) == 0
+    codes = set2_codes(rig)
+    rig.port.pads[0].buttons = 0x0123
+    typed = ''
+    moved = [0, 0]
+    for i in range(12):
+        if i % 4 == 0:
+            kb.press(codes[29])
+            kb.release(codes[29])
+            mouse.move(3, -2)
+        frame(rig)
+        # the pads are read at a different moment each time
+        rig.cpu.clocks += iod.us(37 * i)
+        rig.call('pad_read')
+        m = rig.cpu.mem
+        assert m[0x10] | m[0x11] << 8 == 0x0123
+        rig.call('kbd_scan')
+        typed += drain(rig)
+        if rig.call('mouse_poll'):
+            moved[0] += signed(rig.zp('MOUSE_DX'))
+            moved[1] += signed(rig.zp('MOUSE_DY'))
+    for _ in range(12):
+        frame(rig)
+        rig.call('kbd_scan')
+        typed += drain(rig)
+        if rig.call('mouse_poll'):
+            moved[0] += signed(rig.zp('MOUSE_DX'))
+            moved[1] += signed(rig.zp('MOUSE_DY'))
+    assert typed == 'aaa', typed
+    assert moved == [9, 6], moved
+    assert rig.port.collisions == 0
 
 
 # ---------------------------------------------------------------------------
@@ -398,10 +333,21 @@ def mouse_rig(**kw):
 
 
 def poll(rig):
-    rig.cpu.clocks += iod.us(16_700)             # a frame of other work
+    frame(rig)
     ac = rig.call('mouse_poll')
     m = rig.cpu.mem
     return ac, m[0xB5], signed(m[0xB6]), signed(m[0xB7])
+
+
+def poll_all(rig, frames=6):
+    """polls over some frames; the movement added up, the last buttons"""
+    dx = dy = 0
+    b = None
+    for _ in range(frames):
+        ac, bt, x, y = poll(rig)
+        if ac:
+            dx, dy, b = dx + x, dy + y, bt
+    return b, dx, dy
 
 
 def test_mouse_none():
@@ -430,27 +376,33 @@ def test_mouse_init_poll():
         assert got == (1,) + want, '%s -> %s' % ((dx, dy, b), got)
         worst = max(worst, rig.clocks)
         assert poll(rig)[0] == 0
-    # movement adds up while the mouse is held off
+    assert mouse.aborts == 0, mouse.aborts
+    # movement adds up while the mouse is held off (pad_read holds it, in
+    # the middle of a byte here: the mouse sends the packet again), and
+    # over the packets that come between two polls (held to +-127)
     mouse.move(10, 0)
     rig.call('kbd_scan')
     mouse.move(10, -5)
     rig.call('pad_read')
-    assert poll(rig) == (1, 0, 20, 5)
-    assert mouse.aborts == 0, mouse.aborts
+    assert poll_all(rig) == (0, 20, 5)
+    for _ in range(3):
+        mouse.move(100, -100)
+        rig.cpu.clocks += iod.us(12_000)
+    assert poll_all(rig) == (0, 127, 127)
     return 'poll: %d clocks idle, %d with a packet' % (idle, worst)
 
 
 def test_mouse_late_start():
     # mice that start sending near the end of the poll's 1 ms window
     out = []
-    for lat in range(0, 900, 60):
+    for lat in range(0, 3000, 200):
         rig = mouse_rig(latency_us=lat)
         mouse = rig.port.mouse
         mouse.move(9, 9, 1)
         r = poll(rig)
         assert r == (1, 1, 9, -9), (lat, r)
         assert mouse.aborts == 0, (lat, mouse.aborts)
-    return 'packets read with the mouse starting up to 0.84 ms late'
+    return 'packets read with the mouse starting up to 2.8 ms late'
 
 
 # ---------------------------------------------------------------------------
@@ -483,9 +435,16 @@ def kbd_rig(**kw):
     return rig, kb
 
 
-def scan(rig, n=1):
-    for _ in range(n):
-        rig.cpu.clocks += iod.us(16_700)         # a frame of other work
+def scan(rig, n=1, settle=True):
+    """n frames, each ending in kbd_scan; then (settle) frames until the
+    keyboard has nothing more to send: it sends one byte per frame it is
+    listened to, when only kbd_scan takes them"""
+    kb = rig.port.kbd
+    for i in range(n + 40):
+        if i >= n and not (settle and kb is not None and
+                           (kb.queue or kb.state != 'idle' or rig.port.rx.ready())):
+            break
+        frame(rig)
         rig.call('kbd_scan')
         rig.scan_worst = max(getattr(rig, 'scan_worst', 0), rig.clocks)
         assert rig.port.collisions == 0
@@ -562,7 +521,7 @@ def test_ps2_kbd_e0_and_own_keys():
     assert tap(rig, kb, codes[30]) == 's'
 
 
-def test_ps2_kbd_held_and_both_keyboards():
+def test_ps2_kbd_held_and_burst():
     rig, kb = kbd_rig()
     codes = set2_codes(rig)
     kb.press(codes[29])
@@ -574,22 +533,76 @@ def test_ps2_kbd_held_and_both_keyboards():
     want[6] &= ~(1 << 5)
     assert now == want, now
     assert drain(rig) == 'a\x11'
-    # the key matrix at the same time: Shift on the matrix, s on the PS/2
-    rig.port.keys = {key(K_LSHIFT)}
-    kb.press(codes[30])
-    scan(rig)
-    assert drain(rig) == 'S'
-    rig.port.keys = set()
-    for c in (codes[29], E0 | 0x75, codes[30]):
+    for c in (codes[29], E0 | 0x75):
         kb.release(c)
     scan(rig, 2)
     assert all(rig.cpu.mem[0xA0 + c] == 0xFF for c in range(8))
-    # a burst of bytes faster than one poll takes: nothing lost
+    # a burst of bytes: one per frame when only kbd_scan takes them,
+    # nothing lost
     for c in (codes[k] for k in (15, 16, 17, 18, 19)):
         kb.press(c)
         kb.release(c)
-    scan(rig, 4)
+    scan(rig, 15, settle=False)
     assert drain(rig) == 'qwert'
+    assert kb.aborts == 0
+    # the same burst taken by ps2_poll as it comes: a byte about every 1.3 ms
+    for c in (codes[k] for k in (15, 16, 17, 18, 19)):
+        kb.press(c)
+        kb.release(c)
+    polls = 0
+    while kb.queue or kb.state != 'idle' or rig.port.rx.ready():
+        rig.cpu.clocks += iod.us(200)
+        rig.call('ps2_poll')
+        polls += 1
+        assert polls < 400
+    rig.call('kbd_scan')
+    assert drain(rig) == 'qwert'
+    took = polls * 200
+    assert took < 15 * 1700, took
+    return '15 bytes taken by ps2_poll in %.1f ms' % (took / 1000)
+
+
+def test_ps2_kbd_shift_ctrl_caps():
+    rig, kb = kbd_rig()
+    codes = set2_codes(rig)
+    for sh in (K_LSHIFT, K_RSHIFT):
+        for k in range(64):
+            if k in (K_LSHIFT, K_RSHIFT, K_CAPS, K_CTRL, K_FN, K_RCTRL, 56, 60) or k not in codes:
+                continue
+            got = tap(rig, kb, codes[sh], codes[k])
+            assert got == KEYS_SH[k].replace('\x00', ''), 'shift+%d: %r' % (k, got)
+    # Ctrl: control codes, either Ctrl
+    assert tap(rig, kb, codes[K_CTRL], codes[44]) == '\x03'
+    assert tap(rig, kb, E0 | 0x14, codes[44]) == '\x03'
+    # Caps Lock: letters only; with Shift, lower case
+    assert tap(rig, kb, codes[K_CAPS]) == ''
+    assert tap(rig, kb, codes[29]) + tap(rig, kb, codes[1]) == 'A1'
+    assert tap(rig, kb, codes[K_LSHIFT], codes[29]) == 'a'
+    assert tap(rig, kb, codes[K_CAPS]) == ''
+    assert tap(rig, kb, codes[29]) == 'a'
+
+
+def test_ps2_kbd_fn():
+    rig, kb = kbd_rig()
+    codes = set2_codes(rig)
+    FN = E0 | 0x1F                                 # left Windows
+    assert tap(rig, kb, FN, codes[K_BKSP]) == '\x7f'    # Delete
+    assert tap(rig, kb, FN, codes[K_ESC]) == '`'
+    assert tap(rig, kb, FN, codes[K_LSHIFT], codes[K_ESC]) == '~'
+    assert tap(rig, kb, FN, codes[K_RSHIFT], codes[K_ESC]) == '~'
+    assert tap(rig, kb, FN, E0 | 0x6B) == '\x15'        # Home
+    assert tap(rig, kb, FN, codes[29]) == 'a'            # other keys as without Fn
+    assert tap(rig, kb, FN, codes[K_LSHIFT], codes[29]) == 'A'
+    assert tap(rig, kb, codes[K_BKSP]) == '\x08' and tap(rig, kb, codes[K_ESC]) == '\x1b'
+    assert tap(rig, kb, E0 | 0x6B) == '\x13'
+    for c in (FN, E0 | 0x14, E0 | 0x11):                 # Fn, right Ctrl, right Alt: no character
+        assert tap(rig, kb, c) == '', hex(c)
+    # the key buffer holds 7, the rest are dropped
+    for k in range(1, 11):                               # 1-9, 0
+        kb.press(codes[k])
+        kb.release(codes[k])
+    scan(rig)
+    assert drain(rig) == '1234567'
 
 
 def test_ps2_kbd_caps_light():
@@ -599,25 +612,21 @@ def test_ps2_kbd_caps_light():
     scan(rig)
     assert kb.leds == 0x04 and rig.zp('KBD_FLAGS') & KF_LED
     assert tap(rig, kb, codes[29]) == 'A'
-    # caps lock on the key matrix turns it off: the light follows
-    rig.port.keys = {key(K_CAPS)}
-    scan(rig)
-    rig.port.keys = set()
+    # caps lock turned off by the program (kbd_key): the light follows
+    rig.call('kbd_key', K_CAPS)
     scan(rig)
     assert kb.leds == 0x00 and not rig.zp('KBD_FLAGS') & KF_LED
     assert kb.received[-4:] == [0xED, 0x04, 0xED, 0x00], kb.received
     # unplugged: the light can't be set, so it counts as gone
     kb.answers = False
-    rig.port.keys = {key(K_CAPS)}
-    scan(rig)
-    rig.port.keys = set()
+    rig.call('kbd_key', K_CAPS)
     scan(rig)
     assert not rig.zp('KBD_FLAGS') & KF_PS2
 
 
-def test_ps2_kbd_adaptive_window():
+def test_ps2_kbd_cost():
     out = []
-    for lat in (50, 400, 800):
+    for lat in (50, 400, 2000):
         rig, kb = kbd_rig(latency_us=lat)
         codes = set2_codes(rig)
         assert tap(rig, kb, codes[29]) == 'a'
@@ -625,9 +634,16 @@ def test_ps2_kbd_adaptive_window():
         for _ in range(8):
             scan(rig)
             idle.append(rig.clocks)
-        out.append('%d us: %d' % (lat, min(idle)))
-        assert tap(rig, kb, codes[30]) == 's', lat
-    return 'kbd_scan with nothing typed, by start delay: ' + ', '.join(out)
+        assert max(idle) < 400, idle
+        out.append('%d us: %d' % (lat, max(idle)))
+        kb.press(codes[30])
+        scan(rig, settle=False)
+        byte = rig.clocks
+        kb.release(codes[30])
+        scan(rig)
+        assert drain(rig) == 's', lat
+    return 'kbd_scan with nothing typed, by the keyboard\'s start delay: %s; %d with a key' % (
+        ', '.join(out), byte)
 
 
 def test_ps2_mouse_and_kbd():
@@ -643,11 +659,20 @@ def test_ps2_mouse_and_kbd():
         mouse.move(i + 1, -i, i & 1)
         kb.press(codes[KEYS.index(ch)])
         kb.release(codes[KEYS.index(ch)])
-        got = poll(rig)
-        assert got == (1, i & 1, i + 1, i), got
-        scan(rig, 2)
-        typed += drain(rig)
+        # the mouse has the even frames, the keyboard the odd ones
+        dx = dy = 0
+        for _ in range(8):
+            frame(rig)
+            ac = rig.call('mouse_poll')
+            if ac:
+                dx += signed(rig.zp('MOUSE_DX'))
+                dy += signed(rig.zp('MOUSE_DY'))
+                assert rig.zp('MOUSE_B') == (i & 1)
+            rig.call('kbd_scan')
+            typed += drain(rig)
+        assert (dx, dy) == (i + 1, i), (ch, dx, dy)
     assert typed == 'hello', typed
+    assert mouse.aborts == 0 and kb.aborts == 0, (mouse.aborts, kb.aborts)
     assert rig.port.collisions == 0
     assert mouse.received == [0xFF, 0xF4], mouse.received
     assert kb.received == [0xED, 0x00], kb.received
@@ -678,7 +703,7 @@ def test_wait_frames_io():
             kb.release(codes[29 + i // 5 % 4])
         late = max(late, wait_io(rig, 1))
         ac = rig.call('mouse_poll')
-        assert rig.clocks < 400, 'mouse_poll after wait_frames_io %d clocks' % rig.clocks
+        assert rig.clocks < 500, 'mouse_poll after wait_frames_io %d clocks' % rig.clocks
         if ac:
             moved[0] += signed(rig.zp('MOUSE_DX'))
             moved[1] += signed(rig.zp('MOUSE_DY'))
@@ -686,7 +711,7 @@ def test_wait_frames_io():
         assert rig.clocks < 3000, 'kbd_scan after wait_frames_io %d clocks' % rig.clocks
         typed += drain(rig)
         assert rig.port.collisions == 0
-    for _ in range(4):
+    for _ in range(8):
         wait_io(rig, 1)
         if rig.call('mouse_poll'):
             moved[0] += signed(rig.zp('MOUSE_DX'))
@@ -707,8 +732,10 @@ def test_wait_frames_io():
 # line input and the mouse pointer (placard_input.asm)
 # ---------------------------------------------------------------------------
 def test_con_gets():
-    rig = Rig()
+    kb = iod.Ps2Keyboard()
+    rig = Rig(kbd=kb)
     cpu, m = rig.cpu, rig.cpu.mem
+    codes = set2_codes(rig)
     # as on the board: the library at xC000+ is ROM under the video RAM
     # that con_clear clears (map 05, sections 0 and 2 read RAM)
     cpu.rom = bytearray(m)
@@ -720,20 +747,28 @@ def test_con_gets():
     keys = {c: k for k, c in enumerate(KEYS) if c not in '\x00'}
     script = [{K_LSHIFT, keys['h']}, {keys['i']}, {keys['x']}, {keys['\x08']},
               {K_LSHIFT, keys['1']}, {keys['a']}, {keys['b']}, {keys['c']}, {keys['\n']}]
-    frames = []
-    for ks in script:
-        frames += [{key(k) for k in ks}] * 2 + [set()] * 2
+    # each step: the keys pressed (Shift first) at a frame, let go 4 frames later
+    events = set(range(0, 8 * len(script), 4))
     m[sy['R0']], m[sy['R1']], m[sy['R2']] = 0x00, 0x07, 4
     m[ARG_AC] = 0
     cpu.pc = sy['drv_con_gets']
     stop = sy['halt_con_gets']
-    frame = 800 * 525
+    frame_clocks = 800 * 525
     t0 = cpu.clocks
+    done = set()
     while cpu.pc != stop:
-        f = (cpu.clocks - t0) // frame
-        rig.port.keys = frames[f] if f < len(frames) else set()
+        f = (cpu.clocks - t0) // frame_clocks
+        if f in events and f not in done:
+            done.add(f)
+            for i, ks in enumerate(script):
+                if f == 8 * i:
+                    for k in sorted(ks, key=lambda k: k != K_LSHIFT):
+                        kb.press(codes[k])
+                if f == 8 * i + 4:
+                    for k in sorted(ks, key=lambda k: k == K_LSHIFT):
+                        kb.release(codes[k])
         cpu.step()
-        assert f < len(frames) + 10, 'con_gets did not end'
+        assert f < 8 * len(script) + 20, 'con_gets did not end'
     n = m[OUT_AC]
     got = bytes(m[0x0700:0x0700 + n + 1])
     assert got == b'Hi!a\0', got

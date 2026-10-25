@@ -6,8 +6,8 @@ How the KiCad schematic (`kicad/`) is split into sheets: how many sheets,
 which chips, connectors and passives go on each, and which nets run between
 them.  The sheets are drawn (2026-10-20, see "How the sheets are drawn"
 below).  Chip numbers are the
-`#` column of [CHIPS.md](CHIPS.md) and become the U-numbers (U1-U40, with
-the gaps U24, U28, U30, U33 and U34 left empty, and U41 gone, so every document's chip
+`#` column of [CHIPS.md](CHIPS.md) and become the U-numbers (U1-U42, with
+the gaps U24, U28, U30, U33, U34, U37, U39 and U41 left empty, so every document's chip
 numbers stay right).
 
 ## Summary
@@ -29,7 +29,7 @@ has one PCB).
 | 7 | Memory and I/O decode | U11 memory control, U12 I/O decode, U25 map register, U31, U32 RAM | cartridge slot (Molex 87715-9106), /CART pull-up |
 | 8 | Video timing | U13 H counter, U14 V counter, U15 Sync, U35 audio/mode slot PLD, U29 line read F541 | strap S4 (audio PLD) |
 | 9 | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register | VGA resistor DAC (8 resistors) and DE-15, R-2R ladder, filter, audio line out jack J6, strap S5 (line code), row tint R56-R58 + D9-D17 (2026-10-22) |
-| 10 | Shared port | U37 port latch, U38 port PLD, U39 row F541 | J1 keyboard, J2/J3 SNES, J4 SD (dividers R42-R47, MISO diode and pull-up), J5 stacked dual PS/2, mouse + keyboard (diodes, 4.7k pull-ups), row pull-ups, pad DATA pull-ups |
+| 10 | Shared port | U38 port PLD (latch and reads), U42 PS/2 receiver PLD | J2/J3 SNES, J4 SD (dividers R42-R47, MISO pull-up), J5 stacked dual PS/2, mouse + keyboard (hold diodes D2/D3/D6, inhibit diodes D5/D19, RXCLK OR diodes D1/D4 with R60 22k, 4.7k pull-ups), pad DATA pull-ups |
 | 11 | Expansion slots | none | four 2 x 20 card-edge slots, SEL resistors (1k) |
 
 That puts 34 chips plus the regulator and oscillator on nine sheets, no more
@@ -211,18 +211,19 @@ same.
 - **Chips:** U = CHIPS.md number, fixed (KiCad annotation set to keep
   existing references).  The 64K cartridge uses its own U1-U5, the
   32K cartridge U1-U3.
-- **Connectors:** keep J1-J6 as IO.md and SOUND.md use them; then J7 VGA,
-  J8 cartridge slot, J9-J12 expansion slots 1-4, J13 USB-C.
+- **Connectors:** keep J2-J6 as IO.md and SOUND.md use them (J1, the
+  keyboard header, went with the matrix keyboard on 2026-10-25); then J7
+  VGA, J8 cartridge slot, J9-J12 expansion slots 1-4, J13 USB-C.
 - **Decoupling capacitors:** C = the chip's U-number (C1 for U1),
   set by hand and kept by the annotation.  On the cartridges, C1-C5
   (64K) and C1-C3 (32K) go with their Un the same way.
 - **Other parts** (Justin, 2026-10-22): numbered from 1 for each kind of
   part and counted up across the board, sheet by sheet, with no gaps and
-  no thousands: R1-R54, RN1-RN2, D1-D5, JP1-JP2, F1, NT1 on the main board;
-  capacitors other than the decoupling ones count on from C41 (C41-C46).
-  The keyboard board numbers its keys 1-63 row by row, so SWn, Dn and Rn
-  belong to the same key.  IO.md's R6-R11 (the SD dividers) are now R42-R44
-  (1.8k) and R45-R47 (3.3k).
+  no thousands: R1-R60, RN1, D1-D19, JP1-JP2, F1, NT1 on the main board;
+  capacitors other than the decoupling ones count on from C41 (C41,
+  C43-C47: C42 became U42's decoupler on 2026-10-25 and the regulator's
+  output capacitor moved to C47, keeping its uuid).  IO.md's R6-R11 (the
+  SD dividers) are now R42-R44 (1.8k) and R45-R47 (3.3k).
 - **Resistor symbol** (Justin, 2026-10-22): the US / NEMA zigzag
   (`R_US`, `R_Network08_US`), not the IEC box.
 
@@ -284,8 +285,8 @@ checks (single-pin nets, two outputs on a net, power without a source).
 - **Hand-drawn wires** where a picture helps: the R-2R ladder is a wired
   chain, rows of pins tied to GND share one GND symbol.
 - **PDFs** for reading without KiCad: `schematics/placard_main.pdf`,
-  `schematics/placard_cartridge_64k.pdf`, `placard_cartridge_32k.pdf` and
-  `placard_keyboard.pdf` (`gen_kicad_schematic.py --pdf`, which
+  `schematics/placard_cartridge_64k.pdf` and `placard_cartridge_32k.pdf`
+  (`gen_kicad_schematic.py --pdf`, which
   exports them with kicad-cli and drops the bookmarks so they open without
   the bookmarks panel).
 
@@ -345,8 +346,8 @@ Decisions made while drawing (2026-10-20):
   ECS-100A-251.7, VGA Assmann A-HDF 15 A-KG/T, line out jack Tensility
   54-00174).  J6 is now that 4-pole (TRRS) jack: T and R1 = AUDIO, R2 and S =
   GNDA, footprint placard:Jack_3.5mm_Tensility_54-00174_Horizontal drawn from
-  its datasheet.  The expansion slot sockets J9-J12 and the keyboard header
-  J1 are optional (BOM.md gives the total without them).
+  its datasheet.  The expansion slot sockets J9-J12 are optional (BOM.md
+  gives the total without them).
 - **Through hole wherever possible** (Justin, 2026-10-22): pick a
   through-hole part whenever one exists, SMD only when nothing through
   hole does the job.

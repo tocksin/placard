@@ -48,11 +48,14 @@
 ; EXPANSION CARDS (docs/EXPANSION.md), before either mode, like the Apple II's
 ; slot scan:
 ;   1. map = 01, so the zero page is RAM.
-;   2. Unless Esc is held, for slots 4, 3, 2, 1: if the card's first bytes
-;      are "PLC", card ID, code length n (1-90), checksum (the sum of the
-;      n code bytes), then the n code bytes are copied to RAM x0100 and
-;      called (the library's CALL) with AC = slot number, R1:R0 = the
-;      slot's base address, SP = FE and MAP_SHADOW = 01.  The card's code
+;   2. For slots 4, 3, 2, 1: if the card's first bytes are "PLC", card
+;      ID, code length n (1-90), checksum (the sum of the n code bytes),
+;      then the n code bytes are copied to RAM x0100 and called (the
+;      library's CALL) with AC = slot number, R1:R0 = the slot's base
+;      address, SP = FE and MAP_SHADOW = 01.  Before the first card found
+;      is called, esc_wait lets the PS/2 keyboard send for up to about
+;      1 s (its self test takes up to 0.75 s after power-up; its AA then
+;      buys 0.17 s more): Esc held (make code 76) skips every card.  The card's code
 ;      returns to go on with the next slot and then the normal boot, or
 ;      never returns to take the boot over (load its own program, start
 ;      from its own ROM).  It may use the library and the I/O drivers.
@@ -68,7 +71,7 @@
 ; byte there is either run or skipped, and the CPU fetches x0001 next
 ; (docs/ROM.md, "Loading the cartridge").
 ;
-; Date: 10/22/2026
+; Date: 10/25/2026
 
 #include "placard.asm"
 
@@ -83,8 +86,15 @@ MAP_ROM_RUN = 0x05      ; ROM program: sections 0 and 2 read RAM, 1 and 3-7 ROM
 PROG_START  = 0x6000    ; ROM program entry
 BOOT_MODE   = 0xFC00    ; 00 = ROM program, 01 = RAM image (set by gen_rom.tcl)
 PORT        = 0x5200    ; shared port latch (placard_io.asm)
+PORT_RX     = 0x02      ; x5202: the PS/2 receiver's byte; a write re-arms it
+PORT_RDY    = 0x03      ; x5203: D7 = 0 while a byte is ready
 P_IDLE      = 0xEB      ; the latch at rest (both PS/2 clocks held)
-P_COL0      = 0x0B      ; the same with keyboard column 0 driven (Esc is row 0)
+P_KFREE     = 0xFB      ; the same with the PS/2 keyboard's clock free
+ESC_MAKE    = 0x76      ; Esc's scan code (set 2)
+KBD_BAT     = 0xAA      ; the keyboard's self test passed
+ESC_WAIT    = 12        ; esc_wait: about 83 ms units, 1 s
+ESC_MORE    = 2         ; ... after the keyboard's AA: 0.17 s more
+KCHK        = 0xFC      ; zero page: 1 once esc_wait has looked
 MAP_ZP_RAM  = 0x01      ; section 0 reads RAM, the rest ROM
 LIB_RAM     = 0x1F00    ; placard_lib.asm: library code that runs from the RAM
 CARD_CODE   = 0x0100    ; where a card's boot code is copied and run
@@ -100,6 +110,9 @@ T1          = 0x19      ; checksum from the card
 T2          = 0x1A      ; byte being copied
 T3          = 0x1B      ; sum of the bytes copied
 T4          = 0x1C
+T5          = 0x1D      ; esc_wait: the time left, low
+T6          = 0x1E
+T7          = 0x1F      ; and high (83 ms units)
 SLOT        = 0xFF      ; slot being scanned, 4 down to 1
 
 #addr 0x0000
@@ -114,9 +127,9 @@ boot_mode:
 
 #addr 0xFD00
 boot:
-    ld   PORT >> 8, y           ; shared port at rest (docs/IO.md): no keyboard
-    ld   P_IDLE, [y,x]          ; column, SD /CS low (holds both PS/2 clocks
-                                ; low), SCK and MOSI high
+    ld   PORT >> 8, y           ; shared port at rest (docs/IO.md): SD /CS low
+    ld   PORT_RX, x             ; (holds both PS/2 clocks low), SCK and MOSI
+    ld   P_IDLE, [y,x]          ; high; the PS/2 receiver re-armed
     ld   LIB_RAM >> 8, y        ; copy LIB_RAM from the ROM to the RAM (map 00)
     clr  ac
 lib_copy:
@@ -126,17 +139,66 @@ lib_copy:
     bne  lib_copy
     ld   MAP_PORT, y
     ld   MAP_ZP_RAM, [y,x]      ; map = 01: the zero page is RAM
-    ld   PORT >> 8, y
-    clr  x                      ; an even address reads the key rows
-    ld   P_COL0, [y,x]
-    ld   [y,x], ac
-    ld   P_IDLE, [y,x]
-    and  1, ac
-    beq  boot_go                ; Esc held: skip the cards
+    clr  ac                     ; Esc not looked for yet (esc_wait)
+    ld   ac, [KCHK]
     ld   4, ac
     ld   ac, [SLOT]
     ld   scan >> 8, y
     jmp  scan
+
+; ------------------------------------------------------------
+; esc_wait - a card was found: is Esc held on the PS/2 keyboard?
+;   Lets the keyboard send and takes its bytes for about 1 s (ESC_WAIT),
+;   its self test's AA buying ESC_MORE more: Esc's make code skips the
+;   cards (boot_go), anything else or nothing runs the card (run_card).
+;   Looks once (KCHK).  A loop pass is about 1.3 us, 65536 of them 83 ms.
+; ------------------------------------------------------------
+esc_wait:
+    ld   1, ac                  ; once
+    ld   ac, [KCHK]
+    ld   PORT >> 8, y
+    ld   PORT_RX, x
+    ld   P_KFREE, [y,x]         ; let the keyboard send
+    ld   ESC_WAIT, ac
+    ld   ac, [T7]
+    clr  ac
+    ld   ac, [T6]
+    ld   ac, [T5]
+ew_loop:
+    ld   PORT_RDY, x
+    ld   [y,x], ac
+    blt  ew_count               ; D7 = 1: nothing yet
+    ld   PORT_RX, x
+    ld   [y,x], ac              ; the byte
+    ld   P_KFREE, [y,x]         ; re-arm
+    xor  ESC_MAKE, ac
+    beq  ew_esc
+    xor  ESC_MAKE ^ KBD_BAT, ac ; its self test done: a held key comes soon
+    bne  ew_count
+    ld   ESC_MORE, ac
+    ld   ac, [T7]
+ew_count:
+    ld   [T5], ac
+    dec
+    ld   ac, [T5]
+    bne  ew_loop
+    ld   [T6], ac
+    dec
+    ld   ac, [T6]
+    bne  ew_loop
+    ld   [T7], ac
+    dec
+    ld   ac, [T7]
+    bne  ew_loop
+    ld   PORT_RX, x             ; no Esc: hold the keyboard, run the card
+    ld   P_IDLE, [y,x]
+    ld   run_card >> 8, y
+    jmp  run_card
+ew_esc:
+    ld   PORT_RX, x             ; Esc: hold the keyboard, skip the cards
+    ld   P_IDLE, [y,x]
+    ld   boot_go >> 8, y
+    jmp  boot_go
 
 boot_go:
     ld   BOOT_MODE >> 8, y
@@ -278,6 +340,11 @@ copy_card:                      ; card offset 6 + n to RAM x0100 + n
     ld   [T3], ac
     xor  [T1], ac
     bne  next
+    ld   [KCHK], ac             ; the first card found: Esc held?
+    bne  run_card
+    ld   esc_wait >> 8, y
+    jmp  esc_wait
+run_card:
     ld   0xFE, ac               ; run it: stack below SLOT
     ld   ac, [SP]
     ld   MAP_ZP_RAM, ac

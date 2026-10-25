@@ -63,8 +63,9 @@ entries never move ([LIBRARY.md](LIBRARY.md#jump-table)).  It then either:
 Its code must keep zero page xFF (the slot being scanned), leave map 01
 when it returns, and keep section 7 reading the ROM (the scan runs there).
 90 bytes is enough for a loader that reads more of the card through its
-registers.  **Holding Esc at power-up skips the scan**, to get past a card
-whose code hangs.
+registers.  **Holding Esc at power-up skips the cards**, to get past a card
+whose code hangs: when the scan finds a valid card it first gives a PS/2
+keyboard about a second to send Esc (ROM.md "Boot").
 
 An empty slot fails the "PLC" check: with nothing driving the read bus it
 reads FF from the pull-ups below, or, if the bus has not risen yet, the

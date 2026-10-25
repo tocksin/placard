@@ -54,7 +54,7 @@ def det_uuid(*parts):
 KEPT_UUIDS = {}
 # project -> {new ref: old ref} for parts being renumbered: each keeps the old part's uuid, so the board renames
 # its footprint instead of deleting it.  Set for one run, then emptied once the renumbered files are written
-# (ESD removal 2026-10-23 used {"placard": {"D8": "D26", ... "D17": "D35"}}).
+# (ESD removal 2026-10-23 used {"placard": {"D8": "D26", ... "D17": "D35"}}; the PS/2 receiver 2026-10-25 {"placard": {"C47": "C42"}}).
 RENUMBERED = {}
 
 
@@ -271,7 +271,7 @@ class Sheet:
         self.pwr_n = 0
         self.boxes = []          # (x0, y0, x1, y1, what) for the overlap check
         self.uid = uuidlib.uuid5(_uuid_ns, filename)
-        self.comment2 = "Chip numbers U1-U40 = docs/CHIPS.md; decoupling Cn goes with Un"
+        self.comment2 = "Chip numbers U1-U42 = docs/CHIPS.md; decoupling Cn goes with Un"
         self.n = 0
         self.grid = KR.Grid()
         self.sig = []            # signal pins waiting for finish(): dicts

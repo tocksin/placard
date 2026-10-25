@@ -172,13 +172,25 @@ architecture Behavioral of basys_top is
     signal lineRdN          : sl;   -- /LINE_RD, video line counter read strobe
     signal portWrN          : sl;   -- /PORT_WR, shared port latch clock
     signal portRdN          : sl;   -- /PORT_RD, shared port read
-    signal portLatch        : slv(7 downto 0) := x"FF";  -- 74HC574 shared port latch
-    signal colN             : slv(7 downto 0);  -- keyboard columns, from the port PLD
-    signal keyRowN          : slv(7 downto 0);  -- keyboard rows (the key matrix)
-    signal portRows         : slv(7 downto 0);  -- 74F541 inputs: rows, MISO, PS/2 lines
-    signal padD6            : sl;   -- port PLD D6 (pad 2 DATA)
-    signal padD7            : sl;   -- port PLD D7 (pad 1 DATA)
-    signal padDEn           : sl;   -- port PLD D6/D7 output enable
+    signal pSck             : sl;   -- port PLD register bit 0: SCK, pad CLOCK
+    signal pMosi            : sl;   -- bit 1: MOSI, pad LATCH
+    signal pCs              : sl;   -- bit 2: SD /CS, 0 also holds the mouse's CLK
+    signal pDholdN          : sl;   -- bit 3: 0 holds the PS/2 DATA line
+    signal pK0              : sl;   -- bit 4: 0 holds the PS/2 keyboard's CLK
+    signal portD5           : sl;   -- port PLD D5 (RXCLK)
+    signal portD6           : sl;   -- port PLD D6 (pad 2 DATA)
+    signal portD7           : sl;   -- port PLD D7 (MISO or pad 1 DATA)
+    signal portD5En         : sl;   -- and their output enables
+    signal portD6En         : sl;
+    signal portD7En         : sl;
+    signal rxClk            : sl;   -- RXCLK: the free PS/2 device's clock (the two lines diode-ORed)
+    signal rxData           : slv(7 downto 0);  -- PS/2 receiver PLD: the byte
+    signal rxDEn            : sl;   -- its enable (a read of x5202)
+    signal rxAN             : sl;   -- the receiver's /A pin (D7 of x5203: 0 = ready)
+    signal rxAEn            : sl;
+    signal rxB              : sl;   -- the receiver's B pin (the inhibit) and its enable
+    signal rxBEn            : sl;
+    signal rxInhibit        : sl;   -- 1 = the receiver holds the PS/2 clock lines low
     signal mouseOn          : sl;   -- SW15 = 1: the PS/2 port is the mouse
     signal kbdOn            : sl;   -- SW14 = 1 (SW15 = 0): the PS/2 port is the PS/2 keyboard socket
     signal ps2ClkR          : slv(1 downto 0) := "11";  -- PS/2 lines, synchronized
@@ -774,85 +786,105 @@ begin
     --
     --   Video line read: a 74F541 enabled by /LINE_RD (an I/O read at
     --   x5000-x50FF) drives the upper 8 bits of the V counter, V9:V2, onto
-    --   the data bus.  The shared port (x5200-x52FF) is the 74F541 of the
-    --   key rows on even addresses and the port PLD on odd ones.  The memory control PLD keeps the RAM and ROM off the
+    --   the data bus.  The shared port (x5200-x52FF) is the port PLD
+    --   while A1 = 0 and the PS/2 receiver PLD while A1 = 1.  The memory control PLD keeps the RAM and ROM off the
     --   bus in the I/O window, so the buffer is the only driver there.
     ----------------------------------------------------------
     ------    Shared port at 5200h (docs/IO.md)            -------
     ----------------------------------------------------------
-    -- Port latch: 74HC574, loads the source bus on the rising edge of
-    -- /PORT_WR.  The real part powers up random; the boot loader writes
-    -- it first.  bit 0 SCK / pad CLOCK, bit 1 MOSI / pad LATCH, bit 2 SD
-    -- /CS (0 also holds the mouse's CLK low), bit 3 (0 holds the PS/2
-    -- DATA low), bits 7:4 keyboard column (bit 4 = 0 also holds the PS/2
-    -- keyboard's CLK low).
-    portLatchProc : process (portWrN)
-    begin
-        if rising_edge(portWrN) then
-            portLatch <= srcBus;
-        end if;
-    end process portLatchProc;
-
+    -- Port PLD (rev 04): the output register loads D4:D0 of the source
+    -- bus on the rising edge of /PORT_WR and clears at power-up (the port
+    -- rests at EB).  bit 0 SCK / pad CLOCK, bit 1 MOSI / pad LATCH, bit 2
+    -- SD /CS (0 also holds the mouse's CLK low), bit 3 (0 holds the PS/2
+    -- DATA low), bit 4 (0 holds the PS/2 keyboard's CLK low).  It reads
+    -- MISO, the pads' DATA and RXCLK on D7:D5 while A1 = 0.
     portPldComp: entity work.port_pld
     port map(
+        portWrN => portWrN,
         portRdN => portRdN,
         a0      => ramAddress(0),
-        k0      => portLatch(4),
-        k1      => portLatch(5),
-        k2      => portLatch(6),
-        k3      => portLatch(7),
+        d0      => srcBus(0),
+        d1      => srcBus(1),
+        d2      => srcBus(2),
+        d3      => srcBus(3),
+        d4      => srcBus(4),
         pad1    => pad1R(1),
         pad2    => pad2R(1),
-        kclk    => ps2ClkR(1) or not kbdOn,     -- the PS/2 keyboard socket's CLK (SW14)
-        col0N   => colN(0),
-        col1N   => colN(1),
-        col2N   => colN(2),
-        col3N   => colN(3),
-        col4N   => colN(4),
-        col5N   => colN(5),
-        col6N   => colN(6),
-        col7N   => colN(7),
-        d6      => padD6,
-        d7      => padD7,
-        dEn     => padDEn
+        rxclk   => rxClk,
+        miso    => sdMisoR(1),
+        a1      => ramAddress(1),
+        k0      => pK0,
+        dholdN  => pDholdN,
+        sdcs    => pCs,
+        mosi    => pMosi,
+        sck     => pSck,
+        d5      => portD5,
+        d6      => portD6,
+        d7      => portD7,
+        d5En    => portD5En,
+        d6En    => portD6En,
+        d7En    => portD7En
     );
 
-    -- The key matrix: the board's USB keyboard (PS/2) while SW15 and SW14 = 0
-    keyMatrixComp: entity work.ps2_key_matrix
+    -- PS/2 receiver PLD (rev 02): clocked by RXCLK, the clock line of the
+    -- device the port register has let go (on the board the two clock
+    -- lines are diode-ORed with a 22k pull-down; here there is one PS/2
+    -- socket, so RXCLK is its clock line while the device is free).  The
+    -- byte reads at x5202, the ready flag (D7 = 0) at x5203; a write to
+    -- either re-arms it.  After the 11th clock its B pin drives the
+    -- clock lines low (the inhibit) until the re-arm.
+    ps2PldComp: entity work.ps2_pld
     port map(
-        clk     => clkVGA,
-        rst     => rstSystem or mouseOn or kbdOn,
-        ps2Clk  => PS2_CLK,
-        ps2Data => PS2_DATA,
-        colN    => colN,
-        rowN    => keyRowN
+        rxclk   => rxClk,
+        pdata   => ps2DataR(1) or not (mouseOn or kbdOn),
+        portRdN => portRdN,
+        portWrN => portWrN,
+        a0      => ramAddress(0),
+        a1      => ramAddress(1),
+        b       => rxB,
+        aN      => rxAN,
+        d0      => rxData(0),
+        d1      => rxData(1),
+        d2      => rxData(2),
+        d3      => rxData(3),
+        d4      => rxData(4),
+        d5      => rxData(5),
+        d6      => rxData(6),
+        d7      => rxData(7),
+        dEn     => rxDEn,
+        aEn     => rxAEn,
+        bEn     => rxBEn
     );
+    rxInhibit <= rxBEn and not rxB;
+    rxClk     <= ps2ClkR(1) when (mouseOn or kbdOn) = '1' else '0';
 
-    -- SW15 = 1: the PS/2 port is the Placard's mouse port instead.  The
-    -- latch's /CS and bit 3 pull the lines low through Schottky diodes;
-    -- here they are open-drain pins (the xdc has the pull-ups).
+    -- SW15 = 1: the PS/2 port is the Placard's mouse port.  The register's
+    -- /CS and bit 3 pull the lines low through Schottky diodes, as does
+    -- the receiver's inhibit; here they are open-drain pins (the xdc has
+    -- the pull-ups).
     -- SW14 = 1 (SW15 = 0): it is the PS/2 keyboard socket (the lower half
-    -- of J5): latch bit 4 holds its CLK, bit 3 the shared DATA, and the
-    -- port PLD reads its CLK on pin 9 (D6 of odd reads while bit 4 = 1),
-    -- so the USB keyboard goes to the driver in placard_ps2.asm.
+    -- of J5): register bit 4 holds its CLK, bit 3 the shared DATA, so the
+    -- board's USB keyboard (which its host presents as a PS/2 keyboard)
+    -- goes to the driver in placard_ps2.asm.  Both off: no PS/2 device.
     mouseOn  <= dipRR(15);
     kbdOn    <= dipRR(14) and not dipRR(15);
-    PS2_CLK  <= '0' when (mouseOn = '1' and portLatch(2) = '0') or
-                         (kbdOn = '1' and portLatch(4) = '0') else 'Z';
-    PS2_DATA <= '0' when (mouseOn = '1' or kbdOn = '1') and portLatch(3) = '0' else 'Z';
+    PS2_CLK  <= '0' when (mouseOn = '1' and pCs = '0') or
+                         (kbdOn = '1' and pK0 = '0') or
+                         ((mouseOn = '1' or kbdOn = '1') and rxInhibit = '1') else 'Z';
+    PS2_DATA <= '0' when (mouseOn = '1' or kbdOn = '1') and pDholdN = '0' else 'Z';
 
     -- SD card (PmodMicroSD on JB) and SNES pads (JC)
-    JB(0) <= portLatch(2);      -- /CS
-    JB(1) <= portLatch(1);      -- MOSI
+    JB(0) <= pCs;               -- /CS
+    JB(1) <= pMosi;             -- MOSI
     JB(2) <= 'Z';               -- MISO (pull-up in the xdc)
-    JB(3) <= portLatch(0);      -- SCK
+    JB(3) <= pSck;              -- SCK
     JB(4) <= 'Z';
-    JC(0) <= portLatch(0);      -- pad CLOCK (both pads)
-    JC(1) <= portLatch(1);      -- pad LATCH (both pads)
+    JC(0) <= pSck;              -- pad CLOCK (both pads)
+    JC(1) <= pMosi;             -- pad LATCH (both pads)
     JC(2) <= 'Z';               -- pad 1 DATA (pull-up in the xdc)
     JC(3) <= 'Z';               -- pad 2 DATA
 
-    -- input pins are synchronized (the real 74F541 is just a buffer)
+    -- input pins are synchronized (the real PLDs read the lines directly)
     portSyncProc : process (clkVGA)
     begin
         if rising_edge(clkVGA) then
@@ -864,22 +896,26 @@ begin
         end if;
     end process portSyncProc;
 
-    -- 74F541 inputs: the rows, with MISO on row 7 and the PS/2 DATA and
-    -- CLK lines on rows 6 and 5 (Schottky diodes: either side pulls low)
-    portRows(7) <= keyRowN(7) and sdMisoR(1);
-    portRows(6) <= keyRowN(6) and (ps2DataR(1) or not (mouseOn or kbdOn));
-    portRows(5) <= keyRowN(5) and (ps2ClkR(1) or not mouseOn);
-    portRows(4 downto 0) <= keyRowN(4 downto 0);
-
     rambusSelectorProc: process (all)
     begin
         if portRdN = '0' then
-            if padDEn = '1' then
-                -- odd address: the port PLD drives D7/D6; D5:D0 float
-                -- (the model reads them as 1)
-                databus <= padD7 & padD6 & "111111";
-            else
-                databus <= portRows;    -- even address: the 74F541
+            -- the shared port: bits no chip drives float (the model reads
+            -- them as 1, like the board's pull-ups)
+            databus <= (others => '1');
+            if rxDEn = '1' then
+                databus <= rxData;              -- x5202: the receiver's byte
+            end if;
+            if rxAEn = '1' then
+                databus(7) <= rxAN;             -- x5203: 0 = a byte is ready
+            end if;
+            if portD7En = '1' then
+                databus(7) <= portD7;           -- x5200 MISO, x5201 pad 1
+            end if;
+            if portD6En = '1' then
+                databus(6) <= portD6;           -- x5201 pad 2
+            end if;
+            if portD5En = '1' then
+                databus(5) <= portD5;           -- x5200, x5201: RXCLK
             end if;
         elsif lineRdN = '0' then
             databus(0) <= pixelRow(2);  -- '541 A1 = V2

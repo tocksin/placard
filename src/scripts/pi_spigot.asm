@@ -729,76 +729,78 @@ ks_22:
     jmp  div3
 
 #addr 0x058F
-hk_poll:
-    ld 0x5D, y
-    ld 0x00, x
-    ld [y,x], ac
-    xor 0x4D, ac
-    bne hkp_ret
-    ld 0x01, x
-    ld [y,x], ac
-    xor 0x4E, ac
-    bne hkp_ret
-    ld 0x02, x
-    ld [y,x], ac
-    xor 0x55, ac
-    bne hkp_ret
-    ld 0x50, y    ; line read (V9:V2)
-    ld [y,x], ac
-    ld 0x5D, y
-    ld 0x0A, x
-    ld ac, [y,x]
-    ld 0x06, x
-    sub [y,x], ac    ; cur - last - 96 >= 0: a new frame
-    sub 96, ac
-    ld 0x0A, x
-    blt hkp_same
-    ld [y,x], ac
-    ld 0x06, x
-    ld ac, [y,x]
-    ld 0x52, y    ; Esc: key column 0, row 0
-    ld 0x00, x
-    ld 0x0F, [y,x]
-    nop
-    nop
-    nop
-    nop
-    ld [y,x], ac
-    ld 0xEB, [y,x]
-    and 1, ac
-    beq hkp_esc
-    ld 0x5D, y
-    ld 0x03, x
-    ld [y,x], ac
-    bne hkp_ret    ; picked from the menu: no time limit
-    ld 0x04, x
-    ld [y,x], ac
-    dec
-    ld ac, [y,x]
-    bcc hkp_ret    ; no borrow
-    ld 0x05, x
-    ld [y,x], ac
-    dec
-    ld ac, [y,x]
-    blt hkp_next    ; below 0: time up
-    bra hkp_ret
-hkp_same:
-    ld [y,x], ac
-    ld 0x06, x
-    ld ac, [y,x]
-hkp_ret:
-    ld [0x39], y
-    jmp [0x38]
-hkp_esc:
-    ld 1, ac
-    bra hkp_go
-hkp_next:
-    ld 2, ac
-hkp_go:
-    ld 0x5D, y
-    ld 0x09, x
-    ld ac, [y,x]
-    jmp 0x20    ; the menu's exit code (RAM x5D20)
+init:
+    ; product tables T[m][v] = m * v (low bytes at page 0x25 + m, high
+    ; bytes at page 0x38 + m), built once: row m = row m - 1 + v
+    clr  ac
+it0:
+    ld   ac, x
+    ld   0x25, y
+    ld   0x00, [y,x]
+    ld   0x38, y
+    ld   0x00, [y,x]
+    inc
+    bne  it0
+    ld   0x25, ac
+    ld   ac, [0x27]
+itm:
+    ld   0x00, ac
+    ld   ac, [0x25]
+itv:
+    ld   [0x25], ac
+    ld   ac, x
+    ld   [0x27], y
+    ld   [y,x], ac
+    add  [0x25], ac
+    ld   ac, [0x13]
+    clr  ac
+    bcc  itnc
+    ld   1, ac
+itnc:
+    ld   ac, [0x14]
+    ld   [0x27], ac
+    add  0x13, y
+    ld   [y,x], ac
+    add  [0x14], ac
+    ld   ac, [0x14]
+    ld   [0x27], ac
+    add  1, y
+    ld   [0x13], ac
+    ld   ac, [y,x]
+    ld   [0x27], ac
+    add  0x14, y
+    ld   [0x14], ac
+    ld   ac, [y,x]
+    ld   [0x25], ac
+    inc
+    ld   ac, [0x25]
+    bne  itv
+    ld   [0x27], ac
+    inc
+    ld   ac, [0x27]
+    sub  0x37, ac
+    bne  itm
+    ld   main >> 8, y
+    jmp  main
+
+#addr 0x05E3
+clr_m:
+    ; mode bytes 5A00-5BFF = 80: 1 bpp, blanked until a glyph is drawn
+    ld   0x5A, y
+    clr  ac
+clr_m0:
+    ld   ac, x
+    ld   0x80, [y,x]
+    inc
+    bne  clr_m0
+    ld   0x5B, y
+clr_m1:
+    ld   ac, x
+    ld   0x80, [y,x]
+    inc
+    bne  clr_m1
+    ld   tsync >> 8, y
+    jmp  tsync
 
 #addr 0x0600
 div3:
@@ -890,80 +892,168 @@ last:
     jmp  last_i
 
 #addr 0x068F
-init:
-    ; product tables T[m][v] = m * v (low bytes at page 0x25 + m, high
-    ; bytes at page 0x38 + m), built once: row m = row m - 1 + v
+dadd:
+    ; timer digits at 0x50 += addend digits at 0x50 + [doff], decimal
     clr  ac
-it0:
-    ld   ac, x
-    ld   0x25, y
-    ld   0x00, [y,x]
-    ld   0x38, y
-    ld   0x00, [y,x]
-    inc
-    bne  it0
-    ld   0x25, ac
-    ld   ac, [0x27]
-itm:
-    ld   0x00, ac
-    ld   ac, [0x25]
-itv:
-    ld   [0x25], ac
-    ld   ac, x
-    ld   [0x27], y
-    ld   [y,x], ac
-    add  [0x25], ac
-    ld   ac, [0x13]
-    clr  ac
-    bcc  itnc
+    ld   ac, [0x30]
+    ld   ac, [0x37]
+dl:
+    ld   [0x37], ac
+    add  0x50, x
+    ld   [x], ac
+    add  [0x30], ac
+    ld   ac, [0x31]
+    ld   [0x37], ac
+    add  [0x2F], ac
+    add  0x50, x
+    ld   [x], ac
+    add  [0x31], ac
+    ld   ac, [0x31]
+    ld   [0x37], ac
+    add  0x50, x
+    ld   [0x31], ac
+    sub  10, ac
+    blt  dlt
+    ld   ac, [x]
     ld   1, ac
-itnc:
-    ld   ac, [0x14]
-    ld   [0x27], ac
-    add  0x13, y
-    ld   [y,x], ac
-    add  [0x14], ac
-    ld   ac, [0x14]
-    ld   [0x27], ac
-    add  1, y
-    ld   [0x13], ac
-    ld   ac, [y,x]
-    ld   [0x27], ac
-    add  0x14, y
-    ld   [0x14], ac
-    ld   ac, [y,x]
-    ld   [0x25], ac
-    inc
-    ld   ac, [0x25]
-    bne  itv
-    ld   [0x27], ac
-    inc
-    ld   ac, [0x27]
-    sub  0x37, ac
-    bne  itm
-    ld   main >> 8, y
-    jmp  main
-
-#addr 0x06E3
-clr_m:
-    ; mode bytes 5A00-5BFF = 80: 1 bpp, blanked until a glyph is drawn
-    ld   0x5A, y
+    bra  dn
+dlt:
+    ld   [0x31], ac
+    ld   ac, [x]
     clr  ac
-clr_m0:
-    ld   ac, x
-    ld   0x80, [y,x]
+dn:
+    ld   ac, [0x30]
+    ld   [0x37], ac
     inc
-    bne  clr_m0
-    ld   0x5B, y
-clr_m1:
-    ld   ac, x
-    ld   0x80, [y,x]
-    inc
-    bne  clr_m1
-    ld   tsync >> 8, y
-    jmp  tsync
+    ld   ac, [0x37]
+    sub  9, ac
+    bne  dl
+    ld   [0x35], y
+    jmp  [0x34]
+
+#addr 0x06CB
+poll:
+    ; read the line read (V9:V2, 124-255) and add one frame to the timer
+    ; when it went down.  cur - last - 96 >= 0 means it wrapped, as long as
+    ; polls are less than 95 steps (380 lines) apart.  Uses y and x.
+    ; The menu hook first (Esc, time up: menu_hook.py).
+    ld   ret_34, ac
+    ld   ac, [0x38]
+    ld   ret_34 >> 8, ac
+    ld   ac, [0x39]
+    ld   hk_poll >> 8, y
+    jmp  hk_poll
+ret_34:
+    ld   0x50, y
+    ld   [y,x], ac
+    ld   ac, [0x2C]
+    sub  [0x2D], ac
+    sub  96, ac
+    blt  pnw
+    ld   0x01, ac
+    ld   ac, [0x2E]
+    ld   0x10, ac
+    ld   ac, [0x2F]
+    ld   ret_35, ac
+    ld   ac, [0x34]
+    ld   ret_35 >> 8, ac
+    ld   ac, [0x35]
+    ld   dadd >> 8, y
+    jmp  dadd
+ret_35:
+pnw:
+    ld   [0x2C], ac
+    ld   ac, [0x2D]
+    ld   [0x33], y
+    jmp  [0x32]
 
 #addr 0x0700
+hk_poll:
+    ld 0x5D, y
+    ld 0x00, x
+    ld [y,x], ac
+    xor 0x4D, ac
+    bne hkp_ret
+    ld 0x01, x
+    ld [y,x], ac
+    xor 0x4E, ac
+    bne hkp_ret
+    ld 0x02, x
+    ld [y,x], ac
+    xor 0x55, ac
+    bne hkp_ret
+    ld 0x50, y    ; line read (V9:V2)
+    ld [y,x], ac
+    ld 0x5D, y
+    ld 0x0A, x
+    ld ac, [y,x]
+    ld 0x06, x
+    sub [y,x], ac    ; cur - last - 96 >= 0: a new frame
+    sub 96, ac
+    ld 0x0A, x
+    blt hkp_same
+    ld [y,x], ac
+    ld 0x06, x
+    ld ac, [y,x]
+    ld 0x52, y    ; a byte from the PS/2 keyboard (D7 = 0)?
+    ld 0x03, x
+    ld [y,x], ac
+    blt hkp_time
+    bra hkp_byte
+hkp_time:
+    ld 0x5D, y
+    ld 0x03, x
+    ld [y,x], ac
+    bne hkp_ret    ; picked from the menu: no time limit
+    ld 0x04, x
+    ld [y,x], ac
+    dec
+    ld ac, [y,x]
+    bcc hkp_ret    ; no borrow
+    ld 0x05, x
+    ld [y,x], ac
+    dec
+    ld ac, [y,x]
+    blt hkp_next    ; below 0: time up
+    bra hkp_ret
+hkp_same:
+    ld [y,x], ac
+    ld 0x06, x
+    ld ac, [y,x]
+hkp_ret:
+    ld [0x39], y
+    jmp [0x38]
+hkp_byte:
+    ld 0x02, x
+    ld [y,x], ac    ; the byte
+    ld 0xFB, [y,x]    ; re-arm the receiver, the keyboard still free
+    ld 0x5D, y
+    ld 0x0A, x
+    ld ac, [y,x]
+    xor 0x76, ac
+    bne hkp_nesc
+    ld 0x10, x    ; F0 76 is Esc let go, not pressed
+    ld [y,x], ac
+    xor 0xF0, ac
+    bne hkp_esc
+hkp_nesc:
+    ld 0x0A, x
+    ld [y,x], ac
+    ld 0x10, x
+    ld ac, [y,x]
+    bra hkp_time
+hkp_esc:
+    ld 1, ac
+    bra hkp_go
+hkp_next:
+    ld 2, ac
+hkp_go:
+    ld 0x5D, y
+    ld 0x09, x
+    ld ac, [y,x]
+    jmp 0x20    ; the menu's exit code (RAM x5D20)
+
+#addr 0x0780
 show:
     ; "SSS.SSS s" centered below the digits, leading zeros as spaces
     ld   0xA9, ac
@@ -1038,82 +1128,6 @@ ret_40:
 ret_41:
     ld   pause >> 8, y
     jmp  pause
-
-#addr 0x077D
-dadd:
-    ; timer digits at 0x50 += addend digits at 0x50 + [doff], decimal
-    clr  ac
-    ld   ac, [0x30]
-    ld   ac, [0x37]
-dl:
-    ld   [0x37], ac
-    add  0x50, x
-    ld   [x], ac
-    add  [0x30], ac
-    ld   ac, [0x31]
-    ld   [0x37], ac
-    add  [0x2F], ac
-    add  0x50, x
-    ld   [x], ac
-    add  [0x31], ac
-    ld   ac, [0x31]
-    ld   [0x37], ac
-    add  0x50, x
-    ld   [0x31], ac
-    sub  10, ac
-    blt  dlt
-    ld   ac, [x]
-    ld   1, ac
-    bra  dn
-dlt:
-    ld   [0x31], ac
-    ld   ac, [x]
-    clr  ac
-dn:
-    ld   ac, [0x30]
-    ld   [0x37], ac
-    inc
-    ld   ac, [0x37]
-    sub  9, ac
-    bne  dl
-    ld   [0x35], y
-    jmp  [0x34]
-
-#addr 0x07B9
-poll:
-    ; read the line read (V9:V2, 124-255) and add one frame to the timer
-    ; when it went down.  cur - last - 96 >= 0 means it wrapped, as long as
-    ; polls are less than 95 steps (380 lines) apart.  Uses y and x.
-    ; The menu hook first (Esc, time up: menu_hook.py).
-    ld   ret_34, ac
-    ld   ac, [0x38]
-    ld   ret_34 >> 8, ac
-    ld   ac, [0x39]
-    ld   hk_poll >> 8, y
-    jmp  hk_poll
-ret_34:
-    ld   0x50, y
-    ld   [y,x], ac
-    ld   ac, [0x2C]
-    sub  [0x2D], ac
-    sub  96, ac
-    blt  pnw
-    ld   0x01, ac
-    ld   ac, [0x2E]
-    ld   0x10, ac
-    ld   ac, [0x2F]
-    ld   ret_35, ac
-    ld   ac, [0x34]
-    ld   ret_35 >> 8, ac
-    ld   ac, [0x35]
-    ld   dadd >> 8, y
-    jmp  dadd
-ret_35:
-pnw:
-    ld   [0x2C], ac
-    ld   ac, [0x2D]
-    ld   [0x33], y
-    jmp  [0x32]
 
 #addr 0x0800
 stop:

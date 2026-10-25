@@ -108,8 +108,9 @@ dropped the Cherry MX matrix keyboard (and its header J1) in favour of a
 PS/2 keyboard in the lower PS/2 socket.  With no key columns to drive and
 no rows to read, the port PLD (#38, rev 03) holds the five latch bits
 still in use in its own registers and reads SD MISO and the PS/2 lines
-itself, so the 74HC574 (#37) and the 74F541 (#39) are gone (IO.md).  The
-schematic and BOM still have them until the change is carried through.
+itself, so the 74HC574 (#37) and the 74F541 (#39) are gone (IO.md).
+Carried through the schematic, BOM, library, simulator and FPGA model
+the same day.
 
 **Changed 2026-10-21: no clock gate, no cartridge 74AC541.**  The
 cartridge holds the CPU's STALL line (STALL_IN from the Branch PLD,

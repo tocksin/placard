@@ -12,7 +12,7 @@ test_bringup_sim.py - run the bring-up test ROM (bringup.asm) in placard_sim
 The ROM image is the whole 64 KB (its own reset code at x0000, the library
 at xC000-xFBFF and its LIB_RAM bytes at x1F00), so the simulator runs it with
 no boot loader, from random RAM, with the hardware ALU model and the shared
-port model (keyboard, pads, SD card, mouse).  Checks:
+port model (PS/2 keyboard and mouse, pads, SD card).  Checks:
 
   - a good machine passes the startup tests, draws the status screen and
     runs the frame loop: LOOPS and FRAME count up, the RAM test makes
@@ -29,7 +29,7 @@ Video stalls are not modeled, so the CPU runs about 10 % faster than on
 the board; the per-frame work is bounded, so the frame loop runs once per
 frame on both.
 
-Date: 10/19/2026
+Date: 10/25/2026
 """
 
 import argparse
@@ -79,6 +79,7 @@ class Rig:
             self.port.sd = iod.SdCard(bytearray(64 * 512))     # not formatted
         if mouse:
             self.port.mouse = iod.Ps2Mouse()
+        self.port.kbd = iod.Ps2Keyboard()
         self.cpu = ps.Cpu(ram, hw_alu=True, rom=rom, io=self.port)
 
     def run_clocks(self, n):
@@ -137,27 +138,29 @@ def check_good(rom, syms, font, args):
     assert rows[14][17:19] == '00', 'SD_INIT %r' % rows[14][17:19]
     assert rows[14][31:33] != '00', 'FS_MOUNT %r on an unformatted card' % rows[14][31:33]
     assert rows[17][18:20] == '00', 'MOUSE_INIT %r' % rows[17][18:20]
-    assert rows[8][22:46] == 'FF FF FF FF FF FF FF FF ', 'keyboard rows %r' % rows[8][22:46]
+    assert rows[8][22:46] == 'FF FF FF FF FF FF FF FF ', 'KBD_NOW %r' % rows[8][22:46]
     print('good machine: startup tests and screen %.1f ms, LOOPS %d, FRAME %d, RAM passes %d, '
           'errors %d' % (t_up / 25175.0, loops, frame, passes, errors))
 
     # keys: "a" echoes, "t" starts the tone, "t" again stops it, "s" retries
-    def press(k, frames=2):
-        rig.port.keys = {(k >> 3, k & 7)}
+    # (PS/2 set-2 codes; the keyboard gets the line every other frame while
+    # the mouse is there, and sends one byte per turn)
+    def press(k, frames=6):
+        rig.port.kbd.press(k)
         assert rig.frames(frames) is None
-        rig.port.keys = set()
+        rig.port.kbd.release(k)
         assert rig.frames(frames) is None
-    press(29)                                      # a
-    press(29)
+    press(0x1C)                                    # a
+    press(0x1C)
     row9 = text_row(cpu, 9, font)
     assert row9[7:9] == 'aa', 'echo %r' % row9[:20]
-    press(19)                                      # t
+    press(0x2C)                                    # t
     row20 = text_row(cpu, 20, font)
     assert row20[32:35] == 'ON ', 'tone %r' % row20[30:36]
     audio = sorted(set(cpu.mem[a] for a in range(0x5DF3, 0x6000)))
     # a square wave, 80h +- 48
     assert {0x50, 0xB0} <= set(audio), 'tone on, but the audio buffer holds %r' % audio[:8]
-    press(19)
+    press(0x2C)
     row20 = text_row(cpu, 20, font)
     assert row20[32:35] == 'OFF', 'tone %r' % row20[30:36]
     rig.port.mouse.move(dx=20, dy=-7)                # PS/2 Y counts up
@@ -167,7 +170,7 @@ def check_good(rom, syms, font, args):
     assert (mx, my) == (20, 7), 'mouse X %d Y %d, want 20 7' % (mx, my)
     print('mouse: moved right 20, down 7, shows X %d Y %d' % (mx, my))
     rig.port.sd = None                             # take the card out, retry
-    press(30)                                      # s
+    press(0x1B)                                    # s
     row14 = text_row(cpu, 14, font)
     assert row14[17:19] != '00', 'SD_INIT %r with no card' % row14[17:19]
     print('keys: echo %r, T tone on (samples %s) and off, S retry SD_INIT %s'

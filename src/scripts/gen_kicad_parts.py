@@ -3,7 +3,7 @@
 gen_kicad_parts.py - make kicad/lib/placard_parts.kicad_sym, the project's
 symbols for the parts KiCad's own libraries do not have: the AS7C256C SRAM,
 the expansion slot, the ROM cartridge slot, the SNES pad socket, the
-keyboard header, the stacked dual PS/2 socket and the USB-C power input.  They are drawn like the PLD
+stacked dual PS/2 socket and the USB-C power input.  They are drawn like the PLD
 symbols (gen_kicad_symbols.py): pins grouped by bus and function, not by
 number.
 
@@ -14,7 +14,7 @@ The other parts come from KiCad's libraries (kicad/README.md lists which).
 Rerunning this overwrites the library, so make changes here, not in KiCad's
 symbol editor.  The pinouts are from CHIPS.md, EXPANSION.md and IO.md.
 
-Date: 2026-10-23
+Date: 2026-10-25
 """
 
 import os
@@ -98,20 +98,6 @@ def snes_socket():
                   vcc=(1, "+5V"), gnd=(7, "GND"), ref="J", min_w=4 * 2.54)
 
 
-def keyboard_header():
-    # 2 x 10 shrouded (keyed) box header to the keyboard board, ribbon cable (IO.md, J1);
-    # the same part on both boards
-    p = "passive"
-    col = bus("/COL", range(1, 9), p)
-    row = bus("ROW", range(9, 17), p)
-    return symbol("Keyboard_Header", [(col + [None] + row + [None, (20, "spare", "no_connect")], [])], "Keyboard",
-                  "Keyboard connector, 2 x 10 shrouded box header, 2.54 mm, keyed: 1-8 /COL0-/COL7, "
-                  "9-16 ROW0-ROW7, 17 +5V, 18-19 GND, 20 spare (caps lock LED)",
-                  "keyboard matrix header box IDC Placard",
-                  footprint="Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical",
-                  datasheet="~", vcc=(17, "+5V"), gnd=[(18, "GND"), (19, "GND")], ref="J", min_w=4 * 2.54)
-
-
 def ps2_dual():
     # Kycon KMDGX-6S/6S-S4N: two mini-DIN 6 sockets stacked, PS/2 mouse on top (A),
     # PS/2 keyboard below (B), as on a PC (IO.md, J5).  Each socket: 1 DATA,
@@ -165,7 +151,7 @@ def oscillator():
 
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else OUT
-    write_lib(out, [sram(), expansion_slot(), cartridge_slot(), snes_socket(), keyboard_header(), ps2_dual(), mcp1700(),
+    write_lib(out, [sram(), expansion_slot(), cartridge_slot(), snes_socket(), ps2_dual(), mcp1700(),
                     oscillator(), usb_c_power()])
 
 

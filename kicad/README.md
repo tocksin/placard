@@ -11,12 +11,11 @@ when it saves them).
 | `power.kicad_sch` ... `expansion.kicad_sch` | the ten sheets (power and clock, control, PC and address mux, ALU and registers, data bus, memory and I/O decode, video timing, video and audio out, shared port, expansion slots), docs/SCHEMATIC_PLAN.md |
 | `cartridge_64k/` | the 64K ROM cartridge (5 chips), its own project (`cartridge_64k.kicad_pro`, one sheet and a placed, unrouted 2-layer board), using the same `lib/` |
 | `cartridge_32k/` | the 32K ROM cartridge (3 chips), its own project (`cartridge_32k.kicad_pro`, one sheet and a placed, unrouted 2-layer board), using the same `lib/`; mounting hole H1 at the same place as on the 64K board |
-| `keyboard/` | the keyboard board, its own project (`keyboard.kicad_pro`, one sheet: 63 Cherry MX keys, diodes, LEDs), using the same `lib/` |
 | `placard.kicad_pcb` | the board: 4 layers (F.Cu, In1.Cu = GND, In2.Cu = VCC, B.Cu) |
 | `lib/placard.kicad_sym` | PLD symbols: `ATF22V10C` (generic) and one `ATF22V10C_<name>` per `.pld` file, with its pin names |
-| `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `Keyboard_Header`, `PS2_Dual_Stacked`, `USB_C_Power` |
+| `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `PS2_Dual_Stacked`, `USB_C_Power` |
 | `lib/placard_std.kicad_sym` | copies of the stock KiCad symbols the sheets use (74xx, R, C, D, connectors, regulator) with larger pin text, written by `src/scripts/gen_kicad_std.py` |
-| `lib/placard.pretty/` | project footprints: `SW_Cherry_MX_LED_<size>u_PCB` key switches with LED pads and stabilizer holes (written by `src/scripts/gen_kicad_keyswitch.py`), the main board's connectors and switches (preliminary, written by `src/scripts/gen_kicad_connectors.py`), and kit versions of KiCad's DIP socket footprints (`DIP-nn_..._Socket_Puller`: chip-puller room on User.Eco1, part number in silkscreen) and of the axial resistor (`..._Value`: value in silkscreen), written by `src/scripts/gen_kicad_kit_footprints.py` |
+| `lib/placard.pretty/` | project footprints: the main board's connectors and switches (preliminary, written by `src/scripts/gen_kicad_connectors.py`), and kit versions of KiCad's DIP socket footprints (`DIP-nn_..._Socket_Puller`: chip-puller room on User.Eco1, part number in silkscreen) and of the axial resistor (`..._Value`: value in silkscreen), written by `src/scripts/gen_kicad_kit_footprints.py` |
 | `lib/placard.3dshapes/` | 3D models (STEP) for the connectors, switches and polyfuse, named after their footprints and referenced as `${KIPRJMOD}/lib/placard.3dshapes/...`, so they show in any KiCad version without a 3D library path; written by `src/scripts/gen_kicad_3d_models.py` (CadQuery), which also copies in KiCad's own models for SW2, J7 and J13 |
 | `sym-lib-table`, `fp-lib-table` | point KiCad at the project libraries |
 | `fab/` | Gerbers, drill files, BOM and placement files for a board order |
@@ -24,7 +23,7 @@ when it saves them).
 The board is 290 x 290 mm (the keyboard's width; 290 deep since 2026-10-23 so kit
 builders have room), 4 layers, with the
 outline, dimensions, user connectors, cartridge slot, expansion slots,
-keyboard header and mounting holes placed by `src/scripts/gen_kicad_pcb.py`
+and mounting holes placed by `src/scripts/gen_kicad_pcb.py`
 (run with `python3.12`, which KiCad 7's Python module is built for; `--png`
 also draws [docs/placard_board_layout.png](../docs/placard_board_layout.png)).
 The back edge carries USB-C power, audio line out, VGA and the stacked PS/2;
@@ -85,7 +84,7 @@ the same style, for the parts KiCad's libraries do not have: the AS7C256C
 SRAM, the expansion slot (2 x 20 card edge, contacts A1-A20 and B1-B20)
 and the cartridge slot (Molex 87715-9106, 2 x 32 keyed, contacts A1-A32
 and B1-B32), as in EXPANSION.md, with the +5 V and GND contacts stacked on
-one pin each, the SNES pad socket, the keyboard header (IO.md) and
+one pin each, the SNES pad socket (IO.md) and
 `USB_C_Power`, the 5 V input: a power-only 6-contact USB-C receptacle
 (GCT USB4125, footprint `placard:USB_C_Receptacle_GCT_USB4125_6P_HandSolder`:
 KiCad's USB4125 footprint with the SMD pads 1.5 mm longer for the iron, made by gen_kicad_connectors.py)
@@ -99,7 +98,7 @@ Everything else comes from KiCad's own libraries:
 | SN74F377AN | `74xx:74LS377` |
 | SN74F541N | `74xx:74LS541` |
 | CD74ACT273E | `74xx:74HC273` |
-| SN74HCT574N, SN74HC574N | `74xx:74HCT574` |
+| SN74HCT574N | `74xx:74HCT574` |
 | 25.175 MHz oscillator | `Oscillator:ACO-xxxMHz` |
 | 3.3 V regulator (MCP1700-3302E/TO) | `Regulator_Linear:MCP1700x-330xxTO` |
 | VGA | `Connector:DE15_Receptacle_HighDensity_MountingHoles` |
