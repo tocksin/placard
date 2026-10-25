@@ -2,9 +2,9 @@
 
 Date: 2026-10-25
 
-The main board, built: the bare PCB, every part on the schematic, and the sockets, jumper shunts and /WE pull-up that are not drawn.  It is one line of the case assembly.
+The main board, built: the bare PCB, every part on the schematic, and the sockets, jumper shunts that are not drawn.  It is one line of the case assembly.
 
-55 lines, 175 parts on the schematic.  Cost: **$204.54** for one assembly at these quantities, **$186.54** without the optional parts (expansion slot sockets J9-J12).  30 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
+54 lines, 176 parts on the schematic.  Cost: **$204.54** for one assembly at these quantities, **$186.54** without the optional parts (expansion slot sockets J9-J12).  29 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -35,7 +35,7 @@ The main board, built: the bare PCB, every part on the schematic, and the socket
 | 6 | D12-D17 | 1N4148-TAP | Vishay | Small-signal diode, DO-35 | 1N4148 | 0.26 | 1.56 | Mouser: Vishay 1N4148-TAP | Any 1N4148 (Vishay, onsemi, Diodes Inc.) |
 | 1 | D18 | WP7113ID | Kingbright | Power LED, 5 mm, red diffused, through hole (on +5V after K1) |  | 0.21 | 0.21 | Mouser | D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color (was Lite-On LTL2R3KRD-EM, out of stock 2026-10-25) |
 | 2 | R1, R2 | MFR-25FBF52-5K1 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 5.1k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
-| 7 | R3, R4, R13, R39-R41, R48 | MFR-25FBF52-10K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 10k | 0.10 | 0.70 | est.: Yageo MFR-25FBF52 series |  |
+| 8 | R3, R4, R13, R39-R41, R48, R63 | MFR-25FBF52-10K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 10k | 0.10 | 0.80 | est.: Yageo MFR-25FBF52 series |  |
 | 10 | R5-R12, R61, R62 | MFR-25FBF52-47R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 47 | 0.04 | 0.40 | est.: Yageo MFR-25FBF52 series |  |
 | 2 | R14, R17 | MFR-25FBF52-3K24 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 3.24k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
 | 2 | R15, R18 | MFR-25FBF52-1K69 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 1.69k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
@@ -61,5 +61,4 @@ The main board, built: the bare PCB, every part on the schematic, and the socket
 | 11 | U18-U23, U25-U27, U29, U36 | ED20DT | On Shore | IC socket, DIP-20 0.3" |  | 0.30 | 3.30 | est.: On Shore ED20DT | Not on the schematic. |
 | 20 | U1-U17, U35, U38, U42 | ED241DT | On Shore | IC socket, DIP-24 0.3" |  | 0.40 | 8.00 | est.: On Shore ED241DT | Not on the schematic. |
 | 2 | U31, U32 | ED281DT | On Shore | IC socket, DIP-28 0.3" |  | 0.45 | 0.90 | est.: On Shore ED281DT | Not on the schematic. |
-| 1 |  | MFR-25FBF52-10K | Yageo | Resistor, 10k (/WE pull-up), 1/4 W, axial | 10k | 0.10 | 0.10 | est.: Yageo MFR-25FBF52-10K | Not on the schematic.  Memory control rev 09 lets go of /WE while RUN is low; not drawn on the schematic yet (EXPANSION.md, "Booting from slot 1") |
 | 2 | JP1, JP2 | QPC02SXGN-RC | Sullins | Jumper shunt, 2.54 mm |  | 0.10 | 0.20 | est.: Sullins QPC02SXGN-RC | Not on the schematic.  Bring-up jumpers |
