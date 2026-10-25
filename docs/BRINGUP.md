@@ -370,7 +370,7 @@ mux's wiring or its H or V input.
 | U22 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
 | C31, C22 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | RN1 | Resistor network, 8 bussed, SIP-9 (data bus pull-ups) | 10k (Bourns 4609X-101-103LF) | dot (pin 1, common) to +5V |
-| (no ref) | Resistor, /WE pull-up (in the BOM, not on the schematic yet) | 10k |  |
+| R63 | Resistor, /WE pull-up | 10k |  |
 | U2 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) | empty for now, holds strap S3 |
 | C2 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | U11 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) | empty for now, holds strap S4 |
@@ -381,7 +381,7 @@ mux's wiring or its H or V input.
 U31 and U22 need no programming.
 
 The video now reads the RAM.  Nothing writes it:
-with no memory control PLD, the /WE pull-up holds /WE high.  The pixel
+with no memory control PLD, R63 holds /WE high.  The pixel
 buffer's load strobe /PIX_LD and the RAM's /OE come from PLDs that aren't
 in yet, so turn off the power switch and put in:
 
@@ -464,7 +464,7 @@ sockets.  Turn on the power switch.  All 80 byte columns now show
 
 With no cartridge and no JP2 shunt, R4 holds RUN low.  That keeps the
 ROM off, holds the map register clear and turns U11's /WE output off, so
-the /WE pull-up still stops any writes.  Turn off the power switch.  Take
+R63 still stops any writes.  Turn off the power switch.  Take
 strap S4 (U11 pin 18 to pin 12) out, then insert U11 and U25 into their
 sockets.  Turn on the power switch.  U11 now drives /RAM_OE only for the
 reads, and the picture is the same random RAM as in step 10.
