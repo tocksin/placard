@@ -101,16 +101,16 @@ Leave U40, C40 and C42 (the 3.3 V regulator) for step 18, with the SD card.
 | D7 | SA5.0A TVS, fused VBUS (VFUSE) to GND | band (cathode) to VFUSE |
 | SW1 | ANT11TFHQE toggle, on/off | |
 | C41 | 220 µF 10 V electrolytic on VON (between SW1 and K1) | + to VON, stripe to GND |
-| K1 | Omron G5LE-1 DC5 relay; COM (pin 1) = VON, NC (pin 4) = +5V | |
+| K1 | CIT J1071CS5VDC.36 relay; COM (pin 1) = VON, NC (pin 4) = +5V | |
 | SW2 | PTS645VL58-2 tactile reset button, VON to the coil (KCOIL) | |
 | D8 | BAT85 across K1's coil | band (cathode) to KCOIL |
 | R59, D18 | 1k and the red 5 mm power LED, +5V (after K1) to GND | LED's long lead (anode) to R59, flat side (cathode) to GND |
 
 **The relay's NC rating.**  The whole board's current flows through K1's
-normally closed contact.  Before fitting K1, check on the Omron G5LE
-datasheet that the NC (break) contact of the G5LE-1 is rated for at least
-3 A continuous at 5 V DC (the 8 A 30 V DC figure in the BOM may be the NO
-rating).  If it isn't, change the part before going on.
+normally closed contact.  The CIT J107 datasheet rates the contacts 7 A at
+30 V DC and marks only its 277 V AC rating as NO only, so the NC contact
+carries 7 A DC, well over the board's 3 A (checked 2026-10-25).  Contact
+resistance is 30 mohm initial, about 90 mV at 3 A.
 
 **Before power** (meter on ohms and diode test, no supply plugged in):
 
@@ -135,7 +135,7 @@ points.
 | Input current, no load | on | up | about 3 mA once C41 has charged (D18) |
 | +5V | on | held | 0 V; K1 clicks, D18 goes dark |
 | VON | on | held | still 5 V (C41 stays charged) |
-| Input current | on | held | about 80 mA more (K1's coil) |
+| Input current | on | held | about 72 mA more (K1's 69 ohm coil) |
 | +5V | on | let go | back to 5 V, D18 lit |
 
 **Reset.**  Put a 100 ohm resistor (1/2 W) from +5V to GND as a load

@@ -27,6 +27,7 @@ by construction.
 | SW_Tactile_SPST_Angled_PTS645Vx58-2LFS | reset button SW2 | KiCad's own model, copied |
 | DSUB-15-HD_Female_Horizontal_..._MountingHolesOffset4.94mm | VGA J7 | KiCad's own model, copied |
 | USB_C_Receptacle_GCT_USB4125_6P_HandSolder | USB-C J13 | KiCad's USB4125 model, copied |
+| Relay_SPDT_CIT_J107 | reset relay K1 | generated: 15.4 x 19.0 x 15.5 mm sealed box, 1.0 mm standoff (CIT J107 drawing) |
 
 The generated models are drawn from typical dimensions for each part (the
 makers' drawings could not be fetched), close enough to check fit and
@@ -253,6 +254,14 @@ def fuse():
     save(name, [("body", PTC, [body]), ("leads", TIN, pins(name, 5.0))])
 
 
+def relay():
+    # CIT J107: 15.4 x 19.0 mm box, 15.5 mm high, standing 1.0 mm off the board on its
+    # pins; the end of the body is 1.3 mm past COM (datasheet "Dimensions")
+    name = "Relay_SPDT_CIT_J107"
+    body = box(-7.7, -1.3, 7.7, 17.7, 1.0, 16.5).edges("|Z").fillet(0.5)
+    save(name, [("body", BLACK, [body]), ("pins", TIN, pins(name, 1.5, flat=True))])
+
+
 def copy_stock(stock, name):
     """KiCad's own model for a footprint, copied into the project under the footprint's name."""
     shutil.copyfile(os.path.join(STOCK3D, stock + ".step"), os.path.join(OUT, name + ".step"))
@@ -269,6 +278,7 @@ def main():
     toggle()
     sd_socket()
     fuse()
+    relay()
     copy_stock("Button_Switch_THT.3dshapes/SW_Tactile_SPST_Angled_PTS645Vx58-2LFS",
                "SW_Tactile_SPST_Angled_PTS645Vx58-2LFS")
     dsub = "DSUB-15-HD_Female_Horizontal_P2.29x1.98mm_EdgePinOffset3.03mm_Housed_MountingHolesOffset4.94mm"
