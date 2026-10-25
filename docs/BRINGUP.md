@@ -78,9 +78,9 @@ restart, press SW2 or switch SW1 off and on.
 **Floating inputs.**  An ATF22V10C holds an input that nothing drives at
 its last level (a weak pin keeper), and an F-series input that floats reads
 high.  So a missing chip is harmless unless a level matters, and those
-places get a temporary resistor (a strap, step 2).
+places get a temporary resistor (a strap, from step 3 on).
 
-**The data bus pull-ups.**  The 10k SIP on D7:D0 goes in with the passives.
+**The data bus pull-ups.**  The 10k SIP on D7:D0 goes in at step 7.
 With nothing driving it, the bus reads FF.  After a chip drives it and lets
 go, the bus keeps that byte for about 0.5 µs (the 10k and the bus
 capacitance), so "an empty bus reads FF" holds only when nothing has driven
@@ -144,28 +144,13 @@ Pass when every row above reads as listed.
 
 ## Video
 
-### Step 2: passives and the oscillator
+### Step 2: the oscillator (X1)
 
-Fit the board's passives, with no sockets yet (each later step fits its
-own) and no straps:
+Fit only X1's socket and its decoupler C43 (100 nF); every other part
+goes in with the step that first needs it.
 
-- Data bus: RN1 (10k SIP, pulls D7:D0 up) and R5-R12 (47 ohm series
-  resistors).
-- Cartridge STALL and RUN: R3 (10k, STALL_OUT pull-up), R4 (10k, RUN
-  pull-down) and the bring-up jumpers JP1 (STALL_IN to STALL_OUT) and JP2
-  (RUN to +5 V), both with a shunt on (see "Without the cartridge").
-- Cartridge slot J8 with R13 (10k, /CART pull-up), and the 10k /WE
-  pull-up (in the BOM, not on the schematic yet).
-- Video output: R14-R21 (the colour resistors), the row tint parts
-  R56-R58, D9-D11 (BAT85) and D12-D17 (1N4148), the sync series
-  resistors R61 and R62 (47 ohm, beside U13 and U15), and the VGA
-  connector J7.
-
-Then the oscillator:
-
-- Fit X1's socket and its decoupler C43 (100 nF).  Power on: +5 V and
-  0 V on the socket's supply pins.  Current with no chips: a few mA (the
-  pull-ups).
+- Power on: +5 V and 0 V on the socket's supply pins.  Current: about
+  the same as step 1 (D18).
 - Fit the 25.175 MHz oscillator X1.  Its output reads **25.175 MHz**, 2.5 V
   average.  If the meter doesn't reach that, skip it: step 3 shows the
   clock divided down.
@@ -236,6 +221,9 @@ Fit U13.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks a line.
 
 **Sockets:** U14 with C14.
 
+**Other parts:** the VGA connector J7 and the sync series resistors R61
+and R62 (47 ohm, beside U13 and U15).
+
 **Program first:** U14 V counter from `ATF22V10_VCOUNT.pld` (rev 03);
 verify and label it.
 
@@ -290,6 +278,10 @@ bits (1x line repeat while S5 holds Q3:Q2 low).
 **Sockets:** U2 with C2, U22 with C22 and U16 with C16 (U23's went in at
 step 4).  Also fit the RAM socket U31 (with C31), empty, for the pull-
 down tests below.
+
+**Other parts:** the data bus pull-ups RN1 (10k SIP on D7:D0), the
+colour resistors R14-R21 and the row tint parts R56-R58, D9-D11 (BAT85)
+and D12-D17 (1N4148).
 
 **Program first:** U2 Branch from `ATF22V10_BRANCH.pld` (rev 15) and U16
 colour decoder from `ATF22V10_COLORDECODER.pld` (rev 07); verify and
@@ -369,6 +361,11 @@ The screen stays white.
 ### Step 9: memory control (U11), map register (U25), I/O decode (U12)
 
 **Sockets:** U11 with C11, U25 with C25 and U12 with C12.
+
+**Other parts:** the 10k /WE pull-up (in the BOM, not on the schematic
+yet), and for the cartridge lines R3 (10k, STALL_OUT pull-up), R4 (10k,
+RUN pull-down) and the bring-up jumpers JP1 (STALL_IN to STALL_OUT) and
+JP2 (RUN to +5 V), both with a shunt on (see "Without the cartridge").
 
 **Program first:** U11 memory control from `ATF22V10_MEM_CTRL.pld`
 (rev 09) and U12 I/O decode from `ATF22V10_IO_DECODE.pld` (rev 04); verify
@@ -508,6 +505,9 @@ free run readings must not change.
 
 **Sockets:** U26 with C26.
 
+**Other parts:** R5-R12, the 47 ohm series resistors from the source
+buffers onto the data bus.
+
 Fit U26.  The free run never selects it (its /OE2 is instruction bit 1, which is 1),
 so the readings of steps 11-13 must not change.  If they do, the buffer is
 driving the bus when it shouldn't: check its /OE1 (Branch /SRC_EN, pin 16)
@@ -516,6 +516,8 @@ and /OE2 (instruction register PLD I1, pin 15) wiring.
 ### Step 17: AC source buffer (U27), line read buffer (U29), RAM back, the cartridge
 
 **Sockets:** U27 with C27 and U29 with C29.
+
+**Other parts:** the cartridge slot J8 and R13 (10k, /CART pull-up).
 
 The free run does select the AC source buffer (source 11), and the
 accumulator is random, so it goes in with the memories.  Fit the AC
