@@ -97,21 +97,24 @@ so its readings shift a little with the line and frame; read the average.
 
 ### Step 1: the power input, on/off switch and reset
 
-Fit only the power input parts on the bare board (power sheet, 2026-10-22).
-Leave U40, C40 and C47 (the 3.3 V regulator) for step 18, with the SD card.
+**Parts for this step:**
 
-| Part | What | Fitting note |
-|---|---|---|
-| J13 | USB-C receptacle (power only) | |
-| R1, R2 | 5.1k, CC1 and CC2 to GND | without them a USB-C supply gives no 5 V |
-| F1 | MF-RG300 polyfuse, 3 A hold | not polarised |
-| D7 | SA5.0A TVS, fused VBUS (VFUSE) to GND | band (cathode) to VFUSE |
-| SW1 | ANT11TFHQE toggle, on/off | |
-| C41 | 220 µF 10 V electrolytic on VON (between SW1 and K1) | + to VON, stripe to GND |
-| K1 | CIT J1071CS4VDC.36 relay; COM (pin 1) = VON, NC (pin 4) = +5V | |
-| SW2 | PTS645VL58-2 tactile reset button, VON to the coil (KCOIL) | |
-| D8 | BAT85 across K1's coil | band (cathode) to KCOIL |
-| R59, D18 | 1k and the red 5 mm power LED, +5V (after K1) to GND | LED's long lead (anode) to R59, flat side (cathode) to GND |
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| J13 | USB-C receptacle (power only) | GCT USB4125-GF-A-0190 |  |
+| R1, R2 | Resistor | 5.1k | CC1 and CC2 to GND; without them a USB-C supply gives no 5 V |
+| F1 | Polyfuse, 3 A hold | Bourns MF-RG300-0 | not polarised |
+| D7 | TVS diode, fused VBUS (VFUSE) to GND | Littelfuse SA5.0A | band (cathode) to VFUSE |
+| SW1 | Toggle switch, on/off | CIT ANT11TFHQE |  |
+| C41 | Electrolytic capacitor, on VON (between SW1 and K1) | 220 µF (Panasonic EEU-FR1E221) | + to VON, stripe to GND |
+| K1 | Relay | CIT J1071CS5VDC.36 | COM (pin 1) = VON, NC (pin 4) = +5V |
+| SW2 | Tactile reset button, VON to the coil (KCOIL) | C&K PTS645VL58-2 LFS |  |
+| D8 | Schottky diode, across K1's coil | BAT85 | band (cathode) to KCOIL |
+| R59 | Resistor, power LED | 1k |  |
+| D18 | Power LED, red 5 mm, +5V (after K1) to GND | Kingbright WP7113ID | long lead (anode) to R59, flat side (cathode) to GND |
+
+Fit only these power input parts on the bare board (power sheet, 2026-10-22).
+Leave U40, C40 and C47 (the 3.3 V regulator) for step 18, with the SD card.
 
 **Before power** (meter on ohms and diode test, no supply plugged in):
 
@@ -141,6 +144,13 @@ Pass when every row above reads as listed.
 
 ### Step 2: the oscillator (X1)
 
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| X1 | Oscillator, 25.175 MHz, full-size DIP-14 can | ECS ECS-100A-251.7 | no socket: solder it in, pin 1 (dot or square corner) on the footprint's pin 1 |
+| C43 | Capacitor, beside X1 | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+
 Fit only the 25.175 MHz oscillator X1 and its decoupler C43 (100 nF);
 every other part goes in with the step that first needs it.  X1 has no
 socket: solder it in, with the can's dot or square corner (pin 1) on
@@ -155,7 +165,13 @@ its socket isn't in until step 3):
 
 ### Step 3: Sync PLD (U15)
 
-**Sockets:** U15 with C15.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U15 | PLD, Sync | ATF22V10C-7PX, programmed from `ATF22V10_SYNC.pld` |  |
+| U15 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C15 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 **Program first:** U15 Sync from `ATF22V10_SYNC.pld` (rev 09); verify
 and label it.
@@ -170,7 +186,13 @@ Insert U15 into its socket.  The Sync PLD's H2:H0 count the clock by themselves.
 
 ### Step 4: H counter PLD (U13)
 
-**Sockets:** U13 with C13.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U13 | PLD, H counter | ATF22V10C-7PX, programmed from `ATF22V10_HCOUNT.pld` |  |
+| U13 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C13 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 **Program first:** U13 H counter from `ATF22V10_HCOUNT.pld` (rev 08);
 verify and label it.
@@ -189,10 +211,15 @@ Insert U13 into its socket.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks 
 
 ### Step 5: V counter PLD (U14)
 
-**Sockets:** U14 with C14.
+**Parts for this step:**
 
-**Other parts:** the VGA connector J7 and the sync series resistors R61
-and R62 (47 ohm, beside U13 and U15).
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U14 | PLD, V counter | ATF22V10C-7PX, programmed from `ATF22V10_VCOUNT.pld` |  |
+| U14 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C14 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| J7 | VGA connector, DE-15 | Assmann A-HDF 15 A-KG/T |  |
+| R61, R62 | Resistor, sync series (beside U13 and U15) | 47 ohm |  |
 
 **Program first:** U14 V counter from `ATF22V10_VCOUNT.pld` (rev 03);
 verify and label it.
@@ -216,8 +243,16 @@ colour decoder isn't in yet).
 
 ### Step 6: audio and mode slot PLD (U35)
 
-**Sockets:** U35 with C35.  Also fit the line code socket U23 (with
-C23), empty, for strap S4.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U35 | PLD, audio and mode slots | ATF22V10C-7PX, programmed from `ATF22V10_AUDIO.pld` |  |
+| U35 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C35 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| U23 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) | empty for now, holds strap S4 |
+| C23 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| S4 | Strap (temporary), in U23's socket | 2 x 10k | out at step 7 |
 
 **Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
 (rev 04); verify and label it.
@@ -246,13 +281,32 @@ bits (1x line repeat while S4 holds Q3:Q2 low).
 
 ### Step 7: Branch PLD (U2), pixel buffer (U22), line code (U23), colour decoder (U16)
 
-**Sockets:** U2 with C2, U22 with C22 and U16 with C16 (U23's went in at
-step 6).  Also fit the State socket U1 (with C1), empty, for strap S1,
-and the RAM socket U31 (with C31), empty, for the pull-down tests below.
+**Parts for this step:**
 
-**Other parts:** the data bus pull-ups RN1 (10k SIP on D7:D0), the
-colour resistors R14-R21 and the row tint parts R56-R58, D9-D11 (BAT85)
-and D12-D17 (1N4148).
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U2 | PLD, Branch | ATF22V10C-7PX, programmed from `ATF22V10_BRANCH.pld` |  |
+| U16 | PLD, colour decoder | ATF22V10C-7PX, programmed from `ATF22V10_COLORDECODER.pld` |  |
+| U22 | Pixel buffer, octal D flip-flop | TI SN74F377AN |  |
+| U23 | Line code register, octal D flip-flop | TI CD74HCT377E | socket fitted at step 6 |
+| U2, U16 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| U22 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C2, C16, C22 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| U1 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) | empty for now, holds strap S1 |
+| C1 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| U31 socket | IC socket | DIP-28 0.3" (On Shore ED281DT) | empty for now, for the 1k pull-down tests |
+| C31 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| RN1 | Resistor network, 8 bussed, SIP-9 (data bus pull-ups) | 10k (Bourns 4609X-101-103LF) | dot (pin 1, common) to +5V |
+| R14, R17 | Resistor, colour | 3.24k |  |
+| R15, R18 | Resistor, colour | 1.69k |  |
+| R16, R19 | Resistor, colour | 825 ohm |  |
+| R20 | Resistor, colour | 1.43k |  |
+| R21 | Resistor, colour | 715 ohm |  |
+| R56-R58 | Resistor, row tint | 910 ohm |  |
+| D9-D11 | Schottky diode, row tint | BAT85 | band (cathode) as on the silkscreen |
+| D12-D17 | Diode, row tint | 1N4148 | band (cathode) as on the silkscreen |
+| S1 | Strap (temporary), in U1's socket | 4 x 10k | out at step 11 |
+| (test) | Pull-down (temporary), in U31's socket | 1k | one at a time, then out at step 10 |
 
 **Program first:** U2 Branch from `ATF22V10_BRANCH.pld` (rev 15) and U16
 colour decoder from `ATF22V10_COLORDECODER.pld` (rev 07); verify and
@@ -304,7 +358,16 @@ whole screen is the wrong colour, check the line code register (U23) Q1:Q0
 
 ### Step 8: D register (U18) and the address muxes (U7-U10)
 
-**Sockets:** U18 with C18 and U7-U10 with C7-C10.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U7-U10 | PLD, address mux | ATF22V10C-7PX, programmed from `ATF22V10_QUAD_MUX.pld` |  |
+| U18 | D register, octal D flip-flop | TI SN74F377AN |  |
+| U7-U10 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| U18 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C7-C10, C18 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| S3 | Strap (temporary), in U1's socket | 10k | out at step 11 |
 
 **Program first:** U7, U8, U9 and U10 address muxes, four copies of
 `ATF22V10_QUAD_MUX.pld` (rev 01); verify and label them.
@@ -338,12 +401,22 @@ The screen stays white.
 
 ### Step 9: memory control (U11), map register (U25), I/O decode (U12)
 
-**Sockets:** U11 with C11, U25 with C25 and U12 with C12.
+**Parts for this step:**
 
-**Other parts:** the 10k /WE pull-up (in the BOM, not on the schematic
-yet), and for the cartridge lines R3 (10k, STALL_OUT pull-up), R4 (10k,
-RUN pull-down) and the bring-up jumpers JP1 (STALL_IN to STALL_OUT) and
-JP2 (RUN to +5 V), both with a shunt on (see "Without the cartridge").
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U11 | PLD, memory control | ATF22V10C-7PX, programmed from `ATF22V10_MEM_CTRL.pld` |  |
+| U12 | PLD, I/O decode | ATF22V10C-7PX, programmed from `ATF22V10_IO_DECODE.pld` |  |
+| U25 | Map register, octal D flip-flop with clear | TI CD74ACT273E |  |
+| U11, U12 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| U25 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C11, C12, C25 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| (no ref) | Resistor, /WE pull-up (in the BOM, not on the schematic yet) | 10k |  |
+| R3 | Resistor, STALL_OUT pull-up | 10k |  |
+| R4 | Resistor, RUN pull-down | 10k |  |
+| JP1, JP2 | Pin header, 1 x 2 (bring-up jumpers) | Sullins PREC002SAAN-RC | JP1 STALL_IN to STALL_OUT, JP2 RUN to +5 V |
+| JP1, JP2 shunts | Jumper shunt | Sullins QPC02SXGN-RC | both on (see "Without the cartridge") |
+| S2 | Strap (temporary), in U1's socket | 10k | out at step 11 |
 
 **Program first:** U11 memory control from `ATF22V10_MEM_CTRL.pld`
 (rev 09) and U12 I/O decode from `ATF22V10_IO_DECODE.pld` (rev 04); verify
@@ -368,7 +441,13 @@ Insert U11, U25 and U12 into their sockets.
 
 ### Step 10: RAM (U31, U32)
 
-**Sockets:** U32 with C32 (U31's went in at step 7).
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U31, U32 | SRAM, 32K x 8 | Alliance AS7C256C-15PCN | U31's socket fitted at step 7 |
+| U32 socket | IC socket | DIP-28 0.3" (On Shore ED281DT) |  |
+| C32 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 Take the 1k pull-down out of U31 and insert both RAM chips, U31 and U32, into their sockets.
 The video now reads the RAM, which powers up random: the monitor shows
@@ -392,7 +471,14 @@ the State, Branch and PC chips with no memory and no software.
 
 ### Step 11: take out the RAM and straps S1-S3; fit the instruction register PLD (U17) and the State PLD (U1)
 
-**Sockets:** U17 with C17 (U1's went in at step 7).
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U1 | PLD, State | ATF22V10C-7PX, programmed from `ATF22V10_STATE.pld` |  |
+| U17 | PLD, instruction register | ATF22V10C-7PX, programmed from `ATF22V10_IR.pld` |  |
+| U17 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) | U1's socket fitted at step 7 |
+| C17 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 **Program first:** U1 State from `ATF22V10_STATE.pld` (rev 15) and U17
 instruction register from `ATF22V10_IR.pld` (rev 01); verify and label
@@ -423,7 +509,13 @@ PLD U1 and the instruction register U17 into their sockets.  The instruction reg
 
 ### Step 12: PC low (U3)
 
-**Sockets:** U3 with C3.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U3 | PLD, PC low | ATF22V10C-7PX, programmed from `ATF22V10_PC_COUNTER8.pld` |  |
+| U3 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C3 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 **Program first:** U3 PC low from `ATF22V10_PC_COUNTER8.pld` (rev 02);
 verify and label it.
@@ -439,7 +531,13 @@ All eight bits move together (FF, 00, FF).
 
 ### Step 13: PC high (U4)
 
-**Sockets:** U4 with C4.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U4 | PLD, PC high | ATF22V10C-7PX, programmed from `ATF22V10_PC_COUNTER8.pld` |  |
+| U4 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C4 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 **Program first:** U4 PC high from `ATF22V10_PC_COUNTER8.pld` (rev 02),
 the same file as U3; verify and label it.
@@ -459,7 +557,15 @@ Insert U4 into its socket.  PC high is a binary counter now: each bit is half th
 
 ### Step 14: accumulator (U19), ALU low (U5), ALU high (U6)
 
-**Sockets:** U19 with C19, U5 with C5 and U6 with C6.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U5, U6 | PLD, ALU low, ALU high | ATF22V10C-7PX, programmed from `ALU_SHR.pld` |  |
+| U19 | Accumulator, octal D flip-flop | TI SN74F377AN |  |
+| U5, U6 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| U19 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C5, C6, C19 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 **Program first:** U5 ALU low and U6 ALU high, two copies of
 `ALU_SHR.pld` (rev 07); verify and label them.
@@ -474,17 +580,27 @@ readings of steps 12 and 13 must not change.
 
 ### Step 15: X (U20) and Y (U21) registers
 
-**Sockets:** U20 with C20 and U21 with C21.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U20, U21 | X and Y registers, octal D flip-flop | TI SN74F377AN |  |
+| U20, U21 sockets | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C20, C21 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 Insert U20 and U21 into their sockets.  Also random and never loaded: their Q pins read steady 0 V or 5 V.  The
 free run readings must not change.
 
 ### Step 16: D source buffer (U26)
 
-**Sockets:** U26 with C26.
+**Parts for this step:**
 
-**Other parts:** R5-R12, the 47 ohm series resistors from the source
-buffers onto the data bus.
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U26 | D source buffer, octal 3-state buffer | TI SN74F541N |  |
+| U26 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C26 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| R5-R12 | Resistor, source buffers to the data bus | 47 ohm |  |
 
 Insert U26 into its socket.  The free run never selects it (its /OE2 is instruction bit 1, which is 1),
 so the readings of steps 11-13 must not change.  If they do, the buffer is
@@ -493,9 +609,24 @@ and /OE2 (instruction register PLD I1, pin 15) wiring.
 
 ### Step 17: AC source buffer (U27), line read buffer (U29), RAM back, the cartridge
 
-**Sockets:** U27 with C27 and U29 with C29.
+**Parts for this step:**
 
-**Other parts:** the cartridge slot J8 and R13 (10k, /CART pull-up).
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U27, U29 | AC source buffer, line read buffer, octal 3-state buffer | TI SN74F541N |  |
+| U27, U29 sockets | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C27, C29 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| U31, U32 | SRAM (back in from step 10) | Alliance AS7C256C-15PCN |  |
+| J8 | Cartridge slot, card edge, 64 contacts | Molex 87715-9106 |  |
+| R13 | Resistor, /CART pull-up | 10k |  |
+| cartridge PCB | 64K cartridge board |  |  |
+| cartridge U1 | PLD, cartridge loader | ATF22V10C-7PX, programmed from `ATF22V10_CART.pld` |  |
+| cartridge U2, U3 | EEPROM, 32K x 8 | Microchip AT28C256-15PU, programmed with `bringup_lo.bin`, `bringup_hi.bin` |  |
+| cartridge U4, U5 | SRAM, 32K x 8 | Alliance AS7C256C-15PCN |  |
+| cartridge U1 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| cartridge U2, U3 sockets | IC socket | DIP-28 0.6" (On Shore ED28DT) |  |
+| cartridge U4, U5 sockets | IC socket | DIP-28 0.3" (On Shore ED281DT) |  |
+| cartridge C1-C5 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 The free run does select the AC source buffer (source 11), and the
 accumulator is random, so it goes in with the memories.  Insert the AC
@@ -602,7 +733,26 @@ page test).  It takes several minutes.
 
 ### Step 18: shared port: port PLD (U38) and PS/2 receiver PLD (U42)
 
-**Sockets:** U38 with C38 and U42 with C42.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U38 | PLD, shared port | ATF22V10C-7PX, programmed from `ATF22V10_PORT.pld` |  |
+| U42 | PLD, PS/2 receiver | ATF22V10C-7PX, programmed from `ATF22V10_PS2.pld` |  |
+| U38, U42 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C38, C42 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| U40 | 3.3 V regulator, TO-92 | Microchip MCP1700-3302E/TO | flat face as on the silkscreen |
+| C40, C47 | Capacitor, regulator input and output | 1 µF ceramic (KEMET C330C105K5R5TA) |  |
+| J2, J3 | SNES controller socket, 7 pin |  |  |
+| R40, R41 | Resistor, SNES data pull-ups | 10k |  |
+| J5 | PS/2 stacked dual mini-DIN-6 | Kycon KMDGX-6S/6S-S4N | mouse top, keyboard bottom |
+| R49, R50, R55 | Resistor, PS/2 clock and DATA pull-ups | 4.7k |  |
+| D1-D6, D19 | Schottky diode, PS/2 hold, inhibit and RXCLK | BAT85 | band (cathode) as on the silkscreen |
+| R60 | Resistor, RXCLK pull-down | 22k |  |
+| J4 | SD card socket | Hirose DM1AA-SF-PEJ(82) |  |
+| R42-R44 | Resistor, SD dividers | 1.8k |  |
+| R45-R47 | Resistor, SD dividers | 3.3k |  |
+| R48 | Resistor, MISO pull-up to 3.3 V | 10k |  |
 
 **Program first:** U38 shared port from `ATF22V10_PORT.pld` (rev 04) and
 U42 PS/2 receiver from `ATF22V10_PS2.pld` (rev 02); verify and label
@@ -668,7 +818,21 @@ U40's output and at the SD socket's pin 4.
 
 ### Step 19: audio DAC (U36)
 
-**Sockets:** U36 with C36.
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U36 | DAC register, octal D flip-flop, 3-state | TI SN74HCT574N |  |
+| U36 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C36 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| R22 | Resistor, DAC supply filter | 2.2 ohm |  |
+| C44 | Electrolytic capacitor, DAC supply filter | 220 µF (Panasonic EEU-FR1C221) | + to DAC_5V (R22's DAC end), stripe to GND |
+| R23-R31 | Resistor, R-2R ladder | 2k |  |
+| R32-R38 | Resistor, R-2R ladder | 1k |  |
+| C45 | Capacitor, output filter | 15 nF C0G (TDK FG24C0G1H153JNT06) |  |
+| C46 | Capacitor, output coupling | 22 µF ceramic (TDK FG24X5R1A226MRT06) |  |
+| R39 | Resistor, output | 10k |  |
+| J6 | Audio line out jack, 3.5 mm TRRS | Tensility 54-00174 |  |
 
 Insert the DAC register U36 into its socket and fit its supply
 filter R22 (2.2 ohm) and C44 (220 µF), the R-2R ladder R23-R31 (2k) and
@@ -691,6 +855,13 @@ and U3 out, program them with the two halves of the normal image
 (`gen_rom.tcl`, [ROM.md](ROM.md)), verify, relabel and insert them into their sockets again.
 
 ## Expansion slots
+
+**Parts:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| J9-J12 | Expansion slot, 2 x 20 card edge (optional) | Sullins EBC20DCAN | fit only the ones a card will use |
+| R51-R54 | Resistor, slot select (R51 for J9 ... R54 for J12) | 1k | one per fitted slot |
 
 The slots J9-J12 are optional: fit only the ones a card will use, each
 with its select resistor (R51 for J9 through R54 for J12, 1k).  With a
