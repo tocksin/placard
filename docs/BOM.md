@@ -32,16 +32,16 @@ slot sockets J9-J12 are optional: a builder fits only the slots a card will use.
 
 | Board | Components | Without optional parts | Lines estimated |
 |---|--:|--:|--:|
-| Main board | $184.77 | $166.77 | 41 |
+| Main board | $184.37 | $166.37 | 41 |
 | Cartridge, 64K | $61.72 | $61.72 | 4 |
 | Cartridge, 32K | $32.69 | $32.69 | 4 |
-| **Main and 64K cartridge** | **$246.49** | **$228.49** | |
+| **Main and 64K cartridge** | **$246.09** | **$228.09** | |
 
 ## Main board
 
-55 lines, 173 parts on the schematic.
+55 lines, 175 parts on the schematic.
 
-Components: **$184.77** for one board at these quantities, **$166.77** without the optional parts.
+Components: **$184.37** for one board at these quantities, **$166.37** without the optional parts.
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -72,7 +72,7 @@ Components: **$184.77** for one board at these quantities, **$166.77** without t
 | 1 | D18 | LTL2R3KRD-EM | Lite-On | Power LED, 5 mm, red diffused, through hole (on +5V after K1) |  | 0.25 | 0.25 | est.: Lite-On LTL2R3KRD-EM | D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color |
 | 2 | R1, R2 | MFR-25FBF52-5K1 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 5.1k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
 | 7 | R3, R4, R13, R39-R41, R48 | MFR-25FBF52-10K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 10k | 0.10 | 0.70 | est.: Yageo MFR-25FBF52 series |  |
-| 8 | R5-R12 | MFR-25FBF52-47R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 47 | 0.10 | 0.80 | est.: Yageo MFR-25FBF52 series |  |
+| 10 | R5-R12, R61, R62 | MFR-25FBF52-47R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 47 | 0.04 | 0.40 | est.: Yageo MFR-25FBF52 series |  |
 | 2 | R14, R17 | MFR-25FBF52-3K24 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 3.24k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
 | 2 | R15, R18 | MFR-25FBF52-1K69 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 1.69k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
 | 2 | R16, R19 | MFR-25FBF52-825R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 825 | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
@@ -85,7 +85,7 @@ Components: **$184.77** for one board at these quantities, **$166.77** without t
 | 3 | R45-R47 | MFR-25FBF52-3K3 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 3.3k | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
 | 3 | R49, R50, R55 | MFR-25FBF52-4K7 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 4.7k | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
 | 3 | R56-R58 | MFR-25FBF52-910R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 910 | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
-| 1 | R60 |  |  | Resistor, metal film 1%, 1/4 W, axial | 22k | 0.10 | 0.10 | est.: Yageo MFR-25FBF52 series |  |
+| 1 | R60 | MFR-25FBF52-22K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 22k | 0.10 | 0.10 | est.: Yageo MFR-25FBF52 series |  |
 | 1 | RN1 | 4609X-101-103LF | Bourns | Resistor network, 8 bussed, SIP-9 | 10k | 0.40 | 0.40 | est.: Bourns 4609X-101 series |  |
 | 34 | C1-C23, C25-C27, C29, C31, C32, C35, C36, C38, C42, C43 | C320C104K5R5TA | KEMET | Ceramic capacitor, 5 mm pitch | 100n | 0.18 | 6.12 | est.: KEMET C320C104K5R5TA |  |
 | 2 | C40, C47 | C330C105K5R5TA | KEMET | Ceramic capacitor, 5 mm pitch | 1u | 0.50 | 1.00 | est.: KEMET C330C105K5R5TA |  |
