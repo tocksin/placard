@@ -737,8 +737,12 @@ def sheet_memory(b):
     path(s, "~{MAP_WR}", (px, py), (px + 2.54, py), (px + 2.54, 154.94), (20.32, 154.94), (20.32, u25["11"][1]),
          u25["11"])
     res(s, "R13", 271.78, 132.08, "+5V", "~{CART}", "10k")
+    # /WE pull-up: U11 lets go of /WE while RUN is low (memory control revision 09)
+    r63 = res(s, "R63", 377.19, 242.57, "+5V", "~{WE}", "10k", bare=("2",),
+              ref_at=(367.03, 241.3), value_at=(367.03, 243.84))
+    s.junction(r63["2"][0], yl["~{WE}"], owner="~{WE}")
     note(s, 20, 258, ["Lower 32K: /CE = A15 (RAM U31, cartridge /CE_LO); upper: /CE_HI from U12.",
-                       "RUN low (cartridge loading): /ROM_OE held off, map register clear (all ROM).",
+                       "RUN low (cartridge loading): /ROM_OE held off, map register clear (all ROM), /WE let go (R63).",
                        "/CART reads low with a cartridge in; nothing reads it yet.  21 spare contacts."],
          size=2.2)
     return s

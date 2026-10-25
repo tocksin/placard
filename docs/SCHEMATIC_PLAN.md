@@ -301,7 +301,8 @@ Decisions made while drawing (2026-10-20):
   on slot 1, A8 STALL_IN, B8 STALL_OUT, A9 PC_ENABLE, B9 PIXEL_ENABLE, A10
   /CART, the rest not connected; on slots 2-4 all eight are not connected.
   /WE gets a 10k pull-up (memory control revision 09 lets go of it while RUN
-  is low).  EXPANSION.md, "Booting from slot 1".
+  is low); that one is drawn now, as R63 on the memory sheet (2026-10-25).
+  EXPANSION.md, "Booting from slot 1".
 - The slots' LOAD_IMM contact carries the State PLD's `/LOAD_IMM` as it is
   (low while the CPU latches D); EXPANSION.md's table says "1 when"; a card
   reads it active low.
