@@ -32,16 +32,16 @@ slot sockets J9-J12 are optional: a builder fits only the slots a card will use.
 
 | Board | Components | Without optional parts | Lines estimated |
 |---|--:|--:|--:|
-| Main board | $189.49 | $171.49 | 30 |
+| Main board | $188.79 | $170.79 | 30 |
 | Cartridge, 64K | $61.52 | $61.52 | 3 |
 | Cartridge, 32K | $32.57 | $32.57 | 3 |
-| **Main and 64K cartridge** | **$251.01** | **$233.01** | |
+| **Main and 64K cartridge** | **$250.31** | **$232.31** | |
 
 ## Main board
 
 55 lines, 175 parts on the schematic.
 
-Components: **$189.49** for one board at these quantities, **$171.49** without the optional parts.
+Components: **$188.79** for one board at these quantities, **$170.79** without the optional parts.
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -64,7 +64,7 @@ Components: **$189.49** for one board at these quantities, **$171.49** without t
 | 1 | J13 | USB4125-GF-A-0190 | GCT | USB-C receptacle, power only (6 pin), top mount | USB4125-GF-A | 0.61 | 0.61 | Mouser |  |
 | 1 | SW1 | ANT11TFHQE | CIT Relay and Switch | Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing |  | 4.50 | 4.50 | est.: Digi-Key; Mouser has no stock |  |
 | 1 | SW2 | PTS645VL58-2 LFS | C&K | Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil) |  | 0.43 | 0.43 | est.: Digi-Key; Mouser has no stock until 12/23/2026 |  |
-| 1 | K1 | G5LE-1 DC5 | Omron | Reset relay: SPDT, 5 V coil (63 ohm, 80 mA), 8 A 30 V DC, through hole; NC contact carries the 5 V |  | 1.85 | 1.85 | Mouser: G5LE-1-DC5 |  |
+| 1 | K1 | J1071CS5VDC.36 | CIT Relay and Switch | Reset relay: SPDT, 5 V coil (69 ohm, 72 mA), 7 A 30 V DC (NO and NC), through hole, sealed; NC contact carries the 5 V |  | 1.15 | 1.15 | Digi-Key: Justin, 2026-10-25; Mouser does not sell CIT |  |
 | 1 | F1 | MF-RG300-0 | Bourns | Polyfuse, 3 A hold, radial | 3 A hold | 0.73 | 0.73 | Mouser | Part number from the footprint (Fuse_Bourns_MF-RG300) |
 | 11 | D1-D6, D8-D11, D19 | BAT85S-TAP | Vishay | Schottky diode, DO-35 | BAT85 | 0.22 | 2.42 | Mouser: Vishay BAT85S-TAP | Any BAT85 (Vishay BAT85S is the one Mouser stocks; Nexperia, onsemi) |
 | 1 | D7 | SA5.0A | Littelfuse | D_Zener |  | 0.64 | 0.64 | Mouser |  |

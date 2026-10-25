@@ -319,14 +319,18 @@ Decisions made while drawing (2026-10-20):
     5 A / 28 V DC, right-angle PCB pins, 1/4-40 bushing (common and one
     throw wired, the other throw unused).
   - Reset (Justin, 2026-10-22, replaces the 4 A C&K E112SD1A3QE, about
-    $11): relay K1 **Omron G5LE-1 DC5** (SPDT, 8 A 30 V DC, through hole,
-    about $1.80), COM from VON and NC to +5V.  SW2 **C&K PTS645VL58-2 LFS**
-    (right-angle tactile, about $0.25) feeds the 63 ohm coil from VON, so
-    it carries only 80 mA.  D8 (BAT85) across the coil, cathode on the
-    button side, takes the coil's kick when SW2 lets go.  Check before
-    ordering that the G5LE's NC contact is rated for 3 A (the datasheet
-    gives one rating, 8 A at 30 V DC) and note its contact resistance spec
-    (100 mohm max, initial; typically far less).
+    $11): relay K1 **CIT J1071CS5VDC.36** (Justin, 2026-10-25, replaces the
+    Omron G5LE-1 DC5; SPDT, sealed, 7 A 30 V DC on NO and NC, through hole,
+    $1.15 at Digi-Key), COM from VON and NC to +5V.  It has the G5LE's pin
+    pattern and numbering (1 COM, 2/5 coil, 3 NO, 4 NC; NC on coil pin 5's
+    side), so the G5LE symbol stays; footprint placard:Relay_SPDT_CIT_J107
+    (same pads, 15.4 x 19.0 mm body, 1.4 mm COM hole).  SW2 **C&K
+    PTS645VL58-2 LFS** (right-angle tactile, about $0.25) feeds the 69 ohm
+    coil from VON, so it carries about 72 mA; the PTS645 is rated 50 mA at
+    12 V DC, so it runs over its rating (as it did with the G5LE's 80 mA)
+    and may wear sooner.  D8 (BAT85) across the coil, cathode on the button
+    side, takes the coil's kick when SW2 lets go.  Contact resistance 30
+    mohm initial; operate and release 10 ms.
   - C41 (220 µF) moved from +5V to VON, ahead of K1 (Justin, 2026-10-22), so
     pressing reset leaves only the decouplers on the board side to drain.
   SW1 and SW2 sit at the board edge for the case panel.
