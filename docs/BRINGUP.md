@@ -826,7 +826,7 @@ U40's output and at the SD socket's pin 4.
 | U36 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
 | C36 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | R22 | Resistor, DAC supply filter | 2.2 ohm |  |
-| C44 | Electrolytic capacitor, DAC supply filter | 220 µF (Panasonic EEU-FR1C221) | + to DAC_5V (R22's DAC end), stripe to GND |
+| C44 | Electrolytic capacitor, DAC supply filter | 220 µF (Panasonic EEU-FR1C221) | + to DAC_5V (R22's DAC end), stripe to GNDA |
 | R23-R31 | Resistor, R-2R ladder | 2k |  |
 | R32-R38 | Resistor, R-2R ladder | 1k |  |
 | C45 | Capacitor, output filter | 15 nF C0G (TDK FG24C0G1H153JNT06) |  |
