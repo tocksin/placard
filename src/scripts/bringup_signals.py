@@ -3,8 +3,7 @@
 bringup_signals.py - expected multimeter readings for docs/BRINGUP.md
 
 A clock-by-clock model of the video PLDs (Sync rev 08, H counter rev 08,
-V counter rev 03, audio slot rev 04, color decoder rev 07), the pixel
-buffer and line code register, the address muxes and memory control as
+V counter rev 03, audio slot rev 04, color decoder rev 07) as
 they are wired in the early build steps, and the CPU's "FF free run"
 (State rev 15, Branch rev 15, PC counters rev 02) with no memory on the
 data bus.  Every equation is the PLD source's, written out per clock.
@@ -227,8 +226,9 @@ def table(rows, title):
 
 
 def run_video(step, bus=0xFF):
-    """steps 3-8: the video chips"""
-    vid = Video(blank_rd=step >= 7, lc_from_bus=step >= 8, bus=bus)
+    """steps 3-5 and 11: the video chips (step 11 with LC7 held low, as
+    before the line code register sees a mode byte)"""
+    vid = Video(blank_rd=step >= 11, lc_from_bus=False, bus=bus)
     m = Meter()
     for clk in range(2 * FRAME):
         c = vid.comb()
@@ -252,13 +252,9 @@ def run_video(step, bus=0xFF):
                 m.add('Sync PIXEL_ENABLE (pin 19)', vid.pe)
                 m.add('Sync ADDR_SEL (pin 20)', vid.pe)        # PC_ENABLE held low
                 m.add('Sync V_VIDEO_ACTIVE (pin 23)', vid.vva)
-            if step == 7:
+            if step == 11:
                 m.add('Audio BLANK_RD (pin 23)', c['blank_rd'])
                 m.add('Audio /MODE_LD (pin 22)', 1 - c['mode_ld'])
-                m.add('Audio R0 (pin 17)', c['r0'])
-                m.add('Audio R1 (pin 18)', c['r1'])
-                m.add('Audio R7 (pin 19)', c['r7'])
-                m.add('Audio R8 (pin 20)', c['r8'])
         vid.clock(c)
     return m.rows()
 
@@ -279,49 +275,6 @@ def run_probes(cases):
             vid.clock(c)
         out[(pix, mode)] = m.rows()
     return out
-
-
-def run_colors(bytes_):
-    """step 8: the color decoder with the data bus held at each byte"""
-    out = {}
-    for bus in bytes_:
-        vid = Video(blank_rd=True, lc_from_bus=True, bus=bus)
-        m = Meter()
-        for clk in range(2 * FRAME):
-            c = vid.comb()
-            if clk >= FRAME:
-                h = vid.h2 * 4 + vid.h1 * 2 + vid.h0
-                for n, lv in color(vid.pix, vid.lc & 3, h, vid.viden).items():
-                    m.add(n, lv)
-                if bus == bytes_[0]:
-                    m.add('Branch /PIX_LD (pin 15)', 1 - vid.pe)
-            vid.clock(c)
-        out[bus] = m.rows()
-    return out
-
-
-def run_mux():
-    """step 9: address muxes with the D register loading the bus (FF),
-    PC_ENABLE, X_ENABLE and Y_ENABLE held low, and step 10: memory control"""
-    vid = Video(blank_rd=True, lc_from_bus=True, bus=0xFF)
-    m = Meter()
-    m8 = Meter()
-    for clk in range(2 * FRAME):
-        c = vid.comb()
-        if clk >= FRAME:
-            # mux selects: PIXEL_ENABLE -> video (10), else 00: D (low), 00 (high)
-            a = vid.video_addr(c) if vid.pe else 0x00FF
-            for n in range(16):
-                m.add('A%d' % n, (a >> n) & 1)
-            # memory control: map = 00 (all ROM), RW = 1 (read), SRC_EN = 0
-            m8.add_pulse_low('Mem ctrl /RAM_OE (pin 18)', vid.pe)
-            sec = a >> 13
-            window = (a & 0xFC00) == 0x5000
-            m8.add_pulse_low('Mem ctrl /ROM_OE (pin 19)', (not vid.pe) and not window)
-            m8.add_pulse_low('Mem ctrl /WE (pin 16)', False)
-            m8.add('I/O decode /CE_HI (pin 15)', 1 - ((a >> 15) & 1))
-        vid.clock(c)
-    return m.rows(), m8.rows()
 
 
 def run_free_run(step):
@@ -414,8 +367,7 @@ def main(argv):
         only = int(argv[argv.index('--step') + 1])
     want = lambda s: only is None or only == s
     print('Clock %.3f MHz, frame %.4f Hz, line %.4f kHz\n' % (CLK_HZ / 1e6, FPS, CLK_HZ / 800 / 1e3))
-    for s, t in ((3, 'Step 3: Sync PLD'), (4, 'Step 4: H counter PLD'), (5, 'Step 5: V counter PLD'),
-                 (7, 'Step 7: audio slot PLD')):
+    for s, t in ((3, 'Step 3: Sync PLD'), (4, 'Step 4: H counter PLD'), (5, 'Step 5: V counter PLD')):
         if want(s):
             print(table(run_video(s), t))
     if want(6):
@@ -423,15 +375,8 @@ def main(argv):
         res = run_probes(cases)
         for pix, mode in cases:
             print(table(res[(pix, mode)], 'Step 6: color decoder, pixel %02X, mode %d' % (pix, mode)))
-    if want(8):
-        res = run_colors([0xFF])
-        print(table(res[0xFF], 'Step 8: color decoder and Branch /PIX_LD, data bus = FF (blank lines)'))
-    if want(9) or want(10):
-        mux, mem = run_mux()
-        if want(9):
-            print(table(mux, 'Step 9: address mux outputs'))
-        if want(10):
-            print(table(mem, 'Step 10: memory control and I/O decode'))
+    if want(11):
+        print(table(run_video(11), 'Step 11: audio slot PLD'))
     for s, t in ((12, 'Step 12: State PLD (and the Branch PLD), FF free run'), (13, 'Step 13: PC low'),
                  (14, 'Step 14: PC high')):
         if want(s):
