@@ -230,7 +230,7 @@ verify and label it.
 Turn off the power switch.  Insert U14 into its socket, and connect a VGA
 monitor.  Turn on the power switch.  V9:V0 count lines, 499-1023, 525
 lines a frame.  The monitor should now lock to 640 x 480 at 60 Hz and show a **black screen** (the
-colour decoder isn't in yet).
+color decoder isn't in yet).
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -245,27 +245,27 @@ colour decoder isn't in yet).
 | V8 (pin 18) | 59.94 Hz | 51.2 % | 2.56 V |
 | V9 (pin 19) | 59.94 Hz | 97.5 % | 4.88 V |
 
-### Step 6: colour decoder (U16)
+### Step 6: color decoder (U16)
 
 **Parts for this step:**
 
 | Ref | Part | Value or part number | Note |
 |---|---|---|---|
-| U16 | PLD, colour decoder | ATF22V10C-7PX, programmed from `ATF22V10_COLORDECODER.pld` |  |
+| U16 | PLD, color decoder | ATF22V10C-7PX, programmed from `ATF22V10_COLORDECODER.pld` |  |
 | U16 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
 | C16 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| R14, R17 | Resistor, colour | 3.24k |  |
-| R15, R18 | Resistor, colour | 1.69k |  |
-| R16, R19 | Resistor, colour | 825 ohm |  |
-| R20 | Resistor, colour | 1.43k |  |
-| R21 | Resistor, colour | 715 ohm |  |
+| R14, R17 | Resistor, color | 3.24k |  |
+| R15, R18 | Resistor, color | 1.69k |  |
+| R16, R19 | Resistor, color | 825 ohm |  |
+| R20 | Resistor, color | 1.43k |  |
+| R21 | Resistor, color | 715 ohm |  |
 | U23 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) | empty for now, holds straps S4 and S5 |
 | C23 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | S4 | Strap (temporary), in U23's socket | 10k | out at step 8 |
 | S5 | Strap (temporary), in U23's socket | 10k | out at step 8 |
 | (leads) | Test leads, 2: a clip on one end, a probe tip on the other | in the kit | one for ground, one for power |
 
-**Program first:** U16 colour decoder from `ATF22V10_COLORDECODER.pld`
+**Program first:** U16 color decoder from `ATF22V10_COLORDECODER.pld`
 (rev 07); verify and label it.
 
 **Straps.**  A strap is a 10k resistor with its leads in an empty
@@ -279,7 +279,7 @@ code's Q7 as "blank line", so turn off the power switch and put in:
   only to the tint resistor R56, not fitted until step 8).  A 10k high
   source for the power test lead.  Out at step 8.
 
-**Test leads.**  The colour decoder's pixel inputs D0-D7 (pins 2-9) and
+**Test leads.**  The color decoder's pixel inputs D0-D7 (pins 2-9) and
 mode inputs MODE0, MODE1 (pins 10, 11) have no driver yet (the pixel
 buffer U22 and the line code register U23 come later).  Each one holds
 the last level it was touched to (the pin keeper), so you set them by
@@ -291,7 +291,7 @@ nothing needs clipping while the board is powered:
 - **Power lead:** clip it to strap S5's lead at U23's pin 12 (10k to +5 V).
 
 Insert U16 into its socket, and connect the monitor and USB power cable.
-Turn on the power switch.  The screen shows a random colour at first (the
+Turn on the power switch.  The screen shows a random color at first (the
 inputs power up at no particular level).  These are the pins to touch:
 
 | U16 pin | Input | What it sets |
@@ -304,8 +304,8 @@ inputs power up at no particular level).  These are the pins to touch:
 | 7 | D5 | pixel bit 5 (8 bpp: GRN1, pin 17) |
 | 8 | D6 | pixel bit 6 (8 bpp: GRN2, pin 20) |
 | 9 | D7 | pixel bit 7 (8 bpp: GRN3, pin 19) |
-| 10 | MODE0 | colour mode, with MODE1 |
-| 11 | MODE1 | colour mode: MODE1 MODE0 = 00 1 bpp, 01 2 bpp, 10 4 bpp, 11 8 bpp |
+| 10 | MODE0 | color mode, with MODE1 |
+| 11 | MODE1 | color mode: MODE1 MODE0 = 00 1 bpp, 01 2 bpp, 10 4 bpp, 11 8 bpp |
 
 1. Touch the ground probe to each of these pins in turn: the screen
    turns **black** (1 bpp, every pixel 0), and every output (pins 15-22)
@@ -316,12 +316,12 @@ inputs power up at no particular level).  These are the pins to touch:
 
 You'll see each touch change the picture along the way.  Feel free to
 touch any of these pins with either the power or ground probe in any
-order to explore the different colours and colour modes.  In 8 bpp
+order to explore the different colors and color modes.  In 8 bpp
 (MODE0 and MODE1 high) each pixel pin drives the one output named in the
 table, which drops to 0 V when that pin is low.
 
-A colour output that stays at 0 V when it should toggle, or toggles when it
-should be 0 V, points at that pin's wiring or the colour resistors
+A color output that stays at 0 V when it should toggle, or toggles when it
+should be 0 V, points at that pin's wiring or the color resistors
 (R14-R21).  Turn off the power switch and unclip both test leads; S4 and
 S5 stay until step 8.
 
@@ -504,7 +504,7 @@ Insert U11, U25 and U12 into their sockets.  Turn on the power switch.
 Turn off the power switch.  Insert both RAM chips, U31 and U32, into
 their sockets.  Turn on the power switch.  The video now
 reads the RAM, which powers up random: the monitor shows **random
-coloured noise**, in a mix of modes and line repeats, with about half the
+colored noise**, in a mix of modes and line repeats, with about half the
 lines black (each line's mode byte is random too, and its bit 7 blanks
 the line).  Nothing writes the RAM yet (strap S2), so the picture holds
 still.  Power off and on: a different picture.
@@ -776,7 +776,7 @@ runs a loop once a frame:
 | 17-18 | mouse: MOUSE_INIT result, X (0-639), Y (0-479) and buttons |
 | 20 | sound: T toggles a 1 kHz test tone |
 | 22 | the video line read (V9:V2), changes every read |
-| 44 | legend for the colour bands below it: rows 368-399 16 colours (4 bpp), 400-415 4 colours (2 bpp), 416-479 256 colours (8 bpp) |
+| 44 | legend for the color bands below it: rows 368-399 16 colors (4 bpp), 400-415 4 colors (2 bpp), 416-479 256 colors (8 bpp) |
 
 A good board: FRAME and LOOPS count up together, PASSES goes up about
 every 0.8 s and ERRORS stays 0.  If a core test fails later, the CPU stops

@@ -2,7 +2,7 @@
 -- @brief Creates VGA timing for sync signals using PLD conversions
 -- @author Justin Davis
 --
--- Date: 10/22/2026
+-- Date: 10/25/2026
 -------------------------------------------------------------------------------
 
 library ieee;           use ieee.std_logic_1164.all;
@@ -16,7 +16,7 @@ entity vga_gen_pld is
         rstIn           : in  sl;
         hSyncOut        : out sl;
         vSyncOut        : out sl;
-        videnOut        : out sl;   -- Sync PLD VIDEN, colour decoder video enable
+        videnOut        : out sl;   -- Sync PLD VIDEN, color decoder video enable
         pixelEnOut      : out sl;
         modeLdNOut      : out sl;   -- line code register /E, low in group 45
         hVideoActiveOut : out sl;   -- H counter PLD H_VIDEO_ACTIVE, rises at group 48 (audio DAC clock)

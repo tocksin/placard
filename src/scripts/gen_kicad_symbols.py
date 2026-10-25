@@ -50,7 +50,7 @@ SLOW_OK = set()
 FOOTPRINT = "placard:DIP-24_W7.62mm_Socket_Puller"   # socket, puller room, part number (gen_kicad_kit_footprints.py)
 DATASHEET = "https://ww1.microchip.com/downloads/en/DeviceDoc/doc0735.pdf"
 G = 2.54                       # pin pitch and pin length (100 mil)
-FILL = "(fill (type color) (color 255 248 225 1))"   # the drawings' chip colour #FFF8E1
+FILL = "(fill (type color) (color 255 248 225 1))"   # the drawings' chip color #FFF8E1
 CHAR_W = 1.7                   # width of one 1.8 mm pin-name character, with a little to spare
 MIN_W = 3 * 2 * G              # 15.24 mm
 

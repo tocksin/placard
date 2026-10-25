@@ -3,7 +3,7 @@
 bringup_signals.py - expected multimeter readings for docs/BRINGUP.md
 
 A clock-by-clock model of the video PLDs (Sync rev 08, H counter rev 08,
-V counter rev 03, audio slot rev 04, colour decoder rev 07), the pixel
+V counter rev 03, audio slot rev 04, color decoder rev 07), the pixel
 buffer and line code register, the address muxes and memory control as
 they are wired in the early build steps, and the CPU's "FF free run"
 (State rev 15, Branch rev 15, PC counters rev 02) with no memory on the
@@ -128,7 +128,7 @@ class Video:
 
 
 def color(pix, mode, h, viden):
-    """colour decoder rev 07 outputs (RED1-3, GRN1-3, BLU2-3) as a dict"""
+    """color decoder rev 07 outputs (RED1-3, GRN1-3, BLU2-3) as a dict"""
     D = lambda n: (pix >> n) & 1
     h2, h1, h0 = (h >> 2) & 1, (h >> 1) & 1, h & 1
     m1, m0 = (mode >> 1) & 1, mode & 1
@@ -264,7 +264,7 @@ def run_video(step, bus=0xFF):
 
 
 def run_probes(cases):
-    """step 6: the colour decoder alone, its pixel and mode inputs set by the
+    """step 6: the color decoder alone, its pixel and mode inputs set by the
     probes (pin keepers), LC7 held low by strap S4"""
     out = {}
     for pix, mode in cases:
@@ -282,7 +282,7 @@ def run_probes(cases):
 
 
 def run_colors(bytes_):
-    """step 8: the colour decoder with the data bus held at each byte"""
+    """step 8: the color decoder with the data bus held at each byte"""
     out = {}
     for bus in bytes_:
         vid = Video(blank_rd=True, lc_from_bus=True, bus=bus)
@@ -422,10 +422,10 @@ def main(argv):
         cases = [(0xFF, 3)] + [(0xFF ^ (1 << n), 3) for n in range(8)] + [(0xFF, 2), (0xFF, 0)]
         res = run_probes(cases)
         for pix, mode in cases:
-            print(table(res[(pix, mode)], 'Step 6: colour decoder, pixel %02X, mode %d' % (pix, mode)))
+            print(table(res[(pix, mode)], 'Step 6: color decoder, pixel %02X, mode %d' % (pix, mode)))
     if want(8):
         res = run_colors([0xFF])
-        print(table(res[0xFF], 'Step 8: colour decoder and Branch /PIX_LD, data bus = FF (blank lines)'))
+        print(table(res[0xFF], 'Step 8: color decoder and Branch /PIX_LD, data bus = FF (blank lines)'))
     if want(9) or want(10):
         mux, mem = run_mux()
         if want(9):

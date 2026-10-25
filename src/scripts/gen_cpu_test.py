@@ -40,7 +40,7 @@ MEMORY
 Every test reads memory back, so the test areas must read as RAM (the
 current FPGA build reads all addresses from the RAM copy).
 
-Date: 10/22/2026
+Date: 10/25/2026
 """
 
 import os
@@ -618,7 +618,7 @@ def framework_blocks(prog, first_test):
     far(b, first_test)
     prog.place(b)
 
-    # report: ZRES -> colour, count failures, draw, return
+    # report: ZRES -> color, count failures, draw, return
     b = Block('report')
     b.L('report')
     b.I('ld %s, ac' % zp(ZRES))
@@ -631,7 +631,7 @@ def framework_blocks(prog, first_test):
     far(b, 'draw')
     prog.place(b)
 
-    # draw: cell for opcode ZOP in colour ZCOL, return to ZRETH:ZRETL
+    # draw: cell for opcode ZOP in color ZCOL, return to ZRETH:ZRETL
     b = Block('draw')
     b.L('draw')
     b.I('ld %s, ac' % zp(ZOP)); b.I('ld ac, x')
