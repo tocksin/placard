@@ -95,7 +95,7 @@ Device   g22v10;
 
 /* ---------------- INPUTS ---------------- */
 
-PIN 1  = RXCLK;        /* the free device's clock: KBD_CLK and PS2_CLK diode-ORed, 22k to GND */
+PIN 1  = RXCLK;        /* the free device's clock: KBD_CLK and MOUS_CLK diode-ORed, 22k to GND */
 PIN 2  = PDATA;        /* shared PS/2 DATA line (4.7k pull-up) */
 PIN 3  = !PORT_RD;     /* I/O decode PLD pin 20, low on a read of 5200h-52FFh */
 PIN 4  = !PORT_WR;     /* I/O decode PLD pin 19, low on a write to 5200h-52FFh */
@@ -105,7 +105,7 @@ PIN 6  = A1;           /* address bit 1: 1 = this chip (x5202, x5203) */
 
 /* ---------------- OUTPUTS ---------------- */
 
-PIN 14 = B;            /* state bit B; low after the 11th clock: Schottky diodes to KBD_CLK and PS2_CLK */
+PIN 14 = B;            /* state bit B; low after the 11th clock: Schottky diodes to KBD_CLK and MOUS_CLK */
 PIN 15 = !A;           /* state bit A, inverted, onto D7 on reads of x5203 while B = 0: 0 = ready */
 PIN 16 = !N8;          /* d0 onto D0 on reads of x5202 (register holds !d0) */
 PIN 17 = !N7;          /* d1 onto D1 */

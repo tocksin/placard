@@ -1013,14 +1013,14 @@ def sheet_port(b):
     path(s, "PS2_DATA", (243.84, yd), (261.62, yd), (279.4, yd))
     name(s, "PS2_DATA", 243.84, yd, 180)
     s.junction(261.62, yd, owner="PS2_DATA")
-    res(s, "R49", 243.84, yc - 3.81, "+5V", "PS2_CLK", "4.7k", bare=("2",), **vref(243.84, yc - 3.81))
-    diode(s, "D2", 261.62, yc - 3.81, "P_CS", "PS2_CLK", angle=270, bare=("2",), **vref(261.62, yc - 3.81))
-    diode(s, "D5", 203.2, yc - 3.81, "PS2_INH", "PS2_CLK", angle=270, bare=("1", "2"), **vref(203.2, yc - 3.81))
-    diode(s, "D4", 215.9, yc - 3.81, "RXCLK", "PS2_CLK", angle=270, bare=("1", "2"), **vref(215.9, yc - 3.81))
-    path(s, "PS2_CLK", (200.66, yc), (203.2, yc), (215.9, yc), (243.84, yc), (261.62, yc), (279.4, yc))
-    name(s, "PS2_CLK", 200.66, yc, 180)
+    res(s, "R49", 243.84, yc - 3.81, "+5V", "MOUS_CLK", "4.7k", bare=("2",), **vref(243.84, yc - 3.81))
+    diode(s, "D2", 261.62, yc - 3.81, "P_CS", "MOUS_CLK", angle=270, bare=("2",), **vref(261.62, yc - 3.81))
+    diode(s, "D5", 203.2, yc - 3.81, "PS2_INH", "MOUS_CLK", angle=270, bare=("1", "2"), **vref(203.2, yc - 3.81))
+    diode(s, "D4", 215.9, yc - 3.81, "RXCLK", "MOUS_CLK", angle=270, bare=("1", "2"), **vref(215.9, yc - 3.81))
+    path(s, "MOUS_CLK", (200.66, yc), (203.2, yc), (215.9, yc), (243.84, yc), (261.62, yc), (279.4, yc))
+    name(s, "MOUS_CLK", 200.66, yc, 180)
     for x in (203.2, 215.9, 243.84, 261.62):
-        s.junction(x, yc, owner="PS2_CLK")
+        s.junction(x, yc, owner="MOUS_CLK")
     # the inhibit and RXCLK run down between the two clock rows
     path(s, "PS2_INH", (203.2, yk + 7.62), (203.2, 205.74), (203.2, yc - 7.62))
     path(s, "PS2_INH", (203.2, 205.74), (195.58, 205.74))
@@ -1033,14 +1033,14 @@ def sheet_port(b):
     res(s, "R60", 223.52, 214.63, "RXCLK", "GND", "22k", bare=("1",), **vref(223.52, 214.63))
     name(s, "RXCLK", 231.14, 210.82, 0)
     j5 = s.part("placard_parts:PS2_Dual_Stacked", "J5", 307.34, 218.44,
-                {"B5": "KBD_CLK", "B1": "PS2_DATA", "A1": "PS2_DATA", "A5": "PS2_CLK", "B6": None, "B2": None,
+                {"B5": "KBD_CLK", "B1": "PS2_DATA", "A1": "PS2_DATA", "A5": "MOUS_CLK", "B6": None, "B2": None,
                  "A2": None, "A6": None, "A4": "+5V", "B4": "+5V", "A3": "GND", "B3": "GND", "SH": "GND"},
                 value="PS/2 kbd + mouse", footprint="placard:PS2_Kycon_KMDGX-6S-6S-S4N", bare=("B5", "B1", "A1", "A5"))
     path(s, "KBD_CLK", (xk, yk), (xk, j5["B5"][1]), j5["B5"])
     path(s, "PS2_DATA", (279.4, yd), (279.4, j5["B1"][1]), j5["B1"])
     path(s, "PS2_DATA", (279.4, j5["B1"][1]), (279.4, j5["A1"][1]), j5["A1"])
     s.junction(279.4, j5["B1"][1], owner="PS2_DATA")
-    path(s, "PS2_CLK", (279.4, yc), (279.4, j5["A5"][1]), j5["A5"])
+    path(s, "MOUS_CLK", (279.4, yc), (279.4, j5["A5"][1]), j5["A5"])
     # SD card: 1.8k / 3.3k dividers bring SCK, MOSI and /CS down to 3.2 V; CS and DI come in from above,
     # CLK from below; MISO (3.3 V, 10k pull-up) goes straight to U38 pin 13
     href = lambda x, y: dict(ref_at=(x - 3.0, y - 3.2), value_at=(x - 3.0, y + 3.4))
