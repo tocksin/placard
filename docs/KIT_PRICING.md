@@ -4,7 +4,7 @@ Date: 2026-10-25
 
 What a PLACARD kit costs to make at a few batch sizes, what Crowd Supply,
 Kickstarter and Tindie take, and a suggested price.  Component costs come
-from [BOM.md](BOM.md) (single-unit Mouser/Digi-Key prices, 2026-10-22);
+from the BOMs in [BOM.md](BOM.md) (single-unit Mouser/Digi-Key prices, 2026-10-22);
 the case from the project's case cost estimate; programming and kitting
 from [KITTING.md](KITTING.md).  **No quotes were requested.**  Everything
 marked *est.* is a planning number, good to roughly +/- 25 % (case and
@@ -37,7 +37,7 @@ Cherry MX keyboard, which is the most expensive board:
 | **PS/2 keyboard** (option) | Native PS/2 compact keyboard (Perixx PERIBOARD-409P class) for buyers of the core kit without the Cherry MX keyboard |
 | **PS/2 mouse** (option) | Native PS/2 optical mouse (Perixx PERIMICE-209P class) for J5's top socket |
 | **Starter pack** (option) | PS/2 keyboard + PS/2 mouse + two SNES controllers |
-| **USB-C power supply** (option) | 5 V 3 A USB-C charger (20 W USB PD, North American plug) and a 1 m USB-C to USB-C cable for J13; builders with a phone or laptop charger don't need it (BOM.md: CUI SWI20C-T-N + StarTech USB2CC1MNC as the reference parts) |
+| **USB-C power supply** (option) | 5 V 3 A USB-C charger (20 W USB PD, North American plug) and a 1 m USB-C to USB-C cable for J13; builders with a phone or laptop charger don't need it (reference parts CUI SWI20C-T-N + StarTech USB2CC1MNC; an accessory, so in no BOM) |
 | **SD card** (option) | Full-size 8-16 GB SDHC card for J4, formatted FAT32 and preloaded with the programs, demos and games; the same image is a free download for builders using their own card |
 
 No kit ships programmed chips (Justin, 2026-10-23): the builder programs

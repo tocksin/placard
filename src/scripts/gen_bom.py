@@ -1,12 +1,24 @@
 #!/usr/bin/env python3
-"""Write the bill of materials, docs/BOM.md and docs/BOM.csv, from the KiCad
-sheets (main board kicad/*.kicad_sch, kicad/cartridge_64k/, kicad/cartridge_32k/).
+"""Write the bills of materials from the KiCad sheets (main board
+kicad/*.kicad_sch, kicad/cartridge_64k/, kicad/cartridge_32k/) and the
+case parts list (CASE.md), one BOM per assembly (Justin, 2026-10-25):
+
+    docs/BOM_MAIN_PCB.md/.csv   main board assembly: bare PCB + components
+    docs/BOM_CART_64K.md/.csv   64K cartridge assembly: PCB, components, shell, screw
+    docs/BOM_CART_32K.md/.csv   32K cartridge assembly: the same for the 32K board
+    docs/BOM_CASE.md/.csv       case assembly: the main board assembly as one line,
+                                case parts, standoffs, screws and feet
+    docs/BOM.md                 the index: what each BOM covers and their costs
+
+Accessories sold with a kit (USB-C power supply, SD card, programmer, ...)
+are in no BOM; KITTING.md and KIT_PRICING.md list them.
 
 Parts with the same part number share a line.  Parts with no part number
 chosen yet share a line when their description and value match, with the
 part number left blank.  The Manufacturer and MPN fields come from the
 sheets (gen_kicad_schematic.py, its MPN table); the descriptions and the
-parts that are not on the schematic (sockets, jumper shunts) are added here.
+parts that are not on the schematic (bare PCBs, sockets, jumper shunts,
+shells, screws) are added here.
 
     python3 src/scripts/gen_kicad_schematic.py    # after a part change
     python3 src/scripts/gen_bom.py
@@ -79,7 +91,7 @@ NOTES = {
 }
 
 # parts a builder may leave out; the cost summary gives a total without them
-OPTIONAL = {("Main board", "EBC20DCAN"), ("Main board", "SWI20C-T-N"), ("Main board", "USB2CC1MNC")}
+OPTIONAL = {("Main board", "EBC20DCAN")}
 
 # ---------------------------------------------------------------- prices
 # Unit price in US dollars at the line's quantity for one build, checked 2026-10-22
@@ -125,8 +137,6 @@ PRICES = {
     "Electrolytic capacitor": (0.35, "est.", "Panasonic FR series"),
     "Pin header": (0.15, "est.", "Sullins PREC002SAAN-RC"),
     "Jumper shunt": (0.10, "est.", "Sullins QPC02SXGN-RC"),
-    "SWI20C-T-N": (16.81, "Mouser", ""),
-    "USB2CC1MNC": (8.35, "Mouser", ""),
     "IC socket, DIP-14": (0.25, "est.", "On Shore ED14DT"),
     "IC socket, DIP-20": (0.30, "est.", "On Shore ED20DT"),
     "IC socket, DIP-24 0.3": (0.40, "est.", "On Shore ED241DT"),
@@ -276,16 +286,6 @@ def board_bom(files):
                               "yet (EXPANSION.md, \"Booting from slot 1\")", extra=True))
         out.append(dict(refs=shunts, mpn="QPC02SXGN-RC", mfr="Sullins", desc="Jumper shunt, 2.54 mm", value="", footprint="",
                         notes="Bring-up jumpers", extra=True))
-        # power for J13 (Justin, 2026-10-25): J13's 5.1k CC pull-downs only draw what the source
-        # advertises, so the brick must offer 5 V 3 A on CC (a USB PD charger does)
-        out.append(dict(refs=[], qty=1, mpn="SWI20C-T-N", mfr="CUI Devices",
-                        desc="USB-C power supply, wall plug (North America), 5 V 3 A / 9 V / 12 V, 20 W USB PD",
-                        value="", footprint="",
-                        notes="Optional (Justin, 2026-10-25).  Any USB-C charger that gives 5 V at 3 A will do",
-                        extra=True))
-        out.append(dict(refs=[], qty=1, mpn="USB2CC1MNC", mfr="StarTech", desc="USB-C to USB-C cable, 1 m, 3 A (60 W)",
-                        value="", footprint="", notes="Optional (Justin, 2026-10-25).  Any USB-C to USB-C cable (all are 3 A)",
-                        extra=True))
     for d in out:
         d.setdefault("qty", len(d["refs"]))
     return out
@@ -295,87 +295,168 @@ def md_cell(s):
     return s.replace("|", "\\|")
 
 
-def main():
-    boards = [(name, board_bom(files)) for name, files in BOARDS]
-    md = [f"# Bill of materials\n\nDate: {DATE}\n",
-          "Every part of the three boards, one line per part number: the main",
-          "board and the two ROM cartridges (64K and 32K, separate boards since",
-          "2026-10-24; a machine takes one).  The keyboard is a PS/2 keyboard",
-          "(the Cherry MX keyboard board was dropped on 2026-10-25).  Parts with",
-          "the same part number share a line; where no part number is chosen yet",
-          "the column is blank and parts with the same description and value",
-          "share the line.  Lines marked \"not on the schematic\" are sockets",
-          "and shunts that KiCad's own BOM export leaves out.",
-          "The net tie NT1 and the cartridges' edge fingers (their J1) are copper",
-          "on the PCB, so they are not listed.",
-          "",
-          "Written by `src/scripts/gen_bom.py` from the KiCad sheets (the part",
-          "numbers are the Manufacturer and MPN fields set by",
-          "`gen_kicad_schematic.py`); the same list is in [BOM.csv](BOM.csv).",
-          "Rerun both after a part change.  Stock moves, so recheck before",
-          "ordering.",
-          "",
-          "The PLDs come in two speed grades, so they are two lines: each chip's",
-          "grade follows its timing ([CHIPS.md](CHIPS.md#pld-speed-grades)).  The",
-          "notes give each PLD's job; [KITTING.md](KITTING.md) lists the images.",
-          ""]
+# ---------------------------------------------------------------- assemblies
+# Lines that are on no schematic: the bare PCBs (KIT_PRICING.md fab prices, one board),
+# the cartridge shell and its screw (EXPANSION.md "Shell keepouts"), and the case
+# (CASE.md "Parts" and "Cost estimate", China sheet metal, one unit).  Each:
+# (qty, mpn, mfr, desc, unit price, priced as, notes)
+def mech(qty, desc, unit, priced, notes="", mpn="", mfr=""):
+    return dict(refs=[], qty=qty, mpn=mpn, mfr=mfr, desc=desc, value="", footprint="", notes=notes,
+                extra=True, fixed=(unit, "est.", priced))
+
+
+CART_SHELL_NOTE = ("Not designed yet: two halves round the card and J8's body, 44 x 19.25 mm outside "
+                   "(EXPANSION.md \"Shell keepouts\"); one design takes either card, only its height differs")
+PCB_LINES = {
+    "Main board": [mech(1, "PCB, main board, 290 x 290 mm, 4-layer, 1.6 mm, HASL lead-free", 16.00,
+                        "JLCPCB/PCBWay typical, KIT_PRICING.md")],
+    "Cartridge, 64K": [mech(1, "PCB, 64K cartridge, 39 x 102.2 mm, 2-layer, ENIG, hard-gold bevelled fingers", 4.00,
+                            "JLCPCB/PCBWay typical, KIT_PRICING.md")],
+    "Cartridge, 32K": [mech(1, "PCB, 32K cartridge, 39 x 66.0 mm, 2-layer, ENIG, hard-gold bevelled fingers", 3.50,
+                            "JLCPCB/PCBWay typical (smaller than the 64K board)")],
+}
+SHELL_LINES = {
+    "Cartridge, 64K": [mech(1, "Cartridge shell, 64K height (front and back halves)", 4.00,
+                            "3D print or moulding, not quoted", CART_SHELL_NOTE),
+                       mech(1, "M3 x 6 pan head screw (card to shell at H1)", 0.10, "any M3 x 6 machine screw")],
+    "Cartridge, 32K": [mech(1, "Cartridge shell, 32K height (front and back halves)", 3.50,
+                            "3D print or moulding, not quoted", CART_SHELL_NOTE),
+                       mech(1, "M3 x 6 pan head screw (card to shell at H1)", 0.10, "any M3 x 6 machine screw")],
+}
+CASE_NOTE = "CASE.md \"Cost estimate\", 1 unit, China sheet metal, not quoted"
+ACRYLIC_NOTE = "CASE.md \"Cost estimate\", 1 unit, laser-cut acrylic, not quoted"
+CASE_LINES = [
+    mech(1, "Lower shell: 2.0 mm 5052-H32, bent, brushed and anodized, 8 PEM standoffs SO-M3-6 and 3 PEM nuts "
+            "pressed in", 66.25, CASE_NOTE, "case/lower_shell.step"),
+    mech(1, "Upper shell: 2.0 mm 5052-H32, bent, brushed and anodized", 66.25, CASE_NOTE, "case/upper_shell.step"),
+    mech(1, "Keyboard rail: 1.5 mm 5052, Z-shaped, 3 PEM nuts (carries the blank)", 9.50, CASE_NOTE,
+         "case/keyboard_rail.step"),
+    mech(2, "Cover garage: 1.5 mm 5052 open tray with ears", 9.00, CASE_NOTE, "case/garage_1.step, garage_2.step"),
+    mech(1, "Acrylic top: 4 mm clear cast acrylic, 295 x 220 mm, laser cut, 10 magnet holes", 35.00, ACRYLIC_NOTE,
+         "case/acrylic_top.step"),
+    mech(1, "Keyboard bay blank: 3 mm clear cast acrylic, laser cut", 15.00, ACRYLIC_NOTE,
+         "case/keyboard_blank.step.  The bay's use is open since the Cherry MX keyboard was dropped (CASE.md)"),
+    mech(4, "Slot cover: 4 mm acrylic plug + 3 mm cap, solvent welded", 3.00, ACRYLIC_NOTE, "case/slot_cover.step"),
+    mech(1, "Cartridge cover: 4 mm acrylic plug + 3 mm cap, solvent welded", 8.00, ACRYLIC_NOTE, "case/cart_cover.step"),
+    mech(20, "Disc magnet, N52, 6 x 3 mm (10 in the top, 10 in the cover caps, glued)", 0.25, "typical N52 magnet price"),
+    mech(5, "M3 male-female hex standoff, 27 mm (H1, H2, H6, H7, H8)", 0.80, "typical standoff price"),
+    mech(3, "M3 male-female hex standoff, 11 mm (H3, H4, H5, under the garage ears)", 0.50, "typical standoff price"),
+    mech(3, "M3 male-female hex standoff, 16 mm (H3, H4, H5, over the garage ears)", 0.60, "typical standoff price"),
+    mech(8, "M3 x 8 button head screw, black or stainless (acrylic top)", 0.15, "typical screw price"),
+    mech(6, "M3 x 6 button head screw (keyboard bay blank)", 0.15, "typical screw price"),
+    mech(4, "Rubber foot, 2 mm thin, adhesive", 0.25, "typical price"),
+]
+
+FILES = {"Main board": "BOM_MAIN_PCB", "Cartridge, 64K": "BOM_CART_64K", "Cartridge, 32K": "BOM_CART_32K",
+         "Case": "BOM_CASE"}
+TITLES = {"Main board": "Main board assembly", "Cartridge, 64K": "64K cartridge assembly",
+          "Cartridge, 32K": "32K cartridge assembly", "Case": "Case assembly"}
+SCOPE = {
+    "Main board": "The main board, built: the bare PCB, every part on the schematic, and the sockets, "
+                  "jumper shunts and /WE pull-up that are not drawn.  It is one line of the case assembly.",
+    "Cartridge, 64K": "The 64K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and "
+                      "screw.  A machine takes one cartridge, 64K or 32K.",
+    "Cartridge, 32K": "The 32K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and "
+                      "screw.  A machine takes one cartridge, 64K or 32K.",
+    "Case": "The computer in its case: the main board assembly ([BOM_MAIN_PCB.md](BOM_MAIN_PCB.md)) as one "
+            "line, the case parts from [CASE.md](CASE.md), standoffs, screws and feet.  The cartridge is its own "
+            "assembly.",
+}
+HEADER = ["Qty", "References", "Part number", "Manufacturer", "Description", "Value", "Unit price USD",
+          "Line total USD", "Price from", "Notes", "Footprint", "On schematic"]
+
+
+def write_bom(name, bom, note_opt):
+    """docs/<file>.md and .csv for one assembly; returns (total, total without optional, estimated lines)."""
+    total = opt = 0.0
+    for d in bom:
+        d["unit"], d["src"], d["as"] = d["fixed"] if "fixed" in d else price(d)
+        total += (d["unit"] or 0) * d["qty"]
+        if (name, d["mpn"]) in OPTIONAL:
+            opt += (d["unit"] or 0) * d["qty"]
+    est = sum(1 for d in bom if d["src"] == "est.")
+    parts = sum(d["qty"] for d in bom if not d["extra"])
+    md = [f"# Bill of materials: {TITLES[name][0].lower() + TITLES[name][1:]}\n", f"Date: {DATE}\n", SCOPE[name], "",
+          f"{len(bom)} lines" + (f", {parts} parts on the schematic" if parts else "") + ".  "
+          f"Cost: **${total:,.2f}** for one assembly at these quantities"
+          + (f", **${total - opt:,.2f}** without the optional parts ({note_opt})" if opt else "")
+          + f".  {est} lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in "
+          f"[{FILES[name]}.csv]({FILES[name]}.csv).  The other BOMs are listed in [BOM.md](BOM.md).\n",
+          "| Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | "
+          "Price from | Notes |",
+          "|--:|---|---|---|---|---|--:|--:|---|---|"]
     rows = []
-    totals = []
-    for name, bom in boards:
-        for d in bom:
-            if (name, d["mpn"]) in OPTIONAL and not d["notes"].startswith("Optional"):
-                d["notes"] = ("Optional (Justin, 2026-10-22).  " + d["notes"]).strip()
-        parts = sum(d["qty"] for d in bom if not d["extra"])
-        md.append(f"## {name}\n")
-        md.append(f"{len(bom)} lines, {parts} parts on the schematic.\n")
-        total = opt = 0.0
-        for d in bom:
-            d["unit"], d["src"], d["as"] = price(d)
-            total += (d["unit"] or 0) * d["qty"]
-            if (name, d["mpn"]) in OPTIONAL:
-                opt += (d["unit"] or 0) * d["qty"]
-        totals.append((name, total, total - opt, sum(1 for d in bom if d["src"] == "est.")))
-        md.append(f"Components: **${total:,.2f}** for one board at these quantities"
-                  + (f", **${total - opt:,.2f}** without the optional parts.\n" if opt else ".\n"))
-        md.append("| Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | "
-                  "Price from | Notes |")
-        md.append("|--:|---|---|---|---|---|--:|--:|---|---|")
-        for d in bom:
-            refs = ranges(d["refs"]) if d["refs"] else ""
-            note = ("Not on the schematic.  " if d["extra"] else "") + d["notes"]
-            u = d["unit"]
-            src = d["src"] + (f": {d['as']}" if d["as"] else "")
-            md.append("| " + " | ".join(md_cell(c) for c in (
-                str(d["qty"]), refs, d["mpn"], d["mfr"], d["desc"], d["value"],
-                f"{u:.2f}" if u is not None else "", f"{u * d['qty']:.2f}" if u is not None else "",
-                src, note.strip())) + " |")
-            rows.append([name, d["qty"], " ".join(d["refs"]), d["mfr"], d["mpn"], d["desc"], d["value"],
-                         d["footprint"], "yes" if not d["extra"] else "no",
-                         f"{u:.2f}" if u is not None else "", f"{u * d['qty']:.2f}" if u is not None else "",
-                         src, d["notes"]])
-        md.append("")
-    summ = ["## Component cost\n",
-            "One of each board, priced at the quantities below (Mouser first, Digi-Key where Mouser has",
-            "no stock), on 2026-10-22.  Lines marked *est.* are typical prices for the part named, not",
-            "read from a price list; PCBs, the case, shipping and tax are not included.  The expansion",
-            "slot sockets J9-J12 are optional: a builder fits only the slots a card will use.\n",
-            "| Board | Components | Without optional parts | Lines estimated |", "|---|--:|--:|--:|"]
-    for name, t, b, est in totals:
-        summ.append(f"| {name} | ${t:,.2f} | ${b:,.2f} | {est} |")
-    one = [r for r in totals if r[0] != "Cartridge, 32K"]      # a machine takes one cartridge
-    summ.append(f"| **Main and 64K cartridge** | **${sum(r[1] for r in one):,.2f}** | "
-                f"**${sum(r[2] for r in one):,.2f}** | |\n")
-    i = md.index("## Main board\n")
-    md[i:i] = summ
+    for d in bom:
+        if (name, d["mpn"]) in OPTIONAL and not d["notes"].startswith("Optional"):
+            d["notes"] = ("Optional (Justin, 2026-10-22).  " + d["notes"]).strip()
+        refs = ranges(d["refs"]) if d["refs"] else ""
+        note = ("Not on the schematic.  " if d["extra"] and name != "Case" else "") + d["notes"]
+        u = d["unit"]
+        src = d["src"] + (f": {d['as']}" if d["as"] else "")
+        cells = [str(d["qty"]), refs, d["mpn"], d["mfr"], d["desc"], d["value"],
+                 f"{u:.2f}" if u is not None else "", f"{u * d['qty']:.2f}" if u is not None else "", src]
+        md.append("| " + " | ".join(md_cell(c) for c in cells + [note.strip()]) + " |")
+        rows.append([d["qty"], " ".join(d["refs"]), d["mpn"], d["mfr"], d["desc"], d["value"], cells[6], cells[7],
+                     src, d["notes"], d["footprint"], "no" if d["extra"] else "yes"])
+    with open(os.path.join(ROOT, "docs", FILES[name] + ".md"), "w") as f:
+        f.write("\n".join(md) + "\n")
+    with open(os.path.join(ROOT, "docs", FILES[name] + ".csv"), "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(HEADER)
+        w.writerows(rows)
+    print(f"{FILES[name]}: {len(bom)} lines, ${total:,.2f}")
+    return total, total - opt, est
+
+
+def main():
+    totals = {}
+    for name, files in BOARDS:
+        bom = PCB_LINES[name] + board_bom(files) + SHELL_LINES.get(name, [])
+        totals[name] = write_bom(name, bom, "expansion slot sockets J9-J12")
+    main_full, main_base, _ = totals["Main board"]
+    case = [mech(1, "Main board assembly (BOM_MAIN_PCB.md)", main_base, "BOM_MAIN_PCB.md total without the "
+                 "optional expansion slot sockets", "Add $%.2f with J9-J12 fitted" % (main_full - main_base),
+                 mpn="PLACARD main board", mfr="(assembly)")]
+    totals["Case"] = write_bom("Case", case + CASE_LINES, "")
+    for old in ("BOM.csv",):
+        path = os.path.join(ROOT, "docs", old)
+        if os.path.exists(path):
+            os.remove(path)
+    md = [f"# Bills of materials\n", f"Date: {DATE}\n",
+          "One BOM per assembly (Justin, 2026-10-25).  The case assembly takes the built main board as one",
+          "line; each cartridge assembly is complete with its shell and screw.  Accessories sold with a kit",
+          "(USB-C power supply and cable, SD card, programmer, controllers, keyboard and mouse) are in no BOM:",
+          "[KITTING.md](KITTING.md) and [KIT_PRICING.md](KIT_PRICING.md) list them.\n",
+          "| Assembly | BOM | Contents | Cost | Without optional parts | Lines estimated |",
+          "|---|---|---|--:|--:|--:|"]
+    contents = {"Main board": "Bare PCB, components, sockets", "Cartridge, 64K": "Bare PCB, components, sockets, "
+                "shell, screw", "Cartridge, 32K": "Same, 32K board", "Case": "Main board assembly, shells, "
+                "acrylic, magnets, standoffs, screws, feet"}
+    for name in ("Main board", "Cartridge, 64K", "Cartridge, 32K", "Case"):
+        t, b, est = totals[name]
+        f = FILES[name]
+        md.append(f"| {TITLES[name]} | [{f}.md]({f}.md), [.csv]({f}.csv) | {contents[name]} | ${t:,.2f} | "
+                  f"${b:,.2f} | {est} |")
+    md += ["",
+           f"A complete machine is the case assembly plus one cartridge: **${totals['Case'][0] + totals['Cartridge, 64K'][0]:,.2f}**"
+           f" with the 64K cartridge (the case total already holds the main board without its optional slot",
+           "sockets).  Prices are single-unit Mouser (Digi-Key where Mouser has none) for components and",
+           "rough single-unit estimates for PCBs, shells and case parts; shipping, tax and tariffs are not",
+           "included.  Stock moves, so recheck before ordering.",
+           "",
+           "Parts with the same part number share a line; where no part number is chosen the column is",
+           "blank and parts with the same description and value share the line.  Lines marked \"not on the",
+           "schematic\" are bare PCBs, sockets, shunts, shells and screws that KiCad's BOM export leaves out.",
+           "The net tie NT1 and the cartridges' edge fingers (their J1) are copper on the PCB, so they are",
+           "not listed.  Every PLD is an ATF22V10C-7PX ([CHIPS.md](CHIPS.md#pld-speed-grades)); the notes",
+           "give each PLD's job;",
+           "[KITTING.md](KITTING.md) lists the images.",
+           "",
+           "Written by `src/scripts/gen_bom.py` from the KiCad sheets (part numbers are the Manufacturer and",
+           "MPN fields set by `gen_kicad_schematic.py`) and the case parts in CASE.md.  Rerun both after a",
+           "part change.", ""]
     with open(os.path.join(ROOT, "docs", "BOM.md"), "w") as f:
         f.write("\n".join(md))
-    with open(os.path.join(ROOT, "docs", "BOM.csv"), "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["Board", "Qty", "References", "Manufacturer", "Part number", "Description", "Value",
-                    "Footprint", "On schematic", "Unit price USD", "Line total USD", "Price from", "Notes"])
-        w.writerows(rows)
-    for name, bom in boards:
-        print(f"{name}: {len(bom)} lines, {sum(d['qty'] for d in bom)} parts")
 
 
 if __name__ == "__main__":
