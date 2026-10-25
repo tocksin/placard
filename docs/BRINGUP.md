@@ -29,7 +29,7 @@ Un), and checks them before a chip goes in: power on, +5 V on the
 socket's power pin and 0 V on its ground pin (24-pin PLDs pins 24 and 12;
 20-pin chips (F377, F541, ACT273, HC574, HCT574) 20 and 10; the 28-pin
 RAMs 28 and 14).  A few sockets go in a step or more early, empty,
-because a temporary resistor ("strap") or the probe resistor plugs into
+because a temporary resistor ("strap") plugs into
 them; the step says so.  Each strap is described in the step that puts
 it in and the step that takes it out.  The steps add chips one at a
 time, and the CPU steps take the RAM out again for a while.
@@ -107,7 +107,7 @@ so its readings shift a little with the line and frame; read the average.
 | D7 | TVS diode, fused VBUS (VFUSE) to GND | Littelfuse SA5.0A | band (cathode) to VFUSE |
 | SW1 | Toggle switch, on/off | CIT ANT11TFHQE |  |
 | C41 | Electrolytic capacitor, on VON (between SW1 and K1) | 220 µF (Panasonic EEU-FR1E221) | + to VON, stripe to GND |
-| K1 | Relay | CIT J1071CS5VDC.36 | COM (pin 1) = VON, NC (pin 4) = +5V |
+| K1 | Relay | CIT J1071CS6VDC.36 | COM (pin 1) = VON, NC (pin 4) = +5V |
 | SW2 | Tactile reset button, VON to the coil (KCOIL) | C&K PTS645VL58-2 LFS |  |
 | D8 | Schottky diode, across K1's coil | BAT85 | band (cathode) to KCOIL |
 | R59 | Resistor, power LED | 1k |  |
@@ -255,10 +255,10 @@ colour decoder isn't in yet).
 | R16, R19 | Resistor, colour | 825 ohm |  |
 | R20 | Resistor, colour | 1.43k |  |
 | R21 | Resistor, colour | 715 ohm |  |
-| U23 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) | empty for now, holds strap S4 and the probe resistor |
+| U23 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) | empty for now, holds straps S4 and S5 |
 | C23 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | S4 | Strap (temporary), in U23's socket | 10k | out at step 8 |
-| (probe) | Probe resistor (temporary), in U23's socket | 10k | out at the end of this step |
+| S5 | Strap (temporary), in U23's socket | 10k | out at step 8 |
 | (lead) | Test lead: a clip on one end, a probe tip on the other | in the kit | |
 
 **Program first:** U16 colour decoder from `ATF22V10_COLORDECODER.pld`
@@ -271,6 +271,9 @@ code's Q7 as "blank line", so put in:
 
 - **S4**, in U23 (line code): pin 19 (Q7) to pin 10 (GND).  Holds LC7
   low, so every line is a video line.  Out at step 8.
+- **S5**, in U23 (line code): pin 20 (+5 V) to pin 12 (Q4, which goes
+  only to the tint resistor R56, not fitted until step 8).  A 10k high
+  source for the test lead.  Out at step 8.
 
 **Probes.**  The colour decoder's pixel inputs D0-D7 (pins 2-9) and mode
 inputs MODE0, MODE1 (pins 10, 11) have no driver yet (the pixel buffer
@@ -278,9 +281,8 @@ U22 and the line code register U23 come later).  Each one holds the last
 level it was touched to (the pin keeper), so set them by touching them
 through 10k, which keeps a slip onto a wrong pin harmless:
 
-- **High:** the probe resistor, a 10k with one lead in U23's pin 20
-  (+5 V) and the other lead standing free.  Clip the test lead to the
-  free lead and touch the probe tip to a U16 pin.
+- **High:** clip the test lead to strap S5's lead at U23's pin 12 (10k
+  to +5 V) and touch the probe tip to a U16 pin.
 - **Low:** clip the test lead to strap S4's lead at U23's pin 19 (10k to
   GND) and touch the probe tip to a U16 pin.
 
@@ -312,7 +314,7 @@ Insert U16 into its socket and connect the monitor.  Then:
 
 A pin that reads 0 V when it should toggle, or toggles when it should be
 0 V, points at that pin's wiring or the colour resistors (R14-R21).
-Take the probe resistor out; S4 stays.
+Unclip the test lead; S4 and S5 stay until step 8.
 
 ### Step 7: audio and mode slot PLD (U35)
 
@@ -323,7 +325,7 @@ Take the probe resistor out; S4 stays.
 | U35 | PLD, audio and mode slots | ATF22V10C-7PX, programmed from `ATF22V10_AUDIO.pld` |  |
 | U35 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
 | C35 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| S5 | Strap (temporary), in U23's socket (fitted at step 6) | 2 x 10k | out at step 8 |
+| S6 | Strap (temporary), in U23's socket (socket fitted at step 6) | 2 x 10k | out at step 8 |
 
 **Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
 (rev 04); verify and label it.
@@ -331,13 +333,13 @@ Take the probe resistor out; S4 stays.
 The audio PLD's row address bits follow the line code's Q3:Q2 (line
 repeat), so put in:
 
-- **S5**, in U23 (line code): two 10k, from pins 6 and 9 (Q2, Q3) each
+- **S6**, in U23 (line code): two 10k, from pins 6 and 9 (Q2, Q3) each
   to pin 10 (GND).  Holds the line repeat at 1x.  Out at step 8.
 
 Insert U35 into its socket.
 BLANK_RD now picks group 45 (mode byte) and group 46
 or 47 (audio sample) on every line, and R0, R1, R7, R8 are the row address
-bits (1x line repeat while S5 holds Q3:Q2 low).
+bits (1x line repeat while S6 holds Q3:Q2 low).
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -380,8 +382,8 @@ The Branch PLD reads the State PLD's Q0 and PC_ENABLE, so put in:
 
 The Branch PLD goes in now only for /PIX_LD (pin 15), the pixel buffer's
 load strobe; the rest of it waits for the CPU.  Take out straps S4 (U23
-pin 19 to pin 10) and S5 (U23 pins 6 and 9 to pin 10), then insert U2,
-U22 and U23 into their sockets.
+pin 19 to pin 10), S5 (pin 20 to pin 12) and S6 (pins 6 and 9 to pin 10),
+then insert U2, U22 and U23 into their sockets.
 
 Nothing drives the data bus, so every video read is FF.  The line code
 register loads FF from the first mode read, and its Q7 (blank line) is
