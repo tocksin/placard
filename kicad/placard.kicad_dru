@@ -1,0 +1,9 @@
+(version 1)
+
+# U40 (MCP1700 3.3 V regulator, TO-92 inline): pads are 1.05 mm wide on a
+# 1.27 mm pitch, so the copper gap between neighbouring pads is 0.22 mm,
+# below the 0.25 mm Default netclass clearance. Allow 0.2 mm between U40's
+# own pads only; tracks, vias and other parts near U40 keep normal clearance.
+(rule "U40 pad to pad"
+	(constraint clearance (min 0.2mm))
+	(condition "A.Type == 'Pad' && B.Type == 'Pad' && A.memberOfFootprint('U40') && B.memberOfFootprint('U40')"))
