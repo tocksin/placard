@@ -108,7 +108,7 @@ Leave U40, C40 and C47 (the 3.3 V regulator) for step 18, with the SD card.
 | D7 | SA5.0A TVS, fused VBUS (VFUSE) to GND | band (cathode) to VFUSE |
 | SW1 | ANT11TFHQE toggle, on/off | |
 | C41 | 220 µF 10 V electrolytic on VON (between SW1 and K1) | + to VON, stripe to GND |
-| K1 | CIT J1071CS5VDC.36 relay; COM (pin 1) = VON, NC (pin 4) = +5V | |
+| K1 | CIT J1071CS4VDC.36 relay; COM (pin 1) = VON, NC (pin 4) = +5V | |
 | SW2 | PTS645VL58-2 tactile reset button, VON to the coil (KCOIL) | |
 | D8 | BAT85 across K1's coil | band (cathode) to KCOIL |
 | R59, D18 | 1k and the red 5 mm power LED, +5V (after K1) to GND | LED's long lead (anode) to R59, flat side (cathode) to GND |
@@ -168,21 +168,20 @@ Insert U15 into its socket.  The Sync PLD's H2:H0 count the clock by themselves.
 | H1 (pin 15) | 6.294 MHz | 50 % | 2.50 V |
 | H2 (pin 16) | 3.147 MHz | 50 % | 2.50 V |
 
-The other Sync pins depend on the counters and are checked in step 5.
-
 ### Step 4: H counter PLD (U13)
 
 **Sockets:** U13 with C13.  Also fit the line code socket U23 (with
-C23), empty, for strap S5.
+C23), empty, for strap S4.
 
 **Program first:** U13 H counter from `ATF22V10_HCOUNT.pld` (rev 08);
 verify and label it.
 
-The H counter reads the line code's Q7 (blank line), so put in a strap
-(a 10k resistor in an empty socket's pins, holding a line whose driver
-isn't in yet; more in step 5):
+**Straps.**  A strap is a 10k resistor with its leads in an empty
+socket's pins (or soldered to a spare socket that plugs in), holding a
+control line whose driver isn't in yet.  The H counter reads the line
+code's Q7 (blank line), so put in:
 
-- **S5**, in U23 (line code): three 10k, from pins 6, 9 and 19 (Q2, Q3,
+- **S4**, in U23 (line code): three 10k, from pins 6, 9 and 19 (Q2, Q3,
   Q7) each to pin 10 (GND).  Q7 low keeps every line a video line; Q3:Q2
   low holds the line repeat at 1x for the audio PLD (step 6).  Out at
   step 7.
@@ -206,27 +205,13 @@ Insert U13 into its socket.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks 
 
 ### Step 5: V counter PLD (U14)
 
-**Sockets:** U14 with C14.  Also fit the State socket U1 (with C1) and
-the audio socket U35 (with C35), empty, for straps S1 and S4.
+**Sockets:** U14 with C14.
 
 **Other parts:** the VGA connector J7 and the sync series resistors R61
 and R62 (47 ohm, beside U13 and U15).
 
 **Program first:** U14 V counter from `ATF22V10_VCOUNT.pld` (rev 03);
 verify and label it.
-
-**Straps.**  A strap is a 10k resistor with its leads in an empty
-socket's pins (or soldered to a spare socket that plugs in), holding a
-control line whose driver isn't in yet.  The Sync outputs checked in
-this step (PIXEL_ENABLE, ADDR_SEL) use three State PLD outputs and the
-audio PLD's BLANK_RD, so put in:
-
-- **S1**, in U1 (State): four 10k, from pins 15, 16, 17 and 18 each to
-  pin 12 (GND).  Holds PC_ENABLE, X_ENABLE, Y_ENABLE and Q0 low, so the
-  address muxes pick D (low byte) and 00 (high byte) outside video reads
-  and /SRC_EN stays off.  Out at step 11.
-- **S4**, in U35 (audio): pin 23 to pin 12 (GND).  Holds BLANK_RD low: no
-  mode or audio reads.  Out at step 6.
 
 Insert U14 into its socket.  V9:V0 count lines, 499-1023, 525 lines a frame.  Connect a VGA monitor:
 it should now lock to 640 x 480 at 60 Hz and show a **black screen** (the
@@ -244,26 +229,18 @@ colour decoder isn't in yet).
 | V7 (pin 17) | 119.9 Hz | 51.2 % | 2.56 V |
 | V8 (pin 18) | 59.94 Hz | 51.2 % | 2.56 V |
 | V9 (pin 19) | 59.94 Hz | 97.5 % | 4.88 V |
-| Sync VIDEN (pin 17) | 28.77 kHz | 73.1 % | 3.66 V |
-| Sync /VSYNC (pin 18) | 59.94 Hz | 99.6 % | 4.98 V |
-| Sync PIXEL_ENABLE (pin 19) | 2.302 MHz | 9.1 % | 0.46 V |
-| Sync ADDR_SEL (pin 20) | 2.302 MHz | 9.1 % | 0.46 V |
-| Sync V_VIDEO_ACTIVE (pin 23) | 59.94 Hz | 91.4 % | 4.57 V |
-
-**59.94 Hz** on /VSYNC is the frame rate.  PIXEL_ENABLE here has only the
-video reads; step 6 adds the mode and audio reads.
 
 ### Step 6: audio and mode slot PLD (U35)
 
-**Sockets:** none new; U35's socket went in at step 5.
+**Sockets:** U35 with C35.
 
 **Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
 (rev 04); verify and label it.
 
-Take out strap S4 (the 10k from U35's pin 23 to pin 12) and insert U35 into its socket.
+Insert U35 into its socket.
 BLANK_RD now picks group 45 (mode byte) and group 46
 or 47 (audio sample) on every line, and R0, R1, R7, R8 are the row address
-bits (1x line repeat while S5 holds Q3:Q2 low).
+bits (1x line repeat while S4 holds Q3:Q2 low).
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -277,8 +254,8 @@ bits (1x line repeat while S5 holds Q3:Q2 low).
 ### Step 7: Branch PLD (U2), pixel buffer (U22), line code (U23), colour decoder (U16)
 
 **Sockets:** U2 with C2, U22 with C22 and U16 with C16 (U23's went in at
-step 4).  Also fit the RAM socket U31 (with C31), empty, for the pull-
-down tests below.
+step 4).  Also fit the State socket U1 (with C1), empty, for strap S1,
+and the RAM socket U31 (with C31), empty, for the pull-down tests below.
 
 **Other parts:** the data bus pull-ups RN1 (10k SIP on D7:D0), the
 colour resistors R14-R21 and the row tint parts R56-R58, D9-D11 (BAT85)
@@ -288,8 +265,15 @@ and D12-D17 (1N4148).
 colour decoder from `ATF22V10_COLORDECODER.pld` (rev 07); verify and
 label them.  U22 and U23 are 74-series and need no programming.
 
+The Branch PLD reads the State PLD's Q0 and PC_ENABLE, so put in:
+
+- **S1**, in U1 (State): four 10k, from pins 15, 16, 17 and 18 each to
+  pin 12 (GND).  Holds PC_ENABLE, X_ENABLE, Y_ENABLE and Q0 low, so the
+  address muxes pick D (low byte) and 00 (high byte) outside video reads
+  and /SRC_EN stays off.  Out at step 11.
+
 The Branch PLD goes in now only for /PIX_LD (pin 15), the pixel buffer's
-load strobe; the rest of it waits for the CPU.  Take out strap S5 (the
+load strobe; the rest of it waits for the CPU.  Take out strap S4 (the
 three 10k from U23's pins 6, 9 and 19 to pin 10) and insert U2, U22, U23 and U16 into their sockets.
 
 Nothing drives the data bus, so every video read is FF: the line code is
@@ -415,7 +399,7 @@ the State, Branch and PC chips with no memory and no software.
 
 ### Step 11: take out the RAM and straps S1-S3; fit the instruction register PLD (U17) and the State PLD (U1)
 
-**Sockets:** U17 with C17 (U1's went in at step 5).
+**Sockets:** U17 with C17 (U1's went in at step 7).
 
 **Program first:** U1 State from `ATF22V10_STATE.pld` (rev 15) and U17
 instruction register from `ATF22V10_IR.pld` (rev 01); verify and label
