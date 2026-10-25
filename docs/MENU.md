@@ -22,9 +22,10 @@ Date: 10/22/2026
   until it is done or for 2 minutes (Mandelbrot 3, so it finishes), then
   the next, and after the last the first again.  `LIMIT_S` in
   `gen_menu_rom.py` sets a longer limit per program.
-- **Esc** in any program shows the menu (on the key matrix or a PS/2
-  keyboard; in the older RAM programs only the matrix Esc, since they
-  can't reach the library's PS/2 driver).
+- **Esc** in any program shows the menu (a PS/2 keyboard; the older RAM
+  programs can't reach the library's PS/2 driver, so each carries a small
+  hook, `menu_hook.py`, that reads the PS/2 receiver once per frame and
+  looks for Esc's make code).
 - In the menu, **Up / Down** move the highlight and **Enter** (or Space)
   runs the highlighted program; **1-6** run that program at once.  A
   program picked from the menu has no time limit: it runs until Esc (a

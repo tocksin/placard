@@ -3,12 +3,11 @@
 io_devices.py - models of the shared port at x5200 and the devices on it,
 for placard_sim.py (see docs/IO.md)
 
-    port = SharedPort()                 # latch, key matrix, pads, SD, mouse
-    port.keys.add((col, row))           # hold a key down
+    port = SharedPort()                 # latch, PS/2 receiver, pads, SD, mouse, keyboard
     port.pads[0].buttons = 0x0001       # pad 1: B held (bit n = button n)
     port.sd = SdCard(image)             # an SD card holding image (bytes)
-    port.mouse = Ps2Mouse()             # a PS/2 mouse
-    port.kbd = Ps2Keyboard()            # a PS/2 keyboard (second socket)
+    port.mouse = Ps2Mouse()             # a PS/2 mouse (the upper socket)
+    port.kbd = Ps2Keyboard()            # a PS/2 keyboard (the lower socket)
     cpu = Cpu(mem, rom=rom, io=port)
 
     slots = Slots()                     # the four expansion slots
@@ -17,27 +16,28 @@ for placard_sim.py (see docs/IO.md)
 
 The CPU calls port.read(addr, t) for a read of x5200-x52FF and
 port.write(addr, value, t) for a write; t is the CPU clock count, used by
-the PS/2 mouse (25.175 MHz clocks).
+the PS/2 devices (25.175 MHz clocks).
 
-Port latch (write any x52xx), 74HC574:
+Port latch (write any x52xx), five registers in the port PLD (rev 04):
     bit 0  SCK / pad CLOCK          bit 1  MOSI / pad LATCH
     bit 2  SD /CS; 0 also holds the mouse's CLK line low (Schottky diode)
     bit 3  0 holds the shared PS/2 DATA line low (Schottky diode)
-    bit 4  0 holds the PS/2 keyboard's CLK line low (Schottky diode); it
-           is also column bit 0
-    bits 7:4  keyboard column 0-7 driven low; 8-15 none
+    bit 4  0 holds the PS/2 keyboard's CLK line low (Schottky diode)
+    bits 7:5 are not stored
 Port read:
-    even address (74F541): D7:D0 = key rows 7:0 of the driven column.
-        Row 7 is also SD MISO, row 6 PS/2 DATA and row 5 the mouse's CLK
-        (Schottky diodes), so with no column driven a read shows those.
-    odd address (port PLD rev 02): D7 = pad 1 DATA; D6 = pad 2 DATA while
-        latch bit 4 is 0, the PS/2 keyboard's CLK while it is 1.  D5:D0
-        are not driven; the model returns 1s there.
+    x5200: D7 = SD MISO, D5 = RXCLK (the two PS/2 clock lines diode-ORed,
+        so the free device's clock); the rest reads 1 (pull-ups)
+    x5201: D7 = pad 1 DATA, D6 = pad 2 DATA, D5 = RXCLK
+    x5202: the PS/2 receiver's byte;  x5203: D7 = 0 while a byte is ready
+    a write to x5202 or x5203 re-arms the receiver (and loads the latch)
+The PS/2 receiver (Ps2Receiver, the ATF22V10_PS2.pld equations) clocks on
+every rising edge of RXCLK, from a device's clock or from a clock line let
+go by the latch or the receiver's own inhibit.  After the 11th clock of a
+byte it pulls both clock lines low (inhibit) until re-armed.
 The mouse and the PS/2 keyboard share the DATA line: SharedPort counts
-reads that find both driving it (collisions), which the driver must
-never cause.
+moments both drive it (collisions), which the driver must never cause.
 
-Date: 10/22/2026
+Date: 10/25/2026
 """
 
 CPU_HZ = 25_175_000
@@ -260,11 +260,22 @@ class Ps2Mouse:
     Stream mode: while reporting is on, movement (move()) and button
     changes are sent as 3-byte packets, at most one per sample period.  The
     counters keep adding up while the host holds the mouse off.  Y is
-    positive upward, as on the wire."""
+    positive upward, as on the wire.
+
+    Between the bytes of a packet (the gap) a host that holds CLK low only
+    holds the mouse: it goes on with the next byte 50 us after CLK is let
+    go, as a mouse does for a host (like the PS/2 receiver PLD, or the PC's
+    8042) that holds it off after every byte.  A request to send in the gap
+    drops the rest of the packet.
+
+    on_rise(device, t) is called just before every rising edge of the
+    device's own CLK, with DATA still at the bit being sent: the shared
+    port's receiver samples it there."""
 
     DT = us(5)
 
     def __init__(self, latency_us=100, bat_ms=300, half_us=40):
+        self.on_rise = None               # called (device, t) just before each rising edge of its CLK
         self.latency = us(latency_us)
         self.bat = us(bat_ms * 1000)
         self.half = us(half_us)           # CLK half period
@@ -295,6 +306,7 @@ class Ps2Mouse:
         self.received = []                # commands and arguments from the host
         self.sent = []                    # bytes sent (completed frames)
         self.aborts = 0
+        self.holds = 0                    # steps spent held between a packet's bytes
         self.peer = None                  # the other device on the shared DATA line
 
     # --- interface ------------------------------------------------------
@@ -426,6 +438,7 @@ class Ps2Mouse:
                 self.phase_end = t + self.half
                 return
             self.dclk = 1                         # low half done: next bit
+            self.rise(t)
             self.bit_i += 1
             if self.bit_i < 11:
                 self.ddata = self.frame[self.bit_i]
@@ -442,9 +455,11 @@ class Ps2Mouse:
                 self.free_since = t
             return
         if self.state == 'gap':
-            if not self.hclk:
-                self.aborts += 1
-                self.queue.insert(0, self.chunk)
+            if not self.hclk:                     # held: go on 50 us after it is let go
+                self.phase_end = max(self.phase_end, t + us(50))
+                self.holds += 1
+                return
+            if not self.hdata:                    # a request to send: the packet is dropped
                 self.state = 'idle'
                 return
             if t >= self.phase_end:
@@ -455,6 +470,7 @@ class Ps2Mouse:
                 return
             if not self.dclk:                     # low half done: rising edge, read
                 self.dclk = 1
+                self.rise(t)
                 self.phase_end = t + self.half
                 if len(self.rx_bits) < 10:
                     self.rx_bits.append(self.bus_data())
@@ -483,6 +499,10 @@ class Ps2Mouse:
         self.ddata = self.frame[0]
         self.dclk = 1
         self.phase_end = t + self.half
+
+    def rise(self, t):
+        if self.on_rise is not None:
+            self.on_rise(self, t)
 
 
 class Ps2Keyboard(Ps2Mouse):
@@ -554,75 +574,136 @@ class Ps2Keyboard(Ps2Mouse):
 
 
 # ---------------------------------------------------------------------------
+# The PS/2 receiver PLD
+# ---------------------------------------------------------------------------
+class Ps2Receiver:
+    """ATF22V10_PS2.pld: N1..N8 shift in the inverse of DATA on each rising
+    edge of RXCLK while A = B = 0; the start bit reaching N8 sets B, then
+    A; in state A = 1, B = 0 (after the 11th clock) the B pin pulls both
+    clock lines low and a read of x5203 shows D7 = 0, ready.  A write to
+    x5202/x5203 resets everything."""
+
+    def __init__(self):
+        self.n = [0] * 8                  # n[0] = N1 (newest) ... n[7] = N8
+        self.a = 0
+        self.b = 0
+        self.edges = 0
+        self.bytes = 0                    # bytes that became ready
+
+    def reset(self):
+        self.n = [0] * 8
+        self.a = self.b = 0
+
+    def ready(self):
+        return 1 if (self.a and not self.b) else 0     # the last state (rev 02)
+
+    def inhibit(self):
+        return 1 if (self.a and not self.b) else 0
+
+    def byte(self):
+        # the pins are !Nk: d7 = !N1 ... d0 = !N8
+        return sum((1 - self.n[7 - i]) << i for i in range(8))
+
+    def edge(self, data):
+        self.edges += 1
+        a, b, n = self.a, self.b, self.n
+        if not a and not b:
+            self.n = [1 - data] + n[:7]
+        self.b = 1 if (not a and n[7]) or (not a and b) else 0
+        self.a = 1 if (a or b) else 0
+        if self.a and not a:
+            self.bytes += 1
+
+
+# ---------------------------------------------------------------------------
 # The shared port
 # ---------------------------------------------------------------------------
 class SharedPort:
-    def __init__(self, latch=0x00):
-        self.latch = latch                # a 74HC574 powers up random; 00 here
-        self.keys = set()                 # (col, row) held down
+    def __init__(self, latch=0xEB):
+        self.latch = latch                # the port PLD's registers clear: rest value EB
         self.pads = [SnesPad(), SnesPad()]
         self.sd = None
         self.mouse = None
-        self.kbd = None                   # a PS/2 keyboard (Ps2Keyboard) in the second socket
+        self.kbd = None                   # a PS/2 keyboard (Ps2Keyboard) in the lower socket
+        self.rx = Ps2Receiver()
         self.writes = 0
         self.reads = 0
-        self.collisions = 0               # reads with both devices driving DATA
+        self.collisions = 0               # moments both devices drive DATA
+        self.t = 0
 
     def _link(self):
+        for dev in (self.mouse, self.kbd):
+            if dev is not None and dev.on_rise is None:
+                dev.on_rise = self._rise
         if self.mouse is not None and self.kbd is not None:
             self.mouse.peer, self.kbd.peer = self.kbd, self.mouse
 
-    # lines from the latch
-    def col(self):
-        c = self.latch >> 4
-        return c if c < 8 else None
+    def _advance(self, t):
+        self._link()
+        self.t = t
+        for dev in (self.mouse, self.kbd):
+            if dev is not None:
+                dev.advance(t)
 
-    def rows(self, t):
-        r = 0xFF
-        c = self.col()
-        if c is not None:
-            for (kc, kr) in self.keys:
-                if kc == c:
-                    r &= ~(1 << kr)
-        if self.sd is not None and not self.sd.miso():
-            r &= ~0x80
-        if not self.ps2_data(t):
-            r &= ~0x40
-        if not self.ps2_clk(t):
-            r &= ~0x20
-        return r & 0xFF
+    # --- the lines ------------------------------------------------------
+    def host_clk(self, dev):
+        """the host's drive of a device's clock line: the latch bit and the
+        receiver's inhibit"""
+        bit = 2 if dev is self.mouse else 4
+        return ((self.latch >> bit) & 1) & (1 - self.rx.inhibit())
 
-    def ps2_clk(self, t):
-        host = (self.latch >> 2) & 1
-        dev = self.mouse.clk(t) if self.mouse is not None else 1
-        return host & dev
+    def clk_line(self, dev, bit):
+        """a clock line's level: an absent device leaves it to the host"""
+        host = ((self.latch >> bit) & 1) & (1 - self.rx.inhibit())
+        return host & (dev.dclk if dev is not None else 1)
 
-    def ps2_data(self, t):
+    def rxclk(self):
+        return self.clk_line(self.mouse, 2) | self.clk_line(self.kbd, 4)
+
+    def ps2_data(self):
         host = (self.latch >> 3) & 1
-        m = self.mouse.data(t) if self.mouse is not None else 1
-        k = self.kbd.data(t) if self.kbd is not None else 1
+        m = self.mouse.ddata if self.mouse is not None else 1
+        k = self.kbd.ddata if self.kbd is not None else 1
         if not m and not k:
             self.collisions += 1
         return host & m & k
 
-    def kbd_clk(self, t):
-        host = (self.latch >> 4) & 1
-        dev = self.kbd.clk(t) if self.kbd is not None else 1
-        return host & dev
+    def _push(self, t):
+        """give the devices the host's drive of their lines"""
+        data = (self.latch >> 3) & 1
+        if self.mouse is not None:
+            self.mouse.host(t, self.host_clk(self.mouse), data)
+        if self.kbd is not None:
+            self.kbd.host(t, self.host_clk(self.kbd), data)
 
+    def _rise(self, dev, t):
+        """a device's CLK rises: an RXCLK edge unless the other line holds
+        the OR high"""
+        other = self.clk_line(self.kbd, 4) if dev is self.mouse else self.clk_line(self.mouse, 2)
+        bit = 2 if dev is self.mouse else 4
+        if other == 0 and ((self.latch >> bit) & 1) and not self.rx.inhibit():
+            self.rx.edge(self.ps2_data())
+            self._push(t)                 # the inhibit may have come on
+
+    # --- the CPU --------------------------------------------------------
     def read(self, ad, t):
         self.reads += 1
-        self._link()
-        if ad & 1:
-            # port PLD rev 02: D6 = pad 2 DATA while latch bit 4 is 0, the
-            # PS/2 keyboard's CLK while it is 1
-            d6 = self.kbd_clk(t) if self.latch & 0x10 else self.pads[1].data()
-            return (self.pads[0].data() << 7) | (d6 << 6) | 0x3F
-        return self.rows(t)
+        self._advance(t)
+        rx = self.rxclk()
+        if (ad & 3) == 0:
+            miso = self.sd.miso() if self.sd is not None else 1
+            return 0x5F | (miso << 7) | (rx << 5)
+        if (ad & 3) == 1:
+            return (self.pads[0].data() << 7) | (self.pads[1].data() << 6) | (rx << 5) | 0x1F
+        if (ad & 3) == 2:
+            return self.rx.byte()
+        return ((1 - self.rx.ready()) << 7) | 0x7F     # D7 = 0 while a byte is ready
 
     def write(self, ad, v, t):
         self.writes += 1
-        old, self.latch = self.latch, v & 0xFF
+        self._advance(t)
+        before = self.rxclk()
+        old, self.latch = self.latch, v & 0x1F | 0xE0
         sck, mosi, cs = v & 1, (v >> 1) & 1, (v >> 2) & 1
         rising = sck and not (old & 1)
         falling = (not sck) and (old & 1)
@@ -638,11 +719,11 @@ class SharedPort:
                 self.sd.edge(rising, mosi)
             if cs:
                 self.sd.set_cs(1)
-        self._link()
-        if self.mouse is not None:
-            self.mouse.host(t, (v >> 2) & 1, (v >> 3) & 1)
-        if self.kbd is not None:
-            self.kbd.host(t, (v >> 4) & 1, (v >> 3) & 1)
+        if ad & 2:
+            self.rx.reset()               # re-arm: the inhibit goes too
+        if not before and self.rxclk():
+            self.rx.edge(self.ps2_data())  # a clock line let go: one edge
+        self._push(t)
 
 
 # ---------------------------------------------------------------------------

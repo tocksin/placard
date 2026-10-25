@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 """Write the bill of materials, docs/BOM.md and docs/BOM.csv, from the KiCad
-sheets (main board kicad/*.kicad_sch, kicad/cartridge_64k/, kicad/cartridge_32k/,
-kicad/keyboard/).
+sheets (main board kicad/*.kicad_sch, kicad/cartridge_64k/, kicad/cartridge_32k/).
 
 Parts with the same part number share a line.  Parts with no part number
 chosen yet share a line when their description and value match, with the
 part number left blank.  The Manufacturer and MPN fields come from the
 sheets (gen_kicad_schematic.py, its MPN table); the descriptions and the
-parts that are not on the schematic (sockets, jumper shunts, keyboard
-stabilizers, keycaps, LEDs and the keyboard cable) are added here.
+parts that are not on the schematic (sockets, jumper shunts) are added here.
 
     python3 src/scripts/gen_kicad_schematic.py    # after a part change
     python3 src/scripts/gen_bom.py
 
-Date: 2026-10-24
+Date: 2026-10-25
 """
 import csv
 import glob
@@ -32,7 +30,6 @@ BOARDS = [
     ("Main board", sorted(glob.glob(os.path.join(KDIR, "*.kicad_sch")))),
     ("Cartridge, 64K", [os.path.join(KDIR, "cartridge_64k", "cartridge_64k.kicad_sch")]),
     ("Cartridge, 32K", [os.path.join(KDIR, "cartridge_32k", "cartridge_32k.kicad_sch")]),
-    ("Keyboard", [os.path.join(KDIR, "keyboard", "keyboard.kicad_sch")]),
 ]
 
 # descriptions by value, then by symbol
@@ -44,7 +41,6 @@ DESC_VALUE = {
     "SN74F541N": "Octal buffer, 3-state, 74F, DIP-20",
     "CD74ACT273E": "Octal D flip-flop with clear, 74ACT, DIP-20",
     "SN74HCT574N": "Octal D flip-flop, 3-state, 74HCT, DIP-20",
-    "SN74HC574N": "Octal D flip-flop, 3-state, 74HC, DIP-20",
     "AS7C256C-15PCN": "SRAM, 32K x 8, 15 ns, PDIP-28 0.3\"",
     "AT28C256-15PU": "EEPROM, 32K x 8, 150 ns, PDIP-28 0.6\" (programmed)",
     "MCP1700-3302E/TO": "3.3 V LDO regulator, 250 mA, TO-92",
@@ -60,19 +56,17 @@ DESC_VALUE = {
 }
 DESC_LIB = {
     "placard_parts:Expansion_Slot": "Expansion slot: 2 x 20 card-edge socket, 0.1\", 1.6 mm card, TH",
-    "placard_parts:Keyboard_Header": "Box header, 2 x 10, 2.54 mm, shrouded and keyed, vertical",
     "placard_std:Jumper_2_Open": "Pin header, 1 x 2, 2.54 mm (bring-up jumper)",
     "placard_std:SW_SPST": "Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing",
     "placard_std:SW_Push": "Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil)",
     "placard_std:G5LE-1": "Reset relay: SPDT, 5 V coil (63 ohm, 80 mA), 8 A 30 V DC, through hole; NC contact carries the 5 V",
-    "Switch:SW_Push_LED": "Key switch, Cherry MX style, PCB mount (5 pin)",
     "placard_std:D_Schottky": "Schottky diode, DO-35",
     "placard_std:D": "Small-signal diode, DO-35",
     "placard_std:LED": "Power LED, 5 mm, red diffused, through hole (on +5V after K1)",
     "placard_std:R_Network08_US": "Resistor network, 8 bussed, SIP-9",
 }
 # values that name the part, not a value worth its own column
-NO_VALUE = {"Switch:SW_Push_LED", "placard_parts:Expansion_Slot", "placard_parts:Keyboard_Header",
+NO_VALUE = {"placard_parts:Expansion_Slot",
             "placard_std:Jumper_2_Open"}
 
 NOTES = {
@@ -82,11 +76,10 @@ NOTES = {
     "1N4148": "Any 1N4148 (Vishay, onsemi, Diodes Inc.)",
     "Expansion slot": "Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer "
                       "runs with none.  Sullins EBC20DCAN not stock-checked (EXPANSION.md)",
-    "Key switch": "MX2A-L1NB = red linear; any MX2A color with a clear housing fits.  Footprints have LED pads 3/4",
 }
 
 # parts a builder may leave out; the cost summary gives a total without them
-OPTIONAL = {("Main board", "EBC20DCAN"), ("Main board", "61202021621")}
+OPTIONAL = {("Main board", "EBC20DCAN")}
 
 # ---------------------------------------------------------------- prices
 # Unit price in US dollars at the line's quantity for one build, checked 2026-10-22.
@@ -103,14 +96,12 @@ PRICES = {
     "SN74F541N": (1.49, "Mouser", ""),
     "AS7C256C-15PCN": (15.21, "Mouser", ""),
     "SN74HCT574N": (1.41, "Mouser", ""),
-    "SN74HC574N": (0.93, "Mouser", ""),
     "MCP1700-3302E/TO": (0.50, "Mouser", ""),
     "AT28C256-15PU": (12.38, "Mouser", ""),
     "87715-9106": (2.81, "Mouser", ""),
     "USB4125-GF-A": (0.61, "Mouser", "USB4125-GF-A-0190 (the stocked packaging of the same part)"),
     "KMDGX-6S/6S-S4N": (3.72, "Mouser", ""),
     "MF-RG300": (0.73, "Mouser", "MF-RG300-0"),
-    "G99-0742": (0.39, "Mouser", ""),
     "ANT11TFHQE": (4.50, "est.", "Digi-Key; Mouser has no stock"),
     "G5LE-1 DC5": (1.80, "est.", "Omron G5LE-1 DC5"),
     "PTS645VL58-2 LFS": (0.25, "est.", "C&K PTS645VL58-2 LFS"),
@@ -138,11 +129,6 @@ PRICES = {
     "IC socket, DIP-24 0.3": (0.40, "est.", "On Shore ED241DT"),
     "IC socket, DIP-28 0.3": (0.45, "est.", "On Shore ED281DT"),
     "IC socket, DIP-28 0.6": (0.45, "est.", "On Shore ED28DT"),
-    "Key switch": (1.24, "Mouser", "Cherry MX2A-L1NB (red, clear housing for the LED, PCB pins), 10+ break; "
-                                   "not stocked at Mouser, check Digi-Key"),
-    "LED, 3 mm": (0.15, "est.", "Lite-On LTL-4221N, 100 break"),
-    "Keycap": (0.60, "est.", "a full MX keycap set, about $35-40"),
-    "Stabilizer set, PCB screw-in, 6.25 u": (3.50, "Divinikey", "Durock V2 screw-in 6.25 u"),
     "Resistor, 10k (/WE": (0.10, "est.", "Yageo MFR-25FBF52-10K"),
 }
 
@@ -174,7 +160,7 @@ def price(d):
 PLD_JOB = {"STATE": "State", "BRANCH": "Branch", "PC_COUNTER8": "PC", "ALU_SHR": "ALU", "QUAD_MUX": "Address mux",
            "MEM_CTRL": "Memory control", "IO_DECODE": "I/O decode", "HCOUNT": "H counter", "VCOUNT": "V counter",
            "SYNC": "Sync", "COLORDECODER": "Color decoder", "IR": "Instruction register", "AUDIO": "Audio slot",
-           "PORT": "Shared port", "CART": "Cartridge loader"}
+           "PORT": "Shared port", "PS2": "PS/2 receiver", "CART": "Cartridge loader"}
 
 # On Shore ED sockets: a 1 after the pin count marks the 0.3" version where both widths exist
 SOCKET = {(14, False): "ED14DT", (20, False): "ED20DT", (24, False): "ED241DT", (28, False): "ED281DT",
@@ -240,8 +226,6 @@ def board_bom(files):
     lines = {}
     sockets = {}
     shunts = []
-    stabs = {}
-    keys = []
     for f in files:
         for lib_id, p in symbols(f):
             ref = p["Reference"]
@@ -263,11 +247,6 @@ def board_bom(files):
                 sockets.setdefault((int(pins), wide), []).append(ref)
             if "PinHeader_1x02" in fp and lib_id.endswith("Jumper_2_Open"):
                 shunts.append(ref)
-            m = re.search(r"SW_Cherry_MX_LED_(\d\.\d\d)u", fp)
-            if m:
-                keys.append(ref)
-                if m.group(1) in ("2.00", "2.25", "6.25"):
-                    stabs.setdefault(m.group(1), []).append(ref)
     out = []
     for ln in lines.values():
         note = NOTES.get(ln["mpn"]) or NOTES.get(ln["value"]) or next(
@@ -277,9 +256,6 @@ def board_bom(files):
             for ref, job in sorted(ln["jobs"], key=lambda t: ref_key(t[0])):
                 jobs.setdefault(job, []).append(ref)
             note = "; ".join(f"{job} {ranges(r)}" for job, r in jobs.items())
-        if ln["desc"].startswith("Key switch"):
-            sizes = sorted({re.search(r"(\d\.\d\d)u", f).group(1) for f in ln["fps"]})
-            note += "; sizes " + ", ".join(s.rstrip("0").rstrip(".") + " u" for s in sizes)
         fps = sorted(f for f in ln["fps"] if f)
         out.append(dict(refs=sorted(ln["refs"], key=ref_key), mpn=ln["mpn"], mfr=ln["mfr"], desc=ln["desc"],
                         value=ln["value"], footprint=fps[0] if len(fps) == 1 else "", notes=note, extra=False))
@@ -297,34 +273,6 @@ def board_bom(files):
                               "yet (EXPANSION.md, \"Booting from slot 1\")", extra=True))
         out.append(dict(refs=shunts, mpn="QPC02SXGN-RC", mfr="Sullins", desc="Jumper shunt, 2.54 mm", value="", footprint="",
                         notes="Bring-up jumpers", extra=True))
-    if keys:
-        out.append(dict(refs=sorted(keys, key=ref_key), mpn="LTL-4221N", mfr="Lite-On", desc="LED, 3 mm, through-hole", value="",
-                        footprint="", notes="Optional, always on; one in each key switch (pads 3 K, 4 A).  Red diffused; "
-                                            "any 3 mm LED fits, pick the color",
-                        extra=True))
-        out.append(dict(refs=sorted(keys, key=ref_key), mpn="", mfr="", desc="Keycap, Cherry MX stem", value="",
-                        footprint="", notes="Sizes as the key switches", extra=True))
-        # a stabilizer is sold as one complete set per key: 2 housings, 2 stems (sliders) and the wire.
-        # 2 u and 2.25 u keys take the same 2 u stabilizer (same 23.8 mm spacing).
-        two = sorted(stabs.get("2.00", []) + stabs.get("2.25", []), key=ref_key)
-        if two:
-            out.append(dict(refs=two, mpn="G99-0742", mfr="Cherry",
-                            desc="Stabilizer set, PCB mount, 2 u (also 2.25 u, 2.75 u): 2 housings, 2 sliders, wire",
-                            value="", footprint="",
-                            notes="One complete set per key, ordered as one part (Mouser 540-G99-0742)", extra=True))
-        if stabs.get("6.25"):
-            out.append(dict(refs=stabs["6.25"], mpn="", mfr="Durock",
-                            desc="Stabilizer set, PCB screw-in, 6.25 u: 2 housings, 2 stems, wire, 2 screws, 2 washers",
-                            value="", footprint="",
-                            notes="Durock V2 screw-in, 6.25 u option (keyboard shops, no distributor part number); "
-                                  "Cherry sells no 6.25 u PCB set through distributors", extra=True))
-        # one pre-made cable: no crimping
-        out.append(dict(refs=[], qty=1, mpn="M3AAA-2006J", mfr="3M",
-                        desc="Ribbon cable assembly, 20 way, IDC socket to socket, 2.54 mm, 6 in (152 mm)",
-                        value="", footprint="",
-                        notes="Keyboard J1 to main board J1, pre-assembled, pin 1 to pin 1; check on the "
-                              "datasheet that the socket key fits the box header.  Last two digits = length in "
-                              "inches (M3AAA-2018J = 18 in)", extra=True))
     for d in out:
         d.setdefault("qty", len(d["refs"]))
     return out
@@ -337,13 +285,14 @@ def md_cell(s):
 def main():
     boards = [(name, board_bom(files)) for name, files in BOARDS]
     md = [f"# Bill of materials\n\nDate: {DATE}\n",
-          "Every part of the four boards, one line per part number: the main",
-          "board, the two ROM cartridges (64K and 32K, separate boards since",
-          "2026-10-24; a machine takes one) and the keyboard.  Parts with the same part",
-          "number share a line; where no part number is chosen yet the column is",
-          "blank and parts with the same description and value share the line.",
-          "Lines marked \"not on the schematic\" are sockets, shunts, keyboard",
-          "parts and the keyboard cable that KiCad's own BOM export leaves out.",
+          "Every part of the three boards, one line per part number: the main",
+          "board and the two ROM cartridges (64K and 32K, separate boards since",
+          "2026-10-24; a machine takes one).  The keyboard is a PS/2 keyboard",
+          "(the Cherry MX keyboard board was dropped on 2026-10-25).  Parts with",
+          "the same part number share a line; where no part number is chosen yet",
+          "the column is blank and parts with the same description and value",
+          "share the line.  Lines marked \"not on the schematic\" are sockets",
+          "and shunts that KiCad's own BOM export leaves out.",
           "The net tie NT1 and the cartridges' edge fingers (their J1) are copper",
           "on the PCB, so they are not listed.",
           "",
@@ -362,8 +311,7 @@ def main():
     for name, bom in boards:
         for d in bom:
             if (name, d["mpn"]) in OPTIONAL and not d["notes"].startswith("Optional"):
-                d["notes"] = ("Optional (Justin, 2026-10-22): only for the Cherry MX keyboard board; a PS/2 "
-                              "keyboard plugs into J5 instead.  " + d["notes"]).strip()
+                d["notes"] = ("Optional (Justin, 2026-10-22).  " + d["notes"]).strip()
         parts = sum(d["qty"] for d in bom if not d["extra"])
         md.append(f"## {name}\n")
         md.append(f"{len(bom)} lines, {parts} parts on the schematic.\n")
@@ -397,13 +345,12 @@ def main():
             "One of each board, priced at the quantities below (Mouser first, Digi-Key where Mouser has",
             "no stock), on 2026-10-22.  Lines marked *est.* are typical prices for the part named, not",
             "read from a price list; PCBs, the case, shipping and tax are not included.  The expansion",
-            "slot sockets J9-J12 and the keyboard header J1 are optional: a builder fits only the",
-            "slots a card will use, and J1 only with the Cherry MX keyboard (a PS/2 keyboard uses J5).\n",
+            "slot sockets J9-J12 are optional: a builder fits only the slots a card will use.\n",
             "| Board | Components | Without optional parts | Lines estimated |", "|---|--:|--:|--:|"]
     for name, t, b, est in totals:
         summ.append(f"| {name} | ${t:,.2f} | ${b:,.2f} | {est} |")
     one = [r for r in totals if r[0] != "Cartridge, 32K"]      # a machine takes one cartridge
-    summ.append(f"| **Main, 64K cartridge, keyboard** | **${sum(r[1] for r in one):,.2f}** | "
+    summ.append(f"| **Main and 64K cartridge** | **${sum(r[1] for r in one):,.2f}** | "
                 f"**${sum(r[2] for r in one):,.2f}** | |\n")
     i = md.index("## Main board\n")
     md[i:i] = summ

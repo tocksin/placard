@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Write the Placard KiCad schematic: kicad/*.kicad_sch (main board, root plus
-ten sheets), kicad/cartridge_64k/ and kicad/cartridge_32k/ (the two ROM cartridge
-boards, one sheet each) and kicad/keyboard/
-(the keyboard board, one sheet).
+ten sheets) and kicad/cartridge_64k/ and kicad/cartridge_32k/ (the two ROM
+cartridge boards, one sheet each).
 
 The sheet split follows docs/SCHEMATIC_PLAN.md.  The connections follow the
 PLD pin lists (src/pld/*.pld), basys_top.vhd and the docs (CHIPS.md, IO.md,
@@ -15,9 +14,8 @@ chip's U number), and the text is large.  Rerun after a pin or part change:
 
     python3 src/scripts/gen_kicad_schematic.py [--pdf] [--check]
 
---pdf exports schematics/placard_main.pdf, placard_cartridge_64k.pdf, placard_cartridge_32k.pdf and
-placard_keyboard.pdf, set to
-open without the bookmarks panel.
+--pdf exports schematics/placard_main.pdf, placard_cartridge_64k.pdf and
+placard_cartridge_32k.pdf, set to open without the bookmarks panel.
 
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
@@ -37,7 +35,6 @@ DATE = "2026-10-25"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 CDIRS = {64: os.path.join(KDIR, "cartridge_64k"), 32: os.path.join(KDIR, "cartridge_32k")}
-BDIR = os.path.join(KDIR, "keyboard")
 
 # ---------------------------------------------------------------- footprints
 # DIPs: kit versions of KiCad's socket footprints (puller room, part number in silkscreen) and
@@ -66,7 +63,6 @@ MPN = {
     "SN74F541N": ("Texas Instruments", "SN74F541N"),
     "CD74ACT273E": ("Texas Instruments", "CD74ACT273E"),
     "SN74HCT574N": ("Texas Instruments", "SN74HCT574N"),
-    "SN74HC574N": ("Texas Instruments", "SN74HC574N"),
     "AS7C256C-15PCN": ("Alliance Memory", "AS7C256C-15PCN"),
     "AT28C256-15PU": ("Microchip", "AT28C256-15PU"),
     "MCP1700-3302E/TO": ("Microchip", "MCP1700-3302E/TO"),
@@ -90,7 +86,6 @@ MPN = {
 # by symbol: parts whose Value is a label (slot name, net) rather than the part
 MPN_LIB = {
     "placard_parts:Expansion_Slot": ("Sullins", "EBC20DCAN"),
-    "placard_parts:Keyboard_Header": ("Wurth Elektronik", "61202021621"),
     "placard_std:Jumper_2_Open": ("Sullins", "PREC002SAAN-RC"),
     "Switch:SW_Push_LED": ("Cherry", "MX2A-L1NB"),
 }
@@ -101,7 +96,6 @@ R_CODE = {"5.1k": "5K1", "10k": "10K", "47": "47R", "3.24k": "3K24", "1.69k": "1
           "4.7k": "4K7", "910": "910R"}
 MPN_PASSIVE = {
     ("placard_std:R_Network08_US", "10k"): ("Bourns", "4609X-101-103LF"),
-    ("placard_std:R_Network08_US", "4.7k"): ("Bourns", "4609X-101-472LF"),
     ("placard_std:C", "100n"): ("KEMET", "C320C104K5R5TA"),
     ("placard_std:C", "1u"): ("KEMET", "C330C105K5R5TA"),
     ("placard_std:C", "15n C0G"): ("KEMET", "C320C153K1G5TA"),
@@ -181,7 +175,8 @@ PLD_NAMES = {"U1": "State PLD", "U2": "Branch PLD", "U3": "PC low PLD", "U4": "P
              "U5": "ALU low PLD", "U6": "ALU high PLD", "U7": "Address mux 3:0", "U8": "Address mux 7:4",
              "U9": "Address mux 11:8", "U10": "Address mux 15:12", "U11": "Memory control PLD",
              "U12": "I/O decode PLD", "U13": "H counter PLD", "U14": "V counter PLD", "U15": "Sync PLD",
-             "U16": "Color decoder PLD", "U17": "Instruction register PLD", "U35": "Audio slot PLD", "U38": "Shared port PLD"}
+             "U16": "Color decoder PLD", "U17": "Instruction register PLD", "U35": "Audio slot PLD", "U38": "Shared port PLD",
+             "U42": "PS/2 receiver PLD"}
 
 
 def pld(d):
@@ -413,7 +408,7 @@ def sheet_power(b):
     s.junction(c40["1"][0], yr, owner="+5V")
     s.pwr_flag(xf, yr)
     s.power("+5V", xp, yr)
-    c202 = s.part("placard_std:C", "C42", 254.0, yr + 3.81, {"1": "+3V3", "2": "GND"}, value="1u", footprint=FP_C,
+    c202 = s.part("placard_std:C", "C47", 254.0, yr + 3.81, {"1": "+3V3", "2": "GND"}, value="1u", footprint=FP_C,
                   bare=("1",), ref_at=(256.5, yr + 3.3), value_at=(256.5, yr + 6.4))
     x3, xf3 = 264.16, 274.32
     path(s, "+3V3", u40["3"], (c202["1"][0], yr))
@@ -428,7 +423,7 @@ def sheet_power(b):
                       "trips on a short.  SW1 power: toggle, common +",
                       "one throw.  SW2 reset: holding it pulls in K1,",
                       "whose NC contact opens the 5 V line."])
-    note(s, 200, 112, ["U40: 3.3 V for the SD card only (sheet 10).", "C40 input, C42 output (1 uF ceramic)."])
+    note(s, 200, 112, ["U40: 3.3 V for the SD card only (sheet 10).", "C40 input, C47 output (1 uF ceramic)."])
     # power LED (Justin, 2026-10-24): on +5V after K1's contact, so it goes dark while reset holds K1 in
     xl = 304.8
     s.power("+5V", xl, yr - 2.54)
@@ -980,69 +975,75 @@ def sheet_video_out(b):
 
 def sheet_port(b):
     s = b.sheet("shared_port.kicad_sch", "Shared port", 10)
-    heading(s, "Shared port x5200", "Keyboard, two SNES pads, SD card (SPI), PS/2 keyboard and mouse")
-    s.label_each |= {"D", "ROW"}
+    heading(s, "Shared port x5200", "Two SNES pads, SD card (SPI), PS/2 keyboard and mouse: port PLD U38, PS/2 receiver PLD U42")
+    s.label_each |= {"D"}
     # the port lines go to three corners of the sheet, so each pin carries its name
-    s.label_nets |= {"~{PORT_RD}", "A0", "P_SCK", "P_MOSI", "P_CS", "P_PS2D", "PAD1_DATA", "PAD2_DATA",
-                     "KBD_CLK", "K0"}
-    # U37 latch -> K3:K0 straight into U38 -> /COL7:/COL0 straight into the keyboard header J1
-    pq = ["P_SCK", "P_MOSI", "P_CS", "P_PS2D"]
-    u37 = s.part("placard_std:74LS574", "U37", 63.5, 109.22, ls574(D, pq + ["K0", "K1", "K2", "K3"], "GND", "~{PORT_WR}"),
-                 value="SN74HC574N", footprint=FP_DIP20, bare=("15", "14", "13", "12"))
-    decap(s, 37, 43.18, 81.28, lift=0)
-    u38 = s.part("placard:ATF22V10C_PORT", "U38", 144.78, 129.54, pld({
-        1: "~{PORT_RD}", 2: "A0", 3: "K0", 4: "K1", 5: "K2", 6: "K3", 7: "PAD1_DATA", 8: "PAD2_DATA", 9: "KBD_CLK",
-        14: "~{COL0}", 15: "~{COL1}", 16: "~{COL2}", 17: "~{COL3}", 18: "~{COL4}", 19: "~{COL5}",
-        20: "~{COL6}", 21: "~{COL7}", 22: "D6", 23: "D7"}), bare=("3", "4", "5", "6") + tuple(str(n) for n in range(14, 22)))
-    decap(s, 38, 165.1, 93.98, lift=0)
-    kb = {str(1 + i): f"~{{COL{i}}}" for i in range(8)}
-    kb.update({str(9 + i): f"ROW{i}" for i in range(8)})
-    kb.update({"17": "+5V", "18": "GND", "19": "GND"})
-    j1 = s.part("placard_parts:Keyboard_Header", "J1", 231.14, 129.54, kb, value="Keyboard (2x10 box)",
-                bare=tuple(str(1 + i) for i in range(8)))
-    for i in range(4):
-        path(s, f"K{i}", u37[str(15 - i)], u38[str(3 + i)])
-    name(s, "K0", u38["3"][0] - 7.62, u38["3"][1])      # K0 also holds the PS/2 keyboard's CLK (D6)
-    for i in range(8):
-        path(s, f"~{{COL{i}}}", u38[str(14 + i)], j1[str(1 + i)])
-    # keyboard rows: U39 reads them, RN2 pulls them up; rows 5-7 also carry PS/2 and SD MISO
-    s.part("placard_std:R_Network08_US", "RN2", 152.4, 205.74, {"1": "+5V", **{str(2 + i): f"ROW{i}" for i in range(8)}},
-           value="4.7k", footprint=FP_SIP9, angle=270, ref_at=(160.02, 201.93), value_at=(160.02, 204.47))
-    s.part("placard_std:74LS541", "U39", 76.2, 220.98, f541(bus("ROW", 8), D, "~{PORT_RD}", "A0"), value="SN74F541N",
-           footprint=FP_DIP20)
-    decap(s, 39, 96.52, 193.04, lift=0)
+    s.label_nets |= {"~{PORT_RD}", "~{PORT_WR}", "A0", "A1", "P_SCK", "P_MOSI", "P_CS", "P_PS2D", "K0",
+                     "PAD1_DATA", "PAD2_DATA", "SD_MISO", "KBD_CLK", "PS2_DATA", "RXCLK", "PS2_INH"}
+    # U38 (port PLD rev 04): the output register (five bits) and the reads of MISO, the pads
+    # and RXCLK while A1 = 0.  U42 (PS/2 receiver rev 02): one byte at x5202, ready at x5203.
+    s.part("placard:ATF22V10C_PORT", "U38", 127.0, 121.92, pld({
+        1: "~{PORT_WR}", 2: "~{PORT_RD}", 3: "A0", 4: "D0", 5: "D1", 6: "D2", 7: "D3", 8: "D4",
+        9: "PAD1_DATA", 10: "PAD2_DATA", 11: "RXCLK", 13: "SD_MISO", 14: "A1", 15: None,
+        16: "K0", 17: "P_PS2D", 18: "P_CS", 19: "P_MOSI", 20: "P_SCK", 21: "D5", 22: "D6", 23: "D7"}))
+    decap(s, 38, 147.32, 86.36, lift=0)
+    s.part("placard:ATF22V10C_PS2", "U42", 127.0, 210.82, pld({
+        1: "RXCLK", 2: "PS2_DATA", 3: "~{PORT_RD}", 4: "~{PORT_WR}", 5: "A0", 6: "A1",
+        7: None, 8: None, 9: None, 10: None, 11: None, 13: None,
+        14: "PS2_INH", 15: "D7", 16: "D0", 17: "D1", 18: "D2", 19: "D3", 20: "D4", 21: "D5", 22: "D6", 23: "D7"}))
+    decap(s, 42, 147.32, 175.26, lift=0)
     vref = lambda x, y: dict(ref_at=(x + 2.0, y - 1.3), value_at=(x + 2.0, y + 1.5))
-    href = lambda x, y: dict(ref_at=(x - 3.0, y - 3.2), value_at=(x - 3.0, y + 3.4))
-    # PS/2 keyboard and mouse, J5 a stacked dual socket: DATA along the middle row (shared by both),
-    # mouse CLK along the bottom row, each with its row diode at the left, pull-up and port diode
-    # above (P_PS2D and P_CS pull DATA and mouse CLK low).  The keyboard CLK along the top row has
-    # no row diode: U38 pin 9 reads it, and latch Q4 (K0) pulls it low through D6.
-    for net, row, y, dref, rref, pref, pnet in [("PS2_DATA", "ROW6", 203.2, "D5", "R50", "D3", "P_PS2D"),
-                                              ("PS2_CLK", "ROW5", 233.68, "D4", "R49", "D2", "P_CS")]:
-        diode(s, dref, 229.87, y, net, row, angle=180, bare=("1",), **href(229.87, y))
-        res(s, rref, 243.84, y - 3.81, "+5V", net, "4.7k", bare=("2",), **vref(243.84, y - 3.81))
-        diode(s, pref, 261.62, y - 3.81, pnet, net, angle=270, bare=("2",), **vref(261.62, y - 3.81))
-        s.junction(243.84, y, owner=net)
-        s.junction(261.62, y, owner=net)
+    # PS/2 keyboard and mouse, J5 a stacked dual socket: the keyboard CLK along the top row, DATA
+    # (shared by both) along the middle row, the mouse CLK along the bottom row, each with its
+    # 4.7k pull-up and the port diode that pulls it low (K0, P_PS2D, P_CS) above.  The two clock
+    # lines also carry, at the left, the receiver's inhibit diode (PS2_INH, U42 pin 14, pulls both
+    # low) and the diode-OR into RXCLK (22k to GND): the clock of whichever device is let go.
+    yk, yd, yc = 177.8, 203.2, 233.68
+    res(s, "R55", 243.84, yk - 3.81, "+5V", "KBD_CLK", "4.7k", bare=("2",), **vref(243.84, yk - 3.81))
+    diode(s, "D6", 261.62, yk - 3.81, "K0", "KBD_CLK", angle=270, bare=("2",), **vref(261.62, yk - 3.81))
+    diode(s, "D19", 203.2, yk + 3.81, "PS2_INH", "KBD_CLK", angle=90, bare=("1", "2"), **vref(203.2, yk + 3.81))
+    diode(s, "D1", 215.9, yk + 3.81, "RXCLK", "KBD_CLK", angle=90, bare=("1", "2"), **vref(215.9, yk + 3.81))
+    xk = 284.48
+    path(s, "KBD_CLK", (200.66, yk), (203.2, yk), (215.9, yk), (243.84, yk), (261.62, yk), (xk, yk))
+    name(s, "KBD_CLK", 200.66, yk, 180)
+    for x in (203.2, 215.9, 243.84, 261.62):
+        s.junction(x, yk, owner="KBD_CLK")
+    res(s, "R50", 243.84, yd - 3.81, "+5V", "PS2_DATA", "4.7k", bare=("2",), **vref(243.84, yd - 3.81))
+    diode(s, "D3", 261.62, yd - 3.81, "P_PS2D", "PS2_DATA", angle=270, bare=("2",), **vref(261.62, yd - 3.81))
+    path(s, "PS2_DATA", (243.84, yd), (261.62, yd), (279.4, yd))
+    name(s, "PS2_DATA", 243.84, yd, 180)
+    s.junction(261.62, yd, owner="PS2_DATA")
+    res(s, "R49", 243.84, yc - 3.81, "+5V", "PS2_CLK", "4.7k", bare=("2",), **vref(243.84, yc - 3.81))
+    diode(s, "D2", 261.62, yc - 3.81, "P_CS", "PS2_CLK", angle=270, bare=("2",), **vref(261.62, yc - 3.81))
+    diode(s, "D5", 203.2, yc - 3.81, "PS2_INH", "PS2_CLK", angle=270, bare=("1", "2"), **vref(203.2, yc - 3.81))
+    diode(s, "D4", 215.9, yc - 3.81, "RXCLK", "PS2_CLK", angle=270, bare=("1", "2"), **vref(215.9, yc - 3.81))
+    path(s, "PS2_CLK", (200.66, yc), (203.2, yc), (215.9, yc), (243.84, yc), (261.62, yc), (279.4, yc))
+    name(s, "PS2_CLK", 200.66, yc, 180)
+    for x in (203.2, 215.9, 243.84, 261.62):
+        s.junction(x, yc, owner="PS2_CLK")
+    # the inhibit and RXCLK run down between the two clock rows
+    path(s, "PS2_INH", (203.2, yk + 7.62), (203.2, 205.74), (203.2, yc - 7.62))
+    path(s, "PS2_INH", (203.2, 205.74), (195.58, 205.74))
+    s.junction(203.2, 205.74, owner="PS2_INH")
+    name(s, "PS2_INH", 195.58, 205.74, 180)
+    path(s, "RXCLK", (215.9, yk + 7.62), (215.9, 210.82), (215.9, yc - 7.62))
+    path(s, "RXCLK", (215.9, 210.82), (223.52, 210.82), (231.14, 210.82))
+    s.junction(215.9, 210.82, owner="RXCLK")
+    s.junction(223.52, 210.82, owner="RXCLK")
+    res(s, "R60", 223.52, 214.63, "RXCLK", "GND", "22k", bare=("1",), **vref(223.52, 214.63))
+    name(s, "RXCLK", 231.14, 210.82, 0)
     j5 = s.part("placard_parts:PS2_Dual_Stacked", "J5", 307.34, 218.44,
                 {"B5": "KBD_CLK", "B1": "PS2_DATA", "A1": "PS2_DATA", "A5": "PS2_CLK", "B6": None, "B2": None,
                  "A2": None, "A6": None, "A4": "+5V", "B4": "+5V", "A3": "GND", "B3": "GND", "SH": "GND"},
                 value="PS/2 kbd + mouse", footprint="placard:PS2_Kycon_KMDGX-6S-6S-S4N", bare=("B5", "B1", "A1", "A5"))
-    xk, yk = 284.48, 177.8
-    res(s, "R55", 243.84, yk - 3.81, "+5V", "KBD_CLK", "4.7k", bare=("2",), **vref(243.84, yk - 3.81))
-    diode(s, "D6", 261.62, yk - 3.81, "K0", "KBD_CLK", angle=270, bare=("2",), **vref(261.62, yk - 3.81))
-    path(s, "KBD_CLK", (236.22, yk), (243.84, yk), (261.62, yk), (xk, yk), (xk, j5["B5"][1]), j5["B5"])
-    name(s, "KBD_CLK", 236.22, yk, 180)
-    s.junction(243.84, yk, owner="KBD_CLK")
-    s.junction(261.62, yk, owner="KBD_CLK")
-    yd = 203.2
-    path(s, "PS2_DATA", (233.68, yd), (243.84, yd), (261.62, yd), (279.4, yd), (279.4, j5["B1"][1]), j5["B1"])
+    path(s, "KBD_CLK", (xk, yk), (xk, j5["B5"][1]), j5["B5"])
+    path(s, "PS2_DATA", (279.4, yd), (279.4, j5["B1"][1]), j5["B1"])
     path(s, "PS2_DATA", (279.4, j5["B1"][1]), (279.4, j5["A1"][1]), j5["A1"])
     s.junction(279.4, j5["B1"][1], owner="PS2_DATA")
-    yc = 233.68
-    path(s, "PS2_CLK", (233.68, yc), (243.84, yc), (261.62, yc), (279.4, yc), (279.4, j5["A5"][1]), j5["A5"])
+    path(s, "PS2_CLK", (279.4, yc), (279.4, j5["A5"][1]), j5["A5"])
     # SD card: 1.8k / 3.3k dividers bring SCK, MOSI and /CS down to 3.2 V; CS and DI come in from above,
-    # CLK from below, MISO goes back down to row 7 through D1
+    # CLK from below; MISO (3.3 V, 10k pull-up) goes straight to U38 pin 13
+    href = lambda x, y: dict(ref_at=(x - 3.0, y - 3.2), value_at=(x - 3.0, y + 3.4))
     for src, net, y, rs, rp, pin, xv in [("P_CS", "SD_CS", 134.62, "R44", "R47", 162.56, 345.44),
                                          ("P_MOSI", "SD_DI", 152.4, "R43", "R46", 165.1, 342.9),
                                          ("P_SCK", "SD_CLK", 190.5, "R42", "R45", 172.72, 342.9)]:
@@ -1055,11 +1056,10 @@ def sheet_port(b):
                                                         "11": None, "12": "GND", "13": "GND"}, value="SD (SPI)",
            footprint="placard:SD_Kyocera_145638009511859+",
            bare=("1", "2", "5", "7"), ref_at=(353, 153), value_at=(353, 187))
-    path(s, "SD_MISO", (350.52, 177.8), (345.44, 177.8), (345.44, 213.36), (340.36, 213.36), (330.2, 213.36))
-    s.junction(340.36, 213.36, owner="SD_MISO")
-    res(s, "R48", 340.36, 209.55, "+3V3", "SD_MISO", "10k", bare=("2",), ref_at=(326.4, 206.0), value_at=(326.4, 206.6))
-    diode(s, "D1", 330.2, 217.17, "SD_MISO", "ROW7", angle=270, bare=("1",), ref_at=(332.2, 218.4),
-          value_at=(346.5, 215.4))
+    path(s, "SD_MISO", (350.52, 177.8), (345.44, 177.8), (345.44, 208.28), (353.06, 208.28), (360.68, 208.28))
+    s.junction(353.06, 208.28, owner="SD_MISO")
+    res(s, "R48", 353.06, 204.47, "+3V3", "SD_MISO", "10k", bare=("2",), ref_at=(355.1, 201.0), value_at=(355.1, 203.6))
+    name(s, "SD_MISO", 360.68, 208.28, 0)
     # SNES pads, top right: CLOCK = P_SCK, LATCH = P_MOSI, DATA back to U38 with a pull-up
     for ref, y, data, rp in [("J2", 81.28, "PAD1_DATA", "R40"), ("J3", 121.92, "PAD2_DATA", "R41")]:
         s.part("placard_parts:SNES_Pad_Socket", ref, 388.62, y, {"1": "+5V", "2": "P_SCK", "3": "P_MOSI", "4": data,
@@ -1073,9 +1073,11 @@ def sheet_port(b):
         path(s, data, (373.38, y), (330.2, y), (325.12, y))
         s.junction(330.2, y, owner=data)
         name(s, data, 325.12, y, 180)
-    note(s, 15, 252, ["Latch Q0 = SCK and pad CLOCK, Q1 = MOSI and pad LATCH, Q2 = SD /CS (low also holds the mouse CLK), Q3 = PS/2 DATA,",
-                      "Q7:Q4 = key column; with Q7 = 1 (no column) Q4 low holds the keyboard CLK.  PS/2 DATA is shared by both sockets.",
-                      "SD lines come down to 3.2 V through 1.8k / 3.3k; MISO reaches row 7 through a Schottky."],
+    note(s, 15, 252, ["U38 register (rests at EB): bit 0 = SCK and pad CLOCK, bit 1 = MOSI and pad LATCH, bit 2 = SD /CS (low also holds the mouse CLK),",
+                      "bit 3 = PS/2 DATA hold, bit 4 = K0 (low holds the keyboard CLK).  Reads x5200/x5201: D7 MISO or pad 1, D6 pad 2, D5 RXCLK.",
+                      "U42 clocks on RXCLK (the free device's clock through D1/D4, 22k down) and holds the byte: read at x5202, ready = x5203 D7 low;",
+                      "after the 11th clock it pulls both clocks low through D19/D5 until a write to x5202 re-arms it.  PS/2 DATA is shared by both sockets.",
+                      "SD lines come down to 3.2 V through 1.8k / 3.3k; MISO (3.3 V) goes straight to the PLD's TTL input."],
          size=2.2)
     return s
 
@@ -1146,7 +1148,7 @@ def root_sheet(b, sheets):
         6: ["U18 D register", "U26, U27 source drivers", "R5-R12, RN1"],
         8: ["U13 H, U14 V counters", "U15 Sync, U35 audio slots", "U29 line read"],
         9: ["U22 pixel buffer, U23 line code", "U16 color decoder, VGA", "U36 audio DAC, J6"],
-        10: ["U37 latch, U38 port PLD", "U39 rows, J1-J5"],
+        10: ["U38 port PLD, U42 PS/2 receiver", "J2-J5"],
         11: ["J9-J12 card-edge slots"],
     }
     for page, x, y, w, h in ROOT_BOXES:
@@ -1277,115 +1279,6 @@ def build_cart(size):
     return s
 
 
-# the keyboard: (legend, keycap size) by column and row, as docs/IO.md "Planned layout: 63 keys";
-# None = the spare place (column 7 row 4)
-KEYS = [
-    [("Esc", "1.00"), ("1 !", "1.00"), ("2 @", "1.00"), ("3 #", "1.00"), ("4 $", "1.00"), ("5 %", "1.00"), ("6 ^", "1.00"), ("7 &", "1.00")],
-    [("8 *", "1.00"), ("9 (", "1.00"), ("0 )", "1.00"), ("- _", "1.00"), ("= +", "1.00"), ("Bksp", "2.00"), ("Tab", "1.50"), ("Q", "1.00")],
-    [("W", "1.00"), ("E", "1.00"), ("R", "1.00"), ("T", "1.00"), ("Y", "1.00"), ("U", "1.00"), ("I", "1.00"), ("O", "1.00")],
-    [("P", "1.00"), ("[ {", "1.00"), ("] }", "1.00"), ("\\ |", "1.50"), ("LCtrl", "1.25"), ("A", "1.00"), ("S", "1.00"), ("D", "1.00")],
-    [("F", "1.00"), ("G", "1.00"), ("H", "1.00"), ("J", "1.00"), ("K", "1.00"), ("L", "1.00"), ("; :", "1.00"), ("' \"", "1.00")],
-    [("Enter", "2.25"), ("LShift", "2.25"), ("Z", "1.00"), ("X", "1.00"), ("C", "1.00"), ("V", "1.00"), ("B", "1.00"), ("N", "1.00")],
-    [("M", "1.00"), (", <", "1.00"), (". >", "1.00"), ("/ ?", "1.00"), ("RShift", "1.75"), ("Up", "1.00"), ("Caps", "1.75"), ("Fn", "1.25")],
-    [("RAlt", "1.00"), ("LAlt", "1.25"), ("Space", "6.25"), ("RCtrl", "1.00"), None, ("Left", "1.00"), ("Down", "1.00"), ("Right", "1.00")],
-]
-
-
-def build_keyboard():
-    """The keyboard board: 63 Cherry MX switches in the 8 x 8 matrix, each with its Schottky diode
-    (cathode toward the column) and an always-on LED with its resistor.  Drawn as the matrix:
-    a ROW line along the top of each row of keys, a /COL line down the right of each column, a
-    +5V rail under each row for the LEDs.  Keys are numbered from 1 in reading order (row by row,
-    left to right); SWn, Dn and Rn belong to the same key."""
-    root_uuid = K.det_uuid("keyboard", "root")
-    s = K.Sheet("keyboard", "keyboard.kicad_sch", "Keyboard", 1, root_uuid, None, DATE)
-    s.uid = root_uuid
-    s.comment2 = "Key n = SWn, Dn, Rn, numbered row by row; LED and resistor optional"
-    heading(s, "Keyboard", "63 Cherry MX keys, 8 x 8 matrix with a diode per key, optional always-on LED per key")
-    s.label_nets |= {f"ROW{i}" for i in range(8)} | {f"~{{COL{i}}}" for i in range(8)}
-    x0, y0, cw, ch = 80.01, 48.26, 40.64, 25.4
-    key = 0
-    for r in range(8):
-        cy = y0 + r * ch
-        rail = cy + 20.32
-        a_last = None
-        for c in range(8):
-            cx = x0 + c * cw
-            sx, sy = cx + 20.32, cy + 7.62
-            k = KEYS[c][r]
-            if k is None:
-                s.text("spare", sx - 5.08, sy + 1.27, size=2.0)
-                continue
-            legend, size = k
-            n = f"{c}{r}"
-            key += 1
-            fp = f"placard:SW_Cherry_MX_LED_{size}u_PCB"
-            sw = s.part("Switch:SW_Push_LED", f"SW{key}", sx, sy, {"1": f"ROW{r}", "2": f"K1{n}", "3": "GND", "4": f"LA1{n}"},
-                        value=legend, footprint=fp, bare=("1", "2", "3", "4"),
-                        ref_at=(cx + 1.27, sy - 0.25), value_at=(cx + 1.27, sy + 0.75))
-            d = s.part("placard_std:D_Schottky", f"D{key}", sx + 11.43, cy + 5.08, {"1": f"~{{COL{c}}}", "2": f"K1{n}"},
-                       value="BAT85", footprint=FP_D, angle=180, bare=("1", "2"), hide_value=True,
-                       ref_at=(sx + 7.0, cy + 3.3), value_at=(sx + 7.0, cy + 6.5))
-            rr = s.part("placard_std:R_US", f"R{key}", sx + 5.08, sy + 6.35, {"1": f"LA1{n}", "2": "+5V"},
-                        value="1k", footprint=FP_R, bare=("1", "2"), hide_value=True,
-                        ref_at=(sx + 7.0, sy + 7.6), value_at=(sx + 7.0, sy + 9.0))
-            # the switch: ROW above, diode to the /COL line on the right
-            path(s, f"ROW{r}", sw["1"], (sw["1"][0], cy))
-            s.junction(sw["1"][0], cy, owner=f"ROW{r}")
-            path(s, f"K1{n}", sw["2"], d["2"])
-            colx = cx + 38.1
-            last = all(KEYS[c][rr_] is None for rr_ in range(r + 1, 8))
-            path(s, f"~{{COL{c}}}", d["1"], (colx, cy + 5.08))
-            if not last:
-                s.junction(colx, cy + 5.08, owner=f"~{{COL{c}}}")
-            # the LED: cathode to GND, anode through the resistor down to the row's +5V rail
-            path(s, "GND", sw["3"], (sw["3"][0], sy + 2.54))
-            s.power("GND", sw["3"][0], sy + 2.54)
-            path(s, f"LA1{n}", sw["4"], rr["1"])
-            path(s, "+5V", rr["2"], (rr["2"][0], rail))
-            a_last = rr["2"][0]
-            if c < 7 and any(KEYS[cc][r] is not None for cc in range(c + 1, 8)):
-                s.junction(rr["2"][0], rail, owner="+5V")
-        path(s, "+5V", (x0 + 2.54, rail), (a_last, rail))
-        s.power("+5V", x0 + 2.54, rail)
-        # rows: one line across, named at the left
-        path(s, f"ROW{r}", (x0, cy), (x0 + 7 * cw + 15.24, cy))
-        name(s, f"ROW{r}", x0, cy, 180)
-    # columns: one line down, named at the top
-    for c in range(8):
-        colx = x0 + c * cw + 38.1
-        lastr = max(r for r in range(8) if KEYS[c][r] is not None)
-        path(s, f"~{{COL{c}}}", (colx, y0 - 7.62), (colx, y0 + lastr * ch + 5.08))
-        name(s, f"~{{COL{c}}}", colx, y0 - 7.62, 90)
-    # the connector to the main board, and its power flags
-    kb = {str(1 + i): f"~{{COL{i}}}" for i in range(8)}
-    kb.update({str(9 + i): f"ROW{i}" for i in range(8)})
-    kb.update({"17": "+5V", "18": "GND", "19": "GND"})
-    j1 = s.part("placard_parts:Keyboard_Header", "J1", 48.26, 135.89, kb, value="To main board J1",
-                bare=tuple(str(i) for i in range(1, 17)))
-    for i in range(1, 17):      # the matrix lines leave J1 by name (the rows are not drawn as a bus here)
-        px, py = j1[str(i)]
-        path(s, kb[str(i)], (px, py), (px - 5.08, py))
-        name(s, kb[str(i)], px - 5.08, py, 180)
-    s.power("+5V", 30.48, 205.74)
-    path(s, "+5V", (30.48, 205.74), (38.1, 205.74))
-    s.pwr_flag(38.1, 205.74)
-    s.pwr_flag(53.34, 205.74)
-    path(s, "GND", (53.34, 205.74), (53.34, 210.82))
-    s.power("GND", 53.34, 210.82)
-    note(s, 15, 222, ["J1: 2 x 10 keyed box header,",
-                      "ribbon to main board J1",
-                      "(same pinout both ends).",
-                      "SW: Cherry MX, PCB mount,",
-                      "footprint by keycap size.",
-                      "D: BAT85, cathode to /COL.",
-                      "LED: 3 mm, always on, optional",
-                      "(fit with its R).  R: 1k."], size=2.0)
-    s.finish(set())
-    return s
-
-
-# nets that carry a PWR_FLAG (the netlist leaves the flags out)
 FLAGGED = {"+5V", "GND", "GNDA", "DAC_5V", "+3V3"}
 
 # ---------------------------------------------------------------- write + check
@@ -1488,8 +1381,8 @@ def export_pdf(sch, pdf):
 
 def check_refs(sheets, label):
     """References count up from 1 for each kind of part (Justin, 2026-10-22): no gaps, no
-    hundreds.  U and J keep the CHIPS.md / IO.md numbers, and C1-C40 go with their chips,
-    so the other capacitors start at C41."""
+    hundreds.  U and J keep the CHIPS.md / IO.md numbers, and C1-C42 go with their chips,
+    so the other capacitors start at C43 (C41, the bulk capacitor, came before U42 existed)."""
     got = {}
     for sh in sheets:
         for ref, _num, _net in sh.pin_nets:
@@ -1499,8 +1392,9 @@ def check_refs(sheets, label):
     out = []
     for pre, nums in sorted(got.items()):
         if pre == "C":
-            nums = {n for n in nums if n > 40} or nums
-        first = 41 if pre == "C" and min(nums) > 40 else 1
+            nums = {n for n in nums if n > 42 or n == 41} or nums
+            nums.discard(41)
+        first = 43 if pre == "C" and min(nums) > 42 else 1
         if nums != set(range(first, first + len(nums))):
             out.append(f"{label}: {pre} numbers are not {pre}{first}-{pre}{first + len(nums) - 1}: {sorted(nums)}")
     return out
@@ -1508,7 +1402,7 @@ def check_refs(sheets, label):
 
 def main():
     # keep every symbol's uuid from the files already there (Update PCB from Schematic matches on it)
-    for d in (KDIR, *CDIRS.values(), BDIR):
+    for d in (KDIR, *CDIRS.values()):
         for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:
             if f.endswith(".kicad_sch"):
                 K.keep_uuids(os.path.join(d, f))
@@ -1528,14 +1422,7 @@ def main():
             print("overlap", cart.filename, o)
         for r in cart.report:
             print("route", cart.filename, r)
-    kbd = build_keyboard()
-    write(os.path.join(BDIR, "keyboard.kicad_sch"), kbd.render())
-    for o in kbd.overlaps():
-        print("overlap keyboard", o)
-    for r in kbd.report:
-        print("route keyboard", r)
     if "--pdf" in sys.argv:
-        export_pdf(os.path.join(BDIR, "keyboard.kicad_sch"), os.path.join(ROOT, "schematics", "placard_keyboard.pdf"))
         export_pdf(os.path.join(KDIR, "placard.kicad_sch"), os.path.join(ROOT, "schematics", "placard_main.pdf"))
         for size, cdir in CDIRS.items():
             export_pdf(os.path.join(cdir, carts[size].filename),
@@ -1545,15 +1432,12 @@ def main():
         for size, cdir in CDIRS.items():
             bad += compare(expected_nets([carts[size]], set()), kicad_nets(os.path.join(cdir, carts[size].filename)),
                            "cartridge %dK" % size)
-        bad += compare(expected_nets([kbd], set()), kicad_nets(os.path.join(BDIR, "keyboard.kicad_sch")), "keyboard")
         for path, label in [(os.path.join(KDIR, "placard.kicad_sch"), "main board"),
                             *[(os.path.join(cdir, carts[size].filename), "cartridge %dK" % size)
-                              for size, cdir in CDIRS.items()],
-                            (os.path.join(BDIR, "keyboard.kicad_sch"), "keyboard")]:
+                              for size, cdir in CDIRS.items()]]:
             for it in erc(path, label, FLAGGED):
                 print("  ", it)
-        for shs, label in [(sheets, "main board"), ([carts[64]], "cartridge 64K"), ([carts[32]], "cartridge 32K"),
-                           ([kbd], "keyboard")]:
+        for shs, label in [(sheets, "main board"), ([carts[64]], "cartridge 64K"), ([carts[32]], "cartridge 32K")]:
             for it in check_refs(shs, label):
                 print("  ", it)
                 bad += 1
