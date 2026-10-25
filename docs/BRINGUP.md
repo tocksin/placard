@@ -146,12 +146,14 @@ Pass when every row above reads as listed.
 
 ### Step 2: the oscillator (X1)
 
-Fit only X1's socket and its decoupler C43 (100 nF); every other part
-goes in with the step that first needs it.
+Fit only the 25.175 MHz oscillator X1 and its decoupler C43 (100 nF);
+every other part goes in with the step that first needs it.  X1 has no
+socket: solder it in, with the can's dot or square corner (pin 1) on
+the footprint's pin 1.
 
-- Power on: +5 V and 0 V on the socket's supply pins.  Current: about
-  the same as step 1 (D18).
-- Fit the 25.175 MHz oscillator X1.  Its output reads **25.175 MHz**, 2.5 V
+- Power on: +5 V on X1's pin 14 and 0 V on its pin 7.  Current: a few
+  tens of mA more than step 1 (X1).
+- X1's output (pin 8) reads **25.175 MHz**, 2.5 V
   average.  If the meter doesn't reach that, skip it: step 3 shows the
   clock divided down.
 
