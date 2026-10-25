@@ -80,7 +80,7 @@ its last level (a weak pin keeper), and an F-series input that floats reads
 high.  So a missing chip is harmless unless a level matters, and those
 places get a temporary resistor (a strap, from step 6 on).
 
-**The data bus pull-ups.**  The 10k SIP on D7:D0 goes in at step 8.
+**The data bus pull-ups.**  The 10k SIP on D7:D0 goes in at step 7.
 With nothing driving it, the bus reads FF.  After a chip drives it and lets
 go, the bus keeps that byte for about 0.5 µs (the 10k and the bus
 capacitance), so "an empty bus reads FF" holds only when nothing has driven
@@ -259,25 +259,25 @@ color decoder isn't in yet).
 | R16, R19 | Resistor, color | 825 ohm |  |
 | R20 | Resistor, color | 1.43k |  |
 | R21 | Resistor, color | 715 ohm |  |
-| U23 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) | empty for now, holds straps S4 and S5 |
+| U23 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) | empty for now, holds straps S1 and S2 |
 | C23 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| S4 | Strap (temporary), in U23's socket | 10k | out at step 8 |
-| S5 | Strap (temporary), in U23's socket | 10k | out at step 8 |
+| S1 | Strap (temporary), in U23's socket | 10k | out at step 11 |
+| S2 | Strap (temporary), in U23's socket | 10k | out at step 11 |
 | (leads) | Test leads, 2: a clip on one end, a probe tip on the other | in the kit | one for ground, one for power |
 
 **Program first:** U16 color decoder from `ATF22V10_COLORDECODER.pld`
 (rev 07); verify and label it.
 
-**Straps.**  A strap is a 10k resistor with its leads in an empty
+**Straps.**  A strap is a 10k resistor (or a wire link, where the step says so) with its leads in an empty
 socket's pins (or soldered to a spare socket that plugs in), holding a
 control line whose driver isn't in yet.  The H counter reads the line
 code's Q7 as "blank line", so turn off the power switch and put in:
 
-- **S4**, in U23 (line code): pin 19 (Q7) to pin 10 (GND).  Holds LC7
-  low, so every line is a video line.  Out at step 8.
-- **S5**, in U23 (line code): pin 20 (+5 V) to pin 12 (Q4, which goes
-  only to the tint resistor R56, not fitted until step 8).  A 10k high
-  source for the power test lead.  Out at step 8.
+- **S1**, in U23 (line code): pin 19 (Q7) to pin 10 (GND).  Holds LC7
+  low, so every line is a video line.  Out at step 11.
+- **S2**, in U23 (line code): pin 20 (+5 V) to pin 12 (Q4, which goes
+  only to the tint resistor R56, not fitted until step 11).  A 10k high
+  source for the power test lead.  Out at step 11.
 
 **Test leads.**  The color decoder's pixel inputs D0-D7 (pins 2-9) and
 mode inputs MODE0, MODE1 (pins 10, 11) have no driver yet (the pixel
@@ -287,8 +287,8 @@ touching them through the straps' 10k, which keeps a slip onto a wrong
 pin harmless.  With the power still off, clip on both test leads, so
 nothing needs clipping while the board is powered:
 
-- **Ground lead:** clip it to strap S4's lead at U23's pin 19 (10k to GND).
-- **Power lead:** clip it to strap S5's lead at U23's pin 12 (10k to +5 V).
+- **Ground lead:** clip it to strap S1's lead at U23's pin 19 (10k to GND).
+- **Power lead:** clip it to strap S2's lead at U23's pin 12 (10k to +5 V).
 
 Insert U16 into its socket, and connect the monitor and USB power cable.
 Turn on the power switch.  The screen shows a random color at first (the
@@ -322,192 +322,164 @@ table, which drops to 0 V when that pin is low.
 
 A color output that stays at 0 V when it should toggle, or toggles when it
 should be 0 V, points at that pin's wiring or the color resistors
-(R14-R21).  Turn off the power switch and unclip both test leads; S4 and
-S5 stay until step 8.
+(R14-R21).  Turn off the power switch and unclip both test leads; S1 and
+S2 stay until step 11.
 
-### Step 7: audio and mode slot PLD (U35)
-
-**Parts for this step:**
-
-| Ref | Part | Value or part number | Note |
-|---|---|---|---|
-| U35 | PLD, audio and mode slots | ATF22V10C-7PX, programmed from `ATF22V10_AUDIO.pld` |  |
-| U35 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
-| C35 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| S6 | Strap (temporary), in U23's socket (socket fitted at step 6) | 2 x 10k | out at step 8 |
-
-**Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
-(rev 04); verify and label it.
-
-The audio PLD's row address bits follow the line code's Q3:Q2 (line
-repeat), so turn off the power switch and put in:
-
-- **S6**, in U23 (line code): two 10k, from pins 6 and 9 (Q2, Q3) each
-  to pin 10 (GND).  Holds the line repeat at 1x.  Out at step 8.
-
-Insert U35 into its socket.  Turn on the power switch.
-BLANK_RD now picks group 45 (mode byte) and group 46
-or 47 (audio sample) on every line, and R0, R1, R7, R8 are the row address
-bits (1x line repeat while S6 holds Q3:Q2 low).
-
-| Pin | Frequency | Duty | DC average |
-|---|---|---|---|
-| BLANK_RD (pin 23) | 62.16 kHz | 2.0 % | 0.10 V |
-| /MODE_LD (pin 22) | 31.47 kHz | 99.0 % | 4.95 V |
-| R0 (pin 17) | 15.7 kHz | 50.1 % | 2.50 V |
-| R1 (pin 18) | 7.852 kHz | 50.1 % | 2.50 V |
-| R7 (pin 19) | 119.9 Hz | 51.2 % | 2.56 V |
-| R8 (pin 20) | 59.94 Hz | 51.2 % | 2.56 V |
-
-### Step 8: Branch PLD (U2), pixel buffer (U22), line code (U23)
-
-**Parts for this step:**
-
-| Ref | Part | Value or part number | Note |
-|---|---|---|---|
-| U2 | PLD, Branch | ATF22V10C-7PX, programmed from `ATF22V10_BRANCH.pld` |  |
-| U22 | Pixel buffer, octal D flip-flop | TI SN74F377AN |  |
-| U23 | Line code register, octal D flip-flop | TI CD74HCT377E | socket fitted at step 6 |
-| U2 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
-| U22 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
-| C2, C22 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| U1 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) | empty for now, holds strap S1 |
-| C1 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| RN1 | Resistor network, 8 bussed, SIP-9 (data bus pull-ups) | 10k (Bourns 4609X-101-103LF) | dot (pin 1, common) to +5V |
-| R56-R58 | Resistor, row tint | 910 ohm |  |
-| D9-D11 | Schottky diode, row tint | BAT85 | band (cathode) as on the silkscreen |
-| D12-D17 | Diode, row tint | 1N4148 | band (cathode) as on the silkscreen |
-| S1 | Strap (temporary), in U1's socket | 4 x 10k | out at step 12 |
-
-**Program first:** U2 Branch from `ATF22V10_BRANCH.pld` (rev 15); verify
-and label it.  U22 and U23 are 74-series and need no programming.
-
-The Branch PLD reads the State PLD's Q0 and PC_ENABLE, so turn off the power switch and put in:
-
-- **S1**, in U1 (State): four 10k, from pins 15, 16, 17 and 18 each to
-  pin 12 (GND).  Holds PC_ENABLE, X_ENABLE, Y_ENABLE and Q0 low, so the
-  address muxes pick D (low byte) and 00 (high byte) outside video reads
-  and /SRC_EN stays off.  Out at step 12.
-
-The Branch PLD goes in now only for /PIX_LD (pin 15), the pixel buffer's
-load strobe; the rest of it waits for the CPU.  Take out straps S4 (U23
-pin 19 to pin 10), S5 (pin 20 to pin 12) and S6 (pins 6 and 9 to pin 10),
-then insert U2, U22 and U23 into their sockets.  Turn on the power
-switch.
-
-Nothing drives the data bus, so every video read is FF.  The line code
-register loads FF from the first mode read, and its Q7 (blank line) is
-1: every line is a blank line, so there are no pixel reads (only the
-mode and audio reads) and the monitor shows a **black screen**.
-
-| Pin | Frequency | Duty | DC average |
-|---|---|---|---|
-| Branch /PIX_LD (pin 15) | 62.94 kHz | 99.8 % | 4.99 V |
-| Pixel buffer U22 Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 5 V (FF) |
-| Line code U23 Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 5 V (FF) |
-
-### Step 9: D register (U18) and the address muxes (U7-U10)
+### Step 7: address muxes (U7-U10), RAM (U31), pixel buffer (U22)
 
 **Parts for this step:**
 
 | Ref | Part | Value or part number | Note |
 |---|---|---|---|
 | U7-U10 | PLD, address mux | ATF22V10C-7PX, programmed from `ATF22V10_QUAD_MUX.pld` |  |
-| U18 | D register, octal D flip-flop | TI SN74F377AN |  |
+| U31 | SRAM, 32K x 8 (lower half) | Alliance AS7C256C-15PCN |  |
+| U22 | Pixel buffer, octal D flip-flop | TI SN74F377AN |  |
 | U7-U10 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
-| U18 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
-| C7-C10, C18 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| S3 | Strap (temporary), in U1's socket | 10k | out at step 12 |
+| U31 socket | IC socket | DIP-28 0.3" (On Shore ED281DT) |  |
+| U22 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C7-C10, C31, C22 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| RN1 | Resistor network, 8 bussed, SIP-9 (data bus pull-ups) | 10k (Bourns 4609X-101-103LF) | dot (pin 1, common) to +5V |
+| (no ref) | Resistor, /WE pull-up (in the BOM, not on the schematic yet) | 10k |  |
+| U2 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) | empty for now, holds strap S3 |
+| C2 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| U11 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) | empty for now, holds strap S4 |
+| C11 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| S3 | Strap (temporary), in U2's socket | wire link | out at step 8 |
+| S4 | Strap (temporary), in U11's socket | 10k | out at step 10 |
 
 **Program first:** U7, U8, U9 and U10 address muxes, four copies of
-`ATF22V10_QUAD_MUX.pld` (rev 01); verify and label them.
+`ATF22V10_QUAD_MUX.pld` (rev 01); verify and label them.  U31 and U22
+need no programming.
 
-The D register's load strobe /LOAD_IMM comes from the State PLD, so
-turn off the power switch and put in:
+The video now reads the RAM.  The mux selects come from the Sync PLD, and
+on a video read PIXEL_ENABLE picks the video address whatever the missing
+State PLD would say, so the muxes need no straps.  Nothing writes the RAM:
+with no memory control PLD, the /WE pull-up holds /WE high.  The pixel
+buffer's load strobe /PIX_LD and the RAM's /OE come from PLDs that aren't
+in yet, so turn off the power switch and put in:
 
-- **S3**, in U1 (State): pin 19 to pin 12 (GND).  Holds /LOAD_IMM low, so
-  the D register loads the bus every clock.  Out at step 12.
+- **S3**, in U2 (Branch): a wire link from pin 15 (/PIX_LD) to pin 12
+  (GND).  The pixel buffer loads the data bus every clock.  A wire, not
+  a 10k: an F377 input needs more current to pull low than 10k passes.
+  Out at step 8.
+- **S4**, in U11 (memory control): 10k from pin 18 (/RAM_OE) to pin 12
+  (GND).  The RAM drives the bus all the time.  Out at step 10.
 
-Insert U18 and U7-U10 into their sockets.  Turn on the power switch.
-The D register loads the bus every clock (strap S3) and so holds FF.  The
-muxes give the video address during video reads and D (FF) on A7:A0, 00 on
-A15:A8 the rest of the time (strap S1).  Measure A15:A0 at the mux outputs
-(or the RAM socket address pins):
+Insert U7-U10, U31 and U22 into their sockets.  Turn on the power switch.
 
-| Pin | Frequency | Duty | DC average |
-|---|---|---|---|
-| A0, A1 | 31.41 kHz | 99.9 % | 4.99 V |
-| A2, A3 | 31.29 kHz | 99.9 % | 4.99 V |
-| A4-A7 | 30.69 kHz | 99.9 % | 4.99 V |
-| A8 | 32.25 kHz | 0.1 % | 0.01 V |
-| A9 | 62.16 kHz | 0.2 % | 0.01 V |
-| A10 | 31.47 kHz | 0.1 % | 0.01 V |
-| A11, A12, A14 | 62.94 kHz | 0.2 % | 0.01 V |
-| A13, A15 | 0 | | 0 V |
+The monitor shows **one byte over and over**, with a thin stripe in every
+8 pixels.  In 7 clocks of every 8 the muxes point at the CPU side's
+address, which stays put while PC, D, X and Y are missing, and the pixel
+buffer loads that one byte; in the eighth, the video read, the byte from
+the video address shows through.  Only U31 is in, so only the left 16 byte
+columns (A15 = 0) read the RAM; the other 64 read FF from RN1.
 
-The A pins change only for the mode and audio reads (the lines are
-blank), so most meters show close to 5 V on A7:A0 and close to 0 V on
-A15:A8.
+The color mode is wherever MODE1:MODE0 came up.  To try other modes, clip
+the test leads on as in step 6 before you turn the power on and touch
+only MODE0 and MODE1 (pins 10, 11); the pixel pins are driven by U22 now.
 
-The screen stays black.
-
-### Step 10: memory control (U11), map register (U25), I/O decode (U12)
+### Step 8: Branch PLD (U2)
 
 **Parts for this step:**
 
 | Ref | Part | Value or part number | Note |
 |---|---|---|---|
-| U11 | PLD, memory control | ATF22V10C-7PX, programmed from `ATF22V10_MEM_CTRL.pld` |  |
+| U2 | PLD, Branch | ATF22V10C-7PX, programmed from `ATF22V10_BRANCH.pld` | socket fitted at step 7 |
+
+**Program first:** U2 Branch from `ATF22V10_BRANCH.pld` (rev 15); verify
+and label it.
+
+The Branch PLD goes in now only for /PIX_LD (pin 15), which is just
+PIXEL_ENABLE inverted; the rest of it waits for the CPU, and it needs no
+straps.  Turn off the power switch.  Take strap S3 (U2 pin 15 to pin 12)
+out, then insert U2 into its socket.  Turn on the power switch.
+
+The pixel buffer now loads only on the video read, and the left 16 byte
+columns show **random RAM** in the color mode on MODE1:MODE0.  Rows
+repeat in bands (the audio slot PLD U35 isn't in, so four of the row
+address bits are stuck).  The other 64 columns read FF (white in 1 bpp
+and 8 bpp).
+
+### Step 9: RAM (U32) and I/O decode (U12)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U32 | SRAM, 32K x 8 (upper half) | Alliance AS7C256C-15PCN |  |
 | U12 | PLD, I/O decode | ATF22V10C-7PX, programmed from `ATF22V10_IO_DECODE.pld` |  |
+| U32 socket | IC socket | DIP-28 0.3" (On Shore ED281DT) |  |
+| U12 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C32, C12 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+
+**Program first:** U12 I/O decode from `ATF22V10_IO_DECODE.pld`
+(rev 04); verify and label it.
+
+U32's chip enable /CE_HI (U12 pin 15) is low when A15 is 1; on a video
+read A15 is H9.  Turn off the power switch.  Insert U32 and U12 into their
+sockets.  Turn on the power switch.  All 80 byte columns now show
+**random RAM**.
+
+### Step 10: memory control (U11) and map register (U25)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U11 | PLD, memory control | ATF22V10C-7PX, programmed from `ATF22V10_MEM_CTRL.pld` | socket fitted at step 7 |
 | U25 | Map register, octal D flip-flop with clear | TI CD74ACT273E |  |
-| U11, U12 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
 | U25 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
-| C11, C12, C25 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| (no ref) | Resistor, /WE pull-up (in the BOM, not on the schematic yet) | 10k |  |
-| R3 | Resistor, STALL_OUT pull-up | 10k |  |
+| C25 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | R4 | Resistor, RUN pull-down | 10k |  |
-| JP1, JP2 | Pin header, 1 x 2 (bring-up jumpers) | Sullins PREC002SAAN-RC | JP1 STALL_IN to STALL_OUT, JP2 RUN to +5 V |
-| JP1, JP2 shunts | Jumper shunt | Sullins QPC02SXGN-RC | both on (see "Without the cartridge") |
-| S2 | Strap (temporary), in U1's socket | 10k | out at step 12 |
 
 **Program first:** U11 memory control from `ATF22V10_MEM_CTRL.pld`
-(rev 09) and U12 I/O decode from `ATF22V10_IO_DECODE.pld` (rev 04); verify
-and label them.
+(rev 09); verify and label it.  U25 needs no programming.
 
-Memory control and I/O decode read the State PLD's R/W, so turn off the power switch and put in:
-
-- **S2**, in U1 (State): pin 23 to pin 24 (+5 V).  Holds R/W high: no
-  writes.  Out at step 12.
-
-Insert U11, U25 and U12 into their sockets.  Turn on the power switch.
+With no cartridge and no JP2 shunt, R4 holds RUN low.  That keeps the
+ROM off, holds the map register clear and turns U11's /WE output off, so
+the /WE pull-up still stops any writes.  Turn off the power switch.  Take
+strap S4 (U11 pin 18 to pin 12) out, then insert U11 and U25 into their
+sockets.  Turn on the power switch.  U11 now drives /RAM_OE only for the
+reads, and the picture is the same random RAM as in step 9.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
-| Mem ctrl /RAM_OE (pin 18) | 62.94 kHz | 99.9 % | 4.99 V |
-| Mem ctrl /ROM_OE (pin 19) | 25.11 MHz (most meters can't count it) | 50.1 % | 2.51 V |
-| Mem ctrl /WE (pin 16) | 0 | | 5 V |
-| Mem ctrl RUN (pin 17, input from the cartridge or the jumper) | 0 | | 5 V |
-| I/O decode /CE_HI (pin 15) | 0 | | 5 V |
-| I/O decode /MAP_WR, /LINE_RD, /PORT_WR, /PORT_RD, /EXP1, /EXP2 (pins 16, 17, 19-22) | 0 | | 5 V |
-| Map register Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 0 V (map 00, all ROM) |
+| Mem ctrl RUN (pin 17, input) | 0 | | 0 V |
+| Mem ctrl /WE (pin 16) | 0 | | 5 V (output off, pull-up) |
+| Mem ctrl /ROM_OE (pin 19) | 0 | | 5 V |
+| Map register Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 0 V (held clear by RUN) |
 
-### Step 11: RAM (U31, U32)
+### Step 11: audio and mode slot PLD (U35), line code (U23)
 
 **Parts for this step:**
 
 | Ref | Part | Value or part number | Note |
 |---|---|---|---|
-| U31, U32 | SRAM, 32K x 8 | Alliance AS7C256C-15PCN |  |
-| U31, U32 sockets | IC socket | DIP-28 0.3" (On Shore ED281DT) |  |
-| C31, C32 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| U35 | PLD, audio and mode slots | ATF22V10C-7PX, programmed from `ATF22V10_AUDIO.pld` |  |
+| U23 | Line code register, octal D flip-flop | TI CD74HCT377E | socket fitted at step 6 |
+| U35 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| C35 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| R56-R58 | Resistor, row tint | 910 ohm |  |
+| D9-D11 | Schottky diode, row tint | BAT85 | band (cathode) as on the silkscreen |
+| D12-D17 | Diode, row tint | 1N4148 | band (cathode) as on the silkscreen |
 
-Turn off the power switch.  Insert both RAM chips, U31 and U32, into
-their sockets.  Turn on the power switch.  The video now
-reads the RAM, which powers up random: the monitor shows **random
-colored noise**, in a mix of modes and line repeats, with about half the
-lines black (each line's mode byte is random too, and its bit 7 blanks
-the line).  Nothing writes the RAM yet (strap S2), so the picture holds
-still.  Power off and on: a different picture.
+**Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
+(rev 04); verify and label it.  U23 needs no programming.
+
+Turn off the power switch.  Take straps S1 (U23 pin 19 to pin 10) and S2
+(pin 20 to pin 12) out, then insert U35 and U23 into their sockets.  Turn
+on the power switch.  BLANK_RD now picks group 45 (mode byte) and group
+46 or 47 (audio sample) on every line, and the line code register loads
+each line's mode byte.  The RAM is random, so the monitor shows **random
+colored noise** in a mix of modes, line repeats and row tints, with about
+half the lines black (bit 7 of a random mode byte blanks the line).
+Nothing writes the RAM, so the picture holds still.  Power off and on: a
+different picture.
+
+| Pin | Frequency | Duty | DC average |
+|---|---|---|---|
+| BLANK_RD (pin 23) | 62.16 kHz | 2.0 % | 0.10 V |
+| /MODE_LD (pin 22) | 31.47 kHz | 99.0 % | 4.95 V |
 
 ## CPU
 
@@ -524,7 +496,7 @@ so video takes only the mode and audio reads), PC low goes FF, 00,
 FF, ... and PC high counts up by one every instruction.  This exercises
 the State, Branch and PC chips with no memory and no software.
 
-### Step 12: take out the RAM and straps S1-S3; fit the instruction register PLD (U17) and the State PLD (U1)
+### Step 12: take out the RAM; fit the State PLD (U1), instruction register PLD (U17) and D register (U18)
 
 **Parts for this step:**
 
@@ -532,18 +504,23 @@ the State, Branch and PC chips with no memory and no software.
 |---|---|---|---|
 | U1 | PLD, State | ATF22V10C-7PX, programmed from `ATF22V10_STATE.pld` |  |
 | U17 | PLD, instruction register | ATF22V10C-7PX, programmed from `ATF22V10_IR.pld` |  |
-| U17 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) | U1's socket fitted at step 8 |
-| C17 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| U18 | D register, octal D flip-flop | TI SN74F377AN |  |
+| U1, U17 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| U18 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C1, C17, C18 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| R3 | Resistor, STALL_OUT pull-up | 10k |  |
+| JP1, JP2 | Pin header, 1 x 2 (bring-up jumpers) | Sullins PREC002SAAN-RC | JP1 STALL_IN to STALL_OUT, JP2 RUN to +5 V |
+| JP1, JP2 shunts | Jumper shunt | Sullins QPC02SXGN-RC | both on (see "Without the cartridge") |
 
 **Program first:** U1 State from `ATF22V10_STATE.pld` (rev 15) and U17
 instruction register from `ATF22V10_IR.pld` (rev 01); verify and label
-them.
+them.  U18 needs no programming.
 
-Turn off the power switch.  Pull both RAM chips U31 and U32.  Take
-straps S1 (the four 10k from pins 15-18 to pin 12), S2 (pin 23 to pin 24)
-and S3 (pin 19 to pin 12) out of the State socket U1, then insert the State
-PLD U1 and the instruction register U17 into their sockets.  Turn on
-the power switch (the screen is black, with no RAM).  The instruction register loads FF.
+Turn off the power switch.  Pull both RAM chips U31 and U32.  Put the
+shunts on JP1 and JP2, then insert the State PLD U1, the instruction
+register U17 and the D register U18 into their sockets.  Turn on the
+power switch (the screen is black, with no RAM).  The instruction register
+and the D register load FF.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -562,6 +539,7 @@ the power switch (the screen is black, with no RAM).  The instruction register l
 | Branch ALU_DONE (pin 18) | 0 | | 0 V |
 | Audio /AC_SEL (pin 21) | 0 | | 0 V (instruction bit 1 is 1) |
 | Instruction register Q0-Q7 | 0 | | 5 V (FF) |
+| D register U18 Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 5 V (FF) |
 
 ### Step 13: PC low (U3)
 
@@ -677,7 +655,7 @@ and /OE2 (instruction register PLD I1, pin 15) wiring.
 | U27, U29 | AC source buffer, line read buffer, octal 3-state buffer | TI SN74F541N |  |
 | U27, U29 sockets | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
 | C27, C29 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| U31, U32 | SRAM (back in from step 11) | Alliance AS7C256C-15PCN |  |
+| U31, U32 | SRAM (out since step 12, back in now) | Alliance AS7C256C-15PCN |  |
 | J8 | Cartridge slot, card edge, 64 contacts | Molex 87715-9106 |  |
 | R13 | Resistor, /CART pull-up | 10k |  |
 | cartridge PCB | 64K cartridge board |  |  |
