@@ -1,6 +1,6 @@
 # Kit pricing and selling platforms
 
-Date: 2026-10-23
+Date: 2026-10-25
 
 What a PLACARD kit costs to make at a few batch sizes, what Crowd Supply,
 Kickstarter and Tindie take, and a suggested price.  Component costs come
@@ -37,6 +37,7 @@ Cherry MX keyboard, which is the most expensive board:
 | **PS/2 keyboard** (option) | Native PS/2 compact keyboard (Perixx PERIBOARD-409P class) for buyers of the core kit without the Cherry MX keyboard |
 | **PS/2 mouse** (option) | Native PS/2 optical mouse (Perixx PERIMICE-209P class) for J5's top socket |
 | **Starter pack** (option) | PS/2 keyboard + PS/2 mouse + two SNES controllers |
+| **USB-C power supply** (option) | 5 V 3 A USB-C charger (20 W USB PD, North American plug) and a 1 m USB-C to USB-C cable for J13; builders with a phone or laptop charger don't need it (BOM.md: CUI SWI20C-T-N + StarTech USB2CC1MNC as the reference parts) |
 | **SD card** (option) | Full-size 8-16 GB SDHC card for J4, formatted FAT32 and preloaded with the programs, demos and games; the same image is a free download for builders using their own card |
 
 No kit ships programmed chips (Justin, 2026-10-23): the builder programs
@@ -166,6 +167,7 @@ Margin = price - Crowd Supply fees - cost per kit, before the one-off costs.
 | PS/2 keyboard, $45 | about $5 | | | |
 | PS/2 mouse, $19 | about $3 | | | |
 | Starter pack, $79 | about $11 | | | |
+| USB-C power supply + cable, $19 | about $7 | | | |
 
 Complete kit at other prices:
 
@@ -200,6 +202,7 @@ Core kit at other prices:
 | PS/2 keyboard (option) | $45 | Perixx PERIBOARD-409P retails at $35-50 (Commander X16 sells it at $35); about $22 wholesale, $30 landed |
 | PS/2 mouse (option) | $19 | Perixx optical PS/2 mouse retails at $15 (TexElec); about $8 wholesale, $11 landed |
 | Starter pack (option) | $79 | Keyboard, mouse and two pads ($104 bought separately); about $53 landed |
+| USB-C power supply (option) | $19 | The reference pair (CUI SWI20C-T-N + StarTech USB2CC1MNC) is $25 one-off at Mouser; a generic 20 W PD charger and 3 A cable bought by the hundred are about $5-7 and $1-2, about $10 landed with tariff, leaving about $7 after fees.  It must offer 5 V at 3 A on its CC line, as every USB PD charger does, because J13 only has 5.1k CC pull-downs (Justin, 2026-10-25) |
 
 Why these numbers:
 
