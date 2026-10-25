@@ -55564,13 +55564,13 @@
 			)
 		)
 	)
-	(footprint "Relay_THT:Relay_SPDT_Omron-G5LE-1"
+	(footprint "placard:Relay_SPDT_CIT_J107"
 		(locked yes)
 		(layer "F.Cu")
 		(uuid "a65ff0bc-5232-44df-8359-39e5c36f1693")
 		(at 62.5 86.5 90)
-		(descr "Omron Relay SPDT, http://www.omron.com/ecb/products/pdf/en-g5le.pdf")
-		(tags "Omron Relay SPDT")
+		(descr "CIT J107 relay, SPDT, 15.4 x 19.0 mm, pins as the Omron G5LE (1 COM, 2/5 coil, 3 NO, 4 NC) (Placard, gen_kicad_connectors.py; PRELIMINARY, check the datasheet)")
+		(tags "Relay SPDT CIT J107")
 		(property "Reference" "K1"
 			(at 0 -3.8 90)
 			(layer "F.SilkS")
@@ -55582,7 +55582,7 @@
 				)
 			)
 		)
-		(property "Value" "G5LE-1 DC5"
+		(property "Value" "J1071CS5VDC.36"
 			(at 0 20.95 90)
 			(layer "F.Fab")
 			(uuid "a1d7d702-1427-4c9c-93dc-021897aeb71c")
@@ -55617,7 +55617,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "Omron"
+		(property "Manufacturer" "CIT Relay and Switch"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -55630,7 +55630,7 @@
 				)
 			)
 		)
-		(property "MPN" "G5LE-1 DC5"
+		(property "MPN" "J1071CS5VDC.36"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -55649,244 +55649,124 @@
 		(sheetfile "power.kicad_sch")
 		(attr through_hole)
 		(fp_line
-			(start -1 -2.91)
-			(end 1 -2.91)
+			(start -7.7 -1.3)
+			(end 7.7 -1.3)
+			(stroke
+				(width 0.1)
+				(type solid)
+			)
+			(layer "F.Fab")
+			(uuid "584e79eb-5cf4-45d8-8bdd-c0719645a97c")
+		)
+		(fp_line
+			(start 7.7 -1.3)
+			(end 7.7 17.7)
+			(stroke
+				(width 0.1)
+				(type solid)
+			)
+			(layer "F.Fab")
+			(uuid "7a8c186a-3aac-4b7c-9cb7-f6b748a52997")
+		)
+		(fp_line
+			(start 7.7 17.7)
+			(end -7.7 17.7)
+			(stroke
+				(width 0.1)
+				(type solid)
+			)
+			(layer "F.Fab")
+			(uuid "3affcd7b-987f-4479-b70a-f4ae93b073d8")
+		)
+		(fp_line
+			(start -7.7 17.7)
+			(end -7.7 -1.3)
+			(stroke
+				(width 0.1)
+				(type solid)
+			)
+			(layer "F.Fab")
+			(uuid "5e47b2d7-64d6-4ea9-8ead-b646ae9b3ffd")
+		)
+		(fp_line
+			(start -7.82 -1.42)
+			(end 7.82 -1.42)
 			(stroke
 				(width 0.12)
 				(type solid)
 			)
 			(layer "F.SilkS")
-			(uuid "33f05657-fce2-4a1c-b62d-972a8c644093")
+			(uuid "175c9cde-bd86-45b6-aafb-334cc0444777")
 		)
 		(fp_line
-			(start 8.35 -2.65)
-			(end -8.35 -2.65)
+			(start 7.82 -1.42)
+			(end 7.82 17.82)
 			(stroke
 				(width 0.12)
 				(type solid)
 			)
 			(layer "F.SilkS")
-			(uuid "812e5d7c-8bc9-47e2-a5ed-05a4f0bbeeb5")
+			(uuid "53aaf2f8-6328-4b64-8c12-3dbed34a71a1")
 		)
 		(fp_line
-			(start -8.35 -2.65)
-			(end -8.35 20.05)
+			(start 7.82 17.82)
+			(end -7.82 17.82)
 			(stroke
 				(width 0.12)
 				(type solid)
 			)
 			(layer "F.SilkS")
-			(uuid "f7fd0dbc-3920-47ea-8ff6-16202c14d47c")
+			(uuid "07ea36f1-6a49-4681-bdf7-9223e5c4dc86")
 		)
 		(fp_line
-			(start 0.35 1.6)
-			(end -0.35 1.6)
+			(start -7.82 17.82)
+			(end -7.82 -1.42)
 			(stroke
 				(width 0.12)
 				(type solid)
 			)
 			(layer "F.SilkS")
-			(uuid "4d74ac4c-554f-4dfa-9cb2-638868283251")
+			(uuid "2ad3a05c-f3f2-4b41-b3b3-88c4dddbdc34")
 		)
 		(fp_line
-			(start -0.35 1.6)
-			(end -0.35 2.8)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
-			(uuid "796852b0-f463-4c69-9126-e144db4beabf")
-		)
-		(fp_line
-			(start 1.35 2.2)
-			(end 4.5 2.2)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
-			(uuid "dfa0747f-da54-4fc0-8824-0f7584143528")
-		)
-		(fp_line
-			(start -4.5 2.2)
-			(end -1.35 2.2)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
-			(uuid "04152709-700f-4bb0-8270-cc1bbd4c0247")
-		)
-		(fp_line
-			(start -0.35 2.4)
-			(end 0.35 2)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
-			(uuid "22dae20a-de2e-47e7-aed4-203b5ae04881")
-		)
-		(fp_line
-			(start 0.35 2.8)
-			(end 0.35 1.6)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
-			(uuid "b71fd6ea-4e48-4b1b-96d5-ab55d08d0b15")
-		)
-		(fp_line
-			(start -0.35 2.8)
-			(end 0.35 2.8)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
-			(uuid "5bb0a879-aca4-4814-9154-b2266676f377")
-		)
-		(fp_line
-			(start 8.35 20.05)
-			(end 8.35 -2.65)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
-			(uuid "355b6007-e2bd-49ad-b4b0-43f08af7b533")
-		)
-		(fp_line
-			(start -8.35 20.05)
-			(end 8.35 20.05)
-			(stroke
-				(width 0.12)
-				(type solid)
-			)
-			(layer "F.SilkS")
-			(uuid "e4e05ffb-4d10-4596-97ba-735c29cf6c5f")
-		)
-		(fp_line
-			(start 8.5 -2.8)
-			(end -8.5 -2.8)
+			(start -8.2 -1.8)
+			(end 8.2 -1.8)
 			(stroke
 				(width 0.05)
 				(type solid)
 			)
 			(layer "F.CrtYd")
-			(uuid "8d637645-5180-46da-af2f-647a177aba31")
+			(uuid "23f43f3f-fb4f-4622-8852-bcc94dd23f91")
 		)
 		(fp_line
-			(start -8.5 -2.8)
-			(end -8.5 20.2)
+			(start 8.2 -1.8)
+			(end 8.2 18.2)
 			(stroke
 				(width 0.05)
 				(type solid)
 			)
 			(layer "F.CrtYd")
-			(uuid "f1491303-389c-4da3-ac95-5d4d67f6a650")
+			(uuid "b72d2e22-61b0-42c6-b4bb-dfb38d8f9032")
 		)
 		(fp_line
-			(start 8.5 20.2)
-			(end 8.5 -2.8)
+			(start 8.2 18.2)
+			(end -8.2 18.2)
 			(stroke
 				(width 0.05)
 				(type solid)
 			)
 			(layer "F.CrtYd")
-			(uuid "6334c17f-4d76-4f00-92b2-c41acfe9ab42")
+			(uuid "c56a2a44-44db-4890-b9a1-5264a72e2612")
 		)
 		(fp_line
-			(start -8.5 20.2)
-			(end 8.5 20.2)
+			(start -8.2 18.2)
+			(end -8.2 -1.8)
 			(stroke
 				(width 0.05)
 				(type solid)
 			)
 			(layer "F.CrtYd")
-			(uuid "4eaa7290-8c35-4ead-9dcf-fda32c17783d")
-		)
-		(fp_line
-			(start 8.25 -2.55)
-			(end 8.25 19.95)
-			(stroke
-				(width 0.1)
-				(type solid)
-			)
-			(layer "F.Fab")
-			(uuid "b3d2be8d-cee6-4a6a-bb37-5888b79b2e33")
-		)
-		(fp_line
-			(start 1 -2.55)
-			(end 8.25 -2.55)
-			(stroke
-				(width 0.1)
-				(type solid)
-			)
-			(layer "F.Fab")
-			(uuid "989fae29-2bcc-43d1-a764-2e69d4604dc5")
-		)
-		(fp_line
-			(start -1 -2.55)
-			(end 0 -1.55)
-			(stroke
-				(width 0.1)
-				(type solid)
-			)
-			(layer "F.Fab")
-			(uuid "c2e2cf97-10c2-487e-ac0e-5790136763cb")
-		)
-		(fp_line
-			(start -8.25 -2.55)
-			(end -1 -2.55)
-			(stroke
-				(width 0.1)
-				(type solid)
-			)
-			(layer "F.Fab")
-			(uuid "8bd44ae2-13fe-4222-a2bc-44e64ee4c474")
-		)
-		(fp_line
-			(start 0 -1.55)
-			(end 1 -2.55)
-			(stroke
-				(width 0.1)
-				(type solid)
-			)
-			(layer "F.Fab")
-			(uuid "b034e7b1-5c9b-4215-9339-5545a4af0901")
-		)
-		(fp_line
-			(start -4.5 2)
-			(end 4.5 2)
-			(stroke
-				(width 0.1)
-				(type solid)
-			)
-			(layer "F.Fab")
-			(uuid "36db53d5-1893-4f79-95d6-704ba1848045")
-		)
-		(fp_line
-			(start 8.25 19.95)
-			(end -8.25 19.95)
-			(stroke
-				(width 0.1)
-				(type solid)
-			)
-			(layer "F.Fab")
-			(uuid "4147b23f-d738-48af-a77c-79a4f8aa02f2")
-		)
-		(fp_line
-			(start -8.25 19.95)
-			(end -8.25 -2.55)
-			(stroke
-				(width 0.1)
-				(type solid)
-			)
-			(layer "F.Fab")
-			(uuid "8065a444-04b4-4adc-8b3e-1716439e1e5b")
+			(uuid "47342468-f920-4aa8-bf1b-f50b9e342b33")
 		)
 		(fp_text user "${REFERENCE}"
 			(at 0 8.7 90)
@@ -55901,8 +55781,8 @@
 		)
 		(pad "1" thru_hole rect
 			(at 0 0 90)
-			(size 2.5 2.5)
-			(drill 1.3)
+			(size 2.6 2.6)
+			(drill 1.4)
 			(layers "*.Cu" "*.Mask")
 			(remove_unused_layers no)
 			(net 5 "Net-(SW1-B)")
@@ -55920,7 +55800,7 @@
 			)
 			(uuid "cc4a4f9b-b055-4b8d-8c62-5578b7f75d55")
 		)
-		(pad "2" thru_hole oval
+		(pad "2" thru_hole circle
 			(at -6 2 90)
 			(size 2.5 2.5)
 			(drill 1.3)
@@ -55941,7 +55821,7 @@
 			)
 			(uuid "0d84c9f1-58ab-4907-8bb5-44cfd109aef0")
 		)
-		(pad "3" thru_hole oval
+		(pad "3" thru_hole circle
 			(at -6 14.2 90)
 			(size 2.5 2.5)
 			(drill 1.3)
@@ -55962,7 +55842,7 @@
 			)
 			(uuid "19704600-4e82-4adc-91f2-db302b511762")
 		)
-		(pad "4" thru_hole oval
+		(pad "4" thru_hole circle
 			(at 6 14.2 90)
 			(size 2.5 2.5)
 			(drill 1.3)
@@ -55983,7 +55863,7 @@
 			)
 			(uuid "84d34895-d7e3-400d-803a-58bf6cffd897")
 		)
-		(pad "5" thru_hole oval
+		(pad "5" thru_hole circle
 			(at 6 2 90)
 			(size 2.5 2.5)
 			(drill 1.3)
@@ -56005,7 +55885,7 @@
 			(uuid "12206bda-4b9b-429f-969b-47082a92cff7")
 		)
 		(embedded_fonts no)
-		(model "${KICAD9_3DMODEL_DIR}/Relay_THT.3dshapes/Relay_SPDT_Omron-G5LE-1.step"
+		(model "${KIPRJMOD}/lib/placard.3dshapes/Relay_SPDT_CIT_J107.step"
 			(offset
 				(xyz 0 0 0)
 			)
