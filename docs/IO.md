@@ -58,7 +58,7 @@ rendered).  It shows the two PLDs, the diodes and the connectors
 |---|---|---|
 | J2, J3 | SNES pad 1 and 2 | 1 +5 V, 2 CLOCK (latch Q0), 3 LATCH (latch Q1), 4 DATA (port PLD pin 7 or 8), 5-6 not used, 7 GND |
 | J4 | Full-size SD socket (SPI) | 1 CS, 2 DI, 5 CLK from the dividers R42-R47; 7 DO = MISO (port PLD pin 13); 4 VDD 3.3 V; 3, 6 GND; 8, 9 not used |
-| J5 | Stacked dual mini-DIN 6 (Kycon KMDGX-6S/6S-S4N): top A = PS/2 mouse, bottom B = PS/2 keyboard | Each: 1 DATA, 3 GND, 4 +5 V, 5 CLK.  The two DATA pins are joined (one PS/2 DATA line, receiver pin 2); mouse CLK = PS2_CLK, keyboard CLK = KBD_CLK, both into RXCLK (receiver pin 1, port PLD pin 11) through D4 and D1 |
+| J5 | Stacked dual mini-DIN 6 (Kycon KMDGX-6S/6S-S4N): top A = PS/2 mouse, bottom B = PS/2 keyboard | Each: 1 DATA, 3 GND, 4 +5 V, 5 CLK.  The two DATA pins are joined (one PS/2 DATA line, receiver pin 2); mouse CLK = MOUS_CLK, keyboard CLK = KBD_CLK, both into RXCLK (receiver pin 1, port PLD pin 11) through D4 and D1 |
 
 No ESD clamps on any of these connectors (taken out 2026-10-23, see
 SCHEMATIC_PLAN.md).
@@ -457,7 +457,7 @@ receiver takes its bytes.
 
 | PS/2 line | Pulled low by | Read on |
 |---|---|---|
-| CLK (PS2_CLK) | latch bit 2 (= SD /CS) low (D2), or the receiver after a byte (D5) | the receiver's clock (RXCLK, through D4), and D5 of x5200/x5201 |
+| CLK (MOUS_CLK) | latch bit 2 (= SD /CS) low (D2), or the receiver after a byte (D5) | the receiver's clock (RXCLK, through D4), and D5 of x5200/x5201 |
 | DATA | latch bit 3 low (D3) | the receiver's DATA input (pin 2) |
 
 Both lines have 4.7k pull-ups to 5 V on the main board, as a PS/2 host
