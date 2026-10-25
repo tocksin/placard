@@ -4,7 +4,7 @@ Date: 2026-10-25
 
 The main board, built: the bare PCB, every part on the schematic, and the sockets, jumper shunts and /WE pull-up that are not drawn.  It is one line of the case assembly.
 
-56 lines, 175 parts on the schematic.  Cost: **$204.79** for one assembly at these quantities, **$186.79** without the optional parts (expansion slot sockets J9-J12).  31 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
+55 lines, 175 parts on the schematic.  Cost: **$204.54** for one assembly at these quantities, **$186.54** without the optional parts (expansion slot sockets J9-J12).  30 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -58,7 +58,6 @@ The main board, built: the bare PCB, every part on the schematic, and the socket
 | 1 | C45 | FG24C0G1H153JNT06 | TDK | Ceramic capacitor, 5 mm pitch | 15n C0G | 0.58 | 0.58 | Mouser: TDK FG24C0G1H153JNT06 (KEMET C320C153K1G5TA non-stocked) |  |
 | 1 | C46 | FG24X5R1A226MRT06 | TDK | Ceramic capacitor, 5 mm pitch | 22u | 1.00 | 1.00 | est.: TDK FG24X5R1A226MRT06 (Digi-Key; Mouser does not list it) |  |
 | 2 | JP1, JP2 | PREC002SAAN-RC | Sullins | Pin header, 1 x 2, 2.54 mm (bring-up jumper) |  | 0.15 | 0.30 | est.: Sullins PREC002SAAN-RC |  |
-| 1 | X1 | ED14DT | On Shore | IC socket, DIP-14 0.3" |  | 0.25 | 0.25 | est.: On Shore ED14DT | Not on the schematic.  Or a 4-pin oscillator socket |
 | 11 | U18-U23, U25-U27, U29, U36 | ED20DT | On Shore | IC socket, DIP-20 0.3" |  | 0.30 | 3.30 | est.: On Shore ED20DT | Not on the schematic. |
 | 20 | U1-U17, U35, U38, U42 | ED241DT | On Shore | IC socket, DIP-24 0.3" |  | 0.40 | 8.00 | est.: On Shore ED241DT | Not on the schematic. |
 | 2 | U31, U32 | ED281DT | On Shore | IC socket, DIP-28 0.3" |  | 0.45 | 0.90 | est.: On Shore ED281DT | Not on the schematic. |
