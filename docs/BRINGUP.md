@@ -48,7 +48,8 @@ For every chip:
 3. Label it with its reference designator and the revision (a sticker on
    top), so chips that share a file (U3/U4, U5/U6, U7-U10) stay apart
    from the others.
-4. Insert it into its socket.
+4. With the power switch off, insert it into its socket, then turn the
+   power switch on to measure.
 
 **Without the cartridge.**  The main board's STALL_OUT pull-up keeps the
 CPU stalled until a cartridge lets it go, and RUN's pull-down keeps the
@@ -176,7 +177,8 @@ its socket isn't in until step 3):
 **Program first:** U15 Sync from `ATF22V10_SYNC.pld` (rev 09); verify
 and label it.
 
-Insert U15 into its socket.  The Sync PLD's H2:H0 count the clock by themselves.
+Turn off the power switch.  Insert U15 into its socket.  Turn on the
+power switch.  The Sync PLD's H2:H0 count the clock by themselves.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -197,7 +199,8 @@ Insert U15 into its socket.  The Sync PLD's H2:H0 count the clock by themselves.
 **Program first:** U13 H counter from `ATF22V10_HCOUNT.pld` (rev 08);
 verify and label it.
 
-Insert U13 into its socket.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks a line.
+Turn off the power switch.  Insert U13 into its socket.  Turn on the
+power switch.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks a line.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -224,8 +227,9 @@ Insert U13 into its socket.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks 
 **Program first:** U14 V counter from `ATF22V10_VCOUNT.pld` (rev 03);
 verify and label it.
 
-Insert U14 into its socket.  V9:V0 count lines, 499-1023, 525 lines a frame.  Connect a VGA monitor:
-it should now lock to 640 x 480 at 60 Hz and show a **black screen** (the
+Turn off the power switch.  Insert U14 into its socket, and connect a VGA
+monitor.  Turn on the power switch.  V9:V0 count lines, 499-1023, 525
+lines a frame.  The monitor should now lock to 640 x 480 at 60 Hz and show a **black screen** (the
 colour decoder isn't in yet).
 
 | Pin | Frequency | Duty | DC average |
@@ -267,7 +271,7 @@ colour decoder isn't in yet).
 **Straps.**  A strap is a 10k resistor with its leads in an empty
 socket's pins (or soldered to a spare socket that plugs in), holding a
 control line whose driver isn't in yet.  The H counter reads the line
-code's Q7 as "blank line", so put in:
+code's Q7 as "blank line", so turn off the power switch and put in:
 
 - **S4**, in U23 (line code): pin 19 (Q7) to pin 10 (GND).  Holds LC7
   low, so every line is a video line.  Out at step 8.
@@ -332,12 +336,12 @@ Unclip the test lead; S4 and S5 stay until step 8.
 (rev 04); verify and label it.
 
 The audio PLD's row address bits follow the line code's Q3:Q2 (line
-repeat), so put in:
+repeat), so turn off the power switch and put in:
 
 - **S6**, in U23 (line code): two 10k, from pins 6 and 9 (Q2, Q3) each
   to pin 10 (GND).  Holds the line repeat at 1x.  Out at step 8.
 
-Insert U35 into its socket.
+Insert U35 into its socket.  Turn on the power switch.
 BLANK_RD now picks group 45 (mode byte) and group 46
 or 47 (audio sample) on every line, and R0, R1, R7, R8 are the row address
 bits (1x line repeat while S6 holds Q3:Q2 low).
@@ -374,7 +378,7 @@ bits (1x line repeat while S6 holds Q3:Q2 low).
 **Program first:** U2 Branch from `ATF22V10_BRANCH.pld` (rev 15); verify
 and label it.  U22 and U23 are 74-series and need no programming.
 
-The Branch PLD reads the State PLD's Q0 and PC_ENABLE, so put in:
+The Branch PLD reads the State PLD's Q0 and PC_ENABLE, so turn off the power switch and put in:
 
 - **S1**, in U1 (State): four 10k, from pins 15, 16, 17 and 18 each to
   pin 12 (GND).  Holds PC_ENABLE, X_ENABLE, Y_ENABLE and Q0 low, so the
@@ -384,7 +388,8 @@ The Branch PLD reads the State PLD's Q0 and PC_ENABLE, so put in:
 The Branch PLD goes in now only for /PIX_LD (pin 15), the pixel buffer's
 load strobe; the rest of it waits for the CPU.  Take out straps S4 (U23
 pin 19 to pin 10), S5 (pin 20 to pin 12) and S6 (pins 6 and 9 to pin 10),
-then insert U2, U22 and U23 into their sockets.
+then insert U2, U22 and U23 into their sockets.  Turn on the power
+switch.
 
 Nothing drives the data bus, so every video read is FF.  The line code
 register loads FF from the first mode read, and its Q7 (blank line) is
@@ -414,12 +419,13 @@ mode and audio reads) and the monitor shows a **black screen**.
 `ATF22V10_QUAD_MUX.pld` (rev 01); verify and label them.
 
 The D register's load strobe /LOAD_IMM comes from the State PLD, so
-put in:
+turn off the power switch and put in:
 
 - **S3**, in U1 (State): pin 19 to pin 12 (GND).  Holds /LOAD_IMM low, so
   the D register loads the bus every clock.  Out at step 12.
 
-Insert U18 and U7-U10 into their sockets.  The D register loads the bus every clock (strap S3) and so holds FF.  The
+Insert U18 and U7-U10 into their sockets.  Turn on the power switch.
+The D register loads the bus every clock (strap S3) and so holds FF.  The
 muxes give the video address during video reads and D (FF) on A7:A0, 00 on
 A15:A8 the rest of the time (strap S1).  Measure A15:A0 at the mux outputs
 (or the RAM socket address pins):
@@ -464,12 +470,12 @@ The screen stays black.
 (rev 09) and U12 I/O decode from `ATF22V10_IO_DECODE.pld` (rev 04); verify
 and label them.
 
-Memory control and I/O decode read the State PLD's R/W, so put in:
+Memory control and I/O decode read the State PLD's R/W, so turn off the power switch and put in:
 
 - **S2**, in U1 (State): pin 23 to pin 24 (+5 V).  Holds R/W high: no
   writes.  Out at step 12.
 
-Insert U11, U25 and U12 into their sockets.
+Insert U11, U25 and U12 into their sockets.  Turn on the power switch.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -491,7 +497,8 @@ Insert U11, U25 and U12 into their sockets.
 | U31, U32 sockets | IC socket | DIP-28 0.3" (On Shore ED281DT) |  |
 | C31, C32 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
-Insert both RAM chips, U31 and U32, into their sockets.  The video now
+Turn off the power switch.  Insert both RAM chips, U31 and U32, into
+their sockets.  Turn on the power switch.  The video now
 reads the RAM, which powers up random: the monitor shows **random
 coloured noise**, in a mix of modes and line repeats, with about half the
 lines black (each line's mode byte is random too, and its bit 7 blanks
@@ -528,10 +535,11 @@ the State, Branch and PC chips with no memory and no software.
 instruction register from `ATF22V10_IR.pld` (rev 01); verify and label
 them.
 
-Pull both RAM chips U31 and U32 (the screen goes black again).  Take
+Turn off the power switch.  Pull both RAM chips U31 and U32.  Take
 straps S1 (the four 10k from pins 15-18 to pin 12), S2 (pin 23 to pin 24)
 and S3 (pin 19 to pin 12) out of the State socket U1, then insert the State
-PLD U1 and the instruction register U17 into their sockets.  The instruction register loads FF.
+PLD U1 and the instruction register U17 into their sockets.  Turn on
+the power switch (the screen is black, with no RAM).  The instruction register loads FF.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -564,7 +572,8 @@ PLD U1 and the instruction register U17 into their sockets.  The instruction reg
 **Program first:** U3 PC low from `ATF22V10_PC_COUNTER8.pld` (rev 02);
 verify and label it.
 
-Insert U3 into its socket.
+Turn off the power switch.  Insert U3 into its socket.  Turn on the
+power switch.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -586,7 +595,8 @@ All eight bits move together (FF, 00, FF).
 **Program first:** U4 PC high from `ATF22V10_PC_COUNTER8.pld` (rev 02),
 the same file as U3; verify and label it.
 
-Insert U4 into its socket.  PC high is a binary counter now: each bit is half the one below.
+Turn off the power switch.  Insert U4 into its socket.  Turn on the
+power switch.  PC high is a binary counter now: each bit is half the one below.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -614,7 +624,8 @@ Insert U4 into its socket.  PC high is a binary counter now: each bit is half th
 **Program first:** U5 ALU low and U6 ALU high, two copies of
 `ALU_SHR.pld` (rev 07); verify and label them.
 
-Insert U19, U5 and U6 into their sockets.  The accumulator powers up random and is never loaded in the free run.  The
+Turn off the power switch.  Insert U19, U5 and U6 into their sockets.
+Turn on the power switch.  The accumulator powers up random and is never loaded in the free run.  The
 ALU does PASS A for a branch, so each ALU F output must equal the
 accumulator bit it comes from, at a steady 0 V or 5 V: low ALU F0-F3
 (pins 17, 20, 16, 21) = AC Q0-Q3, high ALU F0-F3 = AC Q4-Q7 (F377 pins 2,
@@ -632,7 +643,8 @@ readings of steps 13 and 14 must not change.
 | U20, U21 sockets | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
 | C20, C21 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
-Insert U20 and U21 into their sockets.  Also random and never loaded: their Q pins read steady 0 V or 5 V.  The
+Turn off the power switch.  Insert U20 and U21 into their sockets.  Turn
+on the power switch.  Also random and never loaded: their Q pins read steady 0 V or 5 V.  The
 free run readings must not change.
 
 ### Step 17: D source buffer (U26)
@@ -646,7 +658,8 @@ free run readings must not change.
 | C26 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | R5-R12 | Resistor, source buffers to the data bus | 47 ohm |  |
 
-Insert U26 into its socket.  The free run never selects it (its /OE2 is instruction bit 1, which is 1),
+Turn off the power switch.  Insert U26 into its socket.  Turn on the
+power switch.  The free run never selects it (its /OE2 is instruction bit 1, which is 1),
 so the readings of steps 12-14 must not change.  If they do, the buffer is
 driving the bus when it shouldn't: check its /OE1 (Branch /SRC_EN, pin 16)
 and /OE2 (instruction register PLD I1, pin 15) wiring.
@@ -673,7 +686,7 @@ and /OE2 (instruction register PLD I1, pin 15) wiring.
 | cartridge C1-C5 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 The free run does select the AC source buffer (source 11), and the
-accumulator is random, so it goes in with the memories.  Insert the AC
+accumulator is random, so it goes in with the memories.  Turn off the power switch and insert the AC
 source buffer U27, the line read buffer U29 and both RAM chips U31 and
 U32 into their sockets.
 
@@ -694,7 +707,7 @@ and insert its chips into their sockets one at a time:
 3. **SRAMs.**  Insert cartridge U4 and U5 into their sockets (no programming).
 
 Take the shunts off JP1 and JP2 on the main board and plug
-the cartridge into J8.  Power on: within about half a second the
+the cartridge into J8.  Turn on the power switch: within about half a second the
 screen shows the bring-up ROM's status screen ([below](#the-bring-up-rom)).
 If it doesn't, read where the CPU stopped (next section).
 
@@ -802,7 +815,8 @@ page test).  It takes several minutes.
 U42 PS/2 receiver from `ATF22V10_PS2.pld` (rev 02); verify and label
 them.
 
-Insert the two PLDs U38 and U42 into their sockets and fit their parts ([IO.md](IO.md)):
+Turn off the power switch.  Insert the two PLDs U38 and U42 into their
+sockets and fit their parts ([IO.md](IO.md)):
 
 - The 3.3 V regulator U40, with C40 on its input and C47 on its output
   (1 µF each).
@@ -814,7 +828,7 @@ Insert the two PLDs U38 and U42 into their sockets and fit their parts ([IO.md](
   (keyboard CLK), D4 (mouse CLK) with its 22k pull-down R60 (all BAT85).
 - SD card: J4, the dividers R42-R44 (1.8k) and R45-R47 (3.3k) and R48
   (10k MISO pull-up to 3.3 V; MISO goes straight to U38 pin 13).
-  Before plugging the SD card in, check 3.2-3.4 V at
+  Turn on the power switch and, before plugging the SD card in, check 3.2-3.4 V at
 U40's output and at the SD socket's pin 4.
 
 - **Port PLD high level.**  The port register drives the pads' CLOCK and
@@ -834,10 +848,10 @@ U40's output and at the SD socket's pin 4.
   scope on J5's mouse CLK pin shows the short high pulse once a frame.
 - With no card SD_INIT is 01; with a card it should be 00, and FS_MOUNT 00
   on a FAT16 or FAT32 card.  Press S to try again after changing cards.
-- Plug the mouse in and power on: MOUSE_INIT 00, and moving it changes X
+- With the power switch off, plug the mouse in, then turn the power switch on: MOUSE_INIT 00, and moving it changes X
   and Y (buttons in the last column).  The mouse is started once, at
   power-up.
-- PS/2 keyboard socket (J5 bottom): plug a PS/2 keyboard in and power on:
+- PS/2 keyboard socket (J5 bottom): with the power switch off, plug a PS/2 keyboard in, then turn the power switch on:
   `port_init` finds it (its lights flash once as the driver sets them),
   typed keys echo, and Caps Lock lights its Caps Lock light.  Check
   typing with the mouse plugged in too, and that both keep working
@@ -878,10 +892,11 @@ U40's output and at the SD socket's pin 4.
 | R39 | Resistor, output | 10k |  |
 | J6 | Audio line out jack, 3.5 mm TRRS | Tensility 54-00174 |  |
 
-Insert the DAC register U36 into its socket and fit its supply
+Turn off the power switch.  Insert the DAC register U36 into its socket
+and fit its supply
 filter R22 (2.2 ohm) and C44 (220 µF), the R-2R ladder R23-R31 (2k) and
 R32-R38 (1k), the output filter C45 (15 nF) and C46 (22 µF), R39 (10k)
-and the jack J6 ([SOUND.md](SOUND.md)).
+and the jack J6 ([SOUND.md](SOUND.md)).  Turn on the power switch.
 With no sound playing the sample is 80h:
 
 | DAC pin | Silent | With T (1 kHz tone, 80h ± 48 = B0h / 50h) |
