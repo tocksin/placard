@@ -226,9 +226,9 @@ def table(rows, title):
 
 
 def run_video(step, bus=0xFF):
-    """steps 3-5 and 12: the video chips (step 12 with LC7 held low, as
+    """steps 3-5 and 11: the video chips (step 11 with LC7 held low, as
     before the line code register sees a mode byte)"""
-    vid = Video(blank_rd=step >= 12, lc_from_bus=False, bus=bus)
+    vid = Video(blank_rd=step >= 11, lc_from_bus=False, bus=bus)
     m = Meter()
     for clk in range(2 * FRAME):
         c = vid.comb()
@@ -252,7 +252,7 @@ def run_video(step, bus=0xFF):
                 m.add('Sync PIXEL_ENABLE (pin 19)', vid.pe)
                 m.add('Sync ADDR_SEL (pin 20)', vid.pe)        # PC_ENABLE held low
                 m.add('Sync V_VIDEO_ACTIVE (pin 23)', vid.vva)
-            if step == 12:
+            if step == 11:
                 m.add('Audio BLANK_RD (pin 23)', c['blank_rd'])
                 m.add('Audio /MODE_LD (pin 22)', 1 - c['mode_ld'])
         vid.clock(c)
@@ -375,8 +375,8 @@ def main(argv):
         res = run_probes(cases)
         for pix, mode in cases:
             print(table(res[(pix, mode)], 'Step 6: color decoder, pixel %02X, mode %d' % (pix, mode)))
-    if want(12):
-        print(table(run_video(12), 'Step 12: audio slot PLD'))
+    if want(11):
+        print(table(run_video(11), 'Step 11: audio slot PLD'))
     for s, t in ((13, 'Step 13: State PLD (and the Branch PLD), FF free run'), (14, 'Step 14: PC low'),
                  (15, 'Step 15: PC high')):
         if want(s):
