@@ -68,7 +68,7 @@ sheet that drives the net.
 |---|---|---|---|
 | `A[0..15]` | address bus (address mux outputs) | 4 | 7 (RAM, memory control, I/O decode, cartridge), 10 (A0 port PLD), 11 (A7:A0) |
 | `D[0..7]` | the one data bus: memory and I/O reads, and the source in EXEC | 6 (series resistors), 7 (RAM, cartridge), 8 (line read), 10 (port PLD D7/D6, row F541), 11 (cards) | 3 (instruction register, State PLD D4:D0), 4 (PC low load), 5 (ALU B), 6 (D register), 7 (map register, RAM writes), 9 (pixel buffer), 10 (port latch) |
-| `SRC[0..7]` | the source F541s' joined outputs, before the series resistors | 6 (source F541s) | 6 (R5-R12 onto `D[0..7]`), 11 (the cards' SD7:SD0) |
+| `SRC[0..7]` | the source F541s' joined outputs, before the series resistors | 6 (source F541s) | 6 (R5-R12 onto `D[0..7]`) |
 | `F[0..7]` | ALU result | 5 | 5 (AC, X, Y inputs), shown on one sheet only |
 | `I[0..7]` | instruction register outputs | 3 | 3 (State and Branch decode), 5 (ALU S2:S0, CIN), 8 (I1 to the audio PLD), 6 (I1 to U26 /OE2) |
 | `X[0..7]`, `Y[0..7]` | X and Y register outputs | 5 | 4 (address mux), 7 (Y7 to I/O decode) |
@@ -295,7 +295,7 @@ Decisions made while drawing (2026-10-20):
 - The slots' SD7:SD0 take `SRC7:SRC0`, the source drivers' side of the
   series resistors, so the cards see write data without the resistors'
   delay; D7:D0 is the bus itself.  Both are the same signal in EXEC.
-  **Changed 2026-10-22, not drawn yet (propagation hold):** the slots no
+  **Changed 2026-10-22, drawn 2026-10-25:** the slots no
   longer carry SD7:SD0; cards latch D7:D0 (the resistors add about 2.4 ns,
   long settled by the end of a write).  The eight contacts become BT1-BT8:
   on slot 1, A8 STALL_IN, B8 STALL_OUT, A9 PC_ENABLE, B9 PIXEL_ENABLE, A10
