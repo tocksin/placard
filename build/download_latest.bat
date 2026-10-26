@@ -7,7 +7,9 @@ rem (basys_top.bit from a full build, or basys_top_fast.bit from a "fast"
 rem memory update), whichever program it was built for.  Nothing is assembled
 rem or rebuilt.
 rem
-rem Date: 10/16/2026
+rem Plays a sound when it finishes (ding.bat; set PLACARD_QUIET=1 for none).
+rem
+rem Date: 10/26/2026
 rem ===========================================================================
 setlocal EnableExtensions
 
@@ -42,8 +44,10 @@ if not "%RESULT%"=="0" (
 )
 echo.
 echo download_latest: board programmed
+call "%BUILD_DIR%ding.bat" ok
 exit /b 0
 
 :failed
+call "%BUILD_DIR%ding.bat" fail
 pause
 exit /b 1
