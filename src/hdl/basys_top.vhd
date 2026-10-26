@@ -149,6 +149,8 @@ architecture Behavioral of basys_top is
     signal uartKbdClkLow    : sl;   -- the PC-terminal keyboard pulls PS/2 CLK low
     signal uartKbdDataLow   : sl;   -- and PS/2 DATA
     signal uartRxToggle     : sl;   -- changes with every character from the PC (LD5)
+    signal uartDbgTaken     : slv(7 downto 0);   -- characters the terminal keyboard took (SW11 display)
+    signal uartDbgSent      : slv(7 downto 0);   -- PS/2 bytes it sent (SW11 display)
 
     signal sync             : sl;
     signal blank            : sl;
@@ -323,7 +325,9 @@ begin
     -- character from the PC terminal (uart_ps2_kbd.vhd, which also echoes it).
     -- SW12 = 1: only the PC terminal types (the PS/2 pins are ignored).  SW13 = 1: the
     -- FPGA only listens to the PS/2 lines (see mouseOn below).
-    ssegR <= snfByte & slv(snfCount);
+    -- SW11 = 1: the PC-terminal keyboard instead: left the characters it
+    -- has taken from its FIFO, right the PS/2 bytes it has sent (mod 256).
+    ssegR <= uartDbgTaken & uartDbgSent when dipRR(11) = '1' else snfByte & slv(snfCount);
 
     snifferProc : process (clkVGA)
     begin
@@ -994,7 +998,9 @@ begin
         kbdClkLow   => uartKbdClkLow,
         kbdDataLow  => uartKbdDataLow,
         txOut       => uartTxOut,
-        rxToggle    => uartRxToggle
+        rxToggle    => uartRxToggle,
+        dbgTaken    => uartDbgTaken,
+        dbgSent     => uartDbgSent
     );
 
     -- SD card (PmodMicroSD on JB) and SNES pads (JC)
