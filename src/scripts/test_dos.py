@@ -1,26 +1,33 @@
 #!/usr/bin/env python3
 """
-test_dos.py - run the DOS (dos.masm) in placard_sim with a card image
+test_dos.py - run the 32K ROM (rom32.masm) and the DOS (DOS.PLC, dos.masm)
+in placard_sim with a card image
 
     python3 test_dos.py                 the checks below
     python3 test_dos.py --png dos.png   also the browser screen as a PNG
 
-Builds the 32K ROM image from dos.asm as gen_rom.tcl does (build_rom), a
-FAT16 card (sdimage.py) holding the demo .PLC files from ../../sdcard, two
-small library programs made here, a folder, a text file and BOOT.CFG, and
-boots it like the board with a PS/2 keyboard (io_devices) on the port:
+Builds the 32K ROM image from rom32.asm as gen_rom.tcl does (build_rom), a
+FAT16 card (sdimage.py) holding DOS.PLC (made from dos.asm), the demo .PLC
+files from ../../sdcard, two small library programs made here, a folder, a
+text file and BOOT.CFG, and boots it like the board with a PS/2 keyboard
+(io_devices) on the port:
   1. BOOT.CFG runs PARENT.PLC, which names itself in MB_PARENT and asks the
-     DOS (dos_run) for HELLO.PLC; HELLO comes back (x8008), the DOS runs
-     PARENT again, which comes back too: the browser
+     ROM (dos_run) for HELLO.PLC; HELLO comes back (x8008), the ROM runs
+     PARENT again, which comes back too: the ROM loads DOS.PLC, the browser
   2. the browser's screen: the title, the folder's entries and sizes
-  3. Down and Enter open a folder, Backspace comes back up
+  3. Down and Enter open a folder; a program run there comes back to it,
+     the bar on it; Backspace goes back up
   4. Enter on a text file: "Not a program"
   5. Enter on PI.PLC (a RAM image): RAM x0000-x49FF is the image when it
      starts (through MB_GO); Esc brings the browser back
   6. Del deletes the file, B writes BOOT.CFG
-  7. the command line: SAVE, LOAD, DEL, CD, an unknown command
+  7. the command line: SAVE, LOAD (and LOAD over the DOS refused), DEL, CD,
+     an unknown command, BASIC
   8. Esc held at power-up skips BOOT.CFG
-  9. no card: the browser with its message
+  9. no card: BASIC
+ 10. a card with no DOS.PLC and no BOOT.CFG: BASIC
+ 11. BOOT.CFG "basic": BASIC; Esc there: the DOS
+ 12. BOOT.CFG names a missing file: the DOS shows "Error 2"
 The screen is read back through the font (LIB_FONT).
 
 Date: 10/26/2026
@@ -78,7 +85,7 @@ go:
     ld   0x80, y                ; dos_run
     jmp  0x0C
 second:                         ; run again by the DOS: done
-    ld   0x13, x
+    ld   0x16, x
     ld   1, [y,x]
     ld   0x80, y                ; dos_back
     jmp  0x08
@@ -92,7 +99,7 @@ HELLO_SRC = '''
 #addr 0x0200
 main:
     ld   0x5D, y
-    ld   0x12, x
+    ld   0x15, x
     ld   0x42, [y,x]
     ld   0x80, y                ; dos_back
     jmp  0x08
@@ -106,8 +113,8 @@ def plc(src, lib):
 
 
 class Rig:
-    def __init__(self, rom, syms, lib, image):
-        self.rom, self.syms = rom, syms
+    def __init__(self, rom, syms, dsyms, lib, image):
+        self.rom, self.syms, self.dsyms = rom, syms, dsyms
         self.port = io_devices.SharedPort()
         self.port.kbd = io_devices.Ps2Keyboard()
         if image is not None:
@@ -143,8 +150,14 @@ class Rig:
         print('FAIL:', msg)
 
     def at(self, name):
+        """the CPU at a label of the ROM (rom32.asm)"""
         a = self.syms[name]
         return self.cpu.pc == a and not (self.cpu.map >> (a >> 13)) & 1
+
+    def at_dos(self, name):
+        """the CPU at a label of DOS.PLC (in the RAM)"""
+        a = self.dsyms[name]
+        return self.cpu.pc == a and (self.cpu.map >> (a >> 13)) & 1
 
     def run(self, frames):
         end = self.cpu.clocks + frames * FRAME
@@ -162,7 +175,11 @@ class Rig:
 
     def wait_browser(self, frames=120):
         """the browser's key loop (after it drew the screen)"""
-        return self.run_until(lambda: self.at('br_loop'), frames, 'the browser')
+        return self.run_until(lambda: self.at_dos('br_loop'), frames, 'the browser')
+
+    def wait_basic(self, frames=400):
+        """BASIC's key loop (the placeholder for now)"""
+        return self.run_until(lambda: self.at('bs_loop'), frames, 'BASIC')
 
     def key(self, ch, hold=3):
         code = self.codes[ch]
@@ -220,13 +237,17 @@ class Rig:
 
 def build():
     lib, _, _ = ps.assemble(open(os.path.join(HERE, 'rom_lib.asm')).read(), HERE)
-    dos, syms, _ = ps.assemble(open(os.path.join(HERE, 'dos.asm')).read(), HERE)
-    rom = ps.build_rom(dos, HERE)
-    return rom, syms, lib
+    prog, syms, _ = ps.assemble(open(os.path.join(HERE, 'rom32.asm')).read(), HERE)
+    rom = ps.build_rom(prog, HERE)
+    dos, dsyms, _ = ps.assemble(open(os.path.join(HERE, 'dos.asm')).read(), HERE)
+    dos_plc = gen_plc.make(dos, dsyms, lib)[0]
+    return rom, syms, dsyms, lib, dos_plc
 
 
-def make_card(lib, cfg=b'PARENT.PLC\r\n'):
+def make_card(lib, cfg=b'PARENT.PLC\r\n', dos=None):
     files = {}
+    if dos is not None:
+        files['DOS.PLC'] = dos
     for n in ('PI.PLC', 'LIFE.PLC', 'CPUTEST.PLC', 'MANDEL.PLC'):
         files[n] = open(os.path.join(SDCARD, n), 'rb').read()
     files['PARENT.PLC'] = plc(PARENT_SRC, lib)
@@ -242,9 +263,9 @@ def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('--png')
     args = ap.parse_args(argv)
-    rom, syms, lib = build()
-    image, files = make_card(lib)
-    r = Rig(rom, syms, lib, image)
+    rom, syms, dsyms, lib, dos_plc = build()
+    image, files = make_card(lib, dos=dos_plc)
+    r = Rig(rom, syms, dsyms, lib, image)
     cpu, mem = r.cpu, r.cpu.mem
 
     # 1. BOOT.CFG -> PARENT -> dos_run HELLO -> dos_back -> PARENT again -> browser
@@ -256,11 +277,13 @@ def main(argv):
     r.run_until(lambda: cpu.pc == 0x0200 and cpu.map == 7, 200, 'HELLO.PLC to start')
     r.run_until(lambda: cpu.pc == 0x0100 and cpu.map == 7 and mem[MB + 0x11] == 1, 200,
                 'PARENT.PLC to run again')
+    if r.run_until(lambda: cpu.pc == dsyms['main'] and cpu.map == 7, 200, 'DOS.PLC to start'):
+        print('  DOS.PLC started at frame %d' % (cpu.clocks // FRAME))
     if r.wait_browser(200):
         print('  browser at frame %d' % (cpu.clocks // FRAME))
-    if mem[MB + 0x12] != 0x42:
-        r.fail('HELLO.PLC did not run (x5D12 = %02X)' % mem[MB + 0x12])
-    if mem[MB + 0x13] != 1:
+    if mem[MB + 0x15] != 0x42:
+        r.fail('HELLO.PLC did not run (x5D15 = %02X)' % mem[MB + 0x15])
+    if mem[MB + 0x16] != 1:
         r.fail('PARENT.PLC did not run again')
     if mem[MB + 0x40] != 0:
         r.fail('MB_PARENT not cleared')
@@ -301,6 +324,17 @@ def main(argv):
             print('  row 0: %r' % r.row(0))
             if not r.row(0).endswith('GAMES') or r.find_row('PONG.PLC') is None:
                 r.fail('GAMES not opened')
+            elif r.select('PONG.PLC'):
+                row = r.bar_row()
+                mem[MB + 0x15] = 0
+                r.key('\n')
+                if r.wait_browser(200):
+                    print('  PONG.PLC ran (x5D15 = %02X), back in %r, bar on row %s'
+                          % (mem[MB + 0x15], r.row(0).split()[-1], r.bar_row()))
+                    if mem[MB + 0x15] != 0x42:
+                        r.fail('PONG.PLC did not run')
+                    if not r.row(0).endswith('GAMES') or r.bar_row() != row:
+                        r.fail('the DOS did not come back to GAMES with the bar on PONG.PLC')
             r.key('\x08')
             if r.wait_browser() and (not r.row(0).endswith('\\') or r.find_row('PI.PLC') is None):
                 r.fail('Backspace did not go back to the root')
@@ -331,7 +365,7 @@ def main(argv):
             if cpu.map != 0xFF:
                 r.fail('map %02X while the RAM image runs' % cpu.map)
             r.port.kbd.press(r.codes['\x1b'])
-            found = r.run_until(lambda: r.at('br_loop'), 120, 'the browser after Esc')
+            found = r.run_until(lambda: r.at_dos('br_loop'), 120, 'the browser after Esc')
             r.port.kbd.release(r.codes['\x1b'])
             if found:
                 print('  Esc: the browser is back, map %02X' % cpu.map)
@@ -373,11 +407,18 @@ def main(argv):
         r.fail('TEST.PLC holds %d bytes: %r...' % (len(data), data[:20]))
     r.key('\x1b')
     r.run(3)
-    r.type('load test.plc 3000\n')
+    r.type('load test.plc 2000\n')
     r.wait_browser()
     print('  LOAD: %r' % r.row(55))
-    if bytes(mem[0x3000:0x3000 + len(want)]) != want:
-        r.fail('LOAD did not put the file at x3000')
+    if bytes(mem[0x2000:0x2000 + len(want)]) != want:
+        r.fail('LOAD did not put the file at x2000')
+    r.key('\x1b')
+    r.run(3)
+    r.type('load test.plc 3800\n')
+    r.wait_browser()
+    print('  LOAD over the DOS: %r' % r.row(55))
+    if 'holds the DOS' not in r.row(55):
+        r.fail('LOAD at x3800 not refused')
     r.key('\x1b')
     r.run(3)
     r.type('del test.plc\n')
@@ -403,21 +444,26 @@ def main(argv):
     print('  unknown: %r' % r.row(55))
     if 'Commands' not in r.row(55):
         r.fail('no command list for an unknown command')
+    r.key('\x1b')
+    r.run(3)
+    r.type('basic\n')
+    if r.wait_basic(60):
+        print('  BASIC: %r' % r.row(0))
 
     # 8. Esc at power-up
     print('8. Esc held at power-up')
-    image, files = make_card(lib)
-    r2 = Rig(rom, syms, lib, image)
+    image, files = make_card(lib, dos=dos_plc)
+    r2 = Rig(rom, syms, dsyms, lib, image)
     started = []
-    r2.run_until(lambda: r2.at('ds_w'), 60, 'the Esc wait')
+    r2.run_until(lambda: r2.at('pu_w'), 60, 'the Esc wait')
     r2.port.kbd.press(r2.codes['\x1b'])
     end = r2.cpu.clocks + 150 * FRAME
-    while r2.cpu.clocks < end and not r2.at('br_loop'):
+    while r2.cpu.clocks < end and not r2.at_dos('br_loop'):
         r2.cpu.step()
         if r2.cpu.pc == 0x0100 and r2.cpu.map == 7:
             started.append(r2.cpu.clocks)
     r2.port.kbd.release(r2.codes['\x1b'])
-    if not r2.at('br_loop'):
+    if not r2.at_dos('br_loop'):
         r2.fail('no browser after Esc at power-up')
     elif started:
         r2.fail('PARENT.PLC ran although Esc was held')
@@ -426,13 +472,40 @@ def main(argv):
 
     # 9. no card
     print('9. no card')
-    r3 = Rig(rom, syms, lib, None)
-    if r3.run_until(lambda: r3.at('br_loop'), 400, 'the browser without a card'):
-        print('  message: %r' % r3.row(55))
-        if 'No SD card' not in r3.row(55):
-            r3.fail('no "No SD card" message')
+    r3 = Rig(rom, syms, dsyms, lib, None)
+    if r3.wait_basic():
+        print('  row 0: %r' % r3.row(0))
+        if not r3.row(0).startswith('PLACARD BASIC'):
+            r3.fail('BASIC\'s title')
 
-    ok = r.ok and r2.ok and r3.ok
+    # 10. no DOS.PLC, no BOOT.CFG
+    print('10. no DOS.PLC')
+    image, files = make_card(lib, cfg=None)
+    r4 = Rig(rom, syms, dsyms, lib, image)
+    if r4.wait_basic():
+        print('  BASIC')
+
+    # 11. BOOT.CFG "basic", then Esc: the DOS
+    print('11. BOOT.CFG basic')
+    image, files = make_card(lib, cfg=b'basic\r\n', dos=dos_plc)
+    r5 = Rig(rom, syms, dsyms, lib, image)
+    if r5.wait_basic():
+        print('  BASIC; Esc')
+        r5.key('\x1b')
+        if r5.wait_browser(200):
+            print('  the browser: %r' % r5.row(0))
+
+    # 12. BOOT.CFG names a missing file
+    print('12. BOOT.CFG names a missing file')
+    image, files = make_card(lib, cfg=b'NOPE.PLC\r\n', dos=dos_plc)
+    r6 = Rig(rom, syms, dsyms, lib, image)
+    if r6.wait_browser(300):
+        print('  message: %r' % r6.row(55))
+        if r6.row(55) != 'Error 2':
+            r6.fail('no "Error 2" message')
+
+    ok = all(x.ok for x in (r, r2, r3, r4, r5, r6))
+
     print('OK' if ok else 'FAILED')
     return 0 if ok else 1
 
