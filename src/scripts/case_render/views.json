@@ -1,16 +1,15 @@
 {
- "assembled_keyboard": {
+ "assembled": {
   "cam": [
-   -300,
-   -470,
-   330
+   -260,
+   -330,
+   300
   ],
   "look": [
-   150,
-   160,
+   147.5,
+   115,
    0
   ],
-  "bay": "keyboard",
   "covers": [
    3,
    4
@@ -20,24 +19,24 @@
    "J9",
    "J10"
   ],
-  "stow": [
+  "parked": [
    "slot_cover_1",
    "slot_cover_2",
    "cart_cover"
-  ]
+  ],
+  "fov": 26
  },
- "assembled_blank": {
+ "assembled_covers": {
   "cam": [
-   580,
-   -430,
-   330
+   560,
+   -300,
+   290
   ],
   "look": [
-   150,
-   165,
+   147.5,
+   115,
    0
   ],
-  "bay": "blank",
   "covers": [
    1,
    2,
@@ -46,19 +45,47 @@
   ],
   "cartCover": true
  },
- "exploded": {
+ "underside": {
   "cam": [
-   -360,
-   -600,
-   560
+   -60,
+   -330,
+   -300
   ],
   "look": [
-   150,
-   170,
-   60
+   147.5,
+   115,
+   -5
+  ],
+  "fov": 30,
+  "covers": [],
+  "cart": true,
+  "cards": [
+   "J9",
+   "J10",
+   "J11",
+   "J12"
+  ],
+  "parked": [
+   "slot_cover_1",
+   "slot_cover_2",
+   "slot_cover_3",
+   "slot_cover_4",
+   "cart_cover"
+  ],
+  "aluEdges": true
+ },
+ "exploded": {
+  "cam": [
+   -380,
+   -520,
+   520
+  ],
+  "look": [
+   147.5,
+   120,
+   40
   ],
   "fov": 32,
-  "bay": "keyboard",
   "covers": [
    1,
    2,
@@ -66,28 +93,27 @@
    4
   ],
   "cartCover": true,
+  "parked": [],
   "explode": {
    "lower": 0,
-   "board": 45,
-   "upper": 120,
-   "top": 170,
-   "bay": 30,
-   "covers": 215
+   "board": 40,
+   "upper": 110,
+   "top": 160,
+   "covers": 205
   }
  },
  "side": {
   "cam": [
    -900,
-   165,
-   25
+   110,
+   15
   ],
   "look": [
    0,
-   165,
-   12
+   110,
+   8
   ],
-  "fov": 9.5,
-  "bay": "keyboard",
+  "fov": 8,
   "covers": [
    1,
    2,
@@ -102,16 +128,15 @@
  "rear": {
   "cam": [
    -150,
-   800,
+   640,
    140
   ],
   "look": [
    150,
-   280,
+   170,
    5
   ],
   "fov": 26,
-  "bay": "keyboard",
   "covers": [
    1,
    2,
@@ -121,48 +146,18 @@
   "cartCover": true,
   "aluEdges": true
  },
- "garage": {
-  "cam": [
-   150,
-   -330,
-   190
-  ],
-  "look": [
-   150,
-   150,
-   5
-  ],
-  "fov": 34,
-  "bay": "keyboard",
-  "covers": [
-   3,
-   4
-  ],
-  "cards": [
-   "J9",
-   "J10"
-  ],
-  "cart": true,
-  "stow": [
-   "slot_cover_1",
-   "slot_cover_2",
-   "cart_cover"
-  ],
-  "aluEdges": true
- },
  "split_detail": {
   "cam": [
    150,
-   600,
+   490,
    60
   ],
   "look": [
    235,
-   330,
+   220,
    8
   ],
   "fov": 22,
-  "bay": "blank",
   "covers": [
    1,
    2,
@@ -179,16 +174,15 @@
  },
  "black": {
   "cam": [
-   -300,
-   -470,
-   330
+   -260,
+   -330,
+   300
   ],
   "look": [
-   150,
-   160,
+   147.5,
+   115,
    0
   ],
-  "bay": "keyboard",
   "covers": [
    1,
    2,
@@ -198,13 +192,10 @@
   "cartCover": false,
   "cart": true,
   "alu": 2894892,
-  "bg": 15659760,
-  "caps": [
-   15461355,
-   13421772
-  ],
-  "stow": [
+  "bg": 15659248,
+  "parked": [
    "cart_cover"
-  ]
+  ],
+  "fov": 26
  }
 }

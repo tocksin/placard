@@ -1,6 +1,6 @@
 # Software roadmap
 
-Date: 2026-10-24
+Date: 2026-10-25
 
 Programs to write for the Placard, what each needs, and where it fits.
 The libraries it builds on are in [LIBRARY.md](LIBRARY.md)
@@ -110,7 +110,7 @@ about a branch that leaves its page, like `placard_sim.py`.
 A 16-bit integer BASIC in the style of Tiny BASIC or Apple Integer BASIC:
 line numbers, `PRINT`, `INPUT`, `IF`, `GOTO`, `GOSUB`, `FOR`, arrays,
 strings, `PEEK`, `POKE`, `CALL`, `LOAD`, `SAVE`, `DIR`.  Placard extras:
-`PLOT`, `LINE`, `MODE` (row colour mode and repeat), `TINT`, `PAD`,
+`PLOT`, `LINE`, `MODE` (row color mode and repeat), `TINT`, `PAD`,
 `SOUND`, `WAIT` (frames).  Floating point later, probably as a library of
 its own.
 
@@ -180,9 +180,9 @@ number.  Machines with clever video chips (most consoles) do not work.
 | CP/M (8080) | 8080, 2 MHz | 80 × 24 terminal | about 50-65 % | **Yes** (program 7) |
 | ZX81 | Z80, 3.25 MHz | 32 × 24 characters, mono | close to a real one in SLOW mode, which spends about three quarters of its time drawing the screen | **Probably yes**; simple screen, 1-16 KB RAM, 8 KB ROM |
 | TRS-80 Model I | Z80, 1.77 MHz | 64 × 16 text, block graphics | about 60 % | **Decent**; text screen, 4-16 KB RAM |
-| VIC-20 | 6502, 1.02 MHz | 22 × 23 characters (176 × 184), 16 colours | about 40-55 % | **Possible, at about half speed**; see below |
-| Apple II | 6502, 1 MHz | 40 × 24 text, lo-res, 280 × 192 hi-res with artifact colour | about 50 %, hi-res games slower | Text and BASIC yes, hi-res games poor |
-| ZX Spectrum | Z80, 3.5 MHz | 256 × 192 with colour per 8 × 8 cell | about 30 % | No |
+| VIC-20 | 6502, 1.02 MHz | 22 × 23 characters (176 × 184), 16 colors | about 40-55 % | **Possible, at about half speed**; see below |
+| Apple II | 6502, 1 MHz | 40 × 24 text, lo-res, 280 × 192 hi-res with artifact color | about 50 %, hi-res games slower | Text and BASIC yes, hi-res games poor |
+| ZX Spectrum | Z80, 3.5 MHz | 256 × 192 with color per 8 × 8 cell | about 30 % | No |
 | Commodore 64, NES, Atari 2600, Game Boy | 6502 or similar with a sprite/video chip | | 15-40 % | No |
 
 **VIC-20 in more detail.**  It is one of the better fits among real home
@@ -199,12 +199,12 @@ computers, because it is small and its screen is made of characters:
   shapes changed and redraws only those.  BASIC and slow games look fine;
   games that scroll the whole screen or rewrite many character shapes
   every frame slow down further.
-- *Colour:* the hard part.  The VIC-20 gives each cell its own colour, but
+- *Color:* the hard part.  The VIC-20 gives each cell its own color, but
   the Placard's rows that are wide enough are 1 bpp (640 across, so the
-  VIC's 176 pixels can be shown three times wider, one colour per row with
-  the row tint) or 2 bpp (320 across, a fixed 4-colour palette).  The
-  16-colour rows are only 160 across, 16 pixels short.  Expect a
-  compromise: monochrome with tinted rows, or 16 colours with the picture
+  VIC's 176 pixels can be shown three times wider, one color per row with
+  the row tint) or 2 bpp (320 across, a fixed 4-color palette).  The
+  16-color rows are only 160 across, 16 pixels short.  Expect a
+  compromise: monochrome with tinted rows, or 16 colors with the picture
   squeezed to 160 across.
 - *Sound:* 3 square-wave voices and noise, mixed into the audio buffer one
   sample a line, about 15,000-25,000 clocks a frame.
@@ -212,7 +212,7 @@ computers, because it is small and its screen is made of characters:
   their own images on the SD card.
 
 So a VIC-20 emulator could run BASIC and simple games at about half speed
-with simplified colour.  The Apple 1 / KIM-1 machine is the better first
+with simplified color.  The Apple 1 / KIM-1 machine is the better first
 6502 target: same CPU core, far less work, and it feels full speed.
 
 ## Atari 2600: not feasible at full speed
@@ -221,14 +221,14 @@ The 2600 is cheap for a real 2600 because its video chip (the TIA) does the
 pixel work in hardware.  An emulator has to do the TIA's work in software
 as well as the 6507's, and keep the two in step to the cycle, because
 2600 games "race the beam": they rewrite the TIA's registers in the middle
-of a line to change the playfield, move sprites and change colours.
+of a line to change the playfield, move sprites and change colors.
 
 **What one 2600 frame needs:**
 
 | Job | Work | Placard clocks |
 |---|---|---|
 | 6507 | 262 lines × 76 cycles = 19,912 cycles; about 4,000-6,000 instructions executed (the rest is waiting in WSYNC) | 5,000 × ~40 native × 3 = **about 600,000** |
-| TIA picture | 192 lines × 160 pixels: playfield, 2 sprites, 2 missiles, ball, priorities, 15 collision bits, writes split at their colour clock | at least ~5 native per output byte plus ~150 per line: **about 320,000** |
+| TIA picture | 192 lines × 160 pixels: playfield, 2 sprites, 2 missiles, ball, priorities, 15 collision bits, writes split at their color clock | at least ~5 native per output byte plus ~150 per line: **about 320,000** |
 | TIA sound | 2 channels of polynomial counters, one sample a line | about 15,000 |
 | **Total** | | **about 935,000** |
 | Placard has | | **about 380,000** |
@@ -240,9 +240,9 @@ positioning (`RESPx`, `HMOVE` and its comb), collisions for every pixel and
 bank switching add to it, and the first version would likely be 4-8 times
 too slow.
 
-The picture is a second problem: the 2600 has 128 colours at 160 pixels
-across.  The Placard's 4 bpp rows are 160 across but a fixed 16-colour
-palette, and its 8 bpp rows have 256 colours but only 80 pixels across.
+The picture is a second problem: the 2600 has 128 colors at 160 pixels
+across.  The Placard's 4 bpp rows are 160 across but a fixed 16-color
+palette, and its 8 bpp rows have 256 colors but only 80 pixels across.
 
 **Verdict:** a slow-motion demo of a simple 4 KB game is possible as a
 stunt, but a usable 2600 emulator is not; it is left off the list.
@@ -254,7 +254,7 @@ Realistic instead:
   60 frames a second).  Remakes of 2600 classics written in Placard code,
   or a "fantasy console" (a small sprite and tile engine in the library
   plus a game file format loaded from SD), give the same games at full
-  speed and in colour.
+  speed and in color.
 
 ## Order
 

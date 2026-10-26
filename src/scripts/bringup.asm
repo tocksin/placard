@@ -4348,7 +4348,7 @@ bp_474:
     ld   ac, [0x5E]
     xor  0xC0, ac
     bne  bp_474
-; 8 bpp: colour = (row band) x 64 + (c and 63)
+; 8 bpp: color = (row band) x 64 + (c and 63)
     ld   [0x58], ac
     and  0x3F, ac
     ld   ac, [0x5A]
