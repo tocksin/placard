@@ -7,8 +7,8 @@ Qty,References,Part number,Manufacturer,Description,Value,Unit price USD,Line to
 3,U26 U27 U29,SN74F541N,Texas Instruments,"Octal buffer, 3-state, 74F, DIP-20",,1.49,4.47,Mouser,,placard:DIP-20_W7.62mm_Socket_Puller,yes
 2,U31 U32,AS7C256C-15PCN,Alliance Memory,"SRAM, 32K x 8, 15 ns, PDIP-28 0.3""",,15.21,30.42,Mouser,,placard:DIP-28_W7.62mm_Socket_Puller,yes
 1,U36,SN74HCT574N,Texas Instruments,"Octal D flip-flop, 3-state, 74HCT, DIP-20",,1.46,1.46,Mouser,,placard:DIP-20_W7.62mm_Socket_Puller,yes
-1,U40,MCP1700-3302E/TO,Microchip,"3.3 V LDO regulator, 250 mA, TO-92",,0.50,0.50,Mouser,,Package_TO_SOT_THT:TO-92_Inline,yes
-1,X1,ECS-100A-251.7,ECS Inc.,"Clock oscillator, 25.175 MHz, 5 V, full-size DIP-14 can",25.175 MHz,4.06,4.06,"Digi-Key: Mouser has no stock (Justin, 2026-10-22)",,Oscillator:Oscillator_DIP-14,yes
+1,U40,MCP1700-3302E/TO,Microchip,"3.3 V LDO regulator, 250 mA, TO-92",,0.50,0.50,Mouser,,placard:TO-92_Inline,yes
+1,X1,ECS-100A-251.7,ECS Inc.,"Clock oscillator, 25.175 MHz, 5 V, full-size DIP-14 can",25.175 MHz,4.06,4.06,"Digi-Key: Mouser has no stock (Justin, 2026-10-22)",,placard:Oscillator_DIP-14,yes
 2,J2 J3,,,"SNES controller socket, 7 pin",SNES pad,4.00,8.00,est.: ZedLabz right-angle SNES port (Amazon/eBay),,placard:SNES_Pad_Socket_Horizontal,yes
 1,J4,DM1AA-SF-PEJ(82),Hirose,SD card socket,SD (SPI),4.56,4.56,"Mouser: SMD, push-push (no horizontal through-hole SD socket exists; Kyocera 145638009511859+ went obsolete 2026-10-25)",,placard:SD_Hirose_DM1AA_SF_PEJ82,yes
 1,J5,KMDGX-6S/6S-S4N,Kycon,"Stacked dual mini-DIN-6 receptacle (PS/2), right angle, shielded: mouse top, keyboard bottom",PS/2 kbd + mouse,3.72,3.72,Mouser,,placard:PS2_Kycon_KMDGX-6S-6S-S4N,yes
@@ -21,10 +21,10 @@ Qty,References,Part number,Manufacturer,Description,Value,Unit price USD,Line to
 1,SW2,PTS645VL58-2 LFS,C&K,"Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil)",,0.43,0.43,est.: Digi-Key; Mouser has no stock until 12/23/2026,,placard:SW_Tactile_SPST_Angled_PTS645Vx58-2LFS,yes
 1,K1,J1071CS5VDC.36,CIT Relay and Switch,"Reset relay: SPDT, 5 V coil (69 ohm, 72 mA), 7 A 30 V DC (NO and NC), through hole, sealed; NC contact carries the 5 V",,1.15,1.15,"Digi-Key: Justin, 2026-10-25; Mouser does not sell CIT",,placard:Relay_SPDT_CIT_J107,yes
 1,F1,MF-RG300-0,Bourns,"Polyfuse, 3 A hold, radial",3 A hold,0.73,0.73,Mouser,Part number from the footprint (Fuse_Bourns_MF-RG300),placard:Fuse_Bourns_MF-RG300,yes
-11,D1 D2 D3 D4 D5 D6 D8 D9 D10 D11 D19,BAT85S-TAP,Vishay,"Schottky diode, DO-35",BAT85,0.22,2.42,Mouser: Vishay BAT85S-TAP,"Any BAT85 (Vishay BAT85S is the one Mouser stocks; Nexperia, onsemi)",Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal,yes
-1,D7,SA5.0A,Littelfuse,D_Zener,,0.64,0.64,Mouser,,Diode_THT:D_DO-15_P10.16mm_Horizontal,yes
-6,D12 D13 D14 D15 D16 D17,1N4148-TAP,Vishay,"Small-signal diode, DO-35",1N4148,0.26,1.56,Mouser: Vishay 1N4148-TAP,"Any 1N4148 (Vishay, onsemi, Diodes Inc.)",Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal,yes
-1,D18,WP7113ID,Kingbright,"Power LED, 5 mm, red diffused, through hole (on +5V after K1)",,0.21,0.21,Mouser,"D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color (was Lite-On LTL2R3KRD-EM, out of stock 2026-10-25)",LED_THT:LED_D5.0mm,yes
+11,D1 D2 D3 D4 D5 D6 D8 D9 D10 D11 D19,BAT85S-TAP,Vishay,"Schottky diode, DO-35",BAT85,0.22,2.42,Mouser: Vishay BAT85S-TAP,"Any BAT85 (Vishay BAT85S is the one Mouser stocks; Nexperia, onsemi)",placard:D_DO-35_SOD27_P7.62mm_Horizontal,yes
+1,D7,SA5.0A,Littelfuse,D_Zener,,0.64,0.64,Mouser,,placard:D_DO-15_P10.16mm_Horizontal,yes
+6,D12 D13 D14 D15 D16 D17,1N4148-TAP,Vishay,"Small-signal diode, DO-35",1N4148,0.26,1.56,Mouser: Vishay 1N4148-TAP,"Any 1N4148 (Vishay, onsemi, Diodes Inc.)",placard:D_DO-35_SOD27_P7.62mm_Horizontal,yes
+1,D18,WP7113ID,Kingbright,"Power LED, 5 mm, red diffused, through hole (on +5V after K1)",,0.21,0.21,Mouser,"D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color (was Lite-On LTL2R3KRD-EM, out of stock 2026-10-25)",placard:LED_D5.0mm,yes
 2,R1 R2,MFR-25FBF52-5K1,Yageo,"Resistor, metal film 1%, 1/4 W, axial",5.1k,0.10,0.20,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
 8,R3 R4 R13 R39 R40 R41 R48 R63,MFR-25FBF52-10K,Yageo,"Resistor, metal film 1%, 1/4 W, axial",10k,0.10,0.80,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
 10,R5 R6 R7 R8 R9 R10 R11 R12 R61 R62,MFR-25FBF52-47R,Yageo,"Resistor, metal film 1%, 1/4 W, axial",47,0.04,0.40,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
@@ -41,14 +41,14 @@ Qty,References,Part number,Manufacturer,Description,Value,Unit price USD,Line to
 3,R49 R50 R55,MFR-25FBF52-4K7,Yageo,"Resistor, metal film 1%, 1/4 W, axial",4.7k,0.10,0.30,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
 3,R56 R57 R58,MFR-25FBF52-910R,Yageo,"Resistor, metal film 1%, 1/4 W, axial",910,0.10,0.30,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
 1,R60,MFR-25FBF52-22K,Yageo,"Resistor, metal film 1%, 1/4 W, axial",22k,0.10,0.10,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
-1,RN1,4609X-101-103LF,Bourns,"Resistor network, 8 bussed, SIP-9",10k,0.39,0.39,Mouser: Bourns 4609X-101-103LF,,Resistor_THT:R_Array_SIP9,yes
-34,C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C25 C26 C27 C29 C31 C32 C35 C36 C38 C42 C43,FG28X7R1H104KNT00,TDK,"Ceramic capacitor, 5 mm pitch",100n,0.10,3.40,Mouser: TDK FG28X7R1H104KNT00 (KEMET C320C104K5R5TA is $0.66 at Mouser),,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
-2,C40 C47,C330C105K5R5TA,KEMET,"Ceramic capacitor, 5 mm pitch",1u,0.57,1.14,Mouser: KEMET C330C105K5R5TA,,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
-1,C41,EEU-FR1E221,Panasonic,"Electrolytic capacitor, radial 8.0 mm, 3.50 mm pitch",220u 10V,0.35,0.35,est.: Panasonic FR series,,Capacitor_THT:CP_Radial_D8.0mm_P3.50mm,yes
-1,C44,EEU-FR1C221,Panasonic,"Electrolytic capacitor, radial 6.3 mm, 2.50 mm pitch",220u,0.35,0.35,est.: Panasonic FR series,,Capacitor_THT:CP_Radial_D6.3mm_P2.50mm,yes
-1,C45,FG24C0G1H153JNT06,TDK,"Ceramic capacitor, 5 mm pitch",15n C0G,0.58,0.58,Mouser: TDK FG24C0G1H153JNT06 (KEMET C320C153K1G5TA non-stocked),,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
-1,C46,FG24X5R1A226MRT06,TDK,"Ceramic capacitor, 5 mm pitch",22u,1.00,1.00,est.: TDK FG24X5R1A226MRT06 (Digi-Key; Mouser does not list it),,Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
-2,JP1 JP2,PREC002SAAN-RC,Sullins,"Pin header, 1 x 2, 2.54 mm (bring-up jumper)",,0.15,0.30,est.: Sullins PREC002SAAN-RC,,Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical,yes
+1,RN1,4609X-101-103LF,Bourns,"Resistor network, 8 bussed, SIP-9",10k,0.39,0.39,Mouser: Bourns 4609X-101-103LF,,placard:R_Array_SIP9,yes
+34,C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C25 C26 C27 C29 C31 C32 C35 C36 C38 C42 C43,FG28X7R1H104KNT00,TDK,"Ceramic capacitor, 5 mm pitch",100n,0.10,3.40,Mouser: TDK FG28X7R1H104KNT00 (KEMET C320C104K5R5TA is $0.66 at Mouser),,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
+2,C40 C47,C330C105K5R5TA,KEMET,"Ceramic capacitor, 5 mm pitch",1u,0.57,1.14,Mouser: KEMET C330C105K5R5TA,,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
+1,C41,EEU-FR1E221,Panasonic,"Electrolytic capacitor, radial 8.0 mm, 3.50 mm pitch",220u 10V,0.35,0.35,est.: Panasonic FR series,,placard:CP_Radial_D8.0mm_P3.50mm,yes
+1,C44,EEU-FR1C221,Panasonic,"Electrolytic capacitor, radial 6.3 mm, 2.50 mm pitch",220u,0.35,0.35,est.: Panasonic FR series,,placard:CP_Radial_D6.3mm_P2.50mm,yes
+1,C45,FG24C0G1H153JNT06,TDK,"Ceramic capacitor, 5 mm pitch",15n C0G,0.58,0.58,Mouser: TDK FG24C0G1H153JNT06 (KEMET C320C153K1G5TA non-stocked),,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
+1,C46,FG24X5R1A226MRT06,TDK,"Ceramic capacitor, 5 mm pitch",22u,1.00,1.00,est.: TDK FG24X5R1A226MRT06 (Digi-Key; Mouser does not list it),,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
+2,JP1 JP2,PREC002SAAN-RC,Sullins,"Pin header, 1 x 2, 2.54 mm (bring-up jumper)",,0.15,0.30,est.: Sullins PREC002SAAN-RC,,placard:PinHeader_1x02_P2.54mm_Vertical,yes
 11,U18 U19 U20 U21 U22 U23 U25 U26 U27 U29 U36,ED20DT,On Shore,"IC socket, DIP-20 0.3""",,0.30,3.30,est.: On Shore ED20DT,,,no
 20,U1 U2 U3 U4 U5 U6 U7 U8 U9 U10 U11 U12 U13 U14 U15 U16 U17 U35 U38 U42,ED241DT,On Shore,"IC socket, DIP-24 0.3""",,0.40,8.00,est.: On Shore ED241DT,,,no
 2,U31 U32,ED281DT,On Shore,"IC socket, DIP-28 0.3""",,0.45,0.90,est.: On Shore ED281DT,,,no

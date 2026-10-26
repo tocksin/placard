@@ -20,9 +20,10 @@ Each one is the stock KiCad footprint with assembly help added (Justin,
   of the body outline.
 
 Needs KiCad 7's stock footprints (apt-get install kicad-footprints, or set
-KICAD7_FOOTPRINT_DIR).
+KICAD7_FOOTPRINT_DIR).  Their 3D models are copies in kicad/lib/placard.3dshapes
+(gen_kicad_stock_footprints.py, run after this).
 
-Date: 2026-10-23
+Date: 2026-10-26
 """
 
 import os
@@ -32,6 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "..", "kicad", "lib", "placard.pretty"))
 STOCK = os.environ.get("KICAD7_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
 
+MODELS = "${PLACARD_LIB}/placard.3dshapes"   # PLACARD_LIB: text variable in each .kicad_pro
 PULL = 2.5                   # puller room past each socket end, mm
 
 DIPS = [("DIP-14_W7.62mm_Socket", 14, 7.62), ("DIP-20_W7.62mm_Socket", 20, 7.62),
@@ -71,6 +73,9 @@ def derive(lib, stock, name, descr, extra, ref_at=None):
     out = re.sub(r'\(descr "([^"]*)"\)', lambda m: '(descr "%s; %s")' % (m.group(1), descr), out, count=1)
     out = re.sub(r'\(fp_text value "[^"]*"', '(fp_text value "%s"' % name, out, count=1)
     out = re.sub(r'\(tedit [0-9A-Fa-f]+\)\n', '', out)
+    # the 3D model is KiCad's, copied into the project by gen_kicad_stock_footprints.py
+    out, n = re.subn(r'\(model "[^"]+"', '(model "%s/%s.step"' % (MODELS, name), out)
+    assert n == 1, name
     if ref_at:
         out = re.sub(r'\(fp_text reference "REF\*\*" \(at [-\d.]+ [-\d.]+\)',
                      '(fp_text reference "REF**" (at %s %s)' % (f(ref_at(src)[0]), f(ref_at(src)[1])), out, count=1)
