@@ -957,7 +957,13 @@ begin
                             (kbdOn = '1' and pK0 = '0') or
                             ((mouseOn = '1' or kbdOn = '1') and rxInhibit = '1') else '0';
     PS2_CLK  <= '0' when ps2ClkDrive = '1' else 'Z';
-    PS2_DATA <= '0' when (mouseOn = '1' or kbdOn = '1') and pDholdN = '0' else 'Z';
+    -- With SW14 (the keyboard) the CPU's DATA hold is not passed on: the
+    -- Basys 3's PIC24, which presents its USB keyboard as a PS/2 keyboard,
+    -- clocks in a command (ED, set the lights) but then answers nothing
+    -- and sends no more keys.  So the commands never reach it: the
+    -- driver's probe finds no keyboard and the keyboard's first byte
+    -- makes it found (placard_ps2.asm).  The Caps Lock light is not set.
+    PS2_DATA <= '0' when mouseOn = '1' and pDholdN = '0' else 'Z';
 
     -- SD card (PmodMicroSD on JB) and SNES pads (JC)
     JB(0) <= pCs;               -- /CS
