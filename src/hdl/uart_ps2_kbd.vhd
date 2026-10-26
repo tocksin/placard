@@ -99,6 +99,8 @@ architecture rtl of uart_ps2_kbd is
     signal fifo        : fifoType;
     signal wrPtr       : unsigned(7 downto 0) := (others => '0');
     signal rdPtr       : unsigned(7 downto 0) := (others => '0');
+    signal rdData      : std_logic_vector(7 downto 0) := (others => '0');
+    signal rdWait      : natural range 0 to 2 := 0;
 
     -- the bytes of the key being typed
     type seqType is array (0 to 7) of std_logic_vector(7 downto 0);
@@ -206,6 +208,10 @@ begin
                 fifo(to_integer(wrPtr)) <= rxByte;
                 wrPtr <= wrPtr + 1;
             end if;
+            -- the FIFO is read through a register (block RAM or not, the
+            -- character is the one at rdPtr): it is used two clocks after
+            -- rdPtr points at it
+            rdData <= fifo(to_integer(rdPtr));
 
             if txState = txWait and txCnt = 0 and seqIdx = seqLen and seqLen /= 0 then
                 seqLen <= 0;                            -- the key is done
@@ -219,9 +225,12 @@ begin
                     go := true;
                 elsif escState = 1 and rdPtr = wrPtr then
                     escCnt <= escCnt + 1;
+                elsif rdPtr /= wrPtr and rdWait /= 2 then
+                    rdWait <= rdWait + 1;
                 elsif rdPtr /= wrPtr then
-                    c := fifo(to_integer(rdPtr));
-                    rdPtr <= rdPtr + 1;
+                    c := rdData;
+                    rdPtr  <= rdPtr + 1;
+                    rdWait <= 0;
                     if escState = 2 then
                         escState <= 0;                  -- ESC [ A-D: an arrow
                         case c is
