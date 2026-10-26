@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 gen_kicad_std.py - make kicad/lib/placard_std.kicad_sym: copies of the KiCad
-library symbols the schematic uses (74xx chips, R, C, connectors), with
+library symbols the schematic uses (74xx chips, R, C, connectors, the cartridge
+EEPROM and the power symbols), with
 larger pin names and numbers so the sheets read like the hand-drawn PNGs.
 
     python3 gen_kicad_std.py                 writes kicad/lib/placard_std.kicad_sym
@@ -10,9 +11,10 @@ The source is KiCad's own symbol library (/usr/share/kicad/symbols, KiCad 7;
 apt-get install kicad-symbols).  Each symbol is flattened (no "extends"),
 renamed to its plain name, and its pin text set to PIN_NAME / PIN_NUMBER mm.
 Because the schematic uses these copies, KiCad's ERC does not report the
-symbols as different from their library.
+symbols as different from their library.  The Footprint field of each copy is
+blank or the placard.pretty footprint the boards use (FOOTPRINT).
 
-Date: 2026-10-24
+Date: 2026-10-26
 """
 
 import os
@@ -33,7 +35,14 @@ USED = [("74xx", "74LS273"), ("74xx", "74LS32"), ("74xx", "74LS377"), ("74xx", "
         ("Device", "Polyfuse"), ("Device", "R_US"), ("Device", "R_Network08_US"),
         ("Jumper", "Jumper_2_Open"), ("Regulator_Linear", "MCP1700x-330xxTO"),
         ("Oscillator", "ACO-xxxMHz"), ("Switch", "SW_SPST"), ("Switch", "SW_Push"), ("Relay", "G5LE-1"), ("Device", "D_Zener"), ("Device", "D"),
-        ("Device", "LED")]
+        ("Device", "LED"), ("Memory_EEPROM", "28C256"),
+        ("power", "+5V"), ("power", "GND"), ("power", "+3V3"), ("power", "GNDA"), ("power", "PWR_FLAG")]
+
+# default Footprint field -> the placard.pretty footprint the boards use, so no symbol names a
+# footprint outside the project library
+FOOTPRINT = {"G5LE-1": "placard:Relay_SPDT_CIT_J107", "R_Network08_US": "placard:R_Array_SIP9",
+             "ACO-xxxMHz": "placard:Oscillator_DIP-14", "MCP1700x-330xxTO": "placard:TO-92_Inline",
+             "28C256": "placard:DIP-28_W15.24mm_Socket_Puller"}
 
 
 def _font(e, size):
@@ -66,6 +75,9 @@ def std_symbol(nick, name):
     sym[1] = K.q(name)
     out = []
     for e in sym:
+        if isinstance(e, list) and e[:2] == ["property", K.q("Footprint")]:
+            e = list(e)
+            e[2] = K.q(FOOTPRINT.get(name, ""))
         if isinstance(e, list) and e and e[0] == "symbol":
             if not K.uq(e[1]).startswith(name + "_"):
                 raise SystemExit(f"{name}: unexpected unit name {e[1]}")

@@ -14,7 +14,7 @@ The other parts come from KiCad's libraries (kicad/README.md lists which).
 Rerunning this overwrites the library, so make changes here, not in KiCad's
 symbol editor.  The pinouts are from CHIPS.md, EXPANSION.md and IO.md.
 
-Date: 2026-10-25
+Date: 2026-10-26
 """
 
 import os
@@ -138,7 +138,7 @@ def mcp1700():
     return symbol("MCP1700_TO92", [([None, (2, "VI", "power_in"), None], [None, (3, "VO", "power_out"), None])], "MCP1700-3302E/TO",
                   "3.3 V 250 mA low-quiescent LDO regulator, TO-92 (pin 1 GND, 2 VI, 3 VO)",
                   "LDO regulator 3.3V MCP1700 Placard",
-                  footprint="Package_TO_SOT_THT:TO-92_Inline", datasheet="~",
+                  footprint="placard:TO-92_Inline", datasheet="~",
                   vcc=None, gnd=(1, "GND"), min_w=8 * 2.54)
 
 
@@ -148,7 +148,7 @@ def oscillator():
     return symbol("Oscillator_DIP14", [([None] * 5, [None, None, (8, "OUT", "output"), None, None])], "25.175 MHz",
                   "Crystal oscillator, full can, DIP-14 footprint: 1 NC, 7 GND, 8 OUT, 14 VCC",
                   "oscillator clock DIP-14 Placard",
-                  footprint="Oscillator:Oscillator_DIP-14", datasheet="~",
+                  footprint="placard:Oscillator_DIP-14", datasheet="~",
                   vcc=(14, "VCC"), gnd=(7, "GND"), ref="X", min_w=8 * 2.54)
 
 

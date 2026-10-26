@@ -23,7 +23,7 @@ shells, screws) are added here.
     python3 src/scripts/gen_kicad_schematic.py    # after a part change
     python3 src/scripts/gen_bom.py
 
-Date: 2026-10-25
+Date: 2026-10-26
 """
 import csv
 import glob
@@ -208,7 +208,7 @@ def symbols(path):
         if not lib:
             continue
         lib_id = K.uq(lib[0][1])
-        if lib_id.startswith("power:"):
+        if lib_id in K.POWER_SYMBOLS:
             continue
         if K.find(sym, "in_bom")[0][1] != "yes":
             continue
