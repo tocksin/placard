@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-test_menu.py - run the demo menu (menu.masm, MENU.PLC) through the DOS in
+test_menu.py - run the demo menu (menu.masm, MENU.PLC) through the ROM's loader in
 placard_sim
 
     python3 test_menu.py                 the checks below, with short times
     python3 test_menu.py --png m.png     also the menu screen as a PNG
 
-Builds the DOS ROM (dos.asm) and a card holding the demo .PLC files from
+Builds the 32K ROM (rom32.asm) and a card holding DOS.PLC, the demo .PLC files from
 ../../sdcard and a MENU.PLC assembled here with short times (each program
 40 frames in turn, Mandelbrot 60, the menu's idle time 2 s), BOOT.CFG =
 MENU.PLC, and boots it like the board (test_dos.Rig):
@@ -56,12 +56,13 @@ def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('--png')
     args = ap.parse_args(argv)
-    rom, syms, lib = test_dos.build()
+    rom, syms, dsyms, lib, dos_plc = test_dos.build()
     rot, man, idle = 40, 60, 2
     files = {n: open(os.path.join(test_dos.SDCARD, n), 'rb').read() for n in PROGS}
     files['MENU.PLC'], msyms = menu_plc(lib, rot, man, idle)
     files['BOOT.CFG'] = b'MENU.PLC\r\n'
-    r = test_dos.Rig(rom, syms, lib, sdimage.make(files))
+    files['DOS.PLC'] = dos_plc
+    r = test_dos.Rig(rom, syms, dsyms, lib, sdimage.make(files))
     cpu, mem = r.cpu, r.cpu.mem
 
     def in_menu(label):

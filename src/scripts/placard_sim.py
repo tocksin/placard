@@ -61,7 +61,7 @@ basys_top.vhd (low nibble CIN = 0, high nibble CIN = low nibble COUT, low
 SHIFT_RIGHT_IN = AC bit 4, high SHIFT_RIGHT_IN = 0).  The default is an ideal
 8-bit ALU (A - B is a true 8-bit subtraction).
 
-Date: 10/22/2026
+Date: 10/26/2026
 """
 
 import re
@@ -698,9 +698,9 @@ SYS_START, SYS_END = 0xC000, 0xFC00   # the library block (placard_lib.asm), up 
 LIB_FONT = 0xEC00            # the font (LIB_FONT in placard_lib.asm)
 PROG_START, PROG_END = 0x6000, 0xC000   # ROM program area, entry at PROG_START
 PROG2_START, PROG2_END = 0x2000, 0x4000 # more ROM program area (section 1)
-BOOT_MODE = 0xFC00           # 00 = ROM program, 01 = RAM image, 02 = DOS (the 32K image)
+BOOT_MODE = 0xFC00           # 00 = ROM program, 01 = RAM image, 02 = the 32K image
 MODE_DOS = 2
-DOS_START, DOS_END = 0x8000, 0xC000     # the DOS image's own area: vectors, DOS, FAT writer
+DOS_START, DOS_END = 0x8000, 0xC000     # the 32K image's own area: vectors, loader, BASIC, FAT writer
 LIB_RAM_IMAGE = 0x9F00       # where the 32K image keeps LIB_RAM (a 32K cartridge
                              # shows it at x1F00 too, where the boot copies it from)
 
@@ -724,17 +724,18 @@ def is_ram_image(prog, lib):
 
 
 def is_dos_image(prog):
-    """True for the DOS (dos.asm): it sets the boot mode byte to 02 itself"""
+    """True for the 32K image's program (rom32.asm): it sets the boot mode
+    byte to 02 itself"""
     return prog.get(BOOT_MODE) == MODE_DOS
 
 
 def build_dos_rom(dos, boot, lib):
-    """the 64K ROM for the DOS: the 32K image x8000-xFFFF (docs/ROM.md, "The
+    """the 64K ROM for the 32K image's program (rom32.asm): the 32K image x8000-xFFFF (docs/ROM.md, "The
     32K image") in both halves, so a 32K cartridge (one EEPROM, read in
     both halves) and a 64K one boot the same.  The upper half holds the
     boot loader and the library as every ROM does, LIB_RAM's bytes at
-    x9F00 (read at x1F00 by the boot through the mirror), the DOS's own
-    bytes in x8000-xBFFF (vectors, DOS, FAT writer), BOOT_MODE = 02, and a
+    x9F00 (read at x1F00 by the boot through the mirror), rom32.asm's own
+    bytes in x8000-xBFFF (vectors, loader, BASIC, FAT writer), BOOT_MODE = 02, and a
     copy of the reset code (x0000-x0004 of rom_boot.asm) at x8000, where a
     32K cartridge shows it at x0000."""
     rom = {}
@@ -776,7 +777,7 @@ def build_rom(prog, base_dir=None):
     xC000-xFBFF (jump table, core routines, font, I/O drivers, sound, line
     input, FAT reader, slot helpers) and its LIB_RAM bytes at x1F00-x1FFF (the boot copies them to the RAM),
     then either
-      the DOS (dos.asm, BOOT_MODE byte 02 in the program): the 32K image in
+      the 32K image (rom32.asm, BOOT_MODE byte 02 in the program): in
       both halves, see build_dos_rom, or
       a ROM program (assembled at x6000-xBFFF and x2000-x3FFF): in place,
       BOOT_MODE = 00 (the 64K development image, docs/ROM.md), or

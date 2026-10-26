@@ -25,14 +25,15 @@
 #     xFC00         boot mode: 00 = ROM program, 01 = RAM image
 #     xFD00-xFE07   boot loader                             rom_boot.hex
 #
-# The DOS (dos.asm, which sets the boot mode byte xFC00 to 02 itself) makes
-# the 32K image instead (docs/ROM.md, "The 32K image"): x8000-xFFFF holds
-# the boot loader and library as above, LIB_RAM's bytes at x9F00, the DOS's
-# own bytes (x8000-x9EFF, xB000-xBFFF), BOOT_MODE = 02 and a copy of the
+# rom32.asm (which sets the boot mode byte xFC00 to 02 itself) makes the
+# 32K image instead (docs/ROM.md, "The 32K image"): x8000-xFFFF holds the
+# boot loader and library as above, LIB_RAM's bytes at x9F00, rom32.asm's
+# own bytes (vectors, loader, BASIC, FAT writer: x8000-x9EFF, xA000-xBFFF), BOOT_MODE = 02 and a copy of the
 # reset code at x8000, and the lower half is a copy of the upper one, so a
 # 32K cartridge (its one EEPROM read in both halves) and a 64K cartridge
 # boot the same.  rom_32k.bin, the 32K EEPROM file, is written next to
-# rom.mem.  Programs then come from the SD card (docs/DOS.md).
+# rom.mem.  The DOS (DOS.PLC) and the programs then come from the SD card
+# (docs/DOS.md); with no card the machine starts BASIC.
 #
 # A program assembled at x6000-xBFFF and x2000-x3FFF (with the library
 # included or not) is a ROM program (the 64K development image).  An older program written to run at
@@ -73,9 +74,9 @@ set PROG_START      [expr {0x6000}] ;# ROM program area and entry
 set PROG_END        [expr {0xC000}] ;# end of the ROM program area
 set SYS_START       [expr {0xC000}] ;# the library block (placard_lib.asm): slot helpers,
 set SYS_END         [expr {0xFC00}] ;# FAT, input, sound, I/O, font, code, jump table
-set BOOT_MODE       [expr {0xFC00}] ;# 00 = ROM program, 01 = RAM image, 02 = DOS
+set BOOT_MODE       [expr {0xFC00}] ;# 00 = ROM program, 01 = RAM image, 02 = the 32K image
 set MODE_DOS        2
-set DOS_START       [expr {0x8000}] ;# the DOS image's own area (vectors, DOS, FAT writer)
+set DOS_START       [expr {0x8000}] ;# the 32K image's own area (vectors, loader, BASIC, FAT writer)
 set DOS_END         [expr {0xC000}]
 set LIB_RAM_IMAGE   [expr {0x9F00}] ;# LIB_RAM in the 32K image (read at x1F00 through the mirror)
 
@@ -205,7 +206,7 @@ proc gen_rom {outFile} {
         set skipProgram 0
     }
 
-    # the DOS: the 32K image, twice (see the top of this file)
+    # rom32.asm: the 32K image, twice (see the top of this file)
     if {!$skipProgram && $n > $::BOOT_MODE && [lindex $bytes $::BOOT_MODE] == $::MODE_DOS} {
         set dosBytes 0
         for {set a 0} {$a < $n} {incr a} {
@@ -215,10 +216,10 @@ proc gen_rom {outFile} {
             }
             if {$a >= $::DOS_START && $a < $::DOS_END} {
                 if {$b != 0 && $a >= $::LIB_RAM_IMAGE && $a < $::LIB_RAM_IMAGE + 0x100} {
-                    error "gen_rom: DOS byte at [format %04X $a] is in the LIB_RAM image (9F00-9FFF)"
+                    error "gen_rom: 32K image byte at [format %04X $a] is in the LIB_RAM image (9F00-9FFF)"
                 }
                 if {$a < 5 + $::DOS_START && $b != $rom([expr {$a - $::DOS_START}])} {
-                    error "gen_rom: DOS byte at [format %04X $a] differs from the reset code"
+                    error "gen_rom: 32K image byte at [format %04X $a] differs from the reset code"
                 }
                 set rom($a) $b
                 if {$b != 0} {
@@ -227,7 +228,7 @@ proc gen_rom {outFile} {
                 continue
             }
             if {$b != 0 && !([lib_area $a] && $b == $rom($a))} {
-                error "gen_rom: DOS byte at [format %04X $a] is outside the 32K image (8000-BFFF)"
+                error "gen_rom: 32K image byte at [format %04X $a] is outside the 32K image (8000-BFFF)"
             }
         }
         for {set a 0} {$a < 5} {incr a} {
@@ -240,7 +241,7 @@ proc gen_rom {outFile} {
         for {set a 0} {$a < 0x8000} {incr a} {
             set rom($a) $rom([expr {$a + 0x8000}])
         }
-        puts "gen_rom: the DOS image, $dosBytes bytes (not 00) in 8000-BFFF from $::ASM_FILE,\
+        puts "gen_rom: the 32K image, $dosBytes bytes (not 00) in 8000-BFFF from $::ASM_FILE,\
               in both halves"
         set fh [open [file join [file dirname $outFile] rom_32k.bin] w]
         fconfigure $fh -translation binary
