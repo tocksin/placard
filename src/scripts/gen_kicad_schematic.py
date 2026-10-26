@@ -31,7 +31,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-10-25"
+DATE = "2026-10-26"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 CDIRS = {64: os.path.join(KDIR, "cartridge_64k"), 32: os.path.join(KDIR, "cartridge_32k")}
@@ -688,18 +688,9 @@ def sheet_memory(b):
     u32 = s.part("placard_parts:AS7C256C", "U32", 345.44, 198.12, sram("~{CE_HI}", "~{RAM_OE}", "~{WE}"),
                  value="AS7C256C-15PCN", bare=("20", "22", "27"))
     decap(s, 32, 365.76, 165.1, lift=0)
-    cart = {"A3": "A0", "B3": "A1", "A4": "A2", "B4": "A3", "A5": "A4", "B5": "A5", "A6": "A6", "B6": "A7",
-            "A7": "A8", "B7": "A9", "A8": "A10", "B8": "A11", "A9": "A12", "B9": "A13", "A10": "A14",
-            "A16": "A15", "B16": "~{CE_HI}", "A17": "~{ROM_OE}", "B10": "~{CART}",
-            "A12": "D0", "B12": "D1", "A13": "D2", "B13": "D3", "A14": "D4", "B14": "D5", "A15": "D6", "B15": "D7",
-            "A20": "CLK", "B17": "STALL_IN", "A18": "PIXEL_ENABLE", "B18": "STALL_OUT", "A19": "RUN",
-            "B19": "PC_ENABLE",
-            "A2": "+5V", "A1": "GND"}
-    for c in ["A22", "A23", "A24", "A25", "A26", "A27", "A28", "A29", "A30", "A32", "B20",
-              "B22", "B23", "B24", "B25", "B26", "B27", "B28", "B29", "B30", "B32"]:
-        cart[c] = None
+    cart = dict(CART_PINOUT, A5="A15", B10="~{CART}")     # A15 selects the lower chip: /CE_LO on the cartridge
     j8 = s.part("placard_parts:Cartridge_Slot", "J8", 320.04, 95.25, cart, value="Molex 87715-9106",
-                footprint="placard:Molex_87715-9106_PCIe_x4_Vertical", ref_at=(304.8, 44), value_at=(304.8, 150), bare=("B16", "A17"))
+                footprint="placard:Molex_87715-9106_PCIe_x4_Vertical", ref_at=(304.8, 44), value_at=(304.8, 150), bare=("B16", "A16"))
     # the memory strobes: U11's down to lanes under the RAMs, /CE_HI from U12 up to J8 and down to U32,
     # /MAP_WR from U12 back round to U25's clock
     yl = {"~{WE}": 246.38, "~{RAM_OE}": 248.92, "~{CE_HI}": 251.46}
@@ -708,7 +699,7 @@ def sheet_memory(b):
         (px, py) = u11[pn]
         path(s, net, (px, py), (xv[net], py), (xv[net], yl[net]))
     (px, py) = u11["19"]
-    path(s, "~{ROM_OE}", (px, py), (xv["~{ROM_OE}"], py), (xv["~{ROM_OE}"], j8["A17"][1]), j8["A17"])
+    path(s, "~{ROM_OE}", (px, py), (xv["~{ROM_OE}"], py), (xv["~{ROM_OE}"], j8["A16"][1]), j8["A16"])
     (px, py) = u12["15"]
     path(s, "~{CE_HI}", (px, py), (xv["~{CE_HI}"], py))
     path(s, "~{CE_HI}", (xv["~{CE_HI}"], j8["B16"][1]), (xv["~{CE_HI}"], py), (xv["~{CE_HI}"], yl["~{CE_HI}"]))
@@ -1199,6 +1190,22 @@ def build_main():
     return root, boxes, sheets, glob
 
 
+# The cartridge slot's contacts (EXPANSION.md "ROM cartridge slot"; 2026-10-26: contacts follow the
+# cartridge chips' pins so the autorouted cartridge boards fit; J8 on the main board uses the same
+# names, except A5 = A15 and B10 = /CART).  Spares are None (no-connects).
+CART_PINOUT = {"A1": "GND", "A2": "+5V",
+               "A3": "A14", "B3": "A12", "A4": "A7", "B4": "CLK", "A5": "~{CE_LO}", "B5": "STALL_OUT",
+               "A6": "A13", "B6": "RUN", "A7": "PIXEL_ENABLE", "B7": "A6", "A8": "A8", "B8": "PC_ENABLE",
+               "A9": "A9", "B9": "A5", "B10": "GND",
+               "B12": "STALL_IN", "A13": "A11", "A14": "A4", "A15": "A3", "A16": "~{ROM_OE}", "B16": "~{CE_HI}",
+               "A17": "A2", "A18": "A10", "A19": "A1",
+               "A22": "A0", "B22": "D7", "A24": "D0", "A25": "D6", "A27": "D1", "B27": "D5", "A29": "D2",
+               "A30": "D4", "A32": "D3"}
+for _c in ["A10", "A12", "B13", "B14", "B15", "B17", "B18", "B19", "A20", "B20", "A23", "B23", "B24", "B25",
+           "A26", "B26", "A28", "B28", "B29", "B30", "B32"]:     # the 21 spares
+    CART_PINOUT[_c] = None
+
+
 def build_cart(size):
     """The ROM cartridge, two boards (Justin, 2026-10-24): the 64K board (U1 loader PLD, U2/U3
     EEPROMs, U4/U5 SRAMs, /CE_LO for the lower pair and /CE_HI for the upper) and the 32K board
@@ -1213,21 +1220,12 @@ def build_cart(size):
     heading(s, "ROM cartridge, %dK" % size,
             ("Two EEPROMs copied into two SRAMs" if size == 64 else "One EEPROM copied into one SRAM") +
             " at power-up by the loader PLD (ROM.md, \"Loading the cartridge\")")
-    cart = {"A3": "A0", "B3": "A1", "A4": "A2", "B4": "A3", "A5": "A4", "B5": "A5", "A6": "A6", "B6": "A7",
-            "A7": "A8", "B7": "A9", "A8": "A10", "B8": "A11", "A9": "A12", "B9": "A13", "A10": "A14",
-            "A16": "~{CE_LO}", "B16": "~{CE_HI}" if size == 64 else None, "A17": "~{ROM_OE}", "B10": "GND",
-            "A12": "D0", "B12": "D1", "A13": "D2", "B13": "D3", "A14": "D4", "B14": "D5", "A15": "D6", "B15": "D7",
-            "A20": "CLK", "B17": "STALL_IN", "A18": "PIXEL_ENABLE", "B18": "STALL_OUT", "A19": "RUN",
-            "B19": "PC_ENABLE",
-            "A2": "+5V", "A1": "GND"}
-    for c in ["A22", "A23", "A24", "A25", "A26", "A27", "A28", "A29", "A30", "A32", "B20",
-              "B22", "B23", "B24", "B25", "B26", "B27", "B28", "B29", "B30", "B32"]:
-        cart[c] = None
+    cart = dict(CART_PINOUT, B16="~{CE_HI}" if size == 64 else None)
     s.label_each |= {"A"}
     s.label_nets |= {"~{CE_LO}", "~{CE_HI}", "~{ROM_OE}", "~{EE_OE}", "~{SR_WE}"}
     # the loader lines run straight across from the connector to U1, whose pins are a row apart like the connector's
-    ld = {"A20": "1", "A18": "3", "B19": "4", "B17": "5", "B18": "23", "A19": "22"}
-    lab = ("A16", "B16", "A17") if size == 64 else ("A16", "A17")
+    ld = {"B4": "1", "A7": "3", "B8": "4", "B12": "5", "B5": "23", "B6": "22"}
+    lab = ("A5", "B16", "A16") if size == 64 else ("A5", "A16")
     j1 = s.part("placard_parts:Cartridge_Slot", "J1", 82.55, 120, cart, value="Card edge (87715-9106 mate)",
                 footprint="placard:Card_Edge_87715-9106", ref_at=(67, 69), value_at=(88, 176),
                 bare=tuple(ld) + lab, in_bom=False)    # gold fingers on the cartridge PCB, not a part
