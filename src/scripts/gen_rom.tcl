@@ -246,7 +246,7 @@ proc gen_rom {outFile} {
         set fh [open [file join [file dirname $outFile] rom_32k.bin] w]
         fconfigure $fh -translation binary
         set list {}
-        for {set a 0x8000} {$a < $::ROM_SIZE} {incr a} {
+        for {set a $::DOS_START} {$a < $::ROM_SIZE} {incr a} {
             lappend list $rom($a)
         }
         puts -nonewline $fh [binary format c* $list]
