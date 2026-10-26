@@ -49,7 +49,7 @@
 ; (IO_CODE, placard_io.asm), part of the library.  The variables are in
 ; RAM at PS2_RAM (x4D80-x4D9F), next to the FAT reader's.
 ;
-; Date: 10/25/2026
+; Date: 10/26/2026
 ; ============================================================
 
 PS2V      = 0x4D        ; the page of PS2_RAM (x4D80-x4D9F)
@@ -168,6 +168,9 @@ ps2_take:
     ld   ac, [y,x]
     xor  P_KFREE, ac
     bne  tk_nk
+    ld   [KBD_FLAGS], ac        ; a byte from it: the keyboard is there
+    or   KF_PS2, ac
+    ld   ac, [KBD_FLAGS]
     ld   [T0], ac
     ld   kbd_byte >> 8, y       ; kbd_byte returns for us
     jmp  kbd_byte
@@ -185,9 +188,11 @@ tk_ret:
 ; ps2_turn - let the right device send
 ;   in:      MOUSE_ST bit 7 (the mouse runs), KBD_FLAGS bit 1 (a PS/2
 ;            keyboard), FRAME_LO, the packet in hand
-;   out:     PS2_LSN = P_FREE (the mouse), P_KFREE (the keyboard) or
-;            P_IDLE, written to the latch (re-arming the receiver) when
-;            it changed.  With both devices the mouse has the even frames
+;   out:     PS2_LSN = P_FREE (the mouse) or P_KFREE (the keyboard),
+;            written to the latch (re-arming the receiver) when it
+;            changed.  With no mouse the keyboard socket is listened to
+;            even when no keyboard answered kbd_probe: its first byte
+;            (ps2_take) marks it found.  With both devices the mouse has the even frames
 ;            and the keyboard the odd ones, but the mouse keeps the line
 ;            while a packet is half in; a packet that stays half in for
 ;            STUCK frames is given up.
@@ -198,11 +203,8 @@ tk_ret:
 ps2_turn:
     ld   [MOUSE_ST], ac
     blt  tn_mr
-    ld   [KBD_FLAGS], ac        ; no mouse: the keyboard, if any
-    and  KF_PS2, ac
-    beq  tn_none
-tn_kbd:
-    ld   P_KFREE, ac
+tn_kbd:                         ; no mouse: the keyboard, found or not (a
+    ld   P_KFREE, ac            ; byte from it shows it is there)
     bra  tn_set
 tn_mr:
     ld   [KBD_FLAGS], ac
@@ -225,9 +227,6 @@ tn_frame:
     bne  tn_kbd
 tn_mouse:
     ld   P_FREE, ac
-    bra  tn_set
-tn_none:
-    ld   P_IDLE, ac
 tn_set:
     xor  [PS2_LSN], ac
     beq  tn_ret                 ; as it is
