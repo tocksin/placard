@@ -126,8 +126,12 @@ its own.
   statements a second, ahead of the 1 MHz home computers' BASICs.
 - 2026-10-26: Justin chose BASIC for the ROM (x8100-xAFFF of the 32K
   image, about 10.5 KB) with the DOS on the card, so the machine is useful
-  without a card.  A plan (a Microsoft-style integer BASIC with strings)
-  is waiting for his review before any code is written.
+  without a card.
+- **Done 2026-10-26** ([BASIC.md](BASIC.md)): a Microsoft-style integer
+  BASIC with strings, arrays, `DATA`, graphics under a text window, sound
+  and `SAVE`/`LOAD` of text files, about 9 KB.  Written in a compact
+  bytecode (`basic.vm`, compiled by `vmc.py`) run by a small native
+  machine (`basic.masm`).  80 x 60 or 80 x 30 text.
 
 ### 6. Console emulator: CHIP-8 and SUPER-CHIP (SD program)
 
@@ -268,7 +272,7 @@ Realistic instead:
 1. FAT write and the program file format: done (2026-10-26).
 2. DOS with the SD loader and boot choice: done (2026-10-26); moved to the
    card the same day.
-3. BASIC in the ROM (2026-10-26: next, plan under review).
+3. BASIC in the ROM: done (2026-10-26).
 4. Monitor (MON.PLC), text editor.
 5. Assembler (the machine is then self-hosting).
 6. CHIP-8 / SUPER-CHIP.

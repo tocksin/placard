@@ -214,7 +214,7 @@ BASIC; BOOT.CFG naming a missing file.
   They stay buildable as 64K development images (`build\text_demo.bat`,
   `build\raycast.bat`).  Making them SD programs means reworking them for
   RAM x0100-x3FFF.
-- BASIC in the ROM: only a placeholder screen so far (Esc goes to the
-  DOS); the plan is waiting for review.
+- Running a `.BAS` file from the browser (for now: start BASIC, then
+  `RUN "NAME"`; [BASIC.md](BASIC.md)).
 - A monitor, now planned as a program on the card (`MON.PLC`).
 - Making folders, renaming, copying.
