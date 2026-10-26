@@ -771,50 +771,8 @@ s_dosplc:   #d "DOS.PLC", 0x00
 s_basic:    #d "BASIC", 0x00
 
 ; ============================================================
-; BASIC (vector x8024) - for now a placeholder: BASIC is being designed
-; (docs/BASIC.md); Esc goes to the DOS when there is one
+; BASIC (vector x8024): basic.masm and its bytecode, basic.vm, in the
+; space left in both regions (docs/BASIC.md)
 ; ============================================================
 .region ROM_CODE2, ROM_TOP2
-
-.chunk
-basic:
-    ld   STACK_TOP, ac
-    ld   ac, [SP]
-    ld   MAP_RUN, ac
-    ld   ac, [MAP_SHADOW]
-    ld   0x50, y
-    ld   MAP_RUN, [y,x]
-    CALL lib_ram_copy
-    CALL port_init
-    CALL con_clear
-    ld   s_bas1 & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_bas1 >> 8, ac
-    ld   ac, [R1]
-    CALL con_puts
-    ld   2, ac
-    ld   ac, [CUR_ROW]
-    clr  ac
-    ld   ac, [CUR_COL]
-    ld   s_bas2 & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_bas2 >> 8, ac
-    ld   ac, [R1]
-    CALL con_puts
-    ld   [KBD_HEAD], ac         ; forget the keys pressed meanwhile
-    ld   ac, [KBD_TAIL]
-bs_loop:
-    ld   1, ac
-    CALL wait_frames_io
-    CALL kbd_scan
-    CALL kbd_getc
-    xor  0x1B, ac               ; Esc: the DOS
-    bne  bs_loop
-    ld   MENU_BLK >> 8, y
-    ld   MB_PARENT, x
-    ld   0, [y,x]
-    GOTO dos_back
-
-.chunk
-s_bas1:     #d "PLACARD BASIC", 0x00
-s_bas2:     #d "BASIC is not written yet.  Esc: the DOS (DOS.PLC on the SD card)", 0x00
+.include "basic.masm"
