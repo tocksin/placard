@@ -3,9 +3,9 @@
 menu_hook.py - the program menu's hook for the RAM programs (cpu_test,
 pi_spigot, mandelbrot, game_of_life), shared by their generators.
 
-The menu ROM (docs/MENU.md) takes the machine back from a program when Esc
-is pressed or, while it rotates through the programs, when the program's
-time is up.  A ROM program calls the library's menu_poll for that
+The demo menu (docs/MENU.md; the DOS runs the programs, docs/DOS.md) takes
+the machine back from a program when Esc is pressed or, while it rotates
+through the programs, when the program's time is up.  A ROM program calls the library's menu_poll for that
 (placard_menu.asm).  The RAM programs run with map FF, where the library
 can't be reached, so each carries its own copy of the check, made here.
 It talks to the menu through the same menu block at RAM x5D00 (see
@@ -29,13 +29,13 @@ Two routines, each in its own block (each fits in one page):
 
 They return with  ld [reth], y / jmp [ret]  through two zero-page bytes the
 program names (its own call convention).  When the program must stop they
-put the reason in MB_WHY and jump to the menu's exit code at x5D20, which
-maps the ROM back in and returns to the menu.
+put the reason in MB_WHY and jump to the exit code at x5D20 (MB_EXIT), which
+maps the ROM back in and returns to the DOS, which runs the menu again.
 
     blocks = hook_blocks(ret_zp, reth_zp)   -> [(name, [(kind, text), ...])]
     kind 'L' = label, 'I' = instruction
 
-Date: 10/25/2026
+Date: 10/26/2026
 """
 
 MENU_BLK = 0x5D00
