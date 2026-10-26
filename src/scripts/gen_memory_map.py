@@ -37,8 +37,8 @@ fig.text(0.5, 0.942,
          "from RAM.  Video reads always read the RAM.\n"
          "A running program uses map = 05: sections 0 and 2 read RAM; the program (x2000-x3FFF, x6000-xBFFF) "
          "and the library (xC000-xFBFF) run in place from ROM.\n"
-         "The 32K image (x8000-xFFFF, the same on both cartridges) holds the DOS instead of a program; the DOS runs "
-         "with map = 07 and loads programs from the SD card into RAM x0100-x3FFF.",
+         "The 32K image (x8000-xFFFF, the same on both cartridges) holds BASIC and a loader instead of a program; the loader "
+         "runs the DOS (DOS.PLC) and programs from the SD card in RAM x0100-x3FFF with map = 07.",
          ha="center", va="top", fontsize=12, color="#444", linespacing=1.5)
 
 
@@ -181,10 +181,10 @@ axC.set_ylim(sum(hC) + 12, 0)
 axD = fig.add_axes([0.625, 0.05, 0.16, 0.77])
 hi = [
     (0x6000, 0x7FFF, C["prog"], "Program code and tables\n(64K development image:\nx6000-xBFFF, entry x6000)", "program"),
-    (0x8000, 0x80FF, C["boot"], "32K image: DOS vectors, reset copy", None),
-    (0x8100, 0x9EFF, C["prog"], "32K image: the DOS\n(file browser, loader)", "DOS"),
+    (0x8000, 0x80FF, C["boot"], "32K image: vectors, reset copy", None),
+    (0x8100, 0x9EFF, C["prog"], "32K image: program loader,\nBASIC (DOS.PLC on the card)", "BASIC"),
     (0x9F00, 0x9FFF, C["lib"], "32K image: LIB_RAM's bytes", None),
-    (0xA000, 0xAFFF, C["free"], "32K image: free (monitor)", None),
+    (0xA000, 0xAFFF, C["prog"], "32K image: BASIC", None),
     (0xB000, 0xBFFF, C["fat"], "32K image: FAT file writer", None),
     (0xC000, 0xC4FF, C["drv"], "PS/2 keyboard, listening", None),
     (0xC500, 0xC5FF, C["lib"], "Menu hook (menu_poll)", None),

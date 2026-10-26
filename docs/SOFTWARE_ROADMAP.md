@@ -1,6 +1,6 @@
 # Software roadmap
 
-Date: 2026-10-25
+Date: 2026-10-26
 
 Programs to write for the Placard, what each needs, and where it fits.
 The libraries it builds on are in [LIBRARY.md](LIBRARY.md)
@@ -43,13 +43,13 @@ from RAM (as `plot1` and `con_scroll` do), not from ROM x6000-xFFFF.
 
 | Piece | Needed by | Size | Notes |
 |---|---|---|---|
-| FAT write | DOS, editor, assembler, BASIC SAVE | 3.2 KB | **Done 2026-10-26** (`placard_fsw.masm`, in the DOS image at xB000, DOS vectors x8010-x8020): create, write, close, delete, save; every FAT kept up to date.  Not yet: rename, make folder. |
+| FAT write | DOS, editor, assembler, BASIC SAVE | 3.2 KB | **Done 2026-10-26** (`placard_fsw.masm`, in the 32K image at xB000, vectors x8010-x8020): create, write, close, delete, save; every FAT kept up to date.  Not yet: rename, make folder. |
 | Program file format | DOS, loader, every SD program | small | **Done 2026-10-26**: the `.PLC` header ("PLC", type, load address, length, entry; [DOS.md](DOS.md#program-files-plc)), `gen_plc.py` |
 | Faster scroll / partial redraw | editor, monitor, BASIC | 0.5-1 KB | `con_scroll` takes 46 ms for the full 60 rows; an editor redraws only changed lines and scrolls a 28-row window (about half the time) |
 
 ## Programs
 
-### 1. Monitor (resident, ROM)
+### 1. Monitor (SD program, MON.PLC)
 
 Examine and change memory, hex dump, fill, copy, compare, jump to an
 address, load and save memory ranges to SD files, and a disassembler built
@@ -59,19 +59,22 @@ program to write, because everything after it is debugged with it.
 - Needs: console, keyboard (`kbd_getc`, `con_gets`), FAT read; FAT write for
   "save".
 - Size: 3-5 KB, plus 1.5-2 KB for the disassembler.  RAM: a line buffer.
-- Fits in the resident 16 KB together with the DOS below.
+- Since 2026-10-26 BASIC takes the ROM's free space, so the monitor is
+  planned as a program on the card; BASIC's `PEEK`, `POKE` and `CALL` cover
+  quick changes without a card.
 
-### 2. DOS: file browser and SD loader (resident, ROM) - done 2026-10-26
+### 2. DOS: file browser and SD loader - done 2026-10-26
 
-`dos.masm`, [DOS.md](DOS.md): the 32K image's program.  A file browser
+`dos.masm`, [DOS.md](DOS.md): `DOS.PLC` on the SD card (in the ROM until
+later the same day, when it moved to the card to make room for BASIC; the
+ROM keeps a 1.5 KB loader, `rom32.masm`, that starts it and runs programs).  A file browser
 (Up / Down, Enter runs a `.PLC` file or opens a folder, Backspace, Del, B
 picks the boot program) with a command line (`RUN`, `LOAD`, `SAVE`, `DEL`,
 `CD`, `BOOT`, `DIR`), `BOOT.CFG` for what starts at power-up, Esc held at
 power-up for the browser.  The FAT writer (`placard_fsw.masm`, 3.2 KB at
 xB000) and the `.PLC` program file format (`gen_plc.py`) came with it; the
 demo menu became a program on the card (`menu.masm`).  Not yet: `TYPE`,
-`COPY`, `REN`, `MD`, `RD`; the monitor's commands join when the monitor
-comes (xA000-xAFFF is kept for it).
+`COPY`, `REN`, `MD`, `RD`.
 
 ### 3. Text editor (SD program)
 
@@ -105,7 +108,7 @@ about a branch that leaves its page, like `placard_sim.py`.
   assembler can later share one program (edit, assemble, run, back to the
   editor) if the memory allows.
 
-### 5. BASIC (SD program, or ROM on a 64 KB cart)
+### 5. BASIC (ROM, 32K image)
 
 A 16-bit integer BASIC in the style of Tiny BASIC or Apple Integer BASIC:
 line numbers, `PRINT`, `INPUT`, `IF`, `GOTO`, `GOSUB`, `FOR`, arrays,
@@ -121,6 +124,10 @@ its own.
   rows.
 - Speed: a tokenised interpreter should do a few thousand simple
   statements a second, ahead of the 1 MHz home computers' BASICs.
+- 2026-10-26: Justin chose BASIC for the ROM (x8100-xAFFF of the 32K
+  image, about 10.5 KB) with the DOS on the card, so the machine is useful
+  without a card.  A plan (a Microsoft-style integer BASIC with strings)
+  is waiting for his review before any code is written.
 
 ### 6. Console emulator: CHIP-8 and SUPER-CHIP (SD program)
 
@@ -259,16 +266,17 @@ Realistic instead:
 ## Order
 
 1. FAT write and the program file format: done (2026-10-26).
-2. DOS, resident in ROM, with the SD loader and boot choice: done
-   (2026-10-26).  The monitor is next (xA000-xAFFF of the 32K image).
-3. Text editor.
-4. Assembler (the machine is then self-hosting).
-5. BASIC.
+2. DOS with the SD loader and boot choice: done (2026-10-26); moved to the
+   card the same day.
+3. BASIC in the ROM (2026-10-26: next, plan under review).
+4. Monitor (MON.PLC), text editor.
+5. Assembler (the machine is then self-hosting).
 6. CHIP-8 / SUPER-CHIP.
 7. CP/M (8080).
 8. Later: a 6502 core with an Apple 1 or KIM-1 around it, then maybe a
    ZX81, TRS-80 or VIC-20; native games or a fantasy console engine.
 
 Each program gets a Python model and a `placard_sim.py` test like the
-library and the demos.  The resident set lives in x8000-xBFFF of the 32K
-image ([ROM.md](ROM.md#the-32k-image)).
+library and the demos.  The 32K image ([ROM.md](ROM.md#the-32k-image))
+holds the loader, BASIC and the FAT writer in x8000-xBFFF; the rest are
+programs on the card.

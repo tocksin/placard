@@ -81,25 +81,27 @@ that the boot or the library needs is read through the mirror:
 | ROM address | Contents | Made from |
 |-------------|----------|-----------|
 | x8000-x8004 | nop, reset jump (a copy of x0000-x0004: a 32K cartridge shows it at x0000) | `rom_boot.asm` |
-| x8008-x8023 | DOS vectors: `dos_back`, `dos_run`, `fs_create`, `fs_write`, `fs_close`, `fs_delete`, `fs_save` ([DOS.md](DOS.md#dos-vectors)) | `dos.masm` |
-| x8100-x9EFF | The DOS: file browser, program loader, command line | `dos.masm` |
+| x8008-x8027 | Vectors: `dos_back`, `dos_run`, `fs_create`, `fs_write`, `fs_close`, `fs_delete`, `fs_save`, `basic` ([DOS.md](DOS.md#dos-vectors)) | `rom32.masm` |
+| x8100-x9EFF | The loader (power-up, BOOT.CFG, running `.PLC` files, about 1.5 KB), then BASIC | `rom32.masm` |
 | x9F00-x9FFF | `LIB_RAM`'s bytes (the boot reads them at x1F00) | `rom_lib.asm` |
-| xA000-xAFFF | Free: the monitor goes here ([SOFTWARE_ROADMAP.md](SOFTWARE_ROADMAP.md)) | |
+| xA000-xAFFF | BASIC (a placeholder screen until BASIC is written) | `rom32.masm` |
 | xB000-xBFFF | FAT file writer ([DOS.md](DOS.md#the-fat-writer)) | `placard_fsw.masm` |
 | xC000-xFBFF | The library, as above | `rom_lib.asm` |
-| xFC00 | Boot mode 02 | `dos.masm` |
+| xFC00 | Boot mode 02 | `rom32.masm` |
 | xFD00-xFEA1 | Boot loader, as above | `rom_boot.asm` |
 
 The boot loader is unchanged: it copies `LIB_RAM` from x1F00 (the mirror of
 x9F00), scans the expansion slots, and for mode 02 writes map 05 and jumps
-to the DOS at x8100.  The DOS runs with map **07**: RAM x0000-x5FFF for the
-program it loads (x0100-x3FFF) and its own data (x4000-x5FFF), the DOS and
-the library in ROM x8000-xFFFF.  `placard_sim.py dos.asm` builds the same
+to the loader at x8100.  The loader runs with map **07**: RAM x0000-x5FFF
+for the programs it loads (x0100-x3FFF) and their data (x4000-x5FFF), the
+loader, BASIC and the library in ROM x8000-xFFFF.  It starts the DOS
+(`DOS.PLC` on the SD card) or BASIC when there is no card
+([DOS.md](DOS.md#at-power-up)).  `placard_sim.py rom32.asm` builds the same
 image (`build_dos_rom`) and `test_dos.py` runs it.
 
 Programs are `.PLC` files on the SD card ([DOS.md](DOS.md#program-files-plc)):
 library programs assembled for RAM x0100-x3FFF (16 KB), or the older RAM
-images (x0000-x49FF).  The demo menu is one of them
+images (x0000-x49FF).  The DOS and the demo menu are two of them
 ([MENU.md](MENU.md)).  The text demo and the ray caster, which run in place
 from x6000-xBFFF, still build as 64K development images only.
 
@@ -291,8 +293,8 @@ fails the check.  [EXPANSION.md](EXPANSION.md) has the header and rules.
 x6000.  The boot loader runs in section 7, which stays ROM, so no copy is
 needed.  The program starts a few clocks after reset.
 
-**The DOS (02):** write map = 05 and `MAP_SHADOW` = 05, then jump to the
-DOS at x8100 ("The 32K image" above).
+**The 32K image (02):** write map = 05 and `MAP_SHADOW` = 05, then jump to
+the loader at x8100 ("The 32K image" above).
 
 **RAM image (01):** for the older demos (pi spigot, Mandelbrot, game of life,
 CPU test, test_video), which were written to run from RAM x0000 and keep
@@ -311,7 +313,7 @@ The copy takes about 23 ms.  It does not set `MAP_SHADOW`, because those
 programs keep code there.
 
 `gen_rom.tcl` makes the 32K image when the program's byte at xFC00 is 02
-(`dos.asm` sets it), treats a program as a RAM image when its hex has any
+(`rom32.asm` sets it), treats a program as a RAM image when its hex has any
 byte in x0000-x1FFF or x4000-x5FFF other than the library's own bytes, and
 otherwise as a ROM program, with its bytes in x2000-x3FFF and x6000-xBFFF.
 
@@ -348,6 +350,6 @@ The constants are in three places, which must agree: `rom_boot.asm`
 (`ROM_IMAGE`, `IMAGE_END`, `MAP_ROM_RUN`, `PROG_START`, `DOS_START`,
 `BOOT_MODE`), `gen_rom.tcl` and `placard_sim.py` (`ROM_IMAGE_BASE`,
 `IMAGE_SIZE`, `LIB_START`, `LIB_END`, `PROG_START`, `PROG_END`,
-`DOS_START`, `DOS_END`, `LIB_RAM_IMAGE`, `BOOT_MODE`); the DOS's own places
-are in `dos.masm` (`DOS_CODE`, `DOS_TOP`, the vectors) and
+`DOS_START`, `DOS_END`, `LIB_RAM_IMAGE`, `BOOT_MODE`); the 32K image's own places
+are in `rom32.masm` (`ROM_CODE`, `ROM_TOP`, `ROM_CODE2`, `ROM_TOP2`, the vectors) and
 `placard_fsw.masm` (`FSW_CODE`).

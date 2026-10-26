@@ -61,7 +61,7 @@ RAM before anything else.  Programs must leave RAM x1F00-x1FFF alone.
 
 A program runs in place from ROM x6000-xBFFF (entry at x6000) and may put
 more code and tables at ROM x2000-x3FFF (the 64K development image), or is
-a `.PLC` file on the SD card that the DOS loads into RAM x0100-x3FFF
+a `.PLC` file on the SD card that the ROM's loader (for the DOS) loads into RAM x0100-x3FFF
 ([DOS.md](DOS.md#program-files-plc)); the library is the same for both.  The boot loader maps the zero
 page and x4000-x5FFF to RAM (map = 05, also in `MAP_SHADOW`) and jumps to
 x6000.  Program variables and buffers go in RAM: the zero page x20-x8F,
@@ -448,7 +448,7 @@ Errors in AC: 1 end, 2 not found, 4 and 5 SD read errors, 8 not mounted,
 zero page scratch.  A sector takes about 160,000 clocks (75 KB/s).
 
 Writing (`fs_create`, `fs_write`, `fs_close`, `fs_delete`, `fs_save`) is
-not in the library: it is part of the DOS image, reached through the DOS
+not in the library: it is part of the 32K image, reached through the
 vectors at x8010-x8020 ([DOS.md](DOS.md#the-fat-writer)).
 
 ### Line input and mouse pointer
