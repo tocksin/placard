@@ -28,7 +28,9 @@ rem
 rem Vivado is found on the PATH, else under C:\AMDDesignTools or C:\Xilinx
 rem (newest version).  Set VIVADO to the full path of vivado.bat to override.
 rem
-rem Date: 10/21/2026
+rem Plays a sound when it finishes (ding.bat; set PLACARD_QUIET=1 for none).
+rem
+rem Date: 10/26/2026
 rem ===========================================================================
 setlocal EnableExtensions EnableDelayedExpansion
 
@@ -43,6 +45,7 @@ for %%I in ("%BUILD_DIR%..") do set "REPO_DIR=%%~fI"
 set "TCL_DIR=%BUILD_DIR%tcl\"
 set "NOASM="
 set "FAST="
+set "RESULT="
 :nextOpt
 shift
 if "%~1"=="" goto optsDone
@@ -68,7 +71,7 @@ set "HEX_FILE=%SCRIPTS_DIR%\%PROG%.hex"
 
 if not exist "%ASM_FILE%" if not exist "%HEX_FILE%" (
     echo build_and_load: neither %ASM_FILE% nor %HEX_FILE% exists
-    exit /b 1
+    goto failed
 )
 
 rem ---- 1. assemble -----------------------------------------------------------
@@ -76,17 +79,17 @@ if defined NOASM echo build_and_load: noasm, using existing %PROG%.hex
 if not defined NOASM (
     for %%P in (rom_boot rom_lib %PROG%) do (
         if exist "%SCRIPTS_DIR%\%%P.asm" (
-            call :assemble %%P || exit /b 1
+            call :assemble %%P || goto failed
         )
     )
 )
 if not exist "%HEX_FILE%" (
     echo build_and_load: %HEX_FILE% not found
-    exit /b 1
+    goto failed
 )
 
 rem ---- find Vivado -------------------------------------------------------------
-call "%BUILD_DIR%find_vivado.bat" || exit /b 1
+call "%BUILD_DIR%find_vivado.bat" || goto failed
 echo build_and_load: using %VIVADO%
 
 rem ---- 2..4. memory image, build, program ---------------------------------------
@@ -106,11 +109,18 @@ popd
 if not "%RESULT%"=="0" (
     echo.
     echo build_and_load: FAILED for %PROG%, see %LOG_DIR%\%PROG%_vivado.log
-    exit /b %RESULT%
+    goto failed
 )
 echo.
 echo build_and_load: %PROG% built and loaded on the board
+call "%BUILD_DIR%ding.bat" ok
 exit /b 0
+
+rem ---- failed: sound, then exit with the error (1 unless Vivado set one) -------
+:failed
+if not defined RESULT set "RESULT=1"
+call "%BUILD_DIR%ding.bat" fail
+exit /b %RESULT%
 
 rem ---- assemble one program: call :assemble <name> -----------------------------
 :assemble
@@ -145,8 +155,9 @@ popd
 if not "%RESULT%"=="0" (
     echo.
     echo build_and_load: FAILED for %PROG%, see %LOG_DIR%\%PROG%_fast_vivado.log
-    exit /b %RESULT%
+    goto failed
 )
 echo.
 echo build_and_load: %PROG% memory updated and loaded on the board (no rebuild)
+call "%BUILD_DIR%ding.bat" ok
 exit /b 0
