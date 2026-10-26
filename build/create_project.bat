@@ -11,7 +11,9 @@ rem   force   delete the existing project and make it again (for example
 rem           after a source file was added to or removed from
 rem           create_project.tcl)
 rem
-rem Date: 10/16/2026
+rem Plays a sound when it finishes (ding.bat; set PLACARD_QUIET=1 for none).
+rem
+rem Date: 10/26/2026
 rem ===========================================================================
 setlocal EnableExtensions
 
@@ -44,8 +46,10 @@ if not "%RESULT%"=="0" (
 )
 echo.
 echo create_project: made %REPO_DIR%\project\placard.xpr
+call "%BUILD_DIR%ding.bat" ok
 exit /b 0
 
 :failed
+call "%BUILD_DIR%ding.bat" fail
 pause
 exit /b 1
