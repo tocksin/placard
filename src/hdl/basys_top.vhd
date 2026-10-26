@@ -145,6 +145,7 @@ architecture Behavioral of basys_top is
     signal cpuRdR           : sl := '0';
     signal cpuRdToggle      : sl := '0';
     signal ps2ClkDrive      : sl;
+    signal ps2ListenOnly    : sl;   -- SW13 = 1: the FPGA never drives the PS/2 lines (debug)
 
     signal sync             : sl;
     signal blank            : sl;
@@ -315,7 +316,8 @@ begin
     -- pins.  Right two digits: how many bytes it has decoded (mod 256).
     -- LD0 PS/2 CLK, LD1 PS/2 DATA (filtered), LD2 the receiver holds the
     -- clock (a byte waits for the CPU), LD3 the FPGA drives PS/2 CLK low,
-    -- LD4 toggles on every CPU read of the byte (x5202).
+    -- LD4 toggles on every CPU read of the byte (x5202).  SW13 = 1: the
+    -- FPGA only listens to the PS/2 lines (see mouseOn below).
     ssegR <= snfByte & slv(snfCount);
 
     snifferProc : process (clkVGA)
@@ -954,9 +956,15 @@ begin
     -- goes to the driver in placard_ps2.asm.  Both off: no PS/2 device.
     mouseOn  <= dipRR(15);
     kbdOn    <= dipRR(14) and not dipRR(15);
-    ps2ClkDrive <= '1' when (mouseOn = '1' and pCs = '0') or
-                            (kbdOn = '1' and pK0 = '0') or
-                            ((mouseOn = '1' or kbdOn = '1') and rxInhibit = '1') else '0';
+    -- SW13 = 1 (debug): listen only.  The FPGA never drives the PS/2
+    -- lines, so nothing it does can stop the device sending; the
+    -- sniffer and the receiver still see every byte (with no inhibit a
+    -- byte the CPU has not taken yet can be overwritten).
+    ps2ListenOnly <= dipRR(13);
+    ps2ClkDrive <= '1' when ps2ListenOnly = '0' and
+                            ((mouseOn = '1' and pCs = '0') or
+                             (kbdOn = '1' and pK0 = '0') or
+                             ((mouseOn = '1' or kbdOn = '1') and rxInhibit = '1')) else '0';
     PS2_CLK  <= '0' when ps2ClkDrive = '1' else 'Z';
     -- With SW14 (the keyboard) the CPU's DATA hold is not passed on: the
     -- Basys 3's PIC24, which presents its USB keyboard as a PS/2 keyboard,
@@ -964,7 +972,7 @@ begin
     -- and sends no more keys.  So the commands never reach it: the
     -- driver's probe finds no keyboard and the keyboard's first byte
     -- makes it found (placard_ps2.asm).  The Caps Lock light is not set.
-    PS2_DATA <= '0' when mouseOn = '1' and pDholdN = '0' else 'Z';
+    PS2_DATA <= '0' when ps2ListenOnly = '0' and mouseOn = '1' and pDholdN = '0' else 'Z';
 
     -- SD card (PmodMicroSD on JB) and SNES pads (JC)
     JB(0) <= pCs;               -- /CS
