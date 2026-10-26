@@ -44,7 +44,7 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 - **x5000-x53FF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  (Until 2026-10-16 the window was x5000-x5FFF, with x5800-x5FFF a mirror.)
 - **Only `[Y,X]` reaches the I/O window**; `[0,D]` and `[0,X]` only address the zero page.
 - **Video reads always read the RAM** (memory control PLD revision 04); only CPU reads follow the map.  The CPU can run code from the ROM under the video area while the screen shows the RAM, and a program that wants to read the video RAM maps that section to RAM.
-- **Programs run from the ROM.**  The library (jump table, core routines, font, I/O drivers, sound, line input, FAT reader, slot helpers and the demo menu hook) is one block at the top of the ROM, xC500-xFBFF, just under the boot loader, and runs in place; a program runs in place at ROM x6000-xBFFF and may use x2000-x3FFF too.  The boot loader copies the library's RAM code to x1F00, gives each expansion card a chance to run its own boot code (like the Apple II), then maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  See [docs/ROM.md](docs/ROM.md).
+- **Programs run from the ROM.**  The library (jump table, core routines, font, I/O drivers, sound, line input, FAT reader, slot helpers and the demo menu hook) is one block at the top of the ROM, xC500-xFBFF, just under the boot loader, and runs in place; a program runs in place at ROM x6000-xBFFF and may use x2000-x3FFF too.  The boot loader copies the library's RAM code to x1F00, gives each expansion card a chance to run its own boot code (like the Apple II), then maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  That is the 64K development image; the machine's own 32K image (x8000-xFFFF, the same on both cartridges) holds the boot loader, the library and the DOS, and programs load from the SD card.  See [docs/ROM.md](docs/ROM.md) and [docs/DOS.md](docs/DOS.md).
 - **After a map write**, the next instruction must not be fetched from a section whose map bit that write changed, unless the ROM and RAM hold the same byte there (the new map arrives 4.1 ns too late for that fetch).  Copying the ROM into the RAM underneath and then switching the section is safe.  See [docs/TIMING_FIXES.md](docs/TIMING_FIXES.md#romram-map-register-74act273).
 
 The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /WE, /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
@@ -59,8 +59,8 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is two more AS7C
 | x5000-x53FF | none | I/O window (see below) |
 | x5400-x5FFF | 2 | RAM/ROM (mode bytes at x5A20-x5BFF, audio buffer at x5DF3-x5FFF) |
 | x6000-x7FFF | 3 | RAM/ROM (Video Memory from x6020; ROM: program from x6000) |
-| x8000-x9FFF | 4 | RAM/ROM (Video Memory; ROM: program) |
-| xA000-xBFFF | 5 | RAM/ROM (Video Memory; ROM: program) |
+| x8000-x9FFF | 4 | RAM/ROM (Video Memory; ROM: program; 32K image: DOS vectors x8000, DOS x8100, LIB_RAM copy x9F00) |
+| xA000-xBFFF | 5 | RAM/ROM (Video Memory; ROM: program; 32K image: monitor xA000 (free), FAT writer xB000) |
 | xC000-xDFFF | 6 | RAM/ROM (Video Memory; ROM: library from xC000: PS/2 keyboard, menu hook, slot helpers, FAT reader, line input, sound, I/O drivers) |
 | xE000-xFFFF | 7 | RAM/ROM (Video Memory; ROM: I/O drivers, font xEC00, core routines xF400, jump table xFB00, boot loader xFC00) |
 
@@ -106,8 +106,8 @@ Bits 3:2 of a row's mode byte make each byte of video memory show on 1, 2 or 4 l
 
 ![text_demo in the simulator](reference/text_demo_sim.gif)
 
-### Demo menu
-`build\menu.bat` loads one ROM with the CPU test, pi, Mandelbrot, the Game of Life, the text demo and the ray caster and a menu.  At power-up they run in turn, each until it is done or for 2 minutes (Mandelbrot 3).  Esc in any program shows the menu (Up / Down and Enter, or 1-6); a program picked there runs until Esc, and after 2 minutes with no key the menu goes back to running them in turn.  `src/scripts/gen_menu_rom.py` builds it and `src/scripts/test_menu.py` checks it in the simulator.  See [docs/MENU.md](docs/MENU.md).
+### DOS and demo menu
+The machine ships the 32K ROM image: the boot loader, the library and a DOS (`src/scripts/dos.masm`, `build\dos.bat`); programs are `.PLC` files on the SD card.  At power-up the DOS runs the program named in `BOOT.CFG`, or shows a file browser (hold Esc) that runs, deletes and picks the boot program, with a command line for `LOAD` and `SAVE` of memory as files.  The demo menu is one of those programs (`MENU.PLC`, `src/scripts/menu.masm`): the CPU test, pi, Mandelbrot and the Game of Life run in turn, each until it is done or for 2 minutes (Mandelbrot 3); Esc in any program shows the menu (Up / Down and Enter, or 1-4), a program picked there runs until Esc, and after 2 minutes with no key the menu goes back to running them in turn.  The `sdcard/` folder holds the files for the card; `src/scripts/test_dos.py` and `test_menu.py` check both in the simulator.  See [docs/DOS.md](docs/DOS.md), [docs/MENU.md](docs/MENU.md) and [docs/ROM.md](docs/ROM.md#the-32k-image).
 
 ### Game demos
 Three demos show what the CPU can do with no sprite or collision hardware.  All are ROM programs written by a Python generator (the tables, the unrolled drawing code and a bit-exact model of the picture), and each has a simulator test that checks every frame against the model.
@@ -116,7 +116,7 @@ Three demos show what the CPU can do with no sprite or collision hardware.  All 
 
 ![raycast in the simulator](reference/raycast_sim.gif)
 
-`src/scripts/raycast_tex.asm` (`gen_raycast_tex.py`) is the same maze and demo walk with textured walls, in the style of Wolfenstein 3D: seven 32 × 32 textures drawn by the generator (stone, brick, wood, riveted metal, mossy stone, a circuit board with a 22V10 and a framed Mandelbrot picture), y sides darker than x sides and four levels of distance shading.  Each column finds where the ray hit the wall (two 8 × 8 multiplies), copies that texture column through a shading table into zero page, and draws the wall with a compiled scaler: one unrolled routine per wall height that stores the right texel into each cell.  A view takes 229k-261k clocks (about 3,000 a column), so it still runs at 60 views a second, with room left for sprites.  It uses the ROM x2000-x3FFF for the textures and x6000-xBFFF for the code, tables and scalers, so it is not in the demo menu ROM.  `build\raycast_tex.bat` loads it and `src/scripts/test_raycast_tex_sim.py` checks it.
+`src/scripts/raycast_tex.asm` (`gen_raycast_tex.py`) is the same maze and demo walk with textured walls, in the style of Wolfenstein 3D: seven 32 × 32 textures drawn by the generator (stone, brick, wood, riveted metal, mossy stone, a circuit board with a 22V10 and a framed Mandelbrot picture), y sides darker than x sides and four levels of distance shading.  Each column finds where the ray hit the wall (two 8 × 8 multiplies), copies that texture column through a shading table into zero page, and draws the wall with a compiled scaler: one unrolled routine per wall height that stores the right texel into each cell.  A view takes 229k-261k clocks (about 3,000 a column), so it still runs at 60 views a second, with room left for sprites.  It uses the ROM x2000-x3FFF for the textures and x6000-xBFFF for the code, tables and scalers, so it builds as its own 64K development image.  `build\raycast_tex.bat` loads it and `src/scripts/test_raycast_tex_sim.py` checks it.
 
 ![textured raycast in the simulator](reference/raycast_tex_sim.gif)
 

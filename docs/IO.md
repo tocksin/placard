@@ -396,7 +396,7 @@ buffer the key matrix used, with the same key numbers.
   keeps about 16 more while it is held off, so nothing is lost when a
   burst takes several frames; `wait_frames_io` and `ps2_poll` take bytes
   as fast as they land (a byte every 1.2 ms or so).
-- The older RAM demos in the menu ROM (CPU test, pi, Mandelbrot, Life)
+- The older RAM demos run by the DOS or the menu (CPU test, pi, Mandelbrot, Life)
   can't reach the library; a small hook in each (`menu_hook.py`) reads
   the receiver once per frame, so Esc works there too.
 
@@ -602,7 +602,7 @@ the `kicad/keyboard/` project, `placard_keyboard.pdf` and the key switch
 footprints are gone), BOM, kit pricing, block diagram, library
 (`placard_ps2.asm`, `placard_io.asm`, `placard_menu.asm`, `menu_hook.py`,
 the boot ROM's Esc check), simulator (`io_devices.py`, `test_io.py`,
-`test_menu.py`, `test_slots.py`, `test_bringup_sim.py`), FPGA
+`test_menu.py`, `test_dos.py`, `test_slots.py`, `test_bringup_sim.py`), FPGA
 (`port_pld.vhd`, `ps2_pld.vhd`, `basys_top.vhd`) and BRINGUP.md.  The
 board file `kicad/placard.kicad_pcb` is Justin's: he brings the new parts
 in with Update PCB from Schematic (U37, U39, J1, RN2 go; U42, C42, D19

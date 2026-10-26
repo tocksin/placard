@@ -25,8 +25,17 @@
 #     xFC00         boot mode: 00 = ROM program, 01 = RAM image
 #     xFD00-xFE07   boot loader                             rom_boot.hex
 #
+# The DOS (dos.asm, which sets the boot mode byte xFC00 to 02 itself) makes
+# the 32K image instead (docs/ROM.md, "The 32K image"): x8000-xFFFF holds
+# the boot loader and library as above, LIB_RAM's bytes at x9F00, the DOS's
+# own bytes (x8000-x9EFF, xB000-xBFFF), BOOT_MODE = 02 and a copy of the
+# reset code at x8000, and the lower half is a copy of the upper one, so a
+# 32K cartridge (its one EEPROM read in both halves) and a 64K cartridge
+# boot the same.  rom_32k.bin, the 32K EEPROM file, is written next to
+# rom.mem.  Programs then come from the SD card (docs/DOS.md).
+#
 # A program assembled at x6000-xBFFF and x2000-x3FFF (with the library
-# included or not) is a ROM program.  An older program written to run at
+# included or not) is a ROM program (the 64K development image).  An older program written to run at
 # RAM x0000 (bytes in x0000-x1FFF or x4000-x5FFF other than the library's
 # own) is a RAM image instead: it is stored at ROM x6000-xA9FF (ROM address
 # = RAM address + x6000), and the boot loader copies it to RAM x0000-x49FF
@@ -43,8 +52,7 @@
 # (the web version offers the same "hexstr" / "binary" output formats).
 # Accepted formats: raw binary (*.bin), a hex string "10620020...", or
 # comma separated 0x10, 0x62, ... values.  A file of exactly 65536 bytes is a
-# whole ROM image (the menu ROM, menu.hex from gen_menu_rom.py) and is used
-# as it is.  If the file is missing the image is generated without a program.
+# whole ROM image and is used as it is.  If the file is missing the image is generated without a program.
 # Set ::ASM_FILE to "" to skip it on purpose.
 # rom_boot.hex and rom_lib.hex are read from this script's folder (remake them
 # from rom_boot.asm and rom_lib.asm after changing either, or the library).
@@ -52,7 +60,7 @@
 # The image is written to ../hdl/rom.mem (relative to this script).  Set
 # ::ROM_OUT before sourcing to write to a different path instead.
 #
-# Date: 10/22/2026
+# Date: 10/26/2026
 
 set ROM_SIZE        65536
 set ROM_IMAGE_BASE  [expr {0x6000}] ;# RAM image: ROM address of RAM x0000
@@ -65,7 +73,11 @@ set PROG_START      [expr {0x6000}] ;# ROM program area and entry
 set PROG_END        [expr {0xC000}] ;# end of the ROM program area
 set SYS_START       [expr {0xC000}] ;# the library block (placard_lib.asm): slot helpers,
 set SYS_END         [expr {0xFC00}] ;# FAT, input, sound, I/O, font, code, jump table
-set BOOT_MODE       [expr {0xFC00}] ;# 00 = ROM program, 01 = RAM image
+set BOOT_MODE       [expr {0xFC00}] ;# 00 = ROM program, 01 = RAM image, 02 = DOS
+set MODE_DOS        2
+set DOS_START       [expr {0x8000}] ;# the DOS image's own area (vectors, DOS, FAT writer)
+set DOS_END         [expr {0xC000}]
+set LIB_RAM_IMAGE   [expr {0x9F00}] ;# LIB_RAM in the 32K image (read at x1F00 through the mirror)
 
 # ---------------------------------------------------------------------------
 # Read a customasm output file; returns a list of byte values (0..255)
@@ -172,8 +184,8 @@ proc gen_rom {outFile} {
     }
     set n [llength $bytes]
 
-    # a whole ROM image (menu.hex from gen_menu_rom.py): used as it is; its
-    # boot loader and library should be the ones next to this script
+    # a whole ROM image: used as it is; its boot loader and library should
+    # be the ones next to this script
     if {$n == $::ROM_SIZE} {
         set diff 0
         for {set a 0} {$a < $n} {incr a} {
@@ -191,6 +203,55 @@ proc gen_rom {outFile} {
         set skipProgram 1
     } else {
         set skipProgram 0
+    }
+
+    # the DOS: the 32K image, twice (see the top of this file)
+    if {!$skipProgram && $n > $::BOOT_MODE && [lindex $bytes $::BOOT_MODE] == $::MODE_DOS} {
+        set dosBytes 0
+        for {set a 0} {$a < $n} {incr a} {
+            set b [lindex $bytes $a]
+            if {$a == $::BOOT_MODE} {
+                continue
+            }
+            if {$a >= $::DOS_START && $a < $::DOS_END} {
+                if {$b != 0 && $a >= $::LIB_RAM_IMAGE && $a < $::LIB_RAM_IMAGE + 0x100} {
+                    error "gen_rom: DOS byte at [format %04X $a] is in the LIB_RAM image (9F00-9FFF)"
+                }
+                if {$a < 5 + $::DOS_START && $b != $rom([expr {$a - $::DOS_START}])} {
+                    error "gen_rom: DOS byte at [format %04X $a] differs from the reset code"
+                }
+                set rom($a) $b
+                if {$b != 0} {
+                    incr dosBytes
+                }
+                continue
+            }
+            if {$b != 0 && !([lib_area $a] && $b == $rom($a))} {
+                error "gen_rom: DOS byte at [format %04X $a] is outside the 32K image (8000-BFFF)"
+            }
+        }
+        for {set a 0} {$a < 5} {incr a} {
+            set rom([expr {$::DOS_START + $a}]) $rom($a)
+        }
+        for {set a 0} {$a < 0x100} {incr a} {
+            set rom([expr {$::LIB_RAM_IMAGE + $a}]) $rom([expr {$::LIB_RAM_START + $a}])
+        }
+        set rom($::BOOT_MODE) $::MODE_DOS
+        for {set a 0} {$a < 0x8000} {incr a} {
+            set rom($a) $rom([expr {$a + 0x8000}])
+        }
+        puts "gen_rom: the DOS image, $dosBytes bytes (not 00) in 8000-BFFF from $::ASM_FILE,\
+              in both halves"
+        set fh [open [file join [file dirname $outFile] rom_32k.bin] w]
+        fconfigure $fh -translation binary
+        set list {}
+        for {set a 0x8000} {$a < $::ROM_SIZE} {incr a} {
+            lappend list $rom($a)
+        }
+        puts -nonewline $fh [binary format c* $list]
+        close $fh
+        puts "gen_rom: wrote the 32K EEPROM file [file join [file dirname $outFile] rom_32k.bin]"
+        set skipProgram 1
     }
 
     # a RAM image has bytes in x0000-x1FFF or x4000-x5FFF other than the

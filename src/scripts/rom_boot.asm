@@ -17,6 +17,13 @@
 ;   still shows the RAM.  It sets MAP_SHADOW = 05 and
 ;   jumps to the program's entry at x6000.
 ;
+; BOOT_MODE = 02: the DOS (the 32K image, docs/ROM.md "The 32K image").
+;   Map = 05 and MAP_SHADOW = 05 as for a ROM program, then a jump to the
+;   DOS at DOS_START (x8100).  The image is x8000-xFFFF: gen_rom.tcl puts a
+;   copy of the reset code at x8000, which a 32K cartridge reads at x0000,
+;   and the same 32K in both halves for a 64K cartridge.  Programs come
+;   from the SD card.
+;
 ; BOOT_MODE = 01: RAM image (the older demos, written to run at RAM x0000).
 ;     ROM x6000-xA9FF  ->  RAM x0000-x49FF      (ROM address = RAM + x6000)
 ;   1. map = 01: section 0 (the zero page) reads RAM, so the loop can keep
@@ -71,7 +78,7 @@
 ; byte there is either run or skipped, and the CPU fetches x0001 next
 ; (docs/ROM.md, "Loading the cartridge").
 ;
-; Date: 10/25/2026
+; Date: 10/26/2026
 
 #include "placard.asm"
 
@@ -84,7 +91,9 @@ CNT         = 0xFD      ; byte in the page (X is not a source)
 MAP_SHADOW  = 0x07      ; zeropage.asm: copy of the map register
 MAP_ROM_RUN = 0x05      ; ROM program: sections 0 and 2 read RAM, 1 and 3-7 ROM
 PROG_START  = 0x6000    ; ROM program entry
-BOOT_MODE   = 0xFC00    ; 00 = ROM program, 01 = RAM image (set by gen_rom.tcl)
+DOS_START   = 0x8100    ; the DOS's entry (dos.masm)
+BOOT_MODE   = 0xFC00    ; 00 = ROM program, 01 = RAM image, 02 = DOS (set by gen_rom.tcl)
+MODE_DOS    = 0x02
 PORT        = 0x5200    ; shared port latch (placard_io.asm)
 PORT_RX     = 0x02      ; x5202: the PS/2 receiver's byte; a write re-arms it
 PORT_RDY    = 0x03      ; x5203: D7 = 0 while a byte is ready
@@ -204,8 +213,18 @@ boot_go:
     ld   BOOT_MODE >> 8, y
     ld   BOOT_MODE & 0xFF, x
     ld   [y,x], ac
+    beq  boot_rom
+    xor  MODE_DOS, ac
     bne  boot_copy
 
+    ld   MAP_PORT, y            ; the DOS
+    ld   MAP_ROM_RUN, [y,x]     ; map = 05 (section 7 keeps its bit)
+    ld   MAP_ROM_RUN, ac
+    ld   ac, [MAP_SHADOW]
+    ld   DOS_START >> 8, y
+    jmp  DOS_START & 0xFF
+
+boot_rom:
     ld   MAP_PORT, y            ; ROM program
     ld   MAP_ROM_RUN, [y,x]     ; map = 05 (section 7 keeps its bit)
     ld   MAP_ROM_RUN, ac
