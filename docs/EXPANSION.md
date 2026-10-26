@@ -1,6 +1,6 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-10-23
+Date: 2026-10-26
 
 The Placard has four expansion slots, each a 2 x 20, 0.1" (2.54 mm)
 pitch card-edge socket, and one ROM cartridge slot, a keyed 2 x 32,
@@ -193,10 +193,10 @@ The load takes about 33 ms, as the cartridge's does.
 
 | Contact | Signal | Direction | Notes |
 |---|---|---|---|
-| A8 (BT1) | STALL_IN | to card | the Branch PLD's STALL (pin 19), as on cartridge B17 |
-| B8 (BT2) | STALL_OUT | from card | to the State PLD and PC PLDs, joined to cartridge B18 (10k pull-up) |
-| A9 (BT3) | PC_ENABLE | to card | State PLD pin 15, as on cartridge B19 |
-| B9 (BT4) | PIXEL_ENABLE | to card | Sync PLD pin 19, as on cartridge A18 |
+| A8 (BT1) | STALL_IN | to card | the Branch PLD's STALL (pin 19), as on cartridge B12 |
+| B8 (BT2) | STALL_OUT | from card | to the State PLD and PC PLDs, joined to cartridge B5 (10k pull-up) |
+| A9 (BT3) | PC_ENABLE | to card | State PLD pin 15, as on cartridge B8 |
+| B9 (BT4) | PIXEL_ENABLE | to card | Sync PLD pin 19, as on cartridge A7 |
 | A10 (BT5) | /CART | to card | cartridge B10: low when a cartridge is fitted (10k pull-up) |
 | B10, A11, B11 (BT6-BT8) | reserved | | not connected |
 
@@ -253,39 +253,58 @@ on a PCI Express x4 card.
 |--:|---|---|
 | 1 | GND | GND |
 | 2 | +5 V | +5 V |
-| 3 | A0 | A1 |
-| 4 | A2 | A3 |
-| 5 | A4 | A5 |
-| 6 | A6 | A7 |
-| 7 | A8 | A9 |
-| 8 | A10 | A11 |
-| 9 | A12 | A13 |
-| 10 | A14 | /CART (GND on the cartridge: one is plugged in) |
+| 3 | A14 | A12 |
+| 4 | A7 | CLK (25.175 MHz board clock, to the cartridge) |
+| 5 | /CE_LO (A15 from the address mux: lower chip) | STALL_OUT (from the cartridge to the State and PC PLDs, 10k pull-up on the main board) |
+| 6 | A13 | RUN (from the cartridge, pull-down on the main board) |
+| 7 | PIXEL_ENABLE (to the cartridge) | A6 |
+| 8 | A8 | PC_ENABLE (State PLD, to the cartridge) |
+| 9 | A9 | A5 |
+| 10 | spare | /CART (GND on the cartridge: one is plugged in) |
 | 11 | GND | GND |
 | | *key* | *key* |
-| 12 | D0 | D1 |
-| 13 | D2 | D3 |
-| 14 | D4 | D5 |
-| 15 | D6 | D7 |
-| 16 | /CE_LO (A15 from the address mux: lower chip) | /CE_HI (I/O decode PLD: upper chip) |
-| 17 | /ROM_OE (memory control PLD) | STALL_IN (the branch PLD's STALL, to the cartridge) |
-| 18 | PIXEL_ENABLE (to the cartridge) | STALL_OUT (from the cartridge to the State and PC PLDs, 10k pull-up on the main board) |
-| 19 | RUN (from the cartridge, pull-down on the main board) | PC_ENABLE (State PLD, to the cartridge) |
-| 20 | CLK (25.175 MHz board clock, to the cartridge) | spare |
+| 12 | spare | STALL_IN (the branch PLD's STALL, to the cartridge) |
+| 13 | A11 | spare |
+| 14 | A4 | spare |
+| 15 | A3 | spare |
+| 16 | /ROM_OE (memory control PLD) | /CE_HI (I/O decode PLD: upper chip) |
+| 17 | A2 | spare |
+| 18 | A10 | spare |
+| 19 | A1 | spare |
+| 20 | spare | spare |
 | 21 | GND | GND |
-| 22-30 | spare | spare |
+| 22 | A0 | D7 |
+| 23 | spare | spare |
+| 24 | D0 | spare |
+| 25 | D6 | spare |
+| 26 | spare | spare |
+| 27 | D1 | D5 |
+| 28 | spare | spare |
+| 29 | D2 | spare |
+| 30 | D4 | spare |
 | 31 | GND | GND |
-| 32 | spare | spare |
+| 32 | D3 | spare |
 
 Two +5 V contacts (2.2 A together), a GND on each side every ten
-contacts (8 in all), 33 signals and 21 spares (B20, A22-A30, B22-B30,
-A32, B32), kept for programming the EEPROMs in place, battery charging,
-card detection and other functions (not assigned yet).
+contacts (8 in all), 33 signals and 21 spares (A10, A12, B13-B15,
+B17-B20, A20, A23, B23-B26, A26, A28, B28-B30, B32), kept for programming
+the EEPROMs in place, battery charging, card detection and other
+functions (not assigned yet).
+
+The contacts are in the order of the pins they go to on the cartridge
+(2026-10-26), not in bus order: the cartridge's loader PLD sits right
+behind the fingers, and with the address lines in bus order the
+autorouter could not get them past it.  Each side's signals now leave the
+fingers in the order of the chip pins they reach (side A on the component
+side of the card, side B on the solder side), which is what let both
+cartridge boards route on four layers.  The main board's J8 uses the same
+contact numbers.
 
 - D7:D0 is the memory data bus that the RAM also drives.  The ROM chips'
   timing on the cartridge is the same as on the main board, plus the
   connector, so keep the cartridge's traces short.
-- **CLK** is next to the GND at 21 to keep its return path short.
+- **CLK** is at B4, two contacts from the GND pair at 1 and the +5 V pair
+  at 2, so its return path is short.
 - **/CART** lets the main board tell an empty slot: with no cartridge, a
   10k pull-up reads high.  It goes to slot 1's BT5, so a boot card there
   only boots the machine with no cartridge ("Booting from slot 1").  With
