@@ -367,6 +367,10 @@ The bit-by-bit `ps2_listen`, `ps2_rx`, the adaptive window and
 
 ### The PS/2 keyboard driver
 
+**Plug in the keyboard and mouse before turning the machine on.**  They
+are not hot-pluggable: one plugged in later is not recognized until the
+machine is reset (SW2, the reset button).
+
 `placard_ps2.asm` (rewritten 2026-10-25 for the receiver), in the library
 at `PS2_CODE` (xC000-xC4FF, plus pieces in free ends of other library
 pages: the mouse routines and `ps2_tx`/`ps2_rx` in I/O pages B-E, `ps2_poll`,

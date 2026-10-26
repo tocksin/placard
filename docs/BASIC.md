@@ -16,6 +16,10 @@ in the simulator.  Example programs are in `sdcard/` (`*.BAS`).
 
 ## Using it
 
+**Plug in the keyboard and mouse before turning the machine on.**  They
+are not hot-pluggable: one plugged in later is not recognized until the
+machine is reset (SW2, the reset button).
+
 ```
 PLACARD BASIC
 7424 bytes free

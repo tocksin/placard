@@ -13,6 +13,10 @@ the ROM could hold BASIC, which is useful with no card at all.
 
 ## At power-up
 
+**Plug in the keyboard and mouse before turning the machine on.**  They
+are not hot-pluggable: one plugged in later is not recognized until the
+machine is reset (SW2, the reset button).
+
 1. The boot loader (mode 02) jumps to the ROM's loader at x8100 with map
    05.  The loader sets map **07** (RAM x0000-x5FFF, ROM x6000-xFFFF: the
    loader, BASIC and the library run in place), clears the screen and shows
