@@ -14,9 +14,9 @@ when it saves them).
 | `placard.kicad_pcb` | the board: 4 layers (F.Cu, In1.Cu = GND, In2.Cu = VCC, B.Cu) |
 | `lib/placard.kicad_sym` | PLD symbols: `ATF22V10C` (generic) and one `ATF22V10C_<name>` per `.pld` file, with its pin names |
 | `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `PS2_Dual_Stacked`, `USB_C_Power` |
-| `lib/placard_std.kicad_sym` | copies of the stock KiCad symbols the sheets use (74xx, R, C, D, connectors, regulator) with larger pin text, written by `src/scripts/gen_kicad_std.py` |
-| `lib/placard.pretty/` | project footprints: the main board's connectors and switches (preliminary, written by `src/scripts/gen_kicad_connectors.py`), and kit versions of KiCad's DIP socket footprints (`DIP-nn_..._Socket_Puller`: chip-puller room on User.Eco1, part number in silkscreen) and of the axial resistor (`..._Value`: value in silkscreen), written by `src/scripts/gen_kicad_kit_footprints.py` |
-| `lib/placard.3dshapes/` | 3D models (STEP) for the connectors, switches and polyfuse, named after their footprints and referenced as `${KIPRJMOD}/lib/placard.3dshapes/...`, so they show in any KiCad version without a 3D library path; written by `src/scripts/gen_kicad_3d_models.py` (CadQuery), which also copies in KiCad's own models for SW2, J7 and J13 |
+| `lib/placard_std.kicad_sym` | copies of the stock KiCad symbols the sheets use (74xx, R, C, D, connectors, regulator, the cartridge EEPROM `28C256`, and the power symbols `+5V`, `GND`, `+3V3`, `GNDA`, `PWR_FLAG`) with larger pin text, written by `src/scripts/gen_kicad_std.py` |
+| `lib/placard.pretty/` | project footprints: the main board's connectors and switches (preliminary, written by `src/scripts/gen_kicad_connectors.py`), and kit versions of KiCad's DIP socket footprints (`DIP-nn_..._Socket_Puller`: chip-puller room on User.Eco1, part number in silkscreen) and of the axial resistor (`..._Value`: value in silkscreen), written by `src/scripts/gen_kicad_kit_footprints.py`, and copies of the KiCad 9.0.6 footprints the boards use (capacitors, diodes, LED, pin header, oscillator, TO-92, SIP resistor array, mounting holes, net tie; KiCad 9 format), written by `src/scripts/gen_kicad_stock_footprints.py` |
+| `lib/placard.3dshapes/` | 3D models (STEP) for the connectors, switches and polyfuse, named after their footprints and referenced as `${KIPRJMOD}/lib/placard.3dshapes/...`, so they show in any KiCad version without a 3D library path; written by `src/scripts/gen_kicad_3d_models.py` (CadQuery), which also copies in KiCad's own models for SW2, J7 and J13, and KiCad's models for the stock, socket and resistor footprints, copied by `src/scripts/gen_kicad_stock_footprints.py` |
 | `sym-lib-table`, `fp-lib-table` | point KiCad at the project libraries |
 | `fab/` | Gerbers, drill files, BOM and placement files for a board order |
 
@@ -91,7 +91,12 @@ KiCad's USB4125 footprint with the SMD pads 1.5 mm longer for the iron, made by 
 with a 5.1k resistor from CC1 and from CC2 to GND so a charger gives 5 V.  Make
 changes in the script, since rerunning it overwrites the library.
 
-Everything else comes from KiCad's own libraries:
+Every symbol, footprint and 3D model the sheets and boards use is in `lib/`
+(since 2026-10-26): the projects' library tables list only the placard
+libraries, so the project opens the same on any PC and DRC/ERC find nothing
+missing or different from its library.  The parts below started as KiCad
+library parts and are used through their copies in `placard_std` and
+`placard.pretty`:
 
 | Part | KiCad symbol |
 |---|---|

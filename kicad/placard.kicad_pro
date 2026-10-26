@@ -669,5 +669,7 @@
       "Expansion slots"
     ]
   ],
-  "text_variables": {}
+  "text_variables": {
+    "PLACARD_LIB": "${KIPRJMOD}/lib"
+  }
 }

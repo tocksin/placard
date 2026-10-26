@@ -20,7 +20,7 @@ placard_cartridge_32k.pdf, set to open without the bookmarks panel.
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
 
-Date: 2026-10-25
+Date: 2026-10-26
 """
 import os
 import re
@@ -43,13 +43,13 @@ FP_DIP14 = "placard:DIP-14_W7.62mm_Socket_Puller"
 FP_DIP20 = "placard:DIP-20_W7.62mm_Socket_Puller"
 FP_DIP28W = "placard:DIP-28_W15.24mm_Socket_Puller"
 FP_R = "placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value"
-FP_C = "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm"
-FP_CP_S = "Capacitor_THT:CP_Radial_D6.3mm_P2.50mm"
-FP_CP_L = "Capacitor_THT:CP_Radial_D8.0mm_P3.50mm"
-FP_D = "Diode_THT:D_DO-35_SOD27_P7.62mm_Horizontal"
-FP_LED = "LED_THT:LED_D5.0mm"
-FP_SIP9 = "Resistor_THT:R_Array_SIP9"
-FP_JP = "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical"
+FP_C = "placard:C_Disc_D5.0mm_W2.5mm_P5.00mm"
+FP_CP_S = "placard:CP_Radial_D6.3mm_P2.50mm"
+FP_CP_L = "placard:CP_Radial_D8.0mm_P3.50mm"
+FP_D = "placard:D_DO-35_SOD27_P7.62mm_Horizontal"
+FP_LED = "placard:LED_D5.0mm"
+FP_SIP9 = "placard:R_Array_SIP9"
+FP_JP = "placard:PinHeader_1x02_P2.54mm_Vertical"
 
 # ---------------------------------------------------------------- part numbers
 # Manufacturer and MPN fields by part value, so KiCad's BOM export carries them.
@@ -359,7 +359,7 @@ def sheet_power(b):
     # TVS from the fused VBUS to GND: clamps the spike the cable's inductance throws when SW1 or K1
     # opens under load (and plug-in ringing, ESD); after the fuse, so a lasting overvoltage trips F1
     tvs = s.part("placard_std:D_Zener", "D7", 104.14, yr + 3.81, {"1": "VFUSE", "2": "GND"}, value="SA5.0A",
-                 footprint="Diode_THT:D_DO-15_P10.16mm_Horizontal", angle=270, bare=("1",), ref_at=(106.2, yr + 3.3), value_at=(106.2, yr + 6.4))
+                 footprint="placard:D_DO-15_P10.16mm_Horizontal", angle=270, bare=("1",), ref_at=(106.2, yr + 3.3), value_at=(106.2, yr + 6.4))
     path(s, "VFUSE", f201["2"], tvs["1"])
     path(s, "VFUSE", tvs["1"], sw1["1"])
     s.junction(tvs["1"][0], yr, owner="VFUSE")
@@ -440,7 +440,7 @@ def sheet_power(b):
     # analog ground joins logic ground at the power input
     # (each side has its power flag on the pin end and its ground symbol below)
     nt = s.part("placard_std:NetTie_2", "NT1", 165.1, 109.22, {"1": "GND", "2": "GNDA"}, value="AGND tie",
-                footprint="NetTie:NetTie-2_THT_Pad0.3mm", ref_at=(158, 102), value_at=(160.5, 112),
+                footprint="placard:NetTie-2_THT_Pad0.3mm", ref_at=(158, 102), value_at=(160.5, 112),
                 bare=("1", "2"), in_bom=False)
     for net in ("GND", "GNDA"):
         (px, py) = nt["1" if net == "GND" else "2"]
@@ -1267,8 +1267,8 @@ def build_cart(size):
                 name(s, n[pn], px - 5.08, py, 180)
         decap(s, int(ref[1:]), x - 20.32, y - 38.1, lift=0)
     if size == 64:
-        mem("Memory_EEPROM:28C256", "U2", 270.51, 95.25, "~{CE_LO}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
-        mem("Memory_EEPROM:28C256", "U3", 365.76, 95.25, "~{CE_HI}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
+        mem("placard_std:28C256", "U2", 270.51, 95.25, "~{CE_LO}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
+        mem("placard_std:28C256", "U3", 365.76, 95.25, "~{CE_HI}", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
         mem("placard_parts:AS7C256C", "U4", 267.97, 195.58, "~{CE_LO}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
         mem("placard_parts:AS7C256C", "U5", 363.22, 195.58, "~{CE_HI}", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
         lines = ["U2 (lower 32K) and U3 (upper) hold the image,",
@@ -1280,7 +1280,7 @@ def build_cart(size):
     else:
         # one EEPROM and one SRAM, always selected: the main board's /ROM_OE picks the ROM, and the
         # 32K is seen in both halves of the address space
-        mem("Memory_EEPROM:28C256", "U2", 270.51, 95.25, "GND", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
+        mem("placard_std:28C256", "U2", 270.51, 95.25, "GND", "~{EE_OE}", "+5V", "AT28C256-15PU", FP_DIP28W)
         mem("placard_parts:AS7C256C", "U3", 267.97, 195.58, "GND", "~{ROM_OE}", "~{SR_WE}", "AS7C256C-15PCN")
         lines = ["U2 holds the 32K image, programmed off the board;",
                  "its /WE is tied high.  U3 is the ROM the CPU",

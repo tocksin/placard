@@ -33,7 +33,7 @@ hand in KiCad.
 Card coordinates here: x along the fingers from the card's left edge, y up
 from the finger edge; the KiCad file has the fingers at the bottom.
 
-Date: 2026-10-24
+Date: 2026-10-26
 """
 
 import os
@@ -47,12 +47,14 @@ import pcbnew
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import gen_kicad_connectors as gc  # noqa: E402
+import gen_kicad_stock_footprints  # noqa: E402
 
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 DOCS = os.path.join(ROOT, "docs")
 STOCK = os.environ.get("KICAD7_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
 LIBS = {"placard": os.path.join(KDIR, "lib", "placard.pretty")}
+KICAD_COPY = {name: lib for lib, name in gen_kicad_stock_footprints.STOCK}
 DATE = "2026-10-24"
 
 CARD_W = gc.CART_W           # 39 mm: the J8 body; the shell's skirt goes round it
@@ -67,8 +69,8 @@ FINGER_X0 = MID - 16.5       # contact 1
 EDGE_Y = 3.45                # the finger edge in the fingers footprint (Card_Edge_87715-9106)
 X0, Y0 = 100.0, 200.0        # the card's bottom left corner (finger edge level) on the KiCad page
 
-FP_HOLE = "MountingHole:MountingHole_3.2mm_M3"
-FP_CAP = "Capacitor_THT:C_Disc_D5.0mm_W2.5mm_P5.00mm"
+FP_HOLE = "placard:MountingHole_3.2mm_M3"
+FP_CAP = "placard:C_Disc_D5.0mm_W2.5mm_P5.00mm"
 
 # bottom (next to the fingers) to top: chip, its decap
 BUILDS = {
@@ -92,7 +94,10 @@ def pt(x, y):
 
 def load(fpid):
     lib, name = fpid.split(":")
-    fp = pcbnew.FootprintLoad(LIBS.get(lib, os.path.join(STOCK, lib + ".pretty")), name)
+    # placard.pretty's copies of KiCad's footprints are KiCad 9 files: KiCad 7 loads its own
+    path = os.path.join(STOCK, KICAD_COPY[name] + ".pretty") if name in KICAD_COPY else \
+        LIBS.get(lib, os.path.join(STOCK, lib + ".pretty"))
+    fp = pcbnew.FootprintLoad(path, name)
     if fp is None:
         sys.exit("footprint not found: " + fpid)
     fp.SetFPID(pcbnew.LIB_ID(lib, name))

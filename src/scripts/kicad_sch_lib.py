@@ -7,7 +7,7 @@ a power symbol for +5V, GND, +3V3 and GNDA).  Unconnected pins get a
 no-connect flag.  Symbols are copied out of the KiCad libraries into each
 sheet's lib_symbols cache, so the files open without the libraries.
 
-Date: 2026-10-21
+Date: 2026-10-26
 """
 import math
 import os
@@ -26,8 +26,11 @@ LIBS = {
     "placard_std": os.path.join(PROJ_LIB, "placard_std.kicad_sym"),
 }
 
-POWER_NETS = {"+5V": "power:+5V", "GND": "power:GND", "+3V3": "power:+3V3",
-              "GNDA": "power:GNDA"}
+# copies of KiCad's power symbols in placard_std (gen_kicad_std.py), so every symbol is in the project
+POWER_NETS = {"+5V": "placard_std:+5V", "GND": "placard_std:GND", "+3V3": "placard_std:+3V3",
+              "GNDA": "placard_std:GNDA"}
+PWR_FLAG = "placard_std:PWR_FLAG"
+POWER_SYMBOLS = set(POWER_NETS.values()) | {PWR_FLAG}
 
 # Text sizes (mm).  Large text: labels fill most of the 2.54 mm pin pitch.
 LABEL_SIZE = 2.0
@@ -440,7 +443,7 @@ class Sheet:
             else:
                 self.grid.block_box(vx - 1.0, vy - 2.2, vx + len(net) * 1.9, vy + 0.5)
                 self.boxes.append((vx - len(net) * 0.95, vy - 1.8, vx + len(net) * 0.95, vy, "power " + net))
-        val = net if lib_id.startswith("power:") and "PWR_FLAG" not in lib_id else uq(sym_props(self._lib(lib_id))["Value"][2])
+        val = net if lib_id in POWER_NETS.values() else uq(sym_props(self._lib(lib_id))["Value"][2])
         hide_val = " hide" if net in ("GND", "GNDA") else ""
         self.items.append(
             f"(symbol (lib_id {q(lib_id)}) (at {R(x)} {R(y)} {angle}) (unit 1) (in_bom yes) (on_board yes) (dnp no) "
@@ -453,14 +456,14 @@ class Sheet:
             f"(instances (project {q(self.project)} (path {q(self.path)} (reference {q(ref)}) (unit 1)))))")
 
     def pwr_flag(self, x, y):
-        self._lib("power:PWR_FLAG")
+        self._lib(PWR_FLAG)
         self.pwr_n += 1
         ref = f"#FLG{self.page:02d}{self.pwr_n:02d}"
         x, y = snap(x), snap(y)
         self.grid.add_point(x, y, "~flag")
         self.grid.block_box(x - 1.5, y - 5.5, x + 1.5, y - 1.0)
         self.items.append(
-            f"(symbol (lib_id \"power:PWR_FLAG\") (at {R(x)} {R(y)} 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) "
+            f"(symbol (lib_id {q(PWR_FLAG)}) (at {R(x)} {R(y)} 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) "
             f"(uuid {self.u()}) "
             f"(property \"Reference\" {q(ref)} (at {R(x)} {R(y - 2)} 0) {font(1.27, ' hide')}) "
             f"(property \"Value\" \"PWR_FLAG\" (at {R(x)} {R(y - 4)} 0) {font(1.5)}) "
