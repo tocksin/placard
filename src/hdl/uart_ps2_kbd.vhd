@@ -37,7 +37,9 @@ entity uart_ps2_kbd is
         rxIn        : in  std_logic;   -- serial data from the PC (idle 1)
         hostHold    : in  std_logic;   -- 1 = the host holds the PS/2 clock low
         kbdClkLow   : out std_logic;   -- 1 = pull the PS/2 clock low
-        kbdDataLow  : out std_logic    -- 1 = pull the PS/2 data low
+        kbdDataLow  : out std_logic;   -- 1 = pull the PS/2 data low
+        txOut       : out std_logic;   -- each character echoed back to the PC (idle 1)
+        rxToggle    : out std_logic    -- changes with every character received (debug LED)
     );
 end entity uart_ps2_kbd;
 
@@ -83,6 +85,13 @@ architecture rtl of uart_ps2_kbd is
     signal rxValid     : std_logic := '0';
     signal rxByte      : std_logic_vector(7 downto 0) := (others => '0');
 
+    -- the echo
+    signal echoBusy    : std_logic := '0';
+    signal echoCnt     : natural range 0 to BIT_CLKS := 0;
+    signal echoBit     : natural range 0 to 9 := 0;
+    signal echoShift   : std_logic_vector(9 downto 0) := (others => '1');
+    signal rxToggleR   : std_logic := '0';
+
     -- character FIFO
     type fifoType is array (0 to 255) of std_logic_vector(7 downto 0);
     signal fifo        : fifoType;
@@ -113,6 +122,38 @@ begin
 
     kbdClkLow  <= clkLowR;
     kbdDataLow <= dataLowR;
+    txOut      <= echoShift(0);
+    rxToggle   <= rxToggleR;
+
+    -- each character goes back to the terminal, so typing shows there too
+    -- and shows that the characters arrive (one dropped if two come while
+    -- one is being sent; the terminal sends no faster than the echo)
+    echoProc : process (clk)
+    begin
+        if rising_edge(clk) then
+            if rxValid = '1' then
+                rxToggleR <= not rxToggleR;
+            end if;
+            if echoBusy = '0' then
+                if rxValid = '1' then
+                    echoShift <= '1' & rxByte & '0';
+                    echoBusy  <= '1';
+                    echoCnt   <= BIT_CLKS - 1;
+                    echoBit   <= 0;
+                end if;
+            elsif echoCnt /= 0 then
+                echoCnt <= echoCnt - 1;
+            else
+                echoCnt   <= BIT_CLKS - 1;
+                echoShift <= '1' & echoShift(9 downto 1);
+                if echoBit = 9 then
+                    echoBusy <= '0';
+                else
+                    echoBit <= echoBit + 1;
+                end if;
+            end if;
+        end if;
+    end process echoProc;
 
     rxProc : process (clk)
     begin
