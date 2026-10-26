@@ -1,6 +1,6 @@
 # I/O: SNES pads, SD card, PS/2 keyboard and mouse
 
-Date: 2026-10-25
+Date: 2026-10-26
 
 Both SNES pads, the SD card, a PS/2 mouse and a PS/2 keyboard share one
 port at x5200-x52FF.  They are polled, never used at the same moment, so
@@ -377,8 +377,12 @@ buffer the key matrix used, with the same key numbers.
 - **Finding it.**  `port_init` sends ED (set the lights) and expects FA
   twice; `KBD_FLAGS` bit 1 = 1 when it answered.  A keyboard can still
   be testing itself after power-up, so with none found `kbd_scan` asks
-  again every 32nd call, 4 times.  A keyboard that stops answering when
-  its light is set counts as unplugged.
+  again every 32nd call, 4 times.  With no mouse running, the keyboard
+  socket is listened to even when nothing answered, and the first byte
+  that comes from it (a key, or the AA a keyboard sends when it is
+  plugged in) marks the keyboard found, so a keyboard that missed the
+  ED (or was plugged in later) still works.  A keyboard that stops
+  answering when its light is set counts as unplugged.
 - **Scan codes.**  Set 2, the keyboard's default.  A make code clears the
   key's bit in `KBD_NOW` and buffers its character (through `kbd_key`, so
   Shift, Ctrl, Caps Lock and Fn work as on the matrix); a break code (F0)
@@ -490,7 +494,9 @@ after `mouse_poll` returns 1.
 ## Rules for software
 
 - Use the drivers, or leave the latch at `PS2_LSN` when done (EB,
-  `P_IDLE`, when no device is being listened to).
+  `P_IDLE`, when no device is being listened to: before `kbd_scan` or
+  `ps2_poll` first runs; after that the keyboard socket, FB, when no
+  mouse runs).
 - Hold both PS/2 devices (`ps2_pause`) around anything that changes
   latch bits 2-4 or makes an edge on a clock line, then write `PS2_LSN`
   back to x5202; the SD data transfers (SCK, MOSI only) need no pause.
