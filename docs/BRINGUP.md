@@ -490,6 +490,8 @@ different picture.
 | U25 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
 | C25 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | R4 | Resistor, RUN pull-down | 10k |  |
+| JP2 | Pin header, 1 x 2 (bring-up jumper) | Sullins PREC002SAAN-RC | RUN to +5 V |
+| JP2 shunt | Jumper shunt | Sullins QPC02SXGN-RC | on only for the write check |
 
 **Program first:** U11 memory control from `ATF22V10_MEM_CTRL.pld`
 (rev 09); verify and label it.  U25 needs no programming.
@@ -498,15 +500,44 @@ With no cartridge and no JP2 shunt, R4 holds RUN low.  That keeps the
 ROM off, holds the map register clear and turns U11's /WE output off, so
 R63 still stops any writes.  Turn off the power switch.  Take
 strap S4 (U11 pin 18 to pin 12) out, then insert U11 and U25 into their
-sockets.  Turn on the power switch.  U11 now drives /RAM_OE only for the
-reads, and the picture is the same as in step 11.
+sockets and solder the JP2 header (leave its shunt off).  Turn on the
+power switch.
+
+**Reads.**  U11 now drives /RAM_OE low for the low half of each video
+read and high the rest of the time (the map is clear, so no CPU read is
+of RAM).  The picture is the same as in step 11.  If the RAM were never
+enabled, the screen would go white or blank; if it were enabled all the
+time, pin 18 would still read 0 V, as it did with S4.  /RAM_OE must read
+the same frequency as PIXEL_ENABLE.  The readings below are for a screen
+with no blank lines; random mode bytes may blank some lines, which lowers
+both frequencies alike.
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
+| Sync PIXEL_ENABLE (pin 19) | 2.365 MHz | 9.4 % | 0.47 V |
+| Mem ctrl /RAM_OE (pin 18) | 2.365 MHz | 95.3 % | 4.77 V |
 | Mem ctrl RUN (pin 17, input) | 0 | | 0 V |
 | Mem ctrl /WE (pin 16) | 0 | | 5 V (output off, pull-up) |
 | Mem ctrl /ROM_OE (pin 19) | 0 | | 5 V |
 | Map register Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 0 V (held clear by RUN) |
+
+**Writes.**  Turn off the power switch, put the shunt on JP2 (RUN to
++5 V) and turn the power on.  One end of R4 is RUN and now reads 5 V;
+the other end is GND.
+Clip the ground test lead to that GND end of R4 and touch its tip to
+U11 pin 14 (RW, a store; the State PLD that drives it isn't in yet).
+The pin keepers in U11 and U12 hold RW low after you lift the tip.  U11
+now drives /WE low for the low half of every clock that isn't a video
+read:
+
+| Pin | Frequency | Duty | DC average |
+|---|---|---|---|
+| Mem ctrl /WE (pin 16), RUN high, RW low | 22.81 MHz | 54.7 % | 2.73 V |
+
+Each of these stores writes FF (the bus pull-ups) to the one CPU-side
+address the muxes point at, so one byte of the picture may change; that
+is harmless.  Turn off the power switch, unclip the lead and take the
+shunt off JP2.  Turn the power on: /WE reads a steady 5 V again.
 
 ## CPU
 
@@ -536,8 +567,8 @@ the State, Branch and PC chips with no memory and no software.
 | U18 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
 | C1, C17, C18 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | R3 | Resistor, STALL_OUT pull-up | 10k |  |
-| JP1, JP2 | Pin header, 1 x 2 (bring-up jumpers) | Sullins PREC002SAAN-RC | JP1 STALL_IN to STALL_OUT, JP2 RUN to +5 V |
-| JP1, JP2 shunts | Jumper shunt | Sullins QPC02SXGN-RC | both on (see "Without the cartridge") |
+| JP1 | Pin header, 1 x 2 (bring-up jumper) | Sullins PREC002SAAN-RC | STALL_IN to STALL_OUT (JP2, RUN to +5 V, is in from step 12) |
+| JP1 shunt | Jumper shunt | Sullins QPC02SXGN-RC | on, with the JP2 shunt (see "Without the cartridge") |
 
 **Program first:** U1 State from `ATF22V10_STATE.pld` (rev 15) and U17
 instruction register from `ATF22V10_IR.pld` (rev 01); verify and label
