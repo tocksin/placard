@@ -1,0 +1,778 @@
+; ============================================================
+; rom32.masm - the 32K ROM image's own code: the loader that starts the
+; DOS (DOS.PLC on the SD card) or BASIC, and runs programs from the card
+; ============================================================
+;
+; The 32K image (docs/ROM.md "The 32K image") holds the boot loader, the
+; library, the FAT writer and this code.  The DOS is a program on the SD
+; card (DOS.PLC, dos.masm, docs/DOS.md); the ROM keeps only what has to
+; outlive a program that loads over the DOS in the RAM:
+;
+;   power-up     "PLACARD" and about a second in which Esc held goes to the
+;                DOS's file browser.  No card (or none it can read): BASIC.
+;                Esc held: DOS.PLC.  Otherwise BOOT.CFG in the root folder
+;                names the program to run ("MENU.PLC", or "BASIC"); with no
+;                BOOT.CFG, DOS.PLC.  No DOS.PLC in the root folder: BASIC.
+;   programs     .PLC files: 16-byte header ("PLC", type, load address,
+;                length, entry), then the bytes.  Type 0 (a library
+;                program) is copied to its load address in x0100-x3FFF and
+;                entered with map 07, SP = FF, LIB_RAM in place; type 1 (a
+;                RAM image, the older demos) to RAM x0000-x49FF, started at
+;                x0000 with map FF through MB_GO.
+;   coming back  a program jumps to x8008 (or a RAM image's hook goes
+;                through MB_EXIT): the card is mounted again, the folder
+;                put back, MB_PARENT run if a program set it (the demo
+;                menu names itself), otherwise DOS.PLC loaded again from
+;                the root folder (as COMMAND.COM was on MS-DOS).
+;   errors       a file that can't be run: its error goes to MB_ERR
+;                (FAT error 1-14, ERR_NOTPROG, ERR_ISDIR) and DOS.PLC
+;                shows it.  DOS.PLC itself missing or bad: BASIC.
+;
+; VECTORS (x8000-x80FF), the fixed places a program may jump to or CALL:
+;   x8000  the reset code (nop, jump to the boot loader): a 32K cartridge
+;          reads it at x0000
+;   x8008  dos_back    a program is done (map 05 or 07)
+;   x800C  dos_run     R1:R0 = "NAME.PLC", 0 in RAM (current folder): load
+;                      and run it (never returns)
+;   x8010  fs_create   x8014 fs_write   x8018 fs_close   x801C fs_delete
+;   x8020  fs_save     the FAT writer (placard_fsw.masm): CALL as a library
+;                      routine, e.g.  ld 0x80, y / jmp 0x20  with LINK set
+;   x8024  basic       BASIC (a jump; it never returns)
+;
+; RAM: zero page x20-x2B while the loader runs (a program's own x20-x5F
+; are free again when it is entered), DOS_BUF x5400-x55FF and DOS_BUF0
+; x5600-x57FF (the program's first sector, BOOT.CFG, a RAM image's page
+; 0), the menu block x5D00-x5D6F (placard_menu.asm) and the FAT driver's
+; x4D00-x4FFF.
+;
+; ROM: x8000-x80FF vectors, x8100-x9EFF and xA000-xAFFF this code and
+; BASIC (asm_expand.py pages it), x9F00-x9FFF LIB_RAM's image (the boot
+; reads it at x1F00 on a 32K cartridge), xB000-xBFFF the FAT writer.
+;
+;     python3 asm_expand.py rom32.masm        writes rom32.asm
+;     build\rom32.bat                         the FPGA, rom_32k.bin
+;     python3 test_dos.py                     runs it with a card image
+;
+; Date: 10/26/2026
+; ============================================================
+
+#include "placard.asm"
+#include "placard_lib.asm"
+#include "placard_fsw.asm"
+
+ROM_CODE  = 0x8100      ; this code, up to LIB_RAM's image
+ROM_TOP   = 0x9F00
+ROM_CODE2 = 0xA000      ; and on after it, up to the FAT writer
+ROM_TOP2  = 0xB000
+BOOT      = 0xFD00      ; rom_boot.asm: the boot loader (its reset code jumps here)
+BOOT_MODE = 0xFC00      ; the boot mode byte: 02 = the 32K image (jump to x8100)
+MODE_32K  = 0x02
+MAP_RUN   = 0x07        ; sections 0-2 RAM, 3-7 ROM
+LIB_RAM_IMG = 0x9F00    ; LIB_RAM's bytes in the 32K image
+
+DOS_BUF   = 0x5400      ; a sector: the program file's first, BOOT.CFG
+DOS_BUF0  = 0x5600      ; a RAM image's page 0 until the loader lets go of the zero page
+ESC_FRAMES = 60         ; about a second to hold Esc at power-up
+
+; MB_ERR codes besides the FAT driver's 1-14 (placard_menu.asm)
+ERR_NOTPROG = 0x80      ; not a .PLC file
+ERR_ISDIR   = 0x81      ; a folder
+
+; zero page (the loader's own; a program's x20-x5F are free again when it runs)
+l_t     = 0x20          ; scratch
+l_t2    = 0x21
+l_c     = 0x22          ; a character
+l_type  = 0x23          ; the program's type
+l_ll    = 0x24          ; its load address
+l_lh    = 0x25
+l_cl    = 0x26          ; its length
+l_ch    = 0x27
+l_el    = 0x28          ; its entry
+l_eh    = 0x29
+l_esc   = 0x2A          ; 1 = Esc was held at power-up
+l_dos   = 0x2B          ; 1 = loading DOS.PLC (from the root; a failure starts BASIC)
+
+; ============================================================
+; the vectors
+; ============================================================
+.fixed 0x8000
+    nop                         ; the reset code, as rom_boot.asm x0000-x0004
+    ld   BOOT >> 8, y
+    jmp  BOOT & 0xFF
+.fixed 0x8008
+    GOTO dos_back
+.fixed 0x800C
+    GOTO dos_run
+.fixed 0x8010
+    GOTO fs_create
+.fixed 0x8014
+    GOTO fs_write
+.fixed 0x8018
+    GOTO fs_close
+.fixed 0x801C
+    GOTO fs_delete
+.fixed 0x8020
+    GOTO fs_save
+.fixed 0x8024
+    GOTO basic
+
+.fixed BOOT_MODE
+    #d8 MODE_32K
+
+.prefix rom
+.region ROM_CODE, ROM_TOP
+
+; ============================================================
+; power_up - the boot loader comes here with map 05
+; ============================================================
+.fixed ROM_CODE
+power_up:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    ld   MAP_RUN, ac
+    ld   ac, [MAP_SHADOW]
+    ld   0x50, y
+    ld   MAP_RUN, [y,x]         ; map 07 (section 4, this code, stays ROM)
+    GOTO pu_block
+
+.chunk  the menu block: "MNU", picked mode, the exit and go stubs
+pu_block:
+    ld   MENU_BLK >> 8, y
+    ld   MB_MAGIC, x
+    ld   0x4D, [y,x]            ; "MNU"
+    ld   MB_MAGIC + 1, x
+    ld   0x4E, [y,x]
+    ld   MB_MAGIC + 2, x
+    ld   0x55, [y,x]
+    ld   MB_MODE, x
+    ld   1, [y,x]               ; picked: no time limit
+    ld   MB_HOLD, x
+    ld   600 & 0xFF, [y,x]
+    ld   MB_HOLD + 1, x
+    ld   600 >> 8, [y,x]
+    ld   MB_WHY, x
+    ld   0, [y,x]
+    ld   MB_CHILD, x
+    ld   0, [y,x]
+    ld   MB_PARENT, x
+    ld   0, [y,x]
+    ld   MB_FNAME, x
+    ld   0x5C, [y,x]            ; "\": the root
+    ld   MB_FNAME + 1, x
+    ld   0, [y,x]
+    ld   MB_DCLUS, x            ; the root
+    ld   0, [y,x]
+    ld   MB_DCLUS + 1, x
+    ld   0, [y,x]
+    ld   MB_DCLUS + 2, x
+    ld   0, [y,x]
+    ld   MB_DCLUS + 3, x
+    ld   0, [y,x]
+    ld   0x1F, ac               ; x5D11-x5D1F (MB_MENU, MB_ERR, MB_SEL, MB_TOP ...) = 0
+    ld   ac, [l_t]
+pu_z:
+    ld   [l_t], x
+    ld   0, [y,x]
+    ld   [l_t], ac
+    dec
+    ld   ac, [l_t]
+    xor  0x10, ac
+    bne  pu_z
+    clr  ac                     ; MB_EXIT and MB_GO code into the RAM
+    ld   ac, [l_t]
+pu_cp:
+    ld   [l_t], ac
+    add  stubs & 0xFF, x
+    ld   stubs >> 8, y
+    ld   [y,x], ac
+    ld   ac, [l_t2]
+    ld   [l_t], ac
+    add  MB_EXIT, x
+    ld   MENU_BLK >> 8, y
+    ld   [l_t2], ac
+    ld   ac, [y,x]
+    ld   [l_t], ac
+    inc
+    ld   ac, [l_t]
+    xor  16, ac
+    bne  pu_cp
+    GOTO pu_title
+
+.chunk  the code copied to MB_EXIT (x5D20) and MB_GO (x5D28); it runs from
+        ; the RAM because the fetch after a map write still uses the old map
+stubs:
+    ld   0x50, y                ; MB_EXIT: map 05, then dos_back through x8008
+    ld   0x05, [y,x]
+    ld   0x80, y
+    jmp  0x08
+    ld   0x50, y                ; MB_GO: map FF, the RAM image's reset
+    ld   0xFF, [y,x]
+    ld   0x00, y
+    jmp  0x00
+
+.chunk  the title, the keyboard, a second for Esc
+pu_title:
+    CALL con_clear
+    ld   s_title & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_title >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   2, ac
+    ld   ac, [CUR_ROW]
+    clr  ac
+    ld   ac, [CUR_COL]
+    ld   s_hold & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_hold >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    CALL port_init
+    clr  ac
+    ld   ac, [l_esc]
+    ld   ESC_FRAMES, ac
+    ld   ac, [l_t2]
+pu_w:
+    ld   1, ac
+    CALL wait_frames_io
+    CALL kbd_scan
+    ld   [KBD_NOW], ac          ; Esc is key 0: column 0, bit 0, 0 = down
+    and  1, ac
+    bne  pu_w1
+    ld   1, ac
+    ld   ac, [l_esc]
+pu_w1:
+    ld   [l_t2], ac
+    dec
+    ld   ac, [l_t2]
+    bne  pu_w
+    ld   [KBD_HEAD], ac         ; forget the keys pressed meanwhile
+    ld   ac, [KBD_TAIL]
+    GOTO pu_card
+
+.chunk  the card, then BOOT.CFG unless Esc was held
+pu_card:
+    CALL mount
+    beq  pu_c1
+    GOTO basic                  ; no card: BASIC
+pu_c1:
+    CALL save_dclus             ; the root
+    ld   [l_esc], ac
+    bne  pu_dos
+    ld   s_cfg & 0xFF, ac       ; BOOT.CFG into DOS_BUF
+    ld   ac, [R0]
+    ld   s_cfg >> 8, ac
+    ld   ac, [R1]
+    ld   DOS_BUF & 0xFF, ac
+    ld   ac, [R4]
+    ld   DOS_BUF >> 8, ac
+    ld   ac, [R5]
+    CALL fs_load
+    bne  pu_dos
+    clr  ac                     ; MB_CHILD = its first word
+    ld   ac, [l_t]
+pu_cfg:
+    ld   DOS_BUF >> 8, y
+    ld   [l_t], x
+    ld   [y,x], ac
+    sub  0x21, ac
+    blt  pu_cfge                ; space, CR, LF, 00: the end
+    add  0x21, ac
+    ld   ac, [l_c]
+    ld   [l_t], ac
+    add  MB_CHILD, x
+    ld   MENU_BLK >> 8, y
+    ld   [l_c], ac
+    ld   ac, [y,x]
+    ld   [l_t], ac
+    inc
+    ld   ac, [l_t]
+    xor  12, ac
+    bne  pu_cfg
+pu_cfge:
+    ld   [l_t], ac
+    add  MB_CHILD, x
+    ld   MENU_BLK >> 8, y
+    ld   0, [y,x]
+    ld   [l_t], ac
+    beq  pu_dos                 ; an empty file
+    GOTO pu_basic
+pu_dos:
+    GOTO start_dos
+
+.chunk  BOOT.CFG = "BASIC" (any case): BASIC, else run the program it names
+pu_basic:
+    clr  ac
+    ld   ac, [l_t]
+pb_l:
+    ld   [l_t], ac
+    add  s_basic & 0xFF, x
+    ld   s_basic >> 8, y
+    ld   [y,x], ac
+    ld   ac, [l_c]
+    ld   [l_t], ac
+    add  MB_CHILD, x
+    ld   MENU_BLK >> 8, y
+    ld   [y,x], ac
+    ld   ac, [l_t2]
+    sub  0x61, ac               ; a-z to A-Z
+    blt  pb_u
+    sub  0x1A, ac
+    bcc  pb_u                   ; no borrow: past z
+    ld   [l_t2], ac
+    sub  0x20, ac
+    ld   ac, [l_t2]
+pb_u:
+    ld   [l_t2], ac
+    xor  [l_c], ac
+    bne  pb_prog
+    ld   [l_c], ac
+    beq  pb_basic               ; all of it, and the 0
+    ld   [l_t], ac
+    inc
+    ld   ac, [l_t]
+    bra  pb_l
+pb_basic:
+    GOTO basic
+pb_prog:
+    clr  ac
+    ld   ac, [l_dos]
+    GOTO run_child
+
+; ============================================================
+; dos_run (vector x800C) - run the file named at R1:R0
+; dos_back (vector x8008) - a program is done
+; start_dos - DOS.PLC from the root folder (BASIC when it can't)
+; ============================================================
+.chunk
+dos_run:
+    clr  ac
+    ld   ac, [l_t]
+dr_cp:
+    ld   [R1], y
+    ld   [R0], x
+    ld   [y,x], ac
+    ld   ac, [l_c]
+    ld   [l_t], ac
+    add  MB_CHILD, x
+    ld   MENU_BLK >> 8, y
+    ld   [l_c], ac
+    ld   ac, [y,x]
+    beq  dr_go
+    ld   [l_t], ac
+    inc
+    ld   ac, [l_t]
+    xor  12, ac
+    beq  dr_go
+    ld   [R0], ac
+    inc
+    ld   ac, [R0]
+    bcc  dr_cp
+    ld   [R1], ac
+    inc
+    ld   ac, [R1]
+    bra  dr_cp
+dr_go:
+    ld   MENU_BLK >> 8, y
+    ld   MB_CHILD + 12, x
+    ld   0, [y,x]
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    CALL remount
+    clr  ac
+    ld   ac, [l_dos]
+    GOTO run_child
+
+.chunk
+dos_back:
+    CALL reinit
+    ld   MENU_BLK >> 8, y
+    ld   MB_PARENT, x
+    ld   [y,x], ac
+    beq  db_dos
+    ld   12, ac                 ; the parent runs again: MB_CHILD = MB_PARENT
+    ld   ac, [l_t]
+db_cp:
+    ld   [l_t], ac
+    add  MB_PARENT, x
+    ld   MENU_BLK >> 8, y
+    ld   [y,x], ac
+    ld   ac, [l_c]
+    ld   [l_t], ac
+    add  MB_CHILD, x
+    ld   [l_c], ac
+    ld   ac, [y,x]
+    ld   [l_t], ac
+    sub  1, ac
+    ld   ac, [l_t]
+    bcc  db_cp                  ; no borrow: more to copy
+    ld   MB_PARENT, x
+    ld   0, [y,x]
+    clr  ac
+    ld   ac, [l_dos]
+    GOTO run_child
+db_dos:
+    GOTO start_dos
+
+.chunk
+start_dos:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    ld   FSV, y                 ; no card mounted: BASIC
+    ld   V_TYPE, x
+    ld   [y,x], ac
+    bne  sd_ok
+    GOTO basic
+sd_ok:
+    ld   1, ac
+    ld   ac, [l_dos]
+    ld   MENU_BLK >> 8, y
+    ld   MB_PARENT, x
+    ld   0, [y,x]
+    ld   7, ac                  ; MB_CHILD = "DOS.PLC", 0
+    ld   ac, [l_t]
+sd_cp:
+    ld   [l_t], ac
+    add  s_dosplc & 0xFF, x
+    ld   s_dosplc >> 8, y
+    ld   [y,x], ac
+    ld   ac, [l_c]
+    ld   [l_t], ac
+    add  MB_CHILD, x
+    ld   MENU_BLK >> 8, y
+    ld   [l_c], ac
+    ld   ac, [y,x]
+    ld   [l_t], ac
+    sub  1, ac
+    ld   ac, [l_t]
+    bcc  sd_cp
+    ld   FSV, y                 ; from the root: V_DCLUS = 0 (MB_DCLUS keeps the folder)
+    ld   V_DCLUS, x
+    ld   0, [y,x]
+    ld   V_DCLUS + 1, x
+    ld   0, [y,x]
+    ld   V_DCLUS + 2, x
+    ld   0, [y,x]
+    ld   V_DCLUS + 3, x
+    ld   0, [y,x]
+    GOTO run_child
+
+.chunk  reinit - the state after a program: stack, the port, then remount
+reinit:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    PUSH_LINK
+    CALL port_init
+    CALL remount
+    LEAVE
+
+.chunk  remount - map, LIB_RAM, the card, the folder it was in.  dos_run
+        ; leaves the port as the program had it: a key let go while
+        ; port_init looks for the keyboard would make it miss it
+remount:
+    PUSH_LINK
+    ld   MAP_RUN, ac
+    ld   ac, [MAP_SHADOW]
+    ld   0x50, y
+    ld   MAP_RUN, [y,x]
+    CALL lib_ram_copy
+    CALL mount
+    bne  rm_x
+    CALL get_dclus
+rm_x:
+    LEAVE
+
+.chunk  mount - sd_init, then fs_mount: AC = 0 or the error
+mount:
+    PUSH_LINK
+    CALL sd_init
+    bne  m_x
+    CALL fs_mount
+m_x:
+    LEAVE
+
+.chunk  lib_ram_copy - LIB_RAM back: ROM x9F00-x9FFF to RAM x1F00-x1FFF (a leaf)
+lib_ram_copy:
+    clr  ac
+    ld   ac, [l_t]
+lrc:
+    ld   [l_t], x
+    ld   LIB_RAM_IMG >> 8, y
+    ld   [y,x], ac
+    ld   LIB_RAM >> 8, y
+    ld   ac, [y,x]
+    ld   [l_t], ac
+    inc
+    ld   ac, [l_t]
+    bne  lrc
+    RET
+
+.chunk  save_dclus - MB_DCLUS = V_DCLUS (a leaf)
+save_dclus:
+    ld   3, ac
+    ld   ac, [l_t]
+sv_cp:
+    ld   [l_t], ac
+    add  V_DCLUS, x
+    ld   FSV, y
+    ld   [y,x], ac
+    ld   ac, [l_c]
+    ld   [l_t], ac
+    add  MB_DCLUS, x
+    ld   MENU_BLK >> 8, y
+    ld   [l_c], ac
+    ld   ac, [y,x]
+    ld   [l_t], ac
+    sub  1, ac
+    ld   ac, [l_t]
+    bcc  sv_cp
+    RET
+
+.chunk  get_dclus - V_DCLUS = MB_DCLUS (a leaf)
+get_dclus:
+    ld   3, ac
+    ld   ac, [l_t]
+gd_cp:
+    ld   [l_t], ac
+    add  MB_DCLUS, x
+    ld   MENU_BLK >> 8, y
+    ld   [y,x], ac
+    ld   ac, [l_c]
+    ld   [l_t], ac
+    add  V_DCLUS, x
+    ld   FSV, y
+    ld   [l_c], ac
+    ld   ac, [y,x]
+    ld   [l_t], ac
+    sub  1, ac
+    ld   ac, [l_t]
+    bcc  gd_cp
+    RET
+
+; ============================================================
+; run_child - load and run the program named at MB_CHILD
+; ============================================================
+.chunk
+run_child:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    ld   MB_CHILD, ac
+    ld   ac, [R0]
+    ld   MENU_BLK >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    bne  rc_err
+    ld   FSV, y
+    ld   V_ENTRY + 11, x
+    ld   [y,x], ac
+    and  0x10, ac
+    bne  rc_dir
+    ld   DOS_BUF & 0xFF, ac     ; its first sector
+    ld   ac, [R4]
+    ld   DOS_BUF >> 8, ac
+    ld   ac, [R5]
+    CALL fs_read
+    bne  rc_err
+    ld   DOS_BUF >> 8, y
+    ld   0, x
+    ld   [y,x], ac
+    xor  0x50, ac               ; "PLC"
+    bne  rc_notp
+    ld   1, x
+    ld   [y,x], ac
+    xor  0x4C, ac
+    bne  rc_notp
+    ld   2, x
+    ld   [y,x], ac
+    xor  0x43, ac
+    bne  rc_notp
+    GOTO rc_header
+rc_notp:
+    ld   ERR_NOTPROG, ac
+    GOTO fail
+rc_dir:
+    ld   ERR_ISDIR, ac
+rc_err:
+    GOTO fail
+
+.chunk  fail - AC = why the program could not run: DOS.PLC shows it (MB_ERR);
+        ; DOS.PLC itself: BASIC
+fail:
+    ld   MENU_BLK >> 8, y
+    ld   MB_ERR, x
+    ld   ac, [y,x]
+    ld   MB_PARENT, x           ; a menu does not get it back
+    ld   0, [y,x]
+    ld   [l_dos], ac
+    bne  fl_basic
+    CALL reinit                 ; the card again (a load may have stopped half way)
+    GOTO start_dos
+fl_basic:
+    GOTO basic
+
+.chunk  the header: type, load address, length, entry
+rc_header:
+    ld   DOS_BUF >> 8, y
+    ld   3, x
+    ld   [y,x], ac
+    ld   ac, [l_type]
+    ld   4, x
+    ld   [y,x], ac
+    ld   ac, [l_ll]
+    ld   5, x
+    ld   [y,x], ac
+    ld   ac, [l_lh]
+    ld   6, x
+    ld   [y,x], ac
+    ld   ac, [l_cl]
+    ld   7, x
+    ld   [y,x], ac
+    ld   ac, [l_ch]
+    ld   8, x
+    ld   [y,x], ac
+    ld   ac, [l_el]
+    ld   9, x
+    ld   [y,x], ac
+    ld   ac, [l_eh]
+    ld   [l_type], ac
+    bne  rc_t1
+    GOTO load_t0
+rc_t1:
+    GOTO load_t1
+
+.chunk  load_t0 - a library program: to its load address, then its entry
+load_t0:
+    ld   (DOS_BUF & 0xFF) + 16, ac    ; the 496 bytes after the header
+    ld   ac, [R0]
+    ld   DOS_BUF >> 8, ac
+    ld   ac, [R1]
+    ld   [l_ll], ac
+    ld   ac, [R2]
+    ld   [l_lh], ac
+    ld   ac, [R3]
+    clr  ac
+    ld   ac, [R4]
+    CALL memcpy
+    ld   240, ac
+    ld   ac, [R4]
+    CALL memcpy
+    ld   [R2], ac               ; the rest straight to load + 496 on
+    ld   ac, [R4]
+    ld   [R3], ac
+    ld   ac, [R5]
+lt0_rd:
+    CALL fs_read
+    beq  lt0_rd
+    xor  1, ac                  ; 1: the end
+    bne  lt0_err
+    CALL lib_ram_copy           ; a program over x1F00 is fine
+    ld   [l_dos], ac
+    bne  lt0_dos
+    CALL save_dclus             ; the folder it came from
+    bra  lt0_go
+lt0_dos:
+    CALL get_dclus              ; DOS.PLC: the folder the DOS was in
+lt0_go:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    ld   [l_eh], y
+    jmp  [l_el]
+lt0_err:
+    xor  1, ac
+    GOTO fail
+
+.chunk  load_t1 - a RAM image: RAM x0100-x49FF cleared, the image copied,
+        ; page 0 last, then map FF and x0000 through MB_GO
+load_t1:
+    CALL save_dclus
+    ld   1, ac
+    ld   ac, [l_t]
+lt1_z:
+    ld   [l_t], y
+    clr  ac
+lt1_z2:
+    ld   ac, x
+    ld   0, [y,x]
+    inc
+    bne  lt1_z2
+    ld   [l_t], ac
+    inc
+    ld   ac, [l_t]
+    xor  0x4A, ac
+    bne  lt1_z
+    ld   (DOS_BUF & 0xFF) + 16, ac    ; page 0 of the image waits in DOS_BUF0
+    ld   ac, [R0]
+    ld   DOS_BUF >> 8, ac
+    ld   ac, [R1]
+    clr  ac
+    ld   ac, [R2]
+    ld   ac, [R4]
+    ld   DOS_BUF0 >> 8, ac
+    ld   ac, [R3]
+    CALL memcpy
+    clr  ac                     ; x0100-x01EF from the first sector
+    ld   ac, [R2]
+    ld   1, ac
+    ld   ac, [R3]
+    ld   240, ac
+    ld   ac, [R4]
+    CALL memcpy
+    ld   0xF0, ac               ; the rest to x01F0 on
+    ld   ac, [R4]
+    ld   1, ac
+    ld   ac, [R5]
+lt1_rd:
+    CALL fs_read
+    beq  lt1_rd
+    xor  1, ac
+    bne  lt1_err
+    GOTO lt1_go
+lt1_err:
+    xor  1, ac
+    GOTO fail
+
+.chunk  let the keyboard send (the image's hook reads the receiver), copy
+        ; page 0 with no zero page of our own, go
+lt1_go:
+    ld   MENU_BLK >> 8, y
+    ld   MB_KB, x
+    ld   0, [y,x]
+    ld   MB_IA, x
+    ld   0, [y,x]
+    ld   PORT, y
+    ld   PORT_RX, x
+    ld   P_KFREE, [y,x]
+lt1_p0:
+    ld   MENU_BLK >> 8, y
+    ld   MB_IA, x
+    ld   [y,x], ac
+    ld   ac, x
+    ld   DOS_BUF0 >> 8, y
+    ld   [y,x], ac
+    ld   0, y
+    ld   ac, [y,x]
+    ld   MENU_BLK >> 8, y
+    ld   MB_IA, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    bne  lt1_p0
+    ld   MENU_BLK >> 8, y
+    jmp  MB_GO
+
+; ============================================================
+; strings
+; ============================================================
+.chunk
+s_title:    #d "PLACARD", 0x00
+s_hold:     #d "Hold Esc for the file browser", 0x00
+s_cfg:      #d "BOOT.CFG", 0x00
+s_dosplc:   #d "DOS.PLC", 0x00
+s_basic:    #d "BASIC", 0x00
+
+; ============================================================
+; BASIC (vector x8024): basic.masm and its bytecode, basic.vm, in the
+; space left in both regions (docs/BASIC.md)
+; ============================================================
+.region ROM_CODE2, ROM_TOP2
+.include "basic.masm"

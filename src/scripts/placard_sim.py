@@ -61,7 +61,7 @@ basys_top.vhd (low nibble CIN = 0, high nibble CIN = low nibble COUT, low
 SHIFT_RIGHT_IN = AC bit 4, high SHIFT_RIGHT_IN = 0).  The default is an ideal
 8-bit ALU (A - B is a true 8-bit subtraction).
 
-Date: 10/22/2026
+Date: 10/26/2026
 """
 
 import re
@@ -698,7 +698,11 @@ SYS_START, SYS_END = 0xC000, 0xFC00   # the library block (placard_lib.asm), up 
 LIB_FONT = 0xEC00            # the font (LIB_FONT in placard_lib.asm)
 PROG_START, PROG_END = 0x6000, 0xC000   # ROM program area, entry at PROG_START
 PROG2_START, PROG2_END = 0x2000, 0x4000 # more ROM program area (section 1)
-BOOT_MODE = 0xFC00           # 00 = ROM program, 01 = RAM image
+BOOT_MODE = 0xFC00           # 00 = ROM program, 01 = RAM image, 02 = the 32K image
+MODE_DOS = 2
+DOS_START, DOS_END = 0x8000, 0xC000     # the 32K image's own area: vectors, loader, BASIC, FAT writer
+LIB_RAM_IMAGE = 0x9F00       # where the 32K image keeps LIB_RAM (a 32K cartridge
+                             # shows it at x1F00 too, where the boot copies it from)
 
 
 def lib_area(a):
@@ -719,14 +723,64 @@ def is_ram_image(prog, lib):
     return False
 
 
+def is_dos_image(prog):
+    """True for the 32K image's program (rom32.asm): it sets the boot mode
+    byte to 02 itself"""
+    return prog.get(BOOT_MODE) == MODE_DOS
+
+
+def build_dos_rom(dos, boot, lib):
+    """the 64K ROM for the 32K image's program (rom32.asm): the 32K image x8000-xFFFF (docs/ROM.md, "The
+    32K image") in both halves, so a 32K cartridge (one EEPROM, read in
+    both halves) and a 64K one boot the same.  The upper half holds the
+    boot loader and the library as every ROM does, LIB_RAM's bytes at
+    x9F00 (read at x1F00 by the boot through the mirror), rom32.asm's own
+    bytes in x8000-xBFFF (vectors, loader, BASIC, FAT writer), BOOT_MODE = 02, and a
+    copy of the reset code (x0000-x0004 of rom_boot.asm) at x8000, where a
+    32K cartridge shows it at x0000."""
+    rom = {}
+    for a, v in boot.items():
+        if a >= 0x8000:
+            rom[a] = v
+    for a in range(5):
+        rom[0x8000 + a] = boot.get(a, 0)
+    for a, v in lib.items():
+        if SYS_START <= a < SYS_END:
+            rom[a] = v
+        elif LIB_RAM_START <= a < LIB_RAM_END:
+            rom[a - LIB_RAM_START + LIB_RAM_IMAGE] = v
+    for a, v in dos.items():
+        if a == BOOT_MODE:
+            continue
+        if DOS_START <= a < DOS_END:
+            if LIB_RAM_IMAGE <= a < LIB_RAM_IMAGE + 0x100 and v:
+                raise AsmError('DOS byte at %04X is in the LIB_RAM image (x9F00-x9FFF)' % a)
+            if a < 0x8005 and v != rom[a]:
+                raise AsmError('DOS byte at %04X differs from the boot loader\'s reset code' % a)
+            rom[a] = v
+        elif v and not (lib_area(a) and v == lib.get(a, 0)):
+            raise AsmError('DOS byte at %04X is outside the 32K image (x8000-xBFFF)' % a)
+    rom[BOOT_MODE] = MODE_DOS
+    for a in range(0x8000):
+        rom[a] = rom.get(a + 0x8000, 0)
+    return rom
+
+
+def image_32k(rom):
+    """the 32K EEPROM image (x8000-xFFFF) of a ROM from build_rom"""
+    return bytes(rom.get(a, 0) for a in range(0x8000, 0x10000))
+
+
 def build_rom(prog, base_dir=None):
     """ROM bytes {addr: value} for a program image {addr: value}, as gen_rom.tcl
     makes them (docs/ROM.md): rom_boot.asm, the library (rom_lib.asm) in place at
     xC000-xFBFF (jump table, core routines, font, I/O drivers, sound, line
     input, FAT reader, slot helpers) and its LIB_RAM bytes at x1F00-x1FFF (the boot copies them to the RAM),
     then either
+      the 32K image (rom32.asm, BOOT_MODE byte 02 in the program): in
+      both halves, see build_dos_rom, or
       a ROM program (assembled at x6000-xBFFF and x2000-x3FFF): in place,
-      BOOT_MODE = 00, or
+      BOOT_MODE = 00 (the 64K development image, docs/ROM.md), or
       a RAM image (older programs at RAM x0000, no library): BOOT_MODE = 01,
       the program (x0000 to its last byte, gaps as 00, like its hex file)
       at ROM = RAM + x6000."""
@@ -735,6 +789,8 @@ def build_rom(prog, base_dir=None):
     rom = {}
     boot, _, _ = assemble(open(os.path.join(base_dir, 'rom_boot.asm')).read(), base_dir)
     lib, _, _ = assemble(open(os.path.join(base_dir, 'rom_lib.asm')).read(), base_dir)
+    if is_dos_image(prog):
+        return build_dos_rom(prog, boot, lib)
     rom.update(boot)
     for a, v in lib.items():
         if lib_area(a):
@@ -784,6 +840,9 @@ def main(argv):
     open(hexpath, 'w').write(to_hexstr(mem) + '\n')
     print('assembled %d bytes, top %04X -> %s' % (len(mem), max(mem), hexpath))
     if args.run:
+        if not args.boot and is_dos_image(mem):
+            print('the DOS image: running it from the ROM (--boot)')
+            args.boot = True
         if not args.boot and all(LIB_RAM_START <= a < 0x4000 or a >= PROG_START for a in mem):
             print('a ROM program (code from x6000): running it from the ROM image (--boot)')
             args.boot = True
