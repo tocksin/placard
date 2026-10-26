@@ -1,6 +1,6 @@
 # Schematic plan
 
-Date: 2026-10-25
+Date: 2026-10-26
 
 How the KiCad schematic (`kicad/`) is split into sheets: how many sheets,
 which chips, connectors and passives go on each, and which nets run between
@@ -84,14 +84,14 @@ sheet that drives the net.
 
 | Net | From | To |
 |---|---|---|
-| `CLK` | 2 (oscillator X1) | every clocked chip on 3-9, 11; 7 (cartridge A20) |
-| `STALL_IN` | 3 (Branch pin 19) | 7 (cartridge B17), 2 (bring-up jumper JP1) |
-| `STALL_OUT` | 7 (cartridge B18) | 2 (10k pull-up, JP1), 3 (State pin 2), 4 (PC PLDs pin 14) |
-| `RUN` | 7 (cartridge A19) | 2 (pull-down), 7 (memory control pin 17, map register /MR), 11 (/RESET on every slot) |
-| `PIXEL_ENABLE` | 8 (Sync pin 19) | 3 (Branch pin 9), 7 (memory control, cartridge A18) |
+| `CLK` | 2 (oscillator X1) | every clocked chip on 3-9, 11; 7 (cartridge B4) |
+| `STALL_IN` | 3 (Branch pin 19) | 7 (cartridge B12), 2 (bring-up jumper JP1) |
+| `STALL_OUT` | 7 (cartridge B5) | 2 (10k pull-up, JP1), 3 (State pin 2), 4 (PC PLDs pin 14) |
+| `RUN` | 7 (cartridge B6) | 2 (pull-down), 7 (memory control pin 17, map register /MR), 11 (/RESET on every slot) |
+| `PIXEL_ENABLE` | 8 (Sync pin 19) | 3 (Branch pin 9), 7 (memory control, cartridge A7) |
 | `ADDR_SEL`, `ADDR_SEL_HI`, `ADDR_SEL_LO` | 8 (Sync) | 4 (mux selects), 7 (I/O decode) |
 | `H_VIDEO_ACTIVE`, `V_VIDEO_ACTIVE`, `VIDEN`, `HSYNC`, `VSYNC` | 8 | 9 (DAC register clock, color decoder, VGA connector) |
-| `PC_ENABLE`, `X_ENABLE`, `Y_ENABLE`, `Q0` | 3 (State) | 4 (PC, mux), 8 (Sync); `PC_ENABLE` also 7 (cartridge B19) |
+| `PC_ENABLE`, `X_ENABLE`, `Y_ENABLE`, `Q0` | 3 (State) | 4 (PC, mux), 8 (Sync); `PC_ENABLE` also 7 (cartridge B8) |
 | `/LOAD_INSTR`, `/LOAD_IMM`, `/LOAD_AC`, `/LOAD_X`, `/LOAD_Y` | 3 (State) | 3, 6, 5 (register /E); `/LOAD_IMM` also 7 (I/O decode) and 11 (the slots' LOAD_IMM contact, active low as drawn) |
 | `RW` | 3 (State pin 23) | 7 (memory control, I/O decode), 11 |
 | `/SRC_EN` | 3 (Branch pin 16) | 6 (U26, U27 /OE1), 7 (memory control pin 22) |
@@ -103,7 +103,7 @@ sheet that drives the net.
 | `/MODE_LD`, `BLANK_RD` | 8 (audio PLD) | 9 (line code /E), 8 (Sync) |
 | `LC2`, `LC3` | 9 (line code Q3:Q2) | 8 (audio PLD) |
 | `LC7` | 9 (line code Q7) | 8 (H counter pin 6, blank line) |
-| `/WE`, `/RAM_OE`, `/ROM_OE` | 7 (memory control) | 7 (RAM, cartridge A17), 11 (/WE on every slot) |
+| `/WE`, `/RAM_OE`, `/ROM_OE` | 7 (memory control) | 7 (RAM, cartridge A16), 11 (/WE on every slot) |
 | `/CE_HI` | 7 (I/O decode) | 7 (RAM upper chip, cartridge B16) |
 | `/MAP_WR`, `/LINE_RD` | 7 (I/O decode) | 7 (map register clock), 8 (U29 /OE) |
 | `/PORT_WR`, `/PORT_RD` | 7 (I/O decode) | 10 |
