@@ -128,7 +128,22 @@ architecture Behavioral of basys_top is
     signal ledR             : slv(15 downto 0);
     signal ledEn            : sl;
 
-    signal ssegR            : slv(15 downto 0);
+    signal ssegR            : slv(15 downto 0);    -- 7-segment digits 3-0 (4 bits each)
+    signal ssegCnt          : unsigned(17 downto 0) := (others => '0');
+    signal ssegNib          : slv(3 downto 0);
+
+    -- PS/2 sniffer (debug only, not part of the Placard): decodes every
+    -- byte on the PS/2 pins by itself, so the display shows whether bytes
+    -- reach the FPGA at all, whatever the CPU and the receiver PLD do
+    signal snfClkD          : sl := '1';
+    signal snfShift         : slv(10 downto 0) := (others => '0');
+    signal snfBits          : unsigned(3 downto 0) := (others => '0');
+    signal snfIdle          : unsigned(15 downto 0) := (others => '0');
+    signal snfByte          : slv(7 downto 0) := (others => '0');
+    signal snfCount         : unsigned(7 downto 0) := (others => '0');
+    signal cpuRdR           : sl := '0';
+    signal cpuRdToggle      : sl := '0';
+    signal ps2ClkDrive      : sl;
 
     signal sync             : sl;
     signal blank            : sl;
@@ -284,12 +299,77 @@ begin
         if (rstVGA = '1') then
             ledR <= (others => '0');
         elsif (rising_edge(clkVGA)) then
-            ledR <= dipRR;
-    
-    end if;
+            -- LD15-LD5 show their switches; LD4-LD0 the PS/2 debug lines
+            ledR <= dipRR(15 downto 5) & cpuRdToggle & ps2ClkDrive & rxInhibit
+                    & ps2DataF & ps2ClkF;
+        end if;
     end process ledProcess;
 
     LED <= ledR;
+
+    ----------------------------------------------------------
+    ------        7-segment display: PS/2 debug        -------
+    ----------------------------------------------------------
+    -- Left two digits: the last byte the sniffer decoded on the PS/2
+    -- pins.  Right two digits: how many bytes it has decoded (mod 256).
+    -- LD0 PS/2 CLK, LD1 PS/2 DATA (filtered), LD2 the receiver holds the
+    -- clock (a byte waits for the CPU), LD3 the FPGA drives PS/2 CLK low,
+    -- LD4 toggles on every CPU read of the byte (x5202).
+    ssegR <= snfByte & slv(snfCount);
+
+    snifferProc : process (clkVGA)
+    begin
+        if rising_edge(clkVGA) then
+            snfClkD <= ps2ClkF;
+            if ps2ClkDrive = '1' then                        -- the FPGA holds the clock: not a bit
+                snfBits <= (others => '0');
+                snfIdle <= (others => '0');
+            elsif snfClkD = '1' and ps2ClkF = '0' then       -- a falling edge: a bit
+                snfIdle  <= (others => '0');
+                snfShift <= ps2DataF & snfShift(10 downto 1);
+                if snfBits = 10 then
+                    snfBits  <= (others => '0');
+                    snfByte  <= snfShift(9 downto 2);   -- d7..d0 (bit 0 start, 9 parity, 10 stop)
+                    snfCount <= snfCount + 1;
+                else
+                    snfBits <= snfBits + 1;
+                end if;
+            elsif snfIdle = 50000 then                       -- 2 ms without a clock: start over
+                snfBits <= (others => '0');
+            else
+                snfIdle <= snfIdle + 1;
+            end if;
+            cpuRdR <= '0';
+            if portRdN = '0' and ramAddress(1) = '1' and ramAddress(0) = '0' then
+                cpuRdR <= '1';
+                if cpuRdR = '0' then
+                    cpuRdToggle <= not cpuRdToggle;
+                end if;
+            end if;
+        end if;
+    end process snifferProc;
+
+    ssegProc : process (clkVGA)
+    begin
+        if rising_edge(clkVGA) then
+            ssegCnt <= ssegCnt + 1;
+            case ssegCnt(17 downto 16) is
+                when "00"   => SSEG_AN <= "1110"; ssegNib <= ssegR(3 downto 0);
+                when "01"   => SSEG_AN <= "1101"; ssegNib <= ssegR(7 downto 4);
+                when "10"   => SSEG_AN <= "1011"; ssegNib <= ssegR(11 downto 8);
+                when others => SSEG_AN <= "0111"; ssegNib <= ssegR(15 downto 12);
+            end case;
+        end if;
+    end process ssegProc;
+
+    -- segments g..a active low, decimal point off
+    with ssegNib select SSEG_CA <=
+        "11000000" when x"0", "11111001" when x"1", "10100100" when x"2",
+        "10110000" when x"3", "10011001" when x"4", "10010010" when x"5",
+        "10000010" when x"6", "11111000" when x"7", "10000000" when x"8",
+        "10010000" when x"9", "10001000" when x"A", "10000011" when x"B",
+        "11000110" when x"C", "10100001" when x"D", "10000110" when x"E",
+        "10001110" when others;
 
     ----------------------------------------------------------
     ------              Button Control                 -------
@@ -873,9 +953,10 @@ begin
     -- goes to the driver in placard_ps2.asm.  Both off: no PS/2 device.
     mouseOn  <= dipRR(15);
     kbdOn    <= dipRR(14) and not dipRR(15);
-    PS2_CLK  <= '0' when (mouseOn = '1' and pCs = '0') or
-                         (kbdOn = '1' and pK0 = '0') or
-                         ((mouseOn = '1' or kbdOn = '1') and rxInhibit = '1') else 'Z';
+    ps2ClkDrive <= '1' when (mouseOn = '1' and pCs = '0') or
+                            (kbdOn = '1' and pK0 = '0') or
+                            ((mouseOn = '1' or kbdOn = '1') and rxInhibit = '1') else '0';
+    PS2_CLK  <= '0' when ps2ClkDrive = '1' else 'Z';
     PS2_DATA <= '0' when (mouseOn = '1' or kbdOn = '1') and pDholdN = '0' else 'Z';
 
     -- SD card (PmodMicroSD on JB) and SNES pads (JC)
