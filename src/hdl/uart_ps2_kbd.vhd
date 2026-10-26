@@ -39,7 +39,9 @@ entity uart_ps2_kbd is
         kbdClkLow   : out std_logic;   -- 1 = pull the PS/2 clock low
         kbdDataLow  : out std_logic;   -- 1 = pull the PS/2 data low
         txOut       : out std_logic;   -- each character echoed back to the PC (idle 1)
-        rxToggle    : out std_logic    -- changes with every character received (debug LED)
+        rxToggle    : out std_logic;   -- changes with every character received (debug LED)
+        dbgTaken    : out std_logic_vector(7 downto 0);  -- characters taken from the FIFO (debug)
+        dbgSent     : out std_logic_vector(7 downto 0)   -- PS/2 bytes sent (debug)
     );
 end entity uart_ps2_kbd;
 
@@ -117,6 +119,7 @@ architecture rtl of uart_ps2_kbd is
     signal txFrame     : std_logic_vector(10 downto 0) := (others => '1');
     signal clkLowR     : std_logic := '0';
     signal dataLowR    : std_logic := '0';
+    signal sentCnt     : unsigned(7 downto 0) := (others => '0');
 
 begin
 
@@ -124,6 +127,8 @@ begin
     kbdDataLow <= dataLowR;
     txOut      <= echoShift(0);
     rxToggle   <= rxToggleR;
+    dbgTaken   <= std_logic_vector(rdPtr);
+    dbgSent    <= std_logic_vector(sentCnt);
 
     -- each character goes back to the terminal, so typing shows there too
     -- and shows that the characters arrive (one dropped if two come while
@@ -308,6 +313,7 @@ begin
                             txCnt    <= 0;
                             dataLowR <= '0';
                             seqIdx   <= seqIdx + 1;
+                            sentCnt  <= sentCnt + 1;
                             if seqIdx = seqMake then
                                 holdCnt <= HOLD_CLKS;   -- one key per frame or two, in order
                             end if;
