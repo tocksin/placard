@@ -145,6 +145,9 @@ architecture Behavioral of basys_top is
     signal cpuRdToggle      : sl := '0';
     signal ps2ClkDrive      : sl;
     signal ps2ListenOnly    : sl;   -- SW13 = 1: the FPGA never drives the PS/2 lines (debug)
+    signal uartKbdHold      : sl;   -- the PC-terminal keyboard waits (clock held, or not selected)
+    signal uartKbdClkLow    : sl;   -- the PC-terminal keyboard pulls PS/2 CLK low
+    signal uartKbdDataLow   : sl;   -- and PS/2 DATA
 
     signal sync             : sl;
     signal blank            : sl;
@@ -973,6 +976,23 @@ begin
     -- makes it found (placard_ps2.asm).  The Caps Lock light is not set.
     PS2_DATA <= '0' when ps2ListenOnly = '0' and mouseOn = '1' and pDholdN = '0' else 'Z';
 
+    -- A keyboard typed from a PC terminal (uart_ps2_kbd.vhd): with SW14
+    -- (the keyboard socket), characters sent to the Basys 3's USB serial
+    -- port at 115200 baud, 8N1, come in as the keys that type them.  Its
+    -- lines are wired-AND with the real PS/2 lines inside the FPGA, so the
+    -- receiver PLD and the driver see one more keyboard; the Basys 3's
+    -- own USB keyboard (the PIC24) still works alongside it.
+    uartKbdHold <= ps2ClkDrive or not kbdOn;
+    uartKbdComp : entity work.uart_ps2_kbd
+    port map(
+        clk         => clkVGA,
+        rxIn        => uartRxIn,
+        hostHold    => uartKbdHold,
+        kbdClkLow   => uartKbdClkLow,
+        kbdDataLow  => uartKbdDataLow
+    );
+    uartTxOut <= '1';               -- nothing is sent back (idle)
+
     -- SD card (PmodMicroSD on JB) and SNES pads (JC)
     JB(0) <= pCs;               -- /CS
     JB(1) <= pMosi;             -- MOSI
@@ -988,8 +1008,8 @@ begin
     portSyncProc : process (clkVGA)
     begin
         if rising_edge(clkVGA) then
-            ps2ClkR  <= ps2ClkR(0)  & to_x01(PS2_CLK);
-            ps2DataR <= ps2DataR(0) & to_x01(PS2_DATA);
+            ps2ClkR  <= ps2ClkR(0)  & (to_x01(PS2_CLK) and not uartKbdClkLow);
+            ps2DataR <= ps2DataR(0) & (to_x01(PS2_DATA) and not uartKbdDataLow);
             -- The PS/2 lines are slow (open drain, pull-ups) and the
             -- receiver is clocked by CLK, so a little noise on an edge
             -- would clock it twice.  A line only changes here after 24
