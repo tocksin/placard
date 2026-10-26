@@ -37,7 +37,12 @@
 ;   x5D10        MB_KB      the RAM programs' hook: the keyboard's last byte
 ;   x5D11        MB_MENU    "M" while the menu program (menu.masm) waits
 ;                           for a program it started
-;   x5D12-x5D1F  free (the DOS clears them at power-up)
+;   x5D12        MB_ERR     why the last program could not run (the ROM
+;                           loader sets it, the DOS shows it): a FAT error
+;                           1-14, x80 not a .PLC file, x81 a folder
+;   x5D13-x5D14  MB_SEL, MB_TOP  the DOS's chosen entry and first shown,
+;                           kept while a program runs
+;   x5D15-x5D1F  free (the ROM loader clears x5D11-x5D1F at power-up)
 ;   x5D20-x5D27  MB_EXIT    code: map = 05, then jump to the DOS (x8008)
 ;   x5D28-x5D2F  MB_GO      code: map = FF, then jump to RAM x0000
 ;   x5D30-x5D3C  MB_CHILD   the DOS: the program to run, "NAME.PLC", 0
@@ -48,8 +53,9 @@
 ;
 ; x5D00-x5DFF is program RAM (docs/ROM.md) that none of the menu's programs
 ; use; the audio buffer starts at x5DF3.  Since 2026-10-26 the block is set
-; up by the DOS (dos.masm, docs/DOS.md), which also runs the programs; the
-; menu is a program on the SD card (menu.masm).
+; up by the 32K ROM's loader (rom32.masm, docs/DOS.md), which also runs the
+; programs; the DOS (DOS.PLC) and the menu (MENU.PLC) are programs on the
+; SD card.
 ;
 ; placard_lib.asm includes this file; its code is at MENU_CODE (xC500).
 ;
@@ -70,6 +76,9 @@ MB_PROG   = 0x0D
 MB_IA     = 0x0E
 MB_KB     = 0x10
 MB_MENU   = 0x11
+MB_ERR    = 0x12
+MB_SEL    = 0x13
+MB_TOP    = 0x14
 MB_EXIT   = 0x20
 MB_GO     = 0x28
 MB_CHILD  = 0x30

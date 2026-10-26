@@ -1,18 +1,14 @@
 ; ============================================================
 ; dos.masm - the Placard DOS: a file browser that loads, runs and saves
-; programs on the SD card (the 32K ROM image)
+; programs on the SD card.  It is a program on the card itself, DOS.PLC
 ; ============================================================
 ;
-; The DOS is the program in the ROM (docs/DOS.md, docs/ROM.md "The 32K
-; image").  The boot loader (BOOT_MODE = 02) jumps to DOS_START with map
-; 05; the DOS runs with map 07 (RAM x0000-x5FFF, the DOS and the library
-; in ROM x8000-xFFFF) and shows the SD card's files:
+; The 32K ROM's loader (rom32.masm, docs/DOS.md) loads DOS.PLC from the
+; card's root folder at power-up (unless BOOT.CFG names another program,
+; or there is no card: then BASIC) and again whenever a program comes back,
+; and enters it with map 07 (RAM x0000-x5FFF, the library and the FAT
+; writer in ROM), the card mounted and the folder it was in current.
 ;
-;   power-up     "PLACARD DOS", then about a second in which Esc held on the
-;                keyboard goes straight to the browser.  Otherwise BOOT.CFG
-;                in the root folder names the program to run (one short
-;                name, "MENU.PLC"), and the browser comes when it is
-;                missing or the program comes back.
 ;   browser      the current folder's entries, the chosen one on a blue bar.
 ;                Up / Down move; Enter runs a .PLC file or opens a folder;
 ;                Backspace goes to the folder above; Del deletes the file;
@@ -21,76 +17,57 @@
 ;                command line:
 ;                  RUN name            run a .PLC file
 ;                  LOAD name hhhh      load a file's bytes at a hex address
+;                                      (below x3000, where the DOS is)
 ;                  SAVE name hhhh hhhh [hhhh]
 ;                                      save memory (start, length, entry =
 ;                                      start) as a .PLC file (gen_plc.py
 ;                                      has the header; start 0000 makes a
 ;                                      RAM image, else a library program)
-;                  DEL name, CD name, BOOT name (writes BOOT.CFG), DIR
-;   a program    a .PLC file: 16-byte header ("PLC", type, load address,
-;                length, entry), then the bytes.  Type 0, a library
-;                program, is copied to its load address (x0100-x3FFF) and
-;                entered with map 07, SP = FF, LIB_RAM in place; it comes
-;                back by jumping to the DOS vector x8008.  Type 1, a RAM
-;                image (the older demos), is copied to RAM x0000-x49FF and
-;                started at x0000 with map FF through MB_GO (menu block, as
-;                the demo menu ROM did); it comes back through MB_EXIT.
-;                The menu block (placard_menu.asm) carries "MNU", MB_MODE
-;                = 1 (no time limit), so a program's menu_poll / hook
-;                leaves on Esc.
+;                  DEL name, CD name, BOOT name (writes BOOT.CFG), DIR,
+;                  BASIC
+;   running      the DOS hands the file's name to the ROM's dos_run vector
+;                (x800C), which loads it over the DOS and runs it; when it
+;                comes back (x8008) the ROM loads DOS.PLC again.  A file
+;                that could not be run comes back with the reason in
+;                MB_ERR, which the DOS shows.  The chosen entry is kept in
+;                MB_SEL / MB_TOP meanwhile.
 ;
-; DOS VECTORS (x8000-x80FF), the fixed places a program may jump to or
-; CALL whatever the DOS's code looks like later:
-;   x8000  the reset code (nop, jump to the boot loader): a 32K cartridge
-;          reads it at x0000
-;   x8008  dos_back    jump here when a program is done (map with section
-;                      4 ROM: 05 or 07); the DOS starts again, re-reads the
-;                      card, runs MB_PARENT if a program set it (a menu
-;                      program names itself there to be run again), else
-;                      shows the browser
-;   x800C  dos_run     R1:R0 = "NAME.PLC", 0 in RAM: the DOS loads and
-;                      runs it (never returns; see dos_back for coming back)
-;   x8010  fs_create   x8014 fs_write   x8018 fs_close   x801C fs_delete
-;   x8020  fs_save     the FAT writer (placard_fsw.masm): CALL as a library
-;                      routine, e.g.  ld 0x80, y / jmp 0x20  with LINK set
+; RAM: this code at x3000-x3FFF (gen_plc.py: load x3000, entry main), zero
+; page x20-x5F (the DOS's variables), DOS_DIR x4000-x47FF (the folder: 128
+; entries of 16 bytes: name 11, attributes, size 4), DOS_LINE x4800 (the
+; command line), DOS_BUF x5400-x55FF (BOOT.CFG, the header of a SAVE), the
+; menu block x5D00-x5D6F and FS_VARS / FS_BUF x4D00-x4FFF (placard_fs.asm).
 ;
-; RAM: zero page x20-x5F (the DOS's variables), DOS_DIR x4000-x47FF (the
-; folder: 128 entries of 16 bytes: name 11, attributes, size 4), DOS_LINE
-; x4800 (the command line), DOS_BUF x5400-x55FF and DOS_BUF0 x5600-x57FF
-; (sectors while loading, saving and reading BOOT.CFG), the menu block
-; x5D00-x5D6F (MB_CHILD, MB_PARENT, MB_DCLUS and the folder's name added),
-; and FS_VARS / FS_BUF x4D00-x4FFF (placard_fs.asm).  A program must keep
-; x4D00-x4FFF and the menu block as they are if it wants dos_run to find
-; the same folder; the DOS mounts the card again when it comes back anyway.
-;
-; ROM: x8000-x80FF vectors, x8100-x9EFF this code (asm_expand.py pages
-; it), x9F00-x9FFF LIB_RAM's image (the boot reads it at x1F00 on a 32K
-; cartridge), xA000-xAFFF free (the monitor), xB000-xBFFF the FAT writer.
-;
-;     python3 asm_expand.py dos.masm          writes dos.asm
-;     python3 placard_sim.py dos.asm          checks the image (build_rom)
-;     python3 test_dos.py                     runs it with a card image
+;     python3 asm_expand.py dos.masm                       writes dos.asm
+;     python3 gen_plc.py dos.asm -o ../../sdcard/DOS.PLC   the card's file
+;     python3 test_dos.py                     runs it with the ROM and a card image
 ;
 ; Date: 10/26/2026
 ; ============================================================
 
 #include "placard.asm"
 #include "placard_lib.asm"
-#include "placard_fsw.asm"
 
-DOS_CODE  = 0x8100      ; this code, up to LIB_RAM's image
-DOS_TOP   = 0x9F00
-BOOT      = 0xFD00      ; rom_boot.asm: the boot loader (its reset code jumps here)
-BOOT_MODE = 0xFC00      ; the boot mode byte: 02 = the DOS
-MODE_DOS  = 0x02
-MAP_DOS   = 0x07        ; sections 0-2 RAM, 3-7 ROM
-LIB_RAM_IMG = 0x9F00    ; LIB_RAM's bytes in the 32K image
+DOS_CODE  = 0x3000      ; this code (DOS.PLC's load address)
+DOS_TOP   = 0x4000
+
+; the 32K ROM's vectors (rom32.masm)
+dos_back  = 0x8008      ; jump: a program is done (the ROM loads DOS.PLC again)
+dos_run   = 0x800C      ; jump: R1:R0 = a name, run it
+fs_create = 0x8010      ; the FAT writer (placard_fsw.masm): CALL these
+fs_write  = 0x8014
+fs_close  = 0x8018
+fs_delete = 0x801C
+fs_save   = 0x8020
+basic     = 0x8024      ; jump: BASIC
+
+ERR_NOTPROG = 0x80      ; MB_ERR codes besides the FAT driver's 1-14
+ERR_ISDIR   = 0x81
 
 DOS_DIR   = 0x4000      ; the folder read: 128 entries x 16 bytes
 DIR_MAX   = 128
 DOS_LINE  = 0x4800      ; the command line (con_gets)
 DOS_BUF   = 0x5400      ; a sector: the program file's first, BOOT.CFG
-DOS_BUF0  = 0x5600      ; a RAM image's page 0 until the DOS lets go of the zero page
 MODE_BASE = 0x5A20      ; mode byte of pixel row 0 (bits 6:4 = tint)
 TINT_BAR  = 0x40        ; the chosen entry: a blue bar
 
@@ -101,7 +78,6 @@ LIST_N    = 50
 HELP_ROW  = 53
 MSG_ROW   = 55
 CMD_ROW   = 57
-ESC_FRAMES = 60         ; about a second to hold Esc at power-up
 
 ; zero page
 d_n     = 0x20          ; entries in DOS_DIR
@@ -120,7 +96,6 @@ d_lh    = 0x2C
 d_cl    = 0x2D          ; its length (SAVE: bytes still to write)
 d_ch    = 0x2E
 d_type  = 0x2F          ; its type
-d_esc   = 0x30          ; 1 = Esc was held at power-up
 d_ml    = 0x31          ; bar_set: the row's first mode byte
 d_mh    = 0x32
 d_al    = 0x33          ; hex4: the value (SAVE: the file's size)
@@ -134,316 +109,59 @@ d_msgh  = 0x3A
 d_err   = 0x3B          ; the error code shown after it (0 = none)
 d_name  = 0x40          ; 13: a name, "NAME.EXT", 0
 
-; ============================================================
-; the vectors
-; ============================================================
-.fixed 0x8000
-    nop                         ; the reset code, as rom_boot.asm x0000-x0004
-    ld   BOOT >> 8, y
-    jmp  BOOT & 0xFF
-.fixed 0x8008
-    GOTO dos_back
-.fixed 0x800C
-    GOTO dos_run
-.fixed 0x8010
-    GOTO fs_create
-.fixed 0x8014
-    GOTO fs_write
-.fixed 0x8018
-    GOTO fs_close
-.fixed 0x801C
-    GOTO fs_delete
-.fixed 0x8020
-    GOTO fs_save
-
-.fixed BOOT_MODE
-    #d8 MODE_DOS
-
 .prefix dos
 .region DOS_CODE, DOS_TOP
 
 ; ============================================================
-; dos_start - the boot loader comes here with map 05
+; main - the ROM's loader enters DOS.PLC here (map 07, the card mounted)
 ; ============================================================
 .fixed DOS_CODE
-dos_start:
+main:
     ld   STACK_TOP, ac
     ld   ac, [SP]
-    ld   MAP_DOS, ac
-    ld   ac, [MAP_SHADOW]
-    ld   0x50, y
-    ld   MAP_DOS, [y,x]         ; map 07 (section 4, this code, stays ROM)
-    GOTO ds_block
-
-.chunk  the menu block: "MNU", picked mode, the exit and go stubs
-ds_block:
-    ld   MENU_BLK >> 8, y
-    ld   MB_MAGIC, x
-    ld   0x4D, [y,x]            ; "MNU"
-    ld   MB_MAGIC + 1, x
-    ld   0x4E, [y,x]
-    ld   MB_MAGIC + 2, x
-    ld   0x55, [y,x]
-    ld   MB_MODE, x
-    ld   1, [y,x]               ; picked: no time limit
-    ld   MB_HOLD, x
-    ld   600 & 0xFF, [y,x]
-    ld   MB_HOLD + 1, x
-    ld   600 >> 8, [y,x]
-    ld   MB_WHY, x
-    ld   0, [y,x]
-    ld   MB_CHILD, x
-    ld   0, [y,x]
-    ld   MB_PARENT, x
-    ld   0, [y,x]
-    ld   MB_FNAME, x
-    ld   0x5C, [y,x]            ; "\": the root
-    ld   MB_FNAME + 1, x
-    ld   0, [y,x]
-    ld   0x1F, ac               ; x5D11-x5D1F (a menu program's marks) = 0
-    ld   ac, [d_t]
-ds_z:
-    ld   [d_t], x
-    ld   0, [y,x]
-    ld   [d_t], ac
-    dec
-    ld   ac, [d_t]
-    xor  0x10, ac
-    bne  ds_z
-    clr  ac                     ; MB_EXIT and MB_GO code into the RAM
-    ld   ac, [d_t]
-ds_cp:
-    ld   [d_t], ac
-    add  stubs & 0xFF, x
-    ld   stubs >> 8, y
-    ld   [y,x], ac
-    ld   ac, [d_t2]
-    ld   [d_t], ac
-    add  MB_EXIT, x
-    ld   MENU_BLK >> 8, y
-    ld   [d_t2], ac
-    ld   ac, [y,x]
-    ld   [d_t], ac
-    inc
-    ld   ac, [d_t]
-    xor  16, ac
-    bne  ds_cp
     clr  ac
     ld   ac, [d_msgh]
     ld   ac, [d_err]
+    ld   MENU_BLK >> 8, y       ; the entry chosen before the program ran
+    ld   MB_SEL, x
+    ld   [y,x], ac
     ld   ac, [d_sel]
+    ld   MB_TOP, x
+    ld   [y,x], ac
     ld   ac, [d_top]
-    GOTO ds_title
-
-.chunk  the code copied to MB_EXIT (x5D20) and MB_GO (x5D28); it runs from
-        ; the RAM because the fetch after a map write still uses the old map
-stubs:
-    ld   0x50, y                ; MB_EXIT: map 05, then dos_back through x8008
-    ld   0x05, [y,x]
-    ld   0x80, y
-    jmp  0x08
-    ld   0x50, y                ; MB_GO: map FF, the RAM image's reset
-    ld   0xFF, [y,x]
-    ld   0x00, y
-    jmp  0x00
-
-.chunk  the title, the keyboard, a second for Esc
-ds_title:
-    CALL con_clear
-    ld   s_title & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_title >> 8, ac
-    ld   ac, [R1]
-    CALL con_puts
-    ld   2, ac
-    ld   ac, [CUR_ROW]
-    clr  ac
-    ld   ac, [CUR_COL]
-    ld   s_hold & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_hold >> 8, ac
-    ld   ac, [R1]
-    CALL con_puts
-    CALL port_init
-    clr  ac
-    ld   ac, [d_esc]
-    ld   ESC_FRAMES, ac
-    ld   ac, [d_t2]
-ds_w:
-    ld   1, ac
-    CALL wait_frames_io
-    CALL kbd_scan
-    ld   [KBD_NOW], ac          ; Esc is key 0: column 0, bit 0, 0 = down
-    and  1, ac
-    bne  ds_w1
-    ld   1, ac
-    ld   ac, [d_esc]
-ds_w1:
-    ld   [d_t2], ac
-    dec
-    ld   ac, [d_t2]
-    bne  ds_w
+    ld   MB_ERR, x              ; why the last program did not run
+    ld   [y,x], ac
+    beq  mn_go
+    ld   ac, [d_err]
+    ld   0, [y,x]
+    ld   [d_err], ac
+    xor  ERR_NOTPROG, ac
+    bne  mn_1
+    ld   ac, [d_err]
+    ld   s_notprog & 0xFF, ac
+    ld   ac, [d_msgl]
+    ld   s_notprog >> 8, ac
+    ld   ac, [d_msgh]
+    bra  mn_go
+mn_1:
+    ld   [d_err], ac
+    xor  ERR_ISDIR, ac
+    bne  mn_2
+    ld   ac, [d_err]
+    ld   s_isdir & 0xFF, ac
+    ld   ac, [d_msgl]
+    ld   s_isdir >> 8, ac
+    ld   ac, [d_msgh]
+    bra  mn_go
+mn_2:
+    ld   s_err & 0xFF, ac
+    ld   ac, [d_msgl]
+    ld   s_err >> 8, ac
+    ld   ac, [d_msgh]
+mn_go:
     ld   [KBD_HEAD], ac         ; forget the keys pressed meanwhile
     ld   ac, [KBD_TAIL]
-    GOTO ds_card
-
-.chunk  the card, then BOOT.CFG unless Esc was held
-ds_card:
-    CALL mount
-    beq  ds_c1
-    GOTO browser                ; dir_read tries again and says so
-ds_c1:
-    ld   [d_esc], ac
-    bne  ds_browse
-    ld   s_cfg & 0xFF, ac       ; BOOT.CFG into DOS_BUF
-    ld   ac, [R0]
-    ld   s_cfg >> 8, ac
-    ld   ac, [R1]
-    ld   DOS_BUF & 0xFF, ac
-    ld   ac, [R4]
-    ld   DOS_BUF >> 8, ac
-    ld   ac, [R5]
-    CALL fs_load
-    bne  ds_browse
-    clr  ac                     ; MB_CHILD = its first word
-    ld   ac, [d_t]
-ds_cfg:
-    ld   DOS_BUF >> 8, y
-    ld   [d_t], x
-    ld   [y,x], ac
-    sub  0x21, ac
-    blt  ds_cfge                ; space, CR, LF, 00: the end
-    add  0x21, ac
-    ld   ac, [d_c]
-    ld   [d_t], ac
-    add  MB_CHILD, x
-    ld   MENU_BLK >> 8, y
-    ld   [d_c], ac
-    ld   ac, [y,x]
-    ld   [d_t], ac
-    inc
-    ld   ac, [d_t]
-    xor  12, ac
-    bne  ds_cfg
-ds_cfge:
-    ld   [d_t], ac
-    add  MB_CHILD, x
-    ld   MENU_BLK >> 8, y
-    ld   0, [y,x]
-    ld   [d_t], ac
-    beq  ds_browse              ; an empty file
-    GOTO run_child
-ds_browse:
     GOTO browser
-
-; ============================================================
-; dos_run (vector x800C) - run the file named at R1:R0
-; dos_back (vector x8008) - a program is done
-; ============================================================
-.chunk
-dos_run:
-    clr  ac
-    ld   ac, [d_t]
-dr_cp:
-    ld   [R1], y
-    ld   [R0], x
-    ld   [y,x], ac
-    ld   ac, [d_c]
-    ld   [d_t], ac
-    add  MB_CHILD, x
-    ld   MENU_BLK >> 8, y
-    ld   [d_c], ac
-    ld   ac, [y,x]
-    beq  dr_go
-    ld   [d_t], ac
-    inc
-    ld   ac, [d_t]
-    xor  12, ac
-    beq  dr_go
-    ld   [R0], ac
-    inc
-    ld   ac, [R0]
-    bcc  dr_cp
-    ld   [R1], ac
-    inc
-    ld   ac, [R1]
-    bra  dr_cp
-dr_go:
-    ld   MENU_BLK >> 8, y
-    ld   MB_CHILD + 12, x
-    ld   0, [y,x]
-    CALL dos_reinit
-    GOTO run_child
-
-.chunk
-dos_back:
-    CALL dos_reinit
-    ld   MENU_BLK >> 8, y
-    ld   MB_PARENT, x
-    ld   [y,x], ac
-    beq  db_browse
-    ld   12, ac                 ; the parent runs again: MB_CHILD = MB_PARENT
-    ld   ac, [d_t]
-db_cp:
-    ld   [d_t], ac
-    add  MB_PARENT, x
-    ld   MENU_BLK >> 8, y
-    ld   [y,x], ac
-    ld   ac, [d_c]
-    ld   [d_t], ac
-    add  MB_CHILD, x
-    ld   [d_c], ac
-    ld   ac, [y,x]
-    ld   [d_t], ac
-    sub  1, ac
-    ld   ac, [d_t]
-    bcc  db_cp                  ; no borrow: more to copy
-    ld   MB_PARENT, x
-    ld   0, [y,x]
-    GOTO run_child
-db_browse:
-    clr  ac
-    ld   ac, [d_sel]
-    ld   ac, [d_top]
-    GOTO browser
-
-.chunk  dos_reinit - the DOS's state after a program: stack, map, LIB_RAM,
-        ; the port, the card, the folder it was in
-dos_reinit:
-    ld   STACK_TOP, ac
-    ld   ac, [SP]
-    PUSH_LINK
-    ld   MAP_DOS, ac
-    ld   ac, [MAP_SHADOW]
-    ld   0x50, y
-    ld   MAP_DOS, [y,x]
-    clr  ac
-    ld   ac, [d_msgh]
-    ld   ac, [d_err]
-    CALL lib_ram_copy
-    CALL port_init
-    CALL mount
-    beq  dri_ok
-    LEAVE                       ; dir_read tries again and says so
-dri_ok:
-    ld   3, ac                  ; V_DCLUS = MB_DCLUS: the folder
-    ld   ac, [d_t]
-dri_cp:
-    ld   [d_t], ac
-    add  MB_DCLUS, x
-    ld   MENU_BLK >> 8, y
-    ld   [y,x], ac
-    ld   ac, [d_c]
-    ld   [d_t], ac
-    add  V_DCLUS, x
-    ld   FSV, y
-    ld   [d_c], ac
-    ld   ac, [y,x]
-    ld   [d_t], ac
-    sub  1, ac
-    ld   ac, [d_t]
-    bcc  dri_cp
-    LEAVE
 
 .chunk  mount - sd_init, then fs_mount: AC = 0 or the error
 mount:
@@ -454,27 +172,11 @@ mount:
 m_x:
     LEAVE
 
-.chunk  lib_ram_copy - LIB_RAM back: ROM x9F00-x9FFF to RAM x1F00-x1FFF (a leaf)
-lib_ram_copy:
-    clr  ac
-    ld   ac, [d_t]
-lrc:
-    ld   [d_t], x
-    ld   LIB_RAM_IMG >> 8, y
-    ld   [y,x], ac
-    ld   LIB_RAM >> 8, y
-    ld   ac, [y,x]
-    ld   [d_t], ac
-    inc
-    ld   ac, [d_t]
-    bne  lrc
-    RET
-
 .chunk  save_dclus - MB_DCLUS = V_DCLUS (a leaf)
 save_dclus:
     ld   3, ac
     ld   ac, [d_t]
-sd_cp:
+sv_cp:
     ld   [d_t], ac
     add  V_DCLUS, x
     ld   FSV, y
@@ -488,7 +190,7 @@ sd_cp:
     ld   [d_t], ac
     sub  1, ac
     ld   ac, [d_t]
-    bcc  sd_cp
+    bcc  sv_cp
     RET
 
 .chunk  dclus_zero - AC = 0 if the current folder is the root (a leaf)
@@ -503,202 +205,6 @@ dclus_zero:
     ld   V_DCLUS + 3, x
     or   [y,x], ac
     RET
-
-; ============================================================
-; run_child - load and run the program named at MB_CHILD
-; ============================================================
-.chunk
-run_child:
-    ld   STACK_TOP, ac
-    ld   ac, [SP]
-    ld   MB_CHILD, ac
-    ld   ac, [R0]
-    ld   MENU_BLK >> 8, ac
-    ld   ac, [R1]
-    CALL fs_open
-    bne  rc_err
-    ld   FSV, y
-    ld   V_ENTRY + 11, x
-    ld   [y,x], ac
-    and  0x10, ac
-    bne  rc_dir
-    ld   DOS_BUF & 0xFF, ac     ; its first sector
-    ld   ac, [R4]
-    ld   DOS_BUF >> 8, ac
-    ld   ac, [R5]
-    CALL fs_read
-    bne  rc_err
-    ld   DOS_BUF >> 8, y
-    ld   0, x
-    ld   [y,x], ac
-    xor  0x50, ac               ; "PLC"
-    bne  rc_notp
-    ld   1, x
-    ld   [y,x], ac
-    xor  0x4C, ac
-    bne  rc_notp
-    ld   2, x
-    ld   [y,x], ac
-    xor  0x43, ac
-    bne  rc_notp
-    GOTO rc_header
-rc_notp:
-    ld   s_notprog & 0xFF, ac
-    ld   ac, [d_msgl]
-    ld   s_notprog >> 8, ac
-    ld   ac, [d_msgh]
-    GOTO browser
-rc_dir:
-    ld   s_isdir & 0xFF, ac
-    ld   ac, [d_msgl]
-    ld   s_isdir >> 8, ac
-    ld   ac, [d_msgh]
-    GOTO browser
-rc_err:
-    GOTO fail
-
-.chunk  the header: type, load address, length, entry
-rc_header:
-    ld   DOS_BUF >> 8, y
-    ld   3, x
-    ld   [y,x], ac
-    ld   ac, [d_type]
-    ld   4, x
-    ld   [y,x], ac
-    ld   ac, [d_ll]
-    ld   5, x
-    ld   [y,x], ac
-    ld   ac, [d_lh]
-    ld   6, x
-    ld   [y,x], ac
-    ld   ac, [d_cl]
-    ld   7, x
-    ld   [y,x], ac
-    ld   ac, [d_ch]
-    ld   8, x
-    ld   [y,x], ac
-    ld   ac, [d_el]
-    ld   9, x
-    ld   [y,x], ac
-    ld   ac, [d_eh]
-    ld   [d_type], ac
-    bne  rc_t1
-    GOTO load_t0
-rc_t1:
-    GOTO load_t1
-
-.chunk  load_t0 - a library program: to its load address, then its entry
-load_t0:
-    ld   (DOS_BUF & 0xFF) + 16, ac    ; the 496 bytes after the header
-    ld   ac, [R0]
-    ld   DOS_BUF >> 8, ac
-    ld   ac, [R1]
-    ld   [d_ll], ac
-    ld   ac, [R2]
-    ld   [d_lh], ac
-    ld   ac, [R3]
-    clr  ac
-    ld   ac, [R4]
-    CALL memcpy
-    ld   240, ac
-    ld   ac, [R4]
-    CALL memcpy
-    ld   [R2], ac               ; the rest straight to load + 496 on
-    ld   ac, [R4]
-    ld   [R3], ac
-    ld   ac, [R5]
-lt0_rd:
-    CALL fs_read
-    beq  lt0_rd
-    xor  1, ac                  ; 1: the end
-    bne  lt0_err
-    CALL lib_ram_copy           ; a program over x1F00 is fine
-    CALL save_dclus
-    ld   STACK_TOP, ac
-    ld   ac, [SP]
-    ld   [d_eh], y
-    jmp  [d_el]
-lt0_err:
-    xor  1, ac
-    GOTO fail
-
-.chunk  load_t1 - a RAM image: RAM x0100-x49FF cleared, the image copied,
-        ; page 0 last, then map FF and x0000 through MB_GO
-load_t1:
-    ld   1, ac
-    ld   ac, [d_t]
-lt1_z:
-    ld   [d_t], y
-    clr  ac
-lt1_z2:
-    ld   ac, x
-    ld   0, [y,x]
-    inc
-    bne  lt1_z2
-    ld   [d_t], ac
-    inc
-    ld   ac, [d_t]
-    xor  0x4A, ac
-    bne  lt1_z
-    ld   (DOS_BUF & 0xFF) + 16, ac    ; page 0 of the image waits in DOS_BUF0
-    ld   ac, [R0]
-    ld   DOS_BUF >> 8, ac
-    ld   ac, [R1]
-    clr  ac
-    ld   ac, [R2]
-    ld   ac, [R4]
-    ld   DOS_BUF0 >> 8, ac
-    ld   ac, [R3]
-    CALL memcpy
-    clr  ac                     ; x0100-x01EF from the first sector
-    ld   ac, [R2]
-    ld   1, ac
-    ld   ac, [R3]
-    ld   240, ac
-    ld   ac, [R4]
-    CALL memcpy
-    ld   0xF0, ac               ; the rest to x01F0 on
-    ld   ac, [R4]
-    ld   1, ac
-    ld   ac, [R5]
-lt1_rd:
-    CALL fs_read
-    beq  lt1_rd
-    xor  1, ac
-    bne  lt1_err
-    GOTO lt1_go
-lt1_err:
-    xor  1, ac
-    GOTO fail
-
-.chunk  let the keyboard send (the image's hook reads the receiver), copy
-        ; page 0 with no zero page of our own, go
-lt1_go:
-    ld   MENU_BLK >> 8, y
-    ld   MB_KB, x
-    ld   0, [y,x]
-    ld   MB_IA, x
-    ld   0, [y,x]
-    ld   PORT, y
-    ld   PORT_RX, x
-    ld   P_KFREE, [y,x]
-lt1_p0:
-    ld   MENU_BLK >> 8, y
-    ld   MB_IA, x
-    ld   [y,x], ac
-    ld   ac, x
-    ld   DOS_BUF0 >> 8, y
-    ld   [y,x], ac
-    ld   0, y
-    ld   ac, [y,x]
-    ld   MENU_BLK >> 8, y
-    ld   MB_IA, x
-    ld   [y,x], ac
-    inc
-    ld   ac, [y,x]
-    bne  lt1_p0
-    ld   MENU_BLK >> 8, y
-    jmp  MB_GO
 
 ; ============================================================
 ; the browser
@@ -926,29 +432,24 @@ k_boot:
 kbt_none:
     GOTO br_loop
 
-.chunk  run_name - run the file named at d_name
+.chunk  run_name - run the file named at d_name (the ROM's dos_run)
 run_name:
-    ld   12, ac
-    ld   ac, [d_t]
-rn_cp:
-    ld   [d_t], ac
-    add  d_name, x
-    ld   [x], ac
-    ld   ac, [d_c]
-    ld   [d_t], ac
-    add  MB_CHILD, x
     ld   MENU_BLK >> 8, y
-    ld   [d_c], ac
+    ld   MB_SEL, x
+    ld   [d_sel], ac
     ld   ac, [y,x]
-    ld   [d_t], ac
-    sub  1, ac
-    ld   ac, [d_t]
-    bcc  rn_cp
+    ld   MB_TOP, x
+    ld   [d_top], ac
+    ld   ac, [y,x]
     ld   MB_MODE, x
     ld   1, [y,x]
     ld   MB_WHY, x
     ld   0, [y,x]
-    GOTO run_child
+    ld   d_name, ac
+    ld   ac, [R0]
+    clr  ac
+    ld   ac, [R1]
+    GOTO dos_run
 
 .chunk  cd_name - make the folder named at d_name the current folder
 cd_name:
@@ -970,6 +471,7 @@ cd_name:
     clr  ac
     ld   ac, [d_name + 1]
 cd_named:
+    CALL save_dclus             ; the ROM's loader comes back to this folder
     ld   12, ac                 ; MB_FNAME = d_name
     ld   ac, [d_t]
 cd_cp:
@@ -1159,6 +661,14 @@ cm_6:
     bne  cm_7
     GOTO browser
 cm_7:
+    ld   s_basicc & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_basicc >> 8, ac
+    ld   ac, [R1]
+    CALL streq
+    bne  cm_8
+    GOTO basic
+cm_8:
     ld   s_unknown & 0xFF, ac
     ld   ac, [d_msgl]
     ld   s_unknown >> 8, ac
@@ -1221,6 +731,10 @@ c_load:
     beq  cl_name
     CALL hex4
     bne  cl_hex
+    ld   [d_ah], ac             ; not over the DOS
+    sub  DOS_CODE >> 8, ac
+    sub  (DOS_TOP - DOS_CODE) >> 8, ac
+    bcs  cl_dos                 ; borrow: x30-x3F
     ld   [d_al], ac
     ld   ac, [R4]
     ld   [d_ah], ac
@@ -1242,6 +756,12 @@ cl_name:
     GOTO need_name
 cl_hex:
     GOTO need_hex
+cl_dos:
+    ld   s_dosmem & 0xFF, ac
+    ld   ac, [d_msgl]
+    ld   s_dosmem >> 8, ac
+    ld   ac, [d_msgh]
+    GOTO br_draw
 
 .chunk  c_save name hhhh hhhh [hhhh]
 c_save:
@@ -1964,7 +1484,7 @@ s_cfg:      #d "BOOT.CFG", 0x00
 .chunk
 s_boots:    #d "BOOT.CFG written: that program runs at power-up (hold Esc for the browser)", 0x00
 s_rootonly: #d "BOOT.CFG is read from the root folder: go there first", 0x00
-s_unknown:  #d "Commands: RUN LOAD SAVE DEL CD BOOT DIR", 0x00
+s_unknown:  #d "Commands: RUN LOAD SAVE DEL CD BOOT DIR BASIC", 0x00
 s_name:     #d "Which file?", 0x00
 s_syntax:   #d "LOAD name hhhh   SAVE name hhhh(start) hhhh(length) [hhhh(entry)]", 0x00
 
@@ -1978,3 +1498,5 @@ s_del:      #d "DEL", 0x00
 s_cd:       #d "CD", 0x00
 s_boot:     #d "BOOT", 0x00
 s_dirc:     #d "DIR", 0x00
+s_basicc:   #d "BASIC", 0x00
+s_dosmem:   #d "x3000-x3FFF holds the DOS: load below it", 0x00

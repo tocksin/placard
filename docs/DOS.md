@@ -1,29 +1,41 @@
 # The DOS
 
-The Placard DOS is the program in the 32K ROM image (`src/scripts/dos.masm`,
-[ROM.md](ROM.md#the-32k-image)).  It shows the SD card's files, runs a
-program from the card, and saves and loads memory as files.  Programs come
-from the card; the ROM holds only the DOS, the library and the boot loader
-(and, later, a monitor).
+The Placard DOS is a program on the SD card, `DOS.PLC` (`src/scripts/dos.masm`).
+It shows the card's files, runs a program from the card, and saves and
+loads memory as files.  The 32K ROM image ([ROM.md](ROM.md#the-32k-image))
+holds the boot loader, the library, BASIC and a small loader
+(`src/scripts/rom32.masm`) that starts the DOS and runs the programs.
 
 Date: 10/26/2026
 
+Until 2026-10-26 the DOS itself was in the ROM.  It moved to the card so
+the ROM could hold BASIC, which is useful with no card at all.
+
 ## At power-up
 
-1. The boot loader (mode 02) jumps to the DOS at x8100 with map 05.  The DOS
-   sets map **07** (RAM x0000-x5FFF, ROM x6000-xFFFF: the DOS at x8000 and
-   the library at xC000 run in place), clears the screen and shows
-   "PLACARD DOS".
-2. For about a second it watches the keyboard.  **Esc held** (or pressed)
-   goes straight to the file browser.
-3. Otherwise it mounts the card and reads **BOOT.CFG** in the root folder:
-   its first word is the name of the program to run, for example
-   `MENU.PLC`.  The browser's **B** key writes it, so does the `BOOT`
-   command.  With no card, no BOOT.CFG or an empty one, the browser comes up.
-4. When the program comes back (it jumps to the DOS vector x8008, or a RAM
-   image goes through `MB_EXIT`), the DOS starts over: it mounts the card
-   again, goes back to the folder it was in, runs `MB_PARENT` if the program
-   named one (the menu does), and otherwise shows the browser.
+1. The boot loader (mode 02) jumps to the ROM's loader at x8100 with map
+   05.  The loader sets map **07** (RAM x0000-x5FFF, ROM x6000-xFFFF: the
+   loader, BASIC and the library run in place), clears the screen and shows
+   "PLACARD".
+2. For about a second it watches the keyboard for **Esc**.
+3. It mounts the card.  **No card** (or one it can't read): BASIC starts.
+4. **Esc held**: `DOS.PLC` runs, so the browser comes up.
+5. Otherwise it reads **BOOT.CFG** in the root folder: its first word is
+   the name of the program to run, for example `MENU.PLC`, or `BASIC`.
+   The browser's **B** key writes it, so does the `BOOT` command.  With no
+   BOOT.CFG or an empty one, `DOS.PLC` runs.
+6. When `DOS.PLC` is not in the root folder, BASIC starts.
+
+When a program comes back (it jumps to x8008, or a RAM image goes through
+`MB_EXIT`), the loader mounts the card again, goes back to the folder it was
+in, and runs `MB_PARENT` if the program named one (the menu does).
+Otherwise it loads `DOS.PLC` again from the root folder, as MS-DOS reloaded
+COMMAND.COM.  It takes a fraction of a second.  The DOS comes back with the
+same entry chosen (`MB_SEL`, `MB_TOP`).
+
+A file that can't be run (not found, not a `.PLC` file, a folder, a read
+error) brings the DOS back with the reason in `MB_ERR`, which it shows.  A
+menu's `MB_PARENT` is dropped then, so the DOS comes up instead of the menu.
 
 ## The file browser
 
@@ -62,12 +74,13 @@ separated by spaces; case does not matter; numbers are hex.
 | Command | Does |
 |---------|------|
 | `RUN name` | load and run `name` (a `.PLC` file) |
-| `LOAD name hhhh` | load the file's bytes at address hhhh (whole sectors: up to 511 bytes past the end are written too) |
+| `LOAD name hhhh` | load the file's bytes at address hhhh (whole sectors: up to 511 bytes past the end are written too).  x3000-x3FFF holds the DOS, so a start there is refused |
 | `SAVE name hhhh hhhh [hhhh]` | save memory as a `.PLC` program: start, length, entry (= start when left out).  A start of 0000 makes a RAM image (type 1), anything else a library program (type 0) |
 | `DEL name` | delete a file |
 | `CD name` | open a folder (`CD ..` goes up) |
 | `BOOT name` | write BOOT.CFG = `name` (root folder) |
 | `DIR`, or nothing | back to the list |
+| `BASIC` | start BASIC |
 
 ## Program files (.PLC)
 
@@ -87,14 +100,17 @@ its load address to its last byte (gaps as 00):
 program; the repository's `sdcard/` folder holds the demos' files and
 `BOOT.CFG` (copy the folder onto a FAT16 or FAT32 card).
 
+The ROM's loader loads them (the DOS hands it the name through
+`dos_run`), because a program loads over the DOS in the RAM.
+
 **Type 0, a library program**, is a normal Placard program assembled to run
 in RAM at x0100-x3FFF (it includes `placard_lib.asm` and calls the library
-in the ROM).  The DOS copies the file to its load address, puts `LIB_RAM`
+in the ROM).  The loader copies the file to its load address, puts `LIB_RAM`
 back (a program may span x1F00-x1FFF), sets SP = FF, map 07 and
 `MAP_SHADOW` = 07, and jumps to the entry.  The program keeps the zero
-page map, x4D00-x4FFF (the FAT driver's state) and the menu block
-x5D00-x5D6F if it wants the DOS's folder and `dos_run` to work; the DOS
-mounts the card again when it comes back anyway.  It comes back with
+page map and the menu block x5D00-x5D6F (its `MB_DCLUS` is the folder);
+the loader mounts the card again when the program calls `dos_run` or comes
+back.  It comes back with
 
 ```
     ld   0x80, y                ; dos_back
@@ -102,28 +118,33 @@ mounts the card again when it comes back anyway.  It comes back with
 ```
 
 **Type 1, a RAM image**, is one of the older demos written to run from
-RAM x0000 with map FF (CPU test, pi, Mandelbrot, Game of Life).  The DOS
+RAM x0000 with map FF (CPU test, pi, Mandelbrot, Game of Life).  The loader
 clears RAM x0100-x49FF, copies the image in (page 0 last, with no zero page
 of its own, as the boot loader's RAM image copy did), lets the keyboard
 send (the image's hook, `menu_hook.py`, reads the PS/2 receiver itself)
 and starts it through `MB_GO` (x5D28: map FF, jump x0000).  Its hook comes
 back through `MB_EXIT` (x5D20: map 05, jump x8008) on Esc.
 
+`DOS.PLC` is a type 0 program with its load address at x3000, so `SAVE`
+and `LOAD` can work on a program at x0100-x2FFF.
+
 ## DOS vectors
 
-The first page of the image, x8000-x80FF, is fixed, so a program can use
-these whatever the DOS's code looks like later:
+The first page of the 32K image, x8000-x80FF, is fixed, so a program can
+use these whatever the ROM's code looks like later.  They are in the ROM
+(`rom32.masm`), so they work with or without the DOS in the RAM:
 
 | Address | Name | Use |
 |---------|------|-----|
 | x8000 | reset | nop and the jump to the boot loader (a 32K cartridge shows it at x0000) |
 | x8008 | `dos_back` | a program is done: jump here (map 05 or 07) |
-| x800C | `dos_run` | R1:R0 = "NAME.PLC", 0 in RAM: the DOS loads and runs it (it never returns; the DOS runs `MB_PARENT` when the program comes back) |
+| x800C | `dos_run` | R1:R0 = "NAME.PLC", 0 in RAM, in the current folder: the loader loads and runs it (it never returns; it runs `MB_PARENT` when the program comes back) |
 | x8010 | `fs_create` | the FAT writer (`placard_fsw.masm`): CALL like a library routine, with LINK set (`ld 0x80, y / jmp 0x10`) |
 | x8014 | `fs_write` | |
 | x8018 | `fs_close` | |
 | x801C | `fs_delete` | |
 | x8020 | `fs_save` | |
+| x8024 | `basic` | start BASIC (a jump; it never returns) |
 
 The reader (`fs_mount`, `fs_open`, `fs_next`, `fs_read`, `fs_load`) is in
 the library as before ([LIBRARY.md](LIBRARY.md#sd-card-files-fat16-and-fat32)).
@@ -152,32 +173,38 @@ files with `fsck.fat` and `mtools`.
 
 | Where | Use |
 |-------|-----|
-| zero page x20-x5F | the DOS's variables (a program may use them) |
+| zero page x20-x5F | the DOS's variables (the ROM's loader uses x20-x2B between programs) |
+| x3000-x3FFF | `DOS.PLC` itself |
 | x4000-x47FF | `DOS_DIR`: the folder read, 128 entries × 16 bytes (name 11, attributes, size 4) |
 | x4800 | `DOS_LINE`: the command line |
 | x4D00-x4FFF | the FAT driver's variables and sector buffer |
-| x5400-x57FF | `DOS_BUF`, `DOS_BUF0`: sectors while loading and saving, BOOT.CFG, a RAM image's page 0 |
-| x5D00-x5D6F | the menu block ([MENU.md](MENU.md#the-hook)): "MNU", mode 1, `MB_EXIT`, `MB_GO`, `MB_CHILD` x5D30, `MB_PARENT` x5D40, `MB_DCLUS` x5D50 (the folder while a program runs), `MB_FNAME` x5D60 |
+| x5400-x57FF | `DOS_BUF`: BOOT.CFG, the header of a SAVE; the loader's sectors while loading (`DOS_BUF0` x5600: a RAM image's page 0) |
+| x5D00-x5D6F | the menu block ([MENU.md](MENU.md#the-hook)): "MNU", mode 1, `MB_ERR` x5D12, `MB_SEL` x5D13, `MB_TOP` x5D14, `MB_EXIT`, `MB_GO`, `MB_CHILD` x5D30, `MB_PARENT` x5D40, `MB_DCLUS` x5D50 (the folder), `MB_FNAME` x5D60 |
 
 ## Building and testing
 
 ```
 cd src\scripts
-python asm_expand.py dos.masm        dos.asm (committed; no Python needed to build)
-build\dos.bat                        assembles dos.asm, builds the FPGA with the 32K
-                                     image in both halves of rom.mem, writes
-                                     src\hdl\rom_32k.bin for the EEPROM
-python gen_plc.py prog.asm -o X.PLC  a program file for the card
-python test_dos.py                   the DOS in the simulator with a card image
-python test_menu.py                  the demo menu through the DOS
+python asm_expand.py dos.masm                       dos.asm (committed)
+python gen_plc.py dos.asm -o ..\..\sdcard\DOS.PLC    the card's DOS
+python asm_expand.py rom32.masm                     rom32.asm (committed)
+build\rom32.bat                     assembles rom32.asm, builds the FPGA with the 32K
+                                    image in both halves of rom.mem, writes
+                                    src\hdl\rom_32k.bin for the EEPROM
+python gen_plc.py prog.asm -o X.PLC a program file for the card
+python test_dos.py                  the ROM and DOS.PLC in the simulator with a card image
+python test_menu.py                 the demo menu
 ```
 
-`test_dos.py` makes a FAT16 card in Python (`sdimage.py`), boots the image
+`test_dos.py` makes a FAT16 card in Python (`sdimage.py`), boots the ROM
 with a PS/2 keyboard model and checks: BOOT.CFG runs a program that asks
-for another through `dos_run` and comes back through `dos_back`; the
-browser's screen (read back through the font); folders; "Not a program";
-a RAM image's RAM is exactly its file; Del and B; SAVE, LOAD, DEL, CD on
-the command line; Esc held at power-up; no card.
+for another through `dos_run` and comes back through `dos_back`, then
+`DOS.PLC` loads; the browser's screen (read back through the font);
+folders, and coming back to the folder after a program; "Not a program";
+a RAM image's RAM is exactly its file; Del and B; SAVE, LOAD (and LOAD over
+the DOS refused), DEL, CD, BASIC on the command line; Esc held at
+power-up; no card, and a card with no `DOS.PLC` (BASIC); BOOT.CFG naming
+BASIC; BOOT.CFG naming a missing file.
 
 ## Not done yet
 
@@ -187,5 +214,7 @@ the command line; Esc held at power-up; no card.
   They stay buildable as 64K development images (`build\text_demo.bat`,
   `build\raycast.bat`).  Making them SD programs means reworking them for
   RAM x0100-x3FFF.
-- A monitor at xA000-xAFFF ([SOFTWARE_ROADMAP.md](SOFTWARE_ROADMAP.md)).
+- Running a `.BAS` file from the browser (for now: start BASIC, then
+  `RUN "NAME"`; [BASIC.md](BASIC.md)).
+- A monitor, now planned as a program on the card (`MON.PLC`).
 - Making folders, renaming, copying.
