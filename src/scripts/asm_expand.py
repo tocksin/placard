@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 asm_expand.py - expand the call macros of a .masm file and pack its code
 into 256-byte pages, writing a plain .asm file for customasm or placard_sim
 
@@ -32,6 +32,16 @@ return label) and places its code page by page with #addr (LIBRARY.md,
                     in the region first fit, in order, never across a page
     .fixed a        a chunk at address a (not moved); the rest of its page
                     (from its end) is used by the chunks that follow
+    .page           a chunk at the start of a page (a jump table that
+                    jmp ac reaches: BASIC's primitives)
+    .flow           data that may cross pages (BASIC's bytecode words,
+                    vmc.py): placed after every .chunk, in the space left
+                    in any region of the file, largest first
+    .include "f"    the lines of file f (relative to this file) here; a .vm
+                    file is compiled by vmc.py first
+    .macro NAME     the lines up to .endm are pasted in for each line NAME
+                    that follows (no arguments); \@ in them becomes a
+                    number of its own for each paste (for local labels)
 
 Lines before the first .chunk or .fixed (constants, #include, comments)
 are copied as they are.  The .asm made is the file to read and assemble;
@@ -101,14 +111,64 @@ class Chunk:
         self.last = None         # last instruction mnemonic
         self.data = False
         self.addr = None
+        self.flow = False
+        self.page = False        # .page: at the start of a page
+
+
+INCLUDE_RE = re.compile(r'^\s*\.include\s+"([^"]+)"')
+
+
+def includes(src, base, depth=0):
+    """the source with its .include lines replaced by the files"""
+    if depth > 8:
+        raise ExpandError('.include nested too deep')
+    out = []
+    for raw in src.splitlines():
+        m = INCLUDE_RE.match(raw)
+        if not m:
+            out.append(raw)
+            continue
+        path = os.path.join(base, m.group(1))
+        text = open(path).read()
+        if path.endswith('.vm'):
+            import vmc
+            try:
+                text, _ = vmc.compile_vm(text, os.path.basename(path))
+            except vmc.VmError as ex:
+                raise ExpandError(str(ex))
+        out.append(includes(text, os.path.dirname(path), depth + 1))
+    return '\n'.join(out)
+
+
+def macros(src):
+    """the source with its .macro blocks taken out and their uses pasted in"""
+    defs, out, cur, n = {}, [], None, 0
+    for raw in src.splitlines():
+        words = raw.split(';', 1)[0].split()
+        if words[:1] == ['.macro']:
+            cur = defs[words[1]] = []
+            continue
+        if words[:1] == ['.endm']:
+            cur = None
+            continue
+        if cur is not None:
+            cur.append(raw)
+        elif len(words) == 1 and words[0] in defs:
+            n += 1
+            out.extend(ln.replace('\\@', str(n)) for ln in defs[words[0]])
+        else:
+            out.append(raw)
+    return '\n'.join(out)
 
 
 def expand(src, name='?'):
+    src = macros(includes(src, os.path.dirname(os.path.abspath(name))))
     head, chunks = [], []
     cur = None
     prefix = os.path.splitext(os.path.basename(name))[0]
     nret = 0
     region = None
+    regions = []
     consts = {}
 
     def value(expr):
@@ -129,11 +189,15 @@ def expand(src, name='?'):
             a, b = rest.split(',')
             region = [value(a), value(b)]
             continue
-        if word in ('.chunk', '.fixed'):
-            if word == '.chunk' and region is None:
-                raise ExpandError('%s:%d: .chunk before .region' % (name, lineno))
+        if word in ('.chunk', '.fixed', '.flow', '.page'):
+            if word != '.fixed' and region is None:
+                raise ExpandError('%s:%d: %s before .region' % (name, lineno, word))
             cur = Chunk(fixed=value(rest) if word == '.fixed' else None,
                         region=None if word == '.fixed' else region, lineno=lineno)
+            cur.flow = word == '.flow'
+            cur.page = word == '.page'
+            if region is not None and region not in regions:
+                regions.append(region)
             if comment:
                 cur.lines.append('; ' + comment)
             chunks.append(cur)
@@ -198,6 +262,8 @@ def expand(src, name='?'):
             _, t = ps.parse_line(ln)
             cur.size += size_of(t)
         cur.lines.extend(out)
+    for c in chunks:
+        c.regions = regions
     return head, chunks
 
 
@@ -208,8 +274,8 @@ def place(chunks, name):
             c.addr = c.fixed
             page = c.addr >> 8
             used[page] = max(used.get(page, 0), (c.addr & 0xFF) + c.size)
-    for c in chunks:
-        if c.fixed is not None:
+    for c in sorted(chunks, key=lambda c: not c.page):   # .page chunks first
+        if c.fixed is not None or c.flow:
             continue
         if c.size > 256:
             raise ExpandError('%s:%d: chunk of %d bytes, more than a page' % (name, c.lineno, c.size))
@@ -225,11 +291,43 @@ def place(chunks, name):
                                   % (name, c.lineno, c.size, lo, hi - 1))
             off = used.get(page, start_off if page == lo >> 8 else 0)
             end = min(256, hi - (page << 8))
+            if c.page and off:
+                page += 1
+                continue
             if off + c.size <= end:
                 c.addr = (page << 8) + off
                 used[page] = off + c.size
                 break
             page += 1
+    flows = sorted((c for c in chunks if c.flow), key=lambda c: -c.size)
+    if flows:
+        free = []                           # [start, end) gaps, in address order
+        for lo, hi in flows[0].regions:
+            a = lo
+            while a < hi:
+                page = a >> 8
+                off = used.get(page, a & 0xFF if page == lo >> 8 else 0)
+                start = max(a, (page << 8) + off)
+                end = min(hi, (page + 1) << 8)
+                if start < end:
+                    if free and free[-1][1] == start:
+                        free[-1][1] = end
+                    else:
+                        free.append([start, end])
+                a = (page + 1) << 8
+        for c in flows:                     # best fit
+            best = None
+            for f in free:
+                room = f[1] - f[0]
+                if room >= c.size and (best is None or room < best[1] - best[0]):
+                    best = f
+            if best is None:
+                raise ExpandError('%s:%d: no room for a %d-byte .flow (%d bytes free in %d gaps)'
+                                  % (name, c.lineno, c.size, sum(f[1] - f[0] for f in free),
+                                     len(free)))
+            c.addr = best[0]
+            best[0] += c.size
+            c.region = [r for r in c.regions if r[0] <= c.addr < r[1]][0]
     return used
 
 

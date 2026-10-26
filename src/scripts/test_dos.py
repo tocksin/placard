@@ -26,7 +26,7 @@ text file and BOOT.CFG, and boots it like the board with a PS/2 keyboard
   8. Esc held at power-up skips BOOT.CFG
   9. no card: BASIC
  10. a card with no DOS.PLC and no BOOT.CFG: BASIC
- 11. BOOT.CFG "basic": BASIC; Esc there: the DOS
+ 11. BOOT.CFG "basic": BASIC; its DOS command: the DOS
  12. BOOT.CFG names a missing file: the DOS shows "Error 2"
 The screen is read back through the font (LIB_FONT).
 
@@ -177,9 +177,19 @@ class Rig:
         """the browser's key loop (after it drew the screen)"""
         return self.run_until(lambda: self.at_dos('br_loop'), frames, 'the browser')
 
+    def in_basic(self):
+        """BASIC waiting for a key: POLL called from its KEY word"""
+        m = self.cpu.mem
+        ip = m[0x20] | m[0x21] << 8
+        return self.at('p_poll') and self.key_lo <= ip < self.key_hi
+
     def wait_basic(self, frames=400):
-        """BASIC's key loop (the placeholder for now)"""
-        return self.run_until(lambda: self.at('bs_loop'), frames, 'BASIC')
+        """BASIC's key loop"""
+        if not hasattr(self, 'key_lo'):
+            words = sorted(v for k, v in self.syms.items() if k.startswith('w_'))
+            self.key_lo = self.syms['w_KEY']
+            self.key_hi = words[words.index(self.key_lo) + 1]
+        return self.run_until(self.in_basic, frames, 'BASIC')
 
     def key(self, ch, hold=3):
         code = self.codes[ch]
@@ -447,7 +457,7 @@ def main(argv):
     r.key('\x1b')
     r.run(3)
     r.type('basic\n')
-    if r.wait_basic(60):
+    if r.wait_basic(200):
         print('  BASIC: %r' % r.row(0))
 
     # 8. Esc at power-up
@@ -485,13 +495,13 @@ def main(argv):
     if r4.wait_basic():
         print('  BASIC')
 
-    # 11. BOOT.CFG "basic", then Esc: the DOS
+    # 11. BOOT.CFG "basic", then DOS: the DOS
     print('11. BOOT.CFG basic')
     image, files = make_card(lib, cfg=b'basic\r\n', dos=dos_plc)
     r5 = Rig(rom, syms, dsyms, lib, image)
     if r5.wait_basic():
-        print('  BASIC; Esc')
-        r5.key('\x1b')
+        print('  BASIC; DOS')
+        r5.type('dos\n')
         if r5.wait_browser(200):
             print('  the browser: %r' % r5.row(0))
 

@@ -1,0 +1,823 @@
+\ ============================================================
+\ basic.vm - PLACARD BASIC, in the bytecode of basic.masm's machine
+\ ============================================================
+\
+\ vmc.py compiles this (asm_expand.py does it for rom32.masm's .include);
+\ docs/BASIC.md describes the language and the interpreter.
+\
+\ RAM while BASIC runs (map 07):
+\   x0020-x004F  the machine's and BASIC's zero page (below)
+\   x0050-x008F  the data stack
+\   x0100-x1DFF  variables (up from VBASE) and strings (down from STRTOP)
+\   x1E00-x1EFF  the control stack (FOR, GOSUB), down from CSTOP
+\   x2000-x4CFF  the program
+\   x5400-x54FF  the input line (tokenized in place)
+\   x5500-x55FF  the machine's return stack
+\   x5600-x57FF  the file sector buffer
+\   x5800-x59FF  temporary strings, emptied at every statement
+\   x5C00-x5CFF  the RAM routines (basic.masm)
+\   x5D70-x5DBF  BASIC's other variables
+\
+\ A program line: [length][number low][number high][text][00]; length
+\ counts all of it; a length of 0 ends the program.  Keywords are one
+\ byte, x80-xC1 (KWTAB); everything else is kept as typed.
+\
+\ A string is the address of its length byte, the characters after it.
+\ A string variable holds 0 (empty) or the address of a block in the
+\ string space: [length][characters][length][owner low][owner high],
+\ owner = the variable's address, so the garbage collector (GC) can move
+\ it.
+\
+\ Date: 10/26/2026
+\ ============================================================
+
+\ the primitives (basic.masm), in opcode order
+PRIM EXIT p_exit
+PRIM LIT8 p_lit8 1
+PRIM LIT16 p_lit16 2
+PRIM BR p_br 1
+PRIM 0BR p_0br 1
+PRIM LBR p_lbr 2
+PRIM L0BR p_l0br 2
+PRIM SLIT p_slit
+PRIM ZP@ p_zpat 1
+PRIM ZP! p_zpst 1
+PRIM ZPC@ p_zpcat 1
+PRIM ZPC! p_zpcst 1
+PRIM DUP p_dup
+PRIM DROP p_drop
+PRIM SWAP p_swap
+PRIM OVER p_over
+PRIM NIP p_nip
+PRIM ROT p_rot
+PRIM 2DUP p_2dup
+PRIM >R p_tor
+PRIM R> p_rfrom
+PRIM R@ p_rat
+PRIM RDROP p_rdrop
+PRIM @ p_at
+PRIM ! p_store
+PRIM C@ p_cat
+PRIM C! p_cstore
+PRIM + p_add
+PRIM - p_sub
+PRIM AND p_and
+PRIM OR p_or
+PRIM XOR p_xor
+PRIM INVERT p_invert
+PRIM 1+ p_inc
+PRIM 1- p_dec
+PRIM 2* p_2mul
+PRIM 2/ p_2div
+PRIM = p_eq
+PRIM U< p_ult
+PRIM < p_lt
+PRIM 0= p_0eq
+PRIM 0< p_0lt
+PRIM * p_mul
+PRIM U/MOD p_umod
+PRIM EXECUTE p_execute
+PRIM CMOVE p_cmove
+PRIM CMOVE> p_cmoveu
+PRIM FILL p_fill
+PRIM SYS p_sys
+PRIM CH p_ch
+PRIM NUM p_num
+PRIM TP+ p_tpinc
+PRIM POLL p_poll
+PRIM RESET p_reset
+PRIM GLYPH p_glyph
+PRIM ROWCPY p_rowcpy
+PRIM VPLOT p_vplot
+PRIM DIGIT? p_digq
+PRIM ALPHA? p_alphq
+PRIM FINDVAR p_findvar
+PRIM VARNAME p_varname
+
+\ zero page (basic.masm has x20-x35)
+CONST TP 0x30
+CONST TXTROWS 0x32
+CONST TXT2X 0x33
+CONST CURCOL 0x0D
+CONST CURROW 0x0E
+CONST CURLP 0x36        \ the line running (0: the input line)
+CONST PTOP 0x38         \ the program's end (its 0 length byte)
+CONST VTOP 0x3A         \ the variables' end
+CONST SBOT 0x3C         \ the string space's bottom
+CONST TMPP 0x3E         \ the next temporary string
+CONST CSP 0x40          \ the control stack's top
+CONST TYP 0x42          \ the last expression: 0 a number, 1 a string
+CONST JMPF 0x43         \ 1: the statement moved TP to a statement's start
+CONST DLINE 0x44        \ READ: the line of DPTR
+CONST DPTR 0x46         \ READ: after the last item read (0: from the start)
+CONST CONTLP 0x48       \ CONT: the line and TP (CONTLP 0: can't)
+CONST CONTTP 0x4A
+CONST GTOP 0x4C         \ the first screen line of graphics (480: none)
+CONST GBPP 0x4E         \ graphics: log2 of the bits per pixel
+CONST GREP 0x4F         \ and of the line repeat
+
+\ RAM
+CONST VBASE 0x0100
+CONST STRTOP 0x1E00
+CONST CSLIM 0x1E00
+CONST CSTOP 0x1F00
+CONST PROG 0x2000
+CONST PLIMIT 0x4D00
+CONST LBUF 0x5400
+CONST SECBUF 0x5600
+CONST SECEND 0x5800
+CONST TMPB 0x5800
+CONST TMPE 0x5A00
+CONST MODEB 0x5A20
+CONST WRP 0x5D72
+CONST SAVTP 0x5D74
+CONST INPTR 0x5D76
+CONST EMITV 0x5D78
+CONST SECP 0x5D7A
+CONST FSIZE 0x5D7C
+CONST TXTMAX 0x5D7E
+CONST ERRX 0x5D80
+CONST INSTART 0x5D82
+CONST CA1 0x5D84
+CONST CL1 0x5D86
+CONST CA2 0x5D88
+CONST CL2 0x5D8A
+CONST GT 0x5D8C
+CONST GD 0x5D8E
+CONST GL 0x5D90
+CONST GS 0x5D92
+CONST LDP 0x5D94
+CONST LX 0x5D96
+CONST LY 0x5D98
+CONST LDX 0x5D9A
+CONST LDY 0x5D9C
+CONST LSX 0x5D9E
+CONST LSY 0x5DA0
+CONST LERR 0x5DA2
+CONST LX2 0x5DA4
+CONST LY2 0x5DA6
+CONST LC 0x5DA8
+CONST NBUF 0x5DAA       \ 16 bytes
+CONST FNAME 0x5DBA      \ 16 bytes, to x5DC9
+
+\ tokens
+CONST T_DATA 0x83
+CONST T_GOTO 0x88
+CONST T_GOSUB 0x8C
+CONST T_REM 0x8E
+CONST T_PRINT 0x91
+CONST T_TO 0xAA
+CONST T_STEP 0xAB
+CONST T_THEN 0xAC
+CONST T_AND 0xAD
+CONST T_OR 0xAE
+CONST T_NOT 0xAF
+CONST T_MOD 0xB0
+CONST T_FN 0xB1         \ the first function
+CONST T_TAB 0xC1
+CONST NSTMT 42
+
+\ ------------------------------------------------------------
+\ the keywords, in token order: statements x80-xA9, then TO ... MOD,
+\ then the functions from xB1 (a keyword that starts another comes
+\ after it: MODE before MOD)
+\ ------------------------------------------------------------
+BYTES KWTAB k"END" k"FOR" k"NEXT" k"DATA" k"INPUT" k"DIM" k"READ" k"LET"
+  k"GOTO" k"RUN" k"IF" k"RESTORE" k"GOSUB" k"RETURN" k"REM" k"STOP" k"ON"
+  k"PRINT" k"LIST" k"CLEAR" k"NEW" k"CONT" k"POKE" k"CALL" k"CLS" k"LOCATE"
+  k"TINT" k"TEXT" k"MODE" k"PLOT" k"LINE" k"SCAN" k"BEEP" k"SOUND" k"NOISE"
+  k"WAIT" k"LOAD" k"SAVE" k"DIR" k"DEL" k"DOS" k"GET"
+  k"TO" k"STEP" k"THEN" k"AND" k"OR" k"NOT" k"MOD"
+  k"ABS" k"RND" k"PEEK" k"SGN" k"FRE" k"INKEY" k"PAD" k"LEN" k"ASC" k"VAL"
+  k"CHR$" k"STR$" k"LEFT$" k"MID$" k"RIGHT$" k"HEX$" k"TAB" 0 ;
+
+BYTES ERRTAB c"Syntax" c"Out of memory" c"Undefined line" c"Type mismatch"
+  c"Division by zero" c"RETURN without GOSUB" c"NEXT without FOR"
+  c"Out of data" c"Bad subscript" c"Illegal quantity" c"String too long"
+  c"Can't continue" c"Redim'd array" c"Break" c"Illegal direct" c"Layout"
+  c"File" ;
+
+BYTES EMPTYS 0 ;
+
+\ ------------------------------------------------------------
+\ small words
+\ ------------------------------------------------------------
+: 2DROP DROP DROP ;
+: ?DUP DUP IF DUP THEN ;
+: TUCK SWAP OVER ;
+: NEGATE INVERT 1+ ;
+: ABS DUP 0< IF NEGATE THEN ;
+: > SWAP < ;
+: <> = 0= ;
+: 0<> 0= 0= ;
+: TRUE 0xFFFF ;
+: MIN 2DUP < IF DROP ELSE NIP THEN ;
+: MAX 2DUP < IF NIP ELSE DROP THEN ;
+: +! DUP >R @ + R> ! ;
+: 1+! DUP @ 1+ SWAP ! ;
+: 1-! DUP @ 1- SWAP ! ;
+: PICK 2* 2 + c{DSP} C@ + @ ;
+: COUNT DUP 1+ SWAP C@ ;
+: WITHIN OVER - >R - R> U< ;
+: ALNUM? DUP DIGIT? SWAP ALPHA? OR ;
+: UPC DUP 'a' 123 WITHIN IF 32 - THEN ;
+: LSHIFT BEGIN DUP WHILE SWAP 2* SWAP 1- REPEAT DROP ;
+: RSHIFT BEGIN DUP WHILE SWAP 2/ 32767 AND SWAP 1- REPEAT DROP ;
+: STRLEN DUP BEGIN DUP C@ WHILE 1+ REPEAT SWAP - ;
+: LNUM 1+ @ ;
+: ENDS? DUP 0= SWAP ':' = OR ;
+
+\ ------------------------------------------------------------
+\ output: EMIT goes through EMITV (the screen, a file, a string)
+\ ------------------------------------------------------------
+: EMIT EMITV @ EXECUTE ;
+: CR 10 EMIT ;
+: SPACE 32 EMIT ;
+: TYPE COUNT BEGIN DUP WHILE OVER C@ EMIT 1- SWAP 1+ SWAP REPEAT 2DROP ;
+: U. 10 U/MOD ?DUP IF RECURSE THEN '0' + EMIT ;
+: N. DUP 0< IF '-' EMIT NEGATE THEN U. ;
+: HEXCH DUP 9 > IF 7 + THEN '0' + ;
+: H. 16 U/MOD ?DUP IF RECURSE THEN HEXCH EMIT ;
+
+: SCREMIT
+  DUP 10 = IF DROP SCRCR EXIT THEN
+  TXTROWS C@ IF GLYPH ELSE DROP THEN
+  CURCOL C@ 1+ DUP CURCOL C! 80 = IF SCRCR THEN ;
+: SCRCR
+  0 CURCOL C!
+  TXTROWS C@ 0= IF EXIT THEN
+  CURROW C@ 1+ DUP TXTROWS C@ U< IF CURROW C! EXIT THEN
+  DROP SCROLL ;
+: SCROLL
+  TXTROWS C@ 1- 0 BEGIN 2DUP > WHILE DUP 1+ OVER ROWCPY 1+ REPEAT DROP
+  CLRROW ;
+: CLRROW CURROW C! 0 BEGIN DUP CURCOL C! 32 GLYPH 1+ DUP 80 = UNTIL DROP 0 CURCOL C! ;
+
+\ the screen: TXTMAX 60 or 30 text rows, TXTROWS of them at the top,
+\ graphics from GTOP
+: TMB TXT2X C@ IF 4 ELSE 0 THEN ;
+: GMB GREP C@ 2* 2* GBPP C@ + ;
+: HOME 0 CURCOL C! 0 CURROW C! ;
+: SETSCREEN
+  TMB {vid_clear} SYS DROP
+  GTOP @ 480 < IF MODEB GTOP @ + 480 GTOP @ - GMB FILL THEN
+  HOME ;
+: TEXTSET DUP 30 = 1 AND TXT2X C! DUP TXTMAX C! TXTROWS C! 480 GTOP ! SETSCREEN ;
+: TEXTBACK TXTROWS C@ 0= IF KEY DROP TXTMAX C@ TEXTSET THEN ;
+
+\ ------------------------------------------------------------
+\ input
+\ ------------------------------------------------------------
+: KEY? 0 {kbd_getc} SYS ;
+: KEY BEGIN POLL DROP KEY? ?DUP UNTIL ;
+: BACK
+  CURCOL C@ IF CURCOL C@ 1- CURCOL C! EXIT THEN
+  CURROW C@ IF CURROW C@ 1- CURROW C! 79 CURCOL C! THEN ;
+: ACCEPT
+  0 BEGIN
+    160 GLYPH KEY 32 GLYPH
+    DUP 10 = IF DROP LBUF + 0 SWAP C! CR EXIT THEN
+    DUP 8 = IF DROP DUP IF 1- BACK THEN ELSE
+    DUP 32 127 WITHIN 0= IF DROP ELSE
+    OVER 158 < IF DUP EMIT OVER LBUF + C! 1+ ELSE DROP THEN THEN THEN
+  AGAIN ;
+
+\ ------------------------------------------------------------
+\ errors
+\ ------------------------------------------------------------
+: ERRMSG ERRTAB SWAP BEGIN 1- DUP WHILE SWAP COUNT + SWAP REPEAT DROP ;
+: ERROR
+  ' SCREMIT EMITV ! TEXTBACK CURCOL C@ IF CR THEN
+  DUP 14 = IF ." Break" ELSE '?' EMIT DUP ERRMSG TYPE ."  error" THEN
+  DUP 17 = IF SPACE ERRX @ U. THEN
+  14 = 0= IF 0 CONTLP ! THEN
+  CURLP @ ?DUP IF ."  in " LNUM U. THEN CR
+  WARM ;
+: SYNERR 1 ERROR ;
+: OOMERR 2 ERROR ;
+: ULERR 3 ERROR ;
+: TMERR 4 ERROR ;
+: D0ERR 5 ERROR ;
+: RGERR 6 ERROR ;
+: NFERR 7 ERROR ;
+: ODERR 8 ERROR ;
+: BSERR 9 ERROR ;
+: ILLQ 10 ERROR ;
+: STLERR 11 ERROR ;
+: CCERR 12 ERROR ;
+: RDERR 13 ERROR ;
+: IDERR 15 ERROR ;
+: LAYERR 16 ERROR ;
+: FERR ERRX ! 17 ERROR ;
+: BREAK CURLP @ CONTLP ! TP @ CONTTP ! 14 ERROR ;
+
+\ ------------------------------------------------------------
+\ the text pointer
+\ ------------------------------------------------------------
+: EXPECT CH = IF TP+ ELSE SYNERR THEN ;
+: COMMA ',' EXPECT ;
+: LINENO CH DIGIT? 0= IF SYNERR THEN NUM ;
+: SKIPLINE BEGIN TP @ C@ WHILE TP+ REPEAT ;
+: SKIPSTMT
+  0 BEGIN TP @ C@ DUP 0= IF 2DROP EXIT THEN
+    DUP '"' = IF DROP 0= ELSE ':' = OVER 0= AND IF DROP EXIT THEN THEN
+    TP+ AGAIN ;
+
+\ ------------------------------------------------------------
+\ the keywords
+\ ------------------------------------------------------------
+: KWSKIP BEGIN DUP C@ 128 AND 0= WHILE 1+ REPEAT 1+ ;
+: KWADDR 128 - KWTAB SWAP BEGIN ?DUP WHILE SWAP KWSKIP SWAP 1- REPEAT ;
+: KWTYPE KWADDR BEGIN DUP C@ DUP 127 AND EMIT 128 AND 0= WHILE 1+ REPEAT DROP ;
+: KWCMP
+  TP @ BEGIN OVER C@ OVER C@ UPC OVER 127 AND = WHILE
+    128 AND IF NIP 1+ TP @ - EXIT THEN
+    1+ SWAP 1+ SWAP REPEAT
+  DROP 2DROP 0 ;
+: KWMATCH
+  KWTAB 128 BEGIN OVER C@ WHILE
+    OVER KWCMP ?DUP IF TP @ + TP ! NIP EXIT THEN
+    SWAP KWSKIP SWAP 1+ REPEAT
+  2DROP 0 ;
+
+\ CRUNCH: the input line, tokenized in place (TP reads, WRP writes)
+: PUTB WRP @ C! WRP 1+! ;
+: PREVLET? WRP @ LBUF = IF 0 ELSE WRP @ 1- C@ ALPHA? THEN ;
+: CPYSTR TP @ C@ PUTB TP+ BEGIN TP @ C@ DUP 0= IF DROP EXIT THEN DUP PUTB TP+ '"' = UNTIL ;
+: CPYREST BEGIN TP @ C@ ?DUP WHILE PUTB TP+ REPEAT ;
+: CRUNCH
+  LBUF DUP TP ! WRP !
+  BEGIN TP @ C@ ?DUP WHILE
+    DUP '"' = IF DROP CPYSTR ELSE
+    DUP '?' = IF DROP TP+ T_PRINT PUTB ELSE
+    UPC DUP ALPHA? PREVLET? 0= AND IF
+      KWMATCH ?DUP IF NIP DUP PUTB DUP T_REM = SWAP T_DATA = OR IF CPYREST THEN
+      ELSE PUTB TP+ THEN
+    ELSE PUTB TP+ THEN THEN THEN
+  REPEAT 0 PUTB ;
+
+\ ------------------------------------------------------------
+\ program lines
+\ ------------------------------------------------------------
+: FINDLN >R PROG BEGIN DUP C@ IF DUP LNUM R@ U< ELSE 0 THEN WHILE DUP C@ + REPEAT RDROP ;
+: DELLN DUP C@ >R DUP R@ + SWAP PTOP @ 1+ OVER - R@ - CMOVE PTOP @ R> - PTOP ! ;
+: INSLN
+  TP @ STRLEN 4 + DUP 255 > IF STLERR THEN
+  DUP PTOP @ + PLIMIT U< 0= IF OOMERR THEN
+  >R DUP DUP R@ + PTOP @ 1+ 3 PICK - CMOVE>
+  R@ OVER C! TUCK 1+ ! TP @ SWAP 3 + R@ 3 - CMOVE
+  PTOP @ R> + PTOP ! ;
+: STORELN
+  0 CONTLP ! CLEARV
+  DUP FINDLN DUP C@ IF DUP LNUM 2 PICK = IF DUP DELLN THEN THEN
+  CH IF INSLN ELSE 2DROP THEN ;
+: NEWPROG PROG PTOP ! 0 PROG C! 0 CONTLP ! ;
+: GOLINE DUP CURLP ! 3 + TP ! 1 JMPF C! ;
+: GOLN DUP FINDLN DUP C@ IF TUCK LNUM = IF GOLINE EXIT THEN ELSE NIP THEN ULERR ;
+: LISTLN DUP LNUM U. SPACE 3 + BEGIN DUP C@ ?DUP WHILE DUP 128 < IF EMIT ELSE KWTYPE THEN 1+ REPEAT DROP CR ;
+
+\ ------------------------------------------------------------
+\ variables, the string space, temporary strings, the control stack
+\ ------------------------------------------------------------
+: CLEARV VBASE VTOP ! STRTOP SBOT ! CSTOP CSP ! 0 DPTR ! ;
+: FREE SBOT @ VTOP @ - ;
+: GC
+  STRTOP GT ! STRTOP GD !
+  BEGIN SBOT @ GT @ U< WHILE
+    GT @ 3 - C@ 4 + GL !
+    GT @ GL @ - GS !
+    GT @ 2 - @ ?DUP IF DUP @ GS @ = IF
+        GD @ GL @ - DUP ROT !
+        GS @ SWAP GL @ CMOVE>
+        GD @ GL @ - GD !
+      ELSE DROP THEN THEN
+    GS @ GT !
+  REPEAT GD @ SBOT ! ;
+: ROOM DUP FREE U< IF DROP EXIT THEN GC FREE U< 0= IF OOMERR THEN ;
+: NEWVAR
+  DUP 4 + ROOM
+  VTOP @ >R SWAP R@ ! DUP R@ 2 + !
+  R@ 4 + OVER 0 FILL
+  4 + R@ + VTOP ! R> 4 + ;
+: TMPALLOC TMPP @ TUCK C! DUP C@ 1+ OVER + DUP TMPE U< 0= IF STLERR THEN TMPP ! ;
+: MKSTR DUP TMPALLOC DUP >R 1+ SWAP CMOVE R> ;
+: TMPCOPY COUNT MKSTR ;
+: SASSIGN
+  DUP C@ 0= IF DROP 0 SWAP ! EXIT THEN
+  DUP SBOT @ STRTOP WITHIN IF TMPCOPY THEN
+  DUP C@ 4 + DUP ROOM
+  SBOT @ SWAP - DUP SBOT !
+  2DUP OVER C@ 1+ CMOVE
+  SWAP C@ OVER + 1+
+  OVER C@ OVER C!
+  1+ 2 PICK SWAP !
+  SWAP ! ;
+: CPUSH CSP @ 2 - DUP CSLIM U< IF OOMERR THEN DUP CSP ! ! ;
+: CPOP CSP @ DUP @ SWAP 2 + CSP ! ;
+: TMPEMIT TMPP @ DUP C@ 1+ 2DUP SWAP C! + C! ;
+: CAPTURE
+  EMITV @ >R ' TMPEMIT EMITV ! TMPP @ >R 0 TMPP @ C!
+  EXECUTE R@ C@ 1+ R@ + TMPP ! R> R> EMITV ! ;
+
+: DIMARR DUP FINDVAR IF RDERR THEN SWAP 1+ 2* NEWVAR ;
+: ARRREF
+  TP+ NEXPR ')' EXPECT SWAP DUP FINDVAR ?DUP 0= IF 10 SWAP DIMARR ELSE NIP THEN
+  2DUP 2 - @ 2/ U< 0= IF BSERR THEN SWAP 2* + ;
+: VARREF
+  VARNAME DUP >R DUP 0< IF ARRREF ELSE DUP FINDVAR ?DUP IF NIP ELSE 2 NEWVAR THEN THEN
+  R> 128 AND 0<> 1 AND TYP C! ;
+
+\ ------------------------------------------------------------
+\ expressions: EXPR leaves a number or a string, TYP says which
+\ ------------------------------------------------------------
+: NUMCHK TYP C@ IF TMERR THEN ;
+: NEXPR EXPR NUMCHK ;
+: SEXPR EXPR TYP C@ 0= IF TMERR THEN ;
+: NARG '(' EXPECT NEXPR ')' EXPECT ;
+: SARG '(' EXPECT SEXPR ')' EXPECT ;
+: EXPR ANDX BEGIN CH T_OR = WHILE TP+ NUMCHK ANDX NUMCHK OR REPEAT ;
+: ANDX NOTX BEGIN CH T_AND = WHILE TP+ NUMCHK NOTX NUMCHK AND REPEAT ;
+: NOTX CH T_NOT = IF TP+ NOTX NUMCHK INVERT EXIT THEN CMPX ;
+: RELOP
+  0 BEGIN CH DUP '<' = IF DROP 1 ELSE DUP '=' = IF DROP 2 ELSE '>' = IF 4 ELSE 0 THEN THEN THEN
+    ?DUP WHILE OR TP+ REPEAT ;
+: NCOMPARE 2DUP = IF 2DROP 2 EXIT THEN < IF 1 ELSE 4 THEN ;
+: SCOMPARE
+  COUNT CL2 ! CA2 ! COUNT CL1 ! CA1 !
+  BEGIN
+    CL1 @ 0= IF CL2 @ IF 1 ELSE 2 THEN EXIT THEN
+    CL2 @ 0= IF 4 EXIT THEN
+    CA1 @ C@ CA2 @ C@ 2DUP = 0= IF U< IF 1 ELSE 4 THEN EXIT THEN 2DROP
+    CA1 1+! CA2 1+! CL1 1-! CL2 1-!
+  AGAIN ;
+: CMPX
+  ADDX RELOP ?DUP IF
+    >R TYP C@ >R ADDX TYP C@ R@ <> IF TMERR THEN
+    R> IF SCOMPARE ELSE NCOMPARE THEN R> AND 0<> 0 TYP C!
+  THEN ;
+: CONCAT
+  OVER C@ OVER C@ + DUP 255 > IF STLERR THEN TMPALLOC
+  ROT 2DUP COUNT ROT 1+ SWAP CMOVE C@ OVER + 1+ ROT COUNT >R SWAP R> CMOVE ;
+: ADDX
+  MULX BEGIN
+    CH DUP '+' = IF
+      DROP TP+ TYP C@ >R MULX TYP C@ R@ <> IF TMERR THEN R> IF CONCAT ELSE + THEN 0
+    ELSE '-' = IF TP+ NUMCHK MULX NUMCHK - 0 ELSE TRUE THEN THEN
+  UNTIL ;
+: SDIVMOD
+  DUP 0= IF D0ERR THEN
+  2DUP XOR >R OVER >R ABS SWAP ABS SWAP U/MOD
+  R> 0< IF SWAP NEGATE SWAP THEN R> 0< IF NEGATE THEN ;
+: MULX
+  UNARY BEGIN
+    CH DUP '*' = IF DROP TP+ NUMCHK UNARY NUMCHK * 0 ELSE
+    DUP '/' = IF DROP TP+ NUMCHK UNARY NUMCHK SDIVMOD NIP 0 ELSE
+    T_MOD = IF TP+ NUMCHK UNARY NUMCHK SDIVMOD DROP 0 ELSE TRUE THEN THEN THEN
+  UNTIL ;
+: UNARY
+  CH '-' = IF TP+ UNARY NUMCHK NEGATE EXIT THEN
+  CH '+' = IF TP+ UNARY EXIT THEN
+  ATOM ;
+: HEXDIG DUP DIGIT? IF '0' - EXIT THEN DUP 'A' 'G' WITHIN IF 55 - EXIT THEN DROP TRUE ;
+: HEXNUM CH 'H' = IF TP+ THEN 0 BEGIN TP @ C@ HEXDIG DUP 0< 0= WHILE SWAP 16 * + TP+ REPEAT DROP ;
+: STRLIT
+  TP+ TP @ BEGIN TP @ C@ DUP '"' = SWAP 0= OR 0= WHILE TP+ REPEAT
+  TP @ OVER - MKSTR TP @ C@ IF TP+ THEN 1 TYP C! ;
+: ATOM
+  0 TYP C! CH
+  DUP DIGIT? IF DROP NUM EXIT THEN
+  DUP '&' = IF DROP TP+ HEXNUM EXIT THEN
+  DUP '"' = IF DROP STRLIT EXIT THEN
+  DUP '(' = IF DROP TP+ EXPR ')' EXPECT EXIT THEN
+  DUP ALPHA? IF DROP VARREF TYP C@ IF @ ?DUP 0= IF EMPTYS THEN ELSE @ THEN EXIT THEN
+  DUP T_FN T_TAB WITHIN IF TP+ T_FN - 2* FNTAB + @ EXECUTE EXIT THEN
+  SYNERR ;
+
+\ ------------------------------------------------------------
+\ functions
+\ ------------------------------------------------------------
+: SNUM
+  CH '-' = IF TP+ SNUM NEGATE EXIT THEN
+  CH '&' = IF TP+ HEXNUM EXIT THEN
+  CH DIGIT? IF NUM ELSE 0 THEN ;
+: SVAL COUNT 15 MIN >R NBUF R@ CMOVE 0 NBUF R> + C! TP @ >R NBUF TP ! SNUM R> TP ! ;
+: SUBSTR
+  >R OVER C@ MIN OVER C@ OVER - R> MIN 0 MAX
+  DUP TMPALLOC >R ROT 1+ ROT + R@ 1+ ROT CMOVE R> 1 TYP C! ;
+: RAND 0 {rand8} SYS 0 {rand8} SYS 256 * + ;
+: F_ABS NARG ABS ;
+: F_RND NARG DUP 1 < IF ILLQ THEN RAND SWAP U/MOD DROP ;
+: F_PEEK NARG C@ ;
+: F_SGN NARG DUP 0< IF DROP TRUE ELSE 0<> 1 AND THEN ;
+: F_FRE NARG DROP GC FREE ;
+: F_INKEY KEY? ;
+: F_PAD NARG 0 {pad_read} SYS DROP 1 = IF 0x10 @ ELSE 0x12 @ THEN ;
+: F_LEN SARG C@ 0 TYP C! ;
+: F_ASC SARG DUP C@ IF 1+ C@ ELSE DROP 0 THEN 0 TYP C! ;
+: F_VAL SARG SVAL 0 TYP C! ;
+: F_CHR NARG 1 TMPALLOC TUCK 1+ C! 1 TYP C! ;
+: F_STR NARG ' N. CAPTURE 1 TYP C! ;
+: F_HEX NARG ' H. CAPTURE 1 TYP C! ;
+: STRN '(' EXPECT SEXPR COMMA NEXPR ;
+: F_LEFT STRN ')' EXPECT 0 SWAP SUBSTR ;
+: F_RIGHT STRN ')' EXPECT OVER C@ OVER - 0 MAX SWAP SUBSTR ;
+: F_MID
+  STRN DUP 1 < IF ILLQ THEN 1-
+  CH ',' = IF TP+ NEXPR ELSE 255 THEN ')' EXPECT SUBSTR ;
+WORDS FNTAB F_ABS F_RND F_PEEK F_SGN F_FRE F_INKEY F_PAD F_LEN F_ASC F_VAL
+  F_CHR F_STR F_LEFT F_MID F_RIGHT F_HEX ;
+
+\ ------------------------------------------------------------
+\ running
+\ ------------------------------------------------------------
+: WARM
+  RESET ' SCREMIT EMITV ! TEXTBACK CURCOL C@ IF CR THEN
+  ." Ready" CR MAIN ;
+: MAIN
+  BEGIN
+    ACCEPT CRUNCH LBUF TP !
+    CH DIGIT? IF NUM STORELN ELSE CH IF 0 CURLP ! EXECLINE THEN THEN
+  AGAIN ;
+: NEXTLN
+  CURLP @ ?DUP 0= IF WARM THEN
+  DUP C@ + DUP C@ 0= IF WARM THEN GOLINE ;
+: EXECLINE
+  BEGIN
+    POLL IF BREAK THEN
+    TMPB TMPP ! 0 JMPF C!
+    STATEMENT
+    JMPF C@ 0= IF
+      CH DUP ':' = IF DROP TP+ ELSE IF SYNERR THEN NEXTLN THEN
+    THEN
+  AGAIN ;
+: STATEMENT
+  CH DUP 128 < IF
+    DUP ALPHA? IF DROP LET_ EXIT THEN
+    ENDS? IF EXIT THEN SYNERR
+  THEN
+  128 - DUP NSTMT U< 0= IF SYNERR THEN
+  TP+ 2* STMTAB + @ EXECUTE ;
+
+\ ------------------------------------------------------------
+\ statements
+\ ------------------------------------------------------------
+: END_ WARM ;
+: STOP_ BREAK ;
+: REM_ SKIPLINE ;
+: DATA_ SKIPSTMT ;
+: NEW_ NEWPROG CLEARV WARM ;
+: CLEAR_ CLEARV ;
+: CONT_ CONTLP @ ?DUP 0= IF CCERR THEN CURLP ! CONTTP @ TP ! 1 JMPF C! ;
+: RUNSTART PROG C@ 0= IF WARM THEN PROG GOLINE ;
+: RUN_
+  CH '"' = IF LOADFILE CLEARV RUNSTART EXIT THEN
+  CLEARV CH DIGIT? IF LINENO GOLN ELSE RUNSTART THEN ;
+: GOTO_ LINENO GOLN ;
+: DOGOSUB SKIPSTMT CURLP @ CPUSH TP @ CPUSH 1 CPUSH GOLN ;
+: GOSUB_ LINENO DOGOSUB ;
+: FORDROP CSP @ 10 + CSP ! ;
+: RETURN_
+  BEGIN
+    CSP @ CSTOP = IF RGERR THEN
+    CPOP 1 = IF CPOP TP ! CPOP CURLP ! 1 JMPF C! EXIT THEN
+    FORDROP
+  AGAIN ;
+: IF_
+  NEXPR CH T_GOTO = 0= IF T_THEN EXPECT THEN
+  IF CH DIGIT? IF GOTO_ ELSE 1 JMPF C! THEN ELSE SKIPLINE THEN ;
+: ON_
+  NEXPR CH DUP T_GOTO = SWAP T_GOSUB = OR 0= IF SYNERR THEN CH >R TP+
+  BEGIN 1- DUP WHILE LINENO DROP CH ',' = IF TP+ ELSE DROP RDROP EXIT THEN REPEAT
+  DROP LINENO R> T_GOSUB = IF DOGOSUB ELSE GOLN THEN ;
+: LET_
+  VARREF TYP C@ >R '=' EXPECT EXPR TYP C@ R@ <> IF TMERR THEN
+  R> IF SASSIGN ELSE SWAP ! THEN ;
+: FORPURGE
+  CSP @ BEGIN DUP CSTOP U< IF DUP @ 2 = ELSE 0 THEN WHILE
+    2DUP 2 + @ = IF 12 + CSP ! DROP EXIT THEN 12 + REPEAT
+  2DROP ;
+: FOR_
+  VARREF TYP C@ IF TMERR THEN '=' EXPECT NEXPR OVER ! T_TO EXPECT NEXPR
+  CH T_STEP = IF TP+ NEXPR ELSE 1 THEN
+  2 PICK FORPURGE
+  CURLP @ CPUSH TP @ CPUSH CPUSH CPUSH CPUSH 2 CPUSH ;
+: FINDFOR
+  BEGIN
+    CSP @ CSTOP = IF NFERR THEN
+    CSP @ @ 2 = 0= IF NFERR THEN
+    DUP 0= IF DROP CSP @ EXIT THEN
+    DUP CSP @ 2 + @ = IF DROP CSP @ EXIT THEN
+    CSP @ 12 + CSP !
+  AGAIN ;
+: NEXT_
+  BEGIN
+    CH ALPHA? IF VARREF ELSE 0 THEN FINDFOR
+    DUP 2 + @ DUP @ 2 PICK 6 + @ + TUCK SWAP !
+    OVER 6 + @ 0< IF OVER 4 + @ < ELSE OVER 4 + @ > THEN
+    IF 12 + CSP ! CH ',' = IF TP+ ELSE EXIT THEN
+    ELSE DUP 8 + @ TP ! 10 + @ CURLP ! 1 JMPF C! EXIT THEN
+  AGAIN ;
+: DIM_
+  BEGIN
+    VARNAME DUP 0< 0= IF SYNERR THEN TP+ NEXPR ')' EXPECT
+    DUP 0< IF ILLQ THEN SWAP DIMARR DROP
+    CH ',' = WHILE TP+ REPEAT ;
+
+\ PRINT
+: ZONE BEGIN SPACE CURCOL C@ 10 U/MOD DROP 0= UNTIL ;
+: TABTO 79 MIN BEGIN DUP CURCOL C@ > WHILE SPACE REPEAT DROP ;
+: PRINT_
+  BEGIN
+    CH ENDS? IF CR EXIT THEN
+    CH ';' = CH ',' = OR IF
+      CH ',' = IF ZONE THEN TP+ CH ENDS? IF EXIT THEN
+    ELSE CH T_TAB = IF TP+ NARG TABTO ELSE
+      EXPR TYP C@ IF TYPE ELSE N. THEN THEN
+    THEN
+  AGAIN ;
+
+\ INPUT, READ: PFIELD reads an item at TP: a string (quoted, or up to a
+\ comma) or a number; ok = it ends at a comma or the statement's end
+: SNUMOK
+  CH '-' = IF TP+ TRUE ELSE 0 THEN >R
+  CH DIGIT? IF NUM TRUE ELSE CH '&' = IF TP+ HEXNUM TRUE ELSE 0 0 THEN THEN
+  SWAP R> IF NEGATE THEN SWAP ;
+: PFIELD
+  IF CH '"' = IF STRLIT ELSE
+      TP @ BEGIN TP @ C@ DUP ',' = SWAP ENDS? OR 0= WHILE TP+ REPEAT TP @ OVER - MKSTR
+    THEN TRUE
+  ELSE SNUMOK THEN
+  CH DUP ',' = SWAP ENDS? OR AND ;
+: INNEXT
+  INPTR @ ?DUP IF C@ ELSE 0 THEN 0= IF
+    INPTR @ IF '?' EMIT THEN ." ? " ACCEPT LBUF INPTR !
+  THEN ;
+: INVARS
+  BEGIN
+    VARREF TYP C@ >R INNEXT
+    TP @ SAVTP ! INPTR @ TP ! R@ PFIELD TP @ INPTR ! SAVTP @ TP !
+    0= IF 2DROP RDROP ." ?Redo" CR 0 EXIT THEN
+    R> IF SASSIGN ELSE SWAP ! THEN
+    INPTR @ C@ ',' = IF INPTR 1+! THEN
+    CH ',' = WHILE TP+ REPEAT
+  TRUE ;
+: INPUT_
+  CURLP @ 0= IF IDERR THEN
+  CH '"' = IF STRLIT TYPE CH ';' = CH ',' = OR IF TP+ THEN THEN
+  TP @ INSTART !
+  BEGIN INSTART @ TP ! 0 INPTR ! INVARS UNTIL ;
+: DSCAN
+  BEGIN TP @ C@ DUP T_DATA = IF DROP TP+ EXIT THEN
+    IF TP+ ELSE DLINE @ DUP C@ + DUP C@ 0= IF ODERR THEN DUP DLINE ! 3 + TP ! THEN
+  AGAIN ;
+: DFIND
+  DPTR @ ?DUP IF TP ! CH ',' = IF TP+ EXIT THEN
+  ELSE PROG C@ 0= IF ODERR THEN PROG DUP DLINE ! 3 + TP ! THEN
+  DSCAN ;
+: READ_
+  BEGIN
+    VARREF TYP C@ >R
+    TP @ SAVTP ! DFIND R@ PFIELD TP @ DPTR ! SAVTP @ TP !
+    0= IF SYNERR THEN
+    R> IF SASSIGN ELSE SWAP ! THEN
+    CH ',' = WHILE TP+ REPEAT ;
+: RESTORE_ 0 DPTR ! ;
+: GET_
+  VARREF KEY? TYP C@ IF ?DUP IF 1 TMPALLOC TUCK 1+ C! ELSE EMPTYS THEN SASSIGN
+  ELSE SWAP ! THEN ;
+
+\ LIST
+: LIST_
+  0 0xFFFF
+  CH DIGIT? IF 2DROP NUM DUP THEN
+  CH '-' = IF TP+ DROP CH DIGIT? IF NUM ELSE 0xFFFF THEN THEN
+  SWAP FINDLN
+  BEGIN DUP C@ IF 2DUP LNUM U< 0= ELSE 0 THEN WHILE
+    POLL IF WARM THEN DUP LISTLN DUP C@ + REPEAT
+  2DROP ;
+
+\ the machine
+: POKE_ NEXPR COMMA NEXPR SWAP C! ;
+: CALL_ NEXPR CH ',' = IF TP+ NEXPR ELSE 0 THEN SWAP SYS DROP ;
+: WAIT_ NEXPR 8 @ + BEGIN POLL IF BREAK THEN DUP 8 @ - 0< 0= UNTIL DROP ;
+
+\ the screen
+: CLS_ SETSCREEN ;
+: LOCATE_
+  NEXPR COMMA NEXPR DUP 80 U< 0= IF ILLQ THEN CURCOL C!
+  DUP TXTROWS C@ U< 0= IF ILLQ THEN CURROW C! ;
+: TEXT_ NEXPR DUP 30 = OVER 60 = OR 0= IF ILLQ THEN TEXTSET ;
+: LOG2 DUP 1 = IF DROP 0 EXIT THEN DUP 2 = IF DROP 1 EXIT THEN DUP 4 = IF DROP 2 EXIT THEN
+  8 = IF 3 EXIT THEN ILLQ ;
+: MODE_
+  NEXPR LOG2 GBPP C! COMMA NEXPR LOG2 DUP 3 = IF ILLQ THEN GREP C!
+  CH ',' = IF TP+ NEXPR ELSE 0 THEN
+  DUP TXTMAX C@ U< 0= OVER TXTMAX C@ = 0= AND IF ILLQ THEN
+  DUP TXT2X C@ AND IF GREP C@ 0= IF LAYERR THEN GREP C@ 2 = OVER 6 > AND IF LAYERR THEN THEN
+  DUP TXTROWS C! TXT2X C@ IF 16 ELSE 8 THEN * GTOP ! SETSCREEN ;
+: TINT_
+  NEXPR COMMA NEXPR 7 AND 2* 2* 2* 2* SWAP
+  DUP TXTROWS C@ U< 0= IF ILLQ THEN
+  TXT2X C@ IF 16 ELSE 8 THEN DUP >R * MODEB + R>
+  BEGIN ?DUP WHILE >R DUP C@ 0x8F AND 2 PICK OR OVER C! 1+ R> 1- REPEAT 2DROP ;
+: SCAN_
+  NEXPR COMMA NEXPR COMMA NEXPR >R
+  DUP 480 U< 0= IF ILLQ THEN OVER - 1+ DUP 1 < IF ILLQ THEN
+  SWAP MODEB + SWAP R> FILL ;
+: GH 480 GTOP @ - GREP C@ RSHIFT ;
+: GW 640 GBPP C@ RSHIFT ;
+: PPBM 8 GBPP C@ RSHIFT 1- ;
+: BPPM 1 1 GBPP C@ LSHIFT LSHIFT 1- ;
+: PSET
+  >R
+  DUP GH U< 0= IF 2DROP RDROP EXIT THEN
+  OVER GW U< 0= IF 2DROP RDROP EXIT THEN
+  GREP C@ LSHIFT GTOP @ +
+  SWAP DUP 3 GBPP C@ - RSHIFT
+  ROT ROT PPBM AND GBPP C@ LSHIFT
+  BPPM OVER LSHIFT
+  R> BPPM AND ROT LSHIFT
+  VPLOT ;
+: PLOT_ NEXPR COMMA NEXPR COMMA NEXPR PSET ;
+: SGN1 DUP 0< IF DROP TRUE ELSE 0<> 1 AND THEN ;
+: LINE_
+  NEXPR LX ! COMMA NEXPR LY ! COMMA NEXPR LX2 ! COMMA NEXPR LY2 ! COMMA NEXPR LC !
+  LX2 @ LX @ - DUP ABS LDX ! SGN1 LSX !
+  LY2 @ LY @ - DUP ABS NEGATE LDY ! SGN1 LSY !
+  LDX @ LDY @ + LERR !
+  BEGIN
+    LX @ LY @ LC @ PSET
+    LX @ LX2 @ = LY @ LY2 @ = AND IF EXIT THEN
+    LERR @ 2*
+    DUP LDY @ < 0= IF LDY @ LERR +! LSX @ LX +! THEN
+    LDX @ > 0= IF LDX @ LERR +! LSY @ LY +! THEN
+  AGAIN ;
+
+\ sound
+: BEEP_ CH ENDS? IF 69 ELSE NEXPR THEN {snd_beep} SYS DROP ;
+: SOUND_
+  NEXPR COMMA NEXPR CH ',' = IF TP+ NEXPR ELSE 96 THEN >R
+  0x12 C! 0 0x13 C! {snd_note} SYS DROP R> {snd_tone} SYS DROP ;
+: NOISE_
+  NEXPR COMMA NEXPR COMMA NEXPR 0x12 C! 0x10 C! 0 0x13 C! {snd_noise} SYS DROP ;
+
+\ files: FILENAME mounts the card and copies a string to FNAME, adding
+\ .BAS when it has no dot; R1:R0 = FNAME
+: FILENAME
+  SEXPR CARD COUNT 11 MIN >R FNAME R@ CMOVE 0 FNAME R@ + C!
+  0 R@ BEGIN ?DUP WHILE 1- DUP FNAME + C@ '.' = IF NIP TRUE SWAP THEN REPEAT
+  0= IF FNAME R@ + S" .BAS" COUNT >R SWAP R> CMOVE 0 FNAME R@ + 4 + C! THEN RDROP
+  FNAME 0x10 ! ;
+\ CARD mounts the card for every file command (BASIC's port_init leaves
+\ the SD card to be set up again, and the card may have been changed)
+: CARD 0 {mount} SYS ?DUP IF FERR THEN ;
+: FCALL SYS ?DUP IF FERR THEN ;
+: LOADBYTE
+  DUP 10 = IF DROP 0 LDP @ C! CRUNCH LBUF TP ! CH DIGIT? IF NUM STORELN THEN LBUF LDP ! EXIT THEN
+  DUP 13 = IF DROP EXIT THEN
+  LDP @ LBUF 250 + U< IF LDP @ C! LDP 1+! ELSE DROP THEN ;
+: LOADFILE
+  FILENAME 0 {fs_open} FCALL
+  NEWPROG CLEARV LBUF LDP !
+  BEGIN
+    {FS_REM + 2} @ IF 512 ELSE {FS_REM} @ 512 MIN THEN
+    SECBUF 0x14 ! 0 {fs_read} SYS DUP 1 = IF 2DROP 10 LOADBYTE EXIT THEN ?DUP IF FERR THEN
+    SECBUF SWAP BEGIN ?DUP WHILE OVER C@ LOADBYTE 1- SWAP 1+ SWAP REPEAT DROP
+  AGAIN ;
+: LOAD_ LOADFILE WARM ;
+: WRITESEC SECBUF 0x14 ! 0 {fs_write} FCALL SECBUF SECP ! ;
+: FPUT SECP @ C! SECP 1+! FSIZE 1+! SECP @ SECEND = IF WRITESEC THEN ;
+: FEMIT DUP 10 = IF 13 FPUT THEN FPUT ;
+: SAVE_
+  FILENAME 0 {fs_create} FCALL
+  SECBUF SECP ! 0 FSIZE !
+  ' FEMIT EMITV ! PROG BEGIN DUP C@ WHILE DUP LISTLN DUP C@ + REPEAT DROP ' SCREMIT EMITV !
+  SECP @ SECBUF = 0= IF WRITESEC THEN
+  FSIZE @ 0x10 ! 0 0x12 ! 0 {fs_close} FCALL ;
+: DEL_ FILENAME 0 {fs_delete} FCALL ;
+: TYPEN BEGIN DUP WHILE OVER C@ DUP 32 = IF DROP 2DROP EXIT THEN EMIT 1- SWAP 1+ SWAP REPEAT 2DROP ;
+: DIR_
+  CARD 0 {fs_cwd} FCALL
+  BEGIN 0 {fs_next} SYS DUP 0= WHILE DROP
+    {FS_ENTRY} C@ '.' = 0= IF
+      {FS_ENTRY} 8 TYPEN
+      {FS_ENTRY + 8} C@ 32 = 0= IF '.' EMIT {FS_ENTRY + 8} 3 TYPEN THEN
+      {FS_ENTRY + 11} C@ 16 AND IF '/' EMIT THEN
+      BEGIN SPACE CURCOL C@ 15 AND 0= UNTIL
+    THEN
+  REPEAT CURCOL C@ IF CR THEN DUP 1 = IF DROP ELSE FERR THEN ;
+: DOS_ 0 {MENU_BLK + MB_PARENT} C! 0 {dos_back} SYS ;
+
+WORDS STMTAB END_ FOR_ NEXT_ DATA_ INPUT_ DIM_ READ_ LET_ GOTO_ RUN_ IF_
+  RESTORE_ GOSUB_ RETURN_ REM_ STOP_ ON_ PRINT_ LIST_ CLEAR_ NEW_ CONT_
+  POKE_ CALL_ CLS_ LOCATE_ TINT_ TEXT_ MODE_ PLOT_ LINE_ SCAN_ BEEP_
+  SOUND_ NOISE_ WAIT_ LOAD_ SAVE_ DIR_ DEL_ DOS_ GET_ ;
+
+\ ------------------------------------------------------------
+\ COLD: basic.masm starts here
+\ ------------------------------------------------------------
+: COLD
+  ' SCREMIT EMITV ! 0 GBPP C! 0 GREP C! 60 TEXTSET
+  NEWPROG CLEARV
+  ." PLACARD BASIC" CR FREE U. ."  bytes free" CR
+  WARM ;

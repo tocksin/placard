@@ -82,9 +82,9 @@ that the boot or the library needs is read through the mirror:
 |-------------|----------|-----------|
 | x8000-x8004 | nop, reset jump (a copy of x0000-x0004: a 32K cartridge shows it at x0000) | `rom_boot.asm` |
 | x8008-x8027 | Vectors: `dos_back`, `dos_run`, `fs_create`, `fs_write`, `fs_close`, `fs_delete`, `fs_save`, `basic` ([DOS.md](DOS.md#dos-vectors)) | `rom32.masm` |
-| x8100-x9EFF | The loader (power-up, BOOT.CFG, running `.PLC` files, about 1.5 KB), then BASIC | `rom32.masm` |
+| x8100-x9EFF | The loader (power-up, BOOT.CFG, running `.PLC` files, about 1.5 KB), then BASIC ([BASIC.md](BASIC.md)); about 770 bytes free at x9BFE | `rom32.masm`, `basic.masm`, `basic.vm` |
 | x9F00-x9FFF | `LIB_RAM`'s bytes (the boot reads them at x1F00) | `rom_lib.asm` |
-| xA000-xAFFF | BASIC (a placeholder screen until BASIC is written) | `rom32.masm` |
+| xA000-xAFFF | BASIC (about 9 KB in all, with the part above) | `basic.masm`, `basic.vm` |
 | xB000-xBFFF | FAT file writer ([DOS.md](DOS.md#the-fat-writer)) | `placard_fsw.masm` |
 | xC000-xFBFF | The library, as above | `rom_lib.asm` |
 | xFC00 | Boot mode 02 | `rom32.masm` |
