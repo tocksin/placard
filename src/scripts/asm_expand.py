@@ -30,13 +30,14 @@ return label) and places its code page by page with #addr (LIBRARY.md,
                     branches are local.  It must end with a jump (jmp,
                     bra, GOTO, LEAVE, RET) or be data.  Chunks are placed
                     in the region first fit, in order, never across a page
-    .fixed a        a chunk at address a (not moved)
+    .fixed a        a chunk at address a (not moved); the rest of its page
+                    (from its end) is used by the chunks that follow
 
 Lines before the first .chunk or .fixed (constants, #include, comments)
 are copied as they are.  The .asm made is the file to read and assemble;
 the .masm is its source (change that and run this again).
 
-Date: 10/25/2026
+Date: 10/26/2026
 """
 
 import os
@@ -84,7 +85,7 @@ def size_of(text):
     if low.startswith('#d8'):
         return len([v for v in t[3:].split(',') if v.strip()])
     if low.startswith('#d'):
-        return len(ps.d8_items(t[2:], 0))
+        return len(ps.d8_items(t[2:].strip(), 0))
     if t.startswith('#') or ps.CONST_RE.match(t):
         return 0
     return ps.instr_size(t)
@@ -202,9 +203,13 @@ def expand(src, name='?'):
 
 def place(chunks, name):
     used = {}                               # page -> bytes used
-    for c in chunks:
+    for c in chunks:                        # a fixed chunk takes its page up to its end
         if c.fixed is not None:
             c.addr = c.fixed
+            page = c.addr >> 8
+            used[page] = max(used.get(page, 0), (c.addr & 0xFF) + c.size)
+    for c in chunks:
+        if c.fixed is not None:
             continue
         if c.size > 256:
             raise ExpandError('%s:%d: chunk of %d bytes, more than a page' % (name, c.lineno, c.size))

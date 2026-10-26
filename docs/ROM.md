@@ -9,7 +9,13 @@ cartridge's EEPROM image, and `src/hdl/ram.mem` (the main RAM) and
 cartridge model is `src/hdl/cartridge.vhd`.  Programs and the standard
 library live in the ROM.
 
-Date: 10/22/2026
+Date: 10/26/2026
+
+There are two images.  The **32K image** (x8000-xFFFF: boot loader, library
+and the DOS, "The 32K image" below) is the one the machine ships with, on
+either cartridge; programs come from the SD card.  The **64K development
+image** holds one program in place at x6000-xBFFF (and x2000-x3FFF) over
+the same library; `build\<program>.bat` builds it for the 64K cartridge.
 
 ## Video always reads the RAM
 
@@ -47,7 +53,7 @@ the font, the I/O drivers and the rest, down to xC000.
 | xEC00-xF3FF | Standard font (`LIB_FONT`) | `rom_lib.asm` |
 | xF400-xFAFF | Standard library core routines (`LIB_CODE`) | `rom_lib.asm` |
 | xFB00-xFBFF | Jump table (`LIB_JT`), 55 of 64 entries used ([LIBRARY.md](LIBRARY.md#jump-table)) | `rom_lib.asm` |
-| xFC00 | Boot mode: 00 = ROM program, 01 = RAM image | `gen_rom.tcl` |
+| xFC00 | Boot mode: 00 = ROM program, 01 = RAM image, 02 = the DOS | `gen_rom.tcl` |
 | xFD00-xFD7E | Boot loader | `rom_boot.asm` |
 | xFE00-xFE07 | Map switch (RAM image boot only) | `rom_boot.asm` |
 | xFE08-xFEA1 | Expansion card scan | `rom_boot.asm` |
@@ -64,18 +70,38 @@ There are two cartridge boards (2026-10-24), and a machine takes either:
   x0000-x7FFF and again at x8000-xFFFF.  The loader copies it twice (the
   PC walks all 64K), which needs no change to the loader PLD.
 
-Not done yet: a 32K ROM layout.  The 64K image above does not fit.  The
-plan (2026-10-21) is an image of x8000-xFFFF only: the reset nop and jump
-at x8000 (read as x0000 at reset), the menu and an SD program loader in
-x8000-xBFFF, the library where it is now (xC000-xFFFF); other programs
-load from the SD card.  `gen_rom.tcl`, `placard_sim.py` and the library
-constants still build the 64K image only.
+## The 32K image
 
-## The demo menu ROM
+The 32K image (2026-10-26) is x8000-xFFFF only, so it fits one 32K EEPROM;
+`gen_rom.tcl` puts the same 32K in both halves of `rom.mem` (and writes
+`src/hdl/rom_32k.bin`, the EEPROM file), so a 64K cartridge with two EEPROMs
+takes the same image twice and boots the same way.  Everything below x8000
+that the boot or the library needs is read through the mirror:
 
-`gen_menu_rom.py` builds a different image: six demos and a menu in one
-ROM, using the free areas above for the RAM programs.  See
-[MENU.md](MENU.md).
+| ROM address | Contents | Made from |
+|-------------|----------|-----------|
+| x8000-x8004 | nop, reset jump (a copy of x0000-x0004: a 32K cartridge shows it at x0000) | `rom_boot.asm` |
+| x8008-x8023 | DOS vectors: `dos_back`, `dos_run`, `fs_create`, `fs_write`, `fs_close`, `fs_delete`, `fs_save` ([DOS.md](DOS.md#dos-vectors)) | `dos.masm` |
+| x8100-x9EFF | The DOS: file browser, program loader, command line | `dos.masm` |
+| x9F00-x9FFF | `LIB_RAM`'s bytes (the boot reads them at x1F00) | `rom_lib.asm` |
+| xA000-xAFFF | Free: the monitor goes here ([SOFTWARE_ROADMAP.md](SOFTWARE_ROADMAP.md)) | |
+| xB000-xBFFF | FAT file writer ([DOS.md](DOS.md#the-fat-writer)) | `placard_fsw.masm` |
+| xC000-xFBFF | The library, as above | `rom_lib.asm` |
+| xFC00 | Boot mode 02 | `dos.masm` |
+| xFD00-xFEA1 | Boot loader, as above | `rom_boot.asm` |
+
+The boot loader is unchanged: it copies `LIB_RAM` from x1F00 (the mirror of
+x9F00), scans the expansion slots, and for mode 02 writes map 05 and jumps
+to the DOS at x8100.  The DOS runs with map **07**: RAM x0000-x5FFF for the
+program it loads (x0100-x3FFF) and its own data (x4000-x5FFF), the DOS and
+the library in ROM x8000-xFFFF.  `placard_sim.py dos.asm` builds the same
+image (`build_dos_rom`) and `test_dos.py` runs it.
+
+Programs are `.PLC` files on the SD card ([DOS.md](DOS.md#program-files-plc)):
+library programs assembled for RAM x0100-x3FFF (16 KB), or the older RAM
+images (x0000-x49FF).  The demo menu is one of them
+([MENU.md](MENU.md)).  The text demo and the ray caster, which run in place
+from x6000-xBFFF, still build as 64K development images only.
 
 ## Map while a program runs
 
@@ -265,6 +291,9 @@ fails the check.  [EXPANSION.md](EXPANSION.md) has the header and rules.
 x6000.  The boot loader runs in section 7, which stays ROM, so no copy is
 needed.  The program starts a few clocks after reset.
 
+**The DOS (02):** write map = 05 and `MAP_SHADOW` = 05, then jump to the
+DOS at x8100 ("The 32K image" above).
+
 **RAM image (01):** for the older demos (pi spigot, Mandelbrot, game of life,
 CPU test, test_video), which were written to run from RAM x0000 and keep
 code and variables mixed there and don't use the library.  `gen_rom.tcl`
@@ -281,9 +310,10 @@ x6000) and the boot loader:
 The copy takes about 23 ms.  It does not set `MAP_SHADOW`, because those
 programs keep code there.
 
-`gen_rom.tcl` treats a program as a RAM image when its hex has any byte in
-x0000-x1FFF or x4000-x5FFF other than the library's own bytes; otherwise it
-is a ROM program, with its bytes in x2000-x3FFF and x6000-xBFFF.
+`gen_rom.tcl` makes the 32K image when the program's byte at xFC00 is 02
+(`dos.asm` sets it), treats a program as a RAM image when its hex has any
+byte in x0000-x1FFF or x4000-x5FFF other than the library's own bytes, and
+otherwise as a ROM program, with its bytes in x2000-x3FFF and x6000-xBFFF.
 
 ## Building
 
@@ -315,6 +345,9 @@ model video reads; `--png` draws the RAM.
 ## Changing the layout
 
 The constants are in three places, which must agree: `rom_boot.asm`
-(`ROM_IMAGE`, `IMAGE_END`, `MAP_ROM_RUN`, `PROG_START`, `BOOT_MODE`),
-`gen_rom.tcl` and `placard_sim.py` (`ROM_IMAGE_BASE`, `IMAGE_SIZE`,
-`LIB_START`, `LIB_END`, `PROG_START`, `PROG_END`, `BOOT_MODE`).
+(`ROM_IMAGE`, `IMAGE_END`, `MAP_ROM_RUN`, `PROG_START`, `DOS_START`,
+`BOOT_MODE`), `gen_rom.tcl` and `placard_sim.py` (`ROM_IMAGE_BASE`,
+`IMAGE_SIZE`, `LIB_START`, `LIB_END`, `PROG_START`, `PROG_END`,
+`DOS_START`, `DOS_END`, `LIB_RAM_IMAGE`, `BOOT_MODE`); the DOS's own places
+are in `dos.masm` (`DOS_CODE`, `DOS_TOP`, the vectors) and
+`placard_fsw.masm` (`FSW_CODE`).

@@ -8,10 +8,12 @@ vivado*.str
 .Xil/
 
 # memory images, made by src/scripts/gen_random_ram.tcl (ram.mem,
-# cart_ram.mem) and src/scripts/gen_rom.tcl (rom.mem) on every build
+# cart_ram.mem) and src/scripts/gen_rom.tcl (rom.mem, and rom_32k.bin, the
+# EEPROM file of the DOS image) on every build
 /src/hdl/ram.mem
 /src/hdl/cart_ram.mem
 /src/hdl/rom.mem
+/src/hdl/rom_32k.bin
 /src/hdl/video_ram.mem
 
 # IP output products, Vivado writes them next to the .xci

@@ -43,8 +43,8 @@ from RAM (as `plot1` and `con_scroll` do), not from ROM x6000-xFFFF.
 
 | Piece | Needed by | Size | Notes |
 |---|---|---|---|
-| FAT write | DOS, editor, assembler, BASIC SAVE | 3-4 KB | create, write, extend, delete, rename, make folder; update both FATs.  `sd_write` (raw blocks) already exists.  The library has no free pages, so this goes below xC000. |
-| Program file format | DOS, loader, every SD program | small | a header like the expansion card's ("PLC", type, load address, length, entry, checksum), so the loader knows where a file goes and whether it is a RAM program or data |
+| FAT write | DOS, editor, assembler, BASIC SAVE | 3.2 KB | **Done 2026-10-26** (`placard_fsw.masm`, in the DOS image at xB000, DOS vectors x8010-x8020): create, write, close, delete, save; every FAT kept up to date.  Not yet: rename, make folder. |
+| Program file format | DOS, loader, every SD program | small | **Done 2026-10-26**: the `.PLC` header ("PLC", type, load address, length, entry; [DOS.md](DOS.md#program-files-plc)), `gen_plc.py` |
 | Faster scroll / partial redraw | editor, monitor, BASIC | 0.5-1 KB | `con_scroll` takes 46 ms for the full 60 rows; an editor redraws only changed lines and scrolls a 28-row window (about half the time) |
 
 ## Programs
@@ -61,18 +61,17 @@ program to write, because everything after it is debugged with it.
 - Size: 3-5 KB, plus 1.5-2 KB for the disassembler.  RAM: a line buffer.
 - Fits in the resident 16 KB together with the DOS below.
 
-### 2. DOS: SD card command line (resident, ROM)
+### 2. DOS: file browser and SD loader (resident, ROM) - done 2026-10-26
 
-One command line that joins the monitor, the SD loader and the boot menu:
-`DIR`, `CD`, `TYPE`, `COPY`, `DEL`, `REN`, `MD`, `RD`, `RUN` (or just a
-program's name), `BOOT` (pick what starts at power-up), plus the monitor's
-commands.  A file browser (cursor keys or pad) can be a mode of it.
-
-- Needs: FAT write, the program file format, console, keyboard.
-- Size: 3-5 KB on top of the library's FAT write.  Monitor + DOS + loader
-  together: about 10-12 KB, inside x8000-xBFFF.
-- Remembers the boot choice in a small file on the card (`BOOT.CFG`); a key
-  held at power-up skips it.
+`dos.masm`, [DOS.md](DOS.md): the 32K image's program.  A file browser
+(Up / Down, Enter runs a `.PLC` file or opens a folder, Backspace, Del, B
+picks the boot program) with a command line (`RUN`, `LOAD`, `SAVE`, `DEL`,
+`CD`, `BOOT`, `DIR`), `BOOT.CFG` for what starts at power-up, Esc held at
+power-up for the browser.  The FAT writer (`placard_fsw.masm`, 3.2 KB at
+xB000) and the `.PLC` program file format (`gen_plc.py`) came with it; the
+demo menu became a program on the card (`menu.masm`).  Not yet: `TYPE`,
+`COPY`, `REN`, `MD`, `RD`; the monitor's commands join when the monitor
+comes (xA000-xAFFF is kept for it).
 
 ### 3. Text editor (SD program)
 
@@ -259,8 +258,9 @@ Realistic instead:
 
 ## Order
 
-1. FAT write and the program file format (library).
-2. Monitor and DOS, resident in ROM (with the SD loader and boot choice).
+1. FAT write and the program file format: done (2026-10-26).
+2. DOS, resident in ROM, with the SD loader and boot choice: done
+   (2026-10-26).  The monitor is next (xA000-xAFFF of the 32K image).
 3. Text editor.
 4. Assembler (the machine is then self-hosting).
 5. BASIC.
@@ -270,5 +270,5 @@ Realistic instead:
    ZX81, TRS-80 or VIC-20; native games or a fantasy console engine.
 
 Each program gets a Python model and a `placard_sim.py` test like the
-library and the demos, and the ROM layout in ROM.md is updated when the
-resident set moves into x8000-xBFFF.
+library and the demos.  The resident set lives in x8000-xBFFF of the 32K
+image ([ROM.md](ROM.md#the-32k-image)).

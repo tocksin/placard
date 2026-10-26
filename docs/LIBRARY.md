@@ -6,7 +6,7 @@ page map that every program shares.  `src/scripts/lib_demo.asm` is a short
 example program that uses it, and `src/scripts/test_lib.py` tests every
 routine in the simulator.
 
-Date: 10/22/2026
+Date: 10/26/2026
 
 | File | What it is |
 |------|------------|
@@ -60,7 +60,9 @@ sections 3-7 to RAM, so it can't run from there: it is assembled at
 RAM before anything else.  Programs must leave RAM x1F00-x1FFF alone.
 
 A program runs in place from ROM x6000-xBFFF (entry at x6000) and may put
-more code and tables at ROM x2000-x3FFF.  The boot loader maps the zero
+more code and tables at ROM x2000-x3FFF (the 64K development image), or is
+a `.PLC` file on the SD card that the DOS loads into RAM x0100-x3FFF
+([DOS.md](DOS.md#program-files-plc)); the library is the same for both.  The boot loader maps the zero
 page and x4000-x5FFF to RAM (map = 05, also in `MAP_SHADOW`) and jumps to
 x6000.  Program variables and buffers go in RAM: the zero page x20-x8F,
 x0100-x1EFF, x4000-x4CFF (x4D00-x4FFF if the program does not use the
@@ -445,6 +447,10 @@ Errors in AC: 1 end, 2 not found, 4 and 5 SD read errors, 8 not mounted,
 9 no FAT file system, 10 FAT12.  They change R0-R5, T0-T7 and the I/O
 zero page scratch.  A sector takes about 160,000 clocks (75 KB/s).
 
+Writing (`fs_create`, `fs_write`, `fs_close`, `fs_delete`, `fs_save`) is
+not in the library: it is part of the DOS image, reached through the DOS
+vectors at x8010-x8020 ([DOS.md](DOS.md#the-fat-writer)).
+
 ### Line input and mouse pointer
 
 | Routine | In | Out | Changes | Clocks |
@@ -456,7 +462,7 @@ zero page scratch.  A sector takes about 160,000 clocks (75 KB/s).
 
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
-| `menu_poll` | call about once per frame, after `frame_poll` | returns, or never returns when Esc is down or the program's time is up in the menu ROM ([MENU.md](MENU.md)) | AC, X, Y, T0; when `kbd_scan` has not run this frame, also as `ps2_poll` | 15 without the menu ROM, about 75 with it, plus `ps2_poll` (about 150) when the program doesn't scan the keyboard itself |
+| `menu_poll` | call about once per frame, after `frame_poll` | returns, or never returns when Esc is down or the program's time is up under the DOS or the menu ([MENU.md](MENU.md)) | AC, X, Y, T0; when `kbd_scan` has not run this frame, also as `ps2_poll` | 15 without the menu block, about 75 with it, plus `ps2_poll` (about 150) when the program doesn't scan the keyboard itself |
 
 ## Idioms
 

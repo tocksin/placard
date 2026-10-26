@@ -1,186 +1,177 @@
 #!/usr/bin/env python3
 """
-test_menu.py - run the menu ROM (menu.asm, gen_menu_rom.py) in placard_sim
+test_menu.py - run the demo menu (menu.masm, MENU.PLC) through the DOS in
+placard_sim
 
     python3 test_menu.py                 the checks below, with short times
     python3 test_menu.py --png m.png     also the menu screen as a PNG
 
-Builds the ROM in memory with short times (each program 40 frames in turn,
-Mandelbrot 60 (its 3 minutes scaled the same way),
-a finished result 20 frames, the menu's idle time 2 s; the files on disk
-are not changed), boots it like the board and checks:
-  1. in turn: the programs start in order 1-6 and then 1 again; each RAM
-     program's RAM x0000-x49FF is exactly its image when it starts (the
-     loader), and the CPU test's grid is all green when it leaves
-  2. Esc on the PS/2 keyboard in a program (the text demo, which calls
-     menu_poll but not kbd_scan) shows the menu (MB_WHY = 1)
+Builds the DOS ROM (dos.asm) and a card holding the demo .PLC files from
+../../sdcard and a MENU.PLC assembled here with short times (each program
+40 frames in turn, Mandelbrot 60, the menu's idle time 2 s), BOOT.CFG =
+MENU.PLC, and boots it like the board (test_dos.Rig):
+  1. in turn: the DOS runs MENU.PLC, which asks for the programs in order
+     1-4 and then 1 again; each one's RAM x0000-x49FF is exactly its image
+     when it starts, MB_PARENT names the menu, MB_LEFT is the time limit
+  2. Esc on the PS/2 keyboard in a program brings the menu's screen back
+     (through the DOS), with the highlight on that program
   3. Down moves the highlight; 3 runs Mandelbrot, picked: it runs past the
      time limit, until Esc brings the menu back
   4. with no key for the idle time the menu runs them in turn again, from
      the highlighted program
-Keys are pressed on the PS/2 keyboard model (io_devices.Ps2Keyboard);
-the RAM programs' hook (menu_hook.py) reads the PS/2 receiver itself.
+  5. Esc in the menu goes to the DOS's file browser
 
-Date: 10/25/2026
+Date: 10/26/2026
 """
 
 import argparse
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import placard_sim as ps      # noqa: E402
-import io_devices             # noqa: E402
-import gen_menu_rom           # noqa: E402
+import sdimage                # noqa: E402
+import gen_plc                # noqa: E402
+import test_dos               # noqa: E402
 
-FRAME = 525 * 800
-ESC, DOWN, ENTER, KEY3 = 0x76, 0x172, 0x5A, 0x26     # set 2 codes (E0 = 0x100)
-PS2_ESC = ESC
-MB = 0x5D00
+FRAME = test_dos.FRAME
+MB, MB_GO = test_dos.MB, test_dos.MB_GO
+PROGS = ['CPUTEST.PLC', 'PI.PLC', 'MANDEL.PLC', 'LIFE.PLC']
+
+
+def menu_plc(lib, rot, man, idle):
+    """MENU.PLC from menu.asm with other times, and its symbols"""
+    src = open(os.path.join(HERE, 'menu.asm')).read()
+    for name, v in (('ROT_FRAMES', rot), ('MAN_FRAMES', man), ('IDLE_SECS', idle)):
+        src, n = re.subn(r'^(%s\s*=\s*)\d+' % name, r'\g<1>%d' % v, src, flags=re.M)
+        assert n == 1, name
+    mem, syms, _ = ps.assemble(src, HERE)
+    data, kind, load, entry = gen_plc.make(mem, syms, lib)
+    return data, syms
 
 
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('--png')
     args = ap.parse_args(argv)
-    rom, syms, progs = gen_menu_rom.build(rotate_frames=40, hold_frames=20, idle_s=2,
-                                          write=False, quiet=True)
-    port = io_devices.SharedPort()
-    port.kbd = io_devices.Ps2Keyboard()
-    cpu = ps.Cpu({}, rom=rom, io=port)
-    p_launch, p_back, p_loop = syms['launch'], syms['menu_back'], syms['menu_loop']
-    ok = True
+    rom, syms, lib = test_dos.build()
+    rot, man, idle = 40, 60, 2
+    files = {n: open(os.path.join(test_dos.SDCARD, n), 'rb').read() for n in PROGS}
+    files['MENU.PLC'], msyms = menu_plc(lib, rot, man, idle)
+    files['BOOT.CFG'] = b'MENU.PLC\r\n'
+    r = test_dos.Rig(rom, syms, lib, sdimage.make(files))
+    cpu, mem = r.cpu, r.cpu.mem
 
-    def at(a):
-        """the CPU is at menu code a (a ROM address, not a RAM program's)"""
-        return cpu.pc == a and not (cpu.map >> (a >> 13)) & 1
-
-    def fail(msg):
-        nonlocal ok
-        ok = False
-        print('FAIL:', msg)
-
-    def run_until(cond, frames, what):
-        end = cpu.clocks + frames * FRAME
-        while cpu.clocks < end:
-            cpu.step()
-            if cond():
-                return True
-        fail('%s: not within %d frames' % (what, frames))
-        return False
-
-    def press(key, frames=3):
-        """hold a key for some frames; True if a program starts meanwhile
-        (then it is let go there)"""
-        port.kbd.press(key)
-        end = cpu.clocks + frames * FRAME
-        while cpu.clocks < end:
-            cpu.step()
-            if at(p_launch):
-                break
-        port.kbd.release(key)
-        return at(p_launch)
-
-    def expected_ram(p):
-        img = bytearray(0x4A00)
-        for a, v in p['own'].items():
-            img[a] = v
-        return img
+    def in_menu(label):
+        a = msyms[label]
+        return cpu.pc == a and cpu.map == 7 and mem[MB + 0x11] != 0x4D
 
     launches = []
 
-    def next_launch(frames, here=False):
-        """run to the next start of a program (here: at it now): (index, mode)"""
-        if not here and not run_until(lambda: at(p_launch), frames,
-                                      'a program start'):
+    def next_launch(frames):
+        """run to the next RAM image start (MB_GO): (program, mode)"""
+        if not r.run_until(lambda: cpu.pc == MB_GO, frames, 'a program start'):
             return None
-        i = cpu.mem[syms['m_p']]
-        mode = cpu.mem[MB + 3]
-        # follow it into the program: a RAM one through the loader to MB_GO
-        p = progs[i]
-        if p['kind'] == 'ram':
-            if run_until(lambda: cpu.pc == MB + 0x28, 20, 'the loader'):
-                got = bytes(cpu.mem[0:0x4A00])
-                want = bytes(expected_ram(p))
-                if got != want:
-                    bad = [a for a in range(0x4A00) if got[a] != want[a]]
-                    fail('%s: RAM differs from the image at %d bytes, first x%04X'
-                         % (p['file'], len(bad), bad[0]))
-        left = cpu.mem[MB + 4] + 256 * cpu.mem[MB + 5]
-        if p['kind'] == 'ram' and mode == 0 and left != p['rot']:
-            fail('%s: time limit %d frames, not %d' % (p['file'], left, p['rot']))
+        i = mem[MB + 0x0D]
+        mode = mem[MB + 3]
+        body = files[PROGS[i]][16:]
+        want = bytes(body) + bytes(0x4A00 - len(body))
+        got = bytes(mem[0:0x4A00])
+        if got != want:
+            bad = [a for a in range(0x4A00) if got[a] != want[a]]
+            r.fail('%s: RAM differs from the image at %d bytes, first x%04X'
+                   % (PROGS[i], len(bad), bad[0]))
+        left = mem[MB + 4] + 256 * mem[MB + 5]
+        want_left = man if PROGS[i] == 'MANDEL.PLC' else rot
+        if mode == 0 and left != want_left:
+            r.fail('%s: time limit %d frames, not %d' % (PROGS[i], left, want_left))
+        parent = bytes(mem[MB + 0x40:MB + 0x49])
+        if parent != b'MENU.PLC\0':
+            r.fail('MB_PARENT = %r' % parent)
         launches.append((i, mode))
-        print('  start %d %-17s %s  (frame %d)' % (i + 1, p['file'],
+        print('  start %d %-12s %s  (frame %d)' % (i + 1, PROGS[i],
               'in turn' if mode == 0 else 'picked', cpu.clocks // FRAME))
         return i, mode
 
-    # 1. in turn, 1-6 then 1 again
+    # 1. in turn, 1-4 then 1 again
     print('1. in turn')
-    for want in [0, 1, 2, 3, 4, 5, 0]:
-        r = next_launch(120)
-        if r is None:
+    if r.run_until(lambda: cpu.pc == 0x0100 and cpu.map == 7, 200, 'MENU.PLC to start'):
+        print('  MENU.PLC started at frame %d' % (cpu.clocks // FRAME))
+    for want in [0, 1, 2, 3, 0]:
+        got = next_launch(150)
+        if got is None:
             break
-        if r != (want, 0):
-            fail('expected program %d in turn, got %s' % (want + 1, r))
-        if want == 0 and len(launches) == 1:
-            # the CPU test finishes, shows its grid, then the next program
-            if run_until(lambda: at(p_back), 120, 'the CPU test to finish'):
-                bar = [cpu.mem[0x6828 + 2 * k * 256] for k in range(71)]
-                if set(bar) != {0xE0}:
-                    fail('the CPU test bar is not all green: %s' % sorted(set(bar)))
-                else:
-                    print('  CPU test: green bar, every test passed')
-    # 2. Esc in the text demo
+        if got != (want, 0):
+            r.fail('expected program %d in turn, got %s' % (want + 1, got))
+    # 2. Esc in a program (the CPU test is running again now)
     print('2. Esc')
-    while launches[-1][0] != 4:
-        if next_launch(120) is None:
-            break
-    for _ in range(5 * FRAME // 3):
-        cpu.step()
-    port.kbd.press(PS2_ESC)                     # Esc on the PS/2 keyboard
-    found = run_until(lambda: at(p_loop), 60, 'the menu after the PS/2 Esc')
-    port.kbd.release(PS2_ESC)
+    r.run(5)
+    r.port.kbd.press(r.codes['\x1b'])
+    found = r.run_until(lambda: in_menu('menu_loop'), 120, 'the menu after Esc')
+    r.port.kbd.release(r.codes['\x1b'])
     if found:
-        if cpu.mem[MB + 9] != 1:
-            fail('MB_WHY = %d, not 1 (Esc)' % cpu.mem[MB + 9])
-        print('  menu shown, highlight on %d' % (cpu.mem[syms['m_sel']] + 1))
-        if cpu.mem[syms['m_sel']] != 4:
-            fail('the highlight is not on the text demo')
+        r.run(6)
+        sel = mem[msyms['m_sel']]
+        print('  menu shown at frame %d, highlight on %d, MB_WHY %d' % (cpu.clocks // FRAME, sel + 1, mem[MB + 9]))
+        if mem[MB + 9] != 1:
+            r.fail('MB_WHY = %d, not 1 (Esc)' % mem[MB + 9])
+        if sel != 0:
+            r.fail('the highlight is not on the CPU test')
+        if 'P L A C A R D' not in r.row(3):
+            r.fail('the menu title is not on row 3: %r' % r.row(3))
+        for k in range(4):
+            if PROGS[k].split('.')[0][:2].lower() not in r.row(12 + 2 * k).lower():
+                r.fail('row %d: %r' % (12 + 2 * k, r.row(12 + 2 * k)))
     if args.png:
-        ps.render(cpu.mem, args.png)
+        ps.render(mem, args.png)
         print('  wrote', args.png)
     # 3. Down, then 3: Mandelbrot picked, runs past the limit
     print('3. pick')
-    press(DOWN)
-    for _ in range(3 * FRAME // 3):
-        cpu.step()
-    if cpu.mem[syms['m_sel']] != 5:
-        fail('Down: highlight on %d, not 6' % (cpu.mem[syms['m_sel']] + 1))
+    r.key('\x12')
+    if mem[msyms['m_sel']] != 1:
+        r.fail('Down: highlight on %d, not 2' % (mem[msyms['m_sel']] + 1))
     else:
-        print('  Down: highlight on 6')
-    r = next_launch(10, press(KEY3))
-    if r != (2, 1):
-        fail('3: expected Mandelbrot picked, got %s' % (r,))
-    n0 = len(launches)
+        print('  Down: highlight on 2')
+    r.port.kbd.press(r.codes['3'])
+    got = next_launch(20)
+    r.port.kbd.release(r.codes['3'])
+    if got != (2, 1):
+        r.fail('3: expected Mandelbrot picked, got %s' % (got,))
     end = cpu.clocks + 100 * FRAME
     while cpu.clocks < end:
         cpu.step()
-        if at(p_launch) or at(p_back):
-            fail('the picked program stopped at frame %d' % (cpu.clocks // FRAME))
+        if cpu.pc == MB_GO or in_menu('menu_loop'):
+            r.fail('the picked program stopped at frame %d' % (cpu.clocks // FRAME))
             break
     else:
-        print('  still running after 100 frames (limit 40)')
-    press(ESC)
-    if run_until(lambda: at(p_loop), 60, 'the menu after Esc'):
-        print('  Esc: menu, highlight on %d' % (cpu.mem[syms['m_sel']] + 1))
+        print('  still running after 100 frames (limit %d)' % man)
+    r.port.kbd.press(r.codes['\x1b'])
+    found = r.run_until(lambda: in_menu('menu_loop'), 120, 'the menu after Esc')
+    r.port.kbd.release(r.codes['\x1b'])
+    if found:
+        r.run(6)
+        print('  Esc: menu, highlight on %d' % (mem[msyms['m_sel']] + 1))
     # 4. idle: in turn again from the highlighted program
     print('4. idle')
-    r = next_launch(3 * 60 + 30)
-    if r != (2, 0):
-        fail('idle: expected Mandelbrot in turn, got %s' % (r,))
-    print('OK' if ok else 'FAILED')
-    return 0 if ok else 1
+    got = next_launch(idle * 60 + 60)
+    if got != (2, 0):
+        r.fail('idle: expected Mandelbrot in turn, got %s' % (got,))
+    # 5. Esc in the menu: the DOS
+    print('5. Esc to the DOS')
+    r.port.kbd.press(r.codes['\x1b'])
+    found = r.run_until(lambda: in_menu('menu_loop'), 120, 'the menu after Esc')
+    r.port.kbd.release(r.codes['\x1b'])
+    if found:
+        r.run(6)
+        r.key('\x1b')
+        if r.wait_browser(120):
+            print('  the DOS browser: %r' % r.row(0))
+            if r.find_row('MENU.PLC') is None:
+                r.fail('MENU.PLC is not in the browser\'s list')
+    print('OK' if r.ok else 'FAILED')
+    return 0 if r.ok else 1
 
 
 if __name__ == '__main__':
