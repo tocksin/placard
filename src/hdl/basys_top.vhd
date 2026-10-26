@@ -195,6 +195,11 @@ architecture Behavioral of basys_top is
     signal kbdOn            : sl;   -- SW14 = 1 (SW15 = 0): the PS/2 port is the PS/2 keyboard socket
     signal ps2ClkR          : slv(1 downto 0) := "11";  -- PS/2 lines, synchronized
     signal ps2DataR         : slv(1 downto 0) := "11";
+    signal ps2ClkF          : sl := '1';    -- PS/2 CLK, glitch-filtered (the receiver's clock)
+    signal ps2DataF         : sl := '1';    -- PS/2 DATA, glitch-filtered
+    signal ps2DataD         : slv(3 downto 0) := "1111";  -- ps2DataF delayed: the bit before the CLK edge
+    signal ps2ClkCnt        : unsigned(4 downto 0) := (others => '0');
+    signal ps2DataCnt       : unsigned(4 downto 0) := (others => '0');
     signal sdMisoR          : slv(1 downto 0) := "11";
     signal pad1R            : slv(1 downto 0) := "11";
     signal pad2R            : slv(1 downto 0) := "11";
@@ -836,7 +841,7 @@ begin
     ps2PldComp: entity work.ps2_pld
     port map(
         rxclk   => rxClk,
-        pdata   => ps2DataR(1) or not (mouseOn or kbdOn),
+        pdata   => ps2DataD(3) or not (mouseOn or kbdOn),
         portRdN => portRdN,
         portWrN => portWrN,
         a0      => ramAddress(0),
@@ -856,7 +861,7 @@ begin
         bEn     => rxBEn
     );
     rxInhibit <= rxBEn and not rxB;
-    rxClk     <= ps2ClkR(1) when (mouseOn or kbdOn) = '1' else '0';
+    rxClk     <= ps2ClkF when (mouseOn or kbdOn) = '1' else '0';
 
     -- SW15 = 1: the PS/2 port is the Placard's mouse port.  The register's
     -- /CS and bit 3 pull the lines low through Schottky diodes, as does
@@ -890,6 +895,31 @@ begin
         if rising_edge(clkVGA) then
             ps2ClkR  <= ps2ClkR(0)  & to_x01(PS2_CLK);
             ps2DataR <= ps2DataR(0) & to_x01(PS2_DATA);
+            -- The PS/2 lines are slow (open drain, pull-ups) and the
+            -- receiver is clocked by CLK, so a little noise on an edge
+            -- would clock it twice.  A line only changes here after 24
+            -- clocks (about 1 us) of the new level.  DATA is then used a
+            -- few clocks late, so the receiver takes the bit that was on
+            -- DATA before CLK rose even if the device changes DATA right
+            -- at the rising edge.  (The board's PLD reads the lines
+            -- directly; this is the FPGA model only.)
+            if ps2ClkR(1) = ps2ClkF then
+                ps2ClkCnt <= (others => '0');
+            elsif ps2ClkCnt = 23 then
+                ps2ClkF   <= ps2ClkR(1);
+                ps2ClkCnt <= (others => '0');
+            else
+                ps2ClkCnt <= ps2ClkCnt + 1;
+            end if;
+            if ps2DataR(1) = ps2DataF then
+                ps2DataCnt <= (others => '0');
+            elsif ps2DataCnt = 23 then
+                ps2DataF   <= ps2DataR(1);
+                ps2DataCnt <= (others => '0');
+            else
+                ps2DataCnt <= ps2DataCnt + 1;
+            end if;
+            ps2DataD <= ps2DataD(2 downto 0) & ps2DataF;
             sdMisoR  <= sdMisoR(0)  & to_x01(JB(2));
             pad1R    <= pad1R(0)    & to_x01(JC(2));
             pad2R    <= pad2R(0)    & to_x01(JC(3));
