@@ -11,6 +11,8 @@
 -- KBD_HEAD (xB0), KBD_FLAGS (xB2), PS2_LSN (xBE) and the first port
 -- writes, and at the end the debug sniffer's last byte and count.  Expect
 -- "write 00A8 = 61", later "write 00A9 = 62", and "sniffer last 32 count 06".
+-- UART = true types "aB!", Enter and Left from a PC terminal instead
+-- (uart_ps2_kbd.vhd): expect 61 42 21 0A 13 in the key buffer.
 -- HARSH = true gives CLK slow, bouncing rising edges and changes DATA
 -- right at each rising edge, which the PS/2 input filter in basys_top
 -- must ride through (before the filter nothing was typed).
@@ -23,7 +25,7 @@
 -- ============================================================
 
 library ieee; use ieee.std_logic_1164.all; use ieee.numeric_std.all;
-entity tb_ps2_kbd is generic (CLOCKS : natural := 6000000; HARSH : boolean := false); end;
+entity tb_ps2_kbd is generic (CLOCKS : natural := 6000000; HARSH : boolean := false; UART : boolean := false); end;
 architecture s of tb_ps2_kbd is
     signal clk : std_logic := '0';
     signal sw : std_logic_vector(15 downto 0) := x"4000";
@@ -32,12 +34,13 @@ architecture s of tb_ps2_kbd is
     signal jb : std_logic_vector(4 downto 0);
     signal jc : std_logic_vector(3 downto 0);
     signal done : boolean := false;
+    signal uartRx : std_logic := '1';
 begin
     clk <= not clk after 5 ns when not done;
     jb <= (others => 'H'); jc <= (others => 'H');
     ps2c <= 'H'; ps2d <= 'H';
     dut: entity work.basys_top port map(SW => sw, BTN => btn, CLK => clk, LED => open, SSEG_CA => open,
-        SSEG_AN => open, uartTxOut => open, uartRxIn => '1', VGA_RED => open, VGA_BLUE => open,
+        SSEG_AN => open, uartTxOut => open, uartRxIn => uartRx, VGA_RED => open, VGA_BLUE => open,
         VGA_GREEN => open, VGA_VS => open, VGA_HS => open, PS2_CLK => ps2c, PS2_DATA => ps2d, JB => jb,
         JC => jc, JA => open);
 
@@ -91,8 +94,27 @@ begin
     begin
         ps2c <= 'Z'; ps2d <= 'Z';
         wait for 150 ms;
+        if UART then wait; end if;
         send(x"1C"); send(x"F0"); send(x"1C");
         send(x"32"); send(x"F0"); send(x"32");
+        wait;
+    end process;
+
+    -- UART: the PC terminal types "aB!", Enter (CR LF) and Left (ESC [ D)
+    -- at 115200 baud
+    term: process
+        type strT is array (natural range <>) of std_logic_vector(7 downto 0);
+        constant TXT : strT := (x"61", x"42", x"21", x"0D", x"0A", x"1B", x"5B", x"44");
+        constant BITT : time := 8681 ns;
+    begin
+        if not UART then wait; end if;
+        wait for 150 ms;
+        for i in TXT'range loop
+            uartRx <= '0'; wait for BITT;
+            for b in 0 to 7 loop uartRx <= TXT(i)(b); wait for BITT; end loop;
+            uartRx <= '1'; wait for BITT;
+        end loop;
+        report "terminal sent its characters";
         wait;
     end process;
 
