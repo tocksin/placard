@@ -167,6 +167,9 @@ its bitstream; if that does not give the same bitstream it stops with an error.
 `build\download_latest.bat` programs the board with the newest bitstream in
 `project/placard.runs/impl_1` (`basys_top.bit` or `basys_top_fast.bit`) without
 rebuilding.
+The batch files play a sound when they finish (`build\ding.bat`): the
+Windows "Ding" when the build worked and "Critical Stop" when it failed.
+Set `PLACARD_QUIET=1` to turn it off.
 
 ### Vivado project
 The Vivado project (`project/placard.xpr` and everything else in `project/`)
