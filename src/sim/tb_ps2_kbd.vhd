@@ -9,7 +9,8 @@
 -- missed port_init's probe); at 150 ms it types A and B (make and break
 -- codes).  The monitor reports writes to the key buffer (xA8-xAF),
 -- KBD_HEAD (xB0), KBD_FLAGS (xB2), PS2_LSN (xBE) and the first port
--- writes.  Expect "write 00A8 = 61" and later "write 00A9 = 62".
+-- writes, and at the end the debug sniffer's last byte and count.  Expect
+-- "write 00A8 = 61", later "write 00A9 = 62", and "sniffer last 32 count 06".
 -- HARSH = true gives CLK slow, bouncing rising edges and changes DATA
 -- right at each rising edge, which the PS/2 input filter in basys_top
 -- must ride through (before the filter nothing was typed).
@@ -102,6 +103,9 @@ begin
         alias pc is <<signal .tb_ps2_kbd.dut.programCounter : std_logic_vector(15 downto 0)>>;
         alias we is <<signal .tb_ps2_kbd.dut.ramWeN : std_logic>>;
         alias pw is <<signal .tb_ps2_kbd.dut.portWrN : std_logic>>;
+        alias sb is <<signal .tb_ps2_kbd.dut.snfByte : std_logic_vector(7 downto 0)>>;
+        alias sc is <<signal .tb_ps2_kbd.dut.snfCount : unsigned(7 downto 0)>>;
+        alias led is <<signal .tb_ps2_kbd.dut.ledR : std_logic_vector(15 downto 0)>>;
         variable n, pws : natural := 0;
         variable wasLow, pwLow : boolean := false;
         variable seen6000 : boolean := false;
@@ -121,7 +125,7 @@ begin
             end if;
             pwLow := pw = '0';
             if pc = x"6000" and not seen6000 then seen6000 := true; report "x6000 at " & time'image(now); end if;
-            if n = CLOCKS then report "end, port writes " & integer'image(pws); done <= true; wait; end if;
+            if n = CLOCKS then report "end, port writes " & integer'image(pws) & ", sniffer last " & to_hstring(sb) & " count " & to_hstring(sc) & ", leds " & to_hstring(led); done <= true; wait; end if;
         end loop;
     end process;
 end;
