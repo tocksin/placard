@@ -45,7 +45,7 @@ Footprints: KiCad's own where it has the part, and the PRELIMINARY ones from
 gen_kicad_connectors.py otherwise (cartridge slot, expansion slots, PS/2,
 SNES, switches), whose hole patterns must be checked against the datasheets.
 
-Date: 2026-10-25
+Date: 2026-10-26
 """
 
 import glob
@@ -58,6 +58,9 @@ import sys
 import pcbnew
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import gen_kicad_stock_footprints  # noqa: E402
+
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 PCB = os.path.join(KDIR, "placard.kicad_pcb")
@@ -65,6 +68,7 @@ PNG = os.path.join(ROOT, "docs", "placard_board_layout.png")
 PLACE_PNG = os.path.join(ROOT, "docs", "placard_placement.png")
 STOCK = os.environ.get("KICAD7_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
 LIBS = {"placard": os.path.join(KDIR, "lib", "placard.pretty")}
+KICAD_COPY = {name: lib for lib, name in gen_kicad_stock_footprints.STOCK}
 
 W, D = 290.0, 290.0          # board width (left-right) and depth (back-front), mm (290 deep since 2026-10-23)
 X0, Y0 = 50.0, 50.0          # back left corner on the KiCad page
@@ -84,7 +88,7 @@ FP_PS2 = "placard:PS2_Kycon_KMDGX-6S-6S-S4N"
 FP_SNES = "placard:SNES_Pad_Socket_Horizontal"
 FP_SW1 = "placard:SW_Toggle_CIT_ANT11TFHQE"
 FP_SW2 = "placard:SW_Tactile_SPST_Angled_PTS645Vx58-2LFS"
-FP_HOLE = "MountingHole:MountingHole_3.2mm_M3_Pad_Via"
+FP_HOLE = "placard:MountingHole_3.2mm_M3_Pad_Via"
 
 # Each footprint's anchor, in its own coordinates: for an edge connector the
 # middle of its face on the board edge line, for the rest the point the
@@ -245,7 +249,9 @@ def load_fp(fpid):
 
 def _load(fpid):
     lib, name = fpid.split(":")
-    path = LIBS.get(lib, os.path.join(STOCK, lib + ".pretty"))
+    # placard.pretty's copies of KiCad's footprints are KiCad 9 files: KiCad 7 loads its own
+    path = os.path.join(STOCK, KICAD_COPY[name] + ".pretty") if name in KICAD_COPY else \
+        LIBS.get(lib, os.path.join(STOCK, lib + ".pretty"))
     fp = pcbnew.FootprintLoad(path, name)
     if fp is None:
         sys.exit("footprint not found: " + fpid)

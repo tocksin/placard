@@ -143,7 +143,7 @@
           "td_onroundshapesonly": false,
           "td_onsmdpad": true,
           "td_ontrackend": false,
-          "td_onvia": true
+          "td_onvia": false
         }
       ],
       "teardrop_parameters": [
@@ -281,5 +281,7 @@
     "legacy_lib_list": []
   },
   "sheets": [],
-  "text_variables": {}
+  "text_variables": {
+    "PLACARD_LIB": "${KIPRJMOD}/../lib"
+  }
 }
