@@ -31,7 +31,7 @@
 ; I/O drivers' zero page bytes, besides T0-T7.  placard_lib.asm includes
 ; this file; its code is at FS_CODE (xC700-xD4FF).
 ;
-; Date: 10/19/2026
+; Date: 10/25/2026
 ; ============================================================
 
 FS_VARS   = 0x4D00      ; the file system's variables, 128 bytes
@@ -64,6 +64,13 @@ V_FATC    = 0x2C        ; 4: the FAT sector in FS_BUF (xFF...: none)
 V_NAME    = 0x30        ; 11: name being looked for, "NAME    EXT"
 V_ENTRY   = 0x40        ; 32: the last folder entry fs_next found
 V_DCLUS   = 0x60        ; 4: the current folder's first cluster, 0 = root
+V_DSEC    = 0x64        ; 4: the folder sector fs_next last read into FS_BUF
+V_FATSZ   = 0x68        ; 4: sectors per FAT
+V_NFATS   = 0x6C        ; number of FATs
+                        ; x6D-x7F: the FAT writer's (placard_fsw.masm)
+V_MAXC    = 0xA0        ; 4: the first cluster number past the data area
+                        ; (x4DA0; 0 = not worked out yet, the writer does
+                        ; it from the boot sector when it needs it)
 
 FS_ENTRY  = FS_VARS + V_ENTRY   ; the entry: name 0-10, attributes 11
                                 ; (10h folder), size 28-31 (low first)
@@ -791,6 +798,22 @@ fn_loop:
     ld   [y,x], ac
     xor  16, ac
     bne  fn_have
+    ld   V_SLBA, ac             ; the sector about to be read: V_DSEC,
+    ld   LINK_LO, x             ; for the FAT writer (fs_delete)
+    ld   fs_r69, [x]
+    ld   LINK_HI, x
+    ld   fs_r69 >> 8, [x]
+    ld   fs_get >> 8, y
+    jmp  fs_get
+fs_r69:
+    ld   V_DSEC, ac
+    ld   LINK_LO, x
+    ld   fs_r70, [x]
+    ld   LINK_HI, x
+    ld   fs_r70 >> 8, [x]
+    ld   fs_put >> 8, y
+    jmp  fs_put
+fs_r70:
     ld   FSB, ac                ; read the next 16 entries
     ld   ac, [R5]
     clr  ac
@@ -926,6 +949,20 @@ fs_r27:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 fo_name:
+    ld   LINK_LO, x             ; CALL fs_name
+    ld   fs_r68, [x]
+    ld   LINK_HI, x
+    ld   fs_r68 >> 8, [x]
+    ld   fs_name >> 8, y
+    jmp  fs_name
+fs_r68:
+    ld   fo_find >> 8, y
+    jmp  fo_find
+
+; fs_name - V_NAME = the 11-character form of the name at R1:R0 (a leaf;
+; the FAT writer uses it too).  Changes R1:R0 (past the 00), X, Y,
+; IO_T1-IO_T3.
+fs_name:
     ld   FSV, y                 ; the name as 11 characters
     ld   10, ac
 fo_fill:
@@ -988,8 +1025,8 @@ fo_st:
     ld   ac, [y,x]
     bra  fo_char
 fo_go:
-    ld   fo_find >> 8, y
-    jmp  fo_find
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
 
 #addr FS_CODE + 0x800
 fo_find:
@@ -1517,10 +1554,25 @@ mb_t:
     ld   FSV, y
     ld   V_TMPT, x
     ld   ac, [y,x]
+    ld   V_FATSZ, x             ; sectors per FAT (the writer needs it)
+    ld   [T4], ac
+    ld   ac, [y,x]
+    ld   V_FATSZ + 1, x
+    ld   [T5], ac
+    ld   ac, [y,x]
+    ld   V_FATSZ + 2, x
+    ld   [T6], ac
+    ld   ac, [y,x]
+    ld   V_FATSZ + 3, x
+    ld   [T7], ac
+    ld   ac, [y,x]
     ld   FSB, y                 ; the data starts after all the FATs
     ld   0x10, x
     ld   [y,x], ac
     beq  mb_nofs
+    ld   FSV, y                 ; how many FATs (the writer updates them all)
+    ld   V_NFATS, x
+    ld   ac, [y,x]
 mb_fl:
     ld   ac, [IO_TMP]
     ld   LINK_LO, x
@@ -1647,6 +1699,14 @@ mb_done:
 fs_r60:
     ld   FSV, y
     ld   V_ONDIR, x
+    ld   0, [y,x]
+    ld   V_MAXC, x              ; the writer works this out when it needs it
+    ld   0, [y,x]
+    ld   V_MAXC + 1, x
+    ld   0, [y,x]
+    ld   V_MAXC + 2, x
+    ld   0, [y,x]
+    ld   V_MAXC + 3, x
     ld   0, [y,x]
     ld   V_TMPT, x
     ld   [y,x], ac
