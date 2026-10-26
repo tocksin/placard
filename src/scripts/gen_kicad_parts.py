@@ -69,16 +69,19 @@ def expansion_slot():
 def cartridge_slot():
     # Molex 87715-9106, 2 x 32 keyed card edge, the ROM cartridge pinout (EXPANSION.md)
     p = "passive"
-    a = [("A3", "A0"), ("B3", "A1"), ("A4", "A2"), ("B4", "A3"), ("A5", "A4"),
-         ("B5", "A5"), ("A6", "A6"), ("B6", "A7"), ("A7", "A8"), ("B7", "A9"),
-         ("A8", "A10"), ("B8", "A11"), ("A9", "A12"), ("B9", "A13"), ("A10", "A14")]
-    ce = [("A16", "/CE_LO"), ("B16", "/CE_HI"), ("A17", "/ROM_OE"), None, ("B10", "/CART")]
-    d = [("A12", "D0"), ("B12", "D1"), ("A13", "D2"), ("B13", "D3"),
-         ("A14", "D4"), ("B14", "D5"), ("A15", "D6"), ("B15", "D7")]
-    ld = [("A20", "CLK"), None, ("A18", "PIXEL_ENABLE"), None, ("B19", "PC_ENABLE"), None, ("B17", "STALL_IN"),
-          None, ("B18", "STALL_OUT"), None, ("A19", "RUN")]     # a row apart, so their labels line up
-    spare = [(s + str(n), "spare") for s in "AB" for n in [19, 20] + list(range(22, 31)) + [32]
-             if s + str(n) not in ("A19", "A20", "B19")]
+    # contacts follow the chip pins on the cartridge (2026-10-26: the cartridge boards are autorouted
+    # with this order; each side's signals leave the fingers in the order of the pins they go to)
+    a = [("A22", "A0"), ("A19", "A1"), ("A17", "A2"), ("A15", "A3"), ("A14", "A4"),
+         ("B9", "A5"), ("B7", "A6"), ("A4", "A7"), ("A8", "A8"), ("A9", "A9"),
+         ("A18", "A10"), ("A13", "A11"), ("B3", "A12"), ("A6", "A13"), ("A3", "A14")]
+    ce = [("A5", "/CE_LO"), ("B16", "/CE_HI"), ("A16", "/ROM_OE"), None, ("B10", "/CART")]
+    d = [("A24", "D0"), ("A27", "D1"), ("A29", "D2"), ("A32", "D3"),
+         ("A30", "D4"), ("B27", "D5"), ("A25", "D6"), ("B22", "D7")]
+    ld = [("B4", "CLK"), None, ("A7", "PIXEL_ENABLE"), None, ("B8", "PC_ENABLE"), None, ("B12", "STALL_IN"),
+          None, ("B5", "STALL_OUT"), None, ("B6", "RUN")]     # a row apart, so their labels line up
+    used = {x[0] for x in a + d + ld + ce if x}
+    spare = [(s + str(n), "spare") for n in range(3, 33) for s in "AB"
+             if s + str(n) not in used and n not in (11, 21, 31)]
     e = lambda l: [(x[0], x[1], p) if x else None for x in l]
     gnd = [(n, "GND") for n in ["A1", "B1", "A11", "B11", "A21", "B21", "A31", "B31"]]
     return symbol("Cartridge_Slot", [(e(a) + [None] + e(ce), e(d) + [None] + e(ld)), (e(spare[:11]), e(spare[11:]))],
