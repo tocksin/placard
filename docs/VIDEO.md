@@ -241,7 +241,7 @@ ADDR_SEL_LO = !PIXEL_ENABLE & (PC_ENABLE # X_ENABLE);
 
 ## Mode byte
 
-Date: 2026-10-22
+Date: 2026-10-25
 
 Each row has a mode byte; bits 1:0 pick 1, 2, 4 or 8 bpp for that row (the
 color decoder's MODE1:MODE0), bits 3:2 pick the line repeat (see
@@ -250,7 +250,7 @@ color decoder's MODE1:MODE0), bits 3:2 pick the line repeat (see
 
 | Bits | Name | Line code register output | Goes to |
 |---|---|---|---|
-| 1:0 | Colour mode: 1, 2, 4, 8 bpp | Q1:Q0 | Colour decoder MODE1:MODE0 |
+| 1:0 | Color mode: 1, 2, 4, 8 bpp | Q1:Q0 | Color decoder MODE1:MODE0 |
 | 3:2 | Line repeat: 1x, 2x, 4x (10 and 11 are both 4x) | Q3:Q2 | Audio slot PLD (row address remap) |
 | 6:4 | Row tint: red, green, blue (1 = lift that channel) | Q6:Q4 | Tint resistors on the VGA lines, gated by VIDEN |
 | 7 | Blank line (1 = black, no pixel reads) | Q7 | H counter PLD pin 6 |
@@ -376,10 +376,10 @@ Date: 2026-10-22
 
 Bits 6:4 of a row's mode byte lift the red, green and blue levels of every
 pixel in that row by about 0.2 V (about 30 % of full scale), black pixels
-included.  So a row can have a coloured background behind 1 bpp text, and a
+included.  So a row can have a colored background behind 1 bpp text, and a
 program can make sky gradients or raster bars without touching the pixels.
 Each bit is one fixed level; all three together give a neutral grey lift.
-It adds to the colour, it does not remap it, and it can only lift.
+It adds to the color, it does not remap it, and it can only lift.
 
 | | |
 |---|---|
@@ -405,7 +405,7 @@ the 1N4148s are reversed, so a row without tint sees no extra load at all.
 **Loads.**  Each tint output sources about 3.1 mA (the 74HCT377 is rated for
 4 mA).  During blanking VIDEN sinks about (4.4 - 0.7) / 910 = 4.1 mA per set
 tint bit, 12.3 mA with all three, under the ATF22V10's 16 mA I_OL; its VOL
-stays well below the colour decoder's 0.8 V VIL.  Check VIDEN's low level on
+stays well below the color decoder's 0.8 V VIL.  Check VIDEN's low level on
 the bench with all three tint bits set.
 
 **Level spread.**  The lift follows the 74HCT377's VOH: 175-220 mV for VOH

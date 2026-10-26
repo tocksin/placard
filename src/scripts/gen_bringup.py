@@ -25,7 +25,7 @@ x00(80 + 4N) to x00(82 + 4N), so a multimeter on the PC PLDs reads the test
 number: PC high all 0 V, PC low Q7 high and Q6:Q2 = N.
 
 When they all pass it copies the library's RAM code, sets the map to 05,
-draws a status screen with the standard library (text, colour bands in 4, 2
+draws a status screen with the standard library (text, color bands in 4, 2
 and 8 bpp) and loops once per frame: it runs tests 1-14 again, tests
 one 256-byte RAM page, polls the PS/2 keyboard (typed keys echo; S retries
 the SD card, T toggles a 1 kHz test tone), reads the SNES pads and the
@@ -676,7 +676,7 @@ def ram_page_test(a):
 
 
 def draw_bands(a):
-    """rows 368-479: mode bytes and the colour bands"""
+    """rows 368-479: mode bytes and the color bands"""
     a.c('mode bytes: rows 368-399 4 bpp, 400-415 2 bpp, 416-479 8 bpp (all 1x)')
     for lo, hi, m in ((0x90, 0xB0, 0x02), (0xB0, 0xC0, 0x01), (0xC0, 0x100, 0x03)):
         with a.block(30):
@@ -699,7 +699,7 @@ def draw_bands(a):
             a.i('ld   [0x%02X], x' % ZP['B_I'], 'ld   [0x%02X], ac' % ZP['B_V'], 'ld   ac, [y,x]',
                 'ld   [0x%02X], ac' % ZP['B_I'], 'inc', 'ld   ac, [0x%02X]' % ZP['B_I'],
                 'xor  0x%02X, ac' % hi, 'bne  %s' % lp)
-    a.c('8 bpp: colour = (row band) x 64 + (c and 63)')
+    a.c('8 bpp: color = (row band) x 64 + (c and 63)')
     a.i('ld   [0x%02X], ac' % ZP['B_C'], 'and  0x3F, ac', 'ld   ac, [0x%02X]' % ZP['B_V'])
     with a.block(40):
         lp = a.uniq('b8')

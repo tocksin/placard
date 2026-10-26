@@ -117,15 +117,15 @@ def pegs(name, depth=1.6):
 
 
 def save(name, parts):
-    """parts = [(label, colour, [workplanes])] -> kicad/lib/placard.3dshapes/<name>.step"""
+    """parts = [(label, color, [workplanes])] -> kicad/lib/placard.3dshapes/<name>.step"""
     assy = cq.Assembly(name=re.sub(r"\W", "_", name))
-    for label, colour, shapes in parts:
+    for label, color, shapes in parts:
         solids = [o for s in shapes for o in s.vals()]
         if solids:
-            # one solid per colour where the pieces touch (KiCad drops the colour of
+            # one solid per color where the pieces touch (KiCad drops the color of
             # a compound holding several solids that touch)
             shape = solids[0].fuse(*solids[1:]).clean() if len(solids) > 1 else solids[0]
-            assy.add(shape, name=label, color=cq.Color(*colour))
+            assy.add(shape, name=label, color=cq.Color(*color))
     path = os.path.join(OUT, name + ".step")
     assy.export(path, exportType="STEP")
     print("wrote", os.path.relpath(path, LIB))
@@ -169,14 +169,14 @@ def ps2_stacked():
     zb, zt = 6.75, 19.25
     shield = box(-7.0, -0.5, 7.0, 13.0, 0, 25.0)
     inserts = []
-    for z, colour in ((zt, GREEN), (zb, PURPLE)):
+    for z, color in ((zt, GREEN), (zb, PURPLE)):
         shield = shield.cut(cyl_y(0, z, 9.6, -0.6, 9.0))
         ins = cyl_y(0, z, 9.6, 1.0, 9.0)
         ins = ins.cut(cyl_y(0, z, 7.0, 0.9, 6.0))
         ins = ins.union(cyl_y(0, z, 4.5, 1.6, 6.0)).union(box(-0.9, 0.9, 0.9, 6.0, z - 4.0, z - 2.4))
         for px, pz in ((-1.3, 1.2), (1.3, 1.2), (-2.4, -0.4), (2.4, -0.4), (-1.0, -1.6), (1.0, -1.6)):
             ins = ins.cut(cyl_y(px, z + pz, 0.8, 1.5, 3.0))
-        inserts.append((colour, ins))
+        inserts.append((color, ins))
     pegs_ = [cyl_z(0, 7.6, 2.3, -1.6, 0.01)]
     save(name, [("shield", METAL, [shield] + pins(name, 1.0, want={"SH"}, flat=True)),
                 ("mouse", GREEN, [inserts[0][1]]), ("keyboard", PURPLE, [inserts[1][1]]),

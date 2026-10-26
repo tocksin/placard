@@ -21,9 +21,9 @@ symbol) and is left out of the BOM and position files.
 | F Hand + sign | `f_hand.svg`, `f_hand_solid.svg` | a hand holding up a picket sign tilted 30°, PLACARD in the ROM font | good; pure black filled shapes (no white fills, no strokes), ready for KiCad SVG import |
 | E Hanging sign | `e_raster.svg` | a sign on a nail, letters cut by video scan lines | fair; uses a clipPath, which KiCad's SVG import may drop |
 
-All SVGs are one colour (black) with the lettering already turned into
+All SVGs are one color (black) with the lettering already turned into
 outlines, so they open anywhere without fonts.  Change `fill="#000000"`
-to recolour.  The PNGs are 1200 px wide previews.
+to recolor.  The PNGs are 1200 px wide previews.
 
 The comparison sheet shows each concept as README art, as white
 silkscreen 25 mm wide, and engraved on brushed aluminium.

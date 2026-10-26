@@ -322,25 +322,20 @@ SHELL_LINES = {
 CASE_NOTE = "CASE.md \"Cost estimate\", 1 unit, China sheet metal, not quoted"
 ACRYLIC_NOTE = "CASE.md \"Cost estimate\", 1 unit, laser-cut acrylic, not quoted"
 CASE_LINES = [
-    mech(1, "Lower shell: 2.0 mm 5052-H32, bent, brushed and anodized, 8 PEM standoffs SO-M3-6 and 3 PEM nuts "
-            "pressed in", 66.25, CASE_NOTE, "case/lower_shell.step"),
-    mech(1, "Upper shell: 2.0 mm 5052-H32, bent, brushed and anodized", 66.25, CASE_NOTE, "case/upper_shell.step"),
-    mech(1, "Keyboard rail: 1.5 mm 5052, Z-shaped, 3 PEM nuts (carries the blank)", 9.50, CASE_NOTE,
-         "case/keyboard_rail.step"),
-    mech(2, "Cover garage: 1.5 mm 5052 open tray with ears", 9.00, CASE_NOTE, "case/garage_1.step, garage_2.step"),
-    mech(1, "Acrylic top: 4 mm clear cast acrylic, 295 x 220 mm, laser cut, 10 magnet holes", 35.00, ACRYLIC_NOTE,
+    mech(1, "Lower shell: 2.0 mm 5052-H32, bent, brushed and anodized, 8 PEM standoffs SO-M3-6 pressed in", 60.00,
+         CASE_NOTE, "case/lower_shell.step"),
+    mech(1, "Upper shell: 2.0 mm 5052-H32, bent, brushed and anodized", 60.00, CASE_NOTE, "case/upper_shell.step"),
+    mech(1, "Acrylic top: 4 mm clear cast acrylic, 295 x 220 mm, laser cut, 10 magnet holes", 30.00, ACRYLIC_NOTE,
          "case/acrylic_top.step"),
-    mech(1, "Keyboard bay blank: 3 mm clear cast acrylic, laser cut", 15.00, ACRYLIC_NOTE,
-         "case/keyboard_blank.step.  The bay's use is open since the Cherry MX keyboard was dropped (CASE.md)"),
     mech(4, "Slot cover: 4 mm acrylic plug + 3 mm cap, solvent welded", 3.00, ACRYLIC_NOTE, "case/slot_cover.step"),
     mech(1, "Cartridge cover: 4 mm acrylic plug + 3 mm cap, solvent welded", 8.00, ACRYLIC_NOTE, "case/cart_cover.step"),
-    mech(20, "Disc magnet, N52, 6 x 3 mm (10 in the top, 10 in the cover caps, glued)", 0.25, "typical N52 magnet price"),
-    mech(5, "M3 male-female hex standoff, 27 mm (H1, H2, H6, H7, H8)", 0.80, "typical standoff price"),
-    mech(3, "M3 male-female hex standoff, 11 mm (H3, H4, H5, under the garage ears)", 0.50, "typical standoff price"),
-    mech(3, "M3 male-female hex standoff, 16 mm (H3, H4, H5, over the garage ears)", 0.60, "typical standoff price"),
+    mech(20, "Disc magnet, N52, 6 x 3 mm (10 in the top, 10 through the cover caps, glued)", 0.25,
+         "typical N52 magnet price"),
+    mech(10, "Steel disc, 6 x 2 mm, zinc plated (flush in the floor: parking for the covers)", 0.10,
+         "typical price"),
+    mech(8, "M3 male-female hex standoff, 27 mm (H1-H8)", 0.80, "typical standoff price"),
     mech(8, "M3 x 8 button head screw, black or stainless (acrylic top)", 0.15, "typical screw price"),
-    mech(6, "M3 x 6 button head screw (keyboard bay blank)", 0.15, "typical screw price"),
-    mech(4, "Rubber foot, 2 mm thin, adhesive", 0.25, "typical price"),
+    mech(4, "Rubber foot, 16 mm across, 10 mm tall, adhesive (clears the parked covers)", 0.40, "typical price"),
 ]
 
 FILES = {"Main board": "BOM_MAIN_PCB", "Cartridge, 64K": "BOM_CART_64K", "Cartridge, 32K": "BOM_CART_32K",

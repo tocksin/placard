@@ -1,6 +1,6 @@
 Name     VGA_SYNC;
 PartNo   01;
-Date     2026-10-23;
+Date     2026-10-25;
 Revision 09;
 Designer Justin;
 Company  ;
@@ -77,7 +77,7 @@ PIN 23 = V_VIDEO_ACTIVE;
 
    H2 toggles whenever H1 and H0 are both high.
 
-   Revision 08: H2:H0 goes straight to the colour decoder as its
+   Revision 08: H2:H0 goes straight to the color decoder as its
    pixel select, so the count runs two clocks behind the 8-clock
    group of the H counter PLD (revision 07):
 
@@ -89,7 +89,7 @@ PIN 23 = V_VIDEO_ACTIVE;
    (H2:H0 = 000).  The H counter PLD advances the group on 101.
    The counter equations do not change; only the decodes that use
    H2:H0 do.  Before revision 08, H2:H0 was 000 in clock 0 and a
-   two-stage delay register (F574) between this PLD and the colour
+   two-stage delay register (F574) between this PLD and the color
    decoder delayed H2:H0 and VIDEO_ACTIVE by two clocks.
 */
 
@@ -125,11 +125,11 @@ V_VIDEO_ACTIVE.D = V9 & (V5 # V_VIDEO_ACTIVE);
 
 
 /* ============================================================
-   VIDEO ENABLE (colour decoder VIDEN)
+   VIDEO ENABLE (color decoder VIDEN)
    ============================================================ */
 
 /*
-   VIDEN blanks the colour decoder.  It is high for the 640 clocks
+   VIDEN blanks the color decoder.  It is high for the 640 clocks
    in which pixels are shown: from clock 2 of group 48 (the first
    pixel of the first byte) to clock 1 of group 28 of the next line
    (the last pixel of the last byte), on lines where V_VIDEO_ACTIVE
@@ -178,7 +178,7 @@ VIDEN.D =
    H_VIDEO_ACTIVE input, so it is one array pass.
 
    The pixel buffer loads at the end of the second clock, so its
-   first pixel is shown in the third (H2:H0 = 000), and the colour
+   first pixel is shown in the third (H2:H0 = 000), and the color
    decoder takes H2:H0 and VIDEN from this PLD directly.
 
    Audio (revision 06): one more read per line, on every line

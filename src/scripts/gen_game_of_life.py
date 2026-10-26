@@ -75,7 +75,7 @@ MEMORY
     5A20-5BFF   mode bytes, one per row (1 bpp, rainbow row tints)
     6000-FFFF   video RAM
 
-Date: 10/22/2026
+Date: 10/25/2026
 """
 
 import argparse
@@ -415,7 +415,7 @@ def build(gens, once, delay, seed):
     g.st(RING, 'ri')
     g.st(RING + 55 - LAG, 'rj')
     e('; mode bytes 5A20-5BFF: 1 bpp, and a rainbow of row tints behind the')
-    e('; cells (VIDEO.md "Row tint"), %d rows per colour' % TINT_ROWS)
+    e('; cells (VIDEO.md "Row tint"), %d rows per color' % TINT_ROWS)
     for page, lo, n, v in tint_runs():
         e('ld   0x%02X, y' % page)
         e('ld   %d, ac' % (n - 1))
@@ -654,7 +654,7 @@ def build(gens, once, delay, seed):
     o(';')
     o(';     python3 placard_sim.py game_of_life.asm --run --max-steps 100000000 --png g.png')
     o(';')
-    o('; Date: 10/22/2026')
+    o('; Date: 10/25/2026')
     o('')
     o('#include "placard.asm"')
     o('')
