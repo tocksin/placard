@@ -148,6 +148,7 @@ architecture Behavioral of basys_top is
     signal uartKbdHold      : sl;   -- the PC-terminal keyboard waits (clock held, or not selected)
     signal uartKbdClkLow    : sl;   -- the PC-terminal keyboard pulls PS/2 CLK low
     signal uartKbdDataLow   : sl;   -- and PS/2 DATA
+    signal uartRxToggle     : sl;   -- changes with every character from the PC (LD5)
 
     signal sync             : sl;
     signal blank            : sl;
@@ -303,8 +304,8 @@ begin
         if (rstVGA = '1') then
             ledR <= (others => '0');
         elsif (rising_edge(clkVGA)) then
-            -- LD15-LD5 show their switches; LD4-LD0 the PS/2 debug lines
-            ledR <= dipRR(15 downto 5) & cpuRdToggle & ps2ClkDrive & rxInhibit
+            -- LD15-LD6 show their switches; LD5-LD0 the PS/2 debug lines
+            ledR <= dipRR(15 downto 6) & uartRxToggle & cpuRdToggle & ps2ClkDrive & rxInhibit
                     & ps2DataF & ps2ClkF;
         end if;
     end process ledProcess;
@@ -318,7 +319,9 @@ begin
     -- pins.  Right two digits: how many bytes it has decoded (mod 256).
     -- LD0 PS/2 CLK, LD1 PS/2 DATA (filtered), LD2 the receiver holds the
     -- clock (a byte waits for the CPU), LD3 the FPGA drives PS/2 CLK low,
-    -- LD4 toggles on every CPU read of the byte (x5202).  SW13 = 1: the
+    -- LD4 toggles on every CPU read of the byte (x5202), LD5 on every
+    -- character from the PC terminal (uart_ps2_kbd.vhd, which also echoes it).
+    -- SW12 = 1: only the PC terminal types (the PS/2 pins are ignored).  SW13 = 1: the
     -- FPGA only listens to the PS/2 lines (see mouseOn below).
     ssegR <= snfByte & slv(snfCount);
 
@@ -989,9 +992,10 @@ begin
         rxIn        => uartRxIn,
         hostHold    => uartKbdHold,
         kbdClkLow   => uartKbdClkLow,
-        kbdDataLow  => uartKbdDataLow
+        kbdDataLow  => uartKbdDataLow,
+        txOut       => uartTxOut,
+        rxToggle    => uartRxToggle
     );
-    uartTxOut <= '1';               -- nothing is sent back (idle)
 
     -- SD card (PmodMicroSD on JB) and SNES pads (JC)
     JB(0) <= pCs;               -- /CS
@@ -1008,8 +1012,10 @@ begin
     portSyncProc : process (clkVGA)
     begin
         if rising_edge(clkVGA) then
-            ps2ClkR  <= ps2ClkR(0)  & (to_x01(PS2_CLK) and not uartKbdClkLow);
-            ps2DataR <= ps2DataR(0) & (to_x01(PS2_DATA) and not uartKbdDataLow);
+            -- SW12 = 1: the Basys 3's PS/2 pins are ignored (a dead PIC24
+            -- holding a line low cannot block the PC-terminal keyboard)
+            ps2ClkR  <= ps2ClkR(0)  & ((to_x01(PS2_CLK) or dipRR(12)) and not uartKbdClkLow);
+            ps2DataR <= ps2DataR(0) & ((to_x01(PS2_DATA) or dipRR(12)) and not uartKbdDataLow);
             -- The PS/2 lines are slow (open drain, pull-ups) and the
             -- receiver is clocked by CLK, so a little noise on an edge
             -- would clock it twice.  A line only changes here after 24
