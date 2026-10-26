@@ -1,6 +1,6 @@
 # Bring-up: build order and a test for each chip
 
-Date: 2026-10-25
+Date: 2026-10-26
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
@@ -879,8 +879,9 @@ U40's output and at the SD socket's pin 4.
 - **The port rests at EB** (the register clears at power-up): U38 pin 16
   (K0) 0 V, pin 17 (DATA hold) 5 V, pin 18 (/CS) 0 V, pins 19 and 20 5 V.
   Both PS/2 clock lines are held low at the socket (J5 pin 5 of each half)
-  and RXCLK (U38 pin 11, U42 pin 1) is 0 V.  With no PS/2 device the
-  keyboard CLK goes high only while the driver looks for a keyboard.
+  and RXCLK (U38 pin 11, U42 pin 1) is 0 V.  Once the bring-up ROM's
+  driver runs with no mouse, it lets the keyboard CLK go (latch FB) so
+  that a keyboard can be heard: the keyboard CLK and RXCLK are then high.
 - With no key down row 8 shows FF in every byte; hold a key and its byte
   loses a bit.  Typed keys echo on row 9.
 - Press buttons on a SNES pad: row 12 changes.  While the pads are read
@@ -891,6 +892,9 @@ U40's output and at the SD socket's pin 4.
 - With the power switch off, plug the mouse in, then turn the power switch on: MOUSE_INIT 00, and moving it changes X
   and Y (buttons in the last column).  The mouse is started once, at
   power-up.
+- The keyboard and mouse are not hot-pluggable: always plug them in with
+  the power switch off.  One plugged in while the machine runs is not
+  recognized until the machine is reset (SW2).
 - PS/2 keyboard socket (J5 bottom): with the power switch off, plug a PS/2 keyboard in, then turn the power switch on:
   `port_init` finds it (its lights flash once as the driver sets them),
   typed keys echo, and Caps Lock lights its Caps Lock light.  Check
