@@ -10,6 +10,10 @@ adds no clock.  Nothing here is applied.
 
 ## The loop
 
+![Fetch and /WE paths, now and option B](fetch_paths.png)
+
+(`src/scripts/gen_fetch_paths.py` draws it.)
+
 The fetch starts and ends in the State PLD, so clock skew cannot help it:
 
 | Stage | ns |
