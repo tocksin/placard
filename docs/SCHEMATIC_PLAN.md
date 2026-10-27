@@ -1,265 +1,100 @@
-# Schematic plan
+# Schematic rules
 
-Date: 2026-10-26
+Date: 2026-10-27
 
-How the KiCad schematic (`kicad/`) is split into sheets: how many sheets,
-which chips, connectors and passives go on each, and which nets run between
-them.  The sheets are drawn (2026-10-20, see "How the sheets are drawn"
-below).  Chip numbers are the
-`#` column of [CHIPS.md](CHIPS.md) and become the U-numbers (U1-U42, with
-the gaps U24, U28, U30, U33, U34, U37, U39 and U41 left empty, so every document's chip
-numbers stay right).
+The KiCad schematic (`kicad/`) is drawn by
+`src/scripts/gen_kicad_schematic.py` (with `kicad_sch_lib.py` and the router
+`kicad_route.py`).  This page keeps the rules it follows, so a revision
+draws the same way.  The nets themselves are the pin-by-pin list in the
+script; `--check` compares KiCad's netlist with it.
 
-## Summary
+## Projects and sheets
 
-**Main board: 11 sheets** (a root sheet and 10 sub-sheets), A3 landscape,
-in the one project `kicad/placard.kicad_pro`.
-**Cartridges: 1 sheet each**, two projects `kicad/cartridge_64k/` and
-`kicad/cartridge_32k/`, because each is a separate board (a KiCad project
-has one PCB).
+**Main board:** one project `kicad/placard.kicad_pro`, 11 A3 landscape
+sheets: a root sheet and 10 sub-sheets.  **Cartridges:** two projects,
+`kicad/cartridge_64k/` and `kicad/cartridge_32k/`, one A3 sheet each (a
+KiCad project has one PCB).  All three share the libraries in `kicad/lib/`.
 
-| Sheet | Title | Chips | Connectors and main passives |
+| Sheet | File | Title | What goes on it |
 |--:|---|---|---|
-| 1 | Root: block diagram | none | sheet boxes only, drawn like `reference/placard_block_diagram.png` |
-| 2 | Power and clock | U40 3.3 V regulator, oscillator X1 | USB-C power input, polyfuse, on/off toggle SW1, reset relay K1 (NC contact) with button SW2 and coil diode D8, bulk capacitor C41 ahead of K1, STALL_OUT 10k pull-up, RUN pull-down, STALL/RUN bring-up jumpers, power LED D18 + R59 on +5V |
-| 3 | Control | U1 State, U2 Branch, U17 instruction register PLD | bring-up straps S1-S3 (State socket pins) |
-| 4 | Program counter and address mux | U3, U4 PC low/high, U7-U10 address mux | none |
-| 5 | ALU and registers | U5, U6 ALU, U19 AC, U20 X, U21 Y | none |
-| 6 | Data bus | U18 D register, U26 D source F541, U27 AC source F541 | 8 series resistors (source bus to data bus), 10k read-bus pull-up SIP |
-| 7 | Memory and I/O decode | U11 memory control, U12 I/O decode, U25 map register, U31, U32 RAM | cartridge slot (Molex 87715-9106), /CART pull-up |
-| 8 | Video timing | U13 H counter, U14 V counter, U15 Sync, U35 audio/mode slot PLD, U29 line read F541 | strap S4 (audio PLD), sync series resistors R61/R62 (47 ohm, 2026-10-25) |
-| 9 | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register | VGA resistor DAC (8 resistors) and DE-15, R-2R ladder, filter, audio line out jack J6, strap S5 (line code), row tint R56-R58 + D9-D17 (2026-10-22) |
-| 10 | Shared port | U38 port PLD (latch and reads), U42 PS/2 receiver PLD | J2/J3 SNES, J4 SD (dividers R42-R47, MISO pull-up), J5 stacked dual PS/2, mouse + keyboard (hold diodes D2/D3/D6, inhibit diodes D5/D19, RXCLK OR diodes D1/D4 with R60 22k, 4.7k pull-ups), pad DATA pull-ups |
-| 11 | Expansion slots | none | four 2 x 20 card-edge slots, SEL resistors (1k) |
+| 1 | `placard.kicad_sch` | Root: block diagram | sheet boxes only, laid out like `reference/placard_block_diagram.png` |
+| 2 | `power.kicad_sch` | Power and clock | U40 regulator, oscillator X1, USB-C input, F1, D7, SW1, K1/SW2/D8, C41, STALL_OUT pull-up, RUN pull-down, JP1/JP2, power LED |
+| 3 | `control.kicad_sch` | Control | U1 State, U2 Branch, U17 instruction register |
+| 4 | `pc_mux.kicad_sch` | Program counter and address mux | U3, U4 PC, U7-U10 address mux |
+| 5 | `alu_regs.kicad_sch` | ALU and registers | U5, U6 ALU, U19 AC, U20 X, U21 Y |
+| 6 | `data_bus.kicad_sch` | Data bus | U18 D register, U26/U27 source F541s, series resistors, data bus pull-up SIP |
+| 7 | `memory.kicad_sch` | Memory and I/O decode | U11 memory control, U12 I/O decode, U25 map register, U31/U32 RAM, cartridge slot J8 |
+| 8 | `video_timing.kicad_sch` | Video timing | U13 H counter, U14 V counter, U15 Sync, U35 audio/mode PLD, U29 line read, sync resistors |
+| 9 | `video_out.kicad_sch` | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register, VGA DAC and J7, R-2R ladder, filter, J6, row tint |
+| 10 | `shared_port.kicad_sch` | Shared port | U38 port PLD, U42 PS/2 receiver, J2/J3 SNES, J4 SD, J5 PS/2 |
+| 11 | `expansion.kicad_sch` | Expansion slots | J9-J12 and their SEL resistors |
 
-That puts 34 chips plus the regulator and oscillator on nine sheets, no more
-than six chips on a sheet, so each sheet can be drawn with large text and
-room to lay out the blocks and nets first (the drawing style for this
-project).  Each chip's 100 nF decoupling capacitor is drawn next to that
-chip on its own sheet (see "Decoupling" below).
+Keep a sheet to about six chips so it can be drawn with large text.  A new
+part goes on the sheet of the block it belongs to.
 
-## Hierarchical or flat
+## Hierarchy and net names
 
-**Hierarchical sheets, joined by global labels.**  Every sub-sheet is used
-once, so the hierarchy is only for organization.  The root sheet holds the
-sheet boxes arranged like the block diagram, with no hierarchical pins.
-The nets between sheets are global labels and buses with the names below.
-
-- Sheet boxes with pins would need 40-60 pins on the busiest boxes (the
-  address mux, the data bus) and would crowd the root.  Global labels keep
-  every sheet readable on its own and the root a clean block diagram.
-- The cost of global labels is that a misspelled label makes a new net
-  silently.  The ERC catches a label with only one end ("global label not
-  connected anywhere else"), so run it after each sheet and fix every one.
-- Each bit is its own net (`A0`, `A1`, ...), as the project rules ask for
-  the VHDL too.  On a sheet, a group of three or more numbered nets with
-  one name (`D0`-`D7`, `A0`-`A15`, ...) is drawn as a bus with bus entries;
-  a bus label such as `D[0..7]` carries it to the other sheets (see "How
-  the sheets are drawn").
-
-## Inter-sheet nets
-
-Signal names are the PLD pin names (active low as `/NAME`).  "From" is the
-sheet that drives the net.
-
-### Buses
-
-| Bus | Bits | From | To |
-|---|---|---|---|
-| `A[0..15]` | address bus (address mux outputs) | 4 | 7 (RAM, memory control, I/O decode, cartridge), 10 (A0 port PLD), 11 (A7:A0) |
-| `D[0..7]` | the one data bus: memory and I/O reads, and the source in EXEC | 6 (series resistors), 7 (RAM, cartridge), 8 (line read), 10 (port PLD D7/D6, row F541), 11 (cards) | 3 (instruction register, State PLD D4:D0), 4 (PC low load), 5 (ALU B), 6 (D register), 7 (map register, RAM writes), 9 (pixel buffer), 10 (port latch) |
-| `SRC[0..7]` | the source F541s' joined outputs, before the series resistors | 6 (source F541s) | 6 (R5-R12 onto `D[0..7]`) |
-| `F[0..7]` | ALU result | 5 | 5 (AC, X, Y inputs), shown on one sheet only |
-| `I[0..7]` | instruction register outputs | 3 | 3 (State and Branch decode), 5 (ALU S2:S0, CIN), 8 (I1 to the audio PLD), 6 (I1 to U26 /OE2) |
-| `X[0..7]`, `Y[0..7]` | X and Y register outputs | 5 | 4 (address mux), 7 (Y7 to I/O decode) |
-| `AC[0..7]` | accumulator outputs | 5 | 5 (ALU A), 6 (U27 inputs) |
-| `DR[0..7]` | D register outputs | 6 | 6 (U26 inputs), 4 (address mux D/X inputs) |
-| `PC[0..15]` | program counter | 4 | 4 (address mux), 7 (PC15 to I/O decode) |
-| `H[0..9]`, `V[0..9]` | video counters | 8 | 4 (video address into the muxes), 7 (H9 to I/O decode), 9 (H2:H0 to the color decoder) |
-| `R0`, `R1`, `R7`, `R8` | line-repeat video address bits | 8 (audio PLD) | 4 (address mux C inputs) |
-| `PIX[0..7]` | pixel buffer outputs | 9 | 9 (color decoder, line code, DAC register) |
-| `RAMSEL[0..7]` | map register outputs | 7 | 7 (memory control), shown on one sheet only |
-
-### Single nets
-
-| Net | From | To |
-|---|---|---|
-| `CLK` | 2 (oscillator X1) | every clocked chip on 3-9, 11; 7 (cartridge B4) |
-| `STALL_IN` | 3 (Branch pin 19) | 7 (cartridge B12), 2 (bring-up jumper JP1) |
-| `STALL_OUT` | 7 (cartridge B5) | 2 (10k pull-up, JP1), 3 (State pin 2), 4 (PC PLDs pin 14) |
-| `RUN` | 7 (cartridge B6) | 2 (pull-down), 7 (memory control pin 17, map register /MR), 11 (/RESET on every slot) |
-| `PIXEL_ENABLE` | 8 (Sync pin 19) | 3 (Branch pin 9), 7 (memory control, cartridge A7) |
-| `ADDR_SEL`, `ADDR_SEL_HI`, `ADDR_SEL_LO` | 8 (Sync) | 4 (mux selects), 7 (I/O decode) |
-| `H_VIDEO_ACTIVE`, `V_VIDEO_ACTIVE`, `VIDEN`, `HSYNC`, `VSYNC` | 8 | 9 (DAC register clock, color decoder, VGA connector) |
-| `PC_ENABLE`, `X_ENABLE`, `Y_ENABLE`, `Q0` | 3 (State) | 4 (PC, mux), 8 (Sync); `PC_ENABLE` also 7 (cartridge B8) |
-| `/LOAD_INSTR`, `/LOAD_IMM`, `/LOAD_AC`, `/LOAD_X`, `/LOAD_Y` | 3 (State) | 3, 6, 5 (register /E); `/LOAD_IMM` also 7 (I/O decode) and 11 (the slots' LOAD_IMM contact, active low as drawn) |
-| `RW` | 3 (State pin 23) | 7 (memory control, I/O decode), 11 |
-| `/SRC_EN` | 3 (Branch pin 16) | 6 (U26, U27 /OE1), 7 (memory control pin 22) |
-| `/PIX_LD` | 3 (Branch pin 15) | 9 (pixel buffer /E) |
-| `LOAD_PC_LOW`, `LOAD_PC_HIGH` | 3 (Branch) | 4 (PC PLDs) |
-| `Z_LOW`, `Z_HIGH`, `COUT`, `NEG` | 5 (ALU) | 3 (Branch) |
-| `CARRY` | 3 (Branch pin 20) | none: the carry flag is a register inside the Branch PLD (the ALU's CIN is 0) |
-| `/AC_SEL` | 8 (audio PLD pin 21) | 6 (U27 /OE2) |
-| `/MODE_LD`, `BLANK_RD` | 8 (audio PLD) | 9 (line code /E), 8 (Sync) |
-| `LC2`, `LC3` | 9 (line code Q3:Q2) | 8 (audio PLD) |
-| `LC7` | 9 (line code Q7) | 8 (H counter pin 6, blank line) |
-| `/WE`, `/RAM_OE`, `/ROM_OE` | 7 (memory control) | 7 (RAM, cartridge A16), 11 (/WE on every slot) |
-| `/CE_HI` | 7 (I/O decode) | 7 (RAM upper chip, cartridge B16) |
-| `/MAP_WR`, `/LINE_RD` | 7 (I/O decode) | 7 (map register clock), 8 (U29 /OE) |
-| `/PORT_WR`, `/PORT_RD` | 7 (I/O decode) | 10 |
-| `/EXP1`, `/EXP2` | 7 (I/O decode) | 11 |
-| `+5V`, `+3V3`, `GND` | 2 | power symbols on every sheet; `+3V3` only on 10 (SD card) |
-
-The control sheet (3) and the memory sheet (7) are the two with the most
-labels; the plan keeps the State and Branch PLDs together so their
-mutual nets (`Q0`, `PC_ENABLE`, `BRANCH_BLOCK`) stay local.
-
-## Sheet notes
-
-**2. Power and clock.**  USB-C receptacle (power only) with the two 5.1k
-CC pull-downs, a polyfuse, then in series the on/off toggle SW1 and the
-normally closed contact of reset relay K1 (pressing the small button SW2
-pulls K1 in and cuts the power, Justin 2026-10-22), the bulk electrolytic
-C41 between SW1 and K1, the MCP1700-3302
-(U40) with its 1 µF in and out, and the 25.175 MHz oscillator (X1), whose
-output is CLK (no clock gate since 2026-10-21).  STALL_OUT's 10k pull-up
-and RUN's pull-down sit here, with the bring-up jumpers JP1 (STALL_IN to
-STALL_OUT) and JP2 (RUN to +5 V) ([BRINGUP.md](BRINGUP.md)).  The power LED
-D18 (Kingbright WP7113ID, red diffused 5 mm, through hole; was Lite-On LTL2R3KRD-EM, out of stock 2026-10-25, and before that a green 3 mm LTL-4231N) and its 1k resistor R59
-(about 3 mA) hang from +5V after K1 (Justin, 2026-10-24), so the LED goes
-dark while the reset button is held.
-
-**Decoupling.**  Every chip's 100 nF capacitor is drawn beside that chip
-on its own sheet, between its VCC and GND pins, so a sheet shows each chip
-with its capacitor (Justin, 2026-10-20).  That is 35 capacitors spread over
-sheets 2-10, plus the bulk capacitors on sheet 2.  On the PCB each one is
-placed at its chip's VCC pin.
-
-Each decoupling capacitor takes its chip's number: C1 goes with U1, C31
-with U31, and so on (Justin, 2026-10-20), so the gaps U24, U28, U30, U33
-and U34 leave C24, C28, C30, C33 and C34 unused too.  C1-C41 are kept for
-these; every other capacitor counts on from C41 (see the numbering below).
-
-**3. Control.**  State and Branch PLDs side by side, the instruction
-register to their left feeding `I[0..7]`.  Straps S1-S3 drawn as
-do-not-fit jumpers at the State PLD.
-
-**4. Program counter and address mux.**  The two PC PLDs on the left, the
-four mux PLDs in a column on the right, `A[0..15]` leaving on the right
-edge.  The mux inputs (PC, D, X, Y, video address) come in as buses on
-the left.
-
-**5. ALU and registers.**  The two ALU nibbles with the carry chain
-between them, AC, X and Y under them on `F[0..7]`.
-
-**6. Data bus.**  The D register, the two source F541s, the 8 series
-resistors from `SD[0..7]` onto `D[0..7]` (CPU.md "One data bus"), and the
-10k bussed SIP pulling `D[0..7]` up ([EXPANSION.md](EXPANSION.md)).  The
-fallback write-data F541 (CPU.md "Fallback: the write-data buffer") can be
-added here as a do-not-fit footprint if the prototype should keep that
-option.
-
-**7. Memory and I/O decode.**  The two RAMs, the memory control and I/O
-decode PLDs, the map register, and the cartridge slot with its pinout from
-EXPANSION.md (21 spares as no-connects).  The cartridge slot is here
-because it carries the ROM and its chip selects.
-
-**8. Video timing.**  H and V counters, Sync, the audio/mode slot PLD and
-the line read F541 (V9:V2 onto the data bus).
-
-**9. Video and audio out.**  Pixel buffer, line code register, color
-decoder, the VGA resistor DAC from [COLORS.md](COLORS.md) and the DE-15;
-the DAC register, R-2R ladder, filter and audio line out jack J6 from
-[SOUND.md](SOUND.md).  The existing `schematics/placard_audio_schematic.png`
-is the reference for the audio half.
-
-**10. Shared port.**  As `schematics/placard_io_schematic.png`, without the
-I/O decode PLD (it is on sheet 7, its four port strobes come in as
-labels).
-
-**11. Expansion slots.**  Four slot symbols in a row, the shared buses
-running across them, SEL tied per slot through 1k (slots 1, 2 GND; 3, 4
-+5 V), `/EXP1` to slots 1 and 3, `/EXP2` to 2 and 4.
-
-## Cartridge projects
-
-Two boards since 2026-10-24 (Justin), each its own project with one A3
-sheet and a placed PCB, sharing the symbol and footprint libraries in
-`kicad/lib/` through their own `sym-lib-table` and `fp-lib-table`:
-
-- `kicad/cartridge_64k/cartridge_64k.kicad_pro`: the loader PLD U1
-  (`ATF22V10_CART.pld` revision 04, ATF22V10C-7PX), two AT28C256 EEPROMs
-  U2 (lower) and U3 (upper), two AS7C256C SRAMs U4 (lower) and U5 (upper);
-  the lower pair's /CE is `/CE_LO`, the upper pair's `/CE_HI`.
-- `kicad/cartridge_32k/cartridge_32k.kicad_pro`: U1 the same loader PLD,
-  one AT28C256 U2 and one AS7C256C U3, both /CE tied to GND, so the 32K
-  is seen in both halves; `/CE_HI` (B16) is not connected.
-
-Both have the card-edge fingers J1 (`placard:Card_Edge_87715-9106`, the
-87715-9106 mate, same contact names as the slot symbol, A row on the
-parts side), decoupling Cn beside each Un, and the spare contacts left
-open until their use is decided.  They replace the one board with the
-32K/64K solder jumper JP1.  The boards are placed (not routed) by
-`src/scripts/gen_kicad_cart_pcb.py` (EXPANSION.md, "Cartridge boards").
-
-The main board and the cartridges share the net names on the connector
-(`A0`, `D0`, `/CE_HI`, `STALL_OUT` and so on), so the schematics read the
-same.
+- **Hierarchical sheets joined by global labels.**  Each sub-sheet is used
+  once; the root holds the sheet boxes with no hierarchical pins.  A
+  misspelled global label silently makes a new net, so the ERC's "global
+  label not connected anywhere else" must be clean.
+- **Net names are the PLD pin names**, active low written `/NAME`.  The
+  main board and the cartridges use the same names on the cartridge
+  connector (`A0`, `D0`, `/CE_HI`, `STALL_OUT`, ...).
+- **Each bit is its own net** (`A0`, `A1`, ...).  A group of three or more
+  numbered nets on a sheet is drawn as a bus (see "Buses" below).
 
 ## Reference designators
 
-- **Chips:** U = CHIPS.md number, fixed (KiCad annotation set to keep
-  existing references).  The 64K cartridge uses its own U1-U5, the
-  32K cartridge U1-U3.
-- **Connectors:** keep J2-J6 as IO.md and SOUND.md use them (J1, the
-  keyboard header, went with the matrix keyboard on 2026-10-25); then J7
-  VGA, J8 cartridge slot, J9-J12 expansion slots 1-4, J13 USB-C.
-- **Decoupling capacitors:** C = the chip's U-number (C1 for U1),
-  set by hand and kept by the annotation.  On the cartridges, C1-C5
-  (64K) and C1-C3 (32K) go with their Un the same way.
-- **Other parts** (Justin, 2026-10-22): numbered from 1 for each kind of
-  part and counted up across the board, sheet by sheet, with no gaps and
-  no thousands: R1-R62, RN1, D1-D19, JP1-JP2, F1, NT1 on the main board;
-  capacitors other than the decoupling ones count on from C41 (C41,
-  C43-C47: C42 became U42's decoupler on 2026-10-25 and the regulator's
-  output capacitor moved to C47, keeping its uuid).  IO.md's R6-R11 (the
-  SD dividers) are now R42-R44 (1.8k) and R45-R47 (3.3k).
-- **Resistor symbol** (Justin, 2026-10-22): the US / NEMA zigzag
-  (`R_US`, `R_Network08_US`), not the IEC box.
+- **Chips:** U = the `#` column of [CHIPS.md](CHIPS.md), fixed (annotation
+  keeps existing references), gaps left empty so every document's chip
+  numbers stay right.  The cartridges number their own chips from U1
+  (64K U1-U5, 32K U1-U3).
+- **Connectors:** as [IO.md](IO.md) and [SOUND.md](SOUND.md) use them: J2-J6,
+  then J7 VGA, J8 cartridge slot, J9-J12 expansion slots 1-4, J13 USB-C.
+  The cartridge fingers are J1 on each cartridge.
+- **Decoupling capacitors:** Cn goes with Un (C1 with U1), set by hand and
+  kept by the annotation; a missing Un leaves Cn unused.  C41 is the bulk
+  capacitor, so the decouplers are C1-C40 and C42.
+- **Every other part** (Justin, 2026-10-22): numbered from 1 for each kind
+  of part, counted up across the board with no gaps and no per-sheet
+  hundreds or thousands.  Other capacitors are C41, then C43 on.  A
+  new part takes the next free number of its kind.
+  `--check` fails on gaps or high numbers.
+- **Renumbering** keeps the symbol's uuid (`KEPT_UUIDS` and `RENUMBERED` in
+  `kicad_sch_lib.py`) so Update PCB from Schematic renames the footprint instead of
+  replacing it.
+- **Resistor symbol** (Justin, 2026-10-22): the US / NEMA zigzag (`R_US`,
+  `R_Network08_US`), not the IEC box.
 
 ## How the sheets are drawn
 
-`src/scripts/gen_kicad_schematic.py` writes every sheet (KiCad 7 format)
-from a pin-by-pin list of nets, taken from the `.pld` pin lists,
-`basys_top.vhd` and the docs; `kicad_sch_lib.py` does the drawing.  Rerun it
-after any pin or part change rather than editing the sheets by hand, or the
-next run overwrites the edit.  `--check` exports KiCad's own netlist and
-compares every net with the list in the script, then runs simple electrical
-checks (single-pin nets, two outputs on a net, power without a source).
+Edit the script and rerun it after any pin or part change; never edit the
+sheets by hand, or the next run overwrites the edit.
 
 - **Blocks first, then nets, then text.**  Chips sit on a grid with room
-  around them.  References are 2.5 mm, values 2 mm, labels 2 mm; each PLD
-  also shows its job in bold under its part number ("Branch PLD",
-  "Address mux 3:0", ...).
+  around them, then the text is made as large as fits.  References are
+  2.5 mm, values 2 mm, labels 2 mm; each PLD also shows its job in bold
+  under its part number ("Branch PLD", "Address mux 3:0", ...).
 - **Wires between the pins of a net** (Justin, 2026-10-20): a net with two
-  or more pins on a sheet is wired pin to pin by a small grid router in
-  `src/scripts/kicad_route.py`.  Wires run on the 1.27 mm grid, may cross
-  another net at right angles but never run along it, bend on it or touch
-  its pins, and keep clear of parts and text.  A net that also goes to
-  another sheet gets one global label on one of its pins; a net with a
-  single pin on the sheet gets a label on a short wire (staggered between
-  neighbours).  Junctions mark every T, and the wires are cut there.
+  or more pins on a sheet is wired pin to pin by the grid router.  Wires
+  run on the 1.27 mm grid, may cross another net at right angles but never
+  run along it, bend on it or touch its pins, and keep clear of parts and
+  text.  A net that also goes to another sheet gets one global label on one
+  of its pins; a net with a single pin on the sheet gets a label on a short
+  wire (staggered between neighbours).  Junctions mark every T, and the
+  wires are cut there (KiCad 7 needs that).
 - **Buses:** a group of three or more numbered nets on a sheet (`D`, `A`,
   `SRC`, `DR`, `PC`, `H`, `V`, `VA`, `RAMSEL`, `ROW`, `DAC`, ...; not the
-  ladder `LAD` or the key columns) gets one bus per sheet: each pin has a
-  short wire with its member label (`D3`) and a bus entry onto a bus line
-  beside the chip, the router joins the bus lines of all the chips, and one
-  bus label (`D[0..7]`, global when the bus leaves the sheet) names it.
-  Where the router cannot join a bus piece it gets its own bus label.
+  ladder `LAD`) gets one bus per sheet: each pin has a short wire with its
+  member label (`D3`) and a bus entry onto a bus line beside the chip, the
+  router joins the bus lines of all the chips, and one bus label
+  (`D[0..7]`, global when the bus leaves the sheet) names it.  Where the
+  router cannot join a bus piece it gets its own bus label.
 - **Tidying rules** (Justin, 2026-10-21): parts are spread out so no text
   sits on other text or a symbol; wires run straight with as few bends as
   possible; buses stay buses; nets keep off the page-exit tabs, and the tabs
-  read horizontally.  To get there a sheet can say:
+  read horizontally; no jumbles at PWR_FLAG.  The tools for this:
   - `label_each`: buses that come from other sheets (`D`, `A`, `ROW`, ...)
     get a bus piece and bus label at each chip instead of one long trunk
     looping round the sheet; a single member (one diode on `ROW7`) gets a
@@ -271,106 +106,63 @@ checks (single-pin nets, two outputs on a net, power without a source).
   - Hand layout where the router's choice is poor: `bare` pins with
     straight `path()` wires, `bus_piece()` trunks the router joins the chip
     pieces to (the cartridge's `D[0..7]` along the top), `name()` labels in
-    an even column instead of staggered.
-  - Some PLD and connector symbols have their pins reordered or spaced a row
-    apart so the wires run straight (for example the cartridge loader PLD's
-    pins line up with the cartridge connector's, and the expansion slot's
-    SEL pin is last, with its 1k straight off it).
+    an even column instead of staggered.  The shared port, expansion and
+    cartridge sheets are hand-laid this way.
+  - PLD and connector symbols may have their pins reordered or spaced a row
+    apart so the wires run straight (the cartridge loader PLD's pins line up
+    with the cartridge connector's; the expansion slot's SEL pin is last,
+    with its 1k straight off it).  Symbol pin order is set in
+    `gen_kicad_symbols.py` (LAYOUT table).
   - Power symbols on a side pin are turned to point away and their names
     read across.
-  - A few crossings remain where two identical chips share the same pin
-    order (the select lines of the address muxes).
-- **Decoupling:** Cn (100 nF) beside each Un, its +5V and GND symbols on its
-  own pins, raised a little so its GND symbol clears the chip's top pins.
+  - A few crossings are accepted where two identical chips share the same
+    pin order (the select lines of the address muxes).
+- **Decoupling** (Justin, 2026-10-20): each chip's 100 nF Cn is drawn beside
+  its Un, between its VCC and GND pins, with its +5V and GND symbols on its
+  own pins, raised 5.08 mm so its GND symbol clears the chip's top pins.  On
+  the PCB each one sits at its chip's VCC pin.
 - **Hand-drawn wires** where a picture helps: the R-2R ladder is a wired
-  chain, rows of pins tied to GND share one GND symbol.
-- **PDFs** for reading without KiCad: `schematics/placard_main.pdf`,
-  `schematics/placard_cartridge_64k.pdf` and `placard_cartridge_32k.pdf`
-  (`gen_kicad_schematic.py --pdf`, which
-  exports them with kicad-cli and drops the bookmarks so they open without
-  the bookmarks panel).
+  chain; rows of pins tied to GND share one GND symbol.
+- **Bring-up straps** S1-S5 are temporary wires in the chip sockets
+  ([BRINGUP.md](BRINGUP.md)), so they are not on the schematic; the
+  jumpers JP1 (STALL) and JP2 (RUN) are.
+- **Part fields:** every part carries Value, Manufacturer and MPN (the
+  script's `MPN` table), which `gen_bom.py` reads for the BOMs.  Pick a
+  through-hole part whenever one exists (Justin, 2026-10-22).
 
-Decisions made while drawing (2026-10-20):
+## Checking and output
 
-- The slots' SD7:SD0 take `SRC7:SRC0`, the source drivers' side of the
-  series resistors, so the cards see write data without the resistors'
-  delay; D7:D0 is the bus itself.  Both are the same signal in EXEC.
-  **Changed 2026-10-22, drawn 2026-10-25:** the slots no
-  longer carry SD7:SD0; cards latch D7:D0 (the resistors add about 2.4 ns,
-  long settled by the end of a write).  The eight contacts become BT1-BT8:
-  on slot 1, A8 STALL_IN, B8 STALL_OUT, A9 PC_ENABLE, B9 PIXEL_ENABLE, A10
-  /CART, the rest not connected; on slots 2-4 all eight are not connected.
-  /WE gets a 10k pull-up (memory control revision 09 lets go of it while RUN
-  is low); that one is drawn now, as R63 on the memory sheet (2026-10-25).
-  EXPANSION.md, "Booting from slot 1".
+- `gen_kicad_schematic.py --check` exports KiCad's netlist and compares
+  every net with the script's list, then runs simple electrical checks
+  (single-pin nets, two outputs on a net, power without a source),
+  numbering and text overlaps.  It must report 0 problems.
+- The container's KiCad 7.0 command line has no ERC, so after a change
+  also run Inspect > Electrical Rules Checker in KiCad 8 or 9.
+- `gen_kicad_schematic.py --pdf` writes `schematics/placard_main.pdf`,
+  `schematics/placard_cartridge_64k.pdf` and
+  `schematics/placard_cartridge_32k.pdf` with kicad-cli and drops the
+  bookmarks so they open without the bookmarks panel.
+
+## Design choices to keep
+
+Choices made while drawing that a revision should not undo by accident:
+
+- The expansion slots' former SD7:SD0 contacts are BT1-BT8 (boot contacts
+  on slot 1, open on slots 2-4); cards latch D7:D0.  /WE has a 10k pull-up
+  (R63).  [EXPANSION.md](EXPANSION.md), "Booting from slot 1".
 - The slots' LOAD_IMM contact carries the State PLD's `/LOAD_IMM` as it is
-  (low while the CPU latches D); EXPANSION.md's table says "1 when"; a card
-  reads it active low.
-- U36 (audio DAC register) has both supply pins on the audio rail: VCC on
-  DAC_5V, GND on GNDA, as its ladder returns there.
-- The bring-up straps S1-S5 are temporary wires in the chip sockets
-  (BRINGUP.md), so they are not on the schematic; JP1 (STALL) and JP2
-  (RUN) are.
-- Polyfuse 3 A hold (Bourns MF-R300 size): 19 PLDs can draw about 2.5 A.
-- SW1 and K1's contact carry the whole board's current, so each needs a
-  rating of 5 A DC or more: the polyfuse holds 3 A and passes about 6 A
-  before it trips.  Chosen (Justin, 2026-10-22; on the schematic as Value,
-  MPN and Manufacturer fields):
-  - SW1 power: CIT Relay and Switch **ANT11TFHQE**, SPDT on-on toggle,
-    5 A / 28 V DC, right-angle PCB pins, 1/4-40 bushing (common and one
-    throw wired, the other throw unused).
-  - Reset (Justin, 2026-10-22, replaces the 4 A C&K E112SD1A3QE, about
-    $11): relay K1 **CIT J1071CS5VDC.36** (Justin, 2026-10-25, replaces the
-    Omron G5LE-1 DC5; SPDT, sealed, 7 A 30 V DC on NO and NC, through hole,
-    $1.15 at Digi-Key), COM from VON and NC to +5V.  It has the G5LE's pin
-    pattern and numbering (1 COM, 2/5 coil, 3 NO, 4 NC; NC on coil pin 5's
-    side), so the G5LE symbol stays; footprint placard:Relay_SPDT_CIT_J107
-    (same pads, 15.4 x 19.0 mm body, 1.4 mm COM hole).  SW2 **C&K
-    PTS645VL58-2 LFS** (right-angle tactile, about $0.25) feeds the 69 ohm
-    coil from VON, so it carries about 72 mA; the PTS645 is rated 50 mA at
-    12 V DC, so it runs over its rating (as it did with the G5LE's 80 mA)
-    and may wear sooner.  D8 (BAT85) across the coil, cathode on the button
-    side, takes the coil's kick when SW2 lets go.  Contact resistance 30
-    mohm initial; operate and release 10 ms.
-  - C41 (220 µF) moved from +5V to VON, ahead of K1 (Justin, 2026-10-22), so
-    pressing reset leaves only the decouplers on the board side to drain.
-  SW1 and SW2 sit at the board edge for the case panel.
-- **D7, TVS on VBUS** (Justin, 2026-10-22): Littelfuse SA5.0A
-  (unidirectional 500 W, 5 V standoff, about 9.2 V clamp, DO-15 axial,
-  through hole; first drawn as the SMD SMAJ5.0A) from the fused VBUS
-  (between F1 and SW1) to GND.  It clamps the spike the USB cable's
-  inductance throws when SW1 or K1 opens under load, plus plug-in ringing
-  and ESD.  It sits after the polyfuse so a lasting overvoltage trips F1
-  instead of burning the TVS.  A diode straight across a series switch
-  would either bypass it or do nothing, and at 5 V the contacts cannot hold
-  an arc (a DC arc needs about 12 V), so no snubbers.  Their footprints are
-  still to draw.
-- **Part numbers** (Justin, 2026-10-22): every schematic part now has a
-  Manufacturer and MPN (resistors Yageo MFR-25FBF52-<value>, networks Bourns
-  4609X-101, ceramics KEMET/TDK, electrolytics Panasonic FR, oscillator ECS
-  ECS-100A-251.7, VGA Assmann A-HDF 15 A-KG/T, line out jack Tensility
-  54-00174).  J6 is now that 4-pole (TRRS) jack: T and R1 = AUDIO, R2 and S =
-  GNDA, footprint placard:Jack_3.5mm_Tensility_54-00174_Horizontal drawn from
-  its datasheet.  The expansion slot sockets J9-J12 are optional (BOM.md
-  gives the total without them).
-- **Through hole wherever possible** (Justin, 2026-10-22): pick a
-  through-hole part whenever one exists, SMD only when nothing through
-  hole does the job.
-- **No ESD clamps on the external connectors** (Justin, 2026-10-23): the
-  BAT85 steering pairs added on 2026-10-22 (PS/2, SNES and the VGA syncs,
-  18 diodes) are taken out again.  They were cheap insurance, not needed
-  for the machine to work.  The diodes after them were renumbered (D26 is
-  now D8, D27-D35 are now D9-D17), keeping their symbol uuids so Update PCB
-  from Schematic renames their footprints.  D7 (the TVS on VBUS) stays.
-- **Sync series resistors** (Justin, 2026-10-25): /HSYNC (U13 pin 21) and
-  /VSYNC (U15 pin 18) reach J7 through R61 and R62, 47 ohm each, placed
-  next to the PLD.  They slow the edges going down the VGA cable (less
-  ringing and radiated noise) and limit the current if a sync pin is
-  shorted.  The nets after them are /VGA_HSYNC and /VGA_VSYNC.  47 ohm
-  keeps a monitor that terminates sync in 75 ohm above 3 V, and shares
-  the BOM line with R5-R12.
-
-**Still to do:** a KiCad 8 ERC (the container's KiCad 7.0 command line has
-no ERC; open the project in KiCad 8 or 9 and run Inspect > Electrical Rules
-Checker), footprints for the connectors (slots, cartridge edge, VGA, SD,
-mini-DIN, jack) and the power and reset switches, and the cartridge's card-edge footprint.
+  (active low).
+- U36 (audio DAC register) is on the audio rail: VCC on DAC_5V, GND on
+  GNDA, where its ladder returns.
+- Polyfuse F1 holds 3 A (Bourns MF-R300 size); the PLDs can draw about
+  2.5 A.  SW1 and K1's contact carry the whole board's current, so each is
+  rated 5 A DC or more.
+- C41 (bulk) sits on VON ahead of K1, so pressing reset leaves only the
+  board-side decouplers to drain.  The power LED hangs from +5V after K1,
+  so it goes dark while reset is held.
+- D7, the TVS on VBUS, sits after F1 so a lasting overvoltage trips the
+  fuse.  No snubbers across SW1 or K1 (a 5 V contact cannot hold an arc).
+- **No ESD clamps on the external connectors** (Justin, 2026-10-23).
+- /HSYNC and /VSYNC reach J7 through 47 ohm R61 and R62 next to the PLD;
+  the nets after them are /VGA_HSYNC and /VGA_VSYNC.
+- J9-J12 (expansion slot sockets) are optional parts on the BOM.
