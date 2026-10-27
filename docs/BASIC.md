@@ -7,7 +7,7 @@ the style of Microsoft BASIC: line numbers, `FOR`/`NEXT`, `GOSUB`,
 strings with `LEFT$`, `MID$` and friends, arrays, `DATA`, plus statements
 for the Placard's screen, graphics, sound and SD card.
 
-Date: 10/26/2026
+Date: 10/27/2026
 
 Source: `src/scripts/basic.masm` (the bytecode machine, about 1.5 KB of
 native code) and `src/scripts/basic.vm` (the interpreter, in bytecode,
@@ -34,8 +34,9 @@ character before it is not a letter, so `FOR` inside `XFOR` is not a
 keyword (variable names are two characters, so long names are not
 useful anyway).
 
-- **Esc** stops a running program (`Break in 120`); `CONT` carries on.
-  Esc also stops `LIST`.
+- **Esc** or **Ctrl+C** stops a running program (`Break in 120`); `CONT`
+  carries on.  It is checked between statements and at every point a
+  `LINE` draws, so a long line stops at once.  Esc also stops `LIST`.
 - **Esc held at power-up** starts the DOS instead of what `BOOT.CFG`
   names; `DOS` from BASIC goes there too.
 - Backspace edits the line being typed; lines are up to 158 characters.
@@ -116,7 +117,7 @@ Several statements may share a line, separated by `:`.
 | Function | |
 |---|---|
 | `ABS(n)`, `SGN(n)` | |
-| `RND(n)` | a random number 0 to n-1 |
+| `RND(n)` | a random number 0 to n-1 (the generator is seeded from the frame counter the first time if it was never seeded) |
 | `PEEK(a)` | a byte of memory |
 | `FRE(0)` | free bytes (after collecting the string garbage) |
 | `INKEY` | the key waiting, as a number (0 = none); no brackets |

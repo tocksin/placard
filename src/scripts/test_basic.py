@@ -17,7 +17,7 @@ as kbd_scan would), which is much faster than the PS/2 keyboard model;
 BASIC is idle when its bytecode is in KEY with the buffer empty.  The
 screen is read back through the font (80 x 60 and 80 x 30 text).
 
-Date: 10/26/2026
+Date: 10/27/2026
 """
 
 import argparse
@@ -276,6 +276,25 @@ def t_break(b):
     b.cpu.mem[0xA0] |= 1
     b.run(30)
     expect(b, 'cont', b.screen()[-2:], ['Break in 10', 'Ready'])
+    b.type('CONT\n', 20)
+    b.cpu.mem[0xA3] &= ~0x10            # left Ctrl and C down
+    b.cpu.mem[0xA5] &= ~0x10
+    b.run(30)
+    b.cpu.mem[0xA3] |= 0x10
+    b.cpu.mem[0xA5] |= 0x10
+    b.run(30)
+    expect(b, 'ctrl-c', b.screen()[-2:], ['Break in 10', 'Ready'])
+    b.cmd('TEXT 60')
+    prog(b, ['10 MODE 1,1,8', '20 LINE 0,0,639,415,1:LINE 639,0,0,415,1:GOTO 20'])
+    b.type('RUN\n', 10)
+    b.cpu.mem[0xA0] &= 0xFE             # Esc in the middle of a long LINE
+    b.run(10)
+    b.cpu.mem[0xA0] |= 1
+    b.run(30)
+    s = b.screen()
+    expect(b, 'break in line', s[s.index('Break in 20'):][:2] if 'Break in 20' in s else s[-2:],
+           ['Break in 20', 'Ready'])
+    b.cmd('TEXT 60')
 
 
 @check
