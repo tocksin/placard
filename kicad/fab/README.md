@@ -7,7 +7,7 @@ in pcbnew before regenerating if a board was edited after its last fill.
 
 | Folder | Board | Size (mm) | Layers |
 |---|---|---|---|
-| `main/` | `kicad/placard.kicad_pcb` | 290 x 290 | 4, 1.6 mm |
+| `main/` | `kicad/placard.kicad_pcb` | 290.1 x 215.1 | 4, 1.6 mm |
 | `cart32k/` | `kicad/cartridge_32k/cartridge_32k.kicad_pcb` | 39.1 x 66.1 | 4, 1.57 mm |
 | `cart64k/` | `kicad/cartridge_64k/cartridge_64k.kicad_pcb` | 39.1 x 102.25 | 4, 1.57 mm |
 
