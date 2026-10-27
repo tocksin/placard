@@ -1,7 +1,7 @@
 Name     MEM_CTRL;
 PartNo   00;
-Date     10/22/2026;
-Revision 09;
+Date     10/27/2026;
+Revision 10;
 Designer ;
 Company  ;
 Assembly ;
@@ -13,9 +13,10 @@ Device   g22v10;
    MEMORY READ AND WRITE STROBES   (ATF22V10C, DIP-24 / PLCC-28)
    ============================================================
 
-   Makes the RAM write strobe and the ROM and RAM read enables.
-   It replaces the '32 OR gate that made /WE = RW | CLK, and took
-   over the read enables from the ROM/RAM select PLD.  See
+   Makes the ROM and RAM read enables (and, until revision 09, the
+   RAM write strobe).  It replaced the '32 OR gate that made
+   /WE = RW | CLK, and took over the read enables from the ROM/RAM
+   select PLD.  See
    docs/TIMING_FIXES.md, end-of-write contention.  Since revision 02 the
    map itself is a 74ACT273 register (an I/O device at 5000h, loaded
    by /MAP_WR from the I/O decode PLD), and the ROM/RAM select PLD
@@ -55,6 +56,17 @@ Device   g22v10;
       while RUN is low otherwise: the IR holds 02h, which writes
       nothing.  Once RUN is high this PLD drives /WE as before.  The
       output enable term is a separate term, so WE still uses 1 of 12.
+
+   /WE MOVED TO THE SYNC PLD (revision 10)
+      /WE is gone from this PLD (pin 16 is free).  The Sync PLD
+      (revision 10) makes it, with the same equation and output
+      enable, from an early tap of the clock (CLK_E), so that it is
+      back high before the address can change now that the address
+      muxes take their selects directly (docs/FETCH_TIMING.md,
+      option B; docs/WE_TIMING.md).  Nothing else changes here; the
+      address inputs now settle at 13 ns after the edge instead of
+      20.5.  The WRITE paragraph below is kept for the record of
+      the rule; the equation lives in the Sync PLD.
 
    SECTION 2 MAP BIT (revision 03)
       4000h - 4FFFh is mapped like the other sections, by RAMSEL2
@@ -157,8 +169,8 @@ Device   g22v10;
    PIN BUDGET
       Inputs (19): CLK (pin 1, array input), A15:A10, RAMSEL0-7, RW,
                    PIXEL_ENABLE, SRC_EN, RUN (revision 08)
-      Outputs (3): /ROM_OE, /RAM_OE, /WE
-      Unused: none.
+      Outputs (2): /ROM_OE, /RAM_OE
+      Unused: pin 16 (was /WE, revision 10).
       ROM_OE expands to 10 product terms (pin 19 has 16).
       RAM_OE expands to 16 product terms (pin 18 has 16): 10 for CPU
       reads and 6 for video reads outside the I/O window.
@@ -194,7 +206,7 @@ PIN 17 = RUN;          /* ROM cartridge: low while it loads, also map register /
 
 /* ---------------- OUTPUTS ---------------- */
 
-PIN 16 = !WE;          /* RAM /WE */
+/* pin 16 free (revision 10; was RAM /WE, now Sync PLD pin 20) */
 PIN 19 = !ROM_OE;      /* ROM chips' /OE */
 PIN 18 = !RAM_OE;      /* RAM chips' /OE */
 
@@ -218,9 +230,6 @@ VIDEO_READ = !CLK & PIXEL_ENABLE;
 
 
 /* ---------------- EQUATIONS ---------------- */
-
-WE = !CLK & !RW & !PIXEL_ENABLE;
-WE.OE = RUN;           /* revision 09: a slot-1 boot card drives /WE while RUN is low */
 
 /* the cartridge SRAM reads only once it is loaded (revision 08) */
 ROM_READ = CPU_READ & RUN;

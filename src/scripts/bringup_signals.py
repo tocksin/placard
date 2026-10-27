@@ -253,7 +253,7 @@ def run_video(step, bus=0xFF):
                 m.add('Sync VIDEN (pin 17)', vid.viden)
                 m.add('Sync /VSYNC (pin 18)', c['vsync_n'])
                 m.add('Sync PIXEL_ENABLE (pin 19)', vid.pe)
-                m.add('Sync ADDR_SEL (pin 20)', vid.pe)        # PC_ENABLE held low
+                m.add('Sync /WE (pin 20)', 1)                  # output off while RUN is low, pull-up R63
                 m.add('Sync V_VIDEO_ACTIVE (pin 23)', vid.vva)
             if step == 11:
                 m.add('Audio BLANK_RD (pin 23)', c['blank_rd'])

@@ -13,7 +13,9 @@ The three PLDs are:
    once per line on the H counter's line-end signal (H_TC).
 3. **Sync / Pixel Counter PLD** — generates the lower three horizontal count
    bits, VGA vertical sync, the color decoder's video enable (VIDEN), the
-   video read (PIXEL_ENABLE) and the address-mux selects.
+   video read (PIXEL_ENABLE) and, since revision 10, the RAM write strobe
+   /WE (the address-mux selects went to the mux PLDs on 2026-10-27,
+   FETCH_TIMING.md).
 
 ## Horizontal Counter (total)
 The horizontal counter is a 10-bit counter but divided between two chips:
@@ -169,7 +171,8 @@ It also generates:
 - VSYNC
 - VIDEN, the color decoder's video enable (registered)
 - PIXEL_ENABLE, the video read (registered)
-- The address-mux selects ADDR_SEL, ADDR_SEL_HI and ADDR_SEL_LO
+- The RAM write strobe /WE, from the early clock tap CLK_E (revision 10;
+  the address-mux selects ADDR_SEL, ADDR_SEL_HI and ADDR_SEL_LO before)
 - V_VIDEO_ACTIVE, the vertical active-region state
 
 ### Vertical Timing
@@ -198,9 +201,9 @@ video reads.
 | 6 | `V2` | Input | Vertical count bit 2 |
 | 7 | `V1` | Input | Vertical count bit 1 |
 | 8 | `H_VIDEO_ACTIVE` | Input | Horizontal active-video state (H counter PLD pin 22) |
-| 9 | `PC_ENABLE` | Input | State PLD pin 15 |
-| 10 | `Y_ENABLE` | Input | State PLD pin 17 |
-| 11 | `X_ENABLE` | Input | State PLD pin 16 |
+| 9 | `CLK_E` | Input | Early clock tap: X1 before the 500 mm of track to every other chip (revision 10; was PC_ENABLE) |
+| 10 | `RW` | Input | State PLD pin 23, 0 = store (revision 10; was Y_ENABLE) |
+| 11 | `RUN` | Input | From the cartridge (revision 10; was X_ENABLE) |
 | 12 | `GND` | Power | Ground |
 | 13 | `BLANK_RD` | Input | Mode byte / audio read slot (audio slot PLD pin 23) |
 | 14 | `H0` | Output | Horizontal pixel bit 0 (registered) |
@@ -209,13 +212,13 @@ video reads.
 | 17 | `VIDEN` | Output | Color decoder video enable: active video, two clocks late (registered) |
 | 18 | `/VSYNC` | Output | Vertical sync, active low; to VGA pin 14 through R62 (47 ohm) |
 | 19 | `PIXEL_ENABLE` | Output | Video read, clock 1 of each group (registered) |
-| 20 | `ADDR_SEL` | Output | Address mux S1, all four muxes |
-| 21 | `ADDR_SEL_HI` | Output | High-byte address mux S0 |
-| 22 | `ADDR_SEL_LO` | Output | Low-byte address mux S0 |
+| 20 | `/WE` | Output | RAM write strobe, low in the low half of a store clock; floats while RUN is low (revision 10; was ADDR_SEL) |
+| 21 | — | Free | Was ADDR_SEL_HI (revision 10) |
+| 22 | — | Free | Was ADDR_SEL_LO (revision 10) |
 | 23 | `V_VIDEO_ACTIVE` | Output | Vertical active region, counts 544-1023 (registered) |
 | 24 | `VCC` | Power | +5 V |
 
-Every pin is used.  V0 and V8:V6 are not needed: each vertical decode
+Pins 21 and 22 are free.  V0 and V8:V6 are not needed: each vertical decode
 covers two counts at once.
 
 ```text
@@ -232,10 +235,15 @@ PIXEL_ENABLE.D = (V_VIDEO_ACTIVE & H_VIDEO_ACTIVE # BLANK_RD) & H2 & H1 & !H0;
 
 VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;      /* counts 532-533; pin declared !VSYNC */
 
-ADDR_SEL    = PIXEL_ENABLE # PC_ENABLE;
-ADDR_SEL_HI = !PIXEL_ENABLE & (PC_ENABLE # Y_ENABLE);
-ADDR_SEL_LO = !PIXEL_ENABLE & (PC_ENABLE # X_ENABLE);
+WE = !CLK_E & !RW & !PIXEL_ENABLE;      /* pin declared !WE; WE.OE = RUN */
 ```
+
+Until revision 09 the PLD also decoded the address-mux selects
+(`ADDR_SEL = PIXEL_ENABLE # PC_ENABLE`, `ADDR_SEL_HI = !PIXEL_ENABLE &
+(PC_ENABLE # Y_ENABLE)`, `ADDR_SEL_LO = !PIXEL_ENABLE & (PC_ENABLE #
+X_ENABLE)`); since 2026-10-27 the four mux PLDs take PIXEL_ENABLE,
+PC_ENABLE, X_ENABLE and Y_ENABLE directly, with the same priority, which
+takes one PLD pass out of every memory address (FETCH_TIMING.md).
 
 (The equations are written compactly here; the source spells them out.)
 

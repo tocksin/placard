@@ -174,7 +174,7 @@ its socket isn't in until step 3):
 | U15 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
 | C15 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
-**Program first:** U15 Sync from `ATF22V10_SYNC.pld` (rev 09); verify
+**Program first:** U15 Sync from `ATF22V10_SYNC.pld` (rev 10); verify
 and label it.
 
 Turn off the power switch.  Insert U15 into its socket.  Turn on the
@@ -185,6 +185,13 @@ power switch.  The Sync PLD's H2:H0 count the clock by themselves.
 | H0 (pin 14) | 12.59 MHz | 50 % | 2.50 V |
 | H1 (pin 15) | 6.294 MHz | 50 % | 2.50 V |
 | H2 (pin 16) | 3.147 MHz | 50 % | 2.50 V |
+| CLK_E (pin 9, input) | 25.175 MHz | 50 % | 2.50 V |
+| /WE (pin 20) | 0 | | 5 V (output off while RUN is low, pull-up R63) |
+
+CLK_E is the clock straight from X1, before the long track that takes it
+to every other chip (CPU.md, "RAM write timing"); U15 makes the RAM's
+/WE from it (rev 10), but lets go of the pin while RUN (pin 11) is low,
+which R4 holds it at until step 12.
 
 ### Step 4: H counter PLD (U13)
 
@@ -336,17 +343,20 @@ S2 stay until step 11.
 | C7-C10 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 **Program first:** U7, U8, U9 and U10 address muxes, four copies of
-`ATF22V10_QUAD_MUX.pld` (rev 01); verify and label them.
+`ATF22V10_QUAD_MUX.pld` (rev 02); verify and label them.
 
-The mux selects come from the Sync PLD, and on a video read PIXEL_ENABLE
-picks the video address whatever the missing State PLD would say, so the
-muxes need no straps.  The rest of the time they pass the CPU side's
+The mux selects are PIXEL_ENABLE from the Sync PLD and PC_ENABLE,
+X_ENABLE and Y_ENABLE from the State PLD (rev 02; the Sync PLD decoded
+them before).  On a video read PIXEL_ENABLE picks the video address
+whatever the missing State PLD's enables float at, so the muxes need no
+straps.  The rest of the time they pass the CPU side's
 address, which holds still while PC, D, X and Y are missing (each mux
 input keeps whatever level it powered up at).  Turn off the power switch.
 Insert U7-U10 into their sockets.  Turn on the power switch.
 
-Measure A15:A0 at the mux outputs, pins 20-23 (Y0-Y3) of each mux: U7
-gives A3:A0, U8 A7:A4, U9 A11:A8 and U10 A15:A12.  The exact readings depend on
+Measure A15:A0 at the mux outputs, pins 20-23 (LO0, LO1, HI0, HI1) of
+each mux: U7 gives A0, A1, A8, A9; U8 A2, A3, A10, A11; U9 A4, A5, A12,
+A13; and U10 A6, A7, A14, A15.  The exact readings depend on
 the levels the CPU side came up at, so look only for a toggling signal:
 
 | Address bits | Video read gives | Reading |
@@ -381,7 +391,7 @@ mux's wiring or its H or V input.
 U31 and U22 need no programming.
 
 The video now reads the RAM.  Nothing writes it:
-with no memory control PLD, R63 holds /WE high.  The pixel
+U15 lets go of /WE while RUN is low, so R63 holds it high.  The pixel
 buffer's load strobe /PIX_LD and the RAM's /OE come from PLDs that aren't
 in yet, so turn off the power switch and put in:
 
@@ -494,10 +504,10 @@ different picture.
 | JP2 shunt | Jumper shunt | Sullins QPC02SXGN-RC | on only for the write check |
 
 **Program first:** U11 memory control from `ATF22V10_MEM_CTRL.pld`
-(rev 09); verify and label it.  U25 needs no programming.
+(rev 10); verify and label it.  U25 needs no programming.
 
 With no cartridge and no JP2 shunt, R4 holds RUN low.  That keeps the
-ROM off, holds the map register clear and turns U11's /WE output off, so
+ROM off, holds the map register clear and keeps U15's /WE output off, so
 R63 still stops any writes.  Turn off the power switch.  Take
 strap S4 (U11 pin 18 to pin 12) out, then insert U11 and U25 into their
 sockets and solder the JP2 header (leave its shunt off).  Turn on the
@@ -517,7 +527,7 @@ both frequencies alike.
 | Sync PIXEL_ENABLE (pin 19) | 2.365 MHz | 9.4 % | 0.47 V |
 | Mem ctrl /RAM_OE (pin 18) | 2.365 MHz | 95.3 % | 4.77 V |
 | Mem ctrl RUN (pin 17, input) | 0 | | 0 V |
-| Mem ctrl /WE (pin 16) | 0 | | 5 V (output off, pull-up) |
+| Sync /WE (U15 pin 20) | 0 | | 5 V (output off, pull-up) |
 | Mem ctrl /ROM_OE (pin 19) | 0 | | 5 V |
 | Map register Q0-Q7 (pins 2, 5, 6, 9, 12, 15, 16, 19) | 0 | | 0 V (held clear by RUN) |
 
@@ -525,14 +535,14 @@ both frequencies alike.
 +5 V) and turn the power on.  One end of R4 is RUN and now reads 5 V;
 the other end is GND.
 Clip the ground test lead to that GND end of R4 and touch its tip to
-U11 pin 14 (RW, a store; the State PLD that drives it isn't in yet).
-The pin keepers in U11 and U12 hold RW low after you lift the tip.  U11
-now drives /WE low for the low half of every clock that isn't a video
-read:
+U15 pin 10 (RW, a store; the State PLD that drives it isn't in yet; the
+same net is U11 pin 14).  The pin keepers in U11 and U15 hold RW low
+after you lift the tip.  U15 now drives /WE low for the low half of
+every clock that isn't a video read:
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
-| Mem ctrl /WE (pin 16), RUN high, RW low | 22.81 MHz | 54.7 % | 2.73 V |
+| Sync /WE (U15 pin 20), RUN high, RW low | 22.81 MHz | 54.7 % | 2.73 V |
 
 Each of these stores writes FF (the bus pull-ups) to the one CPU-side
 address the muxes point at, so one byte of the picture may change; that

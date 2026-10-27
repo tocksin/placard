@@ -153,6 +153,13 @@ sheets by hand, or the next run overwrites the edit.
 
 ## Design choices to keep
 
+- **The clock tap** (2026-10-27, FETCH_TIMING.md option B): X1 drives
+  CLK_E, which goes only to the Sync PLD's pin 9 (the RAM /WE) and to net
+  tie NT2 on the power sheet; CLK, to every other chip, is NT2's other
+  side.  The tie keeps the two nets apart in the netlist so the board can
+  put at least 420 mm of track (500 nominal, 3 ns) between X1/U15 and the
+  rest of the clock tree.  NT2 is not in the BOM, like NT1.
+
 Choices made while drawing that a revision should not undo by accident:
 
 - The expansion slots' former SD7:SD0 contacts are BT1-BT8 (boot contacts

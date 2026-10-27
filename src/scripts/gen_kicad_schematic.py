@@ -172,8 +172,8 @@ def f541(a, yn, g1, g2):
 
 
 PLD_NAMES = {"U1": "State PLD", "U2": "Branch PLD", "U3": "PC low PLD", "U4": "PC high PLD",
-             "U5": "ALU low PLD", "U6": "ALU high PLD", "U7": "Address mux 3:0", "U8": "Address mux 7:4",
-             "U9": "Address mux 11:8", "U10": "Address mux 15:12", "U11": "Memory control PLD",
+             "U5": "ALU low PLD", "U6": "ALU high PLD", "U7": "Address mux 1:0, 9:8", "U8": "Address mux 3:2, 11:10",
+             "U9": "Address mux 5:4, 13:12", "U10": "Address mux 7:6, 15:14", "U11": "Memory control PLD",
              "U12": "I/O decode PLD", "U13": "H counter PLD", "U14": "V counter PLD", "U15": "Sync PLD",
              "U16": "Color decoder PLD", "U17": "Instruction register PLD", "U35": "Audio slot PLD", "U38": "Shared port PLD",
              "U42": "PS/2 receiver PLD"}
@@ -197,13 +197,17 @@ def pc_counter(dn, load, cin, qn, co):
     return pld(n)
 
 
-def quad_mux(a, b, c, d, s0, s1, yn):
-    pins = [(1, 2, 3, 4), (5, 6, 7, 8), (11, 13, 14, 15), (16, 17, 18, 19)]
-    n = {9: s0, 10: s1}
+def quad_mux(d, x, y, va, pc, out):
+    """Mux PLD revision 02: address bits n, n+1 (low: D, X, video, PC) and n+8, n+9 (high: Y,
+    video, PC).  d, x, y are the two low / high register bits, va, pc and out the four address
+    bits in the order n, n+1, n+8, n+9; the selects are the enables themselves (pins 1-4)."""
+    n = {1: "PIXEL_ENABLE", 2: "PC_ENABLE", 3: "X_ENABLE", 4: "Y_ENABLE",
+         5: d[0], 6: x[0], 7: va[0], 8: pc[0],
+         9: d[1], 10: x[1], 11: va[1], 13: pc[1],
+         14: y[0], 15: va[2], 16: pc[2],
+         17: y[1], 18: va[3], 19: pc[3]}
     for i in range(4):
-        pa, pb, pc, pd = pins[i]
-        n[pa], n[pb], n[pc], n[pd] = a[i], b[i], c[i], d[i]
-        n[20 + i] = yn[i]
+        n[20 + i] = out[i]
     return pld(n)
 
 
@@ -450,9 +454,22 @@ def sheet_power(b):
         s.power(net, xa, py + 5.08)
     note(s, 152, 128, ["AGND (audio) meets GND", "here, at the power input"])
     # oscillator
-    s.part("placard_parts:Oscillator_DIP14", "X1", 63.5, 170.18, {"14": "+5V", "7": "GND", "8": "CLK"},
+    # X1 drives CLK_E, which reaches only the Sync PLD's pin 9 (the RAM /WE) and net tie NT2;
+    # CLK, to every other chip, is the far side of NT2.  On the board NT2 goes at least 420 mm
+    # of track (500 nominal, 3 ns) from X1, so /WE rises before the rest of the board sees the
+    # edge (docs/FETCH_TIMING.md, docs/WE_TIMING.md).
+    s.part("placard_parts:Oscillator_DIP14", "X1", 63.5, 170.18, {"14": "+5V", "7": "GND", "8": "CLK_E"},
            value="25.175 MHz", ref_at=(50, 160), value_at=(66, 181.0))
     decap(s, 43, 81.28, 160.02, lift=0)     # C43: the oscillator's, X1 has no U-number
+    nt2 = s.part("placard_std:NetTie_2", "NT2", 109.22, 187.96, {"1": "CLK_E", "2": "CLK"}, value="CLK tap",
+                 footprint="placard:NetTie-2_THT_Pad0.3mm", ref_at=(104, 181), value_at=(104.5, 194),
+                 bare=("1", "2"), in_bom=False)
+    path(s, "CLK_E", nt2["1"], (nt2["1"][0] - 5.08, nt2["1"][1]))
+    name(s, "CLK_E", nt2["1"][0] - 5.08, nt2["1"][1], 180)
+    path(s, "CLK", nt2["2"], (nt2["2"][0] + 5.08, nt2["2"][1]))
+    name(s, "CLK", nt2["2"][0] + 5.08, nt2["2"][1], 0)
+    note(s, 40, 224, ["NT2: CLK_E (X1, U15 pin 9) to CLK (every other chip) through",
+                      "at least 420 mm of track (500 nominal): the RAM /WE's early clock."], size=2.2)
     # the cartridge's STALL and RUN: pull-ups, and jumpers for bring-up without a cartridge
     yj = 170.18
     r203 = s.part("placard_std:R_US", "R3", 152.4, yj - 10.16, R2("+5V", "STALL_OUT"), value="10k", footprint=FP_R,
@@ -527,14 +544,21 @@ def sheet_control(b):
 
 def sheet_pc_mux(b):
     s = b.sheet("pc_mux.kicad_sch", "Program counter and address mux", 4)
-    heading(s, "Program counter and address mux", "Mux inputs: A = D / 0, B = X / Y, C = video address, D = PC")
-    # the buses from other sheets get a label at each chip; PC runs from U3 / U4 to the muxes' D inputs
+    heading(s, "Program counter and address mux", "Each mux: two low bits (D, X, video, PC) and two high bits (0, Y, video, PC); the enables select")
+    # the buses from other sheets get a label at each chip; PC runs from U3 / U4 to the muxes' PC inputs;
+    # the selects (PIXEL_ENABLE from U15, the enables from U1) are labels at pins 1-4 of each mux
     s.label_each |= {"D", "X", "Y", "VA", "V", "H", "ADDR", "DATABUS"}
+    s.label_nets |= {"PIXEL_ENABLE", "PC_ENABLE", "X_ENABLE", "Y_ENABLE"}
     u3 = s.part("placard:ATF22V10C_PC_COUNTER8", "U3", 104.14, 93.98,
-                pc_counter(D, "LOAD_PC_LOW", "+5V", PC[0:8], "PC_CO"), bare=("13", "23"))
+                pc_counter(D, "LOAD_PC_LOW", "+5V", PC[0:8], "PC_CO"), bare=("11", "13", "23"))
     decap(s, 3, 124.46, 63.5, lift=0)
     u4 = s.part("placard:ATF22V10C_PC_COUNTER8", "U4", 104.14, 195.58,
-                pc_counter(Y, "LOAD_PC_HIGH", "PC_CO", PC[8:16], None), bare=("13",))
+                pc_counter(Y, "LOAD_PC_HIGH", "PC_CO", PC[8:16], None), bare=("11", "13"))
+    # PC_ENABLE is a label at each mux's pin 2; at the PC PLDs it gets a stub and its own label
+    for u in (u3, u4):
+        (px, py) = u["11"]
+        path(s, "PC_ENABLE", (px, py), (px - 10.16, py))
+        name(s, "PC_ENABLE", px - 10.16, py, 180)
     decap(s, 4, 124.46, 165.1, lift=0)
     # U3 CIN tied high; U3 CO down between the two and into U4 CIN
     (cx, cy) = u3["13"]
@@ -543,50 +567,23 @@ def sheet_pc_mux(b):
     (ox, oy), (ix, iy) = u3["23"], u4["13"]
     yg = 142.24
     path(s, "PC_CO", (ox, oy), (ox + 2.54, oy), (ox + 2.54, yg), (ix - 2.54, yg), (ix - 2.54, iy), (ix, iy))
-    mux = {}
-    for ref, x, y, nib, lo in [("U7", 223.52, 93.98, 0, True), ("U8", 337.82, 93.98, 1, True),
-                               ("U9", 223.52, 195.58, 2, False), ("U10", 337.82, 195.58, 3, False)]:
-        bits = range(nib * 4, nib * 4 + 4)
-        if lo:
-            n = quad_mux([DR[i] for i in bits], [X[i] for i in bits], [VA[i] for i in bits], [PC[i] for i in bits],
-                         "ADDR_SEL_LO", "ADDR_SEL", [A[i] for i in bits])
-        else:
-            n = quad_mux(["GND"] * 4, [Y[i - 8] for i in bits], [VA[i] for i in bits], [PC[i] for i in bits],
-                         "ADDR_SEL_HI", "ADDR_SEL", [A[i] for i in bits])
-        mux[ref] = s.part("placard:ATF22V10C_QUAD_MUX", ref, x, y, n, bare=("9", "10") if lo else ("9", "10", "1", "5", "11", "16"))
-        if not lo:      # A3:A0 tied low
-            m = mux[ref]
-            xg = m["1"][0] - 2.54
-            for pn in ("1", "5", "11", "16"):
-                path(s, "GND", m[pn], (xg, m[pn][1]))
-            path(s, "GND", (xg, m["1"][1]), (xg, m["16"][1]))
-            for pn in ("5", "11", "16"):
-                s.junction(xg, m[pn][1], owner="GND")
-            s.power("GND", xg, m["16"][1])
-        decap(s, int(ref[1:]), x + 20.32, y - 33.02, lift=0)
-    # select lines over the top of each row: S0 (ADDR_SEL_LO / _HI) joins its pair,
-    # S1 (ADDR_SEL) runs along the top and down the right edge to the lower row
-    xw, xe, xr = 167.64, 284.48, 391.16
-    rows = (("U7", "U8", "ADDR_SEL_LO", 43.18), ("U9", "U10", "ADDR_SEL_HI", 147.32))
-    for left, right, s0, ylane in rows:
-        (lx, ly0), (_, ly1) = mux[left]["9"], mux[left]["10"]
-        (rx, ry0), (_, ry1) = mux[right]["9"], mux[right]["10"]
-        path(s, s0, (lx - 15.24, ly0), (lx - 2.54, ly0), (lx, ly0))
-        path(s, s0, (lx - 2.54, ly0), (lx - 2.54, ylane + 2.54), (rx - 2.54, ylane + 2.54), (rx - 2.54, ry0), (rx, ry0))
-        s.junction(lx - 2.54, ly0, owner=s0)
-        name(s, s0, lx - 15.24, ly0, 180)
-        path(s, "ADDR_SEL", (xw, ylane), (xw, ly1), (lx, ly1))
-        path(s, "ADDR_SEL", (xe, ylane), (xe, ry1), (rx, ry1))
-        path(s, "ADDR_SEL", (xw, ylane), (xe, ylane), (xr, ylane))
-        s.junction(xe, ylane, owner="ADDR_SEL")
-    path(s, "ADDR_SEL", (xr, rows[0][3]), (xr, rows[1][3]))
-    name(s, "ADDR_SEL", xw, rows[0][3], 180)
+    # mux PLD revision 02 (docs/FETCH_TIMING.md): chip n makes address bits 2n, 2n+1 (low: D, X,
+    # video, PC) and 2n+8, 2n+9 (high: Y, video, PC); the four enables are its selects
+    for ref, x, y, n in [("U7", 223.52, 93.98, 0), ("U8", 337.82, 93.98, 1),
+                         ("U9", 223.52, 195.58, 2), ("U10", 337.82, 195.58, 3)]:
+        lo, hi = (2 * n, 2 * n + 1), (2 * n + 8, 2 * n + 9)
+        bits = lo + hi
+        s.part("placard:ATF22V10C_QUAD_MUX", ref, x, y,
+               quad_mux([DR[i] for i in lo], [X[i] for i in lo], [Y[i - 8] for i in hi],
+                        [VA[i] for i in bits], [PC[i] for i in bits], [A[i] for i in bits]))
+        decap(s, int(ref[1:]), x + 27.94, y - 33.02, lift=0)     # the wider symbol (long select names)
     # PC: down from U3 and U4, then along under each row of muxes
     xb = 139.7
     s.bus_piece("PC", [(xb, 99.06), (xb, 243.84), (312.42, 243.84)])
     s.bus_piece("PC", [(xb, 139.7), (312.42, 139.7)])
     s.junction(xb, 139.7, owner="BUS:PC")
-    note(s, 20, 258, ["Video address: VA0, VA1, VA7, VA8 from the audio slot PLD (line repeat), ADDR6:2 = V6:V2, ADDR15:9 = H9:H3.",
+    note(s, 20, 258, ["Selects: PIXEL_ENABLE (U15) = video address; else PC_ENABLE = PC; else X_ENABLE / Y_ENABLE = X / Y register; else D / 00h.",
+                      "Video address: VA0, VA1, VA7, VA8 from the audio slot PLD (line repeat), ADDR6:2 = V6:V2, ADDR15:9 = H9:H3.",
                       "U3 CIN tied high (always counts); U3 CO carries into U4.  STALL_OUT holds the PC (video reads, ALU wait, cartridge load)."],
          size=2.2)
     return s
@@ -675,11 +672,11 @@ def sheet_memory(b):
         1: "CLK", 2: "ADDR15", 3: "ADDR14", 4: "ADDR13", 5: "ADDR12", 6: "RAMSEL0", 7: "RAMSEL1", 8: "RAMSEL3",
         9: "RAMSEL4", 10: "RAMSEL5", 11: "RAMSEL6", 13: "RAMSEL7", 15: "RAMSEL2", 14: "RW",
         23: "PIXEL_ENABLE", 20: "ADDR11", 21: "ADDR10", 22: "~{SRC_EN}", 17: "RUN",
-        16: "~{WE}", 19: "~{ROM_OE}", 18: "~{RAM_OE}"}), bare=("16", "18", "19"))
+        16: None, 19: "~{ROM_OE}", 18: "~{RAM_OE}"}), bare=("18", "19"))
     decap(s, 11, 198.12, 58.42, lift=0)
     u12 = s.part("placard:ATF22V10C_IO_DECODE", "U12", 154.94, 208.28, pld({
-        1: "~{WE}", 2: "ADDR_SEL", 3: "ADDR_SEL_HI", 4: "PC15", 5: "H9", 6: "Y7", 7: "ADDR14", 8: "ADDR13",
-        9: "ADDR12", 10: "ADDR10", 11: "ADDR9", 13: "ADDR8", 14: "RW", 18: "ADDR11", 23: "~{LOAD_IMM}",
+        1: "~{WE}", 2: "PIXEL_ENABLE", 3: "PC_ENABLE", 4: "PC15", 5: "H9", 6: "Y7", 7: "ADDR14", 8: "ADDR13",
+        9: "ADDR12", 10: "ADDR10", 11: "ADDR9", 13: "ADDR8", 14: "Y_ENABLE", 18: "ADDR11", 23: "~{LOAD_IMM}",
         15: "~{CE_HI}", 16: "~{MAP_WR}", 17: "~{LINE_RD}", 19: "~{PORT_WR}", 20: "~{PORT_RD}",
         21: "~{EXP1}", 22: "~{EXP2}"}), bare=("1", "15", "16"))
     decap(s, 12, 121.92, 172.72, lift=0)      # left of VCC: /MAP_WR goes up on the right
@@ -692,11 +689,12 @@ def sheet_memory(b):
     cart = dict(CART_PINOUT, A5="ADDR15", B10="~{CART}")     # A15 selects the lower chip: /CE_LO on the cartridge
     j8 = s.part("placard_parts:Cartridge_Slot", "J8", 320.04, 95.25, cart, value="Molex 87715-9106",
                 footprint="placard:Molex_87715-9106_PCIe_x4_Vertical", ref_at=(304.8, 44), value_at=(304.8, 150), bare=("B16", "A16"))
-    # the memory strobes: U11's down to lanes under the RAMs, /CE_HI from U12 up to J8 and down to U32,
-    # /MAP_WR from U12 back round to U25's clock
+    # the memory strobes: /RAM_OE from U11 down to a lane under the RAMs, /WE (from U15 on the video
+    # timing sheet, since Sync revision 10) along a lane from U12's input to the RAMs and its label,
+    # /CE_HI from U12 up to J8 and down to U32, /MAP_WR from U12 back round to U25's clock
     yl = {"~{WE}": 246.38, "~{RAM_OE}": 248.92, "~{CE_HI}": 251.46}
     xv = {"~{WE}": 208.28, "~{RAM_OE}": 210.82, "~{ROM_OE}": 215.9, "~{CE_HI}": 205.74}
-    for net, pn in (("~{WE}", "16"), ("~{RAM_OE}", "18")):
+    for net, pn in (("~{RAM_OE}", "18"),):
         (px, py) = u11[pn]
         path(s, net, (px, py), (xv[net], py), (xv[net], yl[net]))
     (px, py) = u11["19"]
@@ -708,7 +706,6 @@ def sheet_memory(b):
     s.junction(xv["~{CE_HI}"], py, owner="~{CE_HI}")
     (px, py) = u12["1"]
     path(s, "~{WE}", (px, py), (px - 2.54, py), (px - 2.54, yl["~{WE}"]), (xv["~{WE}"], yl["~{WE}"]))
-    s.junction(xv["~{WE}"], yl["~{WE}"], owner="~{WE}")
     risers = [(u31, "27", "~{WE}", 2.54), (u31, "22", "~{RAM_OE}", 5.08),
               (u32, "27", "~{WE}", 2.54), (u32, "22", "~{RAM_OE}", 5.08), (u32, "20", "~{CE_HI}", 7.62)]
     xend = {}
@@ -729,12 +726,12 @@ def sheet_memory(b):
     path(s, "~{MAP_WR}", (px, py), (px + 2.54, py), (px + 2.54, 154.94), (20.32, 154.94), (20.32, u25["11"][1]),
          u25["11"])
     res(s, "R13", 271.78, 132.08, "+5V", "~{CART}", "10k")
-    # /WE pull-up: U11 lets go of /WE while RUN is low (memory control revision 09)
+    # /WE pull-up: U15 lets go of /WE while RUN is low (Sync revision 10; memory control 09 before)
     r63 = res(s, "R63", 377.19, 242.57, "+5V", "~{WE}", "10k", bare=("2",),
               ref_at=(367.03, 241.3), value_at=(367.03, 243.84))
     s.junction(r63["2"][0], yl["~{WE}"], owner="~{WE}")
     note(s, 20, 258, ["Lower 32K: /CE = A15 (RAM U31, cartridge /CE_LO); upper: /CE_HI from U12.",
-                       "RUN low (cartridge loading): /ROM_OE held off, map register clear (all ROM), /WE let go (R63).",
+                       "/WE comes from U15 (Sync, sheet 8).  RUN low (cartridge loading): /ROM_OE held off, map register clear (all ROM), /WE let go (R63).",
                        "/CART reads low with a cartridge in; nothing reads it yet.  21 spare contacts."],
          size=2.2)
     return s
@@ -742,8 +739,8 @@ def sheet_memory(b):
 
 def sheet_video_timing(b):
     s = b.sheet("video_timing.kicad_sch", "Video timing", 8)
-    heading(s, "Video timing", "640 x 480 at 60 Hz: H and V counters, Sync, mode and audio slots, line read")
-    s.label_nets |= {"CLK"}
+    heading(s, "Video timing", "640 x 480 at 60 Hz: H and V counters, Sync (and the RAM /WE), mode and audio slots, line read")
+    s.label_nets |= {"CLK", "CLK_E", "RW", "RUN", "~{WE}"}
     u13 = s.part("placard:ATF22V10C_HCOUNT", "U13", 76.2, 99.06, pld({
         1: "CLK", 2: "GND", 3: "H0", 4: "H1", 5: "H2", 6: "LC7", 14: "H3", 15: "H4", 16: "H5", 17: "H6", 18: "H7",
         19: "H8", 20: "H9", 21: "~{HSYNC}", 22: "H_VIDEO_ACTIVE", 23: "H_TC"}), bare=("21", "23"))
@@ -758,8 +755,8 @@ def sheet_video_timing(b):
     path(s, "H_TC", (ox, oy), (ox + 2.54, oy), (ox + 2.54, yg), (ix - 2.54, yg), (ix - 2.54, iy), (ix, iy))
     u15 = s.part("placard:ATF22V10C_SYNC", "U15", 233.68, 99.06, pld({
         1: "CLK", 2: "V9", 3: "V5", 4: "V4", 5: "V3", 6: "V2", 7: "V1", 8: "H_VIDEO_ACTIVE",
-        9: "PC_ENABLE", 10: "Y_ENABLE", 11: "X_ENABLE", 13: "BLANK_RD", 14: "H0", 15: "H1", 16: "H2",
-        17: "VIDEN", 18: "~{VSYNC}", 19: "PIXEL_ENABLE", 20: "ADDR_SEL", 21: "ADDR_SEL_HI", 22: "ADDR_SEL_LO",
+        9: "CLK_E", 10: "RW", 11: "RUN", 13: "BLANK_RD", 14: "H0", 15: "H1", 16: "H2",
+        17: "VIDEN", 18: "~{VSYNC}", 19: "PIXEL_ENABLE", 20: "~{WE}", 21: None, 22: None,
         23: None}), bare=("18",))
     decap(s, 15, 254.0, 60.96, lift=0)
     # Sync series resistors, right at the PLD pins: they slow the edges going down the VGA cable (less
