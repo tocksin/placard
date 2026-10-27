@@ -32,13 +32,10 @@ entity vga_gen_pld is
         pixelRowOut     : out slv(9 downto 0);
         pixelColOut     : out slv(9 downto 0);
 
-        pcEnableIn      : in sl;
-        yEnableIn       : in sl;
-        xEnableIn       : in sl;
-
-        muxSelBothOut   : out sl;
-        muxSelLoOut     : out sl;
-        muxSelHiOut     : out sl
+        -- RAM write strobe (Sync PLD revision 10): CLK_E is clkIn in the model
+        rwIn            : in sl;    -- State PLD RW, 0 = store
+        runIn           : in sl;    -- RUN from the ROM cartridge
+        weNOut          : out sl    -- RAM /WE
     );
 end entity vga_gen_pld;
 
@@ -148,9 +145,9 @@ begin
 
         H_VIDEO_ACTIVE   => hVideoActive,
 
-        PC_ENABLE        => pcEnableIn,
-        Y_ENABLE         => yEnableIn,
-        X_ENABLE         => xEnableIn,
+        CLK_E            => clkIn,
+        RW               => rwIn,
+        RUN              => runIn,
 
         BLANK_RD         => blankRd,
 
@@ -163,9 +160,7 @@ begin
         VSYNC            => vSyncOut,
         PIXEL_ENABLE     => pixelEnable,
 
-        ADDR_SEL         => muxSelBothOut,
-        ADDR_SEL_HI      => muxSelHiOut,
-        ADDR_SEL_LO      => muxSelLoOut
+        WE_N             => weNOut
     );
 
     pixelRowOut <= vcount;

@@ -182,9 +182,6 @@ architecture Behavioral of basys_top is
         return slv(sum(3 downto 0));
     end function tintAdd;
     
-    signal muxSelBoth       : sl;
-    signal muxSelLo         : sl;
-    signal muxSelHi         : sl;
     
     signal programCounter   : slv(15 downto 0) := x"0000";
     signal pcEnable         : sl;
@@ -672,14 +669,11 @@ begin
                 acSelNOut       => acSelN,
                 pixelRowOut     => pixelRow,
                 pixelColOut     => pixelCol,
-                
-                pcEnableIn      => pcEnable,
-                xEnableIn       => xEnable,
-                yEnableIn       => yEnable,
-                
-                muxSelBothOut   => muxSelBoth,
-                muxSelLoOut     => muxSelLo,
-                muxSelHiOut     => muxSelHi
+
+                -- RAM /WE (Sync PLD revision 10; the memory control PLD made it before)
+                rwIn            => memRdWr,
+                runIn           => run,
+                weNOut          => ramWeN
     );
 
     -- Line code:
@@ -732,24 +726,21 @@ begin
     ------              Address bus                    -------
     ----------------------------------------------------------
 
-    lowerMuxComp: entity work.full_mux
-    port map( 
-           sel          => muxSelBoth & muxSelLo,
-           aPort        => dReg,
-           bPort        => xReg,
-           cPort        => videoAddr(7 downto 0),
-           dPort        => programCounter(7 downto 0),
-           yPort        => ramAddress(7 downto 0)
-    );
-
-    higherMuxComp: entity work.full_mux
-    port map (
-           sel          => muxSelBoth & muxSelHi,
-           aPort        => x"00",
-           bPort        => yReg,
-           cPort        => videoAddr(15 downto 8),
-           dPort        => programCounter(15 downto 8),
-           yPort        => ramAddress(15 downto 8)
+    -- The four address mux PLDs (revision 02): the address-source enables
+    -- are the selects, video first, then PC, then X/Y, else D / 00h
+    -- (docs/FETCH_TIMING.md, option B).
+    addrMuxComp: entity work.full_mux
+    port map(
+           pixelEnable  => pixelEn,
+           pcEnable     => pcEnable,
+           xEnable      => xEnable,
+           yEnable      => yEnable,
+           dPort        => dReg,
+           xPort        => xReg,
+           yPort        => yReg,
+           videoPort    => videoAddr,
+           pcPort       => programCounter,
+           addrPort     => ramAddress
     );
 
     -- RUN comes from the ROM cartridge (cartridge.vhd, docs/ROM.md,
@@ -778,9 +769,9 @@ begin
     ramSel6 <= mapReg(6);
     ramSel7 <= mapReg(7);
 
-    -- Memory read and write strobes (replaces the '32 OR gate).  Every
-    -- memory cycle uses the low half of the clock only; see
-    -- ATF22V10_MEM_CTRL.pld.
+    -- Memory read enables (and, before revision 10, the write strobe, now
+    -- in the Sync PLD).  Every memory cycle uses the low half of the clock
+    -- only; see ATF22V10_MEM_CTRL.pld.
     memCtrlComp: entity work.mem_ctrl_pld
     port map(
         clk         => clkVGA,
@@ -803,7 +794,6 @@ begin
         srcEnN      => srcEnN,
         run         => run,
 
-        weN         => ramWeN,
         romOeN      => romOeN,
         ramOeN      => ramOeN
     );
@@ -815,8 +805,8 @@ begin
     ioDecodeComp: entity work.io_decode_pld
     port map(
         we_n        => ramWeN,
-        addr_sel    => muxSelBoth,
-        addr_sel_hi => muxSelHi,
+        pixel_enable => pixelEn,
+        pc_enable   => pcEnable,
         pc15        => programCounter(15),
         h9          => pixelCol(9),
         y7          => yReg(7),
@@ -826,7 +816,7 @@ begin
         a10         => ramAddress(10),
         a9          => ramAddress(9),
         a8          => ramAddress(8),
-        rw          => memRdWr,
+        y_enable    => yEnable,
         a11         => ramAddress(11),
         load_imm_n  => dLoadN,
 

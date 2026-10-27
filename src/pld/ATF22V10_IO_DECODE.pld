@@ -1,7 +1,7 @@
 Name     IO_DECODE;
 PartNo   00;
-Date     10/24/2026;
-Revision 04;
+Date     10/27/2026;
+Revision 05;
 Designer ;
 Company  ;
 Assembly ;
@@ -20,16 +20,22 @@ Device   g22v10;
       It is !A15, but A15 is rebuilt here from the high-byte
       address mux's own selects and sources instead of from the
       mux output, so it is valid at the same time as the mux
-      output (20.5 ns) and needs no '04.  The lower chip's /CE is
-      the mux's A15 output directly.  With both chip enables
-      settled before /WE can go low (22.1 ns), a store to one chip
-      can no longer also write the other.
+      output (13 ns since revision 05, 20.5 before) and needs no
+      '04.  The lower chip's /CE is the mux's A15 output directly.
+      With both chip enables settled before /WE can go low, a
+      store to one chip can no longer also write the other.
 
-          ADDR_SEL ADDR_SEL_HI   high byte   A15
-              0        0          00h        0
-              0        1          Y          Y7
-              1        0          video      H9 (video address bit 15)
-              1        1          PC         PC15
+      Revision 05 (docs/FETCH_TIMING.md, option B): the mux PLDs
+      (QUAD_4TO1_MUX revision 02) take PIXEL_ENABLE, PC_ENABLE and
+      Y_ENABLE as their selects directly, so this PLD takes the
+      same three (pins 2, 3 and 14) in place of ADDR_SEL,
+      ADDR_SEL_HI and RW, with the same priority:
+
+          PIXEL_ENABLE PC_ENABLE Y_ENABLE   high byte   A15
+               1           x        x       video       H9 (video address bit 15)
+               0           1        x       PC          PC15
+               0           0        1       Y           Y7
+               0           0        0       00h         0
 
    2. The I/O strobes for 5000h - 53FFh, one 256-byte page per
       device, as in docs/TIMING_FIXES.md:
@@ -65,9 +71,16 @@ Device   g22v10;
       into the register.  The equations did not change in revision
       02; only these notes did.
 
+   READ STROBE WITHOUT RW (revision 05)
+      RD = IO & LOAD_IMM.  The RW input went to make room for
+      Y_ENABLE.  LOAD_IMM is low only in the LOAD_IMM and LOAD_MEM
+      states, where RW is always 1 (a write needs EXEC), so the
+      strobe is the same.  /WE now comes from the Sync PLD
+      (revision 10), not the memory control PLD.
+
    PIN BUDGET
-      Inputs (15): /WE, ADDR_SEL, ADDR_SEL_HI, PC15, H9, Y7,
-                   A14, A13, A12, A11, A10, A9, A8, RW, LOAD_IMM
+      Inputs (15): /WE, PIXEL_ENABLE, PC_ENABLE, Y_ENABLE, PC15, H9,
+                   Y7, A14, A13, A12, A11, A10, A9, A8, LOAD_IMM
       Outputs (7): /CE_HI, /MAP_WR, /LINE_RD, /PORT_WR,
                    /PORT_RD, /EXP1, /EXP2
       WinCUPL fits each strobe in 7 product terms (the rebuilt
@@ -78,10 +91,10 @@ Device   g22v10;
 
 /* ---------------- INPUTS ---------------- */
 
-PIN 1  = WE_N;         /* RAM /WE from the memory control PLD, low = write pulse */
+PIN 1  = WE_N;         /* RAM /WE from the Sync PLD (revision 05; memory control PLD before), low = write pulse */
 
-PIN 2  = ADDR_SEL;     /* Sync PLD pin 20, mux S1 */
-PIN 3  = ADDR_SEL_HI;  /* Sync PLD pin 21, high-byte mux S0 */
+PIN 2  = PIXEL_ENABLE; /* Sync PLD pin 19: video read (revision 05; was ADDR_SEL) */
+PIN 3  = PC_ENABLE;    /* State PLD: program counter (revision 05; was ADDR_SEL_HI) */
 PIN 4  = PC15;         /* PC high PLD, bit 7 */
 PIN 5  = H9;           /* video address bit 15 (H counter H9) */
 PIN 6  = Y7;           /* Y register bit 7 */
@@ -93,7 +106,7 @@ PIN 10 = A10;
 PIN 11 = A9;
 PIN 13 = A8;
 
-PIN 14 = RW;           /* 1 = read, 0 = write (I/O pin used as input) */
+PIN 14 = Y_ENABLE;     /* State PLD: Y register (I/O pin used as input; revision 05, was RW) */
 PIN 18 = A11;          /* I/O pin used as input (revision 03; was /SND_WR) */
 PIN 23 = !LOAD_IMM;    /* State PLD pin 19, D-register strobe, low = load (I/O pin used as input).
                           Revision 04: active low, as the State PLD (revision 13) now drives it;
@@ -114,9 +127,9 @@ PIN 22 = !EXP2;
 
 /* ---------------- A15, REBUILT FROM THE MUX INPUTS ---------------- */
 
-A15 = (!ADDR_SEL &  ADDR_SEL_HI & Y7)
-    # ( ADDR_SEL & !ADDR_SEL_HI & H9)
-    # ( ADDR_SEL &  ADDR_SEL_HI & PC15);
+A15 = ( PIXEL_ENABLE & H9)
+    # (!PIXEL_ENABLE &  PC_ENABLE & PC15)
+    # (!PIXEL_ENABLE & !PC_ENABLE & Y_ENABLE & Y7);
 
 
 /* ---------------- I/O WINDOW AND PAGES ---------------- */
@@ -129,7 +142,7 @@ PAGE2 = !A10 &  A9 & !A8;
 PAGE3 = !A10 &  A9 &  A8;
 
 WR    = IO & !WE_N;
-RD    = IO & RW & LOAD_IMM;
+RD    = IO & LOAD_IMM;      /* revision 05: RW dropped, see above */
 
 
 /* ---------------- EQUATIONS ---------------- */

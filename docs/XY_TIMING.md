@@ -1,5 +1,10 @@
 # X/Y address timing after FETCH
 
+> 2026-10-27: the Sync PLD pass (ADDR_SEL_LO/HI, 7.5 ns) is gone from every
+> address path: the muxes take X_ENABLE, Y_ENABLE, PC_ENABLE and PIXEL_ENABLE
+> directly ([FETCH_TIMING.md](FETCH_TIMING.md), option B).  The numbers
+> below are as they were when this was written; each path is 7.5 ns better.
+
 Date: 2026-10-15
 
 An X/Y-indexed read straight after FETCH is the worst path left in
@@ -24,7 +29,7 @@ loads at the end of FETCH:
 
     instruction register (F377) clock to Q   10.5
     State PLD X_ENABLE                         7.5
-    Sync PLD ADDR_SEL_LO                       7.5
+    Sync PLD ADDR_SEL_LO                       7.5   (gone since 2026-10-27, FETCH_TIMING.md)
     address mux                                7.5
     RAM tAA                                   15.0
     D register setup                           2.0

@@ -1,6 +1,6 @@
 # PLD usage: unused pins and product terms
 
-Date: 2026-10-25. Taken from `src/pld/*.pld` on main (commit b476a68), then updated for the F377 load-enable fix (State PLD revision 13, Branch PLD revision 12, I/O decode PLD revision 04: the five State PLD load strobes are active low, and the Branch PLD's pin 15 makes the pixel buffer's /PIX_LD), and for X no longer being a source (Branch PLD revision 13: pin 16 is /SRC_EN, active low, on the source F541s' /OE1; memory control PLD revision 07; audio slot PLD revision 04 uses pins 16 and 21 for I1 and /AC_SEL). State 15, Branch 15, ALU 07 and cartridge 03 are the same logic as State 13, Branch 13, ALU 05 and cartridge 01: the revisions between them stored the opcode byte XOR FDh and were reverted on 2026-10-21. Later on 2026-10-21 the cartridge PLD went to revision 04 (it holds the CPU's STALL instead of the clock) and the instruction register became a PLD (`ATF22V10_IR.pld`, #17). On 2026-10-22 the memory control PLD went to revision 09 (/WE output enable for a slot-1 boot card), and the H counter PLD went to revision 08 (pin 6 = LC7, blank line). On 2026-10-25 the port PLD went to revision 03 (the port latch moved in, the matrix keyboard dropped) and then 04, and the PS/2 receiver PLD (`ATF22V10_PS2.pld`, #42) was added.
+Date: 2026-10-25. Taken from `src/pld/*.pld` on main (commit b476a68), then updated for the F377 load-enable fix (State PLD revision 13, Branch PLD revision 12, I/O decode PLD revision 04: the five State PLD load strobes are active low, and the Branch PLD's pin 15 makes the pixel buffer's /PIX_LD), and for X no longer being a source (Branch PLD revision 13: pin 16 is /SRC_EN, active low, on the source F541s' /OE1; memory control PLD revision 07; audio slot PLD revision 04 uses pins 16 and 21 for I1 and /AC_SEL). State 15, Branch 15, ALU 07 and cartridge 03 are the same logic as State 13, Branch 13, ALU 05 and cartridge 01: the revisions between them stored the opcode byte XOR FDh and were reverted on 2026-10-21. Later on 2026-10-21 the cartridge PLD went to revision 04 (it holds the CPU's STALL instead of the clock) and the instruction register became a PLD (`ATF22V10_IR.pld`, #17). On 2026-10-22 the memory control PLD went to revision 09 (/WE output enable for a slot-1 boot card), and the H counter PLD went to revision 08 (pin 6 = LC7, blank line). On 2026-10-25 the port PLD went to revision 03 (the port latch moved in, the matrix keyboard dropped) and then 04, and the PS/2 receiver PLD (`ATF22V10_PS2.pld`, #42) was added. On 2026-10-27 (FETCH_TIMING.md, option B) the address muxes went to revision 02 (two low and two high bits per chip, PIXEL_ENABLE, PC_ENABLE, X_ENABLE and Y_ENABLE as the selects), the Sync PLD to revision 10 (the ADDR_SEL outputs gone, /WE on pin 20 from the early clock tap CLK_E on pin 9), the memory control PLD to revision 10 (/WE gone, pin 16 free) and the I/O decode PLD to revision 05 (/CE_HI from the enables, RW dropped).
 
 The main board has 19 ATF22V10C chips built from 13 PLD sources, and the ROM cartridge one more (`ATF22V10_CART.pld`). Each 22V10 has 12 dedicated inputs (pins 1-11 and 13; pin 1 is also the register clock) and 10 I/O pins (14-23), each with an output macrocell (OLMC) of 8, 10, 12, 14, 16, 16, 14, 12, 10 or 8 product terms. An I/O pin used as an input gives up its cell's terms. Every chip also has one asynchronous reset (AR) and one synchronous preset (SP) term shared by all registers, and each cell has its own output-enable term.
 
@@ -22,12 +22,12 @@ Each output equation was expanded with its intermediate variables (names that ar
 | `ATF22V10_BRANCH.pld` | #2 | none | none | 2 | 8 | 23 / 98 |
 | `ATF22V10_PC_COUNTER8.pld` | #3, #4 | none | none | 1 | 9 | 69 / 112 |
 | `ALU_SHR.pld` | #5, #6 | none | none | 1 | 9 | 78 / 112 |
-| `ATF22V10_QUAD_MUX.pld` | #7-#10 | none | none | 6 | 4 | 16 / 44 |
-| `ATF22V10_MEM_CTRL.pld` | #11 | none | none | 6 | 4 | 28 / 58 |
+| `ATF22V10_QUAD_MUX.pld` | #7-#10 | none | none | 6 | 4 | 14 / 44 |
+| `ATF22V10_MEM_CTRL.pld` | #11 | none | 16 | 6 | 3 | 26 / 46 |
 | `ATF22V10_IO_DECODE.pld` | #12 | none | none | 3 | 7 | 27 / 88 |
 | `ATF22V10_HCOUNT.pld` | #13 | 7, 8, 9, 10, 11, 13, 2* | none | 0 | 10 | 66 / 120 |
 | `ATF22V10_VCOUNT.pld` | #14 | 3, 4, 5, 6, 7, 8, 9, 10, 11, 13 | none | 0 | 10 | 79 / 120 |
-| `ATF22V10_SYNC.pld` | #15 | none | none | 0 | 10 | 21 / 120 |
+| `ATF22V10_SYNC.pld` | #15 | none | 21, 22 | 0 | 8 | 16 / 98 |
 | `ATF22V10_COLORDECODER.pld` | #16 | none | none | 2 | 8 | 95 / 104 |
 | `ATF22V10_IR.pld` | #17 | 13 | 22 (10), 23 (8) | 0 | 8 | 17 / 102 |
 | `ATF22V10_AUDIO.pld` | #35 | none | none | 3 | 7 | 23 / 78 |
@@ -113,30 +113,30 @@ Every pin is used. D1, D2, D3 (pins 15, 19, 22) are internal carry nodes with no
 
 ### `ATF22V10_QUAD_MUX.pld` (#7-#10)
 
-Every pin is used, but six of the ten output cells are spent as inputs and the four Y outputs use only 4 terms each. Per instance: on the two high-byte muxes (#9, #10) the A inputs are tied low (zero page = 00), so pins 1, 5, 11, 16 on those chips carry a constant and the A term in each output is dead.
+Revision 02 (2026-10-27): each chip makes two low address bits (D, X, video, PC) and two high bits (00h, Y, video, PC), with PIXEL_ENABLE, PC_ENABLE, X_ENABLE and Y_ENABLE on pins 1-4 as the selects. Every pin is used; six of the ten output cells are spent as inputs. The low outputs use 4 terms, the high ones 3 (the 00h default needs none), and all four chips are the same, with no constant inputs.
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|
-| 14 | 8 | C2 | input | — | — |
-| 15 | 10 | D2 | input | — | — |
-| 16 | 12 | A3 | input | — | — |
-| 17 | 14 | B3 | input | — | — |
-| 18 | 16 | C3 | input | — | — |
-| 19 | 16 | D3 | input | — | — |
-| 20 | 14 | Y0 | combinational | 4 | 10 |
-| 21 | 12 | Y1 | combinational | 4 | 8 |
-| 22 | 10 | Y2 | combinational | 4 | 6 |
-| 23 | 8 | Y3 | combinational | 4 | 4 |
+| 14 | 8 | Y2 | input | — | — |
+| 15 | 10 | V2 | input | — | — |
+| 16 | 12 | PC2 | input | — | — |
+| 17 | 14 | Y3 | input | — | — |
+| 18 | 16 | V3 | input | — | — |
+| 19 | 16 | PC3 | input | — | — |
+| 20 | 14 | LO0 | combinational | 4 | 10 |
+| 21 | 12 | LO1 | combinational | 4 | 8 |
+| 22 | 10 | HI0 | combinational | 3 | 7 |
+| 23 | 8 | HI1 | combinational | 3 | 5 |
 
 ### `ATF22V10_MEM_CTRL.pld` (#11)
 
-No free pins. RAM_OE on pin 18 is **16 of 16 terms, completely full**. ROM_OE has 6 spare and /WE almost all of its. Since revision 08 pin 17 is the RUN input from the cartridge (it was the MAP_RUN register), and RUN is ANDed into each ROM_OE term, so the term count is unchanged.  Revision 09 adds an output enable term on /WE (= RUN) for a slot-1 boot card; the OE term is separate from the 12 sum terms.
+Pin 16 is free since revision 10 (2026-10-27): /WE moved to the Sync PLD, which makes it from the early clock tap (FETCH_TIMING.md). RAM_OE on pin 18 is **16 of 16 terms, completely full**. ROM_OE has 6 spare. Since revision 08 pin 17 is the RUN input from the cartridge (it was the MAP_RUN register), and RUN is ANDed into each ROM_OE term, so the term count is unchanged.  (Revision 09 had added an output enable term on /WE, = RUN, for a slot-1 boot card; it went with /WE to the Sync PLD.)
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|
 | 14 | 8 | RW | input | — | — |
 | 15 | 10 | RAMSEL2 | input | — | — |
-| 16 | 12 | !WE | combinational | 1 | 11 |
+| 16 | 12 | free (was !WE until revision 10) | — | — | — |
 | 17 | 14 | RUN | input | — | — |
 | 18 | 16 | !RAM_OE | combinational | 16 | 0 **full** |
 | 19 | 16 | !ROM_OE | combinational | 10 | 6 |
@@ -151,7 +151,7 @@ No free pins. Each strobe minimizes to 4 terms (CE_HI to 3); the source notes Wi
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|
-| 14 | 8 | RW | input | — | — |
+| 14 | 8 | Y_ENABLE (revision 05; was RW) | input | — | — |
 | 15 | 10 | !CE_HI | combinational | 3 | 7 |
 | 16 | 12 | !MAP_WR | combinational | 4 | 8 |
 | 17 | 14 | !LINE_RD | combinational | 4 | 10 |
@@ -198,7 +198,7 @@ Only CLK and EN are used: pins 3-11 and 13 (ten inputs) are free. All ten output
 
 ### `ATF22V10_SYNC.pld` (#15)
 
-Every pin is used, but the logic is light: 21 of 120 terms. Since revision 09 the VSYNC pin is declared active low (!VSYNC, like !HSYNC), so its equation is 1 term (it was 6 when written as !(...) on an active-high pin).
+Pins 21 and 22 are free since revision 10 (2026-10-27): the three ADDR_SEL outputs went (the muxes take the enables directly), and pin 20 is the RAM /WE (1 term, plus the RUN output enable term, which is separate), made from the early clock tap CLK_E on pin 9 (pins 10 and 11 are RW and RUN). The logic is light: 16 of 98 terms. Since revision 09 the VSYNC pin is declared active low (!VSYNC, like !HSYNC), so its equation is 1 term (it was 6 when written as !(...) on an active-high pin).
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|
@@ -208,9 +208,9 @@ Every pin is used, but the logic is light: 21 of 120 terms. Since revision 09 th
 | 17 | 14 | VIDEN | registered | 4 | 10 |
 | 18 | 16 | !VSYNC | combinational | 1 | 15 |
 | 19 | 16 | PIXEL_ENABLE | registered | 2 | 14 |
-| 20 | 14 | ADDR_SEL | combinational | 2 | 12 |
-| 21 | 12 | ADDR_SEL_HI | combinational | 2 | 10 |
-| 22 | 10 | ADDR_SEL_LO | combinational | 2 | 8 |
+| 20 | 14 | !WE | combinational | 1 | 13 |
+| 21 | 12 | free (was ADDR_SEL_HI) | — | — | — |
+| 22 | 10 | free (was ADDR_SEL_LO) | — | — | — |
 | 23 | 8 | V_VIDEO_ACTIVE | registered | 2 | 6 |
 
 ### `ATF22V10_COLORDECODER.pld` (#16)

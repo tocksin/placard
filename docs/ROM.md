@@ -261,8 +261,9 @@ RUN (from it).  There is no clock gate and no 74AC541 on the cartridge.
 
 **Without a cartridge** a boot card in expansion slot 1 can load the
 main RAM the same way and start the machine from RAM, with no ROM
-(EXPANSION.md, "Booting from slot 1"); the memory control PLD (revision
-09) lets go of /WE while RUN is low so the card can write the RAM.  A
+(EXPANSION.md, "Booting from slot 1"); the Sync PLD, which makes /WE
+(revision 10; the memory control PLD before), lets go of it while RUN is
+low so the card can write the RAM.  A
 fitted cartridge always wins.  For bring-up with neither, jumper STALL_IN
 to STALL_OUT and RUN to +5 V; the board then runs from power-up, but
 nothing loads the ROM.

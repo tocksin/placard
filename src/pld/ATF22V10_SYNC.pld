@@ -1,7 +1,7 @@
 Name     VGA_SYNC;
 PartNo   01;
-Date     2026-10-25;
-Revision 09;
+Date     2026-10-27;
+Revision 10;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -30,10 +30,12 @@ PIN 7  = V1;
 /* Horizontal active-video indication */
 PIN 8  = H_VIDEO_ACTIVE;
 
-/* Address-source enables */
-PIN 9  = PC_ENABLE;
-PIN 10 = Y_ENABLE;
-PIN 11 = X_ENABLE;
+/* RAM write strobe inputs (revision 10; pins 9-11 were the
+   PC_ENABLE, Y_ENABLE and X_ENABLE inputs of the address mux
+   control, which went to the mux PLDs themselves) */
+PIN 9  = CLK_E;           /* early clock tap: X1 before the 500 mm of track to every other chip */
+PIN 10 = RW;              /* State PLD pin 23, 0 = store */
+PIN 11 = RUN;             /* ROM cartridge: low while it loads */
 
 /* Blanking read slot, from the audio slot PLD (revision 06; named
    AUD_SLOT before revision 07).  High for the whole 8-clock group of
@@ -56,9 +58,8 @@ PIN 18 = !VSYNC;     /* active-low output pin (revision 09); equation below uses
 
 PIN 19 = PIXEL_ENABLE;     /* registered */
 
-PIN 20 = ADDR_SEL;
-PIN 21 = ADDR_SEL_HI;
-PIN 22 = ADDR_SEL_LO;
+PIN 20 = !WE;             /* RAM /WE (revision 10; was ADDR_SEL) */
+/* pins 21 and 22 free (revision 10; were ADDR_SEL_HI and ADDR_SEL_LO) */
 
 /* Vertical active-region state (registered).
    Needed internally by VIDEN, PIXEL_ENABLE and VSYNC.
@@ -170,9 +171,10 @@ VIDEN.D =
    of the group and is high in the second one, where the byte is
    read.  Since revision 08 those are H2:H0 = 110 and 111 (000 and
    001 before).  Being registered,
-   it reaches ADDR_SEL through the register feedback (tCF) and the
-   State, PC and Branch PLDs at tCO, instead of three array passes
-   after the clock (see docs/VIDEO_TIMING.md).
+   it reaches the address mux PLDs (their select since revision 10,
+   ADDR_SEL before) and the State, PC and Branch PLDs at tCO,
+   instead of three array passes after the clock (see
+   docs/VIDEO_TIMING.md).
 
    It is decoded from the V_VIDEO_ACTIVE register and the
    H_VIDEO_ACTIVE input, so it is one array pass.
@@ -235,74 +237,45 @@ VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;
 
 
 /* ============================================================
-   ADDRESS MUX CONTROL
+   RAM WRITE STROBE (revision 10)
    ============================================================ */
 
 /*
-   Four-way address selection:
+   Revision 10 (docs/FETCH_TIMING.md, option B): the address mux
+   control (ADDR_SEL, ADDR_SEL_HI, ADDR_SEL_LO, from PIXEL_ENABLE,
+   PC_ENABLE, X_ENABLE and Y_ENABLE) is gone.  The four mux PLDs
+   (QUAD_4TO1_MUX revision 02) take PIXEL_ENABLE and the State PLD's
+   enables as their selects directly, which removes one PLD pass
+   from the instruction fetch.  PIXEL_ENABLE keeps the same
+   priority there: it overrides PC_ENABLE, X_ENABLE and Y_ENABLE,
+   and PC_ENABLE overrides X_ENABLE and Y_ENABLE.
 
-       S1 S0
-       -----
-        00   Default
-        01   X/Y register
-        10   Video address
-        11   Program counter
+   This PLD takes over the RAM write strobe from the memory control
+   PLD (revision 09 there, where the equation was the same but from
+   the normal clock).  A write uses the low half of the clock, on a
+   clock the CPU owns the bus:
 
-   Priority (highest first):
+       /WE low while CLK_E = 0, RW = 0 and PIXEL_ENABLE = 0
 
-       1. Video address    PIXEL_ENABLE            -> 10
-       2. Program counter  PC_ENABLE              -> 11
-       3. X / Y registers  X_ENABLE, Y_ENABLE     -> 01
-       4. Default                                 -> 00
+   CLK_E is an early tap of the clock: the clock net runs from the
+   oscillator to this pin first, then through at least 420 mm of
+   track (500 mm nominal, 3 ns) before any other load, pin 1 of
+   this PLD included.  So /WE rises about 3 ns before every other
+   chip sees the edge, and it is back high (tPD max 7.5 - 3 = 4.5
+   ns after the edge the rest of the board sees) before the address
+   or a chip enable can change (tCO min 2 + mux tPD min 3 = 5 ns):
+   docs/WE_TIMING.md.  Without the Sync pass in the address path
+   the normal clock would be too late by 2.5 ns.
 
-   PIXEL_ENABLE overrides PC_ENABLE, X_ENABLE and Y_ENABLE.
-   PC_ENABLE overrides X_ENABLE and Y_ENABLE.
+   RW and PIXEL_ENABLE settle long before the clock can fall, so
+   /WE never glitches.  The register half of this PLD stays on pin
+   1, the normal clock.
+
+   The output enable term is RUN, as in the memory control PLD:
+   /WE floats while RUN is low (10k pull-up on the main board) so a
+   boot card in expansion slot 1 can drive it (docs/EXPANSION.md).
+   It is a separate term, so WE uses 1 of the pin's product terms.
 */
 
-
-/*
-   Shared S1 input to ALL FOUR 4:1 muxes.
-
-   Video is selected only during PIXEL_ENABLE.
-   PC is selected whenever PC_ENABLE is active.
-*/
-
-ADDR_SEL =
-      PIXEL_ENABLE
-    # PC_ENABLE;
-
-
-/*
-   Upper-byte S0.
-
-       S1 S0
-       00 = 00h
-       01 = Y register
-       10 = Video address
-       11 = PC
-
-   S0 is forced low during PIXEL_ENABLE so that S1 S0 = 10
-   (video) regardless of PC_ENABLE and Y_ENABLE.
-*/
-
-ADDR_SEL_HI =
-      !PIXEL_ENABLE
-    & (PC_ENABLE # Y_ENABLE);
-
-
-/*
-   Lower-byte S0.
-
-       S1 S0
-       00 = D register
-       01 = X register
-       10 = Video address
-       11 = PC
-
-   S0 is forced low during PIXEL_ENABLE so that S1 S0 = 10
-   (video) regardless of PC_ENABLE and X_ENABLE.
-*/
-
-ADDR_SEL_LO =
-      !PIXEL_ENABLE
-    & (PC_ENABLE # X_ENABLE);
+WE = !CLK_E & !RW & !PIXEL_ENABLE;
+WE.OE = RUN;

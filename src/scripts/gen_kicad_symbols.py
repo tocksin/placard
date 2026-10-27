@@ -89,17 +89,18 @@ LAYOUT = {
         (["nc"], []),
     ],
     "ATF22V10_IO_DECODE": [
-        (["ADDR_SEL", "ADDR_SEL_HI", "PC15", "H9", "Y7"], ["MAP_WR", None, "CE_HI"]),
-        (["A14", "A13", "A12", "A11", "A10", "A9", "A8", None, "RW", "LOAD_IMM", "WE_N"],
+        (["PIXEL_ENABLE", "PC_ENABLE", "Y_ENABLE", "PC15", "H9", "Y7"], ["MAP_WR", None, "CE_HI"]),
+        (["A14", "A13", "A12", "A11", "A10", "A9", "A8", None, "LOAD_IMM", "WE_N"],
          ["LINE_RD", None, "PORT_WR", None, "PORT_RD", None, "EXP1", None, "EXP2"]),
     ],
     "ATF22V10_MEM_CTRL": [
         (["A15", "A14", "A13", "A12", "A11", "A10", None,
           "RAMSEL0", "RAMSEL1", "RAMSEL2", "RAMSEL3", "RAMSEL4", "RAMSEL5", "RAMSEL6", "RAMSEL7",
           None, "RW", None, "PIXEL_ENABLE", None, "SRC_EN"],
-         ["ROM_OE", "RAM_OE", "WE"]),
+         ["ROM_OE", "RAM_OE"]),
         SEP,
         (["CLK", None, "RUN"], []),
+        (["nc"], []),
     ],
     "ATF22V10_CART": [
         # the loader pins line up with the cartridge connector's, a row apart
@@ -133,10 +134,13 @@ LAYOUT = {
         (["nc"], []),
     ],
     "ATF22V10_QUAD_MUX": [
-        (["S0", "S1"], []),
-        (["A0", "A1", "A2", "A3", None, "B0", "B1", "B2", "B3", None,
-          "C0", "C1", "C2", "C3", None, "D0", "D1", "D2", "D3"],
-         [None] * 15 + ["Y0", "Y1", "Y2", "Y3"]),
+        # revision 02: the enables are the selects; two low bits (D, X, video, PC) and two high
+        # bits (Y, video, PC; 00h needs no input).  The inputs are grouped by source bus so each
+        # bus label on the schematic has its own group; the outputs are the four address bits
+        (["PIXEL_ENABLE", None, "PC_ENABLE", None, "X_ENABLE", None, "Y_ENABLE"], []),
+        (["D0", "D1", None, "X0", "X1", None, "Y2", "Y3", None, "V0", "V1", "V2", "V3", None,
+          "PC0", "PC1", "PC2", "PC3"],
+         ["LO0", "LO1", None, "HI0", "HI1"]),
     ],
     "ATF22V10_STATE": [
         (["CLK", "PIXEL_ENABLE", "BRANCH_BLOCK", None, "MEM2", "MEM1", "MEM0", "SRC0", None,
@@ -147,7 +151,9 @@ LAYOUT = {
     "ATF22V10_SYNC": [
         (["CLK", None, "H_VIDEO_ACTIVE", None, "BLANK_RD", None, "V9", "V5", "V4", "V3", "V2", "V1"],
          ["H0", "H1", "H2", None, "VIDEN", None, "PIXEL_ENABLE", None, "VSYNC", "V_VIDEO_ACTIVE"]),
-        (["PC_ENABLE", None, "X_ENABLE", None, "Y_ENABLE"], ["ADDR_SEL", None, "ADDR_SEL_HI", None, "ADDR_SEL_LO"]),
+        SEP,
+        (["CLK_E", "RW", "RUN"], ["WE"]),      # revision 10: the RAM write strobe from the early clock tap
+        (["nc"], []),
     ],
     "ATF22V10_VCOUNT": [
         (["EN", None, "CLK"], ["Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9"]),

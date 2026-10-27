@@ -1,5 +1,10 @@
 # Instruction fetch timing: closing it without a wait clock
 
+> 2026-10-27: option B is implemented (PLD sources, FPGA model, schematic,
+> docs); the board rewiring is Justin's.  The change list at the end says
+> what was done, and `option_b_board.png` shows what moves on the board
+> (nothing has to).
+
 Date: 2026-10-27
 
 [WE_TIMING.md](WE_TIMING.md) found that the instruction fetch, which
@@ -189,7 +194,7 @@ order of the clock net.
 - The RW drop in the I/O decode PLD: an I/O read in LOAD_MEM (a `ld d,
   [0,X]` with X in the I/O window) reads the device as it does now.
 
-### Change list (planned, nothing done yet)
+### Change list (done 2026-10-27, except the board)
 
 PLD sources (`src/pld`), each with its date and revision bumped:
 
@@ -227,7 +232,11 @@ and ROM.md (where /WE comes from), BRINGUP.md (probe points), XY_TIMING.md
 and VIDEO_TIMING.md (the paths they close are now wider), and this file.
 
 Board (Justin's): re-pin the four muxes, move /WE to U15, the CLK_E tap
-and the 500 mm of track before the next clock load.
+and the 500 mm of track before the next clock load.  No chip has to move:
+`docs/option_b_board.png` (`src/scripts/gen_option_b_board.py`) marks the
+chips whose wiring changes on the routed board.  The schematic has a net tie
+NT2 between CLK_E (X1, U15 pin 9) and CLK (every other chip) so the two
+nets stay apart in the netlist; NT2 goes at the far end of the long track.
 
 ### What it costs
 
