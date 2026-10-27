@@ -71,69 +71,130 @@ kitting.  Pin-outs are the same, so only the footprints change.
 
 ## Option B: give the muxes PIXEL_ENABLE and PC_ENABLE directly
 
+Worked out in full on 2026-10-27 after Justin ruled out PLCC parts.  Every
+PLD stays an ATF22V10C-7PX and the chip count does not change.  (The
+first draft of this section had A15 in the Sync PLD and a -5 memory
+control PLD; both are gone.)
+
+### The muxes
+
 Drop the Sync hop.  Each mux PLD takes PIXEL_ENABLE (Sync, registered),
-PC_ENABLE (State, registered) and X_ENABLE or Y_ENABLE (State, registered)
-as three selects:
+PC_ENABLE, X_ENABLE and Y_ENABLE (State, registered) as its selects:
 
-    Y = PIXEL_ENABLE & VIDEO
-      # !PIXEL_ENABLE & PC_ENABLE & PC
-      # !PIXEL_ENABLE & !PC_ENABLE & X_ENABLE & XREG
-      # !PIXEL_ENABLE & !PC_ENABLE & !X_ENABLE & DREG      (low byte)
+    low bit:   A = PIXEL_ENABLE & VIDEO
+                 # !PIXEL_ENABLE & PC_ENABLE & PC
+                 # !PIXEL_ENABLE & !PC_ENABLE & X_ENABLE & XREG
+                 # !PIXEL_ENABLE & !PC_ENABLE & !X_ENABLE & DREG
+    high bit:  A = PIXEL_ENABLE & VIDEO
+                 # !PIXEL_ENABLE & PC_ENABLE & PC
+                 # !PIXEL_ENABLE & !PC_ENABLE & Y_ENABLE & YREG     (default 00h: no term)
 
-The high byte's default source is 00h, so its fourth term is dropped and
-it needs only 12 data pins.  The low byte needs 16 data + 3 selects + 4
-outputs = 23 pins, one more than a 22V10 has, so the bits are re-split and
-A15 moves into the Sync PLD, which gains the pins the selects free:
+A chip of four low bits needs 16 data + 3 selects + 4 outputs = 23 pins,
+one more than a 22V10 has.  So each chip takes **two low bits and two
+high bits**: 8 + 6 data, 4 selects, 4 outputs = 22 pins, and one source
+file serves all four chips (bits n, n+1, n+8, n+9 for n = 0, 2, 4, 6).
+Four terms per output; every output is one array pass, as now.
 
-| Chip | Bits | Pins |
+| Mux chip | Bits | Sources per bit |
+|---|---|---|
+| U7 | A1:A0, A9:A8 | D, X, video, PC / 00h, Y, video, PC |
+| U8 | A3:A2, A11:A10 | |
+| U9 | A5:A4, A13:A12 | |
+| U10 | A7:A6, A15:A14 | |
+
+### The other PLDs
+
+- **Sync PLD (rev 10)**: ADDR_SEL, ADDR_SEL_HI and ADDR_SEL_LO go, and
+  with them the PC_ENABLE, X_ENABLE and Y_ENABLE inputs: 6 pins and 3
+  cells free.  It takes over /WE (below): inputs CLK_E, RW and RUN, output
+  /WE (OE = RUN, as the memory control PLD's revision 09).  2 pins and 2
+  cells stay free.
+- **Memory control PLD (rev 10)**: /WE goes (pin 16 free).  Nothing else
+  changes; its address inputs now arrive at 13 ns instead of 20.5.
+- **I/O decode PLD (rev 05)**: /CE_HI is rebuilt from the selects as now,
+  but from PIXEL_ENABLE, PC_ENABLE and Y_ENABLE (three inputs for two), so
+  it settles with the mux outputs at 13 ns.  The RW input goes to pay for
+  it: `RD = IO & LOAD_IMM` is the same strobe, because LOAD_IMM is only
+  low in LOAD_IMM and LOAD_MEM, where RW is always 1 (MEM_WR needs EXEC).
+  /WE comes from the Sync PLD.  Still 22 pins.
+- **State, Branch, PC, IR**: unchanged.  PC_ENABLE now also drives the
+  four muxes and the I/O decode PLD; X_ENABLE the muxes; Y_ENABLE the
+  muxes and the I/O decode PLD.
+
+### The end of the write
+
+The Sync hop was also 3 ns of minimum delay that kept the address still
+until /WE had risen.  Without it the address, both chip selects and
+/CE_HI can all change 5 ns after the edge (tCO min 2 + tPD min 3), while
+/WE from a -7 PLD can take 7.5 ns to rise: **−2.5 ns**.  No DIP gate is
+fast enough either (a 74F32 is 6.6 ns max), and a register cannot make a
+mid-clock edge.  The one thing earlier than the clock edge is the clock
+before it reaches the CPU.
+
+So /WE is made from an **early tap of the clock**: the clock net runs
+from X1 to the Sync PLD's CLK_E input first, then through at least
+**420 mm of track (L = 2.5 ns at 6 ps/mm; aim for 500 mm, 3 ns)** before
+its first other load.  The Sync PLD makes
+
+    /WE = !CLK_E & !RW & !PIXEL_ENABLE,  OE = RUN
+
+on that early clock (its own registers stay on pin 1, the normal clock),
+so /WE rises L earlier than everything the normal clock moves.  Only /WE
+and the I/O write strobes (which follow it) move; the read enables stay in
+the memory control PLD on the normal clock, so the bus hand-overs in
+CPU.md are unchanged.  The lead has room both ways:
+
+| Check (times from the normal clock edge, L = 3) | Value | Slack |
 |---|---|---:|
-| Mux 1 | A2:A0 (4 sources), A8 (3 sources) | 22 |
-| Mux 2 | A5:A3, A9 | 22 |
-| Mux 3 | A7:A6, A11:A10 | 21 |
-| Mux 4 | A14:A12 | 15 |
-| Sync PLD | A15 = `PIXEL_ENABLE & H9 # !PIXEL_ENABLE & PC_ENABLE & PC15 # !PIXEL_ENABLE & !PC_ENABLE & Y_ENABLE & Y7` | 22 (was 22: loses ADDR_SEL x3 and X_ENABLE, gains PC15, Y7, H9, A15) |
-| I/O decode PLD | /CE_HI from A15 instead of rebuilding it from the selects | 18 (frees 4) |
+| Address hold after /WE high: /WE high by 7.5 − L = 4.5 vs address, /CE_LO, /CE_HI change at 5 min | | **+0.5** (+1.3 with the traces, and L is a trace too) |
+| Same after a store followed by a video read (PIXEL_ENABLE is a register on the normal clock) | | +0.5 |
+| Address and /CE_HI settled before /WE low: 13 (about 15 with traces) vs T/2 − L + 3 = 19.9 | | +4.9 |
+| RW settled before /WE can fall (the FETCH→EXEC glitch ends at IR 5.5 + State 7.5 = 13) | | +6.9 |
+| Write pulse: T/2 less the spread of the two edges | 15.4 | +5.4 |
+| Write data before the end of the write: source AC after FETCH 27.5 vs T − L + 3 − 8 = 31.7 | | +4.2 |
+| tAW 12: address 13 vs T − L + 3 = 39.7 | | +14.7 |
+| Data hold: source F541s off at T + 9.7 (traces) vs /WE high by T − L + 7.5 | | +5.2 |
+| Upper limit on L: /WE must not fall before the address and /CE_HI settle | L ≤ 7.9 | |
 
-Still four mux chips, but three different mux sources instead of one.
+### Timing
 
-| | Datasheet | Current board | Packed placement |
+| Path | Was | Now | Slack |
 |---|---:|---:|---:|
-| Fetch: 5.5 + 7.5 + 15 + 3.5 = 31.5 | **+8.2** | +4.5 | +6.5 |
-| X/Y read after FETCH: 5.5 + 7.5 + 15 + 2 | +9.7 | | |
-| Zero-page store, address 13 vs /WE low at 22.9 | +9.9 | +6 | +8 |
-| Upper 32K /CE_HI: A15 13 + 7.5 = 20.5 (unchanged) | +2.4 | | |
-| **Address hold after /WE**: address can change at T + 2 + 3 = 5 vs /WE high at T + 7.5 | **−2.5** | −0.7 | −1.5 |
+| Fetch: State 5.5 + mux 7.5 + tAA 15 + State setup 3.5 | 39.0 (+0.7) | 31.5 | **+8.2** (about +6.7 on the board as routed, +7.5 packed) |
+| X/Y-indexed read after FETCH: X_ENABLE 5.5 + 7.5 + 15 + 2 | 37.5 | 30.0 | +9.7 |
+| Video read: PIXEL_ENABLE 5.5 + 7.5 + 15 + 2 | 34.5 | 30.0 | +9.7 |
+| Upper 32K read: /CE_HI 13 + tACE 15 + 2 | 37.5 | 30.0 | +9.7 |
+| Zero-page store, address and /CE_HI before /WE low | +2.4 | 13 vs 19.9 | +6.9 |
+| Address hold after /WE (L = 3) | +0.5 | | +0.5 |
+| CPU read through /OE: max(13 + 7.5, clock fall + 7.5) + 7 + 2 | 37.0 | 37.0 | +2.7 |
 
-The last row is the catch: the Sync hop was also 3 ns of minimum delay
-that kept the address still until /WE had risen.  Without it the end of
-every write fails on paper.  Fixes for that row, either of which closes
-it:
+The fetch, the X/Y read, the video read, the upper-chip read and the
+zero-page store all come clear by 7 ns or more, enough to absorb the
+board's traces without a re-placement.  The end of the write is where it
+was, and now it rests on a measured track length instead of the chance
+order of the clock net.
 
-- **Memory control PLD as a -5 PLCC** (one part): /WE high by T + 5.0,
-  against the address at T + 5.0: 0.0 datasheet, +1.8 on the current
-  board (U11 gets the clock 0.7 ns before U1 and the address has 1.3 ns of
-  trace).  Keep U11 at the start of the clock net.
-- **Clock skew by routing**: the clock to U11 at least 2.5 ns (420 mm of
-  trace) shorter than to U1 and U15.  Free but fragile, and it costs every
-  path leaving U1 or U15 for another chip 2.5 ns.
+### Checks before building it
 
-With the -5 memory control PLD the end of a write before a video read is
-the same figure (PIXEL_ENABLE now goes straight to the muxes, tCO min 2 +
-mux 3 = 5).
+- `tb_cart_load` and the full-top GHDL run with the new Sync, memory
+  control, I/O decode and mux equations (the FPGA model's `full_mux` and
+  the I/O decode take the new selects).
+- The clock net: X1 → U15 CLK_E, then ≥ 420 mm (500 mm nominal) of track
+  before the next load; the rest of the tree as now.  The lead can be
+  anything from 2.5 to about 7 ns.
+- The RW drop in the I/O decode PLD: an I/O read in LOAD_MEM (a `ld d,
+  [0,X]` with X in the I/O window) reads the device as it does now.
 
-Cost: three mux PLD sources instead of one, Sync revision 10, I/O decode
-revision 05, memory control PLD as PLCC, a pin change on every mux (the
-board's mux wiring is redone), and one -5 part.  The gain is the biggest,
-and it also takes the X/Y read, the zero-page store and the fetch all well
-clear.
+### What it costs
+
+Mux revision 02 (new pin-out: the muxes' wiring on the board is redone),
+Sync revision 10, memory control revision 10, I/O decode revision 05, the
+clock tap, the FPGA model and the schematic generator.  No new parts, no
+PLCC, no extra clock.
 
 ## Recommendation
 
-Option A for the Sync PLD and four muxes is the smallest change and gives
-+5.7 ns on paper, enough with the packed placement (+3.5) and still
-positive on the board as routed.  Option B is worth more (+8.2) and fixes
-the store timing outright, but it rewires the muxes and needs the -5
-memory control PLD to keep the end of the write safe; it is the one to do
-if the board is being re-placed anyway.
-
-Both keep every PLD except the -5 parts as the ATF22V10C-7PX.
+Option B.  It needs no new part and takes every address path well clear;
+the one rule it adds is the length of the clock track between the Sync
+PLD's early tap and the rest of the board.  Option A stays here for
+reference; Justin ruled out PLCC parts on 2026-10-27.
