@@ -270,7 +270,7 @@ BYTES EMPTYS 0 ;
 \ input
 \ ------------------------------------------------------------
 : KEY? 0 {kbd_getc} SYS ;
-: KEY BEGIN POLL DROP KEY? ?DUP UNTIL ;
+: KEY BEGIN POLL DROP 0 {ps2_poll} SYS DROP KEY? ?DUP UNTIL ;
 : BACK
   CURCOL C@ IF CURCOL C@ 1- CURCOL C! EXIT THEN
   CURROW C@ IF CURROW C@ 1- CURROW C! 79 CURCOL C! THEN ;

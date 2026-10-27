@@ -1,11 +1,11 @@
 --------------------------------------------------------------------------------
 -- uart_ps2_kbd.vhd
--- Date: 10/26/2026
+-- Date: 10/27/2026
 --
 -- A PS/2 keyboard typed from a PC terminal (Basys 3 test platform only, not
 -- part of the Placard).  Characters arrive on the Basys 3's USB serial port
--- (115200 baud, 8 data bits, no parity, 1 stop bit), wait in a 256-character
--- FIFO and are sent as the scan code set 2 bytes of the key that types them
+-- (115200 baud, 8 data bits, no parity, 1 stop bit), wait in a 16K-character
+-- FIFO (block RAM) and are sent as the scan code set 2 bytes of the key that types them
 -- on the Placard (with Shift or Ctrl around it when needed), the way a
 -- PS/2 keyboard sends them: a byte only while the host leaves the clock
 -- free, 11 bits of about 80 us, and a byte cut off by the host is sent
@@ -16,9 +16,16 @@
 --   Enter (0D, or 0A not after 0D), Backspace (08 or 7F), Tab, Esc, Ctrl+A-Z
 --   (01-1A) and the arrow keys (ESC [ A/B/C/D) are typed too.  ESC alone is
 --   Esc once nothing follows it for about 20 ms.
---   Each key stays down 40 ms (two or three frames) before its break code
---   (and the Shift or Ctrl after it), so the driver sees the keys one at
---   a time, in order, with Shift still down: about 20 characters a second.
+--   Each key stays down 20 ms (a little over a frame) before its break
+--   code (and the Shift or Ctrl after it), so kbd_scan, once a frame, sees
+--   the keys one at a time, in order, with Shift still down: about 40
+--   characters a second to a program that takes the PS/2 bytes as they
+--   come (con_gets, BASIC's KEY), one byte per frame (3 for a plain key, 6
+--   for a shifted one) to one that only calls kbd_scan.
+--   Flow control: XOFF (13) goes to the PC when the FIFO is three quarters
+--   full and XON (11) when it is down to a quarter, so a terminal set to
+--   XON/XOFF can send (paste) at full speed with no delay per character.
+--   Each character is echoed back as it is typed (taken from the FIFO).
 --   hostHold = 1 while the host holds the clock low (it is also held to
 --   keep the keyboard quiet when it is not selected).
 --------------------------------------------------------------------------------
@@ -30,7 +37,8 @@ use ieee.numeric_std.all;
 entity uart_ps2_kbd is
     generic (
         CLK_HZ  : natural := 25000000;
-        BAUD    : natural := 115200
+        BAUD    : natural := 115200;
+        FIFO_BITS : natural := 14             -- 16K characters
     );
     port (
         clk         : in  std_logic;
@@ -54,7 +62,11 @@ architecture rtl of uart_ps2_kbd is
     constant LOW_CLKS  : natural := 40 * US;     -- clock low
     constant HIGH_CLKS : natural := 20 * US;     -- clock high after the edge
     constant ESC_CLKS  : natural := 20000 * US;  -- ESC alone after 20 ms
-    constant HOLD_CLKS : natural := 40000 * US;  -- the key stays down 40 ms
+    constant HOLD_CLKS : natural := 20000 * US;  -- the key stays down 20 ms
+    constant XOFF_AT   : natural := 3 * 2 ** (FIFO_BITS - 2);  -- characters waiting: XOFF
+    constant XON_AT    : natural := 2 ** (FIFO_BITS - 2);      -- and XON again
+    constant XON       : std_logic_vector(7 downto 0) := x"11";
+    constant XOFF      : std_logic_vector(7 downto 0) := x"13";
 
     -- the key of each character: bit 11 valid, 10 E0 key, 9 Ctrl, 8 Shift,
     -- 7:0 the set 2 code (made from kbd_map and ps2_set2 in the library)
@@ -87,18 +99,25 @@ architecture rtl of uart_ps2_kbd is
     signal rxValid     : std_logic := '0';
     signal rxByte      : std_logic_vector(7 downto 0) := (others => '0');
 
-    -- the echo
+    -- the echo and the flow control
     signal echoBusy    : std_logic := '0';
+    signal echoPend    : std_logic := '0';                      -- a character to echo
+    signal echoChar    : std_logic_vector(7 downto 0) := (others => '0');
+    signal flowPend    : std_logic := '0';                      -- XON or XOFF to send
+    signal flowChar    : std_logic_vector(7 downto 0) := (others => '0');
+    signal xoffSent    : std_logic := '0';                      -- 1 = the PC was sent XOFF
+    signal takenValid  : std_logic := '0';                      -- a character taken from the FIFO
+    signal takenChar   : std_logic_vector(7 downto 0) := (others => '0');
     signal echoCnt     : natural range 0 to BIT_CLKS := 0;
     signal echoBit     : natural range 0 to 9 := 0;
     signal echoShift   : std_logic_vector(9 downto 0) := (others => '1');
     signal rxToggleR   : std_logic := '0';
 
     -- character FIFO
-    type fifoType is array (0 to 255) of std_logic_vector(7 downto 0);
+    type fifoType is array (0 to 2 ** FIFO_BITS - 1) of std_logic_vector(7 downto 0);
     signal fifo        : fifoType;
-    signal wrPtr       : unsigned(7 downto 0) := (others => '0');
-    signal rdPtr       : unsigned(7 downto 0) := (others => '0');
+    signal wrPtr       : unsigned(FIFO_BITS - 1 downto 0) := (others => '0');
+    signal rdPtr       : unsigned(FIFO_BITS - 1 downto 0) := (others => '0');
     signal rdData      : std_logic_vector(7 downto 0) := (others => '0');
     signal rdWait      : natural range 0 to 2 := 0;
 
@@ -129,24 +148,43 @@ begin
     kbdDataLow <= dataLowR;
     txOut      <= echoShift(0);
     rxToggle   <= rxToggleR;
-    dbgTaken   <= std_logic_vector(rdPtr);
+    dbgTaken   <= std_logic_vector(resize(rdPtr, 8));
     dbgSent    <= std_logic_vector(sentCnt);
 
-    -- each character goes back to the terminal, so typing shows there too
-    -- and shows that the characters arrive (one dropped if two come while
-    -- one is being sent; the terminal sends no faster than the echo)
+    -- each character goes back to the terminal as it is typed, so typing
+    -- shows there too (LD5, rxToggle, shows each one arriving); XOFF and
+    -- XON go ahead of it.  The characters are typed at least 20 ms apart,
+    -- so one waiting echo is enough.
     echoProc : process (clk)
+        variable level : unsigned(FIFO_BITS - 1 downto 0);
     begin
         if rising_edge(clk) then
             if rxValid = '1' then
                 rxToggleR <= not rxToggleR;
             end if;
+            level := wrPtr - rdPtr;
+            if xoffSent = '0' and level >= XOFF_AT then
+                flowPend <= '1';
+                flowChar <= XOFF;
+                xoffSent <= '1';
+            elsif xoffSent = '1' and level <= XON_AT then
+                flowPend <= '1';
+                flowChar <= XON;
+                xoffSent <= '0';
+            end if;
             if echoBusy = '0' then
-                if rxValid = '1' then
-                    echoShift <= '1' & rxByte & '0';
+                if flowPend = '1' then
+                    echoShift <= '1' & flowChar & '0';
                     echoBusy  <= '1';
                     echoCnt   <= BIT_CLKS - 1;
                     echoBit   <= 0;
+                    flowPend  <= '0';
+                elsif echoPend = '1' then
+                    echoShift <= '1' & echoChar & '0';
+                    echoBusy  <= '1';
+                    echoCnt   <= BIT_CLKS - 1;
+                    echoBit   <= 0;
+                    echoPend  <= '0';
                 end if;
             elsif echoCnt /= 0 then
                 echoCnt <= echoCnt - 1;
@@ -158,6 +196,10 @@ begin
                 else
                     echoBit <= echoBit + 1;
                 end if;
+            end if;
+            if takenValid = '1' then
+                echoPend <= '1';
+                echoChar <= takenChar;
             end if;
         end if;
     end process echoProc;
@@ -212,6 +254,7 @@ begin
             -- character is the one at rdPtr): it is used two clocks after
             -- rdPtr points at it
             rdData <= fifo(to_integer(rdPtr));
+            takenValid <= '0';
 
             if txState = txWait and txCnt = 0 and seqIdx = seqLen and seqLen /= 0 then
                 seqLen <= 0;                            -- the key is done
@@ -231,6 +274,8 @@ begin
                     c := rdData;
                     rdPtr  <= rdPtr + 1;
                     rdWait <= 0;
+                    takenValid <= '1';
+                    takenChar  <= c;
                     if escState = 2 then
                         escState <= 0;                  -- ESC [ A-D: an arrow
                         case c is

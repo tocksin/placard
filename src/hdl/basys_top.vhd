@@ -976,7 +976,9 @@ begin
 
     -- A keyboard typed from a PC terminal (uart_ps2_kbd.vhd): with SW14
     -- (the keyboard socket), characters sent to the Basys 3's USB serial
-    -- port at 115200 baud, 8N1, come in as the keys that type them.  Its
+    -- port at 115200 baud, 8N1, with XON/XOFF flow control (set the
+    -- terminal to it to paste with no delay per character), come in as
+    -- the keys that type them, about 40 a second.  Its
     -- lines are wired-AND with the real PS/2 lines inside the FPGA, so the
     -- receiver PLD and the driver see one more keyboard; the Basys 3's
     -- own USB keyboard (the PIC24) still works alongside it.

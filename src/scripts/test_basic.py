@@ -22,6 +22,7 @@ Date: 10/27/2026
 
 import argparse
 import os
+import re
 import sys
 import time
 
@@ -339,6 +340,72 @@ def t_machine(b):
 
 SDCARD = os.path.join(HERE, '..', '..', 'sdcard')
 EXAMPLES = sorted(n for n in os.listdir(SDCARD) if n.endswith('.BAS'))
+
+
+# the PC-terminal keyboard of the Basys 3 (src/hdl/uart_ps2_kbd.vhd): each
+# character's key, from the VHDL's own table, sent one byte at a time with
+# the key held down HOLD_CLKS after its make code
+def uart_keys():
+    vhd = open(os.path.join(HERE, '..', 'hdl', 'uart_ps2_kbd.vhd')).read()
+    table = vhd[vhd.index('KEY_TABLE : keyTableType'):]
+    table = table[:table.index(');')]
+    keys = [int(k, 16) for k in re.findall(r'x"([0-9A-F]{3})"', table)]
+    hold = int(re.search(r'HOLD_CLKS *: natural := (\d+) \* US', vhd).group(1)) / 1000
+    return keys, hold
+
+
+def uart_type(b, text, keys, hold_ms):
+    """type text as the terminal keyboard does; the time it took, in ms"""
+    kbd, cpu = b.port.kbd, b.cpu
+    c0 = cpu.clocks
+    for ch in text:
+        k = keys[0x0D if ch == '\n' else ord(ch)]
+        code = k & 0xFF
+        seq = []
+        if k & 0x100:
+            seq.append(0x12)
+        if k & 0x200:
+            seq.append(0x14)
+        if k & 0x400:
+            seq.append(0xE0)
+        make = len(seq)
+        seq.append(code)
+        if k & 0x400:
+            seq.append(0xE0)
+        seq += [0xF0, code]
+        if k & 0x100:
+            seq += [0xF0, 0x12]
+        elif k & 0x200:
+            seq += [0xF0, 0x14]
+        for i, byte in enumerate(seq):
+            n = len(kbd.sent)
+            kbd.respond(byte)
+            while len(kbd.sent) == n:
+                for _ in range(200):
+                    cpu.step()
+                b.port._advance(cpu.clocks)
+            if i == make:
+                end = cpu.clocks + io_devices.us(hold_ms * 1000)
+                while cpu.clocks < end:
+                    cpu.step()
+    t = (cpu.clocks - c0) / io_devices.CPU_HZ * 1000
+    b.run(60)
+    return t
+
+
+@check
+def t_uart_kbd(b):
+    keys, hold = uart_keys()
+    b.cmd('CLS')
+    line = '? "Ab(1)*2",1+2:rem typed from the terminal'
+    ms = uart_type(b, line + '\n', keys, hold)
+    print('  terminal keyboard: %d characters in %.0f ms, %.1f ms each (hold %g ms)'
+          % (len(line) + 1, ms, ms / (len(line) + 1), hold))
+    s = b.screen()
+    expect(b, 'terminal keyboard', s[-3:], [line, 'Ab(1)*2   3', 'Ready'])
+    # typed on while BASIC is busy (a 0.3 s loop): the keys stay in order
+    uart_type(b, 'for i=1 to 300:next\n? 12+30,"Ab"\n', keys, hold)
+    expect(b, 'terminal keyboard, busy', b.screen()[-3:], ['? 12+30,"Ab"', '42        Ab', 'Ready'])
 
 
 def file_checks(rom, syms):
