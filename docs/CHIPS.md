@@ -18,15 +18,15 @@ DIP parts those documents chose; stock moves, so recheck before ordering.
 | 4 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Program counter, high byte: 8-bit loadable counter (`ATF22V10_PC_COUNTER8.pld`) |
 | 5 | ATF22V10C-7PX | PLD (22V10, 24-pin) | ALU, low nibble: 4-bit ALU with Z flag (`ALU_SHR.pld`) |
 | 6 | ATF22V10C-7PX | PLD (22V10, 24-pin) | ALU, high nibble: 4-bit ALU with Z flag, F3 is the sign (`ALU_SHR.pld`) |
-| 7 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 3:0: PC / D / X / video address (`ATF22V10_QUAD_MUX.pld`) |
-| 8 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 7:4 (`ATF22V10_QUAD_MUX.pld`) |
-| 9 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 11:8: PC / Y / zero page / video address (`ATF22V10_QUAD_MUX.pld`) |
-| 10 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 15:12 (`ATF22V10_QUAD_MUX.pld`) |
-| 11 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Memory control: /WE, /RAM_OE, /ROM_OE from the map; /ROM_OE only while RUN from the cartridge is high (revision 09, pin 17 is the RUN input; /WE floats while RUN is low so a slot-1 boot card can write the RAM) (`ATF22V10_MEM_CTRL.pld`) |
-| 12 | ATF22V10C-7PX | PLD (22V10, 24-pin) | I/O decode: upper 32K /CE_HI and the x5000-x53FF strobes (`ATF22V10_IO_DECODE.pld`) |
+| 7 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 1:0 and 9:8: PC / D / X / video address (low bits), PC / zero page / Y / video address (high bits); the selects are PIXEL_ENABLE, PC_ENABLE, X_ENABLE and Y_ENABLE themselves since revision 02, 2026-10-27 (`ATF22V10_QUAD_MUX.pld`, FETCH_TIMING.md) |
+| 8 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 3:2 and 11:10 (`ATF22V10_QUAD_MUX.pld`) |
+| 9 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 5:4 and 13:12 (`ATF22V10_QUAD_MUX.pld`) |
+| 10 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Address mux, bits 7:6 and 15:14 (`ATF22V10_QUAD_MUX.pld`) |
+| 11 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Memory control: /RAM_OE, /ROM_OE from the map; /ROM_OE only while RUN from the cartridge is high (revision 09, pin 17 is the RUN input).  /WE moved to the Sync PLD in revision 10 (2026-10-27); pin 16 is free (`ATF22V10_MEM_CTRL.pld`) |
+| 12 | ATF22V10C-7PX | PLD (22V10, 24-pin) | I/O decode: upper 32K /CE_HI (from PIXEL_ENABLE, PC_ENABLE, Y_ENABLE, H9, PC15, Y7 since revision 05) and the x5000-x53FF strobes (`ATF22V10_IO_DECODE.pld`) |
 | 13 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video H counter: H9:H3, HSYNC, horizontal active, blank line from mode byte bit 7 (`ATF22V10_HCOUNT.pld`) |
 | 14 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video V counter: V9:V0 (`ATF22V10_VCOUNT.pld`) |
-| 15 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video sync: H2:H0 (also the color decoder's pixel select), /VSYNC, VIDEN, PIXEL_ENABLE and address-mux selects (`ATF22V10_SYNC.pld`) |
+| 15 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Video sync: H2:H0 (also the color decoder's pixel select), /VSYNC, VIDEN, PIXEL_ENABLE, and since revision 10 (2026-10-27) the RAM /WE from the early clock tap CLK_E on pin 9 (the address-mux selects went to the muxes) (`ATF22V10_SYNC.pld`) |
 | 16 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Color decoder: pixel byte and line code to VGA RGB (`ATF22V10_COLORDECODER.pld`) |
 | 17 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Instruction register: loads the opcode on /LOAD_INSTR, holds 02h (`ld ac, ac`) while RUN is low so the CPU only walks the image while the cartridge loads (`ATF22V10_IR.pld`; was an SN74F377AN until 2026-10-21) |
 | 18 | SN74F377AN | Octal D flip-flop with enable | D register (immediate / memory operand) |
@@ -160,7 +160,7 @@ use ("Could be"); the slack at -7 is what the board has now.
 | 13 | H counter | H_TC to the V counter (both -10) | +23.2 | +19.7 | -10 |
 | 14 | V counter | V_VIDEO_ACTIVE.D: V tCO, Sync setup | +30.7 | +29.7 | -10 |
 | 16 | Color decoder | Pixel buffer 10.5, two levels, to the DAC (no register after it): settled 25.5 / 30.5 ns into a 39.7 ns pixel | | | -10 |
-| 1 | State | Opcode fetch: PC_ENABLE tCO, ADDR_SEL, mux, tAA, State setup | +0.7 | −1.3 | -7 |
+| 1 | State | Opcode fetch: PC_ENABLE tCO, ADDR_SEL, mux, tAA, State setup (+8.2 since the muxes take the selects directly, 2026-10-27, FETCH_TIMING.md; the rows below are as they were) | +0.7 | −1.3 | -7 |
 | 17 | Instruction register | Same opcode fetch, into the IR (tS 3.5) | +0.7 | −1.3 | -7 |
 | 15 | Sync | Same fetch path (ADDR_SEL) | +0.7 | −1.8 | -7 |
 | 7-10 | Address mux | Same fetch path | +0.7 | −1.8 | -7 |

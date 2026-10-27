@@ -1,7 +1,12 @@
 -- ============================================================
--- MEMORY READ AND WRITE STROBES
--- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 08)
--- Date: 10/20/2026
+-- MEMORY READ ENABLES
+-- VHDL conversion of ATF22V10_MEM_CTRL.pld (revision 10)
+-- Date: 10/27/2026
+--
+-- Revision 10: /WE is gone (pin 16 free).  The Sync PLD (revision 10)
+-- makes it from an early clock tap, CLK_E, so it is back high before
+-- the address can change now that the address muxes take their
+-- selects directly (docs/FETCH_TIMING.md, option B).
 --
 -- Replaces the '32 OR gate (/WE = RW or CLK) and the read enables
 -- of ROM/RAM select revision 03.  Every memory bus cycle uses the
@@ -39,7 +44,7 @@
 --     write  = not rw and not pixelEnable
 --     cpuRead   = rw and not pixelEnable and srcEnN
 --     videoRead = pixelEnable
---     weN    = low while clk = 0 and a write
+--     weN    = low while clk = 0 and a write   (Sync PLD since revision 10)
 --     romOeN = low while clk = 0, run = 1 and a CPU read of a ROM section
 --     ramOeN = low while clk = 0 and a CPU read of a RAM section,
 --              or a video read
@@ -58,7 +63,7 @@
 --   6  ramsel0     7  ramsel1    8  ramsel3    9  ramsel4  10  ramsel5
 --  11  ramsel6    13  ramsel7   14  rw        15  ramsel2
 --  20  a11        21  a10       23  pixelEnable
---  16  weN        17  run       18  ramOeN    19  romOeN
+--  16  free       17  run       18  ramOeN    19  romOeN
 --  22  srcEnN
 -- ============================================================
 
@@ -87,7 +92,6 @@ entity mem_ctrl_pld is
         srcEnN      : in  std_logic;   -- pin 22, branch PLD pin 16, 0 = source F541s drive the bus (revision 07)
         run         : in  std_logic;   -- pin 17, ROM cartridge, 0 = loading (revision 08)
 
-        weN         : out std_logic;   -- pin 16, RAM /WE
         romOeN      : out std_logic;   -- pin 19, ROM /OE
         ramOeN      : out std_logic    -- pin 18, RAM /OE
     );
@@ -108,7 +112,6 @@ architecture rtl of mem_ctrl_pld is
     signal cpuRead   : std_logic;
     signal videoRead : std_logic;
     signal romRead   : std_logic;
-    signal we      : std_logic;
     signal romOe   : std_logic;
     signal ramOe   : std_logic;
 
@@ -133,8 +136,6 @@ begin
     -- ---------------- equations ----------------
 
     romRead <= cpuRead and run;
-
-    we <= (not clk) and (not rw) and (not pixelEnable);
 
     romOe <= (sec0 and (not ramsel0) and romRead)
           or (sec1 and (not ramsel1) and romRead)
@@ -164,7 +165,6 @@ begin
           or (a11 and videoRead)
           or (a10 and videoRead);
 
-    weN    <= not we;
     romOeN <= not romOe;
     ramOeN <= not ramOe;
 

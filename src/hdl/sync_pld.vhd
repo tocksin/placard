@@ -1,15 +1,15 @@
 --------------------------------------------------------------------------------
 -- Name     VGA_SYNC
 -- PartNo   01
--- Date     2026-10-25
--- Revision 09
+-- Date     2026-10-27
+-- Revision 10
 -- Designer Justin
 -- Company
 -- Assembly
 -- Location
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 09)
+-- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 10)
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP/SOIC; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = CLK
@@ -20,9 +20,9 @@
 --   PIN 6  = V2
 --   PIN 7  = V1
 --   PIN 8  = H_VIDEO_ACTIVE
---   PIN 9  = PC_ENABLE
---   PIN 10 = Y_ENABLE
---   PIN 11 = X_ENABLE
+--   PIN 9  = CLK_E             (early clock tap, revision 10; was PC_ENABLE)
+--   PIN 10 = RW                (revision 10; was Y_ENABLE)
+--   PIN 11 = RUN               (revision 10; was X_ENABLE)
 --   PIN 13 = BLANK_RD
 --
 --   PIN 14 = H0                (registered output)
@@ -31,9 +31,8 @@
 --   PIN 17 = VIDEN             (registered output; VIDEO_ACTIVE before revision 08)
 --   PIN 18 = VSYNC             (combinatorial output, ACTIVE LOW)
 --   PIN 19 = PIXEL_ENABLE      (registered output)
---   PIN 20 = ADDR_SEL          (combinatorial output)
---   PIN 21 = ADDR_SEL_HI       (combinatorial output)
---   PIN 22 = ADDR_SEL_LO       (combinatorial output)
+--   PIN 20 = /WE               (combinatorial output, ACTIVE LOW, OE = RUN; revision 10, was ADDR_SEL)
+--   PIN 21, 22 free            (revision 10; were ADDR_SEL_HI and ADDR_SEL_LO)
 --   PIN 23 = V_VIDEO_ACTIVE    (registered output)
 --------------------------------------------------------------------------------
 
@@ -63,10 +62,12 @@ entity sync_pld is
         -- Horizontal active-video indication
         H_VIDEO_ACTIVE   : in  std_logic;   -- PIN 8
 
-        -- Address-source enables
-        PC_ENABLE        : in  std_logic;   -- PIN 9
-        Y_ENABLE         : in  std_logic;   -- PIN 10
-        X_ENABLE         : in  std_logic;   -- PIN 11
+        -- RAM write strobe inputs (revision 10; pins 9-11 were the
+        -- PC_ENABLE, Y_ENABLE and X_ENABLE inputs of the address mux
+        -- control, which went to the mux PLDs themselves)
+        CLK_E            : in  std_logic;   -- PIN 9, early clock tap (the same clock in the FPGA model)
+        RW               : in  std_logic;   -- PIN 10, State PLD pin 23, 0 = store
+        RUN              : in  std_logic;   -- PIN 11, ROM cartridge, 0 = loading
 
         -- Blanking read slot, from the audio slot PLD (revision 06; named
         -- AUD_SLOT before revision 07).  High for the whole 8-clock group
@@ -88,9 +89,7 @@ entity sync_pld is
 
         PIXEL_ENABLE     : out std_logic;   -- PIN 19
 
-        ADDR_SEL         : out std_logic;   -- PIN 20
-        ADDR_SEL_HI      : out std_logic;   -- PIN 21
-        ADDR_SEL_LO      : out std_logic;   -- PIN 22
+        WE_N             : out std_logic;   -- PIN 20  (active low; floats while RUN = 0 on the real part)
 
         -- Vertical active-region state (registered).
         -- Needed internally by VIDEN, PIXEL_ENABLE and VSYNC.
@@ -102,9 +101,9 @@ entity sync_pld is
     attribute pin_numbers : string;
     attribute pin_numbers of sync_pld : entity is
         "CLK:1 V9:2 V5:3 V4:4 V3:5 V2:6 V1:7 H_VIDEO_ACTIVE:8 " &
-        "PC_ENABLE:9 Y_ENABLE:10 X_ENABLE:11 BLANK_RD:13 " &
+        "CLK_E:9 RW:10 RUN:11 BLANK_RD:13 " &
         "H0:14 H1:15 H2:16 VIDEN:17 VSYNC:18 PIXEL_ENABLE:19 " &
-        "ADDR_SEL:20 ADDR_SEL_HI:21 ADDR_SEL_LO:22 V_VIDEO_ACTIVE:23";
+        "WE_N:20 V_VIDEO_ACTIVE:23";
 end entity sync_pld;
 
 
@@ -234,9 +233,10 @@ begin
     -- of the group and is high in the second one, where the byte is
     -- read.  Since revision 08 those are H2:H0 = 110 and 111 (000 and
     -- 001 before).  Being registered,
-    -- it reaches ADDR_SEL through the register feedback (tCF) and the
-    -- State, PC and Branch PLDs at tCO, instead of three array passes
-    -- after the clock (see docs/VIDEO_TIMING.md).
+    -- it reaches the address mux PLDs (their select since revision 10,
+    -- ADDR_SEL before) and the State, PC and Branch PLDs at tCO,
+    -- instead of three array passes after the clock (see
+    -- docs/VIDEO_TIMING.md).
     --
     -- It is decoded from the V_VIDEO_ACTIVE register and the
     -- H_VIDEO_ACTIVE input, so it is one array pass.
@@ -297,77 +297,33 @@ begin
 
 
     -- ============================================================
-    -- ADDRESS MUX CONTROL
+    -- RAM WRITE STROBE (revision 10)
     -- ============================================================
 
     --
-    -- Four-way address selection:
+    -- Revision 10 (docs/FETCH_TIMING.md, option B): the address mux
+    -- control (ADDR_SEL, ADDR_SEL_HI, ADDR_SEL_LO) is gone; the four
+    -- mux PLDs (quad_4to1_mux revision 02) take PIXEL_ENABLE and the
+    -- State PLD's enables as their selects directly.
     --
-    --     S1 S0
-    --     -----
-    --      00   Default
-    --      01   X/Y register
-    --      10   Video address
-    --      11   Program counter
+    -- This PLD takes over the RAM write strobe from the memory control
+    -- PLD (same equation, revision 09 there), but from CLK_E, an early
+    -- tap of the clock: the clock net runs from the oscillator to this
+    -- pin first, then through about 500 mm of track (3 ns) before any
+    -- other load, pin 1 included.  So /WE is back high before the
+    -- address or a chip enable can change (docs/WE_TIMING.md).  In the
+    -- FPGA model CLK_E is the same clock as CLK.
     --
-    -- Priority (highest first):
+    --     /WE low while CLK_E = 0, RW = 0 and PIXEL_ENABLE = 0
     --
-    --     1. Video address    PIXEL_ENABLE            -> 10
-    --     2. Program counter  PC_ENABLE              -> 11
-    --     3. X / Y registers  X_ENABLE, Y_ENABLE     -> 01
-    --     4. Default                                 -> 00
-    --
-    -- PIXEL_ENABLE overrides PC_ENABLE, X_ENABLE and Y_ENABLE.
-    -- PC_ENABLE overrides X_ENABLE and Y_ENABLE.
-    --
-
-
-    --
-    -- Shared S1 input to ALL FOUR 4:1 muxes.
-    --
-    -- Video is selected only during PIXEL_ENABLE.
-    -- PC is selected whenever PC_ENABLE is active.
+    -- The output enable term is RUN (WE.OE = RUN): the pin floats while
+    -- RUN is low so a slot-1 boot card can drive /WE.  As in the memory
+    -- control model before, the FPGA model does not model the float; it
+    -- drives the equation, which is high while RUN is low anyway (the
+    -- IR holds 02h, which writes nothing).
     --
 
-    ADDR_SEL <=
-          PIXEL_ENABLE_Q
-       or PC_ENABLE;
-
-
-    --
-    -- Upper-byte S0.
-    --
-    --     S1 S0
-    --     00 = 00h
-    --     01 = Y register
-    --     10 = Video address
-    --     11 = PC
-    --
-    -- S0 is forced low during PIXEL_ENABLE so that S1 S0 = 10
-    -- (video) regardless of PC_ENABLE and Y_ENABLE.
-    --
-
-    ADDR_SEL_HI <=
-          (not PIXEL_ENABLE_Q)
-      and (PC_ENABLE or Y_ENABLE);
-
-
-    --
-    -- Lower-byte S0.
-    --
-    --     S1 S0
-    --     00 = D register
-    --     01 = X register
-    --     10 = Video address
-    --     11 = PC
-    --
-    -- S0 is forced low during PIXEL_ENABLE so that S1 S0 = 10
-    -- (video) regardless of PC_ENABLE and X_ENABLE.
-    --
-
-    ADDR_SEL_LO <=
-          (not PIXEL_ENABLE_Q)
-      and (PC_ENABLE or X_ENABLE);
+    WE_N <= not ((not CLK_E) and (not RW) and (not PIXEL_ENABLE_Q));
 
 
     -- ============================================================
