@@ -2,7 +2,7 @@
 
 Date: 2026-10-27
 
-This is a concept for the PLACARD case. The case is brushed, anodized
+This is a concept for the PLACARD case. The case is black powder-coated
 aluminium, strong on the bottom and sides, with a clear acrylic top so the
 board shows through. Each expansion slot (J9-J12) and the cartridge slot (J8)
 has its own removable acrylic cover, held on by magnets. A cover that is out
@@ -26,7 +26,7 @@ went with it.
 
 ![Assembled with a 32K cartridge and two cards; their covers are parked underneath](case_assembled.png)
 
-![Every cover fitted, all silver](case_assembled_silver.png)
+![Every cover fitted](case_assembled_right.png)
 
 ![Underside: all five covers parked on the steel discs, 10 mm feet, vent slots](case_underside.png)
 
@@ -58,8 +58,8 @@ lying on the walls, clears it by 2 mm. The feet are as tall as a parked cover (7
 
 | Part | Qty | Material and finish | Made by |
 |---|--:|---|---|
-| Tray | 1 | 2.0 mm 5052-H32 aluminium, two bends: the floor with the front wall and the right wall (SNES cut-outs) up to the acrylic, with vent slots, 10 holes for the steel parking discs and 6 countersunk holes for the plate screws. Brushed before bending, clear (or black) anodized after | Sheet metal service: laser cut, bend, PEM insert, finish |
-| Back plate | 1 | 2.0 mm 5052-H32, flat with a 6 mm flange bent in along the bottom: USB-C, audio, VGA and PS/2 cut-outs, 3 PEM nuts (M3) in the flange, the flange notched round J7's pins | Same |
+| Tray | 1 | 2.0 mm 5052-H32 aluminium, two bends: the floor with the front wall and the right wall (SNES cut-outs) up to the acrylic, with vent slots, 10 holes for the steel parking discs and 6 countersunk holes for the plate screws. Black powder coat | Sheet metal service: laser cut, bend, PEM insert, powder coat |
+| Back plate | 1 | 2.0 mm 5052-H32, flat with a 6 mm flange bent in along the bottom: USB-C, audio, VGA and PS/2 cut-outs, an M3 screw hole behind each expansion slot (J9-J12), 3 PEM nuts (M3) in the flange, the flange notched round J7's pins | Same |
 | Left plate | 1 | Same: power switch, reset and SD cut-outs, 3 PEM nuts | Same |
 | Acrylic top | 1 | 4 mm clear cast acrylic, 295 x 220 mm, laser cut, with 10 magnet holes | Laser cutting service |
 | Slot cover | 4 | 4 mm acrylic plug + 3 mm acrylic cap, solvent welded (Weld-On 4) | Laser cutting service; the builder or kitter welds them |
@@ -70,13 +70,14 @@ lying on the walls, clears it by 2 mm. The feet are as tall as a parked cover (7
 | M3 male-female hex standoff, 27 mm | 8 | Board top to the acrylic top at H1-H8; its thread goes through the board into the floor standoff | Ettinger and others sell 1 mm steps; or 25 mm + a 2 mm spacer |
 | M3 x 8 button head screw, black or stainless | 8 | Acrylic top | |
 | M3 x 6 countersunk screw | 6 | Up through the floor into the plates' flanges, flush under the case | |
+| M3 x 6 button head screw, black | 4 | Through the back plate into each expansion card's shell (one per card fitted) | |
 | Rubber feet, 16 mm across, 10 mm tall, self-adhesive | 4 | 24 mm in from each corner, clear of the corner standoffs and the parked covers | |
 
 The VGA connector's 4-40 jackscrews pass through the back plate and hold it
 to J7 as well.
 
-The plates can be anodized a contrasting colour (black plates on a brushed
-silver tray in most renders here), so the joins look intentional.
+All three metal parts are powder coated the same stock black, the cheapest
+finish (Justin, 2026-10-27). There is no printing or engraving on the case.
 
 STEP models of every part are in `case/`. DXF cutting files for the flat
 parts (the acrylic top and both layers of each cover) are in `case/dxf/`.
@@ -86,8 +87,8 @@ program unfolds from the STEP.
 
 ## How it goes together
 
-1. The sheet metal service presses in the floor standoffs, and, if asked,
-   the steel discs.
+1. The sheet metal service powder coats the tray and plates, masking the PEM
+   threads, and presses in the floor standoffs and, if asked, the steel discs.
 2. Lower the board straight down into the tray. The SNES ports only touch
    the right wall's inside face, so nothing has to be threaded through a
    hole.
@@ -102,6 +103,8 @@ program unfolds from the STEP.
 6. Lay the acrylic top on and fit its eight screws into the standoffs. It
    lies on all four walls and holds the plates' tops.
 7. Stick the four feet on, then fit the VGA jackscrews and the covers.
+8. Fit each expansion card, then one M3 screw through the back plate into
+   its shell ("Expansion card screws" below).
 
 To open it, take out the top's eight screws and lift the top off. The board
 comes out once the six plate screws are out and the plates are slid off.
@@ -128,6 +131,25 @@ drops in past them. The back and left walls are flat plates that slide on
 afterwards. Each plate is one flat laser-cut part with one bend, so its holes
 are accurate to about 0.1 mm. If a connector moves, only that plate changes,
 not the bent tray.
+
+## Expansion card screws
+
+The back plate has an M3 clearance hole (3.4 mm) behind each expansion slot,
+15 mm above the board and centred on the slot's shell keepout, like the
+screw on a PC card's bracket. A card that carries its own connector is held
+by it, so plugging and unplugging a cable can't rock the card in its slot.
+
+- The card's shell needs an M3 heat-set insert in its back end at that spot,
+  standing 1 mm proud so it meets the plate's inside face (the keepout leaves
+  1 mm between the shell and the plate).
+- The hole is 4.45 mm from the card's plane, on side A, and 12 to 20 mm above
+  the main board, so a card keeps its parts clear of the insert at that
+  corner.
+- The card's own connector has to sit above the case top (31 mm), where the
+  back plate stops.
+- The screw holds the shell and the shell holds the card at H1, so a card
+  and its shell come out together once the screw is out. Take the card
+  screws out before sliding the back plate off.
 
 ![The back and left plates slid out](case_plates.png)
 
@@ -207,14 +229,17 @@ makers' STEP files, before ordering metal.
   openings. The 10 mm feet leave a clear air gap under the floor. Check the
   temperature with the top on during bring-up.
 - **Finish.**
-  - Clear anodize keeps the brushed look; black anodize costs the same.
+  - Black powder coat, in a stock color, is the cheapest finish the sheet
+    metal services offer (anodize and printing cost more). It is about
+    0.08 mm thick; the cut-outs allow for it. The PEM threads and the plate
+    screw countersinks are masked.
+  - Powder coat insulates, so the case isn't grounded through the
+    standoffs. Nothing needs it to be.
   - 5052 is the usual alloy for bent parts (6061 cracks on tight bends).
   - The tray's one bent corner (front right) has a small open gap (bend
     relief, about 0.5-1 mm). Welding and grinding closes it at extra cost.
     The other three corners are where the plates butt against the tray and
     each other.
-
-![Black anodized](case_black.png)
 
 ![Left side](case_side.png)
 
@@ -225,18 +250,20 @@ tariffs (35 % is assumed elsewhere for China-made parts), from typical 2026
 vendor pricing. **No quotes were requested**, so treat each number as plus or
 minus 40 % until the STEP and DXF files are uploaded to a quoting site. The
 metal is now one bent tray and two flat plates with one bend each (the split
-shells of 2026-10-25 were two bent parts with a stepped seam).
+shells of 2026-10-25 were two bent parts with a stepped seam). The metal
+lines assume black powder coat with no brushing, about 8 % below the
+brushed and anodized parts priced before 2026-10-27.
 
 | Item | 1 | 10 | 100 | 1,000 |
 |---|--:|--:|--:|--:|
-| Tray + back and left plates, 5052, brushed, anodized, PEM inserts (US: SendCutSend, Protocase) | $150-250 | $95-160 | $51-88 | - |
-| Same, China (JLCCNC, PCBWay sheet metal) | $80-130 | $50-85 | $30-50 | $21-35 |
+| Tray + back and left plates, 5052, black powder coat, PEM inserts (US: SendCutSend, Protocase) | $140-230 | $88-148 | $47-81 | - |
+| Same, China (JLCCNC, PCBWay sheet metal) | $74-120 | $46-78 | $28-46 | $19-32 |
 | Welded and ground front-right corner of the tray | +$15-30 | +$10-20 | +$5-15 | +$4-10 |
 | Acrylic: top, 4 slot covers, cartridge cover (cut; welding by hand) | $45-70 | $26-40 | $11-19 | $6-11 |
 | 20 N52 magnets 6 x 3 mm + 10 steel discs 6 x 2 mm | $5-7 | $4-6 | $2-4 | $1-2 |
 | Hardware: standoffs, screws, 10 mm feet | $11-15 | $9-12 | $6-8 | $4-6 |
-| **Case, China sheet metal, open corner** | **$140-220** | **$90-145** | **$49-80** | **$32-54** |
-| **Case, US sheet metal, open corner** | **$210-340** | **$135-220** | **$70-120** | - |
+| **Case, China sheet metal, open corner** | **$134-210** | **$86-138** | **$47-76** | **$30-51** |
+| **Case, US sheet metal, open corner** | **$200-320** | **$128-208** | **$66-113** | - |
 
 At 100 units that's about two to three times the $30 acrylic sandwich that
 `KIT_PRICING.md` assumes. The complete kit's case line would go up by
@@ -246,8 +273,7 @@ Weight: about 0.65 kg of aluminium and 0.3 kg of acrylic.
 
 ## Not decided
 
-- Clear or black anodize, matching or contrasting plates, and an open or
-  welded tray corner.
+- An open or welded tray corner.
 - Whether the stacked PS/2 stays. It sets the case's height.
 - Steel discs or magnets in the floor.
 
