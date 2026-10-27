@@ -24,8 +24,7 @@
    "slot_cover_2",
    "cart_cover"
   ],
-  "fov": 26,
-  "plate": 2895411
+  "fov": 26
  },
  "underside": {
   "cam": [
@@ -54,8 +53,7 @@
    "slot_cover_4",
    "cart_cover"
   ],
-  "aluEdges": true,
-  "plate": 2895411
+  "aluEdges": true
  },
  "exploded": {
   "cam": [
@@ -84,8 +82,7 @@
    "board": 45,
    "top": 120,
    "covers": 160
-  },
-  "plate": 2895411
+  }
  },
  "side": {
   "cam": [
@@ -129,53 +126,7 @@
    4
   ],
   "cartCover": true,
-  "aluEdges": true,
-  "plate": 2895411
- },
- "black": {
-  "cam": [
-   -260,
-   -330,
-   300
-  ],
-  "look": [
-   147.5,
-   115,
-   0
-  ],
-  "covers": [
-   1,
-   2,
-   3,
-   4
-  ],
-  "cartCover": false,
-  "cart": true,
-  "alu": 2894892,
-  "bg": 15659248,
-  "parked": [
-   "cart_cover"
-  ],
-  "fov": 26
- },
- "assembled_silver": {
-  "cam": [
-   560,
-   -300,
-   290
-  ],
-  "look": [
-   147.5,
-   115,
-   0
-  ],
-  "covers": [
-   1,
-   2,
-   3,
-   4
-  ],
-  "cartCover": true
+  "aluEdges": true
  },
  "plates": {
   "cam": [
@@ -197,10 +148,28 @@
   ],
   "cartCover": true,
   "aluEdges": true,
-  "plate": 2895411,
   "explode": {
    "back": 60,
    "left": 60
   }
+ },
+ "assembled_right": {
+  "cam": [
+   560,
+   -300,
+   290
+  ],
+  "look": [
+   147.5,
+   115,
+   0
+  ],
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true
  }
 }

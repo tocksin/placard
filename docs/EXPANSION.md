@@ -1,6 +1,6 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-10-26
+Date: 2026-10-27
 
 The Placard has four expansion slots, each a 2 x 20, 0.1" (2.54 mm)
 pitch card-edge socket, and one ROM cartridge slot, a keyed 2 x 32,
@@ -395,6 +395,12 @@ neighbouring shells collide, and 1.0" (25.4 mm) is 0.4 mm short.  Use
 1.05" (26.67 mm) or more (Justin, 2026-10-23: a wider pitch is fine).  A
 card that reaches the board's back edge for its own connector needs that strip kept clear too; the keepout
 covers only the shell over the slot.
+
+**Card screw.**  The case's back plate has an M3 hole behind each slot,
+15 mm above the main board and centred on the keepout (4.45 mm from the
+card's plane, on side A).  A card shell carries an M3 heat-set insert in its
+back end there, standing 1 mm proud to meet the plate, so a cable plugged
+into the card can't rock it (CASE.md, "Expansion card screws").
 
 ## To check
 

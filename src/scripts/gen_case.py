@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-gen_case.py - the PLACARD case concept: a brushed, anodized aluminium tray
+gen_case.py - the PLACARD case concept: a black powder-coated aluminium tray
 (floor, front and right walls) with flat plates for the back and left walls,
 which carry the connectors that reach through them, a clear acrylic top over
 the whole case, and one removable acrylic
@@ -21,9 +21,9 @@ Parts (STEP in case/, DXF cutting files for the flat parts in case/dxf/):
 
 | File | Part | Material |
 |---|---|---|
-| tray | floor, front wall, right wall (SNES cut-outs), steel parking discs | 2.0 mm 5052 aluminium, bent, brushed, clear or black anodized |
-| back_plate | back wall: USB-C, audio, VGA, PS/2 cut-outs; bottom flange | 2.0 mm 5052, one bend, anodized |
-| left_plate | left wall: power, reset, SD cut-outs; bottom flange | 2.0 mm 5052, one bend, anodized |
+| tray | floor, front wall, right wall (SNES cut-outs), steel parking discs | 2.0 mm 5052 aluminium, bent, black powder coat |
+| back_plate | back wall: USB-C, audio, VGA, PS/2 cut-outs, expansion card screws; bottom flange | 2.0 mm 5052, one bend, powder coat |
+| left_plate | left wall: power, reset, SD cut-outs; bottom flange | 2.0 mm 5052, one bend, powder coat |
 | acrylic_top | over the board, slot and cartridge openings, magnets | 4 mm clear cast acrylic, laser cut |
 | slot_cover | one per expansion slot (4 alike), plug + cap with two magnets | 4 mm + 3 mm acrylic, solvent welded |
 | cart_cover | cartridge slot cover, plug + cap with two magnets | 4 mm + 3 mm acrylic |
@@ -95,6 +95,7 @@ SLOTS = ["J9", "J10", "J11", "J12"]
 CART = "J8"
 LIP = 8.0              # cover cap overlap on the acrylic (room for the magnets)
 MAG_D, MAG_T = 6.0, 3.0     # N52 disc magnets, in 6.1 mm holes; the caps' go through, flush both faces
+CARD_SCREW_Z = 15.0    # M3 screw through the back plate into each expansion card's shell (a heat-set insert in its end)
 
 
 # ---------------------------------------------------------------- board file
@@ -331,6 +332,15 @@ def plate_screws():
             [(xl, y) for y in (40.0, 75.0, D - 40.0)])         # clear of H7 at mid-depth
 
 
+def card_screws(parts):
+    """(x, z) of the M3 clearance holes in the back plate, one per expansion slot,
+    centred on the slot's shell keepout, CARD_SCREW_Z above the board.  The screw
+    goes into a heat-set insert in the card shell's back end, so plugging and
+    unplugging a card's own connector can't rock it in its slot."""
+    bay, cart, slot_x = openings(parts)
+    return [((x0 + x1) / 2, CARD_SCREW_Z) for x0, x1 in slot_x]
+
+
 def flange_notches(parts):
     """Boxes (x0, x1, y0, y1) cut from the plates' flanges where a part reaches
     down near them under the board (J7's pins and board locks, 0.2 mm above the
@@ -366,6 +376,9 @@ def plate(parts, cuts, side):
         s = s.cut(rounded_plate(x0, x1, y0, y1, z0 + T - 0.01, T + 0.02))
     for x, y in plate_screws():
         s = s.cut(hole(x, y, 2.5, z0))
+    if side == "back":
+        for x, z in card_screws(parts):
+            s = s.cut(cq.Workplane("XZ").center(x, z).circle(1.7).extrude(-10).translate((0, D - T - 1, 0)))
     return s
 
 
@@ -637,6 +650,10 @@ def draw_walls(info, path):
                 ax.add_patch(patch)
             ax.text(s * cu["u"], za + 4, cu["ref"], ha="center", va="bottom", fontsize=9)
             ax.text(s * cu["u"], desk - 2, "z %.1f" % cu["z"], ha="center", va="top", fontsize=7, color="#c33")
+        if side == "back":
+            for i, (u, z) in enumerate(info["card_screws"]):
+                ax.add_patch(Circle((s * u, z), 1.7, fc="white", ec="#222", lw=0.9))
+                ax.text(s * u, z + 3, "J%d" % (9 + i), ha="center", va="bottom", fontsize=7)
         ax.text(s * (p0 + p1) / 2, zf + 3, "tray" if tray else side + " plate", ha="center", fontsize=9,
                 color="#222" if tray else "white")
         ax.set_xlim(min(0, s * L) - 22, max(0, s * L) + 22)
@@ -739,7 +756,7 @@ def build(pcb, out, mesh=None, drawings=None):
     covers_all = ["slot_cover_%d" % (i + 1) for i in range(len(slot_x))] + ["cart_cover"]
     parked_solids = {n: parked(solids[n]) for n in covers_all}
     info = dict(W=W, D=D, LIP=LIP, T=T, OFF=OFF, BOARD_D=BOARD_D, Y_BF=Y_BF, Z_FLOOR=Z_FLOOR, Z_DESK=Z_DESK,
-                Z_TOP=Z_TOP, PLATE_FLANGE=PLATE_FLANGE, plate_screws=plate_screws(), ACRYLIC=ACRYLIC, CAP=CAP, FEET=FEET, FOOT_D=FOOT_D,
+                Z_TOP=Z_TOP, PLATE_FLANGE=PLATE_FLANGE, plate_screws=plate_screws(), card_screws=card_screws(parts), ACRYLIC=ACRYLIC, CAP=CAP, FEET=FEET, FOOT_D=FOOT_D,
                 bay=bay, cart=cart, slot_x=slot_x, magnets=slot_magnets(parts),
                 parked=parked_boxes(parts), feet=feet(), vents=vents(parts),
                 slot_cover=slot_cover_size(parts), cart_cover=cart_cover_size(parts),
