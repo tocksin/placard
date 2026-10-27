@@ -82,8 +82,12 @@ if (!V.hide?.includes('board')) {
   await stl('standoffs', mat(0xd4c08a, 0.9, 0.3), dzb);
 }
 // ---- cases
-if (!V.hide?.includes('lower')) await stl('lower_shell', alu, ez('lower'), V.aluEdges ? 'alu' : false);
-if (!V.hide?.includes('upper')) await stl('upper_shell', alu, ez('upper'), V.aluEdges ? 'alu' : false);
+// tray, and the back and left plates (V.plate: their colour; explode.back / .left slide them out)
+const plateMat = V.plate ? new THREE.MeshStandardMaterial({color: V.plate, metalness: 0.55, roughness: 0.5}) : alu;
+const ae = V.aluEdges ? 'alu' : false;
+if (!V.hide?.includes('tray')) await stl('tray', alu, ez('lower'), ae);
+if (!V.hide?.includes('back')) await stl('back_plate', plateMat, ez('lower'), ae, [0, ez('back'), 0]);
+if (!V.hide?.includes('left')) await stl('left_plate', plateMat, ez('lower'), ae, [-ez('left'), 0, 0]);
 if (!V.hide?.includes('top')) await stl('acrylic_top', acr, ez('top'), true);
 await stl('feet', mat(0x1e1e1e, 0.0, 0.9), ez('lower'));
 await stl('parking_discs', mat(0x6d7178, 0.8, 0.35), ez('lower'));
