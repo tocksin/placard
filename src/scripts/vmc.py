@@ -41,10 +41,16 @@ Branches are 8-bit relative (BR, 0BR) where the target is close and 16-bit
 absolute (LBR, L0BR) otherwise.  LIT8 n followed by @, !, C@ or C! becomes
 ZP@ n, ZP! n, ZPC@ n, ZPC! n.
 
+Calls are cut where it pays (Compiler.calls): a word of at most two
+primitives, or one number (TRUE), is copied in place of its calls; a call
+just before EXIT (or a BR to it) becomes LBR to the word (a tail call, no
+return stack); a branch to a BR goes to that BR's target; a BR to EXIT
+becomes EXIT.
+
 Each word becomes a .flow chunk of #d8 lines: asm_expand.py places them in
 the free space of the regions, across pages.
 
-Date: 10/26/2026
+Date: 10/27/2026
 """
 
 import re
@@ -141,9 +147,9 @@ class Item:
     """one piece of a word's code: bytes (list of ints or expression
     strings), or a branch to a mark"""
     def __init__(self, kind, data=None, target=None):
-        self.kind = kind            # 'bytes', 'br', '0br', 'mark'
+        self.kind = kind            # 'bytes', 'br', '0br', 'mark', 'call'
         self.data = data or []
-        self.target = target
+        self.target = target        # a mark, or a call's word name
         self.long = False
 
 
@@ -156,6 +162,7 @@ class Compiler:
         self.tables = {}            # name -> label (BYTES, WORDS)
         self.defs = []              # (label, [Item]) in order
         self.order = []             # primitive names in opcode order
+        self.bodies = {}            # word name -> [Item]
 
     # -- pass 1: names ------------------------------------------------
     def collect(self, toks):
@@ -262,6 +269,7 @@ class Compiler:
                 raise VmError('primitive %s is not declared' % n)
         if len(self.order) > 128:
             raise VmError('%d primitives, at most 128' % len(self.order))
+        self.calls()
 
     def word(self, toks, i):
         ln, _ = toks[i]
@@ -342,7 +350,7 @@ class Compiler:
                 br.target = mark()
                 continue
             if w == 'RECURSE':
-                emit(*self.call(label))
+                items.append(Item('call', target=name))
                 continue
             if w == "'":
                 t = toks[i][1]
@@ -382,13 +390,100 @@ class Compiler:
                 emit(op)
                 continue
             if w in self.words:
-                emit(*self.call(self.words[w]))
+                items.append(Item('call', target=w))
                 continue
             raise VmError('%s:%d: unknown word %s' % (self.fname, ln, w))
         if ctl:
             raise VmError('%s: %s: unfinished %s' % (self.fname, name, ctl[-1][0]))
         self.defs.append((label, items))
+        self.bodies[name] = items
         return i
+
+    # -- calls: inline the short words, tail calls become jumps --------
+    def short_body(self, name):
+        """the bytes of a word that inlines, or None: its code before EXIT is
+        at most two bytes of plain instructions (no longer than its call), or
+        a number (TRUE)"""
+        items = self.bodies[name]
+        if not all(it.kind == 'bytes' for it in items):
+            return None
+        data = [b for it in items for b in it.data]
+        if data[-1] != self.prims['EXIT'][0] or len(data) - 1 > 3:
+            return None
+        body = data[:-1]
+        k = 0
+        while k < len(body):                    # whole primitives (and their bytes)
+            if not isinstance(body[k], int) or body[k] >= len(self.order):
+                return None
+            prim = self.order[body[k]]
+            if len(body) > 2 and prim not in ('LIT8', 'LIT16'):
+                return None                     # three bytes: a number only
+            if prim in ('BR', '0BR', 'LBR', 'L0BR', 'SLIT'):
+                return None
+            k += 1 + self.prims[prim][2]
+        return body
+
+    def calls(self):
+        exit_op = self.prims['EXIT'][0]
+        short = {}
+        for name in self.bodies:
+            b = self.short_body(name)
+            if b is not None:
+                short[name] = b
+        for label, items in self.defs:
+            out = []
+            for it in items:
+                if it.kind == 'call' and it.target in short:
+                    out.append(Item('bytes', list(short[it.target])))
+                else:
+                    out.append(it)
+            items[:] = out
+
+            def exits_at(k):
+                """the code from item k on is EXIT (marks skipped)"""
+                while k < len(items) and items[k].kind == 'mark':
+                    k += 1
+                return k < len(items) and items[k].kind == 'bytes' and items[k].data[:1] == [exit_op]
+
+            for k, it in enumerate(items):
+                if it.kind != 'call':
+                    continue
+                nxt = k + 1
+                while nxt < len(items) and items[nxt].kind == 'mark':
+                    nxt += 1
+                tail = exits_at(k + 1)
+                if not tail and nxt < len(items) and items[nxt].kind == 'br':
+                    tail = exits_at(items.index(items[nxt].target))
+                if tail:
+                    it.kind = 'jump'
+            # a branch to a BR goes straight to its target; a BR to EXIT is EXIT
+            def after(m):
+                k = items.index(m) + 1
+                while k < len(items) and items[k].kind == 'mark':
+                    k += 1
+                return items[k] if k < len(items) else None
+            for it in items:
+                if it.kind in ('br', '0br'):
+                    seen = 0
+                    while True:
+                        nx = after(it.target)
+                        if nx is None or nx.kind != 'br' or nx is it or seen > 8:
+                            break
+                        it.target = nx.target
+                        seen += 1
+                    nx = after(it.target)
+                    if it.kind == 'br' and nx is not None and nx.kind == 'bytes' \
+                            and nx.data[:1] == [exit_op]:
+                        it.kind, it.data, it.target = 'bytes', [exit_op], None
+            # code right after a jump (no mark between) is never reached:
+            # the EXIT or the BR that took the call to the end
+            k = 0
+            while k < len(items) - 1:
+                if items[k].kind == 'jump' and (items[k + 1].kind == 'br' or (
+                        items[k + 1].kind == 'bytes' and items[k + 1].data == [exit_op])):
+                    del items[k + 1]
+                else:
+                    k += 1
 
     # -- layout -------------------------------------------------------
     def layout(self, items):
@@ -402,6 +497,10 @@ class Compiler:
                     pos += len(it.data)
                 elif it.kind in ('br', '0br'):
                     pos += 3 if it.long else 2
+                elif it.kind == 'call':
+                    pos += 2
+                elif it.kind == 'jump':
+                    pos += 3
             grew = False
             for it in items:
                 if it.kind in ('br', '0br') and not it.long:
@@ -435,6 +534,11 @@ class Compiler:
             for it in items:
                 if it.kind == 'bytes':
                     data.extend(it.data)
+                elif it.kind == 'call':
+                    data.extend(self.call(self.words[it.target]))
+                elif it.kind == 'jump':             # a tail call: LBR to the word
+                    lab = self.words[it.target]
+                    data += [self.prims['LBR'][0], '%s & 0xFF' % lab, '%s >> 8' % lab]
                 elif it.kind in ('br', '0br'):
                     nm = ('L' if it.long else '') + ('BR' if it.kind == 'br' else '0BR')
                     data.append(self.prims[nm][0])

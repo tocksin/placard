@@ -49,6 +49,8 @@ TP      = 0x30          ; 2: the text pointer
 TXTROWS = 0x32          ; text rows on the screen (the window)
 TXT2X   = 0x33          ; 0: 80 x 60 text (1x rows), 1: 80 x 30 (2x rows)
 LASTFR  = 0x34          ; FRAME_LO at the last POLL
+CURLP   = 0x36          ; basic.vm: the line running
+TYP     = 0x42          ; basic.vm: the last expression's type (VARNAME sets it)
 DS_EMPTY = 0x90         ; the data stack: x50-x8F
 RSTK    = 0x5500        ; the return stack page
 B_RAM   = 0x5C          ; the page the RAM routines are copied to
@@ -148,7 +150,8 @@ bs_cp:
 ; ============================================================
 ; the inner interpreter
 ; ============================================================
-.chunk  next, calls, IP + 1 or 2, the branches
+.chunk  next, calls, IP + 1 or 2, the branches; DUP DROP LIT8 (the most used: they
+; branch back to next)
 next:
     ld   [IPH], y               ; Y:X = IP, then IP + 1
     ld   [IPL], x
@@ -243,6 +246,20 @@ p_0br:                          ; 0BR n: branch if TOS = 0, drop it
     ld   [W2], ac
     beq  p_br
     bra  ip1
+p_dup:
+    PUSHT
+    bra  next
+p_drop:
+    POPT
+    bra  next
+p_lit8:                         ; LIT8 n ( -- n )
+    PUSHT
+    IPBYTE
+    ld   ac, [TL]
+    clr  ac
+    ld   ac, [TH]
+    bra  ip1
+
 
 .chunk  EXIT, LBR, L0BR, EXECUTE, RESET
 p_exit:
@@ -315,14 +332,6 @@ p_reset:                        ; RESET: empty both stacks (TOS = 0), go on
     NEXT
 
 .chunk  LIT8, LIT16, SLIT
-p_lit8:                         ; LIT8 n ( -- n )
-    PUSHT
-    IPBYTE
-    ld   ac, [TL]
-    clr  ac
-    ld   ac, [TH]
-    ld   ip1 >> 8, y
-    jmp  ip1
 p_lit16:                        ; LIT16 n ( -- n )
     PUSHT
     IPBYTE
@@ -395,13 +404,7 @@ p_zpcst:                        ; ZPC! n ( v -- ), one byte
     ld   ip1 >> 8, y
     jmp  ip1
 
-.chunk  DUP DROP SWAP OVER NIP 2DUP
-p_dup:
-    PUSHT
-    NEXT
-p_drop:
-    POPT
-    NEXT
+.chunk  SWAP OVER NIP 2DUP
 p_nip:
     NIP2
     NEXT
@@ -738,7 +741,7 @@ p_tpinc:                        ; TP+: TP + 1
     ld   ac, [TP + 1]
     NEXT
 
-.chunk  VARNAME ( -- name ): the name at TP (spaces skipped), TP after it
+.chunk  VARNAME ( -- name ): the name at TP (spaces skipped), TP after it; TYP = 1 for a $ name
 ; name = the first letter (+ x80 for $), high byte the second letter or
 ; digit or 0 (+ x80 for an array: the ( is left at TP); further letters
 ; and digits are skipped.  W2 = the state: 0 first letter, 1 second,
@@ -808,7 +811,177 @@ vn_paren:
     ld   [TH], ac
     or   0x80, ac
     ld   ac, [TH]
-vn_x:
+vn_x:                           ; TYP = 1 for a $ name, else 0
+    ld   [TL], ac
+    and  0x80, ac
+    beq  vn_t
+    ld   1, ac
+vn_t:
+    ld   ac, [TYP]
+    NEXT
+
+.chunk  OP? ( -- n ): the operator at TP (spaces skipped, not taken): 1 OR,
+; 2 AND, 3 < = >, 4 +, 5 -, 6 *, 7 /, 8 MOD, 0 none (the order of precedence)
+p_opq:
+    PUSHT
+    clr  ac
+    ld   ac, [TH]
+oq_lp:
+    ld   [TP + 1], y
+    ld   [TP], x
+    ld   [y,x], ac
+    xor  0x20, ac
+    bne  oq_c
+    ld   [TP], ac
+    inc
+    ld   ac, [TP]
+    bne  oq_lp
+    ld   [TP + 1], ac
+    inc
+    ld   ac, [TP + 1]
+    bra  oq_lp
+oq_c:                           ; AC = the character XOR each one tried so far
+    xor  0x0B, ac               ; +
+    beq  oq_add
+    xor  0x06, ac               ; -
+    beq  oq_sub
+    xor  0x07, ac               ; *
+    beq  oq_mul
+    xor  0x05, ac               ; /
+    beq  oq_div
+    xor  0x12, ac               ; =
+    beq  oq_cmp
+    xor  0x01, ac               ; <
+    beq  oq_cmp
+    xor  0x02, ac               ; >
+    beq  oq_cmp
+    xor  0x93, ac               ; AND
+    beq  oq_and
+    xor  0x03, ac               ; OR
+    beq  oq_or
+    xor  0x1E, ac               ; MOD
+    beq  oq_mod
+    clr  ac
+    bra  oq_set
+oq_or:
+    ld   1, ac
+    bra  oq_set
+oq_and:
+    ld   2, ac
+    bra  oq_set
+oq_cmp:
+    ld   3, ac
+    bra  oq_set
+oq_add:
+    ld   4, ac
+    bra  oq_set
+oq_sub:
+    ld   5, ac
+    bra  oq_set
+oq_mul:
+    ld   6, ac
+    bra  oq_set
+oq_div:
+    ld   7, ac
+    bra  oq_set
+oq_mod:
+    ld   8, ac
+oq_set:
+    ld   ac, [TL]
+    NEXT
+
+.chunk  FORNEXT ( frame -- frame | 0 ): NEXT's step of the FOR frame at frame
+; The frame (in page x1E): +2 the variable's address, +4 the limit, +6 the
+; step, +8 TP and +10 CURLP after the FOR.  The variable += step; past the
+; limit it leaves the frame (the loop is done), else TP and CURLP go back
+; after the FOR and it leaves 0.  The variable's two bytes are in one page.
+p_fornext:
+    ld   [TH], y
+    ld   [TL], ac               ; W1:W0 = the variable's address
+    add  2, x
+    ld   [y,x], ac
+    ld   ac, [W0]
+    ld   [TL], ac
+    add  3, x
+    ld   [y,x], ac
+    ld   ac, [W1]
+    ld   [TL], ac               ; W3:W2 = the step
+    add  6, x
+    ld   [y,x], ac
+    ld   ac, [W2]
+    ld   [TL], ac
+    add  7, x
+    ld   [y,x], ac
+    ld   ac, [W3]
+    ld   [TL], ac               ; W7:W6 = the limit
+    add  4, x
+    ld   [y,x], ac
+    ld   ac, [W6]
+    ld   [TL], ac
+    add  5, x
+    ld   [y,x], ac
+    ld   ac, [W7]
+    ld   [W1], y                ; W5:W4 = the variable + the step, stored
+    ld   [W0], x
+    ld   [y,x], ac
+    add  [W2], ac
+    ld   ac, [y,x]
+    ld   ac, [W4]
+    ld   [W3], ac
+    bcc  fx_1
+    inc
+fx_1:
+    ld   ac, [W5]
+    ld   [W0], ac
+    add  1, x
+    ld   [y,x], ac
+    add  [W5], ac
+    ld   ac, [y,x]
+    xor  0x80, ac               ; signed: compare with the sign bits flipped
+    ld   ac, [W5]
+    ld   [W7], ac
+    xor  0x80, ac
+    ld   ac, [W7]
+    ld   [W3], ac               ; a step < 0: done when the variable < the limit
+    blt  fx_neg
+    ld   [W7], ac               ; else when the limit < the variable
+    sub  [W5], ac
+    bcs  fx_done
+    bne  fx_loop
+    ld   [W6], ac
+    sub  [W4], ac
+    bcs  fx_done
+    bra  fx_loop
+fx_neg:
+    ld   [W5], ac
+    sub  [W7], ac
+    bcs  fx_done
+    bne  fx_loop
+    ld   [W4], ac
+    sub  [W6], ac
+    bcs  fx_done
+fx_loop:                        ; TP, CURLP = the frame's, TOS = 0
+    ld   [TH], y
+    ld   [TL], ac
+    add  8, x
+    ld   [y,x], ac
+    ld   ac, [TP]
+    ld   [TL], ac
+    add  9, x
+    ld   [y,x], ac
+    ld   ac, [TP + 1]
+    ld   [TL], ac
+    add  10, x
+    ld   [y,x], ac
+    ld   ac, [CURLP]
+    ld   [TL], ac
+    add  11, x
+    ld   [y,x], ac
+    ld   ac, [CURLP + 1]
+    clr  ac
+    ld   ac, [TL]
+    ld   ac, [TH]
+fx_done:
     NEXT
 
 .chunk  = U< < 0= 0<

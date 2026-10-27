@@ -146,6 +146,13 @@ are those of the mode ([COLORS.md](COLORS.md)).  `MODE 2,2,4` is a 320 x
 (and the program stops) at the next error, `END` or Esc, after a key.
 `CLS` clears both parts; `TEXT` goes back to all text.
 
+The text rows below the lowest one written so far are blanked (mode byte
+bit 7, [VIDEO.md](VIDEO.md) "Blank line"): they look the same, black, but
+the video makes no reads there, so a program runs up to about 10 % faster
+while the screen is not full.  `CLS`, `TEXT` and `MODE` blank them again;
+printing on a row (or the cursor reaching it) shows it and the rows above
+it; `TINT` shows its row.
+
 With `TEXT 30` the graphics lines can only be repeated 2 or 4 times, and
 with 2x repeat the text window takes an even number of 16-line rows below
 row 6; other combinations give `?Layout error` (the video hardware
@@ -226,7 +233,9 @@ enough: the machine runs about 220,000 bytecode instructions a second.
   which is all of the ROM.
 
 `next` fetches the byte at IP: a primitive is a jump through the table, a
-call pushes IP on the return stack.  `EXIT` pops it.  The primitives
+call pushes IP on the return stack.  `EXIT` pops it.  The most used
+primitives (`0BR`, `BR`, `DUP`, `DROP`, `LIT8`) sit in `next`'s page and
+branch back to it instead of jumping.  The primitives
 (stack, memory, arithmetic, `*`, `U/MOD`, `CMOVE`, `FILL`) and the parts
 that must be fast (the text pointer's `CH` and `NUM`, `GLYPH` for a
 character, `ROWCPY` for scrolling, `VPLOT` for a pixel) are native code in
@@ -253,15 +262,24 @@ compiles (`asm_expand.py` runs it at `.include "basic.vm"`):
   `{expression}` (an assembler symbol, such as a library routine).
 - `asm_expand.py`'s `.page` directive puts `vm_jump` at the start of a
   page.
+- Calls are cut where it pays: a word of at most two primitives (or one
+  number, such as `TRUE`) is copied in place of its calls, a call just
+  before `EXIT` (or a branch to it) becomes `LBR`, a branch to a `BR`
+  goes straight to its target and a `BR` to `EXIT` becomes `EXIT`.
 - Each word becomes a `.flow` chunk that `asm_expand.py` places in the free
   space of the ROM regions, so BASIC fills the gaps the loader and FAT
   writer leave.
 
 The words fall into the editor (`ACCEPT`, `CRUNCH` tokenizes the line in
 place, `STORELN`), the variables (`FINDVAR`, `NEWVAR`, the string heap and
-its garbage collector), the expression evaluator (`EXPR` down to `ATOM`,
-recursive descent), the run loop (`EXECLINE`, `STATEMENT` dispatching
-through `STMTAB`) and the statements (`PRINT_`, `FOR_`, ...).
+its garbage collector), the expression evaluator (`PEXPR`, precedence
+climbing: the native `OP?` numbers the operator at the text pointer in
+order of precedence, and `PEXPR m` takes those numbered m and up through
+the table `OPTAB`; `ATOM` reads a variable, number, function or
+parenthesis), the run loop (`EXECLINE`, dispatching through `STMTAB`) and
+the statements (`PRINT_`, `FOR_`, ...).  `NEXT` does its step in the
+native `FORNEXT`: add the step, compare with the limit (signed), and go
+back after the `FOR`.
 
 A program line is `[length][number low][number high][text][00]`; keywords
 are one byte each (x80-xC1, the order of `KWTAB`).  Numbers stay text and
@@ -277,15 +295,32 @@ every statement; assignment copies them into the string space.
 
 ## Speed
 
-`test_basic.py --bench` runs `FOR I=1 TO 1000:A=A+I*2:NEXT` in 2.3 s of
-machine time: about 440 passes a second, roughly the speed of the 1 MHz
-home computers' BASICs on the same loop (they do it in floating point).
-About 500 bytecode instructions a pass, half of the time in `next`.  The
-hot paths are native: `next` jumps through a page of four-byte jumps
-(`vm_jump`), and `FINDVAR`, `VARNAME`, `DIGIT?` and `ALPHA?` are
-primitives; together they made the loop about twice as fast as the first
-version.  `LINE` draws about 1,200 pixels a second (each pixel a `PSET`
-in bytecode).
+`test_basic.py --bench` runs `FOR I=1 TO 1000:A=A+I*2:NEXT` in 1.16 s of
+machine time (no video stalls): about 860 passes a second, about 250
+bytecode instructions a pass.  The classic Rugg/Feldman benchmarks, in
+seconds (C64 figures from the published table; PLACARD measured in
+`placard_sim`, with integers where the C64 uses floating point):
+
+| | BM1 | BM2 | BM3 | BM4 | BM5 | BM6 | BM7 |
+|---|---|---|---|---|---|---|---|
+| Commodore 64 BASIC V2 | 1.2 | 9.3 | 17.6 | 19.5 | 21.0 | 29.5 | 47.5 |
+| PLACARD BASIC, first version | 0.86 | 3.0 | 6.0 | 5.2 | 6.8 | 13.3 | 22.8 |
+| PLACARD BASIC now | 0.44 | 1.92 | 3.62 | 3.45 | 4.70 | 8.49 | 13.28 |
+
+Video reads take about 10 % more on a full text screen (blank rows give
+it back, see [The screen](#the-screen)).  Where the time goes: about half
+of it is the bytecode machine itself (`next` takes about 44 clocks an
+instruction); the rest is the interpreter reading the program text as it
+runs, as Microsoft's BASICs do.  What made it faster (each measured on the
+loop above): expressions by precedence climbing with the native `OP?`
+instead of eight levels of recursive descent (1.3x), `NEXT`'s step in
+native code and statements without the empty one after `FOR` or `RETURN`
+(1.3x), the call cuts in `vmc.py` (4 %) and the busiest primitives in
+`next`'s page (3 %); together about 190 bytes of ROM, and the row
+blanking about 90 more.  Turning variable names
+into slot numbers when a line is typed in was tried: 4 % for about 450
+bytes, so it was left out (`VARNAME` and `FINDVAR` are already native).
+`LINE` draws about 1,200 pixels a second (each pixel a `PSET` in bytecode).
 
 `FRE(0)` and the banner count the space for variables and strings
 (x0100-x1DFF); the program has its own 11.25 KB.
