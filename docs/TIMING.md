@@ -1,6 +1,6 @@
 # Timing analysis at 25.175 MHz
 
-Date: 2026-10-25
+Date: 2026-10-27
 
 This is a static, worst-case timing analysis of the Placard as it sits in
 `src/hdl/basys_top.vhd` and the PLD sources in `src/pld`, for a real board
@@ -44,6 +44,8 @@ and 7) and the write glitch, which the ALU change's STALL signal spread from
 the first byte of a line to every video byte.
 [XY_TIMING.md](XY_TIMING.md) fixes the X/Y-indexed read after FETCH
 (rank 3) and the late store address after FETCH.
+[WE_TIMING.md](WE_TIMING.md) checks the RAM write strobe against the
+address at both ends of the pulse, with the routed board's trace delays.
 [TIMING_FIXES.md](TIMING_FIXES.md) covers the rest: the ALU wait clock
 bug, stores after FETCH, the `lineCode` race, the chip selects, the
 fetch into the branch check (rank 4, fixed by a pad byte after BGE, now
