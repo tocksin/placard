@@ -56,6 +56,7 @@ DESC_VALUE = {
     "AS7C256C-15PCN": "SRAM, 32K x 8, 15 ns, PDIP-28 0.3\"",
     "AT28C256-15PU": "EEPROM, 32K x 8, 150 ns, PDIP-28 0.6\" (programmed)",
     "MCP1700-3302E/TO": "3.3 V LDO regulator, 250 mA, TO-92",
+    "SA5.0A": "TVS diode, 5 V stand-off, 500 W, DO-15 axial (across the fused USB 5 V)",
     "25.175 MHz": "Clock oscillator, 25.175 MHz, 5 V, full-size DIP-14 can",
     "USB4125-GF-A": "USB-C receptacle, power only (6 pin), top mount",
     "3 A hold": "Polyfuse, 3 A hold, radial",
