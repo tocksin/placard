@@ -886,7 +886,7 @@ s_basic:    #d "BASIC", 0x00
 ; The library is used as by any program (CALL, the stack at xC0-xFF);
 ; R0-R7 and T0-T7 are free between primitives.
 ;
-; Date: 10/26/2026
+; Date: 10/27/2026
 ; ============================================================
 
 ; the machine's zero page
@@ -1078,6 +1078,26 @@ lt1_err:
     ld   fail >> 8, y
     jmp  fail
 
+w_ERRTAB:
+    #d8 6, 83, 121, 110, 116, 97, 120, 13, 79, 117, 116, 32
+    #d8 111, 102, 32, 109, 101, 109, 111, 114, 121, 14, 85, 110
+    #d8 100, 101, 102, 105, 110, 101, 100, 32, 108, 105, 110, 101
+    #d8 13, 84, 121, 112, 101, 32, 109, 105, 115, 109, 97, 116
+    #d8 99, 104, 16, 68, 105, 118, 105, 115, 105, 111, 110, 32
+    #d8 98, 121, 32, 122, 101, 114, 111, 20, 82, 69, 84, 85
+    #d8 82, 78, 32, 119, 105, 116, 104, 111, 117, 116, 32, 71
+    #d8 79, 83, 85, 66, 16, 78, 69, 88, 84, 32, 119, 105
+    #d8 116, 104, 111, 117, 116, 32, 70, 79, 82, 11, 79, 117
+    #d8 116, 32, 111, 102, 32, 100, 97, 116, 97, 13, 66, 97
+    #d8 100, 32, 115, 117, 98, 115, 99, 114, 105, 112, 116, 16
+    #d8 73, 108, 108, 101, 103, 97, 108, 32, 113, 117, 97, 110
+    #d8 116, 105, 116, 121, 15, 83, 116, 114, 105, 110, 103, 32
+    #d8 116, 111, 111, 32, 108, 111, 110, 103, 14, 67, 97, 110
+    #d8 39, 116, 32, 99, 111, 110, 116, 105, 110, 117, 101, 13
+    #d8 82, 101, 100, 105, 109, 39, 100, 32, 97, 114, 114, 97
+    #d8 121, 5, 66, 114, 101, 97, 107, 14, 73, 108, 108, 101
+    #d8 103, 97, 108, 32, 100, 105, 114, 101, 99, 116, 6, 76
+    #d8 97, 121, 111, 117, 116, 4, 70, 105, 108, 101
 w_LINE_:
     #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, 2, 150, 93, 24, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 2, 152
     #d8 93, 24, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 2, 164, 93, 24, w_COMMA >> 8, w_COMMA & 0xFF
@@ -1087,27 +1107,15 @@ w_LINE_:
     #d8 2, 166, 93, 23, 2, 152, 93, 23, 28, 12, w_ABS >> 8, w_ABS & 0xFF
     #d8 w_NEGATE >> 8, w_NEGATE & 0xFF, 2, 156, 93, 24, w_SGN1 >> 8, w_SGN1 & 0xFF, 2, 160, 93, 24
     #d8 2, 154, 93, 23, 2, 156, 93, 23, 27, 2, 162, 93
-    #d8 24, 2, 150, 93, 23, 2, 152, 93, 23, 2, 168, 93
-    #d8 23, w_PSET >> 8, w_PSET & 0xFF, 2, 150, 93, 23, 2, 164, 93, 23, 37
-    #d8 2, 152, 93, 23, 2, 166, 93, 23, 37, 29, 4, 1
-    #d8 0, 2, 162, 93, 23, 35, 12, 2, 156, 93, 23, 39
-    #d8 40, 4, 18, 2, 156, 93, 23, 2, 162, 93, w__P__ST_ >> 8, w__P__ST_ & 0xFF
-    #d8 2, 158, 93, 23, 2, 150, 93, w__P__ST_ >> 8, w__P__ST_ & 0xFF, 2, 154, 93
-    #d8 23, w__GT_ >> 8, w__GT_ & 0xFF, 40, 4, 18, 2, 154, 93, 23, 2, 162
-    #d8 93, w__P__ST_ >> 8, w__P__ST_ & 0xFF, 2, 160, 93, 23, 2, 152, 93, w__P__ST_ >> 8, w__P__ST_ & 0xFF
-    #d8 3, 159, 0
-w_GC:
-    #d8 2, 0, 30, 2, 140, 93, 24, 2, 0, 30, 2, 142
-    #d8 93, 24, 8, 60, 2, 140, 93, 23, 38, 4, 97, 2
-    #d8 140, 93, 23, 1, 3, 28, 25, 1, 4, 27, 2, 144
-    #d8 93, 24, 2, 140, 93, 23, 2, 144, 93, 23, 28, 2
-    #d8 146, 93, 24, 2, 140, 93, 23, 1, 2, 28, 23, w__Q_DUP >> 8
-    #d8 w__Q_DUP & 0xFF, 4, 47, 12, 23, 2, 146, 93, 23, 37, 4, 37
-    #d8 2, 142, 93, 23, 2, 144, 93, 23, 28, 12, 17, 24
-    #d8 2, 146, 93, 23, 14, 2, 144, 93, 23, 46, 2, 142
-    #d8 93, 23, 2, 144, 93, 23, 28, 2, 142, 93, 24, 3
-    #d8 1, 13, 2, 146, 93, 23, 2, 140, 93, 24, 3, 150
-    #d8 2, 142, 93, 23, 9, 60, 0
+    #d8 24, 52, 4, 2, w_BREAK >> 8, w_BREAK & 0xFF, 2, 150, 93, 23, 2, 152
+    #d8 93, 23, 2, 168, 93, 23, w_PSET >> 8, w_PSET & 0xFF, 2, 150, 93, 23
+    #d8 2, 164, 93, 23, 37, 2, 152, 93, 23, 2, 166, 93
+    #d8 23, 37, 29, 4, 1, 0, 2, 162, 93, 23, 35, 12
+    #d8 2, 156, 93, 23, 39, 40, 4, 18, 2, 156, 93, 23
+    #d8 2, 162, 93, w__P__ST_ >> 8, w__P__ST_ & 0xFF, 2, 158, 93, 23, 2, 150, 93
+    #d8 w__P__ST_ >> 8, w__P__ST_ & 0xFF, 2, 154, 93, 23, w__GT_ >> 8, w__GT_ & 0xFF, 40, 4, 18, 2
+    #d8 154, 93, 23, 2, 162, 93, w__P__ST_ >> 8, w__P__ST_ & 0xFF, 2, 160, 93, 23
+    #d8 2, 152, 93, w__P__ST_ >> 8, w__P__ST_ & 0xFF, 3, 154, 0
 w_MODE_:
     #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_LOG2 >> 8, w_LOG2 & 0xFF, 11, 78, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, w_LOG2 >> 8, w_LOG2 & 0xFF
     #d8 12, 1, 3, 37, 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 11, 79, 49, 1
@@ -1166,15 +1174,6 @@ w_NEXT_:
     #d8 9, 64, 49, 1, 44, 37, 4, 3, 51, 3, 1, 0
     #d8 3, 18, 12, 1, 8, 27, 23, 9, 48, 1, 10, 27
     #d8 23, 9, 54, 1, 1, 11, 67, 0, 3, 162, 0
-w_CRUNCH:
-    #d8 2, 0, 84, 12, 9, 48, 2, 114, 93, 24, 8, 48
-    #d8 25, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 70, 12, 1, 34, 37, 4, 5, 13
-    #d8 w_CPYSTR >> 8, w_CPYSTR & 0xFF, 3, 57, 12, 1, 63, 37, 4, 8, 13, 51
-    #d8 1, 145, w_PUTB >> 8, w_PUTB & 0xFF, 3, 43, w_UPC >> 8, w_UPC & 0xFF, 12, 58, w_PREVLET_Q_ >> 8, w_PREVLET_Q_ & 0xFF
-    #d8 40, 29, 4, 30, w_KWMATCH >> 8, w_KWMATCH & 0xFF, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 19, 16, 12
-    #d8 w_PUTB >> 8, w_PUTB & 0xFF, 12, 1, 142, 37, 14, 1, 131, 37, 30, 4
-    #d8 2, w_CPYREST >> 8, w_CPYREST & 0xFF, 3, 3, w_PUTB >> 8, w_PUTB & 0xFF, 51, 3, 3, w_PUTB >> 8, w_PUTB & 0xFF
-    #d8 51, 3, 179, 1, 0, w_PUTB >> 8, w_PUTB & 0xFF, 0
 w_LOADFILE:
     #d8 w_FILENAME >> 8, w_FILENAME & 0xFF, 1, 0, 2, (fs_open) & 0xFF, (fs_open) >> 8, w_FCALL >> 8, w_FCALL & 0xFF, w_NEWPROG >> 8, w_NEWPROG & 0xFF, w_CLEARV >> 8
     #d8 w_CLEARV & 0xFF, 2, 0, 84, 2, 148, 93, 24, 2, (FS_REM + 2) & 0xFF, (FS_REM + 2) >> 8, 23
@@ -1268,6 +1267,13 @@ w_PRINT_:
     #d8 49, 1, 193, 37, 4, 7, 51, w_NARG >> 8, w_NARG & 0xFF, w_TABTO >> 8, w_TABTO & 0xFF, 3
     #d8 12, w_EXPR >> 8, w_EXPR & 0xFF, 10, 66, 4, 4, w_TYPE >> 8, w_TYPE & 0xFF, 3, 2, w_N_D_ >> 8
     #d8 w_N_D_ & 0xFF, 3, 193, 0
+w_SASSIGN:
+    #d8 12, 25, 40, 4, 6, 13, 1, 0, 14, 24, 0, 12
+    #d8 8, 60, 2, 0, 30, w_WITHIN >> 8, w_WITHIN & 0xFF, 4, 2, w_TMPCOPY >> 8, w_TMPCOPY & 0xFF, 12
+    #d8 25, 1, 4, 27, 12, w_ROOM >> 8, w_ROOM & 0xFF, 8, 60, 14, 28, 12
+    #d8 9, 60, 18, 15, 25, 33, 45, 14, 25, 15, 27, 33
+    #d8 15, 25, 15, 26, 33, 1, 2, w_PICK >> 8, w_PICK & 0xFF, 14, 24, 14
+    #d8 24, 0
 w_PSET:
     #d8 19, 12, w_GH >> 8, w_GH & 0xFF, 38, 40, 4, 4, w_2DROP >> 8, w_2DROP & 0xFF, 22, 0
     #d8 15, w_GW >> 8, w_GW & 0xFF, 38, 40, 4, 4, w_2DROP >> 8, w_2DROP & 0xFF, 22, 0, 10
@@ -1317,11 +1323,6 @@ w_READ_:
     #d8 9, 48, 40, 4, 2, w_SYNERR >> 8, w_SYNERR & 0xFF, 20, 4, 4, w_SASSIGN >> 8, w_SASSIGN & 0xFF
     #d8 3, 2, 14, 24, 49, 1, 44, 37, 4, 3, 51, 3
     #d8 207, 0
-w_SNUMOK:
-    #d8 49, 1, 45, 37, 4, 5, 51, w_TRUE >> 8, w_TRUE & 0xFF, 3, 2, 1
-    #d8 0, 19, 49, 57, 4, 5, 50, w_TRUE >> 8, w_TRUE & 0xFF, 3, 17, 49
-    #d8 1, 38, 37, 4, 7, 51, w_HEXNUM >> 8, w_HEXNUM & 0xFF, w_TRUE >> 8, w_TRUE & 0xFF, 3, 4
-    #d8 1, 0, 1, 0, 14, 20, 4, 2, w_NEGATE >> 8, w_NEGATE & 0xFF, 14, 0
 w_RELOP:
     #d8 1, 0, 49, 12, 1, 60, 37, 4, 5, 13, 1, 1
     #d8 3, 22, 12, 1, 61, 37, 4, 5, 13, 1, 2, 3
@@ -1468,6 +1469,10 @@ w_F_MID:
     #d8 w_STRN >> 8, w_STRN & 0xFF, 12, 1, 1, 39, 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 34, 49
     #d8 1, 44, 37, 4, 5, 51, w_NEXPR >> 8, w_NEXPR & 0xFF, 3, 2, 1, 255
     #d8 1, 41, w_EXPECT >> 8, w_EXPECT & 0xFF, w_SUBSTR >> 8, w_SUBSTR & 0xFF, 0
+w_RAND:
+    #d8 8, 11, 40, 4, 7, 8, 8, 1, 1, 30, 9, 11
+    #d8 1, 0, 2, (rand8) & 0xFF, (rand8) >> 8, 48, 1, 0, 2, (rand8) & 0xFF, (rand8) >> 8, 48
+    #d8 2, 0, 1, 42, 27, 0
 w_WARM:
     #d8 53, 2, (w_SCREMIT) & 0xFF, (w_SCREMIT) >> 8, 2, 120, 93, 24, w_TEXTBACK >> 8, w_TEXTBACK & 0xFF, 10, 13
     #d8 4, 2, w_CR >> 8, w_CR & 0xFF, 7, 5, 82, 101, 97, 100, 121, w_TYPE >> 8
@@ -1581,9 +1586,6 @@ w_TEXT_:
 w_TYPE:
     #d8 w_COUNT >> 8, w_COUNT & 0xFF, 12, 4, 10, 15, 25, w_EMIT >> 8, w_EMIT & 0xFF, 34, 14, 33
     #d8 14, 3, 243, w_2DROP >> 8, w_2DROP & 0xFF, 0
-w_RAND:
-    #d8 1, 0, 2, (rand8) & 0xFF, (rand8) >> 8, 48, 1, 0, 2, (rand8) & 0xFF, (rand8) >> 8, 48
-    #d8 2, 0, 1, 42, 27, 0
 w_F_ASC:
     #d8 w_SARG >> 8, w_SARG & 0xFF, 12, 25, 4, 4, 33, 25, 3, 3, 13, 1
     #d8 0, 1, 0, 11, 66, 0
@@ -1611,6 +1613,9 @@ w_NOTX:
 w_F_RND:
     #d8 w_NARG >> 8, w_NARG & 0xFF, 12, 1, 1, 39, 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, w_RAND >> 8, w_RAND & 0xFF
     #d8 14, 43, 13, 0
+w_RSHIFT:
+    #d8 12, 4, 10, 14, 36, 2, 255, 127, 29, 14, 34, 3
+    #d8 243, 13, 0
 w_U_D_:
     #d8 1, 10, 43, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 2, w_U_D_ >> 8, w_U_D_ & 0xFF, 1, 48, 27
     #d8 w_EMIT >> 8, w_EMIT & 0xFF, 0
@@ -1712,8 +1717,6 @@ w_F_VAL:
     #d8 w_SARG >> 8, w_SARG & 0xFF, w_SVAL >> 8, w_SVAL & 0xFF, 1, 0, 11, 66, 0
 w_POKE_:
     #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 14, 26, 0
-w_GMB:
-    #d8 10, 79, 35, 35, 10, 78, 27, 0
 w_F_FRE:
     #d8 w_NARG >> 8, w_NARG & 0xFF, 13, w_GC >> 8, w_GC & 0xFF, w_FREE >> 8, w_FREE & 0xFF, 0
 w_F_LEN:
@@ -2797,64 +2800,17 @@ p_rdrop:
     ld   next >> 8, y
     jmp  next
 
-; f = Esc is down
-p_poll:
-    ld   [DSP], ac
-    sub  2, ac
-    ld   ac, [DSP]
-    ld   ac, x
-    ld   [TL], ac
-    ld   ac, [x]
-    ld   [DSP], ac
-    add  1, x
-    ld   [TH], ac
-    ld   ac, [x]
-    ld   LINK_LO, x             ; CALL frame_poll
-    ld   bas_r35, [x]
-    ld   LINK_HI, x
-    ld   bas_r35 >> 8, [x]
-    ld   frame_poll >> 8, y
-    jmp  frame_poll
-bas_r35:
-    ld   [FRAME_LO], ac
-    xor  [LASTFR], ac
-    beq  po_esc
-    ld   [FRAME_LO], ac
-    ld   ac, [LASTFR]
-    ld   LINK_LO, x             ; CALL snd_update
-    ld   bas_r36, [x]
-    ld   LINK_HI, x
-    ld   bas_r36 >> 8, [x]
-    ld   snd_update >> 8, y
-    jmp  snd_update
-bas_r36:
-    ld   LINK_LO, x             ; CALL kbd_scan
-    ld   bas_r37, [x]
-    ld   LINK_HI, x
-    ld   bas_r37 >> 8, [x]
-    ld   kbd_scan >> 8, y
-    jmp  kbd_scan
-bas_r37:
-po_esc:
-    clr  ac
-    ld   ac, [TH]
-    ld   [KBD_NOW], ac          ; Esc is key 0: bit 0 = 0 while down
-    and  1, ac
-    xor  1, ac
-    ld   ac, [TL]
-    ld   next >> 8, y
-    jmp  next
-
-; ============================================================
-; the screen
-; ============================================================
-; Text row R's glyph row k is at x6000 + column * 512 + offset + k * step:
-;   80 x 60 (1x rows):  offset 32 + 8R, step 1
-;   80 x 30 (2x rows):  offset x120 + 16R (R < 14), x101 + 16(R - 14), step 2
-; (screen line y's byte, v = y + 32: 1x at v, 2x at x100 | v7:v1 | v8)
-w_RSHIFT:
-    #d8 12, 4, 10, 14, 36, 2, 255, 127, 29, 14, 34, 3
-    #d8 243, 13, 0
+w_CRUNCH:
+    #d8 2, 0, 84, 12, 9, 48, 2, 114, 93, 24, 8, 48
+    #d8 25, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 70, 12, 1, 34, 37, 4, 5, 13
+    #d8 w_CPYSTR >> 8, w_CPYSTR & 0xFF, 3, 57, 12, 1, 63, 37, 4, 8, 13, 51
+    #d8 1, 145, w_PUTB >> 8, w_PUTB & 0xFF, 3, 43, w_UPC >> 8, w_UPC & 0xFF, 12, 58, w_PREVLET_Q_ >> 8, w_PREVLET_Q_ & 0xFF
+    #d8 40, 29, 4, 30, w_KWMATCH >> 8, w_KWMATCH & 0xFF, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 19, 16, 12
+    #d8 w_PUTB >> 8, w_PUTB & 0xFF, 12, 1, 142, 37, 14, 1, 131, 37, 30, 4
+    #d8 2, w_CPYREST >> 8, w_CPYREST & 0xFF, 3, 3, w_PUTB >> 8, w_PUTB & 0xFF, 51, 3, 3, w_PUTB >> 8, w_PUTB & 0xFF
+    #d8 51, 3, 179, 1, 0, w_PUTB >> 8, w_PUTB & 0xFF, 0
+w_EMPTYS:
+    #d8 0
 p_add:
     ld   [DSP], x
     ld   [x], ac
@@ -3593,8 +3549,149 @@ w_INSLN:
     #d8 33, 1, 3, w_PICK >> 8, w_PICK & 0xFF, 28, 46, 21, 15, 26, w_TUCK >> 8, w_TUCK & 0xFF
     #d8 33, 24, 8, 48, 14, 1, 3, 27, 21, 1, 3, 28
     #d8 45, 8, 56, 20, 27, 9, 56, 0
-w_EMPTYS:
-    #d8 0
+
+#addr 0xAC00
+; f = Esc or Ctrl+C is down
+p_poll:
+    ld   [DSP], ac
+    sub  2, ac
+    ld   ac, [DSP]
+    ld   ac, x
+    ld   [TL], ac
+    ld   ac, [x]
+    ld   [DSP], ac
+    add  1, x
+    ld   [TH], ac
+    ld   ac, [x]
+    ld   LINK_LO, x             ; CALL frame_poll
+    ld   bas_r35, [x]
+    ld   LINK_HI, x
+    ld   bas_r35 >> 8, [x]
+    ld   frame_poll >> 8, y
+    jmp  frame_poll
+bas_r35:
+    ld   [FRAME_LO], ac
+    xor  [LASTFR], ac
+    beq  po_esc
+    ld   [FRAME_LO], ac
+    ld   ac, [LASTFR]
+    ld   LINK_LO, x             ; CALL snd_update
+    ld   bas_r36, [x]
+    ld   LINK_HI, x
+    ld   bas_r36 >> 8, [x]
+    ld   snd_update >> 8, y
+    jmp  snd_update
+bas_r36:
+    ld   LINK_LO, x             ; CALL kbd_scan
+    ld   bas_r37, [x]
+    ld   LINK_HI, x
+    ld   bas_r37 >> 8, [x]
+    ld   kbd_scan >> 8, y
+    jmp  kbd_scan
+bas_r37:
+po_esc:
+    clr  ac
+    ld   ac, [TH]
+    ld   [KBD_NOW + 5], ac      ; C is key 44: column 5, bit 4 = 0 while down
+    and  0x10, ac
+    bne  po_e
+    ld   [KBD_NOW + 3], ac      ; with the left Ctrl (key 28)
+    and  0x10, ac
+    beq  po_brk
+    ld   [KBD_NOW + 7], ac      ; or the right Ctrl (key 59)
+    and  0x08, ac
+    bne  po_e
+po_brk:
+    ld   1, ac
+    ld   ac, [TL]
+    ld   next >> 8, y
+    jmp  next
+po_e:
+    ld   [KBD_NOW], ac          ; Esc is key 0: bit 0 = 0 while down
+    and  1, ac
+    xor  1, ac
+    ld   ac, [TL]
+    ld   next >> 8, y
+    jmp  next
+
+; ============================================================
+; the screen
+; ============================================================
+; Text row R's glyph row k is at x6000 + column * 512 + offset + k * step:
+;   80 x 60 (1x rows):  offset 32 + 8R, step 1
+;   80 x 30 (2x rows):  offset x120 + 16R (R < 14), x101 + 16(R - 14), step 2
+; (screen line y's byte, v = y + 32: 1x at v, 2x at x100 | v7:v1 | v8)
+p_vplot:
+    ld   [TL], ac               ; W3 = bits
+    ld   ac, [W3]
+    ld   [DSP], x
+    ld   [x], ac
+    ld   ac, [TL]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [TH]
+    ld   [DSP], ac
+    add  2, ac
+    ld   ac, [DSP]
+    ld   [TL], ac               ; W4 = ~mask
+    not
+    ld   ac, [W4]
+    ld   [DSP], x
+    ld   [x], ac
+    ld   ac, [TL]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [TH]
+    ld   [DSP], ac
+    add  2, ac
+    ld   ac, [DSP]
+    ld   [TL], ac               ; R3:R2 = line
+    ld   ac, [R2]
+    ld   [TH], ac
+    ld   ac, [R3]
+    ld   [DSP], x
+    ld   [x], ac
+    ld   ac, [TL]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [TH]
+    ld   [DSP], ac
+    add  2, ac
+    ld   ac, [DSP]
+    ld   [TL], ac               ; AC = column
+    ld   LINK_LO, x             ; AC = the byte's page, X = its low byte (kept to the end)
+    ld   bas_r38, [x]
+    ld   LINK_HI, x
+    ld   bas_r38 >> 8, [x]
+    ld   vid_addr >> 8, y
+    jmp  vid_addr
+bas_r38:
+    ld   ac, [W6]
+    ld   B_RAM, y
+    jmp  vr_ram & 0xFF
+vr_back:                        ; AC = the byte
+    and  [W4], ac
+    or   [W3], ac
+    ld   [W6], y
+    ld   ac, [y,x]
+    ld   p_drop >> 8, y
+    jmp  p_drop
+
+; ------------------------------------------------------------
+; the RAM routines: copied to x5C00 + their offset (basic:), they map
+; the video RAM in to read it.  Only branches inside the page, and jumps
+; to fixed addresses.
+; ------------------------------------------------------------
+w_SNUMOK:
+    #d8 49, 1, 45, 37, 4, 5, 51, w_TRUE >> 8, w_TRUE & 0xFF, 3, 2, 1
+    #d8 0, 19, 49, 57, 4, 5, 50, w_TRUE >> 8, w_TRUE & 0xFF, 3, 17, 49
+    #d8 1, 38, 37, 4, 7, 51, w_HEXNUM >> 8, w_HEXNUM & 0xFF, w_TRUE >> 8, w_TRUE & 0xFF, 3, 4
+    #d8 1, 0, 1, 0, 14, 20, 4, 2, w_NEGATE >> 8, w_NEGATE & 0xFF, 14, 0
+
+#addr 0xAD00
 ; ROWCPY ( from to -- ): copy a text row
 p_glyph:
     clr  ac
@@ -3736,70 +3833,6 @@ w_KWMATCH:
     #d8 2, (w_KWTAB) & 0xFF, (w_KWTAB) >> 8, 1, 128, 15, 25, 4, 21, 15, w_KWCMP >> 8, w_KWCMP & 0xFF
     #d8 w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 7, 8, 48, 27, 9, 48, 16, 0, 14
     #d8 w_KWSKIP >> 8, w_KWSKIP & 0xFF, 14, 33, 3, 231, w_2DROP >> 8, w_2DROP & 0xFF, 1, 0, 0
-p_vplot:
-    ld   [TL], ac               ; W3 = bits
-    ld   ac, [W3]
-    ld   [DSP], x
-    ld   [x], ac
-    ld   ac, [TL]
-    ld   [DSP], ac
-    add  1, x
-    ld   [x], ac
-    ld   ac, [TH]
-    ld   [DSP], ac
-    add  2, ac
-    ld   ac, [DSP]
-    ld   [TL], ac               ; W4 = ~mask
-    not
-    ld   ac, [W4]
-    ld   [DSP], x
-    ld   [x], ac
-    ld   ac, [TL]
-    ld   [DSP], ac
-    add  1, x
-    ld   [x], ac
-    ld   ac, [TH]
-    ld   [DSP], ac
-    add  2, ac
-    ld   ac, [DSP]
-    ld   [TL], ac               ; R3:R2 = line
-    ld   ac, [R2]
-    ld   [TH], ac
-    ld   ac, [R3]
-    ld   [DSP], x
-    ld   [x], ac
-    ld   ac, [TL]
-    ld   [DSP], ac
-    add  1, x
-    ld   [x], ac
-    ld   ac, [TH]
-    ld   [DSP], ac
-    add  2, ac
-    ld   ac, [DSP]
-    ld   [TL], ac               ; AC = column
-    ld   LINK_LO, x             ; AC = the byte's page, X = its low byte (kept to the end)
-    ld   bas_r38, [x]
-    ld   LINK_HI, x
-    ld   bas_r38 >> 8, [x]
-    ld   vid_addr >> 8, y
-    jmp  vid_addr
-bas_r38:
-    ld   ac, [W6]
-    ld   B_RAM, y
-    jmp  vr_ram & 0xFF
-vr_back:                        ; AC = the byte
-    and  [W4], ac
-    or   [W3], ac
-    ld   [W6], y
-    ld   ac, [y,x]
-    ld   p_drop >> 8, y
-    jmp  p_drop
-
-; ------------------------------------------------------------
-; the RAM routines: copied to x5C00 + their offset (basic:), they map
-; the video RAM in to read it.  Only branches inside the page, and jumps
-; to fixed addresses.
-; ------------------------------------------------------------
 ; vr_ram: read a video byte
 rc_ram:
     ld   0x50, y
@@ -3969,33 +4002,20 @@ w_KWTAB:
     #d8 86, 65, 204, 67, 72, 82, 164, 83, 84, 82, 164, 76
     #d8 69, 70, 84, 164, 77, 73, 68, 164, 82, 73, 71, 72
     #d8 84, 164, 72, 69, 88, 164, 84, 65, 194, 0
-w_ERRTAB:
-    #d8 6, 83, 121, 110, 116, 97, 120, 13, 79, 117, 116, 32
-    #d8 111, 102, 32, 109, 101, 109, 111, 114, 121, 14, 85, 110
-    #d8 100, 101, 102, 105, 110, 101, 100, 32, 108, 105, 110, 101
-    #d8 13, 84, 121, 112, 101, 32, 109, 105, 115, 109, 97, 116
-    #d8 99, 104, 16, 68, 105, 118, 105, 115, 105, 111, 110, 32
-    #d8 98, 121, 32, 122, 101, 114, 111, 20, 82, 69, 84, 85
-    #d8 82, 78, 32, 119, 105, 116, 104, 111, 117, 116, 32, 71
-    #d8 79, 83, 85, 66, 16, 78, 69, 88, 84, 32, 119, 105
-    #d8 116, 104, 111, 117, 116, 32, 70, 79, 82, 11, 79, 117
-    #d8 116, 32, 111, 102, 32, 100, 97, 116, 97, 13, 66, 97
-    #d8 100, 32, 115, 117, 98, 115, 99, 114, 105, 112, 116, 16
-    #d8 73, 108, 108, 101, 103, 97, 108, 32, 113, 117, 97, 110
-    #d8 116, 105, 116, 121, 15, 83, 116, 114, 105, 110, 103, 32
-    #d8 116, 111, 111, 32, 108, 111, 110, 103, 14, 67, 97, 110
-    #d8 39, 116, 32, 99, 111, 110, 116, 105, 110, 117, 101, 13
-    #d8 82, 101, 100, 105, 109, 39, 100, 32, 97, 114, 114, 97
-    #d8 121, 5, 66, 114, 101, 97, 107, 14, 73, 108, 108, 101
-    #d8 103, 97, 108, 32, 100, 105, 114, 101, 99, 116, 6, 76
-    #d8 97, 121, 111, 117, 116, 4, 70, 105, 108, 101
-w_SASSIGN:
-    #d8 12, 25, 40, 4, 6, 13, 1, 0, 14, 24, 0, 12
-    #d8 8, 60, 2, 0, 30, w_WITHIN >> 8, w_WITHIN & 0xFF, 4, 2, w_TMPCOPY >> 8, w_TMPCOPY & 0xFF, 12
-    #d8 25, 1, 4, 27, 12, w_ROOM >> 8, w_ROOM & 0xFF, 8, 60, 14, 28, 12
-    #d8 9, 60, 18, 15, 25, 33, 45, 14, 25, 15, 27, 33
-    #d8 15, 25, 15, 26, 33, 1, 2, w_PICK >> 8, w_PICK & 0xFF, 14, 24, 14
-    #d8 24, 0
+w_GC:
+    #d8 2, 0, 30, 2, 140, 93, 24, 2, 0, 30, 2, 142
+    #d8 93, 24, 8, 60, 2, 140, 93, 23, 38, 4, 97, 2
+    #d8 140, 93, 23, 1, 3, 28, 25, 1, 4, 27, 2, 144
+    #d8 93, 24, 2, 140, 93, 23, 2, 144, 93, 23, 28, 2
+    #d8 146, 93, 24, 2, 140, 93, 23, 1, 2, 28, 23, w__Q_DUP >> 8
+    #d8 w__Q_DUP & 0xFF, 4, 47, 12, 23, 2, 146, 93, 23, 37, 4, 37
+    #d8 2, 142, 93, 23, 2, 144, 93, 23, 28, 12, 17, 24
+    #d8 2, 146, 93, 23, 14, 2, 144, 93, 23, 46, 2, 142
+    #d8 93, 23, 2, 144, 93, 23, 28, 2, 142, 93, 24, 3
+    #d8 1, 13, 2, 146, 93, 23, 2, 140, 93, 24, 3, 150
+    #d8 2, 142, 93, 23, 9, 60, 0
+w_GMB:
+    #d8 10, 79, 35, 35, 10, 78, 27, 0
 
 #addr 0xFC00
     #d8 MODE_32K

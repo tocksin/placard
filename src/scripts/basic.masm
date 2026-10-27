@@ -24,7 +24,7 @@
 ; The library is used as by any program (CALL, the stack at xC0-xFF);
 ; R0-R7 and T0-T7 are free between primitives.
 ;
-; Date: 10/26/2026
+; Date: 10/27/2026
 ; ============================================================
 
 ; the machine's zero page
@@ -1396,7 +1396,7 @@ nm_8:
     ld   ac, [TP + 1]
     bra  nm_lp
 
-.chunk  POLL ( -- f ): once a frame the sound, the keyboard; f = Esc is down
+.chunk  POLL ( -- f ): once a frame the sound, the keyboard; f = Esc or Ctrl+C is down
 p_poll:
     PUSHT
     CALL frame_poll
@@ -1410,6 +1410,20 @@ p_poll:
 po_esc:
     clr  ac
     ld   ac, [TH]
+    ld   [KBD_NOW + 5], ac      ; C is key 44: column 5, bit 4 = 0 while down
+    and  0x10, ac
+    bne  po_e
+    ld   [KBD_NOW + 3], ac      ; with the left Ctrl (key 28)
+    and  0x10, ac
+    beq  po_brk
+    ld   [KBD_NOW + 7], ac      ; or the right Ctrl (key 59)
+    and  0x08, ac
+    bne  po_e
+po_brk:
+    ld   1, ac
+    ld   ac, [TL]
+    NEXT
+po_e:
     ld   [KBD_NOW], ac          ; Esc is key 0: bit 0 = 0 while down
     and  1, ac
     xor  1, ac

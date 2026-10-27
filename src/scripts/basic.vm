@@ -28,7 +28,7 @@
 \ owner = the variable's address, so the garbage collector (GC) can move
 \ it.
 \
-\ Date: 10/26/2026
+\ Date: 10/27/2026
 \ ============================================================
 
 \ the primitives (basic.masm), in opcode order
@@ -100,6 +100,7 @@ CONST TXTROWS 0x32
 CONST TXT2X 0x33
 CONST CURCOL 0x0D
 CONST CURROW 0x0E
+CONST RAND_ST 0x0B      \ rand8's state (RAND_LO, RAND_HI)
 CONST CURLP 0x36        \ the line running (0: the input line)
 CONST PTOP 0x38         \ the program's end (its 0 length byte)
 CONST VTOP 0x3A         \ the variables' end
@@ -504,7 +505,8 @@ BYTES EMPTYS 0 ;
 : SUBSTR
   >R OVER C@ MIN OVER C@ OVER - R> MIN 0 MAX
   DUP TMPALLOC >R ROT 1+ ROT + R@ 1+ ROT CMOVE R> 1 TYP C! ;
-: RAND 0 {rand8} SYS 0 {rand8} SYS 256 * + ;
+\ RAND: the state is seeded from the frame counter if it is 0 (never seeded)
+: RAND RAND_ST @ 0= IF 8 @ 1 OR RAND_ST ! THEN 0 {rand8} SYS 0 {rand8} SYS 256 * + ;
 : F_ABS NARG ABS ;
 : F_RND NARG DUP 1 < IF ILLQ THEN RAND SWAP U/MOD DROP ;
 : F_PEEK NARG C@ ;
@@ -746,6 +748,7 @@ WORDS FNTAB F_ABS F_RND F_PEEK F_SGN F_FRE F_INKEY F_PAD F_LEN F_ASC F_VAL
   LY2 @ LY @ - DUP ABS NEGATE LDY ! SGN1 LSY !
   LDX @ LDY @ + LERR !
   BEGIN
+    POLL IF BREAK THEN
     LX @ LY @ LC @ PSET
     LX @ LX2 @ = LY @ LY2 @ = AND IF EXIT THEN
     LERR @ 2*
