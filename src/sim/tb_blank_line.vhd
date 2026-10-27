@@ -38,8 +38,7 @@ begin
         rowA0Out => open, rowA1Out => open, rowA7Out => open, rowA8Out => open,
         lc2In => '0', lc3In => '0', lc7In => lc7, i1In => '0', acSelNOut => open,
         pixelRowOut => open, pixelColOut => open,
-        pcEnableIn => '0', yEnableIn => '0', xEnableIn => '0',
-        muxSelBothOut => open, muxSelLoOut => open, muxSelHiOut => open);
+        rwIn => '1', runIn => '1', weNOut => open);
 
     check: process
         variable reads, vidClocks, dacEdges, lineNum, shown, blanked, errs : natural := 0;

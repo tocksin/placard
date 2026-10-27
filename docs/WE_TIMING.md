@@ -1,5 +1,11 @@
 # RAM write enable timing
 
+> 2026-10-27: /WE now comes from the Sync PLD on the early clock tap CLK_E
+> and the muxes take their selects directly ([FETCH_TIMING.md](FETCH_TIMING.md),
+> option B, implemented).  The end-of-write hold below becomes +0.5 ns from
+> the datasheets alone (with the 3 ns lead), no longer dependent on the
+> order of the clock net; the zero-page store start gains 6.9 ns.
+
 Date: 2026-10-27
 
 This checks every SRAM write against the address and data around it: the

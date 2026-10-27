@@ -76,8 +76,9 @@ the display shows the RAM.  See the [memory map](../README.md#memory-map).
 - RAM: 2 × AS7C256C-15PCN (Alliance Memory, 32K × 8, 15 ns, 28-pin PDIP).
   A15 selects which chip is accessed: the lower chip's /CE is the address
   mux's A15 and the upper chip's /CE is /CE_HI from the I/O decode PLD.
-  Both chips' /OE is /RAM_OE and their /WE is /WE, both from the memory
-  control PLD (see [TIMING_FIXES.md](TIMING_FIXES.md)).
+  Both chips' /OE is /RAM_OE from the memory control PLD and their /WE is
+  /WE from the Sync PLD (since 2026-10-27; the memory control PLD before;
+  see [TIMING_FIXES.md](TIMING_FIXES.md) and [FETCH_TIMING.md](FETCH_TIMING.md)).
 - ROM: 2 × AS7C256C-15PCN on the ROM cartridge, with their /CE the same
   way as the RAM (A15 and /CE_HI) and their /OE from /ROM_OE (memory
   control PLD).  They lose their contents at power-off, so at power-up the
@@ -92,19 +93,28 @@ See [TIMING.md](TIMING.md) for the timing analysis with these parts.
 
 The RAM is asynchronous, so the write pulse must start after the address, data
 and R/W have settled and must end before they change.  The State PLD's R/W
-(pin 23, 1 = read) is low for the whole EXEC state of a store.  The memory
-control PLD (ATF22V10_MEM_CTRL.pld) makes the write strobe and both read
-enables from it, the clock and PIXEL_ENABLE:
+(pin 23, 1 = read) is low for the whole EXEC state of a store.  The Sync
+PLD (ATF22V10_SYNC.pld, revision 10) makes the write strobe from it, the
+early clock tap CLK_E and PIXEL_ENABLE, and the memory control PLD
+(ATF22V10_MEM_CTRL.pld) makes both read enables:
 
     WRITE   = !RW & !PIXEL_ENABLE
     READ    = (RW & !SRC_EN) # PIXEL_ENABLE   (SRC_EN: EXEC, see "One data bus")
-    /WE     low when CLK = 0 and WRITE
+    /WE     low when CLK_E = 0 and WRITE       (Sync PLD)
     /RAM_OE low when CLK = 0 and READ of a RAM section
     /ROM_OE low when CLK = 0 and READ of a ROM section
 
+CLK_E is the clock as it leaves the oscillator; every other chip gets it
+through about 500 mm of track (3 ns) more, so /WE rises about 3 ns before
+the rest of the board sees the edge and is back high before the address
+muxes can change (the muxes take their selects straight from the State and
+Sync PLDs since 2026-10-27, [FETCH_TIMING.md](FETCH_TIMING.md),
+[WE_TIMING.md](WE_TIMING.md)).  Until then /WE came from the memory control
+PLD on the normal clock.
+
 While RUN is low (the cartridge or a slot-1 boot card is loading) the
-PLD lets go of /WE (revision 09) and a 10k pull-up holds it high; a boot
-card drives it then (EXPANSION.md, "Booting from slot 1").
+Sync PLD lets go of /WE (WE.OE = RUN) and a 10k pull-up holds it high; a
+boot card drives it then (EXPANSION.md, "Booting from slot 1").
 
 Every memory cycle, read or write, uses only the low half of the clock.  The
 address and source bus have the whole high half to settle, and /WE returns
@@ -152,7 +162,7 @@ Changing hands:
   read starts when the clock falls, about 20 ns after it, plus the memory
   control PLD's delay.  About 2.5 ns to spare at a 47 % high half (1 ns
   with the '138 before 2026-10-19).
-- **End of a write.**  /WE rises (memory control PLD) and /MAP_WR or
+- **End of a write.**  /WE rises (Sync PLD, from the early clock tap) and /MAP_WR or
   /PORT_WR rises (I/O decode PLD) at most 7.5 ns after the edge; the
   source F541s can turn off a little before that at minimum delays.  The
   bus then floats for a moment and holds its level (the 10k pull-ups and

@@ -197,7 +197,7 @@ def frame(x, y, w, h, label, where="tl"):
 T(4, 5, "Placard: audio schematic", fs=20, weight="bold")
 T(4, 10.5, "Line-fetched 8-bit audio: one sample per scan line read from x5DF3-x5FFF into the pixel "
    "buffer, copied to a 74HCT574 when H_VIDEO_ACTIVE rises, an R-2R ladder straight to the audio line out (no headphone amp).  "
-   "Pin numbers from ATF22V10_AUDIO.pld rev 03, ATF22V10_SYNC.pld rev 08 and docs/SOUND.md.  "
+   "Pin numbers from ATF22V10_AUDIO.pld rev 03, ATF22V10_SYNC.pld rev 10 and docs/SOUND.md.  "
    "Red labels are nets.", fs=9.5, color=MUTE)
 
 # ================================================================ U35 audio slot PLD
@@ -242,13 +242,12 @@ T(6, 108.0, "group = H9:H3;  45 = 0101101, 46 = 0101110, 47 = 0101111", fs=6.6, 
 frame(98, 14, 76, 96, "The read: Sync PLD and pixel buffer")
 u15 = ic(126, 22, 24, "U15", "ATF22V10C-7PX",
          [(1, "CLK"), (13, "BLANK_RD"), (8, "H_VIDEO_ACT")],
-         [(19, "PIXEL_ENABLE"), (20, "ADDR_SEL"), (21, "ADDR_SEL_HI")],
-         title="ATF22V10_SYNC.pld rev 08 (pins used here)")
+         [(19, "PIXEL_ENABLE")],
+         title="ATF22V10_SYNC.pld rev 10 (pins used here)")
 net(*u15["CLK"], "CLK 25 MHz", "l", fs=6.8)
 net(*u15["H_VIDEO_ACT"], "H_VIDEO_ACTIVE", "l", fs=6.8)
-for name in ("ADDR_SEL", "ADDR_SEL_HI"):
-    x, y = u15[name]
-    T(x + 0.6, y, "to the address mux", fs=6.2, color=MUTE)
+x, y = u15["PIXEL_ENABLE"]
+T(x + 0.6, y + 2.2, "selects the video address in the muxes", fs=6.2, color=MUTE)
 # BLANK_RD from U35 pin 23 to U15 pin 13
 x0, y0 = u35["BLANK_RD"]
 x1, y1 = u15["BLANK_RD"]

@@ -1,5 +1,11 @@
 # Remaining timing fixes
 
+> 2026-10-27: /WE moved from the memory control PLD to the Sync PLD (an
+> early clock tap), and the muxes take the enables as selects; the I/O decode
+> PLD rebuilds /CE_HI from PIXEL_ENABLE, PC_ENABLE and Y_ENABLE
+> ([FETCH_TIMING.md](FETCH_TIMING.md)).  The sections below describe the
+> design as it was fixed before that.
+
 Date: 2026-10-25
 
 This covers what was left in [TIMING.md](TIMING.md) after the ALU

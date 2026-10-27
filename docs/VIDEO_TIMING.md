@@ -1,5 +1,9 @@
 # Video read timing options
 
+> 2026-10-27: the Sync PLD no longer makes ADDR_SEL; the muxes take
+> PIXEL_ENABLE directly (mux revision 02, [FETCH_TIMING.md](FETCH_TIMING.md)),
+> so the video read's address path is 7.5 ns shorter than the figures below.
+
 Date: 2026-10-25
 
 The video read of the first byte of each line is the worst path left in

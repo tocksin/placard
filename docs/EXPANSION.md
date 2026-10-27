@@ -116,7 +116,7 @@ back edge of the main board.
 | SEL | to card | GND (slots 1, 2) or +5 V (slots 3, 4) through a 1k resistor: the A7 value the card answers |
 | RW | to card | 1 = read cycle |
 | LOAD_IMM | to card | 1 when the CPU latches the read bus into D (the State PLD's strobe, stall clocks already excluded) |
-| /WE | to card | The write pulse, low in the low half of a write clock (about 20 ns).  10k pull-up: the memory control PLD lets go of it while RUN is low, and a boot card in slot 1 drives it then |
+| /WE | to card | The write pulse, low in the low half of a write clock (about 20 ns).  10k pull-up: the Sync PLD (which makes it since 2026-10-27; the memory control PLD before) lets go of it while RUN is low, and a boot card in slot 1 drives it then |
 | CLK | to card | The 25.175 MHz CPU clock |
 | /RESET | to card | RUN from the ROM cartridge: low from power-up until the cartridge has loaded the ROM and lets the CPU run (ROM.md, "Loading the cartridge").  With no cartridge, a boot card in slot 1 drives it |
 | +5 V, GND | | 2 power and 7 ground contacts, the grounds spread between the fast groups |
@@ -171,15 +171,15 @@ SRAM:
 
 1. From power-up the card holds STALL_OUT high at each PC address (FETCH
    and LOAD_IMM, PC_ENABLE high), reads the byte from its EEPROM, puts it
-   on D7:D0 and pulses the RAM's **/WE** (the memory control PLD lets go
-   of /WE while RUN is low, revision 09), then releases the CPU for one
+   on D7:D0 and pulses the RAM's **/WE** (the Sync PLD, which makes /WE since
+   2026-10-27, lets go of it while RUN is low), then releases the CPU for one
    step.  The IR holds 02h, so the CPU only walks the addresses.  The card
    skips the video read clock (PIXEL_ENABLE) and writes nothing in the I/O
    window x5000-x53FF.
 2. When the PC wraps from xFFFF to x0000 the card raises **RUN**.  The map
    is then 00 (all ROM), and there is no ROM, so the card keeps stalling
    each PC read and feeding the CPU the EEPROM's byte, without /WE, until
-   it sees the CPU's **first write** (/WE low from the memory control
+   it sees the CPU's **first write** (/WE low from the Sync
    PLD).
 3. The image's first write is the map write: x0000 is the 1-byte `nop`
    (02h) as on the cartridge, and the code from x0001 loads registers

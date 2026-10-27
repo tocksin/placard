@@ -61,6 +61,7 @@ architecture sim of tb_cart_load is
     constant T_CO       : time := 5.5 ns;    -- ATF22V10C-7 clock to output
     constant T_PD       : time := 7.5 ns;    -- ATF22V10C-7 input to output
     constant T_REG_PD   : time := 10 ns;     -- clock to a combinational output (tCF + tPD)
+    constant T_CLK_E    : time := 3 ns;      -- lead of the Sync PLD's early clock tap CLK_E
     constant T_SETUP    : time := 3.5 ns;
 
     type memType is array (0 to 65535) of std_logic_vector(7 downto 0);
@@ -311,11 +312,9 @@ begin
         a10         => addr(10),
         srcEnN      => srcEnN,
         run         => run,
-        weN         => weNQ,
         romOeN      => romOeNQ,
         ramOeN      => ramOeNQ
     );
-    weN    <= transport weNQ after T_PD;
     romOeN <= transport romOeNQ after T_PD;
     ramOeN <= transport ramOeNQ after T_PD;
 
@@ -356,7 +355,16 @@ begin
         end if;
     end process pcProc;
 
-    -- Sync ADDR_SEL / ADDR_SEL_HI / ADDR_SEL_LO and the four mux PLDs
+    -- RAM /WE: Sync PLD revision 10, from the early clock tap CLK_E.
+    -- CLK_E leads the clock the rest of the board sees by T_CLK_E (the
+    -- 500 mm of track, docs/WE_TIMING.md); here it is modelled as the
+    -- strobe going out T_CLK_E sooner.  The output floats while RUN is
+    -- low (WE.OE = RUN); the equation is high then anyway.
+    weNQ <= not ((not clk) and (not memRw) and (not pixelEnable));
+    weN  <= transport weNQ after T_PD - T_CLK_E;
+
+    -- the four mux PLDs (revision 02): the enables are the selects, one
+    -- PLD pass from them to the address
     muxProc : process (pixelEnable, pcEnable, xEnable, yEnable, pcOut, dOut, videoAddr)
         variable a : std_logic_vector(15 downto 0);
     begin
@@ -371,7 +379,7 @@ begin
         else
             a := x"00" & dOut;
         end if;
-        addr <= transport a after 15 ns;
+        addr <= transport a after T_PD;
     end process muxProc;
 
     addrTime : process
