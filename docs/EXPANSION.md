@@ -402,6 +402,64 @@ card's plane, on side A).  A card shell carries an M3 heat-set insert in its
 back end there, standing 1 mm proud to meet the plate, so a cable plugged
 into the card can't rock it (CASE.md, "Expansion card screws").
 
+## Budget cartridge
+
+An option to keep, not built (Justin, 2026-10-27): a cheaper cartridge
+for builders who will give up the project's through-hole and DIP rules
+on the cartridge.  It plugs into the same slot and works with the same
+main board.  Today's cartridges cost $39.67 (32K) and $69.62 (64K) in
+BOM_CART_32K.md and BOM_CART_64K.md, and most of that is two parts: the
+DIP 15 ns SRAM (AS7C256C-15PCN, $15.21) and the AT28C256 EEPROM
+($12.38).  Those parts are 69 % of the 32K cartridge and 79 % of the 64K.
+The prices below for the new parts are estimates, not quotes.
+
+**Two part swaps (about $19, either size).**  One 128K x 8 SRAM
+(IS61C1024AL-12JLI, SOJ-32, 12 ns, about $4) takes the place of both
+SRAMs, and one SST39SF010A flash (128K x 8, 70 ns, PDIP-32, about $2)
+takes the place of both EEPROMs.  The cartridge's A15 (/CE_LO) goes to
+each chip's A15 pin, A16 and /CE go to GND, the SRAM's /OE goes to
+/ROM_OE, and its /WE goes to the loader's /SR_WE.  The flash's /OE goes
+to /EE_OE, and its /WE goes to +5 V.  /CE_HI is not used.  The loader
+PLD and its equations stay as they are.  The flash is fast enough: its
+70 ns is well inside the copy's 178 ns.  A 32K image is programmed
+twice, so one board serves both sizes.  The SRAM is the only SMD part.
+At 1.27 mm pitch, it can still be soldered by hand.  The PLD and the
+flash stay in sockets.  The SST39SF010A erases in 4K sectors, and
+TL866-type programmers handle it.
+
+**All SMD (about $8 at 100, about $7 at 1,000).**  Build the same
+circuit with the PLD and flash in PLCC, 0603 capacitors, no sockets and
+a 2-layer board of about 39 x 40 mm.  Use ENIG fingers without hard gold
+(the bevel kept), leave off the shell, and have the board machine
+assembled.  At 1,000 a moulded shell adds about $0.40-0.80, after $3-7k
+of tooling.  What it gives up: the flash and PLD have to be programmed
+before they are soldered (the ATF22V10C has no in-system programming),
+the fingers are rated for tens of insertions rather than hundreds, and
+the bare card has no shell to protect it.
+
+**A Pi Pico as the image store.**  A Pico can't be the ROM itself: the
+fetch needs a byte about 15 ns after the address, and a Pico takes
+50-100 ns.  It can take the EEPROMs' place, though.  The loader copies
+the addresses in order, x0000 to xFFFF, with at least 8 clocks between
+copies, so the Pico doesn't need the address.  It holds the image in its
+flash and puts out the next byte after each copy:
+
+- The 22V10 keeps all the timing.  /EE_OE drives the /OE of a 74HCT245
+  between the Pico and D7:D0, and the Pico moves on to the next byte
+  when /EE_OE rises.
+- The PLD needs one new input, READY from the Pico, added to its START
+  terms (no extra cells), because the Pico takes a few ms to boot.
+- The Pico's VSYS is fed through a Schottky diode, so a USB cable can't
+  power the computer.  A Pico 2's inputs take 5 V; a Pico 1 needs a
+  resistor divider on /EE_OE.
+
+It saves about $6 (32K) or $19 (64K), less than the flash swap, but the
+ROM is updated by dragging a UF2 file over USB, with no EEPROM
+programmer, and the Pico could hold several images.  A full-size Pico
+(51 x 21 mm) has to stand lengthwise on the 39 mm card, which makes the
+card about 35 mm taller.  A smaller RP2040 board (RP2040-Zero, 23 x 18
+mm) fits in the EEPROM's row.
+
 ## To check
 
 - **Write data from D7:D0.**  Cards now latch the bus side of the source
