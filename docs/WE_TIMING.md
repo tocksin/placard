@@ -199,7 +199,7 @@ Then it has the same tens of nanoseconds of margin.
 ## Proposed fix (not applied)
 
 The end of the write needs nothing, as long as U11 stays early on the clock
-net.  For the start of a zero-page store, in the order I would try them:
+net.  For the start of a zero-page store:
 
 1. **Shorten the select path in the layout.**  The address of a zero-page
    store waits on PC_ENABLE (U1, bottom of the board) crossing to the Sync
@@ -209,12 +209,9 @@ net.  For the start of a zero-page store, in the order I would try them:
    and no logic change, and the same path is the instruction fetch (see
    below), so it helps there too.  Keep U11 at the start of the clock net
    while doing it.  The board file is Justin's.
-2. **A wait clock for `st [0,D]`.**  Go LOAD_IMM, then one clock with the
-   address on D and no write and no load, then EXEC, the way stores to
-   [0,X] and [Y,X] already go through LOAD_MEM (State PLD; LOAD_MEM itself
-   can't be reused because it loads D).  The address is then a whole clock
-   old when /WE falls.  Costs one clock per zero-page store and a State PLD
-   revision, and changes cycle counts in the simulators.
+2. ~~A wait clock for `st [0,D]`~~ (one clock with the address on D
+   before EXEC).  **Rejected by Justin on 2026-10-27: no extra wait
+   clock.**  The layout fix is the one to pursue.
 
 ## Related: trace delay on the fetch path
 
