@@ -28,14 +28,15 @@ const B = await (await fetch('mesh/board.json')).json();
 const loader = new STLLoader();
 const root = new THREE.Group(); scene.add(root);
 
-const alu = new THREE.MeshStandardMaterial({color: V.alu || 0xc3c7cd, metalness: 0.55, roughness: 0.5});
+// black powder coat (V.alu overrides the colour)
+const alu = new THREE.MeshStandardMaterial({color: V.alu || 0x2c2e33, metalness: 0.15, roughness: 0.75});
 const acr = new THREE.MeshPhysicalMaterial({color: 0xe8f4ff, metalness: 0, roughness: 0.05, transparent: true,
   opacity: 0.16, depthWrite: false, side: THREE.DoubleSide});
 const acrCap = acr.clone(); acrCap.opacity = 0.22;
 const edgeMat = new THREE.LineBasicMaterial({color: 0x7fb4d8, transparent: true, opacity: 0.9});
 function mat(c, m = 0.1, r = 0.6) { return new THREE.MeshStandardMaterial({color: c, metalness: m, roughness: r}); }
 
-const aluEdge = new THREE.LineBasicMaterial({color: 0x4a4f56, transparent: true, opacity: 0.55});
+const aluEdge = new THREE.LineBasicMaterial({color: 0x8a9099, transparent: true, opacity: 0.55});
 async function stl(name, material, dz = 0, edges = false, off = [0, 0, 0]) {
   const g = await new Promise((res, rej) => loader.load('mesh/' + name + '.stl', res, undefined, rej));
   g.computeVertexNormals();
@@ -83,7 +84,7 @@ if (!V.hide?.includes('board')) {
 }
 // ---- cases
 // tray, and the back and left plates (V.plate: their colour; explode.back / .left slide them out)
-const plateMat = V.plate ? new THREE.MeshStandardMaterial({color: V.plate, metalness: 0.55, roughness: 0.5}) : alu;
+const plateMat = V.plate ? new THREE.MeshStandardMaterial({color: V.plate, metalness: 0.15, roughness: 0.75}) : alu;
 const ae = V.aluEdges ? 'alu' : false;
 if (!V.hide?.includes('tray')) await stl('tray', alu, ez('lower'), ae);
 if (!V.hide?.includes('back')) await stl('back_plate', plateMat, ez('lower'), ae, [0, ez('back'), 0]);
