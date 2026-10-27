@@ -40,8 +40,14 @@ part goes on the sheet of the block it belongs to.
   label not connected anywhere else" must be clean.
 - **Net names are the PLD pin names**, active low written `/NAME`.  The
   main board and the cartridges use the same names on the cartridge
-  connector (`A0`, `D0`, `/CE_HI`, `STALL_OUT`, ...).
-- **Each bit is its own net** (`A0`, `A1`, ...).  A group of three or more
+  connector (`ADDR0`, `DATABUS0`, `/CE_HI`, `STALL_OUT`, ...).
+- **The three main buses** (Justin, 2026-10-27): the address bus is
+  `ADDR15`-`ADDR0`, the data bus `DATABUS7`-`DATABUS0` and the D register's
+  outputs `D7`-`D0`.  The other docs write the address and data bits as
+  A15:A0 and D7:D0; those are the CPU's bits, the same signals as
+  `ADDR`/`DATABUS` here.  In the script the Python lists keep the short
+  names `A`, `D` and `DR`.
+- **Each bit is its own net** (`ADDR0`, `ADDR1`, ...).  A group of three or more
   numbered nets on a sheet is drawn as a bus (see "Buses" below).
 
 ## Reference designators
@@ -84,28 +90,30 @@ sheets by hand, or the next run overwrites the edit.
   of its pins; a net with a single pin on the sheet gets a label on a short
   wire (staggered between neighbours).  Junctions mark every T, and the
   wires are cut there (KiCad 7 needs that).
-- **Buses:** a group of three or more numbered nets on a sheet (`D`, `A`,
-  `SRC`, `DR`, `PC`, `H`, `V`, `VA`, `RAMSEL`, `ROW`, `DAC`, ...; not the
+- **Buses:** a group of three or more numbered nets on a sheet (`DATABUS`, `ADDR`,
+  `SRC`, `D`, `PC`, `H`, `V`, `VA`, `RAMSEL`, `ROW`, `DAC`, ...; not the
   ladder `LAD`) gets one bus per sheet: each pin has a short wire with its
-  member label (`D3`) and a bus entry onto a bus line beside the chip, the
+  member label (`DATABUS3`) and a bus entry onto a bus line beside the chip, the
   router joins the bus lines of all the chips, and one bus label
-  (`D[0..7]`, global when the bus leaves the sheet) names it.  Where the
+  (`DATABUS[0..7]`, global when the bus leaves the sheet) names it.  Where the
   router cannot join a bus piece it gets its own bus label.
 - **Tidying rules** (Justin, 2026-10-21): parts are spread out so no text
   sits on other text or a symbol; wires run straight with as few bends as
   possible; buses stay buses; nets keep off the page-exit tabs, and the tabs
   read horizontally; no jumbles at PWR_FLAG.  The tools for this:
-  - `label_each`: buses that come from other sheets (`D`, `A`, `ROW`, ...)
+  - `label_each`: buses that come from other sheets (`DATABUS`, `ADDR`, `ROW`, ...)
     get a bus piece and bus label at each chip instead of one long trunk
     looping round the sheet; a single member (one diode on `ROW7`) gets a
     plain label.
-  - `label_nets`: busy control nets (`CLK`, `RUN`, `RW`, the port lines on
-    the shared port, the slot controls) are labelled at every pin instead of
-    wired.
+  - `label_nets`: busy control nets (`CLK`, `RUN`, `RW`, the port PLD's
+    inputs on the shared port, the slot controls) are labelled at every pin
+    instead of wired.  The port PLD's outputs (P_SCK, P_MOSI, P_CS, P_PS2D,
+    K0) are wired to the pads, the SD dividers and the PS/2 hold diodes
+    (Justin, 2026-10-27).
   - `force_bus`: a short group drawn as a bus anyway (`I[5..7]`).
   - Hand layout where the router's choice is poor: `bare` pins with
     straight `path()` wires, `bus_piece()` trunks the router joins the chip
-    pieces to (the cartridge's `D[0..7]` along the top), `name()` labels in
+    pieces to (the cartridge's `DATABUS[0..7]` along the top), `name()` labels in
     an even column instead of staggered.  The shared port, expansion and
     cartridge sheets are hand-laid this way.
   - PLD and connector symbols may have their pins reordered or spaced a row
@@ -148,7 +156,7 @@ sheets by hand, or the next run overwrites the edit.
 Choices made while drawing that a revision should not undo by accident:
 
 - The expansion slots' former SD7:SD0 contacts are BT1-BT8 (boot contacts
-  on slot 1, open on slots 2-4); cards latch D7:D0.  /WE has a 10k pull-up
+  on slot 1, open on slots 2-4); cards latch DATABUS7:0.  /WE has a 10k pull-up
   (R63).  [EXPANSION.md](EXPANSION.md), "Booting from slot 1".
 - The slots' LOAD_IMM contact carries the State PLD's `/LOAD_IMM` as it is
   (active low).
