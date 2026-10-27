@@ -185,6 +185,46 @@ order of the clock net.
 - The RW drop in the I/O decode PLD: an I/O read in LOAD_MEM (a `ld d,
   [0,X]` with X in the I/O window) reads the device as it does now.
 
+### Change list (planned, nothing done yet)
+
+PLD sources (`src/pld`), each with its date and revision bumped:
+
+1. `ATF22V10_QUAD_MUX.pld` rev 02: new pin-out, two low and two high
+   address bits per chip, selects PIXEL_ENABLE, PC_ENABLE, X_ENABLE,
+   Y_ENABLE.  One source for U7-U10.
+2. `ATF22V10_SYNC.pld` rev 10: drop ADDR_SEL, ADDR_SEL_HI, ADDR_SEL_LO and
+   the PC_ENABLE, X_ENABLE, Y_ENABLE inputs; add CLK_E, RW, RUN inputs and
+   the /WE output (`!CLK_E & !RW & !PIXEL_ENABLE`, OE = RUN).
+3. `ATF22V10_MEM_CTRL.pld` rev 10: drop /WE (pin 16 free); comments.
+4. `ATF22V10_IO_DECODE.pld` rev 05: /CE_HI from PIXEL_ENABLE, PC_ENABLE,
+   Y_ENABLE, PC15, H9, Y7; drop RW (`RD = IO & LOAD_IMM`); /WE now from
+   the Sync PLD.
+
+FPGA model (`src/hdl`): `quad_4to1_mux.vhd` and `full_mux.vhd` (new
+select ports and bit grouping), `sync_pld.vhd`, `mem_ctrl_pld.vhd`,
+`io_decode_pld.vhd`, and the wiring in `vga_gen_pld.vhd` and
+`basys_top.vhd` (CLK_E = the same clock in the model).  Then
+`build\create_project.bat force` is not needed (no file added or removed).
+
+Simulations: `tb_cart_load.vhd` (it models the Sync selects and muxes),
+the GHDL full-top run of `cpu_test` (RAM writes must match the 81,746 on
+record), `tb_top_load`, and the map/I/O test.
+
+Schematic and symbols: `gen_kicad_symbols.py` (mux, Sync, memory control,
+I/O decode pin names), `gen_kicad_schematic.py` (mux sheet, control and
+memory sheets, the /WE net source, the CLK_E net), `gen_audio_schematic.py`
+and `bringup_signals.py` (they name ADDR_SEL), regenerated sheets and PDFs.
+Symbol uuids are kept so Update PCB from Schematic follows.
+
+Docs: CPU.md (RAM write timing), TIMING_FIXES.md (memory control section),
+PLD_USAGE.md (four PLDs), CHIPS.md (functions of #7-#12, #15),
+SCHEMATIC_PLAN.md (power sheet: CLK_E and the 500 mm rule), EXPANSION.md
+and ROM.md (where /WE comes from), BRINGUP.md (probe points), XY_TIMING.md
+and VIDEO_TIMING.md (the paths they close are now wider), and this file.
+
+Board (Justin's): re-pin the four muxes, move /WE to U15, the CLK_E tap
+and the 500 mm of track before the next clock load.
+
 ### What it costs
 
 Mux revision 02 (new pin-out: the muxes' wiring on the board is redone),
