@@ -31,7 +31,7 @@ The main board, built: the bare PCB, every part on the schematic, and the socket
 | 1 | K1 | J1071CS5VDC.36 | CIT Relay and Switch | Reset relay: SPDT, 5 V coil (69 ohm, 72 mA), 7 A 30 V DC (NO and NC), through hole, sealed; NC contact carries the 5 V |  | 1.15 | 1.15 | Digi-Key: Justin, 2026-10-25; Mouser does not sell CIT |  |
 | 1 | F1 | MF-RG300-0 | Bourns | Polyfuse, 3 A hold, radial | 3 A hold | 0.73 | 0.73 | Mouser | Part number from the footprint (Fuse_Bourns_MF-RG300) |
 | 11 | D1-D6, D8-D11, D19 | BAT85S-TAP | Vishay | Schottky diode, DO-35 | BAT85 | 0.22 | 2.42 | Mouser: Vishay BAT85S-TAP | Any BAT85 (Vishay BAT85S is the one Mouser stocks; Nexperia, onsemi) |
-| 1 | D7 | SA5.0A | Littelfuse | D_Zener |  | 0.64 | 0.64 | Mouser |  |
+| 1 | D7 | SA5.0A | Littelfuse | TVS diode, 5 V stand-off, 500 W, DO-15 axial (across the fused USB 5 V) |  | 0.64 | 0.64 | Mouser |  |
 | 6 | D12-D17 | 1N4148-TAP | Vishay | Small-signal diode, DO-35 | 1N4148 | 0.26 | 1.56 | Mouser: Vishay 1N4148-TAP | Any 1N4148 (Vishay, onsemi, Diodes Inc.) |
 | 1 | D18 | WP7113ID | Kingbright | Power LED, 5 mm, red diffused, through hole (on +5V after K1) |  | 0.21 | 0.21 | Mouser | D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color (was Lite-On LTL2R3KRD-EM, out of stock 2026-10-25) |
 | 2 | R1, R2 | MFR-25FBF52-5K1 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 5.1k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
