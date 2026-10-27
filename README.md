@@ -139,6 +139,13 @@ and expansion card lookup.  It also sets the calling convention, the
 software stack and the zero page variable map (`zeropage.asm`).  See
 [docs/LIBRARY.md](docs/LIBRARY.md).
 
+## Emulator
+Open `web/index.html` in a browser to run the PLACARD without hardware: the
+32K ROM (or one you load), an SD card (the `sdcard/` folder, a folder of
+your own or a card image), the screen, sound, keyboard, mouse and game
+controllers, at the real clock rate.  No server is needed.  See
+[docs/EMULATOR.md](docs/EMULATOR.md).
+
 ## Building and loading a program
 The `build` folder has one Windows batch file per assembly program
 (`cpu_test.bat`, `test_video.bat`, `text_demo.bat`, `mandelbrot.bat`,
