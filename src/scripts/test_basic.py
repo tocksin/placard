@@ -157,6 +157,10 @@ def t_print(b):
     expect(b, 'compare', b.cmd('? 1<2, 2<1, 3=3, "A"<"B", 5 AND 3, 5 OR 3, NOT 0'),
            ['-1        0         -1        -1        1         7         -1'])
     expect(b, 'hex', b.cmd('? &HFF, HEX$(255), -32768'), ['255       FF        -32768'])
+    expect(b, 'operators', b.cmd('? 2*3+4*5-6/2, 10-2-3, 7 MOD 4*2, NOT 1=2, 1 OR 2 AND 4'),
+           ['23        5         6         -1        1'])
+    expect(b, 'unary', b.cmd('? -2*-3, +5-+3, -(3), NOT NOT 7, NOT 0 AND 5'),
+           ['6         2         -3        7         5'])
 
 
 @check
@@ -322,11 +326,28 @@ def t_text30(b):
 def t_graphics(b):
     m = b.cpu.mem
     b.cmd('MODE 2,2,4:PLOT 0,0,3:PLOT 5,1,2:LINE 0,10,9,10,1')
-    expect(b, 'mode bytes', [m[0x5A20], m[0x5A20 + 31], m[0x5A20 + 32], m[0x5A20 + 479]], [0, 0, 5, 5])
+    # row 3 of the text window is blanked: nothing written there yet
+    expect(b, 'mode bytes', [m[0x5A20], m[0x5A20 + 31], m[0x5A20 + 32], m[0x5A20 + 479]], [0, 0x80, 5, 5])
     a = lambda line: 0x6000 + ps.row_offset(line, 5)
     expect(b, 'plot', [m[a(32)] & 3, (m[a(34) + 512] >> 2) & 3, m[a(52)], m[a(52) + 512] & 3],
            [3, 2, 0x55, 1])
     b.cmd('TEXT 60')
+
+
+@check
+def t_blank(b):
+    m = b.cpu.mem
+    blanked = lambda: ''.join('B' if m[0x5A20 + 8 * r] & 0x80 else '.' for r in range(60))
+    b.cmd('CLS')
+    expect(b, 'blank after CLS', blanked(), '..' + 'B' * 58)
+    b.cmd('LOCATE 5,0:PRINT "X"')
+    expect(b, 'shown down to the cursor', blanked(), '.' * 8 + 'B' * 52)
+    b.cmd('TINT 30,1')
+    expect(b, 'TINT shows its row', blanked(), '.' * 10 + 'B' * 20 + '.' + 'B' * 29)
+    for i in range(60):
+        b.cmd('?')
+    expect(b, 'all shown after a scroll', blanked(), '.' * 60)
+    b.cmd('CLS')
 
 
 @check
