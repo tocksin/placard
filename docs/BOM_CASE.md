@@ -1,6 +1,6 @@
 # Bill of materials: case assembly
 
-Date: 2026-10-25
+Date: 2026-10-27
 
 The computer in its case: the main board assembly ([BOM_MAIN_PCB.md](BOM_MAIN_PCB.md)) as one line, the case parts from [CASE.md](CASE.md), standoffs, screws and feet.  The cartridge is its own assembly.
 

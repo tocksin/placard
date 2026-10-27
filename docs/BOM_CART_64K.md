@@ -1,6 +1,6 @@
 # Bill of materials: 64K cartridge assembly
 
-Date: 2026-10-25
+Date: 2026-10-27
 
 The 64K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and screw.  A machine takes one cartridge, 64K or 32K.
 
