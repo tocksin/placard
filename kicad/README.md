@@ -46,8 +46,8 @@ Their 3D models (`src/scripts/gen_kicad_3d_models.py`, picture in
 dimensions too, with the leads put on the footprint pads.  J4 (SD), J7 (VGA),
 F1 and SW2 use project copies of KiCad's footprints (`placard:` library) only so
 they can point at the project's models; the pads are KiCad's.
-The sheet plan (which chips go on which sheet, and the nets between
-them) is [docs/SCHEMATIC_PLAN.md](../docs/SCHEMATIC_PLAN.md).  Parts and U-numbers come from
+The schematic rules (which chips go on which sheet, numbering, and how
+the sheets are drawn) are in [docs/SCHEMATIC_PLAN.md](../docs/SCHEMATIC_PLAN.md).  Parts and U-numbers come from
 [docs/CHIPS.md](../docs/CHIPS.md); the PLD pinouts come from the `.pld` files
 in `src/`.
 
