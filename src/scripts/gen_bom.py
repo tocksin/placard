@@ -23,7 +23,7 @@ shells, screws) are added here.
     python3 src/scripts/gen_kicad_schematic.py    # after a part change
     python3 src/scripts/gen_bom.py
 
-Date: 2026-10-26
+Date: 2026-10-27
 """
 import csv
 import glob
@@ -322,9 +322,12 @@ SHELL_LINES = {
 CASE_NOTE = "CASE.md \"Cost estimate\", 1 unit, China sheet metal, not quoted"
 ACRYLIC_NOTE = "CASE.md \"Cost estimate\", 1 unit, laser-cut acrylic, not quoted"
 CASE_LINES = [
-    mech(1, "Lower shell: 2.0 mm 5052-H32, bent, brushed and anodized, 8 PEM standoffs SO-M3-6 pressed in", 60.00,
-         CASE_NOTE, "case/lower_shell.step"),
-    mech(1, "Upper shell: 2.0 mm 5052-H32, bent, brushed and anodized", 60.00, CASE_NOTE, "case/upper_shell.step"),
+    mech(1, "Tray: 2.0 mm 5052-H32, floor with the front and right walls (two bends), brushed and anodized, "
+            "8 PEM standoffs SO-M3-6 pressed in", 55.00, CASE_NOTE, "case/tray.step"),
+    mech(1, "Back plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), anodized, 3 PEM nuts", 25.00,
+         CASE_NOTE, "case/back_plate.step"),
+    mech(1, "Left plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), anodized, 3 PEM nuts", 25.00,
+         CASE_NOTE, "case/left_plate.step"),
     mech(1, "Acrylic top: 4 mm clear cast acrylic, 295 x 220 mm, laser cut, 10 magnet holes", 30.00, ACRYLIC_NOTE,
          "case/acrylic_top.step"),
     mech(4, "Slot cover: 4 mm acrylic plug + 3 mm cap, solvent welded", 3.00, ACRYLIC_NOTE, "case/slot_cover.step"),
@@ -335,6 +338,7 @@ CASE_LINES = [
          "typical price"),
     mech(8, "M3 male-female hex standoff, 27 mm (H1-H8)", 0.80, "typical standoff price"),
     mech(8, "M3 x 8 button head screw, black or stainless (acrylic top)", 0.15, "typical screw price"),
+    mech(6, "M3 x 6 countersunk screw (up through the floor into the plates' flanges)", 0.15, "typical screw price"),
     mech(4, "Rubber foot, 16 mm across, 10 mm tall, adhesive (clears the parked covers)", 0.40, "typical price"),
 ]
 
@@ -421,7 +425,7 @@ def main():
           "| Assembly | BOM | Contents | Cost | Without optional parts | Lines estimated |",
           "|---|---|---|--:|--:|--:|"]
     contents = {"Main board": "Bare PCB, components, sockets", "Cartridge, 64K": "Bare PCB, components, sockets, "
-                "shell, screw", "Cartridge, 32K": "Same, 32K board", "Case": "Main board assembly, shells, "
+                "shell, screw", "Cartridge, 32K": "Same, 32K board", "Case": "Main board assembly, tray and plates, "
                 "acrylic, magnets, standoffs, screws, feet"}
     for name in ("Main board", "Cartridge, 64K", "Cartridge, 32K", "Case"):
         t, b, est = totals[name]

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-gen_case.py - the PLACARD case concept: a split brushed, anodized aluminium
-shell with a clear acrylic top over the main board, and one removable acrylic
+gen_case.py - the PLACARD case concept: a brushed, anodized aluminium tray
+(floor, front and right walls) with flat plates for the back and left walls,
+which carry the connectors that reach through them, a clear acrylic top over
+the whole case, and one removable acrylic
 cover per expansion slot (J9-J12) and for the cartridge slot (J8), held on by
 magnets.  A cover that is out parks under the case: its magnets cling to steel
 discs set flush in the floor, right under where it fits on the top, and the
@@ -19,8 +21,9 @@ Parts (STEP in case/, DXF cutting files for the flat parts in case/dxf/):
 
 | File | Part | Material |
 |---|---|---|
-| lower_shell | floor and walls up to the split line, steel parking discs | 2.0 mm 5052 aluminium, bent, brushed, clear or black anodized |
-| upper_shell | walls from the split line, top flange | 2.0 mm 5052 aluminium, bent, brushed, anodized |
+| tray | floor, front wall, right wall (SNES cut-outs), steel parking discs | 2.0 mm 5052 aluminium, bent, brushed, clear or black anodized |
+| back_plate | back wall: USB-C, audio, VGA, PS/2 cut-outs; bottom flange | 2.0 mm 5052, one bend, anodized |
+| left_plate | left wall: power, reset, SD cut-outs; bottom flange | 2.0 mm 5052, one bend, anodized |
 | acrylic_top | over the board, slot and cartridge openings, magnets | 4 mm clear cast acrylic, laser cut |
 | slot_cover | one per expansion slot (4 alike), plug + cap with two magnets | 4 mm + 3 mm acrylic, solvent welded |
 | cart_cover | cartridge slot cover, plug + cap with two magnets | 4 mm + 3 mm acrylic |
@@ -28,7 +31,7 @@ Parts (STEP in case/, DXF cutting files for the flat parts in case/dxf/):
 Coordinates (mm): x from the case's left outside face, y from the front
 outside face toward the back, z up from the main board's top face.
 
-Date: 2026-10-25
+Date: 2026-10-27
 """
 
 import argparse
@@ -55,11 +58,10 @@ OFF = GAP + T          # board's left edge in case x, its front edge in case y, 
 PCB_T = 1.6
 STANDOFF = 6.0         # floor to the board's underside (VGA J7's pins reach 3.8 mm below it)
 Z_FLOOR = -PCB_T - STANDOFF - T     # underside of the floor (z = 0 is the main board's top face)
-Z_SPLIT = 4.0          # where the lower and upper shells meet, away from the connectors
-Z_TOP = 27.0           # underside of the top flange (stacked PS/2 J5 is 25 mm tall)
+Z_TOP = 27.0           # top of the walls = underside of the acrylic top (stacked PS/2 J5 is 25 mm tall)
 ACRYLIC = 4.0          # top
 CAP = 3.0              # cover caps
-FLANGE = 10.0          # top flange width round the board window
+PLATE_FLANGE = 6.0     # the plates' bottom flanges, lying on the floor
 
 # parking under the floor: a parked cover hangs ACRYLIC + CAP below the floor
 PARK_CLEAR = 3.0       # parked cover's plug to the desk
@@ -88,8 +90,6 @@ WALL_PARTS = {
     "J3": ("right", ("rrect", 27.0, 14.0, 2.0), "SNES port 2"),
 }
 FALLBACK_Z = {"J4": 1.45}   # J4 is being changed to a Hirose DM1AA (2026-10-25); the board still has the old one
-STEP_MARGIN = 5.0      # the split line steps this far either side of a cut-out
-SNAP = 1.0             # a connector centre this close to Z_SPLIT uses Z_SPLIT
 
 SLOTS = ["J9", "J10", "J11", "J12"]
 CART = "J8"
@@ -204,7 +204,7 @@ def cutter(side, u, z, prof, depth=10.0):
     """A solid that cuts prof through the wall on side at (u, z)."""
     kind = prof[0]
     if side == "back":
-        plane = cq.Plane(origin=(u, D - T / 2 - depth / 2, z), xDir=(1, 0, 0), normal=(0, 1, 0))
+        plane = cq.Plane(origin=(u, D - T / 2 - depth / 2, z), xDir=(-1, 0, 0), normal=(0, 1, 0))
     elif side == "left":
         plane = cq.Plane(origin=(T / 2 + depth / 2, u, z), xDir=(0, -1, 0), normal=(-1, 0, 0))
     else:
@@ -232,17 +232,8 @@ def cut_width(prof):
             "dsub": lambda p: 24.99 + 3.2, "sd": lambda p: 27.0}[prof[0]](prof)
 
 
-def step_box(side, u, half, z0, z1):
-    """Wall-thick box over u +- half, z0..z1 on side (the split line's step at a connector)."""
-    if side == "back":
-        return cq.Workplane("XY").box(2 * half, T, z1 - z0, centered=(True, False, False)).translate(
-            (u, D - T, z0))
-    x = 0 if side == "left" else W - T
-    return cq.Workplane("XY").box(T, 2 * half, z1 - z0, centered=(False, True, False)).translate((x, u, z0))
-
-
 def wall_cutouts(parts):
-    """[(ref, side, u, z_centre, z_joint, prof, note)] for every wall connector on the board."""
+    """[(ref, side, u, z_centre, prof, note)] for every wall connector on the board."""
     out = []
     for ref, (side, prof, note) in WALL_PARTS.items():
         if ref not in parts:
@@ -257,8 +248,7 @@ def wall_cutouts(parts):
             note += " (model missing: placed from the courtyard, check)"
         else:
             u, z, _ = wall_face(solid, side)
-        zj = Z_SPLIT if abs(z - Z_SPLIT) < SNAP else z
-        out.append((ref, side, u, z, zj, prof, note))
+        out.append((ref, side, u, z, prof, note))
     return out
 
 
@@ -286,11 +276,6 @@ def openings(parts):
     return bay, cart, slot_x
 
 
-def window():
-    """The board window in the top flange (x0, x1, y0, y1)."""
-    return (FLANGE, W - FLANGE, FLANGE, D - FLANGE)
-
-
 def hole_xy(parts, ref):
     return cx(parts[ref]["x"]), cy(parts[ref]["y"])
 
@@ -312,17 +297,18 @@ def vents(parts):
     return [(W / 2, 30.0 + i * 12.0, 150.0) for i in range(n)]
 
 
-def lower_shell(parts, cuts):
-    s = rounded_plate(0, W, 0, D, Z_FLOOR, Z_SPLIT - Z_FLOOR, 3.0)
-    s = s.cut(rounded_plate(T, W - T, T, D - T, Z_FLOOR + T, 100, 1.0))
-    for ref, side, u, z, zj, prof, note in cuts:
-        half = cut_width(prof) / 2 + STEP_MARGIN
-        if zj > Z_SPLIT:
-            s = s.union(step_box(side, u, half, Z_SPLIT - 0.01, zj))
-        elif zj < Z_SPLIT:
-            s = s.cut(step_box(side, u, half, zj, Z_SPLIT + 1))
-        s = s.cut(cutter(side, u, z, prof))
-    # floor: standoff holes, vent slots, holes for the steel parking discs
+def tray(parts, cuts):
+    """Floor with the front and right walls bent up to Z_TOP.  The floor stops at
+    the plates' inside faces (x = T, y = D - T); the plates' flanges lie on it."""
+    s = rounded_plate(T, W, 0, D - T, Z_FLOOR, T)
+    s = s.union(rounded_plate(0, W, 0, T, Z_FLOOR, Z_TOP - Z_FLOOR))          # front wall
+    s = s.union(rounded_plate(W - T, W, 0, D, Z_FLOOR, Z_TOP - Z_FLOOR))      # right wall
+    s = s.edges("|Z").edges(">X and <Y").fillet(3.0)
+    for ref, side, u, z, prof, note in cuts:
+        if side == "right":
+            s = s.cut(cutter(side, u, z, prof))
+    # floor: standoff holes, vent slots, holes for the steel parking discs and
+    # the plate screws
     for ref in board_holes(parts):
         x, y = hole_xy(parts, ref)
         s = s.cut(hole(x, y, 4.2, Z_FLOOR - 1))
@@ -330,32 +316,61 @@ def lower_shell(parts, cuts):
         s = s.cut(cq.Workplane("XY").center(x, y).slot2D(l, 5).extrude(10).translate((0, 0, Z_FLOOR - 1)))
     for x, y in slot_magnets(parts):
         s = s.cut(hole(x, y, DISC_D, Z_FLOOR - 1, T + 2))
+    for x, y in plate_screws():
+        s = s.cut(hole(x, y, 3.4, Z_FLOOR - 1))
+    return s
+
+
+def plate_screws():
+    """(x, y) of the M3 countersunk screws up through the floor into PEM nuts in
+    the plates' flanges: three along the back, clear of the parked slot covers
+    (x 38-145) and J7's notch, and three along the left, clear of the standoffs."""
+    yb = D - T - PLATE_FLANGE / 2
+    xl = T + PLATE_FLANGE / 2
+    return ([(x, yb) for x in (20.0, 160.0, W - 20.0)] +
+            [(xl, y) for y in (40.0, 75.0, D - 40.0)])         # clear of H7 at mid-depth
+
+
+def flange_notches(parts):
+    """Boxes (x0, x1, y0, y1) cut from the plates' flanges where a part reaches
+    down near them under the board (J7's pins and board locks, 0.2 mm above the
+    flange), with 1.5 mm to spare, so the plate slides in clear."""
+    top = Z_FLOOR + 2 * T
+    out = []
+    for ref, p in parts.items():
+        m = model_solid(p)
+        if m is None:
+            continue
+        b = m.BoundingBox()
+        if b.zmin < top + 1.0:
+            out.append((b.xmin - 1.5, b.xmax + 1.5, b.ymin - 1.5, b.ymax + 1.5))
+    return out
+
+
+def plate(parts, cuts, side):
+    """The back or left plate: a wall from the floor's underside to Z_TOP with a
+    flange bent in along the bottom, lying on the floor (screwed from below).
+    The back plate fits between the left plate and the right wall; the left
+    plate runs from behind the front wall to the back corner."""
+    z0 = Z_FLOOR
+    if side == "back":
+        s = rounded_plate(T, W - T, D - T, D, z0, Z_TOP - z0)
+        s = s.union(rounded_plate(T, W - T, D - T - PLATE_FLANGE, D - T, z0 + T, T))
+    else:
+        s = rounded_plate(0, T, T, D, z0, Z_TOP - z0)
+        s = s.union(rounded_plate(T, T + PLATE_FLANGE, T, D - T - PLATE_FLANGE, z0 + T, T))
+    for ref, sd, u, z, prof, note in cuts:
+        if sd == side:
+            s = s.cut(cutter(sd, u, z, prof))
+    for x0, x1, y0, y1 in flange_notches(parts):
+        s = s.cut(rounded_plate(x0, x1, y0, y1, z0 + T - 0.01, T + 0.02))
+    for x, y in plate_screws():
+        s = s.cut(hole(x, y, 2.5, z0))
     return s
 
 
 def parking_discs(parts):
     return [hole(x, y, DISC_D, Z_FLOOR, DISC_T) for x, y in slot_magnets(parts)]
-
-
-def upper_shell(parts, cuts):
-    bay, cart, slot_x = openings(parts)
-    win = window()
-    s = rounded_plate(0, W, 0, D, Z_SPLIT, Z_TOP + T - Z_SPLIT, 3.0)
-    s = s.cut(rounded_plate(T, W - T, T, D - T, Z_SPLIT - 1, Z_TOP - Z_SPLIT + 1, 1.0))
-    s = s.cut(rounded_plate(win[0], win[1], win[2], win[3], Z_TOP - 1, 10, 2.0))
-    # the card shells pass the back flange: open it to the back wall's inside face
-    s = s.cut(rounded_plate(bay[0], bay[1], win[3] - 5, D - T, Z_TOP - 1, 10))
-    for ref, side, u, z, zj, prof, note in cuts:
-        half = cut_width(prof) / 2 + STEP_MARGIN
-        if zj < Z_SPLIT:
-            s = s.union(step_box(side, u, half, zj, Z_SPLIT + 0.01))
-        elif zj > Z_SPLIT:
-            s = s.cut(step_box(side, u, half, Z_SPLIT - 1, zj))
-        s = s.cut(cutter(side, u, z, prof))
-    for ref in board_holes(parts):
-        x, y = hole_xy(parts, ref)
-        s = s.cut(hole(x, y, 3.2, Z_TOP - 1))
-    return s
 
 
 def slot_magnets(parts):
@@ -376,7 +391,7 @@ def slot_magnets(parts):
 def parked(solid):
     """A cover that is out, parked under the floor right below where it fits on
     the top: cap up against the floor, its magnets on the steel discs."""
-    return solid.translate((0, 0, Z_FLOOR - (Z_TOP + T + ACRYLIC + CAP)))
+    return solid.translate((0, 0, Z_FLOOR - (Z_TOP + ACRYLIC + CAP)))
 
 
 def parked_boxes(parts):
@@ -392,7 +407,7 @@ def parked_boxes(parts):
 
 def acrylic_top(parts):
     bay, cart, slot_x = openings(parts)
-    z0 = Z_TOP + T
+    z0 = Z_TOP
     s = rounded_plate(0, W, 0, D, z0, ACRYLIC, 3.0)
     s = s.cut(rounded_plate(bay[0], bay[1], bay[2], D + 1, z0 - 1, ACRYLIC + 2))
     s = s.cut(rounded_plate(cart[0], cart[1], cart[2], cart[3], z0 - 1, ACRYLIC + 2, 1.0))
@@ -423,7 +438,7 @@ def slot_covers(parts):
     bay, cart, slot_x = openings(parts)
     n = len(slot_x)
     pitch = (bay[1] - bay[0]) / n
-    z0 = Z_TOP + T
+    z0 = Z_TOP
     mags = slot_magnets(parts)
     out = []
     for i in range(n):
@@ -439,7 +454,7 @@ def slot_covers(parts):
 
 def cart_cover(parts):
     bay, cart, slot_x = openings(parts)
-    z0 = Z_TOP + T
+    z0 = Z_TOP
     plug = rounded_plate(cart[0] + 0.2, cart[1] - 0.2, cart[2] + 0.2, cart[3] - 0.2, z0, ACRYLIC, 0.8)
     cap = rounded_plate(cart[0] - LIP, cart[1] + LIP, cart[2] - LIP, cart[3] + LIP, z0 + ACRYLIC, CAP, 3.0)
     cap = cap.cut(hole((cart[0] + cart[1]) / 2, cart[2] - LIP, 8.0, z0))
@@ -464,7 +479,7 @@ def standoffs(parts):
 def magnets(parts):
     """Magnet discs: "top" in the acrylic top (flush with its top face), then one
     pair per cover in its cap (cover name -> pair), in place on the top."""
-    z0 = Z_TOP + T
+    z0 = Z_TOP
     m = slot_magnets(parts)
     out = {"top": [hole(x, y, MAG_D, z0 + ACRYLIC - MAG_T, MAG_T) for x, y in m]}
     for i in range(len(SLOTS)):
@@ -474,7 +489,7 @@ def magnets(parts):
 
 
 # ---------------------------------------------------------------- drawings
-ALU_C, ACR_C = "#b9bec5", "#cfe8f7"
+ALU_C, ACR_C, PLATE_C = "#b9bec5", "#cfe8f7", "#4a4f56"
 
 
 def dim(ax, p0, p1, text, off=(0, 0), fs=9):
@@ -517,16 +532,17 @@ def _frame(ax, info, title):
 
 
 def draw_top(info, path):
-    """Top view (flange, acrylic top, covers, magnets, screws, wall connectors) and
+    """Top view (acrylic top, covers, magnets, screws, wall connectors) and
     the underside (feet, vents, steel discs, the covers parked there)."""
     Wd, Dd = info["W"], info["D"]
     fig, (ax, bx) = plt.subplots(1, 2, figsize=(20, 9.5))
     # top
     ax.add_patch(FancyBboxPatch((0, 0), Wd, Dd, boxstyle="round,pad=0,rounding_size=3", fc=ALU_C, ec="#555",
                                 lw=1.2))
-    win = info["window"]
-    ax.add_patch(Rectangle((0, 0), Wd, Dd, fc=ACR_C, ec="#2b7bb9", lw=1.2, alpha=0.5))
-    ax.add_patch(Rectangle((win[0], win[2]), win[1] - win[0], win[3] - win[2], fc="#eef6fb", ec="#555", lw=0.8))
+    ax.add_patch(Rectangle((T, Dd - T), Wd - 2 * T, T, fc=PLATE_C, ec="#333", lw=0.6))
+    ax.add_patch(Rectangle((0, T), T, Dd - T, fc=PLATE_C, ec="#333", lw=0.6))
+    ax.add_patch(FancyBboxPatch((0, 0), Wd, Dd, boxstyle="round,pad=0,rounding_size=3", fc=ACR_C, ec="#2b7bb9",
+                                lw=1.2, alpha=0.5))
     _cover_patches(ax, info)
     for x, y in info["magnets"]:
         ax.add_patch(Circle((x, y), MAG_D / 2, fc="#b03a2e", ec="none"))
@@ -543,10 +559,10 @@ def draw_top(info, path):
         else:
             ax.plot([Wd, Wd + 6], [u, u], color="#c33", lw=1)
             ax.text(Wd + 8, u, cu["ref"], ha="left", va="center", fontsize=9, color="#c33")
-    ax.text(Wd / 2, win[2] + 30, "4 mm clear acrylic top over the board window,\n"
+    ax.text(Wd / 2, 40, "4 mm clear acrylic top over the whole case,\n"
             "8 screws into the board standoffs", ha="center", va="center", fontsize=10)
-    _frame(ax, info, "Top (mm).  Grey = aluminium, blue = acrylic, black dots = M3 screws,\n"
-           "red dots = magnets, red ticks = wall connectors")
+    _frame(ax, info, "Top (mm).  Blue = acrylic over the walls (dark edges = the back and left plates),\n"
+           "black dots = M3 screws, red dots = magnets, red ticks = wall connectors")
     # underside, drawn as seen through the case from above (left is left)
     bx.add_patch(FancyBboxPatch((0, 0), Wd, Dd, boxstyle="round,pad=0,rounding_size=3", fc=ALU_C, ec="#555",
                                 lw=1.2))
@@ -558,12 +574,14 @@ def draw_top(info, path):
         bx.add_patch(Circle((x, y), DISC_D / 2, fc="#555", ec="#222", lw=0.6))
     for x, y in info["holes"].values():
         bx.add_patch(Circle((x, y), 2.8, fc="#d4c08a", ec="#8a7a4a"))
+    for x, y in info["plate_screws"]:
+        bx.add_patch(Circle((x, y), 2.6, fc="#333", ec="none"))
     for x, y in info["feet"]:
         bx.add_patch(Circle((x, y), FOOT_D / 2, fc="#333", ec="none"))
     bx.text(Wd / 2, info["vents"][0][1] - 12, "vent slots", ha="center", va="center", fontsize=9)
     bx.text(FOOT_IN + 12, FOOT_IN, "%.0f mm foot" % FEET, va="center", fontsize=9)
     _frame(bx, info, "Underside, seen through the case from above (left is left).  Dark dots = steel discs\n"
-           "flush in the floor, black = %.0f mm rubber feet, tan = floor standoffs" % FEET)
+           "flush in the floor, black = %.0f mm rubber feet and the plate screws, tan = floor standoffs" % FEET)
     fig.tight_layout()
     fig.savefig(path, dpi=100)
     plt.close(fig)
@@ -588,46 +606,27 @@ def cut_outline(prof, u, z, flip):
     return []
 
 
-def split_profile(info, side, u0, u1):
-    """The split line along a wall between u0 and u1: [(u, z)], steps merged."""
-    zs = info["Z_SPLIT"]
-    pts = []
-    for cu in info["cuts"]:
-        if cu["side"] == side:
-            half = cut_width(cu["prof"]) / 2 + STEP_MARGIN
-            pts.append((cu["u"] - half, cu["u"] + half, cu["zj"]))
-    us = sorted(set([u0, u1] + [p for a, b, z in pts for p in (a, b) if u0 < p < u1]))
-    prof = []
-    for a0, a1 in zip(us[:-1], us[1:]):
-        m = (a0 + a1) / 2
-        zz = [z for a, b, z in pts if a <= m <= b]
-        z = max(zz) if zz and max(zz) > zs else (min(zz) if zz else zs)
-        prof += [(a0, z), (a1, z)]
-    return prof
-
-
 def draw_walls(info, path):
-    """Back, left and right walls seen from outside: the stepped split line and the
-    cut-outs, plus a section front to back with a cover parked under the floor."""
+    """Back, left and right walls seen from outside with their cut-outs (which part
+    each wall belongs to), plus a section front to back with a cover parked under
+    the floor."""
     Wd, Dd = info["W"], info["D"]
-    zf, zs, zt, desk = info["Z_FLOOR"], info["Z_SPLIT"], info["Z_TOP"], info["Z_DESK"]
-    za = zt + T + ACRYLIC
+    zf, zt, desk = info["Z_FLOOR"], info["Z_TOP"], info["Z_DESK"]
+    za = zt + ACRYLIC
     fig, axs = plt.subplots(4, 1, figsize=(13, 16), gridspec_kw=dict(height_ratios=[1, 1, 1, 1.25]))
-    views = (("back", "Back wall, seen from behind", True, Wd),
-             ("left", "Left wall, seen from the left (front at the right)", True, Dd),
-             ("right", "Right wall, seen from the right (front at the left)", False, Dd))
-    for ax, (side, title, flip, L) in zip(axs, views):
+    views = (("back", "Back plate, seen from behind (flat, one bend: the bottom flange)", True, Wd, (T, Wd - T)),
+             ("left", "Left plate, seen from the left, front at the right (flat, one bend)", True, Dd, (T, Dd)),
+             ("right", "Right wall of the tray, seen from the right, front at the left", False, Dd, (0, Dd)))
+    for ax, (side, title, flip, L, (p0, p1)) in zip(axs, views):
         s = -1 if flip else 1
-        prof = split_profile(info, side, 0, L)
-        lower = [(s * u, z) for u, z in prof] + [(s * L, zf), (0, zf)]
-        upper = [(s * u, z) for u, z in prof] + [(s * L, zt + T), (0, zt + T)]
-        ax.add_patch(Polygon(lower, fc="#c9cdd3", ec="#444", lw=1))
-        ax.add_patch(Polygon(upper, fc="#dfe2e6", ec="#444", lw=1))
-        ax.add_patch(Rectangle((min(0, s * L), zt + T), L, ACRYLIC, fc=ACR_C, ec="#2b7bb9", lw=0.8))
+        tray = side == "right"
+        ax.add_patch(Rectangle((min(0, s * L), zf), L, zt - zf, fc=ALU_C, ec="#444", lw=1))
+        ax.add_patch(Rectangle((min(s * p0, s * p1), zf), p1 - p0, zt - zf, fc=ALU_C if tray else PLATE_C,
+                               ec="#222", lw=1))
+        ax.add_patch(Rectangle((min(0, s * L), zt), L, ACRYLIC, fc=ACR_C, ec="#2b7bb9", lw=0.8))
         for u in (FOOT_IN, L - FOOT_IN):
             ax.add_patch(Rectangle((s * u - FOOT_D / 2, desk), FOOT_D, FEET, fc="#333", ec="none"))
         ax.plot([min(0, s * L) - 15, max(0, s * L) + 15], [desk, desk], color="#8a6d1f", lw=1)
-        ax.plot([s * u for u, z in prof], [z for u, z in prof], color="#c33", lw=1.6)
         for cu in info["cuts"]:
             if cu["side"] != side:
                 continue
@@ -637,31 +636,29 @@ def draw_walls(info, path):
                 patch.set_linewidth(0.9)
                 ax.add_patch(patch)
             ax.text(s * cu["u"], za + 4, cu["ref"], ha="center", va="bottom", fontsize=9)
-            ax.text(s * cu["u"], desk - 2, "z %.1f" % cu["zj"], ha="center", va="top", fontsize=7, color="#c33")
-        mid = s * L / 2
-        ax.text(mid, (zs + zt) / 2 + 3, "upper shell", ha="center", fontsize=9, color="#555")
-        ax.text(mid, (zf + zs) / 2 - 2, "lower shell", ha="center", fontsize=9, color="#555")
+            ax.text(s * cu["u"], desk - 2, "z %.1f" % cu["z"], ha="center", va="top", fontsize=7, color="#c33")
+        ax.text(s * (p0 + p1) / 2, zf + 3, "tray" if tray else side + " plate", ha="center", fontsize=9,
+                color="#222" if tray else "white")
         ax.set_xlim(min(0, s * L) - 22, max(0, s * L) + 22)
         ax.set_ylim(desk - 9, za + 12)
         ax.set_aspect("equal")
-        ax.set_yticks([desk, zf, 0, zs, zt + T, za])
-        ax.set_yticklabels(["%.1f desk" % desk, "%.1f floor" % zf, "0 board top", "%.0f split" % zs,
-                            "%.0f flange" % (zt + T), "%.0f top" % za], fontsize=8)
+        ax.set_yticks([desk, zf, 0, zt, za])
+        ax.set_yticklabels(["%.1f desk" % desk, "%.1f floor" % zf, "0 board top", "%.0f wall top" % zt,
+                            "%.0f top" % za], fontsize=8)
         ax.set_xticks([])
         for sp in ("top", "right", "bottom"):
             ax.spines[sp].set_visible(False)
-        ax.set_title(title + " (red = split line; it steps to each connector's centre)", fontsize=10, loc="left")
+        ax.set_title(title, fontsize=10, loc="left")
     # section front to back through the expansion slot covers
     ax = axs[3]
     ax.plot([-10, Dd + 10], [desk, desk], color="#8a6d1f", lw=1.2)
     ax.text(Dd + 8, desk - 1, "desk", ha="right", va="top", fontsize=8, color="#8a6d1f")
-    ax.add_patch(Rectangle((0, zf), Dd, T, fc="#c9cdd3", ec="#444"))
-    ax.add_patch(Rectangle((0, zf), T, zt + T - zf, fc="#dfe2e6", ec="#444"))
-    ax.add_patch(Rectangle((Dd - T, zf), T, zt + T - zf, fc="#dfe2e6", ec="#444"))
-    ax.add_patch(Rectangle((0, zt), FLANGE, T, fc="#dfe2e6", ec="#444"))
-    ax.add_patch(Rectangle((Dd - FLANGE, zt), FLANGE, T, fc="#dfe2e6", ec="#444"))
+    ax.add_patch(Rectangle((0, zf), Dd - T, T, fc=ALU_C, ec="#444"))
+    ax.add_patch(Rectangle((0, zf), T, zt - zf, fc=ALU_C, ec="#444"))
+    ax.add_patch(Rectangle((Dd - T, zf), T, zt - zf, fc=PLATE_C, ec="#222"))
+    ax.add_patch(Rectangle((Dd - T - PLATE_FLANGE, zf + T), PLATE_FLANGE, T, fc=PLATE_C, ec="#222"))
     bay = info["bay"]
-    ax.add_patch(Rectangle((0, zt + T), bay[2], ACRYLIC, fc=ACR_C, ec="#2b7bb9"))
+    ax.add_patch(Rectangle((0, zt), bay[2], ACRYLIC, fc=ACR_C, ec="#2b7bb9"))
     ybf = info["Y_BF"]
     ax.add_patch(Rectangle((ybf, -PCB_T), Dd - ybf - OFF, PCB_T, fc="#2e7d4f", ec="#1b4d30"))
     for y in (ybf + 5, Dd - OFF - 5):
@@ -674,7 +671,7 @@ def draw_walls(info, path):
     ax.text(FOOT_IN, desk + FEET / 2, "feet (near the\nside walls)", ha="center", va="center", fontsize=7)
     # the cover in its slot opening, and the same cover parked under the floor
     x0, x1, y0, y1 = info["parked"]["slot_cover_1"]
-    for z, label, lz in ((zt + T, "J9 cover in place", za + 5), (zf - ACRYLIC - CAP, "J9 cover parked: magnets on steel "
+    for z, label, lz in ((zt, "J9 cover in place", za + 5), (zf - ACRYLIC - CAP, "J9 cover parked: magnets on steel "
                                                                 "discs in the floor", desk + 1.5)):
         plug, cap = (y0 + LIP + 0.2, z), (y0, z + ACRYLIC)
         ax.add_patch(Rectangle(plug, y1 - y0 - LIP - 0.2, ACRYLIC, fc="#9fd0ef", ec="#1f6fa8", alpha=0.9))
@@ -682,17 +679,18 @@ def draw_walls(info, path):
         ax.add_patch(Rectangle((y0 + LIP / 2 - MAG_D / 2, cap[1]), MAG_D, MAG_T, fc="#b03a2e", ec="none"))
         ax.text(y0 - 3, lz, label, ha="right", va="center", fontsize=8, color="#1f6fa8")
     ax.add_patch(Rectangle((y0 + LIP / 2 - DISC_D / 2, zf), DISC_D, DISC_T, fc="#555", ec="none"))
-    ax.add_patch(Rectangle((y0 + LIP / 2 - MAG_D / 2, zt + T + ACRYLIC - MAG_T), MAG_D, MAG_T, fc="#b03a2e",
+    ax.add_patch(Rectangle((y0 + LIP / 2 - MAG_D / 2, zt + ACRYLIC - MAG_T), MAG_D, MAG_T, fc="#b03a2e",
                            ec="none"))
     ax.set_xlim(-10, Dd + 10)
     ax.set_ylim(desk - 4, za + 12)
     ax.set_aspect("equal")
-    ax.set_yticks([desk, zf, 0, zs, zt + T, za])
-    ax.set_yticklabels(["%.1f" % v for v in [desk, zf, 0, zs, zt + T, za]], fontsize=8)
+    ax.set_yticks([desk, zf, 0, zt, za])
+    ax.set_yticklabels(["%.1f" % v for v in [desk, zf, 0, zt, za]], fontsize=8)
     ax.set_xticks([0, round(bay[2] - LIP, 1), round(Dd, 1)])
     ax.set_xlabel("y from the front (mm); z from the main board's top face (mm)", fontsize=9)
-    ax.set_title("Section front to back through J9: %.0f mm standoffs to the flange, acrylic top, the J9 cover "
-                 "in place and parked under the floor, %.0f mm feet" % (zt, FEET), fontsize=10, loc="left")
+    ax.set_title("Section front to back through J9: tray, back plate (dark) with its flange on the floor, %.0f mm "
+                 "standoffs to the acrylic top, the J9 cover in place and parked, %.0f mm feet" % (zt, FEET),
+                 fontsize=10, loc="left")
     fig.tight_layout()
     fig.savefig(path, dpi=95)
     plt.close(fig)
@@ -710,8 +708,9 @@ def build(pcb, out, mesh=None, drawings=None):
     cuts = wall_cutouts(parts)
     bay, cart, slot_x = openings(parts)
     solids = {
-        "lower_shell": lower_shell(parts, cuts),
-        "upper_shell": upper_shell(parts, cuts),
+        "tray": tray(parts, cuts),
+        "back_plate": plate(parts, cuts, "back"),
+        "left_plate": plate(parts, cuts, "left"),
         "acrylic_top": acrylic_top(parts),
         "cart_cover": cart_cover(parts),
     }
@@ -724,27 +723,28 @@ def build(pcb, out, mesh=None, drawings=None):
             continue
         fn = "slot_cover" if name.startswith("slot_cover") else name
         cq.exporters.export(sol, os.path.join(out, fn + ".step"))
-    z0 = Z_TOP + T
+    z0 = Z_TOP
     export_dxf(solids["acrylic_top"], z0 + ACRYLIC / 2, os.path.join(out, "dxf", "acrylic_top_4mm.dxf"))
     export_dxf(covers[0], z0 + ACRYLIC / 2, os.path.join(out, "dxf", "slot_cover_plug_4mm.dxf"))
     export_dxf(covers[0], z0 + ACRYLIC + CAP / 2, os.path.join(out, "dxf", "slot_cover_cap_3mm.dxf"))
     export_dxf(solids["cart_cover"], z0 + ACRYLIC / 2, os.path.join(out, "dxf", "cart_cover_plug_4mm.dxf"))
     export_dxf(solids["cart_cover"], z0 + ACRYLIC + CAP / 2, os.path.join(out, "dxf", "cart_cover_cap_3mm.dxf"))
-    # the keyboard bay went with the keyboard (2026-10-25)
+    # the keyboard bay went with the keyboard (2026-10-25), the split shells with the plates (2026-10-27)
     for f in ("keyboard_rail.step", "keyboard_plate.step", "keyboard_blank.step", "dxf/keyboard_blank_3mm.dxf",
-              "dxf/keyboard_plate_1.5mm.dxf"):
+              "dxf/keyboard_plate_1.5mm.dxf",
+              "lower_shell.step", "upper_shell.step"):
         if os.path.exists(os.path.join(out, f)):
             os.remove(os.path.join(out, f))
 
     covers_all = ["slot_cover_%d" % (i + 1) for i in range(len(slot_x))] + ["cart_cover"]
     parked_solids = {n: parked(solids[n]) for n in covers_all}
     info = dict(W=W, D=D, LIP=LIP, T=T, OFF=OFF, BOARD_D=BOARD_D, Y_BF=Y_BF, Z_FLOOR=Z_FLOOR, Z_DESK=Z_DESK,
-                Z_SPLIT=Z_SPLIT, Z_TOP=Z_TOP, ACRYLIC=ACRYLIC, CAP=CAP, FEET=FEET, FOOT_D=FOOT_D,
-                window=window(), bay=bay, cart=cart, slot_x=slot_x, magnets=slot_magnets(parts),
+                Z_TOP=Z_TOP, PLATE_FLANGE=PLATE_FLANGE, plate_screws=plate_screws(), ACRYLIC=ACRYLIC, CAP=CAP, FEET=FEET, FOOT_D=FOOT_D,
+                bay=bay, cart=cart, slot_x=slot_x, magnets=slot_magnets(parts),
                 parked=parked_boxes(parts), feet=feet(), vents=vents(parts),
                 slot_cover=slot_cover_size(parts), cart_cover=cart_cover_size(parts),
-                cuts=[dict(ref=r, side=sd, u=u, z=z, zj=zj, prof=list(p), note=n)
-                      for r, sd, u, z, zj, p, n in cuts],
+                cuts=[dict(ref=r, side=sd, u=u, z=z, prof=list(p), note=n)
+                      for r, sd, u, z, p, n in cuts],
                 holes={k: hole_xy(parts, k) for k in board_holes(parts)})
     with open(os.path.join(out, "case_layout.json"), "w") as f:
         json.dump(info, f, indent=1)
@@ -792,7 +792,6 @@ if __name__ == "__main__":
     a = ap.parse_args()
     info = build(a.pcb, a.out, a.mesh, a.drawings)
     for c in info["cuts"]:
-        print("%-4s %-5s u %6.1f  centre z %5.2f  joint z %5.2f  %s" % (c["ref"], c["side"], c["u"], c["z"],
-                                                                        c["zj"], c["note"]))
+        print("%-4s %-5s u %6.1f  centre z %5.2f  %s" % (c["ref"], c["side"], c["u"], c["z"], c["note"]))
     print("case %.1f x %.1f mm, %.1f mm tall desk to top (%.1f mm without the %.0f mm feet)" %
-          (W, info["D"], Z_TOP + T + ACRYLIC - Z_DESK, Z_TOP + T + ACRYLIC - Z_FLOOR, FEET))
+          (W, info["D"], Z_TOP + ACRYLIC - Z_DESK, Z_TOP + ACRYLIC - Z_FLOOR, FEET))
