@@ -1607,6 +1607,9 @@ w_TABTO:
 w_BEEP_:
     #d8 49, w_ENDS_Q_ >> 8, w_ENDS_Q_ & 0xFF, 4, 4, 1, 69, 3, 2, w_NEXPR >> 8, w_NEXPR & 0xFF, 2
     #d8 (snd_beep) & 0xFF, (snd_beep) >> 8, 48, 13, 0
+w_NEWPROG:
+    #d8 2, 0, 32, 9, 56, 1, 0, 2, 0, 32, 26, 1
+    #d8 0, 9, 72, 0
 w_NOTX:
     #d8 49, 1, 175, 37, 4, 7, 51, w_NOTX >> 8, w_NOTX & 0xFF, w_NUMCHK >> 8, w_NUMCHK & 0xFF, 32
     #d8 0, w_CMPX >> 8, w_CMPX & 0xFF, 0
@@ -1705,8 +1708,6 @@ w_PICK:
     #d8 35, 1, 2, 27, 10, (DSP) & 0xFF, 27, 23, 0
 w_HOME:
     #d8 1, 0, 11, 13, 1, 0, 11, 14, 0
-w_KEY:
-    #d8 52, 13, w_KEY_Q_ >> 8, w_KEY_Q_ & 0xFF, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 248, 0
 w_FERR:
     #d8 2, 128, 93, 24, 1, 17, w_ERROR >> 8, w_ERROR & 0xFF, 0
 w_LINENO:
@@ -2391,9 +2392,9 @@ p_cstore:                       ; C! ( v a -- )
     ld   ac, [y,x]
     bra  st_pop2
 
-w_NEWPROG:
-    #d8 2, 0, 32, 9, 56, 1, 0, 2, 0, 32, 26, 1
-    #d8 0, 9, 72, 0
+w_KEY:
+    #d8 52, 13, 1, 0, 2, (ps2_poll) & 0xFF, (ps2_poll) >> 8, 48, 13, w_KEY_Q_ >> 8, w_KEY_Q_ & 0xFF, w__Q_DUP >> 8
+    #d8 w__Q_DUP & 0xFF, 4, 241, 0
 p_zpat:                         ; ZP@ n ( -- [n] )
     ld   [DSP], ac
     sub  2, ac
