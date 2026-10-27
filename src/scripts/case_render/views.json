@@ -24,26 +24,8 @@
    "slot_cover_2",
    "cart_cover"
   ],
-  "fov": 26
- },
- "assembled_covers": {
-  "cam": [
-   560,
-   -300,
-   290
-  ],
-  "look": [
-   147.5,
-   115,
-   0
-  ],
-  "covers": [
-   1,
-   2,
-   3,
-   4
-  ],
-  "cartCover": true
+  "fov": 26,
+  "plate": 2895411
  },
  "underside": {
   "cam": [
@@ -72,13 +54,14 @@
    "slot_cover_4",
    "cart_cover"
   ],
-  "aluEdges": true
+  "aluEdges": true,
+  "plate": 2895411
  },
  "exploded": {
   "cam": [
-   -380,
-   -520,
-   520
+   -420,
+   -470,
+   430
   ],
   "look": [
    147.5,
@@ -96,11 +79,13 @@
   "parked": [],
   "explode": {
    "lower": 0,
-   "board": 40,
-   "upper": 110,
-   "top": 160,
-   "covers": 205
-  }
+   "back": 70,
+   "left": 70,
+   "board": 45,
+   "top": 120,
+   "covers": 160
+  },
+  "plate": 2895411
  },
  "side": {
   "cam": [
@@ -144,33 +129,8 @@
    4
   ],
   "cartCover": true,
-  "aluEdges": true
- },
- "split_detail": {
-  "cam": [
-   150,
-   490,
-   60
-  ],
-  "look": [
-   235,
-   220,
-   8
-  ],
-  "fov": 22,
-  "covers": [
-   1,
-   2,
-   3,
-   4
-  ],
-  "cartCover": true,
   "aluEdges": true,
-  "explode": {
-   "upper": 22,
-   "top": 22,
-   "covers": 22
-  }
+  "plate": 2895411
  },
  "black": {
   "cam": [
@@ -197,5 +157,50 @@
    "cart_cover"
   ],
   "fov": 26
+ },
+ "assembled_silver": {
+  "cam": [
+   560,
+   -300,
+   290
+  ],
+  "look": [
+   147.5,
+   115,
+   0
+  ],
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true
+ },
+ "plates": {
+  "cam": [
+   -330,
+   600,
+   260
+  ],
+  "look": [
+   110,
+   160,
+   -5
+  ],
+  "fov": 30,
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "aluEdges": true,
+  "plate": 2895411,
+  "explode": {
+   "back": 60,
+   "left": 60
+  }
  }
 }
