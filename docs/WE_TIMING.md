@@ -221,3 +221,4 @@ ns without traces.  With this board's traces it is about 1.06 + 5.5 + 1.41
 + 7.5 + 1.49 + 7.5 + 1.18 + 15 + 0.7 + 3.5 = 44.8 ns, against the next edge
 at U1 (T + 1.06 = 40.8): about **−4 ns**.  A full pass of TIMING.md with
 the routed trace lengths is worth doing before the board is ordered.
+[FETCH_TIMING.md](FETCH_TIMING.md) looks for a fix with no extra clock.
