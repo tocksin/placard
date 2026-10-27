@@ -47,7 +47,7 @@ Lines before the first .chunk or .fixed (constants, #include, comments)
 are copied as they are.  The .asm made is the file to read and assemble;
 the .masm is its source (change that and run this again).
 
-Date: 10/26/2026
+Date: 10/27/2026
 """
 
 import os
@@ -294,7 +294,10 @@ def place(chunks, name):
             if c.page and off:
                 page += 1
                 continue
-            if off + c.size <= end:
+            # a branch takes its page from the address after it, so a chunk
+            # that ends with one must not end at the end of the page
+            slack = 1 if c.last == 'bra' and end == 256 else 0
+            if off + c.size + slack <= end:
                 c.addr = (page << 8) + off
                 used[page] = off + c.size
                 break
