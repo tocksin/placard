@@ -124,7 +124,7 @@ Four demos show what the CPU can do with no sprite or collision hardware.  The f
 
 ![scroller in the simulator](reference/scroller_sim.gif)
 
-`sdcard/WIRE3D.PLC` (`gen_wire3d.py`) is an Elite-style wireframe demo and benchmark: convex ships tumbling in 3D at 320 × 240 with hidden lines removed, quarter-square multiplies, projection by log tables and XOR lines erased by drawing them again.  It holds 30 fps with four ships using about 30 % of the CPU; the limit at 30 fps is about 130 vertices and 4,000 pixels of lines a frame, at 20 fps about 190 and 6,000.  [docs/WIRE3D.md](docs/WIRE3D.md) has the measurements; `src/scripts/test_wire3d_sim.py` checks every frame against a model.
+`sdcard/WIRE3D.PLC` (`gen_wire3d.py`) is an Elite-style 3D demo and benchmark: six convex ships tumbling in 3D at 320 × 240, switching every 10 seconds (or on any key) between wireframes with hidden lines removed and filled, shaded faces painted far to near.  Quarter-square multiplies, projection by log tables, Elite's face test in each ship's own space, XOR lines erased by drawing them again, and filled ships erased by blanking only what their new outline does not cover.  Six ships is the limit with margin: filled mode stays above 20 fps (seven ships touch 20), wireframes hold the 30 fps cap with half the CPU spare.  [docs/WIRE3D.md](docs/WIRE3D.md) has the measurements; `src/scripts/test_wire3d_sim.py` checks every frame against a model.
 
 ![wire3d in the simulator](reference/wire3d_sim.gif)
 
