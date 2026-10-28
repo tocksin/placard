@@ -3,7 +3,8 @@
 gen_wire3d.py - generate wire3d.masm, an Elite-style 3D wireframe demo and
 benchmark for the Placard CPU (a library program for the SD card, WIRE3D.PLC)
 
-    python3 gen_wire3d.py                       wire3d.masm, wire3d.asm, ../../sdcard/WIRE3D.PLC
+    python3 gen_wire3d.py                       wire3d.masm, wire3d.asm, ../../sdcard/WIRE3D.PLC,
+                                                wire3d_rom.asm/.hex (build\\wire3d.bat: a ROM build for testing)
     python3 gen_wire3d.py --ships 8 -o w8.masm  a stress build: more ships (see SHIP_SETS)
     python3 test_wire3d_sim.py                  runs it in placard_sim: checks every frame
                                                 against the Python model in this file,
@@ -1980,6 +1981,85 @@ def generate(ships, pace=0):
     return '\n'.join(g.out) + '\n'
 
 
+ROM_IMG = 0x8000             # the ROM build: RAM x0100-x3FFF kept at ROM x8000-xBEFF
+
+
+def rom_wrapper(asm_path, out_path):
+    """wire3d_rom.asm: a 64K development image (a ROM program at x6000) that
+    copies the program into RAM x0100-x3FFF (not LIB_RAM, x1F00-x1FFF) and
+    runs it, for build\\wire3d.bat; a temporary build for testing on the
+    board without the SD card and the DOS"""
+    import placard_sim as ps
+    mem, syms, _ = ps.assemble(open(asm_path).read(), os.path.dirname(os.path.abspath(asm_path)))
+    lib, _, _ = ps.assemble(open(os.path.join(HERE, 'rom_lib.asm')).read(), HERE)
+    own = {a: v for a, v in mem.items()
+           if 0x0100 <= a < 0x4000 and not (ps.lib_area(a) and lib.get(a) == v)}
+    out = ['; ' + '=' * 60,
+           '; wire3d_rom.asm - the 3D wireframe demo as a ROM program (made by',
+           ';   gen_wire3d.py from wire3d.asm: change that and run it again)',
+           ';',
+           '; A temporary build for testing on the board: build\\wire3d.bat.  The stub at',
+           '; x6000 copies RAM x0100-x3FFF (but x1F00-x1FFF, LIB_RAM) from its copy at',
+           '; ROM x%04X-x%04X, sets map 07 as the DOS would, and jumps to the program.' % (
+               ROM_IMG, ROM_IMG + 0x3EFF),
+           '; Without the DOS there is no menu block, so Esc does nothing.',
+           '; Date: 10/28/2026',
+           '; ' + '=' * 60, '',
+           '#include "placard.asm"',
+           '#include "placard_lib.asm"', '',
+           'cp_pg   = 0x20',
+           'W_MAIN  = 0x%04X' % syms['main'],
+           'W_FE_MARK = 0x%04X' % syms['fe_mark'], '',
+           '#addr 0x6000',
+           'main:',
+           '    ld   STACK_TOP, ac',
+           '    ld   ac, [SP]',
+           '    ld   0x01, ac',
+           '    ld   ac, [cp_pg]',
+           'cp_loop:',
+           '    xor  0x1F, ac',
+           '    beq  cp_next                 ; leave LIB_RAM alone',
+           '    ld   0, ac',
+           '    ld   ac, [R0]',
+           '    ld   ac, [R2]',
+           '    ld   ac, [R4]                ; 256 bytes',
+           '    ld   [cp_pg], ac',
+           '    ld   ac, [R3]',
+           '    add  0x%02X, ac' % ((ROM_IMG >> 8) - 1),
+           '    ld   ac, [R1]',
+           '    ld   LINK_LO, x',
+           '    ld   cp_back, [x]',
+           '    ld   LINK_HI, x',
+           '    ld   cp_back >> 8, [x]',
+           '    ld   memcpy >> 8, y',
+           '    jmp  memcpy',
+           'cp_back:',
+           'cp_next:',
+           '    ld   [cp_pg], ac',
+           '    inc',
+           '    ld   ac, [cp_pg]',
+           '    xor  0x40, ac',
+           '    beq  cp_done',
+           '    xor  0x40, ac',
+           '    bra  cp_loop',
+           'cp_done:',
+           '    ld   0x07, ac',
+           '    ld   LINK_LO, x',
+           '    ld   cp_go, [x]',
+           '    ld   LINK_HI, x',
+           '    ld   cp_go >> 8, [x]',
+           '    ld   map_set >> 8, y',
+           '    jmp  map_set',
+           'cp_go:',
+           '    ld   W_MAIN >> 8, y',
+           '    jmp  W_MAIN', '',
+           '; the program (wire3d.asm) as it is in RAM x0100-x3FFF',
+           '#addr 0x%04X' % ROM_IMG]
+    for a in range(0x0100, 0x4000, 16):
+        out.append('    #d8 ' + ', '.join('0x%02X' % own.get(b, 0) for b in range(a, a + 16)))
+    open(out_path, 'w', newline='\n').write('\n'.join(out) + '\n')
+
+
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('--ships', type=int, default=4)
@@ -1996,6 +2076,9 @@ def main(argv):
     plc = a.plc or (os.path.join(HERE, '..', '..', 'sdcard', 'WIRE3D.PLC') if a.ships == 4 else None)
     if plc and plc != 'none':
         subprocess.check_call([sys.executable, os.path.join(HERE, 'gen_plc.py'), asm, '-o', plc])
+        rom = os.path.join(HERE, 'wire3d_rom.asm')
+        rom_wrapper(asm, rom)
+        subprocess.check_call([sys.executable, os.path.join(HERE, 'placard_sim.py'), rom])
     return 0
 
 

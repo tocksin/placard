@@ -154,6 +154,13 @@ python3 gen_wire3d.py --ships 8 --pace 0 -o /tmp/w8.masm --plc none
 python3 test_wire3d_sim.py                  40 frames, no cap: checks and timing
 python3 test_wire3d_sim.py --ships 12       a stress run (ships 5-12 are rocks, darts and a freighter)
 python3 test_wire3d_sim.py --pace 2 --frames 180 --gif ../../reference/wire3d_sim.gif
+python3 test_wire3d_sim.py --rom            the ROM build from power-up
 ```
+
+For testing on the board without the SD card, `build\wire3d.bat` loads a
+temporary 64K development image, `src/scripts/wire3d_rom.asm` (made by
+`gen_wire3d.py`): a stub at x6000 copies the program from ROM x8000-xBEFF
+into RAM x0100-x3FFF (leaving LIB_RAM alone), sets map 07 as the DOS does
+and runs it.  There is no DOS then, so Esc does nothing.
 
 ![12 ships](../reference/wire3d_12ships.png)
