@@ -42,6 +42,11 @@ on the chip before you insert it.  A swap damages nothing, but an HCT377
 in U18-U22 is too slow for the CPU and video, and an F377 in U23 makes
 the row tint weak.
 
+**Two kinds of diode.**  The Schottky diodes (D1-D6, D8-D11, D19) are
+1N5817s in a black body; the six 1N4148s (D12-D17, row tint) are glass.
+Don't swap them: a 1N4148 in a PS/2 place leaves the line too high to
+read as low, and the row tint's clamp needs the Schottky's low drop.
+
 **Programming.**  Each PLD and EEPROM is programmed in the step that
 fits it, just before it goes in, not all at the start.  So a chip always
 carries the equations current when it is fitted, and a fault found in one
@@ -118,7 +123,7 @@ so its readings shift a little with the line and frame; read the average.
 | C41 | Electrolytic capacitor, on VON (between SW1 and K1) | 220 µF (Rubycon 25YXJ220M6.3X11) | + to VON, stripe to GND |
 | K1 | Relay | CIT J1071CS6VDC.36 | COM (pin 1) = VON, NC (pin 4) = +5V |
 | SW2 | Tactile reset button, VON to the coil (KCOIL) | C&K PTS645VL58-2 LFS |  |
-| D8 | Schottky diode, across K1's coil | BAT85 | band (cathode) to KCOIL |
+| D8 | Schottky diode, across K1's coil | 1N5817 (black) | band (cathode) to KCOIL |
 | R59 | Resistor, power LED | 1k |  |
 | D18 | Power LED, red 5 mm, +5V (after K1) to GND | Kingbright WP7113ID | long lead (anode) to R59, flat side (cathode) to GND |
 
@@ -478,7 +483,7 @@ sockets.  Turn on the power switch.  All 80 byte columns now show
 | U35 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
 | C35 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | R56-R58 | Resistor, row tint | 910 ohm |  |
-| D9-D11 | Schottky diode, row tint | BAT85 | band (cathode) as on the silkscreen |
+| D9-D11 | Schottky diode, row tint | 1N5817 (black) | band (cathode) as on the silkscreen |
 | D12-D17 | Diode, row tint | 1N4148 | band (cathode) as on the silkscreen |
 
 **Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
@@ -865,7 +870,7 @@ page test).  It takes several minutes.
 | R40, R41 | Resistor, SNES data pull-ups | 10k |  |
 | J5 | PS/2 stacked dual mini-DIN-6 | Kycon KMDGX-6S/6S-S4N | mouse top, keyboard bottom |
 | R49, R50, R55 | Resistor, PS/2 clock and DATA pull-ups | 4.7k |  |
-| D1-D6, D19 | Schottky diode, PS/2 hold, inhibit and RXCLK | BAT85 | band (cathode) as on the silkscreen |
+| D1-D6, D19 | Schottky diode, PS/2 hold, inhibit and RXCLK | 1N5817 (black) | band (cathode) as on the silkscreen |
 | R60 | Resistor, RXCLK pull-down | 22k |  |
 | J4 | SD card socket | Hirose DM1AA-SF-PEJ(82) |  |
 | R42-R44 | Resistor, SD dividers | 1.8k |  |
@@ -886,7 +891,7 @@ sockets and fit their parts ([IO.md](IO.md)):
   DATA); the hold diodes D2 (/CS to the mouse CLK), D3 (DATA) and D6 (K0
   to the keyboard CLK); the receiver's inhibit diodes D5 (mouse CLK) and
   D19 (keyboard CLK) from U42 pin 14; and the RXCLK diode-OR D1
-  (keyboard CLK), D4 (mouse CLK) with its 22k pull-down R60 (all BAT85).
+  (keyboard CLK), D4 (mouse CLK) with its 22k pull-down R60 (all 1N5817).
 - SD card: J4, the dividers R42-R44 (1.8k) and R45-R47 (3.3k) and R48
   (10k MISO pull-up to 3.3 V; MISO goes straight to U38 pin 13).
   Turn on the power switch and, before plugging the SD card in, check 3.2-3.4 V at
