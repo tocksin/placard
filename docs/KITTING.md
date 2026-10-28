@@ -1,6 +1,6 @@
 # Selling the Placard as a kit
 
-Date: 2026-10-25
+Date: 2026-10-28
 
 Who can buy the parts, program the chips, bag each kit and ship it, so
 that no one has to hand-pack every kit.  Researched 2026-10-20 from public
@@ -32,6 +32,10 @@ Two things matter more for a kit than for a single build:
 - **Frozen revisions.**  A programming service charges a setup for each
   image, so every PLD change after the first order is another setup.
   Program kits only after the prototype has passed bring-up.
+- **The two 377s.**  The five SN74F377AN (U18-U22) and the one
+  CD74HCT377E (U23) share a pinout and look alike.  Pack the CD74HCT377E
+  in its own bag labeled "U23 only, 74HCT377"; the board's silkscreen
+  above each socket says which type goes there.
 
 The rest of the kit is ordinary stock: 5 SN74F377AN, a CD74HCT377E, 3 SN74F541N, 2
 AS7C256C-15PCN (4 with the cartridge's), a CD74ACT273E, a

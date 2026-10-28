@@ -20,7 +20,7 @@ placard_cartridge_32k.pdf, set to open without the bookmarks panel.
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
 
-Date: 2026-10-27
+Date: 2026-10-28
 """
 import os
 import re
@@ -31,7 +31,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-10-27"
+DATE = "2026-10-28"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 CDIRS = {64: os.path.join(KDIR, "cartridge_64k"), 32: os.path.join(KDIR, "cartridge_32k")}
@@ -91,8 +91,8 @@ MPN_LIB = {
 }
 # passives by (symbol, value): Yageo MFR-25 1 % metal film, Bourns 4609X SIP-9, KEMET/TDK ceramics,
 # Panasonic FR electrolytics (C41 8 x 11.5 mm 3.5 mm pitch, C44 6.3 x 11.2 mm 2.5 mm pitch)
-R_CODE = {"5.1k": "5K1", "10k": "10K", "47": "47R", "3.24k": "3K24", "1.69k": "1K69", "825": "825R",
-          "1.43k": "1K43", "715": "715R", "2.2": "2R2", "2k": "2K", "1k": "1K", "1.8k": "1K8", "3.3k": "3K3",
+R_CODE = {"5.1k": "5K1", "10k": "10K", "47": "47R", "3.3k": "3K3", "1.6k": "1K6", "820": "820R",
+          "1.43k": "1K43", "715": "715R", "2.2": "2R2", "2k": "2K", "1k": "1K", "1.8k": "1K8",
           "4.7k": "4K7", "910": "910R", "22k": "22K"}
 MPN_PASSIVE = {
     ("placard_std:R_Network08_US", "10k"): ("Bourns", "4609X-101-103LF"),
@@ -841,8 +841,8 @@ def sheet_video_out(b):
         path(s, f"LC{k}", (qx, qy), (xj, qy), (xj, my), (mx, my))
         name(s, f"LC{k}", mx - 10.16, my)
     # RGB: U16 outputs fan out to one resistor per row, then into J7
-    outs = [("RED1", "15", "3.24k"), ("RED2", "16", "1.69k"), ("RED3", "21", "825"),
-            ("GRN1", "17", "3.24k"), ("GRN2", "20", "1.69k"), ("GRN3", "19", "825"),
+    outs = [("RED1", "15", "3.3k"), ("RED2", "16", "1.6k"), ("RED3", "21", "820"),
+            ("GRN1", "17", "3.3k"), ("GRN2", "20", "1.6k"), ("GRN3", "19", "820"),
             ("BLU2", "22", "1.43k"), ("BLU3", "18", "715")]
     xr = 245.11
     y0 = u16["15"][1]

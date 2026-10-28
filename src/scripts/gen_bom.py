@@ -23,7 +23,7 @@ shells, screws) are added here.
     python3 src/scripts/gen_kicad_schematic.py    # after a part change
     python3 src/scripts/gen_bom.py
 
-Date: 2026-10-27
+Date: 2026-10-28
 """
 import csv
 import glob
