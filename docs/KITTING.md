@@ -36,6 +36,8 @@ Two things matter more for a kit than for a single build:
   CD74HCT377E (U23) share a pinout and look alike.  Pack the CD74HCT377E
   in its own bag labeled "U23 only, 74HCT377"; the board's silkscreen
   above each socket says which type goes there.
+- **The two diodes.**  The Schottkys are black 1N5817s (DO-41) and the
+  small-signal diodes are glass 1N4148s, so they look different on purpose.
 
 The rest of the kit is ordinary stock: 5 SN74F377AN, a CD74HCT377E, 3 SN74F541N, 2
 AS7C256C-15PCN (4 with the cartridge's), a CD74ACT273E, a

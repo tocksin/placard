@@ -1,6 +1,6 @@
 # I/O: SNES pads, SD card, PS/2 keyboard and mouse
 
-Date: 2026-10-26
+Date: 2026-10-28
 
 Both SNES pads, the SD card, a PS/2 mouse and a PS/2 keyboard share one
 port at x5200-x52FF.  They are polled, never used at the same moment, so
@@ -243,7 +243,7 @@ and `mtools` (it skips when they are not installed).
 ## PS/2 keyboard socket (rev 02 hardware)
 
 J5 is a stacked dual PS/2 socket (2026-10-22): the mouse on top, as
-before, and the keyboard below.  It adds no chips: one BAT85 (D6), one
+before, and the keyboard below.  It adds no chips: one 1N5817 (D6), one
 4.7k pull-up (R55) and one input on the port PLD.
 
 | PS/2 keyboard line | Pulled low by | Read on |

@@ -249,7 +249,7 @@ takes one PLD pass out of every memory address (FETCH_TIMING.md).
 
 ## Mode byte
 
-Date: 2026-10-25
+Date: 2026-10-28
 
 Each row has a mode byte; bits 1:0 pick 1, 2, 4 or 8 bpp for that row (the
 color decoder's MODE1:MODE0), bits 3:2 pick the line repeat (see
@@ -392,21 +392,21 @@ It adds to the color, it does not remap it, and it can only lift.
 | | |
 |---|---|
 | Chips added | none (line code register becomes a 74HCT377, same pinout) |
-| Parts | per channel: 910 Ω, BAT85, two 1N4148 in series (3 resistors, 3 BAT85, 6 1N4148), all through-hole |
+| Parts | per channel: 910 Ω, 1N5817, two 1N4148 in series (3 resistors, 3 1N5817, 6 1N4148), all through-hole |
 | Level | about 200 mV on black, about 155 mV on full white (the DAC load is about 65 Ω) |
 
 ```text
 U23 Q4 (red) --[910]--+--|>|--|>|--> VGA RED   (same for Q5 green, Q6 blue)
                       |  2x 1N4148
-                    BAT85, anode at the node, cathode to VIDEN (Sync PLD pin 17)
+                    1N5817, anode at the node, cathode to VIDEN (Sync PLD pin 17)
 ```
 
 **Why the diodes.**  Monitors take the back porch as their black level, and
 the line code register changes in the middle of it (group 45), so the tint
-must be off whenever the picture is blanked.  When VIDEN is low the BAT85
+must be off whenever the picture is blanked.  When VIDEN is low the 1N5817
 holds the node at about 0.7 V (VIDEN's VOL plus the Schottky drop), which is
 too low to pass two silicon diodes (about 1.2 V), so nothing reaches the
-line: the blanking level stays at 0 V.  When VIDEN is high the BAT85 is off
+line: the blanking level stays at 0 V.  When VIDEN is high the 1N5817 is off
 and Qn drives about 3 mA through the 910 Ω and the two 1N4148s.  With Qn low
 the 1N4148s are reversed, so a row without tint sees no extra load at all.
 

@@ -46,6 +46,9 @@ FP_R = "placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value"
 FP_C = "placard:C_Disc_D5.0mm_W2.5mm_P5.00mm"
 FP_CP_S = "placard:CP_Radial_D6.3mm_P2.50mm"
 FP_D = "placard:D_DO-35_SOD27_P7.62mm_Horizontal"
+# Schottkys are black DO-41 1N5817s so they can't be mixed up with the glass 1N4148s (Justin, 2026-10-28);
+# DO-41 at 7.62 mm with 1.6 mm pads, the same copper as the DO-35 places they replaced
+FP_DS = "placard:D_DO-41_SOD81_P7.62mm_Horizontal_Pad1.6"
 FP_LED = "placard:LED_D5.0mm"
 FP_SIP9 = "placard:R_Array_SIP9"
 FP_JP = "placard:PinHeader_1x02_P2.54mm_Vertical"
@@ -68,7 +71,7 @@ MPN = {
     "USB4125-GF-A": ("GCT", "USB4125-GF-A-0190"),
     "3 A hold": ("Bourns", "MF-RG300-0"),
     "Molex 87715-9106": ("Molex", "87715-9106"),
-    "BAT85": ("Vishay", "BAT85S-TAP"),
+    "1N5817": ("Micro Commercial Co", "1N5817-TP"),
     "1N4148": ("Vishay", "1N4148-TAP"),
     "SA5.0A": ("Littelfuse", "SA5.0A"),
     "WP7113ID": ("Kingbright", "WP7113ID"),
@@ -268,9 +271,9 @@ def cap(s, ref, x, y, a, b, value, polar=False, angle=0, fp=None):
            value_at=(x + 2.5, y + 2.6) if angle == 0 else (x - 3.5, y + 2.4))
 
 
-def diode(s, ref, x, y, k, a, angle=0, value="BAT85", bare=(), ref_at=None, value_at=None):
+def diode(s, ref, x, y, k, a, angle=0, value="1N5817", bare=(), ref_at=None, value_at=None):
     # angle 0: cathode (pin 1) on the left; 180: on the right; 270: on top
-    return s.part("placard_std:D_Schottky", ref, x, y, {"1": k, "2": a}, value=value, footprint=FP_D, angle=angle,
+    return s.part("placard_std:D_Schottky", ref, x, y, {"1": k, "2": a}, value=value, footprint=FP_DS, angle=angle,
            ref_at=ref_at or (x - 3.5, y - 1.8), value_at=value_at or (x - 3.5, y + 1.8), bare=bare)
 
 
@@ -379,7 +382,7 @@ def sheet_power(b):
                  footprint="placard:SW_Tactile_SPST_Angled_PTS645Vx58-2LFS", bare=("1", "2"),
                  ref_at=(xt + 2.5, yr - 12.6), value_at=(xt - 8.0, yr - 26.5))
     yd = yr - 17.78
-    d8 = s.part("placard_std:D_Schottky", "D8", xk, yd, {"1": "KCOIL", "2": "GND"}, value="BAT85", footprint=FP_D,
+    d8 = s.part("placard_std:D_Schottky", "D8", xk, yd, {"1": "KCOIL", "2": "GND"}, value="1N5817", footprint=FP_DS,
                  bare=("1", "2"), ref_at=(xk - 7.0, yd - 3.2), value_at=(xk + 1.0, yd - 3.2))
     c201 = s.part("placard_std:C_Polarized", "C41", 142.24, yr + 3.81, {"1": "VON", "2": "GND"},
                   value="220u", footprint=FP_CP_S, bare=("1",), ref_at=(144.7, yr + 3.3), value_at=(144.7, yr + 6.4))
@@ -872,7 +875,7 @@ def sheet_video_out(b):
         else:
             path(s, color, (xc, ys[0]), (xj, ys[0]), (xj, jy), (jx, jy))
         name(s, color, jx - 15.24, jy)
-    # Row tint: LCn -> 910 -> node -> two 1N4148 -> VGA line; a BAT85 from the node to VIDEN holds the
+    # Row tint: LCn -> 910 -> node -> two 1N4148 -> VGA line; a 1N5817 from the node to VIDEN holds the
     # node at about 0.7 V in blanking, too low to pass the two silicon diodes, so the tint is off there.
     # Labels only (no routing): LCn from U23, VGA_x to J7, VIDEN from the Sync PLD.
     xv, xn = 215.9, 240.03
@@ -887,8 +890,8 @@ def sheet_video_out(b):
                     footprint=FP_D, angle=180, bare=("1", "2"), ref_at=(245.0, yt - 7.0), value_at=(245.0, yt - 4.2))
         db = s.part("placard_std:D", f"D{13 + 2 * k}", 261.62, yt, {"1": color, "2": mid}, value="1N4148",
                     footprint=FP_D, angle=180, bare=("1", "2"), ref_at=(257.7, yt - 7.0), value_at=(257.7, yt - 4.2))
-        dc = s.part("placard_std:D_Schottky", f"D{9 + k}", xn, yt + 3.81, {"1": "VIDEN", "2": node}, value="BAT85",
-                    footprint=FP_D, angle=90, bare=("1", "2"), ref_at=(xn + 2.5, yt + 5.0), value_at=(xn + 2.5, yt + 7.8))
+        dc = s.part("placard_std:D_Schottky", f"D{9 + k}", xn, yt + 3.81, {"1": "VIDEN", "2": node}, value="1N5817",
+                    footprint=FP_DS, angle=90, bare=("1", "2"), ref_at=(xn + 2.5, yt + 5.0), value_at=(xn + 2.5, yt + 7.8))
         path(s, lc, (rt["1"][0] - 3.81, yt), rt["1"])
         tag(s, lc, rt["1"][0] - 3.81, yt)
         path(s, node, rt["2"], (xn, yt), da["2"])
@@ -905,7 +908,7 @@ def sheet_video_out(b):
         s.junction(xv, cy, owner="VIDEN")
     s.label("VIDEN", xv, vys[-1] + 5.08, 270, "passive", True)
     note(s, 226.06, 210.82, ["Row tint: mode byte bits 6:4 lift R, G, B by about 0.2 V",
-                             "for the whole row.  Off in blanking (BAT85 to VIDEN)."], size=2.2)
+                             "for the whole row.  Off in blanking (1N5817 to VIDEN)."], size=2.2)
     # ---- audio: PIX -> U36 DAC register -> R-2R ladder -> C46 -> J6
     u36 = s.part("placard_std:74LS574", "U36", 139.7, 218.44,
                  ls574(PIX, bus("DAC", 8), "GNDA", "H_VIDEO_ACTIVE", vcc="DAC_5V", gnd="GNDA"),
