@@ -135,7 +135,7 @@ PRICES = {
     "Ceramic capacitor, 5 mm pitch|1u": (0.57, "Mouser", "KEMET C330C105K5R5TA"),
     "Ceramic capacitor, 5 mm pitch|22u": (1.00, "est.", "TDK FG24X5R1A226MRT06 (Digi-Key; Mouser does not list it)"),
     "Ceramic capacitor, 5 mm pitch|15n C0G": (0.58, "Mouser", "TDK FG24C0G1H153JNT06 (KEMET C320C153K1G5TA non-stocked)"),
-    "Electrolytic capacitor": (0.35, "est.", "Panasonic FR series"),
+    "Electrolytic capacitor": (0.35, "est.", "Rubycon YXJ series (Digi-Key; Panasonic EEU-FR1C221 out of stock)"),
     "Pin header": (0.15, "est.", "Sullins PREC002SAAN-RC"),
     "Jumper shunt": (0.10, "est.", "Sullins QPC02SXGN-RC"),
     "IC socket, DIP-14": (0.25, "est.", "On Shore ED14DT"),

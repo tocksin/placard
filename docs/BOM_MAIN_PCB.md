@@ -4,7 +4,7 @@ Date: 2026-10-27
 
 The main board, built: the bare PCB, every part on the schematic, and the sockets, jumper shunts that are not drawn.  It is one line of the case assembly.
 
-53 lines, 176 parts on the schematic.  Cost: **$204.54** for one assembly at these quantities, **$186.54** without the optional parts (expansion slot sockets J9-J12).  28 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
+52 lines, 176 parts on the schematic.  Cost: **$204.54** for one assembly at these quantities, **$186.54** without the optional parts (expansion slot sockets J9-J12).  27 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -52,8 +52,7 @@ The main board, built: the bare PCB, every part on the schematic, and the socket
 | 1 | RN1 | 4609X-101-103LF | Bourns | Resistor network, 8 bussed, SIP-9 | 10k | 0.39 | 0.39 | Mouser: Bourns 4609X-101-103LF |  |
 | 34 | C1-C23, C25-C27, C29, C31, C32, C35, C36, C38, C42, C43 | FG28X7R1H104KNT00 | TDK | Ceramic capacitor, 5 mm pitch | 100n | 0.10 | 3.40 | Mouser: TDK FG28X7R1H104KNT00 (KEMET C320C104K5R5TA is $0.66 at Mouser) |  |
 | 2 | C40, C47 | C330C105K5R5TA | KEMET | Ceramic capacitor, 5 mm pitch | 1u | 0.57 | 1.14 | Mouser: KEMET C330C105K5R5TA |  |
-| 1 | C41 | EEU-FR1E221 | Panasonic | Electrolytic capacitor, radial 8.0 mm, 3.50 mm pitch | 220u 10V | 0.35 | 0.35 | est.: Panasonic FR series |  |
-| 1 | C44 | EEU-FR1C221 | Panasonic | Electrolytic capacitor, radial 6.3 mm, 2.50 mm pitch | 220u | 0.35 | 0.35 | est.: Panasonic FR series |  |
+| 2 | C41, C44 | 25YXJ220M6.3X11 | Rubycon | Electrolytic capacitor, radial 6.3 mm, 2.50 mm pitch | 220u | 0.35 | 0.70 | est.: Rubycon YXJ series (Digi-Key; Panasonic EEU-FR1C221 out of stock) |  |
 | 1 | C45 | FG24C0G1H153JNT06 | TDK | Ceramic capacitor, 5 mm pitch | 15n C0G | 0.58 | 0.58 | Mouser: TDK FG24C0G1H153JNT06 (KEMET C320C153K1G5TA non-stocked) |  |
 | 1 | C46 | FG24X5R1A226MRT06 | TDK | Ceramic capacitor, 5 mm pitch | 22u | 1.00 | 1.00 | est.: TDK FG24X5R1A226MRT06 (Digi-Key; Mouser does not list it) |  |
 | 2 | JP1, JP2 | PREC002SAAN-RC | Sullins | Pin header, 1 x 2, 2.54 mm (bring-up jumper) |  | 0.15 | 0.30 | est.: Sullins PREC002SAAN-RC |  |
