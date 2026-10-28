@@ -73,8 +73,8 @@ DESC_LIB = {
     "placard_std:SW_SPST": "Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing",
     "placard_std:SW_Push": "Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil)",
     "placard_std:G5LE-1": "Reset relay: SPDT, 5 V coil (69 ohm, 72 mA), 7 A 30 V DC (NO and NC), through hole, sealed; NC contact carries the 5 V",
-    "placard_std:D_Schottky": "Schottky diode, DO-35",
-    "placard_std:D": "Small-signal diode, DO-35",
+    "placard_std:D_Schottky": "Schottky diode, 1 A, DO-41 (black)",
+    "placard_std:D": "Small-signal diode, DO-35 (glass)",
     "placard_std:LED": "Power LED, 5 mm, red diffused, through hole (on +5V after K1)",
     "placard_std:R_Network08_US": "Resistor network, 8 bussed, SIP-9",
 }
@@ -84,7 +84,7 @@ NO_VALUE = {"placard_parts:Expansion_Slot",
 
 NOTES = {
     "MF-RG300-0": "Part number from the footprint (Fuse_Bourns_MF-RG300)",
-    "BAT85S-TAP": "Any BAT85 (Vishay BAT85S is the one Mouser stocks; Nexperia, onsemi)",
+    "1N5817-TP": "Black DO-41 Schottky, so it is not mixed up with the glass 1N4148s; any 1N5817 (MCC, onsemi, Diodes Inc.)",
     "WP7113ID": "D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color (was Lite-On LTL2R3KRD-EM, out of stock 2026-10-25)",
     "1N4148-TAP": "Any 1N4148 (Vishay, onsemi, Diodes Inc.)",
     "Expansion slot": "Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer "
@@ -121,7 +121,7 @@ PRICES = {
     "PTS645VL58-2 LFS": (0.43, "est.", "Digi-Key; Mouser has no stock until 12/23/2026"),
     "WP7113ID": (0.21, "Mouser", ""),
     "SA5.0A": (0.64, "Mouser", ""),
-    "BAT85S-TAP": None,                             # by quantity, below
+    "1N5817-TP": None,                              # by quantity, below
     "1N4148-TAP": None,                             # by quantity, below
     "M3AAA-2006J": (6.50, "est.", "Digi-Key (3M 20-way assemblies $6-7.50)"),
     "ECS-100A-251.7": (4.06, "Digi-Key", "Mouser has no stock (Justin, 2026-10-22)"),
@@ -154,8 +154,8 @@ def tier(qty, one, ten, hundred):
 def price(d):
     """(unit, source, priced as) for a BOM line, at its quantity."""
     q = d["qty"]
-    if d["mpn"] == "BAT85S-TAP":
-        return tier(q, 0.50, 0.22, 0.13), "Mouser", "Vishay BAT85S-TAP"
+    if d["mpn"] == "1N5817-TP":
+        return tier(q, 0.30, 0.15, 0.07), "est.", "MCC 1N5817-TP"
     if d["mpn"] == "1N4148-TAP":
         return tier(q, 0.26, 0.11, 0.05), "Mouser", "Vishay 1N4148-TAP"
     if d["desc"].startswith("Resistor, metal film"):
