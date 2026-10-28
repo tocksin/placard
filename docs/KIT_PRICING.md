@@ -1,40 +1,40 @@
 # Kit pricing and selling platforms
 
-Date: 2026-10-25
+Date: 2026-10-28
 
 What a PLACARD kit costs to make at a few batch sizes, what Crowd Supply,
 Kickstarter and Tindie take, and a suggested price.  Component costs come
-from the BOMs in [BOM.md](BOM.md) (single-unit Mouser/Digi-Key prices, 2026-10-22);
-the case from the project's case cost estimate; programming and kitting
+from the BOMs in [BOM.md](BOM.md) (single-unit Mouser/Digi-Key prices, 2026-10-27);
+the case from the cost estimate in [CASE.md](CASE.md); programming and kitting
 from [KITTING.md](KITTING.md).  **No quotes were requested.**  Everything
 marked *est.* is a planning number, good to roughly +/- 25 % (case and
 PCB lines +/- 50 %), to replace with real quotes before a campaign goal is
 set.  Platform fees were read from the platforms' own pages on 2026-10-23.
 
 
-> **2026-10-25: the Cherry MX keyboard board was dropped** (CHIPS.md,
-> IO.md).  PLACARD now uses a PS/2 keyboard only, so the keyboard kit, the
-> main board header J1 and the case's switch plate below no longer exist, and
-> the main board gained the PS/2 receiver PLD U42 (single-unit parts now
-> $184.77, BOM.md).  The products become the core kit, the case (with a
-> keyboard blank or a different front) and the PS/2 keyboard / starter pack
-> options; the numbers below are kept as written on 2026-10-23 until the
-> case is redesigned and the kits re-costed.
+There is no keyboard kit.  The Cherry MX keyboard board was dropped on
+2026-10-25 (CHIPS.md, IO.md) and the case has no keyboard bay (CASE.md), so
+every PLACARD uses a PS/2 keyboard on J5.  On 2026-10-28 the keyboard kit, the
+keyboard PCB and its parts were taken out of every product and total below,
+and the kits were re-costed from the current BOMs (main board with the PS/2
+receiver PLD U42, 64K cartridge with its shell) and the current black
+powder-coated aluminium case.  The off-the-shelf PS/2 keyboard and the
+starter pack stay as options, because the computer still needs a keyboard.
 
 ## What is sold
 
-Three products, so a buyer with a PS/2 keyboard isn't forced to pay for the
-Cherry MX keyboard, which is the most expensive board:
+Two kits, so a buyer who doesn't want the case isn't forced to pay for it,
+plus options:
 
 | Product | Contents |
 |---|---|
-| **Core kit** | Main board PCB and parts (no keyboard header J1, no expansion sockets J9-J12), 64K cartridge PCB and parts, 21 blank chips (19 main PLDs, cartridge PLD, 2 EEPROMs) that the builder programs from the repository's JEDEC files and ROM images (KITTING.md plan E), a label sheet and a printed chip / image / socket table, sockets.  Uses a PS/2 keyboard on J5. |
-| **Keyboard kit** (add-on) | Keyboard PCB, 63 Cherry MX switches, LEDs, diodes, resistors, keycaps, stabilisers, ribbon cable, plus main board header J1 |
-| **Complete kit** | Core kit + keyboard kit + case (laser-cut acrylic sandwich with switch plate) |
+| **Core kit** | Main board PCB and parts (no expansion sockets J9-J12), 64K cartridge PCB, parts and shell, 21 blank chips (19 main PLDs, cartridge PLD, 2 EEPROMs) that the builder programs from the repository's JEDEC files and ROM images (KITTING.md plan E), a label sheet and a printed chip / image / socket table, sockets.  Uses a PS/2 keyboard on J5. |
+| **Complete kit** | Core kit + case (black powder-coated aluminium tray and back/left plates, clear acrylic top, slot and cartridge covers, magnets, standoffs, screws, feet; CASE.md) |
+| **Case** (on its own) | The complete kit's case, for core kit buyers who add it later |
 | **Programmer** (option) | XGecu T48 for builders without one; programs the ATF22V10C and AT28C256 |
 | **Budget programmer** (option) | XGecu TL866II Plus, the older and cheaper model; same chips, same software |
 | **SNES controllers** (option) | Wired SNES-style pads (third-party reproductions) for J2 and J3, sold singly or as a pair |
-| **PS/2 keyboard** (option) | Native PS/2 compact keyboard (Perixx PERIBOARD-409P class) for buyers of the core kit without the Cherry MX keyboard |
+| **PS/2 keyboard** (option) | Native PS/2 compact keyboard (Perixx PERIBOARD-409P class) for buyers without a PS/2 keyboard; every kit needs one |
 | **PS/2 mouse** (option) | Native PS/2 optical mouse (Perixx PERIMICE-209P class) for J5's top socket |
 | **Starter pack** (option) | PS/2 keyboard + PS/2 mouse + two SNES controllers |
 | **USB-C power supply** (option) | 5 V 3 A USB-C charger (20 W USB PD, North American plug) and a 1 m USB-C to USB-C cable for J13; builders with a phone or laptop charger don't need it (reference parts CUI SWI20C-T-N + StarTech USB2CC1MNC; an accessory, so in no BOM) |
@@ -52,17 +52,16 @@ included with the first expansion card, not in the core kit.
 
 | Line | 50 kits | 100 | 250 | 500 | Basis |
 |---|--:|--:|--:|--:|---|
-| Component price vs. BOM.md single-unit price: main / cart / keyboard | 88 / 90 / 85 % | 82 / 85 / 78 % | 77 / 80 / 72 % | 73 / 76 / 67 % | Distributor breaks on PLDs, SRAMs, sockets, passives; keyboard falls fastest (switches and keycaps bought in bulk from Cherry/keyboard suppliers) |
+| Component price vs. BOM.md single-unit price: main / cart | 88 / 90 % | 82 / 85 % | 77 / 80 % | 73 / 76 % | Distributor breaks on PLDs, SRAMs, sockets, passives.  Single-unit parts without the PCB: main $170.54 (no J9-J12), 64K cartridge $65.62 (with the $4 shell and screw) |
 | Spares and dead-on-arrival allowance | 3 % of parts | 3 % | 3 % | 3 % | Replacement chips for support |
 | Main PCB, 290 x 290 mm, 4-layer, 1.6 mm, HASL lead-free | $16 | $12 | $9.50 | $8 | JLCPCB/PCBWay typical pricing for a board this large (no "$2 for 5" offer above 100 x 100 mm) |
 | Cartridge PCB, 39 x 101.5 mm, 2-layer, ENIG, hard-gold bevelled fingers | $4 | $3 | $2.20 | $1.80 | Gold fingers and bevel are the costly options |
-| Keyboard PCB, ~290 x 102 mm, 2-layer | $6 | $4.50 | $3.50 | $3 | |
-| Case, acrylic sandwich + switch plate, for the 290 x 290 main board + keyboard | $45 | $38 | $30 | $25 | Case cost estimate scaled for the larger board (it assumed 140 mm deep) |
+| Case: aluminium tray and two plates (China sheet metal, open corner), acrylic top and covers, magnets, hardware | $78 | $62 | $52 | $45 | Middle of CASE.md's "Case, China sheet metal, open corner" range ($47-76 at 100); 50, 250 and 500 read between its 10, 100 and 1,000 columns |
 | US tariff on China-made PCBs and case | 35 % | 35 % | 35 % | 35 % | Changes often; 30-50 % range |
 | Label sheet and printed chip table (chips ship blank) | $0.50 | $0.50 | $0.50 | $0.50 | No programming cost: the builder programs |
 | Contract kitting (count, bag, box) | $8 | $6 | $5 | $4 | Technotronix-style kitter |
-| Packaging: retail box, ESD bags, IC foam, printed quick-start card | $9 | $8 | $7 | $6 | Complete kit; core kit $2 less, keyboard kit $3 less |
-| Inbound freight (parts to kitter, kits to Crowd Supply) | $3 | $3 | $3 | $3 | Complete kit; core $2, keyboard $1.50 |
+| Packaging: retail box, ESD bags, IC foam, printed quick-start card | $9 | $8 | $7 | $6 | Complete kit; core kit $2 less |
+| Inbound freight (parts to kitter, kits to Crowd Supply) | $3 | $3 | $3 | $3 | Complete kit; core $2 |
 
 Mouser postage to the buyer is not in the cost: Crowd Supply charges it at
 checkout.
@@ -71,29 +70,31 @@ checkout.
 
 | Product | 50 kits | 100 | 250 | 500 |
 |---|--:|--:|--:|--:|
-| Core kit | $253 | $229 | $211 | $197 |
-| Keyboard kit | $149 | $134 | $122 | $112 |
-| **Complete kit** | **$453** | **$408** | **$368** | **$339** |
+| Core kit | $260 | $236 | $218 | $203 |
+| **Complete kit** | **$368** | **$323** | **$291** | **$267** |
+| Case on its own (case + 35 % tariff, $3 packaging, $1 freight) | $109 | $88 | $74 | $65 |
 
 Breakdown of the complete kit:
 
 | Line | 50 | 100 | 250 | 500 |
 |---|--:|--:|--:|--:|
-| Components (all three boards) | $327 | $303 | $283 | $267 |
-| Spares allowance | $10 | $9 | $8 | $8 |
-| PCBs (3) | $26 | $20 | $15 | $13 |
-| Case | $45 | $38 | $30 | $25 |
-| Tariff on PCBs and case | $25 | $20 | $16 | $13 |
+| Components (main board and cartridge, cartridge shell) | $209 | $196 | $184 | $174 |
+| Spares allowance | $6 | $6 | $6 | $5 |
+| PCBs (2) | $20 | $15 | $12 | $10 |
+| Case | $78 | $62 | $52 | $45 |
+| Tariff on PCBs and case | $34 | $27 | $22 | $19 |
 | Labels and chip table | $0.50 | $0.50 | $0.50 | $0.50 |
 | Kitting | $8 | $6 | $5 | $4 |
 | Packaging | $9 | $8 | $7 | $6 |
 | Freight in | $3 | $3 | $3 | $3 |
-| **Total** | **$453** | **$408** | **$368** | **$339** |
+| **Total** | **$368** | **$323** | **$291** | **$267** |
 
-This is higher than the $300-350 guessed in the kit price comparison,
-because the main board grew to 290 x 290 mm (bigger PCB and case) and
-tariffs, spares, kitting and packaging are now counted.  Components are
-still three quarters of the cost, and the keyboard alone is a third.
+Against the 2026-10-23 figures ($408 complete, $229 core at 100), the
+complete kit is $85 cheaper: the keyboard's $134 is gone, but the aluminium
+case costs about $24 more than the acrylic sandwich (plus tariff), and the
+core kit is $7 dearer because the main board gained U42 and the cartridge its
+shell.  Components are now about 60 % of the complete kit and the case,
+with its tariff, about a quarter.
 
 ### PCB fab at a few quantities (per board, *est.*)
 
@@ -101,7 +102,6 @@ still three quarters of the cost, and the keyboard alone is a third.
 |---|--:|--:|--:|--:|--:|
 | Main, 4-layer 290 x 290 mm | $30-45 | $14-18 | $10-14 | $8-11 | $7-9 |
 | Cartridge, 2-layer, ENIG + gold fingers | $8-14 | $3.5-5 | $2.5-3.5 | $2-2.5 | $1.5-2 |
-| Keyboard, 2-layer 290 x 102 mm | $6-10 | $5-7 | $4-5 | $3-4 | $2.5-3.5 |
 
 Plus shipping from China (about $25-60 per order by DHL) and the tariff.
 Worth pulling a real quote from JLCPCB's and PCBWay's calculators with the
@@ -112,7 +112,8 @@ houses can differ by 2x.
 
 | Item | Cost |
 |---|--:|
-| Two more prototype PCB rounds (3 boards each, 5 of each) | $400-600 |
+| Two more prototype PCB rounds (main board and cartridge, 5 of each) | $300-500 |
+| Case prototypes (1-2 sets of sheet metal and acrylic) | $150-450 |
 | Prototype parts for 3-5 machines, samples for Crowd Supply photos/review | $1,000-2,000 |
 | Programmer (XGecu T48) and test fixtures | $100-300 |
 | Photos and campaign video | $0-1,500 |
@@ -135,14 +136,13 @@ $4,000 is $80 a kit at 50, $40 at 100, $16 at 250 and $8 at 500.
 | Payout | Within 10 days of hitting the goal, of the campaign ending, and of shipping all orders (pre-order money) | About 2 weeks after the campaign | Through Tindie's payout system (new in July 2026) |
 
 Fees on one kit at the suggested prices (*est.* fulfilment: Crowd Supply
-$16 complete / $10 core / $8 keyboard; a 3PL for Kickstarter and Tindie
+$16 complete / $10 core / $8 case; a 3PL for Kickstarter and Tindie
 $10 / $7 / $6; Kickstarter adds 2 % pledge manager and 4 % dropped pledges):
 
 | Product, price | Crowd Supply campaign | Crowd Supply pre-order | Kickstarter | Tindie |
 |---|--:|--:|--:|--:|
 | Core kit, $379 | $40 (10.6 %) | $59 (15.6 %) | $60 (15.9 %) | $37 (9.8 %) |
-| Keyboard kit, $199 | $24 (12.1 %) | $34 (17.1 %) | $34 (17.2 %) | $22 (11.1 %) |
-| Complete kit, $649 | $68 (10.4 %) | $100 (15.4 %) | $101 (15.6 %) | $62 (9.5 %) |
+| Complete kit, $529 | $58 (11.0 %) | $85 (16.0 %) | $84 (15.9 %) | $52 (9.8 %) |
 
 Tindie looks cheapest per kit, but those numbers leave out your time
 posting every kit, the sales tax and VAT you collect yourself, and the
@@ -158,9 +158,9 @@ Margin = price - Crowd Supply fees - cost per kit, before the one-off costs.
 
 | Product, price | 50 kits | 100 | 250 | 500 |
 |---|--:|--:|--:|--:|
-| Core kit, $379 | $86 (23 %) | $109 (29 %) | $128 (34 %) | $142 (37 %) |
-| Keyboard kit, $199 | $26 (13 %) | $41 (21 %) | $53 (27 %) | $63 (32 %) |
-| Complete kit, $649 | $129 (20 %) | $174 (27 %) | $213 (33 %) | $242 (37 %) |
+| Core kit, $379 | $79 (21 %) | $103 (27 %) | $121 (32 %) | $135 (36 %) |
+| Complete kit, $529 | $103 (19 %) | $148 (28 %) | $180 (34 %) | $204 (39 %) |
+| Case on its own, $159 | $29 (18 %) | $50 (32 %) | $64 (40 %) | $73 (46 %) |
 | Programmer (T48), $109 | $20-25 a unit at any quantity | | | |
 | Budget programmer (TL866II Plus), $79 | about $15 a unit at any quantity | | | |
 | SNES controller, $15 (pair $25) | about $4.50 ($8 a pair) | | | |
@@ -173,52 +173,51 @@ Complete kit at other prices:
 
 | Price | 100 kits | 250 kits |
 |--:|--:|--:|
-| $549 | $82 (15 %) | $121 (22 %) |
-| $599 | $128 (21 %) | $167 (28 %) |
-| **$649** | **$174 (27 %)** | **$213 (33 %)** |
-| $699 | $220 (31 %) | $259 (37 %) |
+| $479 | $102 (21 %) | $134 (28 %) |
+| $499 | $120 (24 %) | $152 (31 %) |
+| **$529** | **$148 (28 %)** | **$180 (34 %)** |
+| $549 | $166 (30 %) | $199 (36 %) |
+| $599 | $212 (35 %) | $245 (41 %) |
 
 Core kit at other prices:
 
 | Price | 100 kits | 250 kits |
 |--:|--:|--:|
-| $329 | $63 (19 %) | $82 (25 %) |
-| $349 | $82 (23 %) | $100 (29 %) |
-| **$379** | **$109 (29 %)** | **$128 (34 %)** |
-| $399 | $128 (32 %) | $146 (37 %) |
+| $329 | $56 (17 %) | $75 (23 %) |
+| $349 | $75 (21 %) | $94 (27 %) |
+| **$379** | **$103 (27 %)** | **$121 (32 %)** |
+| $399 | $121 (30 %) | $140 (35 %) |
 
 ## Suggested price
 
 | Product | Price | Compare |
 |---|--:|---|
 | **Core kit** | **$379** | Ben Eater 8-bit bundle $330 (no video); Commander X16 full kit $260 (no case, no keyboard) |
-| **Keyboard kit** (add-on) | **$199** | A Cherry MX 60 % keyboard kit with keycaps sells for $120-200 |
-| **Complete kit** | **$649** ($28 less than the three parts bought separately with a $99 case) | Foenix F256K2 $595 assembled; MEGA65 ~$750 |
-| Case on its own | $99 | Mostly for core kit buyers who add the keyboard later; print files free |
+| **Complete kit** | **$529** ($9 less than the core kit and the case bought separately) | Foenix F256K2 $595 assembled with case and keyboard; MEGA65 ~$750 |
+| Case on its own | $159 | For core kit buyers who add the case later; STEP and DXF files free for anyone who has it made |
 | SD card (option) | $15 | An 8-16 GB SDHC card bought in bulk is $3-5; with about $1 for preloading (a duplicator or the kitter), a label and case, and 35 % tariff it costs about $7 landed, leaving about $5-6 after fees if it ships in the kit's box (no extra fulfilment item) |
 | Programmer (option) | $109 | XGecu T48 retails at $60-90; at about $62 bought in bulk plus 35 % tariff it costs about $84 landed, leaving $20-25 after fees |
 | Budget programmer (option) | $79 | XGecu TL866II Plus retails at $35-50; at about $38 in bulk plus tariff it costs about $51 landed, leaving about $15 after fees.  Older and slower than the T48 and it covers fewer chips, but it programs the ATF22V10C and AT28C256 with the same Xgpro software (or open-source `minipro` on Linux and Mac) |
 | SNES controllers (option) | $15 each, $25 a pair | Retail $11 each for wired reproductions (FC Twin, Mars Devices); about $4-5 each bought by the hundred from the factory, about $6 landed with tariff |
 | PS/2 keyboard (option) | $45 | Perixx PERIBOARD-409P retails at $35-50 (Commander X16 sells it at $35); about $22 wholesale, $30 landed |
 | PS/2 mouse (option) | $19 | Perixx optical PS/2 mouse retails at $15 (TexElec); about $8 wholesale, $11 landed |
-| Starter pack (option) | $79 | Keyboard, mouse and two pads ($104 bought separately); about $53 landed |
+| Starter pack (option) | $79 | PS/2 keyboard, mouse and two pads ($104 bought separately); about $53 landed |
 | USB-C power supply (option) | $19 | The reference pair (CUI SWI20C-T-N + StarTech USB2CC1MNC) is $25 one-off at Mouser; a generic 20 W PD charger and 3 A cable bought by the hundred are about $5-7 and $1-2, about $10 landed with tariff, leaving about $7 after fees.  It must offer 5 V at 3 A on its CC line, as every USB PD charger does, because J13 only has 5.1k CC pull-downs (Justin, 2026-10-25) |
 
 Why these numbers:
 
-- **At 100 kits they give 27-29 % margin on the core and complete kits,**
-  which is about $10,900 for 100 core kits ($6,900 after the $4,000 of
-  one-off costs) or $17,400 for 100 complete kits ($13,400 after).  That is thin for hardware (Crowd Supply guides and
+- **At 100 kits they give 27-28 % margin on the core and complete kits,**
+  which is about $10,300 for 100 core kits ($6,300 after the $4,000 of
+  one-off costs) or $14,800 for 100 complete kits ($10,800 after).  That is thin for hardware (Crowd Supply guides and
   small hardware sellers usually aim for 40-50 % so a distributor can
   take a cut later), but a logic-chip kit is a niche product and a
   higher price hurts more than a thin margin at this volume.
-- **The keyboard is the weak product.**  At $199 it makes $41 a kit at
-  100, half what the core kit makes.  Cheaper keycaps (bulk blank
-  or doubleshot sets at $15-20 instead of $38) and switches bought by the
-  thousand from Cherry would add about $25 a kit of margin; that is the
-  first place to look for savings.
+- **The case is priced to carry its own margin.**  At $159 on its own it
+  makes about $50 at 100, and inside the complete kit it adds about $150 to
+  the core kit's price for about $87 of cost.  A $99 case, as planned for
+  the acrylic one, would lose money at 100 cases.
 - **Set the campaign goal at about 100 complete-kit equivalents**
-  (about $50,000-60,000).  Below 100 the parts don't reach their price
+  (about $40,000-50,000).  Below 100 the parts don't reach their price
   breaks and the one-off costs eat most of the margin; 50 kits at these
   prices is roughly break-even after the one-off costs.
 - **Selling through Mouser after the campaign** (Crowd Supply's
@@ -257,8 +256,10 @@ bulk-pack cards), and make one master image to copy.
 
 ## Things that move the numbers most
 
-1. **The keyboard parts** (switches $78, keycaps $38 of its $146): see
-   above.
+1. **The case** (about $62 at 100 plus tariff, +/- 40 %): a real sheet
+   metal quote, the open or welded tray corner (+$5-15 at 100), and US
+   versus China sheet metal ($66-113 at 100 in the US, no tariff) move the
+   complete kit by $20-50.
 2. **Tariffs** on China-made PCBs and the case (35 % assumed): a US PCB
    house costs more than the tariff saves for a 290 x 290 mm 4-layer
    board, but check at quote time.
