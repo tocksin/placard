@@ -43,8 +43,7 @@ Qty,References,Part number,Manufacturer,Description,Value,Unit price USD,Line to
 1,RN1,4609X-101-103LF,Bourns,"Resistor network, 8 bussed, SIP-9",10k,0.39,0.39,Mouser: Bourns 4609X-101-103LF,,placard:R_Array_SIP9,yes
 34,C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C25 C26 C27 C29 C31 C32 C35 C36 C38 C42 C43,FG28X7R1H104KNT00,TDK,"Ceramic capacitor, 5 mm pitch",100n,0.10,3.40,Mouser: TDK FG28X7R1H104KNT00 (KEMET C320C104K5R5TA is $0.66 at Mouser),,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
 2,C40 C47,C330C105K5R5TA,KEMET,"Ceramic capacitor, 5 mm pitch",1u,0.57,1.14,Mouser: KEMET C330C105K5R5TA,,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
-1,C41,EEU-FR1E221,Panasonic,"Electrolytic capacitor, radial 8.0 mm, 3.50 mm pitch",220u 10V,0.35,0.35,est.: Panasonic FR series,,placard:CP_Radial_D8.0mm_P3.50mm,yes
-1,C44,EEU-FR1C221,Panasonic,"Electrolytic capacitor, radial 6.3 mm, 2.50 mm pitch",220u,0.35,0.35,est.: Panasonic FR series,,placard:CP_Radial_D6.3mm_P2.50mm,yes
+2,C41 C44,25YXJ220M6.3X11,Rubycon,"Electrolytic capacitor, radial 6.3 mm, 2.50 mm pitch",220u,0.35,0.70,est.: Rubycon YXJ series (Digi-Key; Panasonic EEU-FR1C221 out of stock),,placard:CP_Radial_D6.3mm_P2.50mm,yes
 1,C45,FG24C0G1H153JNT06,TDK,"Ceramic capacitor, 5 mm pitch",15n C0G,0.58,0.58,Mouser: TDK FG24C0G1H153JNT06 (KEMET C320C153K1G5TA non-stocked),,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
 1,C46,FG24X5R1A226MRT06,TDK,"Ceramic capacitor, 5 mm pitch",22u,1.00,1.00,est.: TDK FG24X5R1A226MRT06 (Digi-Key; Mouser does not list it),,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
 2,JP1 JP2,PREC002SAAN-RC,Sullins,"Pin header, 1 x 2, 2.54 mm (bring-up jumper)",,0.15,0.30,est.: Sullins PREC002SAAN-RC,,placard:PinHeader_1x02_P2.54mm_Vertical,yes
