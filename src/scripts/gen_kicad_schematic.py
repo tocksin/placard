@@ -45,7 +45,6 @@ FP_DIP28W = "placard:DIP-28_W15.24mm_Socket_Puller"
 FP_R = "placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value"
 FP_C = "placard:C_Disc_D5.0mm_W2.5mm_P5.00mm"
 FP_CP_S = "placard:CP_Radial_D6.3mm_P2.50mm"
-FP_CP_L = "placard:CP_Radial_D8.0mm_P3.50mm"
 FP_D = "placard:D_DO-35_SOD27_P7.62mm_Horizontal"
 FP_LED = "placard:LED_D5.0mm"
 FP_SIP9 = "placard:R_Array_SIP9"
@@ -90,7 +89,7 @@ MPN_LIB = {
     "Switch:SW_Push_LED": ("Cherry", "MX2A-L1NB"),
 }
 # passives by (symbol, value): Yageo MFR-25 1 % metal film, Bourns 4609X SIP-9, KEMET/TDK ceramics,
-# Panasonic FR electrolytics (C41 8 x 11.5 mm 3.5 mm pitch, C44 6.3 x 11.2 mm 2.5 mm pitch)
+# Rubycon YXJ electrolytic for C41 and C44 (25 V, 6.3 x 11 mm, 2.5 mm pitch; Justin, 2026-10-28)
 R_CODE = {"5.1k": "5K1", "10k": "10K", "47": "47R", "3.3k": "3K3", "1.6k": "1K6", "820": "820R",
           "1.43k": "1K43", "715": "715R", "2.2": "2R2", "2k": "2K", "1k": "1K", "1.8k": "1K8",
           "4.7k": "4K7", "910": "910R", "22k": "22K"}
@@ -100,8 +99,7 @@ MPN_PASSIVE = {
     ("placard_std:C", "1u"): ("KEMET", "C330C105K5R5TA"),
     ("placard_std:C", "15n C0G"): ("TDK", "FG24C0G1H153JNT06"),
     ("placard_std:C", "22u"): ("TDK", "FG24X5R1A226MRT06"),
-    ("placard_std:C_Polarized", "220u 10V"): ("Panasonic", "EEU-FR1E221"),
-    ("placard_std:C_Polarized", "220u"): ("Panasonic", "EEU-FR1C221"),
+    ("placard_std:C_Polarized", "220u"): ("Rubycon", "25YXJ220M6.3X11"),
 }
 
 
@@ -384,7 +382,7 @@ def sheet_power(b):
     d8 = s.part("placard_std:D_Schottky", "D8", xk, yd, {"1": "KCOIL", "2": "GND"}, value="BAT85", footprint=FP_D,
                  bare=("1", "2"), ref_at=(xk - 7.0, yd - 3.2), value_at=(xk + 1.0, yd - 3.2))
     c201 = s.part("placard_std:C_Polarized", "C41", 142.24, yr + 3.81, {"1": "VON", "2": "GND"},
-                  value="220u 10V", footprint=FP_CP_L, bare=("1",), ref_at=(144.7, yr + 3.3), value_at=(144.7, yr + 6.4))
+                  value="220u", footprint=FP_CP_S, bare=("1",), ref_at=(144.7, yr + 3.3), value_at=(144.7, yr + 6.4))
     xj = k1["1"][0] - 2.54
     path(s, "VON", sw1["2"], (c201["1"][0], yr), (xt, yr), (xj, yr), (xj, k1["1"][1]), k1["1"])
     s.junction(c201["1"][0], yr, owner="VON")
