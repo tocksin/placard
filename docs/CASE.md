@@ -1,6 +1,6 @@
 # Case
 
-Date: 2026-10-27
+Date: 2026-10-28
 
 This is a concept for the PLACARD case. The case is black powder-coated
 aluminium, strong on the bottom and sides, with a clear acrylic top so the
@@ -266,8 +266,8 @@ brushed and anodized parts priced before 2026-10-27.
 | **Case, US sheet metal, open corner** | **$200-320** | **$128-208** | **$66-113** | - |
 
 At 100 units that's about two to three times the $30 acrylic sandwich that
-`KIT_PRICING.md` assumes. The complete kit's case line would go up by
-roughly $20-50, plus tariff.
+`KIT_PRICING.md` assumed until 2026-10-28; it now prices the case at the
+middle of the China range ($62 at 100, plus tariff).
 
 Weight: about 0.65 kg of aluminium and 0.3 kg of acrylic.
 
