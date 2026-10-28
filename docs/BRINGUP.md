@@ -115,7 +115,7 @@ so its readings shift a little with the line and frame; read the average.
 | F1 | Polyfuse, 3 A hold | Bourns MF-RG300-0 | not polarised |
 | D7 | TVS diode, fused VBUS (VFUSE) to GND | Littelfuse SA5.0A | band (cathode) to VFUSE |
 | SW1 | Toggle switch, on/off | CIT ANT11TFHQE |  |
-| C41 | Electrolytic capacitor, on VON (between SW1 and K1) | 220 µF (Panasonic EEU-FR1E221) | + to VON, stripe to GND |
+| C41 | Electrolytic capacitor, on VON (between SW1 and K1) | 220 µF (Rubycon 25YXJ220M6.3X11) | + to VON, stripe to GND |
 | K1 | Relay | CIT J1071CS6VDC.36 | COM (pin 1) = VON, NC (pin 4) = +5V |
 | SW2 | Tactile reset button, VON to the coil (KCOIL) | C&K PTS645VL58-2 LFS |  |
 | D8 | Schottky diode, across K1's coil | BAT85 | band (cathode) to KCOIL |
@@ -949,7 +949,7 @@ U40's output and at the SD socket's pin 4.
 | U36 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
 | C36 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | R22 | Resistor, DAC supply filter | 2.2 ohm |  |
-| C44 | Electrolytic capacitor, DAC supply filter | 220 µF (Panasonic EEU-FR1C221) | + to DAC_5V (R22's DAC end), stripe to GNDA |
+| C44 | Electrolytic capacitor, DAC supply filter | 220 µF (Rubycon 25YXJ220M6.3X11) | + to DAC_5V (R22's DAC end), stripe to GNDA |
 | R23-R31 | Resistor, R-2R ladder | 2k |  |
 | R32-R38 | Resistor, R-2R ladder | 1k |  |
 | C45 | Capacitor, output filter | 15 nF C0G (TDK FG24C0G1H153JNT06) |  |
