@@ -128,6 +128,10 @@ Four demos show what the CPU can do with no sprite or collision hardware.  The f
 
 ![wire3d in the simulator](reference/wire3d_sim.gif)
 
+`sdcard/BOING.PLC` (`gen_boing.py`) is the Amiga's Boing Ball: a red and white checkered ball, tilted 17 degrees, spinning and bouncing in front of a purple grid with its shadow on the wall, at 160 × 120, 4 bpp.  It holds 60 fps on about a third of the CPU.  The Placard has no palette registers for the Amiga's color-cycling trick, so the spin is 8 phases worked out ahead of time, and each frame redraws only the rows the ball and its shadow touch.  It draws from a clean copy of the background kept in the video RAM that 4x rows leave free, top to bottom and ahead of the beam.  `build\boing.bat` loads a ROM build; [docs/BOING.md](docs/BOING.md) has the details and `src/scripts/test_boing_sim.py` checks every frame against a model.
+
+![Boing Ball in the simulator](reference/boing_sim.gif)
+
 ### Pixel fill
 An easy function is the fill function.  Putting a color in a pixel starts drawing that color.  That color continues to draw until that same color is placed again.  So putting two pixels one a row is enough to draw a whole row of that color.  It's much faster than having the CPU add that color along that entire row.  This is how to get to filled polygons quickly.  The CPU only needs to decide what the boundaries of a shape is, and the video circuit does the rest.  The CPU only drawing wireframes, but gets fully filled polygons.
 
