@@ -4,7 +4,7 @@ Date: 2026-10-27
 
 The main board, built: the bare PCB, every part on the schematic, and the sockets, jumper shunts that are not drawn.  It is one line of the case assembly.
 
-52 lines, 176 parts on the schematic.  Cost: **$204.54** for one assembly at these quantities, **$186.54** without the optional parts (expansion slot sockets J9-J12).  27 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
+52 lines, 176 parts on the schematic.  Cost: **$203.77** for one assembly at these quantities, **$185.77** without the optional parts (expansion slot sockets J9-J12).  28 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -30,9 +30,9 @@ The main board, built: the bare PCB, every part on the schematic, and the socket
 | 1 | SW2 | PTS645VL58-2 LFS | C&K | Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil) |  | 0.43 | 0.43 | est.: Digi-Key; Mouser has no stock until 12/23/2026 |  |
 | 1 | K1 | J1071CS5VDC.36 | CIT Relay and Switch | Reset relay: SPDT, 5 V coil (69 ohm, 72 mA), 7 A 30 V DC (NO and NC), through hole, sealed; NC contact carries the 5 V |  | 1.15 | 1.15 | Digi-Key: Justin, 2026-10-25; Mouser does not sell CIT |  |
 | 1 | F1 | MF-RG300-0 | Bourns | Polyfuse, 3 A hold, radial | 3 A hold | 0.73 | 0.73 | Mouser | Part number from the footprint (Fuse_Bourns_MF-RG300) |
-| 11 | D1-D6, D8-D11, D19 | BAT85S-TAP | Vishay | Schottky diode, DO-35 | BAT85 | 0.22 | 2.42 | Mouser: Vishay BAT85S-TAP | Any BAT85 (Vishay BAT85S is the one Mouser stocks; Nexperia, onsemi) |
+| 11 | D1-D6, D8-D11, D19 | 1N5817-TP | Micro Commercial Co | Schottky diode, 1 A, DO-41 (black) | 1N5817 | 0.15 | 1.65 | est.: MCC 1N5817-TP | Black DO-41 Schottky, so it is not mixed up with the glass 1N4148s; any 1N5817 (MCC, onsemi, Diodes Inc.) |
 | 1 | D7 | SA5.0A | Littelfuse | TVS diode, 5 V stand-off, 500 W, DO-15 axial (across the fused USB 5 V) |  | 0.64 | 0.64 | Mouser |  |
-| 6 | D12-D17 | 1N4148-TAP | Vishay | Small-signal diode, DO-35 | 1N4148 | 0.26 | 1.56 | Mouser: Vishay 1N4148-TAP | Any 1N4148 (Vishay, onsemi, Diodes Inc.) |
+| 6 | D12-D17 | 1N4148-TAP | Vishay | Small-signal diode, DO-35 (glass) | 1N4148 | 0.26 | 1.56 | Mouser: Vishay 1N4148-TAP | Any 1N4148 (Vishay, onsemi, Diodes Inc.) |
 | 1 | D18 | WP7113ID | Kingbright | Power LED, 5 mm, red diffused, through hole (on +5V after K1) |  | 0.21 | 0.21 | Mouser | D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color (was Lite-On LTL2R3KRD-EM, out of stock 2026-10-25) |
 | 2 | R1, R2 | MFR-25FBF52-5K1 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 5.1k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
 | 8 | R3, R4, R13, R39-R41, R48, R63 | MFR-25FBF52-10K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 10k | 0.10 | 0.80 | est.: Yageo MFR-25FBF52 series |  |

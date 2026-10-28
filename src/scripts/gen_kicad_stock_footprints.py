@@ -21,9 +21,15 @@ KICAD9_3DMODEL_DIR if set (a KiCad 9 install), otherwise KiCad's GitLab
 libraries at tag 9.0.6.  KiCad's libraries are CC-BY-SA 4.0 with an exception
 for designs that use them.
 
+DERIVED footprints are stock ones with one change, written under their own
+name: D_DO-41_SOD81_P7.62mm_Horizontal_Pad1.6 is KiCad's DO-41 at 7.62 mm
+with the DO-35's 1.6 mm pads and a 1.0 mm drill (2026-10-28, the 1N5817
+Schottkys), so it drops onto the DO-35 places on the routed board with the
+same copper.
+
 Run gen_kicad_kit_footprints.py first (its footprints name the socket models).
 
-Date: 2026-10-26
+Date: 2026-10-28
 """
 
 import os
@@ -50,6 +56,9 @@ STOCK = [("Capacitor_THT", "C_Disc_D5.0mm_W2.5mm_P5.00mm"), ("Capacitor_THT", "C
          ("MountingHole", "MountingHole_3.2mm_M3_Pad_Via"), ("NetTie", "NetTie-2_THT_Pad0.3mm"),
          ("Oscillator", "Oscillator_DIP-14"), ("Package_TO_SOT_THT", "TO-92_Inline"),
          ("Resistor_THT", "R_Array_SIP9")]
+
+# (KiCad library, stock footprint, placard name, pad size, drill): stock footprint, pads changed
+DERIVED = [("Diode_THT", "D_DO-41_SOD81_P7.62mm_Horizontal", "D_DO-41_SOD81_P7.62mm_Horizontal_Pad1.6", 1.6, 1.0)]
 
 # placard footprint (gen_kicad_kit_footprints.py) -> the KiCad model it shows
 KIT_MODELS = {"DIP-%s_Socket_Puller" % d: ("Package_DIP", "DIP-%s_Socket" % d)
@@ -81,6 +90,18 @@ def main():
             model(m.group(1), m.group(2), name)
             s = s.replace(m.group(0), '(model "%s/%s.step"' % (MODELS, name))
         assert "KICAD9_3DMODEL_DIR" not in s, name
+        with open(os.path.join(OUT, name + ".kicad_mod"), "w", newline="\n") as fh:
+            fh.write(s)
+        print("wrote", name)
+    for lib, stock, name, size, drill in DERIVED:
+        s = fetch(FP_DIR, lib + ".pretty", stock + ".kicad_mod", FP_URL % (TAG, lib, stock)).decode()
+        s = s.replace('(footprint "%s"' % stock, '(footprint "%s"' % name, 1)
+        s, n = re.subn(r'\(size [0-9.]+ [0-9.]+\)(\s*)\(drill [0-9.]+\)',
+                       lambda m: "(size %g %g)%s(drill %g)" % (size, size, m.group(1), drill), s)
+        assert n == 2, name
+        m = re.search(r'\(model "\$\{KICAD9_3DMODEL_DIR\}/([^/]+)\.3dshapes/([^"]+)\.step"', s)
+        model(m.group(1), m.group(2), name)
+        s = s.replace(m.group(0), '(model "%s/%s.step"' % (MODELS, name))
         with open(os.path.join(OUT, name + ".kicad_mod"), "w", newline="\n") as fh:
             fh.write(s)
         print("wrote", name)
