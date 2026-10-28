@@ -1104,68 +1104,66 @@ lx_sw:
     ld   lx_c >> 8, y
     jmp  lx_c
 
-; fe_menu: wait for the frame cap, the menu hook, the mode switch (a key or time)
-fe_menu:
-fe_wait:
-    ld   0x50, y               ; tick: line read (V9:V2)
+; erase: blank the part of the ship's old outline that its new one does not cover, then keep the new one
+erase:
+    ld   0, ac
+    ld   ac, [cb]
+    ld   0x59, y
+    ld   [shs8], ac
+    add  6, x
     ld   [y,x], ac
-    ld   ac, [w_t]
-    sub  [LINE_LAST], ac
-    ld   [w_t], ac
-    ld   ac, [LINE_LAST]
-    bcc  tk_2
-    ld   [FRAME_LO], ac
-    inc
-    ld   ac, [FRAME_LO]
-    bcc  tk_2
-    ld   [FRAME_HI], ac
-    inc
-    ld   ac, [FRAME_HI]
-tk_2:
-    ld   [FRAME_LO], ac
-    sub  [lastf], ac
-    sub  2, ac
-    bcs  fe_wait
-    ld   [FRAME_LO], ac
-    ld   ac, [lastf]
-fe_mark:
-    ld   LINK_LO, x             ; CALL kbd_scan
-    ld   w3_r14, [x]
-    ld   LINK_HI, x
-    ld   w3_r14 >> 8, [x]
-    ld   kbd_scan >> 8, y
-    jmp  kbd_scan
-w3_r14:
-    ld   LINK_LO, x             ; CALL menu_poll
-    ld   w3_r15, [x]
-    ld   LINK_HI, x
-    ld   w3_r15 >> 8, [x]
-    ld   menu_poll >> 8, y
-    jmp  menu_poll
-w3_r15:
-    ld   LINK_LO, x             ; CALL kbd_getc
-    ld   w3_r16, [x]
-    ld   LINK_HI, x
-    ld   w3_r16 >> 8, [x]
-    ld   kbd_getc >> 8, y
-    jmp  kbd_getc
-w3_r16:
-    bne  fe_sw
-    ld   [msec], ac
-    sub  10, ac
-    bcc  fe_sw
-fe_go:
-    ld   0xFF, ac
-    ld   0x50, y
-    ld   ac, [y,x]
-    ld   [par], ac
-    xor  1, ac
-    ld   ac, [par]
-    ld   frame >> 8, y
-    jmp  frame
-fe_sw:
-    ld   switch >> 8, y
-    jmp  switch
+    ld   ac, [otop]
+    ld   [shs8], ac
+    add  7, x
+    ld   [y,x], ac
+    ld   ac, [obot]
+    ld   [shs8], ac
+    add  0x60, ac
+    ld   ac, [fpLH]
+    add  2, ac
+    ld   ac, [fpLL]
+    add  2, ac
+    ld   ac, [fpRH]
+    add  2, ac
+    ld   ac, [fpRL]
+    ld   [otop], ac
+    ld   ac, [ycur]
+    ld   [obot], ac
+    sub  [ntop], ac
+    bcs  er_1
+    ld   [ntop], ac
+    bra  er_2
+er_1:
+    ld   [obot], ac
+er_2:
+    ld   ac, [w_ye]
+    ld   lk_ef_l, x
+    ld   rt_109 & 0xFF, [x]
+    ld   lk_ef_h, x
+    ld   rt_109 >> 8, [x]
+    ld   er_fl >> 8, y
+    jmp  er_fl
+rt_109:
+    ld   [otop], ac
+    sub  [nbot], ac
+    bcs  er_3
+    ld   [otop], ac
+    bra  er_4
+er_3:
+    ld   [nbot], ac
+er_4:
+    ld   ac, [ycur]
+    ld   [obot], ac
+    ld   ac, [w_ye]
+    ld   lk_ef_l, x
+    ld   rt_110 & 0xFF, [x]
+    ld   lk_ef_h, x
+    ld   rt_110 >> 8, [x]
+    ld   er_fl >> 8, y
+    jmp  er_fl
+rt_110:
+    ld   er_d >> 8, y
+    jmp  er_d
 
 
 #addr 0x0700
@@ -1261,66 +1259,68 @@ ft_nx1:
     ld   ft_nx >> 8, y
     jmp  ft_nx
 
-; erase: blank the part of the ship's old outline that its new one does not cover, then keep the new one
-erase:
+; ship 1: freighter, its path
+ship_1:
+    ld   0x25, y
+    ld   [tt], ac
+    add  0, x
+    ld   [y,x], ac
+    ld   ac, [pl]
+    blt  sp_5
     ld   0, ac
-    ld   ac, [cb]
-    ld   0x59, y
-    ld   [shs8], ac
-    add  6, x
+    bra  sp_6
+sp_5:
+    ld   255, ac
+sp_6:
+    ld   ac, [phh]
+    ld   [pl], ac
+    shl
+    ld   ac, [pl]
+    ld   [phh], ac
+    bcs  sh_8
+    shl
+    bra  sh_9
+sh_8:
+    shl
+    or   1, ac
+sh_9:
+    ld   ac, [phh]
+    ld   [pl], ac
+    add  0, ac
+    ld   ac, [oxl]
+    ld   [phh], ac
+    bcc  sp_7
+    inc
+sp_7:
+    add  0, ac
+    ld   ac, [oxh]
+    ld   176, ac
+    ld   ac, [oyl]
+    ld   255, ac
+    ld   ac, [oyh]
+    ld   0x25, y
+    ld   [tt], ac
+    add  64, x
     ld   [y,x], ac
-    ld   ac, [otop]
-    ld   [shs8], ac
-    add  7, x
-    ld   [y,x], ac
-    ld   ac, [obot]
-    ld   [shs8], ac
-    add  0x60, ac
-    ld   ac, [fpLH]
-    add  2, ac
-    ld   ac, [fpLL]
-    add  2, ac
-    ld   ac, [fpRH]
-    add  2, ac
-    ld   ac, [fpRL]
-    ld   [otop], ac
-    ld   ac, [ycur]
-    ld   [obot], ac
-    sub  [ntop], ac
-    bcs  er_1
-    ld   [ntop], ac
-    bra  er_2
-er_1:
-    ld   [obot], ac
-er_2:
-    ld   ac, [w_ye]
-    ld   lk_ef_l, x
-    ld   rt_109 & 0xFF, [x]
-    ld   lk_ef_h, x
-    ld   rt_109 >> 8, [x]
-    ld   er_fl >> 8, y
-    jmp  er_fl
-rt_109:
-    ld   [otop], ac
-    sub  [nbot], ac
-    bcs  er_3
-    ld   [otop], ac
-    bra  er_4
-er_3:
-    ld   [nbot], ac
-er_4:
-    ld   ac, [ycur]
-    ld   [obot], ac
-    ld   ac, [w_ye]
-    ld   lk_ef_l, x
-    ld   rt_110 & 0xFF, [x]
-    ld   lk_ef_h, x
-    ld   rt_110 >> 8, [x]
-    ld   er_fl >> 8, y
-    jmp  er_fl
-rt_110:
-    ld   er_d >> 8, y
-    jmp  er_d
+    ld   ac, [pl]
+    blt  sp_10
+    ld   0, ac
+    bra  sp_11
+sp_10:
+    ld   255, ac
+sp_11:
+    ld   ac, [phh]
+    ld   [pl], ac
+    add  44, ac
+    ld   ac, [ozl]
+    ld   [phh], ac
+    bcc  sp_12
+    inc
+sp_12:
+    add  1, ac
+    ld   ac, [ozh]
+    ld   ship_body >> 8, y
+    jmp  ship_body
 
 
 #addr 0x0800
@@ -2878,69 +2878,6 @@ dl_b1:
     ld   dl1 >> 8, y
     jmp  dl1
 
-; ship 1: freighter, its path
-ship_1:
-    ld   0x25, y
-    ld   [tt], ac
-    add  0, x
-    ld   [y,x], ac
-    ld   ac, [pl]
-    blt  sp_5
-    ld   0, ac
-    bra  sp_6
-sp_5:
-    ld   255, ac
-sp_6:
-    ld   ac, [phh]
-    ld   [pl], ac
-    shl
-    ld   ac, [pl]
-    ld   [phh], ac
-    bcs  sh_8
-    shl
-    bra  sh_9
-sh_8:
-    shl
-    or   1, ac
-sh_9:
-    ld   ac, [phh]
-    ld   [pl], ac
-    add  0, ac
-    ld   ac, [oxl]
-    ld   [phh], ac
-    bcc  sp_7
-    inc
-sp_7:
-    add  0, ac
-    ld   ac, [oxh]
-    ld   176, ac
-    ld   ac, [oyl]
-    ld   255, ac
-    ld   ac, [oyh]
-    ld   0x25, y
-    ld   [tt], ac
-    add  64, x
-    ld   [y,x], ac
-    ld   ac, [pl]
-    blt  sp_10
-    ld   0, ac
-    bra  sp_11
-sp_10:
-    ld   255, ac
-sp_11:
-    ld   ac, [phh]
-    ld   [pl], ac
-    add  44, ac
-    ld   ac, [ozl]
-    ld   [phh], ac
-    bcc  sp_12
-    inc
-sp_12:
-    add  1, ac
-    ld   ac, [ozh]
-    ld   ship_body >> 8, y
-    jmp  ship_body
-
 matrix_b:
     ld   0x24, y
     ld   [c3], ac
@@ -2996,43 +2933,6 @@ matrix_b:
     ld   ac, [m2]
     ld   matrix_c >> 8, y
     jmp  matrix_c
-
-; store the projected vertex (AC = sy), next vertex
-xf_st:
-    ld   [vo], x
-    ld   0x56, y
-    ld   ac, [y,x]
-    ld   0x54, y
-    ld   [bxl], ac
-    ld   ac, [y,x]
-    ld   0x55, y
-    ld   [bxh], ac
-    ld   ac, [y,x]
-    ld   0x57, y
-    ld   1, [y,x]
-    bra  xf_next
-xf_bad:
-    ld   [vo], x
-    ld   0x57, y
-    ld   0, [y,x]
-    ld   0, ac
-    ld   ac, [allv]
-xf_next:
-    ld   [vi], ac
-    inc
-    ld   ac, [vi]
-    ld   [vo], ac
-    inc
-    ld   ac, [vo]
-    ld   [vn], ac
-    dec
-    ld   ac, [vn]
-    beq  xf_done
-    ld   xf_loop >> 8, y
-    jmp  xf_loop
-xf_done:
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
 
 ship_pre_b:
     ld   0x3E, y
@@ -3090,6 +2990,44 @@ ship_pre_b:
     ld   [w_t2], y
     jmp  [w_t]
 
+; span_c: the pixels of line roff from x16 xL up to xR (not that one), clipped to the picture, in cb
+span_c:
+    ld   [xRh], ac
+    blt  sc_out
+    ld   [xLh], ac
+    blt  sc_lz
+    sub  80, ac
+    bcc  sc_out
+    ld   [xLh], ac
+    ld   ac, [lc]
+    ld   [xLl], ac
+    ld   ac, [lp]
+    bra  sc_r
+sc_lz:
+    ld   0, ac
+    ld   ac, [lc]
+    ld   ac, [lp]
+sc_r:
+    ld   [xRh], ac
+    sub  80, ac
+    bcs  sc_rok
+    ld   80, ac
+    ld   ac, [rc]
+    ld   0, ac
+    ld   ac, [rp]
+    ld   span_f >> 8, y
+    jmp  span_f
+sc_rok:
+    ld   [xRh], ac
+    ld   ac, [rc]
+    ld   [xRl], ac
+    ld   ac, [rp]
+    ld   span_f >> 8, y
+    jmp  span_f
+sc_out:
+    ld   [lk_sp_h], y
+    jmp  [lk_sp_l]
+
 matrix_c:
     ld   0x24, y
     ld   [s3], ac
@@ -3144,47 +3082,6 @@ matrix_c:
     ld   matrix_d >> 8, y
     jmp  matrix_d
 
-ff_r2:
-    ld   [w_cj], ac
-    ld   ac, [jR]
-    ld   [wy], ac
-    ld   ac, [yeR]
-    ld   [e16l], ac
-    ld   ac, [xRl]
-    ld   ac, [rp]
-    ld   [e16h], ac
-    ld   ac, [xRh]
-    ld   ac, [rc]
-    ld   [esl], ac
-    ld   ac, [slRl]
-    ld   [esh], ac
-    ld   ac, [slRh]
-ff_m2:
-    ld   [yeL], ac
-    sub  [yeR], ac
-    bcs  ff_m1
-    ld   [yeR], ac
-    bra  ff_m3
-ff_m1:
-    ld   [yeL], ac
-ff_m3:
-    ld   ac, [w_ye]
-    sub  [ycur], ac
-    beq  ff_end
-    bcs  ff_end
-    ld   [w_slow], ac
-    bne  ff_sl
-    ld   ff_rf >> 8, y
-    jmp  ff_rf
-ff_sl:
-    ld   ff_rs >> 8, y
-    jmp  ff_rs
-ff_end:
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
-
-#addr 0x1400
 ; xform: project vn model vertices from vi to the arrays at vo (allv = 0: one off)
 xform:
 xf_loop:
@@ -3242,6 +3139,49 @@ xf_m:
     ld   xf_mir >> 8, y
     jmp  xf_mir
 
+xf_yp:
+    sub  2, ac
+    bcc  yp_bad
+    ld   [mh], ac
+    add  0x29, y
+    ld   [ml], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [mh], ac
+    add  0x27, y
+    ld   [y,x], ac
+    add  [dl], ac
+    ld   ac, [sl]
+    ld   [w_t], ac
+    bcc  pc_43
+    inc
+pc_43:
+    add  [dh], ac
+    blt  pz_41
+    ld   ac, [w_t]
+    sub  8, ac
+    bcc  yp_bad
+    ld   [w_t], ac
+    add  0x2D, y
+    ld   [sl], x
+    ld   [y,x], ac
+    bra  pd_42
+pz_41:
+    ld   0, ac
+pd_42:
+    ld   ac, [w_r]
+    sub  117, ac
+    bcc  yp_bad
+    ld   124, ac
+    sub  [w_r], ac
+    ld   xf_st >> 8, y
+    jmp  xf_st
+yp_bad:
+    ld   xf_bad >> 8, y
+    jmp  xf_bad
+
+
+#addr 0x1400
 ; ls: the line (x0, y0)-(x1, y1) into record nrec
 ls:
     ld   [x1l], ac
@@ -3299,49 +3239,6 @@ ls_x:
     ld   ls_xm >> 8, y
     jmp  ls_xm
 
-xf_yp:
-    sub  2, ac
-    bcc  yp_bad
-    ld   [mh], ac
-    add  0x29, y
-    ld   [ml], x
-    ld   [y,x], ac
-    ld   ac, [w_t]
-    ld   [mh], ac
-    add  0x27, y
-    ld   [y,x], ac
-    add  [dl], ac
-    ld   ac, [sl]
-    ld   [w_t], ac
-    bcc  pc_43
-    inc
-pc_43:
-    add  [dh], ac
-    blt  pz_41
-    ld   ac, [w_t]
-    sub  8, ac
-    bcc  yp_bad
-    ld   [w_t], ac
-    add  0x2D, y
-    ld   [sl], x
-    ld   [y,x], ac
-    bra  pd_42
-pz_41:
-    ld   0, ac
-pd_42:
-    ld   ac, [w_r]
-    sub  117, ac
-    bcc  yp_bad
-    ld   124, ac
-    sub  [w_r], ac
-    ld   xf_st >> 8, y
-    jmp  xf_st
-yp_bad:
-    ld   xf_bad >> 8, y
-    jmp  xf_bad
-
-
-#addr 0x1500
 lights_b:
     ld   0x24, y
     ld   [m2], ac
@@ -3396,18 +3293,60 @@ lt_71:
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 
+; ff_rf: the rows down to the next vertex
+ff_rf:
+    ld   0x26, y
+    ld   [ycur], x
+    ld   [y,x], ac
+    ld   ac, [roff]
+    ld   lk_sp_l, x
+    ld   rt_99 & 0xFF, [x]
+    ld   lk_sp_h, x
+    ld   rt_99 >> 8, [x]
+    ld   span_f >> 8, y
+    jmp  span_f
+rt_99:
+    ld   [lp], ac
+    add  [slLl], ac
+    ld   ac, [lp]
+    ld   [lc], ac
+    bcc  a6_100
+    inc
+a6_100:
+    add  [slLh], ac
+    ld   ac, [lc]
+    ld   [rp], ac
+    add  [slRl], ac
+    ld   ac, [rp]
+    ld   [rc], ac
+    bcc  a6_101
+    inc
+a6_101:
+    add  [slRh], ac
+    ld   ac, [rc]
+    ld   [cb], ac
+    xor  [cbx], ac
+    ld   ac, [cb]
+    ld   [ycur], ac
+    add  1, ac
+    ld   ac, [ycur]
+    xor  [w_ye], ac
+    bne  ff_rf
+    ld   ff_seg >> 8, y
+    jmp  ff_seg
+
 ; ship_wire: the line records, then the old lines erased and the new drawn
 ship_wire:
     ld   [nrec], ac
     ld   ac, [nst]
 pm_e:
     ld   LINK_LO, x             ; CALL edges
-    ld   w3_r17, [x]
+    ld   w3_r14, [x]
     ld   LINK_HI, x
-    ld   w3_r17 >> 8, [x]
+    ld   w3_r14 >> 8, [x]
     ld   edges >> 8, y
     jmp  edges
-w3_r17:
+w3_r14:
     ld   0x59, y
     ld   [shs8], ac
     add  4, x
@@ -3421,12 +3360,12 @@ w3_r17:
     xor  1, ac
 pm_r:
     ld   LINK_LO, x             ; CALL drawl
-    ld   w3_r18, [x]
+    ld   w3_r15, [x]
     ld   LINK_HI, x
-    ld   w3_r18 >> 8, [x]
+    ld   w3_r15 >> 8, [x]
     ld   drawl >> 8, y
     jmp  drawl
-w3_r18:
+w3_r15:
     ld   [nst], ac
     ld   ac, [rk]
     ld   [nrec], ac
@@ -3434,12 +3373,12 @@ w3_r18:
     ld   [par], ac
 pm_d:
     ld   LINK_LO, x             ; CALL drawl
-    ld   w3_r19, [x]
+    ld   w3_r16, [x]
     ld   LINK_HI, x
-    ld   w3_r19 >> 8, [x]
+    ld   w3_r16 >> 8, [x]
     ld   drawl >> 8, y
     jmp  drawl
-w3_r19:
+w3_r16:
 pm_o:
     ld   0x59, y
     ld   [shs8], ac
@@ -3453,53 +3392,6 @@ pm_o:
     ld   ship_next >> 8, y
     jmp  ship_next
 
-ft_ed:
-    ld   [w_vt], x
-    ld   0x54, y
-    ld   [y,x], ac
-    ld   ac, [uxl]
-    ld   0x55, y
-    ld   [y,x], ac
-    ld   ac, [uxh]
-    ld   0x56, y
-    ld   [y,x], ac
-    ld   ac, [uy]
-    ld   [w_vbm], x
-    ld   [y,x], ac
-    ld   ac, [wy]
-    ld   0x55, y
-    ld   [y,x], ac
-    ld   ac, [wxh]
-    ld   0x54, y
-    ld   [y,x], ac
-    ld   ac, [wxl]
-    ld   lk_es_l, x
-    ld   rt_105 & 0xFF, [x]
-    ld   lk_es_h, x
-    ld   rt_105 >> 8, [x]
-    ld   esetup >> 8, y
-    jmp  esetup
-rt_105:
-    ld   [uy], ac
-    add  0x30, ac
-    ld   ac, [w_ri]
-    ld   [w_dy], ac
-    ld   ac, [w_n]
-    ld   [w_side], ac
-    sub  2, ac
-    beq  ft_r2
-    bcs  ft_r1
-    ld   ft_row3 >> 8, y
-    jmp  ft_row3
-ft_r1:
-    ld   ft_row1 >> 8, y
-    jmp  ft_row1
-ft_r2:
-    ld   ft_row2 >> 8, y
-    jmp  ft_row2
-
-
-#addr 0x1600
 ; ft_row3: the edge's x16 on each of its rows, both x16 of a row
 ft_row3:
     ld   [w_ri], x
@@ -3559,6 +3451,53 @@ a6_108:
     ld   ft_nx >> 8, y
     jmp  ft_nx
 
+ft_ed:
+    ld   [w_vt], x
+    ld   0x54, y
+    ld   [y,x], ac
+    ld   ac, [uxl]
+    ld   0x55, y
+    ld   [y,x], ac
+    ld   ac, [uxh]
+    ld   0x56, y
+    ld   [y,x], ac
+    ld   ac, [uy]
+    ld   [w_vbm], x
+    ld   [y,x], ac
+    ld   ac, [wy]
+    ld   0x55, y
+    ld   [y,x], ac
+    ld   ac, [wxh]
+    ld   0x54, y
+    ld   [y,x], ac
+    ld   ac, [wxl]
+    ld   lk_es_l, x
+    ld   rt_105 & 0xFF, [x]
+    ld   lk_es_h, x
+    ld   rt_105 >> 8, [x]
+    ld   esetup >> 8, y
+    jmp  esetup
+rt_105:
+    ld   [uy], ac
+    add  0x30, ac
+    ld   ac, [w_ri]
+    ld   [w_dy], ac
+    ld   ac, [w_n]
+    ld   [w_side], ac
+    sub  2, ac
+    beq  ft_r2
+    bcs  ft_r1
+    ld   ft_row3 >> 8, y
+    jmp  ft_row3
+ft_r1:
+    ld   ft_row1 >> 8, y
+    jmp  ft_row1
+ft_r2:
+    ld   ft_row2 >> 8, y
+    jmp  ft_row2
+
+
+#addr 0x1600
 xf_xn:
     ld   [ml], ac
     xor  255, ac
@@ -3612,55 +3551,6 @@ xn_bad:
     ld   xf_bad >> 8, y
     jmp  xf_bad
 
-; er_cp: keep the new outline as the old one
-er_cp:
-    ld   [ntop], ac
-    add  0x30, ac
-    ld   ac, [w_ri]
-    ld   [nbot], ac
-    sub  [ntop], ac
-    beq  ec_z
-    ld   ac, [w_n]
-ec_lp:
-    ld   [w_ri], x
-    ld   0x40, y
-    ld   [y,x], ac
-    ld   [fpLH], y
-    ld   ac, [y,x]
-    ld   0x41, y
-    ld   [y,x], ac
-    ld   [fpLL], y
-    ld   ac, [y,x]
-    ld   0x42, y
-    ld   [y,x], ac
-    ld   [fpRH], y
-    ld   ac, [y,x]
-    ld   0x43, y
-    ld   [y,x], ac
-    ld   [fpRL], y
-    ld   ac, [y,x]
-    ld   [w_ri], ac
-    add  1, ac
-    ld   ac, [w_ri]
-    ld   [w_n], ac
-    sub  1, ac
-    ld   ac, [w_n]
-    bne  ec_lp
-ec_z:
-    ld   0x59, y
-    ld   [shs8], ac
-    add  6, x
-    ld   [ntop], ac
-    ld   ac, [y,x]
-    ld   [shs8], ac
-    add  7, x
-    ld   [nbot], ac
-    ld   ac, [y,x]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
-
-#addr 0x1700
 ; fc_shade: the colour bytes of a face seen
 fc_shade:
     ld   0xE4, y
@@ -3716,6 +3606,110 @@ fs_st:
     ld   ac, [y,x]
     ld   fc_next >> 8, y
     jmp  fc_next
+
+; er_cp: keep the new outline as the old one
+er_cp:
+    ld   [ntop], ac
+    add  0x30, ac
+    ld   ac, [w_ri]
+    ld   [nbot], ac
+    sub  [ntop], ac
+    beq  ec_z
+    ld   ac, [w_n]
+ec_lp:
+    ld   [w_ri], x
+    ld   0x40, y
+    ld   [y,x], ac
+    ld   [fpLH], y
+    ld   ac, [y,x]
+    ld   0x41, y
+    ld   [y,x], ac
+    ld   [fpLL], y
+    ld   ac, [y,x]
+    ld   0x42, y
+    ld   [y,x], ac
+    ld   [fpRH], y
+    ld   ac, [y,x]
+    ld   0x43, y
+    ld   [y,x], ac
+    ld   [fpRL], y
+    ld   ac, [y,x]
+    ld   [w_ri], ac
+    add  1, ac
+    ld   ac, [w_ri]
+    ld   [w_n], ac
+    sub  1, ac
+    ld   ac, [w_n]
+    bne  ec_lp
+ec_z:
+    ld   0x59, y
+    ld   [shs8], ac
+    add  6, x
+    ld   [ntop], ac
+    ld   ac, [y,x]
+    ld   [shs8], ac
+    add  7, x
+    ld   [nbot], ac
+    ld   ac, [y,x]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+
+#addr 0x1700
+; fe_menu: wait for the frame cap, the menu hook, the mode switch (by time)
+fe_menu:
+fe_wait:
+    ld   0x50, y               ; tick: line read (V9:V2)
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    sub  [LINE_LAST], ac
+    ld   [w_t], ac
+    ld   ac, [LINE_LAST]
+    bcc  tk_2
+    ld   [FRAME_LO], ac
+    inc
+    ld   ac, [FRAME_LO]
+    bcc  tk_2
+    ld   [FRAME_HI], ac
+    inc
+    ld   ac, [FRAME_HI]
+tk_2:
+    ld   [FRAME_LO], ac
+    sub  [lastf], ac
+    sub  2, ac
+    bcs  fe_wait
+    ld   [FRAME_LO], ac
+    ld   ac, [lastf]
+fe_mark:
+    ld   LINK_LO, x             ; CALL kbd_scan
+    ld   w3_r17, [x]
+    ld   LINK_HI, x
+    ld   w3_r17 >> 8, [x]
+    ld   kbd_scan >> 8, y
+    jmp  kbd_scan
+w3_r17:
+    ld   LINK_LO, x             ; CALL menu_poll
+    ld   w3_r18, [x]
+    ld   LINK_HI, x
+    ld   w3_r18 >> 8, [x]
+    ld   menu_poll >> 8, y
+    jmp  menu_poll
+w3_r18:
+    ld   [msec], ac
+    sub  20, ac
+    bcc  fe_sw
+fe_go:
+    ld   0xFF, ac
+    ld   0x50, y
+    ld   ac, [y,x]
+    ld   [par], ac
+    xor  1, ac
+    ld   ac, [par]
+    ld   frame >> 8, y
+    jmp  frame
+fe_sw:
+    ld   switch >> 8, y
+    jmp  switch
 
 ; cm_acc: lgc_a/lgh_a += or -= w_r, then the next term
 cm_acc:
@@ -3823,6 +3817,8 @@ matrix:
     ld   matrix_b >> 8, y
     jmp  matrix_b
 
+
+#addr 0x1800
 dl0:
     ld   0x50, y               ; tick: line read (V9:V2)
     ld   [y,x], ac
@@ -4019,12 +4015,12 @@ sw_d:
     ld   [mode], ac
     beq  sw_w
     ld   LINK_LO, x             ; CALL fill_init
-    ld   w3_r20, [x]
+    ld   w3_r19, [x]
     ld   LINK_HI, x
-    ld   w3_r20 >> 8, [x]
+    ld   w3_r19 >> 8, [x]
     ld   fill_init >> 8, y
     jmp  fill_init
-w3_r20:
+w3_r19:
 sw_w:
     ld   fe_go >> 8, y
     jmp  fe_go
@@ -4237,50 +4233,6 @@ sp_24:
     ld   ship_body >> 8, y
     jmp  ship_body
 
-; ff_rf: the rows down to the next vertex
-ff_rf:
-    ld   0x26, y
-    ld   [ycur], x
-    ld   [y,x], ac
-    ld   ac, [roff]
-    ld   lk_sp_l, x
-    ld   rt_99 & 0xFF, [x]
-    ld   lk_sp_h, x
-    ld   rt_99 >> 8, [x]
-    ld   span_f >> 8, y
-    jmp  span_f
-rt_99:
-    ld   [lp], ac
-    add  [slLl], ac
-    ld   ac, [lp]
-    ld   [lc], ac
-    bcc  a6_100
-    inc
-a6_100:
-    add  [slLh], ac
-    ld   ac, [lc]
-    ld   [rp], ac
-    add  [slRl], ac
-    ld   ac, [rp]
-    ld   [rc], ac
-    bcc  a6_101
-    inc
-a6_101:
-    add  [slRh], ac
-    ld   ac, [rc]
-    ld   [cb], ac
-    xor  [cbx], ac
-    ld   ac, [cb]
-    ld   [ycur], ac
-    add  1, ac
-    ld   ac, [ycur]
-    xor  [w_ye], ac
-    bne  ff_rf
-    ld   ff_seg >> 8, y
-    jmp  ff_seg
-
-
-#addr 0x1B00
 ; ff_rs: the rows down to the next vertex (a face at the picture's edge: clipped)
 ff_rs:
     ld   0x26, y
@@ -4323,6 +4275,8 @@ a6_104:
     ld   ff_seg >> 8, y
     jmp  ff_seg
 
+
+#addr 0x1B00
 ; edges: a line record for each edge ei.. (en of them) with a face shown
 edges:
 ed_loop:
@@ -4367,76 +4321,45 @@ ed_skip:
     ld   ed_next >> 8, y
     jmp  ed_next
 
-; span_c: the pixels of line roff from x16 xL up to xR (not that one), clipped to the picture, in cb
-span_c:
-    ld   [xRh], ac
-    blt  sc_out
-    ld   [xLh], ac
-    blt  sc_lz
-    sub  80, ac
-    bcc  sc_out
-    ld   [xLh], ac
-    ld   ac, [lc]
-    ld   [xLl], ac
-    ld   ac, [lp]
-    bra  sc_r
-sc_lz:
-    ld   0, ac
-    ld   ac, [lc]
-    ld   ac, [lp]
-sc_r:
-    ld   [xRh], ac
-    sub  80, ac
-    bcs  sc_rok
-    ld   80, ac
-    ld   ac, [rc]
-    ld   0, ac
+ff_r2:
+    ld   [w_cj], ac
+    ld   ac, [jR]
+    ld   [wy], ac
+    ld   ac, [yeR]
+    ld   [e16l], ac
+    ld   ac, [xRl]
     ld   ac, [rp]
-    ld   span_f >> 8, y
-    jmp  span_f
-sc_rok:
-    ld   [xRh], ac
+    ld   [e16h], ac
+    ld   ac, [xRh]
     ld   ac, [rc]
-    ld   [xRl], ac
-    ld   ac, [rp]
-    ld   span_f >> 8, y
-    jmp  span_f
-sc_out:
-    ld   [lk_sp_h], y
-    jmp  [lk_sp_l]
+    ld   [esl], ac
+    ld   ac, [slRl]
+    ld   [esh], ac
+    ld   ac, [slRh]
+ff_m2:
+    ld   [yeL], ac
+    sub  [yeR], ac
+    bcs  ff_m1
+    ld   [yeR], ac
+    bra  ff_m3
+ff_m1:
+    ld   [yeL], ac
+ff_m3:
+    ld   ac, [w_ye]
+    sub  [ycur], ac
+    beq  ff_end
+    bcs  ff_end
+    ld   [w_slow], ac
+    bne  ff_sl
+    ld   ff_rf >> 8, y
+    jmp  ff_rf
+ff_sl:
+    ld   ff_rs >> 8, y
+    jmp  ff_rs
+ff_end:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
 
-frame_end:
-    ld   [lps], ac
-    inc
-    ld   ac, [lps]
-    ld   [FRAME_LO], ac
-    sub  [secf], ac
-    sub  60, ac
-    bcs  fe_ns
-    ld   [secf], ac
-    add  60, ac
-    ld   ac, [secf]
-    ld   [lps], ac
-    ld   ac, [fps]
-    ld   0, ac
-    ld   ac, [lps]
-    ld   [msec], ac
-    add  1, ac
-    ld   ac, [msec]
-    ld   0x07, ac
-    ld   0x50, y
-    ld   ac, [y,x]
-    ld   hud >> 8, y
-    jmp  hud
-fe_ns:
-    ld   0x07, ac
-    ld   0x50, y
-    ld   ac, [y,x]
-    ld   fe_menu >> 8, y
-    jmp  fe_menu
-
-
-#addr 0x1C00
 ; ft_row1: the edge's x16 on each of its rows, left: the least x16 of a row
 ft_row1:
     ld   [w_ri], x
@@ -4477,6 +4400,45 @@ a6_106:
     ld   ft_nx >> 8, y
     jmp  ft_nx
 
+; store the projected vertex (AC = sy), next vertex
+xf_st:
+    ld   [vo], x
+    ld   0x56, y
+    ld   ac, [y,x]
+    ld   0x54, y
+    ld   [bxl], ac
+    ld   ac, [y,x]
+    ld   0x55, y
+    ld   [bxh], ac
+    ld   ac, [y,x]
+    ld   0x57, y
+    ld   1, [y,x]
+    bra  xf_next
+xf_bad:
+    ld   [vo], x
+    ld   0x57, y
+    ld   0, [y,x]
+    ld   0, ac
+    ld   ac, [allv]
+xf_next:
+    ld   [vi], ac
+    inc
+    ld   ac, [vi]
+    ld   [vo], ac
+    inc
+    ld   ac, [vo]
+    ld   [vn], ac
+    dec
+    ld   ac, [vn]
+    beq  xf_done
+    ld   xf_loop >> 8, y
+    jmp  xf_loop
+xf_done:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+
+#addr 0x1C00
 ; ft_row2: the edge's x16 on each of its rows, right: the greatest x16 of a row
 ft_row2:
     ld   [w_ri], x
@@ -4521,12 +4483,12 @@ a6_107:
 screen:
     ld   0x05, ac
     ld   LINK_LO, x             ; CALL vid_clear
-    ld   w3_r21, [x]
+    ld   w3_r20, [x]
     ld   LINK_HI, x
-    ld   w3_r21 >> 8, [x]
+    ld   w3_r20 >> 8, [x]
     ld   vid_clear >> 8, y
     jmp  vid_clear
-w3_r21:
+w3_r20:
     ld   0x5A, y
     ld   0x20, ac
 sc_m:
@@ -4546,12 +4508,12 @@ sc_d:
     ld   s_title >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
-    ld   w3_r22, [x]
+    ld   w3_r21, [x]
     ld   LINK_HI, x
-    ld   w3_r22 >> 8, [x]
+    ld   w3_r21 >> 8, [x]
     ld   con_puts >> 8, y
     jmp  con_puts
-w3_r22:
+w3_r21:
     ld   [lk_sc_h], y
     jmp  [lk_sc_l]
 
@@ -4593,8 +4555,6 @@ ef_done:
     ld   [lk_ef_h], y
     jmp  [lk_ef_l]
 
-
-#addr 0x1D00
 ed_get:
     ld   0x54, y
     ld   [ev1], x
@@ -4631,18 +4591,20 @@ ed_done:
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 
+
+#addr 0x1D00
 ; ship_fill: the outline (if every vertex is on the picture), then the erase
 ship_fill:
     ld   [allv], ac
     beq  sf_off
 pm_fo:
     ld   LINK_LO, x             ; CALL foot
-    ld   w3_r23, [x]
+    ld   w3_r22, [x]
     ld   LINK_HI, x
-    ld   w3_r23 >> 8, [x]
+    ld   w3_r22 >> 8, [x]
     ld   foot >> 8, y
     jmp  foot
-w3_r23:
+w3_r22:
     ld   0x59, y
     ld   [shs], ac
     add  0xB0, x
@@ -4659,17 +4621,47 @@ sf_off:
 sf_er:
 pm_er:
     ld   LINK_LO, x             ; CALL erase
-    ld   w3_r24, [x]
+    ld   w3_r23, [x]
     ld   LINK_HI, x
-    ld   w3_r24 >> 8, [x]
+    ld   w3_r23 >> 8, [x]
     ld   erase >> 8, y
     jmp  erase
-w3_r24:
+w3_r23:
     ld   ship_next >> 8, y
     jmp  ship_next
 
-main_c:
+frame_end:
+    ld   [lps], ac
+    inc
+    ld   ac, [lps]
+    ld   [FRAME_LO], ac
+    sub  [secf], ac
+    sub  60, ac
+    bcs  fe_ns
+    ld   [secf], ac
+    add  60, ac
+    ld   ac, [secf]
+    ld   [lps], ac
+    ld   ac, [fps]
     ld   0, ac
+    ld   ac, [lps]
+    ld   [msec], ac
+    add  1, ac
+    ld   ac, [msec]
+    ld   0x07, ac
+    ld   0x50, y
+    ld   ac, [y,x]
+    ld   hud >> 8, y
+    jmp  hud
+fe_ns:
+    ld   0x07, ac
+    ld   0x50, y
+    ld   ac, [y,x]
+    ld   fe_menu >> 8, y
+    jmp  fe_menu
+
+main_c:
+    ld   1, ac
     ld   ac, [mode]
     ld   0, ac
     ld   ac, [msec]
@@ -4684,12 +4676,12 @@ main_c:
     ld   [mode], ac
     beq  mc_i1
     ld   LINK_LO, x             ; CALL fill_init
-    ld   w3_r25, [x]
+    ld   w3_r24, [x]
     ld   LINK_HI, x
-    ld   w3_r25 >> 8, [x]
+    ld   w3_r24 >> 8, [x]
     ld   fill_init >> 8, y
     jmp  fill_init
-w3_r25:
+w3_r24:
 mc_i1:
     ld   0xFF, ac
     ld   0x50, y
@@ -5928,7 +5920,7 @@ tu2w:
     #d8 0x00, 0x14, 0xEC, 0x00, 0x46, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 ; strings
 s_title:
-    #d "PLACARD 3D  6 SHIPS  61 VERTICES  89 FACES   ANY KEY: MODE   ESC: DOS", 0x00
+    #d "PLACARD 3D  6 SHIPS  61 VERTICES  89 FACES   ESC: DOS", 0x00
 s_fps:
     #d "FPS ", 0x00
 s_wire:

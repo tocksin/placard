@@ -303,7 +303,7 @@ def main(argv):
         return 0
     kw = dict(gif=a.gif, check=not a.no_check, png=a.png, quiet=a.quiet, pace=a.pace)
     if a.secs is not None:
-        rs = [run(a.ships, a.frames, secs=a.secs, start=a.mode or 0, **kw)]
+        rs = [run(a.ships, a.frames, secs=a.secs, start=gw.DEMO_START if a.mode is None else a.mode, **kw)]
     elif a.mode is not None:
         rs = [run(a.ships, a.frames, secs=255, start=a.mode, **kw)]
     else:
