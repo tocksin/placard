@@ -5,6 +5,7 @@ test_wire3d_sim.py - run the 3D wireframe demo (gen_wire3d.py) in placard_sim
     python3 test_wire3d_sim.py                 4 ships, 40 frames: check, time, report
     python3 test_wire3d_sim.py --frames 150 --gif ../../reference/wire3d.gif
     python3 test_wire3d_sim.py --ships 8       a stress build (written to a scratch .masm)
+    python3 test_wire3d_sim.py --rom           the ROM build from power-up (build\\wire3d.bat)
 
 The program runs as the DOS would start it (a library program at x0100,
 map 07, the library in ROM), with the video stall clocks modeled.  After
@@ -183,6 +184,24 @@ def run(nships, frames, gif=None, check=True, png=None, quiet=False, pace=0):
             'edges': sum(len(gw.MODELS[s[0]]['e']) for s in ships)}
 
 
+def run_rom(frames):
+    """the ROM build (wire3d_rom.asm, build\\wire3d.bat) from power-up, as the
+    board runs it: boot loader, the stub's copy to RAM, then the program"""
+    mem, syms, _ = ps.assemble(open(os.path.join(HERE, 'wire3d_rom.asm')).read(), HERE)
+    cpu = ps.Cpu({}, rom=ps.build_rom(mem))
+    cpu.stalls = True
+    model = gw.Model(gw.ship_set(4))
+    fe = syms['W_FE_MARK']
+    for f in range(frames):
+        while cpu.pc != fe:
+            cpu.step()
+        cpu.step()
+        if picture(cpu.mem) != gw.screen_of(model.frame()):
+            raise AssertionError('ROM build, frame %d: picture differs' % (f + 1))
+    print('ROM build: %d frames match the model, %.2f s from power-up'
+          % (frames, cpu.clocks / CLK))
+
+
 def save_gif(images, path):
     frames = []
     durs = []
@@ -225,8 +244,13 @@ def main(argv):
     ap.add_argument('--gif')
     ap.add_argument('--png')
     ap.add_argument('--no-check', action='store_true')
+    ap.add_argument('--rom', action='store_true', help='check the ROM build (wire3d_rom.asm) instead')
     ap.add_argument('--quiet', action='store_true')
     a = ap.parse_args(argv)
+    if a.rom:
+        run_rom(a.frames)
+        print('PASS')
+        return 0
     r = run(a.ships, a.frames, gif=a.gif, check=not a.no_check, png=a.png, quiet=a.quiet,
             pace=a.pace)
     report(r)
