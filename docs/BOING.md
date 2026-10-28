@@ -26,9 +26,10 @@ title and the frames per second.  The 4 bpp palette (COLORS.md) already has
 the Amiga demo's colors: light gray (B) wall, purple (2) grid, red (4) and
 white (A) ball, dark gray (7) shadow, and dark blue (1) where the shadow
 crosses a grid line.  The ball is 48 pixels across (920 bytes).  It bounces
-on the floor along a parabola (64 frames a bounce), moves a byte (2
-pixels) sideways every other frame, turns at the walls, and spins the way
-it is going.
+on the floor along a parabola (88 frames, 1.5 s a bounce), moves a byte
+(2 pixels) sideways every third frame (40 pixels a second), turns at the
+walls, and spins the way it is going, a phase every other frame (one
+turn in 2.1 s).  `BOUNCE`, `HSTEP` and `SPIN` in `gen_boing.py` set these.
 
 ## How
 
@@ -66,8 +67,8 @@ scroll registers, so the ball is drawn again every frame:
 | | |
 |---|---|
 | Frame rate | 60 fps, no frame dropped |
-| Work per frame | 134,000 clocks on average, 138,000 at most (33 % of a 420,000-clock frame) |
-| Rows drawn per frame | 51.7 on average, 54 at most |
+| Work per frame | 133,700 clocks on average, 138,000 at most (33 % of a 420,000-clock frame) |
+| Rows drawn per frame | 51.3 on average, 53 at most |
 | Least lead on the beam | 60,000 clocks (75 lines) |
 | Start-up (screen clear, background) | 67 ms |
 
@@ -79,7 +80,7 @@ grid or a second ball.
 ```
 python3 gen_boing.py           boing.masm, boing.asm, ../../sdcard/BOING.PLC, boing_rom.asm/.hex
 python3 test_boing_sim.py      130 frames checked pixel for pixel against the model, timing, beam lead
-python3 test_boing_sim.py --frames 64 --gif ../../reference/boing_sim.gif
+python3 test_boing_sim.py --frames 88 --gif ../../reference/boing_sim.gif
 python3 test_boing_sim.py --rom          the ROM build from power-up
 ```
 
