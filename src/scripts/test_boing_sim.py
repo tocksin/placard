@@ -2,9 +2,9 @@
 """
 test_boing_sim.py - run the Boing Ball demo (gen_boing.py) in placard_sim
 
-    python3 test_boing_sim.py                  130 frames (two bounces, a turn at
-                                               a wall): check, time, beam margin
-    python3 test_boing_sim.py --frames 64 --gif ../../reference/boing_sim.gif
+    python3 test_boing_sim.py                  130 frames (a bounce and a half, a turn
+                                               at a wall): check, time, beam margin
+    python3 test_boing_sim.py --frames 88 --gif ../../reference/boing_sim.gif
     python3 test_boing_sim.py --rom            the ROM build from power-up (build\\boing.bat)
 
 The program runs as the DOS would start it (a library program at x0100,
