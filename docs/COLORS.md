@@ -208,23 +208,27 @@ every product term of their pins, and GRN3 has one to spare
 
 The VGA interface uses the standard **75 Ω termination**.
 
-The resistor values below are the selected E96 values for the passive DAC.
+The resistor values below are the selected values for the passive DAC, all 1 %
+parts.  Red and green use E24 values since 2026-10-28 (820 Ω / 1.6 kΩ / 3.3 kΩ,
+were E96 825 Ω / 1.69 kΩ / 3.24 kΩ): at a 5 V output high, white is 694 mV and
+the steps are 94-104 mV, a little more even than before (92-101 mV).  Blue keeps
+its E96 values, which match its full scale to red and green (680 mV).
 
 ## Red
 
 | Output | Weight | Resistor |
 |---|---:|---:|
-| `VGA_RED(1)` | 1 | **3.24 kΩ** |
-| `VGA_RED(2)` | 2 | **1.69 kΩ** |
-| `VGA_RED(3)` | 4 | **825 Ω** |
+| `VGA_RED(1)` | 1 | **3.3 kΩ** |
+| `VGA_RED(2)` | 2 | **1.6 kΩ** |
+| `VGA_RED(3)` | 4 | **820 Ω** |
 
 ## Green
 
 | Output | Weight | Resistor |
 |---|---:|---:|
-| `VGA_GREEN(1)` | 1 | **3.24 kΩ** |
-| `VGA_GREEN(2)` | 2 | **1.69 kΩ** |
-| `VGA_GREEN(3)` | 4 | **825 Ω** |
+| `VGA_GREEN(1)` | 1 | **3.3 kΩ** |
+| `VGA_GREEN(2)` | 2 | **1.6 kΩ** |
+| `VGA_GREEN(3)` | 4 | **820 Ω** |
 
 ## Blue
 
@@ -238,9 +242,9 @@ Blue has only two output bits.
 ### Physical Connections
 
 ```text
-RED1 / RED(1)    -- 3.24 kΩ --+
-RED2 / RED(2)    -- 1.69 kΩ --+
-RED3 / RED(3)    -- 825 Ω  ---+---- VGA RED
+RED1 / RED(1)    -- 3.3 kΩ  --+
+RED2 / RED(2)    -- 1.6 kΩ  --+
+RED3 / RED(3)    -- 820 Ω  ---+---- VGA RED
                                       |
                                      75 Ω
                                       |
@@ -255,9 +259,9 @@ BLU3 / BLUE(3)   -- 715 Ω  ---+---- VGA BLUE
                                      GND
 
 
-GRN1 / GREEN(1)  -- 3.24 kΩ --+
-GRN2 / GREEN(2)  -- 1.69 kΩ --+
-GRN3 / GREEN(3)  -- 825 Ω  ---+---- VGA GREEN
+GRN1 / GREEN(1)  -- 3.3 kΩ  --+
+GRN2 / GREEN(2)  -- 1.6 kΩ  --+
+GRN3 / GREEN(3)  -- 820 Ω  ---+---- VGA GREEN
                                       |
                                      75 Ω
                                       |
@@ -294,7 +298,7 @@ A set bit lifts that channel by about 0.2 V for the whole row.  See
 | VGA green bits | 3 |
 | VGA blue bits | 2 |
 | VGA termination | 75 Ω |
-| Red/green resistors | 3.24 kΩ / 1.69 kΩ / 825 Ω |
+| Red/green resistors | 3.3 kΩ / 1.6 kΩ / 820 Ω |
 | Blue resistors | 1.43 kΩ / 715 Ω |
 | Logic type | Combinational |
 | Pixel clock required | No (H2:H0 come from the Sync PLD) |

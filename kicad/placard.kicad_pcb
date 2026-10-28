@@ -9,7 +9,7 @@
 	(paper "C")
 	(title_block
 		(title "Placard")
-		(date "2026-10-25")
+		(date "2026-10-28")
 		(rev "0")
 	)
 	(layers
@@ -26299,7 +26299,7 @@
 				)
 			)
 		)
-		(property "Value" "825"
+		(property "Value" "820"
 			(at 5.08 2.37 270)
 			(layer "F.Fab")
 			(uuid "ad797234-2333-4500-94dd-24f65575cf0a")
@@ -26347,7 +26347,7 @@
 				)
 			)
 		)
-		(property "MPN" "MFR-25FBF52-825R"
+		(property "MPN" "MFR-25FBF52-820R"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -26619,7 +26619,7 @@
 				)
 			)
 		)
-		(property "Value" "3.24k"
+		(property "Value" "3.3k"
 			(at 5.08 2.37 270)
 			(layer "F.Fab")
 			(uuid "b6532d41-4325-4955-8566-8919f1131e6b")
@@ -26667,7 +26667,7 @@
 				)
 			)
 		)
-		(property "MPN" "MFR-25FBF52-3K24"
+		(property "MPN" "MFR-25FBF52-3K3"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -36506,7 +36506,7 @@
 				)
 			)
 		)
-		(property "Value" "1.69k"
+		(property "Value" "1.6k"
 			(at 5.08 2.37 270)
 			(layer "F.Fab")
 			(uuid "19b5dc45-8215-467f-bc51-27e1f6d2ad3b")
@@ -36554,7 +36554,7 @@
 				)
 			)
 		)
-		(property "MPN" "MFR-25FBF52-1K69"
+		(property "MPN" "MFR-25FBF52-1K6"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -75913,7 +75913,7 @@
 				)
 			)
 		)
-		(property "Value" "1.69k"
+		(property "Value" "1.6k"
 			(at 5.08 2.37 270)
 			(layer "F.Fab")
 			(uuid "7d8a5dda-281e-468b-950b-dc64ceba37c9")
@@ -75961,7 +75961,7 @@
 				)
 			)
 		)
-		(property "MPN" "MFR-25FBF52-1K69"
+		(property "MPN" "MFR-25FBF52-1K6"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -81009,7 +81009,7 @@
 				)
 			)
 		)
-		(property "Value" "825"
+		(property "Value" "820"
 			(at 5.08 2.37 270)
 			(layer "F.Fab")
 			(uuid "d20d3295-6e74-431a-8775-a7dabdb3e6a6")
@@ -81057,7 +81057,7 @@
 				)
 			)
 		)
-		(property "MPN" "MFR-25FBF52-825R"
+		(property "MPN" "MFR-25FBF52-820R"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -91774,7 +91774,7 @@
 				)
 			)
 		)
-		(property "Value" "3.24k"
+		(property "Value" "3.3k"
 			(at 5.08 2.37 270)
 			(layer "F.Fab")
 			(uuid "8b131242-10de-407f-9d0d-dcc8f024e250")
@@ -91822,7 +91822,7 @@
 				)
 			)
 		)
-		(property "MPN" "MFR-25FBF52-3K24"
+		(property "MPN" "MFR-25FBF52-3K3"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -92864,6 +92864,78 @@
 		)
 		(layer "Edge.Cuts")
 		(uuid "b9a538f9-4bbd-4055-a108-2caa1a413e39")
+	)
+	(gr_text "74F377"
+		(at 82.545 176.870 0)
+		(layer "F.SilkS")
+		(uuid "5876d1a5-e474-5d6c-b6ee-1c271bdef211")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+		)
+	)
+	(gr_text "74F377"
+		(at 82.545 194.870 0)
+		(layer "F.SilkS")
+		(uuid "95497984-d86e-5ae1-95f6-6b29c555f7d6")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+		)
+	)
+	(gr_text "74F377"
+		(at 82.545 213.950 0)
+		(layer "F.SilkS")
+		(uuid "d7d10bb8-c343-51c0-9dce-b6fc620bfca2")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+		)
+	)
+	(gr_text "74F377"
+		(at 117.925 213.950 0)
+		(layer "F.SilkS")
+		(uuid "d6761795-090a-50f3-b11d-8bb7ee6aba8d")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+		)
+	)
+	(gr_text "74F377"
+		(at 248.265 91.750 0)
+		(layer "F.SilkS")
+		(uuid "04f9489e-2cae-5acb-b441-1121d7b510c6")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+		)
+	)
+	(gr_text "74HCT377"
+		(at 284.385 91.750 0)
+		(layer "F.SilkS")
+		(uuid "3293b651-6f0a-5ff3-869d-6aa2205e67da")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+		)
 	)
 	(gr_text "Port Driver"
 		(at 145.240591 146.91051 0)

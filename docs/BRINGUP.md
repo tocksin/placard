@@ -1,6 +1,6 @@
 # Bring-up: build order and a test for each chip
 
-Date: 2026-10-26
+Date: 2026-10-28
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
@@ -33,6 +33,14 @@ because a temporary resistor ("strap") plugs into
 them; the step says so.  Each strap is described in the step that puts
 it in and the step that takes it out.  The steps add chips one at a
 time, and the CPU steps take the RAM out again for a while.
+
+**Two kinds of 377.**  The board has six octal D flip-flops with enable
+of two types that share a pinout: five 74F377 (U18-U22, marked
+SN74F377AN) and one 74HCT377 (U23 only, marked CD74HCT377E).  The
+silkscreen above each socket says which one goes there.  Read the marking
+on the chip before you insert it.  A swap damages nothing, but an HCT377
+in U18-U22 is too slow for the CPU and video, and an F377 in U23 makes
+the row tint weak.
 
 **Programming.**  Each PLD and EEPROM is programmed in the step that
 fits it, just before it goes in, not all at the start.  So a chip always
@@ -261,9 +269,9 @@ color decoder isn't in yet).
 | U16 | PLD, color decoder | ATF22V10C-7PX, programmed from `ATF22V10_COLORDECODER.pld` |  |
 | U16 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
 | C16 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| R14, R17 | Resistor, color | 3.24k |  |
-| R15, R18 | Resistor, color | 1.69k |  |
-| R16, R19 | Resistor, color | 825 ohm |  |
+| R14, R17 | Resistor, color | 3.3k |  |
+| R15, R18 | Resistor, color | 1.6k |  |
+| R16, R19 | Resistor, color | 820 ohm |  |
 | R20 | Resistor, color | 1.43k |  |
 | R21 | Resistor, color | 715 ohm |  |
 | U23 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) | empty for now, holds straps S1 and S2 |
@@ -388,7 +396,9 @@ mux's wiring or its H or V input.
 | S3 | Strap (temporary), in U2's socket | wire link | out at step 9 |
 | S4 | Strap (temporary), in U11's socket | 10k | out at step 12 |
 
-U31 and U22 need no programming.
+U31 and U22 need no programming.  U22 must be marked SN74F377AN (the
+silkscreen above its socket says 74F377), not the CD74HCT377E that goes
+in U23.
 
 The video now reads the RAM.  Nothing writes it:
 U15 lets go of /WE while RUN is low, so R63 holds it high.  The pixel
@@ -472,7 +482,8 @@ sockets.  Turn on the power switch.  All 80 byte columns now show
 | D12-D17 | Diode, row tint | 1N4148 | band (cathode) as on the silkscreen |
 
 **Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
-(rev 04); verify and label it.  U23 needs no programming.
+(rev 04); verify and label it.  U23 needs no programming; it is the
+one CD74HCT377E (the silkscreen above its socket says 74HCT377).
 
 Turn off the power switch.  Take straps S1 (U23 pin 19 to pin 10) and S2
 (pin 20 to pin 12) out, then insert U35 and U23 into their sockets.  Turn
@@ -582,7 +593,7 @@ the State, Branch and PC chips with no memory and no software.
 
 **Program first:** U1 State from `ATF22V10_STATE.pld` (rev 15) and U17
 instruction register from `ATF22V10_IR.pld` (rev 01); verify and label
-them.  U18 needs no programming.
+them.  U18 needs no programming; check it is marked SN74F377AN.
 
 Turn off the power switch.  Pull both RAM chips U31 and U32.  Put the
 shunts on JP1 and JP2, then insert the State PLD U1, the instruction

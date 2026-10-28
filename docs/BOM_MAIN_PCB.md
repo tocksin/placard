@@ -4,7 +4,7 @@ Date: 2026-10-27
 
 The main board, built: the bare PCB, every part on the schematic, and the sockets, jumper shunts that are not drawn.  It is one line of the case assembly.
 
-54 lines, 176 parts on the schematic.  Cost: **$204.54** for one assembly at these quantities, **$186.54** without the optional parts (expansion slot sockets J9-J12).  29 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
+53 lines, 176 parts on the schematic.  Cost: **$204.54** for one assembly at these quantities, **$186.54** without the optional parts (expansion slot sockets J9-J12).  28 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -37,16 +37,15 @@ The main board, built: the bare PCB, every part on the schematic, and the socket
 | 2 | R1, R2 | MFR-25FBF52-5K1 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 5.1k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
 | 8 | R3, R4, R13, R39-R41, R48, R63 | MFR-25FBF52-10K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 10k | 0.10 | 0.80 | est.: Yageo MFR-25FBF52 series |  |
 | 10 | R5-R12, R61, R62 | MFR-25FBF52-47R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 47 | 0.04 | 0.40 | est.: Yageo MFR-25FBF52 series |  |
-| 2 | R14, R17 | MFR-25FBF52-3K24 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 3.24k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
-| 2 | R15, R18 | MFR-25FBF52-1K69 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 1.69k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
-| 2 | R16, R19 | MFR-25FBF52-825R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 825 | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
+| 5 | R14, R17, R45-R47 | MFR-25FBF52-3K3 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 3.3k | 0.10 | 0.50 | est.: Yageo MFR-25FBF52 series |  |
+| 2 | R15, R18 | MFR-25FBF52-1K6 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 1.6k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
+| 2 | R16, R19 | MFR-25FBF52-820R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 820 | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
 | 1 | R20 | MFR-25FBF52-1K43 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 1.43k | 0.10 | 0.10 | est.: Yageo MFR-25FBF52 series |  |
 | 1 | R21 | MFR-25FBF52-715R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 715 | 0.10 | 0.10 | est.: Yageo MFR-25FBF52 series |  |
 | 1 | R22 | MFR-25FBF52-2R2 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 2.2 | 0.10 | 0.10 | est.: Yageo MFR-25FBF52 series |  |
 | 9 | R23-R31 | MFR-25FBF52-2K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 2k | 0.10 | 0.90 | est.: Yageo MFR-25FBF52 series |  |
 | 12 | R32-R38, R51-R54, R59 | MFR-25FBF52-1K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 1k | 0.04 | 0.48 | est.: Yageo MFR-25FBF52 series |  |
 | 3 | R42-R44 | MFR-25FBF52-1K8 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 1.8k | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
-| 3 | R45-R47 | MFR-25FBF52-3K3 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 3.3k | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
 | 3 | R49, R50, R55 | MFR-25FBF52-4K7 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 4.7k | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
 | 3 | R56-R58 | MFR-25FBF52-910R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 910 | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
 | 1 | R60 | MFR-25FBF52-22K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 22k | 0.10 | 0.10 | est.: Yageo MFR-25FBF52 series |  |
