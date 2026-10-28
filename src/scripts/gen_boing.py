@@ -19,9 +19,9 @@ WHAT IT DRAWS
     colors: light gray wall, purple grid, red and white ball, dark gray
     shadow (dark blue where the shadow falls on a grid line).  The ball is
     48 pixels across, its axis tilted 17 degrees like the original; it
-    bounces on the floor (a parabola, 64 frames a bounce), moves sideways a
-    byte (2 pixels) every other frame, turns around at the walls, and spins
-    the way it is going.  Esc goes back to the DOS (menu_poll).
+    bounces on the floor (a parabola, 88 frames a bounce), moves sideways a
+    byte (2 pixels) every third frame, turns around at the walls, and spins
+    the way it is going, a phase every other frame (a turn in 2.1 s).  Esc goes back to the DOS (menu_poll).
 
 HOW (no palette registers, sprites or scroll registers)
     - The Amiga spins its ball by cycling palette colors.  The Placard's
@@ -50,7 +50,7 @@ HOW (no palette registers, sprites or scroll registers)
 
 MEMORY (a library program, docs/DOS.md: RAM x0100-x3FFF)
     x0100-x0BFF               code (asm_expand.py packs the chunks)
-    x0C00-                    tables, background rows, the 8 phases (TABLES)
+    x0C00-                    tables, background rows, strings, the 8 phases
     odd video pages x00-x7F   the clean background (4x rows show x80-xFF)
     zero page x20-x3F RB, x40-x5F the 32 columns' pages, x60- variables
     It runs with map FF while it draws (every section RAM, so the clean
@@ -80,10 +80,11 @@ TOP_ROW = 4                 # first picture row (rows 0-3 are the text band's 16
 ROWS = 120
 FLOOR = 100                 # horizon row: the floor below it
 BY_TOP, BY_LOW = 8, 62      # ball top row: highest, lowest (bottom on row 109)
-BOUNCE = 64                 # frames a bounce
+BOUNCE = 88                 # frames a bounce
 BXMIN, BXMAX = 2, 50        # ball left byte column (32 columns from bx - 2 stay on the screen)
 BX0, DIR0 = 20, 1
-HSTEP = 2                   # frames a sideways byte
+HSTEP = 3                   # frames a sideways byte
+SPIN = 2                    # frames a spin phase
 MODE_PIC = 0x0A             # 4 bpp, 4x
 MODE_HUD = 0x40             # 1 bpp, 1x, blue tint
 GRAY, PURPLE, RED, WHITE = 0xB, 0x2, 0x4, 0xA
@@ -93,11 +94,12 @@ NCOL = 32                   # columns drawn a row (from bx - 2)
 
 # pages
 CODE_END = 0x0C00
-P_MISC = 0x0C               # ROW4 x00-x77, BY x80-xBF, strings xC0-
+P_MISC = 0x0C               # ROW4 x00-x77, BY x80-xD7
 P_SIL = 0x0D                # KL x00, KE x30, PART x60, RPG x90, ROFF xC0
 P_BGD = 0x0E                # background row source: page x00-x77, offset x80-xF7
 P_DK, P_DKL, P_DKH = 0x0F, 0x10, 0x11
 P_BGR = 0x12                # background rows, 3 to a page
+P_STR = 0x18                # strings
 P_PH = 0x20                 # phases, 4 pages each (x2000-x3FFF)
 
 
@@ -241,7 +243,7 @@ class Motion:
     """the ball's state frame by frame, as the program moves it"""
 
     def __init__(self):
-        self.bx, self.dir, self.t, self.hc, self.ph = BX0, DIR0, 0, 0, 0
+        self.bx, self.dir, self.t, self.hc, self.sc, self.ph = BX0, DIR0, 0, 0, 0, 0
 
     def state(self):
         return self.bx, BY[self.t], self.ph
@@ -255,7 +257,9 @@ class Motion:
                 self.dir = 255
             elif self.bx == BXMIN:
                 self.dir = 1
-        self.ph = (self.ph + (1 if self.dir == 1 else -1)) % NPH
+        self.sc = (self.sc + 1) % SPIN
+        if self.sc == 0:
+            self.ph = (self.ph + (1 if self.dir == 1 else -1)) % NPH
 
 
 # ---------------------------------------------------------------------------
@@ -315,7 +319,7 @@ class Gen:
     ld   ac, [y,x]''' % v)
 
 
-ZP = ['xr', 'ny', 'oy', 'bx', 'dir', 'ph', 'php', 'tb', 'hc',
+ZP = ['xr', 'ny', 'oy', 'bx', 'dir', 'ph', 'php', 'tb', 'hc', 'sc',
       'w_r', 'w_rend', 'w_i', 'w_k', 'w_kend', 'w_d', 'w_dend', 'w_del', 'w_v',
       'w_pg', 'w_sp', 'w_so', 'lastf', 'secf', 'lps', 'fps', 'w_t']
 ZPM = {n: 0x60 + i for i, n in enumerate(ZP)}
@@ -408,6 +412,7 @@ init:
     ld   0, ac
     ld   ac, [tb]
     ld   ac, [hc]
+    ld   ac, [sc]
     ld   ac, [ph]
     ld   ac, [lps]
     ld   ac, [fps]
@@ -664,7 +669,10 @@ move:''')
     ld   ac, [oy]
     ld   [tb], ac
     add  1, ac
-    and  %(bm)d, ac
+    xor  %(bn)d, ac
+    beq  mv_t
+    xor  %(bn)d, ac
+mv_t:
     ld   ac, [tb]
     ld   0x%(misc)02X, y
     add  0x80, x
@@ -690,6 +698,12 @@ mv_l:
     ld   1, ac
     ld   ac, [dir]
 mv_s:
+    ld   [sc], ac
+    add  1, ac
+    ld   ac, [sc]
+    xor  %(sp)d, ac
+    bne  mv_p
+    ld   ac, [sc]
     ld   [ph], ac
     add  [dir], ac
     and  %(pm)d, ac
@@ -698,7 +712,8 @@ mv_s:
     shl
     add  0x%(php)02X, ac
     ld   ac, [php]
-    GOTO count''' % {'bm': BOUNCE - 1, 'misc': P_MISC, 'hs': HSTEP, 'bxmax': BXMAX,
+mv_p:
+    GOTO count''' % {'bn': BOUNCE, 'sp': SPIN, 'misc': P_MISC, 'hs': HSTEP, 'bxmax': BXMAX,
                      'bxx': BXMAX ^ BXMIN, 'pm': NPH - 1, 'php': P_PH})
 
     g.chunk('count: frames a second on the second text row, keys, the menu hook')
@@ -756,9 +771,10 @@ def tables():
     misc = [0] * 256
     for r in range(ROWS):
         misc[r] = row4(r)
+    assert BOUNCE <= 0x80
     for t in range(BOUNCE):
         misc[0x80 + t] = BY[t]
-    pages[P_MISC] = misc[:0xC0]
+    pages[P_MISC] = misc[:0x80 + BOUNCE]
     sil = [0] * 256
     for i, (jl, jr, part) in enumerate(SIL):
         sil[i] = RBB + 2 + jl
@@ -794,7 +810,7 @@ def tables():
             pg, off = LAYOUT[i]
             pages[P_PH + 4 * p + pg][off:off + len(bs)] = bs
     for p in pages:
-        assert 0x0C <= p < 0x40 and p != 0x1F, hex(p)
+        assert 0x0C <= p < 0x40 and p not in (0x1F, P_STR), hex(p)
     return pages
 
 
@@ -819,11 +835,12 @@ def generate():
         v = pages[p]
         if p == P_MISC:
             data_page(g, p << 8, v, 'ROW4 (x00), the bounce (x80)')
-            g('s_title:\n    #d "PLACARD BOING BALL    ESC: DOS", 0x00')
-            g('s_fps:\n    #d "FPS ", 0x00')
-            g('s_sp:\n    #d " ", 0x00')
         else:
             data_page(g, p << 8, v, 'table page x%02X' % p)
+    g.fixed(P_STR << 8, 'strings')
+    g('s_title:\n    #d "PLACARD BOING BALL    ESC: DOS", 0x00')
+    g('s_fps:\n    #d "FPS ", 0x00')
+    g('s_sp:\n    #d " ", 0x00')
     return pack('\n'.join(g.out) + '\n')
 
 
