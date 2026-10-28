@@ -13,8 +13,8 @@ painted back to front (a library program for the SD card, WIRE3D.PLC)
 
 WHAT IT DRAWS
     Convex "ships" (stations, freighters, darts, rocks) tumbling and flying
-    in front of a fixed camera.  The demo switches between two modes every
-    10 seconds, or when a key is pressed:
+    in front of a fixed camera.  The demo starts filled and switches between
+    the two modes every 20 seconds:
     - wireframe: white lines on black, an edge drawn when one of its two
       faces looks at the camera (Elite);
     - filled: each face that looks at the camera filled with one of five
@@ -121,7 +121,8 @@ LG252 = round(256 * math.log2(252)) + 2 * LOG_OFS   # c = -M^T o / 252 (half of 
 LG100 = round(256 * math.log2(100)) + 2 * LOG_OFS   # shade = n . L' / 100
 SHADE_T = (6, 20, 34, 48)   # the five shades: n . L' (63 = 1) below 6, 20, 34, 48, above
 SHADES = [(1, 1), (1, 2), (2, 2), (2, 3), (3, 3)]  # pixel pairs: blue, blue/gold, gold, gold/white, white
-MODE_SECS = 10              # seconds between the mode switches
+MODE_SECS = 20              # seconds between the mode switches
+DEMO_START = 1              # the demo's first mode: filled
 
 # table pages
 P_QV, P_QM, P_SIN, P_ROW = 0x23, 0x24, 0x25, 0x26
@@ -4258,7 +4259,7 @@ hu_n:
     ld   ac, [R1]
     CALL con_puts
     GOTO fe_menu''')
-    g.chunk('fe_menu: wait for the frame cap, the menu hook, the mode switch (a key or time)')
+    g.chunk('fe_menu: wait for the frame cap, the menu hook, the mode switch (by time)')
     g('fe_menu:')
     if pace:
         g('fe_wait:')
@@ -4274,8 +4275,6 @@ hu_n:
 fe_mark:
     CALL kbd_scan
     CALL menu_poll
-    CALL kbd_getc
-    bne  fe_sw
     ld   [msec], ac
     sub  %d, ac
     bcc  fe_sw
@@ -4336,12 +4335,12 @@ sw_w:
     g('s_sp:\n    #d "   ", 0x00')
 
 
-def generate(ships, pace=2, secs=MODE_SECS, start=0):
+def generate(ships, pace=2, secs=MODE_SECS, start=DEMO_START):
     g = Gen()
     nverts = sum(len(MODELS[s[0]]['v']) for s in ships)
     nfaces = sum(len(MODELS[s[0]]['f']) for s in ships)
     assert len(ships) <= MAX_SHIPS
-    title = 'PLACARD 3D  %d SHIPS  %d VERTICES  %d FACES   ANY KEY: MODE   ESC: DOS' % (
+    title = 'PLACARD 3D  %d SHIPS  %d VERTICES  %d FACES   ESC: DOS' % (
         len(ships), nverts, nfaces)
     head = ['; ' + '=' * 60,
             '; wire3d.masm - Elite-style 3D: wireframes and filled faces (made by',
@@ -4495,7 +4494,7 @@ def main(argv):
     ap.add_argument('--pace', type=int, default=2,
                     help='video frames a frame at least (2 = 30 fps cap, 0 = as fast as it can)')
     ap.add_argument('--secs', type=int, default=MODE_SECS, help='seconds between the mode switches')
-    ap.add_argument('--start', type=int, default=0, help='the first mode: 0 wireframe, 1 filled')
+    ap.add_argument('--start', type=int, default=DEMO_START, help='the first mode: 0 wireframe, 1 filled')
     ap.add_argument('-o', '--out', default=os.path.join(HERE, 'wire3d.masm'))
     ap.add_argument('--plc', default=None, help='the .PLC file (default ../../sdcard/WIRE3D.PLC '
                     'for the demo build, none otherwise; "none" for none)')
@@ -4504,7 +4503,7 @@ def main(argv):
     open(a.out, 'w', newline='\n').write(generate(ships, a.pace, a.secs, a.start))
     subprocess.check_call([sys.executable, os.path.join(HERE, 'asm_expand.py'), a.out])
     asm = a.out[:-5] + '.asm'
-    demo = (a.ships == DEMO_SHIPS and a.pace == 2 and a.secs == MODE_SECS and a.start == 0)
+    demo = (a.ships == DEMO_SHIPS and a.pace == 2 and a.secs == MODE_SECS and a.start == DEMO_START)
     plc = a.plc or (os.path.join(HERE, '..', '..', 'sdcard', 'WIRE3D.PLC') if demo else None)
     if plc and plc != 'none':
         subprocess.check_call([sys.executable, os.path.join(HERE, 'gen_plc.py'), asm, '-o', plc])

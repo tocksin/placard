@@ -2,8 +2,8 @@
 
 `sdcard/WIRE3D.PLC` is a 3D demo in the style of the BBC Micro's Elite:
 six convex ships (a station, a freighter, two darts and two rocks) tumbling
-and flying in front of a fixed camera.  It switches between two modes
-every 10 seconds, or at once when a key is pressed:
+and flying in front of a fixed camera.  It starts filled and switches
+between the two modes every 20 seconds:
 
 - **wireframe**: white lines on black with hidden lines removed;
 - **filled**: every face that looks at the camera filled in one of five
@@ -176,14 +176,15 @@ details in its docstring):
 - **Clipping**: a vertex that would project off the picture, or nearer
   than Z = 48, is marked invalid; its edges are not drawn, and in filled
   mode the whole ship is left out that frame (Elite clips instead).
-- **Mode switch**: on a key (`kbd_getc`) or after 10 seconds the program
+- **Mode switch**: after 20 seconds (counted by the frames-a-second
+  timer; keys do not switch it, so a noisy keyboard line cannot) the program
   clears the picture, resets each ship's old lines or outline, and builds
   the filled mode's tables (the unrolled filler, masks) when entering it.
 - **Memory**: code at x0100-x1EFF and x2000-x22FF, tables and models at
   x2300-x3FFF, line records or the filled mode's pages at x4000-x4FFF,
   projected vertices and visible faces at x5400-x59FF.  It runs with map FF
   to read the video RAM and switches to map 07 only for the library
-  (`kbd_scan`, `kbd_getc`, `menu_poll`, `con_puts`, `con_dec8`).
+  (`kbd_scan`, `menu_poll`, `con_puts`, `con_dec8`).
 
 ## Files and commands
 
@@ -201,5 +202,4 @@ For testing on the board without the SD card, `build\wire3d.bat` loads a
 temporary 64K development image, `src/scripts/wire3d_rom.asm` (made by
 `gen_wire3d.py`): a stub at x6000 copies the program from ROM x8000-xBEFF
 into RAM x0100-x3FFF (leaving LIB_RAM alone), sets map 07 as the DOS does
-and runs it.  There is no DOS then, so Esc does nothing; any key still
-switches the mode.
+and runs it.  There is no DOS then, so Esc does nothing.

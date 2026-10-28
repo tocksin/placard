@@ -2791,49 +2791,6 @@ ft_i:
 ft_i0:
     GOTO ft_el
 
-.chunk                          ; fe_menu: wait for the frame cap, the menu hook, the mode switch (a key or time)
-fe_menu:
-fe_wait:
-    ld   0x50, y               ; tick: line read (V9:V2)
-    ld   [y,x], ac
-    ld   ac, [w_t]
-    sub  [LINE_LAST], ac
-    ld   [w_t], ac
-    ld   ac, [LINE_LAST]
-    bcc  tk_2
-    ld   [FRAME_LO], ac
-    inc
-    ld   ac, [FRAME_LO]
-    bcc  tk_2
-    ld   [FRAME_HI], ac
-    inc
-    ld   ac, [FRAME_HI]
-tk_2:
-    ld   [FRAME_LO], ac
-    sub  [lastf], ac
-    sub  2, ac
-    bcs  fe_wait
-    ld   [FRAME_LO], ac
-    ld   ac, [lastf]
-fe_mark:
-    CALL kbd_scan
-    CALL menu_poll
-    CALL kbd_getc
-    bne  fe_sw
-    ld   [msec], ac
-    sub  10, ac
-    bcc  fe_sw
-fe_go:
-    ld   0xFF, ac
-    ld   0x50, y
-    ld   ac, [y,x]
-    ld   [par], ac
-    xor  1, ac
-    ld   ac, [par]
-    GOTO frame
-fe_sw:
-    GOTO switch
-
 .chunk                          ; erase: blank the part of the ship's old outline that its new one does not cover, then keep the new one
 erase:
     ld   0, ac
@@ -3606,6 +3563,47 @@ fs_st:
     ld   [w_t2], ac
     ld   ac, [y,x]
     GOTO fc_next
+
+.chunk                          ; fe_menu: wait for the frame cap, the menu hook, the mode switch (by time)
+fe_menu:
+fe_wait:
+    ld   0x50, y               ; tick: line read (V9:V2)
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    sub  [LINE_LAST], ac
+    ld   [w_t], ac
+    ld   ac, [LINE_LAST]
+    bcc  tk_2
+    ld   [FRAME_LO], ac
+    inc
+    ld   ac, [FRAME_LO]
+    bcc  tk_2
+    ld   [FRAME_HI], ac
+    inc
+    ld   ac, [FRAME_HI]
+tk_2:
+    ld   [FRAME_LO], ac
+    sub  [lastf], ac
+    sub  2, ac
+    bcs  fe_wait
+    ld   [FRAME_LO], ac
+    ld   ac, [lastf]
+fe_mark:
+    CALL kbd_scan
+    CALL menu_poll
+    ld   [msec], ac
+    sub  20, ac
+    bcc  fe_sw
+fe_go:
+    ld   0xFF, ac
+    ld   0x50, y
+    ld   ac, [y,x]
+    ld   [par], ac
+    xor  1, ac
+    ld   ac, [par]
+    GOTO frame
+fe_sw:
+    GOTO switch
 
 .chunk                          ; cm_acc: lgc_a/lgh_a += or -= w_r, then the next term
 cm_acc:
@@ -4789,7 +4787,7 @@ fe_ns:
 
 .chunk
 main_c:
-    ld   0, ac
+    ld   1, ac
     ld   ac, [mode]
     ld   0, ac
     ld   ac, [msec]
@@ -5091,7 +5089,7 @@ mc_lp:
 
 .fixed 0x3F30                    ; strings
 s_title:
-    #d "PLACARD 3D  6 SHIPS  61 VERTICES  89 FACES   ANY KEY: MODE   ESC: DOS", 0x00
+    #d "PLACARD 3D  6 SHIPS  61 VERTICES  89 FACES   ESC: DOS", 0x00
 s_fps:
     #d "FPS ", 0x00
 s_wire:
