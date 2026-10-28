@@ -61,7 +61,7 @@ basys_top.vhd (low nibble CIN = 0, high nibble CIN = low nibble COUT, low
 SHIFT_RIGHT_IN = AC bit 4, high SHIFT_RIGHT_IN = 0).  The default is an ideal
 8-bit ALU (A - B is a true 8-bit subtraction).
 
-Date: 10/26/2026
+Date: 10/28/2026
 """
 
 import re
@@ -655,8 +655,8 @@ def render(mem, path):
     pal2 = [(0, 0, 0), (0, 36, 255), (255, 182, 0), (255, 255, 255)]
     # 16-color palette, docs/COLORS.md: (R 0-7, G 0-7, B 0-3)
     pal4 = [(r * 255 // 7, g * 255 // 7, b * 255 // 3) for r, g, b in (
-        (0, 0, 0), (0, 0, 3), (0, 7, 0), (0, 7, 3), (7, 0, 0), (7, 0, 3), (5, 3, 0), (5, 5, 1),
-        (2, 2, 1), (2, 2, 3), (2, 7, 0), (2, 7, 3), (7, 2, 0), (7, 2, 3), (7, 7, 0), (7, 7, 3))]
+        (0, 0, 0), (0, 0, 1), (4, 0, 2), (0, 0, 3), (7, 0, 0), (7, 0, 3), (4, 2, 0), (2, 2, 1),
+        (0, 7, 3), (0, 4, 0), (7, 7, 3), (5, 5, 2), (7, 4, 2), (7, 4, 0), (7, 7, 0), (1, 7, 0))]
     for y in range(480):
         mbyte = mem[MODE_BASE + y]
         if mbyte & 0x80:                # blank line: black, no pixel reads
