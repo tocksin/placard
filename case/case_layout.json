@@ -330,25 +330,25 @@
    "ref": "J2",
    "side": "front",
    "u": 33.5,
-   "z": 9.0,
+   "z": 8.0,
    "prof": [
     "rrect",
-    27.0,
-    14.0,
-    2.0
+    39.0,
+    12.0,
+    3.0
    ],
-   "note": "SNES port 1"
+   "note": "SNES port 1 (plug outline 37 x 10 + 1 mm)"
   },
   {
    "ref": "J3",
    "side": "front",
    "u": 77.5,
-   "z": 9.0,
+   "z": 8.0,
    "prof": [
     "rrect",
-    27.0,
-    14.0,
-    2.0
+    39.0,
+    12.0,
+    3.0
    ],
    "note": "SNES port 2"
   }
