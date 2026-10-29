@@ -215,19 +215,19 @@ def snes():
     name = "SNES_Pad_Socket_Horizontal"
     flange = stadium(-21.0, 21.0, 0, 16.0, -0.5, 2.0, 3.0)
     body = stadium(-20.0, 20.0, 0.6, 15.2, 2.0, 12.0, 2.5)
-    ledge = box(-10.5, 12.0, 10.5, 15.5, 0.6, 5.5)
-    for num, x, y, w, h, plated in pads(name):
-        if plated is True:
-            ledge = ledge.cut(box(x - 0.6, 12.5, x + 0.6, 15.6, 0.5, 5.6))
+    xs = [x for num, x, y, w, h, plated in pads(name) if plated is True]
+    ledge = box(min(xs) - 1.5, 12.0, max(xs) + 1.5, 15.5, 0.6, 5.5)
+    for x in xs:
+        ledge = ledge.cut(box(x - 0.6, 12.5, x + 0.6, 15.6, 0.5, 5.6))
     ribs = [box(x - 0.6, 2.5, x + 0.6, 11.5, 15.2, 15.6) for x in (-13.0, 13.0)]
     shell = flange.union(body)
     shell = shell.cut(stadium(-18.5, 18.5, 3.0, 13.0, -0.6, 9.0, 1.5))
     blocks = []
-    for x0, x1, holes in ((-15.5, 0.5, 4), (2.0, 13.0, 3)):
-        blk = box(x0, 1.5, x1, 9.0, 5.5, 10.5)
-        pitch = (x1 - x0) / holes
-        for i in range(holes):
-            blk = blk.cut(cyl_y(x0 + pitch * (i + 0.5), 8.0, 2.4, 1.4, 7.5))
+    # the plug's holes line up with the pins: 4 at the flat end, 3 at the round end
+    for group in (sorted(xs)[:4], sorted(xs)[4:]):
+        blk = box(group[0] - 2.0, 1.5, group[-1] + 2.0, 9.0, 5.5, 10.5)
+        for x in group:
+            blk = blk.cut(cyl_y(x, 8.0, 2.4, 1.4, 7.5))
         blocks.append(blk)
     shell = shell.union(ledge)
     for p in ribs + blocks:
@@ -238,7 +238,7 @@ def snes():
         if plated is True:
             leads.append(cyl_y(x, zp, 0.64, 11.0, y).union(cyl_z(x, y, 0.64, -5.0, zp))
                          .union(cq.Workplane("XY").sphere(0.32).translate((x, -y, zp))))
-    save(name, [("body", (0.52, 0.52, 0.54), [shell] + pegs(name, 1.6)), ("pins", TIN, leads)])
+    save(name, [("body", (0.52, 0.52, 0.54), [shell]), ("pins", TIN, leads)])
 
 
 def toggle():
