@@ -1,0 +1,46 @@
+** Drc report for cartridge_64k.kicad_pcb **
+** Created on 2026-10-26T22:51:54-0400 **
+
+** Found 12 DRC violations **
+[lib_footprint_issues]: The current configuration does not include the footprint library 'placard'.
+    Local override; warning
+    @(93.4900 mm, 86.9050 mm): Footprint U3
+[lib_footprint_issues]: The current configuration does not include the footprint library 'placard'.
+    Local override; warning
+    @(93.5150 mm, 164.4800 mm): Footprint J1
+[lib_footprint_issues]: The current configuration does not include the footprint library 'placard'.
+    Local override; warning
+    @(93.4900 mm, 123.0550 mm): Footprint U5
+[lib_footprint_issues]: The current configuration does not include the footprint library 'placard'.
+    Local override; warning
+    @(110.0150 mm, 142.8300 mm): Footprint H1
+[lib_footprint_issues]: The current configuration does not include the footprint library 'placard'.
+    Local override; warning
+    @(96.0200 mm, 144.9300 mm): Footprint C1
+[lib_footprint_issues]: The current configuration does not include the footprint library 'placard'.
+    Local override; warning
+    @(121.4700 mm, 112.1050 mm): Footprint C5
+[lib_footprint_issues]: The current configuration does not include the footprint library 'placard'.
+    Local override; warning
+    @(93.4900 mm, 108.8050 mm): Footprint U2
+[lib_footprint_issues]: The current configuration does not include the footprint library 'placard'.
+    Local override; warning
+    @(121.0150 mm, 68.3050 mm): Footprint C3
+[lib_footprint_issues]: The current configuration does not include the footprint library 'placard'.
+    Local override; warning
+    @(121.4700 mm, 90.2050 mm): Footprint C2
+[lib_footprint_issues]: The current configuration does not include the footprint library 'placard'.
+    Local override; warning
+    @(93.4900 mm, 137.3050 mm): Footprint U4
+[lib_footprint_issues]: The current configuration does not include the footprint library 'placard'.
+    Local override; warning
+    @(121.4700 mm, 126.3550 mm): Footprint C4
+[lib_footprint_issues]: The current configuration does not include the footprint library 'placard'.
+    Local override; warning
+    @(96.0400 mm, 155.9550 mm): Footprint U1
+
+** Found 0 unconnected pads **
+
+** Found 0 Footprint errors **
+
+** End of Report **

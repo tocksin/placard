@@ -1,0 +1,267 @@
+Name     MEM_CTRL;
+PartNo   00;
+Date     10/27/2026;
+Revision 10;
+Designer ;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   MEMORY READ AND WRITE STROBES   (ATF22V10C, DIP-24 / PLCC-28)
+   ============================================================
+
+   Makes the ROM and RAM read enables (and, until revision 09, the
+   RAM write strobe).  It replaced the '32 OR gate that made
+   /WE = RW | CLK, and took over the read enables from the ROM/RAM
+   select PLD.  See
+   docs/TIMING_FIXES.md, end-of-write contention.  Since revision 02 the
+   map itself is a 74ACT273 register (an I/O device at 5000h, loaded
+   by /MAP_WR from the I/O decode PLD), and the ROM/RAM select PLD
+   is gone.
+
+   MAP REGISTER RESET (revision 02; replaced by RUN in revision 08)
+      The map must read all ROM at power-up, so the CPU boots from
+      ROM.  The ATF22V10C clears its registers at power-up, so
+      MAP_RUN (pin 17 since revision 03, registered, D = 1) is low from power-up until
+      the first rising clock edge, and high from then on.  It drives
+      the 74ACT273's /MR, which clears the map to 0 (all ROM) before
+      the CPU's first clock.  It needs no RC network, and it ends at
+      the same clock edge where the CPU starts.
+
+   RUN FROM THE CARTRIDGE (revision 08)
+      Pin 17 is now an input, RUN, from the ROM cartridge (10k
+      pull-down on the main board).  The cartridge holds RUN low from
+      power-up while it loads its SRAM from its EEPROMs, then raises
+      it (docs/ROM.md, "Loading the cartridge").  While RUN is low:
+        - /ROM_OE stays high, so the cartridge SRAM never drives the
+          bus and the cartridge can feed the CPU its own bytes;
+        - the map register's /MR and the expansion slots' /RESET,
+          which MAP_RUN drove before, are RUN itself, so the map
+          reads all ROM and the cards stay in reset.
+      MAP_RUN (the power-up register) is gone: RUN rises long after
+      the first clock, which does the same job.  RUN only adds a
+      literal to each ROM_OE term (still 10 terms), in the same pass,
+      so the read paths are unchanged.
+
+   /WE RELEASED WHILE RUN IS LOW (revision 09)
+      /WE (pin 16) has an output enable term, RUN, so it floats while
+      RUN is low and a 10k pull-up on the main board holds it high.
+      With no cartridge, a boot card in expansion slot 1 loads the
+      main RAM the way the cartridge loads its SRAM, and drives the
+      RAM's /WE itself (slot contact A19) while it does
+      (docs/EXPANSION.md, "Booting from slot 1").  Nothing writes
+      while RUN is low otherwise: the IR holds 02h, which writes
+      nothing.  Once RUN is high this PLD drives /WE as before.  The
+      output enable term is a separate term, so WE still uses 1 of 12.
+
+   /WE MOVED TO THE SYNC PLD (revision 10)
+      /WE is gone from this PLD (pin 16 is free).  The Sync PLD
+      (revision 10) makes it, with the same equation and output
+      enable, from an early tap of the clock (CLK_E), so that it is
+      back high before the address can change now that the address
+      muxes take their selects directly (docs/FETCH_TIMING.md,
+      option B; docs/WE_TIMING.md).  Nothing else changes here; the
+      address inputs now settle at 13 ns after the edge instead of
+      20.5.  The WRITE paragraph below is kept for the record of
+      the rule; the equation lives in the Sync PLD.
+
+   SECTION 2 MAP BIT (revision 03)
+      4000h - 4FFFh is mapped like the other sections, by RAMSEL2
+      (map register Q2, pin 15).  Before, it was always RAM, because
+      the ROM/RAM select PLD had no pin left for that map bit.
+      5000h - 5FFFh is still the I/O window, where neither memory
+      reads.  ROM_OE moved to pin 19 (16 terms) for the two extra
+      terms, and MAP_RUN moved to pin 17.
+
+   VIDEO READS ALWAYS READ RAM (revision 04)
+      A video read (PIXEL_ENABLE = 1) enables the RAM whatever the
+      map says; only CPU reads follow the map.  So the CPU can run
+      code from the ROM under the video area (6000h - FFFFh) while
+      the video shows the RAM, and a program that wants to read the
+      video RAM maps that section to RAM.  Neither memory drives the
+      bus in the I/O window, for video reads too.
+
+   SMALLER I/O WINDOW (revision 05)
+      The I/O window is 5000h - 53FFh (A11 = A10 = 0); 5400h - 5FFFh
+      is memory again and is mapped by RAMSEL2 with 4000h - 4FFFh.
+      A11 is on pin 20 and A10 on pin 21 (both were unused).  The
+      video reads the line's mode byte (5A20h + row) and the audio
+      sample (5DF3h - 5FFFh) there, so a video read enables the RAM
+      everywhere but 5000h - 53FFh.  Section 2's CPU term became
+      three terms (!A12, A11, A10), and the video read gained two
+      (A11, A10): RAM_OE is 16 of 16 terms, ROM_OE 10 of 16.
+
+   ONE DATA BUS (revision 06)
+      The RAM write-data buffer is gone: the source bus is the
+      memory data bus.  The source F541s drive it for the whole of
+      EXEC when PIXEL_ENABLE = 0, so a CPU read must not happen
+      then.  /SRC_EN (pin 22, from the branch PLD's pin 16, which
+      also drives the source F541s' /OE1) is that condition, and
+      CPU_READ includes !SRC_EN.  Revision 07: the pin is active low
+      (the branch PLD's pin 16 became /SRC_EN when the source '138
+      was removed); the equations are the same.  The CPU never
+      needs memory data in EXEC: instructions load in FETCH, D in
+      LOAD_IMM and LOAD_MEM, and I/O reads are already limited to
+      the LOAD states (I/O decode PLD, RD = IO & RW & LOAD_IMM).
+
+      The read in the clock before EXEC ends at the rising edge,
+      and the memory can drive for up to about 14.5 ns after it
+      (/OE rise, then tOHZ), while the source F541s can turn on
+      about 7 ns after it.  That overlap of up to about 7 ns is
+      accepted; series resistors on the source F541 outputs limit
+      the current (docs/CPU.md).
+
+   THE RULE
+      Every memory bus cycle, read or write, uses the LOW half of
+      the clock only:
+
+          write  /WE      low while  CLK = 0 and a write
+          read   /RAM_OE  low while  CLK = 0 and a read of RAM
+                 /ROM_OE  low while  CLK = 0 and a read of ROM
+
+      The memories drive the data bus only in the low half of a
+      clock.  The source F541s turn off by about 21 ns after the
+      edge that ends EXEC (State PLD 5.5, '138 enable 9, F541
+      disable 6.5), and a read can't start until the clock falls,
+      about 20 ns after it, plus this PLD's delay, so the read
+      after an EXEC doesn't fight them (about 1 ns to spare at a
+      47 % high half).  The overlap at the start of EXEC is above.
+
+   WRITE
+      RW (State PLD pin 23) is low for the whole EXEC state of a
+      store (State PLD revision 12; it no longer includes the stall).
+      A write happens only on a clock the CPU owns the bus:
+
+          WRITE = !RW & !PIXEL_ENABLE
+
+      PIXEL_ENABLE is the Sync PLD's registered output (tCO 5.5),
+      not STALL: a store never waits for the ALU, so for a store
+      STALL and PIXEL_ENABLE are the same, and PIXEL_ENABLE is
+      valid 7.5 ns sooner.  RW and PIXEL_ENABLE have both settled
+      before the clock can fall, so /WE never glitches.
+
+   READ
+      A read is any clock that is not a CPU write: RW = 1, or a
+      video read (PIXEL_ENABLE = 1) during a store's EXEC state.
+
+          READ = RW # PIXEL_ENABLE
+
+          CPU_READ   = RW & !PIXEL_ENABLE & !SRC_EN   (revision 06)
+          VIDEO_READ = PIXEL_ENABLE
+
+      ROM_OE  = CPU read of a section mapped to ROM
+      RAM_OE  = CPU read of a section mapped to RAM,
+                or any video read (revision 04)
+                In section 2, 4000h - 4FFFh and 5400h - 5FFFh are
+                mapped (revision 05); neither memory drives the bus
+                in the I/O window 5000h - 53FFh.
+
+   CLOCK DUTY
+      Reads and writes take the low half of the clock, so the high
+      half must be at most 54.6 % of the period for the opcode to
+      reach the State PLD in time (and at least 47 % for the write
+      glitch margin in docs/VIDEO_TIMING.md).  A 50 % clock, such as a
+      divided-down oscillator, leaves 2 ns at each end.
+
+   PIN BUDGET
+      Inputs (19): CLK (pin 1, array input), A15:A10, RAMSEL0-7, RW,
+                   PIXEL_ENABLE, SRC_EN, RUN (revision 08)
+      Outputs (2): /ROM_OE, /RAM_OE
+      Unused: pin 16 (was /WE, revision 10).
+      ROM_OE expands to 10 product terms (pin 19 has 16).
+      RAM_OE expands to 16 product terms (pin 18 has 16): 10 for CPU
+      reads and 6 for video reads outside the I/O window.
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 1  = CLK;          /* CPU clock: array input */
+
+PIN 2  = A15;          /* address mux outputs */
+PIN 3  = A14;
+PIN 4  = A13;
+PIN 5  = A12;
+
+/* map from the 74ACT273 map register (Q0, Q1, Q3-Q7), 1 = RAM, 0 = ROM */
+PIN 6  = RAMSEL0;
+PIN 7  = RAMSEL1;
+PIN 8  = RAMSEL3;
+PIN 9  = RAMSEL4;
+PIN 10 = RAMSEL5;
+PIN 11 = RAMSEL6;
+PIN 13 = RAMSEL7;
+
+PIN 15 = RAMSEL2;      /* map register Q2 (I/O pin used as input) */
+PIN 14 = RW;           /* State PLD pin 23, 0 = store (I/O pin used as input) */
+PIN 23 = PIXEL_ENABLE; /* Sync PLD pin 19 (I/O pin used as input) */
+PIN 20 = A11;          /* address mux output (I/O pin used as input, revision 05) */
+PIN 21 = A10;          /* address mux output (I/O pin used as input, revision 05) */
+PIN 22 = !SRC_EN;     /* branch PLD pin 16, low = source F541s drive the bus (revision 07) */
+PIN 17 = RUN;          /* ROM cartridge: low while it loads, also map register /MR and card /RESET (revision 08) */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+/* pin 16 free (revision 10; was RAM /WE, now Sync PLD pin 20) */
+PIN 19 = !ROM_OE;      /* ROM chips' /OE */
+PIN 18 = !RAM_OE;      /* RAM chips' /OE */
+
+
+/* ---------------- SECTION DECODE ---------------- */
+
+SEC0 = !A15 & !A14 & !A13;
+SEC1 = !A15 & !A14 &  A13;
+SEC2 = !A15 &  A14 & !A13;
+SEC3 = !A15 &  A14 &  A13;
+SEC4 =  A15 & !A14 & !A13;
+SEC5 =  A15 & !A14 &  A13;
+SEC6 =  A15 &  A14 & !A13;
+SEC7 =  A15 &  A14 &  A13;
+
+
+/* ---------------- BUS CYCLE ---------------- */
+
+CPU_READ   = !CLK & RW & !PIXEL_ENABLE & !SRC_EN;
+VIDEO_READ = !CLK & PIXEL_ENABLE;
+
+
+/* ---------------- EQUATIONS ---------------- */
+
+/* the cartridge SRAM reads only once it is loaded (revision 08) */
+ROM_READ = CPU_READ & RUN;
+
+ROM_OE =
+      SEC0 & !RAMSEL0 & ROM_READ
+    # SEC1 & !RAMSEL1 & ROM_READ
+    # SEC2 & !A12 & !RAMSEL2 & ROM_READ   /* 4000h - 4FFFh */
+    # SEC2 &  A11 & !RAMSEL2 & ROM_READ   /* 5800h - 5FFFh; 5000h - 53FFh is I/O */
+    # SEC2 &  A10 & !RAMSEL2 & ROM_READ   /* 5400h - 57FFh, 5C00h - 5FFFh */
+    # SEC3 & !RAMSEL3 & ROM_READ
+    # SEC4 & !RAMSEL4 & ROM_READ
+    # SEC5 & !RAMSEL5 & ROM_READ
+    # SEC6 & !RAMSEL6 & ROM_READ
+    # SEC7 & !RAMSEL7 & ROM_READ;
+
+/* video reads: RAM anywhere but the I/O window 5000h - 53FFh
+   (!(!A15 & A14 & !A13 & A12 & !A11 & !A10) as six terms) */
+RAM_OE =
+      SEC0 &  RAMSEL0 & CPU_READ
+    # SEC1 &  RAMSEL1 & CPU_READ
+    # SEC2 & !A12 &  RAMSEL2 & CPU_READ   /* 4000h - 4FFFh */
+    # SEC2 &  A11 &  RAMSEL2 & CPU_READ   /* 5800h - 5FFFh; 5000h - 53FFh is I/O */
+    # SEC2 &  A10 &  RAMSEL2 & CPU_READ   /* 5400h - 57FFh, 5C00h - 5FFFh */
+    # SEC3 &  RAMSEL3 & CPU_READ
+    # SEC4 &  RAMSEL4 & CPU_READ
+    # SEC5 &  RAMSEL5 & CPU_READ
+    # SEC6 &  RAMSEL6 & CPU_READ
+    # SEC7 &  RAMSEL7 & CPU_READ
+    # A15 & VIDEO_READ
+    # !A14 & VIDEO_READ
+    # A13 & VIDEO_READ
+    # !A12 & VIDEO_READ
+    # A11 & VIDEO_READ
+    # A10 & VIDEO_READ;

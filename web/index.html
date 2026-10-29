@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PLACARD Emulator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  PLACARD emulator page (docs/EMULATOR.md).  Open this file in a browser:
+  no server is needed.  placard_emu.js is the machine, app.js the page,
+  default_rom.js and default_sd.js the built-in ROM and SD card
+  (src/scripts/gen_web_assets.py).
+  Generated: 10/27/2026
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&family=Saira+Condensed:wght@500;700&display=swap">
+<style>
+/* Layout: the monitor on the left, the machine's controls as a rack of
+   labeled panels on the right; one column on a phone.  One dark look on
+   purpose: the black powder-coated case with the brass name plate. */
+:root {
+  --case: #141518;        /* page: powder-coated case */
+  --panel: #1d1f24;       /* control panels */
+  --edge: #30333b;        /* panel and control edges */
+  --ink: #e4e1d8;         /* text */
+  --dim: #9a978e;         /* secondary text */
+  --brass: #c9a24a;       /* name plate, focus, active controls */
+  --ok: #6fbf73;
+  --warn: #e0a040;
+  --bad: #e06a5a;
+  --display: "Saira Condensed", "Arial Narrow", sans-serif;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; }
+body {
+  background: var(--case);
+  color: var(--ink);
+  font: 14px/1.45 var(--body);
+  padding-block: 20px 32px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+header {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px;
+  max-width: 1240px; margin: 0 auto 16px;
+}
+.plate {
+  font: 700 26px/1 var(--display); letter-spacing: 0.18em;
+  color: #1b1708; background: var(--brass);
+  padding: 6px 14px 5px; border-radius: 3px;
+}
+header p { margin: 0; color: var(--dim); min-width: 0; }
+main {
+  display: grid; gap: 16px; max-width: 1240px; margin: 0 auto;
+  grid-template-columns: minmax(0, 1fr) 320px; align-items: start;
+}
+@media (max-width: 900px) { main { grid-template-columns: minmax(0, 1fr); } }
+
+.monitor { min-width: 0; }
+.bezel {
+  position: relative; background: #000; border: 1px solid var(--edge);
+  border-radius: 6px; padding: 10px; outline: none;
+}
+.bezel:focus-visible, .bezel.captured { border-color: var(--brass); }
+.bezel:fullscreen { display: flex; align-items: center; justify-content: center; border: 0; border-radius: 0; }
+canvas#screen {
+  display: block; width: 100%; max-width: 100%; aspect-ratio: 4 / 3; height: auto;
+  image-rendering: pixelated; background: #000; cursor: pointer;
+}
+.bezel:fullscreen canvas#screen { width: auto; height: 100%; max-height: 100vh; }
+.overlay {
+  position: absolute; inset: 10px; display: flex; align-items: center; justify-content: center;
+  text-align: center; pointer-events: none;
+}
+.overlay span {
+  background: rgba(20, 21, 24, 0.86); border: 1px solid var(--brass); color: var(--ink);
+  padding: 10px 16px; border-radius: 4px; max-width: 80%;
+}
+.statusbar {
+  display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 8px;
+  font: 12px/1.5 var(--mono); color: var(--dim); font-variant-numeric: tabular-nums;
+}
+.statusbar b { color: var(--ink); font-weight: 600; }
+.led { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #333; margin-right: 4px; vertical-align: 0; }
+.led.on { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.led.sd.on { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.hint { color: var(--dim); margin: 10px 0 0; max-width: 72ch; }
+kbd { font: 12px var(--mono); border: 1px solid var(--edge); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; color: var(--ink); }
+
+.rack { display: grid; gap: 12px; min-width: 0; }
+section.unit { background: var(--panel); border: 1px solid var(--edge); border-radius: 4px; padding: 12px; min-width: 0; }
+section.unit h2 {
+  margin: 0 0 8px; font: 700 13px/1 var(--display); letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--brass);
+}
+.row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.what { font: 12px/1.4 var(--mono); color: var(--ink); margin: 0 0 8px; overflow-wrap: anywhere; }
+.what small { display: block; color: var(--dim); }
+button, .filebtn {
+  font: 600 13px var(--body); color: var(--ink); background: #272a31;
+  border: 1px solid var(--edge); border-radius: 3px; padding: 5px 10px; cursor: pointer;
+}
+button:hover, .filebtn:hover { border-color: var(--dim); }
+button:focus-visible, .filebtn:focus-within, input:focus-visible { outline: 2px solid var(--brass); outline-offset: 1px; }
+button.primary { background: var(--brass); color: #1b1708; border-color: var(--brass); }
+button[aria-pressed="true"] { border-color: var(--brass); color: var(--brass); }
+.filebtn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.filebtn { position: relative; display: inline-block; }
+label.check { display: flex; gap: 6px; align-items: center; color: var(--ink); }
+input[type=range] { width: 140px; accent-color: var(--brass); }
+.pads { font: 12px/1.6 var(--mono); color: var(--dim); }
+.msg { font-size: 12px; color: var(--warn); margin: 6px 0 0; min-height: 0; overflow-wrap: anywhere; }
+.msg.bad { color: var(--bad); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <span class="plate">PLACARD</span>
+  <p>Emulator of the PLACARD computer at the instruction and bus level: 25.175 MHz clock with the video's stall clocks, 640&times;480 VGA, line-rate audio, PS/2 keyboard and mouse, SNES pads, SD card.</p>
+</header>
+<main>
+  <div class="monitor">
+    <div class="bezel" id="bezel" tabindex="0" aria-label="PLACARD screen: click to type and use the mouse">
+      <canvas id="screen" width="640" height="480"></canvas>
+      <div class="overlay" id="overlay"><span id="overlayText">Click the screen to turn on the sound and use the keyboard and mouse</span></div>
+    </div>
+    <div class="statusbar" id="status">
+      <span>speed <b id="stSpeed">-</b></span>
+      <span>frame <b id="stFrame">0</b></span>
+      <span>PC <b id="stPc">0000</b></span>
+      <span>map <b id="stMap">00</b></span>
+      <span><i class="led" id="ledNum"></i>Num <i class="led" id="ledCaps"></i>Caps <i class="led" id="ledScroll"></i>Scroll</span>
+      <span><i class="led sd" id="ledSd"></i>SD</span>
+    </div>
+    <p class="hint">Click the screen to capture the keyboard and mouse. While the mouse is captured the browser keeps <kbd>Esc</kbd> to release it; press <kbd>Esc</kbd> again (or use full screen, which passes <kbd>Esc</kbd> through in Chrome and Edge) to send it to the PLACARD. Hold <kbd>Esc</kbd> while pressing Power to skip BOOT.CFG. Game controllers are SNES pads 1 and 2 once you press a button on them.</p>
+  </div>
+
+  <div class="rack">
+    <section class="unit">
+      <h2>Power</h2>
+      <div class="row">
+        <button class="primary" id="btnPower">Power cycle</button>
+        <button id="btnPause" aria-pressed="false">Pause</button>
+        <button id="btnFull">Full screen</button>
+      </div>
+      <p class="msg" id="powerMsg" hidden></p>
+    </section>
+
+    <section class="unit">
+      <h2>Cartridge ROM</h2>
+      <p class="what" id="romName">Built-in 32K image<small>boot loader, library, BASIC, DOS loader</small></p>
+      <div class="row">
+        <label class="filebtn">Load ROM&hellip;<input type="file" id="fileRom" accept=".bin,.rom,.mem,.hex,.txt"></label>
+        <button id="btnRomDefault">Built-in</button>
+      </div>
+      <p class="msg" id="romMsg" hidden></p>
+    </section>
+
+    <section class="unit">
+      <h2>SD card</h2>
+      <p class="what" id="sdName">Built-in card<small>the sdcard folder</small></p>
+      <div class="row">
+        <label class="filebtn">Load folder&hellip;<input type="file" id="fileSdDir" webkitdirectory multiple></label>
+        <label class="filebtn">Load image&hellip;<input type="file" id="fileSdImg" accept=".img,.bin,.ima"></label>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <button id="btnSdDefault">Built-in</button>
+        <button id="btnSdEject">Eject</button>
+        <button id="btnSdSave">Save image</button>
+      </div>
+      <p class="msg" id="sdMsg" hidden></p>
+    </section>
+
+    <section class="unit">
+      <h2>Input and sound</h2>
+      <div class="row" style="flex-direction:column;align-items:flex-start;gap:6px">
+        <label class="check"><input type="checkbox" id="optMouse" checked> PS/2 mouse plugged in</label>
+        <label class="check"><input type="checkbox" id="optRandom" checked> Random RAM at power-up</label>
+        <label class="check">Volume <input type="range" id="optVolume" min="0" max="100" value="60"></label>
+      </div>
+      <p class="pads" id="padStatus">Pad 1: none &middot; Pad 2: none</p>
+    </section>
+  </div>
+</main>
+<script src="placard_emu.js"></script>
+<script src="default_rom.js"></script>
+<script src="default_sd.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

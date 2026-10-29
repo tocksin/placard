@@ -1,0 +1,89 @@
+Name     INSTR_REG;
+PartNo   00;
+Date     10/21/2026;
+Revision 01;
+Designer ;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   INSTRUCTION REGISTER   (ATF22V10C-7, DIP-24)
+   ============================================================
+
+   Replaces the instruction register 74F377 (chip #17).  It loads
+   the opcode from the data bus in FETCH, like the F377, and holds
+   02h (`ld ac, ac`) while RUN is low, so the CPU can only run that
+   instruction while the ROM cartridge loads (docs/ROM.md, "Loading
+   the cartridge").
+
+   I.D = !RUN & (bit of 02h)
+       # RUN & LOAD_INSTR & D
+       # RUN & !LOAD_INSTR & I
+
+   While RUN is low every register takes its bit of 02h at every
+   clock, so the IR is 02h from the first clock on, whatever the
+   State PLD's strobe does.  When the cartridge raises RUN the IR
+   still holds 02h and loads the next opcode in the next FETCH.
+   At power-up the registers are 00h; the CPU is stalled in FETCH
+   then (the cartridge holds STALL), so nothing decodes it.
+
+   TIMING (ATF22V10C-7)
+      Opcode setup tS 3.5 ns (the F377's was 2 ns): the fetch into
+      the IR is 39.0 ns of the 39.72 ns clock (+0.7), the same as
+      the fetch into the State PLD.  Clock to output tCO 5.5 ns
+      (the F377's was 10.5 ns), so every path that starts at the IR
+      (the single-clock ALU, the branch decision, /AC_SEL) gains
+      5 ns.
+
+   PIN BUDGET
+      Inputs (11): CLK, D7:D0, /LOAD_INSTR, RUN
+      Outputs (8): I7:I0, registered
+      Unused: pin 13, pins 22 and 23.
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 1  = CLK;
+PIN 2  = D0;
+PIN 3  = D1;
+PIN 4  = D2;
+PIN 5  = D3;
+PIN 6  = D4;
+PIN 7  = D5;
+PIN 8  = D6;
+PIN 9  = D7;
+PIN 10 = !LOAD_INSTR;  /* State PLD pin 14, low = load (was the F377's /E) */
+PIN 11 = RUN;          /* from the ROM cartridge: low = hold 02h */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+PIN 14 = I0;
+PIN 15 = I1;           /* also the D source F541's /OE2 and the audio slot PLD */
+PIN 16 = I2;
+PIN 17 = I3;
+PIN 18 = I4;
+PIN 19 = I5;
+PIN 20 = I6;
+PIN 21 = I7;
+
+
+/* ---------------- EQUATIONS ---------------- */
+
+/* 02h while RUN is low: I1 = 1, every other bit 0 */
+
+I0.D = RUN & LOAD_INSTR & D0 # RUN & !LOAD_INSTR & I0;
+I1.D = !RUN # LOAD_INSTR & D1 # !LOAD_INSTR & I1;
+I2.D = RUN & LOAD_INSTR & D2 # RUN & !LOAD_INSTR & I2;
+I3.D = RUN & LOAD_INSTR & D3 # RUN & !LOAD_INSTR & I3;
+I4.D = RUN & LOAD_INSTR & D4 # RUN & !LOAD_INSTR & I4;
+I5.D = RUN & LOAD_INSTR & D5 # RUN & !LOAD_INSTR & I5;
+I6.D = RUN & LOAD_INSTR & D6 # RUN & !LOAD_INSTR & I6;
+I7.D = RUN & LOAD_INSTR & D7 # RUN & !LOAD_INSTR & I7;
+
+[I7..I0].AR = 'b'0;
+[I7..I0].SP = 'b'0;
