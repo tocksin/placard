@@ -3,15 +3,15 @@
     "GenerationSoftware": {
       "Vendor": "KiCad",
       "Application": "Pcbnew",
-      "Version": "9.0.6"
+      "Version": "9.0.8+dfsg-1"
     },
-    "CreationDate": "2026-10-26T22:51:52-04:00"
+    "CreationDate": "2026-10-29T19:21:44-04:00"
   },
   "GeneralSpecs": {
     "ProjectId": {
       "Name": "cartridge_64k",
       "GUID": "63617274-7269-4646-9765-5f36346b2e6b",
-      "Revision": "1"
+      "Revision": "A"
     },
     "Size": {
       "X": 39.1,
