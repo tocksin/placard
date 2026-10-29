@@ -21,7 +21,7 @@ have no edge.
 | Molex_87715-9106_PCIe_x4_Vertical | cartridge slot J8 (+ cartridge shell keepout) | A1-A32, B1-B32, 1.0 mm, key after 11 |
 | CardEdge_2x20_P2.54mm_Vertical | expansion slots J9-J12 (Sullins EBC20DCAN family) (+ card shell keepout) | A1-A20, B1-B20 |
 | PS2_Kycon_KMDGX-6S-6S-S4N | stacked PS/2 J5 | A1-A6 (top), B1-B6 (bottom), SH |
-| SNES_Pad_Socket_Horizontal | SNES pad ports J2, J3 | 1-7 |
+| SNES_Pad_Socket_Horizontal | SNES pad ports J2, J3 (pins from photos: 4 + 3, 3.5 mm, 6 mm gap) | 1-7 |
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | 1 on throw, 2 common, 3 unused throw |
 | Jack_3.5mm_Tensility_54-00174_Horizontal | audio line out jack J6 | T (two legs), R1, R2, S |
 | USB_C_Receptacle_GCT_USB4125_6P_HandSolder | USB-C power J13 | A5 A9 A12 B5 B9 B12, S1 |
@@ -331,15 +331,27 @@ def ps2_stacked():
               (-7.0, -0.5, 7.0, 13.0), pads, edge=0.0, extra=hole(0, 7.6, 2.5))
 
 
+# SNES pad port pins, read from Justin's photos of the part (no datasheet): two groups,
+# pins 1-4 at the flat end of the plug outline (-x) and 5-7 at the round end (+x),
+# 3.5 mm apart in a group with 6 mm between the groups; no locating pegs
+SNES_PITCH = 3.5
+SNES_GAP = 6.0
+
+
+def snes_pin_x(n):
+    """x of SNES port pin n (1-7), the row centred on the footprint origin."""
+    x0 = -(5 * SNES_PITCH + SNES_GAP) / 2
+    return x0 + (n - 1) * SNES_PITCH + (SNES_GAP - SNES_PITCH if n > 4 else 0)
+
+
 def snes():
-    # PCB-mount SNES controller port (replacement part), right angle: 7 pins in a row.
-    # Body 42 mm along the edge x 16 mm deep (Justin's reference part: 42 x 16 x 21 mm
-    # including pins; 21 is the height, 16 above the board + 5 of pin below)
-    pads = [pad(str(n), (n - 4) * 2.54, 14.0, 1.6, 1.0) for n in range(1, 8)]
-    extra = hole(-11.0, 7.0, 3.0) + hole(11.0, 7.0, 3.0)
+    # PCB-mount SNES controller port (replacement part), right angle: 7 pins in a row
+    # behind the body.  Body 42 mm along the edge x 16 mm deep (Justin's reference part:
+    # 42 x 16 x 21 mm including pins; 21 is the height, 16 above the board + 5 of pin below)
+    pads = [pad(str(n), snes_pin_x(n), 14.0, 1.6, 1.0) for n in range(1, 8)]
     footprint("SNES_Pad_Socket_Horizontal",
-              "SNES controller port, PCB mount, right angle, 7 pins",
-              (-21.0, -0.5, 21.0, 15.5), pads, edge=0.0, extra=extra)
+              "SNES controller port, PCB mount, right angle, 7 pins (3 + 4, from photos)",
+              (-21.0, -0.5, 21.0, 15.5), pads, edge=0.0)
 
 
 def toggle():
