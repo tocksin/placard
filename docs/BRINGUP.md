@@ -1,6 +1,6 @@
 # Bring-up: build order and a test for each chip
 
-Date: 2026-10-28
+Date: 2026-10-29
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
@@ -958,7 +958,7 @@ U40's output and at the SD socket's pin 4.
 | R23-R31 | Resistor, R-2R ladder | 2k |  |
 | R32-R38 | Resistor, R-2R ladder | 1k |  |
 | C45 | Capacitor, output filter | 15 nF C0G (TDK FG24C0G1H153JNT06) |  |
-| C46 | Capacitor, output coupling | 22 µF ceramic (TDK FG24X5R1A226MRT06) |  |
+| C46 | Capacitor, output coupling | 22 µF ceramic (TDK FG22X7R1E226MRT06) |  |
 | R39 | Resistor, output | 10k |  |
 | J6 | Audio line out jack, 3.5 mm TRRS | Tensility 54-00174 |  |
 
