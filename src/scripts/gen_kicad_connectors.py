@@ -334,7 +334,7 @@ def ps2_stacked():
 def snes():
     # PCB-mount SNES controller port (replacement part), right angle: 7 pins in a row.
     # Body 42 mm along the edge x 16 mm deep (Justin's reference part: 42 x 16 x 21 mm
-    # including pins; 21 is the height, 18 above the board + 3 of lead below)
+    # including pins; 21 is the height, 16 above the board + 5 of pin below)
     pads = [pad(str(n), (n - 4) * 2.54, 14.0, 1.6, 1.0) for n in range(1, 8)]
     extra = hole(-11.0, 7.0, 3.0) + hole(11.0, 7.0, 3.0)
     footprint("SNES_Pad_Socket_Horizontal",
