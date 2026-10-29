@@ -27,6 +27,10 @@ with the DO-35's 1.6 mm pads and a 1.0 mm drill (2026-10-28, the 1N5817
 Schottkys), so it drops onto the DO-35 places on the routed board with the
 same copper.
 
+SILK_FIX edits a copy's silkscreen where KiCad's own footprint breaks the
+board's silk-to-pad rule (PCBWay, 0.15 mm): LED_D5.0mm's body circle (r 2.5)
+passes 0.09 mm from pad 1's square corner, so it is drawn at r 2.6 (0.19 mm).
+
 Run gen_kicad_kit_footprints.py first (its footprints name the socket models).
 
 Date: 2026-10-29
@@ -70,6 +74,13 @@ KIT_MODELS["R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value"] = \
     ("Resistor_THT", "R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal")
 
 
+# footprint -> [(KiCad's text, replacement)] on the silkscreen (see the docstring)
+SILK_FIX = {
+    "LED_D5.0mm": [("(end 3.77 0)\n\t\t(stroke\n\t\t\t(width 0.12)",
+                    "(end 3.87 0)\n\t\t(stroke\n\t\t\t(width 0.12)")],
+}
+
+
 def fetch(local_dir, sub, name, url):
     if local_dir:
         with open(os.path.join(local_dir, sub, name), "rb") as fh:
@@ -107,6 +118,9 @@ def main():
             model(m.group(1), m.group(2), name)
             s = s.replace(m.group(0), '(model "%s/%s.step"' % (MODELS, name))
         assert "KICAD9_3DMODEL_DIR" not in s, name
+        for old, new in SILK_FIX.get(name, []):
+            assert s.count(old) == 1, name
+            s = s.replace(old, new)
         with open(os.path.join(OUT, name + ".kicad_mod"), "w", newline="\n") as fh:
             fh.write(s)
         print("wrote", name)
