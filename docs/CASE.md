@@ -287,6 +287,65 @@ BOM.
 
 ![Left side](case_side.png)
 
+## 3D-printed version
+
+The same case can be printed on a 220 x 220 mm bed (Creality Ender 3).
+`src/scripts/gen_case_print.py` takes the aluminium parts above, unchanged
+in shape, so every cut-out, magnet spot and screw hole lands in the same
+place. It then cuts the parts into pieces that fit the bed and writes STL
+files to `case/print/`. The aluminium version stays as it is.
+
+![Printed pieces: seams and bowtie keys](case_print_pieces.png)
+
+| Part | Pieces (STL) | Largest piece |
+|---|---|---|
+| Tray (floor, front and right walls) | `tray_front_left`, `tray_front_right`, `tray_back_left`, `tray_back_right` | 163 x 120 x 36.6 mm |
+| Back plate | `back_plate_left`, `back_plate_right` (seam at x 140, clear of the card screws) | 153 x 36.6 x 8 mm |
+| Left plate | `left_plate_front`, `left_plate_back` | 118 x 36.6 x 8 mm |
+| Top | `top_front_left`, `top_front_right`, `top_back_left`, `top_back_right` | 160 x 120 x 4 mm |
+| Slot cover (print 4) | `slot_cover`: plug and cap in one piece, so no solvent welding | 89 x 26.3 x 7 mm |
+| Cartridge cover | `cart_cover` | 62 x 37.2 x 7 mm |
+| Bowtie keys | `key_2mm` (print 18) for the tray and plates, `key_4mm` (print 9) for the top | 15.7 x 9.7 mm |
+
+- **Seams and keys.** Each seam is keyed with bowtie (butterfly) keys that
+  go right through the part, 0.15 mm smaller all round than their pockets.
+  Glue the pieces of each part together on a flat surface, with the keys
+  pressed into their pockets. Use CA glue for PLA and PETG. The keys lock
+  the pieces flat and in line, so each part goes together as one piece, as
+  in aluminium.
+  - The tray's seams are at x 132 and y 120, clear of the vents, the
+    standoffs and the parking discs.
+  - The top's seams are at x 160 and y 100, between the expansion bay and
+    the cartridge cover's lap, so no cover sits across a seam.
+- **Hardware changes.**
+  - The tray has printed bosses under H1-H8 instead of PEM standoffs. Each
+    takes an M3 heat-set insert (M3 x 5.7, 4.0 mm hole), set with a
+    soldering iron.
+  - The plates' flange holes are opened to 3.4 mm, and each of the six
+    countersunk screws from below takes an M3 nut on top of the flange
+    instead of a PEM nut.
+  - The steel discs, magnets, feet, 27 mm standoffs and all the screws are
+    as listed above. The magnet gluing jig works on the printed top too.
+- **Printing.**
+  - Print the tray pieces floor down, and the plates on their outside face
+    with the flange up. No supports are needed.
+  - Print the walls and floor solid (100 % infill, or 5 perimeters), since
+    they are only 2 mm thick.
+  - Use PETG for the tray and plates. PLA works, but it softens from about
+    55 C, and the inside of a closed case gets warm.
+- **A clear top.** No filament prints as clear as acrylic.
+  - Clear (natural) PETG comes closest. With 100 % infill, all lines laid in
+    one direction, a hot, slow print (about 245-250 C, 20-30 mm/s, little
+    fan) and a glass bed, it comes out like frosted glass. You can see the
+    board through it, but not crisply.
+  - The four pieces' seams and the keys will show.
+  - For a really clear top, use a 4 mm cast acrylic sheet, even on a printed
+    case: laser cut from `case/dxf/acrylic_top_4mm.dxf` (about $30 for one,
+    "Cost estimate"). A shop-cut 295 x 220 mm blank, drilled and cut out by
+    hand, works too.
+  - Printed covers in clear PETG look fine, because they are small and
+    solid.
+
 ## Cost estimate
 
 These are rough per-unit prices in US dollars, before shipping, tax and
@@ -328,6 +387,7 @@ pip install cadquery
 python3 src/scripts/gen_case.py                       # STEP + DXF in case/, drawings in docs/
 python3 src/scripts/gen_case.py --pcb other.kicad_pcb # from another copy of the board
 python3 src/scripts/gen_case.py --mesh src/scripts/case_render/mesh   # also STL meshes for the renders
+python3 src/scripts/gen_case_print.py                 # 3D-printed pieces in case/print/, docs/case_print_pieces.png
 ```
 
 The renders use three.js in headless Chromium (`src/scripts/case_render/`).
