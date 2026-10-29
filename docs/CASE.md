@@ -1,6 +1,6 @@
 # Case
 
-Date: 2026-10-28
+Date: 2026-10-29
 
 This is a concept for the PLACARD case. The case is black powder-coated
 aluminium, strong on the bottom and sides, with a clear acrylic top so the
@@ -58,7 +58,7 @@ lying on the walls, clears it by 2 mm. The feet are as tall as a parked cover (7
 
 | Part | Qty | Material and finish | Made by |
 |---|--:|---|---|
-| Tray | 1 | 2.0 mm 5052-H32 aluminium, two bends: the floor with the front wall and the right wall (SNES cut-outs) up to the acrylic, with vent slots, 10 holes for the steel parking discs and 6 countersunk holes for the plate screws. Black powder coat | Sheet metal service: laser cut, bend, PEM insert, powder coat |
+| Tray | 1 | 2.0 mm 5052-H32 aluminium, two bends: the floor with the front wall (SNES cut-outs) and the right wall up to the acrylic, with vent slots, 10 holes for the steel parking discs and 6 countersunk holes for the plate screws. Black powder coat | Sheet metal service: laser cut, bend, PEM insert, powder coat |
 | Back plate | 1 | 2.0 mm 5052-H32, flat with a 6 mm flange bent in along the bottom: USB-C, audio, VGA and PS/2 cut-outs, an M3 screw hole behind each expansion slot (J9-J12), 3 PEM nuts (M3) in the flange, the flange notched round J7's pins | Same |
 | Left plate | 1 | Same: power switch, reset and SD cut-outs, 3 PEM nuts | Same |
 | Acrylic top | 1 | 4 mm clear cast acrylic, 295 x 220 mm, laser cut, with 10 magnet holes | Laser cutting service |
@@ -90,7 +90,7 @@ program unfolds from the STEP.
 1. The sheet metal service powder coats the tray and plates, masking the PEM
    threads, and presses in the floor standoffs and, if asked, the steel discs.
 2. Lower the board straight down into the tray. The SNES ports only touch
-   the right wall's inside face, so nothing has to be threaded through a
+   the front wall's inside face, so nothing has to be threaded through a
    hole.
 3. Screw the 27 mm standoffs through H1-H8 into the floor standoffs. This
    clamps the board.
@@ -123,7 +123,7 @@ board's edge (from the 3D models):
 | left | SW1 power toggle | 6.5 mm | yes |
 | left | SW2 reset | 3.1 mm | yes |
 | left | J4 SD | 0 mm | no, flush |
-| right | J2, J3 SNES | 0.5 mm | no, touches the inside face |
+| front | J2, J3 SNES | 0.5 mm | no, touches the inside face |
 
 The board is 0.5 mm from each wall's inside face. Nothing reaches into the
 front or right walls, so those are bent up from the floor and the board
@@ -167,8 +167,8 @@ above the board's top face):
 | SW1 | left | 199.5 | 5.2 | 7 mm hole | Power toggle bushing; the lever stands out of the wall |
 | SW2 | left | 179.7 | 3.5 | 4.5 mm hole | Reset.  The actuator stands 0.6 mm proud of the wall (a press has to be held 0.5 s, so a knock is harmless) |
 | J4 | left | 152.0 | 1.4 | 27 x 3.6 slot + 14 x 7 thumb notch | SD card, push-push (Hirose DM1AA-SF-PEJ(82)) |
-| J2 | right | 195.5 | 6.5 | 27 x 14 rounded | SNES port 1 |
-| J3 | right | 167.5 | 6.5 | 27 x 14 rounded | SNES port 2 |
+| J2 | front | 33.5 | 9.0 | 27 x 14 rounded | SNES port 1, on the front left of centre since 2026-10-29 (was in the right wall) |
+| J3 | front | 77.5 | 9.0 | 27 x 14 rounded | SNES port 2 |
 
 The connector models are drawn from typical dimensions (see
 `gen_kicad_3d_models.py`). Check the cut-outs against the real parts, or the
