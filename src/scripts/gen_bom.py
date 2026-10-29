@@ -23,7 +23,7 @@ shells, screws) are added here.
     python3 src/scripts/gen_kicad_schematic.py    # after a part change
     python3 src/scripts/gen_bom.py
 
-Date: 2026-10-28
+Date: 2026-10-29
 """
 import csv
 import glob
@@ -34,7 +34,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-10-27"
+DATE = "2026-10-29"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 
@@ -133,7 +133,7 @@ PRICES = {
     "Expansion slot": (4.50, "est.", "Sullins EBC20DCAN"),
     "Resistor network": (0.39, "Mouser", "Bourns 4609X-101-103LF"),
     "Ceramic capacitor, 5 mm pitch|1u": (0.57, "Mouser", "KEMET C330C105K5R5TA"),
-    "Ceramic capacitor, 5 mm pitch|22u": (1.00, "est.", "TDK FG24X5R1A226MRT06 (Digi-Key; Mouser does not list it)"),
+    "Ceramic capacitor, 5 mm pitch|22u": (1.73, "Mouser", "TDK FG22X7R1E226MRT06, 25 V X7R (FG24X5R1A226MRT06 does not exist, FG24X5R1E226MRT06 is obsolete)"),
     "Ceramic capacitor, 5 mm pitch|15n C0G": (0.58, "Mouser", "TDK FG24C0G1H153JNT06 (KEMET C320C153K1G5TA non-stocked)"),
     "Electrolytic capacitor": (0.35, "est.", "Rubycon YXJ series (Digi-Key; Panasonic EEU-FR1C221 out of stock)"),
     "Pin header": (0.15, "est.", "Sullins PREC002SAAN-RC"),
