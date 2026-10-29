@@ -23,7 +23,7 @@ by construction.
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | generated: bracket, body, 1/4-40 bushing and lever |
 | SD_Hirose_DM1AA_SF_PEJ82 | SD socket J4 | generated: 28.4 x 30.9 mm from KiCad's footprint outline, 2.8 mm high, card opening at the +y end |
 | Fuse_Bourns_MF-RG300 | polyfuse F1 | generated: 7.1 x 3.0 mm disc, 11 mm high, seated 3 mm up |
-| SNES_Pad_Socket_Horizontal | SNES ports J2, J3 | generated: 42 x 16 x 21 mm incl. pins (18 above the board), pad-shaped opening |
+| SNES_Pad_Socket_Horizontal | SNES ports J2, J3 | generated from photos: 42 x 16 x 21 mm incl. pins (16 above the board), flange, pin blocks, bent pins |
 | SW_Tactile_SPST_Angled_PTS645Vx58-2LFS | reset button SW2 | KiCad's own model, copied |
 | DSUB-15-HD_Female_Horizontal_..._MountingHolesOffset4.94mm | VGA J7 | KiCad's own model, copied |
 | USB_C_Receptacle_GCT_USB4125_6P_HandSolder | USB-C J13 | KiCad's USB4125 model, copied |
@@ -194,18 +194,51 @@ def audio_jack():
     save(name, [("body", BLACK, [body] + pegs(name, 1.2)), ("pins", TIN, pins(name, 2.0))])
 
 
+def stadium(x0, x1, z0, z1, y0, y1, rc):
+    """A prism from footprint y0 to y1 whose face (x0..x1, z0..z1) is the SNES plug
+    outline: a round end at +x, a flat end with rc corners at -x."""
+    r = (z1 - z0) / 2
+    zc = (z0 + z1) / 2
+    flat = (cq.Workplane("XZ").center((x0 + x1 - r) / 2, zc).rect(x1 - r - x0, z1 - z0)
+            .extrude(y1 - y0).edges("|Y and <X").fillet(rc))
+    return flat.union(cyl_y(x1 - r, zc, 2 * r, 0, y1 - y0)).translate((0, -y0, 0))
+
+
 def snes():
-    # SNES controller port, PCB mount, right angle: the opening is the pad plug's
-    # outline (flat end and round end), pins in a row at the back.  Envelope
-    # 42 x 16 x 21 mm including pins (Justin's reference part): 42 along the edge,
-    # 16 deep, 18 high above the board + PIN_DOWN (3) of lead below
+    # SNES controller port, PCB mount, right angle, as Justin's photos of the
+    # replacement part: grey body with a flange round the plug opening (round end
+    # at +x, flat end at -x), two pin blocks in the opening (3 holes at the round
+    # end, 4 at the flat end), a ribbed top, and 7 pins that leave the back wall,
+    # run back over a slotted ledge and bend down into the board.  Envelope
+    # 42 x 16 x 21 mm including pins: 42 along the edge, 16 deep, 16 high above
+    # the board + 5 mm of pin below
     name = "SNES_Pad_Socket_Horizontal"
-    z = 9.0
-    body = box(-21.0, -0.5, 21.0, 15.5, 0, 21.0 - PIN_DOWN)
-    hole = (cq.Workplane("XZ").center(-3.0, z).rect(19.0, 11.0).extrude(-12.0)
-            .union(cq.Workplane("XZ").center(6.5, z).circle(5.5).extrude(-12.0)))
-    body = body.cut(hole.translate((0, 0.6, 0)))
-    save(name, [("body", GREY, [body] + pegs(name, 1.6)), ("pins", TIN, pins(name, 3.0))])
+    flange = stadium(-21.0, 21.0, 0, 16.0, -0.5, 2.0, 3.0)
+    body = stadium(-20.0, 20.0, 0.6, 15.2, 2.0, 12.0, 2.5)
+    ledge = box(-10.5, 12.0, 10.5, 15.5, 0.6, 5.5)
+    for num, x, y, w, h, plated in pads(name):
+        if plated is True:
+            ledge = ledge.cut(box(x - 0.6, 12.5, x + 0.6, 15.6, 0.5, 5.6))
+    ribs = [box(x - 0.6, 2.5, x + 0.6, 11.5, 15.2, 15.6) for x in (-13.0, 13.0)]
+    shell = flange.union(body)
+    shell = shell.cut(stadium(-18.5, 18.5, 3.0, 13.0, -0.6, 9.0, 1.5))
+    blocks = []
+    for x0, x1, holes in ((-15.5, 0.5, 4), (2.0, 13.0, 3)):
+        blk = box(x0, 1.5, x1, 9.0, 5.5, 10.5)
+        pitch = (x1 - x0) / holes
+        for i in range(holes):
+            blk = blk.cut(cyl_y(x0 + pitch * (i + 0.5), 8.0, 2.4, 1.4, 7.5))
+        blocks.append(blk)
+    shell = shell.union(ledge)
+    for p in ribs + blocks:
+        shell = shell.union(p)
+    zp = 3.5
+    leads = []
+    for num, x, y, w, h, plated in pads(name):
+        if plated is True:
+            leads.append(cyl_y(x, zp, 0.64, 11.0, y).union(cyl_z(x, y, 0.64, -5.0, zp))
+                         .union(cq.Workplane("XY").sphere(0.32).translate((x, -y, zp))))
+    save(name, [("body", (0.52, 0.52, 0.54), [shell] + pegs(name, 1.6)), ("pins", TIN, leads)])
 
 
 def toggle():
