@@ -80,7 +80,8 @@ All three metal parts are powder coated the same stock black, the cheapest
 finish (Justin, 2026-10-27). There is no printing or engraving on the case.
 
 STEP models of every part are in `case/`. DXF cutting files for the flat
-parts (the acrylic top and both layers of each cover) are in `case/dxf/`.
+parts (the acrylic top, both layers of each cover, and the magnet gluing
+jig) are in `case/dxf/`.
 Sheet metal services (Protocase, JLCCNC, PCBWay, Xometry) quote bent parts
 from STEP. SendCutSend wants a flat pattern, which their own tool or any CAD
 program unfolds from the STEP.
@@ -198,7 +199,8 @@ makers' STEP files, before ordering metal.
     the left and right laps for the cartridge cover.
   - The cap magnets go right through the 3 mm cap, flush with both faces, so
     they work on the top and underneath.
-  - Mind the polarity: mark one face of every magnet before gluing.
+  - Every magnet is glued north up, as the parts sit on the case, so any
+    cover attracts at any slot ("Gluing the magnets" below).
   - A pair at contact holds about 1 kg. A 20 g cover stays put with the case
     on its side or upside down, and still lifts out with a fingernail.
   - The magnets show through the clear acrylic as small grey dots.
@@ -218,6 +220,48 @@ makers' STEP files, before ordering metal.
   - If the steel discs are hard to source, 6 x 2 mm magnets glued in with
     the right face down work too, at the cost of polarity care.
   - Nothing parks inside the case, so a dropped cover never means opening it.
+
+## Gluing the magnets
+
+The rule is one pole up everywhere: all 20 magnets have north up as the
+parts sit on the assembled case. Then each cap magnet's south face meets a
+top magnet's north face. The steel discs in the floor have no polarity, so
+parking works either way. A jig orients the magnets as they go in, so none
+can end up the wrong way round. It's tooling, made once, and it isn't in the
+BOM.
+
+- **The jig.** Two 3 mm sheets (any acrylic or MDF), cut from
+  `case/dxf/magnet_jig_base_3mm.dxf` and `case/dxf/magnet_jig_spacer_3mm.dxf`.
+  The base has a hole at each of the top's 10 magnet spots, and both sheets
+  have the top's 8 screw holes. The holes are mirrored left to right,
+  because the top lies on the jig face down.
+- **Guide magnets.** Glue a 6 x 3 mm magnet into each hole in the base, all
+  with **south up**. Find south with a compass: the end of the needle that
+  points north is drawn to a south pole. Or take the magnets from one
+  stack, mark the stack's top face, and glue every one with the mark up.
+  Then check that all ten pull the same way on a loose test magnet, and
+  write "S UP" on the base.
+- **The top.**
+  1. Lay the spacer on the base and push four M3 screws up through both as
+     pins.
+  2. Turn the acrylic top over, left to right with its front edge still at
+     the front, and lay it face down on the pins.
+  3. Put a dab of slow-setting epoxy in each magnet hole and drop in a
+     magnet. Its guide pulls it down, flush with the top's face, and a
+     magnet that goes in the wrong way flips over by itself.
+  4. Leave it to set. The 3 mm spacer keeps the pull low enough to lift the
+     top off afterwards. Don't use CA glue here, because it grabs before a
+     magnet can turn.
+- **The covers.** The finished top is their jig.
+  1. Turn the top face up and put thin tape (Kapton or masking) over its
+     ten magnets.
+  2. Set each cover in its place.
+  3. Drop epoxy and a magnet into each cap hole. The top's magnet below
+     pulls it in the right way round, and the cover's plug holds it in
+     line.
+  4. After it sets, lift the covers off and peel off the tape.
+- **Check.** Every cover should snap down onto every slot and not push
+  away. A slot cover should also sit at any of the four slots.
 
 ## Other details
 
