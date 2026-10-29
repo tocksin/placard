@@ -1,6 +1,6 @@
-# Bill of materials: 32K cartridge assembly
+# Bill of materials: 32K cartridge assembly PLC-2002
 
-Date: 2026-10-27
+Date: 2026-10-29
 
 The 32K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and screw.  A machine takes one cartridge, 64K or 32K.
 
@@ -8,7 +8,7 @@ The 32K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
-| 1 |  |  |  | PCB, 32K cartridge, 39 x 66.0 mm, 2-layer, ENIG, hard-gold bevelled fingers |  | 3.50 | 3.50 | est.: JLCPCB/PCBWay typical (smaller than the 64K board) | Not on the schematic. |
+| 1 |  | PLC-1002 rev A | (custom PCB) | PCB, 32K cartridge, 39 x 66.0 mm, 2-layer, ENIG, hard-gold bevelled fingers |  | 3.50 | 3.50 | est.: JLCPCB/PCBWay typical (smaller than the 64K board) | Not on the schematic. |
 | 1 | U1 | ATF22V10C-7PX | Microchip | PLD, 22V10, 7.5 ns, PDIP-24 0.3" (programmed) |  | 2.99 | 2.99 | Mouser | Cartridge loader U1 |
 | 1 | U2 | AT28C256-15PU | Microchip | EEPROM, 32K x 8, 150 ns, PDIP-28 0.6" (programmed) |  | 12.38 | 12.38 | Mouser |  |
 | 1 | U3 | AS7C256C-15PCN | Alliance Memory | SRAM, 32K x 8, 15 ns, PDIP-28 0.3" |  | 15.21 | 15.21 | Mouser |  |
