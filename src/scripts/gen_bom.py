@@ -77,6 +77,7 @@ DESC_LIB = {
     "placard_std:D": "Small-signal diode, DO-35 (glass)",
     "placard_std:LED": "Power LED, 5 mm, red diffused, through hole (on +5V after K1)",
     "placard_std:R_Network08_US": "Resistor network, 8 bussed, SIP-9",
+    "placard_std:TestPoint": "Test point, multipurpose loop, through hole (bring-up test lead clip point)",
 }
 # values that name the part, not a value worth its own column
 NO_VALUE = {"placard_parts:Expansion_Slot",
@@ -120,6 +121,8 @@ PRICES = {
     "J1071CS5VDC.36": (1.15, "Digi-Key", "Justin, 2026-10-25; Mouser does not sell CIT"),
     "PTS645VL58-2 LFS": (0.43, "est.", "Digi-Key; Mouser has no stock until 12/23/2026"),
     "WP7113ID": (0.21, "Mouser", ""),
+    "5011": (0.45, "est.", "Digi-Key (Keystone 5011, black)"),
+    "5010": (0.45, "est.", "Digi-Key (Keystone 5010, red)"),
     "SA5.0A": (0.64, "Mouser", ""),
     "1N5817-TP": None,                              # by quantity, below
     "1N4148-TAP": None,                             # by quantity, below
