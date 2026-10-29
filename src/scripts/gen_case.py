@@ -21,9 +21,9 @@ Parts (STEP in case/, DXF cutting files for the flat parts in case/dxf/):
 
 | File | Part | Material |
 |---|---|---|
-| tray | floor, front wall (SNES cut-outs), right wall, steel parking discs | 2.0 mm 5052 aluminium, bent, black powder coat |
+| tray | floor, front wall (SNES cut-outs), right wall (side vents), steel parking discs | 2.0 mm 5052 aluminium, bent, black powder coat |
 | back_plate | back wall: USB-C, audio, VGA, PS/2 cut-outs, expansion card screws; bottom flange | 2.0 mm 5052, one bend, powder coat |
-| left_plate | left wall: power, reset, SD cut-outs; bottom flange | 2.0 mm 5052, one bend, powder coat |
+| left_plate | left wall: power, reset, SD cut-outs, side vents; bottom flange | 2.0 mm 5052, one bend, powder coat |
 | acrylic_top | over the board, slot and cartridge openings, magnets | 4 mm clear cast acrylic, laser cut |
 | slot_cover | one per expansion slot (4 alike), plug + cap with two magnets | 4 mm + 3 mm acrylic, solvent welded |
 | cart_cover | cartridge slot cover, plug + cap with two magnets | 4 mm + 3 mm acrylic |
@@ -95,6 +95,8 @@ SLOTS = ["J9", "J10", "J11", "J12"]
 CART = "J8"
 LIP = 8.0              # cover cap overlap on the acrylic (room for the magnets)
 MAG_D, MAG_T = 6.0, 3.0     # N52 disc magnets, in 6.1 mm holes; the caps' go through, flush both faces
+SIDE_VENT = (5.0, 18.0, 13.0, 10.0)   # side wall vent slots: width, height, centre z, pitch (above the board's chips)
+SIDE_VENT_CLEAR = 6.0  # side vent slot edge to a connector cut-out or a wall end
 CARD_SCREW_Z = 15.0    # M3 screw through the back plate into each expansion card's shell (a heat-set insert in its end)
 
 
@@ -302,6 +304,25 @@ def vents(parts):
     return [(W / 2, 30.0 + i * 12.0, 150.0) for i in range(n)]
 
 
+def side_vents(cuts, side):
+    """Vertical vent slots in the left or right wall (u = y centre along the wall),
+    so air can cross the board side to side: a row at SIDE_VENT pitch along the
+    wall, skipping the corners and the connector cut-outs."""
+    w, h, z, pitch = SIDE_VENT
+    ends = (T + 3.0 + SIDE_VENT_CLEAR + w / 2, D - T - 3.0 - SIDE_VENT_CLEAR - w / 2)
+    keep = [(u - cut_width(prof) / 2 - SIDE_VENT_CLEAR - w / 2, u + cut_width(prof) / 2 + SIDE_VENT_CLEAR + w / 2)
+            for ref, sd, u, cz, prof, note in cuts if sd == side]
+    n = int((ends[1] - ends[0]) // pitch)
+    u0 = (ends[0] + ends[1] - n * pitch) / 2
+    return [u for u in (u0 + i * pitch for i in range(n + 1))
+            if not any(a < u < b for a, b in keep)]
+
+
+def vent_cutter(side, u):
+    w, h, z, pitch = SIDE_VENT
+    return cutter(side, u, z, ("rrect", w, h, w / 2 - 0.01))
+
+
 def tray(parts, cuts):
     """Floor with the front and right walls bent up to Z_TOP.  The floor stops at
     the plates' inside faces (x = T, y = D - T); the plates' flanges lie on it."""
@@ -312,6 +333,8 @@ def tray(parts, cuts):
     for ref, side, u, z, prof, note in cuts:
         if side in ("front", "right"):
             s = s.cut(cutter(side, u, z, prof))
+    for u in side_vents(cuts, "right"):
+        s = s.cut(vent_cutter("right", u))
     # floor: standoff holes, vent slots, holes for the steel parking discs and
     # the plate screws
     for ref in board_holes(parts):
@@ -376,6 +399,9 @@ def plate(parts, cuts, side):
     for ref, sd, u, z, prof, note in cuts:
         if sd == side:
             s = s.cut(cutter(sd, u, z, prof))
+    if side == "left":
+        for u in side_vents(cuts, "left"):
+            s = s.cut(vent_cutter("left", u))
     for x0, x1, y0, y1 in flange_notches(parts):
         s = s.cut(rounded_plate(x0, x1, y0, y1, z0 + T - 0.01, T + 0.02))
     for x, y in plate_screws():
@@ -652,13 +678,14 @@ def draw_walls(info, path):
     Wd, Dd = info["W"], info["D"]
     zf, zt, desk = info["Z_FLOOR"], info["Z_TOP"], info["Z_DESK"]
     za = zt + ACRYLIC
-    fig, axs = plt.subplots(4, 1, figsize=(13, 16), gridspec_kw=dict(height_ratios=[1, 1, 1, 1.25]))
+    fig, axs = plt.subplots(5, 1, figsize=(13, 20), gridspec_kw=dict(height_ratios=[1, 1, 1, 1, 1.25]))
     views = (("back", "Back plate, seen from behind (flat, one bend: the bottom flange)", True, Wd, (T, Wd - T)),
              ("left", "Left plate, seen from the left, front at the right (flat, one bend)", True, Dd, (T, Dd)),
-             ("front", "Front wall of the tray, seen from the front", False, Wd, (0, Wd)))
+             ("front", "Front wall of the tray, seen from the front", False, Wd, (0, Wd)),
+             ("right", "Right wall of the tray, seen from the right, front at the left", False, Dd, (0, Dd)))
     for ax, (side, title, flip, L, (p0, p1)) in zip(axs, views):
         s = -1 if flip else 1
-        tray = side == "front"
+        tray = side in ("front", "right")
         ax.add_patch(Rectangle((min(0, s * L), zf), L, zt - zf, fc=ALU_C, ec="#444", lw=1))
         ax.add_patch(Rectangle((min(s * p0, s * p1), zf), p1 - p0, zt - zf, fc=ALU_C if tray else PLATE_C,
                                ec="#222", lw=1))
@@ -676,6 +703,11 @@ def draw_walls(info, path):
                 ax.add_patch(patch)
             ax.text(s * cu["u"], za + 4, cu["ref"], ha="center", va="bottom", fontsize=9)
             ax.text(s * cu["u"], desk - 2, "z %.1f" % cu["z"], ha="center", va="top", fontsize=7, color="#c33")
+        vw, vh, vz, _ = SIDE_VENT
+        for u in info["side_vents"].get(side, []):
+            ax.add_patch(FancyBboxPatch((s * u - vw / 2, vz - vh / 2), vw, vh,
+                                        boxstyle="round,pad=0,rounding_size=%g" % (vw / 2), fc="white", ec="#222",
+                                        lw=0.7))
         if side == "back":
             for i, (u, z) in enumerate(info["card_screws"]):
                 ax.add_patch(Circle((s * u, z), 1.7, fc="white", ec="#222", lw=0.9))
@@ -693,7 +725,7 @@ def draw_walls(info, path):
             ax.spines[sp].set_visible(False)
         ax.set_title(title, fontsize=10, loc="left")
     # section front to back through the expansion slot covers
-    ax = axs[3]
+    ax = axs[4]
     ax.plot([-10, Dd + 10], [desk, desk], color="#8a6d1f", lw=1.2)
     ax.text(Dd + 8, desk - 1, "desk", ha="right", va="top", fontsize=8, color="#8a6d1f")
     ax.add_patch(Rectangle((0, zf), Dd - T, T, fc=ALU_C, ec="#444"))
@@ -788,6 +820,7 @@ def build(pcb, out, mesh=None, drawings=None):
                 Z_TOP=Z_TOP, PLATE_FLANGE=PLATE_FLANGE, plate_screws=plate_screws(), card_screws=card_screws(parts), ACRYLIC=ACRYLIC, CAP=CAP, FEET=FEET, FOOT_D=FOOT_D,
                 bay=bay, cart=cart, slot_x=slot_x, magnets=slot_magnets(parts),
                 parked=parked_boxes(parts), feet=feet(), vents=vents(parts),
+                side_vents={sd: side_vents(cuts, sd) for sd in ("left", "right")},
                 slot_cover=slot_cover_size(parts), cart_cover=cart_cover_size(parts),
                 cuts=[dict(ref=r, side=sd, u=u, z=z, prof=list(p), note=n)
                       for r, sd, u, z, p, n in cuts],
@@ -837,6 +870,8 @@ if __name__ == "__main__":
     ap.add_argument("--mesh", help="also write STL meshes + board.json here (for renders)")
     a = ap.parse_args()
     info = build(a.pcb, a.out, a.mesh, a.drawings)
+    for sd, us in info["side_vents"].items():
+        print("%-5s wall: %d vent slots" % (sd, len(us)))
     for c in info["cuts"]:
         print("%-4s %-5s u %6.1f  centre z %5.2f  %s" % (c["ref"], c["side"], c["u"], c["z"], c["note"]))
     print("case %.1f x %.1f mm, %.1f mm tall desk to top (%.1f mm without the %.0f mm feet)" %
