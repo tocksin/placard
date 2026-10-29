@@ -45,7 +45,7 @@ Qty,References,Part number,Manufacturer,Description,Value,Unit price USD,Line to
 2,C40 C47,C330C105K5R5TA,KEMET,"Ceramic capacitor, 5 mm pitch",1u,0.57,1.14,Mouser: KEMET C330C105K5R5TA,,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
 2,C41 C44,25YXJ220M6.3X11,Rubycon,"Electrolytic capacitor, radial 6.3 mm, 2.50 mm pitch",220u,0.35,0.70,est.: Rubycon YXJ series (Digi-Key; Panasonic EEU-FR1C221 out of stock),,placard:CP_Radial_D6.3mm_P2.50mm,yes
 1,C45,FG24C0G1H153JNT06,TDK,"Ceramic capacitor, 5 mm pitch",15n C0G,0.58,0.58,Mouser: TDK FG24C0G1H153JNT06 (KEMET C320C153K1G5TA non-stocked),,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
-1,C46,FG24X5R1A226MRT06,TDK,"Ceramic capacitor, 5 mm pitch",22u,1.00,1.00,est.: TDK FG24X5R1A226MRT06 (Digi-Key; Mouser does not list it),,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
+1,C46,FG22X7R1E226MRT06,TDK,"Ceramic capacitor, 5 mm pitch",22u,1.73,1.73,"Mouser: TDK FG22X7R1E226MRT06, 25 V X7R (FG24X5R1A226MRT06 does not exist, FG24X5R1E226MRT06 is obsolete)",,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
 2,JP1 JP2,PREC002SAAN-RC,Sullins,"Pin header, 1 x 2, 2.54 mm (bring-up jumper)",,0.15,0.30,est.: Sullins PREC002SAAN-RC,,placard:PinHeader_1x02_P2.54mm_Vertical,yes
 11,U18 U19 U20 U21 U22 U23 U25 U26 U27 U29 U36,ED20DT,On Shore,"IC socket, DIP-20 0.3""",,0.30,3.30,est.: On Shore ED20DT,,,no
 20,U1 U2 U3 U4 U5 U6 U7 U8 U9 U10 U11 U12 U13 U14 U15 U16 U17 U35 U38 U42,ED241DT,On Shore,"IC socket, DIP-24 0.3""",,0.40,8.00,est.: On Shore ED241DT,,,no
