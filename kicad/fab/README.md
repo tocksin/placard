@@ -1,9 +1,10 @@
 # Fabrication files
 
-Generated 2026-10-27 with kicad-cli 9.0.6 from copies of the board files
-(the boards themselves were not changed). Zone fills are the ones saved in
-each .kicad_pcb; kicad-cli 9.0.6 has no refill option, so refill (B) and save
-in pcbnew before regenerating if a board was edited after its last fill.
+Generated 2026-10-29 with kicad-cli 9.0.8 from copies of the board files
+(the boards themselves were not changed), main board as of PR #178 (rev A).
+Zone fills are the ones saved in each .kicad_pcb; kicad-cli 9 has no refill
+option, so refill (B) and save in pcbnew before regenerating if a board was
+edited after its last fill.
 
 | Folder | Board | Size (mm) | Layers |
 |---|---|---|---|
@@ -34,7 +35,10 @@ in the project files under `hardware/fab/`.
 - Cartridges: the edge fingers mate with a Molex 87715-9106 (PCIe style)
   slot, so order 1.6 mm (1.57) thickness with gold fingers (hard gold / ENIG)
   and a 45 degree finger bevel.
-- DRC (all three boards): 0 unconnected pads, 0 clearance or zone errors.
-  The only warnings are "footprint library 'placard' not in the
-  configuration", because kicad-cli was run without the project's
-  fp-lib-table; they do not affect the copper.
+- DRC (all three boards, run with each project's own rules and footprint
+  library; main board uses the PCBWay-margin rules): 0 errors, 0 warnings,
+  0 unconnected pads.
+- Saved fills checked against a fresh refill: main and 32K identical; the
+  64K cart's inner GND and VCC planes have a small stale void (about 1.4 mm
+  square, under U4 near 113.5, 138.8 mm) that a refill would close. It is
+  harmless (DRC is clean both ways); refill and regenerate to remove it.
