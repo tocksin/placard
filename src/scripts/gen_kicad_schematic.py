@@ -32,6 +32,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
 DATE = "2026-10-29"
+# Board part numbers (Justin 2026-10-29): PLC-1xxx bare PCB, PLC-2xxx assembly; revision letters from A
+MAIN_PART = "PCB PLC-1001, assembly PLC-2001"
+CART_PART = {32: "PCB PLC-1002, assembly PLC-2002", 64: "PCB PLC-1003, assembly PLC-2003"}
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 CDIRS = {64: os.path.join(KDIR, "cartridge_64k"), 32: os.path.join(KDIR, "cartridge_32k")}
@@ -243,7 +246,7 @@ class Board:
 
     def sheet(self, fname, title, page):
         su = K.det_uuid(self.project, "sheetbox", fname)
-        s = K.Sheet(self.project, fname, title, page, self.root_uuid, su, DATE)
+        s = K.Sheet(self.project, fname, title, page, self.root_uuid, su, DATE, part_no=MAIN_PART)
         s.names = PLD_NAMES
         self.sheets.append(s)
         return s
@@ -1161,7 +1164,7 @@ ROOT_BOXES = [  # (page, x, y, w, h)
 
 
 def root_sheet(b, sheets):
-    s = K.Sheet(b.project, "placard.kicad_sch", "Main board", 1, b.root_uuid, None, DATE)
+    s = K.Sheet(b.project, "placard.kicad_sch", "Main board", 1, b.root_uuid, None, DATE, part_no=MAIN_PART)
     s.uid = b.root_uuid
     heading(s, "Placard main board", "Hierarchy: each box is one sheet; the sheets connect through global labels")
     boxes = []
@@ -1235,7 +1238,8 @@ def build_cart(size):
     proj = "cartridge_%dk" % size
     # the 64K board keeps the old one-board cartridge's root uuid (its symbols keep theirs too)
     root_uuid = K.det_uuid("cartridge" if size == 64 else proj, "root")
-    s = K.Sheet(proj, proj + ".kicad_sch", "ROM cartridge, %dK" % size, 1, root_uuid, None, DATE)
+    s = K.Sheet(proj, proj + ".kicad_sch", "ROM cartridge, %dK" % size, 1, root_uuid, None, DATE,
+                part_no=CART_PART[size])
     s.uid = root_uuid
     s.comment2 = "Cartridge chips U1-U%d (docs/CHIPS.md, ROM cartridge); decoupling Cn goes with Un" % (5 if size == 64 else 3)
     s.names = {"U1": "Loader PLD"}

@@ -9,9 +9,9 @@ line; each cartridge assembly is complete with its shell and screw.  Accessories
 
 | Assembly | BOM | Contents | Cost | Without optional parts | Lines estimated |
 |---|---|---|--:|--:|--:|
-| Main board assembly | [BOM_MAIN_PCB.md](BOM_MAIN_PCB.md), [.csv](BOM_MAIN_PCB.csv) | Bare PCB, components, sockets | $204.50 | $186.50 | 27 |
-| 64K cartridge assembly | [BOM_CART_64K.md](BOM_CART_64K.md), [.csv](BOM_CART_64K.csv) | Bare PCB, components, sockets, shell, screw | $69.62 | $69.62 | 6 |
-| 32K cartridge assembly | [BOM_CART_32K.md](BOM_CART_32K.md), [.csv](BOM_CART_32K.csv) | Same, 32K board | $39.67 | $39.67 | 6 |
+| Main board assembly PLC-2001 | [BOM_MAIN_PCB.md](BOM_MAIN_PCB.md), [.csv](BOM_MAIN_PCB.csv) | Bare PCB, components, sockets | $204.50 | $186.50 | 27 |
+| 64K cartridge assembly PLC-2003 | [BOM_CART_64K.md](BOM_CART_64K.md), [.csv](BOM_CART_64K.csv) | Bare PCB, components, sockets, shell, screw | $69.62 | $69.62 | 6 |
+| 32K cartridge assembly PLC-2002 | [BOM_CART_32K.md](BOM_CART_32K.md), [.csv](BOM_CART_32K.csv) | Same, 32K board | $39.67 | $39.67 | 6 |
 | Case assembly | [BOM_CASE.md](BOM_CASE.md), [.csv](BOM_CASE.csv) | Main board assembly, tray and plates, acrylic, magnets, standoffs, screws, feet | $349.20 | $349.20 | 14 |
 
 A complete machine is the case assembly plus one cartridge: **$418.82** with the 64K cartridge (the case total already holds the main board without its optional slot
