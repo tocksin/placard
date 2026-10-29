@@ -52,15 +52,15 @@ The case is the board plus 0.5 mm all round and the 2 mm walls. Its height is
 set by the stacked PS/2 socket J5, which is 25 mm tall; the acrylic top,
 lying on the walls, clears it by 2 mm. The feet are as tall as a parked cover (7 mm) plus 3 mm.
 
-![Walls and a section front to back: a cover in place and the same cover parked under the floor](case_walls.png)
+![Walls (back, left, front, right, with the side vent slots) and a section front to back: a cover in place and the same cover parked under the floor](case_walls.png)
 
 ## Parts
 
 | Part | Qty | Material and finish | Made by |
 |---|--:|---|---|
-| Tray | 1 | 2.0 mm 5052-H32 aluminium, two bends: the floor with the front wall (SNES cut-outs) and the right wall up to the acrylic, with vent slots, 10 holes for the steel parking discs and 6 countersunk holes for the plate screws. Black powder coat | Sheet metal service: laser cut, bend, PEM insert, powder coat |
+| Tray | 1 | 2.0 mm 5052-H32 aluminium, two bends: the floor with the front wall (SNES cut-outs) and the right wall up to the acrylic, with vent slots in the floor and 20 in the right wall, 10 holes for the steel parking discs and 6 countersunk holes for the plate screws. Black powder coat | Sheet metal service: laser cut, bend, PEM insert, powder coat |
 | Back plate | 1 | 2.0 mm 5052-H32, flat with a 6 mm flange bent in along the bottom: USB-C, audio, VGA and PS/2 cut-outs, an M3 screw hole behind each expansion slot (J9-J12), 3 PEM nuts (M3) in the flange, the flange notched round J7's pins | Same |
-| Left plate | 1 | Same: power switch, reset and SD cut-outs, 3 PEM nuts | Same |
+| Left plate | 1 | Same: power switch, reset and SD cut-outs, 12 vent slots, 3 PEM nuts | Same |
 | Acrylic top | 1 | 4 mm clear cast acrylic, 295 x 220 mm, laser cut, with 10 magnet holes | Laser cutting service |
 | Slot cover | 4 | 4 mm acrylic plug + 3 mm acrylic cap, solvent welded (Weld-On 4) | Laser cutting service; the builder or kitter welds them |
 | Cartridge cover | 1 | Same, sized for J8 | Same |
@@ -269,9 +269,16 @@ BOM.
   back edge, so the expansion opening in the acrylic runs back to the back
   plate's inside face, and the slot covers' plugs rest on its top edge.
 - **Ventilation.** Seven slots run across the floor's front half, in front of
-  the parked covers. Warm air leaves round the covers and the connector
-  openings. The 10 mm feet leave a clear air gap under the floor. Check the
-  temperature with the top on during bring-up.
+  the parked covers. The side walls have a row of upright slots, 5 x 18 mm at
+  10 mm pitch, from 4 to 22 mm above the board (over the chips): 20 along the
+  right wall and 12 in the left plate's front half (the switches and the SD
+  slot take its back half; each slot stays 6 mm from a cut-out). Cool air
+  comes in through the floor, and warm air leaves through the side slots,
+  round the covers and through the connector openings; a draught or a desk
+  fan blows straight through side to side. The 10 mm feet leave a clear air
+  gap under the floor. The board draws about 14 W (20 PLDs at about 0.5 W
+  each), so no fan or heat sinks are needed. Check the temperature with the
+  top on during bring-up.
 - **Finish.**
   - Black powder coat, in a stock color, is the cheapest finish the sheet
     metal services offer (anodize and printing cost more). It is about
