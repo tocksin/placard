@@ -126,21 +126,23 @@ so its readings shift a little with the line and frame; read the average.
 | D8 | Schottky diode, across K1's coil | 1N5817 (black) | band (cathode) to KCOIL |
 | R59 | Resistor, power LED | 1k |  |
 | D18 | Power LED, red 5 mm, +5V (after K1) to GND | Kingbright WP7113ID | long lead (anode) to R59, flat side (cathode) to GND |
+| TP1, TP2 | Test point loop, GND | Keystone 5011 (black) | clip points for the ground test lead |
+| TP3 | Test point loop, +5V (after K1) | Keystone 5010 (red) |  |
 
 Fit only these power input parts on the bare board (power sheet, 2026-10-22).
 Leave U40, C40 and C47 (the 3.3 V regulator) for step 20, with the SD card.
 
 **Before power** (meter on ohms and diode test, no supply plugged in):
 
-- VBUS (F1's input) to GND and +5V (K1 pin 4) to GND: open, not a short.
+- VBUS (F1's input) to GND and +5V (TP3) to GND: open, not a short.
 - D7 on diode test from GND to VFUSE: about 0.6 V forward, open the other
   way.  Reversed, it shorts the supply and F1 trips.
 - D8 on diode test from GND to KCOIL: about 0.3 V forward.  Reversed, it
   shorts VON as soon as SW2 is pressed.
 - C41's + lead goes to VON (SW1's output side).
 
-**Checks.**  Plug in a 5 V USB-C supply (3 A).  The empty C40 pads (the +5V side) and any GND pad make handy test
-points.
+**Checks.**  Plug in a 5 V USB-C supply (3 A).  TP1 and TP2 are GND
+and TP3 is +5V: clip the black test lead to TP1 for the meter's ground.
 
 | Check | SW1 | SW2 | Expect |
 |---|---|---|---|
@@ -550,7 +552,7 @@ both frequencies alike.
 **Writes.**  Turn off the power switch, put the shunt on JP2 (RUN to
 +5 V) and turn the power on.  One end of R4 is RUN and now reads 5 V;
 the other end is GND.
-Clip the ground test lead to that GND end of R4 and touch its tip to
+Clip the ground test lead to TP1 (GND) and touch its tip to
 U15 pin 10 (RW, a store; the State PLD that drives it isn't in yet; the
 same net is U11 pin 14).  The pin keepers in U11 and U15 hold RW low
 after you lift the tip.  U15 now drives /WE low for the low half of

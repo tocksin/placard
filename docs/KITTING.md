@@ -1,6 +1,6 @@
 # Selling the Placard as a kit
 
-Date: 2026-10-28
+Date: 2026-10-29
 
 Who can buy the parts, program the chips, bag each kit and ship it, so
 that no one has to hand-pack every kit.  Researched 2026-10-20 from public
@@ -175,9 +175,12 @@ Every kit includes two test leads, short wires with a clip on one end and
 a probe tip on the other (Justin 2026-10-25), one for ground and one for
 power.  BRINGUP.md step 6 clips both on before power-up and uses them
 to set the color decoder's undriven inputs high or low through a 10k
-before the pixel buffer and line code register are in.  No part number
-chosen yet (a mini-grabber to test-probe lead, est. $1-3 each at volume); they
-are not on the schematic, so they are not in the BOM.
+before the pixel buffer and line code register are in.  The part is
+Twin Industries ICTC-MP (Digi-Key 438-1157-ND, Justin 2026-10-29): a pair,
+one red and one black, each a hook clip on one end and a tip plug on the
+other, so one pair per kit.  They are not on the schematic, so they are not
+in the BOM.  The board's test point loops TP1, TP2 (GND) and TP3 (+5V) give
+the clips somewhere to hold (BRINGUP.md).
 
 ## Add-ons
 
