@@ -128841,6 +128841,72 @@
 		(uuid "f6847019-1f06-4949-8323-0dcc3434db7d")
 	)
 	(zone
+		(net 0)
+		(net_name "")
+		(layer "In1.Cu")
+		(uuid "a2637427-2581-4ea7-a030-13a4122881d9")
+		(name "GND neck keepout C2")
+		(hatch edge 0.5)
+		(connect_pads
+			(clearance 0)
+		)
+		(min_thickness 0.25)
+		(filled_areas_thickness no)
+		(keepout
+			(tracks allowed)
+			(vias allowed)
+			(pads allowed)
+			(copperpour not_allowed)
+			(footprints allowed)
+		)
+		(placement
+			(enabled no)
+			(sheetname "")
+		)
+		(fill
+			(thermal_gap 0.5)
+			(thermal_bridge_width 0.5)
+		)
+		(polygon
+			(pts
+				(xy 238.55 244.0) (xy 238.95 244.0) (xy 238.95 244.6) (xy 238.55 244.6)
+			)
+		)
+	)
+	(zone
+		(net 0)
+		(net_name "")
+		(layer "In1.Cu")
+		(uuid "26d6ee66-ed12-44c1-ada8-2c713de9328c")
+		(name "GND neck keepout U40")
+		(hatch edge 0.5)
+		(connect_pads
+			(clearance 0)
+		)
+		(min_thickness 0.25)
+		(filled_areas_thickness no)
+		(keepout
+			(tracks allowed)
+			(vias allowed)
+			(pads allowed)
+			(copperpour not_allowed)
+			(footprints allowed)
+		)
+		(placement
+			(enabled no)
+			(sheetname "")
+		)
+		(fill
+			(thermal_gap 0.5)
+			(thermal_bridge_width 0.5)
+		)
+		(polygon
+			(pts
+				(xy 60.55 150.05) (xy 61.15 150.05) (xy 61.15 150.8) (xy 60.55 150.8)
+			)
+		)
+	)
+	(zone
 		(net 2)
 		(net_name "GND")
 		(layer "In1.Cu")
