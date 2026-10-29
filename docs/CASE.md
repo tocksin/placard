@@ -168,8 +168,8 @@ above the board's top face):
 | SW1 | left | 199.5 | 5.2 | 7 mm hole | Power toggle bushing; the lever stands out of the wall |
 | SW2 | left | 179.7 | 3.5 | 4.5 mm hole | Reset.  The actuator stands 0.6 mm proud of the wall (a press has to be held 0.5 s, so a knock is harmless) |
 | J4 | left | 152.0 | 1.4 | 27 x 3.6 slot + 14 x 7 thumb notch | SD card, push-push (Hirose DM1AA-SF-PEJ(82)) |
-| J2 | front | 33.5 | 9.0 | 27 x 14 rounded | SNES port 1, on the front left of centre since 2026-10-29 (was in the right wall) |
-| J3 | front | 77.5 | 9.0 | 27 x 14 rounded | SNES port 2 |
+| J2 | front | 33.5 | 8.0 | 39 x 12 rounded | SNES port 1, on the front left of centre since 2026-10-29 (was in the right wall). The plug outline (37 x 10) plus 0.5-1 mm; the jack's 42 x 16 flange bears on the wall's inside face |
+| J3 | front | 77.5 | 8.0 | 39 x 12 rounded | SNES port 2 |
 
 The connector models are drawn from typical dimensions (see
 `gen_kicad_3d_models.py`). Check the cut-outs against the real parts, or the
