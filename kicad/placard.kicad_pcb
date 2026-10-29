@@ -10,7 +10,8 @@
 	(title_block
 		(title "Placard")
 		(date "2026-10-29")
-		(rev "0")
+		(rev "A")
+		(comment 1 "PCB PLC-1001, assembly PLC-2001")
 	)
 	(layers
 		(0 "F.Cu" signal)
@@ -77400,6 +77401,42 @@
 		)
 		(layer "Edge.Cuts")
 		(uuid "b9a538f9-4bbd-4055-a108-2caa1a413e39")
+	)
+	(gr_text "PLC-1001 REV A"
+		(at 285 250.5 0)
+		(layer "F.SilkS")
+		(uuid "fd0a81b7-95d0-4e50-97be-0f6b97008f58")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+		)
+	)
+	(gr_text "S/N"
+		(at 278.2 255.15 0)
+		(layer "F.SilkS")
+		(uuid "9ed0aa48-1b6a-440c-9c4c-79c37c302233")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.3)
+				(bold yes)
+			)
+			(justify right)
+		)
+	)
+	(gr_rect
+		(start 279 252.4)
+		(end 296 257.9)
+		(stroke
+			(width 0.15)
+			(type solid)
+		)
+		(fill no)
+		(layer "F.SilkS")
+		(uuid "2c03598e-e79f-4e73-9950-e7fa36434caf")
 	)
 	(gr_text "74F377"
 		(at 248.265 91.75 0)

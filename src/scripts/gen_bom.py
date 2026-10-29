@@ -306,11 +306,12 @@ CART_SHELL_NOTE = ("Not designed yet: two halves round the card and J8's body, 4
                    "(EXPANSION.md \"Shell keepouts\"); one design takes either card, only its height differs")
 PCB_LINES = {
     "Main board": [mech(1, "PCB, main board, 290 x 290 mm, 4-layer, 1.6 mm, HASL lead-free", 16.00,
-                        "JLCPCB/PCBWay typical, KIT_PRICING.md")],
+                        "JLCPCB/PCBWay typical, KIT_PRICING.md", mpn="PLC-1001 rev A", mfr="(custom PCB)")],
     "Cartridge, 64K": [mech(1, "PCB, 64K cartridge, 39 x 102.2 mm, 2-layer, ENIG, hard-gold bevelled fingers", 4.00,
-                            "JLCPCB/PCBWay typical, KIT_PRICING.md")],
+                            "JLCPCB/PCBWay typical, KIT_PRICING.md", mpn="PLC-1003 rev A", mfr="(custom PCB)")],
     "Cartridge, 32K": [mech(1, "PCB, 32K cartridge, 39 x 66.0 mm, 2-layer, ENIG, hard-gold bevelled fingers", 3.50,
-                            "JLCPCB/PCBWay typical (smaller than the 64K board)")],
+                            "JLCPCB/PCBWay typical (smaller than the 64K board)", mpn="PLC-1002 rev A",
+                            mfr="(custom PCB)")],
 }
 SHELL_LINES = {
     "Cartridge, 64K": [mech(1, "Cartridge shell, 64K height (front and back halves)", 4.00,
@@ -347,8 +348,9 @@ CASE_LINES = [
 
 FILES = {"Main board": "BOM_MAIN_PCB", "Cartridge, 64K": "BOM_CART_64K", "Cartridge, 32K": "BOM_CART_32K",
          "Case": "BOM_CASE"}
-TITLES = {"Main board": "Main board assembly", "Cartridge, 64K": "64K cartridge assembly",
-          "Cartridge, 32K": "32K cartridge assembly", "Case": "Case assembly"}
+# Board part numbers (Justin 2026-10-29): PLC-1xxx bare PCB, PLC-2xxx assembly
+TITLES = {"Main board": "Main board assembly PLC-2001", "Cartridge, 64K": "64K cartridge assembly PLC-2003",
+          "Cartridge, 32K": "32K cartridge assembly PLC-2002", "Case": "Case assembly"}
 SCOPE = {
     "Main board": "The main board, built: the bare PCB, every part on the schematic, and the sockets, "
                   "jumper shunts that are not drawn.  It is one line of the case assembly.",
@@ -414,7 +416,7 @@ def main():
     main_full, main_base, _ = totals["Main board"]
     case = [mech(1, "Main board assembly (BOM_MAIN_PCB.md)", main_base, "BOM_MAIN_PCB.md total without the "
                  "optional expansion slot sockets", "Add $%.2f with J9-J12 fitted" % (main_full - main_base),
-                 mpn="PLACARD main board", mfr="(assembly)")]
+                 mpn="PLC-2001", mfr="(assembly)")]
     totals["Case"] = write_bom("Case", case + CASE_LINES, "")
     for old in ("BOM.csv",):
         path = os.path.join(ROOT, "docs", old)

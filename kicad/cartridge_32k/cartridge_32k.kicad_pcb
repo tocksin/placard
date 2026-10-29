@@ -9,9 +9,10 @@
 	(paper "A4")
 	(title_block
 		(title "PLACARD ROM cartridge, 32K")
-		(date "2026-10-26")
-		(rev "1")
+		(date "2026-10-29")
+		(rev "A")
 		(comment 1 "Placed by src/scripts/gen_kicad_cart_pcb.py; not routed")
+		(comment 2 "PCB PLC-1002, assembly PLC-2002")
 	)
 	(layers
 		(0 "F.Cu" signal)
@@ -5829,6 +5830,41 @@
 		)
 		(layer "Edge.Cuts")
 		(uuid "da9305d5-7e43-4fc7-a0ff-7877af5543e2")
+	)
+	(gr_text "PLC-1002 REV A"
+		(at 80.245 88.9 0)
+		(layer "B.SilkS")
+		(uuid "23c58118-24f1-46b1-b34d-4f5edb9998c9")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.225)
+			)
+			(justify mirror)
+		)
+	)
+	(gr_text "S/N"
+		(at 87.045 93.55 0)
+		(layer "B.SilkS")
+		(uuid "0e8899f4-ea05-4fd4-b8b8-b7e63cec1cfc")
+		(effects
+			(font
+				(size 1.5 1.5)
+				(thickness 0.225)
+			)
+			(justify right mirror)
+		)
+	)
+	(gr_rect
+		(start 69.245 90.8)
+		(end 86.245 96.3)
+		(stroke
+			(width 0.15)
+			(type solid)
+		)
+		(fill no)
+		(layer "B.SilkS")
+		(uuid "d452ffc5-b4e2-408b-af5c-924fed54c35d")
 	)
 	(gr_text "PLACARD ROM 32K"
 		(at 80.245 83.625 0)
