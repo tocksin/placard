@@ -53,7 +53,7 @@ Silkscreen: the body outline in silk is cut back around the pads and holes
 (SILK_PAD_GAP) and stops SILK_EDGE_GAP inside the board edge on an edge
 connector, so DRC's silk-over-mask and silk-to-edge checks pass.
 
-Date: 2026-10-25
+Date: 2026-10-28
 """
 
 import os
@@ -103,7 +103,7 @@ def pad(num, x, y, size, drill, shape=None):
 # line is cut back to SILK_PAD_GAP from any pad or hole (stroke edge to copper
 # or hole edge) and, on an edge connector, to SILK_EDGE_GAP inside the board
 # edge; leftover pieces shorter than SILK_MIN_LEN are dropped.
-SILK_PAD_GAP = 0.05
+SILK_PAD_GAP = 0.2
 SILK_EDGE_GAP = 0.2
 SILK_MIN_LEN = 0.25
 
