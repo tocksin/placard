@@ -20,7 +20,7 @@ placard_cartridge_32k.pdf, set to open without the bookmarks panel.
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
 
-Date: 2026-10-28
+Date: 2026-10-29
 """
 import os
 import re
@@ -31,7 +31,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-10-28"
+DATE = "2026-10-29"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 CDIRS = {64: os.path.join(KDIR, "cartridge_64k"), 32: os.path.join(KDIR, "cartridge_32k")}
@@ -101,7 +101,7 @@ MPN_PASSIVE = {
     ("placard_std:C", "100n"): ("TDK", "FG28X7R1H104KNT00"),
     ("placard_std:C", "1u"): ("KEMET", "C330C105K5R5TA"),
     ("placard_std:C", "15n C0G"): ("TDK", "FG24C0G1H153JNT06"),
-    ("placard_std:C", "22u"): ("TDK", "FG24X5R1A226MRT06"),
+    ("placard_std:C", "22u"): ("TDK", "FG22X7R1E226MRT06"),
     ("placard_std:C_Polarized", "220u"): ("Rubycon", "25YXJ220M6.3X11"),
 }
 
