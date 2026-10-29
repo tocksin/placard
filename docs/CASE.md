@@ -322,6 +322,10 @@ files to `case/print/`. The aluminium version stays as it is.
   in aluminium.
   - The tray's seams are at x 132 and y 120, clear of the vents, the
     standoffs and the parking discs.
+  - The right wall and the left plate both join at y 120. The two side
+    vent slots next to each of those seams are left out, so the bowtie keys
+    in the wall have solid material around them. That leaves 18 slots in
+    the right wall and 10 in the left plate, instead of 20 and 12.
   - The top's seams are at x 160 and y 100, between the expansion bay and
     the cartridge cover's lap, so no cover sits across a seam.
 - **Hardware changes.**
