@@ -46,6 +46,15 @@ TOP_X, TOP_Y = 160.0, 100.0       # top: four pieces (between the expansion bay 
 KEY_L, KEY_WB, KEY_WN = 16.0, 10.0, 5.0
 KEY_CLEAR = 0.15       # per side, so a printed key drops in
 
+# the side walls' vent slots stay off the seams and their keys (a key reaches
+# KEY_L / 2 each side of its seam), so the right wall and the left plate each
+# lose the two slots next to their seam at y 120
+SEAM_VENT_CLEAR = 2.0
+g.SIDE_VENT_SKIP = {
+    "right": [(TRAY_Y - KEY_L / 2 - SEAM_VENT_CLEAR, TRAY_Y + KEY_L / 2 + SEAM_VENT_CLEAR)],
+    "left": [(LEFT_Y - KEY_L / 2 - SEAM_VENT_CLEAR, LEFT_Y + KEY_L / 2 + SEAM_VENT_CLEAR)],
+}
+
 BOSS_D = 8.0           # printed standoff boss under each board hole
 INSERT_D = 4.0         # hole for an M3 heat-set insert (M3 x 5.7)
 
@@ -228,4 +237,6 @@ if __name__ == "__main__":
     rows, k2, k4 = build(a.pcb, a.out, a.drawings)
     for name, dims in rows:
         print("%-18s %6.1f x %6.1f x %5.1f mm" % (name, dims[2], dims[1], dims[0]))
+    for sd in ("left", "right"):
+        print("%-5s wall: %d vent slots" % (sd, len(g.side_vents(g.wall_cutouts(g.read_board(a.pcb)), sd))))
     print("keys: %d x 2 mm (tray, plates), %d x 4 mm (top)" % (k2, k4))
