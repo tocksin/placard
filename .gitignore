@@ -1,0 +1,44 @@
+# Vivado project: made by build/create_project.bat (build/tcl/create_project.tcl)
+/project/
+
+# Vivado logs and journals started from the repository root
+vivado*.log
+vivado*.jou
+vivado*.str
+.Xil/
+
+# memory images, made by src/scripts/gen_random_ram.tcl (ram.mem,
+# cart_ram.mem) and src/scripts/gen_rom.tcl (rom.mem, and rom_32k.bin, the
+# EEPROM file of the DOS image) on every build
+/src/hdl/ram.mem
+/src/hdl/cart_ram.mem
+/src/hdl/rom.mem
+/src/hdl/rom_32k.bin
+/src/hdl/video_ram.mem
+
+# IP output products, Vivado writes them next to the .xci
+/src/ip/*
+!/src/ip/*.xci
+
+# KiCad: backups, autosaves, locks, per-user settings and caches
+/kicad/placard-backups/
+*-backups/
+_autosave-*
+\#auto_saved_files\#
+*.kicad_sch-bak
+*.kicad_pcb-bak
+*-bak
+*.lck
+~*.lck
+*.kicad_prl
+fp-info-cache
+# fabrication zips (keep the Gerbers and drill files themselves)
+/kicad/fab/**/*.zip
+
+# Python bytecode caches
+__pycache__/
+
+# case renders: meshes, three.js and images made by src/scripts/case_render/ (docs/CASE.md)
+src/scripts/case_render/mesh/
+src/scripts/case_render/web/
+src/scripts/case_render/out/

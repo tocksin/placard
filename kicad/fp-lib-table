@@ -1,0 +1,3 @@
+(fp_lib_table
+  (lib (name "placard")(type "KiCad")(uri "${KIPRJMOD}/lib/placard.pretty")(options "")(descr "Placard project footprints"))
+)

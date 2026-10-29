@@ -1,0 +1,5932 @@
+; ============================================================
+; made by asm_expand.py from wire3d.masm: change that file, then run
+;     python3 asm_expand.py wire3d.masm
+; ============================================================
+
+; ============================================================
+; wire3d.masm - Elite-style 3D: wireframes and filled faces (made by
+;   gen_wire3d.py: change that and run it again; see its docstring)
+; Date: 10/28/2026
+; ============================================================
+
+#include "placard.asm"
+#include "placard_lib.asm"
+
+mode     = 0x20
+msec     = 0x21
+nrec     = 0x22
+nst      = 0x23
+par      = 0x24
+lps      = 0x25
+fps      = 0x26
+secf     = 0x27
+lastf    = 0x28
+shs      = 0x29
+shs8     = 0x2A
+nfac     = 0x2B
+a1       = 0x2C
+a2       = 0x2D
+a3       = 0x2E
+tt       = 0x2F
+vb       = 0x30
+fb       = 0x31
+vi       = 0x32
+vo       = 0x33
+vn       = 0x34
+nvs      = 0x35
+allv     = 0x36
+fi       = 0x37
+fo       = 0x38
+fn       = 0x39
+ti       = 0x3A
+tn       = 0x3B
+ei       = 0x3C
+en       = 0x3D
+oxl      = 0x3E
+oxh      = 0x3F
+oyl      = 0x40
+oyh      = 0x41
+ozl      = 0x42
+ozh      = 0x43
+pl       = 0x44
+phh      = 0x45
+fr_l     = 0x46
+fr_h     = 0x47
+lk_sc_l  = 0x48
+lk_sc_h  = 0x49
+w_t      = 0x4A
+w_t2     = 0x4B
+w_t3     = 0x4C
+w_t4     = 0x4D
+w_acc    = 0x4E
+w_r      = 0x4F
+w_a      = 0x50
+w_b      = 0x51
+w_c      = 0x52
+w_s      = 0x53
+sl       = 0x54
+sh       = 0x55
+m0       = 0x56
+m1       = 0x57
+m2       = 0x58
+m3       = 0x59
+m4       = 0x5A
+m5       = 0x5B
+m6       = 0x5C
+m7       = 0x5D
+m8       = 0x5E
+s1       = 0x5F
+c1       = 0x60
+s2       = 0x61
+c2       = 0x62
+s3       = 0x63
+c3       = 0x64
+w_p      = 0x65
+w_q      = 0x66
+zl       = 0x67
+zh       = 0x68
+dl       = 0x69
+dh       = 0x6A
+ml       = 0x6B
+mh       = 0x6C
+bxl      = 0x6D
+bxh      = 0x6E
+lgc0     = 0x6F
+lgc1     = 0x70
+lgc2     = 0x71
+lgh0     = 0x72
+lgh1     = 0x73
+lgh2     = 0x74
+sgc0     = 0x75
+sgc1     = 0x76
+sgc2     = 0x77
+lgl0     = 0x78
+lgl1     = 0x79
+lgl2     = 0x7A
+lgk0     = 0x7B
+lgk1     = 0x7C
+lgk2     = 0x7D
+sgl0     = 0x7E
+sgl1     = 0x7F
+sgl2     = 0x80
+w_kp     = 0x81
+w_kn     = 0x82
+w_ci     = 0x83
+w_osg    = 0x84
+wbl      = 0x56
+wbh      = 0x57
+ev1      = 0x58
+ev2      = 0x59
+x0l      = 0x5A
+x0h      = 0x5B
+y0       = 0x5C
+x1l      = 0x5D
+x1h      = 0x5E
+y1       = 0x5F
+dxl      = 0x60
+dxh      = 0x61
+adxl     = 0x62
+adxh     = 0x63
+ady      = 0x64
+sgx      = 0x65
+sgy      = 0x66
+by       = 0x67
+exl      = 0x68
+exh      = 0x69
+ey       = 0x6A
+dirf     = 0x6B
+ph       = 0x6C
+ehi      = 0x6D
+err      = 0x6E
+frac     = 0x6F
+pg       = 0x70
+off      = 0x71
+endv     = 0x72
+ntail    = 0x73
+jlo      = 0x74
+rk       = 0x75
+rend     = 0x76
+rlo      = 0x77
+rhi      = 0x78
+xLl      = 0x56
+xLh      = 0x57
+xRl      = 0x58
+xRh      = 0x59
+lc       = 0x5A
+lp       = 0x5B
+rc       = 0x5C
+rp       = 0x5D
+roff     = 0x5E
+cb       = 0x5F
+cbx      = 0x60
+c0       = 0x61
+w_nm     = 0x62
+w_cm     = 0x63
+w_e      = 0x64
+w_pp     = 0x65
+w_slow   = 0x66
+lk_sp_l  = 0x67
+lk_sp_h  = 0x68
+lk_av_l  = 0x69
+lk_av_h  = 0x6A
+lk_es_l  = 0x6B
+lk_es_h  = 0x6C
+lk_ef_l  = 0x6D
+lk_ef_h  = 0x6E
+uxl      = 0x6F
+uxh      = 0x70
+uy       = 0x71
+wxl      = 0x72
+wxh      = 0x73
+wy       = 0x74
+e16l     = 0x75
+e16h     = 0x76
+esl      = 0x77
+esh      = 0x78
+w_dy     = 0x79
+w_dxl    = 0x7A
+w_dxh    = 0x7B
+w_sg     = 0x7C
+slLl     = 0x7D
+slLh     = 0x7E
+slRl     = 0x7F
+slRh     = 0x80
+yeL      = 0x81
+yeR      = 0x82
+jL       = 0x83
+jR       = 0x84
+fk       = 0x85
+fs0      = 0x86
+ytop     = 0x87
+ybot     = 0x88
+ycur     = 0x89
+w_n      = 0x8A
+w_g      = 0x8B
+w_vc     = 0x8C
+w_cj     = 0x8D
+w_dir    = 0x8E
+w_nj     = 0x8F
+cb0      = 0x90
+cb1      = 0x91
+ffi      = 0x92
+w_nf     = 0x93
+ntop     = 0x94
+nbot     = 0x95
+otop     = 0x96
+obot     = 0x97
+w_ye     = 0x98
+w_ri     = 0x99
+fpLH     = 0x9A
+fpLL     = 0x9B
+fpRH     = 0x9C
+fpRL     = 0x9D
+sj       = 0x9E
+vx       = 0x10
+vy       = 0x11
+vz       = 0x12
+xr       = 0x13
+yr       = 0x14
+zr       = 0x15
+p00      = 0x16
+p01      = 0x17
+p02      = 0x18
+p10      = 0x19
+p11      = 0x1A
+p12      = 0x1B
+p20      = 0x1C
+p21      = 0x1D
+p22      = 0x1E
+oLh      = 0x10
+oLl      = 0x11
+oRh      = 0x12
+oRl      = 0x13
+nLh      = 0x14
+nLl      = 0x15
+nRh      = 0x16
+nRl      = 0x17
+eva      = 0x18
+evb      = 0x19
+w_side   = 0x1A
+w_vt     = 0x1B
+w_vbm    = 0x1C
+ozsl     = 0x1D
+ozsh     = 0x1E
+sk       = 0x1F
+
+
+
+
+#addr 0x0100
+; main
+main:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    ld   0x07, ac
+    ld   ac, [MAP_SHADOW]
+    ld   lk_sc_l, x
+    ld   rt_1 & 0xFF, [x]
+    ld   lk_sc_h, x
+    ld   rt_1 >> 8, [x]
+    ld   screen >> 8, y
+    jmp  screen
+rt_1:
+    ld   0, ac
+    ld   ac, [w_g]
+mc_lp:
+    ld   [w_g], ac
+    shl
+    shl
+    shl
+    ld   ac, [w_t]
+    ld   0x3F, y
+    ld   [w_g], x
+    ld   [y,x], ac
+    ld   ac, [a1]
+    ld   [w_g], ac
+    add  0x10, x
+    ld   [y,x], ac
+    ld   ac, [a2]
+    ld   [w_g], ac
+    add  0x20, x
+    ld   [y,x], ac
+    ld   ac, [a3]
+    ld   0x59, y
+    ld   [w_t], x
+    ld   [a1], ac
+    ld   ac, [y,x]
+    ld   [w_t], ac
+    add  1, x
+    ld   [a2], ac
+    ld   ac, [y,x]
+    ld   [w_t], ac
+    add  2, x
+    ld   [a3], ac
+    ld   ac, [y,x]
+    ld   [w_t], ac
+    add  3, x
+    ld   0, [y,x]
+    ld   [w_t], ac
+    add  4, x
+    ld   0, [y,x]
+    ld   [w_t], ac
+    add  5, x
+    ld   0, [y,x]
+    ld   [w_t], ac
+    add  6, x
+    ld   0, [y,x]
+    ld   [w_t], ac
+    add  7, x
+    ld   0, [y,x]
+    ld   [w_g], ac
+    add  1, ac
+    ld   ac, [w_g]
+    xor  6, ac
+    bne  mc_lp
+    ld   main_c >> 8, y
+    jmp  main_c
+
+ff_go:
+    ld   [ytop], ac
+    ld   ac, [ycur]
+    ld   ac, [yeL]
+    ld   ac, [yeR]
+    ld   [jL], ac
+    ld   ac, [jR]
+    ld   [cb0], ac
+    xor  [cb1], ac
+    ld   ac, [cbx]
+    ld   [ytop], ac
+    and  1, ac
+    beq  ff_c0
+    ld   [cb1], ac
+    bra  ff_c1
+ff_c0:
+    ld   [cb0], ac
+ff_c1:
+    ld   ac, [cb]
+ff_seg:
+    ld   [ycur], ac
+    xor  [ybot], ac
+    beq  ff_done
+    ld   [ycur], ac
+    xor  [yeL], ac
+    bne  ff_r
+    ld   [jL], ac
+    ld   ac, [w_cj]
+    ld   0, ac
+    ld   ac, [w_dir]
+    ld   lk_av_l, x
+    ld   rt_97 & 0xFF, [x]
+    ld   lk_av_h, x
+    ld   rt_97 >> 8, [x]
+    ld   adv >> 8, y
+    jmp  adv
+rt_97:
+    beq  ff_done
+    ld   [w_cj], ac
+    ld   ac, [jL]
+    ld   [wy], ac
+    ld   ac, [yeL]
+    ld   [e16l], ac
+    ld   ac, [xLl]
+    ld   ac, [lp]
+    ld   [e16h], ac
+    ld   ac, [xLh]
+    ld   ac, [lc]
+    ld   [esl], ac
+    ld   ac, [slLl]
+    ld   [esh], ac
+    ld   ac, [slLh]
+ff_r:
+    ld   [ycur], ac
+    xor  [yeR], ac
+    bne  ff_m
+    ld   [jR], ac
+    ld   ac, [w_cj]
+    ld   1, ac
+    ld   ac, [w_dir]
+    ld   lk_av_l, x
+    ld   rt_98 & 0xFF, [x]
+    ld   lk_av_h, x
+    ld   rt_98 >> 8, [x]
+    ld   adv >> 8, y
+    jmp  adv
+rt_98:
+    beq  ff_done
+    ld   ff_r2 >> 8, y
+    jmp  ff_r2
+ff_m:
+    ld   ff_m2 >> 8, y
+    jmp  ff_m2
+ff_done:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+
+#addr 0x0200
+; a mirror image of the previous vertex (AC = 1 + axis): row -= 2 p, p = -p
+xf_mir:
+    sub  1, ac
+    beq  xm_0
+    sub  1, ac
+    beq  xm_1
+    ld   [p02], ac
+    shl
+    ld   ac, [w_t]
+    ld   [xr], ac
+    sub  [w_t], ac
+    ld   ac, [xr]
+    ld   [p02], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [p02]
+    ld   [p12], ac
+    shl
+    ld   ac, [w_t]
+    ld   [yr], ac
+    sub  [w_t], ac
+    ld   ac, [yr]
+    ld   [p12], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [p12]
+    ld   [p22], ac
+    shl
+    ld   ac, [w_t]
+    ld   [zr], ac
+    sub  [w_t], ac
+    ld   ac, [zr]
+    ld   [p22], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [p22]
+    ld   xf_z >> 8, y
+    jmp  xf_z
+xm_0:
+    ld   [p00], ac
+    shl
+    ld   ac, [w_t]
+    ld   [xr], ac
+    sub  [w_t], ac
+    ld   ac, [xr]
+    ld   [p00], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [p00]
+    ld   [p10], ac
+    shl
+    ld   ac, [w_t]
+    ld   [yr], ac
+    sub  [w_t], ac
+    ld   ac, [yr]
+    ld   [p10], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [p10]
+    ld   [p20], ac
+    shl
+    ld   ac, [w_t]
+    ld   [zr], ac
+    sub  [w_t], ac
+    ld   ac, [zr]
+    ld   [p20], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [p20]
+    ld   xf_z >> 8, y
+    jmp  xf_z
+xm_1:
+    ld   [p01], ac
+    shl
+    ld   ac, [w_t]
+    ld   [xr], ac
+    sub  [w_t], ac
+    ld   ac, [xr]
+    ld   [p01], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [p01]
+    ld   [p11], ac
+    shl
+    ld   ac, [w_t]
+    ld   [yr], ac
+    sub  [w_t], ac
+    ld   ac, [yr]
+    ld   [p11], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [p11]
+    ld   [p21], ac
+    shl
+    ld   ac, [w_t]
+    ld   [zr], ac
+    sub  [w_t], ac
+    ld   ac, [zr]
+    ld   [p21], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [p21]
+    ld   xf_z >> 8, y
+    jmp  xf_z
+
+; sp_run: the unrolled filler from byte c0, a branch to its stub patched in at byte rc
+sp_run:
+    ld   [rc], ac
+    xor  80, ac
+    beq  sp_rn
+    ld   [rc], ac
+    shl
+    add  [rc], ac
+    ld   ac, [w_pp]
+    ld   ac, x
+    ld   0x4F, y
+    ld   0xFC, [y,x]
+    ld   [w_pp], ac
+    add  1, x
+    ld   240, [y,x]
+sp_rn:
+    ld   [c0], ac
+    shl
+    add  [c0], ac
+    ld   ac, [w_e]
+    ld   [cb], ac
+    ld   [roff], x
+    ld   0x4F, y
+    jmp  [w_e]
+sp_bk:
+    ld   [rc], ac
+    xor  80, ac
+    beq  sp_bo
+    ld   0x4F, y
+    ld   [w_pp], x
+    ld   0x10, [y,x]
+    ld   [w_pp], ac
+    add  1, x
+    ld   [rc], ac
+    shl
+    add  0x61, ac
+    ld   ac, [y,x]
+sp_bo:
+    ld   [lk_sp_h], y
+    jmp  [lk_sp_l]
+
+; lights: lgl_j/lgk_j = log |L'_j|, sgl_j its sign
+lights:
+    ld   0x24, y
+    ld   [m0], ac
+    add  232, x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m0], ac
+    sub  232, x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [w_acc]
+    ld   [m3], ac
+    add  36, x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m3], ac
+    sub  36, x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    add  [w_acc], ac
+    ld   ac, [w_acc]
+    ld   [m6], ac
+    add  212, x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m6], ac
+    sub  212, x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    add  [w_acc], ac
+    ld   ac, [w_acc]
+    ld   0, ac
+    ld   ac, [sgl0]
+    ld   [w_acc], ac
+    blt  lt_66
+    bra  lt_67
+lt_66:
+    xor  255, ac
+    add  1, ac
+    ld   ac, [w_acc]
+    ld   1, ac
+    ld   ac, [sgl0]
+    ld   [w_acc], ac
+lt_67:
+    ld   ac, x
+    ld   0x27, y
+    ld   [y,x], ac
+    ld   ac, [lgl0]
+    ld   0x29, y
+    ld   [y,x], ac
+    ld   ac, [lgk0]
+    ld   0x24, y
+    ld   [m1], ac
+    add  232, x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m1], ac
+    sub  232, x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [w_acc]
+    ld   [m4], ac
+    add  36, x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m4], ac
+    sub  36, x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    add  [w_acc], ac
+    ld   ac, [w_acc]
+    ld   [m7], ac
+    add  212, x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m7], ac
+    sub  212, x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    add  [w_acc], ac
+    ld   ac, [w_acc]
+    ld   0, ac
+    ld   ac, [sgl1]
+    ld   [w_acc], ac
+    blt  lt_68
+    bra  lt_69
+lt_68:
+    xor  255, ac
+    add  1, ac
+    ld   ac, [w_acc]
+    ld   1, ac
+    ld   ac, [sgl1]
+    ld   [w_acc], ac
+lt_69:
+    ld   ac, x
+    ld   0x27, y
+    ld   [y,x], ac
+    ld   ac, [lgl1]
+    ld   0x29, y
+    ld   [y,x], ac
+    ld   ac, [lgk1]
+    ld   lights_b >> 8, y
+    jmp  lights_b
+
+ed_rt:
+    ld   [oLl], ac
+    sub  [nRl], ac
+    ld   [oLh], ac
+    bcc  er_5
+    dec
+er_5:
+    sub  [nRh], ac
+    blt  er_nr
+    ld   [oLl], ac
+    ld   ac, [xLl]
+    ld   [oLh], ac
+    ld   ac, [xLh]
+    bra  er_6
+er_nr:
+    ld   [nRl], ac
+    ld   ac, [xLl]
+    ld   [nRh], ac
+    ld   ac, [xLh]
+er_6:
+    ld   [xLl], ac
+    sub  [oRl], ac
+    ld   [xLh], ac
+    bcc  er_7
+    dec
+er_7:
+    sub  [oRh], ac
+    blt  er_go
+    bra  er_nxt
+er_go:
+    ld   [oRl], ac
+    ld   ac, [xRl]
+    ld   [oRh], ac
+    ld   ac, [xRh]
+    ld   lk_sp_l, x
+    ld   rt_113 & 0xFF, [x]
+    ld   lk_sp_h, x
+    ld   rt_113 >> 8, [x]
+    ld   span_c >> 8, y
+    jmp  span_c
+rt_113:
+er_nxt:
+    ld   [ycur], ac
+    add  1, ac
+    ld   ac, [ycur]
+    ld   ed_lp >> 8, y
+    jmp  ed_lp
+
+; fill_face: face ffi of the model (its vertices at vb) in cb0 / cb1, row by row
+fill_face:
+    ld   0x50, y               ; tick: line read (V9:V2)
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    sub  [LINE_LAST], ac
+    ld   [w_t], ac
+    ld   ac, [LINE_LAST]
+    bcc  tk_96
+    ld   [FRAME_LO], ac
+    inc
+    ld   ac, [FRAME_LO]
+    bcc  tk_96
+    ld   [FRAME_HI], ac
+    inc
+    ld   ac, [FRAME_HI]
+tk_96:
+    ld   0x36, y
+    ld   [ffi], x
+    ld   [y,x], ac
+    ld   ac, [fs0]
+    ld   [ffi], ac
+    add  0x40, x
+    ld   [y,x], ac
+    ld   ac, [fk]
+    ld   255, ac
+    ld   ac, [ytop]
+    ld   0, ac
+    ld   ac, [ybot]
+    ld   ac, [w_g]
+    ld   ac, [w_slow]
+ff_cp:
+    ld   [w_g], ac
+    add  [fs0], x
+    ld   0x3B, y
+    ld   [y,x], ac
+    add  [vb], ac
+    ld   ac, [w_vc]
+    ld   ac, x
+    ld   0x54, y
+    ld   [y,x], ac
+    ld   ac, [w_t2]
+    ld   [w_g], x
+    ld   0x5C, y
+    ld   ac, [y,x]
+    ld   [w_vc], x
+    ld   0x55, y
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    bne  ff_h
+    ld   [w_t2], ac
+    sub  3, ac
+    bcc  ff_x
+    bra  ff_s
+ff_h:
+    ld   [w_t2], ac
+    sub  61, ac
+    bcs  ff_x
+ff_s:
+    ld   1, ac
+    ld   ac, [w_slow]
+ff_x:
+    ld   [w_g], ac
+    add  0x10, x
+    ld   0x5C, y
+    ld   [w_t], ac
+    ld   ac, [y,x]
+    ld   [w_vc], x
+    ld   0x56, y
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [w_g], ac
+    add  0x20, x
+    ld   0x5C, y
+    ld   [w_t], ac
+    ld   ac, [y,x]
+    sub  [ytop], ac
+    bcc  ff_1
+    ld   [w_t], ac
+    ld   ac, [ytop]
+    ld   [w_g], ac
+    ld   ac, [jL]
+ff_1:
+    ld   [ybot], ac
+    sub  [w_t], ac
+    bcc  ff_2
+    ld   [w_t], ac
+    ld   ac, [ybot]
+ff_2:
+    ld   [w_g], ac
+    add  1, ac
+    ld   ac, [w_g]
+    xor  [fk], ac
+    bne  ff_cp
+    ld   ff_go >> 8, y
+    jmp  ff_go
+
+; fill_pass: the ships in order of distance, far to near (an insertion sort)
+fill_pass:
+pm_s:
+    ld   0x59, y
+    ld   0, ac
+    ld   ac, [sk]
+so_ins:
+    ld   [sk], ac
+    add  0x80, x
+    ld   [y,x], ac
+    ld   ac, [ozsl]
+    ld   [sk], ac
+    add  0x90, x
+    ld   [y,x], ac
+    ld   ac, [ozsh]
+    ld   [sk], ac
+    ld   ac, [sj]
+so_lp:
+    ld   [sj], ac
+    beq  so_pt
+    add  0x9F, x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    add  0x90, x
+    ld   [y,x], ac
+    ld   ac, [w_t3]
+    ld   [w_t], ac
+    add  0x80, x
+    ld   [y,x], ac
+    sub  [ozsl], ac
+    ld   [w_t3], ac
+    bcc  so_1
+    dec
+so_1:
+    sub  [ozsh], ac
+    blt  so_sh
+    bra  so_pt
+so_sh:
+    ld   [sj], ac
+    add  0xA0, x
+    ld   [w_t], ac
+    ld   ac, [y,x]
+    ld   [sj], ac
+    sub  1, ac
+    ld   ac, [sj]
+    bra  so_lp
+so_pt:
+    ld   [sj], ac
+    add  0xA0, x
+    ld   [sk], ac
+    ld   ac, [y,x]
+    ld   [sk], ac
+    add  1, ac
+    ld   ac, [sk]
+    xor  6, ac
+    bne  so_ins
+    ld   fill_paint >> 8, y
+    jmp  fill_paint
+
+es_lg:
+    ld   [w_dxh], ac
+    add  0x27, y
+    ld   [w_dxl], x
+    ld   [y,x], ac
+    ld   ac, [sl]
+    ld   [w_dxh], ac
+    add  0x29, y
+    ld   [y,x], ac
+    ld   ac, [sh]
+    ld   0x27, y
+    ld   [w_dy], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   0x29, y
+    ld   [y,x], ac
+    ld   ac, [w_t2]
+    ld   [sl], ac
+    sub  [w_t], ac
+    ld   ac, [sl]
+    ld   [sh], ac
+    bcc  es_4
+    dec
+es_4:
+    sub  [w_t2], ac
+    add  6, ac
+    ld   ac, [sh]
+    ld   [sh], ac
+    blt  al_87
+    sub  8, ac
+    bcc  al_88
+    ld   [sh], ac
+    add  0x2D, y
+    ld   [sl], x
+    ld   [y,x], ac
+    ld   ac, [esl]
+    ld   0, ac
+    ld   ac, [esh]
+    bra  al_89
+al_87:
+    xor  255, ac
+    bne  al_90
+    ld   1, ac
+    ld   ac, [esl]
+    ld   0, ac
+    ld   ac, [esh]
+    bra  al_89
+al_90:
+    ld   0, ac
+    ld   ac, [esl]
+    ld   ac, [esh]
+    bra  al_89
+al_88:
+    ld   ac, [w_t3]
+    ld   0x34, y
+    ld   [sl], x
+    ld   [y,x], ac
+    ld   ac, [esl]
+    ld   0, ac
+    ld   ac, [esh]
+al_91:
+    ld   [esl], ac
+    shl
+    ld   ac, [esl]
+    ld   [esh], ac
+    bcc  al_92
+    shl
+    or   1, ac
+    bra  al_93
+al_92:
+    shl
+al_93:
+    ld   ac, [esh]
+    ld   [w_t3], ac
+    sub  1, ac
+    ld   ac, [w_t3]
+    bcc  al_91
+al_89:
+    ld   [w_sg], ac
+    beq  es_5
+    ld   [esl], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [esl]
+    ld   [esh], ac
+    xor  255, ac
+    bcc  ng_94
+    inc
+ng_94:
+    ld   ac, [esh]
+es_5:
+    ld   [lk_es_h], y
+    jmp  [lk_es_l]
+
+; ship_pre: ship shs: turn it, its constants, then its path (ship_N)
+ship_pre:
+    ld   0x50, y               ; tick: line read (V9:V2)
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    sub  [LINE_LAST], ac
+    ld   [w_t], ac
+    ld   ac, [LINE_LAST]
+    bcc  tk_4
+    ld   [FRAME_LO], ac
+    inc
+    ld   ac, [FRAME_LO]
+    bcc  tk_4
+    ld   [FRAME_HI], ac
+    inc
+    ld   ac, [FRAME_HI]
+tk_4:
+    ld   0x3E, y
+    ld   [shs], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [shs], ac
+    add  0x10, x
+    ld   [y,x], ac
+    ld   ac, [w_t2]
+    ld   [shs], ac
+    add  0x20, x
+    ld   [y,x], ac
+    ld   ac, [w_t3]
+    ld   [shs], ac
+    add  0x30, x
+    ld   [y,x], ac
+    ld   ac, [w_t4]
+    ld   0x59, y
+    ld   [shs8], x
+    ld   [y,x], ac
+    add  [w_t], ac
+    ld   ac, [y,x]
+    ld   ac, [a1]
+    ld   [shs8], ac
+    add  1, x
+    ld   [y,x], ac
+    add  [w_t2], ac
+    ld   ac, [y,x]
+    ld   ac, [a2]
+    ld   [shs8], ac
+    add  2, x
+    ld   [y,x], ac
+    add  [w_t3], ac
+    ld   ac, [y,x]
+    ld   ac, [a3]
+    ld   [shs8], ac
+    add  3, x
+    ld   [y,x], ac
+    add  [w_t4], ac
+    ld   ac, [y,x]
+    ld   ac, [tt]
+    ld   ship_pre_b >> 8, y
+    jmp  ship_pre_b
+
+
+#addr 0x0600
+; x-major: slope, then left end first
+ls_xm:
+    ld   [adxh], ac
+    bne  sl_72
+    ld   [adxl], ac
+    xor  [ady], ac
+    bne  sl_72
+    ld   255, ac
+    ld   ac, [frac]
+    ld   ac, [err]
+    bra  sl_77
+sl_72:
+    ld   0x29, y
+    ld   [ady], x
+    ld   [y,x], ac
+    ld   ac, [w_t2]
+    ld   0x27, y
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [adxh], ac
+    add  0x29, y
+    ld   [adxl], x
+    ld   [y,x], ac
+    ld   ac, [w_t3]
+    ld   [adxh], ac
+    add  0x27, y
+    ld   [y,x], ac
+    ld   ac, [w_t4]
+    ld   [w_t], ac
+    sub  [w_t4], ac
+    ld   ac, [sl]
+    ld   [w_t2], ac
+    bcc  sl_73
+    dec
+sl_73:
+    sub  [w_t3], ac
+    add  8, ac
+    blt  sl_74
+    ld   ac, [w_t2]
+    sub  8, ac
+    bcc  sl_75
+    ld   [w_t2], ac
+    add  0x2D, y
+    ld   [sl], x
+    ld   [y,x], ac
+    bra  sl_76
+sl_74:
+    ld   0, ac
+    bra  sl_76
+sl_75:
+    ld   255, ac
+sl_76:
+    ld   ac, [frac]
+    ld   128, ac
+    ld   ac, [err]
+sl_77:
+    ld   [sgx], ac
+    bne  lx_sw
+    ld   [x0l], ac
+    ld   ac, [wbl]
+    ld   [x0h], ac
+    ld   ac, [wbh]
+    ld   [y0], ac
+    ld   ac, [by]
+    ld   [x1l], ac
+    ld   ac, [exl]
+    ld   [x1h], ac
+    ld   ac, [exh]
+    ld   [sgy], ac
+    xor  1, ac
+    ld   ac, [dirf]
+    ld   lx_c >> 8, y
+    jmp  lx_c
+lx_sw:
+    ld   [x1l], ac
+    ld   ac, [wbl]
+    ld   [x1h], ac
+    ld   ac, [wbh]
+    ld   [y1], ac
+    ld   ac, [by]
+    ld   [x0l], ac
+    ld   ac, [exl]
+    ld   [x0h], ac
+    ld   ac, [exh]
+    ld   [sgy], ac
+    ld   ac, [dirf]
+    ld   lx_c >> 8, y
+    jmp  lx_c
+
+; erase: blank the part of the ship's old outline that its new one does not cover, then keep the new one
+erase:
+    ld   0, ac
+    ld   ac, [cb]
+    ld   0x59, y
+    ld   [shs8], ac
+    add  6, x
+    ld   [y,x], ac
+    ld   ac, [otop]
+    ld   [shs8], ac
+    add  7, x
+    ld   [y,x], ac
+    ld   ac, [obot]
+    ld   [shs8], ac
+    add  0x60, ac
+    ld   ac, [fpLH]
+    add  2, ac
+    ld   ac, [fpLL]
+    add  2, ac
+    ld   ac, [fpRH]
+    add  2, ac
+    ld   ac, [fpRL]
+    ld   [otop], ac
+    ld   ac, [ycur]
+    ld   [obot], ac
+    sub  [ntop], ac
+    bcs  er_1
+    ld   [ntop], ac
+    bra  er_2
+er_1:
+    ld   [obot], ac
+er_2:
+    ld   ac, [w_ye]
+    ld   lk_ef_l, x
+    ld   rt_109 & 0xFF, [x]
+    ld   lk_ef_h, x
+    ld   rt_109 >> 8, [x]
+    ld   er_fl >> 8, y
+    jmp  er_fl
+rt_109:
+    ld   [otop], ac
+    sub  [nbot], ac
+    bcs  er_3
+    ld   [otop], ac
+    bra  er_4
+er_3:
+    ld   [nbot], ac
+er_4:
+    ld   ac, [ycur]
+    ld   [obot], ac
+    ld   ac, [w_ye]
+    ld   lk_ef_l, x
+    ld   rt_110 & 0xFF, [x]
+    ld   lk_ef_h, x
+    ld   rt_110 >> 8, [x]
+    ld   er_fl >> 8, y
+    jmp  er_fl
+rt_110:
+    ld   er_d >> 8, y
+    jmp  er_d
+
+
+#addr 0x0700
+; ft_el: the next edge: is a face of it seen, which end is the top, which side of a face seen (an edge between two faces seen: both)
+ft_el:
+    ld   0x39, y
+    ld   [ei], x
+    ld   [y,x], ac
+    add  [fb], x
+    ld   0x58, y
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   0x39, y
+    ld   [ei], ac
+    add  0x80, x
+    ld   [y,x], ac
+    add  [fb], x
+    ld   0x58, y
+    ld   [y,x], ac
+    ld   ac, [w_t2]
+    or   [w_t], ac
+    beq  ft_nx1
+    ld   0x38, y
+    ld   [ei], x
+    ld   [y,x], ac
+    add  [vb], ac
+    ld   ac, [eva]
+    ld   [ei], ac
+    add  0x80, x
+    ld   [y,x], ac
+    add  [vb], ac
+    ld   ac, [evb]
+    ld   [w_t2], ac
+    and  [w_t], ac
+    bne  ft_in
+    ld   0x3A, y
+    ld   [ei], x
+    ld   [y,x], ac
+    xor  [w_t], ac
+    beq  ft_f
+    ld   [eva], ac
+    ld   ac, [w_t]
+    ld   [evb], ac
+    ld   ac, [eva]
+    ld   [w_t], ac
+    ld   ac, [evb]
+ft_f:
+    ld   0x56, y
+    ld   [eva], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [evb], x
+    ld   [y,x], ac
+    sub  [w_t], ac
+    beq  ft_nx1
+    bcs  ft_lf
+    ld   2, ac
+    bra  ft_ab
+ft_lf:
+    ld   1, ac
+    bra  ft_ba
+ft_in:
+    ld   0x56, y
+    ld   [eva], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [evb], x
+    ld   [y,x], ac
+    sub  [w_t], ac
+    beq  ft_nx1
+    bcs  ft_i1
+    ld   3, ac
+    bra  ft_ab
+ft_i1:
+    ld   3, ac
+ft_ba:
+    ld   ac, [w_side]
+    ld   [evb], ac
+    ld   ac, [w_vt]
+    ld   [eva], ac
+    ld   ac, [w_vbm]
+    ld   ft_ed >> 8, y
+    jmp  ft_ed
+ft_ab:
+    ld   ac, [w_side]
+    ld   [eva], ac
+    ld   ac, [w_vt]
+    ld   [evb], ac
+    ld   ac, [w_vbm]
+    ld   ft_ed >> 8, y
+    jmp  ft_ed
+ft_nx1:
+    ld   ft_nx >> 8, y
+    jmp  ft_nx
+
+; ship 1: freighter, its path
+ship_1:
+    ld   0x25, y
+    ld   [tt], ac
+    add  0, x
+    ld   [y,x], ac
+    ld   ac, [pl]
+    blt  sp_5
+    ld   0, ac
+    bra  sp_6
+sp_5:
+    ld   255, ac
+sp_6:
+    ld   ac, [phh]
+    ld   [pl], ac
+    shl
+    ld   ac, [pl]
+    ld   [phh], ac
+    bcs  sh_8
+    shl
+    bra  sh_9
+sh_8:
+    shl
+    or   1, ac
+sh_9:
+    ld   ac, [phh]
+    ld   [pl], ac
+    add  0, ac
+    ld   ac, [oxl]
+    ld   [phh], ac
+    bcc  sp_7
+    inc
+sp_7:
+    add  0, ac
+    ld   ac, [oxh]
+    ld   176, ac
+    ld   ac, [oyl]
+    ld   255, ac
+    ld   ac, [oyh]
+    ld   0x25, y
+    ld   [tt], ac
+    add  64, x
+    ld   [y,x], ac
+    ld   ac, [pl]
+    blt  sp_10
+    ld   0, ac
+    bra  sp_11
+sp_10:
+    ld   255, ac
+sp_11:
+    ld   ac, [phh]
+    ld   [pl], ac
+    add  44, ac
+    ld   ac, [ozl]
+    ld   [phh], ac
+    bcc  sp_12
+    inc
+sp_12:
+    add  1, ac
+    ld   ac, [ozh]
+    ld   ship_body >> 8, y
+    jmp  ship_body
+
+
+#addr 0x0800
+; tents: T[kp] = u * c_a / 64, T[kn] = -T[kp] (and B in filled mode)
+tents:
+te_loop:
+    ld   0x3C, y
+    ld   [ti], x
+    ld   [y,x], ac
+    ld   ac, [w_a]
+    ld   [ti], ac
+    add  0x40, x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [ti], ac
+    add  0x80, x
+    ld   [y,x], ac
+    ld   ac, [w_t2]
+    ld   [ti], ac
+    add  0xC0, x
+    ld   [y,x], ac
+    ld   ac, [w_kp]
+    ld   0x3D, y
+    ld   [ti], x
+    ld   [y,x], ac
+    ld   ac, [w_kn]
+    ld   [w_a], ac
+    add  lgh0, x
+    ld   [x], ac
+    ld   ac, [w_t3]
+    ld   [w_a], ac
+    add  lgc0, x
+    ld   [x], ac
+    add  [w_t], ac
+    ld   ac, [sl]
+    ld   [w_t2], ac
+    bcc  te_1
+    inc
+te_1:
+    add  [w_t3], ac
+    sub  0x26, ac
+    blt  te_z
+    add  0x2D, y
+    ld   [sl], x
+    ld   [y,x], ac
+    bra  te_r
+te_z:
+    ld   0, ac
+te_r:
+    ld   ac, [ml]
+    xor  255, ac
+    add  1, ac
+    ld   ac, [dl]
+    ld   0, ac
+    ld   ac, [mh]
+    ld   [ml], ac
+    beq  te_h0
+    ld   255, ac
+te_h0:
+    ld   ac, [dh]
+    ld   [w_a], ac
+    add  sgc0, x
+    ld   [x], ac
+    beq  te_p
+    ld   [ml], ac
+    ld   ac, [w_t3]
+    ld   [dl], ac
+    ld   ac, [ml]
+    ld   [w_t3], ac
+    ld   ac, [dl]
+    ld   [mh], ac
+    ld   ac, [w_t3]
+    ld   [dh], ac
+    ld   ac, [mh]
+    ld   [w_t3], ac
+    ld   ac, [dh]
+te_p:
+    ld   0xE0, y
+    ld   [w_kp], x
+    ld   [ml], ac
+    ld   ac, [y,x]
+    ld   [w_kn], x
+    ld   [dl], ac
+    ld   ac, [y,x]
+    ld   0xE2, y
+    ld   [dh], ac
+    ld   ac, [y,x]
+    ld   [w_kp], x
+    ld   [mh], ac
+    ld   ac, [y,x]
+    ld   te_b >> 8, y
+    jmp  te_b
+
+; esetup: the edge from (ux, uy) down to (wx, wy): e16 = ux * 64 + 32, es = 64 dx / dy, w_dy = wy - uy
+esetup:
+    ld   [wy], ac
+    sub  [uy], ac
+    ld   ac, [w_dy]
+    ld   [uxl], ac
+    and  3, ac
+    add  0x40, x
+    ld   0x2C, y
+    ld   [y,x], ac
+    ld   ac, [e16l]
+    ld   [uxl], ac
+    shr  ac
+    shr  ac
+    ld   ac, [w_t]
+    ld   [uxh], ac
+    beq  es_1
+    ld   [w_t], ac
+    or   0x40, ac
+    bra  es_2
+es_1:
+    ld   [w_t], ac
+es_2:
+    ld   ac, [e16h]
+    ld   [w_dy], ac
+    xor  1, ac
+    bne  es_s
+    ld   0, ac
+    ld   ac, [esl]
+    ld   ac, [esh]
+    ld   [lk_es_h], y
+    jmp  [lk_es_l]
+es_s:
+    ld   [wxl], ac
+    sub  [uxl], ac
+    ld   ac, [w_dxl]
+    ld   [wxh], ac
+    bcc  es_3
+    dec
+es_3:
+    sub  [uxh], ac
+    ld   ac, [w_dxh]
+    ld   0, ac
+    ld   ac, [w_sg]
+    ld   [w_dxh], ac
+    blt  es_n
+    ld   es_lg >> 8, y
+    jmp  es_lg
+es_n:
+    ld   [w_dxl], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [w_dxl]
+    ld   [w_dxh], ac
+    xor  255, ac
+    bcc  ng_86
+    inc
+ng_86:
+    ld   ac, [w_dxh]
+    ld   1, ac
+    ld   ac, [w_sg]
+    ld   es_lg >> 8, y
+    jmp  es_lg
+
+camera_e:
+    ld   0, ac
+    ld   ac, [sgc0]
+    ld   [lgh0], ac
+    blt  cl_57
+    bra  cl_58
+cl_57:
+    ld   [lgc0], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [lgc0]
+    ld   [lgh0], ac
+    xor  255, ac
+    bcc  ng_59
+    inc
+ng_59:
+    ld   ac, [lgh0]
+    ld   1, ac
+    ld   ac, [sgc0]
+cl_58:
+    ld   [lgh0], ac
+    add  0x27, y
+    ld   [lgc0], x
+    ld   [y,x], ac
+    ld   ac, [lgc0]
+    ld   [lgh0], ac
+    add  0x29, y
+    ld   [y,x], ac
+    ld   ac, [lgh0]
+    ld   0, ac
+    ld   ac, [sgc1]
+    ld   [lgh1], ac
+    blt  cl_60
+    bra  cl_61
+cl_60:
+    ld   [lgc1], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [lgc1]
+    ld   [lgh1], ac
+    xor  255, ac
+    bcc  ng_62
+    inc
+ng_62:
+    ld   ac, [lgh1]
+    ld   1, ac
+    ld   ac, [sgc1]
+cl_61:
+    ld   [lgh1], ac
+    add  0x27, y
+    ld   [lgc1], x
+    ld   [y,x], ac
+    ld   ac, [lgc1]
+    ld   [lgh1], ac
+    add  0x29, y
+    ld   [y,x], ac
+    ld   ac, [lgh1]
+    ld   0, ac
+    ld   ac, [sgc2]
+    ld   [lgh2], ac
+    blt  cl_63
+    bra  cl_64
+cl_63:
+    ld   [lgc2], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [lgc2]
+    ld   [lgh2], ac
+    xor  255, ac
+    bcc  ng_65
+    inc
+ng_65:
+    ld   ac, [lgh2]
+    ld   1, ac
+    ld   ac, [sgc2]
+cl_64:
+    ld   [lgh2], ac
+    add  0x27, y
+    ld   [lgc2], x
+    ld   [y,x], ac
+    ld   ac, [lgc2]
+    ld   [lgh2], ac
+    add  0x29, y
+    ld   [y,x], ac
+    ld   ac, [lgh2]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+; ship_body: transform, faces, then the lines or the outline
+ship_body:
+    ld   0x59, y
+    ld   [shs], ac
+    add  0x80, x
+    ld   [ozl], ac
+    ld   ac, [y,x]
+    ld   [shs], ac
+    add  0x90, x
+    ld   [ozh], ac
+    ld   ac, [y,x]
+pm_m:
+    ld   LINK_LO, x             ; CALL matrix
+    ld   w3_r8, [x]
+    ld   LINK_HI, x
+    ld   w3_r8 >> 8, [x]
+    ld   matrix >> 8, y
+    jmp  matrix
+w3_r8:
+    ld   1, ac
+    ld   ac, [allv]
+pm_x:
+    ld   LINK_LO, x             ; CALL xform
+    ld   w3_r9, [x]
+    ld   LINK_HI, x
+    ld   w3_r9 >> 8, [x]
+    ld   xform >> 8, y
+    jmp  xform
+w3_r9:
+pm_c:
+    ld   LINK_LO, x             ; CALL camera
+    ld   w3_r10, [x]
+    ld   LINK_HI, x
+    ld   w3_r10 >> 8, [x]
+    ld   camera >> 8, y
+    jmp  camera
+w3_r10:
+    ld   [mode], ac
+    beq  sb_1
+    ld   LINK_LO, x             ; CALL lights
+    ld   w3_r11, [x]
+    ld   LINK_HI, x
+    ld   w3_r11 >> 8, [x]
+    ld   lights >> 8, y
+    jmp  lights
+w3_r11:
+sb_1:
+pm_t:
+    ld   LINK_LO, x             ; CALL tents
+    ld   w3_r12, [x]
+    ld   LINK_HI, x
+    ld   w3_r12 >> 8, [x]
+    ld   tents >> 8, y
+    jmp  tents
+w3_r12:
+pm_f:
+    ld   LINK_LO, x             ; CALL faces
+    ld   w3_r13, [x]
+    ld   LINK_HI, x
+    ld   w3_r13 >> 8, [x]
+    ld   faces >> 8, y
+    jmp  faces
+w3_r13:
+    ld   [mode], ac
+    beq  sb_w
+    ld   ship_fill >> 8, y
+    jmp  ship_fill
+sb_w:
+    ld   ship_wire >> 8, y
+    jmp  ship_wire
+
+; faces: FV[fo..] = 1 where face fi.. (fn of them) looks at the camera: S = sum T > D
+faces:
+fc_loop:
+    ld   0x36, y
+    ld   [fi], ac
+    add  0x80, x
+    ld   [y,x], ac
+    ld   ac, [w_a]
+    ld   [fi], ac
+    add  0xC0, x
+    ld   [y,x], ac
+    ld   ac, [w_b]
+    ld   0x37, y
+    ld   [fi], x
+    ld   [y,x], ac
+    ld   ac, [w_c]
+    ld   [fi], ac
+    add  0x40, x
+    ld   [y,x], ac
+    ld   ac, [dl]
+    ld   [fi], ac
+    add  0x80, x
+    ld   [y,x], ac
+    ld   ac, [dh]
+    ld   0xE0, y
+    ld   [w_a], x
+    ld   [y,x], ac
+    ld   [w_b], x
+    add  [y,x], ac
+    ld   ac, [sl]
+    ld   0, ac
+    bcc  fc_1
+    ld   1, ac
+fc_1:
+    ld   ac, [sh]
+    ld   [w_c], x
+    ld   [sl], ac
+    add  [y,x], ac
+    ld   ac, [sl]
+    bcc  fc_2
+    ld   [sh], ac
+    inc
+    ld   ac, [sh]
+fc_2:
+    ld   0xE2, y
+    ld   [sh], ac
+    ld   [w_a], x
+    add  [y,x], ac
+    ld   [w_b], x
+    add  [y,x], ac
+    ld   [w_c], x
+    add  [y,x], ac
+    ld   ac, [sh]
+    ld   [sl], ac
+    sub  [dl], ac
+    ld   [sh], ac
+    bcc  fc_3
+    dec
+fc_3:
+    sub  [dh], ac
+    blt  fc_inv
+    ld   0x58, y
+    ld   [fo], x
+    ld   1, [y,x]
+    ld   [mode], ac
+    beq  fc_next
+    ld   fc_shade >> 8, y
+    jmp  fc_shade
+fc_inv:
+    ld   0x58, y
+    ld   [fo], x
+    ld   0, [y,x]
+fc_next:
+    ld   [fi], ac
+    inc
+    ld   ac, [fi]
+    ld   [fo], ac
+    inc
+    ld   ac, [fo]
+    ld   [fn], ac
+    dec
+    ld   ac, [fn]
+    beq  fc_done
+    ld   fc_loop >> 8, y
+    jmp  fc_loop
+fc_done:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+te_b:
+    ld   [mode], ac
+    beq  te_next
+    ld   [w_a], ac
+    add  lgk0, x
+    ld   [x], ac
+    ld   ac, [w_t3]
+    ld   [w_a], ac
+    add  lgl0, x
+    ld   [x], ac
+    add  [w_t], ac
+    ld   ac, [sl]
+    ld   [w_t2], ac
+    bcc  te_3
+    inc
+te_3:
+    add  [w_t3], ac
+    ld   ac, [sh]
+    ld   [sl], ac
+    sub  165, ac
+    ld   ac, [sl]
+    ld   [sh], ac
+    bcc  te_4
+    dec
+te_4:
+    sub  38, ac
+    blt  te_bz
+    add  0x2D, y
+    ld   [sl], x
+    ld   [y,x], ac
+    bra  te_bs
+te_bz:
+    ld   0, ac
+te_bs:
+    ld   ac, [w_r]
+    ld   [w_a], ac
+    add  sgl0, x
+    ld   [x], ac
+    beq  te_bp
+    ld   [w_r], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [w_r]
+te_bp:
+    ld   0xE4, y
+    ld   [w_kp], x
+    ld   [w_r], ac
+    ld   ac, [y,x]
+    ld   [w_kn], x
+    xor  255, ac
+    add  1, ac
+    ld   ac, [y,x]
+te_next:
+    ld   [ti], ac
+    inc
+    ld   ac, [ti]
+    ld   [tn], ac
+    dec
+    ld   ac, [tn]
+    beq  te_done
+    ld   te_loop >> 8, y
+    jmp  te_loop
+te_done:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+
+#addr 0x0B00
+; yl: y-major, top to bottom, x to the left
+ex_yl0:
+    ld   [pg], y
+    bra  yl0
+ex_yl1:
+    ld   [pg], y
+    bra  yl1
+ex_yl2:
+    ld   [pg], y
+    bra  yl2
+ex_yl3:
+    ld   [pg], y
+    bra  yl3
+yl3:
+px_yl3:
+    ld   [y,x], ac
+    xor  0xC0, ac
+    ld   ac, [y,x]
+    ld   [off], ac
+    add  2, ac
+    bcs  yl3w
+yl3s:
+    ld   ac, [off]
+    ld   ac, x
+    xor  [endv], ac
+    beq  yl_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  yl3
+yl2:
+px_yl2:
+    ld   [y,x], ac
+    xor  0x30, ac
+    ld   ac, [y,x]
+    ld   [off], ac
+    add  2, ac
+    bcs  yl2w
+yl2s:
+    ld   ac, [off]
+    ld   ac, x
+    xor  [endv], ac
+    beq  yl_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  yl2
+yl1:
+px_yl1:
+    ld   [y,x], ac
+    xor  0x0C, ac
+    ld   ac, [y,x]
+    ld   [off], ac
+    add  2, ac
+    bcs  yl1w
+yl1s:
+    ld   ac, [off]
+    ld   ac, x
+    xor  [endv], ac
+    beq  yl_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  yl1
+yl0:
+px_yl0:
+    ld   [y,x], ac
+    xor  0x03, ac
+    ld   ac, [y,x]
+    ld   [off], ac
+    add  2, ac
+    bcs  yl0w
+yl0s:
+    ld   ac, [off]
+    ld   ac, x
+    xor  [endv], ac
+    beq  yl_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  yl0
+    ld   [pg], ac
+    sub  2, ac
+    ld   ac, [pg]
+    ld   ac, y
+    bra  yl3
+yl_z:
+    ld   [rhi], y
+    jmp  [rlo]
+yl0w:
+    ld   1, ac
+    bra  yl0s
+yl1w:
+    ld   1, ac
+    bra  yl1s
+yl2w:
+    ld   1, ac
+    bra  yl2s
+yl3w:
+    ld   1, ac
+    bra  yl3s
+
+
+xf_x:
+    blt  ap_28
+    add  [oxl], ac
+    ld   ac, [ml]
+    ld   [oxh], ac
+    bcc  ap_29
+    inc
+ap_29:
+    ld   ac, [mh]
+    bra  ap_30
+ap_28:
+    add  [oxl], ac
+    ld   ac, [ml]
+    ld   [oxh], ac
+    bcs  ap_29_b
+    dec
+ap_29_b:
+    ld   ac, [mh]
+ap_30:
+    blt  xx_neg
+    sub  2, ac
+    bcc  xx_bad
+    ld   [mh], ac
+    add  0x29, y
+    ld   [ml], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [mh], ac
+    add  0x27, y
+    ld   [y,x], ac
+    add  [dl], ac
+    ld   ac, [sl]
+    ld   [w_t], ac
+    bcc  pc_33
+    inc
+pc_33:
+    add  [dh], ac
+    blt  pz_31
+    ld   ac, [w_t]
+    sub  8, ac
+    bcc  xx_bad
+    ld   [w_t], ac
+    add  0x2D, y
+    ld   [sl], x
+    ld   [y,x], ac
+    bra  pd_32
+pz_31:
+    ld   0, ac
+pd_32:
+    ld   ac, [w_r]
+    sub  160, ac
+    bcc  xx_bad
+    ld   [w_r], ac
+    add  160, ac
+    ld   ac, [bxl]
+    ld   0, ac
+    bcc  xx_1
+    ld   1, ac
+xx_1:
+    ld   ac, [bxh]
+    ld   xf_y >> 8, y
+    jmp  xf_y
+xx_neg:
+    ld   xf_xn >> 8, y
+    jmp  xf_xn
+xx_bad:
+    ld   xf_bad >> 8, y
+    jmp  xf_bad
+
+; y-major: slope, then top end first
+ls_y:
+    ld   [adxh], ac
+    bne  sl_78
+    ld   [ady], ac
+    xor  [adxl], ac
+    bne  sl_78
+    ld   255, ac
+    ld   ac, [frac]
+    ld   ac, [err]
+    bra  sl_83
+sl_78:
+    ld   0x29, y
+    ld   [adxl], x
+    ld   [y,x], ac
+    ld   ac, [w_t2]
+    ld   0x27, y
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [adxh], ac
+    add  0x29, y
+    ld   [ady], x
+    ld   [y,x], ac
+    ld   ac, [w_t3]
+    ld   [adxh], ac
+    add  0x27, y
+    ld   [y,x], ac
+    ld   ac, [w_t4]
+    ld   [w_t], ac
+    sub  [w_t4], ac
+    ld   ac, [sl]
+    ld   [w_t2], ac
+    bcc  sl_79
+    dec
+sl_79:
+    sub  [w_t3], ac
+    add  8, ac
+    blt  sl_80
+    ld   ac, [w_t2]
+    sub  8, ac
+    bcc  sl_81
+    ld   [w_t2], ac
+    add  0x2D, y
+    ld   [sl], x
+    ld   [y,x], ac
+    bra  sl_82
+sl_80:
+    ld   0, ac
+    bra  sl_82
+sl_81:
+    ld   255, ac
+sl_82:
+    ld   ac, [frac]
+    ld   128, ac
+    ld   ac, [err]
+sl_83:
+    ld   [sgy], ac
+    bne  ly_sw
+    ld   [x0l], ac
+    ld   ac, [wbl]
+    ld   [x0h], ac
+    ld   ac, [wbh]
+    ld   [y0], ac
+    ld   ac, [by]
+    ld   [y1], ac
+    ld   ac, [ey]
+    ld   [sgx], ac
+    xor  1, ac
+    ld   ac, [dirf]
+    ld   ly_c >> 8, y
+    jmp  ly_c
+ly_sw:
+    ld   [x1l], ac
+    ld   ac, [wbl]
+    ld   [x1h], ac
+    ld   ac, [wbh]
+    ld   [y1], ac
+    ld   ac, [by]
+    ld   [y0], ac
+    ld   ac, [ey]
+    ld   [sgx], ac
+    ld   ac, [dirf]
+    ld   ly_c >> 8, y
+    jmp  ly_c
+
+; foot: the new outline of the ship (rows ntop to nbot): the edges between a face seen and one not seen
+foot:
+    ld   255, ac
+    ld   ac, [ntop]
+    ld   0, ac
+    ld   ac, [nbot]
+    ld   [vb], ac
+    ld   ac, [w_g]
+    ld   [nvs], ac
+    ld   ac, [w_n]
+ft_v:
+    ld   [w_g], x
+    ld   0x56, y
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    sub  [ntop], ac
+    bcc  ft_v1
+    ld   [w_t], ac
+    ld   ac, [ntop]
+ft_v1:
+    ld   [nbot], ac
+    sub  [w_t], ac
+    bcc  ft_v2
+    ld   [w_t], ac
+    ld   ac, [nbot]
+ft_v2:
+    ld   [w_g], ac
+    add  1, ac
+    ld   ac, [w_g]
+    ld   [w_n], ac
+    sub  1, ac
+    ld   ac, [w_n]
+    bne  ft_v
+    ld   [ntop], ac
+    add  0x30, ac
+    ld   ac, [w_ri]
+    ld   [nbot], ac
+    sub  [ntop], ac
+    beq  ft_i0
+    ld   ac, [w_n]
+ft_i:
+    ld   [w_ri], x
+    ld   0x40, y
+    ld   0x78, [y,x]
+    ld   0x41, y
+    ld   0, [y,x]
+    ld   0x42, y
+    ld   0, [y,x]
+    ld   0x43, y
+    ld   0, [y,x]
+    ld   [w_ri], ac
+    add  1, ac
+    ld   ac, [w_ri]
+    ld   [w_n], ac
+    sub  1, ac
+    ld   ac, [w_n]
+    bne  ft_i
+ft_i0:
+    ld   ft_el >> 8, y
+    jmp  ft_el
+
+
+#addr 0x0D00
+; span_f: the same from (lc:lp) up to (rc:rp), on the picture
+span_f:
+    ld   [rc], ac
+    sub  [lc], ac
+    beq  sp_one
+    bcs  sp_out
+    ld   0x44, y
+    ld   [lp], x
+    ld   [y,x], ac
+    xor  255, ac
+    beq  sp_m0
+    ld   ac, [w_nm]
+    xor  255, ac
+    and  [cb], ac
+    ld   ac, [w_cm]
+    ld   [lc], ac
+    shl
+    add  0x61, y
+    ld   [roff], x
+    ld   [y,x], ac
+    and  [w_nm], ac
+    or   [w_cm], ac
+    ld   ac, [y,x]
+    ld   [lc], ac
+    add  1, ac
+    bra  sp_m1
+sp_m0:
+    ld   [lc], ac
+sp_m1:
+    ld   ac, [c0]
+    ld   0x45, y
+    ld   [rp], x
+    ld   [y,x], ac
+    beq  sp_m2
+    xor  255, ac
+    ld   ac, [w_nm]
+    xor  255, ac
+    and  [cb], ac
+    ld   ac, [w_cm]
+    ld   [rc], ac
+    shl
+    add  0x61, y
+    ld   [roff], x
+    ld   [y,x], ac
+    and  [w_nm], ac
+    or   [w_cm], ac
+    ld   ac, [y,x]
+sp_m2:
+    ld   [rc], ac
+    sub  [c0], ac
+    beq  sp_out
+    ld   sp_run >> 8, y
+    jmp  sp_run
+sp_one:
+    ld   0x44, y
+    ld   [lp], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   0x45, y
+    ld   [rp], x
+    ld   [y,x], ac
+    and  [w_t], ac
+    beq  sp_out
+    xor  255, ac
+    ld   ac, [w_nm]
+    xor  255, ac
+    and  [cb], ac
+    ld   ac, [w_cm]
+    ld   [lc], ac
+    shl
+    add  0x61, y
+    ld   [roff], x
+    ld   [y,x], ac
+    and  [w_nm], ac
+    or   [w_cm], ac
+    ld   ac, [y,x]
+sp_out:
+    ld   [lk_sp_h], y
+    jmp  [lk_sp_l]
+
+ed_row:
+    ld   0x26, y
+    ld   [ycur], x
+    ld   [y,x], ac
+    ld   ac, [roff]
+    ld   [ycur], ac
+    add  0x30, x
+    ld   [fpLH], y
+    ld   [y,x], ac
+    ld   ac, [oLh]
+    ld   [fpLL], y
+    ld   [y,x], ac
+    ld   ac, [oLl]
+    ld   [fpRH], y
+    ld   [y,x], ac
+    ld   ac, [oRh]
+    ld   [fpRL], y
+    ld   [y,x], ac
+    ld   ac, [oRl]
+    ld   0x40, y
+    ld   [y,x], ac
+    ld   ac, [nLh]
+    ld   0x41, y
+    ld   [y,x], ac
+    ld   ac, [nLl]
+    ld   0x42, y
+    ld   [y,x], ac
+    ld   ac, [nRh]
+    ld   0x43, y
+    ld   [y,x], ac
+    ld   ac, [nRl]
+    ld   [nLl], ac
+    sub  [oRl], ac
+    ld   [nLh], ac
+    bcc  eo_1
+    dec
+eo_1:
+    sub  [oRh], ac
+    blt  eo_n
+    ld   [oRl], ac
+    ld   ac, [xRl]
+    ld   [oRh], ac
+    ld   ac, [xRh]
+    bra  eo_2
+eo_n:
+    ld   [nLl], ac
+    ld   ac, [xRl]
+    ld   [nLh], ac
+    ld   ac, [xRh]
+eo_2:
+    ld   [oLl], ac
+    sub  [xRl], ac
+    ld   [oLh], ac
+    bcc  eo_3
+    dec
+eo_3:
+    sub  [xRh], ac
+    blt  eo_go
+    ld   ed_rt >> 8, y
+    jmp  ed_rt
+eo_go:
+    ld   [oLl], ac
+    ld   ac, [xLl]
+    ld   [oLh], ac
+    ld   ac, [xLh]
+    ld   lk_sp_l, x
+    ld   rt_112 & 0xFF, [x]
+    ld   lk_sp_h, x
+    ld   rt_112 >> 8, [x]
+    ld   span_c >> 8, y
+    jmp  span_c
+rt_112:
+    ld   ed_rt >> 8, y
+    jmp  ed_rt
+
+; hud: the second text row
+hud:
+    ld   0, ac
+    ld   ac, [CUR_COL]
+    ld   1, ac
+    ld   ac, [CUR_ROW]
+    ld   s_fps & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_fps >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL con_puts
+    ld   w3_r1, [x]
+    ld   LINK_HI, x
+    ld   w3_r1 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+w3_r1:
+    ld   [fps], ac
+    ld   LINK_LO, x             ; CALL con_dec8
+    ld   w3_r2, [x]
+    ld   LINK_HI, x
+    ld   w3_r2 >> 8, [x]
+    ld   con_dec8 >> 8, y
+    jmp  con_dec8
+w3_r2:
+    ld   [mode], ac
+    bne  hu_f
+    ld   s_wire & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_wire >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL con_puts
+    ld   w3_r3, [x]
+    ld   LINK_HI, x
+    ld   w3_r3 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+w3_r3:
+    ld   [nrec], ac
+    bra  hu_n
+hu_f:
+    ld   s_fill & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_fill >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL con_puts
+    ld   w3_r4, [x]
+    ld   LINK_HI, x
+    ld   w3_r4 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+w3_r4:
+    ld   [nfac], ac
+hu_n:
+    ld   LINK_LO, x             ; CALL con_dec8
+    ld   w3_r5, [x]
+    ld   LINK_HI, x
+    ld   w3_r5 >> 8, [x]
+    ld   con_dec8 >> 8, y
+    jmp  con_dec8
+w3_r5:
+    ld   s_sp & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_sp >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL con_puts
+    ld   w3_r6, [x]
+    ld   LINK_HI, x
+    ld   w3_r6 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+w3_r6:
+    ld   fe_menu >> 8, y
+    jmp  fe_menu
+
+; adv: from vertex w_cj of the face, step w_dir (0: back, 1: on) to the first edge going down; AC = 0 if there is none
+adv:
+    ld   [fk], ac
+    ld   ac, [w_n]
+av_lp:
+    ld   [w_dir], ac
+    bne  av_inc
+    ld   [w_cj], ac
+    bne  av_d1
+    ld   [fk], ac
+av_d1:
+    sub  1, ac
+    bra  av_s
+av_inc:
+    ld   [w_cj], ac
+    add  1, ac
+    ld   ac, [w_t]
+    xor  [fk], ac
+    beq  av_s
+    ld   [w_t], ac
+av_s:
+    ld   ac, [w_nj]
+    add  0x20, x
+    ld   0x5C, y
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [w_cj], ac
+    add  0x20, x
+    ld   [y,x], ac
+    sub  [w_t], ac
+    bcs  av_got
+    ld   [w_nj], ac
+    ld   ac, [w_cj]
+    ld   [w_n], ac
+    sub  1, ac
+    ld   ac, [w_n]
+    bne  av_lp
+    ld   [lk_av_h], y
+    jmp  [lk_av_l]
+av_got:
+    ld   [w_cj], x
+    ld   [y,x], ac
+    ld   ac, [uxl]
+    ld   [w_cj], ac
+    add  0x10, x
+    ld   [y,x], ac
+    ld   ac, [uxh]
+    ld   [w_cj], ac
+    add  0x20, x
+    ld   [y,x], ac
+    ld   ac, [uy]
+    ld   [w_nj], x
+    ld   [y,x], ac
+    ld   ac, [wxl]
+    ld   [w_nj], ac
+    add  0x10, x
+    ld   [y,x], ac
+    ld   ac, [wxh]
+    ld   [w_nj], ac
+    add  0x20, x
+    ld   [y,x], ac
+    ld   ac, [wy]
+    ld   [w_nj], ac
+    ld   ac, [w_cj]
+    ld   lk_es_l, x
+    ld   rt_95 & 0xFF, [x]
+    ld   lk_es_h, x
+    ld   rt_95 >> 8, [x]
+    ld   esetup >> 8, y
+    jmp  esetup
+rt_95:
+    ld   1, ac
+    ld   [lk_av_h], y
+    jmp  [lk_av_l]
+
+
+#addr 0x0F00
+; fill_init: the pixel mask pages and the unrolled row filler (when filled mode starts)
+fill_init:
+    ld   0, ac
+    ld   ac, [w_g]
+fi_m:
+    ld   [w_g], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [w_t]
+    add  0x44, x
+    ld   0x2C, y
+    ld   [y,x], ac
+    ld   ac, [w_t2]
+    ld   [w_t], ac
+    add  0x48, x
+    ld   [y,x], ac
+    ld   ac, [w_t3]
+    ld   [w_g], x
+    ld   0x44, y
+    ld   [w_t2], ac
+    ld   ac, [y,x]
+    ld   0x45, y
+    ld   [w_t3], ac
+    ld   ac, [y,x]
+    ld   [w_g], ac
+    add  1, ac
+    ld   ac, [w_g]
+    bne  fi_m
+    ld   0, ac
+    ld   ac, [w_g]
+    ld   0x61, ac
+    ld   ac, [w_t]
+    ld   0x4F, y
+fi_f:
+    ld   [w_g], x
+    ld   0x10, [y,x]
+    ld   [w_g], ac
+    add  1, x
+    ld   [w_t], ac
+    ld   ac, [y,x]
+    ld   [w_g], ac
+    add  2, x
+    ld   0x1E, [y,x]
+    ld   [w_g], ac
+    add  3, ac
+    ld   ac, [w_g]
+    ld   [w_t], ac
+    add  2, ac
+    ld   ac, [w_t]
+    ld   [w_g], ac
+    xor  240, ac
+    bne  fi_f
+    ld   240, x
+    ld   0x11, [y,x]
+    ld   241, x
+    ld   fr_h, [y,x]
+    ld   242, x
+    ld   0xE1, [y,x]
+    ld   243, x
+    ld   fr_l, [y,x]
+    ld   sp_bk & 0xFF, ac
+    ld   ac, [fr_l]
+    ld   sp_bk >> 8, ac
+    ld   ac, [fr_h]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+xf_b:
+    ld   0x23, y
+    ld   [m0], ac
+    add  [vx], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m0], ac
+    sub  [vx], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [p00]
+    ld   [m1], ac
+    add  [vy], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m1], ac
+    sub  [vy], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [p01]
+    ld   [m2], ac
+    add  [vz], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m2], ac
+    sub  [vz], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [p02]
+    ld   [p00], ac
+    add  [p01], ac
+    add  [p02], ac
+    ld   ac, [xr]
+    ld   [m3], ac
+    add  [vx], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m3], ac
+    sub  [vx], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [p10]
+    ld   [m4], ac
+    add  [vy], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m4], ac
+    sub  [vy], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [p11]
+    ld   [m5], ac
+    add  [vz], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m5], ac
+    sub  [vz], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [p12]
+    ld   [p10], ac
+    add  [p11], ac
+    add  [p12], ac
+    ld   ac, [yr]
+    ld   xf_z >> 8, y
+    jmp  xf_z
+
+; frame: every ship, then (filled) the paint pass, the frame count and the menu hook
+frame:
+    ld   0, ac
+    ld   ac, [nrec]
+    ld   ac, [nfac]
+    ld   ac, [shs]
+    ld   ac, [shs8]
+    ld   ship_pre >> 8, y
+    jmp  ship_pre
+
+
+#addr 0x1000
+; camera: |o| and its signs, then the nine terms
+camera:
+    ld   0, ac
+    ld   ac, [w_a]
+    ld   [oxh], ac
+    blt  cm_48
+    bra  cm_49
+cm_48:
+    ld   [oxl], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [oxl]
+    ld   [oxh], ac
+    xor  255, ac
+    bcc  ng_50
+    inc
+ng_50:
+    ld   ac, [oxh]
+    ld   1, ac
+    ld   ac, [w_a]
+cm_49:
+    ld   0, ac
+    ld   ac, [w_b]
+    ld   [oyh], ac
+    blt  cm_51
+    bra  cm_52
+cm_51:
+    ld   [oyl], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [oyl]
+    ld   [oyh], ac
+    xor  255, ac
+    bcc  ng_53
+    inc
+ng_53:
+    ld   ac, [oyh]
+    ld   1, ac
+    ld   ac, [w_b]
+cm_52:
+    ld   0, ac
+    ld   ac, [w_c]
+    ld   [ozh], ac
+    blt  cm_54
+    bra  cm_55
+cm_54:
+    ld   [ozl], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [ozl]
+    ld   [ozh], ac
+    xor  255, ac
+    bcc  ng_56
+    inc
+ng_56:
+    ld   ac, [ozh]
+    ld   1, ac
+    ld   ac, [w_c]
+cm_55:
+    ld   0, ac
+    ld   ac, [lgc0]
+    ld   ac, [lgc1]
+    ld   ac, [lgc2]
+    ld   ac, [lgh0]
+    ld   ac, [lgh1]
+    ld   ac, [lgh2]
+    ld   ac, [w_ci]
+    ld   ac, [w_q]
+    ld   cm_i >> 8, y
+    jmp  cm_i
+
+; fill_paint: every face seen of every ship drawn, in that order
+fill_paint:
+    ld   0, ac
+    ld   ac, [sk]
+fp_ship:
+    ld   0x59, y
+    ld   [sk], ac
+    add  0xA0, x
+    ld   [y,x], ac
+    ld   ac, [sj]
+    add  0xB0, x
+    ld   [y,x], ac
+    beq  fp_nx
+    ld   0x3E, y
+    ld   [sj], ac
+    add  0xC0, x
+    ld   [y,x], ac
+    ld   ac, [vb]
+    ld   [sj], ac
+    add  0xD0, x
+    ld   [y,x], ac
+    ld   ac, [fb]
+    ld   [sj], ac
+    add  0x60, x
+    ld   [y,x], ac
+    ld   ac, [ffi]
+    ld   [sj], ac
+    add  0x70, x
+    ld   [y,x], ac
+    ld   ac, [w_nf]
+fp_face:
+    ld   0x58, y
+    ld   [fb], x
+    ld   [y,x], ac
+    beq  fp_fn
+    ld   0x46, y
+    ld   [y,x], ac
+    ld   ac, [cb0]
+    ld   0x47, y
+    ld   [y,x], ac
+    ld   ac, [cb1]
+    ld   [nfac], ac
+    add  1, ac
+    ld   ac, [nfac]
+pm_p:
+    ld   LINK_LO, x             ; CALL fill_face
+    ld   w3_r7, [x]
+    ld   LINK_HI, x
+    ld   w3_r7 >> 8, [x]
+    ld   fill_face >> 8, y
+    jmp  fill_face
+w3_r7:
+fp_fn:
+    ld   [fb], ac
+    add  1, ac
+    ld   ac, [fb]
+    ld   [ffi], ac
+    add  1, ac
+    ld   ac, [ffi]
+    ld   [w_nf], ac
+    sub  1, ac
+    ld   ac, [w_nf]
+    bne  fp_face
+fp_nx:
+    ld   [sk], ac
+    add  1, ac
+    ld   ac, [sk]
+    xor  6, ac
+    bne  fp_ship
+    ld   frame_end >> 8, y
+    jmp  frame_end
+
+
+#addr 0x1100
+; ls_ent: AC = variant * 4; entry address, then write the record
+ls_ent:
+    add  [ph], ac
+    ld   ac, [w_t]
+    add  0x80, x
+    ld   0x2C, y
+    ld   [y,x], ac
+    ld   ac, [jlo]
+    ld   [w_t], ac
+    add  0xA0, x
+    ld   [y,x], ac
+    ld   ac, [ehi]
+    ld   [nrec], x
+    ld   [par], ac
+    bne  wr_1
+wr_0:
+    ld   0x40, y
+    ld   [jlo], ac
+    ld   ac, [y,x]
+    ld   0x41, y
+    ld   [ehi], ac
+    ld   ac, [y,x]
+    ld   0x42, y
+    ld   [pg], ac
+    ld   ac, [y,x]
+    ld   0x43, y
+    ld   [off], ac
+    ld   ac, [y,x]
+    ld   0x44, y
+    ld   [err], ac
+    ld   ac, [y,x]
+    ld   0x45, y
+    ld   [frac], ac
+    ld   ac, [y,x]
+    ld   0x46, y
+    ld   [endv], ac
+    ld   ac, [y,x]
+    ld   0x47, y
+    ld   [ntail], ac
+    ld   ac, [y,x]
+    bra  wr_d
+wr_1:
+    ld   0x48, y
+    ld   [jlo], ac
+    ld   ac, [y,x]
+    ld   0x49, y
+    ld   [ehi], ac
+    ld   ac, [y,x]
+    ld   0x4A, y
+    ld   [pg], ac
+    ld   ac, [y,x]
+    ld   0x4B, y
+    ld   [off], ac
+    ld   ac, [y,x]
+    ld   0x4C, y
+    ld   [err], ac
+    ld   ac, [y,x]
+    ld   0x4D, y
+    ld   [frac], ac
+    ld   ac, [y,x]
+    ld   0x4E, y
+    ld   [endv], ac
+    ld   ac, [y,x]
+    ld   0x4F, y
+    ld   [ntail], ac
+    ld   ac, [y,x]
+wr_d:
+    ld   [nrec], ac
+    inc
+    ld   ac, [nrec]
+    ld   ed_next >> 8, y
+    jmp  ed_next
+
+; cm_i: the log of |o_i| (w_ci = i), then its three terms
+cm_i:
+    ld   [w_ci], ac
+    shl
+    ld   ac, [w_p]
+    add  oxl, x
+    ld   [x], ac
+    ld   ac, [w_t]
+    ld   [w_p], ac
+    add  oxh, x
+    ld   [x], ac
+    ld   ac, [w_t2]
+    add  0x27, y
+    ld   [w_t], x
+    ld   [y,x], ac
+    ld   ac, [w_t3]
+    ld   [w_t2], ac
+    add  0x29, y
+    ld   [y,x], ac
+    ld   ac, [w_t4]
+    ld   [w_ci], ac
+    add  w_a, x
+    ld   [x], ac
+    ld   ac, [w_osg]
+    ld   0, ac
+    ld   ac, [w_kp]
+cm_a:
+    ld   [w_q], ac
+    add  m0, x
+    ld   [x], ac
+    blt  cm_n
+    ld   ac, x
+    ld   0, ac
+    bra  cm_s
+cm_n:
+    xor  255, ac
+    add  1, ac
+    ld   ac, x
+    ld   1, ac
+cm_s:
+    xor  [w_osg], ac
+    ld   ac, [w_s]
+    ld   0x27, y
+    ld   [y,x], ac
+    add  [w_t3], ac
+    ld   ac, [w_t]
+    ld   0x29, y
+    ld   [y,x], ac
+    bcc  cm_1
+    inc
+cm_1:
+    add  [w_t4], ac
+    ld   ac, [w_t2]
+    ld   [w_t], ac
+    sub  250, ac
+    ld   ac, [w_t]
+    ld   [w_t2], ac
+    bcc  cm_2
+    dec
+cm_2:
+    sub  39, ac
+    blt  cm_z
+    add  0x2D, y
+    ld   [w_t], x
+    ld   [y,x], ac
+    ld   ac, [w_r]
+    ld   cm_acc >> 8, y
+    jmp  cm_acc
+cm_z:
+    ld   cm_nx >> 8, y
+    jmp  cm_nx
+
+; drawl: run records rk..rend-1 of buffer AC (0 or 1)
+drawl:
+    bne  dl_b1
+    ld   dl0 & 0xFF, ac
+    ld   ac, [rlo]
+    ld   dl0 >> 8, ac
+    ld   ac, [rhi]
+    ld   dl0 >> 8, y
+    jmp  dl0
+dl_b1:
+    ld   dl1 & 0xFF, ac
+    ld   ac, [rlo]
+    ld   dl1 >> 8, ac
+    ld   ac, [rhi]
+    ld   dl1 >> 8, y
+    jmp  dl1
+
+matrix_b:
+    ld   0x24, y
+    ld   [c3], ac
+    add  [c1], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [c3], ac
+    sub  [c1], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [w_acc]
+    ld   [s3], ac
+    add  [w_p], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [s3], ac
+    sub  [w_p], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [w_t]
+    ld   [w_acc], ac
+    sub  [w_t], ac
+    ld   ac, [m0]
+    ld   [s3], ac
+    add  [c2], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [s3], ac
+    sub  [c2], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [m1]
+    ld   [c3], ac
+    add  [s1], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [c3], ac
+    sub  [s1], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [w_acc]
+    ld   [s3], ac
+    add  [w_q], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [s3], ac
+    sub  [w_q], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    add  [w_acc], ac
+    ld   ac, [m2]
+    ld   matrix_c >> 8, y
+    jmp  matrix_c
+
+ship_pre_b:
+    ld   0x3E, y
+    ld   [shs], ac
+    add  0x40, x
+    ld   [y,x], ac
+    ld   ac, [vi]
+    ld   [shs], ac
+    add  0x50, x
+    ld   [y,x], ac
+    ld   ac, [vn]
+    ld   ac, [nvs]
+    ld   [shs], ac
+    add  0x60, x
+    ld   [y,x], ac
+    ld   ac, [fi]
+    ld   [shs], ac
+    add  0x70, x
+    ld   [y,x], ac
+    ld   ac, [fn]
+    ld   [shs], ac
+    add  0x80, x
+    ld   [y,x], ac
+    ld   ac, [ei]
+    ld   [shs], ac
+    add  0x90, x
+    ld   [y,x], ac
+    ld   ac, [en]
+    ld   [shs], ac
+    add  0xA0, x
+    ld   [y,x], ac
+    ld   ac, [ti]
+    ld   [shs], ac
+    add  0xB0, x
+    ld   [y,x], ac
+    ld   ac, [tn]
+    ld   [shs], ac
+    add  0xC0, x
+    ld   [y,x], ac
+    ld   ac, [vo]
+    ld   ac, [vb]
+    ld   [shs], ac
+    add  0xD0, x
+    ld   [y,x], ac
+    ld   ac, [fo]
+    ld   ac, [fb]
+    ld   [shs], ac
+    add  0xE0, x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [shs], ac
+    add  0xF0, x
+    ld   [y,x], ac
+    ld   ac, [w_t2]
+    ld   [w_t2], y
+    jmp  [w_t]
+
+; span_c: the pixels of line roff from x16 xL up to xR (not that one), clipped to the picture, in cb
+span_c:
+    ld   [xRh], ac
+    blt  sc_out
+    ld   [xLh], ac
+    blt  sc_lz
+    sub  80, ac
+    bcc  sc_out
+    ld   [xLh], ac
+    ld   ac, [lc]
+    ld   [xLl], ac
+    ld   ac, [lp]
+    bra  sc_r
+sc_lz:
+    ld   0, ac
+    ld   ac, [lc]
+    ld   ac, [lp]
+sc_r:
+    ld   [xRh], ac
+    sub  80, ac
+    bcs  sc_rok
+    ld   80, ac
+    ld   ac, [rc]
+    ld   0, ac
+    ld   ac, [rp]
+    ld   span_f >> 8, y
+    jmp  span_f
+sc_rok:
+    ld   [xRh], ac
+    ld   ac, [rc]
+    ld   [xRl], ac
+    ld   ac, [rp]
+    ld   span_f >> 8, y
+    jmp  span_f
+sc_out:
+    ld   [lk_sp_h], y
+    jmp  [lk_sp_l]
+
+matrix_c:
+    ld   0x24, y
+    ld   [s3], ac
+    add  [c1], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [s3], ac
+    sub  [c1], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [w_acc]
+    ld   [c3], ac
+    add  [w_p], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [c3], ac
+    sub  [w_p], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    add  [w_acc], ac
+    ld   ac, [m3]
+    ld   [c3], ac
+    add  [c2], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [c3], ac
+    sub  [c2], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [m4]
+    ld   [s3], ac
+    add  [s1], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [s3], ac
+    sub  [s1], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [w_acc]
+    ld   [c3], ac
+    add  [w_q], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [c3], ac
+    sub  [w_q], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [w_t]
+    ld   [w_acc], ac
+    sub  [w_t], ac
+    ld   ac, [m5]
+    ld   matrix_d >> 8, y
+    jmp  matrix_d
+
+; xform: project vn model vertices from vi to the arrays at vo (allv = 0: one off)
+xform:
+xf_loop:
+    ld   0x35, y
+    ld   [vi], ac
+    add  0xC0, x
+    ld   [y,x], ac
+    bne  xf_m
+    ld   [vi], x
+    ld   [y,x], ac
+    ld   ac, [vx]
+    ld   [vi], ac
+    add  0x40, x
+    ld   [y,x], ac
+    ld   ac, [vy]
+    ld   [vi], ac
+    add  0x80, x
+    ld   [y,x], ac
+    ld   ac, [vz]
+    ld   0x23, y
+    ld   [m6], ac
+    add  [vx], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m6], ac
+    sub  [vx], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [p20]
+    ld   [m7], ac
+    add  [vy], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m7], ac
+    sub  [vy], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [p21]
+    ld   [m8], ac
+    add  [vz], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m8], ac
+    sub  [vz], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [p22]
+    ld   [p20], ac
+    add  [p21], ac
+    add  [p22], ac
+    ld   ac, [zr]
+    ld   xf_b >> 8, y
+    jmp  xf_b
+xf_m:
+    ld   xf_mir >> 8, y
+    jmp  xf_mir
+
+xf_yp:
+    sub  2, ac
+    bcc  yp_bad
+    ld   [mh], ac
+    add  0x29, y
+    ld   [ml], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [mh], ac
+    add  0x27, y
+    ld   [y,x], ac
+    add  [dl], ac
+    ld   ac, [sl]
+    ld   [w_t], ac
+    bcc  pc_43
+    inc
+pc_43:
+    add  [dh], ac
+    blt  pz_41
+    ld   ac, [w_t]
+    sub  8, ac
+    bcc  yp_bad
+    ld   [w_t], ac
+    add  0x2D, y
+    ld   [sl], x
+    ld   [y,x], ac
+    bra  pd_42
+pz_41:
+    ld   0, ac
+pd_42:
+    ld   ac, [w_r]
+    sub  117, ac
+    bcc  yp_bad
+    ld   124, ac
+    sub  [w_r], ac
+    ld   xf_st >> 8, y
+    jmp  xf_st
+yp_bad:
+    ld   xf_bad >> 8, y
+    jmp  xf_bad
+
+
+#addr 0x1400
+; ls: the line (x0, y0)-(x1, y1) into record nrec
+ls:
+    ld   [x1l], ac
+    sub  [x0l], ac
+    ld   ac, [dxl]
+    ld   [x1h], ac
+    bcc  ls_1
+    dec
+ls_1:
+    sub  [x0h], ac
+    ld   ac, [dxh]
+    blt  ls_xn
+    ld   ac, [adxh]
+    ld   [dxl], ac
+    ld   ac, [adxl]
+    ld   0, ac
+    ld   ac, [sgx]
+    bra  ls_2
+ls_xn:
+    ld   [dxl], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [adxl]
+    ld   [dxh], ac
+    xor  255, ac
+    bcc  ls_3
+    inc
+ls_3:
+    ld   ac, [adxh]
+    ld   1, ac
+    ld   ac, [sgx]
+ls_2:
+    ld   [y1], ac
+    sub  [y0], ac
+    bcc  ls_4
+    xor  255, ac
+    add  1, ac
+    ld   ac, [ady]
+    ld   1, ac
+    ld   ac, [sgy]
+    bra  ls_5
+ls_4:
+    ld   ac, [ady]
+    ld   0, ac
+    ld   ac, [sgy]
+ls_5:
+    ld   [adxh], ac
+    bne  ls_x
+    ld   [adxl], ac
+    sub  [ady], ac
+    bcc  ls_x
+    ld   ls_y >> 8, y
+    jmp  ls_y
+ls_x:
+    ld   ls_xm >> 8, y
+    jmp  ls_xm
+
+lights_b:
+    ld   0x24, y
+    ld   [m2], ac
+    add  232, x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m2], ac
+    sub  232, x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [w_acc]
+    ld   [m5], ac
+    add  36, x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m5], ac
+    sub  36, x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    add  [w_acc], ac
+    ld   ac, [w_acc]
+    ld   [m8], ac
+    add  212, x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [m8], ac
+    sub  212, x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    add  [w_acc], ac
+    ld   ac, [w_acc]
+    ld   0, ac
+    ld   ac, [sgl2]
+    ld   [w_acc], ac
+    blt  lt_70
+    bra  lt_71
+lt_70:
+    xor  255, ac
+    add  1, ac
+    ld   ac, [w_acc]
+    ld   1, ac
+    ld   ac, [sgl2]
+    ld   [w_acc], ac
+lt_71:
+    ld   ac, x
+    ld   0x27, y
+    ld   [y,x], ac
+    ld   ac, [lgl2]
+    ld   0x29, y
+    ld   [y,x], ac
+    ld   ac, [lgk2]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+; ff_rf: the rows down to the next vertex
+ff_rf:
+    ld   0x26, y
+    ld   [ycur], x
+    ld   [y,x], ac
+    ld   ac, [roff]
+    ld   lk_sp_l, x
+    ld   rt_99 & 0xFF, [x]
+    ld   lk_sp_h, x
+    ld   rt_99 >> 8, [x]
+    ld   span_f >> 8, y
+    jmp  span_f
+rt_99:
+    ld   [lp], ac
+    add  [slLl], ac
+    ld   ac, [lp]
+    ld   [lc], ac
+    bcc  a6_100
+    inc
+a6_100:
+    add  [slLh], ac
+    ld   ac, [lc]
+    ld   [rp], ac
+    add  [slRl], ac
+    ld   ac, [rp]
+    ld   [rc], ac
+    bcc  a6_101
+    inc
+a6_101:
+    add  [slRh], ac
+    ld   ac, [rc]
+    ld   [cb], ac
+    xor  [cbx], ac
+    ld   ac, [cb]
+    ld   [ycur], ac
+    add  1, ac
+    ld   ac, [ycur]
+    xor  [w_ye], ac
+    bne  ff_rf
+    ld   ff_seg >> 8, y
+    jmp  ff_seg
+
+; ship_wire: the line records, then the old lines erased and the new drawn
+ship_wire:
+    ld   [nrec], ac
+    ld   ac, [nst]
+pm_e:
+    ld   LINK_LO, x             ; CALL edges
+    ld   w3_r14, [x]
+    ld   LINK_HI, x
+    ld   w3_r14 >> 8, [x]
+    ld   edges >> 8, y
+    jmp  edges
+w3_r14:
+    ld   0x59, y
+    ld   [shs8], ac
+    add  4, x
+    ld   [y,x], ac
+    ld   ac, [rk]
+    ld   [shs8], ac
+    add  5, x
+    ld   [y,x], ac
+    ld   ac, [rend]
+    ld   [par], ac
+    xor  1, ac
+pm_r:
+    ld   LINK_LO, x             ; CALL drawl
+    ld   w3_r15, [x]
+    ld   LINK_HI, x
+    ld   w3_r15 >> 8, [x]
+    ld   drawl >> 8, y
+    jmp  drawl
+w3_r15:
+    ld   [nst], ac
+    ld   ac, [rk]
+    ld   [nrec], ac
+    ld   ac, [rend]
+    ld   [par], ac
+pm_d:
+    ld   LINK_LO, x             ; CALL drawl
+    ld   w3_r16, [x]
+    ld   LINK_HI, x
+    ld   w3_r16 >> 8, [x]
+    ld   drawl >> 8, y
+    jmp  drawl
+w3_r16:
+pm_o:
+    ld   0x59, y
+    ld   [shs8], ac
+    add  4, x
+    ld   [nst], ac
+    ld   ac, [y,x]
+    ld   [shs8], ac
+    add  5, x
+    ld   [nrec], ac
+    ld   ac, [y,x]
+    ld   ship_next >> 8, y
+    jmp  ship_next
+
+; ft_row3: the edge's x16 on each of its rows, both x16 of a row
+ft_row3:
+    ld   [w_ri], x
+    ld   0x41, y
+    ld   [e16l], ac
+    sub  [y,x], ac
+    ld   0x40, y
+    ld   [e16h], ac
+    bcc  fl_3
+    dec
+fl_3:
+    sub  [y,x], ac
+    blt  fls_3
+    bra  fln_3
+fls_3:
+    ld   [e16h], ac
+    ld   ac, [y,x]
+    ld   0x41, y
+    ld   [e16l], ac
+    ld   ac, [y,x]
+fln_3:
+    ld   [w_ri], x
+    ld   0x43, y
+    ld   [y,x], ac
+    sub  [e16l], ac
+    ld   0x42, y
+    ld   [y,x], ac
+    bcc  fr_3
+    dec
+fr_3:
+    sub  [e16h], ac
+    blt  frs_3
+    bra  frn_3
+frs_3:
+    ld   [e16h], ac
+    ld   ac, [y,x]
+    ld   0x43, y
+    ld   [e16l], ac
+    ld   ac, [y,x]
+frn_3:
+    ld   [e16l], ac
+    add  [esl], ac
+    ld   ac, [e16l]
+    ld   [e16h], ac
+    bcc  a6_108
+    inc
+a6_108:
+    add  [esh], ac
+    ld   ac, [e16h]
+    ld   [w_ri], ac
+    add  1, ac
+    ld   ac, [w_ri]
+    ld   [w_n], ac
+    sub  1, ac
+    ld   ac, [w_n]
+    bne  ft_row3
+    ld   ft_nx >> 8, y
+    jmp  ft_nx
+
+ft_ed:
+    ld   [w_vt], x
+    ld   0x54, y
+    ld   [y,x], ac
+    ld   ac, [uxl]
+    ld   0x55, y
+    ld   [y,x], ac
+    ld   ac, [uxh]
+    ld   0x56, y
+    ld   [y,x], ac
+    ld   ac, [uy]
+    ld   [w_vbm], x
+    ld   [y,x], ac
+    ld   ac, [wy]
+    ld   0x55, y
+    ld   [y,x], ac
+    ld   ac, [wxh]
+    ld   0x54, y
+    ld   [y,x], ac
+    ld   ac, [wxl]
+    ld   lk_es_l, x
+    ld   rt_105 & 0xFF, [x]
+    ld   lk_es_h, x
+    ld   rt_105 >> 8, [x]
+    ld   esetup >> 8, y
+    jmp  esetup
+rt_105:
+    ld   [uy], ac
+    add  0x30, ac
+    ld   ac, [w_ri]
+    ld   [w_dy], ac
+    ld   ac, [w_n]
+    ld   [w_side], ac
+    sub  2, ac
+    beq  ft_r2
+    bcs  ft_r1
+    ld   ft_row3 >> 8, y
+    jmp  ft_row3
+ft_r1:
+    ld   ft_row1 >> 8, y
+    jmp  ft_row1
+ft_r2:
+    ld   ft_row2 >> 8, y
+    jmp  ft_row2
+
+
+#addr 0x1600
+xf_xn:
+    ld   [ml], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [ml]
+    ld   [mh], ac
+    xor  255, ac
+    bcc  nm_34
+    inc
+nm_34:
+    ld   ac, [mh]
+    sub  2, ac
+    bcc  xn_bad
+    ld   [mh], ac
+    add  0x29, y
+    ld   [ml], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [mh], ac
+    add  0x27, y
+    ld   [y,x], ac
+    add  [dl], ac
+    ld   ac, [sl]
+    ld   [w_t], ac
+    bcc  pc_37
+    inc
+pc_37:
+    add  [dh], ac
+    blt  pz_35
+    ld   ac, [w_t]
+    sub  8, ac
+    bcc  xn_bad
+    ld   [w_t], ac
+    add  0x2D, y
+    ld   [sl], x
+    ld   [y,x], ac
+    bra  pd_36
+pz_35:
+    ld   0, ac
+pd_36:
+    ld   ac, [w_r]
+    ld   160, ac
+    sub  [w_r], ac
+    bcs  xn_bad
+    ld   ac, [bxl]
+    ld   0, ac
+    ld   ac, [bxh]
+    ld   xf_y >> 8, y
+    jmp  xf_y
+xn_bad:
+    ld   xf_bad >> 8, y
+    jmp  xf_bad
+
+; fc_shade: the colour bytes of a face seen
+fc_shade:
+    ld   0xE4, y
+    ld   [w_a], x
+    ld   [y,x], ac
+    ld   [w_b], x
+    add  [y,x], ac
+    ld   [w_c], x
+    add  [y,x], ac
+    blt  fs_0
+    sub  6, ac
+    bcs  fs_0
+    sub  14, ac
+    bcs  fs_1
+    sub  14, ac
+    bcs  fs_2
+    sub  14, ac
+    bcs  fs_3
+    bra  fs_4
+fs_0:
+    ld   0x55, ac
+    ld   ac, [w_t]
+    ld   0x55, ac
+    bra  fs_st
+fs_1:
+    ld   0x99, ac
+    ld   ac, [w_t]
+    ld   0x66, ac
+    bra  fs_st
+fs_2:
+    ld   0xAA, ac
+    ld   ac, [w_t]
+    ld   0xAA, ac
+    bra  fs_st
+fs_3:
+    ld   0xEE, ac
+    ld   ac, [w_t]
+    ld   0xBB, ac
+    bra  fs_st
+fs_4:
+    ld   0xFF, ac
+    ld   ac, [w_t]
+    ld   0xFF, ac
+    bra  fs_st
+fs_st:
+    ld   ac, [w_t2]
+    ld   0x46, y
+    ld   [fo], x
+    ld   [w_t], ac
+    ld   ac, [y,x]
+    ld   0x47, y
+    ld   [w_t2], ac
+    ld   ac, [y,x]
+    ld   fc_next >> 8, y
+    jmp  fc_next
+
+; er_cp: keep the new outline as the old one
+er_cp:
+    ld   [ntop], ac
+    add  0x30, ac
+    ld   ac, [w_ri]
+    ld   [nbot], ac
+    sub  [ntop], ac
+    beq  ec_z
+    ld   ac, [w_n]
+ec_lp:
+    ld   [w_ri], x
+    ld   0x40, y
+    ld   [y,x], ac
+    ld   [fpLH], y
+    ld   ac, [y,x]
+    ld   0x41, y
+    ld   [y,x], ac
+    ld   [fpLL], y
+    ld   ac, [y,x]
+    ld   0x42, y
+    ld   [y,x], ac
+    ld   [fpRH], y
+    ld   ac, [y,x]
+    ld   0x43, y
+    ld   [y,x], ac
+    ld   [fpRL], y
+    ld   ac, [y,x]
+    ld   [w_ri], ac
+    add  1, ac
+    ld   ac, [w_ri]
+    ld   [w_n], ac
+    sub  1, ac
+    ld   ac, [w_n]
+    bne  ec_lp
+ec_z:
+    ld   0x59, y
+    ld   [shs8], ac
+    add  6, x
+    ld   [ntop], ac
+    ld   ac, [y,x]
+    ld   [shs8], ac
+    add  7, x
+    ld   [nbot], ac
+    ld   ac, [y,x]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+
+#addr 0x1700
+; fe_menu: wait for the frame cap, the menu hook, the mode switch (by time)
+fe_menu:
+fe_wait:
+    ld   0x50, y               ; tick: line read (V9:V2)
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    sub  [LINE_LAST], ac
+    ld   [w_t], ac
+    ld   ac, [LINE_LAST]
+    bcc  tk_2
+    ld   [FRAME_LO], ac
+    inc
+    ld   ac, [FRAME_LO]
+    bcc  tk_2
+    ld   [FRAME_HI], ac
+    inc
+    ld   ac, [FRAME_HI]
+tk_2:
+    ld   [FRAME_LO], ac
+    sub  [lastf], ac
+    sub  2, ac
+    bcs  fe_wait
+    ld   [FRAME_LO], ac
+    ld   ac, [lastf]
+fe_mark:
+    ld   LINK_LO, x             ; CALL kbd_scan
+    ld   w3_r17, [x]
+    ld   LINK_HI, x
+    ld   w3_r17 >> 8, [x]
+    ld   kbd_scan >> 8, y
+    jmp  kbd_scan
+w3_r17:
+    ld   LINK_LO, x             ; CALL menu_poll
+    ld   w3_r18, [x]
+    ld   LINK_HI, x
+    ld   w3_r18 >> 8, [x]
+    ld   menu_poll >> 8, y
+    jmp  menu_poll
+w3_r18:
+    ld   [msec], ac
+    sub  20, ac
+    bcc  fe_sw
+fe_go:
+    ld   0xFF, ac
+    ld   0x50, y
+    ld   ac, [y,x]
+    ld   [par], ac
+    xor  1, ac
+    ld   ac, [par]
+    ld   frame >> 8, y
+    jmp  frame
+fe_sw:
+    ld   switch >> 8, y
+    jmp  switch
+
+; cm_acc: lgc_a/lgh_a += or -= w_r, then the next term
+cm_acc:
+    ld   [w_kp], ac
+    add  lgc0, x
+    ld   [w_s], ac
+    bne  cm_ad
+    ld   [x], ac
+    sub  [w_r], ac
+    ld   ac, [x]
+    ld   0, ac
+    bcc  cm_3
+    ld   1, ac
+cm_3:
+    ld   ac, [w_t]
+    ld   [w_kp], ac
+    add  lgh0, x
+    ld   [x], ac
+    sub  [w_t], ac
+    ld   ac, [x]
+    bra  cm_nx
+cm_ad:
+    ld   [x], ac
+    add  [w_r], ac
+    ld   ac, [x]
+    ld   0, ac
+    bcc  cm_4
+    ld   1, ac
+cm_4:
+    ld   ac, [w_t]
+    ld   [w_kp], ac
+    add  lgh0, x
+    ld   [x], ac
+    add  [w_t], ac
+    ld   ac, [x]
+cm_nx:
+    ld   [w_q], ac
+    add  1, ac
+    ld   ac, [w_q]
+    ld   [w_kp], ac
+    add  1, ac
+    ld   ac, [w_kp]
+    xor  3, ac
+    beq  cm_ni
+    ld   cm_a >> 8, y
+    jmp  cm_a
+cm_ni:
+    ld   [w_ci], ac
+    add  1, ac
+    ld   ac, [w_ci]
+    xor  3, ac
+    beq  cm_e
+    ld   cm_i >> 8, y
+    jmp  cm_i
+cm_e:
+    ld   camera_e >> 8, y
+    jmp  camera_e
+
+; matrix: m0-m8 from a1, a2, a3 (1.0 = 63)
+matrix:
+    ld   0x25, y
+    ld   [a1], ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [s1]
+    ld   [a1], ac
+    add  64, x
+    ld   [y,x], ac
+    ld   ac, [c1]
+    ld   [a2], ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [s2]
+    ld   [a2], ac
+    add  64, x
+    ld   [y,x], ac
+    ld   ac, [c2]
+    ld   [a3], ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [s3]
+    ld   [a3], ac
+    add  64, x
+    ld   [y,x], ac
+    ld   ac, [c3]
+    ld   0x24, y
+    ld   [s2], ac
+    add  [s1], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [s2], ac
+    sub  [s1], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [w_p]
+    ld   [s2], ac
+    add  [c1], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [s2], ac
+    sub  [c1], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [w_q]
+    ld   matrix_b >> 8, y
+    jmp  matrix_b
+
+
+#addr 0x1800
+dl0:
+    ld   0x50, y               ; tick: line read (V9:V2)
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    sub  [LINE_LAST], ac
+    ld   [w_t], ac
+    ld   ac, [LINE_LAST]
+    bcc  tk_84
+    ld   [FRAME_LO], ac
+    inc
+    ld   ac, [FRAME_LO]
+    bcc  tk_84
+    ld   [FRAME_HI], ac
+    inc
+    ld   ac, [FRAME_HI]
+tk_84:
+    ld   [rk], ac
+    xor  [rend], ac
+    beq  dl0_z
+    ld   [rk], x
+    ld   0x44, y
+    ld   [y,x], ac
+    ld   ac, [err]
+    ld   0x45, y
+    ld   [y,x], ac
+    ld   ac, [frac]
+    ld   0x46, y
+    ld   [y,x], ac
+    ld   ac, [endv]
+    ld   0x47, y
+    ld   [y,x], ac
+    ld   ac, [ntail]
+    ld   0x42, y
+    ld   [y,x], ac
+    ld   ac, [pg]
+    ld   0x40, y
+    ld   [y,x], ac
+    ld   ac, [jlo]
+    ld   0x43, y
+    ld   [y,x], ac
+    ld   ac, [off]
+    ld   0x41, y
+    ld   [y,x], ac
+    ld   ac, y
+    ld   [off], x
+    ld   [rk], ac
+    inc
+    ld   ac, [rk]
+    jmp  [jlo]
+dl0_z:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+dl1:
+    ld   0x50, y               ; tick: line read (V9:V2)
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    sub  [LINE_LAST], ac
+    ld   [w_t], ac
+    ld   ac, [LINE_LAST]
+    bcc  tk_85
+    ld   [FRAME_LO], ac
+    inc
+    ld   ac, [FRAME_LO]
+    bcc  tk_85
+    ld   [FRAME_HI], ac
+    inc
+    ld   ac, [FRAME_HI]
+tk_85:
+    ld   [rk], ac
+    xor  [rend], ac
+    beq  dl1_z
+    ld   [rk], x
+    ld   0x4C, y
+    ld   [y,x], ac
+    ld   ac, [err]
+    ld   0x4D, y
+    ld   [y,x], ac
+    ld   ac, [frac]
+    ld   0x4E, y
+    ld   [y,x], ac
+    ld   ac, [endv]
+    ld   0x4F, y
+    ld   [y,x], ac
+    ld   ac, [ntail]
+    ld   0x4A, y
+    ld   [y,x], ac
+    ld   ac, [pg]
+    ld   0x48, y
+    ld   [y,x], ac
+    ld   ac, [jlo]
+    ld   0x4B, y
+    ld   [y,x], ac
+    ld   ac, [off]
+    ld   0x49, y
+    ld   [y,x], ac
+    ld   ac, y
+    ld   [off], x
+    ld   [rk], ac
+    inc
+    ld   ac, [rk]
+    jmp  [jlo]
+dl1_z:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+lx_c:
+    ld   [wbh], ac
+    add  0x2B, y
+    ld   [wbl], x
+    ld   [y,x], ac
+    ld   ac, [pg]
+    ld   [wbl], ac
+    and  3, ac
+    ld   ac, [ph]
+    ld   0x26, y
+    ld   [by], x
+    ld   [y,x], ac
+    ld   ac, [off]
+    ld   [exh], ac
+    add  0x2B, y
+    ld   [exl], x
+    ld   [y,x], ac
+    ld   ac, [endv]
+    xor  [pg], ac
+    bne  lx_far
+    ld   [exl], ac
+    and  3, ac
+    sub  [ph], ac
+    inc
+    ld   ac, [ntail]
+    ld   [dirf], ac
+    bne  lx_td
+    ld   12, ac
+    bra  lx_e
+lx_td:
+    ld   8, ac
+    bra  lx_e
+lx_far:
+    ld   [exl], ac
+    and  3, ac
+    inc
+    ld   ac, [ntail]
+    ld   [dirf], ac
+    bne  lx_xd
+    ld   4, ac
+    bra  lx_e
+lx_xd:
+    ld   0, ac
+lx_e:
+    ld   ls_ent >> 8, y
+    jmp  ls_ent
+
+
+#addr 0x1900
+; switch: the other mode: a clear screen, every ship's old lines or outline forgotten
+switch:
+    ld   [mode], ac
+    xor  1, ac
+    ld   ac, [mode]
+    ld   0, ac
+    ld   ac, [msec]
+    ld   ac, [nrec]
+    ld   lk_sc_l, x
+    ld   rt_3 & 0xFF, [x]
+    ld   lk_sc_h, x
+    ld   rt_3 >> 8, [x]
+    ld   screen >> 8, y
+    jmp  screen
+rt_3:
+    ld   0x59, y
+    ld   0, ac
+    ld   ac, [w_g]
+sw_lp:
+    add  4, x
+    ld   0, [y,x]
+    ld   [w_g], ac
+    add  5, x
+    ld   0, [y,x]
+    ld   [w_g], ac
+    add  6, x
+    ld   0, [y,x]
+    ld   [w_g], ac
+    add  7, x
+    ld   0, [y,x]
+    ld   [w_g], ac
+    add  8, ac
+    ld   ac, [w_g]
+    xor  48, ac
+    beq  sw_d
+    ld   [w_g], ac
+    bra  sw_lp
+sw_d:
+    ld   [mode], ac
+    beq  sw_w
+    ld   LINK_LO, x             ; CALL fill_init
+    ld   w3_r19, [x]
+    ld   LINK_HI, x
+    ld   w3_r19 >> 8, [x]
+    ld   fill_init >> 8, y
+    jmp  fill_init
+w3_r19:
+sw_w:
+    ld   fe_go >> 8, y
+    jmp  fe_go
+
+xf_z:
+    ld   [zr], ac
+    blt  ap_25
+    add  [ozl], ac
+    ld   ac, [zl]
+    ld   [ozh], ac
+    bcc  ap_26
+    inc
+ap_26:
+    ld   ac, [zh]
+    bra  ap_27
+ap_25:
+    add  [ozl], ac
+    ld   ac, [zl]
+    ld   [ozh], ac
+    bcs  ap_26_b
+    dec
+ap_26_b:
+    ld   ac, [zh]
+ap_27:
+    sub  2, ac
+    bcc  xz_bad
+    ld   [zh], ac
+    bne  xz_ok
+    ld   [zl], ac
+    sub  48, ac
+    bcs  xz_bad
+xz_ok:
+    ld   [zh], ac
+    add  0x29, y
+    ld   [zl], x
+    ld   [y,x], ac
+    ld   ac, [w_t2]
+    ld   [zh], ac
+    add  0x27, y
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   150, ac
+    sub  [w_t], ac
+    ld   ac, [dl]
+    ld   6, ac
+    bcc  xz_1
+    dec
+xz_1:
+    sub  [w_t2], ac
+    ld   ac, [dh]
+    ld   [xr], ac
+    ld   xf_x >> 8, y
+    jmp  xf_x
+xz_bad:
+    ld   xf_bad >> 8, y
+    jmp  xf_bad
+
+; ship 2: dart, its path
+ship_2:
+    ld   0x25, y
+    ld   [tt], ac
+    add  0, x
+    ld   [y,x], ac
+    ld   ac, [pl]
+    blt  sp_13
+    ld   0, ac
+    bra  sp_14
+sp_13:
+    ld   255, ac
+sp_14:
+    ld   ac, [phh]
+    ld   [pl], ac
+    add  130, ac
+    ld   ac, [oxl]
+    ld   [phh], ac
+    bcc  sp_15
+    inc
+sp_15:
+    add  0, ac
+    ld   ac, [oxh]
+    ld   40, ac
+    ld   ac, [oyl]
+    ld   0, ac
+    ld   ac, [oyh]
+    ld   0x25, y
+    ld   [tt], ac
+    add  64, x
+    ld   [y,x], ac
+    ld   ac, [pl]
+    blt  sp_16
+    ld   0, ac
+    bra  sp_17
+sp_16:
+    ld   255, ac
+sp_17:
+    ld   ac, [phh]
+    ld   [pl], ac
+    add  14, ac
+    ld   ac, [ozl]
+    ld   [phh], ac
+    bcc  sp_18
+    inc
+sp_18:
+    add  1, ac
+    ld   ac, [ozh]
+    ld   ship_body >> 8, y
+    jmp  ship_body
+
+
+#addr 0x1A00
+xf_yn:
+    ld   [ml], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [ml]
+    ld   [mh], ac
+    xor  255, ac
+    bcc  nm_44
+    inc
+nm_44:
+    ld   ac, [mh]
+    sub  2, ac
+    bcc  yn_bad
+    ld   [mh], ac
+    add  0x29, y
+    ld   [ml], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [mh], ac
+    add  0x27, y
+    ld   [y,x], ac
+    add  [dl], ac
+    ld   ac, [sl]
+    ld   [w_t], ac
+    bcc  pc_47
+    inc
+pc_47:
+    add  [dh], ac
+    blt  pz_45
+    ld   ac, [w_t]
+    sub  8, ac
+    bcc  yn_bad
+    ld   [w_t], ac
+    add  0x2D, y
+    ld   [sl], x
+    ld   [y,x], ac
+    bra  pd_46
+pz_45:
+    ld   0, ac
+pd_46:
+    ld   ac, [w_r]
+    sub  115, ac
+    bcc  yn_bad
+    ld   [w_r], ac
+    add  124, ac
+    ld   xf_st >> 8, y
+    jmp  xf_st
+yn_bad:
+    ld   xf_bad >> 8, y
+    jmp  xf_bad
+
+; ship 3: dart, its path
+ship_3:
+    ld   0x25, y
+    ld   [tt], ac
+    add  0, x
+    ld   [y,x], ac
+    ld   ac, [pl]
+    blt  sp_19
+    ld   0, ac
+    bra  sp_20
+sp_19:
+    ld   255, ac
+sp_20:
+    ld   ac, [phh]
+    ld   [pl], ac
+    add  126, ac
+    ld   ac, [oxl]
+    ld   [phh], ac
+    bcc  sp_21
+    inc
+sp_21:
+    add  255, ac
+    ld   ac, [oxh]
+    ld   216, ac
+    ld   ac, [oyl]
+    ld   255, ac
+    ld   ac, [oyh]
+    ld   0x25, y
+    ld   [tt], ac
+    add  64, x
+    ld   [y,x], ac
+    ld   ac, [pl]
+    blt  sp_22
+    ld   0, ac
+    bra  sp_23
+sp_22:
+    ld   255, ac
+sp_23:
+    ld   ac, [phh]
+    ld   [pl], ac
+    add  250, ac
+    ld   ac, [ozl]
+    ld   [phh], ac
+    bcc  sp_24
+    inc
+sp_24:
+    add  0, ac
+    ld   ac, [ozh]
+    ld   ship_body >> 8, y
+    jmp  ship_body
+
+; ff_rs: the rows down to the next vertex (a face at the picture's edge: clipped)
+ff_rs:
+    ld   0x26, y
+    ld   [ycur], x
+    ld   [y,x], ac
+    ld   ac, [roff]
+    ld   lk_sp_l, x
+    ld   rt_102 & 0xFF, [x]
+    ld   lk_sp_h, x
+    ld   rt_102 >> 8, [x]
+    ld   span_c >> 8, y
+    jmp  span_c
+rt_102:
+    ld   [xLl], ac
+    add  [slLl], ac
+    ld   ac, [xLl]
+    ld   [xLh], ac
+    bcc  a6_103
+    inc
+a6_103:
+    add  [slLh], ac
+    ld   ac, [xLh]
+    ld   [xRl], ac
+    add  [slRl], ac
+    ld   ac, [xRl]
+    ld   [xRh], ac
+    bcc  a6_104
+    inc
+a6_104:
+    add  [slRh], ac
+    ld   ac, [xRh]
+    ld   [cb], ac
+    xor  [cbx], ac
+    ld   ac, [cb]
+    ld   [ycur], ac
+    add  1, ac
+    ld   ac, [ycur]
+    xor  [w_ye], ac
+    bne  ff_rs
+    ld   ff_seg >> 8, y
+    jmp  ff_seg
+
+
+#addr 0x1B00
+; edges: a line record for each edge ei.. (en of them) with a face shown
+edges:
+ed_loop:
+    ld   [nrec], ac
+    xor  255, ac
+    beq  ed_skip
+    ld   0x39, y
+    ld   [ei], x
+    ld   [y,x], ac
+    add  [fb], x
+    ld   0x58, y
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   0x39, y
+    ld   [ei], ac
+    add  0x80, x
+    ld   [y,x], ac
+    add  [fb], x
+    ld   0x58, y
+    ld   [y,x], ac
+    or   [w_t], ac
+    beq  ed_skip
+    ld   0x38, y
+    ld   [ei], x
+    ld   [y,x], ac
+    add  [vb], ac
+    ld   ac, [ev1]
+    ld   [ei], ac
+    add  0x80, x
+    ld   [y,x], ac
+    add  [vb], ac
+    ld   ac, [ev2]
+    ld   0x57, y
+    ld   [ev1], x
+    ld   [y,x], ac
+    ld   [ev2], x
+    and  [y,x], ac
+    beq  ed_skip
+    ld   ed_get >> 8, y
+    jmp  ed_get
+ed_skip:
+    ld   ed_next >> 8, y
+    jmp  ed_next
+
+ff_r2:
+    ld   [w_cj], ac
+    ld   ac, [jR]
+    ld   [wy], ac
+    ld   ac, [yeR]
+    ld   [e16l], ac
+    ld   ac, [xRl]
+    ld   ac, [rp]
+    ld   [e16h], ac
+    ld   ac, [xRh]
+    ld   ac, [rc]
+    ld   [esl], ac
+    ld   ac, [slRl]
+    ld   [esh], ac
+    ld   ac, [slRh]
+ff_m2:
+    ld   [yeL], ac
+    sub  [yeR], ac
+    bcs  ff_m1
+    ld   [yeR], ac
+    bra  ff_m3
+ff_m1:
+    ld   [yeL], ac
+ff_m3:
+    ld   ac, [w_ye]
+    sub  [ycur], ac
+    beq  ff_end
+    bcs  ff_end
+    ld   [w_slow], ac
+    bne  ff_sl
+    ld   ff_rf >> 8, y
+    jmp  ff_rf
+ff_sl:
+    ld   ff_rs >> 8, y
+    jmp  ff_rs
+ff_end:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+; ft_row1: the edge's x16 on each of its rows, left: the least x16 of a row
+ft_row1:
+    ld   [w_ri], x
+    ld   0x41, y
+    ld   [e16l], ac
+    sub  [y,x], ac
+    ld   0x40, y
+    ld   [e16h], ac
+    bcc  fl_1
+    dec
+fl_1:
+    sub  [y,x], ac
+    blt  fls_1
+    bra  fln_1
+fls_1:
+    ld   [e16h], ac
+    ld   ac, [y,x]
+    ld   0x41, y
+    ld   [e16l], ac
+    ld   ac, [y,x]
+fln_1:
+    ld   [e16l], ac
+    add  [esl], ac
+    ld   ac, [e16l]
+    ld   [e16h], ac
+    bcc  a6_106
+    inc
+a6_106:
+    add  [esh], ac
+    ld   ac, [e16h]
+    ld   [w_ri], ac
+    add  1, ac
+    ld   ac, [w_ri]
+    ld   [w_n], ac
+    sub  1, ac
+    ld   ac, [w_n]
+    bne  ft_row1
+    ld   ft_nx >> 8, y
+    jmp  ft_nx
+
+; store the projected vertex (AC = sy), next vertex
+xf_st:
+    ld   [vo], x
+    ld   0x56, y
+    ld   ac, [y,x]
+    ld   0x54, y
+    ld   [bxl], ac
+    ld   ac, [y,x]
+    ld   0x55, y
+    ld   [bxh], ac
+    ld   ac, [y,x]
+    ld   0x57, y
+    ld   1, [y,x]
+    bra  xf_next
+xf_bad:
+    ld   [vo], x
+    ld   0x57, y
+    ld   0, [y,x]
+    ld   0, ac
+    ld   ac, [allv]
+xf_next:
+    ld   [vi], ac
+    inc
+    ld   ac, [vi]
+    ld   [vo], ac
+    inc
+    ld   ac, [vo]
+    ld   [vn], ac
+    dec
+    ld   ac, [vn]
+    beq  xf_done
+    ld   xf_loop >> 8, y
+    jmp  xf_loop
+xf_done:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+
+#addr 0x1C00
+; ft_row2: the edge's x16 on each of its rows, right: the greatest x16 of a row
+ft_row2:
+    ld   [w_ri], x
+    ld   0x43, y
+    ld   [y,x], ac
+    sub  [e16l], ac
+    ld   0x42, y
+    ld   [y,x], ac
+    bcc  fr_2
+    dec
+fr_2:
+    sub  [e16h], ac
+    blt  frs_2
+    bra  frn_2
+frs_2:
+    ld   [e16h], ac
+    ld   ac, [y,x]
+    ld   0x43, y
+    ld   [e16l], ac
+    ld   ac, [y,x]
+frn_2:
+    ld   [e16l], ac
+    add  [esl], ac
+    ld   ac, [e16l]
+    ld   [e16h], ac
+    bcc  a6_107
+    inc
+a6_107:
+    add  [esh], ac
+    ld   ac, [e16h]
+    ld   [w_ri], ac
+    add  1, ac
+    ld   ac, [w_ri]
+    ld   [w_n], ac
+    sub  1, ac
+    ld   ac, [w_n]
+    bne  ft_row2
+    ld   ft_nx >> 8, y
+    jmp  ft_nx
+
+; screen: clear, the text band, the title (map 07)
+screen:
+    ld   0x05, ac
+    ld   LINK_LO, x             ; CALL vid_clear
+    ld   w3_r20, [x]
+    ld   LINK_HI, x
+    ld   w3_r20 >> 8, [x]
+    ld   vid_clear >> 8, y
+    jmp  vid_clear
+w3_r20:
+    ld   0x5A, y
+    ld   0x20, ac
+sc_m:
+    ld   ac, x
+    ld   0x40, [y,x]
+    add  1, ac
+    xor  0x30, ac
+    beq  sc_d
+    xor  0x30, ac
+    bra  sc_m
+sc_d:
+    ld   0, ac
+    ld   ac, [CUR_COL]
+    ld   ac, [CUR_ROW]
+    ld   s_title & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_title >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL con_puts
+    ld   w3_r21, [x]
+    ld   LINK_HI, x
+    ld   w3_r21 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+w3_r21:
+    ld   [lk_sc_h], y
+    jmp  [lk_sc_l]
+
+; er_fl: blank the old outline's rows ycur up to w_ye
+er_fl:
+    ld   [ycur], ac
+    sub  [w_ye], ac
+    bcc  ef_done
+    ld   [ycur], ac
+    add  0x30, x
+    ld   [fpLH], y
+    ld   [y,x], ac
+    ld   ac, [xLh]
+    ld   [fpLL], y
+    ld   [y,x], ac
+    ld   ac, [xLl]
+    ld   [fpRH], y
+    ld   [y,x], ac
+    ld   ac, [xRh]
+    ld   [fpRL], y
+    ld   [y,x], ac
+    ld   ac, [xRl]
+    ld   0x26, y
+    ld   [ycur], x
+    ld   [y,x], ac
+    ld   ac, [roff]
+    ld   lk_sp_l, x
+    ld   rt_111 & 0xFF, [x]
+    ld   lk_sp_h, x
+    ld   rt_111 >> 8, [x]
+    ld   span_c >> 8, y
+    jmp  span_c
+rt_111:
+    ld   [ycur], ac
+    add  1, ac
+    ld   ac, [ycur]
+    bra  er_fl
+ef_done:
+    ld   [lk_ef_h], y
+    jmp  [lk_ef_l]
+
+ed_get:
+    ld   0x54, y
+    ld   [ev1], x
+    ld   [y,x], ac
+    ld   ac, [x0l]
+    ld   [ev2], x
+    ld   [y,x], ac
+    ld   ac, [x1l]
+    ld   0x55, y
+    ld   [y,x], ac
+    ld   ac, [x1h]
+    ld   [ev1], x
+    ld   [y,x], ac
+    ld   ac, [x0h]
+    ld   0x56, y
+    ld   [y,x], ac
+    ld   ac, [y0]
+    ld   [ev2], x
+    ld   [y,x], ac
+    ld   ac, [y1]
+    ld   ls >> 8, y
+    jmp  ls
+ed_next:
+    ld   [ei], ac
+    inc
+    ld   ac, [ei]
+    ld   [en], ac
+    dec
+    ld   ac, [en]
+    beq  ed_done
+    ld   ed_loop >> 8, y
+    jmp  ed_loop
+ed_done:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+
+#addr 0x1D00
+; ship_fill: the outline (if every vertex is on the picture), then the erase
+ship_fill:
+    ld   [allv], ac
+    beq  sf_off
+pm_fo:
+    ld   LINK_LO, x             ; CALL foot
+    ld   w3_r22, [x]
+    ld   LINK_HI, x
+    ld   w3_r22 >> 8, [x]
+    ld   foot >> 8, y
+    jmp  foot
+w3_r22:
+    ld   0x59, y
+    ld   [shs], ac
+    add  0xB0, x
+    ld   1, [y,x]
+    bra  sf_er
+sf_off:
+    ld   0x59, y
+    ld   [shs], ac
+    add  0xB0, x
+    ld   0, [y,x]
+    ld   0, ac
+    ld   ac, [ntop]
+    ld   ac, [nbot]
+sf_er:
+pm_er:
+    ld   LINK_LO, x             ; CALL erase
+    ld   w3_r23, [x]
+    ld   LINK_HI, x
+    ld   w3_r23 >> 8, [x]
+    ld   erase >> 8, y
+    jmp  erase
+w3_r23:
+    ld   ship_next >> 8, y
+    jmp  ship_next
+
+frame_end:
+    ld   [lps], ac
+    inc
+    ld   ac, [lps]
+    ld   [FRAME_LO], ac
+    sub  [secf], ac
+    sub  60, ac
+    bcs  fe_ns
+    ld   [secf], ac
+    add  60, ac
+    ld   ac, [secf]
+    ld   [lps], ac
+    ld   ac, [fps]
+    ld   0, ac
+    ld   ac, [lps]
+    ld   [msec], ac
+    add  1, ac
+    ld   ac, [msec]
+    ld   0x07, ac
+    ld   0x50, y
+    ld   ac, [y,x]
+    ld   hud >> 8, y
+    jmp  hud
+fe_ns:
+    ld   0x07, ac
+    ld   0x50, y
+    ld   ac, [y,x]
+    ld   fe_menu >> 8, y
+    jmp  fe_menu
+
+main_c:
+    ld   1, ac
+    ld   ac, [mode]
+    ld   0, ac
+    ld   ac, [msec]
+    ld   ac, [par]
+    ld   ac, [lps]
+    ld   ac, [fps]
+    ld   ac, [nrec]
+    ld   ac, [nfac]
+    ld   [FRAME_LO], ac
+    ld   ac, [secf]
+    ld   ac, [lastf]
+    ld   [mode], ac
+    beq  mc_i1
+    ld   LINK_LO, x             ; CALL fill_init
+    ld   w3_r24, [x]
+    ld   LINK_HI, x
+    ld   w3_r24 >> 8, [x]
+    ld   fill_init >> 8, y
+    jmp  fill_init
+w3_r24:
+mc_i1:
+    ld   0xFF, ac
+    ld   0x50, y
+    ld   ac, [y,x]
+    ld   frame >> 8, y
+    jmp  frame
+
+matrix_d:
+    ld   0x24, y
+    ld   [c2], ac
+    add  [s1], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [c2], ac
+    sub  [s1], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    xor  255, ac
+    add  1, ac
+    ld   ac, [m6]
+    ld   [s2], ac
+    ld   ac, [m7]
+    ld   [c2], ac
+    add  [c1], x
+    ld   [y,x], ac
+    ld   ac, [w_t]
+    ld   [c2], ac
+    sub  [c1], x
+    ld   [w_t], ac
+    sub  [y,x], ac
+    ld   ac, [m8]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+ly_c:
+    ld   [wbh], ac
+    add  0x2B, y
+    ld   [wbl], x
+    ld   [y,x], ac
+    ld   ac, [pg]
+    ld   [wbl], ac
+    and  3, ac
+    ld   ac, [ph]
+    ld   0x26, y
+    ld   [by], x
+    ld   [y,x], ac
+    ld   ac, [off]
+    ld   [ey], ac
+    add  1, x
+    ld   [y,x], ac
+    ld   ac, [endv]
+    ld   [dirf], ac
+    bne  ly_r
+    ld   20, ac
+    bra  ly_e
+ly_r:
+    ld   16, ac
+ly_e:
+    ld   ls_ent >> 8, y
+    jmp  ls_ent
+
+
+#addr 0x1E00
+; er_d: the rows in both outlines: blank old left to new left, new right to old right
+er_d:
+    ld   [otop], ac
+    sub  [ntop], ac
+    bcs  ed_1
+    ld   [otop], ac
+    bra  ed_2
+ed_1:
+    ld   [ntop], ac
+ed_2:
+    ld   ac, [ycur]
+    ld   [obot], ac
+    sub  [nbot], ac
+    bcs  ed_3
+    ld   [nbot], ac
+    bra  ed_4
+ed_3:
+    ld   [obot], ac
+ed_4:
+    ld   ac, [w_ye]
+ed_lp:
+    ld   [ycur], ac
+    sub  [w_ye], ac
+    bcc  ed_end
+    ld   ed_row >> 8, y
+    jmp  ed_row
+ed_end:
+    ld   er_cp >> 8, y
+    jmp  er_cp
+
+xf_y:
+    ld   [yr], ac
+    blt  ap_38
+    add  [oyl], ac
+    ld   ac, [ml]
+    ld   [oyh], ac
+    bcc  ap_39
+    inc
+ap_39:
+    ld   ac, [mh]
+    bra  ap_40
+ap_38:
+    add  [oyl], ac
+    ld   ac, [ml]
+    ld   [oyh], ac
+    bcs  ap_39_b
+    dec
+ap_39_b:
+    ld   ac, [mh]
+ap_40:
+    blt  xy_neg
+    ld   xf_yp >> 8, y
+    jmp  xf_yp
+xy_neg:
+    ld   xf_yn >> 8, y
+    jmp  xf_yn
+
+; ship_next
+ship_next:
+pm_n:
+    ld   [shs], ac
+    add  1, ac
+    ld   ac, [shs]
+    xor  6, ac
+    beq  sn_done
+    ld   [shs8], ac
+    add  8, ac
+    ld   ac, [shs8]
+    ld   ship_pre >> 8, y
+    jmp  ship_pre
+sn_done:
+    ld   [mode], ac
+    beq  sn_w
+    ld   fill_pass >> 8, y
+    jmp  fill_pass
+sn_w:
+    ld   frame_end >> 8, y
+    jmp  frame_end
+
+; ship 0: station, its path
+ship_0:
+    ld   106, ac
+    ld   ac, [oxl]
+    ld   255, ac
+    ld   ac, [oxh]
+    ld   140, ac
+    ld   ac, [oyl]
+    ld   0, ac
+    ld   ac, [oyh]
+    ld   124, ac
+    ld   ac, [ozl]
+    ld   1, ac
+    ld   ac, [ozh]
+    ld   ship_body >> 8, y
+    jmp  ship_body
+
+; ship 4: rock, its path
+ship_4:
+    ld   170, ac
+    ld   ac, [oxl]
+    ld   0, ac
+    ld   ac, [oxh]
+    ld   150, ac
+    ld   ac, [oyl]
+    ld   0, ac
+    ld   ac, [oyh]
+    ld   134, ac
+    ld   ac, [ozl]
+    ld   1, ac
+    ld   ac, [ozh]
+    ld   ship_body >> 8, y
+    jmp  ship_body
+
+; ship 5: rock, its path
+ship_5:
+    ld   40, ac
+    ld   ac, [oxl]
+    ld   0, ac
+    ld   ac, [oxh]
+    ld   190, ac
+    ld   ac, [oyl]
+    ld   0, ac
+    ld   ac, [oyh]
+    ld   134, ac
+    ld   ac, [ozl]
+    ld   1, ac
+    ld   ac, [ozh]
+    ld   ship_body >> 8, y
+    jmp  ship_body
+
+ft_nx:
+    ld   [ei], ac
+    add  1, ac
+    ld   ac, [ei]
+    ld   [en], ac
+    sub  1, ac
+    ld   ac, [en]
+    beq  ft_done
+    ld   ft_el >> 8, y
+    jmp  ft_el
+ft_done:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+
+#addr 0x2000
+; yr: y-major, top to bottom, x to the right
+ex_yr0:
+    ld   [pg], y
+    bra  yr0
+ex_yr1:
+    ld   [pg], y
+    bra  yr1
+ex_yr2:
+    ld   [pg], y
+    bra  yr2
+ex_yr3:
+    ld   [pg], y
+    bra  yr3
+yr0:
+px_yr0:
+    ld   [y,x], ac
+    xor  0x03, ac
+    ld   ac, [y,x]
+    ld   [off], ac
+    add  2, ac
+    bcs  yr0w
+yr0s:
+    ld   ac, [off]
+    ld   ac, x
+    xor  [endv], ac
+    beq  yr_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  yr0
+yr1:
+px_yr1:
+    ld   [y,x], ac
+    xor  0x0C, ac
+    ld   ac, [y,x]
+    ld   [off], ac
+    add  2, ac
+    bcs  yr1w
+yr1s:
+    ld   ac, [off]
+    ld   ac, x
+    xor  [endv], ac
+    beq  yr_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  yr1
+yr2:
+px_yr2:
+    ld   [y,x], ac
+    xor  0x30, ac
+    ld   ac, [y,x]
+    ld   [off], ac
+    add  2, ac
+    bcs  yr2w
+yr2s:
+    ld   ac, [off]
+    ld   ac, x
+    xor  [endv], ac
+    beq  yr_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  yr2
+yr3:
+px_yr3:
+    ld   [y,x], ac
+    xor  0xC0, ac
+    ld   ac, [y,x]
+    ld   [off], ac
+    add  2, ac
+    bcs  yr3w
+yr3s:
+    ld   ac, [off]
+    ld   ac, x
+    xor  [endv], ac
+    beq  yr_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  yr3
+    ld   [pg], ac
+    add  2, ac
+    ld   ac, [pg]
+    ld   ac, y
+    bra  yr0
+yr_z:
+    ld   [rhi], y
+    jmp  [rlo]
+yr0w:
+    ld   1, ac
+    bra  yr0s
+yr1w:
+    ld   1, ac
+    bra  yr1s
+yr2w:
+    ld   1, ac
+    bra  yr2s
+yr3w:
+    ld   1, ac
+    bra  yr3s
+
+
+
+#addr 0x2100
+; xd: x-major, left to right, down
+ex_xd0:
+    ld   [pg], y
+    bra  xd0
+ex_xd1:
+    ld   [pg], y
+    bra  xd1
+ex_xd2:
+    ld   [pg], y
+    bra  xd2
+ex_xd3:
+    ld   [pg], y
+    bra  xd3
+xd0:
+px_xd0:
+    ld   [y,x], ac
+    xor  0x03, ac
+    ld   ac, [y,x]
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  xd0n
+    ld   [off], ac
+    add  2, ac
+    bcs  xd0w
+xd0s:
+    ld   ac, [off]
+    ld   ac, x
+xd0n:
+xd1:
+px_xd1:
+    ld   [y,x], ac
+    xor  0x0C, ac
+    ld   ac, [y,x]
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  xd1n
+    ld   [off], ac
+    add  2, ac
+    bcs  xd1w
+xd1s:
+    ld   ac, [off]
+    ld   ac, x
+xd1n:
+xd2:
+px_xd2:
+    ld   [y,x], ac
+    xor  0x30, ac
+    ld   ac, [y,x]
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  xd2n
+    ld   [off], ac
+    add  2, ac
+    bcs  xd2w
+xd2s:
+    ld   ac, [off]
+    ld   ac, x
+xd2n:
+xd3:
+px_xd3:
+    ld   [y,x], ac
+    xor  0xC0, ac
+    ld   ac, [y,x]
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  xd3n
+    ld   [off], ac
+    add  2, ac
+    bcs  xd3w
+xd3s:
+    ld   ac, [off]
+    ld   ac, x
+xd3n:
+    ld   [pg], ac
+    add  2, ac
+    ld   ac, [pg]
+    ld   ac, y
+    xor  [endv], ac
+    bne  xd0
+    ld   ex_td0 >> 8, y
+    jmp  ex_td0
+xd0w:
+    ld   0x01, ac
+    bra  xd0s
+xd1w:
+    ld   0x01, ac
+    bra  xd1s
+xd2w:
+    ld   0x01, ac
+    bra  xd2s
+xd3w:
+    ld   0x01, ac
+    bra  xd3s
+
+; td: the last byte of an x-major line, ntail pixels
+ex_td0:
+    ld   [pg], y
+    bra  td0
+ex_td1:
+    ld   [pg], y
+    bra  td1
+ex_td2:
+    ld   [pg], y
+    bra  td2
+ex_td3:
+    ld   [pg], y
+    bra  td3
+td0:
+px_td0:
+    ld   [y,x], ac
+    xor  0x03, ac
+    ld   ac, [y,x]
+    ld   [ntail], ac
+    dec
+    ld   ac, [ntail]
+    beq  td_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  td1
+    ld   [off], ac
+    add  2, ac
+    bcs  td0w
+td0s:
+    ld   ac, [off]
+    ld   ac, x
+td1:
+px_td1:
+    ld   [y,x], ac
+    xor  0x0C, ac
+    ld   ac, [y,x]
+    ld   [ntail], ac
+    dec
+    ld   ac, [ntail]
+    beq  td_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  td2
+    ld   [off], ac
+    add  2, ac
+    bcs  td1w
+td1s:
+    ld   ac, [off]
+    ld   ac, x
+td2:
+px_td2:
+    ld   [y,x], ac
+    xor  0x30, ac
+    ld   ac, [y,x]
+    ld   [ntail], ac
+    dec
+    ld   ac, [ntail]
+    beq  td_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  td3
+    ld   [off], ac
+    add  2, ac
+    bcs  td2w
+td2s:
+    ld   ac, [off]
+    ld   ac, x
+td3:
+px_td3:
+    ld   [y,x], ac
+    xor  0xC0, ac
+    ld   ac, [y,x]
+td_z:
+    ld   [rhi], y
+    jmp  [rlo]
+td0w:
+    ld   0x01, ac
+    bra  td0s
+td1w:
+    ld   0x01, ac
+    bra  td1s
+td2w:
+    ld   0x01, ac
+    bra  td2s
+
+
+#addr 0x2200
+; xu: x-major, left to right, up
+ex_xu0:
+    ld   [pg], y
+    bra  xu0
+ex_xu1:
+    ld   [pg], y
+    bra  xu1
+ex_xu2:
+    ld   [pg], y
+    bra  xu2
+ex_xu3:
+    ld   [pg], y
+    bra  xu3
+xu0:
+px_xu0:
+    ld   [y,x], ac
+    xor  0x03, ac
+    ld   ac, [y,x]
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  xu0n
+    ld   [off], ac
+    sub  2, ac
+    bcs  xu0w
+xu0s:
+    ld   ac, [off]
+    ld   ac, x
+xu0n:
+xu1:
+px_xu1:
+    ld   [y,x], ac
+    xor  0x0C, ac
+    ld   ac, [y,x]
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  xu1n
+    ld   [off], ac
+    sub  2, ac
+    bcs  xu1w
+xu1s:
+    ld   ac, [off]
+    ld   ac, x
+xu1n:
+xu2:
+px_xu2:
+    ld   [y,x], ac
+    xor  0x30, ac
+    ld   ac, [y,x]
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  xu2n
+    ld   [off], ac
+    sub  2, ac
+    bcs  xu2w
+xu2s:
+    ld   ac, [off]
+    ld   ac, x
+xu2n:
+xu3:
+px_xu3:
+    ld   [y,x], ac
+    xor  0xC0, ac
+    ld   ac, [y,x]
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  xu3n
+    ld   [off], ac
+    sub  2, ac
+    bcs  xu3w
+xu3s:
+    ld   ac, [off]
+    ld   ac, x
+xu3n:
+    ld   [pg], ac
+    add  2, ac
+    ld   ac, [pg]
+    ld   ac, y
+    xor  [endv], ac
+    bne  xu0
+    ld   ex_tu0 >> 8, y
+    jmp  ex_tu0
+xu0w:
+    ld   0xFE, ac
+    bra  xu0s
+xu1w:
+    ld   0xFE, ac
+    bra  xu1s
+xu2w:
+    ld   0xFE, ac
+    bra  xu2s
+xu3w:
+    ld   0xFE, ac
+    bra  xu3s
+
+; tu: the last byte of an x-major line, ntail pixels
+ex_tu0:
+    ld   [pg], y
+    bra  tu0
+ex_tu1:
+    ld   [pg], y
+    bra  tu1
+ex_tu2:
+    ld   [pg], y
+    bra  tu2
+ex_tu3:
+    ld   [pg], y
+    bra  tu3
+tu0:
+px_tu0:
+    ld   [y,x], ac
+    xor  0x03, ac
+    ld   ac, [y,x]
+    ld   [ntail], ac
+    dec
+    ld   ac, [ntail]
+    beq  tu_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  tu1
+    ld   [off], ac
+    sub  2, ac
+    bcs  tu0w
+tu0s:
+    ld   ac, [off]
+    ld   ac, x
+tu1:
+px_tu1:
+    ld   [y,x], ac
+    xor  0x0C, ac
+    ld   ac, [y,x]
+    ld   [ntail], ac
+    dec
+    ld   ac, [ntail]
+    beq  tu_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  tu2
+    ld   [off], ac
+    sub  2, ac
+    bcs  tu1w
+tu1s:
+    ld   ac, [off]
+    ld   ac, x
+tu2:
+px_tu2:
+    ld   [y,x], ac
+    xor  0x30, ac
+    ld   ac, [y,x]
+    ld   [ntail], ac
+    dec
+    ld   ac, [ntail]
+    beq  tu_z
+    ld   [err], ac
+    add  [frac], ac
+    ld   ac, [err]
+    bcc  tu3
+    ld   [off], ac
+    sub  2, ac
+    bcs  tu2w
+tu2s:
+    ld   ac, [off]
+    ld   ac, x
+tu3:
+px_tu3:
+    ld   [y,x], ac
+    xor  0xC0, ac
+    ld   ac, [y,x]
+tu_z:
+    ld   [rhi], y
+    jmp  [rlo]
+tu0w:
+    ld   0xFE, ac
+    bra  tu0s
+tu1w:
+    ld   0xFE, ac
+    bra  tu1s
+tu2w:
+    ld   0xFE, ac
+    bra  tu2s
+
+
+
+#addr 0x2300
+; QV: round(n * n / 126), n = -128..127 (matrix x vertex)
+    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02
+    #d8 0x02, 0x02, 0x03, 0x03, 0x03, 0x04, 0x04, 0x04, 0x05, 0x05, 0x05, 0x06, 0x06, 0x07, 0x07, 0x08
+    #d8 0x08, 0x09, 0x09, 0x0A, 0x0A, 0x0B, 0x0B, 0x0C, 0x0D, 0x0D, 0x0E, 0x0F, 0x0F, 0x10, 0x11, 0x12
+    #d8 0x12, 0x13, 0x14, 0x15, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F, 0x20
+    #d8 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B, 0x2D, 0x2E, 0x2F, 0x30, 0x32
+    #d8 0x33, 0x34, 0x35, 0x37, 0x38, 0x39, 0x3B, 0x3C, 0x3D, 0x3F, 0x40, 0x42, 0x43, 0x45, 0x46, 0x48
+    #d8 0x49, 0x4B, 0x4C, 0x4E, 0x4F, 0x51, 0x53, 0x54, 0x56, 0x58, 0x59, 0x5B, 0x5D, 0x5E, 0x60, 0x62
+    #d8 0x64, 0x65, 0x67, 0x69, 0x6B, 0x6D, 0x6F, 0x70, 0x72, 0x74, 0x76, 0x78, 0x7A, 0x7C, 0x7E, 0x80
+    #d8 0x82, 0x80, 0x7E, 0x7C, 0x7A, 0x78, 0x76, 0x74, 0x72, 0x70, 0x6F, 0x6D, 0x6B, 0x69, 0x67, 0x65
+    #d8 0x64, 0x62, 0x60, 0x5E, 0x5D, 0x5B, 0x59, 0x58, 0x56, 0x54, 0x53, 0x51, 0x4F, 0x4E, 0x4C, 0x4B
+    #d8 0x49, 0x48, 0x46, 0x45, 0x43, 0x42, 0x40, 0x3F, 0x3D, 0x3C, 0x3B, 0x39, 0x38, 0x37, 0x35, 0x34
+    #d8 0x33, 0x32, 0x30, 0x2F, 0x2E, 0x2D, 0x2B, 0x2A, 0x29, 0x28, 0x27, 0x26, 0x25, 0x24, 0x23, 0x22
+    #d8 0x21, 0x20, 0x1F, 0x1E, 0x1D, 0x1C, 0x1B, 0x1A, 0x19, 0x18, 0x17, 0x16, 0x15, 0x15, 0x14, 0x13
+    #d8 0x12, 0x12, 0x11, 0x10, 0x0F, 0x0F, 0x0E, 0x0D, 0x0D, 0x0C, 0x0B, 0x0B, 0x0A, 0x0A, 0x09, 0x09
+    #d8 0x08, 0x08, 0x07, 0x07, 0x06, 0x06, 0x05, 0x05, 0x05, 0x04, 0x04, 0x04, 0x03, 0x03, 0x03, 0x02
+    #d8 0x02, 0x02, 0x02, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+
+; QM: round(n * n / 252) (matrix x matrix)
+    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01
+    #d8 0x01, 0x01, 0x01, 0x01, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x03, 0x03, 0x03, 0x03, 0x04, 0x04
+    #d8 0x04, 0x04, 0x05, 0x05, 0x05, 0x05, 0x06, 0x06, 0x06, 0x07, 0x07, 0x07, 0x08, 0x08, 0x08, 0x09
+    #d8 0x09, 0x0A, 0x0A, 0x0A, 0x0B, 0x0B, 0x0C, 0x0C, 0x0C, 0x0D, 0x0D, 0x0E, 0x0E, 0x0F, 0x0F, 0x10
+    #d8 0x10, 0x11, 0x11, 0x12, 0x12, 0x13, 0x13, 0x14, 0x15, 0x15, 0x16, 0x16, 0x17, 0x18, 0x18, 0x19
+    #d8 0x19, 0x1A, 0x1B, 0x1B, 0x1C, 0x1D, 0x1D, 0x1E, 0x1F, 0x1F, 0x20, 0x21, 0x22, 0x22, 0x23, 0x24
+    #d8 0x25, 0x25, 0x26, 0x27, 0x28, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2D, 0x2E, 0x2F, 0x30, 0x31
+    #d8 0x32, 0x33, 0x34, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, 0x40
+    #d8 0x41, 0x40, 0x3F, 0x3E, 0x3D, 0x3C, 0x3B, 0x3A, 0x39, 0x38, 0x37, 0x36, 0x35, 0x34, 0x34, 0x33
+    #d8 0x32, 0x31, 0x30, 0x2F, 0x2E, 0x2D, 0x2D, 0x2C, 0x2B, 0x2A, 0x29, 0x28, 0x28, 0x27, 0x26, 0x25
+    #d8 0x25, 0x24, 0x23, 0x22, 0x22, 0x21, 0x20, 0x1F, 0x1F, 0x1E, 0x1D, 0x1D, 0x1C, 0x1B, 0x1B, 0x1A
+    #d8 0x19, 0x19, 0x18, 0x18, 0x17, 0x16, 0x16, 0x15, 0x15, 0x14, 0x13, 0x13, 0x12, 0x12, 0x11, 0x11
+    #d8 0x10, 0x10, 0x0F, 0x0F, 0x0E, 0x0E, 0x0D, 0x0D, 0x0C, 0x0C, 0x0C, 0x0B, 0x0B, 0x0A, 0x0A, 0x0A
+    #d8 0x09, 0x09, 0x08, 0x08, 0x08, 0x07, 0x07, 0x07, 0x06, 0x06, 0x06, 0x05, 0x05, 0x05, 0x05, 0x04
+    #d8 0x04, 0x04, 0x04, 0x03, 0x03, 0x03, 0x03, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x01, 0x01, 0x01
+    #d8 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+
+; SIN: 63 sin(2 pi i / 256)
+    #d8 0x00, 0x02, 0x03, 0x05, 0x06, 0x08, 0x09, 0x0B, 0x0C, 0x0E, 0x0F, 0x11, 0x12, 0x14, 0x15, 0x17
+    #d8 0x18, 0x1A, 0x1B, 0x1C, 0x1E, 0x1F, 0x20, 0x22, 0x23, 0x24, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B
+    #d8 0x2D, 0x2E, 0x2F, 0x30, 0x31, 0x32, 0x33, 0x34, 0x34, 0x35, 0x36, 0x37, 0x38, 0x38, 0x39, 0x3A
+    #d8 0x3A, 0x3B, 0x3B, 0x3C, 0x3C, 0x3D, 0x3D, 0x3D, 0x3E, 0x3E, 0x3E, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F
+    #d8 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3E, 0x3E, 0x3E, 0x3D, 0x3D, 0x3D, 0x3C, 0x3C, 0x3B, 0x3B
+    #d8 0x3A, 0x3A, 0x39, 0x38, 0x38, 0x37, 0x36, 0x35, 0x34, 0x34, 0x33, 0x32, 0x31, 0x30, 0x2F, 0x2E
+    #d8 0x2D, 0x2B, 0x2A, 0x29, 0x28, 0x27, 0x26, 0x24, 0x23, 0x22, 0x20, 0x1F, 0x1E, 0x1C, 0x1B, 0x1A
+    #d8 0x18, 0x17, 0x15, 0x14, 0x12, 0x11, 0x0F, 0x0E, 0x0C, 0x0B, 0x09, 0x08, 0x06, 0x05, 0x03, 0x02
+    #d8 0x00, 0xFE, 0xFD, 0xFB, 0xFA, 0xF8, 0xF7, 0xF5, 0xF4, 0xF2, 0xF1, 0xEF, 0xEE, 0xEC, 0xEB, 0xE9
+    #d8 0xE8, 0xE6, 0xE5, 0xE4, 0xE2, 0xE1, 0xE0, 0xDE, 0xDD, 0xDC, 0xDA, 0xD9, 0xD8, 0xD7, 0xD6, 0xD5
+    #d8 0xD3, 0xD2, 0xD1, 0xD0, 0xCF, 0xCE, 0xCD, 0xCC, 0xCC, 0xCB, 0xCA, 0xC9, 0xC8, 0xC8, 0xC7, 0xC6
+    #d8 0xC6, 0xC5, 0xC5, 0xC4, 0xC4, 0xC3, 0xC3, 0xC3, 0xC2, 0xC2, 0xC2, 0xC1, 0xC1, 0xC1, 0xC1, 0xC1
+    #d8 0xC1, 0xC1, 0xC1, 0xC1, 0xC1, 0xC1, 0xC2, 0xC2, 0xC2, 0xC3, 0xC3, 0xC3, 0xC4, 0xC4, 0xC5, 0xC5
+    #d8 0xC6, 0xC6, 0xC7, 0xC8, 0xC8, 0xC9, 0xCA, 0xCB, 0xCC, 0xCC, 0xCD, 0xCE, 0xCF, 0xD0, 0xD1, 0xD2
+    #d8 0xD3, 0xD5, 0xD6, 0xD7, 0xD8, 0xD9, 0xDA, 0xDC, 0xDD, 0xDE, 0xE0, 0xE1, 0xE2, 0xE4, 0xE5, 0xE6
+    #d8 0xE8, 0xE9, 0xEB, 0xEC, 0xEE, 0xEF, 0xF1, 0xF2, 0xF4, 0xF5, 0xF7, 0xF8, 0xFA, 0xFB, 0xFD, 0xFE
+
+; ROW: address low byte of picture line l (2x rows)
+    #d8 0x20, 0x22, 0x24, 0x26, 0x28, 0x2A, 0x2C, 0x2E, 0x30, 0x32, 0x34, 0x36, 0x38, 0x3A, 0x3C, 0x3E
+    #d8 0x40, 0x42, 0x44, 0x46, 0x48, 0x4A, 0x4C, 0x4E, 0x50, 0x52, 0x54, 0x56, 0x58, 0x5A, 0x5C, 0x5E
+    #d8 0x60, 0x62, 0x64, 0x66, 0x68, 0x6A, 0x6C, 0x6E, 0x70, 0x72, 0x74, 0x76, 0x78, 0x7A, 0x7C, 0x7E
+    #d8 0x80, 0x82, 0x84, 0x86, 0x88, 0x8A, 0x8C, 0x8E, 0x90, 0x92, 0x94, 0x96, 0x98, 0x9A, 0x9C, 0x9E
+    #d8 0xA0, 0xA2, 0xA4, 0xA6, 0xA8, 0xAA, 0xAC, 0xAE, 0xB0, 0xB2, 0xB4, 0xB6, 0xB8, 0xBA, 0xBC, 0xBE
+    #d8 0xC0, 0xC2, 0xC4, 0xC6, 0xC8, 0xCA, 0xCC, 0xCE, 0xD0, 0xD2, 0xD4, 0xD6, 0xD8, 0xDA, 0xDC, 0xDE
+    #d8 0xE0, 0xE2, 0xE4, 0xE6, 0xE8, 0xEA, 0xEC, 0xEE, 0xF0, 0xF2, 0xF4, 0xF6, 0xF8, 0xFA, 0xFC, 0xFE
+    #d8 0x01, 0x03, 0x05, 0x07, 0x09, 0x0B, 0x0D, 0x0F, 0x11, 0x13, 0x15, 0x17, 0x19, 0x1B, 0x1D, 0x1F
+    #d8 0x21, 0x23, 0x25, 0x27, 0x29, 0x2B, 0x2D, 0x2F, 0x31, 0x33, 0x35, 0x37, 0x39, 0x3B, 0x3D, 0x3F
+    #d8 0x41, 0x43, 0x45, 0x47, 0x49, 0x4B, 0x4D, 0x4F, 0x51, 0x53, 0x55, 0x57, 0x59, 0x5B, 0x5D, 0x5F
+    #d8 0x61, 0x63, 0x65, 0x67, 0x69, 0x6B, 0x6D, 0x6F, 0x71, 0x73, 0x75, 0x77, 0x79, 0x7B, 0x7D, 0x7F
+    #d8 0x81, 0x83, 0x85, 0x87, 0x89, 0x8B, 0x8D, 0x8F, 0x91, 0x93, 0x95, 0x97, 0x99, 0x9B, 0x9D, 0x9F
+    #d8 0xA1, 0xA3, 0xA5, 0xA7, 0xA9, 0xAB, 0xAD, 0xAF, 0xB1, 0xB3, 0xB5, 0xB7, 0xB9, 0xBB, 0xBD, 0xBF
+    #d8 0xC1, 0xC3, 0xC5, 0xC7, 0xC9, 0xCB, 0xCD, 0xCF, 0xD1, 0xD3, 0xD5, 0xD7, 0xD9, 0xDB, 0xDD, 0xDF
+    #d8 0xE1, 0xE3, 0xE5, 0xE7, 0xE9, 0xEB, 0xED, 0xEF, 0xF1, 0xF3, 0xF5, 0xF7, 0xF9, 0xFB, 0xFD, 0xFF
+    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+
+; LG low: 256 log2(n) + 4096, n < 256
+    #d8 0x00, 0x00, 0x00, 0x96, 0x00, 0x52, 0x96, 0xCF, 0x00, 0x2C, 0x52, 0x76, 0x96, 0xB3, 0xCF, 0xE8
+    #d8 0x00, 0x16, 0x2C, 0x3F, 0x52, 0x64, 0x76, 0x86, 0x96, 0xA5, 0xB3, 0xC1, 0xCF, 0xDC, 0xE8, 0xF4
+    #d8 0x00, 0x0B, 0x16, 0x21, 0x2C, 0x36, 0x3F, 0x49, 0x52, 0x5C, 0x64, 0x6D, 0x76, 0x7E, 0x86, 0x8E
+    #d8 0x96, 0x9D, 0xA5, 0xAC, 0xB3, 0xBA, 0xC1, 0xC8, 0xCF, 0xD5, 0xDC, 0xE2, 0xE8, 0xEE, 0xF4, 0xFA
+    #d8 0x00, 0x06, 0x0B, 0x11, 0x16, 0x1C, 0x21, 0x26, 0x2C, 0x31, 0x36, 0x3B, 0x3F, 0x44, 0x49, 0x4E
+    #d8 0x52, 0x57, 0x5C, 0x60, 0x64, 0x69, 0x6D, 0x71, 0x76, 0x7A, 0x7E, 0x82, 0x86, 0x8A, 0x8E, 0x92
+    #d8 0x96, 0x9A, 0x9D, 0xA1, 0xA5, 0xA9, 0xAC, 0xB0, 0xB3, 0xB7, 0xBA, 0xBE, 0xC1, 0xC5, 0xC8, 0xCB
+    #d8 0xCF, 0xD2, 0xD5, 0xD8, 0xDC, 0xDF, 0xE2, 0xE5, 0xE8, 0xEB, 0xEE, 0xF1, 0xF4, 0xF7, 0xFA, 0xFD
+    #d8 0x00, 0x03, 0x06, 0x09, 0x0B, 0x0E, 0x11, 0x14, 0x16, 0x19, 0x1C, 0x1E, 0x21, 0x24, 0x26, 0x29
+    #d8 0x2C, 0x2E, 0x31, 0x33, 0x36, 0x38, 0x3B, 0x3D, 0x3F, 0x42, 0x44, 0x47, 0x49, 0x4B, 0x4E, 0x50
+    #d8 0x52, 0x55, 0x57, 0x59, 0x5C, 0x5E, 0x60, 0x62, 0x64, 0x67, 0x69, 0x6B, 0x6D, 0x6F, 0x71, 0x74
+    #d8 0x76, 0x78, 0x7A, 0x7C, 0x7E, 0x80, 0x82, 0x84, 0x86, 0x88, 0x8A, 0x8C, 0x8E, 0x90, 0x92, 0x94
+    #d8 0x96, 0x98, 0x9A, 0x9B, 0x9D, 0x9F, 0xA1, 0xA3, 0xA5, 0xA7, 0xA9, 0xAA, 0xAC, 0xAE, 0xB0, 0xB2
+    #d8 0xB3, 0xB5, 0xB7, 0xB9, 0xBA, 0xBC, 0xBE, 0xC0, 0xC1, 0xC3, 0xC5, 0xC6, 0xC8, 0xCA, 0xCB, 0xCD
+    #d8 0xCF, 0xD0, 0xD2, 0xD4, 0xD5, 0xD7, 0xD8, 0xDA, 0xDC, 0xDD, 0xDF, 0xE0, 0xE2, 0xE4, 0xE5, 0xE7
+    #d8 0xE8, 0xEA, 0xEB, 0xED, 0xEE, 0xF0, 0xF1, 0xF3, 0xF4, 0xF6, 0xF7, 0xF9, 0xFA, 0xFC, 0xFD, 0xFF
+
+; LG low, n = 256-511
+    #d8 0x00, 0x01, 0x03, 0x04, 0x06, 0x07, 0x09, 0x0A, 0x0B, 0x0D, 0x0E, 0x10, 0x11, 0x12, 0x14, 0x15
+    #d8 0x16, 0x18, 0x19, 0x1A, 0x1C, 0x1D, 0x1E, 0x20, 0x21, 0x22, 0x24, 0x25, 0x26, 0x28, 0x29, 0x2A
+    #d8 0x2C, 0x2D, 0x2E, 0x2F, 0x31, 0x32, 0x33, 0x34, 0x36, 0x37, 0x38, 0x39, 0x3B, 0x3C, 0x3D, 0x3E
+    #d8 0x3F, 0x41, 0x42, 0x43, 0x44, 0x45, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4D, 0x4E, 0x4F, 0x50, 0x51
+    #d8 0x52, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A, 0x5C, 0x5D, 0x5E, 0x5F, 0x60, 0x61, 0x62, 0x63
+    #d8 0x64, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x74, 0x75
+    #d8 0x76, 0x77, 0x78, 0x79, 0x7A, 0x7B, 0x7C, 0x7D, 0x7E, 0x7F, 0x80, 0x81, 0x82, 0x83, 0x84, 0x85
+    #d8 0x86, 0x87, 0x88, 0x89, 0x8A, 0x8B, 0x8C, 0x8D, 0x8E, 0x8F, 0x90, 0x91, 0x92, 0x93, 0x94, 0x95
+    #d8 0x96, 0x97, 0x98, 0x99, 0x9A, 0x9B, 0x9B, 0x9C, 0x9D, 0x9E, 0x9F, 0xA0, 0xA1, 0xA2, 0xA3, 0xA4
+    #d8 0xA5, 0xA6, 0xA7, 0xA8, 0xA9, 0xA9, 0xAA, 0xAB, 0xAC, 0xAD, 0xAE, 0xAF, 0xB0, 0xB1, 0xB2, 0xB2
+    #d8 0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xB9, 0xB9, 0xBA, 0xBB, 0xBC, 0xBD, 0xBE, 0xBF, 0xC0, 0xC0
+    #d8 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC6, 0xC7, 0xC8, 0xC9, 0xCA, 0xCB, 0xCB, 0xCC, 0xCD, 0xCE
+    #d8 0xCF, 0xD0, 0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xD8, 0xD9, 0xDA, 0xDB
+    #d8 0xDC, 0xDC, 0xDD, 0xDE, 0xDF, 0xE0, 0xE0, 0xE1, 0xE2, 0xE3, 0xE4, 0xE4, 0xE5, 0xE6, 0xE7, 0xE7
+    #d8 0xE8, 0xE9, 0xEA, 0xEA, 0xEB, 0xEC, 0xED, 0xEE, 0xEE, 0xEF, 0xF0, 0xF1, 0xF1, 0xF2, 0xF3, 0xF4
+    #d8 0xF4, 0xF5, 0xF6, 0xF7, 0xF7, 0xF8, 0xF9, 0xF9, 0xFA, 0xFB, 0xFC, 0xFC, 0xFD, 0xFE, 0xFF, 0xFF
+
+; LG high
+    #d8 0x00, 0x10, 0x11, 0x11, 0x12, 0x12, 0x12, 0x12, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13
+    #d8 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14
+    #d8 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15
+    #d8 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15
+    #d8 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16
+    #d8 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16
+    #d8 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16
+    #d8 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16
+    #d8 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17
+    #d8 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17
+    #d8 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17
+    #d8 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17
+    #d8 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17
+    #d8 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17
+    #d8 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17
+    #d8 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17
+
+; LG high, n = 256-511
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18
+
+; CPG: video page of pixel x (byte column)
+    #d8 0x61, 0x61, 0x61, 0x61, 0x63, 0x63, 0x63, 0x63, 0x65, 0x65, 0x65, 0x65, 0x67, 0x67, 0x67, 0x67
+    #d8 0x69, 0x69, 0x69, 0x69, 0x6B, 0x6B, 0x6B, 0x6B, 0x6D, 0x6D, 0x6D, 0x6D, 0x6F, 0x6F, 0x6F, 0x6F
+    #d8 0x71, 0x71, 0x71, 0x71, 0x73, 0x73, 0x73, 0x73, 0x75, 0x75, 0x75, 0x75, 0x77, 0x77, 0x77, 0x77
+    #d8 0x79, 0x79, 0x79, 0x79, 0x7B, 0x7B, 0x7B, 0x7B, 0x7D, 0x7D, 0x7D, 0x7D, 0x7F, 0x7F, 0x7F, 0x7F
+    #d8 0x81, 0x81, 0x81, 0x81, 0x83, 0x83, 0x83, 0x83, 0x85, 0x85, 0x85, 0x85, 0x87, 0x87, 0x87, 0x87
+    #d8 0x89, 0x89, 0x89, 0x89, 0x8B, 0x8B, 0x8B, 0x8B, 0x8D, 0x8D, 0x8D, 0x8D, 0x8F, 0x8F, 0x8F, 0x8F
+    #d8 0x91, 0x91, 0x91, 0x91, 0x93, 0x93, 0x93, 0x93, 0x95, 0x95, 0x95, 0x95, 0x97, 0x97, 0x97, 0x97
+    #d8 0x99, 0x99, 0x99, 0x99, 0x9B, 0x9B, 0x9B, 0x9B, 0x9D, 0x9D, 0x9D, 0x9D, 0x9F, 0x9F, 0x9F, 0x9F
+    #d8 0xA1, 0xA1, 0xA1, 0xA1, 0xA3, 0xA3, 0xA3, 0xA3, 0xA5, 0xA5, 0xA5, 0xA5, 0xA7, 0xA7, 0xA7, 0xA7
+    #d8 0xA9, 0xA9, 0xA9, 0xA9, 0xAB, 0xAB, 0xAB, 0xAB, 0xAD, 0xAD, 0xAD, 0xAD, 0xAF, 0xAF, 0xAF, 0xAF
+    #d8 0xB1, 0xB1, 0xB1, 0xB1, 0xB3, 0xB3, 0xB3, 0xB3, 0xB5, 0xB5, 0xB5, 0xB5, 0xB7, 0xB7, 0xB7, 0xB7
+    #d8 0xB9, 0xB9, 0xB9, 0xB9, 0xBB, 0xBB, 0xBB, 0xBB, 0xBD, 0xBD, 0xBD, 0xBD, 0xBF, 0xBF, 0xBF, 0xBF
+    #d8 0xC1, 0xC1, 0xC1, 0xC1, 0xC3, 0xC3, 0xC3, 0xC3, 0xC5, 0xC5, 0xC5, 0xC5, 0xC7, 0xC7, 0xC7, 0xC7
+    #d8 0xC9, 0xC9, 0xC9, 0xC9, 0xCB, 0xCB, 0xCB, 0xCB, 0xCD, 0xCD, 0xCD, 0xCD, 0xCF, 0xCF, 0xCF, 0xCF
+    #d8 0xD1, 0xD1, 0xD1, 0xD1, 0xD3, 0xD3, 0xD3, 0xD3, 0xD5, 0xD5, 0xD5, 0xD5, 0xD7, 0xD7, 0xD7, 0xD7
+    #d8 0xD9, 0xD9, 0xD9, 0xD9, 0xDB, 0xDB, 0xDB, 0xDB, 0xDD, 0xDD, 0xDD, 0xDD, 0xDF, 0xDF, 0xDF, 0xDF
+
+; CPG, x = 256-319
+    #d8 0xE1, 0xE1, 0xE1, 0xE1, 0xE3, 0xE3, 0xE3, 0xE3, 0xE5, 0xE5, 0xE5, 0xE5, 0xE7, 0xE7, 0xE7, 0xE7
+    #d8 0xE9, 0xE9, 0xE9, 0xE9, 0xEB, 0xEB, 0xEB, 0xEB, 0xED, 0xED, 0xED, 0xED, 0xEF, 0xEF, 0xEF, 0xEF
+    #d8 0xF1, 0xF1, 0xF1, 0xF1, 0xF3, 0xF3, 0xF3, 0xF3, 0xF5, 0xF5, 0xF5, 0xF5, 0xF7, 0xF7, 0xF7, 0xF7
+    #d8 0xF9, 0xF9, 0xF9, 0xF9, 0xFB, 0xFB, 0xFB, 0xFB, 0xFD, 0xFD, 0xFD, 0xFD, 0xFF, 0xFF, 0xFF, 0xFF
+
+; XLO: x16 low byte of a pixel phase; LMK4, RMK4: masks
+    #d8 0x20, 0x60, 0xA0, 0xE0, 0xFF, 0xFC, 0xF0, 0xC0, 0x00, 0x03, 0x0F, 0x3F
+
+
+#addr 0x2C80
+; ENT: line loop entries, low bytes then high
+    #d8 ex_xd0 & 0xFF, ex_xd1 & 0xFF, ex_xd2 & 0xFF, ex_xd3 & 0xFF, ex_xu0 & 0xFF, ex_xu1 & 0xFF, ex_xu2 & 0xFF, ex_xu3 & 0xFF, ex_td0 & 0xFF, ex_td1 & 0xFF, ex_td2 & 0xFF, ex_td3 & 0xFF, ex_tu0 & 0xFF, ex_tu1 & 0xFF, ex_tu2 & 0xFF, ex_tu3 & 0xFF, ex_yr0 & 0xFF, ex_yr1 & 0xFF, ex_yr2 & 0xFF, ex_yr3 & 0xFF, ex_yl0 & 0xFF, ex_yl1 & 0xFF, ex_yl2 & 0xFF, ex_yl3 & 0xFF
+
+
+#addr 0x2CA0
+    #d8 ex_xd0 >> 8, ex_xd1 >> 8, ex_xd2 >> 8, ex_xd3 >> 8, ex_xu0 >> 8, ex_xu1 >> 8, ex_xu2 >> 8, ex_xu3 >> 8, ex_td0 >> 8, ex_td1 >> 8, ex_td2 >> 8, ex_td3 >> 8, ex_tu0 >> 8, ex_tu1 >> 8, ex_tu2 >> 8, ex_tu3 >> 8, ex_yr0 >> 8, ex_yr1 >> 8, ex_yr2 >> 8, ex_yr3 >> 8, ex_yl0 >> 8, ex_yl1 >> 8, ex_yl2 >> 8, ex_yl3 >> 8
+
+
+#addr 0x2D00
+; ANT0: 2^(0 + f/256)
+    #d8 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+    #d8 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+    #d8 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+    #d8 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+    #d8 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+    #d8 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+    #d8 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+    #d8 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+    #d8 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01
+    #d8 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+    #d8 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+    #d8 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+    #d8 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+    #d8 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+    #d8 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+    #d8 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+
+; ANT1: 2^(1 + f/256)
+    #d8 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+    #d8 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+    #d8 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+    #d8 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+    #d8 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02
+    #d8 0x02, 0x02, 0x02, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03
+    #d8 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03
+    #d8 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03
+    #d8 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03
+    #d8 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03
+    #d8 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03
+    #d8 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03
+    #d8 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x04
+    #d8 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04
+    #d8 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04
+    #d8 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04
+
+; ANT2: 2^(2 + f/256)
+    #d8 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04
+    #d8 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04
+    #d8 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x05, 0x05, 0x05, 0x05
+    #d8 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05
+    #d8 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05
+    #d8 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05
+    #d8 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x05
+    #d8 0x05, 0x05, 0x05, 0x05, 0x05, 0x05, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06
+    #d8 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06
+    #d8 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06
+    #d8 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06, 0x06
+    #d8 0x06, 0x06, 0x06, 0x06, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07
+    #d8 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07
+    #d8 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07
+    #d8 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08
+    #d8 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08
+
+; ANT3: 2^(3 + f/256)
+    #d8 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08
+    #d8 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09
+    #d8 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09
+    #d8 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09
+    #d8 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A
+    #d8 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0A
+    #d8 0x0A, 0x0A, 0x0A, 0x0A, 0x0A, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B
+    #d8 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B
+    #d8 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C
+    #d8 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C
+    #d8 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D
+    #d8 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D, 0x0D
+    #d8 0x0D, 0x0D, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E
+    #d8 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0E, 0x0F, 0x0F, 0x0F, 0x0F
+    #d8 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F
+    #d8 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10
+
+; ANT4: 2^(4 + f/256)
+    #d8 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x11, 0x11, 0x11, 0x11
+    #d8 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11
+    #d8 0x11, 0x11, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12
+    #d8 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13
+    #d8 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14
+    #d8 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x15, 0x15, 0x15, 0x15
+    #d8 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x15, 0x16, 0x16
+    #d8 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x16, 0x17, 0x17
+    #d8 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x17, 0x18, 0x18
+    #d8 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18, 0x19, 0x19
+    #d8 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0x1A, 0x1A, 0x1A
+    #d8 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1A, 0x1B, 0x1B, 0x1B, 0x1B, 0x1B
+    #d8 0x1B, 0x1B, 0x1B, 0x1B, 0x1B, 0x1B, 0x1B, 0x1B, 0x1B, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C
+    #d8 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1D, 0x1D, 0x1D, 0x1D, 0x1D, 0x1D, 0x1D, 0x1D, 0x1D, 0x1D
+    #d8 0x1D, 0x1D, 0x1E, 0x1E, 0x1E, 0x1E, 0x1E, 0x1E, 0x1E, 0x1E, 0x1E, 0x1E, 0x1E, 0x1E, 0x1E, 0x1F
+    #d8 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x1F, 0x20, 0x20, 0x20, 0x20, 0x20
+
+; ANT5: 2^(5 + f/256)
+    #d8 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x21, 0x21, 0x21, 0x21, 0x21, 0x21, 0x21, 0x21, 0x21, 0x21
+    #d8 0x21, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x23, 0x23, 0x23, 0x23
+    #d8 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x23, 0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 0x24, 0x24
+    #d8 0x24, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x26, 0x26, 0x26, 0x26, 0x26
+    #d8 0x26, 0x26, 0x26, 0x26, 0x26, 0x27, 0x27, 0x27, 0x27, 0x27, 0x27, 0x27, 0x27, 0x27, 0x28, 0x28
+    #d8 0x28, 0x28, 0x28, 0x28, 0x28, 0x28, 0x28, 0x28, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29, 0x29
+    #d8 0x29, 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x2B, 0x2B, 0x2B, 0x2B, 0x2B, 0x2B, 0x2B
+    #d8 0x2B, 0x2B, 0x2C, 0x2C, 0x2C, 0x2C, 0x2C, 0x2C, 0x2C, 0x2C, 0x2D, 0x2D, 0x2D, 0x2D, 0x2D, 0x2D
+    #d8 0x2D, 0x2D, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2E, 0x2F, 0x2F, 0x2F, 0x2F, 0x2F
+    #d8 0x2F, 0x2F, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31
+    #d8 0x31, 0x31, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x32, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33
+    #d8 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x34, 0x35, 0x35, 0x35, 0x35, 0x35, 0x35, 0x35, 0x36, 0x36
+    #d8 0x36, 0x36, 0x36, 0x36, 0x36, 0x37, 0x37, 0x37, 0x37, 0x37, 0x37, 0x37, 0x38, 0x38, 0x38, 0x38
+    #d8 0x38, 0x38, 0x39, 0x39, 0x39, 0x39, 0x39, 0x39, 0x39, 0x3A, 0x3A, 0x3A, 0x3A, 0x3A, 0x3A, 0x3B
+    #d8 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3B, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3C, 0x3D, 0x3D, 0x3D, 0x3D
+    #d8 0x3D, 0x3D, 0x3E, 0x3E, 0x3E, 0x3E, 0x3E, 0x3E, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x3F, 0x40, 0x40
+
+; ANT6: 2^(6 + f/256)
+    #d8 0x40, 0x40, 0x40, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x42, 0x42, 0x42, 0x42, 0x42, 0x42, 0x43
+    #d8 0x43, 0x43, 0x43, 0x43, 0x44, 0x44, 0x44, 0x44, 0x44, 0x44, 0x45, 0x45, 0x45, 0x45, 0x45, 0x46
+    #d8 0x46, 0x46, 0x46, 0x46, 0x47, 0x47, 0x47, 0x47, 0x47, 0x48, 0x48, 0x48, 0x48, 0x48, 0x48, 0x49
+    #d8 0x49, 0x49, 0x49, 0x49, 0x4A, 0x4A, 0x4A, 0x4A, 0x4A, 0x4B, 0x4B, 0x4B, 0x4B, 0x4B, 0x4C, 0x4C
+    #d8 0x4C, 0x4C, 0x4D, 0x4D, 0x4D, 0x4D, 0x4D, 0x4E, 0x4E, 0x4E, 0x4E, 0x4E, 0x4F, 0x4F, 0x4F, 0x4F
+    #d8 0x4F, 0x50, 0x50, 0x50, 0x50, 0x51, 0x51, 0x51, 0x51, 0x51, 0x52, 0x52, 0x52, 0x52, 0x53, 0x53
+    #d8 0x53, 0x53, 0x53, 0x54, 0x54, 0x54, 0x54, 0x55, 0x55, 0x55, 0x55, 0x56, 0x56, 0x56, 0x56, 0x56
+    #d8 0x57, 0x57, 0x57, 0x57, 0x58, 0x58, 0x58, 0x58, 0x59, 0x59, 0x59, 0x59, 0x5A, 0x5A, 0x5A, 0x5A
+    #d8 0x5B, 0x5B, 0x5B, 0x5B, 0x5B, 0x5C, 0x5C, 0x5C, 0x5C, 0x5D, 0x5D, 0x5D, 0x5D, 0x5E, 0x5E, 0x5E
+    #d8 0x5F, 0x5F, 0x5F, 0x5F, 0x60, 0x60, 0x60, 0x60, 0x61, 0x61, 0x61, 0x61, 0x62, 0x62, 0x62, 0x62
+    #d8 0x63, 0x63, 0x63, 0x64, 0x64, 0x64, 0x64, 0x65, 0x65, 0x65, 0x65, 0x66, 0x66, 0x66, 0x67, 0x67
+    #d8 0x67, 0x67, 0x68, 0x68, 0x68, 0x68, 0x69, 0x69, 0x69, 0x6A, 0x6A, 0x6A, 0x6A, 0x6B, 0x6B, 0x6B
+    #d8 0x6C, 0x6C, 0x6C, 0x6D, 0x6D, 0x6D, 0x6D, 0x6E, 0x6E, 0x6E, 0x6F, 0x6F, 0x6F, 0x6F, 0x70, 0x70
+    #d8 0x70, 0x71, 0x71, 0x71, 0x72, 0x72, 0x72, 0x73, 0x73, 0x73, 0x73, 0x74, 0x74, 0x74, 0x75, 0x75
+    #d8 0x75, 0x76, 0x76, 0x76, 0x77, 0x77, 0x77, 0x78, 0x78, 0x78, 0x79, 0x79, 0x79, 0x7A, 0x7A, 0x7A
+    #d8 0x7B, 0x7B, 0x7B, 0x7C, 0x7C, 0x7C, 0x7D, 0x7D, 0x7D, 0x7E, 0x7E, 0x7E, 0x7F, 0x7F, 0x7F, 0x80
+
+; ANT7: 2^(7 + f/256)
+    #d8 0x80, 0x80, 0x81, 0x81, 0x81, 0x82, 0x82, 0x82, 0x83, 0x83, 0x84, 0x84, 0x84, 0x85, 0x85, 0x85
+    #d8 0x86, 0x86, 0x86, 0x87, 0x87, 0x87, 0x88, 0x88, 0x89, 0x89, 0x89, 0x8A, 0x8A, 0x8A, 0x8B, 0x8B
+    #d8 0x8C, 0x8C, 0x8C, 0x8D, 0x8D, 0x8D, 0x8E, 0x8E, 0x8F, 0x8F, 0x8F, 0x90, 0x90, 0x91, 0x91, 0x91
+    #d8 0x92, 0x92, 0x93, 0x93, 0x93, 0x94, 0x94, 0x95, 0x95, 0x95, 0x96, 0x96, 0x97, 0x97, 0x97, 0x98
+    #d8 0x98, 0x99, 0x99, 0x99, 0x9A, 0x9A, 0x9B, 0x9B, 0x9C, 0x9C, 0x9C, 0x9D, 0x9D, 0x9E, 0x9E, 0x9F
+    #d8 0x9F, 0x9F, 0xA0, 0xA0, 0xA1, 0xA1, 0xA2, 0xA2, 0xA2, 0xA3, 0xA3, 0xA4, 0xA4, 0xA5, 0xA5, 0xA6
+    #d8 0xA6, 0xA6, 0xA7, 0xA7, 0xA8, 0xA8, 0xA9, 0xA9, 0xAA, 0xAA, 0xAB, 0xAB, 0xAB, 0xAC, 0xAC, 0xAD
+    #d8 0xAD, 0xAE, 0xAE, 0xAF, 0xAF, 0xB0, 0xB0, 0xB1, 0xB1, 0xB2, 0xB2, 0xB3, 0xB3, 0xB4, 0xB4, 0xB5
+    #d8 0xB5, 0xB6, 0xB6, 0xB6, 0xB7, 0xB7, 0xB8, 0xB8, 0xB9, 0xB9, 0xBA, 0xBA, 0xBB, 0xBC, 0xBC, 0xBD
+    #d8 0xBD, 0xBE, 0xBE, 0xBF, 0xBF, 0xC0, 0xC0, 0xC1, 0xC1, 0xC2, 0xC2, 0xC3, 0xC3, 0xC4, 0xC4, 0xC5
+    #d8 0xC5, 0xC6, 0xC6, 0xC7, 0xC8, 0xC8, 0xC9, 0xC9, 0xCA, 0xCA, 0xCB, 0xCB, 0xCC, 0xCC, 0xCD, 0xCE
+    #d8 0xCE, 0xCF, 0xCF, 0xD0, 0xD0, 0xD1, 0xD2, 0xD2, 0xD3, 0xD3, 0xD4, 0xD4, 0xD5, 0xD6, 0xD6, 0xD7
+    #d8 0xD7, 0xD8, 0xD8, 0xD9, 0xDA, 0xDA, 0xDB, 0xDB, 0xDC, 0xDD, 0xDD, 0xDE, 0xDE, 0xDF, 0xE0, 0xE0
+    #d8 0xE1, 0xE1, 0xE2, 0xE3, 0xE3, 0xE4, 0xE4, 0xE5, 0xE6, 0xE6, 0xE7, 0xE8, 0xE8, 0xE9, 0xE9, 0xEA
+    #d8 0xEB, 0xEB, 0xEC, 0xED, 0xED, 0xEE, 0xEF, 0xEF, 0xF0, 0xF1, 0xF1, 0xF2, 0xF3, 0xF3, 0xF4, 0xF4
+    #d8 0xF5, 0xF6, 0xF6, 0xF7, 0xF8, 0xF8, 0xF9, 0xFA, 0xFB, 0xFB, 0xFC, 0xFD, 0xFD, 0xFE, 0xFF, 0xFF
+
+; model vertices: x
+    #d8 0xD6, 0xD6, 0x2A, 0x2A, 0xD6, 0xD6, 0x2A, 0x2A, 0x00, 0x00, 0x00, 0x00, 0x00, 0xEE, 0x12, 0xCC
+    #d8 0x34, 0xDE, 0x22, 0xDE, 0x22, 0xF2, 0x0E, 0x00, 0xD8, 0x28, 0x00, 0x00, 0xF4, 0x0C, 0x00, 0x00
+    #d8 0x00, 0x00, 0xE2, 0xE2, 0x1E, 0x1E, 0xCF, 0xCF, 0x31, 0x31
+
+
+#addr 0x3540
+; y
+    #d8 0xD6, 0x2A, 0x2A, 0xD6, 0x00, 0x00, 0x00, 0x00, 0xD6, 0xD6, 0x2A, 0x2A, 0x06, 0x0C, 0x0C, 0x00
+    #d8 0x00, 0x0C, 0x0C, 0xF6, 0xF6, 0xF6, 0xF6, 0x00, 0xFA, 0xFA, 0x10, 0xF6, 0x04, 0x04, 0xE2, 0xE2
+    #d8 0x1E, 0x1E, 0xCF, 0x31, 0x31, 0xCF, 0x00, 0x00, 0x00, 0x00
+
+
+#addr 0x3580
+; z
+    #d8 0x00, 0x00, 0x00, 0x00, 0xD6, 0x2A, 0x2A, 0xD6, 0xD6, 0x2A, 0x2A, 0xD6, 0x38, 0x1E, 0x1E, 0xF8
+    #d8 0xF8, 0xDE, 0xDE, 0xDE, 0xDE, 0x1E, 0x1E, 0x3A, 0xE2, 0xE2, 0xE6, 0xE2, 0xD8, 0xD8, 0xCF, 0x31
+    #d8 0x31, 0xCF, 0x00, 0x00, 0x00, 0x00, 0xE2, 0x1E, 0x1E, 0xE2
+
+
+#addr 0x35C0
+; mirror: 0 full, 1 + axis: the previous one, that negated
+    #d8 0x00, 0x02, 0x01, 0x02, 0x00, 0x03, 0x01, 0x03, 0x00, 0x03, 0x02, 0x03, 0x00, 0x00, 0x01, 0x00
+    #d8 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03
+    #d8 0x02, 0x03, 0x00, 0x02, 0x01, 0x02, 0x00, 0x03, 0x01, 0x03
+
+
+#addr 0x3600
+; faces: first vertex in FVL
+    #d8 0x00, 0x04, 0x08, 0x0B, 0x0E, 0x12, 0x15, 0x18, 0x1C, 0x1F, 0x22, 0x25, 0x28, 0x2C, 0x30, 0x33
+    #d8 0x36, 0x39, 0x3C, 0x3F, 0x42, 0x46, 0x49, 0x4C, 0x4F, 0x52, 0x55, 0x58, 0x5C, 0x60, 0x63, 0x66
+    #d8 0x69, 0x6C, 0x6F, 0x72, 0x75, 0x78, 0x7B, 0x7E, 0x81, 0x84, 0x87, 0x8A, 0x8D, 0x90, 0x93, 0x96
+    #d8 0x99, 0x9C, 0x9F, 0xA2, 0xA5, 0xA8, 0xAB, 0xAE, 0xB1, 0xB4, 0xB7
+
+
+#addr 0x3640
+; vertices
+    #d8 0x04, 0x04, 0x03, 0x03, 0x04, 0x03, 0x03, 0x04, 0x03, 0x03, 0x03, 0x03, 0x04, 0x04, 0x03, 0x03
+    #d8 0x03, 0x03, 0x03, 0x03, 0x04, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x04, 0x04, 0x03, 0x03, 0x03
+    #d8 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03
+    #d8 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03
+
+
+#addr 0x3680
+; product index of n x
+    #d8 0x34, 0x30, 0x32, 0x32, 0x30, 0x32, 0x32, 0x33, 0x31, 0x31, 0x31, 0x31, 0x30, 0x30, 0x30, 0x38
+    #d8 0x37, 0x36, 0x35, 0x30, 0x30, 0x34, 0x33, 0x3A, 0x32, 0x39, 0x31, 0x30, 0x30, 0x38, 0x34, 0x37
+    #d8 0x33, 0x36, 0x32, 0x35, 0x31, 0x30, 0x30, 0x32, 0x31, 0x30, 0x34, 0x33, 0x32, 0x31, 0x30, 0x34
+    #d8 0x33, 0x30, 0x34, 0x33, 0x30, 0x34, 0x33, 0x36, 0x36, 0x35, 0x35
+
+
+#addr 0x36C0
+; n y
+    #d8 0x30, 0x38, 0x36, 0x36, 0x37, 0x35, 0x35, 0x30, 0x35, 0x35, 0x36, 0x36, 0x30, 0x30, 0x43, 0x3B
+    #d8 0x3B, 0x3D, 0x3D, 0x3F, 0x44, 0x40, 0x40, 0x30, 0x42, 0x30, 0x42, 0x30, 0x45, 0x3F, 0x41, 0x3F
+    #d8 0x41, 0x3E, 0x3C, 0x3E, 0x3C, 0x3D, 0x3A, 0x30, 0x30, 0x3C, 0x3A, 0x3A, 0x30, 0x30, 0x3C, 0x3A
+    #d8 0x3A, 0x3B, 0x39, 0x39, 0x3B, 0x39, 0x39, 0x38, 0x37, 0x37, 0x38
+
+
+#addr 0x3700
+; n z
+    #d8 0x30, 0x30, 0x3A, 0x39, 0x30, 0x3A, 0x39, 0x30, 0x39, 0x3A, 0x39, 0x3A, 0x3C, 0x3B, 0x47, 0x4B
+    #d8 0x4B, 0x4C, 0x4C, 0x48, 0x30, 0x46, 0x46, 0x4A, 0x46, 0x4A, 0x46, 0x4E, 0x30, 0x43, 0x42, 0x43
+    #d8 0x42, 0x45, 0x49, 0x45, 0x49, 0x47, 0x4B, 0x42, 0x42, 0x3E, 0x40, 0x40, 0x41, 0x41, 0x3D, 0x3F
+    #d8 0x3F, 0x3D, 0x3F, 0x3F, 0x3E, 0x40, 0x40, 0x30, 0x30, 0x30, 0x30
+
+
+#addr 0x3740
+; D1 = n . centre / 2 + 1, low
+    #d8 0x22, 0x22, 0x27, 0x27, 0x22, 0x27, 0x27, 0x22, 0x27, 0x27, 0x27, 0x27, 0x22, 0x22, 0x0F, 0x1C
+    #d8 0x1C, 0x1A, 0x1A, 0x14, 0x0A, 0x12, 0x12, 0x26, 0x0F, 0x26, 0x0F, 0x1C, 0x09, 0x08, 0x06, 0x08
+    #d8 0x06, 0x12, 0x18, 0x12, 0x18, 0x18, 0x19, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25
+    #d8 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25, 0x25
+
+
+#addr 0x3780
+; high
+    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+
+
+#addr 0x3800
+; edges: vertex 1
+    #d8 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02, 0x02, 0x02, 0x03, 0x03, 0x03, 0x03
+    #d8 0x04, 0x04, 0x05, 0x05, 0x06, 0x06, 0x07, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01
+    #d8 0x01, 0x02, 0x02, 0x03, 0x03, 0x03, 0x04, 0x04, 0x04, 0x05, 0x05, 0x06, 0x07, 0x07, 0x08, 0x09
+    #d8 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x02, 0x02, 0x02, 0x03, 0x03, 0x04, 0x04, 0x05, 0x00
+    #d8 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x02, 0x02, 0x02, 0x02, 0x03, 0x03, 0x03
+    #d8 0x03, 0x04, 0x04, 0x04, 0x05, 0x05, 0x05, 0x06, 0x06, 0x07, 0x07, 0x08, 0x0A
+
+
+#addr 0x3880
+; vertex 2
+    #d8 0x04, 0x05, 0x08, 0x09, 0x04, 0x05, 0x0A, 0x0B, 0x06, 0x07, 0x0A, 0x0B, 0x06, 0x07, 0x08, 0x09
+    #d8 0x08, 0x0B, 0x09, 0x0A, 0x09, 0x0A, 0x08, 0x0B, 0x01, 0x02, 0x03, 0x04, 0x09, 0x0A, 0x02, 0x03
+    #d8 0x05, 0x04, 0x06, 0x05, 0x07, 0x09, 0x06, 0x08, 0x0A, 0x06, 0x07, 0x08, 0x08, 0x09, 0x0A, 0x0A
+    #d8 0x01, 0x02, 0x03, 0x04, 0x03, 0x04, 0x05, 0x03, 0x04, 0x06, 0x05, 0x06, 0x05, 0x06, 0x06, 0x03
+    #d8 0x04, 0x07, 0x08, 0x0B, 0x02, 0x04, 0x07, 0x09, 0x0A, 0x05, 0x06, 0x09, 0x0A, 0x05, 0x06, 0x08
+    #d8 0x0B, 0x07, 0x08, 0x09, 0x06, 0x08, 0x09, 0x0A, 0x0B, 0x0A, 0x0B, 0x09, 0x0B
+
+
+#addr 0x3900
+; face 1
+    #d8 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x04, 0x04, 0x07, 0x07, 0x04, 0x04, 0x07, 0x07, 0x01, 0x01
+    #d8 0x02, 0x05, 0x03, 0x06, 0x0A, 0x08, 0x0B, 0x09, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x00, 0x01
+    #d8 0x06, 0x02, 0x06, 0x07, 0x09, 0x03, 0x08, 0x0B, 0x04, 0x06, 0x09, 0x0B, 0x0D, 0x0A, 0x0C, 0x05
+    #d8 0x00, 0x02, 0x00, 0x01, 0x00, 0x01, 0x04, 0x02, 0x03, 0x06, 0x04, 0x06, 0x05, 0x07, 0x08, 0x00
+    #d8 0x02, 0x02, 0x00, 0x01, 0x05, 0x07, 0x07, 0x05, 0x06, 0x0A, 0x0A, 0x05, 0x06, 0x0D, 0x0D, 0x00
+    #d8 0x01, 0x02, 0x03, 0x08, 0x0A, 0x0E, 0x0B, 0x0C, 0x0F, 0x09, 0x04, 0x10, 0x12
+
+
+#addr 0x3980
+; face 2
+    #d8 0x02, 0x03, 0x02, 0x03, 0x05, 0x06, 0x06, 0x05, 0x08, 0x09, 0x08, 0x09, 0x0A, 0x0B, 0x0B, 0x0A
+    #d8 0x0C, 0x0C, 0x0D, 0x0D, 0x0D, 0x0D, 0x0C, 0x0C, 0x01, 0x02, 0x03, 0x04, 0x05, 0x05, 0x06, 0x07
+    #d8 0x07, 0x08, 0x08, 0x09, 0x0A, 0x0A, 0x0B, 0x0C, 0x0C, 0x0D, 0x0D, 0x0D, 0x0E, 0x0E, 0x0E, 0x0E
+    #d8 0x01, 0x03, 0x02, 0x03, 0x04, 0x05, 0x05, 0x06, 0x07, 0x07, 0x08, 0x08, 0x09, 0x09, 0x09, 0x01
+    #d8 0x03, 0x04, 0x03, 0x04, 0x06, 0x08, 0x09, 0x08, 0x09, 0x0B, 0x0C, 0x0B, 0x0C, 0x0E, 0x0F, 0x0E
+    #d8 0x0F, 0x07, 0x10, 0x10, 0x0D, 0x11, 0x11, 0x12, 0x12, 0x13, 0x13, 0x11, 0x13
+
+
+#addr 0x3A00
+; 1: face 1 goes vertex 1 -> 2
+    #d8 0x00, 0x01, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01
+    #d8 0x01, 0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01
+    #d8 0x00, 0x00, 0x01, 0x00, 0x00, 0x01, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01
+    #d8 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x00
+    #d8 0x00, 0x01, 0x01, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x01, 0x00, 0x01, 0x00, 0x00
+    #d8 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01
+
+
+#addr 0x3B00
+; face vertex lists (clockwise from outside)
+    #d8 0x04, 0x00, 0x05, 0x01, 0x03, 0x09, 0x00, 0x08, 0x08, 0x00, 0x04, 0x05, 0x00, 0x09, 0x0B, 0x01
+    #d8 0x0A, 0x02, 0x04, 0x01, 0x0B, 0x0A, 0x01, 0x05, 0x07, 0x02, 0x06, 0x03, 0x06, 0x02, 0x0A, 0x0B
+    #d8 0x02, 0x07, 0x09, 0x03, 0x06, 0x07, 0x03, 0x08, 0x08, 0x04, 0x0B, 0x07, 0x0A, 0x05, 0x09, 0x06
+    #d8 0x01, 0x00, 0x02, 0x03, 0x00, 0x01, 0x02, 0x00, 0x04, 0x09, 0x00, 0x03, 0x04, 0x00, 0x0A, 0x0A
+    #d8 0x00, 0x09, 0x05, 0x01, 0x02, 0x06, 0x03, 0x01, 0x05, 0x06, 0x02, 0x04, 0x07, 0x03, 0x05, 0x09
+    #d8 0x03, 0x07, 0x06, 0x04, 0x08, 0x08, 0x04, 0x0A, 0x07, 0x05, 0x06, 0x08, 0x0A, 0x09, 0x07, 0x08
+    #d8 0x01, 0x00, 0x03, 0x04, 0x00, 0x01, 0x03, 0x00, 0x02, 0x02, 0x00, 0x04, 0x05, 0x01, 0x03, 0x04
+    #d8 0x01, 0x05, 0x03, 0x02, 0x06, 0x06, 0x02, 0x04, 0x05, 0x03, 0x06, 0x06, 0x04, 0x05, 0x03, 0x00
+    #d8 0x08, 0x0B, 0x00, 0x03, 0x04, 0x00, 0x07, 0x08, 0x00, 0x04, 0x07, 0x00, 0x0B, 0x09, 0x01, 0x02
+    #d8 0x02, 0x01, 0x0A, 0x07, 0x01, 0x04, 0x04, 0x01, 0x09, 0x0A, 0x01, 0x07, 0x05, 0x02, 0x06, 0x09
+    #d8 0x02, 0x05, 0x06, 0x02, 0x0A, 0x06, 0x03, 0x05, 0x05, 0x03, 0x08, 0x0B, 0x03, 0x06, 0x08, 0x04
+    #d8 0x09, 0x09, 0x05, 0x08, 0x0B, 0x06, 0x0A, 0x0A, 0x07, 0x0B
+
+
+#addr 0x3C00
+; product entries: axis
+    #d8 0x00, 0x00, 0x01, 0x01, 0x02, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x01, 0x01
+    #d8 0x01, 0x01, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x00, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01
+    #d8 0x01, 0x01, 0x01, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x00, 0x00, 0x00, 0x01, 0x01, 0x01, 0x02
+    #d8 0x02, 0x02
+
+
+#addr 0x3C40
+; log u low
+    #d8 0xDC, 0xA5, 0xDC, 0xA5, 0xDC, 0xA5, 0x2C, 0x76, 0x21, 0x3F, 0x5C, 0xCF, 0x36, 0x69, 0x7A, 0x8A
+    #d8 0x9A, 0xA5, 0x76, 0x76, 0xB3, 0xD5, 0xE2, 0xEE, 0xA5, 0x96, 0x52, 0x64, 0x9D, 0xDC, 0xEE, 0x3F
+    #d8 0x60, 0x6D, 0xA1, 0x76, 0x00, 0x21, 0x06, 0x4E, 0x57, 0x2C, 0xDC, 0x8A, 0x2C, 0xDC, 0x8A, 0x2C
+    #d8 0xDC, 0x8A
+
+
+#addr 0x3C80
+; high
+    #d8 0x15, 0x16, 0x15, 0x16, 0x15, 0x16, 0x15, 0x15, 0x16, 0x16, 0x16, 0x14, 0x15, 0x16, 0x16, 0x16
+    #d8 0x16, 0x16, 0x13, 0x14, 0x15, 0x15, 0x15, 0x15, 0x16, 0x12, 0x13, 0x15, 0x15, 0x15, 0x15, 0x16
+    #d8 0x16, 0x16, 0x16, 0x13, 0x14, 0x15, 0x16, 0x16, 0x16, 0x15, 0x15, 0x16, 0x15, 0x15, 0x16, 0x15
+    #d8 0x15, 0x16
+
+
+#addr 0x3CC0
+; index of +u
+    #d8 0x31, 0x33, 0x35, 0x37, 0x39, 0x3B, 0x31, 0x33, 0x35, 0x37, 0x39, 0x3B, 0x3C, 0x3E, 0x40, 0x41
+    #d8 0x43, 0x44, 0x46, 0x47, 0x48, 0x49, 0x4B, 0x4C, 0x4D, 0x31, 0x33, 0x35, 0x37, 0x39, 0x3B, 0x3D
+    #d8 0x3E, 0x3F, 0x40, 0x42, 0x43, 0x44, 0x46, 0x48, 0x4A, 0x31, 0x33, 0x35, 0x37, 0x39, 0x3B, 0x3D
+    #d8 0x3F, 0x41
+
+
+#addr 0x3D00
+; index of -u (255: none)
+    #d8 0x32, 0x34, 0x36, 0x38, 0x3A, 0x3C, 0x32, 0x34, 0x36, 0x38, 0x3A, 0xFF, 0x3D, 0x3F, 0xFF, 0x42
+    #d8 0xFF, 0x45, 0xFF, 0xFF, 0xFF, 0x4A, 0xFF, 0xFF, 0x4E, 0x32, 0x34, 0x36, 0x38, 0x3A, 0x3C, 0xFF
+    #d8 0xFF, 0xFF, 0x41, 0xFF, 0xFF, 0x45, 0x47, 0x49, 0x4B, 0x32, 0x34, 0x36, 0x38, 0x3A, 0x3C, 0x3E
+    #d8 0x40, 0x42
+
+
+#addr 0x3E00
+; ship constants (16 each): rates a1 a2 a3 t, MV NV MF NF ME NE TB NT, vertex base, face base
+    #d8 0x01, 0x01, 0x02, 0xFF, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x00, 0x00, 0x01, 0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x02, 0x00, 0x00, 0x03, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x01, 0x02, 0xFF, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x0C, 0x17, 0x17, 0x1E, 0x1E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x0C, 0x0B, 0x07, 0x07, 0x0C, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x0E, 0x1D, 0x1D, 0x27, 0x27, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x0E, 0x0F, 0x0A, 0x0A, 0x14, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x18, 0x30, 0x30, 0x3F, 0x3F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x18, 0x18, 0x0F, 0x0F, 0x1E, 0x1E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x06, 0x19, 0x19, 0x29, 0x29, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x06, 0x13, 0x10, 0x10, 0x09, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x0C, 0x17, 0x1E, 0x25, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x0E, 0x1D, 0x27, 0x31, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+
+; the ships' path code, low bytes then high
+    #d8 ship_0 & 0xFF, ship_1 & 0xFF, ship_2 & 0xFF, ship_3 & 0xFF, ship_4 & 0xFF, ship_5 & 0xFF
+
+
+#addr 0x3EF0
+    #d8 ship_0 >> 8, ship_1 >> 8, ship_2 >> 8, ship_3 >> 8, ship_4 >> 8, ship_5 >> 8
+
+
+#addr 0x3F00
+; initial angles a1, a2, a3 (16 each)
+    #d8 0x00, 0x40, 0x40, 0xC0, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x14, 0x00, 0x00, 0x0A, 0x28, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x00, 0x14, 0xEC, 0x00, 0x46, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+; strings
+s_title:
+    #d "PLACARD 3D  6 SHIPS  61 VERTICES  89 FACES   ESC: DOS", 0x00
+s_fps:
+    #d "FPS ", 0x00
+s_wire:
+    #d "   WIREFRAME   LINES ", 0x00
+s_fill:
+    #d "   FILLED      FACES ", 0x00
+s_sp:
+    #d "   ", 0x00
+

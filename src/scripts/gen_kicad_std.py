@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""
+gen_kicad_std.py - make kicad/lib/placard_std.kicad_sym: copies of the KiCad
+library symbols the schematic uses (74xx chips, R, C, connectors, the cartridge
+EEPROM and the power symbols), with
+larger pin names and numbers so the sheets read like the hand-drawn PNGs.
+
+    python3 gen_kicad_std.py                 writes kicad/lib/placard_std.kicad_sym
+
+The source is KiCad's own symbol library (/usr/share/kicad/symbols, KiCad 7;
+apt-get install kicad-symbols).  Each symbol is flattened (no "extends"),
+renamed to its plain name, and its pin text set to PIN_NAME / PIN_NUMBER mm.
+Because the schematic uses these copies, KiCad's ERC does not report the
+symbols as different from their library.  The Footprint field of each copy is
+blank or the placard.pretty footprint the boards use (FOOTPRINT).
+
+Date: 2026-10-29
+"""
+
+import os
+import sys
+
+import kicad_sch_lib as K
+
+OUT = os.path.join(K.PROJ_LIB, "placard_std.kicad_sym")
+PIN_NAME = 1.8
+PIN_NUMBER = 1.5
+
+# (library, symbol) for every stock part the schematic places
+USED = [("74xx", "74LS273"), ("74xx", "74LS32"), ("74xx", "74LS377"), ("74xx", "74LS541"),
+        ("74xx", "74LS574"),
+        ("Connector", "DE15_Receptacle_HighDensity_MountingHoles"), ("Connector", "Mini-DIN-6"),
+        ("Connector", "SD_Card"), ("Connector", "TestPoint"), ("Connector_Audio", "AudioJack4"),
+        ("Device", "C"), ("Device", "C_Polarized"), ("Device", "D_Schottky"), ("Device", "NetTie_2"),
+        ("Device", "Polyfuse"), ("Device", "R_US"), ("Device", "R_Network08_US"),
+        ("Jumper", "Jumper_2_Open"), ("Regulator_Linear", "MCP1700x-330xxTO"),
+        ("Oscillator", "ACO-xxxMHz"), ("Switch", "SW_SPST"), ("Switch", "SW_Push"), ("Relay", "G5LE-1"), ("Device", "D_Zener"), ("Device", "D"),
+        ("Device", "LED"), ("Memory_EEPROM", "28C256"),
+        ("power", "+5V"), ("power", "GND"), ("power", "+3V3"), ("power", "GNDA"), ("power", "PWR_FLAG")]
+
+# default Footprint field -> the placard.pretty footprint the boards use, so no symbol names a
+# footprint outside the project library
+FOOTPRINT = {"G5LE-1": "placard:Relay_SPDT_CIT_J107", "R_Network08_US": "placard:R_Array_SIP9",
+             "ACO-xxxMHz": "placard:Oscillator_DIP-14", "MCP1700x-330xxTO": "placard:TO-92_Inline",
+             "28C256": "placard:DIP-28_W15.24mm_Socket_Puller",
+             "TestPoint": "placard:TestPoint_Keystone_5010-5014_Multipurpose"}
+
+
+def _font(e, size):
+    """Set every (font (size w h)) inside e to size."""
+    if not isinstance(e, list):
+        return e
+    if e and e[0] == "size" and len(e) == 3:
+        return ["size", K.R(size), K.R(size)]
+    return [_font(x, size) for x in e]
+
+
+def _bigger(e):
+    if not isinstance(e, list) or not e:
+        return e
+    if e[0] == "pin":
+        out = []
+        for x in e:
+            if isinstance(x, list) and x and x[0] == "name":
+                x = _font(x, PIN_NAME)
+            elif isinstance(x, list) and x and x[0] == "number":
+                x = _font(x, PIN_NUMBER)
+            out.append(x)
+        return out
+    return [_bigger(x) for x in e]
+
+
+def std_symbol(nick, name):
+    sym = K.lib_symbol(nick + ":" + name)
+    sym = list(sym)
+    sym[1] = K.q(name)
+    out = []
+    for e in sym:
+        if isinstance(e, list) and e[:2] == ["property", K.q("Footprint")]:
+            e = list(e)
+            e[2] = K.q(FOOTPRINT.get(name, ""))
+        if isinstance(e, list) and e and e[0] == "symbol":
+            if not K.uq(e[1]).startswith(name + "_"):
+                raise SystemExit(f"{name}: unexpected unit name {e[1]}")
+        out.append(_bigger(e))
+    return "  " + K.dump(out, 1) + "\n"
+
+
+def main():
+    out = sys.argv[1] if len(sys.argv) > 1 else OUT
+    with open(out, "w", newline="\n") as fh:
+        fh.write("(kicad_symbol_lib (version 20220914) (generator gen_kicad_std)\n")
+        for nick, name in USED:
+            fh.write(std_symbol(nick, name))
+        fh.write(")\n")
+    print("wrote", os.path.normpath(out))
+
+
+if __name__ == "__main__":
+    main()

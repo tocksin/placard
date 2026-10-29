@@ -1,0 +1,281 @@
+Name     VGA_SYNC;
+PartNo   01;
+Date     2026-10-27;
+Revision 10;
+Designer Justin;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   INPUTS
+   ============================================================ */
+
+PIN 1  = CLK;
+
+/* Vertical counter inputs
+   V9:V1 are bits 9..1 of the external 10-bit vertical counter.
+   V0 is not connected, so each decode below sees two counts at
+   once (e.g. 532 and 533 look identical to this PLD).
+   V8, V7 and V6 are not connected and are not needed. */
+PIN 2  = V9;
+PIN 3  = V5;
+PIN 4  = V4;
+PIN 5  = V3;
+PIN 6  = V2;
+PIN 7  = V1;
+
+/* Horizontal active-video indication */
+PIN 8  = H_VIDEO_ACTIVE;
+
+/* RAM write strobe inputs (revision 10; pins 9-11 were the
+   PC_ENABLE, Y_ENABLE and X_ENABLE inputs of the address mux
+   control, which went to the mux PLDs themselves) */
+PIN 9  = CLK_E;           /* early clock tap: X1 before the 500 mm of track to every other chip */
+PIN 10 = RW;              /* State PLD pin 23, 0 = store */
+PIN 11 = RUN;             /* ROM cartridge: low while it loads */
+
+/* Blanking read slot, from the audio slot PLD (revision 06; named
+   AUD_SLOT before revision 07).  High for the whole 8-clock group of
+   each line where the mode byte (group 45, see docs/VIDEO.md) or the audio
+   sample (group 46 or 47, see docs/SOUND.md) is read (groups 37-39 before
+   audio slot PLD revision 03). */
+PIN 13 = BLANK_RD;
+
+
+/* ============================================================
+   OUTPUTS
+   ============================================================ */
+
+PIN 14 = H0;
+PIN 15 = H1;
+PIN 16 = H2;
+
+PIN 17 = VIDEN;           /* registered (revision 08; was VIDEO_ACTIVE) */
+PIN 18 = !VSYNC;     /* active-low output pin (revision 09); equation below uses VSYNC as logical true */
+
+PIN 19 = PIXEL_ENABLE;     /* registered */
+
+PIN 20 = !WE;             /* RAM /WE (revision 10; was ADDR_SEL) */
+/* pins 21 and 22 free (revision 10; were ADDR_SEL_HI and ADDR_SEL_LO) */
+
+/* Vertical active-region state (registered).
+   Needed internally by VIDEN, PIXEL_ENABLE and VSYNC.
+   Brought out on pin 23 because the 22V10 has no buried registers. */
+PIN 23 = V_VIDEO_ACTIVE;
+
+
+/* ============================================================
+   HORIZONTAL LOW-BIT COUNTER
+   ============================================================ */
+
+/*
+   H0 toggles every clock.
+
+   H1 toggles whenever H0 is high.
+
+   H2 toggles whenever H1 and H0 are both high.
+
+   Revision 08: H2:H0 goes straight to the color decoder as its
+   pixel select, so the count runs two clocks behind the 8-clock
+   group of the H counter PLD (revision 07):
+
+       clock of the group   0    1    2    3    4    5    6    7
+       H2:H0               110  111  000  001  010  011  100  101
+
+   The byte is read in clock 1 (H2:H0 = 111), the pixel buffer
+   loads at the end of it, and its first pixel is shown in clock 2
+   (H2:H0 = 000).  The H counter PLD advances the group on 101.
+   The counter equations do not change; only the decodes that use
+   H2:H0 do.  Before revision 08, H2:H0 was 000 in clock 0 and a
+   two-stage delay register (F574) between this PLD and the color
+   decoder delayed H2:H0 and VIDEO_ACTIVE by two clocks.
+*/
+
+H0.D = !H0;
+
+H1.D = H1 $ H0;
+
+H2.D = H2 $ (H1 & H0);
+
+
+/* ============================================================
+   VERTICAL ACTIVE-REGION STATE
+   ============================================================ */
+
+/*
+   V_VIDEO_ACTIVE is high for vertical counts 544-1023.
+
+   Counts 512-543 have V9 = 1 and V5 = 0.
+   Count 544 is the first count with V9 = 1 and V5 = 1.
+   Only V9 and V5 are needed to detect it.
+
+   Set:
+       V9 = 1
+       V5 = 1
+
+   Once set, it holds while V9 is high.  V5 returns low at
+   count 576, but the held state keeps the region active.
+
+   V9 going low (counter wraps from 1023) clears it.
+*/
+
+V_VIDEO_ACTIVE.D = V9 & (V5 # V_VIDEO_ACTIVE);
+
+
+/* ============================================================
+   VIDEO ENABLE (color decoder VIDEN)
+   ============================================================ */
+
+/*
+   VIDEN blanks the color decoder.  It is high for the 640 clocks
+   in which pixels are shown: from clock 2 of group 48 (the first
+   pixel of the first byte) to clock 1 of group 28 of the next line
+   (the last pixel of the last byte), on lines where V_VIDEO_ACTIVE
+   is high (counts 544-1023).
+
+   Revision 08: registered, and loaded only in clock 1 of each group
+   (H2:H0 = 111, the video read clock).  It holds on the other seven
+   clocks.  In clock 1 of group 48 H_VIDEO_ACTIVE has just gone high,
+   so VIDEN goes high at the end of it; in clock 1 of group 28 it has
+   just gone low, so VIDEN goes low at the end of it.  That is
+   exactly the old VIDEO_ACTIVE (V_VIDEO_ACTIVE & H_VIDEO_ACTIVE,
+   combinational) delayed by two clocks in the delay register, which
+   is no longer needed.  Nothing else used VIDEO_ACTIVE.
+*/
+
+VIDEN.D =
+      V_VIDEO_ACTIVE
+    & H_VIDEO_ACTIVE
+    & H2
+    & H1
+    & H0
+    # VIDEN
+    & !H2
+    # VIDEN
+    & !H1
+    # VIDEN
+    & !H0;
+
+
+/* ============================================================
+   PIXEL ENABLE
+   ============================================================ */
+
+/*
+   One byte is read every eight clocks during active video.
+
+   PIXEL_ENABLE is registered, so it is decoded in the first clock
+   of the group and is high in the second one, where the byte is
+   read.  Since revision 08 those are H2:H0 = 110 and 111 (000 and
+   001 before).  Being registered,
+   it reaches the address mux PLDs (their select since revision 10,
+   ADDR_SEL before) and the State, PC and Branch PLDs at tCO,
+   instead of three array passes after the clock (see
+   docs/VIDEO_TIMING.md).
+
+   It is decoded from the V_VIDEO_ACTIVE register and the
+   H_VIDEO_ACTIVE input, so it is one array pass.
+
+   The pixel buffer loads at the end of the second clock, so its
+   first pixel is shown in the third (H2:H0 = 000), and the color
+   decoder takes H2:H0 and VIDEN from this PLD directly.
+
+   Audio (revision 06): one more read per line, on every line
+   including vertical blanking, in clock 1 of the group that
+   BLANK_RD marks (group 38 or 39, in horizontal blanking).  It is
+   a video read in every way: the address mux takes the video
+   address, the CPU stalls, MEM_CTRL enables the RAM or ROM by the
+   map, and the pixel buffer loads the byte.  The pixel buffer
+   holds it until the first pixel read of the line (group 48), and
+   the DAC register copies it at the end of HSYNC (group 42).
+
+   Mode byte (revision 07): the audio slot PLD (revision 02) also
+   marks group 37 on every line, so the same term reads the line's
+   mode byte there, and the line code register copies it from the
+   pixel buffer.  The input is renamed BLANK_RD; the equations do
+   not change.
+*/
+
+PIXEL_ENABLE.D =
+      V_VIDEO_ACTIVE
+    & H_VIDEO_ACTIVE
+    & H2
+    & H1
+    & !H0
+    # BLANK_RD
+    & H2
+    & H1
+    & !H0;
+
+
+/* ============================================================
+   VERTICAL SYNC
+   ============================================================ */
+
+/*
+   VSYNC is logically true during counts 532-533, and the pin is
+   active low (declared !VSYNC, like !HSYNC in the H counter), so the
+   pin is low during sync.  Before revision 09 the pin was declared
+   active high and the equation was written VSYNC = !(...).
+
+   V0 is not available, so counts 532 and 533 are decoded together:
+
+       532 = 10 0001 0100
+       533 = 10 0001 0101
+
+   V4:V1 = 1010 selects 532-533 within any 32-count window.
+   V9 = 1 restricts the match to counts 512-1023, and
+   !V_VIDEO_ACTIVE restricts it to counts 512-543 (before the
+   active region begins at 544).  The only count in 512-543 with
+   V4:V1 = 1010 is 532-533, so V8, V7, V6 and V5 are not needed.
+*/
+
+VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;
+
+
+/* ============================================================
+   RAM WRITE STROBE (revision 10)
+   ============================================================ */
+
+/*
+   Revision 10 (docs/FETCH_TIMING.md, option B): the address mux
+   control (ADDR_SEL, ADDR_SEL_HI, ADDR_SEL_LO, from PIXEL_ENABLE,
+   PC_ENABLE, X_ENABLE and Y_ENABLE) is gone.  The four mux PLDs
+   (QUAD_4TO1_MUX revision 02) take PIXEL_ENABLE and the State PLD's
+   enables as their selects directly, which removes one PLD pass
+   from the instruction fetch.  PIXEL_ENABLE keeps the same
+   priority there: it overrides PC_ENABLE, X_ENABLE and Y_ENABLE,
+   and PC_ENABLE overrides X_ENABLE and Y_ENABLE.
+
+   This PLD takes over the RAM write strobe from the memory control
+   PLD (revision 09 there, where the equation was the same but from
+   the normal clock).  A write uses the low half of the clock, on a
+   clock the CPU owns the bus:
+
+       /WE low while CLK_E = 0, RW = 0 and PIXEL_ENABLE = 0
+
+   CLK_E is an early tap of the clock: the clock net runs from the
+   oscillator to this pin first, then through at least 420 mm of
+   track (500 mm nominal, 3 ns) before any other load, pin 1 of
+   this PLD included.  So /WE rises about 3 ns before every other
+   chip sees the edge, and it is back high (tPD max 7.5 - 3 = 4.5
+   ns after the edge the rest of the board sees) before the address
+   or a chip enable can change (tCO min 2 + mux tPD min 3 = 5 ns):
+   docs/WE_TIMING.md.  Without the Sync pass in the address path
+   the normal clock would be too late by 2.5 ns.
+
+   RW and PIXEL_ENABLE settle long before the clock can fall, so
+   /WE never glitches.  The register half of this PLD stays on pin
+   1, the normal clock.
+
+   The output enable term is RUN, as in the memory control PLD:
+   /WE floats while RUN is low (10k pull-up on the main board) so a
+   boot card in expansion slot 1 can drive it (docs/EXPANSION.md).
+   It is a separate term, so WE uses 1 of the pin's product terms.
+*/
+
+WE = !CLK_E & !RW & !PIXEL_ENABLE;
+WE.OE = RUN;
