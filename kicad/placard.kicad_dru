@@ -9,3 +9,51 @@
 (rule "U40 pad clearance"
 	(constraint clearance (min 0.2mm))
 	(condition "A.Type == 'Pad' && A.memberOfFootprint('U40')"))
+
+# PCBWay standard 4-layer, with margin over their minimums (2026-10-29).
+# PCBWay minimum / recommended: trace and space 0.1 / 0.15 mm, ring 0.15 mm,
+# drill 0.15 mm (0.3 mm standard via), hole to hole 0.5 mm, track to
+# outline 0.2-0.3 mm, silk 0.15 mm wide, 0.8 mm high, 0.15 mm from pads.
+# Board Setup holds the general limits: clearance and track 0.2 mm, via
+# ring 0.2 mm, via 0.6 / 0.3 mm, hole to copper 0.3 mm, hole to hole 0.5 mm,
+# copper to edge 0.5 mm, connection 0.15 mm, text 1.0 x 0.15 mm.
+# The rules below cover what Board Setup cannot say per item type.
+
+(rule "PCBWay plated hole ring"
+	(constraint annular_width (min 0.2mm))
+	(condition "A.Type == 'Pad' && A.isPlated()"))
+
+# J8 (Molex 87715 pads from the datasheet), U40 (TO-92 inline) and the net
+# ties NT1/NT2 have 0.15 mm rings: PCBWay's minimum, accepted for these only.
+(rule "Fixed footprint rings"
+	(constraint annular_width (min 0.15mm))
+	(condition "A.Type == 'Pad' && (A.memberOfFootprint('J8') || A.memberOfFootprint('U40') || A.memberOfFootprint('NT1') || A.memberOfFootprint('NT2'))"))
+
+(rule "PCBWay PTH to track"
+	(constraint hole_clearance (min 0.35mm))
+	(condition "A.Type == 'Pad' && A.isPlated() && B.Type == 'Track'"))
+
+(rule "PCBWay non-plated hole size"
+	(constraint hole_size (min 0.6mm))
+	(condition "A.Type == 'Pad' && !A.isPlated()"))
+
+(rule "PCBWay plated slot width"
+	(constraint hole_size (min 0.6mm))
+	(condition "A.Type == 'Pad' && A.isPlated() && A.Hole_Size_X != A.Hole_Size_Y"))
+
+(rule "PCBWay non-plated slot width"
+	(constraint hole_size (min 1.0mm))
+	(condition "A.Type == 'Pad' && !A.isPlated() && A.Hole_Size_X != A.Hole_Size_Y"))
+
+(rule "PCBWay max drill"
+	(constraint hole_size (max 6.3mm)))
+
+(rule "PCBWay silk to pad"
+	(constraint silk_clearance (min 0.15mm))
+	(layer outer)
+	(condition "A.Type == 'Pad' && (B.Type == 'Text' || B.Type == 'Graphic')"))
+
+# Justin's routing rule: tracks and vias stay 1 mm inside the outline.
+(rule "Routing 1 mm from board edge"
+	(constraint edge_clearance (min 1.0mm))
+	(condition "A.Type == 'Track' || A.Type == 'Via'"))
