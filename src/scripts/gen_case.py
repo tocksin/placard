@@ -86,8 +86,8 @@ WALL_PARTS = {
     "SW1": ("left", ("circle", 7.0), "power toggle bushing"),
     "SW2": ("left", ("circle", 4.5), "reset button"),
     "J4": ("left", ("sd",), "SD card slot with thumb notch"),
-    "J2": ("front", ("rrect", 27.0, 14.0, 2.0), "SNES port 1"),
-    "J3": ("front", ("rrect", 27.0, 14.0, 2.0), "SNES port 2"),
+    "J2": ("front", ("rrect", 39.0, 12.0, 3.0), "SNES port 1 (plug outline 37 x 10 + 1 mm)"),
+    "J3": ("front", ("rrect", 39.0, 12.0, 3.0), "SNES port 2"),
 }
 FALLBACK_Z = {"J4": 1.45}   # J4 is being changed to a Hirose DM1AA (2026-10-25); the board still has the old one
 
