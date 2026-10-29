@@ -43,3 +43,5 @@ in the project files under `hardware/fab/`.
   (nets renamed to ADDR*/DATABUS*, part-number fields added; the mounting hole
   H1, which is not in the cart schematics, was put back at its old position)
   and a refill; copper geometry is unchanged apart from the refill.
+- S/N box (17 x 5.5 mm) is a filled silk rectangle on all three boards
+  (2026-10-29), so a black marker shows up on it.
