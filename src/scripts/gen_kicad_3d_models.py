@@ -23,7 +23,7 @@ by construction.
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | generated: bracket, body, 1/4-40 bushing and lever |
 | SD_Hirose_DM1AA_SF_PEJ82 | SD socket J4 | generated: 28.4 x 30.9 mm from KiCad's footprint outline, 2.8 mm high, card opening at the +y end |
 | Fuse_Bourns_MF-RG300 | polyfuse F1 | generated: 7.1 x 3.0 mm disc, 11 mm high, seated 3 mm up |
-| SNES_Pad_Socket_Horizontal | SNES ports J2, J3 | generated: 26 x 16.5 x 13 mm block, pad-shaped opening |
+| SNES_Pad_Socket_Horizontal | SNES ports J2, J3 | generated: 42 x 16 x 21 mm incl. pins (18 above the board), pad-shaped opening |
 | SW_Tactile_SPST_Angled_PTS645Vx58-2LFS | reset button SW2 | KiCad's own model, copied |
 | DSUB-15-HD_Female_Horizontal_..._MountingHolesOffset4.94mm | VGA J7 | KiCad's own model, copied |
 | USB_C_Receptacle_GCT_USB4125_6P_HandSolder | USB-C J13 | KiCad's USB4125 model, copied |
@@ -35,7 +35,7 @@ clearances in KiCad's 3D viewer and the case; replace one with the maker's
 STEP file of the same name if it is wanted exact.  KiCad's models are CC-BY-SA
 4.0 with the KiCad libraries' exception (designs using them are unaffected).
 
-Date: 2026-10-25
+Date: 2026-10-29
 """
 
 import os
@@ -196,12 +196,14 @@ def audio_jack():
 
 def snes():
     # SNES controller port, PCB mount, right angle: the opening is the pad plug's
-    # outline (flat end and round end), pins in a row at the back
+    # outline (flat end and round end), pins in a row at the back.  Envelope
+    # 42 x 16 x 21 mm including pins (Justin's reference part): 42 along the edge,
+    # 16 deep, 18 high above the board + PIN_DOWN (3) of lead below
     name = "SNES_Pad_Socket_Horizontal"
-    z = 7.0
-    body = box(-13.0, -0.5, 13.0, 16.0, 0, 13.0)
-    hole = (cq.Workplane("XZ").center(-2.0, z).rect(14.0, 7.2).extrude(-9.0)
-            .union(cq.Workplane("XZ").center(5.0, z).circle(3.6).extrude(-9.0)))
+    z = 9.0
+    body = box(-21.0, -0.5, 21.0, 15.5, 0, 21.0 - PIN_DOWN)
+    hole = (cq.Workplane("XZ").center(-3.0, z).rect(19.0, 11.0).extrude(-12.0)
+            .union(cq.Workplane("XZ").center(6.5, z).circle(5.5).extrude(-12.0)))
     body = body.cut(hole.translate((0, 0.6, 0)))
     save(name, [("body", GREY, [body] + pegs(name, 1.6)), ("pins", TIN, pins(name, 3.0))])
 
