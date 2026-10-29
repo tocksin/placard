@@ -9,7 +9,7 @@
 	(paper "C")
 	(title_block
 		(title "Placard")
-		(date "2026-10-28")
+		(date "2026-10-29")
 		(rev "0")
 	)
 	(layers
@@ -54813,7 +54813,7 @@
 				)
 			)
 		)
-		(property "MPN" "FG24X5R1A226MRT06"
+		(property "MPN" "FG22X7R1E226MRT06"
 			(at 0 0 270)
 			(unlocked yes)
 			(layer "F.Fab")
