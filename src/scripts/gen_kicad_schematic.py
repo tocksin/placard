@@ -496,6 +496,23 @@ def sheet_power(b):
                        "cartridge: STALL_IN (the Branch PLD's STALL) goes out to it.",
                        "Without one, fit JP1 and JP2 for bring-up",
                        "(BRINGUP.md); take them out with a cartridge."])
+    # bring-up test points (Justin, 2026-10-29): Keystone loops to clip a test lead on; on the board
+    # they drop straight into the In1 GND and In2 +5V planes (+5V after K1, dark while reset is held)
+    tp_props = {"Manufacturer": "Keystone Electronics", "Description": "PC test point, multipurpose loop, through-hole"}
+    yt = 190.5
+    for ref, x, net, mpn in (("TP1", 304.8, "GND", "5011"), ("TP2", 322.58, "GND", "5011"), ("TP3", 340.36, "+5V", "5010")):
+        props = dict(tp_props, MPN=mpn)
+        if net == "GND":
+            tp = s.part("placard_std:TestPoint", ref, x, yt, {"1": "GND"}, value="GND", bare=("1",),
+                        ref_at=(x + 2.0, yt - 6.0), value_at=(x + 2.0, yt - 3.5), extra_props=props)
+            path(s, "GND", tp["1"], (x, yt + 5.08))
+            s.power("GND", x, yt + 5.08)
+        else:
+            tp = s.part("placard_std:TestPoint", ref, x, yt + 5.08, {"1": "+5V"}, value="+5V", angle=180, bare=("1",),
+                        ref_at=(x + 2.0, yt + 9.0), value_at=(x + 2.0, yt + 11.5), extra_props=props)
+            path(s, "+5V", (x, yt), tp["1"])
+            s.power("+5V", x, yt)
+    note(s, 296, 216, ["TP1, TP2 GND (black Keystone 5011), TP3 +5V after K1", "(red 5010): clip points for the bring-up test leads."], size=2.2)
     return s
 
 

@@ -29,7 +29,7 @@ same copper.
 
 Run gen_kicad_kit_footprints.py first (its footprints name the socket models).
 
-Date: 2026-10-28
+Date: 2026-10-29
 """
 
 import os
@@ -55,7 +55,10 @@ STOCK = [("Capacitor_THT", "C_Disc_D5.0mm_W2.5mm_P5.00mm"), ("Capacitor_THT", "C
          ("LED_THT", "LED_D5.0mm"), ("MountingHole", "MountingHole_3.2mm_M3"),
          ("MountingHole", "MountingHole_3.2mm_M3_Pad_Via"), ("NetTie", "NetTie-2_THT_Pad0.3mm"),
          ("Oscillator", "Oscillator_DIP-14"), ("Package_TO_SOT_THT", "TO-92_Inline"),
-         ("Resistor_THT", "R_Array_SIP9")]
+         ("Resistor_THT", "R_Array_SIP9"), ("TestPoint", "TestPoint_Keystone_5010-5014_Multipurpose")]
+
+# stock footprints whose model KiCad 9.0.6 names but doesn't ship: the model line is dropped
+NO_MODEL = {"TestPoint_Keystone_5010-5014_Multipurpose"}
 
 # (KiCad library, stock footprint, placard name, pad size, drill): stock footprint, pads changed
 DERIVED = [("Diode_THT", "D_DO-41_SOD81_P7.62mm_Horizontal", "D_DO-41_SOD81_P7.62mm_Horizontal_Pad1.6", 1.6, 1.0)]
@@ -75,6 +78,18 @@ def fetch(local_dir, sub, name, url):
         return r.read()
 
 
+def drop_model(s):
+    """Cut the footprint's (model ...) block, matching its parentheses."""
+    i = s.index("(model ")
+    depth = 0
+    for j in range(i, len(s)):
+        depth += {"(": 1, ")": -1}.get(s[j], 0)
+        if depth == 0:
+            break
+    k = s.rfind("\n", 0, i)
+    return s[:k] + s[j + 1:]
+
+
 def model(lib, stock, name):
     data = fetch(MODEL_DIR, lib + ".3dshapes", stock + ".step", MODEL_URL % (TAG, lib, stock))
     with open(os.path.join(OUT3D, name + ".step"), "wb") as fh:
@@ -86,7 +101,9 @@ def main():
     for lib, name in STOCK:
         s = fetch(FP_DIR, lib + ".pretty", name + ".kicad_mod", FP_URL % (TAG, lib, name)).decode()
         m = re.search(r'\(model "\$\{KICAD9_3DMODEL_DIR\}/([^/]+)\.3dshapes/([^"]+)\.step"', s)
-        if m:
+        if m and name in NO_MODEL:
+            s = drop_model(s)
+        elif m:
             model(m.group(1), m.group(2), name)
             s = s.replace(m.group(0), '(model "%s/%s.step"' % (MODELS, name))
         assert "KICAD9_3DMODEL_DIR" not in s, name

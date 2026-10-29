@@ -1812,6 +1812,66 @@
           (number "2"
             (effects
               (font (size 1.5 1.5)))))))
+    (symbol "placard_std:TestPoint"
+      (pin_numbers hide)
+      (pin_names
+        (offset 0.762) hide)
+      (in_bom yes)
+      (on_board yes)
+      (property "Reference" "TP"
+        (at 0 6.858 0)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Value" "TestPoint"
+        (at 0 5.08 0)
+        (effects
+          (font
+            (size 1.27 1.27))))
+      (property "Footprint" "placard:TestPoint_Keystone_5010-5014_Multipurpose"
+        (at 5.08 0 0)
+        (effects
+          (font
+            (size 1.27 1.27)) hide))
+      (property "Datasheet" "~"
+        (at 5.08 0 0)
+        (effects
+          (font
+            (size 1.27 1.27)) hide))
+      (property "ki_keywords" "test point tp"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27)) hide))
+      (property "ki_description" "test point"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27)) hide))
+      (property "ki_fp_filters" "Pin* Test*"
+        (at 0 0 0)
+        (effects
+          (font
+            (size 1.27 1.27)) hide))
+      (symbol "TestPoint_0_1"
+        (circle
+          (center 0 3.302)
+          (radius 0.762)
+          (stroke
+            (width 0)
+            (type default))
+          (fill
+            (type none))))
+      (symbol "TestPoint_1_1"
+        (pin passive line
+          (at 0 0 90)
+          (length 2.54)
+          (name "1"
+            (effects
+              (font (size 1.8 1.8))))
+          (number "1"
+            (effects
+              (font (size 1.5 1.5)))))))
   )
   (text "Power and clock" (at 15 22 0) (effects (font (size 6 6) bold) (justify left bottom)) (uuid 9a79404a-b9d2-5d62-af0d-76e259c4633e))
   (text "USB-C 5 V in, 3.3 V for the SD card, 25.175 MHz oscillator (CLK), cartridge STALL and RUN" (at 15 30 0) (effects (font (size 3 3)) (justify left bottom)) (uuid 3c2b8614-1a02-587e-9951-1ed7b79c6f7c))
@@ -1952,18 +2012,29 @@
   (text "cartridge: STALL_IN (the Branch PLD's STALL) goes out to it." (at 130 204 0) (effects (font (size 2.5 2.5)) (justify left bottom)) (uuid db466065-9a02-59e9-bcc0-30cec1251212))
   (text "Without one, fit JP1 and JP2 for bring-up" (at 130 208 0) (effects (font (size 2.5 2.5)) (justify left bottom)) (uuid bcb58063-3d16-5d0b-a843-56d363e8c580))
   (text "(BRINGUP.md); take them out with a cartridge." (at 130 212 0) (effects (font (size 2.5 2.5)) (justify left bottom)) (uuid 1f3bf930-b29e-57ee-8c45-a2c89b7a9c34))
-  (wire (pts (xy 76.2 170.18) (xy 78.74 170.18)) (stroke (width 0) (type default)) (uuid fe5ecd73-4acd-5c23-80df-cb46b59b37aa))
-  (wire (pts (xy 134.62 170.18) (xy 129.54 170.18)) (stroke (width 0) (type default)) (uuid 64f9800f-03d2-5b76-9b1e-5c39c16f235c))
-  (global_label "STALL_IN" (shape passive) (at 129.54 170.18 180) (fields_autoplaced) (effects (font (size 2 2)) (justify right)) (uuid 9463ff75-4cf4-582d-81ff-6ab5f678c625) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 129.54 170.18 0) (effects (font (size 2 2)) (justify left) hide)))
-  (global_label "CLK_E" (shape passive) (at 101.6 187.96 180) (fields_autoplaced) (effects (font (size 2 2)) (justify right)) (uuid c280e43a-5764-52be-a93f-cc18b1ba24e7) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 101.6 187.96 0) (effects (font (size 2 2)) (justify left) hide)))
-  (global_label "CLK" (shape passive) (at 116.84 187.96 0) (fields_autoplaced) (effects (font (size 2 2)) (justify left)) (uuid c05088b5-3017-5e7f-a296-d9c26c925ebf) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 116.84 187.96 0) (effects (font (size 2 2)) (justify left) hide)))
-  (global_label "STALL_OUT" (shape passive) (at 162.56 170.18 0) (fields_autoplaced) (effects (font (size 2 2)) (justify left)) (uuid 5745e910-5bec-50ce-b30d-fcf68138a7bd) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 162.56 170.18 0) (effects (font (size 2 2)) (justify left) hide)))
-  (global_label "RUN" (shape passive) (at 226.06 170.18 180) (fields_autoplaced) (effects (font (size 2 2)) (justify right)) (uuid 2872bf25-1773-54f7-a906-612084474e22) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 226.06 170.18 0) (effects (font (size 2 2)) (justify left) hide)))
-  (wire (pts (xy 78.74 170.18) (xy 102.87 170.18)) (stroke (width 0) (type default)) (uuid b65def35-2866-534f-958d-87163ea62916))
-  (wire (pts (xy 102.87 170.18) (xy 102.87 187.96)) (stroke (width 0) (type default)) (uuid fb43e7b0-4c6e-56a9-86e6-a006c48f3e47))
-  (wire (pts (xy 102.87 187.96) (xy 101.6 187.96)) (stroke (width 0) (type default)) (uuid a5cd15ff-cd48-5f53-9ff3-d8d42635030f))
-  (junction (at 102.87 187.96) (diameter 0) (color 0 0 0 0) (uuid 2643b839-03cf-5df0-922a-7bf7ac79e41d))
-  (junction (at 152.4 170.18) (diameter 0) (color 0 0 0 0) (uuid 865f872f-0654-5c90-ad38-369e5182c07d))
-  (junction (at 236.22 170.18) (diameter 0) (color 0 0 0 0) (uuid e95ee697-7251-5fd4-bc50-946f84bdb346))
+  (symbol (lib_id "placard_std:TestPoint") (at 304.8 190.5 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 7de71300-51a2-52cb-95a4-1ffbf0613c03) (property "Reference" "TP1" (at 306.8 184.5 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "GND" (at 306.8 187 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "placard:TestPoint_Keystone_5010-5014_Multipurpose" (at 304.8 190.5 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 304.8 190.5 0) (effects (font (size 1.27 1.27)) hide)) (property "Manufacturer" "Keystone Electronics" (at 304.8 190.5 0) (effects (font (size 1.27 1.27)) hide)) (property "MPN" "5011" (at 304.8 190.5 0) (effects (font (size 1.27 1.27)) hide)) (property "Description" "PC test point, multipurpose loop, through-hole" (at 304.8 190.5 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid fe5ecd73-4acd-5c23-80df-cb46b59b37aa)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/f2696644-57a6-5352-a354-a3e1bf43cc65" (reference "TP1") (unit 1)))))
+  (wire (pts (xy 304.8 190.5) (xy 304.8 195.58)) (stroke (width 0) (type default)) (uuid 9463ff75-4cf4-582d-81ff-6ab5f678c625))
+  (symbol (lib_id "placard_std:GND") (at 304.8 195.58 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid c280e43a-5764-52be-a93f-cc18b1ba24e7) (property "Reference" "#PWR0227" (at 304.8 195.58 0) (effects (font (size 1.27 1.27)) hide)) (property "Value" "GND" (at 304.8 201.93 0) (effects (font (size 2 2)) hide)) (property "Footprint" "" (at 304.8 195.58 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "" (at 304.8 195.58 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid c05088b5-3017-5e7f-a296-d9c26c925ebf)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/f2696644-57a6-5352-a354-a3e1bf43cc65" (reference "#PWR0227") (unit 1)))))
+  (symbol (lib_id "placard_std:TestPoint") (at 322.58 190.5 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid eec09415-514f-510d-9302-34b10e583b77) (property "Reference" "TP2" (at 324.58 184.5 0) (effects (font (size 2.54 2.54) bold) (justify left bottom))) (property "Value" "GND" (at 324.58 187 0) (effects (font (size 2 2)) (justify left top))) (property "Footprint" "placard:TestPoint_Keystone_5010-5014_Multipurpose" (at 322.58 190.5 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 322.58 190.5 0) (effects (font (size 1.27 1.27)) hide)) (property "Manufacturer" "Keystone Electronics" (at 322.58 190.5 0) (effects (font (size 1.27 1.27)) hide)) (property "MPN" "5011" (at 322.58 190.5 0) (effects (font (size 1.27 1.27)) hide)) (property "Description" "PC test point, multipurpose loop, through-hole" (at 322.58 190.5 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 5745e910-5bec-50ce-b30d-fcf68138a7bd)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/f2696644-57a6-5352-a354-a3e1bf43cc65" (reference "TP2") (unit 1)))))
+  (wire (pts (xy 322.58 190.5) (xy 322.58 195.58)) (stroke (width 0) (type default)) (uuid b65def35-2866-534f-958d-87163ea62916))
+  (symbol (lib_id "placard_std:GND") (at 322.58 195.58 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid fb43e7b0-4c6e-56a9-86e6-a006c48f3e47) (property "Reference" "#PWR0228" (at 322.58 195.58 0) (effects (font (size 1.27 1.27)) hide)) (property "Value" "GND" (at 322.58 201.93 0) (effects (font (size 2 2)) hide)) (property "Footprint" "" (at 322.58 195.58 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "" (at 322.58 195.58 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid a5cd15ff-cd48-5f53-9ff3-d8d42635030f)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/f2696644-57a6-5352-a354-a3e1bf43cc65" (reference "#PWR0228") (unit 1)))))
+  (symbol (lib_id "placard_std:TestPoint") (at 340.36 195.58 180) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid 5e5f2cea-4b81-5bca-bed8-b99d778d348e) (property "Reference" "TP3" (at 342.36 199.5 0) (effects (font (size 2.54 2.54) bold) (justify right top))) (property "Value" "+5V" (at 342.36 202 0) (effects (font (size 2 2)) (justify right bottom))) (property "Footprint" "placard:TestPoint_Keystone_5010-5014_Multipurpose" (at 340.36 195.58 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "~" (at 340.36 195.58 0) (effects (font (size 1.27 1.27)) hide)) (property "Manufacturer" "Keystone Electronics" (at 340.36 195.58 0) (effects (font (size 1.27 1.27)) hide)) (property "MPN" "5010" (at 340.36 195.58 0) (effects (font (size 1.27 1.27)) hide)) (property "Description" "PC test point, multipurpose loop, through-hole" (at 340.36 195.58 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid 2643b839-03cf-5df0-922a-7bf7ac79e41d)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/f2696644-57a6-5352-a354-a3e1bf43cc65" (reference "TP3") (unit 1)))))
+  (wire (pts (xy 340.36 190.5) (xy 340.36 195.58)) (stroke (width 0) (type default)) (uuid e95ee697-7251-5fd4-bc50-946f84bdb346))
+  (symbol (lib_id "placard_std:+5V") (at 340.36 190.5 0) (unit 1) (in_bom yes) (on_board yes) (dnp no) (uuid c7e10fc9-4182-5034-aa33-678fe633aeea) (property "Reference" "#PWR0229" (at 340.36 190.5 0) (effects (font (size 1.27 1.27)) hide)) (property "Value" "+5V" (at 340.36 184.15 0) (effects (font (size 2 2)))) (property "Footprint" "" (at 340.36 190.5 0) (effects (font (size 1.27 1.27)) hide)) (property "Datasheet" "" (at 340.36 190.5 0) (effects (font (size 1.27 1.27)) hide)) (pin "1" (uuid d8973140-0885-5401-b436-617503a1ff1d)) (instances (project "placard" (path "/e3450542-4ffc-59d4-a4a7-45636233928a/f2696644-57a6-5352-a354-a3e1bf43cc65" (reference "#PWR0229") (unit 1)))))
+  (text "TP1, TP2 GND (black Keystone 5011), TP3 +5V after K1" (at 296 216 0) (effects (font (size 2.2 2.2)) (justify left bottom)) (uuid c28fdc75-4c19-5b9b-9263-9a55d45d5a3a))
+  (text "(red 5010): clip points for the bring-up test leads." (at 296 219.52 0) (effects (font (size 2.2 2.2)) (justify left bottom)) (uuid d265e5ff-7dc0-5caa-86e9-52611291a2c6))
+  (wire (pts (xy 76.2 170.18) (xy 78.74 170.18)) (stroke (width 0) (type default)) (uuid d5d50f5b-e32a-58fe-af05-6a7c8798c04a))
+  (wire (pts (xy 134.62 170.18) (xy 129.54 170.18)) (stroke (width 0) (type default)) (uuid 0c993ae7-95ae-5015-b32e-91283b9d67d1))
+  (global_label "STALL_IN" (shape passive) (at 129.54 170.18 180) (fields_autoplaced) (effects (font (size 2 2)) (justify right)) (uuid b5d22245-df74-5eb9-9dc4-f49166bdf598) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 129.54 170.18 0) (effects (font (size 2 2)) (justify left) hide)))
+  (global_label "CLK_E" (shape passive) (at 101.6 187.96 180) (fields_autoplaced) (effects (font (size 2 2)) (justify right)) (uuid 2e21fadd-3bc9-5c81-91c7-86d7ffc1b218) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 101.6 187.96 0) (effects (font (size 2 2)) (justify left) hide)))
+  (global_label "CLK" (shape passive) (at 116.84 187.96 0) (fields_autoplaced) (effects (font (size 2 2)) (justify left)) (uuid 1cd18c7f-95e6-554d-b0f1-d8d3e7f07013) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 116.84 187.96 0) (effects (font (size 2 2)) (justify left) hide)))
+  (global_label "STALL_OUT" (shape passive) (at 162.56 170.18 0) (fields_autoplaced) (effects (font (size 2 2)) (justify left)) (uuid eb083e7e-d09b-5bad-8bb1-62c5a59b2199) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 162.56 170.18 0) (effects (font (size 2 2)) (justify left) hide)))
+  (global_label "RUN" (shape passive) (at 226.06 170.18 180) (fields_autoplaced) (effects (font (size 2 2)) (justify right)) (uuid 0d4bc63d-78ce-5dce-8fc2-66678d62b656) (property "Intersheetrefs" "${INTERSHEET_REFS}" (at 226.06 170.18 0) (effects (font (size 2 2)) (justify left) hide)))
+  (wire (pts (xy 78.74 170.18) (xy 102.87 170.18)) (stroke (width 0) (type default)) (uuid 7b80fa84-a07b-5179-87ed-b27b8d94a038))
+  (wire (pts (xy 102.87 170.18) (xy 102.87 187.96)) (stroke (width 0) (type default)) (uuid e29061da-6d7b-530e-b6c9-76bb0a916188))
+  (wire (pts (xy 102.87 187.96) (xy 101.6 187.96)) (stroke (width 0) (type default)) (uuid ec41f5a2-473e-5caa-bc0c-9280fd975ee8))
+  (junction (at 102.87 187.96) (diameter 0) (color 0 0 0 0) (uuid bbcfa299-f124-5558-8b17-4bcf55ca87e3))
+  (junction (at 152.4 170.18) (diameter 0) (color 0 0 0 0) (uuid bcd2412c-e10e-5461-ae9e-dda4b056e050))
+  (junction (at 236.22 170.18) (diameter 0) (color 0 0 0 0) (uuid f7e4203f-7b13-5224-8231-9509ab43591c))
   
 )
