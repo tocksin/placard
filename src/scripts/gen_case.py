@@ -97,6 +97,7 @@ LIP = 8.0              # cover cap overlap on the acrylic (room for the magnets)
 MAG_D, MAG_T = 6.0, 3.0     # N52 disc magnets, in 6.1 mm holes; the caps' go through, flush both faces
 SIDE_VENT = (5.0, 18.0, 13.0, 10.0)   # side wall vent slots: width, height, centre z, pitch (above the board's chips)
 SIDE_VENT_CLEAR = 6.0  # side vent slot edge to a connector cut-out or a wall end
+SIDE_VENT_SKIP = {}    # extra (u0, u1) bands per side with no vent slot (gen_case_print.py: its seams and keys)
 CARD_SCREW_Z = 15.0    # M3 screw through the back plate into each expansion card's shell (a heat-set insert in its end)
 
 
@@ -307,11 +308,12 @@ def vents(parts):
 def side_vents(cuts, side):
     """Vertical vent slots in the left or right wall (u = y centre along the wall),
     so air can cross the board side to side: a row at SIDE_VENT pitch along the
-    wall, skipping the corners and the connector cut-outs."""
+    wall, skipping the corners, the connector cut-outs and any SIDE_VENT_SKIP band."""
     w, h, z, pitch = SIDE_VENT
     ends = (T + 3.0 + SIDE_VENT_CLEAR + w / 2, D - T - 3.0 - SIDE_VENT_CLEAR - w / 2)
     keep = [(u - cut_width(prof) / 2 - SIDE_VENT_CLEAR - w / 2, u + cut_width(prof) / 2 + SIDE_VENT_CLEAR + w / 2)
             for ref, sd, u, cz, prof, note in cuts if sd == side]
+    keep += [(a - w / 2, b + w / 2) for a, b in SIDE_VENT_SKIP.get(side, [])]
     n = int((ends[1] - ends[0]) // pitch)
     u0 = (ends[0] + ends[1] - n * pitch) / 2
     return [u for u in (u0 + i * pitch for i in range(n + 1))
