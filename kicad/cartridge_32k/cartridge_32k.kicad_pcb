@@ -6183,7 +6183,7 @@
 			(width 0.15)
 			(type solid)
 		)
-		(fill no)
+		(fill yes)
 		(layer "B.SilkS")
 		(uuid "d452ffc5-b4e2-408b-af5c-924fed54c35d")
 	)
