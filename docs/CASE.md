@@ -270,8 +270,10 @@ BOM.
   plate's inside face, and the slot covers' plugs rest on its top edge.
 - **Ventilation.** Seven slots run across the floor's front half, in front of
   the parked covers. The side walls have a row of upright slots, 5 x 18 mm at
-  10 mm pitch, from 4 to 22 mm above the board (over the chips): 20 along the
-  right wall and 12 in the left plate's front half (the switches and the SD
+  20 mm pitch, from 4 to 22 mm above the board (over the chips): 10 along the
+  right wall and 6 in the left plate's front half (halved from 10 mm pitch on
+  2026-10-29: the black metal case sheds most of the 14 W through its own
+  surface, so the slots only need to let warm air out) (the switches and the SD
   slot take its back half; each slot stays 6 mm from a cut-out). Cool air
   comes in through the floor, and warm air leaves through the side slots,
   round the covers and through the connector openings; a draught or a desk
