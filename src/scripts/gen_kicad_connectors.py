@@ -53,7 +53,7 @@ Silkscreen: the body outline in silk is cut back around the pads and holes
 (SILK_PAD_GAP) and stops SILK_EDGE_GAP inside the board edge on an edge
 connector, so DRC's silk-over-mask and silk-to-edge checks pass.
 
-Date: 2026-10-28
+Date: 2026-10-29
 """
 
 import os
@@ -332,12 +332,14 @@ def ps2_stacked():
 
 
 def snes():
-    # PCB-mount SNES controller port (replacement part), right angle: 7 pins in a row
+    # PCB-mount SNES controller port (replacement part), right angle: 7 pins in a row.
+    # Body 42 mm along the edge x 16 mm deep (Justin's reference part: 42 x 16 x 21 mm
+    # including pins; 21 is the height, 18 above the board + 3 of lead below)
     pads = [pad(str(n), (n - 4) * 2.54, 14.0, 1.6, 1.0) for n in range(1, 8)]
     extra = hole(-11.0, 7.0, 3.0) + hole(11.0, 7.0, 3.0)
     footprint("SNES_Pad_Socket_Horizontal",
               "SNES controller port, PCB mount, right angle, 7 pins",
-              (-13.0, -0.5, 13.0, 16.0), pads, edge=0.0, extra=extra)
+              (-21.0, -0.5, 21.0, 15.5), pads, edge=0.0, extra=extra)
 
 
 def toggle():
