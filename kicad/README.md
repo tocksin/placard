@@ -127,3 +127,13 @@ as one bus per sheet (docs/SCHEMATIC_PLAN.md, "How the sheets are drawn").
 runs basic electrical checks; the full ERC needs KiCad 8 or newer (open the
 project, Inspect > Electrical Rules Checker).  PDFs of both are in
 [`../schematics/`](../schematics/).
+
+## Dimension drawing
+
+[`../docs/placard_main_dimensions.pdf`](../docs/placard_main_dimensions.pdf)
+is a three-sheet mm drawing of the main board: outline and mounting holes,
+edge connector positions, and the expansion card and cartridge space.  It is
+made by `src/scripts/gen_board_dimensions.py`, which needs KiCad 9 (pcbnew
+Python and kicad-cli).  The script never writes `placard.kicad_pcb`: it
+adds KiCad dimension objects on Dwgs.User in temporary copies and plots
+those, so rerun it after the layout changes.
