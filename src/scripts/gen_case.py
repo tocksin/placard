@@ -21,7 +21,7 @@ Parts (STEP in case/, DXF cutting files for the flat parts in case/dxf/):
 
 | File | Part | Material |
 |---|---|---|
-| tray | floor, front wall, right wall (SNES cut-outs), steel parking discs | 2.0 mm 5052 aluminium, bent, black powder coat |
+| tray | floor, front wall (SNES cut-outs), right wall, steel parking discs | 2.0 mm 5052 aluminium, bent, black powder coat |
 | back_plate | back wall: USB-C, audio, VGA, PS/2 cut-outs, expansion card screws; bottom flange | 2.0 mm 5052, one bend, powder coat |
 | left_plate | left wall: power, reset, SD cut-outs; bottom flange | 2.0 mm 5052, one bend, powder coat |
 | acrylic_top | over the board, slot and cartridge openings, magnets | 4 mm clear cast acrylic, laser cut |
@@ -31,7 +31,7 @@ Parts (STEP in case/, DXF cutting files for the flat parts in case/dxf/):
 Coordinates (mm): x from the case's left outside face, y from the front
 outside face toward the back, z up from the main board's top face.
 
-Date: 2026-10-27
+Date: 2026-10-29
 """
 
 import argparse
@@ -86,8 +86,8 @@ WALL_PARTS = {
     "SW1": ("left", ("circle", 7.0), "power toggle bushing"),
     "SW2": ("left", ("circle", 4.5), "reset button"),
     "J4": ("left", ("sd",), "SD card slot with thumb notch"),
-    "J2": ("right", ("rrect", 27.0, 14.0, 2.0), "SNES port 1"),
-    "J3": ("right", ("rrect", 27.0, 14.0, 2.0), "SNES port 2"),
+    "J2": ("front", ("rrect", 27.0, 14.0, 2.0), "SNES port 1"),
+    "J3": ("front", ("rrect", 27.0, 14.0, 2.0), "SNES port 2"),
 }
 FALLBACK_Z = {"J4": 1.45}   # J4 is being changed to a Hirose DM1AA (2026-10-25); the board still has the old one
 
@@ -188,6 +188,8 @@ def wall_face(solid, side):
     for d in (1.0, -0.4):
         if side == "back":
             box = cq.Solid.makeBox(W, t, 80, cq.Vector(0, D - OFF + d - t / 2, -20))
+        elif side == "front":
+            box = cq.Solid.makeBox(W, t, 80, cq.Vector(0, OFF - d - t / 2, -20))
         elif side == "left":
             box = cq.Solid.makeBox(t, D, 80, cq.Vector(OFF - d - t / 2, 0, -20))
         else:
@@ -195,7 +197,7 @@ def wall_face(solid, side):
         i = solid.intersect(box)
         if i.Volume() > 1e-6:
             b = i.BoundingBox()
-            u = (b.xmin + b.xmax) / 2 if side == "back" else (b.ymin + b.ymax) / 2
+            u = (b.xmin + b.xmax) / 2 if side in ("back", "front") else (b.ymin + b.ymax) / 2
             return u, (b.zmin + b.zmax) / 2, b
     raise ValueError("model does not reach the %s edge" % side)
 
@@ -206,6 +208,8 @@ def cutter(side, u, z, prof, depth=10.0):
     kind = prof[0]
     if side == "back":
         plane = cq.Plane(origin=(u, D - T / 2 - depth / 2, z), xDir=(-1, 0, 0), normal=(0, 1, 0))
+    elif side == "front":
+        plane = cq.Plane(origin=(u, T / 2 + depth / 2, z), xDir=(1, 0, 0), normal=(0, -1, 0))
     elif side == "left":
         plane = cq.Plane(origin=(T / 2 + depth / 2, u, z), xDir=(0, -1, 0), normal=(-1, 0, 0))
     else:
@@ -216,7 +220,7 @@ def cutter(side, u, z, prof, depth=10.0):
     elif kind in ("slot", "rrect"):
         w, h = prof[1], prof[2]
         r = h / 2 - 0.01 if kind == "slot" else prof[3]
-        s = wp.rect(w, h).extrude(depth).edges("|" + {"back": "Y", "left": "X", "right": "X"}[side]).fillet(r)
+        s = wp.rect(w, h).extrude(depth).edges("|" + {"back": "Y", "front": "Y", "left": "X", "right": "X"}[side]).fillet(r)
     elif kind == "dsub":
         s = wp.polyline([(-8.5, 4.5), (8.5, 4.5), (7.5, -4.5), (-7.5, -4.5)]).close().extrude(depth)
         for sx in (-12.495, 12.495):
@@ -224,7 +228,7 @@ def cutter(side, u, z, prof, depth=10.0):
     elif kind == "sd":
         s = wp.rect(27.0, 3.6).extrude(depth)
         s = s.union(wp.center(0, 1.0).rect(14.0, 7.0).extrude(depth).edges(
-            "|" + ("Y" if side == "back" else "X")).fillet(3.0))
+            "|" + ("Y" if side in ("back", "front") else "X")).fillet(3.0))
     return s
 
 
@@ -244,7 +248,7 @@ def wall_cutouts(parts):
             # the board names a model the library no longer has: the courtyard's
             # centre along the wall, and the last height measured
             c = parts[ref]["crt"]
-            u = (cx(c[0]) + cx(c[2])) / 2 if side == "back" else (cy(c[1]) + cy(c[3])) / 2
+            u = (cx(c[0]) + cx(c[2])) / 2 if side in ("back", "front") else (cy(c[1]) + cy(c[3])) / 2
             z = FALLBACK_Z[ref]
             note += " (model missing: placed from the courtyard, check)"
         else:
@@ -306,7 +310,7 @@ def tray(parts, cuts):
     s = s.union(rounded_plate(W - T, W, 0, D, Z_FLOOR, Z_TOP - Z_FLOOR))      # right wall
     s = s.edges("|Z").edges(">X and <Y").fillet(3.0)
     for ref, side, u, z, prof, note in cuts:
-        if side == "right":
+        if side in ("front", "right"):
             s = s.cut(cutter(side, u, z, prof))
     # floor: standoff holes, vent slots, holes for the steel parking discs and
     # the plate screws
@@ -566,6 +570,9 @@ def draw_top(info, path):
         if cu["side"] == "back":
             ax.plot([u, u], [Dd, Dd + 6], color="#c33", lw=1)
             ax.text(u, Dd + 8, cu["ref"], ha="center", va="bottom", fontsize=9, color="#c33")
+        elif cu["side"] == "front":
+            ax.plot([u, u], [0, -6], color="#c33", lw=1)
+            ax.text(u, -8, cu["ref"], ha="center", va="top", fontsize=9, color="#c33")
         elif cu["side"] == "left":
             ax.plot([0, -6], [u, u], color="#c33", lw=1)
             ax.text(-8, u, cu["ref"], ha="right", va="center", fontsize=9, color="#c33")
@@ -620,7 +627,7 @@ def cut_outline(prof, u, z, flip):
 
 
 def draw_walls(info, path):
-    """Back, left and right walls seen from outside with their cut-outs (which part
+    """Back, left and front walls seen from outside with their cut-outs (which part
     each wall belongs to), plus a section front to back with a cover parked under
     the floor."""
     Wd, Dd = info["W"], info["D"]
@@ -629,10 +636,10 @@ def draw_walls(info, path):
     fig, axs = plt.subplots(4, 1, figsize=(13, 16), gridspec_kw=dict(height_ratios=[1, 1, 1, 1.25]))
     views = (("back", "Back plate, seen from behind (flat, one bend: the bottom flange)", True, Wd, (T, Wd - T)),
              ("left", "Left plate, seen from the left, front at the right (flat, one bend)", True, Dd, (T, Dd)),
-             ("right", "Right wall of the tray, seen from the right, front at the left", False, Dd, (0, Dd)))
+             ("front", "Front wall of the tray, seen from the front", False, Wd, (0, Wd)))
     for ax, (side, title, flip, L, (p0, p1)) in zip(axs, views):
         s = -1 if flip else 1
-        tray = side == "right"
+        tray = side == "front"
         ax.add_patch(Rectangle((min(0, s * L), zf), L, zt - zf, fc=ALU_C, ec="#444", lw=1))
         ax.add_patch(Rectangle((min(s * p0, s * p1), zf), p1 - p0, zt - zf, fc=ALU_C if tray else PLATE_C,
                                ec="#222", lw=1))
