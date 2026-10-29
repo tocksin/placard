@@ -171,5 +171,47 @@
    4
   ],
   "cartCover": true
+ },
+ "vents_left": {
+  "cam": [
+   -420,
+   -260,
+   110
+  ],
+  "look": [
+   90,
+   110,
+   8
+  ],
+  "fov": 24,
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "aluEdges": true
+ },
+ "vents_right": {
+  "cam": [
+   720,
+   -120,
+   120
+  ],
+  "look": [
+   220,
+   110,
+   8
+  ],
+  "fov": 24,
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "aluEdges": true
  }
 }

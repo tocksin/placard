@@ -292,6 +292,10 @@ BOM.
     The other three corners are where the plates butt against the tray and
     each other.
 
+![Front left: the vent slots in the left plate, beside the power, reset and SD openings](case_vents_left.png)
+
+![Right side: the row of vent slots along the right wall](case_vents_right.png)
+
 ![Left side](case_side.png)
 
 ## 3D-printed version
