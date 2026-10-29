@@ -436,6 +436,25 @@ def acrylic_top(parts):
     return s
 
 
+def magnet_jig(parts):
+    """Gluing jig for the magnets (tooling, made once): a base sheet with a guide
+    magnet at each of the top's magnet spots, under a plain spacer sheet, both
+    with the top's 8 screw holes as locating pins.  The top is laid on it face
+    down, so the holes are mirrored left to right.  Every guide is glued with
+    the same pole up (S), so a magnet dropped into the top flips to N up as
+    assembled; the spacer keeps the pull low enough to lift the top off."""
+    def sheet():
+        s = rounded_plate(0, W, 0, D, 0, ACRYLIC - 1, 3.0)
+        for ref in board_holes(parts):
+            x, y = hole_xy(parts, ref)
+            s = s.cut(hole(W - x, y, 3.4, -1))
+        return s
+    base = sheet()
+    for x, y in slot_magnets(parts):
+        base = base.cut(hole(W - x, y, MAG_D + 0.1, -1))
+    return base, sheet()
+
+
 def slot_cover_size(parts):
     bay, cart, slot_x = openings(parts)
     pitch = (bay[1] - bay[0]) / len(slot_x)
@@ -753,6 +772,9 @@ def build(pcb, out, mesh=None, drawings=None):
     export_dxf(covers[0], z0 + ACRYLIC + CAP / 2, os.path.join(out, "dxf", "slot_cover_cap_3mm.dxf"))
     export_dxf(solids["cart_cover"], z0 + ACRYLIC / 2, os.path.join(out, "dxf", "cart_cover_plug_4mm.dxf"))
     export_dxf(solids["cart_cover"], z0 + ACRYLIC + CAP / 2, os.path.join(out, "dxf", "cart_cover_cap_3mm.dxf"))
+    jig_base, jig_spacer = magnet_jig(parts)
+    export_dxf(jig_base, 1.5, os.path.join(out, "dxf", "magnet_jig_base_3mm.dxf"))
+    export_dxf(jig_spacer, 1.5, os.path.join(out, "dxf", "magnet_jig_spacer_3mm.dxf"))
     # the keyboard bay went with the keyboard (2026-10-25), the split shells with the plates (2026-10-27)
     for f in ("keyboard_rail.step", "keyboard_plate.step", "keyboard_blank.step", "dxf/keyboard_blank_3mm.dxf",
               "dxf/keyboard_plate_1.5mm.dxf",
