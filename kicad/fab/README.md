@@ -38,7 +38,8 @@ in the project files under `hardware/fab/`.
 - DRC (all three boards, run with each project's own rules and footprint
   library; main board uses the PCBWay-margin rules): 0 errors, 0 warnings,
   0 unconnected pads.
-- Saved fills checked against a fresh refill: main and 32K identical; the
-  64K cart's inner GND and VCC planes have a small stale void (about 1.4 mm
-  square, under U4 near 113.5, 138.8 mm) that a refill would close. It is
-  harmless (DRC is clean both ways); refill and regenerate to remove it.
+- Saved fills checked against a fresh refill: all three identical. The carts
+  were regenerated on 2026-10-29 after Justin's Update PCB from Schematic
+  (nets renamed to ADDR*/DATABUS*, part-number fields added; the mounting hole
+  H1, which is not in the cart schematics, was put back at its old position)
+  and a refill; copper geometry is unchanged apart from the refill.
