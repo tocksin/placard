@@ -14,7 +14,7 @@ Because the schematic uses these copies, KiCad's ERC does not report the
 symbols as different from their library.  The Footprint field of each copy is
 blank or the placard.pretty footprint the boards use (FOOTPRINT).
 
-Date: 2026-10-26
+Date: 2026-10-29
 """
 
 import os
@@ -30,7 +30,7 @@ PIN_NUMBER = 1.5
 USED = [("74xx", "74LS273"), ("74xx", "74LS32"), ("74xx", "74LS377"), ("74xx", "74LS541"),
         ("74xx", "74LS574"),
         ("Connector", "DE15_Receptacle_HighDensity_MountingHoles"), ("Connector", "Mini-DIN-6"),
-        ("Connector", "SD_Card"), ("Connector_Audio", "AudioJack4"),
+        ("Connector", "SD_Card"), ("Connector", "TestPoint"), ("Connector_Audio", "AudioJack4"),
         ("Device", "C"), ("Device", "C_Polarized"), ("Device", "D_Schottky"), ("Device", "NetTie_2"),
         ("Device", "Polyfuse"), ("Device", "R_US"), ("Device", "R_Network08_US"),
         ("Jumper", "Jumper_2_Open"), ("Regulator_Linear", "MCP1700x-330xxTO"),
@@ -42,7 +42,8 @@ USED = [("74xx", "74LS273"), ("74xx", "74LS32"), ("74xx", "74LS377"), ("74xx", "
 # footprint outside the project library
 FOOTPRINT = {"G5LE-1": "placard:Relay_SPDT_CIT_J107", "R_Network08_US": "placard:R_Array_SIP9",
              "ACO-xxxMHz": "placard:Oscillator_DIP-14", "MCP1700x-330xxTO": "placard:TO-92_Inline",
-             "28C256": "placard:DIP-28_W15.24mm_Socket_Puller"}
+             "28C256": "placard:DIP-28_W15.24mm_Socket_Puller",
+             "TestPoint": "placard:TestPoint_Keystone_5010-5014_Multipurpose"}
 
 
 def _font(e, size):
