@@ -285,5 +285,59 @@
   "snap": true,
   "aluEdges": true,
   "printed": 6976384
+ },
+ "snap_underside": {
+  "cam": [
+   -60,
+   -330,
+   -300
+  ],
+  "look": [
+   147.5,
+   115,
+   -5
+  ],
+  "fov": 30,
+  "covers": [],
+  "cart": true,
+  "cards": [
+   "J9",
+   "J10",
+   "J11",
+   "J12"
+  ],
+  "parked": [
+   "slot_cover_1",
+   "slot_cover_2",
+   "slot_cover_3",
+   "slot_cover_4",
+   "cart_cover"
+  ],
+  "aluEdges": true,
+  "snap": true,
+  "printed": 6976384
+ },
+ "snap_parking": {
+  "cam": [
+   20,
+   -40,
+   -190
+  ],
+  "look": [
+   115,
+   150,
+   -12
+  ],
+  "fov": 34,
+  "covers": [],
+  "cartCover": false,
+  "snap": true,
+  "printed": 6976384,
+  "aluEdges": true,
+  "parked": [
+   "slot_cover_1",
+   "slot_cover_2",
+   "cart_cover"
+  ]
  }
 }
