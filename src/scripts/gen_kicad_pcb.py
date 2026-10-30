@@ -45,7 +45,7 @@ Footprints: KiCad's own where it has the part, and the PRELIMINARY ones from
 gen_kicad_connectors.py otherwise (cartridge slot, expansion slots, PS/2,
 SNES, switches), whose hole patterns must be checked against the datasheets.
 
-Date: 2026-10-26
+Date: 2026-10-30
 """
 
 import glob
@@ -83,7 +83,7 @@ FP_USBC = "placard:USB_C_Receptacle_GCT_USB4125_6P_HandSolder"
 FP_SD = "placard:SD_Hirose_DM1AA_SF_PEJ82"
 FP_KBD = "Connector_IDC:IDC-Header_2x10_P2.54mm_Vertical"
 FP_CART = "placard:Molex_87715-9106_PCIe_x4_Vertical"
-FP_EXP = "placard:CardEdge_2x20_P2.54mm_Vertical"
+FP_EXP = "placard:CardEdge_2x25_P2.54mm_Vertical"
 FP_PS2 = "placard:PS2_Kycon_KMDGX-6S-6S-S4N"
 FP_SNES = "placard:SNES_Pad_Socket_Horizontal"
 FP_SW1 = "placard:SW_Toggle_CIT_ANT11TFHQE"
@@ -101,7 +101,7 @@ ANCHOR = {
     FP_SD: (0.0, 15.45),          # socket front, card goes in from +y
     FP_KBD: (1.27, 11.43),        # middle of the 2 x 10 pins
     FP_CART: (16.5, 0.0),         # middle of the contacts
-    FP_EXP: (24.13, 0.0),
+    FP_EXP: (30.48, 0.0),
     FP_PS2: (0.0, 0.0), FP_SNES: (0.0, 0.0), FP_SW1: (0.0, 0.0), FP_SW2: (2.25, -2.59),     # body face; the plunger reaches 3.3 mm past the edge
     FP_HOLE: (0.0, 0.0),
 }

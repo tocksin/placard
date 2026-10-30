@@ -68,7 +68,7 @@ DESC_VALUE = {
     "SNES pad": "SNES controller socket, 7 pin",
 }
 DESC_LIB = {
-    "placard_parts:Expansion_Slot": "Expansion slot: 2 x 20 card-edge socket, 0.1\", 1.6 mm card, TH",
+    "placard_parts:Expansion_Slot": "Expansion slot: 2 x 25 card-edge socket, 0.1\", 1.6 mm card, TH, ears for 2 M3 x 12 screws + nuts",
     "placard_std:Jumper_2_Open": "Pin header, 1 x 2, 2.54 mm (bring-up jumper)",
     "placard_std:SW_SPST": "Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing",
     "placard_std:SW_Push": "Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil)",
@@ -89,11 +89,11 @@ NOTES = {
     "WP7113ID": "D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color (was Lite-On LTL2R3KRD-EM, out of stock 2026-10-25)",
     "1N4148-TAP": "Any 1N4148 (Vishay, onsemi, Diodes Inc.)",
     "Expansion slot": "Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer "
-                      "runs with none.  Sullins EBC20DCAN not stock-checked (EXPANSION.md)",
+                      "runs with none.  Justin's pick 2026-10-30 (Digi-Key S3322-ND); mount with 2 M3 x 12 pan-head screws and nuts (EXPANSION.md)",
 }
 
 # parts a builder may leave out; the cost summary gives a total without them
-OPTIONAL = {("Main board", "EBC20DCAN")}
+OPTIONAL = {("Main board", "EBC25DRXH")}
 
 # ---------------------------------------------------------------- prices
 # Unit price in US dollars at the line's quantity for one build, checked 2026-10-22
@@ -133,7 +133,7 @@ PRICES = {
     "SD card socket": (4.56, "Mouser", "SMD, push-push (no horizontal through-hole SD socket exists; Kyocera 145638009511859+ went obsolete 2026-10-25)"),
     "54-00174": (0.73, "Digi-Key", "Justin, 2026-10-22"),
     "A-HDF 15 A-KG/T": (1.36, "Digi-Key", "Justin, 2026-10-22"),
-    "Expansion slot": (4.50, "est.", "Sullins EBC20DCAN"),
+    "Expansion slot": (6.63, "Digi-Key", "Sullins EBC25DRXH, S3322-ND (Mouser has none)"),
     "Resistor network": (0.39, "Mouser", "Bourns 4609X-101-103LF"),
     "Ceramic capacitor, 5 mm pitch|1u": (0.57, "Mouser", "KEMET C330C105K5R5TA"),
     "Ceramic capacitor, 5 mm pitch|22u": (1.73, "Mouser", "TDK FG22X7R1E226MRT06, 25 V X7R (FG24X5R1A226MRT06 does not exist, FG24X5R1E226MRT06 is obsolete)"),

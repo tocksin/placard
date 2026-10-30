@@ -1,9 +1,9 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-10-27
+Date: 2026-10-30
 
-The Placard has four expansion slots, each a 2 x 20, 0.1" (2.54 mm)
-pitch card-edge socket, and one ROM cartridge slot, a keyed 2 x 32,
+The Placard has four expansion slots, each a 2 x 25, 0.1" (2.54 mm)
+pitch card-edge socket (Sullins EBC25DRXH; 2 x 20 until 2026-10-30), and one ROM cartridge slot, a keyed 2 x 32,
 1.0 mm pitch socket (Molex 87715-9106, "ROM cartridge slot" below).  The
 expansion slots stand in a bay at one back corner, front to back at 1.05"
 (26.67 mm) pitch or more ("Shell keepouts" below), so a card's outer end can carry its own connector at the back edge,
@@ -106,12 +106,19 @@ back edge of the main board.
 | 18 | RW | LOAD_IMM |
 | 19 | /WE | /RESET |
 | 20 | GND | GND |
+| 21 | A8 | A9 |
+| 22 | A10 | A11 |
+| 23 | A12 | A13 |
+| 24 | A14 | A15 |
+| 25 | PIXEL_ENABLE | GND |
 
 | Signal | Direction | Meaning |
 |---|---|---|
 | D7:D0 | card drives on its reads | The CPU's read bus (into the D register) |
 | BT1-BT8 | | Boot contacts.  Slot 1: BT1 STALL_IN, BT2 STALL_OUT, BT3 PC_ENABLE, BT4 PIXEL_ENABLE, BT5 /CART, BT6-BT8 reserved ("Booting from slot 1").  Slots 2-4: not connected.  An ordinary card leaves all eight unconnected |
 | A7:A0 | to card | Address low byte |
+| A15:A8 | to card | Address high byte (contacts 21-24, since 2026-10-30) |
+| PIXEL_ENABLE | to card | The video read: high for the one clock in which the video circuit reads a byte (Sync PLD pin 19).  On every slot (A25) since 2026-10-30; slot 1 also has it on BT4 |
 | /EXP | to card | /EXP1 (slots 1, 3) or /EXP2 (slots 2, 4), address only: low for any access to the page |
 | SEL | to card | GND (slots 1, 2) or +5 V (slots 3, 4) through a 1k resistor: the A7 value the card answers |
 | RW | to card | 1 = read cycle |
@@ -119,7 +126,11 @@ back edge of the main board.
 | /WE | to card | The write pulse, low in the low half of a write clock (about 20 ns).  10k pull-up: the Sync PLD (which makes it since 2026-10-27; the memory control PLD before) lets go of it while RUN is low, and a boot card in slot 1 drives it then |
 | CLK | to card | The 25.175 MHz CPU clock |
 | /RESET | to card | RUN from the ROM cartridge: low from power-up until the cartridge has loaded the ROM and lets the CPU run (ROM.md, "Loading the cartridge").  With no cartridge, a boot card in slot 1 drives it |
-| +5 V, GND | | 2 power and 7 ground contacts, the grounds spread between the fast groups |
+| +5 V, GND | | 2 power and 8 ground contacts, the grounds spread between the fast groups |
+
+Contacts 1-20 are the same as on the 2 x 20 slot of before 2026-10-30;
+contacts 21-25 were added so that a card can follow the video circuit
+("Video capture cards" below).
 
 ## Building a card
 
@@ -162,6 +173,33 @@ power-on reset or a reset register the software writes.
 (1 A per contact; check the socket's rating).  Keep each card well under
 that, since the four slots share the main board's supply.
 
+**Mounting.**  The socket has two ears with 3.18 mm clearance holes,
+78.11 mm apart: an M3 x 12 (or #4-40 x 1/2") pan-head screw from under the
+main board through each, with a nut on top of the ear (ear 6.22 mm + board
+1.6 mm + nut 2.4 mm).  The board holes are 3.2 mm, not plated.
+
+## Video capture cards
+
+A card can copy the picture, for example to drive an HDMI output: every
+byte the video circuit shows is read from the RAM onto D7:D0, and every
+slot carries what a card needs to catch it (since 2026-10-30):
+
+- **PIXEL_ENABLE** (A25) is high for the clock of each video read.  Latch
+  D7:D0 and A15:A0 on the rising CLK edge at the end of that clock, the
+  same edge on which the pixel buffer takes the byte.
+- **The address** says which byte it is: A15:A9 = H9:H3, the byte column
+  (groups 48-127 are the 80 pixel bytes of a line), A8:A0 = the row
+  address (VIDEO.md, "Line repeat").  The mode byte read in group 45 is at x5A00 + V8:V0, not remapped by the line
+  repeat, so it also gives the line's number, and its data is the line's
+  mode (bpp, line repeat, tint, blank).  The audio sample read follows in group 46 or 47.
+- **CLK** is 25.175 MHz, the 640 x 480 pixel clock (800 x 525 per frame),
+  so a card can send the same timing over HDMI from a line buffer, with
+  the palette of the color decoder (COLORS.md) in a lookup table.
+
+A card can also follow CPU writes to keep its own copy of the screen
+(/WE with A15:A0 and D7:D0).  It reads nothing back, so it needs no read
+buffer or /EXP decode.
+
 ## Booting from slot 1
 
 With no cartridge in its slot, a **boot card** in slot 1 can load the main
@@ -199,6 +237,9 @@ The load takes about 33 ms, as the cartridge's does.
 | B9 (BT4) | PIXEL_ENABLE | to card | Sync PLD pin 19, as on cartridge A7 |
 | A10 (BT5) | /CART | to card | cartridge B10: low when a cartridge is fitted (10k pull-up) |
 | B10, A11, B11 (BT6-BT8) | reserved | | not connected |
+
+(BT4 is redundant since 2026-10-30, when every slot got PIXEL_ENABLE on A25; it is kept so
+contacts 1-20 are unchanged.)
 
 Slot 1 also uses /RESET (RUN, B19) and /WE (A19) as outputs while it boots.
 
@@ -323,7 +364,7 @@ Cartridges and expansion cards are enclosed in shells whose edges come
 down to the main board surface, so nothing else may stand inside a
 shell's outline.  The keepout is the courtyard of the slot footprints
 (J8 `Molex_87715-9106_PCIe_x4_Vertical`, J9-J12
-`CardEdge_2x20_P2.54mm_Vertical`), so KiCad's courtyard check flags any
+`CardEdge_2x25_P2.54mm_Vertical`), so KiCad's courtyard check flags any
 part, or a neighbouring slot's shell, inside it.  Tracks, vias and copper
 pours may run under a shell.  The same box is drawn on User.Eco1 with a
 label, beside the chip-puller boxes.  The numbers are constants in
@@ -342,7 +383,7 @@ A; side B carries only trimmed leads.
 
 | Side A (parts) | mm | Side B (leads) | mm |
 |---|--:|---|--:|
-| Half the card (1.6 mm) | 0.8 | Half the slot body (J8 7.5 mm, J9-J12 9.9 mm wide) | 3.75 / 4.95 |
+| Half the card (1.6 mm) | 0.8 | Half the slot body (J8 7.5 mm, J9-J12 8.38 mm wide) | 3.75 / 4.19 |
 | Socket seat (dual-wipe or machined, chip shoulders rest on it) | 4.3 | (half card 0.8 + leads 2.0 = 2.8 is less) | |
 | AT28C256 PDIP-28, max above its seating plane (28P6) | 4.83 | | |
 | (socket + chip 9.13, rounded up to 9.2) | 0.07 | | |
@@ -377,8 +418,11 @@ card (only its height differs).  (Before 2026-10-24 the hole was under
 the lower ROM, which would have put it at a different height on the two
 boards.)  The boards are 2 layers, 1.57 mm, placed and netted but not
 routed; the script leaves an existing board file alone unless run with
-`--force`, so the layout can be finished by hand.  An expansion card is 72 mm
-wide (the slot body, 71.1 mm, plus 0.5 mm a side).  The shell adds 0.5 mm
+`--force`, so the layout can be finished by hand.  An expansion card is up to 86.7 mm
+wide (the socket ear to ear, 85.73 mm, plus 0.5 mm a side, so the shell's
+end walls clear the ears; 72 mm with the 2 x 20 socket).  Its fingers fit the
+socket's 66.04 mm card slot (Sullins drawing C10881: 25 positions, 2.400"
+first to last contact).  The shell adds 0.5 mm
 air and a 2 mm wall each end, and the keepout 1 mm more.
 
 ![64K cartridge board](cart_placement_64k.png)
@@ -387,17 +431,17 @@ air and a 2 mm wall each end, and the keepout 1 mm more.
 | Slot | Shell outside | Keepout (courtyard) | From the footprint origin |
 |---|---|---|---|
 | J8 cartridge | 44 x 19.25 mm | 46 x 21.25 mm | x -6.5 to 39.5, y -7.25 (side B) to 14 (side A) |
-| J9-J12 card | 77 x 23.8 mm | 79 x 25.8 mm | x -15.37 to 63.63, y -8.45 (side B) to 17.35 (side A) |
+| J9-J12 card | 91.7 x 23.04 mm | 93.7 x 25.04 mm | x -16.37 to 77.33, y -7.69 (side B) to 17.35 (side A) |
 
-**Expansion slot pitch.**  A card's keepout is 25.8 mm across, so the
-slots need at least 25.8 mm between centres; at the old 0.8" (20.32 mm)
+**Expansion slot pitch.**  A card's keepout is 25.04 mm across (25.8 mm
+with the 2 x 20 socket's estimated body), so the slots need at least 25.04 mm between centres; at the old 0.8" (20.32 mm)
 neighbouring shells collide, and 1.0" (25.4 mm) is 0.4 mm short.  Use
 1.05" (26.67 mm) or more (Justin, 2026-10-23: a wider pitch is fine).  A
 card that reaches the board's back edge for its own connector needs that strip kept clear too; the keepout
 covers only the shell over the slot.
 
 **Card screw.**  The case's back plate has an M3 hole behind each slot,
-15 mm above the main board and centred on the keepout (4.45 mm from the
+15 mm above the main board and centred on the keepout (4.83 mm from the
 card's plane, on side A).  A card shell carries an M3 heat-set insert in its
 back end there, standing 1 mm proud to meet the plate, so a cable plugged
 into the card can't rock it (CASE.md, "Expansion card screws").
@@ -488,7 +532,14 @@ mm) fits in the EEPROM's row.
 - **Read bus loading.**  Four slots of trace and the cards' 3-state
   outputs add capacitance to D7:D0, which every read uses.  The read path
   has 0.2 ns of margin, so measure the read timing with four cards in.
-- **Expansion socket.**  A 2 x 20, 0.1" card-edge socket with 1.6 mm (0.062") card
-  slot, through-hole, in active stock (for example the Sullins EBC20DCAN
-  family); not stock-checked yet.  Cards need hard gold fingers with a
-  bevelled edge.
+- **Expansion socket.**  Sullins EBC25DRXH: 2 x 25, 0.1", 0.200" rows,
+  1.57 mm (0.062") card, dip solder, blue PBT, gold contacts, ears with
+  3.18 mm clearance holes (drawing C10881 rev P); Digi-Key S3322-ND,
+  531 in stock at $6.63 on 2026-10-30 (Justin's pick; the flush-mount
+  threaded-insert versions are not stocked in 25 positions).  Cards need
+  hard gold fingers with a bevelled edge.
+- **Address and PIXEL_ENABLE loading.**  Since 2026-10-30 A15:A8 and
+  PIXEL_ENABLE reach all four slots.  A15:A8 now carry the same slot load
+  as A7:A0 always have; PIXEL_ENABLE (the mux select) gained three slot
+  stubs, in a path with about 9.7 ns of margin (FETCH_TIMING.md).  Check
+  both on the board with four cards in.
