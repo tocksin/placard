@@ -1,10 +1,10 @@
 # Bill of materials: main board assembly PLC-2001
 
-Date: 2026-10-29
+Date: 2026-10-30
 
 The main board, built: the bare PCB, every part on the schematic, and the sockets, jumper shunts that are not drawn.  It is one line of the case assembly.
 
-54 lines, 179 parts on the schematic.  Cost: **$205.85** for one assembly at these quantities, **$187.85** without the optional parts (expansion slot sockets J9-J12).  29 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
+55 lines, 180 parts on the schematic.  Cost: **$205.95** for one assembly at these quantities, **$187.95** without the optional parts (expansion slot sockets J9-J12).  30 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -49,6 +49,7 @@ The main board, built: the bare PCB, every part on the schematic, and the socket
 | 3 | R49, R50, R55 | MFR-25FBF52-4K7 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 4.7k | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
 | 3 | R56-R58 | MFR-25FBF52-910R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 910 | 0.10 | 0.30 | est.: Yageo MFR-25FBF52 series |  |
 | 1 | R60 | MFR-25FBF52-22K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 22k | 0.10 | 0.10 | est.: Yageo MFR-25FBF52 series |  |
+| 1 | R64 | MFR-25FBF52-22R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 22 | 0.10 | 0.10 | est.: Yageo MFR-25FBF52 series |  |
 | 1 | RN1 | 4609X-101-103LF | Bourns | Resistor network, 8 bussed, SIP-9 | 10k | 0.39 | 0.39 | Mouser: Bourns 4609X-101-103LF |  |
 | 34 | C1-C23, C25-C27, C29, C31, C32, C35, C36, C38, C42, C43 | FG28X7R1H104KNT00 | TDK | Ceramic capacitor, 5 mm pitch | 100n | 0.10 | 3.40 | Mouser: TDK FG28X7R1H104KNT00 (KEMET C320C104K5R5TA is $0.66 at Mouser) |  |
 | 2 | C40, C47 | C330C105K5R5TA | KEMET | Ceramic capacitor, 5 mm pitch | 1u | 0.57 | 1.14 | Mouser: KEMET C330C105K5R5TA |  |

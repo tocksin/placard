@@ -1,6 +1,6 @@
 # Bill of materials: 32K cartridge assembly PLC-2002
 
-Date: 2026-10-29
+Date: 2026-10-30
 
 The 32K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and screw.  A machine takes one cartridge, 64K or 32K.
 
