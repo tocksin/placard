@@ -81,7 +81,7 @@ ATF22V10C datasheet link.
 
 `src/scripts/gen_kicad_parts.py` writes `lib/placard_parts.kicad_sym`, in
 the same style, for the parts KiCad's libraries do not have: the AS7C256C
-SRAM, the expansion slot (2 x 25 card edge, contacts A1-A25 and B1-B25)
+SRAM, the expansion slot (Molex 87715-9106 as the cartridge slot, contacts A1-A32 and B1-B32)
 and the cartridge slot (Molex 87715-9106, 2 x 32 keyed, contacts A1-A32
 and B1-B32), as in EXPANSION.md, with the +5 V and GND contacts stacked on
 one pin each, the SNES pad socket (IO.md) and

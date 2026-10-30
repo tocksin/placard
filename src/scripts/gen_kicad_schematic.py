@@ -90,7 +90,7 @@ MPN = {
 
 # by symbol: parts whose Value is a label (slot name, net) rather than the part
 MPN_LIB = {
-    "placard_parts:Expansion_Slot": ("Sullins", "EBC25DRXH"),
+    "placard_parts:Expansion_Slot": ("Molex", "87715-9106"),
     "placard_std:Jumper_2_Open": ("Sullins", "PREC002SAAN-RC"),
     "Switch:SW_Push_LED": ("Cherry", "MX2A-L1NB"),
 }
@@ -806,6 +806,7 @@ def sheet_video_timing(b):
         rp = res(s, ref, xr, py, net, out, "47", angle=90, bare=("1", "2"),
                  ref_at=(xr - 4.5, py - 3.4), value_at=(xr + 4.0, py - 3.4))
         path(s, net, (px, py), rp["1"])
+        name(s, net, px + (10.16 if pin == "21" else 3.81), py, 90 if pin == "21" else 270)     # also to the expansion slots (2026-10-30)
         path(s, out, rp["2"], (rp["2"][0] + 7.62, py))
         name(s, out, rp["2"][0] + 7.62, py)
     s.part("placard:ATF22V10C_AUDIO", "U35", 233.68, 205.74, pld({
@@ -1151,37 +1152,40 @@ def sheet_port(b):
 
 def sheet_slots(b):
     s = b.sheet("expansion.kicad_sch", "Expansion slots", 11)
-    heading(s, "Expansion slots", "Four 2 x 25 card-edge slots, x5100-x53FF, 128 bytes each (EXPANSION.md)")
+    heading(s, "Expansion slots", "Four slots (Molex 87715-9106, as the cartridge), x5100-x53FF, 128 bytes each (EXPANSION.md)")
     s.label_nets |= {"RW", "~{LOAD_IMM}", "~{WE}", "CLK", "RUN", "~{EXP1}", "~{EXP2}",
-                     "STALL_IN", "STALL_OUT", "PC_ENABLE", "PIXEL_ENABLE", "~{CART}"}
+                     "STALL_IN", "STALL_OUT", "PC_ENABLE", "PIXEL_ENABLE", "~{CART}", "~{HSYNC}", "~{VSYNC}"}
     for k in range(4):
         ref = f"J{9 + k}"
         x, y = 116 + (k % 2) * 180, 105 + (k // 2) * 95     # two rows: the long bus labels need the width
         n = {"A1": "GND", "A2": "+5V"}
-        for i in range(8):
-            n[["A3", "B3", "A4", "B4", "A5", "B5", "A6", "B6"][i]] = D[i]
-            n[["A13", "B13", "A14", "B14", "A15", "B15", "A16", "B16"][i]] = A[i]
-            n[["A21", "B21", "A22", "B22", "A23", "B23", "A24", "B24"][i]] = A[8 + i]   # 2026-10-30: 2 x 25
-        # BT1-BT8: slot 1's boot contacts (EXPANSION.md, "Booting from slot 1"); not connected on slots 2-4
-        bt = ["STALL_IN", "STALL_OUT", "PC_ENABLE", "PIXEL_ENABLE", "~{CART}", None, None, None] if k == 0 else [None] * 8
+        for i, c in enumerate(["B23", "B24", "B25", "B26", "B28", "B29", "B30", "B32"]):
+            n[c] = D[i]
+        for i, c in enumerate(["A22", "A19", "A17", "A15", "A14", "B9", "B7", "A4", "A8", "A9", "A18", "A13", "B3", "A6",
+                               "A3", "A5"]):
+            n[c] = A[i]
+        # BT1-BT8: slot 1's boot contacts (EXPANSION.md, "Booting from slot 1"); not connected on slots 2-4.
+        # BT4 was PIXEL_ENABLE until 2026-10-30; every slot has it on A7 now.
+        bt = ["STALL_IN", "STALL_OUT", "PC_ENABLE", None, "~{CART}", None, None, None] if k == 0 else [None] * 8
         for i, net in enumerate(bt):
-            n[["A8", "B8", "A9", "B9", "A10", "B10", "A11", "B11"][i]] = net
-        n.update({"A17": "~{EXP1}" if k in (0, 2) else "~{EXP2}", "B17": f"SEL{k + 1}", "A18": "RW",
-                  "B18": "~{LOAD_IMM}", "A19": "~{WE}", "B12": "CLK", "B19": "RUN",
-                  "A25": "PIXEL_ENABLE"})
+            n[["B12", "B13", "B8", "B14", "B15", "B17", "B18", "B19"][i]] = net
+        n.update({"A16": "~{EXP1}" if k in (0, 2) else "~{EXP2}", "A12": f"SEL{k + 1}", "A10": "RW",
+                  "A20": "~{LOAD_IMM}", "A23": "~{WE}", "B4": "CLK", "B20": "RUN", "A7": "PIXEL_ENABLE",
+                  "A26": "~{HSYNC}", "A28": "~{VSYNC}"})
         j = s.part("placard_parts:Expansion_Slot", ref, x, y, n, value=f"Slot {k + 1}",
-                   footprint="placard:CardEdge_2x25_P2.54mm_Vertical", ref_at=(x - 12, y - 36),
-                   value_at=(x - 12, y + 38.6), bare=("B17",))
+                   footprint="placard:Molex_87715-9106_Expansion_Slot", ref_at=(x - 12, y - 39),
+                   value_at=(x - 12, y + 41.2), bare=("A12",))
         # SEL: a 1k straight off the last pin to GND or +5V
-        px, py = j["B17"]
+        px, py = j["A12"]
         r = res(s, f"R{51 + k}", px + 7.62, py, f"SEL{k + 1}", "GND" if k < 2 else "+5V", "1k", angle=90, bare=("1",),
                 ref_at=(px + 3.0, py + 5.5), value_at=(px + 3.0, py + 6.2))
         path(s, f"SEL{k + 1}", (px, py), r["1"])
     note(s, 30, 252, ["SEL: GND on slots 1 and 2, +5 V on slots 3 and 4 (through 1k): the A7 half the card answers.",
                       "/EXP1 goes to slots 1 and 3, /EXP2 to slots 2 and 4.  /RESET = RUN (low while the cartridge loads).",
-                      "BT1-BT8 (boot contacts): slot 1 only, STALL_IN, STALL_OUT, PC_ENABLE, PIXEL_ENABLE, /CART; cards latch DATABUS7:0.",
+                      "BT1-BT8 (boot contacts): slot 1 only, STALL_IN, STALL_OUT, PC_ENABLE, /CART; cards latch DATABUS7:0.",
                       "LOAD_IMM carries the State PLD's /LOAD_IMM (low when the CPU latches the read bus into D).",
-                      "A21-B24 = ADDR8-15 and A25 = PIXEL_ENABLE on every slot (2 x 25 since 2026-10-30: cards can follow video reads)."], size=2.5)
+                      "Molex 87715-9106 since 2026-10-30: ADDR15:0, PIXEL_ENABLE, /HSYNC, /VSYNC on every slot (cards can follow the video);",
+                      "the contacts a cartridge drives are left open, so a cartridge in the wrong slot is harmless."], size=2.5)
     return s
 
 
