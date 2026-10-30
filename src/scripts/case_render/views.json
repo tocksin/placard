@@ -339,5 +339,33 @@
    "slot_cover_2",
    "cart_cover"
   ]
+ },
+ "snap_rear_parked": {
+  "cam": [
+   -60,
+   470,
+   -60
+  ],
+  "look": [
+   95,
+   215,
+   0
+  ],
+  "fov": 28,
+  "covers": [
+   1,
+   2,
+   4
+  ],
+  "lifted": [
+   "slot_cover_3"
+  ],
+  "snap": true,
+  "printed": 6976384,
+  "aluEdges": true,
+  "parked": [
+   "slot_cover_1",
+   "slot_cover_2"
+  ]
  }
 }
