@@ -242,13 +242,17 @@ BOM.
   Then check that all ten pull the same way on a loose test magnet, and
   write "S UP" on the base.
 - **The top.**
-  1. Lay the spacer on the base and push four M3 screws up through both as
+  1. Lay the spacer on the base, cover it with clear packing tape (epoxy
+     doesn't stick to it), and push four M3 screws up through both as
      pins.
   2. Turn the acrylic top over, left to right with its front edge still at
      the front, and lay it face down on the pins.
-  3. Put a dab of slow-setting epoxy in each magnet hole and drop in a
-     magnet. Its guide pulls it down, flush with the top's face, and a
-     magnet that goes in the wrong way flips over by itself.
+  3. Drop a magnet into each hole. Its guide pulls it down onto the spacer,
+     flush with the top's face, and holds it there; a magnet that goes in
+     the wrong way flips over by itself. Then run slow-setting epoxy into
+     the hole with a toothpick: round the magnet's side and over its back,
+     filling the hole's last 1 mm. The magnet is already in place, so the
+     glue can't drag it round or onto the visible face.
   4. Leave it to set. The 3 mm spacer keeps the pull low enough to lift the
      top off afterwards. Don't use CA glue here, because it grabs before a
      magnet can turn.
@@ -256,9 +260,9 @@ BOM.
   1. Turn the top face up and put thin tape (Kapton or masking) over its
      ten magnets.
   2. Set each cover in its place.
-  3. Drop epoxy and a magnet into each cap hole. The top's magnet below
-     pulls it in the right way round, and the cover's plug holds it in
-     line.
+  3. Drop a magnet into each cap hole, then epoxy round it. The top's
+     magnet below pulls it in the right way round and holds it flush on the
+     tape, and the cover's plug holds it in line.
   4. After it sets, lift the covers off and peel off the tape.
 - **Check.** Every cover should snap down onto every slot and not push
   away. A slot cover should also sit at any of the four slots.
