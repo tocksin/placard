@@ -29,7 +29,7 @@ plus options:
 | Product | Contents |
 |---|---|
 | **Core kit** | Main board PCB and parts (no expansion sockets J9-J12), 64K cartridge PCB, parts and shell, 21 blank chips (19 main PLDs, cartridge PLD, 2 EEPROMs) that the builder programs from the repository's JEDEC files and ROM images (KITTING.md plan E), a label sheet and a printed chip / image / socket table, sockets.  Uses a PS/2 keyboard on J5. |
-| **Complete kit** | Core kit + case (black powder-coated aluminium tray and back/left plates, clear acrylic top, slot and cartridge covers, magnets, standoffs, screws, feet; CASE.md) |
+| **Complete kit** | Core kit + case (black powder-coated aluminium tray and back/left plates, clear acrylic top, 3D-printed slot and cartridge covers, standoffs, screws, feet; CASE.md) |
 | **Case** (on its own) | The complete kit's case, for core kit buyers who add it later |
 | **Programmer** (option) | XGecu T48 for builders without one; programs the ATF22V10C and AT28C256 |
 | **Budget programmer** (option) | XGecu TL866II Plus, the older and cheaper model; same chips, same software |
@@ -56,7 +56,7 @@ included with the first expansion card, not in the core kit.
 | Spares and dead-on-arrival allowance | 3 % of parts | 3 % | 3 % | 3 % | Replacement chips for support |
 | Main PCB, 290 x 290 mm, 4-layer, 1.6 mm, HASL lead-free | $16 | $12 | $9.50 | $8 | JLCPCB/PCBWay typical pricing for a board this large (no "$2 for 5" offer above 100 x 100 mm) |
 | Cartridge PCB, 39 x 101.5 mm, 2-layer, ENIG, hard-gold bevelled fingers | $4 | $3 | $2.20 | $1.80 | Gold fingers and bevel are the costly options |
-| Case: aluminium tray and two plates (China sheet metal, open corner), acrylic top and covers, magnets, hardware | $78 | $62 | $52 | $45 | Middle of CASE.md's "Case, China sheet metal, open corner" range ($47-76 at 100); 50, 250 and 500 read between its 10, 100 and 1,000 columns |
+| Case: aluminium tray and two plates (China sheet metal, open corner), acrylic top, printed covers, hardware | $78 | $62 | $52 | $45 | Middle of CASE.md's "Case, China sheet metal, open corner" range ($47-76 at 100); 50, 250 and 500 read between its 10, 100 and 1,000 columns |
 | US tariff on China-made PCBs and case | 35 % | 35 % | 35 % | 35 % | Changes often; 30-50 % range |
 | Label sheet and printed chip table (chips ship blank) | $0.50 | $0.50 | $0.50 | $0.50 | No programming cost: the builder programs |
 | Contract kitting (count, bag, box) | $8 | $6 | $5 | $4 | Technotronix-style kitter |
