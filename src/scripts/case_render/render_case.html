@@ -109,7 +109,7 @@ if (V.snap) {
   for (const n of (V.parked || [])) {
     await stl(n + '_parked', acrCap, ez('parked'), true); await stl('magnets_' + n + '_parked', magMat, ez('parked')); }
 }
-// ---- screws, standoffs, PEM inserts, feet (gen_case_hardware.py); each moves with its part,
+// ---- screws, standoffs, nuts, feet (gen_case_hardware.py); each moves with its part,
 // plus its own explode.<group> offset
 if (V.hardware) {
   const steel = mat(0xc4c8ce, 0.9, 0.3), brass = mat(0xd4b25a, 0.9, 0.3), blk = mat(0x1c1c1e, 0.4, 0.45);

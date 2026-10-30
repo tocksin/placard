@@ -63,7 +63,7 @@ ACRYLIC = 4.0          # top
 CAP = 3.0              # cover caps
 PLATE_FLANGE = 14.0    # the plates' bottom flanges, lying on the floor (inside face to free edge)
 BEND_R = 2.0           # inside bend radius of every bend (1T, 5052-H32)
-PLATE_SCREW_IN = 9.0   # plate screw / PEM nut centre from the plate's inside face (4.8 mm edge distance, clear of the bend)
+PLATE_SCREW_IN = 9.0   # plate screw / hex nut centre from the plate's inside face (4.8 mm edge distance, clear of the bend)
 NOTCH_ROOT = BEND_R + 0.2   # flange notches round the floor standoffs stop this far from the plate's inside face (bend tangent)
 NOTCH_R = 4.0          # their half width: a 5.5 mm hex standoff (6.35 across corners) + 0.8 mm
 
@@ -356,8 +356,8 @@ def tray(parts, cuts):
 
 
 def plate_screws():
-    """(x, y) of the M3 countersunk screws up through the floor into PEM nuts in
-    the plates' flanges: three along the back, clear of the parked slot covers
+    """(x, y) of the M3 countersunk screws up through the floor and the plates'
+    flanges into loose hex nuts on top: three along the back, clear of the parked slot covers
     (x 38-145) and J7's notch, and three along the left, clear of the standoffs."""
     yb = D - T - PLATE_SCREW_IN
     xl = T + PLATE_SCREW_IN
@@ -427,7 +427,7 @@ def plate(parts, cuts, side):
         if x0 < x1 and y0 < y1:
             s = s.cut(rounded_plate(x0, x1, y0, y1, z0 - 0.01, T + 0.02))
     for x, y in plate_screws():
-        s = s.cut(hole(x, y, 2.5, z0 - 1))
+        s = s.cut(hole(x, y, 3.4, z0 - 1))           # clearance: a loose M3 hex nut on top
     if side == "back":
         for x, z in card_screws(parts):
             s = s.cut(cq.Workplane("XZ").center(x, z).circle(1.7).extrude(-10).translate((0, D - T - 1, 0)))
