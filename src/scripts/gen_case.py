@@ -3,11 +3,14 @@
 gen_case.py - the PLACARD case concept: a black powder-coated aluminium tray
 (floor, front and right walls) with flat plates for the back and left walls,
 which carry the connectors that reach through them, a clear acrylic top over
-the whole case, and one removable acrylic
+the whole case, and one removable 3D-printed
 cover per expansion slot (J9-J12) and for the cartridge slot (J8), held on by
-magnets.  A cover that is out parks under the case: its magnets cling to steel
-discs set flush in the floor, right under where it fits on the top, and the
-case stands on feet tall enough to clear it.  See docs/CASE.md.
+pull-off detents (Justin, 2026-10-30): tabs under each cover's cap drop through
+small slots in the acrylic and a rounded bump on each clicks past its
+underside; a slot cover's back lip has a dome that clicks into the card screw
+hole.  A cover that is out parks under the case, upside down, its tabs clicked
+into slots in the floor and the lip's dome in a second hole low in the back
+plate, and the case stands on feet tall enough to clear it.  See docs/CASE.md.
 
     pip install cadquery
     python3 gen_case.py [--pcb path/to/placard.kicad_pcb] [--out case] [--mesh dir]
@@ -21,17 +24,17 @@ Parts (STEP in case/, DXF cutting files for the flat parts in case/dxf/):
 
 | File | Part | Material |
 |---|---|---|
-| tray | floor, front wall (SNES cut-outs), right wall (side vents), steel parking discs | 2.0 mm 5052 aluminium, bent, black powder coat |
-| back_plate | back wall: USB-C, audio, VGA, PS/2 cut-outs, expansion card screws; bottom flange | 2.0 mm 5052, one bend, powder coat |
+| tray | floor, front wall (SNES cut-outs), right wall (side vents), cover parking slots | 2.0 mm 5052 aluminium, bent, black powder coat |
+| back_plate | back wall: USB-C, audio, VGA, PS/2 cut-outs, expansion card screws, cover parking holes; bottom flange | 2.0 mm 5052, one bend, powder coat |
 | left_plate | left wall: power, reset, SD cut-outs, side vents; bottom flange | 2.0 mm 5052, one bend, powder coat |
-| acrylic_top | over the board, slot and cartridge openings, magnets | 4 mm clear cast acrylic, laser cut |
-| slot_cover | one per expansion slot (4 alike), plug + cap with two magnets | 4 mm + 3 mm acrylic, solvent welded |
-| cart_cover | cartridge slot cover, plug + cap with two magnets | 4 mm + 3 mm acrylic |
+| acrylic_top | over the board, slot and cartridge openings, detent slots | 4 mm clear cast acrylic, laser cut |
+| slot_cover | one per expansion slot (4 alike): plug, cap, two detent tabs, back lip | 3D printed (STL), one piece |
+| cart_cover | cartridge slot cover: plug, cap, four detent tabs | 3D printed (STL), one piece |
 
 Coordinates (mm): x from the case's left outside face, y from the front
 outside face toward the back, z up from the main board's top face.
 
-Date: 2026-10-29
+Date: 2026-10-30
 """
 
 import argparse
@@ -67,13 +70,12 @@ PLATE_SCREW_IN = 9.0   # plate screw / hex nut centre from the plate's inside fa
 NOTCH_ROOT = BEND_R + 0.2   # flange notches round the floor standoffs stop this far from the plate's inside face (bend tangent)
 NOTCH_R = 4.0          # their half width: a 5.5 mm hex standoff (6.35 across corners) + 0.8 mm
 
-# parking under the floor: a parked cover hangs ACRYLIC + CAP below the floor
+# parking under the floor: a parked cover hangs upside down, ACRYLIC + CAP below the floor
 PARK_CLEAR = 3.0       # parked cover's plug to the desk
 FEET = ACRYLIC + CAP + PARK_CLEAR   # rubber feet, 10 mm
 FOOT_D = 16.0          # foot diameter
 FOOT_IN = 24.0         # foot centre from the outside faces (clear of the corner standoffs and the covers)
 Z_DESK = Z_FLOOR - FEET
-DISC_D, DISC_T = 6.0, 2.0   # steel parking discs, flush in the floor (same diameter as the magnets)
 
 BOARD_W = 290.0
 W = BOARD_W + 2 * OFF
@@ -97,8 +99,19 @@ FALLBACK_Z = {"J4": 1.45}   # J4 is being changed to a Hirose DM1AA (2026-10-25)
 
 SLOTS = ["J9", "J10", "J11", "J12"]
 CART = "J8"
-LIP = 8.0              # cover cap overlap on the acrylic (room for the magnets)
-MAG_D, MAG_T = 6.0, 3.0     # N52 disc magnets, in 6.1 mm holes; the caps' go through, flush both faces
+LIP = 8.0              # cover cap overlap on the acrylic (room for the detent tabs)
+# printed covers' pull-off detents (Justin, 2026-10-30)
+TAB_W = 6.0            # detent tab width
+TAB_T = 1.8            # detent tab thickness (flexes to let a bump by)
+SLOT_CLR = 0.2         # tab to slot wall, each side: slot 6.4 x 2.2 in the acrylic
+BUMP_R = 1.0           # bumps: rounded ribs across the tab
+BUMP = 0.6             # bump height off the tab face (0.4 past the slot clearance)
+PARK_DROP = ACRYLIC - T     # second bump this much below the first (4 mm acrylic vs 2 mm floor)
+TAB_BELOW = PARK_DROP + 2 * BUMP_R + 0.2   # tab end below the acrylic's underside
+LIP_T = 2.0            # slot cover's back lip
+LIP_GAP = 0.2          # back lip to the back plate's outside face
+DOME_R = 2.5           # back lip's dome; it sits on a 3.4 mm hole's rim
+CART_TAB_DX = 12.0     # cartridge cover tabs, either side of its centre (clear of the finger notch)
 SIDE_VENT = (5.0, 18.0, 13.0, 20.0)   # side wall vent slots: width, height, centre z, pitch (above the board's chips)
 SIDE_VENT_CLEAR = 6.0  # side vent slot edge to a connector cut-out or a wall end
 SIDE_VENT_SKIP = {}    # extra (u0, u1) bands per side with no vent slot (gen_case_print.py: its seams and keys)
@@ -341,15 +354,14 @@ def tray(parts, cuts):
             s = s.cut(cutter(side, u, z, prof))
     for u in side_vents(cuts, "right"):
         s = s.cut(vent_cutter("right", u))
-    # floor: standoff holes, vent slots, holes for the steel parking discs and
-    # the plate screws
+    # floor: standoff holes, vent slots, the covers' parking slots and the plate screws
     for ref in board_holes(parts):
         x, y = hole_xy(parts, ref)
         s = s.cut(hole(x, y, 3.4, Z_FLOOR - 1))      # countersunk M3 screw up into the floor standoff
     for x, y, l in vents(parts):
         s = s.cut(cq.Workplane("XY").center(x, y).slot2D(l, 5).extrude(10).translate((0, 0, Z_FLOOR - 1)))
-    for x, y in slot_magnets(parts):
-        s = s.cut(hole(x, y, DISC_D, Z_FLOOR - 1, T + 2))
+    for x0, x1, y0, y1 in floor_slots(parts):
+        s = s.cut(box(x0, x1, y0, y1, Z_FLOOR - 1, Z_FLOOR + T + 1))
     for x, y in plate_screws():
         s = s.cut(hole(x, y, 3.4, Z_FLOOR - 1))
     return s
@@ -430,7 +442,8 @@ def plate(parts, cuts, side):
         s = s.cut(hole(x, y, 3.4, z0 - 1))           # clearance: a loose M3 hex nut on top
     if side == "back":
         for x, z in card_screws(parts):
-            s = s.cut(cq.Workplane("XZ").center(x, z).circle(1.7).extrude(-10).translate((0, D - T - 1, 0)))
+            for zz in (z, PARK_HOLE_Z):      # card screw, and the parked slot cover's dome under it
+                s = s.cut(cq.Workplane("XZ").center(x, zz).circle(1.7).extrude(-10).translate((0, D - T - 1, 0)))
     return s
 
 
@@ -438,29 +451,83 @@ def board_hole_xys(parts):
     return [hole_xy(parts, ref) for ref in board_holes(parts)]
 
 
-def parking_discs(parts):
-    return [hole(x, y, DISC_D, Z_FLOOR, DISC_T) for x, y in slot_magnets(parts)]
+def box(x0, x1, y0, y1, z0, z1):
+    return cq.Workplane("XY").box(x1 - x0, y1 - y0, z1 - z0, centered=False).translate((x0, y0, z0))
 
 
-def slot_magnets(parts):
-    """(x, y) of the magnet pairs: two per slot cover in the cap's front lap, two
-    per side of the cartridge cover; the acrylic top has the mates."""
+def detent_spots(parts):
+    """(x, y, sign) of every cover tab: its slot centre in the acrylic, and which
+    way (+-y) its upper bump faces.  Two per slot cover in the cap's front lap,
+    two in each of the cartridge cover's front and back laps."""
     bay, cart, slot_x = openings(parts)
     n = len(slot_x)
     pitch = (bay[1] - bay[0]) / n
-    pts = []
+    spots = []
     for i in range(n):
         x0 = bay[0] + i * pitch
-        pts += [(x0 + pitch * 0.25, bay[2] - LIP / 2), (x0 + pitch * 0.75, bay[2] - LIP / 2)]
-    ym = (cart[2] + cart[3]) / 2
-    pts += [(cart[0] - LIP / 2, ym), (cart[1] + LIP / 2, ym)]
-    return pts
+        spots += [(x0 + pitch * 0.25, bay[2] - LIP / 2, -1), (x0 + pitch * 0.75, bay[2] - LIP / 2, -1)]
+    xc = (cart[0] + cart[1]) / 2
+    for dx in (-CART_TAB_DX, CART_TAB_DX):
+        spots += [(xc + dx, cart[2] - LIP / 2, -1), (xc + dx, cart[3] + LIP / 2, 1)]
+    return spots
+
+
+def bumps(y, sign):
+    """(y centre, z top) of a tab's two bumps, as on the top: the upper one on
+    its sign face just below the acrylic, the lower one on the other face."""
+    zt = Z_TOP
+    return [(y + sd * (TAB_T / 2 + BUMP - BUMP_R), ztop)
+            for sd, ztop in ((sign, zt), (-sign, zt - PARK_DROP))]
+
+
+def tab(x, y, sign):
+    """A tab hanging from the cap's underside through its slot, with its two bumps."""
+    zt = Z_TOP
+    s = box(x - TAB_W / 2, x + TAB_W / 2, y - TAB_T / 2, y + TAB_T / 2, zt - TAB_BELOW, zt + ACRYLIC)
+    for yb, ztop in bumps(y, sign):
+        s = s.union(cq.Workplane("YZ").center(yb, ztop - BUMP_R).circle(BUMP_R).extrude(TAB_W)
+                    .translate((x - TAB_W / 2, 0, 0)))
+    return s.intersect(box(x - TAB_W / 2, x + TAB_W / 2, y - 5, y + 5, zt - TAB_BELOW, zt + ACRYLIC))
+
+
+def top_slots(parts):
+    """(x0, x1, y0, y1) of the detent slots in the acrylic top, 6.4 x 2.2."""
+    w, t = TAB_W / 2 + SLOT_CLR, TAB_T / 2 + SLOT_CLR
+    return [(x - w, x + w, y - t, y + t) for x, y, sign in detent_spots(parts)]
+
+
+def floor_slot(y, sign):
+    """(y0, y1) of a parking slot in the floor: the upper bump (sign side) passes
+    through, the lower one catches on the far wall's top edge."""
+    a = y + sign * (TAB_T / 2 + BUMP + SLOT_CLR)
+    b = y - sign * (TAB_T / 2 + SLOT_CLR)
+    return min(a, b), max(a, b)
+
+
+def floor_slots(parts):
+    """(x0, x1, y0, y1) of the parking slots in the floor, right under the top's."""
+    w = TAB_W / 2 + SLOT_CLR
+    return [(x - w, x + w) + floor_slot(y, sign) for x, y, sign in detent_spots(parts)]
+
+
+def dome_y():
+    """y of the back lip dome's centre: its sphere meets a 3.4 mm hole's rim."""
+    return D + math.sqrt(DOME_R ** 2 - 1.7 ** 2)
+
+
+def park_z(z):
+    """z on the top -> z parked: upside down, the plug's face (Z_TOP) on the floor's underside."""
+    return Z_FLOOR + Z_TOP - z
+
+
+PARK_HOLE_Z = park_z(CARD_SCREW_Z)   # the parking hole in the back plate, under each card screw hole
 
 
 def parked(solid):
     """A cover that is out, parked under the floor right below where it fits on
-    the top: cap up against the floor, its magnets on the steel discs."""
-    return solid.translate((0, 0, Z_FLOOR - (Z_TOP + ACRYLIC + CAP)))
+    the top: upside down, its plug against the floor's underside, its tabs
+    clicked up into the floor slots."""
+    return solid.mirror("XY").translate((0, 0, park_z(0)))
 
 
 def parked_boxes(parts):
@@ -468,8 +535,8 @@ def parked_boxes(parts):
     bay, cart, slot_x = openings(parts)
     n = len(slot_x)
     pitch = (bay[1] - bay[0]) / n
-    out = {"slot_cover_%d" % (i + 1): (bay[0] + i * pitch + 0.2, bay[0] + (i + 1) * pitch - 0.2, bay[2] - LIP, D)
-           for i in range(n)}
+    out = {"slot_cover_%d" % (i + 1): (bay[0] + i * pitch + 0.2, bay[0] + (i + 1) * pitch - 0.2, bay[2] - LIP,
+                                      D + LIP_GAP + LIP_T) for i in range(n)}
     out["cart_cover"] = (cart[0] - LIP, cart[1] + LIP, cart[2] - LIP, cart[3] + LIP)
     return out
 
@@ -483,34 +550,15 @@ def acrylic_top(parts):
     for ref in board_holes(parts):
         x, y = hole_xy(parts, ref)
         s = s.cut(hole(x, y, 3.4, z0 - 1))
-    for x, y in slot_magnets(parts):
-        s = s.cut(hole(x, y, MAG_D + 0.1, z0 - 1))
+    for x0, x1, y0, y1 in top_slots(parts):
+        s = s.cut(box(x0, x1, y0, y1, z0 - 1, z0 + ACRYLIC + 1))
     return s
-
-
-def magnet_jig(parts):
-    """Gluing jig for the magnets (tooling, made once): a base sheet with a guide
-    magnet at each of the top's magnet spots, under a plain spacer sheet, both
-    with the top's 8 screw holes as locating pins.  The top is laid on it face
-    down, so the holes are mirrored left to right.  Every guide is glued with
-    the same pole up (S), so a magnet dropped into the top flips to N up as
-    assembled; the spacer keeps the pull low enough to lift the top off."""
-    def sheet():
-        s = rounded_plate(0, W, 0, D, 0, ACRYLIC - 1, 3.0)
-        for ref in board_holes(parts):
-            x, y = hole_xy(parts, ref)
-            s = s.cut(hole(W - x, y, 3.4, -1))
-        return s
-    base = sheet()
-    for x, y in slot_magnets(parts):
-        base = base.cut(hole(W - x, y, MAG_D + 0.1, -1))
-    return base, sheet()
 
 
 def slot_cover_size(parts):
     bay, cart, slot_x = openings(parts)
     pitch = (bay[1] - bay[0]) / len(slot_x)
-    return pitch - 0.4, D - bay[2] + LIP
+    return pitch - 0.4, D + LIP_GAP + LIP_T - bay[2] + LIP
 
 
 def cart_cover_size(parts):
@@ -519,24 +567,32 @@ def cart_cover_size(parts):
 
 
 def slot_covers(parts):
-    """One cover per expansion slot: a 4 mm plug filling its share of the opening
-    (it rests on the back wall's top edge) and a 3 mm cap that laps LIP onto the
-    acrylic in front, where two magnets meet two in the acrylic top; neighbours
+    """One printed cover per expansion slot: a plug filling its share of the
+    opening (it rests on the back wall's top edge), a cap that laps LIP onto the
+    acrylic in front with two detent tabs, and a lip down the back plate's
+    outside face whose dome clicks into the slot's card screw hole; neighbours
     butt with a 0.4 mm gap."""
     bay, cart, slot_x = openings(parts)
     n = len(slot_x)
     pitch = (bay[1] - bay[0]) / n
     z0 = Z_TOP
-    mags = slot_magnets(parts)
+    spots = detent_spots(parts)
+    screws = card_screws(parts)
     out = []
     for i in range(n):
         x0, x1 = bay[0] + i * pitch + 0.2, bay[0] + (i + 1) * pitch - 0.2
         plug = rounded_plate(x0, x1, bay[2] + 0.2, D, z0, ACRYLIC)
-        cap = rounded_plate(x0, x1, bay[2] - LIP, D, z0 + ACRYLIC, CAP)
-        cap = cap.cut(hole((x0 + x1) / 2, bay[2] - LIP, 8.0, z0))
-        for x, y in mags[2 * i:2 * i + 2]:
-            cap = cap.cut(hole(x, y, MAG_D + 0.1, z0))
-        out.append(plug.union(cap))
+        cap = rounded_plate(x0, x1, bay[2] - LIP, D + LIP_GAP + LIP_T, z0 + ACRYLIC, CAP)
+        cap = cap.cut(hole((x0 + x1) / 2, bay[2] - LIP, 8.0, z0))         # finger notch
+        s = plug.union(cap)
+        for x, y, sign in spots[2 * i:2 * i + 2]:
+            s = s.union(tab(x, y, sign))
+        sx, sz = screws[i]
+        yl = D + LIP_GAP
+        s = s.union(box(x0, x1, yl, yl + LIP_T, sz - 4.0, z0 + ACRYLIC))
+        dome = cq.Workplane("XY").sphere(DOME_R).translate((sx, dome_y(), sz))
+        s = s.union(dome.intersect(box(sx - 3, sx + 3, D - 2, yl + 0.01, sz - 3, sz + 3)))
+        out.append(s)
     return out
 
 
@@ -546,9 +602,15 @@ def cart_cover(parts):
     plug = rounded_plate(cart[0] + 0.2, cart[1] - 0.2, cart[2] + 0.2, cart[3] - 0.2, z0, ACRYLIC, 0.8)
     cap = rounded_plate(cart[0] - LIP, cart[1] + LIP, cart[2] - LIP, cart[3] + LIP, z0 + ACRYLIC, CAP, 3.0)
     cap = cap.cut(hole((cart[0] + cart[1]) / 2, cart[2] - LIP, 8.0, z0))
-    for x, y in slot_magnets(parts)[-2:]:
-        cap = cap.cut(hole(x, y, MAG_D + 0.1, z0))
-    return plug.union(cap)
+    s = plug.union(cap)
+    for x, y, sign in detent_spots(parts)[-4:]:
+        s = s.union(tab(x, y, sign))
+    return s
+
+
+def print_pose(solid):
+    """A cover turned over for printing: the cap's top face on the bed."""
+    return solid.mirror("XY").translate((0, 0, Z_TOP + ACRYLIC + CAP))
 
 
 def standoffs(parts):
@@ -562,18 +624,6 @@ def standoffs(parts):
             -PCB_T - (Z_FLOOR + T)).translate((0, 0, Z_FLOOR + T))
         hi = cq.Workplane("XY").center(x, y).polygon(6, 5.5 / math.cos(math.pi / 6)).extrude(Z_TOP)
         out += [lo, hi]
-    return out
-
-
-def magnets(parts):
-    """Magnet discs: "top" in the acrylic top (flush with its top face), then one
-    pair per cover in its cap (cover name -> pair), in place on the top."""
-    z0 = Z_TOP
-    m = slot_magnets(parts)
-    out = {"top": [hole(x, y, MAG_D, z0 + ACRYLIC - MAG_T, MAG_T) for x, y in m]}
-    for i in range(len(SLOTS)):
-        out["slot_cover_%d" % (i + 1)] = [hole(x, y, MAG_D, z0 + ACRYLIC, MAG_T) for x, y in m[2 * i:2 * i + 2]]
-    out["cart_cover"] = [hole(x, y, MAG_D, z0 + ACRYLIC, MAG_T) for x, y in m[-2:]]
     return out
 
 
@@ -621,8 +671,8 @@ def _frame(ax, info, title):
 
 
 def draw_top(info, path):
-    """Top view (acrylic top, covers, magnets, screws, wall connectors) and
-    the underside (feet, vents, steel discs, the covers parked there)."""
+    """Top view (acrylic top, covers, detent slots, screws, wall connectors) and
+    the underside (feet, vents, parking slots, the covers parked there)."""
     Wd, Dd = info["W"], info["D"]
     fig, (ax, bx) = plt.subplots(1, 2, figsize=(20, 9.5))
     # top
@@ -633,8 +683,8 @@ def draw_top(info, path):
     ax.add_patch(FancyBboxPatch((0, 0), Wd, Dd, boxstyle="round,pad=0,rounding_size=3", fc=ACR_C, ec="#2b7bb9",
                                 lw=1.2, alpha=0.5))
     _cover_patches(ax, info)
-    for x, y in info["magnets"]:
-        ax.add_patch(Circle((x, y), MAG_D / 2, fc="#b03a2e", ec="none"))
+    for x0, x1, y0, y1 in info["top_slots"]:
+        ax.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, fc="#b03a2e", ec="none"))
     for x, y in info["holes"].values():
         ax.add_patch(Circle((x, y), 2.8, fc="#333", ec="none"))
     for cu in info["cuts"]:
@@ -654,7 +704,7 @@ def draw_top(info, path):
     ax.text(Wd / 2, 40, "4 mm clear acrylic top over the whole case,\n"
             "8 screws into the board standoffs", ha="center", va="center", fontsize=10)
     _frame(ax, info, "Top (mm).  Blue = acrylic over the walls (dark edges = the back and left plates),\n"
-           "black dots = M3 screws, red dots = magnets, red ticks = wall connectors")
+           "black dots = M3 screws, red = detent slots, red ticks = wall connectors")
     # underside, drawn as seen through the case from above (left is left)
     bx.add_patch(FancyBboxPatch((0, 0), Wd, Dd, boxstyle="round,pad=0,rounding_size=3", fc=ALU_C, ec="#555",
                                 lw=1.2))
@@ -662,8 +712,8 @@ def draw_top(info, path):
         bx.add_patch(FancyBboxPatch((x - l / 2, y - 2.5), l, 5, boxstyle="round,pad=0,rounding_size=2.5",
                                     fc="white", ec="#555", lw=0.6))
     _cover_patches(bx, info, 0.8, "\nparked")
-    for x, y in info["magnets"]:
-        bx.add_patch(Circle((x, y), DISC_D / 2, fc="#555", ec="#222", lw=0.6))
+    for x0, x1, y0, y1 in info["floor_slots"]:
+        bx.add_patch(Rectangle((x0, y0), x1 - x0, y1 - y0, fc="white", ec="#222", lw=0.6))
     for x, y in info["holes"].values():
         bx.add_patch(Circle((x, y), 2.8, fc="#d4c08a", ec="#8a7a4a"))
     for x, y in info["plate_screws"]:
@@ -672,8 +722,8 @@ def draw_top(info, path):
         bx.add_patch(Circle((x, y), FOOT_D / 2, fc="#333", ec="none"))
     bx.text(Wd / 2, info["vents"][0][1] - 12, "vent slots", ha="center", va="center", fontsize=9)
     bx.text(FOOT_IN + 12, FOOT_IN, "%.0f mm foot" % FEET, va="center", fontsize=9)
-    _frame(bx, info, "Underside, seen through the case from above (left is left).  Dark dots = steel discs\n"
-           "flush in the floor, black = %.0f mm rubber feet and the plate screws, tan = floor standoffs" % FEET)
+    _frame(bx, info, "Underside, seen through the case from above (left is left).  White = parking\n"
+           "slots in the floor, black = %.0f mm rubber feet and the plate screws, tan = floor standoffs" % FEET)
     fig.tight_layout()
     fig.savefig(path, dpi=100)
     plt.close(fig)
@@ -739,6 +789,7 @@ def draw_walls(info, path):
         if side == "back":
             for i, (u, z) in enumerate(info["card_screws"]):
                 ax.add_patch(Circle((s * u, z), 1.7, fc="white", ec="#222", lw=0.9))
+                ax.add_patch(Circle((s * u, PARK_HOLE_Z), 1.7, fc="white", ec="#222", lw=0.9))
                 ax.text(s * u, z + 3, "J%d" % (9 + i), ha="center", va="bottom", fontsize=7)
         ax.text(s * (p0 + p1) / 2, zf + 3, "tray" if tray else side + " plate", ha="center", fontsize=9,
                 color="#222" if tray else "white")
@@ -774,16 +825,18 @@ def draw_walls(info, path):
     ax.text(FOOT_IN, desk + FEET / 2, "feet (near the\nside walls)", ha="center", va="center", fontsize=7)
     # the cover in its slot opening, and the same cover parked under the floor
     x0, x1, y0, y1 = info["parked"]["slot_cover_1"]
-    for z, label, lz in ((zt, "J9 cover in place", za + 5), (zf - ACRYLIC - CAP, "J9 cover parked: magnets on steel "
-                                                                "discs in the floor", desk + 1.5)):
-        plug, cap = (y0 + LIP + 0.2, z), (y0, z + ACRYLIC)
-        ax.add_patch(Rectangle(plug, y1 - y0 - LIP - 0.2, ACRYLIC, fc="#9fd0ef", ec="#1f6fa8", alpha=0.9))
-        ax.add_patch(Rectangle(cap, y1 - y0, CAP, fc="#9fd0ef", ec="#1f6fa8", alpha=0.9))
-        ax.add_patch(Rectangle((y0 + LIP / 2 - MAG_D / 2, cap[1]), MAG_D, MAG_T, fc="#b03a2e", ec="none"))
-        ax.text(y0 - 3, lz, label, ha="right", va="center", fontsize=8, color="#1f6fa8")
-    ax.add_patch(Rectangle((y0 + LIP / 2 - DISC_D / 2, zf), DISC_D, DISC_T, fc="#555", ec="none"))
-    ax.add_patch(Rectangle((y0 + LIP / 2 - MAG_D / 2, zt + ACRYLIC - MAG_T), MAG_D, MAG_T, fc="#b03a2e",
-                           ec="none"))
+    cov = dict(fc="#5f6874", ec="#33383f", alpha=0.9)
+    yt = y0 + LIP / 2
+    for f, label, lz in ((lambda z: z, "J9 cover in place", za + 5),
+                         (park_z, "J9 cover parked upside down: tabs in floor slots,\n"
+                                  "lip's dome in the back plate's low hole", desk + 2)):
+        for (ya, yb), (za0, za1) in (((y0 + LIP + 0.2, Dd), (zt, zt + ACRYLIC)),            # plug
+                                     ((y0, y1), (zt + ACRYLIC, zt + ACRYLIC + CAP)),        # cap
+                                     ((Dd + LIP_GAP, y1), (CARD_SCREW_Z - 4.0, zt + ACRYLIC)),   # back lip
+                                     ((yt - TAB_T / 2, yt + TAB_T / 2), (zt - TAB_BELOW, zt + ACRYLIC))):  # tab
+            z0_, z1_ = sorted((f(za0), f(za1)))
+            ax.add_patch(Rectangle((ya, z0_), yb - ya, z1_ - z0_, **cov))
+        ax.text(y0 - 3, lz, label, ha="right", va="center", fontsize=8, color="#33383f")
     ax.set_xlim(-10, Dd + 10)
     ax.set_ylim(desk - 4, za + 12)
     ax.set_aspect("equal")
@@ -828,17 +881,18 @@ def build(pcb, out, mesh=None, drawings=None):
         cq.exporters.export(sol, os.path.join(out, fn + ".step"))
     z0 = Z_TOP
     export_dxf(solids["acrylic_top"], z0 + ACRYLIC / 2, os.path.join(out, "dxf", "acrylic_top_4mm.dxf"))
-    export_dxf(covers[0], z0 + ACRYLIC / 2, os.path.join(out, "dxf", "slot_cover_plug_4mm.dxf"))
-    export_dxf(covers[0], z0 + ACRYLIC + CAP / 2, os.path.join(out, "dxf", "slot_cover_cap_3mm.dxf"))
-    export_dxf(solids["cart_cover"], z0 + ACRYLIC / 2, os.path.join(out, "dxf", "cart_cover_plug_4mm.dxf"))
-    export_dxf(solids["cart_cover"], z0 + ACRYLIC + CAP / 2, os.path.join(out, "dxf", "cart_cover_cap_3mm.dxf"))
-    jig_base, jig_spacer = magnet_jig(parts)
-    export_dxf(jig_base, 1.5, os.path.join(out, "dxf", "magnet_jig_base_3mm.dxf"))
-    export_dxf(jig_spacer, 1.5, os.path.join(out, "dxf", "magnet_jig_spacer_3mm.dxf"))
-    # the keyboard bay went with the keyboard (2026-10-25), the split shells with the plates (2026-10-27)
+    # the covers are printed: STL files turned over, cap face down on the bed
+    for name in ("slot_cover_1", "cart_cover"):
+        fn = "slot_cover" if name == "slot_cover_1" else name
+        cq.exporters.export(print_pose(solids[name]), os.path.join(out, fn + ".stl"), tolerance=0.02,
+                            angularTolerance=0.1)
+    # the keyboard bay went with the keyboard (2026-10-25), the split shells with the plates (2026-10-27),
+    # the acrylic magnet covers and their gluing jig with the printed covers (2026-10-30)
     for f in ("keyboard_rail.step", "keyboard_plate.step", "keyboard_blank.step", "dxf/keyboard_blank_3mm.dxf",
               "dxf/keyboard_plate_1.5mm.dxf",
-              "lower_shell.step", "upper_shell.step"):
+              "lower_shell.step", "upper_shell.step",
+              "dxf/slot_cover_plug_4mm.dxf", "dxf/slot_cover_cap_3mm.dxf", "dxf/cart_cover_plug_4mm.dxf",
+              "dxf/cart_cover_cap_3mm.dxf", "dxf/magnet_jig_base_3mm.dxf", "dxf/magnet_jig_spacer_3mm.dxf"):
         if os.path.exists(os.path.join(out, f)):
             os.remove(os.path.join(out, f))
 
@@ -846,7 +900,8 @@ def build(pcb, out, mesh=None, drawings=None):
     parked_solids = {n: parked(solids[n]) for n in covers_all}
     info = dict(W=W, D=D, LIP=LIP, T=T, OFF=OFF, BOARD_D=BOARD_D, Y_BF=Y_BF, Z_FLOOR=Z_FLOOR, Z_DESK=Z_DESK,
                 Z_TOP=Z_TOP, PLATE_FLANGE=PLATE_FLANGE, plate_screws=plate_screws(), card_screws=card_screws(parts), ACRYLIC=ACRYLIC, CAP=CAP, FEET=FEET, FOOT_D=FOOT_D,
-                bay=bay, cart=cart, slot_x=slot_x, magnets=slot_magnets(parts),
+                bay=bay, cart=cart, slot_x=slot_x, detents=detent_spots(parts),
+                top_slots=top_slots(parts), floor_slots=floor_slots(parts), PARK_HOLE_Z=PARK_HOLE_Z,
                 parked=parked_boxes(parts), feet=feet(), vents=vents(parts),
                 side_vents={sd: side_vents(cuts, sd) for sd in ("left", "right")},
                 slot_cover=slot_cover_size(parts), cart_cover=cart_cover_size(parts),
@@ -865,13 +920,12 @@ def build(pcb, out, mesh=None, drawings=None):
             cq.exporters.export(sol, os.path.join(mesh, name + ".stl"), tolerance=0.05, angularTolerance=0.2)
         for name, sol in parked_solids.items():
             cq.exporters.export(sol, os.path.join(mesh, name + "_parked.stl"), tolerance=0.05, angularTolerance=0.2)
-        groups = {"standoffs": standoffs(parts), "parking_discs": parking_discs(parts),
+        for name in ("slot_cover_3", "cart_cover"):     # lifted copies, for views that show how a cover goes on
+            cq.exporters.export(solids[name].translate((0, 0, 30)), os.path.join(mesh, name + "_lifted.stl"),
+                                tolerance=0.05, angularTolerance=0.2)
+        groups = {"standoffs": standoffs(parts),
                   "feet": [cq.Workplane("XY").center(x, y).circle(FOOT_D / 2).extrude(FEET).translate((0, 0, Z_DESK))
                            for x, y in feet()]}
-        for name, group in magnets(parts).items():
-            groups["magnets_" + name] = group
-            if name in parked_solids:
-                groups["magnets_%s_parked" % name] = [parked(m) for m in group]
         for name, group in groups.items():
             cq.exporters.export(cq.Workplane().add([x.val() for x in group]).combine(),
                                 os.path.join(mesh, name + ".stl"))

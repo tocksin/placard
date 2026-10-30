@@ -86,29 +86,20 @@ if (!V.hide?.includes('board')) {
 // tray, and the back and left plates (V.plate: their colour; explode.back / .left slide them out)
 const plateMat = V.plate ? new THREE.MeshStandardMaterial({color: V.plate, metalness: 0.15, roughness: 0.75}) : alu;
 const ae = V.aluEdges ? 'alu' : false;
-if (!V.hide?.includes('tray')) await stl((V.snap ? '../mesh_snap/' : '') + 'tray', alu, ez('lower'), ae);
-if (!V.hide?.includes('back')) await stl((V.snap ? '../mesh_snap/' : '') + 'back_plate', plateMat, ez('lower'), ae, [0, ez('back'), 0]);
-if (!V.hide?.includes('left')) await stl((V.snap ? '../mesh_snap/' : '') + 'left_plate', plateMat, ez('lower'), ae, [-ez('left'), 0, 0]);
-// V.snap: the printed snap-cover concept (gen_cover_snap_concept.py): no magnets or discs
-const SN = V.snap ? '../mesh_snap/' : '';
-if (!V.hide?.includes('top')) await stl(SN + 'acrylic_top', acr, ez('top'), true);
+// V.bent: the tray and plates with their real bends (gen_case_quote.py writes *_bent)
+const BN = V.bent ? '_bent' : '';
+if (!V.hide?.includes('tray')) await stl('tray' + BN, alu, ez('lower'), ae);
+if (!V.hide?.includes('back')) await stl('back_plate' + BN, plateMat, ez('lower'), ae, [0, ez('back'), 0]);
+if (!V.hide?.includes('left')) await stl('left_plate' + BN, plateMat, ez('lower'), ae, [-ez('left'), 0, 0]);
+if (!V.hide?.includes('top')) await stl('acrylic_top', acr, ez('top'), true);
 if (!V.hardware) await stl('feet', mat(0x1e1e1e, 0.0, 0.9), ez('lower'));
-if (!V.snap) await stl('parking_discs', mat(0x6d7178, 0.8, 0.35), ez('lower'));
-const magMat = mat(0x9a9ea4, 0.9, 0.3);
-if (!V.snap) await stl('magnets_top', magMat, ez('top'));
-// covers in place (with their cap magnets), and covers parked under the floor
+// printed covers in place, lifted (V.lifted: how one goes on) and parked under the floor (V.parked)
 const cov = (V.covers || [1, 2, 3, 4]).map(i => 'slot_cover_' + i);
 if (V.cartCover) cov.push('cart_cover');
-if (V.snap) {
-  const printed = mat(V.printed || 0x6a7380, 0.0, 0.85);
-  for (const n of cov) await stl(SN + n, printed, ez('covers'), 'alu');
-  for (const n of (V.lifted || [])) await stl(SN + n + '_lifted', printed, ez('covers'), 'alu');
-  for (const n of (V.parked || [])) await stl(SN + n + '_parked', printed, ez('parked'), 'alu');
-} else {
-  for (const n of cov) { await stl(n, acrCap, ez('covers'), true); await stl('magnets_' + n, magMat, ez('covers')); }
-  for (const n of (V.parked || [])) {
-    await stl(n + '_parked', acrCap, ez('parked'), true); await stl('magnets_' + n + '_parked', magMat, ez('parked')); }
-}
+const printed = mat(V.printed || 0x50555d, 0.0, 0.8);
+for (const n of cov) await stl(n, printed, ez('covers'), 'alu');
+for (const n of (V.lifted || [])) await stl(n + '_lifted', printed, ez('covers'), 'alu');
+for (const n of (V.parked || [])) await stl(n + '_parked', printed, ez('parked'), 'alu');
 // ---- screws, standoffs, nuts, feet (gen_case_hardware.py); each moves with its part,
 // plus its own explode.<group> offset
 if (V.hardware) {
