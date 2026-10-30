@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Screws, standoffs, PEM nuts and feet of the case (docs/CASE.md parts list),
+Screws, standoffs, nuts and feet of the case (docs/CASE.md parts list),
 as STL meshes for render_case.html (V.hardware), at their assembled positions.
 The page moves each group with the part it belongs to for exploded views.
 Also draws docs/case_hardware_stacks.png (each fastener stack, exploded).
@@ -18,6 +18,8 @@ sys.path.insert(0, os.path.dirname(HERE))
 import gen_case as g  # noqa: E402
 
 MESH = os.path.join(HERE, "mesh")
+NUT_H = 2.4              # M3 hex nut on each plate flange (ISO 4032: 5.5 across flats, 2.4 thick)
+PLATE_SCREW = 6.0        # M3 x 6 countersunk: 2 mm into the nut, its tip 2 mm under the board
 
 
 def hex_prism(x, y, z0, h, af=5.5):
@@ -71,9 +73,9 @@ def main():
     }
     screws = g.plate_screws()
     for side, pts in (("back", screws[:3]), ("left", screws[3:])):
-        # M3 x 6 countersunk up through the floor; PEM CLS-M3-1 nut in the flange
-        groups["hw_csk_" + side] = [csk_screw(x, y, zf, 6.0) for x, y in pts]
-        groups["hw_nuts_" + side] = [cyl(x, y, flange_top, 1.5, 6.35).cut(cyl(x, y, flange_top - 1, 3, 3.0))
+        # M3 countersunk up through the floor and the flange into a loose hex nut on top
+        groups["hw_csk_" + side] = [csk_screw(x, y, zf, PLATE_SCREW) for x, y in pts]
+        groups["hw_nuts_" + side] = [hex_prism(x, y, flange_top, NUT_H).cut(cyl(x, y, flange_top - 1, NUT_H + 2, 3.0))
                                      for x, y in pts]
     groups["hw_card_screws"] = [card_screw(x, z) for x, z in g.card_screws(parts)]
     for name, sol in groups.items():
@@ -135,15 +137,16 @@ def draw_stacks(path):
 
     # B: plate flange screws, from below
     ax = axs[1]
-    rect(ax, -12, 30, 24, 2, alu); rect(ax, -2.1, 29.99, 4.2, 2.02, steel)
-    ax.add_patch(Rectangle((-3.2, 32), 6.4, 1.5, **steel)); rect(ax, -1.5, 30, 3, 3.5, dict(fc="white", ec="none"))
-    label(ax, 14, 31.8, "Plate flange, 2 mm, with a\nPEM CLS-M3-1 nut pressed in (6)")
+    rect(ax, -2.75, 40, 5.5, NUT_H, steel); rect(ax, -1.5, 40, 3, NUT_H, dict(fc="white", ec="none"))
+    label(ax, 14, 41.2, "M3 hex nut, ISO 4032 (6), on the flange")
+    rect(ax, -12, 30, 24, 2, alu); rect(ax, -1.7, 29.99, 3.4, 2.02, dict(fc="white", ec="none"))
+    label(ax, 14, 31, "Plate flange, 2 mm, 3.4 mm hole")
     rect(ax, -12, 18, 24, 2, alu)
     ax.add_patch(Polygon([(-3.6, 18), (3.6, 18), (1.6, 20), (-1.6, 20)], fc="white", ec="black", lw=0.8))
     label(ax, 14, 19, "Tray floor, 2 mm, countersunk")
     ax.add_patch(Polygon([(-3, 4), (3, 4), (1.5, 5.5), (-1.5, 5.5)], **steel)); rect(ax, -1.5, 5.5, 3, 4.5, steel)
     label(ax, 14, 7, "M3 x 6 countersunk screw (6),\nup from under the case")
-    ax.plot([0, 0], [2, 36], ls="--", lw=0.8, color="#888")
+    ax.plot([0, 0], [2, 46], ls="--", lw=0.8, color="#888")
     ax.set_xlim(-14, 60); ax.set_ylim(-15, 90)
     ax.set_title("Plates to the floor (6 places)", fontsize=13)
 

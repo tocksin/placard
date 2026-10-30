@@ -4,14 +4,14 @@ Date: 2026-10-30
 
 The computer in its case: the main board assembly ([BOM_MAIN_PCB.md](BOM_MAIN_PCB.md)) as one line, the case parts from [CASE.md](CASE.md), standoffs, screws and feet.  The cartridge is its own assembly.
 
-15 lines.  Cost: **$353.45** for one assembly at these quantities.  15 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_CASE.csv](BOM_CASE.csv).  The other BOMs are listed in [BOM.md](BOM.md).
+16 lines.  Cost: **$353.75** for one assembly at these quantities.  16 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_CASE.csv](BOM_CASE.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
 | 1 |  | PLC-2001 | (assembly) | Main board assembly (BOM_MAIN_PCB.md) |  | 187.95 | 187.95 | est.: BOM_MAIN_PCB.md total without the optional expansion slot sockets | Add $18.00 with J9-J12 fitted |
 | 1 |  |  |  | Tray: 2.0 mm 5052-H32, floor with the front and right walls (two bends), black powder coat, 14 countersunk M3 holes |  | 50.00 | 50.00 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/tray.step |
-| 1 |  |  |  | Back plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 PEM nuts |  | 23.00 | 23.00 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/back_plate.step |
-| 1 |  |  |  | Left plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 PEM nuts |  | 23.00 | 23.00 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/left_plate.step |
+| 1 |  |  |  | Back plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 plain M3 holes |  | 23.00 | 23.00 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/back_plate.step |
+| 1 |  |  |  | Left plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 plain M3 holes |  | 23.00 | 23.00 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/left_plate.step |
 | 1 |  |  |  | Acrylic top: 4 mm clear cast acrylic, 295 x 220 mm, laser cut, 10 magnet holes |  | 30.00 | 30.00 | est.: CASE.md "Cost estimate", 1 unit, laser-cut acrylic, not quoted | case/acrylic_top.step |
 | 4 |  |  |  | Slot cover: 4 mm acrylic plug + 3 mm cap, solvent welded |  | 3.00 | 12.00 | est.: CASE.md "Cost estimate", 1 unit, laser-cut acrylic, not quoted | case/slot_cover.step |
 | 1 |  |  |  | Cartridge cover: 4 mm acrylic plug + 3 mm cap, solvent welded |  | 8.00 | 8.00 | est.: CASE.md "Cost estimate", 1 unit, laser-cut acrylic, not quoted | case/cart_cover.step |
@@ -20,6 +20,7 @@ The computer in its case: the main board assembly ([BOM_MAIN_PCB.md](BOM_MAIN_PC
 | 8 |  |  |  | M3 male-female hex standoff, 6 mm, 6 mm stud (floor to the board's underside, stud up through H1-H8) |  | 0.20 | 1.60 | est.: typical standoff price |  |
 | 8 |  |  |  | M3 female-female hex standoff, 27 mm (board top to the acrylic, on the 6 mm standoffs' studs) |  | 0.80 | 6.40 | est.: typical standoff price |  |
 | 8 |  |  |  | M3 x 8 button head screw, black or stainless (acrylic top) |  | 0.15 | 1.20 | est.: typical screw price |  |
-| 14 |  |  |  | M3 x 6 countersunk screw (up through the floor: 8 into the floor standoffs, 6 into the plates' flanges) |  | 0.15 | 2.10 | est.: typical screw price |  |
+| 14 |  |  |  | M3 x 6 countersunk screw (up through the floor: 8 into the floor standoffs, 6 through the plates' flanges into hex nuts) |  | 0.15 | 2.10 | est.: typical screw price |  |
+| 6 |  |  |  | M3 hex nut, ISO 4032 (on the plates' flanges) |  | 0.05 | 0.30 | est.: typical nut price |  |
 | 4 |  |  |  | M3 x 6 button head screw, black (back plate into each expansion card's shell) |  | 0.15 | 0.60 | est.: typical screw price |  |
 | 4 |  |  |  | Rubber foot, 16 mm across, 10 mm tall, adhesive (clears the parked covers) |  | 0.40 | 1.60 | est.: typical price |  |
