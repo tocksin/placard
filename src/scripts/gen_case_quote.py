@@ -86,7 +86,10 @@ def tray_parts(parts, cuts):
         for u in g.side_vents(cuts, "right"):
             sol = sol.cut(g.vent_cutter("right", u))
         for x, y in g.board_hole_xys(parts):
-            sol = sol.cut(g.hole(x, y, 4.2, Zf - 1))
+            sol = sol.cut(g.hole(x, y, 3.4, Zf - 1))
+            if i:   # countersunk for the M3 screw up into the floor standoff
+                sol = sol.cut(cq.Workplane("XY").center(x, y).circle(3.25).workplane(offset=3.25)
+                              .circle(0.0001).loft().translate((0, 0, Zf)))
         for x, y, l in g.vents(parts):
             sol = sol.cut(cq.Workplane("XY").center(x, y).slot2D(l, 5).extrude(10).translate((0, 0, Zf - 1)))
         for x, y in g.slot_magnets(parts):
@@ -216,16 +219,18 @@ def outline_xy(flat, t):
 
 
 HARDWARE = {
-    "tray": ["8 x PEM SO-M3-6 (through-threaded standoff, 6 mm), 4.2 mm holes at the board holes H1-H8, "
-             "pressed from the underside (head flush underneath, standoff up into the case)",
-             "6 x 3.4 mm holes with a 90 deg countersink, 6.5 mm on the underside (M3 flat head screws "
-             "into the plates)",
+    "tray": ["No PEM hardware in the tray.",
+             "14 x 3.4 mm holes with a 90 deg countersink, 6.5 mm on the underside (M3 flat head screws: "
+             "8 at the board holes H1-H8 into the floor standoffs, 6 into the plates)",
              "10 x 6.0 mm holes for the steel parking discs (the builder presses them in; no hardware)"],
     "back_plate": ["3 x PEM CLS-M3-1 (self-clinching nut), 4.22 mm holes in the flange, pressed from the top "
                    "(inside) face, flush there"],
     "left_plate": ["3 x PEM CLS-M3-1 (self-clinching nut), 4.22 mm holes in the flange, pressed from the top "
                    "(inside) face, flush there"],
 }
+PROCESS = {"tray": "laser cut, bend (press brake), countersink, powder coat",
+           "back_plate": "laser cut, bend (press brake), PEM insertion, powder coat",
+           "left_plate": "laser cut, bend (press brake), PEM insertion, powder coat"}
 TITLES = {"tray": "Tray: floor, front and right walls (2 bends)",
           "back_plate": "Back plate (1 bend)", "left_plate": "Left plate (1 bend)",
           "acrylic_top": "Top, 4 mm clear acrylic", "slot_cover_plug": "Slot cover plug, 4 mm clear acrylic",
@@ -297,12 +302,12 @@ def build(pcb, out, zip_path):
         cq.exporters.export(bent, os.path.join(out, "step", name + ".step"))
         export_dxf(flat, T, lines, os.path.join(out, "dxf", name + "_flat.dxf"), [])
         draw_pdf(name, flat, T, lines, os.path.join(out, "pdf", name + ".pdf"), MATERIAL, FINISH, qty_metal,
-                 HARDWARE[name], "laser cut, bend (press brake), PEM insertion, powder coat", TOLS,
+                 HARDWARE[name], PROCESS[name], TOLS,
                  "%d x 90 deg, inside radius %.1f mm" % (len(lines), R))
         b = bent.val().BoundingBox()
         f = flat.val().BoundingBox()
         rows.append(dict(part=name, description=TITLES[name], qty_per_case=1, material=MATERIAL, finish=FINISH,
-                         process="laser cut, %d bend(s), PEM insertion, powder coat" % len(lines),
+                         process=PROCESS[name],
                          hardware="; ".join(HARDWARE[name]),
                          size_mm="bent %.1f x %.1f x %.1f; flat %.1f x %.1f" % (b.xlen, b.ylen, b.zlen, f.xlen, f.ylen),
                          files="step/%s.step, dxf/%s_flat.dxf, pdf/%s.pdf" % (name, name, name)))
@@ -370,10 +375,9 @@ def readme(rows):
               "%.1f mm. The flat patterns use K = %.2f (bend allowance %.3f mm). Please develop the flat "
               "from the STEP with your own bend tables and tell us if anything changes." % (R, K_FACTOR, BA),
               "- Hardware, pressed by you:",
-              "  - Tray: 8 x PEM SO-M3-6 standoffs, pressed from the underside.",
               "  - Each plate: 3 x PEM CLS-M3-1 nuts, pressed from the flange's top face.",
               "  - Equivalent self-clinching parts are fine.",
-              "- Tray: 6 countersunk holes, 90 degrees, 6.5 mm on the underside.",
+              "- Tray: 14 countersunk holes, 90 degrees, 6.5 mm on the underside.",
               "- Finish: black powder coat on all three parts, in a stock color, matte or fine texture. "
               "Mask the PEM threads. Coat either before or after the PEM insertion, as you prefer.",
               "- No printing, engraving or silkscreen.",

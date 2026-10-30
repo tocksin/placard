@@ -65,7 +65,7 @@ PLATE_FLANGE = 14.0    # the plates' bottom flanges, lying on the floor (inside 
 BEND_R = 2.0           # inside bend radius of every bend (1T, 5052-H32)
 PLATE_SCREW_IN = 9.0   # plate screw / PEM nut centre from the plate's inside face (4.8 mm edge distance, clear of the bend)
 NOTCH_ROOT = BEND_R + 0.2   # flange notches round the floor standoffs stop this far from the plate's inside face (bend tangent)
-NOTCH_R = 3.5          # their half width: a PEM SO-M3 body (5.4 mm) + 0.8 mm
+NOTCH_R = 4.0          # their half width: a 5.5 mm hex standoff (6.35 across corners) + 0.8 mm
 
 # parking under the floor: a parked cover hangs ACRYLIC + CAP below the floor
 PARK_CLEAR = 3.0       # parked cover's plug to the desk
@@ -345,7 +345,7 @@ def tray(parts, cuts):
     # the plate screws
     for ref in board_holes(parts):
         x, y = hole_xy(parts, ref)
-        s = s.cut(hole(x, y, 4.2, Z_FLOOR - 1))
+        s = s.cut(hole(x, y, 3.4, Z_FLOOR - 1))      # countersunk M3 screw up into the floor standoff
     for x, y, l in vents(parts):
         s = s.cut(cq.Workplane("XY").center(x, y).slot2D(l, 5).extrude(10).translate((0, 0, Z_FLOOR - 1)))
     for x, y in slot_magnets(parts):
@@ -552,8 +552,9 @@ def cart_cover(parts):
 
 
 def standoffs(parts):
-    """M3 standoffs at every board hole: floor PEM standoff under the board,
-    male-female hex standoff from the board's top to the top flange."""
+    """M3 hex standoffs at every board hole: a 6 mm male-female one screwed to
+    the floor from below (countersunk screw), its stud up through the board,
+    and a 27 mm female-female one on that stud up to the acrylic top."""
     out = []
     for ref in board_holes(parts):
         x, y = hole_xy(parts, ref)

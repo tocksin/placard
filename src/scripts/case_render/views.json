@@ -456,7 +456,8 @@
    "top": 145,
    "topScrews": 32,
    "covers": 215,
-   "cardScrews": 35
+   "cardScrews": 35,
+   "floorStandoffs": 20
   },
   "labels": [
    {
@@ -484,7 +485,7 @@
     ]
    },
    {
-    "t": "M3 x 27 male-female hex standoff (8)",
+    "t": "M3 x 27 female-female hex standoff (8)",
     "p": [
      7.5,
      7.5,
@@ -508,15 +509,15 @@
     ]
    },
    {
-    "t": "PEM SO-M3-6 standoff, pressed\ninto the floor (8)",
+    "t": "M3 x 6 male-female standoff,\nscrewed to the floor (8)",
     "p": [
      148.5,
      7.5,
-     -4.6
+     15.4
     ],
     "d": [
      -80,
-     70
+     90
     ]
    },
    {
@@ -556,7 +557,7 @@
     ]
    },
    {
-    "t": "M3 x 6 countersunk screw (6)",
+    "t": "M3 x 6 countersunk screw (14)",
     "p": [
      -74,
      40,
@@ -619,16 +620,16 @@
  },
  "exploded_hw_rear": {
   "cam": [
-   480,
-   700,
-   280
+   560,
+   820,
+   150
   ],
   "look": [
    150,
-   170,
-   70
+   160,
+   30
   ],
-  "fov": 36,
+  "fov": 30,
   "w": 1800,
   "h": 1350,
   "covers": [
@@ -652,7 +653,8 @@
    "top": 145,
    "topScrews": 32,
    "covers": 215,
-   "cardScrews": 35
+   "cardScrews": 35,
+   "floorStandoffs": 20
   },
   "labels": [
    {
@@ -668,7 +670,7 @@
     ]
    },
    {
-    "t": "M3 x 6 countersunk screw (6)",
+    "t": "M3 x 6 countersunk screw (14)",
     "p": [
      160,
      294,
