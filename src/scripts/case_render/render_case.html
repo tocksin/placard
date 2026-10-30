@@ -89,14 +89,21 @@ const ae = V.aluEdges ? 'alu' : false;
 if (!V.hide?.includes('tray')) await stl('tray', alu, ez('lower'), ae);
 if (!V.hide?.includes('back')) await stl('back_plate', plateMat, ez('lower'), ae, [0, ez('back'), 0]);
 if (!V.hide?.includes('left')) await stl('left_plate', plateMat, ez('lower'), ae, [-ez('left'), 0, 0]);
-if (!V.hide?.includes('top')) await stl('acrylic_top', acr, ez('top'), true);
+// V.snap: the printed snap-cover concept (gen_cover_snap_concept.py): no magnets or discs
+const SN = V.snap ? '../mesh_snap/' : '';
+if (!V.hide?.includes('top')) await stl(SN + 'acrylic_top', acr, ez('top'), true);
 await stl('feet', mat(0x1e1e1e, 0.0, 0.9), ez('lower'));
-await stl('parking_discs', mat(0x6d7178, 0.8, 0.35), ez('lower'));
+if (!V.snap) await stl('parking_discs', mat(0x6d7178, 0.8, 0.35), ez('lower'));
 const magMat = mat(0x9a9ea4, 0.9, 0.3);
-await stl('magnets_top', magMat, ez('top'));
+if (!V.snap) await stl('magnets_top', magMat, ez('top'));
 // covers in place (with their cap magnets), and covers parked under the floor
 const cov = (V.covers || [1, 2, 3, 4]).map(i => 'slot_cover_' + i);
 if (V.cartCover) cov.push('cart_cover');
+if (V.snap) {
+  const printed = mat(V.printed || 0x6a7380, 0.0, 0.85);
+  for (const n of cov) await stl(SN + n, printed, ez('covers'), 'alu');
+  for (const n of (V.lifted || [])) await stl(SN + n + '_lifted', printed, ez('covers'), 'alu');
+} else
 for (const n of cov) { await stl(n, acrCap, ez('covers'), true); await stl('magnets_' + n, magMat, ez('covers')); }
 for (const n of (V.parked || [])) {
   await stl(n + '_parked', acrCap, ez('parked'), true); await stl('magnets_' + n + '_parked', magMat, ez('parked')); }
