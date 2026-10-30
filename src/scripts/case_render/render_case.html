@@ -80,7 +80,7 @@ if (!V.hide?.includes('board')) {
     else if (/^(D|LED)\d/.test(ref)) box(x0 + 2, y0 + pad + 0.4, 0, x1 - 2, y1 - pad - 0.4, 2.2, mat(0x8c3a2a, 0.0, 0.6), dzb);
     else if (/^(JP|J1$|RN)/.test(ref)) box(x0 + pad, y0 + pad, 0, x1 - pad, y1 - pad, 8.5, mat(0x1e1e1e, 0.1, 0.6), dzb);
   }
-  await stl('standoffs', mat(0xd4c08a, 0.9, 0.3), dzb);
+  if (!V.hardware) await stl('standoffs', mat(0xd4c08a, 0.9, 0.3), dzb);
 }
 // ---- cases
 // tray, and the back and left plates (V.plate: their colour; explode.back / .left slide them out)
@@ -92,7 +92,7 @@ if (!V.hide?.includes('left')) await stl((V.snap ? '../mesh_snap/' : '') + 'left
 // V.snap: the printed snap-cover concept (gen_cover_snap_concept.py): no magnets or discs
 const SN = V.snap ? '../mesh_snap/' : '';
 if (!V.hide?.includes('top')) await stl(SN + 'acrylic_top', acr, ez('top'), true);
-await stl('feet', mat(0x1e1e1e, 0.0, 0.9), ez('lower'));
+if (!V.hardware) await stl('feet', mat(0x1e1e1e, 0.0, 0.9), ez('lower'));
 if (!V.snap) await stl('parking_discs', mat(0x6d7178, 0.8, 0.35), ez('lower'));
 const magMat = mat(0x9a9ea4, 0.9, 0.3);
 if (!V.snap) await stl('magnets_top', magMat, ez('top'));
@@ -109,6 +109,20 @@ if (V.snap) {
   for (const n of (V.parked || [])) {
     await stl(n + '_parked', acrCap, ez('parked'), true); await stl('magnets_' + n + '_parked', magMat, ez('parked')); }
 }
+// ---- screws, standoffs, PEM inserts, feet (gen_case_hardware.py); each moves with its part,
+// plus its own explode.<group> offset
+if (V.hardware) {
+  const steel = mat(0xc4c8ce, 0.9, 0.3), brass = mat(0xd4b25a, 0.9, 0.3), blk = mat(0x1c1c1e, 0.4, 0.45);
+  await stl('hw_feet', mat(0x1e1e1e, 0.0, 0.9), ez('lower') + ez('feet'));
+  await stl('hw_pem_standoffs', steel, ez('lower') + ez('pem'));
+  await stl('hw_hex_standoffs', brass, ez('board') + ez('hex'));
+  await stl('hw_top_screws', blk, ez('top') + ez('topScrews'));
+  await stl('hw_csk_back', steel, ez('lower') + ez('csk'), false, [0, ez('back'), 0]);
+  await stl('hw_csk_left', steel, ez('lower') + ez('csk'), false, [-ez('left'), 0, 0]);
+  await stl('hw_nuts_back', steel, ez('lower') + ez('nuts'), false, [0, ez('back'), 0]);
+  await stl('hw_nuts_left', steel, ez('lower') + ez('nuts'), false, [-ez('left'), 0, 0]);
+  await stl('hw_card_screws', blk, ez('lower'), false, [0, ez('back') + ez('cardScrews'), 0]);
+}
 // ---- installed cartridge / cards (shell = keepout less 1 mm)
 const shellMat = mat(V.shell || 0x2b2d31, 0.1, 0.55);
 if (V.cart) { const c = B.parts.J8.crt; box(c[0] + 1, c[1] + 1, 0, c[2] - 1, c[3] - 1, 71, shellMat, ez('board')); }
@@ -120,5 +134,25 @@ const cam = new THREE.PerspectiveCamera(V.fov || 30, Wd / Ht, 5, 5000);
 cam.up.set(0, 0, 1);
 cam.position.set(...V.cam); cam.lookAt(new THREE.Vector3(...V.look));
 renderer.render(scene, cam);
+// ---- labels: V.labels = [{t: text, p: [x, y, z] in model mm, d: [dx, dy] label offset in px}]
+if (V.labels) {
+  const c = document.createElement('canvas'); c.width = Wd; c.height = Ht;
+  Object.assign(c.style, {position: 'absolute', left: '0', top: '0'});
+  document.body.appendChild(c);
+  const g = c.getContext('2d');
+  g.font = '600 22px sans-serif'; g.lineWidth = 1.5;
+  for (const L of V.labels) {
+    const v = new THREE.Vector3(...L.p).project(cam);
+    const x = (v.x + 1) / 2 * Wd, y = (1 - v.y) / 2 * Ht;
+    const lx = x + L.d[0], ly = y + L.d[1];
+    g.strokeStyle = '#333'; g.beginPath(); g.moveTo(x, y); g.lineTo(lx, ly); g.stroke();
+    g.fillStyle = '#333'; g.beginPath(); g.arc(x, y, 3, 0, 2 * Math.PI); g.fill();
+    const lines = L.t.split('\n'), w = Math.max(...lines.map(t => g.measureText(t).width));
+    const bx = L.d[0] < 0 ? lx - w - 12 : lx, by = ly - 16;
+    g.fillStyle = 'rgba(255,255,255,0.88)'; g.fillRect(bx, by, w + 12, lines.length * 26 + 6);
+    g.strokeStyle = '#999'; g.strokeRect(bx, by, w + 12, lines.length * 26 + 6);
+    g.fillStyle = '#111'; lines.forEach((t, i) => g.fillText(t, bx + 6, by + 22 + i * 26));
+  }
+}
 window.done = true;
 </script></body></html>
