@@ -420,5 +420,279 @@
    "slot_cover_1",
    "slot_cover_2"
   ]
+ },
+ "exploded_hw": {
+  "cam": [
+   -430,
+   -560,
+   380
+  ],
+  "look": [
+   150,
+   125,
+   70
+  ],
+  "fov": 33,
+  "w": 1800,
+  "h": 1350,
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "parked": [],
+  "hardware": true,
+  "explode": {
+   "lower": 0,
+   "feet": -32,
+   "csk": -30,
+   "nuts": 12,
+   "back": 85,
+   "left": 85,
+   "board": 50,
+   "hex": 40,
+   "top": 145,
+   "topScrews": 32,
+   "covers": 215,
+   "cardScrews": 35,
+   "floorStandoffs": 20
+  },
+  "labels": [
+   {
+    "t": "M3 x 8 button head screw (8)",
+    "p": [
+     7.5,
+     7.5,
+     209.65
+    ],
+    "d": [
+     -40,
+     -40
+    ]
+   },
+   {
+    "t": "Acrylic top",
+    "p": [
+     0,
+     60,
+     176.0
+    ],
+    "d": [
+     -60,
+     10
+    ]
+   },
+   {
+    "t": "M3 x 27 female-female hex standoff (8)",
+    "p": [
+     7.5,
+     7.5,
+     104
+    ],
+    "d": [
+     -60,
+     30
+    ]
+   },
+   {
+    "t": "Main board",
+    "p": [
+     2.5,
+     60,
+     50
+    ],
+    "d": [
+     -60,
+     30
+    ]
+   },
+   {
+    "t": "M3 x 6 male-female standoff,\nscrewed to the floor (8)",
+    "p": [
+     148.5,
+     7.5,
+     15.4
+    ],
+    "d": [
+     -80,
+     90
+    ]
+   },
+   {
+    "t": "Tray",
+    "p": [
+     200,
+     0,
+     5.4
+    ],
+    "d": [
+     40,
+     60
+    ]
+   },
+   {
+    "t": "M3 hex nut on each\nplate flange (6)",
+    "p": [
+     -74,
+     40,
+     7.9
+    ],
+    "d": [
+     -60,
+     -60
+    ]
+   },
+   {
+    "t": "Left plate",
+    "p": [
+     -85,
+     120,
+     20
+    ],
+    "d": [
+     -60,
+     -30
+    ]
+   },
+   {
+    "t": "M3 x 6 countersunk screw (14)",
+    "p": [
+     -74,
+     40,
+     -39.6
+    ],
+    "d": [
+     -60,
+     40
+    ]
+   },
+   {
+    "t": "Rubber foot, 16 x 10 mm (4)",
+    "p": [
+     24,
+     24,
+     -51.6
+    ],
+    "d": [
+     -40,
+     50
+    ]
+   },
+   {
+    "t": "Back plate",
+    "p": [
+     100,
+     305,
+     27
+    ],
+    "d": [
+     40,
+     -60
+    ]
+   },
+   {
+    "t": "Slot covers (4)",
+    "p": [
+     90,
+     150,
+     249.0
+    ],
+    "d": [
+     40,
+     -40
+    ]
+   },
+   {
+    "t": "Cartridge cover",
+    "p": [
+     203,
+     135,
+     249.0
+    ],
+    "d": [
+     40,
+     -40
+    ]
+   }
+  ]
+ },
+ "exploded_hw_rear": {
+  "cam": [
+   560,
+   820,
+   150
+  ],
+  "look": [
+   150,
+   160,
+   30
+  ],
+  "fov": 30,
+  "w": 1800,
+  "h": 1350,
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "parked": [],
+  "hardware": true,
+  "explode": {
+   "lower": 0,
+   "feet": -32,
+   "csk": -30,
+   "nuts": 12,
+   "back": 85,
+   "left": 85,
+   "board": 50,
+   "hex": 40,
+   "top": 145,
+   "topScrews": 32,
+   "covers": 215,
+   "cardScrews": 35,
+   "floorStandoffs": 20
+  },
+  "labels": [
+   {
+    "t": "M3 x 6 button head screw, back plate\ninto each expansion card (4)",
+    "p": [
+     131.95,
+     341.6,
+     15
+    ],
+    "d": [
+     60,
+     -70
+    ]
+   },
+   {
+    "t": "M3 x 6 countersunk screw (14)",
+    "p": [
+     160,
+     294,
+     -39.6
+    ],
+    "d": [
+     60,
+     60
+    ]
+   },
+   {
+    "t": "Rubber foot (4)",
+    "p": [
+     271,
+     196,
+     -51.6
+    ],
+    "d": [
+     60,
+     40
+    ]
+   }
+  ]
  }
 }

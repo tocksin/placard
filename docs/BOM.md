@@ -12,9 +12,9 @@ line; each cartridge assembly is complete with its shell and screw.  Accessories
 | Main board assembly PLC-2001 | [BOM_MAIN_PCB.md](BOM_MAIN_PCB.md), [.csv](BOM_MAIN_PCB.csv) | Bare PCB, components, sockets | $214.47 | $187.95 | 29 |
 | 64K cartridge assembly PLC-2003 | [BOM_CART_64K.md](BOM_CART_64K.md), [.csv](BOM_CART_64K.csv) | Bare PCB, components, sockets, shell, screw | $69.62 | $69.62 | 6 |
 | 32K cartridge assembly PLC-2002 | [BOM_CART_32K.md](BOM_CART_32K.md), [.csv](BOM_CART_32K.csv) | Same, 32K board | $39.67 | $39.67 | 6 |
-| Case assembly | [BOM_CASE.md](BOM_CASE.md), [.csv](BOM_CASE.csv) | Main board assembly, tray and plates, acrylic, magnets, standoffs, screws, feet | $350.65 | $350.65 | 14 |
+| Case assembly | [BOM_CASE.md](BOM_CASE.md), [.csv](BOM_CASE.csv) | Main board assembly, tray and plates, acrylic, magnets, standoffs, screws, feet | $353.75 | $353.75 | 16 |
 
-A complete machine is the case assembly plus one cartridge: **$420.27** with the 64K cartridge (the case total already holds the main board without its optional slot
+A complete machine is the case assembly plus one cartridge: **$423.37** with the 64K cartridge (the case total already holds the main board without its optional slot
 sockets).  Prices are single-unit Mouser (Digi-Key where Mouser has none) for components and
 rough single-unit estimates for PCBs, shells and case parts; shipping, tax and tariffs are not
 included.  Stock moves, so recheck before ordering.
