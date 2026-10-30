@@ -1159,30 +1159,30 @@ def sheet_slots(b):
         ref = f"J{9 + k}"
         x, y = 116 + (k % 2) * 180, 105 + (k // 2) * 95     # two rows: the long bus labels need the width
         n = {"A1": "GND", "A2": "+5V"}
-        for i, c in enumerate(["B23", "B24", "B25", "B26", "B28", "B29", "B30", "B32"]):
+        for i, c in enumerate(["A23", "B13", "B15", "B17", "B19", "B23", "B25", "B29"]):
             n[c] = D[i]
         for i, c in enumerate(["A22", "A19", "A17", "A15", "A14", "B9", "B7", "A4", "A8", "A9", "A18", "A13", "B3", "A6",
                                "A3", "A5"]):
             n[c] = A[i]
-        # BT1-BT8: slot 1's boot contacts (EXPANSION.md, "Booting from slot 1"); not connected on slots 2-4.
-        # BT4 was PIXEL_ENABLE until 2026-10-30; every slot has it on A7 now.
-        bt = ["STALL_IN", "STALL_OUT", "PC_ENABLE", None, "~{CART}", None, None, None] if k == 0 else [None] * 8
+        # BT1, BT2, BT3, BT5: slot 1's boot contacts (EXPANSION.md, "Booting from slot 1"); not connected on
+        # slots 2-4.  BT4 (PIXEL_ENABLE, on every slot's A7 now) and BT6-BT8 (reserved) went 2026-10-30.
+        bt = ["STALL_IN", "STALL_OUT", "PC_ENABLE", "~{CART}"] if k == 0 else [None] * 4
         for i, net in enumerate(bt):
-            n[["B12", "B13", "B8", "B14", "B15", "B17", "B18", "B19"][i]] = net
-        n.update({"A16": "~{EXP1}" if k in (0, 2) else "~{EXP2}", "A12": f"SEL{k + 1}", "A10": "RW",
-                  "A20": "~{LOAD_IMM}", "A23": "~{WE}", "B4": "CLK", "B20": "RUN", "A7": "PIXEL_ENABLE",
+            n[["B12", "B14", "B8", "B28"][i]] = net
+        n.update({"A16": "~{EXP1}" if k in (0, 2) else "~{EXP2}", "A10": f"SEL{k + 1}", "B16": "RW",
+                  "A20": "~{LOAD_IMM}", "B24": "~{WE}", "B4": "CLK", "B20": "RUN", "A7": "PIXEL_ENABLE",
                   "A26": "~{HSYNC}", "A28": "~{VSYNC}"})
         j = s.part("placard_parts:Expansion_Slot", ref, x, y, n, value=f"Slot {k + 1}",
                    footprint="placard:Molex_87715-9106_Expansion_Slot", ref_at=(x - 12, y - 39),
-                   value_at=(x - 12, y + 41.2), bare=("A12",))
+                   value_at=(x - 12, y + 41.2), bare=("A10",))
         # SEL: a 1k straight off the last pin to GND or +5V
-        px, py = j["A12"]
+        px, py = j["A10"]
         r = res(s, f"R{51 + k}", px + 7.62, py, f"SEL{k + 1}", "GND" if k < 2 else "+5V", "1k", angle=90, bare=("1",),
                 ref_at=(px + 3.0, py + 5.5), value_at=(px + 3.0, py + 6.2))
         path(s, f"SEL{k + 1}", (px, py), r["1"])
     note(s, 30, 252, ["SEL: GND on slots 1 and 2, +5 V on slots 3 and 4 (through 1k): the A7 half the card answers.",
                       "/EXP1 goes to slots 1 and 3, /EXP2 to slots 2 and 4.  /RESET = RUN (low while the cartridge loads).",
-                      "BT1-BT8 (boot contacts): slot 1 only, STALL_IN, STALL_OUT, PC_ENABLE, /CART; cards latch DATABUS7:0.",
+                      "BT1, BT2, BT3, BT5 (boot contacts): slot 1 only, STALL_IN, STALL_OUT, PC_ENABLE, /CART; cards latch DATABUS7:0.",
                       "LOAD_IMM carries the State PLD's /LOAD_IMM (low when the CPU latches the read bus into D).",
                       "Molex 87715-9106 since 2026-10-30: ADDR15:0, PIXEL_ENABLE, /HSYNC, /VSYNC on every slot (cards can follow the video);",
                       "the contacts a cartridge drives are left open, so a cartridge in the wrong slot is harmless."], size=2.5)
