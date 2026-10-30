@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Screws, standoffs, PEM inserts and feet of the case (docs/CASE.md parts list),
+Screws, standoffs, PEM nuts and feet of the case (docs/CASE.md parts list),
 as STL meshes for render_case.html (V.hardware), at their assembled positions.
 The page moves each group with the part it belongs to for exploded views.
 Also draws docs/case_hardware_stacks.png (each fastener stack, exploded).
@@ -57,11 +57,13 @@ def main():
     zf, T = g.Z_FLOOR, g.T
     flange_top = zf + 2 * T
     groups = {
-        # PEM SO-M3-6 pressed into the floor: 6 mm from the floor's top to the board's underside
-        "hw_pem_standoffs": [cyl(x, y, zf + T, g.STANDOFF, 5.4).union(cyl(x, y, zf, T, 4.2)) for x, y in holes],
-        # M3 male-female hex standoff, 27 mm: board top to the acrylic, its thread down into the PEM standoff
-        "hw_hex_standoffs": [hex_prism(x, y, 0, g.Z_TOP).union(cyl(x, y, -g.PCB_T - 4.0, g.PCB_T + 4.0, 3.0))
-                             for x, y in holes],
+        # M3 x 6 male-female hex standoff: floor's top to the board's underside, its 6 mm stud up through the board
+        "hw_floor_standoffs": [hex_prism(x, y, zf + T, g.STANDOFF).union(cyl(x, y, -g.PCB_T, 6.0, 3.0))
+                               for x, y in holes],
+        # M3 x 6 countersunk screw up through the floor into each of them
+        "hw_floor_screws": [csk_screw(x, y, zf, 6.0) for x, y in holes],
+        # M3 female-female hex standoff, 27 mm: board top to the acrylic, on the floor standoff's stud
+        "hw_hex_standoffs": [hex_prism(x, y, 0, g.Z_TOP) for x, y in holes],
         # M3 x 8 button head through the acrylic into the hex standoffs
         "hw_top_screws": [button_screw(x, y, g.Z_TOP + g.ACRYLIC, 8.0) for x, y in holes],
         # rubber feet
@@ -108,24 +110,27 @@ def draw_stacks(path):
 
     # A: the board stack at H1-H8 (gaps are the explode)
     ax = axs[0]
-    z = 0.0
-    rect(ax, -14, z, 28, 2, alu); rect(ax, -2.1, z - 0.01, 4.2, 2.02, steel)
-    rect(ax, -2.7, z + 2, 5.4, 6, steel); rect(ax, -0.9, z + 3, 1.8, 5, dict(fc="white", ec="none"))
-    label(ax, 16, z + 0.5, "Tray floor, 2 mm")
-    label(ax, 16, z + 8, "PEM SO-M3-6 standoff (8),\npressed in by the sheet-metal shop")
-    z = 14.0
-    rect(ax, -14, z, 28, 1.6, pcb); rect(ax, -1.6, z - 0.01, 3.2, 1.62, dict(fc="white", ec="none"))
+    hole = dict(fc="white", ec="none")
+    ax.add_patch(Polygon([(-3, -12), (3, -12), (1.5, -10.5), (-1.5, -10.5)], **steel)); rect(ax, -1.5, -10.5, 3, 4.5, steel)
+    label(ax, 16, -9, "M3 x 6 countersunk screw (8),\nup from under the case")
+    rect(ax, -14, 0, 28, 2, alu)
+    ax.add_patch(Polygon([(-3.6, 0), (3.6, 0), (1.7, 2), (-1.7, 2)], fc="white", ec="black", lw=0.8))
+    label(ax, 16, 1, "Tray floor, 2 mm, countersunk")
+    rect(ax, -2.75, 8, 5.5, 6, steel); rect(ax, -1.5, 14, 3, 6, steel); rect(ax, -0.9, 8, 1.8, 4, hole)
+    label(ax, 16, 14, "M3 x 6 male-female hex standoff (8),\n6 mm stud up")
+    z = 26.0
+    rect(ax, -14, z, 28, 1.6, pcb); rect(ax, -1.6, z - 0.01, 3.2, 1.62, hole)
     label(ax, 16, z + 0.8, "Main board, 1.6 mm (H1-H8)")
-    z = 22.0
-    rect(ax, -1.5, z, 3, 6, brass); rect(ax, -2.75, z + 6, 5.5, 27, brass)
-    label(ax, 16, z + 18, "M3 x 27 male-female hex standoff (8):\nits stud goes through the board\ninto the PEM standoff")
-    z = 62.0
-    rect(ax, -14, z, 28, 4, acr); rect(ax, -1.7, z - 0.01, 3.4, 4.02, dict(fc="white", ec="none"))
+    z = 34.0
+    rect(ax, -2.75, z, 5.5, 27, brass); rect(ax, -0.9, z, 1.8, 5, hole); rect(ax, -0.9, z + 22, 1.8, 5, hole)
+    label(ax, 16, z + 13.5, "M3 x 27 female-female hex standoff (8),\non the stud: clamps the board")
+    z = 68.0
+    rect(ax, -14, z, 28, 4, acr); rect(ax, -1.7, z - 0.01, 3.4, 4.02, hole)
     label(ax, 16, z + 2, "Acrylic top, 4 mm")
-    screw_button(ax, 78.0, 8.0)
-    label(ax, 16, 75, "M3 x 8 button head screw (8)")
-    ax.plot([0, 0], [-3, 82], ls="--", lw=0.8, color="#888")
-    ax.set_xlim(-16, 62); ax.set_ylim(-4, 84)
+    screw_button(ax, 84.0, 8.0)
+    label(ax, 16, 81, "M3 x 8 button head screw (8)")
+    ax.plot([0, 0], [-14, 88], ls="--", lw=0.8, color="#888")
+    ax.set_xlim(-16, 62); ax.set_ylim(-15, 90)
     ax.set_title("At each board hole (8 places)", fontsize=13)
 
     # B: plate flange screws, from below
@@ -139,7 +144,7 @@ def draw_stacks(path):
     ax.add_patch(Polygon([(-3, 4), (3, 4), (1.5, 5.5), (-1.5, 5.5)], **steel)); rect(ax, -1.5, 5.5, 3, 4.5, steel)
     label(ax, 14, 7, "M3 x 6 countersunk screw (6),\nup from under the case")
     ax.plot([0, 0], [2, 36], ls="--", lw=0.8, color="#888")
-    ax.set_xlim(-14, 60); ax.set_ylim(-4, 84)
+    ax.set_xlim(-14, 60); ax.set_ylim(-15, 90)
     ax.set_title("Plates to the floor (6 places)", fontsize=13)
 
     # C: expansion card screws, through the back plate (drawn turned up)
@@ -153,7 +158,7 @@ def draw_stacks(path):
     label(ax, 14, 16, "M3 x 6 button head screw (4),\none per card fitted")
     ax.plot([0, 0], [10, 50], ls="--", lw=0.8, color="#888")
     ax.text(0, 56, "(seen from above: the screw\npoints forward into the card)", ha="center", fontsize=10, color="#555")
-    ax.set_xlim(-14, 60); ax.set_ylim(-4, 84)
+    ax.set_xlim(-14, 60); ax.set_ylim(-15, 90)
     ax.set_title("Card screws (up to 4)", fontsize=13)
 
     for ax in axs:
