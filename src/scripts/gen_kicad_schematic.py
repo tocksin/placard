@@ -20,7 +20,7 @@ placard_cartridge_32k.pdf, set to open without the bookmarks panel.
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
 
-Date: 2026-10-29
+Date: 2026-10-30
 """
 import os
 import re
@@ -31,7 +31,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-10-29"
+DATE = "2026-10-30"
 # Board part numbers (Justin 2026-10-29): PLC-1xxx bare PCB, PLC-2xxx assembly; revision letters from A
 MAIN_PART = "PCB PLC-1001, assembly PLC-2001"
 CART_PART = {32: "PCB PLC-1002, assembly PLC-2002", 64: "PCB PLC-1003, assembly PLC-2003"}
@@ -98,7 +98,7 @@ MPN_LIB = {
 # Rubycon YXJ electrolytic for C41 and C44 (25 V, 6.3 x 11 mm, 2.5 mm pitch; Justin, 2026-10-28)
 R_CODE = {"5.1k": "5K1", "10k": "10K", "47": "47R", "3.3k": "3K3", "1.6k": "1K6", "820": "820R",
           "1.43k": "1K43", "715": "715R", "2.2": "2R2", "2k": "2K", "1k": "1K", "1.8k": "1K8",
-          "4.7k": "4K7", "910": "910R", "22k": "22K"}
+          "4.7k": "4K7", "910": "910R", "22k": "22K", "22": "22R"}
 MPN_PASSIVE = {
     ("placard_std:R_Network08_US", "10k"): ("Bourns", "4609X-101-103LF"),
     ("placard_std:C", "100n"): ("TDK", "FG28X7R1H104KNT00"),
@@ -373,27 +373,25 @@ def sheet_power(b):
     s.junction(tvs["1"][0], yr, owner="VFUSE")
     # reset (Justin, 2026-10-22): relay K1's NC contact carries the power; the small button SW2 drives
     # its coil from VON, so holding it opens the contact.  D8 takes the coil's kick when SW2 lets go.
-    # C41, the bulk cap, sits on VON ahead of the relay so the board side drains fast.
+    # (Justin, 2026-10-30) the board rail is on K1's COM and VON on its NC contact, so holding reset
+    # swings COM onto the NO contact, where R64 (22 ohm) empties +5V in a few ms however short the
+    # press; C41, the bulk cap, sits on +5V after K1 so it carries the board through the NC
+    # contact's bounce when reset lets go (and SW1's at power-on).
     # K1 is a CIT J1071CS5VDC.36 (Justin, 2026-10-25): same pins as the G5LE, so the G5LE symbol stays; footprint
     # placard:Relay_SPDT_CIT_J107 (gen_kicad_connectors.py) has the same pads under the smaller body.
     xk = 170.18
-    k1 = s.part("placard_std:G5LE-1", "K1", xk, yr - 2.54, {"1": "VON", "4": "+5V", "3": None, "2": "KCOIL", "5": "GND"},
-                value="J1071CS5VDC.36", footprint="placard:Relay_SPDT_CIT_J107", angle=270, bare=("1", "4", "2", "5"),
-                ref_at=(xk - 2.5, yr + 8.5), value_at=(xk - 2.5, yr + 11.0))
+    k1 = s.part("placard_std:G5LE-1", "K1", xk, yr + 2.54, {"1": "+5V", "4": "VON", "3": "KDISCH", "2": "KCOIL", "5": "GND"},
+                value="J1071CS5VDC.36", footprint="placard:Relay_SPDT_CIT_J107", angle=270, bare=("1", "4", "3", "2", "5"),
+                ref_at=(150.0, yr + 15.5), value_at=(150.0, yr + 18.0))
     xt = 152.4
-    sw2 = s.part("placard_std:SW_Push", "SW2", xt + 5.08, yr - 7.62, {"1": "VON", "2": "KCOIL"}, value="PTS645VL58-2 LFS",
+    sw2 = s.part("placard_std:SW_Push", "SW2", xt + 5.08, yr - 2.54, {"1": "VON", "2": "KCOIL"}, value="PTS645VL58-2 LFS",
                  footprint="placard:SW_Tactile_SPST_Angled_PTS645Vx58-2LFS", bare=("1", "2"),
-                 ref_at=(xt + 2.5, yr - 12.6), value_at=(xt - 8.0, yr - 26.5))
-    yd = yr - 17.78
+                 ref_at=(xt + 2.5, yr - 7.5), value_at=(xt - 8.0, yr - 21.4))
+    yd = yr - 12.7
     d8 = s.part("placard_std:D_Schottky", "D8", xk, yd, {"1": "KCOIL", "2": "GND"}, value="1N5817", footprint=FP_DS,
                  bare=("1", "2"), ref_at=(xk - 7.0, yd - 3.2), value_at=(xk + 1.0, yd - 3.2))
-    c201 = s.part("placard_std:C_Polarized", "C41", 142.24, yr + 3.81, {"1": "VON", "2": "GND"},
-                  value="220u", footprint=FP_CP_S, bare=("1",), ref_at=(144.7, yr + 3.3), value_at=(144.7, yr + 6.4))
-    xj = k1["1"][0] - 2.54
-    path(s, "VON", sw1["2"], (c201["1"][0], yr), (xt, yr), (xj, yr), (xj, k1["1"][1]), k1["1"])
-    s.junction(c201["1"][0], yr, owner="VON")
-    s.junction(xt, yr, owner="VON")
-    path(s, "VON", (xt, yr), (xt, sw2["1"][1]), sw2["1"])
+    path(s, "VON", sw1["2"], (xt, yr), (xt, sw2["1"][1]), sw2["1"])
+    tag(s, "VON", 137.16, yr)
     path(s, "KCOIL", sw2["2"], k1["2"])
     path(s, "KCOIL", k1["2"], (k1["2"][0], yd), d8["1"])
     s.junction(k1["2"][0], k1["2"][1], owner="KCOIL")
@@ -402,6 +400,22 @@ def sheet_power(b):
     path(s, "GND", (k1["5"][0], yd), (xg, yd), (xg, yd + 2.54))
     s.junction(k1["5"][0], yd, owner="GND")
     s.power("GND", xg, yd + 2.54)
+    # COM: the board rail; NC: VON (named, so it needs no wire round the relay)
+    xc = k1["1"][0] - 5.08
+    path(s, "+5V", k1["1"], (xc, k1["1"][1]))
+    s.power("+5V", xc, k1["1"][1], toward=(-1, 0))
+    xn = k1["4"][0] + 5.08
+    path(s, "VON", k1["4"], (xn, k1["4"][1]))
+    tag(s, "VON", xn, k1["4"][1])
+    # NO: R64 empties the board rail while reset is held (220u + C44 behind R22: about 5 ms)
+    yn = k1["3"][1]
+    r64 = res(s, "R64", k1["3"][0] + 6.35, yn, "KDISCH", "GND", "22", angle=90, bare=("1", "2"),
+              ref_at=(k1["3"][0] + 0.5, yn + 5.5), value_at=(k1["3"][0] + 0.5, yn + 8.0))
+    path(s, "KDISCH", k1["3"], r64["1"])
+    path(s, "GND", r64["2"], (r64["2"][0] + 2.54, yn), (r64["2"][0] + 2.54, yn + 2.54))
+    s.power("GND", r64["2"][0] + 2.54, yn + 2.54)
+    c201 = s.part("placard_std:C_Polarized", "C41", 198.12, yr + 3.81, {"1": "+5V", "2": "GND"},
+                  value="220u", footprint=FP_CP_S, bare=("1",), ref_at=(200.6, yr + 3.3), value_at=(200.6, yr + 6.4))
     for net, pin, x in (("CC2", "B5", 73.66), ("CC1", "A5", 88.9)):
         r = s.part("placard_std:R_US", "R1" if net == "CC1" else "R2", x, 104.14, R2(net, "GND"), value="5.1k",
                    footprint=FP_R, bare=("1",), ref_at=(x + 2.0, 103.6), value_at=(x + 2.0, 106.7))
@@ -409,12 +423,13 @@ def sheet_power(b):
     # 3.3 V regulator on the same line
     u40 = s.part("placard_parts:MCP1700_TO92", "U40", 233.68, yr, {"1": "GND", "2": "+5V", "3": "+3V3"},
                  value="MCP1700-3302E/TO", bare=("2", "3"), ref_at=(223.5, yr - 10.5), value_at=(223.5, yr - 9.0))
-    c40 = s.part("placard_std:C", "C40", 203.2, yr + 3.81, {"1": "+5V", "2": "GND"}, value="1u", footprint=FP_C,
-                 bare=("1",), ref_at=(205.7, yr + 3.3), value_at=(205.7, yr + 6.4))
+    c40 = s.part("placard_std:C", "C40", 210.82, yr + 3.81, {"1": "+5V", "2": "GND"}, value="1u", footprint=FP_C,
+                 bare=("1",), ref_at=(213.3, yr + 3.3), value_at=(213.3, yr + 6.4))
     xp, xf = 195.58, 187.96
-    for pts in ([k1["4"], (xf, yr)], [(xf, yr), (xp, yr)],
-                [(xp, yr), (c40["1"][0], yr)], [(c40["1"][0], yr), u40["2"]]):
+    for pts in ([(xf, yr), (xp, yr)], [(xp, yr), (c201["1"][0], yr)],
+                [(c201["1"][0], yr), (c40["1"][0], yr)], [(c40["1"][0], yr), u40["2"]]):
         path(s, "+5V", *pts)
+    s.junction(c201["1"][0], yr, owner="+5V")
     s.junction(c40["1"][0], yr, owner="+5V")
     s.pwr_flag(xf, yr)
     s.power("+5V", xp, yr)
@@ -432,7 +447,8 @@ def sheet_power(b):
                       "-7, worst case): use a 3 A supply; the polyfuse",
                       "trips on a short.  SW1 power: toggle, common +",
                       "one throw.  SW2 reset: holding it pulls in K1,",
-                      "whose NC contact opens the 5 V line."])
+                      "whose NC contact opens the 5 V line; NO drains",
+                      "+5V via R64.  C41 rides out the release bounce."])
     note(s, 200, 112, ["U40: 3.3 V for the SD card only (sheet 10).", "C40 input, C47 output (1 uF ceramic)."])
     # power LED (Justin, 2026-10-24): on +5V after K1's contact, so it goes dark while reset holds K1 in
     xl = 304.8
@@ -447,8 +463,8 @@ def sheet_power(b):
     note(s, 282, 124, ["D18 power LED (red, 5 mm) on +5V,", "after K1: dark while reset is held.", "R59 1k: about 3 mA."])
     # analog ground joins logic ground at the power input
     # (each side has its power flag on the pin end and its ground symbol below)
-    nt = s.part("placard_std:NetTie_2", "NT1", 165.1, 109.22, {"1": "GND", "2": "GNDA"}, value="AGND tie",
-                footprint="placard:NetTie-2_THT_Pad0.3mm", ref_at=(158, 102), value_at=(160.5, 112),
+    nt = s.part("placard_std:NetTie_2", "NT1", 165.1, 114.3, {"1": "GND", "2": "GNDA"}, value="AGND tie",
+                footprint="placard:NetTie-2_THT_Pad0.3mm", ref_at=(158, 107), value_at=(160.5, 117),
                 bare=("1", "2"), in_bom=False)
     for net in ("GND", "GNDA"):
         (px, py) = nt["1" if net == "GND" else "2"]
@@ -456,7 +472,7 @@ def sheet_power(b):
         path(s, net, (px, py), (xa, py), (xa, py + 5.08))
         s.pwr_flag(xa, py)
         s.power(net, xa, py + 5.08)
-    note(s, 152, 128, ["AGND (audio) meets GND", "here, at the power input"])
+    note(s, 152, 130, ["AGND (audio) meets GND", "here, at the power input"])
     # oscillator
     # X1 drives CLK_E, which reaches only the Sync PLD's pin 9 (the RAM /WE) and net tie NT2;
     # CLK, to every other chip, is the far side of NT2.  On the board NT2 goes at least 420 mm
