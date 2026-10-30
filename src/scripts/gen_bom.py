@@ -329,9 +329,9 @@ ACRYLIC_NOTE = "CASE.md \"Cost estimate\", 1 unit, laser-cut acrylic, not quoted
 CASE_LINES = [
     mech(1, "Tray: 2.0 mm 5052-H32, floor with the front and right walls (two bends), black powder coat, "
             "14 countersunk M3 holes", 50.00, CASE_NOTE, "case/tray.step"),
-    mech(1, "Back plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 PEM nuts", 23.00,
+    mech(1, "Back plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 plain M3 holes", 23.00,
          CASE_NOTE, "case/back_plate.step"),
-    mech(1, "Left plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 PEM nuts", 23.00,
+    mech(1, "Left plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 plain M3 holes", 23.00,
          CASE_NOTE, "case/left_plate.step"),
     mech(1, "Acrylic top: 4 mm clear cast acrylic, 295 x 220 mm, laser cut, 10 magnet holes", 30.00, ACRYLIC_NOTE,
          "case/acrylic_top.step"),
@@ -346,8 +346,9 @@ CASE_LINES = [
     mech(8, "M3 female-female hex standoff, 27 mm (board top to the acrylic, on the 6 mm standoffs' studs)", 0.80,
          "typical standoff price"),
     mech(8, "M3 x 8 button head screw, black or stainless (acrylic top)", 0.15, "typical screw price"),
-    mech(14, "M3 x 6 countersunk screw (up through the floor: 8 into the floor standoffs, 6 into the plates' "
-             "flanges)", 0.15, "typical screw price"),
+    mech(14, "M3 x 6 countersunk screw (up through the floor: 8 into the floor standoffs, 6 through the plates' "
+             "flanges into hex nuts)", 0.15, "typical screw price"),
+    mech(6, "M3 hex nut, ISO 4032 (on the plates' flanges)", 0.05, "typical nut price"),
     mech(4, "M3 x 6 button head screw, black (back plate into each expansion card's shell)", 0.15,
          "typical screw price"),
     mech(4, "Rubber foot, 16 mm across, 10 mm tall, adhesive (clears the parked covers)", 0.40, "typical price"),
