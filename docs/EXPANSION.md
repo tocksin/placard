@@ -87,6 +87,16 @@ The slot is the cartridge's connector (Justin, 2026-10-30): 64 contacts,
 with gold fingers and a bevelled edge.  Side A is the card's component
 side.  Contact 1 is at the end nearest the back edge of the main board.
 
+Odd contacts are the two outer rows of the socket's pins, even contacts
+the two inner rows.  For easier routing (Justin, 2026-10-30) the extra
+grounds are on inner contacts and the signals are on outer ones wherever
+the cartridge's pinout lets them be: 19 of the 38 signals are outer.  The
+cartridge puts its ground on contacts 1, 11, 21 and 31 and its +5 V on 2,
+so those stay where they are, and the signals that must match the cartridge
+(the address lines, CLK, PIXEL_ENABLE, BT1/STALL_IN, BT3/PC_ENABLE) keep
+its contacts, inner or outer.  The others went to the cartridge slot's
+spares, outer first.
+
 | # | Side A | Side B |
 |--:|---|---|
 | 1 | GND | GND |
@@ -98,35 +108,35 @@ side.  Contact 1 is at the end nearest the back edge of the main board.
 | 7 | PIXEL_ENABLE | A6 |
 | 8 | A8 | BT3 |
 | 9 | A9 | A5 |
-| 10 | RW | *open* |
+| 10 | SEL | *open* |
 | 11 | GND | GND |
 | | *key* | *key* |
-| 12 | SEL | BT1 |
-| 13 | A11 | BT2 |
-| 14 | A4 | BT4 |
-| 15 | A3 | BT5 |
-| 16 | /EXP | *open* |
-| 17 | A2 | BT6 |
-| 18 | A10 | BT7 |
-| 19 | A1 | BT8 |
+| 12 | GND | BT1 |
+| 13 | A11 | D1 |
+| 14 | A4 | BT2 |
+| 15 | A3 | D2 |
+| 16 | /EXP | RW |
+| 17 | A2 | D3 |
+| 18 | A10 | GND |
+| 19 | A1 | D4 |
 | 20 | LOAD_IMM | /RESET |
 | 21 | GND | GND |
 | 22 | A0 | *open* |
-| 23 | /WE | D0 |
-| 24 | *open* | D1 |
-| 25 | *open* | D2 |
-| 26 | /HSYNC | D3 |
+| 23 | D0 | D5 |
+| 24 | *open* | /WE |
+| 25 | *open* | D6 |
+| 26 | /HSYNC | GND |
 | 27 | *open* | *open* |
-| 28 | /VSYNC | D4 |
-| 29 | *open* | D5 |
-| 30 | *open* | D6 |
+| 28 | /VSYNC | BT5 |
+| 29 | *open* | D7 |
+| 30 | *open* | GND |
 | 31 | GND | GND |
-| 32 | *open* | D7 |
+| 32 | *open* | GND |
 
 | Signal | Direction | Meaning |
 |---|---|---|
 | D7:D0 | card drives on its reads | The CPU's read bus (into the D register) |
-| BT1-BT8 | | Boot contacts.  Slot 1: BT1 STALL_IN, BT2 STALL_OUT, BT3 PC_ENABLE, BT5 /CART, BT4 and BT6-BT8 reserved ("Booting from slot 1").  Slots 2-4: not connected.  An ordinary card leaves all eight unconnected |
+| BT1-BT3, BT5 | | Boot contacts.  Slot 1: BT1 STALL_IN, BT2 STALL_OUT, BT3 PC_ENABLE, BT5 /CART ("Booting from slot 1").  Slots 2-4: not connected.  An ordinary card leaves all four unconnected.  BT4 and BT6-BT8 (reserved) were dropped 2026-10-30 to make room for the inner grounds |
 | A15:A0 | to card | The address bus |
 | PIXEL_ENABLE | to card | The video read: high for the one clock in which the video circuit reads a byte (Sync PLD pin 19) |
 | /HSYNC, /VSYNC | to card | The sync outputs of the H counter and Sync PLDs, before the 47-ohm VGA resistors R61/R62 |
@@ -137,7 +147,7 @@ side.  Contact 1 is at the end nearest the back edge of the main board.
 | /WE | to card | The write pulse, low in the low half of a write clock (about 20 ns).  10k pull-up: the Sync PLD (which makes it since 2026-10-27; the memory control PLD before) lets go of it while RUN is low, and a boot card in slot 1 drives it then |
 | CLK | to card | The 25.175 MHz CPU clock |
 | /RESET | to card | RUN from the ROM cartridge: low from power-up until the cartridge has loaded the ROM and lets the CPU run (ROM.md, "Loading the cartridge").  With no cartridge, a boot card in slot 1 drives it |
-| +5 V, GND | | 2 power (1.1 A each) and 8 ground contacts, on the same contacts as the cartridge |
+| +5 V, GND | | 2 power (1.1 A each) and 13 ground contacts: the cartridge's 2 and 8, plus 5 inner grounds (A12, B18, B26, B30, B32) on contacts that are spares in the cartridge slot |
 | *open* | | Not connected on the main board; a card leaves them unconnected too |
 
 **A cartridge in an expansion slot, or a card in the cartridge slot, does
@@ -148,11 +158,13 @@ the other's slot.  So:
 - Every contact a cartridge drives (its D7:D0 at A24, A25, A27, A29, A30,
   A32, B22 and B27, STALL_OUT B5, RUN B6, and /CART B10, grounded on the
   cartridge) is *open* in an expansion slot, so it drives nothing.  The
-  cartridge's inputs only see expansion signals.  B16 (the cartridge's
-  /CE_HI) is open too.
+  cartridge's inputs only see expansion signals (B16, the cartridge's
+  /CE_HI, carries RW, so a cartridge's chips may turn on, but their
+  outputs reach only open contacts).
 - Everything an expansion card drives (D7:D0, and a boot card's STALL_OUT,
   /RESET and /WE) is on a contact that is a spare in the cartridge slot,
-  so in J8 it drives nothing either.
+  so in J8 it drives nothing either.  The 5 extra grounds are on spares
+  too.
 - The address lines, CLK and PIXEL_ENABLE are on the same contacts as on
   the cartridge.
 
@@ -263,13 +275,14 @@ The load takes about 33 ms, as the cartridge's does.
 | Contact | Signal | Direction | Notes |
 |---|---|---|---|
 | B12 (BT1) | STALL_IN | to card | the Branch PLD's STALL (pin 19), as on cartridge B12 |
-| B13 (BT2) | STALL_OUT | from card | to the State PLD and PC PLDs, joined to cartridge B5 (10k pull-up) |
+| B14 (BT2) | STALL_OUT | from card | to the State PLD and PC PLDs, joined to cartridge B5 (10k pull-up) |
 | B8 (BT3) | PC_ENABLE | to card | State PLD pin 15, as on cartridge B8 |
-| B14 (BT4) | reserved | | was PIXEL_ENABLE; every slot has it on A7 since 2026-10-30 |
-| B15 (BT5) | /CART | to card | cartridge B10: low when a cartridge is fitted (10k pull-up) |
-| B17-B19 (BT6-BT8) | reserved | | not connected |
+| B28 (BT5) | /CART | to card | cartridge B10: low when a cartridge is fitted (10k pull-up) |
 
-Slot 1 also uses /RESET (RUN, B20) and /WE (A23) as outputs while it boots.
+BT4 (was PIXEL_ENABLE, on every slot's A7 since 2026-10-30) and BT6-BT8
+(reserved) were dropped when the pinout was reassigned on 2026-10-30.
+
+Slot 1 also uses /RESET (RUN, B20) and /WE (B24) as outputs while it boots.
 
 **A cartridge always wins.**  The card drives STALL_OUT, RUN and /WE (and
 its EEPROM onto D7:D0) only while /CART is high.  So:
