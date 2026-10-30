@@ -17,7 +17,7 @@ by construction.
 | Model | Part | Source |
 |---|---|---|
 | Molex_87715-9106_PCIe_x4_Vertical | cartridge slot J8 | generated: 39 x 7.5 x 11.25 mm body (PCIe x4 vertical), key after contact 11 |
-| CardEdge_2x25_P2.54mm_Vertical | expansion slots J9-J12 (Sullins EBC25DRXH) | generated from drawing C10881: 0.1" card edge, body 70.49 x 8.38 x 10.95 mm, ears 6.22 mm tall to 85.73 mm, 3.18 mm holes 78.11 apart |
+| Molex_87715-9106_Expansion_Slot | expansion slots J9-J12 | generated: the J8 model, shifted with the footprint |
 | PS2_Kycon_KMDGX-6S-6S-S4N | stacked PS/2 J5 | generated: 14 x 13.5 x 25 mm shield, mouse (green) top, keyboard (purple) bottom |
 | Jack_3.5mm_Tensility_54-00174_Horizontal | audio line out J6 | generated: 6.6 x 12.3 x 5 mm body, 5 mm barrel 2.5 mm past the face |
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | generated: bracket, body, 1/4-40 bushing and lever |
@@ -57,7 +57,6 @@ TIN = (0.85, 0.85, 0.85)
 GOLD = (0.86, 0.70, 0.30)
 GREEN = (0.25, 0.62, 0.30)
 PURPLE = (0.50, 0.32, 0.72)
-BLUE = (0.20, 0.38, 0.72)
 PTC = (0.92, 0.76, 0.22)
 
 PIN_DOWN = 3.0               # leads stand 3 mm out of the board's back (1.6 mm board + 1.4)
@@ -134,37 +133,23 @@ def save(name, parts):
 
 # --------------------------------------------------------------- the parts
 
-def cart_slot():
+def cart_slot(name="Molex_87715-9106_PCIe_x4_Vertical", x0=0.0):
     # Molex 87715-9106: PCIe x4 vertical, 39 x 7.5 mm body, 11.25 mm high; contacts 1.0 mm,
-    # key between contacts 11 and 12 (x 10..12); the card slot is 1.8 mm wide
-    name = "Molex_87715-9106_PCIe_x4_Vertical"
-    body = box(-2.75, -3.75, 35.75, 3.75, 0, 11.25)
-    body = body.cut(box(-0.7, -0.9, 10.6, 0.9, 2.0, 11.3)).cut(box(12.4, -0.9, 33.7, 0.9, 2.0, 11.3))
+    # key between contacts 11 and 12 (x 10..12); the card slot is 1.8 mm wide.
+    # x0: contact 1 from the footprint origin (the expansion slots' footprint is offset)
+    body = box(x0 - 2.75, -3.75, x0 + 35.75, 3.75, 0, 11.25)
+    body = body.cut(box(x0 - 0.7, -0.9, x0 + 10.6, 0.9, 2.0, 11.3)).cut(box(x0 + 12.4, -0.9, x0 + 33.7, 0.9, 2.0, 11.3))
     contacts = []
     for n in range(1, 33):
-        x = n - 1 if n <= 11 else n + 1
+        x = x0 + (n - 1 if n <= 11 else n + 1)
         contacts += [box(x - 0.25, -0.95, x + 0.25, -0.8, 4.0, 9.0), box(x - 0.25, 0.8, x + 0.25, 0.95, 4.0, 9.0)]
     save(name, [("housing", BLACK, [body] + pegs(name)), ("contacts", GOLD, contacts + pins(name, 1.0))])
 
 
 def exp_slot():
-    # Sullins EBC25DRXH (drawing C10881 rev P): 2 x 25 card edge, 0.1" contacts, rows 0.2" apart,
-    # body C 70.49 x F 8.38 x 10.95 mm, card slot B 66.04 x 1.90 mm, 6.73 mm deep, ears 6.22 mm
-    # tall out to E 85.73 mm with 3.18 mm holes D 78.11 mm apart, blue PBT
-    from gen_kicad_connectors import EXP_N, EXP_BODY, EXP_LEN, EXP_HOLES, EXP_DEPTH
-    name = "CardEdge_2x25_P2.54mm_Vertical"
-    c = (EXP_N - 1) * 2.54 / 2
-    hd = EXP_DEPTH / 2
-    body = box(c - EXP_BODY / 2, -hd, c + EXP_BODY / 2, hd, 0, 10.95)
-    body = body.cut(box(c - 33.02, -0.95, c + 33.02, 0.95, 10.95 - 6.73, 11.0))
-    for s in (-1, 1):
-        ear = box(min(c + s * EXP_BODY / 2, c + s * EXP_LEN / 2), -hd, max(c + s * EXP_BODY / 2, c + s * EXP_LEN / 2), hd, 0, 6.22)
-        body = body.union(ear).cut(cyl_z(c + s * EXP_HOLES / 2, 0, 3.18, -1, 7))
-    contacts = []
-    for n in range(EXP_N):
-        x = n * 2.54
-        contacts += [box(x - 0.4, -0.95, x + 0.4, -0.8, 4.5, 10.0), box(x - 0.4, 0.8, x + 0.4, 0.95, 4.5, 10.0)]
-    save(name, [("housing", BLUE, [body]), ("contacts", GOLD, contacts + pins(name, 1.0))])
+    # the expansion slots J9-J12 use the cartridge's connector (2026-10-30), offset like their footprint
+    from gen_kicad_connectors import EXP_OFS
+    cart_slot("Molex_87715-9106_Expansion_Slot", EXP_OFS)
 
 
 def ps2_stacked():
