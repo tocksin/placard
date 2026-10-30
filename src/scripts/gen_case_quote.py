@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
 gen_case_quote.py - the quote package for the PLACARD case's metal and acrylic
-parts, for sheet metal services (SendCutSend, PCBWay sheet metal, Xometry,
+parts (the covers are 3D printed, not quoted here), for sheet metal services (SendCutSend, PCBWay sheet metal, Xometry,
 Protocase) and laser cutters.  From gen_case.py's parts it writes case/quote/:
 
 - step/      the tray and both plates as bent parts with real bends (inside
              radius BEND_R, corner and end reliefs), flat parts as cut;
 - dxf/       flat patterns of the bent parts (layer CUT = outline and holes,
-             layer BEND = bend lines, K = K_FACTOR), and the acrylic parts;
+             layer BEND = bend lines, K = K_FACTOR), and the acrylic top;
 - pdf/       one drawing per part: flat pattern with sizes, bends, holes and
              hardware, material, finish and tolerances;
 - PARTS.csv and README.md.
@@ -92,8 +92,8 @@ def tray_parts(parts, cuts):
                               .circle(0.0001).loft().translate((0, 0, Zf)))
         for x, y, l in g.vents(parts):
             sol = sol.cut(cq.Workplane("XY").center(x, y).slot2D(l, 5).extrude(10).translate((0, 0, Zf - 1)))
-        for x, y in g.slot_magnets(parts):
-            sol = sol.cut(g.hole(x, y, g.DISC_D, Zf - 1, T + 2))
+        for x0, x1, y0, y1 in g.floor_slots(parts):
+            sol = sol.cut(g.box(x0, x1, y0, y1, Zf - 1, Zf + T + 1))
         for x, y in g.plate_screws():
             sol = sol.cut(g.hole(x, y, 3.4, Zf - 1))
             if i:   # the bent model only: the flat pattern shows the 3.4 mm through hole
@@ -219,9 +219,9 @@ HARDWARE = {
     "tray": ["No PEM hardware in the tray.",
              "14 x 3.4 mm holes with a 90 deg countersink, 6.5 mm on the underside (M3 flat head screws: "
              "8 at the board holes H1-H8 into the floor standoffs, 6 through the plates' flanges into nuts)",
-             "10 x 6.0 mm holes for the steel parking discs (the builder presses them in; no hardware)"],
+             "10 small slots, 6.4 wide, for the printed covers' tabs (parking under the case)"],
     "back_plate": ["No PEM hardware.", "3 x 3.4 mm plain holes in the flange (M3 screws, loose nuts "
-                   "fitted by the builder)"],
+                   "fitted by the builder)", "8 x 3.4 mm holes in the wall: 4 card screws, 4 cover parking holes"],
     "left_plate": ["No PEM hardware.", "3 x 3.4 mm plain holes in the flange (M3 screws, loose nuts "
                    "fitted by the builder)"],
 }
@@ -230,9 +230,7 @@ PROCESS = {"tray": "laser cut, bend (press brake), countersink, powder coat",
            "left_plate": "laser cut, bend (press brake), powder coat"}
 TITLES = {"tray": "Tray: floor, front and right walls (2 bends)",
           "back_plate": "Back plate (1 bend)", "left_plate": "Left plate (1 bend)",
-          "acrylic_top": "Top, 4 mm clear acrylic", "slot_cover_plug": "Slot cover plug, 4 mm clear acrylic",
-          "slot_cover_cap": "Slot cover cap, 3 mm clear acrylic", "cart_cover_plug": "Cartridge cover plug, 4 mm "
-          "clear acrylic", "cart_cover_cap": "Cartridge cover cap, 3 mm clear acrylic"}
+          "acrylic_top": "Top, 4 mm clear acrylic"}
 
 
 def draw_pdf(name, flat, t, lines, path, material, finish, qty, extra, process, tols, bend_note=None):
@@ -280,7 +278,7 @@ def draw_pdf(name, flat, t, lines, path, material, finish, qty, extra, process, 
     plt.close(fig)
 
 
-def build(pcb, out, zip_path):
+def build(pcb, out, zip_path, mesh=None):
     parts = g.read_board(pcb)
     cuts = g.wall_cutouts(parts)
     if os.path.isdir(out):
@@ -297,6 +295,8 @@ def build(pcb, out, zip_path):
     qty_metal = "1 per case (quote 1, 10 and 100)"
     for name, (bent, flat, lines) in metal.items():
         cq.exporters.export(bent, os.path.join(out, "step", name + ".step"))
+        if mesh:        # for render_case.html's V.bent views
+            cq.exporters.export(bent, os.path.join(mesh, name + "_bent.stl"), tolerance=0.05, angularTolerance=0.2)
         export_dxf(flat, T, lines, os.path.join(out, "dxf", name + "_flat.dxf"), [])
         draw_pdf(name, flat, T, lines, os.path.join(out, "pdf", name + ".pdf"), MATERIAL, FINISH, qty_metal,
                  HARDWARE[name], PROCESS[name], TOLS,
@@ -309,19 +309,11 @@ def build(pcb, out, zip_path):
                          size_mm="bent %.1f x %.1f x %.1f; flat %.1f x %.1f" % (b.xlen, b.ylen, b.zlen, f.xlen, f.ylen),
                          files="step/%s.step, dxf/%s_flat.dxf, pdf/%s.pdf" % (name, name, name)))
     # acrylic
-    acr_tols = ["Laser cut +/-0.15 mm, holes +0.1/-0 mm (magnet holes 6.1 mm: a 6 mm magnet is a slip fit)",
-                "Unless shown: ISO 2768-m"]
+    acr_tols = ["Laser cut +/-0.15 mm, holes +0.1/-0 mm; the 14 small 6.4 x 2.2 mm slots +0.1/-0 "
+                "(the printed covers' tabs click through them)", "Unless shown: ISO 2768-m"]
     top = g.acrylic_top(parts)
-    sc = g.slot_covers(parts)[0]
-    cc = g.cart_cover(parts)
-    zt, A, C = g.Z_TOP, g.ACRYLIC, g.CAP
-    acr = {"acrylic_top": (flat_cut(top, zt, A), A, 1, "4 mm"),
-           "slot_cover_plug": (flat_cut(sc.intersect(box(-1, 400, -1, 400, zt - 1, zt + A)), zt, A), A, 4, "4 mm"),
-           "slot_cover_cap": (flat_cut(sc.intersect(box(-1, 400, -1, 400, zt + A, zt + A + C + 1)), zt + A, C),
-                              C, 4, "3 mm"),
-           "cart_cover_plug": (flat_cut(cc.intersect(box(-1, 400, -1, 400, zt - 1, zt + A)), zt, A), A, 1, "4 mm"),
-           "cart_cover_cap": (flat_cut(cc.intersect(box(-1, 400, -1, 400, zt + A, zt + A + C + 1)), zt + A, C),
-                              C, 1, "3 mm")}
+    zt, A = g.Z_TOP, g.ACRYLIC
+    acr = {"acrylic_top": (flat_cut(top, zt, A), A, 1, "4 mm")}
     for name, (flat, t, q, th) in acr.items():
         mat = "Clear cast acrylic (PMMA), %s, protective film both sides" % th
         cq.exporters.export(flat, os.path.join(out, "step", name + ".step"))
@@ -351,7 +343,7 @@ def build(pcb, out, zip_path):
 def readme(rows):
     lines = ["# PLACARD case: quote package", "", "Date: %s  " % DATE, "Revision: %s" % REV, "",
              "Everything a sheet metal service or a laser cutter needs to quote the PLACARD computer case:",
-             "three bent aluminium parts and the clear acrylic top and covers. Quote quantities 1, 10 and "
+             "three bent aluminium parts and the clear acrylic top. Quote quantities 1, 10 and "
              "100 sets.", "", "## Parts", "",
              "| Part | Qty per case | Material | Finish | Process | Size (mm) |", "|---|--:|---|---|---|---|"]
     for r in rows:
@@ -360,7 +352,7 @@ def readme(rows):
     lines += ["", "PARTS.csv has the same list with the hardware and the files for each part.", "",
               "## Files", "",
               "- `step/`: 3D models. The tray and plates are bent, with %.1f mm inside bend radius and "
-              "corner and end reliefs. The acrylic parts are flat." % R,
+              "corner and end reliefs. The acrylic top is flat." % R,
               "- `dxf/`: cutting files in mm. `*_flat.dxf` are the flat patterns of the bent parts: layer "
               "CUT is the outline and holes, and layer BEND is the bend lines, at the middle of each bend. "
               "All bends go up 90 degrees toward the viewer, with the inside face up.",
@@ -383,15 +375,14 @@ def readme(rows):
               "- Suggested services:",
               "  - SendCutSend: upload the STEP for bent parts, or the flat DXF for the cut alone.",
               "  - PCBWay sheet metal, Xometry and Protocase: STEP plus the PDF.", "",
-              "## Acrylic (top and covers)", "",
-              "- Clear cast acrylic, 4 mm (the top and the cover plugs) and 3 mm (the cover caps), laser cut "
-              "from the DXF.",
-              "- The 6.1 mm holes take 6 x 3 mm magnets, which we glue in ourselves.",
-              "- Per case: 1 top, 4 slot cover plugs and 4 caps, 1 cartridge cover plug and 1 cap.", "",
+              "## Acrylic (top)", "",
+              "- Clear cast acrylic, 4 mm, laser cut from the DXF. One per case.",
+              "- The 14 small slots (6.4 x 2.2 mm) take the covers' snap tabs, so keep them to size.", "",
               "## Not in this package", "",
-              "- Fasteners, standoffs, magnets, steel discs and feet. We supply those; see "
-              "docs/BOM_CASE.md in the PLACARD repository.",
-              "- The magnet gluing jig, which is tooling made once, is in case/dxf/magnet_jig_*.", "",
+              "- The slot and cartridge covers, which are 3D printed (case/slot_cover.stl, "
+              "case/cart_cover.stl).",
+              "- Fasteners, standoffs and feet. We supply those; see docs/BOM_CASE.md in the PLACARD "
+              "repository.", "",
               "Made by `src/scripts/gen_case_quote.py` from the board file. Rerun it after the board or the "
               "case changes.", ""]
     return "\n".join(lines)
@@ -402,6 +393,7 @@ if __name__ == "__main__":
     ap.add_argument("--pcb", default=os.path.join(g.REPO, "kicad", "placard.kicad_pcb"))
     ap.add_argument("--out", default=os.path.join(g.REPO, "case", "quote"))
     ap.add_argument("--zip", default=os.path.join(g.REPO, "case", "quote.zip"))
+    ap.add_argument("--mesh", help="also write the bent parts as STL here (src/scripts/case_render/mesh)")
     a = ap.parse_args()
-    for r in build(a.pcb, a.out, a.zip):
+    for r in build(a.pcb, a.out, a.zip, a.mesh):
         print("%-16s %s" % (r["part"], r["size_mm"]))
