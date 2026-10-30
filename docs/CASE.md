@@ -88,6 +88,16 @@ program unfolds from the STEP.
 
 ## How it goes together
 
+![Exploded view with all the case hardware](case_exploded_hardware.png)
+
+![Exploded view from the back: card screws, plate screws, feet](case_exploded_hardware_rear.png)
+
+![Each fastener stack, exploded along its axis](case_hardware_stacks.png)
+
+The hardware meshes and the stack drawing come from
+`src/scripts/case_render/gen_case_hardware.py` (run after `gen_case.py --mesh`;
+views `exploded_hw` and `exploded_hw_rear`).
+
 1. The sheet metal service powder coats the tray and plates, masking the PEM
    threads, and presses in the floor standoffs and, if asked, the steel discs.
 2. Lower the board straight down into the tray. The SNES ports only touch
