@@ -1,6 +1,6 @@
 # Schematic rules
 
-Date: 2026-10-27
+Date: 2026-10-30
 
 The KiCad schematic (`kicad/`) is drawn by
 `src/scripts/gen_kicad_schematic.py` (with `kicad_sch_lib.py` and the router
@@ -18,7 +18,7 @@ KiCad project has one PCB).  All three share the libraries in `kicad/lib/`.
 | Sheet | File | Title | What goes on it |
 |--:|---|---|---|
 | 1 | `placard.kicad_sch` | Root: block diagram | sheet boxes only, laid out like `reference/placard_block_diagram.png` |
-| 2 | `power.kicad_sch` | Power and clock | U40 regulator, oscillator X1, USB-C input, F1, D7, SW1, K1/SW2/D8, C41, STALL_OUT pull-up, RUN pull-down, JP1/JP2, power LED |
+| 2 | `power.kicad_sch` | Power and clock | U40 regulator, oscillator X1, USB-C input, F1, D7, SW1, K1/SW2/D8/R64, C41, STALL_OUT pull-up, RUN pull-down, JP1/JP2, power LED |
 | 3 | `control.kicad_sch` | Control | U1 State, U2 Branch, U17 instruction register |
 | 4 | `pc_mux.kicad_sch` | Program counter and address mux | U3, U4 PC, U7-U10 address mux |
 | 5 | `alu_regs.kicad_sch` | ALU and registers | U5, U6 ALU, U19 AC, U20 X, U21 Y |
@@ -172,9 +172,11 @@ Choices made while drawing that a revision should not undo by accident:
 - Polyfuse F1 holds 3 A (Bourns MF-R300 size); the PLDs can draw about
   2.5 A.  SW1 and K1's contact carry the whole board's current, so each is
   rated 5 A DC or more.
-- C41 (bulk) sits on VON ahead of K1, so pressing reset leaves only the
-  board-side decouplers to drain.  The power LED hangs from +5V after K1,
-  so it goes dark while reset is held.
+- K1's COM contact carries +5V and its NC contact VON (Justin,
+  2026-10-30): holding reset swings COM onto the NO contact, where R64
+  (22 ohm) drains the board rail in a few ms.  C41 (bulk) sits on +5V after
+  K1 so it rides out the NC contact's bounce on release.  The power LED
+  hangs from +5V after K1, so it goes dark while reset is held.
 - D7, the TVS on VBUS, sits after F1 so a lasting overvoltage trips the
   fuse.  No snubbers across SW1 or K1 (a 5 V contact cannot hold an arc).
 - **No ESD clamps on the external connectors** (Justin, 2026-10-23).

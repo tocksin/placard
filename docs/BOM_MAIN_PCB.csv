@@ -40,6 +40,7 @@ Qty,References,Part number,Manufacturer,Description,Value,Unit price USD,Line to
 3,R49 R50 R55,MFR-25FBF52-4K7,Yageo,"Resistor, metal film 1%, 1/4 W, axial",4.7k,0.10,0.30,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
 3,R56 R57 R58,MFR-25FBF52-910R,Yageo,"Resistor, metal film 1%, 1/4 W, axial",910,0.10,0.30,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
 1,R60,MFR-25FBF52-22K,Yageo,"Resistor, metal film 1%, 1/4 W, axial",22k,0.10,0.10,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
+1,R64,MFR-25FBF52-22R,Yageo,"Resistor, metal film 1%, 1/4 W, axial",22,0.10,0.10,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
 1,RN1,4609X-101-103LF,Bourns,"Resistor network, 8 bussed, SIP-9",10k,0.39,0.39,Mouser: Bourns 4609X-101-103LF,,placard:R_Array_SIP9,yes
 34,C1 C2 C3 C4 C5 C6 C7 C8 C9 C10 C11 C12 C13 C14 C15 C16 C17 C18 C19 C20 C21 C22 C23 C25 C26 C27 C29 C31 C32 C35 C36 C38 C42 C43,FG28X7R1H104KNT00,TDK,"Ceramic capacitor, 5 mm pitch",100n,0.10,3.40,Mouser: TDK FG28X7R1H104KNT00 (KEMET C320C104K5R5TA is $0.66 at Mouser),,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
 2,C40 C47,C330C105K5R5TA,KEMET,"Ceramic capacitor, 5 mm pitch",1u,0.57,1.14,Mouser: KEMET C330C105K5R5TA,,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
