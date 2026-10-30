@@ -61,7 +61,11 @@ Z_FLOOR = -PCB_T - STANDOFF - T     # underside of the floor (z = 0 is the main 
 Z_TOP = 27.0           # top of the walls = underside of the acrylic top (stacked PS/2 J5 is 25 mm tall)
 ACRYLIC = 4.0          # top
 CAP = 3.0              # cover caps
-PLATE_FLANGE = 6.0     # the plates' bottom flanges, lying on the floor
+PLATE_FLANGE = 14.0    # the plates' bottom flanges, lying on the floor (inside face to free edge)
+BEND_R = 2.0           # inside bend radius of every bend (1T, 5052-H32)
+PLATE_SCREW_IN = 9.0   # plate screw / PEM nut centre from the plate's inside face (4.8 mm edge distance, clear of the bend)
+NOTCH_ROOT = BEND_R + 0.2   # flange notches round the floor standoffs stop this far from the plate's inside face (bend tangent)
+NOTCH_R = 3.5          # their half width: a PEM SO-M3 body (5.4 mm) + 0.8 mm
 
 # parking under the floor: a parked cover hangs ACRYLIC + CAP below the floor
 PARK_CLEAR = 3.0       # parked cover's plug to the desk
@@ -326,9 +330,9 @@ def vent_cutter(side, u):
 
 
 def tray(parts, cuts):
-    """Floor with the front and right walls bent up to Z_TOP.  The floor stops at
-    the plates' inside faces (x = T, y = D - T); the plates' flanges lie on it."""
-    s = rounded_plate(T, W, 0, D - T, Z_FLOOR, T)
+    """Floor with the front and right walls bent up to Z_TOP.  The floor runs to
+    the case's outside edges; the plates stand on it and their flanges lie on it."""
+    s = rounded_plate(0, W, 0, D, Z_FLOOR, T)
     s = s.union(rounded_plate(0, W, 0, T, Z_FLOOR, Z_TOP - Z_FLOOR))          # front wall
     s = s.union(rounded_plate(W - T, W, 0, D, Z_FLOOR, Z_TOP - Z_FLOOR))      # right wall
     s = s.edges("|Z").edges(">X and <Y").fillet(3.0)
@@ -355,9 +359,9 @@ def plate_screws():
     """(x, y) of the M3 countersunk screws up through the floor into PEM nuts in
     the plates' flanges: three along the back, clear of the parked slot covers
     (x 38-145) and J7's notch, and three along the left, clear of the standoffs."""
-    yb = D - T - PLATE_FLANGE / 2
-    xl = T + PLATE_FLANGE / 2
-    return ([(x, yb) for x in (20.0, 160.0, W - 20.0)] +
+    yb = D - T - PLATE_SCREW_IN
+    xl = T + PLATE_SCREW_IN
+    return ([(x, yb) for x in (25.0, 160.0, W - 20.0)] +
             [(xl, y) for y in (40.0, 75.0, D - 40.0)])         # clear of H7 at mid-depth
 
 
@@ -387,17 +391,27 @@ def flange_notches(parts):
 
 
 def plate(parts, cuts, side):
-    """The back or left plate: a wall from the floor's underside to Z_TOP with a
+    """The back or left plate: a wall standing on the floor up to Z_TOP with a
     flange bent in along the bottom, lying on the floor (screwed from below).
     The back plate fits between the left plate and the right wall; the left
-    plate runs from behind the front wall to the back corner."""
-    z0 = Z_FLOOR
+    plate runs from behind the front wall to the back corner.  The flange has
+    open notches round the floor standoffs, so it slides in past them."""
+    z0 = Z_FLOOR + T
     if side == "back":
         s = rounded_plate(T, W - T, D - T, D, z0, Z_TOP - z0)
-        s = s.union(rounded_plate(T, W - T, D - T - PLATE_FLANGE, D - T, z0 + T, T))
+        s = s.union(rounded_plate(T, W - T, D - T - PLATE_FLANGE, D - T, z0, T))
     else:
         s = rounded_plate(0, T, T, D, z0, Z_TOP - z0)
-        s = s.union(rounded_plate(T, T + PLATE_FLANGE, T, D - T - PLATE_FLANGE, z0 + T, T))
+        s = s.union(rounded_plate(T, T + PLATE_FLANGE, T, D - T - NOTCH_ROOT, z0, T))
+    if side == "back":
+        # the left plate's flange runs to the back corner, so the back flange is notched there
+        s = s.cut(rounded_plate(T - 0.01, T + PLATE_FLANGE + 0.5, D - T - PLATE_FLANGE - 1, D - T - NOTCH_ROOT,
+                                z0 - 0.01, T + 0.02))
+    for x, y in board_hole_xys(parts):
+        if side == "back" and y > D - T - PLATE_FLANGE - NOTCH_R:
+            s = s.cut(rounded_plate(x - NOTCH_R, x + NOTCH_R, y - 30, D - T - NOTCH_ROOT, z0 - 0.01, T + 0.02))
+        if side == "left" and x < T + PLATE_FLANGE + NOTCH_R:
+            s = s.cut(rounded_plate(T + NOTCH_ROOT, x + 30, y - NOTCH_R, y + NOTCH_R, z0 - 0.01, T + 0.02))
     for ref, sd, u, z, prof, note in cuts:
         if sd == side:
             s = s.cut(cutter(sd, u, z, prof))
@@ -405,13 +419,23 @@ def plate(parts, cuts, side):
         for u in side_vents(cuts, "left"):
             s = s.cut(vent_cutter("left", u))
     for x0, x1, y0, y1 in flange_notches(parts):
-        s = s.cut(rounded_plate(x0, x1, y0, y1, z0 + T - 0.01, T + 0.02))
+        # flange only: a notch stops short of the bend
+        if side == "back":
+            y1 = min(y1, D - T - NOTCH_ROOT)
+        else:
+            x0 = max(x0, T + NOTCH_ROOT)
+        if x0 < x1 and y0 < y1:
+            s = s.cut(rounded_plate(x0, x1, y0, y1, z0 - 0.01, T + 0.02))
     for x, y in plate_screws():
-        s = s.cut(hole(x, y, 2.5, z0))
+        s = s.cut(hole(x, y, 2.5, z0 - 1))
     if side == "back":
         for x, z in card_screws(parts):
             s = s.cut(cq.Workplane("XZ").center(x, z).circle(1.7).extrude(-10).translate((0, D - T - 1, 0)))
     return s
+
+
+def board_hole_xys(parts):
+    return [hole_xy(parts, ref) for ref in board_holes(parts)]
 
 
 def parking_discs(parts):
@@ -689,7 +713,8 @@ def draw_walls(info, path):
         s = -1 if flip else 1
         tray = side in ("front", "right")
         ax.add_patch(Rectangle((min(0, s * L), zf), L, zt - zf, fc=ALU_C, ec="#444", lw=1))
-        ax.add_patch(Rectangle((min(s * p0, s * p1), zf), p1 - p0, zt - zf, fc=ALU_C if tray else PLATE_C,
+        pz = zf if tray else zf + T       # the plates stand on the floor
+        ax.add_patch(Rectangle((min(s * p0, s * p1), pz), p1 - p0, zt - pz, fc=ALU_C if tray else PLATE_C,
                                ec="#222", lw=1))
         ax.add_patch(Rectangle((min(0, s * L), zt), L, ACRYLIC, fc=ACR_C, ec="#2b7bb9", lw=0.8))
         for u in (FOOT_IN, L - FOOT_IN):
@@ -730,9 +755,9 @@ def draw_walls(info, path):
     ax = axs[4]
     ax.plot([-10, Dd + 10], [desk, desk], color="#8a6d1f", lw=1.2)
     ax.text(Dd + 8, desk - 1, "desk", ha="right", va="top", fontsize=8, color="#8a6d1f")
-    ax.add_patch(Rectangle((0, zf), Dd - T, T, fc=ALU_C, ec="#444"))
+    ax.add_patch(Rectangle((0, zf), Dd, T, fc=ALU_C, ec="#444"))
     ax.add_patch(Rectangle((0, zf), T, zt - zf, fc=ALU_C, ec="#444"))
-    ax.add_patch(Rectangle((Dd - T, zf), T, zt - zf, fc=PLATE_C, ec="#222"))
+    ax.add_patch(Rectangle((Dd - T, zf + T), T, zt - zf - T, fc=PLATE_C, ec="#222"))
     ax.add_patch(Rectangle((Dd - T - PLATE_FLANGE, zf + T), PLATE_FLANGE, T, fc=PLATE_C, ec="#222"))
     bay = info["bay"]
     ax.add_patch(Rectangle((0, zt), bay[2], ACRYLIC, fc=ACR_C, ec="#2b7bb9"))
