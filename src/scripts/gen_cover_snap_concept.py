@@ -7,28 +7,32 @@ Justin's idea: a small rectangular slot in the acrylic under each cover's cap,
 and a tab on the cap that drops into it with a rounded bump that clicks just
 past the acrylic's underside.  It holds the cover, and a little pull lifts it
 straight off (the bump's round top pushes the tab aside), all from above.
-Slot cover: flat, two tabs in its front lap (where the magnets were); its back
-rests on the back plate's top edge.
+Slot cover: two tabs in its front lap (where the magnets were); at the back,
+where there's no acrylic, a lip down the back plate's outside face with a dome
+that clicks into the slot's card screw hole.
 Cartridge cover: two tabs in its front lap and two in its back lap.
 
 Parking (Justin): the covers click into slots in the floor from below, upside
 down, plug against the floor.  The floor is 2 mm, not 4, so each tab has a
 second bump 2 mm further down, on its other face: on the top it hangs free
 below the acrylic; parked it catches on the floor's top face, and the floor
-slot is wider on the first bump's side so that one passes through.
+slot is wider on the first bump's side so that one passes through.  Upside
+down the slot cover's lip points up the back plate, and its dome clicks into a
+second hole near the plate's bottom (PARK_HOLE_Z), so the back end can't sag.
 
 Writes STL meshes (covers in place and parked, the top with the detent slots
 instead of magnet holes, the tray with the parking slots instead of the steel
-discs) for render_case.html (V.snap) and a section drawing.  Run from the repo
+discs, the back plate with the parking holes) for render_case.html (V.snap) and a section drawing.  Run from the repo
 root after gen_case.py --mesh:
     python3 src/scripts/gen_cover_snap_concept.py
 """
+import math
 import os
 import cadquery as cq
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Rectangle
+from matplotlib.patches import Circle, Polygon, Rectangle
 
 import gen_case as g
 
@@ -39,6 +43,9 @@ BUMP_R = 1.0          # bumps: rounded ribs across the tab
 BUMP = 0.6            # bump height off the tab face (0.4 past the slot clearance)
 PARK_DROP = g.ACRYLIC - g.T    # second bump this much below the first (4 mm acrylic vs 2 mm floor)
 TAB_BELOW = PARK_DROP + 2 * BUMP_R + 0.2   # tab end below the acrylic's underside
+LIP_T = 2.0           # slot cover's back lip
+LIP_GAP = 0.2         # back lip to the back plate's outside face
+DOME_R = 2.5          # back lip's dome; it sits on a 3.4 mm hole's rim
 CART_TAB_DX = 12.0    # cartridge cover tabs, either side of its centre (clear of the finger notch)
 OUT = os.path.join(g.REPO, "src", "scripts", "case_render", "mesh_snap")
 
@@ -84,22 +91,34 @@ def floor_slot(y, sign):
     return min(a, b), max(a, b)
 
 
+def dome_y():
+    """y of the back lip dome's centre: its sphere meets a 3.4 mm hole's rim."""
+    return g.D + math.sqrt(DOME_R ** 2 - 1.7 ** 2)
+
+
 def snap_slot_covers(parts):
     bay, cart, slot_x = g.openings(parts)
     n = len(slot_x)
     pitch = (bay[1] - bay[0]) / n
     z0 = g.Z_TOP
     spots = detent_spots(parts)
+    screws = g.card_screws(parts)
     out = []
     for i in range(n):
         x0, x1 = bay[0] + i * pitch + 0.2, bay[0] + (i + 1) * pitch - 0.2
         xc = (x0 + x1) / 2
         plug = g.rounded_plate(x0, x1, bay[2] + 0.2, g.D, z0, g.ACRYLIC)
-        cap = g.rounded_plate(x0, x1, bay[2] - g.LIP, g.D, z0 + g.ACRYLIC, g.CAP)
+        cap = g.rounded_plate(x0, x1, bay[2] - g.LIP, g.D + LIP_GAP + LIP_T, z0 + g.ACRYLIC, g.CAP)
         cap = cap.cut(g.hole(xc, bay[2] - g.LIP, 8.0, z0))
         s = plug.union(cap)
         for x, y, sign in spots[2 * i:2 * i + 2]:
             s = s.union(tab(x, y, sign))
+        # back lip down the back plate's outside face, its dome clicks into the card screw hole
+        sx, sz = screws[i]
+        yl = g.D + LIP_GAP
+        s = s.union(box(x0, x1, yl, yl + LIP_T, sz - 4.0, z0 + g.ACRYLIC))
+        dome = cq.Workplane("XY").sphere(DOME_R).translate((sx, dome_y(), sz))
+        s = s.union(dome.intersect(box(sx - 3, sx + 3, g.D - 2, yl + 0.01, sz - 3, sz + 3)))
         out.append(s)
     return out
 
@@ -124,6 +143,19 @@ def park_z(z):
 
 def parked(solid):
     return solid.mirror("XY").translate((0, 0, park_z(0)))
+
+
+PARK_HOLE_Z = park_z(g.CARD_SCREW_Z)   # the parking hole in the back plate, 2.4 above the board's top
+
+
+def snap_back_plate(parts):
+    """The back plate with a parking hole under each card screw hole, for the
+    parked slot covers' domes."""
+    s = g.plate(parts, g.wall_cutouts(parts), "back")
+    for x, z in g.card_screws(parts):
+        s = s.cut(cq.Workplane("XZ").center(x, PARK_HOLE_Z).circle(1.7).extrude(-10)
+                  .translate((0, g.D - g.T - 1, 0)))
+    return s
 
 
 def plain_top(parts):
@@ -167,6 +199,23 @@ def _tab_patches(ax, y, sign, style, flip=False, dz=0.0):
         ax.add_patch(Circle((yb, f(ztop - BUMP_R)), BUMP_R, **style))
 
 
+def _back_patches(ax, cov, alu, flip, ztop_plate):
+    """The back plate (from the floor's top to ztop_plate) with its two holes,
+    and the slot cover's back lip and dome, on the top or parked (flip)."""
+    D, T, sz = g.D, g.T, g.CARD_SCREW_Z
+    f = park_z if flip else (lambda z: z)
+    edges = [g.Z_FLOOR + T, PARK_HOLE_Z - 1.7, PARK_HOLE_Z + 1.7, sz - 1.7, sz + 1.7, ztop_plate]
+    for z0, z1 in zip(edges[::2], edges[1::2]):
+        ax.add_patch(Rectangle((D - T, z0), T, z1 - z0, **alu))
+    yl = D + LIP_GAP
+    z0, z1 = sorted((f(sz - 4.0), f(g.Z_TOP + g.ACRYLIC)))
+    ax.add_patch(Rectangle((yl, z0), LIP_T, z1 - z0, **cov))
+    zc = f(sz)
+    th = [math.pi / 2 + k * math.pi / 40 for k in range(41)]
+    ax.add_patch(Polygon([(min(dome_y() + DOME_R * math.cos(a), yl + 0.05), zc + DOME_R * math.sin(a))
+                          for a in th], **cov))
+
+
 def _sheet_with_slots(ax, y0, y1, z, t, slots, style):
     """A sheet from y0 to y1 (z .. z + t) with slots [(a, b)]."""
     edges = [y0] + [v for ab in sorted(slots) for v in ab] + [y1]
@@ -191,18 +240,18 @@ def draw_section(parts, path):
     yf, D, T = bay[2], g.D, g.T
     ys = yf - g.LIP / 2
     _sheet_with_slots(ax1, yf - 30, yf, zt, a, [(ys - t, ys + t)], acr)
-    ax1.add_patch(Rectangle((D - T, zt - 14), T, 14, **alu))
-    ax1.add_patch(Rectangle((yf - g.LIP, zt + a), D - (yf - g.LIP), c, **cov))
+    _back_patches(ax1, cov, alu, False, zt)
+    ax1.add_patch(Rectangle((yf - g.LIP, zt + a), D + LIP_GAP + LIP_T - (yf - g.LIP), c, **cov))
     ax1.add_patch(Rectangle((yf + 0.2, zt), D - yf - 0.2, a + 0.05, **cov))
     _tab_patches(ax1, ys, -1, cov)
     ax1.annotate("tab through a small slot; its upper\nbump clicks past the acrylic's underside",
                  (ys - 1.2, zt - 1.0), (yf - 31, zt - 12), **kw)
     ax1.annotate("pull up here (finger notch)", (yf - g.LIP + 0.5, zt + a + c), (yf - 31, zt + a + c + 5), **kw)
-    ax1.annotate("back rests on the back plate", (D - 1, zt), (D - 50, zt - 9), **kw)
+    ax1.annotate("lip's dome clicks into\nthe card screw hole", (D - 0.3, g.CARD_SCREW_Z), (D - 45, zt - 14), **kw)
     ax1.text(yf - 26, zt + a / 2, "acrylic top", va="center", fontsize=11)
     ax1.text((yf + D) / 2, zt + a + c + 1.2, "slot cover (printed, one piece)", ha="center", fontsize=11)
     ax1.set_xlim(yf - 32, D + 6)
-    ax1.set_ylim(zt - 15, zt + a + c + 9)
+    ax1.set_ylim(zt - 20, zt + a + c + 9)
     ax1.set_title("Slot cover on the top, section through a tab (front at left)", fontsize=13)
 
     # cartridge cover on the top
@@ -217,13 +266,16 @@ def draw_section(parts, path):
     ax2.text((y0 + y1) / 2, zt + a + c + 1.2, "cartridge cover", ha="center", fontsize=11)
     ax2.annotate("two tabs front,\ntwo back", (yback + 1.2, zt - 1.5), ((y0 + y1) / 2 - 6, zt - 11), **kw)
     ax2.set_xlim(y0 - 16, y1 + 16)
-    ax2.set_ylim(zt - 15, zt + a + c + 9)
+    ax2.set_ylim(zt - 20, zt + a + c + 9)
     ax2.set_title("Cartridge cover on the top (front at left)", fontsize=13)
 
     # slot cover parked
     fa, fb = floor_slot(ys, -1)
     _sheet_with_slots(ax3, yf - 30, D, zf, T, [(fa, fb)], alu)
-    ax3.add_patch(Rectangle((yf - g.LIP, zf - a - c), D - (yf - g.LIP), c, **cov))
+    ax3.add_patch(Rectangle((yf - g.LIP, zf - a - c), D + LIP_GAP + LIP_T - (yf - g.LIP), c, **cov))
+    _back_patches(ax3, cov, alu, True, zf + 18)
+    ax3.annotate("lip's dome clicks into a second\nhole near the plate's bottom", (D - 0.3, PARK_HOLE_Z),
+                 (D - 52, zf + 13), **kw)
     ax3.add_patch(Rectangle((yf + 0.2, zf - a - 0.05), D - yf - 0.2, a + 0.05, **cov))
     _tab_patches(ax3, ys, -1, cov, flip=True)
     ax3.add_patch(Rectangle((yf - 30, g.Z_DESK - 3), D - yf + 36, 3, fc="#c9b28f", ec="none"))
@@ -233,7 +285,7 @@ def draw_section(parts, path):
              color="white")
     ax3.text(yf - 26, g.Z_DESK - 1.5, "desk", va="center", fontsize=10)
     ax3.set_xlim(yf - 32, D + 6)
-    ax3.set_ylim(g.Z_DESK - 4, zf + 13)
+    ax3.set_ylim(g.Z_DESK - 4, zf + 19)
     ax3.set_title("Slot cover parked under the floor (front at left)", fontsize=13)
 
     # close-ups: on the top (left) and parked (right, raised to the same height)
@@ -269,7 +321,7 @@ def draw_section(parts, path):
 def main():
     parts = g.read_board(os.path.join(g.REPO, "kicad", "placard.kicad_pcb"))
     os.makedirs(OUT, exist_ok=True)
-    solids = {"acrylic_top": plain_top(parts), "tray": snap_tray(parts), "cart_cover": snap_cart_cover(parts)}
+    solids = {"acrylic_top": plain_top(parts), "tray": snap_tray(parts), "back_plate": snap_back_plate(parts), "cart_cover": snap_cart_cover(parts)}
     for i, s in enumerate(snap_slot_covers(parts)):
         solids["slot_cover_%d" % (i + 1)] = s
     for n in [n for n in solids if "cover" in n]:
