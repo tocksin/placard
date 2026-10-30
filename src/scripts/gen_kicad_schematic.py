@@ -1155,6 +1155,9 @@ def sheet_slots(b):
     heading(s, "Expansion slots", "Four slots (Molex 87715-9106, as the cartridge), x5100-x53FF, 128 bytes each (EXPANSION.md)")
     s.label_nets |= {"RW", "~{LOAD_IMM}", "~{WE}", "CLK", "RUN", "~{EXP1}", "~{EXP2}",
                      "STALL_IN", "STALL_OUT", "PC_ENABLE", "PIXEL_ENABLE", "~{CART}", "~{HSYNC}", "~{VSYNC}"}
+    # Slot 1 (J9) is the one nearest the board center, slot 4 (J12) the outermost (Justin, 2026-10-30):
+    # J9/J12, J10/J11, R51/R54 and R52/R53 swapped symbol uuids in expansion.kicad_sch, so the board's
+    # footprints keep their places and take the new refs; keep_uuids() carries that over on a rerun.
     for k in range(4):
         ref = f"J{9 + k}"
         x, y = 116 + (k % 2) * 180, 105 + (k // 2) * 95     # two rows: the long bus labels need the width
