@@ -127,7 +127,7 @@ PLACE = [
     ("J2", FP_SNES, "right", 22.0),
     ("J3", FP_SNES, "right", 50.0),
     ("J8", FP_CART, None, (175.0, 55.0), 0),
-] + [("J%d" % (9 + i), FP_EXP, None, (x, SLOT_Y), 90) for i, x in enumerate(SLOT_X)]
+] + [("J%d" % (12 - i), FP_EXP, None, (x, SLOT_Y), 90) for i, x in enumerate(SLOT_X)]
 
 HOLES = [(5.0, 5.0), (W - 5.0, 5.0), (5.0, D - 5.0), (W - 5.0, D - 5.0), (145.0, D - 5.0), (240.0, 5.0),
          (5.0, D / 2), (W - 5.0, D / 2)]
@@ -651,7 +651,7 @@ def build():
     # ---- dimensions
     dim(board, 0, D, W, D, 22.0, 2.0)                  # overall width, below the board
     dim(board, 0, 0, 0, D, 30.0, 2.0)                  # overall depth, left of the board
-    tops = [("J13", 16.0)] + [("J%d" % (9 + i), x) for i, x in enumerate(SLOT_X)] + \
+    tops = [("J13", 16.0)] + [("J%d" % (12 - i), x) for i, x in enumerate(SLOT_X)] + \
            [("J6", 135.0), ("J7", 165.0), ("J8", 175.0), ("J5", 205.0)]
     for i, (ref, x) in enumerate(sorted(tops, key=lambda t: t[1])):
         dim(board, 0, 0, x, 0, -(6.0 + 3.5 * i))
