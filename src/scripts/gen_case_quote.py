@@ -49,7 +49,7 @@ DATE = "2026-10-30"
 REV = "A"
 
 MATERIAL = "Aluminium 5052-H32, 2.0 mm (0.080 in)"
-FINISH = "Black powder coat, stock color, texture or matte, both sides; mask PEM threads"
+FINISH = "Black powder coat, stock color, texture or matte, both sides"
 TOLS = ["Laser cut features +/-0.1 mm, holes +0.1/-0 mm",
         "Bends 90 deg +/-0.5 deg, inside radius %.1f mm, flange lengths +/-0.25 mm" % R,
         "Unless shown: ISO 2768-m; break sharp edges",
@@ -104,8 +104,8 @@ def tray_parts(parts, cuts):
 
 
 def plate_parts(parts, cuts, side):
-    """(sharp, bent) back or left plate: gen_case's plate with end reliefs and
-    PEM nut holes, then the bend filleted."""
+    """(sharp, bent) back or left plate: gen_case's plate with end reliefs,
+    then the bend filleted."""
     W, D, Zf = g.W, g.D, g.Z_FLOOR
     zb = Zf + T
     s = g.plate(parts, cuts, side)
@@ -116,9 +116,6 @@ def plate_parts(parts, cuts, side):
     else:
         s = s.cut(box(-1, T + g.PLATE_FLANGE + 1, T - 1, T + R + RELIEF, zb - 1, hr))
         s = s.cut(box(-1, T + g.PLATE_FLANGE + 1, D - T - g.NOTCH_ROOT, D + 1, zb - 1, hr))
-    screws = g.plate_screws()
-    for x, y in (screws[:3] if side == "back" else screws[3:]):
-        s = s.cut(g.hole(x, y, 4.22, zb - 1))                  # PEM CLS-M3-1 mounting hole
     if side == "back":
         bent = sel(s, (0, D - 0.1, zb - 0.1), (W, D + 0.1, zb + 0.1)).fillet(OSSB)
         bent = sel(bent, (0, D - T - 0.1, zb + T - 0.1), (W, D - T + 0.1, zb + T + 0.1)).fillet(R)
@@ -221,16 +218,16 @@ def outline_xy(flat, t):
 HARDWARE = {
     "tray": ["No PEM hardware in the tray.",
              "14 x 3.4 mm holes with a 90 deg countersink, 6.5 mm on the underside (M3 flat head screws: "
-             "8 at the board holes H1-H8 into the floor standoffs, 6 into the plates)",
+             "8 at the board holes H1-H8 into the floor standoffs, 6 through the plates' flanges into nuts)",
              "10 x 6.0 mm holes for the steel parking discs (the builder presses them in; no hardware)"],
-    "back_plate": ["3 x PEM CLS-M3-1 (self-clinching nut), 4.22 mm holes in the flange, pressed from the top "
-                   "(inside) face, flush there"],
-    "left_plate": ["3 x PEM CLS-M3-1 (self-clinching nut), 4.22 mm holes in the flange, pressed from the top "
-                   "(inside) face, flush there"],
+    "back_plate": ["No PEM hardware.", "3 x 3.4 mm plain holes in the flange (M3 screws, loose nuts "
+                   "fitted by the builder)"],
+    "left_plate": ["No PEM hardware.", "3 x 3.4 mm plain holes in the flange (M3 screws, loose nuts "
+                   "fitted by the builder)"],
 }
 PROCESS = {"tray": "laser cut, bend (press brake), countersink, powder coat",
-           "back_plate": "laser cut, bend (press brake), PEM insertion, powder coat",
-           "left_plate": "laser cut, bend (press brake), PEM insertion, powder coat"}
+           "back_plate": "laser cut, bend (press brake), powder coat",
+           "left_plate": "laser cut, bend (press brake), powder coat"}
 TITLES = {"tray": "Tray: floor, front and right walls (2 bends)",
           "back_plate": "Back plate (1 bend)", "left_plate": "Left plate (1 bend)",
           "acrylic_top": "Top, 4 mm clear acrylic", "slot_cover_plug": "Slot cover plug, 4 mm clear acrylic",
@@ -374,12 +371,11 @@ def readme(rows):
               "- Four bends in all (two in the tray, one in each plate), each 90 degrees, inside radius "
               "%.1f mm. The flat patterns use K = %.2f (bend allowance %.3f mm). Please develop the flat "
               "from the STEP with your own bend tables and tell us if anything changes." % (R, K_FACTOR, BA),
-              "- Hardware, pressed by you:",
-              "  - Each plate: 3 x PEM CLS-M3-1 nuts, pressed from the flange's top face.",
-              "  - Equivalent self-clinching parts are fine.",
+              "- No PEM or other pressed hardware in any part. Each plate's flange has 3 plain 3.4 mm "
+              "holes.",
               "- Tray: 14 countersunk holes, 90 degrees, 6.5 mm on the underside.",
               "- Finish: black powder coat on all three parts, in a stock color, matte or fine texture. "
-              "Mask the PEM threads. Coat either before or after the PEM insertion, as you prefer.",
+              "Mask the tray's 14 countersinks.",
               "- No printing, engraving or silkscreen.",
               "- Some cut-outs sit close to a bend, so check them. On the back plate, the bottom of the "
               "USB-C cut-out is about 1.8 mm above the bend tangent. On the left plate, the bottom of the "

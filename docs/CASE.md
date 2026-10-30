@@ -59,8 +59,8 @@ lying on the walls, clears it by 2 mm. The feet are as tall as a parked cover (7
 | Part | Qty | Material and finish | Made by |
 |---|--:|---|---|
 | Tray | 1 | 2.0 mm 5052-H32 aluminium, two bends (inside radius 2 mm, open front-right corner with a relief): the floor, to the case's outside edges, with the front wall (SNES cut-outs) and the right wall up to the acrylic, with vent slots in the floor and 10 in the right wall, 10 holes for the steel parking discs and 14 countersunk M3 holes (8 at the board holes H1-H8 for the floor standoffs' screws, 6 for the plate screws). Black powder coat | Sheet metal service: laser cut, bend, countersink, powder coat |
-| Back plate | 1 | 2.0 mm 5052-H32, standing on the floor, with a 14 mm flange bent in along the bottom: USB-C, audio, VGA and PS/2 cut-outs, an M3 screw hole behind each expansion slot (J9-J12), 3 PEM CLS-M3-1 nuts in the flange, the flange notched round the floor standoffs and J7's pins | Same |
-| Left plate | 1 | Same: power switch, reset and SD cut-outs, 6 vent slots, 3 PEM nuts | Same |
+| Back plate | 1 | 2.0 mm 5052-H32, standing on the floor, with a 14 mm flange bent in along the bottom: USB-C, audio, VGA and PS/2 cut-outs, an M3 screw hole behind each expansion slot (J9-J12), 3 plain 3.4 mm screw holes in the flange (loose M3 hex nuts on top), the flange notched round the floor standoffs and J7's pins | Same |
+| Left plate | 1 | Same: power switch, reset and SD cut-outs, 6 vent slots, 3 screw holes | Same |
 | Acrylic top | 1 | 4 mm clear cast acrylic, 295 x 220 mm, laser cut, with 10 magnet holes | Laser cutting service |
 | Slot cover | 4 | 4 mm acrylic plug + 3 mm acrylic cap, solvent welded (Weld-On 4) | Laser cutting service; the builder or kitter welds them |
 | Cartridge cover | 1 | Same, sized for J8 | Same |
@@ -69,7 +69,8 @@ lying on the walls, clears it by 2 mm. The feet are as tall as a parked cover (7
 | M3 male-female hex standoff, 6 mm, 6 mm stud | 8 | On the floor under board holes H1-H8, screwed down from below; its stud goes up through the board | |
 | M3 female-female hex standoff, 27 mm | 8 | On the 6 mm standoffs' studs, board top to the acrylic top; clamps the board | Ettinger and others sell 1 mm steps; or 25 mm + a 2 mm spacer |
 | M3 x 8 button head screw, black or stainless | 8 | Acrylic top | |
-| M3 x 6 countersunk screw | 14 | Up through the floor, flush under the case: 8 into the floor standoffs, 6 into the plates' flanges | |
+| M3 x 6 countersunk screw | 14 | Up through the floor, flush under the case: 8 into the floor standoffs, 6 through the plates' flanges into hex nuts | |
+| M3 hex nut, ISO 4032 (5.5 across flats, 2.4 mm) | 6 | On top of the plates' flanges, under the board's edge. The screw goes 2 mm into it, so its tip stays 2 mm under the board; the parts nearest (SW2's and K1's leads, R1/R2, F1) are clear of it | |
 | M3 x 6 button head screw, black | 4 | Through the back plate into each expansion card's shell (one per card fitted) | |
 | Rubber feet, 16 mm across, 10 mm tall, self-adhesive | 4 | 24 mm in from each corner, clear of the corner standoffs and the parked covers | |
 
@@ -98,8 +99,8 @@ The hardware meshes and the stack drawing come from
 `src/scripts/case_render/gen_case_hardware.py` (run after `gen_case.py --mesh`;
 views `exploded_hw` and `exploded_hw_rear`).
 
-1. The sheet metal service powder coats the tray and plates, masking the PEM
-   threads in the plates' flanges, and presses in the steel discs if asked.
+1. The sheet metal service powder coats the tray and plates and presses in
+   the steel discs if asked. There is no PEM hardware in any part.
 2. Screw the eight 6 mm male-female standoffs to the floor, stud up, with
    countersunk screws from below (Justin, 2026-10-30: no PEM standoffs in
    the floor).
@@ -111,9 +112,15 @@ views `exploded_hw` and `exploded_hw_rear`).
 5. Slide the back plate forward onto USB-C, audio, VGA and PS/2. Its flange
    slides over the floor, under the board; open notches let it past the
    floor standoffs and J7's pins, and it clears the rest of the board. Fit three countersunk screws
-   up through the floor.
+   up through the floor and the flange, each into an M3 hex nut on top of
+   the flange (Justin, 2026-10-30: loose nuts, no PEM nuts in the plates).
+   The flange is only 4 mm under the board there, too little for fingers,
+   so before sliding the plate in, stick each nut over its hole with a small
+   square of Kapton tape (or a drop of glue at one corner). The screw pulls
+   it down and holds it; a 5.5 mm nut driver or tweezers works if one
+   drops.
 6. Slide the left plate on over the power switch, reset and SD in the same
-   way, three screws.
+   way, three screws and nuts.
 7. Lay the acrylic top on and fit its eight screws into the standoffs. It
    lies on all four walls and holds the plates' tops.
 8. Stick the four feet on, then fit the VGA jackscrews and the covers.
@@ -301,8 +308,8 @@ BOM.
 - **Finish.**
   - Black powder coat, in a stock color, is the cheapest finish the sheet
     metal services offer (anodize and printing cost more). It is about
-    0.08 mm thick; the cut-outs allow for it. The PEM threads and the plate
-    screw countersinks are masked.
+    0.08 mm thick; the cut-outs allow for it. The plate screw countersinks
+    are masked.
   - Powder coat insulates, so the case isn't grounded through the
     standoffs. Nothing needs it to be.
   - 5052 is the usual alloy for bent parts (6061 cracks on tight bends).
@@ -356,9 +363,8 @@ files to `case/print/`. The aluminium version stays as it is.
     standoffs. Each takes an M3 heat-set insert (M3 x 5.7, 4.0 mm hole), set
     with a soldering iron. The 27 mm standoffs are male-female here, their
     stud through the board into the insert.
-  - The plates' flange holes are opened to 3.4 mm, and each of the six
-    countersunk screws from below takes an M3 nut on top of the flange
-    instead of a PEM nut.
+  - The plates' flange holes are 3.4 mm with an M3 nut on top of the
+    flange, as in the metal case.
   - The steel discs, magnets, feet and the other screws are
     as listed above. The magnet gluing jig works on the printed top too.
 - **Printing.**
@@ -394,8 +400,8 @@ from the same parts:
   files for the acrylic top, cover plugs and cover caps.
 - `pdf/`: an A3 drawing per part, with the flat pattern, overall sizes,
   bends, holes, hardware, material, finish and tolerances.
-- `PARTS.csv` and `README.md`: quantities, materials, finishes, the PEM
-  parts and notes for the vendor.
+- `PARTS.csv` and `README.md`: quantities, materials, finishes and notes
+  for the vendor. No part has PEM hardware.
 
 SendCutSend takes the STEP for bent parts. PCBWay sheet metal, Xometry and
 Protocase take the STEP plus the PDF. Ask for 1, 10 and 100 sets.
@@ -407,12 +413,15 @@ The quote check on 2026-10-30 changed the plates:
 - The flanges are now 14 mm, with open notches round the standoffs, which
   stop at the bend.
 - The plates stand on the floor, which now runs to the outside edges.
-- Each PEM nut sits 9 mm from the plate's inside face.
+- Each plate screw sits 9 mm from the plate's inside face.
 - Later the same day (Justin): the floor has no PEM standoffs. Each board
   hole has a 6 mm male-female standoff screwed down from below, so the tray
   needs only countersunk holes, and the flange notches are 8 mm wide for
   the standoffs' hex corners.
 - The back plate's left screw moved from x 20 to x 25.
+- Then (Justin): no PEM nuts in the plates either. The flange holes are
+  plain 3.4 mm, with a loose M3 hex nut on top, so no part has pressed
+  hardware.
 
 The README lists two cut-outs that sit close to a bend, for the vendor to
 check: USB-C and the SD slot.
@@ -430,7 +439,7 @@ brushed and anodized parts priced before 2026-10-27.
 
 | Item | 1 | 10 | 100 | 1,000 |
 |---|--:|--:|--:|--:|
-| Tray + back and left plates, 5052, black powder coat, PEM inserts (US: SendCutSend, Protocase) | $140-230 | $88-148 | $47-81 | - |
+| Tray + back and left plates, 5052, black powder coat (US: SendCutSend, Protocase) | $140-230 | $88-148 | $47-81 | - |
 | Same, China (JLCCNC, PCBWay sheet metal) | $74-120 | $46-78 | $28-46 | $19-32 |
 | Welded and ground front-right corner of the tray | +$15-30 | +$10-20 | +$5-15 | +$4-10 |
 | Acrylic: top, 4 slot covers, cartridge cover (cut; welding by hand) | $45-70 | $26-40 | $11-19 | $6-11 |
