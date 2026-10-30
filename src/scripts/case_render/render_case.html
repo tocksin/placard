@@ -87,7 +87,7 @@ if (!V.hide?.includes('board')) {
 const plateMat = V.plate ? new THREE.MeshStandardMaterial({color: V.plate, metalness: 0.15, roughness: 0.75}) : alu;
 const ae = V.aluEdges ? 'alu' : false;
 if (!V.hide?.includes('tray')) await stl((V.snap ? '../mesh_snap/' : '') + 'tray', alu, ez('lower'), ae);
-if (!V.hide?.includes('back')) await stl('back_plate', plateMat, ez('lower'), ae, [0, ez('back'), 0]);
+if (!V.hide?.includes('back')) await stl((V.snap ? '../mesh_snap/' : '') + 'back_plate', plateMat, ez('lower'), ae, [0, ez('back'), 0]);
 if (!V.hide?.includes('left')) await stl('left_plate', plateMat, ez('lower'), ae, [-ez('left'), 0, 0]);
 // V.snap: the printed snap-cover concept (gen_cover_snap_concept.py): no magnets or discs
 const SN = V.snap ? '../mesh_snap/' : '';
