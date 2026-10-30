@@ -23,7 +23,7 @@ shells, screws) are added here.
     python3 src/scripts/gen_kicad_schematic.py    # after a part change
     python3 src/scripts/gen_bom.py
 
-Date: 2026-10-29
+Date: 2026-10-30
 """
 import csv
 import glob
@@ -34,7 +34,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-10-29"
+DATE = "2026-10-30"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 

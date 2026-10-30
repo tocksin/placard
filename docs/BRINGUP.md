@@ -1,6 +1,6 @@
 # Bring-up: build order and a test for each chip
 
-Date: 2026-10-29
+Date: 2026-10-30
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
@@ -78,10 +78,12 @@ way.
 **Reset.**  Reset is a power cycle.  SW1 (on/off toggle) and relay K1's
 normally closed contact sit in series in the 5 V input after the
 polyfuse.  SW2 (reset, a small tactile button) pulls in K1, so holding SW2
-cuts the power and letting go powers the board up again (2026-10-22).  Hold
-it for about half a second so the rail falls well below 1 V (the bulk
-220 µF C41 sits ahead of K1, so only the 100 nF decouplers have to drain;
-slower with chips missing during bring-up).  At power-up the ATF22V10C registers
+cuts the power and letting go powers the board up again (2026-10-22).  K1's
+COM contact carries the board rail: holding SW2 swings it onto the NO
+contact, where R64 (22 Ω) drains +5V to 0 V in a few milliseconds, so even a
+short press resets cleanly.  The bulk 220 µF C41 sits on +5V after K1, so it
+carries the board through the NC contact's bounce when SW2 lets go
+(2026-10-30).  At power-up the ATF22V10C registers
 start at 0, so the CPU starts in FETCH at x0000.  The cartridge stalls
 the CPU while it loads its SRAMs (about 33 ms; the video runs and shows
 the random RAM), and RUN holds the map register clear (all ROM) until it
@@ -120,8 +122,9 @@ so its readings shift a little with the line and frame; read the average.
 | F1 | Polyfuse, 3 A hold | Bourns MF-RG300-0 | not polarised |
 | D7 | TVS diode, fused VBUS (VFUSE) to GND | Littelfuse SA5.0A | band (cathode) to VFUSE |
 | SW1 | Toggle switch, on/off | CIT ANT11TFHQE |  |
-| C41 | Electrolytic capacitor, on VON (between SW1 and K1) | 220 µF (Rubycon 25YXJ220M6.3X11) | + to VON, stripe to GND |
-| K1 | Relay | CIT J1071CS6VDC.36 | COM (pin 1) = VON, NC (pin 4) = +5V |
+| C41 | Electrolytic capacitor, on +5V (after K1) | 220 µF (Rubycon 25YXJ220M6.3X11) | + to +5V, stripe to GND |
+| K1 | Relay | CIT J1071CS5VDC.36 | COM (pin 1) = +5V, NC (pin 4) = VON, NO (pin 3) = R64 |
+| R64 | Resistor, K1's NO contact to GND | 22 Ω | drains +5V while reset is held |
 | SW2 | Tactile reset button, VON to the coil (KCOIL) | C&K PTS645VL58-2 LFS |  |
 | D8 | Schottky diode, across K1's coil | 1N5817 (black) | band (cathode) to KCOIL |
 | R59 | Resistor, power LED | 1k |  |
@@ -139,7 +142,7 @@ Leave U40, C40 and C47 (the 3.3 V regulator) for step 20, with the SD card.
   way.  Reversed, it shorts the supply and F1 trips.
 - D8 on diode test from GND to KCOIL: about 0.3 V forward.  Reversed, it
   shorts VON as soon as SW2 is pressed.
-- C41's + lead goes to VON (SW1's output side).
+- C41's + lead goes to +5V (K1's COM side).
 
 **Checks.**  Plug in a 5 V USB-C supply (3 A).  TP1 and TP2 are GND
 and TP3 is +5V: clip the black test lead to TP1 for the meter's ground.
@@ -151,7 +154,7 @@ and TP3 is +5V: clip the black test lead to TP1 for the meter's ground.
 | VON and +5V | on | up | the same as VFUSE, within 0.05 V |
 | D18 (power LED) | on | up | lit |
 | +5V | on | held | 0 V; K1 clicks, D18 goes dark |
-| VON | on | held | still 5 V (C41 stays charged) |
+| VON | on | held | still 5 V |
 | +5V | on | let go | back to 5 V, D18 lit |
 
 Pass when every row above reads as listed.
