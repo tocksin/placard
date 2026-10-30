@@ -40,5 +40,6 @@ __pycache__/
 
 # case renders: meshes, three.js and images made by src/scripts/case_render/ (docs/CASE.md)
 src/scripts/case_render/mesh/
+src/scripts/case_render/mesh_snap/
 src/scripts/case_render/web/
 src/scripts/case_render/out/

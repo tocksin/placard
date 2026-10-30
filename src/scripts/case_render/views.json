@@ -213,5 +213,77 @@
   ],
   "cartCover": true,
   "aluEdges": true
+ },
+ "snap_assembled": {
+  "cam": [
+   -260,
+   -330,
+   300
+  ],
+  "look": [
+   147.5,
+   115,
+   0
+  ],
+  "fov": 26,
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "snap": true,
+  "aluEdges": true,
+  "printed": 6976384
+ },
+ "snap_lifted": {
+  "cam": [
+   250,
+   -40,
+   95
+  ],
+  "look": [
+   110,
+   165,
+   32
+  ],
+  "fov": 30,
+  "covers": [
+   1,
+   2,
+   4
+  ],
+  "lifted": [
+   "slot_cover_3",
+   "cart_cover"
+  ],
+  "snap": true,
+  "aluEdges": true,
+  "printed": 6976384
+ },
+ "snap_rear": {
+  "cam": [
+   -40,
+   470,
+   110
+  ],
+  "look": [
+   95,
+   215,
+   18
+  ],
+  "fov": 26,
+  "covers": [
+   1,
+   2,
+   4
+  ],
+  "lifted": [
+   "slot_cover_3"
+  ],
+  "snap": true,
+  "aluEdges": true,
+  "printed": 6976384
  }
 }
