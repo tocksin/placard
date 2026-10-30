@@ -994,7 +994,7 @@ and U3 out, program them with the two halves of the normal image
 
 | Ref | Part | Value or part number | Note |
 |---|---|---|---|
-| J9-J12 | Expansion slot, 2 x 20 card edge (optional) | Sullins EBC20DCAN | fit only the ones a card will use |
+| J9-J12 | Expansion slot, 2 x 25 card edge (optional) | Sullins EBC25DRXH | fit only the ones a card will use |
 | R51-R54 | Resistor, slot select (R51 for J9 ... R54 for J12) | 1k | one per fitted slot |
 
 The slots J9-J12 are optional: fit only the ones a card will use, each
