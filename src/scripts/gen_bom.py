@@ -329,6 +329,7 @@ SHELL_LINES = {
 }
 CASE_NOTE = "CASE.md \"Cost estimate\", 1 unit, China sheet metal, not quoted"
 ACRYLIC_NOTE = "CASE.md \"Cost estimate\", 1 unit, laser-cut acrylic, not quoted"
+PRINT_NOTE = "filament cost, printed by the builder or kitter (about 10-20 g PETG each)"
 CASE_LINES = [
     mech(1, "Tray: 2.0 mm 5052-H32, floor with the front and right walls (two bends), black powder coat, "
             "14 countersunk M3 holes", 50.00, CASE_NOTE, "case/tray.step"),
@@ -336,14 +337,12 @@ CASE_LINES = [
          CASE_NOTE, "case/back_plate.step"),
     mech(1, "Left plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 plain M3 holes", 23.00,
          CASE_NOTE, "case/left_plate.step"),
-    mech(1, "Acrylic top: 4 mm clear cast acrylic, 295 x 220 mm, laser cut, 10 magnet holes", 30.00, ACRYLIC_NOTE,
+    mech(1, "Acrylic top: 4 mm clear cast acrylic, 295 x 220 mm, laser cut, 14 small detent slots", 30.00, ACRYLIC_NOTE,
          "case/acrylic_top.step"),
-    mech(4, "Slot cover: 4 mm acrylic plug + 3 mm cap, solvent welded", 3.00, ACRYLIC_NOTE, "case/slot_cover.step"),
-    mech(1, "Cartridge cover: 4 mm acrylic plug + 3 mm cap, solvent welded", 8.00, ACRYLIC_NOTE, "case/cart_cover.step"),
-    mech(20, "Disc magnet, N52, 6 x 3 mm (10 in the top, 10 through the cover caps, glued)", 0.25,
-         "typical N52 magnet price"),
-    mech(10, "Steel disc, 6 x 2 mm, zinc plated (flush in the floor: parking for the covers)", 0.10,
-         "typical price"),
+    mech(4, "Slot cover: 3D printed, one piece, PETG, black (2 snap tabs, back lip)", 1.00, PRINT_NOTE,
+         "case/slot_cover.stl"),
+    mech(1, "Cartridge cover: 3D printed, one piece, PETG, black (4 snap tabs)", 1.50, PRINT_NOTE,
+         "case/cart_cover.stl"),
     mech(8, "M3 male-female hex standoff, 6 mm, 6 mm stud (floor to the board's underside, stud up through H1-H8)",
          0.20, "typical standoff price"),
     mech(8, "M3 female-female hex standoff, 27 mm (board top to the acrylic, on the 6 mm standoffs' studs)", 0.80,
@@ -442,7 +441,7 @@ def main():
           "|---|---|---|--:|--:|--:|"]
     contents = {"Main board": "Bare PCB, components, sockets", "Cartridge, 64K": "Bare PCB, components, sockets, "
                 "shell, screw", "Cartridge, 32K": "Same, 32K board", "Case": "Main board assembly, tray and plates, "
-                "acrylic, magnets, standoffs, screws, feet"}
+                "acrylic, printed covers, standoffs, screws, feet"}
     for name in ("Main board", "Cartridge, 64K", "Cartridge, 32K", "Case"):
         t, b, est = totals[name]
         f = FILES[name]

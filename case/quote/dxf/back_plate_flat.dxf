@@ -493,7 +493,7 @@ $SKPOLY
   9
 $TDCREATE
  40
-2461344.6307060183
+2461344.877453704
   9
 $TDUCREATE
  40
@@ -501,7 +501,7 @@ $TDUCREATE
   9
 $TDUPDATE
  40
-2461344.6307060183
+2461344.877453704
   9
 $TDUUPDATE
  40
@@ -553,7 +553,7 @@ $SPLINESEGS
   9
 $HANDSEED
   5
-69
+6D
   9
 $SURFTAB1
  70
@@ -933,11 +933,11 @@ $PSTYLEMODE
   9
 $FINGERPRINTGUID
   2
-{56871DFA-37C9-4E51-9C6F-B93E7A6B79E3}
+{55EDA78F-1381-452F-8FF7-07EA23569560}
   9
 $VERSIONGUID
   2
-{ED91400A-48DA-4C7D-8457-75E545C9F670}
+{81FCA5FE-858B-4732-8637-46A4C1C37C82}
   9
 $EXTNAMES
 290
@@ -1327,9 +1327,9 @@ ISM
   0
 CLASS
   1
-ACDBPLACEHOLDER
+LAYOUT
   2
-AcDbPlaceHolder
+AcDbLayout
   3
 ObjectDBX Classes
  90
@@ -1343,9 +1343,9 @@ ObjectDBX Classes
   0
 CLASS
   1
-LAYOUT
+ACDBPLACEHOLDER
   2
-AcDbLayout
+AcDbPlaceHolder
   3
 ObjectDBX Classes
  90
@@ -1377,7 +1377,7 @@ AcDbSymbolTable
   0
 VPORT
   5
-61
+65
 330
 8
 100
@@ -1627,7 +1627,7 @@ Continuous
   0
 LAYER
   5
-65
+69
 330
 1
 100
@@ -1651,7 +1651,7 @@ Continuous
   0
 LAYER
   5
-66
+6A
 330
 1
 100
@@ -1675,7 +1675,7 @@ Continuous
   0
 LAYER
   5
-67
+6B
 330
 1
 100
@@ -1797,7 +1797,7 @@ ACAD
   0
 APPID
   5
-62
+66
 330
 3
 100
@@ -1811,7 +1811,7 @@ HATCHBACKGROUNDCOLOR
   0
 APPID
   5
-63
+67
 330
 3
 100
@@ -2735,6 +2735,86 @@ CUT
 100
 AcDbCircle
  10
+50.95
+ 20
+8.261946710584674
+ 30
+-1.0
+ 40
+1.7
+  0
+CIRCLE
+  5
+49
+330
+17
+100
+AcDbEntity
+  8
+CUT
+100
+AcDbCircle
+ 10
+77.94999999999999
+ 20
+8.261946710584674
+ 30
+-1.0
+ 40
+1.7
+  0
+CIRCLE
+  5
+4A
+330
+17
+100
+AcDbEntity
+  8
+CUT
+100
+AcDbCircle
+ 10
+104.94999999999999
+ 20
+8.261946710584674
+ 30
+-1.0
+ 40
+1.7
+  0
+CIRCLE
+  5
+4B
+330
+17
+100
+AcDbEntity
+  8
+CUT
+100
+AcDbCircle
+ 10
+131.95
+ 20
+8.261946710584674
+ 30
+-1.0
+ 40
+1.7
+  0
+CIRCLE
+  5
+4C
+330
+17
+100
+AcDbEntity
+  8
+CUT
+100
+AcDbCircle
+ 10
 160.0
  20
 -9.261946710584652
@@ -2745,7 +2825,7 @@ AcDbCircle
   0
 LINE
   5
-49
+4D
 330
 17
 100
@@ -2769,7 +2849,7 @@ AcDbLine
   0
 LINE
   5
-4A
+4E
 330
 17
 100
@@ -2793,7 +2873,7 @@ AcDbLine
   0
 LINE
   5
-4B
+4F
 330
 17
 100
@@ -2817,7 +2897,7 @@ AcDbLine
   0
 LINE
   5
-4C
+50
 330
 17
 100
@@ -2841,7 +2921,7 @@ AcDbLine
   0
 CIRCLE
   5
-4D
+51
 330
 17
 100
@@ -2861,7 +2941,7 @@ AcDbCircle
   0
 CIRCLE
   5
-4E
+52
 330
 17
 100
@@ -2881,7 +2961,7 @@ AcDbCircle
   0
 CIRCLE
   5
-4F
+53
 330
 17
 100
@@ -2901,7 +2981,7 @@ AcDbCircle
   0
 CIRCLE
   5
-50
+54
 330
 17
 100
@@ -2921,7 +3001,7 @@ AcDbCircle
   0
 CIRCLE
   5
-51
+55
 330
 17
 100
@@ -2941,7 +3021,7 @@ AcDbCircle
   0
 CIRCLE
   5
-52
+56
 330
 17
 100
@@ -2961,7 +3041,7 @@ AcDbCircle
   0
 CIRCLE
   5
-53
+57
 330
 17
 100
@@ -2981,7 +3061,7 @@ AcDbCircle
   0
 LINE
   5
-54
+58
 330
 17
 100
@@ -3005,7 +3085,7 @@ AcDbLine
   0
 LINE
   5
-55
+59
 330
 17
 100
@@ -3029,7 +3109,7 @@ AcDbLine
   0
 LINE
   5
-56
+5A
 330
 17
 100
@@ -3053,7 +3133,7 @@ AcDbLine
   0
 LINE
   5
-57
+5B
 330
 17
 100
@@ -3077,7 +3157,7 @@ AcDbLine
   0
 CIRCLE
   5
-58
+5C
 330
 17
 100
@@ -3097,7 +3177,7 @@ AcDbCircle
   0
 LINE
   5
-59
+5D
 330
 17
 100
@@ -3121,7 +3201,7 @@ AcDbLine
   0
 ARC
   5
-5A
+5E
 330
 17
 100
@@ -3147,7 +3227,7 @@ AcDbArc
   0
 LINE
   5
-5B
+5F
 330
 17
 100
@@ -3171,7 +3251,7 @@ AcDbLine
   0
 ARC
   5
-5C
+60
 330
 17
 100
@@ -3197,7 +3277,7 @@ AcDbArc
   0
 LINE
   5
-5D
+61
 330
 17
 100
@@ -3221,7 +3301,7 @@ AcDbLine
   0
 ARC
   5
-5E
+62
 330
 17
 100
@@ -3247,7 +3327,7 @@ AcDbArc
   0
 LINE
   5
-5F
+63
 330
 17
 100
@@ -3271,7 +3351,7 @@ AcDbLine
   0
 ARC
   5
-60
+64
 330
 17
 100
@@ -3297,7 +3377,7 @@ AcDbArc
   0
 LINE
   5
-68
+6C
 330
 17
 100
@@ -4309,7 +4389,7 @@ CREATED_BY_EZDXF
   3
 WRITTEN_BY_EZDXF
 350
-64
+68
   0
 DICTIONARYVAR
   5
@@ -4321,11 +4401,11 @@ DictionaryVariables
 280
 0
   1
-1.4.5 @ 2026-10-30T15:08:13.327792+00:00
+1.4.5 @ 2026-10-30T21:03:32.139362+00:00
   0
 DICTIONARYVAR
   5
-64
+68
 330
 2D
 100
@@ -4333,7 +4413,7 @@ DictionaryVariables
 280
 0
   1
-1.4.5 @ 2026-10-30T15:08:13.350271+00:00
+1.4.5 @ 2026-10-30T21:03:32.162119+00:00
   0
 ENDSEC
   0
