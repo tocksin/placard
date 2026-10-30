@@ -10,7 +10,7 @@ gen_case.py, unchanged in shape and fit, and:
   part, so the glued pieces lock flat and in line;
 - replaces the tray's PEM standoffs with printed bosses for M3 heat-set
   inserts, and opens the plates' flange holes for M3 nuts (no PEM nuts);
-- prints each cover as one piece (plug and cap together).
+- uses the same printed covers as the metal case (gen_case.py), cap face down.
 
     pip install cadquery
     python3 gen_case_print.py [--pcb path/to/placard.kicad_pcb] [--out case/print]
@@ -18,7 +18,7 @@ gen_case.py, unchanged in shape and fit, and:
 Writes STL files to case/print/ and docs/case_print_pieces.png.  See
 docs/CASE.md, "3D-printed version".  The board file is only read.
 
-Date: 2026-10-29
+Date: 2026-10-30
 """
 
 import argparse
@@ -212,8 +212,8 @@ def build(pcb, out, drawings):
     top = keyed(g.acrylic_top(parts), top_keys())
     pieces.update(split4(top, TOP_X, TOP_Y, ["top_front_left", "top_front_right", "top_back_left",
                                              "top_back_right"]))
-    pieces["slot_cover"] = g.slot_covers(parts)[0]
-    pieces["cart_cover"] = g.cart_cover(parts)
+    pieces["slot_cover"] = g.print_pose(g.slot_covers(parts)[0])
+    pieces["cart_cover"] = g.print_pose(g.cart_cover(parts))
     pieces["key_2mm"] = key_solid(g.T)
     pieces["key_4mm"] = key_solid(g.ACRYLIC)
 
