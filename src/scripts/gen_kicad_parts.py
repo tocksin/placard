@@ -50,25 +50,27 @@ def edge(side, nums):
 def expansion_slot():
     # Molex 87715-9106, 2 x 32, the cartridge's connector (2026-10-30; 2 x 20 card edge before).
     # The contacts the cartridge drives (its data, STALL_OUT, RUN, /CART) are not connected here, and an
-    # expansion card's outputs land on the cartridge slot's spares, so neither harms the other's slot
-    # (EXPANSION.md, "Expansion slot pinout").
+    # expansion card's outputs land on the cartridge slot's spares, so neither harms the other's slot.
+    # Odd contacts are the outer rows of the footprint, even ones the inner rows: the extra grounds are
+    # inside and as many signals as the cartridge's pinout allows are outside (Justin, 2026-10-30;
+    # EXPANSION.md, "Expansion slot pinout").
     p = "passive"
-    d = [("B23", "D0"), ("B24", "D1"), ("B25", "D2"), ("B26", "D3"),
-         ("B28", "D4"), ("B29", "D5"), ("B30", "D6"), ("B32", "D7")]
-    sd = [("B12", "BT1"), ("B13", "BT2"), ("B8", "BT3"), ("B14", "BT4"),
-          ("B15", "BT5"), ("B17", "BT6"), ("B18", "BT7"), ("B19", "BT8")]   # boot contacts (slot 1)
+    d = [("A23", "D0"), ("B13", "D1"), ("B15", "D2"), ("B17", "D3"),
+         ("B19", "D4"), ("B23", "D5"), ("B25", "D6"), ("B29", "D7")]
+    sd = [("B12", "BT1"), ("B14", "BT2"), ("B8", "BT3"), ("B28", "BT5")]   # boot contacts (slot 1)
     a = [("A22", "A0"), ("A19", "A1"), ("A17", "A2"), ("A15", "A3"), ("A14", "A4"), ("B9", "A5"),
          ("B7", "A6"), ("A4", "A7"), ("A8", "A8"), ("A9", "A9"), ("A18", "A10"), ("A13", "A11"),
          ("B3", "A12"), ("A6", "A13"), ("A3", "A14"), ("A5", "A15")]
     sel = [("A16", "/EXP")]
-    ctl = [("A10", "RW"), ("A20", "LOAD_IMM"), ("A23", "/WE"), ("B4", "CLK"), ("B20", "/RESET"),
+    ctl = [("B16", "RW"), ("A20", "LOAD_IMM"), ("B24", "/WE"), ("B4", "CLK"), ("B20", "/RESET"),
            ("A7", "PIXEL_ENABLE"), ("A26", "/HSYNC"), ("A28", "/VSYNC")]
-    nc = [("B5", "NC"), ("B6", "NC"), ("B10", "NC"), ("B16", "NC"), ("B22", "NC"), ("B27", "NC"),
+    nc = [("B5", "NC"), ("B6", "NC"), ("B10", "NC"), ("B22", "NC"), ("B27", "NC"),
           ("A24", "NC"), ("A25", "NC"), ("A27", "NC"), ("A29", "NC"), ("A30", "NC"), ("A32", "NC")]
     e = lambda l, k=p: [(n, s, k) for n, s in l]
-    gnd = [(n, "GND") for n in ["A1", "B1", "A11", "B11", "A21", "B21", "A31", "B31"]]
+    gnd = [(n, "GND") for n in ["A1", "B1", "A11", "B11", "A21", "B21", "A31", "B31",
+                                "A12", "B18", "B26", "B30", "B32"]]
     return symbol("Expansion_Slot", [(e(d) + [None] + e(ctl) + [None] + e(sd),
-                                      e(a) + [None] + e(sel) + [None] + [e(nc, "no_connect")] + [None] + e([("A12", "SEL")]))],
+                                      e(a) + [None] + e(sel) + [None] + [e(nc, "no_connect")] + [None] + e([("A10", "SEL")]))],
                   "87715-9106", "Expansion slot: Molex 87715-9106, 64 contacts, 1.0 mm, keyed (EXPANSION.md)",
                   "card edge slot expansion Placard", footprint="", datasheet="~",
                   vcc=[("A2", "+5V"), ("B2", "+5V")], gnd=gnd, ref="J", pin_len=2 * 2.54)

@@ -162,8 +162,9 @@ sheets by hand, or the next run overwrites the edit.
 
 Choices made while drawing that a revision should not undo by accident:
 
-- The expansion slots' former SD7:SD0 contacts are BT1-BT8 (boot contacts
-  on slot 1, open on slots 2-4); cards latch DATABUS7:0.  /WE has a 10k pull-up
+- The expansion slots' boot contacts are BT1, BT2, BT3 and BT5 (slot 1
+  only, open on slots 2-4; BT4 and BT6-BT8 dropped 2026-10-30 for the inner
+  grounds); cards latch DATABUS7:0.  /WE has a 10k pull-up
   (R63).  [EXPANSION.md](EXPANSION.md), "Booting from slot 1".
 - The slots' LOAD_IMM contact carries the State PLD's `/LOAD_IMM` as it is
   (active low).
