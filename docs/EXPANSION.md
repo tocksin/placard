@@ -8,7 +8,10 @@ slot" below; the expansion slots were 0.1" card-edge sockets until
 2026-10-30).  The
 expansion slots stand in a bay at one back corner, front to back at 1.05"
 (26.67 mm) pitch or more ("Shell keepouts" below), so a card's outer end can carry its own connector at the back edge,
-like a PC card.  The cartridge slot is top loading, inboard.  Board sizes
+like a PC card.  Slot 1 (J9) is the one nearest the middle of the board
+and slot 4 (J12) the outermost (Justin, 2026-10-30, for easier routing;
+J9 and J12 swapped places, and J10 and J11, with their SEL resistors).
+The cartridge slot is top loading, inboard.  Board sizes
 are in `hardware/pcb_size_estimate.md` (project files).
 
 No chips are added for the slots: they are wired straight to the buses.
