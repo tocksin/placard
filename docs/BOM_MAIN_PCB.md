@@ -4,7 +4,7 @@ Date: 2026-10-30
 
 The main board, built: the bare PCB, every part on the schematic, and the sockets, jumper shunts that are not drawn.  It is one line of the case assembly.
 
-55 lines, 180 parts on the schematic.  Cost: **$214.47** for one assembly at these quantities, **$187.95** without the optional parts (expansion slot sockets J9-J12).  29 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
+55 lines, 180 parts on the schematic.  Cost: **$199.47** for one assembly at these quantities, **$187.95** without the optional parts (expansion slot sockets J9-J12).  29 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -24,7 +24,7 @@ The main board, built: the bare PCB, every part on the schematic, and the socket
 | 1 | J6 | 54-00174 | Tensility | 3.5 mm audio line out jack, 4 pole (TRRS), right angle, TH (a TRS plug's sleeve spans R2 and S) | 3.5 mm | 0.73 | 0.73 | Digi-Key: Justin, 2026-10-22 |  |
 | 1 | J7 | A-HDF 15 A-KG/T | Assmann WSW | DE-15 high-density receptacle (VGA), with mounting holes | VGA | 1.36 | 1.36 | Digi-Key: Justin, 2026-10-22 |  |
 | 1 | J8 | 87715-9106 | Molex | Cartridge slot: card edge, 64 contacts, 1.0 mm, keyed (PCIe x4 style), vertical TH |  | 2.88 | 2.88 | Mouser |  |
-| 4 | J9-J12 | EBC25DRXH | Sullins | Expansion slot: 2 x 25 card-edge socket, 0.1", 1.6 mm card, TH, ears for 2 M3 x 12 screws + nuts |  | 6.63 | 26.52 | Digi-Key: Sullins EBC25DRXH, S3322-ND (Mouser has none) | Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer runs with none.  Justin's pick 2026-10-30 (Digi-Key S3322-ND); mount with 2 M3 x 12 pan-head screws and nuts (EXPANSION.md) |
+| 4 | J9-J12 | 87715-9106 | Molex | Expansion slot: card edge, 64 contacts, 1.0 mm, keyed (PCIe x4 style), vertical TH, as the cartridge slot |  | 2.88 | 11.52 | Mouser | Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer runs with none.  The cartridge slot's connector since 2026-10-30 (EXPANSION.md) |
 | 1 | J13 | USB4125-GF-A-0190 | GCT | USB-C receptacle, power only (6 pin), top mount | USB4125-GF-A | 0.61 | 0.61 | Mouser |  |
 | 1 | SW1 | ANT11TFHQE | CIT Relay and Switch | Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing |  | 4.50 | 4.50 | est.: Digi-Key; Mouser has no stock |  |
 | 1 | SW2 | PTS645VL58-2 LFS | C&K | Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil) |  | 0.43 | 0.43 | est.: Digi-Key; Mouser has no stock until 12/23/2026 |  |
