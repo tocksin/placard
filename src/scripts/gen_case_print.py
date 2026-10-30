@@ -56,6 +56,9 @@ g.SIDE_VENT_SKIP = {
 }
 
 BOSS_D = 8.0           # printed standoff boss under each board hole
+# a printed flange needs no bend, so its notches round the (wider) bosses run to the wall
+g.NOTCH_ROOT = 0.0
+g.NOTCH_R = BOSS_D / 2 + 0.5
 INSERT_D = 4.0         # hole for an M3 heat-set insert (M3 x 5.7)
 
 
