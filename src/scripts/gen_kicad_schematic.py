@@ -90,7 +90,7 @@ MPN = {
 
 # by symbol: parts whose Value is a label (slot name, net) rather than the part
 MPN_LIB = {
-    "placard_parts:Expansion_Slot": ("Sullins", "EBC20DCAN"),
+    "placard_parts:Expansion_Slot": ("Sullins", "EBC25DRXH"),
     "placard_std:Jumper_2_Open": ("Sullins", "PREC002SAAN-RC"),
     "Switch:SW_Push_LED": ("Cherry", "MX2A-L1NB"),
 }
@@ -1151,25 +1151,27 @@ def sheet_port(b):
 
 def sheet_slots(b):
     s = b.sheet("expansion.kicad_sch", "Expansion slots", 11)
-    heading(s, "Expansion slots", "Four 2 x 20 card-edge slots, x5100-x53FF, 128 bytes each (EXPANSION.md)")
+    heading(s, "Expansion slots", "Four 2 x 25 card-edge slots, x5100-x53FF, 128 bytes each (EXPANSION.md)")
     s.label_nets |= {"RW", "~{LOAD_IMM}", "~{WE}", "CLK", "RUN", "~{EXP1}", "~{EXP2}",
                      "STALL_IN", "STALL_OUT", "PC_ENABLE", "PIXEL_ENABLE", "~{CART}"}
     for k in range(4):
         ref = f"J{9 + k}"
-        x, y = 110 + (k % 2) * 180, 105 + (k // 2) * 95     # two rows: the long bus labels need the width
+        x, y = 116 + (k % 2) * 180, 105 + (k // 2) * 95     # two rows: the long bus labels need the width
         n = {"A1": "GND", "A2": "+5V"}
         for i in range(8):
             n[["A3", "B3", "A4", "B4", "A5", "B5", "A6", "B6"][i]] = D[i]
             n[["A13", "B13", "A14", "B14", "A15", "B15", "A16", "B16"][i]] = A[i]
+            n[["A21", "B21", "A22", "B22", "A23", "B23", "A24", "B24"][i]] = A[8 + i]   # 2026-10-30: 2 x 25
         # BT1-BT8: slot 1's boot contacts (EXPANSION.md, "Booting from slot 1"); not connected on slots 2-4
         bt = ["STALL_IN", "STALL_OUT", "PC_ENABLE", "PIXEL_ENABLE", "~{CART}", None, None, None] if k == 0 else [None] * 8
         for i, net in enumerate(bt):
             n[["A8", "B8", "A9", "B9", "A10", "B10", "A11", "B11"][i]] = net
         n.update({"A17": "~{EXP1}" if k in (0, 2) else "~{EXP2}", "B17": f"SEL{k + 1}", "A18": "RW",
-                  "B18": "~{LOAD_IMM}", "A19": "~{WE}", "B12": "CLK", "B19": "RUN"})
+                  "B18": "~{LOAD_IMM}", "A19": "~{WE}", "B12": "CLK", "B19": "RUN",
+                  "A25": "PIXEL_ENABLE"})
         j = s.part("placard_parts:Expansion_Slot", ref, x, y, n, value=f"Slot {k + 1}",
-                   footprint="placard:CardEdge_2x20_P2.54mm_Vertical", ref_at=(x - 12, y - 32),
-                   value_at=(x - 12, y + 32), bare=("B17",))
+                   footprint="placard:CardEdge_2x25_P2.54mm_Vertical", ref_at=(x - 12, y - 36),
+                   value_at=(x - 12, y + 38.6), bare=("B17",))
         # SEL: a 1k straight off the last pin to GND or +5V
         px, py = j["B17"]
         r = res(s, f"R{51 + k}", px + 7.62, py, f"SEL{k + 1}", "GND" if k < 2 else "+5V", "1k", angle=90, bare=("1",),
@@ -1178,7 +1180,8 @@ def sheet_slots(b):
     note(s, 30, 252, ["SEL: GND on slots 1 and 2, +5 V on slots 3 and 4 (through 1k): the A7 half the card answers.",
                       "/EXP1 goes to slots 1 and 3, /EXP2 to slots 2 and 4.  /RESET = RUN (low while the cartridge loads).",
                       "BT1-BT8 (boot contacts): slot 1 only, STALL_IN, STALL_OUT, PC_ENABLE, PIXEL_ENABLE, /CART; cards latch DATABUS7:0.",
-                      "LOAD_IMM carries the State PLD's /LOAD_IMM (low when the CPU latches the read bus into D)."], size=2.5)
+                      "LOAD_IMM carries the State PLD's /LOAD_IMM (low when the CPU latches the read bus into D).",
+                      "A21-B24 = ADDR8-15 and A25 = PIXEL_ENABLE on every slot (2 x 25 since 2026-10-30: cards can follow video reads)."], size=2.5)
     return s
 
 

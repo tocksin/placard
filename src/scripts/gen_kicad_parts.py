@@ -14,7 +14,7 @@ The other parts come from KiCad's libraries (kicad/README.md lists which).
 Rerunning this overwrites the library, so make changes here, not in KiCad's
 symbol editor.  The pinouts are from CHIPS.md, EXPANSION.md and IO.md.
 
-Date: 2026-10-26
+Date: 2026-10-30
 """
 
 import os
@@ -48,20 +48,25 @@ def edge(side, nums):
 
 
 def expansion_slot():
-    # 2 x 20 card edge, contacts A1-A20 (component side) and B1-B20 (EXPANSION.md)
+    # 2 x 25 card edge, contacts A1-A25 (component side) and B1-B25 (EXPANSION.md); 2 x 20 until
+    # 2026-10-30, when A21-A25/B21-B25 added A15:A8 and PIXEL_ENABLE (video sniffing cards)
     p = "passive"
     d = [("A3", "D0"), ("B3", "D1"), ("A4", "D2"), ("B4", "D3"),
          ("A5", "D4"), ("B5", "D5"), ("A6", "D6"), ("B6", "D7")]
     sd = [("A8", "BT1"), ("B8", "BT2"), ("A9", "BT3"), ("B9", "BT4"),
           ("A10", "BT5"), ("B10", "BT6"), ("A11", "BT7"), ("B11", "BT8")]   # boot contacts (slot 1)
     a = [("A13", "A0"), ("B13", "A1"), ("A14", "A2"), ("B14", "A3"),
-         ("A15", "A4"), ("B15", "A5"), ("A16", "A6"), ("B16", "A7")]
+         ("A15", "A4"), ("B15", "A5"), ("A16", "A6"), ("B16", "A7"),
+         ("A21", "A8"), ("B21", "A9"), ("A22", "A10"), ("B22", "A11"),
+         ("A23", "A12"), ("B23", "A13"), ("A24", "A14"), ("B24", "A15")]
     sel = [("A17", "/EXP")]
-    ctl = [("A18", "RW"), ("B18", "LOAD_IMM"), ("A19", "/WE"), ("B12", "CLK"), ("B19", "/RESET")]
+    ctl = [("A18", "RW"), ("B18", "LOAD_IMM"), ("A19", "/WE"), ("B12", "CLK"), ("B19", "/RESET"),
+           ("A25", "PIXEL_ENABLE")]
     e = lambda l: [(n, s, p) for n, s in l]
-    gnd = [(n, "GND") for n in ["A1", "B1", "A7", "B7", "A12", "A20", "B20"]]
-    return symbol("Expansion_Slot", [(e(d) + [None] + e(sd), e(a) + [None] + e(sel) + [None] + e(ctl) + [None, None] + e([("B17", "SEL")]))],
-                  "EBC20DCAN", "Expansion slot: 2 x 20 contact, 0.1 inch card-edge socket (EXPANSION.md)",
+    gnd = [(n, "GND") for n in ["A1", "B1", "A7", "B7", "A12", "A20", "B20", "B25"]]
+    return symbol("Expansion_Slot", [(e(d) + [None] + e(sd) + [None] + e(ctl),
+                                      e(a) + [None] + e(sel) + [None, None] + e([("B17", "SEL")]))],
+                  "EBC25DRXH", "Expansion slot: 2 x 25 contact, 0.1 inch card-edge socket (EXPANSION.md)",
                   "card edge slot expansion Placard", footprint="", datasheet="~",
                   vcc=[("A2", "+5V"), ("B2", "+5V")], gnd=gnd, ref="J", pin_len=2 * 2.54)
 

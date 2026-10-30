@@ -19,7 +19,7 @@ have no edge.
 | Footprint | Part | Pads (as the symbol) |
 |---|---|---|
 | Molex_87715-9106_PCIe_x4_Vertical | cartridge slot J8 (+ cartridge shell keepout) | A1-A32, B1-B32, 1.0 mm, key after 11 |
-| CardEdge_2x20_P2.54mm_Vertical | expansion slots J9-J12 (Sullins EBC20DCAN family) (+ card shell keepout) | A1-A20, B1-B20 |
+| CardEdge_2x25_P2.54mm_Vertical | expansion slots J9-J12 (Sullins EBC25DRXH, drawing C10881 rev P) (+ card shell keepout) | A1-A25, B1-B25 |
 | PS2_Kycon_KMDGX-6S-6S-S4N | stacked PS/2 J5 | A1-A6 (top), B1-B6 (bottom), SH |
 | SNES_Pad_Socket_Horizontal | SNES pad ports J2, J3 (pins from photos: 4 + 3, 3.5 mm, 6 mm gap) | 1-7 |
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | 1 on throw, 2 common, 3 unused throw |
@@ -53,7 +53,7 @@ Silkscreen: the body outline in silk is cut back around the pads and holes
 (SILK_PAD_GAP) and stops SILK_EDGE_GAP inside the board edge on an edge
 connector, so DRC's silk-over-mask and silk-to-edge checks pass.
 
-Date: 2026-10-29
+Date: 2026-10-30
 """
 
 import os
@@ -209,7 +209,16 @@ SHELL_AIR = 0.5              # gap inside the shell, each side (1.0 over the chi
 SHELL_WALL = 2.0             # shell wall (2 mm printed or moulded)
 MARGIN = 1.0                 # shell placement tolerance on the main board
 CART_W = 39.0                # cartridge card width = the J8 body (39 mm): chips lie horizontally (gen_kicad_cart_pcb.py)
-EXP_W = 72.0                 # expansion card width: the slot body (71.1 mm) plus 0.5 mm a side
+# Expansion slot socket, Sullins EBC25DRXH (drawing C10881 rev P, 25 positions): contacts 0.100",
+# rows 0.200" apart (RX), body C 70.49 x F 8.38 x 10.95 mm tall, ears 6.22 mm tall out to E 85.73,
+# 3.18 mm clearance holes D 78.11 apart (for #4-40 or M3 screws with a nut on the ear)
+EXP_N = 25
+EXP_BODY = 70.49
+EXP_LEN = 85.73              # overall, ear to ear
+EXP_HOLES = 78.11            # mounting hole centres
+EXP_DEPTH = 8.38             # across the slot
+EXP_W = 86.7                 # expansion card width: the socket ear to ear (85.73 mm) plus 0.5 mm a side,
+                             # so the shell's end walls clear the ears (72 mm with the 2 x 20 socket)
 
 
 def shell_box(mid, card_w, slot_half, parts=CARD_PARTS):
@@ -281,19 +290,21 @@ def card_edge():
 
 
 def exp_slot():
-    # 2 x 20 card edge, 0.1" contacts, rows 0.2" apart, mounting ears with 3.2 mm holes
+    # Sullins EBC25DRXH: 2 x 25 card edge, 0.1" contacts, rows 0.2" apart, 1.09 mm min holes,
+    # two 3.18 mm mounting holes (C10881 "Recommended PCB layout")
     pads = []
-    for n in range(1, 21):
+    for n in range(1, EXP_N + 1):
         x = (n - 1) * 2.54
-        pads.append(pad("A%d" % n, x, 2.54, 1.6, 1.0))
-        pads.append(pad("B%d" % n, x, -2.54, 1.6, 1.0))
-    c = 19 * 2.54 / 2
-    extra = hole(c - 32.39, 0, 3.2) + hole(c + 32.39, 0, 3.2)
-    box = shell_box(c, EXP_W, 4.95, EXP_PARTS)
+        pads.append(pad("A%d" % n, x, 2.54, 1.7, 1.1))
+        pads.append(pad("B%d" % n, x, -2.54, 1.7, 1.1))
+    c = (EXP_N - 1) * 2.54 / 2
+    extra = hole(c - EXP_HOLES / 2, 0, 3.2) + hole(c + EXP_HOLES / 2, 0, 3.2)
+    box = shell_box(c, EXP_W, EXP_DEPTH / 2, EXP_PARTS)
     extra += shell_drawing(box, "expansion card")
-    footprint("CardEdge_2x20_P2.54mm_Vertical",
-              "Card edge socket, 2 x 20, 2.54 mm contacts, rows 5.08 mm, 1.6 mm card, vertical, mounting ears",
-              (c - 35.56, -4.95, c + 35.56, 4.95), pads, extra=extra, crtyd=box)
+    footprint("CardEdge_2x25_P2.54mm_Vertical",
+              "Card edge socket Sullins EBC25DRXH, 2 x 25, 2.54 mm contacts, rows 5.08 mm, 1.6 mm card, vertical, "
+              "mounting ears with 3.18 mm holes",
+              (c - EXP_LEN / 2, -EXP_DEPTH / 2, c + EXP_LEN / 2, EXP_DEPTH / 2), pads, extra=extra, crtyd=box)
 
 
 def slot(num, x, y, w, h):
