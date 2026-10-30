@@ -10,9 +10,9 @@ three bent aluminium parts and the clear acrylic top and covers. Quote quantitie
 
 | Part | Qty per case | Material | Finish | Process | Size (mm) |
 |---|--:|---|---|---|---|
-| tray | 1 | Aluminium 5052-H32, 2.0 mm (0.080 in) | Black powder coat, stock color, texture or matte, both sides; mask PEM threads | laser cut, 2 bend(s), PEM insertion, powder coat | bent 295.0 x 220.0 x 36.6; flat 328.1 x 253.1 |
-| back_plate | 1 | Aluminium 5052-H32, 2.0 mm (0.080 in) | Black powder coat, stock color, texture or matte, both sides; mask PEM threads | laser cut, 1 bend(s), PEM insertion, powder coat | bent 291.0 x 16.0 x 34.6; flat 291.0 x 47.1 |
-| left_plate | 1 | Aluminium 5052-H32, 2.0 mm (0.080 in) | Black powder coat, stock color, texture or matte, both sides; mask PEM threads | laser cut, 1 bend(s), PEM insertion, powder coat | bent 16.0 x 218.0 x 34.6; flat 218.0 x 47.1 |
+| tray | 1 | Aluminium 5052-H32, 2.0 mm (0.080 in) | Black powder coat, stock color, texture or matte, both sides | laser cut, bend (press brake), countersink, powder coat | bent 295.0 x 220.0 x 36.6; flat 328.1 x 253.1 |
+| back_plate | 1 | Aluminium 5052-H32, 2.0 mm (0.080 in) | Black powder coat, stock color, texture or matte, both sides | laser cut, bend (press brake), powder coat | bent 291.0 x 16.0 x 34.6; flat 291.0 x 47.1 |
+| left_plate | 1 | Aluminium 5052-H32, 2.0 mm (0.080 in) | Black powder coat, stock color, texture or matte, both sides | laser cut, bend (press brake), powder coat | bent 16.0 x 218.0 x 34.6; flat 218.0 x 47.1 |
 | acrylic_top | 1 | Clear cast acrylic (PMMA), 4 mm, protective film both sides | none | laser cut | 295.0 x 220.0 x 4 |
 | slot_cover_plug | 4 | Clear cast acrylic (PMMA), 4 mm, protective film both sides | none | laser cut | 26.3 x 80.8 x 4 |
 | slot_cover_cap | 4 | Clear cast acrylic (PMMA), 3 mm, protective film both sides | none | laser cut | 26.3 x 89.0 x 3 |
@@ -31,12 +31,9 @@ PARTS.csv has the same list with the hardware and the files for each part.
 
 - Aluminium 5052-H32, 2.0 mm (0.080 in).
 - Four bends in all (two in the tray, one in each plate), each 90 degrees, inside radius 2.0 mm. The flat patterns use K = 0.44 (bend allowance 4.524 mm). Please develop the flat from the STEP with your own bend tables and tell us if anything changes.
-- Hardware, pressed by you:
-  - Tray: 8 x PEM SO-M3-6 standoffs, pressed from the underside.
-  - Each plate: 3 x PEM CLS-M3-1 nuts, pressed from the flange's top face.
-  - Equivalent self-clinching parts are fine.
-- Tray: 6 countersunk holes, 90 degrees, 6.5 mm on the underside.
-- Finish: black powder coat on all three parts, in a stock color, matte or fine texture. Mask the PEM threads. Coat either before or after the PEM insertion, as you prefer.
+- No PEM or other pressed hardware in any part. Each plate's flange has 3 plain 3.4 mm holes.
+- Tray: 14 countersunk holes, 90 degrees, 6.5 mm on the underside.
+- Finish: black powder coat on all three parts, in a stock color, matte or fine texture. Mask the tray's 14 countersinks.
 - No printing, engraving or silkscreen.
 - Some cut-outs sit close to a bend, so check them. On the back plate, the bottom of the USB-C cut-out is about 1.8 mm above the bend tangent. On the left plate, the bottom of the SD slot is about 3 mm above it. Tell us if those need moving or cutting after the bend.
 - Suggested services:
