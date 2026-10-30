@@ -8,7 +8,7 @@ The computer in its case: the main board assembly ([BOM_MAIN_PCB.md](BOM_MAIN_PC
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
-| 1 |  | PLC-2001 | (assembly) | Main board assembly (BOM_MAIN_PCB.md) |  | 187.95 | 187.95 | est.: BOM_MAIN_PCB.md total without the optional expansion slot sockets | Add $18.00 with J9-J12 fitted |
+| 1 |  | PLC-2001 | (assembly) | Main board assembly (BOM_MAIN_PCB.md) |  | 187.95 | 187.95 | est.: BOM_MAIN_PCB.md total without the optional expansion slot sockets | Add $26.52 with J9-J12 fitted |
 | 1 |  |  |  | Tray: 2.0 mm 5052-H32, floor with the front and right walls (two bends), black powder coat, 8 PEM standoffs SO-M3-6 pressed in |  | 50.00 | 50.00 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/tray.step |
 | 1 |  |  |  | Back plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 PEM nuts |  | 23.00 | 23.00 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/back_plate.step |
 | 1 |  |  |  | Left plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 PEM nuts |  | 23.00 | 23.00 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/left_plate.step |

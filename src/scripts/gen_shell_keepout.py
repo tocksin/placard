@@ -13,7 +13,7 @@ there shows here after a rerun of both scripts:
   keepouts);
 - the four expansion slots side by side at the old and new pitch.
 
-Date: 2026-10-23
+Date: 2026-10-30
 """
 
 import os
@@ -117,17 +117,18 @@ def top_views(ax):
         x = n - 1 if n <= 11 else n + 1
         s = 1.9 if n % 2 else 0.0
         cart_pads += [(x, -1.0 - s), (x, 1.0 + s)]
-    c = 19 * 2.54 / 2
-    exp_pads = [((n - 1) * 2.54, y) for n in range(1, 21) for y in (2.54, -2.54)]
+    c = (gc.EXP_N - 1) * 2.54 / 2
+    hd = gc.EXP_DEPTH / 2
+    exp_pads = [((n - 1) * 2.54, y) for n in range(1, gc.EXP_N + 1) for y in (2.54, -2.54)]
     top_view(ax, 16.5, gc.CART_W, (-2.75, -3.75, 35.75, 3.75), 3.75, cart_pads,
              "J8 cartridge (%g mm card)" % gc.CART_W, 0)
-    top_view(ax, c, gc.EXP_W, (c - 35.56, -4.95, c + 35.56, 4.95), 4.95, exp_pads,
+    top_view(ax, c, gc.EXP_W, (c - gc.EXP_LEN / 2, -hd, c + gc.EXP_LEN / 2, hd), hd, exp_pads,
              "J9-J12 expansion card (%g mm card, VGA on side A)" % gc.EXP_W, -36, gc.EXP_PARTS)
     ax.plot([], [], color=KEEP, lw=6, alpha=0.3, label="keepout = courtyard (DRC checks it)")
     ax.plot([], [], color=SHELL, ls="--", label="shell outside")
     ax.plot([], [], color="#1b5e20", lw=3, label="card")
     ax.legend(loc="lower center", fontsize=8, ncol=3, bbox_to_anchor=(0.5, -0.32))
-    ax.set_xlim(-32, 68)
+    ax.set_xlim(-32, 82)
     ax.set_ylim(-50, 20)
     ax.set_aspect("equal")
     ax.set_title("Footprints from above (footprint origin = 0, 0)", fontsize=10)
@@ -135,20 +136,21 @@ def top_views(ax):
 
 
 def pitch_view(ax):
-    c = 19 * 2.54 / 2
+    c = (gc.EXP_N - 1) * 2.54 / 2
+    hd, hl = gc.EXP_DEPTH / 2, gc.EXP_LEN / 2
     for row, (pitch, lab) in enumerate([(20.32, "0.8\" (20.32 mm), as now: shells collide"),
                                         (26.67, "1.05\" (26.67 mm): keepouts clear")]):
         yo = -row * 120
         for i in range(4):
-            x0, y0, x1, y1 = gc.shell_box(c, gc.EXP_W, 4.95, gc.EXP_PARTS)
+            x0, y0, x1, y1 = gc.shell_box(c, gc.EXP_W, hd, gc.EXP_PARTS)
             # rotated 90 degrees as on the board: footprint y becomes board x
             bx = i * pitch
             box(ax, bx + y0, yo + x0 - c, bx + y1, yo + x1 - c, fc=KEEP, alpha=0.15, ec=KEEP, lw=1)
-            box(ax, bx - 4.95, yo - 35.56, bx + 4.95, yo + 35.56, fc="#cccccc", ec="black", lw=0.5)
+            box(ax, bx - hd, yo - hl, bx + hd, yo + hl, fc="#cccccc", ec="black", lw=0.5)
             ax.text(bx, yo, "J%d" % (9 + i), rotation=90, ha="center", va="center", fontsize=7)
-        ax.text(-12, yo + 45, lab, fontsize=9, weight="bold", color=KEEP if row == 0 else "black")
+        ax.text(-12, yo + 51, lab, fontsize=9, weight="bold", color=KEEP if row == 0 else "black")
     ax.set_xlim(-14, 3 * 26.67 + 22)
-    ax.set_ylim(-170, 58)
+    ax.set_ylim(-172, 62)
     ax.set_aspect("equal")
     ax.set_title("Expansion slot pitch", fontsize=10)
     ax.set_xlabel("mm")
