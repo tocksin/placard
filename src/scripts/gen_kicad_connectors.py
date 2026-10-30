@@ -19,7 +19,7 @@ have no edge.
 | Footprint | Part | Pads (as the symbol) |
 |---|---|---|
 | Molex_87715-9106_PCIe_x4_Vertical | cartridge slot J8 (+ cartridge shell keepout) | A1-A32, B1-B32, 1.0 mm, key after 11 |
-| CardEdge_2x25_P2.54mm_Vertical | expansion slots J9-J12 (Sullins EBC25DRXH, drawing C10881 rev P) (+ card shell keepout) | A1-A25, B1-B25 |
+| Molex_87715-9106_Expansion_Slot | expansion slots J9-J12: the cartridge's connector, offset 7.63 mm so the card keepout stays where the 2 x 20 slot had it (+ card shell keepout) | A1-A32, B1-B32, 1.0 mm, key after 11 |
 | PS2_Kycon_KMDGX-6S-6S-S4N | stacked PS/2 J5 | A1-A6 (top), B1-B6 (bottom), SH |
 | SNES_Pad_Socket_Horizontal | SNES pad ports J2, J3 (pins from photos: 4 + 3, 3.5 mm, 6 mm gap) | 1-7 |
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | 1 on throw, 2 common, 3 unused throw |
@@ -209,16 +209,9 @@ SHELL_AIR = 0.5              # gap inside the shell, each side (1.0 over the chi
 SHELL_WALL = 2.0             # shell wall (2 mm printed or moulded)
 MARGIN = 1.0                 # shell placement tolerance on the main board
 CART_W = 39.0                # cartridge card width = the J8 body (39 mm): chips lie horizontally (gen_kicad_cart_pcb.py)
-# Expansion slot socket, Sullins EBC25DRXH (drawing C10881 rev P, 25 positions): contacts 0.100",
-# rows 0.200" apart (RX), body C 70.49 x F 8.38 x 10.95 mm tall, ears 6.22 mm tall out to E 85.73,
-# 3.18 mm clearance holes D 78.11 apart (for #4-40 or M3 screws with a nut on the ear)
-EXP_N = 25
-EXP_BODY = 70.49
-EXP_LEN = 85.73              # overall, ear to ear
-EXP_HOLES = 78.11            # mounting hole centres
-EXP_DEPTH = 8.38             # across the slot
-EXP_W = 86.7                 # expansion card width: the socket ear to ear (85.73 mm) plus 0.5 mm a side,
-                             # so the shell's end walls clear the ears (72 mm with the 2 x 20 socket)
+EXP_W = 72.0                 # expansion card width (Justin, 2026-10-30: kept from the 2 x 20 slot, room for chips)
+EXP_OFS = 24.13 - 16.5       # the Molex contacts from the footprint origin: the card's centre stays at x 24.13,
+                             # where the 2 x 20 slot (2026-10-22 to 10-30) had it, so J9-J12 need not move
 
 
 def shell_box(mid, card_w, slot_half, parts=CARD_PARTS):
@@ -290,21 +283,22 @@ def card_edge():
 
 
 def exp_slot():
-    # Sullins EBC25DRXH: 2 x 25 card edge, 0.1" contacts, rows 0.2" apart, 1.09 mm min holes,
-    # two 3.18 mm mounting holes (C10881 "Recommended PCB layout")
+    # Expansion slot (2026-10-30): the cartridge's Molex 87715-9106 (cart_slot() pads and pegs), shifted by
+    # EXP_OFS so the 72 mm card and its shell keepout stay where the 2 x 20 slot's were
     pads = []
-    for n in range(1, EXP_N + 1):
-        x = (n - 1) * 2.54
-        pads.append(pad("A%d" % n, x, 2.54, 1.7, 1.1))
-        pads.append(pad("B%d" % n, x, -2.54, 1.7, 1.1))
-    c = (EXP_N - 1) * 2.54 / 2
-    extra = hole(c - EXP_HOLES / 2, 0, 3.2) + hole(c + EXP_HOLES / 2, 0, 3.2)
-    box = shell_box(c, EXP_W, EXP_DEPTH / 2, EXP_PARTS)
+    for n in range(1, 33):
+        x = EXP_OFS + (n - 1 if n <= 11 else n + 1)
+        stag = 1.9 if n % 2 else 0.0
+        pads.append(pad("B%d" % n, x, -1.0 - stag, 0.95, 0.65))
+        pads.append(pad("A%d" % n, x, 1.0 + stag, 0.95, 0.65))
+    extra = hole(EXP_OFS - 1.6, 0, 1.6) + hole(EXP_OFS + 34.6, 0, 1.6)
+    extra += text("user", "key", EXP_OFS + 11.5, 0, "F.Fab", size=0.8)
+    box = shell_box(EXP_OFS + 16.5, EXP_W, 3.75, EXP_PARTS)
     extra += shell_drawing(box, "expansion card")
-    footprint("CardEdge_2x25_P2.54mm_Vertical",
-              "Card edge socket Sullins EBC25DRXH, 2 x 25, 2.54 mm contacts, rows 5.08 mm, 1.6 mm card, vertical, "
-              "mounting ears with 3.18 mm holes",
-              (c - EXP_LEN / 2, -EXP_DEPTH / 2, c + EXP_LEN / 2, EXP_DEPTH / 2), pads, extra=extra, crtyd=box)
+    footprint("Molex_87715-9106_Expansion_Slot",
+              "Expansion slot: Molex 87715-9106 card edge slot, PCIe x4 style, 64 contacts, 1.0 mm, vertical, "
+              "through hole, offset for the expansion card keepout",
+              (EXP_OFS - 2.75, -3.75, EXP_OFS + 35.75, 3.75), pads, extra=extra, crtyd=box)
 
 
 def slot(num, x, y, w, h):
