@@ -367,5 +367,58 @@
    "slot_cover_1",
    "slot_cover_2"
   ]
+ },
+ "snap_bends": {
+  "cam": [
+   370,
+   -75,
+   -45
+  ],
+  "look": [
+   262,
+   30,
+   -2
+  ],
+  "fov": 30,
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "snap": true,
+  "printed": 6976384,
+  "aluEdges": true,
+  "parked": [
+   "cart_cover"
+  ]
+ },
+ "snap_bends_rear": {
+  "cam": [
+   -55,
+   280,
+   -40
+  ],
+  "look": [
+   30,
+   200,
+   -2
+  ],
+  "fov": 32,
+  "covers": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "cartCover": true,
+  "snap": true,
+  "printed": 6976384,
+  "aluEdges": true,
+  "parked": [
+   "slot_cover_1",
+   "slot_cover_2"
+  ]
  }
 }

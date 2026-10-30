@@ -22,7 +22,8 @@ second hole near the plate's bottom (PARK_HOLE_Z), so the back end can't sag.
 
 Writes STL meshes (covers in place and parked, the top with the detent slots
 instead of magnet holes, the tray with the parking slots instead of the steel
-discs, the back plate with the parking holes) for render_case.html (V.snap) and a section drawing.  Run from the repo
+discs, the back plate with the parking holes; all the metal with its bends,
+from gen_case_quote.py) for render_case.html (V.snap) and a section drawing.  Run from the repo
 root after gen_case.py --mesh:
     python3 src/scripts/gen_cover_snap_concept.py
 """
@@ -35,6 +36,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Circle, Polygon, Rectangle
 
 import gen_case as g
+import gen_case_quote as q
 
 TAB_W = 6.0           # detent tab width
 TAB_T = 1.8           # detent tab thickness (flexes to let a bump by)
@@ -151,7 +153,7 @@ PARK_HOLE_Z = park_z(g.CARD_SCREW_Z)   # the parking hole in the back plate, 2.4
 def snap_back_plate(parts):
     """The back plate with a parking hole under each card screw hole, for the
     parked slot covers' domes."""
-    s = g.plate(parts, g.wall_cutouts(parts), "back")
+    s = q.plate_parts(parts, g.wall_cutouts(parts), "back")[1]     # bent, R2 inside
     for x, z in g.card_screws(parts):
         s = s.cut(cq.Workplane("XZ").center(x, PARK_HOLE_Z).circle(1.7).extrude(-10)
                   .translate((0, g.D - g.T - 1, 0)))
@@ -179,7 +181,7 @@ def snap_tray(parts):
     keep = g.slot_magnets
     g.slot_magnets = lambda p: []
     try:
-        s = g.tray(parts, g.wall_cutouts(parts))
+        s = q.tray_parts(parts, g.wall_cutouts(parts))[1]     # bent, R2 inside
     finally:
         g.slot_magnets = keep
     w = TAB_W / 2 + SLOT_CLR
@@ -321,7 +323,8 @@ def draw_section(parts, path):
 def main():
     parts = g.read_board(os.path.join(g.REPO, "kicad", "placard.kicad_pcb"))
     os.makedirs(OUT, exist_ok=True)
-    solids = {"acrylic_top": plain_top(parts), "tray": snap_tray(parts), "back_plate": snap_back_plate(parts), "cart_cover": snap_cart_cover(parts)}
+    solids = {"acrylic_top": plain_top(parts), "tray": snap_tray(parts), "back_plate": snap_back_plate(parts),
+              "left_plate": q.plate_parts(parts, g.wall_cutouts(parts), "left")[1], "cart_cover": snap_cart_cover(parts)}
     for i, s in enumerate(snap_slot_covers(parts)):
         solids["slot_cover_%d" % (i + 1)] = s
     for n in [n for n in solids if "cover" in n]:
