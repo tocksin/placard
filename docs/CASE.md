@@ -1,6 +1,6 @@
 # Case
 
-Date: 2026-10-29
+Date: 2026-10-30
 
 This is a concept for the PLACARD case. The case is black powder-coated
 aluminium, strong on the bottom and sides, with a clear acrylic top so the
@@ -58,9 +58,9 @@ lying on the walls, clears it by 2 mm. The feet are as tall as a parked cover (7
 
 | Part | Qty | Material and finish | Made by |
 |---|--:|---|---|
-| Tray | 1 | 2.0 mm 5052-H32 aluminium, two bends: the floor with the front wall (SNES cut-outs) and the right wall up to the acrylic, with vent slots in the floor and 20 in the right wall, 10 holes for the steel parking discs and 6 countersunk holes for the plate screws. Black powder coat | Sheet metal service: laser cut, bend, PEM insert, powder coat |
-| Back plate | 1 | 2.0 mm 5052-H32, flat with a 6 mm flange bent in along the bottom: USB-C, audio, VGA and PS/2 cut-outs, an M3 screw hole behind each expansion slot (J9-J12), 3 PEM nuts (M3) in the flange, the flange notched round J7's pins | Same |
-| Left plate | 1 | Same: power switch, reset and SD cut-outs, 12 vent slots, 3 PEM nuts | Same |
+| Tray | 1 | 2.0 mm 5052-H32 aluminium, two bends (inside radius 2 mm, open front-right corner with a relief): the floor, to the case's outside edges, with the front wall (SNES cut-outs) and the right wall up to the acrylic, with vent slots in the floor and 10 in the right wall, 10 holes for the steel parking discs and 6 countersunk holes for the plate screws. Black powder coat | Sheet metal service: laser cut, bend, PEM insert, powder coat |
+| Back plate | 1 | 2.0 mm 5052-H32, standing on the floor, with a 14 mm flange bent in along the bottom: USB-C, audio, VGA and PS/2 cut-outs, an M3 screw hole behind each expansion slot (J9-J12), 3 PEM CLS-M3-1 nuts in the flange, the flange notched round the floor standoffs and J7's pins | Same |
+| Left plate | 1 | Same: power switch, reset and SD cut-outs, 6 vent slots, 3 PEM nuts | Same |
 | Acrylic top | 1 | 4 mm clear cast acrylic, 295 x 220 mm, laser cut, with 10 magnet holes | Laser cutting service |
 | Slot cover | 4 | 4 mm acrylic plug + 3 mm acrylic cap, solvent welded (Weld-On 4) | Laser cutting service; the builder or kitter welds them |
 | Cartridge cover | 1 | Same, sized for J8 | Same |
@@ -96,8 +96,8 @@ program unfolds from the STEP.
 3. Screw the 27 mm standoffs through H1-H8 into the floor standoffs. This
    clamps the board.
 4. Slide the back plate forward onto USB-C, audio, VGA and PS/2. Its flange
-   slides over the floor, under the board; it's notched where J7's pins come
-   through, and clears the rest by 2 mm or more. Fit three countersunk screws
+   slides over the floor, under the board; open notches let it past the
+   floor standoffs and J7's pins, and it clears the rest of the board. Fit three countersunk screws
    up through the floor.
 5. Slide the left plate on over the power switch, reset and SD in the same
    way, three screws.
@@ -363,6 +363,38 @@ files to `case/print/`. The aluminium version stays as it is.
   - Printed covers in clear PETG look fine, because they are small and
     solid.
 
+## Getting a quote
+
+`case/quote/` (zipped as `case/quote.zip`) is the package to send to a sheet
+metal service and a laser cutter. `src/scripts/gen_case_quote.py` makes it
+from the same parts:
+
+- `step/`: the tray and both plates as bent parts with real 2 mm inside bend
+  radii and corner and end reliefs, and the acrylic parts flat.
+- `dxf/`: flat patterns of the bent parts, with layer CUT for the outline and
+  holes and layer BEND for the bend lines (K = 0.44). There are also cutting
+  files for the acrylic top, cover plugs and cover caps.
+- `pdf/`: an A3 drawing per part, with the flat pattern, overall sizes,
+  bends, holes, hardware, material, finish and tolerances.
+- `PARTS.csv` and `README.md`: quantities, materials, finishes, the PEM
+  parts and notes for the vendor.
+
+SendCutSend takes the STEP for bent parts. PCBWay sheet metal, Xometry and
+Protocase take the STEP plus the PDF. Ask for 1, 10 and 100 sets.
+
+The quote check on 2026-10-30 changed the plates:
+
+- Their 6 mm flanges ran over six of the floor standoffs and were too short
+  for a bend and a PEM nut.
+- The flanges are now 14 mm, with open notches round the standoffs, which
+  stop at the bend.
+- The plates stand on the floor, which now runs to the outside edges.
+- Each PEM nut sits 9 mm from the plate's inside face.
+- The back plate's left screw moved from x 20 to x 25.
+
+The README lists two cut-outs that sit close to a bend, for the vendor to
+check: USB-C and the SD slot.
+
 ## Cost estimate
 
 These are rough per-unit prices in US dollars, before shipping, tax and
@@ -405,6 +437,7 @@ python3 src/scripts/gen_case.py                       # STEP + DXF in case/, dra
 python3 src/scripts/gen_case.py --pcb other.kicad_pcb # from another copy of the board
 python3 src/scripts/gen_case.py --mesh src/scripts/case_render/mesh   # also STL meshes for the renders
 python3 src/scripts/gen_case_print.py                 # 3D-printed pieces in case/print/, docs/case_print_pieces.png
+python3 src/scripts/gen_case_quote.py                 # quote package in case/quote/ and case/quote.zip
 ```
 
 The renders use three.js in headless Chromium (`src/scripts/case_render/`).
