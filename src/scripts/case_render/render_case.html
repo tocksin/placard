@@ -86,7 +86,7 @@ if (!V.hide?.includes('board')) {
 // tray, and the back and left plates (V.plate: their colour; explode.back / .left slide them out)
 const plateMat = V.plate ? new THREE.MeshStandardMaterial({color: V.plate, metalness: 0.15, roughness: 0.75}) : alu;
 const ae = V.aluEdges ? 'alu' : false;
-if (!V.hide?.includes('tray')) await stl('tray', alu, ez('lower'), ae);
+if (!V.hide?.includes('tray')) await stl((V.snap ? '../mesh_snap/' : '') + 'tray', alu, ez('lower'), ae);
 if (!V.hide?.includes('back')) await stl('back_plate', plateMat, ez('lower'), ae, [0, ez('back'), 0]);
 if (!V.hide?.includes('left')) await stl('left_plate', plateMat, ez('lower'), ae, [-ez('left'), 0, 0]);
 // V.snap: the printed snap-cover concept (gen_cover_snap_concept.py): no magnets or discs
@@ -103,10 +103,12 @@ if (V.snap) {
   const printed = mat(V.printed || 0x6a7380, 0.0, 0.85);
   for (const n of cov) await stl(SN + n, printed, ez('covers'), 'alu');
   for (const n of (V.lifted || [])) await stl(SN + n + '_lifted', printed, ez('covers'), 'alu');
-} else
-for (const n of cov) { await stl(n, acrCap, ez('covers'), true); await stl('magnets_' + n, magMat, ez('covers')); }
-for (const n of (V.parked || [])) {
-  await stl(n + '_parked', acrCap, ez('parked'), true); await stl('magnets_' + n + '_parked', magMat, ez('parked')); }
+  for (const n of (V.parked || [])) await stl(SN + n + '_parked', printed, ez('parked'), 'alu');
+} else {
+  for (const n of cov) { await stl(n, acrCap, ez('covers'), true); await stl('magnets_' + n, magMat, ez('covers')); }
+  for (const n of (V.parked || [])) {
+    await stl(n + '_parked', acrCap, ez('parked'), true); await stl('magnets_' + n + '_parked', magMat, ez('parked')); }
+}
 // ---- installed cartridge / cards (shell = keepout less 1 mm)
 const shellMat = mat(V.shell || 0x2b2d31, 0.1, 0.55);
 if (V.cart) { const c = B.parts.J8.crt; box(c[0] + 1, c[1] + 1, 0, c[2] - 1, c[3] - 1, 71, shellMat, ez('board')); }
