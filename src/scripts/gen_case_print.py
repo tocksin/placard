@@ -38,7 +38,7 @@ BED_MARGIN = 5.0       # each piece's footprint must fit BED - BED_MARGIN
 
 # seams (case coordinates, mm), chosen clear of holes, vents and cut-outs
 TRAY_X, TRAY_Y = 132.0, 120.0     # tray: four pieces
-BACK_X = 140.0                    # back plate: two pieces (clear of the J12 card screw at 132)
+BACK_X = 140.0                    # back plate: two pieces (clear of the J9 (slot 1) card screw at 132)
 LEFT_Y = 120.0                    # left plate: two pieces
 TOP_X, TOP_Y = 160.0, 100.0       # top: four pieces (between the expansion bay and the cartridge lap)
 
