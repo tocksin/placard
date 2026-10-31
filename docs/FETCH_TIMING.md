@@ -1,11 +1,21 @@
 # Instruction fetch timing: closing it without a wait clock
 
+> 2026-10-31: rechecked with the routed board's traces in
+> [TIMING_ROUTED.md](TIMING_ROUTED.md).  The address side of the fetch is
+> +2.9 ns (not +6.7), and the fetch through /RAM_OE and /ROM_OE is short:
+> −1.3 ns from RAM and −2.2 ns from the cartridge ROM, from the data bus
+> route back to the IR and State PLDs (+1.9 from the datasheets, not +2.7:
+> the IR is a PLD with a 3.5 ns setup).  The zero-page store start below
+> is +1.9 from the datasheets (the D register, 10.5 + 7.5 = 18 ns, not the
+> selects at 13) and +0.3 on the board.  Source AC after FETCH is 22.5 ns
+> with the IR PLD, not 27.5.
+
 > 2026-10-27: option B is implemented (PLD sources, FPGA model, schematic,
 > docs); the board rewiring is Justin's.  The change list at the end says
 > what was done, and `option_b_board.png` shows what moves on the board
 > (nothing has to).
 
-Date: 2026-10-27
+Date: 2026-10-31
 
 [WE_TIMING.md](WE_TIMING.md) found that the instruction fetch, which
 [TIMING.md](TIMING.md) has at +0.7 ns, is about 4 ns short once the routed

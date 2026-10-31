@@ -1,12 +1,18 @@
 # Timing analysis at 25.175 MHz
 
+> 2026-10-31: [TIMING_ROUTED.md](TIMING_ROUTED.md) redoes the memory and
+> control paths with the routed board's trace delays and clock skew
+> included (this file leaves them out).  Reads through /RAM_OE and /ROM_OE
+> into the IR and State PLDs are short on the board (−1.3 and −2.2 ns),
+> from the data bus routing.
+
 > 2026-10-27: the address muxes take their selects straight from the State
 > and Sync PLDs (mux revision 02), and /WE comes from the Sync PLD on an early
 > clock tap ([FETCH_TIMING.md](FETCH_TIMING.md), option B).  Every path
 > through the Sync PLD's ADDR_SEL below is 7.5 ns shorter than written; the
 > end-of-write hold is in [WE_TIMING.md](WE_TIMING.md).
 
-Date: 2026-10-27
+Date: 2026-10-31
 
 This is a static, worst-case timing analysis of the Placard as it sits in
 `src/hdl/basys_top.vhd` and the PLD sources in `src/pld`, for a real board
