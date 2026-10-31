@@ -1,12 +1,18 @@
 # RAM write enable timing
 
+> 2026-10-31: rechecked on Justin's routed board with option B in place
+> ([TIMING_ROUTED.md](TIMING_ROUTED.md)): address hold after /WE +0.7 ns,
+> data hold +5.0, zero-page store start +0.3 (the D register path, D5,
+> which the +6.9 below left out; +1.9 from the datasheets), /CE_HI before
+> /WE +6.4.  The trace table below is from the 2026-10-27 board.
+
 > 2026-10-27: /WE now comes from the Sync PLD on the early clock tap CLK_E
 > and the muxes take their selects directly ([FETCH_TIMING.md](FETCH_TIMING.md),
 > option B, implemented).  The end-of-write hold below becomes +0.5 ns from
 > the datasheets alone (with the 3 ns lead), no longer dependent on the
 > order of the clock net; the zero-page store start gains 6.9 ns.
 
-Date: 2026-10-27
+Date: 2026-10-31
 
 This checks every SRAM write against the address and data around it: the
 write must not start before the address has settled, and /WE must be high
