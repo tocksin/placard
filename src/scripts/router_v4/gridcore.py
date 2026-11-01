@@ -91,6 +91,9 @@ class Grid:
             if p['kind']=='np_thru_hole':
                 for r,arr in ((p['drill']/2+rules.HOLECLR+W/2+M,self.edge_t),(p['drill']/2+rules.HOLECLR+VD/2+M,self.edge_v)):
                     j0,i0,m=self.raster(Point(p['x'],p['y']).buffer(r,16)); arr[j0:j0+m.shape[0],i0:i0+m.shape[1]]|=m
+            elif p['kind']=='thru_hole' and nets.get(p['net']) in rules.PLANE_NETS and rules.THERMCLR>0:
+                # inner-plane thermal spokes of a GND/+5V pad must not be cut by vias of other nets (DRC starved_thermal)
+                j0,i0,m=self.raster(Point(p['x'],p['y']).buffer(rules.THERMCLR,16)); self.edge_v[j0:j0+m.shape[0],i0:i0+m.shape[1]]|=m
         FX0,FX1,FY0,FY1=233.6,268.4,125.6,133.6   # J8 pad field: vertical moves only, no vias
         XX=self.ox+np.arange(nx)*G; YY=self.oy+np.arange(ny)*G
         self.field=np.zeros((ny,nx),np.uint8); self.field[np.ix_((YY>FY0)&(YY<FY1),(XX>FX0)&(XX<FX1))]=1
