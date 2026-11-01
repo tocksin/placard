@@ -84,3 +84,16 @@ the pattern/lane warm start is neutral. Router time is for the laptop RTX 4070; 
 Whole board round 3 (`bench/wb3_*`, laptop GPU, 35 min router + 27 min tidy): 39.12 m / 676 vias after tidy + corner45,
 0 open, 0 collisions, KiCad DRC 0 clearance / 0 unconnected / 1 starved thermal (fixed by THERMCLR for the next run).
 Justin's layout without CLK_E for the same scope: 41.18 m / 946 vias.
+
+### Round 3 results (laptop RTX 4070, `bench/wb3_*`, `bench/wb4_*`, `bench/wb4m_*`)
+
+| | track | vias | KiCad 9 DRC |
+|---|---|---|---|
+| Justin's layout, same 255-net scope (CLK_E excluded) | 41.18 m | 946 | clean |
+| wb3: net pass, no thermal keep-out | 39.12 m | 676 | 0 clearance, 0 unconnected, 1 starved thermal (U25-20) |
+| wb4: + THERMCLR 2 mm (`kicad/placard_autorouted.kicad_pcb`) | 38.96 m | 656 | clean (`bench/wb4_c45_drc.json`; zones refilled before the check) |
+| wb4m: bench without CLK_E, MINLEN=CLK_E:420 | 39.62 m | 656 | CLK_E 201 -> 428.6 mm (detour +33.6, bumps the rest), 0 collisions |
+
+Whole-board tidy A/B on the wb3 raw route: NETPASS=0 693 vias / 39.77 m, NETPASS=1 686 / 39.78 (full 256-net scope).
+`kicad/placard_autorouted.kicad_pcb` is wb4_c45 as a ready-to-swap copy of the main board (Justin's GND/+5V/CLK_E copper
+kept, every other net autorouted); it is not the project's board file.
