@@ -1,0 +1,77 @@
+grid 2352 1744
+rasterised 5662 items 2.3 s
+open nets 108 ['DATABUS4', 'DATABUS0', 'ADDR14', 'ADDR2', 'ADDR1', 'ADDR12', 'ADDR0', 'RUN', 'ADDR4', 'ADDR11', 'DATABUS2', 'DATABUS7', 'ADDR7', 'ADDR10', 'ADDR9', 'ADDR6', 'DATABUS6', 'DATABUS5', 'DATABUS1', 'ADDR8', 'ADDR5', 'DATABUS3', 'STALL_IN', 'ADDR13', 'STALL_OUT', 'ADDR15', 'ADDR3', 'RW', '~{LOAD_IMM}', '~{LOAD_X}', '~{LOAD_Y}', '~{LOAD_AC}', '~{PIX_LD}', 'Z_LOW', 'LOAD_PC_LOW', 'Z_HIGH', 'COUT', '~{SRC_EN}', 'LOAD_PC_HIGH', 'PC3', 'PC5', 'PC6', 'PC7', 'PC1', 'Net-(U3-CO)', 'PC2', 'PC4', 'PC0', 'Y5', 'Y6', 'PC14', 'Y1', 'PC12', 'PC8', 'PC13', 'PC11', 'PC10', 'Y7', 'PC9', 'Y0', 'Y3', 'Y4', 'PC15', 'Y2', 'D1', 'V2', 'X3', 'VA0', 'D2', 'V3', 'X1', 'X0', 'X2', 'D3', 'D0', 'VA1', 'D7', 'V6', 'X5', 'V5', 'D6', 'D5', 'D4', 'X6', 'VA7', 'V4', 'X7', 'X4', 'H5', 'VA8', 'H3', 'H4', 'H8', 'H7', 'H9', 'H6', '/Memory and I/O decode/RAMSEL6', '/Memory and I/O decode/RAMSEL4', '/Memory and I/O decode/RAMSEL2', '/Memory and I/O decode/RAMSEL5', '/Memory and I/O decode/RAMSEL3', '/Memory and I/O decode/RAMSEL0', '/Memory and I/O decode/RAMSEL1', 'Net-(U11-{slash}RAM_OE)', 'Net-(U12-{slash}MAP_WR)', '~{LINE_RD}', 'I1', '~{AC_SEL}'] 22 s
+critical nets first: ['STALL_IN', 'STALL_OUT', 'RUN']
+backend cpu
+iter 0 overlap cells 28215 conflicted 98 fails [] 19 s (total 41 s)
+iter 1 overlap cells 17974 conflicted 100 fails [] 18 s (total 60 s)
+iter 2 overlap cells 13387 conflicted 95 fails [] 18 s (total 77 s)
+iter 3 overlap cells 6165 conflicted 85 fails [] 17 s (total 94 s)
+iter 4 overlap cells 4214 conflicted 78 fails [] 18 s (total 113 s)
+iter 5 overlap cells 2135 conflicted 67 fails [] 15 s (total 128 s)
+iter 6 overlap cells 1548 conflicted 55 fails [] 12 s (total 140 s)
+iter 7 overlap cells 1320 conflicted 55 fails [] 11 s (total 151 s)
+iter 8 overlap cells 1707 conflicted 49 fails [] 18 s (total 169 s)
+iter 9 overlap cells 1676 conflicted 46 fails [] 10 s (total 179 s)
+iter 10 overlap cells 1772 conflicted 39 fails [] 9 s (total 188 s)
+iter 11 overlap cells 726 conflicted 36 fails [] 6 s (total 193 s)
+iter 12 overlap cells 708 conflicted 35 fails [] 17 s (total 210 s)
+iter 13 overlap cells 767 conflicted 35 fails [] 5 s (total 215 s)
+iter 14 overlap cells 712 conflicted 33 fails [] 5 s (total 219 s)
+iter 15 overlap cells 665 conflicted 31 fails [] 6 s (total 225 s)
+iter 16 overlap cells 694 conflicted 26 fails [] 17 s (total 242 s)
+iter 17 overlap cells 618 conflicted 27 fails [] 4 s (total 246 s)
+iter 18 overlap cells 679 conflicted 27 fails [] 4 s (total 250 s)
+iter 19 overlap cells 624 conflicted 27 fails [] 4 s (total 254 s)
+iter 20 overlap cells 760 conflicted 28 fails [] 17 s (total 271 s)
+iter 21 overlap cells 1020 conflicted 26 fails [] 4 s (total 274 s)
+iter 22 overlap cells 447 conflicted 26 fails [] 4 s (total 278 s)
+iter 23 overlap cells 402 conflicted 23 fails [] 4 s (total 282 s)
+iter 24 overlap cells 416 conflicted 26 fails [] 16 s (total 298 s)
+iter 25 overlap cells 443 conflicted 25 fails [] 4 s (total 302 s)
+iter 26 overlap cells 440 conflicted 25 fails [] 4 s (total 306 s)
+iter 27 overlap cells 445 conflicted 24 fails [] 4 s (total 310 s)
+iter 28 overlap cells 531 conflicted 26 fails [] 16 s (total 326 s)
+iter 29 overlap cells 374 conflicted 23 fails [] 5 s (total 331 s)
+hard round 0: conflicted 6 fails 6 17 s
+rip-retry: start with 6 nets to place chain-level rip
+  rip-retry 1 Y4 rips {'H9': 1, 'Z_HIGH': 1, 'Y2': 1, 'X7': 1} fixed [] queue 9
+  rip-retry 4 D3 rips {'Y3': 1} fixed [] queue 7
+  rip-retry 5 X3 rips {'STALL_OUT': 1, '/Memory and I/O decode/RAMSEL4': 1} fixed [] queue 8
+  rip-retry 6 D4 rips {'LOAD_PC_LOW': 1, 'Y5': 1, 'V2': 1} fixed [] queue 10
+  rip-retry 11 Y3 rips {'PC5': 1} fixed [] queue 6
+  rip: /Memory and I/O decode/RAMSEL4 crosses fixed ADDR14 -> removed 2 pieces; groups 4
+  rip-retry 13 /Memory and I/O decode/RAMSEL4 rips {'/Memory and I/O decode/RAMSEL3': 1} fixed ['ADDR14'] queue 6
+  rip: LOAD_PC_LOW crosses fixed /Control/BRANCH_BLOCK -> removed 1 pieces; groups 2
+  rip-retry 14 LOAD_PC_LOW rips {} fixed ['/Control/BRANCH_BLOCK'] queue 6
+  rip: PC5 crosses fixed Y_ENABLE -> removed 1 pieces; groups 2
+  rip-retry 17 PC5 rips {'PC13': 1, 'PC0': 1, 'ADDR13': 1, 'V4': 1} fixed ['Y_ENABLE'] queue 8
+  rip-retry 24 V4 rips {'PC5': 1} fixed [] queue 2
+  rip-retry 26 PC5 rips {'PC13': 1, 'Y_ENABLE': 1} fixed [] queue 2
+  rip-retry 27 PC13 rips {'PC5': 1} fixed [] queue 2
+  rip-retry 29 PC5 rips {'V4': 1, 'Y_ENABLE': 1} fixed [] queue 2
+  rip-retry 30 V4 rips {'PC5': 1} fixed [] queue 2
+  rip-retry 32 PC5 rips {'V4': 1, 'Y_ENABLE': 1} fixed [] queue 2
+  rip-retry 33 V4 rips {'PC13': 1, 'Y5': 1} fixed [] queue 3
+  rip-retry 35 PC13 rips {'V4': 1} fixed [] queue 2
+  rip-retry 37 V4 rips {'PC13': 1, 'Y5': 1} fixed [] queue 2
+  rip-retry 38 PC13 rips {'ADDR13': 1, 'V2': 1} fixed [] queue 3
+  rip-retry 40 ADDR13 rips {'/Memory and I/O decode/RAMSEL1': 1} fixed [] queue 2
+  rip-retry 42 /Memory and I/O decode/RAMSEL1 rips {'X3': 1, 'D2': 1, 'Y2': 1, 'VA8': 1} fixed [] queue 4
+  rip-retry 43 X3 rips {'/Memory and I/O decode/RAMSEL1': 1} fixed [] queue 4
+  rip: /Memory and I/O decode/RAMSEL1 crosses fixed ADDR14 -> removed 1 pieces; groups 4
+  rip: /Memory and I/O decode/RAMSEL1 crosses fixed Net-(J8-{slash}ROM_OE) -> removed 1 pieces; groups 2
+  rip-retry 47 /Memory and I/O decode/RAMSEL1 rips {'ADDR12': 1, 'VA1': 1, 'DATABUS2': 1} fixed ['ADDR14', 'Net-(J8-{slash}ROM_OE)'] queue 5
+  rip-retry 52 Net-(J8-{slash}ROM_OE) rips {'/Memory and I/O decode/RAMSEL1': 1} fixed [] queue 1
+  rip: /Memory and I/O decode/RAMSEL1 crosses fixed ~{EXP1} -> removed 1 pieces; groups 2
+  rip: /Memory and I/O decode/RAMSEL1 crosses fixed Net-(U11-{slash}RAM_OE) -> removed 1 pieces; groups 2
+  rip-retry 53 /Memory and I/O decode/RAMSEL1 rips {'ADDR8': 1} fixed ['~{EXP1}', 'Net-(U11-{slash}RAM_OE)'] queue 3
+  rip-retry 56 Net-(U11-{slash}RAM_OE) rips {'/Memory and I/O decode/RAMSEL1': 1} fixed [] queue 1
+  rip-retry 57 /Memory and I/O decode/RAMSEL1 rips {'/Memory and I/O decode/RAMSEL0': 1, 'ADDR14': 2, 'ADDR15': 1} fixed [] queue 3
+  rip-retry 60 ADDR15 rips {'STALL_OUT': 1} fixed [] queue 1
+rip-retry done after 61 rounds; unrouted [] 69 s
+improve pass 0: nets improved 45, cost gain 3622, 18 s
+improve pass 1: nets improved 16, cost gain 1293, 16 s
+UNROUTED 0 [] total 451 s
+routed vias 462 cells 141247
+wrote bench_cpulap.kicad_pcb segments 2083 vias 462
