@@ -42,3 +42,29 @@ Pipeline for a board: `mroute4.py` -> `tidy.py` -> `corner45.py` -> `score.py`.
 ## Linux / container
 `gcc -O3 -shared -fPIC -o astar.so astar.c` and `gcc -O3 -fopenmp -shared -fPIC -o pfcpu.so pfcpu.c` (mroute4 builds
 pfcpu.so itself when missing). `pip install numpy scipy shapely`; CuPy only for a GPU.
+
+## Benchmark, round 2 (2026-11-01, branch-080: GPU near/far frontier, batch 4 + in-batch repair, chain-level rip-up,
+## tidy pair pass, corner45)
+r1 (108 mux nets; scope grows by a few nets when the rip-up pulls fixed nets in), after tidy + corner45:
+
+| run | settings | track | vias | router time |
+|---|---|---|---|---|
+| gpu5 (`bench_gpu5*`) | GPU, BATCH=4, VIA=120 | 26.25 m | 570 (110 nets) | 7.7 min |
+| cpulap (`bench_cpulap*`) | CPU 4 threads on the laptop | 27.86 m | 609 (112) | 7.5 min |
+| q200 | GPU, BATCH=2, ITERS=60, VIA=200 | 28.26 m | 621 (111) | 15 min |
+| q300 | GPU, BATCH=2, ITERS=60, VIA=300 | 29.18 m | 584 (118) | 24 min |
+| gpu6 | GPU, BATCH=32 + SEQFIX | 29.39 m | 686 (117) | 9.5 min |
+| gpu3 / gpu4 | GPU, BATCH=32 / 8, no SEQFIX | 29.05 / 29.39 m | 669 / 671 | 8 min |
+| round 1 best (CPU + tidy) | | 27.11 m | 588 (108) | 25 min |
+
+Whole board (`run_wb.bat`, bench/wb.kicad_pcb.zip: Justin's finished board with all signal copper removed, 256 nets):
+
+| | track | vias | KiCad DRC |
+|---|---|---|---|
+| Justin's hand layout (`bench/wb_reference_justin.score`) | 41.85 m | 956 | clean |
+| router GPU BATCH=4, raw (`wb_gpu.score`) | 39.99 m | 689 | - |
+| + tidy + corner45 (`wb_gpu_tidy.score`, `bench/wb_gpu_c45b_drc.kicad_pcb.zip`) | 39.44 m | 662 | 0 unconnected, 0 clearance; 14 NPTH hole-clearance at 0.26-0.29 mm (rule 0.30; router now keeps 0.32) |
+
+Lessons: batch size decides convergence (batch 4 best; 32 never settles even with SEQFIX); a higher via cost trades
+length for vias with no net gain; the GPU near/far frontier makes the big nets cheap (11 s instead of 2181 s);
+the pattern/lane warm start is neutral. Router time is for the laptop RTX 4070; tidy adds 6-8 min, corner45 seconds.
