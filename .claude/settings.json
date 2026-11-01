@@ -5,6 +5,7 @@
       "Bash(git push -d origin claude/*)"
       "WebFetch(domain:www.findchips.com)",
       "WebFetch(domain:www.mouser.com)",
+      "Bash(java -jar:*)",
       "WebFetch(domain:www.digikey.com)"    ]
   }
 }
