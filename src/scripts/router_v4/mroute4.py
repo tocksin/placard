@@ -5,6 +5,7 @@ env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=32 (nets per launch)  ITER
      AGAINST=3  RING=8  PRES0=1 PRESF=1.5 PRESMAX=30  HARDROUNDS=6  NETS=a,b  GPUMEM=1.5 (GB per launch)  MAXSWEEPS=2000000  DELTA=1.5 (GPU near/far bucket width)
      BASE=<file> (scope = nets whose copper was added after BASE: that copper is stripped and re-routed)
      CHECKGPU=N compare CPU and GPU path costs for the first N nets and exit (backend self-test)
+     SEQFIX=1 a batch-mate routed through an earlier batch-mate's new route is re-routed alone (large batches converge)
      CHAINRIP=1 rip-up removes only the crossed chains of a neighbour, not its whole route (shove-like)
      PROT=a,b nets never ripped (default: the clock/stall/write/sync nets below)  CRIT=a,b timing-critical nets: routed first,
      CRITVIA=2 (via cost x) CRITPRES=0.5 (they yield less to congestion so they stay short)  (default = PROT list)"""
@@ -239,7 +240,8 @@ def route_batch(batch,hard,win_mm,soft=None,partial=False):
 def batches(seq,size):
     for i in range(0,len(seq),size): yield seq[i:i+size]
 def batch_size():
-    return BATCH if be.name=='gpu' else max(1,THREADS or os.cpu_count())
+    if be.name=='gpu' or E('BATCH'): return BATCH
+    return max(1,THREADS or os.cpu_count())
 def overlaps(n,count_hist=True):
     c=0; g.apply_stamps(g.stamps.get(n,[]),-1)
     for path in g.routes.get(n,[]):
@@ -253,7 +255,10 @@ def overlaps(n,count_hist=True):
                 if count_hist: g.hist_v[iy,ix]+=1
     g.apply_stamps(g.stamps.get(n,[]),1)
     return c
+SEQFIX=E('SEQFIX','1')=='1'
 def route_all(nets_list,hard,win_mm,bsize=None):
+    """route in batches; with SEQFIX a batch-mate whose new route runs through an earlier batch-mate's new route is
+    re-routed alone afterwards, so a large batch converges like a sequential pass"""
     fails=set()
     for b in batches(nets_list,bsize or batch_size()):
         out,status=route_batch(b,hard,win_mm)
@@ -262,6 +267,27 @@ def route_all(nets_list,hard,win_mm,bsize=None):
         for n in b:
             if out[n] is None: fails.add(n); g.set_route(n,[])
             else: g.set_route(n,out[n])
+        if SEQFIX and len(b)>1:
+            acc_t=np.zeros((2,ny,nx),bool); acc_v=np.zeros((ny,nx),bool)
+            def hits(n):
+                for path in g.routes.get(n,[]):
+                    for i,(l,iy,ix) in enumerate(path):
+                        if acc_t[l,iy,ix] or (i and path[i-1][0]!=l and acc_v[iy,ix]): return True
+                return False
+            def commit(n):
+                for k,L,j0,i0,mm in g.stamps.get(n,[]):
+                    if k=='t': acc_t[LAY.index(L),j0:j0+mm.shape[0],i0:i0+mm.shape[1]]|=mm
+                    else: acc_v[j0:j0+mm.shape[0],i0:i0+mm.shape[1]]|=mm
+            redo=[]
+            for n in b:
+                if out[n] is None: continue
+                if hits(n): redo.append(n)
+                else: commit(n)
+            for n in redo:
+                o2,_=route_batch([n],hard,win_mm)
+                if o2[n] is None and win_mm<1e8: o2,_=route_batch([n],hard,1e9)
+                if o2[n]: g.set_route(n,o2[n])
+                commit(n)
     return fails
 def crossed_new(n,paths):
     """new routes of other nets whose footprint the paths of n run through: {net: [chains crossed]}"""
