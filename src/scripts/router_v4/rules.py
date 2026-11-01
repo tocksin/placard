@@ -5,6 +5,8 @@ import os, re
 from shapely.geometry import box
 EDGE=float(os.environ.get('EDGE','1.0'))      # copper to board-outline clearance (mm)
 HOLECLR=float(os.environ.get('HOLECLR','0.32'))  # copper to unplated hole edge (board rule 0.30 + margin)
+PLANE_NETS={'GND','+5V'}                      # inner-plane nets with thermal-relief pads
+THERMCLR=float(os.environ.get('THERMCLR','2.0'))  # no via centre within this distance of a plane-net through-hole pad (keeps the zone spokes)
 HOLE_RE=re.compile(r'^H\d+$')                 # mounting-hole reference designators
 NEAR=12.0                                     # a hole within this distance of an edge is "at" that edge
 

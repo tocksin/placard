@@ -1,0 +1,44 @@
+grid 2352 1744
+rasterised 1541 items 0.4 s
+open nets 256 ['GNDA', '/Video and audio out/DAC_5V', '+3V3', '/Video and audio out/LAD7', '/Video and audio out/AUDIO', '/Shared port/RXCLK', '/Shared port/MOUS_CLK', '/Shared port/P_CS', '/Shared port/P_PS2D', '/Shared port/PS2_DATA', '/Shared port/PS2_INH', '/Shared port/KBD_CLK', '/Shared port/K0', 'Net-(D7-K)', '/Shared port/P_SCK', '/Shared port/P_MOSI', '/Shared port/PAD1_DATA', '/Shared port/PAD2_DATA', '~{VGA_HSYNC}', '~{VGA_VSYNC}', '/Shared port/SD_MISO', 'VIDEN', 'Net-(D8-K)', 'Net-(D12-A)', 'Net-(D10-A)', '/Video and audio out/VGA_R', 'Net-(D11-A)', '/Video and audio out/VGA_G', 'Net-(D12-K)', '/Video and audio out/VGA_B', 'Net-(F1-Pad1)', 'Net-(J4-CD{slash}DAT3)', 'Net-(J4-CLK)', 'Net-(J4-CMD)', 'DATABUS4', 'DATABUS0', 'ADDR14', 'ADDR2', 'ADDR1', 'ADDR12', 'ADDR0', 'Net-(J8-{slash}CE_HI)', 'RUN', 'PIXEL_ENABLE', 'ADDR4', 'ADDR11', 'DATABUS2', 'DATABUS7', 'ADDR7', 'ADDR10', 'ADDR9', 'ADDR6', 'DATABUS6', 'Net-(J8-{slash}ROM_OE)', 'DATABUS5', 'DATABUS1', 'ADDR8', 'ADDR5', 'PC_ENABLE', 'DATABUS3', 'STALL_IN', 'ADDR13', '~{CART}', 'CLK', 'STALL_OUT', 'ADDR15', 'ADDR3', '/Data bus/SRC3', '/Data bus/SRC5', '/Data bus/SRC4', 'Net-(J9-SEL)', '~{WE}', '/Data bus/SRC2', '~{EXP1}', '/Data bus/SRC7', '/Data bus/SRC1', '/Data bus/SRC6', '/Data bus/SRC0', 'RW', '~{LOAD_IMM}', 'Net-(J10-SEL)', '~{EXP2}', 'Net-(J11-SEL)', 'Net-(J12-SEL)', 'Net-(J13-CC1)', 'Net-(J13-CC2)', '/Video and audio out/RED1', '/Video and audio out/RED2', '/Video and audio out/RED3', '/Video and audio out/GRN1', '/Video and audio out/GRN2', '/Video and audio out/GRN3', '/Video and audio out/BLU2', '/Video and audio out/BLU3', 'Net-(R23-Pad2)', '/Video and audio out/DAC0', '/Video and audio out/DAC1', 'Net-(R24-Pad2)', '/Video and audio out/DAC2', 'Net-(R25-Pad2)', 'Net-(R26-Pad2)', '/Video and audio out/DAC3', 'Net-(R27-Pad2)', '/Video and audio out/DAC4', 'Net-(R28-Pad2)', '/Video and audio out/DAC5', 'Net-(R29-Pad2)', '/Video and audio out/DAC6', '/Video and audio out/DAC7', '/Video and audio out/LC4', '/Video and audio out/LC5', '/Video and audio out/LC6', '/Control/Q0', 'X_ENABLE', 'I0', 'I4', '~{LOAD_X}', '~{LOAD_Y}', 'Y_ENABLE', 'I2', 'I3', '~{LOAD_AC}', 'Net-(U1-{slash}LOAD_INSTR)', '/Control/BRANCH_BLOCK', '~{PIX_LD}', 'I7', 'I5', 'Z_LOW', 'LOAD_PC_LOW', 'Z_HIGH', 'COUT', 'I6', 'AC7', '~{SRC_EN}', 'LOAD_PC_HIGH', 'PC3', 'PC5', 'PC6', 'PC7', 'PC1', 'Net-(U3-CO)', 'PC2', 'PC4', 'PC0', 'Y5', 'Y6', 'PC14', 'Y1', 'PC12', 'PC8', 'PC13', 'PC11', 'PC10', 'Y7', 'PC9', 'Y0', 'Y3', 'Y4', 'PC15', 'Y2', '/ALU and registers/F0', 'AC3', 'AC0', '/ALU and registers/F3', 'AC2', '/ALU and registers/F2', 'AC4', 'Net-(U5-COUT)', 'AC1', '/ALU and registers/F1', '/ALU and registers/F6', 'AC5', '/ALU and registers/F5', 'AC6', '/ALU and registers/F4', '/ALU and registers/F7', 'D1', 'V2', 'X3', 'VA0', 'D2', 'V3', 'X1', 'X0', 'X2', 'D3', 'D0', 'VA1', 'D7', 'V6', 'X5', 'V5', 'D6', 'D5', 'D4', 'X6', 'VA7', 'V4', 'X7', 'X4', 'H5', 'VA8', 'H3', 'H4', 'H8', 'H7', 'H9', 'H6', '/Memory and I/O decode/RAMSEL6', '/Memory and I/O decode/RAMSEL7', '/Memory and I/O decode/RAMSEL4', '/Memory and I/O decode/RAMSEL2', '/Memory and I/O decode/RAMSEL5', '/Memory and I/O decode/RAMSEL3', '/Memory and I/O decode/RAMSEL0', '/Memory and I/O decode/RAMSEL1', 'Net-(U11-{slash}RAM_OE)', '~{PORT_RD}', 'Net-(U12-{slash}MAP_WR)', '~{PORT_WR}', '~{LINE_RD}', 'H1', 'H2', 'H_VIDEO_ACTIVE', 'LC7', 'Net-(U13-H_TC)', 'H0', 'V1', 'V9', 'V0', 'V7', 'V8', 'Net-(U15-BLANK_RD)', '/Video and audio out/LC0', '/Video and audio out/PIX2', '/Video and audio out/LC1', '/Video and audio out/PIX1', '/Video and audio out/PIX0', '/Video and audio out/PIX5', '/Video and audio out/PIX3', '/Video and audio out/PIX7', '/Video and audio out/PIX6', '/Video and audio out/PIX4', 'I1', 'LC2', '~{MODE_LD}', 'LC3', '~{AC_SEL}', 'Net-(D14-K)', 'Net-(D16-K)', 'Net-(D18-A)', 'CLK_E', 'Net-(K1-Pad3)', '/Power and clock/VON', '~{HSYNC}', '~{VSYNC}'] 23 s
+critical nets first: ['CLK_E', 'STALL_IN', 'STALL_OUT', '~{HSYNC}', '~{VSYNC}', '~{WE}', 'PIXEL_ENABLE', 'CLK', 'RUN']
+C:\Users\tocks\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\cupy\_environment.py:286: UserWarning: CUDA path could not be detected. Set CUDA_PATH environment variable if CuPy fails to load.
+  warnings.warn(
+GPU: NVIDIA GeForce RTX 4070 Laptop GPU
+backend gpu
+iter 0 overlap cells 30398 conflicted 203 fails [] 147 s (total 172 s)
+iter 1 overlap cells 14967 conflicted 186 fails [] 150 s (total 322 s)
+iter 2 overlap cells 9952 conflicted 168 fails [] 137 s (total 459 s)
+iter 3 overlap cells 6447 conflicted 139 fails [] 143 s (total 601 s)
+iter 4 overlap cells 4194 conflicted 108 fails [] 147 s (total 748 s)
+iter 5 overlap cells 2256 conflicted 83 fails [] 127 s (total 875 s)
+iter 6 overlap cells 1241 conflicted 53 fails [] 99 s (total 974 s)
+iter 7 overlap cells 721 conflicted 42 fails [] 101 s (total 1075 s)
+iter 8 overlap cells 453 conflicted 26 fails [] 127 s (total 1202 s)
+iter 9 overlap cells 285 conflicted 20 fails [] 43 s (total 1245 s)
+iter 10 overlap cells 229 conflicted 19 fails [] 39 s (total 1284 s)
+iter 11 overlap cells 226 conflicted 18 fails [] 36 s (total 1320 s)
+iter 12 overlap cells 238 conflicted 19 fails [] 114 s (total 1434 s)
+iter 13 overlap cells 176 conflicted 14 fails [] 32 s (total 1466 s)
+iter 14 overlap cells 179 conflicted 14 fails [] 25 s (total 1491 s)
+iter 15 overlap cells 171 conflicted 14 fails [] 24 s (total 1514 s)
+iter 16 overlap cells 130 conflicted 12 fails [] 99 s (total 1613 s)
+iter 17 overlap cells 154 conflicted 12 fails [] 22 s (total 1635 s)
+iter 18 overlap cells 156 conflicted 12 fails [] 22 s (total 1657 s)
+iter 19 overlap cells 128 conflicted 12 fails [] 22 s (total 1679 s)
+iter 20 overlap cells 141 conflicted 11 fails [] 98 s (total 1777 s)
+iter 21 overlap cells 113 conflicted 12 fails [] 19 s (total 1796 s)
+iter 22 overlap cells 88 conflicted 10 fails [] 22 s (total 1817 s)
+iter 23 overlap cells 85 conflicted 8 fails [] 21 s (total 1839 s)
+iter 24 overlap cells 88 conflicted 8 fails [] 98 s (total 1937 s)
+iter 25 overlap cells 96 conflicted 8 fails [] 19 s (total 1956 s)
+iter 26 overlap cells 90 conflicted 8 fails [] 19 s (total 1975 s)
+iter 27 overlap cells 95 conflicted 8 fails [] 19 s (total 1994 s)
+iter 28 overlap cells 106 conflicted 8 fails [] 98 s (total 2092 s)
+iter 29 overlap cells 62 conflicted 6 fails [] 19 s (total 2111 s)
+hard round 0: conflicted 0 fails 0 8 s
+improve pass 0: nets improved 13, cost gain 387, 76 s
+improve pass 1: nets improved 3, cost gain 34, 75 s
+UNROUTED 0 [] total 2270 s
+routed vias 678 cells 319973
+wrote wb4m.kicad_pcb segments 5185 vias 678

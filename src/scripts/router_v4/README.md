@@ -68,3 +68,32 @@ Whole board (`run_wb.bat`, bench/wb.kicad_pcb.zip: Justin's finished board with 
 Lessons: batch size decides convergence (batch 4 best; 32 never settles even with SEQFIX); a higher via cost trades
 length for vias with no net gain; the GPU near/far frontier makes the big nets cheap (11 s instead of 2181 s);
 the pattern/lane warm start is neutral. Router time is for the laptop RTX 4070; tidy adds 6-8 min, corner45 seconds.
+
+## Round 3 (2026-11-01, branch-081): whole-net polish, minimum length, thermal via keep-out
+- `tidy.py NETPASS=1` (default): before the chain passes every net is lifted entirely and re-routed from scratch
+  against everything else (largest component first, nearest component each step); kept when the whole net is
+  cheaper. r1 A/B on the same raw route: 511 -> 486 vias and -2.3 % track with the net pass.
+- `meander.py in out NET:min_mm[,..]` and `MINLEN=CLK_E:420` in the bench scripts: a delay net is routed normally,
+  then trombone bumps are added on its straight runs in free space (clearance and edge checked on the grid) until
+  the minimum is reached. Runs last so nothing shortens it again. Test: CLK_E 202 -> 421 mm with 0 collisions.
+- `rules.THERMCLR=2.0`: no via centre within 2 mm of a GND/+5V through-hole pad; a via there cuts the inner plane's
+  thermal spokes (KiCad `starved_thermal`, seen once on wb3 at U25-20).
+- `makebench.py` keeps CLK_E by default (Justin's 458 mm delay lead); the whole-board bench is therefore 255 nets.
+- corner45 LMAX 4 or 8 mm instead of 2: no gain (legs are short), left at 2.
+
+Whole board round 3 (`bench/wb3_*`, laptop GPU, 35 min router + 27 min tidy): 39.12 m / 676 vias after tidy + corner45,
+0 open, 0 collisions, KiCad DRC 0 clearance / 0 unconnected / 1 starved thermal (fixed by THERMCLR for the next run).
+Justin's layout without CLK_E for the same scope: 41.18 m / 946 vias.
+
+### Round 3 results (laptop RTX 4070, `bench/wb3_*`, `bench/wb4_*`, `bench/wb4m_*`)
+
+| | track | vias | KiCad 9 DRC |
+|---|---|---|---|
+| Justin's layout, same 255-net scope (CLK_E excluded) | 41.18 m | 946 | clean |
+| wb3: net pass, no thermal keep-out | 39.12 m | 676 | 0 clearance, 0 unconnected, 1 starved thermal (U25-20) |
+| wb4: + THERMCLR 2 mm (`kicad/placard_autorouted.kicad_pcb`) | 38.96 m | 656 | clean (`bench/wb4_c45_drc.json`; zones refilled before the check) |
+| wb4m: bench without CLK_E, MINLEN=CLK_E:420 | 39.62 m | 656 | CLK_E 201 -> 428.6 mm (detour +33.6, bumps the rest), 0 collisions |
+
+Whole-board tidy A/B on the wb3 raw route: NETPASS=0 693 vias / 39.77 m, NETPASS=1 686 / 39.78 (full 256-net scope).
+`kicad/placard_autorouted.kicad_pcb` is wb4_c45 as a ready-to-swap copy of the main board (Justin's GND/+5V/CLK_E copper
+kept, every other net autorouted); it is not the project's board file.

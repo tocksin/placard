@@ -1,0 +1,2881 @@
+{
+    "$schema": "https://schemas.kicad.org/drc.v1.json",
+    "coordinate_units": "mm",
+    "date": "2026-11-01T20:24:36+0000",
+    "included_severities": [
+        "error",
+        "warning",
+        "exclusion"
+    ],
+    "kicad_version": "9.0.8",
+    "schematic_parity": [],
+    "source": "wb4_c45_filled.kicad_pcb",
+    "unconnected_items": [],
+    "violations": [
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C3",
+                    "pos": {
+                        "x": 194.0,
+                        "y": 224.0
+                    },
+                    "uuid": "0002ac94-feac-4dbc-8922-bd00400c32b3"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U27",
+                    "pos": {
+                        "x": 106.5,
+                        "y": 205.62
+                    },
+                    "uuid": "074f49a2-064f-4d51-b58b-fb46ee528abe"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R53",
+                    "pos": {
+                        "x": 118.58,
+                        "y": 131.0
+                    },
+                    "uuid": "089b5465-cc06-4768-9a51-5badf998dc68"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R60",
+                    "pos": {
+                        "x": 310.0,
+                        "y": 98.08
+                    },
+                    "uuid": "0b271ee5-7ffe-4c15-a1f3-472dfd37e78d"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R62",
+                    "pos": {
+                        "x": 328.5,
+                        "y": 75.08
+                    },
+                    "uuid": "0dfd6923-5688-4d12-ab70-fd34a18bea9d"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C18",
+                    "pos": {
+                        "x": 65.5,
+                        "y": 181.0
+                    },
+                    "uuid": "0e7615b9-8da4-41b4-bdb8-a892ca1d1d15"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U1",
+                    "pos": {
+                        "x": 199.72,
+                        "y": 252.12
+                    },
+                    "uuid": "0fe2619c-de9f-4d34-987e-a111c7c84312"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R55",
+                    "pos": {
+                        "x": 310.5,
+                        "y": 75.08
+                    },
+                    "uuid": "14527b6d-99fb-491e-99d0-7b3544b8d974"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D16",
+                    "pos": {
+                        "x": 287.0,
+                        "y": 64.69
+                    },
+                    "uuid": "14b44dff-2b31-4455-a046-ba08fb385934"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R37",
+                    "pos": {
+                        "x": 227.5,
+                        "y": 75.58
+                    },
+                    "uuid": "18533ee3-c89c-4682-bccd-66582b0accab"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C23",
+                    "pos": {
+                        "x": 267.46,
+                        "y": 96.12
+                    },
+                    "uuid": "18a016bd-2f7c-42f3-99ed-3e41b2f15772"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint NT2",
+                    "pos": {
+                        "x": 168.5,
+                        "y": 183.0
+                    },
+                    "uuid": "18f16577-d48f-421a-9f81-5f7bc5d13c9c"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R64",
+                    "pos": {
+                        "x": 76.58,
+                        "y": 97.5
+                    },
+                    "uuid": "1a3e8c72-3d3a-48fd-971a-4ae9d69a3fd3"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U42",
+                    "pos": {
+                        "x": 175.695447,
+                        "y": 143.5
+                    },
+                    "uuid": "1bad896b-d3a7-48db-aafe-8d3326783afb"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R10",
+                    "pos": {
+                        "x": 94.0,
+                        "y": 166.58
+                    },
+                    "uuid": "1ef82f5e-71d9-432d-9a61-553eafc67363"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R59",
+                    "pos": {
+                        "x": 54.835,
+                        "y": 167.74
+                    },
+                    "uuid": "2027d7d2-967d-4b2f-9a09-aef2d634a0c3"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint J6",
+                    "pos": {
+                        "x": 220.0,
+                        "y": 50.0
+                    },
+                    "uuid": "2146bf8e-5aa0-43a0-bce6-a67d822996c4"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint J9",
+                    "pos": {
+                        "x": 175.0,
+                        "y": 113.13
+                    },
+                    "uuid": "218cbc3c-49d3-493d-9a45-4beedb290025"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D5",
+                    "pos": {
+                        "x": 313.0,
+                        "y": 77.69
+                    },
+                    "uuid": "24849777-e8af-44a1-bd8d-7fa70acf6c06"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R4",
+                    "pos": {
+                        "x": 224.0,
+                        "y": 144.58
+                    },
+                    "uuid": "29351f51-0935-4426-90ea-29e03a10608f"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C36",
+                    "pos": {
+                        "x": 195.5,
+                        "y": 96.5
+                    },
+                    "uuid": "29536ca3-c395-4648-b3ed-dd987ed1570a"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R54",
+                    "pos": {
+                        "x": 94.42,
+                        "y": 131.0
+                    },
+                    "uuid": "2b032df1-d853-4bae-b937-5bf2e982087a"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C5",
+                    "pos": {
+                        "x": 61.0,
+                        "y": 236.5
+                    },
+                    "uuid": "2bd9b2ed-af69-47d7-96ec-f90de313db45"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D19",
+                    "pos": {
+                        "x": 318.0,
+                        "y": 77.69
+                    },
+                    "uuid": "313eb948-2391-4bb4-9f9a-f3fe6e7af87f"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint X1",
+                    "pos": {
+                        "x": 147.38,
+                        "y": 188.31
+                    },
+                    "uuid": "31b374f7-9f5e-4aa3-93bd-82d8cb53e949"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R24",
+                    "pos": {
+                        "x": 202.5,
+                        "y": 88.0
+                    },
+                    "uuid": "32a357b6-9ce8-406d-b93a-0c09017bdd80"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint H6",
+                    "pos": {
+                        "x": 196.0,
+                        "y": 55.0
+                    },
+                    "uuid": "32e35ef8-32d4-416b-8140-959674832cb0"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R47",
+                    "pos": {
+                        "x": 89.5,
+                        "y": 132.92
+                    },
+                    "uuid": "33d1fe85-ada6-434a-891a-8b66482c8a8f"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C17",
+                    "pos": {
+                        "x": 151.5,
+                        "y": 245.82
+                    },
+                    "uuid": "345f32fb-2027-4c0c-a1c5-331eae05bd05"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R50",
+                    "pos": {
+                        "x": 315.5,
+                        "y": 75.16
+                    },
+                    "uuid": "3897e40a-bb36-4e11-86b5-5aa2f67787f1"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C45",
+                    "pos": {
+                        "x": 202.5,
+                        "y": 57.0
+                    },
+                    "uuid": "38a4c08a-03cf-4611-b7bc-26298986a701"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R11",
+                    "pos": {
+                        "x": 98.55,
+                        "y": 166.58
+                    },
+                    "uuid": "3b89c787-b867-401a-8694-3847fb141e63"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint J11",
+                    "pos": {
+                        "x": 121.0,
+                        "y": 113.13
+                    },
+                    "uuid": "3ba5b0fe-f4d9-4464-bf34-cb750d651814"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U10",
+                    "pos": {
+                        "x": 279.72,
+                        "y": 211.0
+                    },
+                    "uuid": "3f4091ec-6022-4621-bf76-4b573274e9b9"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U11",
+                    "pos": {
+                        "x": 217.04,
+                        "y": 191.0
+                    },
+                    "uuid": "3fe6f605-d930-4535-9483-d90196df82c3"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R56",
+                    "pos": {
+                        "x": 266.5,
+                        "y": 63.42
+                    },
+                    "uuid": "40d52f94-e12a-47c1-9e0d-1eded7cb3a73"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint J3",
+                    "pos": {
+                        "x": 125.0,
+                        "y": 265.0
+                    },
+                    "uuid": "41a84ace-d888-4b03-bfeb-a142b6cae939"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C7",
+                    "pos": {
+                        "x": 154.0,
+                        "y": 204.5
+                    },
+                    "uuid": "443dc80f-3bb4-4246-a9dc-afe46de38dcb"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint JP1",
+                    "pos": {
+                        "x": 217.0,
+                        "y": 125.5
+                    },
+                    "uuid": "4456658e-9fe1-4160-97c9-5cb35365f46e"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U20",
+                    "pos": {
+                        "x": 71.1203,
+                        "y": 224.7
+                    },
+                    "uuid": "46bbe002-8705-4f78-a953-60883daa9d79"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R40",
+                    "pos": {
+                        "x": 60.92,
+                        "y": 247.0
+                    },
+                    "uuid": "48d3e7f0-3368-4b5a-922b-9b254f453cea"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U29",
+                    "pos": {
+                        "x": 299.7,
+                        "y": 163.03
+                    },
+                    "uuid": "4a003bf8-2e33-4d18-8243-086aca4a2d0c"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R35",
+                    "pos": {
+                        "x": 217.5,
+                        "y": 75.58
+                    },
+                    "uuid": "4ccf64fb-dcd1-4695-8b6d-5696a4c6d9bf"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint H4",
+                    "pos": {
+                        "x": 335.0,
+                        "y": 260.0
+                    },
+                    "uuid": "4f8262ee-8122-4256-b352-075e659f78ed"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C11",
+                    "pos": {
+                        "x": 211.5,
+                        "y": 184.5
+                    },
+                    "uuid": "4f852bf3-7e08-49fe-831a-71e90ec591ae"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C2",
+                    "pos": {
+                        "x": 238.5,
+                        "y": 245.5
+                    },
+                    "uuid": "4fd5698f-bd7a-40c8-a421-39584a4ab6af"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R29",
+                    "pos": {
+                        "x": 227.5,
+                        "y": 88.08
+                    },
+                    "uuid": "51df8a21-8885-4737-ac58-a0a0c793dce9"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R39",
+                    "pos": {
+                        "x": 212.5,
+                        "y": 51.92
+                    },
+                    "uuid": "51e81da9-12fb-4bfc-b539-559e9f9ddd20"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R34",
+                    "pos": {
+                        "x": 212.5,
+                        "y": 75.58
+                    },
+                    "uuid": "575aa7f2-f314-492a-8859-6311caaa407f"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint JP2",
+                    "pos": {
+                        "x": 215.150004,
+                        "y": 139.500001
+                    },
+                    "uuid": "58e1d2a4-f312-4dea-9763-4f5450d2341c"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint J5",
+                    "pos": {
+                        "x": 310.0,
+                        "y": 50.0
+                    },
+                    "uuid": "5a2c06cb-4250-4ff9-9006-26e271f75cbd"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D2",
+                    "pos": {
+                        "x": 292.19,
+                        "y": 53.0
+                    },
+                    "uuid": "5b417f1f-17d8-4017-81c8-fe63f46625ef"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R7",
+                    "pos": {
+                        "x": 80.35,
+                        "y": 166.58
+                    },
+                    "uuid": "5c7ddae9-420b-4bbf-99b3-d834cd8f03c1"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C21",
+                    "pos": {
+                        "x": 101.195,
+                        "y": 218.5
+                    },
+                    "uuid": "5daa90e2-2ffa-432c-b118-74b9d5070358"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C14",
+                    "pos": {
+                        "x": 325.2,
+                        "y": 157.605
+                    },
+                    "uuid": "6002eb87-1d08-4b00-a566-167395016b09"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C29",
+                    "pos": {
+                        "x": 306.0,
+                        "y": 157.53
+                    },
+                    "uuid": "6148d6e5-9787-4d3a-a06f-fe9169b697fe"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint SW2",
+                    "pos": {
+                        "x": 52.59,
+                        "y": 90.0
+                    },
+                    "uuid": "6247a29d-8723-4673-b194-10aa8a167b46"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D10",
+                    "pos": {
+                        "x": 262.0,
+                        "y": 78.69
+                    },
+                    "uuid": "63d23c70-fbdc-4cd0-8d34-31bf48e4f566"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U7",
+                    "pos": {
+                        "x": 159.72,
+                        "y": 211.0
+                    },
+                    "uuid": "64027591-3363-4b41-a5e6-ec7b280873ab"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R16",
+                    "pos": {
+                        "x": 248.5,
+                        "y": 63.58
+                    },
+                    "uuid": "645d57d6-e9ae-49e7-bbd2-38f8c6a977c7"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R17",
+                    "pos": {
+                        "x": 238.5,
+                        "y": 77.58
+                    },
+                    "uuid": "646080cc-2bbf-4174-81b6-a48d1de54a40"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U3",
+                    "pos": {
+                        "x": 199.72,
+                        "y": 230.12
+                    },
+                    "uuid": "64b5ae58-4c77-4428-81ab-d3b43b364dbb"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint J2",
+                    "pos": {
+                        "x": 81.0,
+                        "y": 265.0
+                    },
+                    "uuid": "66eb204e-23c4-44c3-bf83-3b3267ac3044"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R61",
+                    "pos": {
+                        "x": 323.5,
+                        "y": 75.08
+                    },
+                    "uuid": "681702ec-7956-4ff8-b4e7-35ce78151178"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D11",
+                    "pos": {
+                        "x": 291.5,
+                        "y": 64.69
+                    },
+                    "uuid": "6afbba98-d45a-4f0f-bdd2-093278f207f6"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint TP2",
+                    "pos": {
+                        "x": 328.5,
+                        "y": 203.0
+                    },
+                    "uuid": "6d8f4c68-5c16-419e-8749-8afafa228d5b"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U6",
+                    "pos": {
+                        "x": 106.5,
+                        "y": 242.69
+                    },
+                    "uuid": "6e59cdc0-72f3-449f-a3ba-3a276a7d47fa"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint J4",
+                    "pos": {
+                        "x": 65.45,
+                        "y": 115.5
+                    },
+                    "uuid": "6fad2554-996f-4898-9c1c-b492ee80c9b2"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U38",
+                    "pos": {
+                        "x": 135.575,
+                        "y": 143.5
+                    },
+                    "uuid": "711bfdf0-dd72-4920-b618-244fb5a1a775"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R33",
+                    "pos": {
+                        "x": 207.5,
+                        "y": 75.58
+                    },
+                    "uuid": "71954fd1-3e68-415d-80f8-30b9f6bf81ba"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R43",
+                    "pos": {
+                        "x": 79.5,
+                        "y": 143.08
+                    },
+                    "uuid": "73ad749c-d3ca-4d71-a572-b713ca69166e"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C32",
+                    "pos": {
+                        "x": 230.32,
+                        "y": 166.5
+                    },
+                    "uuid": "77dc176f-5d5e-4df7-a7c8-4040b367ff13"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R23",
+                    "pos": {
+                        "x": 197.5,
+                        "y": 88.0
+                    },
+                    "uuid": "7cccd1fd-fea7-4a57-b6e6-c056b53b8c4a"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R49",
+                    "pos": {
+                        "x": 305.5,
+                        "y": 75.08
+                    },
+                    "uuid": "7d1a1003-73f8-4751-b35a-0350c43a245c"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U17",
+                    "pos": {
+                        "x": 156.905,
+                        "y": 252.12
+                    },
+                    "uuid": "7de780a3-2d05-426c-baae-5d1ce0ff90f7"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U5",
+                    "pos": {
+                        "x": 66.55,
+                        "y": 242.69
+                    },
+                    "uuid": "7eb94773-d368-4530-8492-83c4e9526b86"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C43",
+                    "pos": {
+                        "x": 142.0,
+                        "y": 182.0
+                    },
+                    "uuid": "7f6042d2-4df7-45ce-ac6b-7bbab1482785"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R15",
+                    "pos": {
+                        "x": 243.5,
+                        "y": 63.58
+                    },
+                    "uuid": "7fa96d37-219f-4f1c-ba11-0a9331e3bddc"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U36",
+                    "pos": {
+                        "x": 200.96,
+                        "y": 102.5
+                    },
+                    "uuid": "80a1ff01-583c-46e4-8681-f18893058368"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R1",
+                    "pos": {
+                        "x": 73.42,
+                        "y": 53.2
+                    },
+                    "uuid": "8181ad52-2f1e-4fb5-a96d-4ed8f1de8456"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C16",
+                    "pos": {
+                        "x": 271.5,
+                        "y": 88.5
+                    },
+                    "uuid": "81b786e0-7a33-4266-bfbf-9846764d4654"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D13",
+                    "pos": {
+                        "x": 253.0,
+                        "y": 64.69
+                    },
+                    "uuid": "82865a40-a7de-4e87-a92a-4827daa4f042"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D1",
+                    "pos": {
+                        "x": 316.5,
+                        "y": 96.31
+                    },
+                    "uuid": "8500ee21-f1f3-4d4d-b188-2552465fa40c"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R42",
+                    "pos": {
+                        "x": 64.5,
+                        "y": 143.16
+                    },
+                    "uuid": "85f74ffe-a8ad-49a9-a873-c5642c5fe568"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R2",
+                    "pos": {
+                        "x": 73.42,
+                        "y": 58.0
+                    },
+                    "uuid": "86822b2a-31d0-4c77-9586-fd3fad0aca85"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C12",
+                    "pos": {
+                        "x": 251.5,
+                        "y": 184.5
+                    },
+                    "uuid": "87f4ddb8-0f49-4f6e-8f88-221a2c2afa5f"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R63",
+                    "pos": {
+                        "x": 207.305,
+                        "y": 112.865
+                    },
+                    "uuid": "893eb7d9-b291-4787-9282-8cab99c80afd"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C26",
+                    "pos": {
+                        "x": 101.0,
+                        "y": 181.0
+                    },
+                    "uuid": "8c4a3229-1993-4002-82eb-56f32e04e439"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D17",
+                    "pos": {
+                        "x": 282.5,
+                        "y": 64.69
+                    },
+                    "uuid": "8ec57b55-6712-4cf2-94b1-988a20dbbacf"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R36",
+                    "pos": {
+                        "x": 222.5,
+                        "y": 75.58
+                    },
+                    "uuid": "8f7e0e86-2de2-4126-8754-145bee5edc9a"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U12",
+                    "pos": {
+                        "x": 256.92,
+                        "y": 191.0
+                    },
+                    "uuid": "9009d7f5-c002-474e-82a7-52085eca5e66"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint H1",
+                    "pos": {
+                        "x": 55.0,
+                        "y": 55.0
+                    },
+                    "uuid": "9074fb55-4f2b-4e1a-9e6b-364189a483d4"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U32",
+                    "pos": {
+                        "x": 235.78,
+                        "y": 172.62
+                    },
+                    "uuid": "90bc5fa7-df7a-4beb-ba79-e6093d047659"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R31",
+                    "pos": {
+                        "x": 197.5,
+                        "y": 75.58
+                    },
+                    "uuid": "91b0afe0-9c03-4355-a969-920b22efb295"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R5",
+                    "pos": {
+                        "x": 71.25,
+                        "y": 166.58
+                    },
+                    "uuid": "922ca57b-4874-4a67-b22c-19094264cb66"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R27",
+                    "pos": {
+                        "x": 217.5,
+                        "y": 88.0
+                    },
+                    "uuid": "926a1798-91e4-478f-a49e-d9df7297c4e5"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint TP3",
+                    "pos": {
+                        "x": 78.0,
+                        "y": 74.5
+                    },
+                    "uuid": "92986c00-669f-4749-bb64-3c422f6e0e45"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint H3",
+                    "pos": {
+                        "x": 55.0,
+                        "y": 260.0
+                    },
+                    "uuid": "929d4f9f-9531-4c29-a602-0cf525419abb"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint TP1",
+                    "pos": {
+                        "x": 120.5,
+                        "y": 159.5
+                    },
+                    "uuid": "92ba0c3f-8e48-478c-a094-f59d3f5156b1"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R30",
+                    "pos": {
+                        "x": 232.5,
+                        "y": 88.08
+                    },
+                    "uuid": "92cd6e9f-c86f-46e7-b682-c7ff6e7a73ba"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U25",
+                    "pos": {
+                        "x": 179.68,
+                        "y": 191.0
+                    },
+                    "uuid": "9382c69b-149a-4898-a42e-be5828519523"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C38",
+                    "pos": {
+                        "x": 130.075,
+                        "y": 137.5
+                    },
+                    "uuid": "94a9369a-139c-4164-a634-0774ed958133"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R52",
+                    "pos": {
+                        "x": 158.58,
+                        "y": 131.0
+                    },
+                    "uuid": "95affb83-10c2-45e0-9acc-7853b4ee2e41"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint J7",
+                    "pos": {
+                        "x": 260.0,
+                        "y": 56.99
+                    },
+                    "uuid": "98fa348b-1d36-445a-a209-3b265e7e0184"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D18",
+                    "pos": {
+                        "x": 58.725,
+                        "y": 174.5
+                    },
+                    "uuid": "99898abd-8a31-4c80-8661-42011d5288b2"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R58",
+                    "pos": {
+                        "x": 296.0,
+                        "y": 63.34
+                    },
+                    "uuid": "99a3403b-abd2-4bf8-aa15-c107188cd0a7"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R46",
+                    "pos": {
+                        "x": 74.5,
+                        "y": 132.92
+                    },
+                    "uuid": "99b9f734-2d4b-4157-81fb-67da7b69a71a"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D9",
+                    "pos": {
+                        "x": 262.0,
+                        "y": 64.69
+                    },
+                    "uuid": "99dfc21f-fa50-4eb7-9844-210f68031e53"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R20",
+                    "pos": {
+                        "x": 273.0,
+                        "y": 63.42
+                    },
+                    "uuid": "9c93c8da-ce81-4de7-9ca9-7d40b0ddd3e3"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D8",
+                    "pos": {
+                        "x": 53.0,
+                        "y": 97.5
+                    },
+                    "uuid": "9d36ff3b-ab17-4630-aaad-bd88ba0587df"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U16",
+                    "pos": {
+                        "x": 272.96,
+                        "y": 85.12
+                    },
+                    "uuid": "9f239045-d89e-4ed0-be98-e4f0c182b7d3"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U35",
+                    "pos": {
+                        "x": 280.88,
+                        "y": 122.38
+                    },
+                    "uuid": "9f620138-127a-449c-b295-927e8cf3ac80"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U14",
+                    "pos": {
+                        "x": 318.7,
+                        "y": 163.025
+                    },
+                    "uuid": "a077b70a-4d40-441f-b23e-b4577ac02392"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D12",
+                    "pos": {
+                        "x": 257.5,
+                        "y": 64.69
+                    },
+                    "uuid": "a13e8239-a3c9-4d19-9eb8-339425b128e4"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C9",
+                    "pos": {
+                        "x": 234.5,
+                        "y": 204.5
+                    },
+                    "uuid": "a43b5497-3c22-424b-9a99-b2e8fa88ecce"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U21",
+                    "pos": {
+                        "x": 106.5,
+                        "y": 224.7
+                    },
+                    "uuid": "a51f24fa-414b-489f-acf5-34280fb66235"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U23",
+                    "pos": {
+                        "x": 272.96,
+                        "y": 102.5
+                    },
+                    "uuid": "a5f94ce1-17d0-4c3e-b265-af0303b21194"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint K1",
+                    "pos": {
+                        "x": 62.5,
+                        "y": 86.5
+                    },
+                    "uuid": "a65ff0bc-5232-44df-8359-39e5c36f1693"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D7",
+                    "pos": {
+                        "x": 72.5,
+                        "y": 72.66
+                    },
+                    "uuid": "a7841777-b25a-430d-86ab-e9ce16089ac0"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D6",
+                    "pos": {
+                        "x": 292.19,
+                        "y": 57.5
+                    },
+                    "uuid": "a95be1b6-0daf-4334-89f4-710d65237686"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint H7",
+                    "pos": {
+                        "x": 55.0,
+                        "y": 159.5
+                    },
+                    "uuid": "aba0c2dc-ea91-439f-a1b1-06383b6d6967"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U13",
+                    "pos": {
+                        "x": 302.0,
+                        "y": 122.38
+                    },
+                    "uuid": "abbfd552-33eb-48eb-b181-41cbca396427"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C44",
+                    "pos": {
+                        "x": 197.68238,
+                        "y": 107.5
+                    },
+                    "uuid": "ae54b9cd-d5fa-42af-8b33-8982fa7cd418"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U22",
+                    "pos": {
+                        "x": 236.84,
+                        "y": 102.5
+                    },
+                    "uuid": "af1ce078-cd43-49b0-9876-a8d297d21cf8"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U9",
+                    "pos": {
+                        "x": 239.72,
+                        "y": 211.0
+                    },
+                    "uuid": "b44322c4-cce9-4da7-a117-cb3fd0cae433"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R32",
+                    "pos": {
+                        "x": 202.5,
+                        "y": 75.58
+                    },
+                    "uuid": "b59b0731-a390-4315-a99c-938812c58fc4"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R6",
+                    "pos": {
+                        "x": 75.8,
+                        "y": 166.58
+                    },
+                    "uuid": "b6bbee79-429e-4d2e-aff5-997d761da316"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U4",
+                    "pos": {
+                        "x": 239.72,
+                        "y": 230.12
+                    },
+                    "uuid": "b6defeec-8786-4694-92d0-f980d3a70a10"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C10",
+                    "pos": {
+                        "x": 274.5,
+                        "y": 204.5
+                    },
+                    "uuid": "b7275a7f-960e-462f-b30d-17270c1e6db1"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R48",
+                    "pos": {
+                        "x": 59.5,
+                        "y": 143.08
+                    },
+                    "uuid": "b7d6d8ca-e71c-46c8-961f-2c522e35c688"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint F1",
+                    "pos": {
+                        "x": 65.9,
+                        "y": 69.55
+                    },
+                    "uuid": "bb111c8b-0cf0-4e44-804a-94a03e3d9cf3"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C1",
+                    "pos": {
+                        "x": 194.16,
+                        "y": 245.5
+                    },
+                    "uuid": "bddae621-12c6-48f6-9ac1-c15c3956f1fe"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U40",
+                    "pos": {
+                        "x": 60.86,
+                        "y": 149.77
+                    },
+                    "uuid": "bedb7515-8fdc-40e3-a2d8-554cd048f1ad"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C46",
+                    "pos": {
+                        "x": 207.5,
+                        "y": 52.0
+                    },
+                    "uuid": "c3f404dd-a46d-4819-8c45-e0d39c6c3e0a"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C4",
+                    "pos": {
+                        "x": 234.0,
+                        "y": 224.0
+                    },
+                    "uuid": "c3f8dd29-c8c1-4c20-876b-60100b602bbe"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R21",
+                    "pos": {
+                        "x": 278.0,
+                        "y": 63.5
+                    },
+                    "uuid": "c4a7902e-71a5-4568-91ff-c1d3229e6cc4"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D4",
+                    "pos": {
+                        "x": 308.0,
+                        "y": 77.69
+                    },
+                    "uuid": "c4d7880e-bbb0-485f-8ce0-774a98254984"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C15",
+                    "pos": {
+                        "x": 329.7,
+                        "y": 116.92
+                    },
+                    "uuid": "c519f39c-6d6c-465c-81ee-98abac39c3fb"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D14",
+                    "pos": {
+                        "x": 257.5,
+                        "y": 78.69
+                    },
+                    "uuid": "c8e16954-7924-420e-85cb-218b9eb21efd"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U31",
+                    "pos": {
+                        "x": 235.785,
+                        "y": 154.32
+                    },
+                    "uuid": "c95c7435-3659-46c8-bcaa-307fdf17e9f1"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R8",
+                    "pos": {
+                        "x": 84.9,
+                        "y": 166.58
+                    },
+                    "uuid": "caaaa95a-73cf-4484-92a6-cd4e8b9dcd6c"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R25",
+                    "pos": {
+                        "x": 207.5,
+                        "y": 88.0
+                    },
+                    "uuid": "cacee0ab-707c-478d-b2c3-6714538511a0"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R28",
+                    "pos": {
+                        "x": 222.5,
+                        "y": 88.0
+                    },
+                    "uuid": "cad650f3-dcab-4229-9356-e2340e341679"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R44",
+                    "pos": {
+                        "x": 84.5,
+                        "y": 143.16
+                    },
+                    "uuid": "cc5ad2d4-a908-4e0c-b6b4-c1c3e128aab3"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint J10",
+                    "pos": {
+                        "x": 148.0,
+                        "y": 113.13
+                    },
+                    "uuid": "ce9f5105-707c-4640-8d88-29f58401ffdc"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U18",
+                    "pos": {
+                        "x": 71.12,
+                        "y": 187.62
+                    },
+                    "uuid": "cea35fcd-3d38-4f29-b5bf-2682355b2dfd"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint J8",
+                    "pos": {
+                        "x": 234.5,
+                        "y": 129.6
+                    },
+                    "uuid": "cff39d9b-a7eb-4aa0-851f-140b104696b8"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint H5",
+                    "pos": {
+                        "x": 196.0,
+                        "y": 260.0
+                    },
+                    "uuid": "d16734e3-dfb6-4deb-b1dc-d4ceea27c056"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U2",
+                    "pos": {
+                        "x": 243.84,
+                        "y": 252.12
+                    },
+                    "uuid": "d18f345b-f596-4833-957e-45332afab9f1"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint H2",
+                    "pos": {
+                        "x": 335.0,
+                        "y": 55.0
+                    },
+                    "uuid": "d43e6d14-a529-4bfb-a59a-847271f2be9b"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C35",
+                    "pos": {
+                        "x": 287.2,
+                        "y": 117.085
+                    },
+                    "uuid": "d456e13a-d8e7-4ce0-913c-dff183a762bd"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C20",
+                    "pos": {
+                        "x": 65.782,
+                        "y": 218.5
+                    },
+                    "uuid": "d4e19866-b71c-442e-afc4-1302fa6d4bb2"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R12",
+                    "pos": {
+                        "x": 103.1,
+                        "y": 166.58
+                    },
+                    "uuid": "d57f11a3-79c1-48cb-9bee-b15d94a20276"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C42",
+                    "pos": {
+                        "x": 170.275447,
+                        "y": 137.5
+                    },
+                    "uuid": "d6ecb63b-00f5-4ada-93a4-35f5047299c0"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R18",
+                    "pos": {
+                        "x": 243.5,
+                        "y": 77.42
+                    },
+                    "uuid": "d873df91-eeda-489c-b6f6-738590e6fa50"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint NT1",
+                    "pos": {
+                        "x": 199.8,
+                        "y": 104.5
+                    },
+                    "uuid": "d899f30c-a31b-4fe3-8e66-7e374a0fdc44"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R9",
+                    "pos": {
+                        "x": 89.45,
+                        "y": 166.58
+                    },
+                    "uuid": "da1d26c3-7792-4250-8d18-54061e0e8d14"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C13",
+                    "pos": {
+                        "x": 308.5,
+                        "y": 116.62
+                    },
+                    "uuid": "da85ee40-3d36-4f6d-ae69-0958b5becd3a"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C47",
+                    "pos": {
+                        "x": 66.5,
+                        "y": 146.5
+                    },
+                    "uuid": "e01e0ec8-0685-4150-abf7-90701c5bb08d"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D15",
+                    "pos": {
+                        "x": 253.0,
+                        "y": 78.69
+                    },
+                    "uuid": "e2cb2f93-7685-49bb-9565-07ba06ccc2d4"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint D3",
+                    "pos": {
+                        "x": 321.5,
+                        "y": 59.81
+                    },
+                    "uuid": "e3b625fc-0347-47fe-a4e8-a5a66f539539"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint J13",
+                    "pos": {
+                        "x": 66.0,
+                        "y": 53.4
+                    },
+                    "uuid": "e51e5d4b-460c-47ca-8e4f-9b554cad9d2d"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C27",
+                    "pos": {
+                        "x": 101.04,
+                        "y": 199.5
+                    },
+                    "uuid": "e5db7d56-040c-4522-801c-a2a88c8e5c23"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R22",
+                    "pos": {
+                        "x": 212.16,
+                        "y": 109.5
+                    },
+                    "uuid": "e66ad803-fbfe-46c7-91eb-d0e746fe11d7"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U19",
+                    "pos": {
+                        "x": 71.12,
+                        "y": 205.62
+                    },
+                    "uuid": "e9c1053f-0327-4157-a3b2-0a73c214c00f"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R41",
+                    "pos": {
+                        "x": 104.42,
+                        "y": 247.0
+                    },
+                    "uuid": "eabc6885-655b-4165-bade-072e76ec1056"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C22",
+                    "pos": {
+                        "x": 231.265,
+                        "y": 95.7
+                    },
+                    "uuid": "ec021095-10a9-4884-b1f2-830a57aebd18"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C31",
+                    "pos": {
+                        "x": 230.405,
+                        "y": 147.82
+                    },
+                    "uuid": "ec98adbc-cf59-4037-9382-c2daba19367e"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R51",
+                    "pos": {
+                        "x": 171.66,
+                        "y": 131.0
+                    },
+                    "uuid": "ec9e97ea-19ea-48e9-a0d5-a4ab44ebd51b"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R19",
+                    "pos": {
+                        "x": 248.5,
+                        "y": 77.42
+                    },
+                    "uuid": "ede98837-262c-42b3-88ac-e3fbb839e656"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint H8",
+                    "pos": {
+                        "x": 335.0,
+                        "y": 159.5
+                    },
+                    "uuid": "ef560264-c218-4f7a-b027-5c131d45570f"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U8",
+                    "pos": {
+                        "x": 199.72,
+                        "y": 211.0
+                    },
+                    "uuid": "f0534c15-63fe-4691-a748-7b950726756c"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C40",
+                    "pos": {
+                        "x": 55.0,
+                        "y": 146.5
+                    },
+                    "uuid": "f0f89fc2-46dc-4731-8413-4928ca2eed76"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint J12",
+                    "pos": {
+                        "x": 94.0,
+                        "y": 113.13
+                    },
+                    "uuid": "f1969a26-c4b6-4586-b5a4-d0f5a3f56f49"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R26",
+                    "pos": {
+                        "x": 212.5,
+                        "y": 88.0
+                    },
+                    "uuid": "f1a04175-bda2-4d5f-9c12-fd07971e99fc"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint RN1",
+                    "pos": {
+                        "x": 76.42,
+                        "y": 172.0
+                    },
+                    "uuid": "f341c417-b056-4a5b-ba04-c197745d10cd"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C41",
+                    "pos": {
+                        "x": 81.652651,
+                        "y": 66.5
+                    },
+                    "uuid": "f405cef9-3656-40f3-8e58-fe1325f63c18"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R38",
+                    "pos": {
+                        "x": 232.5,
+                        "y": 75.5
+                    },
+                    "uuid": "f40836e4-91b5-4109-88f5-b99762cd7315"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C25",
+                    "pos": {
+                        "x": 174.0,
+                        "y": 184.5
+                    },
+                    "uuid": "f4a622fc-2e20-469d-93ac-7148117b4549"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U15",
+                    "pos": {
+                        "x": 323.2,
+                        "y": 122.38
+                    },
+                    "uuid": "f4c5f0da-83a7-4c78-b576-7af1dd78b82a"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C19",
+                    "pos": {
+                        "x": 65.515,
+                        "y": 199.42
+                    },
+                    "uuid": "f6a5cc70-508d-44f1-bdb3-c3548c2e211b"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R13",
+                    "pos": {
+                        "x": 232.92,
+                        "y": 116.5
+                    },
+                    "uuid": "f6bf6119-5221-490c-aa43-f674db1cd340"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint U26",
+                    "pos": {
+                        "x": 106.5,
+                        "y": 187.62
+                    },
+                    "uuid": "f6f2d502-1bd1-4c70-959e-e6b4d7182f1c"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R3",
+                    "pos": {
+                        "x": 224.5,
+                        "y": 130.08
+                    },
+                    "uuid": "f90754b8-fa53-442b-ac96-e816974839d5"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint LOGO1",
+                    "pos": {
+                        "x": 310.0,
+                        "y": 233.93
+                    },
+                    "uuid": "f9fb0c5e-ea22-4da3-9417-66e5e4ccf657"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C6",
+                    "pos": {
+                        "x": 100.883,
+                        "y": 236.0
+                    },
+                    "uuid": "fcd6957f-f602-4b94-811d-a383678617ec"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R57",
+                    "pos": {
+                        "x": 266.5,
+                        "y": 77.42
+                    },
+                    "uuid": "fce30db1-dad4-418d-b548-91f79de4ecbc"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R45",
+                    "pos": {
+                        "x": 69.5,
+                        "y": 133.0
+                    },
+                    "uuid": "ff1970c1-7ffd-4dff-8a69-1a1027911d43"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint R14",
+                    "pos": {
+                        "x": 238.5,
+                        "y": 63.58
+                    },
+                    "uuid": "ff67ae4c-6b3d-40ff-8bf8-9dc665e9d94e"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint SW1",
+                    "pos": {
+                        "x": 50.0,
+                        "y": 68.0
+                    },
+                    "uuid": "ff8fa85a-c09f-4e0a-a4a4-3277246ff2d8"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        },
+        {
+            "description": "The current configuration does not include the footprint library 'placard'.",
+            "items": [
+                {
+                    "description": "Footprint C8",
+                    "pos": {
+                        "x": 194.5,
+                        "y": 204.5
+                    },
+                    "uuid": "ffeede11-5d6c-4bc4-9626-4e8ee85dcb5d"
+                }
+            ],
+            "severity": "warning",
+            "type": "lib_footprint_issues"
+        }
+    ]
+}
