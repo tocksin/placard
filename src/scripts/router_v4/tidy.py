@@ -6,13 +6,16 @@ env: VIA=200 (via cost in cells, higher than the router's to trade length for vi
      WIN=25 (mm around the chain)  PASSES=4  MINGAIN=4
      PAIR=1: after the single-chain passes, every chain with a via is re-routed together with one neighbouring chain
      of another net (the neighbour is lifted first, the chain re-routed, then the neighbour); kept when the pair is cheaper.
-     NEIGH=3 neighbours tried per chain."""
+     NEIGH=3 neighbours tried per chain.
+     NETPASS=1: whole-net polish before the chain passes: every net is lifted entirely and re-routed from scratch
+     against everything else (largest component first, nearest other component each step, hard A*); kept when the
+     whole net is cheaper. Finds the shorter tree that chain-by-chain moves cannot reach. NETPASSES=2 rounds."""
 import sys, os, time
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
 os.environ.setdefault('VIA','200'); os.environ.setdefault('BEND','4')
 from gridcore import *
-src,dst=sys.argv[1:3]; BASE=E('BASE'); NETS=E('NETS'); WIN=float(E('WIN','25')); PASSES=int(E('PASSES','4')); MINGAIN=float(E('MINGAIN','4')); PAIR=int(E('PAIR','1')); NEIGH=int(E('NEIGH','3'))
+src,dst=sys.argv[1:3]; BASE=E('BASE'); NETS=E('NETS'); WIN=float(E('WIN','25')); PASSES=int(E('PASSES','4')); MINGAIN=float(E('MINGAIN','4')); PAIR=int(E('PAIR','1')); NEIGH=int(E('NEIGH','3')); NETPASS=int(E('NETPASS','1')); NETPASSES=int(E('NETPASSES','2'))
 t0=time.time()
 def netlist(spec):
     if spec and spec.startswith('@'): return [l.strip() for l in open(spec[1:],encoding='utf-8') if l.strip()]
@@ -110,6 +113,33 @@ def pair_net(n):
                 gain+=oc+oq-nc; changed+=1; break
             g.set_route(n,keep_n); g.set_route(m,keep_m)
     return gain,changed
+def polish_net(n):
+    """lift the whole net and re-route it from scratch with everything else fixed; keep when cheaper"""
+    paths=list(g.routes.get(n,[]))
+    if not paths: return 0.0,0
+    oc=sum(g.path_cost(p) for p in paths)
+    pm={'F.Cu':np.zeros((g.ny,g.nx),bool),'B.Cu':np.zeros((g.ny,g.nx),bool)}
+    for p in paths:
+        for l,iy,ix in p: pm[LAY[l]][iy,ix]=True
+    win=g.window([pm],WIN)
+    g.set_route(n,[]); new=[]
+    for _ in range(200):
+        la,lb=g.components(n); cF,cB=g.last_copper
+        labs=np.unique(np.concatenate([la[la>0],lb[lb>0]]))
+        if len(labs)<=1: break
+        cnt={int(k):int(((la==k)&cF).sum()+((lb==k)&cB).sum()) for k in labs}
+        s=max(cnt,key=cnt.get)
+        srcm={'F.Cu':(la==s)&cF,'B.Cu':(lb==s)&cB}; goalm={'F.Cu':(la>0)&(la!=s)&cF,'B.Cu':(lb>0)&(lb!=s)&cB}
+        bt,bv=g.blocked(n,hard=True); ring=g.own_ring(n)
+        ct=[1.0+g.RING*ring[l] for l in range(2)]; cvia=np.full((g.ny,g.nx),g.VIA_COST,np.float32)
+        newp,ne=g.astar(srcm,goalm,bt,bv,ct,cvia,win)
+        if not newp or len(newp)<2: g.set_route(n,paths); return 0.0,0
+        new.append(newp); g.set_route(n,new)
+    la,lb=g.components(n)
+    if len(np.unique(np.concatenate([la[la>0],lb[lb>0]])))>1: g.set_route(n,paths); return 0.0,0
+    nc=sum(g.path_cost(p) for p in new)
+    if nc<oc-MINGAIN: rechain(n); return oc-nc,1
+    g.set_route(n,paths); return 0.0,0
 def tidy_net(n):
     gain=0.0; changed=0; dropped=0
     paths=list(g.routes.get(n,[]))
@@ -125,6 +155,14 @@ def tidy_net(n):
             new=[p for p in g.routes[n] if p is not path]+[newp]; g.set_route(n,new); gain+=oc-g.path_cost(newp); changed+=1
     return gain,changed,dropped
 tot_before={n:(sum(g.path_vias(p) for p in g.routes[n]),sum(len(p) for p in g.routes[n])) for n in g.scope}
+if NETPASS:
+    for ps in range(NETPASSES):
+        t1=time.time(); tg=0; tc=0
+        for n in sorted(g.scope,key=lambda n:-sum(g.path_cost(p) for p in g.routes[n])):
+            if not g.routes.get(n): continue
+            gain,changed=polish_net(n); tg+=gain; tc+=changed
+        print(f'net pass {ps}: {tc} nets improved, cost gain {tg:.0f}, {time.time()-t1:.0f} s',flush=True)
+        if tc==0: break
 for ps in range(PASSES):
     t1=time.time(); tg=0; tc=0; td=0
     for n in sorted(g.scope,key=lambda n:-sum(g.path_vias(p) for p in g.routes[n])):
