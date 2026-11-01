@@ -1,0 +1,8 @@
+# score placard.kicad_pcb  (scope 256 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 41.85 m | 956 / 967 | 3.3 % | 14.2 % | 1.05 | 3 | 0 | 0 | 5 | 3 |
+
+worst nets (track mm, vias, detour): DATABUS0 899/18/1.1, DATABUS1 883/17/1.2, DATABUS3 881/16/1.1, CLK 875/13/1.1, DATABUS4 871/18/1.1, DATABUS7 831/14/1.0, DATABUS5 809/16/1.1, DATABUS2 797/21/1.0
+detour > 2: CLK_E, Net-(J13-CC2), Net-(J8-{slash}CE_HI)
+collisions: [('+3V3', '+5V', 63.3, 147.2, 'F.Cu'), ('+3V3', '+5V', 60.2, 146.6, 'F.Cu'), ('DATABUS2', 'GND', 148.9, 91.6, 'F.Cu')]
