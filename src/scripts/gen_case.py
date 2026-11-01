@@ -34,7 +34,7 @@ Parts (STEP in case/, DXF cutting files for the flat parts in case/dxf/):
 Coordinates (mm): x from the case's left outside face, y from the front
 outside face toward the back, z up from the main board's top face.
 
-Date: 2026-10-30
+Date: 2026-11-01
 """
 
 import argparse
@@ -920,7 +920,7 @@ def build(pcb, out, mesh=None, drawings=None):
             cq.exporters.export(sol, os.path.join(mesh, name + ".stl"), tolerance=0.05, angularTolerance=0.2)
         for name, sol in parked_solids.items():
             cq.exporters.export(sol, os.path.join(mesh, name + "_parked.stl"), tolerance=0.05, angularTolerance=0.2)
-        for name in ("slot_cover_3", "cart_cover"):     # lifted copies, for views that show how a cover goes on
+        for name in ("slot_cover_2", "cart_cover"):     # lifted copies, for views that show how a cover goes on
             cq.exporters.export(solids[name].translate((0, 0, 30)), os.path.join(mesh, name + "_lifted.stl"),
                                 tolerance=0.05, angularTolerance=0.2)
         groups = {"standoffs": standoffs(parts),
