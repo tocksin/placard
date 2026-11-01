@@ -1,7 +1,7 @@
 """mroute4.py in out : negotiated-congestion router v4. Nets are routed in parallel batches (CPU: OpenMP threads,
 GPU: one CUDA block per net) against the occupancy of all other nets, PathFinder style; then conflicted nets are
 re-routed with other routes blocked; what is still open is written out unrouted (finish with mroute3.py / tidy.py).
-env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=32 (nets per launch)  ITERS=30  STALL=6  WIN=40 (mm)  VIA=120
+env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=4 (nets per launch; larger batches converge worse even with SEQFIX)  ITERS=30  STALL=6  WIN=40 (mm)  VIA=120
      AGAINST=3  RING=8  PRES0=1 PRESF=1.5 PRESMAX=30  HARDROUNDS=6  NETS=a,b  GPUMEM=1.5 (GB per launch)  MAXSWEEPS=2000000  DELTA=1.5 (GPU near/far bucket width)
      BASE=<file> (scope = nets whose copper was added after BASE: that copper is stripped and re-routed)
      CHECKGPU=N compare CPU and GPU path costs for the first N nets and exit (backend self-test)
@@ -16,7 +16,7 @@ from gridcore import *
 from scipy.ndimage import binary_dilation, label
 E=os.environ.get
 src,dst=sys.argv[1:3]
-BACKEND=E('BACKEND','auto'); THREADS=int(E('THREADS','0')); BATCH=int(E('BATCH','32')); ITERS=int(E('ITERS','30')); STALL=int(E('STALL','6'))
+BACKEND=E('BACKEND','auto'); THREADS=int(E('THREADS','0')); BATCH=int(E('BATCH','4')); ITERS=int(E('ITERS','30')); STALL=int(E('STALL','6'))
 WIN=float(E('WIN','40')); PRES=float(E('PRES0','1.0')); PRESF=float(E('PRESF','1.5')); PRESMAX=float(E('PRESMAX','30')); HARDROUNDS=int(E('HARDROUNDS','6'))
 BUSGAIN=float(E('BUSGAIN','1.0')); GPUMEM=float(E('GPUMEM','1.5'))*1e9; MAXSWEEPS=int(E('MAXSWEEPS','2000000')); DELTA=float(E('DELTA','1.5')); NETS=E('NETS'); BASE=E('BASE')
 T0=time.time()
