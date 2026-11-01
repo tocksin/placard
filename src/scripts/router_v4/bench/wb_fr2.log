@@ -1,0 +1,135 @@
+2026-11-01 17:01:42.113 INFO   Freerouting v2.1.0 (build-date: 2025-04-12)
+2026-11-01 17:01:42.182 WARN   No default constructor found for field: currentLocale
+2026-11-01 17:01:42.182 INFO   Settings were loaded from freerouting.json
+2026-11-01 17:01:43.450 INFO   New version available: v2.5.0
+2026-11-01 17:01:43.469 INFO   Opening 'bench\wb_for_freerouting.dsn'...
+2026-11-01 17:01:51.208 INFO   [513183\B16EE5] Starting routing of 'wb_for_freerouting' on 1 thread...
+2026-11-01 17:06:00.420 INFO   [513183\B16EE5] Auto-router pass #1 on board '0100bb3255549c602d5312d7ccc2322a' was completed in 4 minutes 8.89 seconds with the score of 809.80 (321 unrouted).
+2026-11-01 17:09:24.362 INFO   [513183\B16EE5] Auto-router pass #2 on board '8d5258dc28639f85842b0c558e802eda' was completed in 3 minutes 23.58 seconds with the score of 880.46 (211 unrouted).
+2026-11-01 17:09:59.076 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:12:31.289 INFO   [513183\B16EE5] Auto-router pass #3 on board 'a80a12bd8b93d4df55cd2a84952f90a4' was completed in 3 minutes 6.55 seconds with the score of 913.92 (143 unrouted).
+2026-11-01 17:14:35.749 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:15:16.227 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:18:56.107 INFO   [513183\B16EE5] Auto-router pass #4 on board '9eb4a97c888c606069fa90c6bcaafc02' was completed in 6 minutes 24.36 seconds with the score of 934.92 (97 unrouted).
+2026-11-01 17:21:40.984 INFO   [513183\B16EE5] Auto-router pass #5 on board '06b9d134e10a49808577637ca2f73a69' was completed in 2 minutes 44.48 seconds with the score of 939.88 (85 unrouted).
+2026-11-01 17:23:53.964 INFO   [513183\B16EE5] Auto-router pass #6 on board '0ffc0f86426e1333b7b4c28cabb9bcae' was completed in 2 minutes 12.48 seconds with the score of 945.98 (66 unrouted).
+2026-11-01 17:25:54.693 INFO   [513183\B16EE5] Auto-router pass #7 on board 'fd1351ae029229927a82a938f706772f' was completed in 2 minutes 0.16 seconds with the score of 950.73 (53 unrouted).
+2026-11-01 17:28:20.340 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:28:24.116 INFO   [513183\B16EE5] Auto-router pass #8 on board '00a7a19063f9c291648ad46d9c9908b0' was completed in 2 minutes 28.89 seconds with the score of 952.12 (49 unrouted).
+2026-11-01 17:30:06.181 INFO   [513183\B16EE5] Auto-router pass #9 on board '953dfaa0e8219992ef28904aa13750e5' was completed in 1 minute 41.61 seconds with the score of 953.65 (45 unrouted).
+2026-11-01 17:31:44.456 INFO   [513183\B16EE5] Auto-router pass #10 on board 'cc16d392ecbd5d6c3968b1c5eb2ee67d' was completed in 1 minute 37.77 seconds with the score of 951.33 (49 unrouted).
+2026-11-01 17:33:01.470 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:33:01.495 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:33:15.989 INFO   [513183\B16EE5] Auto-router pass #11 on board '4e83178e0c52b597d902c7b9c483badc' was completed in 1 minute 31.06 seconds with the score of 948.53 (59 unrouted).
+2026-11-01 17:34:55.869 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:37:26.676 INFO   [513183\B16EE5] Restoring an earlier board that has the score of 953.65 (45 unrouted).
+2026-11-01 17:37:26.676 INFO   [513183\B16EE5] Auto-router pass #12 on board '0244b295daf6760785e4e8c58b38478f' was completed in 4 minutes 10.14 seconds with the score of 947.96 (62 unrouted).
+2026-11-01 17:38:30.512 INFO   [513183\B16EE5] Auto-router pass #13 on board 'cc16d392ecbd5d6c3968b1c5eb2ee67d' was completed in 1 minute 3.68 seconds with the score of 953.35 (44 unrouted).
+2026-11-01 17:39:03.404 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:39:03.429 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:39:53.975 INFO   [513183\B16EE5] Auto-router pass #14 on board '4584894803db743dcd66296eb3d0ec15' was completed in 1 minute 22.97 seconds with the score of 953.46 (43 unrouted).
+2026-11-01 17:40:48.408 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:41:23.190 INFO   [513183\B16EE5] Auto-router pass #15 on board '8e58c7db58996bfa37881e5b96db02d2' was completed in 1 minute 28.75 seconds with the score of 950.33 (55 unrouted).
+2026-11-01 17:43:35.472 INFO   [513183\B16EE5] Restoring an earlier board that has the score of 953.65 (45 unrouted).
+2026-11-01 17:43:35.472 INFO   [513183\B16EE5] Auto-router pass #16 on board '595cb3a37158243977c100eacf69744d' was completed in 2 minutes 11.75 seconds with the score of 953.26 (43 unrouted).
+2026-11-01 17:44:46.857 INFO   [513183\B16EE5] Auto-router pass #17 on board 'cc16d392ecbd5d6c3968b1c5eb2ee67d' was completed in 1 minute 11.17 seconds with the score of 948.92 (61 unrouted).
+2026-11-01 17:45:52.478 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:45:52.544 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:46:26.669 INFO   [513183\B16EE5] Auto-router pass #18 on board '79a3ae4b748a103e812ba7107a137d55' was completed in 1 minute 39.25 seconds with the score of 953.72 (43 unrouted).
+2026-11-01 17:47:33.595 INFO   [513183\B16EE5] Auto-router pass #19 on board '6b9f76844d17bf2cfd4dba77d19ffd77' was completed in 1 minute 6.31 seconds with the score of 946.71 (65 unrouted).
+2026-11-01 17:49:54.645 ERROR  Couldn't change the trace, because its normalization failed.
+java.lang.Exception: Max normalization depth reached with trace '2714647'
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:781) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:774) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.change(PolylineTrace.java:1047) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.pull_tight(PolylineTrace.java:867) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PullTightAlgo.opt_changed_area(PullTightAlgo.java:132) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.RoutingBoard.opt_changed_area(RoutingBoard.java:215) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.RoutingBoard.opt_changed_area(RoutingBoard.java:194) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.autoroute.BatchAutorouter.autoroute_item(BatchAutorouter.java:615) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.autoroute.BatchAutorouter.autoroute_pass(BatchAutorouter.java:332) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.autoroute.BatchAutorouter.runBatchLoop(BatchAutorouter.java:447) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.interactive.AutorouterAndRouteOptimizerThread.thread_action(AutorouterAndRouteOptimizerThread.java:262) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.interactive.InteractiveActionThread.run(InteractiveActionThread.java:104) [freerouting-2.1.0.jar:unspecified]
+2026-11-01 17:49:54.645 ERROR  Couldn't change the trace, because its normalization failed.
+java.lang.Exception: Max normalization depth reached with trace '2714647'
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:781) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:818) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.normalize(PolylineTrace.java:774) ~[freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.change(PolylineTrace.java:1047) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PolylineTrace.pull_tight(PolylineTrace.java:867) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.PullTightAlgo.opt_changed_area(PullTightAlgo.java:132) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.RoutingBoard.opt_changed_area(RoutingBoard.java:215) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.board.RoutingBoard.opt_changed_area(RoutingBoard.java:194) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.autoroute.BatchAutorouter.autoroute_item(BatchAutorouter.java:615) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.autoroute.BatchAutorouter.autoroute_pass(BatchAutorouter.java:332) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.autoroute.BatchAutorouter.runBatchLoop(BatchAutorouter.java:447) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.interactive.AutorouterAndRouteOptimizerThread.thread_action(AutorouterAndRouteOptimizerThread.java:262) [freerouting-2.1.0.jar:unspecified]
+	at app.freerouting.interactive.InteractiveActionThread.run(InteractiveActionThread.java:104) [freerouting-2.1.0.jar:unspecified]
+2026-11-01 17:49:56.381 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:50:51.791 INFO   [513183\B16EE5] Restoring an earlier board that has the score of 953.72 (43 unrouted).
+2026-11-01 17:50:51.791 INFO   [513183\B16EE5] Auto-router pass #20 on board '672a22ea3e932ee8bc3940eb83438f76' was completed in 3 minutes 17.67 seconds with the score of 953.60 (45 unrouted).
+2026-11-01 17:51:48.537 INFO   [513183\B16EE5] Auto-router pass #21 on board '6b9f76844d17bf2cfd4dba77d19ffd77' was completed in 56.58 seconds with the score of 950.90 (53 unrouted).
+2026-11-01 17:52:31.478 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 17:53:09.698 INFO   [513183\B16EE5] Auto-router pass #22 on board '546d049109a5bbe71acc6c79fa655df1' was completed in 1 minute 20.69 seconds with the score of 952.65 (47 unrouted).
+2026-11-01 17:54:13.382 INFO   [513183\B16EE5] Auto-router pass #23 on board 'be270077f0bed8b4ef73b4de2afb0a2f' was completed in 1 minute 3.21 seconds with the score of 951.22 (50 unrouted).
+2026-11-01 17:56:22.519 INFO   [513183\B16EE5] Auto-router pass #24 on board '578274777f708bed6de3198bbe5b99c3' was completed in 2 minutes 8.67 seconds with the score of 955.08 (35 unrouted).
+2026-11-01 17:58:01.748 INFO   [513183\B16EE5] Auto-router pass #25 on board 'beee535e510b379233a33cdefcee5d65' was completed in 1 minute 38.74 seconds with the score of 955.37 (34 unrouted).
+2026-11-01 17:59:01.013 INFO   [513183\B16EE5] Auto-router pass #26 on board 'd3534b4275aa7d78bd21cd0d806cf16c' was completed in 58.75 seconds with the score of 953.34 (41 unrouted).
+2026-11-01 18:00:19.237 INFO   [513183\B16EE5] Auto-router pass #27 on board '3d8bdeff05adb2bd263dbf72c8ffde00' was completed in 1 minute 17.65 seconds with the score of 953.51 (40 unrouted).
+2026-11-01 18:01:52.680 INFO   [513183\B16EE5] Auto-router pass #28 on board '3228b55219c8d07a6cb7c5ce1948ff75' was completed in 1 minute 32.96 seconds with the score of 956.00 (33 unrouted).
+2026-11-01 18:02:51.036 INFO   [513183\B16EE5] Auto-router pass #29 on board 'e9ee3dc2223e2495144a6d21dd02cde6' was completed in 57.78 seconds with the score of 953.43 (39 unrouted).
+2026-11-01 18:03:58.642 INFO   [513183\B16EE5] Auto-router pass #30 on board 'bcfd7bc1ee648486d45f34a40ab6e566' was completed in 1 minute 7.17 seconds with the score of 953.55 (42 unrouted).
+2026-11-01 18:04:59.304 INFO   [513183\B16EE5] Auto-router pass #31 on board '653d48a587e0a9220031df5e87d3d11b' was completed in 1 minute 0.21 seconds with the score of 952.47 (46 unrouted).
+2026-11-01 18:06:52.554 INFO   [513183\B16EE5] Restoring an earlier board that has the score of 956.00 (33 unrouted).
+2026-11-01 18:06:52.555 INFO   [513183\B16EE5] Auto-router pass #32 on board '7c5776c5cda1213b6cd1ce17d8713cd5' was completed in 1 minute 52.79 seconds with the score of 955.06 (39 unrouted).
+2026-11-01 18:07:56.280 INFO   [513183\B16EE5] Auto-router pass #33 on board 'e9ee3dc2223e2495144a6d21dd02cde6' was completed in 1 minute 3.52 seconds with the score of 955.18 (33 unrouted).
+2026-11-01 18:08:32.500 INFO   [513183\B16EE5] Auto-router pass #34 on board 'b0b39f184ae2391ec3c34f651ce99470' was completed in 35.75 seconds with the score of 954.02 (37 unrouted).
+2026-11-01 18:09:07.596 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 18:09:20.112 INFO   [513183\B16EE5] Auto-router pass #35 on board 'af37c7fc7993b9c28d01b653814320d7' was completed in 47.18 seconds with the score of 956.21 (29 unrouted).
+2026-11-01 18:10:38.222 INFO   [513183\B16EE5] Auto-router pass #36 on board '4daf1df312b410eb7066515a41b42bf1' was completed in 1 minute 17.65 seconds with the score of 957.94 (25 unrouted).
+2026-11-01 18:11:18.706 INFO   [513183\B16EE5] Auto-router pass #37 on board 'adb20d35d8894a32450da8790753a046' was completed in 39.99 seconds with the score of 957.56 (25 unrouted).
+2026-11-01 18:11:56.986 INFO   [513183\B16EE5] Auto-router pass #38 on board '53eb860fab769b5081de1b245f561374' was completed in 37.79 seconds with the score of 954.68 (37 unrouted).
+2026-11-01 18:12:50.688 WARN   border_intersections: intersection_count (2) is too big!
+2026-11-01 18:12:54.954 INFO   [513183\B16EE5] Auto-router pass #39 on board 'cd09dfdaa57fbcb72d71f9b7c5c78523' was completed in 57.51 seconds with the score of 957.41 (28 unrouted).
+2026-11-01 18:14:27.728 INFO   [513183\B16EE5] Restoring an earlier board that has the score of 957.94 (25 unrouted).
+2026-11-01 18:14:27.729 INFO   [513183\B16EE5] Auto-router pass #40 on board 'f60939a5344101e38388df4f32b96190' was completed in 1 minute 32.27 seconds with the score of 954.76 (38 unrouted).
+2026-11-01 18:14:27.924 INFO   [513183\B16EE5] Auto-routing was completed in 1 hour 12 minutes 36.71 seconds with the score of 957.94 (25 unrouted).
+2026-11-01 18:14:28.038 INFO   [513183\B16EE5] Starting optimization on 31 threads...
+2026-11-01 18:14:28.040 WARN   [513183\B16EE5] Multi-threaded route optimization is broken and it is known to generate clearance violations. It is highly recommended to use the single-threaded route optimization instead by setting the number of threads to 1 with the '-mt 1' command line argument.
+2026-11-01 18:14:28.242 INFO   [513183\B16EE5] Optimization was completed in 0.20 seconds with the score of 957.94 (25 unrouted).
+after autoroute: 2 traces not 45 degree
+2026-11-01 18:14:28.720 INFO   Saving 'wb_fr2.ses'...

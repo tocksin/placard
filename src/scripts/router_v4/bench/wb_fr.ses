@@ -1,0 +1,912 @@
+(session wb_fr
+  (base_design wb_fr)
+  (placement
+    (resolution um 10)
+    (component IMG_C3
+      (place C3 1940000 -2240000 front 0)
+    )
+    (component IMG_U27
+      (place U27 1065000 -2056200 front 0)
+    )
+    (component IMG_R53
+      (place R53 1185800 -1310000 front 0)
+    )
+    (component IMG_R60
+      (place R60 3100000 -980800 front 0)
+    )
+    (component IMG_R62
+      (place R62 3285000 -750800 front 0)
+    )
+    (component IMG_C18
+      (place C18 655000 -1810000 front 0)
+    )
+    (component IMG_U1
+      (place U1 1997200 -2521200 front 0)
+    )
+    (component IMG_R55
+      (place R55 3105000 -750800 front 0)
+    )
+    (component IMG_D16
+      (place D16 2870000 -646900 front 0)
+    )
+    (component IMG_R37
+      (place R37 2275000 -755800 front 0)
+    )
+    (component IMG_C23
+      (place C23 2674600 -961200 front 0)
+    )
+    (component IMG_NT2
+      (place NT2 1685000 -1830000 front 0)
+    )
+    (component IMG_R64
+      (place R64 765800 -975000 front 0)
+    )
+    (component IMG_U42
+      (place U42 1756950 -1435000 front 0)
+    )
+    (component IMG_R10
+      (place R10 940000 -1665800 front 0)
+    )
+    (component IMG_R59
+      (place R59 548350 -1677400 front 0)
+    )
+    (component IMG_J6
+      (place J6 2200000 -500000 front 0)
+    )
+    (component IMG_J9
+      (place J9 1750000 -1131300 front 0)
+    )
+    (component IMG_D5
+      (place D5 3130000 -776900 front 0)
+    )
+    (component IMG_R4
+      (place R4 2240000 -1445800 front 0)
+    )
+    (component IMG_C36
+      (place C36 1955000 -965000 front 0)
+    )
+    (component IMG_R54
+      (place R54 944200 -1310000 front 0)
+    )
+    (component IMG_C5
+      (place C5 610000 -2365000 front 0)
+    )
+    (component IMG_D19
+      (place D19 3180000 -776900 front 0)
+    )
+    (component IMG_X1
+      (place X1 1473800 -1883100 front 0)
+    )
+    (component IMG_R24
+      (place R24 2025000 -880000 front 0)
+    )
+    (component IMG_H6
+      (place H6 1960000 -550000 front 0)
+    )
+    (component IMG_R47
+      (place R47 895000 -1329200 front 0)
+    )
+    (component IMG_C17
+      (place C17 1515000 -2458200 front 0)
+    )
+    (component IMG_R50
+      (place R50 3155000 -751600 front 0)
+    )
+    (component IMG_C45
+      (place C45 2025000 -570000 front 0)
+    )
+    (component IMG_R11
+      (place R11 985500 -1665800 front 0)
+    )
+    (component IMG_J11
+      (place J11 1210000 -1131300 front 0)
+    )
+    (component IMG_U10
+      (place U10 2797200 -2110000 front 0)
+    )
+    (component IMG_U11
+      (place U11 2170400 -1910000 front 0)
+    )
+    (component IMG_R56
+      (place R56 2665000 -634200 front 0)
+    )
+    (component IMG_J3
+      (place J3 1250000 -2650000 front 0)
+    )
+    (component IMG_C7
+      (place C7 1540000 -2045000 front 0)
+    )
+    (component IMG_JP1
+      (place JP1 2170000 -1255000 front 0)
+    )
+    (component IMG_U20
+      (place U20 711200 -2247000 front 0)
+    )
+    (component IMG_R40
+      (place R40 609200 -2470000 front 0)
+    )
+    (component IMG_U29
+      (place U29 2997000 -1630300 front 0)
+    )
+    (component IMG_R35
+      (place R35 2175000 -755800 front 0)
+    )
+    (component IMG_H4
+      (place H4 3350000 -2600000 front 0)
+    )
+    (component IMG_C11
+      (place C11 2115000 -1845000 front 0)
+    )
+    (component IMG_C2
+      (place C2 2385000 -2455000 front 0)
+    )
+    (component IMG_R29
+      (place R29 2275000 -880800 front 0)
+    )
+    (component IMG_R39
+      (place R39 2125000 -519200 front 0)
+    )
+    (component IMG_R34
+      (place R34 2125000 -755800 front 0)
+    )
+    (component IMG_JP2
+      (place JP2 2151500 -1395000 front 0)
+    )
+    (component IMG_J5
+      (place J5 3100000 -500000 front 0)
+    )
+    (component IMG_D2
+      (place D2 2921900 -530000 front 0)
+    )
+    (component IMG_R7
+      (place R7 803500 -1665800 front 0)
+    )
+    (component IMG_C21
+      (place C21 1011950 -2185000 front 0)
+    )
+    (component IMG_C14
+      (place C14 3252000 -1576050 front 0)
+    )
+    (component IMG_C29
+      (place C29 3060000 -1575300 front 0)
+    )
+    (component IMG_SW2
+      (place SW2 525900 -900000 front 0)
+    )
+    (component IMG_D10
+      (place D10 2620000 -786900 front 0)
+    )
+    (component IMG_U7
+      (place U7 1597200 -2110000 front 0)
+    )
+    (component IMG_R16
+      (place R16 2485000 -635800 front 0)
+    )
+    (component IMG_R17
+      (place R17 2385000 -775800 front 0)
+    )
+    (component IMG_U3
+      (place U3 1997200 -2301200 front 0)
+    )
+    (component IMG_J2
+      (place J2 810000 -2650000 front 0)
+    )
+    (component IMG_R61
+      (place R61 3235000 -750800 front 0)
+    )
+    (component IMG_D11
+      (place D11 2915000 -646900 front 0)
+    )
+    (component IMG_TP2
+      (place TP2 3285000 -2030000 front 0)
+    )
+    (component IMG_U6
+      (place U6 1065000 -2426900 front 0)
+    )
+    (component IMG_J4
+      (place J4 654500 -1155000 front 0)
+    )
+    (component IMG_U38
+      (place U38 1355750 -1435000 front 0)
+    )
+    (component IMG_R33
+      (place R33 2075000 -755800 front 0)
+    )
+    (component IMG_R43
+      (place R43 795000 -1430800 front 0)
+    )
+    (component IMG_C32
+      (place C32 2303200 -1665000 front 0)
+    )
+    (component IMG_R23
+      (place R23 1975000 -880000 front 0)
+    )
+    (component IMG_R49
+      (place R49 3055000 -750800 front 0)
+    )
+    (component IMG_U17
+      (place U17 1569050 -2521200 front 0)
+    )
+    (component IMG_U5
+      (place U5 665500 -2426900 front 0)
+    )
+    (component IMG_C43
+      (place C43 1420000 -1820000 front 0)
+    )
+    (component IMG_R15
+      (place R15 2435000 -635800 front 0)
+    )
+    (component IMG_U36
+      (place U36 2009600 -1025000 front 0)
+    )
+    (component IMG_R1
+      (place R1 734200 -532000 front 0)
+    )
+    (component IMG_C16
+      (place C16 2715000 -885000 front 0)
+    )
+    (component IMG_D13
+      (place D13 2530000 -646900 front 0)
+    )
+    (component IMG_D1
+      (place D1 3165000 -963100 front 0)
+    )
+    (component IMG_R42
+      (place R42 645000 -1431600 front 0)
+    )
+    (component IMG_R2
+      (place R2 734200 -580000 front 0)
+    )
+    (component IMG_C12
+      (place C12 2515000 -1845000 front 0)
+    )
+    (component IMG_R63
+      (place R63 2073050 -1128650 front 0)
+    )
+    (component IMG_C26
+      (place C26 1010000 -1810000 front 0)
+    )
+    (component IMG_D17
+      (place D17 2825000 -646900 front 0)
+    )
+    (component IMG_R36
+      (place R36 2225000 -755800 front 0)
+    )
+    (component IMG_U12
+      (place U12 2569200 -1910000 front 0)
+    )
+    (component IMG_H1
+      (place H1 550000 -550000 front 0)
+    )
+    (component IMG_U32
+      (place U32 2357800 -1726200 front 0)
+    )
+    (component IMG_R31
+      (place R31 1975000 -755800 front 0)
+    )
+    (component IMG_R5
+      (place R5 712500 -1665800 front 0)
+    )
+    (component IMG_R27
+      (place R27 2175000 -880000 front 0)
+    )
+    (component IMG_TP3
+      (place TP3 780000 -745000 front 0)
+    )
+    (component IMG_H3
+      (place H3 550000 -2600000 front 0)
+    )
+    (component IMG_TP1
+      (place TP1 1205000 -1595000 front 0)
+    )
+    (component IMG_R30
+      (place R30 2325000 -880800 front 0)
+    )
+    (component IMG_U25
+      (place U25 1796800 -1910000 front 0)
+    )
+    (component IMG_C38
+      (place C38 1300750 -1375000 front 0)
+    )
+    (component IMG_R52
+      (place R52 1585800 -1310000 front 0)
+    )
+    (component IMG_J7
+      (place J7 2600000 -569900 front 0)
+    )
+    (component IMG_D18
+      (place D18 587250 -1745000 front 0)
+    )
+    (component IMG_R58
+      (place R58 2960000 -633400 front 0)
+    )
+    (component IMG_R46
+      (place R46 745000 -1329200 front 0)
+    )
+    (component IMG_D9
+      (place D9 2620000 -646900 front 0)
+    )
+    (component IMG_R20
+      (place R20 2730000 -634200 front 0)
+    )
+    (component IMG_D8
+      (place D8 530000 -975000 front 0)
+    )
+    (component IMG_U16
+      (place U16 2729600 -851200 front 0)
+    )
+    (component IMG_U35
+      (place U35 2808800 -1223800 front 0)
+    )
+    (component IMG_U14
+      (place U14 3187000 -1630250 front 0)
+    )
+    (component IMG_D12
+      (place D12 2575000 -646900 front 0)
+    )
+    (component IMG_C9
+      (place C9 2345000 -2045000 front 0)
+    )
+    (component IMG_U21
+      (place U21 1065000 -2247000 front 0)
+    )
+    (component IMG_U23
+      (place U23 2729600 -1025000 front 0)
+    )
+    (component IMG_K1
+      (place K1 625000 -865000 front 0)
+    )
+    (component IMG_D7
+      (place D7 725000 -726600 front 0)
+    )
+    (component IMG_D6
+      (place D6 2921900 -575000 front 0)
+    )
+    (component IMG_H7
+      (place H7 550000 -1595000 front 0)
+    )
+    (component IMG_U13
+      (place U13 3020000 -1223800 front 0)
+    )
+    (component IMG_C44
+      (place C44 1976820 -1075000 front 0)
+    )
+    (component IMG_U22
+      (place U22 2368400 -1025000 front 0)
+    )
+    (component IMG_U9
+      (place U9 2397200 -2110000 front 0)
+    )
+    (component IMG_R32
+      (place R32 2025000 -755800 front 0)
+    )
+    (component IMG_R6
+      (place R6 758000 -1665800 front 0)
+    )
+    (component IMG_U4
+      (place U4 2397200 -2301200 front 0)
+    )
+    (component IMG_C10
+      (place C10 2745000 -2045000 front 0)
+    )
+    (component IMG_R48
+      (place R48 595000 -1430800 front 0)
+    )
+    (component IMG_F1
+      (place F1 659000 -695500 front 0)
+    )
+    (component IMG_C1
+      (place C1 1941600 -2455000 front 0)
+    )
+    (component IMG_U40
+      (place U40 608600 -1497700 front 0)
+    )
+    (component IMG_C46
+      (place C46 2075000 -520000 front 0)
+    )
+    (component IMG_C4
+      (place C4 2340000 -2240000 front 0)
+    )
+    (component IMG_R21
+      (place R21 2780000 -635000 front 0)
+    )
+    (component IMG_D4
+      (place D4 3080000 -776900 front 0)
+    )
+    (component IMG_C15
+      (place C15 3297000 -1169200 front 0)
+    )
+    (component IMG_D14
+      (place D14 2575000 -786900 front 0)
+    )
+    (component IMG_U31
+      (place U31 2357850 -1543200 front 0)
+    )
+    (component IMG_R8
+      (place R8 849000 -1665800 front 0)
+    )
+    (component IMG_R25
+      (place R25 2075000 -880000 front 0)
+    )
+    (component IMG_R28
+      (place R28 2225000 -880000 front 0)
+    )
+    (component IMG_R44
+      (place R44 845000 -1431600 front 0)
+    )
+    (component IMG_J10
+      (place J10 1480000 -1131300 front 0)
+    )
+    (component IMG_U18
+      (place U18 711200 -1876200 front 0)
+    )
+    (component IMG_J8
+      (place J8 2345000 -1296000 front 0)
+    )
+    (component IMG_H5
+      (place H5 1960000 -2600000 front 0)
+    )
+    (component IMG_U2
+      (place U2 2438400 -2521200 front 0)
+    )
+    (component IMG_H2
+      (place H2 3350000 -550000 front 0)
+    )
+    (component IMG_C35
+      (place C35 2872000 -1170850 front 0)
+    )
+    (component IMG_C20
+      (place C20 657820 -2185000 front 0)
+    )
+    (component IMG_R12
+      (place R12 1031000 -1665800 front 0)
+    )
+    (component IMG_C42
+      (place C42 1702750 -1375000 front 0)
+    )
+    (component IMG_R18
+      (place R18 2435000 -774200 front 0)
+    )
+    (component IMG_NT1
+      (place NT1 1998000 -1045000 front 0)
+    )
+    (component IMG_R9
+      (place R9 894500 -1665800 front 0)
+    )
+    (component IMG_C13
+      (place C13 3085000 -1166200 front 0)
+    )
+    (component IMG_C47
+      (place C47 665000 -1465000 front 0)
+    )
+    (component IMG_D15
+      (place D15 2530000 -786900 front 0)
+    )
+    (component IMG_D3
+      (place D3 3215000 -598100 front 0)
+    )
+    (component IMG_J13
+      (place J13 660000 -534000 front 0)
+    )
+    (component IMG_C27
+      (place C27 1010400 -1995000 front 0)
+    )
+    (component IMG_R22
+      (place R22 2121600 -1095000 front 0)
+    )
+    (component IMG_U19
+      (place U19 711200 -2056200 front 0)
+    )
+    (component IMG_R41
+      (place R41 1044200 -2470000 front 0)
+    )
+    (component IMG_C22
+      (place C22 2312650 -957000 front 0)
+    )
+    (component IMG_C31
+      (place C31 2304050 -1478200 front 0)
+    )
+    (component IMG_R51
+      (place R51 1716600 -1310000 front 0)
+    )
+    (component IMG_R19
+      (place R19 2485000 -774200 front 0)
+    )
+    (component IMG_H8
+      (place H8 3350000 -1595000 front 0)
+    )
+    (component IMG_U8
+      (place U8 1997200 -2110000 front 0)
+    )
+    (component IMG_C40
+      (place C40 550000 -1465000 front 0)
+    )
+    (component IMG_J12
+      (place J12 940000 -1131300 front 0)
+    )
+    (component IMG_R26
+      (place R26 2125000 -880000 front 0)
+    )
+    (component IMG_RN1
+      (place RN1 764200 -1720000 front 0)
+    )
+    (component IMG_C41
+      (place C41 816530 -665000 front 0)
+    )
+    (component IMG_R38
+      (place R38 2325000 -755000 front 0)
+    )
+    (component IMG_C25
+      (place C25 1740000 -1845000 front 0)
+    )
+    (component IMG_U15
+      (place U15 3232000 -1223800 front 0)
+    )
+    (component IMG_C19
+      (place C19 655150 -1994200 front 0)
+    )
+    (component IMG_R13
+      (place R13 2329200 -1165000 front 0)
+    )
+    (component IMG_U26
+      (place U26 1065000 -1876200 front 0)
+    )
+    (component IMG_R3
+      (place R3 2245000 -1300800 front 0)
+    )
+    (component IMG_C6
+      (place C6 1008830 -2360000 front 0)
+    )
+    (component IMG_R57
+      (place R57 2665000 -774200 front 0)
+    )
+    (component IMG_R45
+      (place R45 695000 -1330000 front 0)
+    )
+    (component IMG_R14
+      (place R14 2385000 -635800 front 0)
+    )
+    (component IMG_SW1
+      (place SW1 500000 -680000 front 0)
+    )
+    (component IMG_C8
+      (place C8 1945000 -2045000 front 0)
+    )
+  )
+  (was_is
+  )
+  (routes 
+    (resolution um 10)
+    (parser
+      (host_cad KiCad)
+      (host_version 9)
+    )
+    (library_out 
+      (padstack "Via[0-1]_800:400_um"
+        (shape
+          (circle F.Cu 8000 0 0)
+        )
+        (shape
+          (circle In1.Cu 8000 0 0)
+        )
+        (shape
+          (circle In2.Cu 8000 0 0)
+        )
+        (shape
+          (circle B.Cu 8000 0 0)
+        )
+        (attach off)
+      )
+      (padstack "Via[0-1]_800:400_um"
+        (shape
+          (circle F.Cu 8000 0 0)
+        )
+        (shape
+          (circle In1.Cu 8000 0 0)
+        )
+        (shape
+          (circle In2.Cu 8000 0 0)
+        )
+        (shape
+          (circle B.Cu 8000 0 0)
+        )
+        (attach off)
+      )
+      (padstack "Via[0-1]_800:400_um"
+        (shape
+          (circle F.Cu 8000 0 0)
+        )
+        (shape
+          (circle In1.Cu 8000 0 0)
+        )
+        (shape
+          (circle In2.Cu 8000 0 0)
+        )
+        (shape
+          (circle B.Cu 8000 0 0)
+        )
+        (attach off)
+      )
+      (padstack "Via[0-1]_800:400_um"
+        (shape
+          (circle F.Cu 8000 0 0)
+        )
+        (shape
+          (circle In1.Cu 8000 0 0)
+        )
+        (shape
+          (circle In2.Cu 8000 0 0)
+        )
+        (shape
+          (circle B.Cu 8000 0 0)
+        )
+        (attach off)
+      )
+    )
+    (network_out 
+      (net GND
+        (via "Via[0-1]_800:400_um" 550000 -1280000
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 690000 -595000
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 785000 -1095500
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 736500 -1030000
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 635000 -550000
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 736500 -1280000
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 785000 -1160000
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 550000 -1030000
+          (type protect)
+        )
+        (wire
+          (path B.Cu 3000
+            1454600 -1055100
+            1451690 -1055100
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 5000
+            736500 -1010000
+            736500 -1030000
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 2000
+            2611450 -550100
+            2588550 -550100
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 5000
+            550000 -1300000
+            550000 -1280000
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 2000
+            2680150 -550100
+            2691600 -561550
+            2691600 -569900
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 3000
+            804000 -1090750
+            785000 -1095500
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 2000
+            687500 -572300
+            687500 -592500
+            690000 -595000
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 5000
+            736500 -1300000
+            736500 -1280000
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 2000
+            2634350 -550100
+            2611450 -550100
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 3000
+            1184580 -1055100
+            1184600 -1055100
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 2000
+            632500 -572300
+            632500 -552500
+            635000 -550000
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 3000
+            804000 -1165750
+            785000 -1160000
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 5000
+            550000 -1010000
+            550000 -1030000
+          )
+          (type protect)
+        )
+      )
+      (net +5V
+        (wire
+          (path F.Cu 10000
+            816530 -661530
+            816530 -665000
+          )
+          (type protect)
+        )
+      )
+      (net CLK_E
+        (via "Via[0-1]_800:400_um" 2960000 -2211250
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 1686250 -2163750
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 3177500 -1421250
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 2962500 -1588750
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 3177500 -1588750
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 2962500 -1680000
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 1866250 -1803750
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 3218750 -2211250
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 2992500 -2163750
+          (type protect)
+        )
+        (via "Via[0-1]_800:400_um" 1882500 -1626250
+          (type protect)
+        )
+        (wire
+          (path B.Cu 3000
+            2960000 -2211250
+            2960000 -2520000
+            2966500 -2520000
+            2966500 -2220000
+            2973000 -2220000
+            2973000 -2520000
+            2979500 -2520000
+            2979500 -2220000
+            2986000 -2220000
+            2986000 -2520000
+            2992500 -2520000
+            2992500 -2163750
+          )
+          (type protect)
+        )
+        (wire
+          (path B.Cu 3000
+            1866250 -1803750
+            1866250 -1798750
+            1882500 -1798750
+            1882500 -1626250
+          )
+          (type protect)
+        )
+        (wire
+          (path B.Cu 3000
+            3177500 -1588750
+            3177500 -1421250
+          )
+          (type protect)
+        )
+        (wire
+          (path B.Cu 3000
+            2962500 -1680000
+            2962500 -1588750
+          )
+          (type protect)
+        )
+        (wire
+          (path B.Cu 3000
+            1686250 -2163750
+            1686250 -1832500
+          )
+          (type protect)
+        )
+        (wire
+          (path B.Cu 3000
+            3225000 -1430000
+            3225000 -1441250
+            3218750 -1441250
+            3218750 -2211250
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 3000
+            2962500 -1588750
+            3177500 -1588750
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 3000
+            1882500 -1626250
+            2352500 -1626250
+            2352500 -1625000
+            2573750 -1625000
+            2573750 -1680000
+            2962500 -1680000
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 3000
+            3218750 -2211250
+            2960000 -2211250
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 3000
+            1632500 -1803750
+            1866250 -1803750
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 3000
+            2992500 -2163750
+            1686250 -2163750
+          )
+          (type protect)
+        )
+        (wire
+          (path F.Cu 3000
+            3177500 -1421250
+            3227500 -1421250
+          )
+          (type protect)
+        )
+      )
+    )
+  )
+)

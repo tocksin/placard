@@ -1,0 +1,8 @@
+# score wb_fr2_fin.kicad_pcb  (scope 257 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 40.95 m | 531 / 531 | 2.3 % | 17.5 % | 1.03 | 1 | 0 | 0 | 7 | 30 |
+
+worst nets (track mm, vias, detour): CLK 895/4/1.1, DATABUS0 857/6/1.1, DATABUS4 856/12/1.1, DATABUS1 819/8/1.1, DATABUS3 813/10/1.1, DATABUS7 805/10/1.0, DATABUS5 802/11/1.1, DATABUS2 794/5/1.0
+detour > 2: CLK_E
+collisions: [('DATABUS0', 'DATABUS5', 123.8, 80.9, 'B.Cu'), ('DATABUS0', 'DATABUS5', 123.8, 80.9, 'B.Cu'), ('DATABUS0', 'DATABUS5', 123.8, 80.9, 'B.Cu'), ('DATABUS0', 'DATABUS5', 123.8, 80.9, 'B.Cu'), ('DATABUS0', 'DATABUS5', 123.7, 80.6, 'B.Cu'), ('DATABUS0', 'DATABUS5', 123.7, 80.6, 'B.Cu'), ('DATABUS0', 'DATABUS5', 123.7, 80.6, 'B.Cu'), ('DATABUS0', 'DATABUS5', 123.7, 80.6, 'B.Cu'), ('DATABUS0', 'DATABUS5', 123.7, 80.4, 'B.Cu'), ('DATABUS0', 'DATABUS5', 123.7, 80.4, 'B.Cu')]
