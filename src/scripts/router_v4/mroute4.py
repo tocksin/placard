@@ -129,7 +129,7 @@ class CPU:
         if os.name!='nt' and (not os.path.exists(so) or os.path.getmtime(so)<max(os.path.getmtime(os.path.join(TOOLS,'pfcpu.c')),os.path.getmtime(os.path.join(TOOLS,'pfcommon.h')))):
             os.system(f'gcc -O3 -fopenmp -shared -fPIC -o {so} '+os.path.join(TOOLS,'pfcpu.c'))
         self.lib=ctypes.CDLL(so)
-    def run(self,jobs,gid,state,pcap_total,soft=None):
+    def run(self,jobs,gid,state,ownocc,ownv,pcap_total,soft=None):
         hist,hist_v,occ_t,occ_v=cur_maps(); keep=(hist,hist_v,occ_t,occ_v)
         st_=soft[0].ctypes.data_as(P(ctypes.c_uint8)) if soft else None; sv_=soft[1].ctypes.data_as(P(ctypes.c_uint8)) if soft else None
         m=Maps(nx,ny,own_t.ctypes.data_as(P(ctypes.c_int32)),mul_t.ctypes.data_as(P(ctypes.c_uint8)),cop.ctypes.data_as(P(ctypes.c_int32)),
@@ -138,7 +138,7 @@ class CPU:
                occ_t.ctypes.data_as(P(ctypes.c_int16)),occ_v.ctypes.data_as(P(ctypes.c_int16)),st_,sv_,busmap.ctypes.data_as(P(ctypes.c_int16)) if busmap is not None else None)
         J=(NetJob*len(jobs))(*jobs); path=np.zeros(pcap_total,np.int32); plen=np.zeros(len(jobs),np.int32); status=np.zeros(len(jobs),np.int32)
         self.lib.route_nets_cpu(ctypes.byref(m),J,len(jobs),gid.ctypes.data_as(P(ctypes.c_int16)),state.ctypes.data_as(P(ctypes.c_uint8)),
-                                path.ctypes.data_as(P(ctypes.c_int32)),plen.ctypes.data_as(P(ctypes.c_int32)),status.ctypes.data_as(P(ctypes.c_int32)),THREADS)
+                                ownocc.ctypes.data_as(P(ctypes.c_int16)),ownv.ctypes.data_as(P(ctypes.c_int16)),path.ctypes.data_as(P(ctypes.c_int32)),plen.ctypes.data_as(P(ctypes.c_int32)),status.ctypes.data_as(P(ctypes.c_int32)),THREADS)
         return path,plen,status
 class GPU:
     name='gpu'
@@ -150,7 +150,7 @@ class GPU:
         self.d=dict(own_t=cp.asarray(own_t),mul_t=cp.asarray(mul_t),cop=cp.asarray(cop),own_v=cp.asarray(own_v),mul_v=cp.asarray(mul_v),
                     edge_t=cp.asarray(edge_t),edge_v=cp.asarray(edge_v),field=cp.asarray(field))
         self.dev=cp.cuda.Device(); print('GPU:',cp.cuda.runtime.getDeviceProperties(self.dev.id)['name'].decode(),flush=True)
-    def run(self,jobs,gid,state,pcap_total,soft=None):
+    def run(self,jobs,gid,state,ownocc,ownv,pcap_total,soft=None):
         cp=self.cp; hist,hist_v,occ_t,occ_v=cur_maps()
         def ptr(a): return a.data.ptr
         dbus=cp.asarray(busmap) if busmap is not None else None
@@ -162,14 +162,14 @@ class GPU:
                   ctypes.cast(ptr(d['edge_v']),P(ctypes.c_uint8)),ctypes.cast(ptr(d['field']),P(ctypes.c_uint8)),ctypes.cast(ptr(dh),P(ctypes.c_float)),
                   ctypes.cast(ptr(dhv),P(ctypes.c_float)),ctypes.cast(ptr(do),P(ctypes.c_int16)),ctypes.cast(ptr(dov),P(ctypes.c_int16)),st_,sv_,ctypes.cast(ptr(dbus),P(ctypes.c_int16)) if busmap is not None else None)
         W2tot=sum(2*j.ww*j.wh for j in jobs)
-        dp=cp.zeros(W2tot,cp.uint64); dgid=cp.asarray(gid); dstate=cp.asarray(state); dinq=cp.zeros(W2tot,cp.int32)
+        dp=cp.zeros(W2tot,cp.uint64); dgid=cp.asarray(gid); dstate=cp.asarray(state); dinq=cp.zeros(W2tot,cp.int32); downocc=cp.asarray(ownocc); downv=cp.asarray(ownv)
         q0=cp.zeros(W2tot,cp.int32); q1=cp.zeros(W2tot,cp.int32); dpath=cp.zeros(pcap_total,cp.int32)
         dplen=cp.zeros(len(jobs),cp.int32); dstatus=cp.zeros(len(jobs),cp.int32); qn=cp.zeros(2*len(jobs),cp.int32)
         J=(NetJob*len(jobs))(*jobs); dJ=cp.asarray(np.frombuffer(bytes(J),np.uint8))
         class Work(ctypes.Structure):
-            _fields_=[('dp',ctypes.c_void_p),('gid',ctypes.c_void_p),('state',ctypes.c_void_p),('inq',ctypes.c_void_p),('q0',ctypes.c_void_p),('q1',ctypes.c_void_p),
+            _fields_=[('dp',ctypes.c_void_p),('gid',ctypes.c_void_p),('state',ctypes.c_void_p),('inq',ctypes.c_void_p),('ownocc',ctypes.c_void_p),('ownv',ctypes.c_void_p),('q0',ctypes.c_void_p),('q1',ctypes.c_void_p),
                       ('path',ctypes.c_void_p),('plen',ctypes.c_void_p),('status',ctypes.c_void_p)]
-        work=Work(ptr(dp),ptr(dgid),ptr(dstate),ptr(dinq),ptr(q0),ptr(q1),ptr(dpath),ptr(dplen),ptr(dstatus))
+        work=Work(ptr(dp),ptr(dgid),ptr(dstate),ptr(dinq),ptr(downocc),ptr(downv),ptr(q0),ptr(q1),ptr(dpath),ptr(dplen),ptr(dstatus))
         def byval(st): return np.frombuffer(bytes(st),np.dtype((np.void,ctypes.sizeof(st))))[0]
         self.kern((len(jobs),),(1024,),(byval(maps),dJ,byval(work),qn))
         cp.cuda.Stream.null.synchronize()
@@ -188,18 +188,25 @@ be=make_backend(); print('backend',be.name,flush=True)
 SOFTC=float(E('SOFTC','40')); RIPFIXED=E('RIPFIXED','1')=='1'; RIPMAX=int(E('RIPMAX','4')); RIPROUNDS=int(E('RIPROUNDS','400'))
 def route_batch(batch,hard,win_mm,soft=None):
     """route the nets of batch in parallel; their own stamps are removed first. returns ({n: paths or None}, status)"""
-    for n in batch: g.apply_stamps(g.stamps.get(n,[]),-1)
-    jobs=[]; gids=[]; states=[]; off=0; poff=0
+    jobs=[]; gids=[]; states=[]; owns=[]; ownvs=[]; off=0; poff=0
     for n in batch:
         la,lb,k,(x0,x1,y0,y1)=groups0[n]; pad=int(win_mm/G)
         wx0=max(0,x0-pad); wx1=min(nx,x1+pad+1); wy0=max(0,y0-pad); wy1=min(ny,y1+pad+1); ww=wx1-wx0; wh=wy1-wy0; W2=2*ww*wh
         gw=np.ascontiguousarray(np.stack([la[wy0:wy1,wx0:wx1],lb[wy0:wy1,wx0:wx1]]).reshape(-1)).astype(np.int16)
         st=np.zeros(W2,np.uint8); smallest=min(range(1,k+1),key=lambda i:(gw==i).sum()); st[gw==smallest]=1
+        oc=np.zeros((2,wh,ww),np.int16); ov=np.zeros((wh,ww),np.int16)
+        for kind,L,j0,i0,mm in g.stamps.get(n,[]):   # the net's own previous route: not an obstacle to itself
+            a0=max(j0,wy0); a1=min(j0+mm.shape[0],wy1); b0=max(i0,wx0); b1=min(i0+mm.shape[1],wx1)
+            if a1<=a0 or b1<=b0: continue
+            sub=mm[a0-j0:a1-j0,b0-i0:b1-i0]
+            if kind=='t': oc[LAY.index(L),a0-wy0:a1-wy0,b0-wx0:b1-wx0]+=sub
+            else: ov[a0-wy0:a1-wy0,b0-wx0:b1-wx0]+=sub
+        owns.append(oc.reshape(-1)); ownvs.append(ov.reshape(-1))
         pcap=3*min(W2,300000)+8*k
         jobs.append(NetJob(n,wx0,wy0,ww,wh,k,off,off,poff,pcap,PRES,g.VIA_COST,g.AGAINST,g.RING,SOFTC if soft else 0.0,g.BEND,int(hard),MAXSWEEPS,busof.get(n,0),BUSGAIN))
         gids.append(gw); states.append(st); off+=W2; poff+=pcap
-    gid=np.concatenate(gids); state=np.concatenate(states)
-    path,plen,status=be.run(jobs,gid,state,poff,soft)
+    gid=np.concatenate(gids); state=np.concatenate(states); ownocc=np.ascontiguousarray(np.concatenate(owns)); ownv=np.ascontiguousarray(np.concatenate(ownvs))
+    path,plen,status=be.run(jobs,gid,state,ownocc,ownv,poff,soft)
     out={}
     for i,(n,j) in enumerate(zip(batch,jobs)):
         if status[i]!=0: out[n]=None; continue
@@ -211,7 +218,6 @@ def route_batch(batch,hard,win_mm,soft=None):
                 cur=[]; k+=1
             else: cur.append((int(arr[k]),int(arr[k+1]),int(arr[k+2]))); k+=3
         out[n]=paths
-    for n in batch: g.apply_stamps(g.stamps.get(n,[]),1)
     return out,status
 def batches(seq,size):
     for i in range(0,len(seq),size): yield seq[i:i+size]

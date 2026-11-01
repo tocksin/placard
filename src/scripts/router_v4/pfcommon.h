@@ -33,32 +33,33 @@ typedef struct {           // global board maps, all ny*nx (per layer arrays are
     const int16_t *bus;    // bus id of the band next to routed bus members (per layer), may be NULL
 } Maps;
 #define INFBITS 0x7f800000u
-DEVFN int blocked_t(const Maps *m, const NetJob *j, long long s, long long c) {
+/* occ = occupancy by OTHER nets' routes at this cell (global count minus the net's own previous route) */
+DEVFN int blocked_t(const Maps *m, const NetJob *j, long long s, long long c, int occ) {
     int o = m->own_t[s];
     if (m->mul_t[s] || m->edge_t[c]) return 1;
     if (o && o != j->n) { if (m->soft_t && m->soft_t[s]) return 0; return 1; }
-    if (j->hard && m->occ_t[s] > 0) { if (m->soft_t && m->soft_t[s]) return 0; return 1; }
+    if (j->hard && occ > 0) { if (m->soft_t && m->soft_t[s]) return 0; return 1; }
     return 0;
 }
-DEVFN int blocked_v(const Maps *m, const NetJob *j, long long c) {
+DEVFN int blocked_v(const Maps *m, const NetJob *j, long long c, int occ) {
     int o = m->own_v[c];
     if (m->mul_v[c] || m->edge_v[c]) return 1;
     if (o && o != j->n) { if (m->soft_v && m->soft_v[c]) return 0; return 1; }
-    if (j->hard && m->occ_v[c] > 0) { if (m->soft_v && m->soft_v[c]) return 0; return 1; }
+    if (j->hard && occ > 0) { if (m->soft_v && m->soft_v[c]) return 0; return 1; }
     return 0;
 }
-DEVFN float cell_cost(const Maps *m, const NetJob *j, long long s, long long c, uint8_t state) {
-    float k = 1.0f + m->hist[s] + j->pres * (float)m->occ_t[s];
+DEVFN float cell_cost(const Maps *m, const NetJob *j, long long s, long long c, uint8_t state, int occ) {
+    float k = 1.0f + m->hist[s] + j->pres * (float)occ;
     int o = m->own_t[s];
     if ((o == j->n && m->cop[s] != j->n) || (state & 2)) k += j->ring;
-    if (m->soft_t && m->soft_t[s] && ((o && o != j->n) || (j->hard && m->occ_t[s] > 0))) k += j->soft;
+    if (m->soft_t && m->soft_t[s] && ((o && o != j->n) || (j->hard && occ > 0))) k += j->soft;
     if (m->bus && j->busid > 0 && m->bus[s] == j->busid) k *= j->busgain;
     return k;
 }
-DEVFN float via_cost(const Maps *m, const NetJob *j, long long c) {
-    float k = j->viacost * (1.0f + m->hist_v[c] + j->pres * (float)m->occ_v[c]);
+DEVFN float via_cost(const Maps *m, const NetJob *j, long long c, int occ) {
+    float k = j->viacost * (1.0f + m->hist_v[c] + j->pres * (float)occ);
     int o = m->own_v[c];
-    if (m->soft_v && m->soft_v[c] && ((o && o != j->n) || (j->hard && m->occ_v[c] > 0))) k += j->viacost * j->soft;
+    if (m->soft_v && m->soft_v[c] && ((o && o != j->n) || (j->hard && occ > 0))) k += j->viacost * j->soft;
     return k;
 }
 #endif

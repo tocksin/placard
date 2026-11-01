@@ -23,7 +23,7 @@ static HE hpop(Heap *H) {
 }
 /* per net arrays: dist float[W2], prev int[W2], gid short[W2], state u8[W2]; path int[pcap]; plen, status per net */
 static void route_one(const Maps *m, const NetJob *j, float *dist, int *prev, const short *gid, unsigned char *state,
-                      int *path, int *plen, int *status, unsigned char *closed)
+                      const short *ownocc, const short *ownv, int *path, int *plen, int *status, unsigned char *closed)
 {
     const int nx = m->nx; const long long N = (long long)nx * m->ny;
     const int ww = j->ww, wh = j->wh; const long long WC = (long long)ww * wh, W2 = 2 * WC;
@@ -34,7 +34,7 @@ static void route_one(const Maps *m, const NetJob *j, float *dist, int *prev, co
         for (long long w = 0; w < W2; w++) if (state[w] & 1) {
             int l = (int)(w / WC); long long wc = w - l * WC; int y = (int)(wc / ww) + j->wy0, x = (int)(wc % ww) + j->wx0;
             long long c = (long long)y * nx + x, s = l * N + c;
-            if (!blocked_t(m, j, s, c)) { dist[w] = 0; hpush(&H, 0, (int)w); }
+            if (!blocked_t(m, j, s, c, m->occ_t[s] - ownocc[w])) { dist[w] = 0; hpush(&H, 0, (int)w); }
         }
         int goal = -1; long long expanded = 0;
         while (H.n) {
@@ -54,14 +54,16 @@ static void route_one(const Maps *m, const NetJob *j, float *dist, int *prev, co
                 if (jy < 0 || jy >= wh || jx < 0 || jx >= ww) continue;
                 long long jc = (long long)(jy + j->wy0) * nx + (jx + j->wx0), js = nl * N + jc; long long jw = nl * WC + (long long)jy * ww + jx;
                 if (closed[jw]) continue;
+                int oe = m->occ_t[js] - ownocc[jw];
                 if (k < 4) {
-                    if (blocked_t(m, j, js, jc)) continue;
+                    if (blocked_t(m, j, js, jc, oe)) continue;
                     if (dx && (m->field[c] || m->field[jc])) continue;
-                    nd = d + (dx ? ch : cv) * cell_cost(m, j, js, jc, state[jw]);
+                    nd = d + (dx ? ch : cv) * cell_cost(m, j, js, jc, state[jw], oe);
                     if ((pdy || pdx) && (pdy != dy || pdx != dx)) nd += j->bend;
                 } else {
-                    if (blocked_v(m, j, c) || blocked_t(m, j, js, jc)) continue;
-                    nd = d + via_cost(m, j, c);
+                    int ov = m->occ_v[c] - ownv[wc];
+                    if (blocked_v(m, j, c, ov) || blocked_t(m, j, js, jc, oe)) continue;
+                    nd = d + via_cost(m, j, c, ov);
                 }
                 if (nd < dist[jw]) { dist[jw] = nd; prev[jw] = w; hpush(&H, nd, (int)jw); }
             }
@@ -92,14 +94,14 @@ static void route_one(const Maps *m, const NetJob *j, float *dist, int *prev, co
     }
     *plen = pl; free(H.h);
 }
-int route_nets_cpu(const Maps *m, const NetJob *jobs, int njobs, short *gid, unsigned char *state, int *path, int *plen, int *status, int nthreads)
+int route_nets_cpu(const Maps *m, const NetJob *jobs, int njobs, short *gid, unsigned char *state, short *ownocc, short *ownv, int *path, int *plen, int *status, int nthreads)
 {
     if (nthreads > 0) omp_set_num_threads(nthreads);
     #pragma omp parallel for schedule(dynamic, 1)
     for (int i = 0; i < njobs; i++) {
         const NetJob *j = &jobs[i]; long long W2 = 2LL * j->ww * j->wh;
         float *dist = malloc(W2 * sizeof(float)); int *prev = malloc(W2 * sizeof(int)); unsigned char *closed = malloc(W2);
-        route_one(m, j, dist, prev, gid + j->off, state + j->off, path + j->poff, plen + i, status + i, closed);
+        route_one(m, j, dist, prev, gid + j->off, state + j->off, ownocc + j->off, ownv + j->off / 2, path + j->poff, plen + i, status + i, closed);
         free(dist); free(prev); free(closed);
     }
     return 0;

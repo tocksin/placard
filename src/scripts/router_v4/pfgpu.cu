@@ -5,7 +5,7 @@
 #define QN_OFF 0
 struct Work {              // per-net scratch (all sized 2*ww*wh unless noted)
     unsigned long long *dp;  // (dist bits << 32) | prev   (prev = window state index, 0xffffffff = none)
-    short *gid; unsigned char *state; int *inq;
+    short *gid; unsigned char *state; int *inq; short *ownocc; short *ownv;
     int *q0, *q1;            // queues (window state indices)
     int *path; int *plen; int *status;   // per net: path ints, length, status (0 ok, 1 fail, 2 path buffer full, 3 sweeps)
 };
@@ -18,7 +18,7 @@ extern "C" __global__ void route_nets(const Maps maps, const NetJob *jobs, Work 
     const int nx = m->nx; const long long N = (long long)nx * m->ny;
     const int ww = j->ww, wh = j->wh; const long long WC = (long long)ww * wh, W2 = 2 * WC;
     unsigned long long *dp = work.dp + j->off; short *gid = work.gid + j->off; unsigned char *state = work.state + j->off;
-    int *inq = work.inq + j->off; int *qa = work.q0 + j->qoff, *qb = work.q1 + j->qoff;
+    int *inq = work.inq + j->off; const short *ownocc = work.ownocc + j->off; const short *ownv = work.ownv + j->off / 2; int *qa = work.q0 + j->qoff, *qb = work.q1 + j->qoff;
     int *path = work.path + j->poff; int *plen = work.plen + blockIdx.x; int *status = work.status + blockIdx.x;
     int *qcnt = qn + 2 * blockIdx.x;
     __shared__ unsigned int s_fmin; __shared__ unsigned long long s_best; __shared__ int s_remaining; __shared__ int s_pl;
@@ -35,7 +35,7 @@ extern "C" __global__ void route_nets(const Maps maps, const NetJob *jobs, Work 
             if (state[w] & 1) {
                 int l = (int)(w / WC); long long wc = w - l * WC; int y = (int)(wc / ww) + j->wy0, x = (int)(wc % ww) + j->wx0;
                 long long c = (long long)y * nx + x, s = l * N + c;
-                if (!blocked_t(m, j, s, c)) { dp[w] = 0ull | 0xffffffffull; int k = atomicAdd(&qcnt[0], 1); qa[k] = (int)w; inq[w] = 1; }
+                if (!blocked_t(m, j, s, c, m->occ_t[s] - ownocc[w])) { dp[w] = 0ull | 0xffffffffull; int k = atomicAdd(&qcnt[0], 1); qa[k] = (int)w; inq[w] = 1; }
             }
         }
         __syncthreads();
@@ -60,15 +60,16 @@ extern "C" __global__ void route_nets(const Maps maps, const NetJob *jobs, Work 
                     int jy = wy + dy, jx = wx + dx;
                     if (jy < 0 || jy >= wh || jx < 0 || jx >= ww) continue;
                     long long jc = (long long)(jy + j->wy0) * nx + (jx + j->wx0), js = nl * N + jc; long long jw = nl * WC + (long long)jy * ww + jx;
-                    float nd;
+                    float nd; int oe = m->occ_t[js] - ownocc[jw];
                     if (k < 4) {
-                        if (blocked_t(m, j, js, jc)) continue;
+                        if (blocked_t(m, j, js, jc, oe)) continue;
                         if (dx && (m->field[c] || m->field[jc])) continue;
-                        step = dx ? ch : cv; nd = d + step * cell_cost(m, j, js, jc, state[jw]);
+                        step = dx ? ch : cv; nd = d + step * cell_cost(m, j, js, jc, state[jw], oe);
                         if ((pdy || pdx) && (pdy != dy || pdx != dx)) nd += j->bend;
                     } else {
-                        if (blocked_v(m, j, c) || blocked_t(m, j, js, jc)) continue;
-                        nd = d + via_cost(m, j, c);
+                        int ov = m->occ_v[c] - ownv[wc];
+                        if (blocked_v(m, j, c, ov) || blocked_t(m, j, js, jc, oe)) continue;
+                        nd = d + via_cost(m, j, c, ov);
                     }
                     unsigned long long nv = ((unsigned long long)f2u(nd) << 32) | (unsigned int)w;
                     unsigned long long old = atomicMin(dp + jw, nv);
