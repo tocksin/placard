@@ -2,10 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(git push origin --delete claude/*)",
-      "Bash(git push -d origin claude/*)"
+      "Bash(git push -d origin claude/*)",
       "WebFetch(domain:www.findchips.com)",
       "WebFetch(domain:www.mouser.com)",
       "Bash(java -jar:*)",
-      "WebFetch(domain:www.digikey.com)"    ]
+      "WebFetch(domain:www.digikey.com)"
+    ]
   }
 }
