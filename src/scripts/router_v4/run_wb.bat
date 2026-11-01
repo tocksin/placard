@@ -1,6 +1,6 @@
 @echo off
 rem PLACARD router v4 whole-board bench: wb.kicad_pcb = Justin's finished main board with every track and via except
-rem GND/+5V removed (bench\wb.kicad_pcb.zip, made by makebench.py). Reference: bench\wb_reference_justin.score.
+rem GND/+5V/CLK_E removed (bench\wb.kicad_pcb.zip, made by makebench.py; CLK_E is a deliberate 458 mm delay lead and stays his). Reference: bench\wb_reference_justin.score.
 rem pipeline: mroute4 -> tidy (pair pass) -> corner45 -> score.
 cd /d %~dp0
 if "%BACKEND%"=="" set BACKEND=gpu
