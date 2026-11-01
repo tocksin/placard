@@ -6,7 +6,7 @@ page map that every program shares.  `src/scripts/lib_demo.asm` is a short
 example program that uses it, and `src/scripts/test_lib.py` tests every
 routine in the simulator.
 
-Date: 10/26/2026
+Date: 11/01/2026
 
 | File | What it is |
 |------|------------|
@@ -267,7 +267,7 @@ complete examples.
 | 18-1F | `T0`-`T7` | library | Scratch, changed by any routine |
 | 20-8F | `USER_ZP` | program | 112 bytes for the program's own variables |
 | 90-9E | `SND_*` | sound driver | Sound state ([SOUND.md](SOUND.md#software)); free if the program never calls `snd_*` |
-| 9F | | sound driver | Spare, kept for the sound driver |
+| 9F | `SND_LASTF` | sound driver | Frames counted at the last `snd_update` (bit 7: a whole lap being written) |
 | A0-BF | `IO_ZP` | I/O drivers | Keyboard state and buffer, SD and mouse state, driver scratch ([IO.md](IO.md#zero-page)) |
 | C0-FF | `STACK_LOW`-`STACK_TOP` | stack | Software stack, grows down from FF |
 

@@ -25,7 +25,7 @@
 ; sections must read the ROM when a program calls it.  The driver
 ; uses zero page x90-x9E (zeropage.asm) and T0-T3.
 ;
-; Date: 10/19/2026
+; Date: 11/01/2026
 ; ============================================================
 
 SND_BUF   = 0x5DF3      ; first sample of the buffer
@@ -48,7 +48,10 @@ SND_SIL   = 0x80        ; silence
 ;            clocks per frame, 4-10 % of the CPU (test_snd.py).
 ;            Silence, once the buffer is clean, takes about 90.
 ;   Call it once every frame or more often, from anywhere in the frame.
-;   A gap longer than a frame replays old samples for a moment.
+;   A gap longer than a frame replays old samples for a moment.  It
+;   counts the frames between calls in FRAME_LO (frame_poll, which
+;   wait_frames and BASIC call) to tell a call a whole frame later from
+;   one a moment later, when the player is near where it was.
 ; ------------------------------------------------------------
 snd_update:
     ld   0x50, y
@@ -105,17 +108,29 @@ su_pd:
     ld   [T1], ac
     blt  su_go
     ld   [T2], ac               ; quiet: the next sample to write is the
-    ld   ac, [SND_PL]           ; one playing now
-    ld   [T3], ac
+    add  5, ac                  ; second of the next group (the next call
+    ld   ac, [SND_PL]           ; syncs to a group change, and the lap it
+    bcs  su_q1                  ; writes for a sound just started must
+    ld   [T3], ac               ; begin ahead of the player)
     ld   ac, [SND_PH]
+    bra  su_q2
+su_q1:
+    ld   0xF4, ac               ; x5FFC + 5: x5DF4
+    ld   ac, [SND_PL]
+    ld   0x5D, ac
+    ld   ac, [SND_PH]
+su_q2:
+    ld   [FRAME_LO], ac
+    and  0x7F, ac
+    ld   ac, [SND_LASTF]
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 su_go:
     ld   [T2], ac               ; write up to and including the sample
     inc                         ; playing now (its next lap): end = p + 1
     ld   ac, [T2]
-    ld   gen_sil >> 8, y
-    jmp  [SND_VEC]
+    ld   su_laps >> 8, y
+    jmp  su_laps
 
 ; ------------------------------------------------------------
 ; snd_init - silence: fill the buffer with 80h and stop any sound
@@ -152,6 +167,9 @@ si_c:
     ld   ac, [SND_PH]
     ld   2, ac
     ld   ac, [SND_CLEAN]
+    ld   [FRAME_LO], ac
+    and  0x7F, ac
+    ld   ac, [SND_LASTF]
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 
@@ -182,6 +200,10 @@ snd_busy:
     xor  gen_sil & 0xFF, ac
     ld   [LINK_HI], y
     jmp  [LINK_LO]
+
+su_back:
+    ld   0x50, y                ; from su_rest: the rest, as a new call
+    bra  su_sync0
 
 
 ; ============================================================
@@ -311,8 +333,15 @@ su_cmp:
     ld   [SND_PH], ac
     xor  [T3], ac
     bne  [SND_VEC]
+    ld   [SND_LASTF], ac        ; a whole lap written for a late call:
+    blt  su_rest                ; the rest up to the player, as a new call
     ld   [LINK_HI], y
     jmp  [LINK_LO]
+su_rest:
+    and  0x7F, ac
+    ld   ac, [SND_LASTF]
+    ld   snd_update >> 8, y
+    jmp  su_back
 su_page:
     ld   [SND_PH], ac
     inc
@@ -600,3 +629,47 @@ su_end:
     ld   su_cmp >> 8, y
     jmp  su_cmp
 
+; snd_update, writing: has the player gone a whole lap past the pointer
+; since the last call?  The pointer only says where it is within the lap,
+; so this looks at the frames counted since (FRAME_LO, from frame_poll):
+; none, no lap; two or more, a lap; one, a lap when the end is at or past
+; the pointer (the player is at or beyond where it was).  A call once a
+; frame at the same line used to see "nothing to write" and stall the
+; sound.  For the extra lap it first writes up to the pointer itself (a
+; whole lap) with SND_LASTF bit 7 set; su_cmp then comes back to su_sync0
+; for the rest, as a fresh call (no frame has passed, so no lap).
+su_laps:
+    ld   [FRAME_LO], ac
+    sub  [SND_LASTF], ac        ; frames since the last call (mod 128)
+    and  0x7F, ac
+    beq  su_run
+    xor  1, ac
+    bne  su_two
+    ld   [T3], ac               ; one frame: a lap when end >= pointer
+    xor  [SND_PH], ac
+    bne  su_hi
+    ld   [T2], ac
+    sub  [SND_PL], ac
+    bcs  su_run                 ; end below the pointer: the player is
+    bra  su_two                 ; earlier in the frame than last time
+su_hi:
+    ld   [T3], ac
+    sub  [SND_PH], ac
+    bcs  su_run
+su_two:
+    ld   [SND_PL], ac           ; the lap first: up to the pointer itself
+    ld   ac, [T2]
+    ld   [SND_PH], ac
+    ld   ac, [T3]
+    ld   [FRAME_LO], ac
+    and  0x7F, ac
+    or   0x80, ac               ; then again from su_sync0 for the rest
+    ld   ac, [SND_LASTF]
+    ld   gen_sil >> 8, y
+    jmp  [SND_VEC]
+su_run:
+    ld   [FRAME_LO], ac
+    and  0x7F, ac
+    ld   ac, [SND_LASTF]
+    ld   gen_sil >> 8, y
+    jmp  [SND_VEC]

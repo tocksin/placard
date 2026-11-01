@@ -1,0 +1,394 @@
+; ============================================================
+; play.masm - PLAY.PLC: plays DEMO.SNG from the card with the music player
+; (placard_mus.masm, docs/MUSIC.md)
+; ============================================================
+;
+; A library program the DOS runs from the card (Enter on PLAY.PLC in the
+; browser, or BOOT.CFG = "PLAY.PLC").  It loads DEMO.SNG from the card's
+; current folder to x2000 (fs_load), starts subtune 0 and calls mus_frame
+; once a frame.  The screen shows the song's title, each voice's note and
+; instrument as it plays (the voice's row tinted while it sounds), and
+; the keys:
+;
+;     Space      the song from the start
+;     S          stop (every voice releases)
+;     1 - 4      a sound effect on the fifth voice (instruments 1-4, C-4),
+;                heard in voice 4's place
+;     Esc        back to the DOS (menu_poll)
+;
+; RAM: the program at x0100 (asm_expand.py pages it), the player's tables
+; at x2000-x29FF (in the program file), the song at x2A00-x3FFF (5.5 KB at
+; most), the player's RAM at x4000-x49FF, zero page x20-x2F and the
+; player's x60-x9F.
+;
+;     python3 asm_expand.py play.masm                 play.asm
+;     python3 gen_plc.py play.asm -o ../../sdcard/PLAY.PLC
+;     python3 test_play.py                            runs it in placard_sim
+;
+; Date: 11/01/2026
+; ============================================================
+
+#include "placard.asm"
+#include "placard_lib.asm"
+
+MUS_TABLES = 0x2000         ; the player's tables, 10 pages
+SONG       = 0x2A00         ; DEMO.SNG is loaded here
+MUS_RAM    = 0x4000         ; the player's RAM, 10 pages
+
+p_v     = 0x20              ; voice being shown
+p_n     = 0x21              ; its note
+p_oct   = 0x22              ; its octave
+p_t     = 0x23              ; scratch
+p_k     = 0x24              ; characters left
+p_ins   = 0x25              ; instrument
+p_est   = 0x26              ; envelope state (3 = released)
+
+TITLE_TINT = 0x30           ; the title rows: gold
+VOICE_ROW  = 6              ; text row of voice 1 (then every other row)
+VOICE_COL  = 12
+FILE_ROW   = 16
+
+.prefix pl
+.region 0x0100, 0x1F00
+
+; ============================================================
+; main
+; ============================================================
+.fixed 0x0100
+main:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    CALL con_clear
+    ld   0x5A, y                ; the title band (screen rows 0-15)
+    ld   15, ac
+mn_tb:
+    add  0x20, x
+    ld   TITLE_TINT, [y,x]
+    sub  1, ac
+    bcc  mn_tb
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    clr  ac
+    ld   ac, [CUR_ROW]
+    ld   s_title & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_title >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    ld   3, ac
+    ld   ac, [CUR_ROW]
+    ld   s_keys & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_keys >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    CALL fs_mount
+    ld   s_file & 0xFF, ac      ; DEMO.SNG -> x2000
+    ld   ac, [R0]
+    ld   s_file >> 8, ac
+    ld   ac, [R1]
+    ld   SONG & 0xFF, ac
+    ld   ac, [R4]
+    ld   SONG >> 8, ac
+    ld   ac, [R5]
+    CALL fs_load
+    beq  mn_ok
+    GOTO no_file
+mn_ok:
+    ld   SONG >> 8, ac
+    ld   ac, [R1]
+    CALL mus_init
+    clr  ac
+    CALL mus_play
+    GOTO show_song
+
+; ------------------------------------------------------------
+; no_file - DEMO.SNG is not on the card: say so, wait for Esc
+; ------------------------------------------------------------
+.chunk
+no_file:
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    ld   FILE_ROW, ac
+    ld   ac, [CUR_ROW]
+    ld   s_nofile & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_nofile >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+nf_loop:
+    ld   1, ac
+    CALL wait_frames
+    CALL kbd_scan
+    CALL menu_poll
+    bra  nf_loop
+
+; ------------------------------------------------------------
+; show_song - the title from the song (32 characters), the voice labels
+; ------------------------------------------------------------
+.chunk
+show_song:
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    ld   1, ac
+    ld   ac, [CUR_ROW]
+    ld   32, ac
+    ld   ac, [p_k]
+    ld   0x20, ac
+    ld   ac, [p_t]
+ss_ch:
+    ld   [p_t], x
+    ld   SONG >> 8, y
+    ld   [y,x], ac
+    CALL con_putc
+    ld   [p_t], ac
+    inc
+    ld   ac, [p_t]
+    ld   [p_k], ac
+    dec
+    ld   ac, [p_k]
+    bne  ss_ch
+    clr  ac
+    ld   ac, [p_v]
+ss_v:
+    ld   [p_v], ac              ; "Voice n" on row VOICE_ROW + 2n
+    add  [p_v], ac
+    add  VOICE_ROW, ac
+    ld   ac, [CUR_ROW]
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    ld   s_voice & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_voice >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [p_v], ac
+    add  0x31, ac
+    CALL con_putc
+    ld   [p_v], ac
+    inc
+    ld   ac, [p_v]
+    xor  4, ac
+    bne  ss_v
+    GOTO loop
+
+; ============================================================
+; the frame loop: the player, the keys, the voices
+; ============================================================
+.chunk
+loop:
+    ld   1, ac
+    CALL wait_frames
+    CALL mus_frame
+    CALL kbd_scan
+    CALL menu_poll
+    CALL kbd_getc
+    beq  lp_show
+    ld   ac, [p_t]
+    xor  0x20, ac               ; Space: from the start
+    bne  lp_k1
+    clr  ac
+    CALL mus_play
+    bra  lp_show
+lp_k1:
+    ld   [p_t], ac
+    xor  0x73, ac               ; S: stop
+    bne  lp_k2
+    CALL mus_stop
+    bra  lp_show
+lp_k2:
+    ld   [p_t], ac              ; 1-4: a sound effect, instrument 1-4
+    sub  0x31, ac
+    blt  lp_show
+    sub  4, ac
+    bcc  lp_show
+    add  5, ac
+    ld   ac, [R0]
+    ld   12, ac
+    ld   ac, [R1]
+    ld   48, ac
+    CALL mus_sfx
+lp_show:
+    clr  ac
+    ld   ac, [p_v]
+    GOTO show_voice
+
+; ------------------------------------------------------------
+; show_voice - voice p_v's note, instrument number and name; its row
+; tinted while the voice sounds.  Voice 4 shows the sound effect voice
+; while one plays.
+; ------------------------------------------------------------
+.chunk
+show_voice:
+    ld   [p_v], ac
+    xor  3, ac
+    bne  sv_a
+    ld   [M_SFXN], ac
+    beq  sv_a
+    ld   4, ac                  ; the sfx voice's page
+    bra  sv_b
+sv_a:
+    ld   [p_v], ac
+sv_b:
+    add  MUS_VS >> 8, y
+    ld   W_NOTE, x
+    ld   [y,x], ac
+    ld   ac, [p_n]
+    ld   W_INS, x
+    ld   [y,x], ac
+    ld   ac, [p_ins]
+    ld   W_EST, x
+    ld   [y,x], ac
+    ld   ac, [p_est]
+    ld   [p_v], ac              ; the row's tint: mode bytes x5A20 + 8 x row
+    add  [p_v], ac
+    add  VOICE_ROW, ac
+    ld   ac, [CUR_ROW]
+    shl
+    shl
+    shl
+    add  0x20, ac
+    ld   ac, [p_t]
+    ld   [p_v], ac              ; red, green, blue, gold
+    add  tints & 0xFF, x
+    ld   tints >> 8, y
+    ld   [y,x], ac
+    ld   ac, [p_k]
+    ld   [p_est], ac
+    xor  3, ac
+    bne  sv_on
+    clr  ac                     ; released: no tint
+    ld   ac, [p_k]
+sv_on:
+    ld   0x5A, y
+    ld   8, ac
+    ld   ac, [p_oct]
+sv_tint:
+    ld   [p_t], x
+    ld   [p_k], ac
+    ld   ac, [y,x]
+    ld   [p_t], ac
+    inc
+    ld   ac, [p_t]
+    ld   [p_oct], ac
+    dec
+    ld   ac, [p_oct]
+    bne  sv_tint
+    ld   VOICE_COL, ac
+    ld   ac, [CUR_COL]
+    GOTO show_note
+
+; the note name (C-4), or --- when the voice is released
+.chunk
+show_note:
+    ld   [p_est], ac
+    xor  3, ac
+    bne  sn_name
+    ld   s_off & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_off >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    GOTO show_ins
+sn_name:
+    clr  ac
+    ld   ac, [p_oct]
+sn_oct:
+    ld   [p_n], ac              ; octave = note / 12
+    sub  12, ac
+    bcs  sn_done
+    ld   ac, [p_n]
+    ld   [p_oct], ac
+    inc
+    ld   ac, [p_oct]
+    bra  sn_oct
+sn_done:
+    ld   [p_n], ac
+    add  [p_n], ac
+    add  notes & 0xFF, x
+    ld   notes >> 8, y
+    ld   [y,x], ac
+    CALL con_putc
+    ld   [p_n], ac
+    add  [p_n], ac
+    add  (notes + 1) & 0xFF, x
+    ld   notes >> 8, y
+    ld   [y,x], ac
+    CALL con_putc
+    ld   [p_oct], ac
+    add  0x30, ac
+    CALL con_putc
+    GOTO show_ins
+
+; the instrument: number (hex) and name (7 characters, at +9 in its
+; 16 bytes: page 2 of the song holds 0-15, page 3 16-31)
+.chunk
+show_ins:
+    ld   0x20, ac
+    CALL con_putc
+    ld   [p_ins], ac
+    CALL con_hex8
+    ld   0x20, ac
+    CALL con_putc
+    ld   [p_ins], ac
+    and  15, ac
+    shl
+    shl
+    shl
+    shl
+    add  9, ac
+    ld   ac, [p_t]
+    ld   7, ac
+    ld   ac, [p_k]
+si_ch:
+    ld   [p_ins], ac
+    and  16, ac
+    beq  si_p2
+    ld   (SONG >> 8) + 3, y
+    bra  si_rd
+si_p2:
+    ld   (SONG >> 8) + 2, y
+si_rd:
+    ld   [p_t], x
+    ld   [y,x], ac
+    CALL con_putc
+    ld   [p_t], ac
+    inc
+    ld   ac, [p_t]
+    ld   [p_k], ac
+    dec
+    ld   ac, [p_k]
+    bne  si_ch
+    ld   [p_v], ac
+    inc
+    ld   ac, [p_v]
+    xor  4, ac
+    beq  si_end
+    GOTO show_voice
+si_end:
+    GOTO loop
+
+; ============================================================
+; data
+; ============================================================
+.chunk
+s_title:
+    #d "PLACARD MUSIC PLAYER", 0x00
+s_keys:
+    #d "Space: play   S: stop   1-4: sound effects   Esc: exit", 0x00
+s_file:
+    #d "DEMO.SNG", 0x00
+s_nofile:
+    #d "DEMO.SNG is not on the card", 0x00
+s_voice:
+    #d "Voice ", 0x00
+s_off:
+    #d "---", 0x00
+notes:
+    #d "C-C#D-D#E-F-F#G-G#A-A#B-"
+tints:
+    #d8 0x10, 0x20, 0x40, 0x30
+
+.include "placard_mus.masm"

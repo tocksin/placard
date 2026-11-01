@@ -128,6 +128,8 @@ Four demos show what the CPU can do with no sprite or collision hardware.  The f
 
 ![wire3d in the simulator](reference/wire3d_sim.gif)
 
+`sdcard/PLAY.PLC` (`src/scripts/play.masm`) plays `DEMO.SNG` with the music player (`src/scripts/placard_mus.masm`, [docs/MUSIC.md](docs/MUSIC.md)): four SID-style voices (pulse with a swept width, saw, triangle, noise or a custom wave, each with an ADSR envelope) and a fifth for sound effects, driven once a frame by patterns, instruments with wave and pulse programs, and effects (arpeggio, slides, portamento, vibrato, volumes, speed), mixed into the line-fetched audio buffer at 15.7 kHz on about 20 % of the CPU.  `mus_tool.py` turns a song written as text (`src/music/demo.mus`, which shows off every feature in 54 seconds) into the `.SNG` file and a WAV, and `test_mus.py` checks the player against its Python model sample for sample.
+
 `sdcard/BOING.PLC` (`gen_boing.py`) is the Amiga's Boing Ball: a red and white checkered ball, tilted 17 degrees, spinning and bouncing in front of a purple grid with its shadow on the wall, at 160 × 120, 4 bpp.  It holds 60 fps on about a third of the CPU.  The Placard has no palette registers for the Amiga's color-cycling trick, so the spin is 8 phases worked out ahead of time, and each frame redraws only the rows the ball and its shadow touch.  It draws from a clean copy of the background kept in the video RAM that 4x rows leave free, top to bottom and ahead of the beam.  `build\boing.bat` loads a ROM build; [docs/BOING.md](docs/BOING.md) has the details and `src/scripts/test_boing_sim.py` checks every frame against a model.
 
 ![Boing Ball in the simulator](reference/boing_sim.gif)
