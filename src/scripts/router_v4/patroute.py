@@ -11,9 +11,8 @@ TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
 from gridcore import *
 from scipy.ndimage import label
 E=os.environ.get
-src,dst=sys.argv[1:3]; ORDER=E('ORDER','short'); ZMAX=int(float(E('ZMAX','60'))/G); SAMPLE=int(E('SAMPLE','48')); NETS=E('NETS')
-T0=time.time()
-g=Grid(src,None,scope=set()); nets=g.nets; nid=g.nid; nx,ny=g.nx,g.ny
+ORDER=E('ORDER','short'); ZMAX=int(float(E('ZMAX','60'))/G); SAMPLE=int(E('SAMPLE','48'))
+g=None; nets=None; nid=None; nx=ny=None
 S8=np.ones((3,3),bool)
 def fixed_groups(n):
     masks=[(g.cop[L]==n) for L in LAY]
@@ -29,8 +28,6 @@ def fixed_groups(n):
     lut=np.array([f(i) for i in range(len(par))],np.int32); la=lut[labs[0]]; lb=lut[labs[1]]
     ids=sorted(set(np.unique(la[la>0]).tolist())|set(np.unique(lb[lb>0]).tolist()))
     return la,lb,ids
-want=None if not NETS else {nid[x] for x in ([l.strip() for l in open(NETS[1:],encoding='utf-8') if l.strip()] if NETS.startswith('@') else NETS.split(',')) if x in nid}
-cands=[n for n in nets if n and not nets[n].startswith('unconnected-') and nets[n] not in ('GND','+5V') and (want is None or n in want)]
 def sample(cells,k):
     if len(cells)<=k: return cells
     idx=np.linspace(0,len(cells)-1,k).astype(int); return [cells[i] for i in idx]
@@ -105,63 +102,77 @@ def try_pair(bt,bv,P,Q):
             else: continue
             break
     return best
-# connections: per net, MST over its fixed groups by Manhattan distance between sampled points
-todo=[]; conns=[]
-for n in cands:
-    la,lb,ids=fixed_groups(n)
-    if len(ids)<2: continue
-    todo.append(n); pts={i:group_points(la,lb,i) for i in ids}
-    # MST (Prim) on group distance
-    inT={ids[0]}; edges=[]
-    dist={}
-    def gdist(a,b):
-        if (a,b) in dist: return dist[(a,b)]
-        best=None
+
+def pattern_pass(grid,cands,quiet=False):
+    """pattern routes for the nets in cands on grid (routes are set on the grid, occupancy stamped).
+    returns (placed, total, leftover_nets)"""
+    global g,nets,nid,nx,ny
+    g=grid; nets=g.nets; nid=g.nid; nx,ny=g.nx,g.ny; T0=time.time()
+    # connections: per net, MST over its fixed groups by Manhattan distance between sampled points
+    todo=[]; conns=[]
+    for n in cands:
+        la,lb,ids=fixed_groups(n)
+        if len(ids)<2: continue
+        todo.append(n); pts={i:group_points(la,lb,i) for i in ids}
+        # MST (Prim) on group distance
+        inT={ids[0]}; edges=[]
+        dist={}
+        def gdist(a,b):
+            if (a,b) in dist: return dist[(a,b)]
+            best=None
+            for P in pts[a]:
+                for Q in pts[b]:
+                    d=abs(P[1]-Q[1])+abs(P[2]-Q[2])
+                    if best is None or d<best[0]: best=(d,P,Q)
+            dist[(a,b)]=best; return best
+        while len(inT)<len(ids):
+            bb=None
+            for a in inT:
+                for b in ids:
+                    if b in inT: continue
+                    d=gdist(a,b)
+                    if bb is None or d[0]<bb[0]: bb=(d[0],a,b)
+            _,a,b=bb; inT.add(b); conns.append((bb[0],n,a,b))
+        g.groups_pts=getattr(g,'groups_pts',{}); g.groups_pts[n]=(la,lb,pts)
+    print('nets',len(todo),'connections',len(conns),round(time.time()-T0),'s',flush=True)
+    conns.sort(key=lambda c:(c[0] if ORDER=='short' else -c[0]))
+    done=0; left=[]; nv=0; t1=time.time()
+    k=0
+    while k<len(conns):
+        d,n,a,b=conns[k]; k+=1
+        la,lb,pts=g.groups_pts[n]
+        if a==b: continue
+        bt,bv=g.blocked(n,hard=True)
+        # own routes already placed are not obstacles but their cells are usable end points too: add them to both groups' candidates
+        cand=[]
         for P in pts[a]:
             for Q in pts[b]:
-                d=abs(P[1]-Q[1])+abs(P[2]-Q[2])
-                if best is None or d<best[0]: best=(d,P,Q)
-        dist[(a,b)]=best; return best
-    while len(inT)<len(ids):
-        bb=None
-        for a in inT:
-            for b in ids:
-                if b in inT: continue
-                d=gdist(a,b)
-                if bb is None or d[0]<bb[0]: bb=(d[0],a,b)
-        _,a,b=bb; inT.add(b); conns.append((bb[0],n,a,b))
-    g.groups_pts=getattr(g,'groups_pts',{}); g.groups_pts[n]=(la,lb,pts)
-print('nets',len(todo),'connections',len(conns),round(time.time()-T0),'s',flush=True)
-conns.sort(key=lambda c:(c[0] if ORDER=='short' else -c[0]))
-g.scope=set(todo); done=0; left=[]; nv=0; t1=time.time()
-k=0
-while k<len(conns):
-    d,n,a,b=conns[k]; k+=1
-    la,lb,pts=g.groups_pts[n]
-    if a==b: continue
-    bt,bv=g.blocked(n,hard=True)
-    # own routes already placed are not obstacles but their cells are usable end points too: add them to both groups' candidates
-    cand=[]
-    for P in pts[a]:
-        for Q in pts[b]:
-            cand.append((abs(P[1]-Q[1])+abs(P[2]-Q[2]),P,Q))
-    cand.sort(key=lambda t:t[0]); best=None
-    for dd,P,Q in cand[:SAMPLE]:
-        if best is not None and dd>best[0]: break
-        r=try_pair(bt,bv,P,Q)
-        if r and (best is None or r[0]<best[0]): best=r
-    if best is None: left.append((n,a,b)); continue
-    path=runs_to_path(best[1])
-    if len(path)>=2:
-        g.set_route(n,g.routes.get(n,[])+[path]); done+=1; nv+=g.path_vias(path)
-        # the two groups are now one: merge labels so later connections of this net see the union
-        la[la==b]=a; lb[lb==b]=a; pts[a]=pts[a]+pts[b]; pts[a]=sample(pts[a],2*SAMPLE)
-        g.groups_pts[n]=(la,lb,pts)
-        for j in range(k,len(conns)):   # later edges of this net that referenced b now reference a
-            cd,cn,ca,cb=conns[j]
-            if cn==n: conns[j]=(cd,cn,(a if ca==b else ca),(a if cb==b else cb))
-    if k%100==0: print(f'  {k}/{len(conns)} placed {done} open {len(left)} {time.time()-t1:.0f} s',flush=True)
-print(f'pattern routes placed {done} of {len(conns)} connections ({nv} vias), {len(left)} left for mroute4; nets with leftovers: {sorted({nets[n] for n,_,_ in left})}',flush=True)
-g.write_out(dst)
-open(dst+'.nets','w',encoding='utf-8').write('\n'.join(nets[n] for n in todo)+'\n')
-print('total',round(time.time()-T0),'s')
+                cand.append((abs(P[1]-Q[1])+abs(P[2]-Q[2]),P,Q))
+        cand.sort(key=lambda t:t[0]); best=None
+        for dd,P,Q in cand[:SAMPLE]:
+            if best is not None and dd>best[0]: break
+            r=try_pair(bt,bv,P,Q)
+            if r and (best is None or r[0]<best[0]): best=r
+        if best is None: left.append((n,a,b)); continue
+        path=runs_to_path(best[1])
+        if len(path)>=2:
+            g.set_route(n,g.routes.get(n,[])+[path]); done+=1; nv+=g.path_vias(path)
+            # the two groups are now one: merge labels so later connections of this net see the union
+            la[la==b]=a; lb[lb==b]=a; pts[a]=pts[a]+pts[b]; pts[a]=sample(pts[a],2*SAMPLE)
+            g.groups_pts[n]=(la,lb,pts)
+            for j in range(k,len(conns)):   # later edges of this net that referenced b now reference a
+                cd,cn,ca,cb=conns[j]
+                if cn==n: conns[j]=(cd,cn,(a if ca==b else ca),(a if cb==b else cb))
+        if k%100==0: print(f'  {k}/{len(conns)} placed {done} open {len(left)} {time.time()-t1:.0f} s',flush=True)
+    print(f'pattern routes placed {done} of {len(conns)} connections ({nv} vias), {len(left)} left for mroute4; nets with leftovers: {sorted({nets[n] for n,_,_ in left})}',flush=True)
+    return done,len(conns),sorted({n for n,_,_ in left})
+if __name__=='__main__':
+    src,dst=sys.argv[1:3]; NETS=E('NETS'); T0=time.time()
+    g=Grid(src,None,scope=set()); nets=g.nets; nid=g.nid
+    want=None if not NETS else {nid[x] for x in ([l.strip() for l in open(NETS[1:],encoding='utf-8') if l.strip()] if NETS.startswith('@') else NETS.split(',')) if x in nid}
+    cands=[n for n in nets if n and not nets[n].startswith('unconnected-') and nets[n] not in ('GND','+5V') and (want is None or n in want)]
+    done,total,left=pattern_pass(g,cands)
+    todo=[n for n in cands if g.routes.get(n) or n in left]
+    g.scope=set(todo); g.write_out(dst)
+    open(dst+'.nets','w',encoding='utf-8').write('\n'.join(nets[n] for n in todo)+'\n')
+    print('total',round(time.time()-T0),'s')

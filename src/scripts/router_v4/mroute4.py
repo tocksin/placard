@@ -6,6 +6,7 @@ env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=4 (nets per launch; larger
      BASE=<file> (scope = nets whose copper was added after BASE: that copper is stripped and re-routed)
      CHECKGPU=N compare CPU and GPU path costs for the first N nets and exit (backend self-test)
      SEQFIX=1 a batch-mate routed through an earlier batch-mate's new route is re-routed alone (large batches converge)
+     PATTERN=1 pattern (straight/L/Z) warm start before negotiation (patroute.py; neutral on the benchmark, off by default)
      CHAINRIP=1 rip-up removes only the crossed chains of a neighbour, not its whole route (shove-like)
      PROT=a,b nets never ripped (default: the clock/stall/write/sync nets below)  CRIT=a,b timing-critical nets: routed first,
      CRITVIA=2 (via cost x) CRITPRES=0.5 (they yield less to congestion so they stay short)  (default = PROT list)"""
@@ -403,10 +404,16 @@ if E('CHECKGPU'):
             be=be_c; PRES=4.0; fails=route_all(todo,False,WIN)   # now every net has a route: occupancy and pres costs apply
             for n in todo: overlaps(n)
     sys.exit(0)
+PATTERN=E('PATTERN','0')=='1'; pat_left=set(todo)
+if PATTERN and todo:
+    # warm start (Justin's lane idea): straight / L / Z pattern routes first; the negotiation then only re-routes what conflicts
+    from patroute import pattern_pass
+    t0=time.time(); done,total,leftn=pattern_pass(g,todo); pat_left=set(leftn)
+    print(f'pattern pass: {done}/{total} connections placed, {len(pat_left)} nets need the maze router, {time.time()-t0:.0f} s',flush=True)
 fails=set(); conflicted=set(todo); best=None; noimp=0; it=0; tot=0
 while it<ITERS and todo:
     t0=time.time()
-    work=todo if (it==0 or it%4==0) else [n for n in todo if n in conflicted]
+    work=todo if (it>0 and it%4==0) else ([n for n in todo if n in conflicted] if it>0 else [n for n in todo if n in pat_left])
     update_busmap()
     fails=route_all(work,False,WIN)
     ov={n:overlaps(n) for n in todo}; tot=sum(ov.values()); conflicted={n for n,c in ov.items() if c}|fails
