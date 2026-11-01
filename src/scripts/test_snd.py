@@ -13,7 +13,7 @@ from x5C00 + V), and checks that what comes out is exactly the stream a
 Python model of each sound makes: no sample lost, repeated or out of
 order, and the sound stops on the right frame.
 
-Date: 10/18/2026
+Date: 11/01/2026
 """
 
 import argparse
@@ -292,6 +292,22 @@ def test_tone_once_per_frame():
     rig.run(8, mode=1)
     check(rig, lambda s: Tone(s, step, 60), 6 * 525)
     return 'update after wait_frames(1): exact for 6 frames'
+
+
+def test_tone_once_per_frame_stalls():
+    """with the video stalls modeled the call lands a line or so later each
+    frame, so the player is just past where it was: the driver must see a
+    whole lap passed, not a few samples (BASIC's SOUND stalled, 2026-11-01)"""
+    rig = Rig()
+    rig.cpu.stalls = True
+    rig.run(1, mode=1)
+    step = 1000
+    start_tone(rig, step, 60, frames=20)
+    rig.run(8, mode=1)
+    check(rig, lambda s: Tone(s, step, 60, frames=20), 6 * 525)
+    rig.run(16, mode=1)
+    assert rig.call('snd_busy') == 0, 'the tone did not stop after its frames'
+    return 'update after wait_frames(1) with stalls: exact for 6 frames, stops'
 
 
 def test_tone_frames_and_decay():

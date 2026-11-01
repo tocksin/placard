@@ -33,7 +33,7 @@
 ;   20-8F      (free)        program   112 bytes for the program's own
 ;                                      variables
 ;   90-9E      SND_*         sound     sound driver state (placard_snd.asm)
-;   9F         (spare)       sound     kept for the sound driver
+;   9F         SND_LASTF     sound     frames seen by snd_update (placard_snd.asm)
 ;   A0-A7      KBD_NOW       keyboard  rows of each column, 0 = key down
 ;   A8-AF      KBD_BUF       keyboard  key buffer, 8 characters
 ;   B0         KBD_HEAD      keyboard  next free place in KBD_BUF
@@ -135,6 +135,7 @@ SND_FRAMES = 0x9B       ; frames left, 0 = until stopped
 SND_LENL   = 0x9C       ; sample: bytes left, low
 SND_LENH   = 0x9D       ; and high
 SND_CLEAN  = 0x9E       ; silent buffer laps, 2 = the buffer is all 80h
+SND_LASTF  = 0x9F       ; FRAME_LO & 7F at the last snd_update, bit 7 = a lap being written
 
 USER_ZP    = 0x20       ; first free byte for program variables
 IO_ZP      = 0xA0       ; first byte of the I/O drivers' variables
