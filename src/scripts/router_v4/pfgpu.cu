@@ -22,7 +22,7 @@ extern "C" __global__ void route_nets(const Maps maps, const NetJob *jobs, Work 
     int *path = work.path + j->poff; int *plen = work.plen + blockIdx.x; int *status = work.status + blockIdx.x;
     int *qcnt = qn + 2 * blockIdx.x;
     __shared__ unsigned int s_fmin; __shared__ unsigned long long s_best; __shared__ int s_remaining; __shared__ int s_pl;
-    __shared__ int s_hitg; __shared__ int s_stop;
+    __shared__ int s_hitg; __shared__ int s_stop; __shared__ int s_near; __shared__ float s_thr;
     const int tid = threadIdx.x, nt = blockDim.x;
     if (tid == 0) { s_remaining = j->ngroups; s_pl = 0; *status = 0; }
     __syncthreads();
@@ -39,16 +39,20 @@ extern "C" __global__ void route_nets(const Maps maps, const NetJob *jobs, Work 
             }
         }
         __syncthreads();
-        int sweeps = 0;
+        int sweeps = 0; float thr = j->delta;   // near/far buckets: only entries below thr are relaxed, the rest are carried over
         while (1) {
             int qlen = qcnt[0];
             if (qlen == 0 || sweeps >= j->maxsweeps) break;
-            if (tid == 0) { s_fmin = INFBITS; qcnt[1] = 0; }
+            if (tid == 0) { s_fmin = INFBITS; qcnt[1] = 0; s_near = 0; }
             __syncthreads();
             for (int qi = tid; qi < qlen; qi += nt) {
-                int w = qa[qi]; inq[w] = 0;
+                int w = qa[qi];
                 unsigned long long cur = dp[w]; unsigned int dbits = (unsigned int)(cur >> 32); float d = u2f(dbits);
-                if (dbits >= (unsigned int)(s_best >> 32)) continue;   // cannot improve the goal
+                if (dbits >= (unsigned int)(s_best >> 32)) { inq[w] = 0; continue; }   // cannot improve the goal
+                if (d >= thr) {   // far: carry over unrelaxed
+                    int q = atomicAdd(&qcnt[1], 1); if (q < (int)W2) qb[q] = w; atomicMin(&s_fmin, dbits); continue;
+                }
+                inq[w] = 0; atomicAdd(&s_near, 1);
                 int l = (int)(w / WC); long long wc = w - l * WC; int wy = (int)(wc / ww), wx = (int)(wc % ww);
                 int y = wy + j->wy0, x = wx + j->wx0; long long c = (long long)y * nx + x;
                 float cv = l == 0 ? j->against : 1.0f, ch = l == 0 ? 1.0f : j->against;
@@ -76,6 +80,7 @@ extern "C" __global__ void route_nets(const Maps maps, const NetJob *jobs, Work 
                     if (nv < old) {
                         if (gid[jw] > 0 && !(state[jw] & 1)) { atomicMin(&s_best, ((unsigned long long)f2u(nd) << 32) | (unsigned int)jw); }
                         else if (atomicExch(&inq[jw], 1) == 0) { int q = atomicAdd(&qcnt[1], 1); if (q < (int)W2) qb[q] = (int)jw; atomicMin(&s_fmin, f2u(nd)); }
+                        else atomicMin(&s_fmin, f2u(nd));
                     }
                 }
             }
@@ -84,8 +89,10 @@ extern "C" __global__ void route_nets(const Maps maps, const NetJob *jobs, Work 
                 if (qcnt[1] > (int)W2) qcnt[1] = (int)W2;
                 int t = qcnt[0]; qcnt[0] = qcnt[1]; qcnt[1] = t;
                 if (s_fmin >= (unsigned int)(s_best >> 32)) s_stop = 1;
+                if (s_near == 0 && s_fmin < INFBITS) s_thr = u2f(s_fmin) + j->delta; else s_thr = thr;
             }
             __syncthreads();
+            thr = s_thr;
             { int *t = qa; qa = qb; qb = t; }
             sweeps++;
             if (s_stop) break;
