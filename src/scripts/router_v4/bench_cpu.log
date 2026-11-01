@@ -1,0 +1,32 @@
+iter 0 overlap cells 24666 conflicted 99 fails [] 66 s (total 116 s)
+iter 1 overlap cells 22538 conflicted 90 fails [] 76 s (total 192 s)
+iter 2 overlap cells 12953 conflicted 89 fails [] 69 s (total 261 s)
+iter 3 overlap cells 7008 conflicted 84 fails [] 72 s (total 333 s)
+iter 4 overlap cells 4561 conflicted 71 fails [] 68 s (total 402 s)
+iter 5 overlap cells 2918 conflicted 62 fails [] 60 s (total 461 s)
+iter 6 overlap cells 2634 conflicted 54 fails [] 44 s (total 505 s)
+iter 7 overlap cells 1095 conflicted 41 fails [] 36 s (total 541 s)
+iter 8 overlap cells 938 conflicted 34 fails [] 57 s (total 598 s)
+iter 9 overlap cells 1109 conflicted 35 fails [] 24 s (total 622 s)
+iter 10 overlap cells 1171 conflicted 34 fails [] 24 s (total 646 s)
+iter 11 overlap cells 1080 conflicted 32 fails [] 22 s (total 667 s)
+iter 12 overlap cells 514 conflicted 26 fails [] 50 s (total 718 s)
+iter 13 overlap cells 595 conflicted 24 fails [] 14 s (total 732 s)
+iter 14 overlap cells 376 conflicted 23 fails [] 8 s (total 740 s)
+iter 15 overlap cells 462 conflicted 22 fails [] 7 s (total 747 s)
+iter 16 overlap cells 293 conflicted 22 fails [] 46 s (total 793 s)
+iter 17 overlap cells 366 conflicted 20 fails [] 11 s (total 804 s)
+iter 18 overlap cells 374 conflicted 24 fails [] 7 s (total 811 s)
+iter 19 overlap cells 319 conflicted 22 fails [] 10 s (total 821 s)
+iter 20 overlap cells 304 conflicted 22 fails [] 48 s (total 869 s)
+iter 21 overlap cells 441 conflicted 25 fails [] 8 s (total 877 s)
+iter 22 overlap cells 397 conflicted 25 fails [] 10 s (total 887 s)
+iter 23 overlap cells 408 conflicted 25 fails [] 9 s (total 896 s)
+iter 24 overlap cells 302 conflicted 22 fails [] 49 s (total 945 s)
+iter 25 overlap cells 330 conflicted 22 fails [] 8 s (total 953 s)
+restoring best iteration (20, 366)
+hard round 0: conflicted 5 fails 5 27 s
+rip-retry done after 23 rounds; unrouted [] 53 s
+improve pass 0: nets improved 21, cost gain 2172, 58 s
+improve pass 1: nets improved 6, cost gain 1065, 53 s
+UNROUTED 0 [] total 1155 s
