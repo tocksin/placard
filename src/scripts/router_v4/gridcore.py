@@ -144,7 +144,16 @@ class Grid:
     def drop_item(self,idx):
         n,lay,g,key=self.items[idx]; self.items[idx]=None
         if key[0]=='seg': self.removed_s.add(key[1])
-        elif key[0]=='via': self.removed_v.add(key[1])
+        elif key[0]=='via':
+            self.removed_v.add(key[1])
+            # the via no longer joins the layers: clear its thru cells, re-add the other through items there
+            j0,i0,m=self.raster(g)
+            if m.size:
+                self.thru[j0:j0+m.shape[0],i0:i0+m.shape[1]]&=~m
+                for it in self.items:
+                    if it is not None and len(it[1])==2 and it[3][0] in ('pad','via') and it[2].intersects(g):
+                        k0,l0,mm=self.raster(it[2])
+                        if mm.size: self.thru[k0:k0+mm.shape[0],l0:l0+mm.shape[1]]|=mm
     def reraster(self,r):
         """re-rasterise net r's fixed copper after items were dropped (mul stays conservative)"""
         for L in LAY:

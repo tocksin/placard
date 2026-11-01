@@ -2,8 +2,11 @@
 GPU: one CUDA block per net) against the occupancy of all other nets, PathFinder style; then conflicted nets are
 re-routed with other routes blocked; what is still open is written out unrouted (finish with mroute3.py / tidy.py).
 env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=32 (nets per launch)  ITERS=30  STALL=6  WIN=40 (mm)  VIA=120
-     AGAINST=3  RING=8  PRES0=1 PRESF=1.5 PRESMAX=30  HARDROUNDS=6  NETS=a,b  GPUMEM=1.5 (GB per launch)  MAXSWEEPS=60000
-     BASE=<file> (scope = nets whose copper was added after BASE: that copper is stripped and re-routed)"""
+     AGAINST=3  RING=8  PRES0=1 PRESF=1.5 PRESMAX=30  HARDROUNDS=6  NETS=a,b  GPUMEM=1.5 (GB per launch)  MAXSWEEPS=2000000  DELTA=1.5 (GPU near/far bucket width)
+     BASE=<file> (scope = nets whose copper was added after BASE: that copper is stripped and re-routed)
+     CHAINRIP=1 rip-up removes only the crossed chains of a neighbour, not its whole route (shove-like)
+     PROT=a,b nets never ripped (default: the clock/stall/write/sync nets below)  CRIT=a,b timing-critical nets: routed first,
+     CRITVIA=2 (via cost x) CRITPRES=0.5 (they yield less to congestion so they stay short)  (default = PROT list)"""
 import sys, os, time, ctypes, math
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
@@ -13,7 +16,7 @@ E=os.environ.get
 src,dst=sys.argv[1:3]
 BACKEND=E('BACKEND','auto'); THREADS=int(E('THREADS','0')); BATCH=int(E('BATCH','32')); ITERS=int(E('ITERS','30')); STALL=int(E('STALL','6'))
 WIN=float(E('WIN','40')); PRES=float(E('PRES0','1.0')); PRESF=float(E('PRESF','1.5')); PRESMAX=float(E('PRESMAX','30')); HARDROUNDS=int(E('HARDROUNDS','6'))
-BUSGAIN=float(E('BUSGAIN','1.0')); GPUMEM=float(E('GPUMEM','1.5'))*1e9; MAXSWEEPS=int(E('MAXSWEEPS','60000')); NETS=E('NETS'); BASE=E('BASE')
+BUSGAIN=float(E('BUSGAIN','1.0')); GPUMEM=float(E('GPUMEM','1.5'))*1e9; MAXSWEEPS=int(E('MAXSWEEPS','2000000')); DELTA=float(E('DELTA','1.5')); NETS=E('NETS'); BASE=E('BASE')
 T0=time.time()
 def disk(r):
     k=int(math.ceil(r)); y,x=np.mgrid[-k:k+1,-k:k+1]; return (x*x+y*y)<=r*r+1e-9
@@ -68,7 +71,10 @@ for n in cands:
     if k>1:
         todo.append(n); ys,xs=np.nonzero((la>0)|(lb>0)); groups0[n]=(la.astype(np.int16),lb.astype(np.int16),k,(xs.min(),xs.max(),ys.min(),ys.max()))
 print('open nets',len(todo),[nets[n] for n in todo],round(time.time()-T0),'s',flush=True)
-todo.sort(key=lambda n:(groups0[n][3][1]-groups0[n][3][0])+(groups0[n][3][3]-groups0[n][3][2]))
+CRITDEF='CLK,CLK_E,STALL_OUT,STALL_IN,RUN,~{WE},PIXEL_ENABLE,~{HSYNC},~{VSYNC}'
+CRITN={nid[x] for x in E('CRIT',E('PROT',CRITDEF)).split(',') if x in nid}; CRITVIA=float(E('CRITVIA','2')); CRITPRES=float(E('CRITPRES','0.5'))
+todo.sort(key=lambda n:(0 if n in CRITN else 1,(groups0[n][3][1]-groups0[n][3][0])+(groups0[n][3][3]-groups0[n][3][2])))
+if CRITN&set(todo): print('critical nets first:',[nets[n] for n in todo if n in CRITN],flush=True)
 g.scope=set(todo)
 import re as _re
 def busname(name):
@@ -108,7 +114,7 @@ class NetJob(ctypes.Structure):
     _fields_=[('n',ctypes.c_int),('wx0',ctypes.c_int),('wy0',ctypes.c_int),('ww',ctypes.c_int),('wh',ctypes.c_int),('ngroups',ctypes.c_int),
               ('off',ctypes.c_longlong),('qoff',ctypes.c_longlong),('poff',ctypes.c_longlong),('pcap',ctypes.c_int),
               ('pres',ctypes.c_float),('viacost',ctypes.c_float),('against',ctypes.c_float),('ring',ctypes.c_float),('soft',ctypes.c_float),('bend',ctypes.c_float),
-              ('hard',ctypes.c_int),('maxsweeps',ctypes.c_int),('busid',ctypes.c_int),('busgain',ctypes.c_float)]
+              ('hard',ctypes.c_int),('maxsweeps',ctypes.c_int),('busid',ctypes.c_int),('busgain',ctypes.c_float),('delta',ctypes.c_float)]
 P=ctypes.POINTER
 class Maps(ctypes.Structure):
     _fields_=[('nx',ctypes.c_int),('ny',ctypes.c_int),('own_t',P(ctypes.c_int32)),('mul_t',P(ctypes.c_uint8)),('cop',P(ctypes.c_int32)),
@@ -185,12 +191,21 @@ def make_backend():
     return CPU()
 be=make_backend(); print('backend',be.name,flush=True)
 # ---- routing one batch of nets
-SOFTC=float(E('SOFTC','40')); RIPFIXED=E('RIPFIXED','1')=='1'; RIPMAX=int(E('RIPMAX','4')); RIPROUNDS=int(E('RIPROUNDS','400'))
-def route_batch(batch,hard,win_mm,soft=None):
-    """route the nets of batch in parallel; their own stamps are removed first. returns ({n: paths or None}, status)"""
+SOFTC=float(E('SOFTC','40')); CHAINRIP=E('CHAINRIP','1')=='1'; RIPFIXED=E('RIPFIXED','1')=='1'; RIPMAX=int(E('RIPMAX','4')); RIPROUNDS=int(E('RIPROUNDS','400'))
+def net_groups(n):
+    """groups of the net's fixed copper plus its kept routes (chain-level rip-up leaves partial routes in place)"""
+    if not g.routes.get(n): return groups0[n]
+    la,lb=g.components(n); ids=sorted(set(np.unique(la[la>0]).tolist())|set(np.unique(lb[lb>0]).tolist()))
+    remap=np.zeros(int(max(la.max(),lb.max()))+1,np.int16)
+    for k,i in enumerate(ids): remap[i]=k+1
+    la=remap[la]; lb=remap[lb]; ys,xs=np.nonzero((la>0)|(lb>0))
+    return la.astype(np.int16),lb.astype(np.int16),len(ids),(xs.min(),xs.max(),ys.min(),ys.max())
+def route_batch(batch,hard,win_mm,soft=None,partial=False):
+    """route the nets of batch in parallel; their own stamps are removed first. returns ({n: paths or None}, status)
+    partial: kept routes count as groups (only the missing links are routed; the result is appended by the caller)"""
     jobs=[]; gids=[]; states=[]; owns=[]; ownvs=[]; off=0; poff=0
     for n in batch:
-        la,lb,k,(x0,x1,y0,y1)=groups0[n]; pad=int(win_mm/G)
+        la,lb,k,(x0,x1,y0,y1)=net_groups(n) if partial else groups0[n]; pad=int(win_mm/G)
         wx0=max(0,x0-pad); wx1=min(nx,x1+pad+1); wy0=max(0,y0-pad); wy1=min(ny,y1+pad+1); ww=wx1-wx0; wh=wy1-wy0; W2=2*ww*wh
         gw=np.ascontiguousarray(np.stack([la[wy0:wy1,wx0:wx1],lb[wy0:wy1,wx0:wx1]]).reshape(-1)).astype(np.int16)
         st=np.zeros(W2,np.uint8); smallest=min(range(1,k+1),key=lambda i:(gw==i).sum()); st[gw==smallest]=1
@@ -203,7 +218,8 @@ def route_batch(batch,hard,win_mm,soft=None):
             else: ov[a0-wy0:a1-wy0,b0-wx0:b1-wx0]+=sub
         owns.append(oc.reshape(-1)); ownvs.append(ov.reshape(-1))
         pcap=3*min(W2,300000)+8*k
-        jobs.append(NetJob(n,wx0,wy0,ww,wh,k,off,off,poff,pcap,PRES,g.VIA_COST,g.AGAINST,g.RING,SOFTC if soft else 0.0,g.BEND,int(hard),MAXSWEEPS,busof.get(n,0),BUSGAIN))
+        crit=n in CRITN
+        jobs.append(NetJob(n,wx0,wy0,ww,wh,k,off,off,poff,pcap,PRES*(CRITPRES if crit else 1.0),g.VIA_COST*(CRITVIA if crit else 1.0),g.AGAINST,g.RING,SOFTC if soft else 0.0,g.BEND,int(hard),MAXSWEEPS,busof.get(n,0),BUSGAIN,DELTA))
         gids.append(gw); states.append(st); off+=W2; poff+=pcap
     gid=np.concatenate(gids); state=np.concatenate(states); ownocc=np.ascontiguousarray(np.concatenate(owns)); ownv=np.ascontiguousarray(np.concatenate(ownvs))
     path,plen,status=be.run(jobs,gid,state,ownocc,ownv,poff,soft)
@@ -247,20 +263,24 @@ def route_all(nets_list,hard,win_mm,bsize=None):
             else: g.set_route(n,out[n])
     return fails
 def crossed_new(n,paths):
-    """new routes of other nets whose footprint the paths of n run through"""
+    """new routes of other nets whose footprint the paths of n run through: {net: [chains crossed]}"""
     cells={L:set() for L in LAY}; vcells=set()
     for path in paths:
         for i,(l,iy,ix) in enumerate(path):
             if g.occ_t[LAY[l]][iy,ix]>0: cells[LAY[l]].add((iy,ix))
             if i and path[i-1][0]!=l and g.occ_v[iy,ix]>0: vcells.add((iy,ix))
-    out=set()
-    for m in todo:
-        if m==n or not g.routes.get(m): continue
-        for k,L,j0,i0,mm in g.stamps.get(m,[]):
+    def hits(st):
+        for k,L,j0,i0,mm in st:
             cs=cells[L] if k=='t' else vcells
-            if any(j0<=iy<j0+mm.shape[0] and i0<=ix<i0+mm.shape[1] and mm[iy-j0,ix-i0] for iy,ix in cs): out.add(m); break
+            if any(j0<=iy<j0+mm.shape[0] and i0<=ix<i0+mm.shape[1] and mm[iy-j0,ix-i0] for iy,ix in cs): return True
+        return False
+    out={}
+    for m in todo:
+        if m==n or not g.routes.get(m) or not hits(g.stamps.get(m,[])): continue
+        ch=[q for q in g.routes[m] if hits(g.path_stamps(q))] if CHAINRIP else list(g.routes[m])
+        if ch: out[m]=ch
     return out
-PROTN=set(E('PROT','').split(','))
+PROTN=set(E('PROT',CRITDEF).split(','))
 NORIP=[x for x in (nid.get('GND'),nid.get('+5V'))+tuple(nid[p] for p in PROTN if p in nid) if x]
 def rip_masks(n):
     """fixed copper of rippable nets (not n, not protected, not pads/zones)"""
@@ -303,12 +323,13 @@ def ripretry(queue):
     the cheapest neighbors (cost SOFTC per cell), which are cleared and queued again; a net ripped RIPMAX times is locked."""
     ripcount={}; rounds=0; t0=time.time()
     for n in queue: g.set_route(n,[])
-    print('rip-retry: start with',len(queue),'nets to place',flush=True)
+    print('rip-retry: start with',len(queue),'nets to place',('chain-level rip' if CHAINRIP else 'whole-net rip'),flush=True)
     while queue and rounds<RIPROUNDS:
         n=queue.pop(0); rounds+=1
-        out,_=route_batch([n],True,WIN)
-        if out[n] is None: out,_=route_batch([n],True,1e9)
-        if out[n]: g.set_route(n,out[n]); continue
+        if g.routes.get(n) and net_groups(n)[2]<=1: continue   # still connected after a chain-level rip
+        out,_=route_batch([n],True,WIN,partial=True)
+        if out[n] is None: out,_=route_batch([n],True,1e9,partial=True)
+        if out[n]: g.set_route(n,g.routes.get(n,[])+out[n]); continue
         locked=[m for m in todo if m!=n and g.routes.get(m) and ripcount.get(m,0)>=RIPMAX]
         lock_t=np.zeros((2,ny,nx),bool); lock_v=np.zeros((ny,nx),bool)
         for m in locked:
@@ -318,23 +339,24 @@ def ripretry(queue):
         free_t=np.stack([(g.own_t[L]==0)|(g.own_t[L]==n) for L in LAY])&~np.stack([g.mul_t[L] for L in LAY]); free_v=((g.own_v==0)|(g.own_v==n))&~g.mul_v
         rip_t,rip_v=rip_masks(n) if RIPFIXED else (np.zeros((2,ny,nx),bool),np.zeros((ny,nx),bool))
         soft_t=np.ascontiguousarray(((np.stack([g.occ_t[L]>0 for L in LAY])&~lock_t&free_t)|rip_t).astype(np.uint8)); soft_v=np.ascontiguousarray((((g.occ_v>0)&~lock_v&free_v)|rip_v).astype(np.uint8))
-        out,_=route_batch([n],True,1e9,soft=(soft_t,soft_v))
+        out,_=route_batch([n],True,1e9,soft=(soft_t,soft_v),partial=True)
         if not out[n] and locked:   # last resort: locked nets may be ripped too
             soft_t=np.ascontiguousarray(((np.stack([g.occ_t[L]>0 for L in LAY])&free_t)|rip_t).astype(np.uint8)); soft_v=np.ascontiguousarray((((g.occ_v>0)&free_v)|rip_v).astype(np.uint8))
-            out,_=route_batch([n],True,1e9,soft=(soft_t,soft_v))
+            out,_=route_batch([n],True,1e9,soft=(soft_t,soft_v),partial=True)
             if out[n]: print('  rip-retry: unlocked for',nets[n],flush=True)
         if not out[n]:
             print('  rip-retry: no path at all for',nets[n],flush=True); g.set_route(n,[]); continue
         cn=crossed_new(n,out[n])
-        for m in cn:
-            g.set_route(m,[]); ripcount[m]=ripcount.get(m,0)+1
+        for m,chains in cn.items():
+            g.set_route(m,[q for q in g.routes[m] if not any(q is c for c in chains)]); ripcount[m]=ripcount.get(m,0)+1
             if m not in queue: queue.append(m)
         rf=rip_fixed(n,out[n],rip_t,rip_v) if RIPFIXED else set()
         for m in rf:
             if m not in queue: queue.append(m)
-        g.set_route(n,out[n])
-        print('  rip-retry',rounds,nets[n],'rips',[nets[m] for m in cn],'fixed',[nets[m] for m in rf],'queue',len(queue),flush=True)
-    left=[n for n in todo if not g.routes.get(n)]
+        g.set_route(n,g.routes.get(n,[])+out[n])
+        print('  rip-retry',rounds,nets[n],'rips',{nets[m]:len(c) for m,c in cn.items()},'fixed',[nets[m] for m in rf],'queue',len(queue),flush=True)
+    left=[n for n in todo if not g.routes.get(n) or net_groups(n)[2]>1]
+    for n in left: g.set_route(n,[])
     print('rip-retry done after',rounds,'rounds; unrouted',[nets[n] for n in left],round(time.time()-t0),'s',flush=True)
     return left
 fails=set(); conflicted=set(todo); best=None; noimp=0; it=0; tot=0
