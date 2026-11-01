@@ -1,0 +1,256 @@
+CLK_E
+STALL_IN
+STALL_OUT
+~{HSYNC}
+~{VSYNC}
+~{WE}
+PIXEL_ENABLE
+CLK
+RUN
+Net-(K1-Pad3)
+/Video and audio out/DAC2
+/Video and audio out/DAC3
+Net-(J13-CC2)
+Net-(D11-A)
+Net-(D12-A)
+Net-(D10-A)
+/Video and audio out/DAC1
+/Video and audio out/DAC4
+Net-(D18-A)
+Net-(J13-CC1)
+Net-(D12-K)
+Net-(D14-K)
+Net-(D16-K)
+/Video and audio out/DAC0
+/Video and audio out/DAC5
+Net-(F1-Pad1)
+/Video and audio out/DAC6
+Net-(R23-Pad2)
+Net-(R24-Pad2)
+Net-(R25-Pad2)
+Net-(R26-Pad2)
+Net-(R27-Pad2)
+Net-(R28-Pad2)
+Net-(R29-Pad2)
+/Video and audio out/DAC7
+/Video and audio out/BLU2
+Net-(J4-CMD)
+Net-(J4-CD{slash}DAT3)
+/Video and audio out/DAC_5V
+PC2
+Net-(D7-K)
+/Video and audio out/BLU3
+PC13
+/Video and audio out/AUDIO
+PC3
+LOAD_PC_HIGH
+PC12
+Net-(D8-K)
+/Video and audio out/LC1
+Net-(J12-SEL)
+/Video and audio out/VGA_B
+/Memory and I/O decode/RAMSEL3
+PC1
+/Control/BRANCH_BLOCK
+/Video and audio out/LC5
+Net-(J11-SEL)
+Net-(J4-CLK)
+/Video and audio out/GRN3
+/Video and audio out/LC0
+Net-(J9-SEL)
+/Video and audio out/VGA_R
+/Video and audio out/GRN2
+~{MODE_LD}
+/Memory and I/O decode/RAMSEL1
+LOAD_PC_LOW
+Net-(J10-SEL)
+/Video and audio out/LC6
+/Memory and I/O decode/RAMSEL4
+I0
+~{LINE_RD}
+/Shared port/MOUS_CLK
+/Video and audio out/RED3
+PC10
+/Power and clock/VON
+/Memory and I/O decode/RAMSEL0
+LC3
+LC2
+/Shared port/KBD_CLK
+Net-(U13-H_TC)
+/Video and audio out/GRN1
+Net-(U5-COUT)
+Net-(U1-{slash}LOAD_INSTR)
++3V3
+/Video and audio out/VGA_G
+/Memory and I/O decode/RAMSEL2
+/Memory and I/O decode/RAMSEL5
+Net-(U11-{slash}RAM_OE)
+/Video and audio out/LAD7
+PC0
+/Video and audio out/LC4
+PC4
+/Control/Q0
+/Memory and I/O decode/RAMSEL6
+/Memory and I/O decode/RAMSEL7
+/Video and audio out/RED2
+/ALU and registers/F0
+/ALU and registers/F2
+Net-(U3-CO)
+PC14
+PC11
+/ALU and registers/F1
+LC7
+Net-(U15-BLANK_RD)
+/Data bus/SRC7
+V8
+PC15
+V6
+PC5
+/Data bus/SRC6
+~{VGA_HSYNC}
+/Video and audio out/RED1
+/Data bus/SRC5
+/ALU and registers/F5
+/ALU and registers/F4
+V1
+~{VGA_VSYNC}
+Net-(J8-{slash}ROM_OE)
+/Data bus/SRC4
+Net-(U12-{slash}MAP_WR)
+/ALU and registers/F7
+/Data bus/SRC3
+/Data bus/SRC2
+V7
+AC0
+AC3
+/ALU and registers/F3
+AC2
+AC1
+/Data bus/SRC1
+/Data bus/SRC0
+Net-(J8-{slash}CE_HI)
+AC5
+GNDA
+/ALU and registers/F6
+I2
+I3
+I4
+AC6
+/Video and audio out/PIX5
+/Video and audio out/PIX7
+/Video and audio out/PIX6
+PC9
+/Video and audio out/PIX0
+/Video and audio out/PIX1
+VA7
+/Video and audio out/PIX4
+AC4
+PC6
+/Video and audio out/PIX2
+/Video and audio out/PIX3
+H2
+H0
+PC8
+V9
+H8
+V0
+PC7
+X0
+X1
+H6
+H1
+D0
+~{CART}
+~{LOAD_Y}
+H9
+D1
+H7
+/Shared port/SD_MISO
+X2
+VIDEN
+H_VIDEO_ACTIVE
+V5
+X3
+Z_HIGH
+D2
+Y3
+/Shared port/PAD2_DATA
+D3
+V4
+H4
+X_ENABLE
+Y1
+Y2
+COUT
+~{LOAD_X}
+Y0
+H5
+Y5
+Y4
+I6
+X4
+~{PORT_RD}
+I7
+I5
+~{PIX_LD}
+~{LOAD_AC}
+~{PORT_WR}
+/Shared port/PS2_INH
+VA1
+VA8
+V3
+Y_ENABLE
+/Shared port/P_MOSI
+Z_LOW
+VA0
+X5
+V2
+D4
+/Shared port/PAD1_DATA
+/Shared port/P_SCK
+H3
+D5
+/Shared port/K0
+Y6
+X6
+~{SRC_EN}
+/Shared port/RXCLK
+Y7
+/Shared port/PS2_DATA
+X7
+~{EXP1}
+D6
+AC7
+/Shared port/P_PS2D
+~{AC_SEL}
+D7
+~{EXP2}
+ADDR5
+ADDR4
+ADDR3
+ADDR2
+PC_ENABLE
+ADDR1
+I1
+ADDR13
+ADDR0
+ADDR12
+ADDR11
+ADDR15
+ADDR14
+ADDR9
+ADDR7
+ADDR8
+/Shared port/P_CS
+ADDR10
+ADDR6
+~{LOAD_IMM}
+DATABUS4
+RW
+DATABUS3
+DATABUS2
+DATABUS5
+DATABUS1
+DATABUS6
+DATABUS0
+DATABUS7
