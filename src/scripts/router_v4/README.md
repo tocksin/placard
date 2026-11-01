@@ -20,7 +20,7 @@ modified: every tool reads one file and writes another.
 Environment variables: see the docstring at the top of each script (VIA, AGAINST, RING, WIN, ITERS, BATCH, THREADS ...).
 
 ## Windows (Justin's laptop, RTX 4070)
-1. Python 3.10+ with `pip install numpy scipy shapely cupy-cuda12x` (CuPy needs the NVIDIA driver only).
+1. Python 3.10+ with `pip install numpy scipy shapely "cupy-cuda12x[ctk]"` (the [ctk] extra brings the NVRTC headers; no CUDA Toolkit install needed, the NVIDIA driver is enough).
 2. The prebuilt `astar.dll` and `pfcpu.dll` (MinGW, static) are in this folder; no compiler needed.
 3. `run_bench.bat` routes the mux benchmark (`r1.kicad_pcb`, 108 nets stripped from the main board) on the GPU
    and scores the result. `set BACKEND=cpu` to compare.
