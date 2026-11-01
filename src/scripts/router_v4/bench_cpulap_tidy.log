@@ -1,0 +1,12 @@
+grid 2352 1744
+rasterised 5145 items 2.1 s
+pass 0: 32 chains improved, 5 dropped, cost gain 30560, 49 s
+pass 1: 11 chains improved, 3 dropped, cost gain 4879, 54 s
+pass 2: 8 chains improved, 1 dropped, cost gain 2150, 52 s
+pass 3: 5 chains improved, 2 dropped, cost gain 1065, 55 s
+pair pass 0: 21 chain pairs improved, cost gain 1535, 25 s
+pair pass 1: 5 chain pairs improved, cost gain 96, 17 s
+pair pass 2: 0 chain pairs improved, cost gain 0, 18 s
+vias 600 -> 476, cells 160460 -> 143958, 375 s
+wrote bench_cpulap_tidy.kicad_pcb segments 2177 vias 476
+corners 1520, chamfered 389 (112 nets); wrote bench_cpulap_c45.kicad_pcb

@@ -1,0 +1,12 @@
+grid 2352 1744
+rasterised 5038 items 2.1 s
+pass 0: 45 chains improved, 6 dropped, cost gain 17071, 56 s
+pass 1: 21 chains improved, 5 dropped, cost gain 5419, 58 s
+pass 2: 19 chains improved, 3 dropped, cost gain 6525, 62 s
+pass 3: 10 chains improved, 2 dropped, cost gain 3654, 60 s
+pair pass 0: 16 chain pairs improved, cost gain 3929, 17 s
+pair pass 1: 1 chain pairs improved, cost gain 46, 10 s
+pair pass 2: 0 chain pairs improved, cost gain 0, 9 s
+vias 679 -> 550, cells 166642 -> 153552, 391 s
+wrote bench_gpu4_tidy.kicad_pcb segments 2551 vias 550
+corners 1811, chamfered 420 (119 nets); wrote bench_gpu4_c45.kicad_pcb

@@ -1,0 +1,12 @@
+grid 2352 1744
+rasterised 5127 items 2.2 s
+pass 0: 28 chains improved, 3 dropped, cost gain 11322, 50 s
+pass 1: 10 chains improved, 5 dropped, cost gain 4557, 53 s
+pass 2: 4 chains improved, 3 dropped, cost gain 864, 54 s
+pass 3: 3 chains improved, 1 dropped, cost gain 1330, 52 s
+pair pass 0: 16 chain pairs improved, cost gain 3838, 23 s
+pair pass 1: 4 chain pairs improved, cost gain 409, 17 s
+pair pass 2: 0 chain pairs improved, cost gain 0, 16 s
+vias 565 -> 495, cells 158270 -> 149863, 375 s
+wrote bench_q200_tidy.kicad_pcb segments 2276 vias 495
+corners 1596, chamfered 403 (111 nets); wrote bench_q200_c45.kicad_pcb

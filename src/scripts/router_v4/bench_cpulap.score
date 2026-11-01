@@ -1,0 +1,7 @@
+# score bench_cpulap.kicad_pcb  (scope 112 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 30.12 m | 733 / 897 | 4.5 % | 8.2 % | 1.38 | 11 | 0 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): Y_ENABLE 1015/33/5.2, DATABUS0 862/20/1.2, DATABUS4 857/8/1.2, DATABUS7 828/11/1.1, DATABUS3 815/15/1.1, DATABUS2 788/15/1.1, DATABUS5 784/14/1.1, DATABUS1 776/13/1.1
+detour > 2: /Memory and I/O decode/RAMSEL1, LOAD_PC_LOW, PC11, VA1, X5, X7, Y2, Y5, Y6, Y_ENABLE, Z_HIGH

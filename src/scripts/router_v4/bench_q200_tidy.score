@@ -1,0 +1,7 @@
+# score bench_q200_c45.kicad_pcb  (scope 111 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 28.26 m | 621 / 786 | 3.7 % | 10.4 % | 1.29 | 7 | 0 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS0 879/17/1.2, DATABUS4 837/9/1.1, DATABUS7 821/10/1.1, DATABUS1 814/12/1.1, DATABUS3 813/16/1.1, DATABUS5 790/13/1.1, DATABUS2 782/16/1.1, Y0 775/18/4.3
+detour > 2: /Memory and I/O decode/RAMSEL4, COUT, D5, PC11, VA1, Y0, Z_HIGH

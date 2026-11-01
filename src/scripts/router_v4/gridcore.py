@@ -89,7 +89,7 @@ class Grid:
                 j0,i0,m=self.raster(gg); arr[j0:j0+m.shape[0],i0:i0+m.shape[1]]|=m
         for p in pads:
             if p['kind']=='np_thru_hole':
-                for r,arr in ((p['drill']/2+0.25+W/2+M,self.edge_t),(p['drill']/2+0.25+VD/2+M,self.edge_v)):
+                for r,arr in ((p['drill']/2+rules.HOLECLR+W/2+M,self.edge_t),(p['drill']/2+rules.HOLECLR+VD/2+M,self.edge_v)):
                     j0,i0,m=self.raster(Point(p['x'],p['y']).buffer(r,16)); arr[j0:j0+m.shape[0],i0:i0+m.shape[1]]|=m
         FX0,FX1,FY0,FY1=233.6,268.4,125.6,133.6   # J8 pad field: vertical moves only, no vias
         XX=self.ox+np.arange(nx)*G; YY=self.oy+np.arange(ny)*G
@@ -144,7 +144,16 @@ class Grid:
     def drop_item(self,idx):
         n,lay,g,key=self.items[idx]; self.items[idx]=None
         if key[0]=='seg': self.removed_s.add(key[1])
-        elif key[0]=='via': self.removed_v.add(key[1])
+        elif key[0]=='via':
+            self.removed_v.add(key[1])
+            # the via no longer joins the layers: clear its thru cells, re-add the other through items there
+            j0,i0,m=self.raster(g)
+            if m.size:
+                self.thru[j0:j0+m.shape[0],i0:i0+m.shape[1]]&=~m
+                for it in self.items:
+                    if it is not None and len(it[1])==2 and it[3][0] in ('pad','via') and it[2].intersects(g):
+                        k0,l0,mm=self.raster(it[2])
+                        if mm.size: self.thru[k0:k0+mm.shape[0],l0:l0+mm.shape[1]]|=mm
     def reraster(self,r):
         """re-rasterise net r's fixed copper after items were dropped (mul stays conservative)"""
         for L in LAY:

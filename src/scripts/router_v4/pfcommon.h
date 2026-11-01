@@ -22,6 +22,7 @@ typedef struct {
     int hard;              // 1: cells occupied by other new routes are blocked; 0: they cost pres*occ
     int maxsweeps;
     int busid; float busgain;   // bus attraction: cells in the band next to sibling routes cost *busgain
+    float delta;           // GPU: near/far bucket width (cost units); entries below the running threshold are relaxed per sweep
 } NetJob;
 typedef struct {           // global board maps, all ny*nx (per layer arrays are 2*ny*nx)
     int nx, ny;
