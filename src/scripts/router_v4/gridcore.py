@@ -14,6 +14,8 @@ lib=ctypes.CDLL((os.path.join(TOOLS,'win','astar.dll') if os.name=='nt' else os.
 def c_u8(a): return a.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8))
 def c_f32(a): return a.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
+def _disk(r):
+    k=int(math.ceil(r)); y,x=np.mgrid[-k:k+1,-k:k+1]; return (x*x+y*y)<=r*r+1e-9
 class Grid:
     def __init__(self,src,base=None,scope=None,quiet=False):
         self.src=src; self.M=float(E('MARGIN','0.005')); M=self.M
@@ -254,12 +256,18 @@ class Grid:
     def components(self,n,skip=None):
         """label map per layer of the net's copper; skip = path whose cells are left out. returns (labels F, labels B, nlabels)"""
         masks=[(self.cop[L]==n) for L in LAY]; thru=self.thru.copy()
+        cells=[np.zeros((self.ny,self.nx),bool) for _ in LAY]; vc=np.zeros((self.ny,self.nx),bool)
         for path in self.routes.get(n,[]):
             if path is skip: continue
             for i,(l,iy,ix) in enumerate(path):
-                masks[l][iy,ix]=True
-                if i and path[i-1][0]!=l: thru[iy,ix]=True
-        labs=[label(m)[0] for m in masks]; n0=labs[0].max(); labs[1]=np.where(labs[1]>0,labs[1]+n0,0)
+                cells[l][iy,ix]=True
+                if i and path[i-1][0]!=l: vc[iy,ix]=True
+        from scipy.ndimage import binary_dilation
+        if vc.any(): vd=binary_dilation(vc,_disk(VD/2/G)); thru|=vd
+        for l in range(2):
+            if cells[l].any(): masks[l]|=binary_dilation(cells[l],_disk(W/2/G))
+            if vc.any(): masks[l]|=vd
+        labs=[label(m,np.ones((3,3),bool))[0] for m in masks]; n0=labs[0].max(); labs[1]=np.where(labs[1]>0,labs[1]+n0,0)
         par=list(range(int(labs[1].max())+1))
         def f(i):
             while par[i]!=i: par[i]=par[par[i]]; i=par[i]

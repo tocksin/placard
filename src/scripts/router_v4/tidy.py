@@ -17,13 +17,32 @@ def netlist(spec):
 b0,n0,_f,_p,_e=load(src); nid0={v:k for k,v in n0.items()}
 g=Grid(src,BASE,scope={nid0[x] for x in netlist(NETS) if x in nid0} if NETS else None)
 nets=g.nets
+from scipy.ndimage import binary_dilation
+from gridcore import _disk
+DK_T=_disk(W/2/G); DK_V=_disk(VD/2/G)
 def comp_masks(n,path):
+    """components of the net without this chain, and which of them the chain's copper touches.
+    returns (src, goal, drop): drop when the chain touches at most one component (redundant or dangling);
+    (None,None,False) when it touches more than two (left alone)."""
     la,lb=g.components(n,skip=path)
-    (l0,y0,x0),(l1,y1,x1)=path[0],path[-1]
-    ca=(la if l0==0 else lb)[y0,x0]; cb=(la if l1==0 else lb)[y1,x1]
-    if ca==0 or cb==0: return None,None,None   # chain end not on copper (dangling): drop it
+    ys=[p[1] for p in path]; xs=[p[2] for p in path]
+    j0=max(0,min(ys)-5); j1=min(g.ny,max(ys)+6); i0=max(0,min(xs)-5); i1=min(g.nx,max(xs)+6)
+    cells=[np.zeros((j1-j0,i1-i0),bool) for _ in LAY]; vc=np.zeros((j1-j0,i1-i0),bool)
+    for i,(l,iy,ix) in enumerate(path):
+        cells[l][iy-j0,ix-i0]=True
+        if i and path[i-1][0]!=l: vc[iy-j0,ix-i0]=True
+    vd=binary_dilation(vc,DK_V) if vc.any() else None
+    touched=set()
+    for l,lab in enumerate((la,lb)):
+        m=binary_dilation(cells[l],DK_T) if cells[l].any() else np.zeros_like(vc)
+        if vd is not None: m|=vd
+        touched|=set(np.unique(lab[j0:j1,i0:i1][m]).tolist())
+    touched.discard(0)
+    if len(touched)<=1: return None,None,True
+    if len(touched)>2: return None,None,False
+    ca,cb=sorted(touched)
     src={'F.Cu':la==ca,'B.Cu':lb==ca}; goal={'F.Cu':la==cb,'B.Cu':lb==cb}
-    return src,goal,ca==cb
+    return src,goal,False
 def tidy_net(n):
     gain=0.0; changed=0; dropped=0
     paths=list(g.routes.get(n,[]))
@@ -32,9 +51,10 @@ def tidy_net(n):
         path=g.routes[n][i] if i<len(g.routes[n]) else None
         if path is None or path is not paths[i]: continue
         oc=g.path_cost(path)
-        srcm,goalm,same=comp_masks(n,path)
-        if srcm is None or same:
+        srcm,goalm,drop=comp_masks(n,path)
+        if drop:
             new=[p for p in g.routes[n] if p is not path]; g.set_route(n,new); gain+=oc; dropped+=1; continue
+        if srcm is None: continue
         g.apply_stamps(g.stamps[n],-1)   # own copper not blocked while routing
         bt,bv=g.blocked(n,hard=True)
         ring=g.own_ring(n)
