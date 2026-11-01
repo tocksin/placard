@@ -34,14 +34,14 @@ def comp_masks(n,path):
     vd=binary_dilation(vc,DK_V) if vc.any() else None
     touched=set()
     for l,lab in enumerate((la,lb)):
-        m=binary_dilation(cells[l],DK_T) if cells[l].any() else np.zeros_like(vc)
+        m=binary_dilation(cells[l],np.ones((3,3),bool)) if cells[l].any() else np.zeros_like(vc)   # 8-neighbours touch
         if vd is not None: m|=vd
         touched|=set(np.unique(lab[j0:j1,i0:i1][m]).tolist())
     touched.discard(0)
     if len(touched)<=1: return None,None,True
     if len(touched)>2: return None,None,False
-    ca,cb=sorted(touched)
-    src={'F.Cu':la==ca,'B.Cu':lb==ca}; goal={'F.Cu':la==cb,'B.Cu':lb==cb}
+    ca,cb=sorted(touched); cF,cB=g.last_copper   # route between real copper cells, not the dilated labels
+    src={'F.Cu':(la==ca)&cF,'B.Cu':(lb==ca)&cB}; goal={'F.Cu':(la==cb)&cF,'B.Cu':(lb==cb)&cB}
     return src,goal,False
 def tidy_net(n):
     gain=0.0; changed=0; dropped=0
