@@ -52,6 +52,18 @@ class Grid:
             x,y=map(float,one(v,'at')[1:3]); n=int(one(v,'net')[1]); d=float(one(v,'size')[1])
             if vi>=nvia_old and n in self.scope: self.tailvia[n].append(((x,y),d,vi))
             else: self.items.append((n,set(LAY),Point(x,y).buffer(d/2,16),('via',vi)))
+        # off-grid tail copper (hand-routed, diagonal) stays fixed; only on-grid, axis-aligned copper becomes re-routable chains
+        for n in list(self.tailseg)+list(self.tailvia):
+            keep=[]
+            for L,a,e,w,si in self.tailseg.get(n,[]):
+                ca=self.cell(*a); ce=self.cell(*e)
+                if ca is None or ce is None or (ca[0]!=ce[0] and ca[1]!=ce[1]) or abs(w-W)>1e-6: self.items.append((n,{L},LineString([a,e]).buffer(w/2,8),('seg',si)))
+                else: keep.append((L,a,e,w,si))
+            self.tailseg[n]=keep; keepv=[]
+            for (x,y),d,vi in self.tailvia.get(n,[]):
+                if self.cell(x,y) is None or abs(d-VD)>1e-6: self.items.append((n,set(LAY),Point(x,y).buffer(d/2,16),('via',vi)))
+                else: keepv.append(((x,y),d,vi))
+            self.tailvia[n]=keepv
         self.tail_idx={n:([si for *_,si in self.tailseg[n]],[vi for *_,vi in self.tailvia[n]]) for n in set(self.tailseg)|set(self.tailvia)}
         self.tdz=[]
         for z in find(b,'zone'):
