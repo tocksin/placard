@@ -161,7 +161,7 @@ class GPU:
                   ctypes.cast(ptr(d['own_v']),P(ctypes.c_int32)),ctypes.cast(ptr(d['mul_v']),P(ctypes.c_uint8)),ctypes.cast(ptr(d['edge_t']),P(ctypes.c_uint8)),
                   ctypes.cast(ptr(d['edge_v']),P(ctypes.c_uint8)),ctypes.cast(ptr(d['field']),P(ctypes.c_uint8)),ctypes.cast(ptr(dh),P(ctypes.c_float)),
                   ctypes.cast(ptr(dhv),P(ctypes.c_float)),ctypes.cast(ptr(do),P(ctypes.c_int16)),ctypes.cast(ptr(dov),P(ctypes.c_int16)),st_,sv_,ctypes.cast(ptr(dbus),P(ctypes.c_int16)) if busmap is not None else None)
-        W2tot=sum(2*j.ww*j.hh if False else 2*j.ww*j.wh for j in jobs)
+        W2tot=sum(2*j.ww*j.wh for j in jobs)
         dp=cp.zeros(W2tot,cp.uint64); dgid=cp.asarray(gid); dstate=cp.asarray(state); dinq=cp.zeros(W2tot,cp.int32)
         q0=cp.zeros(W2tot,cp.int32); q1=cp.zeros(W2tot,cp.int32); dpath=cp.zeros(pcap_total,cp.int32)
         dplen=cp.zeros(len(jobs),cp.int32); dstatus=cp.zeros(len(jobs),cp.int32); qn=cp.zeros(2*len(jobs),cp.int32)
@@ -170,7 +170,8 @@ class GPU:
             _fields_=[('dp',ctypes.c_void_p),('gid',ctypes.c_void_p),('state',ctypes.c_void_p),('inq',ctypes.c_void_p),('q0',ctypes.c_void_p),('q1',ctypes.c_void_p),
                       ('path',ctypes.c_void_p),('plen',ctypes.c_void_p),('status',ctypes.c_void_p)]
         work=Work(ptr(dp),ptr(dgid),ptr(dstate),ptr(dinq),ptr(q0),ptr(q1),ptr(dpath),ptr(dplen),ptr(dstatus))
-        self.kern((len(jobs),),(1024,),(bytes(maps),dJ,bytes(work),qn))
+        def byval(st): return np.frombuffer(bytes(st),np.dtype((np.void,ctypes.sizeof(st))))[0]
+        self.kern((len(jobs),),(1024,),(byval(maps),dJ,byval(work),qn))
         cp.cuda.Stream.null.synchronize()
         return cp.asnumpy(dpath),cp.asnumpy(dplen),cp.asnumpy(dstatus)
 def make_backend():
