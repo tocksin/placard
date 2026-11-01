@@ -264,9 +264,10 @@ class Grid:
                 if i and path[i-1][0]!=l: vc[iy,ix]=True
         from scipy.ndimage import binary_dilation
         if vc.any(): vd=binary_dilation(vc,_disk(VD/2/G)); thru|=vd
-        for l in range(2):
-            if cells[l].any(): masks[l]|=binary_dilation(cells[l],_disk(W/2/G))
+        for l in range(2):   # track cells undilated (8-connectivity joins only touching copper), via pads as disks
+            masks[l]|=cells[l]
             if vc.any(): masks[l]|=vd
+        self.last_copper=[m.copy() for m in masks]
         labs=[label(m,np.ones((3,3),bool))[0] for m in masks]; n0=labs[0].max(); labs[1]=np.where(labs[1]>0,labs[1]+n0,0)
         par=list(range(int(labs[1].max())+1))
         def f(i):
