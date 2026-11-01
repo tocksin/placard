@@ -1,0 +1,7 @@
+# score bench_gpu2_tidy.kicad_pcb  (scope 112 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 29.74 m | 692 / 843 | 5.1 % | 8.7 % | 1.26 | 7 | 0 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS4 891/9/1.2, CLK 875/10/1.1, DATABUS7 835/13/1.1, DATABUS0 830/22/1.1, DATABUS1 826/11/1.2, DATABUS2 801/15/1.1, DATABUS3 793/14/1.1, DATABUS5 786/13/1.1
+detour > 2: D5, PC8, STALL_IN, VA0, VA7, Y2, Y4
