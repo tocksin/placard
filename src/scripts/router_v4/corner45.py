@@ -72,15 +72,18 @@ for (n,L,pt),lst in ends.items():
     for i,end,_,_,_ in legs: moved[(i,end)]=A if (i,end)==(legs[0][0],legs[0][1]) else B
     new.append((n,L,A,B)); done+=1
 # write: edited segment blocks + new diagonals before the final ')'
-out=[]; pos=0
+out=[]; pos=0; zero=0
 for i,s in enumerate(segs):
     a=moved.get((i,'a'),s['a']); e=moved.get((i,'e'),s['e'])
-    if a==s['a'] and e==s['e']: continue
-    st,en=s['span']; blk=txt[st:en]
+    if a==s['a'] and e==s['e'] and math.dist(a,e)>1e-6: continue
+    st,en=s['span']
+    if math.dist(a,e)<=1e-6:   # a leg eaten by the chamfers at both ends (or an existing zero-length track): drop it
+        out.append(txt[pos:st]); pos=en; zero+=1; continue
+    blk=txt[st:en]
     blk=re.sub(r'\(start [-\d.]+ [-\d.]+\)',f'(start {a[0]:.4f} {a[1]:.4f})',blk,count=1); blk=re.sub(r'\(end [-\d.]+ [-\d.]+\)',f'(end {e[0]:.4f} {e[1]:.4f})',blk,count=1)
     out.append(txt[pos:st]); out.append(blk); pos=en
 out.append(txt[pos:]); t=''.join(out)
 i=t.rstrip().rfind(')'); head=t[:i].rstrip('\n')
 add=[f'\t(segment\n\t\t(start {A[0]:.4f} {A[1]:.4f})\n\t\t(end {B[0]:.4f} {B[1]:.4f})\n\t\t(width {W})\n\t\t(layer "{L}")\n\t\t(net {n})\n\t\t(uuid "{uuid.uuid4()}")\n\t)' for n,L,A,B in new]
 open(dst,'w',encoding='utf-8').write(head+'\n'+'\n'.join(add)+'\n)\n')
-print(f'corners {tried}, chamfered {done} ({len(scope)} nets); wrote {dst}')
+print(f'corners {tried}, chamfered {done} ({len(scope)} nets), zero-length tracks dropped {zero}; wrote {dst}')
