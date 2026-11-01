@@ -133,14 +133,15 @@ if __name__=='__main__':
     a=sys.argv
     import os
     WT='protect' if os.environ.get('PROTECT') else 'route'
+    TAB=float(os.environ['TAB']) if os.environ.get('TAB') else None   # cartridge finger-tab keepout (TAB=137); never for the main board
     if a[3]=='dirs':
-        r=write(a[1],a[2],tab_y=137.0,power={'GND':0.5,'+5V':0.5},planes={'GND':'In1.Cu','+5V':'In2.Cu'},
+        r=write(a[1],a[2],tab_y=TAB,power={'GND':0.5,'+5V':0.5},planes={'GND':'In1.Cu','+5V':'In2.Cu'},
                 dirs={'F.Cu':'vertical','B.Cu':'horizontal'},against=float(a[4]),viacost=int(a[5])); print(len(r)); sys.exit()
     if a[3]=='stubs':
-        r=write(a[1],a[2],tab_y=137.0,power={'GND':0.5,'+5V':0.5},planes={'GND':'In1.Cu','+5V':'In2.Cu'},wtype='protect'); print(len(r)); sys.exit()
+        r=write(a[1],a[2],tab_y=TAB,power={'GND':0.5,'+5V':0.5},planes={'GND':'In1.Cu','+5V':'In2.Cu'},wtype='protect'); print(len(r)); sys.exit()
     if a[3]=='pass2':
-        r=write(a[1],a[2],tab_y=137.0,power={'GND':0.5,'+5V':0.5},planes={'GND':'In1.Cu'},in2sig=True,
+        r=write(a[1],a[2],tab_y=TAB,power={'GND':0.5,'+5V':0.5},planes={'GND':'In1.Cu'},in2sig=True,
                 pinsel={'+5V':['J1-A2','J1-B2','U1-24']},wtype='protect'); print(len(r)); sys.exit()
     w,cl,vd,vh,pw=map(float,a[3:8])
-    r=write(a[1],a[2],tab_y=137.0,width=w,clr=cl,via=(vd,vh),power={'GND':pw,'+5V':pw}, skip=a[8].split(',') if len(a)>8 and a[8] else (), planes={'GND':'In1.Cu','+5V':'In2.Cu'} if len(a)>9 else None, wtype=WT)
+    r=write(a[1],a[2],tab_y=TAB,width=w,clr=cl,via=(vd,vh),power={'GND':pw,'+5V':pw}, skip=a[8].split(',') if len(a)>8 and a[8] else (), planes={'GND':'In1.Cu','+5V':'In2.Cu'} if len(a)>9 else None, wtype=WT)
     print(len(r),'nets')
