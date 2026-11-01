@@ -4,6 +4,7 @@ re-routed with other routes blocked; what is still open is written out unrouted 
 env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=32 (nets per launch)  ITERS=30  STALL=6  WIN=40 (mm)  VIA=120
      AGAINST=3  RING=8  PRES0=1 PRESF=1.5 PRESMAX=30  HARDROUNDS=6  NETS=a,b  GPUMEM=1.5 (GB per launch)  MAXSWEEPS=2000000  DELTA=1.5 (GPU near/far bucket width)
      BASE=<file> (scope = nets whose copper was added after BASE: that copper is stripped and re-routed)
+     CHECKGPU=N compare CPU and GPU path costs for the first N nets and exit (backend self-test)
      CHAINRIP=1 rip-up removes only the crossed chains of a neighbour, not its whole route (shove-like)
      PROT=a,b nets never ripped (default: the clock/stall/write/sync nets below)  CRIT=a,b timing-critical nets: routed first,
      CRITVIA=2 (via cost x) CRITPRES=0.5 (they yield less to congestion so they stay short)  (default = PROT list)"""
@@ -359,6 +360,23 @@ def ripretry(queue):
     for n in left: g.set_route(n,[])
     print('rip-retry done after',rounds,'rounds; unrouted',[nets[n] for n in left],round(time.time()-t0),'s',flush=True)
     return left
+if E('CHECKGPU'):
+    # backend check: route the same nets on the CPU and the GPU and compare path costs (empty board, then congested)
+    be_c=CPU(); be_g=GPU(); sel=todo[:int(E('CHECKGPU'))]
+    def costs(b,ns):
+        global be
+        be=b; out,st=route_batch(ns,False,WIN)
+        return {n:(round(sum(g.path_cost(p) for p in out[n]),1) if out[n] else ('FAIL',int(st[i]))) for i,n in enumerate(ns)}
+    for phase in ('empty','congested'):
+        rc=costs(be_c,sel); rg=costs(be_g,sel); bad=0
+        for n in sel:
+            if rc[n]!=rg[n]: bad+=1
+            print(f'  {phase} {nets[n]:30s} cpu {rc[n]} gpu {rg[n]}' + ('' if rc[n]==rg[n] else '  <-- differs'),flush=True)
+        print(phase,'nets',len(sel),'differing',bad,flush=True)
+        if phase=='empty':
+            be=be_c; PRES=4.0; fails=route_all(todo,False,WIN)   # now every net has a route: occupancy and pres costs apply
+            for n in todo: overlaps(n)
+    sys.exit(0)
 fails=set(); conflicted=set(todo); best=None; noimp=0; it=0; tot=0
 while it<ITERS and todo:
     t0=time.time()
@@ -374,7 +392,7 @@ while it<ITERS and todo:
     if noimp>=STALL: break
     it+=1; PRES=min(PRES*PRESF,PRESMAX)
 if best and (len(conflicted),tot)>best[0]:
-    print('restoring best iteration',best[0],flush=True)
+    print('restoring best iteration: conflicted',best[0][0],'overlap',best[0][1],flush=True)
     for n in todo: g.set_route(n,best[1].get(n,[]))
     fails=best[2]
 conflicted={n for n in todo if overlaps(n,False)}|fails
