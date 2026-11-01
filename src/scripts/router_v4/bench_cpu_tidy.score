@@ -1,0 +1,7 @@
+# score m4i_tidy.kicad_pcb  (scope 108 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 27.11 m | 588 / 772 | 4.6 % | 8.8 % | 1.28 | 8 | 0 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS0 849/17/1.1, DATABUS4 845/9/1.1, DATABUS7 811/9/1.1, DATABUS3 800/14/1.1, DATABUS2 788/15/1.1, DATABUS5 784/13/1.1, DATABUS6 776/9/1.0, DATABUS1 776/13/1.1
+detour > 2: /Memory and I/O decode/RAMSEL1, /Memory and I/O decode/RAMSEL6, ADDR12, D6, PC11, X7, Y4, Y5

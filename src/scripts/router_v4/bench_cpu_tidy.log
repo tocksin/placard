@@ -1,0 +1,8 @@
+grid 2352 1744
+rasterised 5209 items 6.4 s
+pass 0: 27 chains improved, 4 dropped, cost gain 12224, 109 s
+pass 1: 5 chains improved, 3 dropped, cost gain 6196, 107 s
+pass 2: 0 chains improved, 1 dropped, cost gain 1, 104 s
+vias 532 -> 463, cells 143908 -> 138985, 335 s
+wrote m4i_tidy.kicad_pcb segments 2005 vias 463
+DONE
