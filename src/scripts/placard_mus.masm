@@ -1,0 +1,2897 @@
+; ============================================================
+; placard_mus.masm - PLACARD music player: 4 SID-like voices + a sound
+; effect voice, patterns, instruments, effects (docs/MUSIC.md)
+; ============================================================
+;
+; A program includes this file in its own .masm, after defining where the
+; player's tables and RAM go (both page aligned):
+;
+;     MUS_TABLES = 0x3400       ; 10 pages of tables (in the program image)
+;     MUS_RAM    = 0x4000       ; 10 pages of RAM (not in the image)
+;     .include "placard_mus.masm"
+;
+; and calls (the library's CALL convention, docs/LIBRARY.md):
+;
+;     mus_init    R1 = the song's page (a .SNG file loaded at R1:00)
+;     mus_play    AC = subtune
+;     mus_frame   once a frame (or more often): fills the audio buffer
+;     mus_stop    every voice releases; the song stops
+;     mus_sfx     AC = note (0-95), R0 = instrument, R1 = frames: a sound
+;                 effect on the fifth voice, heard in voice 4's place
+;
+; mus_frame replaces snd_update: a program uses one or the other.  It must
+; be called at least once a frame; it writes the buffer behind the player
+; (docs/SOUND.md), working out from the line read how much was played,
+; and plays the song's ticks as it passes the start of the buffer, so the
+; tempo does not depend on how often it is called.
+;
+; The player runs from RAM: the mixer's step, wave page and volume are
+; operands of its own instructions (mv0_sl ... mv3_vp), which the tick
+; rewrites.  It reads the song (in RAM or ROM) with sections 0-2 as the
+; program has them.
+;
+; Memory:  zero page x60-x9F, T0-T7.  MUS_TABLES: SAW, TRI, NOISE (2),
+; VOLT (4), VMUL, TAB (mus_tables.masm, made by mus_tool.py).  MUS_RAM:
+; pages 0-4 the voices' own wave pages (pulse, custom), pages 5-9 the
+; voices' state at x76-x9F (the same offsets as the zero page work block
+; W, so a copy is ld k, x / ld [y,x], ac / ld ac, [x]); the rest of pages
+; 5-9 is free for the program.
+;
+; mus_tool.py has the reference model (Model): test_mus.py checks this
+; player against it sample for sample.  Change one, change the other.
+;
+; Date: 11/01/2026
+; ============================================================
+
+MUS_SAW    = MUS_TABLES
+MUS_TRI    = MUS_TABLES + 0x100
+MUS_NOISE  = MUS_TABLES + 0x200       ; two pages
+MUS_VOLT   = MUS_TABLES + 0x400       ; four pages
+MUS_VMUL   = MUS_TABLES + 0x800
+MUS_TAB    = MUS_TABLES + 0x900       ; notes, attack and decay rates
+MUS_PG     = MUS_RAM                  ; own wave pages, voices 0-4
+MUS_VS     = MUS_RAM + 0x500          ; voice state pages, voices 0-4
+
+; zero page
+P0L = 0x60
+P0H = 0x61
+P1L = 0x62
+P1H = 0x63
+P2L = 0x64
+P2H = 0x65
+P3L = 0x66
+P3H = 0x67
+M_SPEED  = 0x68         ; frames per row
+M_TICK   = 0x69         ; frame within the row
+M_MASTER = 0x6A         ; master volume 0-15
+M_RNG    = 0x6B         ; noise generator
+M_PLAY   = 0x6C         ; bit 7 = initialised, bit 0 = a song is playing
+M_RPTR   = 0x6D         ; line read (V/4) of the next group to write
+M_REND   = 0x6E         ; line read at the end of the last fill
+M_AHEAD  = 0x6F         ; groups written ahead of the video (0-131)
+M_SONG   = 0x70         ; the song's page
+M_VIDX   = 0x71         ; voice being ticked
+M_SLOT   = 0x72         ; its mixer slot, FF = not heard
+M_SFXN   = 0x73         ; sound effect frames left
+M_T0     = 0x74
+M_T1     = 0x75
+W_OLL    = 0x76
+W_OLH    = 0x77
+W_OSL    = 0x78
+W_OSH    = 0x79
+W_PPL    = 0x7A
+W_PPH    = 0x7B
+W_TRANS  = 0x7C
+W_EMPTY  = 0x7D
+W_NOTE   = 0x7E
+W_INS    = 0x7F
+W_STL    = 0x80
+W_STH    = 0x81
+W_FX     = 0x82
+W_FXP    = 0x83
+W_ENL    = 0x84
+W_ENH    = 0x85
+W_EST    = 0x86
+W_AD     = 0x87
+W_SR     = 0x88
+W_WPTR   = 0x89
+W_WNOTE  = 0x8A
+W_PPTR   = 0x8B
+W_PCNT   = 0x8C
+W_PSPD   = 0x8D
+W_PW     = 0x8E
+W_WAVE   = 0x8F
+W_PAGEK  = 0x90
+W_PAGEW  = 0x91
+W_VIB    = 0x92
+W_VDLY   = 0x93
+W_VCNT   = 0x94
+W_VDIR   = 0x95
+W_VHALF  = 0x96
+W_VOFL   = 0x97
+W_VOFH   = 0x98
+W_TGL    = 0x99
+W_TGH    = 0x9A
+W_VOL    = 0x9B
+W_ARPI   = 0x9C
+W_FLAGS  = 0x9D
+W_STOP   = 0x9E
+W_RET    = 0x9F
+W_WPG    = W_RET      ; shared: RET only during a trigger
+
+; globals in MUS_VS page 0 (below the state)
+G_T5  = 0x00
+G_NR  = 0x03
+
+.include "mus_tables.masm"
+
+; ============================================================
+; the mixer: T5 groups (of four lines, two samples each; the line read
+; counts them) from T2:T1 on, wrapping from x5FFF to x5DF3.  The line at
+; x5DF3 is a group of its own with one sample, and then the tick.
+; ============================================================
+.chunk
+mus_gen:
+mg_loop:
+    ld   [P0L], ac
+mv0_sl:
+    add  0x00, ac
+    ld   ac, [P0L]
+    ld   [P0H], ac
+    bcc  mv0_n
+    inc
+mv0_n:
+mv0_sh:
+    add  0x00, ac
+    ld   ac, [P0H]
+    ld   ac, x
+mv0_wp:
+    ld   0x00, y
+    ld   [y,x], ac
+mv0_vo:
+    add  0x00, x
+mv0_vp:
+    ld   0x00, y
+    ld   [y,x], ac
+    ld   ac, [T0]
+    ld   [P1L], ac
+mv1_sl:
+    add  0x00, ac
+    ld   ac, [P1L]
+    ld   [P1H], ac
+    bcc  mv1_n
+    inc
+mv1_n:
+mv1_sh:
+    add  0x00, ac
+    ld   ac, [P1H]
+    ld   ac, x
+mv1_wp:
+    ld   0x00, y
+    ld   [y,x], ac
+mv1_vo:
+    add  0x00, x
+mv1_vp:
+    ld   0x00, y
+    ld   [T0], ac
+    add  [y,x], ac
+    ld   ac, [T0]
+    ld   [P2L], ac
+mv2_sl:
+    add  0x00, ac
+    ld   ac, [P2L]
+    ld   [P2H], ac
+    bcc  mv2_n
+    inc
+mv2_n:
+mv2_sh:
+    add  0x00, ac
+    ld   ac, [P2H]
+    ld   ac, x
+mv2_wp:
+    ld   0x00, y
+    ld   [y,x], ac
+mv2_vo:
+    add  0x00, x
+mv2_vp:
+    ld   0x00, y
+    ld   [T0], ac
+    add  [y,x], ac
+    ld   ac, [T0]
+    ld   [P3L], ac
+mv3_sl:
+    add  0x00, ac
+    ld   ac, [P3L]
+    ld   [P3H], ac
+    bcc  mv3_n
+    inc
+mv3_n:
+mv3_sh:
+    add  0x00, ac
+    ld   ac, [P3H]
+    ld   ac, x
+mv3_wp:
+    ld   0x00, y
+    ld   [y,x], ac
+mv3_vo:
+    add  0x00, x
+mv3_vp:
+    ld   0x00, y
+    ld   [T0], ac
+    add  [y,x], ac
+    ld   ac, [T0]
+    ld   [T1], x
+    ld   [T2], y
+    ld   ac, [y,x]
+    ld   [T1], ac
+    add  1, x
+    xor  0xF3, ac
+    beq  mg_one
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [T1], ac
+    add  2, ac
+    ld   ac, [T1]
+    beq  mg_page
+    and  3, ac
+    bne  mg_loop
+mg_grp:                         ; a group done
+    ld   [M_RPTR], ac
+    inc
+    ld   ac, [M_RPTR]
+    bne  mg_g1
+    ld   0x7C, ac
+    ld   ac, [M_RPTR]
+mg_g1:
+    ld   [T5], ac
+    dec
+    ld   ac, [T5]
+    bne  mg_loop
+    GOTO mf_end
+mg_page:
+    ld   [T2], ac
+    inc
+    ld   ac, [T2]
+    xor  0x60, ac
+    bne  mg_grp
+    ld   0x5D, ac
+    ld   ac, [T2]
+    ld   0xF3, ac
+    ld   ac, [T1]
+    bra  mg_grp
+mg_one:
+    GOTO mus_tick
+
+; ------------------------------------------------------------
+; mus_frame - fill the buffer ahead of the video (and play the ticks)
+;   in: -   out: -   changes: AC, X, Y, T0-T7
+;
+; The buffer is a ring of 132 groups (the line read counts them).  The
+; player keeps M_AHEAD groups written ahead of the one the video is
+; reading, up to 131, and never writes the one being read.  Each call
+; takes off the groups the video read since the last fill, writes up to
+; 131 ahead again, and repeats while the video moved during the fill.
+; A call more than 131 groups (a lap less a group) after the last one
+; loses the samples in between (the video replays the old ones), so a
+; program calls at least once a frame.  The tick (at group x7C) takes a
+; few groups' time; if the video passes the write pointer meanwhile the
+; groups it passed are skipped, so the rest stays in time.  mus_init
+; fills the buffer once (131 groups of silence) so the song's first tick
+; starts well ahead of the video.
+; ------------------------------------------------------------
+.chunk
+mus_frame:
+    ld   [M_PLAY], ac
+    blt  mf_go
+    RET
+mf_go:
+    ld   0x50, y
+    ld   [y,x], ac
+    ld   ac, [T6]               ; r = the line read now
+    sub  [M_REND], ac           ; d = (r - REND) mod 132: groups read since
+    bcc  mf_a
+    add  132, ac
+mf_a:
+    ld   ac, [T7]
+    ld   [T6], ac
+    ld   ac, [M_REND]
+    ld   [M_AHEAD], ac
+    sub  [T7], ac
+    bcc  mf_b
+    ld   [T6], ac               ; the video passed the write pointer: go on
+    ld   ac, [M_RPTR]           ; from where it is now
+    clr  ac
+mf_b:
+    ld   ac, [M_AHEAD]
+mf_fill:
+    ld   131, ac
+    sub  [M_AHEAD], ac
+    bne  mf_c
+    RET
+mf_c:
+    ld   ac, [T5]               ; groups to write
+    ld   131, ac
+    ld   ac, [M_AHEAD]
+    GOTO mf_addr
+
+.chunk
+mf_addr:
+    ld   [M_RPTR], ac           ; T2:T1 = the address of group RPTR
+    xor  0x7C, ac
+    bne  mf_s1
+    ld   0xF3, ac
+    ld   ac, [T1]
+    ld   0x5D, ac
+    bra  mf_s3
+mf_s1:
+    ld   [M_RPTR], ac
+    shl
+    shl
+    ld   ac, [T1]
+    ld   [M_RPTR], ac
+    blt  mf_s2
+    ld   0x5D, ac
+    bra  mf_s3
+mf_s2:
+    and  0x40, ac
+    beq  mf_s4
+    ld   0x5F, ac
+    bra  mf_s3
+mf_s4:
+    ld   0x5E, ac
+mf_s3:
+    ld   ac, [T2]
+    GOTO mus_gen
+
+.chunk
+mf_end:
+    ld   0x50, y
+    ld   [y,x], ac
+    ld   ac, [T6]               ; the video moved during the fill?
+    sub  [M_REND], ac
+    bcc  me_a
+    add  132, ac
+me_a:
+    bne  me_b
+    RET
+me_b:
+    ld   ac, [T7]
+    ld   [T6], ac
+    ld   ac, [M_REND]
+    ld   [M_AHEAD], ac
+    sub  [T7], ac
+    ld   ac, [M_AHEAD]
+    GOTO mf_fill
+
+; ============================================================
+; the tick: once a lap, between the samples for x5DF3 and x5DF4
+; ============================================================
+.chunk
+mus_tick:
+    ld   MUS_VS >> 8, y
+    ld   G_T5, x
+    ld   [T5], ac
+    ld   ac, [y,x]
+    ld   G_NR, x
+    ld   0, [y,x]
+    ld   [M_PLAY], ac
+    and  1, ac
+    beq  mt_0
+    ld   [M_TICK], ac
+    bne  mt_0
+    ld   1, [y,x]               ; a new row
+mt_0:
+    clr  ac
+    ld   ac, [M_VIDX]
+    GOTO mt_voice
+
+.chunk
+mt_voice:
+    ld   [M_VIDX], ac
+    xor  4, ac
+    bne  mv_in
+    ld   [M_SFXN], ac
+    bne  mv_in
+    GOTO mt_end
+mv_in:
+    GOTO copy_in
+
+.chunk
+mt_out:
+    GOTO copy_out
+mt_next:
+    ld   [M_VIDX], ac
+    inc
+    ld   ac, [M_VIDX]
+    xor  5, ac
+    beq  mt_n1
+    GOTO mt_voice
+mt_n1:
+    GOTO mt_end
+
+.chunk
+mt_end:
+    ld   [M_PLAY], ac
+    and  1, ac
+    beq  me_s
+    ld   [M_TICK], ac
+    inc
+    ld   ac, [M_TICK]
+    sub  [M_SPEED], ac
+    bcs  me_s
+    clr  ac
+    ld   ac, [M_TICK]
+me_s:
+    ld   [M_SFXN], ac
+    beq  me_r
+    dec
+    ld   ac, [M_SFXN]
+me_r:
+    ld   MUS_VS >> 8, y
+    ld   G_T5, x
+    ld   [y,x], ac
+    ld   ac, [T5]
+    ld   0x50, y                ; did the video pass the write pointer
+    ld   [y,x], ac              ; during the tick?
+    sub  [M_REND], ac
+    bcc  mr_1
+    add  132, ac
+mr_1:
+    add  [T5], ac               ; groups read since the fill began + left
+    sub  133, ac                ; (written + left = 131): over by b - 1
+    bcs  mr_ok
+    ld   ac, [T6]
+    inc
+    ld   ac, [T6]               ; b groups behind: skip them
+    add  0x7D, ac
+    ld   ac, [M_RPTR]
+    ld   [T5], ac
+    sub  [T6], ac
+    beq  mr_end
+    bcs  mr_end
+    dec                         ; and group x7C is done
+    beq  mr_end
+    ld   ac, [T5]
+    GOTO mf_addr
+mr_end:
+    GOTO mf_end
+mr_ok:
+    ld   0x5D, ac
+    ld   ac, [T2]
+    ld   0xF4, ac
+    ld   ac, [T1]
+    GOTO mg_grp
+
+.chunk
+copy_in:
+    ld   [M_VIDX], ac
+    add  MUS_VS >> 8, y
+    ld   0x76, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x77, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x78, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x79, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x7A, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x7B, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x7C, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x7D, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x7E, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x7F, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x80, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x81, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x82, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x83, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x84, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x85, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x86, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x87, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x88, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x89, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x8A, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x8B, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    GOTO copy_in2
+.chunk
+copy_in2:
+    ld   [M_VIDX], ac
+    add  MUS_VS >> 8, y
+    ld   0x8C, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x8D, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x8E, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x8F, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x90, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x91, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x92, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x93, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x94, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x95, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x96, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x97, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x98, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x99, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x9A, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x9B, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x9C, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x9D, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x9E, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x9F, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    GOTO mv_row
+.chunk
+copy_out:
+    ld   [M_VIDX], ac
+    add  MUS_VS >> 8, y
+    ld   0x76, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x77, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x78, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x79, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7A, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7B, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7C, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7D, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7E, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7F, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x80, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x81, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x82, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x83, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x84, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x85, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x86, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x87, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x88, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x89, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8A, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8B, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    GOTO copy_out2
+.chunk
+copy_out2:
+    ld   [M_VIDX], ac
+    add  MUS_VS >> 8, y
+    ld   0x8C, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8D, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8E, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8F, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x90, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x91, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x92, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x93, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x94, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x95, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x96, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x97, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x98, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x99, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9A, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9B, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9C, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9D, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9E, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9F, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    GOTO mt_next
+
+; ------------------------------------------------------------
+; a new row?  (voices 0-3, on the first frame of a row, if not stopped)
+; ------------------------------------------------------------
+.chunk
+mv_row:
+    ld   [M_VIDX], ac
+    xor  4, ac
+    beq  mr_no
+    ld   MUS_VS >> 8, y
+    ld   G_NR, x
+    ld   [y,x], ac
+    beq  mr_no
+    ld   [W_STOP], ac
+    bne  mr_no
+    GOTO rr
+mr_no:
+    GOTO vt
+
+; ------------------------------------------------------------
+; rr - read the voice's next row
+;   T0 = instrument (FF none), T1:T2 = effect, parameter, T6 = ends seen,
+;   T7 = the byte
+; ------------------------------------------------------------
+.chunk
+rr:
+    ld   [W_EMPTY], ac
+    beq  rr_go
+    dec
+    ld   ac, [W_EMPTY]
+rr_clear:
+    clr  ac
+    ld   ac, [W_FX]
+    ld   ac, [W_FXP]
+    ld   ac, [W_ARPI]
+    GOTO vt
+rr_go:
+    ld   0xFF, ac
+    ld   ac, [T0]
+    clr  ac
+    ld   ac, [T1]
+    ld   ac, [T2]
+    ld   ac, [T6]
+rr_lp:
+    ld   [W_PPH], ac
+    beq  rr_end
+    ld   [W_PPH], y
+    ld   [W_PPL], x
+    ld   [y,x], ac
+    ld   ac, [T7]
+    ld   [W_PPL], ac
+    inc
+    ld   ac, [W_PPL]
+    bne  rr_n
+    ld   [W_PPH], ac
+    inc
+    ld   ac, [W_PPH]
+rr_n:
+    ld   [T7], ac
+    xor  0xFF, ac
+    beq  rr_end
+    ld   [T7], ac
+    sub  0xE0, ac
+    bcc  rr_fx
+    ld   [T7], ac
+    sub  0xC0, ac
+    bcc  rr_ins
+    ld   [T7], ac
+    sub  0x80, ac
+    bcc  rr_empty
+    GOTO rr_note
+rr_fx:
+    ld   ac, [T1]
+    ld   [W_PPH], y
+    ld   [W_PPL], x
+    ld   [y,x], ac
+    ld   ac, [T2]
+    ld   [W_PPL], ac
+    inc
+    ld   ac, [W_PPL]
+    bne  rr_lp
+    ld   [W_PPH], ac
+    inc
+    ld   ac, [W_PPH]
+    bra  rr_lp
+rr_ins:
+    and  0x1F, ac
+    ld   ac, [T0]
+    bra  rr_lp
+rr_empty:
+    and  0x3F, ac
+    ld   ac, [W_EMPTY]
+    bra  rr_clear
+rr_end:
+    ld   [T6], ac
+    inc
+    ld   ac, [T6]
+    sub  3, ac
+    bcc  rr_s
+    GOTO np
+rr_s:
+    GOTO rr_stop
+
+; ------------------------------------------------------------
+; np - the orderlist: the next pattern (M_T0 counts the bytes read)
+; ------------------------------------------------------------
+.chunk
+np:
+    ld   64, ac
+    ld   ac, [M_T0]
+np_lp:
+    ld   [W_OLH], y
+    ld   [W_OLL], x
+    ld   [y,x], ac
+    ld   ac, [T7]
+    ld   [W_OLL], ac
+    inc
+    ld   ac, [W_OLL]
+    bne  np_a
+    ld   [W_OLH], ac
+    inc
+    ld   ac, [W_OLH]
+np_a:
+    ld   [T7], ac
+    xor  0xFE, ac
+    beq  np_stop
+    ld   [T7], ac
+    xor  0xFF, ac
+    beq  np_loop
+    ld   [T7], ac
+    blt  np_hi
+np_pat:
+    ld   [T7], ac
+    and  0x3F, ac
+    add  0x80, x
+    ld   [M_SONG], y
+    ld   [y,x], ac
+    ld   ac, [W_PPL]
+    ld   [T7], ac
+    and  0x3F, ac
+    add  0xC0, x
+    ld   [y,x], ac
+    add  [M_SONG], ac
+    ld   ac, [W_PPH]
+    GOTO rr_lp
+np_hi:
+    sub  0xC0, ac
+    bcc  np_pat
+    ld   [T7], ac
+    sub  0xA0, ac
+    ld   ac, [W_TRANS]
+    bra  np_next
+np_loop:
+    ld   [W_OLH], y
+    ld   [W_OLL], x
+    ld   [y,x], ac
+    add  [W_OSL], ac
+    ld   ac, [W_OLL]
+    ld   [W_OSH], ac
+    bcc  np_l1
+    inc
+np_l1:
+    ld   ac, [W_OLH]
+np_next:
+    ld   [M_T0], ac
+    dec
+    ld   ac, [M_T0]
+    bne  np_lp
+    GOTO rr_stop
+np_stop:
+    ld   [W_OLL], ac            ; back onto the FE
+    bne  np_s1
+    ld   [W_OLH], ac
+    dec
+    ld   ac, [W_OLH]
+np_s1:
+    ld   [W_OLL], ac
+    dec
+    ld   ac, [W_OLL]
+    GOTO rr_stop
+
+.chunk
+rr_stop:
+    ld   1, ac
+    ld   ac, [W_STOP]
+    ld   3, ac
+    ld   ac, [W_EST]
+    GOTO vt
+
+; ------------------------------------------------------------
+; rr_note - the row's note byte (T7) with its instrument and effect
+; ------------------------------------------------------------
+.chunk
+rr_note:
+    ld   [T1], ac
+    ld   ac, [W_FX]
+    ld   [T2], ac
+    ld   ac, [W_FXP]
+    clr  ac
+    ld   ac, [W_ARPI]
+    ld   [T0], ac
+    blt  rn_a
+    ld   ac, [W_INS]
+rn_a:
+    ld   [T7], ac
+    xor  0x60, ac
+    bne  rn_b
+    ld   3, ac                  ; key off
+    ld   ac, [W_EST]
+    bra  rn_fx
+rn_b:
+    ld   [T7], ac
+    sub  0x60, ac
+    bcc  rn_fx                  ; 61-7F: no note
+    ld   [T7], ac
+    add  [W_TRANS], ac
+    ld   ac, [T7]
+    blt  rn_lo
+    sub  96, ac
+    bcs  rn_ok
+    ld   95, ac
+    ld   ac, [T7]
+    bra  rn_ok
+rn_lo:
+    clr  ac
+    ld   ac, [T7]
+rn_ok:
+    ld   [W_FX], ac
+    xor  3, ac
+    bne  rn_trig
+    ld   [T7], ac               ; portamento: a new target, no new note
+    ld   ac, [W_NOTE]
+    ld   ac, x
+    ld   MUS_TAB >> 8, y
+    ld   [y,x], ac
+    ld   ac, [W_TGL]
+    ld   [T7], ac
+    add  96, x
+    ld   [y,x], ac
+    ld   ac, [W_TGH]
+rn_fx:
+    GOTO rfx
+rn_trig:
+    clr  ac
+    ld   ac, [W_RET]
+    GOTO trig
+
+; ------------------------------------------------------------
+; trig - start note T7 with instrument W_INS; W_RET 0: back to rfx, 1: sfx
+; ------------------------------------------------------------
+.chunk
+trig:
+    ld   [W_INS], ac
+    and  0x10, ac
+    beq  tr_a
+    ld   1, ac
+tr_a:
+    add  [M_SONG], ac
+    add  2, y
+    ld   [W_INS], ac
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [T6]
+    ld   [T6], x
+    ld   [y,x], ac
+    ld   ac, [W_AD]
+    ld   [T6], ac
+    add  1, x
+    ld   [y,x], ac
+    ld   ac, [W_SR]
+    ld   [T6], ac
+    add  2, x
+    ld   [y,x], ac
+    ld   ac, [W_WPTR]
+    ld   [T6], ac
+    add  3, x
+    ld   [y,x], ac
+    ld   ac, [W_PPTR]
+    ld   [T6], ac
+    add  4, x
+    ld   [y,x], ac
+    ld   ac, [W_PW]
+    ld   [T6], ac
+    add  5, x
+    ld   [y,x], ac
+    ld   ac, [W_FLAGS]
+    ld   [T6], ac
+    add  6, x
+    ld   [y,x], ac
+    ld   ac, [W_VDLY]
+    ld   [T6], ac
+    add  7, x
+    ld   [y,x], ac
+    ld   ac, [W_VIB]
+    ld   [T6], ac
+    add  8, x
+    ld   [y,x], ac
+    and  15, ac
+    ld   ac, [W_VOL]
+    clr  ac
+    ld   ac, [W_PCNT]
+    ld   [W_FLAGS], ac
+    and  1, ac
+    beq  tr_b
+    clr  ac                     ; hard restart
+    ld   ac, [W_ENL]
+    ld   ac, [W_ENH]
+tr_b:
+    clr  ac
+    ld   ac, [W_EST]
+    ld   ac, [W_WNOTE]
+    ld   ac, [W_VOFL]
+    ld   ac, [W_VOFH]
+    ld   ac, [W_VCNT]
+    ld   ac, [W_VDIR]
+    ld   1, ac
+    ld   ac, [W_VHALF]
+    ld   [T7], ac
+    ld   ac, [W_NOTE]
+    ld   ac, x
+    ld   MUS_TAB >> 8, y
+    ld   [y,x], ac
+    ld   ac, [W_STL]
+    ld   [T7], ac
+    add  96, x
+    ld   [y,x], ac
+    ld   ac, [W_STH]
+    ld   [W_RET], ac
+    beq  tr_row
+    GOTO sfx_back
+tr_row:
+    GOTO rfx
+
+; ------------------------------------------------------------
+; rfx - the row's instant effects
+; ------------------------------------------------------------
+.chunk
+rfx:
+    ld   [W_FX], ac
+    xor  5, ac
+    bne  rf6
+    ld   [W_FXP], ac
+    ld   ac, [W_AD]
+    bra  rf_x
+rf6:
+    ld   [W_FX], ac
+    xor  6, ac
+    bne  rf7
+    ld   [W_FXP], ac
+    ld   ac, [W_SR]
+    bra  rf_x
+rf7:
+    ld   [W_FX], ac
+    xor  7, ac
+    bne  rf8
+    ld   [W_FXP], ac
+    ld   ac, [W_PW]
+    clr  ac
+    ld   ac, [W_PPTR]
+    bra  rf_x
+rf8:
+    ld   [W_FX], ac
+    xor  8, ac
+    bne  rf9
+    ld   [W_FXP], ac
+    and  0x3F, ac
+    ld   ac, [W_WPTR]
+    bra  rf_x
+rf9:
+    ld   [W_FX], ac
+    xor  9, ac
+    bne  rfa
+    ld   [W_FXP], ac
+    and  15, ac
+    ld   ac, [W_VOL]
+    bra  rf_x
+rfa:
+    ld   [W_FX], ac
+    xor  10, ac
+    bne  rff
+    ld   [W_FXP], ac
+    and  15, ac
+    ld   ac, [M_MASTER]
+    bra  rf_x
+rff:
+    ld   [W_FX], ac
+    xor  15, ac
+    bne  rf_x
+    ld   [W_FXP], ac
+    beq  rf_x
+    ld   ac, [M_SPEED]
+rf_x:
+    GOTO vt
+
+; ------------------------------------------------------------
+; vt - the wave program: one step a frame (T0, T1 = the step, T6 = tries)
+; ------------------------------------------------------------
+.chunk
+vt:
+    ld   [W_WPTR], ac
+    beq  vw_x
+    ld   2, ac
+    ld   ac, [T6]
+vw_lp:
+    ld   [M_SONG], ac
+    add  1, y
+    ld   [W_WPTR], x
+    ld   [y,x], ac
+    ld   ac, [T0]
+    ld   [W_WPTR], ac
+    add  0x40, x
+    ld   [y,x], ac
+    ld   ac, [T1]
+    ld   [T0], ac
+    xor  0xFF, ac
+    bne  vw_a
+    ld   [T1], ac               ; jump
+    and  0x3F, ac
+    ld   ac, [W_WPTR]
+    beq  vw_x
+    ld   [T6], ac
+    dec
+    ld   ac, [T6]
+    bne  vw_lp
+    bra  vw_x
+vw_a:
+    ld   [T0], ac
+    xor  0xFE, ac
+    bne  vw_b
+    clr  ac                     ; end
+    ld   ac, [W_WPTR]
+    bra  vw_x
+vw_b:
+    ld   [T0], ac
+    beq  vw_c                   ; 0: waveform unchanged
+    xor  0x7F, ac
+    beq  vw_off
+    ld   [T0], ac
+    and  0x0F, ac
+vw_off:
+    ld   ac, [W_WAVE]
+vw_c:
+    ld   [T1], ac
+    ld   ac, [W_WNOTE]
+    ld   [W_WPTR], ac
+    inc
+    and  0x3F, ac
+    ld   ac, [W_WPTR]
+vw_x:
+    GOTO vp
+
+; ------------------------------------------------------------
+; vp - the pulse program and the pulse width sweep
+; ------------------------------------------------------------
+.chunk
+vp:
+    ld   [W_PPTR], ac
+    beq  vp_sw
+    ld   [W_PCNT], ac
+    bne  vp_sw
+    ld   2, ac
+    ld   ac, [T6]
+vp_lp:
+    ld   [M_SONG], ac
+    add  1, y
+    ld   [W_PPTR], ac
+    add  0x80, x
+    ld   [y,x], ac
+    ld   ac, [T0]
+    ld   [W_PPTR], ac
+    add  0xC0, x
+    ld   [y,x], ac
+    ld   ac, [T1]
+    ld   [T0], ac
+    xor  0xFF, ac
+    bne  vp_a
+    ld   [T1], ac               ; jump
+    and  0x3F, ac
+    ld   ac, [W_PPTR]
+    beq  vp_sw
+    ld   [T6], ac
+    dec
+    ld   ac, [T6]
+    bne  vp_lp
+    bra  vp_sw
+vp_a:
+    ld   [T0], ac
+    bne  vp_b
+    ld   ac, [W_PPTR]           ; end
+    bra  vp_sw
+vp_b:
+    ld   [W_PPTR], ac
+    inc
+    and  0x3F, ac
+    ld   ac, [W_PPTR]
+    ld   [T0], ac
+    blt  vp_set
+    ld   ac, [W_PCNT]
+    ld   [T1], ac
+    ld   ac, [W_PSPD]
+    bra  vp_sw
+vp_set:
+    ld   [T1], ac
+    ld   ac, [W_PW]
+vp_sw:
+    ld   [W_PCNT], ac
+    beq  vp_x
+    dec
+    ld   ac, [W_PCNT]
+    ld   [W_PW], ac
+    add  [W_PSPD], ac
+    ld   ac, [W_PW]
+vp_x:
+    GOTO vfx
+
+; ------------------------------------------------------------
+; vfx - slides and portamento (not on a row's first frame); T1:T0 = 4 x p
+; ------------------------------------------------------------
+.chunk
+vfx:
+    ld   [M_VIDX], ac
+    xor  4, ac
+    beq  vf_go
+    ld   [M_TICK], ac
+    beq  vf_no
+vf_go:
+    ld   [W_FX], ac
+    beq  vf_no
+    sub  4, ac
+    bcc  vf_no                  ; 1-3 only
+    ld   [W_FXP], ac
+    shl
+    shl
+    ld   ac, [T0]
+    ld   [W_FXP], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [T1]
+    ld   [W_FX], ac
+    xor  1, ac
+    beq  vf_up
+    ld   [W_FX], ac
+    xor  2, ac
+    beq  vf_dn
+    GOTO vf_po
+vf_no:
+    GOTO vib
+vf_up:
+    ld   [W_STL], ac
+    add  [T0], ac
+    ld   ac, [T2]
+    ld   [W_STH], ac
+    bcc  vu_1
+    inc
+    beq  vu_max
+vu_1:
+    add  [T1], ac
+    bcs  vu_max
+    ld   ac, [W_STH]
+    ld   [T2], ac
+    ld   ac, [W_STL]
+    GOTO vib
+vu_max:
+    ld   0xFF, ac
+    ld   ac, [W_STL]
+    ld   ac, [W_STH]
+    GOTO vib
+vf_dn:
+    ld   [W_STL], ac
+    sub  [T0], ac
+    ld   ac, [T2]
+    ld   [W_STH], ac
+    bcc  vd_1
+    sub  1, ac
+    bcs  vd_0
+vd_1:
+    sub  [T1], ac
+    bcs  vd_0
+    ld   ac, [W_STH]
+    ld   [T2], ac
+    ld   ac, [W_STL]
+    GOTO vib
+vd_0:
+    clr  ac
+    ld   ac, [W_STL]
+    ld   ac, [W_STH]
+    GOTO vib
+
+.chunk
+vf_po:
+    ld   [W_STH], ac            ; step < target: up
+    sub  [W_TGH], ac
+    bcs  po_up
+    bne  po_dn
+    ld   [W_STL], ac
+    sub  [W_TGL], ac
+    bcs  po_up
+    bra  po_dn
+po_up:
+    ld   [W_STL], ac
+    add  [T0], ac
+    ld   ac, [T2]
+    ld   [W_STH], ac
+    bcc  pu_1
+    inc
+    beq  po_tgt
+pu_1:
+    add  [T1], ac
+    bcs  po_tgt
+    ld   ac, [T7]
+    ld   [W_TGH], ac            ; past the target?
+    sub  [T7], ac
+    bcs  po_tgt
+    bne  po_set
+    ld   [W_TGL], ac
+    sub  [T2], ac
+    bcs  po_tgt
+po_set:
+    ld   [T7], ac
+    ld   ac, [W_STH]
+    ld   [T2], ac
+    ld   ac, [W_STL]
+    GOTO vib
+po_tgt:
+    ld   [W_TGL], ac
+    ld   ac, [W_STL]
+    ld   [W_TGH], ac
+    ld   ac, [W_STH]
+    GOTO vib
+po_dn:
+    ld   [W_STL], ac
+    sub  [T0], ac
+    ld   ac, [T2]
+    ld   [W_STH], ac
+    bcc  pd_1
+    sub  1, ac
+    bcs  po_tgt
+pd_1:
+    sub  [T1], ac
+    bcs  po_tgt
+    ld   ac, [T7]
+    sub  [W_TGH], ac            ; below the target?
+    bcs  po_tgt
+    bne  po_set
+    ld   [T2], ac
+    sub  [W_TGL], ac
+    bcs  po_tgt
+    bra  po_set
+
+; ------------------------------------------------------------
+; vib - vibrato: T0 = speed/depth, T1 = depth, T7:T2 = step high x depth
+; ------------------------------------------------------------
+.chunk
+vib:
+    ld   [W_FX], ac
+    xor  4, ac
+    bne  vb_i
+    ld   [W_FXP], ac
+    bra  vb_h
+vb_i:
+    ld   [W_VDLY], ac
+    beq  vb_j
+    dec
+    ld   ac, [W_VDLY]
+    clr  ac
+    bra  vb_h
+vb_j:
+    ld   [W_VIB], ac
+vb_h:
+    ld   ac, [T0]
+    and  0x0F, ac
+    beq  vb_off
+    ld   ac, [T1]
+    ld   [T0], ac
+    and  0xF0, ac
+    beq  vb_off
+    clr  ac
+    ld   ac, [T2]
+    ld   ac, [T7]
+vb_m:
+    ld   [T2], ac
+    add  [W_STH], ac
+    ld   ac, [T2]
+    bcc  vb_m1
+    ld   [T7], ac
+    inc
+    ld   ac, [T7]
+vb_m1:
+    ld   [T1], ac
+    dec
+    ld   ac, [T1]
+    bne  vb_m
+    ld   [T2], ac
+    shr  ac
+    shr  ac
+    ld   ac, [T2]
+    ld   [T7], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [T2], ac
+    ld   ac, [T2]
+    ld   [W_VDIR], ac
+    bne  vb_sub
+    ld   [W_VOFL], ac
+    add  [T2], ac
+    ld   ac, [W_VOFL]
+    ld   [W_VOFH], ac
+    bcc  vb_c
+    inc
+    ld   ac, [W_VOFH]
+    bra  vb_c
+vb_off:
+    clr  ac
+    ld   ac, [W_VOFL]
+    ld   ac, [W_VOFH]
+    GOTO varp
+vb_sub:
+    ld   [W_VOFL], ac
+    sub  [T2], ac
+    ld   ac, [W_VOFL]
+    ld   [W_VOFH], ac
+    bcc  vb_c
+    dec
+    ld   ac, [W_VOFH]
+vb_c:
+    ld   [W_VCNT], ac
+    inc
+    ld   ac, [W_VCNT]
+    ld   [T0], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [T1]
+    ld   [W_VHALF], ac
+    beq  vb_l
+    ld   [T1], ac
+    shr  ac
+    ld   ac, [T1]
+vb_l:
+    ld   [T1], ac
+    bne  vb_l2
+    ld   1, ac
+    ld   ac, [T1]
+vb_l2:
+    ld   [W_VCNT], ac
+    sub  [T1], ac
+    bcs  vb_x
+    clr  ac
+    ld   ac, [W_VCNT]
+    ld   ac, [W_VHALF]
+    ld   [W_VDIR], ac
+    xor  1, ac
+    ld   ac, [W_VDIR]
+vb_x:
+    GOTO varp
+
+; ------------------------------------------------------------
+; varp - arpeggio offset (M_T0); then the envelope
+; ------------------------------------------------------------
+.chunk
+varp:
+    clr  ac
+    ld   ac, [M_T0]
+    ld   [W_FX], ac
+    bne  va_x
+    ld   [W_FXP], ac
+    beq  va_x
+    ld   [W_ARPI], ac
+    beq  va_n
+    xor  1, ac
+    bne  va_2
+    ld   [W_FXP], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [M_T0]
+    bra  va_n
+va_2:
+    ld   [W_FXP], ac
+    and  15, ac
+    ld   ac, [M_T0]
+va_n:
+    ld   [W_ARPI], ac
+    xor  2, ac
+    beq  va_z
+    ld   [W_ARPI], ac
+    inc
+va_z:
+    ld   ac, [W_ARPI]
+va_x:
+    ld   [W_EST], ac
+    bne  ve_1
+    GOTO ve_att
+ve_1:
+    xor  1, ac
+    bne  ve_3
+    GOTO ve_dec
+ve_3:
+    ld   [W_EST], ac
+    xor  3, ac
+    bne  ve_x
+    GOTO ve_rel
+ve_x:
+    GOTO vslot
+
+.chunk
+ve_att:
+    ld   [W_AD], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [T0]
+    ld   MUS_TAB >> 8, y
+    add  0xD0, x
+    ld   [y,x], ac
+    ld   ac, [T1]               ; rate high
+    ld   [T0], ac
+    add  0xC0, x
+    ld   [y,x], ac
+    add  [W_ENL], ac
+    ld   ac, [T2]
+    ld   [T1], ac
+    bcc  va_a
+    inc
+    beq  va_full
+va_a:
+    add  [W_ENH], ac
+    bcs  va_full
+    ld   ac, [T1]
+    xor  0xFF, ac
+    beq  va_full
+    ld   [T1], ac
+    ld   ac, [W_ENH]
+    ld   [T2], ac
+    ld   ac, [W_ENL]
+    GOTO vslot
+va_full:
+    ld   0xFF, ac
+    ld   ac, [W_ENH]
+    clr  ac
+    ld   ac, [W_ENL]
+    ld   1, ac
+    ld   ac, [W_EST]
+    GOTO vslot
+
+.chunk
+ve_dec:
+    ld   [W_SR], ac             ; M_T1 = sustain x 17
+    and  0xF0, ac
+    ld   ac, [M_T1]
+    ld   [W_SR], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    or   [M_T1], ac
+    ld   ac, [M_T1]
+    ld   [W_AD], ac
+    and  15, ac
+    ld   ac, [T0]
+    ld   MUS_TAB >> 8, y
+    add  0xF0, x
+    ld   [y,x], ac
+    ld   ac, [T1]
+    ld   [T0], ac
+    add  0xE0, x
+    ld   [y,x], ac
+    ld   ac, [T2]
+    ld   [W_ENL], ac
+    sub  [T2], ac
+    ld   ac, [T2]
+    ld   [W_ENH], ac
+    bcc  vd_b
+    sub  1, ac
+    bcs  vd_tgt
+vd_b:
+    sub  [T1], ac
+    bcs  vd_tgt
+    ld   ac, [T1]
+    sub  [M_T1], ac
+    bcs  vd_tgt
+    bne  vd_set
+    ld   [T2], ac
+    beq  vd_tgt
+vd_set:
+    ld   [T1], ac
+    ld   ac, [W_ENH]
+    ld   [T2], ac
+    ld   ac, [W_ENL]
+    GOTO vslot
+vd_tgt:
+    ld   [M_T1], ac
+    ld   ac, [W_ENH]
+    clr  ac
+    ld   ac, [W_ENL]
+    ld   2, ac
+    ld   ac, [W_EST]
+    GOTO vslot
+
+.chunk
+ve_rel:
+    ld   [W_SR], ac
+    and  15, ac
+    ld   ac, [T0]
+    ld   MUS_TAB >> 8, y
+    add  0xF0, x
+    ld   [y,x], ac
+    ld   ac, [T1]
+    ld   [T0], ac
+    add  0xE0, x
+    ld   [y,x], ac
+    ld   ac, [T2]
+    ld   [W_ENL], ac
+    sub  [T2], ac
+    ld   ac, [T2]
+    ld   [W_ENH], ac
+    bcc  vr_b
+    sub  1, ac
+    bcs  vr_0
+vr_b:
+    sub  [T1], ac
+    bcs  vr_0
+    ld   ac, [W_ENH]
+    ld   [T2], ac
+    ld   ac, [W_ENL]
+    GOTO vslot
+vr_0:
+    clr  ac
+    ld   ac, [W_ENH]
+    ld   ac, [W_ENL]
+    GOTO vslot
+
+; ------------------------------------------------------------
+; vslot - which mixer slot hears this voice (M_SLOT, FF none) and its wave
+; page (W_WPG): pulse and custom pages are rebuilt here, noise picks a
+; random page and phase
+; ------------------------------------------------------------
+.chunk
+vslot:
+    ld   [M_VIDX], ac
+    xor  4, ac
+    beq  vs_3
+    ld   [M_VIDX], ac
+    xor  3, ac
+    bne  vs_v
+    ld   [M_SFXN], ac
+    beq  vs_v
+    ld   0xFF, ac
+    ld   ac, [M_SLOT]
+    GOTO vpit
+vs_3:
+    ld   3, ac
+    bra  vs_s
+vs_v:
+    ld   [M_VIDX], ac
+vs_s:
+    ld   ac, [M_SLOT]
+    ld   [W_WAVE], ac
+    xor  1, ac
+    bne  vs_n1
+    GOTO vs_pulse
+vs_n1:
+    ld   [W_WAVE], ac
+    xor  2, ac
+    bne  vs_n2
+    ld   MUS_SAW >> 8, ac
+    bra  vs_wp
+vs_n2:
+    ld   [W_WAVE], ac
+    xor  3, ac
+    bne  vs_n3
+    ld   MUS_TRI >> 8, ac
+    bra  vs_wp
+vs_n3:
+    ld   [W_WAVE], ac
+    xor  4, ac
+    bne  vs_n4
+    ld   [M_RNG], ac            ; noise: a random page and phase
+    shl
+    bcc  vs_r1
+    xor  0x1D, ac
+vs_r1:
+    ld   ac, [M_RNG]
+    and  1, ac
+    add  MUS_NOISE >> 8, ac
+    ld   ac, [W_WPG]
+    ld   [M_RNG], ac
+    shl
+    bcc  vs_r2
+    xor  0x1D, ac
+vs_r2:
+    ld   ac, [M_RNG]
+    ld   [M_SLOT], ac
+    shl
+    add  P0H, x
+    ld   [M_RNG], ac
+    ld   ac, [x]
+    GOTO vpit
+vs_n4:
+    ld   [W_WAVE], ac
+    sub  5, ac
+    bcs  vs_off
+    GOTO vs_cust
+vs_off:
+    ld   MUS_SAW >> 8, ac
+vs_wp:
+    ld   ac, [W_WPG]
+    GOTO vpit
+
+; pulse: the voice's own page, [0, width) = 63, [width, 256) = 0
+.chunk
+vs_pulse:
+    ld   [M_VIDX], ac
+    add  MUS_PG >> 8, ac
+    ld   ac, [W_WPG]
+    ld   ac, y
+    ld   [W_PAGEK], ac
+    xor  1, ac
+    beq  pl_inc
+    clr  ac                     ; the whole page
+    ld   ac, [T1]
+    ld   [W_PW], ac
+    ld   ac, [T2]
+pl_f1:
+    ld   [T1], ac
+    xor  [T2], ac
+    beq  pl_f2
+    ld   [T1], x
+    ld   63, [y,x]
+    ld   [T1], ac
+    inc
+    ld   ac, [T1]
+    bra  pl_f1
+pl_f2:
+    ld   [T1], x
+    ld   0, [y,x]
+    ld   [T1], ac
+    inc
+    ld   ac, [T1]
+    bne  pl_f2
+    bra  pl_done
+pl_inc:
+    ld   [W_PW], ac
+    sub  [W_PAGEW], ac
+    beq  pl_done
+    bcs  pl_down
+    ld   [W_PAGEW], ac          ; wider: [old, new) = 63
+    ld   ac, [T1]
+    ld   [W_PW], ac
+    ld   ac, [T2]
+pl_u:
+    ld   [T1], x
+    ld   63, [y,x]
+    ld   [T1], ac
+    inc
+    ld   ac, [T1]
+    xor  [T2], ac
+    bne  pl_u
+    bra  pl_done
+pl_down:
+    ld   [W_PW], ac             ; narrower: [new, old) = 0
+    ld   ac, [T1]
+    ld   [W_PAGEW], ac
+    ld   ac, [T2]
+pl_d:
+    ld   [T1], x
+    ld   0, [y,x]
+    ld   [T1], ac
+    inc
+    ld   ac, [T1]
+    xor  [T2], ac
+    bne  pl_d
+pl_done:
+    ld   1, ac
+    ld   ac, [W_PAGEK]
+    ld   [W_PW], ac
+    ld   ac, [W_PAGEW]
+    GOTO vpit
+
+; custom wave k = WAVE - 5: 32 values, each 8 times
+.chunk
+vs_cust:
+    ld   [M_VIDX], ac
+    add  MUS_PG >> 8, ac
+    ld   ac, [W_WPG]
+    ld   [W_PAGEK], ac
+    xor  [W_WAVE], ac
+    bne  cw_go
+    GOTO vpit
+cw_go:
+    ld   [W_WAVE], ac
+    sub  5, ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [T1]               ; k x 32
+    clr  ac
+    ld   ac, [T2]               ; i
+cw_lp:
+    ld   [T2], ac
+    add  [T1], x
+    ld   [M_SONG], ac
+    add  4, y
+    ld   [y,x], ac
+    and  63, ac
+    ld   ac, [T0]
+    ld   [W_WPG], y
+    ld   [T2], ac
+    shl
+    shl
+    shl
+    ld   ac, [T6]
+    ld   [T0], ac
+    ld   [T6], x
+    ld   ac, [y,x]
+    ld   [T6], ac
+    add  1, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [T6], ac
+    add  2, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [T6], ac
+    add  3, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [T6], ac
+    add  4, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [T6], ac
+    add  5, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [T6], ac
+    add  6, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [T6], ac
+    add  7, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [T2], ac
+    inc
+    ld   ac, [T2]
+    xor  32, ac
+    bne  cw_lp
+    ld   [W_WAVE], ac
+    ld   ac, [W_PAGEK]
+    GOTO vpit
+
+; ------------------------------------------------------------
+; vpit - the step (T7:T6) and level (M_T1) for the mixer
+; ------------------------------------------------------------
+.chunk
+vpit:
+    ld   [W_WNOTE], ac
+    blt  vq_abs
+    ld   [W_NOTE], ac
+    add  [M_T0], ac
+    ld   ac, [T0]
+    ld   [W_WNOTE], ac
+    and  0x40, ac
+    bne  vq_neg
+    ld   [W_WNOTE], ac
+    add  [T0], ac
+    ld   ac, [T0]
+    bra  vq_cl
+vq_neg:
+    ld   [W_WNOTE], ac
+    or   0x80, ac
+    add  [T0], ac
+    bcs  vq_n1
+    clr  ac
+vq_n1:
+    ld   ac, [T0]
+    bra  vq_cl
+vq_abs:
+    and  0x7F, ac
+    ld   ac, [T0]
+vq_cl:
+    ld   [T0], ac
+    sub  96, ac
+    bcs  vq_ok
+    ld   95, ac
+    ld   ac, [T0]
+vq_ok:
+    ld   [W_WNOTE], ac
+    or   [M_T0], ac
+    beq  vq_step
+    ld   [T0], x
+    ld   MUS_TAB >> 8, y
+    ld   [y,x], ac
+    ld   ac, [T6]
+    ld   [T0], ac
+    add  96, x
+    ld   [y,x], ac
+    ld   ac, [T7]
+    bra  vq_noise
+vq_step:
+    ld   [W_STL], ac
+    add  [W_VOFL], ac
+    ld   ac, [T6]
+    ld   [W_STH], ac
+    bcc  vq_s1
+    inc
+vq_s1:
+    add  [W_VOFH], ac
+    ld   ac, [T7]
+vq_noise:
+    ld   [W_WAVE], ac
+    xor  4, ac
+    bne  vq_lv
+    ld   [T6], ac               ; noise: step / 16
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [T6]
+    ld   [T7], ac
+    shl
+    shl
+    shl
+    shl
+    or   [T6], ac
+    ld   ac, [T6]
+    ld   [T7], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [T7]
+vq_lv:
+    ld   [W_ENH], ac
+    and  0xF0, ac
+    or   [W_VOL], ac
+    ld   ac, x
+    ld   MUS_VMUL >> 8, y
+    ld   [y,x], ac
+    shl
+    shl
+    shl
+    shl
+    or   [M_MASTER], ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [M_T1]
+    ld   [W_WAVE], ac
+    bne  vq_x
+    ld   ac, [M_T1]
+vq_x:
+    GOTO vsmc
+
+; ------------------------------------------------------------
+; vsmc - write the slot's step, wave page and volume into the mixer
+; ------------------------------------------------------------
+.chunk
+vsmc:
+    ld   [M_SLOT], ac
+    blt  vz_x
+    ld   [M_T1], ac             ; T0 = (L & 3) x 64, T1 = VOLT page + L / 4
+    and  3, ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [T0]
+    ld   [M_T1], ac
+    shr  ac
+    shr  ac
+    add  MUS_VOLT >> 8, ac
+    ld   ac, [T1]
+    ld   [M_SLOT], ac
+    beq  vz_0
+    xor  1, ac
+    beq  vz_1
+    ld   [M_SLOT], ac
+    xor  2, ac
+    beq  vz_2
+    GOTO vz_3
+vz_x:
+    GOTO mt_out
+vz_0:
+    ld   (mv0_sl + 1) >> 8, y
+    ld   (mv0_sl + 1) & 0xFF, x
+    ld   [T6], ac
+    ld   ac, [y,x]
+    ld   (mv0_sh + 1) & 0xFF, x
+    ld   [T7], ac
+    ld   ac, [y,x]
+    ld   (mv0_wp + 1) & 0xFF, x
+    ld   [W_WPG], ac
+    ld   ac, [y,x]
+    ld   (mv0_vo + 1) & 0xFF, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   (mv0_vp + 1) & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    GOTO mt_out
+vz_1:
+    ld   (mv1_sl + 1) >> 8, y
+    ld   (mv1_sl + 1) & 0xFF, x
+    ld   [T6], ac
+    ld   ac, [y,x]
+    ld   (mv1_sh + 1) & 0xFF, x
+    ld   [T7], ac
+    ld   ac, [y,x]
+    ld   (mv1_wp + 1) & 0xFF, x
+    ld   [W_WPG], ac
+    ld   ac, [y,x]
+    ld   (mv1_vo + 1) & 0xFF, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   (mv1_vp + 1) & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    GOTO mt_out
+vz_2:
+    ld   (mv2_sl + 1) >> 8, y
+    ld   (mv2_sl + 1) & 0xFF, x
+    ld   [T6], ac
+    ld   ac, [y,x]
+    ld   (mv2_sh + 1) & 0xFF, x
+    ld   [T7], ac
+    ld   ac, [y,x]
+    ld   (mv2_wp + 1) & 0xFF, x
+    ld   [W_WPG], ac
+    ld   ac, [y,x]
+    ld   (mv2_vo + 1) & 0xFF, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   (mv2_vp + 1) & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    GOTO mt_out
+.chunk
+vz_3:
+    ld   (mv3_sl + 1) >> 8, y
+    ld   (mv3_sl + 1) & 0xFF, x
+    ld   [T6], ac
+    ld   ac, [y,x]
+    ld   (mv3_sh + 1) & 0xFF, x
+    ld   [T7], ac
+    ld   ac, [y,x]
+    ld   (mv3_wp + 1) & 0xFF, x
+    ld   [W_WPG], ac
+    ld   ac, [y,x]
+    ld   (mv3_vo + 1) & 0xFF, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   (mv3_vp + 1) & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    GOTO mt_out
+
+; ------------------------------------------------------------
+; mus_init - start the player: R1 = the song's page; all voices quiet
+;   changes: AC, X, Y, T0-T7
+; ------------------------------------------------------------
+.chunk
+mus_init:
+    ld   [R1], ac
+    ld   ac, [M_SONG]
+    ld   0x80, ac
+    ld   ac, [M_PLAY]
+    clr  ac
+    ld   ac, [M_SFXN]
+    ld   ac, [M_TICK]
+    ld   15, ac
+    ld   ac, [M_MASTER]
+    ld   1, ac
+    ld   ac, [M_RNG]
+    ld   6, ac
+    ld   ac, [M_SPEED]
+    ld   0x5D, y                ; the buffer: silence
+    ld   0xF3, ac
+mi_a:
+    ld   ac, x
+    ld   0x80, [y,x]
+    inc
+    bne  mi_a
+    ld   0x5E, y
+mi_b:
+    ld   ac, x
+    ld   0x80, [y,x]
+    inc
+    bne  mi_b
+    ld   0x5F, y
+mi_c:
+    ld   ac, x
+    ld   0x80, [y,x]
+    inc
+    bne  mi_c
+    ld   0x50, y
+    ld   [y,x], ac
+    ld   ac, [M_RPTR]
+    ld   ac, [M_REND]
+    clr  ac
+    ld   ac, [M_AHEAD]
+    ld   ac, [M_VIDX]
+mi_v:
+    GOTO mus_dflt               ; W = a quiet voice
+mi_v2:
+    GOTO mus_wout
+mi_v3:
+    ld   [M_VIDX], ac
+    inc
+    ld   ac, [M_VIDX]
+    xor  5, ac
+    bne  mi_v
+    clr  ac
+    ld   ac, [M_VIDX]
+mi_s:
+    GOTO mus_slot0              ; slot M_VIDX: step 0, SAW, level 0, phase 0
+mi_s2:
+    ld   [M_VIDX], ac
+    inc
+    ld   ac, [M_VIDX]
+    xor  4, ac
+    bne  mi_s
+    GOTO mf_fill                ; the first fill: silence, 131 groups ahead
+
+; W = the quiet voice (mus_tool.Voice), then back by M_PLAY bit 0..: the
+; callers are mus_init (mi_v2) and mus_play (mp_v2), told apart by M_T1
+.chunk
+mus_dflt:
+    ld   0x00, ac
+    ld   ac, [W_OLL]
+    ld   0x00, ac
+    ld   ac, [W_OLH]
+    ld   0x00, ac
+    ld   ac, [W_OSL]
+    ld   0x00, ac
+    ld   ac, [W_OSH]
+    ld   0x00, ac
+    ld   ac, [W_PPL]
+    ld   0x00, ac
+    ld   ac, [W_PPH]
+    ld   0x00, ac
+    ld   ac, [W_TRANS]
+    ld   0x00, ac
+    ld   ac, [W_EMPTY]
+    ld   0x00, ac
+    ld   ac, [W_NOTE]
+    ld   0x00, ac
+    ld   ac, [W_INS]
+    ld   0x00, ac
+    ld   ac, [W_STL]
+    ld   0x00, ac
+    ld   ac, [W_STH]
+    ld   0x00, ac
+    ld   ac, [W_FX]
+    ld   0x00, ac
+    ld   ac, [W_FXP]
+    ld   0x00, ac
+    ld   ac, [W_ENL]
+    ld   0x00, ac
+    ld   ac, [W_ENH]
+    ld   0x03, ac
+    ld   ac, [W_EST]
+    ld   0x00, ac
+    ld   ac, [W_AD]
+    ld   0x00, ac
+    ld   ac, [W_SR]
+    ld   0x00, ac
+    ld   ac, [W_WPTR]
+    ld   0x00, ac
+    ld   ac, [W_WNOTE]
+    ld   0x00, ac
+    ld   ac, [W_PPTR]
+    ld   0x00, ac
+    ld   ac, [W_PCNT]
+    ld   0x00, ac
+    ld   ac, [W_PSPD]
+    ld   0x80, ac
+    ld   ac, [W_PW]
+    ld   0x00, ac
+    ld   ac, [W_WAVE]
+    ld   0xFF, ac
+    ld   ac, [W_PAGEK]
+    ld   0x00, ac
+    ld   ac, [W_PAGEW]
+    ld   0x00, ac
+    ld   ac, [W_VIB]
+    ld   0x00, ac
+    ld   ac, [W_VDLY]
+    ld   0x00, ac
+    ld   ac, [W_VCNT]
+    ld   0x00, ac
+    ld   ac, [W_VDIR]
+    ld   0x01, ac
+    ld   ac, [W_VHALF]
+    ld   0x00, ac
+    ld   ac, [W_VOFL]
+    ld   0x00, ac
+    ld   ac, [W_VOFH]
+    ld   0x00, ac
+    ld   ac, [W_TGL]
+    ld   0x00, ac
+    ld   ac, [W_TGH]
+    ld   0x0F, ac
+    ld   ac, [W_VOL]
+    ld   0x00, ac
+    ld   ac, [W_ARPI]
+    ld   0x00, ac
+    ld   ac, [W_FLAGS]
+    ld   0x01, ac
+    ld   ac, [W_STOP]
+    ld   0x00, ac
+    ld   ac, [W_RET]
+    ld   [M_T1], ac
+    bne  md_p
+    GOTO mi_v2
+md_p:
+    GOTO mp_v2
+
+; copy W out to the page in Y, back to mi_v3 or mp_v3 (M_T1)
+.chunk
+mus_wout:
+    ld   [M_VIDX], ac
+    add  MUS_VS >> 8, y
+    ld   0x76, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x77, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x78, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x79, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7A, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7B, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7C, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7D, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7E, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7F, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x80, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x81, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x82, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x83, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x84, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x85, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x86, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x87, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x88, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x89, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8A, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8B, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    GOTO mus_wout2
+.chunk
+mus_wout2:
+    ld   [M_VIDX], ac
+    add  MUS_VS >> 8, y
+    ld   0x8C, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8D, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8E, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8F, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x90, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x91, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x92, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x93, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x94, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x95, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x96, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x97, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x98, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x99, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9A, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9B, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9C, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9D, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9E, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9F, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   [M_T1], ac
+    bne  mw_p
+    GOTO mi_v3
+mw_p:
+    GOTO mp_v3
+
+; mixer slot M_VIDX: step 0, wave page SAW, level 0, phase 0
+.chunk
+mus_slot0:
+    ld   0, ac
+    ld   ac, [T6]
+    ld   ac, [T7]
+    ld   ac, [T0]
+    ld   MUS_SAW >> 8, ac
+    ld   ac, [W_WPG]
+    ld   MUS_VOLT >> 8, ac
+    ld   ac, [T1]
+    ld   [M_VIDX], ac
+    shl
+    add  P0L, x
+    ld   0, ac
+    ld   ac, [x]
+    ld   [M_VIDX], ac
+    shl
+    add  P0H, x
+    ld   0, ac
+    ld   ac, [x]
+    ld   [M_VIDX], ac
+    beq  ms_0
+    xor  1, ac
+    beq  ms_1
+    ld   [M_VIDX], ac
+    xor  2, ac
+    beq  ms_2
+    GOTO ms_3
+ms_0:
+    ld   (mv0_sl + 1) >> 8, y
+    ld   (mv0_sl + 1) & 0xFF, x
+    ld   [T6], ac
+    ld   ac, [y,x]
+    ld   (mv0_sh + 1) & 0xFF, x
+    ld   [T7], ac
+    ld   ac, [y,x]
+    ld   (mv0_wp + 1) & 0xFF, x
+    ld   [W_WPG], ac
+    ld   ac, [y,x]
+    ld   (mv0_vo + 1) & 0xFF, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   (mv0_vp + 1) & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    GOTO ms_back
+ms_1:
+    ld   (mv1_sl + 1) >> 8, y
+    ld   (mv1_sl + 1) & 0xFF, x
+    ld   [T6], ac
+    ld   ac, [y,x]
+    ld   (mv1_sh + 1) & 0xFF, x
+    ld   [T7], ac
+    ld   ac, [y,x]
+    ld   (mv1_wp + 1) & 0xFF, x
+    ld   [W_WPG], ac
+    ld   ac, [y,x]
+    ld   (mv1_vo + 1) & 0xFF, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   (mv1_vp + 1) & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    GOTO ms_back
+ms_2:
+    ld   (mv2_sl + 1) >> 8, y
+    ld   (mv2_sl + 1) & 0xFF, x
+    ld   [T6], ac
+    ld   ac, [y,x]
+    ld   (mv2_sh + 1) & 0xFF, x
+    ld   [T7], ac
+    ld   ac, [y,x]
+    ld   (mv2_wp + 1) & 0xFF, x
+    ld   [W_WPG], ac
+    ld   ac, [y,x]
+    ld   (mv2_vo + 1) & 0xFF, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   (mv2_vp + 1) & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    GOTO ms_back
+.chunk
+ms_3:
+    ld   (mv3_sl + 1) >> 8, y
+    ld   (mv3_sl + 1) & 0xFF, x
+    ld   [T6], ac
+    ld   ac, [y,x]
+    ld   (mv3_sh + 1) & 0xFF, x
+    ld   [T7], ac
+    ld   ac, [y,x]
+    ld   (mv3_wp + 1) & 0xFF, x
+    ld   [W_WPG], ac
+    ld   ac, [y,x]
+    ld   (mv3_vo + 1) & 0xFF, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   (mv3_vp + 1) & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    GOTO ms_back
+
+.chunk
+ms_back:
+    ld   [M_T1], ac
+    bne  mb_p
+    GOTO mi_s2
+mb_p:
+    GOTO mp_s2
+
+; ------------------------------------------------------------
+; mus_play - start subtune AC from its beginning
+;   changes: AC, X, Y, T0-T7
+; ------------------------------------------------------------
+.chunk
+mus_play:
+    ld   ac, [M_T0]               ; M_T0 = 40h + 9 x subtune
+    shl
+    shl
+    shl
+    add  [M_T0], ac
+    add  0x40, ac
+    ld   ac, [M_T0]
+    ld   [M_SONG], y
+    ld   [M_T0], x
+    ld   [y,x], ac
+    bne  mp_sp
+    ld   6, ac
+mp_sp:
+    ld   ac, [M_SPEED]
+    clr  ac
+    ld   ac, [M_TICK]
+    ld   ac, [M_VIDX]
+    ld   15, ac
+    ld   ac, [M_MASTER]
+    ld   1, ac
+    ld   ac, [M_T1]             ; the callers' tell: mus_play
+mp_v:
+    GOTO mus_dflt
+mp_v2:
+    ld   [M_VIDX], ac           ; the orderlist: song + offset
+    shl
+    add  [M_T0], ac
+    add  1, x
+    ld   [M_SONG], y
+    ld   [y,x], ac
+    ld   ac, [W_OLL]
+    ld   ac, [W_OSL]
+    ld   [M_VIDX], ac
+    shl
+    add  [M_T0], ac
+    add  2, x
+    ld   [y,x], ac
+    add  [M_SONG], ac
+    ld   ac, [W_OLH]
+    ld   ac, [W_OSH]
+    clr  ac
+    ld   ac, [W_STOP]
+    GOTO mus_wout
+mp_v3:
+    GOTO mus_slot0
+mp_s2:
+    ld   [M_VIDX], ac
+    inc
+    ld   ac, [M_VIDX]
+    xor  4, ac
+    bne  mp_v
+    clr  ac
+    ld   ac, [M_T1]
+    ld   0x81, ac
+    ld   ac, [M_PLAY]
+    RET
+
+; ------------------------------------------------------------
+; mus_stop - no more rows; voices 0-3 release
+;   changes: AC, X, Y
+; ------------------------------------------------------------
+.chunk
+mus_stop:
+    ld   0x80, ac
+    ld   ac, [M_PLAY]
+    ld   W_EST, x
+    ld   MUS_VS >> 8, y
+    ld   3, [y,x]
+    ld   (MUS_VS >> 8) + 1, y
+    ld   3, [y,x]
+    ld   (MUS_VS >> 8) + 2, y
+    ld   3, [y,x]
+    ld   (MUS_VS >> 8) + 3, y
+    ld   3, [y,x]
+    RET
+
+; ------------------------------------------------------------
+; mus_sfx - AC = note 0-95, R0 = instrument, R1 = frames: a sound effect
+; on voice 4, heard in voice 3's place (mixer slot 3) for R1 frames
+;   changes: AC, X, Y, T0-T7
+; ------------------------------------------------------------
+.chunk
+mus_sfx:
+    ld   ac, [T7]
+    sub  96, ac
+    bcs  sx_a
+    ld   95, ac
+    ld   ac, [T7]
+sx_a:
+    ld   [R1], ac
+    ld   ac, [M_SFXN]
+    GOTO sfx_in
+.chunk
+sfx_in:
+    ld   (MUS_VS >> 8) + 4, y
+    ld   0x76, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x77, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x78, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x79, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x7A, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x7B, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x7C, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x7D, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x7E, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x7F, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x80, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x81, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x82, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x83, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x84, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x85, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x86, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x87, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x88, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x89, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x8A, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x8B, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    GOTO sfx_in2
+.chunk
+sfx_in2:
+    ld   (MUS_VS >> 8) + 4, y
+    ld   0x8C, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x8D, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x8E, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x8F, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x90, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x91, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x92, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x93, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x94, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x95, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x96, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x97, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x98, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x99, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x9A, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x9B, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x9C, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x9D, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x9E, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   0x9F, x
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   [R0], ac
+    ld   ac, [W_INS]
+    ld   1, ac
+    ld   ac, [W_RET]
+    GOTO trig
+sfx_back:
+    GOTO sfx_out
+.chunk
+sfx_out:
+    ld   (MUS_VS >> 8) + 4, y
+    ld   0x76, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x77, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x78, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x79, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7A, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7B, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7C, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7D, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7E, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x7F, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x80, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x81, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x82, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x83, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x84, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x85, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x86, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x87, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x88, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x89, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8A, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8B, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    GOTO sfx_out2
+.chunk
+sfx_out2:
+    ld   (MUS_VS >> 8) + 4, y
+    ld   0x8C, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8D, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8E, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x8F, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x90, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x91, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x92, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x93, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x94, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x95, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x96, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x97, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x98, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x99, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9A, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9B, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9C, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9D, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9E, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    ld   0x9F, x
+    ld   [x], ac
+    ld   ac, [y,x]
+    RET
+

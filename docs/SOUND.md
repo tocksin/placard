@@ -1,6 +1,6 @@
 # Sound
 
-Date: 2026-10-23
+Date: 2026-11-01
 
 The video circuit plays sound by itself.  On every scan line it reads one
 8-bit sample from RAM, the same way it reads pixels, and a register feeds that
@@ -292,7 +292,13 @@ behind the player: it waits for the line read to change (so it knows the
 line exactly, to 4 lines) and writes every sample from where it stopped
 last time up to the line now playing.  Sounds start within a frame.  When
 the sound is over and the buffer has been all 80h for two laps, it returns
-at once.
+at once.  The line read only says where the player is within its lap, so
+the driver also counts the frames between calls (`FRAME_LO`, which
+`frame_poll`, `wait_frames` and BASIC keep): a call a whole frame after
+the last one, with the player a line or two past where it was, writes a
+lap and the little more, not just the little more (a 2026-11-01 fix:
+BASIC's `SOUND`, which calls once a frame at the same line, stalled with
+a few samples a frame and never finished the note).
 
 **Measured CPU time** (`test_snd.py`, about 380,000 usable clocks per frame):
 
@@ -306,6 +312,12 @@ at once.
 Plus up to 3,200 clocks waiting for the line read to change.  The driver
 uses zero page x90-x9E and T0-T3.  `test_snd.py` checks the buffer against
 a Python model of every sound, sample for sample.
+
+### The music player
+
+For music, `src/scripts/placard_mus.masm` is a four-voice SID-style player
+(patterns, instruments, envelopes, effects, a fifth voice for sound effects)
+that a program includes instead of the driver: [MUSIC.md](MUSIC.md).
 
 ### By hand
 
