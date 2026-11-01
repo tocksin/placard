@@ -133,6 +133,8 @@ if __name__=='__main__':
     a=sys.argv
     import os
     WT='protect' if os.environ.get('PROTECT') else 'route'
+    PN=set(os.environ['PROTNETS'].split(',')) if os.environ.get('PROTNETS') else None   # PROTNETS=GND,+5V,CLK_E: only these nets' wiring is protected, the rest is (type route) for Freerouting to rip up and optimise
+    WS=(lambda n,bb: 'protect' if n in PN else 'route') if PN else None
     TAB=float(os.environ['TAB']) if os.environ.get('TAB') else None   # cartridge finger-tab keepout (TAB=137); never for the main board
     if a[3]=='dirs':
         r=write(a[1],a[2],tab_y=TAB,power={'GND':0.5,'+5V':0.5},planes={'GND':'In1.Cu','+5V':'In2.Cu'},
@@ -143,5 +145,5 @@ if __name__=='__main__':
         r=write(a[1],a[2],tab_y=TAB,power={'GND':0.5,'+5V':0.5},planes={'GND':'In1.Cu'},in2sig=True,
                 pinsel={'+5V':['J1-A2','J1-B2','U1-24']},wtype='protect'); print(len(r)); sys.exit()
     w,cl,vd,vh,pw=map(float,a[3:8])
-    r=write(a[1],a[2],tab_y=TAB,width=w,clr=cl,via=(vd,vh),power={'GND':pw,'+5V':pw}, skip=a[8].split(',') if len(a)>8 and a[8] else (), planes={'GND':'In1.Cu','+5V':'In2.Cu'} if len(a)>9 else None, wtype=WT)
+    r=write(a[1],a[2],tab_y=TAB,width=w,clr=cl,via=(vd,vh),power={'GND':pw,'+5V':pw}, skip=a[8].split(',') if len(a)>8 and a[8] else (), planes={'GND':'In1.Cu','+5V':'In2.Cu'} if len(a)>9 else None, wtype=WT, wsel=WS)
     print(len(r),'nets')
