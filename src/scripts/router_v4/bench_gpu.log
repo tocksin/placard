@@ -1,0 +1,358 @@
+grid 2352 1744
+rasterised 5662 items 7.1 s
+open nets 108 ['DATABUS4', 'DATABUS0', 'ADDR14', 'ADDR2', 'ADDR1', 'ADDR12', 'ADDR0', 'RUN', 'ADDR4', 'ADDR11', 'DATABUS2', 'DATABUS7', 'ADDR7', 'ADDR10', 'ADDR9', 'ADDR6', 'DATABUS6', 'DATABUS5', 'DATABUS1', 'ADDR8', 'ADDR5', 'DATABUS3', 'STALL_IN', 'ADDR13', 'STALL_OUT', 'ADDR15', 'ADDR3', 'RW', '~{LOAD_IMM}', '~{LOAD_X}', '~{LOAD_Y}', '~{LOAD_AC}', '~{PIX_LD}', 'Z_LOW', 'LOAD_PC_LOW', 'Z_HIGH', 'COUT', '~{SRC_EN}', 'LOAD_PC_HIGH', 'PC3', 'PC5', 'PC6', 'PC7', 'PC1', 'Net-(U3-CO)', 'PC2', 'PC4', 'PC0', 'Y5', 'Y6', 'PC14', 'Y1', 'PC12', 'PC8', 'PC13', 'PC11', 'PC10', 'Y7', 'PC9', 'Y0', 'Y3', 'Y4', 'PC15', 'Y2', 'D1', 'V2', 'X3', 'VA0', 'D2', 'V3', 'X1', 'X0', 'X2', 'D3', 'D0', 'VA1', 'D7', 'V6', 'X5', 'V5', 'D6', 'D5', 'D4', 'X6', 'VA7', 'V4', 'X7', 'X4', 'H5', 'VA8', 'H3', 'H4', 'H8', 'H7', 'H9', 'H6', '/Memory and I/O decode/RAMSEL6', '/Memory and I/O decode/RAMSEL4', '/Memory and I/O decode/RAMSEL2', '/Memory and I/O decode/RAMSEL5', '/Memory and I/O decode/RAMSEL3', '/Memory and I/O decode/RAMSEL0', '/Memory and I/O decode/RAMSEL1', 'Net-(U11-{slash}RAM_OE)', 'Net-(U12-{slash}MAP_WR)', '~{LINE_RD}', 'I1', '~{AC_SEL}'] 56 s
+C:\Users\tocks\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\cupy\_environment.py:286: UserWarning: CUDA path could not be detected. Set CUDA_PATH environment variable if CuPy fails to load.
+  warnings.warn(
+GPU: NVIDIA GeForce RTX 4070 Laptop GPU
+backend gpu
+iter 0 overlap cells 49446 conflicted 97 fails [] 28 s (total 85 s)
+iter 1 overlap cells 51922 conflicted 95 fails [] 56 s (total 141 s)
+iter 2 overlap cells 55614 conflicted 95 fails [] 1147 s (total 1288 s)
+iter 3 overlap cells 51079 conflicted 94 fails [] 29 s (total 1317 s)
+iter 4 overlap cells 52051 conflicted 94 fails [] 10 s (total 1327 s)
+iter 5 overlap cells 55806 conflicted 86 fails [] 9 s (total 1337 s)
+iter 6 overlap cells 50706 conflicted 81 fails [] 9 s (total 1346 s)
+iter 7 overlap cells 48197 conflicted 79 fails [] 9 s (total 1355 s)
+iter 8 overlap cells 54935 conflicted 88 fails [] 10 s (total 1365 s)
+iter 9 overlap cells 52317 conflicted 82 fails [] 9 s (total 1374 s)
+iter 10 overlap cells 51070 conflicted 77 fails [] 10 s (total 1384 s)
+iter 11 overlap cells 47537 conflicted 76 fails [] 10 s (total 1393 s)
+iter 12 overlap cells 51214 conflicted 94 fails [] 12 s (total 1405 s)
+iter 13 overlap cells 57577 conflicted 87 fails [] 36 s (total 1441 s)
+iter 14 overlap cells 56780 conflicted 83 fails [] 12 s (total 1453 s)
+iter 15 overlap cells 52788 conflicted 80 fails [] 13 s (total 1466 s)
+iter 16 overlap cells 55233 conflicted 91 fails [] 23 s (total 1489 s)
+iter 17 overlap cells 57811 conflicted 86 fails [] 21 s (total 1510 s)
+restoring best iteration (76, 47537)
+hard round 0: conflicted 16 fails 16 38 s
+rip-retry: start with 16 nets to place
+  rip: ~{LOAD_IMM} crosses fixed ~{EXP1} -> removed 1 pieces; groups 2
+  rip: ~{LOAD_IMM} crosses fixed Net-(U1-{slash}LOAD_INSTR) -> removed 3 pieces; groups 2
+  rip: ~{LOAD_IMM} crosses fixed I4 -> removed 1 pieces; groups 1
+  rip-retry 1 ~{LOAD_IMM} rips [] fixed ['~{EXP1}', 'Net-(U1-{slash}LOAD_INSTR)'] queue 17
+  rip-retry 2 DATABUS0 rips ['~{LOAD_X}'] fixed [] queue 17
+  rip-retry 3 V4 rips ['PC15'] fixed [] queue 17
+  rip: PC0 crosses fixed DATABUS5 -> removed 2 pieces; groups 3
+  rip-retry 4 PC0 rips [] fixed ['DATABUS5'] queue 17
+  rip-retry 5 ADDR2 rips ['ADDR3'] fixed [] queue 17
+  rip-retry 6 PC14 rips ['X7'] fixed [] queue 17
+  rip-retry 9 /Memory and I/O decode/RAMSEL4 rips ['ADDR9', 'D4'] fixed [] queue 16
+  rip: /Memory and I/O decode/RAMSEL1 crosses fixed /Memory and I/O decode/RAMSEL5 -> removed 1 pieces; groups 2
+  rip: /Memory and I/O decode/RAMSEL1 crosses fixed ADDR14 -> removed 1 pieces; groups 4
+  rip-retry 11 /Memory and I/O decode/RAMSEL1 rips ['VA0'] fixed ['ADDR14', '/Memory and I/O decode/RAMSEL5'] queue 17
+  rip-retry 12 DATABUS2 rips ['Y6'] fixed [] queue 17
+  rip: STALL_OUT crosses fixed ~{WE} -> removed 2 pieces; groups 2
+  rip: STALL_OUT crosses fixed DATABUS1 -> removed 1 pieces; groups 5
+  rip: STALL_OUT crosses fixed DATABUS0 -> removed 1 pieces; groups 4
+  rip: STALL_OUT crosses fixed /Control/BRANCH_BLOCK -> removed 1 pieces; groups 2
+  rip-retry 15 STALL_OUT rips ['PC8'] fixed ['~{WE}', 'DATABUS1', 'DATABUS0', '/Control/BRANCH_BLOCK'] queue 19
+  rip-retry 16 V3 rips ['RW'] fixed [] queue 19
+  rip: ~{LOAD_X} crosses fixed CLK -> removed 2 pieces; groups 2
+  rip-retry 19 ~{LOAD_X} rips ['DATABUS0', 'DATABUS7'] fixed ['CLK'] queue 18
+  rip-retry 25 D4 rips ['PC3'] fixed [] queue 13
+  rip: /Memory and I/O decode/RAMSEL5 crosses fixed ADDR11 -> removed 1 pieces; groups 3
+  rip: /Memory and I/O decode/RAMSEL5 crosses fixed ADDR14 -> removed 3 pieces; groups 4
+  rip-retry 28 /Memory and I/O decode/RAMSEL5 rips [] fixed ['ADDR14', 'ADDR11'] queue 12
+  rip: Y6 crosses fixed CLK -> removed 2 pieces; groups 3
+  rip-retry 29 Y6 rips ['Y2'] fixed ['CLK'] queue 12
+  rip: PC8 crosses fixed I6 -> removed 1 pieces; groups 2
+  rip-retry 30 PC8 rips [] fixed ['I6'] queue 12
+  rip: ~{WE} crosses fixed DATABUS0 -> removed 2 pieces; groups 5
+  rip-retry 31 ~{WE} rips [] fixed ['DATABUS0'] queue 11
+  rip-retry 32 DATABUS1 rips ['STALL_OUT'] fixed [] queue 11
+  rip-retry 33 DATABUS0 rips ['~{LOAD_X}'] fixed [] queue 11
+  rip: RW crosses fixed PC_ENABLE -> removed 3 pieces; groups 2
+  rip: RW crosses fixed V1 -> removed 1 pieces; groups 2
+  rip: RW crosses fixed /Shared port/SD_MISO -> removed 2 pieces; groups 2
+  rip-retry 35 RW rips [] fixed ['/Shared port/SD_MISO', 'V1', 'PC_ENABLE'] queue 12
+  rip-retry 36 DATABUS7 rips ['Net-(U3-CO)', 'DATABUS5', 'PC4', 'Y6', 'PC6'] fixed [] queue 16
+  rip-retry 38 PC3 rips ['D4'] fixed [] queue 15
+  rip-retry 44 ~{LOAD_X} rips ['DATABUS0', 'CLK'] fixed [] queue 11
+  rip-retry 48 Net-(U3-CO) rips ['D7', 'ADDR8', 'DATABUS7'] fixed [] queue 10
+  rip: Y6 crosses fixed Y_ENABLE -> removed 1 pieces; groups 2
+  rip: Y6 crosses fixed CLK -> removed 1 pieces; groups 4
+  rip: Y6 crosses fixed I7 -> removed 1 pieces; groups 2
+  rip-retry 51 Y6 rips ['Y0', 'Z_LOW', 'Y7'] fixed ['Y_ENABLE', 'CLK', 'I7'] queue 12
+  rip-retry 56 D7 rips ['PC3', 'PC5'] fixed [] queue 9
+  rip: Y0 crosses fixed PC_ENABLE -> removed 2 pieces; groups 4
+  rip: Y0 crosses fixed CLK -> removed 1 pieces; groups 5
+  rip-retry 59 Y0 rips ['DATABUS0', 'PC8', 'STALL_OUT', 'LOAD_PC_LOW', 'PC6'] fixed ['CLK', 'PC_ENABLE'] queue 13
+  rip-retry 64 PC3 rips ['Y3', 'D7', 'X3', 'H4'] fixed [] queue 12
+  rip-retry 68 STALL_OUT rips ['PC3', 'PC11'] fixed [] queue 10
+  rip: Y3 crosses fixed CLK -> removed 1 pieces; groups 5
+  rip-retry 73 Y3 rips ['STALL_IN', 'DATABUS7'] fixed ['CLK'] queue 8
+  rip-retry 75 X3 rips ['D7'] fixed [] queue 7
+  rip-retry 77 PC3 rips ['STALL_OUT'] fixed [] queue 6
+  rip: STALL_IN crosses fixed Net-(U13-H_TC) -> removed 1 pieces; groups 2
+  rip-retry 79 STALL_IN rips [] fixed ['Net-(U13-H_TC)'] queue 5
+  rip: D7 crosses fixed I0 -> removed 1 pieces; groups 2
+  rip-retry 82 D7 rips ['DATABUS0', 'DATABUS1'] fixed ['I0'] queue 5
+  rip: STALL_OUT crosses fixed I3 -> removed 1 pieces; groups 1
+  rip-retry 83 STALL_OUT rips ['~{LOAD_IMM}', 'D7', 'PC3'] fixed [] queue 7
+  rip-retry 85 DATABUS0 rips ['STALL_OUT'] fixed [] queue 6
+  rip: ~{LOAD_IMM} crosses fixed ~{PORT_WR} -> removed 1 pieces; groups 2
+  rip: ~{LOAD_IMM} crosses fixed ADDR11 -> removed 1 pieces; groups 4
+  rip-retry 88 ~{LOAD_IMM} rips ['DATABUS5', 'ADDR12'] fixed ['~{PORT_WR}', 'ADDR11'] queue 7
+  rip: STALL_OUT crosses fixed DATABUS3 -> removed 1 pieces; groups 4
+  rip: STALL_OUT crosses fixed /Control/BRANCH_BLOCK -> removed 1 pieces; groups 2
+  rip: STALL_OUT crosses fixed CLK -> removed 1 pieces; groups 5
+  rip-retry 91 STALL_OUT rips ['Y0'] fixed ['DATABUS3', '/Control/BRANCH_BLOCK', 'CLK'] queue 8
+  rip: ADDR12 crosses fixed Net-(U11-{slash}RAM_OE) -> removed 1 pieces; groups 2
+  rip-retry 93 ADDR12 rips ['ADDR14', 'ADDR7'] fixed ['Net-(U11-{slash}RAM_OE)'] queue 9
+  rip-retry 96 Y0 rips ['CLK', 'PC7', 'PC_ENABLE'] fixed [] queue 8
+  rip: DATABUS3 crosses fixed I4 -> removed 1 pieces; groups 2
+  rip-retry 97 DATABUS3 rips [] fixed ['I4'] queue 8
+  rip: CLK crosses fixed Y_ENABLE -> removed 1 pieces; groups 3
+  rip: CLK crosses fixed ~{PIX_LD} -> removed 1 pieces; groups 2
+  rip-retry 99 CLK rips ['Y0'] fixed ['Y_ENABLE', '~{PIX_LD}'] queue 9
+  rip-retry 102 Net-(U11-{slash}RAM_OE) rips ['ADDR12'] fixed [] queue 7
+  rip: PC7 crosses fixed PIXEL_ENABLE -> removed 2 pieces; groups 2
+  rip-retry 103 PC7 rips ['Y6', 'Y1', '/Control/BRANCH_BLOCK', 'CLK', 'ADDR7'] fixed ['PIXEL_ENABLE'] queue 12
+  rip: ADDR12 crosses fixed Net-(J8-{slash}ROM_OE) -> removed 1 pieces; groups 2
+  rip-retry 109 ADDR12 rips [] fixed ['Net-(J8-{slash}ROM_OE)'] queue 7
+  rip: Y6 crosses fixed ~{PORT_RD} -> removed 1 pieces; groups 2
+  rip: Y6 crosses fixed ~{EXP1} -> removed 2 pieces; groups 2
+  rip: Y6 crosses fixed ADDR9 -> removed 1 pieces; groups 3
+  rip: Y6 crosses fixed DATABUS1 -> removed 1 pieces; groups 6
+  rip-retry 110 Y6 rips ['ADDR8'] fixed ['DATABUS1', '~{EXP1}', 'ADDR9', '~{PORT_RD}'] queue 11
+  rip: Y1 crosses fixed CLK -> removed 1 pieces; groups 5
+  rip-retry 111 Y1 rips ['Y0', '~{LOAD_X}'] fixed ['CLK'] queue 12
+  rip: /Control/BRANCH_BLOCK crosses fixed ~{SRC_EN} -> removed 1 pieces; groups 2
+  rip-retry 112 /Control/BRANCH_BLOCK rips ['Y_ENABLE'] fixed ['~{SRC_EN}'] queue 13
+  rip-retry 113 CLK rips ['V3'] fixed [] queue 13
+  rip: ADDR7 crosses fixed ADDR8 -> removed 1 pieces; groups 2
+  rip: ADDR7 crosses fixed ~{PORT_RD} -> removed 1 pieces; groups 2
+  rip: ADDR7 crosses fixed ADDR6 -> removed 3 pieces; groups 2
+  rip-retry 114 ADDR7 rips ['~{EXP1}', 'Net-(U11-{slash}RAM_OE)'] fixed ['ADDR8', 'ADDR6', '~{PORT_RD}'] queue 14
+  rip-retry 116 Net-(J8-{slash}ROM_OE) rips ['ADDR12'] fixed [] queue 13
+  rip-retry 119 ~{EXP1} rips ['ADDR8', 'Y6'] fixed [] queue 12
+  rip-retry 121 ~{PORT_RD} rips ['ADDR7', '~{EXP1}'] fixed [] queue 12
+  rip-retry 122 Y0 rips ['Net-(U3-CO)', 'I6', 'CLK', 'Y1'] fixed [] queue 15
+  rip: V3 crosses fixed CLK -> removed 1 pieces; groups 5
+  rip-retry 126 V3 rips ['Y_ENABLE', 'Y3', 'H4'] fixed ['CLK'] queue 14
+  rip-retry 129 ADDR12 rips ['~{LOAD_IMM}'] fixed [] queue 12
+  rip-retry 134 Net-(U3-CO) rips ['~{SRC_EN}', '/Control/BRANCH_BLOCK'] fixed [] queue 9
+  rip: CLK crosses fixed Y_ENABLE -> removed 1 pieces; groups 3
+  rip-retry 136 CLK rips [] fixed ['Y_ENABLE'] queue 7
+  rip: Y1 crosses fixed CLK -> removed 3 pieces; groups 5
+  rip-retry 137 Y1 rips ['DATABUS1'] fixed ['CLK'] queue 8
+  rip-retry 138 Y_ENABLE rips ['Net-(U3-CO)', 'V3'] fixed [] queue 9
+  rip: Y3 crosses fixed PC_ENABLE -> removed 2 pieces; groups 5
+  rip-retry 139 Y3 rips ['ADDR13'] fixed ['PC_ENABLE'] queue 10
+  rip: H4 crosses fixed CLK -> removed 2 pieces; groups 5
+  rip: H4 crosses fixed PIXEL_ENABLE -> removed 1 pieces; groups 3
+  rip-retry 140 H4 rips ['/Memory and I/O decode/RAMSEL0'] fixed ['PIXEL_ENABLE', 'CLK'] queue 11
+  rip: ~{LOAD_IMM} crosses fixed ~{WE} -> removed 1 pieces; groups 2
+  rip-retry 141 ~{LOAD_IMM} rips ['~{PORT_WR}', 'ADDR11', 'Y1'] fixed ['~{WE}'] queue 14
+  rip-retry 142 ~{SRC_EN} rips ['~{LOAD_IMM}'] fixed [] queue 14
+  rip-retry 145 CLK rips [] fixed [] queue 11
+  rip: Net-(U3-CO) crosses fixed Net-(U1-{slash}LOAD_INSTR) -> removed 1 pieces; groups 2
+  rip-retry 146 Net-(U3-CO) rips ['Net-(U1-{slash}LOAD_INSTR)', '/Control/BRANCH_BLOCK'] fixed ['Net-(U1-{slash}LOAD_INSTR)'] queue 12
+  rip-retry 147 V3 rips ['Y_ENABLE'] fixed [] queue 12
+  rip-retry 148 ADDR13 rips ['~{EXP1}'] fixed [] queue 12
+  rip-retry 150 /Memory and I/O decode/RAMSEL0 rips ['/Memory and I/O decode/RAMSEL3'] fixed [] queue 11
+  rip-retry 152 ~{PORT_WR} rips ['ADDR13'] fixed [] queue 10
+  rip-retry 154 Y1 rips ['D6', 'V3', 'PC6'] fixed [] queue 11
+  rip-retry 156 ~{LOAD_IMM} rips ['Net-(U3-CO)'] fixed [] queue 10
+  rip-retry 158 /Control/BRANCH_BLOCK rips ['PC7', 'Y1'] fixed [] queue 10
+  rip-retry 162 ADDR13 rips ['~{EXP1}', 'H7', 'RW'] fixed [] queue 9
+  rip-retry 164 V3 rips ['Y2'] fixed [] queue 8
+  rip-retry 166 Net-(U3-CO) rips ['LOAD_PC_HIGH', 'V3', '/Control/BRANCH_BLOCK'] fixed [] queue 9
+  rip-retry 168 Y1 rips ['X6', 'LOAD_PC_LOW', 'PC7'] fixed [] queue 10
+  rip: RW crosses fixed ADDR10 -> removed 1 pieces; groups 3
+  rip: RW crosses fixed V1 -> removed 1 pieces; groups 3
+  rip-retry 171 RW rips ['/Memory and I/O decode/RAMSEL4', 'ADDR13'] fixed ['V1', 'ADDR10'] queue 11
+  rip: Y2 crosses fixed X_ENABLE -> removed 1 pieces; groups 1
+  rip-retry 172 Y2 rips ['H4', 'X4', 'X3'] fixed [] queue 13
+  rip: V3 crosses fixed X_ENABLE -> removed 1 pieces; groups 1
+  rip-retry 174 V3 rips ['Y3'] fixed [] queue 12
+  rip: LOAD_PC_LOW crosses fixed I6 -> removed 1 pieces; groups 2
+  rip-retry 177 LOAD_PC_LOW rips ['I6'] fixed ['I6'] queue 10
+  rip: PC7 crosses fixed ADDR8 -> removed 1 pieces; groups 3
+  rip-retry 178 PC7 rips ['/Memory and I/O decode/RAMSEL0', 'I4'] fixed ['ADDR8'] queue 12
+  rip-retry 180 ADDR13 rips ['~{SRC_EN}', 'H7', 'VA8'] fixed [] queue 13
+  rip-retry 184 X4 rips ['PC13', '/Memory and I/O decode/RAMSEL4', 'D5', 'PC6', 'PC7'] fixed [] queue 14
+  rip-retry 185 X3 rips ['PC11', 'Y2', 'D4'] fixed [] queue 16
+  rip-retry 186 Y3 rips ['PC12', 'Y4'] fixed [] queue 17
+  rip: I4 crosses fixed I2 -> removed 2 pieces; groups 2
+  rip-retry 189 I4 rips [] fixed ['I2'] queue 15
+  rip-retry 195 /Memory and I/O decode/RAMSEL4 rips ['/Memory and I/O decode/RAMSEL3'] fixed [] queue 10
+  rip-retry 196 D5 rips ['PC4'] fixed [] queue 10
+  rip-retry 197 PC6 rips ['D5'] fixed [] queue 10
+  rip-retry 198 PC7 rips ['ADDR13', 'X4'] fixed [] queue 11
+  rip: PC11 crosses fixed PIXEL_ENABLE -> removed 2 pieces; groups 4
+  rip-retry 199 PC11 rips ['X3'] fixed ['PIXEL_ENABLE'] queue 12
+  rip-retry 200 Y2 rips ['PC11'] fixed [] queue 12
+  rip: Y4 crosses fixed X_ENABLE -> removed 1 pieces; groups 2
+  rip-retry 203 Y4 rips ['~{SRC_EN}', 'PC15', '~{PORT_RD}'] fixed ['X_ENABLE'] queue 13
+  rip-retry 204 I2 rips ['I4'] fixed [] queue 13
+  rip-retry 205 /Memory and I/O decode/RAMSEL3 rips ['/Memory and I/O decode/RAMSEL4', '/Memory and I/O decode/RAMSEL5'] fixed [] queue 14
+  rip: PC4 crosses fixed CLK_E -> removed 1 pieces; groups 2
+  rip-retry 206 PC4 rips ['PC0', 'PC_ENABLE', 'DATABUS7'] fixed ['CLK_E'] queue 17
+  rip: D5 crosses fixed X_ENABLE -> removed 1 pieces; groups 2
+  rip: D5 crosses fixed I7 -> removed 1 pieces; groups 2
+  rip: D5 crosses fixed DATABUS5 -> removed 1 pieces; groups 3
+  rip-retry 207 D5 rips ['PC4'] fixed ['DATABUS5', 'X_ENABLE', 'I7'] queue 19
+  rip-retry 208 ADDR13 rips ['/Memory and I/O decode/RAMSEL3', 'Net-(U11-{slash}RAM_OE)', 'D4'] fixed [] queue 21
+  rip: X3 crosses fixed Y_ENABLE -> removed 1 pieces; groups 3
+  rip-retry 210 X3 rips ['Y_ENABLE'] fixed ['Y_ENABLE'] queue 20
+  rip: PC11 crosses fixed Y_ENABLE -> removed 1 pieces; groups 3
+  rip-retry 212 PC11 rips ['PC14', 'VA8', 'PC10', 'Y3', 'Z_LOW', 'D3', 'X5'] fixed ['Y_ENABLE'] queue 25
+  rip: /Memory and I/O decode/RAMSEL4 crosses fixed ADDR10 -> removed 1 pieces; groups 3
+  rip-retry 218 /Memory and I/O decode/RAMSEL4 rips [] fixed ['ADDR10'] queue 20
+  rip-retry 219 /Memory and I/O decode/RAMSEL5 rips ['PC11', '/Memory and I/O decode/RAMSEL0', '~{PORT_RD}'] fixed [] queue 22
+  rip: /Memory and I/O decode/RAMSEL3 crosses fixed PIXEL_ENABLE -> removed 2 pieces; groups 4
+  rip: /Memory and I/O decode/RAMSEL3 crosses fixed ADDR10 -> removed 2 pieces; groups 4
+  rip-retry 227 /Memory and I/O decode/RAMSEL3 rips ['ADDR15', 'ADDR11'] fixed ['PIXEL_ENABLE', 'ADDR10'] queue 17
+  rip: Net-(U11-{slash}RAM_OE) crosses fixed PIXEL_ENABLE -> removed 1 pieces; groups 4
+  rip-retry 228 Net-(U11-{slash}RAM_OE) rips ['ADDR12', '/Memory and I/O decode/RAMSEL5', 'X4'] fixed ['PIXEL_ENABLE'] queue 19
+  rip-retry 229 D4 rips ['Y2', 'I4'] fixed [] queue 20
+  rip: Y_ENABLE crosses fixed /Control/Q0 -> removed 1 pieces; groups 2
+  rip-retry 230 Y_ENABLE rips ['CLK'] fixed ['/Control/Q0'] queue 21
+  rip-retry 236 D3 rips ['H4'] fixed [] queue 16
+  rip: X5 crosses fixed ADDR1 -> removed 1 pieces; groups 2
+  rip: X5 crosses fixed ~{AC_SEL} -> removed 1 pieces; groups 2
+  rip: X5 crosses fixed ADDR10 -> removed 1 pieces; groups 4
+  rip-retry 237 X5 rips [] fixed ['ADDR1', '~{AC_SEL}', 'ADDR10'] queue 17
+  rip-retry 239 PC11 rips ['H5'] fixed [] queue 16
+  rip-retry 240 /Memory and I/O decode/RAMSEL0 rips ['Z_LOW', '/Memory and I/O decode/RAMSEL1'] fixed [] queue 17
+  rip: ADDR15 crosses fixed DATABUS6 -> removed 2 pieces; groups 4
+  rip-retry 242 ADDR15 rips ['H7', 'ADDR5', '~{PIX_LD}'] fixed ['DATABUS6'] queue 19
+  rip: ADDR12 crosses fixed ADDR7 -> removed 2 pieces; groups 2
+  rip-retry 245 ADDR12 rips ['PC_ENABLE', 'Net-(U11-{slash}RAM_OE)', '/Memory and I/O decode/RAMSEL6'] fixed ['ADDR7'] queue 20
+  rip-retry 249 I4 rips ['DATABUS3'] fixed [] queue 17
+  rip-retry 250 CLK rips ['LOAD_PC_LOW'] fixed [] queue 17
+  rip-retry 251 /Control/Q0 rips ['~{LOAD_IMM}', 'Net-(U1-{slash}LOAD_INSTR)'] fixed [] queue 18
+  rip-retry 252 H4 rips ['X6'] fixed [] queue 18
+  rip: H5 crosses fixed VA7 -> removed 1 pieces; groups 2
+  rip: H5 crosses fixed STALL_IN -> removed 1 pieces; groups 3
+  rip: H5 crosses fixed /Shared port/RXCLK -> removed 1 pieces; groups 1
+  rip-retry 255 H5 rips ['I1', 'I6'] fixed ['VA7', 'STALL_IN'] queue 19
+  rip: /Memory and I/O decode/RAMSEL1 crosses fixed DATABUS6 -> removed 1 pieces; groups 4
+  rip: /Memory and I/O decode/RAMSEL1 crosses fixed ADDR11 -> removed 1 pieces; groups 4
+  rip-retry 257 /Memory and I/O decode/RAMSEL1 rips ['/Memory and I/O decode/RAMSEL3'] fixed ['ADDR11', 'DATABUS6'] queue 19
+  rip: H7 crosses fixed DATABUS3 -> removed 2 pieces; groups 5
+  rip: H7 crosses fixed H6 -> removed 1 pieces; groups 2
+  rip-retry 258 H7 rips ['~{AC_SEL}'] fixed ['DATABUS3', 'H6'] queue 20
+  rip: ADDR5 crosses fixed ~{AC_SEL} -> removed 1 pieces; groups 2
+  rip: ADDR5 crosses fixed ADDR4 -> removed 1 pieces; groups 3
+  rip-retry 259 ADDR5 rips ['/Memory and I/O decode/RAMSEL5', 'ADDR15'] fixed ['~{AC_SEL}', 'ADDR4'] queue 22
+  rip: ~{PIX_LD} crosses fixed /Video and audio out/PIX0 -> removed 2 pieces; groups 3
+  rip: ~{PIX_LD} crosses fixed LC7 -> removed 1 pieces; groups 2
+  rip: ~{PIX_LD} crosses fixed Net-(J8-{slash}CE_HI) -> removed 2 pieces; groups 2
+  rip-retry 260 ~{PIX_LD} rips [] fixed ['LC7', '/Video and audio out/PIX0', 'Net-(J8-{slash}CE_HI)'] queue 24
+  rip-retry 263 Net-(U11-{slash}RAM_OE) rips ['Y4', '~{PORT_RD}'] fixed [] queue 23
+  rip: DATABUS3 crosses fixed I0 -> removed 1 pieces; groups 2
+  rip-retry 266 DATABUS3 rips ['H7'] fixed ['I0'] queue 22
+  rip-retry 268 ~{LOAD_IMM} rips ['Z_HIGH'] fixed [] queue 21
+  rip-retry 269 Net-(U1-{slash}LOAD_INSTR) rips ['/Control/Q0'] fixed [] queue 21
+  rip-retry 270 X6 rips ['ADDR8'] fixed [] queue 21
+  rip-retry 275 /Memory and I/O decode/RAMSEL3 rips ['ADDR14', '/Memory and I/O decode/RAMSEL1'] fixed [] queue 18
+  rip: ~{AC_SEL} crosses fixed DATABUS5 -> removed 1 pieces; groups 3
+  rip: ~{AC_SEL} crosses fixed ADDR1 -> removed 2 pieces; groups 3
+  rip: ~{AC_SEL} crosses fixed DATABUS0 -> removed 2 pieces; groups 6
+  rip-retry 277 ~{AC_SEL} rips ['X5'] fixed ['DATABUS5', 'DATABUS0', 'ADDR1'] queue 20
+  rip-retry 280 ADDR15 rips ['ADDR11'] fixed [] queue 18
+  rip-retry 281 ADDR4 rips ['ADDR5'] fixed [] queue 18
+  rip: Y4 crosses fixed PIXEL_ENABLE -> removed 3 pieces; groups 4
+  rip-retry 285 Y4 rips ['X6', '~{SRC_EN}', 'V3', 'PIXEL_ENABLE'] fixed ['PIXEL_ENABLE'] queue 18
+  rip: ~{PORT_RD} crosses fixed ADDR14 -> removed 2 pieces; groups 5
+  rip-retry 286 ~{PORT_RD} rips [] fixed ['ADDR14'] queue 17
+  rip: I0 crosses fixed I5 -> removed 3 pieces; groups 2
+  rip-retry 288 I0 rips [] fixed ['I5'] queue 16
+  rip-retry 289 Z_HIGH rips ['I1'] fixed [] queue 16
+  rip-retry 290 /Control/Q0 rips ['Net-(U1-{slash}LOAD_INSTR)'] fixed [] queue 16
+  rip: ADDR8 crosses fixed ADDR14 -> removed 3 pieces; groups 6
+  rip-retry 291 ADDR8 rips [] fixed ['ADDR14'] queue 15
+  rip: ADDR14 crosses fixed DATABUS7 -> removed 1 pieces; groups 5
+  rip: ADDR14 crosses fixed ADDR12 -> removed 1 pieces; groups 5
+  rip-retry 292 ADDR14 rips ['ADDR8', '/Memory and I/O decode/RAMSEL0'] fixed ['ADDR12', 'DATABUS7'] queue 18
+  rip-retry 293 /Memory and I/O decode/RAMSEL1 rips ['/Memory and I/O decode/RAMSEL4', 'X7', 'Net-(U11-{slash}RAM_OE)', 'VA8'] fixed [] queue 21
+  rip-retry 296 DATABUS0 rips ['~{AC_SEL}'] fixed [] queue 19
+  rip-retry 298 ADDR11 rips ['/Memory and I/O decode/RAMSEL1'] fixed [] queue 18
+  rip-retry 300 X6 rips ['Y5'] fixed [] queue 17
+  rip-retry 302 V3 rips ['Y4'] fixed [] queue 16
+  rip: I5 crosses fixed PC_ENABLE -> removed 1 pieces; groups 5
+  rip-retry 304 I5 rips [] fixed ['PC_ENABLE'] queue 15
+  rip: I1 crosses fixed ~{EXP2} -> removed 1 pieces; groups 2
+  rip-retry 305 I1 rips ['~{PORT_WR}', 'RW'] fixed ['~{EXP2}'] queue 17
+  rip-retry 306 Net-(U1-{slash}LOAD_INSTR) rips ['/Control/Q0'] fixed [] queue 17
+  rip-retry 307 ADDR8 rips ['ADDR5', 'I1', 'ADDR11'] fixed [] queue 19
+  rip-retry 308 /Memory and I/O decode/RAMSEL0 rips ['ADDR14', '/Memory and I/O decode/RAMSEL6'] fixed [] queue 20
+  rip-retry 309 ADDR12 rips ['PC10', 'PC_ENABLE'] fixed [] queue 20
+  rip-retry 313 Net-(U11-{slash}RAM_OE) rips ['X5'] fixed [] queue 17
+  rip: /Memory and I/O decode/RAMSEL1 crosses fixed ADDR12 -> removed 1 pieces; groups 5
+  rip: /Memory and I/O decode/RAMSEL1 crosses fixed ~{WE} -> removed 2 pieces; groups 3
+  rip-retry 316 /Memory and I/O decode/RAMSEL1 rips [] fixed ['~{WE}', 'ADDR12'] queue 16
+  rip-retry 317 Y5 rips ['VA1', 'X2'] fixed [] queue 17
+  rip-retry 318 Y4 rips ['PC0', 'Y5', 'PC9'] fixed [] queue 19
+  rip: RW crosses fixed ADDR0 -> removed 1 pieces; groups 3
+  rip-retry 321 RW rips [] fixed ['ADDR0'] queue 17
+  rip-retry 323 /Control/Q0 rips ['Net-(U1-{slash}LOAD_INSTR)'] fixed [] queue 16
+  rip: ADDR5 crosses fixed ADDR1 -> removed 2 pieces; groups 4
+  rip-retry 324 ADDR5 rips ['ADDR6'] fixed ['ADDR1'] queue 17
+  rip: ADDR14 crosses fixed ADDR11 -> removed 1 pieces; groups 4
+  rip: ADDR14 crosses fixed PC_ENABLE -> removed 1 pieces; groups 5
+  rip: ADDR14 crosses fixed DATABUS7 -> removed 1 pieces; groups 6
+  rip-retry 327 ADDR14 rips ['X7', 'ADDR5', 'PC_ENABLE', 'H3', '/Memory and I/O decode/RAMSEL1'] fixed ['ADDR11', 'DATABUS7', 'PC_ENABLE'] queue 21
+  rip-retry 330 X5 rips ['ADDR14', 'LOAD_PC_LOW', 'PC15', 'V2'] fixed [] queue 22
+  rip-retry 333 VA1 rips ['Y4', 'I1'] fixed [] queue 21
+  rip-retry 335 PC0 rips ['VA1', 'X2'] fixed [] queue 21
+  rip-retry 337 PC9 rips ['PC0'] fixed [] queue 20
+  rip-retry 339 Net-(U1-{slash}LOAD_INSTR) rips ['/Control/Q0'] fixed [] queue 19
+  rip-retry 342 X7 rips ['Y5', 'PC9'] fixed [] queue 18
+  rip-retry 343 ADDR5 rips ['ADDR1', 'ADDR6'] fixed [] queue 19
+  rip: /Memory and I/O decode/RAMSEL1 crosses fixed CLK -> removed 1 pieces; groups 5
+  rip-retry 346 /Memory and I/O decode/RAMSEL1 rips ['X7', 'X5', 'H5', '/Memory and I/O decode/RAMSEL6'] fixed ['CLK'] queue 21
+  rip-retry 352 V2 rips ['PC15'] fixed [] queue 16
+  rip: Y4 crosses fixed AC7 -> removed 1 pieces; groups 2
+  rip: Y4 crosses fixed X_ENABLE -> removed 1 pieces; groups 2
+  rip-retry 353 Y4 rips ['COUT', 'D5'] fixed ['AC7', 'X_ENABLE'] queue 19
+  rip: VA1 crosses fixed Net-(U15-BLANK_RD) -> removed 1 pieces; groups 2
+  rip: VA1 crosses fixed /Shared port/PS2_DATA -> removed 1 pieces; groups 2
+  rip-retry 355 VA1 rips [] fixed ['/Shared port/PS2_DATA', 'Net-(U15-BLANK_RD)'] queue 19
+  rip-retry 356 X2 rips ['PC4'] fixed [] queue 19
+  rip-retry 358 /Control/Q0 rips ['I6'] fixed [] queue 18
+  rip-retry 359 Y5 rips ['PC0', 'PC12', 'H3', 'PC10', 'I5', 'PIXEL_ENABLE'] fixed [] queue 23
+  rip: X7 crosses fixed LC7 -> removed 1 pieces; groups 2
+  rip-retry 363 X7 rips ['ADDR1', 'Net-(U13-H_TC)', 'D6'] fixed ['LC7'] queue 23
+  rip: /Memory and I/O decode/RAMSEL6 crosses fixed ADDR14 -> removed 1 pieces; groups 6
+  rip-retry 366 /Memory and I/O decode/RAMSEL6 rips ['/Memory and I/O decode/RAMSEL5', 'ADDR6', '~{PORT_RD}'] fixed ['ADDR14'] queue 24
+  rip-retry 369 COUT rips ['~{LOAD_AC}', 'Y5', 'PC14'] fixed [] queue 24
+  rip: D5 crosses fixed Y_ENABLE -> removed 1 pieces; groups 3
+  rip-retry 370 D5 rips ['V2'] fixed ['Y_ENABLE'] queue 25
+  rip-retry 373 /Shared port/PS2_DATA rips ['VA1'] fixed [] queue 23
+  rip-retry 375 PC4 rips ['X_ENABLE', 'Y7', 'PC9'] fixed [] queue 24
+  rip-retry 378 PC12 rips ['COUT'] fixed [] queue 22
+  rip-retry 379 H3 rips ['/Shared port/PS2_DATA'] fixed [] queue 22
+  rip-retry 381 I5 rips ['DATABUS5', 'DATABUS3', 'I7'] fixed [] queue 23
+  rip-retry 383 ADDR1 rips ['ADDR15'] fixed [] queue 22
+  rip: D6 crosses fixed V9 -> removed 1 pieces; groups 2
+  rip: D6 crosses fixed ADDR11 -> removed 4 pieces; groups 4
+  rip-retry 385 D6 rips [] fixed ['V9', 'ADDR11'] queue 22
+  rip: LC7 crosses fixed /Video and audio out/PIX0 -> removed 1 pieces; groups 4
+  rip-retry 386 LC7 rips [] fixed ['/Video and audio out/PIX0'] queue 22
+  rip-retry 387 /Memory and I/O decode/RAMSEL5 rips ['Z_LOW', 'H5'] fixed [] queue 23
+  rip: ~{PORT_RD} crosses fixed ~{LINE_RD} -> removed 1 pieces; groups 2
+  rip: ~{PORT_RD} crosses fixed ADDR3 -> removed 1 pieces; groups 3
+  rip: ~{PORT_RD} crosses fixed ADDR6 -> removed 3 pieces; groups 4
+  rip: ~{PORT_RD} crosses fixed ADDR15 -> removed 2 pieces; groups 4
+  rip: ~{PORT_RD} crosses fixed ~{WE} -> removed 1 pieces; groups 3
+  rip-retry 389 ~{PORT_RD} rips ['ADDR1', '~{LINE_RD}', 'X4'] fixed ['ADDR15', 'ADDR3', '~{WE}', '~{LINE_RD}', 'ADDR6'] queue 27
+  rip-retry 392 Y5 rips ['LOAD_PC_HIGH', 'X3'] fixed [] queue 26
+  rip-retry 393 PC14 rips ['PC12'] fixed [] queue 26
+  rip: V2 crosses fixed PIXEL_ENABLE -> removed 1 pieces; groups 5
+  rip-retry 394 V2 rips [] fixed ['PIXEL_ENABLE'] queue 26
+  rip: VA1 crosses fixed VA7 -> removed 1 pieces; groups 2
+  rip: VA1 crosses fixed LC2 -> removed 1 pieces; groups 2
+  rip: VA1 crosses fixed ~{MODE_LD} -> removed 1 pieces; groups 2
+  rip: VA1 crosses fixed /Shared port/PS2_INH -> removed 1 pieces; groups 2
+  rip: VA1 crosses fixed DATABUS3 -> removed 1 pieces; groups 5
+  rip-retry 396 VA1 rips [] fixed ['VA7', 'LC2', '~{MODE_LD}', 'DATABUS3', '/Shared port/PS2_INH'] queue 28
+  rip-retry 398 Y7 rips ['X6', 'ADDR7', 'Z_HIGH'] fixed [] queue 29
+  rip-retry 399 PC9 rips ['PC14'] fixed [] queue 29
+  rip-retry 400 COUT rips ['PC9'] fixed [] queue 29
+rip-retry done after 400 rounds; unrouted ['LOAD_PC_HIGH', 'PC12', '~{LINE_RD}', 'PC14', 'PC9', 'ADDR15', 'X3', 'Z_HIGH', 'H5', 'X4', 'Z_LOW', 'X6', 'ADDR1', 'ADDR7', 'DATABUS5', 'DATABUS3', 'I7', '/Shared port/PS2_DATA', 'V9', 'LC2', '~{MODE_LD}', '/Shared port/PS2_INH'] 565 s
+UNROUTED 22 ['LOAD_PC_HIGH', 'PC12', '~{LINE_RD}', 'PC14', 'PC9', 'ADDR15', 'X3', 'Z_HIGH', 'H5', 'X4', 'Z_LOW', 'X6', 'ADDR1', 'ADDR7', 'DATABUS5', 'DATABUS3', 'I7', '/Shared port/PS2_DATA', 'V9', 'LC2', '~{MODE_LD}', '/Shared port/PS2_INH'] total 2122 s
+routed vias 707 cells 160450
+wrote bench_gpu.kicad_pcb segments 3927 vias 707
