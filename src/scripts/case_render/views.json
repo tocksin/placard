@@ -11,8 +11,8 @@
    0
   ],
   "covers": [
-   3,
-   4
+   1,
+   2
   ],
   "cart": true,
   "cards": [
@@ -20,8 +20,8 @@
    "J10"
   ],
   "parked": [
-   "slot_cover_1",
-   "slot_cover_2",
+   "slot_cover_4",
+   "slot_cover_3",
    "cart_cover"
   ],
   "fov": 26
@@ -47,10 +47,10 @@
    "J12"
   ],
   "parked": [
-   "slot_cover_1",
-   "slot_cover_2",
-   "slot_cover_3",
    "slot_cover_4",
+   "slot_cover_3",
+   "slot_cover_2",
+   "slot_cover_1",
    "cart_cover"
   ],
   "aluEdges": true
@@ -228,11 +228,11 @@
   "fov": 30,
   "covers": [
    1,
-   2,
+   3,
    4
   ],
   "lifted": [
-   "slot_cover_3",
+   "slot_cover_2",
    "cart_cover"
   ],
   "aluEdges": true
@@ -251,11 +251,11 @@
   "fov": 26,
   "covers": [
    1,
-   2,
+   3,
    4
   ],
   "lifted": [
-   "slot_cover_3"
+   "slot_cover_2"
   ],
   "aluEdges": true
  },
@@ -275,8 +275,8 @@
   "cartCover": false,
   "aluEdges": true,
   "parked": [
-   "slot_cover_1",
-   "slot_cover_2",
+   "slot_cover_4",
+   "slot_cover_3",
    "cart_cover"
   ]
  },
@@ -294,16 +294,16 @@
   "fov": 28,
   "covers": [
    1,
-   2,
+   3,
    4
   ],
   "lifted": [
-   "slot_cover_3"
+   "slot_cover_2"
   ],
   "aluEdges": true,
   "parked": [
-   "slot_cover_1",
-   "slot_cover_2"
+   "slot_cover_4",
+   "slot_cover_3"
   ]
  },
  "bends": {
@@ -352,8 +352,8 @@
   "cartCover": true,
   "aluEdges": true,
   "parked": [
-   "slot_cover_1",
-   "slot_cover_2"
+   "slot_cover_4",
+   "slot_cover_3"
   ],
   "bent": true
  },
