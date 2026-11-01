@@ -1,0 +1,175 @@
+grid 2352 1744
+rasterised 5662 items 2.4 s
+open nets 108 ['DATABUS4', 'DATABUS0', 'ADDR14', 'ADDR2', 'ADDR1', 'ADDR12', 'ADDR0', 'RUN', 'ADDR4', 'ADDR11', 'DATABUS2', 'DATABUS7', 'ADDR7', 'ADDR10', 'ADDR9', 'ADDR6', 'DATABUS6', 'DATABUS5', 'DATABUS1', 'ADDR8', 'ADDR5', 'DATABUS3', 'STALL_IN', 'ADDR13', 'STALL_OUT', 'ADDR15', 'ADDR3', 'RW', '~{LOAD_IMM}', '~{LOAD_X}', '~{LOAD_Y}', '~{LOAD_AC}', '~{PIX_LD}', 'Z_LOW', 'LOAD_PC_LOW', 'Z_HIGH', 'COUT', '~{SRC_EN}', 'LOAD_PC_HIGH', 'PC3', 'PC5', 'PC6', 'PC7', 'PC1', 'Net-(U3-CO)', 'PC2', 'PC4', 'PC0', 'Y5', 'Y6', 'PC14', 'Y1', 'PC12', 'PC8', 'PC13', 'PC11', 'PC10', 'Y7', 'PC9', 'Y0', 'Y3', 'Y4', 'PC15', 'Y2', 'D1', 'V2', 'X3', 'VA0', 'D2', 'V3', 'X1', 'X0', 'X2', 'D3', 'D0', 'VA1', 'D7', 'V6', 'X5', 'V5', 'D6', 'D5', 'D4', 'X6', 'VA7', 'V4', 'X7', 'X4', 'H5', 'VA8', 'H3', 'H4', 'H8', 'H7', 'H9', 'H6', '/Memory and I/O decode/RAMSEL6', '/Memory and I/O decode/RAMSEL4', '/Memory and I/O decode/RAMSEL2', '/Memory and I/O decode/RAMSEL5', '/Memory and I/O decode/RAMSEL3', '/Memory and I/O decode/RAMSEL0', '/Memory and I/O decode/RAMSEL1', 'Net-(U11-{slash}RAM_OE)', 'Net-(U12-{slash}MAP_WR)', '~{LINE_RD}', 'I1', '~{AC_SEL}'] 23 s
+critical nets first: ['STALL_IN', 'STALL_OUT', 'RUN']
+C:\Users\tocks\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\cupy\_environment.py:286: UserWarning: CUDA path could not be detected. Set CUDA_PATH environment variable if CuPy fails to load.
+  warnings.warn(
+GPU: NVIDIA GeForce RTX 4070 Laptop GPU
+backend gpu
+iter 0 overlap cells 17289 conflicted 104 fails [] 30 s (total 55 s)
+iter 1 overlap cells 12554 conflicted 100 fails [] 30 s (total 86 s)
+iter 2 overlap cells 7882 conflicted 98 fails [] 34 s (total 119 s)
+iter 3 overlap cells 6406 conflicted 96 fails [] 30 s (total 149 s)
+iter 4 overlap cells 4923 conflicted 95 fails [] 34 s (total 184 s)
+iter 5 overlap cells 3868 conflicted 89 fails [] 34 s (total 218 s)
+iter 6 overlap cells 2883 conflicted 83 fails [] 33 s (total 251 s)
+iter 7 overlap cells 1950 conflicted 73 fails [] 30 s (total 281 s)
+iter 8 overlap cells 1810 conflicted 63 fails [] 36 s (total 317 s)
+iter 9 overlap cells 1381 conflicted 59 fails [] 23 s (total 340 s)
+iter 10 overlap cells 1188 conflicted 54 fails [] 20 s (total 359 s)
+iter 11 overlap cells 1163 conflicted 56 fails [] 18 s (total 377 s)
+iter 12 overlap cells 1158 conflicted 54 fails [] 32 s (total 409 s)
+iter 13 overlap cells 1128 conflicted 52 fails [] 19 s (total 428 s)
+iter 14 overlap cells 1003 conflicted 48 fails [] 18 s (total 446 s)
+iter 15 overlap cells 1143 conflicted 49 fails [] 17 s (total 463 s)
+iter 16 overlap cells 1285 conflicted 50 fails [] 32 s (total 495 s)
+iter 17 overlap cells 970 conflicted 47 fails [] 17 s (total 512 s)
+iter 18 overlap cells 1063 conflicted 50 fails [] 16 s (total 528 s)
+iter 19 overlap cells 893 conflicted 47 fails [] 17 s (total 545 s)
+iter 20 overlap cells 1187 conflicted 50 fails [] 31 s (total 577 s)
+iter 21 overlap cells 1024 conflicted 46 fails [] 18 s (total 595 s)
+iter 22 overlap cells 1028 conflicted 42 fails [] 15 s (total 610 s)
+iter 23 overlap cells 853 conflicted 40 fails [] 15 s (total 625 s)
+iter 24 overlap cells 737 conflicted 38 fails [] 31 s (total 655 s)
+iter 25 overlap cells 790 conflicted 38 fails [] 15 s (total 671 s)
+iter 26 overlap cells 746 conflicted 36 fails [] 15 s (total 686 s)
+iter 27 overlap cells 808 conflicted 36 fails [] 15 s (total 701 s)
+iter 28 overlap cells 764 conflicted 36 fails [] 31 s (total 731 s)
+iter 29 overlap cells 746 conflicted 34 fails [] 14 s (total 745 s)
+iter 30 overlap cells 696 conflicted 35 fails [] 15 s (total 760 s)
+iter 31 overlap cells 695 conflicted 35 fails [] 14 s (total 774 s)
+iter 32 overlap cells 723 conflicted 34 fails [] 31 s (total 804 s)
+iter 33 overlap cells 667 conflicted 33 fails [] 14 s (total 818 s)
+iter 34 overlap cells 653 conflicted 32 fails [] 12 s (total 831 s)
+iter 35 overlap cells 638 conflicted 31 fails [] 12 s (total 843 s)
+iter 36 overlap cells 668 conflicted 31 fails [] 31 s (total 874 s)
+iter 37 overlap cells 633 conflicted 30 fails [] 12 s (total 885 s)
+iter 38 overlap cells 661 conflicted 30 fails [] 13 s (total 898 s)
+iter 39 overlap cells 586 conflicted 31 fails [] 13 s (total 910 s)
+iter 40 overlap cells 581 conflicted 29 fails [] 30 s (total 941 s)
+iter 41 overlap cells 618 conflicted 32 fails [] 11 s (total 952 s)
+iter 42 overlap cells 596 conflicted 31 fails [] 12 s (total 964 s)
+iter 43 overlap cells 622 conflicted 32 fails [] 11 s (total 975 s)
+iter 44 overlap cells 648 conflicted 32 fails [] 31 s (total 1006 s)
+iter 45 overlap cells 651 conflicted 31 fails [] 12 s (total 1018 s)
+iter 46 overlap cells 611 conflicted 30 fails [] 12 s (total 1030 s)
+iter 47 overlap cells 542 conflicted 27 fails [] 12 s (total 1042 s)
+iter 48 overlap cells 618 conflicted 29 fails [] 30 s (total 1072 s)
+iter 49 overlap cells 621 conflicted 28 fails [] 11 s (total 1083 s)
+iter 50 overlap cells 526 conflicted 28 fails [] 11 s (total 1094 s)
+iter 51 overlap cells 614 conflicted 29 fails [] 11 s (total 1105 s)
+iter 52 overlap cells 558 conflicted 30 fails [] 31 s (total 1136 s)
+iter 53 overlap cells 554 conflicted 26 fails [] 13 s (total 1149 s)
+iter 54 overlap cells 654 conflicted 26 fails [] 11 s (total 1161 s)
+iter 55 overlap cells 545 conflicted 25 fails [] 10 s (total 1171 s)
+iter 56 overlap cells 645 conflicted 32 fails [] 31 s (total 1202 s)
+iter 57 overlap cells 514 conflicted 30 fails [] 12 s (total 1215 s)
+iter 58 overlap cells 440 conflicted 28 fails [] 10 s (total 1225 s)
+iter 59 overlap cells 410 conflicted 28 fails [] 11 s (total 1236 s)
+restoring best iteration: conflicted 25 overlap 545
+hard round 0: conflicted 11 fails 11 15 s
+rip-retry: start with 11 nets to place chain-level rip
+  rip-retry 1 DATABUS1 rips {'DATABUS0': 1} fixed [] queue 11
+  rip-retry 2 PC0 rips {'X3': 1, 'Y3': 1, '~{LOAD_IMM}': 1} fixed [] queue 13
+  rip: ADDR13 crosses fixed ADDR14 -> removed 1 pieces; groups 4
+  rip: ADDR13 crosses fixed ~{EXP1} -> removed 1 pieces; groups 2
+  rip-retry 4 ADDR13 rips {'/Memory and I/O decode/RAMSEL6': 1, 'ADDR5': 1} fixed ['ADDR14', '~{EXP1}'] queue 15
+  rip-retry 7 PC3 rips {'STALL_OUT': 1, 'PC2': 1, 'PC10': 1} fixed [] queue 15
+  rip: DATABUS0 crosses fixed I4 -> removed 1 pieces; groups 2
+  rip: DATABUS0 crosses fixed DATABUS1 -> removed 1 pieces; groups 5
+  rip-retry 12 DATABUS0 rips {} fixed ['DATABUS1', 'I4'] queue 12
+  rip: ~{LOAD_IMM} crosses fixed ~{PORT_WR} -> removed 1 pieces; groups 2
+  rip: ~{LOAD_IMM} crosses fixed ADDR11 -> removed 1 pieces; groups 4
+  rip-retry 15 ~{LOAD_IMM} rips {'PC7': 1, 'X3': 1, 'RW': 1} fixed ['~{PORT_WR}', 'ADDR11'] queue 14
+  rip: ADDR5 crosses fixed ~{EXP1} -> removed 1 pieces; groups 2
+  rip: ADDR5 crosses fixed ADDR12 -> removed 1 pieces; groups 5
+  rip: ADDR5 crosses fixed VA7 -> removed 1 pieces; groups 2
+  rip-retry 17 ADDR5 rips {} fixed ['ADDR12', '~{EXP1}', 'VA7'] queue 14
+  rip-retry 18 ADDR14 rips {'ADDR13': 1} fixed [] queue 14
+  rip: STALL_OUT crosses fixed I0 -> removed 3 pieces; groups 2
+  rip-retry 20 STALL_OUT rips {'DATABUS3': 1, 'DATABUS0': 1} fixed ['I0'] queue 15
+  rip-retry 21 PC2 rips {'~{LOAD_IMM}': 1} fixed [] queue 15
+  rip-retry 22 PC10 rips {'PC12': 1, 'PC4': 1, 'ADDR13': 1} fixed [] queue 16
+  rip: X3 crosses fixed ~{PORT_RD} -> removed 1 pieces; groups 2
+  rip: X3 crosses fixed ADDR0 -> removed 2 pieces; groups 3
+  rip-retry 26 X3 rips {'PC3': 1, 'H3': 1, '~{SRC_EN}': 1} fixed ['ADDR0', '~{PORT_RD}'] queue 17
+  rip-retry 27 RW rips {'ADDR8': 1} fixed [] queue 17
+  rip-retry 32 ADDR13 rips {'PC10': 1, '/Memory and I/O decode/RAMSEL6': 1, 'ADDR14': 1} fixed [] queue 15
+  rip-retry 34 DATABUS0 rips {'DATABUS1': 1} fixed [] queue 14
+  rip: PC12 crosses fixed X_ENABLE -> removed 1 pieces; groups 2
+  rip-retry 37 PC12 rips {'PC15': 1, 'Y5': 1, 'D5': 1} fixed ['X_ENABLE'] queue 15
+  rip-retry 38 PC4 rips {'STALL_OUT': 1, 'PC12': 1, '~{LOAD_IMM}': 1} fixed [] queue 17
+  rip-retry 45 PC10 rips {'ADDR13': 1, '~{LOAD_IMM}': 1} fixed [] queue 11
+  rip-retry 48 DATABUS1 rips {'DATABUS4': 1} fixed [] queue 9
+  rip-retry 49 PC15 rips {'PC4': 1} fixed [] queue 9
+  rip-retry 53 STALL_OUT rips {'DATABUS1': 1} fixed [] queue 6
+  rip-retry 54 PC12 rips {'Y4': 1} fixed [] queue 6
+  rip-retry 56 ADDR13 rips {'ADDR14': 1} fixed [] queue 5
+  rip-retry 57 DATABUS4 rips {'STALL_OUT': 1} fixed [] queue 5
+  rip-retry 58 PC4 rips {'PC2': 1, 'PC12': 1, 'PC15': 1, 'PC5': 1} fixed [] queue 8
+  rip-retry 60 Y4 rips {'X4': 1} fixed [] queue 7
+  rip-retry 63 PC2 rips {'PC4': 1} fixed [] queue 5
+  rip: PC15 crosses fixed X_ENABLE -> removed 1 pieces; groups 2
+  rip: PC15 crosses fixed ADDR_SEL_HI -> removed 1 pieces; groups 0
+  rip-retry 65 PC15 rips {'PC12': 1} fixed ['X_ENABLE'] queue 5
+  rip: X4 crosses fixed DATABUS5 -> removed 2 pieces; groups 3
+  rip-retry 67 X4 rips {'Y3': 1, 'Y0': 1, 'Y4': 1} fixed ['DATABUS5'] queue 7
+  rip-retry 68 PC4 rips {'STALL_OUT': 1, 'PC2': 1} fixed [] queue 8
+  rip-retry 69 PC12 rips {'PC4': 1, 'D5': 1} fixed [] queue 9
+  rip-retry 77 PC4 rips {'PC2': 1, 'PC15': 1, 'PC9': 1, 'Y2': 1, 'D4': 1} fixed [] queue 6
+  rip-retry 80 PC15 rips {'PC13': 1, 'PC14': 1, 'V6': 1, 'Y5': 1} fixed [] queue 7
+  rip-retry 82 Y2 rips {'PC7': 1} fixed [] queue 6
+  rip-retry 83 D4 rips {'X4': 1} fixed [] queue 6
+  rip-retry 85 PC14 rips {'PC15': 1, 'Y4': 2} fixed [] queue 6
+  rip: PC7 crosses fixed /Control/BRANCH_BLOCK -> removed 1 pieces; groups 2
+  rip-retry 88 PC7 rips {'PC5': 1, 'VA7': 1, 'D5': 1} fixed ['/Control/BRANCH_BLOCK'] queue 7
+  rip-retry 89 X4 rips {'PC10': 1, 'D4': 1} fixed [] queue 8
+  rip-retry 94 D5 rips {'DATABUS5': 1} fixed [] queue 4
+  rip-retry 96 PC10 rips {'PC11': 1, 'PC9': 1, 'PC7': 1} fixed [] queue 5
+  rip-retry 99 PC11 rips {'PC10': 1} fixed [] queue 3
+  rip-retry 100 PC9 rips {'PC11': 1} fixed [] queue 3
+  rip-retry 101 PC7 rips {'Net-(U3-CO)': 1, 'PC9': 1} fixed [] queue 4
+  rip: Net-(U3-CO) crosses fixed Net-(U1-{slash}LOAD_INSTR) -> removed 3 pieces; groups 2
+  rip-retry 104 Net-(U3-CO) rips {'DATABUS4': 1} fixed ['Net-(U1-{slash}LOAD_INSTR)'] queue 3
+  rip-retry 105 PC9 rips {'/Memory and I/O decode/RAMSEL3': 1, '/Memory and I/O decode/RAMSEL0': 1, 'ADDR14': 1} fixed [] queue 5
+  rip-retry 107 Net-(U1-{slash}LOAD_INSTR) rips {'Net-(U3-CO)': 1} fixed [] queue 4
+  rip-retry 109 /Memory and I/O decode/RAMSEL0 rips {'PC9': 1} fixed [] queue 3
+  rip-retry 110 ADDR14 rips {'/Memory and I/O decode/RAMSEL1': 1, 'Y4': 1} fixed [] queue 4
+  rip-retry 112 PC9 rips {'ADDR14': 1} fixed [] queue 3
+  rip-retry 113 /Memory and I/O decode/RAMSEL1 rips {'/Memory and I/O decode/RAMSEL0': 1} fixed [] queue 3
+  rip-retry 114 Y4 rips {'/Memory and I/O decode/RAMSEL1': 1} fixed [] queue 3
+  rip: ADDR14 crosses fixed PC_ENABLE -> removed 3 pieces; groups 2
+  rip: ADDR14 crosses fixed DATABUS7 -> removed 1 pieces; groups 6
+  rip-retry 115 ADDR14 rips {'VA1': 1, 'ADDR6': 1} fixed ['DATABUS7', 'PC_ENABLE'] queue 6
+  rip-retry 116 /Memory and I/O decode/RAMSEL0 rips {'ADDR2': 1} fixed [] queue 6
+  rip-retry 117 /Memory and I/O decode/RAMSEL1 rips {'ADDR13': 1, 'ADDR12': 1} fixed [] queue 7
+  rip-retry 122 ADDR2 rips {'/Memory and I/O decode/RAMSEL0': 1} fixed [] queue 3
+  rip-retry 123 ADDR13 rips {'/Memory and I/O decode/RAMSEL1': 1} fixed [] queue 3
+  rip-retry 125 /Memory and I/O decode/RAMSEL0 rips {'ADDR2': 1} fixed [] queue 2
+  rip-retry 126 /Memory and I/O decode/RAMSEL1 rips {'/Memory and I/O decode/RAMSEL3': 1, 'PC5': 1} fixed [] queue 3
+  rip-retry 127 ADDR2 rips {'/Memory and I/O decode/RAMSEL0': 1} fixed [] queue 3
+  rip-retry 129 PC5 rips {'/Memory and I/O decode/RAMSEL1': 1} fixed [] queue 2
+  rip-retry 130 /Memory and I/O decode/RAMSEL0 rips {'ADDR2': 1} fixed [] queue 2
+  rip-retry 131 /Memory and I/O decode/RAMSEL1 rips {'PC5': 1} fixed [] queue 2
+  rip: ADDR2 crosses fixed ~{EXP2} -> removed 1 pieces; groups 2
+  rip: ADDR2 crosses fixed ADDR7 -> removed 1 pieces; groups 3
+  rip-retry 132 ADDR2 rips {'Y3': 1} fixed ['~{EXP2}', 'ADDR7'] queue 4
+  rip-retry 133 PC5 rips {'/Memory and I/O decode/RAMSEL6': 1, 'H4': 1} fixed [] queue 5
+  rip: ~{EXP2} crosses fixed ADDR14 -> removed 1 pieces; groups 4
+  rip-retry 135 ~{EXP2} rips {'ADDR11': 1} fixed ['ADDR14'] queue 5
+  rip: /Memory and I/O decode/RAMSEL6 crosses fixed ADDR12 -> removed 1 pieces; groups 5
+  rip-retry 137 /Memory and I/O decode/RAMSEL6 rips {'ADDR12': 1} fixed ['ADDR12'] queue 4
+  rip-retry 138 H4 rips {'ADDR7': 1} fixed [] queue 4
+  rip-retry 142 ADDR7 rips {'H4': 1} fixed [] queue 1
+  rip-retry 143 H4 rips {'ADDR7': 1} fixed [] queue 1
+  rip-retry 144 ADDR7 rips {'H4': 1} fixed [] queue 1
+  rip-retry 145 H4 rips {'ADDR7': 1} fixed [] queue 1
+  rip-retry 146 ADDR7 rips {'H4': 1} fixed [] queue 1
+  rip-retry 147 H4 rips {'ADDR7': 1} fixed [] queue 1
+  rip-retry 148 ADDR7 rips {'X6': 1} fixed [] queue 1
+rip-retry done after 149 rounds; unrouted [] 157 s
+improve pass 0: nets improved 48, cost gain 31251, 23 s
+improve pass 1: nets improved 15, cost gain 2924, 21 s
+UNROUTED 0 [] total 1457 s
+routed vias 397 cells 136390
+wrote bench_q300.kicad_pcb segments 2613 vias 397
