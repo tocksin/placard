@@ -15,6 +15,9 @@ modified: every tool reads one file and writes another.
   (default) then re-routes every chain that has a via together with a neighbouring chain of another net.
 - `corner45.py in out NETS=@out.nets` : 45-degree finishing: 90-degree corners get a chamfer of up to 2 mm where the
   diagonal keeps clearance to every other net, the edge rule and the hole bands (checked on the original copper).
+- `patroute.py in out` / `PATTERN=1` in mroute4: lane-style pattern pass (straight, L, Z shapes on the preferred layers,
+  shortest connections first, Z middle run packed next to the start pin). Places 25-40 % of the connections; as a warm
+  start for the negotiation it was neutral on the benchmark (407 vs 398 vias), so it is off by default.
 - `makebench.py board.kicad_pcb bench.kicad_pcb` : whole-board test bench: all tracks and vias except GND/+5V removed
   from a copy of the board (the board file itself is never written to).
 - `score.py pcb BASE=base.kicad_pcb` : one report (open nets, track, vias, wrong-way %, diagonal %, detour, rule
