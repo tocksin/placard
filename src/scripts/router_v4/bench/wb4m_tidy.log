@@ -1,0 +1,20 @@
+grid 2352 1744
+rasterised 1541 items 0.5 s
+net pass 0: 73 nets improved, cost gain 2080, 294 s
+net pass 1: 6 nets improved, cost gain 230, 293 s
+pass 0: 43 chains improved, 0 dropped, cost gain 2333, 182 s
+pass 1: 11 chains improved, 0 dropped, cost gain 747, 193 s
+pass 2: 2 chains improved, 0 dropped, cost gain 12, 204 s
+pass 3: 0 chains improved, 0 dropped, cost gain 0, 204 s
+pair pass 0: 22 chain pairs improved, cost gain 352, 33 s
+pair pass 1: 1 chain pairs improved, cost gain 14, 26 s
+pair pass 2: 0 chain pairs improved, cost gain 0, 26 s
+vias 678 -> 655, cells 320207 -> 319486, 1860 s
+wrote wb4m_tidy.kicad_pcb segments 4926 vias 655
+corners 3446, chamfered 707 (256 nets), zero-length tracks dropped 176; wrote wb4m_c45.kicad_pcb
+grid 2352 1744
+rasterised 2653 items 0.7 s
+CLK_E: 201.0 mm, minimum 420
+CLK_E: 201.0 -> 362.5 mm (+161.5)
+CLK_E: minimum 420 mm NOT reached
+wrote wb4m_c45m.kicad_pcb segments 5367 vias 655

@@ -1,6 +1,6 @@
 @echo off
 rem PLACARD router v4 benchmark: 108 mux-region nets on r1.kicad_pcb (a copy of the main board with those nets stripped)
-rem pipeline: mroute4 -> tidy (with pair pass) -> corner45 -> score.  set BACKEND=cpu to compare with the GPU.
+rem pipeline: mroute4 -> tidy (net + pair passes) -> corner45 -> [meander when MINLEN=NET:mm is set] -> score.  set BACKEND=cpu to compare with the GPU.
 cd /d %~dp0
 if "%BACKEND%"=="" set BACKEND=gpu
 if "%TAG%"=="" set TAG=%BACKEND%
@@ -13,5 +13,6 @@ set NETS=@%OUT%.nets
 python score.py %OUT% > bench_%TAG%.score 2>&1
 python tidy.py %OUT% bench_%TAG%_tidy.kicad_pcb > bench_%TAG%_tidy.log 2>&1
 python corner45.py bench_%TAG%_tidy.kicad_pcb bench_%TAG%_c45.kicad_pcb >> bench_%TAG%_tidy.log 2>&1
+if not "%MINLEN%"=="" python meander.py bench_%TAG%_c45.kicad_pcb bench_%TAG%_c45m.kicad_pcb %MINLEN% >> bench_%TAG%_tidy.log 2>&1 && copy /y bench_%TAG%_c45m.kicad_pcb bench_%TAG%_c45.kicad_pcb >nul
 python score.py bench_%TAG%_c45.kicad_pcb > bench_%TAG%_tidy.score 2>&1
 type bench_%TAG%_tidy.score
