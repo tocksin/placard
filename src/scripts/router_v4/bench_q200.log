@@ -1,0 +1,84 @@
+grid 2352 1744
+rasterised 5662 items 2.2 s
+open nets 108 ['DATABUS4', 'DATABUS0', 'ADDR14', 'ADDR2', 'ADDR1', 'ADDR12', 'ADDR0', 'RUN', 'ADDR4', 'ADDR11', 'DATABUS2', 'DATABUS7', 'ADDR7', 'ADDR10', 'ADDR9', 'ADDR6', 'DATABUS6', 'DATABUS5', 'DATABUS1', 'ADDR8', 'ADDR5', 'DATABUS3', 'STALL_IN', 'ADDR13', 'STALL_OUT', 'ADDR15', 'ADDR3', 'RW', '~{LOAD_IMM}', '~{LOAD_X}', '~{LOAD_Y}', '~{LOAD_AC}', '~{PIX_LD}', 'Z_LOW', 'LOAD_PC_LOW', 'Z_HIGH', 'COUT', '~{SRC_EN}', 'LOAD_PC_HIGH', 'PC3', 'PC5', 'PC6', 'PC7', 'PC1', 'Net-(U3-CO)', 'PC2', 'PC4', 'PC0', 'Y5', 'Y6', 'PC14', 'Y1', 'PC12', 'PC8', 'PC13', 'PC11', 'PC10', 'Y7', 'PC9', 'Y0', 'Y3', 'Y4', 'PC15', 'Y2', 'D1', 'V2', 'X3', 'VA0', 'D2', 'V3', 'X1', 'X0', 'X2', 'D3', 'D0', 'VA1', 'D7', 'V6', 'X5', 'V5', 'D6', 'D5', 'D4', 'X6', 'VA7', 'V4', 'X7', 'X4', 'H5', 'VA8', 'H3', 'H4', 'H8', 'H7', 'H9', 'H6', '/Memory and I/O decode/RAMSEL6', '/Memory and I/O decode/RAMSEL4', '/Memory and I/O decode/RAMSEL2', '/Memory and I/O decode/RAMSEL5', '/Memory and I/O decode/RAMSEL3', '/Memory and I/O decode/RAMSEL0', '/Memory and I/O decode/RAMSEL1', 'Net-(U11-{slash}RAM_OE)', 'Net-(U12-{slash}MAP_WR)', '~{LINE_RD}', 'I1', '~{AC_SEL}'] 23 s
+critical nets first: ['STALL_IN', 'STALL_OUT', 'RUN']
+C:\Users\tocks\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\cupy\_environment.py:286: UserWarning: CUDA path could not be detected. Set CUDA_PATH environment variable if CuPy fails to load.
+  warnings.warn(
+GPU: NVIDIA GeForce RTX 4070 Laptop GPU
+backend gpu
+iter 0 overlap cells 19231 conflicted 104 fails [] 28 s (total 57 s)
+iter 1 overlap cells 12171 conflicted 99 fails [] 28 s (total 85 s)
+iter 2 overlap cells 5927 conflicted 93 fails [] 28 s (total 113 s)
+iter 3 overlap cells 4417 conflicted 86 fails [] 26 s (total 139 s)
+iter 4 overlap cells 3561 conflicted 87 fails [] 30 s (total 169 s)
+iter 5 overlap cells 2885 conflicted 86 fails [] 29 s (total 198 s)
+iter 6 overlap cells 2257 conflicted 76 fails [] 28 s (total 225 s)
+iter 7 overlap cells 1664 conflicted 64 fails [] 26 s (total 251 s)
+iter 8 overlap cells 1238 conflicted 55 fails [] 32 s (total 284 s)
+iter 9 overlap cells 1005 conflicted 50 fails [] 19 s (total 303 s)
+iter 10 overlap cells 914 conflicted 47 fails [] 17 s (total 319 s)
+iter 11 overlap cells 837 conflicted 44 fails [] 15 s (total 334 s)
+iter 12 overlap cells 906 conflicted 48 fails [] 28 s (total 362 s)
+iter 13 overlap cells 824 conflicted 45 fails [] 16 s (total 378 s)
+iter 14 overlap cells 808 conflicted 44 fails [] 15 s (total 393 s)
+iter 15 overlap cells 837 conflicted 44 fails [] 13 s (total 406 s)
+iter 16 overlap cells 851 conflicted 46 fails [] 28 s (total 434 s)
+iter 17 overlap cells 820 conflicted 41 fails [] 14 s (total 447 s)
+iter 18 overlap cells 698 conflicted 41 fails [] 13 s (total 460 s)
+iter 19 overlap cells 874 conflicted 44 fails [] 13 s (total 473 s)
+iter 20 overlap cells 684 conflicted 39 fails [] 28 s (total 501 s)
+iter 21 overlap cells 740 conflicted 37 fails [] 12 s (total 513 s)
+iter 22 overlap cells 736 conflicted 36 fails [] 11 s (total 524 s)
+iter 23 overlap cells 650 conflicted 38 fails [] 11 s (total 535 s)
+iter 24 overlap cells 598 conflicted 35 fails [] 27 s (total 562 s)
+iter 25 overlap cells 596 conflicted 34 fails [] 10 s (total 572 s)
+iter 26 overlap cells 520 conflicted 32 fails [] 10 s (total 582 s)
+iter 27 overlap cells 485 conflicted 28 fails [] 10 s (total 591 s)
+iter 28 overlap cells 425 conflicted 26 fails [] 27 s (total 619 s)
+iter 29 overlap cells 448 conflicted 26 fails [] 8 s (total 627 s)
+iter 30 overlap cells 457 conflicted 26 fails [] 8 s (total 635 s)
+iter 31 overlap cells 557 conflicted 28 fails [] 8 s (total 643 s)
+iter 32 overlap cells 677 conflicted 27 fails [] 28 s (total 671 s)
+iter 33 overlap cells 581 conflicted 27 fails [] 10 s (total 680 s)
+iter 34 overlap cells 589 conflicted 28 fails [] 10 s (total 690 s)
+iter 35 overlap cells 553 conflicted 30 fails [] 9 s (total 698 s)
+iter 36 overlap cells 475 conflicted 28 fails [] 27 s (total 726 s)
+iter 37 overlap cells 468 conflicted 29 fails [] 8 s (total 734 s)
+iter 38 overlap cells 498 conflicted 30 fails [] 9 s (total 743 s)
+iter 39 overlap cells 555 conflicted 31 fails [] 9 s (total 751 s)
+iter 40 overlap cells 514 conflicted 31 fails [] 27 s (total 778 s)
+restoring best iteration: conflicted 26 overlap 425
+hard round 0: conflicted 4 fails 4 18 s
+rip-retry: start with 4 nets to place chain-level rip
+  rip-retry 1 PC12 rips {'X4': 1} fixed [] queue 4
+  rip: ADDR12 crosses fixed ADDR11 -> removed 1 pieces; groups 3
+  rip-retry 2 ADDR12 rips {'ADDR11': 1, 'Y1': 1} fixed ['ADDR11'] queue 5
+  rip-retry 5 X4 rips {'Z_LOW': 1, 'X7': 1} fixed [] queue 4
+  rip-retry 7 Y1 rips {'X4': 1} fixed [] queue 3
+  rip: Z_LOW crosses fixed ~{LOAD_Y} -> removed 2 pieces; groups 2
+  rip-retry 8 Z_LOW rips {'~{LOAD_X}': 1} fixed ['~{LOAD_Y}'] queue 4
+  rip: X7 crosses fixed I0 -> removed 1 pieces; groups 2
+  rip: X7 crosses fixed DATABUS1 -> removed 1 pieces; groups 5
+  rip: X7 crosses fixed DATABUS0 -> removed 1 pieces; groups 4
+  rip-retry 9 X7 rips {} fixed ['DATABUS0', 'DATABUS1', 'I0'] queue 6
+  rip-retry 10 X4 rips {'PC4': 1, 'PC5': 1} fixed [] queue 7
+  rip-retry 13 DATABUS0 rips {'X7': 1} fixed [] queue 5
+  rip-retry 17 PC5 rips {'X4': 1} fixed [] queue 2
+  rip: X7 crosses fixed X_ENABLE -> removed 3 pieces; groups 2
+  rip-retry 18 X7 rips {'PC5': 1} fixed ['X_ENABLE'] queue 3
+  rip: X4 crosses fixed Y_ENABLE -> removed 1 pieces; groups 2
+  rip-retry 19 X4 rips {'PC2': 1} fixed ['Y_ENABLE'] queue 4
+  rip-retry 20 PC5 rips {'X7': 1} fixed [] queue 4
+  rip-retry 23 Y_ENABLE rips {'X4': 1} fixed [] queue 2
+  rip-retry 24 X7 rips {'PC5': 1, 'X_ENABLE': 1} fixed [] queue 3
+  rip: X4 crosses fixed Y_ENABLE -> removed 1 pieces; groups 2
+  rip-retry 25 X4 rips {'Y_ENABLE': 1} fixed ['Y_ENABLE'] queue 3
+  rip-retry 26 PC5 rips {'X7': 1} fixed [] queue 3
+  rip-retry 28 Y_ENABLE rips {'PC8': 1, 'X6': 1} fixed [] queue 3
+  rip-retry 31 X6 rips {'PC2': 1, 'Y4': 1, 'Y7': 1} fixed [] queue 3
+rip-retry done after 34 rounds; unrouted [] 56 s
+improve pass 0: nets improved 33, cost gain 3672, 19 s
+improve pass 1: nets improved 12, cost gain 1817, 17 s
+UNROUTED 0 [] total 893 s
+routed vias 423 cells 137931
+wrote bench_q200.kicad_pcb segments 2163 vias 423

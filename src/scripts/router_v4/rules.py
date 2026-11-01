@@ -4,6 +4,7 @@
 import os, re
 from shapely.geometry import box
 EDGE=float(os.environ.get('EDGE','1.0'))      # copper to board-outline clearance (mm)
+HOLECLR=float(os.environ.get('HOLECLR','0.32'))  # copper to unplated hole edge (board rule 0.30 + margin)
 HOLE_RE=re.compile(r'^H\d+$')                 # mounting-hole reference designators
 NEAR=12.0                                     # a hole within this distance of an edge is "at" that edge
 

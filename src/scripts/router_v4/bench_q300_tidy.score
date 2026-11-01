@@ -1,0 +1,9 @@
+# score bench_q300_c45.kicad_pcb  (scope 118 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 29.18 m | 584 / 728 | 5.0 % | 11.8 % | 1.23 | 5 | 4 | 1 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS4 880/11/1.2, DATABUS0 862/15/1.2, DATABUS1 838/11/1.2, DATABUS3 834/15/1.1, DATABUS5 817/13/1.1, DATABUS2 814/15/1.1, DATABUS7 814/9/1.1, DATABUS6 765/10/1.0
+detour > 2: I4, PC6, VA7, Y3, ~{EXP1}
+edge: [('PC_ENABLE', 'B.Cu', (155.25, 253.25)), ('PC_ENABLE', 'B.Cu', (257.0, 264.0)), ('PC_ENABLE', 'B.Cu', (166.125, 264.0)), ('PC_ENABLE', 'B.Cu', (166.125, 264.0))]
+hole band: [('PC_ENABLE', 'B.Cu', (166.125, 264.0))]
