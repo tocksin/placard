@@ -97,3 +97,20 @@ Justin's layout without CLK_E for the same scope: 41.18 m / 946 vias.
 Whole-board tidy A/B on the wb3 raw route: NETPASS=0 693 vias / 39.77 m, NETPASS=1 686 / 39.78 (full 256-net scope).
 `kicad/placard_autorouted.kicad_pcb` is wb4_c45 as a ready-to-swap copy of the main board (Justin's GND/+5V/CLK_E copper
 kept, every other net autorouted); it is not the project's board file.
+
+## Freerouting on the whole-board bench (2026-11-01, branch-082)
+Same bench (`bench/wb.kicad_pcb.zip`, GND/+5V/CLK_E protected), exported with `PROTECT=1 python dsn.py wb.kicad_pcb wb.dsn 0.3 0.25 0.8 0.4 0.5 "" planes`
+(`bench/wb_for_freerouting.dsn`), Freerouting 2.1.0 on Justin's laptop, 40 passes, 1 thread, 72 min; SES merged with `sesnew.py`
+(`bench/wb_fr2.ses`, `bench/wb_fr2_results.kicad_pcb.zip`). Freerouting 1.9.0 routes nothing on this board (exits after 8 s).
+Pitfall fixed on the way: `dsn.py` used to add the cartridge finger-tab keepout (`tab_y=137`) unconditionally, which on the main
+board blanketed the whole board; it is now opt-in (`TAB=137`).
+
+| | open | track | vias | diagonal | clearance faults |
+|---|---|---|---|---|---|
+| Freerouting 2.1.0, 40 passes (`wb_fr2.score`) | 20 nets / 23 connections | 38.59 m (incomplete) | 445 | 18.6 % | 1 spot (DATABUS0/DATABUS5 at 124,81, from its multi-threaded optimizer) |
+| + router v4 finishing the 20 open nets, 3 min (`wb_fr2_fin.score`) | 0 | 40.95 m | 531 | 17.5 % | same spot |
+| router v4 alone, wb4 (`wb4_tidy.score`, DRC clean) | 0 | 38.96 m | 656 | 2.3 % | 0 |
+| Justin's hand layout, same scope | 0 | 41.18 m | 946 | 14 % | 0 |
+
+Freerouting spends 19 % fewer vias than v4 but 5 % more track once its leftovers are closed, does not finish on its own, leaves a
+clearance fault, and routes a fifth of its length diagonally. v4 is complete, DRC clean and shorter; its remaining gap is vias.
