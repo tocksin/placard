@@ -1,0 +1,9 @@
+# score bench_gpu4.kicad_pcb  (scope 119 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 31.24 m | 800 / 953 | 5.1 % | 8.5 % | 1.36 | 11 | 3 | 1 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS3 876/16/1.2, DATABUS4 865/9/1.2, DATABUS7 858/13/1.1, DATABUS5 838/15/1.2, DATABUS0 831/21/1.1, DATABUS2 830/17/1.1, DATABUS1 805/13/1.1, DATABUS6 780/11/1.0
+detour > 2: /Shared port/RXCLK, ADDR12, COUT, H5, PC11, PC8, PC9, VA0, X5, X6, Y6
+edge: [('PC_ENABLE', 'B.Cu', (166.0, 264.0)), ('PC_ENABLE', 'B.Cu', (155.25, 253.25)), ('PC_ENABLE', 'B.Cu', (257.0, 264.0))]
+hole band: [('PC_ENABLE', 'B.Cu', (166.0, 264.0))]
