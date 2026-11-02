@@ -21,7 +21,7 @@ have no edge.
 | Molex_87715-9106_PCIe_x4_Vertical | cartridge slot J8 (+ cartridge shell keepout) | A1-A32, B1-B32, 1.0 mm, key after 11 |
 | Molex_87715-9106_Expansion_Slot | expansion slots J9-J12: the cartridge's connector, offset 7.63 mm so the card keepout stays where the 2 x 20 slot had it (+ card shell keepout) | A1-A32, B1-B32, 1.0 mm, key after 11 |
 | PS2_Kycon_KMDGX-6S-6S-S4N | stacked PS/2 J5 | A1-A6 (top), B1-B6 (bottom), SH |
-| SNES_Pad_Socket_Horizontal | SNES pad ports J2, J3 (pins from photos: 4 + 3, 3.5 mm, 6 mm gap) | 1-7 |
+| SNES_Pad_Socket_Horizontal | SNES pad ports J2, J3 (pins measured: 4 + 3, 4 mm, 6.5 mm gap) | 1-7 |
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | 1 on throw, 2 common, 3 unused throw |
 | Jack_3.5mm_Tensility_54-00174_Horizontal | audio line out jack J6 | T (two legs), R1, R2, S |
 | USB_C_Receptacle_GCT_USB4125_6P_HandSolder | USB-C power J13 | A5 A9 A12 B5 B9 B12, S1 |
@@ -53,7 +53,7 @@ Silkscreen: the body outline in silk is cut back around the pads and holes
 (SILK_PAD_GAP) and stops SILK_EDGE_GAP inside the board edge on an edge
 connector, so DRC's silk-over-mask and silk-to-edge checks pass.
 
-Date: 2026-10-30
+Date: 2026-11-02
 """
 
 import os
@@ -336,11 +336,13 @@ def ps2_stacked():
               (-7.0, -0.5, 7.0, 13.0), pads, edge=0.0, extra=hole(0, 7.6, 2.5))
 
 
-# SNES pad port pins, read from Justin's photos of the part (no datasheet): two groups,
-# pins 1-4 at the flat end of the plug outline (-x) and 5-7 at the round end (+x),
-# 3.5 mm apart in a group with 6 mm between the groups; no locating pegs
-SNES_PITCH = 3.5
-SNES_GAP = 6.0
+# SNES pad port pins, measured by Justin on the part (2026-11-02, no datasheet): two
+# groups, pins 1-4 at the flat end of the plug outline (-x) and 5-7 at the round end
+# (+x), 4 mm apart in a group with 6.5 mm from pin 4 to pin 5, 1 mm pins; no
+# locating pegs
+SNES_PITCH = 4.0
+SNES_GAP = 6.5
+SNES_HALF = 21.4        # shell just under 43 mm long (Justin), 16 mm high
 
 
 def snes_pin_x(n):
@@ -351,12 +353,14 @@ def snes_pin_x(n):
 
 def snes():
     # PCB-mount SNES controller port (replacement part), right angle: 7 pins in a row
-    # behind the body.  Body 42 mm along the edge x 16 mm deep (Justin's reference part:
-    # 42 x 16 x 21 mm including pins; 21 is the height, 16 above the board + 5 of pin below)
-    pads = [pad(str(n), snes_pin_x(n), 14.0, 1.6, 1.0) for n in range(1, 8)]
+    # behind the body.  Shell 42.8 mm along the edge (Justin measured just under 43) x
+    # 16 mm deep (reference part 42 x 16 x 21 mm including pins; 21 is the height,
+    # 16 above the board + 5 of pin below)
+    # 1 mm pins (Justin): 1.3 mm drill, 2.0 mm pad (0.35 mm ring)
+    pads = [pad(str(n), snes_pin_x(n), 14.0, 2.0, 1.3) for n in range(1, 8)]
     footprint("SNES_Pad_Socket_Horizontal",
-              "SNES controller port, PCB mount, right angle, 7 pins (3 + 4, from photos)",
-              (-21.0, -0.5, 21.0, 15.5), pads, edge=0.0)
+              "SNES controller port, PCB mount, right angle, 7 pins (4 + 3, 4 mm pitch, 6.5 mm gap)",
+              (-SNES_HALF, -0.5, SNES_HALF, 15.5), pads, edge=0.0)
 
 
 def toggle():
