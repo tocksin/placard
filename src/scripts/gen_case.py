@@ -10,7 +10,7 @@ small slots in the acrylic and a rounded bump on each clicks past its
 underside; a slot cover's back lip has a dome that clicks into the card screw
 hole.  A cover that is out parks under the case, upside down, its tabs clicked
 into slots in the floor and the lip's dome in a second hole low in the back
-plate, and the case stands on feet tall enough to clear it.  See docs/CASE.md.
+plate, and the case stands on feet tall enough to clear it.  See docs/case/CASE.md.
 
     pip install cadquery
     python3 gen_case.py [--pcb path/to/placard.kicad_pcb] [--out case] [--mesh dir]
@@ -34,7 +34,7 @@ Parts (STEP in case/, DXF cutting files for the flat parts in case/dxf/):
 Coordinates (mm): x from the case's left outside face, y from the front
 outside face toward the back, z up from the main board's top face.
 
-Date: 2026-11-01
+Date: 2026-11-02
 """
 
 import argparse
@@ -948,7 +948,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--pcb", default=os.path.join(REPO, "kicad", "placard.kicad_pcb"))
     ap.add_argument("--out", default=os.path.join(REPO, "case"))
-    ap.add_argument("--drawings", default=os.path.join(REPO, "docs"), help="where the PNG drawings go")
+    ap.add_argument("--drawings", default=os.path.join(REPO, "docs", "case"), help="where the PNG drawings go")
     ap.add_argument("--mesh", help="also write STL meshes + board.json here (for renders)")
     a = ap.parse_args()
     info = build(a.pcb, a.out, a.mesh, a.drawings)

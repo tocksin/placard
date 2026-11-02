@@ -4,14 +4,14 @@
 ; ============================================================
 ;
 ; The keyboard is a PS/2 keyboard in the lower half of the stacked dual
-; socket J5 (docs/IO.md "PS/2 keyboard socket"); the mouse is in the upper
+; socket J5 (docs/architecture/IO.md "PS/2 keyboard socket"); the mouse is in the upper
 ; half.  They share the PS/2 DATA line, so only one of them may send at a
 ; time: the port latch holds the other one's CLK low.  The one that is
 ; let go is the LISTENED device; its latch value is kept in PS2_LSN
 ; (P_FREE the mouse, P_KFREE the keyboard, P_IDLE neither).
 ;
 ; Since 2026-10-25 the bytes are received by the PS/2 receiver PLD
-; (ATF22V10_PS2.pld, docs/IO.md "PS/2 receiver"): it shifts in the byte
+; (ATF22V10_PS2.pld, docs/architecture/IO.md "PS/2 receiver"): it shifts in the byte
 ; the listened device sends, holds the device off once the byte is in,
 ; and the CPU reads it:
 ;
@@ -408,7 +408,7 @@ cb_p2:
 ;   K_CAPS) turns caps lock on and off.  Fn (either Windows key) +
 ;   Backspace = Delete (7F), Fn + Esc = ` (Shift: ~), Fn + Left = Home
 ;   (15).  Keys with no character (Shift, Ctrl, Alt, Fn) only show in
-;   KBD_NOW.  The key numbers and characters are in docs/IO.md,
+;   KBD_NOW.  The key numbers and characters are in docs/architecture/IO.md,
 ;   "Keyboard".
 ;   With no PS/2 keyboard found by port_init, every 32nd call looks for
 ;   one again, 4 times (about 16 ms each), for one that was still
@@ -1679,7 +1679,7 @@ mz_done:
 
 
 ; ps2_set2 - scan code set 2 (00-83) to key number (column * 8 + row,
-; docs/IO.md); FF = no key; 80-82 = the PS/2 keyboard's own keys
+; docs/architecture/IO.md); FF = no key; 80-82 = the PS/2 keyboard's own keys
 ps2_set2:
     ;    x0    x1    x2    x3    x4    x5    x6    x7    x8    x9    xA    xB    xC    xD    xE    xF
     #d8 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 14,   0x82, 0xFF  ; 0x  Tab `

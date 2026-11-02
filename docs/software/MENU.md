@@ -9,7 +9,7 @@ Date: 10/26/2026
 
 Until 2026-10-26 the menu and six demos were built into one 64 KB ROM
 (`gen_menu_rom.py`, `build\menu.bat`).  The 32K ROM image replaced that
-([ROM.md](ROM.md#the-32k-image)): the ROM holds the loader, BASIC and the
+([ROM.md](../architecture/ROM.md#the-32k-image)): the ROM holds the loader, BASIC and the
 library, and the DOS and the demos are files.
 
 ## What it does
@@ -38,7 +38,7 @@ library, and the DOS and the demos are files.
 - **Esc in the menu** goes to the DOS's file browser (the loader loads
   `DOS.PLC`).
 - The highlighted program sits on a blue bar and the title on a gold band
-  (row tints, mode byte bits 6:4, [VIDEO.md](VIDEO.md#row-tint)).
+  (row tints, mode byte bits 6:4, [VIDEO.md](../video/VIDEO.md#row-tint)).
 
 The text demo, the ray caster and the side scroller are not in the menu:
 they run in place from ROM x6000-xBFFF and don't fit the 16 KB of program

@@ -1,6 +1,6 @@
 Name     VGA_SYNC;
 PartNo   01;
-Date     2026-10-27;
+Date     2026-11-02;
 Revision 10;
 Designer Justin;
 Company  ;
@@ -39,8 +39,8 @@ PIN 11 = RUN;             /* ROM cartridge: low while it loads */
 
 /* Blanking read slot, from the audio slot PLD (revision 06; named
    AUD_SLOT before revision 07).  High for the whole 8-clock group of
-   each line where the mode byte (group 45, see docs/VIDEO.md) or the audio
-   sample (group 46 or 47, see docs/SOUND.md) is read (groups 37-39 before
+   each line where the mode byte (group 45, see docs/video/VIDEO.md) or the audio
+   sample (group 46 or 47, see docs/sound/SOUND.md) is read (groups 37-39 before
    audio slot PLD revision 03). */
 PIN 13 = BLANK_RD;
 
@@ -174,7 +174,7 @@ VIDEN.D =
    it reaches the address mux PLDs (their select since revision 10,
    ADDR_SEL before) and the State, PC and Branch PLDs at tCO,
    instead of three array passes after the clock (see
-   docs/VIDEO_TIMING.md).
+   docs/timing/VIDEO_TIMING.md).
 
    It is decoded from the V_VIDEO_ACTIVE register and the
    H_VIDEO_ACTIVE input, so it is one array pass.
@@ -241,7 +241,7 @@ VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;
    ============================================================ */
 
 /*
-   Revision 10 (docs/FETCH_TIMING.md, option B): the address mux
+   Revision 10 (docs/timing/FETCH_TIMING.md, option B): the address mux
    control (ADDR_SEL, ADDR_SEL_HI, ADDR_SEL_LO, from PIXEL_ENABLE,
    PC_ENABLE, X_ENABLE and Y_ENABLE) is gone.  The four mux PLDs
    (QUAD_4TO1_MUX revision 02) take PIXEL_ENABLE and the State PLD's
@@ -264,7 +264,7 @@ VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;
    chip sees the edge, and it is back high (tPD max 7.5 - 3 = 4.5
    ns after the edge the rest of the board sees) before the address
    or a chip enable can change (tCO min 2 + mux tPD min 3 = 5 ns):
-   docs/WE_TIMING.md.  Without the Sync pass in the address path
+   docs/timing/WE_TIMING.md.  Without the Sync pass in the address path
    the normal clock would be too late by 2.5 ns.
 
    RW and PIXEL_ENABLE settle long before the clock can fall, so
@@ -273,7 +273,7 @@ VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;
 
    The output enable term is RUN, as in the memory control PLD:
    /WE floats while RUN is low (10k pull-up on the main board) so a
-   boot card in expansion slot 1 can drive it (docs/EXPANSION.md).
+   boot card in expansion slot 1 can drive it (docs/architecture/EXPANSION.md).
    It is a separate term, so WE uses 1 of the pin's product terms.
 */
 

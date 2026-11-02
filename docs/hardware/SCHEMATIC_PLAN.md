@@ -1,6 +1,6 @@
 # Schematic rules
 
-Date: 2026-10-30
+Date: 2026-11-02
 
 The KiCad schematic (`kicad/`) is drawn by
 `src/scripts/gen_kicad_schematic.py` (with `kicad_sch_lib.py` and the router
@@ -52,11 +52,11 @@ part goes on the sheet of the block it belongs to.
 
 ## Reference designators
 
-- **Chips:** U = the `#` column of [CHIPS.md](CHIPS.md), fixed (annotation
+- **Chips:** U = the `#` column of [CHIPS.md](../architecture/CHIPS.md), fixed (annotation
   keeps existing references), gaps left empty so every document's chip
   numbers stay right.  The cartridges number their own chips from U1
   (64K U1-U5, 32K U1-U3).
-- **Connectors:** as [IO.md](IO.md) and [SOUND.md](SOUND.md) use them: J2-J6,
+- **Connectors:** as [IO.md](../architecture/IO.md) and [SOUND.md](../sound/SOUND.md) use them: J2-J6,
   then J7 VGA, J8 cartridge slot, J9-J12 expansion slots 1-4, J13 USB-C.
   The cartridge fingers are J1 on each cartridge.
 - **Decoupling capacitors:** Cn goes with Un (C1 with U1), set by hand and
@@ -165,7 +165,7 @@ Choices made while drawing that a revision should not undo by accident:
 - The expansion slots' boot contacts are BT1, BT2, BT3 and BT5 (slot 1
   only, open on slots 2-4; BT4 and BT6-BT8 dropped 2026-10-30 for the inner
   grounds); cards latch DATABUS7:0.  /WE has a 10k pull-up
-  (R63).  [EXPANSION.md](EXPANSION.md), "Booting from slot 1".
+  (R63).  [EXPANSION.md](../architecture/EXPANSION.md), "Booting from slot 1".
 - The slots' LOAD_IMM contact carries the State PLD's `/LOAD_IMM` as it is
   (active low).
 - U36 (audio DAC register) is on the audio rail: VCC on DAC_5V, GND on

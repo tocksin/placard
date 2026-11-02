@@ -100,9 +100,9 @@ begin
     );
 
     -- Blanking read slots: the mode byte in group 45 on every line, at
-    -- 5A00h + V8:V0 (see docs/VIDEO.md), and the audio sample in group 46 on
+    -- 5A00h + V8:V0 (see docs/video/VIDEO.md), and the audio sample in group 46 on
     -- lines 499-511 and group 47 on lines 512-1023, so the audio read
-    -- address runs 5DF3h-5FFFh (see docs/SOUND.md).  It also remaps the row
+    -- address runs 5DF3h-5FFFh (see docs/sound/SOUND.md).  It also remaps the row
     -- address bits A0, A1, A7 and A8 for the line repeat modes (line code
     -- bits 3:2).
     audioPLD : entity work.audio_pld

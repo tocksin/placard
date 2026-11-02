@@ -3,9 +3,9 @@
 ; (the PS/2 keyboard and mouse are in placard_ps2.asm)
 ; ============================================================
 ;
-; Drivers for the shared port at x5200 (docs/IO.md).  placard_lib.asm
+; Drivers for the shared port at x5200 (docs/architecture/IO.md).  placard_lib.asm
 ; includes this file, so a program that includes the standard library
-; has them too.  They use the library's calling convention (docs/LIBRARY.md)
+; has them too.  They use the library's calling convention (docs/software/LIBRARY.md)
 ; and the I/O zero page bytes xA0-xBF (zeropage.asm).
 ;
 ; The code sits at IO_CODE (xDC00-xEBFF, set in placard_lib.asm), part of
@@ -565,7 +565,7 @@ si_pz:
     ld   PORT, y                ; 80 clocks with /CS high and MOSI high,
     clr  x                      ; below 400 kHz (about 200 us; the one
     ld   80, ac                 ; place /CS stays high over 50 us, see
-    ld   ac, [IO_T1]            ; docs/IO.md)
+    ld   ac, [IO_T1]            ; docs/architecture/IO.md)
 si_clk:
     ld   0xEE, [y,x]            ; SCK low, MOSI 1, /CS high
     ld   7, ac
@@ -1316,7 +1316,7 @@ sa_2:
 ; row): 64 bytes without Shift, then 64 with Shift.  0 = no character.
 ; Special keys: Enter 0A, Backspace 08, Tab 09, Esc 1B, Up 11, Down 12,
 ; Left 13, Right 14 (Delete 7F, Home 15 and ` ~ come from Fn, in
-; kbd_key).  docs/IO.md has the layout.
+; kbd_key).  docs/architecture/IO.md has the layout.
 ; ------------------------------------------------------------
 kbd_map:
     ; column 0: Esc 1 2 3 4 5 6 7

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-bringup_signals.py - expected multimeter readings for docs/BRINGUP.md
+bringup_signals.py - expected multimeter readings for docs/hardware/BRINGUP.md
 
 A clock-by-clock model of the video PLDs (Sync rev 08, H counter rev 08,
 V counter rev 03, audio slot rev 04, color decoder rev 07) as

@@ -10,7 +10,7 @@ rem      Python; if neither is found the existing .hex files are used)
 rem   2. makes src\hdl\ram.mem and cart_ram.mem (gen_random_ram.tcl, random
 rem      bytes like a real SRAM at power-up) and src\hdl\rom.mem (gen_rom.tcl:
 rem      the cartridge EEPROM image, boot loader, library and the program, see
-rem      docs/ROM.md)
+rem      docs/architecture/ROM.md)
 rem   3. runs Vivado in batch mode: synthesis, implementation, bitstream
 rem   4. programs the Basys 3 through the local hw_server
 rem

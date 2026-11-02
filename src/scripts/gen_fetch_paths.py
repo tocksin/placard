@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Draw the instruction fetch and /WE timing paths, now and with option B.
 
-Only the chips on the two paths are drawn (docs/FETCH_TIMING.md).  Output:
-docs/fetch_paths.png.  Run from the repository root.
+Only the chips on the two paths are drawn (docs/timing/FETCH_TIMING.md).  Output:
+docs/timing/fetch_paths.png.  Run from the repository root.
 """
 import matplotlib
 matplotlib.use("Agg")
@@ -114,5 +114,5 @@ fig.text(0.5, 0.005, "Blue: instruction fetch (address) path.  Red: write enable
          "Datasheet maximums (ATF22V10C-7PX, AS7C256C-15PCN); traces not included.",
          ha="center", fontsize=11.5)
 fig.tight_layout(rect=(0, 0.015, 1, 1))
-fig.savefig("docs/fetch_paths.png", dpi=110)
-print("wrote docs/fetch_paths.png")
+fig.savefig("docs/timing/fetch_paths.png", dpi=110)
+print("wrote docs/timing/fetch_paths.png")

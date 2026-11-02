@@ -15,7 +15,7 @@ SCREEN
     rows  32-479  8 bpp, 4x   the 3D view: 80 x 112 cells of 8 x 4 pixels,
                               256 colors (RGB 3-3-2)
     The 1x text rows use video offsets x020-x03F of each byte column and the
-    4x view rows x180-x1FF (docs/VIDEO.md, line repeat), so they never share a
+    4x view rows x180-x1FF (docs/video/VIDEO.md, line repeat), so they never share a
     byte.  There is no page flip, so a view is drawn over the last one,
     column by column, while it is on the screen.
 
@@ -57,7 +57,7 @@ THE RAY CASTER (one ray per column, DDA on a 16 x 16 map)
 
 MEMORY
     ROM pages x61, x65, x69, x77-x7F, x84-x8F and xB1-xBE (the ones the text
-    demo leaves free, so both run in place from the menu ROM, docs/MENU.md);
+    demo leaves free, so both run in place from the menu ROM, docs/software/MENU.md);
     x6000 holds only the jump to main.  At start the program sets map 07
     and builds two tables in the RAM: the |1 / cos|, |1 / sin| tables at
     x3800-x41FF from a quarter of a turn in ROM (GL, GH; by symmetry, 5
@@ -108,7 +108,7 @@ TURN = 2                # angle steps a tick
 IDLE_TICKS = 600        # back to the demo walk after this many idle ticks
 
 # The program only uses ROM pages that text_demo.asm leaves free (x61, x65,
-# x69, x77-x7F, x84-x8F, xB1-xBE), so both fit in the menu ROM (docs/MENU.md)
+# x69, x77-x7F, x84-x8F, xB1-xBE), so both fit in the menu ROM (docs/software/MENU.md)
 # and run in place.  x6000 holds only a jump to main (the boot's entry).
 
 # tables built in the RAM at start (map 07: sections 1 and 2 read RAM)

@@ -8,7 +8,7 @@
 ; programs on the SD card.  It is a program on the card itself, DOS.PLC
 ; ============================================================
 ;
-; The 32K ROM's loader (rom32.masm, docs/DOS.md) loads DOS.PLC from the
+; The 32K ROM's loader (rom32.masm, docs/software/DOS.md) loads DOS.PLC from the
 ; card's root folder at power-up (unless BOOT.CFG names another program,
 ; or there is no card: then BASIC) and again whenever a program comes back,
 ; and enters it with map 07 (RAM x0000-x5FFF, the library and the FAT

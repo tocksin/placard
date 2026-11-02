@@ -8,9 +8,9 @@
 ; DOS (DOS.PLC on the SD card) or BASIC, and runs programs from the card
 ; ============================================================
 ;
-; The 32K image (docs/ROM.md "The 32K image") holds the boot loader, the
+; The 32K image (docs/architecture/ROM.md "The 32K image") holds the boot loader, the
 ; library, the FAT writer and this code.  The DOS is a program on the SD
-; card (DOS.PLC, dos.masm, docs/DOS.md); the ROM keeps only what has to
+; card (DOS.PLC, dos.masm, docs/software/DOS.md); the ROM keeps only what has to
 ; outlive a program that loads over the DOS in the RAM:
 ;
 ;   power-up     "PLACARD" and about a second in which Esc held goes to the
@@ -858,7 +858,7 @@ s_basic:    #d "BASIC", 0x00
 
 ; ============================================================
 ; BASIC (vector x8024): basic.masm and its bytecode, basic.vm, in the
-; space left in both regions (docs/BASIC.md)
+; space left in both regions (docs/software/BASIC.md)
 ; ============================================================
 ; ============================================================
 ; basic.masm - PLACARD BASIC: the bytecode machine's native code
@@ -867,7 +867,7 @@ s_basic:    #d "BASIC", 0x00
 ; rom32.masm includes this file.  BASIC itself is written in bytecode
 ; (basic.vm, compiled by vmc.py when asm_expand.py meets the .include at
 ; the end of this file); this file is the machine that runs it and the
-; primitives that have to be fast or touch the hardware.  docs/BASIC.md,
+; primitives that have to be fast or touch the hardware.  docs/software/BASIC.md,
 ; "The bytecode machine", describes it:
 ;
 ;   IP     the next instruction (IPL, IPH)

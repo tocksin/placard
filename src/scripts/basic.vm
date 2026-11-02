@@ -3,7 +3,7 @@
 \ ============================================================
 \
 \ vmc.py compiles this (asm_expand.py does it for rom32.masm's .include);
-\ docs/BASIC.md describes the language and the interpreter.
+\ docs/software/BASIC.md describes the language and the interpreter.
 \
 \ RAM while BASIC runs (map 07):
 \   x0020-x004F  the machine's and BASIC's zero page (below)

@@ -10,11 +10,11 @@ the filter and the audio line out jack, plus the timing of one line.
 
 Needs matplotlib (python3 -m pip install matplotlib).  The pin numbers are
 typed in from ATF22V10_AUDIO.pld, ATF22V10_SYNC.pld, ATF22V10_HCOUNT.pld,
-ATF22V10_QUAD_MUX.pld, docs/SOUND.md, docs/CHIPS.md and the parts' data
+ATF22V10_QUAD_MUX.pld, docs/sound/SOUND.md, docs/architecture/CHIPS.md and the parts' data
 sheets; update them here when those change and rerun.  Nets with the same
 label are connected.  Same drawing style as gen_io_schematic.py.
 
-Date: 2026-10-25
+Date: 2026-11-02
 """
 import os
 import sys
@@ -197,7 +197,7 @@ def frame(x, y, w, h, label, where="tl"):
 T(4, 5, "Placard: audio schematic", fs=20, weight="bold")
 T(4, 10.5, "Line-fetched 8-bit audio: one sample per scan line read from x5DF3-x5FFF into the pixel "
    "buffer, copied to a 74HCT574 when H_VIDEO_ACTIVE rises, an R-2R ladder straight to the audio line out (no headphone amp).  "
-   "Pin numbers from ATF22V10_AUDIO.pld rev 03, ATF22V10_SYNC.pld rev 10 and docs/SOUND.md.  "
+   "Pin numbers from ATF22V10_AUDIO.pld rev 03, ATF22V10_SYNC.pld rev 10 and docs/sound/SOUND.md.  "
    "Red labels are nets.", fs=9.5, color=MUTE)
 
 # ================================================================ U35 audio slot PLD
@@ -447,8 +447,8 @@ for i, (a, b) in enumerate(notes):
     T(nx, ny + 4.5 + i * 3.4, a, fs=7.0, weight="bold")
     T(nx + 13, ny + 4.5 + i * 3.4, b, fs=7.0)
 T(nx, ny + 37, "Each chip has a 100 nF capacitor across its supply pins.  U-numbers as in "
-   "docs/CHIPS.md.  Source: docs/SOUND.md,", fs=6.8, color=MUTE)
-T(nx, ny + 39.8, "docs/VIDEO.md, the PLD files, 2026-10-19.", fs=6.8, color=MUTE)
+   "docs/architecture/CHIPS.md.  Source: docs/sound/SOUND.md,", fs=6.8, color=MUTE)
+T(nx, ny + 39.8, "docs/video/VIDEO.md, the PLD files, 2026-10-19.", fs=6.8, color=MUTE)
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "..", "schematics", "placard_audio_schematic.png")

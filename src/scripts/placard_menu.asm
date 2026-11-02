@@ -2,7 +2,7 @@
 ; placard_menu.asm - the program menu's hook and the menu block (the DOS, the demo menu)
 ; ============================================================
 ;
-; The demo menu (menu.masm, docs/MENU.md) runs one program
+; The demo menu (menu.masm, docs/software/MENU.md) runs one program
 ; at a time and takes the machine back when Esc is pressed or, while it is
 ; rotating through the programs, when the program's time is up.  There
 ; are no interrupts, so each program calls a hook about once per frame:
@@ -51,9 +51,9 @@
 ;   x5D50-x5D53  MB_DCLUS   the DOS's current folder while a program runs
 ;   x5D60-x5D6C  MB_FNAME   the current folder's name, for the DOS's title
 ;
-; x5D00-x5DFF is program RAM (docs/ROM.md) that none of the menu's programs
+; x5D00-x5DFF is program RAM (docs/architecture/ROM.md) that none of the menu's programs
 ; use; the audio buffer starts at x5DF3.  Since 2026-10-26 the block is set
-; up by the 32K ROM's loader (rom32.masm, docs/DOS.md), which also runs the
+; up by the 32K ROM's loader (rom32.masm, docs/software/DOS.md), which also runs the
 ; programs; the DOS (DOS.PLC) and the menu (MENU.PLC) are programs on the
 ; SD card.
 ;

@@ -9,7 +9,7 @@ Each routine is called through the standard CALL sequence from a small
 driver, as test_lib.py does, with the shared port modeled by io_devices.py:
 the PS/2 receiver PLD, two SNES pads, an SD card, a PS/2 mouse and a PS/2
 keyboard.  Besides the results, the tests check the port rules from
-docs/IO.md: every routine leaves the latch at the value in PS2_LSN (the
+docs/architecture/IO.md: every routine leaves the latch at the value in PS2_LSN (the
 listened device let go, the receiver armed), and a write that is not a
 re-arm (x5200, x5201) never lifts /CS (the mouse's clock hold) or latch
 bit 4 (the keyboard's) for 50 us or more, so a device can't start sending

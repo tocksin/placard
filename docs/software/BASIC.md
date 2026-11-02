@@ -102,7 +102,7 @@ In order of precedence, highest first:
 | `PLOT x, y, c` | |
 | `LINE x1, y1, x2, y2, c` | |
 | `TINT row, rgb` | tints a text row (bits 2:0 = R, G, B: 1 blue ... 7 white tint, 0 none) |
-| `SCAN first, last, mode` | writes the mode byte of lines first-last directly ([VIDEO.md](VIDEO.md)) |
+| `SCAN first, last, mode` | writes the mode byte of lines first-last directly ([VIDEO.md](../video/VIDEO.md)) |
 | `BEEP [note]` | a short note (MIDI number, 69 = A 440, the default) |
 | `SOUND note, frames [, volume]` | volume 0-127 (96 default); frames 0 = until the next sound |
 | `NOISE volume, rate, frames` | rate 1-128 |
@@ -121,7 +121,7 @@ Several statements may share a line, separated by `:`.
 | `PEEK(a)` | a byte of memory |
 | `FRE(0)` | free bytes (after collecting the string garbage) |
 | `INKEY` | the key waiting, as a number (0 = none); no brackets |
-| `PAD(n)` | the game pad on port n (1 or 2): its bits ([IO.md](IO.md)) |
+| `PAD(n)` | the game pad on port n (1 or 2): its bits ([IO.md](../architecture/IO.md)) |
 | `LEN(s$)`, `ASC(s$)`, `VAL(s$)` | `VAL` reads a number at the start (leading spaces, `-`, `&H`), 0 when none |
 | `CHR$(n)`, `STR$(n)`, `HEX$(n)` | |
 | `LEFT$(s$, n)`, `RIGHT$(s$, n)`, `MID$(s$, start [, n])` | `start` counts from 1 |
@@ -139,7 +139,7 @@ lines graphics: `bpp` bits per pixel (1, 2, 4 or 8: 640, 320, 160 or 80
 pixels across) and each graphics line shown `rep` times (1, 2 or 4).
 `PLOT` and `LINE` count x across and y down from the top of the graphics
 area, in pixels of that size; points off the area are ignored.  Colors
-are those of the mode ([COLORS.md](COLORS.md)).  `MODE 2,2,4` is a 320 x
+are those of the mode ([COLORS.md](../video/COLORS.md)).  `MODE 2,2,4` is a 320 x
 224 four-color picture under four rows of text.
 
 `MODE` with 0 rows makes the whole screen graphics; the text comes back
@@ -147,7 +147,7 @@ are those of the mode ([COLORS.md](COLORS.md)).  `MODE 2,2,4` is a 320 x
 `CLS` clears both parts; `TEXT` goes back to all text.
 
 The text rows below the lowest one written so far are blanked (mode byte
-bit 7, [VIDEO.md](VIDEO.md) "Blank line"): they look the same, black, but
+bit 7, [VIDEO.md](../video/VIDEO.md) "Blank line"): they look the same, black, but
 the video makes no reads there, so a program runs up to about 10 % faster
 while the screen is not full.  `CLS`, `TEXT` and `MODE` blank them again;
 printing on a row (or the cursor reaching it) shows it and the rows above
@@ -156,7 +156,7 @@ it; `TINT` shows its row.
 With `TEXT 30` the graphics lines can only be repeated 2 or 4 times, and
 with 2x repeat the text window takes an even number of 16-line rows below
 row 6; other combinations give `?Layout error` (the video hardware
-fetches 2 lines at a time, [VIDEO.md](VIDEO.md)).
+fetches 2 lines at a time, [VIDEO.md](../video/VIDEO.md)).
 
 ### Machine code
 

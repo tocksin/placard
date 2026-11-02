@@ -1,6 +1,6 @@
 # Selling the Placard as a kit
 
-Date: 2026-10-29
+Date: 2026-11-02
 
 Who can buy the parts, program the chips, bag each kit and ship it, so
 that no one has to hand-pack every kit.  Researched 2026-10-20 from public
@@ -45,7 +45,7 @@ SN74HCT574N, the 3.3 V regulator and oscillator (not chosen
 yet), the power toggle (CIT ANT11TFHQE), the reset relay (CIT J1071CS5VDC.36)
 and its button (C&K PTS645VL58-2 LFS), sockets, passives, connectors, two PCBs and the case
 (the keyboard is a PS/2 keyboard since 2026-10-25).  The full
-bills of materials, one per assembly (main board, each cartridge, case), are indexed in [BOM.md](BOM.md),
+bills of materials, one per assembly (main board, each cartridge, case), are indexed in [BOM.md](../bom/BOM.md),
 written from the KiCad sheets.
 
 ## The services

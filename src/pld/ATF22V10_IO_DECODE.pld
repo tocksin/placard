@@ -14,7 +14,7 @@ Device   g22v10;
    (ATF22V10C, DIP-24 / PLCC-28)
    ============================================================
 
-   Two jobs, both decoded in one array pass (see docs/TIMING_FIXES.md):
+   Two jobs, both decoded in one array pass (see docs/timing/TIMING_FIXES.md):
 
    1. /CE_HI, the chip enable of the upper 32K RAM (and ROM) chip.
       It is !A15, but A15 is rebuilt here from the high-byte
@@ -25,7 +25,7 @@ Device   g22v10;
       With both chip enables settled before /WE can go low, a
       store to one chip can no longer also write the other.
 
-      Revision 05 (docs/FETCH_TIMING.md, option B): the mux PLDs
+      Revision 05 (docs/timing/FETCH_TIMING.md, option B): the mux PLDs
       (QUAD_4TO1_MUX revision 02) take PIXEL_ENABLE, PC_ENABLE and
       Y_ENABLE as their selects directly, so this PLD takes the
       same three (pins 2, 3 and 14) in place of ADDR_SEL,
@@ -38,7 +38,7 @@ Device   g22v10;
                0           0        0       00h         0
 
    2. The I/O strobes for 5000h - 53FFh, one 256-byte page per
-      device, as in docs/TIMING_FIXES.md:
+      device, as in docs/timing/TIMING_FIXES.md:
 
           page  address      strobe(s)
            0    5000h-50FFh  /MAP_WR (ROM/RAM map register), /LINE_RD
@@ -48,7 +48,7 @@ Device   g22v10;
 
       Since revision 03 the window is 5000h - 53FFh (A11 = A10 = 0),
       and 5400h - 5FFFh is memory (the mode bytes and the audio
-      buffer are there, see docs/VIDEO.md).  Pin 18 was /SND_WR, which
+      buffer are there, see docs/video/VIDEO.md).  Pin 18 was /SND_WR, which
       nothing used once the audio came from RAM; it is now the A11
       input.  EXP1 and EXP2 moved from pages 5 and 6 to pages 1
       and 3.  Before, A11 was not decoded, so 5800h - 5FFFh repeated

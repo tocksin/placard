@@ -6,7 +6,7 @@
 > ([FETCH_TIMING.md](FETCH_TIMING.md)).  The sections below describe the
 > design as it was fixed before that.
 
-Date: 2026-10-25
+Date: 2026-11-02
 
 This covers what was left in [TIMING.md](TIMING.md) after the ALU
 ([ALU_TIMING.md](ALU_TIMING.md)), video read
@@ -98,7 +98,7 @@ spare.
 blanking (group 37 from x4A20 + row at first, group 45 from x5A20 + row
 since the I/O window shrank), and the line code F377 copies it from
 the pixel buffer with /E from /MODE_LD (audio slot PLD revision 02), so it
-no longer takes byte column 0.  See [VIDEO.md](VIDEO.md#mode-byte).  The
+no longer takes byte column 0.  See [VIDEO.md](../video/VIDEO.md#mode-byte).  The
 text below is the earlier fix.
 
 `lineCode` was an F574 clocked by the rising edge of `videoActiveR`, which

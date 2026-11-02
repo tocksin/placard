@@ -5,7 +5,7 @@
 ; rom32.masm includes this file.  BASIC itself is written in bytecode
 ; (basic.vm, compiled by vmc.py when asm_expand.py meets the .include at
 ; the end of this file); this file is the machine that runs it and the
-; primitives that have to be fast or touch the hardware.  docs/BASIC.md,
+; primitives that have to be fast or touch the hardware.  docs/software/BASIC.md,
 ; "The bytecode machine", describes it:
 ;
 ;   IP     the next instruction (IPL, IPH)

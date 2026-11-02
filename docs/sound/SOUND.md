@@ -1,6 +1,6 @@
 # Sound
 
-Date: 2026-11-01
+Date: 2026-11-02
 
 The video circuit plays sound by itself.  On every scan line it reads one
 8-bit sample from RAM, the same way it reads pixels, and a register feeds that
@@ -16,7 +16,7 @@ sample to a resistor DAC.  Software only keeps a 525-byte buffer filled.
 
 ## Schematic
 
-![Placard audio schematic](../schematics/placard_audio_schematic.png)
+![Placard audio schematic](../../schematics/placard_audio_schematic.png)
 
 The drawing is made by `src/scripts/gen_audio_schematic.py` (2026-10-19);
 rerun it when the pins change.  It shows the audio slot PLD (U35), the Sync
@@ -66,9 +66,9 @@ the clock moved to H_VIDEO_ACTIVE, which is registered and can't glitch.
 ### Audio slot PLD (`ATF22V10_AUDIO.pld`, `audio_pld.vhd`)
 
 Revision 03 (2026-10-16).  It also marks group 45, where the video circuit
-reads the line's mode byte (see [VIDEO.md](VIDEO.md#mode-byte)), and makes
+reads the line's mode byte (see [VIDEO.md](../video/VIDEO.md#mode-byte)), and makes
 four row address bits for the line repeat (see
-[VIDEO.md](VIDEO.md#line-repeat)).
+[VIDEO.md](../video/VIDEO.md#line-repeat)).
 
     BLANK_RD = !H9 & H8 & !H7 & H6 & H5 &  H4 &  H3 &  V9      /* group 47 */
              # !H9 & H8 & !H7 & H6 & H5 &  H4 & !H3 & !V9      /* group 46 */
@@ -364,7 +364,7 @@ measured; about 380,000 CPU clocks per frame):
 ## Memory map impact
 
 - 5DF3h-5FFFh is the audio buffer while sound is used.  5A20h-5BFFh holds the
-  row mode bytes (see [VIDEO.md](VIDEO.md#mode-byte)).  4000h-4FFFh,
+  row mode bytes (see [VIDEO.md](../video/VIDEO.md#mode-byte)).  4000h-4FFFh,
   5400h-5A1Fh and 5C00h-5DF2h are free.
 - The video reads the buffer from the RAM whatever the map says.  For the
   CPU to read it back, section 2 (map bit 2) must read RAM.

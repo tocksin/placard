@@ -3,7 +3,7 @@
 # Generates rom.mem, the ROM cartridge's EEPROM image: one hex byte per line,
 # 65536 lines, address 0..65535.  Loaded by sp_ram.vhd (romComp in
 # cartridge.vhd) at elaboration / synthesis; the cartridge copies it into its
-# SRAM at power-up.  docs/ROM.md describes the layout.
+# SRAM at power-up.  docs/architecture/ROM.md describes the layout.
 # Video reads always read the RAM, so the ROM under the video area holds
 # programs:
 #
@@ -26,14 +26,14 @@
 #     xFD00-xFE07   boot loader                             rom_boot.hex
 #
 # rom32.asm (which sets the boot mode byte xFC00 to 02 itself) makes the
-# 32K image instead (docs/ROM.md, "The 32K image"): x8000-xFFFF holds the
+# 32K image instead (docs/architecture/ROM.md, "The 32K image"): x8000-xFFFF holds the
 # boot loader and library as above, LIB_RAM's bytes at x9F00, rom32.asm's
 # own bytes (vectors, loader, BASIC, FAT writer: x8000-x9EFF, xA000-xBFFF), BOOT_MODE = 02 and a copy of the
 # reset code at x8000, and the lower half is a copy of the upper one, so a
 # 32K cartridge (its one EEPROM read in both halves) and a 64K cartridge
 # boot the same.  rom_32k.bin, the 32K EEPROM file, is written next to
 # rom.mem.  The DOS (DOS.PLC) and the programs then come from the SD card
-# (docs/DOS.md); with no card the machine starts BASIC.
+# (docs/software/DOS.md); with no card the machine starts BASIC.
 #
 # A program assembled at x6000-xBFFF and x2000-x3FFF (with the library
 # included or not) is a ROM program (the 64K development image).  An older program written to run at

@@ -4,8 +4,8 @@ Date: 2026-11-02
 
 What a PLACARD kit costs to make at a few batch sizes, what Crowd Supply,
 Kickstarter and Tindie take, and a suggested price.  Component costs come
-from the BOMs in [BOM.md](BOM.md) (single-unit Mouser/Digi-Key prices, 2026-10-27);
-the case from the cost estimate in [CASE.md](CASE.md); programming and kitting
+from the BOMs in [BOM.md](../bom/BOM.md) (single-unit Mouser/Digi-Key prices, 2026-10-27);
+the case from the cost estimate in [CASE.md](../case/CASE.md); programming and kitting
 from [KITTING.md](KITTING.md).  **No quotes were requested.**  Everything
 marked *est.* is a planning number, good to roughly +/- 25 % (case and
 PCB lines +/- 50 %), to replace with real quotes before a campaign goal is

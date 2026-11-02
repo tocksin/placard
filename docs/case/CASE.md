@@ -1,6 +1,6 @@
 # Case
 
-Date: 2026-10-30
+Date: 2026-11-02
 
 This is a concept for the PLACARD case. The case is black powder-coated
 aluminium, strong on the bottom and sides, with a clear acrylic top so the
@@ -449,13 +449,13 @@ covers.
 
 ```
 pip install cadquery
-python3 src/scripts/gen_case.py                       # STEP + DXF + cover STL in case/, drawings in docs/
+python3 src/scripts/gen_case.py                       # STEP + DXF + cover STL in case/, drawings in docs/case/
 python3 src/scripts/gen_case.py --pcb other.kicad_pcb # from another copy of the board
 python3 src/scripts/gen_case.py --mesh src/scripts/case_render/mesh   # also STL meshes for the renders
-python3 src/scripts/gen_case_print.py                 # 3D-printed pieces in case/print/, docs/case_print_pieces.png
+python3 src/scripts/gen_case_print.py                 # 3D-printed pieces in case/print/, docs/case/case_print_pieces.png
 python3 src/scripts/gen_case_quote.py                 # quote package in case/quote/ and case/quote.zip
 python3 src/scripts/gen_case_quote.py --mesh src/scripts/case_render/mesh   # also the bent metal for the renders
-python3 src/scripts/gen_case_covers.py                # docs/case_cover_detents.png
+python3 src/scripts/gen_case_covers.py                # docs/case/case_cover_detents.png
 python3 src/scripts/case_render/gen_case_hardware.py  # screws, standoffs, nuts for the renders
 ```
 

@@ -44,7 +44,7 @@ the font, the I/O drivers and the rest, down to xC000.
 | x5400-x5FFF | Free (section 2 reads RAM while a program runs) | |
 | x6000-xBFFF | Program, runs in place, entry at x6000 | the program |
 | xC000-xC4FF | PS/2 keyboard driver and listening (`PS2_CODE`): `wait_frames_io` ([IO.md](IO.md)) | `rom_lib.asm` |
-| xC500-xC5FF | Menu hook (`MENU_CODE`): `menu_poll` ([MENU.md](MENU.md)) | `rom_lib.asm` |
+| xC500-xC5FF | Menu hook (`MENU_CODE`): `menu_poll` ([MENU.md](../software/MENU.md)) | `rom_lib.asm` |
 | xC600-xC6FF | Expansion slot helpers (`SLOT_CODE`): `slot_id` | `rom_lib.asm` |
 | xC700-xD4FF | FAT file reader (`FS_CODE`) | `rom_lib.asm` |
 | xD500-xD6FF | Line input and mouse pointer (`INPUT_CODE`): `con_gets`, `mouse_move` | `rom_lib.asm` |
@@ -52,7 +52,7 @@ the font, the I/O drivers and the rest, down to xC000.
 | xDC00-xEBFF | I/O drivers (`IO_CODE`): keyboard, pads, SD card, mouse ([IO.md](IO.md)) | `rom_lib.asm` |
 | xEC00-xF3FF | Standard font (`LIB_FONT`) | `rom_lib.asm` |
 | xF400-xFAFF | Standard library core routines (`LIB_CODE`) | `rom_lib.asm` |
-| xFB00-xFBFF | Jump table (`LIB_JT`), 55 of 64 entries used ([LIBRARY.md](LIBRARY.md#jump-table)) | `rom_lib.asm` |
+| xFB00-xFBFF | Jump table (`LIB_JT`), 55 of 64 entries used ([LIBRARY.md](../software/LIBRARY.md#jump-table)) | `rom_lib.asm` |
 | xFC00 | Boot mode: 00 = ROM program, 01 = RAM image, 02 = the DOS | `gen_rom.tcl` |
 | xFD00-xFD7E | Boot loader | `rom_boot.asm` |
 | xFE00-xFE07 | Map switch (RAM image boot only) | `rom_boot.asm` |
@@ -81,11 +81,11 @@ that the boot or the library needs is read through the mirror:
 | ROM address | Contents | Made from |
 |-------------|----------|-----------|
 | x8000-x8004 | nop, reset jump (a copy of x0000-x0004: a 32K cartridge shows it at x0000) | `rom_boot.asm` |
-| x8008-x8027 | Vectors: `dos_back`, `dos_run`, `fs_create`, `fs_write`, `fs_close`, `fs_delete`, `fs_save`, `basic` ([DOS.md](DOS.md#dos-vectors)) | `rom32.masm` |
-| x8100-x9EFF | The loader (power-up, BOOT.CFG, running `.PLC` files, about 1.5 KB), then BASIC ([BASIC.md](BASIC.md)); about 770 bytes free at x9BFE | `rom32.masm`, `basic.masm`, `basic.vm` |
+| x8008-x8027 | Vectors: `dos_back`, `dos_run`, `fs_create`, `fs_write`, `fs_close`, `fs_delete`, `fs_save`, `basic` ([DOS.md](../software/DOS.md#dos-vectors)) | `rom32.masm` |
+| x8100-x9EFF | The loader (power-up, BOOT.CFG, running `.PLC` files, about 1.5 KB), then BASIC ([BASIC.md](../software/BASIC.md)); about 770 bytes free at x9BFE | `rom32.masm`, `basic.masm`, `basic.vm` |
 | x9F00-x9FFF | `LIB_RAM`'s bytes (the boot reads them at x1F00) | `rom_lib.asm` |
 | xA000-xAFFF | BASIC (about 9 KB in all, with the part above) | `basic.masm`, `basic.vm` |
-| xB000-xBFFF | FAT file writer ([DOS.md](DOS.md#the-fat-writer)) | `placard_fsw.masm` |
+| xB000-xBFFF | FAT file writer ([DOS.md](../software/DOS.md#the-fat-writer)) | `placard_fsw.masm` |
 | xC000-xFBFF | The library, as above | `rom_lib.asm` |
 | xFC00 | Boot mode 02 | `rom32.masm` |
 | xFD00-xFEA1 | Boot loader, as above | `rom_boot.asm` |
@@ -96,13 +96,13 @@ to the loader at x8100.  The loader runs with map **07**: RAM x0000-x5FFF
 for the programs it loads (x0100-x3FFF) and their data (x4000-x5FFF), the
 loader, BASIC and the library in ROM x8000-xFFFF.  It starts the DOS
 (`DOS.PLC` on the SD card) or BASIC when there is no card
-([DOS.md](DOS.md#at-power-up)).  `placard_sim.py rom32.asm` builds the same
+([DOS.md](../software/DOS.md#at-power-up)).  `placard_sim.py rom32.asm` builds the same
 image (`build_dos_rom`) and `test_dos.py` runs it.
 
-Programs are `.PLC` files on the SD card ([DOS.md](DOS.md#program-files-plc)):
+Programs are `.PLC` files on the SD card ([DOS.md](../software/DOS.md#program-files-plc)):
 library programs assembled for RAM x0100-x3FFF (16 KB), or the older RAM
 images (x0000-x49FF).  The DOS and the demo menu are two of them
-([MENU.md](MENU.md)).  The text demo and the ray caster, which run in place
+([MENU.md](../software/MENU.md)).  The text demo and the ray caster, which run in place
 from x6000-xBFFF, still build as 64K development images only.
 
 ## Map while a program runs

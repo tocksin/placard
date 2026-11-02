@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- Name     VGA_SYNC
 -- PartNo   01
--- Date     2026-10-27
+-- Date     2026-11-02
 -- Revision 10
 -- Designer Justin
 -- Company
@@ -71,8 +71,8 @@ entity sync_pld is
 
         -- Blanking read slot, from the audio slot PLD (revision 06; named
         -- AUD_SLOT before revision 07).  High for the whole 8-clock group
-        -- of each line where the mode byte (group 45, see docs/VIDEO.md) or the
-        -- audio sample (group 46 or 47, see docs/SOUND.md) is read (groups
+        -- of each line where the mode byte (group 45, see docs/video/VIDEO.md) or the
+        -- audio sample (group 46 or 47, see docs/sound/SOUND.md) is read (groups
         -- 37-39 before audio slot PLD revision 03).
         BLANK_RD         : in  std_logic;   -- PIN 13
 
@@ -236,7 +236,7 @@ begin
     -- it reaches the address mux PLDs (their select since revision 10,
     -- ADDR_SEL before) and the State, PC and Branch PLDs at tCO,
     -- instead of three array passes after the clock (see
-    -- docs/VIDEO_TIMING.md).
+    -- docs/timing/VIDEO_TIMING.md).
     --
     -- It is decoded from the V_VIDEO_ACTIVE register and the
     -- H_VIDEO_ACTIVE input, so it is one array pass.
@@ -301,7 +301,7 @@ begin
     -- ============================================================
 
     --
-    -- Revision 10 (docs/FETCH_TIMING.md, option B): the address mux
+    -- Revision 10 (docs/timing/FETCH_TIMING.md, option B): the address mux
     -- control (ADDR_SEL, ADDR_SEL_HI, ADDR_SEL_LO) is gone; the four
     -- mux PLDs (quad_4to1_mux revision 02) take PIXEL_ENABLE and the
     -- State PLD's enables as their selects directly.
@@ -311,7 +311,7 @@ begin
     -- tap of the clock: the clock net runs from the oscillator to this
     -- pin first, then through about 500 mm of track (3 ns) before any
     -- other load, pin 1 included.  So /WE is back high before the
-    -- address or a chip enable can change (docs/WE_TIMING.md).  In the
+    -- address or a chip enable can change (docs/timing/WE_TIMING.md).  In the
     -- FPGA model CLK_E is the same clock as CLK.
     --
     --     /WE low while CLK_E = 0, RW = 0 and PIXEL_ENABLE = 0

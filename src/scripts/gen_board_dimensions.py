@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Main board dimension drawing (mm) -> docs/placard_main_dimensions.pdf.
+"""Main board dimension drawing (mm) -> docs/hardware/placard_main_dimensions.pdf.
 
     python3 src/scripts/gen_board_dimensions.py [--board kicad/placard.kicad_pcb]
-                                                [--out docs/placard_main_dimensions.pdf]
+                                                [--out docs/hardware/placard_main_dimensions.pdf]
                                                 [--kicad-cli kicad-cli]
 
 Needs KiCad 9 (its pcbnew Python module and kicad-cli): the board file is
@@ -420,7 +420,7 @@ def plot(cli, pcb, pdf, cfg):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", default=os.path.join(ROOT, "kicad", "placard.kicad_pcb"))
-    ap.add_argument("--out", default=os.path.join(ROOT, "docs", "placard_main_dimensions.pdf"))
+    ap.add_argument("--out", default=os.path.join(ROOT, "docs", "hardware", "placard_main_dimensions.pdf"))
     ap.add_argument("--kicad-cli", default="kicad-cli")
     ap.add_argument("--keep", help="also save the page boards in this folder")
     a = ap.parse_args()
