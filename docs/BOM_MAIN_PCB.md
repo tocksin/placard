@@ -1,6 +1,6 @@
 # Bill of materials: main board assembly PLC-2001
 
-Date: 2026-10-30
+Date: 2026-11-02
 
 The main board, built: the bare PCB, every part on the schematic, and the sockets, jumper shunts that are not drawn.  It is one line of the case assembly.
 
@@ -8,7 +8,7 @@ The main board, built: the bare PCB, every part on the schematic, and the socket
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
-| 1 |  | PLC-1001 rev A | (custom PCB) | PCB, main board, 290 x 290 mm, 4-layer, 1.6 mm, HASL lead-free |  | 16.00 | 16.00 | est.: JLCPCB/PCBWay typical, KIT_PRICING.md | Not on the schematic. |
+| 1 |  | PLC-1001 rev A | (custom PCB) | PCB, main board, 290 x 215 mm, 4-layer, 1.6 mm, HASL lead-free |  | 16.00 | 16.00 | est.: JLCPCB/PCBWay typical, KIT_PRICING.md | Not on the schematic. |
 | 20 | U1-U17, U35, U38, U42 | ATF22V10C-7PX | Microchip | PLD, 22V10, 7.5 ns, PDIP-24 0.3" (programmed) |  | 2.99 | 59.80 | Mouser | State U1; Branch U2; PC U3, U4; ALU U5, U6; Address mux U7-U10; Memory control U11; I/O decode U12; H counter U13; V counter U14; Sync U15; Color decoder U16; Instruction register U17; Audio slot U35; Shared port U38; PS/2 receiver U42 |
 | 5 | U18-U22 | SN74F377AN | Texas Instruments | Octal D flip-flop with enable, 74F, DIP-20 |  | 1.54 | 7.70 | Mouser |  |
 | 1 | U23 | CD74HCT377E | Texas Instruments | Octal D flip-flop with enable, 74HCT, DIP-20 (line code: drives the row tint) |  | 1.29 | 1.29 | Mouser |  |
