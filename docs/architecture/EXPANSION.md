@@ -1,6 +1,6 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-10-30
+Date: 2026-11-02
 
 The Placard has four expansion slots and one ROM cartridge slot, all the
 same keyed 2 x 32, 1.0 mm pitch socket (Molex 87715-9106, "ROM cartridge
@@ -56,7 +56,7 @@ AC = the slot number (1-4), R1:R0 = the slot's base address, SP = FE and
 `MAP_SHADOW` = 01 (map 01: the zero page reads RAM, the rest ROM).  The
 code may use the library and the I/O drivers; it is built without the
 library source, so it calls them through the jump table at xFB00, whose
-entries never move ([LIBRARY.md](LIBRARY.md#jump-table)).  It then either:
+entries never move ([LIBRARY.md](../software/LIBRARY.md#jump-table)).  It then either:
 
 - **returns**, and the scan goes on with the next slot and then the normal
   boot (a card that only sets itself up, or adds a device), or
@@ -413,9 +413,9 @@ part, or a neighbouring slot's shell, inside it.  Tracks, vias and copper
 pours may run under a shell.  The same box is drawn on User.Eco1 with a
 label, beside the chip-puller boxes.  The numbers are constants in
 `src/scripts/gen_kicad_connectors.py` (`shell_box()`), and
-`src/scripts/gen_shell_keepout.py` draws `docs/shell_keepout.png`.
+`src/scripts/gen_shell_keepout.py` draws `docs/hardware/shell_keepout.png`.
 
-![Shell keepouts](shell_keepout.png)
+![Shell keepouts](../hardware/shell_keepout.png)
 
 **Height of a card** (across the slot, from the card's mid-plane).  The
 tallest part is a socketed 28-pin DIP: the AT28C256 ROMs on the
@@ -470,8 +470,8 @@ from its origin, so the card's centre stays where the 2 x 20 slot's was
 and J9-J12 did not move.  The shell adds 0.5 mm
 air and a 2 mm wall each end, and the keepout 1 mm more.
 
-![64K cartridge board](cart_placement_64k.png)
-![32K cartridge board](cart_placement_32k.png)
+![64K cartridge board](../hardware/cart_placement_64k.png)
+![32K cartridge board](../hardware/cart_placement_32k.png)
 
 | Slot | Shell outside | Keepout (courtyard) | From the footprint origin |
 |---|---|---|---|

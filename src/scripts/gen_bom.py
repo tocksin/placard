@@ -3,12 +3,12 @@
 kicad/*.kicad_sch, kicad/cartridge_64k/, kicad/cartridge_32k/) and the
 case parts list (CASE.md), one BOM per assembly (Justin, 2026-10-25):
 
-    docs/BOM_MAIN_PCB.md/.csv   main board assembly: bare PCB + components
-    docs/BOM_CART_64K.md/.csv   64K cartridge assembly: PCB, components, shell, screw
-    docs/BOM_CART_32K.md/.csv   32K cartridge assembly: the same for the 32K board
-    docs/BOM_CASE.md/.csv       case assembly: the main board assembly as one line,
+    docs/bom/BOM_MAIN_PCB.md/.csv   main board assembly: bare PCB + components
+    docs/bom/BOM_CART_64K.md/.csv   64K cartridge assembly: PCB, components, shell, screw
+    docs/bom/BOM_CART_32K.md/.csv   32K cartridge assembly: the same for the 32K board
+    docs/bom/BOM_CASE.md/.csv       case assembly: the main board assembly as one line,
                                 case parts, standoffs, screws and feet
-    docs/BOM.md                 the index: what each BOM covers and their costs
+    docs/bom/BOM.md                 the index: what each BOM covers and their costs
 
 Accessories sold with a kit (USB-C power supply, SD card, programmer, ...)
 are in no BOM; KITTING.md and KIT_PRICING.md list them.
@@ -369,7 +369,7 @@ SCOPE = {
     "Cartridge, 32K": "The 32K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and "
                       "screw.  A machine takes one cartridge, 64K or 32K.",
     "Case": "The computer in its case: the main board assembly ([BOM_MAIN_PCB.md](BOM_MAIN_PCB.md)) as one "
-            "line, the case parts from [CASE.md](CASE.md), standoffs, screws and feet.  The cartridge is its own "
+            "line, the case parts from [CASE.md](../case/CASE.md), standoffs, screws and feet.  The cartridge is its own "
             "assembly.",
 }
 HEADER = ["Qty", "References", "Part number", "Manufacturer", "Description", "Value", "Unit price USD",
@@ -408,9 +408,9 @@ def write_bom(name, bom, note_opt):
         md.append("| " + " | ".join(md_cell(c) for c in cells + [note.strip()]) + " |")
         rows.append([d["qty"], " ".join(d["refs"]), d["mpn"], d["mfr"], d["desc"], d["value"], cells[6], cells[7],
                      src, d["notes"], d["footprint"], "no" if d["extra"] else "yes"])
-    with open(os.path.join(ROOT, "docs", FILES[name] + ".md"), "w") as f:
+    with open(os.path.join(ROOT, "docs", "bom", FILES[name] + ".md"), "w") as f:
         f.write("\n".join(md) + "\n")
-    with open(os.path.join(ROOT, "docs", FILES[name] + ".csv"), "w", newline="") as f:
+    with open(os.path.join(ROOT, "docs", "bom", FILES[name] + ".csv"), "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(HEADER)
         w.writerows(rows)
@@ -429,14 +429,14 @@ def main():
                  mpn="PLC-2001", mfr="(assembly)")]
     totals["Case"] = write_bom("Case", case + CASE_LINES, "")
     for old in ("BOM.csv",):
-        path = os.path.join(ROOT, "docs", old)
+        path = os.path.join(ROOT, "docs", "bom", old)
         if os.path.exists(path):
             os.remove(path)
     md = [f"# Bills of materials\n", f"Date: {DATE}\n",
           "One BOM per assembly (Justin, 2026-10-25).  The case assembly takes the built main board as one",
           "line; each cartridge assembly is complete with its shell and screw.  Accessories sold with a kit",
           "(USB-C power supply and cable, SD card, programmer, controllers, keyboard and mouse) are in no BOM:",
-          "[KITTING.md](KITTING.md) and [KIT_PRICING.md](KIT_PRICING.md) list them.\n",
+          "[KITTING.md](../kit/KITTING.md) and [KIT_PRICING.md](../kit/KIT_PRICING.md) list them.\n",
           "| Assembly | BOM | Contents | Cost | Without optional parts | Lines estimated |",
           "|---|---|---|--:|--:|--:|"]
     contents = {"Main board": "Bare PCB, components, sockets", "Cartridge, 64K": "Bare PCB, components, sockets, "
@@ -458,14 +458,14 @@ def main():
            "blank and parts with the same description and value share the line.  Lines marked \"not on the",
            "schematic\" are bare PCBs, sockets, shunts, shells and screws that KiCad's BOM export leaves out.",
            "The net tie NT1 and the cartridges' edge fingers (their J1) are copper on the PCB, so they are",
-           "not listed.  Every PLD is an ATF22V10C-7PX ([CHIPS.md](CHIPS.md#pld-speed-grades)); the notes",
+           "not listed.  Every PLD is an ATF22V10C-7PX ([CHIPS.md](../architecture/CHIPS.md#pld-speed-grades)); the notes",
            "give each PLD's job;",
-           "[KITTING.md](KITTING.md) lists the images.",
+           "[KITTING.md](../kit/KITTING.md) lists the images.",
            "",
            "Written by `src/scripts/gen_bom.py` from the KiCad sheets (part numbers are the Manufacturer and",
            "MPN fields set by `gen_kicad_schematic.py`) and the case parts in CASE.md.  Rerun both after a",
            "part change.", ""]
-    with open(os.path.join(ROOT, "docs", "BOM.md"), "w") as f:
+    with open(os.path.join(ROOT, "docs", "bom", "BOM.md"), "w") as f:
         f.write("\n".join(md))
 
 

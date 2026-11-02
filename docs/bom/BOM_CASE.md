@@ -2,7 +2,7 @@
 
 Date: 2026-11-02
 
-The computer in its case: the main board assembly ([BOM_MAIN_PCB.md](BOM_MAIN_PCB.md)) as one line, the case parts from [CASE.md](CASE.md), standoffs, screws and feet.  The cartridge is its own assembly.
+The computer in its case: the main board assembly ([BOM_MAIN_PCB.md](BOM_MAIN_PCB.md)) as one line, the case parts from [CASE.md](../case/CASE.md), standoffs, screws and feet.  The cartridge is its own assembly.
 
 14 lines.  Cost: **$333.25** for one assembly at these quantities.  14 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_CASE.csv](BOM_CASE.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 

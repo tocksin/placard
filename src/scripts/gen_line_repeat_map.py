@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 gen_line_repeat_map.py - draw one video column's 512 bytes in each line
-repeat mode (docs/VIDEO.md, line repeat).
+repeat mode (docs/video/VIDEO.md, line repeat).
 
     python3 gen_line_repeat_map.py            writes reference/line_repeat_map.png
 

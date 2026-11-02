@@ -4,14 +4,14 @@
 ;
 ; Subroutines for Placard programs: calls and a software stack, 16-bit
 ; and multiply / divide arithmetic, memory fill and copy, random numbers,
-; frame timing, pixels and a text console.  docs/LIBRARY.md documents every
+; frame timing, pixels and a text console.  docs/software/LIBRARY.md documents every
 ; routine; each routine's header below lists the same facts.
 ;
 ; USE
 ;     #include "placard.asm"
 ;     #include "placard_lib.asm"      ; also includes zeropage.asm
 ;
-;     #addr 0x6000                    ; a ROM program (docs/ROM.md)
+;     #addr 0x6000                    ; a ROM program (docs/architecture/ROM.md)
 ;     main:
 ;         ld   STACK_TOP, ac         ; set up the stack first
 ;         ld   ac, [SP]
@@ -38,7 +38,7 @@
 ; place from the ROM, so sections 6 and 7 must read ROM whenever a program
 ; calls the library.  These are standard places that every program shares,
 ; so keep them; moving them means changing gen_rom.tcl and placard_sim.py
-; too (docs/ROM.md).  Every base is a multiple of 0x100, because every
+; too (docs/architecture/ROM.md).  Every base is a multiple of 0x100, because every
 ; routine keeps its branches inside one 256-byte page.
 ;
 ; JUMP TABLE: LIB_JT (xFB00-xFBFF) holds one 4-byte entry per public
@@ -46,7 +46,7 @@
 ; ever grows, so code built without this file (a card's boot code, a
 ; program loaded from the SD card) can CALL a routine at its table address
 ; (jt_<name>) even after the library changes.  Code that includes this file
-; may call the routines directly (4 clocks faster).  docs/LIBRARY.md lists
+; may call the routines directly (4 clocks faster).  docs/software/LIBRARY.md lists
 ; the entries.
 ;
 ; LIB_RAM: the code that reads the video RAM (the end of plot1 and all of
@@ -163,13 +163,13 @@ PS2_TAB_CODE  = IO_CODE + 0xA60      ; ps2_set2, ps2_e0, in I/O page A (the rest
 LIB_RAM    = 0x1F00     ; 256 bytes of library code copied to RAM by the boot
 
 #include "lib_font.asm"
-#include "placard_io.asm"     ; I/O drivers at IO_CODE (docs/IO.md)
-#include "placard_snd.asm"    ; sound driver at SND_CODE (docs/SOUND.md)
-#include "placard_slot.asm"   ; expansion slot helpers at SLOT_CODE (docs/EXPANSION.md)
-#include "placard_fs.asm"     ; FAT file reading at FS_CODE (docs/IO.md)
-#include "placard_input.asm"  ; line input, mouse pointer at INPUT_CODE (docs/IO.md)
-#include "placard_menu.asm"   ; program menu hook at MENU_CODE (docs/MENU.md)
-#include "placard_ps2.asm"    ; PS/2 keyboard and listening at PS2_CODE (docs/IO.md)
+#include "placard_io.asm"     ; I/O drivers at IO_CODE (docs/architecture/IO.md)
+#include "placard_snd.asm"    ; sound driver at SND_CODE (docs/sound/SOUND.md)
+#include "placard_slot.asm"   ; expansion slot helpers at SLOT_CODE (docs/architecture/EXPANSION.md)
+#include "placard_fs.asm"     ; FAT file reading at FS_CODE (docs/architecture/IO.md)
+#include "placard_input.asm"  ; line input, mouse pointer at INPUT_CODE (docs/architecture/IO.md)
+#include "placard_menu.asm"   ; program menu hook at MENU_CODE (docs/software/MENU.md)
+#include "placard_ps2.asm"    ; PS/2 keyboard and listening at PS2_CODE (docs/architecture/IO.md)
 
 
 ; ============================================================
@@ -690,7 +690,7 @@ vc_b:
 ;   in 4x on four, so a 2x screen uses half the video RAM and a 4x
 ;   screen a quarter.  The rows move within each byte column; vid_addr
 ;   and plot1 follow each row's own mode byte.  Give both lines of a 2x
-;   pair (all four of a 4x group) the same mode byte.  See docs/VIDEO.md.
+;   pair (all four of a 4x group) the same mode byte.  See docs/video/VIDEO.md.
 ; ------------------------------------------------------------
 vid_mode:
     ld   ac, [T0]
@@ -723,12 +723,12 @@ vm_1:
 ;   out:     AC = address high byte, X = address low byte
 ;            (then: ld ac, y / ld [y,x], ac reads the byte)
 ;   changes: T0, T1, T4
-;   clocks:  see docs/LIBRARY.md
+;   clocks:  see docs/software/LIBRARY.md
 ;   With v = row + 32 (9 bits), the byte is in page x60 + 2 * column:
 ;       1x:  page + v8,  low byte v7:v0
 ;       2x:  page + 1,   low byte v7:v1, v8
 ;       4x:  page + 1,   low byte 1, v6:v2, v8, v7
-;   (the address bits the audio slot PLD remaps, see docs/VIDEO.md)
+;   (the address bits the audio slot PLD remaps, see docs/video/VIDEO.md)
 ; ------------------------------------------------------------
 vid_addr:
     shl
@@ -795,7 +795,7 @@ va_1x:
 ;            AC = 0 to clear the pixel, anything else to set it
 ;   out:     -
 ;   changes: AC, X, Y, T0-T6
-;   clocks:  see docs/LIBRARY.md
+;   clocks:  see docs/software/LIBRARY.md
 ;   The row may be 1x, 2x or 4x (it calls vid_addr, which reads the
 ;   row's mode byte).  It maps sections 3-7 to RAM while it reads the
 ;   pixel byte (MAP_SHADOW or F8) and writes MAP_SHADOW back to the map
@@ -1547,7 +1547,7 @@ pl_put:
 ;   in:      -
 ;   out:     AC unchanged; the cursor is not moved
 ;   changes: X, Y, T1-T5
-;   clocks:  see docs/LIBRARY.md
+;   clocks:  see docs/software/LIBRARY.md
 ;   It maps sections 3-7 to RAM while it copies (MAP_SHADOW or F8) and
 ;   writes MAP_SHADOW back to the map before it returns, so it runs from
 ;   LIB_RAM.

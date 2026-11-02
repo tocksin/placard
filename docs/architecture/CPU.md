@@ -15,17 +15,17 @@ shift-left instruction adds the Accumulator to itself.
 
 ADD and SUB with an AC, X or Y destination take one more clock: the first
 EXEC clock is a wait clock so the carry can ripple through both ALU PLDs at
-25.175 MHz (see [ALU_TIMING.md](ALU_TIMING.md)).  The Branch PLD makes the
+25.175 MHz (see [ALU_TIMING.md](../timing/ALU_TIMING.md)).  The Branch PLD makes the
 wait by sending STALL to the State PLD and the PC PLDs (the same stall the
 video uses; it passes through the ROM cartridge, which also uses it to hold
 the CPU while it loads, ROM.md) for the first EXEC clock, and its ALU_DONE register ends the
 wait on the second.  Stores do not wait, because they write the source bus,
 not the ALU result.  A store from AC to [0,X] or [Y,X] goes through
 LOAD_MEM (one more clock) so its address and data settle a clock before the
-write (see [TIMING_FIXES.md](TIMING_FIXES.md)).  So an instruction takes 2
+write (see [TIMING_FIXES.md](../timing/TIMING_FIXES.md)).  So an instruction takes 2
 to 4 clocks, plus any video stall clocks.
 
-![State PLD state diagram](../reference/state_pld_state_diagram.png)
+![State PLD state diagram](../../reference/state_pld_state_diagram.png)
 
 The state diagram is drawn by `src/scripts/gen_state_diagram.py` (State PLD
 revision 12, 2026-10-18); rerun it when the State PLD changes.
@@ -69,7 +69,7 @@ reconfigured: the ROM's boot loader maps the zero page and x4000-x4FFF to
 RAM and runs the program in place from the ROM (see [ROM.md](ROM.md)).
 Video reads always read the RAM (memory control PLD revision 04), whatever
 the map says, so the CPU can run from the ROM under the video area while
-the display shows the RAM.  See the [memory map](../README.md#memory-map).
+the display shows the RAM.  See the [memory map](../../README.md#memory-map).
 
 ### Memory parts
 
@@ -78,7 +78,7 @@ the display shows the RAM.  See the [memory map](../README.md#memory-map).
   mux's A15 and the upper chip's /CE is /CE_HI from the I/O decode PLD.
   Both chips' /OE is /RAM_OE from the memory control PLD and their /WE is
   /WE from the Sync PLD (since 2026-10-27; the memory control PLD before;
-  see [TIMING_FIXES.md](TIMING_FIXES.md) and [FETCH_TIMING.md](FETCH_TIMING.md)).
+  see [TIMING_FIXES.md](../timing/TIMING_FIXES.md) and [FETCH_TIMING.md](../timing/FETCH_TIMING.md)).
 - ROM: 2 × AS7C256C-15PCN on the ROM cartridge, with their /CE the same
   way as the RAM (A15 and /CE_HI) and their /OE from /ROM_OE (memory
   control PLD).  They lose their contents at power-off, so at power-up the
@@ -87,7 +87,7 @@ the display shows the RAM.  See the [memory map](../README.md#memory-map).
   [ROM.md](ROM.md#loading-the-cartridge)).  The battery-backed SRAM used
   until then drained a coin cell in about two weeks.
 
-See [TIMING.md](TIMING.md) for the timing analysis with these parts.
+See [TIMING.md](../timing/TIMING.md) for the timing analysis with these parts.
 
 ### RAM write timing
 
@@ -108,8 +108,8 @@ CLK_E is the clock as it leaves the oscillator; every other chip gets it
 through about 500 mm of track (3 ns) more, so /WE rises about 3 ns before
 the rest of the board sees the edge and is back high before the address
 muxes can change (the muxes take their selects straight from the State and
-Sync PLDs since 2026-10-27, [FETCH_TIMING.md](FETCH_TIMING.md),
-[WE_TIMING.md](WE_TIMING.md)).  Until then /WE came from the memory control
+Sync PLDs since 2026-10-27, [FETCH_TIMING.md](../timing/FETCH_TIMING.md),
+[WE_TIMING.md](../timing/WE_TIMING.md)).  Until then /WE came from the memory control
 PLD on the normal clock.
 
 While RUN is low (the cartridge or a slot-1 boot card is loading) the
@@ -237,7 +237,7 @@ off (I1 directly, about 10 ns) before /SRC_EN turns either on (about
 Before 2026-10-19 code 11 was the X register, with a third F541, and an
 SN74F138 decoded S1:S0 into the three /OE pins.  Removing X as a source
 saved both chips; reading X now takes a copy in RAM or in AC
-([LIBRARY.md](LIBRARY.md) has the idioms).
+([LIBRARY.md](../software/LIBRARY.md) has the idioms).
 
 The source bus is how the CPU writes data back into the RAM (it is the
 memory data bus in EXEC, see "One data bus").  It's possible to

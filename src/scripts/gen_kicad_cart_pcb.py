@@ -3,7 +3,7 @@
 gen_kicad_cart_pcb.py - write the two ROM cartridge boards,
 kicad/cartridge_32k/cartridge_32k.kicad_pcb and
 kicad/cartridge_64k/cartridge_64k.kicad_pcb, and their placement drawings
-docs/cart_placement_32k.png and docs/cart_placement_64k.png.
+docs/hardware/cart_placement_32k.png and docs/hardware/cart_placement_64k.png.
 
     python3.12 gen_kicad_cart_pcb.py [--force] [--png]
 
@@ -33,7 +33,7 @@ hand in KiCad.
 Card coordinates here: x along the fingers from the card's left edge, y up
 from the finger edge; the KiCad file has the fingers at the bottom.
 
-Date: 2026-10-26
+Date: 2026-11-02
 """
 
 import os
@@ -51,7 +51,7 @@ import gen_kicad_stock_footprints  # noqa: E402
 
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
-DOCS = os.path.join(ROOT, "docs")
+DOCS = os.path.join(ROOT, "docs", "hardware")
 STOCK = os.environ.get("KICAD7_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
 LIBS = {"placard": os.path.join(KDIR, "lib", "placard.pretty")}
 KICAD_COPY = {name: lib for lib, name in gen_kicad_stock_footprints.STOCK}

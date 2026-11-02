@@ -8,7 +8,7 @@ when it saves them).
 |------|------------|
 | `placard.kicad_pro` | the project; open this in KiCad |
 | `placard.kicad_sch` | the schematic's root sheet (A3): one box per sheet, laid out like the block diagram |
-| `power.kicad_sch` ... `expansion.kicad_sch` | the ten sheets (power and clock, control, PC and address mux, ALU and registers, data bus, memory and I/O decode, video timing, video and audio out, shared port, expansion slots), docs/SCHEMATIC_PLAN.md |
+| `power.kicad_sch` ... `expansion.kicad_sch` | the ten sheets (power and clock, control, PC and address mux, ALU and registers, data bus, memory and I/O decode, video timing, video and audio out, shared port, expansion slots), docs/hardware/SCHEMATIC_PLAN.md |
 | `cartridge_64k/` | the 64K ROM cartridge (5 chips), its own project (`cartridge_64k.kicad_pro`, one sheet and a placed, unrouted 2-layer board), using the same `lib/` |
 | `cartridge_32k/` | the 32K ROM cartridge (3 chips), its own project (`cartridge_32k.kicad_pro`, one sheet and a placed, unrouted 2-layer board), using the same `lib/`; mounting hole H1 at the same place as on the 64K board |
 | `placard.kicad_pcb` | the board: 4 layers (F.Cu, In1.Cu = GND, In2.Cu = VCC, B.Cu) |
@@ -25,14 +25,14 @@ builders have room), 4 layers, with the
 outline, dimensions, user connectors, cartridge slot, expansion slots,
 and mounting holes placed by `src/scripts/gen_kicad_pcb.py`
 (run with `python3.12`, which KiCad 7's Python module is built for; `--png`
-also draws [docs/placard_board_layout.png](../docs/placard_board_layout.png)).
+also draws [docs/hardware/placard_board_layout.png](../docs/hardware/placard_board_layout.png)).
 The back edge carries USB-C power, audio line out, VGA and the stacked PS/2;
 the left side the power switch, reset button and SD card; the right side
 the two SNES ports.  The cartridge and the four expansion cards stand up
 through the case top at the back, behind the keyboard, which lies over
 the front 65 mm.  Rerunning the script moves only the parts it places.
 It also places every other part as a fit test, unrouted
-([docs/placard_placement.png](../docs/placard_placement.png)): six rows of
+([docs/hardware/placard_placement.png](../docs/hardware/placard_placement.png)): six rows of
 socketed chips 35 mm apart, spread across the width, every DIP on KiCad's
 `_Socket` footprint with 2.5 mm of chip-puller room clear past each socket
 end, Cn 1 mm beside Un, and the script reports courtyard overlaps
@@ -42,20 +42,20 @@ PS/2, SNES, the two switches) are written by
 `src/scripts/gen_kicad_connectors.py` from typical dimensions and are
 preliminary: check their holes against the datasheets before ordering.
 Their 3D models (`src/scripts/gen_kicad_3d_models.py`, picture in
-[docs/connector_3d_models.png](../docs/connector_3d_models.png)) are drawn at typical
+[docs/hardware/connector_3d_models.png](../docs/hardware/connector_3d_models.png)) are drawn at typical
 dimensions too, with the leads put on the footprint pads.  J4 (SD), J7 (VGA),
 F1 and SW2 use project copies of KiCad's footprints (`placard:` library) only so
 they can point at the project's models; the pads are KiCad's.
 The schematic rules (which chips go on which sheet, numbering, and how
-the sheets are drawn) are in [docs/SCHEMATIC_PLAN.md](../docs/SCHEMATIC_PLAN.md).  Parts and U-numbers come from
-[docs/CHIPS.md](../docs/CHIPS.md); the PLD pinouts come from the `.pld` files
+the sheets are drawn) are in [docs/hardware/SCHEMATIC_PLAN.md](../docs/hardware/SCHEMATIC_PLAN.md).  Parts and U-numbers come from
+[docs/architecture/CHIPS.md](../docs/architecture/CHIPS.md); the PLD pinouts come from the `.pld` files
 in `src/`.
 
 Every part carries Manufacturer and MPN fields (empty where no part number
 is chosen yet), set from the `MPN` table in `src/scripts/gen_kicad_schematic.py`,
 so KiCad's BOM export lists them.  `src/scripts/gen_bom.py` writes one grouped
 bill of materials per assembly (main board, 64K and 32K cartridges, case),
-indexed in [docs/BOM.md](../docs/BOM.md), each as .md and .csv, including the
+indexed in [docs/bom/BOM.md](../docs/bom/BOM.md), each as .md and .csv, including the
 bare PCBs, sockets, shells and screws that are not on the schematic.
 
 Backups, autosaves, lock files, `*.kicad_prl` (per-user view settings) and
@@ -122,7 +122,7 @@ review sheets (needs kicad-cli, cairosvg and Pillow).
 connection there and rerun it; a hand edit in KiCad is lost at the next
 run.  Nets with two or more pins on a sheet are wired by the small router in
 `src/scripts/kicad_route.py`, and numbered groups (`D0`-`D7`, ...) are drawn
-as one bus per sheet (docs/SCHEMATIC_PLAN.md, "How the sheets are drawn").
+as one bus per sheet (docs/hardware/SCHEMATIC_PLAN.md, "How the sheets are drawn").
 `--check` compares KiCad's exported netlist with the script's nets and
 runs basic electrical checks; the full ERC needs KiCad 8 or newer (open the
 project, Inspect > Electrical Rules Checker).  PDFs of both are in
@@ -130,7 +130,7 @@ project, Inspect > Electrical Rules Checker).  PDFs of both are in
 
 ## Dimension drawing
 
-[`../docs/placard_main_dimensions.pdf`](../docs/placard_main_dimensions.pdf)
+[`../docs/hardware/placard_main_dimensions.pdf`](../docs/hardware/placard_main_dimensions.pdf)
 is a three-sheet mm drawing of the main board: outline and mounting holes,
 edge connector positions, and the expansion card and cartridge space.  It is
 made by `src/scripts/gen_board_dimensions.py`, which needs KiCad 9 (pcbnew

@@ -1,6 +1,6 @@
 Name     AUDIO_SLOT;
 PartNo   00;
-Date     2026-10-23;
+Date     2026-11-02;
 Revision 04;
 Designer Justin;
 Company  ;
@@ -15,7 +15,7 @@ Device   g22v10;
 
    Picks the 8-clock groups on each scan line where the video
    circuit reads a byte in horizontal blanking: the line's mode
-   byte (see docs/VIDEO.md) and the audio sample (see docs/SOUND.md).  Since
+   byte (see docs/video/VIDEO.md) and the audio sample (see docs/sound/SOUND.md).  Since
    revision 03 it also remaps four row address bits for the line
    repeat modes.
 
@@ -33,7 +33,7 @@ Device   g22v10;
       (= !I1) goes out on pin 21 to the AC source F541's /OE2.  The
       D source F541's /OE2 takes I1 itself, and both F541s' /OE1 take
       /SRC_EN from the branch PLD (pin 16), so source codes 00 and 01
-      drive D and 10 and 11 drive AC (docs/CPU.md, "Source mode").
+      drive D and 10 and 11 drive AC (docs/architecture/CPU.md, "Source mode").
       It is a combinational pass, nothing to do with the video
       equations.  This path sets the single-clock ALU slack (IR, this
       PLD, F541 enable, ALU, AC setup: 10.5 + 7.5 + 9.5 + 7.5 + 2 =

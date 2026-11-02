@@ -200,7 +200,7 @@ The design uses the 24-pin ATF22V10 package and every non-power pin
 
 This is the fullest PLD in the design: RED1, RED2, RED3, GRN1 and BLU2 use
 every product term of their pins, and GRN3 has one to spare
-([PLD_USAGE.md](PLD_USAGE.md) has the counts).
+([PLD_USAGE.md](../architecture/PLD_USAGE.md) has the counts).
 
 ---
 

@@ -17,9 +17,9 @@ and zips it all to case/quote.zip.
     pip install cadquery ezdxf
     python3 gen_case_quote.py [--pcb path/to/placard.kicad_pcb] [--out case/quote]
 
-The board file is only read.  See docs/CASE.md, "Getting a quote".
+The board file is only read.  See docs/case/CASE.md, "Getting a quote".
 
-Date: 2026-10-30
+Date: 2026-11-02
 """
 
 import argparse
@@ -381,7 +381,7 @@ def readme(rows):
               "## Not in this package", "",
               "- The slot and cartridge covers, which are 3D printed (case/slot_cover.stl, "
               "case/cart_cover.stl).",
-              "- Fasteners, standoffs and feet. We supply those; see docs/BOM_CASE.md in the PLACARD "
+              "- Fasteners, standoffs and feet. We supply those; see docs/bom/BOM_CASE.md in the PLACARD "
               "repository.", "",
               "Made by `src/scripts/gen_case_quote.py` from the board file. Rerun it after the board or the "
               "case changes.", ""]

@@ -7,7 +7,7 @@
 -- is the a11 input; exp1_n and exp2_n moved to pages 1 and 3.
 -- Rev 04: pin 23 is load_imm_n, active low, as the State PLD (Rev 13)
 -- now drives it; the equations still use load_imm as logical true.
--- Rev 05 (docs/FETCH_TIMING.md, option B): the mux PLDs take the
+-- Rev 05 (docs/timing/FETCH_TIMING.md, option B): the mux PLDs take the
 -- address-source enables as their selects, so A15 is rebuilt from
 -- pixel_enable, pc_enable and y_enable (pins 2, 3 and 14, which were
 -- addr_sel, addr_sel_hi and rw).  rd = io and load_imm, without rw

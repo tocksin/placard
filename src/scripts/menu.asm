@@ -7,8 +7,8 @@
 ; menu.masm - the demo menu, a program on the SD card (MENU.PLC)
 ; ============================================================
 ;
-; The menu shows the demo programs and runs them in turn (docs/MENU.md).
-; It is a library program the DOS loads from the SD card (docs/DOS.md):
+; The menu shows the demo programs and runs them in turn (docs/software/MENU.md).
+; It is a library program the DOS loads from the SD card (docs/software/DOS.md):
 ; BOOT.CFG = "MENU.PLC" makes it the program that runs at power-up (hold
 ; Esc for the DOS's file browser instead).  The demos are .PLC files in
 ; the same folder (gen_plc.py makes them, ../../sdcard):

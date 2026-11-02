@@ -106,7 +106,7 @@ MEMORY
     program is only x0000-x08FF.
 
 PROGRAM MENU
-    In the menu ROM (docs/MENU.md) poll also calls hk_poll (menu_hook.py),
+    In the menu ROM (docs/software/MENU.md) poll also calls hk_poll (menu_hook.py),
     which goes back to the menu when Esc is pressed or the time is up, and
     the end of the 10 s pause calls hk_done, which goes on to the next
     program when the menu is rotating.  Run by itself both just return.

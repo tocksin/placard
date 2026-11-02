@@ -8,7 +8,7 @@
 --
 -- Converted from WinCUPL source ATF22V10_PORT.pld (Revision 04)
 --
--- The whole shared port at 5200h (docs/IO.md) in one chip: the output
+-- The whole shared port at 5200h (docs/architecture/IO.md) in one chip: the output
 -- register (it was the 74HC574 latch U37) and the read of the SD card's
 -- MISO, the two SNES pads' DATA and the free PS/2 device's clock (it was
 -- the 74F541 row buffer U39).  The Cherry MX key matrix is gone (revision

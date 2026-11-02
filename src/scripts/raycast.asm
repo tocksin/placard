@@ -14,7 +14,7 @@
 ;     rows  32-479  8 bpp, 4x   the 3D view: 80 x 112 cells of 8 x 4 pixels,
 ;                               256 colors (RGB 3-3-2)
 ;     The 1x text rows use video offsets x020-x03F of each byte column and the
-;     4x view rows x180-x1FF (docs/VIDEO.md, line repeat), so they never share a
+;     4x view rows x180-x1FF (docs/video/VIDEO.md, line repeat), so they never share a
 ;     byte.  There is no page flip, so a view is drawn over the last one,
 ;     column by column, while it is on the screen.
 ;
@@ -56,7 +56,7 @@
 ;
 ; MEMORY
 ;     ROM pages x61, x65, x69, x77-x7F, x84-x8F and xB1-xBE (the ones the text
-;     demo leaves free, so both run in place from the menu ROM, docs/MENU.md);
+;     demo leaves free, so both run in place from the menu ROM, docs/software/MENU.md);
 ;     x6000 holds only the jump to main.  At start the program sets map 07
 ;     and builds two tables in the RAM: the |1 / cos|, |1 / sin| tables at
 ;     x3800-x41FF from a quarter of a turn in ROM (GL, GH; by symmetry, 5

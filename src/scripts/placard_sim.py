@@ -10,7 +10,7 @@ placard_sim.py - assembler and instruction-level simulator for the Placard CPU
     python3 placard_sim.py prog.asm --run --boot    start from the ROM image
                                                     (rom_boot.asm, the library
                                                     and the program) like the
-                                                    hardware, see docs/ROM.md
+                                                    hardware, see docs/architecture/ROM.md
 
 The assembler accepts the syntax defined in placard.asm (it is not a general
 customasm replacement: only #include, #addr, #overlay, #d8 and #d ("strings"
@@ -632,7 +632,7 @@ MODE_BASE = 45 * 512 + 32    # row 0's mode byte (x5A20), read in group 45
 
 def row_offset(row, mode):
     """row address A8:A0 of screen row 0-479 for mode byte bits 3:2 (line
-    repeat), as the audio slot PLD makes it (docs/VIDEO.md, line repeat)"""
+    repeat), as the audio slot PLD makes it (docs/video/VIDEO.md, line repeat)"""
     v = 32 + row
     rep = (mode >> 2) & 3
     if rep == 0:
@@ -659,7 +659,7 @@ def render(mem, path):
     img = Image.new('RGB', (640, 480))
     px = img.load()
     pal2 = [(0, 0, 0), (0, 36, 255), (255, 182, 0), (255, 255, 255)]
-    # 16-color palette, docs/COLORS.md: (R 0-7, G 0-7, B 0-3)
+    # 16-color palette, docs/video/COLORS.md: (R 0-7, G 0-7, B 0-3)
     pal4 = [(r * 255 // 7, g * 255 // 7, b * 255 // 3) for r, g, b in (
         (0, 0, 0), (0, 0, 1), (4, 0, 2), (0, 0, 3), (7, 0, 0), (7, 0, 3), (4, 2, 0), (2, 2, 1),
         (0, 7, 3), (0, 4, 0), (7, 7, 3), (5, 5, 2), (7, 4, 2), (7, 4, 0), (7, 7, 0), (1, 7, 0))]
@@ -695,7 +695,7 @@ def render(mem, path):
 
 
 # ---------------------------------------------------------------------------
-# ROM image (matches gen_rom.tcl and docs/ROM.md)
+# ROM image (matches gen_rom.tcl and docs/architecture/ROM.md)
 # ---------------------------------------------------------------------------
 ROM_IMAGE_BASE = 0x6000      # RAM image: ROM address of RAM x0000
 IMAGE_SIZE = 0x4A00          # RAM x0000-x49FF is copied at boot
@@ -736,7 +736,7 @@ def is_dos_image(prog):
 
 
 def build_dos_rom(dos, boot, lib):
-    """the 64K ROM for the 32K image's program (rom32.asm): the 32K image x8000-xFFFF (docs/ROM.md, "The
+    """the 64K ROM for the 32K image's program (rom32.asm): the 32K image x8000-xFFFF (docs/architecture/ROM.md, "The
     32K image") in both halves, so a 32K cartridge (one EEPROM, read in
     both halves) and a 64K one boot the same.  The upper half holds the
     boot loader and the library as every ROM does, LIB_RAM's bytes at
@@ -779,14 +779,14 @@ def image_32k(rom):
 
 def build_rom(prog, base_dir=None):
     """ROM bytes {addr: value} for a program image {addr: value}, as gen_rom.tcl
-    makes them (docs/ROM.md): rom_boot.asm, the library (rom_lib.asm) in place at
+    makes them (docs/architecture/ROM.md): rom_boot.asm, the library (rom_lib.asm) in place at
     xC000-xFBFF (jump table, core routines, font, I/O drivers, sound, line
     input, FAT reader, slot helpers) and its LIB_RAM bytes at x1F00-x1FFF (the boot copies them to the RAM),
     then either
       the 32K image (rom32.asm, BOOT_MODE byte 02 in the program): in
       both halves, see build_dos_rom, or
       a ROM program (assembled at x6000-xBFFF and x2000-x3FFF): in place,
-      BOOT_MODE = 00 (the 64K development image, docs/ROM.md), or
+      BOOT_MODE = 00 (the 64K development image, docs/architecture/ROM.md), or
       a RAM image (older programs at RAM x0000, no library): BOOT_MODE = 01,
       the program (x0000 to its last byte, gaps as 00, like its hex file)
       at ROM = RAM + x6000."""

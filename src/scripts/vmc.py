@@ -8,7 +8,7 @@ language) into .masm text for asm_expand.py
 asm_expand.py calls compile_vm() itself for  .include "basic.vm",  so the
 build is one step (asm_expand.py rom32.masm).
 
-The bytecode machine (docs/BASIC.md, "The bytecode machine") runs 16-bit
+The bytecode machine (docs/software/BASIC.md, "The bytecode machine") runs 16-bit
 cells on a data stack, with the top cell in TL/TH.  An instruction is one
 byte: x00-x3F is a primitive (native code, through the jump page
 vm_jump), x80-xFF is the high byte of a word's address and the next byte

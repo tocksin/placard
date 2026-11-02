@@ -38,7 +38,7 @@ fp-info-cache
 # Python bytecode caches
 __pycache__/
 
-# case renders: meshes, three.js and images made by src/scripts/case_render/ (docs/CASE.md)
+# case renders: meshes, three.js and images made by src/scripts/case_render/ (docs/case/CASE.md)
 src/scripts/case_render/mesh/
 src/scripts/case_render/web/
 src/scripts/case_render/out/

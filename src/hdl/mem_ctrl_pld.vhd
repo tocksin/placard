@@ -6,12 +6,12 @@
 -- Revision 10: /WE is gone (pin 16 free).  The Sync PLD (revision 10)
 -- makes it from an early clock tap, CLK_E, so it is back high before
 -- the address can change now that the address muxes take their
--- selects directly (docs/FETCH_TIMING.md, option B).
+-- selects directly (docs/timing/FETCH_TIMING.md, option B).
 --
 -- Replaces the '32 OR gate (/WE = RW or CLK) and the read enables
 -- of ROM/RAM select revision 03.  Every memory bus cycle uses the
 -- low half of the clock only, so the memories never drive the data
--- bus in the high half (see the PLD source and docs/TIMING_FIXES.md).
+-- bus in the high half (see the PLD source and docs/timing/TIMING_FIXES.md).
 --
 -- Revision 06: the RAM write-data buffer is gone and the source bus is
 -- the data bus.  The source F541s drive it in EXEC with pixelEnable = 0,

@@ -1,4 +1,4 @@
-; bringup.asm - the bring-up test ROM (docs/BRINGUP.md)
+; bringup.asm - the bring-up test ROM (docs/hardware/BRINGUP.md)
 ;
 ; Written by gen_bringup.py; edit that, not this file.  A complete 64 KB
 ; ROM image with its own reset code: burn x0000-x7FFF into the lower ROM
@@ -57,7 +57,7 @@ RT_I     = 0x5D
 B_I      = 0x5E
 
 ; reset (the CPU starts at x0000 with the map all ROM); the nop is for
-; the cartridge hand-off, which can skip x0000 (docs/ROM.md)
+; the cartridge hand-off, which can skip x0000 (docs/architecture/ROM.md)
 #addr 0x0000
     nop
     ld   start >> 8, y

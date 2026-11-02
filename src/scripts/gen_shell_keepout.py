@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-gen_shell_keepout.py - draw docs/shell_keepout.png: how far the cartridge
+gen_shell_keepout.py - draw docs/hardware/shell_keepout.png: how far the cartridge
 and expansion card shells reach on the main board (EXPANSION.md "Shell
 keepouts").
 
@@ -13,7 +13,7 @@ there shows here after a rerun of both scripts:
   keepouts);
 - the four expansion slots side by side at the old and new pitch.
 
-Date: 2026-10-30
+Date: 2026-11-02
 """
 
 import os
@@ -28,7 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import gen_kicad_connectors as gc  # noqa: E402
 
-OUT = os.path.normpath(os.path.join(HERE, "..", "..", "docs", "shell_keepout.png"))
+OUT = os.path.normpath(os.path.join(HERE, "..", "..", "docs", "hardware", "shell_keepout.png"))
 
 SLOT_H = 11.25               # 87715-9106 body height above the board
 SEAT = 4.3                   # socket seat height (chip shoulders rest here)

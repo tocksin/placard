@@ -4,7 +4,7 @@
 ; ============================================================
 
 ; ============================================================
-; tracker.masm - TRACKER.PLC: the PLACARD music editor (docs/MUSIC.md)
+; tracker.masm - TRACKER.PLC: the PLACARD music editor (docs/sound/MUSIC.md)
 ; ============================================================
 ;
 ; A library program the DOS runs from the card.  It edits a song for the
@@ -105,7 +105,7 @@ PTAB_LO    = 0x40
 FS_REM_LO  = 0x4D28         ; the FAT reader's bytes left (placard_fs.asm V_REM)
 FS_REM_HI  = 0x4D29
 dos_back   = 0x8008
-fs_create  = 0x8010         ; the DOS's FAT writer (docs/DOS.md)
+fs_create  = 0x8010         ; the DOS's FAT writer (docs/software/DOS.md)
 fs_write   = 0x8014
 fs_close   = 0x8018
 
@@ -1007,7 +1007,7 @@ so_w:
 ; ============================================================
 ; text output.  con_putc only knows the 1x screen, so the editor writes
 ; its own characters: tputc draws the glyph of AC at CUR_ROW, CUR_COL in
-; the 1x or 2x layout (docs/VIDEO.md, "Line repeat") and moves on.
+; the 1x or 2x layout (docs/video/VIDEO.md, "Line repeat") and moves on.
 ; ============================================================
 
 ; the address of the glyph's first byte: p_pg:p_off, p_st = the stride
@@ -9899,7 +9899,7 @@ s_savefail:
 ; ============================================================
 ; ============================================================
 ; placard_mus.masm - PLACARD music player: 4 SID-like voices + a sound
-; effect voice, patterns, instruments, effects (docs/MUSIC.md)
+; effect voice, patterns, instruments, effects (docs/sound/MUSIC.md)
 ; ============================================================
 ;
 ; A program includes this file in its own .masm, after defining where the
@@ -9909,7 +9909,7 @@ s_savefail:
 ;     MUS_RAM    = 0x4000       ; 10 pages of RAM (not in the image)
 ;     .include "placard_mus.masm"
 ;
-; and calls (the library's CALL convention, docs/LIBRARY.md):
+; and calls (the library's CALL convention, docs/software/LIBRARY.md):
 ;
 ;     mus_init    R1 = the song's page (a .SNG file loaded at R1:00)
 ;     mus_play    AC = subtune
@@ -9920,7 +9920,7 @@ s_savefail:
 ;
 ; mus_frame replaces snd_update: a program uses one or the other.  It must
 ; be called at least once a frame; it writes the buffer behind the player
-; (docs/SOUND.md), working out from the line read how much was played,
+; (docs/sound/SOUND.md), working out from the line read how much was played,
 ; and plays the song's ticks as it passes the start of the buffer, so the
 ; tempo does not depend on how often it is called.
 ;

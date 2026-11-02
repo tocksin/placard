@@ -6,7 +6,7 @@
 -- The cartridge PLD, the instruction register PLD, the State PLD,
 -- the Branch PLD and the memory control PLD are the real VHDL; the
 -- rest of the board is a behavioural model with the delays from
--- docs/TIMING.md (ATF22V10C-7: tCO 5.5 ns, tPD 7.5 ns; the PLD
+-- docs/timing/TIMING.md (ATF22V10C-7: tCO 5.5 ns, tPD 7.5 ns; the PLD
 -- models are zero-delay, so each output gets its delay here, 10 ns
 -- for an output that can change from a register inside the chip):
 --   clock     free-running 25.175 MHz, no gate
@@ -357,7 +357,7 @@ begin
 
     -- RAM /WE: Sync PLD revision 10, from the early clock tap CLK_E.
     -- CLK_E leads the clock the rest of the board sees by T_CLK_E (the
-    -- 500 mm of track, docs/WE_TIMING.md); here it is modelled as the
+    -- 500 mm of track, docs/timing/WE_TIMING.md); here it is modelled as the
     -- strobe going out T_CLK_E sooner.  The output floats while RUN is
     -- low (WE.OE = RUN); the equation is high then anyway.
     weNQ <= not ((not clk) and (not memRw) and (not pixelEnable));

@@ -2,7 +2,7 @@
 -- ROM CARTRIDGE model
 -- Date: 10/21/2026
 --
--- The cartridge as the board sees it (docs/ROM.md, "Loading the
+-- The cartridge as the board sees it (docs/architecture/ROM.md, "Loading the
 -- cartridge"): the loader PLD (cart_pld, ATF22V10_CART.pld rev 04),
 -- the two AT28C256 EEPROMs that hold the image and the two AS7C256C
 -- SRAMs the CPU reads once the image is loaded.  Each pair is one
