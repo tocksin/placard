@@ -11,6 +11,12 @@
 ;     python3 test_raycast_tex_sim.py             runs it in placard_sim and
 ;                                                 checks every view against the
 ;                                                 model
+;     python3 gen_raycast_tex.py --sd             the SD card version: writes
+;                                                 raycast_tex_sd.asm and
+;                                                 ../../sdcard/RAYTEX.PLC + .OVL
+;                                                 (see SD_PAGE below)
+;     python3 test_raycast_tex_sim.py --sd        boots it from a card and checks
+;                                                 it the same way
 ;
 ; SCREEN
 ;     The same as raycast.asm: rows 0-31 are four lines of 1 bpp text, rows
@@ -59,7 +65,7 @@
 ;     As raycast.asm: arrow keys or SNES pad 1, Up / Down walk, Left / Right
 ;     turn; the demo walk runs at start and after 10 s with no input.
 ;
-; Date: 10/24/2026
+; Date: 11/02/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"

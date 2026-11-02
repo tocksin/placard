@@ -12,6 +12,12 @@ standard library.
     python3 test_raycast_tex_sim.py             runs it in placard_sim and
                                                 checks every view against the
                                                 model
+    python3 gen_raycast_tex.py --sd             the SD card version: writes
+                                                raycast_tex_sd.asm and
+                                                ../../sdcard/RAYTEX.PLC + .OVL
+                                                (see SD_PAGE below)
+    python3 test_raycast_tex_sim.py --sd        boots it from a card and checks
+                                                it the same way
 
 SCREEN
     The same as raycast.asm: rows 0-31 are four lines of 1 bpp text, rows
@@ -60,7 +66,7 @@ CONTROLS
     As raycast.asm: arrow keys or SNES pad 1, Up / Down walk, Left / Right
     turn; the demo walk runs at start and after 10 s with no input.
 
-Date: 10/24/2026
+Date: 11/02/2026
 """
 
 import argparse
@@ -102,6 +108,76 @@ CODE = SHADE + 0x800                     # code from here, then the scalers
 SC_END = 0xC000
 
 ZT = 0x68                                 # zero page texture column x68-x87
+
+# The SD card program (RAYTEX.PLC and RAYTEX.OVL, --sd).  Everything the ROM
+# build keeps in the program ROM goes into the RAM:
+#   - code and the tables the code indexes by page: the RAM pages a library
+#     program may use (x1E00-x3FFF in the file; x4000-x4BFF and x5400-x59FF,
+#     two pages a sector, from the OVL), around the HT / DD tables, which
+#     are built at the same places as in the ROM build;
+#   - the textures, the hit tables and the compiled scalers: the video RAM
+#     that the 4x view and the 1x text rows never show (VIDEO.md, line
+#     repeat).  In each 512-byte byte column only x020-x03F (text) and
+#     x180-x1FF (view) are shown.  Texel row t is the even page of byte
+#     column 48 + t (xC0 + 2t) with texture k in 32-byte slot SD_SLOT[k]
+#     (slot 1, x20-x3F, is the text); the hit tables are x00-x7F of the
+#     odd page xBF; the scalers fill x040-x17F of the other byte columns
+#     (branch-free code may run across a page) and x00-x7F of the odd
+#     pages beside the textures.
+# The program runs with map 3F (sections 0-5 RAM, the library in ROM) and
+# sets map FF (every section RAM) from the texture column to col_next, the
+# only part that reads the textures or runs a scaler.  The build sources
+# (GL, GH, HCL, HCH) are in the file at x3C00-x3FFF, which the OVL fills
+# with other tables after build has run.
+SD_FILE = 0x1E00                          # RAYTEX.PLC's load address
+SD_SRC = 0x3C00                           # the build sources in the file
+SD_PAGE = dict(TEXT=0x1E00, QL0=0x3900, QL1=0x3A00, QH0=0x3B00, QH1=0x3C00,
+               MAP=0x3D00, COLT=0x3E00, MVX=0x3F00, MVY=0x4000, E_CE=0x4100,
+               E_FE=0x4800, SC_LO=0x4900, SC_PG=0x4A00, LVL=0x4B00, MISC=0x5400,
+               SNT=0x5500, CST=0x5600, CEIL=0x5700, FLOOR=0x5800,
+               GL=SD_SRC, GH=SD_SRC + 0x100, HCL=SD_SRC + 0x200, HCH=SD_SRC + 0x300)
+SD_SHADE = 0x3100                         # 8 pages; the code ends below
+SD_CODE = 0x2000
+SD_PAIRS = [0x3C, 0x3E, 0x40, 0x48, 0x4A, 0x54, 0x56, 0x58]   # OVL sectors below the video RAM
+SD_TEXROW = [0xC0 + 2 * t for t in range(32)]
+SD_SLOT = [0, 2, 3, 4, 5, 6, 7]
+SD_HTB = 0xBF00
+SD_MAP = 0x3F
+
+
+def sd_frags():
+    """the video RAM stretches for the scalers, [start, end)"""
+    out = []
+    for c in range(48, 80):                       # beside the texel rows
+        base = 0x6000 + 512 * c
+        out.append((base + 0x100, base + 0x180))
+    for c in range(46, -1, -1):                   # (47 holds the hit tables)
+        base = 0x6000 + 512 * c
+        out.append((base + 0x040, base + 0x180))
+    return out
+
+
+ROM_LAYOUT = None
+
+
+def sd_used(sc_ents, sc_end):
+    """addresses in each video RAM stretch the SD build uses: the texel
+    rows, the hit tables, the scaler stretches up to the one sc_end is in"""
+    out = [r << 8 for r in SD_TEXROW] + [SD_HTB]
+    for f0, f1 in sd_frags():
+        out.append(f0)
+        if f0 <= sc_end <= f1:
+            break
+    return out
+
+
+def ovl_page(a, addr, values, comment):
+    """data_page for bytes at addr that are RAM loaded from the OVL (or,
+    below x6000, the file's bytes under them)"""
+    a.raw('')
+    a.raw('#overlay 0x%04X                  ; %s' % (addr, comment))
+    for i in range(0, len(values), 16):
+        a.raw('    #d8 ' + ', '.join('0x%02X' % (v & 0xFF) for v in values[i:i + 16]))
 
 MAP_ROWS = rc.MAP_ROWS                    # A-G = textures 1-7
 START = dict(rc.START)
@@ -360,6 +436,7 @@ def hit_tables():
 
 
 HSS, HPOS, HSG, HFL = hit_tables()
+HSS_SNT = PAGE['SNT'] >> 8                # (the ROM page; the model only asks sin or cos)
 
 
 # ---------------------------------------------------------------------------
@@ -425,7 +502,7 @@ def column(pa, px, py, c, hs):
     """-> the 112 bytes of view column c, top to bottom"""
     r = cast(pa, px, py, c)
     i = (r['side'] << 4) | r['q']
-    s = (T['snt'] if HSS[i] == PAGE['SNT'] >> 8 else T['cst'])[r['alo']]
+    s = (T['snt'] if HSS[i] == HSS_SNT else T['cst'])[r['alo']]
     dsh, dsl = r['dist'] >> 8, r['dist'] & 255
     p = (((dsh * s) & 255) + ((dsl * s) >> 8)) & 255
     pos = (px if HPOS[i] == 'pxl' else py) & 255
@@ -530,15 +607,30 @@ def scaler_chunks(hq):
     return chunks
 
 
-def pack_scalers(hs, start):
-    """-> (lines, {hq: address}, end address) of all the scalers from start"""
+def pack_scalers(hs, start, frags=None):
+    """-> (lines, {hq: address}, end address) of all the scalers from start;
+    with frags (the SD build), into those video RAM stretches instead"""
     out = []
     addr = start
     ents = {}
     hops = [0]
+    fi = [0]
+    org = '#overlay' if frags else '#addr'
+    if frags:
+        addr = frags[0][0]
 
     def room():
+        if frags:
+            return frags[fi[0]][1] - addr
         return 256 - (addr & 0xFF)
+
+    def next_start():
+        if frags:
+            fi[0] += 1
+            if fi[0] >= len(frags):
+                raise ValueError('the scalers do not fit the video RAM')
+            return frags[fi[0]][0]
+        return (addr & 0xFF00) + 0x100
 
     def hop():
         nonlocal addr
@@ -546,8 +638,8 @@ def pack_scalers(hs, start):
         lb = 'sch_%d' % hops[0]
         out.append('    ld   %s >> 8, y' % lb)
         out.append('    jmp  %s' % lb)
-        addr = (addr & 0xFF00) + 0x100
-        out.append('#addr 0x%04X' % addr)
+        addr = next_start()
+        out.append('%s 0x%04X' % (org, addr))
         out.append('%s:' % lb)
         out.append('    ld   [colpage], y')
         addr += 2
@@ -555,9 +647,9 @@ def pack_scalers(hs, start):
     for hq in hs:
         chunks = scaler_chunks(hq)
         if room() < 2 + chunks[0][1] + 4:
-            addr = (addr & 0xFF00) + 0x100
+            addr = next_start()
         out.append('')
-        out.append('#addr 0x%04X' % addr)
+        out.append('%s 0x%04X' % (org, addr))
         out.append('sc_%d:                           ; scaler, height %d' % (hq, hq))
         ents[hq] = addr
         out.append('    ld   [colpage], y')
@@ -582,9 +674,28 @@ def choose_heights(start):
     raise ValueError('the scalers do not fit')
 
 
-def gen():
+def gen(sd=False):
+    """(source, info); sd: the SD card layout (raycast_tex_sd.asm)"""
+    global PAGE, SHADE, CODE, HTB, MAP_RUN, ROM_LAYOUT
+    if sd:
+        rom_exact = gen(sd=False)[1]['exact']     # the same scalers as the ROM build
+    if ROM_LAYOUT is None:
+        ROM_LAYOUT = dict(PAGE=PAGE, SHADE=SHADE, CODE=CODE, HTB=HTB, MAP_RUN=MAP_RUN)
+    if sd:
+        PAGE, SHADE, CODE, HTB, MAP_RUN = SD_PAGE, SD_SHADE, SD_CODE, SD_HTB, SD_MAP
+    else:
+        PAGE, SHADE, CODE, HTB, MAP_RUN = (ROM_LAYOUT[k] for k in ('PAGE', 'SHADE', 'CODE', 'HTB', 'MAP_RUN'))
     a = Asm()
-    a.raw('; raycast_tex.asm - generated by gen_raycast_tex.py, do not edit')
+    a.raw('; %s - generated by gen_raycast_tex.py%s, do not edit'
+          % (('raycast_tex_sd.asm', ' --sd') if sd else ('raycast_tex.asm', '')))
+    if sd:
+        a.raw(';')
+        a.raw('; THE SD CARD BUILD (RAYTEX.PLC + RAYTEX.OVL): the code and the page')
+        a.raw('; tables in the RAM below the video area, the textures, hit tables and')
+        a.raw('; scalers in the video RAM the screen never shows (the OVL, read after')
+        a.raw('; build), map 3F, and map FF from the texture column to col_next.  Esc')
+        a.raw('; goes back to the DOS.  See SD_PAGE in gen_raycast_tex.py; the ROM')
+        a.raw('; build is described below.')
     a.raw(';')
     for ln in __doc__.strip().split('\n')[1:]:
         a.raw(('; ' + ln).rstrip())
@@ -612,9 +723,10 @@ def gen():
         a.org((a.addr + 255) & 0xFF00, comment)
 
     # ------------------------------------------------------------- entry
-    a.org(0x6000, 'the boot jumps here: on to main')
-    a.raw('    ld   main >> 8, y')
-    a.raw('    jmp  main')
+    if not sd:
+        a.org(0x6000, 'the boot jumps here: on to main')
+        a.raw('    ld   main >> 8, y')
+        a.raw('    jmp  main')
     a.addr = CODE
     a.org(CODE, 'main: set up the screen and the player')
     a.raw('main:')
@@ -626,8 +738,43 @@ def gen():
     a.call('map_set', 'm_0')
     a.jump('build')
     a.raw('built:')
-    a.call('port_init', 'm_1')
+    if not sd:      # (the DOS has set up the port)
+        a.call('port_init', 'm_1')
     a.call('con_clear', 'm_2', '(every row 1 bpp 1x, cursor 0, 0)')
+    if sd:
+        a.g('''
+    ld   s_ovl & 0xFF, ac       ; RAYTEX.OVL: a sector to each page in OVL_DST
+    ld   ac, [R0]
+    ld   s_ovl >> 8, ac
+    ld   ac, [R1]''')
+        a.call('fs_open', 'm_o1')
+        a.g('''
+    beq  m_o2
+    ld   0x80, y                ; can't: back to the DOS (dos_back)
+    jmp  0x08
+m_o2:
+    ld   OVL_DST & 0xFF, ac     ; tmp = the low byte of the next entry
+    ld   ac, [tmp]''')
+        a.raw('m_o3:')
+        a.g('''
+    ld   [tmp], x
+    ld   OVL_DST >> 8, y
+    ld   [y,x], ac
+    bne  m_o4
+    ld   m_o6 >> 8, y
+    jmp  m_o6
+m_o4:
+    ld   ac, [R5]
+    clr  ac
+    ld   ac, [R4]''')
+        a.call('fs_read', 'm_o5')
+        a.g('''
+    ld   [tmp], ac
+    add  1, ac
+    ld   ac, [tmp]
+    ld   m_o3 >> 8, y
+    jmp  m_o3
+m_o6:''')
     a.g('''
     ld   0x5A, y                ; rows 32-479 (x5A40-x5BFF): 8 bpp 4x
     ld   0x40, ac
@@ -1210,12 +1357,20 @@ p_frac:
     ld   ac, x
     ld   [tmp], ac
     xor  [y,x], ac
-    ld   ac, [tmp]
+    ld   ac, [tmp]''' + ('''
     ld   [wv], ac               ; xb = (type - 1) * 32 + u
     and  0xE0, ac
     sub  32, ac
     add  [tmp], ac
-    ld   ac, [xb]''')
+    ld   ac, [xb]''' if not sd else '''
+    ld   [wv], ac               ; xb = slot * 32 + u: slot 0 for type 1, else
+    and  0xE0, ac               ;   the type (slot 1 of a texel row page is
+    xor  0x20, ac               ;   the text rows' video RAM)
+    beq  p_t1
+    xor  0x20, ac
+p_t1:
+    add  [tmp], ac
+    ld   ac, [xb]'''))
     a.g('''
     ld   [hh], x                ; shading page: LVL[h], + 4 on a y side
     ld   LVL >> 8, y
@@ -1244,20 +1399,27 @@ p_lit:
     shl
     add  0x61, ac
     ld   ac, [colpage]
-    ld   [xb], x''')
+    ld   [xb], x''' + ('''
+    ld   0x50, y                ; map FF: the textures and scalers are in the
+    ld   0xFF, [y,x]            ;   video RAM (col_next puts MAP_SHADOW back)''' if sd else ''))
     # the texture column: 32 texels through the shading table to zero page
     for t in range(32):
+        page = ('0x%02X' % SD_TEXROW[t]) if sd else '(TEXB >> 8) + %d' % t
         a.g('''
-    ld   (TEXB >> 8) + %d, y%s
+    ld   %s, y%s
     ld   [y,x], ac
     ld   ac, x
     ld   [shp], y
     ld   [y,x], ac
     ld   ac, [zt + %d]
-    ld   [xb], x''' % (t, '      ; texel row 0 ... 31, shaded' if t == 0 else '', t))
+    ld   [xb], x''' % (page, '      ; texel row 0 ... 31, shaded' if t == 0 else '', t))
     a.jump('ceil_stub')
-    a.g('''
+    a.g(('''
 col_next:
+    ld   0x50, y                ; map 3F again
+    ld   [MAP_SHADOW], ac
+    ld   ac, [y,x]''' if sd else '''
+col_next:''') + '''
     ld   [col], ac              ; next column
     add  1, ac
     ld   ac, [col]
@@ -1419,7 +1581,13 @@ b_nx:
     code_end = a.addr
 
     # ------------------------------------------------------------- scalers
-    exact, hs, sc_lines, sc_ents, sc_end = choose_heights((code_end + 255) & 0xFF00)
+    if sd:
+        assert code_end <= SHADE, 'code past x%04X: x%04X' % (SHADE, code_end)
+        exact = rom_exact
+        hs = scaler_heights(exact)
+        sc_lines, sc_ents, sc_end = pack_scalers(hs, None, sd_frags())
+    else:
+        exact, hs, sc_lines, sc_ents, sc_end = choose_heights((code_end + 255) & 0xFF00)
     a.raw('')
     a.raw('; ---------------------------------------------------------------------------')
     a.raw('; compiled scalers: heights 1-%d, every other height to %d, clipped %s'
@@ -1431,10 +1599,15 @@ b_nx:
 
     # ------------------------------------------------------------- data
     t = T
-    data_page(a, PAGE['GL'], [v & 255 for v in t['g']], 'GL: |1 / cos| low bytes, angles 0-255 (build_dd)')
-    data_page(a, PAGE['GH'], [v >> 8 for v in t['g']], 'GH: high bytes')
-    data_page(a, PAGE['HCL'], [v & 255 for v in t['ht_count']], 'HCL: how many HT entries have value v, low bytes')
-    data_page(a, PAGE['HCH'], [v >> 8 for v in t['ht_count']], 'HCH: high bytes')
+    src_pages = [(PAGE['GL'], [v & 255 for v in t['g']], 'GL: |1 / cos| low bytes, angles 0-255 (build_dd)'),
+                 (PAGE['GH'], [v >> 8 for v in t['g']], 'GH: high bytes'),
+                 (PAGE['HCL'], [v & 255 for v in t['ht_count']], 'HCL: how many HT entries have value v, low bytes'),
+                 (PAGE['HCH'], [v >> 8 for v in t['ht_count']], 'HCH: high bytes')]
+    for addr, vals, comment in src_pages:
+        if sd:      # in the file only (#overlay: the OVL puts other tables here later)
+            ovl_page(a, addr, vals, comment + ' (in the file; the OVL loads over it)')
+        else:
+            data_page(a, addr, vals, comment)
     data_page(a, PAGE['QL0'], [v & 255 for v in t['q'][:256]], 'QL0: n * n / 4 low bytes, n = 0-255')
     data_page(a, PAGE['QL1'], [v & 255 for v in t['q'][256:]], 'QL1: n = 256-511')
     data_page(a, PAGE['QH0'], [v >> 8 for v in t['q'][:256]], 'QH0: high bytes')
@@ -1462,13 +1635,22 @@ b_nx:
         data_page(a, SHADE + 0x100 * p, t['shade'][p],
                   'SHADE %d: %s side, distance level %d' % (p, 'y' if p >= 4 else 'x', p % 4))
     for row in range(32):
-        vals = []
-        for k in range(8):
-            vals += t['tex'][k][row] if k < TEXN else [0] * 32
-        data_page(a, TEXB + 0x100 * row, vals, 'texel row %d of textures A-G' % row)
+        if sd:
+            vals = [0] * 256
+            for k in range(TEXN):
+                vals[32 * SD_SLOT[k]:32 * SD_SLOT[k] + 32] = t['tex'][k][row]
+            ovl_page(a, SD_TEXROW[row] << 8, vals[:0x20], 'texel row %d: texture A (slot 0)' % row)
+            ovl_page(a, (SD_TEXROW[row] << 8) + 0x40, vals[0x40:], 'textures B-G (slots 2-7)')
+        else:
+            vals = []
+            for k in range(8):
+                vals += t['tex'][k][row] if k < TEXN else [0] * 32
+            data_page(a, TEXB + 0x100 * row, vals, 'texel row %d of textures A-G' % row)
     a.raw('')
-    a.raw('#addr 0x%04X                     ; HTB: hit tables by (side << 4) | quadrant' % HTB)
-    ss = [HSS.get(i, 0) for i in range(32)]
+    a.raw('%s 0x%04X                     ; HTB: hit tables by (side << 4) | quadrant'
+          % ('#overlay' if sd else '#addr', HTB))
+    hss = hit_tables()[0]                  # the pages of this build's SNT and CST
+    ss = [hss.get(i, 0) for i in range(32)]
     pos = [HPOS.get(i, 'pxl') for i in range(32)]
     a.raw('    #d8 ' + ', '.join('0x%02X' % v for v in ss) + '     ; page of |sin| or |cos|')
     a.raw('    #d8 ' + ', '.join(pos) + '     ; coordinate along the wall')
@@ -1503,7 +1685,10 @@ b_nx:
     a.raw('s_rate:  #d "   VIEWS A SECOND    80 X 112 CELLS, 8 BPP, 7 TEXTURES 32 X 32", 0x00')
     a.raw('s_demo:  #d "DEMO WALK   ", 0x00')
     a.raw('s_you:   #d "YOU DRIVE   ", 0x00')
-    a.raw('s_keys:  #d "ARROW KEYS OR SNES PAD 1: UP/DOWN WALK, LEFT/RIGHT TURN.  10 S IDLE: DEMO WALK", 0x00')
+    if sd:
+        a.raw('s_keys:  #d "ARROWS OR SNES PAD 1: UP/DOWN WALK, LEFT/RIGHT TURN.  10 S IDLE: DEMO. ESC: DOS", 0x00')
+    else:
+        a.raw('s_keys:  #d "ARROW KEYS OR SNES PAD 1: UP/DOWN WALK, LEFT/RIGHT TURN.  10 S IDLE: DEMO WALK", 0x00')
 
     # ------------------------------------------------------------- store runs
     a.raw('')
@@ -1532,18 +1717,75 @@ b_nx:
         a.raw('    ld   0x%02X, x\n    ld   0x%02X, [y,x]' % (row_x(g), T['floor'][k]))
     a.raw('    ld   [w_pg], y               ; the wall: the scaler for h')
     a.raw('    jmp  [w_stub]')
+    if sd:
+        # the OVL's sectors, in order: the RAM page pairs, then each byte column
+        # of the video RAM that holds something (the hit tables, texel rows,
+        # scalers); the table goes on the main page (in the file)
+        cols = sorted({(a_ - 0x6000) // 512 for a_ in sd_used(sc_ents, sc_end)})
+        dst = SD_PAIRS + [0x60 + 2 * c for c in cols]
+        ovl_dst = SD_CODE + 0x180     # the rest of main's second page
+        assert len(dst) < 128
+        a.raw('')
+        a.raw('#addr 0x%04X                     ; OVL_DST: the page of each RAYTEX.OVL sector, 0 ends'
+              % ovl_dst)
+        a.raw('OVL_DST:')
+        assert len(dst) < 255
+        for i in range(0, len(dst), 16):
+            a.raw('    #d8 ' + ', '.join('0x%02X' % v for v in dst[i:i + 16]))
+        a.raw('    #d8 0x00')
+        assert len(dst) < 0x60
+        a.raw('#addr 0x%04X' % (ovl_dst + 0x60))
+        a.raw('s_ovl:   #d "RAYTEX.OVL", 0x00')
     info = dict(ceil_e0=ceil_e0, floor_e0=floor_e0, exact=exact, hs=hs,
                 code_end=code_end, sc_end=sc_end)
     return '\n'.join(a.out) + '\n', info
 
 
-def build(quiet=False):
+def build(quiet=False, sd=False):
     """-> (source, assembled program, symbols, info)"""
-    src, info = gen()
+    src, info = gen(sd=sd)
     mem, syms, _ = ps.assemble(src, HERE)
     assert syms['ceil_e0'] == info['ceil_e0'] and syms['floor_e0'] == info['floor_e0']
     assert syms['main'] == CODE
     return src, mem, syms, info
+
+
+def sd_files(mem, syms):
+    """(RAYTEX.PLC, RAYTEX.OVL) from the assembled SD build.  The PLC loads
+    at x1E00 to x3FFF (the build sources at x3C00); the OVL's sectors go to
+    OVL_DST's pages in order, two pages each, after build"""
+    import gen_plc
+    lib, _, _ = ps.assemble(open(os.path.join(HERE, 'rom_lib.asm')).read(), HERE)
+    own = gen_plc.own_bytes(mem, lib)
+    file_b, final = {}, {}
+    for a, v in own.items():
+        if a >= 0x10000:
+            a &= 0xFFFF
+            if SD_SRC <= a < SD_SRC + 0x400:
+                file_b[a] = v           # a build source
+            else:
+                assert a >= 0x6000, hex(a)
+                final[a] = v
+        elif SD_FILE <= a < SD_SRC:
+            assert not (0x1F00 <= a < 0x2000), 'a byte in LIB_RAM: x%04X' % a
+            file_b[a] = v
+        else:
+            assert a >= SD_SRC and a < 0x6000, hex(a)
+            final[a] = v
+    data = bytes(file_b.get(a, 0) for a in range(SD_FILE, 0x4000))
+    plc = gen_plc.header(0, SD_FILE, len(data), syms['main']) + data
+    dst, a = [], syms['OVL_DST']
+    while mem[a]:
+        dst.append(mem[a] << 8)
+        a += 1
+    covered = set()
+    ovl = b''
+    for d in dst:
+        ovl += bytes(final.get(d + i, 0) for i in range(512))
+        covered.update(range(d, d + 512))
+    missing = [a for a in final if a not in covered]
+    assert not missing, 'not in the OVL: x%04X' % missing[0]
+    return plc, ovl
 
 
 def main(argv):
@@ -1551,7 +1793,22 @@ def main(argv):
     ap.add_argument('-o', default=os.path.join(HERE, 'raycast_tex.asm'))
     ap.add_argument('--preview')
     ap.add_argument('--textures')
+    ap.add_argument('--sd', action='store_true',
+                    help='the SD card program instead: raycast_tex_sd.asm and '
+                         '../../sdcard/RAYTEX.PLC, RAYTEX.OVL')
+    ap.add_argument('--plc', default=os.path.join(HERE, '..', '..', 'sdcard', 'RAYTEX.PLC'))
     args = ap.parse_args(argv)
+    if args.sd:
+        if args.o == ap.get_default('o'):
+            args.o = os.path.join(HERE, 'raycast_tex_sd.asm')
+        src, mem, syms, info = build(sd=True)
+        open(args.o, 'w', newline='\n').write(src)
+        plc, ovl = sd_files(mem, syms)
+        open(args.plc, 'wb').write(plc)
+        open(args.plc[:-4] + '.OVL', 'wb').write(ovl)
+        print('wrote %s, %s (%d bytes) and .OVL (%d bytes); code x%04X-x%04X, scalers end x%04X'
+              % (args.o, args.plc, len(plc), len(ovl), CODE, info['code_end'] - 1, info['sc_end'] - 1))
+        return
     src, mem, syms, info = build()
     open(args.o, 'w', newline='\n').write(src)
     print('wrote %s: %d bytes; code x%04X-x%04X, scalers to x%04X; exact scaler heights 1-%d'
