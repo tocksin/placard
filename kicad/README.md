@@ -20,7 +20,7 @@ when it saves them).
 | `sym-lib-table`, `fp-lib-table` | point KiCad at the project libraries |
 | `fab/` | Gerbers, drill files, BOM and placement files for a board order |
 
-The board is 290 x 290 mm (the keyboard's width; 290 deep since 2026-10-23 so kit
+The board is 290 x 215 mm (290 wide, the keyboard's width; 215 deep, so kit
 builders have room), 4 layers, with the
 outline, dimensions, user connectors, cartridge slot, expansion slots,
 and mounting holes placed by `src/scripts/gen_kicad_pcb.py`
