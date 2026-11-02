@@ -13,7 +13,7 @@ env: VIA=200 (via cost in cells, higher than the router's to trade length for vi
      NETPASS=1: whole-net polish before the chain passes: every net is lifted entirely and re-routed from scratch
      against everything else (largest component first, nearest other component each step, hard A*); kept when the
      whole net is cheaper. Finds the shorter tree that chain-by-chain moves cannot reach. NETPASSES=2 rounds."""
-import sys, os, time
+import sys, math, os, time
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
 os.environ.setdefault('VIA','200'); os.environ.setdefault('BEND','4')
@@ -35,7 +35,8 @@ def comp_masks(n,path):
     (None,None,False) when it touches more than two (left alone)."""
     la,lb=g.components(n,skip=path)
     ys=[p[1] for p in path]; xs=[p[2] for p in path]
-    j0=max(0,min(ys)-5); j1=min(g.ny,max(ys)+6); i0=max(0,min(xs)-5); i1=min(g.nx,max(xs)+6)
+    R=max(5,int(math.ceil(VD/2/G))+1)   # bbox margin must hold the via disk (fine grid)
+    j0=max(0,min(ys)-R); j1=min(g.ny,max(ys)+R+1); i0=max(0,min(xs)-R); i1=min(g.nx,max(xs)+R+1)
     cells=[np.zeros((j1-j0,i1-i0),bool) for _ in LAY]; vc=np.zeros((j1-j0,i1-i0),bool)
     for i,(l,iy,ix) in enumerate(path):
         cells[l][iy-j0,ix-i0]=True
