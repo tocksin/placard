@@ -45,7 +45,7 @@ BA = math.pi / 2 * (R + K_FACTOR * T)   # bend allowance (neutral axis arc lengt
 BD = 2 * OSSB - BA                    # bend deduction
 RELIEF = 0.5                          # corner and end reliefs: past the neighbouring bend
 CORNER_GAP = 0.5                      # tray: front wall end to the right wall's inside face
-DATE = "2026-10-30"
+DATE = "2026-11-02"
 REV = "A"
 
 MATERIAL = "Aluminium 5052-H32, 2.0 mm (0.080 in)"
@@ -99,6 +99,8 @@ def tray_parts(parts, cuts):
             if i:   # the bent model only: the flat pattern shows the 3.4 mm through hole
                 sol = sol.cut(cq.Workplane("XY").center(x, y).circle(3.25).workplane(offset=3.25)
                               .circle(0.0001).loft().translate((0, 0, Zf)))      # 90 deg countersink, 6.5 mm
+        for x, y in g.feet():
+            sol = sol.cut(g.hole(x, y, g.FOOT_HOLE, Zf - 1))     # plain: optional screw-on feet
         out.append(sol)
     return out
 
@@ -219,6 +221,7 @@ HARDWARE = {
     "tray": ["No PEM hardware in the tray.",
              "14 x 3.4 mm holes with a 90 deg countersink, 6.5 mm on the underside (M3 flat head screws: "
              "8 at the board holes H1-H8 into the floor standoffs, 6 through the plates' flanges into nuts)",
+             "4 x 3.4 mm plain holes (no countersink) at the feet, 24 mm in from each corner",
              "10 small slots, 6.4 wide, for the printed covers' tabs (parking under the case)"],
     "back_plate": ["No PEM hardware.", "3 x 3.4 mm plain holes in the flange (M3 screws, loose nuts "
                    "fitted by the builder)", "8 x 3.4 mm holes in the wall: 4 card screws, 4 cover parking holes"],

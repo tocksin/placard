@@ -75,6 +75,9 @@ PARK_CLEAR = 3.0       # parked cover's plug to the desk
 FEET = ACRYLIC + CAP + PARK_CLEAR   # rubber feet, 10 mm
 FOOT_D = 16.0          # foot diameter
 FOOT_IN = 24.0         # foot centre from the outside faces (clear of the corner standoffs and the covers)
+FOOT_HOLE = 3.4        # plain M3 clearance hole at each foot: the stick-on foot covers it; a builder can
+                       # fit a screw-on recessed bumper there instead (Keystone 722: 18.2 mm, 11.1 mm tall,
+                       # M3 x 10 socket head + M3 nyloc nut on top of the floor; no board pads within 8 mm)
 Z_DESK = Z_FLOOR - FEET
 
 BOARD_W = 290.0
@@ -364,6 +367,8 @@ def tray(parts, cuts):
         s = s.cut(box(x0, x1, y0, y1, Z_FLOOR - 1, Z_FLOOR + T + 1))
     for x, y in plate_screws():
         s = s.cut(hole(x, y, 3.4, Z_FLOOR - 1))
+    for x, y in feet():
+        s = s.cut(hole(x, y, FOOT_HOLE, Z_FLOOR - 1))   # optional screw-on feet
     return s
 
 

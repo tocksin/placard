@@ -166,7 +166,7 @@ def draw_stacks(path):
 
     for ax in axs:
         ax.set_aspect("equal"); ax.axis("off")
-    fig.text(0.5, 0.1, "Also: 4 rubber feet (16 mm across, 10 mm tall, self-adhesive), 24 mm in from the corners. "
+    fig.text(0.5, 0.1, "Also: 4 rubber feet (16 mm across, 10 mm tall, self-adhesive), 24 mm in from the corners, over 3.4 mm holes for optional screw-on feet. "
              "VGA J7's own 4-40 jackscrews hold the back plate too.", ha="center", fontsize=11)
     fig.suptitle("Case fasteners, exploded along each axis (to scale, mm)", fontsize=15)
     fig.savefig(path, dpi=110, bbox_inches="tight")
