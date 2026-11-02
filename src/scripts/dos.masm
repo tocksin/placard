@@ -13,8 +13,8 @@
 ;                Up / Down move; Enter runs a .PLC file or opens a folder;
 ;                Backspace goes to the folder above; Del deletes the file;
 ;                B writes BOOT.CFG = the chosen file (root folder only); R
-;                reads the folder again (a changed card); Esc gives a
-;                command line:
+;                reads the folder again (a changed card); Ctrl+B starts
+;                BASIC in the ROM; Esc gives a command line:
 ;                  RUN name            run a .PLC file
 ;                  LOAD name hhhh      load a file's bytes at a hex address
 ;                                      (below x3000, where the DOS is)
@@ -42,7 +42,7 @@
 ;     python3 gen_plc.py dos.asm -o ../../sdcard/DOS.PLC   the card's file
 ;     python3 test_dos.py                     runs it with the ROM and a card image
 ;
-; Date: 10/26/2026
+; Date: 11/02/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -299,6 +299,11 @@ bk_7:
     bne  bk_8
     GOTO k_cmd
 bk_8:
+    ld   [d_k], ac
+    xor  0x02, ac               ; Ctrl+B: BASIC
+    bne  bk_9
+    GOTO basic
+bk_9:
     GOTO br_loop
 
 .chunk
@@ -1467,7 +1472,7 @@ sq_eq:
 .chunk
 s_title:    #d "PLACARD DOS    folder ", 0x00
 s_hold:     #d "Hold Esc for the file browser", 0x00
-s_help:     #d "Up/Down move  Enter run/open  Bksp up  Del delete  B boot  R reread  Esc command", 0x00
+s_help:     #d "Up/Dn  Enter run  Bksp up  Del delete  B boot  R reread  Ctrl+B BASIC  Esc cmd", 0x00
 s_dir:      #d "<DIR>", 0x00
 s_big:      #d ">64K", 0x00
 s_err:      #d "Error", 0x00
