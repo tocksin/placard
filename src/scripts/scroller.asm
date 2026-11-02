@@ -7,6 +7,9 @@
 ;                                             Python model (no CPU)
 ;     python3 test_scroller_sim.py            runs it in placard_sim and checks
 ;                                             every frame against the model
+;     python3 gen_scroller.py --sd            the SD card program instead:
+;                                             scroller_sd.asm, ../../sdcard/SCROLLER.PLC
+;                                             and SCROLLER.OVL (test_scroller_sim.py --sd)
 ;
 ; SCREEN
 ;     rows   0-31   1 bpp, 1x   four lines of 80 column text: title, score,
@@ -59,7 +62,7 @@
 ;     Controls: arrow keys or SNES pad 1 Left / Right, Up / Space / pad B
 ;     or A to jump.
 ;
-; Date: 10/19/2026
+; Date: 11/02/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
