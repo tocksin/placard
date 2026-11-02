@@ -91,11 +91,11 @@ Justin's layout without CLK_E for the same scope: 41.18 m / 946 vias.
 |---|---|---|---|
 | Justin's layout, same 255-net scope (CLK_E excluded) | 41.18 m | 946 | clean |
 | wb3: net pass, no thermal keep-out | 39.12 m | 676 | 0 clearance, 0 unconnected, 1 starved thermal (U25-20) |
-| wb4: + THERMCLR 2 mm (`kicad/placard_autorouted.kicad_pcb`) | 38.96 m | 656 | clean (`bench/wb4_c45_drc.json`; zones refilled before the check) |
+| wb4: + THERMCLR 2 mm (was the swappable board until round 4) | 38.96 m | 656 | clean (`bench/wb4_c45_drc.json`; zones refilled before the check) |
 | wb4m: bench without CLK_E, MINLEN=CLK_E:420 | 39.62 m | 656 | CLK_E 201 -> 428.6 mm (detour +33.6, bumps the rest), 0 collisions |
 
 Whole-board tidy A/B on the wb3 raw route: NETPASS=0 693 vias / 39.77 m, NETPASS=1 686 / 39.78 (full 256-net scope).
-`kicad/placard_autorouted.kicad_pcb` is wb4_c45 as a ready-to-swap copy of the main board (Justin's GND/+5V/CLK_E copper
+wb4_c45 was delivered as a ready-to-swap copy of the main board (Justin's GND/+5V/CLK_E copper
 kept, every other net autorouted); it is not the project's board file.
 
 ## Freerouting on the whole-board bench (2026-11-01, branch-082)
@@ -139,7 +139,8 @@ about 2 h on 4 CPU cores. Score scope `NETS=@bench/wb.nets` (BASE prefixes no lo
 | Justin's hand layout, same scope | 41.18 m | 946 | | clean |
 
 The VIA 800 board (541 vias, -17.5 % vias for +2.6 % track against wb4, 1.2 m shorter than Justin's with 43 % fewer vias) is
-now `kicad/placard_autorouted.kicad_pcb`; the VIA 1600 board is the alternative when vias matter more than the last 0.5 m.
+now the project's main board `kicad/placard.kicad_pcb` (Justin adopted it 2026-11-02, zones refilled; the separate
+`placard_autorouted.kicad_pcb` copy is gone); the VIA 1600 board is the alternative when vias matter more than the last 0.5 m.
 
 Tried and kept as options only:
 - `tidy.py SHOVE=8` (off by default): a chain with a via tries to shove a neighbouring chain's straight run sideways by up to
