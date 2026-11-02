@@ -258,11 +258,10 @@ panes: pattern, order, instrument, wave table, pulse table.
 | `I` `L` `S` | order pane: insert a position, loop here, stop here |
 | `Enter` | play the song from the start |
 | `Space` | play from the order position shown (stop when playing) |
-| `Esc` | stop |
 | `Ctrl-L` | the pattern's length: 64, 16, 32 |
 | `Ctrl-O` / `Ctrl-W` | load / save a `.SNG` (the name is asked on the status row) |
 | `Ctrl-N` | a blank song |
-| `Ctrl-X` | back to the DOS (twice when the song is not saved) |
+| `Esc`, `Ctrl-X` | back to the DOS (twice when the song is not saved) |
 
 Every pattern has a 256-byte slot of its own: 40 slots, the even video
 pages x60 ... xA6 and four RAM pages, so a pattern can hold anything up to

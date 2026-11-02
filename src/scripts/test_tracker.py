@@ -15,12 +15,12 @@ Builds the 32K ROM and a card holding DOS.PLC, TRACKER.PLC and TRACKER.OVL
   2. the screen (80 x 30 on 2x lines): header, order list, instrument, the
      pattern grid; the grid's first rows match the song's pattern bytes
   3. Enter plays the song: the audio buffer fills, the header says PLAY, the
-     row being played is tinted green; Esc stops it
+     row being played is tinted green; Space stops it
   4. editing: Z puts a C-4 with the current instrument in the cell, Down
      moves, Del clears, Tab cycles the panes, the cursor row is tinted blue
   5. Ctrl-W saves TEST.SNG; the file on the card holds the edited note;
      Ctrl-O loads it back and the grid still shows it
-  6. Ctrl-X twice brings the DOS's browser back
+  6. Esc twice brings the DOS's browser back (Ctrl-X does the same)
 
 Date: 11/02/2026
 """
@@ -168,14 +168,14 @@ def main(argv):
     print('  green rows: %s' % greens)
     if not greens:
         r.fail('no row is tinted green while playing')
-    r.key('\x1b')
+    r.key(' ')
     r.run(2)
     if 'STOP' not in r.row(0):
-        r.fail('Esc did not stop: %r' % r.row(0))
+        r.fail('Space did not stop: %r' % r.row(0))
     r.run(100)
     if not all(b == 0x80 for b in mem[0x5DF3:0x6000]):
-        r.fail('not silent after Esc')
-    print('  Esc: stopped, silent')
+        r.fail('not silent after Space')
+    print('  Space: stopped, silent')
 
     print('4. editing')
     g = r.grid_row()            # the cursor followed the song: wherever it stopped
@@ -226,6 +226,11 @@ def main(argv):
         if len(row) > 54 and row[54:].strip():
             r.fail('after Tab x5 row %d has text past the grid: %r' % (top + rr, row[54:]))
     print('  Tab x5: the grid rows show the song again')
+    r.key('\x1b')              # Esc with an unsaved song: a warning, no exit
+    r.run(2)
+    print('  Esc (unsaved): %r' % r.row(28))
+    if not r.row(28).startswith(' Not saved') or 'TRACKER' not in r.row(0):
+        r.fail('Esc with an unsaved song did not warn and stay: %r' % r.row(28))
 
     print('5. save and load')
     r.ctrl('w')
@@ -266,11 +271,10 @@ def main(argv):
         r.fail('the saved note is gone after loading: %r' % c)
     print('  pattern row %d voice 1 after the reload: %r' % (prow, c))
 
-    print('6. Ctrl-X')
-    r.ctrl('x')
+    print('6. Esc')
+    r.key('\x1b')               # the song is saved: one Esc leaves
     r.run(2)
     print('  status: %r' % r.row(28))
-    r.ctrl('x')
     if r.wait_browser(300):
         print('  the browser is back at frame %d' % (cpu.clocks // FRAME))
     print('all passed' if r.ok else 'FAILED')

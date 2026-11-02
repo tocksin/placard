@@ -66,11 +66,11 @@
 ;   I / L / S      order pane: insert a position / loop here / stop here
 ;   Enter          play the song from the start
 ;   Space          play from the order position shown (stop when playing)
-;   Esc            stop
+;   Esc            back to the DOS (twice when the song is not saved)
 ;   Ctrl-L         pattern length 64 > 16 > 32 > 64
 ;   Ctrl-O / W     load / save a .SNG (the name is asked on the status row)
 ;   Ctrl-N         a blank song
-;   Ctrl-X         back to the DOS (twice when the song is not saved)
+;   Ctrl-X         the same
 ;
 ;     python3 asm_expand.py tracker.masm              tracker.asm
 ;     python3 gen_plc.py tracker.asm -o ../../sdcard/TRACKER.PLC --overlay 0xA800,2
@@ -198,7 +198,7 @@ w3 = 0x5B
 w4 = 0x5C
 w5 = 0x5D
 i_np    = 0x5E              ; the name character being typed
-e_fl    = 0x5F              ; bit 0: Ctrl-X pressed once
+e_fl    = 0x5F              ; bit 0: Esc / Ctrl-X pressed once
 
 ; MAP07 / MAPFF - the map register (x5000): the library's map, all RAM
 
@@ -5323,7 +5323,10 @@ hk_a:
     ld   [e_key], ac
     xor  0x18, ac
     beq  hk_b
-    ld   [e_fl], ac             ; any other key: Ctrl-X must be pressed twice again
+    ld   [e_key], ac
+    xor  0x1B, ac
+    beq  hk_b
+    ld   [e_fl], ac             ; any other key: Esc / Ctrl-X must be pressed twice again
     and  0xFE, ac
     ld   ac, [e_fl]
 hk_b:
@@ -5383,12 +5386,12 @@ hk_3:
     ld   [e_key], ac
     xor  0x1B, ac
     bne  hk_4
-    ld   LINK_LO, x             ; CALL do_stop
+    ld   LINK_LO, x             ; CALL exit_cmd
     ld   tr_r195, [x]
     ld   LINK_HI, x
     ld   tr_r195 >> 8, [x]
-    ld   do_stop >> 8, y
-    jmp  do_stop
+    ld   exit_cmd >> 8, y
+    jmp  exit_cmd
 tr_r195:
     ld   tr_leave >> 8, y
     jmp  tr_leave
@@ -8036,7 +8039,7 @@ lc_e:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
-; exit_cmd - Ctrl-X: back to the DOS (twice when the song is not saved)
+; exit_cmd - Esc, Ctrl-X: back to the DOS (twice when the song is not saved)
 exit_cmd:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -10045,7 +10048,7 @@ s_stop:
 s_play:
     #d "PLAY", 0x00
 s_keys:
-    #d " Z-M Q-P notes 1 off -= oct <> ins Tab pane  Ent/Spc play  Esc stop  ^O ^W ^N ^X", 0x00
+    #d " Z-M Q-P notes 1 off -= oct <> ins Tab pane  Ent/Spc play  Esc exit  ^O ^W ^N ^X", 0x00
 s_order:
     #d "ORDER V1     V2     V3     V4", 0x00
 s_loop:
@@ -10316,7 +10319,7 @@ s_high:
 s_full:
     #d "Pattern full: too many bytes for its slot", 0x00
 s_unsaved:
-    #d "Not saved: Ctrl-X again to leave", 0x00
+    #d "Not saved: Esc again to leave", 0x00
 
 ve_att:
     ld   [W_AD], ac
