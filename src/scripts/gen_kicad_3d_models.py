@@ -23,7 +23,7 @@ by construction.
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | generated: bracket, body, 1/4-40 bushing and lever |
 | SD_Hirose_DM1AA_SF_PEJ82 | SD socket J4 | generated: 28.4 x 30.9 mm from KiCad's footprint outline, 2.8 mm high, card opening at the +y end |
 | Fuse_Bourns_MF-RG300 | polyfuse F1 | generated: 7.1 x 3.0 mm disc, 11 mm high, seated 3 mm up |
-| SNES_Pad_Socket_Horizontal | SNES ports J2, J3 | generated from photos: 42 x 16 x 21 mm incl. pins (16 above the board), flange, pin blocks, bent pins |
+| SNES_Pad_Socket_Horizontal | SNES ports J2, J3 | generated from photos and measurements: 42.8 x 16 x 21 mm incl. pins (16 above the board), flange, pin blocks, bent pins |
 | SW_Tactile_SPST_Angled_PTS645Vx58-2LFS | reset button SW2 | KiCad's own model, copied |
 | DSUB-15-HD_Female_Horizontal_..._MountingHolesOffset4.94mm | VGA J7 | KiCad's own model, copied |
 | USB_C_Receptacle_GCT_USB4125_6P_HandSolder | USB-C J13 | KiCad's USB4125 model, copied |
@@ -35,7 +35,7 @@ clearances in KiCad's 3D viewer and the case; replace one with the maker's
 STEP file of the same name if it is wanted exact.  KiCad's models are CC-BY-SA
 4.0 with the KiCad libraries' exception (designs using them are unaffected).
 
-Date: 2026-10-30
+Date: 2026-11-02
 """
 
 import os
@@ -200,18 +200,18 @@ def snes():
     # at +x, flat end at -x), two pin blocks in the opening (3 holes at the round
     # end, 4 at the flat end), a ribbed top, and 7 pins that leave the back wall,
     # run back over a slotted ledge and bend down into the board.  Envelope
-    # 42 x 16 x 21 mm including pins: 42 along the edge, 16 deep, 16 high above
-    # the board + 5 mm of pin below
+    # 42.8 x 16 x 21 mm including pins (Justin measured the shell just under 43 x 16):
+    # 42.8 along the edge, 16 deep, 16 high above the board + 5 mm of pin below
     name = "SNES_Pad_Socket_Horizontal"
-    flange = stadium(-21.0, 21.0, 0, 16.0, -0.5, 2.0, 3.0)
-    body = stadium(-20.0, 20.0, 0.6, 15.2, 2.0, 12.0, 2.5)
+    flange = stadium(-21.4, 21.4, 0, 16.0, -0.5, 2.0, 3.0)
+    body = stadium(-20.4, 20.4, 0.6, 15.2, 2.0, 12.0, 2.5)
     xs = [x for num, x, y, w, h, plated in pads(name) if plated is True]
     ledge = box(min(xs) - 1.5, 12.0, max(xs) + 1.5, 15.5, 0.6, 5.5)
     for x in xs:
-        ledge = ledge.cut(box(x - 0.6, 12.5, x + 0.6, 15.6, 0.5, 5.6))
+        ledge = ledge.cut(box(x - 0.7, 12.5, x + 0.7, 15.6, 0.5, 5.6))
     ribs = [box(x - 0.6, 2.5, x + 0.6, 11.5, 15.2, 15.6) for x in (-13.0, 13.0)]
     shell = flange.union(body)
-    shell = shell.cut(stadium(-18.5, 18.5, 3.0, 13.0, -0.6, 9.0, 1.5))
+    shell = shell.cut(stadium(-18.9, 18.9, 3.0, 13.0, -0.6, 9.0, 1.5))
     blocks = []
     # the plug's holes line up with the pins: 4 at the flat end, 3 at the round end
     for group in (sorted(xs)[:4], sorted(xs)[4:]):
@@ -226,8 +226,9 @@ def snes():
     leads = []
     for num, x, y, w, h, plated in pads(name):
         if plated is True:
-            leads.append(cyl_y(x, zp, 0.64, 11.0, y).union(cyl_z(x, y, 0.64, -5.0, zp))
-                         .union(cq.Workplane("XY").sphere(0.32).translate((x, -y, zp))))
+            # 1 mm pins (Justin)
+            leads.append(cyl_y(x, zp, 1.0, 11.0, y).union(cyl_z(x, y, 1.0, -5.0, zp))
+                         .union(cq.Workplane("XY").sphere(0.5).translate((x, -y, zp))))
     save(name, [("body", (0.52, 0.52, 0.54), [shell]), ("pins", TIN, leads)])
 
 
