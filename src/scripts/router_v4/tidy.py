@@ -7,15 +7,18 @@ env: VIA=200 (via cost in cells, higher than the router's to trade length for vi
      PAIR=1: after the single-chain passes, every chain with a via is re-routed together with one neighbouring chain
      of another net (the neighbour is lifted first, the chain re-routed, then the neighbour); kept when the pair is cheaper.
      NEIGH=3 neighbours tried per chain.
+     NEIGHMM=1.0: a chain counts as a neighbour when its cells lie within this distance (mm) of the chain.
+     SHOVE=8 (cells; default 0 = off, slow): after the pair passes, every chain with a via tries to shove a neighbouring chain's straight
+     run sideways by up to SHOVE cells (legs added at both ends) and re-route itself; kept when the pair is cheaper.
      NETPASS=1: whole-net polish before the chain passes: every net is lifted entirely and re-routed from scratch
      against everything else (largest component first, nearest other component each step, hard A*); kept when the
      whole net is cheaper. Finds the shorter tree that chain-by-chain moves cannot reach. NETPASSES=2 rounds."""
-import sys, os, time
+import sys, math, os, time
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
 os.environ.setdefault('VIA','200'); os.environ.setdefault('BEND','4')
 from gridcore import *
-src,dst=sys.argv[1:3]; BASE=E('BASE'); NETS=E('NETS'); WIN=float(E('WIN','25')); PASSES=int(E('PASSES','4')); MINGAIN=float(E('MINGAIN','4')); PAIR=int(E('PAIR','1')); NEIGH=int(E('NEIGH','3')); NETPASS=int(E('NETPASS','1')); NETPASSES=int(E('NETPASSES','2'))
+src,dst=sys.argv[1:3]; BASE=E('BASE'); NETS=E('NETS'); WIN=float(E('WIN','25')); PASSES=int(E('PASSES','4')); MINGAIN=float(E('MINGAIN','4')); PAIR=int(E('PAIR','1')); NEIGH=int(E('NEIGH','3')); SHOVE=int(E('SHOVE','0')); NEIGHMM=float(E('NEIGHMM','1.0')); NETPASS=int(E('NETPASS','1')); NETPASSES=int(E('NETPASSES','2'))
 t0=time.time()
 def netlist(spec):
     if spec and spec.startswith('@'): return [l.strip() for l in open(spec[1:],encoding='utf-8') if l.strip()]
@@ -32,7 +35,8 @@ def comp_masks(n,path):
     (None,None,False) when it touches more than two (left alone)."""
     la,lb=g.components(n,skip=path)
     ys=[p[1] for p in path]; xs=[p[2] for p in path]
-    j0=max(0,min(ys)-5); j1=min(g.ny,max(ys)+6); i0=max(0,min(xs)-5); i1=min(g.nx,max(xs)+6)
+    R=max(5,int(math.ceil(VD/2/G))+1)   # bbox margin must hold the via disk (fine grid)
+    j0=max(0,min(ys)-R); j1=min(g.ny,max(ys)+R+1); i0=max(0,min(xs)-R); i1=min(g.nx,max(xs)+R+1)
     cells=[np.zeros((j1-j0,i1-i0),bool) for _ in LAY]; vc=np.zeros((j1-j0,i1-i0),bool)
     for i,(l,iy,ix) in enumerate(path):
         cells[l][iy-j0,ix-i0]=True
@@ -78,7 +82,7 @@ def chain_bbox(path,pad):
     return max(0,min(ys)-pad),min(g.ny,max(ys)+pad+1),max(0,min(xs)-pad),min(g.nx,max(xs)+pad+1)
 def neighbours(n,path):
     """chains of other scope nets whose stamps cover cells next to this chain, nearest (most covered cells) first"""
-    j0,j1,i0,i1=chain_bbox(path,6); score={}
+    R=max(4,int(round(NEIGHMM/G))); j0,j1,i0,i1=chain_bbox(path,R+2); score={}
     cells=[np.zeros((j1-j0,i1-i0),bool) for _ in LAY]
     for l,iy,ix in path: cells[l][iy-j0,ix-i0]=True
     for m in g.scope:
@@ -88,7 +92,7 @@ def neighbours(n,path):
             if max(qy)<j0 or min(qy)>=j1 or max(qx)<i0 or min(qx)>=i1: continue
             c=0
             for l,iy,ix in q:
-                if j0<=iy<j1 and i0<=ix<i1 and cells[l][max(0,iy-j0-4):iy-j0+5,max(0,ix-i0-4):ix-i0+5].any(): c+=1
+                if j0<=iy<j1 and i0<=ix<i1 and cells[l][max(0,iy-j0-R):iy-j0+R+1,max(0,ix-i0-R):ix-i0+R+1].any(): c+=1
             if c: score[(m,id(q))]=(c,m,q)
     return [(m,q) for c,m,q in sorted(score.values(),key=lambda t:-t[0])[:NEIGH]]
 def pair_net(n):
@@ -140,6 +144,55 @@ def polish_net(n):
     nc=sum(g.path_cost(p) for p in new)
     if nc<oc-MINGAIN: rechain(n); return oc-nc,1
     g.set_route(n,paths); return 0.0,0
+def runs(path):
+    out=[]; i=0
+    while i<len(path)-1:
+        l,y,x=path[i]; l2,y2,x2=path[i+1]
+        if l!=l2: i+=1; continue
+        d=(y2-y,x2-x); j=i+1
+        while j<len(path)-1 and path[j+1][0]==l and (path[j+1][1]-path[j][1],path[j+1][2]-path[j][2])==d: j+=1
+        out.append((i,j,l,d)); i=j
+    return out
+def shifted(path,i,j,l,d,s):
+    """path with the straight run i..j moved s cells sideways (perpendicular legs at both ends); None if it leaves the grid"""
+    py,px=(-d[1],d[0]); sy,sx=py*s,px*s; sg=1 if s>0 else -1
+    a=path[i]; b=path[j]
+    leg1=[(l,a[1]+py*k*sg,a[2]+px*k*sg) for k in range(1,abs(s)+1)]
+    run=[(l,p[1]+sy,p[2]+sx) for p in path[i+1:j]]
+    leg2=[(l,b[1]+py*k*sg,b[2]+px*k*sg) for k in range(abs(s)-1,-1,-1)]
+    new=path[:i+1]+leg1+run+leg2+path[j:]
+    if any(c[1]<0 or c[2]<0 or c[1]>=g.ny or c[2]>=g.nx for c in new): return None
+    return new
+def shove_net(n):
+    gain=0.0; changed=0
+    paths=sorted(g.routes.get(n,[]),key=lambda p:-g.path_vias(p))
+    for path in paths:
+        if path not in g.routes[n] or g.path_vias(path)==0: continue
+        oc=g.path_cost(path); j0,j1,i0,i1=chain_bbox(path,int(2/G)); done=False
+        for m,q in neighbours(n,path):
+            if q not in g.routes.get(m,[]): continue
+            oq=g.path_cost(q); keep_n=list(g.routes[n]); keep_m=list(g.routes[m])
+            g.set_route(n,[p for p in keep_n if p is not path]); g.set_route(m,[p for p in keep_m if p is not q])
+            bt,bv=g.blocked(m,hard=True)
+            for (i,j,l,d) in runs(q):
+                if j-i<int(1/G): continue
+                ys=[q[k][1] for k in range(i,j+1)]; xs=[q[k][2] for k in range(i,j+1)]
+                if max(ys)<j0 or min(ys)>=j1 or max(xs)<i0 or min(xs)>=i1: continue
+                for s in [v for k in range(1,SHOVE+1) for v in (k,-k)]:
+                    nq=shifted(q,i,j,l,d,s)
+                    if nq is None or any(bt[c[0]][c[1],c[2]] for c in nq[i+1:i+abs(s)+1+(j-i-1)+abs(s)]): continue
+                    g.set_route(m,[p for p in keep_m if p is not q]+[nq])
+                    newp,drop=reroute_chain(n,path)
+                    if newp is not None and not drop:
+                        nc=g.path_cost(newp)+g.path_cost(nq)
+                        if nc<oc+oq-MINGAIN and g.path_vias(newp)<g.path_vias(path):
+                            g.set_route(n,[p for p in keep_n if p is not path]+[newp]); gain+=oc+oq-nc; changed+=1; done=True; break
+                    g.set_route(m,[p for p in keep_m if p is not q])
+                if done: break
+            if done: rechain(m); break
+            g.set_route(n,keep_n); g.set_route(m,keep_m)
+        if not done: g.set_route(n,[p for p in g.routes[n]] if g.routes.get(n) else [])
+    return gain,changed
 def tidy_net(n):
     gain=0.0; changed=0; dropped=0
     paths=list(g.routes.get(n,[]))
@@ -181,6 +234,19 @@ if PAIR:
         print(f'pair pass {ps}: {tc} chain pairs improved, cost gain {tg:.0f}, {time.time()-t1:.0f} s',flush=True)
         if tc==0: break
         for n in g.scope:   # single-chain clean-up after the pair moves
+            if g.routes.get(n):
+                gain,changed,dropped=tidy_net(n)
+                if changed or dropped: rechain(n)
+if SHOVE:
+    for ps in range(PASSES):
+        t1=time.time(); tg=0; tc=0
+        for n in sorted(g.scope,key=lambda n:-sum(g.path_vias(p) for p in g.routes[n])):
+            if not g.routes.get(n): continue
+            gain,changed=shove_net(n); tg+=gain; tc+=changed
+            if changed: rechain(n)
+        print(f'shove pass {ps}: {tc} chains improved, cost gain {tg:.0f}, {time.time()-t1:.0f} s',flush=True)
+        if tc==0: break
+        for n in g.scope:
             if g.routes.get(n):
                 gain,changed,dropped=tidy_net(n)
                 if changed or dropped: rechain(n)

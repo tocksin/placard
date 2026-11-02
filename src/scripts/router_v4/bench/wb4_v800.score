@@ -1,0 +1,6 @@
+# score t4_c45.kicad_pcb  (scope 388 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 39.98 m | 541 / 559 | 6.1 % | 3.1 % | 1.02 | 0 | 0 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS0 1023/8/1.3, DATABUS2 873/13/1.1, DATABUS1 851/12/1.1, DATABUS6 835/12/1.1, DATABUS4 835/17/1.1, DATABUS5 831/17/1.1, DATABUS7 811/14/1.0, CLK 798/7/1.0
