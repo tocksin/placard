@@ -7,7 +7,8 @@ env: VIA=200 (via cost in cells, higher than the router's to trade length for vi
      PAIR=1: after the single-chain passes, every chain with a via is re-routed together with one neighbouring chain
      of another net (the neighbour is lifted first, the chain re-routed, then the neighbour); kept when the pair is cheaper.
      NEIGH=3 neighbours tried per chain.
-     SHOVE=8 (cells; 0 = off): after the pair passes, every chain with a via tries to shove a neighbouring chain's straight
+     NEIGHMM=1.0: a chain counts as a neighbour when its cells lie within this distance (mm) of the chain.
+     SHOVE=8 (cells; default 0 = off, slow): after the pair passes, every chain with a via tries to shove a neighbouring chain's straight
      run sideways by up to SHOVE cells (legs added at both ends) and re-route itself; kept when the pair is cheaper.
      NETPASS=1: whole-net polish before the chain passes: every net is lifted entirely and re-routed from scratch
      against everything else (largest component first, nearest other component each step, hard A*); kept when the
@@ -17,7 +18,7 @@ import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
 os.environ.setdefault('VIA','200'); os.environ.setdefault('BEND','4')
 from gridcore import *
-src,dst=sys.argv[1:3]; BASE=E('BASE'); NETS=E('NETS'); WIN=float(E('WIN','25')); PASSES=int(E('PASSES','4')); MINGAIN=float(E('MINGAIN','4')); PAIR=int(E('PAIR','1')); NEIGH=int(E('NEIGH','3')); SHOVE=int(E('SHOVE','8')); NETPASS=int(E('NETPASS','1')); NETPASSES=int(E('NETPASSES','2'))
+src,dst=sys.argv[1:3]; BASE=E('BASE'); NETS=E('NETS'); WIN=float(E('WIN','25')); PASSES=int(E('PASSES','4')); MINGAIN=float(E('MINGAIN','4')); PAIR=int(E('PAIR','1')); NEIGH=int(E('NEIGH','3')); SHOVE=int(E('SHOVE','0')); NEIGHMM=float(E('NEIGHMM','1.0')); NETPASS=int(E('NETPASS','1')); NETPASSES=int(E('NETPASSES','2'))
 t0=time.time()
 def netlist(spec):
     if spec and spec.startswith('@'): return [l.strip() for l in open(spec[1:],encoding='utf-8') if l.strip()]
@@ -80,7 +81,7 @@ def chain_bbox(path,pad):
     return max(0,min(ys)-pad),min(g.ny,max(ys)+pad+1),max(0,min(xs)-pad),min(g.nx,max(xs)+pad+1)
 def neighbours(n,path):
     """chains of other scope nets whose stamps cover cells next to this chain, nearest (most covered cells) first"""
-    j0,j1,i0,i1=chain_bbox(path,6); score={}
+    R=max(4,int(round(NEIGHMM/G))); j0,j1,i0,i1=chain_bbox(path,R+2); score={}
     cells=[np.zeros((j1-j0,i1-i0),bool) for _ in LAY]
     for l,iy,ix in path: cells[l][iy-j0,ix-i0]=True
     for m in g.scope:
@@ -90,7 +91,7 @@ def neighbours(n,path):
             if max(qy)<j0 or min(qy)>=j1 or max(qx)<i0 or min(qx)>=i1: continue
             c=0
             for l,iy,ix in q:
-                if j0<=iy<j1 and i0<=ix<i1 and cells[l][max(0,iy-j0-4):iy-j0+5,max(0,ix-i0-4):ix-i0+5].any(): c+=1
+                if j0<=iy<j1 and i0<=ix<i1 and cells[l][max(0,iy-j0-R):iy-j0+R+1,max(0,ix-i0-R):ix-i0+R+1].any(): c+=1
             if c: score[(m,id(q))]=(c,m,q)
     return [(m,q) for c,m,q in sorted(score.values(),key=lambda t:-t[0])[:NEIGH]]
 def pair_net(n):
