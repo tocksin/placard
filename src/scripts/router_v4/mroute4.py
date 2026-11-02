@@ -9,7 +9,8 @@ env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=4 (nets per launch; larger
      PATTERN=1 pattern (straight/L/Z) warm start before negotiation (patroute.py; neutral on the benchmark, off by default)
      CHAINRIP=1 rip-up removes only the crossed chains of a neighbour, not its whole route (shove-like)
      PROT=a,b nets never ripped (default: the clock/stall/write/sync nets below)  CRIT=a,b timing-critical nets: routed first,
-     CRITVIA=2 (via cost x) CRITPRES=0.5 (they yield less to congestion so they stay short)  (default = PROT list)"""
+     CRITVIA=2 (via cost x) CRITPRES=0.5 (they yield less to congestion so they stay short)  (default = PROT list)
+     BUDGET=budgets.json: nets with track-length budgets join CRIT (BUDGETCRIT=0 turns that off); lenfix.py repairs them after"""
 import sys, os, time, ctypes, math
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
@@ -76,6 +77,9 @@ for n in cands:
 print('open nets',len(todo),[nets[n] for n in todo],round(time.time()-T0),'s',flush=True)
 CRITDEF='CLK,CLK_E,STALL_OUT,STALL_IN,RUN,~{WE},PIXEL_ENABLE,~{HSYNC},~{VSYNC}'
 CRITN={nid[x] for x in E('CRIT',E('PROT',CRITDEF)).split(',') if x in nid}; CRITVIA=float(E('CRITVIA','2')); CRITPRES=float(E('CRITPRES','0.5'))
+if E('BUDGET') and E('BUDGETCRIT','1')=='1':   # nets with track-length budgets (budgets.py) are timing-critical too
+    import json as _json
+    CRITN|={nid[x] for x in _json.load(open(E('BUDGET'),encoding='utf-8')).get('max',{}) if x in nid}
 todo.sort(key=lambda n:(0 if n in CRITN else 1,(groups0[n][3][1]-groups0[n][3][0])+(groups0[n][3][3]-groups0[n][3][2])))
 if CRITN&set(todo): print('critical nets first:',[nets[n] for n in todo if n in CRITN],flush=True)
 g.scope=set(todo)

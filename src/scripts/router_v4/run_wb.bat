@@ -1,7 +1,9 @@
 @echo off
 rem PLACARD router v4 whole-board bench: wb.kicad_pcb = Justin's finished main board with every track and via except
 rem GND/+5V/CLK_E removed (bench\wb.kicad_pcb.zip, made by makebench.py; CLK_E is a deliberate 458 mm delay lead and stays his). Reference: bench\wb_reference_justin.score.
-rem pipeline: mroute4 -> tidy (net + pair passes) -> corner45 -> [meander when MINLEN=NET:mm is set] -> score -> via-cost ladder (LADDER).
+rem pipeline: mroute4 -> [lenfix when BUDGET=budgets.json is set] -> tidy (net + pair passes) -> corner45 -> [meander when MINLEN=NET:mm is set] -> score -> via-cost ladder (LADDER).
+rem BUDGET: make it first from the placed board with  python budgets.py <board.kicad_pcb> budgets.json  (track-length budgets from the timing model);
+rem mroute4 routes the budgeted nets first, lenfix repairs breaks, tidy and the ladder never make a break worse, score lists what is left.
 cd /d %~dp0
 if "%BACKEND%"=="" set BACKEND=gpu
 if "%TAG%"=="" set TAG=wb_%BACKEND%
@@ -12,6 +14,8 @@ python mroute4.py wb.kicad_pcb %OUT% > %TAG%.log 2>&1
 type %TAG%.log
 set NETS=@%OUT%.nets
 python score.py %OUT% > %TAG%.score 2>&1
+if not "%BUDGET%"=="" python lenfix.py %OUT% %TAG%_lf.kicad_pcb > %TAG%_lf.log 2>&1 && set OUT=%TAG%_lf.kicad_pcb
+if not "%BUDGET%"=="" type %TAG%_lf.log
 python tidy.py %OUT% %TAG%_tidy.kicad_pcb > %TAG%_tidy.log 2>&1
 python corner45.py %TAG%_tidy.kicad_pcb %TAG%_c45.kicad_pcb >> %TAG%_tidy.log 2>&1
 if not "%MINLEN%"=="" python meander.py %TAG%_c45.kicad_pcb %TAG%_c45m.kicad_pcb %MINLEN% >> %TAG%_tidy.log 2>&1 && copy /y %TAG%_c45m.kicad_pcb %TAG%_c45.kicad_pcb >nul

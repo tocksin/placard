@@ -33,9 +33,37 @@ near/far bucket width.
 
 Pipeline for a board: `mroute4.py` -> `tidy.py` -> `corner45.py` -> `score.py`.
 
+## Track-length budgets (2026-11-02, branch-097)
+The timing model of `docs/timing/TIMING.md` becomes length limits the router honours.
+- `budgets.py board.kicad_pcb budgets.json` : every timing path (fetch, operand / X / Y / video / zero-page reads, store
+  start, RW, STALL loop, cartridge ROM fetch, data setup, ALU single clock) is written with each board track length as a
+  variable (6 ps/mm), as a set of linear slack forms, one per alternative path (address bit, data bit, RAM, duty-cycle end).
+  Each form must keep `MARGIN` (0.5 ns) at both ends of `DUTY` (0.45,0.53); its lengths share the room in proportion to their
+  straight pad-to-pad distance on the current placement (one detour ratio per form), and a length's budget is the smallest
+  over all forms. Lengths that help a check (a later capture clock) count at their present value; `FIXED` nets (CLK_E)
+  are never budgeted; `MINLEN` carries the CLK_E minimum. It prints each check's slack now and its tightest detour
+  ratio, the forms that no routing can meet (ratio < 1: needs placement or logic changes), and the present breaks.
+  Run it again after every placement change: the budgets depend on where the parts are.
+- `lenbudget.py` : the grid measure (shortest path along the net's copper from pad to pad, x `LENSCALE`=1.02 because the
+  grid runs 1-3 % short of `tracklen.py`) and the excess (mm over budget summed over a net's pairs).
+- `tracklen.py` : the same measure on the real track geometry (from the timing tool `meas.py`); `score.py` uses it.
+- `lenfix.py in out BUDGET=budgets.json BASE=...|NETS=@...` : repair pass. A net over budget is lifted and grown again pin by
+  pin, tightest budget first; each pin joins the tree by an A* whose start cells carry their copper distance from the pin
+  they are budgeted against (`astar2` in astar.c), so the search minimises driver-to-load length. With `LENRIP=1` a net
+  that still breaks is grown ignoring the other routes, the nets in its way are lifted and grown again after it. Kept only
+  when the excess drops, nothing opens and no moved net gets longer than its budget.
+- `BUDGET=budgets.json` in `mroute4.py` routes the budgeted nets first as critical nets; in `tidy.py` no move is kept that
+  makes a budget break worse (also in the via-cost ladder); in `score.py` it lists the pairs over budget.
+- `run_wb.bat` with `set BUDGET=budgets.json` runs mroute4 -> lenfix -> tidy -> corner45 -> score -> ladder.
+- Bench (2026-11-02, round-4 board `wb4_tidy` from `bench/wb4_results`, budgets from the main board with `U11E=1`):
+  lenfix took the over-budget track from 17 pairs / 1659 mm to 3 pairs / 58 mm (ADDR7 U10->U31 +54, STALL_IN +4,
+  ADDR13 +0.1) in 14 min on 4 CPU threads, 0 open, 0 collisions; 39.33 -> 40.31 m, 656 -> 706 vias before tidy.
+- Finding: without timing fix 4 (U11 pin 1 on CLK_E at X1, `U11E=1`) the /OE reads (fetch, cartridge ROM fetch and
+  operand) cannot keep the margin at 53 % duty even with straight traces; budgets.py lists them as INFEASIBLE.
+
 ## Windows (Justin's laptop, RTX 4070)
 1. Python 3.10+ with `pip install numpy scipy shapely "cupy-cuda12x[ctk]"` (the [ctk] extra brings the NVRTC headers; no CUDA Toolkit install needed, the NVIDIA driver is enough).
-2. The prebuilt `astar.dll` and `pfcpu.dll` (MinGW, static) are in this folder; no compiler needed.
+2. The prebuilt `astar.dll` and `pfcpu.dll` (MinGW, static) are in `win/`; no compiler needed (`astar.dll` rebuilt 2026-11-02 with `astar2`).
 3. `run_bench.bat` routes the mux benchmark (`r1.kicad_pcb`, 108 nets stripped from the main board) on the GPU
    and scores the result. `set BACKEND=cpu` to compare.
 
