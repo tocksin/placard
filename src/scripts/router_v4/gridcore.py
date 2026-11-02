@@ -1,6 +1,6 @@
 """gridcore.py : shared grid machinery for the v4 router tools (rasterised board, C A* core, routes as cell paths,
 stamps for occupancy, chain decomposition of existing copper, output writer). Built from mroute3.py (2026-10-31).
-env: VIA (cells, default 120)  AGAINST (3)  BEND (2)  RING (8)  MARGIN (0.005)  DIAG (0)"""
+env: GRID (mm, default 0.125; 0.0625 for the fine-grid tidy)  VIA (cells, default 120)  AGAINST (3)  BEND (2)  RING (8)  MARGIN (0.005)  DIAG (0)"""
 import sys, math, uuid, time, os, ctypes, re, collections
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
@@ -9,7 +9,7 @@ import rules
 from shapely.geometry import LineString, Point, Polygon
 from scipy.ndimage import distance_transform_edt, label
 E=os.environ.get
-G=0.125; W=0.3; CLR=0.25; VD=0.8; VDR=0.4; LAY=['F.Cu','B.Cu']
+G=float(E('GRID','0.125')); W=0.3; CLR=0.25; VD=0.8; VDR=0.4; LAY=['F.Cu','B.Cu']
 lib=ctypes.CDLL((os.path.join(TOOLS,'win','astar.dll') if os.name=='nt' else os.path.join(TOOLS,'astar.so'))); lib.astar.restype=ctypes.c_int
 def c_u8(a): return a.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8))
 def c_f32(a): return a.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
