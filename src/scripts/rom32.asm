@@ -58,7 +58,7 @@
 ;     build\rom32.bat                         the FPGA, rom_32k.bin
 ;     python3 test_dos.py                     runs it with a card image
 ;
-; Date: 10/26/2026
+; Date: 11/02/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -276,24 +276,31 @@ w_DELLN:
     #d8 12, 25, 19, 12, 21, 27, 14, 8, 56, 33, 15, 28
     #d8 21, 28, 45, 8, 56, 20, 28, 9, 56, 0
 pu_title:
-    ld   LINK_LO, x             ; CALL con_clear
+    ld   LINK_LO, x             ; the sound buffer powers up random: silence it
     ld   rom_r1, [x]
     ld   LINK_HI, x
     ld   rom_r1 >> 8, [x]
+    ld   snd_init >> 8, y
+    jmp  snd_init
+rom_r1:
+    ld   LINK_LO, x             ; CALL con_clear
+    ld   rom_r2, [x]
+    ld   LINK_HI, x
+    ld   rom_r2 >> 8, [x]
     ld   con_clear >> 8, y
     jmp  con_clear
-rom_r1:
+rom_r2:
     ld   s_title & 0xFF, ac
     ld   ac, [R0]
     ld   s_title >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
-    ld   rom_r2, [x]
+    ld   rom_r3, [x]
     ld   LINK_HI, x
-    ld   rom_r2 >> 8, [x]
+    ld   rom_r3 >> 8, [x]
     ld   con_puts >> 8, y
     jmp  con_puts
-rom_r2:
+rom_r3:
     ld   2, ac
     ld   ac, [CUR_ROW]
     clr  ac
@@ -303,19 +310,19 @@ rom_r2:
     ld   s_hold >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
-    ld   rom_r3, [x]
-    ld   LINK_HI, x
-    ld   rom_r3 >> 8, [x]
-    ld   con_puts >> 8, y
-    jmp  con_puts
-rom_r3:
-    ld   LINK_LO, x             ; CALL port_init
     ld   rom_r4, [x]
     ld   LINK_HI, x
     ld   rom_r4 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+rom_r4:
+    ld   LINK_LO, x             ; CALL port_init
+    ld   rom_r5, [x]
+    ld   LINK_HI, x
+    ld   rom_r5 >> 8, [x]
     ld   port_init >> 8, y
     jmp  port_init
-rom_r4:
+rom_r5:
     clr  ac
     ld   ac, [l_esc]
     ld   ESC_FRAMES, ac
@@ -323,19 +330,19 @@ rom_r4:
 pu_w:
     ld   1, ac
     ld   LINK_LO, x             ; CALL wait_frames_io
-    ld   rom_r5, [x]
-    ld   LINK_HI, x
-    ld   rom_r5 >> 8, [x]
-    ld   wait_frames_io >> 8, y
-    jmp  wait_frames_io
-rom_r5:
-    ld   LINK_LO, x             ; CALL kbd_scan
     ld   rom_r6, [x]
     ld   LINK_HI, x
     ld   rom_r6 >> 8, [x]
+    ld   wait_frames_io >> 8, y
+    jmp  wait_frames_io
+rom_r6:
+    ld   LINK_LO, x             ; CALL kbd_scan
+    ld   rom_r7, [x]
+    ld   LINK_HI, x
+    ld   rom_r7 >> 8, [x]
     ld   kbd_scan >> 8, y
     jmp  kbd_scan
-rom_r6:
+rom_r7:
     ld   [KBD_NOW], ac          ; Esc is key 0: column 0, bit 0, 0 = down
     and  1, ac
     bne  pu_w1
@@ -351,78 +358,6 @@ pu_w1:
     ld   pu_card >> 8, y
     jmp  pu_card
 
-pu_card:
-    ld   LINK_LO, x             ; CALL mount
-    ld   rom_r7, [x]
-    ld   LINK_HI, x
-    ld   rom_r7 >> 8, [x]
-    ld   mount >> 8, y
-    jmp  mount
-rom_r7:
-    beq  pu_c1
-    ld   basic >> 8, y          ; no card: BASIC
-    jmp  basic
-pu_c1:
-    ld   LINK_LO, x             ; the root
-    ld   rom_r8, [x]
-    ld   LINK_HI, x
-    ld   rom_r8 >> 8, [x]
-    ld   save_dclus >> 8, y
-    jmp  save_dclus
-rom_r8:
-    ld   [l_esc], ac
-    bne  pu_dos
-    ld   s_cfg & 0xFF, ac       ; BOOT.CFG into DOS_BUF
-    ld   ac, [R0]
-    ld   s_cfg >> 8, ac
-    ld   ac, [R1]
-    ld   DOS_BUF & 0xFF, ac
-    ld   ac, [R4]
-    ld   DOS_BUF >> 8, ac
-    ld   ac, [R5]
-    ld   LINK_LO, x             ; CALL fs_load
-    ld   rom_r9, [x]
-    ld   LINK_HI, x
-    ld   rom_r9 >> 8, [x]
-    ld   fs_load >> 8, y
-    jmp  fs_load
-rom_r9:
-    bne  pu_dos
-    clr  ac                     ; MB_CHILD = its first word
-    ld   ac, [l_t]
-pu_cfg:
-    ld   DOS_BUF >> 8, y
-    ld   [l_t], x
-    ld   [y,x], ac
-    sub  0x21, ac
-    blt  pu_cfge                ; space, CR, LF, 00: the end
-    add  0x21, ac
-    ld   ac, [l_c]
-    ld   [l_t], ac
-    add  MB_CHILD, x
-    ld   MENU_BLK >> 8, y
-    ld   [l_c], ac
-    ld   ac, [y,x]
-    ld   [l_t], ac
-    inc
-    ld   ac, [l_t]
-    xor  12, ac
-    bne  pu_cfg
-pu_cfge:
-    ld   [l_t], ac
-    add  MB_CHILD, x
-    ld   MENU_BLK >> 8, y
-    ld   0, [y,x]
-    ld   [l_t], ac
-    beq  pu_dos                 ; an empty file
-    ld   pu_basic >> 8, y
-    jmp  pu_basic
-pu_dos:
-    ld   start_dos >> 8, y
-    jmp  start_dos
-
-w_ABS:
-    #d8 12, 41, 4, 2, 32, 33, 0
 dos_run:
     clr  ac
     ld   ac, [l_t]
@@ -457,25 +392,118 @@ dr_go:
     ld   STACK_TOP, ac
     ld   ac, [SP]
     ld   LINK_LO, x             ; CALL remount
-    ld   rom_r10, [x]
+    ld   rom_r11, [x]
     ld   LINK_HI, x
-    ld   rom_r10 >> 8, [x]
+    ld   rom_r11 >> 8, [x]
     ld   remount >> 8, y
     jmp  remount
-rom_r10:
+rom_r11:
     clr  ac
     ld   ac, [l_dos]
     ld   run_child >> 8, y
     jmp  run_child
 
+save_dclus:
+    ld   3, ac
+    ld   ac, [l_t]
+sv_cp:
+    ld   [l_t], ac
+    add  V_DCLUS, x
+    ld   FSV, y
+    ld   [y,x], ac
+    ld   ac, [l_c]
+    ld   [l_t], ac
+    add  MB_DCLUS, x
+    ld   MENU_BLK >> 8, y
+    ld   [l_c], ac
+    ld   ac, [y,x]
+    ld   [l_t], ac
+    sub  1, ac
+    ld   ac, [l_t]
+    bcc  sv_cp
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+w_TRUE:
+    #d8 2, 255, 255, 0
+pu_card:
+    ld   LINK_LO, x             ; CALL mount
+    ld   rom_r8, [x]
+    ld   LINK_HI, x
+    ld   rom_r8 >> 8, [x]
+    ld   mount >> 8, y
+    jmp  mount
+rom_r8:
+    beq  pu_c1
+    ld   basic >> 8, y          ; no card: BASIC
+    jmp  basic
+pu_c1:
+    ld   LINK_LO, x             ; the root
+    ld   rom_r9, [x]
+    ld   LINK_HI, x
+    ld   rom_r9 >> 8, [x]
+    ld   save_dclus >> 8, y
+    jmp  save_dclus
+rom_r9:
+    ld   [l_esc], ac
+    bne  pu_dos
+    ld   s_cfg & 0xFF, ac       ; BOOT.CFG into DOS_BUF
+    ld   ac, [R0]
+    ld   s_cfg >> 8, ac
+    ld   ac, [R1]
+    ld   DOS_BUF & 0xFF, ac
+    ld   ac, [R4]
+    ld   DOS_BUF >> 8, ac
+    ld   ac, [R5]
+    ld   LINK_LO, x             ; CALL fs_load
+    ld   rom_r10, [x]
+    ld   LINK_HI, x
+    ld   rom_r10 >> 8, [x]
+    ld   fs_load >> 8, y
+    jmp  fs_load
+rom_r10:
+    bne  pu_dos
+    clr  ac                     ; MB_CHILD = its first word
+    ld   ac, [l_t]
+pu_cfg:
+    ld   DOS_BUF >> 8, y
+    ld   [l_t], x
+    ld   [y,x], ac
+    sub  0x21, ac
+    blt  pu_cfge                ; space, CR, LF, 00: the end
+    add  0x21, ac
+    ld   ac, [l_c]
+    ld   [l_t], ac
+    add  MB_CHILD, x
+    ld   MENU_BLK >> 8, y
+    ld   [l_c], ac
+    ld   ac, [y,x]
+    ld   [l_t], ac
+    inc
+    ld   ac, [l_t]
+    xor  12, ac
+    bne  pu_cfg
+pu_cfge:
+    ld   [l_t], ac
+    add  MB_CHILD, x
+    ld   MENU_BLK >> 8, y
+    ld   0, [y,x]
+    ld   [l_t], ac
+    beq  pu_dos                 ; an empty file
+    ld   pu_basic >> 8, y
+    jmp  pu_basic
+pu_dos:
+    ld   start_dos >> 8, y
+    jmp  start_dos
+
 dos_back:
     ld   LINK_LO, x             ; CALL reinit
-    ld   rom_r11, [x]
+    ld   rom_r12, [x]
     ld   LINK_HI, x
-    ld   rom_r11 >> 8, [x]
+    ld   rom_r12 >> 8, [x]
     ld   reinit >> 8, y
     jmp  reinit
-rom_r11:
+rom_r12:
     ld   MENU_BLK >> 8, y
     ld   MB_PARENT, x
     ld   [y,x], ac
@@ -506,6 +534,41 @@ db_dos:
     ld   start_dos >> 8, y
     jmp  start_dos
 
+reinit:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   LINK_LO, x             ; CALL port_init
+    ld   rom_r13, [x]
+    ld   LINK_HI, x
+    ld   rom_r13 >> 8, [x]
+    ld   port_init >> 8, y
+    jmp  port_init
+rom_r13:
+    ld   LINK_LO, x             ; CALL remount
+    ld   rom_r14, [x]
+    ld   LINK_HI, x
+    ld   rom_r14 >> 8, [x]
+    ld   remount >> 8, y
+    jmp  remount
+rom_r14:
+    ld   lib_leave >> 8, y
+    jmp  lib_leave
+
+w_NEXTLN:
+    #d8 8, 54, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 12, 25, 27
+    #d8 12, 25, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 5, w_GOLINE & 0xFF, w_GOLINE >> 8
 start_dos:
     ld   STACK_TOP, ac
     ld   ac, [SP]
@@ -550,61 +613,6 @@ sd_cp:
     ld   run_child >> 8, y
     jmp  run_child
 
-save_dclus:
-    ld   3, ac
-    ld   ac, [l_t]
-sv_cp:
-    ld   [l_t], ac
-    add  V_DCLUS, x
-    ld   FSV, y
-    ld   [y,x], ac
-    ld   ac, [l_c]
-    ld   [l_t], ac
-    add  MB_DCLUS, x
-    ld   MENU_BLK >> 8, y
-    ld   [l_c], ac
-    ld   ac, [y,x]
-    ld   [l_t], ac
-    sub  1, ac
-    ld   ac, [l_t]
-    bcc  sv_cp
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
-w__P__ST_:
-    #d8 12, 19, 23, 27, 20, 24, 0
-reinit:
-    ld   STACK_TOP, ac
-    ld   ac, [SP]
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   LINK_LO, x             ; CALL port_init
-    ld   rom_r12, [x]
-    ld   LINK_HI, x
-    ld   rom_r12 >> 8, [x]
-    ld   port_init >> 8, y
-    jmp  port_init
-rom_r12:
-    ld   LINK_LO, x             ; CALL remount
-    ld   rom_r13, [x]
-    ld   LINK_HI, x
-    ld   rom_r13 >> 8, [x]
-    ld   remount >> 8, y
-    jmp  remount
-rom_r13:
-    ld   lib_leave >> 8, y
-    jmp  lib_leave
-
         ; leaves the port as the program had it: a key let go while
         ; port_init looks for the keyboard would make it miss it
 remount:
@@ -625,27 +633,27 @@ remount:
     ld   0x50, y
     ld   MAP_RUN, [y,x]
     ld   LINK_LO, x             ; CALL lib_ram_copy
-    ld   rom_r14, [x]
-    ld   LINK_HI, x
-    ld   rom_r14 >> 8, [x]
-    ld   lib_ram_copy >> 8, y
-    jmp  lib_ram_copy
-rom_r14:
-    ld   LINK_LO, x             ; CALL mount
     ld   rom_r15, [x]
     ld   LINK_HI, x
     ld   rom_r15 >> 8, [x]
-    ld   mount >> 8, y
-    jmp  mount
+    ld   lib_ram_copy >> 8, y
+    jmp  lib_ram_copy
 rom_r15:
-    bne  rm_x
-    ld   LINK_LO, x             ; CALL get_dclus
+    ld   LINK_LO, x             ; CALL mount
     ld   rom_r16, [x]
     ld   LINK_HI, x
     ld   rom_r16 >> 8, [x]
+    ld   mount >> 8, y
+    jmp  mount
+rom_r16:
+    bne  rm_x
+    ld   LINK_LO, x             ; CALL get_dclus
+    ld   rom_r17, [x]
+    ld   LINK_HI, x
+    ld   rom_r17 >> 8, [x]
     ld   get_dclus >> 8, y
     jmp  get_dclus
-rom_r16:
+rom_r17:
 rm_x:
     ld   lib_leave >> 8, y
     jmp  lib_leave
@@ -664,20 +672,20 @@ mount:
     ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   LINK_LO, x             ; CALL sd_init
-    ld   rom_r17, [x]
-    ld   LINK_HI, x
-    ld   rom_r17 >> 8, [x]
-    ld   sd_init >> 8, y
-    jmp  sd_init
-rom_r17:
-    bne  m_x
-    ld   LINK_LO, x             ; CALL fs_mount
     ld   rom_r18, [x]
     ld   LINK_HI, x
     ld   rom_r18 >> 8, [x]
+    ld   sd_init >> 8, y
+    jmp  sd_init
+rom_r18:
+    bne  m_x
+    ld   LINK_LO, x             ; CALL fs_mount
+    ld   rom_r19, [x]
+    ld   LINK_HI, x
+    ld   rom_r19 >> 8, [x]
     ld   fs_mount >> 8, y
     jmp  fs_mount
-rom_r18:
+rom_r19:
 m_x:
     ld   lib_leave >> 8, y
     jmp  lib_leave
@@ -706,31 +714,9 @@ gd_cp:
 ; ============================================================
 ; run_child - load and run the program named at MB_CHILD
 ; ============================================================
-        ; DOS.PLC itself: BASIC
-fail:
-    ld   MENU_BLK >> 8, y
-    ld   MB_ERR, x
-    ld   ac, [y,x]
-    ld   MB_PARENT, x           ; a menu does not get it back
-    ld   0, [y,x]
-    ld   [l_dos], ac
-    bne  fl_basic
-    ld   LINK_LO, x             ; the card again (a load may have stopped half way)
-    ld   rom_r21, [x]
-    ld   LINK_HI, x
-    ld   rom_r21 >> 8, [x]
-    ld   reinit >> 8, y
-    jmp  reinit
-rom_r21:
-    ld   start_dos >> 8, y
-    jmp  start_dos
-fl_basic:
-    ld   basic >> 8, y
-    jmp  basic
-
-w_HEXCH:
-    #d8 12, 1, 9, 14, 39, 4, 3, 1, 7, 27, 1, 48
-    #d8 27, 0
+w_CLRROW:
+    #d8 11, 14, 1, 0, 12, 11, 13, 1, 32, 54, 33, 12
+    #d8 1, 80, 37, 4, 243, 13, 1, 0, 11, 13, 0
 run_child:
     ld   STACK_TOP, ac
     ld   ac, [SP]
@@ -739,12 +725,12 @@ run_child:
     ld   MENU_BLK >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL fs_open
-    ld   rom_r19, [x]
+    ld   rom_r20, [x]
     ld   LINK_HI, x
-    ld   rom_r19 >> 8, [x]
+    ld   rom_r20 >> 8, [x]
     ld   fs_open >> 8, y
     jmp  fs_open
-rom_r19:
+rom_r20:
     bne  rc_err
     ld   FSV, y
     ld   V_ENTRY + 11, x
@@ -756,12 +742,12 @@ rom_r19:
     ld   DOS_BUF >> 8, ac
     ld   ac, [R5]
     ld   LINK_LO, x             ; CALL fs_read
-    ld   rom_r20, [x]
+    ld   rom_r21, [x]
     ld   LINK_HI, x
-    ld   rom_r20 >> 8, [x]
+    ld   rom_r21 >> 8, [x]
     ld   fs_read >> 8, y
     jmp  fs_read
-rom_r20:
+rom_r21:
     bne  rc_err
     ld   DOS_BUF >> 8, y
     ld   0, x
@@ -787,6 +773,28 @@ rc_dir:
 rc_err:
     ld   fail >> 8, y
     jmp  fail
+
+        ; DOS.PLC itself: BASIC
+fail:
+    ld   MENU_BLK >> 8, y
+    ld   MB_ERR, x
+    ld   ac, [y,x]
+    ld   MB_PARENT, x           ; a menu does not get it back
+    ld   0, [y,x]
+    ld   [l_dos], ac
+    bne  fl_basic
+    ld   LINK_LO, x             ; the card again (a load may have stopped half way)
+    ld   rom_r22, [x]
+    ld   LINK_HI, x
+    ld   rom_r22 >> 8, [x]
+    ld   reinit >> 8, y
+    jmp  reinit
+rom_r22:
+    ld   start_dos >> 8, y
+    jmp  start_dos
+fl_basic:
+    ld   basic >> 8, y
+    jmp  basic
 
 rc_header:
     ld   DOS_BUF >> 8, y
@@ -850,6 +858,164 @@ lt1_p0:
 ; ============================================================
 ; strings
 ; ============================================================
+w_SKIPSTMT:
+    #d8 1, 0, 8, 48, 25, 12, 40, 4, 3, 13, 13, 0
+    #d8 12, 1, 34, 37, 4, 4, 13, 40, 3, 10, 1, 58
+    #d8 37, 15, 40, 29, 4, 2, 13, 0, 51, 3, 223, 0
+load_t0:
+    ld   (DOS_BUF & 0xFF) + 16, ac    ; the 496 bytes after the header
+    ld   ac, [R0]
+    ld   DOS_BUF >> 8, ac
+    ld   ac, [R1]
+    ld   [l_ll], ac
+    ld   ac, [R2]
+    ld   [l_lh], ac
+    ld   ac, [R3]
+    clr  ac
+    ld   ac, [R4]
+    ld   LINK_LO, x             ; CALL memcpy
+    ld   rom_r23, [x]
+    ld   LINK_HI, x
+    ld   rom_r23 >> 8, [x]
+    ld   memcpy >> 8, y
+    jmp  memcpy
+rom_r23:
+    ld   240, ac
+    ld   ac, [R4]
+    ld   LINK_LO, x             ; CALL memcpy
+    ld   rom_r24, [x]
+    ld   LINK_HI, x
+    ld   rom_r24 >> 8, [x]
+    ld   memcpy >> 8, y
+    jmp  memcpy
+rom_r24:
+    ld   [R2], ac               ; the rest straight to load + 496 on
+    ld   ac, [R4]
+    ld   [R3], ac
+    ld   ac, [R5]
+lt0_rd:
+    ld   LINK_LO, x             ; CALL fs_read
+    ld   rom_r25, [x]
+    ld   LINK_HI, x
+    ld   rom_r25 >> 8, [x]
+    ld   fs_read >> 8, y
+    jmp  fs_read
+rom_r25:
+    beq  lt0_rd
+    xor  1, ac                  ; 1: the end
+    bne  lt0_err
+    ld   LINK_LO, x             ; a program over x1F00 is fine
+    ld   rom_r26, [x]
+    ld   LINK_HI, x
+    ld   rom_r26 >> 8, [x]
+    ld   lib_ram_copy >> 8, y
+    jmp  lib_ram_copy
+rom_r26:
+    ld   [l_dos], ac
+    bne  lt0_dos
+    ld   LINK_LO, x             ; the folder it came from
+    ld   rom_r27, [x]
+    ld   LINK_HI, x
+    ld   rom_r27 >> 8, [x]
+    ld   save_dclus >> 8, y
+    jmp  save_dclus
+rom_r27:
+    bra  lt0_go
+lt0_dos:
+    ld   LINK_LO, x             ; DOS.PLC: the folder the DOS was in
+    ld   rom_r28, [x]
+    ld   LINK_HI, x
+    ld   rom_r28 >> 8, [x]
+    ld   get_dclus >> 8, y
+    jmp  get_dclus
+rom_r28:
+lt0_go:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    ld   [l_eh], y
+    jmp  [l_el]
+lt0_err:
+    xor  1, ac
+    ld   fail >> 8, y
+    jmp  fail
+
+        ; page 0 last, then map FF and x0000 through MB_GO
+load_t1:
+    ld   LINK_LO, x             ; CALL save_dclus
+    ld   rom_r29, [x]
+    ld   LINK_HI, x
+    ld   rom_r29 >> 8, [x]
+    ld   save_dclus >> 8, y
+    jmp  save_dclus
+rom_r29:
+    ld   1, ac
+    ld   ac, [l_t]
+lt1_z:
+    ld   [l_t], y
+    clr  ac
+lt1_z2:
+    ld   ac, x
+    ld   0, [y,x]
+    inc
+    bne  lt1_z2
+    ld   [l_t], ac
+    inc
+    ld   ac, [l_t]
+    xor  0x4A, ac
+    bne  lt1_z
+    ld   (DOS_BUF & 0xFF) + 16, ac    ; page 0 of the image waits in DOS_BUF0
+    ld   ac, [R0]
+    ld   DOS_BUF >> 8, ac
+    ld   ac, [R1]
+    clr  ac
+    ld   ac, [R2]
+    ld   ac, [R4]
+    ld   DOS_BUF0 >> 8, ac
+    ld   ac, [R3]
+    ld   LINK_LO, x             ; CALL memcpy
+    ld   rom_r30, [x]
+    ld   LINK_HI, x
+    ld   rom_r30 >> 8, [x]
+    ld   memcpy >> 8, y
+    jmp  memcpy
+rom_r30:
+    clr  ac                     ; x0100-x01EF from the first sector
+    ld   ac, [R2]
+    ld   1, ac
+    ld   ac, [R3]
+    ld   240, ac
+    ld   ac, [R4]
+    ld   LINK_LO, x             ; CALL memcpy
+    ld   rom_r31, [x]
+    ld   LINK_HI, x
+    ld   rom_r31 >> 8, [x]
+    ld   memcpy >> 8, y
+    jmp  memcpy
+rom_r31:
+    ld   0xF0, ac               ; the rest to x01F0 on
+    ld   ac, [R4]
+    ld   1, ac
+    ld   ac, [R5]
+lt1_rd:
+    ld   LINK_LO, x             ; CALL fs_read
+    ld   rom_r32, [x]
+    ld   LINK_HI, x
+    ld   rom_r32 >> 8, [x]
+    ld   fs_read >> 8, y
+    jmp  fs_read
+rom_r32:
+    beq  lt1_rd
+    xor  1, ac
+    bne  lt1_err
+    ld   lt1_go >> 8, y
+    jmp  lt1_go
+lt1_err:
+    xor  1, ac
+    ld   fail >> 8, y
+    jmp  fail
+
+w_2DROP:
+    #d8 13, 13, 0
 s_title:    #d "PLACARD", 0x00
 s_hold:     #d "Hold Esc for the file browser", 0x00
 s_cfg:      #d "BOOT.CFG", 0x00
@@ -926,160 +1092,6 @@ B_RAM   = 0x5C          ; the page the RAM routines are copied to
 ; basic - the vector x8024 comes here (power-up with no card, the DOS's
 ; BASIC command, BOOT.CFG "BASIC")
 ; ============================================================
-w_MIN:
-    #d8 18, 39, 4, 2, 13, 0, 16, 0
-load_t0:
-    ld   (DOS_BUF & 0xFF) + 16, ac    ; the 496 bytes after the header
-    ld   ac, [R0]
-    ld   DOS_BUF >> 8, ac
-    ld   ac, [R1]
-    ld   [l_ll], ac
-    ld   ac, [R2]
-    ld   [l_lh], ac
-    ld   ac, [R3]
-    clr  ac
-    ld   ac, [R4]
-    ld   LINK_LO, x             ; CALL memcpy
-    ld   rom_r22, [x]
-    ld   LINK_HI, x
-    ld   rom_r22 >> 8, [x]
-    ld   memcpy >> 8, y
-    jmp  memcpy
-rom_r22:
-    ld   240, ac
-    ld   ac, [R4]
-    ld   LINK_LO, x             ; CALL memcpy
-    ld   rom_r23, [x]
-    ld   LINK_HI, x
-    ld   rom_r23 >> 8, [x]
-    ld   memcpy >> 8, y
-    jmp  memcpy
-rom_r23:
-    ld   [R2], ac               ; the rest straight to load + 496 on
-    ld   ac, [R4]
-    ld   [R3], ac
-    ld   ac, [R5]
-lt0_rd:
-    ld   LINK_LO, x             ; CALL fs_read
-    ld   rom_r24, [x]
-    ld   LINK_HI, x
-    ld   rom_r24 >> 8, [x]
-    ld   fs_read >> 8, y
-    jmp  fs_read
-rom_r24:
-    beq  lt0_rd
-    xor  1, ac                  ; 1: the end
-    bne  lt0_err
-    ld   LINK_LO, x             ; a program over x1F00 is fine
-    ld   rom_r25, [x]
-    ld   LINK_HI, x
-    ld   rom_r25 >> 8, [x]
-    ld   lib_ram_copy >> 8, y
-    jmp  lib_ram_copy
-rom_r25:
-    ld   [l_dos], ac
-    bne  lt0_dos
-    ld   LINK_LO, x             ; the folder it came from
-    ld   rom_r26, [x]
-    ld   LINK_HI, x
-    ld   rom_r26 >> 8, [x]
-    ld   save_dclus >> 8, y
-    jmp  save_dclus
-rom_r26:
-    bra  lt0_go
-lt0_dos:
-    ld   LINK_LO, x             ; DOS.PLC: the folder the DOS was in
-    ld   rom_r27, [x]
-    ld   LINK_HI, x
-    ld   rom_r27 >> 8, [x]
-    ld   get_dclus >> 8, y
-    jmp  get_dclus
-rom_r27:
-lt0_go:
-    ld   STACK_TOP, ac
-    ld   ac, [SP]
-    ld   [l_eh], y
-    jmp  [l_el]
-lt0_err:
-    xor  1, ac
-    ld   fail >> 8, y
-    jmp  fail
-
-        ; page 0 last, then map FF and x0000 through MB_GO
-load_t1:
-    ld   LINK_LO, x             ; CALL save_dclus
-    ld   rom_r28, [x]
-    ld   LINK_HI, x
-    ld   rom_r28 >> 8, [x]
-    ld   save_dclus >> 8, y
-    jmp  save_dclus
-rom_r28:
-    ld   1, ac
-    ld   ac, [l_t]
-lt1_z:
-    ld   [l_t], y
-    clr  ac
-lt1_z2:
-    ld   ac, x
-    ld   0, [y,x]
-    inc
-    bne  lt1_z2
-    ld   [l_t], ac
-    inc
-    ld   ac, [l_t]
-    xor  0x4A, ac
-    bne  lt1_z
-    ld   (DOS_BUF & 0xFF) + 16, ac    ; page 0 of the image waits in DOS_BUF0
-    ld   ac, [R0]
-    ld   DOS_BUF >> 8, ac
-    ld   ac, [R1]
-    clr  ac
-    ld   ac, [R2]
-    ld   ac, [R4]
-    ld   DOS_BUF0 >> 8, ac
-    ld   ac, [R3]
-    ld   LINK_LO, x             ; CALL memcpy
-    ld   rom_r29, [x]
-    ld   LINK_HI, x
-    ld   rom_r29 >> 8, [x]
-    ld   memcpy >> 8, y
-    jmp  memcpy
-rom_r29:
-    clr  ac                     ; x0100-x01EF from the first sector
-    ld   ac, [R2]
-    ld   1, ac
-    ld   ac, [R3]
-    ld   240, ac
-    ld   ac, [R4]
-    ld   LINK_LO, x             ; CALL memcpy
-    ld   rom_r30, [x]
-    ld   LINK_HI, x
-    ld   rom_r30 >> 8, [x]
-    ld   memcpy >> 8, y
-    jmp  memcpy
-rom_r30:
-    ld   0xF0, ac               ; the rest to x01F0 on
-    ld   ac, [R4]
-    ld   1, ac
-    ld   ac, [R5]
-lt1_rd:
-    ld   LINK_LO, x             ; CALL fs_read
-    ld   rom_r31, [x]
-    ld   LINK_HI, x
-    ld   rom_r31 >> 8, [x]
-    ld   fs_read >> 8, y
-    jmp  fs_read
-rom_r31:
-    beq  lt1_rd
-    xor  1, ac
-    bne  lt1_err
-    ld   lt1_go >> 8, y
-    jmp  lt1_go
-lt1_err:
-    xor  1, ac
-    ld   fail >> 8, y
-    jmp  fail
-
 w_KWTAB:
     #d8 69, 78, 196, 70, 79, 210, 78, 69, 88, 212, 68, 65
     #d8 84, 193, 73, 78, 80, 85, 212, 68, 73, 205, 82, 69
@@ -1411,10 +1423,6 @@ w_SOUND_:
     #d8 51, w_NEXPR >> 8, w_NEXPR & 0xFF, 3, 2, 1, 96, 19, 11, 18, 1, 0
     #d8 11, 19, 2, (snd_note) & 0xFF, (snd_note) >> 8, 48, 13, 20, 2, (snd_tone) & 0xFF, (snd_tone) >> 8, 48
     #d8 13, 0
-w_SKIPSTMT:
-    #d8 1, 0, 8, 48, 25, 12, 40, 4, 3, 13, 13, 0
-    #d8 12, 1, 34, 37, 4, 4, 13, 40, 3, 10, 1, 58
-    #d8 37, 15, 40, 29, 4, 2, 13, 0, 51, 3, 223, 0
 w_CONCAT:
     #d8 15, 25, 15, 25, 27, 12, 1, 255, 14, 39, 4, 2
     #d8 w_STLERR >> 8, w_STLERR & 0xFF, w_TMPALLOC >> 8, w_TMPALLOC & 0xFF, 17, 18, w_COUNT >> 8, w_COUNT & 0xFF, 17, 33, 14, 45
@@ -1551,18 +1559,12 @@ w_O_ADD:
 w_NOISE_:
     #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 11, 18
     #d8 11, 16, 1, 0, 11, 19, 2, (snd_noise) & 0xFF, (snd_noise) >> 8, 48, 13, 0
-w_CLRROW:
-    #d8 11, 14, 1, 0, 12, 11, 13, 1, 32, 54, 33, 12
-    #d8 1, 80, 37, 4, 243, 13, 1, 0, 11, 13, 0
 w_GOLN:
     #d8 12, w_FINDLN >> 8, w_FINDLN & 0xFF, 12, 25, 4, 12, 14, 15, 33, 23, 37
     #d8 4, 6, 5, w_GOLINE & 0xFF, w_GOLINE >> 8, 3, 1, 16, 5, w_ULERR & 0xFF, w_ULERR >> 8
 w_TMPALLOC:
     #d8 8, 62, 14, 15, 26, 12, 25, 33, 15, 27, 12, 2
     #d8 0, 90, 38, 40, 4, 2, w_STLERR >> 8, w_STLERR & 0xFF, 9, 62, 0
-w_SCROLL:
-    #d8 10, 50, 34, 1, 0, 18, 14, 39, 4, 7, 12, 33
-    #d8 15, 55, 33, 3, 244, 13, 5, w_CLRROW & 0xFF, w_CLRROW >> 8
 w_KWTYPE:
     #d8 w_KWADDR >> 8, w_KWADDR & 0xFF, 12, 25, 12, 1, 127, 29, w_EMIT >> 8, w_EMIT & 0xFF, 1, 128
     #d8 29, 40, 4, 3, 33, 3, 239, 13, 0
@@ -1659,6 +1661,9 @@ w_RUNSTART:
 w_SGN1:
     #d8 12, 41, 4, 5, 13, 2, 255, 255, 0, 40, 40, 1
     #d8 1, 29, 0
+w_HEXCH:
+    #d8 12, 1, 9, 14, 39, 4, 3, 1, 7, 27, 1, 48
+    #d8 27, 0
 w_H_D_:
     #d8 1, 16, 43, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 2, w_H_D_ >> 8, w_H_D_ & 0xFF, w_HEXCH >> 8, w_HEXCH & 0xFF, 5
     #d8 w_EMIT & 0xFF, w_EMIT >> 8
@@ -1745,6 +1750,8 @@ w_POKE_:
     #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 14, 26, 0
 w_FCALL:
     #d8 48, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 3, 5, w_FERR & 0xFF, w_FERR >> 8, 0
+w_MIN:
+    #d8 18, 39, 4, 2, 13, 0, 16, 0
 w_MAX:
     #d8 18, 39, 4, 2, 16, 0, 13, 0
 w_ENDS_Q_:
@@ -1763,6 +1770,10 @@ w_GW:
     #d8 2, 128, 2, 10, 78, 5, w_RSHIFT & 0xFF, w_RSHIFT >> 8
 w_PPBM:
     #d8 1, 8, 10, 78, w_RSHIFT >> 8, w_RSHIFT & 0xFF, 34, 0
+w_ABS:
+    #d8 12, 41, 4, 2, 32, 33, 0
+w__P__ST_:
+    #d8 12, 19, 23, 27, 20, 24, 0
 w_WITHIN:
     #d8 15, 28, 19, 28, 20, 38, 0
 w_KEY_Q_:
@@ -1833,12 +1844,8 @@ w_RESTORE_:
     #d8 1, 0, 9, 70, 0
 w_LOAD_:
     #d8 w_LOADFILE >> 8, w_LOADFILE & 0xFF, 5, w_WARM & 0xFF, w_WARM >> 8
-w_O_MUL:
-    #d8 w_NRIGHT >> 8, w_NRIGHT & 0xFF, 42, 0
 w_F_PEEK:
     #d8 w_NARG >> 8, w_NARG & 0xFF, 25, 0
-w_2DROP:
-    #d8 13, 13, 0
 w_TUCK:
     #d8 14, 15, 0
 w_NEGATE:
@@ -1994,8 +2001,8 @@ vm_jump:
     jmp  p_opq
     ld   p_fornext >> 8, y
     jmp  p_fornext
-w_TRUE:
-    #d8 2, 255, 255, 0
+w_SGLYPH:
+    #d8 w_SHOWROW >> 8, w_SHOWROW & 0xFF, 54, 0
 basic:
     ld   STACK_TOP, ac
     ld   ac, [SP]
@@ -2004,26 +2011,26 @@ basic:
     ld   0x50, y
     ld   MAP_RUN, [y,x]
     ld   LINK_LO, x             ; CALL lib_ram_copy
-    ld   bas_r32, [x]
-    ld   LINK_HI, x
-    ld   bas_r32 >> 8, [x]
-    ld   lib_ram_copy >> 8, y
-    jmp  lib_ram_copy
-bas_r32:
-    ld   LINK_LO, x             ; CALL port_init
     ld   bas_r33, [x]
     ld   LINK_HI, x
     ld   bas_r33 >> 8, [x]
-    ld   port_init >> 8, y
-    jmp  port_init
+    ld   lib_ram_copy >> 8, y
+    jmp  lib_ram_copy
 bas_r33:
-    ld   LINK_LO, x             ; CALL snd_init
+    ld   LINK_LO, x             ; CALL port_init
     ld   bas_r34, [x]
     ld   LINK_HI, x
     ld   bas_r34 >> 8, [x]
+    ld   port_init >> 8, y
+    jmp  port_init
+bas_r34:
+    ld   LINK_LO, x             ; CALL snd_init
+    ld   bas_r35, [x]
+    ld   LINK_HI, x
+    ld   bas_r35 >> 8, [x]
     ld   snd_init >> 8, y
     jmp  snd_init
-bas_r34:
+bas_r35:
     ld   rc_ram & 0xFF, ac      ; the RAM routines to x5C00 + their offset
     ld   ac, [W0]
 bs_cp:
@@ -2589,9 +2596,11 @@ p_cstore:                       ; C! ( v a -- )
     ld   ac, [y,x]
     bra  st_pop2
 
-w_NEXTLN:
-    #d8 8, 54, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 12, 25, 27
-    #d8 12, 25, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 5, w_GOLINE & 0xFF, w_GOLINE >> 8
+w_SCROLL:
+    #d8 10, 50, 34, 1, 0, 18, 14, 39, 4, 7, 12, 33
+    #d8 15, 55, 33, 3, 244, 13, 5, w_CLRROW & 0xFF, w_CLRROW >> 8
+w_EMPTYS:
+    #d8 0
 p_rot:                          ; ( a b c -- b c a )
     ld   [DSP], ac              ; W1:W0 = a (at DSP + 2)
     add  2, x
@@ -3361,8 +3370,8 @@ cm_done:
     ld   p_drop >> 8, y
     jmp  p_drop
 
-w_EMPTYS:
-    #d8 0
+
+#addr 0xAA00
 p_eq:
     ld   [DSP], x
     ld   [x], ac
@@ -3780,31 +3789,31 @@ p_poll:
     ld   [TH], ac
     ld   ac, [x]
     ld   LINK_LO, x             ; CALL frame_poll
-    ld   bas_r35, [x]
+    ld   bas_r36, [x]
     ld   LINK_HI, x
-    ld   bas_r35 >> 8, [x]
+    ld   bas_r36 >> 8, [x]
     ld   frame_poll >> 8, y
     jmp  frame_poll
-bas_r35:
+bas_r36:
     ld   [FRAME_LO], ac
     xor  [LASTFR], ac
     beq  po_esc
     ld   [FRAME_LO], ac
     ld   ac, [LASTFR]
     ld   LINK_LO, x             ; CALL snd_update
-    ld   bas_r36, [x]
-    ld   LINK_HI, x
-    ld   bas_r36 >> 8, [x]
-    ld   snd_update >> 8, y
-    jmp  snd_update
-bas_r36:
-    ld   LINK_LO, x             ; CALL kbd_scan
     ld   bas_r37, [x]
     ld   LINK_HI, x
     ld   bas_r37 >> 8, [x]
+    ld   snd_update >> 8, y
+    jmp  snd_update
+bas_r37:
+    ld   LINK_LO, x             ; CALL kbd_scan
+    ld   bas_r38, [x]
+    ld   LINK_HI, x
+    ld   bas_r38 >> 8, [x]
     ld   kbd_scan >> 8, y
     jmp  kbd_scan
-bas_r37:
+bas_r38:
 po_esc:
     clr  ac
     ld   ac, [TH]
@@ -3879,12 +3888,12 @@ p_vplot:
     ld   ac, [DSP]
     ld   [TL], ac               ; AC = column
     ld   LINK_LO, x             ; AC = the byte's page, X = its low byte (kept to the end)
-    ld   bas_r38, [x]
+    ld   bas_r39, [x]
     ld   LINK_HI, x
-    ld   bas_r38 >> 8, [x]
+    ld   bas_r39 >> 8, [x]
     ld   vid_addr >> 8, y
     jmp  vid_addr
-bas_r38:
+bas_r39:
     ld   ac, [W6]
     ld   B_RAM, y
     jmp  vr_ram & 0xFF
@@ -3906,8 +3915,8 @@ w_RELOP:
     #d8 3, 22, 12, 1, 61, 37, 4, 5, 13, 1, 2, 3
     #d8 11, 1, 62, 37, 4, 4, 1, 4, 3, 2, 1, 0
     #d8 w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 4, 30, 51, 3, 214, 0
-w_SGLYPH:
-    #d8 w_SHOWROW >> 8, w_SHOWROW & 0xFF, 54, 0
+w_O_MUL:
+    #d8 w_NRIGHT >> 8, w_NRIGHT & 0xFF, 42, 0
 ; ROWCPY ( from to -- ): copy a text row
 p_glyph:
     clr  ac
