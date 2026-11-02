@@ -32,7 +32,7 @@ import pcbnew
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 # Board moved by this much on the sheet copy so the dimensions fit on C size.
-DX, DY = 60.0, 45.0
+DX, DY = 45.0, 45.0
 TEXT = 2.5          # dimension text height
 LINE = 0.18         # dimension and drawing line width
 LAYER = pcbnew.Dwgs_User
