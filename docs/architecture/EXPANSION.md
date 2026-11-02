@@ -193,8 +193,11 @@ The card's PLD works from the address, RW and LOAD_IMM, which are valid
 by 13 ns, so its 7.5 ns is in parallel with the I/O decode's and both
 enables arrive by 20.5 ns.  In the clock right after a video stall,
 LOAD_IMM only settles at about 28 ns (it waits for STALL through the
-cartridge), so a card that decodes LOAD_IMM is late there, as the main
-board's own I/O reads are ([TIMING.md](../timing/TIMING.md#io-reads)).  A card PLD output that drives the bus directly
+cartridge), so a card that decodes LOAD_IMM is late there.  The main
+board's own I/O reads had the same problem until I/O decode PLD
+revision 06, which decodes the state bits instead of LOAD_IMM
+([TIMING.md](../timing/TIMING.md#io-reads)); the slots do not carry
+those bits.  A card PLD output that drives the bus directly
 (with an output enable term) must also use /EXP in that same term, not a
 strobe made from it.
 

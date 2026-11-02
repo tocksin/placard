@@ -75,7 +75,7 @@ def panel(ax, title, option_b):
     # write enable path
     y1 = 1.4
     if option_b:
-        wsrc = box(ax, 3.2, y1, 2.6, 1.5, "U15 Sync PLD", "/WE = !CLK_E & !RW & !P\ntPD 7.5", PLD)
+        wsrc = box(ax, 3.2, y1, 2.6, 1.5, "U15 Sync PLD", "/WE = !CLK_E & !CLK & !RW & !P\ntPD 7.5", PLD)
         wram = box(ax, 11.3, y1, 2.6, 1.5, "U31/U32 RAM", "/WE, tWR 0", RAM)
         arrow(ax, port(wsrc, "r"), port(wram, "l"), WE, "/WE high by 7.5 - 3 = 4.5 ns after the CPU edge")
         # clock: X1 -> CLK_E first, then the 500 mm track to the rest
