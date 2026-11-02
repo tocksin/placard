@@ -23,7 +23,7 @@ BUSGAIN=float(E('BUSGAIN','1.0')); GPUMEM=float(E('GPUMEM','1.5'))*1e9; MAXSWEEP
 T0=time.time()
 def disk(r):
     k=int(math.ceil(r)); y,x=np.mgrid[-k:k+1,-k:k+1]; return (x*x+y*y)<=r*r+1e-9
-D_T=disk(4.44); D_TV=disk(6.44); D_V=disk(8.44); PADC=9
+D_T=disk(0.555/G); D_TV=disk(0.805/G); D_V=disk(1.055/G); PADC=int(math.ceil(1.055/G))+1   # mm -> cells (0.125 grid: 4.44/6.44/8.44 cells)
 def fast_stamps(self,path):
     """occupancy stamps from cells (same semantics as the shapely version): tracks 0.555 mm, vias 0.805/1.055 mm"""
     ys=[p[1] for p in path]; xs=[p[2] for p in path]
@@ -94,7 +94,7 @@ if BUSGAIN<1.0:
             for n in ns: busof[n]=busid[b]
     print('buses',{b:len(ns) for b,ns in members.items() if b in busid},flush=True)
 busmap=None
-D_BAND=disk(7.0)
+D_BAND=disk(0.875/G)   # bus band 0.875 mm (7 cells on the 0.125 grid)
 def update_busmap():
     """band next to routed bus members: within 7 cells of a sibling's path cells on the same layer, outside its clearance ring"""
     global busmap
