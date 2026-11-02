@@ -14,7 +14,7 @@ with no server and no build step:
   that uploads `web/`).  Nothing is sent anywhere; the files you load stay
   in the browser.
 
-Date: 10/27/2026
+Date: 11/02/2026
 
 ## What it models
 
@@ -59,7 +59,9 @@ screen.  They are the same clock for clock.
 - **Cartridge ROM:** Load ROM takes a 32K or 64K binary (`rom_32k.bin`, an
   EEPROM file) or a text image (`rom.mem`, a hex string).  Loading one power
   cycles the machine.  Dropping a file on the page does the same.
-- **SD card:** Built-in is the `sdcard/` folder.  Load folder makes a FAT16
+- **SD card:** Built-in is the `sdcard/` folder without its BOOT.CFG, so
+  the machine boots to the DOS (press B on a program to make it the
+  power-up program; Save image keeps that).  Load folder makes a FAT16
   card from a folder on your computer (8.3 names only; others are left out
   and listed).  Load image takes a raw card image (`.img`, FAT16 or FAT32).
   The card can be changed while the machine runs, like pulling a card out.
@@ -73,5 +75,6 @@ screen.  They are the same clock for clock.
 
 `python3 src/scripts/gen_web_assets.py` writes `web/default_rom.js` (the
 32K image built from `rom32.asm` the way `gen_rom.tcl` builds it) and
-`web/default_sd.js` (the files of `sdcard/`).  Run it after a change to the
+`web/default_sd.js` (the files of `sdcard/`, leaving out BOOT.CFG so the
+emulator boots to the DOS).  Run it after a change to the
 ROM sources or to `sdcard/`.
