@@ -241,7 +241,7 @@ VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;
    ============================================================ */
 
 /*
-   Revision 10 (docs/timing/FETCH_TIMING.md, option B): the address mux
+   Revision 10 (docs/timing/FETCH_TIMING.md): the address mux
    control (ADDR_SEL, ADDR_SEL_HI, ADDR_SEL_LO, from PIXEL_ENABLE,
    PC_ENABLE, X_ENABLE and Y_ENABLE) is gone.  The four mux PLDs
    (QUAD_4TO1_MUX revision 02) take PIXEL_ENABLE and the State PLD's

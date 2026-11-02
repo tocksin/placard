@@ -1,30 +1,18 @@
 #!/usr/bin/env python3
 """
-gen_logo.py - draw the PLACARD logo concepts in docs/logo/.
+gen_logo.py - draw the PLACARD logo in docs/logo/.
 
-    python3 gen_logo.py            writes the SVGs, PNG previews and the
-                                   comparison sheet docs/logo/logo_concepts.png
+    python3 gen_logo.py            writes f_hand.svg, f_hand_solid.svg, their
+                                   PNG previews and the board footprint
 
-Five concepts, all one ink color so they work as PCB silkscreen, case
-engraving and README art:
+The logo is a hand holding up a picket sign tilted 30 degrees, letters in
+the ROM font (f_hand.svg outline sign, f_hand_solid.svg solid sign with
+the letters cut out), one ink color so it works as PCB silkscreen, case
+engraving and README art.
 
-    a_plaque    a screwed-on nameplate: double border, four slotted screws
-    b_chip      the name on the top of a 24-pin DIP (the ATF22V10C package)
-    c_pixel     the name in the machine's own 8x8 ROM font, on a plaque
-    d_fusemap   the letters as blown/intact fuses ("X") in a PLA array
-    e_raster    a sign hung from a nail, letters cut by video scan lines
-    f_hand      a hand holding up a picket sign tilted 30 degrees, letters
-                in the ROM font (f_hand.svg outline sign, f_hand_solid.svg
-                solid sign with the letters cut out)
-
-f_hand is also written as the footprint kicad/lib/placard.pretty/
+It is also written as the footprint kicad/lib/placard.pretty/
 PLACARD_Logo.kicad_mod (front silkscreen, 40 mm wide, board only, not in
 the BOM or position files).
-
-Each concept is written as <name>.svg (black ink on transparent) and
-<name>.png.  Plaques also have an _inverse.svg (solid plate, letters cut
-out), which is the form for a filled silkscreen badge or an anodised
-plate.  a_plaque has a brass color version for the README.
 
 All lettering is converted to outlines, so the SVGs need no fonts.  The
 outlines come from Inter Display (SIL Open Font License) and from the
@@ -32,7 +20,7 @@ outlines come from Inter Display (SIL Open Font License) and from the
 (pip install fonttools cairosvg pillow shapely) and the Inter font files
 (apt-get install fonts-inter).
 
-Date: 2026-10-25
+Date: 2026-11-02
 """
 
 import io
@@ -585,27 +573,8 @@ def sheet(concepts):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    out = []
-    s = write("a_plaque", a_plaque("line"), "PLACARD - nameplate")
-    out.append(("A  Nameplate", s))
-    write("a_plaque_inverse", a_plaque("inverse"),
-          "PLACARD - nameplate, solid")
-    write("a_plaque_brass", a_plaque("brass", ink="#2b2116",
-                                     plate="#c9a24a"),
-          "PLACARD - brass nameplate")
-    out.append(("B  Chip", write("b_chip", b_chip(), "PLACARD - DIP chip")))
-    out.append(("C  ROM font", write("c_pixel", c_pixel("inverse"),
-                                     "PLACARD - ROM font plaque")))
-    write("c_pixel_line", c_pixel("line"), "PLACARD - ROM font, outline")
-    out.append(("D  Fuse map", write("d_fusemap", d_fusemap(),
-                                     "PLACARD - PLA fuse map")))
-    out.append(("E  Hanging sign", write("e_raster", e_raster(),
-                                         "PLACARD - hanging sign")))
-    out.append(("F  Hand + sign", write("f_hand", f_hand("line"),
-                                        "PLACARD - hand holding sign")))
-    out.append(("F  Hand + sign, solid", write(
-        "f_hand_solid", f_hand("solid"), "PLACARD - hand holding sign")))
-    sheet(out)
+    write("f_hand", f_hand("line"), "PLACARD - hand holding sign")
+    write("f_hand_solid", f_hand("solid"), "PLACARD - hand holding sign")
     write_footprint()
     print("wrote", os.path.normpath(OUT), "and", os.path.normpath(FP_PATH))
 

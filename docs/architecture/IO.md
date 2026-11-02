@@ -6,24 +6,13 @@ Both SNES pads, the SD card, a PS/2 mouse and a PS/2 keyboard share one
 port at x5200-x52FF.  They are polled, never used at the same moment, so
 they share one PLD: its output register is the port latch and it drives
 the inputs onto the bus on reads.  A second PLD, the PS/2 receiver,
-takes in the PS/2 bytes by itself (2026-10-25, below).
+takes in the PS/2 bytes by itself (below).
 
-**No built-in keyboard (Justin, 2026-10-25).**  The Cherry MX key matrix,
-its keyboard board and header J1 are dropped; the keyboard is any PS/2
-keyboard in the lower PS/2 socket.  Without key columns and rows the port
-PLD (rev 03) took over the port latch (74HC574, U37) and the row buffer
-(74F541, U39), so the main board loses two chips and J1.  Carried through
-the schematic, BOM, library, simulator, FPGA model and bring-up ROM the
-same day (the board layout is Justin's: he pulls the schematic change in
-with Update PCB from Schematic).
-
-**PS/2 receiver (Justin, 2026-10-25).**  Reading PS/2 bit by bit cost the
-CPU about 6 % of its time, which goes against "programming is fun", so
-one PLD is added back as a PS/2 receiver: it shifts a byte in on the
-device's own clock, holds the device off after the stop bit and hands
-the byte to the CPU in one read (`ATF22V10_PS2.pld`, port PLD rev 04).
-Net: 33 main-board chips.  A byte costs the CPU about 60 clocks instead
-of 25,000, and nothing is spent waiting for a device to start.
+The keyboard is any PS/2 keyboard in the lower PS/2 socket.  The PS/2
+receiver (`ATF22V10_PS2.pld`) shifts a byte in on the device's own clock,
+holds the device off after the stop bit and hands the byte to the CPU in
+one read, so a byte costs the CPU about 60 clocks and nothing is spent
+waiting for a device to start.
 
 The expansion slots are described in [EXPANSION.md](EXPANSION.md).
 
@@ -31,7 +20,7 @@ The expansion slots are described in [EXPANSION.md](EXPANSION.md).
 |---|---|
 | ATF22V10C-7PX | Port PLD (`ATF22V10_PORT.pld`, rev 04): the port latch (5 registers written at any x52xx, clocked by /PORT_WR, I/O decode PLD pin 19), MISO and the free PS/2 clock on reads of x5200, pad DATA on reads of x5201 |
 | ATF22V10C-7PX | PS/2 receiver (`ATF22V10_PS2.pld`, rev 02): shifts in one byte from the mouse or the keyboard on its clock, holds the device off after it, byte at x5202, ready flag at x5203 (D7 = 0), re-armed by a write there |
-| 3.3 V regulator | SD card (not chosen yet; an LM1117-3.3 in TO-220 is one choice) |
+| MCP1700-3302E/TO | 3.3 V regulator (U40, TO-92) for the SD card |
 
 Besides the chips: 3 Schottky diodes from the latch outputs to the PS/2
 lines (D2 /CS to the mouse CLK, D3 to DATA, D6 K0 to the keyboard CLK),
@@ -40,9 +29,8 @@ lines (D2 /CS to the mouse CLK, D3 to DATA, D6 K0 to the keyboard CLK),
 into the receiver's clock (RXCLK), the pull-ups on the pad DATA lines,
 MISO and the three PS/2 lines, three resistor dividers for the SD card,
 the SD socket, two pad sockets and a stacked dual mini-DIN 6 (mouse on
-top, keyboard below).  The key diodes, the 3 row diodes (MISO, PS/2 DATA,
-mouse CLK onto the rows) and the 8 row pull-ups (RN2) went with the
-matrix: those lines now go straight to port PLD inputs.
+top, keyboard below).  MISO, PS/2 DATA and the pad DATA lines go straight
+to port PLD inputs.
 
 ## Schematic
 
@@ -51,8 +39,7 @@ matrix: those lines now go straight to port PLD inputs.
 The drawing is the shared port sheet of the KiCad schematic
 (`kicad/shared_port.kicad_sch`, page 10 of `schematics/placard_main.pdf`,
 drawn by `src/scripts/gen_kicad_schematic.py`; the PNG is that page
-rendered).  It shows the two PLDs, the diodes and the connectors
-(the hand-drawn sketch and `gen_io_schematic.py` went on 2026-10-25):
+rendered).  It shows the two PLDs, the diodes and the connectors:
 
 | Ref | Connector | Pins |
 |---|---|---|
@@ -60,8 +47,7 @@ rendered).  It shows the two PLDs, the diodes and the connectors
 | J4 | Full-size SD socket (SPI) | 1 CS, 2 DI, 5 CLK from the dividers R42-R47; 7 DO = MISO (port PLD pin 13); 4 VDD 3.3 V; 3, 6 GND; 8, 9 not used |
 | J5 | Stacked dual mini-DIN 6 (Kycon KMDGX-6S/6S-S4N): top A = PS/2 mouse, bottom B = PS/2 keyboard | Each: 1 DATA, 3 GND, 4 +5 V, 5 CLK.  The two DATA pins are joined (one PS/2 DATA line, receiver pin 2); mouse CLK = MOUS_CLK, keyboard CLK = KBD_CLK, both into RXCLK (receiver pin 1, port PLD pin 11) through D4 and D1 |
 
-No ESD clamps on any of these connectors (taken out 2026-10-23, see
-SCHEMATIC_PLAN.md).
+No ESD clamps on any of these connectors (SCHEMATIC_PLAN.md).
 
 ## The port
 
@@ -74,13 +60,11 @@ SCHEMATIC_PLAN.md).
 | 2 | SD /CS | 0 also holds the mouse's CLK line low through a Schottky diode, which stops the mouse |
 | 3 | PS/2 DATA | 0 holds the shared PS/2 DATA line low through a Schottky diode (to send to the mouse or the PS/2 keyboard) |
 | 4 | PS/2 keyboard CLK | 0 holds the PS/2 keyboard's CLK low through a Schottky diode; 1 lets the keyboard send |
-| 7:5 | (not stored) | Were the key column code (bits 7:4) until rev 03; write them as 1 so the latch values below stay the same |
+| 7:5 | (not stored) | Write them as 1, so the latch values below stay the same |
 
 **Read x5200 (port PLD):** D7 = SD MISO, D5 = RXCLK, the clock line of
 the PS/2 device whose clock the latch has let go.  The other bits are not
-driven (the bus pull-ups read them as 1), so software masks them.  MISO
-is in the bit the 74F541's row 7 gave before rev 03, so the SD driver
-reads it unchanged.
+driven (the bus pull-ups read them as 1), so software masks them.
 
 **Read x5201 (port PLD):** D7 = pad 1 DATA, D6 = pad 2 DATA (0 = button
 down), D5 = RXCLK.  The other bits are not driven, so software masks them.
@@ -94,41 +78,26 @@ latch, so software writes the latch's current value.
 (card selected and idle, mouse held off), bit 4 low (PS/2 keyboard held
 off), MOSI and SCK high.  Every driver leaves the latch at EB.  The port
 PLD powers up at EB by itself (its registers clear at power-up and SCK,
-MOSI and the DATA hold are declared active low); the boot loader still
-writes EB first, as it did when the 74HC574 powered up with random bits.
-(Before the PS/2 keyboard socket, rest was FB.)
+MOSI and the DATA hold are declared active low); the boot loader also
+writes EB first.
 
 **The PLD's high level.**  The latch outputs drive the pads' CLOCK and
 LATCH (CMOS 4021, high at least 3.5 V) and the SD dividers (about 1 mA).
-The 74HC574 was chosen for its full 5 V high.  The ATF22V10C's data sheet
+The ATF22V10C's data sheet
 only promises 2.4 V at 4 mA (a TTL-style figure), but into CMOS loads and
 1 mA its high is expected near 5 V.  Measure it at bring-up.
-
-**History.**  Until rev 03 a 74HC574 was the latch and a 74F541 read the
-key rows (with MISO and the PS/2 lines on rows 7-5) on even reads, and
-the port PLD decoded the key column from latch bits 7:4.  The column came
-from the latch, not from the address during the read, because an
-address-decoded column ('138, key diode, row, 74F541) took about 45 ns
-against a 39.7 ns I/O read.  Rev 03 read the PS/2 DATA line and both
-clocks itself (D6 and D5 on even reads, the keyboard clock on D6 on odd
-reads) for the bit-by-bit PS/2 driver; rev 04 leaves the bits to the
-receiver.
 
 ## Keyboard
 
 The keyboard is a PS/2 keyboard in the lower PS/2 socket (below, "PS/2
-keyboard socket").  The Cherry MX matrix keyboard (63 keys, an 8 x 8
-matrix read through the 74F541, its own board in `kicad/keyboard/`) was
-dropped on 2026-10-25: it cost two chips and J1 on the main board, it was
-the most expensive part of the kit, it didn't fit the case well, and
-mechanical PS/2 keyboards are easy to buy.
+keyboard socket").
 
-The library still uses the matrix's key numbers (column x 8 + row, with
-`kbd_map` giving the characters and `KBD_NOW` holding a bit per key), and
-the PS/2 driver turns scan codes into those same numbers, so programs and
-games that read `KBD_NOW` (the arrows and Space in `raycast.asm` and
-`scroller.asm`) don't change.  The 63-key layout behind the numbers (the
-keys the PS/2 driver decodes; a PC keyboard's other keys are ignored):
+The library numbers the keys column x 8 + row, with `kbd_map` giving the
+characters and `KBD_NOW` holding a bit per key; the PS/2 driver turns scan
+codes into those numbers, and programs and games read `KBD_NOW` (the
+arrows and Space in `raycast.asm` and `scroller.asm`).  The 63 keys behind
+the numbers (the keys the PS/2 driver decodes; a PC keyboard's other keys
+are ignored):
 
 | Column | Row 0 | Row 1 | Row 2 | Row 3 | Row 4 | Row 5 | Row 6 | Row 7 |
 |---|---|---|---|---|---|---|---|---|
@@ -188,8 +157,7 @@ through a resistor divider each, at the SD socket: 1.8k from the latch
 MISO needs no buffer going the other way.  The card drives it at 3.3 V
 straight into port PLD pin 13, whose TTL input reads 2.0 V and up as a
 high.  The 10k pull-up to 3.3 V holds MISO high when the card lets go of
-it.  (Before rev 03 MISO reached the 74F541's row 7 through a Schottky
-diode, so a key could share the row.)
+it.
 
 | Routine | Does | Clocks |
 |---|---|---|
@@ -240,10 +208,10 @@ at x4D00-x4D7F and its sector buffer at x4E00-x4FFF (section 2, RAM in map
 05).  `test_fs.py` checks it on FAT16 and FAT32 images made by `mkfs.fat`
 and `mtools` (it skips when they are not installed).
 
-## PS/2 keyboard socket (rev 02 hardware)
+## PS/2 keyboard socket
 
-J5 is a stacked dual PS/2 socket (2026-10-22): the mouse on top, as
-before, and the keyboard below.  It adds no chips: one 1N5817 (D6), one
+J5 is a stacked dual PS/2 socket: the mouse on top and the keyboard
+below.  It adds no chips: one 1N5817 (D6), one
 4.7k pull-up (R55) and one input on the port PLD.
 
 | PS/2 keyboard line | Pulled low by | Read on |
@@ -272,19 +240,16 @@ so bit 4 holds the keyboard off):
 
 The drivers keep the value of the device being listened to in zero page
 `PS2_LSN` (EB, EF or FB) and every port routine leaves the latch equal to
-it.  (The 0F-7F key scan values went with the matrix.)
+it.
 
 Buyer note: the keyboard must be a PS/2 keyboard, or a USB keyboard that
 supports PS/2 through a passive adapter (many don't).
 
 ## PS/2 receiver
 
-`ATF22V10_PS2.pld` (2026-10-25, rev 02) receives one byte from either
-PS/2 device without the CPU.  Before it, the driver watched every clock
-edge of a byte (about 1 ms, 25,000 clocks) and busy-waited up to 1 ms for
-the device to start, about 6 % of the CPU with both devices polled every
-frame; the receiver makes a byte cost about 60 clocks and the waiting
-nothing.
+`ATF22V10_PS2.pld` receives one byte from either PS/2 device without the
+CPU.  A byte costs the CPU about 60 clocks, and nothing is spent waiting
+for a device to start.
 
 **Clock.**  The two PS/2 clock lines go through a Schottky diode each
 (anodes on the lines) into one node, RXCLK, with a 22k pull-down.  The
@@ -315,12 +280,9 @@ never resends a byte the receiver has.  Parity is not checked.
 | x5202 | D7:D0 = the byte, valid while the ready flag shows | re-arm (clears the receiver and lets the device's clock go) |
 | x5203 | D7 = 0 while a byte is ready, 1 otherwise; D6:D0 read as 1 | re-arm |
 
-Ready reads as a 0 (rev 02): the A state pin is enabled, inverted, on a
+Ready reads as a 0: the A state pin is enabled, inverted, on a
 read of x5203 only while B = 0, so a sign test (`blt`) on the read says
-"nothing yet".  Rev 01 had the flag at the 10th clock, 80 us before the
-inhibit; the CPU could then hold the device's clock in the middle of its
-stop bit, and the device sent the byte again (seen in the simulator).
-With the flag and the inhibit the same state the CPU may hold the
+"nothing yet".  With the flag and the inhibit the same state the CPU may hold the
 device's clock the moment it has the byte.
 
 A write to either address also clocks the port latch, so the re-arm is a
@@ -349,12 +311,7 @@ by the 25 MHz clock; the CPU reads them asynchronously, which is safe
 because the byte holds from its 9th clock on, before the ready flag can
 be seen.
 
-**Why not fit it in the port PLD.**  Eight data registers plus two state
-bits are ten cells; the latch (five), the three read bits and the inhibit
-make eighteen.  No other PLD has ten free cells (PLD_USAGE.md), and a
-74HC595 shift register would still need a PLD to count the clocks and
-inhibit.  Two spare input pins of the port PLD (pins 11, 14) now take
-RXCLK and A1 instead of the two clocks and DATA, and its pin 15 is free.
+The port PLD takes RXCLK and A1 on pins 11 and 14; its pin 15 is free.
 
 **Drivers.**  `kbd_scan`, `mouse_poll`, `ps2_poll` and `wait_frames_io`
 take whatever the receiver has (`ps2_take`: the byte goes to the keyboard
@@ -362,8 +319,6 @@ decoder or the mouse's packet, whichever device is listened to), re-arm,
 and then give the line to the right device (`ps2_turn`, below).  A
 program with no spare time calls the drivers once a frame and loses
 nothing: the device keeps its bytes behind the one the receiver holds.
-The bit-by-bit `ps2_listen`, `ps2_rx`, the adaptive window and
-`MOUSE_WAIT` are gone.
 
 ### The PS/2 keyboard driver
 
@@ -371,12 +326,12 @@ The bit-by-bit `ps2_listen`, `ps2_rx`, the adaptive window and
 are not hot-pluggable: one plugged in later is not recognized until the
 machine is reset (SW2, the reset button).
 
-`placard_ps2.asm` (rewritten 2026-10-25 for the receiver), in the library
+`placard_ps2.asm`, in the library
 at `PS2_CODE` (xC000-xC4FF, plus pieces in free ends of other library
 pages: the mouse routines and `ps2_tx`/`ps2_rx` in I/O pages B-E, `ps2_poll`,
-`ps2_cmd` and `kbd_lights` in I/O page 1).  Programs don't change:
-`kbd_scan` reads the PS/2 keyboard into the same `KBD_NOW` bits and key
-buffer the key matrix used, with the same key numbers.
+`ps2_cmd` and `kbd_lights` in I/O page 1).  `kbd_scan` reads the PS/2
+keyboard into the `KBD_NOW` bits and the key buffer, with the key numbers
+above.
 
 - **Finding it.**  `port_init` sends ED (set the lights) and expects FA
   twice; `KBD_FLAGS` bit 1 = 1 when it answered.  A keyboard can still
@@ -389,7 +344,7 @@ buffer the key matrix used, with the same key numbers.
   answering when its light is set counts as unplugged.
 - **Scan codes.**  Set 2, the keyboard's default.  A make code clears the
   key's bit in `KBD_NOW` and buffers its character (through `kbd_key`, so
-  Shift, Ctrl, Caps Lock and Fn work as on the matrix); a break code (F0)
+  Shift, Ctrl, Caps Lock and Fn work); a break code (F0)
   sets the bit again.  E0 keys: the arrows, right Ctrl, right Alt, keypad
   Enter, and either Windows key as Fn.  The PC keys the 63-key layout has
   no key for give their character straight away: Delete 7F, Home 15,
@@ -571,7 +526,7 @@ The PS/2 driver (keyboard, mouse, the turns, `ps2_pause`) is
 register inside) and the PS/2 receiver (`ps2_pld.vhd`, rev 02), both
 transcribed from the `.pld` files; the model's data bus mux follows
 their output enables (x5200/x5201 from the port PLD, x5202/x5203 from
-the receiver).  `ps2_key_matrix.vhd` went with the matrix.
+the receiver).
 
 | Placard | Basys3 |
 |---|---|
@@ -602,19 +557,3 @@ FPGA projects, but that is not checked here.
   past the clock's rise (the spec gives 5 us); the receiver samples there.
 - **Stock:** the regulator is not stock-checked yet.  The ATF22V10C-7PX is
   the same part as elsewhere in the design.
-
-## Carried through
-
-The keyboard removal and the receiver were carried through on 2026-10-25
-(Justin: "modify everything except the layout"): schematic and symbols
-(`gen_kicad_schematic.py`, `gen_kicad_symbols.py`, `gen_kicad_parts.py`;
-the `kicad/keyboard/` project, `placard_keyboard.pdf` and the key switch
-footprints are gone), BOM, kit pricing, block diagram, library
-(`placard_ps2.asm`, `placard_io.asm`, `placard_menu.asm`, `menu_hook.py`,
-the boot ROM's Esc check), simulator (`io_devices.py`, `test_io.py`,
-`test_menu.py`, `test_dos.py`, `test_slots.py`, `test_bringup_sim.py`), FPGA
-(`port_pld.vhd`, `ps2_pld.vhd`, `basys_top.vhd`) and BRINGUP.md.  The
-board file `kicad/placard.kicad_pcb` is Justin's: he brings the new parts
-in with Update PCB from Schematic (U37, U39, J1, RN2 go; U42, C42, D19
-and R60 come; D1, D4, D5 change nets; the regulator's output capacitor is
-C47 now, renamed in place).

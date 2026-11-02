@@ -19,12 +19,12 @@ The main board, built: the bare PCB, every part on the schematic, and the socket
 | 1 | U40 | MCP1700-3302E/TO | Microchip | 3.3 V LDO regulator, 250 mA, TO-92 |  | 0.50 | 0.50 | Mouser |  |
 | 1 | X1 | ECS-100A-251.7 | ECS Inc. | Clock oscillator, 25.175 MHz, 5 V, full-size DIP-14 can | 25.175 MHz | 4.06 | 4.06 | Digi-Key: Mouser has no stock (Justin, 2026-10-22) |  |
 | 2 | J2, J3 |  |  | SNES controller socket, 7 pin | SNES pad | 4.00 | 8.00 | est.: ZedLabz right-angle SNES port (Amazon/eBay) |  |
-| 1 | J4 | DM1AA-SF-PEJ(82) | Hirose | SD card socket | SD (SPI) | 4.56 | 4.56 | Mouser: SMD, push-push (no horizontal through-hole SD socket exists; Kyocera 145638009511859+ went obsolete 2026-10-25) |  |
+| 1 | J4 | DM1AA-SF-PEJ(82) | Hirose | SD card socket | SD (SPI) | 4.56 | 4.56 | Mouser: SMD, push-push (no horizontal through-hole SD socket exists) |  |
 | 1 | J5 | KMDGX-6S/6S-S4N | Kycon | Stacked dual mini-DIN-6 receptacle (PS/2), right angle, shielded: mouse top, keyboard bottom | PS/2 kbd + mouse | 3.72 | 3.72 | Mouser |  |
 | 1 | J6 | 54-00174 | Tensility | 3.5 mm audio line out jack, 4 pole (TRRS), right angle, TH (a TRS plug's sleeve spans R2 and S) | 3.5 mm | 0.73 | 0.73 | Digi-Key: Justin, 2026-10-22 |  |
 | 1 | J7 | A-HDF 15 A-KG/T | Assmann WSW | DE-15 high-density receptacle (VGA), with mounting holes | VGA | 1.36 | 1.36 | Digi-Key: Justin, 2026-10-22 |  |
 | 1 | J8 | 87715-9106 | Molex | Cartridge slot: card edge, 64 contacts, 1.0 mm, keyed (PCIe x4 style), vertical TH |  | 2.88 | 2.88 | Mouser |  |
-| 4 | J9-J12 | 87715-9106 | Molex | Expansion slot: card edge, 64 contacts, 1.0 mm, keyed (PCIe x4 style), vertical TH, as the cartridge slot |  | 2.88 | 11.52 | Mouser | Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer runs with none.  The cartridge slot's connector since 2026-10-30 (EXPANSION.md) |
+| 4 | J9-J12 | 87715-9106 | Molex | Expansion slot: card edge, 64 contacts, 1.0 mm, keyed (PCIe x4 style), vertical TH, as the cartridge slot |  | 2.88 | 11.52 | Mouser | Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer runs with none.  The same connector as the cartridge slot (EXPANSION.md) |
 | 1 | J13 | USB4125-GF-A-0190 | GCT | USB-C receptacle, power only (6 pin), top mount | USB4125-GF-A | 0.61 | 0.61 | Mouser |  |
 | 1 | SW1 | ANT11TFHQE | CIT Relay and Switch | Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing |  | 4.50 | 4.50 | est.: Digi-Key; Mouser has no stock |  |
 | 1 | SW2 | PTS645VL58-2 LFS | C&K | Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil) |  | 0.43 | 0.43 | est.: Digi-Key; Mouser has no stock until 12/23/2026 |  |
@@ -33,7 +33,7 @@ The main board, built: the bare PCB, every part on the schematic, and the socket
 | 11 | D1-D6, D8-D11, D19 | 1N5817-TP | Micro Commercial Co | Schottky diode, 1 A, DO-41 (black) | 1N5817 | 0.15 | 1.65 | est.: MCC 1N5817-TP | Black DO-41 Schottky, so it is not mixed up with the glass 1N4148s; any 1N5817 (MCC, onsemi, Diodes Inc.) |
 | 1 | D7 | SA5.0A | Littelfuse | TVS diode, 5 V stand-off, 500 W, DO-15 axial (across the fused USB 5 V) |  | 0.64 | 0.64 | Mouser |  |
 | 6 | D12-D17 | 1N4148-TAP | Vishay | Small-signal diode, DO-35 (glass) | 1N4148 | 0.26 | 1.56 | Mouser: Vishay 1N4148-TAP | Any 1N4148 (Vishay, onsemi, Diodes Inc.) |
-| 1 | D18 | WP7113ID | Kingbright | Power LED, 5 mm, red diffused, through hole (on +5V after K1) |  | 0.21 | 0.21 | Mouser | D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color (was Lite-On LTL2R3KRD-EM, out of stock 2026-10-25) |
+| 1 | D18 | WP7113ID | Kingbright | Power LED, 5 mm, red diffused, through hole (on +5V after K1) |  | 0.21 | 0.21 | Mouser | D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color |
 | 2 | R1, R2 | MFR-25FBF52-5K1 | Yageo | Resistor, metal film 1%, 1/4 W, axial | 5.1k | 0.10 | 0.20 | est.: Yageo MFR-25FBF52 series |  |
 | 8 | R3, R4, R13, R39-R41, R48, R63 | MFR-25FBF52-10K | Yageo | Resistor, metal film 1%, 1/4 W, axial | 10k | 0.10 | 0.80 | est.: Yageo MFR-25FBF52 series |  |
 | 10 | R5-R12, R61, R62 | MFR-25FBF52-47R | Yageo | Resistor, metal film 1%, 1/4 W, axial | 47 | 0.04 | 0.40 | est.: Yageo MFR-25FBF52 series |  |

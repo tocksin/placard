@@ -5,11 +5,10 @@ that the ROM's loader ([DOS.md](DOS.md)) runs at power-up when `BOOT.CFG`
 names it.  It shows the demo programs and runs them in turn, asking the
 loader to load each one from the card.
 
-Date: 10/26/2026
+Date: 11/02/2026
 
-Until 2026-10-26 the menu and six demos were built into one 64 KB ROM
-(`gen_menu_rom.py`, `build\menu.bat`).  The 32K ROM image replaced that
-([ROM.md](../architecture/ROM.md#the-32k-image)): the ROM holds the loader, BASIC and the
+The menu and the demos are files on the card.  The 32K ROM image
+([ROM.md](../architecture/ROM.md#the-32k-image)) holds the loader, BASIC and the
 library, and the DOS and the demos are files.
 
 ## What it does

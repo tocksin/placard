@@ -1,91 +1,43 @@
 # X/Y address timing after FETCH
 
-> 2026-10-27: the Sync PLD pass (ADDR_SEL_LO/HI, 7.5 ns) is gone from every
-> address path: the muxes take X_ENABLE, Y_ENABLE, PC_ENABLE and PIXEL_ENABLE
-> directly ([FETCH_TIMING.md](FETCH_TIMING.md), option B).  The numbers
-> below are as they were when this was written; each path is 7.5 ns better.
+Date: 2026-11-02
 
-Date: 2026-10-15
+An X/Y-indexed read or store needs its address-source selects in the
+clock right after FETCH.  This note covers how they are made in time.  The
+summary of all paths is in [TIMING.md](TIMING.md).
 
-An X/Y-indexed read straight after FETCH is the worst path left in
-[TIMING.md](TIMING.md) after the ALU and video fixes: 50.0 ns against a
-39.72 ns clock (25.175 MHz).  A store straight after FETCH to [0,X] or
-[Y,X] has the same late address, so the RAM write misses its address setup
-by 10.9 ns and its address-valid-to-end-of-write by 3.1 ns.  Timing figures
-are the same worst-case datasheet values as TIMING.md (ATF22V10C-7, 74F
-glue).
+## Registered X_ENABLE and Y_ENABLE
 
-**Status:** implemented (State PLD revision 09, 2026-10-15).
-
-## The fix
-
-**Register X_ENABLE and Y_ENABLE in the State PLD, loaded from the data
-bus during FETCH.**  It adds no chips, no clocks and no pins, and the
-selects behave exactly as before.
-
-X_ENABLE and Y_ENABLE were a combinational decode of the instruction
-register's memory field, so they waited for the instruction register that
-loads at the end of FETCH:
-
-    instruction register (F377) clock to Q   10.5
-    State PLD X_ENABLE                         7.5
-    Sync PLD ADDR_SEL_LO                       7.5   (gone since 2026-10-27, FETCH_TIMING.md)
-    address mux                                7.5
-    RAM tAA                                   15.0
-    D register setup                           2.0
-    total                                     50.0
-
-The State PLD already reads the memory field straight off the data bus
-during FETCH (DB_MEM2:0, for its next state).  Decoding X_ENABLE and
-Y_ENABLE from those pins, and loading them on the same condition as the
-instruction register (FETCH and not STALL), gives registers that always
-hold the same value as the old decode of the instruction register, but
-are valid at tCO = 5.5 ns:
+X_ENABLE and Y_ENABLE are registers in the State PLD (pins 16 and 17),
+decoded from the memory field on the data bus during FETCH (DB_MEM2:0,
+the same pins the State PLD uses for its next state) and loaded on the
+same condition as the instruction register.  They always hold the same
+value as a decode of the instruction register's memory field would, but
+they are valid at tCO = 5.5 ns instead of after the instruction register
+and a decode.
 
     X_ENABLE.D = (FETCH & !STALL & memory field 001, 010, 110 or 111)
-               # (hold: Q1 # Q0 # STALL) & X_ENABLE;
+               # (Q1 # Q0 # STALL) & X_ENABLE;      /* hold */
     Y_ENABLE.D = (FETCH & !STALL & memory field 010 or 111)
-               # (hold: Q1 # Q0 # STALL) & Y_ENABLE;
+               # (Q1 # Q0 # STALL) & Y_ENABLE;      /* hold */
 
 X_ENABLE takes 7 product terms (pin 16 has 12) and Y_ENABLE 5 (pin 17 has
-14).  Both pins stay where they are, so the board wiring does not change.
+14).  They go straight to the four address mux PLDs, where PIXEL_ENABLE
+and PC_ENABLE take priority over them
+([FETCH_TIMING.md](FETCH_TIMING.md)), and Y_ENABLE also to the I/O decode
+PLD for /CE_HI.  Both power up at 0.
+
+Stores from AC or X to `[0,X]` or `[Y,X]` go through LOAD_MEM (which
+reads the target into D, unused by the store) before EXEC, so in the write
+clock the address, the source bus and the instruction register are all a
+clock old.
 
 ## Timing
 
-| Path | Before | After | Slack after |
-|---|---:|---:|---:|
-| X/Y-indexed read after FETCH: select tCO, ADDR_SEL_LO/HI, mux, tAA, D setup | 50.0 | 5.5 + 7.5 + 7.5 + 15 + 2 = 37.5 | +2.2 |
-| Store after FETCH to [0,X]/[Y,X]: address on the RAM before /WE goes low (22.1 ns) | 33.0 | 20.5 | +1.6 (was −10.9) |
-| Store after FETCH: address valid to end of write (tAW = 12 ns, 29.9 ns) | 33.0 | 20.5 | +9.4 (was −3.1) |
-| New: data bus memory field into X_ENABLE.D / Y_ENABLE.D during FETCH | | 35.5 + 3.5 = 39.0 | +0.7 |
-
-The new setup path is the same as the one the State PLD's Q0 and Q1
-registers already have from the same data bus pins (TIMING.md rank 9), so
-it adds no new limit.
-
-Not fixed by this change:
-
-- The upper-32K chip select still goes through the '04 inverter, so an
-  X/Y read whose address crosses into the upper chip is 43.5 ns (−3.8), as
-  every other read is (TIMING.md rank 5, "What it would take" item 4).
-- A store straight after FETCH still gets its data 1.1 ns late, because the
-  source register's F541 is enabled by the instruction register in the same
-  clock (TIMING.md "RAM write cycle").
-
-## Impact on the rest of the system
-
-- **Chips and wiring**: none.  The State PLD gets new equations on the same
-  pins.
-- **CPU**: no clock count changes.  The instruction register still holds
-  the memory field for the destination decode (LOAD_AC, LOAD_X, LOAD_Y,
-  MEM_WR) and the Branch PLD.
-- **Power-up**: both registers start at 0, the same as the old decode of an
-  instruction register at 0 (memory field 000), and the Sync PLD ignores
-  them in FETCH anyway.
-- **Files changed**: `ATF22V10_STATE.pld` and `state_pld.vhd`.
-
-## Checked in simulation
-
-The FPGA model was run in GHDL for the first 36 ms of `cpu_test`, before
-and after the change.  The 73,403 RAM writes (address and data) and the
-VGA output (RGB, HSYNC, VSYNC on every clock) are identical.
+| Path | Stages (ns) | Datasheet | Board |
+|---|---|---:|---:|
+| X/Y-indexed read after FETCH into D, address side | X_ENABLE 5.5 + mux 7.5 + tAA 15 + D setup 2 = 30.0 | +9.7 | |
+| Same, through /RAM_OE (the read starts at the clock fall) | 19.9 + 7.5 + 7 + 2 = 36.4 | +3.4 | +1.2 |
+| X/Y read into the upper 32K chip, /CE_HI | Y_ENABLE 5.5 + I/O decode 7.5 + tACE 15 + 2 = 30.0 | +9.7 | |
+| Store to `[0,X]` / `[Y,X]`: address before /WE can fall | a clock earlier (LOAD_MEM) | | |
+| Data bus memory field into X_ENABLE.D / Y_ENABLE.D during FETCH | as the fetch, 31.5 | +8.2 | +4.5 |

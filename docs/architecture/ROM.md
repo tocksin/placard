@@ -9,7 +9,7 @@ cartridge's EEPROM image, and `src/hdl/ram.mem` (the main RAM) and
 cartridge model is `src/hdl/cartridge.vhd`.  Programs and the standard
 library live in the ROM.
 
-Date: 10/26/2026
+Date: 2026-11-02
 
 There are two images.  The **32K image** (x8000-xFFFF: boot loader, library
 and the DOS, "The 32K image" below) is the one the machine ships with, on
@@ -19,7 +19,7 @@ the same library; `build\<program>.bat` builds it for the 64K cartridge.
 
 ## Video always reads the RAM
 
-The memory control PLD (revision 04) enables the RAM for every video read,
+The memory control PLD enables the RAM for every video read,
 whatever the map says; only CPU reads follow the ROM/RAM map.  So the ROM
 under the video area (x6000-xFFFF, 40 KB) holds programs that run in place
 while the screen shows the RAM.  A program that wants to read the video RAM
@@ -60,7 +60,7 @@ the font, the I/O drivers and the rest, down to xC000.
 
 ## Cartridge sizes
 
-There are two cartridge boards (2026-10-24), and a machine takes either:
+There are two cartridge boards, and a machine takes either:
 
 - **64K** (`kicad/cartridge_64k`, 5 chips): EEPROMs U2 (x0000-x7FFF,
   `/CE_LO`) and U3 (x8000-xFFFF, `/CE_HI`), SRAMs U4 and U5.  The map
@@ -72,7 +72,7 @@ There are two cartridge boards (2026-10-24), and a machine takes either:
 
 ## The 32K image
 
-The 32K image (2026-10-26) is x8000-xFFFF only, so it fits one 32K EEPROM;
+The 32K image is x8000-xFFFF only, so it fits one 32K EEPROM;
 `gen_rom.tcl` puts the same 32K in both halves of `rom.mem` (and writes
 `src/hdl/rom_32k.bin`, the EEPROM file), so a 64K cartridge with two EEPROMs
 takes the same image twice and boots the same way.  Everything below x8000
@@ -176,10 +176,8 @@ The ROM the CPU sees is two AS7C256C-15PCN SRAMs (15 ns) on the
 cartridge.  They lose their contents at power-off, so the image is kept
 in two AT28C256-15PU EEPROMs (32K x 8, 150 ns, PDIP-28, reprogrammable,
 programmed off the board) on the same address lines.  No production
-through-hole non-volatile part is fast enough for the fetch path, and a
-battery-backed SRAM drains a CR2032 in about two weeks (0.3 mA typical
-retention current per chip), so the cartridge copies the EEPROMs into
-the SRAMs at every power-up.
+through-hole non-volatile part is fast enough for the fetch path, so the
+cartridge copies the EEPROMs into the SRAMs at every power-up.
 
 The cartridge stalls the CPU while it loads, and the CPU's PC is the
 address counter.  The board clock runs free from power-up; nothing gates
@@ -188,7 +186,7 @@ it.
 - **STALL is held.**  The CPU already has a line that freezes it for
   video reads and the ALU wait: the Branch PLD's STALL, which holds the
   State PLD (no state change, every load strobe off) and both PC PLDs.
-  It now goes through the cartridge: STALL_IN (Branch PLD pin 19) goes
+  It goes through the cartridge: STALL_IN (Branch PLD pin 19) goes
   out to the cartridge PLD, which sends back STALL_OUT = STALL_IN OR its
   own hold, to the State PLD (pin 2) and the PC PLDs (pin 14).  The main
   board pulls STALL_OUT up, so with no cartridge the CPU stays stalled.
@@ -197,7 +195,7 @@ it.
   SRAMs stay off the bus; RUN also holds the map register clear (all ROM)
   and the expansion cards in reset.
 - **The CPU only walks the image.**  The instruction register is an
-  ATF22V10C-7 (`ATF22V10_IR.pld`, chip #17, in place of the 74F377) that
+  ATF22V10C-7 (`ATF22V10_IR.pld`, chip #17) that
   holds 02h (`ld ac, ac`) while RUN is low, whatever is on the bus.  02h
   writes nothing (the destination comes from the IR), so the CPU can't
   disturb anything.  The State PLD still reads the fetched byte's bits
@@ -205,8 +203,8 @@ it.
   LOAD_MEM or EXEC as the image's own instruction would.  The PC is on
   the address bus in FETCH and LOAD_IMM (PC_ENABLE high) and steps by one
   in each, so every address is a FETCH or a LOAD_IMM read exactly once.
-- **One copy per PC address.**  The cartridge PLD (`ATF22V10_CART.pld`
-  revision 04, ATF22V10C-7PX, on the board clock) holds STALL_OUT high
+- **One copy per PC address.**  The cartridge PLD (`ATF22V10_CART.pld`,
+  ATF22V10C-7PX, on the board clock) holds STALL_OUT high
   whenever RUN is low and PC_ENABLE is high, except for one release
   clock.  A video read comes in one clock of every 8-clock group, always
   the same one, so the PLD counts the group's clocks (K0-K7, restarting
@@ -214,7 +212,7 @@ it.
 
   | Clock | What happens |
   |---|---|
-  | K0 | the CPU is stalled with the PC on the address bus (valid 20.5 ns after the edge) |
+  | K0 | the CPU is stalled with the PC on the address bus (valid 13 ns after the edge) |
   | K1-K4 | EEPROM /OE low (COPY); the byte is valid by K0 + 178 ns |
   | K4 | the SRAM's /WE low (the chip is picked by /CE_LO or /CE_HI as usual) |
   | K5 | /WE and the EEPROM's /OE go high together; the EEPROM is off the bus by K6 + 15.8 ns |
@@ -247,23 +245,19 @@ checks every cartridge read after the hand-off against `rom.mem`.  The
 video runs throughout and shows whatever the random RAM holds: a quirk of
 the system.
 
-Timing (every PLD is a -7 part since 2026-10-23): PIXEL_ENABLE
-through the Branch PLD's STALL, STALL_OUT and the State PLD's load strobe
-to an F377 /E is 32.5 ns (+7.2 ns; +2.2 when the Branch and cartridge PLDs
-were -10); PC_ENABLE to STALL_OUT to the State and PC setup is 16.5 ns.  The IR PLD's opcode setup (3.5 ns) leaves the fetch
-path +0.7 ns, the same as the State PLD's, and its clock to output (5.5
-ns, the F377's was 10.5) gives every path that starts at the IR 5 ns
-more.
+Timing: PIXEL_ENABLE through the Branch PLD's STALL, STALL_OUT and the
+State PLD's load strobe to an F377 /E is 32.5 ns (+7.2 ns from the
+datasheets, +1.2 on the routed board); the cartridge write cycle has tens
+of nanoseconds to spare ([WE_TIMING.md](../timing/WE_TIMING.md#cartridge-sram-loader)).
 
 Pins between the main board and the cartridge for the loader: CLK,
 PIXEL_ENABLE, PC_ENABLE and STALL_IN (to the cartridge), STALL_OUT and
-RUN (from it).  There is no clock gate and no 74AC541 on the cartridge.
+RUN (from it).
 
 **Without a cartridge** a boot card in expansion slot 1 can load the
 main RAM the same way and start the machine from RAM, with no ROM
-(EXPANSION.md, "Booting from slot 1"); the Sync PLD, which makes /WE
-(revision 10; the memory control PLD before), lets go of it while RUN is
-low so the card can write the RAM.  A
+([EXPANSION.md](EXPANSION.md), "Booting from slot 1"); the Sync PLD, which
+makes /WE, lets go of it while RUN is low so the card can write the RAM.  A
 fitted cartridge always wins.  For bring-up with neither, jumper STALL_IN
 to STALL_OUT and RUN to +5 V; the board then runs from power-up, but
 nothing loads the ROM.
