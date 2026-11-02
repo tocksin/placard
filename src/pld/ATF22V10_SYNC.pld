@@ -1,7 +1,7 @@
 Name     VGA_SYNC;
 PartNo   01;
 Date     2026-11-02;
-Revision 10;
+Revision 11;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -271,11 +271,26 @@ VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;
    /WE never glitches.  The register half of this PLD stays on pin
    1, the normal clock.
 
+   Revision 11: /WE also waits for CLK (pin 1, which feeds the array
+   as well as the registers):
+
+       /WE low while CLK_E = 0, CLK = 0, RW = 0 and PIXEL_ENABLE = 0
+
+   so it falls on the later edge (CLK) and still rises on the early
+   one (CLK_E).  The end of the write keeps the CLK_E lead above.
+   The start gets about 3 ns more (4.1 ns on the routed board): a
+   zero-page store's address comes from the D register, whose clock
+   is 278 mm past NT2, and was not settled when /WE could fall on
+   CLK_E (-1.5 ns on the board, +2.6 now).  RW also has until the
+   later edge to settle.  The cost is a write pulse about 3 ns
+   shorter (tWP 10 still met at a 50 % clock, about +1.3 ns on the
+   board), see docs/timing/TIMING.md.
+
    The output enable term is RUN, as in the memory control PLD:
    /WE floats while RUN is low (10k pull-up on the main board) so a
    boot card in expansion slot 1 can drive it (docs/architecture/EXPANSION.md).
    It is a separate term, so WE uses 1 of the pin's product terms.
 */
 
-WE = !CLK_E & !RW & !PIXEL_ENABLE;
+WE = !CLK_E & !CLK & !RW & !PIXEL_ENABLE;   /* revision 11: & !CLK */
 WE.OE = RUN;

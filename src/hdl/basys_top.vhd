@@ -818,7 +818,7 @@ begin
         a8          => ramAddress(8),
         y_enable    => yEnable,
         a11         => ramAddress(11),
-        load_imm_n  => dLoadN,
+        q0          => stateQ0,     -- Rev 06: State PLD pin 18 (was dLoadN)
 
         ce_hi_n     => open,
         map_wr_n    => mapWrN,

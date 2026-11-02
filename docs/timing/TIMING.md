@@ -17,17 +17,17 @@ muxes), [WE_TIMING.md](WE_TIMING.md) (the RAM write strobe),
 
 ## Summary
 
-From the datasheets, every path but one meets 25.175 MHz.  The exception
-is a logic path: **an I/O read in the clock right after a video stall**
-(−5.3 to −7.3 ns), see [I/O reads](#io-reads).
+From the datasheets, every path meets 25.175 MHz with a 50 % clock.
+Since I/O decode PLD revision 06 the I/O read right after a video stall
+no longer waits for STALL ([I/O reads](#io-reads)), and since Sync PLD
+revision 11 /WE falls with CLK, which closed the zero-page store start on
+the board ([Memory writes](#memory-writes)).
 
 On the routed board, the traces and clock skew take another 1 to 8 ns
-from most paths, and six are short:
+from most paths, and four are short:
 
 | Path | Datasheet | Board | Main cause on the board |
 |---|---:|---:|---|
-| I/O read right after a video stall (line read, port, PS/2) | −7.3 | **−15.4** | logic (above), plus the STALL loop through the cartridge |
-| Zero-page store: address settled before /WE falls | +1.9 | **−1.5** | D register clock is 278 mm past NT2; ADDR7 U10 → U31 170 mm |
 | Fetch from the cartridge ROM through /ROM_OE | +1.9 | **−1.1** | DATABUS0 J8 → U1 361 mm |
 | Zero-page read `[0,D]` into D | +3.4 | **−1.1** | D register clock and DATABUS0 to U18 (528 mm) |
 | Video read into the pixel buffer | +3.4 | **−1.1** | DATABUS0 U31 → U22 819 mm (the pixel buffer is at the far end of a 1042 mm daisy chain) |
@@ -35,20 +35,24 @@ from most paths, and six are short:
 
 These are worst-case figures.  Typical PLD and SRAM delays are about half
 the maximum, so a first board is expected to run, but the routing is not
-finished: the data bus (DATABUS0 most of all) and the D register's clock
+finished: the data bus (DATABUS0 most of all) and the D register's place
 are where the time goes.  The scripts that measure the board are listed
 under [Method](#method); rerun them after any routing change.
+
+The clock's duty cycle is an open item: the design needs a high half of
+about 42 % to 54.6 % from the datasheets ([Clock duty](#clock-duty)), and
+the ECS-100A oscillator is only specified to 40/60 %.
 
 ## Clock and assumptions
 
 - **Clock**: 25.175 MHz from oscillator X1, T = 39.72 ns.  The high half
-  must be between 47 % and 54 % of the period (below), so the oscillator
-  needs a 50 % output or one divided down to it.
+  must be between about 42 % and 54.6 % of the period (below), so the
+  oscillator needs a 50 % output or one divided down to it.
 - **Clock tree**: X1 drives **CLK_E** to the Sync PLD's pin 9 first, then
   at least 420 mm of track (500 mm nominal, about 3 ns) to net tie NT2;
   **CLK**, on the far side of NT2, goes to every other chip, the Sync
-  PLD's pin 1 included.  The Sync PLD makes /WE from CLK_E, so /WE moves
-  about 3 ns ahead of everything clocked by CLK
+  PLD's pin 1 included.  The Sync PLD makes /WE from both: it falls with
+  CLK and rises on CLK_E, about 3 ns ahead of everything clocked by CLK
   ([WE_TIMING.md](WE_TIMING.md)).
 - **Worst case**: datasheet maximum delays and minimum setup times at 0 to
   70 °C.  Hold checks use the datasheet minimums (PLD tPD 3.0, tCO 2.0).
@@ -134,19 +138,20 @@ tOE).
 
 ### Memory writes
 
-/WE = !CLK_E & !RW & !PIXEL_ENABLE (Sync PLD), so a write uses the low
-half of a store's EXEC clock, about 3 ns ahead of the CPU's clock.
+/WE = !CLK_E & !CLK & !RW & !PIXEL_ENABLE (Sync PLD revision 11), so a
+write uses the low half of a store's EXEC clock: it starts when CLK
+falls and ends about 3 ns before the CPU's clock rises (on CLK_E).
 
 | Check | Datasheet | Board |
 |---|---:|---:|
-| Zero-page store start: address (D register 10.5 + mux 7.5 = 18) before /WE can fall (T/2 − 3 + 3 = 19.9) | +1.9 | **−1.5** |
-| Zero-page store start: /CE_HI before /WE can fall (13 vs 19.9) | +6.9 | +6.4 |
-| Store after a video stall: video address gone before /WE can fall | +6.9 | +3.0 |
-| RW settled before CLK_E falls (IR 5.5 + State 7.5 = 13 vs T/2 − 3) | +3.9 | +1.3 |
+| Zero-page store start: address (D register 10.5 + mux 7.5 = 18) before /WE can fall (T/2 + 3 = 22.9) | +4.9 | +2.6 |
+| Zero-page store start: /CE_HI before /WE can fall (13 vs 22.9) | +9.9 | +10.5 |
+| Store after a video stall: video address gone before /WE can fall | +9.9 | +7.1 |
+| RW settled before CLK falls (IR 5.5 + State 7.5 = 13 vs T/2) | +6.9 | +5.4 |
 | End of write: /WE high (7.5 − 3 = 4.5) before the address, /CE_LO, /CE_HI change (2 + 3 = 5) | +0.5 | +0.6 |
 | End of write: data held until /WE is high (source F541s off) | +2.0 | +4.8 |
 | Write data setup, tDW 8 (source bus valid by 22.5 ns) | +9.2 | +2.6 |
-| Write pulse, tWP 10: low half less the spread of the two /WE edges, 15.4 | +5.4 | |
+| Write pulse, tWP 10: low half less the CLK_E lead (3) less the spread of the two /WE edges (4.5), 12.4 | +2.4 | about +1.3 |
 | tAW 12: address by 18 vs /WE high at T at the earliest (T − 12 = 27.7) | +9.7 | |
 
 ### CPU control, ALU and branches
@@ -165,23 +170,24 @@ half of a store's EXEC clock, about 3 ns ahead of the CPU's clock.
 
 ### I/O reads
 
-An I/O read strobe is `RD = IO & LOAD_IMM` (I/O decode PLD), and the State
-PLD's /LOAD_IMM includes !STALL.  On the clock after a video stall, STALL
-only falls after the loop through the Branch PLD and the cartridge, so the
-read strobe comes late:
+An I/O read strobe is `RD = IO & !PC_ENABLE & !Q0 & !PIXEL_ENABLE` (I/O
+decode PLD revision 06): the LOAD_MEM state on a clock the CPU owns the
+bus.  An I/O address is only read through [Y,X], always in LOAD_MEM.
+All three are register outputs, so the strobe no longer waits for STALL,
+and a read right after a video stall has the same timing as any other.
+D still loads with the State PLD's /LOAD_IMM, which waits for STALL (the
+STALL row under [CPU control](#cpu-control-alu-and-branches)).
 
 | Path | Stages | Datasheet | Board |
 |---|---|---:|---:|
-| I/O read, no stall before it: address 13, /xx_RD 7.5, F541 enable 9.5, D setup 2 | 32.0 | +7.7 | |
-| Port or PS/2 read, no stall before it (PLD tEA 7.5 instead of the F541) | 30.0 | +9.7 | |
-| **Line read (U29) right after a video stall**: STALL 20.5, State /LOAD_IMM 7.5, /LINE_RD 7.5, F541 enable 9.5, D setup 2 | 47.0 | **−7.3** | **−15.4** |
-| **Port (U38) or PS/2 (U42) read right after a video stall** (tEA 7.5) | 45.0 | **−5.3** | **about −13** |
+| Line read (U29): address 13, /LINE_RD 7.5, F541 enable 9.5, D setup 2 | 32.0 | +7.7 | about +4 |
+| Port (U38) or PS/2 (U42) read (PLD tEA 7.5 instead of the F541) | 30.0 | +9.7 | about +6 |
 
-A video read stalls one clock in eight on visible lines, plus the mode
-byte and audio reads in blanking, so about one I/O read in eight is a
-read right after a stall.  If the device is late, D loads whatever the bus
-held (the pull-ups or a half-driven byte).  This is open; the fix needs a
-read strobe that does not wait for STALL.
+The board figures are estimates (U29 → U18 on DATABUS0 is 424 mm) and
+not from the script.  Before revision 06, `RD = IO & LOAD_IMM` waited
+for STALL through the Branch PLD and the cartridge, and a read right
+after a video stall (about one I/O read in eight) was −7.3 (line read)
+and −5.3 (port, PS/2) from the datasheets.
 
 ### Video and the rest
 
@@ -192,7 +198,7 @@ read strobe that does not wait for STALL.
 | H_TC to the V counter | 5.5 + 7.5 + 3.5 = 16.5 | +23.2 |
 | Color decoder: pixel buffer 10.5, two levels, settled into a 39.7 ns pixel | 25.5 | no register after it |
 | Video address (H, V, audio PLD row bits): changes in clock 0 of a group, read in clock 1 | over a clock | |
-| I/O write strobes: address 13 before /WE falls (19.9) | | +6.9 |
+| I/O write strobes: address 13 before /WE falls (22.9) | | +9.9 |
 | ROM/RAM map write into the very next fetch: /MAP_WR high by T + 12, map CP→Q 12.3, memory control 7.5, tOE 7, setup 3.5 | 42.3 | −2.6 (software rule below) |
 
 **Map write rule**: the instruction straight after a write to the map
@@ -218,10 +224,17 @@ The source F541s and the memories share one data bus
 
 - High half at most **54.6 %**: a fetch through /OE starts at the clock
   fall and has 1.9 ns from the datasheets (on the board it is already
-  0.2 ns short at 50 %).
-- High half at least **47 %**: RW must settle (13 ns) before CLK_E falls
-  (T/2 − 3 ns); the hand-over at the end of EXEC also gets tighter.
-- A 50 % clock meets both.
+  0.2 ns short at 50 %).  The write pulse (tWP) allows up to 55.9 %
+  (about 53 % on the board).
+- High half at least about **42 %**: the hand-over at the end of EXEC
+  (source F541s off by 19.5 ns, a read starts at the clock fall + 3);
+  below that the overlap is limited only by the 47 Ω series resistors.
+  The zero-page store start allows 37.8 % (about 43 % on the board) and
+  RW 32.7 %.
+- A 50 % clock meets all of them.  **Open item**: the ECS-100A is
+  specified only to 40/60 % symmetry (at 1.4 V), typical 50 ± 3 %.  The
+  CTS MXO45 (full-size DIP-14, 5 V, pin-compatible) is specified to
+  45/55 % at VDD/2.
 
 ## Cartridge loader
 
