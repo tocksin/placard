@@ -12,13 +12,10 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 - [IO.md](architecture/IO.md): the shared port (SNES pads, SD card, PS/2 keyboard and mouse)
 - [EXPANSION.md](architecture/EXPANSION.md): expansion slots and the ROM cartridge slot
 - [PLD_USAGE.md](architecture/PLD_USAGE.md): unused pins and product terms in each 22V10
-- [OPTIMIZATION.md](architecture/OPTIMIZATION.md): chip-count review
 
 ## [timing/](timing/)
 
-- [TIMING.md](timing/TIMING.md): timing analysis at 25.175 MHz
-- [TIMING_ROUTED.md](timing/TIMING_ROUTED.md): timing with the routed main board
-- [TIMING_FIXES.md](timing/TIMING_FIXES.md): remaining timing fixes
+- [TIMING.md](timing/TIMING.md): every timing path at 25.175 MHz, from the datasheets and on the routed main board
 - [ALU_TIMING.md](timing/ALU_TIMING.md), [FETCH_TIMING.md](timing/FETCH_TIMING.md), [VIDEO_TIMING.md](timing/VIDEO_TIMING.md), [WE_TIMING.md](timing/WE_TIMING.md), [XY_TIMING.md](timing/XY_TIMING.md): individual paths
 
 ## [video/](video/) and [sound/](sound/)
@@ -43,7 +40,6 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 - [SCHEMATIC_PLAN.md](hardware/SCHEMATIC_PLAN.md): schematic rules
 - [BRINGUP.md](hardware/BRINGUP.md): build order and a test for each chip
 - Board drawings: layout, placement, the dimension drawing (`placard_main_dimensions.pdf`), cartridge placement, connector models, shell keepout
-- [keyboard/](hardware/keyboard/): drawings of the dropped matrix keyboard, kept for reference
 
 ## [case/](case/)
 
@@ -56,4 +52,4 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 ## Other
 
 - [WORKFLOW.md](WORKFLOW.md): how changes reach `main`
-- [logo/](logo/README.md): logo concepts
+- [logo/](logo/README.md): the logo

@@ -59,7 +59,7 @@ program to write, because everything after it is debugged with it.
 - Needs: console, keyboard (`kbd_getc`, `con_gets`), FAT read; FAT write for
   "save".
 - Size: 3-5 KB, plus 1.5-2 KB for the disassembler.  RAM: a line buffer.
-- Since 2026-10-26 BASIC takes the ROM's free space, so the monitor is
+- BASIC takes the ROM's free space, so the monitor is
   planned as a program on the card; BASIC's `PEEK`, `POKE` and `CALL` cover
   quick changes without a card.
 
@@ -124,7 +124,7 @@ its own.
   rows.
 - Speed: a tokenised interpreter should do a few thousand simple
   statements a second, ahead of the 1 MHz home computers' BASICs.
-- 2026-10-26: Justin chose BASIC for the ROM (x8100-xAFFF of the 32K
+- BASIC is in the ROM (x8100-xAFFF of the 32K
   image, about 10.5 KB) with the DOS on the card, so the machine is useful
   without a card.
 - **Done 2026-10-26** ([BASIC.md](BASIC.md)): a Microsoft-style integer

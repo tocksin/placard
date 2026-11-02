@@ -4,10 +4,10 @@
 -- Device   : g22v10 (WinCUPL 2)
 -- Source   : ATF22V10_QUAD_MUX.pld revision 02 (direct conversion,
 --            equations unchanged)
--- Date     : 10/27/2026
+-- Date     : 11/02/2026
 --
 -- Address mux, two low bits and two high bits per chip
--- (docs/timing/FETCH_TIMING.md, option B).  The selects are the
+-- (docs/timing/FETCH_TIMING.md).  The selects are the
 -- address-source enables themselves, with the priority the Sync PLD
 -- used before revision 02:
 --

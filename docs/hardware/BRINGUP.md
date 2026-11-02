@@ -78,12 +78,12 @@ way.
 **Reset.**  Reset is a power cycle.  SW1 (on/off toggle) and relay K1's
 normally closed contact sit in series in the 5 V input after the
 polyfuse.  SW2 (reset, a small tactile button) pulls in K1, so holding SW2
-cuts the power and letting go powers the board up again (2026-10-22).  K1's
+cuts the power and letting go powers the board up again.  K1's
 COM contact carries the board rail: holding SW2 swings it onto the NO
 contact, where R64 (22 Ω) drains +5V to 0 V in a few milliseconds, so even a
 short press resets cleanly.  The bulk 220 µF C41 sits on +5V after K1, so it
-carries the board through the NC contact's bounce when SW2 lets go
-(2026-10-30).  At power-up the ATF22V10C registers
+carries the board through the NC contact's bounce when SW2 lets go.
+At power-up the ATF22V10C registers
 start at 0, so the CPU starts in FETCH at x0000.  The cartridge stalls
 the CPU while it loads its SRAMs (about 33 ms; the video runs and shows
 the random RAM), and RUN holds the map register clear (all ROM) until it
@@ -132,7 +132,7 @@ so its readings shift a little with the line and frame; read the average.
 | TP1, TP2 | Test point loop, GND | Keystone 5011 (black) | clip points for the ground test lead |
 | TP3 | Test point loop, +5V (after K1) | Keystone 5010 (red) |  |
 
-Fit only these power input parts on the bare board (power sheet, 2026-10-22).
+Fit only these power input parts on the bare board (power sheet).
 Leave U40, C40 and C47 (the 3.3 V regulator) for step 20, with the SD card.
 
 **Before power** (meter on ohms and diode test, no supply plugged in):
@@ -364,8 +364,7 @@ S2 stay until step 11.
 `ATF22V10_QUAD_MUX.pld` (rev 02); verify and label them.
 
 The mux selects are PIXEL_ENABLE from the Sync PLD and PC_ENABLE,
-X_ENABLE and Y_ENABLE from the State PLD (rev 02; the Sync PLD decoded
-them before).  On a video read PIXEL_ENABLE picks the video address
+X_ENABLE and Y_ENABLE from the State PLD.  On a video read PIXEL_ENABLE picks the video address
 whatever the missing State PLD's enables float at, so the muxes need no
 straps.  The rest of the time they pass the CPU side's
 address, which holds still while PC, D, X and Y are missing (each mux
@@ -470,7 +469,7 @@ and 8 bpp).
 | C32, C12 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 **Program first:** U12 I/O decode from `ATF22V10_IO_DECODE.pld`
-(rev 04); verify and label it.
+(rev 05); verify and label it.
 
 U32's chip enable /CE_HI (U12 pin 15) is low when A15 is 1; on a video
 read A15 is H9.  Turn off the power switch.  Insert U32 and U12 into their
@@ -576,7 +575,7 @@ shunt off JP2.  Turn the power on: /WE reads a steady 5 V again.
 
 With no ROM and no RAM, every byte the CPU reads is FF.  FF is a branch
 always (BRA) with source 11, which is the accumulator (the same as
-`bra ac`; it was X before 2026-10-19), and memory field 111, which goes
+`bra ac`), and memory field 111, which goes
 FETCH, LOAD_MEM, EXEC: three clocks.  With no AC source buffer (U27) the
 source bus is FF too, so EXEC loads PC low with FF.  The next fetch is at xxFF,
 and its increment carries into PC high.  So the CPU runs one instruction

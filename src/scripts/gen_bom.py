@@ -85,10 +85,10 @@ NO_VALUE = {"placard_parts:Expansion_Slot",
 NOTES = {
     "MF-RG300-0": "Part number from the footprint (Fuse_Bourns_MF-RG300)",
     "1N5817-TP": "Black DO-41 Schottky, so it is not mixed up with the glass 1N4148s; any 1N5817 (MCC, onsemi, Diodes Inc.)",
-    "WP7113ID": "D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color (was Lite-On LTL2R3KRD-EM, out of stock 2026-10-25)",
+    "WP7113ID": "D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color",
     "1N4148-TAP": "Any 1N4148 (Vishay, onsemi, Diodes Inc.)",
     "Expansion slot": "Optional (Justin, 2026-10-22): fit only the slots a card will go in; the computer "
-                      "runs with none.  The cartridge slot's connector since 2026-10-30 (EXPANSION.md)",
+                      "runs with none.  The same connector as the cartridge slot (EXPANSION.md)",
 }
 
 # parts a builder may leave out; the cost summary gives a total without them
@@ -133,7 +133,7 @@ PRICES = {
     "ECS-100A-251.7": (4.06, "Digi-Key", "Mouser has no stock (Justin, 2026-10-22)"),
     "Box header": (0.60, "est.", "Wurth 61202021621"),
     "SNES controller socket": (4.00, "est.", "ZedLabz right-angle SNES port (Amazon/eBay)"),
-    "SD card socket": (4.56, "Mouser", "SMD, push-push (no horizontal through-hole SD socket exists; Kyocera 145638009511859+ went obsolete 2026-10-25)"),
+    "SD card socket": (4.56, "Mouser", "SMD, push-push (no horizontal through-hole SD socket exists)"),
     "54-00174": (0.73, "Digi-Key", "Justin, 2026-10-22"),
     "A-HDF 15 A-KG/T": (1.36, "Digi-Key", "Justin, 2026-10-22"),
     "Resistor network": (0.39, "Mouser", "Bourns 4609X-101-103LF"),

@@ -22,11 +22,11 @@ The project has some hard-goals to maintain:
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
 
 ## Block diagram
-Each block shows how many chips it uses (33 and a 3.3 V regulator on the main board since 2026-10-25, when the matrix keyboard went and a PS/2 receiver PLD came; the expansion and cartridge slots add none, the cartridge itself has 5).  See [docs/architecture/CHIPS.md](docs/architecture/CHIPS.md) for the parts.
+Each block shows how many chips it uses (33 and a 3.3 V regulator on the main board; the expansion and cartridge slots add none, the cartridge itself has 5).  See [docs/architecture/CHIPS.md](docs/architecture/CHIPS.md) for the parts.
 
 ![Placard block diagram](reference/placard_block_diagram.png)
 
-The drawing is made by `src/scripts/gen_block_diagram.py` (2026-10-23: CPU on the left, memory, I/O and audio in the middle, video on the right); rerun it when the design changes.
+The drawing is made by `src/scripts/gen_block_diagram.py` (CPU on the left, memory, I/O and audio in the middle, video on the right); rerun it when the design changes.
 
 The I/O circuitry (SNES pads, SD card, PS/2 keyboard and mouse) is drawn as a schematic in
 [docs/architecture/IO.md](docs/architecture/IO.md#schematic) (`schematics/placard_io_schematic.png`).
@@ -43,13 +43,13 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 - **Writes always go to the RAM**, even in a section mapped to ROM.  The write strobe (/WE) is not decoded by address, so a write in the I/O window x5000-x53FF also lands in the RAM underneath it.
 - **The map register** is a CD74ACT273E clocked by /MAP_WR from the I/O decode PLD; it latches the source bus at the end of the write.  Bit n = 1 makes section n read from RAM, 0 from ROM.  Bit 2 maps x4000-x4FFF and x5400-x5FFF, because x5000-x53FF is the I/O window.  It is write only, so software keeps a copy of the last value it wrote.
 - **At power-up every section reads as ROM.**  RUN from the ROM cartridge holds the register's /MR low while the cartridge loads its SRAM and the CPU is held, so the CPU boots from ROM ([docs/architecture/ROM.md](docs/architecture/ROM.md#loading-the-cartridge)).
-- **x5000-x53FF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  (Until 2026-10-16 the window was x5000-x5FFF, with x5800-x5FFF a mirror.)
+- **x5000-x53FF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.
 - **Only `[Y,X]` reaches the I/O window**; `[0,D]` and `[0,X]` only address the zero page.
-- **Video reads always read the RAM** (memory control PLD revision 04); only CPU reads follow the map.  The CPU can run code from the ROM under the video area while the screen shows the RAM, and a program that wants to read the video RAM maps that section to RAM.
+- **Video reads always read the RAM** (memory control PLD); only CPU reads follow the map.  The CPU can run code from the ROM under the video area while the screen shows the RAM, and a program that wants to read the video RAM maps that section to RAM.
 - **Programs run from the ROM.**  The library (jump table, core routines, font, I/O drivers, sound, line input, FAT reader, slot helpers and the demo menu hook) is one block at the top of the ROM, xC500-xFBFF, just under the boot loader, and runs in place; a program runs in place at ROM x6000-xBFFF and may use x2000-x3FFF too.  The boot loader copies the library's RAM code to x1F00, gives each expansion card a chance to run its own boot code (like the Apple II), then maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  That is the 64K development image; the machine's own 32K image (x8000-xFFFF, the same on both cartridges) holds the boot loader, the library, BASIC and a loader that runs the DOS and programs from the SD card.  See [docs/architecture/ROM.md](docs/architecture/ROM.md) and [docs/software/DOS.md](docs/software/DOS.md).
-- **After a map write**, the next instruction must not be fetched from a section whose map bit that write changed, unless the ROM and RAM hold the same byte there (the new map arrives 4.1 ns too late for that fetch).  Copying the ROM into the RAM underneath and then switching the section is safe.  See [docs/timing/TIMING_FIXES.md](docs/timing/TIMING_FIXES.md#romram-map-register-74act273).
+- **After a map write**, the next instruction must not be fetched from a section whose map bit that write changed, unless the ROM and RAM hold the same byte there (the new map arrives 2.6 ns too late for that fetch).  Copying the ROM into the RAM underneath and then switching the section is safe.  See [docs/timing/TIMING.md](docs/timing/TIMING.md#video-and-the-rest).
 
-The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /WE, /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
+The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The RAM's /WE comes from the Sync PLD, off an early tap of the clock ([docs/timing/WE_TIMING.md](docs/timing/WE_TIMING.md)).  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
 
 The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is two more AS7C256C-15PCN on the ROM cartridge, loaded at power-up from two AT28C256 EEPROMs by the cartridge while it stalls the CPU ([docs/architecture/ROM.md](docs/architecture/ROM.md#loading-the-cartridge)).  See [docs/architecture/CPU.md](docs/architecture/CPU.md#memory-parts) and [docs/timing/TIMING.md](docs/timing/TIMING.md).
 
@@ -83,8 +83,6 @@ Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes ar
 | x5200-x52FF | /PORT_RD | R | Shared port: SD MISO and the free PS/2 clock (x5200), SNES pad data (x5201), PS/2 receiver byte (x5202) and ready flag (x5203) |
 | x5300-x537F | /EXP2, A7 = 0 | R/W | Expansion slot 2 |
 | x5380-x53FF | /EXP2, A7 = 1 | R/W | Expansion slot 4 |
-
-The window was x5000-x5FFF until 2026-10-16 (the I/O decode PLD did not decode A11, and the expansion ports were at x5500 and x5600).  The unused /SND_WR pin became the A11 input.
 
 ### Sound
 The video circuit reads one 8-bit sample per scan line from x5DF3-x5FFF (525 bytes, one frame) and plays it through a 74HCT574 and a resistor ladder DAC, at the line rate of 31.47 kHz.  80h is silence.  The library's sound driver (`snd_update` once a frame, with `snd_tone`, `snd_beep`, `snd_note`, `snd_noise` and `snd_play`) refills the buffer behind the line being played.  See [docs/sound/SOUND.md](docs/sound/SOUND.md).

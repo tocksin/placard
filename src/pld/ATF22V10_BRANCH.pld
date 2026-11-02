@@ -1,6 +1,6 @@
 Name     BRANCH_CTRL;
 PartNo   00;
-Date     10/21/2026;
+Date     11/02/2026;
 Revision 15;
 Designer ;
 Company  ;
@@ -65,14 +65,14 @@ Device   g22v10;
    every BGE (now BCC), BLE or BRA (memory field 101, 110, 111).  The memory
    control PLD gates the write with the clock, so MEM_WR has to be
    settled before the clock falls; from the instruction register
-   it is (see docs/timing/TIMING_FIXES.md, end-of-write contention).
+   it is (see docs/timing/TIMING.md, end-of-write contention).
    Active high.  For an active-low pin declare
    PIN 23 = !BRANCH_BLOCK;  (the equation is unchanged).
 
    Revision 08 removed a second decode of the opcode on the data
    bus (DB7:DB5, pins 14-16) during FETCH.  The State PLD used it to
    send BGE with an AC or X target straight to EXEC, but that path
-   was too slow (docs/timing/TIMING_FIXES.md); BGE with an AC or X target now
+   was too slow (docs/timing/TIMING.md); BGE with an AC or X target now
    has a pad byte and goes through LOAD_IMM like a zero-page store.
    (Memory field 101 is BCC since revision 11, with the same pad
    byte.)  Pins 14-16 were unused.
