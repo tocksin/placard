@@ -2,12 +2,13 @@
 
 PLACARD BASIC is the BASIC in the 32K ROM image.  It starts when the
 machine has no SD card (or no `DOS.PLC` on it), when `BOOT.CFG` names
-`BASIC`, or from the DOS.  It is a 16-bit integer BASIC with strings, in
+`BASIC`, or from the DOS (Ctrl+B in its file browser, or its `BASIC`
+command).  It is a 16-bit integer BASIC with strings, in
 the style of Microsoft BASIC: line numbers, `FOR`/`NEXT`, `GOSUB`,
 strings with `LEFT$`, `MID$` and friends, arrays, `DATA`, plus statements
 for the Placard's screen, graphics, sound and SD card.
 
-Date: 10/27/2026
+Date: 11/02/2026
 
 Source: `src/scripts/basic.masm` (the bytecode machine, about 1.5 KB of
 native code) and `src/scripts/basic.vm` (the interpreter, in bytecode,

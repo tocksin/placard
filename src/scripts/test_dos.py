@@ -26,11 +26,11 @@ text file and BOOT.CFG, and boots it like the board with a PS/2 keyboard
   8. Esc held at power-up skips BOOT.CFG
   9. no card: BASIC
  10. a card with no DOS.PLC and no BOOT.CFG: BASIC
- 11. BOOT.CFG "basic": BASIC; its DOS command: the DOS
+ 11. BOOT.CFG "basic": BASIC; its DOS command: the DOS; Ctrl+B there: BASIC
  12. BOOT.CFG names a missing file: the DOS shows "Error 2"
 The screen is read back through the font (LIB_FONT).
 
-Date: 10/26/2026
+Date: 11/02/2026
 """
 
 import argparse
@@ -252,6 +252,31 @@ def build():
     dos, dsyms, _ = ps.assemble(open(os.path.join(HERE, 'dos.asm')).read(), HERE)
     dos_plc = gen_plc.make(dos, dsyms, lib)[0]
     return rom, syms, dsyms, lib, dos_plc
+
+
+def boot_plc(name, data, entry, files=None, frames=300):
+    """a Rig that booted the 32K ROM from a card holding DOS.PLC and the
+    program file (name, bytes) as BOOT.CFG names it, run to the program's
+    entry (map 07); None if it did not get there"""
+    rom, syms, dsyms, lib, dos_plc = build()
+    card = {'DOS.PLC': dos_plc, name: data, 'BOOT.CFG': name.encode() + b'\r\n'}
+    card.update(files or {})
+    r = Rig(rom, syms, dsyms, lib, sdimage.make(card))
+    if not r.run_until(lambda: r.cpu.pc == entry and r.cpu.map == 0x07, frames,
+                       '%s to start' % name):
+        return None
+    return r
+
+
+def esc_to_dos(r, frames=120):
+    """press Esc: the DOS's browser must come back"""
+    r.port.kbd.press(r.codes['\x1b'])
+    r.run(10)
+    r.port.kbd.release(r.codes['\x1b'])
+    if r.wait_browser(frames):
+        print('Esc: the DOS is back')
+        return True
+    return False
 
 
 def make_card(lib, cfg=b'PARENT.PLC\r\n', dos=None):
@@ -504,6 +529,14 @@ def main(argv):
         r5.type('dos\n')
         if r5.wait_browser(200):
             print('  the browser: %r' % r5.row(0))
+            if 'Ctrl+B BASIC' not in r5.row(53):
+                r5.fail('help line: %r' % r5.row(53))
+            r5.port.kbd.press(0x14)             # Ctrl+B: BASIC
+            r5.run(3)
+            r5.key('b')
+            r5.port.kbd.release(0x14)
+            if r5.wait_basic(200):
+                print('  Ctrl+B: %r' % r5.row(0))
 
     # 12. BOOT.CFG names a missing file
     print('12. BOOT.CFG names a missing file')

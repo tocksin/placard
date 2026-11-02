@@ -11,8 +11,9 @@ Builds the 32K ROM (rom32.asm) and a card holding DOS.PLC, the demo .PLC files f
 40 frames in turn, Mandelbrot 60, the menu's idle time 2 s), BOOT.CFG =
 MENU.PLC, and boots it like the board (test_dos.Rig):
   1. in turn: the DOS runs MENU.PLC, which asks for the programs in order
-     1-4 and then 1 again; each one's RAM x0000-x49FF is exactly its image
-     when it starts, MB_PARENT names the menu, MB_LEFT is the time limit
+     1-8 and then 1 again; when each one starts, its RAM is exactly its file
+     (a RAM image: x0000-x49FF; a library program: from its load address),
+     MB_PARENT names the menu, MB_LEFT is the time limit
   2. Esc on the PS/2 keyboard in a program brings the menu's screen back
      (through the DOS), with the highlight on that program
   3. Down moves the highlight; 3 runs Mandelbrot, picked: it runs past the
@@ -21,7 +22,7 @@ MENU.PLC, and boots it like the board (test_dos.Rig):
      the highlighted program
   5. Esc in the menu goes to the DOS's file browser
 
-Date: 10/26/2026
+Date: 11/02/2026
 """
 
 import argparse
@@ -38,7 +39,9 @@ import test_dos               # noqa: E402
 
 FRAME = test_dos.FRAME
 MB, MB_GO = test_dos.MB, test_dos.MB_GO
-PROGS = ['CPUTEST.PLC', 'PI.PLC', 'MANDEL.PLC', 'LIFE.PLC']
+PROGS = ['CPUTEST.PLC', 'PI.PLC', 'MANDEL.PLC', 'LIFE.PLC',
+         'BOING.PLC', 'WIRE3D.PLC', 'RAYCAST.PLC', 'SCROLLER.PLC']
+EXTRA = ['SCROLLER.OVL']            # files the programs read themselves
 
 
 def menu_plc(lib, rot, man, idle):
@@ -58,7 +61,11 @@ def main(argv):
     args = ap.parse_args(argv)
     rom, syms, dsyms, lib, dos_plc = test_dos.build()
     rot, man, idle = 40, 60, 2
-    files = {n: open(os.path.join(test_dos.SDCARD, n), 'rb').read() for n in PROGS}
+    files = {n: open(os.path.join(test_dos.SDCARD, n), 'rb').read() for n in PROGS + EXTRA}
+    hdr = {}
+    for n in PROGS:
+        f = files[n]
+        hdr[n] = (f[3], f[4] | f[5] << 8, f[16:16 + 64], f[8] | f[9] << 8)   # type, load, bytes, entry
     files['MENU.PLC'], msyms = menu_plc(lib, rot, man, idle)
     files['BOOT.CFG'] = b'MENU.PLC\r\n'
     files['DOS.PLC'] = dos_plc
@@ -71,19 +78,41 @@ def main(argv):
 
     launches = []
 
+    def started():
+        """a RAM image at MB_GO, or a library program at its entry (map 07,
+        its first bytes at its load address, MB_MENU = "M")"""
+        if cpu.pc == MB_GO:
+            return True
+        if cpu.map != 7 or mem[MB + 0x11] != 0x4D:
+            return False
+        i = mem[MB + 0x0D]
+        if i >= len(PROGS):
+            return False
+        kind, load, first, entry = hdr[PROGS[i]]
+        return kind == 0 and cpu.pc == entry and bytes(mem[load:load + len(first)]) == first
+
     def next_launch(frames):
-        """run to the next RAM image start (MB_GO): (program, mode)"""
-        if not r.run_until(lambda: cpu.pc == MB_GO, frames, 'a program start'):
+        """run to the next program start: (program, mode)"""
+        if not r.run_until(started, frames, 'a program start'):
             return None
         i = mem[MB + 0x0D]
         mode = mem[MB + 3]
         body = files[PROGS[i]][16:]
-        want = bytes(body) + bytes(0x4A00 - len(body))
-        got = bytes(mem[0:0x4A00])
+        if hdr[PROGS[i]][0] == 1:
+            want = bytes(body) + bytes(0x4A00 - len(body))
+            got = bytes(mem[0:0x4A00])
+            base = 0
+        else:
+            base = hdr[PROGS[i]][1]
+            want = bytes(body)
+            got = bytes(mem[base:base + len(body)])
+            if base <= 0x1F00 < base + len(body):     # LIB_RAM is put back over the file's bytes
+                n = min(0x2000, base + len(body)) - 0x1F00
+                want = want[:0x1F00 - base] + got[0x1F00 - base:0x1F00 - base + n] + want[0x1F00 - base + n:]
         if got != want:
-            bad = [a for a in range(0x4A00) if got[a] != want[a]]
-            r.fail('%s: RAM differs from the image at %d bytes, first x%04X'
-                   % (PROGS[i], len(bad), bad[0]))
+            bad = [a for a in range(len(want)) if got[a] != want[a]]
+            r.fail('%s: RAM differs from the file at %d bytes, first x%04X'
+                   % (PROGS[i], len(bad), base + bad[0]))
         left = mem[MB + 4] + 256 * mem[MB + 5]
         want_left = man if PROGS[i] == 'MANDEL.PLC' else rot
         if mode == 0 and left != want_left:
@@ -96,11 +125,11 @@ def main(argv):
               'in turn' if mode == 0 else 'picked', cpu.clocks // FRAME))
         return i, mode
 
-    # 1. in turn, 1-4 then 1 again
+    # 1. in turn, 1-8 then 1 again
     print('1. in turn')
     if r.run_until(lambda: cpu.pc == 0x0100 and cpu.map == 7, 200, 'MENU.PLC to start'):
         print('  MENU.PLC started at frame %d' % (cpu.clocks // FRAME))
-    for want in [0, 1, 2, 3, 0]:
+    for want in list(range(len(PROGS))) + [0]:
         got = next_launch(150)
         if got is None:
             break
@@ -122,9 +151,12 @@ def main(argv):
             r.fail('the highlight is not on the CPU test')
         if 'P L A C A R D' not in r.row(3):
             r.fail('the menu title is not on row 3: %r' % r.row(3))
-        for k in range(4):
-            if PROGS[k].split('.')[0][:2].lower() not in r.row(12 + 2 * k).lower():
-                r.fail('row %d: %r' % (12 + 2 * k, r.row(12 + 2 * k)))
+        titles = ['CPU test', 'Pi', 'Mandelbrot', 'Game of Life', 'Boing ball', '3D ships',
+                  'Ray caster', 'Runner']
+        row0 = msyms['LIST_ROW']
+        for k in range(len(PROGS)):
+            if titles[k] not in r.row(row0 + 2 * k):
+                r.fail('row %d: %r' % (row0 + 2 * k, r.row(row0 + 2 * k)))
     if args.png:
         ps.render(mem, args.png)
         print('  wrote', args.png)
