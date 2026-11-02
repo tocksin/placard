@@ -11,7 +11,7 @@ Builds the 32K ROM (rom32.asm) and a card holding DOS.PLC, the demo .PLC files f
 40 frames in turn, Mandelbrot 60, the menu's idle time 2 s), BOOT.CFG =
 MENU.PLC, and boots it like the board (test_dos.Rig):
   1. in turn: the DOS runs MENU.PLC, which asks for the programs in order
-     1-8 and then 1 again; when each one starts, its RAM is exactly its file
+     1-9 and then 1 again; when each one starts, its RAM is exactly its file
      (a RAM image: x0000-x49FF; a library program: from its load address),
      MB_PARENT names the menu, MB_LEFT is the time limit
   2. Esc on the PS/2 keyboard in a program brings the menu's screen back
@@ -40,8 +40,8 @@ import test_dos               # noqa: E402
 FRAME = test_dos.FRAME
 MB, MB_GO = test_dos.MB, test_dos.MB_GO
 PROGS = ['CPUTEST.PLC', 'PI.PLC', 'MANDEL.PLC', 'LIFE.PLC',
-         'BOING.PLC', 'WIRE3D.PLC', 'RAYCAST.PLC', 'SCROLLER.PLC']
-EXTRA = ['SCROLLER.OVL']            # files the programs read themselves
+         'BOING.PLC', 'WIRE3D.PLC', 'RAYCAST.PLC', 'SCROLLER.PLC', 'RAYTEX.PLC']
+EXTRA = ['SCROLLER.OVL', 'RAYTEX.OVL']            # files the programs read themselves
 
 
 def menu_plc(lib, rot, man, idle):
@@ -125,7 +125,7 @@ def main(argv):
               'in turn' if mode == 0 else 'picked', cpu.clocks // FRAME))
         return i, mode
 
-    # 1. in turn, 1-8 then 1 again
+    # 1. in turn, 1-9 then 1 again
     print('1. in turn')
     if r.run_until(lambda: cpu.pc == 0x0100 and cpu.map == 7, 200, 'MENU.PLC to start'):
         print('  MENU.PLC started at frame %d' % (cpu.clocks // FRAME))
@@ -152,7 +152,7 @@ def main(argv):
         if 'P L A C A R D' not in r.row(3):
             r.fail('the menu title is not on row 3: %r' % r.row(3))
         titles = ['CPU test', 'Pi', 'Mandelbrot', 'Game of Life', 'Boing ball', '3D ships',
-                  'Ray caster', 'Runner']
+                  'Ray caster', 'Runner', 'Textured maze']
         row0 = msyms['LIST_ROW']
         for k in range(len(PROGS)):
             if titles[k] not in r.row(row0 + 2 * k):

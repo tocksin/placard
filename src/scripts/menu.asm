@@ -14,11 +14,12 @@
 ; the same folder (gen_plc.py makes them, ../../sdcard):
 ;
 ;     CPUTEST.PLC  PI.PLC  MANDEL.PLC  LIFE.PLC  BOING.PLC  WIRE3D.PLC
-;     RAYCAST.PLC  SCROLLER.PLC (and SCROLLER.OVL, which it loads itself)
+;     RAYCAST.PLC  SCROLLER.PLC  RAYTEX.PLC (SCROLLER.OVL and RAYTEX.OVL,
+;     which those two load themselves)
 ;
 ; At power-up the programs run in turn: each one until it is done or for
 ; its time limit (2 minutes, Mandelbrot 3).  Esc in a program shows the
-; menu.  Up / Down or 1-8 pick a program and Enter runs it until Esc.
+; menu.  Up / Down or 1-9 pick a program and Enter runs it until Esc.
 ; With no key for IDLE_SECS (2 minutes) the menu goes back to running
 ; them in turn, from the highlighted one.  Esc in the menu goes to the
 ; DOS's file browser.
@@ -44,7 +45,7 @@
 #include "placard.asm"
 #include "placard_lib.asm"
 
-NPROG      = 8
+NPROG      = 9
 IDLE_SECS  = 120        ; menu seconds with no key before running in turn again
 ROT_FRAMES = 7193       ; 2 minutes in turn
 MAN_FRAMES = 10789      ; 3 minutes: Mandelbrot finishes
@@ -529,16 +530,18 @@ menu_r14:
 #addr 0x0400
 P_RL:    #d8 ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF, MAN_FRAMES & 0xFF, ROT_FRAMES & 0xFF
          #d8 ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF
+         #d8 ROT_FRAMES & 0xFF
 P_RH:    #d8 ROT_FRAMES >> 8, ROT_FRAMES >> 8, MAN_FRAMES >> 8, ROT_FRAMES >> 8
          #d8 ROT_FRAMES >> 8, ROT_FRAMES >> 8, ROT_FRAMES >> 8, ROT_FRAMES >> 8
+         #d8 ROT_FRAMES >> 8
 NAME_L:  #d8 nm_0 & 0xFF, nm_1 & 0xFF, nm_2 & 0xFF, nm_3 & 0xFF
-         #d8 nm_4 & 0xFF, nm_5 & 0xFF, nm_6 & 0xFF, nm_7 & 0xFF
+         #d8 nm_4 & 0xFF, nm_5 & 0xFF, nm_6 & 0xFF, nm_7 & 0xFF, nm_8 & 0xFF
 NAME_H:  #d8 nm_0 >> 8, nm_1 >> 8, nm_2 >> 8, nm_3 >> 8
-         #d8 nm_4 >> 8, nm_5 >> 8, nm_6 >> 8, nm_7 >> 8
+         #d8 nm_4 >> 8, nm_5 >> 8, nm_6 >> 8, nm_7 >> 8, nm_8 >> 8
 TITLE_L: #d8 ti_0 & 0xFF, ti_1 & 0xFF, ti_2 & 0xFF, ti_3 & 0xFF
-         #d8 ti_4 & 0xFF, ti_5 & 0xFF, ti_6 & 0xFF, ti_7 & 0xFF
+         #d8 ti_4 & 0xFF, ti_5 & 0xFF, ti_6 & 0xFF, ti_7 & 0xFF, ti_8 & 0xFF
 TITLE_H: #d8 ti_0 >> 8, ti_1 >> 8, ti_2 >> 8, ti_3 >> 8
-         #d8 ti_4 >> 8, ti_5 >> 8, ti_6 >> 8, ti_7 >> 8
+         #d8 ti_4 >> 8, ti_5 >> 8, ti_6 >> 8, ti_7 >> 8, ti_8 >> 8
 TEXT_COL: #d8 17, LIST_COL, LIST_COL, LIST_COL, SEC_COL + 4, LIST_COL, 0
 TEXT_ROW: #d8 3, 7, 28, SEC_ROW, SEC_ROW, 33
 TEXT_L:  #d8 tx_0 & 0xFF, tx_1 & 0xFF, tx_2 & 0xFF, tx_3 & 0xFF, tx_4 & 0xFF, tx_5 & 0xFF
@@ -552,11 +555,13 @@ nm_4:    #d "BOING.PLC", 0x00
 nm_5:    #d "WIRE3D.PLC", 0x00
 nm_6:    #d "RAYCAST.PLC", 0x00
 nm_7:    #d "SCROLLER.PLC", 0x00
+nm_8:    #d "RAYTEX.PLC", 0x00
+ti_8:    #d " 9  Textured maze   the ray caster with textured walls and floors", 0x00
 
 #addr 0x0500
 tx_0:    #d "P L A C A R D       D E M O       P R O G R A M S", 0x00
 tx_1:    #d "Pick a program:", 0x00
-tx_2:    #d "Up / Down or 1-8 choose, Enter runs it.  Esc in a program comes back.", 0x00
+tx_2:    #d "Up / Down or 1-9 choose, Enter runs it.  Esc in a program comes back.", 0x00
 
 
 #addr 0x0600
@@ -577,3 +582,4 @@ ti_4:    #d " 5  Boing ball      the Amiga classic, 60 frames a second", 0x00
 ti_5:    #d " 6  3D ships        Elite-style wireframe and filled ships", 0x00
 ti_6:    #d " 7  Ray caster      a first-person 3D maze in 256 colors", 0x00
 ti_7:    #d " 8  Runner          side scroller: 4 parallax layers, software sprites", 0x00
+
