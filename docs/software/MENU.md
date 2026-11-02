@@ -24,6 +24,7 @@ library, and the DOS and the demos are files.
 | 7 | Ray caster (`gen_raycast.py --sd`) | `RAYCAST.PLC` | never: 2 minutes in turn |
 | 8 | Runner, the side scroller (`gen_scroller.py --sd`) | `SCROLLER.PLC` (and `SCROLLER.OVL`) | never: 2 minutes in turn |
 | 9 | Textured maze, the textured ray caster (`gen_raycast_tex.py --sd`) | `RAYTEX.PLC` (and `RAYTEX.OVL`) | never: 2 minutes in turn |
+| 10 (key 0) | Video test, the text demo (`gen_text_demo_sd.py`) | `TEXT.PLC` | never: 2 minutes in turn |
 
 - At power-up the programs run **in turn**, in the order above: each one
   until it is done or for 2 minutes (Mandelbrot 3, so it finishes), then
@@ -33,7 +34,7 @@ library, and the DOS and the demos are files.
   `menu_hook.py`, that reads the PS/2 receiver once per frame and looks
   for Esc's make code).
 - In the menu, **Up / Down** move the highlight and **Enter** (or Space)
-  runs the highlighted program; **1-9** run that program at once.  A
+  runs the highlighted program; **1-9** and **0** (program 10) run that program at once.  A
   program picked from the menu has no time limit: it runs until Esc (a
   program that finishes stays on its result).
 - With **no key for 2 minutes** in the menu, it goes back to running them
@@ -44,12 +45,10 @@ library, and the DOS and the demos are files.
 - The highlighted program sits on a blue bar and the title on a gold band
   (row tints, mode byte bits 6:4, [VIDEO.md](../video/VIDEO.md#row-tint)).
 
-The ray caster, the side scroller and the textured ray caster were ROM
-programs; their generators now also make card versions (`--sd`, below).
-The text demo is not in the menu: its live RAM test covers the RAM a card
-program runs from ([DOS.md](DOS.md#not-done-yet)).  It, and the ROM
-versions of the others, still build each as its own 64K development image
-(`build\text_demo.bat`, `build\raycast_tex.bat` and so on).
+The ray caster, the side scroller, the textured ray caster and the text
+demo were ROM programs; their generators now also make card versions
+(below).  The ROM versions still build each as its own 64K development
+image (`build\text_demo.bat`, `build\raycast_tex.bat` and so on).
 
 ### The ray casters and the scroller on the card
 
@@ -90,7 +89,24 @@ versions of the others, still build each as its own 64K development image
   map FF only from the texture column copy through the scaler.  The
   scalers are the same as the ROM build's, so each view is the same, and
   `test_raycast_tex_sim.py --sd` boots it from a card and checks every
-  view against the model.  Loading the OVL takes about 0.4 s.
+  view against the model.  Loading the OVL takes about 0.4 s.  T turns
+  the textures off (each wall one flat color, its texture's commonest
+  texel, still shaded) and on again, in the ROM build too.
+
+### The text demo on the card
+
+`TEXT.PLC` (`python gen_text_demo_sd.py`, which writes `text_demo_sd.asm`
+too) is `text_demo.asm` unchanged but for its addresses and the RAM test.
+The 60 pages the demo uses in ROM x6000-xB0FF move into RAM
+x0100-x3AFF (pages that run on into the next stay together, x1F00 is
+left out), and the RAM test covers only the free RAM: x3B00-x4CFF,
+x5400-x59FF and x5C00-x5CFF (25 pages, 6.25 KB; the "RAM AREA" line says
+so).  It leaves out the program itself, LIB_RAM, the FAT driver's
+variables and sector buffer (x4D00-x4FFF, the DOS's files stay open), the
+I/O window, the mode bytes, the menu block and the audio buffer.
+`text_demo_sim.py --sd` boots it from a card and checks the screen, the
+RAM test passes (and, with `--fault`, a failing bit) and Esc back to the
+DOS.
 
 ## How a program is run
 

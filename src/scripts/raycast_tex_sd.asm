@@ -70,7 +70,9 @@
 ;
 ; CONTROLS
 ;     As raycast.asm: arrow keys or SNES pad 1, Up / Down walk, Left / Right
-;     turn; the demo walk runs at start and after 10 s with no input.
+;     turn; the demo walk runs at start and after 10 s with no input.  T
+;     (keyboard) turns the textures off and on: off, each wall is one flat
+;     color (FLAT: its texture's commonest texel, through the same shading).
 ;
 ; Date: 11/02/2026
 
@@ -142,6 +144,8 @@ widx       = 0x58       ; (side << 4) | quadrant: hit table index
 hpos       = 0x59       ; low byte of the coordinate along the wall
 xb         = 0x5A       ; texture column: k * 32 + u
 shp        = 0x5B       ; shading table page
+flat       = 0x5C       ; 1: flat colors (T), 0: textures
+tkey       = 0x5D       ; T key last view: 0 = down, 8 = up
 zt         = 0x68       ; x68-x87: the texture column, shaded
 
 DDXL       = 0x1A00
@@ -309,6 +313,10 @@ m_s1:
     ld   con_puts >> 8, y
     jmp  con_puts
 m_s2:
+    ld   hop_1 >> 8, y
+    jmp  hop_1                  ; (to the next page)
+#addr 0x2100
+hop_1:
     ld   0, ac                 ; the player
     ld   ac, [pa]
     ld   128, ac
@@ -328,12 +336,11 @@ m_s2:
     ld   ac, [idle_hi]
     ld   ac, [views_lo]
     ld   ac, [views_hi]
+    ld   ac, [flat]             ; textures on
+    ld   8, ac
+    ld   ac, [tkey]
     ld   40, ac
     ld   ac, [sc_n]
-    ld   hop_1 >> 8, y
-    jmp  hop_1                  ; (to the next page)
-#addr 0x2100
-hop_1:
     ld   LINK_LO, x             ; CALL frame_poll
     ld   m_fp, [x]
     ld   LINK_HI, x
@@ -442,6 +449,18 @@ v_k3:
     or   8, ac
     ld   ac, [inp]
 v_k4:
+    ld   [KBD_NOW + 2], ac      ; T (column 2, row 3): textures on / off
+    and  0x08, ac               ;   when it goes down
+    bne  v_t1
+    ld   [tkey], ac
+    beq  v_t2                   ; (still down from the last view)
+    ld   [flat], ac
+    xor  1, ac
+    ld   ac, [flat]
+    clr  ac
+v_t1:
+    ld   ac, [tkey]
+v_t2:
     ld   [inp], ac              ; any input: the player drives, idle = 0
     beq  v_idle
     clr  ac
@@ -1463,6 +1482,11 @@ p_lit:
     ld   [xb], x
     ld   0x50, y                ; map FF: the textures and scalers are in the
     ld   0xFF, [y,x]            ;   video RAM (col_next puts MAP_SHADOW back)
+    ld   [flat], ac             ; T: one flat color for the type, no texture
+    beq  f_tex
+    ld   f_flat >> 8, y
+    jmp  f_flat
+f_tex:
     ld   0xC0, y      ; texel row 0 ... 31, shaded
     ld   [y,x], ac
     ld   ac, x
@@ -1498,6 +1522,10 @@ p_lit:
     ld   [y,x], ac
     ld   ac, [zt + 4]
     ld   [xb], x
+    ld   hop_5 >> 8, y
+    jmp  hop_5                  ; (to the next page)
+#addr 0x2D00
+hop_5:
     ld   0xCA, y
     ld   [y,x], ac
     ld   ac, x
@@ -1505,10 +1533,6 @@ p_lit:
     ld   [y,x], ac
     ld   ac, [zt + 5]
     ld   [xb], x
-    ld   hop_5 >> 8, y
-    jmp  hop_5                  ; (to the next page)
-#addr 0x2D00
-hop_5:
     ld   0xCC, y
     ld   [y,x], ac
     ld   ac, x
@@ -1656,6 +1680,10 @@ hop_5:
     ld   [y,x], ac
     ld   ac, [zt + 26]
     ld   [xb], x
+    ld   hop_6 >> 8, y
+    jmp  hop_6                  ; (to the next page)
+#addr 0x2E00
+hop_6:
     ld   0xF6, y
     ld   [y,x], ac
     ld   ac, x
@@ -1663,10 +1691,6 @@ hop_5:
     ld   [y,x], ac
     ld   ac, [zt + 27]
     ld   [xb], x
-    ld   hop_6 >> 8, y
-    jmp  hop_6                  ; (to the next page)
-#addr 0x2E00
-hop_6:
     ld   0xF8, y
     ld   [y,x], ac
     ld   ac, x
@@ -1695,6 +1719,54 @@ hop_6:
     ld   [y,x], ac
     ld   ac, [zt + 31]
     ld   [xb], x
+    ld   ceil_stub >> 8, y
+    jmp  ceil_stub
+f_flat:
+    ld   [wv], ac               ; FLAT[type], shaded, into all 32 texels
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    add  FLAT & 0xFF, ac
+    ld   ac, x
+    ld   FLAT >> 8, y
+    ld   [y,x], ac
+    ld   ac, x
+    ld   [shp], y
+    ld   [y,x], ac
+    ld   ac, [zt + 0]
+    ld   ac, [zt + 1]
+    ld   ac, [zt + 2]
+    ld   ac, [zt + 3]
+    ld   ac, [zt + 4]
+    ld   ac, [zt + 5]
+    ld   ac, [zt + 6]
+    ld   ac, [zt + 7]
+    ld   ac, [zt + 8]
+    ld   ac, [zt + 9]
+    ld   ac, [zt + 10]
+    ld   ac, [zt + 11]
+    ld   ac, [zt + 12]
+    ld   ac, [zt + 13]
+    ld   ac, [zt + 14]
+    ld   ac, [zt + 15]
+    ld   ac, [zt + 16]
+    ld   ac, [zt + 17]
+    ld   ac, [zt + 18]
+    ld   ac, [zt + 19]
+    ld   ac, [zt + 20]
+    ld   ac, [zt + 21]
+    ld   ac, [zt + 22]
+    ld   ac, [zt + 23]
+    ld   ac, [zt + 24]
+    ld   ac, [zt + 25]
+    ld   ac, [zt + 26]
+    ld   ac, [zt + 27]
+    ld   ac, [zt + 28]
+    ld   ac, [zt + 29]
+    ld   ac, [zt + 30]
+    ld   ac, [zt + 31]
     ld   ceil_stub >> 8, y
     jmp  ceil_stub
 col_next:
@@ -10736,6 +10808,9 @@ FPS_O      = 0x5440
     #d8 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x30, 0x30, 0x30
 SCRIPT     = 0x5480
     #d8 0x28, 0x00, 0x3C, 0x01, 0x18, 0x08, 0x46, 0x01, 0x20, 0x04, 0x3C, 0x01, 0x30, 0x08, 0x5A, 0x01, 0x28, 0x04, 0x32, 0x01, 0x40, 0x08, 0x50, 0x01, 0x1E, 0x09, 0x28, 0x01, 0x2D, 0x04, 0x46, 0x01, 0x5A, 0x08, 0x28, 0x00, 0x3C, 0x01, 0x24, 0x05, 0x3C, 0x01, 0x14, 0x04, 0x64, 0x01, 0x00
+FLAT       = 0x54F0                ; flat color (texel value) by type
+#addr FLAT
+    #d8 0x00, 0x8D, 0x45, 0x6D, 0x72, 0x8C, 0x61, 0xAF
 RATE_COL   = 0
 MODE_COL   = 67
 
@@ -10744,7 +10819,7 @@ s_title: #d "PLACARD TEXTURED RAY CASTER           ALL SOFTWARE: NO SPRITE OR 3D
 s_rate:  #d "   VIEWS A SECOND    80 X 112 CELLS, 8 BPP, 7 TEXTURES 32 X 32", 0x00
 s_demo:  #d "DEMO WALK   ", 0x00
 s_you:   #d "YOU DRIVE   ", 0x00
-s_keys:  #d "ARROWS OR SNES PAD 1: UP/DOWN WALK, LEFT/RIGHT TURN.  10 S IDLE: DEMO. ESC: DOS", 0x00
+s_keys:  #d "ARROWS OR PAD 1: WALK AND TURN.  T: TEXTURES ON/OFF.  10 S IDLE: DEMO.  ESC: DOS", 0x00
 
 #addr 0x5700                     ; ceiling run: enter at ceil_e0 + 4h, rows g = 55-h .. 0
 ceil_stub:

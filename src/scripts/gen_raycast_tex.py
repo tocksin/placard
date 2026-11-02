@@ -64,7 +64,9 @@ MEMORY
 
 CONTROLS
     As raycast.asm: arrow keys or SNES pad 1, Up / Down walk, Left / Right
-    turn; the demo walk runs at start and after 10 s with no input.
+    turn; the demo walk runs at start and after 10 s with no input.  T
+    (keyboard) turns the textures off and on: off, each wall is one flat
+    color (FLAT: its texture's commonest texel, through the same shading).
 
 Date: 11/02/2026
 """
@@ -412,6 +414,7 @@ def tables():
 
 
 T = tables()
+T['flat'] = [max(set(sum(tex, [])) - {0}, key=sum(tex, []).count) for tex in T['tex']]   # commonest texel but black
 
 
 def hit_tables():
@@ -498,7 +501,7 @@ def cast(pa, px, py, c):
     return dict(h=h, side=side, typ=v >> 5, q=q, alo=a & 255, dist=dist)
 
 
-def column(pa, px, py, c, hs):
+def column(pa, px, py, c, hs, flat=False):
     """-> the 112 bytes of view column c, top to bottom"""
     r = cast(pa, px, py, c)
     i = (r['side'] << 4) | r['q']
@@ -510,7 +513,10 @@ def column(pa, px, py, c, hs):
     u = (frac >> 3) ^ HFL[i]
     xb = (r['typ'] - 1) * 32 + u
     sh = T['shade'][r['side'] * 4 + level(r['h'])]
-    zt = [sh[T['tex'][r['typ'] - 1][t][u]] for t in range(32)]
+    if flat:
+        zt = [sh[T['flat'][r['typ'] - 1]]] * 32
+    else:
+        zt = [sh[T['tex'][r['typ'] - 1][t][u]] for t in range(32)]
     hq = quantize(r['h'], hs)
     hv = min(hq, HALF)
     out = []
@@ -525,11 +531,11 @@ def column(pa, px, py, c, hs):
     return out
 
 
-def view_bytes(pa, px, py, hs):
-    """{address: byte} of the whole view"""
+def view_bytes(pa, px, py, hs, flat=False):
+    """{address: byte} of the whole view; flat: T pressed, one color a wall"""
     out = {}
     for c in range(NCOL):
-        col = column(pa, px, py, c, hs)
+        col = column(pa, px, py, c, hs, flat)
         page = 0x6100 + c * 512
         for g in range(NROW):
             out[page + row_x(g)] = col[g]
@@ -585,6 +591,8 @@ ZP += '''widx       = 0x58       ; (side << 4) | quadrant: hit table index
 hpos       = 0x59       ; low byte of the coordinate along the wall
 xb         = 0x5A       ; texture column: k * 32 + u
 shp        = 0x5B       ; shading table page
+flat       = 0x5C       ; 1: flat colors (T), 0: textures
+tkey       = 0x5D       ; T key last view: 0 = down, 8 = up
 zt         = 0x%02X       ; x%02X-x%02X: the texture column, shaded
 ''' % (ZT, ZT, ZT + 31)
 
@@ -822,6 +830,9 @@ m_mb2:
     ld   ac, [idle_hi]
     ld   ac, [views_lo]
     ld   ac, [views_hi]
+    ld   ac, [flat]             ; textures on
+    ld   8, ac
+    ld   ac, [tkey]
     ld   %d, ac
     ld   ac, [sc_n]''' % (START['pa'], START['px'] & 255, START['px'] >> 8,
                           START['py'] & 255, START['py'] >> 8, SCRIPT[0][0]))
@@ -906,6 +917,19 @@ v_k3:
     or   8, ac
     ld   ac, [inp]
 v_k4:''')
+    a.g('''
+    ld   [KBD_NOW + 2], ac      ; T (column 2, row 3): textures on / off
+    and  0x08, ac               ;   when it goes down
+    bne  v_t1
+    ld   [tkey], ac
+    beq  v_t2                   ; (still down from the last view)
+    ld   [flat], ac
+    xor  1, ac
+    ld   ac, [flat]
+    clr  ac
+v_t1:
+    ld   ac, [tkey]
+v_t2:''')
     a.g('''
     ld   [inp], ac              ; any input: the player drives, idle = 0
     beq  v_idle
@@ -1402,6 +1426,12 @@ p_lit:
     ld   [xb], x''' + ('''
     ld   0x50, y                ; map FF: the textures and scalers are in the
     ld   0xFF, [y,x]            ;   video RAM (col_next puts MAP_SHADOW back)''' if sd else ''))
+    a.g('''
+    ld   [flat], ac             ; T: one flat color for the type, no texture
+    beq  f_tex
+    ld   f_flat >> 8, y
+    jmp  f_flat
+f_tex:''')
     # the texture column: 32 texels through the shading table to zero page
     for t in range(32):
         page = ('0x%02X' % SD_TEXROW[t]) if sd else '(TEXB >> 8) + %d' % t
@@ -1413,6 +1443,23 @@ p_lit:
     ld   [y,x], ac
     ld   ac, [zt + %d]
     ld   [xb], x''' % (page, '      ; texel row 0 ... 31, shaded' if t == 0 else '', t))
+    a.jump('ceil_stub')
+    a.g('''
+f_flat:
+    ld   [wv], ac               ; FLAT[type], shaded, into all 32 texels
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    add  FLAT & 0xFF, ac
+    ld   ac, x
+    ld   FLAT >> 8, y
+    ld   [y,x], ac
+    ld   ac, x
+    ld   [shp], y
+    ld   [y,x], ac
+''' + '\n'.join('    ld   ac, [zt + %d]' % t for t in range(32)))
     a.jump('ceil_stub')
     a.g(('''
 col_next:
@@ -1676,6 +1723,10 @@ b_nx:
         sc += [n, b]
     sc.append(0)
     a.raw('    #d8 ' + ', '.join('0x%02X' % v for v in sc))
+    assert len(sc) <= 0x70
+    a.raw('FLAT       = 0x%04X                ; flat color (texel value) by type' % (PAGE['MISC'] + 0xF0))
+    a.raw('#addr FLAT')
+    a.raw('    #d8 ' + ', '.join('0x%02X' % v for v in [0] + T['flat']))
     a.raw('RATE_COL   = 0')
     a.raw('MODE_COL   = 67')
 
@@ -1686,9 +1737,9 @@ b_nx:
     a.raw('s_demo:  #d "DEMO WALK   ", 0x00')
     a.raw('s_you:   #d "YOU DRIVE   ", 0x00')
     if sd:
-        a.raw('s_keys:  #d "ARROWS OR SNES PAD 1: UP/DOWN WALK, LEFT/RIGHT TURN.  10 S IDLE: DEMO. ESC: DOS", 0x00')
+        a.raw('s_keys:  #d "ARROWS OR PAD 1: WALK AND TURN.  T: TEXTURES ON/OFF.  10 S IDLE: DEMO.  ESC: DOS", 0x00')
     else:
-        a.raw('s_keys:  #d "ARROW KEYS OR SNES PAD 1: UP/DOWN WALK, LEFT/RIGHT TURN.  10 S IDLE: DEMO WALK", 0x00')
+        a.raw('s_keys:  #d "ARROW KEYS OR SNES PAD 1: WALK AND TURN.  T: TEXTURES ON/OFF.  10 S IDLE: DEMO", 0x00')
 
     # ------------------------------------------------------------- store runs
     a.raw('')
