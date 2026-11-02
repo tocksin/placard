@@ -122,3 +122,32 @@ everything else `(type route)`. Freerouting 2.1.0 did not optimise the existing 
 merged onto the stripped bench (`bench/wb4_fr.score`): 0 open by our connectivity check, 41.51 m / 674 vias, 69 self-parallel
 places, 3.7 % diagonal: worse than wb4 (38.96 m / 656) on every count. The only combination that beats v4 on vias is
 Freerouting first and v4 closing its leftovers (531 vias, +2 m, one clearance fault).
+
+## Round 4 (2026-11-02, branch-084): the via gap
+Goal: close the via gap to Freerouting-first (531) without its extra track. What worked is a **via-cost ladder**: after the
+normal tidy, further whole-board tidy rounds (net + chain + pair passes) with a rising via cost and `AGAINST=2`, each starting
+from the previous result. `run_wb.bat` now runs it by default (`LADDER=400 800 1600`, `LADDER=none` to skip); each round is
+about 2 h on 4 CPU cores. Score scope `NETS=@bench/wb.nets` (BASE prefixes no longer match across rounds).
+
+| wb4 stage | track | vias | detour > 2 | DRC |
+|---|---|---|---|---|
+| tidy as before (`wb4_tidy.score`, VIA 120) | 38.96 m | 656 | 0 | clean |
+| + ladder VIA 400 (`wb4_v400.score`) | 39.54 m | 588 | 0 | |
+| + ladder VIA 800 (`wb4_v800.score`, `wb4_v800_results.kicad_pcb.zip`) | 39.98 m | 541 | 0 | clean (`wb4_v800_c45_drc.json`) |
+| + ladder VIA 1600 (`wb4_v1600.score`, `wb4_v1600_results.kicad_pcb.zip`) | 40.51 m | 524 | 1 | clean (`wb4_v1600_c45_drc.json`) |
+| Freerouting first + v4 finishing | 40.95 m | 531 | | 1 clearance fault |
+| Justin's hand layout, same scope | 41.18 m | 946 | | clean |
+
+The VIA 800 board (541 vias, -17.5 % vias for +2.6 % track against wb4, 1.2 m shorter than Justin's with 43 % fewer vias) is
+now `kicad/placard_autorouted.kicad_pcb`; the VIA 1600 board is the alternative when vias matter more than the last 0.5 m.
+
+Tried and kept as options only:
+- `tidy.py SHOVE=8` (off by default): a chain with a via tries to shove a neighbouring chain's straight run sideways by up to
+  8 cells and re-route itself; neighbours are found within `NEIGHMM=1.0` mm. r1: 546 -> 522 vias and -0.4 m in 21 min; whole
+  board: 588 -> 584 in 2 h. Not worth its time on the whole board once the ladder has run.
+- Fine grid (`GRID=0.0625`, `run_wb_fine.bat`): tidy on the fine grid of a 0.125 route took 6 h for 656 -> 575 vias and left
+  32 nets open (chains dropped as redundant); the chain bbox now holds the via disk at any grid, but fine-grid tidy of coarse
+  routes stays unsupported. **Bug fixed on the way:** `mroute4.py`'s fast occupancy stamps had their radii in cells for the
+  0.125 grid (4.44/6.44/8.44), so on the fine grid every clearance stamp was half size and the first fine-grid whole-board
+  route had 2508 clearance collisions; the radii now scale with `GRID` (3-net fine-grid test: 0 collisions). The fine-grid
+  whole-board route itself (router at GRID 0.0625 on the laptop GPU) is reported below when it finishes.

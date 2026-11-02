@@ -1,0 +1,13 @@
+grid 2352 1744
+rasterised 1583 items 1.7 s
+net pass 0: 19 nets improved, cost gain 5172, 727 s
+net pass 1: 6 nets improved, cost gain 884, 738 s
+pass 0: 5 chains improved, 0 dropped, cost gain 3175, 379 s
+pass 1: 4 chains improved, 0 dropped, cost gain 3653, 370 s
+pass 2: 2 chains improved, 0 dropped, cost gain 618, 365 s
+pass 3: 0 chains improved, 0 dropped, cost gain 0, 365 s
+pair pass 0: 17 chain pairs improved, cost gain 4630, 896 s
+pair pass 1: 1 chain pairs improved, cost gain 41, 840 s
+pair pass 2: 0 chain pairs improved, cost gain 0, 874 s
+vias 541 -> 524, cells 325355 -> 329820, 6283 s
+wrote t5.kicad_pcb segments 4814 vias 524
