@@ -713,7 +713,7 @@ def sheet_memory(b):
     decap(s, 11, 198.12, 58.42, lift=0)
     u12 = s.part("placard:ATF22V10C_IO_DECODE", "U12", 154.94, 208.28, pld({
         1: "~{WE}", 2: "PIXEL_ENABLE", 3: "PC_ENABLE", 4: "PC15", 5: "H9", 6: "Y7", 7: "ADDR14", 8: "ADDR13",
-        9: "ADDR12", 10: "ADDR10", 11: "ADDR9", 13: "ADDR8", 14: "Y_ENABLE", 18: "ADDR11", 23: "~{LOAD_IMM}",
+        9: "ADDR12", 10: "ADDR10", 11: "ADDR9", 13: "ADDR8", 14: "Y_ENABLE", 18: "ADDR11", 23: "Q0",
         15: "~{CE_HI}", 16: "~{MAP_WR}", 17: "~{LINE_RD}", 19: "~{PORT_WR}", 20: "~{PORT_RD}",
         21: "~{EXP1}", 22: "~{EXP2}"}), bare=("1", "15", "16"))
     decap(s, 12, 121.92, 172.72, lift=0)      # left of VCC: /MAP_WR goes up on the right

@@ -29,7 +29,7 @@ stops if a pin is missing from it); the file is KiCad 7 format.
 
 symbol() is also used by gen_kicad_parts.py for the other project symbols.
 
-Date: 2026-10-25
+Date: 2026-11-02
 """
 
 import os
@@ -90,7 +90,7 @@ LAYOUT = {
     ],
     "ATF22V10_IO_DECODE": [
         (["PIXEL_ENABLE", "PC_ENABLE", "Y_ENABLE", "PC15", "H9", "Y7"], ["MAP_WR", None, "CE_HI"]),
-        (["A14", "A13", "A12", "A11", "A10", "A9", "A8", None, "LOAD_IMM", "WE_N"],
+        (["A14", "A13", "A12", "A11", "A10", "A9", "A8", None, "Q0", "WE_N"],
          ["LINE_RD", None, "PORT_WR", None, "PORT_RD", None, "EXP1", None, "EXP2"]),
     ],
     "ATF22V10_MEM_CTRL": [

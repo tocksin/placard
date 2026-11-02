@@ -335,7 +335,7 @@
 				(pin input line
 					(at -25.4 -17.78 0)
 					(length 2.54)
-					(name "/LOAD_IMM"
+					(name "Q0"
 						(effects
 							(font
 								(size 1.8 1.8)
@@ -9411,7 +9411,7 @@
 			)
 		)
 	)
-	(global_label "~{LOAD_IMM}"
+	(global_label "Q0"
 		(shape input)
 		(at 110.49 226.06 180)
 		(fields_autoplaced yes)
