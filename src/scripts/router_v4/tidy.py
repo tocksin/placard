@@ -12,7 +12,9 @@ env: VIA=200 (via cost in cells, higher than the router's to trade length for vi
      run sideways by up to SHOVE cells (legs added at both ends) and re-route itself; kept when the pair is cheaper.
      NETPASS=1: whole-net polish before the chain passes: every net is lifted entirely and re-routed from scratch
      against everything else (largest component first, nearest other component each step, hard A*); kept when the
-     whole net is cheaper. Finds the shorter tree that chain-by-chain moves cannot reach. NETPASSES=2 rounds."""
+     whole net is cheaper. Finds the shorter tree that chain-by-chain moves cannot reach. NETPASSES=2 rounds.
+     BUDGET=budgets.json (budgets.py): no move is kept that puts a budgeted net further over its track-length budgets
+     (summed mm over budget may not grow by more than 0.1 mm)."""
 import sys, math, os, time
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
@@ -26,6 +28,21 @@ def netlist(spec):
 b0,n0,_f,_p,_e=load(src); nid0={v:k for k,v in n0.items()}
 g=Grid(src,BASE,scope={nid0[x] for x in netlist(NETS) if x in nid0} if NETS else None)
 nets=g.nets
+BUD=E('BUDGET'); BG=None; EXC={}
+if BUD:
+    import lenbudget
+    BG=lenbudget.Budgets(g,BUD,float(E('BUDGETSLACK','0'))); EXC={n:BG.excess(n)[0] for n in BG.nets()}
+    print(f'length budgets: {len(EXC)} nets, {sum(1 for v in EXC.values() if v>0)} over budget by {sum(EXC.values()):.0f} mm',flush=True)
+def bud_ok(*ns):
+    """True when none of the nets went further over its length budgets (and records the new excess)"""
+    if not BG: return True
+    new={}
+    for n in ns:
+        if n in EXC:
+            e=BG.excess(n)[0]
+            if e>EXC[n]+0.1: return False
+            new[n]=e
+    EXC.update(new); return True
 from scipy.ndimage import binary_dilation
 from gridcore import _disk
 DK_T=_disk(W/2/G); DK_V=_disk(VD/2/G)
@@ -114,7 +131,7 @@ def pair_net(n):
             nc=g.path_cost(newp)+(0 if dropq else g.path_cost(newq))
             if nc<oc+oq-MINGAIN:
                 if not dropq: g.set_route(m,g.routes[m]+[newq])
-                gain+=oc+oq-nc; changed+=1; break
+                if bud_ok(n,m): gain+=oc+oq-nc; changed+=1; break
             g.set_route(n,keep_n); g.set_route(m,keep_m)
     return gain,changed
 def polish_net(n):
@@ -142,7 +159,7 @@ def polish_net(n):
     la,lb=g.components(n)
     if len(np.unique(np.concatenate([la[la>0],lb[lb>0]])))>1: g.set_route(n,paths); return 0.0,0
     nc=sum(g.path_cost(p) for p in new)
-    if nc<oc-MINGAIN: rechain(n); return oc-nc,1
+    if nc<oc-MINGAIN and bud_ok(n): rechain(n); return oc-nc,1
     g.set_route(n,paths); return 0.0,0
 def runs(path):
     out=[]; i=0
@@ -186,7 +203,9 @@ def shove_net(n):
                     if newp is not None and not drop:
                         nc=g.path_cost(newp)+g.path_cost(nq)
                         if nc<oc+oq-MINGAIN and g.path_vias(newp)<g.path_vias(path):
-                            g.set_route(n,[p for p in keep_n if p is not path]+[newp]); gain+=oc+oq-nc; changed+=1; done=True; break
+                            g.set_route(n,[p for p in keep_n if p is not path]+[newp])
+                            if bud_ok(n,m): gain+=oc+oq-nc; changed+=1; done=True; break
+                            g.set_route(n,[p for p in keep_n if p is not path])
                     g.set_route(m,[p for p in keep_m if p is not q])
                 if done: break
             if done: rechain(m); break
@@ -203,9 +222,14 @@ def tidy_net(n):
         oc=g.path_cost(path)
         newp,drop=reroute_chain(n,path)
         if drop:
-            new=[p for p in g.routes[n] if p is not path]; g.set_route(n,new); gain+=oc; dropped+=1; continue
+            old=list(g.routes[n]); new=[p for p in old if p is not path]; g.set_route(n,new)
+            if bud_ok(n): gain+=oc; dropped+=1
+            else: g.set_route(n,old)
+            continue
         if newp and g.path_cost(newp)<oc-MINGAIN:
-            new=[p for p in g.routes[n] if p is not path]+[newp]; g.set_route(n,new); gain+=oc-g.path_cost(newp); changed+=1
+            old=list(g.routes[n]); new=[p for p in old if p is not path]+[newp]; g.set_route(n,new)
+            if bud_ok(n): gain+=oc-g.path_cost(newp); changed+=1
+            else: g.set_route(n,old)
     return gain,changed,dropped
 tot_before={n:(sum(g.path_vias(p) for p in g.routes[n]),sum(len(p) for p in g.routes[n])) for n in g.scope}
 if NETPASS:
@@ -253,4 +277,5 @@ if SHOVE:
 vb=sum(v for v,_ in tot_before.values()); va=sum(sum(g.path_vias(p) for p in g.routes[n]) for n in g.scope)
 cb=sum(c for _,c in tot_before.values()); ca=sum(sum(len(p) for p in g.routes[n]) for n in g.scope)
 print(f'vias {vb} -> {va}, cells {cb} -> {ca}, {time.time()-t0:.0f} s')
+if BG: print(f'length budgets after tidy: {sum(1 for v in EXC.values() if v>0)} nets over budget by {sum(EXC.values()):.0f} mm')
 g.write_out(dst)

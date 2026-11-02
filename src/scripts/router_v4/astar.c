@@ -25,10 +25,12 @@ static HE hpop(void){
 /* bt[2][ny][nx] blocked for track; bv[ny][nx] blocked for via; ct[2][ny][nx] cell cost; cvia[ny][nx] via cost;
    H[ny][nx] heuristic (distance to goal in cells); src/goal[2][ny][nx]; field[ny][nx] no horizontal moves.
    out: path as (l,iy,ix) triplets, goal first; returns length (triplets) or 0 if none; expanded in *ne. */
-int astar(int nx,int ny,int wx0,int wx1,int wy0,int wy1,
+/* astar2: as astar, with sinit[2][ny][nx] (may be NULL) = start cost of each source cell (length-budget repair: the copper
+   distance from the driver to that tree cell, so the search minimises driver-to-load length, not just the new branch) */
+int astar2(int nx,int ny,int wx0,int wx1,int wy0,int wy1,
           const uint8_t *bt,const uint8_t *bv,const float *ct,const float *cvia,const float *H,
           const uint8_t *src,const uint8_t *goal,float against,float bend,const uint8_t *field,
-          int32_t *out,int maxlen,int64_t *ne,int diag)
+          int32_t *out,int maxlen,int64_t *ne,int diag,const float *sinit)
 {
     size_t N=(size_t)nx*ny, N2=2*N;
     float *dist=malloc(N2*sizeof(float)); int32_t *prev=malloc(N2*sizeof(int32_t)); uint8_t *closed=calloc(N2,1);
@@ -37,7 +39,7 @@ int astar(int nx,int ny,int wx0,int wx1,int wy0,int wy1,
     hn=0;
     for(int l=0;l<2;l++) for(int iy=wy0;iy<wy1;iy++) for(int ix=wx0;ix<wx1;ix++){
         size_t c=(size_t)iy*nx+ix, s=l*N+c;
-        if(src[s] && !bt[s]){ dist[s]=0; hpush(H[c],(int32_t)s); }
+        if(src[s] && !bt[s]){ float d0=sinit?sinit[s]:0.0f; dist[s]=d0; hpush(d0+H[c],(int32_t)s); }
     }
     int64_t cnt=0; int32_t end=-1;
     while(hn){
@@ -75,4 +77,12 @@ int astar(int nx,int ny,int wx0,int wx1,int wy0,int wy1,
     }
     free(dist); free(prev); free(closed);
     return len;
+}
+
+int astar(int nx,int ny,int wx0,int wx1,int wy0,int wy1,
+          const uint8_t *bt,const uint8_t *bv,const float *ct,const float *cvia,const float *H,
+          const uint8_t *src,const uint8_t *goal,float against,float bend,const uint8_t *field,
+          int32_t *out,int maxlen,int64_t *ne,int diag)
+{
+    return astar2(nx,ny,wx0,wx1,wy0,wy1,bt,bv,ct,cvia,H,src,goal,against,bend,field,out,maxlen,ne,diag,NULL);
 }

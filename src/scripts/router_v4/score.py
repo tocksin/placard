@@ -2,7 +2,8 @@
 Scope: the nets given by NETS, else the nets whose copper was added after BASE (same file prefix), else every signal net.
 Per scope: open connections, track length, vias, detour ratio (track length / rectilinear spanning length of the pads),
 wrong-way share (F.Cu vertical / B.Cu horizontal, by length), diagonal share, bends, rule breaks (copper < EDGE mm from the
-outline, copper between a mounting hole and the edge), self-parallel places, clearance collisions, and the 8 worst nets."""
+outline, copper between a mounting hole and the edge), self-parallel places, clearance collisions, and the 8 worst nets.
+BUDGET=budgets.json (budgets.py): also the track-length budget breaks (pairs over budget, measured on the real tracks)."""
 import sys, os, math, json, re, collections
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
 from board import *
@@ -119,3 +120,15 @@ if edge_breaks: print('edge:',edge_breaks[:5])
 if band_breaks: print('hole band:',band_breaks[:5])
 if E('JSON'):
     json.dump(dict(total=tot,nets={nets[n]:{k:(round(v,2) if isinstance(v,float) else v) for k,v in p.items()} for n,p in per.items()}),open(E('JSON'),'w'),indent=1)
+if E('BUDGET'):
+    import tracklen
+    J=json.load(open(E('BUDGET'),encoding='utf-8')); keys=[(net,a,b) for net,fr in J.get('max',{}).items() for a,tos in fr.items() for b in tos]
+    keys=[k for k in keys if nid.get(k[0]) in scope]
+    got=tracklen.measure((b,nets,fps,pads,edges),keys)
+    over=sorted(((got[k]-J['max'][k[0]][k[1]][k[2]],k) for k in keys if got[k] is not None and got[k]>J['max'][k[0]][k[1]][k[2]]),reverse=True)
+    mins=[(net,a,bb,mm,got2) for net,fr in J.get('min',{}).items() if nid.get(net) in scope for a,tos in fr.items() for bb,mm in tos.items()
+          for got2 in [tracklen.measure((b,nets,fps,pads,edges),[(net,a,bb)])[(net,a,bb)]]]
+    print(f"\nlength budgets ({E('BUDGET')}): {len(keys)} pairs in scope, {len(over)} over budget by {sum(o for o,_ in over):.0f} mm, {sum(1 for k in keys if got[k] is None)} not connected")
+    for o,k in over[:12]: print(f'  {k[0]} {k[1]}->{k[2]}: {got[k]:.1f} mm, budget {J["max"][k[0]][k[1]][k[2]]:.1f} (+{o:.1f})')
+    for net,a,bb,mm,v in mins: print(f'  minimum {net} {a}->{bb}: {v if v is None else round(v,1)} mm (needs {mm})')
+
