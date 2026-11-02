@@ -488,7 +488,7 @@ def sheet_power(b):
     name(s, "CLK_E", nt2["1"][0] - 5.08, nt2["1"][1], 180)
     path(s, "CLK", nt2["2"], (nt2["2"][0] + 5.08, nt2["2"][1]))
     name(s, "CLK", nt2["2"][0] + 5.08, nt2["2"][1], 0)
-    note(s, 40, 224, ["NT2: CLK_E (X1, U15 pin 9) to CLK (every other chip) through",
+    note(s, 40, 224, ["NT2: CLK_E (X1, U15 pin 9, U11 pin 1) to CLK (every other chip) through",
                       "at least 420 mm of track (500 nominal): the RAM /WE's early clock."], size=2.2)
     # the cartridge's STALL and RUN: pull-ups, and jumpers for bring-up without a cartridge
     yj = 170.18
@@ -706,7 +706,7 @@ def sheet_memory(b):
                  footprint=FP_DIP20, bare=("11",))
     decap(s, 25, 45.72, 73.66, lift=0)
     u11 = s.part("placard:ATF22V10C_MEM_CTRL", "U11", 177.8, 101.6, pld({
-        1: "CLK", 2: "ADDR15", 3: "ADDR14", 4: "ADDR13", 5: "ADDR12", 6: "RAMSEL0", 7: "RAMSEL1", 8: "RAMSEL3",
+        1: "CLK_E", 2: "ADDR15", 3: "ADDR14", 4: "ADDR13", 5: "ADDR12", 6: "RAMSEL0", 7: "RAMSEL1", 8: "RAMSEL3",
         9: "RAMSEL4", 10: "RAMSEL5", 11: "RAMSEL6", 13: "RAMSEL7", 15: "RAMSEL2", 14: "RW",
         23: "PIXEL_ENABLE", 20: "ADDR11", 21: "ADDR10", 22: "~{SRC_EN}", 17: "RUN",
         16: None, 19: "~{ROM_OE}", 18: "~{RAM_OE}"}), bare=("18", "19"))

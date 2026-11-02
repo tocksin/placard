@@ -3194,7 +3194,7 @@
 		)
 		(uuid "3c2b8614-1a02-587e-9951-1ed7b79c6f7c")
 	)
-	(text "NT2: CLK_E (X1, U15 pin 9) to CLK (every other chip) through"
+	(text "NT2: CLK_E (X1, U15 pin 9, U11 pin 1) to CLK (every other chip) through"
 		(exclude_from_sim no)
 		(at 40 224 0)
 		(effects
