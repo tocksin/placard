@@ -432,10 +432,8 @@ brushed and anodized parts priced before 2026-10-27.
 | **Case, China sheet metal, open corner** | **$116-188** | **$76-124** | **$44-71** | **$29-49** |
 | **Case, US sheet metal, open corner** | **$182-298** | **$118-194** | **$63-108** | - |
 
-At 100 units that's about two to three times the $30 acrylic sandwich that
-`KIT_PRICING.md` assumed until 2026-10-28; it now prices the case at the
-middle of the China range ($62 at 100, plus tariff; set before the printed
-covers took about $3 off at 100, 2026-10-30).
+At 100 units that's about two to three times the cost of the $30 acrylic
+sandwich case planned before 2026-10-28.
 
 Weight: about 0.65 kg of aluminium, 0.25 kg of acrylic and 70 g of printed
 covers.
