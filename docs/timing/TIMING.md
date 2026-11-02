@@ -54,6 +54,15 @@ the ECS-100A oscillator is only specified to 40/60 %.
   PLD's pin 1 included.  The Sync PLD makes /WE from both: it falls with
   CLK and rises on CLK_E, about 3 ns ahead of everything clocked by CLK
   ([WE_TIMING.md](WE_TIMING.md)).
+- **Memory control PLD on CLK_E** (schematic 2026-11-02, timing fix 4; not
+  yet on the routed board, whose numbers below are from before): U11
+  pin 1 moves from CLK to the CLK_E tap next to X1, so /RAM_OE and /ROM_OE
+  fall and rise about 3.7 ns earlier.  That gives every read through /OE
+  (fetch, cartridge ROM fetch, operand, zero-page, video) its margin back
+  and lets the high half reach 53 % with 0.5 ns to spare on the new
+  placement (`src/scripts/router_v4/budgets.py U11E=1`).  The earlier /OE high
+  leaves the bus to its capacitance and the 10k pull-ups until the
+  capture edge, and shortens the memory/F541 overlap at the start of EXEC.
 - **Worst case**: datasheet maximum delays and minimum setup times at 0 to
   70 °C.  Hold checks use the datasheet minimums (PLD tPD 3.0, tCO 2.0).
 - **PLD pin feedback**: an equation that names another combinational

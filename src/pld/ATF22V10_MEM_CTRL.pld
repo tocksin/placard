@@ -68,6 +68,15 @@ Device   g22v10;
       20.5.  The WRITE paragraph below is kept for the record of
       the rule; the equation lives in the Sync PLD.
 
+   CLOCKED FROM CLK_E ON THE BOARD (2026-11-02, timing fix 4)
+      Pin 1 is wired to CLK_E, the early clock tap next to X1 (the
+      same tap as the Sync PLD), not to CLK after the NT2 delay
+      lead.  The read enables then fall about 3.7 ns earlier, which
+      gives the /OE reads back their margin (docs/timing/TIMING.md).
+      They also go high earlier; the data bus holds the value into
+      the capture edge on its capacitance (10k pull-ups).  The
+      equations are unchanged: "CLK" below is the signal on pin 1.
+
    SECTION 2 MAP BIT (revision 03)
       4000h - 4FFFh is mapped like the other sections, by RAMSEL2
       (map register Q2, pin 15).  Before, it was always RAM, because

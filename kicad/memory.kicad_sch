@@ -9169,7 +9169,7 @@
 			)
 		)
 	)
-	(global_label "CLK"
+	(global_label "CLK_E"
 		(shape input)
 		(at 134.62 124.46 180)
 		(fields_autoplaced yes)
