@@ -17,7 +17,7 @@ drives).  For each view it checks:
 and it prints the clocks a view and a column took.  Video stalls are not
 modeled (the board is about 10 % slower: 1 clock in 8 during active video).
 
-Date: 10/24/2026
+Date: 11/02/2026
 """
 
 import argparse
@@ -28,6 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import placard_sim as ps  # noqa: E402
 import gen_raycast_tex as rc  # noqa: E402
+import test_dos               # noqa: E402
 
 CLOCKS_PER_FRAME = 525 * 800
 
@@ -37,10 +38,21 @@ def main(argv):
     ap.add_argument('--views', type=int, default=30)
     ap.add_argument('--png')
     ap.add_argument('--gif')
+    ap.add_argument('--sd', action='store_true',
+                    help='the SD card program (RAYTEX.PLC + .OVL, gen_raycast_tex.py --sd), '
+                         'booted from a card as the board does')
     args = ap.parse_args(argv)
 
-    src, mem, syms, info = rc.build()
-    cpu = ps.Cpu({}, rom=ps.build_rom(mem))
+    src, mem, syms, info = rc.build(sd=args.sd)
+    if args.sd:
+        plc, ovl = rc.sd_files(mem, syms)
+        rig = test_dos.boot_plc('RAYTEX.PLC', plc, syms['main'], {'RAYTEX.OVL': ovl})
+        if rig is None:
+            return 1
+        cpu = rig.cpu
+        print('started at frame %d' % (cpu.clocks // CLOCKS_PER_FRAME))
+    else:
+        cpu = ps.Cpu({}, rom=ps.build_rom(mem))
     z = syms
     st = dict(rc.START)
     script = rc.Script()
@@ -109,6 +121,9 @@ def main(argv):
         frames[0].save(args.gif, save_all=True, append_images=frames[1:],
                        duration=int(1000 * avg / CLOCKS_PER_FRAME / 60), loop=0)
         print('wrote', args.gif, len(frames), 'frames')
+    if args.sd:
+        if not test_dos.esc_to_dos(rig):
+            ok = False
     print('OK' if ok else 'FAILED')
     return 0 if ok else 1
 

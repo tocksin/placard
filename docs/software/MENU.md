@@ -23,6 +23,7 @@ library, and the DOS and the demos are files.
 | 6 | 3D ships (`gen_wire3d.py`, [WIRE3D.md](WIRE3D.md)) | `WIRE3D.PLC` | never: 2 minutes in turn |
 | 7 | Ray caster (`gen_raycast.py --sd`) | `RAYCAST.PLC` | never: 2 minutes in turn |
 | 8 | Runner, the side scroller (`gen_scroller.py --sd`) | `SCROLLER.PLC` (and `SCROLLER.OVL`) | never: 2 minutes in turn |
+| 9 | Textured maze, the textured ray caster (`gen_raycast_tex.py --sd`) | `RAYTEX.PLC` (and `RAYTEX.OVL`) | never: 2 minutes in turn |
 
 - At power-up the programs run **in turn**, in the order above: each one
   until it is done or for 2 minutes (Mandelbrot 3, so it finishes), then
@@ -32,7 +33,7 @@ library, and the DOS and the demos are files.
   `menu_hook.py`, that reads the PS/2 receiver once per frame and looks
   for Esc's make code).
 - In the menu, **Up / Down** move the highlight and **Enter** (or Space)
-  runs the highlighted program; **1-8** run that program at once.  A
+  runs the highlighted program; **1-9** run that program at once.  A
   program picked from the menu has no time limit: it runs until Esc (a
   program that finishes stays on its result).
 - With **no key for 2 minutes** in the menu, it goes back to running them
@@ -43,16 +44,14 @@ library, and the DOS and the demos are files.
 - The highlighted program sits on a blue bar and the title on a gold band
   (row tints, mode byte bits 6:4, [VIDEO.md](../video/VIDEO.md#row-tint)).
 
-The ray caster and the side scroller were ROM programs; their generators
-now also make card versions (`--sd`, below).  The textured ray caster and
-the text demo are not in the menu: the textured ray caster needs all 32 KB
-of program ROM (its textures, shading tables and compiled scalers) and the
-text demo's live RAM test covers the RAM a card program runs from
-([DOS.md](DOS.md#not-done-yet)).  They, and the ROM versions of the
-others, still build each as its own 64K development image
-(`build\raycast_tex.bat`, `build\text_demo.bat` and so on).
+The ray caster, the side scroller and the textured ray caster were ROM
+programs; their generators now also make card versions (`--sd`, below).
+The text demo is not in the menu: its live RAM test covers the RAM a card
+program runs from ([DOS.md](DOS.md#not-done-yet)).  It, and the ROM
+versions of the others, still build each as its own 64K development image
+(`build\text_demo.bat`, `build\raycast_tex.bat` and so on).
 
-### The ray caster and the scroller on the card
+### The ray casters and the scroller on the card
 
 - `RAYCAST.PLC` (`python gen_raycast.py --sd`, which writes
   `raycast_sd.asm` too) is the same code and tables moved into the RAM:
@@ -75,6 +74,23 @@ others, still build each as its own 64K development image
   set up the port).  `test_raycast_sim.py --sd` and
   `test_scroller_sim.py --sd` boot each from a card image and check every
   frame against the models, as the ROM versions' tests do.
+- `RAYTEX.PLC` and `RAYTEX.OVL` (`python gen_raycast_tex.py --sd`, which
+  writes `raycast_tex_sd.asm` too) hold the 32 KB the ROM build keeps in
+  program ROM.  The file (x1E00-x3FFF) has the code at x2000-x309F, the
+  shading tables, the strings and the table sources that `build` reads to
+  make the height and distance tables (x0100-x1DFF and x4200-x46FF, as in
+  the ROM build).  After that, main reads `RAYTEX.OVL`, one sector to each
+  page pair in a list: the other page tables (into x3C00-x41FF,
+  x4800-x4BFF and x5400-x59FF, over the used table sources), then the
+  textures, the hit tables and the compiled scalers into the video RAM the
+  screen leaves free, as the scroller does.  Texel row t is the even page
+  of byte column 48 + t, with the seven textures in 32-byte slots around
+  the text rows' x20-x3F; the scalers fill x040-x17F of byte columns 0-46
+  and x100-x17F of columns 48-79.  The program runs with map 3F and sets
+  map FF only from the texture column copy through the scaler.  The
+  scalers are the same as the ROM build's, so each view is the same, and
+  `test_raycast_tex_sim.py --sd` boots it from a card and checks every
+  view against the model.  Loading the OVL takes about 0.4 s.
 
 ## How a program is run
 
