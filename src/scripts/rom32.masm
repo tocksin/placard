@@ -53,7 +53,7 @@
 ;     build\rom32.bat                         the FPGA, rom_32k.bin
 ;     python3 test_dos.py                     runs it with a card image
 ;
-; Date: 10/26/2026
+; Date: 11/02/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -212,6 +212,7 @@ stubs:
 
 .chunk  the title, the keyboard, a second for Esc
 pu_title:
+    CALL snd_init               ; the sound buffer powers up random: silence it
     CALL con_clear
     ld   s_title & 0xFF, ac
     ld   ac, [R0]
