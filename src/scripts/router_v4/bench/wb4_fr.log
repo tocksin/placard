@@ -1,0 +1,61 @@
+2026-11-01 19:02:31.639 INFO   Freerouting v2.1.0 (build-date: 2025-04-12)
+2026-11-01 19:02:31.739 WARN   No default constructor found for field: currentLocale
+2026-11-01 19:02:31.740 INFO   Settings were loaded from freerouting.json
+2026-11-01 19:02:33.042 INFO   New version available: v2.5.0
+2026-11-01 19:02:34.948 INFO   Opening 'bench/wb4_for_freerouting.dsn'...
+2026-11-01 19:02:42.250 INFO   [CB2BE7\A7172D] Starting routing of 'wb4_for_freerouting' on 1 thread...
+2026-11-01 19:22:26.070 INFO   [CB2BE7\A7172D] Auto-router pass #1 on board '6534033612db31ba1c4f49b05dcead31' was completed in 19 minutes 43.04 seconds with the score of 982.73 (46 unrouted).
+2026-11-01 19:23:30.822 INFO   [CB2BE7\A7172D] Auto-router pass #2 on board 'b481eb5d058ab08cc32dd2c772b84ee1' was completed in 1 minute 3.85 seconds with the score of 985.02 (25 unrouted).
+2026-11-01 19:24:07.342 INFO   [CB2BE7\A7172D] Auto-router pass #3 on board 'f03e7ece3cddcae1e016f0ca11589987' was completed in 35.67 seconds with the score of 985.13 (24 unrouted).
+2026-11-01 19:24:43.075 INFO   [CB2BE7\A7172D] Auto-router pass #4 on board 'f1842fcef66d74d410e492d4d6e8bca3' was completed in 34.81 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:25:01.233 INFO   [CB2BE7\A7172D] Auto-router pass #5 on board '3186f4dcf31cd9e6070652bc07250248' was completed in 17.36 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:25:19.861 INFO   [CB2BE7\A7172D] Auto-router pass #6 on board 'd4c1350cc405c8d616c33995b59c8ff8' was completed in 17.79 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:25:38.293 INFO   [CB2BE7\A7172D] Auto-router pass #7 on board '7d2de03f57e8c63388288109cbe36fc5' was completed in 17.44 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:25:57.946 INFO   [CB2BE7\A7172D] Restoring an earlier board that has the score of 986.44 (12 unrouted).
+2026-11-01 19:25:57.947 INFO   [CB2BE7\A7172D] Auto-router pass #8 on board 'd1d47f1a9e19f21d7134288c811c3a00' was completed in 18.79 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:26:11.819 INFO   [CB2BE7\A7172D] Auto-router pass #9 on board '3186f4dcf31cd9e6070652bc07250248' was completed in 13.54 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:26:26.352 INFO   [CB2BE7\A7172D] Auto-router pass #10 on board 'fa908a647393e37d3715e32f3095b579' was completed in 13.80 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:26:40.606 INFO   [CB2BE7\A7172D] Auto-router pass #11 on board '819d8d52ede778df900a563fa482369d' was completed in 13.55 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:26:56.311 INFO   [CB2BE7\A7172D] Restoring an earlier board that has the score of 986.44 (12 unrouted).
+2026-11-01 19:26:56.312 INFO   [CB2BE7\A7172D] Auto-router pass #12 on board 'f6326ee2b4a23dfcf3cf8ea260f6a8e9' was completed in 14.91 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:27:09.754 INFO   [CB2BE7\A7172D] Auto-router pass #13 on board '3186f4dcf31cd9e6070652bc07250248' was completed in 13.15 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:27:24.034 INFO   [CB2BE7\A7172D] Auto-router pass #14 on board 'b7fa65e4b91a72446f559685a9659908' was completed in 13.56 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:27:39.059 INFO   [CB2BE7\A7172D] Auto-router pass #15 on board '2a4559b89f17f8e1747d979928a5f4a4' was completed in 14.22 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:27:55.434 INFO   [CB2BE7\A7172D] Restoring an earlier board that has the score of 986.44 (12 unrouted).
+2026-11-01 19:27:55.435 INFO   [CB2BE7\A7172D] Auto-router pass #16 on board '3ab609d2dfff53e731524c3fe578bc48' was completed in 15.62 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:28:09.683 INFO   [CB2BE7\A7172D] Auto-router pass #17 on board '3186f4dcf31cd9e6070652bc07250248' was completed in 13.91 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:28:24.051 INFO   [CB2BE7\A7172D] Auto-router pass #18 on board '7a7ab2431c8dcbcc92dc0ec89ed5f859' was completed in 13.67 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:28:38.555 INFO   [CB2BE7\A7172D] Auto-router pass #19 on board '6403ce5f7bc4632a200c9c3273bfa11a' was completed in 13.82 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:28:54.194 INFO   [CB2BE7\A7172D] Restoring an earlier board that has the score of 986.44 (12 unrouted).
+2026-11-01 19:28:54.195 INFO   [CB2BE7\A7172D] Auto-router pass #20 on board '70d0667565727e56f548a0a2c88c03fa' was completed in 14.92 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:29:07.947 INFO   [CB2BE7\A7172D] Auto-router pass #21 on board '3186f4dcf31cd9e6070652bc07250248' was completed in 13.46 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:29:22.350 INFO   [CB2BE7\A7172D] Auto-router pass #22 on board '274f7c286f442cc10d70b8da0ac923fb' was completed in 13.63 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:29:36.953 INFO   [CB2BE7\A7172D] Auto-router pass #23 on board '7a4e36b5fa143121208882149a410d3a' was completed in 13.94 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:29:53.044 INFO   [CB2BE7\A7172D] Restoring an earlier board that has the score of 986.44 (12 unrouted).
+2026-11-01 19:29:53.046 INFO   [CB2BE7\A7172D] Auto-router pass #24 on board '502377cbec9fa40173427e880c2da0e5' was completed in 15.34 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:30:07.832 INFO   [CB2BE7\A7172D] Auto-router pass #25 on board 'd4c1350cc405c8d616c33995b59c8ff8' was completed in 14.45 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:30:23.690 INFO   [CB2BE7\A7172D] Auto-router pass #26 on board '5ca649772f6a65320f8ec43b3ffc75ba' was completed in 15.04 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:30:38.841 INFO   [CB2BE7\A7172D] Auto-router pass #27 on board '502377cbec9fa40173427e880c2da0e5' was completed in 14.78 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:30:56.063 INFO   [CB2BE7\A7172D] Restoring an earlier board that has the score of 986.44 (12 unrouted).
+2026-11-01 19:30:56.064 INFO   [CB2BE7\A7172D] Auto-router pass #28 on board 'b81cda75192cf4e96d352a9a92f95c65' was completed in 16.42 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:31:10.861 INFO   [CB2BE7\A7172D] Auto-router pass #29 on board 'd4c1350cc405c8d616c33995b59c8ff8' was completed in 14.48 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:31:27.232 INFO   [CB2BE7\A7172D] Auto-router pass #30 on board '6403ce5f7bc4632a200c9c3273bfa11a' was completed in 16.04 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:31:45.036 INFO   [CB2BE7\A7172D] Auto-router pass #31 on board 'cc0e82b07158db576dcf08b6426b1b92' was completed in 16.88 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:32:03.047 INFO   [CB2BE7\A7172D] Restoring an earlier board that has the score of 986.44 (12 unrouted).
+2026-11-01 19:32:03.048 INFO   [CB2BE7\A7172D] Auto-router pass #32 on board '377fb38041c8b9aa038d0315b92dca14' was completed in 17.17 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:32:19.207 INFO   [CB2BE7\A7172D] Auto-router pass #33 on board 'd4c1350cc405c8d616c33995b59c8ff8' was completed in 15.86 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:32:35.139 INFO   [CB2BE7\A7172D] Auto-router pass #34 on board '5ca649772f6a65320f8ec43b3ffc75ba' was completed in 15.53 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:32:51.204 INFO   [CB2BE7\A7172D] Auto-router pass #35 on board 'ea23829cc8ab9f2a16d430d17fef5f67' was completed in 15.27 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:33:08.669 INFO   [CB2BE7\A7172D] Restoring an earlier board that has the score of 986.44 (12 unrouted).
+2026-11-01 19:33:08.670 INFO   [CB2BE7\A7172D] Auto-router pass #36 on board '977383ead77b8bf0e7e9704b2bd0050f' was completed in 16.66 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:33:23.359 INFO   [CB2BE7\A7172D] Auto-router pass #37 on board 'd4c1350cc405c8d616c33995b59c8ff8' was completed in 14.35 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:33:39.002 INFO   [CB2BE7\A7172D] Auto-router pass #38 on board '90504e828311156af8167ed9b58cdaa7' was completed in 14.86 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:33:53.811 INFO   [CB2BE7\A7172D] Auto-router pass #39 on board '3ab609d2dfff53e731524c3fe578bc48' was completed in 14.49 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:34:10.640 INFO   [CB2BE7\A7172D] Restoring an earlier board that has the score of 986.44 (12 unrouted).
+2026-11-01 19:34:10.641 INFO   [CB2BE7\A7172D] Auto-router pass #40 on board '79d49bc95b78380239a2fae78d713f94' was completed in 16.08 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:34:10.960 INFO   [CB2BE7\A7172D] Auto-routing was completed in 31 minutes 28.71 seconds with the score of 986.44 (12 unrouted).
+2026-11-01 19:34:11.092 INFO   [CB2BE7\A7172D] Starting optimization on 31 threads...
+2026-11-01 19:34:11.099 WARN   [CB2BE7\A7172D] Multi-threaded route optimization is broken and it is known to generate clearance violations. It is highly recommended to use the single-threaded route optimization instead by setting the number of threads to 1 with the '-mt 1' command line argument.
+2026-11-01 19:34:11.361 INFO   [CB2BE7\A7172D] Optimization was completed in 0.26 seconds with the score of 986.44 (12 unrouted).
+after autoroute: 122 traces not 45 degree
+2026-11-01 19:34:12.280 INFO   Saving 'wb4_fr.ses'...
