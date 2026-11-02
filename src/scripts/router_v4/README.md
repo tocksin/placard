@@ -114,3 +114,11 @@ board blanketed the whole board; it is now opt-in (`TAB=137`).
 
 Freerouting spends 19 % fewer vias than v4 but 5 % more track once its leftovers are closed, does not finish on its own, leaves a
 clearance fault, and routes a fifth of its length diagonally. v4 is complete, DRC clean and shorter; its remaining gap is vias.
+
+### Freerouting as an optimiser over the v4 board (2026-11-02, branch-083): no gain
+`bench/wb4_for_freerouting.dsn` = the wb4 board with only GND/+5V/CLK_E protected (`PROTNETS=GND,+5V,CLK_E python dsn.py ...`),
+everything else `(type route)`. Freerouting 2.1.0 did not optimise the existing wiring: it ripped it up and ran 40 full passes
+(pass 1 took 20 min, stuck at "12 unrouted" from pass 4; its optimiser step ran 0.26 s on 31 threads despite -mt 1). The SES
+merged onto the stripped bench (`bench/wb4_fr.score`): 0 open by our connectivity check, 41.51 m / 674 vias, 69 self-parallel
+places, 3.7 % diagonal: worse than wb4 (38.96 m / 656) on every count. The only combination that beats v4 on vias is
+Freerouting first and v4 closing its leftovers (531 vias, +2 m, one clearance fault).
