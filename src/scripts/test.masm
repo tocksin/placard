@@ -1,0 +1,626 @@
+; ============================================================
+; test.masm - TEST.PLC: the system test, a program on the SD card
+; ============================================================
+;
+; A library program the DOS runs from the card (T in the demo menu, Enter
+; on TEST.PLC in the browser, or BOOT.CFG = "TEST.PLC" to run it at every
+; power-up).  It checks the parts of the machine a program can reach and
+; shows one line for each (docs/software/TEST.md):
+;
+;     RAM         two passes over the free RAM, both chips: every byte
+;                 written with its address (low byte xor high byte, then
+;                 the complement), then read back.  The screen shows noise
+;                 while the video RAM is tested (about half a second).
+;     Card slots  the card ID in each expansion slot (slot_id), -- for an
+;                 empty slot or a card with no "PLC" header
+;     Keyboard    whether a PS/2 keyboard has answered (KBD_FLAGS bit 1);
+;                 kept up to date, so a keyboard plugged in later shows
+;     Mouse       whether a device in the mouse socket acknowledges F5
+;                 (disable reporting: harmless), or the mouse already runs
+;     SD card     sd_init and fs_mount again
+;     Sound       two beeps, A 440 Hz then A 880 Hz
+;
+; Keys: Space runs the tests again, B beeps again, Esc goes back
+; (menu_poll).
+;
+; RAM: the program at x0100-x0BFF, zero page x20-x3F.  The RAM test
+; covers x0C00-x1EFF, x2000-x4CFF (the DOS's own x3000-x3FFF too: the
+; ROM loads DOS.PLC again afterwards), x5400-x59FF, x5C00-x5CFF and the
+; video RAM x6000-xFFFF.  It leaves out the zero page and stack, this
+; program, LIB_RAM (x1F00), the SD and PS/2 variables (x4D00-x4FFF), the
+; I/O window, the mode bytes, the menu block and the audio buffer.
+;
+;     python3 asm_expand.py test.masm                 test.asm
+;     python3 gen_plc.py test.asm -o ../../sdcard/TEST.PLC
+;     python3 test_systest.py                         runs it in placard_sim
+;
+; Date: 11/02/2026
+; ============================================================
+
+#include "placard.asm"
+#include "placard_lib.asm"
+
+t_pg    = 0x20              ; RAM test: page (address high byte)
+t_k     = 0x21              ;   the page's key: page xor seed
+t_i     = 0x22              ;   byte in the page (X is not a source)
+t_seed  = 0x23              ;   00 the first pass, FF the second
+t_ph    = 0x24              ;   0 writing, 1 reading back
+t_ri    = 0x25              ;   range 0-4
+t_d     = 0x26              ;   the bits that differ
+t_ecl   = 0x27              ;   errors, low byte (stops at FFFF)
+t_ech   = 0x28              ;   errors, high byte
+t_bah   = 0x29              ;   the first bad address, high byte
+t_bal   = 0x2A              ;   low byte
+t_exp   = 0x2B              ;   what was written there
+t_got   = 0x2C              ;   what was read
+t_bits  = 0x2D              ;   every bit that was ever wrong
+t_s     = 0x2E              ; slot loop: slot 1-4
+t_res   = 0x2F              ; a result code
+t_fc    = 0x30              ; frames since the tests ran
+t_kbd   = 0x31              ; the keyboard line as last drawn (KBD_FLAGS bit 1)
+
+NRANGE     = 5
+TITLE_TINT = 0x30           ; the title rows: gold
+LABEL_COL  = 2
+VAL_COL    = 14
+ROW_RAM    = 3
+ROW_RAM2   = 4
+ROW_SLOT   = 6
+ROW_KBD    = 8
+ROW_MOUSE  = 10
+ROW_SD     = 12
+ROW_SND    = 14
+ROW_KEYS   = 17
+NOTE_1     = 69             ; A 440 Hz
+NOTE_2     = 81             ; A 880 Hz
+BEEP_GAP   = 20             ; frames between the beeps
+MAP_ALL    = 0xFF           ; every section RAM (the RAM test)
+
+.prefix st
+.region 0x0100, 0x0C00
+
+; ============================================================
+; main
+; ============================================================
+.fixed 0x0100
+main:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    GOTO run_all
+
+; ------------------------------------------------------------
+; run_all - every test, then the frame loop
+; ------------------------------------------------------------
+.chunk
+run_all:
+    CALL snd_init               ; silence while the RAM test runs
+    CALL con_clear
+    CALL title
+    ld   VAL_COL, ac
+    ld   ac, [CUR_COL]
+    ld   ROW_RAM, ac
+    ld   ac, [CUR_ROW]
+    ld   s_testing & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_testing >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    CALL ram_test
+    CALL con_clear              ; the RAM test wrote over the screen
+    CALL title
+    CALL labels
+    CALL show_ram
+    CALL show_slots
+    CALL show_kbd
+    CALL show_mouse
+    CALL show_sd
+    ld   NOTE_1, ac
+    CALL snd_beep
+    clr  ac
+    ld   ac, [t_fc]
+    GOTO loop
+
+; ------------------------------------------------------------
+; loop - once a frame: sound, the second beep, the keyboard line, keys
+; ------------------------------------------------------------
+.chunk
+loop:
+    ld   1, ac
+    CALL wait_frames_io
+    CALL snd_update
+    ld   [t_fc], ac
+    xor  BEEP_GAP, ac
+    bne  lp_1
+    ld   NOTE_2, ac
+    CALL snd_beep
+lp_1:
+    ld   [t_fc], ac             ; counts to FF and stays
+    add  1, ac
+    beq  lp_2
+    ld   ac, [t_fc]
+lp_2:
+    ld   [KBD_FLAGS], ac        ; the keyboard line when it changed
+    and  KF_PS2, ac
+    xor  [t_kbd], ac
+    beq  lp_3
+    CALL show_kbd
+lp_3:
+    CALL kbd_scan
+    CALL menu_poll              ; Esc: back
+    CALL kbd_getc
+    ld   ac, [t_res]
+    xor  0x20, ac               ; Space: everything again
+    beq  lp_all
+    ld   [t_res], ac
+    and  0xDF, ac               ; B or b: the beeps again
+    xor  0x42, ac
+    bne  loop
+    ld   NOTE_1, ac
+    CALL snd_beep
+    clr  ac
+    ld   ac, [t_fc]
+    bra  loop
+lp_all:
+    GOTO run_all
+
+; ------------------------------------------------------------
+; ram_test - write every tested byte with its address, read it back, two
+;            passes (seed 00, then FF)
+;   out:     t_ech:t_ecl errors, t_bah:t_bal the first bad address,
+;            t_exp / t_got what was written / read there, t_bits every
+;            bit that was ever wrong
+;   A leaf.  Runs with every section RAM (map FF) to reach the video RAM,
+;   so it calls nothing; it runs from x0100, RAM in either map.
+; ------------------------------------------------------------
+.chunk
+ram_test:
+    clr  ac
+    ld   ac, [t_ecl]
+    ld   ac, [t_ech]
+    ld   ac, [t_bits]
+    ld   ac, [t_seed]
+    ld   0x50, y                ; map FF
+    ld   MAP_ALL, [y,x]
+rt_pass:
+    clr  ac                     ; write first
+    ld   ac, [t_ph]
+rt_phase:
+    clr  ac
+    ld   ac, [t_ri]
+rt_range:
+    ld   [t_ri], ac             ; t_pg = the range's first page
+    add  RLO & 0xFF, x
+    ld   RLO >> 8, y
+    ld   [y,x], ac
+    ld   ac, [t_pg]
+rt_page:
+    ld   [t_pg], ac
+    xor  [t_seed], ac
+    ld   ac, [t_k]
+    ld   [t_pg], y
+    clr  ac
+    ld   ac, [t_i]
+    ld   [t_ph], ac
+    bne  rt_r
+rt_w:                           ; AC = byte: byte xor key into it
+    ld   ac, x
+    xor  [t_k], ac
+    ld   ac, [y,x]
+    xor  [t_k], ac
+    add  1, ac
+    bne  rt_w
+    bra  rt_next
+rt_r:
+    ld   [t_i], x
+    ld   [y,x], ac
+    xor  [t_k], ac
+    xor  [t_i], ac
+    bne  rt_bad
+rt_rc:
+    ld   [t_i], ac
+    add  1, ac
+    ld   ac, [t_i]
+    bne  rt_r
+rt_next:
+    ld   [t_ri], ac             ; the range's last page done?
+    add  RHI & 0xFF, x
+    ld   RHI >> 8, y
+    ld   [y,x], ac
+    xor  [t_pg], ac
+    beq  rt_rend
+    ld   [t_pg], ac
+    add  1, ac
+    ld   ac, [t_pg]
+    bra  rt_page
+rt_rend:
+    ld   [t_ri], ac
+    add  1, ac
+    ld   ac, [t_ri]
+    xor  NRANGE, ac
+    bne  rt_range
+    ld   [t_ph], ac             ; written: now read it back
+    bne  rt_pdone
+    ld   1, ac
+    ld   ac, [t_ph]
+    bra  rt_phase
+rt_pdone:
+    ld   [t_seed], ac           ; both passes done?
+    bne  rt_done
+    ld   0xFF, ac
+    ld   ac, [t_seed]
+    bra  rt_pass
+rt_done:
+    ld   [MAP_SHADOW], ac       ; the map back
+    ld   0x50, y
+    ld   ac, [y,x]
+    RET
+rt_bad:                         ; AC = the bits that differ
+    ld   ac, [t_d]
+    or   [t_bits], ac
+    ld   ac, [t_bits]
+    ld   [t_ecl], ac            ; the first error: where and what
+    or   [t_ech], ac
+    bne  rt_b2
+    ld   [t_pg], ac
+    ld   ac, [t_bah]
+    ld   [t_i], ac
+    ld   ac, [t_bal]
+    xor  [t_k], ac
+    ld   ac, [t_exp]
+    xor  [t_d], ac
+    ld   ac, [t_got]
+rt_b2:
+    ld   [t_ecl], ac            ; count it, up to FFFF
+    and  [t_ech], ac
+    xor  0xFF, ac
+    beq  rt_b3
+    ld   [t_ecl], ac
+    add  1, ac
+    ld   ac, [t_ecl]
+    bne  rt_b3
+    ld   [t_ech], ac
+    add  1, ac
+    ld   ac, [t_ech]
+rt_b3:
+    ld   [t_pg], y
+    bra  rt_rc
+
+.chunk
+RLO:     #d8 0x0C, 0x20, 0x54, 0x5C, 0x60     ; the ranges' first pages
+RHI:     #d8 0x1E, 0x4C, 0x59, 0x5C, 0xFF     ; and last pages
+
+; ------------------------------------------------------------
+; title - the title on a gold band
+; ------------------------------------------------------------
+.chunk
+title:
+    PUSH_LINK
+    ld   0x5A, y                ; the title band (screen rows 0-15)
+    ld   15, ac
+tt_b:
+    add  0x20, x
+    ld   TITLE_TINT, [y,x]
+    sub  1, ac
+    bcc  tt_b
+    ld   LABEL_COL, ac
+    ld   ac, [CUR_COL]
+    clr  ac
+    ld   ac, [CUR_ROW]
+    ld   s_title & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_title >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    LEAVE
+
+; ------------------------------------------------------------
+; labels - the fixed text: (column, row, string) from the tables
+; ------------------------------------------------------------
+.chunk
+labels:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [t_s]
+lb_line:
+    ld   [t_s], ac
+    add  LB_ROW & 0xFF, x
+    ld   LB_ROW >> 8, y
+    ld   [y,x], ac
+    beq  lb_done
+    ld   ac, [CUR_ROW]
+    ld   [t_s], ac
+    add  LB_COL & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [CUR_COL]
+    ld   [t_s], ac
+    add  LB_L & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   [t_s], ac
+    add  LB_H & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [t_s], ac
+    inc
+    ld   ac, [t_s]
+    bra  lb_line
+lb_done:
+    LEAVE
+
+.chunk
+LB_ROW:  #d8 ROW_RAM, ROW_RAM2, ROW_SLOT, ROW_KBD, ROW_MOUSE, ROW_SD, ROW_SND, ROW_SND, ROW_KEYS, 0
+LB_COL:  #d8 LABEL_COL, VAL_COL, LABEL_COL, LABEL_COL, LABEL_COL, LABEL_COL, LABEL_COL, VAL_COL, LABEL_COL
+LB_L:    #d8 s_ram & 0xFF, s_ranges & 0xFF, s_slots & 0xFF, s_kbd & 0xFF, s_mouse & 0xFF
+         #d8 s_sd & 0xFF, s_snd & 0xFF, s_beeps & 0xFF, s_keys & 0xFF
+LB_H:    #d8 s_ram >> 8, s_ranges >> 8, s_slots >> 8, s_kbd >> 8, s_mouse >> 8
+         #d8 s_sd >> 8, s_snd >> 8, s_beeps >> 8, s_keys >> 8
+
+; ------------------------------------------------------------
+; at_val - the cursor to VAL_COL of row AC (a leaf)
+; ------------------------------------------------------------
+.chunk
+at_val:
+    ld   ac, [CUR_ROW]
+    ld   VAL_COL, ac
+    ld   ac, [CUR_COL]
+    RET
+
+; ------------------------------------------------------------
+; show_ram - "OK", or the number of errors, the first bad address and the bits
+; ------------------------------------------------------------
+.chunk
+show_ram:
+    PUSH_LINK
+    ld   ROW_RAM, ac
+    CALL at_val
+    ld   [t_ecl], ac
+    or   [t_ech], ac
+    bne  sr_bad
+    ld   s_ok & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_ok >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    LEAVE
+sr_bad:
+    GOTO show_ram_bad
+
+.chunk
+show_ram_bad:                   ; show_ram's link is pushed already
+    ld   s_fail & 0xFF, ac      ; "FAILED: n errors, first at x"
+    ld   ac, [R0]
+    ld   s_fail >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [t_ecl], ac
+    ld   ac, [R0]
+    ld   [t_ech], ac
+    ld   ac, [R1]
+    CALL con_dec16
+    ld   s_first & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_first >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [t_bah], ac
+    CALL con_hex8
+    ld   [t_bal], ac
+    CALL con_hex8
+    ld   s_wrote & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_wrote >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [t_exp], ac
+    CALL con_hex8
+    ld   s_read & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_read >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [t_got], ac
+    CALL con_hex8
+    ld   s_bits & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_bits >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [t_bits], ac
+    CALL con_hex8
+    LEAVE
+
+; ------------------------------------------------------------
+; show_slots - "1: 4C  2: --  3: --  4: --"
+; ------------------------------------------------------------
+.chunk
+show_slots:
+    PUSH_LINK
+    ld   ROW_SLOT, ac
+    CALL at_val
+    ld   1, ac
+    ld   ac, [t_s]
+ss_slot:
+    ld   [t_s], ac              ; "n: "
+    add  0x30, ac
+    CALL con_putc
+    ld   0x3A, ac
+    CALL con_putc
+    ld   0x20, ac
+    CALL con_putc
+    ld   [t_s], ac
+    CALL slot_id
+    beq  ss_none
+    CALL con_hex8
+    bra  ss_next
+ss_none:
+    ld   0x2D, ac               ; "--"
+    CALL con_putc
+    ld   0x2D, ac
+    CALL con_putc
+ss_next:
+    ld   0x20, ac
+    CALL con_putc
+    ld   0x20, ac
+    CALL con_putc
+    ld   [t_s], ac
+    add  1, ac
+    ld   ac, [t_s]
+    xor  5, ac
+    bne  ss_slot
+    LEAVE
+
+; ------------------------------------------------------------
+; show_kbd - "found" or "none" from KBD_FLAGS bit 1 (t_kbd = that bit)
+; ------------------------------------------------------------
+.chunk
+show_kbd:
+    PUSH_LINK
+    ld   ROW_KBD, ac
+    CALL at_val
+    ld   [KBD_FLAGS], ac
+    and  KF_PS2, ac
+    ld   ac, [t_kbd]
+    bne  sk_yes
+    ld   s_knone & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_knone >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    LEAVE
+sk_yes:
+    ld   s_kfound & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_kfound >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    LEAVE
+
+; ------------------------------------------------------------
+; show_mouse - "running", or what F5 got: "found", "none", "wrong answer"
+; ------------------------------------------------------------
+.chunk
+show_mouse:
+    PUSH_LINK
+    ld   ROW_MOUSE, ac
+    CALL at_val
+    ld   [MOUSE_ST], ac
+    blt  sm_run
+    ld   0xF5, ac               ; disable reporting: FA if anything is there
+    CALL mouse_cmd
+    ld   ac, [t_res]
+    beq  sm_yes
+    xor  1, ac
+    beq  sm_none
+    ld   s_mwrong & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_mwrong >> 8, ac
+    ld   ac, [R1]
+    bra  sm_put
+sm_run:
+    ld   s_mrun & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_mrun >> 8, ac
+    ld   ac, [R1]
+    bra  sm_put
+sm_yes:
+    ld   s_mfound & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_mfound >> 8, ac
+    ld   ac, [R1]
+    bra  sm_put
+sm_none:
+    ld   s_mnone & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_mnone >> 8, ac
+    ld   ac, [R1]
+sm_put:
+    CALL con_puts
+    LEAVE
+
+; ------------------------------------------------------------
+; show_sd - sd_init and fs_mount: "ready, SDHC, FAT mounted" or the error
+; ------------------------------------------------------------
+.chunk
+show_sd:
+    PUSH_LINK
+    ld   ROW_SD, ac
+    CALL at_val
+    CALL sd_init
+    ld   ac, [t_res]
+    beq  sd_ok
+    ld   s_sdbad & 0xFF, ac     ; "sd_init error n"
+    ld   ac, [R0]
+    ld   s_sdbad >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [t_res], ac
+    CALL con_dec8
+    LEAVE
+sd_ok:
+    ld   s_sdok & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_sdok >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [SD_FLAGS], ac
+    and  1, ac
+    beq  sd_sc
+    ld   s_sdhc & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_sdhc >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+sd_sc:
+    CALL fs_mount
+    ld   ac, [t_res]
+    beq  sd_m
+    ld   s_fsbad & 0xFF, ac     ; ", fs_mount error n"
+    ld   ac, [R0]
+    ld   s_fsbad >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [t_res], ac
+    CALL con_dec8
+    LEAVE
+sd_m:
+    ld   s_fsok & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_fsok >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    LEAVE
+
+; ============================================================
+; text
+; ============================================================
+.chunk
+s_title:  #d "PLACARD SYSTEM TEST", 0x00
+s_testing: #d "testing...", 0x00
+s_ram:    #d "RAM", 0x00
+s_ranges: #d "x0C00-x1EFF x2000-x4CFF x5400-x59FF x5C00-x5CFF x6000-xFFFF", 0x00
+s_slots:  #d "Card slots", 0x00
+s_kbd:    #d "Keyboard", 0x00
+s_mouse:  #d "Mouse", 0x00
+s_sd:     #d "SD card", 0x00
+s_snd:    #d "Sound", 0x00
+s_beeps:  #d "two beeps: A 440 Hz, then A 880 Hz", 0x00
+s_keys:   #d "Space: test again   B: beep again   Esc: back", 0x00
+.chunk
+s_ok:     #d "OK, 2 passes", 0x00
+s_fail:   #d "FAILED, errors: ", 0x00
+s_first:  #d ", first x", 0x00
+s_wrote:  #d " wrote ", 0x00
+s_read:   #d " read ", 0x00
+s_bits:   #d ", bad bits ", 0x00
+s_kfound: #d "found", 0x00
+s_knone:  #d "none   ", 0x00
+s_mrun:   #d "found (running)", 0x00
+s_mfound: #d "found", 0x00
+s_mnone:  #d "none", 0x00
+s_mwrong: #d "wrong answer", 0x00
+s_sdok:   #d "ready", 0x00
+s_sdhc:   #d ", SDHC", 0x00
+s_sdbad:  #d "sd_init error ", 0x00
+s_fsok:   #d ", FAT mounted", 0x00
+s_fsbad:  #d ", fs_mount error ", 0x00

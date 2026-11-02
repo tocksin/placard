@@ -20,7 +20,9 @@ MENU.PLC, and boots it like the board (test_dos.Rig):
      time limit, until Esc brings the menu back
   4. with no key for the idle time the menu runs them in turn again, from
      the highlighted program
-  5. Esc in the menu goes to the DOS's file browser
+  5. T runs TEST.PLC (the system test, not in the list); Esc in it brings
+     the menu back with the highlight on program 1
+  6. Esc in the menu goes to the DOS's file browser
 
 Date: 11/02/2026
 """
@@ -41,7 +43,8 @@ FRAME = test_dos.FRAME
 MB, MB_GO = test_dos.MB, test_dos.MB_GO
 PROGS = ['CPUTEST.PLC', 'PI.PLC', 'MANDEL.PLC', 'LIFE.PLC',
          'BOING.PLC', 'WIRE3D.PLC', 'RAYCAST.PLC', 'SCROLLER.PLC', 'RAYTEX.PLC', 'TEXT.PLC']
-EXTRA = ['SCROLLER.OVL', 'RAYTEX.OVL']            # files the programs read themselves
+EXTRA = ['SCROLLER.OVL', 'RAYTEX.OVL',            # files the programs read themselves
+         'TEST.PLC']                              # the system test (key T, not in turn)
 
 
 def menu_plc(lib, rot, man, idle):
@@ -191,13 +194,35 @@ def main(argv):
     got = next_launch(idle * 60 + 60)
     if got != (2, 0):
         r.fail('idle: expected Mandelbrot in turn, got %s' % (got,))
-    # 5. Esc in the menu: the DOS
-    print('5. Esc to the DOS')
+    # 5. T: the system test, then Esc: the menu, highlight on 1
+    print('5. T runs the system test')
     r.port.kbd.press(r.codes['\x1b'])
     found = r.run_until(lambda: in_menu('menu_loop'), 120, 'the menu after Esc')
     r.port.kbd.release(r.codes['\x1b'])
     if found:
         r.run(6)
+        if 'T  System test' not in r.row(35):
+            r.fail('row 35: %r' % r.row(35))
+        r.port.kbd.press(r.codes['t'])
+        test_head = files['TEST.PLC'][16:16 + 64]
+        if r.run_until(lambda: cpu.pc == 0x0100 and cpu.map == 7 and mem[MB + 0x0D] == len(PROGS)
+                       and bytes(mem[0x0100:0x0140]) == test_head, 60, 'TEST.PLC to start'):
+            print('  TEST.PLC started, picked: %s' % (mem[MB + 3] == 1))
+        r.port.kbd.release(r.codes['t'])
+        r.run(60)
+        if 'PLACARD SYSTEM TEST' not in r.row(0):
+            r.fail('the system test screen: %r' % r.row(0))
+        r.port.kbd.press(r.codes['\x1b'])
+        found = r.run_until(lambda: in_menu('menu_loop'), 120, 'the menu after the system test')
+        r.port.kbd.release(r.codes['\x1b'])
+    if found:
+        r.run(6)
+        print('  Esc: menu, highlight on %d' % (mem[msyms['m_sel']] + 1))
+        if mem[msyms['m_sel']] != 0:
+            r.fail('after the system test the highlight is not on 1')
+    # 6. Esc in the menu: the DOS
+    print('6. Esc to the DOS')
+    if found:
         r.key('\x1b')
         if r.wait_browser(120):
             print('  the DOS browser: %r' % r.row(0))
