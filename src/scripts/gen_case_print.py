@@ -15,10 +15,10 @@ gen_case.py, unchanged in shape and fit, and:
     pip install cadquery
     python3 gen_case_print.py [--pcb path/to/placard.kicad_pcb] [--out case/print]
 
-Writes STL files to case/print/ and docs/case_print_pieces.png.  See
-docs/CASE.md, "3D-printed version".  The board file is only read.
+Writes STL files to case/print/ and docs/case/case_print_pieces.png.  See
+docs/case/CASE.md, "3D-printed version".  The board file is only read.
 
-Date: 2026-10-30
+Date: 2026-11-02
 """
 
 import argparse
@@ -235,7 +235,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--pcb", default=os.path.join(g.REPO, "kicad", "placard.kicad_pcb"))
     ap.add_argument("--out", default=os.path.join(g.REPO, "case", "print"))
-    ap.add_argument("--drawings", default=os.path.join(g.REPO, "docs"))
+    ap.add_argument("--drawings", default=os.path.join(g.REPO, "docs", "case"))
     a = ap.parse_args()
     rows, k2, k4 = build(a.pcb, a.out, a.drawings)
     for name, dims in rows:

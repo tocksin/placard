@@ -19,7 +19,7 @@ Device   g22v10;
    this PLD stalls the CPU at each address the PC reaches, copies
    that EEPROM byte into the SRAM, lets the CPU take one step, and
    when the PC has wrapped to x0000 lets the board run from the
-   SRAM.  See docs/ROM.md, "Loading the cartridge".
+   SRAM.  See docs/architecture/ROM.md, "Loading the cartridge".
 
    REVISION 04 (2026-10-21): no clock gating and no 74AC541.  The
    board clock runs free from power-up (the 74AC32 clock gate is

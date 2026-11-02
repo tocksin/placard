@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-gen_bringup.py - writes bringup.asm, the bring-up test ROM (docs/BRINGUP.md)
+gen_bringup.py - writes bringup.asm, the bring-up test ROM (docs/hardware/BRINGUP.md)
 
     python3 gen_bringup.py          writes bringup.asm
     python3 test_bringup_sim.py     runs it in the simulator and checks it
@@ -719,7 +719,7 @@ def draw_bands(a):
 def generate():
     a = Asm()
     L = a.lines
-    L += ['; bringup.asm - the bring-up test ROM (docs/BRINGUP.md)',
+    L += ['; bringup.asm - the bring-up test ROM (docs/hardware/BRINGUP.md)',
           ';',
           '; Written by gen_bringup.py; edit that, not this file.  A complete 64 KB',
           '; ROM image with its own reset code: burn x0000-x7FFF into the lower ROM',
@@ -738,7 +738,7 @@ def generate():
         L.append('%-8s = 0x%02X' % (k, v))
     # reset and fail loops
     a.org(0x0000, 'reset (the CPU starts at x0000 with the map all ROM); the nop is for\n'
-             '; the cartridge hand-off, which can skip x0000 (docs/ROM.md)')
+             '; the cartridge hand-off, which can skip x0000 (docs/architecture/ROM.md)')
     a.lock += 1
     a.i('nop', 'ld   start >> 8, y', 'jmp  start')
     a.lock -= 1

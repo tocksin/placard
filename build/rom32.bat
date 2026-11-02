@@ -1,5 +1,5 @@
 @echo off
-rem Build the 32K ROM image (docs/ROM.md "The 32K image") into the FPGA and
+rem Build the 32K ROM image (docs/architecture/ROM.md "The 32K image") into the FPGA and
 rem load it on the board: the boot loader, the library, the FAT writer and
 rem the loader that starts the DOS from the SD card or BASIC.
 rem src\scripts\rom32.asm is assembled like any program (build_and_load);

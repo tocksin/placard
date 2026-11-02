@@ -3,7 +3,7 @@
 ; Assembles placard_lib.asm (and its font) with no program, so gen_rom.tcl
 ; can put them in every ROM image at their standard place, where they run
 ; in place: the library block xC600-xFBFF (jump table, code, font, I/O
-; drivers and the rest) and LIB_RAM x1F00 (see docs/ROM.md).
+; drivers and the rest) and LIB_RAM x1F00 (see docs/architecture/ROM.md).
 ; A program that includes placard_lib.asm assembles the same bytes there.
 ;
 ;     customasm rom_lib.asm -f hexstr -o rom_lib.hex

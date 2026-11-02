@@ -17,7 +17,7 @@ Date: 11/01/2026
 | `src/scripts/test_lib.py` | Tests every routine against a Python model and measures its clocks |
 | `src/scripts/rom_lib.asm` | The library and font alone, for the ROM image (`rom_lib.hex`) |
 
-![lib_demo in the simulator](../reference/lib_demo_sim.png)
+![lib_demo in the simulator](../../reference/lib_demo_sim.png)
 
 ## Using the library
 
@@ -72,7 +72,7 @@ frees part of the video area too (see `vid_mode`).  The RAM is random at power-u
 variables in code.  The video always reads the RAM; to read the video RAM,
 map sections 3-7 to RAM and back (`plot1` and `con_scroll` do this
 themselves).  Both customasm and `placard_sim.py` assemble the library to the
-same bytes.  See [ROM.md](ROM.md).  New programs use the library routines
+same bytes.  See [ROM.md](../architecture/ROM.md).  New programs use the library routines
 and the zero page map below.
 
 The simulator's assembler now accepts `#include`, `NAME = value` constants
@@ -266,9 +266,9 @@ complete examples.
 | 10-17 | `R0`-`R7` | caller | Arguments and results |
 | 18-1F | `T0`-`T7` | library | Scratch, changed by any routine |
 | 20-8F | `USER_ZP` | program | 112 bytes for the program's own variables |
-| 90-9E | `SND_*` | sound driver | Sound state ([SOUND.md](SOUND.md#software)); free if the program never calls `snd_*` |
+| 90-9E | `SND_*` | sound driver | Sound state ([SOUND.md](../sound/SOUND.md#software)); free if the program never calls `snd_*` |
 | 9F | `SND_LASTF` | sound driver | Frames counted at the last `snd_update` (bit 7: a whole lap being written) |
-| A0-BF | `IO_ZP` | I/O drivers | Keyboard state and buffer, SD and mouse state, driver scratch ([IO.md](IO.md#zero-page)) |
+| A0-BF | `IO_ZP` | I/O drivers | Keyboard state and buffer, SD and mouse state, driver scratch ([IO.md](../architecture/IO.md#zero-page)) |
 | C0-FF | `STACK_LOW`-`STACK_TOP` | stack | Software stack, grows down from FF |
 
 Section 0 (x0000-x1FFF) must read from RAM for the zero page to work.
@@ -327,7 +327,7 @@ pointers already point at the next block.
 | `map_set` | AC = map (bit n = 1: section n reads RAM) | Map register and MAP_SHADOW = AC | Y | 18 |
 | `frame_poll` | | AC = line read (V9:V2, 124-255), FRAME + 1 when a new frame started, LINE_LAST = AC | X, Y, T0 | 39-53 |
 | `wait_frames` | AC = frames 1-255 (0 = 256) | FRAME + AC | AC, X, Y, T0, T1 | Until the AC-th new frame starts |
-| `wait_frames_io` | AC = frames 1-255 (0 = 256) | as `wait_frames` | AC, X, Y, T0-T7, IO_T0-IO_T3, IO_TMP | `wait_frames`, taking the mouse's and a PS/2 keyboard's bytes from the receiver while it waits ([IO.md](IO.md#turns-who-has-the-line)) |
+| `wait_frames_io` | AC = frames 1-255 (0 = 256) | as `wait_frames` | AC, X, Y, T0-T7, IO_T0-IO_T3, IO_TMP | `wait_frames`, taking the mouse's and a PS/2 keyboard's bytes from the receiver while it waits ([IO.md](../architecture/IO.md#turns-who-has-the-line)) |
 | `ps2_poll` | - | - | AC, X, Y, T0-T6, IO_T0-IO_T3, IO_TMP | takes what the PS/2 devices sent (keys into the buffer, mouse packets into `mouse_poll`'s sum) and gives the line to the right device; for a program that polls more often than once a frame, or has no `kbd_scan` call; about 150 clocks with nothing in |
 
 - After `vid_addr`, `ld ac, y` and then `ld [y,x], ac` or `ld ac, [y,x]`
@@ -339,7 +339,7 @@ pointers already point at the next block.
   sets map = 05).
 - Bits 3:2 of the mode byte are the line repeat: in 2x (01) each byte shows
   on two lines and in 4x (10) on four, and the row's bytes move within the
-  byte column (see [VIDEO.md](VIDEO.md#line-repeat)).  Use `vid_addr` rather
+  byte column (see [VIDEO.md](../video/VIDEO.md#line-repeat)).  Use `vid_addr` rather
   than x6020 + column × 512 + row for such rows.  Give both rows of a 2x
   pair (all four of a 4x group) the same repeat bits.  A full 2x screen
   leaves the even video pages x60, x62 ... xFE free (20 KB), a full 4x
@@ -352,7 +352,7 @@ pointers already point at the next block.
   byte, and `vid_addr` and `plot1` look at bits 3:2 only.  Write a row's
   mode byte (x5A20 + r) to tint or blank just that row; blanking every row
   while computing gives the CPU about 10 % more clocks per frame
-  ([VIDEO.md](VIDEO.md#blank-line)).
+  ([VIDEO.md](../video/VIDEO.md#blank-line)).
 - `plot1` became slower when it learned the line repeat (it calls
   `vid_addr`, 148-159 clocks before).  The text console still assumes 1x
   rows.
@@ -364,12 +364,12 @@ pointers already point at the next block.
 - `frame_poll` must run at least once per frame (16.8 ms) or it misses
   frames.  Elapsed time is FRAME × 16.8 ms plus the line value for finer
   detail (4 lines, 128 µs per step); see the
-  [video line read](../README.md#video-line-read).
+  [video line read](../../README.md#video-line-read).
 - `wait_frames` reads the line right away, so the first frame it counts may
   be partly over: the wait is between AC - 1 and AC frames.
 - `map_set` returns with its next fetch from the caller's section, so that
   section's map bit must not change, or its ROM and RAM must hold the same
-  bytes (see the [memory map](../README.md#memory-map)).
+  bytes (see the [memory map](../../README.md#memory-map)).
 
 ### Text console
 
@@ -404,7 +404,7 @@ title:
 
 The sound driver (`placard_snd.asm`) keeps the audio buffer filled with one
 sound at a time.  Call `snd_init` once and `snd_update` every frame; the
-others only set a sound up.  [SOUND.md](SOUND.md#software) has the details.
+others only set a sound up.  [SOUND.md](../sound/SOUND.md#software) has the details.
 
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
@@ -425,13 +425,13 @@ others only set a sound up.  [SOUND.md](SOUND.md#software) has the details.
 | `slot_id` | AC = slot 1-4 | AC = card ID (0 = no card or no "PLC" header), R1:R0 = the slot's base address | X, Y | about 110 |
 
 The boot loader runs a card's boot code before the program starts; see
-[EXPANSION.md](EXPANSION.md#boot-code-on-a-card).
+[EXPANSION.md](../architecture/EXPANSION.md#boot-code-on-a-card).
 
 ### SD card files (FAT16 and FAT32)
 
 `placard_fs.asm` reads files from an SD card formatted by a PC (FAT16 or
 FAT32, with or without a partition table; short 8.3 names; read only).
-Call `sd_init` and then `fs_mount`.  [IO.md](IO.md#files-on-the-sd-card)
+Call `sd_init` and then `fs_mount`.  [IO.md](../architecture/IO.md#files-on-the-sd-card)
 has the details.
 
 | Routine | In | Out |
@@ -534,7 +534,7 @@ through 525 lines.
 
 The keyboard, SNES pad, SD card and mouse drivers are in
 `placard_io.asm` at `IO_CODE`, included by `placard_lib.asm`, with the
-same calling convention; [IO.md](IO.md) lists them and `test_io.py` tests
+same calling convention; [IO.md](../architecture/IO.md) lists them and `test_io.py` tests
 them.  Pixel routines for 2, 4 and 8 bpp rows, line drawing and writing
 files to the SD card are good next additions.  The library has no free
 pages left (the PS/2 keyboard driver took xC000-xC4FF, 2026-10-22): new

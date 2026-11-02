@@ -23,8 +23,8 @@ made for the project.
 
 | File | Made by | Shown in |
 |------|---------|----------|
-| `placard_io_schematic.png` | page 10 (the shared port sheet) of `placard_main.pdf`, rendered at 150 dpi (`pdftoppm -f 10 -l 10 -r 150 -png`) | [docs/IO.md](../docs/IO.md#schematic) |
-| `placard_audio_schematic.png` | `src/scripts/gen_audio_schematic.py`, a sketch drawn before the KiCad schematic was started | [docs/SOUND.md](../docs/SOUND.md#schematic) |
+| `placard_io_schematic.png` | page 10 (the shared port sheet) of `placard_main.pdf`, rendered at 150 dpi (`pdftoppm -f 10 -l 10 -r 150 -png`) | [docs/architecture/IO.md](../docs/architecture/IO.md#schematic) |
+| `placard_audio_schematic.png` | `src/scripts/gen_audio_schematic.py`, a sketch drawn before the KiCad schematic was started | [docs/sound/SOUND.md](../docs/sound/SOUND.md#schematic) |
 
 Re-render the I/O page after the shared port sheet changes.  The audio
 sketch's script (it needs matplotlib) sizes its text last, with

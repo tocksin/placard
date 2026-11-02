@@ -5,7 +5,7 @@
 
 ; ============================================================
 ; play.masm - PLAY.PLC: plays DEMO.SNG from the card with the music player
-; (placard_mus.masm, docs/MUSIC.md)
+; (placard_mus.masm, docs/sound/MUSIC.md)
 ; ============================================================
 ;
 ; A library program the DOS runs from the card (Enter on PLAY.PLC in the
@@ -717,7 +717,7 @@ tints:
 
 ; ============================================================
 ; placard_mus.masm - PLACARD music player: 4 SID-like voices + a sound
-; effect voice, patterns, instruments, effects (docs/MUSIC.md)
+; effect voice, patterns, instruments, effects (docs/sound/MUSIC.md)
 ; ============================================================
 ;
 ; A program includes this file in its own .masm, after defining where the
@@ -727,7 +727,7 @@ tints:
 ;     MUS_RAM    = 0x4000       ; 10 pages of RAM (not in the image)
 ;     .include "placard_mus.masm"
 ;
-; and calls (the library's CALL convention, docs/LIBRARY.md):
+; and calls (the library's CALL convention, docs/software/LIBRARY.md):
 ;
 ;     mus_init    R1 = the song's page (a .SNG file loaded at R1:00)
 ;     mus_play    AC = subtune
@@ -738,7 +738,7 @@ tints:
 ;
 ; mus_frame replaces snd_update: a program uses one or the other.  It must
 ; be called at least once a frame; it writes the buffer behind the player
-; (docs/SOUND.md), working out from the line read how much was played,
+; (docs/sound/SOUND.md), working out from the line read how much was played,
 ; and plays the song's ticks as it passes the start of the buffer, so the
 ; tempo does not depend on how often it is called.
 ;

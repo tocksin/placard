@@ -5,7 +5,7 @@ gen_plc.py - make a program file (.PLC) for the SD card from a program
     python3 gen_plc.py cpu_test.asm -o ../../sdcard/CPUTEST.PLC
     python3 gen_plc.py text_demo.asm --entry td_main -o ../../sdcard/TEXT.PLC
 
-The DOS (docs/DOS.md) loads a .PLC file into the RAM and runs it.  The
+The DOS (docs/software/DOS.md) loads a .PLC file into the RAM and runs it.  The
 file starts with a 16-byte header, then the program's bytes from its load
 address to its last byte (gaps as 00):
 

@@ -17,7 +17,7 @@ Device   g22v10;
    RAM write strobe).  It replaced the '32 OR gate that made
    /WE = RW | CLK, and took over the read enables from the ROM/RAM
    select PLD.  See
-   docs/TIMING_FIXES.md, end-of-write contention.  Since revision 02 the
+   docs/timing/TIMING_FIXES.md, end-of-write contention.  Since revision 02 the
    map itself is a 74ACT273 register (an I/O device at 5000h, loaded
    by /MAP_WR from the I/O decode PLD), and the ROM/RAM select PLD
    is gone.
@@ -35,7 +35,7 @@ Device   g22v10;
       Pin 17 is now an input, RUN, from the ROM cartridge (10k
       pull-down on the main board).  The cartridge holds RUN low from
       power-up while it loads its SRAM from its EEPROMs, then raises
-      it (docs/ROM.md, "Loading the cartridge").  While RUN is low:
+      it (docs/architecture/ROM.md, "Loading the cartridge").  While RUN is low:
         - /ROM_OE stays high, so the cartridge SRAM never drives the
           bus and the cartridge can feed the CPU its own bytes;
         - the map register's /MR and the expansion slots' /RESET,
@@ -52,7 +52,7 @@ Device   g22v10;
       With no cartridge, a boot card in expansion slot 1 loads the
       main RAM the way the cartridge loads its SRAM, and drives the
       RAM's /WE itself (slot contact A19) while it does
-      (docs/EXPANSION.md, "Booting from slot 1").  Nothing writes
+      (docs/architecture/EXPANSION.md, "Booting from slot 1").  Nothing writes
       while RUN is low otherwise: the IR holds 02h, which writes
       nothing.  Once RUN is high this PLD drives /WE as before.  The
       output enable term is a separate term, so WE still uses 1 of 12.
@@ -62,8 +62,8 @@ Device   g22v10;
       (revision 10) makes it, with the same equation and output
       enable, from an early tap of the clock (CLK_E), so that it is
       back high before the address can change now that the address
-      muxes take their selects directly (docs/FETCH_TIMING.md,
-      option B; docs/WE_TIMING.md).  Nothing else changes here; the
+      muxes take their selects directly (docs/timing/FETCH_TIMING.md,
+      option B; docs/timing/WE_TIMING.md).  Nothing else changes here; the
       address inputs now settle at 13 ns after the edge instead of
       20.5.  The WRITE paragraph below is kept for the record of
       the rule; the equation lives in the Sync PLD.
@@ -112,7 +112,7 @@ Device   g22v10;
       (/OE rise, then tOHZ), while the source F541s can turn on
       about 7 ns after it.  That overlap of up to about 7 ns is
       accepted; series resistors on the source F541 outputs limit
-      the current (docs/CPU.md).
+      the current (docs/architecture/CPU.md).
 
    THE RULE
       Every memory bus cycle, read or write, uses the LOW half of
@@ -163,7 +163,7 @@ Device   g22v10;
       Reads and writes take the low half of the clock, so the high
       half must be at most 54.6 % of the period for the opcode to
       reach the State PLD in time (and at least 47 % for the write
-      glitch margin in docs/VIDEO_TIMING.md).  A 50 % clock, such as a
+      glitch margin in docs/timing/VIDEO_TIMING.md).  A 50 % clock, such as a
       divided-down oscillator, leaves 2 ns at each end.
 
    PIN BUDGET

@@ -71,7 +71,7 @@ HOW (the BBC Micro Elite way, adapted to the Placard)
       is marked invalid; its edges are not drawn, and in filled mode the
       whole ship is left out that frame.
 
-MEMORY (a library program, docs/DOS.md: RAM x0100-x3FFF)
+MEMORY (a library program, docs/software/DOS.md: RAM x0100-x3FFF)
     x0100-x1EFF, x2000-x22FF  code (asm_expand.py packs the chunks)
     x2300-x3DFF               tables and ship models (TABLES below)
     x3E00-x3FFF               face product table (made per ship)

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Screws, standoffs, nuts and feet of the case (docs/CASE.md parts list),
+Screws, standoffs, nuts and feet of the case (docs/case/CASE.md parts list),
 as STL meshes for render_case.html (V.hardware), at their assembled positions.
 The page moves each group with the part it belongs to for exploded views.
-Also draws docs/case_hardware_stacks.png (each fastener stack, exploded).
+Also draws docs/case/case_hardware_stacks.png (each fastener stack, exploded).
 Run after gen_case.py --mesh (same mesh folder):
     python3 src/scripts/case_render/gen_case_hardware.py
 """
@@ -81,7 +81,7 @@ def main():
     for name, sol in groups.items():
         cq.exporters.export(combine(sol), os.path.join(MESH, name + ".stl"), tolerance=0.02, angularTolerance=0.2)
     print("wrote", ", ".join(groups))
-    draw_stacks(os.path.join(g.REPO, "docs", "case_hardware_stacks.png"))
+    draw_stacks(os.path.join(g.REPO, "docs", "case", "case_hardware_stacks.png"))
 
 
 

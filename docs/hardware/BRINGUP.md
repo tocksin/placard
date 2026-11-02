@@ -1,6 +1,6 @@
 # Bring-up: build order and a test for each chip
 
-Date: 2026-10-30
+Date: 2026-11-02
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
@@ -14,7 +14,7 @@ test ROM checks the rest of the CPU and the memory by itself.  The I/O and
 the audio go in last, and the ROM shows their state on the screen.
 
 Every part is named by its reference designator on the schematic.  The
-chips' U numbers are their numbers in [CHIPS.md](CHIPS.md); a part on the
+chips' U numbers are their numbers in [CHIPS.md](../architecture/CHIPS.md); a part on the
 cartridge is called "cartridge Un".  The expected
 readings come from `src/scripts/bringup_signals.py`, a clock-by-clock model
 of the PLD equations as they are wired at each step.  The test ROM is made
@@ -774,7 +774,7 @@ and insert its chips into their sockets one at a time:
    `bringup_lo.bin` and cartridge U3 (the upper one) with
    `bringup_hi.bin`, verify both, label them "lo" and "hi", and insert them into their sockets.
    The cartridge copies them into its SRAMs at power-up
-   ([ROM.md](ROM.md#loading-the-cartridge)).
+   ([ROM.md](../architecture/ROM.md#loading-the-cartridge)).
 3. **SRAMs.**  Insert cartridge U4 and U5 into their sockets (no programming).
 
 Take the shunts off JP1 and JP2 on the main board and plug
@@ -887,7 +887,7 @@ U42 PS/2 receiver from `ATF22V10_PS2.pld` (rev 02); verify and label
 them.
 
 Turn off the power switch.  Insert the two PLDs U38 and U42 into their
-sockets and fit their parts ([IO.md](IO.md)):
+sockets and fit their parts ([IO.md](../architecture/IO.md)):
 
 - The 3.3 V regulator U40, with C40 on its input and C47 on its output
   (1 µF each).
@@ -971,7 +971,7 @@ Turn off the power switch.  Insert the DAC register U36 into its socket
 and fit its supply
 filter R22 (2.2 ohm) and C44 (220 µF), the R-2R ladder R23-R31 (2k) and
 R32-R38 (1k), the output filter C45 (15 nF) and C46 (22 µF), R39 (10k)
-and the jack J6 ([SOUND.md](SOUND.md)).  Turn on the power switch.
+and the jack J6 ([SOUND.md](../sound/SOUND.md)).  Turn on the power switch.
 With no sound playing the sample is 80h:
 
 | DAC pin | Silent | With T (1 kHz tone, 80h ± 48 = B0h / 50h) |
@@ -986,7 +986,7 @@ from the line out (into an amplifier or powered speakers); T again stops it.
 
 When everything passes, load the normal ROM image: take cartridge U2
 and U3 out, program them with the two halves of the normal image
-(`gen_rom.tcl`, [ROM.md](ROM.md)), verify, relabel and insert them into their sockets again.
+(`gen_rom.tcl`, [ROM.md](../architecture/ROM.md)), verify, relabel and insert them into their sockets again.
 
 ## Expansion slots
 
@@ -999,4 +999,4 @@ and U3 out, program them with the two halves of the normal image
 
 The slots J9-J12 are optional: fit only the ones a card will use, each
 with its select resistor (R51 for J9 through R54 for J12, 1k).  With a
-card in, the boot ROM finds it ([EXPANSION.md](EXPANSION.md)).
+card in, the boot ROM finds it ([EXPANSION.md](../architecture/EXPANSION.md)).

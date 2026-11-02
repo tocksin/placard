@@ -15,7 +15,7 @@
 > what was done, and `option_b_board.png` shows what moves on the board
 > (nothing has to).
 
-Date: 2026-10-31
+Date: 2026-11-02
 
 [WE_TIMING.md](WE_TIMING.md) found that the instruction fetch, which
 [TIMING.md](TIMING.md) has at +0.7 ns, is about 4 ns short once the routed
@@ -243,7 +243,7 @@ and VIDEO_TIMING.md (the paths they close are now wider), and this file.
 
 Board (Justin's): re-pin the four muxes, move /WE to U15, the CLK_E tap
 and the 500 mm of track before the next clock load.  No chip has to move:
-`docs/option_b_board.png` (`src/scripts/gen_option_b_board.py`) marks the
+`docs/hardware/option_b_board.png` (`src/scripts/gen_option_b_board.py`) marks the
 chips whose wiring changes on the routed board.  The schematic has a net tie
 NT2 between CLK_E (X1, U15 pin 9) and CLK (every other chip) so the two
 nets stay apart in the netlist; NT2 goes at the far end of the long track.

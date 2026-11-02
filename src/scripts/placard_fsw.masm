@@ -36,7 +36,7 @@
 ;
 ; This is not in the library proper: it is part of the DOS image at
 ; FSW_CODE (xB000-xBFFF), reached by programs through the DOS vectors at
-; x8010-x8020 (dos.masm, docs/DOS.md).  placard_lib.asm's jump table is
+; x8010-x8020 (dos.masm, docs/software/DOS.md).  placard_lib.asm's jump table is
 ; unchanged.  asm_expand.py writes placard_fsw.asm from this file.
 ;
 ; Date: 10/25/2026
@@ -53,7 +53,7 @@ V_WDIRTY  = 0x7F        ; 1 = FS_BUF holds a changed FAT sector (V_FATC)
 V_WBUF    = 0x3B        ; 2: fs_write's caller's buffer (R5:R4) while it
                         ; works on the FAT (x3B-x3F are free in the reader)
 V_WSAVE   = 0x3D        ; 2: fs_save's buffer address while fs_create works
-FSW_CODE  = 0xB000      ; the code (the DOS image, docs/ROM.md)
+FSW_CODE  = 0xB000      ; the code (the DOS image, docs/architecture/ROM.md)
 
 E_NOFILE  = 12
 E_FOLDER  = 13

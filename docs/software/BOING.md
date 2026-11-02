@@ -13,7 +13,7 @@ DOS, Esc does nothing).
 
 Date: 10/28/2026
 
-![Boing Ball in the simulator](../reference/boing_sim.gif)
+![Boing Ball in the simulator](../../reference/boing_sim.gif)
 
 (The GIF plays at 50 frames a second, the fastest a GIF goes; the demo
 runs at 60.)

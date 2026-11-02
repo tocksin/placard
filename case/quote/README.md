@@ -1,6 +1,6 @@
 # PLACARD case: quote package
 
-Date: 2026-10-30  
+Date: 2026-11-02  
 Revision: A
 
 Everything a sheet metal service or a laser cutter needs to quote the PLACARD computer case:
@@ -44,6 +44,6 @@ PARTS.csv has the same list with the hardware and the files for each part.
 ## Not in this package
 
 - The slot and cartridge covers, which are 3D printed (case/slot_cover.stl, case/cart_cover.stl).
-- Fasteners, standoffs and feet. We supply those; see docs/BOM_CASE.md in the PLACARD repository.
+- Fasteners, standoffs and feet. We supply those; see docs/bom/BOM_CASE.md in the PLACARD repository.
 
 Made by `src/scripts/gen_case_quote.py` from the board file. Rerun it after the board or the case changes.

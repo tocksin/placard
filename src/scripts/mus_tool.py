@@ -14,7 +14,7 @@ step), a waveform (pulse with a swept width, saw, triangle, noise or one of
 8 custom 32-step waves) and an ADSR envelope, mixed at 15.76 kHz (one
 sample for two lines; the line at x5DF3 has one of its own).  Once a frame
 (a "tick") the player reads the patterns and runs the instruments' wave and
-pulse programs, the effects and the envelopes.  docs/MUSIC.md describes the
+pulse programs, the effects and the envelopes.  docs/sound/MUSIC.md describes the
 song format, the text format and the effects.
 
 Model.  Model below is the player tick for tick and sample for sample:
@@ -274,7 +274,7 @@ def parse_row(line):
 
 
 def parse_mus(text):
-    """the song text format (docs/MUSIC.md) -> Song"""
+    """the song text format (docs/sound/MUSIC.md) -> Song"""
     song = Song()
     wave_labels, pulse_labels = {}, {}
     instruments = {}

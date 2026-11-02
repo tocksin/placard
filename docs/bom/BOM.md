@@ -5,7 +5,7 @@ Date: 2026-11-02
 One BOM per assembly (Justin, 2026-10-25).  The case assembly takes the built main board as one
 line; each cartridge assembly is complete with its shell and screw.  Accessories sold with a kit
 (USB-C power supply and cable, SD card, programmer, controllers, keyboard and mouse) are in no BOM:
-[KITTING.md](KITTING.md) and [KIT_PRICING.md](KIT_PRICING.md) list them.
+[KITTING.md](../kit/KITTING.md) and [KIT_PRICING.md](../kit/KIT_PRICING.md) list them.
 
 | Assembly | BOM | Contents | Cost | Without optional parts | Lines estimated |
 |---|---|---|--:|--:|--:|
@@ -23,9 +23,9 @@ Parts with the same part number share a line; where no part number is chosen the
 blank and parts with the same description and value share the line.  Lines marked "not on the
 schematic" are bare PCBs, sockets, shunts, shells and screws that KiCad's BOM export leaves out.
 The net tie NT1 and the cartridges' edge fingers (their J1) are copper on the PCB, so they are
-not listed.  Every PLD is an ATF22V10C-7PX ([CHIPS.md](CHIPS.md#pld-speed-grades)); the notes
+not listed.  Every PLD is an ATF22V10C-7PX ([CHIPS.md](../architecture/CHIPS.md#pld-speed-grades)); the notes
 give each PLD's job;
-[KITTING.md](KITTING.md) lists the images.
+[KITTING.md](../kit/KITTING.md) lists the images.
 
 Written by `src/scripts/gen_bom.py` from the KiCad sheets (part numbers are the Manufacturer and
 MPN fields set by `gen_kicad_schematic.py`) and the case parts in CASE.md.  Rerun both after a

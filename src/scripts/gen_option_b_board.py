@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Draw what option B (docs/FETCH_TIMING.md) changes on the main board.
+"""Draw what option B (docs/timing/FETCH_TIMING.md) changes on the main board.
 
 Reads the chip positions and the outline from kicad/placard.kicad_pcb (the
 board stays Justin's; this only draws it) and marks the chips whose wiring
 changes and the nets that move.  No chip has to move.  Output:
-docs/option_b_board.png.  Run from the repository root.
+docs/hardware/option_b_board.png.  Run from the repository root.
 """
 import re
 import matplotlib
@@ -111,8 +111,8 @@ def main():
             "so X1 -> U15 -> NT2 (next to X1) is about 400 mm of track before any serpentine.",
             fontsize=9.5, va="top")
     fig.tight_layout()
-    fig.savefig("docs/option_b_board.png", dpi=110)
-    print("wrote docs/option_b_board.png")
+    fig.savefig("docs/hardware/option_b_board.png", dpi=110)
+    print("wrote docs/hardware/option_b_board.png")
 
 
 if __name__ == "__main__":

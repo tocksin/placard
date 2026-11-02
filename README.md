@@ -9,6 +9,8 @@ created in 1978 by Monolithic Memories which is owned by Lattice Semi today.
 There are some differences between the three types of chips, but this project 
 isn't going to distinguished between them.
 
+The design documents are in [docs/](docs/README.md), grouped by subject.
+
 ## Project goals
 The project has some hard-goals to maintain:
 - Use only through-hole chips similar to the 7400-series DIP chips (or PLA of course)
@@ -20,36 +22,36 @@ The project has some hard-goals to maintain:
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
 
 ## Block diagram
-Each block shows how many chips it uses (33 and a 3.3 V regulator on the main board since 2026-10-25, when the matrix keyboard went and a PS/2 receiver PLD came; the expansion and cartridge slots add none, the cartridge itself has 5).  See [docs/CHIPS.md](docs/CHIPS.md) for the parts.
+Each block shows how many chips it uses (33 and a 3.3 V regulator on the main board since 2026-10-25, when the matrix keyboard went and a PS/2 receiver PLD came; the expansion and cartridge slots add none, the cartridge itself has 5).  See [docs/architecture/CHIPS.md](docs/architecture/CHIPS.md) for the parts.
 
 ![Placard block diagram](reference/placard_block_diagram.png)
 
 The drawing is made by `src/scripts/gen_block_diagram.py` (2026-10-23: CPU on the left, memory, I/O and audio in the middle, video on the right); rerun it when the design changes.
 
 The I/O circuitry (SNES pads, SD card, PS/2 keyboard and mouse) is drawn as a schematic in
-[docs/IO.md](docs/IO.md#schematic) (`schematics/placard_io_schematic.png`).
+[docs/architecture/IO.md](docs/architecture/IO.md#schematic) (`schematics/placard_io_schematic.png`).
 The audio circuitry (sample read, DAC register, R-2R ladder, audio line out jack) is drawn in
-[docs/SOUND.md](docs/SOUND.md#schematic) (`schematics/placard_audio_schematic.png`).
+[docs/sound/SOUND.md](docs/sound/SOUND.md#schematic) (`schematics/placard_audio_schematic.png`).
 
 The real schematic and PCB layout are a KiCad project in [kicad/](kicad/).
 
-To build a board one chip at a time, testing each with a multimeter as it goes in, follow [docs/BRINGUP.md](docs/BRINGUP.md); it has a bring-up test ROM that checks the CPU and memory and shows the I/O on the screen.
+To build a board one chip at a time, testing each with a multimeter as it goes in, follow [docs/hardware/BRINGUP.md](docs/hardware/BRINGUP.md); it has a bring-up test ROM that checks the CPU and memory and shows the I/O on the screen.
 
 ## Memory Map
 The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databus.  The video RAM starts at x6020 and ends at xFFFF, and each row's mode byte (color mode and line repeat) is at x5A20 + row.  There is a 64kB RAM and a 64kB ROM behind the same addresses.  The address space is divided into eight 8kB sections, and a write-only map register at x5000 picks whether each section reads from the RAM or the ROM.
 
 - **Writes always go to the RAM**, even in a section mapped to ROM.  The write strobe (/WE) is not decoded by address, so a write in the I/O window x5000-x53FF also lands in the RAM underneath it.
 - **The map register** is a CD74ACT273E clocked by /MAP_WR from the I/O decode PLD; it latches the source bus at the end of the write.  Bit n = 1 makes section n read from RAM, 0 from ROM.  Bit 2 maps x4000-x4FFF and x5400-x5FFF, because x5000-x53FF is the I/O window.  It is write only, so software keeps a copy of the last value it wrote.
-- **At power-up every section reads as ROM.**  RUN from the ROM cartridge holds the register's /MR low while the cartridge loads its SRAM and the CPU is held, so the CPU boots from ROM ([docs/ROM.md](docs/ROM.md#loading-the-cartridge)).
+- **At power-up every section reads as ROM.**  RUN from the ROM cartridge holds the register's /MR low while the cartridge loads its SRAM and the CPU is held, so the CPU boots from ROM ([docs/architecture/ROM.md](docs/architecture/ROM.md#loading-the-cartridge)).
 - **x5000-x53FF is the I/O window.**  The memory control PLD keeps both the RAM and the ROM off the bus there, so I/O always has priority.  (Until 2026-10-16 the window was x5000-x5FFF, with x5800-x5FFF a mirror.)
 - **Only `[Y,X]` reaches the I/O window**; `[0,D]` and `[0,X]` only address the zero page.
 - **Video reads always read the RAM** (memory control PLD revision 04); only CPU reads follow the map.  The CPU can run code from the ROM under the video area while the screen shows the RAM, and a program that wants to read the video RAM maps that section to RAM.
-- **Programs run from the ROM.**  The library (jump table, core routines, font, I/O drivers, sound, line input, FAT reader, slot helpers and the demo menu hook) is one block at the top of the ROM, xC500-xFBFF, just under the boot loader, and runs in place; a program runs in place at ROM x6000-xBFFF and may use x2000-x3FFF too.  The boot loader copies the library's RAM code to x1F00, gives each expansion card a chance to run its own boot code (like the Apple II), then maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  That is the 64K development image; the machine's own 32K image (x8000-xFFFF, the same on both cartridges) holds the boot loader, the library, BASIC and a loader that runs the DOS and programs from the SD card.  See [docs/ROM.md](docs/ROM.md) and [docs/DOS.md](docs/DOS.md).
-- **After a map write**, the next instruction must not be fetched from a section whose map bit that write changed, unless the ROM and RAM hold the same byte there (the new map arrives 4.1 ns too late for that fetch).  Copying the ROM into the RAM underneath and then switching the section is safe.  See [docs/TIMING_FIXES.md](docs/TIMING_FIXES.md#romram-map-register-74act273).
+- **Programs run from the ROM.**  The library (jump table, core routines, font, I/O drivers, sound, line input, FAT reader, slot helpers and the demo menu hook) is one block at the top of the ROM, xC500-xFBFF, just under the boot loader, and runs in place; a program runs in place at ROM x6000-xBFFF and may use x2000-x3FFF too.  The boot loader copies the library's RAM code to x1F00, gives each expansion card a chance to run its own boot code (like the Apple II), then maps sections 0 and 2 to RAM (map = 05) and jumps to x6000.  Older demos written for RAM x0000 are copied into the RAM at boot instead.  That is the 64K development image; the machine's own 32K image (x8000-xFFFF, the same on both cartridges) holds the boot loader, the library, BASIC and a loader that runs the DOS and programs from the SD card.  See [docs/architecture/ROM.md](docs/architecture/ROM.md) and [docs/software/DOS.md](docs/software/DOS.md).
+- **After a map write**, the next instruction must not be fetched from a section whose map bit that write changed, unless the ROM and RAM hold the same byte there (the new map arrives 4.1 ns too late for that fetch).  Copying the ROM into the RAM underneath and then switching the section is safe.  See [docs/timing/TIMING_FIXES.md](docs/timing/TIMING_FIXES.md#romram-map-register-74act273).
 
 The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /WE, /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
 
-The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is two more AS7C256C-15PCN on the ROM cartridge, loaded at power-up from two AT28C256 EEPROMs by the cartridge while it stalls the CPU ([docs/ROM.md](docs/ROM.md#loading-the-cartridge)).  See [docs/CPU.md](docs/CPU.md#memory-parts) and [docs/TIMING.md](docs/TIMING.md).
+The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is two more AS7C256C-15PCN on the ROM cartridge, loaded at power-up from two AT28C256 EEPROMs by the cartridge while it stalls the CPU ([docs/architecture/ROM.md](docs/architecture/ROM.md#loading-the-cartridge)).  See [docs/architecture/CPU.md](docs/architecture/CPU.md#memory-parts) and [docs/timing/TIMING.md](docs/timing/TIMING.md).
 
 | Address | Map bit | Function  |
 |---------|---------|------|
@@ -69,7 +71,7 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is two more AS7C
 The drawing is made by `src/scripts/gen_memory_map.py`; rerun it when the map changes.
 
 ### I/O window
-Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes are low with /WE, and devices latch the source bus on the rising edge at the end of the write.  Read strobes are low on a read the CPU latches into D (LOAD_IMM).  The shared port is described in [docs/IO.md](docs/IO.md) and the expansion slots in [docs/EXPANSION.md](docs/EXPANSION.md).
+Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes are low with /WE, and devices latch the source bus on the rising edge at the end of the write.  Read strobes are low on a read the CPU latches into D (LOAD_IMM).  The shared port is described in [docs/architecture/IO.md](docs/architecture/IO.md) and the expansion slots in [docs/architecture/EXPANSION.md](docs/architecture/EXPANSION.md).
 
 | Address | Strobe | R/W | Function |
 |---------|--------|-----|----------|
@@ -85,7 +87,7 @@ Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes ar
 The window was x5000-x5FFF until 2026-10-16 (the I/O decode PLD did not decode A11, and the expansion ports were at x5500 and x5600).  The unused /SND_WR pin became the A11 input.
 
 ### Sound
-The video circuit reads one 8-bit sample per scan line from x5DF3-x5FFF (525 bytes, one frame) and plays it through a 74HCT574 and a resistor ladder DAC, at the line rate of 31.47 kHz.  80h is silence.  The library's sound driver (`snd_update` once a frame, with `snd_tone`, `snd_beep`, `snd_note`, `snd_noise` and `snd_play`) refills the buffer behind the line being played.  See [docs/SOUND.md](docs/SOUND.md).
+The video circuit reads one 8-bit sample per scan line from x5DF3-x5FFF (525 bytes, one frame) and plays it through a 74HCT574 and a resistor ladder DAC, at the line rate of 31.47 kHz.  80h is silence.  The library's sound driver (`snd_update` once a frame, with `snd_tone`, `snd_beep`, `snd_note`, `snd_noise` and `snd_play`) refills the buffer behind the line being played.  See [docs/sound/SOUND.md](docs/sound/SOUND.md).
 
 ### Video line read
 A read anywhere in x5000-x50FF returns the upper 8 bits of the video line counter, V9:V2.  The V counter in the V Counter PLD counts 499 to 1023, and one 74F541 enabled by /LINE_RD puts V9:V2 on the data bus.  The ROM/RAM map register shares the page but is write only, so there is no conflict.  Read it with `ld 0x50, y` then `ld [y,x], ac`.
@@ -99,7 +101,7 @@ A read anywhere in x5000-x50FF returns the upper 8 bits of the video line counte
 The video is designed to be 640x480 VGA 60Hz standard.  This means a 25.175 MHz clock.  This requires two counters: a horizontal and vertical.  They count 800 and 600 pixels.  This needs a 10-bit counter for each.  The counters form the RAM address space to read the pixel values.  The video memory is organized in a non-traditional way with H,V instead of V,H.
 
 ### Line repeat
-Bits 3:2 of a row's mode byte make each byte of video memory show on 1, 2 or 4 lines (640 × 480, 240 or 120).  A full 2x screen leaves 20 KB of the video area free (the even pages x60, x62 ... xFE) and a full 4x screen 30 KB.  The audio slot PLD remaps four row address bits, so no chips were added.  See [docs/VIDEO.md](docs/VIDEO.md#line-repeat).
+Bits 3:2 of a row's mode byte make each byte of video memory show on 1, 2 or 4 lines (640 × 480, 240 or 120).  A full 2x screen leaves 20 KB of the video area free (the even pages x60, x62 ... xFE) and a full 4x screen 30 KB.  The audio slot PLD remaps four row address bits, so no chips were added.  See [docs/video/VIDEO.md](docs/video/VIDEO.md#line-repeat).
 
 ### Text demo
 `src/scripts/text_demo.asm` draws a demo screen with the CPU and keeps a test running on it: 80 column text (2 colors, 1x, on row tints: a blue status panel and a rainbow raster bar that bounces behind the text), a 16 color band (4 bpp, 4x), 40 column text (2 bpp, 2x) and a 256 color band (8 bpp, 4x) with "256" in shades of red, blue and green and a turning rainbow ring.  Each frame it tests one page of RAM (85 pages: x0100-x1EFF, x2000-x4FFF, x5400-x59FF and x5C00-x5CFF, 14 patterns each, with a progress bar, pass and error counts) and updates a frame counter, an uptime clock, a spinner, a turning color wheel, the ring and a message that scrolls a pixel a frame.  `build\text_demo.bat` loads it on the board, and `src/scripts/text_demo_sim.py` runs and checks it in the simulator (`--gif` makes an animation).
@@ -107,7 +109,7 @@ Bits 3:2 of a row's mode byte make each byte of video memory show on 1, 2 or 4 l
 ![text_demo in the simulator](reference/text_demo_sim.gif)
 
 ### DOS, BASIC and demo menu
-The machine ships the 32K ROM image (`src/scripts/rom32.masm`, `build\rom32.bat`): the boot loader, the library, PLACARD BASIC (a 16-bit integer BASIC with strings, graphics, sound and SAVE/LOAD on the card, [docs/BASIC.md](docs/BASIC.md)) and a loader that runs `.PLC` programs from the SD card.  The DOS is one of those programs (`DOS.PLC`, `src/scripts/dos.masm`).  At power-up the loader runs the program named in `BOOT.CFG`, or the DOS's file browser (hold Esc) that runs, deletes and picks the boot program, with a command line for `LOAD` and `SAVE` of memory as files.  With no card, or no `DOS.PLC` on it, BASIC starts.  The demo menu is one of those programs (`MENU.PLC`, `src/scripts/menu.masm`): the CPU test, pi, Mandelbrot and the Game of Life run in turn, each until it is done or for 2 minutes (Mandelbrot 3); Esc in any program shows the menu (Up / Down and Enter, or 1-4), a program picked there runs until Esc, and after 2 minutes with no key the menu goes back to running them in turn.  The `sdcard/` folder holds the files for the card; `src/scripts/test_dos.py`, `test_menu.py` and `test_basic.py` check them in the simulator; the `.BAS` files on the card are BASIC examples.  See [docs/DOS.md](docs/DOS.md), [docs/MENU.md](docs/MENU.md) and [docs/ROM.md](docs/ROM.md#the-32k-image).
+The machine ships the 32K ROM image (`src/scripts/rom32.masm`, `build\rom32.bat`): the boot loader, the library, PLACARD BASIC (a 16-bit integer BASIC with strings, graphics, sound and SAVE/LOAD on the card, [docs/software/BASIC.md](docs/software/BASIC.md)) and a loader that runs `.PLC` programs from the SD card.  The DOS is one of those programs (`DOS.PLC`, `src/scripts/dos.masm`).  At power-up the loader runs the program named in `BOOT.CFG`, or the DOS's file browser (hold Esc) that runs, deletes and picks the boot program, with a command line for `LOAD` and `SAVE` of memory as files.  With no card, or no `DOS.PLC` on it, BASIC starts.  The demo menu is one of those programs (`MENU.PLC`, `src/scripts/menu.masm`): the CPU test, pi, Mandelbrot and the Game of Life run in turn, each until it is done or for 2 minutes (Mandelbrot 3); Esc in any program shows the menu (Up / Down and Enter, or 1-4), a program picked there runs until Esc, and after 2 minutes with no key the menu goes back to running them in turn.  The `sdcard/` folder holds the files for the card; `src/scripts/test_dos.py`, `test_menu.py` and `test_basic.py` check them in the simulator; the `.BAS` files on the card are BASIC examples.  See [docs/software/DOS.md](docs/software/DOS.md), [docs/software/MENU.md](docs/software/MENU.md) and [docs/architecture/ROM.md](docs/architecture/ROM.md#the-32k-image).
 
 ### Game demos
 Four demos show what the CPU can do with no sprite or collision hardware.  The first three are ROM programs written by a Python generator (the tables, the unrolled drawing code and a bit-exact model of the picture), and each has a simulator test that checks every frame against the model.
@@ -124,13 +126,13 @@ Four demos show what the CPU can do with no sprite or collision hardware.  The f
 
 ![scroller in the simulator](reference/scroller_sim.gif)
 
-`sdcard/WIRE3D.PLC` (`gen_wire3d.py`) is an Elite-style 3D demo and benchmark: six convex ships tumbling in 3D at 320 × 240, switching every 20 seconds between wireframes with hidden lines removed and filled, shaded faces painted far to near.  Quarter-square multiplies, projection by log tables, Elite's face test in each ship's own space, XOR lines erased by drawing them again, and filled ships erased by blanking only what their new outline does not cover.  Six ships is the limit with margin: filled mode stays above 20 fps (seven ships touch 20), wireframes hold the 30 fps cap with half the CPU spare.  [docs/WIRE3D.md](docs/WIRE3D.md) has the measurements; `src/scripts/test_wire3d_sim.py` checks every frame against a model.
+`sdcard/WIRE3D.PLC` (`gen_wire3d.py`) is an Elite-style 3D demo and benchmark: six convex ships tumbling in 3D at 320 × 240, switching every 20 seconds between wireframes with hidden lines removed and filled, shaded faces painted far to near.  Quarter-square multiplies, projection by log tables, Elite's face test in each ship's own space, XOR lines erased by drawing them again, and filled ships erased by blanking only what their new outline does not cover.  Six ships is the limit with margin: filled mode stays above 20 fps (seven ships touch 20), wireframes hold the 30 fps cap with half the CPU spare.  [docs/software/WIRE3D.md](docs/software/WIRE3D.md) has the measurements; `src/scripts/test_wire3d_sim.py` checks every frame against a model.
 
 ![wire3d in the simulator](reference/wire3d_sim.gif)
 
-`sdcard/PLAY.PLC` (`src/scripts/play.masm`) plays `DEMO.SNG` with the music player (`src/scripts/placard_mus.masm`, [docs/MUSIC.md](docs/MUSIC.md)): four SID-style voices (pulse with a swept width, saw, triangle, noise or a custom wave, each with an ADSR envelope) and a fifth for sound effects, driven once a frame by patterns, instruments with wave and pulse programs, and effects (arpeggio, slides, portamento, vibrato, volumes, speed), mixed into the line-fetched audio buffer at 15.7 kHz on about 20 % of the CPU.  `mus_tool.py` turns a song written as text (`src/music/demo.mus`, which shows off every feature in 54 seconds) into the `.SNG` file and a WAV, and `test_mus.py` checks the player against its Python model sample for sample.  `sdcard/TRACKER.PLC` (`tracker.masm`, with `TRACKER.OVL`) is the editor on the machine: the orderlists, the four patterns side by side, the instruments and the wave and pulse tables on an 80 x 30 screen, played while you edit, loaded from and saved to `.SNG` files on the card.
+`sdcard/PLAY.PLC` (`src/scripts/play.masm`) plays `DEMO.SNG` with the music player (`src/scripts/placard_mus.masm`, [docs/sound/MUSIC.md](docs/sound/MUSIC.md)): four SID-style voices (pulse with a swept width, saw, triangle, noise or a custom wave, each with an ADSR envelope) and a fifth for sound effects, driven once a frame by patterns, instruments with wave and pulse programs, and effects (arpeggio, slides, portamento, vibrato, volumes, speed), mixed into the line-fetched audio buffer at 15.7 kHz on about 20 % of the CPU.  `mus_tool.py` turns a song written as text (`src/music/demo.mus`, which shows off every feature in 54 seconds) into the `.SNG` file and a WAV, and `test_mus.py` checks the player against its Python model sample for sample.  `sdcard/TRACKER.PLC` (`tracker.masm`, with `TRACKER.OVL`) is the editor on the machine: the orderlists, the four patterns side by side, the instruments and the wave and pulse tables on an 80 x 30 screen, played while you edit, loaded from and saved to `.SNG` files on the card.
 
-`sdcard/BOING.PLC` (`gen_boing.py`) is the Amiga's Boing Ball: a red and white checkered ball, tilted 17 degrees, spinning and bouncing in front of a purple grid with its shadow on the wall, at 160 × 120, 4 bpp.  It holds 60 fps on about a third of the CPU.  The Placard has no palette registers for the Amiga's color-cycling trick, so the spin is 8 phases worked out ahead of time, and each frame redraws only the rows the ball and its shadow touch.  It draws from a clean copy of the background kept in the video RAM that 4x rows leave free, top to bottom and ahead of the beam.  `build\boing.bat` loads a ROM build; [docs/BOING.md](docs/BOING.md) has the details and `src/scripts/test_boing_sim.py` checks every frame against a model.
+`sdcard/BOING.PLC` (`gen_boing.py`) is the Amiga's Boing Ball: a red and white checkered ball, tilted 17 degrees, spinning and bouncing in front of a purple grid with its shadow on the wall, at 160 × 120, 4 bpp.  It holds 60 fps on about a third of the CPU.  The Placard has no palette registers for the Amiga's color-cycling trick, so the spin is 8 phases worked out ahead of time, and each frame redraws only the rows the ball and its shadow touch.  It draws from a clean copy of the background kept in the video RAM that 4x rows leave free, top to bottom and ahead of the beam.  `build\boing.bat` loads a ROM build; [docs/software/BOING.md](docs/software/BOING.md) has the details and `src/scripts/test_boing_sim.py` checks every frame against a model.
 
 ![Boing Ball in the simulator](reference/boing_sim.gif)
 
@@ -147,14 +149,14 @@ timing, pixels, a text console with line input, the keyboard, SNES pad,
 PS/2 mouse and SD card drivers, a FAT16/FAT32 file reader, a sound driver
 and expansion card lookup.  It also sets the calling convention, the
 software stack and the zero page variable map (`zeropage.asm`).  See
-[docs/LIBRARY.md](docs/LIBRARY.md).
+[docs/software/LIBRARY.md](docs/software/LIBRARY.md).
 
 ## Emulator
 Open `web/index.html` in a browser to run the PLACARD without hardware: the
 32K ROM (or one you load), an SD card (the `sdcard/` folder, a folder of
 your own or a card image), the screen, sound, keyboard, mouse and game
 controllers, at the real clock rate.  No server is needed.  See
-[docs/EMULATOR.md](docs/EMULATOR.md).
+[docs/software/EMULATOR.md](docs/software/EMULATOR.md).
 
 ## Building and loading a program
 The `build` folder has one Windows batch file per assembly program
@@ -166,7 +168,7 @@ on the PATH), writes the RAM initialization files `src/hdl/ram.mem` (main
 RAM) and `cart_ram.mem` (cartridge SRAM), random bytes like a real SRAM at
 power-up (`gen_random_ram.tcl`), and the cartridge EEPROM image
 `src/hdl/rom.mem` (boot loader, standard library and font, and the program,
-`gen_rom.tcl`; see [docs/ROM.md](docs/ROM.md)), runs
+`gen_rom.tcl`; see [docs/architecture/ROM.md](docs/architecture/ROM.md)), runs
 Vivado in batch mode through synthesis, implementation and bitstream, and
 programs the Basys 3 over JTAG.  Any other program builds with
 `build\build_and_load.bat <program>`.  Add `noasm` (e.g. `cpu_test.bat noasm`)

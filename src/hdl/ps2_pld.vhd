@@ -8,7 +8,7 @@
 --
 -- Converted from WinCUPL source ATF22V10_PS2.pld (Revision 02)
 --
--- PS/2 receiver (docs/IO.md): receives one byte from the PS/2 keyboard or
+-- PS/2 receiver (docs/architecture/IO.md): receives one byte from the PS/2 keyboard or
 -- mouse by itself, holds the device off once the byte is in, and gives
 -- the byte to the CPU on a read of x5202.
 --

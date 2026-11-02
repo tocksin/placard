@@ -1,6 +1,6 @@
 # I/O: SNES pads, SD card, PS/2 keyboard and mouse
 
-Date: 2026-10-28
+Date: 2026-11-02
 
 Both SNES pads, the SD card, a PS/2 mouse and a PS/2 keyboard share one
 port at x5200-x52FF.  They are polled, never used at the same moment, so
@@ -46,7 +46,7 @@ matrix: those lines now go straight to port PLD inputs.
 
 ## Schematic
 
-![Placard I/O schematic](../schematics/placard_io_schematic.png)
+![Placard I/O schematic](../../schematics/placard_io_schematic.png)
 
 The drawing is the shared port sheet of the KiCad schematic
 (`kicad/shared_port.kicad_sch`, page 10 of `schematics/placard_main.pdf`,
@@ -540,7 +540,7 @@ command being sent.
 The drivers are `src/scripts/placard_io.asm`, at `IO_CODE` (ROM
 xDC00-xEBFF), part of the library block at the top of the ROM, running in
 place (ROM.md).  They use the library's calling convention, and the public
-ones have fixed jump table entries ([LIBRARY.md](LIBRARY.md#jump-table)).
+ones have fixed jump table entries ([LIBRARY.md](../software/LIBRARY.md#jump-table)).
 `placard_lib.asm` includes them.
 
 The PS/2 driver (keyboard, mouse, the turns, `ps2_pause`) is

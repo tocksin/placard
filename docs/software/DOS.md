@@ -2,7 +2,7 @@
 
 The Placard DOS is a program on the SD card, `DOS.PLC` (`src/scripts/dos.masm`).
 It shows the card's files, runs a program from the card, and saves and
-loads memory as files.  The 32K ROM image ([ROM.md](ROM.md#the-32k-image))
+loads memory as files.  The 32K ROM image ([ROM.md](../architecture/ROM.md#the-32k-image))
 holds the boot loader, the library, BASIC and a small loader
 (`src/scripts/rom32.masm`) that starts the DOS and runs the programs.
 

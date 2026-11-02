@@ -7,7 +7,7 @@
 #     vivado -mode batch -source build_and_load.tcl -tclargs <hexFile> [jobs]
 #
 #     hexFile   customasm output for the program (put in the ROM image by
-#               gen_rom.tcl, see docs/ROM.md).  "" builds the ROM without a program.
+#               gen_rom.tcl, see docs/architecture/ROM.md).  "" builds the ROM without a program.
 #     jobs      parallel jobs for launch_runs (default 4)
 #
 # The board is programmed by program_board.tcl (also used by download_latest.bat).

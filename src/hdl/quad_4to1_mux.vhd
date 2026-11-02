@@ -7,7 +7,7 @@
 -- Date     : 10/27/2026
 --
 -- Address mux, two low bits and two high bits per chip
--- (docs/FETCH_TIMING.md, option B).  The selects are the
+-- (docs/timing/FETCH_TIMING.md, option B).  The selects are the
 -- address-source enables themselves, with the priority the Sync PLD
 -- used before revision 02:
 --

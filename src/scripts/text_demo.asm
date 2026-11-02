@@ -19,7 +19,7 @@
 ;                             2 in shades of red, the 5 in blues and the 6 in
 ;                             greens, and a turning rainbow ring
 ;
-; The bands are placed so no two rows share a video byte (docs/VIDEO.md, line
+; The bands are placed so no two rows share a video byte (docs/video/VIDEO.md, line
 ; repeat): 1x rows 0-95 use offsets x020-x07F of each byte column, 4x rows
 ; 96-223 x181 + 4n, 2x rows 224-351 the odd offsets x101-x17F and 4x rows
 ; 352-479 x183 + 4n.
@@ -41,8 +41,8 @@
 ;     message (one pixel a frame) and the 256-color ring (a step a frame).
 ;   The busiest frame is about 182,000 clocks in placard_sim.
 ;
-; It is a ROM program (docs/ROM.md): it runs in place from ROM x6000-xAFFF,
-; uses the standard library (docs/LIBRARY.md) and the zero page map, and
+; It is a ROM program (docs/architecture/ROM.md): it runs in place from ROM x6000-xAFFF,
+; uses the standard library (docs/software/LIBRARY.md) and the zero page map, and
 ; keeps its variables in the zero page x20-x8E.  It doesn't use the ROM at
 ; x2000-x3FFF, so it sets map 07 (section 1 reads RAM) to test that RAM too.
 ;
@@ -535,7 +535,7 @@ td_l1:
 td_lt:
     ld   LINK_LO, x             ; CALL menu_poll: back to the program menu
     ld   td_l0, [x]             ; on Esc or when the time is up (only in the
-    ld   LINK_HI, x             ; menu ROM, docs/MENU.md)
+    ld   LINK_HI, x             ; menu ROM, docs/software/MENU.md)
     ld   td_l0 >> 8, [x]
     ld   menu_poll >> 8, y
     jmp  menu_poll
