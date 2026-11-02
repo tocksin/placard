@@ -301,7 +301,7 @@ begin
     -- ============================================================
 
     --
-    -- Revision 10 (docs/timing/FETCH_TIMING.md, option B): the address mux
+    -- Revision 10 (docs/timing/FETCH_TIMING.md): the address mux
     -- control (ADDR_SEL, ADDR_SEL_HI, ADDR_SEL_LO) is gone; the four
     -- mux PLDs (quad_4to1_mux revision 02) take PIXEL_ENABLE and the
     -- State PLD's enables as their selects directly.

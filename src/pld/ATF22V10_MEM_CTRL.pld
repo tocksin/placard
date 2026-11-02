@@ -1,6 +1,6 @@
 Name     MEM_CTRL;
 PartNo   00;
-Date     10/27/2026;
+Date     11/02/2026;
 Revision 10;
 Designer ;
 Company  ;
@@ -17,7 +17,7 @@ Device   g22v10;
    RAM write strobe).  It replaced the '32 OR gate that made
    /WE = RW | CLK, and took over the read enables from the ROM/RAM
    select PLD.  See
-   docs/timing/TIMING_FIXES.md, end-of-write contention.  Since revision 02 the
+   docs/timing/TIMING.md, end-of-write contention.  Since revision 02 the
    map itself is a 74ACT273 register (an I/O device at 5000h, loaded
    by /MAP_WR from the I/O decode PLD), and the ROM/RAM select PLD
    is gone.
@@ -63,7 +63,7 @@ Device   g22v10;
       enable, from an early tap of the clock (CLK_E), so that it is
       back high before the address can change now that the address
       muxes take their selects directly (docs/timing/FETCH_TIMING.md,
-      option B; docs/timing/WE_TIMING.md).  Nothing else changes here; the
+      docs/timing/WE_TIMING.md).  Nothing else changes here; the
       address inputs now settle at 13 ns after the edge instead of
       20.5.  The WRITE paragraph below is kept for the record of
       the rule; the equation lives in the Sync PLD.

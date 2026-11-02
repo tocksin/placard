@@ -1,5 +1,7 @@
 # CPU operations
 
+Date: 2026-11-02
+
 The CPU in this system is made of logic gates and registers.  The CPU 
 interfaces to the memory space (RAM/ROM) by outputting a memory address, and 
 then reading/writing using the data bus.
@@ -18,17 +20,17 @@ EXEC clock is a wait clock so the carry can ripple through both ALU PLDs at
 25.175 MHz (see [ALU_TIMING.md](../timing/ALU_TIMING.md)).  The Branch PLD makes the
 wait by sending STALL to the State PLD and the PC PLDs (the same stall the
 video uses; it passes through the ROM cartridge, which also uses it to hold
-the CPU while it loads, ROM.md) for the first EXEC clock, and its ALU_DONE register ends the
-wait on the second.  Stores do not wait, because they write the source bus,
+the CPU while it loads, [ROM.md](ROM.md)) for the first EXEC clock, and its
+ALU_DONE register ends the wait on the second.  Stores do not wait, because they write the source bus,
 not the ALU result.  A store from AC to [0,X] or [Y,X] goes through
 LOAD_MEM (one more clock) so its address and data settle a clock before the
-write (see [TIMING_FIXES.md](../timing/TIMING_FIXES.md)).  So an instruction takes 2
+write (see [XY_TIMING.md](../timing/XY_TIMING.md)).  So an instruction takes 2
 to 4 clocks, plus any video stall clocks.
 
 ![State PLD state diagram](../../reference/state_pld_state_diagram.png)
 
-The state diagram is drawn by `src/scripts/gen_state_diagram.py` (State PLD
-revision 12, 2026-10-18); rerun it when the State PLD changes.
+The state diagram is drawn by `src/scripts/gen_state_diagram.py`; rerun it
+when the State PLD changes.
 
 ## Registers
 
@@ -44,9 +46,8 @@ The D register can be loaded either from the program counter location (immediate
 Only D and the Accumulator can be a source (see "Source mode").  X and Y
 are destinations and address registers: they are loaded from the ALU (an
 immediate, a zero-page byte or AC through the ALU) and read only by the
-address mux.  X was also a source until 2026-10-19; its F541 and the source
-'138 were removed, so software keeps a copy of X in RAM, or the value in AC,
-when it needs to read it.
+address mux.  Software keeps a copy of X in RAM, or the value in AC, when
+it needs to read it.
 
 ## Memory access mode
 
@@ -67,7 +68,7 @@ map bit covers x4000-x4FFF and x5400-x5FFF; x5000-x53FF is the I/O window.  At s
 are selected as ROM.  The software will execute from ROM initially until 
 reconfigured: the ROM's boot loader maps the zero page and x4000-x4FFF to
 RAM and runs the program in place from the ROM (see [ROM.md](ROM.md)).
-Video reads always read the RAM (memory control PLD revision 04), whatever
+Video reads always read the RAM (memory control PLD), whatever
 the map says, so the CPU can run from the ROM under the video area while
 the display shows the RAM.  See the [memory map](../../README.md#memory-map).
 
@@ -77,15 +78,13 @@ the display shows the RAM.  See the [memory map](../../README.md#memory-map).
   A15 selects which chip is accessed: the lower chip's /CE is the address
   mux's A15 and the upper chip's /CE is /CE_HI from the I/O decode PLD.
   Both chips' /OE is /RAM_OE from the memory control PLD and their /WE is
-  /WE from the Sync PLD (since 2026-10-27; the memory control PLD before;
-  see [TIMING_FIXES.md](../timing/TIMING_FIXES.md) and [FETCH_TIMING.md](../timing/FETCH_TIMING.md)).
+  /WE from the Sync PLD (see [WE_TIMING.md](../timing/WE_TIMING.md)).
 - ROM: 2 × AS7C256C-15PCN on the ROM cartridge, with their /CE the same
   way as the RAM (A15 and /CE_HI) and their /OE from /ROM_OE (memory
   control PLD).  They lose their contents at power-off, so at power-up the
-  cartridge holds the main board's clock and copies two AT28C256-15PU
-  EEPROMs into them, with the CPU's PC as the address counter (2026-10-20,
-  [ROM.md](ROM.md#loading-the-cartridge)).  The battery-backed SRAM used
-  until then drained a coin cell in about two weeks.
+  cartridge holds the CPU with its STALL line and copies two AT28C256-15PU
+  EEPROMs into them, with the CPU's PC as the address counter
+  ([ROM.md](ROM.md#loading-the-cartridge)).
 
 See [TIMING.md](../timing/TIMING.md) for the timing analysis with these parts.
 
@@ -105,16 +104,15 @@ early clock tap CLK_E and PIXEL_ENABLE, and the memory control PLD
     /ROM_OE low when CLK = 0 and READ of a ROM section
 
 CLK_E is the clock as it leaves the oscillator; every other chip gets it
-through about 500 mm of track (3 ns) more, so /WE rises about 3 ns before
-the rest of the board sees the edge and is back high before the address
-muxes can change (the muxes take their selects straight from the State and
-Sync PLDs since 2026-10-27, [FETCH_TIMING.md](../timing/FETCH_TIMING.md),
-[WE_TIMING.md](../timing/WE_TIMING.md)).  Until then /WE came from the memory control
-PLD on the normal clock.
+through at least 420 mm of track (500 mm nominal, about 3 ns) more, so /WE
+rises about 3 ns before the rest of the board sees the edge and is back
+high before the address muxes can change (the muxes take their selects
+straight from the State and Sync PLDs, [FETCH_TIMING.md](../timing/FETCH_TIMING.md),
+[WE_TIMING.md](../timing/WE_TIMING.md)).
 
 While RUN is low (the cartridge or a slot-1 boot card is loading) the
 Sync PLD lets go of /WE (WE.OE = RUN) and a 10k pull-up holds it high; a
-boot card drives it then (EXPANSION.md, "Booting from slot 1").
+boot card drives it then ([EXPANSION.md](EXPANSION.md), "Booting from slot 1").
 
 Every memory cycle, read or write, uses only the low half of the clock.  The
 address and source bus have the whole high half to settle, and /WE returns
@@ -125,9 +123,8 @@ about 20 ns, which suits a 10-15 ns SRAM.
 ### One data bus
 
 The source bus is also the memory data bus: there is no separate buffer
-between the CPU's source registers and the RAM data pins (the RAM
-write-data buffer was removed on 2026-10-18).  The bus has two kinds of
-owner:
+between the CPU's source registers and the RAM data pins.  The bus has two
+kinds of owner:
 
 - **The memories and I/O read buffers**, in the low half of a FETCH,
   LOAD_IMM or LOAD_MEM clock (and of any video read clock), when /RAM_OE,
@@ -160,51 +157,26 @@ Changing hands:
 - **End of EXEC.**  The source F541s turn off by about 19.5 ns after the
   edge (State PLD 5.5, branch PLD /SRC_EN 7.5, F541 disable 6.5); the next
   read starts when the clock falls, about 20 ns after it, plus the memory
-  control PLD's delay.  About 2.5 ns to spare at a 47 % high half (1 ns
-  with the '138 before 2026-10-19).
-- **End of a write.**  /WE rises (Sync PLD, from the early clock tap) and /MAP_WR or
-  /PORT_WR rises (I/O decode PLD) at most 7.5 ns after the edge; the
-  source F541s can turn off a little before that at minimum delays.  The
-  bus then floats for a moment and holds its level (the 10k pull-ups and
-  the bus capacitance), and the SRAM's data hold time is 0 ns.
+  control PLD's delay.  About 3.4 ns to spare at a 50 % clock, 2.2 ns at
+  a 47 % high half.
+- **End of a write.**  /WE rises (Sync PLD, from the early clock tap) at
+  most 4.5 ns after the edge, and /MAP_WR or /PORT_WR (I/O decode PLD)
+  7.5 ns after that; the source F541s turn off no earlier than 6.5 ns
+  after the edge.  The bus then floats and holds its level (the 10k
+  pull-ups and the bus capacitance), and the SRAM's data hold time is 0 ns.
 
 Timing with the source enabled only in EXEC: /SRC_EN falls about 13 ns
 into EXEC (State PLD 5.5 + branch PLD 7.5) and the F541 enable adds 9.5,
 so source D (always after a LOAD clock, so I1 is long settled) is valid
 at about 22.5 ns.  Source AC straight after FETCH waits for /AC_SEL (IR
-10.5 + audio PLD 7.5 = 18 ns), so the bus is valid at about 27.5 ns and a
-single-clock logic op takes 27.5 + ALU 7.5 + AC setup 2 = 37 ns, 2.7 ns
-to spare (ALU_TIMING.md).  After a video stall PIXEL_ENABLE falls about
-10 ns into the clock, so the bus is valid at about 27 ns.  A store's data
-is valid long before the end of the write (needed by T + 2.2 - 8 =
-33.9 ns).
+5.5 + audio PLD 7.5 = 13 ns), so it is valid at about 22.5 ns too, and a
+single-clock logic op takes 22.5 + ALU 7.5 + AC setup 2 = 32 ns, 7.7 ns
+to spare ([ALU_TIMING.md](../timing/ALU_TIMING.md)).  A store's data is
+valid long before the end of the write (needed by T − 3 + 3 − 8 =
+31.7 ns).
 
 The FPGA model keeps the read bus (ROM/RAM data) and the source bus
 separate because it cannot use tri-state buses.
-
-### Fallback: the write-data buffer
-
-If the prototype has trouble with the shared bus (the start-of-EXEC
-overlap, or noise from it), put the buffer back.  This is how the design
-was before 2026-10-18:
-
-- **Two buses.**  The source F541s drive the source bus all the time
-  (/OE1 tied low instead of /SRC_EN, /OE2 still picks D or AC), and it feeds
-  the ALU B input, the PC low byte, the map register and the port latch
-  only.  The RAM/ROM data pins, the I/O read buffers, the IR, D and the
-  pixel buffer are on a separate memory data bus.
-- **One more SN74F541N** (the write-data buffer): A inputs on the source
-  bus, Y outputs on the memory data bus, both /OE pins on /WE (memory
-  control PLD pin 16), so it drives only during the write pulse.  Every
-  memory cycle uses only the low half of the clock, so there is a dead
-  time on both sides of the pulse and no overlap.
-- **PLDs.**  The memory control PLD's pin 22 (SRC_EN) is tied low (or
-  revision 05 is used), so a CPU read can happen in EXEC again (it is
-  harmless then).  The branch PLD's SRC_EN output can stay; nothing reads
-  it.
-- **Timing** (TIMING.md, "RAM write cycle", as it was): write data valid
-  is the F541 enable plus tDW, 9.5 + 8 = 17.5 ns against the 19.86 ns
-  pulse.
 
 ## Source mode
 
@@ -225,19 +197,11 @@ two source F541s has two active-low enables:
 | AC | /SRC_EN (branch PLD pin 16) | /AC_SEL = !I1 (audio PLD pin 21) | EXEC, source 10 or 11 |
 
 The audio slot PLD (revision 04) had two free pins, so it makes the one
-inverter (`AC_SEL = I1`).  It sits in the single-clock ALU path, which
-needed a -7 part until the instruction register became a PLD (2026-10-21);
-it could be a -10 now, but every PLD is a -7 since 2026-10-23 (CHIPS.md,
-"PLD speed grades").  A D source always has a LOAD clock before EXEC, so
+inverter (`AC_SEL = I1`).  A D source always has a LOAD clock before EXEC, so
 I1 is settled a clock before /SRC_EN falls.  The only select change at the
 start of EXEC is D to AC (I1 rising after FETCH), which turns the D F541
 off (I1 directly, about 10 ns) before /SRC_EN turns either on (about
 13 ns), so the two never drive together.
-
-Before 2026-10-19 code 11 was the X register, with a third F541, and an
-SN74F138 decoded S1:S0 into the three /OE pins.  Removing X as a source
-saved both chips; reading X now takes a copy in RAM or in AC
-([LIBRARY.md](../software/LIBRARY.md) has the idioms).
 
 The source bus is how the CPU writes data back into the RAM (it is the
 memory data bus in EXEC, see "One data bus").  It's possible to
@@ -281,9 +245,9 @@ A value of 111 will cause a branch (8-bit load of lower PC byte).  The others
 are conditional based on the ALU result.  
 
 BCC with an AC target (`bcc ac`) is two bytes: the opcode and a
-pad byte (BGE had the same before it became BCC).  Its memory field (101) is the same as a zero-page store's, and the
+pad byte.  Its memory field (101) is the same as a zero-page store's, and the
 State PLD sends both through LOAD_IMM rather than decoding the opcode in FETCH,
-which was too slow at 25.175 MHz (see TIMING_FIXES.md).  The assembler adds
+which would be too slow at 25.175 MHz.  The assembler adds
 the pad byte.
 
 Using the Zero flag, the value of the Accumulator can be determined if it is 
@@ -296,8 +260,7 @@ AC > 0, BLE around the code; for AC >= 0, BLT around it).
 ### Carry flag
 
 Memory modes 001 and 101 are BCS and BCC, branch if the carry flag is set or
-clear (Branch PLD revision 11; they were BGT and BGE, which no program used
-and BLE and BLT can stand in for).  The carry flag is a register in the
+clear.  The carry flag is a register in the
 Branch PLD (pin 20).  It takes the high ALU PLD's COUT (Branch PLD pin 14)
 at the end of every ADD or SUB with an AC, X or Y destination, including
 `inc`, `dec` and `shl`:
@@ -321,8 +284,8 @@ nc: add  [b_hi], ac
     ld   ac, [hi]
 
 It powers up clear.  The carry is settled a pass before the ALU result (four
-PLD passes to COUT, five to F3), so it fits in the ALU wait clock with 16.9 ns
-to spare (see the Branch PLD source).  No chip was added.
+PLD passes to COUT, five to F3), so it fits in the ALU wait clock with 23.4 ns
+to spare ([ALU_TIMING.md](../timing/ALU_TIMING.md)).
 
 | MemMode | Branch | Z | NEG | Meaning | LoadPCLow | LoadPCHigh |
 |---------|--------|---|-----|---------|-----------|------------|

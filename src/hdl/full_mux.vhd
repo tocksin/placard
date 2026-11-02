@@ -4,7 +4,7 @@
 * @author Justin Davis
 *
 *
-* 10/27/2026: mux PLD revision 02 (docs/timing/FETCH_TIMING.md, option B).
+* 10/27/2026: mux PLD revision 02 (docs/timing/FETCH_TIMING.md).
 * Each chip makes two low and two high address bits and takes the
 * address-source enables as its selects, so this entity is the whole
 * address mux (it was one byte, with the Sync PLD's selects, before).

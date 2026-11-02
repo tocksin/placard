@@ -153,7 +153,7 @@ sheets by hand, or the next run overwrites the edit.
 
 ## Design choices to keep
 
-- **The clock tap** (2026-10-27, FETCH_TIMING.md option B): X1 drives
+- **The clock tap** ([FETCH_TIMING.md](../timing/FETCH_TIMING.md)): X1 drives
   CLK_E, which goes only to the Sync PLD's pin 9 (the RAM /WE) and to net
   tie NT2 on the power sheet; CLK, to every other chip, is NT2's other
   side.  The tie keeps the two nets apart in the netlist so the board can
@@ -163,8 +163,7 @@ sheets by hand, or the next run overwrites the edit.
 Choices made while drawing that a revision should not undo by accident:
 
 - The expansion slots' boot contacts are BT1, BT2, BT3 and BT5 (slot 1
-  only, open on slots 2-4; BT4 and BT6-BT8 dropped 2026-10-30 for the inner
-  grounds); cards latch DATABUS7:0.  /WE has a 10k pull-up
+  only, open on slots 2-4); cards latch DATABUS7:0.  /WE has a 10k pull-up
   (R63).  [EXPANSION.md](../architecture/EXPANSION.md), "Booting from slot 1".
 - The slots' LOAD_IMM contact carries the State PLD's `/LOAD_IMM` as it is
   (active low).

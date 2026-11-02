@@ -6,8 +6,7 @@ This is a concept for the PLACARD case. The case is black powder-coated
 aluminium, strong on the bottom and sides, with a clear acrylic top so the
 board shows through. Each expansion slot (J9-J12) and the cartridge slot (J8)
 has its own removable 3D-printed cover, held on by snap tabs that click through
-small slots in the acrylic (Justin, 2026-10-30; until then acrylic covers with
-magnets). A cover that is out parks under the case, upside down: its tabs
+small slots in the acrylic. A cover that is out parks under the case, upside down: its tabs
 click into slots in the floor, right below where it fits on the top. The case
 stands on 10 mm feet, so the parked covers clear the desk.
 
@@ -17,13 +16,9 @@ connectors that reach through the wall (VGA, audio, power and reset), so the
 board drops straight down into the tray. Each plate then slides onto its
 connectors from outside and screws to the floor, and the acrylic top holds
 the tops of all four walls. Every connector opening is a single clean hole
-in one part, and no seam runs through any of them. (Until 2026-10-27 the
-case was split in two along the connectors instead.)
+in one part, and no seam runs through any of them.
 
-There is no keyboard. The built-in Cherry MX keyboard was dropped on
-2026-10-25 (CHIPS.md), and the computer takes a PS/2 keyboard on J5. The
-keyboard bay, plate, blank, rail and cover garages of the 2026-10-24 design
-went with it.
+There is no built-in keyboard; the computer takes a PS/2 keyboard on J5.
 
 ![Assembled with a 32K cartridge and two cards; their covers are parked underneath](case_assembled.png)
 
@@ -38,7 +33,7 @@ the cut-outs follow the connectors when they move. The script reads each
 wall connector's position from `kicad/placard.kicad_pcb`, and where the
 connector's 3D model (`kicad/lib/placard.3dshapes`) meets the wall. The board
 file is only read, never written. The files in `case/` and these drawings
-were made from the 290 x 215 mm board as of 2026-10-27.
+were made from the 290 x 215 mm board.
 
 ## Size
 
@@ -101,8 +96,7 @@ views `exploded_hw` and `exploded_hw_rear`).
 1. The sheet metal service powder coats the tray and plates. There is no
    PEM hardware in any part.
 2. Screw the eight 6 mm male-female standoffs to the floor, stud up, with
-   countersunk screws from below (Justin, 2026-10-30: no PEM standoffs in
-   the floor).
+   countersunk screws from below.
 3. Lower the board straight down onto the studs, which come up through
    H1-H8 and locate it. The SNES ports only touch the front wall's inside
    face, so nothing has to be threaded through a hole.
@@ -112,7 +106,7 @@ views `exploded_hw` and `exploded_hw_rear`).
    slides over the floor, under the board; open notches let it past the
    floor standoffs and J7's pins, and it clears the rest of the board. Fit three countersunk screws
    up through the floor and the flange, each into an M3 hex nut on top of
-   the flange (Justin, 2026-10-30: loose nuts, no PEM nuts in the plates).
+   the flange.
    The flange is only 4 mm under the board there, too little for fingers,
    so before sliding the plate in, stick each nut over its hole with a small
    square of Kapton tape (or a drop of glue at one corner). The screw pulls
@@ -183,12 +177,12 @@ above the board's top face):
 |---|---|--:|--:|---|---|
 | J13 | back | 18.5 | 1.7 | slot 13 x 7 | USB-C power.  The receptacle is flush with the board edge, so its mouth is 2.5 mm behind the outside face; the cut-out fits a USB-C plug's overmould (12.4 x 6.5 typical) |
 | J6 | back | 172.5 | 2.5 | 8 mm hole | Audio line out |
-| J7 | back | 216.5 | 6.3 | DE-15 D cut-out (wide side up) + two 3.2 mm holes at 25 mm | VGA.  The connector's flange sits 0.5 mm inside the wall; its jackscrews go through.  Until 2026-10-27 the D was cut upside down in the back wall |
+| J7 | back | 216.5 | 6.3 | DE-15 D cut-out (wide side up) + two 3.2 mm holes at 25 mm | VGA.  The connector's flange sits 0.5 mm inside the wall; its jackscrews go through.  |
 | J5 | back | 262.5 | 12.5 | 15.5 x 26 rounded | Stacked PS/2 (keyboard and mouse), both ports in one opening |
 | SW1 | left | 199.5 | 5.2 | 7 mm hole | Power toggle bushing; the lever stands out of the wall |
 | SW2 | left | 179.7 | 3.5 | 4.5 mm hole | Reset.  The actuator stands 0.6 mm proud of the wall (a press has to be held 0.5 s, so a knock is harmless) |
 | J4 | left | 152.0 | 1.4 | 27 x 3.6 slot + 14 x 7 thumb notch | SD card, push-push (Hirose DM1AA-SF-PEJ(82)) |
-| J2 | front | 33.5 | 8.0 | 39 x 12 rounded | SNES port 1, on the front left of centre since 2026-10-29 (was in the right wall). The plug outline (37 x 10) plus 0.5-1 mm; the jack's 42 x 16 flange bears on the wall's inside face |
+| J2 | front | 33.5 | 8.0 | 39 x 12 rounded | SNES port 1, on the front left of centre. The plug outline (37 x 10) plus 0.5-1 mm; the jack's 42 x 16 flange bears on the wall's inside face |
 | J3 | front | 77.5 | 8.0 | 39 x 12 rounded | SNES port 2 |
 
 The connector models are drawn from typical dimensions (see
@@ -199,9 +193,8 @@ makers' STEP files, before ordering metal.
 
 ## Covers and parking
 
-Justin chose 3D-printed covers with pull-off detents on 2026-10-30, in place
-of the acrylic covers with glued magnets. There is nothing to glue, and the
-whole cover is one print.
+The covers are 3D-printed with pull-off detents. There is nothing to glue,
+and the whole cover is one print.
 
 ![Covers with snap tabs, in section: on the top, the cartridge cover, parked under the floor, and the tab close up](case_cover_detents.png)
 
@@ -279,8 +272,7 @@ bent metal from `gen_case_quote.py --mesh` (views `bends` and `bends_rear`).
 - **Ventilation.** Seven slots run across the floor's front half, in front of
   the parked covers. The side walls have a row of upright slots, 5 x 18 mm at
   20 mm pitch, from 4 to 22 mm above the board (over the chips): 10 along the
-  right wall and 6 in the left plate's front half (halved from 10 mm pitch on
-  2026-10-29: the black metal case sheds most of the 14 W through its own
+  right wall and 6 in the left plate's front half (the black metal case sheds most of the 14 W through its own
   surface, so the slots only need to let warm air out) (the switches and the SD
   slot take its back half; each slot stays 6 mm from a cut-out). Cool air
   comes in through the floor, and warm air leaves through the side slots,
@@ -390,22 +382,11 @@ from the same parts:
 SendCutSend takes the STEP for bent parts. PCBWay sheet metal, Xometry and
 Protocase take the STEP plus the PDF. Ask for 1, 10 and 100 sets.
 
-The quote check on 2026-10-30 changed the plates:
-
-- Their 6 mm flanges ran over six of the floor standoffs and were too short
-  for a bend and a PEM nut.
-- The flanges are now 14 mm, with open notches round the standoffs, which
-  stop at the bend.
-- The plates stand on the floor, which now runs to the outside edges.
-- Each plate screw sits 9 mm from the plate's inside face.
-- Later the same day (Justin): the floor has no PEM standoffs. Each board
-  hole has a 6 mm male-female standoff screwed down from below, so the tray
-  needs only countersunk holes, and the flange notches are 8 mm wide for
-  the standoffs' hex corners.
-- The back plate's left screw moved from x 20 to x 25.
-- Then (Justin): no PEM nuts in the plates either. The flange holes are
-  plain 3.4 mm, with a loose M3 hex nut on top, so no part has pressed
-  hardware.
+The plates' flanges are 14 mm, with open notches round the floor standoffs
+that stop at the bend; the notches are 8 mm wide for the standoffs' hex
+corners. The plates stand on the floor, which runs to the outside edges.
+Each plate screw sits 9 mm from the plate's inside face. The flange holes
+are plain 3.4 mm, with a loose M3 hex nut on top.
 
 The README lists two cut-outs that sit close to a bend, for the vendor to
 check: USB-C and the SD slot.
@@ -416,10 +397,8 @@ These are rough per-unit prices in US dollars, before shipping, tax and
 tariffs (35 % is assumed elsewhere for China-made parts), from typical 2026
 vendor pricing. **No quotes were requested**, so treat each number as plus or
 minus 40 % until the STEP and DXF files are uploaded to a quoting site. The
-metal is now one bent tray and two flat plates with one bend each (the split
-shells of 2026-10-25 were two bent parts with a stepped seam). The metal
-lines assume black powder coat with no brushing, about 8 % below the
-brushed and anodized parts priced before 2026-10-27.
+metal is one bent tray and two flat plates with one bend each, in black
+powder coat with no brushing.
 
 | Item | 1 | 10 | 100 | 1,000 |
 |---|--:|--:|--:|--:|
@@ -431,9 +410,6 @@ brushed and anodized parts priced before 2026-10-27.
 | Hardware: standoffs, screws, 10 mm feet | $11-15 | $9-12 | $6-8 | $4-6 |
 | **Case, China sheet metal, open corner** | **$116-188** | **$76-124** | **$44-71** | **$29-49** |
 | **Case, US sheet metal, open corner** | **$182-298** | **$118-194** | **$63-108** | - |
-
-At 100 units that's about two to three times the cost of the $30 acrylic
-sandwich case planned before 2026-10-28.
 
 Weight: about 0.65 kg of aluminium, 0.25 kg of acrylic and 70 g of printed
 covers.

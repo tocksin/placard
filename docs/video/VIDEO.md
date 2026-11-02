@@ -1,5 +1,7 @@
 # VGA Timing Generator
 
+Date: 2026-11-02
+
 ## Overview
 
 The VGA timing generator uses three ATF22V10C PLDs to generate the timing
@@ -13,9 +15,8 @@ The three PLDs are:
    once per line on the H counter's line-end signal (H_TC).
 3. **Sync / Pixel Counter PLD** — generates the lower three horizontal count
    bits, VGA vertical sync, the color decoder's video enable (VIDEN), the
-   video read (PIXEL_ENABLE) and, since revision 10, the RAM write strobe
-   /WE (the address-mux selects went to the mux PLDs on 2026-10-27,
-   FETCH_TIMING.md).
+   video read (PIXEL_ENABLE) and the RAM write strobe /WE
+   ([WE_TIMING.md](../timing/WE_TIMING.md)).
 
 ## Horizontal Counter (total)
 The horizontal counter is a 10-bit counter but divided between two chips:
@@ -64,12 +65,8 @@ The PLD also generates:
 The horizontal video-active signal is high when the counter is in a range where
 there is active video.  It is sent to the Sync PLD and combined with the
 vertical counter to determine the full video active region.  On a line whose
-mode byte has bit 7 set it is only a one-clock pulse (revision 08, see
+mode byte has bit 7 set it is only a one-clock pulse (see
 [Blank line](#blank-line)).
-
-(An earlier version also had a first-active-pixel signal to capture the
-display mode.  The mode byte is now read in horizontal blanking; see
-[Mode byte](#mode-byte).)
 
 ### Horizontal Timing
 | Pixel range | Function |
@@ -159,7 +156,7 @@ not in pin order.  The source names them Q9:Q0.
 ## Sync Decoder / Pixel counter PLD
 
 ### Function
-The Sync Decoder / Pixel Counter PLD (`ATF22V10_SYNC.pld`, revision 09)
+The Sync Decoder / Pixel Counter PLD (`ATF22V10_SYNC.pld`, revision 10)
 contains the three lowest horizontal count bits.  These bits select the
 individual pixel within an 8-pixel video byte, and go straight to the color
 decoder.  They run two clocks behind the H counter's group: H2:H0 is 110 in
@@ -201,9 +198,9 @@ video reads.
 | 6 | `V2` | Input | Vertical count bit 2 |
 | 7 | `V1` | Input | Vertical count bit 1 |
 | 8 | `H_VIDEO_ACTIVE` | Input | Horizontal active-video state (H counter PLD pin 22) |
-| 9 | `CLK_E` | Input | Early clock tap: X1 before the 500 mm of track to every other chip (revision 10; was PC_ENABLE) |
-| 10 | `RW` | Input | State PLD pin 23, 0 = store (revision 10; was Y_ENABLE) |
-| 11 | `RUN` | Input | From the cartridge (revision 10; was X_ENABLE) |
+| 9 | `CLK_E` | Input | Early clock tap: X1 before the 420 mm or more of track to every other chip |
+| 10 | `RW` | Input | State PLD pin 23, 0 = store |
+| 11 | `RUN` | Input | From the cartridge |
 | 12 | `GND` | Power | Ground |
 | 13 | `BLANK_RD` | Input | Mode byte / audio read slot (audio slot PLD pin 23) |
 | 14 | `H0` | Output | Horizontal pixel bit 0 (registered) |
@@ -212,9 +209,9 @@ video reads.
 | 17 | `VIDEN` | Output | Color decoder video enable: active video, two clocks late (registered) |
 | 18 | `/VSYNC` | Output | Vertical sync, active low; to VGA pin 14 through R62 (47 ohm) |
 | 19 | `PIXEL_ENABLE` | Output | Video read, clock 1 of each group (registered) |
-| 20 | `/WE` | Output | RAM write strobe, low in the low half of a store clock; floats while RUN is low (revision 10; was ADDR_SEL) |
-| 21 | — | Free | Was ADDR_SEL_HI (revision 10) |
-| 22 | — | Free | Was ADDR_SEL_LO (revision 10) |
+| 20 | `/WE` | Output | RAM write strobe, low in the low half of a store clock; floats while RUN is low |
+| 21 | — | Free | |
+| 22 | — | Free | |
 | 23 | `V_VIDEO_ACTIVE` | Output | Vertical active region, counts 544-1023 (registered) |
 | 24 | `VCC` | Power | +5 V |
 
@@ -238,18 +235,9 @@ VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;      /* counts 532-533; pin 
 WE = !CLK_E & !RW & !PIXEL_ENABLE;      /* pin declared !WE; WE.OE = RUN */
 ```
 
-Until revision 09 the PLD also decoded the address-mux selects
-(`ADDR_SEL = PIXEL_ENABLE # PC_ENABLE`, `ADDR_SEL_HI = !PIXEL_ENABLE &
-(PC_ENABLE # Y_ENABLE)`, `ADDR_SEL_LO = !PIXEL_ENABLE & (PC_ENABLE #
-X_ENABLE)`); since 2026-10-27 the four mux PLDs take PIXEL_ENABLE,
-PC_ENABLE, X_ENABLE and Y_ENABLE directly, with the same priority, which
-takes one PLD pass out of every memory address (FETCH_TIMING.md).
-
 (The equations are written compactly here; the source spells them out.)
 
 ## Mode byte
-
-Date: 2026-11-02
 
 Each row has a mode byte; bits 1:0 pick 1, 2, 4 or 8 bpp for that row (the
 color decoder's MODE1:MODE0), bits 3:2 pick the line repeat (see
@@ -263,8 +251,7 @@ color decoder's MODE1:MODE0), bits 3:2 pick the line repeat (see
 | 6:4 | Row tint: red, green, blue (1 = lift that channel) | Q6:Q4 | Tint resistors on the VGA lines, gated by VIDEN |
 | 7 | Blank line (1 = black, no pixel reads) | Q7 | H counter PLD pin 6 |
 
-Bits 7:4 were ignored by the hardware before 2026-10-22, so 0 in them keeps
-the old behaviour.  It is read in horizontal blanking, so it
+The mode byte is read in horizontal blanking, so it
 takes no screen space: all 80 byte columns (x6020 + column × 512 + row,
 columns 0-79, in 1x) are pixels, 640 pixels across in 1 bpp.
 
@@ -276,7 +263,7 @@ columns 0-79, in 1x) are pixels, 640 pixels across in 1 bpp.
 | Chips added | none |
 | CPU cost | one stall clock per line (525 per frame, 0.13 %), the same as the audio read |
 
-**How it is read.**  The audio slot PLD (revision 03) raises BLANK_RD for
+**How it is read.**  The audio slot PLD raises BLANK_RD for
 group 45 as well as for the audio group (46 or 47), so the Sync PLD raises
 PIXEL_ENABLE in clock 1 of group 45.  That is a video read like any other:
 the address mux takes the video address, H9:H3 on A15:A9 and V8:V0 on A8:A0
@@ -291,8 +278,7 @@ buffer on clocks 2-7 of group 45 and holds it until group 45 of the next
 line, so it is steady through all the active video.  Q1:Q0 go to the color
 decoder, Q3:Q2 back to the audio slot PLD for the line repeat, Q6:Q4 to the
 row tint resistors and Q7 to the H counter PLD (blank line).  It is a
-74HCT377 since 2026-10-22 (was a 74F377): the tint resistors need about
-3 mA from a high output, and the 74F377 is only rated for 1 mA.  The order
+74HCT377 because the tint resistors need about 3 mA from a high output.  The order
 on each line is: group 45 mode byte, group 46/47 audio sample, start of
 group 48 the DAC register copies the sample (H_VIDEO_ACTIVE rises), group 48
 first pixel.  The audio read replaces the mode byte in the pixel buffer, but
@@ -309,24 +295,14 @@ the audio PLD tPD 7.5 ns is 13 ns after the group starts, long before the
 edge at the end of clock 1, and it goes high 13 ns after the last edge of
 the group (the F377 needs 0 ns hold).  The line code register's data is the
 pixel buffer output, which only changes at the end of clock 1, so it is
-steady for six clock edges; nothing in it races the data bus any more.  With
-the 74HCT377 (2026-10-22, slower than the F377) the margins still hold:
-/MODE_LD is low by about 15.5 ns into group 45 (H counter tCO 5.5 + audio
-PLD 10), leaving about 24 ns before the first edge, and if the part misses
+steady for six clock edges; nothing in it races the data bus.  /MODE_LD
+is low by 13 ns into group 45, leaving about 26 ns before the first edge
+for the 74HCT377's setup, and if the part misses
 /MODE_LD going high at the first edge of group 46 it only loads the mode
 byte again (the pixel buffer takes the audio sample one edge later).  Its
 outputs are used from group 48 on.
 
-**History.**  Until 2026-10-16 (first change) the mode byte was the first
-byte read on each line (group 48, x6020 + row), so byte column 0 held mode
-bytes and the screen showed 632 pixels in 1 bpp.  Then it was read in group
-37 from x4A20 + row, with the audio in groups 38/39 (x4DF3-x4FFF) and the
-DAC clocked by HSYNC, while x5000-x5FFF was all I/O.  Both moves were
-checked in GHDL against the design before them.
-
 ## Blank line
-
-Date: 2026-10-22
 
 Bit 7 of a row's mode byte blanks every line of that row: the line is black
 and the video makes no pixel reads on it, so the CPU is not stalled for its
@@ -335,7 +311,6 @@ and the video makes no pixel reads on it, so the CPU is not stalled for its
 | | |
 |---|---|
 | Chips added | none (one trace, line code register Q7 to H counter pin 6) |
-| PLD change | H counter revision 08 |
 | CPU gain | 80 clocks per blanked line; the whole picture blanked gives about 38,400 clocks per frame back, about +10 % |
 | Audio | unaffected: the DAC register still gets its edge |
 
@@ -364,7 +339,7 @@ drawn, and a "fast mode": blank the whole picture while computing, loading
 or decompressing, with sound still playing.  The pixel bytes of a blanked
 row are not read, so they are free for other data.
 
-**In the programs** (2026-10-22, measured with `placard_sim.py --stalls`,
+**In the programs** (measured with `placard_sim.py --stalls`,
 which models the stall clocks and skips them on blanked rows):
 
 | Program | What is blanked | Gain |
@@ -380,8 +355,6 @@ rows, not more.
 
 ## Row tint
 
-Date: 2026-10-22
-
 Bits 6:4 of a row's mode byte lift the red, green and blue levels of every
 pixel in that row by about 0.2 V (about 30 % of full scale), black pixels
 included.  So a row can have a colored background behind 1 bpp text, and a
@@ -391,7 +364,7 @@ It adds to the color, it does not remap it, and it can only lift.
 
 | | |
 |---|---|
-| Chips added | none (line code register becomes a 74HCT377, same pinout) |
+| Chips added | none (the line code register is a 74HCT377) |
 | Parts | per channel: 910 Ω, 1N5817, two 1N4148 in series (3 resistors, 3 1N5817, 6 1N4148), all through-hole |
 | Level | about 200 mV on black, about 155 mV on full white (the DAC load is about 65 Ω) |
 
@@ -422,15 +395,13 @@ the bench with all three tint bits set.
 A mock-up of the look is in the project files (video/line_tint_mockup.png,
 "strong" column).
 
-**In the programs** (2026-10-22): the menu's highlight bar (blue) and title
+**In the programs**: the menu's highlight bar (blue) and title
 band (gold), the text demo's blue status panel and a rainbow raster bar that
 bounces behind its 80 column text (only 40 mode byte writes a frame, no
 pixels), green-bar paper stripes behind the pi digits, and a rainbow of
 bands behind the Game of Life.
 
 ## Line repeat
-
-Date: 2026-10-16
 
 Bits 3:2 of a row's mode byte say how many lines show each byte of video
 memory, so a lower vertical resolution takes less RAM:
@@ -450,7 +421,7 @@ mode.
 
 **The row address.**  The video address is column-major (A15:A9 = H9:H3,
 A8:A0 = the row), so just ignoring V0 would free every other byte of each
-column.  Instead the audio slot PLD (revision 03) makes four of the row
+column.  Instead the audio slot PLD makes four of the row
 address bits, and the bits that would vary go to the bottom:
 
 | Address bit | 1x | 2x | 4x |
@@ -491,8 +462,7 @@ Give both lines of a 2x pair, or all four lines of a 4x group, the same
 repeat bits; a pair split between modes shows two different bytes.
 
 **The hardware.**  The address mux's video (C) inputs for A0, A1, A7 and A8
-come from the audio slot PLD's R0, R1, R7 and R8 (pins 17-20) instead of
-straight from the V counter; A2-A6 are still V2-V6, and the mux PLDs are
+come from the audio slot PLD's R0, R1, R7 and R8 (pins 17-20); A2-A6 are still V2-V6, and the mux PLDs are
 unchanged.  The PLD takes V0, V1, V7, V8 (pins 1, 10, 11, 13) and the line
 code register's Q2 and Q3 (pins 14, 15).  In groups 32-47 (RAW = !H9 & !H7)
 the outputs are the plain V bits, so the mode byte and audio reads are not
@@ -504,22 +474,3 @@ group 48: H counter tCO 5.5 ns + audio PLD 7.5 ns = 13 ns, while the first
 pixel read is in clock 1 (39.7 ns in), so the address has settled a whole
 clock early.  V changes once per line, and the line code in group 45, where
 RAW blocks it.
-
-**8x (not built).**  Bits 3:2 = 11 act like 10.  An 8x mode needs six bits
-remapped and doesn't fit in the audio slot PLD; a separate row address PLD
-(V8:V0 and LC3:LC2 in, nine row bits out) could do 8x and keep the rows in
-order.
-
-**Checked in simulation** (GHDL, `basys_top.vhd`, 860,000 clocks, two
-frames, CPU looping in ROM):
-
-- *1x and the moved bytes:* a random screen with random 1x mode bytes, and
-  the same bytes in x4A00-x4FFF and x5A00-x5FFF.  Against the design before
-  this change, RGB, HSYNC and VSYNC were identical on every clock, and the
-  audio DAC took the same 1068 values in the same order, each exactly 48
-  clocks later (group 48 instead of group 42).
-- *Line repeat:* rows 0-95 in 4x, 96-223 in 1x and 224-479 in 2x, with
-  random bpp per row and the pixel bytes at their remapped addresses.  The
-  RGB output was identical, clock for clock, to the design before this
-  change showing a 1x image with each 2x row pair and 4x group written out
-  in full.

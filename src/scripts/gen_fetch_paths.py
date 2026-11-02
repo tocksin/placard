@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draw the instruction fetch and /WE timing paths, now and with option B.
+"""Draw the instruction fetch and /WE timing paths.
 
 Only the chips on the two paths are drawn (docs/timing/FETCH_TIMING.md).  Output:
 docs/timing/fetch_paths.png.  Run from the repository root.
@@ -83,7 +83,7 @@ def panel(ax, title, option_b):
         arrow(ax, (1.25, y1 + 0.75), port(wsrc, "l"), CLKC, "CLK_E (early tap)", dy=0.15, fs=10)
         arrow(ax, (1.25, y1 + 0.75), (1.25, 0.45), CLKC, lw=1.8)
         arrow(ax, (1.25, 0.45), (2.7, 0.45), CLKC, lw=1.8)
-        ax.text(4.6, 0.45, "500 mm of track = 3 ns, then CLK to every other chip (U1, U15 pin 1, PCs, ...)",
+        ax.text(4.6, 0.45, "at least 420 mm of track (500 nominal, 3 ns) to NT2, then CLK to every other chip (U1, U15 pin 1, PCs, ...)",
                 fontsize=10.5, color=CLKC, va="center")
         arrow(ax, (2.7, 0.45), (2.7, y0 + 0.4), CLKC, lw=1.8)
         arrow(ax, (2.7, y0 + 0.4), (3.2, y0 + 0.4), CLKC, lw=1.8)
@@ -107,12 +107,11 @@ def panel(ax, title, option_b):
                 fontsize=12.5, color=WE, ha="center", weight="bold")
 
 
-fig, axes = plt.subplots(2, 1, figsize=(20, 18.4))
-panel(axes[0], "Now: fetch through the Sync PLD, /WE from the memory control PLD", False)
-panel(axes[1], "Option B: selects straight into the muxes, /WE from an early clock tap", True)
+fig, ax = plt.subplots(1, 1, figsize=(20, 9.6))
+panel(ax, "Instruction fetch (address muxes take the selects directly) and /WE from the early clock tap", True)
 fig.text(0.5, 0.005, "Blue: instruction fetch (address) path.  Red: write enable.  Green: clock.  "
          "Datasheet maximums (ATF22V10C-7PX, AS7C256C-15PCN); traces not included.",
          ha="center", fontsize=11.5)
-fig.tight_layout(rect=(0, 0.015, 1, 1))
+fig.tight_layout(rect=(0, 0.03, 1, 1))
 fig.savefig("docs/timing/fetch_paths.png", dpi=110)
 print("wrote docs/timing/fetch_paths.png")

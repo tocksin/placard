@@ -6,10 +6,10 @@ loads memory as files.  The 32K ROM image ([ROM.md](../architecture/ROM.md#the-3
 holds the boot loader, the library, BASIC and a small loader
 (`src/scripts/rom32.masm`) that starts the DOS and runs the programs.
 
-Date: 10/26/2026
+Date: 11/02/2026
 
-Until 2026-10-26 the DOS itself was in the ROM.  It moved to the card so
-the ROM could hold BASIC, which is useful with no card at all.
+The DOS is on the card, so the ROM can hold BASIC, which is useful with no
+card at all.
 
 ## At power-up
 
