@@ -331,7 +331,7 @@ ACRYLIC_NOTE = "CASE.md \"Cost estimate\", 1 unit, laser-cut acrylic, not quoted
 PRINT_NOTE = "filament cost, printed by the builder or kitter (about 10-20 g PETG each)"
 CASE_LINES = [
     mech(1, "Tray: 2.0 mm 5052-H32, floor with the front and right walls (two bends), black powder coat, "
-            "14 countersunk M3 holes", 50.00, CASE_NOTE, "case/tray.step"),
+            "14 countersunk M3 holes, 4 plain M3 holes at the feet", 50.00, CASE_NOTE, "case/tray.step"),
     mech(1, "Back plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 plain M3 holes", 23.00,
          CASE_NOTE, "case/back_plate.step"),
     mech(1, "Left plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 plain M3 holes", 23.00,
@@ -352,7 +352,7 @@ CASE_LINES = [
     mech(6, "M3 hex nut, ISO 4032 (on the plates' flanges)", 0.05, "typical nut price"),
     mech(4, "M3 x 6 button head screw, black (back plate into each expansion card's shell)", 0.15,
          "typical screw price"),
-    mech(4, "Rubber foot, 16 mm across, 10 mm tall, adhesive (clears the parked covers)", 0.40, "typical price"),
+    mech(4, "Rubber foot, 16 mm across, 10 mm tall, adhesive (clears the parked covers; sticks over the floor's foot hole)", 0.40, "typical price"),
 ]
 
 FILES = {"Main board": "BOM_MAIN_PCB", "Cartridge, 64K": "BOM_CART_64K", "Cartridge, 32K": "BOM_CART_32K",

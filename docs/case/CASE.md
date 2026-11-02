@@ -54,7 +54,7 @@ lying on the walls, clears it by 2 mm. The feet are as tall as a parked cover (7
 
 | Part | Qty | Material and finish | Made by |
 |---|--:|---|---|
-| Tray | 1 | 2.0 mm 5052-H32 aluminium, two bends (inside radius 2 mm, open front-right corner with a relief): the floor, to the case's outside edges, with the front wall (SNES cut-outs) and the right wall up to the acrylic, with vent slots in the floor and 10 in the right wall, 10 small parking slots for the covers' tabs and 14 countersunk M3 holes (8 at the board holes H1-H8 for the floor standoffs' screws, 6 for the plate screws). Black powder coat | Sheet metal service: laser cut, bend, countersink, powder coat |
+| Tray | 1 | 2.0 mm 5052-H32 aluminium, two bends (inside radius 2 mm, open front-right corner with a relief): the floor, to the case's outside edges, with the front wall (SNES cut-outs) and the right wall up to the acrylic, with vent slots in the floor and 10 in the right wall, 10 small parking slots for the covers' tabs and 14 countersunk M3 holes (8 at the board holes H1-H8 for the floor standoffs' screws, 6 for the plate screws), plus 4 plain 3.4 mm holes at the feet for optional screw-on feet. Black powder coat | Sheet metal service: laser cut, bend, countersink, powder coat |
 | Back plate | 1 | 2.0 mm 5052-H32, standing on the floor, with a 14 mm flange bent in along the bottom: USB-C, audio, VGA and PS/2 cut-outs, an M3 screw hole behind each expansion slot (J9-J12) with a parking hole for that slot's cover 12.6 mm below it, 3 plain 3.4 mm screw holes in the flange (loose M3 hex nuts on top), the flange notched round the floor standoffs and J7's pins | Same |
 | Left plate | 1 | Same: power switch, reset and SD cut-outs, 6 vent slots, 3 screw holes | Same |
 | Acrylic top | 1 | 4 mm clear cast acrylic, 295 x 220 mm, laser cut, with 14 small slots (6.4 x 2.2 mm) for the covers' tabs | Laser cutting service |
@@ -66,7 +66,7 @@ lying on the walls, clears it by 2 mm. The feet are as tall as a parked cover (7
 | M3 x 6 countersunk screw | 14 | Up through the floor, flush under the case: 8 into the floor standoffs, 6 through the plates' flanges into hex nuts | |
 | M3 hex nut, ISO 4032 (5.5 across flats, 2.4 mm) | 6 | On top of the plates' flanges, under the board's edge. The screw goes 2 mm into it, so its tip stays 2 mm under the board; the parts nearest (SW2's and K1's leads, R1/R2, F1) are clear of it | |
 | M3 x 6 button head screw, black | 4 | Through the back plate into each expansion card's shell (one per card fitted) | |
-| Rubber feet, 16 mm across, 10 mm tall, self-adhesive | 4 | 24 mm in from each corner, clear of the corner standoffs and the parked covers | |
+| Rubber feet, 16 mm across, 10 mm tall, self-adhesive | 4 | 24 mm in from each corner, clear of the corner standoffs and the parked covers. Each sticks on over the floor's foot hole | Or screw-on feet, see "Screw-on feet" below |
 
 The VGA connector's 4-40 jackscrews pass through the back plate and hold it
 to J7 as well.
@@ -96,7 +96,8 @@ views `exploded_hw` and `exploded_hw_rear`).
 1. The sheet metal service powder coats the tray and plates. There is no
    PEM hardware in any part.
 2. Screw the eight 6 mm male-female standoffs to the floor, stud up, with
-   countersunk screws from below.
+   countersunk screws from below. Screw-on feet, if used, go on now too
+   (nuts on top of the floor).
 3. Lower the board straight down onto the studs, which come up through
    H1-H8 and locate it. The SNES ports only touch the front wall's inside
    face, so nothing has to be threaded through a hole.
@@ -190,6 +191,23 @@ The connector models are drawn from typical dimensions (see
 makers' STEP files, before ordering metal.
 
 ![Top and underside: acrylic top, covers, tab slots, screws; feet, vents, plate screws, parking slots and the parked covers](case_top_view.png)
+
+## Screw-on feet
+
+The floor has a plain 3.4 mm hole at each foot, 24 mm in from each corner.
+The stick-on feet cover them. A builder who wants feet that can't peel
+off can screw on a recessed rubber bumper there instead:
+
+| Part | Qty | Notes |
+|---|--:|---|
+| Keystone 722 recessed bumper (Mouser 534-722), 18.2 mm across, 11.1 mm tall, black rubber, #4/M3 hole | 4 | About $0.98 each, $0.77 at 10+ |
+| M3 x 10 socket head screw | 4 | Up through the bumper's recess and the floor |
+| M3 nylon-insert lock nut, ISO 10511 | 4 | On top of the floor, so the screw can't back out of the soft rubber |
+
+The screw's tip stands about 3 mm above the floor, 3 mm under the board,
+and no board pad is within 8 mm of a foot hole. The nuts are clear of the
+plates' flanges. Fit them before the board goes in. The case sits 1.1 mm
+higher on these, and the parked covers clear the desk by 4.1 mm.
 
 ## Covers and parking
 
