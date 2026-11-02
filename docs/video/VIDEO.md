@@ -156,7 +156,7 @@ not in pin order.  The source names them Q9:Q0.
 ## Sync Decoder / Pixel counter PLD
 
 ### Function
-The Sync Decoder / Pixel Counter PLD (`ATF22V10_SYNC.pld`, revision 10)
+The Sync Decoder / Pixel Counter PLD (`ATF22V10_SYNC.pld`, revision 11)
 contains the three lowest horizontal count bits.  These bits select the
 individual pixel within an 8-pixel video byte, and go straight to the color
 decoder.  They run two clocks behind the H counter's group: H2:H0 is 110 in
@@ -168,8 +168,9 @@ It also generates:
 - VSYNC
 - VIDEN, the color decoder's video enable (registered)
 - PIXEL_ENABLE, the video read (registered)
-- The RAM write strobe /WE, from the early clock tap CLK_E (revision 10;
-  the address-mux selects ADDR_SEL, ADDR_SEL_HI and ADDR_SEL_LO before)
+- The RAM write strobe /WE: it falls with CLK and rises on the early clock
+  tap CLK_E (revision 11; from CLK_E alone in revision 10, the address-mux
+  selects ADDR_SEL, ADDR_SEL_HI and ADDR_SEL_LO before)
 - V_VIDEO_ACTIVE, the vertical active-region state
 
 ### Vertical Timing
@@ -232,7 +233,7 @@ PIXEL_ENABLE.D = (V_VIDEO_ACTIVE & H_VIDEO_ACTIVE # BLANK_RD) & H2 & H1 & !H0;
 
 VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;      /* counts 532-533; pin declared !VSYNC */
 
-WE = !CLK_E & !RW & !PIXEL_ENABLE;      /* pin declared !WE; WE.OE = RUN */
+WE = !CLK_E & !CLK & !RW & !PIXEL_ENABLE;   /* pin declared !WE; WE.OE = RUN (revision 11: & !CLK) */
 ```
 
 (The equations are written compactly here; the source spells them out.)
