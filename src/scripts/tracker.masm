@@ -72,7 +72,7 @@
 ;                                                     (and TRACKER.OVL)
 ;     python3 test_tracker.py                         runs it in placard_sim
 ;
-; Date: 11/01/2026
+; Date: 11/02/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -3195,20 +3195,35 @@ np_view:
 ; view_refresh - the main view (grid or table) and its title again
 .chunk
 view_refresh:
+    PUSH_LINK
     ld   [e_pane], ac
     sub  3, ac
     bcc  vr_t
+    ld   ROW_PTIT, ac           ; the table's text off the rows first
+    ld   ac, [w4]
+vr_c:
+    ld   [w4], ac
+    ld   ac, [CUR_ROW]
+    clr  ac
+    ld   ac, [CUR_COL]
+    ld   80, ac
+    CALL tspc
+    ld   [w4], ac
+    inc
+    ld   ac, [w4]
+    xor  ROW_GRID + PV, ac
+    bne  vr_c
     ld   [e_dirty], ac
     or   0x21, ac
     ld   ac, [e_dirty]
     clr  ac
     ld   ac, [e_drow]
-    RET
+    LEAVE
 vr_t:
     ld   [e_dirty], ac
     or   0x30, ac
     ld   ac, [e_dirty]
-    RET
+    LEAVE
 
 ; hexval - AC = key: AC = 0-15, or FF when it is no hex digit
 .chunk

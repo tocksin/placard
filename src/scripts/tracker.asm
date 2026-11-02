@@ -77,7 +77,7 @@
 ;                                                     (and TRACKER.OVL)
 ;     python3 test_tracker.py                         runs it in placard_sim
 ;
-; Date: 11/01/2026
+; Date: 11/02/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -2645,27 +2645,25 @@ ds_g:
     ld   draw_step2 >> 8, y
     jmp  draw_step2
 
-view_refresh:
-    ld   [e_pane], ac
-    sub  3, ac
-    bcc  vr_t
-    ld   [e_dirty], ac
-    or   0x21, ac
-    ld   ac, [e_dirty]
+mus_tick:
+    ld   MUS_VS >> 8, y
+    ld   G_T5, x
+    ld   [T5], ac
+    ld   ac, [y,x]
+    ld   G_NR, x
+    ld   0, [y,x]
+    ld   [M_PLAY], ac
+    and  1, ac
+    beq  mt_0
+    ld   [M_TICK], ac
+    bne  mt_0
+    ld   1, [y,x]               ; a new row
+mt_0:
     clr  ac
-    ld   ac, [e_drow]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-vr_t:
-    ld   [e_dirty], ac
-    or   0x30, ac
-    ld   ac, [e_dirty]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
+    ld   ac, [M_VIDX]
+    ld   mt_voice >> 8, y
+    jmp  mt_voice
 
-; hexval - AC = key: AC = 0-15, or FF when it is no hex digit
-
-#addr 0x1000
 draw_step2:
     ld   [e_pane], ac
     sub  3, ac
@@ -4818,12 +4816,12 @@ dte_p:
 ord_changed:
     ld   [o_v], ac
     ld   LINK_LO, x             ; CALL encode_ol
-    ld   tr_r253, [x]
+    ld   tr_r254, [x]
     ld   LINK_HI, x
-    ld   tr_r253 >> 8, [x]
+    ld   tr_r254 >> 8, [x]
     ld   encode_ol >> 8, y
     jmp  encode_ol
-tr_r253:
+tr_r254:
     ld   1, ac
     ld   ac, [e_mod]
     ld   [e_dirty], ac
@@ -5600,12 +5598,12 @@ ord_field:
     ld   [SAVE_AC], ac
     ld   ac, [w4]
     ld   LINK_LO, x             ; CALL cursor_hide
-    ld   tr_r247, [x]
+    ld   tr_r248, [x]
     ld   LINK_HI, x
-    ld   tr_r247 >> 8, [x]
+    ld   tr_r248 >> 8, [x]
     ld   cursor_hide >> 8, y
     jmp  cursor_hide
-tr_r247:
+tr_r248:
     ld   [w4], ac
     and  1, ac
     ld   ac, [o_f]
@@ -5613,18 +5611,69 @@ tr_r247:
     shr  ac
     ld   ac, [o_v]
     ld   LINK_LO, x             ; CALL cursor_show
-    ld   tr_r248, [x]
+    ld   tr_r249, [x]
     ld   LINK_HI, x
-    ld   tr_r248 >> 8, [x]
+    ld   tr_r249 >> 8, [x]
     ld   cursor_show >> 8, y
     jmp  cursor_show
-tr_r248:
+tr_r249:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
 ; ord_move - the order cursor to position AC; the grid shows it
 
 #addr 0x2400
+view_refresh:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   [e_pane], ac
+    sub  3, ac
+    bcc  vr_t
+    ld   ROW_PTIT, ac           ; the table's text off the rows first
+    ld   ac, [w4]
+vr_c:
+    ld   [w4], ac
+    ld   ac, [CUR_ROW]
+    clr  ac
+    ld   ac, [CUR_COL]
+    ld   80, ac
+    ld   LINK_LO, x             ; CALL tspc
+    ld   tr_r213, [x]
+    ld   LINK_HI, x
+    ld   tr_r213 >> 8, [x]
+    ld   tspc >> 8, y
+    jmp  tspc
+tr_r213:
+    ld   [w4], ac
+    inc
+    ld   ac, [w4]
+    xor  ROW_GRID + PV, ac
+    bne  vr_c
+    ld   [e_dirty], ac
+    or   0x21, ac
+    ld   ac, [e_dirty]
+    clr  ac
+    ld   ac, [e_drow]
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+vr_t:
+    ld   [e_dirty], ac
+    or   0x30, ac
+    ld   ac, [e_dirty]
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; hexval - AC = key: AC = 0-15, or FF when it is no hex digit
 key_pat:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -5645,12 +5694,12 @@ key_pat:
     beq  kp_e
     dec
     ld   LINK_LO, x             ; CALL move_row
-    ld   tr_r213, [x]
+    ld   tr_r214, [x]
     ld   LINK_HI, x
-    ld   tr_r213 >> 8, [x]
+    ld   tr_r214 >> 8, [x]
     ld   move_row >> 8, y
     jmp  move_row
-tr_r213:
+tr_r214:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 kp_1:
@@ -5663,12 +5712,12 @@ kp_1:
     ld   [c_row], ac
     inc
     ld   LINK_LO, x             ; CALL move_row
-    ld   tr_r214, [x]
+    ld   tr_r215, [x]
     ld   LINK_HI, x
-    ld   tr_r214 >> 8, [x]
+    ld   tr_r215 >> 8, [x]
     ld   move_row >> 8, y
     jmp  move_row
-tr_r214:
+tr_r215:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 kp_e:
@@ -5678,205 +5727,6 @@ kp_2:
     ld   key_pat2 >> 8, y
     jmp  key_pat2
 
-move_row:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   ac, [w5]
-    ld   LINK_LO, x             ; CALL cursor_hide
-    ld   tr_r222, [x]
-    ld   LINK_HI, x
-    ld   tr_r222 >> 8, [x]
-    ld   cursor_hide >> 8, y
-    jmp  cursor_hide
-tr_r222:
-    ld   [c_row], ac
-    ld   ac, [w4]
-    ld   [w5], ac
-    ld   ac, [c_row]
-    ld   LINK_LO, x             ; CALL scroll_to
-    ld   tr_r223, [x]
-    ld   LINK_HI, x
-    ld   tr_r223 >> 8, [x]
-    ld   scroll_to >> 8, y
-    jmp  scroll_to
-tr_r223:
-    bne  mr_full
-    ld   [w4], ac
-    ld   LINK_LO, x             ; CALL grid_tint
-    ld   tr_r224, [x]
-    ld   LINK_HI, x
-    ld   tr_r224 >> 8, [x]
-    ld   grid_tint >> 8, y
-    jmp  grid_tint
-tr_r224:
-    ld   [c_row], ac
-    ld   LINK_LO, x             ; CALL grid_tint
-    ld   tr_r225, [x]
-    ld   LINK_HI, x
-    ld   tr_r225 >> 8, [x]
-    ld   grid_tint >> 8, y
-    jmp  grid_tint
-tr_r225:
-    ld   LINK_LO, x             ; CALL cursor_show
-    ld   tr_r226, [x]
-    ld   LINK_HI, x
-    ld   tr_r226 >> 8, [x]
-    ld   cursor_show >> 8, y
-    jmp  cursor_show
-tr_r226:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-mr_full:
-    ld   [e_dirty], ac
-    or   0x01, ac
-    ld   ac, [e_dirty]
-    clr  ac
-    ld   ac, [e_drow]
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-; scroll_to - c_row on the screen: AC = 1 when c_top moved (a redraw)
-prompt_bs:
-    ld   [w0], ac
-    bne  pb_a
-    ld   pr_l >> 8, y
-    jmp  pr_l
-pb_a:
-    dec
-    ld   ac, [w0]
-    ld   [w1], ac
-    dec
-    ld   ac, [w1]
-    ld   ac, [CUR_COL]
-    ld   s_cur & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_cur >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL tputs
-    ld   tr_r335, [x]
-    ld   LINK_HI, x
-    ld   tr_r335 >> 8, [x]
-    ld   tputs >> 8, y
-    jmp  tputs
-tr_r335:
-    ld   pr_l >> 8, y
-    jmp  pr_l
-
-
-#addr 0x2500
-key_pat2:
-    ld   [e_key], ac
-    xor  0x13, ac
-    bne  kp_3
-    ld   [c_col], ac
-    bne  kp_2a
-    ld   [c_v], ac
-    beq  kp_e2
-    ld   LINK_LO, x             ; CALL cursor_hide
-    ld   tr_r215, [x]
-    ld   LINK_HI, x
-    ld   tr_r215 >> 8, [x]
-    ld   cursor_hide >> 8, y
-    jmp  cursor_hide
-tr_r215:
-    ld   [c_v], ac
-    dec
-    ld   ac, [c_v]
-    ld   6, ac
-    ld   ac, [c_col]
-    ld   [e_dirty], ac
-    or   0x20, ac
-    ld   ac, [e_dirty]
-kp_2a:
-    ld   LINK_LO, x             ; CALL cursor_hide
-    ld   tr_r216, [x]
-    ld   LINK_HI, x
-    ld   tr_r216 >> 8, [x]
-    ld   cursor_hide >> 8, y
-    jmp  cursor_hide
-tr_r216:
-    ld   [c_col], ac
-    dec
-    ld   ac, [c_col]
-    ld   LINK_LO, x             ; CALL cursor_show
-    ld   tr_r217, [x]
-    ld   LINK_HI, x
-    ld   tr_r217 >> 8, [x]
-    ld   cursor_show >> 8, y
-    jmp  cursor_show
-tr_r217:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-kp_3:
-    ld   [e_key], ac
-    xor  0x14, ac
-    bne  kp_4
-    ld   [c_col], ac
-    xor  5, ac
-    bne  kp_3a
-    ld   [c_v], ac
-    xor  3, ac
-    beq  kp_e2
-    ld   LINK_LO, x             ; CALL cursor_hide
-    ld   tr_r218, [x]
-    ld   LINK_HI, x
-    ld   tr_r218 >> 8, [x]
-    ld   cursor_hide >> 8, y
-    jmp  cursor_hide
-tr_r218:
-    ld   [c_v], ac
-    inc
-    ld   ac, [c_v]
-    ld   0xFF, ac
-    ld   ac, [c_col]
-    ld   [e_dirty], ac
-    or   0x20, ac
-    ld   ac, [e_dirty]
-kp_3a:
-    ld   LINK_LO, x             ; CALL cursor_hide
-    ld   tr_r219, [x]
-    ld   LINK_HI, x
-    ld   tr_r219 >> 8, [x]
-    ld   cursor_hide >> 8, y
-    jmp  cursor_hide
-tr_r219:
-    ld   [c_col], ac
-    inc
-    ld   ac, [c_col]
-    ld   LINK_LO, x             ; CALL cursor_show
-    ld   tr_r220, [x]
-    ld   LINK_HI, x
-    ld   tr_r220 >> 8, [x]
-    ld   cursor_show >> 8, y
-    jmp  cursor_show
-tr_r220:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-kp_4:
-    ld   LINK_LO, x             ; CALL edit_cell
-    ld   tr_r221, [x]
-    ld   LINK_HI, x
-    ld   tr_r221 >> 8, [x]
-    ld   edit_cell >> 8, y
-    jmp  edit_cell
-tr_r221:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-kp_e2:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-; move_row - the pattern cursor to row AC (the view follows)
 ord_hex:
     ld   [o_v], ac
     add  VSPAGE, y
@@ -5927,106 +5777,110 @@ oh_e:
 
 ; ord_trans - AC = +1 / -1 on the transpose (-32..31)
 
-#addr 0x2600
-edit_cell:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   [c_v], ac
-    ld   LINK_LO, x             ; CALL pat_of
-    ld   tr_r227, [x]
-    ld   LINK_HI, x
-    ld   tr_r227 >> 8, [x]
-    ld   pat_of >> 8, y
-    jmp  pat_of
-tr_r227:
-    ld   ac, [w0]
-    xor  0xFF, ac
-    bne  edc_a
-    ld   s_nopat2 & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_nopat2 >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL status
-    ld   tr_r228, [x]
-    ld   LINK_HI, x
-    ld   tr_r228 >> 8, [x]
-    ld   status >> 8, y
-    jmp  status
-tr_r228:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-edc_a:
-    ld   [w0], ac
-    ld   LINK_LO, x             ; CALL need
-    ld   tr_r229, [x]
-    ld   LINK_HI, x
-    ld   tr_r229 >> 8, [x]
-    ld   need >> 8, y
-    jmp  need
-tr_r229:
-    ld   [c_row], ac
-    sub  [p_len], ac
-    bcs  edc_b
-    ld   s_pastend & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_pastend >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL status
-    ld   tr_r230, [x]
-    ld   LINK_HI, x
-    ld   tr_r230 >> 8, [x]
-    ld   status >> 8, y
-    jmp  status
-tr_r230:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-edc_b:
-    ld   [c_row], ac
-    shl
-    shl
-    ld   ac, [w1]               ; the row's first byte
+#addr 0x2500
+key_pat2:
+    ld   [e_key], ac
+    xor  0x13, ac
+    bne  kp_3
     ld   [c_col], ac
-    bne  edc_c
-    ld   edit_note >> 8, y
-    jmp  edit_note
-edc_c:
-    ld   [e_key], ac            ; the other columns: hex digits, Del
-    xor  0x7F, ac
-    beq  edc_del
-    ld   [e_key], ac
-    xor  0x08, ac
-    beq  edc_del
-    ld   [e_key], ac
-    ld   LINK_LO, x             ; CALL hexval
-    ld   tr_r231, [x]
+    bne  kp_2a
+    ld   [c_v], ac
+    beq  kp_e2
+    ld   LINK_LO, x             ; CALL cursor_hide
+    ld   tr_r216, [x]
     ld   LINK_HI, x
-    ld   tr_r231 >> 8, [x]
-    ld   hexval >> 8, y
-    jmp  hexval
-tr_r231:
-    ld   ac, [w2]
-    xor  0xFF, ac
-    beq  edc_e
-    ld   edit_hex >> 8, y
-    jmp  edit_hex
-edc_del:
-    ld   edit_del >> 8, y
-    jmp  edit_del
-edc_e:
+    ld   tr_r216 >> 8, [x]
+    ld   cursor_hide >> 8, y
+    jmp  cursor_hide
+tr_r216:
+    ld   [c_v], ac
+    dec
+    ld   ac, [c_v]
+    ld   6, ac
+    ld   ac, [c_col]
+    ld   [e_dirty], ac
+    or   0x20, ac
+    ld   ac, [e_dirty]
+kp_2a:
+    ld   LINK_LO, x             ; CALL cursor_hide
+    ld   tr_r217, [x]
+    ld   LINK_HI, x
+    ld   tr_r217 >> 8, [x]
+    ld   cursor_hide >> 8, y
+    jmp  cursor_hide
+tr_r217:
+    ld   [c_col], ac
+    dec
+    ld   ac, [c_col]
+    ld   LINK_LO, x             ; CALL cursor_show
+    ld   tr_r218, [x]
+    ld   LINK_HI, x
+    ld   tr_r218 >> 8, [x]
+    ld   cursor_show >> 8, y
+    jmp  cursor_show
+tr_r218:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+kp_3:
+    ld   [e_key], ac
+    xor  0x14, ac
+    bne  kp_4
+    ld   [c_col], ac
+    xor  5, ac
+    bne  kp_3a
+    ld   [c_v], ac
+    xor  3, ac
+    beq  kp_e2
+    ld   LINK_LO, x             ; CALL cursor_hide
+    ld   tr_r219, [x]
+    ld   LINK_HI, x
+    ld   tr_r219 >> 8, [x]
+    ld   cursor_hide >> 8, y
+    jmp  cursor_hide
+tr_r219:
+    ld   [c_v], ac
+    inc
+    ld   ac, [c_v]
+    ld   0xFF, ac
+    ld   ac, [c_col]
+    ld   [e_dirty], ac
+    or   0x20, ac
+    ld   ac, [e_dirty]
+kp_3a:
+    ld   LINK_LO, x             ; CALL cursor_hide
+    ld   tr_r220, [x]
+    ld   LINK_HI, x
+    ld   tr_r220 >> 8, [x]
+    ld   cursor_hide >> 8, y
+    jmp  cursor_hide
+tr_r220:
+    ld   [c_col], ac
+    inc
+    ld   ac, [c_col]
+    ld   LINK_LO, x             ; CALL cursor_show
+    ld   tr_r221, [x]
+    ld   LINK_HI, x
+    ld   tr_r221 >> 8, [x]
+    ld   cursor_show >> 8, y
+    jmp  cursor_show
+tr_r221:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+kp_4:
+    ld   LINK_LO, x             ; CALL edit_cell
+    ld   tr_r222, [x]
+    ld   LINK_HI, x
+    ld   tr_r222 >> 8, [x]
+    ld   edit_cell >> 8, y
+    jmp  edit_cell
+tr_r222:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+kp_e2:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
-; the note column: the piano keys, 1 = key off, Del
+; move_row - the pattern cursor to row AC (the view follows)
 ins_field:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -6044,12 +5898,12 @@ ins_field:
     clr  ac
     ld   ac, [R0]
     ld   LINK_LO, x             ; CALL pane_tint
-    ld   tr_r261, [x]
+    ld   tr_r262, [x]
     ld   LINK_HI, x
-    ld   tr_r261 >> 8, [x]
+    ld   tr_r262 >> 8, [x]
     ld   pane_tint >> 8, y
     jmp  pane_tint
-tr_r261:
+tr_r262:
     ld   [w4], ac
     ld   ac, [i_f]
     clr  ac
@@ -6057,12 +5911,12 @@ tr_r261:
     ld   TINT_BLUE, ac
     ld   ac, [R0]
     ld   LINK_LO, x             ; CALL pane_tint
-    ld   tr_r262, [x]
+    ld   tr_r263, [x]
     ld   LINK_HI, x
-    ld   tr_r262 >> 8, [x]
+    ld   tr_r263 >> 8, [x]
     ld   pane_tint >> 8, y
     jmp  pane_tint
-tr_r262:
+tr_r263:
     ld   [e_dirty], ac
     or   0x04, ac
     ld   ac, [e_dirty]
@@ -6073,174 +5927,76 @@ tr_r262:
 ; nibble, 1 low nibble, 2 byte, 3 bit 0)
 
 ; ins_adj - AC = +1 / -1 on the field
-mus_sfx:
-    ld   ac, [T7]
-    sub  96, ac
-    bcs  sx_a
-    ld   95, ac
-    ld   ac, [T7]
-sx_a:
-    ld   [R1], ac
-    ld   ac, [M_SFXN]
-    ld   sfx_in >> 8, y
-    jmp  sfx_in
-edit_note:
-    ld   [e_key], ac
-    xor  0x31, ac
-    bne  edn_a
-    ld   SCRATCH >> 8, y
-    ld   [w1], x
-    ld   0x60, [y,x]
-    ld   commit_adv >> 8, y
-    jmp  commit_adv
-edn_a:
-    ld   [e_key], ac
-    xor  0x7F, ac
-    beq  edn_del
-    ld   [e_key], ac
-    xor  0x08, ac
-    beq  edn_del
-    ld   [e_key], ac
-    ld   LINK_LO, x             ; CALL piano
-    ld   tr_r232, [x]
-    ld   LINK_HI, x
-    ld   tr_r232 >> 8, [x]
-    ld   piano >> 8, y
-    jmp  piano
-tr_r232:
-    ld   ac, [w2]
-    xor  0xFF, ac
-    beq  edn_e
-    ld   [e_oct], ac
-    shl
-    add  [e_oct], ac
-    shl
-    shl
-    add  [w2], ac               ; 12 x octave + semitone
-    ld   ac, [w2]
-    sub  96, ac
-    bcs  edn_ok
-    ld   s_high & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_high >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL status
-    ld   tr_r233, [x]
-    ld   LINK_HI, x
-    ld   tr_r233 >> 8, [x]
-    ld   status >> 8, y
-    jmp  status
-tr_r233:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-edn_ok:
-    ld   SCRATCH >> 8, y
-    ld   [w1], x
-    ld   [w2], ac
-    ld   ac, [y,x]
-    ld   [w1], ac
-    inc
+
+#addr 0x2600
+move_row:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
     ld   ac, x
-    ld   [e_ins], ac
-    ld   ac, [y,x]
-    ld   [e_play], ac           ; hear it when the song is not playing
-    bne  edn_c
-    ld   [e_ins], ac
-    ld   ac, [R0]
-    ld   20, ac
-    ld   ac, [R1]
-    ld   [w2], ac
-    ld   LINK_LO, x             ; CALL mus_sfx
-    ld   tr_r234, [x]
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   ac, [w5]
+    ld   LINK_LO, x             ; CALL cursor_hide
+    ld   tr_r223, [x]
     ld   LINK_HI, x
-    ld   tr_r234 >> 8, [x]
-    ld   mus_sfx >> 8, y
-    jmp  mus_sfx
-tr_r234:
-edn_c:
-    ld   commit_adv >> 8, y
-    jmp  commit_adv
-edn_del:
-    ld   SCRATCH >> 8, y
-    ld   [w1], x
-    ld   0x61, [y,x]
-    ld   [w1], ac
-    inc
-    ld   ac, x
-    ld   0xFF, [y,x]
-    ld   commit >> 8, y
-    jmp  commit
-edn_e:
+    ld   tr_r223 >> 8, [x]
+    ld   cursor_hide >> 8, y
+    jmp  cursor_hide
+tr_r223:
+    ld   [c_row], ac
+    ld   ac, [w4]
+    ld   [w5], ac
+    ld   ac, [c_row]
+    ld   LINK_LO, x             ; CALL scroll_to
+    ld   tr_r224, [x]
+    ld   LINK_HI, x
+    ld   tr_r224 >> 8, [x]
+    ld   scroll_to >> 8, y
+    jmp  scroll_to
+tr_r224:
+    bne  mr_full
+    ld   [w4], ac
+    ld   LINK_LO, x             ; CALL grid_tint
+    ld   tr_r225, [x]
+    ld   LINK_HI, x
+    ld   tr_r225 >> 8, [x]
+    ld   grid_tint >> 8, y
+    jmp  grid_tint
+tr_r225:
+    ld   [c_row], ac
+    ld   LINK_LO, x             ; CALL grid_tint
+    ld   tr_r226, [x]
+    ld   LINK_HI, x
+    ld   tr_r226 >> 8, [x]
+    ld   grid_tint >> 8, y
+    jmp  grid_tint
+tr_r226:
+    ld   LINK_LO, x             ; CALL cursor_show
+    ld   tr_r227, [x]
+    ld   LINK_HI, x
+    ld   tr_r227 >> 8, [x]
+    ld   cursor_show >> 8, y
+    jmp  cursor_show
+tr_r227:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+mr_full:
+    ld   [e_dirty], ac
+    or   0x01, ac
+    ld   ac, [e_dirty]
+    clr  ac
+    ld   ac, [e_drow]
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
-; a hex digit (w2) into the instrument or effect columns
-key_ord2:
-    ld   [e_key], ac
-    xor  0x5B, ac
-    bne  ko2_1
-    ld   0xFF, ac
-    ld   ord_trans >> 8, y
-    jmp  ord_trans
-ko2_1:
-    ld   [e_key], ac
-    xor  0x5D, ac
-    bne  ko2_2
-    ld   1, ac
-    ld   ord_trans >> 8, y
-    jmp  ord_trans
-ko2_2:
-    ld   [e_key], ac
-    xor  0x69, ac
-    bne  ko2_3
-    ld   ord_insert >> 8, y
-    jmp  ord_insert
-ko2_3:
-    ld   [e_key], ac
-    xor  0x7F, ac
-    beq  ko2_del
-    ld   [e_key], ac
-    xor  0x08, ac
-    bne  ko2_4
-ko2_del:
-    ld   ord_delete >> 8, y
-    jmp  ord_delete
-ko2_4:
-    ld   [e_key], ac
-    xor  0x6C, ac
-    bne  ko2_5
-    ld   0xFF, ac
-    ld   ord_end >> 8, y
-    jmp  ord_end
-ko2_5:
-    ld   [e_key], ac
-    xor  0x73, ac
-    bne  ko2_6
-    ld   0xFE, ac
-    ld   ord_end >> 8, y
-    jmp  ord_end
-ko2_6:
-    ld   [e_key], ac
-    ld   LINK_LO, x             ; CALL hexval
-    ld   tr_r252, [x]
-    ld   LINK_HI, x
-    ld   tr_r252 >> 8, [x]
-    ld   hexval >> 8, y
-    jmp  hexval
-tr_r252:
-    ld   ac, [w2]
-    xor  0xFF, ac
-    beq  ko2_e
-    ld   ord_hex >> 8, y
-    jmp  ord_hex
-ko2_e:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-; ord_hex - the digit w2 into the pattern number, or the loop target on
-; the end row
-
-#addr 0x2800
+; scroll_to - c_row on the screen: AC = 1 when c_top moved (a redraw)
 edit_hex:
     ld   SCRATCH >> 8, y
     ld   [c_col], ac
@@ -6326,6 +6082,404 @@ eh_p2:
     jmp  commit
 
 ; Del in the instrument or effect columns
+
+#addr 0x2700
+edit_cell:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   [c_v], ac
+    ld   LINK_LO, x             ; CALL pat_of
+    ld   tr_r228, [x]
+    ld   LINK_HI, x
+    ld   tr_r228 >> 8, [x]
+    ld   pat_of >> 8, y
+    jmp  pat_of
+tr_r228:
+    ld   ac, [w0]
+    xor  0xFF, ac
+    bne  edc_a
+    ld   s_nopat2 & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_nopat2 >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL status
+    ld   tr_r229, [x]
+    ld   LINK_HI, x
+    ld   tr_r229 >> 8, [x]
+    ld   status >> 8, y
+    jmp  status
+tr_r229:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+edc_a:
+    ld   [w0], ac
+    ld   LINK_LO, x             ; CALL need
+    ld   tr_r230, [x]
+    ld   LINK_HI, x
+    ld   tr_r230 >> 8, [x]
+    ld   need >> 8, y
+    jmp  need
+tr_r230:
+    ld   [c_row], ac
+    sub  [p_len], ac
+    bcs  edc_b
+    ld   s_pastend & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_pastend >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL status
+    ld   tr_r231, [x]
+    ld   LINK_HI, x
+    ld   tr_r231 >> 8, [x]
+    ld   status >> 8, y
+    jmp  status
+tr_r231:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+edc_b:
+    ld   [c_row], ac
+    shl
+    shl
+    ld   ac, [w1]               ; the row's first byte
+    ld   [c_col], ac
+    bne  edc_c
+    ld   edit_note >> 8, y
+    jmp  edit_note
+edc_c:
+    ld   [e_key], ac            ; the other columns: hex digits, Del
+    xor  0x7F, ac
+    beq  edc_del
+    ld   [e_key], ac
+    xor  0x08, ac
+    beq  edc_del
+    ld   [e_key], ac
+    ld   LINK_LO, x             ; CALL hexval
+    ld   tr_r232, [x]
+    ld   LINK_HI, x
+    ld   tr_r232 >> 8, [x]
+    ld   hexval >> 8, y
+    jmp  hexval
+tr_r232:
+    ld   ac, [w2]
+    xor  0xFF, ac
+    beq  edc_e
+    ld   edit_hex >> 8, y
+    jmp  edit_hex
+edc_del:
+    ld   edit_del >> 8, y
+    jmp  edit_del
+edc_e:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; the note column: the piano keys, 1 = key off, Del
+tab_move:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   ac, [w4]
+    ld   LINK_LO, x             ; CALL cursor_hide
+    ld   tr_r280, [x]
+    ld   LINK_HI, x
+    ld   tr_r280 >> 8, [x]
+    ld   cursor_hide >> 8, y
+    jmp  cursor_hide
+tr_r280:
+    clr  ac
+    ld   ac, [R0]
+    ld   LINK_LO, x             ; CALL pane_tint
+    ld   tr_r281, [x]
+    ld   LINK_HI, x
+    ld   tr_r281 >> 8, [x]
+    ld   pane_tint >> 8, y
+    jmp  pane_tint
+tr_r281:
+    ld   [w4], ac
+    ld   ac, [t_e]
+    ld   TINT_BLUE, ac
+    ld   ac, [R0]
+    ld   LINK_LO, x             ; CALL pane_tint
+    ld   tr_r282, [x]
+    ld   LINK_HI, x
+    ld   tr_r282 >> 8, [x]
+    ld   pane_tint >> 8, y
+    jmp  pane_tint
+tr_r282:
+    ld   LINK_LO, x             ; CALL cursor_show
+    ld   tr_r283, [x]
+    ld   LINK_HI, x
+    ld   tr_r283 >> 8, [x]
+    ld   cursor_show >> 8, y
+    jmp  cursor_show
+tr_r283:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+
+#addr 0x2800
+edit_note:
+    ld   [e_key], ac
+    xor  0x31, ac
+    bne  edn_a
+    ld   SCRATCH >> 8, y
+    ld   [w1], x
+    ld   0x60, [y,x]
+    ld   commit_adv >> 8, y
+    jmp  commit_adv
+edn_a:
+    ld   [e_key], ac
+    xor  0x7F, ac
+    beq  edn_del
+    ld   [e_key], ac
+    xor  0x08, ac
+    beq  edn_del
+    ld   [e_key], ac
+    ld   LINK_LO, x             ; CALL piano
+    ld   tr_r233, [x]
+    ld   LINK_HI, x
+    ld   tr_r233 >> 8, [x]
+    ld   piano >> 8, y
+    jmp  piano
+tr_r233:
+    ld   ac, [w2]
+    xor  0xFF, ac
+    beq  edn_e
+    ld   [e_oct], ac
+    shl
+    add  [e_oct], ac
+    shl
+    shl
+    add  [w2], ac               ; 12 x octave + semitone
+    ld   ac, [w2]
+    sub  96, ac
+    bcs  edn_ok
+    ld   s_high & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_high >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL status
+    ld   tr_r234, [x]
+    ld   LINK_HI, x
+    ld   tr_r234 >> 8, [x]
+    ld   status >> 8, y
+    jmp  status
+tr_r234:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+edn_ok:
+    ld   SCRATCH >> 8, y
+    ld   [w1], x
+    ld   [w2], ac
+    ld   ac, [y,x]
+    ld   [w1], ac
+    inc
+    ld   ac, x
+    ld   [e_ins], ac
+    ld   ac, [y,x]
+    ld   [e_play], ac           ; hear it when the song is not playing
+    bne  edn_c
+    ld   [e_ins], ac
+    ld   ac, [R0]
+    ld   20, ac
+    ld   ac, [R1]
+    ld   [w2], ac
+    ld   LINK_LO, x             ; CALL mus_sfx
+    ld   tr_r235, [x]
+    ld   LINK_HI, x
+    ld   tr_r235 >> 8, [x]
+    ld   mus_sfx >> 8, y
+    jmp  mus_sfx
+tr_r235:
+edn_c:
+    ld   commit_adv >> 8, y
+    jmp  commit_adv
+edn_del:
+    ld   SCRATCH >> 8, y
+    ld   [w1], x
+    ld   0x61, [y,x]
+    ld   [w1], ac
+    inc
+    ld   ac, x
+    ld   0xFF, [y,x]
+    ld   commit >> 8, y
+    jmp  commit
+edn_e:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; a hex digit (w2) into the instrument or effect columns
+key_ord2:
+    ld   [e_key], ac
+    xor  0x5B, ac
+    bne  ko2_1
+    ld   0xFF, ac
+    ld   ord_trans >> 8, y
+    jmp  ord_trans
+ko2_1:
+    ld   [e_key], ac
+    xor  0x5D, ac
+    bne  ko2_2
+    ld   1, ac
+    ld   ord_trans >> 8, y
+    jmp  ord_trans
+ko2_2:
+    ld   [e_key], ac
+    xor  0x69, ac
+    bne  ko2_3
+    ld   ord_insert >> 8, y
+    jmp  ord_insert
+ko2_3:
+    ld   [e_key], ac
+    xor  0x7F, ac
+    beq  ko2_del
+    ld   [e_key], ac
+    xor  0x08, ac
+    bne  ko2_4
+ko2_del:
+    ld   ord_delete >> 8, y
+    jmp  ord_delete
+ko2_4:
+    ld   [e_key], ac
+    xor  0x6C, ac
+    bne  ko2_5
+    ld   0xFF, ac
+    ld   ord_end >> 8, y
+    jmp  ord_end
+ko2_5:
+    ld   [e_key], ac
+    xor  0x73, ac
+    bne  ko2_6
+    ld   0xFE, ac
+    ld   ord_end >> 8, y
+    jmp  ord_end
+ko2_6:
+    ld   [e_key], ac
+    ld   LINK_LO, x             ; CALL hexval
+    ld   tr_r253, [x]
+    ld   LINK_HI, x
+    ld   tr_r253 >> 8, [x]
+    ld   hexval >> 8, y
+    jmp  hexval
+tr_r253:
+    ld   ac, [w2]
+    xor  0xFF, ac
+    beq  ko2_e
+    ld   ord_hex >> 8, y
+    jmp  ord_hex
+ko2_e:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; ord_hex - the digit w2 into the pattern number, or the loop target on
+; the end row
+
+#addr 0x2900
+commit_adv:
+    ld   LINK_LO, x             ; CALL encode_pat
+    ld   tr_r236, [x]
+    ld   LINK_HI, x
+    ld   tr_r236 >> 8, [x]
+    ld   encode_pat >> 8, y
+    jmp  encode_pat
+tr_r236:
+    bne  cm_full
+    ld   [c_row], ac
+    ld   LINK_LO, x             ; CALL draw_row
+    ld   tr_r237, [x]
+    ld   LINK_HI, x
+    ld   tr_r237 >> 8, [x]
+    ld   draw_row >> 8, y
+    jmp  draw_row
+tr_r237:
+    ld   [c_row], ac
+    xor  63, ac
+    beq  cm_s
+    ld   [c_row], ac
+    inc
+    ld   LINK_LO, x             ; CALL move_row
+    ld   tr_r238, [x]
+    ld   LINK_HI, x
+    ld   tr_r238 >> 8, [x]
+    ld   move_row >> 8, y
+    jmp  move_row
+tr_r238:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+cm_s:
+    ld   LINK_LO, x             ; CALL cursor_show
+    ld   tr_r239, [x]
+    ld   LINK_HI, x
+    ld   tr_r239 >> 8, [x]
+    ld   cursor_show >> 8, y
+    jmp  cursor_show
+tr_r239:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+commit:
+    ld   LINK_LO, x             ; CALL encode_pat
+    ld   tr_r240, [x]
+    ld   LINK_HI, x
+    ld   tr_r240 >> 8, [x]
+    ld   encode_pat >> 8, y
+    jmp  encode_pat
+tr_r240:
+    bne  cm_full
+    ld   [c_row], ac
+    ld   LINK_LO, x             ; CALL draw_row
+    ld   tr_r241, [x]
+    ld   LINK_HI, x
+    ld   tr_r241 >> 8, [x]
+    ld   draw_row >> 8, y
+    jmp  draw_row
+tr_r241:
+    ld   LINK_LO, x             ; CALL cursor_show
+    ld   tr_r242, [x]
+    ld   LINK_HI, x
+    ld   tr_r242 >> 8, [x]
+    ld   cursor_show >> 8, y
+    jmp  cursor_show
+tr_r242:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+cm_full:
+    ld   0xFF, ac               ; the slot is as it was: decode it again
+    ld   ac, [p_pat]
+    ld   s_full & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_full >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL status
+    ld   tr_r243, [x]
+    ld   LINK_HI, x
+    ld   tr_r243 >> 8, [x]
+    ld   status >> 8, y
+    jmp  status
+tr_r243:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; ------------------------------------------------------------
+; key_ord - the orderlist pane
+; ------------------------------------------------------------
 ord_move:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -6341,21 +6495,21 @@ ord_move:
     ld   [SAVE_AC], ac
     ld   ac, [w4]
     ld   LINK_LO, x             ; CALL cursor_hide
-    ld   tr_r249, [x]
-    ld   LINK_HI, x
-    ld   tr_r249 >> 8, [x]
-    ld   cursor_hide >> 8, y
-    jmp  cursor_hide
-tr_r249:
-    clr  ac
-    ld   ac, [R0]
-    ld   LINK_LO, x             ; CALL pane_tint
     ld   tr_r250, [x]
     ld   LINK_HI, x
     ld   tr_r250 >> 8, [x]
+    ld   cursor_hide >> 8, y
+    jmp  cursor_hide
+tr_r250:
+    clr  ac
+    ld   ac, [R0]
+    ld   LINK_LO, x             ; CALL pane_tint
+    ld   tr_r251, [x]
+    ld   LINK_HI, x
+    ld   tr_r251 >> 8, [x]
     ld   pane_tint >> 8, y
     jmp  pane_tint
-tr_r250:
+tr_r251:
     ld   [w4], ac
     ld   ac, [o_k]
     ld   ac, [e_op]
@@ -6379,126 +6533,178 @@ om_ok:
     ld   TINT_BLUE, ac
     ld   ac, [R0]
     ld   LINK_LO, x             ; CALL pane_tint
-    ld   tr_r251, [x]
+    ld   tr_r252, [x]
     ld   LINK_HI, x
-    ld   tr_r251 >> 8, [x]
+    ld   tr_r252 >> 8, [x]
     ld   pane_tint >> 8, y
     jmp  pane_tint
-tr_r251:
+tr_r252:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
 ; the orderlist's editing keys: hex digits, [ ], i, Del, l, s
-mv_row:
-    ld   [M_VIDX], ac
-    xor  4, ac
-    beq  mr_no
-    ld   MUS_VS >> 8, y
-    ld   G_NR, x
+
+#addr 0x2A00
+key_ord:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   [o_v], ac
+    add  VSPAGE, y
+    ld   OD_LEN, x
     ld   [y,x], ac
-    beq  mr_no
-    ld   [W_STOP], ac
-    bne  mr_no
-    ld   rr >> 8, y
-    jmp  rr
-mr_no:
-    ld   vt >> 8, y
-    jmp  vt
-
-; ------------------------------------------------------------
-; rr - read the voice's next row
-;   T0 = instrument (FF none), T1:T2 = effect, parameter, T6 = ends seen,
-;   T7 = the byte
-; ------------------------------------------------------------
-
-#addr 0x2900
-commit_adv:
-    ld   LINK_LO, x             ; CALL encode_pat
-    ld   tr_r235, [x]
+    ld   ac, [w3]               ; the voice's positions
+    ld   [e_key], ac
+    xor  0x11, ac
+    bne  ko_1
+    ld   [o_k], ac
+    beq  ko_e
+    dec
+    ld   LINK_LO, x             ; CALL ord_move
+    ld   tr_r244, [x]
     ld   LINK_HI, x
-    ld   tr_r235 >> 8, [x]
-    ld   encode_pat >> 8, y
-    jmp  encode_pat
-tr_r235:
-    bne  cm_full
-    ld   [c_row], ac
-    ld   LINK_LO, x             ; CALL draw_row
-    ld   tr_r236, [x]
-    ld   LINK_HI, x
-    ld   tr_r236 >> 8, [x]
-    ld   draw_row >> 8, y
-    jmp  draw_row
-tr_r236:
-    ld   [c_row], ac
-    xor  63, ac
-    beq  cm_s
-    ld   [c_row], ac
+    ld   tr_r244 >> 8, [x]
+    ld   ord_move >> 8, y
+    jmp  ord_move
+tr_r244:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+ko_1:
+    ld   [e_key], ac
+    xor  0x12, ac
+    bne  ko_2
+    ld   [o_k], ac
+    xor  [w3], ac
+    beq  ko_e
+    ld   [o_k], ac
     inc
-    ld   LINK_LO, x             ; CALL move_row
-    ld   tr_r237, [x]
+    ld   LINK_LO, x             ; CALL ord_move
+    ld   tr_r245, [x]
     ld   LINK_HI, x
-    ld   tr_r237 >> 8, [x]
-    ld   move_row >> 8, y
-    jmp  move_row
-tr_r237:
+    ld   tr_r245 >> 8, [x]
+    ld   ord_move >> 8, y
+    jmp  ord_move
+tr_r245:
     ld   tr_leave >> 8, y
     jmp  tr_leave
-cm_s:
-    ld   LINK_LO, x             ; CALL cursor_show
-    ld   tr_r238, [x]
+ko_2:
+    ld   [e_key], ac
+    xor  0x13, ac
+    bne  ko_3
+    ld   [o_v], ac
+    shl
+    add  [o_f], ac
+    beq  ko_e
+    dec
+    ld   LINK_LO, x             ; CALL ord_field
+    ld   tr_r246, [x]
     ld   LINK_HI, x
-    ld   tr_r238 >> 8, [x]
-    ld   cursor_show >> 8, y
-    jmp  cursor_show
-tr_r238:
+    ld   tr_r246 >> 8, [x]
+    ld   ord_field >> 8, y
+    jmp  ord_field
+tr_r246:
     ld   tr_leave >> 8, y
     jmp  tr_leave
-commit:
-    ld   LINK_LO, x             ; CALL encode_pat
-    ld   tr_r239, [x]
+ko_3:
+    ld   [e_key], ac
+    xor  0x14, ac
+    bne  ko_4
+    ld   [o_v], ac
+    shl
+    add  [o_f], ac
+    xor  7, ac
+    beq  ko_e
+    ld   [o_v], ac
+    shl
+    add  [o_f], ac
+    inc
+    ld   LINK_LO, x             ; CALL ord_field
+    ld   tr_r247, [x]
     ld   LINK_HI, x
-    ld   tr_r239 >> 8, [x]
-    ld   encode_pat >> 8, y
-    jmp  encode_pat
-tr_r239:
-    bne  cm_full
-    ld   [c_row], ac
-    ld   LINK_LO, x             ; CALL draw_row
-    ld   tr_r240, [x]
-    ld   LINK_HI, x
-    ld   tr_r240 >> 8, [x]
-    ld   draw_row >> 8, y
-    jmp  draw_row
-tr_r240:
-    ld   LINK_LO, x             ; CALL cursor_show
-    ld   tr_r241, [x]
-    ld   LINK_HI, x
-    ld   tr_r241 >> 8, [x]
-    ld   cursor_show >> 8, y
-    jmp  cursor_show
-tr_r241:
+    ld   tr_r247 >> 8, [x]
+    ld   ord_field >> 8, y
+    jmp  ord_field
+tr_r247:
     ld   tr_leave >> 8, y
     jmp  tr_leave
-cm_full:
-    ld   0xFF, ac               ; the slot is as it was: decode it again
-    ld   ac, [p_pat]
-    ld   s_full & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_full >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL status
-    ld   tr_r242, [x]
-    ld   LINK_HI, x
-    ld   tr_r242 >> 8, [x]
-    ld   status >> 8, y
-    jmp  status
-tr_r242:
+ko_4:
+    ld   key_ord2 >> 8, y
+    jmp  key_ord2
+ko_e:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
-; ------------------------------------------------------------
-; key_ord - the orderlist pane
-; ------------------------------------------------------------
+; ord_field - the order cursor to field AC (2 voice + field)
+tab_side:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   ac, [w4]
+    ld   LINK_LO, x             ; CALL cursor_hide
+    ld   tr_r284, [x]
+    ld   LINK_HI, x
+    ld   tr_r284 >> 8, [x]
+    ld   cursor_hide >> 8, y
+    jmp  cursor_hide
+tr_r284:
+    ld   [w4], ac
+    ld   ac, [t_f]
+    ld   LINK_LO, x             ; CALL cursor_show
+    ld   tr_r285, [x]
+    ld   LINK_HI, x
+    ld   tr_r285 >> 8, [x]
+    ld   cursor_show >> 8, y
+    jmp  cursor_show
+tr_r285:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; tab_addr - Y:X = the byte under the table cursor
+
+mf_end:
+    ld   0x50, y
+    ld   [y,x], ac
+    ld   ac, [T6]               ; the video moved during the fill?
+    sub  [M_REND], ac
+    bcc  me_a
+    add  132, ac
+me_a:
+    bne  me_b
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+me_b:
+    ld   ac, [T7]
+    ld   [T6], ac
+    ld   ac, [M_REND]
+    ld   [M_AHEAD], ac
+    sub  [T7], ac
+    ld   ac, [M_AHEAD]
+    ld   mf_fill >> 8, y
+    jmp  mf_fill
+
+; ============================================================
+; the tick: once a lap, between the samples for x5DF3 and x5DF4
+; ============================================================
+
+#addr 0x2B00
 ord_insert:
     ld   [w3], ac
     xor  OD_MAX, ac
@@ -6558,160 +6764,6 @@ oi_e:
     jmp  tr_leave
 
 ; ord_delete - the position at the cursor
-
-#addr 0x2A00
-key_ord:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   [o_v], ac
-    add  VSPAGE, y
-    ld   OD_LEN, x
-    ld   [y,x], ac
-    ld   ac, [w3]               ; the voice's positions
-    ld   [e_key], ac
-    xor  0x11, ac
-    bne  ko_1
-    ld   [o_k], ac
-    beq  ko_e
-    dec
-    ld   LINK_LO, x             ; CALL ord_move
-    ld   tr_r243, [x]
-    ld   LINK_HI, x
-    ld   tr_r243 >> 8, [x]
-    ld   ord_move >> 8, y
-    jmp  ord_move
-tr_r243:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-ko_1:
-    ld   [e_key], ac
-    xor  0x12, ac
-    bne  ko_2
-    ld   [o_k], ac
-    xor  [w3], ac
-    beq  ko_e
-    ld   [o_k], ac
-    inc
-    ld   LINK_LO, x             ; CALL ord_move
-    ld   tr_r244, [x]
-    ld   LINK_HI, x
-    ld   tr_r244 >> 8, [x]
-    ld   ord_move >> 8, y
-    jmp  ord_move
-tr_r244:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-ko_2:
-    ld   [e_key], ac
-    xor  0x13, ac
-    bne  ko_3
-    ld   [o_v], ac
-    shl
-    add  [o_f], ac
-    beq  ko_e
-    dec
-    ld   LINK_LO, x             ; CALL ord_field
-    ld   tr_r245, [x]
-    ld   LINK_HI, x
-    ld   tr_r245 >> 8, [x]
-    ld   ord_field >> 8, y
-    jmp  ord_field
-tr_r245:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-ko_3:
-    ld   [e_key], ac
-    xor  0x14, ac
-    bne  ko_4
-    ld   [o_v], ac
-    shl
-    add  [o_f], ac
-    xor  7, ac
-    beq  ko_e
-    ld   [o_v], ac
-    shl
-    add  [o_f], ac
-    inc
-    ld   LINK_LO, x             ; CALL ord_field
-    ld   tr_r246, [x]
-    ld   LINK_HI, x
-    ld   tr_r246 >> 8, [x]
-    ld   ord_field >> 8, y
-    jmp  ord_field
-tr_r246:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-ko_4:
-    ld   key_ord2 >> 8, y
-    jmp  key_ord2
-ko_e:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-; ord_field - the order cursor to field AC (2 voice + field)
-tab_move:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   ac, [w4]
-    ld   LINK_LO, x             ; CALL cursor_hide
-    ld   tr_r279, [x]
-    ld   LINK_HI, x
-    ld   tr_r279 >> 8, [x]
-    ld   cursor_hide >> 8, y
-    jmp  cursor_hide
-tr_r279:
-    clr  ac
-    ld   ac, [R0]
-    ld   LINK_LO, x             ; CALL pane_tint
-    ld   tr_r280, [x]
-    ld   LINK_HI, x
-    ld   tr_r280 >> 8, [x]
-    ld   pane_tint >> 8, y
-    jmp  pane_tint
-tr_r280:
-    ld   [w4], ac
-    ld   ac, [t_e]
-    ld   TINT_BLUE, ac
-    ld   ac, [R0]
-    ld   LINK_LO, x             ; CALL pane_tint
-    ld   tr_r281, [x]
-    ld   LINK_HI, x
-    ld   tr_r281 >> 8, [x]
-    ld   pane_tint >> 8, y
-    jmp  pane_tint
-tr_r281:
-    ld   LINK_LO, x             ; CALL cursor_show
-    ld   tr_r282, [x]
-    ld   LINK_HI, x
-    ld   tr_r282 >> 8, [x]
-    ld   cursor_show >> 8, y
-    jmp  cursor_show
-tr_r282:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-
-#addr 0x2B00
 ord_delete:
     ld   [o_k], ac
     xor  [w3], ac
@@ -6772,6 +6824,202 @@ od_e:
 
 ; ord_changed - voice o_v's list encoded again, the block drawn again
 ; (and the grid when the position shown changed)
+tab_changed:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   1, ac
+    ld   ac, [e_mod]
+    ld   [t_e], ac
+    ld   LINK_LO, x             ; CALL draw_tentry
+    ld   tr_r288, [x]
+    ld   LINK_HI, x
+    ld   tr_r288 >> 8, [x]
+    ld   draw_tentry >> 8, y
+    jmp  draw_tentry
+tr_r288:
+    ld   LINK_LO, x             ; CALL cursor_show
+    ld   tr_r289, [x]
+    ld   LINK_HI, x
+    ld   tr_r289 >> 8, [x]
+    ld   cursor_show >> 8, y
+    jmp  cursor_show
+tr_r289:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; ============================================================
+; playing
+; ============================================================
+
+; do_play - AC = the order position to start at
+
+#addr 0x2C00
+key_ins:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   [e_key], ac
+    xor  0x11, ac
+    bne  ki_1
+    ld   [i_f], ac
+    beq  ki_e
+    dec
+    ld   LINK_LO, x             ; CALL ins_field
+    ld   tr_r255, [x]
+    ld   LINK_HI, x
+    ld   tr_r255 >> 8, [x]
+    ld   ins_field >> 8, y
+    jmp  ins_field
+tr_r255:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+ki_1:
+    ld   [e_key], ac
+    xor  0x12, ac
+    bne  ki_2
+    ld   [i_f], ac
+    xor  11, ac
+    beq  ki_e
+    ld   [i_f], ac
+    inc
+    ld   LINK_LO, x             ; CALL ins_field
+    ld   tr_r256, [x]
+    ld   LINK_HI, x
+    ld   tr_r256 >> 8, [x]
+    ld   ins_field >> 8, y
+    jmp  ins_field
+tr_r256:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+ki_2:
+    ld   [i_f], ac
+    xor  11, ac
+    beq  ki_name
+    ld   [e_key], ac
+    xor  0x5B, ac
+    bne  ki_3
+    ld   0xFF, ac
+    ld   LINK_LO, x             ; CALL ins_adj
+    ld   tr_r257, [x]
+    ld   LINK_HI, x
+    ld   tr_r257 >> 8, [x]
+    ld   ins_adj >> 8, y
+    jmp  ins_adj
+tr_r257:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+ki_3:
+    ld   [e_key], ac
+    xor  0x5D, ac
+    bne  ki_4
+    ld   1, ac
+    ld   LINK_LO, x             ; CALL ins_adj
+    ld   tr_r258, [x]
+    ld   LINK_HI, x
+    ld   tr_r258 >> 8, [x]
+    ld   ins_adj >> 8, y
+    jmp  ins_adj
+tr_r258:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+ki_4:
+    ld   [e_key], ac
+    ld   LINK_LO, x             ; CALL hexval
+    ld   tr_r259, [x]
+    ld   LINK_HI, x
+    ld   tr_r259 >> 8, [x]
+    ld   hexval >> 8, y
+    jmp  hexval
+tr_r259:
+    ld   ac, [w2]
+    xor  0xFF, ac
+    beq  ki_e
+    ld   LINK_LO, x             ; CALL ins_digit
+    ld   tr_r260, [x]
+    ld   LINK_HI, x
+    ld   tr_r260 >> 8, [x]
+    ld   ins_digit >> 8, y
+    jmp  ins_digit
+tr_r260:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+ki_name:
+    ld   LINK_LO, x             ; CALL ins_name
+    ld   tr_r261, [x]
+    ld   LINK_HI, x
+    ld   tr_r261 >> 8, [x]
+    ld   ins_name >> 8, y
+    jmp  ins_name
+tr_r261:
+ki_e:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; ins_field - the cursor to field AC
+do_stop:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   LINK_LO, x             ; CALL mus_stop
+    ld   tr_r291, [x]
+    ld   LINK_HI, x
+    ld   tr_r291 >> 8, [x]
+    ld   mus_stop >> 8, y
+    jmp  mus_stop
+tr_r291:
+    clr  ac
+    ld   ac, [e_play]
+    ld   [e_plrow], ac          ; the green off
+    ld   LINK_LO, x             ; CALL grid_tint
+    ld   tr_r292, [x]
+    ld   LINK_HI, x
+    ld   tr_r292 >> 8, [x]
+    ld   grid_tint >> 8, y
+    jmp  grid_tint
+tr_r292:
+    ld   0xFF, ac
+    ld   ac, [e_plop]
+    ld   ac, [e_plrow]
+    ld   [e_dirty], ac
+    or   0x08, ac
+    ld   ac, [e_dirty]
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; ------------------------------------------------------------
+; follow - once a frame while playing: voice 1's position and row from
+; the player's state; the grid follows them
+; ------------------------------------------------------------
+
+#addr 0x2D00
 ins_adj:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -6799,12 +7047,12 @@ ins_adj:
     ld   ac, [u1]
     ld   [u0], ac
     ld   LINK_LO, x             ; CALL ins_byte
-    ld   tr_r263, [x]
+    ld   tr_r264, [x]
     ld   LINK_HI, x
-    ld   tr_r263 >> 8, [x]
+    ld   tr_r264 >> 8, [x]
     ld   ins_byte >> 8, y
     jmp  ins_byte
-tr_r263:
+tr_r264:
     ld   ac, [w1]
     ld   [u1], ac
     bne  iad_1
@@ -6849,28 +7097,26 @@ iad_w:
     ld   ac, [w1]
     ld   [u0], ac
     ld   LINK_LO, x             ; CALL ins_addr
-    ld   tr_r264, [x]
-    ld   LINK_HI, x
-    ld   tr_r264 >> 8, [x]
-    ld   ins_addr >> 8, y
-    jmp  ins_addr
-tr_r264:
-    ld   [w1], ac
-    ld   ac, [y,x]
-    ld   LINK_LO, x             ; CALL ins_changed
     ld   tr_r265, [x]
     ld   LINK_HI, x
     ld   tr_r265 >> 8, [x]
+    ld   ins_addr >> 8, y
+    jmp  ins_addr
+tr_r265:
+    ld   [w1], ac
+    ld   ac, [y,x]
+    ld   LINK_LO, x             ; CALL ins_changed
+    ld   tr_r266, [x]
+    ld   LINK_HI, x
+    ld   tr_r266 >> 8, [x]
     ld   ins_changed >> 8, y
     jmp  ins_changed
-tr_r265:
+tr_r266:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
 ; ins_digit - the hex digit w2 into the field
-
-#addr 0x2C00
-key_ins:
+tab_adj:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -6883,141 +7129,62 @@ key_ins:
     ld   [LINK_LO], ac
     ld   ac, [x]
     ld   [SAVE_AC], ac
-    ld   [e_key], ac
-    xor  0x11, ac
-    bne  ki_1
-    ld   [i_f], ac
-    beq  ki_e
-    dec
-    ld   LINK_LO, x             ; CALL ins_field
-    ld   tr_r254, [x]
-    ld   LINK_HI, x
-    ld   tr_r254 >> 8, [x]
-    ld   ins_field >> 8, y
-    jmp  ins_field
-tr_r254:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-ki_1:
-    ld   [e_key], ac
-    xor  0x12, ac
-    bne  ki_2
-    ld   [i_f], ac
-    xor  11, ac
-    beq  ki_e
-    ld   [i_f], ac
-    inc
-    ld   LINK_LO, x             ; CALL ins_field
-    ld   tr_r255, [x]
-    ld   LINK_HI, x
-    ld   tr_r255 >> 8, [x]
-    ld   ins_field >> 8, y
-    jmp  ins_field
-tr_r255:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-ki_2:
-    ld   [i_f], ac
-    xor  11, ac
-    beq  ki_name
-    ld   [e_key], ac
-    xor  0x5B, ac
-    bne  ki_3
-    ld   0xFF, ac
-    ld   LINK_LO, x             ; CALL ins_adj
-    ld   tr_r256, [x]
-    ld   LINK_HI, x
-    ld   tr_r256 >> 8, [x]
-    ld   ins_adj >> 8, y
-    jmp  ins_adj
-tr_r256:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-ki_3:
-    ld   [e_key], ac
-    xor  0x5D, ac
-    bne  ki_4
-    ld   1, ac
-    ld   LINK_LO, x             ; CALL ins_adj
-    ld   tr_r257, [x]
-    ld   LINK_HI, x
-    ld   tr_r257 >> 8, [x]
-    ld   ins_adj >> 8, y
-    jmp  ins_adj
-tr_r257:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-ki_4:
-    ld   [e_key], ac
-    ld   LINK_LO, x             ; CALL hexval
-    ld   tr_r258, [x]
-    ld   LINK_HI, x
-    ld   tr_r258 >> 8, [x]
-    ld   hexval >> 8, y
-    jmp  hexval
-tr_r258:
-    ld   ac, [w2]
-    xor  0xFF, ac
-    beq  ki_e
-    ld   LINK_LO, x             ; CALL ins_digit
-    ld   tr_r259, [x]
-    ld   LINK_HI, x
-    ld   tr_r259 >> 8, [x]
-    ld   ins_digit >> 8, y
-    jmp  ins_digit
-tr_r259:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-ki_name:
-    ld   LINK_LO, x             ; CALL ins_name
-    ld   tr_r260, [x]
-    ld   LINK_HI, x
-    ld   tr_r260 >> 8, [x]
-    ld   ins_name >> 8, y
-    jmp  ins_name
-tr_r260:
-ki_e:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-; ins_field - the cursor to field AC
-tab_side:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
+    ld   ac, [w0]
+    ld   (SONG >> 8) + 1, y
+    ld   [e_pane], ac
+    xor  4, ac
+    bne  tad_w44
+    ld   0x80, ac
+    bra  tad_s44
+tad_w44:
+    clr  ac
+tad_s44:
+    ld   ac, [u2]
+    ld   [t_f], ac
+    beq  tad_l44
+    ld   [u2], ac
+    add  0x40, ac
+    ld   ac, [u2]
+tad_l44:
+    ld   [u2], ac
+    add  [t_e], ac
     ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   ac, [w4]
-    ld   LINK_LO, x             ; CALL cursor_hide
-    ld   tr_r283, [x]
+    ld   [y,x], ac
+    add  [w0], ac
+    ld   ac, [y,x]
+    ld   LINK_LO, x             ; CALL tab_changed
+    ld   tr_r286, [x]
     ld   LINK_HI, x
-    ld   tr_r283 >> 8, [x]
-    ld   cursor_hide >> 8, y
-    jmp  cursor_hide
-tr_r283:
-    ld   [w4], ac
-    ld   ac, [t_f]
-    ld   LINK_LO, x             ; CALL cursor_show
-    ld   tr_r284, [x]
-    ld   LINK_HI, x
-    ld   tr_r284 >> 8, [x]
-    ld   cursor_show >> 8, y
-    jmp  cursor_show
-tr_r284:
+    ld   tr_r286 >> 8, [x]
+    ld   tab_changed >> 8, y
+    jmp  tab_changed
+tr_r286:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
-; tab_addr - Y:X = the byte under the table cursor
+mv_row:
+    ld   [M_VIDX], ac
+    xor  4, ac
+    beq  mr_no
+    ld   MUS_VS >> 8, y
+    ld   G_NR, x
+    ld   [y,x], ac
+    beq  mr_no
+    ld   [W_STOP], ac
+    bne  mr_no
+    ld   rr >> 8, y
+    jmp  rr
+mr_no:
+    ld   vt >> 8, y
+    jmp  vt
 
+; ------------------------------------------------------------
+; rr - read the voice's next row
+;   T0 = instrument (FF none), T1:T2 = effect, parameter, T6 = ends seen,
+;   T7 = the byte
+; ------------------------------------------------------------
 
-#addr 0x2D00
+#addr 0x2E00
 ins_digit:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -7044,12 +7211,12 @@ ins_digit:
     ld   ac, [u1]
     ld   [u0], ac
     ld   LINK_LO, x             ; CALL ins_byte
-    ld   tr_r266, [x]
+    ld   tr_r267, [x]
     ld   LINK_HI, x
-    ld   tr_r266 >> 8, [x]
+    ld   tr_r267 >> 8, [x]
     ld   ins_byte >> 8, y
     jmp  ins_byte
-tr_r266:
+tr_r267:
     ld   ac, [w1]
     ld   [u1], ac
     bne  id_1
@@ -7089,26 +7256,26 @@ id_w:
     ld   ac, [w1]
     ld   [u0], ac
     ld   LINK_LO, x             ; CALL ins_addr
-    ld   tr_r267, [x]
-    ld   LINK_HI, x
-    ld   tr_r267 >> 8, [x]
-    ld   ins_addr >> 8, y
-    jmp  ins_addr
-tr_r267:
-    ld   [w1], ac
-    ld   ac, [y,x]
-    ld   LINK_LO, x             ; CALL ins_changed
     ld   tr_r268, [x]
     ld   LINK_HI, x
     ld   tr_r268 >> 8, [x]
+    ld   ins_addr >> 8, y
+    jmp  ins_addr
+tr_r268:
+    ld   [w1], ac
+    ld   ac, [y,x]
+    ld   LINK_LO, x             ; CALL ins_changed
+    ld   tr_r269, [x]
+    ld   LINK_HI, x
+    ld   tr_r269 >> 8, [x]
     ld   ins_changed >> 8, y
     jmp  ins_changed
-tr_r268:
+tr_r269:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
 ; ins_name - a character into the name (Backspace takes one back)
-tab_adj:
+tab_digit:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -7121,65 +7288,68 @@ tab_adj:
     ld   [LINK_LO], ac
     ld   ac, [x]
     ld   [SAVE_AC], ac
-    ld   ac, [w0]
     ld   (SONG >> 8) + 1, y
     ld   [e_pane], ac
     xor  4, ac
-    bne  tad_w44
+    bne  tad_w45
     ld   0x80, ac
-    bra  tad_s44
-tad_w44:
+    bra  tad_s45
+tad_w45:
     clr  ac
-tad_s44:
+tad_s45:
     ld   ac, [u2]
     ld   [t_f], ac
-    beq  tad_l44
+    beq  tad_l45
     ld   [u2], ac
     add  0x40, ac
     ld   ac, [u2]
-tad_l44:
+tad_l45:
     ld   [u2], ac
     add  [t_e], ac
     ld   ac, x
     ld   [y,x], ac
-    add  [w0], ac
+    shl
+    shl
+    shl
+    shl
+    or   [w2], ac
     ld   ac, [y,x]
     ld   LINK_LO, x             ; CALL tab_changed
-    ld   tr_r285, [x]
+    ld   tr_r287, [x]
     ld   LINK_HI, x
-    ld   tr_r285 >> 8, [x]
+    ld   tr_r287 >> 8, [x]
     ld   tab_changed >> 8, y
     jmp  tab_changed
-tr_r285:
+tr_r287:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
-mf_end:
-    ld   0x50, y
-    ld   [y,x], ac
-    ld   ac, [T6]               ; the video moved during the fill?
-    sub  [M_REND], ac
-    bcc  me_a
-    add  132, ac
-me_a:
-    bne  me_b
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-me_b:
-    ld   ac, [T7]
+vz_3:
+    ld   (mv3_sl + 1) >> 8, y
+    ld   (mv3_sl + 1) & 0xFF, x
     ld   [T6], ac
-    ld   ac, [M_REND]
-    ld   [M_AHEAD], ac
-    sub  [T7], ac
-    ld   ac, [M_AHEAD]
-    ld   mf_fill >> 8, y
-    jmp  mf_fill
+    ld   ac, [y,x]
+    ld   (mv3_sh + 1) & 0xFF, x
+    ld   [T7], ac
+    ld   ac, [y,x]
+    ld   (mv3_wp + 1) & 0xFF, x
+    ld   [W_WPG], ac
+    ld   ac, [y,x]
+    ld   (mv3_vo + 1) & 0xFF, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   (mv3_vp + 1) & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    ld   mt_out >> 8, y
+    jmp  mt_out
 
-; ============================================================
-; the tick: once a lap, between the samples for x5DF3 and x5DF4
-; ============================================================
+; ------------------------------------------------------------
+; mus_init - start the player: R1 = the song's page; all voices quiet
+;   changes: AC, X, Y, T0-T7
+; ------------------------------------------------------------
 
-#addr 0x2E00
+#addr 0x2F00
 ins_name:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -7224,12 +7394,12 @@ in_w:
     ld   [i_np], ac
     add  I_NAME, ac
     ld   LINK_LO, x             ; CALL ins_addr
-    ld   tr_r269, [x]
+    ld   tr_r270, [x]
     ld   LINK_HI, x
-    ld   tr_r269 >> 8, [x]
+    ld   tr_r270 >> 8, [x]
     ld   ins_addr >> 8, y
     jmp  ins_addr
-tr_r269:
+tr_r270:
     ld   [w1], ac
     ld   ac, [y,x]
     ld   [e_key], ac
@@ -7240,253 +7410,16 @@ tr_r269:
     ld   ac, [i_np]
 in_d:
     ld   LINK_LO, x             ; CALL ins_changed
-    ld   tr_r270, [x]
+    ld   tr_r271, [x]
     ld   LINK_HI, x
-    ld   tr_r270 >> 8, [x]
+    ld   tr_r271 >> 8, [x]
     ld   ins_changed >> 8, y
     jmp  ins_changed
-tr_r270:
+tr_r271:
 in_e:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
-tab_digit:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   (SONG >> 8) + 1, y
-    ld   [e_pane], ac
-    xor  4, ac
-    bne  tad_w45
-    ld   0x80, ac
-    bra  tad_s45
-tad_w45:
-    clr  ac
-tad_s45:
-    ld   ac, [u2]
-    ld   [t_f], ac
-    beq  tad_l45
-    ld   [u2], ac
-    add  0x40, ac
-    ld   ac, [u2]
-tad_l45:
-    ld   [u2], ac
-    add  [t_e], ac
-    ld   ac, x
-    ld   [y,x], ac
-    shl
-    shl
-    shl
-    shl
-    or   [w2], ac
-    ld   ac, [y,x]
-    ld   LINK_LO, x             ; CALL tab_changed
-    ld   tr_r286, [x]
-    ld   LINK_HI, x
-    ld   tr_r286 >> 8, [x]
-    ld   tab_changed >> 8, y
-    jmp  tab_changed
-tr_r286:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-tab_changed:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   1, ac
-    ld   ac, [e_mod]
-    ld   [t_e], ac
-    ld   LINK_LO, x             ; CALL draw_tentry
-    ld   tr_r287, [x]
-    ld   LINK_HI, x
-    ld   tr_r287 >> 8, [x]
-    ld   draw_tentry >> 8, y
-    jmp  draw_tentry
-tr_r287:
-    ld   LINK_LO, x             ; CALL cursor_show
-    ld   tr_r288, [x]
-    ld   LINK_HI, x
-    ld   tr_r288 >> 8, [x]
-    ld   cursor_show >> 8, y
-    jmp  cursor_show
-tr_r288:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-; ============================================================
-; playing
-; ============================================================
-
-; do_play - AC = the order position to start at
-
-#addr 0x2F00
-key_tab:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   [e_key], ac
-    xor  0x11, ac
-    bne  kt_1
-    ld   [t_e], ac
-    xor  1, ac
-    beq  kt_e
-    ld   [t_e], ac
-    dec
-    ld   LINK_LO, x             ; CALL tab_move
-    ld   tr_r271, [x]
-    ld   LINK_HI, x
-    ld   tr_r271 >> 8, [x]
-    ld   tab_move >> 8, y
-    jmp  tab_move
-tr_r271:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-kt_1:
-    ld   [e_key], ac
-    xor  0x12, ac
-    bne  kt_2
-    ld   [t_e], ac
-    xor  63, ac
-    beq  kt_e
-    ld   [t_e], ac
-    inc
-    ld   LINK_LO, x             ; CALL tab_move
-    ld   tr_r272, [x]
-    ld   LINK_HI, x
-    ld   tr_r272 >> 8, [x]
-    ld   tab_move >> 8, y
-    jmp  tab_move
-tr_r272:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-kt_2:
-    ld   [e_key], ac
-    xor  0x13, ac
-    bne  kt_3
-    clr  ac
-    ld   LINK_LO, x             ; CALL tab_side
-    ld   tr_r273, [x]
-    ld   LINK_HI, x
-    ld   tr_r273 >> 8, [x]
-    ld   tab_side >> 8, y
-    jmp  tab_side
-tr_r273:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-kt_3:
-    ld   [e_key], ac
-    xor  0x14, ac
-    bne  kt_4
-    ld   1, ac
-    ld   LINK_LO, x             ; CALL tab_side
-    ld   tr_r274, [x]
-    ld   LINK_HI, x
-    ld   tr_r274 >> 8, [x]
-    ld   tab_side >> 8, y
-    jmp  tab_side
-tr_r274:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-kt_4:
-    ld   [e_key], ac
-    xor  0x5B, ac
-    bne  kt_5
-    ld   0xFF, ac
-    ld   LINK_LO, x             ; CALL tab_adj
-    ld   tr_r275, [x]
-    ld   LINK_HI, x
-    ld   tr_r275 >> 8, [x]
-    ld   tab_adj >> 8, y
-    jmp  tab_adj
-tr_r275:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-kt_5:
-    ld   [e_key], ac
-    xor  0x5D, ac
-    bne  kt_6
-    ld   1, ac
-    ld   LINK_LO, x             ; CALL tab_adj
-    ld   tr_r276, [x]
-    ld   LINK_HI, x
-    ld   tr_r276 >> 8, [x]
-    ld   tab_adj >> 8, y
-    jmp  tab_adj
-tr_r276:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-kt_6:
-    ld   [e_key], ac
-    ld   LINK_LO, x             ; CALL hexval
-    ld   tr_r277, [x]
-    ld   LINK_HI, x
-    ld   tr_r277 >> 8, [x]
-    ld   hexval >> 8, y
-    jmp  hexval
-tr_r277:
-    ld   ac, [w2]
-    xor  0xFF, ac
-    beq  kt_e
-    ld   LINK_LO, x             ; CALL tab_digit
-    ld   tr_r278, [x]
-    ld   LINK_HI, x
-    ld   tr_r278 >> 8, [x]
-    ld   tab_digit >> 8, y
-    jmp  tab_digit
-tr_r278:
-kt_e:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-mus_tick:
-    ld   MUS_VS >> 8, y
-    ld   G_T5, x
-    ld   [T5], ac
-    ld   ac, [y,x]
-    ld   G_NR, x
-    ld   0, [y,x]
-    ld   [M_PLAY], ac
-    and  1, ac
-    beq  mt_0
-    ld   [M_TICK], ac
-    bne  mt_0
-    ld   1, [y,x]               ; a new row
-mt_0:
-    clr  ac
-    ld   ac, [M_VIDX]
-    ld   mt_voice >> 8, y
-    jmp  mt_voice
-
-
-#addr 0x3000
 do_play:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -7503,12 +7436,12 @@ do_play:
     ld   ac, [w0]
     clr  ac
     ld   LINK_LO, x             ; CALL mus_play
-    ld   tr_r289, [x]
+    ld   tr_r290, [x]
     ld   LINK_HI, x
-    ld   tr_r289 >> 8, [x]
+    ld   tr_r290 >> 8, [x]
     ld   mus_play >> 8, y
     jmp  mus_play
-tr_r289:
+tr_r290:
     ld   [w0], ac
     beq  dpl_s
     clr  ac                     ; each voice's orderlist pointer to the position
@@ -7557,7 +7490,29 @@ dpl_s:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
-do_stop:
+mus_stop:
+    ld   0x80, ac
+    ld   ac, [M_PLAY]
+    ld   W_EST, x
+    ld   MUS_VS >> 8, y
+    ld   3, [y,x]
+    ld   (MUS_VS >> 8) + 1, y
+    ld   3, [y,x]
+    ld   (MUS_VS >> 8) + 2, y
+    ld   3, [y,x]
+    ld   (MUS_VS >> 8) + 3, y
+    ld   3, [y,x]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+; ------------------------------------------------------------
+; mus_sfx - AC = note 0-95, R0 = instrument, R1 = frames: a sound effect
+; on voice 4, heard in voice 3's place (mixer slot 3) for R1 frames
+;   changes: AC, X, Y, T0-T7
+; ------------------------------------------------------------
+
+#addr 0x3000
+key_tab:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -7570,76 +7525,140 @@ do_stop:
     ld   [LINK_LO], ac
     ld   ac, [x]
     ld   [SAVE_AC], ac
-    ld   LINK_LO, x             ; CALL mus_stop
-    ld   tr_r290, [x]
+    ld   [e_key], ac
+    xor  0x11, ac
+    bne  kt_1
+    ld   [t_e], ac
+    xor  1, ac
+    beq  kt_e
+    ld   [t_e], ac
+    dec
+    ld   LINK_LO, x             ; CALL tab_move
+    ld   tr_r272, [x]
     ld   LINK_HI, x
-    ld   tr_r290 >> 8, [x]
-    ld   mus_stop >> 8, y
-    jmp  mus_stop
-tr_r290:
+    ld   tr_r272 >> 8, [x]
+    ld   tab_move >> 8, y
+    jmp  tab_move
+tr_r272:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+kt_1:
+    ld   [e_key], ac
+    xor  0x12, ac
+    bne  kt_2
+    ld   [t_e], ac
+    xor  63, ac
+    beq  kt_e
+    ld   [t_e], ac
+    inc
+    ld   LINK_LO, x             ; CALL tab_move
+    ld   tr_r273, [x]
+    ld   LINK_HI, x
+    ld   tr_r273 >> 8, [x]
+    ld   tab_move >> 8, y
+    jmp  tab_move
+tr_r273:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+kt_2:
+    ld   [e_key], ac
+    xor  0x13, ac
+    bne  kt_3
     clr  ac
-    ld   ac, [e_play]
-    ld   [e_plrow], ac          ; the green off
-    ld   LINK_LO, x             ; CALL grid_tint
-    ld   tr_r291, [x]
+    ld   LINK_LO, x             ; CALL tab_side
+    ld   tr_r274, [x]
     ld   LINK_HI, x
-    ld   tr_r291 >> 8, [x]
-    ld   grid_tint >> 8, y
-    jmp  grid_tint
-tr_r291:
+    ld   tr_r274 >> 8, [x]
+    ld   tab_side >> 8, y
+    jmp  tab_side
+tr_r274:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+kt_3:
+    ld   [e_key], ac
+    xor  0x14, ac
+    bne  kt_4
+    ld   1, ac
+    ld   LINK_LO, x             ; CALL tab_side
+    ld   tr_r275, [x]
+    ld   LINK_HI, x
+    ld   tr_r275 >> 8, [x]
+    ld   tab_side >> 8, y
+    jmp  tab_side
+tr_r275:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+kt_4:
+    ld   [e_key], ac
+    xor  0x5B, ac
+    bne  kt_5
     ld   0xFF, ac
-    ld   ac, [e_plop]
-    ld   ac, [e_plrow]
-    ld   [e_dirty], ac
-    or   0x08, ac
-    ld   ac, [e_dirty]
+    ld   LINK_LO, x             ; CALL tab_adj
+    ld   tr_r276, [x]
+    ld   LINK_HI, x
+    ld   tr_r276 >> 8, [x]
+    ld   tab_adj >> 8, y
+    jmp  tab_adj
+tr_r276:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+kt_5:
+    ld   [e_key], ac
+    xor  0x5D, ac
+    bne  kt_6
+    ld   1, ac
+    ld   LINK_LO, x             ; CALL tab_adj
+    ld   tr_r277, [x]
+    ld   LINK_HI, x
+    ld   tr_r277 >> 8, [x]
+    ld   tab_adj >> 8, y
+    jmp  tab_adj
+tr_r277:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+kt_6:
+    ld   [e_key], ac
+    ld   LINK_LO, x             ; CALL hexval
+    ld   tr_r278, [x]
+    ld   LINK_HI, x
+    ld   tr_r278 >> 8, [x]
+    ld   hexval >> 8, y
+    jmp  hexval
+tr_r278:
+    ld   ac, [w2]
+    xor  0xFF, ac
+    beq  kt_e
+    ld   LINK_LO, x             ; CALL tab_digit
+    ld   tr_r279, [x]
+    ld   LINK_HI, x
+    ld   tr_r279 >> 8, [x]
+    ld   tab_digit >> 8, y
+    jmp  tab_digit
+tr_r279:
+kt_e:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
-; ------------------------------------------------------------
-; follow - once a frame while playing: voice 1's position and row from
-; the player's state; the grid follows them
-; ------------------------------------------------------------
-new_cmd:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   LINK_LO, x             ; CALL do_stop
-    ld   tr_r306, [x]
-    ld   LINK_HI, x
-    ld   tr_r306 >> 8, [x]
-    ld   do_stop >> 8, y
-    jmp  do_stop
-tr_r306:
-    ld   LINK_LO, x             ; CALL new_song
-    ld   tr_r307, [x]
-    ld   LINK_HI, x
-    ld   tr_r307 >> 8, [x]
-    ld   new_song >> 8, y
-    jmp  new_song
-tr_r307:
-    ld   LINK_LO, x             ; CALL redraw_all
-    ld   tr_r308, [x]
-    ld   LINK_HI, x
-    ld   tr_r308 >> 8, [x]
-    ld   redraw_all >> 8, y
-    jmp  redraw_all
-tr_r308:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
+ms_3:
+    ld   (mv3_sl + 1) >> 8, y
+    ld   (mv3_sl + 1) & 0xFF, x
+    ld   [T6], ac
+    ld   ac, [y,x]
+    ld   (mv3_sh + 1) & 0xFF, x
+    ld   [T7], ac
+    ld   ac, [y,x]
+    ld   (mv3_wp + 1) & 0xFF, x
+    ld   [W_WPG], ac
+    ld   ac, [y,x]
+    ld   (mv3_vo + 1) & 0xFF, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   (mv3_vp + 1) & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    ld   ms_back >> 8, y
+    jmp  ms_back
 
-; ------------------------------------------------------------
-; new_song - a blank song: one instrument, a pattern per voice
-; ------------------------------------------------------------
 
 #addr 0x3100
 follow:
@@ -7809,12 +7828,12 @@ follow_pos:
     jmp  follow_row2
 fp_new:
     ld   LINK_LO, x             ; CALL cursor_hide
-    ld   tr_r292, [x]
+    ld   tr_r293, [x]
     ld   LINK_HI, x
-    ld   tr_r292 >> 8, [x]
+    ld   tr_r293 >> 8, [x]
     ld   cursor_hide >> 8, y
     jmp  cursor_hide
-tr_r292:
+tr_r293:
     ld   [w2], ac
     ld   ac, [e_op]
     ld   ac, [o_k]
@@ -7833,12 +7852,12 @@ fp_ok:
     ld   [w4], ac
     ld   ac, [c_row]
     ld   LINK_LO, x             ; CALL scroll_to
-    ld   tr_r293, [x]
+    ld   tr_r294, [x]
     ld   LINK_HI, x
-    ld   tr_r293 >> 8, [x]
+    ld   tr_r294 >> 8, [x]
     ld   scroll_to >> 8, y
     jmp  scroll_to
-tr_r293:
+tr_r294:
     ld   [e_dirty], ac
     or   0x23, ac
     ld   ac, [e_dirty]
@@ -7855,33 +7874,25 @@ follow_row_b:
     ld   [w4], ac
     ld   ac, [e_plrow]
     ld   LINK_LO, x             ; CALL cursor_hide
-    ld   tr_r294, [x]
+    ld   tr_r295, [x]
     ld   LINK_HI, x
-    ld   tr_r294 >> 8, [x]
+    ld   tr_r295 >> 8, [x]
     ld   cursor_hide >> 8, y
     jmp  cursor_hide
-tr_r294:
+tr_r295:
     ld   [c_row], ac
     ld   ac, [w5]
     ld   [w4], ac
     ld   ac, [c_row]
     ld   LINK_LO, x             ; CALL scroll_to
-    ld   tr_r295, [x]
-    ld   LINK_HI, x
-    ld   tr_r295 >> 8, [x]
-    ld   scroll_to >> 8, y
-    jmp  scroll_to
-tr_r295:
-    bne  fr_full
-    ld   [w3], ac
-    ld   LINK_LO, x             ; CALL grid_tint
     ld   tr_r296, [x]
     ld   LINK_HI, x
     ld   tr_r296 >> 8, [x]
-    ld   grid_tint >> 8, y
-    jmp  grid_tint
+    ld   scroll_to >> 8, y
+    jmp  scroll_to
 tr_r296:
-    ld   [w5], ac
+    bne  fr_full
+    ld   [w3], ac
     ld   LINK_LO, x             ; CALL grid_tint
     ld   tr_r297, [x]
     ld   LINK_HI, x
@@ -7889,7 +7900,7 @@ tr_r296:
     ld   grid_tint >> 8, y
     jmp  grid_tint
 tr_r297:
-    ld   [c_row], ac
+    ld   [w5], ac
     ld   LINK_LO, x             ; CALL grid_tint
     ld   tr_r298, [x]
     ld   LINK_HI, x
@@ -7897,13 +7908,21 @@ tr_r297:
     ld   grid_tint >> 8, y
     jmp  grid_tint
 tr_r298:
-    ld   LINK_LO, x             ; CALL cursor_show
+    ld   [c_row], ac
+    ld   LINK_LO, x             ; CALL grid_tint
     ld   tr_r299, [x]
     ld   LINK_HI, x
     ld   tr_r299 >> 8, [x]
+    ld   grid_tint >> 8, y
+    jmp  grid_tint
+tr_r299:
+    ld   LINK_LO, x             ; CALL cursor_show
+    ld   tr_r300, [x]
+    ld   LINK_HI, x
+    ld   tr_r300 >> 8, [x]
     ld   cursor_show >> 8, y
     jmp  cursor_show
-tr_r299:
+tr_r300:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 fr_full:
@@ -7924,39 +7943,34 @@ follow_row2:
 ; ============================================================
 
 ; len_cmd - Ctrl-L: the pattern's length 64 > 16 > 32 > 64
-prompt_done:
-    ld   PTAB_PG, y             ; the name typed -> e_name, with a 00
+prompt_bs:
     ld   [w0], ac
-    add  0x90, x
-    ld   0, [y,x]
-    clr  ac
+    bne  pb_a
+    ld   pr_l >> 8, y
+    jmp  pr_l
+pb_a:
+    dec
+    ld   ac, [w0]
+    ld   [w1], ac
+    dec
     ld   ac, [w1]
-pd_l:
-    ld   [w1], ac
-    add  0x90, x
-    ld   [y,x], ac
-    ld   ac, [w2]
-    ld   [w1], ac
-    add  e_name, x
-    ld   [w2], ac
-    ld   ac, [x]
-    ld   [w1], ac
-    inc
-    ld   ac, [w1]
-    xor  13, ac
-    bne  pd_l
-    ld   LINK_LO, x             ; CALL status_clear
+    ld   ac, [CUR_COL]
+    ld   s_cur & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_cur >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL tputs
     ld   tr_r336, [x]
     ld   LINK_HI, x
     ld   tr_r336 >> 8, [x]
-    ld   status_clear >> 8, y
-    jmp  status_clear
+    ld   tputs >> 8, y
+    jmp  tputs
 tr_r336:
-    clr  ac
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
+    ld   pr_l >> 8, y
+    jmp  pr_l
 
-; copy_name - the string at R1:R0 -> e_name (13 bytes)
+
+#addr 0x3300
 len_cmd:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -7974,23 +7988,23 @@ len_cmd:
     bne  lc_e
     ld   [c_v], ac
     ld   LINK_LO, x             ; CALL pat_of
-    ld   tr_r300, [x]
+    ld   tr_r301, [x]
     ld   LINK_HI, x
-    ld   tr_r300 >> 8, [x]
+    ld   tr_r301 >> 8, [x]
     ld   pat_of >> 8, y
     jmp  pat_of
-tr_r300:
+tr_r301:
     ld   ac, [w0]
     xor  0xFF, ac
     beq  lc_e
     ld   [w0], ac
     ld   LINK_LO, x             ; CALL need
-    ld   tr_r301, [x]
+    ld   tr_r302, [x]
     ld   LINK_HI, x
-    ld   tr_r301 >> 8, [x]
+    ld   tr_r302 >> 8, [x]
     ld   need >> 8, y
     jmp  need
-tr_r301:
+tr_r302:
     ld   [p_len], ac
     xor  64, ac
     bne  lc_1
@@ -8007,12 +8021,12 @@ lc_2:
 lc_s:
     ld   ac, [p_len]
     ld   LINK_LO, x             ; CALL encode_pat
-    ld   tr_r302, [x]
+    ld   tr_r303, [x]
     ld   LINK_HI, x
-    ld   tr_r302 >> 8, [x]
+    ld   tr_r303 >> 8, [x]
     ld   encode_pat >> 8, y
     jmp  encode_pat
-tr_r302:
+tr_r303:
     ld   [e_dirty], ac
     or   0x21, ac
     ld   ac, [e_dirty]
@@ -8049,45 +8063,67 @@ exit_cmd:
     ld   s_unsaved >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL status
-    ld   tr_r303, [x]
+    ld   tr_r304, [x]
     ld   LINK_HI, x
-    ld   tr_r303 >> 8, [x]
+    ld   tr_r304 >> 8, [x]
     ld   status >> 8, y
     jmp  status
-tr_r303:
+tr_r304:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 xc_go:
     ld   LINK_LO, x             ; CALL mus_stop
-    ld   tr_r304, [x]
-    ld   LINK_HI, x
-    ld   tr_r304 >> 8, [x]
-    ld   mus_stop >> 8, y
-    jmp  mus_stop
-tr_r304:
-    clr  ac
-    ld   LINK_LO, x             ; CALL l_vid_clear
     ld   tr_r305, [x]
     ld   LINK_HI, x
     ld   tr_r305 >> 8, [x]
+    ld   mus_stop >> 8, y
+    jmp  mus_stop
+tr_r305:
+    clr  ac
+    ld   LINK_LO, x             ; CALL l_vid_clear
+    ld   tr_r306, [x]
+    ld   LINK_HI, x
+    ld   tr_r306 >> 8, [x]
     ld   l_vid_clear >> 8, y
     jmp  l_vid_clear
-tr_r305:
+tr_r306:
     ld   exit_dos >> 8, y
     jmp  exit_dos
 
 ; new_cmd - Ctrl-N: a blank song
-s_pulse:
-    #d "PULSE  "
-hexdig:
-    #d "0123456789ABCDEF"
-notes:
-    #d "C-C#D-D#E-F-F#G-G#A-A#B-"
-ramsl:
-    #d8 0x57, 0x58, 0x59, 0x5C
-ccol:
-    #d8 0, 4, 5, 7, 8, 9
+prompt_done:
+    ld   PTAB_PG, y             ; the name typed -> e_name, with a 00
+    ld   [w0], ac
+    add  0x90, x
+    ld   0, [y,x]
+    clr  ac
+    ld   ac, [w1]
+pd_l:
+    ld   [w1], ac
+    add  0x90, x
+    ld   [y,x], ac
+    ld   ac, [w2]
+    ld   [w1], ac
+    add  e_name, x
+    ld   [w2], ac
+    ld   ac, [x]
+    ld   [w1], ac
+    inc
+    ld   ac, [w1]
+    xor  13, ac
+    bne  pd_l
+    ld   LINK_LO, x             ; CALL status_clear
+    ld   tr_r337, [x]
+    ld   LINK_HI, x
+    ld   tr_r337 >> 8, [x]
+    ld   status_clear >> 8, y
+    jmp  status_clear
+tr_r337:
+    clr  ac
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
 
+; copy_name - the string at R1:R0 -> e_name (13 bytes)
 
 #addr 0x3400
 ; MUS_SAW
@@ -8277,6 +8313,46 @@ ccol:
 ; ============================================================
 
 #overlay 0xA800
+new_cmd:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   LINK_LO, x             ; CALL do_stop
+    ld   tr_r307, [x]
+    ld   LINK_HI, x
+    ld   tr_r307 >> 8, [x]
+    ld   do_stop >> 8, y
+    jmp  do_stop
+tr_r307:
+    ld   LINK_LO, x             ; CALL new_song
+    ld   tr_r308, [x]
+    ld   LINK_HI, x
+    ld   tr_r308 >> 8, [x]
+    ld   new_song >> 8, y
+    jmp  new_song
+tr_r308:
+    ld   LINK_LO, x             ; CALL redraw_all
+    ld   tr_r309, [x]
+    ld   LINK_HI, x
+    ld   tr_r309 >> 8, [x]
+    ld   redraw_all >> 8, y
+    jmp  redraw_all
+tr_r309:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; ------------------------------------------------------------
+; new_song - a blank song: one instrument, a pattern per voice
+; ------------------------------------------------------------
 new_song:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -8291,12 +8367,12 @@ new_song:
     ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   LINK_LO, x             ; CALL mus_stop
-    ld   tr_r309, [x]
+    ld   tr_r310, [x]
     ld   LINK_HI, x
-    ld   tr_r309 >> 8, [x]
+    ld   tr_r310 >> 8, [x]
     ld   mus_stop >> 8, y
     jmp  mus_stop
-tr_r309:
+tr_r310:
     ld   SONG >> 8, ac
     ld   ac, [w0]
 ns_p:
@@ -8348,21 +8424,21 @@ ns_t:
 
 song_ready:
     ld   LINK_LO, x             ; CALL set_offsets
-    ld   tr_r312, [x]
-    ld   LINK_HI, x
-    ld   tr_r312 >> 8, [x]
-    ld   set_offsets >> 8, y
-    jmp  set_offsets
-tr_r312:
-    ld   SONG >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL mus_init
     ld   tr_r313, [x]
     ld   LINK_HI, x
     ld   tr_r313 >> 8, [x]
+    ld   set_offsets >> 8, y
+    jmp  set_offsets
+tr_r313:
+    ld   SONG >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL mus_init
+    ld   tr_r314, [x]
+    ld   LINK_HI, x
+    ld   tr_r314 >> 8, [x]
     ld   mus_init >> 8, y
     jmp  mus_init
-tr_r313:
+tr_r314:
     clr  ac
     ld   ac, [e_op]
     ld   ac, [e_otop]
@@ -8383,42 +8459,6 @@ tr_r313:
 ; ------------------------------------------------------------
 ; load_cmd / save_cmd - Ctrl-O, Ctrl-W: the name is asked for
 ; ------------------------------------------------------------
-prompt_char:
-    ld   PTAB_PG, y
-    ld   [w0], ac
-    add  0x90, x
-    ld   [w2], ac
-    ld   ac, [y,x]
-    ld   [w0], ac
-    inc
-    ld   ac, [w0]
-    ld   [w1], ac
-    ld   ac, [CUR_COL]
-    ld   [w2], ac
-    ld   LINK_LO, x             ; CALL tputc
-    ld   tr_r333, [x]
-    ld   LINK_HI, x
-    ld   tr_r333 >> 8, [x]
-    ld   tputc >> 8, y
-    jmp  tputc
-tr_r333:
-    ld   s_cur & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_cur >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL tputs
-    ld   tr_r334, [x]
-    ld   LINK_HI, x
-    ld   tr_r334 >> 8, [x]
-    ld   tputs >> 8, y
-    jmp  tputs
-tr_r334:
-    ld   [w1], ac
-    inc
-    ld   ac, [w1]
-    ld   pr_l >> 8, y
-    jmp  pr_l
-
 
 #overlay 0xAA00
 new_song2:
@@ -8478,23 +8518,23 @@ ns_o:
     xor  4, ac
     bne  ns_o
     ld   LINK_LO, x             ; CALL encode_all
-    ld   tr_r310, [x]
+    ld   tr_r311, [x]
     ld   LINK_HI, x
-    ld   tr_r310 >> 8, [x]
+    ld   tr_r311 >> 8, [x]
     ld   encode_all >> 8, y
     jmp  encode_all
-tr_r310:
+tr_r311:
     clr  ac
     ld   ac, [w0]
 ns_s:
     ld   [w0], ac
     ld   LINK_LO, x             ; CALL slot_clear
-    ld   tr_r311, [x]
+    ld   tr_r312, [x]
     ld   LINK_HI, x
-    ld   tr_r311 >> 8, [x]
+    ld   tr_r312 >> 8, [x]
     ld   slot_clear >> 8, y
     jmp  slot_clear
-tr_r311:
+tr_r312:
     ld   [w0], ac
     inc
     ld   ac, [w0]
@@ -8505,6 +8545,163 @@ tr_r311:
 
 ; song_ready - after a new or loaded song: the offsets, the player, the
 ; cursors
+prompt_char:
+    ld   PTAB_PG, y
+    ld   [w0], ac
+    add  0x90, x
+    ld   [w2], ac
+    ld   ac, [y,x]
+    ld   [w0], ac
+    inc
+    ld   ac, [w0]
+    ld   [w1], ac
+    ld   ac, [CUR_COL]
+    ld   [w2], ac
+    ld   LINK_LO, x             ; CALL tputc
+    ld   tr_r334, [x]
+    ld   LINK_HI, x
+    ld   tr_r334 >> 8, [x]
+    ld   tputc >> 8, y
+    jmp  tputc
+tr_r334:
+    ld   s_cur & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_cur >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL tputs
+    ld   tr_r335, [x]
+    ld   LINK_HI, x
+    ld   tr_r335 >> 8, [x]
+    ld   tputs >> 8, y
+    jmp  tputs
+tr_r335:
+    ld   [w1], ac
+    inc
+    ld   ac, [w1]
+    ld   pr_l >> 8, y
+    jmp  pr_l
+
+mf_addr:
+    ld   [M_RPTR], ac           ; T2:T1 = the address of group RPTR
+    xor  0x7C, ac
+    bne  mf_s1
+    ld   0xF3, ac
+    ld   ac, [T1]
+    ld   0x5D, ac
+    bra  mf_s3
+mf_s1:
+    ld   [M_RPTR], ac
+    shl
+    shl
+    ld   ac, [T1]
+    ld   [M_RPTR], ac
+    blt  mf_s2
+    ld   0x5D, ac
+    bra  mf_s3
+mf_s2:
+    and  0x40, ac
+    beq  mf_s4
+    ld   0x5F, ac
+    bra  mf_s3
+mf_s4:
+    ld   0x5E, ac
+mf_s3:
+    ld   ac, [T2]
+    ld   mus_gen >> 8, y
+    jmp  mus_gen
+
+
+#overlay 0xAC00
+load_cmd:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   LINK_LO, x             ; CALL do_stop
+    ld   tr_r315, [x]
+    ld   LINK_HI, x
+    ld   tr_r315 >> 8, [x]
+    ld   do_stop >> 8, y
+    jmp  do_stop
+tr_r315:
+    ld   s_askload & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_askload >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL prompt
+    ld   tr_r316, [x]
+    ld   LINK_HI, x
+    ld   tr_r316 >> 8, [x]
+    ld   prompt >> 8, y
+    jmp  prompt
+tr_r316:
+    bne  lcm_c
+    ld   LINK_LO, x             ; CALL load_song
+    ld   tr_r317, [x]
+    ld   LINK_HI, x
+    ld   tr_r317 >> 8, [x]
+    ld   load_song >> 8, y
+    jmp  load_song
+tr_r317:
+    ld   PTAB_PG, y
+    ld   L_ERR, x
+    ld   [y,x], ac
+    ld   ac, [e_res]            ; (the drawing uses the w's)
+    ld   LINK_LO, x             ; CALL redraw_all
+    ld   tr_r318, [x]
+    ld   LINK_HI, x
+    ld   tr_r318 >> 8, [x]
+    ld   redraw_all >> 8, y
+    jmp  redraw_all
+tr_r318:
+    ld   [e_res], ac
+    bne  lcm_f
+    ld   s_loaded & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_loaded >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL status
+    ld   tr_r319, [x]
+    ld   LINK_HI, x
+    ld   tr_r319 >> 8, [x]
+    ld   status >> 8, y
+    jmp  status
+tr_r319:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+lcm_f:
+    ld   s_notfound & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_notfound >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL status
+    ld   tr_r320, [x]
+    ld   LINK_HI, x
+    ld   tr_r320 >> 8, [x]
+    ld   status >> 8, y
+    jmp  status
+tr_r320:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+lcm_c:
+    ld   LINK_LO, x             ; CALL status_clear
+    ld   tr_r321, [x]
+    ld   LINK_HI, x
+    ld   tr_r321 >> 8, [x]
+    ld   status_clear >> 8, y
+    jmp  status_clear
+tr_r321:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
 obj_next:
     ld   PTAB_PG, y
     ld   L_K, x
@@ -8567,170 +8764,6 @@ on_none:
 ; obj_start - object L_K's place and size: L_DPG:L_DLO, L_LHI:L_LLO;
 ; then L_K + 1
 
-#overlay 0xAC00
-load_cmd:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   LINK_LO, x             ; CALL do_stop
-    ld   tr_r314, [x]
-    ld   LINK_HI, x
-    ld   tr_r314 >> 8, [x]
-    ld   do_stop >> 8, y
-    jmp  do_stop
-tr_r314:
-    ld   s_askload & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_askload >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL prompt
-    ld   tr_r315, [x]
-    ld   LINK_HI, x
-    ld   tr_r315 >> 8, [x]
-    ld   prompt >> 8, y
-    jmp  prompt
-tr_r315:
-    bne  lcm_c
-    ld   LINK_LO, x             ; CALL load_song
-    ld   tr_r316, [x]
-    ld   LINK_HI, x
-    ld   tr_r316 >> 8, [x]
-    ld   load_song >> 8, y
-    jmp  load_song
-tr_r316:
-    ld   PTAB_PG, y
-    ld   L_ERR, x
-    ld   [y,x], ac
-    ld   ac, [e_res]            ; (the drawing uses the w's)
-    ld   LINK_LO, x             ; CALL redraw_all
-    ld   tr_r317, [x]
-    ld   LINK_HI, x
-    ld   tr_r317 >> 8, [x]
-    ld   redraw_all >> 8, y
-    jmp  redraw_all
-tr_r317:
-    ld   [e_res], ac
-    bne  lcm_f
-    ld   s_loaded & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_loaded >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL status
-    ld   tr_r318, [x]
-    ld   LINK_HI, x
-    ld   tr_r318 >> 8, [x]
-    ld   status >> 8, y
-    jmp  status
-tr_r318:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-lcm_f:
-    ld   s_notfound & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_notfound >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL status
-    ld   tr_r319, [x]
-    ld   LINK_HI, x
-    ld   tr_r319 >> 8, [x]
-    ld   status >> 8, y
-    jmp  status
-tr_r319:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-lcm_c:
-    ld   LINK_LO, x             ; CALL status_clear
-    ld   tr_r320, [x]
-    ld   LINK_HI, x
-    ld   tr_r320 >> 8, [x]
-    ld   status_clear >> 8, y
-    jmp  status_clear
-tr_r320:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-load_fix:
-    clr  ac
-    ld   ac, [w4]
-lf_l:
-    ld   [w4], ac
-    ld   LINK_LO, x             ; CALL slot_fix
-    ld   tr_r345, [x]
-    ld   LINK_HI, x
-    ld   tr_r345 >> 8, [x]
-    ld   slot_fix >> 8, y
-    jmp  slot_fix
-tr_r345:
-    ld   [w4], ac
-    inc
-    ld   ac, [w4]
-    xor  CAP, ac
-    bne  lf_l
-    ld   LINK_LO, x             ; CALL decode_all
-    ld   tr_r346, [x]
-    ld   LINK_HI, x
-    ld   tr_r346 >> 8, [x]
-    ld   decode_all >> 8, y
-    jmp  decode_all
-tr_r346:
-    ld   LINK_LO, x             ; CALL encode_all
-    ld   tr_r347, [x]
-    ld   LINK_HI, x
-    ld   tr_r347 >> 8, [x]
-    ld   encode_all >> 8, y
-    jmp  encode_all
-tr_r347:
-    ld   LINK_LO, x             ; CALL song_ready
-    ld   tr_r348, [x]
-    ld   LINK_HI, x
-    ld   tr_r348 >> 8, [x]
-    ld   song_ready >> 8, y
-    jmp  song_ready
-tr_r348:
-    clr  ac
-    ld   ac, [w0]
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-; ============================================================
-; save_song - the song as a .SNG file named e_name: the header pages,
-; the orderlists, the patterns used (and one FF for the rest).
-; AC = 0 saved, 1 failed
-; ============================================================
-vz_3:
-    ld   (mv3_sl + 1) >> 8, y
-    ld   (mv3_sl + 1) & 0xFF, x
-    ld   [T6], ac
-    ld   ac, [y,x]
-    ld   (mv3_sh + 1) & 0xFF, x
-    ld   [T7], ac
-    ld   ac, [y,x]
-    ld   (mv3_wp + 1) & 0xFF, x
-    ld   [W_WPG], ac
-    ld   ac, [y,x]
-    ld   (mv3_vo + 1) & 0xFF, x
-    ld   [T0], ac
-    ld   ac, [y,x]
-    ld   (mv3_vp + 1) & 0xFF, x
-    ld   [T1], ac
-    ld   ac, [y,x]
-    ld   mt_out >> 8, y
-    jmp  mt_out
-
-; ------------------------------------------------------------
-; mus_init - start the player: R1 = the song's page; all voices quiet
-;   changes: AC, X, Y, T0-T7
-; ------------------------------------------------------------
-
 #overlay 0xAE00
 save_cmd:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
@@ -8746,49 +8779,35 @@ save_cmd:
     ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   LINK_LO, x             ; CALL do_stop
-    ld   tr_r321, [x]
+    ld   tr_r322, [x]
     ld   LINK_HI, x
-    ld   tr_r321 >> 8, [x]
+    ld   tr_r322 >> 8, [x]
     ld   do_stop >> 8, y
     jmp  do_stop
-tr_r321:
+tr_r322:
     ld   s_asksave & 0xFF, ac
     ld   ac, [R0]
     ld   s_asksave >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL prompt
-    ld   tr_r322, [x]
-    ld   LINK_HI, x
-    ld   tr_r322 >> 8, [x]
-    ld   prompt >> 8, y
-    jmp  prompt
-tr_r322:
-    bne  scm_c
-    ld   LINK_LO, x             ; CALL save_song
     ld   tr_r323, [x]
     ld   LINK_HI, x
     ld   tr_r323 >> 8, [x]
+    ld   prompt >> 8, y
+    jmp  prompt
+tr_r323:
+    bne  scm_c
+    ld   LINK_LO, x             ; CALL save_song
+    ld   tr_r324, [x]
+    ld   LINK_HI, x
+    ld   tr_r324 >> 8, [x]
     ld   save_song >> 8, y
     jmp  save_song
-tr_r323:
+tr_r324:
     bne  scm_f
     ld   s_saved & 0xFF, ac
     ld   ac, [R0]
     ld   s_saved >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL status
-    ld   tr_r324, [x]
-    ld   LINK_HI, x
-    ld   tr_r324 >> 8, [x]
-    ld   status >> 8, y
-    jmp  status
-tr_r324:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-scm_f:
-    ld   s_savefail & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_savefail >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL status
     ld   tr_r325, [x]
@@ -8799,14 +8818,28 @@ scm_f:
 tr_r325:
     ld   tr_leave >> 8, y
     jmp  tr_leave
-scm_c:
-    ld   LINK_LO, x             ; CALL status_clear
+scm_f:
+    ld   s_savefail & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_savefail >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL status
     ld   tr_r326, [x]
     ld   LINK_HI, x
     ld   tr_r326 >> 8, [x]
+    ld   status >> 8, y
+    jmp  status
+tr_r326:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+scm_c:
+    ld   LINK_LO, x             ; CALL status_clear
+    ld   tr_r327, [x]
+    ld   LINK_HI, x
+    ld   tr_r327 >> 8, [x]
     ld   status_clear >> 8, y
     jmp  status_clear
-tr_r326:
+tr_r327:
     ld   tr_leave >> 8, y
     jmp  tr_leave
 
@@ -8873,12 +8906,12 @@ lds_n2:
     bra  lds_l
 lds_obj:
     ld   LINK_LO, x             ; CALL ld_byte
-    ld   tr_r341, [x]
+    ld   tr_r342, [x]
     ld   LINK_HI, x
-    ld   tr_r341 >> 8, [x]
+    ld   tr_r342 >> 8, [x]
     ld   ld_byte >> 8, y
     jmp  ld_byte
-tr_r341:
+tr_r342:
     ld   PTAB_PG, y
     ld   L_ERR, x
     ld   [y,x], ac
@@ -8905,12 +8938,12 @@ prompt:
     ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   LINK_LO, x             ; CALL status
-    ld   tr_r327, [x]
+    ld   tr_r328, [x]
     ld   LINK_HI, x
-    ld   tr_r327 >> 8, [x]
+    ld   tr_r328 >> 8, [x]
     ld   status >> 8, y
     jmp  status
-tr_r327:
+tr_r328:
     ld   [s_col], ac
     ld   ac, [CUR_COL]
     ld   s_cur & 0xFF, ac
@@ -8918,12 +8951,12 @@ tr_r327:
     ld   s_cur >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   tr_r328, [x]
+    ld   tr_r329, [x]
     ld   LINK_HI, x
-    ld   tr_r328 >> 8, [x]
+    ld   tr_r329 >> 8, [x]
     ld   tputs >> 8, y
     jmp  tputs
-tr_r328:
+tr_r329:
     ld   [CUR_COL], ac
     dec
     ld   ac, [w1]               ; the column of the next character
@@ -8932,33 +8965,33 @@ tr_r328:
 pr_l:
     ld   1, ac
     ld   LINK_LO, x             ; CALL l_wait_frames
-    ld   tr_r329, [x]
-    ld   LINK_HI, x
-    ld   tr_r329 >> 8, [x]
-    ld   l_wait_frames >> 8, y
-    jmp  l_wait_frames
-tr_r329:
-    ld   LINK_LO, x             ; CALL mus_frame
     ld   tr_r330, [x]
     ld   LINK_HI, x
     ld   tr_r330 >> 8, [x]
-    ld   mus_frame >> 8, y
-    jmp  mus_frame
+    ld   l_wait_frames >> 8, y
+    jmp  l_wait_frames
 tr_r330:
-    ld   LINK_LO, x             ; CALL l_kbd_scan
+    ld   LINK_LO, x             ; CALL mus_frame
     ld   tr_r331, [x]
     ld   LINK_HI, x
     ld   tr_r331 >> 8, [x]
-    ld   l_kbd_scan >> 8, y
-    jmp  l_kbd_scan
+    ld   mus_frame >> 8, y
+    jmp  mus_frame
 tr_r331:
-    ld   LINK_LO, x             ; CALL l_kbd_getc
+    ld   LINK_LO, x             ; CALL l_kbd_scan
     ld   tr_r332, [x]
     ld   LINK_HI, x
     ld   tr_r332 >> 8, [x]
+    ld   l_kbd_scan >> 8, y
+    jmp  l_kbd_scan
+tr_r332:
+    ld   LINK_LO, x             ; CALL l_kbd_getc
+    ld   tr_r333, [x]
+    ld   LINK_HI, x
+    ld   tr_r333 >> 8, [x]
     ld   l_kbd_getc >> 8, y
     jmp  l_kbd_getc
-tr_r332:
+tr_r333:
     beq  pr_l
     ld   ac, [w2]
     xor  0x1B, ac
@@ -8998,6 +9031,855 @@ pr_cancel:
     ld   1, ac
     ld   tr_leave >> 8, y
     jmp  tr_leave
+
+load_fix:
+    clr  ac
+    ld   ac, [w4]
+lf_l:
+    ld   [w4], ac
+    ld   LINK_LO, x             ; CALL slot_fix
+    ld   tr_r346, [x]
+    ld   LINK_HI, x
+    ld   tr_r346 >> 8, [x]
+    ld   slot_fix >> 8, y
+    jmp  slot_fix
+tr_r346:
+    ld   [w4], ac
+    inc
+    ld   ac, [w4]
+    xor  CAP, ac
+    bne  lf_l
+    ld   LINK_LO, x             ; CALL decode_all
+    ld   tr_r347, [x]
+    ld   LINK_HI, x
+    ld   tr_r347 >> 8, [x]
+    ld   decode_all >> 8, y
+    jmp  decode_all
+tr_r347:
+    ld   LINK_LO, x             ; CALL encode_all
+    ld   tr_r348, [x]
+    ld   LINK_HI, x
+    ld   tr_r348 >> 8, [x]
+    ld   encode_all >> 8, y
+    jmp  encode_all
+tr_r348:
+    ld   LINK_LO, x             ; CALL song_ready
+    ld   tr_r349, [x]
+    ld   LINK_HI, x
+    ld   tr_r349 >> 8, [x]
+    ld   song_ready >> 8, y
+    jmp  song_ready
+tr_r349:
+    clr  ac
+    ld   ac, [w0]
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; ============================================================
+; save_song - the song as a .SNG file named e_name: the header pages,
+; the orderlists, the patterns used (and one FF for the rest).
+; AC = 0 saved, 1 failed
+; ============================================================
+
+#overlay 0xB200
+load_song:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   e_name, ac
+    ld   ac, [R0]
+    clr  ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL l_fs_open
+    ld   tr_r338, [x]
+    ld   LINK_HI, x
+    ld   tr_r338 >> 8, [x]
+    ld   l_fs_open >> 8, y
+    jmp  l_fs_open
+tr_r338:
+    beq  ls_ok
+    ld   PTAB_PG, y
+    ld   L_ERR, x
+    ld   1, [y,x]
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+ls_ok:
+    ld   FS_REM_LO & 0xFF, x
+    ld   FS_REM_LO >> 8, y
+    ld   [y,x], ac
+    ld   ac, [w2]
+    ld   FS_REM_HI & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [w3]
+    clr  ac
+    ld   ac, [w0]
+    ld   ac, [w1]
+    ld   PTAB_PG, y
+    ld   L_ERR, x
+    ld   0, [y,x]
+    clr  ac                     ; blank slots and orderlists first
+    ld   ac, [w4]
+ls_c:
+    ld   [w4], ac
+    ld   LINK_LO, x             ; CALL slot_clear
+    ld   tr_r339, [x]
+    ld   LINK_HI, x
+    ld   tr_r339 >> 8, [x]
+    ld   slot_clear >> 8, y
+    jmp  slot_clear
+tr_r339:
+    ld   [w4], ac
+    inc
+    ld   ac, [w4]
+    xor  CAP, ac
+    bne  ls_c
+    ld   OLIST >> 8, y
+    clr  ac
+ls_o:
+    ld   ac, x
+    ld   0xFE, [y,x]
+    inc
+    bne  ls_o
+ls_l:
+    ld   [w0], ac
+    xor  [w2], ac
+    bne  ls_r
+    ld   [w1], ac
+    xor  [w3], ac
+    beq  ls_done
+ls_r:
+    ld   FBUF & 0xFF, ac
+    ld   ac, [R4]
+    ld   FBUF >> 8, ac
+    ld   ac, [R5]
+    ld   LINK_LO, x             ; CALL l_fs_read
+    ld   tr_r340, [x]
+    ld   LINK_HI, x
+    ld   tr_r340 >> 8, [x]
+    ld   l_fs_read >> 8, y
+    jmp  l_fs_read
+tr_r340:
+    sub  2, ac
+    bcc  ls_fail
+    ld   LINK_LO, x             ; CALL ld_sector
+    ld   tr_r341, [x]
+    ld   LINK_HI, x
+    ld   tr_r341 >> 8, [x]
+    ld   ld_sector >> 8, y
+    jmp  ld_sector
+tr_r341:
+    ld   PTAB_PG, y
+    ld   L_ERR, x
+    ld   [y,x], ac
+    beq  ls_l
+ls_fail:
+    ld   load_fix >> 8, y       ; what came is kept
+    jmp  load_fix
+ls_done:
+    ld   load_fix >> 8, y
+    jmp  load_fix
+
+; ld_sector - the 512 bytes in FBUF (up to the file's size)
+sv_put:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   [w5], y
+    ld   [w4], x
+    ld   ac, [y,x]
+    ld   [w4], ac
+    inc
+    ld   ac, [w4]
+    bne  sp_e
+    ld   [w5], ac
+    inc
+    ld   ac, [w5]
+    xor  (FBUF >> 8) + 2, ac
+    bne  sp_e
+    ld   FBUF & 0xFF, ac
+    ld   ac, [R4]
+    ld   FBUF >> 8, ac
+    ld   ac, [R5]
+    ld   LINK_LO, x             ; CALL l_fs_write
+    ld   tr_r364, [x]
+    ld   LINK_HI, x
+    ld   tr_r364 >> 8, [x]
+    ld   l_fs_write >> 8, y
+    jmp  l_fs_write
+tr_r364:
+    ld   FBUF >> 8, ac
+    ld   ac, [w5]
+sp_e:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; ============================================================
+; data
+; ============================================================
+
+#overlay 0xB400
+ld_byte:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   [w1], ac
+    xor  5, ac
+    bne  lb_c
+    ld   [w0], ac
+    bne  lb_c
+    ld   PTAB_PG, y             ; the first byte past the header: object 0
+    ld   L_K, x
+    ld   0, [y,x]
+    ld   L_LLO, x
+    ld   0, [y,x]
+    ld   L_LHI, x
+    ld   0, [y,x]
+    ld   LINK_LO, x             ; CALL obj_next
+    ld   tr_r343, [x]
+    ld   LINK_HI, x
+    ld   tr_r343 >> 8, [x]
+    ld   obj_next >> 8, y
+    jmp  obj_next
+tr_r343:
+lb_c:
+    ld   PTAB_PG, y
+    ld   L_NHI, x
+    ld   [w1], ac
+    xor  [y,x], ac
+    bne  lb_c2
+    ld   L_NLO, x
+    ld   [w0], ac
+    xor  [y,x], ac
+    bne  lb_c2
+    ld   LINK_LO, x             ; this object begins here
+    ld   tr_r344, [x]
+    ld   LINK_HI, x
+    ld   tr_r344 >> 8, [x]
+    ld   obj_start >> 8, y
+    jmp  obj_start
+tr_r344:
+    ld   LINK_LO, x             ; CALL obj_next
+    ld   tr_r345, [x]
+    ld   LINK_HI, x
+    ld   tr_r345 >> 8, [x]
+    ld   obj_next >> 8, y
+    jmp  obj_next
+tr_r345:
+    bra  lb_c
+lb_c2:
+    ld   PTAB_PG, y
+    ld   L_NHI, x
+    ld   [w1], ac
+    sub  [y,x], ac
+    bcs  lb_put                 ; before the next object
+    bne  lb_bad
+    ld   L_NLO, x
+    ld   [w0], ac
+    sub  [y,x], ac
+    bcs  lb_put
+lb_bad:
+    ld   L_ERR, x               ; the objects are not in order: stop
+    ld   1, [y,x]
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+lb_put:
+    ld   L_LLO, x
+    ld   [y,x], ac
+    ld   L_LHI, x
+    or   [y,x], ac
+    beq  lb_e
+    ld   L_LLO, x
+    ld   [y,x], ac
+    bne  lb_p2
+    ld   L_LHI, x
+    ld   [y,x], ac
+    dec
+    ld   ac, [y,x]
+lb_p2:
+    ld   L_LLO, x
+    ld   [y,x], ac
+    dec
+    ld   ac, [y,x]
+    ld   L_DPG, x
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   L_DLO, x
+    ld   [y,x], ac
+    ld   ac, [u1]
+    inc
+    ld   ac, [y,x]
+    ld   [u0], y
+    ld   [u1], x
+    ld   [u7], ac
+    ld   ac, [y,x]
+lb_e:
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; obj_next - L_NHI:L_NLO = the offset of object L_K (FFFF past the last)
+s_pulse:
+    #d "PULSE  "
+hexdig:
+    #d "0123456789ABCDEF"
+notes:
+    #d "C-C#D-D#E-F-F#G-G#A-A#B-"
+ramsl:
+    #d8 0x57, 0x58, 0x59, 0x5C
+ccol:
+    #d8 0, 4, 5, 7, 8, 9
+
+mus_sfx:
+    ld   ac, [T7]
+    sub  96, ac
+    bcs  sx_a
+    ld   95, ac
+    ld   ac, [T7]
+sx_a:
+    ld   [R1], ac
+    ld   ac, [M_SFXN]
+    ld   sfx_in >> 8, y
+    jmp  sfx_in
+
+#overlay 0xB600
+obj_start:
+    ld   PTAB_PG, y
+    ld   L_K, x
+    ld   [y,x], ac
+    ld   ac, [u2]
+    sub  4, ac
+    bcc  os_pat
+    ld   [u2], ac               ; orderlist k: OLIST + 64 k, 64 bytes
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [u1]
+    ld   L_DLO, x
+    ld   ac, [y,x]
+    ld   L_DPG, x
+    ld   OLIST >> 8, [y,x]
+    ld   L_LLO, x
+    ld   64, [y,x]
+    ld   L_LHI, x
+    ld   0, [y,x]
+    bra  os_k
+os_pat:
+    ld   ac, [u3]
+    sub  CAP, ac
+    bcc  os_drop
+    ld   [u3], ac
+    ld   ac, [u0]
+    ld   PTAB_PG, y
+    add  PTAB_HI, x
+    ld   [y,x], ac
+    ld   ac, [u1]
+    ld   [u0], ac
+    add  PTAB_LO, x
+    ld   [y,x], ac
+    ld   ac, [u2]
+    ld   PTAB_PG, y
+    ld   L_DPG, x
+    ld   [u1], ac
+    ld   ac, [y,x]
+    ld   L_DLO, x
+    ld   [u2], ac
+    ld   ac, [y,x]
+    ld   L_LLO, x
+    ld   SLOT_LO, ac
+    ld   ac, [y,x]
+    ld   L_LHI, x
+    ld   SLOT_LO, ac
+    bne  os_k2
+    ld   1, [y,x]               ; 256
+    bra  os_k
+os_k2:
+    ld   0, [y,x]
+    bra  os_k
+os_drop:
+    ld   L_LLO, x
+    ld   0, [y,x]
+    ld   L_LHI, x
+    ld   0, [y,x]
+os_k:
+    ld   L_K, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+; load_fix - after the file: every slot ends, the orderlists decoded,
+; the live offsets, the player
+save_song:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    clr  ac                     ; the patterns to write: up to the highest
+    ld   ac, [w0]               ; used or referenced
+    ld   ac, [w1]               ; the highest + 1
+sv_n:
+    ld   [w0], ac
+    ld   LINK_LO, x             ; CALL slot_blank
+    ld   tr_r350, [x]
+    ld   LINK_HI, x
+    ld   tr_r350 >> 8, [x]
+    ld   slot_blank >> 8, y
+    jmp  slot_blank
+tr_r350:
+    bne  sv_n2
+    ld   [w0], ac
+    inc
+    ld   ac, [w1]
+sv_n2:
+    ld   [w0], ac
+    inc
+    ld   ac, [w0]
+    xor  CAP, ac
+    bne  sv_n
+    clr  ac
+    ld   ac, [w2]               ; the orderlists' references
+sv_v:
+    ld   [w2], ac
+    add  VSPAGE, y
+    ld   OD_LEN, x
+    ld   [y,x], ac
+    ld   ac, [w3]
+    clr  ac
+    ld   ac, [w4]
+sv_k:
+    ld   [w4], ac
+    xor  [w3], ac
+    beq  sv_kd
+    ld   [w4], ac
+    shl
+    add  OD_PAT, x
+    ld   [y,x], ac
+    inc
+    sub  [w1], ac
+    bcs  sv_k2
+    beq  sv_k2
+    ld   [y,x], ac
+    inc
+    ld   ac, [w1]
+sv_k2:
+    ld   [w4], ac
+    inc
+    ld   ac, [w4]
+    bra  sv_k
+sv_kd:
+    ld   [w2], ac
+    inc
+    ld   ac, [w2]
+    xor  4, ac
+    bne  sv_v
+    ld   [w1], ac
+    bne  sv_np
+    ld   1, ac
+sv_np:
+    ld   PTAB_PG, y
+    ld   L_NPAT, x
+    ld   ac, [y,x]
+    ld   save_offsets >> 8, y
+    jmp  save_offsets
+
+; the offsets in the header: the orderlists from x500, then the patterns
+
+#overlay 0xB800
+save_offsets:
+    clr  ac
+    ld   ac, [w0]               ; the running offset, low
+    ld   5, ac
+    ld   ac, [w1]               ; high
+    clr  ac
+    ld   ac, [w2]               ; the voice
+so2_v:
+    ld   [w2], ac
+    shl
+    add  0x41, ac
+    ld   ac, x
+    ld   SONG >> 8, y
+    ld   [w0], ac
+    ld   ac, [y,x]
+    ld   [w2], ac
+    shl
+    add  0x42, ac
+    ld   ac, x
+    ld   [w1], ac
+    ld   ac, [y,x]
+    ld   [w2], ac               ; its size: OD_OFF[len] + 1 (stop) or 2 (loop)
+    add  VSPAGE, y
+    ld   OD_LEN, x
+    ld   [y,x], ac
+    add  OD_OFF, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [w3]
+    ld   OD_END, x
+    ld   [y,x], ac
+    xor  0xFF, ac
+    bne  so2_s
+    ld   [w3], ac
+    inc
+    ld   ac, [w3]
+so2_s:
+    ld   PTAB_PG, y
+    ld   [w2], ac
+    add  L_SZ, x
+    ld   [w3], ac
+    ld   ac, [y,x]
+    add  [w0], ac
+    ld   ac, [w0]
+    bcc  so2_c
+    ld   [w1], ac
+    inc
+    ld   ac, [w1]
+so2_c:
+    ld   [w2], ac
+    inc
+    ld   ac, [w2]
+    xor  4, ac
+    bne  so2_v
+    clr  ac
+    ld   ac, [w2]               ; the patterns
+so2_p:
+    ld   SONG >> 8, y
+    ld   [w2], ac
+    add  0x80, x
+    ld   [w0], ac
+    ld   ac, [y,x]
+    ld   [w2], ac
+    add  0xC0, x
+    ld   [w1], ac
+    ld   ac, [y,x]
+    ld   PTAB_PG, y
+    ld   L_NPAT, x
+    ld   [w2], ac
+    sub  [y,x], ac
+    bcc  so2_n                  ; past the count: the FF at the end
+    ld   [w2], ac
+    ld   LINK_LO, x             ; CALL slot_len
+    ld   tr_r351, [x]
+    ld   LINK_HI, x
+    ld   tr_r351 >> 8, [x]
+    ld   slot_len >> 8, y
+    jmp  slot_len
+tr_r351:
+    add  [w0], ac
+    ld   ac, [w0]
+    bcc  so2_n
+    ld   [w1], ac
+    inc
+    ld   ac, [w1]
+so2_n:
+    ld   [w2], ac
+    inc
+    ld   ac, [w2]
+    xor  64, ac
+    bne  so2_p
+    ld   save_header >> 8, y
+    jmp  save_header
+
+s_pattern:
+    #d "PATTERN ", 0x00
+s_rows:
+    #d " rows", 0x00
+s_nopat:
+    #d "no pattern", 0x00
+s_voice:
+    #d "   voice ", 0x00
+s_pos:
+    #d "   position ", 0x00
+s_cols:
+    #d " ROW V1          V2          V3          V4", 0x00
+
+#overlay 0xBA00
+save_header:
+    ld   [w0], ac               ; + the FF: the length
+    inc
+    ld   ac, [w0]
+    bne  sh_a
+    ld   [w1], ac
+    inc
+    ld   ac, [w1]
+sh_a:
+    ld   SONG >> 8, y
+    ld   0x08, x
+    ld   [w0], ac
+    ld   ac, [y,x]
+    ld   0x09, x
+    ld   [w1], ac
+    ld   ac, [y,x]
+    ld   0x04, x
+    ld   1, [y,x]
+    ld   0x07, x
+    ld   0, [y,x]
+    ld   0x05, x
+    ld   PTAB_PG, y
+    ld   L_NPAT, x
+    ld   [y,x], ac
+    ld   SONG >> 8, y
+    ld   0x05, x
+    ld   ac, [y,x]
+    ld   e_name, ac             ; the file
+    ld   ac, [R0]
+    clr  ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL l_fs_create
+    ld   tr_r352, [x]
+    ld   LINK_HI, x
+    ld   tr_r352 >> 8, [x]
+    ld   l_fs_create >> 8, y
+    jmp  l_fs_create
+tr_r352:
+    beq  sh_go
+    ld   LINK_LO, x             ; CALL set_offsets
+    ld   tr_r353, [x]
+    ld   LINK_HI, x
+    ld   tr_r353 >> 8, [x]
+    ld   set_offsets >> 8, y
+    jmp  set_offsets
+tr_r353:
+    ld   1, ac
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+sh_go:
+    clr  ac
+    ld   ac, [w4]               ; the sink: FBUF page w5, offset w4
+    ld   FBUF >> 8, ac
+    ld   ac, [w5]
+    ld   SONG >> 8, ac          ; pages 0-4
+    ld   ac, [w2]
+sh_p:
+    clr  ac
+    ld   ac, [w3]
+sh_b:
+    ld   [w2], y
+    ld   [w3], x
+    ld   [y,x], ac
+    ld   LINK_LO, x             ; CALL sv_put
+    ld   tr_r354, [x]
+    ld   LINK_HI, x
+    ld   tr_r354 >> 8, [x]
+    ld   sv_put >> 8, y
+    jmp  sv_put
+tr_r354:
+    ld   [w3], ac
+    inc
+    ld   ac, [w3]
+    bne  sh_b
+    ld   [w2], ac
+    inc
+    ld   ac, [w2]
+    xor  (SONG >> 8) + 5, ac
+    bne  sh_p
+    ld   save_lists >> 8, y
+    jmp  save_lists
+
+save_end:
+    ld   [w4], ac               ; a part sector left: write it
+    bne  se_w
+    ld   [w5], ac
+    xor  FBUF >> 8, ac
+    beq  se_c
+se_w:
+    ld   FBUF & 0xFF, ac
+    ld   ac, [R4]
+    ld   FBUF >> 8, ac
+    ld   ac, [R5]
+    ld   LINK_LO, x             ; CALL l_fs_write
+    ld   tr_r360, [x]
+    ld   LINK_HI, x
+    ld   tr_r360 >> 8, [x]
+    ld   l_fs_write >> 8, y
+    jmp  l_fs_write
+tr_r360:
+    bne  se_f
+se_c:
+    ld   SONG >> 8, y           ; the size from the header
+    ld   0x08, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   0x09, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    clr  ac
+    ld   ac, [R2]
+    ld   ac, [R3]
+    ld   LINK_LO, x             ; CALL l_fs_close
+    ld   tr_r361, [x]
+    ld   LINK_HI, x
+    ld   tr_r361 >> 8, [x]
+    ld   l_fs_close >> 8, y
+    jmp  l_fs_close
+tr_r361:
+    bne  se_f
+    ld   LINK_LO, x             ; CALL set_offsets
+    ld   tr_r362, [x]
+    ld   LINK_HI, x
+    ld   tr_r362 >> 8, [x]
+    ld   set_offsets >> 8, y
+    jmp  set_offsets
+tr_r362:
+    clr  ac
+    ld   ac, [e_mod]
+    ld   ac, [e_fl]
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+se_f:
+    ld   LINK_LO, x             ; CALL set_offsets
+    ld   tr_r363, [x]
+    ld   LINK_HI, x
+    ld   tr_r363 >> 8, [x]
+    ld   set_offsets >> 8, y
+    jmp  set_offsets
+tr_r363:
+    ld   1, ac
+    ld   tr_leave >> 8, y
+    jmp  tr_leave
+
+; sv_put - the byte AC into the file (a sector at a time)
+
+#overlay 0xBC00
+save_lists:
+    clr  ac
+    ld   ac, [w2]               ; the voice
+sl2_v:
+    ld   PTAB_PG, y
+    ld   [w2], ac
+    add  L_SZ, x
+    ld   [y,x], ac
+    ld   ac, [w1]               ; its size
+    ld   [w2], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [w3]               ; its first byte
+sl2_b:
+    ld   OLIST >> 8, y
+    ld   [w3], x
+    ld   [y,x], ac
+    ld   LINK_LO, x             ; CALL sv_put
+    ld   tr_r355, [x]
+    ld   LINK_HI, x
+    ld   tr_r355 >> 8, [x]
+    ld   sv_put >> 8, y
+    jmp  sv_put
+tr_r355:
+    ld   [w3], ac
+    inc
+    ld   ac, [w3]
+    ld   [w1], ac
+    dec
+    ld   ac, [w1]
+    bne  sl2_b
+    ld   [w2], ac
+    inc
+    ld   ac, [w2]
+    xor  4, ac
+    bne  sl2_v
+    clr  ac
+    ld   ac, [w2]               ; the patterns
+sl2_p:
+    ld   PTAB_PG, y
+    ld   L_NPAT, x
+    ld   [w2], ac
+    xor  [y,x], ac
+    beq  sl2_d
+    ld   [w2], ac
+    ld   LINK_LO, x             ; CALL slot_len
+    ld   tr_r356, [x]
+    ld   LINK_HI, x
+    ld   tr_r356 >> 8, [x]
+    ld   slot_len >> 8, y
+    jmp  slot_len
+tr_r356:
+    ld   ac, [w1]
+    ld   [w2], ac
+    ld   LINK_LO, x             ; CALL slot_addr
+    ld   tr_r357, [x]
+    ld   LINK_HI, x
+    ld   tr_r357 >> 8, [x]
+    ld   slot_addr >> 8, y
+    jmp  slot_addr
+tr_r357:
+    clr  ac
+    ld   ac, [w3]
+sl2_pb:
+    ld   [u1], y
+    ld   [w3], ac
+    add  [u2], ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   LINK_LO, x             ; CALL sv_put
+    ld   tr_r358, [x]
+    ld   LINK_HI, x
+    ld   tr_r358 >> 8, [x]
+    ld   sv_put >> 8, y
+    jmp  sv_put
+tr_r358:
+    ld   [w3], ac
+    inc
+    ld   ac, [w3]
+    ld   [w1], ac
+    dec
+    ld   ac, [w1]
+    bne  sl2_pb
+    ld   [w2], ac
+    inc
+    ld   ac, [w2]
+    bra  sl2_p
+sl2_d:
+    ld   0xFF, ac
+    ld   LINK_LO, x             ; CALL sv_put
+    ld   tr_r359, [x]
+    ld   LINK_HI, x
+    ld   tr_r359 >> 8, [x]
+    ld   sv_put >> 8, y
+    jmp  sv_put
+tr_r359:
+    ld   save_end >> 8, y
+    jmp  save_end
 
 s_askload:
     #d "Load: ", 0x00
@@ -9151,269 +10033,35 @@ G_NR  = 0x03
 ; Date: 11/01/2026
 
 
-#overlay 0xB200
-load_song:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   e_name, ac
-    ld   ac, [R0]
-    clr  ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL l_fs_open
-    ld   tr_r337, [x]
-    ld   LINK_HI, x
-    ld   tr_r337 >> 8, [x]
-    ld   l_fs_open >> 8, y
-    jmp  l_fs_open
-tr_r337:
-    beq  ls_ok
-    ld   PTAB_PG, y
-    ld   L_ERR, x
-    ld   1, [y,x]
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-ls_ok:
-    ld   FS_REM_LO & 0xFF, x
-    ld   FS_REM_LO >> 8, y
-    ld   [y,x], ac
-    ld   ac, [w2]
-    ld   FS_REM_HI & 0xFF, x
-    ld   [y,x], ac
-    ld   ac, [w3]
-    clr  ac
-    ld   ac, [w0]
-    ld   ac, [w1]
-    ld   PTAB_PG, y
-    ld   L_ERR, x
-    ld   0, [y,x]
-    clr  ac                     ; blank slots and orderlists first
-    ld   ac, [w4]
-ls_c:
-    ld   [w4], ac
-    ld   LINK_LO, x             ; CALL slot_clear
-    ld   tr_r338, [x]
-    ld   LINK_HI, x
-    ld   tr_r338 >> 8, [x]
-    ld   slot_clear >> 8, y
-    jmp  slot_clear
-tr_r338:
-    ld   [w4], ac
-    inc
-    ld   ac, [w4]
-    xor  CAP, ac
-    bne  ls_c
-    ld   OLIST >> 8, y
-    clr  ac
-ls_o:
-    ld   ac, x
-    ld   0xFE, [y,x]
-    inc
-    bne  ls_o
-ls_l:
-    ld   [w0], ac
-    xor  [w2], ac
-    bne  ls_r
-    ld   [w1], ac
-    xor  [w3], ac
-    beq  ls_done
-ls_r:
-    ld   FBUF & 0xFF, ac
-    ld   ac, [R4]
-    ld   FBUF >> 8, ac
-    ld   ac, [R5]
-    ld   LINK_LO, x             ; CALL l_fs_read
-    ld   tr_r339, [x]
-    ld   LINK_HI, x
-    ld   tr_r339 >> 8, [x]
-    ld   l_fs_read >> 8, y
-    jmp  l_fs_read
-tr_r339:
-    sub  2, ac
-    bcc  ls_fail
-    ld   LINK_LO, x             ; CALL ld_sector
-    ld   tr_r340, [x]
-    ld   LINK_HI, x
-    ld   tr_r340 >> 8, [x]
-    ld   ld_sector >> 8, y
-    jmp  ld_sector
-tr_r340:
-    ld   PTAB_PG, y
-    ld   L_ERR, x
-    ld   [y,x], ac
-    beq  ls_l
-ls_fail:
-    ld   load_fix >> 8, y       ; what came is kept
-    jmp  load_fix
-ls_done:
-    ld   load_fix >> 8, y
-    jmp  load_fix
-
-; ld_sector - the 512 bytes in FBUF (up to the file's size)
-sv_put:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   [w5], y
-    ld   [w4], x
-    ld   ac, [y,x]
-    ld   [w4], ac
-    inc
-    ld   ac, [w4]
-    bne  sp_e
-    ld   [w5], ac
-    inc
-    ld   ac, [w5]
-    xor  (FBUF >> 8) + 2, ac
-    bne  sp_e
-    ld   FBUF & 0xFF, ac
-    ld   ac, [R4]
-    ld   FBUF >> 8, ac
-    ld   ac, [R5]
-    ld   LINK_LO, x             ; CALL l_fs_write
-    ld   tr_r363, [x]
-    ld   LINK_HI, x
-    ld   tr_r363 >> 8, [x]
-    ld   l_fs_write >> 8, y
-    jmp  l_fs_write
-tr_r363:
-    ld   FBUF >> 8, ac
-    ld   ac, [w5]
-sp_e:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-; ============================================================
-; data
-; ============================================================
-
-#overlay 0xB400
-ld_byte:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   [w1], ac
-    xor  5, ac
-    bne  lb_c
-    ld   [w0], ac
-    bne  lb_c
-    ld   PTAB_PG, y             ; the first byte past the header: object 0
-    ld   L_K, x
-    ld   0, [y,x]
-    ld   L_LLO, x
-    ld   0, [y,x]
-    ld   L_LHI, x
-    ld   0, [y,x]
-    ld   LINK_LO, x             ; CALL obj_next
-    ld   tr_r342, [x]
-    ld   LINK_HI, x
-    ld   tr_r342 >> 8, [x]
-    ld   obj_next >> 8, y
-    jmp  obj_next
-tr_r342:
-lb_c:
-    ld   PTAB_PG, y
-    ld   L_NHI, x
-    ld   [w1], ac
-    xor  [y,x], ac
-    bne  lb_c2
-    ld   L_NLO, x
-    ld   [w0], ac
-    xor  [y,x], ac
-    bne  lb_c2
-    ld   LINK_LO, x             ; this object begins here
-    ld   tr_r343, [x]
-    ld   LINK_HI, x
-    ld   tr_r343 >> 8, [x]
-    ld   obj_start >> 8, y
-    jmp  obj_start
-tr_r343:
-    ld   LINK_LO, x             ; CALL obj_next
-    ld   tr_r344, [x]
-    ld   LINK_HI, x
-    ld   tr_r344 >> 8, [x]
-    ld   obj_next >> 8, y
-    jmp  obj_next
-tr_r344:
-    bra  lb_c
-lb_c2:
-    ld   PTAB_PG, y
-    ld   L_NHI, x
-    ld   [w1], ac
-    sub  [y,x], ac
-    bcs  lb_put                 ; before the next object
-    bne  lb_bad
-    ld   L_NLO, x
-    ld   [w0], ac
-    sub  [y,x], ac
-    bcs  lb_put
-lb_bad:
-    ld   L_ERR, x               ; the objects are not in order: stop
-    ld   1, [y,x]
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-lb_put:
-    ld   L_LLO, x
-    ld   [y,x], ac
-    ld   L_LHI, x
-    or   [y,x], ac
-    beq  lb_e
-    ld   L_LLO, x
-    ld   [y,x], ac
-    bne  lb_p2
-    ld   L_LHI, x
-    ld   [y,x], ac
-    dec
-    ld   ac, [y,x]
-lb_p2:
-    ld   L_LLO, x
-    ld   [y,x], ac
-    dec
-    ld   ac, [y,x]
-    ld   L_DPG, x
-    ld   [y,x], ac
-    ld   ac, [u0]
-    ld   L_DLO, x
-    ld   [y,x], ac
-    ld   ac, [u1]
-    inc
-    ld   ac, [y,x]
-    ld   [u0], y
-    ld   [u1], x
-    ld   [u7], ac
-    ld   ac, [y,x]
-lb_e:
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-; obj_next - L_NHI:L_NLO = the offset of object L_K (FFFF past the last)
+#overlay 0xBE00
+s_hdr:
+    #d "PLACARD TRACKER  ", 0x00
+s_oct:
+    #d "  oct ", 0x00
+s_ins:
+    #d "  ins ", 0x00
+s_stop:
+    #d "STOP", 0x00
+s_play:
+    #d "PLAY", 0x00
+s_keys:
+    #d " Z-M Q-P notes 1 off -= oct <> ins Tab pane  Ent/Spc play  Esc stop  ^O ^W ^N ^X", 0x00
+s_order:
+    #d "ORDER V1     V2     V3     V4", 0x00
+s_loop:
+    #d "LOOP", 0x00
+s_stop6:
+    #d "STOP  ", 0x00
+s_instr:
+    #d "INSTRUMENT ", 0x00
+s_dots:
+    #d "...", 0x00
+s_koff:
+    #d "===", 0x00
+s_empty:
+    #d 0x00
+s_cur:
+    #d "_ ", 0x00
 mus_frame:
     ld   [M_PLAY], ac
     blt  mf_go
@@ -9451,639 +10099,6 @@ mf_c:
     ld   mf_addr >> 8, y
     jmp  mf_addr
 
-
-#overlay 0xB600
-obj_start:
-    ld   PTAB_PG, y
-    ld   L_K, x
-    ld   [y,x], ac
-    ld   ac, [u2]
-    sub  4, ac
-    bcc  os_pat
-    ld   [u2], ac               ; orderlist k: OLIST + 64 k, 64 bytes
-    shl
-    shl
-    shl
-    shl
-    shl
-    shl
-    ld   ac, [u1]
-    ld   L_DLO, x
-    ld   ac, [y,x]
-    ld   L_DPG, x
-    ld   OLIST >> 8, [y,x]
-    ld   L_LLO, x
-    ld   64, [y,x]
-    ld   L_LHI, x
-    ld   0, [y,x]
-    bra  os_k
-os_pat:
-    ld   ac, [u3]
-    sub  CAP, ac
-    bcc  os_drop
-    ld   [u3], ac
-    ld   ac, [u0]
-    ld   PTAB_PG, y
-    add  PTAB_HI, x
-    ld   [y,x], ac
-    ld   ac, [u1]
-    ld   [u0], ac
-    add  PTAB_LO, x
-    ld   [y,x], ac
-    ld   ac, [u2]
-    ld   PTAB_PG, y
-    ld   L_DPG, x
-    ld   [u1], ac
-    ld   ac, [y,x]
-    ld   L_DLO, x
-    ld   [u2], ac
-    ld   ac, [y,x]
-    ld   L_LLO, x
-    ld   SLOT_LO, ac
-    ld   ac, [y,x]
-    ld   L_LHI, x
-    ld   SLOT_LO, ac
-    bne  os_k2
-    ld   1, [y,x]               ; 256
-    bra  os_k
-os_k2:
-    ld   0, [y,x]
-    bra  os_k
-os_drop:
-    ld   L_LLO, x
-    ld   0, [y,x]
-    ld   L_LHI, x
-    ld   0, [y,x]
-os_k:
-    ld   L_K, x
-    ld   [y,x], ac
-    inc
-    ld   ac, [y,x]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
-; load_fix - after the file: every slot ends, the orderlists decoded,
-; the live offsets, the player
-save_song:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    clr  ac                     ; the patterns to write: up to the highest
-    ld   ac, [w0]               ; used or referenced
-    ld   ac, [w1]               ; the highest + 1
-sv_n:
-    ld   [w0], ac
-    ld   LINK_LO, x             ; CALL slot_blank
-    ld   tr_r349, [x]
-    ld   LINK_HI, x
-    ld   tr_r349 >> 8, [x]
-    ld   slot_blank >> 8, y
-    jmp  slot_blank
-tr_r349:
-    bne  sv_n2
-    ld   [w0], ac
-    inc
-    ld   ac, [w1]
-sv_n2:
-    ld   [w0], ac
-    inc
-    ld   ac, [w0]
-    xor  CAP, ac
-    bne  sv_n
-    clr  ac
-    ld   ac, [w2]               ; the orderlists' references
-sv_v:
-    ld   [w2], ac
-    add  VSPAGE, y
-    ld   OD_LEN, x
-    ld   [y,x], ac
-    ld   ac, [w3]
-    clr  ac
-    ld   ac, [w4]
-sv_k:
-    ld   [w4], ac
-    xor  [w3], ac
-    beq  sv_kd
-    ld   [w4], ac
-    shl
-    add  OD_PAT, x
-    ld   [y,x], ac
-    inc
-    sub  [w1], ac
-    bcs  sv_k2
-    beq  sv_k2
-    ld   [y,x], ac
-    inc
-    ld   ac, [w1]
-sv_k2:
-    ld   [w4], ac
-    inc
-    ld   ac, [w4]
-    bra  sv_k
-sv_kd:
-    ld   [w2], ac
-    inc
-    ld   ac, [w2]
-    xor  4, ac
-    bne  sv_v
-    ld   [w1], ac
-    bne  sv_np
-    ld   1, ac
-sv_np:
-    ld   PTAB_PG, y
-    ld   L_NPAT, x
-    ld   ac, [y,x]
-    ld   save_offsets >> 8, y
-    jmp  save_offsets
-
-; the offsets in the header: the orderlists from x500, then the patterns
-
-#overlay 0xB800
-save_offsets:
-    clr  ac
-    ld   ac, [w0]               ; the running offset, low
-    ld   5, ac
-    ld   ac, [w1]               ; high
-    clr  ac
-    ld   ac, [w2]               ; the voice
-so2_v:
-    ld   [w2], ac
-    shl
-    add  0x41, ac
-    ld   ac, x
-    ld   SONG >> 8, y
-    ld   [w0], ac
-    ld   ac, [y,x]
-    ld   [w2], ac
-    shl
-    add  0x42, ac
-    ld   ac, x
-    ld   [w1], ac
-    ld   ac, [y,x]
-    ld   [w2], ac               ; its size: OD_OFF[len] + 1 (stop) or 2 (loop)
-    add  VSPAGE, y
-    ld   OD_LEN, x
-    ld   [y,x], ac
-    add  OD_OFF, x
-    ld   [y,x], ac
-    inc
-    ld   ac, [w3]
-    ld   OD_END, x
-    ld   [y,x], ac
-    xor  0xFF, ac
-    bne  so2_s
-    ld   [w3], ac
-    inc
-    ld   ac, [w3]
-so2_s:
-    ld   PTAB_PG, y
-    ld   [w2], ac
-    add  L_SZ, x
-    ld   [w3], ac
-    ld   ac, [y,x]
-    add  [w0], ac
-    ld   ac, [w0]
-    bcc  so2_c
-    ld   [w1], ac
-    inc
-    ld   ac, [w1]
-so2_c:
-    ld   [w2], ac
-    inc
-    ld   ac, [w2]
-    xor  4, ac
-    bne  so2_v
-    clr  ac
-    ld   ac, [w2]               ; the patterns
-so2_p:
-    ld   SONG >> 8, y
-    ld   [w2], ac
-    add  0x80, x
-    ld   [w0], ac
-    ld   ac, [y,x]
-    ld   [w2], ac
-    add  0xC0, x
-    ld   [w1], ac
-    ld   ac, [y,x]
-    ld   PTAB_PG, y
-    ld   L_NPAT, x
-    ld   [w2], ac
-    sub  [y,x], ac
-    bcc  so2_n                  ; past the count: the FF at the end
-    ld   [w2], ac
-    ld   LINK_LO, x             ; CALL slot_len
-    ld   tr_r350, [x]
-    ld   LINK_HI, x
-    ld   tr_r350 >> 8, [x]
-    ld   slot_len >> 8, y
-    jmp  slot_len
-tr_r350:
-    add  [w0], ac
-    ld   ac, [w0]
-    bcc  so2_n
-    ld   [w1], ac
-    inc
-    ld   ac, [w1]
-so2_n:
-    ld   [w2], ac
-    inc
-    ld   ac, [w2]
-    xor  64, ac
-    bne  so2_p
-    ld   save_header >> 8, y
-    jmp  save_header
-
-s_pattern:
-    #d "PATTERN ", 0x00
-s_rows:
-    #d " rows", 0x00
-s_nopat:
-    #d "no pattern", 0x00
-s_voice:
-    #d "   voice ", 0x00
-s_pos:
-    #d "   position ", 0x00
-s_cols:
-    #d " ROW V1          V2          V3          V4", 0x00
-
-#overlay 0xBA00
-save_header:
-    ld   [w0], ac               ; + the FF: the length
-    inc
-    ld   ac, [w0]
-    bne  sh_a
-    ld   [w1], ac
-    inc
-    ld   ac, [w1]
-sh_a:
-    ld   SONG >> 8, y
-    ld   0x08, x
-    ld   [w0], ac
-    ld   ac, [y,x]
-    ld   0x09, x
-    ld   [w1], ac
-    ld   ac, [y,x]
-    ld   0x04, x
-    ld   1, [y,x]
-    ld   0x07, x
-    ld   0, [y,x]
-    ld   0x05, x
-    ld   PTAB_PG, y
-    ld   L_NPAT, x
-    ld   [y,x], ac
-    ld   SONG >> 8, y
-    ld   0x05, x
-    ld   ac, [y,x]
-    ld   e_name, ac             ; the file
-    ld   ac, [R0]
-    clr  ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL l_fs_create
-    ld   tr_r351, [x]
-    ld   LINK_HI, x
-    ld   tr_r351 >> 8, [x]
-    ld   l_fs_create >> 8, y
-    jmp  l_fs_create
-tr_r351:
-    beq  sh_go
-    ld   LINK_LO, x             ; CALL set_offsets
-    ld   tr_r352, [x]
-    ld   LINK_HI, x
-    ld   tr_r352 >> 8, [x]
-    ld   set_offsets >> 8, y
-    jmp  set_offsets
-tr_r352:
-    ld   1, ac
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-sh_go:
-    clr  ac
-    ld   ac, [w4]               ; the sink: FBUF page w5, offset w4
-    ld   FBUF >> 8, ac
-    ld   ac, [w5]
-    ld   SONG >> 8, ac          ; pages 0-4
-    ld   ac, [w2]
-sh_p:
-    clr  ac
-    ld   ac, [w3]
-sh_b:
-    ld   [w2], y
-    ld   [w3], x
-    ld   [y,x], ac
-    ld   LINK_LO, x             ; CALL sv_put
-    ld   tr_r353, [x]
-    ld   LINK_HI, x
-    ld   tr_r353 >> 8, [x]
-    ld   sv_put >> 8, y
-    jmp  sv_put
-tr_r353:
-    ld   [w3], ac
-    inc
-    ld   ac, [w3]
-    bne  sh_b
-    ld   [w2], ac
-    inc
-    ld   ac, [w2]
-    xor  (SONG >> 8) + 5, ac
-    bne  sh_p
-    ld   save_lists >> 8, y
-    jmp  save_lists
-
-save_end:
-    ld   [w4], ac               ; a part sector left: write it
-    bne  se_w
-    ld   [w5], ac
-    xor  FBUF >> 8, ac
-    beq  se_c
-se_w:
-    ld   FBUF & 0xFF, ac
-    ld   ac, [R4]
-    ld   FBUF >> 8, ac
-    ld   ac, [R5]
-    ld   LINK_LO, x             ; CALL l_fs_write
-    ld   tr_r359, [x]
-    ld   LINK_HI, x
-    ld   tr_r359 >> 8, [x]
-    ld   l_fs_write >> 8, y
-    jmp  l_fs_write
-tr_r359:
-    bne  se_f
-se_c:
-    ld   SONG >> 8, y           ; the size from the header
-    ld   0x08, x
-    ld   [y,x], ac
-    ld   ac, [R0]
-    ld   0x09, x
-    ld   [y,x], ac
-    ld   ac, [R1]
-    clr  ac
-    ld   ac, [R2]
-    ld   ac, [R3]
-    ld   LINK_LO, x             ; CALL l_fs_close
-    ld   tr_r360, [x]
-    ld   LINK_HI, x
-    ld   tr_r360 >> 8, [x]
-    ld   l_fs_close >> 8, y
-    jmp  l_fs_close
-tr_r360:
-    bne  se_f
-    ld   LINK_LO, x             ; CALL set_offsets
-    ld   tr_r361, [x]
-    ld   LINK_HI, x
-    ld   tr_r361 >> 8, [x]
-    ld   set_offsets >> 8, y
-    jmp  set_offsets
-tr_r361:
-    clr  ac
-    ld   ac, [e_mod]
-    ld   ac, [e_fl]
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-se_f:
-    ld   LINK_LO, x             ; CALL set_offsets
-    ld   tr_r362, [x]
-    ld   LINK_HI, x
-    ld   tr_r362 >> 8, [x]
-    ld   set_offsets >> 8, y
-    jmp  set_offsets
-tr_r362:
-    ld   1, ac
-    ld   tr_leave >> 8, y
-    jmp  tr_leave
-
-; sv_put - the byte AC into the file (a sector at a time)
-
-#overlay 0xBC00
-save_lists:
-    clr  ac
-    ld   ac, [w2]               ; the voice
-sl2_v:
-    ld   PTAB_PG, y
-    ld   [w2], ac
-    add  L_SZ, x
-    ld   [y,x], ac
-    ld   ac, [w1]               ; its size
-    ld   [w2], ac
-    shl
-    shl
-    shl
-    shl
-    shl
-    shl
-    ld   ac, [w3]               ; its first byte
-sl2_b:
-    ld   OLIST >> 8, y
-    ld   [w3], x
-    ld   [y,x], ac
-    ld   LINK_LO, x             ; CALL sv_put
-    ld   tr_r354, [x]
-    ld   LINK_HI, x
-    ld   tr_r354 >> 8, [x]
-    ld   sv_put >> 8, y
-    jmp  sv_put
-tr_r354:
-    ld   [w3], ac
-    inc
-    ld   ac, [w3]
-    ld   [w1], ac
-    dec
-    ld   ac, [w1]
-    bne  sl2_b
-    ld   [w2], ac
-    inc
-    ld   ac, [w2]
-    xor  4, ac
-    bne  sl2_v
-    clr  ac
-    ld   ac, [w2]               ; the patterns
-sl2_p:
-    ld   PTAB_PG, y
-    ld   L_NPAT, x
-    ld   [w2], ac
-    xor  [y,x], ac
-    beq  sl2_d
-    ld   [w2], ac
-    ld   LINK_LO, x             ; CALL slot_len
-    ld   tr_r355, [x]
-    ld   LINK_HI, x
-    ld   tr_r355 >> 8, [x]
-    ld   slot_len >> 8, y
-    jmp  slot_len
-tr_r355:
-    ld   ac, [w1]
-    ld   [w2], ac
-    ld   LINK_LO, x             ; CALL slot_addr
-    ld   tr_r356, [x]
-    ld   LINK_HI, x
-    ld   tr_r356 >> 8, [x]
-    ld   slot_addr >> 8, y
-    jmp  slot_addr
-tr_r356:
-    clr  ac
-    ld   ac, [w3]
-sl2_pb:
-    ld   [u1], y
-    ld   [w3], ac
-    add  [u2], ac
-    ld   ac, x
-    ld   [y,x], ac
-    ld   LINK_LO, x             ; CALL sv_put
-    ld   tr_r357, [x]
-    ld   LINK_HI, x
-    ld   tr_r357 >> 8, [x]
-    ld   sv_put >> 8, y
-    jmp  sv_put
-tr_r357:
-    ld   [w3], ac
-    inc
-    ld   ac, [w3]
-    ld   [w1], ac
-    dec
-    ld   ac, [w1]
-    bne  sl2_pb
-    ld   [w2], ac
-    inc
-    ld   ac, [w2]
-    bra  sl2_p
-sl2_d:
-    ld   0xFF, ac
-    ld   LINK_LO, x             ; CALL sv_put
-    ld   tr_r358, [x]
-    ld   LINK_HI, x
-    ld   tr_r358 >> 8, [x]
-    ld   sv_put >> 8, y
-    jmp  sv_put
-tr_r358:
-    ld   save_end >> 8, y
-    jmp  save_end
-
-mf_addr:
-    ld   [M_RPTR], ac           ; T2:T1 = the address of group RPTR
-    xor  0x7C, ac
-    bne  mf_s1
-    ld   0xF3, ac
-    ld   ac, [T1]
-    ld   0x5D, ac
-    bra  mf_s3
-mf_s1:
-    ld   [M_RPTR], ac
-    shl
-    shl
-    ld   ac, [T1]
-    ld   [M_RPTR], ac
-    blt  mf_s2
-    ld   0x5D, ac
-    bra  mf_s3
-mf_s2:
-    and  0x40, ac
-    beq  mf_s4
-    ld   0x5F, ac
-    bra  mf_s3
-mf_s4:
-    ld   0x5E, ac
-mf_s3:
-    ld   ac, [T2]
-    ld   mus_gen >> 8, y
-    jmp  mus_gen
-
-ms_3:
-    ld   (mv3_sl + 1) >> 8, y
-    ld   (mv3_sl + 1) & 0xFF, x
-    ld   [T6], ac
-    ld   ac, [y,x]
-    ld   (mv3_sh + 1) & 0xFF, x
-    ld   [T7], ac
-    ld   ac, [y,x]
-    ld   (mv3_wp + 1) & 0xFF, x
-    ld   [W_WPG], ac
-    ld   ac, [y,x]
-    ld   (mv3_vo + 1) & 0xFF, x
-    ld   [T0], ac
-    ld   ac, [y,x]
-    ld   (mv3_vp + 1) & 0xFF, x
-    ld   [T1], ac
-    ld   ac, [y,x]
-    ld   ms_back >> 8, y
-    jmp  ms_back
-
-
-#overlay 0xBE00
-s_hdr:
-    #d "PLACARD TRACKER  ", 0x00
-s_oct:
-    #d "  oct ", 0x00
-s_ins:
-    #d "  ins ", 0x00
-s_stop:
-    #d "STOP", 0x00
-s_play:
-    #d "PLAY", 0x00
-s_keys:
-    #d " Z-M Q-P notes 1 off -= oct <> ins Tab pane  Ent/Spc play  Esc stop  ^O ^W ^N ^X", 0x00
-s_order:
-    #d "ORDER V1     V2     V3     V4", 0x00
-s_loop:
-    #d "LOOP", 0x00
-s_stop6:
-    #d "STOP  ", 0x00
-s_instr:
-    #d "INSTRUMENT ", 0x00
-s_dots:
-    #d "...", 0x00
-s_koff:
-    #d "===", 0x00
-s_empty:
-    #d 0x00
-s_cur:
-    #d "_ ", 0x00
-ve_rel:
-    ld   [W_SR], ac
-    and  15, ac
-    ld   ac, [T0]
-    ld   MUS_TAB >> 8, y
-    add  0xF0, x
-    ld   [y,x], ac
-    ld   ac, [T1]
-    ld   [T0], ac
-    add  0xE0, x
-    ld   [y,x], ac
-    ld   ac, [T2]
-    ld   [W_ENL], ac
-    sub  [T2], ac
-    ld   ac, [T2]
-    ld   [W_ENH], ac
-    bcc  vr_b
-    sub  1, ac
-    bcs  vr_0
-vr_b:
-    sub  [T1], ac
-    bcs  vr_0
-    ld   ac, [W_ENH]
-    ld   [T2], ac
-    ld   ac, [W_ENL]
-    ld   vslot >> 8, y
-    jmp  vslot
-vr_0:
-    clr  ac
-    ld   ac, [W_ENH]
-    ld   ac, [W_ENL]
-    ld   vslot >> 8, y
-    jmp  vslot
-
-; ------------------------------------------------------------
-; vslot - which mixer slot hears this voice (M_SLOT, FF none) and its wave
-; page (W_WPG): pulse and custom pages are rebuilt here, noise picks a
-; random page and phase
-; ------------------------------------------------------------
 
 #overlay 0xC000
 s_ifields:
@@ -10497,25 +10512,44 @@ mg_one:
 ; fills the buffer once (131 groups of silence) so the song's first tick
 ; starts well ahead of the video.
 ; ------------------------------------------------------------
-mus_stop:
-    ld   0x80, ac
-    ld   ac, [M_PLAY]
-    ld   W_EST, x
-    ld   MUS_VS >> 8, y
-    ld   3, [y,x]
-    ld   (MUS_VS >> 8) + 1, y
-    ld   3, [y,x]
-    ld   (MUS_VS >> 8) + 2, y
-    ld   3, [y,x]
-    ld   (MUS_VS >> 8) + 3, y
-    ld   3, [y,x]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
+ve_rel:
+    ld   [W_SR], ac
+    and  15, ac
+    ld   ac, [T0]
+    ld   MUS_TAB >> 8, y
+    add  0xF0, x
+    ld   [y,x], ac
+    ld   ac, [T1]
+    ld   [T0], ac
+    add  0xE0, x
+    ld   [y,x], ac
+    ld   ac, [T2]
+    ld   [W_ENL], ac
+    sub  [T2], ac
+    ld   ac, [T2]
+    ld   [W_ENH], ac
+    bcc  vr_b
+    sub  1, ac
+    bcs  vr_0
+vr_b:
+    sub  [T1], ac
+    bcs  vr_0
+    ld   ac, [W_ENH]
+    ld   [T2], ac
+    ld   ac, [W_ENL]
+    ld   vslot >> 8, y
+    jmp  vslot
+vr_0:
+    clr  ac
+    ld   ac, [W_ENH]
+    ld   ac, [W_ENL]
+    ld   vslot >> 8, y
+    jmp  vslot
 
 ; ------------------------------------------------------------
-; mus_sfx - AC = note 0-95, R0 = instrument, R1 = frames: a sound effect
-; on voice 4, heard in voice 3's place (mixer slot 3) for R1 frames
-;   changes: AC, X, Y, T0-T7
+; vslot - which mixer slot hears this voice (M_SLOT, FF none) and its wave
+; page (W_WPG): pulse and custom pages are rebuilt here, noise picks a
+; random page and phase
 ; ------------------------------------------------------------
 
 #overlay 0xCA00

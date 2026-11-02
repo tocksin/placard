@@ -212,6 +212,20 @@ def main(argv):
     if r.zp('e_pane') != 0:
         r.fail('five Tabs did not come back to the pattern pane (%d)' % r.zp('e_pane'))
     print('  Tab x5: pane back to the pattern, rows 2-3: %r | %r' % (r.row(3)[:40], r.row(3)[40:]))
+    # the table pane's text must be gone from the grid rows (every cell shows the song again)
+    r.run(12)
+    top = r.zp('c_top')
+    for rr in range(14):
+        row = r.row(14 + rr)
+        for v in range(4):
+            if v == 0 and 14 + rr in (g, g2):
+                continue        # the rows edited above
+            want = expect_cell(song, pats[v], top + rr)
+            if cell(row, v) != want:
+                r.fail('after Tab x5 row %d voice %d: %r, song says %r' % (top + rr, v + 1, cell(row, v), want))
+        if len(row) > 54 and row[54:].strip():
+            r.fail('after Tab x5 row %d has text past the grid: %r' % (top + rr, row[54:]))
+    print('  Tab x5: the grid rows show the song again')
 
     print('5. save and load')
     r.ctrl('w')
