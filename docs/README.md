@@ -31,6 +31,7 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 - [BASIC.md](software/BASIC.md): PLACARD BASIC
 - [DOS.md](software/DOS.md): the DOS and `.PLC` program files
 - [MENU.md](software/MENU.md): the demo menu
+- [TEST.md](software/TEST.md): the system test on the SD card (`TEST.PLC`)
 - [EMULATOR.md](software/EMULATOR.md): the web emulator
 - [BOING.md](software/BOING.md), [WIRE3D.md](software/WIRE3D.md): demos
 - [SOFTWARE_ROADMAP.md](software/SOFTWARE_ROADMAP.md): what comes next
