@@ -2010,6 +2010,12 @@
 		(uuid "88de35af-c953-579b-bb8f-bc8bfc2408e5")
 	)
 	(junction
+		(at 201.93 139.7)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "5c49f17f-14e7-4f68-b0d7-fac2adf49d7e")
+	)
+	(junction
 		(at 142.24 139.7)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -2335,6 +2341,16 @@
 			(type default)
 		)
 		(uuid "079b4abf-82c2-5583-bb23-7438bdf7b67f")
+	)
+	(wire
+		(pts
+			(xy 201.93 139.7) (xy 201.93 134.62)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e59772b5-92db-43c4-a061-42cbfd561c44")
 	)
 	(wire
 		(pts
@@ -2668,13 +2684,23 @@
 	)
 	(wire
 		(pts
-			(xy 198.12 139.7) (xy 266.7 139.7)
+			(xy 198.12 139.7) (xy 201.93 139.7)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "3d9690a6-358e-5f26-adf1-83e70eb7fadf")
+	)
+	(wire
+		(pts
+			(xy 201.93 139.7) (xy 266.7 139.7)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "194eebc9-29ae-4c1e-80de-590c45eefc98")
 	)
 	(wire
 		(pts
@@ -3516,16 +3542,6 @@
 		)
 		(uuid "09ad3072-2e74-5a8e-bcc8-2a1f217f3e58")
 	)
-	(label "Q0"
-		(at 200.66 139.7 0)
-		(effects
-			(font
-				(size 2 2)
-			)
-			(justify left bottom)
-		)
-		(uuid "16235580-ba89-5c45-b479-4457a58f65ea")
-	)
 	(label "I6"
 		(at 266.7 109.22 180)
 		(effects
@@ -4200,6 +4216,28 @@
 			)
 		)
 	)
+	(global_label "Q0"
+		(shape output)
+		(at 201.93 134.62 90)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 2 2)
+			)
+			(justify left)
+		)
+		(uuid "d13a68a4-2d8e-4e9c-ac79-1312fd46e74b")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 201.93 134.62 0)
+			(effects
+				(font
+					(size 2 2)
+				)
+				(justify left)
+				(hide yes)
+			)
+		)
+	)
 	(global_label "PC_ENABLE"
 		(shape passive)
 		(at 208.28 134.62 90)
@@ -4848,12 +4886,12 @@
 			)
 		)
 		(property "Value" "100n"
-			(at 195.04 129.6 0)
+			(at 191.04 129.6 0)
 			(effects
 				(font
 					(size 2 2)
 				)
-				(justify left top)
+				(justify right top)
 			)
 		)
 		(property "Footprint" "placard:C_Disc_D5.0mm_W2.5mm_P5.00mm"
