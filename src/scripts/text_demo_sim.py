@@ -8,6 +8,11 @@ text_demo_sim.py - run text_demo.asm in placard_sim and check it
     python3 text_demo_sim.py --fault 0x4321     make one RAM bit fail at that
                                                   address and check that the
                                                   RAM test reports it
+    python3 text_demo_sim.py --sd               the SD card program (TEXT.PLC,
+                                                  gen_text_demo_sd.py), booted
+                                                  from a card as the board does;
+                                                  its RAM test covers the free
+                                                  RAM only (--fault 0x4321 works)
 
 Boots the ROM image like the board (placard_sim --boot), runs the program
 for --seconds of simulated time (60 frames per second, 420,000 clocks per
@@ -22,7 +27,7 @@ frame count), the 256-color ring (every ring pixel against HUE and the
 phase) and the row tints of rows 0-95 (TINTB, with the raster bar BARP at
 BARY[phase / 2]).
 
-Date: 10/22/2026
+Date: 11/02/2026
 """
 
 import argparse
@@ -32,6 +37,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import placard_sim as ps  # noqa: E402
+import test_dos               # noqa: E402
 
 CLOCKS_PER_FRAME = 525 * 800
 # the RAM test pages (PAGES in text_demo.asm)
@@ -118,12 +124,32 @@ def main(argv):
     ap.add_argument('--gif-step', type=int, default=3, help='frames per GIF frame')
     ap.add_argument('--fault', type=lambda s: int(s, 0),
                     help='RAM address whose bit 3 always reads back flipped')
+    ap.add_argument('--sd', action='store_true', help='TEXT.PLC from a card')
     args = ap.parse_args(argv)
+    global PAGES, NPAGES
 
-    src = open(os.path.join(HERE, 'text_demo.asm')).read()
-    mem, syms, _ = ps.assemble(src, HERE)
-    rom = ps.build_rom(mem)
-    cpu = ps.Cpu({}, rom=rom)
+    if args.sd:
+        import gen_text_demo_sd
+        import gen_plc
+        src, mem, syms, PAGES = gen_text_demo_sd.build()
+        NPAGES = len(PAGES)
+        lib, _, _ = ps.assemble('#include "placard.asm"\n#include "placard_lib.asm"\n', HERE)
+        data, _, _, entry = gen_plc.make(mem, syms, lib)
+        rig = test_dos.boot_plc('TEXT.PLC', data, entry)
+        if rig is None:
+            return 1
+        cpu = rig.cpu
+        rom = bytearray(65536)                  # the ROM's font, the program's tables
+        for a, v in ps.build_rom(mem).items():
+            rom[a] = v
+        for a, v in mem.items():
+            if a < 0x4000:
+                rom[a] = v
+    else:
+        src = open(os.path.join(HERE, 'text_demo.asm')).read()
+        mem, syms, _ = ps.assemble(src, HERE)
+        rom = ps.build_rom(mem)
+        cpu = ps.Cpu({}, rom=rom)
     cpu.stalls = True
     if args.fault is not None:
         plain = cpu.read
@@ -142,10 +168,11 @@ def main(argv):
                         if chr(code - 0x80).isalpha() else '#')
 
     # draw the screen: run until the frame loop starts
+    t0 = cpu.clocks
     r = cpu.run(50_000_000, halt_detect=False, stop_pc=syms['td_loop'])
     if r != 'stop':
         sys.exit('did not reach the frame loop: ' + r)
-    t_draw = cpu.clocks
+    t_draw = cpu.clocks - t0
     print('screen drawn in %d clocks (%.1f ms)' % (t_draw, t_draw / 25175.0))
 
     frames = []
@@ -214,6 +241,8 @@ def main(argv):
     ok = check_scroll(cpu, syms, rom, frm) and ok
     ok = check_ring(cpu, syms, rom) and ok
     ok = check_tint(cpu, syms, rom) and ok
+    if args.sd:
+        ok = test_dos.esc_to_dos(rig) and ok
     print('OK' if ok else 'FAILED')
     return 0 if ok else 1
 

@@ -102,9 +102,8 @@ image (`build_dos_rom`) and `test_dos.py` runs it.
 Programs are `.PLC` files on the SD card ([DOS.md](../software/DOS.md#program-files-plc)):
 library programs assembled for RAM x0100-x3FFF (16 KB), or the older RAM
 images (x0000-x49FF).  The DOS and the demo menu are two of them
-([MENU.md](../software/MENU.md)).  The text demo, which runs in place from x6000-xBFFF, still builds
-as a 64K development image only (the ray caster, the textured ray caster
-and the side scroller have card versions too).
+([MENU.md](../software/MENU.md)).  The ROM demos (the ray casters, the side scroller and the text
+demo) still build as 64K development images and have card versions too.
 
 ## Map while a program runs
 

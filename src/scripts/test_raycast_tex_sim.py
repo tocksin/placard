@@ -14,6 +14,12 @@ drives).  For each view it checks:
     ticks (frames) the program counted
   - the picture: every byte of the 80 x 112 view matches
     gen_raycast_tex.view_bytes for that position
+  - the T key: pressed after view 10 and again after view 20 (held for 3
+    views), it turns the textures off (one flat color a wall) and on again:
+    views 11-20 must be flat, the rest textured.  The ROM build holds the
+    key in the keyboard state (KBD_NOW); the card build presses it on the
+    PS/2 keyboard model, so there the flat views may start a view or two
+    later, but the toggle must happen and each view must match the model
 and it prints the clocks a view and a column took.  Video stalls are not
 modeled (the board is about 10 % slower: 1 clock in 8 during active video).
 
@@ -65,6 +71,8 @@ def main(argv):
     clocks = []
     col_clocks = []
     p_ticks, p_done, p_col = syms['ticks'], syms['view_done'], syms['col_top']
+    flat_seen = []
+    t_down = {10: True, 13: False, 20: True, 23: False}
     while views < args.views:
         cpu.step()
         pc = cpu.pc
@@ -85,11 +93,23 @@ def main(argv):
             got = dict(pa=cpu.mem[z['pa']],
                        px=cpu.mem[z['pxl']] | cpu.mem[z['pxh']] << 8,
                        py=cpu.mem[z['pyl']] | cpu.mem[z['pyh']] << 8)
+            flat = cpu.mem[z['flat']]
+            flat_seen.append(flat)
+            if not args.sd and flat != (11 <= views <= 20):
+                print('view %d: flat %d, expected %d' % (views, flat, 11 <= views <= 20))
+                ok = False
+            if views in t_down:
+                if args.sd:
+                    (rig.port.kbd.press if t_down[views] else rig.port.kbd.release)(rig.codes['t'])
+                elif t_down[views]:
+                    cpu.mem[0xA2] &= 0xF7           # KBD_NOW + 2, bit 3: T down
+                else:
+                    cpu.mem[0xA2] |= 0x08
             if got != st:
                 print('view %d: player %s, model %s' % (views, got, st))
                 ok = False
                 st = got
-            want = rc.view_bytes(st['pa'], st['px'], st['py'], info['hs'])
+            want = rc.view_bytes(st['pa'], st['px'], st['py'], info['hs'], flat)
             bad = [a for a, v in want.items() if cpu.mem[a] != v]
             if bad:
                 a = bad[0]
@@ -121,6 +141,11 @@ def main(argv):
         frames[0].save(args.gif, save_all=True, append_images=frames[1:],
                        duration=int(1000 * avg / CLOCKS_PER_FRAME / 60), loop=0)
         print('wrote', args.gif, len(frames), 'frames')
+    if args.views >= 30:
+        print('flat (T) by view: %s' % ''.join(str(f) for f in flat_seen[:30]))
+        if args.sd and not (flat_seen[0] == 0 and any(flat_seen[10:20]) and not any(flat_seen[26:30])):
+            print('the T key did not toggle the textures')
+            ok = False
     if args.sd:
         if not test_dos.esc_to_dos(rig):
             ok = False
