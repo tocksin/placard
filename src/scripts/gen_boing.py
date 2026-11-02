@@ -48,7 +48,7 @@ HOW (no palette registers, sprites or scroll registers)
       (about 2,600 clocks a row against the beam's 3,200), so there is no
       tearing and no second buffer.
 
-MEMORY (a library program, docs/DOS.md: RAM x0100-x3FFF)
+MEMORY (a library program, docs/software/DOS.md: RAM x0100-x3FFF)
     x0100-x0BFF               code (asm_expand.py packs the chunks)
     x0C00-                    tables, background rows, strings, the 8 phases
     odd video pages x00-x7F   the clean background (4x rows show x80-xFF)

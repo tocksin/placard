@@ -2,7 +2,7 @@
 """
 gen_kicad_pcb.py - lay out the main board's outline, dimensions, connectors,
 expansion slots, cartridge slot and mounting holes in kicad/placard.kicad_pcb,
-and draw the layout drawing docs/placard_board_layout.png.
+and draw the layout drawing docs/hardware/placard_board_layout.png.
 
     python3.12 gen_kicad_pcb.py          # update the board file
     python3.12 gen_kicad_pcb.py --png    # and export the drawing
@@ -32,7 +32,7 @@ test (no routing): chips in rows grouped by schematic sheet, each socketed
 clear past both socket ends, decoupling capacitor Cn beside Un, passives in
 blocks near what they serve.  It then checks courtyard overlaps (its own
 check and KiCad's DRC), puller room and parts off the board, prints the
-share of the board covered, and --png also draws docs/placard_placement.png.
+share of the board covered, and --png also draws docs/hardware/placard_placement.png.
 
 The script owns the board outline (Edge.Cuts), everything on Dwgs.User and
 Cmts.User, the mounting holes H1-H8 and the footprints it places (the table
@@ -45,7 +45,7 @@ Footprints: KiCad's own where it has the part, and the PRELIMINARY ones from
 gen_kicad_connectors.py otherwise (cartridge slot, expansion slots, PS/2,
 SNES, switches), whose hole patterns must be checked against the datasheets.
 
-Date: 2026-10-30
+Date: 2026-11-02
 """
 
 import glob
@@ -64,8 +64,8 @@ import gen_kicad_stock_footprints  # noqa: E402
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 PCB = os.path.join(KDIR, "placard.kicad_pcb")
-PNG = os.path.join(ROOT, "docs", "placard_board_layout.png")
-PLACE_PNG = os.path.join(ROOT, "docs", "placard_placement.png")
+PNG = os.path.join(ROOT, "docs", "hardware", "placard_board_layout.png")
+PLACE_PNG = os.path.join(ROOT, "docs", "hardware", "placard_placement.png")
 STOCK = os.environ.get("KICAD7_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
 LIBS = {"placard": os.path.join(KDIR, "lib", "placard.pretty")}
 KICAD_COPY = {name: lib for lib, name in gen_kicad_stock_footprints.STOCK}
@@ -678,7 +678,7 @@ def build():
 def tidy(path):
     """Keep the file as KiCad 7 writes it with the project's title block date."""
     s = open(path).read()
-    s = re.sub(r'\(date "[^"]*"\)', '(date "2026-10-23")', s, count=1)
+    s = re.sub(r'\(date "[^"]*"\)', '(date "2026-11-02")', s, count=1)
     open(path, "w", newline="\n").write(s)
 
 

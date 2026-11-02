@@ -13,7 +13,7 @@ Device   g22v10;
    ADDRESS MUX, TWO LOW BITS AND TWO HIGH BITS PER CHIP
    =========================================================
 
-   Revision 02 (docs/FETCH_TIMING.md, option B): the four address
+   Revision 02 (docs/timing/FETCH_TIMING.md, option B): the four address
    mux PLDs take the address-source enables as their selects
    directly, instead of the three ADDR_SEL lines the Sync PLD
    decoded from them.  That removes one PLD pass (7.5 ns) from the

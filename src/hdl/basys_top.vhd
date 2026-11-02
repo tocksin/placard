@@ -702,7 +702,7 @@ begin
     --     1x: A8:A0 = V8:V0
     --     2x: A8 = 1, A7:A1 = V7:V1, A0 = V8
     --     4x: A8 = 1, A7 = 1, A6:A2 = V6:V2, A1 = V8, A0 = V7
-    -- See docs/VIDEO.md (line repeat).
+    -- See docs/video/VIDEO.md (line repeat).
     videoAddr(15 downto 9) <= pixelCol(9 downto 3);
     videoAddr(8)           <= rowA8;
     videoAddr(7)           <= rowA7;
@@ -728,7 +728,7 @@ begin
 
     -- The four address mux PLDs (revision 02): the address-source enables
     -- are the selects, video first, then PC, then X/Y, else D / 00h
-    -- (docs/FETCH_TIMING.md, option B).
+    -- (docs/timing/FETCH_TIMING.md, option B).
     addrMuxComp: entity work.full_mux
     port map(
            pixelEnable  => pixelEn,
@@ -743,7 +743,7 @@ begin
            addrPort     => ramAddress
     );
 
-    -- RUN comes from the ROM cartridge (cartridge.vhd, docs/ROM.md,
+    -- RUN comes from the ROM cartridge (cartridge.vhd, docs/architecture/ROM.md,
     -- "Loading the cartridge").  It is low for about 33 ms after power-up
     -- while the cartridge copies its EEPROMs into its SRAM, stalling the
     -- CPU at each address the PC reaches; then the CPU runs from x0000.
@@ -868,7 +868,7 @@ begin
     -- Data bus process (from RAM/ROM) - replaces the tri-state databus 
     --   Reads follow the ROM/RAM map (romSel).  The map is clear (all ROM)
     --   while RUN is low, so after the cartridge loads, the CPU starts in
-    --   the ROM's boot loader (see docs/ROM.md).  While the cartridge
+    --   the ROM's boot loader (see docs/architecture/ROM.md).  While the cartridge
     --   loads, its EEPROMs drive the bus (cartEeDrive).
     --
     --   Video line read: a 74F541 enabled by /LINE_RD (an I/O read at
@@ -877,7 +877,7 @@ begin
     --   while A1 = 0 and the PS/2 receiver PLD while A1 = 1.  The memory control PLD keeps the RAM and ROM off the
     --   bus in the I/O window, so the buffer is the only driver there.
     ----------------------------------------------------------
-    ------    Shared port at 5200h (docs/IO.md)            -------
+    ------    Shared port at 5200h (docs/architecture/IO.md)            -------
     ----------------------------------------------------------
     -- Port PLD (rev 04): the output register loads D4:D0 of the source
     -- bus on the rising edge of /PORT_WR and clears at power-up (the port
@@ -1130,7 +1130,7 @@ begin
     --   mode byte (5A00h + V8:V0) into the pixel buffer in clock 1 of
     --   group 45, and this register copies it on clocks 2-7, then holds it
     --   for the rest of the line.  So the mode byte no longer takes the
-    --   first byte column of the screen (see docs/VIDEO.md).  Q1:Q0 go to the
+    --   first byte column of the screen (see docs/video/VIDEO.md).  Q1:Q0 go to the
     --   color decoder, Q3:Q2 to the audio slot PLD (line repeat), Q6:Q4 to
     --   the row tint resistors and Q7 to the H counter PLD (blank line).
     --   A 74HCT377 since 2026-10-22, for the tint drive.
@@ -1158,7 +1158,7 @@ begin
         end if;
     end process pixelProc;
 
-    -- Audio DAC register (74HC574, see docs/SOUND.md)
+    -- Audio DAC register (74HC574, see docs/sound/SOUND.md)
     --   Clocked by the rising edge of H_VIDEO_ACTIVE (H counter PLD pin
     --   22, start of group 48).  The audio sample was read into the pixel
     --   buffer in group 46 or 47 (after the mode byte in group 45), and
@@ -1183,7 +1183,7 @@ begin
     --   (revision 08).  H2:H0 runs two clocks behind the 8-clock group
     --   (000 in clock 2, the first pixel of the byte read in clock 1), and
     --   VIDEN is registered to match, so the F574 that delayed H2:H0 and
-    --   videoActive by two clocks is gone (see docs/VIDEO_TIMING.md).
+    --   videoActive by two clocks is gone (see docs/timing/VIDEO_TIMING.md).
     colorDecoderComp : entity work.color_decoder
     Port map(
         -- Input Data
@@ -1223,7 +1223,7 @@ begin
     vBlue(1 downto 0) <= vBlue(2) & vBlue(2);
     vGreen(0) <= vGreen(1);
 
-    -- Row tint (2026-10-22, docs/VIDEO.md "Row tint")
+    -- Row tint (2026-10-22, docs/video/VIDEO.md "Row tint")
     --   On the board, line code Q4/Q5/Q6 each feed 910 ohm and two 1N4148s
     --   into the red/green/blue line, about 0.2 V (30 % of full scale), and a
     --   BAT85 to VIDEN turns it off in blanking.  Here the 4-bit Basys DAC
@@ -1276,7 +1276,7 @@ begin
 */
     -- The ROM cartridge (cartridge.vhd): loader PLD, EEPROMs (rom.mem:
     -- boot loader, standard library and font, and the program; see
-    -- docs/ROM.md) and the SRAM the CPU reads after the load.  CPU writes
+    -- docs/architecture/ROM.md) and the SRAM the CPU reads after the load.  CPU writes
     -- always go to the main RAM.
     cartComp : entity work.cartridge
     port map(

@@ -16,7 +16,7 @@ Device   g22v10;
    Replaces the instruction register 74F377 (chip #17).  It loads
    the opcode from the data bus in FETCH, like the F377, and holds
    02h (`ld ac, ac`) while RUN is low, so the CPU can only run that
-   instruction while the ROM cartridge loads (docs/ROM.md, "Loading
+   instruction while the ROM cartridge loads (docs/architecture/ROM.md, "Loading
    the cartridge").
 
    I.D = !RUN & (bit of 02h)

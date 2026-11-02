@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 io_devices.py - models of the shared port at x5200 and the devices on it,
-for placard_sim.py (see docs/IO.md)
+for placard_sim.py (see docs/architecture/IO.md)
 
     port = SharedPort()                 # latch, PS/2 receiver, pads, SD, mouse, keyboard
     port.pads[0].buttons = 0x0001       # pad 1: B held (bit n = button n)
@@ -727,7 +727,7 @@ class SharedPort:
 
 
 # ---------------------------------------------------------------------------
-# expansion slots (docs/EXPANSION.md)
+# expansion slots (docs/architecture/EXPANSION.md)
 # ---------------------------------------------------------------------------
 SLOT_BASE = (0x5100, 0x5300, 0x5180, 0x5380)     # slots 1-4
 

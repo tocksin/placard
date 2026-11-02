@@ -3,10 +3,10 @@
 Section drawing of the 3D-printed covers' pull-off detents (Justin,
 2026-10-30; the geometry is in gen_case.py): a slot cover and the cartridge
 cover on the top, a slot cover parked upside down under the floor, and
-close-ups of a tab.  Writes docs/case_cover_detents.png:
+close-ups of a tab.  Writes docs/case/case_cover_detents.png:
     python3 src/scripts/gen_case_covers.py
 
-Date: 2026-10-30
+Date: 2026-11-02
 """
 import math
 import os
@@ -150,7 +150,7 @@ def draw_section(parts, path):
 
 def main():
     parts = g.read_board(os.path.join(g.REPO, "kicad", "placard.kicad_pcb"))
-    path = os.path.join(g.REPO, "docs", "case_cover_detents.png")
+    path = os.path.join(g.REPO, "docs", "case", "case_cover_detents.png")
     draw_section(parts, path)
     print("wrote", path)
 

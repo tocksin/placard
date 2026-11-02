@@ -18,9 +18,9 @@ integer arithmetic, and times each part.
 
 Date: 10/28/2026
 
-![wire3d in the simulator](../reference/wire3d_sim.gif)
+![wire3d in the simulator](../../reference/wire3d_sim.gif)
 
-![filled mode](../reference/wire3d_filled.png)
+![filled mode](../../reference/wire3d_filled.png)
 
 ## The limits
 

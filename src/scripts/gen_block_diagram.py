@@ -7,8 +7,8 @@ number of chips in each block.
     python3 gen_block_diagram.py out.png      writes out.png
 
 Needs matplotlib (python3 -m pip install matplotlib).  The blocks and
-their chip counts are typed in below from docs/CHIPS.md; update them here when
-the chip list changes and rerun.  The counts must add up to the docs/CHIPS.md
+their chip counts are typed in below from docs/architecture/CHIPS.md; update them here when
+the chip list changes and rerun.  The counts must add up to the docs/architecture/CHIPS.md
 total (the script checks).
 
 The blocks are grouped in three panels: the CPU on the left, memory, I/O
@@ -17,7 +17,7 @@ run down the gap between the CPU and the middle panel; the source bus (it
 is also the memory data bus) carries on under the middle panel and up the
 gap to the video panel.
 
-Date: 2026-10-23
+Date: 2026-11-02
 """
 import os
 import sys
@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
 from matplotlib.patches import FancyBboxPatch, Rectangle
 
-CHIPS_TOTAL = 33            # docs/CHIPS.md main board, plus the 3.3 V regulator
+CHIPS_TOTAL = 33            # docs/architecture/CHIPS.md main board, plus the 3.3 V regulator
 
 # fill colors by area
 CPU, CTRL, MEM, IO, VID, SND, DEV = ("#E4DAFF", "#FFF2BF", "#D3F6D8", "#FFE3C8",
@@ -115,7 +115,7 @@ def dot(x, y, color):
 # ---------------------------------------------------------------- title
 ax.text(3, 4, "Placard: block diagram", fontsize=30, weight="bold", va="center")
 ax.text(3, 9.3, "%d chips and a 3.3 V regulator on the main board, every PLD an ATF22V10C-7PX "
-        "(docs/CHIPS.md).  The badge on each block is its chip count." % CHIPS_TOTAL,
+        "(docs/architecture/CHIPS.md).  The badge on each block is its chip count." % CHIPS_TOTAL,
         fontsize=15, color="#495057", va="center")
 
 # ---------------------------------------------------------------- panels
@@ -169,7 +169,7 @@ vga = box(184, 124, 52, 13, "Resistor DAC, VGA", None, "RGB ladders and row tint
           "gated by VIDEN", DEV, "vid", fs=15)
 
 total = sum(counted)
-assert total == CHIPS_TOTAL, "blocks add up to %d chips, docs/CHIPS.md says %d" % (total, CHIPS_TOTAL)
+assert total == CHIPS_TOTAL, "blocks add up to %d chips, docs/architecture/CHIPS.md says %d" % (total, CHIPS_TOTAL)
 for h, key in ((h_cpu, "cpu"), (h_mid, "mid"), (h_vid, "vid")):
     h.set_text("%s: %d chips" % (h.get_text(), sum(group_chips[key])))
 

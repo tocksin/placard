@@ -14,7 +14,7 @@
 --               powers up
 --     romComp   (cartridge.vhd) initFile => "rom.mem", the cartridge EEPROMs,
 --               made by gen_rom.tcl (boot loader, standard library and font,
---               and the program; see docs/ROM.md)
+--               and the program; see docs/architecture/ROM.md)
 --
 -- Vivado: add the .mem files to the project as design sources AND simulation
 -- sources (they are treated as data files), so the synthesizer and simulator

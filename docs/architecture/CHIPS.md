@@ -1,10 +1,10 @@
 # Chip list
 
-Date: 2026-10-25
+Date: 2026-11-02
 
 Every chip in the Placard, one chip per line.  The current list follows
 `basys_top.vhd`, the PLD sources in `src/pld`, [CPU.md](CPU.md),
-[TIMING.md](TIMING.md#parts) and [TIMING_FIXES.md](TIMING_FIXES.md).  The
+[TIMING.md](../timing/TIMING.md#parts) and [TIMING_FIXES.md](../timing/TIMING_FIXES.md).  The
 shared port is in [IO.md](IO.md).  Part numbers are the
 DIP parts those documents chose; stock moves, so recheck before ordering.
 
@@ -138,7 +138,7 @@ dividers (1.8k over 3.3k) bring the SD card's SCK, MOSI and /CS down to
 
 ## PLD speed grades
 
-Checked 2026-10-19 with the worst-case method of [TIMING.md](TIMING.md).
+Checked 2026-10-19 with the worst-case method of [TIMING.md](../timing/TIMING.md).
 The ATF22V10C-10PU (PDIP-24, like the -7PX) has tPD 10 ns, tCO 6.5, tS 4.5
 and tEA 10, against 7.5, 5.5, 3.5 and 7.5 for the -7PX.  Seven main-board
 PLDs and the cartridge's have the room for it; the other twelve stay -7.

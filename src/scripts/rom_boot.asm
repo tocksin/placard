@@ -6,7 +6,7 @@
 ; in the ROM, at PC = 0000.  Video reads always read the RAM (memory
 ; control PLD revision 04); only CPU reads follow the map.  The byte at
 ; BOOT_MODE (written by gen_rom.tcl) picks one of two ways to start the
-; program.  docs/ROM.md has the ROM layout.
+; program.  docs/architecture/ROM.md has the ROM layout.
 ;
 ; BOOT_MODE = 00: ROM program (the standard way).
 ;   The program runs in place from ROM x6000-xBFFF (and x2000-x3FFF) and
@@ -17,7 +17,7 @@
 ;   still shows the RAM.  It sets MAP_SHADOW = 05 and
 ;   jumps to the program's entry at x6000.
 ;
-; BOOT_MODE = 02: the DOS (the 32K image, docs/ROM.md "The 32K image").
+; BOOT_MODE = 02: the DOS (the 32K image, docs/architecture/ROM.md "The 32K image").
 ;   Map = 05 and MAP_SHADOW = 05 as for a ROM program, then a jump to the
 ;   DOS at DOS_START (x8100).  The image is x8000-xFFFF: gen_rom.tcl puts a
 ;   copy of the reset code at x8000, which a 32K cartridge reads at x0000,
@@ -52,7 +52,7 @@
 ; from ROM, every write to RAM), keeping its count in AC: ld [y,x], [y,x]
 ; reads the ROM and writes the RAM at the same address.
 ;
-; EXPANSION CARDS (docs/EXPANSION.md), before either mode, like the Apple II's
+; EXPANSION CARDS (docs/architecture/EXPANSION.md), before either mode, like the Apple II's
 ; slot scan:
 ;   1. map = 01, so the zero page is RAM.
 ;   2. For slots 4, 3, 2, 1: if the card's first bytes are "PLC", card
@@ -76,7 +76,7 @@
 ; the cartridge loader hands the CPU over at x0000 either in FETCH or in
 ; LOAD_IMM (the operand read of the image's last instruction), so the
 ; byte there is either run or skipped, and the CPU fetches x0001 next
-; (docs/ROM.md, "Loading the cartridge").
+; (docs/architecture/ROM.md, "Loading the cartridge").
 ;
 ; Date: 10/26/2026
 
@@ -136,7 +136,7 @@ boot_mode:
 
 #addr 0xFD00
 boot:
-    ld   PORT >> 8, y           ; shared port at rest (docs/IO.md): SD /CS low
+    ld   PORT >> 8, y           ; shared port at rest (docs/architecture/IO.md): SD /CS low
     ld   PORT_RX, x             ; (holds both PS/2 clocks low), SCK and MOSI
     ld   P_IDLE, [y,x]          ; high; the PS/2 receiver re-armed
     ld   LIB_RAM >> 8, y        ; copy LIB_RAM from the ROM to the RAM (map 00)

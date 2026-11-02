@@ -3,7 +3,7 @@
 menu_hook.py - the program menu's hook for the RAM programs (cpu_test,
 pi_spigot, mandelbrot, game_of_life), shared by their generators.
 
-The demo menu (docs/MENU.md; the DOS runs the programs, docs/DOS.md) takes
+The demo menu (docs/software/MENU.md; the DOS runs the programs, docs/software/DOS.md) takes
 the machine back from a program when Esc is pressed or, while it rotates
 through the programs, when the program's time is up.  A ROM program calls the library's menu_poll for that
 (placard_menu.asm).  The RAM programs run with map FF, where the library

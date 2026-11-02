@@ -119,7 +119,7 @@ begin
     -- and 101 on the last.  This replaces the two-stage
     -- pixel select and video enable delay register
     -- (F574) that used to sit between the Sync PLD and
-    -- the color decoder (see docs/VIDEO_TIMING.md).
+    -- the color decoder (see docs/timing/VIDEO_TIMING.md).
     --
     -- H3:H9 advance whenever H2:H0 = 101, the last
     -- clock of the group (H2:H0 = 111 before revision 07).

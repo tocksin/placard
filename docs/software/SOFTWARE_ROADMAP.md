@@ -1,10 +1,10 @@
 # Software roadmap
 
-Date: 2026-10-26
+Date: 2026-11-02
 
 Programs to write for the Placard, what each needs, and where it fits.
 The libraries it builds on are in [LIBRARY.md](LIBRARY.md)
-and [IO.md](IO.md).  The sizes below are estimates, to be replaced by real
+and [IO.md](../architecture/IO.md).  The sizes below are estimates, to be replaced by real
 numbers as each program is written.
 
 ## The long-term plan
@@ -281,6 +281,6 @@ Realistic instead:
    ZX81, TRS-80 or VIC-20; native games or a fantasy console engine.
 
 Each program gets a Python model and a `placard_sim.py` test like the
-library and the demos.  The 32K image ([ROM.md](ROM.md#the-32k-image))
+library and the demos.  The 32K image ([ROM.md](../architecture/ROM.md#the-32k-image))
 holds the loader, BASIC and the FAT writer in x8000-xBFFF; the rest are
 programs on the card.

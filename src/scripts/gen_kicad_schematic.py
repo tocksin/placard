@@ -3,7 +3,7 @@
 ten sheets) and kicad/cartridge_64k/ and kicad/cartridge_32k/ (the two ROM
 cartridge boards, one sheet each).
 
-The sheet split follows docs/SCHEMATIC_PLAN.md.  The connections follow the
+The sheet split follows docs/hardware/SCHEMATIC_PLAN.md.  The connections follow the
 PLD pin lists (src/pld/*.pld), basys_top.vhd and the docs (CHIPS.md, IO.md,
 SOUND.md, COLORS.md, EXPANSION.md, ROM.md).  Every pin of every part is listed
 here with its net, so a pin left out stops the script.
@@ -20,7 +20,7 @@ placard_cartridge_32k.pdf, set to open without the bookmarks panel.
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
 
-Date: 2026-10-30
+Date: 2026-11-02
 """
 import os
 import re
@@ -31,7 +31,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-10-30"
+DATE = "2026-11-02"
 # Board part numbers (Justin 2026-10-29): PLC-1xxx bare PCB, PLC-2xxx assembly; revision letters from A
 MAIN_PART = "PCB PLC-1001, assembly PLC-2001"
 CART_PART = {32: "PCB PLC-1002, assembly PLC-2002", 64: "PCB PLC-1003, assembly PLC-2003"}
@@ -59,7 +59,7 @@ FP_JP = "placard:PinHeader_1x02_P2.54mm_Vertical"
 # ---------------------------------------------------------------- part numbers
 # Manufacturer and MPN fields by part value, so KiCad's BOM export carries them.
 # A part with no chosen part number gets empty fields to fill in later.
-# the BOMs (docs/BOM.md and the BOM_*.md/.csv it lists) are written from the sheets by gen_bom.py.
+# the BOMs (docs/bom/BOM.md and the BOM_*.md/.csv it lists) are written from the sheets by gen_bom.py.
 MPN = {
     "ATF22V10C-7PX": ("Microchip", "ATF22V10C-7PX"),
     "ATF22V10C-10PU": ("Microchip", "ATF22V10C-10PU"),
@@ -477,7 +477,7 @@ def sheet_power(b):
     # X1 drives CLK_E, which reaches only the Sync PLD's pin 9 (the RAM /WE) and net tie NT2;
     # CLK, to every other chip, is the far side of NT2.  On the board NT2 goes at least 420 mm
     # of track (500 nominal, 3 ns) from X1, so /WE rises before the rest of the board sees the
-    # edge (docs/FETCH_TIMING.md, docs/WE_TIMING.md).
+    # edge (docs/timing/FETCH_TIMING.md, docs/timing/WE_TIMING.md).
     s.part("placard_parts:Oscillator_DIP14", "X1", 63.5, 170.18, {"14": "+5V", "7": "GND", "8": "CLK_E"},
            value="25.175 MHz", ref_at=(50, 160), value_at=(66, 181.0))
     decap(s, 43, 81.28, 160.02, lift=0)     # C43: the oscillator's, X1 has no U-number
@@ -604,7 +604,7 @@ def sheet_pc_mux(b):
     (ox, oy), (ix, iy) = u3["23"], u4["13"]
     yg = 142.24
     path(s, "PC_CO", (ox, oy), (ox + 2.54, oy), (ox + 2.54, yg), (ix - 2.54, yg), (ix - 2.54, iy), (ix, iy))
-    # mux PLD revision 02 (docs/FETCH_TIMING.md): chip n makes address bits 2n, 2n+1 (low: D, X,
+    # mux PLD revision 02 (docs/timing/FETCH_TIMING.md): chip n makes address bits 2n, 2n+1 (low: D, X,
     # video, PC) and 2n+8, 2n+9 (high: Y, video, PC); the four enables are its selects
     for ref, x, y, n in [("U7", 223.52, 93.98, 0), ("U8", 337.82, 93.98, 1),
                          ("U9", 223.52, 195.58, 2), ("U10", 337.82, 195.58, 3)]:
@@ -1235,7 +1235,7 @@ def root_sheet(b, sheets):
     for page, x, y, w, h in ROOT_BOXES:
         for i, ln in enumerate(contents[page]):
             s.text(ln, x + 3, y + 10 + i * 7, size=2.5)
-    note(s, 20, 220, ["34 chips + U40 regulator (docs/CHIPS.md numbers; U24, U28, U30, U33, U34 are not used).",
+    note(s, 20, 220, ["34 chips + U40 regulator (docs/architecture/CHIPS.md numbers; U24, U28, U30, U33, U34 are not used).",
                       "Decoupling: every chip's 100 nF Cn sits beside Un on its own sheet.",
                       "Power: +5V, GND, +3V3 (SD card), GNDA (audio, joined to GND on sheet 2).",
                       "The ROM cartridges are their own projects: kicad/cartridge_64k/, kicad/cartridge_32k/."], size=3)
@@ -1284,7 +1284,7 @@ def build_cart(size):
     s = K.Sheet(proj, proj + ".kicad_sch", "ROM cartridge, %dK" % size, 1, root_uuid, None, DATE,
                 part_no=CART_PART[size])
     s.uid = root_uuid
-    s.comment2 = "Cartridge chips U1-U%d (docs/CHIPS.md, ROM cartridge); decoupling Cn goes with Un" % (5 if size == 64 else 3)
+    s.comment2 = "Cartridge chips U1-U%d (docs/architecture/CHIPS.md, ROM cartridge); decoupling Cn goes with Un" % (5 if size == 64 else 3)
     s.names = {"U1": "Loader PLD"}
     heading(s, "ROM cartridge, %dK" % size,
             ("Two EEPROMs copied into two SRAMs" if size == 64 else "One EEPROM copied into one SRAM") +

@@ -623,14 +623,14 @@ class SharedPort {
 }
 
 // ---------------------------------------------------------------------------
-// Video: one screen row from the RAM (placard_sim.render, docs/VIDEO.md)
+// Video: one screen row from the RAM (placard_sim.render, docs/video/VIDEO.md)
 // ---------------------------------------------------------------------------
 function rgba(r, g, b) {          // little-endian ImageData word
     return ((255 << 24) | (b << 16) | (g << 8) | r) >>> 0;
 }
 
 const PAL2 = [[0, 0, 0], [0, 36, 255], [255, 182, 0], [255, 255, 255]];
-// 16-color palette, docs/COLORS.md: (R 0-7, G 0-7, B 0-3)
+// 16-color palette, docs/video/COLORS.md: (R 0-7, G 0-7, B 0-3)
 const PAL4 = [[0, 0, 0], [0, 0, 1], [4, 0, 2], [0, 0, 3], [7, 0, 0], [7, 0, 3], [4, 2, 0], [2, 2, 1],
     [0, 7, 3], [0, 4, 0], [7, 7, 3], [5, 5, 2], [7, 4, 2], [7, 4, 0], [7, 7, 0], [1, 7, 0]]
     .map(([r, g, b]) => [Math.floor(r * 255 / 7), Math.floor(g * 255 / 7), Math.floor(b * 255 / 3)]);
@@ -748,7 +748,7 @@ class Machine {
     // the time the cartridge takes to copy its EEPROM to its SRAM: the PC
     // walks all 64K, each address copied in its own 8-clock video group, and
     // each instruction's LOAD_MEM / EXEC clocks lose about one more group
-    // (docs/ROM.md, "Loading the cartridge": 28-33 ms)
+    // (docs/architecture/ROM.md, "Loading the cartridge": 28-33 ms)
     cartLoadClocks() {
         const rom = this.rom;
         let pc = 0, groups = 0;

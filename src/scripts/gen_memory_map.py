@@ -6,11 +6,11 @@ gen_memory_map.py - draw the Placard memory map as a PNG.
     python3 gen_memory_map.py out.png         writes out.png
 
 Needs matplotlib (python3 -m pip install matplotlib).  The regions are typed
-in below from README.md (Memory Map), docs/ROM.md, docs/LIBRARY.md (zero
-page), docs/VIDEO.md (mode byte, line repeat), docs/SOUND.md, docs/IO.md and
-docs/EXPANSION.md; update them here when the map changes and rerun.
+in below from README.md (Memory Map), docs/architecture/ROM.md, docs/software/LIBRARY.md (zero
+page), docs/video/VIDEO.md (mode byte, line repeat), docs/sound/SOUND.md, docs/architecture/IO.md and
+docs/architecture/EXPANSION.md; update them here when the map changes and rerun.
 
-Date: 2026-10-26
+Date: 2026-11-02
 """
 import os
 import sys
