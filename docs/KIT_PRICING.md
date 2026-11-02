@@ -1,6 +1,6 @@
 # Kit pricing and selling platforms
 
-Date: 2026-10-28
+Date: 2026-11-02
 
 What a PLACARD kit costs to make at a few batch sizes, what Crowd Supply,
 Kickstarter and Tindie take, and a suggested price.  Component costs come
@@ -54,7 +54,7 @@ included with the first expansion card, not in the core kit.
 |---|--:|--:|--:|--:|---|
 | Component price vs. BOM.md single-unit price: main / cart | 88 / 90 % | 82 / 85 % | 77 / 80 % | 73 / 76 % | Distributor breaks on PLDs, SRAMs, sockets, passives.  Single-unit parts without the PCB: main $170.54 (no J9-J12), 64K cartridge $65.62 (with the $4 shell and screw) |
 | Spares and dead-on-arrival allowance | 3 % of parts | 3 % | 3 % | 3 % | Replacement chips for support |
-| Main PCB, 290 x 290 mm, 4-layer, 1.6 mm, HASL lead-free | $16 | $12 | $9.50 | $8 | JLCPCB/PCBWay typical pricing for a board this large (no "$2 for 5" offer above 100 x 100 mm) |
+| Main PCB, 290 x 215 mm, 4-layer, 1.6 mm, HASL lead-free | $16 | $12 | $9.50 | $8 | JLCPCB/PCBWay typical pricing for a board this large (no "$2 for 5" offer above 100 x 100 mm) |
 | Cartridge PCB, 39 x 101.5 mm, 2-layer, ENIG, hard-gold bevelled fingers | $4 | $3 | $2.20 | $1.80 | Gold fingers and bevel are the costly options |
 | Case: aluminium tray and two plates (China sheet metal, open corner), acrylic top, printed covers, hardware | $78 | $62 | $52 | $45 | Middle of CASE.md's "Case, China sheet metal, open corner" range ($47-76 at 100); 50, 250 and 500 read between its 10, 100 and 1,000 columns |
 | US tariff on China-made PCBs and case | 35 % | 35 % | 35 % | 35 % | Changes often; 30-50 % range |
@@ -100,7 +100,7 @@ with its tariff, about a quarter.
 
 | Board | 5 (prototype) | 50 | 100 | 250 | 500 |
 |---|--:|--:|--:|--:|--:|
-| Main, 4-layer 290 x 290 mm | $30-45 | $14-18 | $10-14 | $8-11 | $7-9 |
+| Main, 4-layer 290 x 215 mm | $30-45 | $14-18 | $10-14 | $8-11 | $7-9 |
 | Cartridge, 2-layer, ENIG + gold fingers | $8-14 | $3.5-5 | $2.5-3.5 | $2-2.5 | $1.5-2 |
 
 Plus shipping from China (about $25-60 per order by DHL) and the tariff.
@@ -261,9 +261,9 @@ bulk-pack cards), and make one master image to copy.
    versus China sheet metal ($66-113 at 100 in the US, no tariff) move the
    complete kit by $20-50.
 2. **Tariffs** on China-made PCBs and the case (35 % assumed): a US PCB
-   house costs more than the tariff saves for a 290 x 290 mm 4-layer
+   house costs more than the tariff saves for a 290 x 215 mm 4-layer
    board, but check at quote time.
-3. **The main board size**: the 290 x 290 mm 4-layer board is about $12
+3. **The main board size**: the 290 x 215 mm 4-layer board is about $12
    at 100 plus tariff.  Not worth shrinking for cost alone.
 4. **Builder programming**: blank chips remove all programming cost and
    setup fees, but two things must be done before launch.  Confirm on a
