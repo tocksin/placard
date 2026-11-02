@@ -34,7 +34,10 @@ library, and the DOS and the demos are files.
   `menu_hook.py`, that reads the PS/2 receiver once per frame and looks
   for Esc's make code).
 - In the menu, **Up / Down** move the highlight and **Enter** (or Space)
-  runs the highlighted program; **1-9** and **0** (program 10) run that program at once.  A
+  runs the highlighted program; **1-9** and **0** (program 10) run that program at once.
+  **T** runs the system test, `TEST.PLC` ([TEST.md](TEST.md)), which is not
+  in the list and never runs in turn; Esc in it brings the menu back with
+  the highlight on program 1.  A
   program picked from the menu has no time limit: it runs until Esc (a
   program that finishes stays on its result).
 - With **no key for 2 minutes** in the menu, it goes back to running them
