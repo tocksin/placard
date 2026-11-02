@@ -19,6 +19,10 @@ library, and the DOS and the demos are files.
 | 2 | Pi (`pi_spigot.asm`) | `PI.PLC` | 1000 digits and the time are shown; they stay 10 s |
 | 3 | Mandelbrot (`mandelbrot.asm`) | `MANDEL.PLC` | all four color depths are drawn (about 2 min 15 s on the board; its limit is 3 minutes) |
 | 4 | Game of Life (`game_of_life.asm`) | `LIFE.PLC` | 1000 generations (about 4 min 40 s, so in turn it stops at 2 minutes) |
+| 5 | Boing ball (`gen_boing.py`, [BOING.md](BOING.md)) | `BOING.PLC` | never: 2 minutes in turn |
+| 6 | 3D ships (`gen_wire3d.py`, [WIRE3D.md](WIRE3D.md)) | `WIRE3D.PLC` | never: 2 minutes in turn |
+| 7 | Ray caster (`gen_raycast.py --sd`) | `RAYCAST.PLC` | never: 2 minutes in turn |
+| 8 | Runner, the side scroller (`gen_scroller.py --sd`) | `SCROLLER.PLC` (and `SCROLLER.OVL`) | never: 2 minutes in turn |
 
 - At power-up the programs run **in turn**, in the order above: each one
   until it is done or for 2 minutes (Mandelbrot 3, so it finishes), then
@@ -28,7 +32,7 @@ library, and the DOS and the demos are files.
   `menu_hook.py`, that reads the PS/2 receiver once per frame and looks
   for Esc's make code).
 - In the menu, **Up / Down** move the highlight and **Enter** (or Space)
-  runs the highlighted program; **1-4** run that program at once.  A
+  runs the highlighted program; **1-8** run that program at once.  A
   program picked from the menu has no time limit: it runs until Esc (a
   program that finishes stays on its result).
 - With **no key for 2 minutes** in the menu, it goes back to running them
@@ -39,10 +43,38 @@ library, and the DOS and the demos are files.
 - The highlighted program sits on a blue bar and the title on a gold band
   (row tints, mode byte bits 6:4, [VIDEO.md](../video/VIDEO.md#row-tint)).
 
-The text demo, the ray caster and the side scroller are not in the menu:
-they run in place from ROM x6000-xBFFF and don't fit the 16 KB of program
-RAM yet ([DOS.md](DOS.md#not-done-yet)).  `build\text_demo.bat` and the
-others still build each as its own 64K development image.
+The ray caster and the side scroller were ROM programs; their generators
+now also make card versions (`--sd`, below).  The textured ray caster and
+the text demo are not in the menu: the textured ray caster needs all 32 KB
+of program ROM (its textures, shading tables and compiled scalers) and the
+text demo's live RAM test covers the RAM a card program runs from
+([DOS.md](DOS.md#not-done-yet)).  They, and the ROM versions of the
+others, still build each as its own 64K development image
+(`build\raycast_tex.bat`, `build\text_demo.bat` and so on).
+
+### The ray caster and the scroller on the card
+
+- `RAYCAST.PLC` (`python gen_raycast.py --sd`, which writes
+  `raycast_sd.asm` too) is the same code and tables moved into the RAM:
+  x0100-x1EFF holds the code and most tables, and x2000-x28FF of the file
+  holds the store runs, strings and table sources that main copies up to
+  x4200-x4AFF (a library program loads at x0100-x3FFF only) before it
+  builds its height and distance tables in x2000-x41FF as before.
+- `SCROLLER.PLC` and `SCROLLER.OVL` (`python gen_scroller.py --sd`, which
+  writes `scroller_sd.asm` too): the file holds the sprite blitter at
+  x0100 (no copy needed) and the code, text and tables at x2000-x39FF.
+  The 16 KB of unrolled background strips go into the video RAM the
+  screen leaves free: with 4x line repeat and four 1x text lines, offsets
+  x040-x17F of each 512-byte byte column are never shown (column 0 and
+  offset x110, where the blitter puts off-screen bytes, are left out).
+  `SCROLLER.OVL` is a straight image of the RAM from x6000, one sector a
+  byte column, which main reads after clearing the screen; the strips run
+  with map FF (the frame sets it before the bands, `draw_sprites` puts
+  map 07 back).
+- Both leave on Esc (`menu_poll`) and don't call `port_init` (the DOS has
+  set up the port).  `test_raycast_sim.py --sd` and
+  `test_scroller_sim.py --sd` boot each from a card image and check every
+  frame against the models, as the ROM versions' tests do.
 
 ## How a program is run
 
@@ -107,13 +139,13 @@ python asm_expand.py menu.masm                   menu.asm
 python gen_plc.py menu.asm -o ..\..\sdcard\MENU.PLC
 ```
 
-`sdcard\` in the repository holds `MENU.PLC`, the four demos' files
+`sdcard\` in the repository holds `MENU.PLC`, the eight demos' files
 (`gen_plc.py cpu_test.asm -o ..\..\sdcard\CPUTEST.PLC` and so on after a
 change), `DOS.PLC` and `BOOT.CFG` (`MENU.PLC`): copy the folder onto a FAT16
 or FAT32 card.  The ROM is `build\rom32.bat`.
 
 `src/scripts/test_menu.py` runs the menu through the ROM's loader in
 `placard_sim.py` with short times and checks the rotation order, that each
-RAM program's RAM is exactly its own file when it starts, Esc, the keys, a
+program's RAM is exactly its own file when it starts, Esc, the keys, a
 picked program running past the time limit, the idle return and Esc to the
 DOS (`--png` saves the menu screen).

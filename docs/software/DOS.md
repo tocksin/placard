@@ -50,7 +50,7 @@ PLACARD DOS    folder \
   GAMES         <DIR>
   MENU.PLC      1528
   ...
-Up/Down move  Enter run/open  Bksp up  Del delete  B boot  R reread  Esc command
+Up/Dn  Enter run  Bksp up  Del delete  B boot  R reread  Ctrl+B BASIC  Esc cmd
 ```
 
 | Key | Does |
@@ -61,6 +61,7 @@ Up/Down move  Enter run/open  Bksp up  Del delete  B boot  R reread  Esc command
 | Del | delete the file (a folder gives error 13) |
 | B | write BOOT.CFG = this file, so it runs at power-up (root folder only, where the boot reads it) |
 | R | read the folder again (after changing the card) |
+| Ctrl+B | start BASIC (in the ROM; its `DOS` command comes back here) |
 | Esc | a command line on row 57 |
 
 Up to 128 entries of a folder are shown (name, size in bytes or `<DIR>`;
@@ -212,12 +213,12 @@ BASIC; BOOT.CFG naming a missing file.
 
 ## Not done yet
 
-- The text demo and the ray caster run in place from ROM x6000-xBFFF and
-  can't yet be loaded into the 16 KB of program RAM (x0100-x3FFF): the ray
-  caster alone needs 7 KB of code and 10 KB of tables; the text demo 11 KB.
-  They stay buildable as 64K development images (`build\text_demo.bat`,
-  `build\raycast.bat`).  Making them SD programs means reworking them for
-  RAM x0100-x3FFF.
+- The text demo and the textured ray caster run in place from ROM
+  x6000-xBFFF only: the textured ray caster needs all 32 KB of program ROM,
+  and the text demo's live RAM test covers the RAM a card program runs
+  from.  They stay buildable as 64K development images
+  (`build\text_demo.bat`, `build\raycast_tex.bat`).  The ray caster and
+  the side scroller are on the card ([MENU.md](MENU.md#the-ray-caster-and-the-scroller-on-the-card)).
 - Running a `.BAS` file from the browser (for now: start BASIC, then
   `RUN "NAME"`; [BASIC.md](BASIC.md)).
 - A monitor, now planned as a program on the card (`MON.PLC`).

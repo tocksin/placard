@@ -14,10 +14,13 @@ drives).  For each view it checks:
     ticks (frames) the program counted
   - the picture: every byte of the 80 x 112 view matches
     gen_raycast.view_bytes for that position
+--sd runs the SD card program instead (RAYCAST.PLC): the 32K ROM boots
+from a card with BOOT.CFG = RAYCAST.PLC (test_dos.boot_plc), and at the
+end Esc must bring the DOS back.
 and it prints the clocks a view and a column took.  Video stalls are not
 modeled (the board is about 10 % slower: 1 clock in 8 during active video).
 
-Date: 10/18/2026
+Date: 11/02/2026
 """
 
 import argparse
@@ -28,6 +31,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import placard_sim as ps  # noqa: E402
 import gen_raycast as rc  # noqa: E402
+import test_dos           # noqa: E402
 
 CLOCKS_PER_FRAME = 525 * 800
 
@@ -37,11 +41,20 @@ def main(argv):
     ap.add_argument('--views', type=int, default=30)
     ap.add_argument('--png')
     ap.add_argument('--gif')
+    ap.add_argument('--sd', action='store_true',
+                    help='the SD card program (RAYCAST.PLC as gen_raycast.py --sd makes it), '
+                         'loaded as the DOS loads it')
     args = ap.parse_args(argv)
 
-    src, _ = rc.gen()
+    src, _ = rc.gen(sd=args.sd)
     mem, syms, _ = ps.assemble(src, HERE)
-    cpu = ps.Cpu({}, rom=ps.build_rom(mem))
+    if args.sd:
+        rig = test_dos.boot_plc('RAYCAST.PLC', rc.plc(mem, syms), syms['main'])
+        if rig is None:
+            return 1
+        cpu = rig.cpu
+    else:
+        cpu = ps.Cpu({}, rom=ps.build_rom(mem))
     z = syms
     st = dict(rc.START)
     script = rc.Script()
@@ -110,6 +123,9 @@ def main(argv):
         frames[0].save(args.gif, save_all=True, append_images=frames[1:],
                        duration=int(1000 * avg / CLOCKS_PER_FRAME / 60), loop=0)
         print('wrote', args.gif, len(frames), 'frames')
+    if args.sd:
+        if not test_dos.esc_to_dos(rig):
+            ok = False
     print('OK' if ok else 'FAILED')
     return 0 if ok else 1
 

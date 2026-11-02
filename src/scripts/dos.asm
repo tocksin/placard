@@ -18,8 +18,8 @@
 ;                Up / Down move; Enter runs a .PLC file or opens a folder;
 ;                Backspace goes to the folder above; Del deletes the file;
 ;                B writes BOOT.CFG = the chosen file (root folder only); R
-;                reads the folder again (a changed card); Esc gives a
-;                command line:
+;                reads the folder again (a changed card); Ctrl+B starts
+;                BASIC in the ROM; Esc gives a command line:
 ;                  RUN name            run a .PLC file
 ;                  LOAD name hhhh      load a file's bytes at a hex address
 ;                                      (below x3000, where the DOS is)
@@ -47,7 +47,7 @@
 ;     python3 gen_plc.py dos.asm -o ../../sdcard/DOS.PLC   the card's file
 ;     python3 test_dos.py                     runs it with the ROM and a card image
 ;
-; Date: 10/26/2026
+; Date: 11/02/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -372,6 +372,12 @@ bk_7:
     ld   k_cmd >> 8, y
     jmp  k_cmd
 bk_8:
+    ld   [d_k], ac
+    xor  0x02, ac               ; Ctrl+B: BASIC
+    bne  bk_9
+    ld   basic >> 8, y
+    jmp  basic
+bk_9:
     ld   br_loop >> 8, y
     jmp  br_loop
 
@@ -428,18 +434,8 @@ kud_none:
     ld   br_loop >> 8, y
     jmp  br_loop
 
-fail:
-    ld   ac, [d_err]
-    ld   s_err & 0xFF, ac
-    ld   ac, [d_msgl]
-    ld   s_err >> 8, ac
-    ld   ac, [d_msgh]
-    ld   browser >> 8, y
-    jmp  browser
 
-; ============================================================
-; the command line (Esc)
-; ============================================================
+#addr 0x3200
 k_down:
     ld   [d_sel], ac
     inc
@@ -690,58 +686,64 @@ cd_err:
     ld   fail >> 8, y
     jmp  fail
 
-cmd_dispatch2:
-    ld   s_boot & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_boot >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL streq
-    ld   dos_r36, [x]
-    ld   LINK_HI, x
-    ld   dos_r36 >> 8, [x]
-    ld   streq >> 8, y
-    jmp  streq
-dos_r36:
-    bne  cm_6
-    ld   c_boot >> 8, y
-    jmp  c_boot
-cm_6:
-    ld   s_dirc & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_dirc >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL streq
-    ld   dos_r37, [x]
-    ld   LINK_HI, x
-    ld   dos_r37 >> 8, [x]
-    ld   streq >> 8, y
-    jmp  streq
-dos_r37:
-    bne  cm_7
+fail:
+    ld   ac, [d_err]
+    ld   s_err & 0xFF, ac
+    ld   ac, [d_msgl]
+    ld   s_err >> 8, ac
+    ld   ac, [d_msgh]
     ld   browser >> 8, y
     jmp  browser
-cm_7:
-    ld   s_basicc & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_basicc >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL streq
-    ld   dos_r38, [x]
+
+; ============================================================
+; the command line (Esc)
+; ============================================================
+c_run:
+    ld   LINK_LO, x             ; CALL word
+    ld   dos_r39, [x]
     ld   LINK_HI, x
-    ld   dos_r38 >> 8, [x]
-    ld   streq >> 8, y
-    jmp  streq
-dos_r38:
-    bne  cm_8
-    ld   basic >> 8, y
-    jmp  basic
-cm_8:
-    ld   s_unknown & 0xFF, ac
+    ld   dos_r39 >> 8, [x]
+    ld   word >> 8, y
+    jmp  word
+dos_r39:
+    beq  cr_name
+    ld   run_name >> 8, y
+    jmp  run_name
+cr_name:
+    ld   need_name >> 8, y
+    jmp  need_name
+
+need_name:
+    ld   s_name & 0xFF, ac
     ld   ac, [d_msgl]
-    ld   s_unknown >> 8, ac
+    ld   s_name >> 8, ac
     ld   ac, [d_msgh]
     ld   br_draw >> 8, y
     jmp  br_draw
+need_hex:
+    ld   s_syntax & 0xFF, ac
+    ld   ac, [d_msgl]
+    ld   s_syntax >> 8, ac
+    ld   ac, [d_msgh]
+    ld   br_draw >> 8, y
+    jmp  br_draw
+
+dir_ptr:
+    ld   ac, [d_t]
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    add  DOS_DIR >> 8, ac
+    ld   ac, [d_ph]
+    ld   [d_t], ac
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [d_pl]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
 
 
 #addr 0x3400
@@ -876,23 +878,11 @@ kc_dir:
     ld   browser >> 8, y
     jmp  browser
 
-c_run:
-    ld   LINK_LO, x             ; CALL word
-    ld   dos_r39, [x]
-    ld   LINK_HI, x
-    ld   dos_r39 >> 8, [x]
-    ld   word >> 8, y
-    jmp  word
-dos_r39:
-    beq  cr_name
-    ld   run_name >> 8, y
-    jmp  run_name
-cr_name:
-    ld   need_name >> 8, y
-    jmp  need_name
+s_notdir:   #d "Not a folder", 0x00
+s_deleted:  #d "Deleted", 0x00
+s_prompt:   #d "> ", 0x00
+s_cfg:      #d "BOOT.CFG", 0x00
 
-
-#addr 0x3500
 cmd_dispatch:
     ld   s_run & 0xFF, ac
     ld   ac, [R0]
@@ -972,6 +962,61 @@ cm_5:
     ld   cmd_dispatch2 >> 8, y
     jmp  cmd_dispatch2
 
+cmd_dispatch2:
+    ld   s_boot & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_boot >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL streq
+    ld   dos_r36, [x]
+    ld   LINK_HI, x
+    ld   dos_r36 >> 8, [x]
+    ld   streq >> 8, y
+    jmp  streq
+dos_r36:
+    bne  cm_6
+    ld   c_boot >> 8, y
+    jmp  c_boot
+cm_6:
+    ld   s_dirc & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_dirc >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL streq
+    ld   dos_r37, [x]
+    ld   LINK_HI, x
+    ld   dos_r37 >> 8, [x]
+    ld   streq >> 8, y
+    jmp  streq
+dos_r37:
+    bne  cm_7
+    ld   browser >> 8, y
+    jmp  browser
+cm_7:
+    ld   s_basicc & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_basicc >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL streq
+    ld   dos_r38, [x]
+    ld   LINK_HI, x
+    ld   dos_r38 >> 8, [x]
+    ld   streq >> 8, y
+    jmp  streq
+dos_r38:
+    bne  cm_8
+    ld   basic >> 8, y
+    jmp  basic
+cm_8:
+    ld   s_unknown & 0xFF, ac
+    ld   ac, [d_msgl]
+    ld   s_unknown >> 8, ac
+    ld   ac, [d_msgh]
+    ld   br_draw >> 8, y
+    jmp  br_draw
+
+
+#addr 0x3600
 c_del:
     ld   LINK_LO, x             ; CALL word
     ld   dos_r40, [x]
@@ -1028,23 +1073,6 @@ dos_r43:
     ld   boot_name >> 8, y
     jmp  boot_name
 
-need_name:
-    ld   s_name & 0xFF, ac
-    ld   ac, [d_msgl]
-    ld   s_name >> 8, ac
-    ld   ac, [d_msgh]
-    ld   br_draw >> 8, y
-    jmp  br_draw
-need_hex:
-    ld   s_syntax & 0xFF, ac
-    ld   ac, [d_msgl]
-    ld   s_syntax >> 8, ac
-    ld   ac, [d_msgh]
-    ld   br_draw >> 8, y
-    jmp  br_draw
-
-
-#addr 0x3600
 c_load:
     ld   LINK_LO, x             ; CALL word
     ld   dos_r44, [x]
@@ -1105,6 +1133,44 @@ cl_dos:
     ld   br_draw >> 8, y
     jmp  br_draw
 
+dl_list:
+    ld   [d_i], ac
+    xor  [d_n], ac
+    beq  dl_done
+    ld   [d_row], ac
+    xor  LIST_ROW + LIST_N, ac
+    beq  dl_done
+    ld   LINK_LO, x             ; CALL show_ent
+    ld   dos_r65, [x]
+    ld   LINK_HI, x
+    ld   dos_r65 >> 8, [x]
+    ld   show_ent >> 8, y
+    jmp  show_ent
+dos_r65:
+    ld   [d_i], ac
+    inc
+    ld   ac, [d_i]
+    ld   [d_row], ac
+    inc
+    ld   ac, [d_row]
+    bra  dl_list
+dl_done:
+    ld   [d_n], ac
+    beq  dl_x
+    ld   TINT_BAR, ac
+    ld   LINK_LO, x             ; CALL bar_set
+    ld   dos_r66, [x]
+    ld   LINK_HI, x
+    ld   dos_r66 >> 8, [x]
+    ld   bar_set >> 8, y
+    jmp  bar_set
+dos_r66:
+dl_x:
+    ld   lib_leave >> 8, y
+    jmp  lib_leave
+
+
+#addr 0x3700
 c_save:
     ld   LINK_LO, x             ; CALL word
     ld   dos_r47, [x]
@@ -1165,25 +1231,6 @@ cs_hex:
     ld   need_hex >> 8, y
     jmp  need_hex
 
-dir_ptr:
-    ld   ac, [d_t]
-    shr  ac
-    shr  ac
-    shr  ac
-    shr  ac
-    add  DOS_DIR >> 8, ac
-    ld   ac, [d_ph]
-    ld   [d_t], ac
-    shl
-    shl
-    shl
-    shl
-    ld   ac, [d_pl]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
-
-#addr 0x3700
         ; d_eh:d_el entry: the header, then create / write / close
 save_plc:
     ld   DOS_BUF >> 8, y
@@ -1266,62 +1313,6 @@ dos_r52:
     ld   ac, [d_lh]
     ld   sp_write >> 8, y
     jmp  sp_write
-
-        ; left out), d_n = how many.  AC = 0, or the error (also shown)
-dir_read:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    clr  ac
-    ld   ac, [d_n]
-    ld   FSV, y
-    ld   V_TYPE, x
-    ld   [y,x], ac
-    bne  dr_ok
-    ld   LINK_LO, x             ; no card yet
-    ld   dos_r57, [x]
-    ld   LINK_HI, x
-    ld   dos_r57 >> 8, [x]
-    ld   mount >> 8, y
-    jmp  mount
-dos_r57:
-    bne  dr_nocard
-dr_ok:
-    ld   LINK_LO, x             ; CALL fs_cwd
-    ld   dos_r58, [x]
-    ld   LINK_HI, x
-    ld   dos_r58 >> 8, [x]
-    ld   fs_cwd >> 8, y
-    jmp  fs_cwd
-dos_r58:
-    bne  dr_fail
-    ld   dr_next >> 8, y
-    jmp  dr_next
-dr_nocard:
-    ld   ac, [d_err]
-    ld   s_nocard & 0xFF, ac
-    ld   ac, [d_msgl]
-    ld   s_nocard >> 8, ac
-    ld   ac, [d_msgh]
-    ld   lib_leave >> 8, y
-    jmp  lib_leave
-dr_fail:
-    ld   ac, [d_err]
-    ld   s_err & 0xFF, ac
-    ld   ac, [d_msgl]
-    ld   s_err >> 8, ac
-    ld   ac, [d_msgh]
-    ld   lib_leave >> 8, y
-    jmp  lib_leave
 
 
 #addr 0x3800
@@ -1413,71 +1404,62 @@ sp_err:
 ; ============================================================
 ; the folder: dir_read, dir_ptr, ent_name
 ; ============================================================
-dl_list:
-    ld   [d_i], ac
-    xor  [d_n], ac
-    beq  dl_done
-    ld   [d_row], ac
-    xor  LIST_ROW + LIST_N, ac
-    beq  dl_done
-    ld   LINK_LO, x             ; CALL show_ent
-    ld   dos_r65, [x]
+        ; left out), d_n = how many.  AC = 0, or the error (also shown)
+dir_read:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    clr  ac
+    ld   ac, [d_n]
+    ld   FSV, y
+    ld   V_TYPE, x
+    ld   [y,x], ac
+    bne  dr_ok
+    ld   LINK_LO, x             ; no card yet
+    ld   dos_r57, [x]
     ld   LINK_HI, x
-    ld   dos_r65 >> 8, [x]
-    ld   show_ent >> 8, y
-    jmp  show_ent
-dos_r65:
-    ld   [d_i], ac
-    inc
-    ld   ac, [d_i]
-    ld   [d_row], ac
-    inc
-    ld   ac, [d_row]
-    bra  dl_list
-dl_done:
-    ld   [d_n], ac
-    beq  dl_x
-    ld   TINT_BAR, ac
-    ld   LINK_LO, x             ; CALL bar_set
-    ld   dos_r66, [x]
+    ld   dos_r57 >> 8, [x]
+    ld   mount >> 8, y
+    jmp  mount
+dos_r57:
+    bne  dr_nocard
+dr_ok:
+    ld   LINK_LO, x             ; CALL fs_cwd
+    ld   dos_r58, [x]
     ld   LINK_HI, x
-    ld   dos_r66 >> 8, [x]
-    ld   bar_set >> 8, y
-    jmp  bar_set
-dos_r66:
-dl_x:
+    ld   dos_r58 >> 8, [x]
+    ld   fs_cwd >> 8, y
+    jmp  fs_cwd
+dos_r58:
+    bne  dr_fail
+    ld   dr_next >> 8, y
+    jmp  dr_next
+dr_nocard:
+    ld   ac, [d_err]
+    ld   s_nocard & 0xFF, ac
+    ld   ac, [d_msgl]
+    ld   s_nocard >> 8, ac
+    ld   ac, [d_msgh]
+    ld   lib_leave >> 8, y
+    jmp  lib_leave
+dr_fail:
+    ld   ac, [d_err]
+    ld   s_err & 0xFF, ac
+    ld   ac, [d_msgl]
+    ld   s_err >> 8, ac
+    ld   ac, [d_msgh]
     ld   lib_leave >> 8, y
     jmp  lib_leave
 
-streq:
-    clr  ac
-    ld   ac, [d_t]
-sq_l:
-    ld   [R1], y
-    ld   [R0], ac
-    add  [d_t], x
-    ld   [y,x], ac
-    ld   ac, [d_c]
-    ld   [d_t], ac
-    add  d_name, x
-    ld   [x], ac
-    xor  [d_c], ac
-    bne  sq_ne
-    ld   [d_c], ac
-    beq  sq_eq
-    ld   [d_t], ac
-    inc
-    ld   ac, [d_t]
-    bra  sq_l
-sq_ne:
-    ld   1, ac
-sq_eq:
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
-; ============================================================
-; strings
-; ============================================================
 
 #addr 0x3900
 dr_next:
@@ -1763,11 +1745,6 @@ dos_r77:
 ; ============================================================
 ; the command line's words: word, hex4, streq
 ; ============================================================
-s_notdir:   #d "Not a folder", 0x00
-s_deleted:  #d "Deleted", 0x00
-s_prompt:   #d "> ", 0x00
-s_cfg:      #d "BOOT.CFG", 0x00
-
 
 #addr 0x3B00
 show_ent:
@@ -1876,6 +1853,35 @@ dos_r72:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 
+streq:
+    clr  ac
+    ld   ac, [d_t]
+sq_l:
+    ld   [R1], y
+    ld   [R0], ac
+    add  [d_t], x
+    ld   [y,x], ac
+    ld   ac, [d_c]
+    ld   [d_t], ac
+    add  d_name, x
+    ld   [x], ac
+    xor  [d_c], ac
+    bne  sq_ne
+    ld   [d_c], ac
+    beq  sq_eq
+    ld   [d_t], ac
+    inc
+    ld   ac, [d_t]
+    bra  sq_l
+sq_ne:
+    ld   1, ac
+sq_eq:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+; ============================================================
+; strings
+; ============================================================
 
 #addr 0x3C00
         ; MSG_ROW, then none
@@ -2091,7 +2097,7 @@ s_dosmem:   #d "x3000-x3FFF holds the DOS: load below it", 0x00
 #addr 0x3E00
 s_title:    #d "PLACARD DOS    folder ", 0x00
 s_hold:     #d "Hold Esc for the file browser", 0x00
-s_help:     #d "Up/Down move  Enter run/open  Bksp up  Del delete  B boot  R reread  Esc command", 0x00
+s_help:     #d "Up/Dn  Enter run  Bksp up  Del delete  B boot  R reread  Ctrl+B BASIC  Esc cmd", 0x00
 s_dir:      #d "<DIR>", 0x00
 s_big:      #d ">64K", 0x00
 s_err:      #d "Error", 0x00

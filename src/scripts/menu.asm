@@ -13,11 +13,12 @@
 ; Esc for the DOS's file browser instead).  The demos are .PLC files in
 ; the same folder (gen_plc.py makes them, ../../sdcard):
 ;
-;     CPUTEST.PLC  PI.PLC  MANDEL.PLC  LIFE.PLC
+;     CPUTEST.PLC  PI.PLC  MANDEL.PLC  LIFE.PLC  BOING.PLC  WIRE3D.PLC
+;     RAYCAST.PLC  SCROLLER.PLC (and SCROLLER.OVL, which it loads itself)
 ;
 ; At power-up the programs run in turn: each one until it is done or for
 ; its time limit (2 minutes, Mandelbrot 3).  Esc in a program shows the
-; menu.  Up / Down or 1-4 pick a program and Enter runs it until Esc.
+; menu.  Up / Down or 1-8 pick a program and Enter runs it until Esc.
 ; With no key for IDLE_SECS (2 minutes) the menu goes back to running
 ; them in turn, from the highlighted one.  Esc in the menu goes to the
 ; DOS's file browser.
@@ -37,13 +38,13 @@
 ;     python3 gen_plc.py menu.asm -o ../../sdcard/MENU.PLC
 ;     python3 test_menu.py                            runs it in placard_sim
 ;
-; Date: 10/26/2026
+; Date: 11/02/2026
 ; ============================================================
 
 #include "placard.asm"
 #include "placard_lib.asm"
 
-NPROG      = 4
+NPROG      = 8
 IDLE_SECS  = 120        ; menu seconds with no key before running in turn again
 ROT_FRAMES = 7193       ; 2 minutes in turn
 MAN_FRAMES = 10789      ; 3 minutes: Mandelbrot finishes
@@ -64,9 +65,10 @@ m_bar   = 0x29          ; draw_list: the item's first bar mode byte (low)
 
 BAR_TINT   = 0x40       ; the highlighted program: a blue bar
 TITLE_TINT = 0x30       ; the title: a gold band, screen rows 20-35
-LIST_ROW   = 12         ; text row of program 1 (then every other row)
+LIST_ROW   = 10         ; text row of program 1 (then every other row; the
+                        ; last one's bar must end in mode byte page x5A: row 26 at most)
 LIST_COL   = 6
-SEC_ROW    = 30
+SEC_ROW    = 31
 SEC_COL    = 61
 
 
@@ -526,13 +528,19 @@ menu_r14:
 
 #addr 0x0400
 P_RL:    #d8 ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF, MAN_FRAMES & 0xFF, ROT_FRAMES & 0xFF
+         #d8 ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF
 P_RH:    #d8 ROT_FRAMES >> 8, ROT_FRAMES >> 8, MAN_FRAMES >> 8, ROT_FRAMES >> 8
+         #d8 ROT_FRAMES >> 8, ROT_FRAMES >> 8, ROT_FRAMES >> 8, ROT_FRAMES >> 8
 NAME_L:  #d8 nm_0 & 0xFF, nm_1 & 0xFF, nm_2 & 0xFF, nm_3 & 0xFF
+         #d8 nm_4 & 0xFF, nm_5 & 0xFF, nm_6 & 0xFF, nm_7 & 0xFF
 NAME_H:  #d8 nm_0 >> 8, nm_1 >> 8, nm_2 >> 8, nm_3 >> 8
+         #d8 nm_4 >> 8, nm_5 >> 8, nm_6 >> 8, nm_7 >> 8
 TITLE_L: #d8 ti_0 & 0xFF, ti_1 & 0xFF, ti_2 & 0xFF, ti_3 & 0xFF
+         #d8 ti_4 & 0xFF, ti_5 & 0xFF, ti_6 & 0xFF, ti_7 & 0xFF
 TITLE_H: #d8 ti_0 >> 8, ti_1 >> 8, ti_2 >> 8, ti_3 >> 8
+         #d8 ti_4 >> 8, ti_5 >> 8, ti_6 >> 8, ti_7 >> 8
 TEXT_COL: #d8 17, LIST_COL, LIST_COL, LIST_COL, SEC_COL + 4, LIST_COL, 0
-TEXT_ROW: #d8 3, 9, 26, 30, 30, 32
+TEXT_ROW: #d8 3, 7, 28, SEC_ROW, SEC_ROW, 33
 TEXT_L:  #d8 tx_0 & 0xFF, tx_1 & 0xFF, tx_2 & 0xFF, tx_3 & 0xFF, tx_4 & 0xFF, tx_5 & 0xFF
 TEXT_H:  #d8 tx_0 >> 8, tx_1 >> 8, tx_2 >> 8, tx_3 >> 8, tx_4 >> 8, tx_5 >> 8
 s_self:  #d "MENU.PLC", 0x00
@@ -540,19 +548,32 @@ nm_0:    #d "CPUTEST.PLC", 0x00
 nm_1:    #d "PI.PLC", 0x00
 nm_2:    #d "MANDEL.PLC", 0x00
 nm_3:    #d "LIFE.PLC", 0x00
-tx_0:    #d "P L A C A R D       D E M O       P R O G R A M S", 0x00
-tx_1:    #d "Pick a program:", 0x00
-tx_2:    #d "Up / Down or 1-4 choose, Enter runs it.  Esc in a program comes back.", 0x00
-
+nm_4:    #d "BOING.PLC", 0x00
+nm_5:    #d "WIRE3D.PLC", 0x00
+nm_6:    #d "RAYCAST.PLC", 0x00
+nm_7:    #d "SCROLLER.PLC", 0x00
 
 #addr 0x0500
+tx_0:    #d "P L A C A R D       D E M O       P R O G R A M S", 0x00
+tx_1:    #d "Pick a program:", 0x00
+tx_2:    #d "Up / Down or 1-8 choose, Enter runs it.  Esc in a program comes back.", 0x00
+
+
+#addr 0x0600
 tx_3:    #d "With no key pressed, the programs run in turn again in", 0x00
 tx_4:    #d "s.", 0x00
 tx_5:    #d "In turn, each runs until it is done, or for 2 minutes (Mandelbrot 3).  Esc here: the DOS.", 0x00
 
 
-#addr 0x0600
+#addr 0x0700
 ti_0:    #d " 1  CPU test        every instruction, checked on a pass / fail grid", 0x00
 ti_1:    #d " 2  Pi              1000 digits with a spigot, timed", 0x00
 ti_2:    #d " 3  Mandelbrot      the set in 1, 2, 4 and 8 bpp, timed", 0x00
 ti_3:    #d " 4  Game of Life    632 x 480 cells, 1000 generations", 0x00
+
+
+#addr 0x0800
+ti_4:    #d " 5  Boing ball      the Amiga classic, 60 frames a second", 0x00
+ti_5:    #d " 6  3D ships        Elite-style wireframe and filled ships", 0x00
+ti_6:    #d " 7  Ray caster      a first-person 3D maze in 256 colors", 0x00
+ti_7:    #d " 8  Runner          side scroller: 4 parallax layers, software sprites", 0x00
