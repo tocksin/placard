@@ -10,8 +10,7 @@ case parts list (CASE.md), one BOM per assembly (Justin, 2026-10-25):
                                 case parts, standoffs, screws and feet
     docs/bom/BOM.md                 the index: what each BOM covers and their costs
 
-Accessories sold with a kit (USB-C power supply, SD card, programmer, ...)
-are in no BOM; KITTING.md and KIT_PRICING.md list them.
+Accessories (USB-C power supply, SD card, programmer, ...) are in no BOM.
 
 Parts with the same part number share a line.  Parts with no part number
 chosen yet share a line when their description and value match, with the
@@ -299,7 +298,7 @@ def md_cell(s):
 
 
 # ---------------------------------------------------------------- assemblies
-# Lines that are on no schematic: the bare PCBs (KIT_PRICING.md fab prices, one board),
+# Lines that are on no schematic: the bare PCBs (typical fab prices, one board),
 # the cartridge shell and its screw (EXPANSION.md "Shell keepouts"), and the case
 # (CASE.md "Parts" and "Cost estimate", China sheet metal, one unit).  Each:
 # (qty, mpn, mfr, desc, unit price, priced as, notes)
@@ -312,9 +311,9 @@ CART_SHELL_NOTE = ("Not designed yet: two halves round the card and J8's body, 4
                    "(EXPANSION.md \"Shell keepouts\"); one design takes either card, only its height differs")
 PCB_LINES = {
     "Main board": [mech(1, "PCB, main board, 290 x 215 mm, 4-layer, 1.6 mm, HASL lead-free", 16.00,
-                        "JLCPCB/PCBWay typical, KIT_PRICING.md", mpn="PLC-1001 rev A", mfr="(custom PCB)")],
+                        "JLCPCB/PCBWay typical", mpn="PLC-1001 rev A", mfr="(custom PCB)")],
     "Cartridge, 64K": [mech(1, "PCB, 64K cartridge, 39 x 102.2 mm, 2-layer, ENIG, hard-gold bevelled fingers", 4.00,
-                            "JLCPCB/PCBWay typical, KIT_PRICING.md", mpn="PLC-1003 rev A", mfr="(custom PCB)")],
+                            "JLCPCB/PCBWay typical", mpn="PLC-1003 rev A", mfr="(custom PCB)")],
     "Cartridge, 32K": [mech(1, "PCB, 32K cartridge, 39 x 66.0 mm, 2-layer, ENIG, hard-gold bevelled fingers", 3.50,
                             "JLCPCB/PCBWay typical (smaller than the 64K board)", mpn="PLC-1002 rev A",
                             mfr="(custom PCB)")],
@@ -434,9 +433,8 @@ def main():
             os.remove(path)
     md = [f"# Bills of materials\n", f"Date: {DATE}\n",
           "One BOM per assembly (Justin, 2026-10-25).  The case assembly takes the built main board as one",
-          "line; each cartridge assembly is complete with its shell and screw.  Accessories sold with a kit",
-          "(USB-C power supply and cable, SD card, programmer, controllers, keyboard and mouse) are in no BOM:",
-          "[KITTING.md](../kit/KITTING.md) and [KIT_PRICING.md](../kit/KIT_PRICING.md) list them.\n",
+          "line; each cartridge assembly is complete with its shell and screw.  Accessories",
+          "(USB-C power supply and cable, SD card, programmer, controllers, keyboard and mouse) are in no BOM.\n",
           "| Assembly | BOM | Contents | Cost | Without optional parts | Lines estimated |",
           "|---|---|---|--:|--:|--:|"]
     contents = {"Main board": "Bare PCB, components, sockets", "Cartridge, 64K": "Bare PCB, components, sockets, "
@@ -459,8 +457,7 @@ def main():
            "schematic\" are bare PCBs, sockets, shunts, shells and screws that KiCad's BOM export leaves out.",
            "The net tie NT1 and the cartridges' edge fingers (their J1) are copper on the PCB, so they are",
            "not listed.  Every PLD is an ATF22V10C-7PX ([CHIPS.md](../architecture/CHIPS.md#pld-speed-grades)); the notes",
-           "give each PLD's job;",
-           "[KITTING.md](../kit/KITTING.md) lists the images.",
+           "give each PLD's job.",
            "",
            "Written by `src/scripts/gen_bom.py` from the KiCad sheets (part numbers are the Manufacturer and",
            "MPN fields set by `gen_kicad_schematic.py`) and the case parts in CASE.md.  Rerun both after a",

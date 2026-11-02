@@ -53,11 +53,6 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 
 - [BOM.md](bom/BOM.md): index of the bills of materials (one per assembly, `.md` and `.csv`), written by `src/scripts/gen_bom.py`
 
-## [kit/](kit/)
-
-- [KITTING.md](kit/KITTING.md): selling the Placard as a kit
-- [KIT_PRICING.md](kit/KIT_PRICING.md): kit pricing and selling platforms
-
 ## Other
 
 - [WORKFLOW.md](WORKFLOW.md): how changes reach `main`
