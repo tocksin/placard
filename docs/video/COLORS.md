@@ -1,5 +1,7 @@
 # ATF22V10 VGA Color Decoder
 
+Date: 2026-11-02
+
 ## Overview
 
 This chip design is the color decoder for each of the 4 color modes.  It take the 8-bit RAM data value and outputs to the VGA color-pin resistor DAC.
@@ -209,10 +211,9 @@ every product term of their pins, and GRN3 has one to spare
 The VGA interface uses the standard **75 Ω termination**.
 
 The resistor values below are the selected values for the passive DAC, all 1 %
-parts.  Red and green use E24 values since 2026-10-28 (820 Ω / 1.6 kΩ / 3.3 kΩ,
-were E96 825 Ω / 1.69 kΩ / 3.24 kΩ): at a 5 V output high, white is 694 mV and
-the steps are 94-104 mV, a little more even than before (92-101 mV).  Blue keeps
-its E96 values, which match its full scale to red and green (680 mV).
+parts.  Red and green use E24 values (820 Ω / 1.6 kΩ / 3.3 kΩ): at a 5 V
+output high, white is 694 mV and the steps are 94-104 mV.  Blue uses E96
+values, which match its full scale to red and green (680 mV).
 
 ## Red
 
@@ -270,7 +271,7 @@ GRN3 / GREEN(3)  -- 820 Ω  ---+---- VGA GREEN
 
 These resistor values assume a 5 V PLD supply and a 75 Ω VGA load. Actual output voltages will depend on the ATF22V10 output high voltage and output resistance.
 
-## Row tint (2026-10-22)
+## Row tint
 
 Each VGA color line also has a row tint input: the line code register's
 Q4 (red), Q5 (green) or Q6 (blue) through 910 Ω and two 1N4148s in series,

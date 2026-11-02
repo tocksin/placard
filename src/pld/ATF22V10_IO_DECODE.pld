@@ -1,6 +1,6 @@
 Name     IO_DECODE;
 PartNo   00;
-Date     10/27/2026;
+Date     11/02/2026;
 Revision 05;
 Designer ;
 Company  ;
@@ -14,7 +14,7 @@ Device   g22v10;
    (ATF22V10C, DIP-24 / PLCC-28)
    ============================================================
 
-   Two jobs, both decoded in one array pass (see docs/timing/TIMING_FIXES.md):
+   Two jobs, both decoded in one array pass (see docs/timing/TIMING.md):
 
    1. /CE_HI, the chip enable of the upper 32K RAM (and ROM) chip.
       It is !A15, but A15 is rebuilt here from the high-byte
@@ -25,7 +25,7 @@ Device   g22v10;
       With both chip enables settled before /WE can go low, a
       store to one chip can no longer also write the other.
 
-      Revision 05 (docs/timing/FETCH_TIMING.md, option B): the mux PLDs
+      Revision 05 (docs/timing/FETCH_TIMING.md): the mux PLDs
       (QUAD_4TO1_MUX revision 02) take PIXEL_ENABLE, PC_ENABLE and
       Y_ENABLE as their selects directly, so this PLD takes the
       same three (pins 2, 3 and 14) in place of ADDR_SEL,
@@ -38,7 +38,7 @@ Device   g22v10;
                0           0        0       00h         0
 
    2. The I/O strobes for 5000h - 53FFh, one 256-byte page per
-      device, as in docs/timing/TIMING_FIXES.md:
+      device, as in docs/timing/TIMING.md:
 
           page  address      strobe(s)
            0    5000h-50FFh  /MAP_WR (ROM/RAM map register), /LINE_RD

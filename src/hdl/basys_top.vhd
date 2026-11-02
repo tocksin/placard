@@ -728,7 +728,7 @@ begin
 
     -- The four address mux PLDs (revision 02): the address-source enables
     -- are the selects, video first, then PC, then X/Y, else D / 00h
-    -- (docs/timing/FETCH_TIMING.md, option B).
+    -- (docs/timing/FETCH_TIMING.md).
     addrMuxComp: entity work.full_mux
     port map(
            pixelEnable  => pixelEn,

@@ -290,7 +290,7 @@ AC is listed when it does not come back as a result.
 ### Arithmetic
 
 All of them use the carry flag (`bcs`, `bcc`, see [Idioms](#idioms)).
-`add16` and `sub16` no longer use T0-T2.
+`add16` and `sub16` do not use T0-T2.
 
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
@@ -537,7 +537,7 @@ The keyboard, SNES pad, SD card and mouse drivers are in
 same calling convention; [IO.md](../architecture/IO.md) lists them and `test_io.py` tests
 them.  Pixel routines for 2, 4 and 8 bpp rows, line drawing and writing
 files to the SD card are good next additions.  The library has no free
-pages left (the PS/2 keyboard driver took xC000-xC4FF, 2026-10-22): new
+pages left (the PS/2 keyboard driver takes xC000-xC4FF): new
 code goes below xC000 (taking ROM from the program area) or into the free
 ends of pages, and new public routines get the next jump table entries.  `test_snd.py`, `test_fs.py` and `test_slots.py` test the
 sound driver, the FAT reader and the slot helpers.

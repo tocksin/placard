@@ -1,13 +1,13 @@
 -- ============================================================
 -- IO_DECODE  (VHDL conversion of ATF22V10_IO_DECODE.pld, Rev 05)
--- Date: 10/27/2026
+-- Date: 11/02/2026
 --
 -- Rev 02: comments only.  map_wr_n clocks the 74ACT273 map register.
 -- Rev 03: the I/O window is 5000h-53FFh.  Pin 18 (was snd_wr_n, unused)
 -- is the a11 input; exp1_n and exp2_n moved to pages 1 and 3.
 -- Rev 04: pin 23 is load_imm_n, active low, as the State PLD (Rev 13)
 -- now drives it; the equations still use load_imm as logical true.
--- Rev 05 (docs/timing/FETCH_TIMING.md, option B): the mux PLDs take the
+-- Rev 05 (docs/timing/FETCH_TIMING.md): the mux PLDs take the
 -- address-source enables as their selects, so A15 is rebuilt from
 -- pixel_enable, pc_enable and y_enable (pins 2, 3 and 14, which were
 -- addr_sel, addr_sel_hi and rw).  rd = io and load_imm, without rw

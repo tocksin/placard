@@ -10,7 +10,7 @@ sample to a resistor DAC.  Software only keeps a 525-byte buffer filled.
 |---|---|
 | Format | 8-bit unsigned mono, 80h = silence |
 | Sample rate | the line rate: 31.469 kHz at 25.175 MHz (31.25 kHz on the FPGA's 25.000 MHz) |
-| Buffer | 5DF3h-5FFFh, 525 bytes, one frame, played in address order and repeated (4DF3h-4FFFh until 2026-10-16) |
+| Buffer | 5DF3h-5FFFh, 525 bytes, one frame, played in address order and repeated |
 | Added chips | audio slot PLD (ATF22V10C) and DAC register (SN74HCT574N); the DAC, filter and line output are passives |
 | CPU cost | one stall clock per line (525 per frame, 0.13 %) |
 
@@ -18,7 +18,7 @@ sample to a resistor DAC.  Software only keeps a 525-byte buffer filled.
 
 ![Placard audio schematic](../../schematics/placard_audio_schematic.png)
 
-The drawing is made by `src/scripts/gen_audio_schematic.py` (2026-10-19);
+The drawing is made by `src/scripts/gen_audio_schematic.py`;
 rerun it when the pins change.  It shows the audio slot PLD (U35), the Sync
 PLD pins that make the read (U15), the pixel buffer (U22), the DAC register
 (U36) with its filtered supply, the R-2R ladder, the filter and the jack (J6),
@@ -26,7 +26,7 @@ and the timing of one line around the read.
 
 ## How the sample is read
 
-**The read.**  The Sync PLD (revision 06) raises PIXEL_ENABLE for one more
+**The read.**  The Sync PLD raises PIXEL_ENABLE for one more
 clock per line, in clock 1 of an 8-clock group in horizontal blanking, on all
 525 lines including vertical blanking.  It is a video read in every way: the
 address mux selects the video address, the Branch PLD stalls the CPU, the
@@ -58,14 +58,9 @@ edge of H_VIDEO_ACTIVE (H counter PLD pin 22, start of group 48) copies it.
 So every sample lasts exactly one line (800 clocks), even though the read
 itself moves 8 clocks between group 46 and group 47.
 
-**Before 2026-10-16** the sample was read in group 38/39 from 4DF3h-4FFFh
-and the DAC register was clocked by HSYNC (end of sync, group 42).  When the
-I/O window shrank, the read moved up into 5400h-5FFFh, after HSYNC ends, so
-the clock moved to H_VIDEO_ACTIVE, which is registered and can't glitch.
-
 ### Audio slot PLD (`ATF22V10_AUDIO.pld`, `audio_pld.vhd`)
 
-Revision 03 (2026-10-16).  It also marks group 45, where the video circuit
+It also marks group 45, where the video circuit
 reads the line's mode byte (see [VIDEO.md](../video/VIDEO.md#mode-byte)), and makes
 four row address bits for the line repeat (see
 [VIDEO.md](../video/VIDEO.md#line-repeat)).
@@ -88,44 +83,26 @@ four row address bits for the line repeat (see
 | 23 | BLANK_RD | Sync PLD pin 13 |
 | 16, 21 | unused | |
 
-### Sync PLD change (revision 06)
+### Sync PLD term
 
-    PIN 13 = BLANK_RD;     /* AUD_SLOT before revision 07 */
+    PIXEL_ENABLE.D = V_VIDEO_ACTIVE & H_VIDEO_ACTIVE & H2 & H1 & !H0
+                   # BLANK_RD & H2 & H1 & !H0;
 
-    PIXEL_ENABLE.D = V_VIDEO_ACTIVE & H_VIDEO_ACTIVE & !H2 & !H1 & !H0
-                   # BLANK_RD & !H2 & !H1 & !H0;
-
-PIXEL_ENABLE uses 2 of its 16 product terms.  Nothing else in the PLD changes.
+BLANK_RD comes in on the Sync PLD's pin 13 and reads in clock 1 of the
+group it marks, like a pixel read ([VIDEO_TIMING.md](../timing/VIDEO_TIMING.md)).
 
 ### Timing
 
-| Path | Total | Slack at 39.72 ns |
+| Path | Total | Slack at 39.72 ns (datasheet) |
 |---|---:|---:|
 | BLANK_RD to the Sync register: H counter tCO 5.5, audio PLD tPD 7.5, Sync tS 3.5 | 16.5 ns | +23.2 |
-| The audio read: the same path as a pixel read (VIDEO_TIMING.md, option A) | 34.5 ns | +5.2 |
+| The audio read: the same path as a pixel read, through /RAM_OE ([VIDEO_TIMING.md](../timing/VIDEO_TIMING.md)) | 36.4 ns | +3.4 (−1.1 on the routed board, see [TIMING.md](../timing/TIMING.md)) |
 | DAC register data: the pixel buffer is steady from group 46/47 to clock 1 of group 48, and the clock edge (H_VIDEO_ACTIVE, tCO 5.5 ns) is at the start of group 48 | at least 6 clocks before the edge and 2 after | |
 
 ### Checked in simulation
 
-**Revision 03** (2026-10-16): the FPGA model ran 860,000 clocks (two frames)
-with the same random bytes at 4DF3h-4FFFh and 5DF3h-5FFFh, against the
-design before.  The DAC took the same 1068 values in the same order, each
-exactly 48 clocks later, and HSYNC, VSYNC and RGB were identical.
-
-**When the audio was added:** the FPGA model was run in GHDL for 36 ms of `cpu_test`, with a ramp
-(0, 1, 2, ...) written into 4DF3h-4FFFh, against the sources before this
-change:
-
-- 1125 audio reads, exactly one per line, at 4DF3h-4FFFh in order with no
-  repeats.
-- The DAC register stepped by +1 on every line, and wrapped once per frame
-  (from sample 524 back to 0).
-- HSYNC and VSYNC were identical clock for clock.
-- The CPU made the same RAM writes, with the same addresses and data in the
-  same order, about 0.15 % later (the extra stall).
-- 439 pixels differed, all on one frame only: a store that lands a few
-  clocks later shows up on the next frame instead.  None were still different
-  one frame later.
+The FPGA model (GHDL) reads exactly one sample per line, 5DF3h-5FFFh in
+order with no repeats, and the DAC register steps once per line.
 
 ## DAC, filter and audio line out
 
@@ -158,7 +135,7 @@ a mixer or a capture card, 10 kΩ or more).  It is not a headphone output
   ladder needs for even steps; 74F outputs only reach about 3.4 V and differ
   from bit to bit.
 - D7:D0 from the pixel buffer Q7:Q0.  CLK from H_VIDEO_ACTIVE (H counter PLD
-  pin 22; HSYNC, pin 21, until 2026-10-16).  /OE (pin 1) to ground.
+  pin 22).  /OE (pin 1) to ground.
 - **Power it from its own filtered rail** (2.2 Ω, 220 µF and 100 nF above).
   The ladder's full scale is this chip's VCC, so any noise on it comes out in
   the audio in proportion to the sample (at silence, 80h, half of it).  The
@@ -238,8 +215,7 @@ The hardware never adds a click on its own:
    band, and the filter removes it.
 3. **Silence is 80h**, and the output is AC coupled, so starting and stopping
    never makes a DC step.
-4. **Power-up.**  Video reads always come from the RAM (memory control PLD
-   revision 04), which is random at power-up, so the output plays noise until
+4. **Power-up.**  Video reads always come from the RAM (memory control PLD), which is random at power-up, so the output plays noise until
    software fills 5DF3h-5FFFh with 80h; that should be one of the first things
    a program (or the boot loader) does.  The 74HCT574 powers up with a random
    value for one line (32 us), which the filter and coupling capacitor turn
@@ -296,9 +272,7 @@ at once.  The line read only says where the player is within its lap, so
 the driver also counts the frames between calls (`FRAME_LO`, which
 `frame_poll`, `wait_frames` and BASIC keep): a call a whole frame after
 the last one, with the player a line or two past where it was, writes a
-lap and the little more, not just the little more (a 2026-11-01 fix:
-BASIC's `SOUND`, which calls once a frame at the same line, stalled with
-a few samples a frame and never finished the note).
+lap and the little more, not just the little more.
 
 **Measured CPU time** (`test_snd.py`, about 380,000 usable clocks per frame):
 
@@ -368,5 +342,3 @@ measured; about 380,000 CPU clocks per frame):
   5400h-5A1Fh and 5C00h-5DF2h are free.
 - The video reads the buffer from the RAM whatever the map says.  For the
   CPU to read it back, section 2 (map bit 2) must read RAM.
-- The /SND_WR strobe is gone: its I/O decode pin is now the A11 input, and
-  page 5100h is expansion port 1.
