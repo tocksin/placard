@@ -14,12 +14,12 @@
 ; the same folder (gen_plc.py makes them, ../../sdcard):
 ;
 ;     CPUTEST.PLC  PI.PLC  MANDEL.PLC  LIFE.PLC  BOING.PLC  WIRE3D.PLC
-;     RAYCAST.PLC  SCROLLER.PLC  RAYTEX.PLC (SCROLLER.OVL and RAYTEX.OVL,
-;     which those two load themselves)
+;     RAYCAST.PLC  SCROLLER.PLC  RAYTEX.PLC  TEXT.PLC (SCROLLER.OVL and
+;     RAYTEX.OVL, which those two load themselves)
 ;
 ; At power-up the programs run in turn: each one until it is done or for
 ; its time limit (2 minutes, Mandelbrot 3).  Esc in a program shows the
-; menu.  Up / Down or 1-9 pick a program and Enter runs it until Esc.
+; menu.  Up / Down or 1-9 and 0 pick a program and Enter runs it until Esc.
 ; With no key for IDLE_SECS (2 minutes) the menu goes back to running
 ; them in turn, from the highlighted one.  Esc in the menu goes to the
 ; DOS's file browser.
@@ -45,7 +45,7 @@
 #include "placard.asm"
 #include "placard_lib.asm"
 
-NPROG      = 9
+NPROG      = 10
 IDLE_SECS  = 120        ; menu seconds with no key before running in turn again
 ROT_FRAMES = 7193       ; 2 minutes in turn
 MAN_FRAMES = 10789      ; 3 minutes: Mandelbrot finishes
@@ -66,7 +66,7 @@ m_bar   = 0x29          ; draw_list: the item's first bar mode byte (low)
 
 BAR_TINT   = 0x40       ; the highlighted program: a blue bar
 TITLE_TINT = 0x30       ; the title: a gold band, screen rows 20-35
-LIST_ROW   = 10         ; text row of program 1 (then every other row; the
+LIST_ROW   = 8          ; text row of program 1 (then every other row; the
                         ; last one's bar must end in mode byte page x5A: row 26 at most)
 LIST_COL   = 6
 SEC_ROW    = 31
@@ -403,9 +403,13 @@ menu_key:
     ld   [m_t], ac
     xor  0x1B, ac               ; Esc: the DOS
     beq  mk_dos
-    ld   [m_t], ac              ; 1 - NPROG: run that one
-    sub  0x31, ac
+    ld   [m_t], ac              ; 1 - 9, and 0 for 10: run that one
+    sub  0x30, ac
     blt  mk_none
+    bne  mk_dig
+    ld   10, ac
+mk_dig:
+    sub  1, ac
     ld   ac, [m_t2]
     sub  NPROG, ac
     bcc  mk_none                ; no borrow: too big
@@ -530,20 +534,20 @@ menu_r14:
 #addr 0x0400
 P_RL:    #d8 ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF, MAN_FRAMES & 0xFF, ROT_FRAMES & 0xFF
          #d8 ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF
-         #d8 ROT_FRAMES & 0xFF
+         #d8 ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF
 P_RH:    #d8 ROT_FRAMES >> 8, ROT_FRAMES >> 8, MAN_FRAMES >> 8, ROT_FRAMES >> 8
          #d8 ROT_FRAMES >> 8, ROT_FRAMES >> 8, ROT_FRAMES >> 8, ROT_FRAMES >> 8
-         #d8 ROT_FRAMES >> 8
+         #d8 ROT_FRAMES >> 8, ROT_FRAMES >> 8
 NAME_L:  #d8 nm_0 & 0xFF, nm_1 & 0xFF, nm_2 & 0xFF, nm_3 & 0xFF
-         #d8 nm_4 & 0xFF, nm_5 & 0xFF, nm_6 & 0xFF, nm_7 & 0xFF, nm_8 & 0xFF
+         #d8 nm_4 & 0xFF, nm_5 & 0xFF, nm_6 & 0xFF, nm_7 & 0xFF, nm_8 & 0xFF, nm_9 & 0xFF
 NAME_H:  #d8 nm_0 >> 8, nm_1 >> 8, nm_2 >> 8, nm_3 >> 8
-         #d8 nm_4 >> 8, nm_5 >> 8, nm_6 >> 8, nm_7 >> 8, nm_8 >> 8
+         #d8 nm_4 >> 8, nm_5 >> 8, nm_6 >> 8, nm_7 >> 8, nm_8 >> 8, nm_9 >> 8
 TITLE_L: #d8 ti_0 & 0xFF, ti_1 & 0xFF, ti_2 & 0xFF, ti_3 & 0xFF
-         #d8 ti_4 & 0xFF, ti_5 & 0xFF, ti_6 & 0xFF, ti_7 & 0xFF, ti_8 & 0xFF
+         #d8 ti_4 & 0xFF, ti_5 & 0xFF, ti_6 & 0xFF, ti_7 & 0xFF, ti_8 & 0xFF, ti_9 & 0xFF
 TITLE_H: #d8 ti_0 >> 8, ti_1 >> 8, ti_2 >> 8, ti_3 >> 8
-         #d8 ti_4 >> 8, ti_5 >> 8, ti_6 >> 8, ti_7 >> 8, ti_8 >> 8
+         #d8 ti_4 >> 8, ti_5 >> 8, ti_6 >> 8, ti_7 >> 8, ti_8 >> 8, ti_9 >> 8
 TEXT_COL: #d8 17, LIST_COL, LIST_COL, LIST_COL, SEC_COL + 4, LIST_COL, 0
-TEXT_ROW: #d8 3, 7, 28, SEC_ROW, SEC_ROW, 33
+TEXT_ROW: #d8 3, 6, 28, SEC_ROW, SEC_ROW, 33
 TEXT_L:  #d8 tx_0 & 0xFF, tx_1 & 0xFF, tx_2 & 0xFF, tx_3 & 0xFF, tx_4 & 0xFF, tx_5 & 0xFF
 TEXT_H:  #d8 tx_0 >> 8, tx_1 >> 8, tx_2 >> 8, tx_3 >> 8, tx_4 >> 8, tx_5 >> 8
 s_self:  #d "MENU.PLC", 0x00
@@ -556,12 +560,12 @@ nm_5:    #d "WIRE3D.PLC", 0x00
 nm_6:    #d "RAYCAST.PLC", 0x00
 nm_7:    #d "SCROLLER.PLC", 0x00
 nm_8:    #d "RAYTEX.PLC", 0x00
-ti_8:    #d " 9  Textured maze   the ray caster with textured walls and floors", 0x00
+nm_9:    #d "TEXT.PLC", 0x00
 
 #addr 0x0500
 tx_0:    #d "P L A C A R D       D E M O       P R O G R A M S", 0x00
 tx_1:    #d "Pick a program:", 0x00
-tx_2:    #d "Up / Down or 1-9 choose, Enter runs it.  Esc in a program comes back.", 0x00
+tx_2:    #d "Up / Down or 1-9, 0 choose, Enter runs it.  Esc in a program comes back.", 0x00
 
 
 #addr 0x0600
@@ -583,3 +587,7 @@ ti_5:    #d " 6  3D ships        Elite-style wireframe and filled ships", 0x00
 ti_6:    #d " 7  Ray caster      a first-person 3D maze in 256 colors", 0x00
 ti_7:    #d " 8  Runner          side scroller: 4 parallax layers, software sprites", 0x00
 
+
+#addr 0x0900
+ti_8:    #d " 9  Textured maze   the ray caster with textured walls and floors", 0x00
+ti_9:    #d " 0  Video test      every color depth and line repeat, live RAM test", 0x00
