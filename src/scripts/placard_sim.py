@@ -13,9 +13,11 @@ placard_sim.py - assembler and instruction-level simulator for the Placard CPU
                                                     hardware, see docs/ROM.md
 
 The assembler accepts the syntax defined in placard.asm (it is not a general
-customasm replacement: only #include, #addr, #d8 and #d ("strings" and 0x
-hex literals) directives and
-"NAME = expression" constants are supported).  #include "file" pastes the
+customasm replacement: only #include, #addr, #overlay, #d8 and #d ("strings"
+and 0x hex literals) directives and "NAME = expression" constants are
+supported; #overlay X is #addr X for bytes that are RAM under a ROM address
+at run time, kept at X + x10000 in the memory returned: a program's overlay,
+gen_plc.py --overlay).  #include "file" pastes the
 file in, relative to the including file, except placard.asm (the rule
 definitions), which is skipped.  A constant must be defined before an #addr
 that uses it.  Use it to check programs and to get a hex file
@@ -61,7 +63,7 @@ basys_top.vhd (low nibble CIN = 0, high nibble CIN = low nibble COUT, low
 SHIFT_RIGHT_IN = AC bit 4, high SHIFT_RIGHT_IN = 0).  The default is an ideal
 8-bit ALU (A - B is a true 8-bit subtraction).
 
-Date: 10/28/2026
+Date: 11/02/2026
 """
 
 import re
@@ -292,6 +294,7 @@ def assemble(src, base_dir='.'):
     lines = expand_includes(src, base_dir)
     for pass_no in (1, 2):
         addr = 0
+        base = 0
         mem = {}
         listing = []
         if pass_no == 1:
@@ -322,24 +325,27 @@ def assemble(src, base_dir='.'):
                 kw = d[0].lower()
                 if kw in ('#include', '#bankdef', '#bits', '#outp', '#size', '{', '}'):
                     continue
-                if kw == '#addr':
-                    # may go backwards, as in customasm; overlapping bytes are an error
+                if kw in ('#addr', '#overlay'):
+                    # may go backwards, as in customasm; overlapping bytes are an error.
+                    # #overlay: the bytes that follow are RAM under a ROM address (a
+                    # program's overlay, gen_plc.py --overlay): kept at address + x10000
                     addr = evaluate(d[1], syms) if pass_no == 2 else evaluate(d[1], dict(syms))
+                    base = 0x10000 if kw == '#overlay' else 0
                     continue
                 if kw == '#d8':
                     for v in d[1].split(','):
                         if pass_no == 2:
-                            if addr in mem:
+                            if base + addr in mem:
                                 raise AsmError('line %d: overlapping data at %04X' % (lineno, addr))
-                            mem[addr] = evaluate(v, syms) & 0xFF
+                            mem[base + addr] = evaluate(v, syms) & 0xFF
                         addr += 1
                     continue
                 if kw == '#d':
                     for v in d8_items(d[1], lineno):
                         if pass_no == 2:
-                            if addr in mem:
+                            if base + addr in mem:
                                 raise AsmError('line %d: overlapping data at %04X' % (lineno, addr))
-                            mem[addr] = v
+                            mem[base + addr] = v
                         addr += 1
                     continue
                 raise AsmError('line %d: unsupported directive %s' % (lineno, kw))
@@ -371,9 +377,9 @@ def assemble(src, base_dir='.'):
                                            % (lineno, tv, addr + 2))
                         out.append(tv & 0xFF)
                 for i, b in enumerate(out):
-                    if addr + i in mem:
+                    if base + addr + i in mem:
                         raise AsmError('line %d: overlapping code at %04X' % (lineno, addr + i))
-                    mem[addr + i] = b
+                    mem[base + addr + i] = b
                 listing.append((addr, out, raw.strip()))
             addr += len(tmpl)
             if addr > 0x10000:

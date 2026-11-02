@@ -16,16 +16,27 @@ return label) and places its code page by page with #addr (LIBRARY.md,
                     ld back >> 8, [x] / ld name >> 8, y / jmp name, and
                     the return label back (<prefix>_r<n>)
     PUSH_LINK       the 12-instruction prologue of a routine that calls
-    LEAVE           ld lib_leave >> 8, y / jmp lib_leave
+    LEAVE           ld lib_leave >> 8, y / jmp lib_leave (or the routine
+                    .leave names: a copy in RAM for code that runs with
+                    the ROM mapped out, tracker.masm)
     RET             ld [LINK_HI], y / jmp [LINK_LO]  (a leaf's return)
     GOTO name       ld name >> 8, y / jmp name  (a jump to another page)
     PUSH / POP      AC onto / off the software stack
 
   directives
     .prefix p       return labels are p_r1, p_r2, ...
+    .leave name     LEAVE jumps to name instead of lib_leave
     .region a, b    the chunks that follow go in a up to (not including)
                     b: numbers or expressions in the constants defined
-                    above (FSW_CODE, FSW_CODE + 0x1000)
+                    above (FSW_CODE, FSW_CODE + 0x1000).  A chunk that
+                    does not fit goes to the next region of the file
+                    that has room (tracker.masm: an overlay)
+    .region a, b, s every s-th page only, from a: 2 for the even video
+                    pages that 2x line repeat frees (VIDEO.md)
+    .region a, b, s, overlay
+                    the same, for RAM under a ROM address: its chunks get
+                    #overlay instead of #addr (placard_sim.py), and
+                    gen_plc.py --overlay puts them in a second file
     .chunk          a piece of code that must stay in one page: its
                     branches are local.  It must end with a jump (jmp,
                     bra, GOTO, LEAVE, RET) or be data.  Chunks are placed
@@ -47,7 +58,7 @@ Lines before the first .chunk or .fixed (constants, #include, comments)
 are copied as they are.  The .asm made is the file to read and assemble;
 the .masm is its source (change that and run this again).
 
-Date: 10/27/2026
+Date: 11/02/2026
 """
 
 import os
@@ -166,6 +177,7 @@ def expand(src, name='?'):
     head, chunks = [], []
     cur = None
     prefix = os.path.splitext(os.path.basename(name))[0]
+    leave = 'lib_leave'
     nret = 0
     region = None
     regions = []
@@ -185,9 +197,15 @@ def expand(src, name='?'):
         if word == '.prefix':
             prefix = rest
             continue
+        if word == '.leave':
+            leave = rest
+            continue
         if word == '.region':
-            a, b = rest.split(',')
-            region = [value(a), value(b)]
+            parts = rest.split(',')
+            region = [value(parts[0]), value(parts[1]), value(parts[2]) if len(parts) > 2 else 1,
+                      len(parts) > 3 and parts[3].strip() == 'overlay']
+            if region not in regions:
+                regions.append(region)
             continue
         if word in ('.chunk', '.fixed', '.flow', '.page'):
             if word != '.fixed' and region is None:
@@ -230,7 +248,7 @@ def expand(src, name='?'):
                 out[0] = out[0] + ', ' + comment
             cur.last = None
         elif mword == 'LEAVE':
-            out = [with_comment('    ld   lib_leave >> 8, y', comment), '    jmp  lib_leave']
+            out = [with_comment('    ld   %s >> 8, y' % leave, comment), '    jmp  %s' % leave]
             cur.last = 'jmp'
         elif mword == 'RET':
             out = [with_comment('    ld   [LINK_HI], y', comment), '    jmp  [LINK_LO]']
@@ -282,30 +300,36 @@ def place(chunks, name):
         if c.last not in ENDERS and c.last != 'data' and c.size:
             raise ExpandError('%s:%d: chunk does not end with a jump (last: %s)'
                               % (name, c.lineno, c.last))
-        lo, hi = c.region
-        page = lo >> 8
-        start_off = lo & 0xFF
-        while True:
-            if page << 8 >= hi:
-                raise ExpandError('%s:%d: no room for a %d-byte chunk in x%04X-x%04X'
-                                  % (name, c.lineno, c.size, lo, hi - 1))
-            off = used.get(page, start_off if page == lo >> 8 else 0)
-            end = min(256, hi - (page << 8))
-            if c.page and off:
-                page += 1
-                continue
-            # a branch takes its page from the address after it, so a chunk
-            # that ends with one must not end at the end of the page
-            slack = 1 if c.last == 'bra' and end == 256 else 0
-            if off + c.size + slack <= end:
-                c.addr = (page << 8) + off
-                used[page] = off + c.size
+        own = c.regions.index(c.region)
+        for region in c.regions[own:]:
+            lo, hi, step, _ = region
+            page = lo >> 8
+            start_off = lo & 0xFF
+            while page << 8 < hi:
+                off = used.get(page, start_off if page == lo >> 8 else 0)
+                end = min(256, hi - (page << 8))
+                if c.page and off:
+                    page += step
+                    continue
+                # a branch takes its page from the address after it, so a chunk
+                # that ends with one must not end at the end of the page
+                slack = 1 if c.last == 'bra' and end == 256 else 0
+                if off + c.size + slack <= end:
+                    c.addr = (page << 8) + off
+                    used[page] = off + c.size
+                    c.region = region
+                    break
+                page += step
+            if c.addr is not None:
                 break
-            page += 1
+        else:
+            lo, hi, step, _ = c.regions[own]
+            raise ExpandError('%s:%d: no room for a %d-byte chunk in x%04X-x%04X or the regions after it'
+                              % (name, c.lineno, c.size, lo, hi - 1))
     flows = sorted((c for c in chunks if c.flow), key=lambda c: -c.size)
     if flows:
         free = []                           # [start, end) gaps, in address order
-        for lo, hi in flows[0].regions:
+        for lo, hi, step, _ in flows[0].regions:
             a = lo
             while a < hi:
                 page = a >> 8
@@ -317,7 +341,7 @@ def place(chunks, name):
                         free[-1][1] = end
                     else:
                         free.append([start, end])
-                a = (page + 1) << 8
+                a = (page + step) << 8
         for c in flows:                     # best fit
             best = None
             for f in free:
@@ -344,7 +368,7 @@ def render(head, chunks, name):
     for c in sorted(chunks, key=lambda c: c.addr):
         if c.addr != nxt:
             out.append('')
-            out.append('#addr 0x%04X' % c.addr)
+            out.append('%s 0x%04X' % ('#overlay' if c.region and c.region[3] else '#addr', c.addr))
         out.extend(c.lines)
         nxt = c.addr + c.size
     return '\n'.join(out) + '\n'
@@ -365,10 +389,11 @@ def main(argv):
         for c in chunks:
             if c.region:
                 regions.setdefault(tuple(c.region), []).append(c)
-        for (lo, hi), cs in regions.items():
+        for (lo, hi, step, _), cs in regions.items():
             top = max(c.addr + c.size for c in cs)
-            print('%s: x%04X-x%04X, %d bytes in %d chunks, top x%04X'
-                  % (dst, lo, hi - 1, sum(c.size for c in cs), len(cs), top))
+            print('%s: x%04X-x%04X%s, %d bytes in %d chunks, top x%04X'
+                  % (dst, lo, hi - 1, ' every %d pages' % step if step > 1 else '',
+                     sum(c.size for c in cs), len(cs), top))
     return 0
 
 

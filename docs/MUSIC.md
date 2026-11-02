@@ -1,6 +1,6 @@
 # Music player
 
-Date: 2026-11-01
+Date: 2026-11-02
 
 The music player (`src/scripts/placard_mus.masm`) plays songs in the style
 of the C64's SID trackers (GoatTracker, SID-Wizard): four voices, each an
@@ -212,6 +212,76 @@ vibrato, slides and portamento, a custom-wave organ and bells, a noise
 riser, pulse-width, voice-volume and master-volume effects, a speed change
 to double time and back, transposed orderlists and a key change.
 
+`test_mus.py` plays the demo song in `placard_sim` with the video stalls
+modeled, with `mus_frame` called at random times, once a frame, and from a
+busy program, and compares every byte the video reads with the model; it
+also checks a sound effect and a stop, and `--cpu` measures the clocks a
+frame.
+
+## TRACKER.PLC: the editor
+
+`sdcard/TRACKER.PLC` (`tracker.masm`) edits a song on the machine: the
+orderlists, the four voices' patterns side by side, the instruments and the
+wave and pulse tables, plays it while you edit, and loads and saves `.SNG`
+files on the card (the same files `mus_tool.py` makes, so a song can go
+back and forth between the card and `.mus` text).  It starts with
+`DEMO.SNG` when the card's folder has it, else with a blank song.  With
+`BOOT.CFG` = `TRACKER.PLC` it comes up at power-up; `TRACKER.OVL` must be
+next to it (below).
+
+The screen is 80 x 30 text on 2x lines (the editor and the player are more
+code than the RAM beside a 1x screen holds; the video RAM that 2x frees
+holds most of the code and the patterns):
+
+| Rows | |
+|------|---|
+| 0 | the header: file, title, octave, instrument, STOP / PLAY (gold) |
+| 2-10 | left: the orderlists, 8 positions, `>` on the one shown below; right: the instrument and its fields, or the wave or pulse table |
+| 12-13 | the pattern's title and the voice columns |
+| 14-27 | the four patterns at the order position, a row per line: note, instrument, effect and parameter |
+| 28-29 | the status line and the keys (gold) |
+
+The cursor's row is blue; the row being played is green.  `Tab` cycles the
+panes: pattern, order, instrument, wave table, pulse table.
+
+| Keys | |
+|------|---|
+| `Z`-`M` `,` `L` `.` | notes of the lower octave (the piano row, as in every tracker) |
+| `Q`-`I` `9` `O` `0` `P` | the upper octave |
+| `1` | key off (in the note column) |
+| `-` `=` | octave down / up |
+| `<` `>` | the instrument for new notes |
+| arrows | move (Ctrl-Q/R/S/T on the 63-key layout) |
+| `Del`, `Backspace` | clear the cell |
+| `0`-`9` `A`-`F` | a hex digit into the field under the cursor (instrument, effect, parameter, order entry, table entry) |
+| `[` `]` | order pane: transpose -1 / +1; instrument and table panes: the field -1 / +1 |
+| `I` `L` `S` | order pane: insert a position, loop here, stop here |
+| `Enter` | play the song from the start |
+| `Space` | play from the order position shown (stop when playing) |
+| `Esc` | stop |
+| `Ctrl-L` | the pattern's length: 64, 16, 32 |
+| `Ctrl-O` / `Ctrl-W` | load / save a `.SNG` (the name is asked on the status row) |
+| `Ctrl-N` | a blank song |
+| `Ctrl-X` | back to the DOS (twice when the song is not saved) |
+
+Every pattern has a 256-byte slot of its own: 40 slots, the even video
+pages x60 ... xA6 and four RAM pages, so a pattern can hold anything up to
+64 rows with a note in every row.  The player reads the patterns where
+they are, through the offsets in the song's page 0, so a saved song is a
+normal `.SNG` with its patterns packed one after the other.  The
+orderlists are kept decoded (a pattern and a transpose per position, up
+to 30, a loop or stop at the end) and encoded again when saved.
+
+**Memory and the map.**  `TRACKER.PLC` loads at x0100-x3DFF (code to
+x33FF, then the player's tables); the rest of the code is in
+`TRACKER.OVL`, which the program reads into the even video pages xA8, xAA
+... xFE at start (`gen_plc.py --overlay`).  Code and patterns in the video
+RAM need the map to read RAM there, so the tracker runs with the map at
+FF (every section RAM) and switches to the library's 07 only inside
+stubs around each library and DOS call, and while it reads the font
+(`asm_expand.py`'s `.region a, b, 2, overlay` and `placard_sim.py`'s
+`#overlay` place that code).
+
 ## Building
 
 ```
@@ -221,18 +291,10 @@ python mus_tool.py build ..\music\demo.mus -o ..\..\sdcard\DEMO.SNG
 python mus_tool.py wav ..\music\demo.mus -o demo.wav --seconds 60
 python asm_expand.py play.masm                       play.asm
 python gen_plc.py play.asm -o ..\..\sdcard\PLAY.PLC
+python asm_expand.py tracker.masm                    tracker.asm
+python gen_plc.py tracker.asm -o ..\..\sdcard\TRACKER.PLC --overlay 0xA800,2
+                                                     (and TRACKER.OVL)
 python test_mus.py                                   the player against the model (a few minutes)
 python test_play.py --png play.png                   PLAY.PLC through the DOS
+python test_tracker.py --png tracker.png             TRACKER.PLC through the DOS: edit, play, save, load
 ```
-
-`test_mus.py` plays the demo song in `placard_sim` with the video stalls
-modeled, with `mus_frame` called at random times, once a frame, and from a
-busy program, and compares every byte the video reads with the model; it
-also checks a sound effect and a stop, and `--cpu` measures the clocks a
-frame.
-
-## Next
-
-An on-machine editor, `TRACKER.PLC`, with the pattern editor, instrument
-and table editors, row tints for the beat and the cursor, and a 2x line
-repeat mode that frees video RAM for a longer song buffer.
