@@ -213,11 +213,6 @@ BASIC; BOOT.CFG naming a missing file.
 
 ## Not done yet
 
-- The text demo runs in place from ROM x6000-xBFFF only: its live RAM
-  test covers the RAM a card program runs from.  It stays buildable as a
-  64K development image (`build\text_demo.bat`).  The ray caster, the
-  textured ray caster and the side scroller are on the card
-  ([MENU.md](MENU.md#the-ray-casters-and-the-scroller-on-the-card)).
 - Running a `.BAS` file from the browser (for now: start BASIC, then
   `RUN "NAME"`; [BASIC.md](BASIC.md)).
 - A monitor, now planned as a program on the card (`MON.PLC`).
