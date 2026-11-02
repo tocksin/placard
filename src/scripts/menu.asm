@@ -15,7 +15,8 @@
 ;
 ;     CPUTEST.PLC  PI.PLC  MANDEL.PLC  LIFE.PLC  BOING.PLC  WIRE3D.PLC
 ;     RAYCAST.PLC  SCROLLER.PLC  RAYTEX.PLC  TEXT.PLC (SCROLLER.OVL and
-;     RAYTEX.OVL, which those two load themselves)
+;     RAYTEX.OVL, which those two load themselves), and TEST.PLC, the
+;     system test (test.masm), which T runs (it is not run in turn)
 ;
 ; At power-up the programs run in turn: each one until it is done or for
 ; its time limit (2 minutes, Mandelbrot 3).  Esc in a program shows the
@@ -46,6 +47,7 @@
 #include "placard_lib.asm"
 
 NPROG      = 10
+P_TEST     = NPROG      ; the system test, key T: after the list (not run in turn)
 IDLE_SECS  = 120        ; menu seconds with no key before running in turn again
 ROT_FRAMES = 7193       ; 2 minutes in turn
 MAN_FRAMES = 10789      ; 3 minutes: Mandelbrot finishes
@@ -115,9 +117,10 @@ next_prog:
     ld   [y,x], ac
     inc
     ld   ac, [m_p]
-    xor  NPROG, ac
-    bne  np_1
-    ld   ac, [m_p]              ; past the last: AC = 0, program 0
+    sub  NPROG, ac
+    blt  np_1
+    clr  ac                     ; past the last (or the system test): program 0
+    ld   ac, [m_p]
 np_1:
     ld   MB_MODE, x
     ld   0x00, [y,x]            ; 0 = in turn
@@ -292,6 +295,11 @@ ms_tb:
     ld   MB_PROG, x
     ld   [y,x], ac
     ld   ac, [m_sel]
+    sub  NPROG, ac
+    blt  ms_sel
+    clr  ac                     ; the system test (or no program): the first
+    ld   ac, [m_sel]
+ms_sel:
     ld   LINK_LO, x             ; CALL draw_list
     ld   menu_r3, [x]
     ld   LINK_HI, x
@@ -403,6 +411,10 @@ menu_key:
     ld   [m_t], ac
     xor  0x1B, ac               ; Esc: the DOS
     beq  mk_dos
+    ld   [m_t], ac
+    and  0xDF, ac               ; T or t: the system test (TEST.PLC)
+    xor  0x54, ac
+    beq  mk_test
     ld   [m_t], ac              ; 1 - 9, and 0 for 10: run that one
     sub  0x30, ac
     blt  mk_none
@@ -420,6 +432,14 @@ mk_run:
     ld   MB_MODE, x
     ld   0x01, [y,x]
     ld   [m_sel], ac
+    ld   ac, [m_p]
+    ld   launch >> 8, y
+    jmp  launch
+mk_test:
+    ld   MENU_BLK >> 8, y       ; picked: runs until Esc
+    ld   MB_MODE, x
+    ld   0x01, [y,x]
+    ld   P_TEST, ac             ; not in the list: m_sel stays
     ld   ac, [m_p]
     ld   launch >> 8, y
     jmp  launch
@@ -534,22 +554,22 @@ menu_r14:
 #addr 0x0400
 P_RL:    #d8 ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF, MAN_FRAMES & 0xFF, ROT_FRAMES & 0xFF
          #d8 ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF
-         #d8 ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF
+         #d8 ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF, ROT_FRAMES & 0xFF
 P_RH:    #d8 ROT_FRAMES >> 8, ROT_FRAMES >> 8, MAN_FRAMES >> 8, ROT_FRAMES >> 8
          #d8 ROT_FRAMES >> 8, ROT_FRAMES >> 8, ROT_FRAMES >> 8, ROT_FRAMES >> 8
-         #d8 ROT_FRAMES >> 8, ROT_FRAMES >> 8
+         #d8 ROT_FRAMES >> 8, ROT_FRAMES >> 8, ROT_FRAMES >> 8
 NAME_L:  #d8 nm_0 & 0xFF, nm_1 & 0xFF, nm_2 & 0xFF, nm_3 & 0xFF
-         #d8 nm_4 & 0xFF, nm_5 & 0xFF, nm_6 & 0xFF, nm_7 & 0xFF, nm_8 & 0xFF, nm_9 & 0xFF
+         #d8 nm_4 & 0xFF, nm_5 & 0xFF, nm_6 & 0xFF, nm_7 & 0xFF, nm_8 & 0xFF, nm_9 & 0xFF, nm_t & 0xFF
 NAME_H:  #d8 nm_0 >> 8, nm_1 >> 8, nm_2 >> 8, nm_3 >> 8
-         #d8 nm_4 >> 8, nm_5 >> 8, nm_6 >> 8, nm_7 >> 8, nm_8 >> 8, nm_9 >> 8
+         #d8 nm_4 >> 8, nm_5 >> 8, nm_6 >> 8, nm_7 >> 8, nm_8 >> 8, nm_9 >> 8, nm_t >> 8
 TITLE_L: #d8 ti_0 & 0xFF, ti_1 & 0xFF, ti_2 & 0xFF, ti_3 & 0xFF
          #d8 ti_4 & 0xFF, ti_5 & 0xFF, ti_6 & 0xFF, ti_7 & 0xFF, ti_8 & 0xFF, ti_9 & 0xFF
 TITLE_H: #d8 ti_0 >> 8, ti_1 >> 8, ti_2 >> 8, ti_3 >> 8
          #d8 ti_4 >> 8, ti_5 >> 8, ti_6 >> 8, ti_7 >> 8, ti_8 >> 8, ti_9 >> 8
-TEXT_COL: #d8 17, LIST_COL, LIST_COL, LIST_COL, SEC_COL + 4, LIST_COL, 0
-TEXT_ROW: #d8 3, 6, 28, SEC_ROW, SEC_ROW, 33
-TEXT_L:  #d8 tx_0 & 0xFF, tx_1 & 0xFF, tx_2 & 0xFF, tx_3 & 0xFF, tx_4 & 0xFF, tx_5 & 0xFF
-TEXT_H:  #d8 tx_0 >> 8, tx_1 >> 8, tx_2 >> 8, tx_3 >> 8, tx_4 >> 8, tx_5 >> 8
+TEXT_COL: #d8 17, LIST_COL, LIST_COL, LIST_COL, SEC_COL + 4, LIST_COL, LIST_COL, 0
+TEXT_ROW: #d8 3, 6, 28, SEC_ROW, SEC_ROW, 33, 35
+TEXT_L:  #d8 tx_0 & 0xFF, tx_1 & 0xFF, tx_2 & 0xFF, tx_3 & 0xFF, tx_4 & 0xFF, tx_5 & 0xFF, tx_6 & 0xFF
+TEXT_H:  #d8 tx_0 >> 8, tx_1 >> 8, tx_2 >> 8, tx_3 >> 8, tx_4 >> 8, tx_5 >> 8, tx_6 >> 8
 s_self:  #d "MENU.PLC", 0x00
 nm_0:    #d "CPUTEST.PLC", 0x00
 nm_1:    #d "PI.PLC", 0x00
@@ -561,6 +581,7 @@ nm_6:    #d "RAYCAST.PLC", 0x00
 nm_7:    #d "SCROLLER.PLC", 0x00
 nm_8:    #d "RAYTEX.PLC", 0x00
 nm_9:    #d "TEXT.PLC", 0x00
+nm_t:    #d "TEST.PLC", 0x00
 
 #addr 0x0500
 tx_0:    #d "P L A C A R D       D E M O       P R O G R A M S", 0x00
@@ -572,6 +593,7 @@ tx_2:    #d "Up / Down or 1-9, 0 choose, Enter runs it.  Esc in a program comes 
 tx_3:    #d "With no key pressed, the programs run in turn again in", 0x00
 tx_4:    #d "s.", 0x00
 tx_5:    #d "In turn, each runs until it is done, or for 2 minutes (Mandelbrot 3).  Esc here: the DOS.", 0x00
+tx_6:    #d "T  System test: RAM, card slots, keyboard and mouse, SD card, sound", 0x00
 
 
 #addr 0x0700
