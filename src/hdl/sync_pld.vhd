@@ -2,14 +2,14 @@
 -- Name     VGA_SYNC
 -- PartNo   01
 -- Date     2026-11-02
--- Revision 10
+-- Revision 11
 -- Designer Justin
 -- Company
 -- Assembly
 -- Location
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 10)
+-- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 11)
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP/SOIC; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = CLK
@@ -323,7 +323,9 @@ begin
     -- IR holds 02h, which writes nothing).
     --
 
-    WE_N <= not ((not CLK_E) and (not RW) and (not PIXEL_ENABLE_Q));
+    -- Revision 11: /WE also waits for CLK, so it falls on the later edge
+    -- and still rises on CLK_E (the same clock in the FPGA model).
+    WE_N <= not ((not CLK_E) and (not CLK) and (not RW) and (not PIXEL_ENABLE_Q));
 
 
     -- ============================================================

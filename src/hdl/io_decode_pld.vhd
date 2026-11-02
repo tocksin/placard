@@ -1,10 +1,13 @@
 -- ============================================================
--- IO_DECODE  (VHDL conversion of ATF22V10_IO_DECODE.pld, Rev 05)
+-- IO_DECODE  (VHDL conversion of ATF22V10_IO_DECODE.pld, Rev 06)
 -- Date: 11/02/2026
 --
 -- Rev 02: comments only.  map_wr_n clocks the 74ACT273 map register.
 -- Rev 03: the I/O window is 5000h-53FFh.  Pin 18 (was snd_wr_n, unused)
 -- is the a11 input; exp1_n and exp2_n moved to pages 1 and 3.
+-- Rev 06 (docs/timing/TIMING.md): pin 23 is q0, State PLD pin 18 (was
+-- load_imm_n).  rd = io and LOAD_MEM (not pc_enable and not q0) and not
+-- pixel_enable, so the read strobe no longer waits for STALL.
 -- Rev 04: pin 23 is load_imm_n, active low, as the State PLD (Rev 13)
 -- now drives it; the equations still use load_imm as logical true.
 -- Rev 05 (docs/timing/FETCH_TIMING.md): the mux PLDs take the
@@ -33,7 +36,7 @@
 --   1  we_n        2  pixel_enable 3  pc_enable   4  pc15
 --   5  h9          6  y7          7  a14          8  a13
 --   9  a12        10  a10        11  a9          13  a8
---  14  y_enable   18  a11        23  load_imm_n
+--  14  y_enable   18  a11        23  q0
 --  15  ce_hi_n    16  map_wr_n   17  line_rd_n
 --  19  port_wr_n  20  port_rd_n  21  exp1_n      22  exp2_n
 -- ============================================================
@@ -57,7 +60,7 @@ entity io_decode_pld is
         a8          : in  std_logic;   -- pin 13
         y_enable    : in  std_logic;   -- pin 14, State PLD Y_ENABLE (Rev 05, was rw)
         a11         : in  std_logic;   -- pin 18 (rev 03, was snd_wr_n)
-        load_imm_n  : in  std_logic;   -- pin 23, State PLD D-register strobe, low = load
+        q0          : in  std_logic;   -- pin 23, State PLD state bit 0 (Rev 06, was load_imm_n)
 
         ce_hi_n     : out std_logic;   -- pin 15
         map_wr_n    : out std_logic;   -- pin 16
@@ -72,7 +75,6 @@ end entity io_decode_pld;
 architecture rtl of io_decode_pld is
 
     signal a15   : std_logic;
-    signal load_imm : std_logic;   -- pin 23 as logical true (Rev 04)
     signal io    : std_logic;
     signal page0 : std_logic;
     signal page1 : std_logic;
@@ -83,7 +85,6 @@ architecture rtl of io_decode_pld is
 
 begin
 
-    load_imm <= not load_imm_n;
 
     -- A15, rebuilt from the mux inputs
     a15 <= (pixel_enable and h9)
@@ -99,7 +100,7 @@ begin
     page3 <= (not a10) and (    a9) and (    a8);
 
     wr    <= io and (not we_n);
-    rd    <= io and load_imm;   -- Rev 05: without rw
+    rd    <= io and (not pc_enable) and (not q0) and (not pixel_enable);   -- Rev 06: LOAD_MEM, CPU owns the bus
 
     -- outputs (pins are active low)
     ce_hi_n   <= not a15;

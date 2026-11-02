@@ -1,7 +1,7 @@
 Name     IO_DECODE;
 PartNo   00;
 Date     11/02/2026;
-Revision 05;
+Revision 06;
 Designer ;
 Company  ;
 Assembly ;
@@ -59,9 +59,10 @@ Device   g22v10;
                page, so a device latches on its rising edge at the
                end of the write.  Latch from the source bus, which
                holds the data past the end of the write.
-      Reads:   /xx_RD is low on a read that the CPU latches into D
-               (LOAD_IMM strobe from the State PLD, which already
-               excludes stall clocks).  The memory control PLD keeps
+      Reads:   /xx_RD is low in a LOAD_MEM clock that the CPU owns
+               (revision 06, see below; it was the State PLD's
+               LOAD_IMM strobe before).  D latches the byte with its
+               own strobe as before.  The memory control PLD keeps
                both memories off the bus for the whole I/O window.
 
    ROM/RAM MAP (revision 02)
@@ -78,9 +79,34 @@ Device   g22v10;
       strobe is the same.  /WE now comes from the Sync PLD
       (revision 10), not the memory control PLD.
 
+   READ STROBE FROM THE STATE BITS (revision 06)
+      RD = IO & LOAD_MEM & !PIXEL_ENABLE, with LOAD_MEM = !PC_ENABLE
+      & !Q0 (state 10; PC_ENABLE = !Q1).  Q0 from the State PLD
+      pin 18 replaces LOAD_IMM (State pin 19) on pin 23.
+      LOAD_IMM includes STALL, and in the clock after a video stall
+      STALL only falls after the loop through the Branch PLD and the
+      cartridge (20.5 ns), so the read strobe came 15 ns late and
+      an I/O read right after a stall failed by 5.3 to 7.3 ns
+      (docs/timing/TIMING.md).  Q0, PC_ENABLE and PIXEL_ENABLE are
+      all register outputs, settled before the address (13 ns), so
+      the strobe now has the timing of a read with no stall before
+      it (+7.7 ns, port and PS/2 +9.7).
+      Why this is the same strobe:
+        - An I/O address (5000h - 53FFh) is only read through [Y,X],
+          and that read is always in LOAD_MEM.  FETCH and LOAD_IMM
+          read at the PC, and [0,X] and [0,D] have high byte 00h.
+          In EXEC (state 11) the CPU never reads.
+        - In LOAD_MEM, STALL is PIXEL_ENABLE: the ADD/SUB wait is
+          only in EXEC, and the cartridge loader holds the CPU only
+          while PC_ENABLE is high.
+        - As before, a store from AC or X to an I/O address passes
+          through LOAD_MEM and asserts the read strobe there.
+      With !PIXEL_ENABLE & !PC_ENABLE in the term, the rebuilt A15
+      is Y_ENABLE & Y7, so each read strobe is 2 product terms.
+
    PIN BUDGET
       Inputs (15): /WE, PIXEL_ENABLE, PC_ENABLE, Y_ENABLE, PC15, H9,
-                   Y7, A14, A13, A12, A11, A10, A9, A8, LOAD_IMM
+                   Y7, A14, A13, A12, A11, A10, A9, A8, Q0 (revision 06; was LOAD_IMM)
       Outputs (7): /CE_HI, /MAP_WR, /LINE_RD, /PORT_WR,
                    /PORT_RD, /EXP1, /EXP2
       WinCUPL fits each strobe in 7 product terms (the rebuilt
@@ -108,9 +134,8 @@ PIN 13 = A8;
 
 PIN 14 = Y_ENABLE;     /* State PLD: Y register (I/O pin used as input; revision 05, was RW) */
 PIN 18 = A11;          /* I/O pin used as input (revision 03; was /SND_WR) */
-PIN 23 = !LOAD_IMM;    /* State PLD pin 19, D-register strobe, low = load (I/O pin used as input).
-                          Revision 04: active low, as the State PLD (revision 13) now drives it;
-                          the equations still use LOAD_IMM as logical true. */
+PIN 23 = Q0;           /* State PLD pin 18, state bit 0 (I/O pin used as input).
+                          Revision 06: was !LOAD_IMM from State PLD pin 19. */
 
 
 /* ---------------- OUTPUTS ---------------- */
@@ -142,7 +167,7 @@ PAGE2 = !A10 &  A9 & !A8;
 PAGE3 = !A10 &  A9 &  A8;
 
 WR    = IO & !WE_N;
-RD    = IO & LOAD_IMM;      /* revision 05: RW dropped, see above */
+RD    = IO & !PC_ENABLE & !Q0 & !PIXEL_ENABLE;   /* revision 06: LOAD_MEM, CPU owns the bus (was IO & LOAD_IMM) */
 
 
 /* ---------------- EQUATIONS ---------------- */
