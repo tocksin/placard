@@ -182,9 +182,33 @@ num_l   = 0x96              ; put_dec: the number
 num_h   = 0x97
 num_z   = 0x98              ;   1: a digit was printed
 cut_m   = 0x99              ; what cut_t times: 0 a cut, 1 installing, 2 uninstalling
+n_door  = 0x9A              ; the links in DOOR_PG (rooms_build)
+n_room  = 0x9B              ; the rooms, 1 to n_room - 1
+rb_go   = 0x9C              ; 1: the rooms are worked out again (cut_done)
+stk_l   = 0x9D              ; rooms_build: the fill stack's top (x4700 up)
+stk_h   = 0x9E
+rb_x    = w0                ; rooms_build (nothing it calls uses the w's):
+rb_y    = w1                ;   the cell scanned
+rb_n    = w2                ;   the room being filled
+rb_cx   = w3                ;   the cell taken off the stack
+rb_cy   = w4
+rb_k    = w5                ;   its neighbour 0-3
+rb_t    = w6                ;   0: the cell is the docking tube (sealed)
 
 ROOM_P  = 0x4000            ; + room: its pressure, 0-100 (start: RM_P0)
 ROOM_C  = 0x4040            ; + room: 1 while it is cold (pressure under COLD_P)
+; rooms_build's work space (x4080-x4CFF; the file system's from x4D00)
+RB_DY   = 0x4080            ; + i: the links' y (to check), the x at RB_DX
+RB_S0   = 0x4100            ; + room: the old pressures of its cells, summed (3 bytes)
+RB_S1   = 0x4140
+RB_S2   = 0x4180
+RB_CL   = 0x41C0            ; + room: its cells (2 bytes)
+RB_CH   = 0x4200
+RB_LK   = 0x4240            ; + room: 1 it leaks
+RB_TG   = 0x4280            ; + room: 1 a room of the tug
+RB_DX   = 0x42C0
+RB_VIS  = 0x43              ; x4300-x46FF: a bit a cell, filled (16 bytes a row)
+RB_STK  = 0x47              ; x4700-x4CFF: the fill stack, x and y a cell
 COLD_P  = 40                ; a room under this draws its deck frosted
 BREATHE_P = 60              ; a room under this: the suit uses its own O2
 SUIT_O2 = 90
@@ -238,6 +262,37 @@ ca_lo\@:
     add  32, ac
 ca_go\@:
     ld   ac, [dc_base]
+.endm
+
+; VISADDR - g_x, g_y: u2:u3 = the address of its bit in rooms_build's fill
+; map (RB_VIS + y >> 4 : 16 (y & 15) + x >> 3), u4 = the bit
+.macro VISADDR
+    ld   [g_y], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    add  RB_VIS, ac
+    ld   ac, [u2]
+    ld   [g_y], ac
+    and  0x0F, ac
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [u3]
+    ld   [g_x], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    or   [u3], ac
+    ld   ac, [u3]
+    ld   [g_x], ac
+    and  7, ac
+    add  BIT_TAB & 0xFF, x
+    ld   BIT_TAB >> 8, y
+    ld   [y,x], ac
+    ld   ac, [u4]
 .endm
 
 ; the text cursor's glyph address (tracker.masm): p_pg:p_off, p_st
@@ -1867,7 +1922,7 @@ dy_2:
     ld   A_PUTB, ac
     CALL add_act
 dy_e:
-    LEAVE
+    GOTO dyn_struct
 
 ; add_act - AC = an action code, added to the subject's list (4 at most).
 ; A leaf.
@@ -2264,6 +2319,7 @@ gi_n:
     ld   ac, [v0]
     xor  0x40, ac
     bne  gi_l
+    CALL rooms_build
     CALL tug_scan
     LEAVE
 
@@ -2305,7 +2361,7 @@ air_tick:
     ld   ac, [v0]
 at_d:
     ld   [v0], ac
-    xor  NDOORS, ac
+    xor  [n_door], ac
     beq  at_e
     ld   DOOR_PG, y
     ld   [v0], x
@@ -2324,7 +2380,9 @@ at_d:
     beq  at_o
     ld   [v3], ac
     xor  T_LOCK, ac
-    bne  at_n
+    beq  at_o
+    CALL air_crack              ; a closed door or a wall: leaks if broken
+    bra  at_n
 at_o:
     ld   DOOR_PG, y
     ld   [v0], ac
@@ -2352,6 +2410,9 @@ at_n:
     ld   ac, [v0]
     bra  at_d
 at_e:
+    ld   ROOM_P >> 8, y         ; room 0 is vacuum
+    clr  x
+    ld   0, [y,x]
     GOTO air_leak
 
 ; air_leak - a breach empties its room (an eighth and one a tick); the
@@ -2393,7 +2454,7 @@ lk_e:
     ld   ac, [v0]
 sp_l:
     ld   [v0], ac
-    xor  NROOMS, ac
+    xor  [n_room], ac
     beq  sp_e
     ld   ROOM_PG, y
     ld   [v0], ac
@@ -2427,7 +2488,7 @@ air_cold:
     ld   ac, [v0]
 ac_l:
     ld   [v0], ac
-    xor  NROOMS, ac
+    xor  [n_room], ac
     beq  ac_e
     ld   ROOM_P >> 8, y
     ld   [v0], x
@@ -2882,6 +2943,8 @@ cu_no:
     CALL set_msg
     LEAVE
 cu_ok:
+    CALL plate_room
+    beq  cu_e
     ld   [batt], ac
     sub  CUT_BATT, ac
     bcs  cu_nb
@@ -2905,6 +2968,7 @@ cu_nb:
     ld   s_nobatt >> 8, ac
     ld   ac, [R1]
     CALL set_msg
+cu_e:
     LEAVE
 cu_far:
     MSG_TOOFAR
@@ -2912,21 +2976,49 @@ cu_far:
     LEAVE
 
 ; cut_done - the part at cut_x, cut_y is cut free (the battery pays),
-; installed or uninstalled (cut_m); then the tug again
+; installed or uninstalled (cut_m); a wall, deck or door of the ship is
+; taken out (struct_done); a wall panel or door installed is a wall or
+; door again.  Then the rooms (if the ship changed) and the tug again
 .chunk
 cut_done:
     PUSH_LINK
+    clr  ac
+    ld   ac, [rb_go]
     ld   [cut_x], ac
     ld   ac, [g_x]
     ld   [cut_y], ac
     ld   ac, [g_y]
     CALL map_get
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_STRUCT, ac
+    beq  cd_i
+    GOTO struct_done
+cd_i:
     ld   [cut_m], ac
     xor  1, ac
     bne  cd_f
-    ld   [c_t], ac              ; installed: bolted
+    ld   [c_t], ac              ; installed: a wall panel a wall, a door a door
+    xor  T_PANEL, ac
+    bne  cd_k
+    ld   T_WALL, ac
+    bra  cd_s
+cd_k:
+    ld   [c_t], ac
+    xor  T_DOORK, ac
+    bne  cd_b
+    ld   T_DOOR, ac
+cd_s:
+    CALL map_put
+    ld   1, ac
+    ld   ac, [rb_go]
+    bra  cd_im
+cd_b:
+    ld   [c_t], ac              ; a part: bolted
     or   0x80, ac
     CALL map_put
+cd_im:
     ld   s_instdone & 0xFF, ac
     ld   ac, [R0]
     ld   s_instdone >> 8, ac
@@ -2941,27 +3033,1049 @@ cd_f:
     ld   s_uninstdone >> 8, ac
     bra  cd_m
 cd_c:
-    ld   [batt], ac
-    sub  CUT_BATT, ac
-    ld   ac, [batt]
+    CALL cut_pay
     ld   s_cutdone & 0xFF, ac
     ld   ac, [R0]
     ld   s_cutdone >> 8, ac
 cd_m:
     ld   ac, [R1]
     CALL set_msg
+    GOTO work_end
+
+; work_end - the rooms again if the ship changed (rb_go), the tug, the
+; panel.  The end of cut_done (its LEAVE).
+.chunk
+work_end:
+    ld   [rb_go], ac
+    beq  we_t
+    CALL rooms_build
+    CALL draw_view
+    CALL hover_update
+we_t:
     CALL tug_scan
     ld   [dirty], ac
     or   1, ac
     ld   ac, [dirty]
     LEAVE
 
+; cut_pay - a cut's battery (cut_m 0).  A leaf.
+.chunk
+cut_pay:
+    ld   [batt], ac
+    sub  CUT_BATT, ac
+    ld   ac, [batt]
+    RET
+
+; struct_done - a wall taken out is a wall panel on the deck, a door a
+; door kit; a deck plate goes to a free carry slot and leaves open space.
+; The rest of cut_done.
+.chunk
+struct_done:
+    ld   1, ac
+    ld   ac, [rb_go]
+    ld   [c_t], ac
+    xor  T_FLOOR, ac
+    beq  sd_f
+    ld   [c_t], ac
+    xor  T_WALL, ac
+    bne  sd_d
+    ld   T_PANEL, ac
+    bra  sd_p
+sd_d:
+    ld   T_DOORK, ac            ; a door, open or closed
+sd_p:
+    CALL map_put                ; loose, its damage kept
+    bra  sd_m
+sd_f:
+    CALL free_slot
+    beq  sd_full
+    ld   ac, [v0]
+    ld   [v0], x
+    ld   T_PLATE, ac
+    ld   ac, [x]
+    ld   [v0], ac
+    add  3, x
+    ld   [c_f], ac
+    ld   ac, [x]
+    ld   T_SPACE, ac
+    CALL map_put
+    clr  ac
+    CALL map_setd
+sd_m:
+    ld   [cut_m], ac
+    bne  sd_u
+    CALL cut_pay
+sd_u:
+    ld   [c_t], ac
+    xor  T_FLOOR, ac
+    beq  sd_pl
+    ld   [cut_m], ac
+    beq  sd_c
+    ld   s_uninstdone & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_uninstdone >> 8, ac
+    bra  sd_e
+sd_c:
+    ld   s_cutdone & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_cutdone >> 8, ac
+    bra  sd_e
+sd_pl:
+    ld   s_plate & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_plate >> 8, ac
+sd_e:
+    ld   ac, [R1]
+    CALL set_msg
+    GOTO work_end
+sd_full:
+    ld   s_full & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_full >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    LEAVE
+
+; free_slot - AC = the first empty carry slot's address (cl_t, cr_t,
+; cb_t), 0 none.  A leaf.
+.chunk
+free_slot:
+    ld   [cl_t], ac
+    bne  fs_1
+    ld   cl_t, ac
+    RET
+fs_1:
+    ld   [cr_t], ac
+    bne  fs_2
+    ld   cr_t, ac
+    RET
+fs_2:
+    ld   [cb_t], ac
+    bne  fs_3
+    ld   cb_t, ac
+    RET
+fs_3:
+    clr  ac
+    RET
+
+; plate_room - AC = 0 (and the message) when the panel shows a deck and
+; no carry slot is free for its plate; else 1
+.chunk
+plate_room:
+    PUSH_LINK
+    ld   [s_t], ac
+    xor  T_FLOOR, ac
+    bne  pr_ok
+    CALL free_slot
+    bne  pr_ok
+    ld   s_full & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_full >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    clr  ac
+    LEAVE
+pr_ok:
+    ld   1, ac
+    LEAVE
+
+; lay_action - LAY DECK PLATE: a carried deck plate onto the open space
+; the panel shows, next to the player.  The rest of do_action.
+.chunk
+lay_action:
+    CALL near
+    beq  ly_far
+    ld   cl_t, ac
+    ld   ac, [v0]
+ly_l:
+    ld   [v0], x
+    ld   [x], ac
+    xor  T_PLATE, ac
+    beq  ly_ok
+    ld   [v0], ac
+    inc
+    ld   ac, [v0]
+    xor  cb_t + 1, ac
+    bne  ly_l
+    LEAVE
+ly_ok:
+    ld   [s_x], ac
+    ld   ac, [g_x]
+    ld   [s_y], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   T_FLOOR, ac
+    CALL map_put
+    ld   [v0], ac
+    add  3, x
+    ld   [x], ac
+    CALL map_setd
+    ld   [v0], x
+    clr  ac
+    ld   ac, [x]
+    ld   s_laid & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_laid >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    ld   1, ac
+    ld   ac, [rb_go]
+    GOTO work_end
+ly_far:
+    MSG_TOOFAR
+    CALL set_msg
+    LEAVE
+
+; dyn_struct - the ship's own cells (not the player's): UNINSTALL on the
+; tug, CUT FREE in a wreck; LAY DECK PLATE on open space with a plate in
+; a carry slot.  The rest of dyn_acts.
+.chunk
+dyn_struct:
+    ld   [s_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_STRUCT, ac
+    beq  ds_v
+    ld   [s_x], ac
+    xor  [p_x], ac
+    bne  ds_1
+    ld   [s_y], ac
+    xor  [p_y], ac
+    beq  ds_e
+ds_1:
+    CALL on_tug
+    beq  ds_c
+    ld   A_UNINST, ac
+    bra  ds_a
+ds_c:
+    ld   A_CUT, ac
+    bra  ds_a
+ds_v:
+    ld   [s_t], ac
+    xor  T_SPACE, ac
+    beq  ds_p
+    ld   [s_t], ac
+    xor  T_STAR, ac
+    bne  ds_e
+ds_p:
+    ld   [cl_t], ac
+    xor  T_PLATE, ac
+    beq  ds_l
+    ld   [cr_t], ac
+    xor  T_PLATE, ac
+    beq  ds_l
+    ld   [cb_t], ac
+    xor  T_PLATE, ac
+    bne  ds_e
+ds_l:
+    ld   A_LAY, ac
+ds_a:
+    CALL add_act
+ds_e:
+    LEAVE
+
+; air_crack - a link that is not open (v1:v2 its type byte, v3 its type):
+; from 50 % damage it leaks, a unit a tick toward the lower side; to
+; vacuum (room 0) two.  The rest of air_tick's loop (its v0)
+.chunk
+air_crack:
+    ld   [v1], ac               ; the damage, two pages up
+    add  2, ac
+    ld   ac, y
+    ld   [v2], x
+    ld   [y,x], ac
+    and  0x0F, ac
+    sub  8, ac
+    bcs  ak_e
+    ld   DOOR_PG, y
+    ld   [v0], ac
+    add  0x80, x
+    ld   [y,x], ac
+    ld   ac, [v4]
+    ld   [v0], ac
+    add  0xC0, x
+    ld   [y,x], ac
+    ld   ac, [v5]
+    beq  ak_v
+    ld   [v4], ac
+    bne  ak_r
+    ld   [v5], ac               ; vacuum on side a: side b drains
+    ld   ac, [v4]
+ak_v:
+    ld   ROOM_P >> 8, y
+    ld   [v4], x
+    ld   [y,x], ac
+    sub  2, ac
+    bcc  ak_s
+    clr  ac
+ak_s:
+    ld   ac, [y,x]
+    RET
+ak_r:
+    ld   ROOM_P >> 8, y         ; room to room: a unit from the higher
+    ld   [v4], x
+    ld   [y,x], ac
+    ld   ac, [v6]
+    ld   [v5], x
+    ld   [y,x], ac
+    ld   ac, [v7]
+    ld   [v6], ac
+    sub  [v7], ac
+    sub  2, ac
+    bcs  ak_b                   ; a not 2 or more over b
+    ld   [v6], ac
+    dec
+    ld   [v4], x
+    ld   ac, [y,x]
+    ld   [v7], ac
+    inc
+    ld   [v5], x
+    ld   ac, [y,x]
+    RET
+ak_b:
+    ld   [v7], ac
+    sub  [v6], ac
+    sub  2, ac
+    bcs  ak_e
+    ld   [v7], ac
+    dec
+    ld   [v5], x
+    ld   ac, [y,x]
+    ld   [v6], ac
+    inc
+    ld   [v4], x
+    ld   ac, [y,x]
+ak_e:
+    RET
+
+; ============================================================
+; rooms_build - the rooms worked out from the map: every air cell's room
+; (a fill from each cell not yet filled, in map order: the same numbers
+; as gen_scrap.py's rooms()), each room's pressure (the average of its
+; cells' old pressures), whether it leaks (next to vacuum or the map's
+; edge, the docking tube aside) and is the tug's; the links (doors,
+; airlocks, broken walls) with their two rooms; ROOM_C.  After a wall,
+; deck or door is taken out or put in.
+; ============================================================
+.chunk
+rooms_build:
+    PUSH_LINK
+    ld   RB_S0 >> 8, ac         ; x4100-x46FF cleared
+    ld   ac, [v0]
+rb_c:
+    clr  ac
+    ld   ac, [v1]
+rb_c2:
+    ld   [v0], y
+    ld   [v1], x
+    ld   0, [y,x]
+    ld   [v1], ac
+    inc
+    ld   ac, [v1]
+    bne  rb_c2
+    ld   [v0], ac
+    inc
+    ld   ac, [v0]
+    xor  RB_STK, ac
+    bne  rb_c
+    clr  ac
+    ld   ac, [rb_n]
+    ld   ac, [n_door]
+    ld   ac, [rb_y]
+    ld   ac, [stk_l]
+    ld   RB_STK, ac
+    ld   ac, [stk_h]
+    GOTO rb_scan
+
+; rb_scan - every cell in map order: a solid cell's room is 0 (a link is
+; listed), an air cell not filled yet starts a room.  The rest of
+; rooms_build.
+.chunk
+rb_scan:
+rb_sy:
+    clr  ac
+    ld   ac, [rb_x]
+rb_sx:
+    ld   [rb_x], ac
+    ld   ac, [g_x]
+    ld   [rb_y], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_SOLID, ac
+    beq  rb_air
+    CALL rb_solid
+    bra  rb_nx
+rb_air:
+    VISADDR
+    ld   [u2], y
+    ld   [u3], x
+    ld   [y,x], ac
+    and  [u4], ac
+    bne  rb_nx
+    ld   [rb_n], ac             ; a new room (63 at most)
+    xor  63, ac
+    beq  rb_f
+    ld   [rb_n], ac
+    inc
+    ld   ac, [rb_n]
+rb_f:
+    CALL rb_push
+    CALL rb_fill
+rb_nx:
+    ld   [rb_x], ac
+    inc
+    ld   ac, [rb_x]
+    xor  MAP_W, ac
+    bne  rb_sx
+    ld   [rb_y], ac
+    inc
+    ld   ac, [rb_y]
+    xor  MAP_H, ac
+    bne  rb_sy
+    GOTO rb_links
+
+; rb_solid - the solid cell map_get found: room 0; a door, an airlock or
+; a wall from 50 % damage goes on the list to link (64 at most)
+.chunk
+rb_solid:
+    PUSH_LINK
+    ld   [c_t], ac
+    xor  T_WALL, ac
+    bne  rs_d
+    ld   [c_f], ac
+    sub  8, ac
+    bcs  rs_z
+    bra  rs_l
+rs_d:
+    ld   [c_t], ac
+    xor  T_DOOR, ac
+    beq  rs_l
+    ld   [c_t], ac
+    xor  T_DOORO, ac
+    beq  rs_l
+    ld   [c_t], ac
+    xor  T_LOCK, ac
+    bne  rs_z
+rs_l:
+    ld   [n_door], ac
+    xor  64, ac
+    beq  rs_z
+    ld   RB_DX >> 8, y
+    ld   [n_door], ac
+    add  RB_DX & 0xFF, x
+    ld   [rb_x], ac
+    ld   ac, [y,x]
+    ld   RB_DY >> 8, y
+    ld   [n_door], ac
+    add  RB_DY & 0xFF, x
+    ld   [rb_y], ac
+    ld   ac, [y,x]
+    ld   [n_door], ac
+    inc
+    ld   ac, [n_door]
+rs_z:
+    ld   [c_r], ac              ; most are 0 already
+    beq  rs_e
+    clr  ac
+    CALL set_room
+rs_e:
+    LEAVE
+
+; rb_fill - the room rb_n from the cells on the stack: each cell's old
+; pressure summed, its room set, its neighbours (rb_nbs)
+.chunk
+rb_fill:
+    PUSH_LINK
+rf_l:
+    CALL rb_pop
+    beq  rf_e
+    ld   [rb_cx], ac
+    ld   ac, [g_x]
+    ld   [rb_cy], ac
+    ld   ac, [g_y]
+    CALL map_get
+    CALL rb_acc
+    ld   [rb_n], ac
+    CALL set_room
+    ld   [c_t], ac
+    xor  T_TUBE, ac
+    ld   ac, [rb_t]
+    clr  ac
+    ld   ac, [rb_k]
+    GOTO rb_nbs
+rf_e:
+    LEAVE
+
+; rb_nbs - the four neighbours of rb_cx, rb_cy: vacuum or the edge next
+; to it, the room leaks; an air cell not filled yet goes on the stack.
+; Back to rb_fill's loop.
+.chunk
+rb_nbs:
+rn_l:
+    CALL rb_nb
+    bne  rn_in
+    ld   [rb_t], ac
+    beq  rn_k
+    CALL rb_leak
+    bra  rn_k
+rn_in:
+    VISADDR                     ; filled already: air, nothing to do
+    ld   [u2], y
+    ld   [u3], x
+    ld   [y,x], ac
+    and  [u4], ac
+    bne  rn_k
+    CALL map_get
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    ld   ac, [v1]
+    and  F_VAC, ac
+    beq  rn_s
+    ld   [rb_t], ac
+    beq  rn_s
+    CALL rb_leak
+rn_s:
+    ld   [v1], ac
+    and  F_SOLID, ac
+    bne  rn_k
+    CALL rb_push
+rn_k:
+    ld   [rb_k], ac
+    inc
+    ld   ac, [rb_k]
+    xor  4, ac
+    bne  rn_l
+    GOTO rf_l
+
+; rb_acc - the cell map_get found: its old room's pressure added to room
+; rb_n's sum, a cell counted, the tug's room marked.  A leaf.
+.chunk
+rb_acc:
+    ld   ROOM_P >> 8, y
+    ld   [c_r], x
+    ld   [y,x], ac
+    ld   ac, [u5]
+    ld   RB_S0 >> 8, y
+    ld   [rb_n], x
+    ld   [y,x], ac
+    add  [u5], ac
+    ld   ac, [y,x]
+    bcc  ra_1
+    ld   [rb_n], ac
+    add  RB_S1 & 0xFF, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    bne  ra_1
+    ld   [rb_n], ac
+    add  RB_S2 & 0xFF, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+ra_1:
+    ld   [rb_n], ac
+    add  RB_CL & 0xFF, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    bne  ra_2
+    ld   RB_CH >> 8, y
+    ld   [rb_n], x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+ra_2:
+    ld   [rb_cx], ac
+    sub  TUG_X0, ac
+    sub  TUG_X1 - TUG_X0 + 1, ac
+    bcc  ra_e
+    ld   [rb_cy], ac
+    sub  TUG_Y0, ac
+    sub  TUG_Y1 - TUG_Y0 + 1, ac
+    bcc  ra_e
+    ld   RB_TG >> 8, y
+    ld   [rb_n], ac
+    add  RB_TG & 0xFF, x
+    ld   1, [y,x]
+ra_e:
+    RET
+
+; rb_leak - room rb_n leaks.  A leaf.
+.chunk
+rb_leak:
+    ld   RB_LK >> 8, y
+    ld   [rb_n], ac
+    add  RB_LK & 0xFF, x
+    ld   1, [y,x]
+    RET
+
+; rb_nb - g_x, g_y = neighbour rb_k of rb_cx, rb_cy (0 right, 1 left, 2
+; down, 3 up); AC = 0 when it is off the map.  A leaf.
+.chunk
+rb_nb:
+    ld   [rb_cx], ac
+    ld   ac, [g_x]
+    ld   [rb_cy], ac
+    ld   ac, [g_y]
+    ld   [rb_k], ac
+    beq  nb_r
+    xor  1, ac
+    beq  nb_l
+    ld   [rb_k], ac
+    xor  2, ac
+    beq  nb_d
+    ld   [g_y], ac
+    beq  nb_o
+    dec
+    ld   ac, [g_y]
+    bra  nb_i
+nb_r:
+    ld   [g_x], ac
+    inc
+    ld   ac, [g_x]
+    xor  MAP_W, ac
+    beq  nb_o
+    bra  nb_i
+nb_l:
+    ld   [g_x], ac
+    beq  nb_o
+    dec
+    ld   ac, [g_x]
+    bra  nb_i
+nb_d:
+    ld   [g_y], ac
+    inc
+    ld   ac, [g_y]
+    xor  MAP_H, ac
+    beq  nb_o
+nb_i:
+    ld   1, ac
+    RET
+nb_o:
+    clr  ac
+    RET
+
+; rb_push - g_x, g_y marked filled and on the stack (not when it is
+; full).  A leaf.
+.chunk
+rb_push:
+    ld   [stk_h], ac
+    xor  0x4D, ac
+    beq  rp_e
+    VISADDR
+    ld   [u2], y
+    ld   [u3], x
+    ld   [y,x], ac
+    or   [u4], ac
+    ld   ac, [y,x]
+    ld   [stk_h], y
+    ld   [stk_l], x
+    ld   [g_x], ac
+    ld   ac, [y,x]
+    ld   [stk_l], ac
+    add  1, x
+    ld   [g_y], ac
+    ld   ac, [y,x]
+    ld   [stk_l], ac
+    add  2, ac
+    ld   ac, [stk_l]
+    bne  rp_e
+    ld   [stk_h], ac
+    inc
+    ld   ac, [stk_h]
+rp_e:
+    RET
+
+; rb_pop - rb_cx, rb_cy off the stack, AC = 1; AC = 0 when it is empty.
+; A leaf.
+.chunk
+rb_pop:
+    ld   [stk_l], ac
+    bne  rq_1
+    ld   [stk_h], ac
+    xor  RB_STK, ac
+    beq  rq_e
+    ld   [stk_h], ac
+    dec
+    ld   ac, [stk_h]
+rq_1:
+    ld   [stk_l], ac
+    sub  2, ac
+    ld   ac, [stk_l]
+    ld   [stk_h], y
+    ld   [stk_l], x
+    ld   [y,x], ac
+    ld   ac, [rb_cx]
+    ld   [stk_l], ac
+    add  1, x
+    ld   [y,x], ac
+    ld   ac, [rb_cy]
+    ld   1, ac
+rq_e:
+    RET
+
+; set_room - AC = the room of the cell map_get last found (type byte bits
+; 6-5: room bits 5-4; flag byte bits 7-4: room bits 3-0).  A leaf.
+.chunk
+set_room:
+    ld   ac, [u0]
+    ld   [a_pg], y
+    ld   [a_ix], x
+    ld   [y,x], ac
+    and  0x9F, ac
+    ld   ac, [u1]
+    ld   [u0], ac
+    and  0x30, ac
+    shl
+    or   [u1], ac
+    ld   ac, [y,x]
+    ld   [a_pg], ac
+    add  2, ac
+    ld   ac, y
+    ld   [y,x], ac
+    and  0x0F, ac
+    ld   ac, [u1]
+    ld   [u0], ac
+    shl
+    shl
+    shl
+    shl
+    or   [u1], ac
+    ld   ac, [y,x]
+    RET
+
+; rb_links - each listed door, airlock or broken wall: the rooms on two
+; opposite sides (a room, or 0 for vacuum and the edge; a solid cell is
+; none) make a link in DOOR_PG when they differ (64 at most); the cell
+; gets the room of a side.  The rest of rooms_build.
+.chunk
+rb_links:
+    ld   [n_door], ac
+    ld   ac, [v7]
+    clr  ac
+    ld   ac, [n_door]
+    ld   ac, [rb_x]
+rl_l:
+    ld   [rb_x], ac
+    xor  [v7], ac
+    bne  rl_1
+    GOTO rb_press
+rl_1:
+    ld   RB_DX >> 8, y
+    ld   [rb_x], ac
+    add  RB_DX & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [rb_cx]
+    ld   ac, [g_x]
+    ld   RB_DY >> 8, y
+    ld   [rb_x], ac
+    add  RB_DY & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [rb_cy]
+    ld   ac, [g_y]
+    CALL map_get
+    ld   [a_pg], ac
+    ld   ac, [v1]
+    ld   [a_ix], ac
+    ld   ac, [v2]
+    clr  ac
+    ld   ac, [v6]
+    ld   1, ac                  ; left and right
+    ld   ac, [rb_k]
+    CALL rl_side
+    ld   ac, [v4]
+    clr  ac
+    ld   ac, [rb_k]
+    CALL rl_side
+    ld   ac, [v3]
+    CALL rl_add
+    ld   3, ac                  ; up and down
+    ld   ac, [rb_k]
+    CALL rl_side
+    ld   ac, [v4]
+    ld   2, ac
+    ld   ac, [rb_k]
+    CALL rl_side
+    ld   ac, [v3]
+    CALL rl_add
+    GOTO rl_set
+
+; rl_set - the link cell's room (v6).  Back to rb_links' loop.
+.chunk
+rl_set:
+    ld   [rb_cx], ac
+    ld   ac, [g_x]
+    ld   [rb_cy], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   [v6], ac
+    CALL set_room
+    ld   [rb_x], ac
+    inc
+    ld   ac, [rb_x]
+    GOTO rl_l
+
+; rl_side - AC = the room of neighbour rb_k of the link cell: 0 vacuum or
+; the edge, xFF a solid cell
+.chunk
+rl_side:
+    PUSH_LINK
+    CALL rb_nb
+    beq  sd_0
+    CALL map_get
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    ld   ac, [u5]
+    and  F_VAC, ac
+    bne  sd_0
+    ld   [u5], ac
+    and  F_SOLID, ac
+    beq  sd_r
+    ld   0xFF, ac
+    LEAVE
+sd_r:
+    ld   [c_r], ac
+    LEAVE
+sd_0:
+    clr  ac
+    LEAVE
+
+; rl_add - a link v4 - v3 (rooms, 0 vacuum, xFF none) for the cell at
+; v1:v2 when both sides are something, not both vacuum, and differ; v6 =
+; the room of a side.  A leaf.
+.chunk
+rl_add:
+    ld   [v4], ac
+    xor  0xFF, ac
+    beq  la_e
+    ld   [v3], ac
+    xor  0xFF, ac
+    beq  la_e
+    ld   [v3], ac
+    xor  [v4], ac
+    beq  la_e
+    ld   [n_door], ac
+    xor  64, ac
+    beq  la_e
+    ld   DOOR_PG, y
+    ld   [n_door], x
+    ld   [v1], ac
+    ld   ac, [y,x]
+    ld   [n_door], ac
+    add  0x40, x
+    ld   [v2], ac
+    ld   ac, [y,x]
+    ld   [n_door], ac
+    add  0x80, x
+    ld   [v4], ac
+    ld   ac, [y,x]
+    ld   [n_door], ac
+    add  0xC0, x
+    ld   [v3], ac
+    ld   ac, [y,x]
+    ld   [n_door], ac
+    inc
+    ld   ac, [n_door]
+    ld   [v4], ac
+    bne  la_s
+    ld   [v3], ac
+la_s:
+    ld   ac, [v6]
+la_e:
+    RET
+
+; rb_press - each room's pressure (the sum / the cells), whether it is the
+; tug's, the leaking rooms' list; the rooms past the last emptied; then
+; ROOM_C.  The rest of rooms_build.
+.chunk
+rb_press:
+    ld   1, ac
+    ld   ac, [rb_x]
+    clr  ac
+    ld   ac, [rb_y]
+rp_l:
+    ld   [rb_n], ac
+    sub  [rb_x], ac
+    bcs  rp_z
+    CALL rb_avg
+    ld   ROOM_P >> 8, y
+    ld   [rb_x], x
+    ld   ac, [y,x]
+    ld   RB_TG >> 8, y
+    ld   [rb_x], ac
+    add  RB_TG & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [v0]
+    ld   ROOM_PG, y
+    ld   [rb_x], ac
+    add  RM_FL, x
+    ld   [v0], ac
+    ld   ac, [y,x]
+    ld   RB_LK >> 8, y
+    ld   [rb_x], ac
+    add  RB_LK & 0xFF, x
+    ld   [y,x], ac
+    beq  rp_n
+    ld   ROOM_PG, y
+    ld   [rb_y], ac
+    add  RM_LEAK, x
+    ld   [rb_x], ac
+    ld   ac, [y,x]
+    ld   [rb_y], ac
+    inc
+    ld   ac, [rb_y]
+    bra  rp_n
+rp_z:
+    ld   ROOM_P >> 8, y
+    ld   [rb_x], x
+    ld   0, [y,x]
+    ld   ROOM_PG, y
+    ld   [rb_x], ac
+    add  RM_FL, x
+    ld   0, [y,x]
+rp_n:
+    ld   [rb_x], ac
+    inc
+    ld   ac, [rb_x]
+    xor  64, ac
+    bne  rp_l
+    ld   ROOM_PG, y
+    ld   [rb_y], ac
+    add  RM_LEAK, x
+    ld   0, [y,x]
+    ld   [rb_n], ac
+    inc
+    ld   ac, [n_room]
+    GOTO rb_cold
+
+; rb_avg - AC = room rb_x's sum / its cells (0-100).  A leaf.
+.chunk
+rb_avg:
+    ld   RB_S0 >> 8, y
+    ld   [rb_x], x
+    ld   [y,x], ac
+    ld   ac, [v0]
+    ld   [rb_x], ac
+    add  RB_S1 & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [v1]
+    ld   [rb_x], ac
+    add  RB_S2 & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [v2]
+    ld   [rb_x], ac
+    add  RB_CL & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [v3]
+    ld   RB_CH >> 8, y
+    ld   [rb_x], x
+    ld   [y,x], ac
+    ld   ac, [v4]
+    clr  ac
+    ld   ac, [v5]
+dv_l:
+    ld   [v5], ac
+    xor  AIR_FULL, ac
+    beq  dv_e
+    ld   [v0], ac               ; v2:v1:v0 - v4:v3, stop on a borrow
+    sub  [v3], ac
+    ld   ac, [v6]
+    bcs  dv_b0
+    ld   [v1], ac
+    sub  [v4], ac
+    ld   ac, [v7]
+    bcs  dv_b1
+    ld   [v2], ac
+    bra  dv_ok
+dv_b0:
+    ld   [v1], ac
+    sub  [v4], ac
+    ld   ac, [v7]
+    bcs  dv_bb
+    ld   [v7], ac
+    beq  dv_bz
+    dec
+    ld   ac, [v7]
+    ld   [v2], ac
+    bra  dv_ok
+dv_bz:
+    ld   0xFF, ac
+    ld   ac, [v7]
+    bra  dv_b1
+dv_bb:
+    ld   [v7], ac
+    dec
+    ld   ac, [v7]
+dv_b1:
+    ld   [v2], ac
+    beq  dv_e
+    dec
+dv_ok:
+    ld   ac, [v2]
+    ld   [v6], ac
+    ld   ac, [v0]
+    ld   [v7], ac
+    ld   ac, [v1]
+    ld   [v5], ac
+    inc
+    ld   ac, [v5]
+    bra  dv_l
+dv_e:
+    ld   [v5], ac
+    RET
+
+; rb_cold - ROOM_C from the new pressures.  The end of rooms_build.
+.chunk
+rb_cold:
+    clr  ac
+    ld   ac, [rb_x]
+rc_l:
+    ld   ROOM_P >> 8, y
+    ld   [rb_x], x
+    ld   [y,x], ac
+    sub  COLD_P, ac
+    bcs  rc_c
+    clr  ac
+    bra  rc_s
+rc_c:
+    ld   1, ac
+rc_s:
+    ld   ac, [v0]
+    ld   [rb_x], ac
+    add  ROOM_C & 0xFF, x
+    ld   [v0], ac
+    ld   ac, [y,x]
+    ld   [rb_x], ac
+    inc
+    ld   ac, [rb_x]
+    xor  64, ac
+    bne  rc_l
+    LEAVE
+
+; the bits of a byte, for the fill's map (VISADDR)
+.chunk
+BIT_TAB:
+    #d8 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80
+
 ; inst_action - INSTALL or UNINSTALL (w3) the part the panel shows, from
 ; next to it: INST_FRAMES of work (cut_done).  The rest of do_action.
 .chunk
 inst_action:
+    ld   [w3], ac
+    xor  A_LAY, ac
+    bne  in_1
+    GOTO lay_action
+in_1:
     CALL near
     beq  in_far
+    CALL plate_room
+    beq  in_e
     ld   INST_FRAMES, ac
     ld   ac, [cut_t]
     ld   [s_x], ac
@@ -2986,6 +4100,7 @@ in_u:
 in_m:
     ld   ac, [R1]
     CALL set_msg
+in_e:
     LEAVE
 in_far:
     MSG_TOOFAR

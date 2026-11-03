@@ -26,7 +26,11 @@ the upper socket, and boots it like the board (test_dos.Rig):
   6. the camera steps when the player walks off the view, and the view
      still matches the map
   7. the tug's O2 tank: UNINSTALL (the tug has no air), PICK UP, PUT DOWN
-     (loose: still no air), INSTALL (it has)
+     (loose: still no air), INSTALL (it has).  The rooms scrap.masm works
+     out (rooms_build) match gen_scrap.rooms() at the start and after each
+     change: a deck plate taken up (a hole: the room leaks) and laid again;
+     a wall uninstalled (two rooms join; a broken hull wall leaks),
+     carried, put down, installed (two rooms again)
   8. CUT FREE a bolted crate in the wreck (time, battery), PICK UP, the
      slower walk; the last step by WALK HERE
   9. the vented section: its decks frosted; opening its door drains the
@@ -106,6 +110,43 @@ class Rig(test_tracker.Rig):
     def press(self, room):
         return self.cpu.mem[0x4000 + room]
 
+    def check_rooms(self, what):
+        """the rooms scrap.masm worked out (rooms_build) against
+        gen_scrap.rooms() on the map in RAM: every cell's room, the links,
+        the leaking rooms, the tug's rooms"""
+        mem = self.cpu.mem
+        W, H = gen_scrap.MAP_W, gen_scrap.MAP_H
+        t = [[self.map_t(x, y) for x in range(W)] for y in range(H)]
+        d = [[self.map_raw(x, y)[1] & 15 for x in range(W)] for y in range(H)]
+        rid, links, leaks, press, tug = gen_scrap.rooms(t, d)
+        bad = [(x, y, rid[y][x], self.room(x, y)) for y in range(H) for x in range(W)
+               if rid[y][x] != self.room(x, y)]
+        n = self.zp('n_door')
+        got = []
+        for k in range(n):
+            pg, ix = mem[0x3400 + k], mem[0x3440 + k]
+            ck = (pg - 0x60) // 4
+            x, y = 16 * (ck % 6) + (ix & 15), 16 * (ck // 6) + (ix >> 4)
+            got.append((x, y, mem[0x3480 + k], mem[0x34C0 + k]))
+        lk = []
+        while mem[0x35C0 + len(lk)]:
+            lk.append(mem[0x35C0 + len(lk)])
+        tg = set(r for r in range(1, 64) if mem[0x3580 + r] & 1)
+        ok = True
+        if bad:
+            self.fail('%s: %d cells in another room than rooms() says, first %s' % (what, len(bad), bad[:4]))
+            ok = False
+        if got != links:
+            self.fail('%s: links %s, rooms() %s' % (what, got, links))
+            ok = False
+        if lk != leaks or tg != tug or self.zp('n_room') != len(press):
+            self.fail('%s: leaks %s (%s), tug %s (%s), rooms %d (%d)'
+                      % (what, lk, leaks, tg, tug, self.zp('n_room'), len(press)))
+            ok = False
+        if ok:
+            print('  %s: %d rooms, %d links, leaking %s: as rooms() says' % (what, len(press) - 1, n, lk))
+        return rid
+
     def walk_to(self, x, y, frames=2000):
         """WALK HERE through the mouse menu: the cell locked, its WALK HERE"""
         self.mouse_cell(x, y)
@@ -160,8 +201,28 @@ class Rig(test_tracker.Rig):
             return False
         self.key(str(1 + acts.index(code)))
         self.run(2)
+        self.settle()
         self.click(2)
         return True
+
+    def key_act(self, code):
+        """the key of action code in the locked panel's menu; False if it
+        is not there"""
+        acts = [self.cpu.mem[self.tsyms['act0'] + i] for i in range(self.zp('n_act'))]
+        if code not in acts:
+            self.fail('%s is not in the menu: %s' % (gen_scrap.ACTIONS[code], acts))
+            return False
+        self.key(str(1 + acts.index(code)))
+        self.run(2)
+        return True
+
+    def settle(self):
+        """the work under way done (a cut, an install) and the frame loop
+        back: working the rooms out takes about 18 frames"""
+        loop = self.tsyms['loop']
+        self.run_until(lambda: self.cpu.pc == loop and not self.zp('cut_t'), 300, 'the work done')
+        self.run(1)
+        self.run_until(lambda: self.cpu.pc == loop, 60, 'the frame loop')
 
     def cell_bytes(self, cx, cy):
         """the 64 bytes on the screen of view cell cx, cy (art_bytes order)"""
@@ -337,7 +398,7 @@ def main(argv):
         r.fail('the panel does not name the door: %r' % p[0])
     if 'DAMAGE' not in p[0]:
         r.fail('no damage bar for the door')
-    if 'CLOSE' not in p[1]:
+    if 'CLOSE' not in ''.join(p[1:5]):
         r.fail('no CLOSE in the menu')
     if 'HELD OPEN' not in p[0] or 'HOLD OPEN' in ''.join(p[1:5]):
         r.fail('the tug\'s door is not shown held open (and without HOLD OPEN)')
@@ -347,31 +408,26 @@ def main(argv):
     r.mouse_cell(door[0] + 3, door[1] + 1)      # away: the panel stays on the door
     if 'DOOR' not in r.panel()[0]:
         r.fail('the locked panel followed the pointer: %r' % r.panel()[0])
-    r.key('1')                                  # CLOSE
-    r.run(2)
+    r.key_act(gen_scrap.A_CLOSE)
     if r.map_t(*door) != T['DOOR']:
         r.fail('key 1 (CLOSE) did not close the door')
     else:
-        print('  key 1: CLOSE -> %r' % r.panel()[0].strip())
-    r.key('1')                                  # OPEN
-    r.run(2)
+        print('  CLOSE -> %r' % r.panel()[0].strip())
+    r.key_act(gen_scrap.A_OPEN)
     if r.map_t(*door) != T['DOORO']:
         r.fail('key 1 (OPEN) did not open the door')
     if r.bolted(*door):
         r.fail('OPEN left the door held open')
-    r.key('4')                                  # INSPECT (CLOSE, HOLD OPEN, WALK HERE, INSPECT)
-    r.run(2)
+    r.key_act(gen_scrap.A_INSPECT)
     msg = r.panel()[5]
-    print('  key 1 again: OPEN; key 4: %r' % msg.strip())
+    print('  OPEN; INSPECT: %r' % msg.strip())
     if 'OPEN PRESSURE DOOR' not in msg:
         r.fail('INSPECT did not write the message line')
-    r.key('2')                                  # HOLD OPEN
-    r.run(2)
-    print('  key 2: HOLD OPEN -> %r' % r.panel()[0].strip())
+    r.key_act(gen_scrap.A_HOLD)
+    print('  HOLD OPEN -> %r' % r.panel()[0].strip())
     if not r.bolted(*door) or 'HELD OPEN' not in r.panel()[0]:
         r.fail('HOLD OPEN did not hold the door')
-    r.key('1')                                  # CLOSE, for the bump below
-    r.run(2)
+    r.key_act(gen_scrap.A_CLOSE)                # for the bump below
     if r.bolted(*door) or r.map_t(*door) != T['DOOR']:
         r.fail('CLOSE did not close the held door')
     r.click(2)
@@ -440,6 +496,7 @@ def main(argv):
 def phase3(r, args):
     """carrying, cutting, the tug, the air (phase 3)"""
     cpu, mem, z = r.cpu, r.cpu.mem, r.zp
+    r.check_rooms('the rooms at the start')
     print('7. the tug: uninstalling its O2 tank, carrying it away, back, installing it')
     tank = (5, 34)
     r.go((7, 32), (7, 35), (6, 35))   # back west along the tube, into the quarters
@@ -497,6 +554,8 @@ def phase3(r, args):
         print('  installed: the tug has air again')
     r.check_view('the tug')
 
+    rebuild(r)
+
     print('8. cutting a part free in the wreck')
     r.go((7, 35), (7, 32), (38, 32), (38, 29), (34, 29))   # the mess room (its door opens)
     r.walk_to(33, 29)             # the last step by WALK HERE
@@ -521,12 +580,12 @@ def phase3(r, args):
     if z('cl_t') != T['CRATE']:
         r.fail('the crate is not in the left hand')
     r.port.kbd.press(r.codes[RIGHT])
-    r.run(1)
+    r.wait_for(lambda: mem[r.tsyms['walk_t']], 10, 'the step')
     wd = mem[r.tsyms['walk_t']]
     r.port.kbd.release(r.codes[RIGHT])
     r.run(3)
     print('  carrying it: a step every %d frames (empty-handed 7)' % wd)
-    if wd != 7 + 4:
+    if not 7 + 3 <= wd <= 7 + 4:        # read in the step's frame or the next
         r.fail('carrying a crate does not slow the walk')
     r.check_view('cut and carried')
 
@@ -538,7 +597,9 @@ def phase3(r, args):
           % (z('p_x'), z('p_y'), r.press(corr), r.press(vent), mem[0x4040 + vent]))
     if r.press(vent) != 0 or not mem[0x4040 + vent]:
         r.fail('the vented room has air')
+    r.run(10)                     # the last steps' keys up
     r.hold(RIGHT, 2)              # into the door (62, 52): it opens
+    print('  the door: %s, the player at %d,%d' % (gen_scrap.TYPES[r.map_t(62, 52)][0], z('p_x'), z('p_y')))
     r.run(300)
     print('  door open 5 s: corridor air %d' % r.press(corr))
     if r.press(corr) >= 60:
@@ -591,6 +652,68 @@ def phase3(r, args):
         if z('sup'):
             r.fail('the tug still has air with an empty tank')
     r.check_view('refilled')
+
+
+def rebuild(r):
+    """taking a deck plate up and laying it again; a wall out, carried,
+    put back in; a broken hull wall leaking"""
+    z, mem = r.zp, r.cpu.mem
+    print('7b. changing the tug: a deck plate, a wall')
+    deck = (7, 36)
+    if not r.act(*deck, gen_scrap.A_UNINST):
+        return
+    r.settle()
+    q = r.room(6, 35)
+    print('  %r: left hand %s, %d,%d %s' % (r.panel()[5].strip(), gen_scrap.TYPES[z('cl_t')][0],
+                                          deck[0], deck[1], gen_scrap.TYPES[r.map_t(*deck)][0]))
+    if r.map_t(*deck) != T['SPACE'] or z('cl_t') != T['PLATE']:
+        r.fail('UNINSTALL did not take the deck plate up')
+    r.check_rooms('a hole in the deck')
+    p0 = r.press(q)
+    r.run(120)
+    print('  the quarters\' air: %d -> %d in 2 s' % (p0, r.press(q)))
+    if r.press(q) >= p0:
+        r.fail('the hole in the deck does not leak')
+    if not r.act(*deck, gen_scrap.A_LAY):
+        return
+    r.run(4)
+    if r.map_t(*deck) != T['FLOOR'] or z('cl_t'):
+        r.fail('LAY DECK PLATE did not lay it')
+    r.check_rooms('the deck laid again')
+
+    r.go((9, 35))
+    wall, hull = (10, 35), (4, 35)
+    ty, fl = r.map_raw(*hull)
+    a = ((0x60 + 4 * (6 * (hull[1] >> 4) + (hull[0] >> 4))) << 8) + 16 * (hull[1] & 15) + (hull[0] & 15)
+    mem[a + 0x200] = (fl & 0xF0) | 9              # the hull wall: 56 % damage
+    if not r.act(*wall, gen_scrap.A_UNINST):
+        return
+    r.settle()
+    print('  %r: %d,%d %s; quarters room %d, hold room %d'
+          % (r.panel()[5].strip(), wall[0], wall[1], gen_scrap.TYPES[r.map_t(*wall)][0],
+             r.room(9, 35), r.room(11, 35)))
+    if r.map_t(*wall) != T['PANEL'] or r.room(9, 35) != r.room(11, 35):
+        r.fail('UNINSTALL of the wall did not join the quarters and the hold')
+    r.check_rooms('the wall out, a broken hull wall')
+    q = r.room(9, 35)
+    lo = min(r.press(q) for _ in range(180) if r.run(1) is None)
+    print('  the broken hull wall: the room\'s air down to %d in 3 s' % lo)
+    if lo >= 100:
+        r.fail('the broken hull wall does not leak')
+    mem[a + 0x200] = fl                           # mended
+    if not (r.act(*wall, gen_scrap.A_PICK) and r.act(*wall, gen_scrap.A_PUTL)):
+        return
+    if r.map_t(*wall) != T['PANEL'] or r.bolted(*wall):
+        r.fail('the wall panel was not put down loose')
+    if not r.act(*wall, gen_scrap.A_INSTALL):
+        return
+    r.settle()
+    if r.map_t(*wall) != T['WALL'] or r.room(9, 35) == r.room(11, 35):
+        r.fail('INSTALL of the wall panel did not part the rooms')
+    else:
+        print('  the panel installed: a wall again, two rooms')
+    r.check_rooms('the wall in again')
+    r.check_view('the tug changed')
 
 
 def gen_scrap_cut_frames():
