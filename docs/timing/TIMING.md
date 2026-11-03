@@ -1,6 +1,6 @@
 # Timing at 25.175 MHz
 
-Date: 2026-11-02
+Date: 2026-11-03
 
 This is the worst-case timing of the Placard as it is built: the PLD
 sources in `src/pld`, the parts in [CHIPS.md](../architecture/CHIPS.md),
@@ -23,21 +23,28 @@ no longer waits for STALL ([I/O reads](#io-reads)), and since Sync PLD
 revision 11 /WE falls with CLK, which closed the zero-page store start on
 the board ([Memory writes](#memory-writes)).
 
-On the routed board, the traces and clock skew take another 1 to 8 ns
-from most paths, and four are short:
+On the routed board (main 2026-11-03: router v4 with the track-length
+budgets of `src/scripts/router_v4/budgets.py`, the memory control PLD on
+CLK_E (fix 4) and a 505.9 mm CLK_E lead), every path meets 25.175 MHz
+with a 50 % clock, and the setup paths keep at least 1.8 ns.  The tightest:
 
-| Path | Datasheet | Board | Main cause on the board |
-|---|---:|---:|---|
-| Fetch from the cartridge ROM through /ROM_OE | +1.9 | **−1.1** | DATABUS0 J8 → U1 361 mm |
-| Zero-page read `[0,D]` into D | +3.4 | **−1.1** | D register clock and DATABUS0 to U18 (528 mm) |
-| Video read into the pixel buffer | +3.4 | **−1.1** | DATABUS0 U31 → U22 819 mm (the pixel buffer is at the far end of a 1042 mm daisy chain) |
-| Fetch from RAM through /RAM_OE | +1.9 | **−0.2** | the read starts when the clock falls; DATABUS0 to U1/U17 |
+| Path | Datasheet | Board |
+|---|---:|---:|
+| RAM address hold after /WE (end of write) | +0.5 | +0.75 |
+| Zero-page read `[0,D]` into D | +3.4 | +1.81 |
+| Write pulse, tWP | +2.4 | +2.24 |
+| STALL to the State PLD strobes and an F377 /E | +7.2 | +2.43 |
+| Fetch from the cartridge ROM through /ROM_OE | +1.9 | +2.56 |
+| Fetch from RAM through /RAM_OE | +1.9 | +3.20 |
 
-These are worst-case figures.  Typical PLD and SRAM delays are about half
-the maximum, so a first board is expected to run, but the routing is not
-finished: the data bus (DATABUS0 most of all) and the D register's place
-are where the time goes.  The scripts that measure the board are listed
-under [Method](#method); rerun them after any routing change.
+The four paths that were short on the earlier board (cartridge ROM fetch,
+zero-page read and video read at −1.1, RAM fetch through /OE at −0.2) are
+closed: fix 4 moves /OE about 3.7 ns earlier and the budgets kept the data
+bus short (DATABUS0 U31 → U22 is now 96 mm, was 819).  The datasheet
+column keeps U11 on CLK; with fix 4 the /OE rows gain about 3 ns there too.
+These are worst-case figures; typical PLD and SRAM delays are about half
+the maximum.  The scripts are listed under [Method](#method); rerun them
+after any routing change.
 
 The clock's duty cycle is an open item: the design needs a high half of
 about 42 % to 54.6 % from the datasheets ([Clock duty](#clock-duty)), and
@@ -54,8 +61,8 @@ the ECS-100A oscillator is only specified to 40/60 %.
   PLD's pin 1 included.  The Sync PLD makes /WE from both: it falls with
   CLK and rises on CLK_E, about 3 ns ahead of everything clocked by CLK
   ([WE_TIMING.md](WE_TIMING.md)).
-- **Memory control PLD on CLK_E** (schematic 2026-11-02, timing fix 4; not
-  yet on the routed board, whose numbers below are from before): U11
+- **Memory control PLD on CLK_E** (schematic 2026-11-02, timing fix 4; on
+  the routed board since 2026-11-03, 34.5 mm from X1): U11
   pin 1 moves from CLK to the CLK_E tap next to X1, so /RAM_OE and /ROM_OE
   fall and rise about 3.7 ns earlier.  That gives every read through /OE
   (fetch, cartridge ROM fetch, operand, zero-page, video) its margin back
@@ -99,30 +106,32 @@ Clock lengths (mm of track):
 
 | Net | To | mm |
 |---|---|---:|
-| CLK_E | X1 → U15 pin 9 → NT2 | 207 → 665 (lead 459, rule ≥ 420) |
-| CLK (past NT2) | U11 memory control | 52 |
-| | U3, U1, U17, U2, U4 (PC low, State, IR, Branch, PC high) | 76, 99, 143, 145, 169 |
-| | U22, U21, U15 pin 1, U20, U19, U18 (pixel buffer, Y, Sync, X, AC, D) | 188, 204, 227, 255, 259, 278 |
+| CLK_E | X1 → U11 memory control, U15 pin 9 (Sync) | 34.5, 117.7 |
+| | X1 → NT2 (the delay lead, rule ≥ 420, aim 480 to 540) | 505.9 |
+| CLK (past NT2) | U18 D, U13, U15 pin 1 (Sync), U23 | 79, 112, 132, 132 |
+| | U21 Y, U17 IR, U22 pixel buffer, U14 | 152, 159, 166, 174 |
+| | U3 PC low, U20 X, U1 State, U19 AC, U4 PC high, U2 Branch | 181, 187, 203, 206, 222, 245 |
+| | J8 cartridge, J9 to J12 slots | 50; 150, 161, 189, 218 |
 
 Other nets that set the limits:
 
 | Net | From → to | mm |
 |---|---|---:|
-| /WE | U15 → U31, U32 | 109, 128 |
-| PC_ENABLE | U1 → muxes U9, U8, U10, U7 | 55 to 101 |
-| PIXEL_ENABLE | U15 → muxes U7, U8, U9, U10; → U2 | 247 to 372; 395 |
-| STALL_IN / STALL_OUT | U2 → J8 / J8 → U1, U3, U4 | 210 / 186, 126, 168 |
-| DATABUS0 | U31 → U1, U17, U18, U22 | 336, 348, 528, 819 |
-| DATABUS0 | J8 → U1 | 361 |
-| D5, D6, D7 | U18 → muxes | 229, 241, 264 |
-| /RAM_OE, /ROM_OE | U11 → U31, U32 / → J8 | 55, 36 / 73 |
-| /CE_HI | U12 → U32, J8 | 52, 93 |
+| /WE | U15 → U31, U32 | 115, 133 |
+| PC_ENABLE | U1 → muxes U8, U9, U10, U7 | 51 to 91 |
+| PIXEL_ENABLE | U15 → muxes U10, U9, U8, U7; → U2 | 152 to 273; 208 |
+| STALL_IN / STALL_OUT | U2 → J8 / J8 → U1, U3, U4 | 198 / 193, 256, 289 |
+| DATABUS0 | U31 → U22, U18, U1, U17 | 96, 181, 304, 353 |
+| DATABUS0 | J8 → U1 | 296 |
+| D5, D6, D7 | U18 → muxes | 137, 165, 182 |
+| /RAM_OE, /ROM_OE | U11 → U32, U31 / → J8 | 35, 54 / 71 |
+| /CE_HI | U12 → U32, J8 | 43, 87 |
 
 ## All paths
 
-Slack in ns.  "Board" is the current main board with the 64K cartridge;
-paths with more than about 8 ns from the datasheets were not measured on
-the board.
+Slack in ns.  "Board" is the main board of 2026-11-03 with the 64K
+cartridge and a 50 % clock; paths with more than about 8 ns from the
+datasheets were not measured on the board.
 
 ### Memory reads
 
@@ -134,16 +143,16 @@ tOE).
 
 | Path | Stages (datasheet) | Datasheet | Board |
 |---|---|---:|---:|
-| Fetch, address side: PC_ENABLE tCO, mux, tAA, State/IR setup | 5.5 + 7.5 + 15 + 3.5 = 31.5 | +8.2 | +4.5 |
+| Fetch, address side: PC_ENABLE tCO, mux, tAA, State/IR setup | 5.5 + 7.5 + 15 + 3.5 = 31.5 | +8.2 | +4.1 |
 | Fetch after a branch (the PC loads at the same edge) | same | +8.2 | +4.1 |
-| Fetch from RAM through /RAM_OE: clock fall, memory control, tOE, setup | 19.9 + 7.5 + 7 + 3.5 = 37.9 | +1.9 | **−0.2** |
-| Fetch from the cartridge ROM through /ROM_OE | same | +1.9 | **−1.1** |
-| Operand from RAM into D (LOAD_IMM) | 19.9 + 7.5 + 7 + 2 = 36.4 | +3.4 | +1.2 |
-| Operand from the cartridge ROM into D | same | +3.4 | +0.4 |
-| X/Y-indexed read after FETCH into D | same | +3.4 | +1.2 |
-| Zero-page read `[0,D]` after LOAD_IMM (D register 10.5, mux 7.5, tAA 15, or /OE) | | +3.4 | **−1.1** |
+| Fetch from RAM through /RAM_OE: clock fall, memory control, tOE, setup | 19.9 + 7.5 + 7 + 3.5 = 37.9 | +1.9 | +3.2 |
+| Fetch from the cartridge ROM through /ROM_OE | same | +1.9 | +2.6 |
+| Operand from RAM into D (LOAD_IMM) | 19.9 + 7.5 + 7 + 2 = 36.4 | +3.4 | +5.1 |
+| Operand from the cartridge ROM into D | same | +3.4 | +4.5 |
+| X/Y-indexed read after FETCH into D | same | +3.4 | +5.1 |
+| Zero-page read `[0,D]` after LOAD_IMM (D register 10.5, mux 7.5, tAA 15, or /OE) | | +3.4 | +1.8 |
 | Upper 32K chip: /CE_HI (selects 5.5, I/O decode 7.5), tACE 15, setup 2 | 30.0 | +9.7 | |
-| Video read into the pixel buffer: PIXEL_ENABLE tCO, mux, tAA, or /OE | | +3.4 | **−1.1** |
+| Video read into the pixel buffer: PIXEL_ENABLE tCO, mux, tAA, or /OE | | +3.4 | +6.1 |
 
 ### Memory writes
 
@@ -153,29 +162,29 @@ falls and ends about 3 ns before the CPU's clock rises (on CLK_E).
 
 | Check | Datasheet | Board |
 |---|---:|---:|
-| Zero-page store start: address (D register 10.5 + mux 7.5 = 18) before /WE can fall (T/2 + 3 = 22.9) | +4.9 | +2.6 |
-| Zero-page store start: /CE_HI before /WE can fall (13 vs 22.9) | +9.9 | +10.5 |
-| Store after a video stall: video address gone before /WE can fall | +9.9 | +7.1 |
-| RW settled before CLK falls (IR 5.5 + State 7.5 = 13 vs T/2) | +6.9 | +5.4 |
-| End of write: /WE high (7.5 − 3 = 4.5) before the address, /CE_LO, /CE_HI change (2 + 3 = 5) | +0.5 | +0.6 |
-| End of write: data held until /WE is high (source F541s off) | +2.0 | +4.8 |
-| Write data setup, tDW 8 (source bus valid by 22.5 ns) | +9.2 | +2.6 |
-| Write pulse, tWP 10: low half less the CLK_E lead (3) less the spread of the two /WE edges (4.5), 12.4 | +2.4 | about +1.3 |
+| Zero-page store start: address (D register 10.5 + mux 7.5 = 18) before /WE can fall (T/2 + 3 = 22.9) | +4.9 | +4.2 |
+| Zero-page store start: /CE_HI before /WE can fall (13 vs 22.9) | +9.9 | +9.4 |
+| Store after a video stall: video address gone before /WE can fall | +9.9 | +7.9 |
+| RW settled before CLK falls (IR 5.5 + State 7.5 = 13 vs T/2) | +6.9 | +5.0 |
+| End of write: /WE high (7.5 − 3 = 4.5) before the address, /CE_LO, /CE_HI change (2 + 3 = 5) | +0.5 | +0.75 |
+| End of write: data held until /WE is high (source F541s off) | +2.0 | +5.0 |
+| Write data setup, tDW 8 (source bus valid by 22.5 ns) | +9.2 | +4.8 |
+| Write pulse, tWP 10: low half less the CLK_E lead (3) less the spread of the two /WE edges (4.5), 12.4 | +2.4 | +2.2 |
 | tAW 12: address by 18 vs /WE high at T at the earliest (T − 12 = 27.7) | +9.7 | |
 
 ### CPU control, ALU and branches
 
 | Path | Stages | Datasheet | Board |
 |---|---|---:|---:|
-| STALL to the State PLD strobes and an F377 /E: PIXEL_ENABLE tCO, Branch STALL, cartridge PLD, State, /E setup | 5.5 + 7.5 + 7.5 + 7.5 + 4.5 = 32.5 | +7.2 | +1.2 |
-| STALL to the PC PLDs | 5.5 + 7.5 + 7.5 + 3.5 = 24.0 | +15.7 | +10.3 |
+| STALL to the State PLD strobes and an F377 /E: PIXEL_ENABLE tCO, Branch STALL, cartridge PLD, State, /E setup | 5.5 + 7.5 + 7.5 + 7.5 + 4.5 = 32.5 | +7.2 | +2.4 |
+| STALL to the PC PLDs | 5.5 + 7.5 + 7.5 + 3.5 = 24.0 | +15.7 | +11.9 |
 | Single-clock ALU op, source AC after FETCH: IR 5.5, /AC_SEL 7.5, F541 enable 9.5, ALU 7.5, AC setup 2 | 32.0 | +7.7 | +3.6 |
 | Single-clock ALU op, source D: /SRC_EN (State 5.5, Branch 7.5), F541 enable 9.5, ALU 7.5, AC setup 2 | 32.0 | +7.7 | |
 | ADD/SUB, two clocks (lookahead ALU, 5 levels) | 22.5 + 37.5 + 2 = 62.0 of 79.4 | +17.4 | |
 | Carry flag: source bus 22.5, four ALU levels 30, Branch setup 3.5 | 56.0 of 79.4 | +23.4 | |
 | Branch decision: IR 5.5, ALU F (PASS A) 7.5, Z 7.5, LOAD_PC_LOW 7.5, PC setup 3.5 | 31.5 | +8.2 | |
 | Branch target (AC or D on the source bus) into the PC PLDs | 22.5 + 3.5 = 26.0 | +13.7 | |
-| Opcode into X_ENABLE / Y_ENABLE (State PLD, from the data bus) | as the fetch | +8.2 | +4.5 |
+| Opcode into X_ENABLE / Y_ENABLE (State PLD, from the data bus) | as the fetch | +8.2 | +4.1 |
 
 ### I/O reads
 
@@ -189,11 +198,12 @@ STALL row under [CPU control](#cpu-control-alu-and-branches)).
 
 | Path | Stages | Datasheet | Board |
 |---|---|---:|---:|
-| Line read (U29): address 13, /LINE_RD 7.5, F541 enable 9.5, D setup 2 | 32.0 | +7.7 | about +4 |
-| Port (U38) or PS/2 (U42) read (PLD tEA 7.5 instead of the F541) | 30.0 | +9.7 | about +6 |
+| Line read (U29): address 13, /LINE_RD 7.5, F541 enable 9.5, D setup 2 | 32.0 | +7.7 | +3.4 |
+| Port (U38) or PS/2 (U42) read (PLD tEA 7.5 instead of the F541) | 30.0 | +9.7 | +5.2 (U38), +5.7 (U42) |
 
-The board figures are estimates (U29 → U18 on DATABUS0 is 424 mm) and
-not from the script.  Before revision 06, `RD = IO & LOAD_IMM` waited
+The board figures take the address at U12 from the Y_ENABLE and mux
+tracks (18.9 ns after X1), then /LINE_RD or /PORT_RD and the longest
+data bus track to D (U29 → U18 on DATABUS5 is 280 mm).  Before revision 06, `RD = IO & LOAD_IMM` waited
 for STALL through the Branch PLD and the cartridge, and a read right
 after a video stall (about one I/O read in eight) was −7.3 (line read)
 and −5.3 (port, PS/2) from the datasheets.
@@ -232,8 +242,8 @@ The source F541s and the memories share one data bus
 ### Clock duty
 
 - High half at most **54.6 %**: a fetch through /OE starts at the clock
-  fall and has 1.9 ns from the datasheets (on the board it is already
-  0.2 ns short at 50 %).  The write pulse (tWP) allows up to 55.9 %
+  fall and has 1.9 ns from the datasheets (on the board +3.2 ns at 50 %
+  since fix 4).  The write pulse (tWP) allows up to 55.9 %
   (about 53 % on the board).
 - High half at least about **42 %**: the hand-over at the end of EXEC
   (source F541s off by 19.5 ns, a read starts at the clock fall + 3);
@@ -264,9 +274,10 @@ per 8-clock group, with the CPU held at the PC by STALL_OUT
 - **Register hold**: the data bus cannot change earlier than about 8 ns
   after an edge (PLD tCO 2 + mux 3 + the RAM's tOH 3), and the ALU result
   no earlier than F377 4 + PLD 3, against the F377's 1 ns data hold and
-  the PLD's 0 ns.  The clock skew on the board (CLK reaches U11 after
-  52 mm and U18 after 278 mm, 1.4 ns apart) is inside that margin.
-- **RAM address hold after /WE**: +0.5 from the datasheets, +0.6 on the
+  the PLD's 0 ns.  The clock skew on the board (past NT2, CLK reaches U18
+  after 79 mm and U2 after 245 mm, 1.0 ns apart) is inside that margin;
+  U11 on CLK_E only drives /OE.
+- **RAM address hold after /WE**: +0.5 from the datasheets, +0.75 on the
   board; it rests on the CLK_E lead (≥ 420 mm of track).
 - **Line code register** (CD74HCT377): copies the mode byte from the pixel
   buffer with /E from /MODE_LD in blanking; the pixel buffer holds the
@@ -274,11 +285,15 @@ per 8-clock group, with the CPU held at the PC by STALL_OUT
 
 ## Method
 
-- Board: `kicad/placard.kicad_pcb` and `kicad/cartridge_64k/cartridge_64k.kicad_pcb`
-  as on `main` on 2026-11-02.
+- Board: `kicad/placard.kicad_pcb` (main 2026-11-03, PR #238 and #239) and
+  `kicad/cartridge_64k/cartridge_64k.kicad_pcb`.
 - Each length is the shortest path along the net's tracks and vias from
-  the driving pin to the load pin, at 6 ps/mm.
-- The scripts (`meas.py` for the lengths, `timing.py` for the paths, the
-  I/O read lengths in `io.json` and `lr.json`) and their outputs are in the
-  project files under `hardware/routing/timing_2026-11-02/`.  Rerun them
-  after a routing change.
+  the driving pin to the load pin, at 6 ps/mm
+  (`src/scripts/router_v4/tracklen.py`).
+- The paths: `U11E=1 FIXED=CLK_E:X1-8:NT2-1 DUTY=0.5,0.5 python budgets.py
+  kicad/placard.kicad_pcb out.json` in `src/scripts/router_v4` prints the
+  slack of every check on the present tracks ("slack now"); DUTY=0.45,0.53
+  gives the worst case over that high-half range.  The I/O reads are
+  worked from the same track lengths by hand.  The 2026-11-02 scripts
+  (`meas.py`, `timing.py`) are in the project files under
+  `hardware/routing/timing_2026-11-02/`.
