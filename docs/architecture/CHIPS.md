@@ -39,12 +39,12 @@ ordering.
 | 25 | CD74ACT273E | Octal D flip-flop with clear | ROM/RAM map register at x5000 (write only, /MR = RUN: all ROM until the cartridge hands off) |
 | 26 | SN74F541N | Octal buffer, 3-state | Source bus driver: D register, sources 00 and 01 (/OE1 = /SRC_EN, /OE2 = I1; the source bus is also the memory data bus) |
 | 27 | SN74F541N | Octal buffer, 3-state | Source bus driver: accumulator, sources 10 and 11 (/OE1 = /SRC_EN, /OE2 = /AC_SEL from the audio slot PLD) |
-| 29 | SN74F541N | Octal buffer, 3-state | Video line read at x5000: V9:V2 onto the data bus, enabled by /LINE_RD |
+| 29 | SN74F541N | Octal buffer, 3-state | Video line read at x5000: V9:V2 onto the data bus, enabled by /P0 (I/O decode PLD) and Q0 |
 | 31 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, lower 32K (x0000-x7FFF) |
 | 32 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | RAM, upper 32K (x8000-xFFFF) |
 | 35 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Audio and mode slots, row address: picks group 45 for the mode byte read and group 46 or 47 for the audio read, makes /MODE_LD for the line code register, and remaps video address bits A0, A1, A7, A8 for the line repeat (`ATF22V10_AUDIO.pld`, see SOUND.md and VIDEO.md).  Also /AC_SEL (= !I1, revision 04) for the AC source F541 |
 | 36 | SN74HCT574N | Octal D flip-flop, 3-state | Audio DAC register: copies the sample from the pixel buffer when H_VIDEO_ACTIVE rises (start of group 48), drives the R-2R ladder, which drives the audio line out directly (all passive, no headphone amplifier, see SOUND.md) |
-| 38 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: the port latch (SCK and pad CLOCK, MOSI and pad LATCH, SD /CS, PS/2 DATA hold, PS/2 keyboard CLK hold), clocked by /PORT_WR; SD MISO and the free PS/2 clock onto D7/D5 on reads of x5200, pad DATA onto D7/D6 on reads of x5201 (`ATF22V10_PORT.pld`, rev 04) |
+| 38 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Shared port: the port latch (SCK and pad CLOCK, MOSI and pad LATCH, SD /CS, PS/2 DATA hold, PS/2 keyboard CLK hold), clocked by /WE while /PORT is low (rev 05); SD MISO and the free PS/2 clock onto D7/D5 on reads of x5200, pad DATA onto D7/D6 on reads of x5201 (`ATF22V10_PORT.pld`, rev 04) |
 | 40 | MCP1700-3302E/TO | 3.3 V LDO regulator (TO-92) | Powers the SD card (its SCK, MOSI and /CS come down to 3.3 V through resistor dividers, IO.md) |
 | 42 | ATF22V10C-7PX | PLD (22V10, 24-pin) | PS/2 receiver shifts one byte in from the PS/2 keyboard or mouse on the device's clock (RXCLK, the two clock lines diode-ORed), holds the device off after its stop bit, byte onto D7:D0 at x5202, ready flag onto D7 at x5203, re-armed by a write to x5202/x5203 (`ATF22V10_PS2.pld`, IO.md "PS/2 receiver") |
 

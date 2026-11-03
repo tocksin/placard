@@ -1,6 +1,6 @@
 # Bills of materials
 
-Date: 2026-11-02
+Date: 2026-11-03
 
 One BOM per assembly (Justin, 2026-10-25).  The case assembly takes the built main board as one
 line; each cartridge assembly is complete with its shell and screw.  Accessories
@@ -8,12 +8,12 @@ line; each cartridge assembly is complete with its shell and screw.  Accessories
 
 | Assembly | BOM | Contents | Cost | Without optional parts | Lines estimated |
 |---|---|---|--:|--:|--:|
-| Main board assembly PLC-2001 | [BOM_MAIN_PCB.md](BOM_MAIN_PCB.md), [.csv](BOM_MAIN_PCB.csv) | Bare PCB, components, sockets | $199.47 | $187.95 | 29 |
+| Main board assembly PLC-2001 | [BOM_MAIN_PCB.md](BOM_MAIN_PCB.md), [.csv](BOM_MAIN_PCB.csv) | Bare PCB, components, sockets | $199.79 | $188.27 | 29 |
 | 64K cartridge assembly PLC-2003 | [BOM_CART_64K.md](BOM_CART_64K.md), [.csv](BOM_CART_64K.csv) | Bare PCB, components, sockets, shell, screw | $69.62 | $69.62 | 6 |
 | 32K cartridge assembly PLC-2002 | [BOM_CART_32K.md](BOM_CART_32K.md), [.csv](BOM_CART_32K.csv) | Same, 32K board | $39.67 | $39.67 | 6 |
-| Case assembly | [BOM_CASE.md](BOM_CASE.md), [.csv](BOM_CASE.csv) | Main board assembly, tray and plates, acrylic, printed covers, standoffs, screws, feet | $333.25 | $333.25 | 14 |
+| Case assembly | [BOM_CASE.md](BOM_CASE.md), [.csv](BOM_CASE.csv) | Main board assembly, tray and plates, acrylic, printed covers, standoffs, screws, feet | $333.57 | $333.57 | 14 |
 
-A complete machine is the case assembly plus one cartridge: **$402.87** with the 64K cartridge (the case total already holds the main board without its optional slot
+A complete machine is the case assembly plus one cartridge: **$403.19** with the 64K cartridge (the case total already holds the main board without its optional slot
 sockets).  Prices are single-unit Mouser (Digi-Key where Mouser has none) for components and
 rough single-unit estimates for PCBs, shells and case parts; shipping, tax and tariffs are not
 included.  Stock moves, so recheck before ordering.

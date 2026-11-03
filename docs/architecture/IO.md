@@ -18,7 +18,7 @@ The expansion slots are described in [EXPANSION.md](EXPANSION.md).
 
 | Part | Job |
 |---|---|
-| ATF22V10C-7PX | Port PLD (`ATF22V10_PORT.pld`, rev 04): the port latch (5 registers written at any x52xx, clocked by /PORT_WR, I/O decode PLD pin 19), MISO and the free PS/2 clock on reads of x5200, pad DATA on reads of x5201 |
+| ATF22V10C-7PX | Port PLD (`ATF22V10_PORT.pld`, rev 05): the port latch (5 registers written at any x52xx: clocked by /WE, loaded while /PORT, I/O decode PLD pin 20, is low), MISO and the free PS/2 clock on reads of x5200, pad DATA on reads of x5201 |
 | ATF22V10C-7PX | PS/2 receiver (`ATF22V10_PS2.pld`, rev 02): shifts in one byte from the mouse or the keyboard on its clock, holds the device off after it, byte at x5202, ready flag at x5203 (D7 = 0), re-armed by a write there |
 | MCP1700-3302E/TO | 3.3 V regulator (U40, TO-92) for the SD card |
 

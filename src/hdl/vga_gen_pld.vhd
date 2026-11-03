@@ -2,7 +2,7 @@
 -- @brief Creates VGA timing for sync signals using PLD conversions
 -- @author Justin Davis
 --
--- Date: 10/25/2026
+-- Date: 11/03/2026
 -------------------------------------------------------------------------------
 
 library ieee;           use ieee.std_logic_1164.all;
@@ -35,7 +35,9 @@ entity vga_gen_pld is
         -- RAM write strobe (Sync PLD revision 10): CLK_E is clkIn in the model
         rwIn            : in sl;    -- State PLD RW, 0 = store
         runIn           : in sl;    -- RUN from the ROM cartridge
-        weNOut          : out sl    -- RAM /WE
+        weNOut          : out sl;   -- RAM /WE
+        p0NIn           : in  sl;   -- I/O decode /P0, page 0 select (Sync PLD revision 12)
+        mapWrNOut       : out sl    -- map register clock /MAP_WR (Sync PLD revision 12)
     );
 end entity vga_gen_pld;
 
@@ -160,7 +162,9 @@ begin
         VSYNC            => vSyncOut,
         PIXEL_ENABLE     => pixelEnable,
 
-        WE_N             => weNOut
+        WE_N             => weNOut,
+        P0_N             => p0NIn,
+        MAP_WR_N         => mapWrNOut
     );
 
     pixelRowOut <= vcount;

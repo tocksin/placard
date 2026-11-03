@@ -1,12 +1,16 @@
 --------------------------------------------------------------------------------
 -- Name     PS2
 -- PartNo   00
--- Date     10/25/2026
--- Revision 02
+-- Date     11/03/2026
+-- Revision 03
 -- Designer Justin
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_PS2.pld (Revision 02)
+-- Converted from WinCUPL source ATF22V10_PS2.pld (Revision 03)
+--
+-- Revision 03: the I/O decode PLD (rev 07) gives the address-only select
+-- /PORT (pin 3, was /PORT_RD).  Pin 4 is /WE (was /PORT_WR), pin 7 Q0.
+-- PORT_RD = PORT & !Q0, PORT_WR = PORT & WE.
 --
 -- PS/2 receiver (docs/architecture/IO.md): receives one byte from the PS/2 keyboard or
 -- mouse by itself, holds the device off once the byte is in, and gives
@@ -43,10 +47,11 @@
 -- Pin assignments (ATF22V10C, 24-pin DIP; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = RXCLK             (register clock)
 --   PIN 2  = PDATA             (shared PS/2 DATA line)
---   PIN 3  = PORT_RD           (ACTIVE LOW, I/O decode PLD pin 20)
---   PIN 4  = PORT_WR           (ACTIVE LOW, I/O decode PLD pin 19)
+--   PIN 3  = PORT              (ACTIVE LOW, I/O decode PLD pin 20)
+--   PIN 4  = WE                (ACTIVE LOW, Sync PLD pin 20)
 --   PIN 5  = A0
 --   PIN 6  = A1
+--   PIN 7  = Q0                (State PLD pin 18, state bit 0)
 --   PIN 14 = B                 (inhibit, enabled by A)
 --   PIN 15 = A                 (ACTIVE LOW, onto D7 on reads of x5203 while B = 0)
 --   PIN 16 = N8                (ACTIVE LOW, d0 onto D0)
@@ -57,7 +62,7 @@
 --   PIN 21 = N3                (ACTIVE LOW, d5 onto D5)
 --   PIN 22 = N2                (ACTIVE LOW, d6 onto D6)
 --   PIN 23 = N1                (ACTIVE LOW, d7 onto D7, the newest bit)
---   Unused: pins 7, 8, 9, 10, 11, 13
+--   Unused: pins 8, 9, 10, 11, 13
 --------------------------------------------------------------------------------
 
 library ieee;
@@ -67,10 +72,11 @@ entity ps2_pld is
     port (
         rxclk   : in  std_logic;   -- pin 1, register clock
         pdata   : in  std_logic;   -- pin 2
-        portRdN : in  std_logic;   -- pin 3, active low
-        portWrN : in  std_logic;   -- pin 4, active low
+        portN   : in  std_logic;   -- pin 3, active low (rev 03, was portRdN)
+        weN     : in  std_logic;   -- pin 4, active low (rev 03, was portWrN)
         a0      : in  std_logic;   -- pin 5
         a1      : in  std_logic;   -- pin 6
+        q0      : in  std_logic;   -- pin 7 (rev 03)
 
         b       : out std_logic;   -- pin 14, the inhibit (low = the clocks are held)
         aN      : out std_logic;   -- pin 15, active low (D7 of x5203: 0 = ready)
@@ -90,6 +96,8 @@ end entity ps2_pld;
 
 architecture rtl of ps2_pld is
 
+    signal portSel   : std_logic;
+    signal we     : std_logic;
     signal portRd : std_logic;
     signal portWr : std_logic;
     signal ar     : std_logic;    -- asynchronous reset: the re-arm
@@ -108,8 +116,10 @@ architecture rtl of ps2_pld is
 
 begin
 
-    portRd <= not portRdN;
-    portWr <= not portWrN;
+    portSel   <= not portN;
+    we     <= not weN;
+    portRd <= portSel and (not q0);       -- PORT_RD = PORT & !Q0
+    portWr <= portSel and we;             -- PORT_WR = PORT & WE
 
     -- A write to x5202 or x5203 re-arms the receiver.
     ar <= portWr and a1;

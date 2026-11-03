@@ -17,19 +17,31 @@ from slot 1" below).
 
 ## Expansion slot addresses
 
-The I/O decode PLD has two expansion selects and no free pins, so the four
-slots share them and split each 256-byte page by A7.  Each slot also has a
-**SEL** pin, tied on the main board, that tells the card which half it
-answers, so the same card works in any slot without a jumper.
+Each slot has its own select, /EXP1 to /EXP4 on contact A16 (I/O decode
+PLD revision 07), low for any access to that slot's 128 bytes.  So the same
+card works in any slot without a jumper and needs no address decode of its
+own.
 
-| Slot | Select | SEL pin | Card answers when | Addresses |
-|---|---|---|---|---|
-| 1 | /EXP1 | GND | A7 = 0 | x5100-x517F |
-| 2 | /EXP2 | GND | A7 = 0 | x5300-x537F |
-| 3 | /EXP1 | +5 V | A7 = 1 | x5180-x51FF |
-| 4 | /EXP2 | +5 V | A7 = 1 | x5380-x53FF |
+| Slot | Select | Addresses |
+|---|---|---|
+| 1 | /EXP1 | x5100-x517F |
+| 2 | /EXP2 | x5300-x537F |
+| 3 | /EXP3 | x5180-x51FF |
+| 4 | /EXP4 | x5380-x53FF |
 
-A card has 128 addresses (A6:A0).
+A card has 128 addresses (A6:A0).  The addresses are the same as before
+revision 07, when slots 1 and 3 (and 2 and 4) shared one select and each
+card compared A7 with a SEL contact; SEL and its resistors R51-R54 are
+gone, and contact A10 carries Q0 instead.
+
+The selects are decoded from the Y register, not from the address bus: an
+I/O address is only reached through [Y,X], so the decode takes Y7:Y0, X7
+(A7 of [Y,X]) and the address mux selects (PIXEL_ENABLE, PC_ENABLE,
+Y_ENABLE), which are all settled when the address is.  /EXPn is valid with
+the address (about 13 ns into the clock, 20.5 before revision 07), and it
+never glitches while the address mux output settles.  `[Y,D]` to a slot is
+not supported (the slot half follows X7, not D7); instruction fetches never
+select a slot, so card code runs from RAM (the boot header below).
 
 ## Boot code on a card
 
@@ -108,7 +120,7 @@ spares, outer first.
 | 7 | PIXEL_ENABLE | A6 |
 | 8 | A8 | BT3 |
 | 9 | A9 | A5 |
-| 10 | SEL | *open* |
+| 10 | Q0 | *open* |
 | 11 | GND | GND |
 | | *key* | *key* |
 | 12 | GND | BT1 |
@@ -140,8 +152,8 @@ spares, outer first.
 | A15:A0 | to card | The address bus |
 | PIXEL_ENABLE | to card | The video read: high for the one clock in which the video circuit reads a byte (Sync PLD pin 19) |
 | /HSYNC, /VSYNC | to card | The sync outputs of the H counter and Sync PLDs, before the 47-ohm VGA resistors R61/R62 |
-| /EXP | to card | /EXP1 (slots 1, 3) or /EXP2 (slots 2, 4), address only: low for any access to the page |
-| SEL | to card | GND (slots 1, 2) or +5 V (slots 3, 4) through a 1k resistor: the A7 value the card answers |
+| /EXP | to card | The slot's own select, /EXP1-/EXP4, address only: low for any access to the slot's 128 bytes (from the Y register, valid with the address) |
+| Q0 | to card | State PLD state bit 0 (pin 18): 0 in the LOAD_MEM clock, the clock of every I/O read.  A card's read enable (an SRAM's /OE) |
 | RW | to card | 1 = read cycle |
 | LOAD_IMM | to card | 1 when the CPU latches the read bus into D (the State PLD's strobe, stall clocks already excluded) |
 | /WE | to card | The write pulse, low in the low half of a write clock (about 20 ns).  10k pull-up: the Sync PLD lets go of it while RUN is low, and a boot card in slot 1 drives it then |
@@ -170,37 +182,38 @@ the other's slot.  So:
 
 ## Building a card
 
-**Writes.**  A card's write strobe is `/EXP low, /WE low, A7 = SEL` (plus
-any A6:A0 register select).  Latch D7:D0 on the strobe's rising edge, at
-the end of /WE, as the RAM and the main board's devices do.  The board has
+**The plain card: an SRAM.**  With its own select valid with the address
+and Q0 on the slot, a 15 ns SRAM needs no other parts:
+
+    SRAM /CE = /EXPn (A16)     /OE = Q0 (A10)     /WE = /WE (B24)
+    SRAM A6:A0 = A6:A0         D7:D0 = D7:D0      unused address pins to GND
+
+It reads in the LOAD_MEM clock (Q0 = 0, /EXPn low) and writes with the
+board's /WE in EXEC (Q0 = 1, so its outputs are off).  A card with more
+than 128 bytes adds a page register (a 74HC574 written at one of its
+addresses, CP from /EXPn and /WE through a gate, or a card PLD) on the
+upper address pins.  The card timing below is checked with this card.
+
+**Writes.**  A card's write strobe is `/EXP low and /WE low` (plus any
+A6:A0 register select).  Latch D7:D0 on the strobe's rising edge, at the
+end of /WE, as the RAM and the main board's devices do.  The board has
 one data bus (CPU.md, "One data bus"): in a write the source F541s drive
 it, through the 47-ohm series resistors, from the start of EXEC until
 about 6.5 to 19.5 ns after the clock edge that ends it, and /WE rises
 within 4.5 ns of that edge.
 
-**Reads must not put a decoder after /EXP.**  An I/O read has one 39.7 ns
-clock: the address is valid at 13 ns and /EXP at 20.5 ns, which leaves
-17 ns for the card's buffer to drive the bus before the 2 ns setup of the
-D register (from the datasheets alone; on the board the tracks to the slot
-use some of it, see [Card timing](#card-timing)).  So the card's read buffer (a 74F541, or a 74F245 with DIR set
-by RW) takes /EXP straight on one enable, and everything else on its other
-enable:
-
-    74F541 /OE1 = /EXP
-    74F541 /OE2 = card PLD: low when RW = 1, LOAD_IMM = 1, A7 = SEL
-                  (and the A6:A0 register select, if any)
-
-The card's PLD works from the address, RW and LOAD_IMM, which are valid
-by 13 ns, so its 7.5 ns is in parallel with the I/O decode's and both
-enables arrive by 20.5 ns.  In the clock right after a video stall,
-LOAD_IMM only settles at about 28 ns (it waits for STALL through the
-cartridge), so a card that decodes LOAD_IMM is late there.  The main
-board's own I/O reads had the same problem until I/O decode PLD
-revision 06, which decodes the state bits instead of LOAD_IMM
-([TIMING.md](../timing/TIMING.md#io-reads)); the slots do not carry
-those bits.  A card PLD output that drives the bus directly
-(with an output enable term) must also use /EXP in that same term, not a
-strobe made from it.
+**Reads.**  A read is the LOAD_MEM clock: drive D7:D0 while /EXPn and Q0
+are both low.  /EXPn and Q0 are valid early in the clock (13 ns and
+about 6 ns plus track), so a card can put an SRAM, a 74F541 or a PLD output
+straight on the bus.  A card PLD output that drives the bus directly
+(with an output enable term) uses /EXP and Q0 in that same term.  Q0 also
+is 0 in FETCH, but /EXPn is high there, so `/EXPn = 0 and Q0 = 0` is a read
+of the card and nothing else.  The card keeps driving the bus for its
+output-disable time after Q0 rises at the start of EXEC, while the source
+F541s turn on through their 47-ohm resistors; the board's own line read
+F541 (/OE2 = Q0) does the same.  A card that wants none of that overlap
+gates its /OE with CLK (reads then use only the low half of the clock, like
+the main RAM: still in time for a 15 ns SRAM with tOE 7 ns).
 
 ### Card timing
 
@@ -211,36 +224,34 @@ the decode) is held by the router's length budgets
 (`src/scripts/router_v4/budgets.py`, checks `slot_*`), so a card designer
 only needs this table:
 
-| Card delay, fingers to fingers | Limit | Reference parts |
+| Card delay, fingers to fingers | Limit | Reference part (AS7C256C-15 SRAM) |
 |---|---:|---|
-| Read: /EXP falling to D7:D0 valid | at most 10.5 ns | 74F541 enable 9.5 + 1 ns of card track |
-| Read: A7:A0, RW, LOAD_IMM to D7:D0 valid | at most 18.0 ns | card PLD 7.5 + 74F541 enable 9.5 + 1 |
-| Write: /EXP, A7:A0, RW to the card's write select ready | at most 13.0 ns before /WE rises | card PLD 7.5 + 74F377 /E setup 4.5 + 1 |
-| Write: D7:D0 setup before /WE rises | needs at most 3.0 ns | 74F377 2 + 1 |
-| Write: D7:D0 hold after /WE rises | needs at most 2.0 ns | 74F377 1 + 1 |
-| Write: A7:A0 to the write select changing | at least 2.0 ns | card PLD (3 ns minimum) less 1 |
+| Read: /EXPn falling to D7:D0 valid | at most 16.0 ns | tACE 15 + 1 ns of card track |
+| Read: A7:A0, RW, LOAD_IMM to D7:D0 valid | at most 16.0 ns | tAA 15 + 1 |
+| Read: Q0 falling to D7:D0 valid | at most 8.0 ns | tOE 7 + 1 |
+| Write: /EXPn, A7:A0, RW to the card's write select ready | at most 13.0 ns before /WE rises | tCW 12 + 1 |
+| Write: D7:D0 setup before /WE rises | needs at most 9.0 ns | tDW 8 + 1 |
+| Write: D7:D0 hold after /WE rises | needs at most 2.0 ns | tDH 0, 2 ns to spare |
+| Write: A7:A0, /EXPn hold after /WE rises | needs at most 2.0 ns | tAH 0, 2 ns to spare |
 
-So the reference card is:
+So the reference card is the plain SRAM of "Building a card":
 
-    read:  74F541 /OE1 = /EXP, /OE2 = card PLD (RW = 1, LOAD_IMM = 1, A7 = SEL, register select)
-           inputs from a register or PLD outputs that already hold the byte
-    write: 74F377 CP = /WE, /E = card PLD (/EXP low, RW = 0, A7 = SEL, register select)
+    SRAM /CE = /EXPn, /OE = Q0, /WE = /WE, A6:A0, D7:D0
 
-**The read byte must already be waiting.**  Nothing slower than a buffer
-fits between /EXP and the data: a 15 ns SRAM on the bus (tACE 15 from
-/EXP) misses by about 3.5 to 4.5 ns on the board, and about 1.6 ns even with
-straight tracks.  A RAM card therefore reads ahead: the CPU writes an
-address into the card's counter, the card reads that byte from its SRAM
-into a register in its own time, and each read of the data port drives the
-register onto the bus and starts the next fetch (the counter steps by
-one).  Writes go the same way: the data port write latches the byte in a
-74F377, and the card writes it into its SRAM over the next clocks.  The
-SD card, keyboard and pad ports on the main board work like this for the
-same reason.
+and anything at least as fast fits too: a 74F541 or 74F245 read buffer
+(enable 9.5 ns), a 74F377 or 74HC574 write register, a 7.5 ns card PLD
+between the slot and an SRAM's /CE (16.0 - 7.5 leaves 8.5 ns, so then use a
+faster SRAM or read through a register).
 
-On the board of 2026-11-03 the slot checks are: read +0.63 ns (worst slot),
-write select +4.4, write data setup +10.3, data hold +1.4,
-select hold +2.1.
+Before revision 07 of the I/O decode PLD, /EXP came one PLD pass later
+(20.5 ns) and the same SRAM missed by 3.5 to 4.5 ns, so cards had to read
+ahead through a register.  A card can still work that way (the SD card,
+keyboard and pad ports on the main board do), but it no longer has to.
+
+On the board of 2026-11-03 (I/O decode revision 07, checked with the
+plain SRAM card budget) the slot checks are: read +3.41 ns, write select
++12.7 ns, write data setup +4.26 ns, data hold +1.37 ns, select hold
++2.05 ns, the same with a 45 % and a 53 % clock.
 
 **Load.**  The slots are unbuffered and every bus line reaches all four.
 Give each line one input (or one 3-state output) on a card, keep traces
@@ -536,13 +547,11 @@ into the card can't rock it (CASE.md, "Expansion card screws").
   held (the opcode 09) or something between.  Either fails the header
   check; confirm on the board that an empty-slot boot skips all four slots.
 
-- **Glitches on /EXP.**  /EXP is decoded from the address only, and /WE
-  can go low (19.9 ns) before /EXP has settled (20.5 ns), so a card's write
-  strobe can see a short low pulse while the address changes.  A latch
-  that clocks on the strobe's rising edge then takes a wrong value.  The
-  first card should check this on a scope; if it shows, the I/O decode
-  PLD's /EXP terms can include /WE for writes (a PLD change), or the card
-  can qualify its strobe with CLK.
+- **Bus overlap after a card read.**  A card read with /OE = Q0 keeps
+  driving D7:D0 for its output-disable time after Q0 rises at the start
+  of EXEC, while the source F541s turn on (through the 47-ohm series
+  resistors).  The main board's line read F541 does the same.  Check the
+  bus on a scope with the first SRAM card.
 - **Read bus loading.**  Four slots of trace and the cards' 3-state
   outputs add capacitance to D7:D0, which every read uses, and several
   read paths are already short on the routed board (TIMING.md), so measure the read timing with four cards in.

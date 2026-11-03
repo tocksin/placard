@@ -20,7 +20,7 @@ placard_cartridge_32k.pdf, set to open without the bookmarks panel.
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
 
-Date: 2026-11-02
+Date: 2026-11-03
 """
 import os
 import re
@@ -703,7 +703,7 @@ def sheet_memory(b):
     s.label_nets |= {"CLK", "RUN", "PIXEL_ENABLE", "RW"}
     # map register U25 feeds RAMSEL7:0 straight across into U11
     u25 = s.part("placard_std:74LS273", "U25", 66.04, 101.6, ls273(D, RAMSEL, "RUN", "~{MAP_WR}"), value="CD74ACT273E",
-                 footprint=FP_DIP20, bare=("11",))
+                 footprint=FP_DIP20)      # /MAP_WR from the Sync PLD (revision 12) on the video timing sheet
     decap(s, 25, 45.72, 73.66, lift=0)
     u11 = s.part("placard:ATF22V10C_MEM_CTRL", "U11", 177.8, 101.6, pld({
         1: "CLK_E", 2: "ADDR15", 3: "ADDR14", 4: "ADDR13", 5: "ADDR12", 6: "RAMSEL0", 7: "RAMSEL1", 8: "RAMSEL3",
@@ -712,10 +712,11 @@ def sheet_memory(b):
         16: None, 19: "~{ROM_OE}", 18: "~{RAM_OE}"}), bare=("18", "19"))
     decap(s, 11, 198.12, 58.42, lift=0)
     u12 = s.part("placard:ATF22V10C_IO_DECODE", "U12", 154.94, 208.28, pld({
-        1: "~{WE}", 2: "PIXEL_ENABLE", 3: "PC_ENABLE", 4: "PC15", 5: "H9", 6: "Y7", 7: "ADDR14", 8: "ADDR13",
-        9: "ADDR12", 10: "ADDR10", 11: "ADDR9", 13: "ADDR8", 14: "Y_ENABLE", 18: "ADDR11", 23: "Q0",
-        15: "~{CE_HI}", 16: "~{MAP_WR}", 17: "~{LINE_RD}", 19: "~{PORT_WR}", 20: "~{PORT_RD}",
-        21: "~{EXP1}", 22: "~{EXP2}"}), bare=("1", "15", "16"))
+        # revision 07: the I/O selects from the Y register, X7 and the mux selects; pin 1 unused
+        1: None, 2: "PIXEL_ENABLE", 3: "PC_ENABLE", 4: "PC15", 5: "H9", 6: "Y7", 7: "Y6", 8: "Y5",
+        9: "Y4", 10: "Y2", 11: "Y1", 13: "Y0", 14: "Y_ENABLE", 18: "Y3", 23: "X7",
+        15: "~{CE_HI}", 16: "~{EXP3}", 17: "~{P0}", 19: "~{EXP4}", 20: "~{PORT}",
+        21: "~{EXP1}", 22: "~{EXP2}"}), bare=("15",))
     decap(s, 12, 121.92, 172.72, lift=0)      # left of VCC: /MAP_WR goes up on the right
     u31 = s.part("placard_parts:AS7C256C", "U31", 256.54, 198.12, sram("ADDR15", "~{RAM_OE}", "~{WE}"),
                  value="AS7C256C-15PCN", bare=("22", "27"))
@@ -741,8 +742,7 @@ def sheet_memory(b):
     path(s, "~{CE_HI}", (xv["~{CE_HI}"], j8["B16"][1]), (xv["~{CE_HI}"], py), (xv["~{CE_HI}"], yl["~{CE_HI}"]))
     path(s, "~{CE_HI}", (xv["~{CE_HI}"], j8["B16"][1]), j8["B16"])
     s.junction(xv["~{CE_HI}"], py, owner="~{CE_HI}")
-    (px, py) = u12["1"]
-    path(s, "~{WE}", (px, py), (px - 2.54, py), (px - 2.54, yl["~{WE}"]), (xv["~{WE}"], yl["~{WE}"]))
+    path(s, "~{WE}", (xv["~{WE}"] - 81.28, yl["~{WE}"]), (xv["~{WE}"], yl["~{WE}"]))
     risers = [(u31, "27", "~{WE}", 2.54), (u31, "22", "~{RAM_OE}", 5.08),
               (u32, "27", "~{WE}", 2.54), (u32, "22", "~{RAM_OE}", 5.08), (u32, "20", "~{CE_HI}", 7.62)]
     xend = {}
@@ -759,9 +759,6 @@ def sheet_memory(b):
         x = u[pn][0] - dx
         if x < xend[net] - 0.01:
             s.junction(x, yl[net], owner=net)
-    (px, py) = u12["16"]
-    path(s, "~{MAP_WR}", (px, py), (px + 2.54, py), (px + 2.54, 154.94), (20.32, 154.94), (20.32, u25["11"][1]),
-         u25["11"])
     res(s, "R13", 271.78, 132.08, "+5V", "~{CART}", "10k")
     # /WE pull-up: U15 lets go of /WE while RUN is low (Sync revision 10; memory control 09 before)
     r63 = res(s, "R63", 377.19, 242.57, "+5V", "~{WE}", "10k", bare=("2",),
@@ -793,7 +790,7 @@ def sheet_video_timing(b):
     u15 = s.part("placard:ATF22V10C_SYNC", "U15", 233.68, 99.06, pld({
         1: "CLK", 2: "V9", 3: "V5", 4: "V4", 5: "V3", 6: "V2", 7: "V1", 8: "H_VIDEO_ACTIVE",
         9: "CLK_E", 10: "RW", 11: "RUN", 13: "BLANK_RD", 14: "H0", 15: "H1", 16: "H2",
-        17: "VIDEN", 18: "~{VSYNC}", 19: "PIXEL_ENABLE", 20: "~{WE}", 21: None, 22: None,
+        17: "VIDEN", 18: "~{VSYNC}", 19: "PIXEL_ENABLE", 20: "~{WE}", 21: "~{P0}", 22: "~{MAP_WR}",
         23: None}), bare=("18",))
     decap(s, 15, 254.0, 60.96, lift=0)
     # Sync series resistors, right at the PLD pins: they slow the edges going down the VGA cable (less
@@ -814,7 +811,7 @@ def sheet_video_timing(b):
         11: "V7", 13: "V8", 14: "LC2", 15: "LC3", 16: "I1", 17: "VA0", 18: "VA1", 19: "VA7", 20: "VA8",
         22: "~{MODE_LD}", 23: "BLANK_RD", 21: "~{AC_SEL}"}))
     decap(s, 35, 254.0, 167.64, lift=0)
-    s.part("placard_std:74LS541", "U29", 345.44, 154.94, f541(V[2:10], D, "~{LINE_RD}", "GND"), value="SN74F541N",
+    s.part("placard_std:74LS541", "U29", 345.44, 154.94, f541(V[2:10], D, "~{P0}", "Q0"), value="SN74F541N",
            footprint=FP_DIP20)
     decap(s, 29, 365.76, 129.54, lift=0)
     # H: over the top from the Sync PLD to the H counter, and down to the audio slot PLD
@@ -1024,19 +1021,19 @@ def sheet_port(b):
     s.label_each |= {"DATABUS"}
     # the inputs carry their names at each pin; U38's five outputs are wired to the pads, the SD
     # dividers and the PS/2 hold diodes (below)
-    s.label_nets |= {"~{PORT_RD}", "~{PORT_WR}", "ADDR0", "ADDR1",
+    s.label_nets |= {"~{PORT}", "~{WE}", "Q0", "ADDR0", "ADDR1",
                      "PAD1_DATA", "PAD2_DATA", "SD_MISO", "KBD_CLK", "PS2_DATA", "RXCLK", "PS2_INH"}
     # U38 (port PLD rev 04): the output register (five bits) and the reads of MISO, the pads
     # and RXCLK while A1 = 0.  U42 (PS/2 receiver rev 02): one byte at x5202, ready at x5203.
     u38 = s.part("placard:ATF22V10C_PORT", "U38", 127.0, 121.92, pld({
-        1: "~{PORT_WR}", 2: "~{PORT_RD}", 3: "ADDR0", 4: "DATABUS0", 5: "DATABUS1", 6: "DATABUS2", 7: "DATABUS3", 8: "DATABUS4",
-        9: "PAD1_DATA", 10: "PAD2_DATA", 11: "RXCLK", 13: "SD_MISO", 14: "ADDR1", 15: None,
+        1: "~{WE}", 2: "~{PORT}", 3: "ADDR0", 4: "DATABUS0", 5: "DATABUS1", 6: "DATABUS2", 7: "DATABUS3", 8: "DATABUS4",
+        9: "PAD1_DATA", 10: "PAD2_DATA", 11: "RXCLK", 13: "SD_MISO", 14: "ADDR1", 15: "Q0",
         16: "K0", 17: "P_PS2D", 18: "P_CS", 19: "P_MOSI", 20: "P_SCK", 21: "DATABUS5", 22: "DATABUS6", 23: "DATABUS7"}),
                bare=("16", "17", "18", "19", "20"))
     decap(s, 38, 147.32, 86.36, lift=0)
     s.part("placard:ATF22V10C_PS2", "U42", 127.0, 210.82, pld({
-        1: "RXCLK", 2: "PS2_DATA", 3: "~{PORT_RD}", 4: "~{PORT_WR}", 5: "ADDR0", 6: "ADDR1",
-        7: None, 8: None, 9: None, 10: None, 11: None, 13: None,
+        1: "RXCLK", 2: "PS2_DATA", 3: "~{PORT}", 4: "~{WE}", 5: "ADDR0", 6: "ADDR1",
+        7: "Q0", 8: None, 9: None, 10: None, 11: None, 13: None,
         14: "PS2_INH", 15: "DATABUS7", 16: "DATABUS0", 17: "DATABUS1", 18: "DATABUS2", 19: "DATABUS3", 20: "DATABUS4", 21: "DATABUS5", 22: "DATABUS6", 23: "DATABUS7"}))
     decap(s, 42, 147.32, 175.26, lift=0)
     vref = lambda x, y: dict(ref_at=(x + 2.0, y - 1.3), value_at=(x + 2.0, y + 1.5))
@@ -1153,7 +1150,7 @@ def sheet_port(b):
 def sheet_slots(b):
     s = b.sheet("expansion.kicad_sch", "Expansion slots", 11)
     heading(s, "Expansion slots", "Four slots (Molex 87715-9106, as the cartridge), x5100-x53FF, 128 bytes each (EXPANSION.md)")
-    s.label_nets |= {"RW", "~{LOAD_IMM}", "~{WE}", "CLK", "RUN", "~{EXP1}", "~{EXP2}",
+    s.label_nets |= {"RW", "~{LOAD_IMM}", "~{WE}", "CLK", "RUN", "~{EXP1}", "~{EXP2}", "~{EXP3}", "~{EXP4}", "Q0",
                      "STALL_IN", "STALL_OUT", "PC_ENABLE", "PIXEL_ENABLE", "~{CART}", "~{HSYNC}", "~{VSYNC}"}
     # Slot 1 (J9) is the one nearest the board center, slot 4 (J12) the outermost (Justin, 2026-10-30):
     # J9/J12, J10/J11, R51/R54 and R52/R53 swapped symbol uuids in expansion.kicad_sch, so the board's
@@ -1172,19 +1169,15 @@ def sheet_slots(b):
         bt = ["STALL_IN", "STALL_OUT", "PC_ENABLE", "~{CART}"] if k == 0 else [None] * 4
         for i, net in enumerate(bt):
             n[["B12", "B14", "B8", "B28"][i]] = net
-        n.update({"A16": "~{EXP1}" if k in (0, 2) else "~{EXP2}", "A10": f"SEL{k + 1}", "B16": "RW",
+        # I/O decode revision 07: each slot has its own select, and A10 (was SEL, through R51-R54) carries Q0
+        n.update({"A16": ["~{EXP1}", "~{EXP2}", "~{EXP3}", "~{EXP4}"][k], "A10": "Q0", "B16": "RW",
                   "A20": "~{LOAD_IMM}", "B24": "~{WE}", "B4": "CLK", "B20": "RUN", "A7": "PIXEL_ENABLE",
                   "A26": "~{HSYNC}", "A28": "~{VSYNC}"})
         j = s.part("placard_parts:Expansion_Slot", ref, x, y, n, value=f"Slot {k + 1}",
                    footprint="placard:Molex_87715-9106_Expansion_Slot", ref_at=(x - 12, y - 39),
-                   value_at=(x - 12, y + 41.2), bare=("A10",))
-        # SEL: a 1k straight off the last pin to GND or +5V
-        px, py = j["A10"]
-        r = res(s, f"R{51 + k}", px + 7.62, py, f"SEL{k + 1}", "GND" if k < 2 else "+5V", "1k", angle=90, bare=("1",),
-                ref_at=(px + 3.0, py + 5.5), value_at=(px + 3.0, py + 6.2))
-        path(s, f"SEL{k + 1}", (px, py), r["1"])
-    note(s, 30, 252, ["SEL: GND on slots 1 and 2, +5 V on slots 3 and 4 (through 1k): the A7 half the card answers.",
-                      "/EXP1 goes to slots 1 and 3, /EXP2 to slots 2 and 4.  /RESET = RUN (low while the cartridge loads).",
+                   value_at=(x - 12, y + 41.2))
+    note(s, 30, 252, ["A10 = Q0 (State PLD, 0 in LOAD_MEM): a plain SRAM card takes /CE = /EXPn, /OE = Q0, /WE = /WE.",
+                      "Each slot has its own select: /EXP1-/EXP4 (I/O decode PLD rev 07).  /RESET = RUN (low while the cartridge loads).",
                       "BT1, BT2, BT3, BT5 (boot contacts): slot 1 only, STALL_IN, STALL_OUT, PC_ENABLE, /CART; cards latch DATABUS7:0.",
                       "LOAD_IMM carries the State PLD's /LOAD_IMM (low when the CPU latches the read bus into D).",
                       "Molex 87715-9106 since 2026-10-30: ADDR15:0, PIXEL_ENABLE, /HSYNC, /VSYNC on every slot (cards can follow the video);",

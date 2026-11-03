@@ -14,7 +14,7 @@ The other parts come from KiCad's libraries (kicad/README.md lists which).
 Rerunning this overwrites the library, so make changes here, not in KiCad's
 symbol editor.  The pinouts are from CHIPS.md, EXPANSION.md and IO.md.
 
-Date: 2026-10-30
+Date: 2026-11-03
 """
 
 import os
@@ -70,7 +70,7 @@ def expansion_slot():
     gnd = [(n, "GND") for n in ["A1", "B1", "A11", "B11", "A21", "B21", "A31", "B31",
                                 "A12", "B18", "B26", "B30", "B32"]]
     return symbol("Expansion_Slot", [(e(d) + [None] + e(ctl) + [None] + e(sd),
-                                      e(a) + [None] + e(sel) + [None] + [e(nc, "no_connect")] + [None] + e([("A10", "SEL")]))],
+                                      e(a) + [None] + e(sel) + [None] + [e(nc, "no_connect")] + [None] + e([("A10", "Q0")]))],
                   "87715-9106", "Expansion slot: Molex 87715-9106, 64 contacts, 1.0 mm, keyed (EXPANSION.md)",
                   "card edge slot expansion Placard", footprint="", datasheet="~",
                   vcc=[("A2", "+5V"), ("B2", "+5V")], gnd=gnd, ref="J", pin_len=2 * 2.54)

@@ -187,10 +187,11 @@ architecture Behavioral of basys_top is
     signal pcEnable         : sl;
     signal pcCarry          : sl;
 
-    signal mapWrN           : sl;   -- /MAP_WR, ROM/RAM map write strobe
-    signal lineRdN          : sl;   -- /LINE_RD, video line counter read strobe
-    signal portWrN          : sl;   -- /PORT_WR, shared port latch clock
-    signal portRdN          : sl;   -- /PORT_RD, shared port read
+    signal mapWrN           : sl;   -- /MAP_WR, ROM/RAM map write strobe (Sync PLD rev 12)
+    signal p0N              : sl;   -- /P0, I/O page 0 select (I/O decode rev 07)
+    signal lineRdN          : sl;   -- line read F541 enable: /P0 or Q0
+    signal portN            : sl;   -- /PORT, shared port select (I/O decode rev 07)
+    signal portRdN          : sl;   -- shared port read (model only: /PORT or Q0)
     signal pSck             : sl;   -- port PLD register bit 0: SCK, pad CLOCK
     signal pMosi            : sl;   -- bit 1: MOSI, pad LATCH
     signal pCs              : sl;   -- bit 2: SD /CS, 0 also holds the mouse's CLK
@@ -673,7 +674,9 @@ begin
                 -- RAM /WE (Sync PLD revision 10; the memory control PLD made it before)
                 rwIn            => memRdWr,
                 runIn           => run,
-                weNOut          => ramWeN
+                weNOut          => ramWeN,
+                p0NIn           => p0N,      -- Sync PLD rev 12: map register strobe
+                mapWrNOut       => mapWrN
     );
 
     -- Line code:
@@ -801,33 +804,38 @@ begin
 
     -- I/O decode and upper 32K chip enable.  The FPGA RAM model is one
     -- 64K block, so ce_hi_n is not used here.  The devices built so far are
-    -- the map register (/MAP_WR) and the line read buffer (/LINE_RD).
+    -- the map register (/P0, strobed by the Sync PLD) and the line read buffer (/P0 and Q0).
     ioDecodeComp: entity work.io_decode_pld
     port map(
-        we_n        => ramWeN,
         pixel_enable => pixelEn,
         pc_enable   => pcEnable,
         pc15        => programCounter(15),
         h9          => pixelCol(9),
         y7          => yReg(7),
-        a14         => ramAddress(14),
-        a13         => ramAddress(13),
-        a12         => ramAddress(12),
-        a10         => ramAddress(10),
-        a9          => ramAddress(9),
-        a8          => ramAddress(8),
+        y6          => yReg(6),     -- Rev 07: the selects decode the Y register
+        y5          => yReg(5),
+        y4          => yReg(4),
+        y2          => yReg(2),
+        y1          => yReg(1),
+        y0          => yReg(0),
         y_enable    => yEnable,
-        a11         => ramAddress(11),
-        q0          => stateQ0,     -- Rev 06: State PLD pin 18 (was dLoadN)
+        y3          => yReg(3),
+        x7          => xReg(7),     -- Rev 07: slot half, A7 of [Y,X]
 
         ce_hi_n     => open,
-        map_wr_n    => mapWrN,
-        line_rd_n   => lineRdN,
-        port_wr_n   => portWrN,
-        port_rd_n   => portRdN,
+        exp3_n      => open,
+        p0_n        => p0N,
+        exp4_n      => open,
+        port_n      => portN,
         exp1_n      => open,
         exp2_n      => open
     );
+
+    -- Line read F541: /OE1 = /P0, /OE2 = Q0 (it drives in LOAD_MEM only).
+    lineRdN <= p0N or stateQ0;
+    -- The port and PS/2 PLDs read while /PORT and Q0 are low (model only:
+    -- they make this inside; the read bus selector below uses it).
+    portRdN <= portN or stateQ0;
 
     ramComp : entity work.sp_ram 
     generic map( initFile => "ram.mem" )
@@ -871,7 +879,7 @@ begin
     --   the ROM's boot loader (see docs/architecture/ROM.md).  While the cartridge
     --   loads, its EEPROMs drive the bus (cartEeDrive).
     --
-    --   Video line read: a 74F541 enabled by /LINE_RD (an I/O read at
+    --   Video line read: a 74F541 enabled by /P0 and Q0 (an I/O read at
     --   x5000-x50FF) drives the upper 8 bits of the V counter, V9:V2, onto
     --   the data bus.  The shared port (x5200-x52FF) is the port PLD
     --   while A1 = 0 and the PS/2 receiver PLD while A1 = 1.  The memory control PLD keeps the RAM and ROM off the
@@ -879,16 +887,16 @@ begin
     ----------------------------------------------------------
     ------    Shared port at 5200h (docs/architecture/IO.md)            -------
     ----------------------------------------------------------
-    -- Port PLD (rev 04): the output register loads D4:D0 of the source
-    -- bus on the rising edge of /PORT_WR and clears at power-up (the port
+    -- Port PLD (rev 05): the output register loads D4:D0 of the source
+    -- bus on the rising edge of /WE while /PORT is low (rev 05) and clears at power-up (the port
     -- rests at EB).  bit 0 SCK / pad CLOCK, bit 1 MOSI / pad LATCH, bit 2
     -- SD /CS (0 also holds the mouse's CLK low), bit 3 (0 holds the PS/2
     -- DATA low), bit 4 (0 holds the PS/2 keyboard's CLK low).  It reads
     -- MISO, the pads' DATA and RXCLK on D7:D5 while A1 = 0.
     portPldComp: entity work.port_pld
     port map(
-        portWrN => portWrN,
-        portRdN => portRdN,
+        weN     => ramWeN,      -- rev 05: clocks on /WE, loads while /PORT is low
+        portN   => portN,
         a0      => ramAddress(0),
         d0      => srcBus(0),
         d1      => srcBus(1),
@@ -900,6 +908,7 @@ begin
         rxclk   => rxClk,
         miso    => sdMisoR(1),
         a1      => ramAddress(1),
+        q0      => stateQ0,
         k0      => pK0,
         dholdN  => pDholdN,
         sdcs    => pCs,
@@ -913,7 +922,7 @@ begin
         d7En    => portD7En
     );
 
-    -- PS/2 receiver PLD (rev 02): clocked by RXCLK, the clock line of the
+    -- PS/2 receiver PLD (rev 03): clocked by RXCLK, the clock line of the
     -- device the port register has let go (on the board the two clock
     -- lines are diode-ORed with a 22k pull-down; here there is one PS/2
     -- socket, so RXCLK is its clock line while the device is free).  The
@@ -924,10 +933,11 @@ begin
     port map(
         rxclk   => rxClk,
         pdata   => ps2DataD(3) or not (mouseOn or kbdOn),
-        portRdN => portRdN,
-        portWrN => portWrN,
+        portN   => portN,       -- rev 03
+        weN     => ramWeN,
         a0      => ramAddress(0),
         a1      => ramAddress(1),
+        q0      => stateQ0,
         b       => rxB,
         aN      => rxAN,
         d0      => rxData(0),

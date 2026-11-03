@@ -27,7 +27,7 @@ KiCad project has one PCB).  All three share the libraries in `kicad/lib/`.
 | 8 | `video_timing.kicad_sch` | Video timing | U13 H counter, U14 V counter, U15 Sync, U35 audio/mode PLD, U29 line read, sync resistors |
 | 9 | `video_out.kicad_sch` | Video and audio out | U22 pixel buffer, U23 line code, U16 color decoder, U36 audio DAC register, VGA DAC and J7, R-2R ladder, filter, J6, row tint |
 | 10 | `shared_port.kicad_sch` | Shared port | U38 port PLD, U42 PS/2 receiver, J2/J3 SNES, J4 SD, J5 PS/2 |
-| 11 | `expansion.kicad_sch` | Expansion slots | J9-J12 and their SEL resistors |
+| 11 | `expansion.kicad_sch` | Expansion slots | J9-J12 (each with its own /EXPn; Q0 on contact A10) |
 
 Keep a sheet to about six chips so it can be drawn with large text.  A new
 part goes on the sheet of the block it belongs to.
@@ -118,8 +118,8 @@ sheets by hand, or the next run overwrites the edit.
     cartridge sheets are hand-laid this way.
   - PLD and connector symbols may have their pins reordered or spaced a row
     apart so the wires run straight (the cartridge loader PLD's pins line up
-    with the cartridge connector's; the expansion slot's SEL pin is last,
-    with its 1k straight off it).  Symbol pin order is set in
+    with the cartridge connector's; the expansion slot's Q0 pin (A10, SEL before I/O decode revision 07) is last,
+    with a short wire to its label).  Symbol pin order is set in
     `gen_kicad_symbols.py` (LAYOUT table).
   - Power symbols on a side pin are turned to point away and their names
     read across.

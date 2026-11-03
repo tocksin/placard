@@ -1,14 +1,14 @@
 # Bill of materials: case assembly
 
-Date: 2026-11-02
+Date: 2026-11-03
 
 The computer in its case: the main board assembly ([BOM_MAIN_PCB.md](BOM_MAIN_PCB.md)) as one line, the case parts from [CASE.md](../case/CASE.md), standoffs, screws and feet.  The cartridge is its own assembly.
 
-14 lines.  Cost: **$333.25** for one assembly at these quantities.  14 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_CASE.csv](BOM_CASE.csv).  The other BOMs are listed in [BOM.md](BOM.md).
+14 lines.  Cost: **$333.57** for one assembly at these quantities.  14 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_CASE.csv](BOM_CASE.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
-| 1 |  | PLC-2001 | (assembly) | Main board assembly (BOM_MAIN_PCB.md) |  | 187.95 | 187.95 | est.: BOM_MAIN_PCB.md total without the optional expansion slot sockets | Add $11.52 with J9-J12 fitted |
+| 1 |  | PLC-2001 | (assembly) | Main board assembly (BOM_MAIN_PCB.md) |  | 188.27 | 188.27 | est.: BOM_MAIN_PCB.md total without the optional expansion slot sockets | Add $11.52 with J9-J12 fitted |
 | 1 |  |  |  | Tray: 2.0 mm 5052-H32, floor with the front and right walls (two bends), black powder coat, 14 countersunk M3 holes, 4 plain M3 holes at the feet |  | 50.00 | 50.00 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/tray.step |
 | 1 |  |  |  | Back plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 plain M3 holes |  | 23.00 | 23.00 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/back_plate.step |
 | 1 |  |  |  | Left plate: 2.0 mm 5052-H32, flat with a bottom flange (one bend), black powder coat, 3 plain M3 holes |  | 23.00 | 23.00 | est.: CASE.md "Cost estimate", 1 unit, China sheet metal, not quoted | case/left_plate.step |

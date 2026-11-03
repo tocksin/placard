@@ -29,7 +29,7 @@ stops if a pin is missing from it); the file is KiCad 7 format.
 
 symbol() is also used by gen_kicad_parts.py for the other project symbols.
 
-Date: 2026-11-02
+Date: 2026-11-03
 """
 
 import os
@@ -55,6 +55,12 @@ CHAR_W = 1.7                   # width of one 1.8 mm pin-name character, with a 
 MIN_W = 3 * 2 * G              # 15.24 mm
 
 SEP = "---"                    # in a layout: a dashed line between unrelated functions
+
+# Box widths kept when a pin rename would make a symbol narrower, so the
+# pins stay where the schematic sheets have them wired (mm)
+KEEP_W = {
+    "ATF22V10_PORT": 35.56,    # revision 05: /PORT_WR became /WE
+}
 
 # Pin placement per .pld file: a list of blocks, each (left, right) with the
 # .pld pin names (no "!") top to bottom; None is an empty row inside a block,
@@ -89,9 +95,10 @@ LAYOUT = {
         (["nc"], []),
     ],
     "ATF22V10_IO_DECODE": [
-        (["PIXEL_ENABLE", "PC_ENABLE", "Y_ENABLE", "PC15", "H9", "Y7"], ["MAP_WR", None, "CE_HI"]),
-        (["A14", "A13", "A12", "A11", "A10", "A9", "A8", None, "Q0", "WE_N"],
-         ["LINE_RD", None, "PORT_WR", None, "PORT_RD", None, "EXP1", None, "EXP2"]),
+        # revision 07: the selects from the Y register; pins kept where revision 06 had them
+        (["PIXEL_ENABLE", "PC_ENABLE", "Y_ENABLE", "PC15", "H9", "Y7"], ["EXP3", None, "CE_HI"]),
+        (["Y6", "Y5", "Y4", "Y3", "Y2", "Y1", "Y0", None, "X7", "nc"],
+         ["P0", None, "EXP4", None, "PORT", None, "EXP1", None, "EXP2"]),
     ],
     "ATF22V10_MEM_CTRL": [
         (["A15", "A14", "A13", "A12", "A11", "A10", None,
@@ -121,17 +128,17 @@ LAYOUT = {
     ],
     "ATF22V10_PORT": [
         # the output register (was the 74HC574 latch) above, the reads (was the 74F541) below
-        (["PORT_WR", None, "D0", "D1", "D2", "D3", "D4"],
+        (["WE", None, "D0", "D1", "D2", "D3", "D4"],
          [None, None, "SCKN", "MOSIN", "SDCS", "DHOLD", "K0"]),
         SEP,
-        (["PORT_RD", "A0", "A1", None, "MISO", "PAD1", "PAD2", "RXCLK"], [None, None, None, None, None, "D5", "D6", "D7"]),
-        (["nc"], []),
+        (["PORT", "A0", "A1", None, "MISO", "PAD1", "PAD2", "RXCLK"], [None, None, None, None, None, "D5", "D6", "D7"]),
+        (["Q0"], []),       # revision 05: pin 15, where the nc pin was
     ],
     "ATF22V10_PS2": [
         # the byte pins in bus order (N8 = d0 at the top), then the ready flag and the inhibit
-        (["RXCLK", "PDATA", None, "PORT_RD", "PORT_WR", "A0", "A1"],
+        (["RXCLK", "PDATA", None, "PORT", "WE", "A0", "A1"],
          ["N8", "N7", "N6", "N5", "N4", "N3", "N2", "N1", None, "A", None, "B"]),
-        (["nc"], []),
+        (["Q0", "nc"], []),     # revision 03: Q0 on pin 7, the first of the nc rows
     ],
     "ATF22V10_QUAD_MUX": [
         # revision 02: the enables are the selects; two low bits (D, X, video, PC) and two high
@@ -153,7 +160,7 @@ LAYOUT = {
          ["H0", "H1", "H2", None, "VIDEN", None, "PIXEL_ENABLE", None, "VSYNC", "V_VIDEO_ACTIVE"]),
         SEP,
         (["CLK_E", "RW", "RUN"], ["WE"]),      # revision 10: the RAM write strobe from the early clock tap
-        (["nc"], []),
+        (["P0", "MAP_WR"], []),                # revision 12: on the rows of the nc pins 21 and 22
     ],
     "ATF22V10_VCOUNT": [
         (["EN", None, "CLK"], ["Q0", "Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9"]),
@@ -344,7 +351,8 @@ def pld_symbol(path):
     desc = "ATF22V10C programmed with %s (Name %s), 24-pin 300 mil DIP" % (
         fname, head.get("Name", "").strip())
     part = PART_10 if stem in SLOW_OK else PART
-    return sym, symbol(sym, blocks, part, desc, "PLD GAL 22V10 Placard " + stem, note=fname)
+    return sym, symbol(sym, blocks, part, desc, "PLD GAL 22V10 Placard " + stem, note=fname,
+                       min_w=KEEP_W.get(stem, MIN_W))
 
 
 def generic_symbol():
