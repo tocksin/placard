@@ -200,6 +200,7 @@ STALL row under [CPU control](#cpu-control-alu-and-branches)).
 |---|---|---:|---:|
 | Line read (U29): address 13, /LINE_RD 7.5, F541 enable 9.5, D setup 2 | 32.0 | +7.7 | +3.4 |
 | Port (U38) or PS/2 (U42) read (PLD tEA 7.5 instead of the F541) | 30.0 | +9.7 | +5.2 (U38), +5.7 (U42) |
+| Expansion card read, a card within the [card budget](../architecture/EXPANSION.md#card-timing) (address 13, /EXP 7.5, card 10.5, D setup 2) | 33.0 | +6.7 | +0.6 (worst slot) |
 
 The board figures take the address at U12 from the Y_ENABLE and mux
 tracks (18.9 ns after X1), then /LINE_RD or /PORT_RD and the longest
