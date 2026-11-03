@@ -17,6 +17,14 @@ Page 1: board outline and mounting holes. Page 2: edge connectors (panel
 opening centers from the datum). Page 3: expansion card and cartridge space
 (the slot footprints' courtyards, which are the card shell keepouts).
 All positions are read from the board, so rerun after the layout changes.
+
+    python3 src/scripts/gen_board_dimensions.py --layout
+
+writes the same dimensions into the layout itself instead: every dimension
+object in kicad/placard.kicad_pcb is replaced by a fresh set on Dwgs.User
+(outline, mounting holes, edge connector centers, slot and cartridge
+centers, all from the back left corner). Only the dimension blocks of the
+file change; the rest of the text is kept byte for byte.
 """
 import argparse
 import datetime
@@ -396,6 +404,139 @@ def page_cards(src, edge, fps):
     return p
 
 
+# ---------------------------------------------------------------- layout
+class LayoutDims:
+    """Dimension objects at the board's own coordinates, KiCad style."""
+    TEXT = 1.5
+
+    def __init__(self):
+        self.board = pcbnew.BOARD()
+
+    def _dim(self, horizontal, x1, y1, x2, y2, height):
+        d = pcbnew.PCB_DIM_ORTHOGONAL(self.board)
+        d.SetLayer(LAYER)
+        d.SetUnitsMode(pcbnew.DIM_UNITS_MODE_MM)
+        d.SetUnitsFormat(pcbnew.DIM_UNITS_FORMAT_BARE_SUFFIX)
+        d.SetPrecision(pcbnew.DIM_PRECISION_X_XX)
+        d.SetSuppressZeroes(True)
+        d.SetLineThickness(mm(0.12))
+        d.SetTextSize(pcbnew.VECTOR2I(mm(self.TEXT), mm(self.TEXT)))
+        d.SetTextThickness(mm(0.225))
+        d.SetArrowLength(mm(1.5))
+        d.SetExtensionOffset(mm(0.5))
+        d.SetKeepTextAligned(True)
+        d.SetOrientation(pcbnew.PCB_DIM_ORTHOGONAL.DIR_HORIZONTAL if horizontal
+                         else pcbnew.PCB_DIM_ORTHOGONAL.DIR_VERTICAL)
+        d.SetStart(pcbnew.VECTOR2I(mm(x1), mm(y1)))
+        d.SetEnd(pcbnew.VECTOR2I(mm(x2), mm(y2)))
+        d.SetHeight(mm(height))
+        self.board.Add(d)
+        d.Update()
+
+    def horiz(self, x1, y1, x2, y2, at):
+        self._dim(True, x1, y1, x2, y2, at - y1)
+
+    def vert(self, x1, y1, x2, y2, at):
+        self._dim(False, x1, y1, x2, y2, at - x1)
+
+
+def layout_dims(edge, fps, holes):
+    """Baseline dimensions from the back left corner, stacked outside the board."""
+    l, t, r, b = edge
+    p = LayoutDims()
+    step = 5.0
+    # back edge: back-panel connector centers, then the overall width
+    back = sorted(edge_feature(fps[ref], side)[0]
+                  for ref, _, side in EDGE_PARTS if side == "back" and ref in fps)
+    for i, c in enumerate(back):
+        p.horiz(l, t, c, t, t - 8 - step * i)
+    p.horiz(l, t, r, t, t - 8 - step * len(back) - 3)
+    # left edge: switch and SD card centers, then the overall depth
+    left = sorted(edge_feature(fps[ref], side)[0]
+                  for ref, _, side in EDGE_PARTS if side == "left" and ref in fps)
+    for i, c in enumerate(left):
+        p.vert(l, t, l, c, l - 8 - step * i)
+    p.vert(l, t, l, b, l - 8 - step * len(left) - 3)
+    # front edge: SNES centers, then mounting hole x, slot and cartridge centers
+    xs = []
+    for ref, _, side in EDGE_PARTS:
+        if side == "front" and ref in fps:
+            xs.append(edge_feature(fps[ref], side)[0])
+    xs += [x for _, x, _, _, _ in holes]
+    for ref, _ in SLOTS + [("J8", "")]:
+        if ref in fps:
+            fab = fp_layer_box(fps[ref], pcbnew.F_Fab)
+            xs.append((fab[0] + fab[2]) / 2)
+    xs = sorted({round(x, 2) for x in xs})
+    for i, x in enumerate(xs):
+        p.horiz(l, b, x, b, b + 8 + step * i)
+    # right edge: mounting hole y, slot row and cartridge centers
+    ys = [y for _, _, y, _, _ in holes]
+    for ref in ("J9", "J8"):
+        if ref in fps:
+            fab = fp_layer_box(fps[ref], pcbnew.F_Fab)
+            ys.append((fab[1] + fab[3]) / 2)
+    ys = sorted({round(y, 2) for y in ys})
+    for i, y in enumerate(ys):
+        p.vert(r, t, r, y, r + 8 + step * i)
+    return p.board
+
+
+def top_level_blocks(text, keyword):
+    """(start, end) of every top-level '(keyword' block in a board file."""
+    out, i = [], 0
+    tag = "\n\t(" + keyword
+    while True:
+        i = text.find(tag, i)
+        if i < 0:
+            return out
+        j, depth = i + 2, 0
+        while True:
+            ch = text[j]
+            if ch == '"':
+                j += 1
+                while text[j] != '"':
+                    j += 2 if text[j] == "\\" else 1
+            elif ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        out.append((i + 1, j + 1))
+        i = j
+
+
+def write_layout(board_path, edge, fps, holes):
+    tmp = tempfile.mkdtemp(prefix="placard_dimlay_")
+    t = os.path.join(tmp, "dims.kicad_pcb")
+    layout_dims(edge, fps, holes).Save(t)
+    new = open(t, encoding="utf-8").read()
+    blocks = [new[a:b] for a, b in top_level_blocks(new, "dimension")]
+    shutil.rmtree(tmp, ignore_errors=True)
+    with open(board_path, encoding="utf-8", newline="") as f:
+        text = f.read()
+    old = top_level_blocks(text, "dimension")
+    ins = "".join("\n\t" + blk[1:] if blk.startswith("\t") else "\n" + blk for blk in blocks)
+    if old:
+        # each block starts after "\n"; drop "\n" + block, put the new set where the first was
+        parts, prev = [], 0
+        for k, (s0, e0) in enumerate(old):
+            parts.append(text[prev:s0 - 1])
+            if k == 0:
+                parts.append(ins)
+            prev = e0
+        parts.append(text[prev:])
+        text = "".join(parts)
+    else:
+        at = text.rstrip().rfind("\n)")
+        text = text[:at] + ins + text[at:]
+    with open(board_path, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
+    print("replaced %d dimensions with %d in %s" % (len(old), len(blocks), board_path))
+
+
 # ---------------------------------------------------------------- plotting
 THEME = {
     "meta": {"name": "placard_dimensions", "version": 5},
@@ -423,9 +564,14 @@ def main():
     ap.add_argument("--out", default=os.path.join(ROOT, "docs", "hardware", "placard_main_dimensions.pdf"))
     ap.add_argument("--kicad-cli", default="kicad-cli")
     ap.add_argument("--keep", help="also save the page boards in this folder")
+    ap.add_argument("--layout", action="store_true",
+                    help="replace the dimension objects in the board file instead of drawing the PDF")
     a = ap.parse_args()
 
     _, edge, radius, fps, holes = read_board(a.board)
+    if a.layout:
+        write_layout(a.board, edge, fps, holes)
+        return 0
     tmp = tempfile.mkdtemp(prefix="placard_dim_")
     cfg = os.path.join(tmp, "config")
     major = pcbnew.Version().split(".")[0] + ".0"
