@@ -3,9 +3,14 @@
     "allow": [
       "Bash(git push origin --delete claude/*)",
       "Bash(git push -d origin claude/*)",
+      "Bash(git add:*)", "Bash(git commit:*)", "Bash(git push:*)",
+      "Bash(git pull:*)", "Bash(git fetch:*)", "Bash(git checkout:*)",
+      "Bash(cp:*)",
+      "PowerShell(Copy-Item:*)", "PowerShell(git add:*)",
+      "PowerShell(git commit:*)", "PowerShell(git push:*)",
+      "Edit(kicad/**)", "Write(kicad/**)",
       "WebFetch(domain:www.findchips.com)",
       "WebFetch(domain:www.mouser.com)",
-      "Bash(java -jar:*)",
       "WebFetch(domain:www.digikey.com)"
     ]
   }
