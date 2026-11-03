@@ -1875,12 +1875,7 @@ dyn_acts:
     beq  dy_o
     ld   [s_b], ac
     beq  dy_in
-    CALL on_tug
-    beq  dy_ct
-    ld   A_UNINST, ac
-    bra  dy_a
-dy_ct:
-    ld   A_CUT, ac
+    ld   A_UNINST, ac           ; in a wreck it takes the cutter
     bra  dy_a
 dy_in:
     ld   [s_t], ac
@@ -2027,7 +2022,7 @@ dm_l:
     bne  dm_l
     LEAVE
 
-; menu_row - action row w2
+; menu_row - action row w2: "| 1: OPEN" (the key to press, the action)
 .chunk
 menu_row:
     PUSH_LINK
@@ -2055,6 +2050,13 @@ mr_c:
     ld   0x80, ac
     ld   ac, [p_inv]
 mr_ni:
+    ld   0x20, ac
+    CALL tputc
+    ld   [w2], ac               ; its key: "1: "
+    add  0x31, ac
+    CALL tputc
+    ld   0x3A, ac
+    CALL tputc
     ld   0x20, ac
     CALL tputc
     ld   [w2], ac
@@ -3226,8 +3228,8 @@ ly_far:
     CALL set_msg
     LEAVE
 
-; dyn_struct - the ship's own cells (not the player's): UNINSTALL on the
-; tug, CUT FREE in a wreck; LAY DECK PLATE on open space with a plate in
+; dyn_struct - the ship's own cells (not the player's): UNINSTALL (by hand
+; on the tug, with the cutter in a wreck); LAY DECK PLATE on open space with a plate in
 ; a carry slot.  The rest of dyn_acts.
 .chunk
 dyn_struct:
@@ -3244,12 +3246,7 @@ dyn_struct:
     xor  [p_y], ac
     beq  ds_e
 ds_1:
-    CALL on_tug
-    beq  ds_c
     ld   A_UNINST, ac
-    bra  ds_a
-ds_c:
-    ld   A_CUT, ac
     bra  ds_a
 ds_v:
     ld   [s_t], ac
@@ -3821,13 +3818,35 @@ rl_set:
     GOTO rl_l
 
 ; rl_side - AC = the room of neighbour rb_k of the link cell: 0 vacuum or
-; the edge, xFF a solid cell
+; the edge, xFF a solid cell.  An airlock there (two docked side by side):
+; the cell past it.  Uses rb_y, rb_t, v3 (free in rb_links).
 .chunk
 rl_side:
     PUSH_LINK
     CALL rb_nb
     beq  sd_0
     CALL map_get
+    xor  T_LOCK, ac
+    bne  sd_1
+    ld   [rb_cx], ac            ; step over the other lock
+    ld   ac, [rb_y]
+    ld   [rb_cy], ac
+    ld   ac, [rb_t]
+    ld   [g_x], ac
+    ld   ac, [rb_cx]
+    ld   [g_y], ac
+    ld   ac, [rb_cy]
+    CALL rb_nb
+    ld   ac, [v3]
+    ld   [rb_y], ac             ; the link cell back
+    ld   ac, [rb_cx]
+    ld   [rb_t], ac
+    ld   ac, [rb_cy]
+    ld   [v3], ac
+    beq  sd_0
+    CALL map_get
+sd_1:
+    ld   [c_t], ac
     ld   ac, x
     ld   TAB_PG, y
     ld   [y,x], ac
@@ -4072,6 +4091,13 @@ inst_action:
     bne  in_1
     GOTO lay_action
 in_1:
+    ld   [w3], ac               ; UNINSTALL off the tug: the cutter's work
+    xor  A_UNINST, ac
+    bne  in_2
+    CALL on_tug
+    bne  in_2
+    GOTO cut_action
+in_2:
     CALL near
     beq  in_far
     CALL plate_room
@@ -4301,7 +4327,7 @@ pn_e:
     CALL tputs
     LEAVE
 
-; draw_tags - row 24 of a cell: BOLTED (on the tug INSTALLED) or LOOSE for
+; draw_tags - row 24 of a cell: INSTALLED (bolted) or LOOSE for
 ; a part, HELD OPEN for a door; its room's air
 .chunk
 draw_tags:
@@ -4326,16 +4352,9 @@ dt_i:
     beq  dt_a
     ld   [s_b], ac
     beq  dt_l
-    CALL on_tug
-    beq  dt_b
     ld   s_installed & 0xFF, ac
     ld   ac, [R0]
     ld   s_installed >> 8, ac
-    bra  dt_p
-dt_b:
-    ld   s_bolted & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_bolted >> 8, ac
     bra  dt_p
 dt_l:
     ld   s_loose & 0xFF, ac
