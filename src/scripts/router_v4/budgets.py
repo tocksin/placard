@@ -132,6 +132,9 @@ def model(H,CART):
     R['store_after_stall']=MIN([we_lo[r]-addr_sel('U15',PIX,r) for r in ('U31','U32')])
     rw=MAX([C['U17']+tCO+L(f'I{i}',f'U17-{14+i}','U1-'+p)+tPD for i,p in [(0,'13'),(2,'7'),(3,'6'),(4,'5')]])+L('RW','U1-23','U15-10')
     R['rw_before_we']=H+WE0-rw
+    # write pulse tWP 10 (AS7C256C-15): /WE low from the later falling edge (CLK at U15-1 with WEC) to the CLK_E rise at
+    # U15-9, less the spread of the two /WE edges (tPD 7.5 - tPDm 3.0); the CLK_E delay lead shortens it
+    R['write_pulse']=(T-H)-(tPD-tPDm)-(WE0-C['U15E'])-10.0
     we_hi={r:T+C['U15E']+tPD+L('~{WE}','U15-20',f'{r}-27') for r in ('U31','U32')}
     we_hi_min={r:T+C['U15E']+tPDm+L('~{WE}','U15-20',f'{r}-27') for r in ('U31','U32')}
     hold=[]
