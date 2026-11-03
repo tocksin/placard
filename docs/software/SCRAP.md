@@ -2,7 +2,7 @@
 
 `SCRAP.PLC` (`src/scripts/scrap.masm`, with `SCRAP.OVL`) is SCRAPWRIGHT,
 an original top-down salvage game: you fly a small tug out to derelict
-ships, walk through them in a suit, cut out what is worth having, haul it
+ships, walk through them in a suit, take out what is worth having, haul it
 back, and build it into your own ship.  It is not in the demo menu: pick
 it in the DOS's file browser and press Enter ([DOS.md](DOS.md)), or set
 `BOOT.CFG` = `SCRAP.PLC` to run it at power-up.
@@ -20,8 +20,10 @@ sector map come in later phases.
 
 ## Playing
 
-You start in your tug's corridor, docked to the KESTREL 9.  A docking
-tube from the tug's airlock leads to the wreck's airlock.
+You start in your tug's corridor, docked to the KESTREL 9.  Docked, the
+tug's airlock is right next to the wreck's, side by side: always aligned,
+so you step from one into the other, and the air of the two corridors is
+shared through them.
 
 | Input | What it does |
 |-------|--------------|
@@ -29,7 +31,7 @@ tube from the tug's airlock leads to the wreck's airlock.
 | Mouse over a cell | a yellow frame on the cell, and the panel shows it: name, damage bar, info on the left, actions on the right |
 | Mouse over yourself | your suit, battery, hands and pack |
 | Left click on a cell | locks the panel on it, so the mouse can go down to the actions |
-| Left click on an action, or keys **1-4** | does it (see below) |
+| Left click on an action, or keys **1-4** | does it (see below); each action has its key to its left, `1:` to `4:` |
 | Right click | unlocks the panel |
 | Esc | back to the DOS |
 
@@ -42,8 +44,7 @@ need you next to it, diagonals count):
 | HOLD OPEN | opens a door and keeps it open: it stays open behind you (the panel says HELD OPEN) until you CLOSE it.  The doors that start open are held open |
 | WALK HERE | walks toward the cell, across first, then up or down |
 | INSPECT | a line about it on the message row |
-| CUT FREE | a part in the wreck is BOLTED: cutting takes 1.5 s and 5 % of the suit battery, and needs a working cutter in a hand.  Walking away stops it.  The wreck's walls, decks and doors cut out the same way, into a wall panel, a door kit or a deck plate |
-| UNINSTALL | a part INSTALLED in the tug: 1 s by hand (no cutter), then it is LOOSE.  On the tug the walls, decks and doors uninstall too (not the cell you stand on): a wall leaves a WALL PANEL lying on the deck, a door a PRESSURE DOOR kit, and a deck goes into a free carry slot as a LOOSE DECK PLATE, leaving open space |
+| UNINSTALL | a part INSTALLED in the wreck: the cutter does it, in 1.5 s and 5 % of the suit battery, and needs a working cutter in a hand.  Walking away stops it.  The wreck's walls, decks and doors uninstall the same way, into a wall panel, a door kit or a deck plate.  INSTALLED in the tug: 1 s by hand (no cutter).  Either way it is LOOSE then.  On the tug the walls, decks and doors uninstall too (not the cell you stand on): a wall leaves a WALL PANEL lying on the deck, a door a PRESSURE DOOR kit, and a deck goes into a free carry slot as a LOOSE DECK PLATE, leaving open space |
 | INSTALL | a LOOSE ship part on one of the tug's cells (O2 tank, scrubber, battery, fuel tank, helm, bunk, locker): 1 s, then it is INSTALLED and part of the tug.  A wall panel installs as a wall, a door kit as a closed door.  Cargo and the cutter can't be installed |
 | LAY DECK PLATE | open space next to you, with a deck plate in a carry slot: it is a deck now |
 | PICK UP | a LOOSE part goes into the first free carry slot: left hand, right hand, back |
@@ -104,7 +105,7 @@ inverse action row in the panel, show where the mouse is.
 - Lines 0-383: 4 bpp, 2x line repeat, 20 x 12 cells.  A cell is 8 x 16
   pixels of art (32 x 32 on the monitor), 64 bytes.
 - Lines 384-479: 1 bpp, 2x, the panel (text rows 24-29, 80 columns).
-  - Row 24: the name, tinted blue, BOLTED or LOOSE for a part, the air
+  - Row 24: the name, tinted blue, INSTALLED or LOOSE for a part, the air
     of its room, and the damage bar.
   - Rows 25-28: the info on the left, the action menu after the bar on the
     right.
@@ -131,8 +132,7 @@ broken: the info line says `WORKS AT nn%` or `BROKEN - NEEDS REPAIR`.
 
 Chunk k (k = 6 (y / 16) + x / 16) is page x60 + 4k (the cell types) and
 x62 + 4k (the flags).  A type byte is the type (bits 4-0), bits 5-4 of
-the cell's room (at 6-5) and bit 7 (a part: bolted, or on the tug
-installed; an open door: held open); a flag byte is the damage
+the cell's room (at 6-5) and bit 7 (a part: installed; an open door: held open); a flag byte is the damage
 (bits 3-0) and bits 3-0 of the room (at 7-4).  A link (a door, an airlock
 or a broken wall) has the room of one side; `rooms_build` lists the links
 (64 at most) with the rooms on both sides, 0 for vacuum.  `SCRAP.OVL` is those 48
@@ -169,7 +169,7 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
 - the camera step;
 - uninstalling the tug's O2 tank (the tug loses its air), carrying it,
   putting it down (still no air while loose), installing it (air again);
-- cutting a crate free in the wreck, the battery it uses, carrying it
+- uninstalling a crate in the wreck with the cutter, the battery it uses, carrying it
   (slower steps);
 - opening the vented section: the corridor's air drops, the decks frost,
   the suit uses its O2;

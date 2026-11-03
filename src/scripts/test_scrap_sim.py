@@ -452,16 +452,15 @@ def main(argv):
     else:
         print('  walked through: it closed behind')
     r.check_view('door closed behind')
-    r.hold(DOWN, 2)             # back: it opens, closes behind again
-    r.hold(DOWN, 2)
-    r.hold(DOWN, 2)
+    for _ in range(3):          # back: it opens, closes behind again
+        r.run(10)               # the last step's keys up
+        r.hold(DOWN, 2)
     if r.zp('p_y') != y0 or r.map_t(*door) != T['DOOR']:
         r.fail('back through: the door did not close (y %d, type %d)' % (r.zp('p_y'), r.map_t(*door)))
     if r.act(*door, gen_scrap.A_HOLD):
-        r.hold(UP, 2)
-        r.hold(UP, 2)
-        r.hold(DOWN, 2)
-        r.hold(DOWN, 2)
+        for k in (UP, UP, DOWN, DOWN):
+            r.run(10)
+            r.hold(k, 2)
         if r.zp('p_y') != y0 or r.map_t(*door) != T['DOORO'] or not r.bolted(*door):
             r.fail('the held door did not stay open (y %d, type %d)' % (r.zp('p_y'), r.map_t(*door)))
         else:
@@ -498,8 +497,8 @@ def phase3(r, args):
     cpu, mem, z = r.cpu, r.cpu.mem, r.zp
     r.check_rooms('the rooms at the start')
     print('7. the tug: uninstalling its O2 tank, carrying it away, back, installing it')
-    tank = (5, 34)
-    r.go((7, 32), (7, 35), (6, 35))   # back west along the tube, into the quarters
+    tank = (15, 34)
+    r.go((17, 32), (17, 35), (16, 35))   # down into the quarters
     print('  at %d,%d; tug: %d O2 tank, %d scrubber, air %s, worth $%d0'
           % (z('p_x'), z('p_y'), z('n_o2'), z('n_scr'), 'on' if z('sup') else 'off',
              z('val_l') | z('val_h') << 8))
@@ -556,8 +555,8 @@ def phase3(r, args):
 
     rebuild(r)
 
-    print('8. cutting a part free in the wreck')
-    r.go((7, 35), (7, 32), (38, 32), (38, 29), (34, 29))   # the mess room (its door opens)
+    print('8. uninstalling a part in the wreck (the cutter)')
+    r.go((17, 35), (17, 32), (38, 32), (38, 29), (34, 29))   # the mess room (its door opens)
     r.walk_to(33, 29)             # the last step by WALK HERE
     crate = (32, 29)
     print('  at %d,%d' % (z('p_x'), z('p_y')))
@@ -565,10 +564,10 @@ def phase3(r, args):
         r.fail('the wreck\'s crate is not bolted')
     r.mouse_cell(*crate)
     print('  |%s' % r.panel()[0])
-    if 'BOLTED' not in r.panel()[0]:
-        r.fail('the panel does not say BOLTED')
+    if 'INSTALLED' not in r.panel()[0]:
+        r.fail('the panel does not say INSTALLED')
     b0 = z('batt')
-    if not r.act(*crate, gen_scrap.A_CUT):
+    if not r.act(*crate, gen_scrap.A_UNINST):
         return
     print('  %r' % r.panel()[5].strip())
     r.run(gen_scrap_cut_frames() + 4)
@@ -638,9 +637,9 @@ def phase3(r, args):
     r.check_view('again')
 
     print('11. REFILL SUIT from the tug\'s tank')
-    r.go((7, 35), (6, 35))
+    r.go((17, 35), (16, 35))
     mem[r.tsyms['o2']] = 5
-    tank = (5, 34)
+    tank = (15, 34)
     dmg = r.map_raw(*tank)[1] & 15
     if r.act(*tank, gen_scrap.A_REFILL):
         want = min(90, 5 + 90 - 11 * dmg)
@@ -659,11 +658,11 @@ def rebuild(r):
     put back in; a broken hull wall leaking"""
     z, mem = r.zp, r.cpu.mem
     print('7b. changing the tug: a deck plate, a wall')
-    deck = (7, 36)
+    deck = (17, 36)
     if not r.act(*deck, gen_scrap.A_UNINST):
         return
     r.settle()
-    q = r.room(6, 35)
+    q = r.room(16, 35)
     print('  %r: left hand %s, %d,%d %s' % (r.panel()[5].strip(), gen_scrap.TYPES[z('cl_t')][0],
                                           deck[0], deck[1], gen_scrap.TYPES[r.map_t(*deck)][0]))
     if r.map_t(*deck) != T['SPACE'] or z('cl_t') != T['PLATE']:
@@ -681,8 +680,8 @@ def rebuild(r):
         r.fail('LAY DECK PLATE did not lay it')
     r.check_rooms('the deck laid again')
 
-    r.go((9, 35))
-    wall, hull = (10, 35), (4, 35)
+    r.go((19, 35))
+    wall, hull = (20, 35), (14, 35)
     ty, fl = r.map_raw(*hull)
     a = ((0x60 + 4 * (6 * (hull[1] >> 4) + (hull[0] >> 4))) << 8) + 16 * (hull[1] & 15) + (hull[0] & 15)
     mem[a + 0x200] = (fl & 0xF0) | 9              # the hull wall: 56 % damage
@@ -691,11 +690,11 @@ def rebuild(r):
     r.settle()
     print('  %r: %d,%d %s; quarters room %d, hold room %d'
           % (r.panel()[5].strip(), wall[0], wall[1], gen_scrap.TYPES[r.map_t(*wall)][0],
-             r.room(9, 35), r.room(11, 35)))
-    if r.map_t(*wall) != T['PANEL'] or r.room(9, 35) != r.room(11, 35):
+             r.room(19, 35), r.room(21, 35)))
+    if r.map_t(*wall) != T['PANEL'] or r.room(19, 35) != r.room(21, 35):
         r.fail('UNINSTALL of the wall did not join the quarters and the hold')
     r.check_rooms('the wall out, a broken hull wall')
-    q = r.room(9, 35)
+    q = r.room(19, 35)
     lo = min(r.press(q) for _ in range(180) if r.run(1) is None)
     print('  the broken hull wall: the room\'s air down to %d in 3 s' % lo)
     if lo >= 100:
@@ -708,7 +707,7 @@ def rebuild(r):
     if not r.act(*wall, gen_scrap.A_INSTALL):
         return
     r.settle()
-    if r.map_t(*wall) != T['WALL'] or r.room(9, 35) == r.room(11, 35):
+    if r.map_t(*wall) != T['WALL'] or r.room(19, 35) == r.room(21, 35):
         r.fail('INSTALL of the wall panel did not part the rooms')
     else:
         print('  the panel installed: a wall again, two rooms')

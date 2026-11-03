@@ -51,7 +51,10 @@ MAP_W, MAP_H = 96, 64
 CHUNKS_X = 6
 MAP_PAGE = 0x60
 VIEW_W, VIEW_H = 20, 12
-START = (7, 32)                     # the player, in the tug's corridor
+TUG_DX = 10                         # the tug's cells, x from its plan
+TUG_LOCK = (19 + TUG_DX, 32)        # docked: the airlocks side by side,
+WRECK_LOCK = (30, 32)               # always aligned
+START = (7 + TUG_DX, 32)            # the player, in the tug's corridor
 
 # ------------------------------------------------------------------
 # the cell art: 8 x 16 pixels, one hex digit (palette index) per pixel
@@ -199,7 +202,7 @@ TYPES = [
      'SCUFFED DECK PLATE.  SOMEONE WALKED HERE A LOT.'),
     ('WALL', 'wall', 'BULKHEAD', F_DMG | F_STRUCT | F_SOLID,
      ['STEEL BULKHEAD, AIRTIGHT', 'LEAKS AIR FROM 50% DAMAGE',
-      'TUG: UNINSTALL.  WRECK: CUT FREE'], [A_INSPECT],
+      'UNINSTALL IT (IN A WRECK: A CUTTER)'], [A_INSPECT],
      'A SOLID BULKHEAD.  THE PAINT SAYS DECK 2.'),
     ('DOOR', 'door', 'DOOR (CLOSED)', F_DMG | F_STRUCT | F_SOLID,
      ['PRESSURE DOOR, SEALS UNDER 50% DAMAGE', '\x01',
@@ -266,8 +269,8 @@ TYPES = [
       'A STATION REFILLS IT (LATER PHASE)'], [A_INSPECT],
      'AN EMPTY OXYGEN TANK.  THE GAUGE READS ZERO.'),
     ('CUTTER', 'cutter', 'PLASMA CUTTER', F_DMG | F_ITEM,
-     ['HAND TOOL: CUTS PARTS FREE', '\x01', 'WORKS FROM A HAND, NOT YOUR BACK',
-      'A CUT USES 5% OF THE SUIT BATTERY'], [A_INSPECT],
+     ['HAND TOOL: UNINSTALLS IN A WRECK', '\x01', 'WORKS FROM A HAND, NOT YOUR BACK',
+      'EACH CUT USES 5% OF THE SUIT BATTERY'], [A_INSPECT],
      'A PLASMA CUTTER.  KEEP YOUR FINGERS CLEAR.'),
     ('PANEL', 'panel', 'WALL PANEL', F_DMG | F_ITEM | F_INST,
      ['A BULKHEAD SECTION, TAKEN OUT', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
@@ -287,7 +290,7 @@ TYPE = {t[0]: i for i, t in enumerate(TYPES)}
 VALUE = {'O2': 20, 'O2E': 8, 'REACT': 250, 'BATT': 30, 'CRATE': 15, 'BUNK': 5,
          'HELM': 60, 'LOCKER': 6, 'TURRET': 40, 'THRUST': 50, 'FUEL': 25,
          'SCRUB': 35, 'CUTTER': 12, 'PANEL': 3, 'DOORK': 8, 'PLATE': 2}
-TUG = (0, 18, 19, 46)               # the tug's cells, x0, y0, x1, y1 (its value, its systems,
+TUG = (0, 18, TUG_LOCK[0], 46)      # the tug's cells, x0, y0, x1, y1 (its value, its systems,
                                     # room to build on round its hull)
 AIR_FULL = 100                      # a room's pressure: 100 = 1 atmosphere
 assert len(TYPES) <= 32
@@ -301,10 +304,10 @@ IN_WAY = 'SOMETHING IS IN THE WAY.'
 BLOCKED = 'THE WAY IS BLOCKED.'
 MESSAGES = [   # (label, text): the strings scrap.masm prints
     ('s_full', 'YOUR HANDS AND BACK ARE FULL - PUT SOMETHING DOWN.'),
-    ('s_nocut', 'YOU NEED A WORKING CUTTER IN A HAND.'),
-    ('s_nobatt', 'THE SUIT BATTERY IS TOO LOW TO CUT.'),
-    ('s_cutting', 'CUTTING...'),
-    ('s_cutdone', 'CUT FREE.  IT CAN BE PICKED UP NOW.'),
+    ('s_nocut', 'IN A WRECK IT TAKES A WORKING CUTTER IN A HAND.'),
+    ('s_nobatt', 'THE SUIT BATTERY IS TOO LOW FOR THE CUTTER.'),
+    ('s_cutting', 'UNINSTALLING WITH THE CUTTER...'),
+    ('s_cutdone', 'UNINSTALLED.  IT CAN BE PICKED UP NOW.'),
     ('s_cutstop', 'STOPPED - YOU WALKED AWAY.'),
     ('s_inst', 'INSTALLING...'),
     ('s_instdone', 'INSTALLED.  IT IS PART OF THE TUG NOW.'),
@@ -327,7 +330,6 @@ MESSAGES = [   # (label, text): the strings scrap.masm prints
     ('s_airon', '0, AIR ON'),
     ('s_airoff', '0, NO AIR'),
     ('s_air', 'AIR '),
-    ('s_bolted', 'BOLTED'),
     ('s_loose', 'LOOSE'),
     ('s_w1', 'CAUTION: SUIT O2 BELOW HALF.'),
     ('s_w2', 'WARNING: SUIT O2 LOW - GET BACK TO THE TUG OR FIND AN O2 TANK.'),
@@ -366,31 +368,39 @@ def build_map(seed=9):
             for x in range(x0, x1 + 1):
                 put(x, y, key)
 
-    # the tug: hull x4-19, y26-38
-    fill(4, 26, 19, 38, 'WALL')
-    fill(5, 27, 9, 30, 'FLOOR')         # cockpit
-    fill(11, 27, 18, 30, 'FLOOR')       # engine bay
-    fill(5, 32, 18, 32, 'FLOOR')        # corridor
-    fill(5, 34, 9, 37, 'FLOOR')         # quarters
-    fill(11, 34, 18, 37, 'FLOOR')       # hold
+    # the tug: hull x14-29, y26-38; docked, its airlock (29, 32) is next
+    # to the wreck's (30, 32)
+    X = TUG_DX
+
+    def tput(x, y, key):
+        put(x + X, y, key)
+
+    def tfill(x0, y0, x1, y1, key):
+        fill(x0 + X, y0, x1 + X, y1, key)
+
+    tfill(4, 26, 19, 38, 'WALL')
+    tfill(5, 27, 9, 30, 'FLOOR')        # cockpit
+    tfill(11, 27, 18, 30, 'FLOOR')      # engine bay
+    tfill(5, 32, 18, 32, 'FLOOR')       # corridor
+    tfill(5, 34, 9, 37, 'FLOOR')        # quarters
+    tfill(11, 34, 18, 37, 'FLOOR')      # hold
     for d in ((7, 31), (14, 31), (7, 33), (14, 33)):
-        put(d[0], d[1], 'DOORO')
-    put(6, 27, 'HELM'); put(7, 27, 'HELM')
-    put(12, 27, 'REACT'); put(13, 27, 'BATT'); put(17, 27, 'FUEL'); put(18, 27, 'FUEL')
-    fill(12, 28, 16, 28, 'PIPE')
-    put(5, 36, 'BUNK'); put(5, 37, 'BUNK'); put(9, 37, 'LOCKER'); put(5, 34, 'O2'); put(6, 34, 'SCRUB')
-    put(17, 37, 'LOCKER'); put(18, 37, 'LOCKER'); put(18, 36, 'LOCKER')
-    put(3, 28, 'THRUST'); put(3, 36, 'THRUST')
-    # the docking tube and the airlocks
-    put(19, 32, 'LOCK')
-    fill(20, 32, 29, 32, 'TUBE')
-    put(30, 32, 'LOCK')
+        tput(d[0], d[1], 'DOORO')
+    tput(6, 27, 'HELM'); tput(7, 27, 'HELM')
+    tput(12, 27, 'REACT'); tput(13, 27, 'BATT'); tput(17, 27, 'FUEL'); tput(18, 27, 'FUEL')
+    tfill(12, 28, 16, 28, 'PIPE')
+    tput(5, 36, 'BUNK'); tput(5, 37, 'BUNK'); tput(9, 37, 'LOCKER'); tput(5, 34, 'O2'); tput(6, 34, 'SCRUB')
+    tput(17, 37, 'LOCKER'); tput(18, 37, 'LOCKER'); tput(18, 36, 'LOCKER')
+    tput(3, 28, 'THRUST'); tput(3, 36, 'THRUST')
+    tput(19, 32, 'LOCK')                # docked: right next to the wreck's
+    assert (TUG_LOCK[0] + 1, TUG_LOCK[1]) == WRECK_LOCK
 
     # the wreck: hull x30-90, y6-58
     for y in range(6, 59):
         for x in range(30, 91):
-            if not (x == 30 and y == 32):
+            if (x, y) != WRECK_LOCK:
                 put(x, y, 'WALL')
+    put(*WRECK_LOCK, 'LOCK')
     rooms = {
         'bridge': (31, 7, 44, 17), 'crew': (46, 7, 57, 17),
         'mess': (31, 19, 44, 29), 'med': (46, 19, 57, 29),
@@ -463,7 +473,7 @@ def build_map(seed=9):
                 d[y][x] = rnd.choice((0, 0, 0, 1, 1, 2))
             elif k in ('WALL',):
                 d[y][x] = rnd.choice((0, 1, 1, 2, 3))
-            elif x < 20:                # the tug is looked after
+            elif x <= TUG_LOCK[0]:      # the tug is looked after
                 d[y][x] = rnd.choice((0, 1, 2))
             else:
                 d[y][x] = rnd.randint(1, 12)
@@ -492,7 +502,8 @@ def rooms(t, d=None):
     [(x, y, room a, room b)], the rooms that leak, the start pressures, the
     tug's rooms).  A room is the air cells joined side by side (63 at most).
     A link is a door or airlock, or a wall from 50 % damage, with a room or
-    vacuum (0) on two opposite sides; it gets the room of a side.  A room
+    vacuum (0) on two opposite sides (past an airlock next to it: the
+    tug's and the wreck's are side by side); it gets the room of a side.  A room
     leaks when an air cell of it (not the docking tube) is next to vacuum
     or the map's edge."""
     rid = [[0] * MAP_W for _ in range(MAP_H)]
@@ -520,7 +531,9 @@ def rooms(t, d=None):
                         rid[ny][nx] = n
                         todo.append((nx, ny))
 
-    def side(x, y):
+    def side(x, y, dx, dy):
+        if 0 <= x < MAP_W and 0 <= y < MAP_H and TYPES[t[y][x]][0] == 'LOCK':
+            x, y = x + dx, y + dy       # two airlocks side by side: past it
         if not (0 <= x < MAP_W and 0 <= y < MAP_H) or vac(TYPES[t[y][x]][0]):
             return 0
         if solid(TYPES[t[y][x]][0]):
@@ -533,7 +546,7 @@ def rooms(t, d=None):
             k = TYPES[t[y][x]][0]
             if not (k in DOORS or (k == 'WALL' and d is not None and d[y][x] >= 8)):
                 continue
-            for a, b in (((x - 1, y), (x + 1, y)), ((x, y - 1), (x, y + 1))):
+            for a, b in (((x - 1, y, -1, 0), (x + 1, y, 1, 0)), ((x, y - 1, 0, -1), (x, y + 1, 0, 1))):
                 ra, rb = side(*a), side(*b)
                 if ra is not None and rb is not None and ra != rb and len(doors) < 64:
                     doors.append((x, y, ra, rb))

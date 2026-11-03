@@ -273,21 +273,21 @@ ROOM_TAB:
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 100, 100, 100, 100, 100, 100, 100
     #d8 100, 100, 100, 100, 100, 100, 100, 100
-    #d8 100, 100, 100, 0, 0, 0, 0, 0
+    #d8 100, 100, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
-    #d8 0, 1, 1, 1, 0, 1, 1, 0
+    #d8 0, 1, 1, 1, 1, 1, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
-    #d8 19, 0, 0, 0, 0, 0, 0, 0
+    #d8 18, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
@@ -299,7 +299,7 @@ ROOM_TAB:
 .fixed 0x3400
 DOOR_TAB:
     #d8 0x70, 0x68, 0x6C, 0x6C, 0x84, 0x84, 0x80, 0x84
-    #d8 0x88, 0x8C, 0x78, 0x78, 0x94, 0x94, 0x90, 0x90
+    #d8 0x88, 0x8C, 0x7C, 0x7C, 0x94, 0x94, 0x94, 0x94
     #d8 0x98, 0x9C, 0xA0, 0x98, 0x9C, 0x9C, 0xA0, 0xBC
     #d8 0xB4, 0xB4, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
@@ -307,7 +307,7 @@ DOOR_TAB:
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 172, 205, 202, 206, 138, 142, 230, 228
-    #d8 229, 227, 247, 254, 3, 14, 23, 30
+    #d8 229, 227, 241, 248, 13, 14, 17, 24
     #d8 38, 36, 44, 143, 142, 228, 236, 26
     #d8 74, 78, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
@@ -315,17 +315,17 @@ DOOR_TAB:
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 4, 1, 2, 3, 7, 3, 6, 7
-    #d8 8, 5, 9, 10, 11, 12, 11, 11
-    #d8 3, 3, 3, 15, 3, 16, 17, 19
-    #d8 18, 3, 0, 0, 0, 0, 0, 0
+    #d8 8, 5, 9, 10, 11, 11, 11, 11
+    #d8 3, 3, 3, 14, 3, 15, 16, 18
+    #d8 17, 3, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 5, 2, 3, 4, 3, 8, 3, 3
-    #d8 3, 3, 11, 11, 12, 3, 13, 14
-    #d8 15, 16, 17, 16, 17, 18, 19, 0
-    #d8 3, 19, 0, 0, 0, 0, 0, 0
+    #d8 3, 3, 11, 11, 3, 3, 12, 13
+    #d8 14, 15, 16, 15, 16, 17, 18, 0
+    #d8 3, 18, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
@@ -353,7 +353,7 @@ zi_3_1:
 
 .chunk
 zi_3_2:
-    #d "TUG: UNINSTALL.  WRECK: CUT FREE", 0x00
+    #d "UNINSTALL IT (IN A WRECK: A CUTTER)", 0x00
 zi_4_0:
     #d "PRESSURE DOOR, SEALS UNDER 50% DAMAGE", 0x00
 zi_4_1:
@@ -487,13 +487,13 @@ zi_22_3:
 
 .chunk
 zi_23_0:
-    #d "HAND TOOL: CUTS PARTS FREE", 0x00
+    #d "HAND TOOL: UNINSTALLS IN A WRECK", 0x00
 zi_23_1:
     #d 0x01, 0x00
 zi_23_2:
     #d "WORKS FROM A HAND, NOT YOUR BACK", 0x00
 zi_23_3:
-    #d "A CUT USES 5% OF THE SUIT BATTERY", 0x00
+    #d "EACH CUT USES 5% OF THE SUIT BATTERY", 0x00
 zi_24_0:
     #d "A BULKHEAD SECTION, TAKEN OUT", 0x00
 zi_24_1:
@@ -787,15 +787,15 @@ s_blocked:
 s_full:
     #d "YOUR HANDS AND BACK ARE FULL - PUT SOMETHING DOWN.", 0x00
 s_nocut:
-    #d "YOU NEED A WORKING CUTTER IN A HAND.", 0x00
+    #d "IN A WRECK IT TAKES A WORKING CUTTER IN A HAND.", 0x00
 s_nobatt:
-    #d "THE SUIT BATTERY IS TOO LOW TO CUT.", 0x00
+    #d "THE SUIT BATTERY IS TOO LOW FOR THE CUTTER.", 0x00
 s_cutting:
-    #d "CUTTING...", 0x00
-s_cutdone:
-    #d "CUT FREE.  IT CAN BE PICKED UP NOW.", 0x00
+    #d "UNINSTALLING WITH THE CUTTER...", 0x00
 
 .chunk
+s_cutdone:
+    #d "UNINSTALLED.  IT CAN BE PICKED UP NOW.", 0x00
 s_cutstop:
     #d "STOPPED - YOU WALKED AWAY.", 0x00
 s_inst:
@@ -810,12 +810,12 @@ s_installed:
     #d "INSTALLED", 0x00
 s_held:
     #d "HELD OPEN", 0x00
+
+.chunk
 s_plate:
     #d "THE DECK PLATE IS YOURS - OPEN SPACE UNDER IT NOW.", 0x00
 s_laid:
     #d "DECK PLATE LAID.", 0x00
-
-.chunk
 s_refill:
     #d "SUIT REFILLED.  THE TANK IS EMPTY NOW.", 0x00
 s_broken:
@@ -834,6 +834,8 @@ s_slash:
     #d " / ", 0x00
 s_empty:
     #d "EMPTY", 0x00
+
+.chunk
 s_tug:
     #d "TUG $", 0x00
 s_airon:
@@ -842,12 +844,8 @@ s_airoff:
     #d "0, NO AIR", 0x00
 s_air:
     #d "AIR ", 0x00
-s_bolted:
-    #d "BOLTED", 0x00
 s_loose:
     #d "LOOSE", 0x00
-
-.chunk
 s_w1:
     #d "CAUTION: SUIT O2 BELOW HALF.", 0x00
 s_w2:
