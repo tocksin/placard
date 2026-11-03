@@ -42,3 +42,6 @@ __pycache__/
 src/scripts/case_render/mesh/
 src/scripts/case_render/web/
 src/scripts/case_render/out/
+
+# SCRAPWRIGHT map pages, made by src/scripts/gen_scrap.py (gen_plc.py puts them in SCRAP.OVL)
+/src/scripts/scrap_map.bin

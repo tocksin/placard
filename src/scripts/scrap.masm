@@ -1,5 +1,5 @@
 ; ============================================================
-; scrap.masm - SCRAP.PLC: SCRAPWRIGHT, phase 2 (a wreck to walk through)
+; scrap.masm - SCRAP.PLC: SCRAPWRIGHT, phase 3 (salvage, the tug, air)
 ; ============================================================
 ;
 ; A library program the DOS runs from the card.  SCRAPWRIGHT is a
@@ -12,6 +12,8 @@
 ; its air from an O2 tank and a scrubber on board) and air: rooms with a
 ; pressure each, shared through open doors, lost through a breach; the
 ; suit's O2 and battery, staged warnings, suffocating (Enter: again).
+; Parts count for the tug once INSTALLed on its cells (UNINSTALL takes
+; one out); doors close behind the player unless held open (HOLD OPEN).
 ;
 ; The screen (2x line repeat everywhere):
 ;   lines 0-383     4 bpp: 20 x 12 cells of 8 x 16 pixels (32 x 32 on
@@ -38,10 +40,12 @@
 ; SCRAP.OVL.  The video RAM is above x6000, so like the tracker this
 ; program runs with the map at FF (every section RAM) and calls the
 ; library through the l_* stubs, which switch to 07 around the call.
+; More code and strings go in the even pages from xC000 (the overlay
+; region): SCRAP.OVL holds them after the map, and ovl_load reads both.
 ;
-;     python3 gen_scrap.py                            scrap_types.asm, scrap_data.masm, SCRAP.OVL
+;     python3 gen_scrap.py                            scrap_types.asm, scrap_data.masm, scrap_map.bin
 ;     python3 asm_expand.py scrap.masm                scrap.asm
-;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC
+;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin
 ;     python3 test_scrap_sim.py                       runs it in placard_sim
 ;
 ; Date: 11/03/2026
@@ -177,6 +181,7 @@ val_h   = 0x95
 num_l   = 0x96              ; put_dec: the number
 num_h   = 0x97
 num_z   = 0x98              ;   1: a digit was printed
+cut_m   = 0x99              ; what cut_t times: 0 a cut, 1 installing, 2 uninstalling
 
 ROOM_P  = 0x4000            ; + room: its pressure, 0-100 (start: RM_P0)
 ROOM_C  = 0x4040            ; + room: 1 while it is cold (pressure under COLD_P)
@@ -185,6 +190,7 @@ BREATHE_P = 60              ; a room under this: the suit uses its own O2
 SUIT_O2 = 90
 CUT_FRAMES = 90             ; 1.5 seconds to cut a part free
 CUT_BATT = 5                ; battery percent a cut uses
+INST_FRAMES = 60            ; 1 second to install or uninstall a part
 HEAVY_FRAMES = 4            ; walking: frames more a step for each part carried
 COLLAPSE_S = 10             ; seconds without O2 before you die
 TINT_WARN = 0x10            ; the message row with a warning: red
@@ -286,6 +292,7 @@ ta_go\@:
 .leave sc_leave
 .region 0x0100, 0x1F00
 .region 0x2000, 0x3400
+.region 0xC000, 0x10000, 2, overlay
 .region 0x0100, 0x1F00
 
 ; ============================================================
@@ -1459,7 +1466,8 @@ tm_no:
     LEAVE
 
 ; move_player - the player to n_x, n_y: both cells drawn, the camera, the
-; hover and the panel
+; hover and the panel; an open door the player leaves closes unless it is
+; held open
 .chunk
 move_player:
     PUSH_LINK
@@ -1477,6 +1485,17 @@ mp_c:
     ld   ac, [g_x]
     ld   [p_y], ac
     ld   ac, [g_y]
+    CALL map_get                ; an open door left behind closes (not held)
+    xor  T_DOORO, ac
+    bne  mp_m
+    ld   [c_b], ac
+    bne  mp_m
+    ld   T_DOOR, ac
+    CALL map_put
+    ld   [dirty], ac
+    or   1, ac
+    ld   ac, [dirty]
+mp_m:
     ld   [n_x], ac
     ld   ac, [p_x]
     ld   [n_y], ac
@@ -1557,6 +1576,12 @@ da_4:
     GOTO refill_action
 da_5:
     ld   [w3], ac
+    sub  A_HOLD, ac
+    blt  da_p
+    beq  da_6
+    GOTO inst_action
+da_p:
+    ld   [w3], ac
     sub  A_PUTL, ac
     blt  da_6
     GOTO put_action
@@ -1565,8 +1590,9 @@ da_6:
 da_e:
     LEAVE
 
-; door_action - OPEN or CLOSE (w3) the door the panel shows, from next
-; to it (the rest of do_action: its LEAVE)
+; door_action - OPEN, HOLD OPEN or CLOSE (w3) the door the panel shows,
+; from next to it (the rest of do_action: its LEAVE).  Held open is bit 7
+; of the type byte (map_put clears it: OPEN and CLOSE let go)
 .chunk
 door_action:
     CALL near
@@ -1577,8 +1603,14 @@ door_action:
     ld   ac, [g_y]
     ld   [w3], ac
     xor  A_OPEN, ac
-    bne  dr_cl
+    bne  dr_h
     ld   T_DOORO, ac
+    bra  dr_set
+dr_h:
+    ld   [w3], ac
+    xor  A_HOLD, ac
+    bne  dr_cl
+    ld   T_DOORO | 0x80, ac
     bra  dr_set
 dr_cl:
     ld   [s_x], ac              ; not on the player
@@ -1749,24 +1781,32 @@ sl_l:
     ld   [y,x], ac
     beq  sl_e
     ld   ac, [u1]
+    xor  A_HOLD, ac             ; a door held open: no HOLD OPEN
+    bne  sl_k
+    ld   [s_b], ac
+    bne  sl_n
+sl_k:
     ld   [n_act], ac
     add  act0, ac
     ld   ac, x
     ld   [u1], ac
     ld   ac, [x]
-    ld   [u0], ac
-    inc
-    ld   ac, [u0]
     ld   [n_act], ac
     inc
     ld   ac, [n_act]
-    bra  sl_l
+sl_n:
+    ld   [u0], ac               ; the type's 4 at most
+    inc
+    ld   ac, [u0]
+    and  3, ac
+    bne  sl_l
 sl_e:
     LEAVE
 
-; dyn_acts - the actions the subject cell has now: CUT FREE or PICK UP
-; for a part, REFILL for a full O2 tank, PUT DOWN for each carried part
-; on a deck.  n_act from 0.
+; dyn_acts - the actions the subject cell has now: for a bolted part CUT
+; FREE (in the tug: UNINSTALL), for a loose one INSTALL (a ship system on
+; the tug) and PICK UP; REFILL for a full O2 tank; PUT DOWN for each
+; carried part on a deck.  n_act from 0.
 .chunk
 dyn_acts:
     PUSH_LINK
@@ -1779,9 +1819,25 @@ dyn_acts:
     and  F_ITEM, ac
     beq  dy_o
     ld   [s_b], ac
-    beq  dy_pk
+    beq  dy_in
+    CALL on_tug
+    beq  dy_ct
+    ld   A_UNINST, ac
+    bra  dy_a
+dy_ct:
     ld   A_CUT, ac
     bra  dy_a
+dy_in:
+    ld   [s_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_INST, ac
+    beq  dy_pk
+    CALL on_tug
+    beq  dy_pk
+    ld   A_INSTALL, ac
+    CALL add_act
 dy_pk:
     ld   A_PICK, ac
 dy_a:
@@ -2524,7 +2580,7 @@ ss_x:
 
 ; tug_scan - the tug's cells: its working O2 tanks, scrubbers, batteries
 ; and fuel tanks, and its worth (each part's value x (16 - damage) / 16,
-; in $10); then tug_sum
+; in $10); a part counts once it is installed (bolted).  Then tug_sum
 .chunk
 tug_scan:
     PUSH_LINK
@@ -2546,7 +2602,15 @@ ty_x:
     ld   [v1], ac
     ld   ac, [g_y]
     CALL map_get
+    ld   ac, x                  ; a loose part is not part of the tug
     ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_ITEM, ac
+    beq  ty_i
+    ld   [c_b], ac
+    beq  ty_n
+ty_i:
+    ld   [c_t], ac
     add  TB_VAL, x
     ld   [y,x], ac
     beq  ty_c
@@ -2821,6 +2885,8 @@ cu_ok:
     ld   [batt], ac
     sub  CUT_BATT, ac
     bcs  cu_nb
+    clr  ac
+    ld   ac, [cut_m]
     ld   CUT_FRAMES, ac
     ld   ac, [cut_t]
     ld   [s_x], ac
@@ -2845,7 +2911,8 @@ cu_far:
     CALL set_msg
     LEAVE
 
-; cut_done - the part at cut_x, cut_y is cut free; the battery pays
+; cut_done - the part at cut_x, cut_y is cut free (the battery pays),
+; installed or uninstalled (cut_m); then the tug again
 .chunk
 cut_done:
     PUSH_LINK
@@ -2854,19 +2921,93 @@ cut_done:
     ld   [cut_y], ac
     ld   ac, [g_y]
     CALL map_get
+    ld   [cut_m], ac
+    xor  1, ac
+    bne  cd_f
+    ld   [c_t], ac              ; installed: bolted
+    or   0x80, ac
+    CALL map_put
+    ld   s_instdone & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_instdone >> 8, ac
+    bra  cd_m
+cd_f:
+    ld   [c_t], ac
     CALL map_put                ; the same type, not bolted
+    ld   [cut_m], ac
+    beq  cd_c
+    ld   s_uninstdone & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_uninstdone >> 8, ac
+    bra  cd_m
+cd_c:
     ld   [batt], ac
     sub  CUT_BATT, ac
     ld   ac, [batt]
     ld   s_cutdone & 0xFF, ac
     ld   ac, [R0]
     ld   s_cutdone >> 8, ac
+cd_m:
     ld   ac, [R1]
     CALL set_msg
+    CALL tug_scan
     ld   [dirty], ac
     or   1, ac
     ld   ac, [dirty]
     LEAVE
+
+; inst_action - INSTALL or UNINSTALL (w3) the part the panel shows, from
+; next to it: INST_FRAMES of work (cut_done).  The rest of do_action.
+.chunk
+inst_action:
+    CALL near
+    beq  in_far
+    ld   INST_FRAMES, ac
+    ld   ac, [cut_t]
+    ld   [s_x], ac
+    ld   ac, [cut_x]
+    ld   [s_y], ac
+    ld   ac, [cut_y]
+    ld   [w3], ac
+    xor  A_INSTALL, ac
+    bne  in_u
+    ld   1, ac
+    ld   ac, [cut_m]
+    ld   s_inst & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_inst >> 8, ac
+    bra  in_m
+in_u:
+    ld   2, ac
+    ld   ac, [cut_m]
+    ld   s_uninst & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_uninst >> 8, ac
+in_m:
+    ld   ac, [R1]
+    CALL set_msg
+    LEAVE
+in_far:
+    MSG_TOOFAR
+    CALL set_msg
+    LEAVE
+
+; on_tug - AC = 1 when the panel's cell is one of the tug's.  A leaf.
+.chunk
+on_tug:
+    ld   [s_x], ac
+    sub  TUG_X0, ac
+    sub  TUG_X1 - TUG_X0 + 1, ac
+    bcc  ot_n
+    ld   [s_y], ac
+    sub  TUG_Y0, ac
+    sub  TUG_Y1 - TUG_Y0 + 1, ac
+    bcc  ot_n
+    ld   1, ac
+    RET
+ot_n:
+    clr  ac
+    RET
 
 ; refill_action - REFILL SUIT: a full tank fills the suit (11 L less for
 ; each damage step) and is empty.  The rest of do_action.
@@ -2916,7 +3057,8 @@ rf_c:
     ld   [s_y], ac
     ld   ac, [g_y]
     CALL map_get
-    ld   T_O2E, ac
+    ld   T_O2E, ac              ; still installed if it was
+    or   [c_b], ac
     CALL map_put
     GOTO act_done
 rf_far:
@@ -3044,20 +3186,38 @@ pn_e:
     CALL tputs
     LEAVE
 
-; draw_tags - row 24 of a cell: BOLTED / LOOSE for a part, its room's air
+; draw_tags - row 24 of a cell: BOLTED (on the tug INSTALLED) or LOOSE for
+; a part, HELD OPEN for a door; its room's air
 .chunk
 draw_tags:
     PUSH_LINK
+    ld   22, ac
+    ld   ac, [CUR_COL]
+    ld   [s_t], ac
+    xor  T_DOORO, ac
+    bne  dt_i
+    ld   [s_b], ac
+    beq  dt_a
+    ld   s_held & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_held >> 8, ac
+    bra  dt_p
+dt_i:
     ld   [s_t], ac
     ld   ac, x
     ld   TAB_PG, y
     ld   [y,x], ac
     and  F_ITEM, ac
     beq  dt_a
-    ld   22, ac
-    ld   ac, [CUR_COL]
     ld   [s_b], ac
     beq  dt_l
+    CALL on_tug
+    beq  dt_b
+    ld   s_installed & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_installed >> 8, ac
+    bra  dt_p
+dt_b:
     ld   s_bolted & 0xFF, ac
     ld   ac, [R0]
     ld   s_bolted >> 8, ac

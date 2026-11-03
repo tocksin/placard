@@ -4,7 +4,8 @@ gen_scrap.py - the data of SCRAPWRIGHT (scrap.masm, SCRAP.PLC): cell art,
 the cell types' names, info lines and actions, and the hand-made wreck
 
     python3 gen_scrap.py        writes scrap_types.asm, scrap_data.masm
-                                and ../../sdcard/SCRAP.OVL
+                                and scrap_map.bin (the map pages; gen_plc.py
+                                puts them in ../../sdcard/SCRAP.OVL)
 
 SCRAPWRIGHT is a top-down salvage game (design: the SCRAPWRIGHT proposal
 doc; docs/software/SCRAP.md).  Phase 2 is a wreck to walk through: the
@@ -26,7 +27,8 @@ THE MAP
     6.25 % a step; an item stops working at step 8 = 50 %; the room and
     bolted bits: encode()).  A cell is at
     index 16 * (y & 15) + (x & 15) of both pages.  SCRAP.OVL is the even
-    pages x60, x62 ... xBE in order (48 pages, 12 KB); scrap.masm reads it
+    pages x60, x62 ... xBE in order (48 pages, 12 KB), then the code pages
+    from xC0 (gen_plc.py --overlay); scrap.masm reads it
     into place (a sector holds two pages).  The chunk layout is the one the
     card paging of a later phase will use.
 
@@ -158,13 +160,16 @@ ART = {
 F_WALK = 0x01       # the player can stand on it
 F_DMG = 0x02        # it has a damage score worth showing
 F_ITEM = 0x04       # a part or tool that can be cut free and carried
+F_INST = 0x08       # a part that can be installed in the tug (a ship system)
 
 A_OPEN, A_CLOSE, A_INSPECT, A_WALK = 1, 2, 3, 4
 A_PICK, A_CUT, A_PUTL, A_PUTR, A_PUTB, A_REFILL = 5, 6, 7, 8, 9, 10
+A_HOLD, A_INSTALL, A_UNINST = 11, 12, 13
 ACTIONS = {A_OPEN: 'OPEN', A_CLOSE: 'CLOSE', A_INSPECT: 'INSPECT', A_WALK: 'WALK HERE',
            A_PICK: 'PICK UP', A_CUT: 'CUT FREE', A_PUTL: 'PUT DOWN LEFT HAND',
            A_PUTR: 'PUT DOWN RIGHT HAND', A_PUTB: 'PUT DOWN FROM BACK',
-           A_REFILL: 'REFILL SUIT FROM IT'}
+           A_REFILL: 'REFILL SUIT FROM IT', A_HOLD: 'HOLD OPEN', A_INSTALL: 'INSTALL',
+           A_UNINST: 'UNINSTALL'}
 
 TYPES = [
     # key, art, name, flags, info lines, actions, inspect
@@ -183,12 +188,14 @@ TYPES = [
      'A SOLID BULKHEAD.  THE PAINT SAYS DECK 2.'),
     ('DOOR', 'door', 'DOOR (CLOSED)', F_DMG,
      ['PRESSURE DOOR, SEALS WHEN CLOSED', '\x01',
-      'WALK INTO IT OR CLICK OPEN'], [A_OPEN, A_INSPECT],
+      'OPENS WHEN YOU WALK INTO IT', 'CLOSES BEHIND YOU UNLESS HELD OPEN'],
+     [A_OPEN, A_HOLD, A_INSPECT],
      'A PRESSURE DOOR.  THE HAZARD STRIPES ARE FADED.'),
     ('DOORO', 'dooro', 'DOOR (OPEN)', F_WALK | F_DMG,
-     ['PRESSURE DOOR, OPEN', '\x01', 'AIR FLOWS THROUGH IT'], [A_CLOSE, A_WALK, A_INSPECT],
+     ['PRESSURE DOOR, OPEN', '\x01', 'AIR FLOWS THROUGH IT',
+      'CLOSES BEHIND YOU UNLESS HELD OPEN'], [A_CLOSE, A_HOLD, A_WALK, A_INSPECT],
      'AN OPEN PRESSURE DOOR.'),
-    ('O2', 'o2', 'O2 TANK', F_DMG | F_ITEM,
+    ('O2', 'o2', 'O2 TANK', F_DMG | F_ITEM | F_INST,
      ['CAPACITY 120 L, FULL', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
       'REFILLS A SUIT ONCE (LESS IF DAMAGED)'], [A_INSPECT],
      'AN OXYGEN TANK.  THE GAUGE STILL MOVES.'),
@@ -196,20 +203,20 @@ TYPES = [
      ['FUSION CORE, 40 KW', '\x01', 'TOO HEAVY TO CARRY WHOLE',
       'WORTH ABOUT $2,500 UNDAMAGED'], [A_INSPECT],
      'A REACTOR CORE.  IT IS HUMMING VERY QUIETLY.'),
-    ('BATT', 'batt', 'BATTERY', F_DMG | F_ITEM,
+    ('BATT', 'batt', 'BATTERY', F_DMG | F_ITEM | F_INST,
      ['STORAGE CELL, 8 KWH', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
-      'ON THE TUG IT CHARGES YOUR SUIT'], [A_INSPECT],
+      'INSTALLED ON THE TUG: CHARGES YOUR SUIT'], [A_INSPECT],
      'A SHIP BATTERY.  STILL WARM.'),
     ('CRATE', 'crate', 'CARGO CRATE', F_DMG | F_ITEM,
      ['SEALED CARGO CRATE', 'CONTENTS UNKNOWN', 'OPEN IT TO SEE (LATER PHASE)'], [A_INSPECT],
      'THE LABEL READS "MINING CHARGES - DO NOT DROP".'),
-    ('BUNK', 'bunk', 'BUNK', F_DMG | F_ITEM,
+    ('BUNK', 'bunk', 'BUNK', F_DMG | F_ITEM | F_INST,
      ['CREW BUNK', '\x01', 'LIGHT SCRAP'], [A_INSPECT],
      'A CREW BUNK.  THE BLANKET IS FOLDED NEATLY.'),
-    ('HELM', 'helm', 'HELM CONSOLE', F_DMG | F_ITEM,
+    ('HELM', 'helm', 'HELM CONSOLE', F_DMG | F_ITEM | F_INST,
      ['FLIGHT CONSOLE', '\x01', 'HOLDS THE SHIP LOG (LATER PHASE)'], [A_INSPECT],
      'THE HELM.  THE LAST LOG ENTRY IS 212 DAYS OLD.'),
-    ('LOCKER', 'locker', 'LOCKER', F_DMG | F_ITEM,
+    ('LOCKER', 'locker', 'LOCKER', F_DMG | F_ITEM | F_INST,
      ['STEEL LOCKER, 4 SLOTS', '\x01', 'MAY HOLD GEAR (LATER PHASE)'], [A_INSPECT],
      'A LOCKER.  THE LOCK IS RUSTED SHUT.'),
     ('TURRET', 'turret', 'SECURITY TURRET', F_DMG,
@@ -230,16 +237,16 @@ TYPES = [
     ('THRUST', 'thrust', 'THRUSTER', F_DMG,
      ['MAIN THRUSTER, 2 KN', '\x01', 'BOLTED TO THE HULL'], [A_INSPECT],
      'A THRUSTER NOZZLE, BLACK WITH SOOT.'),
-    ('FUEL', 'fuel', 'FUEL TANK', F_DMG | F_ITEM,
+    ('FUEL', 'fuel', 'FUEL TANK', F_DMG | F_ITEM | F_INST,
      ['FUEL TANK, 400 L', '\x01', 'HEAVY: TAKES ONE CARRY SLOT'], [A_INSPECT],
      'A FUEL TANK.  IT SLOSHES WHEN YOU KNOCK.'),
-    ('SCRUB', 'scrub', 'AIR SCRUBBER', F_DMG | F_ITEM,
-     ['CO2 SCRUBBER', '\x01', 'WITH AN O2 TANK, GIVES THE TUG AIR'], [A_INSPECT],
+    ('SCRUB', 'scrub', 'AIR SCRUBBER', F_DMG | F_ITEM | F_INST,
+     ['CO2 SCRUBBER', '\x01', 'INSTALLED WITH AN O2 TANK: THE TUG HAS AIR'], [A_INSPECT],
      'AN AIR SCRUBBER.  THE FILTERS NEED CHANGING.'),
     ('BREACH', 'breach', 'HULL BREACH', 0,
      ['A HOLE IN THE HULL', 'AIR ESCAPES THROUGH HERE'], [A_INSPECT],
      'SOMETHING PUNCHED RIGHT THROUGH THE HULL.'),
-    ('O2E', 'o2e', 'EMPTY O2 TANK', F_DMG | F_ITEM,
+    ('O2E', 'o2e', 'EMPTY O2 TANK', F_DMG | F_ITEM | F_INST,
      ['CAPACITY 120 L, EMPTY', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
       'A STATION REFILLS IT (LATER PHASE)'], [A_INSPECT],
      'AN EMPTY OXYGEN TANK.  THE GAUGE READS ZERO.'),
@@ -271,7 +278,13 @@ MESSAGES = [   # (label, text): the strings scrap.masm prints
     ('s_nobatt', 'THE SUIT BATTERY IS TOO LOW TO CUT.'),
     ('s_cutting', 'CUTTING...'),
     ('s_cutdone', 'CUT FREE.  IT CAN BE PICKED UP NOW.'),
-    ('s_cutstop', 'CUTTING STOPPED.'),
+    ('s_cutstop', 'STOPPED - YOU WALKED AWAY.'),
+    ('s_inst', 'INSTALLING...'),
+    ('s_instdone', 'INSTALLED.  IT IS PART OF THE TUG NOW.'),
+    ('s_uninst', 'UNINSTALLING...'),
+    ('s_uninstdone', 'UNINSTALLED.  IT CAN BE PICKED UP NOW.'),
+    ('s_installed', 'INSTALLED'),
+    ('s_held', 'HELD OPEN'),
     ('s_refill', 'SUIT REFILLED.  THE TANK IS EMPTY NOW.'),
     ('s_broken', 'IT IS BROKEN - IT DOES NOT WORK.'),
     ('s_pl_suit', 'SUIT   MK1 WORK SUIT     O2 '),
@@ -483,7 +496,8 @@ def rooms(t):
 
 def encode(t, d):
     """the map bytes: type byte = type (bits 4:0) | room bits 5:4 at 6:5 |
-    bolted (bit 7: a part in the wreck, cut it free first); flag byte =
+    bit 7 (a part: bolted, in the tug installed; an open door: held open);
+    flag byte =
     damage (3:0) | room bits 3:0 at 7:4"""
     rid = rooms(t)[0]
     ty = [[0] * MAP_W for _ in range(MAP_H)]
@@ -491,7 +505,9 @@ def encode(t, d):
     for y in range(MAP_H):
         for x in range(MAP_W):
             r = rid[y][x]
-            bolted = TYPES[t[y][x]][3] & F_ITEM and x > TUG[2]
+            # every part starts bolted (in the tug: installed); a door
+            # that starts open is held open
+            bolted = TYPES[t[y][x]][3] & F_ITEM or TYPES[t[y][x]][0] == 'DOORO'
             ty[y][x] = t[y][x] | (r >> 4) << 5 | (0x80 if bolted else 0)
             fl[y][x] = d[y][x] | (r & 15) << 4
     return ty, fl
@@ -561,11 +577,12 @@ def write_sources():
     rid, doors, leaks, press, tug = rooms(t)
     lines += ['NTYPES     = %d' % n,
               'F_WALK     = 0x%02X' % F_WALK, 'F_DMG      = 0x%02X' % F_DMG,
-              'F_ITEM     = 0x%02X' % F_ITEM]
+              'F_ITEM     = 0x%02X' % F_ITEM, 'F_INST     = 0x%02X' % F_INST]
     lines += ['A_%-8s = %d' % (k, v) for k, v in (
         ('OPEN', A_OPEN), ('CLOSE', A_CLOSE), ('INSPECT', A_INSPECT), ('WALK', A_WALK),
         ('PICK', A_PICK), ('CUT', A_CUT), ('PUTL', A_PUTL), ('PUTR', A_PUTR),
-        ('PUTB', A_PUTB), ('REFILL', A_REFILL))]
+        ('PUTB', A_PUTB), ('REFILL', A_REFILL), ('HOLD', A_HOLD), ('INSTALL', A_INSTALL),
+        ('UNINST', A_UNINST))]
     lines += ['ART_PG     = 0x%02X' % ART_PAGE,
               'INFO_PG    = 0x%02X        ; x%02X00 + 4t + i: info line i, low bytes; + x80 high' % (TAB_PAGE, TAB_PAGE),
               'TAB_PG     = 0x%02X' % TAB2_PAGE,
@@ -729,7 +746,7 @@ def write_sources():
 def write_ovl(path=None):
     t, dmg = build_map()
     data = b''.join(map_pages(t, dmg))
-    path = path or os.path.join(SDCARD, 'SCRAP.OVL')
+    path = path or os.path.join(HERE, 'scrap_map.bin')
     open(path, 'wb').write(data)
     return data
 
@@ -737,7 +754,7 @@ def write_ovl(path=None):
 def main():
     write_sources()
     data = write_ovl()
-    print('scrap_types.asm, scrap_data.masm, SCRAP.OVL (%d bytes)' % len(data))
+    print('scrap_types.asm, scrap_data.masm, scrap_map.bin (%d bytes)' % len(data))
 
 
 if __name__ == '__main__':

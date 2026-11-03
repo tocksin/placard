@@ -38,7 +38,12 @@ they may share addresses with the ROM) in a second file next to the first
 each up to the last page that has code, in order.  The program reads that
 file itself (fs_open, fs_read) and copies the pages into place.
 
-Date: 11/02/2026
+    python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin
+
+puts a file's bytes (SCRAPWRIGHT's map pages) in front of the overlay's,
+for a program that reads both from the one file.
+
+Date: 11/03/2026
 """
 
 import argparse
@@ -113,6 +118,8 @@ def main(argv):
     ap.add_argument('--type', type=int, choices=(0, 1), help='force the type')
     ap.add_argument('--overlay', metavar='ADDR,STEP',
                     help='bytes from ADDR go to NAME.OVL, every STEP-th page')
+    ap.add_argument('--overlay-head', metavar='FILE',
+                    help='bytes put in front of the overlay\'s in NAME.OVL')
     a = ap.parse_args(argv)
     src = open(a.asm).read()
     base = os.path.dirname(os.path.abspath(a.asm))
@@ -123,6 +130,8 @@ def main(argv):
         start, step = a.overlay.split(',')
         start, step = int(start, 0), int(step, 0)
         mem, overlay = split_overlay(mem, lib, start, step)
+        if a.overlay_head:
+            overlay = open(a.overlay_head, 'rb').read() + overlay
     data, kind, load, entry = make(mem, syms, lib, a.entry, a.type)
     out = a.out or os.path.splitext(a.asm)[0][:8].upper().replace('_', '') + '.PLC'
     open(out, 'wb').write(data)

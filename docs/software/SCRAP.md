@@ -25,7 +25,7 @@ tube from the tug's airlock leads to the wreck's airlock.
 
 | Input | What it does |
 |-------|--------------|
-| Arrows, WASD, or the SNES pad | walk one cell (held: a step every 7 frames).  Walking into a closed door opens it |
+| Arrows, WASD, or the SNES pad | walk one cell (held: a step every 7 frames).  Walking into a closed door opens it, and it closes behind you unless it is held open |
 | Mouse over a cell | a yellow frame on the cell, and the panel shows it: name, damage bar, info on the left, actions on the right |
 | Mouse over yourself | your suit, battery, hands and pack |
 | Left click on a cell | locks the panel on it, so the mouse can go down to the actions |
@@ -38,10 +38,13 @@ need you next to it, diagonals count):
 
 | Action | What it does |
 |--------|--------------|
-| OPEN / CLOSE | a door (not while you stand in it) |
+| OPEN / CLOSE | a door (not while you stand in it).  An opened door closes again once you have walked through it |
+| HOLD OPEN | opens a door and keeps it open: it stays open behind you (the panel says HELD OPEN) until you CLOSE it.  The doors that start open are held open |
 | WALK HERE | walks toward the cell, across first, then up or down |
 | INSPECT | a line about it on the message row |
 | CUT FREE | a part in the wreck is BOLTED: cutting takes 1.5 s and 5 % of the suit battery, and needs a working cutter in a hand.  Walking away stops it |
+| UNINSTALL | a part INSTALLED in the tug: 1 s by hand (no cutter), then it is LOOSE |
+| INSTALL | a LOOSE ship part on one of the tug's cells (O2 tank, scrubber, battery, fuel tank, helm, bunk, locker): 1 s, then it is INSTALLED and part of the tug.  Cargo and the cutter can't be installed |
 | PICK UP | a LOOSE part goes into the first free carry slot: left hand, right hand, back |
 | PUT DOWN LEFT HAND / RIGHT HAND / FROM BACK | on a bare deck next to you |
 | REFILL SUIT FROM IT | a full O2 tank fills the suit (11 L less for each damage step) and is empty after |
@@ -50,12 +53,14 @@ You carry three things at most, one in each hand and one on your back,
 and you start with the plasma cutter in your right hand.  Each part you
 carry (the cutter is light) makes a step 4 frames slower.
 
-**The tug.**  Parts on the tug's cells are part of the tug.  Hovering
-yourself shows its worth (each part's value, less with damage) and
-whether it has air: it needs a working O2 tank and a scrubber on board.
+**The tug.**  A part is part of the tug once it is installed on one of
+the tug's cells: a part you put down there is loose, and does nothing
+until you INSTALL it.  Hovering yourself shows the tug's worth (each
+installed part's value, less with damage; its hull fittings too) and
+whether it has air: it needs a working O2 tank and a scrubber installed.
 With air, the tug tops up its rooms and fills your suit (3 L a second),
-and with a battery on board it charges your suit.  Take its O2 tank away
-and the tug has no air until you put one back.
+and with a battery installed it charges your suit.  Uninstall its O2
+tank and the tug has no air until you install one again.
 
 **Air.**  Each room (the cells joined side by side, found by
 `gen_scrap.py`) has a pressure of 0-100.  Every 8 frames, each open door
@@ -102,6 +107,7 @@ broken: the info line says `WORKS AT nn%` or `BROKEN - NEEDS REPAIR`.
 | Address | What |
 |---------|------|
 | x0100-x33FF | the program (asm_expand.py pages it) |
+| even pages xC0-xFE | more of the program: code and strings that `SCRAP.OVL` brings in after the map (asm_expand.py's overlay region, as in the tracker) |
 | x3400-x38FF | tables (gen_scrap.py): the doors, damage bars and rooms, actions, names and values, info lines |
 | x3900-x3FFF | the cell art, 4 cells a page (25 kinds now, room for 28) |
 | x4000-x407F | each room's pressure, and whether it is cold |
@@ -111,11 +117,13 @@ broken: the info line says `WORKS AT nn%` or `BROKEN - NEEDS REPAIR`.
 
 Chunk k (k = 6 (y / 16) + x / 16) is page x60 + 4k (the cell types) and
 x62 + 4k (the flags).  A type byte is the type (bits 4-0), bits 5-4 of
-the cell's room (at 6-5) and bolted (bit 7); a flag byte is the damage
+the cell's room (at 6-5) and bit 7 (a part: bolted, or on the tug
+installed; an open door: held open); a flag byte is the damage
 (bits 3-0) and bits 3-0 of the room (at 7-4).  A door's room is the room
 on one side of it; `gen_scrap.py` lists the doors with the rooms on both
 sides.  `SCRAP.OVL` is those 48
-pages in order (12 KB), read straight from the card.  A later phase pages
+pages in order (12 KB), then the program's pages for xC0 up, read
+straight from the card.  A later phase pages
 bigger maps from the card a chunk at a time.
 
 Like the tracker, the program runs with the map at FF (every section RAM)
@@ -126,9 +134,10 @@ stubs that switch to map 07 around the call.
 
 ```
 cd src\scripts
-python gen_scrap.py                              scrap_types.asm, scrap_data.masm, ..\..\sdcard\SCRAP.OVL
+python gen_scrap.py                              scrap_types.asm, scrap_data.masm, scrap_map.bin
 python asm_expand.py scrap.masm                  scrap.asm
-python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC
+python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin
+                                                 SCRAP.PLC, and SCRAP.OVL: the map, then the code
 python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png)
 ```
 
@@ -141,14 +150,15 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
 - the panel;
 - walking and walls;
 - the mouse frame, lock and unlock;
-- CLOSE / OPEN / INSPECT from the keys;
-- a bump opening a door;
+- CLOSE / OPEN / HOLD OPEN / INSPECT from the keys;
+- a bump opening a door, the door closing behind, a held door staying open;
 - the camera step;
-- carrying the tug's O2 tank away (the tug loses its air) and back;
+- uninstalling the tug's O2 tank (the tug loses its air), carrying it,
+  putting it down (still no air while loose), installing it (air again);
 - cutting a crate free in the wreck, the battery it uses, carrying it
   (slower steps);
 - opening the vented section: the corridor's air drops, the decks frost,
   the suit uses its O2;
 - each warning, suffocating, and Enter starting again;
-- refilling the suit from a tank;
+- refilling the suit from a tank (it stays installed);
 - Esc back to the DOS.
