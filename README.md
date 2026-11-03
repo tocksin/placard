@@ -134,12 +134,6 @@ Four demos show what the CPU can do with no sprite or collision hardware.  The f
 
 ![Boing Ball in the simulator](reference/boing_sim.gif)
 
-### Pixel fill
-An easy function is the fill function.  Putting a color in a pixel starts drawing that color.  That color continues to draw until that same color is placed again.  So putting two pixels one a row is enough to draw a whole row of that color.  It's much faster than having the CPU add that color along that entire row.  This is how to get to filled polygons quickly.  The CPU only needs to decide what the boundaries of a shape is, and the video circuit does the rest.  The CPU only drawing wireframes, but gets fully filled polygons.
-
-This is done by just XORing the current color with the RAM value.  So you start with a blue pixel, then put another blue pixel to stop it.  But if you put a purple pixel instead, it will stop drawing blue and start drawing red.  It would normally require multiple chips - at least two quad XOR chips and a 8-bit FF register array.  But this is easily done in a single PLA/PLD
-
-
 ## Standard library
 `src/scripts/placard_lib.asm` holds subroutines for new programs: 16-bit
 arithmetic, multiply and divide, memory fill and copy, random numbers, frame
