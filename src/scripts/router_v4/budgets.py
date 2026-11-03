@@ -11,7 +11,7 @@ budgeted and use their routed length (FIXLEN while not routed); the CLK_E taps t
 out.json: {"margin_ns":..,"duty":[..],"max":{"NET":{"FROM_PAD":{"TO_PAD":mm,..}}},"min":{"CLK_E":{"X1-8":{"NT2-1":420}}},
            "checks":{name:{"worst_ratio":r,"forms":n,"slack_now":ns}}}
 env: MARGIN=0.5 (ns kept on every setup path)  DUTY=0.45,0.53 (clock high share range: budgets hold at both ends)
-     FIXED=CLK_E:X1-8:NT2-1 (nets or NET:FROM:TO pairs never budgeted; the CLK_E taps to U15-9 / U11-1 are)  FIXLEN=CLK_E:X1-8:NT2-1:459 (length of a fixed net while it is not routed)  MINLEN=CLK_E:X1-8:NT2-1:420  RMAX=4 (no budget written when the ratio is above this)
+     FIXED=CLK_E:X1-8:NT2-1 (nets or NET:FROM:TO pairs never budgeted; the CLK_E taps to U15-9 / U11-1 are)  FIXLEN=CLK_E:X1-8:NT2-1:459 (length of a fixed net while it is not routed; FIXFORCE=1 uses it even when routed, for what-ifs)  MINLEN=CLK_E:X1-8:NT2-1:420  RMAX=4 (no budget written when the ratio is above this)
      FLOOR=3 (mm: smallest share of a short hop)  RFEAS=1.05 (budget of an infeasible form: this x Manhattan)  WEC=1 (store
      start uses the later of CLK_E/CLK at the sync PLD, as in TIMING.md)  U11E=1 (timing fix 4: U11 pin 1 on CLK_E at X1)
      HELP=man (helping lengths at their straight distance; now = present routed value)"""
@@ -23,7 +23,7 @@ V=0.006; T=39.72
 tPD,tPDm,tCO,tCOm=7.5,3.0,5.5,2.0
 MARGIN=float(E('MARGIN','0.5')); DUTY=[float(x) for x in E('DUTY','0.45,0.53').split(',')]
 FIXED=set(E('FIXED','CLK_E:X1-8:NT2-1').split(',')); RMAX=float(E('RMAX','4')); FLOOR=float(E('FLOOR','3')); RFEAS=float(E('RFEAS','1.05'))
-WEC=E('WEC','1')=='1'; HELP=E('HELP','man'); U11E=E('U11E','0')=='1'
+WEC=E('WEC','1')=='1'; HELP=E('HELP','man'); FIXFORCE=E('FIXFORCE','0')=='1'; U11E=E('U11E','0')=='1'
 MINLEN=[m.split(':') for m in E('MINLEN','CLK_E:X1-8:NT2-1:420').split(',') if m]
 FIXLEN={tuple(m.split(':')[:3]):float(m.split(':')[3]) for m in E('FIXLEN','CLK_E:X1-8:NT2-1:459').split(',') if m}   # fixed lengths used while that net is not routed
 
@@ -222,6 +222,7 @@ def main():
         return abs(a[0]-b[0])+abs(a[1]-b[1])
     M={k:man(k) for k in keys}
     def now(k):
+        if FIXFORCE and k in FIXLEN: return FIXLEN[k]
         if cur[k] is not None: return cur[k]
         return FIXLEN.get(k,M[k])
     unrouted=sorted({k[0] for k in keys if cur[k] is None})
