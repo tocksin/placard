@@ -78862,7 +78862,7 @@
 			(justify left)
 		)
 	)
-	(gr_text "Dimensions in mm from the back left corner to connector centre lines (edge connectors: middle of the face on the edge)"
+	(gr_text "Dimensions (Dwgs.User) in mm from the back left corner to connector center lines (edge connectors: middle of the panel opening); made by gen_board_dimensions.py --layout"
 		(at 54 333 0)
 		(layer "Cmts.User")
 		(uuid "d14f0d41-cef3-41ae-a5b5-d0554b0fe288")
@@ -78898,7 +78898,7 @@
 			(justify left)
 		)
 	)
-	(gr_text "PRELIMINARY footprints (check datasheets): J2 J3 J5 J8 J9-J12 SW1 SW2, see src/scripts/gen_kicad_connectors.py"
+	(gr_text "PRELIMINARY footprints (check datasheets before ordering): J5 J6 J8 J9-J12 SW1 K1; J2 J3 pins measured on the part; see src/scripts/gen_kicad_connectors.py"
 		(at 54 345 0)
 		(layer "Cmts.User")
 		(uuid "8957374c-8015-4852-b3dd-38caf4ecc38d")
@@ -78910,7 +78910,7 @@
 			(justify left)
 		)
 	)
-	(gr_text "Dashed line: keyboard's back edge; the keyboard lies over the front 65 mm (low parts only); the back 225 mm is under the flat case top (user connectors, cartridge, cards)"
+	(gr_text "Case: the board drops into a bent tray; J7 J6 (back) and SW1 SW2 (left) reach into the walls, SNES J2 J3 through the front wall cut-outs"
 		(at 54 349 0)
 		(layer "Cmts.User")
 		(uuid "ea4b96f1-be48-4a34-a892-ab03352ffe9d")
@@ -78922,7 +78922,7 @@
 			(justify left)
 		)
 	)
-	(gr_text "Dashed boxes: expansion bay (cards stand up through the case top) and the cartridge shell around J8"
+	(gr_text "Slot and cartridge courtyards: card shell space for J9-J12 (cards stand up through the case top) and the cartridge shell around J8"
 		(at 54 353 0)
 		(layer "Cmts.User")
 		(uuid "76ad2087-aacc-4381-a4e7-6bea3f3d59e8")
@@ -78934,7 +78934,7 @@
 			(justify left)
 		)
 	)
-	(gr_text "Placement test (no routing): every chip socketed (KiCad _Socket footprints); hatched boxes at the socket ends = 2.5 mm chip-puller room, kept clear"
+	(gr_text "Routed board: every chip socketed; Eco1.User boxes at the socket ends = 2.5 mm chip-puller room, kept clear"
 		(at 54 357 0)
 		(layer "Cmts.User")
 		(uuid "cc3eecec-79b3-4242-a465-2c7d06246822")
@@ -78946,7 +78946,7 @@
 			(justify left)
 		)
 	)
-	(gr_text "Chip rows, back to front: video | audio slot, oscillator, memory | I/O decode, control, data bus | ALU, data bus | PC + address mux | shared port + keyboard header J1"
+	(gr_text "Timing on the routed board: docs/timing/TIMING.md; full dimension drawing: docs/hardware/placard_main_dimensions.pdf"
 		(at 54 361 0)
 		(layer "Cmts.User")
 		(uuid "17eea75a-4fe5-400d-9b24-b010670b9ab8")
@@ -78958,7 +78958,7 @@
 			(justify left)
 		)
 	)
-	(gr_text "Back: video/audio passives along the back edge, shared-port protection and pull-ups around J8, power at the back left"
+	(gr_text "Back: video/audio passives along the back edge, power at the back left"
 		(at 54 365 0)
 		(layer "Cmts.User")
 		(uuid "467ca1e0-8c9e-4b90-94f2-2c9e02eea327")
@@ -78981,7 +78981,7 @@
 			)
 		)
 	)
-	(gr_text "FRONT (keyboard side)"
+	(gr_text "FRONT"
 		(at 196.5 323 0)
 		(layer "Cmts.User")
 		(uuid "9c45e20c-37ff-438a-aef0-e84946afe197")
