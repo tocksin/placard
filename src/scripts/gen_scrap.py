@@ -8,7 +8,10 @@ the cell types' names, info lines and actions, and the hand-made wreck
 
 SCRAPWRIGHT is a top-down salvage game (design: the SCRAPWRIGHT proposal
 doc; docs/software/SCRAP.md).  Phase 2 is a wreck to walk through: the
-tug docked to a derelict, doors, the item panel and the mouse.
+tug docked to a derelict, doors, the item panel and the mouse.  Phase 3
+adds parts to cut free and carry, the tug's worth and air, and rooms
+with air (rooms(): the room of every cell, the doors between rooms, the
+rooms a breach drains; encode(): the room and bolted bits in the map).
 
 THE SCREEN
     lines 0-383    4 bpp, 2x: 20 x 12 cells, a cell is 8 x 16 pixels
@@ -20,7 +23,8 @@ THE MAP
     96 x 64 cells in 16 x 16-cell chunks, 6 across and 4 down.  Chunk k
     (k = 6 * (y >> 4) + (x >> 4)) is two even video pages: x60 + 4k holds
     the cells' types, x62 + 4k their flags (bits 3:0 damage in 16ths,
-    6.25 % a step; an item stops working at step 8 = 50 %).  A cell is at
+    6.25 % a step; an item stops working at step 8 = 50 %; the room and
+    bolted bits: encode()).  A cell is at
     index 16 * (y & 15) + (x & 15) of both pages.  SCRAP.OVL is the even
     pages x60, x62 ... xBE in order (48 pages, 12 KB); scrap.masm reads it
     into place (a sector holds two pages).  The chunk layout is the one the
@@ -129,6 +133,14 @@ ART = {
               'B989898B', 'B898989B', 'B989898B', 'B898989B', 'B989898B',
               'B898989B', 'B989898B', 'BBBBBBBB', '7B7777B7', '7B7777B7',
               '77777777'],
+    'o2e': ['777BB777', '77BAAB77', '7BBBBBB7', 'B7BBBBBB', 'B7BBBBBB',
+            'B7BBBB0B', 'B7BBBB0B', 'B7BBBB0B', 'B7BBBB0B', 'B7BBBB0B',
+            'B7BBBB0B', 'BBBBBB0B', 'BBBBBBBB', '7BBBBBB7', '77777777',
+            '77777777'],
+    'cutter': ['77777770', '777E7770', '777E7770', '77BEB770', '77BBB770',
+               '77BAB770', '77BBB770', '77BBB770', '77B4B770', '77BBB770',
+               '7B666B70', '7B666B70', '7B666B70', '77BBB770', '77777770',
+               '00000000'],
     'player': ['77777777', '77AAAA77', '7AA88AA7', '7A8888A7', '7AA88AA7',
                '77AAAA77', '7BAAAAB7', 'BAAAAAAB', 'BAAEEAAB', 'BAAAAAAB',
                '7BAAAAB7', '77AAAA77', '7AA77AA7', '7AA77AA7', '7BB77BB7',
@@ -145,9 +157,14 @@ ART = {
 # ------------------------------------------------------------------
 F_WALK = 0x01       # the player can stand on it
 F_DMG = 0x02        # it has a damage score worth showing
+F_ITEM = 0x04       # a part or tool that can be cut free and carried
 
 A_OPEN, A_CLOSE, A_INSPECT, A_WALK = 1, 2, 3, 4
-ACTIONS = {A_OPEN: 'OPEN', A_CLOSE: 'CLOSE', A_INSPECT: 'INSPECT', A_WALK: 'WALK HERE'}
+A_PICK, A_CUT, A_PUTL, A_PUTR, A_PUTB, A_REFILL = 5, 6, 7, 8, 9, 10
+ACTIONS = {A_OPEN: 'OPEN', A_CLOSE: 'CLOSE', A_INSPECT: 'INSPECT', A_WALK: 'WALK HERE',
+           A_PICK: 'PICK UP', A_CUT: 'CUT FREE', A_PUTL: 'PUT DOWN LEFT HAND',
+           A_PUTR: 'PUT DOWN RIGHT HAND', A_PUTB: 'PUT DOWN FROM BACK',
+           A_REFILL: 'REFILL SUIT FROM IT'}
 
 TYPES = [
     # key, art, name, flags, info lines, actions, inspect
@@ -171,28 +188,28 @@ TYPES = [
     ('DOORO', 'dooro', 'DOOR (OPEN)', F_WALK | F_DMG,
      ['PRESSURE DOOR, OPEN', '\x01', 'AIR FLOWS THROUGH IT'], [A_CLOSE, A_WALK, A_INSPECT],
      'AN OPEN PRESSURE DOOR.'),
-    ('O2', 'o2', 'O2 TANK', F_DMG,
-     ['CAPACITY 120 L', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
-      'WORTH ABOUT $200 UNDAMAGED'], [A_INSPECT],
+    ('O2', 'o2', 'O2 TANK', F_DMG | F_ITEM,
+     ['CAPACITY 120 L, FULL', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
+      'REFILLS A SUIT ONCE (LESS IF DAMAGED)'], [A_INSPECT],
      'AN OXYGEN TANK.  THE GAUGE STILL MOVES.'),
     ('REACT', 'react', 'REACTOR CORE', F_DMG,
      ['FUSION CORE, 40 KW', '\x01', 'TOO HEAVY TO CARRY WHOLE',
       'WORTH ABOUT $2,500 UNDAMAGED'], [A_INSPECT],
      'A REACTOR CORE.  IT IS HUMMING VERY QUIETLY.'),
-    ('BATT', 'batt', 'BATTERY', F_DMG,
+    ('BATT', 'batt', 'BATTERY', F_DMG | F_ITEM,
      ['STORAGE CELL, 8 KWH', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
-      'WORTH ABOUT $300 UNDAMAGED'], [A_INSPECT],
+      'ON THE TUG IT CHARGES YOUR SUIT'], [A_INSPECT],
      'A SHIP BATTERY.  STILL WARM.'),
-    ('CRATE', 'crate', 'CARGO CRATE', F_DMG,
+    ('CRATE', 'crate', 'CARGO CRATE', F_DMG | F_ITEM,
      ['SEALED CARGO CRATE', 'CONTENTS UNKNOWN', 'OPEN IT TO SEE (LATER PHASE)'], [A_INSPECT],
      'THE LABEL READS "MINING CHARGES - DO NOT DROP".'),
-    ('BUNK', 'bunk', 'BUNK', F_DMG,
+    ('BUNK', 'bunk', 'BUNK', F_DMG | F_ITEM,
      ['CREW BUNK', '\x01', 'LIGHT SCRAP'], [A_INSPECT],
      'A CREW BUNK.  THE BLANKET IS FOLDED NEATLY.'),
-    ('HELM', 'helm', 'HELM CONSOLE', F_DMG,
+    ('HELM', 'helm', 'HELM CONSOLE', F_DMG | F_ITEM,
      ['FLIGHT CONSOLE', '\x01', 'HOLDS THE SHIP LOG (LATER PHASE)'], [A_INSPECT],
      'THE HELM.  THE LAST LOG ENTRY IS 212 DAYS OLD.'),
-    ('LOCKER', 'locker', 'LOCKER', F_DMG,
+    ('LOCKER', 'locker', 'LOCKER', F_DMG | F_ITEM,
      ['STEEL LOCKER, 4 SLOTS', '\x01', 'MAY HOLD GEAR (LATER PHASE)'], [A_INSPECT],
      'A LOCKER.  THE LOCK IS RUSTED SHUT.'),
     ('TURRET', 'turret', 'SECURITY TURRET', F_DMG,
@@ -213,30 +230,69 @@ TYPES = [
     ('THRUST', 'thrust', 'THRUSTER', F_DMG,
      ['MAIN THRUSTER, 2 KN', '\x01', 'BOLTED TO THE HULL'], [A_INSPECT],
      'A THRUSTER NOZZLE, BLACK WITH SOOT.'),
-    ('FUEL', 'fuel', 'FUEL TANK', F_DMG,
+    ('FUEL', 'fuel', 'FUEL TANK', F_DMG | F_ITEM,
      ['FUEL TANK, 400 L', '\x01', 'HEAVY: TAKES ONE CARRY SLOT'], [A_INSPECT],
      'A FUEL TANK.  IT SLOSHES WHEN YOU KNOCK.'),
-    ('SCRUB', 'scrub', 'AIR SCRUBBER', F_DMG,
-     ['CO2 SCRUBBER', '\x01', 'KEEPS A ROOM BREATHABLE'], [A_INSPECT],
+    ('SCRUB', 'scrub', 'AIR SCRUBBER', F_DMG | F_ITEM,
+     ['CO2 SCRUBBER', '\x01', 'WITH AN O2 TANK, GIVES THE TUG AIR'], [A_INSPECT],
      'AN AIR SCRUBBER.  THE FILTERS NEED CHANGING.'),
     ('BREACH', 'breach', 'HULL BREACH', 0,
      ['A HOLE IN THE HULL', 'AIR ESCAPES THROUGH HERE'], [A_INSPECT],
      'SOMETHING PUNCHED RIGHT THROUGH THE HULL.'),
+    ('O2E', 'o2e', 'EMPTY O2 TANK', F_DMG | F_ITEM,
+     ['CAPACITY 120 L, EMPTY', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
+      'A STATION REFILLS IT (LATER PHASE)'], [A_INSPECT],
+     'AN EMPTY OXYGEN TANK.  THE GAUGE READS ZERO.'),
+    ('CUTTER', 'cutter', 'PLASMA CUTTER', F_DMG | F_ITEM,
+     ['HAND TOOL: CUTS PARTS FREE', '\x01', 'WORKS FROM A HAND, NOT YOUR BACK',
+      'A CUT USES 5% OF THE SUIT BATTERY'], [A_INSPECT],
+     'A PLASMA CUTTER.  KEEP YOUR FINGERS CLEAR.'),
     ('PLAYER', 'player', 'YOU', 0, [], [], ''),
 ]
 TYPE = {t[0]: i for i, t in enumerate(TYPES)}
+# what a part is worth undamaged, in $10 (the tug's value: less with damage)
+VALUE = {'O2': 20, 'O2E': 8, 'REACT': 250, 'BATT': 30, 'CRATE': 15, 'BUNK': 5,
+         'HELM': 60, 'LOCKER': 6, 'TURRET': 40, 'THRUST': 50, 'FUEL': 25,
+         'SCRUB': 35, 'CUTTER': 12}
+TUG = (3, 26, 19, 38)               # the tug's cells, x0, y0, x1, y1 (its value, its systems)
+AIR_FULL = 100                      # a room's pressure: 100 = 1 atmosphere
 assert len(TYPES) <= 32
 
-PLAYER_INFO = ['SUIT   MK1 WORK SUIT     O2 90 OF 90 L',
-               'BATT   SMALL CELL        CHARGE 100%',
-               'HANDS  CUTTER / EMPTY    BACK  SMALL PACK 0/4',
-               'NO WARNINGS']
+PLAYER_INFO = []                    # drawn by scrap.masm (draw_player)
 PLAYER_ACTIONS = [A_INSPECT]
 PLAYER_INSPECT = 'THAT IS YOU, IN A WORK SUIT THAT HAS SEEN BETTER DAYS.'
 WELCOME = 'DOCKED TO THE KESTREL 9.  ARROWS OR WASD WALK, MOUSE SHOWS AND CLICKS.'
 TOO_FAR = 'TOO FAR AWAY - WALK NEXT TO IT FIRST.'
 IN_WAY = 'SOMETHING IS IN THE WAY.'
 BLOCKED = 'THE WAY IS BLOCKED.'
+MESSAGES = [   # (label, text): the strings scrap.masm prints
+    ('s_full', 'YOUR HANDS AND BACK ARE FULL - PUT SOMETHING DOWN.'),
+    ('s_nocut', 'YOU NEED A WORKING CUTTER IN A HAND.'),
+    ('s_nobatt', 'THE SUIT BATTERY IS TOO LOW TO CUT.'),
+    ('s_cutting', 'CUTTING...'),
+    ('s_cutdone', 'CUT FREE.  IT CAN BE PICKED UP NOW.'),
+    ('s_cutstop', 'CUTTING STOPPED.'),
+    ('s_refill', 'SUIT REFILLED.  THE TANK IS EMPTY NOW.'),
+    ('s_broken', 'IT IS BROKEN - IT DOES NOT WORK.'),
+    ('s_pl_suit', 'SUIT   MK1 WORK SUIT     O2 '),
+    ('s_pl_of', ' OF 90 L'),
+    ('s_pl_batt', 'BATT   SMALL CELL        CHARGE '),
+    ('s_pl_hands', 'HANDS  '),
+    ('s_pl_back', 'BACK   '),
+    ('s_slash', ' / '),
+    ('s_empty', 'EMPTY'),
+    ('s_tug', 'TUG $'),
+    ('s_airon', '0, AIR ON'),
+    ('s_airoff', '0, NO AIR'),
+    ('s_air', 'AIR '),
+    ('s_bolted', 'BOLTED'),
+    ('s_loose', 'LOOSE'),
+    ('s_w1', 'CAUTION: SUIT O2 BELOW HALF.'),
+    ('s_w2', 'WARNING: SUIT O2 LOW - GET BACK TO THE TUG OR FIND AN O2 TANK.'),
+    ('s_w3', 'CRITICAL: SUIT O2 ALMOST GONE!'),
+    ('s_w4', 'YOU ARE BLACKING OUT - GET AIR NOW!'),
+    ('s_w5', 'YOU SUFFOCATED.  PRESS ENTER TO TRY AGAIN.'),
+]
 
 
 def dmg_pct(step):
@@ -301,7 +357,7 @@ def build_map(seed=9):
         'cargo_b': (63, 35, 89, 45), 'vented': (63, 47, 89, 57),
     }
     for name, r in rooms.items():
-        fill(*r, 'VENT' if name == 'vented' else 'FLOOR')
+        fill(*r, 'FLOOR')               # the vented room: no air (rooms())
     fill(31, 31, 89, 33, 'FLOOR')       # the corridors
     fill(59, 7, 61, 57, 'FLOOR')
     for d in ((45, 12), (58, 12), (38, 30), (52, 30), (58, 24), (62, 12), (76, 10),
@@ -374,18 +430,86 @@ def build_map(seed=9):
     return t, d
 
 
+NOT_AIR = ('SPACE', 'STAR', 'WALL', 'DOOR', 'DOORO', 'BREACH', 'THRUST', 'TURRET', 'LOCK')
+DOORS = ('DOOR', 'DOORO', 'LOCK')   # a lock is a door that is always open
+
+
+def rooms(t):
+    """the rooms: (room id of every cell, doors [(x, y, room a, room b)],
+    the rooms that leak through a breach, the start pressures, the tug's
+    rooms).  A room is the air cells joined side by side; a door cell gets
+    the room of a cell next to it."""
+    rid = [[0] * MAP_W for _ in range(MAP_H)]
+    n = 0
+    for y in range(MAP_H):
+        for x in range(MAP_W):
+            if rid[y][x] or TYPES[t[y][x]][0] in NOT_AIR:
+                continue
+            n += 1
+            todo = [(x, y)]
+            rid[y][x] = n
+            while todo:
+                cx, cy = todo.pop()
+                for nx, ny in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
+                    if (0 <= nx < MAP_W and 0 <= ny < MAP_H and not rid[ny][nx]
+                            and TYPES[t[ny][nx]][0] not in NOT_AIR):
+                        rid[ny][nx] = n
+                        todo.append((nx, ny))
+    assert n < 64, n
+    doors = []
+    for y in range(1, MAP_H - 1):
+        for x in range(1, MAP_W - 1):
+            if TYPES[t[y][x]][0] not in DOORS:
+                continue
+            for a, b in (((x - 1, y), (x + 1, y)), ((x, y - 1), (x, y + 1))):
+                ra, rb = rid[a[1]][a[0]], rid[b[1]][b[0]]
+                if ra and rb and ra != rb:
+                    doors.append((x, y, ra, rb))
+                    rid[y][x] = ra
+    assert len(doors) < 64
+    leaks = set()
+    for y in range(1, MAP_H - 1):
+        for x in range(1, MAP_W - 1):
+            if TYPES[t[y][x]][0] == 'BREACH':
+                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                    if rid[ny][nx]:
+                        leaks.add(rid[ny][nx])
+    vented = rid[50][70]
+    press = [0] + [0 if r == vented else AIR_FULL for r in range(1, n + 1)]
+    tug = set(rid[y][x] for y in range(TUG[1], TUG[3] + 1) for x in range(TUG[0], TUG[2] + 1)
+              if rid[y][x])
+    return rid, doors, sorted(leaks), press, tug
+
+
+def encode(t, d):
+    """the map bytes: type byte = type (bits 4:0) | room bits 5:4 at 6:5 |
+    bolted (bit 7: a part in the wreck, cut it free first); flag byte =
+    damage (3:0) | room bits 3:0 at 7:4"""
+    rid = rooms(t)[0]
+    ty = [[0] * MAP_W for _ in range(MAP_H)]
+    fl = [[0] * MAP_W for _ in range(MAP_H)]
+    for y in range(MAP_H):
+        for x in range(MAP_W):
+            r = rid[y][x]
+            bolted = TYPES[t[y][x]][3] & F_ITEM and x > TUG[2]
+            ty[y][x] = t[y][x] | (r >> 4) << 5 | (0x80 if bolted else 0)
+            fl[y][x] = d[y][x] | (r & 15) << 4
+    return ty, fl
+
+
 def map_pages(t, d):
     """the 48 even video pages (x60, x62 ... xBE) of SCRAP.OVL, in order"""
+    ty, fl = encode(t, d)
     pages = []
     for k in range(24):
         cy, cx = divmod(k, CHUNKS_X)
-        ty = bytearray(256)
-        fl = bytearray(256)
+        tp = bytearray(256)
+        fp = bytearray(256)
         for i in range(256):
             y, x = cy * 16 + i // 16, cx * 16 + i % 16
-            ty[i] = t[y][x]
-            fl[i] = d[y][x]
-        pages += [bytes(ty), bytes(fl)]
+            tp[i] = ty[y][x]
+            fp[i] = fl[y][x]
+        pages += [bytes(tp), bytes(fp)]
     return pages
 
 
@@ -403,9 +527,12 @@ def art_bytes(name):
 # ------------------------------------------------------------------
 # scrap_types.asm, scrap_data.masm
 # ------------------------------------------------------------------
-ART_PAGE = 0x3A          # x3A00: art, 4 cells a page (6 pages: x3A00-x3FFF)
+ART_PAGE = 0x39          # x3900: art, 4 cells a page (7 pages: x3900-x3FFF)
 TAB_PAGE = 0x38          # x3800: info pointers (t * 4 + i), lo then hi
-TAB2_PAGE = 0x39         # x3900: the small tables
+TAB2_PAGE = 0x37         # x3700: the small tables
+ACT_PAGE = 0x36          # x3600: actions per type, action strings
+ROOM_PAGE = 0x35         # x3500: damage bars, the rooms
+DOOR_PAGE = 0x34         # x3400: the doors
 
 
 def asm_string(s):
@@ -430,20 +557,36 @@ def write_sources():
              '; the cell types and table addresses of scrap.masm', '']
     for i, ty in enumerate(TYPES):
         lines.append('T_%-8s = %d' % (ty[0], i))
+    t, _ = build_map()
+    rid, doors, leaks, press, tug = rooms(t)
     lines += ['NTYPES     = %d' % n,
               'F_WALK     = 0x%02X' % F_WALK, 'F_DMG      = 0x%02X' % F_DMG,
-              'A_OPEN     = %d' % A_OPEN, 'A_CLOSE    = %d' % A_CLOSE,
-              'A_INSPECT  = %d' % A_INSPECT, 'A_WALK     = %d' % A_WALK,
-              'ART_PG     = 0x%02X' % ART_PAGE,
+              'F_ITEM     = 0x%02X' % F_ITEM]
+    lines += ['A_%-8s = %d' % (k, v) for k, v in (
+        ('OPEN', A_OPEN), ('CLOSE', A_CLOSE), ('INSPECT', A_INSPECT), ('WALK', A_WALK),
+        ('PICK', A_PICK), ('CUT', A_CUT), ('PUTL', A_PUTL), ('PUTR', A_PUTR),
+        ('PUTB', A_PUTB), ('REFILL', A_REFILL))]
+    lines += ['ART_PG     = 0x%02X' % ART_PAGE,
               'INFO_PG    = 0x%02X        ; x%02X00 + 4t + i: info line i, low bytes; + x80 high' % (TAB_PAGE, TAB_PAGE),
               'TAB_PG     = 0x%02X' % TAB2_PAGE,
               'TB_FLAGS   = 0x00          ; + t', 'TB_NAMEL   = 0x20', 'TB_NAMEH   = 0x40',
               'TB_INSPL   = 0x60', 'TB_INSPH   = 0x80',
-              'ACT_PG     = 0x37          ; x3700 + 4t + i: action i of type t (0 none)',
-              'TB_ASTRL   = 0xA0          ; + action code', 'TB_ASTRH   = 0xA8',
-              'TB_DMGL    = 0xB0          ; + damage step', 'TB_DMGH    = 0xC0',
-              'TB_WRKL    = 0xD0', 'TB_WRKH    = 0xE0',
-              'BAR_PG     = 0x36          ; x3600 + step: bar string low; + x10 high',
+              'TB_DMGL    = 0xA0          ; + damage step', 'TB_DMGH    = 0xB0',
+              'TB_WRKL    = 0xC0', 'TB_WRKH    = 0xD0',
+              'TB_VAL     = 0xE0          ; + t: worth undamaged, in $10',
+              'ACT_PG     = 0x%02X          ; + 4t + i: action i of type t (0 none)' % ACT_PAGE,
+              'TB_ASTRL   = 0x80          ; + action code', 'TB_ASTRH   = 0xA0',
+              'BAR_PG     = 0x%02X          ; + step: bar string low; + x10 high' % ROOM_PAGE,
+              'ROOM_PG    = 0x%02X' % ROOM_PAGE,
+              'RM_P0      = 0x40          ; + room: the pressure at the start',
+              'RM_FL      = 0x80          ; + room: bit 0 a room of the tug',
+              'RM_LEAK    = 0xC0          ; the rooms that leak through a breach, 0 ends',
+              'DOOR_PG    = 0x%02X          ; + i: the door\'s type page; + x40 index; + x80, + xC0 its rooms' % DOOR_PAGE,
+              'NDOORS     = %d' % len(doors),
+              'NROOMS     = %d          ; rooms 1 to NROOMS - 1' % len(press),
+              'AIR_FULL   = %d' % AIR_FULL,
+              'TUG_X0     = %d' % TUG[0], 'TUG_Y0     = %d' % TUG[1],
+              'TUG_X1     = %d' % TUG[2], 'TUG_Y1     = %d' % TUG[3],
               'MAP_PAGE   = 0x%02X' % MAP_PAGE,
               'MAP_W      = %d' % MAP_W, 'MAP_H      = %d' % MAP_H,
               'START_X    = %d' % START[0], 'START_Y    = %d' % START[1],
@@ -501,47 +644,69 @@ def write_sources():
         tab[i] = str(ty[3])
         setp(0x20, i, sref('zn_%d' % i, ty[2]))
         setp(0x60, i, sref('zx_%d' % i, ty[6] if ty[0] != 'PLAYER' else PLAYER_INSPECT))
-    for a, s in ACTIONS.items():
-        lab = sref('za_%d' % a, s)
-        tab[0xA0 + a] = lab + ' & 0xFF'
-        tab[0xA8 + a] = lab + ' >> 8'
     for st in range(16):
         lab = sref('zd_%d' % st, dmg_pct(st))
-        tab[0xB0 + st] = lab + ' & 0xFF'
-        tab[0xC0 + st] = lab + ' >> 8'
+        tab[0xA0 + st] = lab + ' & 0xFF'
+        tab[0xB0 + st] = lab + ' >> 8'
         lab = sref('zw_%d' % st, works(st))
-        tab[0xD0 + st] = lab + ' & 0xFF'
-        tab[0xE0 + st] = lab + ' >> 8'
+        tab[0xC0 + st] = lab + ' & 0xFF'
+        tab[0xD0 + st] = lab + ' >> 8'
+    for i, ty in enumerate(TYPES):
+        tab[0xE0 + i] = str(VALUE.get(ty[0], 0))
     d.append('.fixed 0x%02X00' % TAB2_PAGE)
     d.append('TAB:')
     for o in range(0, 256, 8):
         d.append('    #d8 ' + ', '.join(tab[o:o + 8]))
     d.append('')
-    # actions per type
-    act = ['0'] * 128
+    # actions per type, the action strings
+    act = ['0'] * 256
     for i, ty in enumerate(TYPES):
         acts = ty[5] if ty[0] != 'PLAYER' else PLAYER_ACTIONS
         for k, a in enumerate(acts[:4]):
             act[4 * i + k] = str(a)
-    bars = ['0'] * 32
-    for st in range(16):
-        lab = sref('zb_%d' % st, bar(st))
-        bars[st] = lab + ' & 0xFF'
-        bars[16 + st] = lab + ' >> 8'
-    d.append('.fixed 0x3700')
+    for a, txt in ACTIONS.items():
+        lab = sref('za_%d' % a, txt)
+        act[0x80 + a] = lab + ' & 0xFF'
+        act[0xA0 + a] = lab + ' >> 8'
+    d.append('.fixed 0x%02X00' % ACT_PAGE)
     d.append('ACT_TAB:')
-    for o in range(0, 128, 8):
+    for o in range(0, 256, 8):
         d.append('    #d8 ' + ', '.join(act[o:o + 8]))
     d.append('')
-    d.append('.fixed 0x3600')
-    d.append('BAR_TAB:')
-    for o in range(0, 32, 8):
-        d.append('    #d8 ' + ', '.join(bars[o:o + 8]))
+    # damage bars and the rooms
+    t, _ = build_map()
+    rid, doors, leaks, press, tug = rooms(t)
+    rm = ['0'] * 256
+    for st in range(16):
+        lab = sref('zb_%d' % st, bar(st))
+        rm[st] = lab + ' & 0xFF'
+        rm[16 + st] = lab + ' >> 8'
+    for r, pr in enumerate(press):
+        rm[0x40 + r] = str(pr)
+        rm[0x80 + r] = '1' if r in tug else '0'
+    for k, r in enumerate(leaks):
+        rm[0xC0 + k] = str(r)
+    d.append('.fixed 0x%02X00' % ROOM_PAGE)
+    d.append('ROOM_TAB:')
+    for o in range(0, 256, 8):
+        d.append('    #d8 ' + ', '.join(rm[o:o + 8]))
+    d.append('')
+    dr = ['0'] * 256
+    for k, (x, y, ra, rb) in enumerate(doors):
+        ck = CHUNKS_X * (y >> 4) + (x >> 4)
+        dr[k] = '0x%02X' % (MAP_PAGE + 4 * ck)
+        dr[0x40 + k] = str(16 * (y & 15) + (x & 15))
+        dr[0x80 + k] = str(ra)
+        dr[0xC0 + k] = str(rb)
+    d.append('.fixed 0x%02X00' % DOOR_PAGE)
+    d.append('DOOR_TAB:')
+    for o in range(0, 256, 8):
+        d.append('    #d8 ' + ', '.join(dr[o:o + 8]))
     d.append('')
     # messages
-    for lab, s in (('s_welcome', WELCOME), ('s_toofar', TOO_FAR), ('s_inway', IN_WAY),
-                   ('s_blocked', BLOCKED)):
-        sref(lab, s)
+    for lab, txt in [('s_welcome', WELCOME), ('s_toofar', TOO_FAR), ('s_inway', IN_WAY),
+                     ('s_blocked', BLOCKED)] + MESSAGES:
+        sref(lab, txt)
     # the strings, packed into chunks of up to 240 bytes
     cur, size = [], 0
     for lab, s in strings:

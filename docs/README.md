@@ -32,7 +32,7 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 - [DOS.md](software/DOS.md): the DOS and `.PLC` program files
 - [MENU.md](software/MENU.md): the demo menu
 - [TEST.md](software/TEST.md): the system test on the SD card (`TEST.PLC`)
-- [SCRAP.md](software/SCRAP.md): SCRAPWRIGHT, a ship salvage game (`SCRAP.PLC`, phase 2)
+- [SCRAP.md](software/SCRAP.md): SCRAPWRIGHT, a ship salvage game (`SCRAP.PLC`, phase 3)
 - [EMULATOR.md](software/EMULATOR.md): the web emulator
 - [BOING.md](software/BOING.md), [WIRE3D.md](software/WIRE3D.md): demos
 - [SOFTWARE_ROADMAP.md](software/SOFTWARE_ROADMAP.md): what comes next
