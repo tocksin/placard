@@ -134,7 +134,7 @@ Four demos show what the CPU can do with no sprite or collision hardware.  The f
 
 ![Boing Ball in the simulator](reference/boing_sim.gif)
 
-`sdcard/SCRAP.PLC` (`src/scripts/scrap.masm`, `gen_scrap.py`, with `SCRAP.OVL`) is SCRAPWRIGHT, an original top-down ship salvage game in progress (S in the demo menu).  Phase 2 walks a salvage tug docked to a derelict on one 96 × 64 map: 20 × 12 cells of 8 × 16 pixel art in 4 bpp, doors that open when you walk into them, and a 1 bpp panel that shows the cell under the PS/2 mouse (name, damage bar, info and an action menu: open, close, walk here, inspect).  The map lives in the even video pages the 2x screen leaves free.  `test_scrap_sim.py` checks it ([docs/software/SCRAP.md](docs/software/SCRAP.md)).
+`sdcard/SCRAP.PLC` (`src/scripts/scrap.masm`, `gen_scrap.py`, with `SCRAP.OVL`) is SCRAPWRIGHT, an original top-down ship salvage game in progress: run it from the DOS's file browser.  Phase 2 walks a salvage tug docked to a derelict on one 96 × 64 map: 20 × 12 cells of 8 × 16 pixel art in 4 bpp, doors that open when you walk into them, and a 1 bpp panel that shows the cell under the PS/2 mouse (name, damage bar, info and an action menu: open, close, walk here, inspect).  The map lives in the even video pages the 2x screen leaves free.  `test_scrap_sim.py` checks it ([docs/software/SCRAP.md](docs/software/SCRAP.md)).
 
 ![SCRAPWRIGHT in the simulator](reference/scrap_sim.png)
 

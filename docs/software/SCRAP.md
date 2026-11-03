@@ -3,8 +3,9 @@
 `SCRAP.PLC` (`src/scripts/scrap.masm`, with `SCRAP.OVL`) is SCRAPWRIGHT,
 an original top-down salvage game: you fly a small tug out to derelict
 ships, walk through them in a suit, cut out what is worth having, haul it
-back, and build it into your own ship.  **S** in the demo menu runs it
-([MENU.md](MENU.md)), or Enter on it in the DOS's browser.
+back, and build it into your own ship.  It is not in the demo menu: pick
+it in the DOS's file browser and press Enter ([DOS.md](DOS.md)), or set
+`BOOT.CFG` = `SCRAP.PLC` to run it at power-up.
 
 Date: 2026-11-03
 
@@ -27,7 +28,7 @@ tube from the tug's airlock leads to the wreck's airlock.
 | Left click on a cell | locks the panel on it, so the mouse can go down to the actions |
 | Left click on an action, or keys **1-4** | does it: **OPEN** / **CLOSE** (a door next to you), **WALK HERE** (walks toward the cell), **INSPECT** (a line about it) |
 | Right click | unlocks the panel |
-| Esc | back to the menu or the DOS |
+| Esc | back to the DOS |
 
 The camera moves one cell when you come within 4 cells of the view's
 side (3 of its top or bottom) and redraws the view (no smooth scroll).  There is no arrow pointer yet: the frame on the cell, and the
