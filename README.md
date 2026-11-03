@@ -71,24 +71,24 @@ The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is two more AS7C
 The drawing is made by `src/scripts/gen_memory_map.py`; rerun it when the map changes.
 
 ### I/O window
-Each 256-byte page has its own strobe from the I/O decode PLD.  Write strobes are low with /WE, and devices latch the source bus on the rising edge at the end of the write.  Read strobes are low on a read the CPU latches into D (LOAD_IMM).  The shared port is described in [docs/architecture/IO.md](docs/architecture/IO.md) and the expansion slots in [docs/architecture/EXPANSION.md](docs/architecture/EXPANSION.md).
+Each I/O page has its own select from the I/O decode PLD (revision 07), made straight from the address and valid about 13 ns into the clock.  A write is the select with /WE: devices latch the source bus on the rising edge at the end of /WE.  A read is the select with Q0 low (the LOAD_MEM clock, when the CPU latches the bus into D), and nothing waits for STALL.  The shared port is described in [docs/architecture/IO.md](docs/architecture/IO.md) and the expansion slots in [docs/architecture/EXPANSION.md](docs/architecture/EXPANSION.md).
 
-| Address | Strobe | R/W | Function |
+| Address | Select | R/W | Function |
 |---------|--------|-----|----------|
-| x5000-x50FF | /MAP_WR | W | ROM/RAM map register (built) |
-| x5000-x50FF | /LINE_RD | R | Video line counter, V9:V2 (built) |
-| x5100-x517F | /EXP1, A7 = 0 | R/W | Expansion slot 1 |
-| x5180-x51FF | /EXP1, A7 = 1 | R/W | Expansion slot 3 |
-| x5200-x52FF | /PORT_WR | W | Shared port latch (port PLD registers): SD card SCK, MOSI and /CS, SNES pad clock and latch, PS/2 lines; a write to x5202/x5203 also re-arms the PS/2 receiver |
-| x5200-x52FF | /PORT_RD | R | Shared port: SD MISO and the free PS/2 clock (x5200), SNES pad data (x5201), PS/2 receiver byte (x5202) and ready flag (x5203) |
-| x5300-x537F | /EXP2, A7 = 0 | R/W | Expansion slot 2 |
-| x5380-x53FF | /EXP2, A7 = 1 | R/W | Expansion slot 4 |
+| x5000-x50FF | /P0 (write: /MAP_WR from the Sync PLD) | W | ROM/RAM map register (built) |
+| x5000-x50FF | /P0 and Q0 | R | Video line counter, V9:V2 (built) |
+| x5100-x517F | /EXP1 | R/W | Expansion slot 1 |
+| x5180-x51FF | /EXP3 | R/W | Expansion slot 3 |
+| x5200-x52FF | /PORT and /WE | W | Shared port latch (port PLD registers): SD card SCK, MOSI and /CS, SNES pad clock and latch, PS/2 lines; a write to x5202/x5203 also re-arms the PS/2 receiver |
+| x5200-x52FF | /PORT and Q0 | R | Shared port: SD MISO and the free PS/2 clock (x5200), SNES pad data (x5201), PS/2 receiver byte (x5202) and ready flag (x5203) |
+| x5300-x537F | /EXP2 | R/W | Expansion slot 2 |
+| x5380-x53FF | /EXP4 | R/W | Expansion slot 4 |
 
 ### Sound
 The video circuit reads one 8-bit sample per scan line from x5DF3-x5FFF (525 bytes, one frame) and plays it through a 74HCT574 and a resistor ladder DAC, at the line rate of 31.47 kHz.  80h is silence.  The library's sound driver (`snd_update` once a frame, with `snd_tone`, `snd_beep`, `snd_note`, `snd_noise` and `snd_play`) refills the buffer behind the line being played.  See [docs/sound/SOUND.md](docs/sound/SOUND.md).
 
 ### Video line read
-A read anywhere in x5000-x50FF returns the upper 8 bits of the video line counter, V9:V2.  The V counter in the V Counter PLD counts 499 to 1023, and one 74F541 enabled by /LINE_RD puts V9:V2 on the data bus.  The ROM/RAM map register shares the page but is write only, so there is no conflict.  Read it with `ld 0x50, y` then `ld [y,x], ac`.
+A read anywhere in x5000-x50FF returns the upper 8 bits of the video line counter, V9:V2.  The V counter in the V Counter PLD counts 499 to 1023, and one 74F541 enabled by /P0 and Q0 puts V9:V2 on the data bus.  The ROM/RAM map register shares the page but is write only, so there is no conflict.  Read it with `ld 0x50, y` then `ld [y,x], ac`.
 
 - **It is a single byte**, so it can't tear between reads.
 - **Resolution is 4 lines** (128 us).  Visible rows start at V = 544, so `row / 4 = value - 136`.  A value below 136 means vertical blanking.

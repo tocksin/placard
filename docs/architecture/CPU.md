@@ -160,8 +160,8 @@ Changing hands:
   control PLD's delay.  About 3.4 ns to spare at a 50 % clock, 2.2 ns at
   a 47 % high half.
 - **End of a write.**  /WE rises (Sync PLD, from the early clock tap) at
-  most 4.5 ns after the edge, and /MAP_WR or /PORT_WR (I/O decode PLD)
-  7.5 ns after that; the source F541s turn off no earlier than 6.5 ns
+  most 4.5 ns after the edge, /MAP_WR with it (Sync PLD revision 12),
+  and the port register clocks on /WE itself (port PLD revision 05); the source F541s turn off no earlier than 6.5 ns
   after the edge.  The bus then floats and holds its level (the 10k
   pull-ups and the bus capacitance), and the SRAM's data hold time is 0 ns.
 

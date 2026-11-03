@@ -1,7 +1,7 @@
 Name     IO_DECODE;
 PartNo   00;
-Date     11/02/2026;
-Revision 06;
+Date     11/03/2026;
+Revision 07;
 Designer ;
 Company  ;
 Assembly ;
@@ -37,117 +37,99 @@ Device   g22v10;
                0           0        1       Y           Y7
                0           0        0       00h         0
 
-   2. The I/O strobes for 5000h - 53FFh, one 256-byte page per
-      device, as in docs/timing/TIMING.md:
+   2. The I/O selects for 5000h - 53FFh, one 256-byte page per
+      device:
 
-          page  address      strobe(s)
-           0    5000h-50FFh  /MAP_WR (ROM/RAM map register), /LINE_RD
-           1    5100h-51FFh  /EXP1  (address only)
-           2    5200h-52FFh  /PORT_WR, /PORT_RD
-           3    5300h-53FFh  /EXP2  (address only)
+          page  address      select   devices
+           0    5000h-50FFh  /P0      map register (write), line read
+           1    5100h-517Fh  /EXP1    slot 1
+                5180h-51FFh  /EXP3    slot 3
+           2    5200h-52FFh  /PORT    port PLD, PS/2 receiver PLD
+           3    5300h-537Fh  /EXP2    slot 2
+                5380h-53FFh  /EXP4    slot 4
 
-      Since revision 03 the window is 5000h - 53FFh (A11 = A10 = 0),
-      and 5400h - 5FFFh is memory (the mode bytes and the audio
-      buffer are there, see docs/video/VIDEO.md).  Pin 18 was /SND_WR, which
-      nothing used once the audio came from RAM; it is now the A11
-      input.  EXP1 and EXP2 moved from pages 5 and 6 to pages 1
-      and 3.  Before, A11 was not decoded, so 5800h - 5FFFh repeated
-      5000h - 57FFh.
-      A15 is the rebuilt A15 above.
+   SELECTS FROM THE REGISTERS (revision 07)
+      An I/O address is only ever reached through [Y,X] (FETCH and
+      LOAD_IMM read at the PC, [0,X] and [0,D] have high byte 00h,
+      and the video reads only RAM).  So the I/O page is decoded
+      from the Y register itself, not from the address mux output:
 
-      Writes:  /xx_WR is low while /WE is low on a store to the
-               page, so a device latches on its rising edge at the
-               end of the write.  Latch from the source bus, which
-               holds the data past the end of the write.
-      Reads:   /xx_RD is low in a LOAD_MEM clock that the CPU owns
-               (revision 06, see below; it was the State PLD's
-               LOAD_IMM strobe before).  D latches the byte with its
-               own strobe as before.  The memory control PLD keeps
-               both memories off the bus for the whole I/O window.
+          IOSEL = !PIXEL_ENABLE & !PC_ENABLE & Y_ENABLE
+                  & Y = 0101 00xx
 
-   ROM/RAM MAP (revision 02)
-      /MAP_WR clocks the map register, a 74ACT273 (write only; it
-      replaced the map registers of the ROM/RAM select PLD).  Its
-      rising edge, at the end of the write, loads the source bus
-      into the register.  The equations did not change in revision
-      02; only these notes did.
+      and the slot half from X7, the low byte's bit 7 (A7 in
+      [Y,X]).  Y7:Y0 and X7 are register outputs, settled long
+      before the address mux output, and PIXEL_ENABLE, PC_ENABLE
+      and Y_ENABLE are the mux selects themselves.  So every select
+      is valid when the address is (13 ns), one PLD pass (7.5 ns)
+      earlier than in revision 06 (20.5 ns).  This is the
+      expansion card's read budget (docs/architecture/EXPANSION.md,
+      "Card timing"): with /EXPn at 13 ns a plain 15 ns SRAM card
+      (/CE = /EXPn, /OE = Q0, /WE = /WE) reads in time.
+      [Y,D] to an I/O address is not supported: the page still
+      decodes (the high byte is Y either way), but the slot half
+      follows X7, not D7.  Nothing in the software does it.
 
-   READ STROBE WITHOUT RW (revision 05)
-      RD = IO & LOAD_IMM.  The RW input went to make room for
-      Y_ENABLE.  LOAD_IMM is low only in the LOAD_IMM and LOAD_MEM
-      states, where RW is always 1 (a write needs EXEC), so the
-      strobe is the same.  /WE now comes from the Sync PLD
-      (revision 10), not the memory control PLD.
+      The selects are address only.  The strobes are made where the
+      select is used:
+        - /MAP_WR (map register clock) in the Sync PLD (revision
+          12), from /P0, with the same timing as /WE.
+        - The line read F541 takes /P0 on /OE1 and Q0 (State PLD
+          pin 18) on /OE2, so it drives the bus in LOAD_MEM only,
+          as /LINE_RD did (revision 06).
+        - The port PLD (revision 05) clocks its register on /WE
+          and holds it unless /PORT is low; it and the PS/2 PLD
+          (revision 03) read while /PORT and Q0 are low.
+        - Each slot has its own select, /EXPn on contact A16, and
+          Q0 on contact A10 (was SEL, which is gone).
+      This frees the A14-A8 inputs and the WE_N and Q0 inputs, and
+      the four outputs /MAP_WR, /LINE_RD, /PORT_WR, /PORT_RD become
+      /P0 and /PORT, which leaves room for Y6:Y0, X7 and two more
+      slot selects.
 
-   READ STROBE FROM THE STATE BITS (revision 06)
-      RD = IO & LOAD_MEM & !PIXEL_ENABLE, with LOAD_MEM = !PC_ENABLE
-      & !Q0 (state 10; PC_ENABLE = !Q1).  Q0 from the State PLD
-      pin 18 replaces LOAD_IMM (State pin 19) on pin 23.
-      LOAD_IMM includes STALL, and in the clock after a video stall
-      STALL only falls after the loop through the Branch PLD and the
-      cartridge (20.5 ns), so the read strobe came 15 ns late and
-      an I/O read right after a stall failed by 5.3 to 7.3 ns
-      (docs/timing/TIMING.md).  Q0, PC_ENABLE and PIXEL_ENABLE are
-      all register outputs, settled before the address (13 ns), so
-      the strobe now has the timing of a read with no stall before
-      it (+7.7 ns, port and PS/2 +9.7).
-      Why this is the same strobe:
-        - An I/O address (5000h - 53FFh) is only read through [Y,X],
-          and that read is always in LOAD_MEM.  FETCH and LOAD_IMM
-          read at the PC, and [0,X] and [0,D] have high byte 00h.
-          In EXEC (state 11) the CPU never reads.
-        - In LOAD_MEM, STALL is PIXEL_ENABLE: the ADD/SUB wait is
-          only in EXEC, and the cartridge loader holds the CPU only
-          while PC_ENABLE is high.
-        - As before, a store from AC or X to an I/O address passes
-          through LOAD_MEM and asserts the read strobe there.
-      With !PIXEL_ENABLE & !PC_ENABLE in the term, the rebuilt A15
-      is Y_ENABLE & Y7, so each read strobe is 2 product terms.
+      Because they come from registers that do not change during a
+      clock, the selects no longer glitch while the address mux
+      output settles, so a card's write strobe made from /EXPn and
+      /WE is clean (EXPANSION.md "To check" asked about this).
 
    PIN BUDGET
-      Inputs (15): /WE, PIXEL_ENABLE, PC_ENABLE, Y_ENABLE, PC15, H9,
-                   Y7, A14, A13, A12, A11, A10, A9, A8, Q0 (revision 06; was LOAD_IMM)
-      Outputs (7): /CE_HI, /MAP_WR, /LINE_RD, /PORT_WR,
-                   /PORT_RD, /EXP1, /EXP2
-      WinCUPL fits each strobe in 7 product terms (the rebuilt
-      !A15 expands to several terms; EXP2 on pin 22 is 7 of 10)
-      and CE_HI in 3.  Every output is one array pass.
+      Inputs (14): PIXEL_ENABLE, PC_ENABLE, Y_ENABLE, PC15, H9,
+                   Y7-Y0, X7
+      Outputs (7): /CE_HI, /P0, /PORT, /EXP1-/EXP4
+      Pin 1 is not used (tie it to GND).  Each select is one
+      product term, CE_HI three.  Every output is one array pass.
    ============================================================ */
 
 
 /* ---------------- INPUTS ---------------- */
 
-PIN 1  = WE_N;         /* RAM /WE from the Sync PLD (revision 05; memory control PLD before), low = write pulse */
-
-PIN 2  = PIXEL_ENABLE; /* Sync PLD pin 19: video read (revision 05; was ADDR_SEL) */
-PIN 3  = PC_ENABLE;    /* State PLD: program counter (revision 05; was ADDR_SEL_HI) */
+PIN 2  = PIXEL_ENABLE; /* Sync PLD pin 19: video read */
+PIN 3  = PC_ENABLE;    /* State PLD: program counter */
 PIN 4  = PC15;         /* PC high PLD, bit 7 */
 PIN 5  = H9;           /* video address bit 15 (H counter H9) */
-PIN 6  = Y7;           /* Y register bit 7 */
+PIN 6  = Y7;           /* Y register bits 7-0 (revision 07: Y6-Y0 were A14-A8) */
+PIN 7  = Y6;
+PIN 8  = Y5;
+PIN 9  = Y4;
+PIN 10 = Y2;
+PIN 11 = Y1;
+PIN 13 = Y0;
 
-PIN 7  = A14;
-PIN 8  = A13;
-PIN 9  = A12;
-PIN 10 = A10;
-PIN 11 = A9;
-PIN 13 = A8;
-
-PIN 14 = Y_ENABLE;     /* State PLD: Y register (I/O pin used as input; revision 05, was RW) */
-PIN 18 = A11;          /* I/O pin used as input (revision 03; was /SND_WR) */
-PIN 23 = Q0;           /* State PLD pin 18, state bit 0 (I/O pin used as input).
-                          Revision 06: was !LOAD_IMM from State PLD pin 19. */
+PIN 14 = Y_ENABLE;     /* State PLD: Y register (I/O pin used as input) */
+PIN 18 = Y3;           /* I/O pin used as input (revision 07; was A11) */
+PIN 23 = X7;           /* X register bit 7, A7 of [Y,X] (I/O pin used as input; revision 07, was Q0) */
 
 
 /* ---------------- OUTPUTS ---------------- */
 
 PIN 15 = !CE_HI;       /* low when A15 = 1: upper 32K chip enable */
 
-PIN 16 = !MAP_WR;
-PIN 17 = !LINE_RD;
-PIN 19 = !PORT_WR;
-PIN 20 = !PORT_RD;
-PIN 21 = !EXP1;
-PIN 22 = !EXP2;
+PIN 16 = !EXP3;        /* slot 3, 5180h-51FFh (revision 07; was /MAP_WR) */
+PIN 17 = !P0;          /* page 0, 5000h-50FFh (revision 07; was /LINE_RD) */
+PIN 19 = !EXP4;        /* slot 4, 5380h-53FFh (revision 07; was /PORT_WR) */
+PIN 20 = !PORT;        /* page 2, 5200h-52FFh (revision 07; was /PORT_RD) */
+PIN 21 = !EXP1;        /* slot 1, 5100h-517Fh (revision 07; was 5100h-51FFh) */
+PIN 22 = !EXP2;        /* slot 2, 5300h-537Fh (revision 07; was 5300h-53FFh) */
 
 
 /* ---------------- A15, REBUILT FROM THE MUX INPUTS ---------------- */
@@ -157,26 +139,19 @@ A15 = ( PIXEL_ENABLE & H9)
     # (!PIXEL_ENABLE & !PC_ENABLE & Y_ENABLE & Y7);
 
 
-/* ---------------- I/O WINDOW AND PAGES ---------------- */
+/* ---------------- I/O WINDOW FROM THE Y REGISTER ---------------- */
 
-IO    = !A15 & A14 & !A13 & A12 & !A11 & !A10;   /* 5000h - 53FFh */
-
-PAGE0 = !A10 & !A9 & !A8;
-PAGE1 = !A10 & !A9 &  A8;
-PAGE2 = !A10 &  A9 & !A8;
-PAGE3 = !A10 &  A9 &  A8;
-
-WR    = IO & !WE_N;
-RD    = IO & !PC_ENABLE & !Q0 & !PIXEL_ENABLE;   /* revision 06: LOAD_MEM, CPU owns the bus (was IO & LOAD_IMM) */
+IOSEL = !PIXEL_ENABLE & !PC_ENABLE & Y_ENABLE
+      & !Y7 & Y6 & !Y5 & Y4 & !Y3 & !Y2;           /* Y = 50h - 53h */
 
 
 /* ---------------- EQUATIONS ---------------- */
 
-CE_HI   = A15;
+CE_HI = A15;
 
-MAP_WR  = WR & PAGE0;
-LINE_RD = RD & PAGE0;
-PORT_WR = WR & PAGE2;
-PORT_RD = RD & PAGE2;
-EXP1    = IO & PAGE1;
-EXP2    = IO & PAGE3;
+P0    = IOSEL & !Y1 & !Y0;
+EXP1  = IOSEL & !Y1 &  Y0 & !X7;
+EXP3  = IOSEL & !Y1 &  Y0 &  X7;
+PORT  = IOSEL &  Y1 & !Y0;
+EXP2  = IOSEL &  Y1 &  Y0 & !X7;
+EXP4  = IOSEL &  Y1 &  Y0 &  X7;

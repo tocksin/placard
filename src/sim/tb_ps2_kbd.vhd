@@ -1,7 +1,7 @@
 -- ============================================================
 -- tb_ps2_kbd: the whole FPGA top level (basys_top) with a PS/2 keyboard
 -- model on PS2_CLK / PS2_DATA (SW14 = 1: the PS/2 keyboard socket)
--- Date: 10/26/2026
+-- Date: 11/03/2026
 --
 -- Build rom.mem from a program that reads the keyboard (io_demo.asm:
 -- port_init, then kbd_scan every frame), plus ram.mem and cart_ram.mem
@@ -124,7 +124,7 @@ begin
         alias src is <<signal .tb_ps2_kbd.dut.srcBus : std_logic_vector(7 downto 0)>>;
         alias pc is <<signal .tb_ps2_kbd.dut.programCounter : std_logic_vector(15 downto 0)>>;
         alias we is <<signal .tb_ps2_kbd.dut.ramWeN : std_logic>>;
-        alias pw is <<signal .tb_ps2_kbd.dut.portWrN : std_logic>>;
+        alias pn is <<signal .tb_ps2_kbd.dut.portN : std_logic>>;   -- I/O decode rev 07: a port write is /PORT and /WE low
         alias sb is <<signal .tb_ps2_kbd.dut.snfByte : std_logic_vector(7 downto 0)>>;
         alias sc is <<signal .tb_ps2_kbd.dut.snfCount : unsigned(7 downto 0)>>;
         alias led is <<signal .tb_ps2_kbd.dut.ledR : std_logic_vector(15 downto 0)>>;
@@ -141,11 +141,11 @@ begin
                 end if;
             end if;
             wasLow := we = '0';
-            if pw = '0' and not pwLow then
+            if (pn = '0' and we = '0') and not pwLow then
                 pws := pws + 1;
                 if pws < 40 then report "port write " & to_hstring(ad) & " = " & to_hstring(src) & " at " & time'image(now); end if;
             end if;
-            pwLow := pw = '0';
+            pwLow := pn = '0' and we = '0';
             if pc = x"6000" and not seen6000 then seen6000 := true; report "x6000 at " & time'image(now); end if;
             if n = CLOCKS then report "end, port writes " & integer'image(pws) & ", sniffer last " & to_hstring(sb) & " count " & to_hstring(sc) & ", leds " & to_hstring(led); done <= true; wait; end if;
         end loop;

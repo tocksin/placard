@@ -147,20 +147,20 @@ Pin 16 is free. RAM_OE on pin 18 is **16 of 16 terms, completely full**. ROM_OE 
 
 ### `ATF22V10_IO_DECODE.pld` (#12)
 
-No free pins. Each strobe minimizes to 4 terms (CE_HI to 3); the source notes WinCUPL fitted the strobes in 7, so the real spare is 3-8 terms per cell, smallest on EXP2 (pin 22, 7 of 10 per WinCUPL).
+Revision 07: the I/O selects are decoded from the Y register (Y7:Y0), X7 and the mux selects; each select is 1 product term, CE_HI 3. Pin 1 is free (not used; no-connect).
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|
 | 14 | 8 | Y_ENABLE | input | — | — |
 | 15 | 10 | !CE_HI | combinational | 3 | 7 |
-| 16 | 12 | !MAP_WR | combinational | 4 | 8 |
-| 17 | 14 | !LINE_RD | combinational | 4 | 10 |
-| 18 | 16 | A11 | input | — | — |
-| 19 | 16 | !PORT_WR | combinational | 4 | 12 |
-| 20 | 14 | !PORT_RD | combinational | 4 | 10 |
-| 21 | 12 | !EXP1 | combinational | 4 | 8 |
-| 22 | 10 | !EXP2 | combinational | 4 | 6 |
-| 23 | 8 | !LOAD_IMM | input (active low) | — | — |
+| 16 | 12 | !EXP3 | combinational | 1 | 11 |
+| 17 | 14 | !P0 | combinational | 1 | 13 |
+| 18 | 16 | Y3 | input | — | — |
+| 19 | 16 | !EXP4 | combinational | 1 | 15 |
+| 20 | 14 | !PORT | combinational | 1 | 13 |
+| 21 | 12 | !EXP1 | combinational | 1 | 11 |
+| 22 | 10 | !EXP2 | combinational | 1 | 9 |
+| 23 | 8 | X7 | input | — | — |
 
 ### `ATF22V10_HCOUNT.pld` (#13)
 
@@ -295,7 +295,7 @@ is a free input, pins 22 and 23 free I/O.
 
 ### `ATF22V10_PORT.pld` (#38)
 
-The PLD is the port latch as well. Pin 1 is /PORT_WR, the clock of the five latch registers; pin 14 is an I/O cell used as an input (A1) and pin 15 is free. Each cell uses 1 term except D7 (2), so 93 of the 102 terms on the output cells are spare. D5, D6 and D7 use their output-enable term.
+The PLD is the port latch as well. Pin 1 is /WE (revision 05; was /PORT_WR), the clock of the five latch registers, which load only while /PORT (pin 2) is low and hold otherwise (2 terms each); pins 14 and 15 are I/O cells used as inputs (A1, Q0). D7 uses 2 terms, D5 and D6 1, so 88 of the 102 terms on the output cells are spare. D5, D6 and D7 use their output-enable term.
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|

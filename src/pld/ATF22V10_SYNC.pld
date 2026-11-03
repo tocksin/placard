@@ -1,7 +1,7 @@
 Name     VGA_SYNC;
 PartNo   01;
-Date     2026-11-02;
-Revision 11;
+Date     2026-11-03;
+Revision 12;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -59,7 +59,8 @@ PIN 18 = !VSYNC;     /* active-low output pin (revision 09); equation below uses
 PIN 19 = PIXEL_ENABLE;     /* registered */
 
 PIN 20 = !WE;             /* RAM /WE (revision 10; was ADDR_SEL) */
-/* pins 21 and 22 free (revision 10; were ADDR_SEL_HI and ADDR_SEL_LO) */
+PIN 21 = !P0;             /* I/O decode PLD pin 17: page 0 select, 5000h-50FFh (I/O pin used as input, revision 12) */
+PIN 22 = !MAP_WR;         /* ROM/RAM map register clock (revision 12; was in the I/O decode PLD) */
 
 /* Vertical active-region state (registered).
    Needed internally by VIDEN, PIXEL_ENABLE and VSYNC.
@@ -294,3 +295,25 @@ VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;
 
 WE = !CLK_E & !CLK & !RW & !PIXEL_ENABLE;   /* revision 11: & !CLK */
 WE.OE = RUN;
+
+
+/* ============================================================
+   MAP REGISTER WRITE STROBE (revision 12)
+   ============================================================ */
+
+/*
+   The I/O decode PLD (revision 07) gives address-only selects,
+   decoded from the Y register, and no longer makes /MAP_WR.  This
+   PLD makes it from the page 0 select /P0, with the /WE equation:
+
+       /MAP_WR low while /WE would be low and /P0 is low
+
+   so it has /WE's timing exactly (same pass, same inputs), about
+   7.5 ns earlier than the old IO & /WE strobe.  /P0 is valid at
+   13 ns, long before CLK can fall.  The map register (74ACT273)
+   loads the source bus on the rising edge, at the end of the write.
+   No output enable term: while RUN is low the map register is held
+   clear by its /MR anyway.  MAP_WR uses 1 product term.
+*/
+
+MAP_WR = !CLK_E & !CLK & !RW & !PIXEL_ENABLE & P0;

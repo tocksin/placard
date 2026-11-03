@@ -18,8 +18,9 @@ muxes), [WE_TIMING.md](WE_TIMING.md) (the RAM write strobe),
 ## Summary
 
 From the datasheets, every path meets 25.175 MHz with a 50 % clock.
-Since I/O decode PLD revision 06 the I/O read right after a video stall
-no longer waits for STALL ([I/O reads](#io-reads)), and since Sync PLD
+Since I/O decode PLD revision 07 the I/O selects come straight from the
+address and no I/O read waits for STALL ([I/O reads](#io-reads)), so a
+plain 15 ns SRAM on an expansion card meets timing; and since Sync PLD
 revision 11 /WE falls with CLK, which closed the zero-page store start on
 the board ([Memory writes](#memory-writes)).
 
@@ -36,6 +37,18 @@ with a 50 % clock, and the setup paths keep at least 1.8 ns.  The tightest:
 | STALL to the State PLD strobes and an F377 /E | +7.2 | +2.43 |
 | Fetch from the cartridge ROM through /ROM_OE | +1.9 | +2.56 |
 | Fetch from RAM through /RAM_OE | +1.9 | +3.20 |
+| Expansion slot read, plain 15 ns SRAM card (worst slot) | +8.7 | +3.41 |
+| Port select hold after /WE (port and PS/2 PLDs) | | +0.94 |
+
+Rerun from scratch on 2026-11-03 after the expansion redesign (branch-111):
+the 64K cartridge's track lengths were re-measured from
+`kicad/cartridge_64k/cartridge_64k.kicad_pcb` (unchanged from
+`src/scripts/router_v4/timing/cart_c64.json`; the 32K board is shorter on
+every path) and `budgets.py` run on the new main board at a fixed 50 %
+clock; the example card is the plain SRAM card of
+[EXPANSION.md](../architecture/EXPANSION.md#card-timing), at its fingers.
+Every figure above is unchanged by the redesign; the new I/O paths are
+under [I/O reads](#io-reads) and [Hold and race checks](#hold-and-race-checks).
 
 The four paths that were short on the earlier board (cartridge ROM fetch,
 zero-page read and video read at −1.1, RAM fetch through /OE at −0.2) are
@@ -188,26 +201,28 @@ falls and ends about 3 ns before the CPU's clock rises (on CLK_E).
 
 ### I/O reads
 
-An I/O read strobe is `RD = IO & !PC_ENABLE & !Q0 & !PIXEL_ENABLE` (I/O
-decode PLD revision 06): the LOAD_MEM state on a clock the CPU owns the
-bus.  An I/O address is only read through [Y,X], always in LOAD_MEM.
-All three are register outputs, so the strobe no longer waits for STALL,
-and a read right after a video stall has the same timing as any other.
-D still loads with the State PLD's /LOAD_IMM, which waits for STALL (the
-STALL row under [CPU control](#cpu-control-alu-and-branches)).
+Since I/O decode PLD revision 07 the decode makes the selects straight
+from the address: `IOSEL = !PIXEL_ENABLE & !PC_ENABLE & Y_ENABLE &
+Y = 0101 00xx`, and /P0, /PORT and /EXP1-/EXP4 are combinational outputs
+of U12, valid about 13 ns into the clock.  A read is the select and Q0
+low (LOAD_MEM): the line read F541 U29 has /OE1 = /P0 and /OE2 = Q0, the
+port and PS/2 PLDs use `PORT & !Q0`, and an expansion card uses /EXPn
+and Q0 itself.  None of it waits for STALL.  D still loads with the
+State PLD's /LOAD_IMM, which waits for STALL (the STALL row under
+[CPU control](#cpu-control-alu-and-branches)).
 
 | Path | Stages | Datasheet | Board |
 |---|---|---:|---:|
-| Line read (U29): address 13, /LINE_RD 7.5, F541 enable 9.5, D setup 2 | 32.0 | +7.7 | +3.4 |
-| Port (U38) or PS/2 (U42) read (PLD tEA 7.5 instead of the F541) | 30.0 | +9.7 | +5.2 (U38), +5.7 (U42) |
-| Expansion card read, a card within the [card budget](../architecture/EXPANSION.md#card-timing) (address 13, /EXP 7.5, card 10.5, D setup 2) | 33.0 | +6.7 | +0.6 (worst slot) |
+| Line read (U29): select 13, F541 enable 9.5, D setup 2 | 24.5 | +15.2 | +11.7 |
+| Port (U38) or PS/2 (U42) read: select 13, PLD tEA 7.5, D setup 2 | 22.5 | +17.2 | +13.6 |
+| Expansion card read, a card within the [card budget](../architecture/EXPANSION.md#card-timing) (select 13, card 16, D setup 2) | 31.0 | +8.7 | +3.4 (worst slot, plain 15 ns SRAM card) |
 
-The board figures take the address at U12 from the Y_ENABLE and mux
-tracks (18.9 ns after X1), then /LINE_RD or /PORT_RD and the longest
-data bus track to D (U29 → U18 on DATABUS5 is 280 mm).  Before revision 06, `RD = IO & LOAD_IMM` waited
-for STALL through the Branch PLD and the cartridge, and a read right
-after a video stall (about one I/O read in eight) was −7.3 (line read)
-and −5.3 (port, PS/2) from the datasheets.
+The board figures are the `io_line_read`, `io_port_read` and `slot_read`
+checks of `budgets.py` on the present tracks (U12 inputs from the
+register tracks, the select track, the longest data bus track to D).
+Revision 06 decoded `RD = IO & !PC_ENABLE & !Q0 & !PIXEL_ENABLE` one PLD
+pass later and gave +3.4 (line read), +5.2 and +5.7 (port, PS/2) and
++0.6 (expansion, with a card that had to read ahead through a register).
 
 ### Video and the rest
 
@@ -218,7 +233,7 @@ and −5.3 (port, PS/2) from the datasheets.
 | H_TC to the V counter | 5.5 + 7.5 + 3.5 = 16.5 | +23.2 |
 | Color decoder: pixel buffer 10.5, two levels, settled into a 39.7 ns pixel | 25.5 | no register after it |
 | Video address (H, V, audio PLD row bits): changes in clock 0 of a group, read in clock 1 | over a clock | |
-| I/O write strobes: address 13 before /WE falls (22.9) | | +9.9 |
+| I/O write selects: /PORT, /EXPn and /MAP_WR's P0 at 13 before /WE falls (22.9) | | +9.9 |
 | ROM/RAM map write into the very next fetch: /MAP_WR high by T + 12, map CP→Q 12.3, memory control 7.5, tOE 7, setup 3.5 | 42.3 | −2.6 (software rule below) |
 
 **Map write rule**: the instruction straight after a write to the map
@@ -278,6 +293,10 @@ per 8-clock group, with the CPU held at the PC by STALL_OUT
   the PLD's 0 ns.  The clock skew on the board (past NT2, CLK reaches U18
   after 79 mm and U2 after 245 mm, 1.0 ns apart) is inside that margin;
   U11 on CLK_E only drives /OE.
+- **I/O select hold after /WE**: the port and PS/2 PLDs clock on /WE and
+  hold their registers while /PORT is high, so /PORT must stay low until
+  after /WE rises: +0.94 ns on the board (`port_sel_hold`).  The slot
+  selects hold +2.05 ns and the slot data +1.37 ns after /WE.
 - **RAM address hold after /WE**: +0.5 from the datasheets, +0.75 on the
   board; it rests on the CLK_E lead (≥ 420 mm of track).
 - **Line code register** (CD74HCT377): copies the mode byte from the pixel
@@ -286,7 +305,8 @@ per 8-clock group, with the CPU held at the PC by STALL_OUT
 
 ## Method
 
-- Board: `kicad/placard.kicad_pcb` (main 2026-11-03, PR #238 and #239) and
+- Board: `kicad/placard.kicad_pcb` (2026-11-03, PR #238 and #239, then
+  the expansion redesign of branch-111) and
   `kicad/cartridge_64k/cartridge_64k.kicad_pcb`.
 - Each length is the shortest path along the net's tracks and vias from
   the driving pin to the load pin, at 6 ps/mm
@@ -294,7 +314,8 @@ per 8-clock group, with the CPU held at the PC by STALL_OUT
 - The paths: `U11E=1 FIXED=CLK_E:X1-8:NT2-1 DUTY=0.5,0.5 python budgets.py
   kicad/placard.kicad_pcb out.json` in `src/scripts/router_v4` prints the
   slack of every check on the present tracks ("slack now"); DUTY=0.45,0.53
-  gives the worst case over that high-half range.  The I/O reads are
-  worked from the same track lengths by hand.  The 2026-11-02 scripts
+  gives the worst case over that high-half range.  The I/O reads
+  and the expansion slots are checks of the same script (`io_*`,
+  `slot_*`, `port_sel_hold`).  The 2026-11-02 scripts
   (`meas.py`, `timing.py`) are in the project files under
   `hardware/routing/timing_2026-11-02/`.

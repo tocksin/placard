@@ -1,21 +1,19 @@
 -- ============================================================
--- IO_DECODE  (VHDL conversion of ATF22V10_IO_DECODE.pld, Rev 06)
--- Date: 11/02/2026
+-- IO_DECODE  (VHDL conversion of ATF22V10_IO_DECODE.pld, Rev 07)
+-- Date: 11/03/2026
 --
--- Rev 02: comments only.  map_wr_n clocks the 74ACT273 map register.
--- Rev 03: the I/O window is 5000h-53FFh.  Pin 18 (was snd_wr_n, unused)
--- is the a11 input; exp1_n and exp2_n moved to pages 1 and 3.
--- Rev 06 (docs/timing/TIMING.md): pin 23 is q0, State PLD pin 18 (was
--- load_imm_n).  rd = io and LOAD_MEM (not pc_enable and not q0) and not
--- pixel_enable, so the read strobe no longer waits for STALL.
--- Rev 04: pin 23 is load_imm_n, active low, as the State PLD (Rev 13)
--- now drives it; the equations still use load_imm as logical true.
--- Rev 05 (docs/timing/FETCH_TIMING.md): the mux PLDs take the
--- address-source enables as their selects, so A15 is rebuilt from
--- pixel_enable, pc_enable and y_enable (pins 2, 3 and 14, which were
--- addr_sel, addr_sel_hi and rw).  rd = io and load_imm, without rw
--- (rw is always 1 where load_imm is low).  we_n now comes from the
--- Sync PLD.
+-- Rev 07 (docs/architecture/EXPANSION.md, "Card timing"): the I/O
+-- selects are decoded from the Y register (y7..y0), the address mux
+-- selects and x7, not from the mux output, so they are valid with the
+-- address (13 ns) instead of one PLD pass later.  The outputs are
+-- address-only selects: p0_n (page 0, was line_rd_n), port_n (page 2,
+-- was port_rd_n) and one select per slot, exp1_n..exp4_n (x7 picks
+-- the 128-byte half).  map_wr_n moved to the Sync PLD (Rev 12); the
+-- port and PS/2 PLDs make their own strobes from port_n, /WE and q0.
+-- Inputs a14..a8, a11, we_n and q0 are gone; pin 1 is unused.
+-- Rev 06: pin 23 was q0, rd = io and LOAD_MEM.
+-- Rev 05: A15 rebuilt from pixel_enable, pc_enable and y_enable.
+-- Rev 03: the I/O window is 5000h-53FFh.
 --
 -- I/O decode for 5000h-53FFh and the upper 32K chip enable.
 --
@@ -23,22 +21,24 @@
 -- mux selects and sources so it settles with the mux output:
 --     pixel_enable -> h9, else pc_enable -> pc15, else y_enable -> y7, else 0
 --
--- I/O pages (A11 = A10 = 0):
---     0  map_wr_n, line_rd_n     1  exp1_n
---     2  port_wr_n, port_rd_n    3  exp2_n
--- Writes are low with /WE; reads are low with LOAD_IMM.
+-- I/O selects (iosel = not pixel_enable, not pc_enable, y_enable,
+-- Y = 0101 00xx):
+--     5000h-50FFh  p0_n        5200h-52FFh  port_n
+--     5100h-517Fh  exp1_n      5300h-537Fh  exp2_n
+--     5180h-51FFh  exp3_n      5380h-53FFh  exp4_n
 --
 -- Equations are transcribed directly from the PLD source
 -- without optimization.  All pins are kept as individual
 -- std_logic signals.
 --
 -- Pin assignments (ATF22V10C):
---   1  we_n        2  pixel_enable 3  pc_enable   4  pc15
---   5  h9          6  y7          7  a14          8  a13
---   9  a12        10  a10        11  a9          13  a8
---  14  y_enable   18  a11        23  q0
---  15  ce_hi_n    16  map_wr_n   17  line_rd_n
---  19  port_wr_n  20  port_rd_n  21  exp1_n      22  exp2_n
+--   2  pixel_enable 3  pc_enable   4  pc15       5  h9
+--   6  y7          7  y6          8  y5          9  y4
+--  10  y2         11  y1         13  y0         14  y_enable
+--  18  y3         23  x7
+--  15  ce_hi_n    16  exp3_n     17  p0_n
+--  19  exp4_n     20  port_n     21  exp1_n     22  exp2_n
+--   Unused: pin 1
 -- ============================================================
 
 library ieee;
@@ -46,27 +46,26 @@ use ieee.std_logic_1164.all;
 
 entity io_decode_pld is
     port (
-        we_n        : in  std_logic;   -- pin 1, RAM /WE (Sync PLD since Rev 05)
-        pixel_enable : in std_logic;   -- pin 2, Sync PLD PIXEL_ENABLE (Rev 05, was addr_sel)
-        pc_enable   : in  std_logic;   -- pin 3, State PLD PC_ENABLE (Rev 05, was addr_sel_hi)
+        pixel_enable : in std_logic;   -- pin 2, Sync PLD PIXEL_ENABLE
+        pc_enable   : in  std_logic;   -- pin 3, State PLD PC_ENABLE
         pc15        : in  std_logic;   -- pin 4
         h9          : in  std_logic;   -- pin 5, video address bit 15
         y7          : in  std_logic;   -- pin 6
-        a14         : in  std_logic;   -- pin 7
-        a13         : in  std_logic;   -- pin 8
-        a12         : in  std_logic;   -- pin 9
-        a10         : in  std_logic;   -- pin 10
-        a9          : in  std_logic;   -- pin 11
-        a8          : in  std_logic;   -- pin 13
-        y_enable    : in  std_logic;   -- pin 14, State PLD Y_ENABLE (Rev 05, was rw)
-        a11         : in  std_logic;   -- pin 18 (rev 03, was snd_wr_n)
-        q0          : in  std_logic;   -- pin 23, State PLD state bit 0 (Rev 06, was load_imm_n)
+        y6          : in  std_logic;   -- pin 7  (Rev 07, was a14)
+        y5          : in  std_logic;   -- pin 8  (Rev 07, was a13)
+        y4          : in  std_logic;   -- pin 9  (Rev 07, was a12)
+        y2          : in  std_logic;   -- pin 10 (Rev 07, was a10)
+        y1          : in  std_logic;   -- pin 11 (Rev 07, was a9)
+        y0          : in  std_logic;   -- pin 13 (Rev 07, was a8)
+        y_enable    : in  std_logic;   -- pin 14, State PLD Y_ENABLE
+        y3          : in  std_logic;   -- pin 18 (Rev 07, was a11)
+        x7          : in  std_logic;   -- pin 23 (Rev 07, was q0)
 
         ce_hi_n     : out std_logic;   -- pin 15
-        map_wr_n    : out std_logic;   -- pin 16
-        line_rd_n   : out std_logic;   -- pin 17
-        port_wr_n   : out std_logic;   -- pin 19
-        port_rd_n   : out std_logic;   -- pin 20
+        exp3_n      : out std_logic;   -- pin 16 (Rev 07, was map_wr_n)
+        p0_n        : out std_logic;   -- pin 17 (Rev 07, was line_rd_n)
+        exp4_n      : out std_logic;   -- pin 19 (Rev 07, was port_wr_n)
+        port_n      : out std_logic;   -- pin 20 (Rev 07, was port_rd_n)
         exp1_n      : out std_logic;   -- pin 21
         exp2_n      : out std_logic    -- pin 22
     );
@@ -75,40 +74,26 @@ end entity io_decode_pld;
 architecture rtl of io_decode_pld is
 
     signal a15   : std_logic;
-    signal io    : std_logic;
-    signal page0 : std_logic;
-    signal page1 : std_logic;
-    signal page2 : std_logic;
-    signal page3 : std_logic;
-    signal wr    : std_logic;
-    signal rd    : std_logic;
+    signal iosel : std_logic;
 
 begin
-
 
     -- A15, rebuilt from the mux inputs
     a15 <= (pixel_enable and h9)
         or ((not pixel_enable) and pc_enable and pc15)
         or ((not pixel_enable) and (not pc_enable) and y_enable and y7);
 
-    -- I/O window and pages
-    io    <= (not a15) and a14 and (not a13) and a12 and (not a11) and (not a10);
-
-    page0 <= (not a10) and (not a9) and (not a8);
-    page1 <= (not a10) and (not a9) and (    a8);
-    page2 <= (not a10) and (    a9) and (not a8);
-    page3 <= (not a10) and (    a9) and (    a8);
-
-    wr    <= io and (not we_n);
-    rd    <= io and (not pc_enable) and (not q0) and (not pixel_enable);   -- Rev 06: LOAD_MEM, CPU owns the bus
+    -- I/O window from the Y register: Y = 50h - 53h
+    iosel <= (not pixel_enable) and (not pc_enable) and y_enable
+         and (not y7) and y6 and (not y5) and y4 and (not y3) and (not y2);
 
     -- outputs (pins are active low)
-    ce_hi_n   <= not a15;
-    map_wr_n  <= not (wr and page0);
-    line_rd_n <= not (rd and page0);
-    port_wr_n <= not (wr and page2);
-    port_rd_n <= not (rd and page2);
-    exp1_n    <= not (io and page1);
-    exp2_n    <= not (io and page3);
+    ce_hi_n <= not a15;
+    p0_n    <= not (iosel and (not y1) and (not y0));
+    exp1_n  <= not (iosel and (not y1) and (    y0) and (not x7));
+    exp3_n  <= not (iosel and (not y1) and (    y0) and (    x7));
+    port_n  <= not (iosel and (    y1) and (not y0));
+    exp2_n  <= not (iosel and (    y1) and (    y0) and (not x7));
+    exp4_n  <= not (iosel and (    y1) and (    y0) and (    x7));
 
 end architecture rtl;

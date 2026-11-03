@@ -37,8 +37,10 @@ Pipeline for a board: `mroute4.py` -> `tidy.py` -> `corner45.py` -> `score.py`.
 The timing model of `docs/timing/TIMING.md` becomes length limits the router honours.
 - `budgets.py board.kicad_pcb budgets.json` : every timing path (fetch, operand / X / Y / video / zero-page reads, store
   start, RW, STALL loop, cartridge ROM fetch, data setup, ALU single clock, and the expansion slots J9-J12 against the
-  card budget at the fingers of EXPANSION.md "Card timing": SLOTS=1, CARD_EXP / CARD_CTL / CARD_WE / CARD_DS / CARD_DH /
-  CARD_EH) is written with each board track length as a
+  card budget at the fingers of EXPANSION.md "Card timing": SLOTS=1, CARD_EXP / CARD_CTL / CARD_OE / CARD_WE / CARD_DS /
+  CARD_DH / CARD_EH; since 2026-11-03 the defaults are the plain AS7C256C-15 SRAM card, 16 / 16 / 8 / 13 / 9 / 2 / 2 ns,
+  with /EXPn from I/O decode rev 07 and Q0 on A10; plus the I/O reads `io_line_read`, `io_port_read` and the hold
+  `port_sel_hold`) is written with each board track length as a
   variable (6 ps/mm), as a set of linear slack forms, one per alternative path (address bit, data bit, RAM, duty-cycle end).
   Each form must keep `MARGIN` (0.5 ns) at both ends of `DUTY` (0.45,0.53); its lengths share the room in proportion to their
   straight pad-to-pad distance on the current placement (one detour ratio per form), and a length's budget is the smallest

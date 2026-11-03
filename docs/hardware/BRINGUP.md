@@ -801,9 +801,9 @@ the RAM and the map register:
 | 11 | X as the address low byte | the low address muxes (U7, U8), X_ENABLE |
 | 12 | ROM data (a 256-byte table) | the ROM chips' data and low address pins, /ROM_OE |
 | 13 | RAM data: [0,D], [0,X], [Y,X] in both chips | RAM data pins, /WE, /RAM_OE, the source buffers on a store, the series resistors, map bits 0 and 4 |
-| 14 | Map register, all 8 bits | ACT273 (U25), /MAP_WR, RUN, memory control RAMSEL pins |
+| 14 | Map register, all 8 bits | ACT273 (U25), /MAP_WR (Sync PLD U15 pin 22), RUN, memory control RAMSEL pins |
 | 15 | RAM address lines, both chips | RAM A14:A0, the lower chip's /CE (A15) and /CE_HI |
-| 16 | Video line read (x5000) | line read buffer (U29), /LINE_RD |
+| 16 | Video line read (x5000) | line read buffer (U29), /P0 and Q0 |
 
 The code that runs these tests uses only a few instructions before test 1
 (a jump and the map write), so a CPU that can't run the tests usually
@@ -994,8 +994,8 @@ and U3 out, program them with the two halves of the normal image
 | Ref | Part | Value or part number | Note |
 |---|---|---|---|
 | J9-J12 | Expansion slot, Molex 87715-9106 as the cartridge slot (optional) | Molex 87715-9106 | fit only the ones a card will use |
-| R51-R54 | Resistor, slot select (R51 for J9 ... R54 for J12) | 1k | one per fitted slot |
 
-The slots J9-J12 are optional: fit only the ones a card will use, each
-with its select resistor (R51 for J9 through R54 for J12, 1k).  With a
+The slots J9-J12 are optional: fit only the ones a card will use (each has
+its own select, /EXP1-/EXP4; the SEL resistors R51-R54 went with I/O decode
+PLD revision 07).  With a
 card in, the boot ROM finds it ([EXPANSION.md](../architecture/EXPANSION.md)).

@@ -47,8 +47,8 @@ U15 pin 9 to CLK at U15 pin 1).
 
 /WE is released while RUN is low (10k pull-up), so a boot card in slot 1
 can drive it ([EXPANSION.md](../architecture/EXPANSION.md)).  The I/O
-write strobes (/MAP_WR, /PORT_WR) are /WE through the I/O decode PLD, so
-they follow it.
+write strobes follow it: /MAP_WR is made in the Sync PLD with the /WE
+equation (revision 12), and the port PLD clocks on /WE itself (revision 05).
 
 ### End of the write
 

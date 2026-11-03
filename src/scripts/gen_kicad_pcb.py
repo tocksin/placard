@@ -45,7 +45,7 @@ Footprints: KiCad's own where it has the part, and the PRELIMINARY ones from
 gen_kicad_connectors.py otherwise (cartridge slot, expansion slots, PS/2,
 SNES, switches), whose hole patterns must be checked against the datasheets.
 
-Date: 2026-11-02
+Date: 2026-11-03
 """
 
 import glob
@@ -161,7 +161,7 @@ ROWS = [
     (ROW_Y[2], "below", [("at", 10.0, X_END), "U12", "U1", "U2", "U17", "U18", "U26",
                          ("block", 45.0, ["R5", "R6", "R7", "R8", "R9", "R10", "R11", "R12"])]),
     (ROW_Y[3], "below", [("at", 10.0, X_END), "U5", "U6", "U19", "U20", "U21", "U27",
-                         ("block", 50.0, ["R3", "R4", "JP1", "JP2", "R13", "R51", "R52", "R53", "R54"])]),
+                         ("block", 50.0, ["R3", "R4", "JP1", "JP2", "R13"])]),
     (ROW_Y[4], "below", [("at", 10.0, X_END), "U3", "U4", "U7", "U8", "U9", "U10",
                          ("block", 30.0, ["RN1"], 0)]),
     (ROW_Y[5], "below", [("at", 10.0, 132.0), ("block", 22.0, ["U40", "C40", "C47"]), "U38", "U42"]),

@@ -1,7 +1,7 @@
 Name     PORT;
 PartNo   00;
-Date     10/25/2026;
-Revision 04;
+Date     11/03/2026;
+Revision 05;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -29,10 +29,28 @@ Device   g22v10;
    and reads one clock line, RXCLK (the free device's clock, the two
    clock lines diode-ORed for the receiver), in place of the two.
 
+   SELECT AND STROBES (revision 05)
+      The I/O decode PLD (revision 07) no longer makes /PORT_WR and
+      /PORT_RD.  It gives one select for the page, /PORT on pin 2
+      (low for any access to 5200h-52FFh, from the Y register, valid
+      at 13 ns, the old /PORT_RD net), and:
+        - Pin 1 is /WE (Sync PLD pin 20).  The registers clock on
+          the rising edge of every /WE and load D4:D0 only when /PORT
+          is low; otherwise each one loads its own value back (a hold
+          term, 2 product terms per register).  The edge is the end
+          of the write, as /PORT_WR's was, but one I/O decode pass
+          (7.5 ns) earlier, which gives the data more hold time.
+          /PORT must hold past the /WE edge (tH 0): it only changes
+          after the state register's clock and one PLD pass, and
+          /WE rises on CLK_E, ahead of every other clock
+          (docs/timing/TIMING.md, "port_sel_hold").
+        - Pin 15 (spare before) is Q0, State PLD pin 18.  The reads
+          are PORT & !Q0 (LOAD_MEM), as /PORT_RD was.
+
    OUTPUT REGISTER (was the 74HC574)
-      Pin 1 is /PORT_WR (I/O decode PLD pin 19); the five registers
-      load D4:D0 on its rising edge, the end of a write to any x52xx,
-      as the 74HC574 did.  The setup time (3.5 ns) is shorter than
+      Pin 1 is /WE (revision 05; was /PORT_WR); the five registers
+      load D4:D0 on its rising edge at the end of a write to any
+      x52xx, as the 74HC574 did.  The setup time (3.5 ns) is shorter than
       the 74HC574's.  Data bits 7:5 are not stored any more (they
       were the column code); software may write anything there.
           bit 0  SCK, pads' CLOCK
@@ -64,23 +82,24 @@ Device   g22v10;
       and x5203 (A1 = 1); this PLD drives nothing there.  MISO is a
       3.3 V signal and goes straight to pin 13; the PLD's TTL input
       reads 2.0 V as high.  The output enable is 7.5 ns from
-      /PORT_RD, faster than the 74F541's 9.5 ns.
+      /PORT, faster than the 74F541's 9.5 ns.
 
    PIN BUDGET
-      Inputs (12): /PORT_WR (clock), /PORT_RD, A0, D0-D4, PAD1,
-                   PAD2, RXCLK, MISO on pin 13, and A1 on I/O pin 14
+      Inputs (13): /WE (clock), /PORT, A0, D0-D4, PAD1, PAD2,
+                   RXCLK, MISO on pin 13, A1 on I/O pin 14 and Q0 on
+                   I/O pin 15 (revision 05)
       Outputs (8):  SCK, MOSI, /CS, DATA hold, K0 (registered);
                     D5, D6, D7 (combinational, 3-state)
-      Pin 15 is spare.  D7 is two product terms, the rest one; the
-      data outputs have one more for the output enable.  One array
-      pass.
+      No spare pins.  The registers and D7 are two product terms,
+      D5 and D6 one; the data outputs have one more for the output
+      enable.  One array pass.
    ============================================================ */
 
 
 /* ---------------- INPUTS ---------------- */
 
-PIN 1  = !PORT_WR;     /* I/O decode PLD pin 19: clocks the registers on its rising edge */
-PIN 2  = !PORT_RD;     /* I/O decode PLD pin 20, low on a read of 5200h-52FFh */
+PIN 1  = !WE;          /* RAM /WE, Sync PLD pin 20: clocks the registers on its rising edge (revision 05; was /PORT_WR) */
+PIN 2  = !PORT;        /* I/O decode PLD pin 20, low for any access to 5200h-52FFh (revision 05; was /PORT_RD) */
 PIN 3  = A0;           /* address bit 0: 0 = MISO and PS/2 lines, 1 = pads */
 PIN 4  = D0;           /* data bus, written to the register */
 PIN 5  = D1;
@@ -92,7 +111,7 @@ PIN 10 = PAD2;         /* SNES pad 2 DATA (10k pull-up) */
 PIN 11 = RXCLK;        /* the free PS/2 device's clock (KBD_CLK and MOUS_CLK diode-ORed, 22k to GND) */
 PIN 13 = MISO;         /* SD card DO, 3.3 V (10k pull-up to 3.3 V) */
 PIN 14 = A1;           /* address bit 1: 1 = the PS/2 receiver's addresses, this PLD stays off the bus */
-                       /* pin 15 spare */
+PIN 15 = Q0;           /* State PLD pin 18, state bit 0: 0 in LOAD_MEM (I/O pin used as input, revision 05) */
 
 
 /* ---------------- OUTPUTS ---------------- */
@@ -110,11 +129,15 @@ PIN 23 = D7;           /* data bus bit 7, 3-state: MISO on even, pad 1 on odd re
 /* ---------------- EQUATIONS ---------------- */
 
 /* Output register: the pin follows the data bit written. */
-SCKN.D  = !D0;
-MOSIN.D = !D1;
-SDCS.D  =  D2;
-DHOLD.D = !D3;
-K0.D    =  D4;
+PORT_RD = PORT & !Q0;     /* revision 05: LOAD_MEM, as /PORT_RD was */
+
+/* Output register: the pin follows the data bit written while /PORT
+   is low, and holds on every other /WE (revision 05). */
+SCKN.D  =  PORT & !D0  #  !PORT & SCKN;
+MOSIN.D =  PORT & !D1  #  !PORT & MOSIN;
+SDCS.D  =  PORT &  D2  #  !PORT & SDCS;
+DHOLD.D =  PORT & !D3  #  !PORT & DHOLD;
+K0.D    =  PORT &  D4  #  !PORT & K0;
 
 D7    = !A0 & MISO
       #  A0 & PAD1;

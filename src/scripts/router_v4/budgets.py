@@ -24,10 +24,12 @@ tPD,tPDm,tCO,tCOm=7.5,3.0,5.5,2.0
 MARGIN=float(E('MARGIN','0.5')); DUTY=[float(x) for x in E('DUTY','0.45,0.53').split(',')]
 FIXED=set(E('FIXED','CLK_E:X1-8:NT2-1').split(',')); RMAX=float(E('RMAX','4')); FLOOR=float(E('FLOOR','3')); RFEAS=float(E('RFEAS','1.05'))
 WEC=E('WEC','1')=='1'; SLOTS=E('SLOTS','1')=='1'; HELP=E('HELP','man'); FIXFORCE=E('FIXFORCE','0')=='1'; U11E=E('U11E','0')=='1'
-# card budget at the slot fingers (ns), the reference card of EXPANSION.md "Card timing": read data from a register through a
-# 74F541 (/OE1 = /EXP, /OE2 = card PLD), write into a 74F377 (CP = /WE, /E = card PLD); 1 ns of card traces each way
-CARD_EXP=float(E('CARD_EXP','10.5')); CARD_CTL=float(E('CARD_CTL','18.0')); CARD_WE=float(E('CARD_WE','13.0'))
-CARD_DS=float(E('CARD_DS','3.0')); CARD_DH=float(E('CARD_DH','2.0')); CARD_EH=float(E('CARD_EH','2.0'))
+# card budget at the slot fingers (ns), the reference card of EXPANSION.md "Card timing" (I/O decode PLD rev 07): a plain
+# 15 ns SRAM (AS7C256C-15) with /CE = /EXPn, /OE = Q0, /WE = /WE and A6:A0 from the slot; 1 ns of card traces each way.
+# CARD_EXP = tACE 15 + 1, CARD_CTL = tAA 15 + 1 (A7:A0, RW, LOAD_IMM to data), CARD_OE = tOE 7 + 1 (Q0 to data),
+# CARD_WE = tCW 12 + 1 (select ready before /WE rises), CARD_DS = tDW 8 + 1, CARD_DH = tDH 0 + 2, CARD_EH = tAH 0 + 2
+CARD_EXP=float(E('CARD_EXP','16.0')); CARD_CTL=float(E('CARD_CTL','16.0')); CARD_OE=float(E('CARD_OE','8.0')); CARD_WE=float(E('CARD_WE','13.0'))
+CARD_DS=float(E('CARD_DS','9.0')); CARD_DH=float(E('CARD_DH','2.0')); CARD_EH=float(E('CARD_EH','2.0'))
 MINLEN=[m.split(':') for m in E('MINLEN','CLK_E:X1-8:NT2-1:420').split(',') if m]
 FIXLEN={tuple(m.split(':')[:3]):float(m.split(':')[3]) for m in E('FIXLEN','CLK_E:X1-8:NT2-1:459').split(',') if m}   # fixed lengths used while that net is not routed
 
@@ -146,6 +148,10 @@ def model(H,CART):
         hold.append(addr_sel('U1',PCE,r,tCOm,tPDm,MIN)+T-we_hi[r]); hold.append(addr_sel('U15',PIX,r,tCOm,tPDm,MIN)+T-we_hi[r])
     hold.append(T+MIN(cehi_from('U1','PC_ENABLE','U1-15',3,tCOm,tPDm),cehi_from('U15','PIXEL_ENABLE','U15-19',2,tCOm,tPDm))-we_hi['U32'])
     R['addr_hold']=MIN(hold)
+    # port PLD rev 05 registers clock on /WE (U38 pin 1) and load only while /PORT (U12 pin 20, from PC_ENABLE / Y_ENABLE
+    # of the next state) is low: /PORT must not change before /WE rises at U38 (ATF22V10C tH 0)
+    we_u38=T+C['U15E']+tPD+L('~{WE}','U15-20','U38-1')
+    R['port_sel_hold']=T+MIN(C['U1']+tCOm+L('PC_ENABLE','U1-15','U12-3'),C['U1']+tCOm+L('Y_ENABLE','U1-17','U12-14'))+tPDm+L('~{PORT}','U12-20','U38-2')-we_u38
     off=[]
     for r in ('U31','U32'):
         for i in range(8):
@@ -203,20 +209,21 @@ def model(H,CART):
     if SLOTS:
         # expansion slots J9-J12 (docs/architecture/EXPANSION.md "Card timing"): the board's side of an I/O read or write of a
         # card, checked against the card budget at the fingers (CARD_* below) so a card built to that budget always passes.
-        # I/O address [Y,X] in LOAD_MEM: X_ENABLE/Y_ENABLE select at the muxes; /EXP from the I/O decode PLD (U12).
-        xmux={8:('U7',22),9:('U7',23),10:('U8',22),11:('U8',23),12:('U9',22),13:('U9',23),14:('U10',22)}
-        u12={14:7,13:8,12:9,10:10,9:11,8:13,11:18}
-        tU12=MAX([C['U1']+tCO+L('Y_ENABLE','U1-17',f'{u}-4')+tPD+L(f'ADDR{a}',f'{u}-{p}',f'U12-{u12[a]}') for a,(u,p) in xmux.items()]+
-                 [C['U1']+tCO+L('Y_ENABLE','U1-17','U12-14'),C['U1']+tCO+L('PC_ENABLE','U1-15','U12-3'),C['U21']+10.5+L('Y7','U21-19','U12-6')])
+        # I/O address [Y,X] in LOAD_MEM: X_ENABLE/Y_ENABLE select at the muxes.  /EXPn (I/O decode PLD U12 rev 07) is decoded
+        # from the Y register, X7 and the mux selects: Y and X were loaded at least one clock earlier (an instruction before),
+        # so in the I/O clock only Y_ENABLE, PC_ENABLE and PIXEL_ENABLE change, and /EXPn is valid one pass after them.
+        tU12=MAX([C['U1']+tCO+L('Y_ENABLE','U1-17','U12-14'),C['U1']+tCO+L('PC_ENABLE','U1-15','U12-3'),
+                  C['U15']+tCO+L('PIXEL_ENABLE','U15-19','U12-2')])
+        tQ0=C['U1']+tCO   # Q0 (State PLD pin 18) falls at the start of LOAD_MEM
         SA={0:'A22',1:'A19',2:'A17',3:'A15',4:'A14',5:'B9',6:'B7',7:'A4'}
         SD={0:'A23',1:'B13',2:'B15',3:'B17',4:'B19',5:'B23',6:'B25',7:'B29'}
         lo={a:mux[a][:2] for a in range(8)}
         rd=[];wr=[];wd=[];dh=[];eh=[]
-        for j,e,ed in (('J9','~{EXP1}','U12-21'),('J10','~{EXP2}','U12-22'),('J11','~{EXP1}','U12-21'),('J12','~{EXP2}','U12-22')):
+        for j,e,ed in (('J9','~{EXP1}','U12-21'),('J10','~{EXP2}','U12-22'),('J11','~{EXP3}','U12-16'),('J12','~{EXP4}','U12-19')):
             addr=MAX([C['U1']+tCO+L('X_ENABLE','U1-16',f'{u}-3')+tPD+L(f'ADDR{a}',f'{u}-{p}',f'{j}-{SA[a]}') for a,(u,p) in lo.items()])
             exp=tU12+tPD+L(e,ed,f'{j}-A16')
             ctl=MAX(addr,C['U1']+tCO+L('RW','U1-23',f'{j}-B16'),C['U1']+tCO+L('~{LOAD_IMM}','U1-19',f'{j}-A20'))
-            dval=MAX(exp+CARD_EXP,ctl+CARD_CTL)
+            dval=MAX(exp+CARD_EXP,ctl+CARD_CTL,tQ0+L('Q0','U1-18',f'{j}-A10')+CARD_OE)
             for i in range(8): rd.append(T+C['U18']-(dval+L(f'DATABUS{i}',f'{j}-{SD[i]}',dests['U18'][i])+setup['U18']))
             wlo=T+C['U15E']+tPDm+L('~{WE}','U15-20',f'{j}-B24'); whi=T+C['U15E']+tPD+L('~{WE}','U15-20',f'{j}-B24')
             wr.append(wlo-(MAX(exp,ctl)+CARD_WE))
@@ -228,10 +235,21 @@ def model(H,CART):
                     dh.append(off-whi-CARD_DH)
             achg=T+MIN([C['U1']+tCOm+MIN(L('PC_ENABLE','U1-15',f'{u}-2'),L('X_ENABLE','U1-16',f'{u}-3'))+tPDm+L(f'ADDR{a}',f'{u}-{p}',f'{j}-{SA[a]}') for a,(u,p) in lo.items()])
             eh.append(achg+CARD_EH-whi)
+        # the board's own I/O reads (I/O decode rev 07): line read F541 U29 (/OE1 = /P0, /OE2 = Q0), port PLD U38 and PS/2
+        # PLD U42 (output enable from /PORT, Q0 and A1:A0), into D (U18)
+        xaddr=lambda a,dst: C['U1']+tCO+L('X_ENABLE','U1-16',f'{mux[a][0]}-3')+tPD+L(f'ADDR{a}',f'{mux[a][0]}-{mux[a][1]}',dst)
+        p0=tU12+tPD+L('~{P0}','U12-17','U29-1')
+        en29=MAX(p0,tQ0+L('Q0','U1-18','U29-19'))+9.5
+        R['io_line_read']=MIN([T+C['U18']-(en29+L(f'DATABUS{i}',f'U29-{18-i}',dests['U18'][i])+setup['U18']) for i in range(8)])
+        pr=[]
+        for u,pp,pq,pa0,pa1,outs in (('U38','2','15','3','14',{5:'21',6:'22',7:'23'}),('U42','3','7','5','6',{i:str(16+i) for i in range(8)})):
+            en=MAX(tU12+tPD+L('~{PORT}','U12-20',f'{u}-{pp}'),tQ0+L('Q0','U1-18',f'{u}-{pq}'),xaddr(0,f'{u}-{pa0}'),xaddr(1,f'{u}-{pa1}'))+tPD
+            for i,o in outs.items(): pr.append(T+C['U18']-(en+L(f'DATABUS{i}',f'{u}-{o}',dests['U18'][i])+setup['U18']))
+        R['io_port_read']=MIN(pr)
         R['slot_read']=MIN(rd); R['slot_write_select']=MIN(wr); R['slot_write_data']=MIN(wd)
         R['slot_data_hold']=MIN(dh); R['slot_select_hold']=MIN(eh)
     return R
-HOLD={'addr_hold','data_hold','slot_data_hold','slot_select_hold'}
+HOLD={'addr_hold','data_hold','port_sel_hold','slot_data_hold','slot_select_hold'}
 
 def main():
     pcb,out=sys.argv[1:3]

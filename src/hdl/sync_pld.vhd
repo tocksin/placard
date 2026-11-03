@@ -1,15 +1,19 @@
 --------------------------------------------------------------------------------
 -- Name     VGA_SYNC
 -- PartNo   01
--- Date     2026-11-02
--- Revision 11
+-- Date     2026-11-03
+-- Revision 12
 -- Designer Justin
 -- Company
 -- Assembly
 -- Location
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 11)
+-- Converted from WinCUPL source ATF22V10_SYNC.pld (Revision 12)
+--
+-- Revision 12: /MAP_WR (pin 22), the map register clock, moved here from
+-- the I/O decode PLD (rev 07), made from the page 0 select /P0 (pin 21)
+-- with the /WE equation.
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP/SOIC; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = CLK
@@ -32,7 +36,8 @@
 --   PIN 18 = VSYNC             (combinatorial output, ACTIVE LOW)
 --   PIN 19 = PIXEL_ENABLE      (registered output)
 --   PIN 20 = /WE               (combinatorial output, ACTIVE LOW, OE = RUN; revision 10, was ADDR_SEL)
---   PIN 21, 22 free            (revision 10; were ADDR_SEL_HI and ADDR_SEL_LO)
+--   PIN 21 = /P0               (input, ACTIVE LOW, I/O decode PLD pin 17; revision 12)
+--   PIN 22 = /MAP_WR           (combinatorial output, ACTIVE LOW; revision 12)
 --   PIN 23 = V_VIDEO_ACTIVE    (registered output)
 --------------------------------------------------------------------------------
 
@@ -91,6 +96,10 @@ entity sync_pld is
 
         WE_N             : out std_logic;   -- PIN 20  (active low; floats while RUN = 0 on the real part)
 
+        -- Map register write strobe (revision 12)
+        P0_N             : in  std_logic;   -- PIN 21  (active low, I/O decode PLD pin 17: page 0 select)
+        MAP_WR_N         : out std_logic;   -- PIN 22  (active low, map register clock)
+
         -- Vertical active-region state (registered).
         -- Needed internally by VIDEN, PIXEL_ENABLE and VSYNC.
         -- Brought out on pin 23 because the 22V10 has no buried registers.
@@ -103,7 +112,7 @@ entity sync_pld is
         "CLK:1 V9:2 V5:3 V4:4 V3:5 V2:6 V1:7 H_VIDEO_ACTIVE:8 " &
         "CLK_E:9 RW:10 RUN:11 BLANK_RD:13 " &
         "H0:14 H1:15 H2:16 VIDEN:17 VSYNC:18 PIXEL_ENABLE:19 " &
-        "WE_N:20 V_VIDEO_ACTIVE:23";
+        "WE_N:20 P0_N:21 MAP_WR_N:22 V_VIDEO_ACTIVE:23";
 end entity sync_pld;
 
 
@@ -326,6 +335,10 @@ begin
     -- Revision 11: /WE also waits for CLK, so it falls on the later edge
     -- and still rises on CLK_E (the same clock in the FPGA model).
     WE_N <= not ((not CLK_E) and (not CLK) and (not RW) and (not PIXEL_ENABLE_Q));
+
+    -- Revision 12: the map register strobe, /WE's equation and the page 0
+    -- select (MAP_WR = !CLK_E & !CLK & !RW & !PIXEL_ENABLE & P0).
+    MAP_WR_N <= not ((not CLK_E) and (not CLK) and (not RW) and (not PIXEL_ENABLE_Q) and (not P0_N));
 
 
     -- ============================================================
