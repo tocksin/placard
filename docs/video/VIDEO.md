@@ -1,6 +1,6 @@
 # VGA Timing Generator
 
-Date: 2026-11-02
+Date: 2026-11-03
 
 ## Overview
 
@@ -156,7 +156,7 @@ not in pin order.  The source names them Q9:Q0.
 ## Sync Decoder / Pixel counter PLD
 
 ### Function
-The Sync Decoder / Pixel Counter PLD (`ATF22V10_SYNC.pld`, revision 11)
+The Sync Decoder / Pixel Counter PLD (`ATF22V10_SYNC.pld`, revision 12)
 contains the three lowest horizontal count bits.  These bits select the
 individual pixel within an 8-pixel video byte, and go straight to the color
 decoder.  They run two clocks behind the H counter's group: H2:H0 is 110 in
@@ -171,6 +171,8 @@ It also generates:
 - The RAM write strobe /WE: it falls with CLK and rises on the early clock
   tap CLK_E (revision 11; from CLK_E alone in revision 10, the address-mux
   selects ADDR_SEL, ADDR_SEL_HI and ADDR_SEL_LO before)
+- The ROM/RAM map register clock /MAP_WR: /WE's term gated by the I/O
+  decode PLD's /P0 (revision 12; it was in the I/O decode PLD before)
 - V_VIDEO_ACTIVE, the vertical active-region state
 
 ### Vertical Timing
@@ -211,12 +213,12 @@ video reads.
 | 18 | `/VSYNC` | Output | Vertical sync, active low; to VGA pin 14 through R62 (47 ohm) |
 | 19 | `PIXEL_ENABLE` | Output | Video read, clock 1 of each group (registered) |
 | 20 | `/WE` | Output | RAM write strobe, low in the low half of a store clock; floats while RUN is low |
-| 21 | — | Free | |
-| 22 | — | Free | |
+| 21 | `/P0` | Input | Page x50 select from the I/O decode PLD (revision 07) |
+| 22 | `/MAP_WR` | Output | ROM/RAM map register write: `!CLK_E & !CLK & !RW & !PIXEL_ENABLE & P0` (Sync revision 12) |
 | 23 | `V_VIDEO_ACTIVE` | Output | Vertical active region, counts 544-1023 (registered) |
 | 24 | `VCC` | Power | +5 V |
 
-Pins 21 and 22 are free.  V0 and V8:V6 are not needed: each vertical decode
+V0 and V8:V6 are not needed: each vertical decode
 covers two counts at once.
 
 ```text
@@ -234,6 +236,8 @@ PIXEL_ENABLE.D = (V_VIDEO_ACTIVE & H_VIDEO_ACTIVE # BLANK_RD) & H2 & H1 & !H0;
 VSYNC = V9 & !V_VIDEO_ACTIVE & V4 & !V3 & V2 & !V1;      /* counts 532-533; pin declared !VSYNC */
 
 WE = !CLK_E & !CLK & !RW & !PIXEL_ENABLE;   /* pin declared !WE; WE.OE = RUN (revision 11: & !CLK) */
+
+MAP_WR = !CLK_E & !CLK & !RW & !PIXEL_ENABLE & P0;   /* pin declared !MAP_WR (revision 12) */
 ```
 
 (The equations are written compactly here; the source spells them out.)
