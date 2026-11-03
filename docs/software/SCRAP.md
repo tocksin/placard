@@ -42,9 +42,10 @@ need you next to it, diagonals count):
 | HOLD OPEN | opens a door and keeps it open: it stays open behind you (the panel says HELD OPEN) until you CLOSE it.  The doors that start open are held open |
 | WALK HERE | walks toward the cell, across first, then up or down |
 | INSPECT | a line about it on the message row |
-| CUT FREE | a part in the wreck is BOLTED: cutting takes 1.5 s and 5 % of the suit battery, and needs a working cutter in a hand.  Walking away stops it |
-| UNINSTALL | a part INSTALLED in the tug: 1 s by hand (no cutter), then it is LOOSE |
-| INSTALL | a LOOSE ship part on one of the tug's cells (O2 tank, scrubber, battery, fuel tank, helm, bunk, locker): 1 s, then it is INSTALLED and part of the tug.  Cargo and the cutter can't be installed |
+| CUT FREE | a part in the wreck is BOLTED: cutting takes 1.5 s and 5 % of the suit battery, and needs a working cutter in a hand.  Walking away stops it.  The wreck's walls, decks and doors cut out the same way, into a wall panel, a door kit or a deck plate |
+| UNINSTALL | a part INSTALLED in the tug: 1 s by hand (no cutter), then it is LOOSE.  On the tug the walls, decks and doors uninstall too (not the cell you stand on): a wall leaves a WALL PANEL lying on the deck, a door a PRESSURE DOOR kit, and a deck goes into a free carry slot as a LOOSE DECK PLATE, leaving open space |
+| INSTALL | a LOOSE ship part on one of the tug's cells (O2 tank, scrubber, battery, fuel tank, helm, bunk, locker): 1 s, then it is INSTALLED and part of the tug.  A wall panel installs as a wall, a door kit as a closed door.  Cargo and the cutter can't be installed |
+| LAY DECK PLATE | open space next to you, with a deck plate in a carry slot: it is a deck now |
 | PICK UP | a LOOSE part goes into the first free carry slot: left hand, right hand, back |
 | PUT DOWN LEFT HAND / RIGHT HAND / FROM BACK | on a bare deck next to you |
 | REFILL SUIT FROM IT | a full O2 tank fills the suit (11 L less for each damage step) and is empty after |
@@ -62,10 +63,22 @@ With air, the tug tops up its rooms and fills your suit (3 L a second),
 and with a battery installed it charges your suit.  Uninstall its O2
 tank and the tug has no air until you install one again.
 
-**Air.**  Each room (the cells joined side by side, found by
-`gen_scrap.py`) has a pressure of 0-100.  Every 8 frames, each open door
-and the airlocks share their two rooms' air (the average), a hull breach
-lets an eighth of its room's air out, and the tug tops up its own rooms.
+**Building.**  The tug is the cells x 0-19, y 18-46: its hull and the
+space round it, so it can grow there.  Take walls out to join rooms, lay
+deck plates on open space and put walls and doors round them to add
+rooms.  Every change to a wall, deck or door works the rooms out again.
+
+**Air.**  Each room (the cells joined side by side) has a pressure of
+0-100.  `rooms_build` works the rooms out at the start and after every
+change to the ship, in the same order as `gen_scrap.py`'s `rooms()`: a
+new room's pressure is the average of its cells' old ones (a cell that
+was not air brings none).  Every 8 frames, each open door and the
+airlocks share their two rooms' air (the average), and the tug tops up
+its own rooms (working the rooms out takes about 0.3 s, a short pause in the game).  A room next to vacuum (a hull breach, open space where a
+deck or wall was taken out, the edge of the map) loses an eighth of its
+air, and one more.  A wall or a closed door at 50 % damage or worse leaks:
+a unit a tick to the room on its other side when that has less, two to
+vacuum.  The KESTREL 9 has a cracked hull wall in its vented section.
 A deck in a room under 40 is drawn frosted.  In a room under 60 your suit
 uses its own O2, 1 L a second (90 L is a minute and a half).  The
 warnings show on the message row in red, and a worse one shows at once:
@@ -111,6 +124,7 @@ broken: the info line says `WORKS AT nn%` or `BROKEN - NEEDS REPAIR`.
 | x3400-x38FF | tables (gen_scrap.py): the doors, damage bars and rooms, actions, names and values, info lines |
 | x3900-x3FFF | the cell art, 4 cells a page (25 kinds now, room for 28) |
 | x4000-x407F | each room's pressure, and whether it is cold |
+| x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |
 | x5400-x55FF | sector buffer for loading `SCRAP.OVL` |
 | even pages x60-xBE | the map: 96 x 64 cells in 24 chunks of 16 x 16 |
 | odd pages x61-xBF | the screen (2x repeat leaves the even pages free) |
@@ -119,9 +133,9 @@ Chunk k (k = 6 (y / 16) + x / 16) is page x60 + 4k (the cell types) and
 x62 + 4k (the flags).  A type byte is the type (bits 4-0), bits 5-4 of
 the cell's room (at 6-5) and bit 7 (a part: bolted, or on the tug
 installed; an open door: held open); a flag byte is the damage
-(bits 3-0) and bits 3-0 of the room (at 7-4).  A door's room is the room
-on one side of it; `gen_scrap.py` lists the doors with the rooms on both
-sides.  `SCRAP.OVL` is those 48
+(bits 3-0) and bits 3-0 of the room (at 7-4).  A link (a door, an airlock
+or a broken wall) has the room of one side; `rooms_build` lists the links
+(64 at most) with the rooms on both sides, 0 for vacuum.  `SCRAP.OVL` is those 48
 pages in order (12 KB), then the program's pages for xC0 up, read
 straight from the card.  A later phase pages
 bigger maps from the card a chunk at a time.
@@ -160,5 +174,10 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
 - opening the vented section: the corridor's air drops, the decks frost,
   the suit uses its O2;
 - each warning, suffocating, and Enter starting again;
+- the rooms `rooms_build` works out against `gen_scrap.py`'s `rooms()`,
+  at the start and after each change below;
+- a deck plate taken up (the room leaks) and laid again; a wall
+  uninstalled (two rooms join, and a broken hull wall leaks), carried,
+  put down and installed (two rooms again);
 - refilling the suit from a tank (it stays installed);
 - Esc back to the DOS.

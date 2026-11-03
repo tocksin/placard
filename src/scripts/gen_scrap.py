@@ -143,6 +143,18 @@ ART = {
                '77BAB770', '77BBB770', '77BBB770', '77B4B770', '77BBB770',
                '7B666B70', '7B666B70', '7B666B70', '77BBB770', '77777770',
                '00000000'],
+    'panel': ['77777770', '7BBBBBB0', '7BABBBB0', '7BBBBBB0', '7BBBB7B0',
+              '7BBBBBB0', '7BBBBBB0', '7777777B', '7BABBBB0', '7BBBBBB0',
+              '7BBBBBB0', '7BBB7BB0', '7BBBBBB0', '7BBBBBB0', '77777770',
+              '00000000'],
+    'doork': ['77777770', '7BBBBBB0', '7B6666B0', '7B6D6DB0', '7B6666B0',
+              '7BE0E0B0', '7B0E0EB0', '7BE0E0B0', '7B6666B0', '7B6D6DB0',
+              '7B6666B0', '7B6666B0', '7BBBBBB0', '77777770', '77777770',
+              '00000000'],
+    'plate': ['11111111', '1777777B', '17B77B7B', '1777777B', '1777777B',
+              '1777777B', '1777777B', '1777777B', '1777777B', '1777777B',
+              '1777777B', '1777777B', '17B77B7B', '1777777B', '1BBBBBBB',
+              '11111111'],
     'player': ['77777777', '77AAAA77', '7AA88AA7', '7A8888A7', '7AA88AA7',
                '77AAAA77', '7BAAAAB7', 'BAAAAAAB', 'BAAEEAAB', 'BAAAAAAB',
                '7BAAAAB7', '77AAAA77', '7AA77AA7', '7AA77AA7', '7BB77BB7',
@@ -161,39 +173,42 @@ F_WALK = 0x01       # the player can stand on it
 F_DMG = 0x02        # it has a damage score worth showing
 F_ITEM = 0x04       # a part or tool that can be cut free and carried
 F_INST = 0x08       # a part that can be installed in the tug (a ship system)
+F_STRUCT = 0x10     # the ship itself: a wall, deck or door (UNINSTALL / CUT FREE)
+F_SOLID = 0x20      # not air: the rooms end at it
+F_VAC = 0x40        # vacuum: a room next to it leaks
 
 A_OPEN, A_CLOSE, A_INSPECT, A_WALK = 1, 2, 3, 4
 A_PICK, A_CUT, A_PUTL, A_PUTR, A_PUTB, A_REFILL = 5, 6, 7, 8, 9, 10
-A_HOLD, A_INSTALL, A_UNINST = 11, 12, 13
+A_HOLD, A_INSTALL, A_UNINST, A_LAY = 11, 12, 13, 14
 ACTIONS = {A_OPEN: 'OPEN', A_CLOSE: 'CLOSE', A_INSPECT: 'INSPECT', A_WALK: 'WALK HERE',
            A_PICK: 'PICK UP', A_CUT: 'CUT FREE', A_PUTL: 'PUT DOWN LEFT HAND',
            A_PUTR: 'PUT DOWN RIGHT HAND', A_PUTB: 'PUT DOWN FROM BACK',
            A_REFILL: 'REFILL SUIT FROM IT', A_HOLD: 'HOLD OPEN', A_INSTALL: 'INSTALL',
-           A_UNINST: 'UNINSTALL'}
+           A_UNINST: 'UNINSTALL', A_LAY: 'LAY DECK PLATE'}
 
 TYPES = [
     # key, art, name, flags, info lines, actions, inspect
-    ('SPACE', 'space', 'OPEN SPACE', 0,
-     ['VACUUM.  NO AIR, NO FLOOR.'], [A_INSPECT],
+    ('SPACE', 'space', 'OPEN SPACE', F_SOLID | F_VAC,
+     ['VACUUM.  NO AIR, NO FLOOR.', 'LAY A DECK PLATE HERE TO BUILD ON IT'], [A_INSPECT],
      'NOTHING OUT THERE BUT DEBRIS AND COLD.'),
-    ('STAR', 'star', 'OPEN SPACE', 0,
-     ['VACUUM.  NO AIR, NO FLOOR.'], [A_INSPECT],
+    ('STAR', 'star', 'OPEN SPACE', F_SOLID | F_VAC,
+     ['VACUUM.  NO AIR, NO FLOOR.', 'LAY A DECK PLATE HERE TO BUILD ON IT'], [A_INSPECT],
      'A DISTANT STAR.  NOT FOR SALE.'),
-    ('FLOOR', 'floor', 'DECK PLATE', F_WALK | F_DMG,
-     ['STEEL DECK PLATE', 'WALKABLE'], [A_WALK, A_INSPECT],
+    ('FLOOR', 'floor', 'DECK PLATE', F_WALK | F_DMG | F_STRUCT,
+     ['STEEL DECK PLATE', 'WALKABLE', 'TAKEN UP, IT LEAVES OPEN SPACE'], [A_WALK, A_INSPECT],
      'SCUFFED DECK PLATE.  SOMEONE WALKED HERE A LOT.'),
-    ('WALL', 'wall', 'BULKHEAD', F_DMG,
-     ['STEEL BULKHEAD, AIRTIGHT', 'HOLDS AIR WHILE UNDER 50% DAMAGE',
-      'CUT FREE WITH A CUTTER (LATER PHASE)'], [A_INSPECT],
+    ('WALL', 'wall', 'BULKHEAD', F_DMG | F_STRUCT | F_SOLID,
+     ['STEEL BULKHEAD, AIRTIGHT', 'LEAKS AIR FROM 50% DAMAGE',
+      'TUG: UNINSTALL.  WRECK: CUT FREE'], [A_INSPECT],
      'A SOLID BULKHEAD.  THE PAINT SAYS DECK 2.'),
-    ('DOOR', 'door', 'DOOR (CLOSED)', F_DMG,
-     ['PRESSURE DOOR, SEALS WHEN CLOSED', '\x01',
+    ('DOOR', 'door', 'DOOR (CLOSED)', F_DMG | F_STRUCT | F_SOLID,
+     ['PRESSURE DOOR, SEALS UNDER 50% DAMAGE', '\x01',
       'OPENS WHEN YOU WALK INTO IT', 'CLOSES BEHIND YOU UNLESS HELD OPEN'],
      [A_OPEN, A_HOLD, A_INSPECT],
      'A PRESSURE DOOR.  THE HAZARD STRIPES ARE FADED.'),
-    ('DOORO', 'dooro', 'DOOR (OPEN)', F_WALK | F_DMG,
+    ('DOORO', 'dooro', 'DOOR (OPEN)', F_WALK | F_DMG | F_STRUCT | F_SOLID,
      ['PRESSURE DOOR, OPEN', '\x01', 'AIR FLOWS THROUGH IT',
-      'CLOSES BEHIND YOU UNLESS HELD OPEN'], [A_CLOSE, A_HOLD, A_WALK, A_INSPECT],
+      'CLOSES BEHIND YOU UNLESS HELD OPEN'], [A_CLOSE, A_HOLD, A_INSPECT],
      'AN OPEN PRESSURE DOOR.'),
     ('O2', 'o2', 'O2 TANK', F_DMG | F_ITEM | F_INST,
      ['CAPACITY 120 L, FULL', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
@@ -219,7 +234,7 @@ TYPES = [
     ('LOCKER', 'locker', 'LOCKER', F_DMG | F_ITEM | F_INST,
      ['STEEL LOCKER, 4 SLOTS', '\x01', 'MAY HOLD GEAR (LATER PHASE)'], [A_INSPECT],
      'A LOCKER.  THE LOCK IS RUSTED SHUT.'),
-    ('TURRET', 'turret', 'SECURITY TURRET', F_DMG,
+    ('TURRET', 'turret', 'SECURITY TURRET', F_DMG | F_SOLID,
      ['WALL TURRET, ARC TYPE', '\x01', 'DORMANT - NO POWER'], [A_INSPECT],
      'A SECURITY TURRET.  ITS LIGHT IS DARK, FOR NOW.'),
     ('PIPE', 'pipe', 'POWER CONDUIT', F_WALK | F_DMG,
@@ -228,13 +243,13 @@ TYPES = [
     ('VENT', 'vent', 'DECK (NO AIR)', F_WALK | F_DMG,
      ['DECK PLATE IN VACUUM', 'THIS ROOM HAS LOST ITS AIR', 'YOUR SUIT AIR ONLY'], [A_WALK, A_INSPECT],
      'FROST ON THE DECK.  THE AIR IS GONE.'),
-    ('LOCK', 'lock', 'AIRLOCK', F_WALK | F_DMG,
+    ('LOCK', 'lock', 'AIRLOCK', F_WALK | F_DMG | F_SOLID,
      ['DOCKING AIRLOCK', '\x01', 'JOINS THE TUG TO THE WRECK'], [A_WALK, A_INSPECT],
      'A DOCKING AIRLOCK.  THE SEAL IS HOLDING.'),
     ('TUBE', 'tube', 'DOCKING TUBE', F_WALK | F_DMG,
      ['FLEXIBLE DOCKING TUBE', 'PRESSURIZED'], [A_WALK, A_INSPECT],
      'THE DOCKING TUBE FLEXES UNDER YOUR BOOTS.'),
-    ('THRUST', 'thrust', 'THRUSTER', F_DMG,
+    ('THRUST', 'thrust', 'THRUSTER', F_DMG | F_SOLID,
      ['MAIN THRUSTER, 2 KN', '\x01', 'BOLTED TO THE HULL'], [A_INSPECT],
      'A THRUSTER NOZZLE, BLACK WITH SOOT.'),
     ('FUEL', 'fuel', 'FUEL TANK', F_DMG | F_ITEM | F_INST,
@@ -243,7 +258,7 @@ TYPES = [
     ('SCRUB', 'scrub', 'AIR SCRUBBER', F_DMG | F_ITEM | F_INST,
      ['CO2 SCRUBBER', '\x01', 'INSTALLED WITH AN O2 TANK: THE TUG HAS AIR'], [A_INSPECT],
      'AN AIR SCRUBBER.  THE FILTERS NEED CHANGING.'),
-    ('BREACH', 'breach', 'HULL BREACH', 0,
+    ('BREACH', 'breach', 'HULL BREACH', F_SOLID | F_VAC,
      ['A HOLE IN THE HULL', 'AIR ESCAPES THROUGH HERE'], [A_INSPECT],
      'SOMETHING PUNCHED RIGHT THROUGH THE HULL.'),
     ('O2E', 'o2e', 'EMPTY O2 TANK', F_DMG | F_ITEM | F_INST,
@@ -254,14 +269,26 @@ TYPES = [
      ['HAND TOOL: CUTS PARTS FREE', '\x01', 'WORKS FROM A HAND, NOT YOUR BACK',
       'A CUT USES 5% OF THE SUIT BATTERY'], [A_INSPECT],
      'A PLASMA CUTTER.  KEEP YOUR FINGERS CLEAR.'),
+    ('PANEL', 'panel', 'WALL PANEL', F_DMG | F_ITEM | F_INST,
+     ['A BULKHEAD SECTION, TAKEN OUT', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
+      'INSTALL IT ON THE TUG: A WALL'], [A_INSPECT],
+     'A SECTION OF BULKHEAD.  THE BOLT HOLES ARE CLEAN.'),
+    ('DOORK', 'doork', 'PRESSURE DOOR', F_DMG | F_ITEM | F_INST,
+     ['A DOOR AND ITS FRAME, TAKEN OUT', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
+      'INSTALL IT ON THE TUG: A DOOR'], [A_INSPECT],
+     'A PRESSURE DOOR IN ITS FRAME, READY TO FIT.'),
+    ('PLATE', 'plate', 'LOOSE DECK PLATE', F_DMG | F_ITEM,
+     ['A DECK PLATE, TAKEN UP', '\x01', 'LAY IT ON OPEN SPACE NEXT TO YOU'], [A_INSPECT],
+     'A STEEL DECK PLATE.  IT RINGS WHEN YOU TAP IT.'),
     ('PLAYER', 'player', 'YOU', 0, [], [], ''),
 ]
 TYPE = {t[0]: i for i, t in enumerate(TYPES)}
 # what a part is worth undamaged, in $10 (the tug's value: less with damage)
 VALUE = {'O2': 20, 'O2E': 8, 'REACT': 250, 'BATT': 30, 'CRATE': 15, 'BUNK': 5,
          'HELM': 60, 'LOCKER': 6, 'TURRET': 40, 'THRUST': 50, 'FUEL': 25,
-         'SCRUB': 35, 'CUTTER': 12}
-TUG = (3, 26, 19, 38)               # the tug's cells, x0, y0, x1, y1 (its value, its systems)
+         'SCRUB': 35, 'CUTTER': 12, 'PANEL': 3, 'DOORK': 8, 'PLATE': 2}
+TUG = (0, 18, 19, 46)               # the tug's cells, x0, y0, x1, y1 (its value, its systems,
+                                    # room to build on round its hull)
 AIR_FULL = 100                      # a room's pressure: 100 = 1 atmosphere
 assert len(TYPES) <= 32
 
@@ -285,6 +312,8 @@ MESSAGES = [   # (label, text): the strings scrap.masm prints
     ('s_uninstdone', 'UNINSTALLED.  IT CAN BE PICKED UP NOW.'),
     ('s_installed', 'INSTALLED'),
     ('s_held', 'HELD OPEN'),
+    ('s_plate', 'THE DECK PLATE IS YOURS - OPEN SPACE UNDER IT NOW.'),
+    ('s_laid', 'DECK PLATE LAID.'),
     ('s_refill', 'SUIT REFILLED.  THE TANK IS EMPTY NOW.'),
     ('s_broken', 'IT IS BROKEN - IT DOES NOT WORK.'),
     ('s_pl_suit', 'SUIT   MK1 WORK SUIT     O2 '),
@@ -439,58 +468,80 @@ def build_map(seed=9):
             else:
                 d[y][x] = rnd.randint(1, 12)
     d[50][70] = 9                       # a few worth reading about
+    d[46][76] = 5                       # the vented section's doors hold
+    d[52][62] = 3
+    d[49][90] = 10                      # a cracked hull wall: it leaks
     d[42][36] = 3
     return t, d
 
 
-NOT_AIR = ('SPACE', 'STAR', 'WALL', 'DOOR', 'DOORO', 'BREACH', 'THRUST', 'TURRET', 'LOCK')
 DOORS = ('DOOR', 'DOORO', 'LOCK')   # a lock is a door that is always open
 
 
-def rooms(t):
-    """the rooms: (room id of every cell, doors [(x, y, room a, room b)],
-    the rooms that leak through a breach, the start pressures, the tug's
-    rooms).  A room is the air cells joined side by side; a door cell gets
-    the room of a cell next to it."""
+def solid(k):
+    return bool(TYPES[TYPE[k]][3] & F_SOLID)
+
+
+def vac(k):
+    return bool(TYPES[TYPE[k]][3] & F_VAC)
+
+
+def rooms(t, d=None):
+    """the rooms, as scrap.masm's rooms_build works them out (at the start
+    and after the ship is changed): (room id of every cell, the links
+    [(x, y, room a, room b)], the rooms that leak, the start pressures, the
+    tug's rooms).  A room is the air cells joined side by side (63 at most).
+    A link is a door or airlock, or a wall from 50 % damage, with a room or
+    vacuum (0) on two opposite sides; it gets the room of a side.  A room
+    leaks when an air cell of it (not the docking tube) is next to vacuum
+    or the map's edge."""
     rid = [[0] * MAP_W for _ in range(MAP_H)]
+    leaks = set()
     n = 0
     for y in range(MAP_H):
         for x in range(MAP_W):
-            if rid[y][x] or TYPES[t[y][x]][0] in NOT_AIR:
+            if rid[y][x] or solid(TYPES[t[y][x]][0]):
                 continue
-            n += 1
+            n = min(n + 1, 63)
             todo = [(x, y)]
             rid[y][x] = n
             while todo:
                 cx, cy = todo.pop()
+                tube = TYPES[t[cy][cx]][0] == 'TUBE'
                 for nx, ny in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
-                    if (0 <= nx < MAP_W and 0 <= ny < MAP_H and not rid[ny][nx]
-                            and TYPES[t[ny][nx]][0] not in NOT_AIR):
+                    if not (0 <= nx < MAP_W and 0 <= ny < MAP_H):
+                        if not tube:
+                            leaks.add(n)
+                        continue
+                    k = TYPES[t[ny][nx]][0]
+                    if vac(k) and not tube:
+                        leaks.add(n)
+                    if not rid[ny][nx] and not solid(k):
                         rid[ny][nx] = n
                         todo.append((nx, ny))
-    assert n < 64, n
+
+    def side(x, y):
+        if not (0 <= x < MAP_W and 0 <= y < MAP_H) or vac(TYPES[t[y][x]][0]):
+            return 0
+        if solid(TYPES[t[y][x]][0]):
+            return None
+        return rid[y][x]
+
     doors = []
-    for y in range(1, MAP_H - 1):
-        for x in range(1, MAP_W - 1):
-            if TYPES[t[y][x]][0] not in DOORS:
+    for y in range(MAP_H):
+        for x in range(MAP_W):
+            k = TYPES[t[y][x]][0]
+            if not (k in DOORS or (k == 'WALL' and d is not None and d[y][x] >= 8)):
                 continue
             for a, b in (((x - 1, y), (x + 1, y)), ((x, y - 1), (x, y + 1))):
-                ra, rb = rid[a[1]][a[0]], rid[b[1]][b[0]]
-                if ra and rb and ra != rb:
+                ra, rb = side(*a), side(*b)
+                if ra is not None and rb is not None and ra != rb and len(doors) < 64:
                     doors.append((x, y, ra, rb))
-                    rid[y][x] = ra
-    assert len(doors) < 64
-    leaks = set()
-    for y in range(1, MAP_H - 1):
-        for x in range(1, MAP_W - 1):
-            if TYPES[t[y][x]][0] == 'BREACH':
-                for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-                    if rid[ny][nx]:
-                        leaks.add(rid[ny][nx])
+                    rid[y][x] = ra or rb
     vented = rid[50][70]
     press = [0] + [0 if r == vented else AIR_FULL for r in range(1, n + 1)]
     tug = set(rid[y][x] for y in range(TUG[1], TUG[3] + 1) for x in range(TUG[0], TUG[2] + 1)
-              if rid[y][x])
+              if rid[y][x] and not solid(TYPES[t[y][x]][0]))
     return rid, doors, sorted(leaks), press, tug
 
 
@@ -499,7 +550,7 @@ def encode(t, d):
     bit 7 (a part: bolted, in the tug installed; an open door: held open);
     flag byte =
     damage (3:0) | room bits 3:0 at 7:4"""
-    rid = rooms(t)[0]
+    rid = rooms(t, d)[0]
     ty = [[0] * MAP_W for _ in range(MAP_H)]
     fl = [[0] * MAP_W for _ in range(MAP_H)]
     for y in range(MAP_H):
@@ -573,16 +624,18 @@ def write_sources():
              '; the cell types and table addresses of scrap.masm', '']
     for i, ty in enumerate(TYPES):
         lines.append('T_%-8s = %d' % (ty[0], i))
-    t, _ = build_map()
-    rid, doors, leaks, press, tug = rooms(t)
+    t, dm = build_map()
+    rid, doors, leaks, press, tug = rooms(t, dm)
     lines += ['NTYPES     = %d' % n,
               'F_WALK     = 0x%02X' % F_WALK, 'F_DMG      = 0x%02X' % F_DMG,
-              'F_ITEM     = 0x%02X' % F_ITEM, 'F_INST     = 0x%02X' % F_INST]
+              'F_ITEM     = 0x%02X' % F_ITEM, 'F_INST     = 0x%02X' % F_INST,
+              'F_STRUCT   = 0x%02X' % F_STRUCT, 'F_SOLID    = 0x%02X' % F_SOLID,
+              'F_VAC      = 0x%02X' % F_VAC]
     lines += ['A_%-8s = %d' % (k, v) for k, v in (
         ('OPEN', A_OPEN), ('CLOSE', A_CLOSE), ('INSPECT', A_INSPECT), ('WALK', A_WALK),
         ('PICK', A_PICK), ('CUT', A_CUT), ('PUTL', A_PUTL), ('PUTR', A_PUTR),
         ('PUTB', A_PUTB), ('REFILL', A_REFILL), ('HOLD', A_HOLD), ('INSTALL', A_INSTALL),
-        ('UNINST', A_UNINST))]
+        ('UNINST', A_UNINST), ('LAY', A_LAY))]
     lines += ['ART_PG     = 0x%02X' % ART_PAGE,
               'INFO_PG    = 0x%02X        ; x%02X00 + 4t + i: info line i, low bytes; + x80 high' % (TAB_PAGE, TAB_PAGE),
               'TAB_PG     = 0x%02X' % TAB2_PAGE,
@@ -691,8 +744,8 @@ def write_sources():
         d.append('    #d8 ' + ', '.join(act[o:o + 8]))
     d.append('')
     # damage bars and the rooms
-    t, _ = build_map()
-    rid, doors, leaks, press, tug = rooms(t)
+    t, dm = build_map()
+    rid, doors, leaks, press, tug = rooms(t, dm)
     rm = ['0'] * 256
     for st in range(16):
         lab = sref('zb_%d' % st, bar(st))
