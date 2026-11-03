@@ -5,7 +5,7 @@ that the ROM's loader ([DOS.md](DOS.md)) runs at power-up when `BOOT.CFG`
 names it.  It shows the demo programs and runs them in turn, asking the
 loader to load each one from the card.
 
-Date: 11/02/2026
+Date: 11/03/2026
 
 The menu and the demos are files on the card.  The 32K ROM image
 ([ROM.md](../architecture/ROM.md#the-32k-image)) holds the loader, BASIC and the
@@ -37,7 +37,9 @@ library, and the DOS and the demos are files.
   runs the highlighted program; **1-9** and **0** (program 10) run that program at once.
   **T** runs the system test, `TEST.PLC` ([TEST.md](TEST.md)), which is not
   in the list and never runs in turn; Esc in it brings the menu back with
-  the highlight on program 1.  A
+  the highlight on program 1.  **S** runs SCRAPWRIGHT, `SCRAP.PLC`
+  ([SCRAP.md](SCRAP.md)), the same way: not in the list, never in turn,
+  Esc comes back to the menu.  A
   program picked from the menu has no time limit: it runs until Esc (a
   program that finishes stays on its result).
 - With **no key for 2 minutes** in the menu, it goes back to running them
@@ -182,5 +184,5 @@ or FAT32 card.  The ROM is `build\rom32.bat`.
 `src/scripts/test_menu.py` runs the menu through the ROM's loader in
 `placard_sim.py` with short times and checks the rotation order, that each
 program's RAM is exactly its own file when it starts, Esc, the keys, a
-picked program running past the time limit, the idle return and Esc to the
-DOS (`--png` saves the menu screen).
+picked program running past the time limit, the idle return, T and S
+(the system test and SCRAPWRIGHT) and Esc to the DOS (`--png` saves the menu screen).

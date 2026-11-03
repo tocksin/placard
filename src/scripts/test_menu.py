@@ -22,9 +22,11 @@ MENU.PLC, and boots it like the board (test_dos.Rig):
      the highlighted program
   5. T runs TEST.PLC (the system test, not in the list); Esc in it brings
      the menu back with the highlight on program 1
-  6. Esc in the menu goes to the DOS's file browser
+  6. S runs SCRAP.PLC (SCRAPWRIGHT, not in the list), which reads
+     SCRAP.OVL and reaches its frame loop; Esc in it brings the menu back
+  7. Esc in the menu goes to the DOS's file browser
 
-Date: 11/02/2026
+Date: 11/03/2026
 """
 
 import argparse
@@ -44,7 +46,8 @@ MB, MB_GO = test_dos.MB, test_dos.MB_GO
 PROGS = ['CPUTEST.PLC', 'PI.PLC', 'MANDEL.PLC', 'LIFE.PLC',
          'BOING.PLC', 'WIRE3D.PLC', 'RAYCAST.PLC', 'SCROLLER.PLC', 'RAYTEX.PLC', 'TEXT.PLC']
 EXTRA = ['SCROLLER.OVL', 'RAYTEX.OVL',            # files the programs read themselves
-         'TEST.PLC']                              # the system test (key T, not in turn)
+         'TEST.PLC',                              # the system test (key T, not in turn)
+         'SCRAP.PLC', 'SCRAP.OVL']                # SCRAPWRIGHT (key S, not in turn)
 
 
 def menu_plc(lib, rot, man, idle):
@@ -220,8 +223,28 @@ def main(argv):
         print('  Esc: menu, highlight on %d' % (mem[msyms['m_sel']] + 1))
         if mem[msyms['m_sel']] != 0:
             r.fail('after the system test the highlight is not on 1')
-    # 6. Esc in the menu: the DOS
-    print('6. Esc to the DOS')
+    # 6. S: SCRAPWRIGHT, then Esc: the menu
+    print('6. S runs SCRAPWRIGHT')
+    if found:
+        if 'S  SCRAPWRIGHT' not in r.row(37):
+            r.fail('row 37: %r' % r.row(37))
+        r.port.kbd.press(r.codes['s'])
+        scrap_head = files['SCRAP.PLC'][16:16 + 64]
+        if r.run_until(lambda: cpu.pc == 0x0100 and cpu.map == 7 and mem[MB + 0x0D] == len(PROGS) + 1
+                       and bytes(mem[0x0100:0x0140]) == scrap_head, 60, 'SCRAP.PLC to start'):
+            print('  SCRAP.PLC started, picked: %s' % (mem[MB + 3] == 1))
+        r.port.kbd.release(r.codes['s'])
+        r.run(60)
+        if r.cpu.map != 0xFF:
+            r.fail('SCRAP.PLC is not in its frame loop (map %02X)' % r.cpu.map)
+        r.port.kbd.press(r.codes['\x1b'])
+        found = r.run_until(lambda: in_menu('menu_loop'), 120, 'the menu after SCRAPWRIGHT')
+        r.port.kbd.release(r.codes['\x1b'])
+        if found:
+            print('  Esc: menu')
+            r.run(6)
+    # 7. Esc in the menu: the DOS
+    print('7. Esc to the DOS')
     if found:
         r.key('\x1b')
         if r.wait_browser(120):

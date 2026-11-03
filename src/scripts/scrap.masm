@@ -1,0 +1,1937 @@
+; ============================================================
+; scrap.masm - SCRAP.PLC: SCRAPWRIGHT, phase 2 (a wreck to walk through)
+; ============================================================
+;
+; A library program the DOS runs from the card.  SCRAPWRIGHT is a
+; top-down salvage game (docs/software/SCRAP.md): you walk a salvage tug's
+; docked wreck, look at what is in it with the mouse, and (in later
+; phases) cut it out, haul it home and build it into your own ship.  This
+; phase is the walking: the tug and the KESTREL 9 on one 96 x 64 map,
+; doors, the camera, the item panel and the mouse.
+;
+; The screen (2x line repeat everywhere):
+;   lines 0-383     4 bpp: 20 x 12 cells of 8 x 16 pixels (32 x 32 on
+;                   the monitor); the cell under the mouse has a yellow
+;                   frame
+;   lines 384-479   1 bpp: the panel, text rows 24-29 (tracker.masm's
+;                   2x text layout).  Row 24: the name of the cell the
+;                   panel shows, its damage bar; rows 25-28: its info on
+;                   the left, its actions on the right (the one under the
+;                   mouse in inverse); row 29: a message, tinted yellow
+;
+; The panel shows the cell under the mouse; a left click on a cell locks
+; it there (the mouse can then go down to the actions), a right click
+; unlocks.  A left click on an action, or keys 1-4, does it: OPEN and
+; CLOSE a door next to you, WALK HERE (steps toward the cell), INSPECT
+; (a line about it).  Arrows, WASD or the pad walk; walking into a closed
+; door opens it.  Esc goes back (menu_poll).
+;
+; Memory.  The program and its tables are at x0100-x3FFF (the art at
+; x3A00, the tables at x3600-x39FF: gen_scrap.py makes them in
+; scrap_data.masm).  The map is in the even video pages x60-xBE that the
+; 2x screen leaves free (gen_scrap.py: chunk k of 16 x 16 cells is page
+; x60 + 4k, the types, and x62 + 4k, the flags); main reads it from
+; SCRAP.OVL.  The video RAM is above x6000, so like the tracker this
+; program runs with the map at FF (every section RAM) and calls the
+; library through the l_* stubs, which switch to 07 around the call.
+;
+;     python3 gen_scrap.py                            scrap_types.asm, scrap_data.masm, SCRAP.OVL
+;     python3 asm_expand.py scrap.masm                scrap.asm
+;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC
+;     python3 test_scrap_sim.py                       runs it in placard_sim
+;
+; Date: 11/03/2026
+; ============================================================
+
+#include "placard.asm"
+#include "placard_lib.asm"
+#include "scrap_types.asm"
+
+dos_back = 0x8008
+FBUF     = 0x5400           ; 512-byte sector buffer while loading SCRAP.OVL
+VIEW_W   = 20
+VIEW_H   = 12
+WALK_FRAMES = 7             ; frames between steps while a direction is held
+MSG_FRAMES  = 240           ; a message stays 4 seconds
+FRAME_COL   = 0xE           ; the hover frame: yellow
+TINT_NAME   = 0x40          ; the panel's name row: blue
+TINT_MSG    = 0x30          ; the message row: gold (red + green)
+
+; zero page x20-x7F
+v_x     = 0x20              ; the view's top left cell on the map
+v_y     = 0x21
+p_x     = 0x22              ; the player
+p_y     = 0x23
+h_x     = 0x24              ; the map cell under the mouse
+h_y     = 0x25
+h_on    = 0x26              ; 1: the mouse is over the view (h_x, h_y valid)
+lock    = 0x27              ; 1: the panel stays on its cell
+s_x     = 0x28              ; the cell the panel shows
+s_y     = 0x29
+s_who   = 0x2A              ; 0 nothing, 1 the cell s_x, s_y, 2 the player
+m_xl    = 0x2B              ; the mouse, 0-639 and 0-479
+m_xh    = 0x2C
+m_yl    = 0x2D
+m_yh    = 0x2E
+m_ok    = 0x2F              ; 1: mouse_init found a mouse
+m_b     = 0x30              ; the buttons last frame
+m_sel   = 0x31              ; the action row under the mouse (FF none)
+walk_t  = 0x32              ; frames to the next step
+dirs    = 0x33              ; held: 1 up, 2 down, 4 left, 8 right
+key     = 0x34
+msg_t   = 0x35              ; frames the message has left
+dirty   = 0x36              ; 1 panel, 2 message row
+c_t     = 0x37              ; map_get: the cell's type
+c_f     = 0x38              ;   its flags
+a_pg    = 0x39              ;   its address: the type page, the index
+a_ix    = 0x3A
+g_x     = 0x3B              ; a map cell (map_get, refresh_cell)
+g_y     = 0x3C
+dc_cx   = 0x3D              ; draw_cell: the screen cell 0-19, 0-11
+dc_cy   = 0x3E
+dc_t    = 0x3F              ;   the cell type to draw
+dc_sp   = 0x40              ;   screen page
+dc_so   = 0x41              ;   screen offset
+dc_ap   = 0x42              ;   art page
+dc_ai   = 0x43              ;   art index
+dc_n    = 0x44
+dc_c    = 0x45
+dc_base = 0x46              ;   the cell row's first offset
+p_ch    = 0x47              ; text output (tputc)
+p_k     = 0x48
+p_pg    = 0x49
+p_off   = 0x4A
+p_st    = 0x4B
+p_inv   = 0x4C              ; 80: inverse text
+u0 = 0x50                   ; scratch, the lower routines
+u1 = 0x51
+u2 = 0x52
+u3 = 0x53
+u4 = 0x54
+u5 = 0x55
+u6 = 0x56
+u7 = 0x57
+w0 = 0x58                   ; scratch, the higher routines
+w1 = 0x59
+w2 = 0x5A
+w3 = 0x5B
+w4 = 0x5C
+w5 = 0x5D
+w6 = 0x5E
+s_t     = 0x60              ; the panel's subject: type
+s_f     = 0x61              ;   damage step 0-15
+n_act   = 0x62              ;   actions 0-4
+act0    = 0x63              ;   the action codes, x63-x66
+wk_on   = 0x67              ; WALK HERE: 1 while walking to wk_x, wk_y
+wk_x    = 0x68
+wk_y    = 0x69
+msg_l   = 0x6A              ; the message string
+msg_h   = 0x6B
+o_sel   = 0x6C              ; the action row drawn in inverse
+mb_new  = 0x6D              ; buttons pressed this frame
+n_x     = 0x6E              ; try_move: the cell to step to
+n_y     = 0x6F
+fr_on   = 0x70              ; 1: the frame is drawn on fr_x, fr_y
+fr_x    = 0x71
+fr_y    = 0x72
+
+; MAP07 / MAPFF - the map register (x5000): the library's map, all RAM
+.macro MAP07
+    ld   0x50, y
+    clr  x
+    ld   0x07, [y,x]
+.endm
+.macro MAPFF
+    ld   0x50, y
+    clr  x
+    ld   0xFF, [y,x]
+.endm
+
+; CELLADDR - dc_cx, dc_cy: dc_sp = the cell's first column's page,
+; dc_base = its first line pair's offset (16 line pairs a cell row, the
+; 2x layout: pair p at 2p + 32, or 2p - 223 from pair 112)
+.macro CELLADDR
+    ld   [dc_cx], ac
+    shl
+    shl
+    shl
+    add  0x61, ac
+    ld   ac, [dc_sp]
+    ld   [dc_cy], ac
+    sub  7, ac
+    blt  ca_lo\@
+    ld   [dc_cy], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    sub  223, ac
+    bra  ca_go\@
+ca_lo\@:
+    ld   [dc_cy], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    add  32, ac
+ca_go\@:
+    ld   ac, [dc_base]
+.endm
+
+; the text cursor's glyph address (tracker.masm): p_pg:p_off, p_st
+.macro TADDR
+    ld   [CUR_COL], ac
+    shl
+    add  0x61, ac
+    ld   ac, [p_pg]
+    ld   2, ac
+    ld   ac, [p_st]
+    ld   [CUR_ROW], ac
+    sub  14, ac
+    blt  ta_2a\@
+    shl                         ; rows 14-29: 16 (r - 14) + 1
+    shl
+    shl
+    shl
+    inc
+    ld   ac, [p_off]
+    bra  ta_go\@
+ta_2a\@:
+    add  16, ac                 ; rows 0-13: 16 r + 32
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [p_off]
+ta_go\@:
+.endm
+
+; MSG name - the message at label name
+.macro MSG_TOOFAR
+    ld   s_toofar & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_toofar >> 8, ac
+    ld   ac, [R1]
+.endm
+.macro MSG_INWAY
+    ld   s_inway & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_inway >> 8, ac
+    ld   ac, [R1]
+.endm
+.macro MSG_BLOCKED
+    ld   s_blocked & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_blocked >> 8, ac
+    ld   ac, [R1]
+.endm
+
+.prefix scw
+.leave sc_leave
+.region 0x0100, 0x1F00
+.region 0x2000, 0x3600
+.region 0x0100, 0x1F00
+
+; ============================================================
+; main
+; ============================================================
+.fixed 0x0100
+main:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    ld   0x07, ac
+    ld   ac, [MAP_SHADOW]
+    CALL l_fs_mount
+    CALL ovl_load
+    MAPFF
+    GOTO start
+
+.chunk
+start:
+    CALL l_mouse_init
+    bne  st_nm
+    ld   1, ac
+    bra  st_m
+st_nm:
+    clr  ac
+st_m:
+    ld   ac, [m_ok]
+    clr  ac
+    ld   ac, [m_b]
+    ld   ac, [m_xh]
+    ld   ac, [m_yh]
+    ld   ac, [lock]
+    ld   ac, [h_on]
+    ld   ac, [fr_on]
+    ld   ac, [wk_on]
+    ld   ac, [walk_t]
+    ld   ac, [dirty]
+    ld   ac, [p_inv]
+    ld   0x40, ac               ; the pointer starts at 320, 240
+    ld   ac, [m_xl]
+    ld   1, ac
+    ld   ac, [m_xh]
+    ld   0xF0, ac
+    ld   ac, [m_yl]
+    ld   0xFF, ac
+    ld   ac, [m_sel]
+    ld   ac, [o_sel]
+    ld   2, ac
+    ld   ac, [s_who]
+    ld   START_X, ac
+    ld   ac, [p_x]
+    ld   START_Y, ac
+    ld   ac, [p_y]
+    CALL camera_fit
+    CALL screen_init
+    CALL draw_view
+    ld   s_welcome & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_welcome >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    CALL draw_panel
+    GOTO loop
+
+; ============================================================
+; the frame loop
+; ============================================================
+.chunk
+loop:
+    ld   1, ac
+    CALL l_wait_frames_io
+    CALL l_kbd_scan
+    CALL l_menu_poll
+    CALL input_mouse
+    CALL input_keys
+    CALL input_walk
+    CALL update_panel
+    GOTO loop
+
+; the file the library reads (below x6000: it runs under map 07)
+.chunk
+s_ovl:
+    #d "SCRAP.OVL", 0x00
+s_dmg:
+    #d "DAMAGE ", 0x00
+
+; ------------------------------------------------------------
+; sc_leave - the library's lib_leave (LEAVE) copied into the RAM: the
+; ROM is mapped out while this program runs
+; ------------------------------------------------------------
+.chunk
+sc_leave:
+    ld   ac, [SAVE_AC]
+    ld   [SP], ac
+    inc
+    ld   ac, x
+    inc
+    ld   ac, [SP]
+    ld   [x], ac
+    ld   ac, [LINK_LO]
+    ld   [SP], x
+    ld   [x], ac
+    ld   ac, y
+    ld   [SAVE_AC], ac
+    jmp  [LINK_LO]
+
+; ------------------------------------------------------------
+; l_* - the library routines, called under the library's map
+; ------------------------------------------------------------
+.chunk
+l_wait_frames_io:
+    PUSH_LINK
+    MAP07
+    CALL wait_frames_io
+    MAPFF
+    LEAVE
+
+.chunk
+l_kbd_scan:
+    PUSH_LINK
+    MAP07
+    CALL kbd_scan
+    MAPFF
+    LEAVE
+
+.chunk
+l_kbd_getc:
+    PUSH_LINK
+    MAP07
+    CALL kbd_getc
+    MAPFF
+    LEAVE
+
+.chunk
+l_menu_poll:
+    PUSH_LINK
+    MAP07
+    CALL menu_poll
+    MAPFF
+    LEAVE
+
+.chunk
+l_pad_read:
+    PUSH_LINK
+    MAP07
+    CALL pad_read
+    MAPFF
+    LEAVE
+
+.chunk
+l_mouse_init:
+    PUSH_LINK
+    MAP07
+    CALL mouse_init
+    MAPFF
+    LEAVE
+
+.chunk
+l_mouse_poll:
+    PUSH_LINK
+    MAP07
+    CALL mouse_poll
+    MAPFF
+    LEAVE
+
+.chunk
+l_mouse_move:
+    PUSH_LINK
+    MAP07
+    CALL mouse_move
+    MAPFF
+    LEAVE
+
+.chunk
+l_fs_mount:
+    PUSH_LINK
+    MAP07
+    CALL fs_mount
+    MAPFF
+    LEAVE
+
+.chunk
+l_fs_open:
+    PUSH_LINK
+    MAP07
+    CALL fs_open
+    MAPFF
+    LEAVE
+
+.chunk
+l_fs_read:
+    PUSH_LINK
+    MAP07
+    CALL fs_read
+    MAPFF
+    LEAVE
+
+.chunk
+l_vid_mode:
+    PUSH_LINK
+    MAP07
+    CALL vid_mode
+    MAPFF
+    LEAVE
+
+; ------------------------------------------------------------
+; ovl_load - SCRAP.OVL (the map) into the even pages from MAP_PAGE: a
+; sector holds two of them (tracker.masm's ovl_load)
+; ------------------------------------------------------------
+.chunk
+ovl_load:
+    PUSH_LINK
+    ld   s_ovl & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_ovl >> 8, ac
+    ld   ac, [R1]
+    CALL l_fs_open
+    bne  ov_e
+    ld   MAP_PAGE, ac
+    ld   ac, [u5]
+ov_s:
+    ld   FBUF & 0xFF, ac
+    ld   ac, [R4]
+    ld   FBUF >> 8, ac
+    ld   ac, [R5]
+    CALL l_fs_read
+    bne  ov_e
+    ld   FBUF >> 8, ac
+    ld   ac, [u6]
+    ld   2, ac
+    ld   ac, [u7]
+ov_p:
+    clr  ac
+    ld   ac, [u4]
+ov_b:
+    ld   [u6], y
+    ld   [u4], x
+    ld   [y,x], ac
+    ld   [u5], y
+    ld   ac, [y,x]
+    ld   [u4], ac
+    inc
+    ld   ac, [u4]
+    bne  ov_b
+    ld   [u6], ac
+    inc
+    ld   ac, [u6]
+    ld   [u5], ac
+    add  2, ac
+    ld   ac, [u5]
+    beq  ov_e
+    ld   [u7], ac
+    dec
+    ld   ac, [u7]
+    bne  ov_p
+    bra  ov_s
+ov_e:
+    LEAVE
+
+; ------------------------------------------------------------
+; screen_init - the pixels (the odd pages) cleared; every line 4 bpp
+; 2x, the panel's lines 1 bpp 2x, its name row tinted
+; ------------------------------------------------------------
+.chunk
+screen_init:
+    PUSH_LINK
+    ld   0x61, ac
+    ld   ac, [u0]
+sci_p:
+    ld   [u0], y
+    clr  ac
+sci_b:
+    ld   ac, x
+    ld   0x00, [y,x]
+    inc
+    bne  sci_b
+    ld   [u0], ac
+    add  2, ac
+    ld   ac, [u0]
+    xor  0x01, ac
+    bne  sci_p
+    ld   0x06, ac               ; 4 bpp, 2x
+    CALL l_vid_mode
+    ld   0x5B, y                ; lines 384-479: x5BA0-x5BFF
+    ld   0xA0, ac
+    ld   ac, [u1]
+sci_m:
+    ld   [u1], x
+    ld   [u1], ac
+    sub  0xB0, ac
+    bcc  si_m4
+    ld   TINT_NAME | 0x04, [y,x]
+    bra  sci_mn
+si_m4:
+    ld   0x04, [y,x]
+sci_mn:
+    ld   [u1], ac
+    inc
+    ld   ac, [u1]
+    bne  sci_m
+    LEAVE
+
+; ============================================================
+; the map
+; ============================================================
+
+; map_get - g_x, g_y: c_t = the type, c_f = the flags, a_pg:a_ix = the
+; type byte's address (the flags are two pages up).  AC = c_t.  A leaf.
+.chunk
+map_get:
+    ld   [g_x], ac              ; page x60 + 4 (6 (y >> 4) + (x >> 4))
+    and  0xF0, ac
+    shr  ac
+    shr  ac
+    ld   ac, [a_pg]
+    ld   [g_y], ac
+    and  0xF0, ac               ; 16 (y >> 4), then x 1.5 = 24 (y >> 4)
+    ld   ac, [u0]
+    shr  ac
+    add  [u0], ac
+    add  [a_pg], ac
+    add  MAP_PAGE, ac
+    ld   ac, [a_pg]
+    ld   [g_y], ac              ; index 16 (y & 15) + (x & 15)
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [u0]
+    ld   [g_x], ac
+    and  0x0F, ac
+    or   [u0], ac
+    ld   ac, [a_ix]
+    ld   [a_pg], ac
+    add  2, ac
+    ld   ac, y
+    ld   [a_ix], x
+    ld   [y,x], ac
+    ld   ac, [c_f]
+    ld   [a_pg], y
+    ld   [y,x], ac
+    ld   ac, [c_t]
+    RET
+
+; map_put - AC = the new type of the cell map_get last found.  A leaf.
+.chunk
+map_put:
+    ld   [a_pg], y
+    ld   [a_ix], x
+    ld   ac, [y,x]
+    RET
+
+; ============================================================
+; drawing the view
+; ============================================================
+
+; draw_cell - the art of type dc_t at screen cell dc_cx, dc_cy.  A leaf.
+.chunk
+draw_cell:
+    ld   [dc_t], ac
+    shr  ac
+    shr  ac
+    add  ART_PG, ac
+    ld   ac, [dc_ap]
+    ld   [dc_t], ac
+    and  3, ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [dc_ai]
+    CELLADDR
+    ld   4, ac
+    ld   ac, [dc_c]
+dc_col:
+    ld   [dc_base], ac
+    ld   ac, [dc_so]
+    ld   16, ac
+    ld   ac, [dc_n]
+dc_byte:
+    ld   [dc_ap], y
+    ld   [dc_ai], x
+    ld   [y,x], ac
+    ld   [dc_sp], y
+    ld   [dc_so], x
+    ld   ac, [y,x]
+    ld   [dc_ai], ac
+    inc
+    ld   ac, [dc_ai]
+    ld   [dc_so], ac
+    add  2, ac
+    ld   ac, [dc_so]
+    ld   [dc_n], ac
+    dec
+    ld   ac, [dc_n]
+    bne  dc_byte
+    ld   [dc_sp], ac
+    add  2, ac
+    ld   ac, [dc_sp]
+    ld   [dc_c], ac
+    dec
+    ld   ac, [dc_c]
+    bne  dc_col
+    RET
+
+; draw_frame - a yellow frame around screen cell dc_cx, dc_cy (over what
+; is drawn there).  A leaf.
+.chunk
+draw_frame:
+    CELLADDR
+    ld   [dc_sp], ac
+    ld   ac, [u0]
+    ld   4, ac
+    ld   ac, [dc_c]
+fr_tb:
+    ld   [u0], y                ; the top and bottom line pairs
+    ld   [dc_base], x
+    ld   FRAME_COL * 0x11, [y,x]
+    ld   [dc_base], ac
+    add  30, ac
+    ld   ac, x
+    ld   FRAME_COL * 0x11, [y,x]
+    ld   [u0], ac
+    add  2, ac
+    ld   ac, [u0]
+    ld   [dc_c], ac
+    dec
+    ld   ac, [dc_c]
+    bne  fr_tb
+    ld   [dc_base], ac          ; the sides: the left pixel of column 0,
+    add  2, ac                  ; the right pixel of column 3
+    ld   ac, [dc_so]
+    ld   14, ac
+    ld   ac, [dc_n]
+fr_s:
+    ld   [dc_sp], y
+    ld   [dc_so], x
+    ld   [y,x], ac
+    and  0xF0, ac
+    or   FRAME_COL, ac
+    ld   ac, [y,x]
+    ld   [dc_sp], ac
+    add  6, ac
+    ld   ac, y
+    ld   [y,x], ac
+    and  0x0F, ac
+    or   FRAME_COL << 4, ac
+    ld   ac, [y,x]
+    ld   [dc_so], ac
+    add  2, ac
+    ld   ac, [dc_so]
+    ld   [dc_n], ac
+    dec
+    ld   ac, [dc_n]
+    bne  fr_s
+    RET
+
+; view_cell - screen cell dc_cx, dc_cy from the map (the player on it
+; when it is the player's cell); g_x, g_y = that map cell
+.chunk
+view_cell:
+    PUSH_LINK
+    ld   [v_x], ac
+    add  [dc_cx], ac
+    ld   ac, [g_x]
+    ld   [v_y], ac
+    add  [dc_cy], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   ac, [dc_t]
+    ld   [g_x], ac
+    xor  [p_x], ac
+    bne  vc_d
+    ld   [g_y], ac
+    xor  [p_y], ac
+    bne  vc_d
+    ld   T_PLAYER, ac
+    ld   ac, [dc_t]
+vc_d:
+    CALL draw_cell
+    LEAVE
+
+; draw_view - every cell of the view, then the frame
+.chunk
+draw_view:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [fr_on]
+    ld   ac, [dc_cy]
+dv_row:
+    clr  ac
+    ld   ac, [dc_cx]
+dv_cell:
+    CALL view_cell
+    ld   [dc_cx], ac
+    inc
+    ld   ac, [dc_cx]
+    xor  VIEW_W, ac
+    bne  dv_cell
+    ld   [dc_cy], ac
+    inc
+    ld   ac, [dc_cy]
+    xor  VIEW_H, ac
+    bne  dv_row
+    CALL frame_set
+    LEAVE
+
+; refresh_cell - map cell g_x, g_y drawn again if it is in the view (with
+; the frame when the frame is on it)
+.chunk
+refresh_cell:
+    PUSH_LINK
+    ld   [g_x], ac
+    sub  [v_x], ac
+    ld   ac, [dc_cx]
+    sub  VIEW_W, ac
+    bcc  rc_e
+    ld   [g_y], ac
+    sub  [v_y], ac
+    ld   ac, [dc_cy]
+    sub  VIEW_H, ac
+    bcc  rc_e
+    CALL view_cell
+    ld   [fr_on], ac
+    beq  rc_e
+    ld   [g_x], ac
+    xor  [fr_x], ac
+    bne  rc_e
+    ld   [g_y], ac
+    xor  [fr_y], ac
+    bne  rc_e
+    CALL draw_frame
+rc_e:
+    LEAVE
+
+; frame_set - the frame off its old cell, onto h_x, h_y (when h_on)
+.chunk
+frame_set:
+    PUSH_LINK
+    ld   [fr_on], ac
+    beq  fs_n
+    clr  ac
+    ld   ac, [fr_on]
+    ld   [fr_x], ac
+    ld   ac, [g_x]
+    ld   [fr_y], ac
+    ld   ac, [g_y]
+    CALL refresh_cell
+fs_n:
+    ld   [h_on], ac
+    beq  fs_e
+    ld   ac, [fr_on]
+    ld   [h_x], ac
+    ld   ac, [fr_x]
+    ld   ac, [g_x]
+    ld   [h_y], ac
+    ld   ac, [fr_y]
+    ld   ac, [g_y]
+    CALL refresh_cell
+fs_e:
+    LEAVE
+
+; camera_fit - the view around the player (start).  A leaf.
+.chunk
+camera_fit:
+    ld   [p_x], ac
+    sub  9, ac
+    bcc  cf_1
+    clr  ac
+cf_1:
+    ld   ac, [v_x]
+    sub  MAP_W - VIEW_W + 1, ac
+    bcs  cf_2
+    ld   MAP_W - VIEW_W, ac
+    ld   ac, [v_x]
+cf_2:
+    ld   [p_y], ac
+    sub  6, ac
+    bcc  cf_3
+    clr  ac
+cf_3:
+    ld   ac, [v_y]
+    sub  MAP_H - VIEW_H + 1, ac
+    bcs  cf_4
+    ld   MAP_H - VIEW_H, ac
+    ld   ac, [v_y]
+cf_4:
+    RET
+
+; camera_follow - the view one cell over when the player is within 4
+; cells of its side (3 of its top or bottom).  AC = 1 when it moved.  A
+; leaf.
+.chunk
+camera_follow:
+    clr  ac
+    ld   ac, [u7]
+    ld   [p_x], ac
+    sub  [v_x], ac
+    ld   ac, [u0]
+    sub  4, ac
+    bcc  cw_r
+    ld   [v_x], ac
+    beq  cw_y
+    dec
+    ld   ac, [v_x]
+    ld   1, ac
+    ld   ac, [u7]
+    bra  cw_y
+cw_r:
+    ld   [u0], ac
+    sub  VIEW_W - 4, ac
+    bcs  cw_y
+    ld   [v_x], ac
+    xor  MAP_W - VIEW_W, ac
+    beq  cw_y
+    ld   [v_x], ac
+    inc
+    ld   ac, [v_x]
+    ld   1, ac
+    ld   ac, [u7]
+cw_y:
+    ld   [p_y], ac
+    sub  [v_y], ac
+    ld   ac, [u0]
+    sub  3, ac
+    bcc  cw_d
+    ld   [v_y], ac
+    beq  cw_e
+    dec
+    ld   ac, [v_y]
+    ld   1, ac
+    ld   ac, [u7]
+    bra  cw_e
+cw_d:
+    ld   [u0], ac
+    sub  VIEW_H - 3, ac
+    bcs  cw_e
+    ld   [v_y], ac
+    xor  MAP_H - VIEW_H, ac
+    beq  cw_e
+    ld   [v_y], ac
+    inc
+    ld   ac, [v_y]
+    ld   1, ac
+    ld   ac, [u7]
+cw_e:
+    ld   [u7], ac
+    RET
+
+; ============================================================
+; the mouse
+; ============================================================
+
+; input_mouse - the pointer moved: the hover; new presses: the clicks
+.chunk
+input_mouse:
+    PUSH_LINK
+    ld   [m_ok], ac
+    beq  im_e
+    CALL l_mouse_poll
+    beq  im_b
+    ld   [m_xl], ac
+    ld   ac, [R0]
+    ld   [m_xh], ac
+    ld   ac, [R1]
+    ld   [m_yl], ac
+    ld   ac, [R2]
+    ld   [m_yh], ac
+    ld   ac, [R3]
+    CALL l_mouse_move
+    ld   [R0], ac
+    ld   ac, [m_xl]
+    ld   [R1], ac
+    ld   ac, [m_xh]
+    ld   [R2], ac
+    ld   ac, [m_yl]
+    ld   [R3], ac
+    ld   ac, [m_yh]
+    CALL hover_update
+im_b:
+    ld   [m_b], ac
+    xor  0xFF, ac
+    and  [MOUSE_B], ac
+    ld   ac, [mb_new]
+    ld   [MOUSE_B], ac
+    ld   ac, [m_b]
+    ld   [mb_new], ac
+    and  1, ac
+    beq  im_r
+    CALL click_left
+im_r:
+    ld   [mb_new], ac
+    and  2, ac
+    beq  im_e
+    CALL click_right
+im_e:
+    LEAVE
+
+; in_view - AC = 1 when the pointer is over the view (y < 384).  A leaf.
+.chunk
+in_view:
+    ld   [m_yh], ac
+    beq  iv_y
+    ld   [m_yl], ac
+    sub  0x80, ac
+    bcs  iv_y
+    clr  ac
+    RET
+iv_y:
+    ld   1, ac
+    RET
+
+; hover_update - from the pointer: the cell under it (the frame, and the
+; panel when it is not locked), or the action row under it
+.chunk
+hover_update:
+    PUSH_LINK
+    CALL in_view
+    bne  hu_v
+    CALL hover_panel
+    LEAVE
+hu_v:
+    ld   [m_xl], ac             ; screen cell x = m_x >> 5
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [u0]
+    ld   [m_xh], ac
+    shl
+    shl
+    shl
+    or   [u0], ac
+    add  [v_x], ac
+    ld   ac, [u1]
+    ld   [m_yl], ac             ; screen cell y = m_y >> 5
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [u0]
+    ld   [m_yh], ac
+    shl
+    shl
+    shl
+    or   [u0], ac
+    add  [v_y], ac
+    ld   ac, [u2]
+    ld   0xFF, ac
+    ld   ac, [m_sel]
+    ld   [h_on], ac
+    beq  hu_ch
+    ld   [u1], ac
+    xor  [h_x], ac
+    bne  hu_ch
+    ld   [u2], ac
+    xor  [h_y], ac
+    beq  hu_e
+hu_ch:
+    ld   [u1], ac
+    ld   ac, [h_x]
+    ld   [u2], ac
+    ld   ac, [h_y]
+    ld   1, ac
+    ld   ac, [h_on]
+    CALL frame_set
+    ld   [lock], ac
+    bne  hu_e
+    CALL subject_hover
+hu_e:
+    LEAVE
+
+; hover_panel - m_sel = the action row under the pointer (FF none).  A
+; leaf.
+.chunk
+hover_panel:
+    ld   0xFF, ac
+    ld   ac, [u3]
+    ld   [m_xh], ac             ; x >= 432 (column 54)
+    beq  hp_s
+    ld   [m_xl], ac
+    sub  0xB0, ac
+    bcs  hp_s
+    ld   [m_yl], ac             ; text row (y - 384) / 16, rows 25-28
+    sub  0x80, ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    dec
+    ld   ac, [u4]
+    sub  [n_act], ac
+    bcc  hp_s
+    ld   [u4], ac
+    ld   ac, [u3]
+hp_s:
+    ld   [u3], ac
+    ld   ac, [m_sel]
+    RET
+
+; subject_hover - the panel on the cell under the pointer.  A leaf.
+.chunk
+subject_hover:
+    ld   [h_on], ac
+    beq  sh_e
+    ld   [h_x], ac
+    ld   ac, [s_x]
+    ld   [h_y], ac
+    ld   ac, [s_y]
+    ld   1, ac
+    ld   ac, [s_who]
+    ld   [h_x], ac
+    xor  [p_x], ac
+    bne  sh_d
+    ld   [h_y], ac
+    xor  [p_y], ac
+    bne  sh_d
+    ld   2, ac
+    ld   ac, [s_who]
+sh_d:
+    ld   [dirty], ac
+    or   1, ac
+    ld   ac, [dirty]
+sh_e:
+    RET
+
+; click_left - on an action: do it; on the view: lock the panel there
+.chunk
+click_left:
+    PUSH_LINK
+    ld   [m_sel], ac
+    xor  0xFF, ac
+    beq  cl_v
+    ld   [m_sel], ac
+    CALL do_action
+    LEAVE
+cl_v:
+    CALL in_view
+    beq  cl_e
+    ld   1, ac
+    ld   ac, [lock]
+    CALL subject_hover
+cl_e:
+    LEAVE
+
+; click_right - the panel follows the pointer again
+.chunk
+click_right:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [lock]
+    CALL subject_hover
+    LEAVE
+
+; ============================================================
+; keys and walking
+; ============================================================
+
+; input_keys - 1-4: the panel's actions
+.chunk
+input_keys:
+    PUSH_LINK
+    CALL l_kbd_getc
+    beq  ik_e
+    ld   ac, [key]
+    sub  0x31, ac
+    ld   ac, [u1]
+    sub  4, ac
+    bcc  ik_e
+    ld   [u1], ac
+    CALL do_action
+ik_e:
+    LEAVE
+
+; input_walk - the held directions (arrows, WASD, pad 1) or WALK HERE:
+; a step every WALK_FRAMES frames
+.chunk
+input_walk:
+    PUSH_LINK
+    CALL l_pad_read
+    CALL read_dirs
+    ld   [dirs], ac
+    bne  iw_go
+    ld   [wk_on], ac
+    bne  iw_t
+    clr  ac
+    ld   ac, [walk_t]
+    LEAVE
+iw_go:
+    clr  ac
+    ld   ac, [wk_on]
+iw_t:
+    ld   [walk_t], ac
+    beq  iw_step
+    dec
+    ld   ac, [walk_t]
+    LEAVE
+iw_step:
+    ld   WALK_FRAMES, ac
+    ld   ac, [walk_t]
+    ld   [dirs], ac
+    bne  iw_man
+    CALL auto_step
+    LEAVE
+iw_man:
+    CALL man_step
+    LEAVE
+
+; read_dirs - dirs from the pad (R0 after pad_read, 1 = down) and the keys
+; (KBD_NOW, 0 = down).  A leaf.
+.chunk
+read_dirs:
+    clr  ac
+    ld   ac, [dirs]
+    ld   [R0], ac               ; up: pad bit 4, Up (key 53), W (16)
+    and  0x10, ac
+    bne  rd_u
+    ld   [KBD_NOW + 6], ac
+    and  0x20, ac
+    beq  rd_u
+    ld   [KBD_NOW + 2], ac
+    and  0x01, ac
+    bne  rd_1
+rd_u:
+    ld   1, ac
+    ld   ac, [dirs]
+rd_1:
+    ld   [R0], ac               ; down: pad bit 5, Down (62), S (30)
+    and  0x20, ac
+    bne  rd_d
+    ld   [KBD_NOW + 7], ac
+    and  0x40, ac
+    beq  rd_d
+    ld   [KBD_NOW + 3], ac
+    and  0x40, ac
+    bne  rd_2
+rd_d:
+    ld   [dirs], ac
+    or   2, ac
+    ld   ac, [dirs]
+rd_2:
+    ld   [R0], ac               ; left: pad bit 6, Left (61), A (29)
+    and  0x40, ac
+    bne  rd_l
+    ld   [KBD_NOW + 7], ac
+    and  0x20, ac
+    beq  rd_l
+    ld   [KBD_NOW + 3], ac
+    and  0x20, ac
+    bne  rd_3
+rd_l:
+    ld   [dirs], ac
+    or   4, ac
+    ld   ac, [dirs]
+rd_3:
+    ld   [R0], ac               ; right: pad bit 7, Right (63), D (31)
+    and  0x80, ac
+    bne  rd_r
+    ld   [KBD_NOW + 7], ac
+    and  0x80, ac
+    beq  rd_r
+    ld   [KBD_NOW + 3], ac
+    and  0x80, ac
+    bne  rd_e
+rd_r:
+    ld   [dirs], ac
+    or   8, ac
+    ld   ac, [dirs]
+rd_e:
+    RET
+
+; man_step - one step the way dirs says (up, down, left, right first)
+.chunk
+man_step:
+    PUSH_LINK
+    ld   [p_x], ac
+    ld   ac, [n_x]
+    ld   [p_y], ac
+    ld   ac, [n_y]
+    ld   [dirs], ac
+    and  1, ac
+    beq  ms_1
+    ld   [n_y], ac
+    dec
+    ld   ac, [n_y]
+    bra  ms_go
+ms_1:
+    ld   [dirs], ac
+    and  2, ac
+    beq  ms_2
+    ld   [n_y], ac
+    inc
+    ld   ac, [n_y]
+    bra  ms_go
+ms_2:
+    ld   [dirs], ac
+    and  4, ac
+    beq  ms_3
+    ld   [n_x], ac
+    dec
+    ld   ac, [n_x]
+    bra  ms_go
+ms_3:
+    ld   [n_x], ac
+    inc
+    ld   ac, [n_x]
+ms_go:
+    CALL try_move
+    LEAVE
+
+; auto_step - WALK HERE: a step toward wk_x, wk_y (across first, then
+; down or up); stops there, or when both ways are blocked
+.chunk
+auto_step:
+    PUSH_LINK
+    ld   [wk_x], ac
+    sub  [p_x], ac
+    ld   ac, [w5]
+    ld   [wk_y], ac
+    sub  [p_y], ac
+    ld   ac, [w6]
+    ld   [w5], ac
+    or   [w6], ac
+    beq  as_done
+    ld   [p_y], ac
+    ld   ac, [n_y]
+    ld   [p_x], ac
+    ld   ac, [n_x]
+    ld   [w5], ac
+    beq  as_y
+    blt  as_xm
+    ld   [n_x], ac
+    inc
+    bra  as_xs
+as_xm:
+    ld   [n_x], ac
+    dec
+as_xs:
+    ld   ac, [n_x]
+    CALL try_move
+    bne  as_e
+as_y:
+    ld   [p_x], ac
+    ld   ac, [n_x]
+    ld   [p_y], ac
+    ld   ac, [n_y]
+    ld   [w6], ac
+    beq  as_blk
+    blt  as_ym
+    ld   [n_y], ac
+    inc
+    bra  as_ys
+as_ym:
+    ld   [n_y], ac
+    dec
+as_ys:
+    ld   ac, [n_y]
+    CALL try_move
+    bne  as_e
+as_blk:
+    MSG_BLOCKED
+    CALL set_msg
+as_done:
+    clr  ac
+    ld   ac, [wk_on]
+as_e:
+    LEAVE
+
+; try_move - a step to n_x, n_y: AC = 0 blocked, 1 moved, 2 a closed
+; door there opened (the step is the next one)
+.chunk
+try_move:
+    PUSH_LINK
+    ld   [n_x], ac
+    sub  MAP_W, ac
+    bcc  tm_no
+    ld   [n_y], ac
+    sub  MAP_H, ac
+    bcc  tm_no
+    ld   [n_x], ac
+    ld   ac, [g_x]
+    ld   [n_y], ac
+    ld   ac, [g_y]
+    CALL map_get
+    xor  T_DOOR, ac
+    bne  tm_w
+    ld   T_DOORO, ac
+    CALL map_put
+    CALL refresh_cell
+    ld   [dirty], ac
+    or   1, ac
+    ld   ac, [dirty]
+    ld   2, ac
+    LEAVE
+tm_w:
+    ld   [c_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_WALK, ac
+    beq  tm_no
+    CALL move_player
+    ld   1, ac
+    LEAVE
+tm_no:
+    clr  ac
+    LEAVE
+
+; move_player - the player to n_x, n_y: both cells drawn, the camera, the
+; hover and the panel
+.chunk
+move_player:
+    PUSH_LINK
+    ld   [p_x], ac
+    ld   ac, [g_x]
+    ld   [p_y], ac
+    ld   ac, [g_y]
+    ld   [n_x], ac
+    ld   ac, [p_x]
+    ld   [n_y], ac
+    ld   ac, [p_y]
+    CALL refresh_cell           ; the old cell, without the player
+    CALL camera_follow
+    beq  mp_s
+    CALL draw_view
+    CALL hover_update
+    bra  mp_p
+mp_s:
+    ld   [p_x], ac
+    ld   ac, [g_x]
+    ld   [p_y], ac
+    ld   ac, [g_y]
+    CALL refresh_cell
+mp_p:
+    ld   [lock], ac
+    bne  mp_e
+    CALL subject_hover
+mp_e:
+    LEAVE
+
+; ============================================================
+; actions
+; ============================================================
+
+; do_action - AC = the panel's action row 0-3
+.chunk
+do_action:
+    PUSH_LINK
+    ld   ac, [u0]
+    sub  [n_act], ac
+    bcc  da_e
+    ld   [u0], ac
+    add  act0, ac
+    ld   ac, x
+    ld   [x], ac
+    ld   ac, [w3]
+    xor  A_INSPECT, ac
+    bne  da_1
+    ld   TAB_PG, ac             ; INSPECT: the type's line
+    ld   ac, [u5]
+    ld   [s_t], ac
+    add  TB_INSPL, ac
+    ld   ac, [u6]
+    ld   [s_t], ac
+    add  TB_INSPH, ac
+    ld   ac, [u7]
+    CALL tab_ptr
+    CALL set_msg
+    LEAVE
+da_1:
+    ld   [w3], ac
+    xor  A_WALK, ac
+    bne  da_2
+    ld   [s_x], ac              ; WALK HERE
+    ld   ac, [wk_x]
+    ld   [s_y], ac
+    ld   ac, [wk_y]
+    ld   1, ac
+    ld   ac, [wk_on]
+    LEAVE
+da_2:
+    GOTO door_action
+da_e:
+    LEAVE
+
+; door_action - OPEN or CLOSE (w3) the door the panel shows, from next
+; to it (the rest of do_action: its LEAVE)
+.chunk
+door_action:
+    ld   [s_x], ac              ; within one cell of the player
+    sub  [p_x], ac
+    inc
+    sub  3, ac
+    bcc  dr_far
+    ld   [s_y], ac
+    sub  [p_y], ac
+    inc
+    sub  3, ac
+    bcc  dr_far
+    ld   [s_x], ac
+    ld   ac, [g_x]
+    ld   [s_y], ac
+    ld   ac, [g_y]
+    ld   [w3], ac
+    xor  A_OPEN, ac
+    bne  dr_cl
+    ld   T_DOORO, ac
+    bra  dr_set
+dr_cl:
+    ld   [s_x], ac              ; not on the player
+    xor  [p_x], ac
+    bne  dr_ok
+    ld   [s_y], ac
+    xor  [p_y], ac
+    bne  dr_ok
+    MSG_INWAY
+    CALL set_msg
+    LEAVE
+dr_ok:
+    ld   T_DOOR, ac
+dr_set:
+    ld   ac, [w4]
+    CALL map_get
+    ld   [w4], ac
+    CALL map_put
+    CALL refresh_cell
+    ld   [dirty], ac
+    or   1, ac
+    ld   ac, [dirty]
+    LEAVE
+dr_far:
+    MSG_TOOFAR
+    CALL set_msg
+    LEAVE
+
+; set_msg - the message R1:R0 on row 29 for MSG_FRAMES.  A leaf.
+.chunk
+set_msg:
+    ld   [R0], ac
+    ld   ac, [msg_l]
+    ld   [R1], ac
+    ld   ac, [msg_h]
+    ld   MSG_FRAMES, ac
+    ld   ac, [msg_t]
+    ld   [dirty], ac
+    or   2, ac
+    ld   ac, [dirty]
+    RET
+
+; ============================================================
+; the panel
+; ============================================================
+
+; update_panel - once a frame: the message's time, what changed
+.chunk
+update_panel:
+    PUSH_LINK
+    ld   [msg_t], ac
+    beq  up_1
+    dec
+    ld   ac, [msg_t]
+    bne  up_1
+    ld   [dirty], ac
+    or   2, ac
+    ld   ac, [dirty]
+up_1:
+    ld   [dirty], ac
+    and  1, ac
+    beq  up_2
+    clr  ac
+    ld   ac, [dirty]
+    CALL draw_panel
+    LEAVE
+up_2:
+    ld   [dirty], ac
+    and  2, ac
+    beq  up_3
+    clr  ac
+    ld   ac, [dirty]
+    CALL draw_msg
+up_3:
+    ld   [m_sel], ac
+    xor  [o_sel], ac
+    beq  up_e
+    CALL draw_menu
+up_e:
+    LEAVE
+
+; draw_panel - the whole panel
+.chunk
+draw_panel:
+    PUSH_LINK
+    ld   161, ac                ; rows 24-29: offsets 161-255
+    CALL clear_rows
+    clr  ac
+    ld   ac, [n_act]
+    ld   [s_who], ac
+    beq  dp_m
+    CALL subj_load
+    ld   24, ac
+    ld   ac, [CUR_ROW]
+    ld   1, ac
+    ld   ac, [CUR_COL]
+    ld   TAB_PG, ac
+    ld   ac, [u5]
+    ld   [s_t], ac
+    add  TB_NAMEL, ac
+    ld   ac, [u6]
+    ld   [s_t], ac
+    add  TB_NAMEH, ac
+    ld   ac, [u7]
+    CALL tab_ptr
+    CALL tputs
+    ld   [s_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_DMG, ac
+    beq  dp_i
+    CALL draw_dmg
+dp_i:
+    CALL draw_info
+dp_m:
+    CALL draw_menu
+    CALL draw_msg
+    LEAVE
+
+; subj_load - s_t, s_f, n_act and the action codes of the subject
+.chunk
+subj_load:
+    PUSH_LINK
+    ld   [s_who], ac
+    xor  2, ac
+    bne  sl_c
+    ld   T_PLAYER, ac
+    ld   ac, [s_t]
+    clr  ac
+    ld   ac, [s_f]
+    bra  sl_a
+sl_c:
+    ld   [s_x], ac
+    ld   ac, [g_x]
+    ld   [s_y], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   ac, [s_t]
+    ld   [c_f], ac
+    and  0x0F, ac
+    ld   ac, [s_f]
+sl_a:
+    clr  ac
+    ld   ac, [n_act]
+    ld   [s_t], ac              ; ACT_PG: 4 t + i
+    shl
+    shl
+    ld   ac, [u0]
+sl_l:
+    ld   ACT_PG, y
+    ld   [u0], x
+    ld   [y,x], ac
+    beq  sl_e
+    ld   ac, [u1]
+    ld   [n_act], ac
+    add  act0, ac
+    ld   ac, x
+    ld   [u1], ac
+    ld   ac, [x]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    ld   [n_act], ac
+    inc
+    ld   ac, [n_act]
+    xor  4, ac
+    bne  sl_l
+sl_e:
+    LEAVE
+
+; draw_dmg - "DAMAGE [###-------] 19%" at row 24, column 54
+.chunk
+draw_dmg:
+    PUSH_LINK
+    ld   54, ac
+    ld   ac, [CUR_COL]
+    ld   s_dmg & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_dmg >> 8, ac
+    ld   ac, [R1]
+    CALL tputs
+    ld   BAR_PG, ac
+    ld   ac, [u5]
+    ld   [s_f], ac
+    ld   ac, [u6]
+    add  16, ac
+    ld   ac, [u7]
+    CALL tab_ptr
+    CALL tputs
+    ld   0x20, ac
+    CALL tputc
+    ld   TAB_PG, ac
+    ld   ac, [u5]
+    ld   [s_f], ac
+    add  TB_DMGL, ac
+    ld   ac, [u6]
+    ld   [s_f], ac
+    add  TB_DMGH, ac
+    ld   ac, [u7]
+    CALL tab_ptr
+    CALL tputs
+    LEAVE
+
+; draw_info - the subject's 4 info lines, rows 25-28 from column 1
+.chunk
+draw_info:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [w2]
+di_l:
+    ld   [w2], ac
+    add  25, ac
+    ld   ac, [CUR_ROW]
+    ld   1, ac
+    ld   ac, [CUR_COL]
+    ld   INFO_PG, ac
+    ld   ac, [u5]
+    ld   [s_t], ac
+    shl
+    shl
+    add  [w2], ac
+    ld   ac, [u6]
+    add  0x80, ac
+    ld   ac, [u7]
+    CALL tab_ptr
+    ld   [R1], ac
+    beq  di_n
+    CALL tputs
+di_n:
+    ld   [w2], ac
+    inc
+    ld   ac, [w2]
+    xor  4, ac
+    bne  di_l
+    LEAVE
+
+; draw_menu - the action column, rows 25-28 from column 52 (the row
+; under the pointer in inverse)
+.chunk
+draw_menu:
+    PUSH_LINK
+    ld   [m_sel], ac
+    ld   ac, [o_sel]
+    clr  ac
+    ld   ac, [w2]
+dm_l:
+    CALL menu_row
+    ld   [w2], ac
+    inc
+    ld   ac, [w2]
+    xor  4, ac
+    bne  dm_l
+    LEAVE
+
+; menu_row - action row w2
+.chunk
+menu_row:
+    PUSH_LINK
+    ld   [w2], ac
+    add  25, ac
+    ld   ac, [CUR_ROW]
+    ld   52, ac
+    ld   ac, [CUR_COL]
+    ld   [s_who], ac
+    beq  mr_sp
+    ld   0x7C, ac               ; |
+    bra  mr_c
+mr_sp:
+    ld   0x20, ac
+mr_c:
+    CALL tputc
+    ld   0x20, ac
+    CALL tputc
+    ld   [w2], ac
+    sub  [n_act], ac
+    bcc  mr_pad
+    ld   [w2], ac
+    xor  [m_sel], ac
+    bne  mr_ni
+    ld   0x80, ac
+    ld   ac, [p_inv]
+mr_ni:
+    ld   0x20, ac
+    CALL tputc
+    ld   [w2], ac
+    add  act0, ac
+    ld   ac, x
+    ld   [x], ac
+    ld   ac, [u0]
+    ld   TAB_PG, ac
+    ld   ac, [u5]
+    ld   [u0], ac
+    add  TB_ASTRL, ac
+    ld   ac, [u6]
+    ld   [u0], ac
+    add  TB_ASTRH, ac
+    ld   ac, [u7]
+    CALL tab_ptr
+    CALL tputs
+mr_pad:
+    CALL pad80
+    clr  ac
+    ld   ac, [p_inv]
+    LEAVE
+
+; pad80 - spaces to the end of the text row
+.chunk
+pad80:
+    PUSH_LINK
+pd_l:
+    ld   [CUR_COL], ac
+    xor  80, ac
+    beq  pd_e
+    ld   0x20, ac
+    CALL tputc
+    bra  pd_l
+pd_e:
+    LEAVE
+
+; draw_msg - row 29: the message (tinted) or nothing
+.chunk
+draw_msg:
+    PUSH_LINK
+    ld   241, ac                ; row 29: offsets 241-255
+    CALL clear_rows
+    ld   [msg_t], ac
+    beq  dm_off
+    ld   TINT_MSG | 0x04, ac
+    CALL msg_tint
+    ld   29, ac
+    ld   ac, [CUR_ROW]
+    ld   1, ac
+    ld   ac, [CUR_COL]
+    ld   [msg_l], ac
+    ld   ac, [R0]
+    ld   [msg_h], ac
+    ld   ac, [R1]
+    CALL tputs
+    LEAVE
+dm_off:
+    ld   0x04, ac
+    CALL msg_tint
+    LEAVE
+
+; msg_tint - AC = the mode byte of row 29's lines (x5BF0-x5BFF).  A leaf.
+.chunk
+msg_tint:
+    ld   ac, [u0]
+    ld   0xF0, ac
+    ld   ac, [u1]
+    ld   0x5B, y
+mt_l:
+    ld   [u1], x
+    ld   [u0], ac
+    ld   ac, [y,x]
+    ld   [u1], ac
+    inc
+    ld   ac, [u1]
+    bne  mt_l
+    RET
+
+; clear_rows - the text from offset AC (odd) to 255 in every odd page:
+; 161 the panel, 241 its last row.  A leaf.
+.chunk
+clear_rows:
+    ld   ac, [u1]
+    ld   0x61, ac
+    ld   ac, [u0]
+cr_p:
+    ld   [u0], y
+    ld   [u1], ac
+cr_b:
+    ld   ac, x
+    ld   0x00, [y,x]
+    add  2, ac
+    bcc  cr_b
+    ld   [u0], ac
+    add  2, ac
+    ld   ac, [u0]
+    xor  0x01, ac
+    bne  cr_p
+    RET
+
+; tab_ptr - R1:R0 = the pointer whose low byte is at page u5 + u6 and
+; high byte at page u5 + u7.  A leaf.
+.chunk
+tab_ptr:
+    ld   [u5], y
+    ld   [u6], x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   [u7], x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    RET
+
+; ============================================================
+; text (tracker.masm's tputc, with p_inv)
+; ============================================================
+
+; tputc - AC at CUR_ROW, CUR_COL (2x text rows), CUR_COL + 1.  A leaf.
+.chunk
+tputc:
+    or   [p_inv], ac
+    ld   ac, [p_ch]
+    ld   [CUR_COL], ac
+    sub  80, ac
+    bcc  tp_off
+    TADDR
+    MAP07
+    clr  ac
+    ld   ac, [p_k]
+tp_l:
+    ld   [p_k], ac
+    add  LIB_FONT >> 8, y
+    ld   [p_ch], x
+    ld   [y,x], ac
+    ld   [p_pg], y
+    ld   [p_off], x
+    ld   ac, [y,x]
+    ld   [p_off], ac
+    add  [p_st], ac
+    ld   ac, [p_off]
+    ld   [p_k], ac
+    inc
+    ld   ac, [p_k]
+    xor  8, ac
+    bne  tp_l
+    ld   [CUR_COL], ac
+    inc
+    ld   ac, [CUR_COL]
+    MAPFF
+tp_off:
+    ld   [p_ch], ac
+    RET
+
+; tputs - the string at R1:R0 (ending in 00); a 01 in it is the "works
+; at" line for damage step s_f
+.chunk
+tputs:
+    PUSH_LINK
+ts_l:
+    ld   [R1], y
+    ld   [R0], x
+    ld   [y,x], ac
+    beq  ts_e
+    xor  1, ac
+    beq  ts_w
+    xor  1, ac
+    CALL tputc
+ts_n:
+    ld   [R0], ac
+    inc
+    ld   ac, [R0]
+    bne  ts_l
+    ld   [R1], ac
+    inc
+    ld   ac, [R1]
+    bra  ts_l
+ts_w:
+    ld   TAB_PG, y
+    ld   [s_f], ac
+    add  TB_WRKL, ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [w0]
+    ld   [s_f], ac
+    add  TB_WRKH, ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [w1]
+ts_wl:
+    ld   [w1], y
+    ld   [w0], x
+    ld   [y,x], ac
+    beq  ts_n
+    CALL tputc
+    ld   [w0], ac
+    inc
+    ld   ac, [w0]
+    bne  ts_wl
+    ld   [w1], ac
+    inc
+    ld   ac, [w1]
+    bra  ts_wl
+ts_e:
+    LEAVE
+
+; ============================================================
+; the art, tables and strings (gen_scrap.py)
+; ============================================================
+.include "scrap_data.masm"
