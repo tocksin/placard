@@ -37,6 +37,18 @@ with a 50 % clock, and the setup paths keep at least 1.8 ns.  The tightest:
 | STALL to the State PLD strobes and an F377 /E | +7.2 | +2.43 |
 | Fetch from the cartridge ROM through /ROM_OE | +1.9 | +2.56 |
 | Fetch from RAM through /RAM_OE | +1.9 | +3.20 |
+| Expansion slot read, plain 15 ns SRAM card (worst slot) | +8.7 | +3.41 |
+| Port select hold after /WE (port and PS/2 PLDs) | | +0.94 |
+
+Rerun from scratch on 2026-11-03 after the expansion redesign (branch-111):
+the 64K cartridge's track lengths were re-measured from
+`kicad/cartridge_64k/cartridge_64k.kicad_pcb` (unchanged from
+`src/scripts/router_v4/timing/cart_c64.json`; the 32K board is shorter on
+every path) and `budgets.py` run on the new main board at a fixed 50 %
+clock; the example card is the plain SRAM card of
+[EXPANSION.md](../architecture/EXPANSION.md#card-timing), at its fingers.
+Every figure above is unchanged by the redesign; the new I/O paths are
+under [I/O reads](#io-reads) and [Hold and race checks](#hold-and-race-checks).
 
 The four paths that were short on the earlier board (cartridge ROM fetch,
 zero-page read and video read at −1.1, RAM fetch through /OE at −0.2) are
