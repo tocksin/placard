@@ -18,7 +18,7 @@ The project has some hard-goals to maintain:
 - Design true von Neumann CPU from scratch.  No Harvard.  Bare-metal programming on the computer is a must (native compiler).
 - Have a video output.  The video standard is open, but probably a legacy output (VGA/Composite/etc).
 - Make the instruction set "fun" to program.  This means no racing the beam to draw the screen.  Counting instructions is not fun.
-- Built-in keyboard.  No USB/PS2 keyboard.
+- A PS/2 keyboard and mouse, read by the machine's own PLD receiver.  No USB.
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
 
 ## Block diagram
