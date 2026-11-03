@@ -60,6 +60,19 @@ The timing model of `docs/timing/TIMING.md` becomes length limits the router hon
   ADDR13 +0.1) in 14 min on 4 CPU threads, 0 open, 0 collisions; 39.33 -> 40.31 m, 656 -> 706 vias before tidy.
 - Finding: without timing fix 4 (U11 pin 1 on CLK_E at X1, `U11E=1`) the /OE reads (fetch, cartridge ROM fetch and
   operand) cannot keep the margin at 53 % duty even with straight traces; budgets.py lists them as INFEASIBLE.
+- Nov 3 2026 full main-board route with budgets (U11E=1, CLK_E lead 505.9 mm): 0 open, 0 collisions, 0 over budget,
+  510 vias, 41.46 m after snap; real-track min slack addr_hold +0.75 ns, write_pulse +1.05 ns; KiCad 9 DRC clean except
+  3 pre-existing J7 GND unconnects.
+
+## Snap track ends (2026-11-03, branch-106)
+- `snapends.py in.kicad_pcb out.kicad_pcb` : the grid router ends a track on the first cell inside a pad, up to 1.6 mm
+  off the pad centre. snapends adds a straight segment (same width and layer) from every such end to the exact pad
+  centre so KiCad can make teardrops; GND/+5V/CLK_E are left alone and an end on a via is only reported. Optional
+  `plan.json` (`{"move": [...], "skip": [...]}`, key `layer|net|x_nm|y_nm`) moves or skips single ends, `report.json`
+  lists what was done. It imports pcbnew, so it runs under KiCad's python, not the router's.
+- `run_wb.bat` runs it last on the `%TAG%_c45` board and every ladder board (`*_c45_snap.kicad_pcb`), with
+  `KIPY` (default `C:\Program Files\KiCad\9.0\bin\python.exe`); `SNAP=none` skips it.
+- Main board: 1276 ends snapped, KiCad 9 DRC (zones refilled) still clearance 0, timing unchanged.
 
 ## Windows (Justin's laptop, RTX 4070)
 1. Python 3.10+ with `pip install numpy scipy shapely "cupy-cuda12x[ctk]"` (the [ctk] extra brings the NVRTC headers; no CUDA Toolkit install needed, the NVIDIA driver is enough).
