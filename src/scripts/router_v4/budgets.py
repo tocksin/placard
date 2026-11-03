@@ -23,7 +23,11 @@ V=0.006; T=39.72
 tPD,tPDm,tCO,tCOm=7.5,3.0,5.5,2.0
 MARGIN=float(E('MARGIN','0.5')); DUTY=[float(x) for x in E('DUTY','0.45,0.53').split(',')]
 FIXED=set(E('FIXED','CLK_E:X1-8:NT2-1').split(',')); RMAX=float(E('RMAX','4')); FLOOR=float(E('FLOOR','3')); RFEAS=float(E('RFEAS','1.05'))
-WEC=E('WEC','1')=='1'; HELP=E('HELP','man'); FIXFORCE=E('FIXFORCE','0')=='1'; U11E=E('U11E','0')=='1'
+WEC=E('WEC','1')=='1'; SLOTS=E('SLOTS','1')=='1'; HELP=E('HELP','man'); FIXFORCE=E('FIXFORCE','0')=='1'; U11E=E('U11E','0')=='1'
+# card budget at the slot fingers (ns), the reference card of EXPANSION.md "Card timing": read data from a register through a
+# 74F541 (/OE1 = /EXP, /OE2 = card PLD), write into a 74F377 (CP = /WE, /E = card PLD); 1 ns of card traces each way
+CARD_EXP=float(E('CARD_EXP','10.5')); CARD_CTL=float(E('CARD_CTL','18.0')); CARD_WE=float(E('CARD_WE','13.0'))
+CARD_DS=float(E('CARD_DS','3.0')); CARD_DH=float(E('CARD_DH','2.0')); CARD_EH=float(E('CARD_EH','2.0'))
 MINLEN=[m.split(':') for m in E('MINLEN','CLK_E:X1-8:NT2-1:420').split(',') if m]
 FIXLEN={tuple(m.split(':')[:3]):float(m.split(':')[3]) for m in E('FIXLEN','CLK_E:X1-8:NT2-1:459').split(',') if m}   # fixed lengths used while that net is not routed
 
@@ -196,8 +200,38 @@ def model(H,CART):
         f19=L(f'/ALU and registers/F{i}',fdrv[i],f'U19-{[3,4,7,8,13,14,17,18][i]}')
         alu.append(T+C['U19']-(srcAC+tr+rr+tPD+f19+2.0))
     R['alu_single_clock']=MIN(alu)
+    if SLOTS:
+        # expansion slots J9-J12 (docs/architecture/EXPANSION.md "Card timing"): the board's side of an I/O read or write of a
+        # card, checked against the card budget at the fingers (CARD_* below) so a card built to that budget always passes.
+        # I/O address [Y,X] in LOAD_MEM: X_ENABLE/Y_ENABLE select at the muxes; /EXP from the I/O decode PLD (U12).
+        xmux={8:('U7',22),9:('U7',23),10:('U8',22),11:('U8',23),12:('U9',22),13:('U9',23),14:('U10',22)}
+        u12={14:7,13:8,12:9,10:10,9:11,8:13,11:18}
+        tU12=MAX([C['U1']+tCO+L('Y_ENABLE','U1-17',f'{u}-4')+tPD+L(f'ADDR{a}',f'{u}-{p}',f'U12-{u12[a]}') for a,(u,p) in xmux.items()]+
+                 [C['U1']+tCO+L('Y_ENABLE','U1-17','U12-14'),C['U1']+tCO+L('PC_ENABLE','U1-15','U12-3'),C['U21']+10.5+L('Y7','U21-19','U12-6')])
+        SA={0:'A22',1:'A19',2:'A17',3:'A15',4:'A14',5:'B9',6:'B7',7:'A4'}
+        SD={0:'A23',1:'B13',2:'B15',3:'B17',4:'B19',5:'B23',6:'B25',7:'B29'}
+        lo={a:mux[a][:2] for a in range(8)}
+        rd=[];wr=[];wd=[];dh=[];eh=[]
+        for j,e,ed in (('J9','~{EXP1}','U12-21'),('J10','~{EXP2}','U12-22'),('J11','~{EXP1}','U12-21'),('J12','~{EXP2}','U12-22')):
+            addr=MAX([C['U1']+tCO+L('X_ENABLE','U1-16',f'{u}-3')+tPD+L(f'ADDR{a}',f'{u}-{p}',f'{j}-{SA[a]}') for a,(u,p) in lo.items()])
+            exp=tU12+tPD+L(e,ed,f'{j}-A16')
+            ctl=MAX(addr,C['U1']+tCO+L('RW','U1-23',f'{j}-B16'),C['U1']+tCO+L('~{LOAD_IMM}','U1-19',f'{j}-A20'))
+            dval=MAX(exp+CARD_EXP,ctl+CARD_CTL)
+            for i in range(8): rd.append(T+C['U18']-(dval+L(f'DATABUS{i}',f'{j}-{SD[i]}',dests['U18'][i])+setup['U18']))
+            wlo=T+C['U15E']+tPDm+L('~{WE}','U15-20',f'{j}-B24'); whi=T+C['U15E']+tPD+L('~{WE}','U15-20',f'{j}-B24')
+            wr.append(wlo-(MAX(exp,ctl)+CARD_WE))
+            for i in range(8):
+                tr=L(f'/Data bus/SRC{i}',f'U26-{18-i}',f'U27-{18-i}')+L(f'/Data bus/SRC{i}',f'U26-{18-i}',f'R{5+i}-2')
+                wd.append(wlo-(srcAC+tr+L(f'DATABUS{i}',f'R{5+i}-1',f'{j}-{SD[i]}')+CARD_DS))
+                for net,drv,pin in (('PC_ENABLE','U1-15','U2-11'),('/Control/Q0','U1-18','U2-10')):
+                    off=T+C['U1']+tCOm+L(net,drv,pin)+tPDm+MIN(L('~{SRC_EN}','U2-16','U26-1'),L('~{SRC_EN}','U2-16','U27-1'))+1.5+tr+L(f'DATABUS{i}',f'R{5+i}-1',f'{j}-{SD[i]}')
+                    dh.append(off-whi-CARD_DH)
+            achg=T+MIN([C['U1']+tCOm+MIN(L('PC_ENABLE','U1-15',f'{u}-2'),L('X_ENABLE','U1-16',f'{u}-3'))+tPDm+L(f'ADDR{a}',f'{u}-{p}',f'{j}-{SA[a]}') for a,(u,p) in lo.items()])
+            eh.append(achg+CARD_EH-whi)
+        R['slot_read']=MIN(rd); R['slot_write_select']=MIN(wr); R['slot_write_data']=MIN(wd)
+        R['slot_data_hold']=MIN(dh); R['slot_select_hold']=MIN(eh)
     return R
-HOLD={'addr_hold','data_hold'}
+HOLD={'addr_hold','data_hold','slot_data_hold','slot_select_hold'}
 
 def main():
     pcb,out=sys.argv[1:3]

@@ -1,6 +1,6 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-11-02
+Date: 2026-11-03
 
 The Placard has four expansion slots and one ROM cartridge slot, all the
 same keyed 2 x 32, 1.0 mm pitch socket (Molex 87715-9106, "ROM cartridge
@@ -181,7 +181,8 @@ within 4.5 ns of that edge.
 **Reads must not put a decoder after /EXP.**  An I/O read has one 39.7 ns
 clock: the address is valid at 13 ns and /EXP at 20.5 ns, which leaves
 17 ns for the card's buffer to drive the bus before the 2 ns setup of the
-D register.  So the card's read buffer (a 74F541, or a 74F245 with DIR set
+D register (from the datasheets alone; on the board the tracks to the slot
+use some of it, see [Card timing](#card-timing)).  So the card's read buffer (a 74F541, or a 74F245 with DIR set
 by RW) takes /EXP straight on one enable, and everything else on its other
 enable:
 
@@ -200,6 +201,46 @@ revision 06, which decodes the state bits instead of LOAD_IMM
 those bits.  A card PLD output that drives the bus directly
 (with an output enable term) must also use /EXP in that same term, not a
 strobe made from it.
+
+### Card timing
+
+A card that keeps within these delays, measured at its own edge fingers,
+works in every slot at 25.175 MHz, with a 45 to 53 % clock and 0.5 ns to
+spare.  The main board's side (its tracks to the slots, the clock skew,
+the decode) is held by the router's length budgets
+(`src/scripts/router_v4/budgets.py`, checks `slot_*`), so a card designer
+only needs this table:
+
+| Card delay, fingers to fingers | Limit | Reference parts |
+|---|---:|---|
+| Read: /EXP falling to D7:D0 valid | at most 10.5 ns | 74F541 enable 9.5 + 1 ns of card track |
+| Read: A7:A0, RW, LOAD_IMM to D7:D0 valid | at most 18.0 ns | card PLD 7.5 + 74F541 enable 9.5 + 1 |
+| Write: /EXP, A7:A0, RW to the card's write select ready | at most 13.0 ns before /WE rises | card PLD 7.5 + 74F377 /E setup 4.5 + 1 |
+| Write: D7:D0 setup before /WE rises | needs at most 3.0 ns | 74F377 2 + 1 |
+| Write: D7:D0 hold after /WE rises | needs at most 2.0 ns | 74F377 1 + 1 |
+| Write: A7:A0 to the write select changing | at least 2.0 ns | card PLD (3 ns minimum) less 1 |
+
+So the reference card is:
+
+    read:  74F541 /OE1 = /EXP, /OE2 = card PLD (RW = 1, LOAD_IMM = 1, A7 = SEL, register select)
+           inputs from a register or PLD outputs that already hold the byte
+    write: 74F377 CP = /WE, /E = card PLD (/EXP low, RW = 0, A7 = SEL, register select)
+
+**The read byte must already be waiting.**  Nothing slower than a buffer
+fits between /EXP and the data: a 15 ns SRAM on the bus (tACE 15 from
+/EXP) misses by about 3.5 to 4.5 ns on the board, and about 1.6 ns even with
+straight tracks.  A RAM card therefore reads ahead: the CPU writes an
+address into the card's counter, the card reads that byte from its SRAM
+into a register in its own time, and each read of the data port drives the
+register onto the bus and starts the next fetch (the counter steps by
+one).  Writes go the same way: the data port write latches the byte in a
+74F377, and the card writes it into its SRAM over the next clocks.  The
+SD card, keyboard and pad ports on the main board work like this for the
+same reason.
+
+On the board of 2026-11-03 the slot checks are: read +0.63 ns (worst slot),
+write select +4.4, write data setup +10.3, data hold +1.4,
+select hold +2.1.
 
 **Load.**  The slots are unbuffered and every bus line reaches all four.
 Give each line one input (or one 3-state output) on a card, keep traces
