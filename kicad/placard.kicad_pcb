@@ -9,7 +9,7 @@
 	(paper "C")
 	(title_block
 		(title "Placard")
-		(date "2026-10-29")
+		(date "2026-11-03")
 		(rev "A")
 		(comment 1 "PCB PLC-1001, assembly PLC-2001")
 	)
