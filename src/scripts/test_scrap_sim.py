@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-test_scrap_sim.py - run SCRAP.PLC (scrap.masm, SCRAPWRIGHT phase 2) through
+test_scrap_sim.py - run SCRAP.PLC (scrap.masm, SCRAPWRIGHT) through
 the ROM's loader in placard_sim
 
     python3 test_scrap_sim.py                  the checks below
@@ -8,7 +8,8 @@ the ROM's loader in placard_sim
                                                scrap_air.png)
 
 Builds the 32K ROM and a card holding DOS.PLC, SCRAP.PLC (from scrap.asm)
-and SCRAP.OVL (gen_scrap.py), BOOT.CFG = SCRAP.PLC, with a PS/2 mouse in
+and SCRAP.OVL (gen_scrap.py's map, then the code gen_plc.py puts at xC000),
+BOOT.CFG = SCRAP.PLC, with a PS/2 mouse in
 the upper socket, and boots it like the board (test_dos.Rig):
   1. the DOS loads SCRAP.PLC, which reads SCRAP.OVL into the even video
      pages (the map) and reaches its frame loop with the map at FF
@@ -16,21 +17,23 @@ the upper socket, and boots it like the board (test_dos.Rig):
      (gen_scrap.py) byte for byte; the panel shows the player (YOU)
   3. walking: Right steps east a cell at a time (keys held), Up / Down /
      W / S too; walls stop the player
-  4. doors: walking into a closed door opens it (it is drawn open)
-  5. the mouse: moving it frames the cell under it and the panel names it;
+  4. the mouse: moving it frames the cell under it and the panel names it;
      a left click locks the panel, the action keys 1-4 run the menu
-     (CLOSE / OPEN on a door next to the player, INSPECT writes the
-     message line); a right click unlocks
+     (CLOSE / OPEN / HOLD OPEN on a door next to the player, INSPECT
+     writes the message line); a right click unlocks
+  5. doors: walking into a closed door opens it (it is drawn open); it
+     closes behind the player, unless held open
   6. the camera steps when the player walks off the view, and the view
      still matches the map
-  7. the tug's O2 tank: PICK UP (the tug has no air), PUT DOWN (it has)
+  7. the tug's O2 tank: UNINSTALL (the tug has no air), PICK UP, PUT DOWN
+     (loose: still no air), INSTALL (it has)
   8. CUT FREE a bolted crate in the wreck (time, battery), PICK UP, the
      slower walk; the last step by WALK HERE
   9. the vented section: its decks frosted; opening its door drains the
      corridor's air and the suit uses its O2
  10. each warning (red), then suffocating
  11. Enter starts again; REFILL SUIT from the tug's tank (it is empty
-     after, and the tug has no air)
+     after, still installed, and the tug has no air)
  12. Esc brings the DOS's browser back
 
 Date: 2026-11-03
@@ -240,9 +243,11 @@ def build():
     ovl = b''.join(gen_scrap.map_pages(t, d))
     src = open(os.path.join(HERE, 'scrap.asm')).read()
     prog, tsyms, _ = ps.assemble(src, HERE)
+    prog, code = gen_plc.split_overlay(prog, lib, 0xC000, 2)
     if any(0x4000 <= a < 0xC000 for a in prog):
         raise SystemExit('scrap.asm reaches past x3FFF')
     plc = gen_plc.make(prog, tsyms, lib)[0]
+    ovl += code                 # the code pages from xC000, after the map's
     return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl
 
 
@@ -334,6 +339,8 @@ def main(argv):
         r.fail('no damage bar for the door')
     if 'CLOSE' not in p[1]:
         r.fail('no CLOSE in the menu')
+    if 'HELD OPEN' not in p[0] or 'HOLD OPEN' in ''.join(p[1:5]):
+        r.fail('the tug\'s door is not shown held open (and without HOLD OPEN)')
     r.click(1)
     if not r.zp('lock'):
         r.fail('a left click did not lock the panel')
@@ -350,14 +357,23 @@ def main(argv):
     r.run(2)
     if r.map_t(*door) != T['DOORO']:
         r.fail('key 1 (OPEN) did not open the door')
-    r.key('3')                                  # INSPECT (CLOSE, WALK HERE, INSPECT)
+    if r.bolted(*door):
+        r.fail('OPEN left the door held open')
+    r.key('4')                                  # INSPECT (CLOSE, HOLD OPEN, WALK HERE, INSPECT)
     r.run(2)
     msg = r.panel()[5]
-    print('  key 1 again: OPEN; key 3: %r' % msg.strip())
+    print('  key 1 again: OPEN; key 4: %r' % msg.strip())
     if 'OPEN PRESSURE DOOR' not in msg:
         r.fail('INSPECT did not write the message line')
+    r.key('2')                                  # HOLD OPEN
+    r.run(2)
+    print('  key 2: HOLD OPEN -> %r' % r.panel()[0].strip())
+    if not r.bolted(*door) or 'HELD OPEN' not in r.panel()[0]:
+        r.fail('HOLD OPEN did not hold the door')
     r.key('1')                                  # CLOSE, for the bump below
     r.run(2)
+    if r.bolted(*door) or r.map_t(*door) != T['DOOR']:
+        r.fail('CLOSE did not close the held door')
     r.click(2)
     if r.zp('lock'):
         r.fail('a right click did not unlock')
@@ -373,12 +389,31 @@ def main(argv):
     else:
         print('  walked into the closed door: it opened')
     r.check_view('door open')
+    r.hold(UP, 2)               # through it: it closes behind
+    r.hold(UP, 2)
+    if r.zp('p_y') != y0 - 2 or r.map_t(*door) != T['DOOR']:
+        r.fail('the door did not close behind (y %d, type %d)' % (r.zp('p_y'), r.map_t(*door)))
+    else:
+        print('  walked through: it closed behind')
+    r.check_view('door closed behind')
+    r.hold(DOWN, 2)             # back: it opens, closes behind again
+    r.hold(DOWN, 2)
+    r.hold(DOWN, 2)
+    if r.zp('p_y') != y0 or r.map_t(*door) != T['DOOR']:
+        r.fail('back through: the door did not close (y %d, type %d)' % (r.zp('p_y'), r.map_t(*door)))
+    if r.act(*door, gen_scrap.A_HOLD):
+        r.hold(UP, 2)
+        r.hold(UP, 2)
+        r.hold(DOWN, 2)
+        r.hold(DOWN, 2)
+        if r.zp('p_y') != y0 or r.map_t(*door) != T['DOORO'] or not r.bolted(*door):
+            r.fail('the held door did not stay open (y %d, type %d)' % (r.zp('p_y'), r.map_t(*door)))
+        else:
+            print('  HOLD OPEN, through and back: it stays open')
 
 
 
     print('6. the camera')
-    r.hold(UP, 2)               # back to the corridor, then east to the airlock
-    r.hold(DOWN, 2)
     v0 = r.zp('v_x')
     r.hold(RIGHT, 7 * 40)
     print('  Right to x %d: view x %d -> %d' % (r.zp('p_x'), v0, r.zp('v_x')))
@@ -405,7 +440,7 @@ def main(argv):
 def phase3(r, args):
     """carrying, cutting, the tug, the air (phase 3)"""
     cpu, mem, z = r.cpu, r.cpu.mem, r.zp
-    print('7. the tug: carrying its O2 tank away and back')
+    print('7. the tug: uninstalling its O2 tank, carrying it away, back, installing it')
     tank = (5, 34)
     r.go((7, 32), (7, 35), (6, 35))   # back west along the tube, into the quarters
     print('  at %d,%d; tug: %d O2 tank, %d scrubber, air %s, worth $%d0'
@@ -416,8 +451,14 @@ def phase3(r, args):
     r.mouse_cell(*tank)
     p = r.panel()
     print('  |%s' % p[0])
-    if 'LOOSE' not in p[0] or 'AIR 100%' not in p[0]:
-        r.fail('the tug\'s tank is not shown loose, in air: %r' % p[0])
+    if 'INSTALLED' not in p[0] or 'AIR 100%' not in p[0]:
+        r.fail('the tug\'s tank is not shown installed, in air: %r' % p[0])
+    if not r.act(*tank, gen_scrap.A_UNINST):
+        return
+    r.run(gen_scrap_inst_frames() + 4)
+    print('  %r; tug air %s' % (r.panel()[5].strip(), 'on' if z('sup') else 'off'))
+    if r.bolted(*tank) or z('sup'):
+        r.fail('UNINSTALL: the tank is still installed (bolted %s, air %d)' % (r.bolted(*tank), z('sup')))
     if not r.act(*tank, gen_scrap.A_PICK):
         return
     if z('cl_t') != T['O2'] or r.map_t(*tank) != T['FLOOR']:
@@ -436,10 +477,24 @@ def phase3(r, args):
     if not r.act(*tank, gen_scrap.A_PUTL):
         return
     r.run(62)
-    if r.map_t(*tank) != T['O2'] or z('cl_t') or not z('sup'):
-        r.fail('PUT DOWN did not give the tug its tank back')
+    if r.map_t(*tank) != T['O2'] or z('cl_t') or r.bolted(*tank):
+        r.fail('PUT DOWN did not put the tank down loose')
+    if z('sup'):
+        r.fail('a tank put down, not installed, gives the tug air')
+    r.mouse_cell(*tank)
+    p = r.panel()
+    print('  put down: %r' % p[0].strip())
+    if 'LOOSE' not in p[0] or 'INSTALL' not in ''.join(p[1:5]):
+        r.fail('the loose tank on the tug has no INSTALL')
+    if not r.act(*tank, gen_scrap.A_INSTALL):
+        return
+    print('  %r' % r.panel()[5].strip())
+    r.run(gen_scrap_inst_frames() + 4)
+    print('  %r' % r.panel()[5].strip())
+    if not r.bolted(*tank) or not z('sup'):
+        r.fail('INSTALL did not give the tug its tank back')
     else:
-        print('  put back: the tug has air again')
+        print('  installed: the tug has air again')
     r.check_view('the tug')
 
     print('8. cutting a part free in the wreck')
@@ -530,8 +585,8 @@ def phase3(r, args):
         want = min(90, 5 + 90 - 11 * dmg)
         print('  O2 5 -> %d (tank damage step %d), the tank: %s; %r'
               % (z('o2'), dmg, gen_scrap.TYPES[r.map_t(*tank)][0], r.panel()[5].strip()))
-        if z('o2') != want or r.map_t(*tank) != T['O2E']:
-            r.fail('REFILL: O2 %d, wanted %d' % (z('o2'), want))
+        if z('o2') != want or r.map_t(*tank) != T['O2E'] or not r.bolted(*tank):
+            r.fail('REFILL: O2 %d, wanted %d (still installed %s)' % (z('o2'), want, r.bolted(*tank)))
         r.run(62)
         if z('sup'):
             r.fail('the tug still has air with an empty tank')
@@ -540,6 +595,10 @@ def phase3(r, args):
 
 def gen_scrap_cut_frames():
     return 90
+
+
+def gen_scrap_inst_frames():
+    return 60
 
 
 if __name__ == '__main__':
