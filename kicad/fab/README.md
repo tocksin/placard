@@ -1,7 +1,8 @@
 # Fabrication files
 
-Generated 2026-10-29 with kicad-cli 9.0.8 from copies of the board files
-(the boards themselves were not changed), main board as of PR #178 (rev A).
+Generated with kicad-cli 9.0.8 from copies of the board files (the boards
+themselves were not changed). Main board regenerated 2026-11-03 from main at
+PR #243 (routed expansion-redesign board); cartridges 2026-10-29 (rev A).
 Zone fills are the ones saved in each .kicad_pcb; kicad-cli 9 has no refill
 option, so refill (B) and save in pcbnew before regenerating if a board was
 edited after its last fill.
@@ -35,6 +36,8 @@ in the project files under `hardware/fab/`.
 - Cartridges: the edge fingers mate with a Molex 87715-9106 (PCIe style)
   slot, so order 1.6 mm (1.57) thickness with gold fingers (hard gold / ENIG)
   and a 45 degree finger bevel.
+- Main board 2026-11-03: refill gave a file identical to the saved one; DRC
+  with schematic parity 0 violations, 0 unconnected, 0 parity issues.
 - DRC (all three boards, run with each project's own rules and footprint
   library; main board uses the PCBWay-margin rules): 0 errors, 0 warnings,
   0 unconnected pads.
