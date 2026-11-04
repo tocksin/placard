@@ -274,8 +274,8 @@ class Rig(test_tracker.Rig):
         return bytes(out)
 
     def check_view(self, what):
-        """every view cell against the map in RAM and the art; the framed
-        cell is left out (its border is drawn over it)"""
+        """every view cell against the map in RAM and the art (a broken one
+        cracked, a loose part crated); the framed cell is left out (its border is drawn over it)"""
         vx, vy, px, py = self.zp('v_x'), self.zp('v_y'), self.zp('p_x'), self.zp('p_y')
         frame = (self.zp('fr_x'), self.zp('fr_y')) if self.zp('fr_on') else None
         bad = []
@@ -297,6 +297,9 @@ class Rig(test_tracker.Rig):
                 else:
                     t = T['SPACE']
                 art = ARTS[t]
+                if ((x, y) != (px, py) and x < gen_scrap.MAP_W and y < gen_scrap.MAP_H
+                        and self.map_raw(x, y)[1] & 15 >= gen_scrap.BROKEN_STEP):
+                    art = gen_scrap.broken_art(art)     # broken: cracked
                 if (gen_scrap.TYPES[t][3] & gen_scrap.F_ITEM and (x, y) != (px, py)
                         and not self.bolted(x, y)):
                     art = gen_scrap.crate_art(art)      # a loose part: crated
@@ -355,8 +358,8 @@ def build():
     ovl = b''.join(gen_scrap.map_pages(t, d))
     src = open(os.path.join(HERE, 'scrap.asm')).read()
     prog, tsyms, _ = ps.assemble(src, HERE)
-    inv = gen_plc.split_swap(prog, 0x4300, 0x4D00)      # SCRAP.INV
-    if not inv or len(inv) > 0xA00:
+    inv = gen_plc.split_swap(prog, 0x4100, 0x4D00)      # SCRAP.INV
+    if not inv or len(inv) > 0xC00:          # 6 sectors at most (inv_fetch)
         raise SystemExit('SCRAP.INV is %d bytes' % len(inv))
     prog, code = gen_plc.split_overlay(prog, lib, 0xC000, 2)
     if any(0x4000 <= a < 0xC000 for a in prog):
@@ -685,8 +688,8 @@ def phase3(r, args):
     o0 = z('o2')
     r.run(60 * (gen_scrap.O2_SECS + 1))
     print('  %d s more: suit O2 %d -> %d' % (gen_scrap.O2_SECS + 1, o0, z('o2')))
-    if z('o2') != o0 - 1:
-        r.fail('the suit should use 1 L of O2 in %d s without air' % (gen_scrap.O2_SECS + 1))
+    if not 1 <= o0 - z('o2') <= 2:              # a litre every O2_SECS: 1 or 2
+        r.fail('the suit should use 1 or 2 L of O2 in %d s without air' % (gen_scrap.O2_SECS + 1))
     r.check_view('frost')
     if args.png:
         r.mouse_cell(64, 52)
@@ -697,7 +700,8 @@ def phase3(r, args):
     print('10. the warnings')
     for o2, want in ((44, 'CAUTION'), (20, 'WARNING'), (5, 'CRITICAL'), (1, 'BLACKING OUT')):
         mem[r.tsyms['o2']] = o2
-        r.wait_for(lambda: want in r.panel()[5], 200, 'the %s warning' % want)
+        r.wait_for(lambda: want in r.panel()[5], 60 * (gen_scrap.O2_SECS + 1),
+                   'the %s warning' % want)             # (O2 1: the next litre)
         print('  suit O2 %d: %r (tint %02X)' % (o2, r.panel()[5].strip(), mem[0x5BF0] & 0x70))
     if mem[0x5BF0] & 0x70 != 0x10:
         r.fail('the warning row is not red')
@@ -870,10 +874,14 @@ def skills_suit(r):
 
 def check_inv(r, what):
     """the inventory screen against gen_scrap.inventory_screen (the slots,
-    the gear, the frame on the slot under the mouse)"""
+    the gear, the frame on the slot under the mouse, a broken part cracked,
+    the mouse pointer)"""
     z, mem = r.zp, r.cpu.mem
     carry = [mem[r.tsyms['cl_t'] + i] for i in range(3)]
-    want = gen_scrap.inventory_screen(carry, z('suit_on'), z('batt'), z('o2'), z('inv_k'))
+    dmg = [mem[r.tsyms['cl_d'] + i] for i in range(3)]
+    mx, my = z('m_xl') | z('m_xh') << 8, z('m_yl') | z('m_yh') << 8
+    want = gen_scrap.inventory_screen(carry, z('suit_on'), z('batt'), z('o2'), z('inv_k'), dmg,
+                                      (mx // 4, my // 2) if my < 384 else None)
     bad = []
     for p in range(192):
         for bc in range(80):

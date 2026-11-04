@@ -45,7 +45,7 @@
 ;
 ;     python3 gen_scrap.py                            scrap_types.asm, scrap_data.masm, scrap_map.bin
 ;     python3 asm_expand.py scrap.masm                scrap.asm
-;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin --swap 0x4300,0x4D00,INV
+;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
 ;     python3 test_scrap_sim.py                       runs it in placard_sim
 ;
 ; Date: 11/04/2026
@@ -146,7 +146,7 @@ inv_k   = 0x65              ; the inventory's slot under the mouse: 0-2 the carr
                             ;   slots, 3-6 the gear (suit, battery, O2, utility), FF none
 pl_t    = 0x66              ; the part being placed: its type
 PL_S    = 0x36EF            ;   its carry slot (the job: cut_m 4)
-SWAP_LO = 0x4300            ; SCRAP.INV (the inventory) is read in here, x4300-x4CFF
+SWAP_LO = 0x4100            ; SCRAP.INV (the inventory) is read in here, x4100-x4CFF
 wk_on   = 0x67              ; WALK HERE: 1 while walking to wk_x, wk_y
 wk_x    = 0x68
 wk_y    = 0x69
@@ -827,6 +827,54 @@ dc_byte:
     bne  dc_col
     RET
 
+; crack_cell - after draw_cell: a broken one (damage from step 8, not the
+; player) gets the crack (CRACK: AND masks in the art's order).  A leaf.
+.chunk
+crack_cell:
+    ld   [dc_t], ac
+    xor  T_PLAYER, ac
+    beq  ck_e
+    ld   [c_f], ac
+    sub  8, ac
+    bcs  ck_e
+    CELLADDR
+    ld   CRACK & 0xFF, ac
+    ld   ac, [dc_ai]
+    ld   4, ac
+    ld   ac, [dc_c]
+ck_col:
+    ld   [dc_base], ac
+    ld   ac, [dc_so]
+    ld   16, ac
+    ld   ac, [dc_n]
+ck_byte:
+    ld   CRACK >> 8, y
+    ld   [dc_ai], x
+    ld   [y,x], ac
+    ld   [dc_sp], y
+    ld   [dc_so], x
+    and  [y,x], ac
+    ld   ac, [y,x]
+    ld   [dc_ai], ac
+    inc
+    ld   ac, [dc_ai]
+    ld   [dc_so], ac
+    add  2, ac
+    ld   ac, [dc_so]
+    ld   [dc_n], ac
+    dec
+    ld   ac, [dc_n]
+    bne  ck_byte
+    ld   [dc_sp], ac
+    add  2, ac
+    ld   ac, [dc_sp]
+    ld   [dc_c], ac
+    dec
+    ld   ac, [dc_c]
+    bne  ck_col
+ck_e:
+    RET
+
 ; draw_frame - a yellow frame around screen cell dc_cx, dc_cy (over what
 ; is drawn there).  A leaf.
 .chunk
@@ -913,6 +961,7 @@ vc_p:
     ld   ac, [dc_t]
 vc_d:
     CALL draw_cell
+    CALL crack_cell
     CALL cell_extra
     LEAVE
 
@@ -1160,6 +1209,10 @@ iv_y:
 .chunk
 hover_update:
     PUSH_LINK
+    ld   [inv], ac
+    beq  hu_0
+    GOTO inv_hover
+hu_0:
     CALL in_view
     bne  hu_v
     CALL hover_panel
@@ -1193,10 +1246,6 @@ hu_v:
     or   [u0], ac
     add  [v_y], ac
     ld   ac, [u2]
-    ld   [inv], ac
-    beq  hu_m
-    GOTO inv_hover
-hu_m:
     ld   0xFF, ac
     ld   ac, [m_sel]
     ld   [h_on], ac
@@ -3437,7 +3486,7 @@ ds_e:
 
 ; air_crack - a link that is not open (v1:v2 its type byte, v3 its type):
 ; from 50 % damage it leaks, a unit a tick toward the lower side; to
-; vacuum (room 0) two.  The rest of air_tick's loop (its v0)
+; vacuum (room 0, a hull breach) an eighth of the room's air and one.  The rest of air_tick's loop (its v0)
 .chunk
 air_crack:
     ld   [v1], ac               ; the damage, two pages up
@@ -3463,10 +3512,17 @@ air_crack:
     ld   [v5], ac               ; vacuum on side a: side b drains
     ld   ac, [v4]
 ak_v:
-    ld   ROOM_P >> 8, y
+    ld   ROOM_P >> 8, y         ; a hull breach: an eighth and one
     ld   [v4], x
     ld   [y,x], ac
-    sub  2, ac
+    ld   ac, [v6]
+    shr  ac
+    shr  ac
+    shr  ac
+    inc
+    ld   ac, [v7]
+    ld   [v6], ac
+    sub  [v7], ac
     bcc  ak_s
     clr  ac
 ak_s:
@@ -5390,7 +5446,7 @@ cm_e:
 ; deck, a wall panel or a door on a deck or open space, a deck plate or a
 ; thruster on open space).  The job (cut_m 4) puts it there (place_done).
 
-; inv_toggle - the inventory up (SCRAP.INV read into x4300-x4CFF, the
+; inv_toggle - the inventory up (SCRAP.INV read into x4100-x4CFF, the
 ; work space rooms_build leaves alone between builds), or back to the
 ; ship (the rooms worked out then if a job changed the ship meanwhile).
 ; The rest of the routine that GOTOs it (its LEAVE)
@@ -5437,7 +5493,7 @@ it_v:
     ld   ac, [dirty]
     LEAVE
 
-; inv_fetch - SCRAP.INV into x4300 up (5 sectors at most): AC = 0, or not
+; inv_fetch - SCRAP.INV into x4100 up (6 sectors at most): AC = 0, or not
 ; 0 when it is not on the card
 .chunk
 inv_fetch:
@@ -5450,7 +5506,7 @@ inv_fetch:
     bne  vf_e
     ld   SWAP_LO >> 8, ac
     ld   ac, [u5]
-    ld   5, ac
+    ld   6, ac
     ld   ac, [u6]
 vf_l:
     clr  ac
@@ -5470,6 +5526,34 @@ vf_d:
     clr  ac
 vf_e:
     LEAVE
+
+; pt_xy - u1, u2 = the art pixel under the mouse (m_y / 2, m_x / 4): the
+; inventory's (scrap_inv.masm; resident to keep SCRAP.INV small).  A leaf.
+.chunk
+pt_xy:
+    ld   [m_yl], ac
+    shr  ac
+    ld   ac, [u1]
+    ld   [m_yh], ac
+    beq  px_1
+    ld   [u1], ac
+    or   0x80, ac
+    ld   ac, [u1]
+px_1:
+    ld   [m_xl], ac
+    shr  ac
+    shr  ac
+    ld   ac, [u2]
+    ld   [m_xh], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [u2], ac
+    ld   ac, [u2]
+    RET
 
 ; place_click - a left click on the view while placing: the cell under
 ; the pointer, next to you and of the kind the part goes on, starts the
@@ -5652,5 +5736,5 @@ s_sl2:
 ; ============================================================
 ; SCRAP.INV: the inventory screen (scrap_inv.masm), read in when it opens
 ; ============================================================
-.region SWAP_LO, SWAP_LO + 0x0A00, 1, overlay
+.region SWAP_LO, SWAP_LO + 0x0C00, 1, overlay
 .include "scrap_inv.masm"
