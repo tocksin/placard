@@ -27,7 +27,7 @@ shared through them.
 
 | Input | What it does |
 |-------|--------------|
-| Arrows, WASD, or the SNES pad | walk one cell (held: a step every 7 frames).  Walking into a closed door opens it, and it closes behind you unless it is held open |
+| Arrows, WASD, or the SNES pad | walk one cell (held: a step every 7 frames), on decks and out on open space or through a hull breach too (a spacewalk, on suit air: to repair the outside and build).  Walking into a closed door opens it, and it closes behind you unless it is held open |
 | Mouse over a cell | a yellow frame on the cell, and the panel shows it: name, damage bar, info on the left, actions on the right |
 | Mouse over yourself | your suit, battery, hands and pack |
 | Left click on a cell | locks the panel on it, so the mouse can go down to the actions |
@@ -76,7 +76,8 @@ used, and SUIT when you wore it: 2 (120 - level) of 256 toward the next
 level, so about a level a job at the start and slower as you get good.
 
 **The suit.**  TAKE OFF SUIT puts your suit in a free carry slot (it
-keeps its O2, and you can put it down like any part).  Without it you
+keeps its O2, and you can put it down like any part).  Out of it you are drawn
+without it: bare head, blue work clothes.  Without it you
 work quicker but breathe the room's air: in a room under 60 you black
 out at once and have 10 seconds to get air or PUT ON SUIT again.  Mind
 the airlock.
@@ -140,7 +141,10 @@ inverse action row in the panel, show where the mouse is.
 
 Every item has a damage score of 0-15 (6.25 % a step).  Its output falls
 from full at 0 % to nothing at 50 %, and from step 8 (50 %) on it is
-broken: the info line says `WORKS AT nn%` or `BROKEN - NEEDS REPAIR`.
+broken: the info line says `WORKS AT nn%` or `BROKEN - NEEDS REPAIR`.  A wall or door (and a wall
+panel or door kit) has no partial output: it holds its air fully up to
+50 % damage (`SEALED - NO LEAKS`) and leaks from there (`LEAKS AIR -
+NEEDS REPAIR`).
 
 ## Memory
 

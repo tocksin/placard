@@ -277,6 +277,10 @@ class Rig(test_tracker.Rig):
                     continue
                 if (x, y) == (px, py):
                     t = T['PLAYER']
+                    if not self.zp('suit_on'):          # out of the suit
+                        if self.cell_bytes(cx, cy) != gen_scrap.art_bytes('player_ns'):
+                            bad.append((cx, cy, 'PLAYER without the suit'))
+                        continue
                 elif x < gen_scrap.MAP_W and y < gen_scrap.MAP_H:
                     t = self.map_t(x, y)
                     if t == T['FLOOR'] and self.cpu.mem[0x4040 + self.room(x, y)]:
@@ -289,6 +293,10 @@ class Rig(test_tracker.Rig):
                     art = gen_scrap.crate_art(art)      # a loose part: crated
                 if self.cell_bytes(cx, cy) != art:
                     bad.append((cx, cy, gen_scrap.TYPES[t][0]))
+        over = [(k, self.press(k)) for k in range(1, self.zp('n_room'))
+                if self.press(k) > gen_scrap.AIR_FULL]
+        if over:                        # a leak that went under 0 (air_crack)
+            self.fail('%s: rooms over full air: %s' % (what, over))
         if bad:
             self.fail('%s: %d view cells differ from the map, first %s' % (what, len(bad), bad[:4]))
         else:
@@ -432,6 +440,8 @@ def main(argv):
         print('  |%s' % line)
     if not p[0].strip().startswith('DOOR (OPEN)'):
         r.fail('the panel does not name the door: %r' % p[0])
+    if 'SEALED - NO LEAKS' not in p[2]:
+        r.fail('the door (13 %% damage) is not shown sealed: %r' % p[2])
     if 'DAMAGE' not in p[0]:
         r.fail('no damage bar for the door')
     if 'CLOSE' not in ''.join(p[1:5]):
@@ -730,6 +740,13 @@ def rebuild(r):
     print('  the quarters\' air: %d -> %d in 2 s' % (p0, r.press(q)))
     if r.press(q) >= p0:
         r.fail('the hole in the deck does not leak')
+    r.go((17, 35), deck)                    # out onto open space: a spacewalk
+    print('  standing on the hole at %d,%d (%s)' % (z('p_x'), z('p_y'),
+                                                  gen_scrap.TYPES[r.map_t(*deck)][0]))
+    if (z('p_x'), z('p_y')) != deck:
+        r.fail('could not walk onto open space')
+    r.check_view('on open space')
+    r.go((17, 35))
     if not r.act(*deck, gen_scrap.A_LAY):
         return
     r.run(4)
@@ -742,6 +759,10 @@ def rebuild(r):
     ty, fl = r.map_raw(*hull)
     a = ((0x60 + 4 * (6 * (hull[1] >> 4) + (hull[0] >> 4))) << 8) + 16 * (hull[1] & 15) + (hull[0] & 15)
     mem[a + 0x200] = (fl & 0xF0) | 9              # the hull wall: 56 % damage
+    r.mouse_cell(*hull)
+    print('  the hull wall at 56 %%: %r' % r.panel()[2].strip())
+    if 'LEAKS AIR - NEEDS REPAIR' not in r.panel()[2]:
+        r.fail('the broken hull wall is not shown leaking')
     if not r.act(*wall, gen_scrap.A_UNINST):
         return
     r.settle()
@@ -798,6 +819,7 @@ def skills_suit(r):
         r.fail('TAKE OFF SUIT: suit_on %d, carried %d %d %d' % (z('suit_on'), z('cl_t'), z('cr_t'), z('cb_t')))
     if 'PUT ON SUIT' not in ''.join(p[1:5]):
         r.fail('no PUT ON SUIT in the player\'s menu')
+    r.check_view('out of the suit')
     r.run(130)
     if z('o2') != o0 or z('stage'):
         r.fail('without the suit, in air: O2 %d -> %d, stage %d' % (o0, z('o2'), z('stage')))

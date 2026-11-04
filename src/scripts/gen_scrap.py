@@ -122,6 +122,10 @@ ART = {
              'B8B77B8B', 'B8B77B8B', 'B8B77B8B', 'B8B77B8B', 'B8B77B8B',
              'B8B77B8B', 'B8B77B8B', 'B8B77B8B', 'B8BBBB8B', 'B888888B',
              'BBBBBBBB'],
+    'player_ns': ['77766777', '77666677', '776CC677', '77CCCC77', '77CCCC77',
+                  '777CC777', '73333337', '33333333', '3333E333', 'C333333C',
+                  'C333333C', '77333377', '77377377', '77377377', '77677677',
+                  '77777777'],   # the player without the suit (PL_NOSUIT, not a type)
     'suit': ['77777777', '77AAAA77', '7AA11AA7', '7A1111A7', '7AA11AA7',
              '77AAAA77', '7BAAAAB7', 'BAAAAAAB', 'BAA88AAB', 'BAAAAAAB',
              '7BAAAAB7', '77AAAA77', '7AA77AA7', '7AA77AA7', '7BB77BB7',
@@ -169,10 +173,11 @@ ART = {
 }
 
 # ------------------------------------------------------------------
-# the cell types: art, name, flags, info lines (\x01 = "works at" the
+# the cell types: art, name, flags, info lines (\x02 = sealed or leaking
+# for a wall or door: seal(); \x01 = "works at" the
 # damage allows), menu actions, the inspect line
 # ------------------------------------------------------------------
-F_WALK = 0x01       # the player can stand on it
+F_WALK = 0x01       # the player can stand on it (open space too: a spacewalk)
 F_DMG = 0x02        # it has a damage score worth showing
 F_ITEM = 0x04       # a part or tool that can be cut free and carried
 F_INST = 0x08       # a part that can be installed in the tug (a ship system)
@@ -193,27 +198,29 @@ ACTIONS = {A_OPEN: 'OPEN', A_CLOSE: 'CLOSE', A_INSPECT: 'INSPECT', A_WALK: 'WALK
 
 TYPES = [
     # key, art, name, flags, info lines, actions, inspect
-    ('SPACE', 'space', 'OPEN SPACE', F_SOLID | F_VAC,
-     ['VACUUM.  NO AIR, NO FLOOR.', 'LAY A DECK PLATE HERE TO BUILD ON IT'], [A_INSPECT],
+    ('SPACE', 'space', 'OPEN SPACE', F_WALK | F_SOLID | F_VAC,
+     ['VACUUM.  NO AIR, NO FLOOR.', 'LAY A DECK PLATE HERE TO BUILD ON IT',
+      'SPACEWALK: YOUR SUIT AIR ONLY'], [A_WALK, A_INSPECT],
      'NOTHING OUT THERE BUT DEBRIS AND COLD.'),
-    ('STAR', 'star', 'OPEN SPACE', F_SOLID | F_VAC,
-     ['VACUUM.  NO AIR, NO FLOOR.', 'LAY A DECK PLATE HERE TO BUILD ON IT'], [A_INSPECT],
+    ('STAR', 'star', 'OPEN SPACE', F_WALK | F_SOLID | F_VAC,
+     ['VACUUM.  NO AIR, NO FLOOR.', 'LAY A DECK PLATE HERE TO BUILD ON IT',
+      'SPACEWALK: YOUR SUIT AIR ONLY'], [A_WALK, A_INSPECT],
      'A DISTANT STAR.  NOT FOR SALE.'),
     ('FLOOR', 'floor', 'DECK PLATE', F_WALK | F_DMG | F_STRUCT,
      ['STEEL DECK PLATE', 'WALKABLE', 'TAKEN UP, IT LEAVES OPEN SPACE',
       'SKILL: MECHANICAL'], [A_WALK, A_INSPECT],
      'SCUFFED DECK PLATE.  SOMEONE WALKED HERE A LOT.'),
     ('WALL', 'wall', 'BULKHEAD', F_DMG | F_STRUCT | F_SOLID,
-     ['STEEL BULKHEAD, AIRTIGHT', 'LEAKS AIR FROM 50% DAMAGE',
+     ['STEEL BULKHEAD, LEAKS FROM 50% DAMAGE', '\x02',
       'UNINSTALL IT (IN A WRECK: A CUTTER)', 'SKILL: MECHANICAL'], [A_INSPECT],
      'A SOLID BULKHEAD.  THE PAINT SAYS DECK 2.'),
     ('DOOR', 'door', 'DOOR (CLOSED)', F_DMG | F_STRUCT | F_SOLID,
-     ['PRESSURE DOOR, SEALS UNDER 50% DAMAGE', '\x01',
+     ['PRESSURE DOOR, LEAKS FROM 50% DAMAGE', '\x02',
       'CLOSES BEHIND YOU UNLESS HELD OPEN', 'SKILLS: MECHANICAL, HYDRAULICS'],
      [A_OPEN, A_HOLD, A_INSPECT],
      'A PRESSURE DOOR.  THE HAZARD STRIPES ARE FADED.'),
     ('DOORO', 'dooro', 'DOOR (OPEN)', F_WALK | F_DMG | F_STRUCT | F_SOLID,
-     ['PRESSURE DOOR, OPEN', '\x01', 'CLOSES BEHIND YOU UNLESS HELD OPEN',
+     ['PRESSURE DOOR, OPEN', '\x02', 'CLOSES BEHIND YOU UNLESS HELD OPEN',
       'SKILLS: MECHANICAL, HYDRAULICS'], [A_CLOSE, A_HOLD, A_INSPECT],
      'AN OPEN PRESSURE DOOR.'),
     ('O2', 'o2', 'O2 TANK', F_DMG | F_ITEM | F_INST,
@@ -269,8 +276,9 @@ TYPES = [
      ['CO2 SCRUBBER', '\x01', 'WITH AN O2 TANK INSTALLED: AIR',
       'SKILLS: HYDRAULICS, ELECTRICAL'], [A_INSPECT],
      'AN AIR SCRUBBER.  THE FILTERS NEED CHANGING.'),
-    ('BREACH', 'breach', 'HULL BREACH', F_SOLID | F_VAC,
-     ['A HOLE IN THE HULL', 'AIR ESCAPES THROUGH HERE'], [A_INSPECT],
+    ('BREACH', 'breach', 'HULL BREACH', F_WALK | F_SOLID | F_VAC,
+     ['A HOLE IN THE HULL', 'AIR ESCAPES THROUGH HERE', 'YOU CAN CLIMB OUT THROUGH IT'],
+     [A_WALK, A_INSPECT],
      'SOMETHING PUNCHED RIGHT THROUGH THE HULL.'),
     ('O2E', 'o2e', 'EMPTY O2 TANK', F_DMG | F_ITEM | F_INST,
      ['CAPACITY 120 L, EMPTY', '\x01', 'HEAVY.  SKILL: HYDRAULICS',
@@ -281,11 +289,11 @@ TYPES = [
       'EACH CUT USES 5% OF THE SUIT BATTERY'], [A_INSPECT],
      'A PLASMA CUTTER.  KEEP YOUR FINGERS CLEAR.'),
     ('PANEL', 'panel', 'WALL PANEL', F_DMG | F_ITEM | F_INST,
-     ['A BULKHEAD SECTION, TAKEN OUT', '\x01', 'HEAVY.  SKILL: MECHANICAL',
+     ['A BULKHEAD SECTION, TAKEN OUT', '\x02', 'HEAVY.  SKILL: MECHANICAL',
       'INSTALL IT ON THE TUG: A WALL'], [A_INSPECT],
      'A SECTION OF BULKHEAD.  THE BOLT HOLES ARE CLEAN.'),
     ('DOORK', 'doork', 'PRESSURE DOOR', F_DMG | F_ITEM | F_INST,
-     ['A DOOR AND ITS FRAME, TAKEN OUT', '\x01', 'HEAVY.  SKILLS: MECH., HYDRAULICS',
+     ['A DOOR AND ITS FRAME, TAKEN OUT', '\x02', 'HEAVY.  SKILLS: MECH., HYDRAULICS',
       'INSTALL IT ON THE TUG: A DOOR'], [A_INSPECT],
      'A PRESSURE DOOR IN ITS FRAME, READY TO FIT.'),
     ('PLATE', 'plate', 'SPARE PLATE', F_DMG | F_ITEM,
@@ -428,6 +436,11 @@ MESSAGES = [   # (label, text): the strings scrap.masm prints
 
 def dmg_pct(step):
     return '%d%%' % int(step * 6.25 + 0.5)
+
+
+def seal(step):
+    """a wall's or door's \x02 line: it holds its air fully up to 50 % damage"""
+    return 'LEAKS AIR - NEEDS REPAIR' if step >= 8 else 'SEALED - NO LEAKS'
 
 
 def works(step):
@@ -859,6 +872,10 @@ def write_sources():
         lab = sref('zb_%d' % st, bar(st))
         rm[st] = lab + ' & 0xFF'
         rm[16 + st] = lab + ' >> 8'
+    for st in range(16):                # \x02: a wall's or door's seal
+        lab = sref('zs_%d' % st, seal(st))
+        rm[0x20 + st] = lab + ' & 0xFF'
+        rm[0x30 + st] = lab + ' >> 8'
     for r, pr in enumerate(press):
         rm[0x40 + r] = str(pr)
         rm[0x80 + r] = '1' if r in tug else '0'
@@ -901,6 +918,9 @@ def write_sources():
         d.append('.chunk')
         d += cur
         d.append('')
+    b = art_bytes('player_ns')        # the player without the suit
+    d += ['.chunk', 'PL_NOSUIT:'] + ['    #d8 ' + ', '.join('0x%02X' % v for v in b[o:o + 16])
+                                      for o in range(0, 64, 16)] + ['']
     msg, pos = skill_msg()            # the SKILLS message: written into
     d += ['.chunk', 'SK_MSG:', '    #d ' + asm_string(msg), 'SK_POS:',
           '    #d8 ' + ', '.join('(SK_MSG & 0xFF) + %d' % p for p in pos), '']
