@@ -45,7 +45,7 @@
 ;
 ;     python3 gen_scrap.py                            scrap_types.asm, scrap_data.masm, scrap_map.bin
 ;     python3 asm_expand.py scrap.masm                scrap.asm
-;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin
+;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin --swap 0x4300,0x4D00,INV
 ;     python3 test_scrap_sim.py                       runs it in placard_sim
 ;
 ; Date: 11/04/2026
@@ -142,12 +142,11 @@ O2_T    = 0x36FC            ; seconds since the suit last used a litre of O2
 inv     = 0x63              ; 1: the inventory screen is up (not the view)
 place   = 0x64              ; INSTALL from the inventory: the carry slot's address
                             ;   while you pick the cell (0 none)
-inv_k   = 0x65              ; the inventory's cell under the mouse: 0-2 the carry
-                            ;   slots, 3 you (FF none)
+inv_k   = 0x65              ; the inventory's slot under the mouse: 0-2 the carry
+                            ;   slots, 3-6 the gear (suit, battery, O2, utility), FF none
 pl_t    = 0x66              ; the part being placed: its type
 PL_S    = 0x36EF            ;   its carry slot (the job: cut_m 4)
-INV_X   = 6                 ; the inventory's cells on the screen: x 6, 8, 10
-INV_Y   = 5                 ;   (left hand, right hand, back), 12 (you); y 5
+SWAP_LO = 0x4300            ; SCRAP.INV (the inventory) is read in here, x4300-x4CFF
 wk_on   = 0x67              ; WALK HERE: 1 while walking to wk_x, wk_y
 wk_x    = 0x68
 wk_y    = 0x69
@@ -463,6 +462,8 @@ lp_d:
 .chunk
 s_ovl:
     #d "SCRAP.OVL", 0x00
+s_invf:
+    #d "SCRAP.INV", 0x00
 s_dmg:
     #d "DAMAGE ", 0x00
 
@@ -3194,7 +3195,11 @@ cd_m:
 work_end:
     ld   [rb_go], ac
     beq  we_t
+    ld   [inv], ac              ; in the inventory: when it closes
+    bne  we_t                   ;   (rooms_build's space holds SCRAP.INV)
     CALL rooms_build
+    clr  ac
+    ld   ac, [rb_go]
     CALL draw_view
     CALL hover_update
 we_t:
@@ -5385,21 +5390,20 @@ cm_e:
 ; deck, a wall panel or a door on a deck or open space, a deck plate or a
 ; thruster on open space).  The job (cut_m 4) puts it there (place_done).
 
-; inv_toggle - the inventory up, or back to the ship.  The rest of the
-; routine that GOTOs it (its LEAVE)
+; inv_toggle - the inventory up (SCRAP.INV read into x4300-x4CFF, the
+; work space rooms_build leaves alone between builds), or back to the
+; ship (the rooms worked out then if a job changed the ship meanwhile).
+; The rest of the routine that GOTOs it (its LEAVE)
 .chunk
 inv_toggle:
     ld   [inv], ac
-    xor  1, ac
+    bne  it_c
+    CALL inv_fetch
+    beq  it_o
+    LEAVE
+it_o:
+    ld   1, ac
     ld   ac, [inv]
-    ld   0xFF, ac
-    ld   ac, [inv_k]
-    clr  ac
-    ld   ac, [lock]
-    ld   ac, [h_on]
-    ld   ac, [wk_on]
-    ld   [inv], ac
-    beq  it_c
     clr  ac                     ; nothing to place
     ld   ac, [place]
     ld   ac, [s_who]
@@ -5410,9 +5414,22 @@ inv_toggle:
     CALL set_msg
     bra  it_v
 it_c:
+    clr  ac
+    ld   ac, [inv]
     ld   2, ac                  ; back on the ship: the panel on you
     ld   ac, [s_who]
+    ld   [rb_go], ac
+    beq  it_v
+    CALL rooms_build
+    clr  ac
+    ld   ac, [rb_go]
 it_v:
+    ld   0xFF, ac
+    ld   ac, [inv_k]
+    clr  ac
+    ld   ac, [lock]
+    ld   ac, [h_on]
+    ld   ac, [wk_on]
     CALL draw_view
     CALL hover_update
     ld   [dirty], ac
@@ -5420,214 +5437,39 @@ it_v:
     ld   ac, [dirty]
     LEAVE
 
-; inv_draw - the inventory screen: open space, the slots and you.  The
-; rest of draw_view
+; inv_fetch - SCRAP.INV into x4300 up (5 sectors at most): AC = 0, or not
+; 0 when it is not on the card
 .chunk
-inv_draw:
-    clr  ac
-    ld   ac, [fr_on]
-    ld   ac, [dc_cy]
-id_r:
-    clr  ac
-    ld   ac, [dc_cx]
-id_c:
-    ld   T_SPACE, ac
-    ld   ac, [dc_t]
-    CALL draw_cell
-    ld   [dc_cx], ac
-    inc
-    ld   ac, [dc_cx]
-    xor  VIEW_W, ac
-    bne  id_c
-    ld   [dc_cy], ac
-    inc
-    ld   ac, [dc_cy]
-    xor  VIEW_H, ac
-    bne  id_r
-    CALL inv_slots
-    LEAVE
-
-; inv_slots - the inventory's four cells (inv_cell), the frame on the one
-; under the mouse
-.chunk
-inv_slots:
+inv_fetch:
     PUSH_LINK
-    clr  ac
-    CALL inv_cell
-    ld   1, ac
-    CALL inv_cell
-    ld   2, ac
-    CALL inv_cell
-    ld   3, ac
-    CALL inv_cell
-    ld   [inv_k], ac
-    sub  4, ac
-    bcc  iq_e
-    ld   [inv_k], ac
-    shl
-    add  INV_X, ac
-    ld   ac, [dc_cx]
-    CALL draw_frame
-iq_e:
-    LEAVE
-
-; inv_cell - inventory cell AC: carry slot 0-2 (empty: a bare deck), 3
-; you.  dc_cy = INV_Y after.
-.chunk
-inv_cell:
-    PUSH_LINK
-    ld   ac, [dc_n]
-    shl
-    add  INV_X, ac
-    ld   ac, [dc_cx]
-    ld   INV_Y, ac
-    ld   ac, [dc_cy]
-    ld   [dc_n], ac
-    xor  3, ac
-    bne  ic_s
-    ld   T_PLAYER, ac
-    ld   ac, [dc_t]
-    CALL draw_cell
-    CALL cell_extra
-    LEAVE
-ic_s:
-    ld   [dc_n], ac
-    add  cl_t, ac
-    ld   ac, x
-    ld   [x], ac
-    bne  ic_d
-    ld   T_FLOOR, ac
-ic_d:
-    ld   ac, [dc_t]
-    CALL draw_cell
-    LEAVE
-
-; inv_hover - the inventory cell under the pointer (u1, u2: the map cell
-; hover_update worked out, less the view's corner): inv_k, the frame,
-; the panel.  The rest of hover_update
-.chunk
-inv_hover:
-    ld   0xFF, ac
-    ld   ac, [m_sel]
-    ld   ac, [u3]
-    ld   [u2], ac
-    sub  [v_y], ac
-    xor  INV_Y, ac
-    bne  ih_k
-    ld   [u1], ac
-    sub  [v_x], ac
-    sub  INV_X, ac
-    bcs  ih_k
-    ld   ac, [u4]
-    and  1, ac
-    bne  ih_k
-    ld   [u4], ac
-    shr  ac
-    ld   ac, [u4]
-    sub  4, ac
-    bcc  ih_k
-    ld   [u4], ac
-    ld   ac, [u3]
-ih_k:
-    ld   [inv_k], ac
-    xor  [u3], ac
-    beq  ih_e
-    ld   [u3], ac
-    ld   ac, [inv_k]
-    CALL inv_slots
-    ld   [lock], ac
-    bne  ih_e
-    CALL inv_subject
-ih_e:
-    LEAVE
-
-; inv_subject - the panel on the inventory cell inv_k: you (s_who 2), a
-; carried part (3), nothing (0).  A leaf.
-.chunk
-inv_subject:
-    ld   [inv_k], ac
-    xor  3, ac
-    bne  is_s
-    ld   2, ac
-    bra  is_w
-is_s:
-    ld   [inv_k], ac
-    sub  3, ac
-    bcc  is_n
-    ld   [inv_k], ac
-    add  cl_t, ac
-    ld   ac, x
-    ld   [x], ac
-    beq  is_w
-    ld   3, ac
-    bra  is_w
-is_n:
-    clr  ac
-is_w:
-    ld   ac, [s_who]
-    ld   [dirty], ac
-    or   1, ac
-    ld   ac, [dirty]
-    RET
-
-; inv_load - the panel's subject from carry slot inv_k: INSTALL for a part
-; that says where it goes, PUT ON SUIT for the suit.  An empty slot:
-; nothing.  The rest of subj_load
-.chunk
-inv_load:
-    ld   [inv_k], ac
-    add  cl_t, ac
-    ld   ac, [u2]
-    ld   ac, x
-    ld   [x], ac
-    ld   ac, [s_t]
-    bne  il_ok
-    clr  ac
-    ld   ac, [s_who]
-    ld   ac, [n_act]
-    GOTO sl_e
-il_ok:
-    ld   [u2], ac
-    add  3, x
-    ld   [x], ac
-    ld   ac, [s_f]
-    clr  ac
-    ld   ac, [s_r]
-    ld   ac, [s_b]
-    ld   ac, [n_act]
-    ld   ACT_PG, y
-    ld   [s_t], ac
-    add  TB_SKILL, x
-    ld   [y,x], ac
-    and  0xC0, ac
-    beq  il_e
-    ld   A_INSTALL, ac
-    CALL add_act
-il_e:
-    ld   [s_t], ac
-    xor  T_SUIT, ac
-    bne  il_g
-    ld   A_SUITON, ac
-    CALL add_act
-il_g:
-    GOTO sl_a
-
-; inv_install - INSTALL in the inventory: back to the ship to pick the
-; cell (place, pl_t).  The rest of do_action
-.chunk
-inv_install:
-    ld   [inv_k], ac
-    add  cl_t, ac
-    ld   ac, [place]
-    ld   ac, x
-    ld   [x], ac
-    ld   ac, [pl_t]
-    ld   s_place & 0xFF, ac
+    ld   s_invf & 0xFF, ac
     ld   ac, [R0]
-    ld   s_place >> 8, ac
+    ld   s_invf >> 8, ac
     ld   ac, [R1]
-    CALL set_msg
-    GOTO inv_toggle
+    CALL l_fs_open
+    bne  vf_e
+    ld   SWAP_LO >> 8, ac
+    ld   ac, [u5]
+    ld   5, ac
+    ld   ac, [u6]
+vf_l:
+    clr  ac
+    ld   ac, [R4]
+    ld   [u5], ac
+    ld   ac, [R5]
+    CALL l_fs_read
+    bne  vf_d
+    ld   [u5], ac
+    add  2, ac
+    ld   ac, [u5]
+    ld   [u6], ac
+    dec
+    ld   ac, [u6]
+    bne  vf_l
+vf_d:
+    clr  ac
+vf_e:
+    LEAVE
 
 ; place_click - a left click on the view while placing: the cell under
 ; the pointer, next to you and of the kind the part goes on, starts the
@@ -5806,3 +5648,9 @@ s_sl1:
     #d "IN YOUR RIGHT HAND", 0x00
 s_sl2:
     #d "ON YOUR BACK", 0x00
+
+; ============================================================
+; SCRAP.INV: the inventory screen (scrap_inv.masm), read in when it opens
+; ============================================================
+.region SWAP_LO, SWAP_LO + 0x0A00, 1, overlay
+.include "scrap_inv.masm"

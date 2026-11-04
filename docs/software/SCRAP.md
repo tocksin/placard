@@ -66,16 +66,20 @@ A part that is not installed (LOOSE) is drawn in a brown crate frame,
 so you can see at a glance what is fitted and what is lying about.
 
 **The inventory.**  I or Tab (or INVENTORY on yourself) swaps the view
-for your gear, drawn in the same cell art as the ship: left hand, right
-hand and back side by side (an empty slot is a bare deck plate), then
-you.  Walking stops while it is up, but the game goes on (air, jobs).
-The mouse over a slot shows that part in the panel (`IN YOUR LEFT HAND`
-and so on) with its menu, as on the ship: INSPECT, PUT ON SUIT for the
-suit, and INSTALL for a part that installs.  INSTALL goes back to the
-ship and asks you to click the cell next to you where it goes (right
-click cancels); a cell of the wrong kind says where it goes instead.
-Then it is a normal install job (its time from the part's skills), in
-the tug or in a wreck alike:
+for the inventory screen: a title bar, GEAR on the left (your suit, its
+battery, its O2, a utility slot for later) and CARRYING on the right
+(left hand, right hand, back), each slot the part's cell art in a frame,
+with its label and what is in it in a small 3 x 5 font.  The space under
+CARRYING is kept for an open bag (bags of up to 16 slots come later;
+one open at a time).  Walking stops while it is up, but the game goes
+on (air, jobs).  The mouse over a slot frames it in yellow and shows it
+in the panel, with its menu as on the ship: a carried part (`IN YOUR
+LEFT HAND` and so on) has INSPECT, PUT ON SUIT for the suit and INSTALL
+for a part that installs; the gear slots show you (SKILLS, TAKE OFF
+SUIT, ...).  INSTALL goes back to the ship and asks you to click the cell
+next to you where it goes (right click cancels); a cell of the wrong
+kind says where it goes instead.  Then it is a normal install job (its
+time from the part's skills), in the tug or in a wreck alike:
 
 | Part | Goes on |
 |------|---------|
@@ -184,6 +188,7 @@ NEEDS REPAIR`).
 | x3900-x3FFF | the cell art, 4 cells a page (28 kinds, the most there is room for) |
 | x4000-x407F | each room's pressure, and whether it is cold |
 | x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |
+| x4300-x4CFF | while the inventory is up: `SCRAP.INV` (`scrap_inv.masm`: its screen, font and routines), read from the card each time it opens; a rebuild of the rooms waits until it closes |
 | x5400-x55FF | sector buffer for loading `SCRAP.OVL` |
 | even pages x60-xBE | the map: 96 x 64 cells in 24 chunks of 16 x 16 |
 | odd pages x61-xBF | the screen (2x repeat leaves the even pages free) |
@@ -208,8 +213,8 @@ stubs that switch to map 07 around the call.
 cd src\scripts
 python gen_scrap.py                              scrap_types.asm, scrap_data.masm, scrap_map.bin
 python asm_expand.py scrap.masm                  scrap.asm
-python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin
-                                                 SCRAP.PLC, and SCRAP.OVL: the map, then the code
+python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin --swap 0x4300,0x4D00,INV
+                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV
 python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png)
 ```
 
@@ -229,7 +234,8 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
   putting it down (still no air while loose), installing it (air again);
 - uninstalling a crate in the wreck with the cutter, the battery it uses, carrying it
   (slower steps);
-- the inventory (I, Tab): its cells, the slots in the panel; a wreck wall
+- the inventory (I, Tab): the whole screen against `gen_scrap.py`'s
+  `inventory_screen()`, the slots in the panel; a wreck wall
   uninstalled, picked up and installed again from the inventory (a cell
   too far refused), the rooms and the skills after it;
 - opening the vented section: the corridor's air drops, the decks frost,

@@ -355,20 +355,23 @@ def build():
     ovl = b''.join(gen_scrap.map_pages(t, d))
     src = open(os.path.join(HERE, 'scrap.asm')).read()
     prog, tsyms, _ = ps.assemble(src, HERE)
+    inv = gen_plc.split_swap(prog, 0x4300, 0x4D00)      # SCRAP.INV
+    if not inv or len(inv) > 0xA00:
+        raise SystemExit('SCRAP.INV is %d bytes' % len(inv))
     prog, code = gen_plc.split_overlay(prog, lib, 0xC000, 2)
     if any(0x4000 <= a < 0xC000 for a in prog):
         raise SystemExit('scrap.asm reaches past x3FFF')
     plc = gen_plc.make(prog, tsyms, lib)[0]
     ovl += code                 # the code pages from xC000, after the map's
-    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl
+    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv
 
 
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('--png')
     args = ap.parse_args(argv)
-    rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl = build()
-    files = {'DOS.PLC': dos_plc, 'SCRAP.PLC': plc, 'SCRAP.OVL': ovl,
+    rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv = build()
+    files = {'DOS.PLC': dos_plc, 'SCRAP.PLC': plc, 'SCRAP.OVL': ovl, 'SCRAP.INV': inv,
              'BOOT.CFG': b'SCRAP.PLC\r\n'}
     r = Rig(rom, syms, dsyms, lib, sdimage.make(files))
     r.port.mouse = io_devices.Ps2Mouse(bat_ms=50)
@@ -662,7 +665,7 @@ def phase3(r, args):
     if not 7 + 3 <= wd <= 7 + 4:        # read in the step's frame or the next
         r.fail('carrying a crate does not slow the walk')
     r.check_view('cut and carried')
-    inventory(r)
+    inventory(r, args)
 
     print('9. a room without air: the vented section')
     r.go((38, 29), (38, 32), (61, 32), (61, 52))
@@ -866,31 +869,30 @@ def skills_suit(r):
 
 
 def check_inv(r, what):
-    """the inventory screen: open space, the three carry slots (an empty
-    one a bare deck) and the player, the hovered one framed"""
-    z = r.zp
-    k = z('inv_k')
+    """the inventory screen against gen_scrap.inventory_screen (the slots,
+    the gear, the frame on the slot under the mouse)"""
+    z, mem = r.zp, r.cpu.mem
+    carry = [mem[r.tsyms['cl_t'] + i] for i in range(3)]
+    want = gen_scrap.inventory_screen(carry, z('suit_on'), z('batt'), z('o2'), z('inv_k'))
     bad = []
-    for cy in range(VIEW_H):
-        for cx in range(VIEW_W):
-            art = ARTS[T['SPACE']]
-            if cy == 5 and cx in (6, 8, 10, 12):
-                i = (cx - 6) // 2
-                if i == k:
-                    continue
-                if i == 3:
-                    art = ARTS[T['PLAYER']] if z('suit_on') else gen_scrap.art_bytes('player_ns')
-                else:
-                    art = ARTS[r.cpu.mem[r.tsyms['cl_t'] + i] or T['FLOOR']]
-            if r.cell_bytes(cx, cy) != art:
-                bad.append((cx, cy))
+    for p in range(192):
+        for bc in range(80):
+            if mem[((0x61 + 2 * bc) << 8) + line_off(p)] != want[p][bc]:
+                bad.append((bc, p))
     if bad:
-        r.fail('%s: %d inventory cells wrong, first %s' % (what, len(bad), bad[:4]))
+        r.fail('%s: %d inventory bytes differ, first (column, line) %s' % (what, len(bad), bad[:4]))
     else:
-        print('  %s: the inventory screen is right' % what)
+        print('  %s: the inventory screen is as inventory_screen() draws it' % what)
+    return not bad
 
 
-def inventory(r):
+def inv_mouse(r, k):
+    """the pointer onto inventory slot k (0-2 carrying, 3-6 the gear)"""
+    bc, p = gen_scrap.INV_SLOTS[k]
+    r.mouse_to(4 * (2 * bc + 4), 2 * (p + 8))
+
+
+def inventory(r, args):
     """the inventory screen (I); a wreck wall uninstalled, picked up and
     installed again from the inventory onto the deck it left"""
     z, mem = r.zp, r.cpu.mem
@@ -919,18 +921,25 @@ def inventory(r):
     if not z('inv') or 'YOUR GEAR' not in r.panel()[5]:
         r.fail('I did not open the inventory')
     check_inv(r, 'opened')
-    r.mouse_to(8 * 32 + 16, 5 * 32 + 16)                # the right hand: the cutter
+    inv_mouse(r, 1)                                     # the right hand: the cutter
     p = r.panel()
     print('  |%s' % p[0])
     if 'PLASMA CUTTER' not in p[0] or 'IN YOUR RIGHT HAND' not in p[0]:
         r.fail('the right hand slot is not shown')
-    r.mouse_to(10 * 32 + 16, 5 * 32 + 16)               # the back: the panel
+    inv_mouse(r, 2)                                     # the back: the panel
     p = r.panel()
     for line in p:
         print('  |%s' % line)
     if 'WALL PANEL' not in p[0] or 'ON YOUR BACK' not in p[0]:
         r.fail('the back slot is not shown')
     check_inv(r, 'the back framed')
+    if args.png:
+        ps.render(mem, args.png.replace('.png', '_inv.png'))
+        print('  wrote', args.png.replace('.png', '_inv.png'))
+    inv_mouse(r, 3)                                     # the suit: your panel
+    if z('s_who') != 2 or 'MK1 WORK SUIT' not in r.panel()[1]:
+        r.fail('the suit slot does not show you')
+    inv_mouse(r, 2)
     r.click(1)
     if not r.key_act(gen_scrap.A_INSTALL):
         return

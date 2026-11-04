@@ -946,6 +946,125 @@ def write_sources():
     open(os.path.join(HERE, 'scrap_data.masm'), 'w').write('\n'.join(d))
 
 
+# ------------------------------------------------------------------
+# the inventory screen (SCRAP.INV: scrap_inv.masm, scrap_inv_data.masm)
+# ------------------------------------------------------------------
+# a 3 x 5 font, rows top down, pixels left to right
+F35 = {
+    'A': '010101111101101', 'B': '110101110101110', 'C': '011100100100011',
+    'D': '110101101101110', 'E': '111100110100111', 'F': '111100110100100',
+    'G': '011100101101011', 'H': '101101111101101', 'I': '111010010010111',
+    'J': '001001001101010', 'K': '101101110101101', 'L': '100100100100111',
+    'M': '101111111101101', 'N': '110101101101101', 'O': '010101101101010',
+    'P': '110101110100100', 'Q': '010101101110011', 'R': '110101110101101',
+    'S': '011100010001110', 'T': '111010010010010', 'U': '101101101101111',
+    'V': '101101101101010', 'W': '101101111111101', 'X': '101101010101101',
+    'Y': '101101010010010', 'Z': '111001010100111',
+    '0': '111101101101111', '1': '010110010010111', '2': '111001111100111',
+    '3': '111001011001111', '4': '101101111001001', '5': '111100111001111',
+    '6': '111100111101111', '7': '111001001010010', '8': '111101111101111',
+    '9': '111101111001111', '.': '000000000000010', ',': '000000000010100',
+    ' ': '000000000000000', '?': '110001010000010', '-': '000000111000000',
+    '%': '101001010100101', '/': '001001010100100', ':': '000010000010000',
+    "'": '010010000000000', '(': '010100100100010', ')': '010001001001010',
+    '>': '100010001010100',
+}
+INV_BG, INV_BAR = 1, 3                  # colors: the screen, the title bar
+INV_LABELS = [  # (byte column, line pair, color, background, text)
+    (1, 3, 0xA, INV_BAR, 'INVENTORY'), (60, 3, 0xA, INV_BAR, 'I - CLOSE'),
+    (2, 14, 0xE, INV_BG, 'GEAR'), (35, 14, 0xE, INV_BG, 'CARRYING')] + [
+    (9, 25 + 32 * i, 0xB, INV_BG, t) for i, t in enumerate(['SUIT', 'BATTERY', 'O2', 'UTILITY'])] + [
+    (42, 25 + 32 * i, 0xB, INV_BG, t) for i, t in enumerate(['LEFT HAND', 'RIGHT HAND', 'BACK'])]
+# the slots' art (byte column, line pair): 0-2 carrying, 3-6 the gear.
+# Below CARRYING (line pairs 118 on) stays free for an open bag (later).
+INV_SLOTS = [(36, 22 + 32 * i) for i in range(3)] + [(3, 22 + 32 * i) for i in range(4)]
+INV_STR = [('s_iempty', 'EMPTY'), ('s_isuit', 'MK1 WORK SUIT'), ('s_ioff', 'TAKEN OFF'),
+           ('s_icell', 'CELL '), ('s_il', ' L'), ('s_inone', 'NONE')]
+
+
+def f35_code(ch, r):
+    """row r of ch: the left pixel pair's (a + 2b) and the third pixel << 2"""
+    g = F35.get(ch, F35[' '])[3 * r:3 * r + 3]
+    a, b, c = (int(v) for v in g)
+    return a + 2 * b + 4 * c
+
+
+def inventory_screen(carry, suit_on, batt, o2, hot):
+    """the inventory's 192 line pairs of 80 bytes, as scrap_inv.masm draws
+    them: carry = the three carry slots' types (0 empty), hot = inv_k"""
+    scr = [bytearray([INV_BG * 0x11]) * 80 for _ in range(192)]
+    for p in range(10):
+        scr[p][:] = bytes([INV_BAR * 0x11]) * 80
+
+    def px(x, y, c):
+        b = scr[y][x >> 1]
+        scr[y][x >> 1] = (b & 0xF0) | c if x & 1 == 0 else (b & 0x0F) | c << 4
+
+    def text(bc, p, s, fg, bg):
+        for ch in s:
+            for r in range(5):
+                g = F35.get(ch, F35[' '])[3 * r:3 * r + 3]
+                for k in range(4):
+                    px(2 * bc + k, p + r, fg if k < 3 and g[k] == '1' else bg)
+            bc += 2
+        return bc
+
+    for bc, p, fg, bg, t in INV_LABELS:
+        text(bc, p, t, fg, bg)
+    names = [t[2] for t in TYPES]
+    for k, (bc, p) in enumerate(INV_SLOTS):
+        fc = 0xE if k == hot else 0xB
+        for x in range(2 * bc - 1, 2 * bc + 9):
+            px(x, p - 1, fc)
+            px(x, p + 16, fc)
+        for y in range(p, p + 16):
+            px(2 * bc - 1, y, fc)
+            px(2 * bc + 8, y, fc)
+        t = carry[k] if k < 3 else {3: TYPE['SUIT'] if suit_on else 0, 4: TYPE['BATT'],
+                                    5: TYPE['O2'], 6: 0}[k]
+        art = art_bytes(TYPES[t][1]) if t else bytes(64)
+        for c in range(4):
+            for y in range(16):
+                scr[p + y][bc + c] = art[16 * c + y]
+        w = 38 if k < 3 else 26
+        for y in range(p + 10, p + 15):
+            scr[y][bc + 6:bc + 6 + w] = bytes([INV_BG * 0x11]) * w
+        if k < 3:
+            v = names[t] if t else 'EMPTY'
+        else:
+            v = {3: 'MK1 WORK SUIT' if suit_on else 'TAKEN OFF', 4: 'CELL %d%%' % batt,
+                 5: '%d L' % o2, 6: 'NONE'}[k]
+        text(bc + 6, p + 10, v, 0xA, INV_BG)
+    return scr
+
+
+def write_inv_data():
+    """scrap_inv_data.masm: the font, the labels and the slots (SCRAP.INV)"""
+    d = ['; scrap_inv_data.masm - made by gen_scrap.py: the inventory\'s font,', '; labels and slots', '']
+    d += ['.page', 'FNT_A:']                 # rows 0-3: + 64 r + char - x20
+    for r in range(4):
+        for o in range(0, 64, 16):
+            d.append('    #d8 ' + ', '.join(str(f35_code(chr(0x20 + o + i), r)) for i in range(16)))
+    d += ['', '.chunk', 'FNT_B:']           # row 4
+    for o in range(0, 64, 16):
+        d.append('    #d8 ' + ', '.join(str(f35_code(chr(0x20 + o + i), 4)) for i in range(16)))
+    d += ['', '.chunk', 'LBL:']
+    for k, (bc, p, fg, bg, t) in enumerate(INV_LABELS):
+        d.append('    #d8 %d, %d, %d, %d, zl_%d & 0xFF' % (bc, p, fg, bg, k))
+    d.append('    #d8 0xFF')
+    for k, (bc, p, fg, bg, t) in enumerate(INV_LABELS):
+        assert all(ch in F35 for ch in t), t
+        d += ['zl_%d:' % k, '    #d "%s", 0x00' % t]
+    d += ['', '.chunk', 'SPOS:', '    #d8 ' + ', '.join('%d, %d' % bp for bp in INV_SLOTS), '']
+    d += ['.chunk']
+    for lab, t in INV_STR:
+        d += ['%s:' % lab, '    #d "%s", 0x00' % t]
+    d.append('')
+    for t in TYPES:
+        assert all(ch in F35 for ch in t[2]), t[2]
+    open(os.path.join(HERE, 'scrap_inv_data.masm'), 'w').write('\n'.join(d))
+
+
 def write_ovl(path=None):
     t, dmg = build_map()
     data = b''.join(map_pages(t, dmg))
@@ -956,8 +1075,9 @@ def write_ovl(path=None):
 
 def main():
     write_sources()
+    write_inv_data()
     data = write_ovl()
-    print('scrap_types.asm, scrap_data.masm, scrap_map.bin (%d bytes)' % len(data))
+    print('scrap_types.asm, scrap_data.masm, scrap_inv_data.masm, scrap_map.bin (%d bytes)' % len(data))
 
 
 if __name__ == '__main__':
