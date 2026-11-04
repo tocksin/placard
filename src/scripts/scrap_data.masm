@@ -500,10 +500,10 @@ zi_20_0:
     #d "CO2 SCRUBBER", 0x00
 zi_20_1:
     #d 0x01, 0x00
+zi_20_2:
+    #d "WITH AN O2 TANK INSTALLED: AIR", 0x00
 
 .chunk
-zi_20_2:
-    #d "INSTALLED WITH AN O2 TANK: THE TUG HAS AIR", 0x00
 zi_20_3:
     #d "SKILLS: HYDRAULICS, ELECTRICAL", 0x00
 zi_21_0:
@@ -522,10 +522,10 @@ zi_23_0:
     #d "HAND TOOL: UNINSTALLS IN A WRECK", 0x00
 zi_23_1:
     #d 0x01, 0x00
-
-.chunk
 zi_23_2:
     #d "WORKS FROM A HAND.  SKILL: ELECTRICAL", 0x00
+
+.chunk
 zi_23_3:
     #d "EACH CUT USES 5% OF THE SUIT BATTERY", 0x00
 zi_24_0:
@@ -542,10 +542,10 @@ zi_25_1:
     #d 0x01, 0x00
 zi_25_2:
     #d "HEAVY.  SKILLS: MECH., HYDRAULICS", 0x00
-
-.chunk
 zi_25_3:
     #d "INSTALL IT ON THE TUG: A DOOR", 0x00
+
+.chunk
 zi_26_0:
     #d "A DECK PLATE, TAKEN UP", 0x00
 zi_26_1:
@@ -564,12 +564,12 @@ zx_1:
     #d "A DISTANT STAR.  NOT FOR SALE.", 0x00
 zn_2:
     #d "DECK PLATE", 0x00
-
-.chunk
 zx_2:
     #d "SCUFFED DECK PLATE.  SOMEONE WALKED HERE A LOT.", 0x00
 zn_3:
     #d "BULKHEAD", 0x00
+
+.chunk
 zx_3:
     #d "A SOLID BULKHEAD.  THE PAINT SAYS DECK 2.", 0x00
 zn_4:
@@ -582,12 +582,12 @@ zx_5:
     #d "AN OPEN PRESSURE DOOR.", 0x00
 zn_6:
     #d "O2 TANK", 0x00
-
-.chunk
 zx_6:
     #d "AN OXYGEN TANK.  THE GAUGE STILL MOVES.", 0x00
 zn_7:
     #d "REACTOR CORE", 0x00
+
+.chunk
 zx_7:
     #d "A REACTOR CORE.  IT IS HUMMING VERY QUIETLY.", 0x00
 zn_8:
@@ -600,12 +600,12 @@ zx_9:
     #d "THE LABEL READS ", 0x22, "MINING CHARGES - DO NOT DROP", 0x22, ".", 0x00
 zn_10:
     #d "BUNK", 0x00
-
-.chunk
 zx_10:
     #d "A CREW BUNK.  THE BLANKET IS FOLDED NEATLY.", 0x00
 zn_11:
     #d "HELM CONSOLE", 0x00
+
+.chunk
 zx_11:
     #d "THE HELM.  THE LAST LOG ENTRY IS 212 DAYS OLD.", 0x00
 zn_12:
@@ -618,12 +618,12 @@ zx_13:
     #d "A SECURITY TURRET.  ITS LIGHT IS DARK, FOR NOW.", 0x00
 zn_14:
     #d "POWER CONDUIT", 0x00
-
-.chunk
 zx_14:
     #d "A POWER CONDUIT RUNS UNDER THE DECK HERE.", 0x00
 zn_15:
     #d "DECK (NO AIR)", 0x00
+
+.chunk
 zx_15:
     #d "FROST ON THE DECK.  THE AIR IS GONE.", 0x00
 zn_16:
@@ -638,12 +638,12 @@ zn_18:
     #d "THRUSTER", 0x00
 zx_18:
     #d "A THRUSTER NOZZLE, BLACK WITH SOOT.", 0x00
-
-.chunk
 zn_19:
     #d "FUEL TANK", 0x00
 zx_19:
     #d "A FUEL TANK.  IT SLOSHES WHEN YOU KNOCK.", 0x00
+
+.chunk
 zn_20:
     #d "AIR SCRUBBER", 0x00
 zx_20:
@@ -658,12 +658,12 @@ zx_22:
     #d "AN EMPTY OXYGEN TANK.  THE GAUGE READS ZERO.", 0x00
 zn_23:
     #d "PLASMA CUTTER", 0x00
-
-.chunk
 zx_23:
     #d "A PLASMA CUTTER.  KEEP YOUR FINGERS CLEAR.", 0x00
 zn_24:
     #d "WALL PANEL", 0x00
+
+.chunk
 zx_24:
     #d "A SECTION OF BULKHEAD.  THE BOLT HOLES ARE CLEAN.", 0x00
 zn_25:
@@ -671,17 +671,17 @@ zn_25:
 zx_25:
     #d "A PRESSURE DOOR IN ITS FRAME, READY TO FIT.", 0x00
 zn_26:
-    #d "LOOSE DECK PLATE", 0x00
+    #d "SPARE PLATE", 0x00
 zx_26:
     #d "A STEEL DECK PLATE.  IT RINGS WHEN YOU TAP IT.", 0x00
 zn_27:
     #d "YOU", 0x00
-
-.chunk
 zx_27:
     #d "THAT IS YOU, IN A WORK SUIT THAT HAS SEEN BETTER DAYS.", 0x00
 zd_0:
     #d "0%", 0x00
+
+.chunk
 zw_0:
     #d "WORKS AT 100%", 0x00
 zd_1:
@@ -718,8 +718,6 @@ zw_8:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_9:
     #d "56%", 0x00
-
-.chunk
 zw_9:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_10:
@@ -732,6 +730,8 @@ zw_11:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_12:
     #d "75%", 0x00
+
+.chunk
 zw_12:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_13:
@@ -758,22 +758,22 @@ za_5:
     #d "PICK UP", 0x00
 za_6:
     #d "CUT FREE", 0x00
-
-.chunk
 za_7:
-    #d "PUT DOWN LEFT HAND", 0x00
+    #d "PUT DOWN LEFT", 0x00
 za_8:
-    #d "PUT DOWN RIGHT HAND", 0x00
+    #d "PUT DOWN RIGHT", 0x00
 za_9:
-    #d "PUT DOWN FROM BACK", 0x00
+    #d "PUT DOWN BACK", 0x00
 za_10:
-    #d "REFILL SUIT FROM IT", 0x00
+    #d "REFILL SUIT", 0x00
 za_11:
     #d "HOLD OPEN", 0x00
 za_12:
     #d "INSTALL", 0x00
 za_13:
     #d "UNINSTALL", 0x00
+
+.chunk
 za_14:
     #d "LAY DECK PLATE", 0x00
 za_15:
@@ -796,8 +796,6 @@ zb_4:
     #d "[###-------]", 0x00
 zb_5:
     #d "[###-------]", 0x00
-
-.chunk
 zb_6:
     #d "[####------]", 0x00
 zb_7:
@@ -814,6 +812,8 @@ zb_12:
     #d "[########--]", 0x00
 zb_13:
     #d "[########--]", 0x00
+
+.chunk
 zb_14:
     #d "[#########-]", 0x00
 zb_15:
@@ -822,28 +822,28 @@ s_welcome:
     #d "DOCKED TO THE KESTREL 9.  ARROWS OR WASD WALK, MOUSE SHOWS AND CLICKS.", 0x00
 s_toofar:
     #d "TOO FAR AWAY - WALK NEXT TO IT FIRST.", 0x00
-
-.chunk
 s_inway:
     #d "SOMETHING IS IN THE WAY.", 0x00
 s_blocked:
     #d "THE WAY IS BLOCKED.", 0x00
 s_full:
     #d "YOUR HANDS AND BACK ARE FULL - PUT SOMETHING DOWN.", 0x00
+
+.chunk
 s_nocut:
     #d "IN A WRECK IT TAKES A WORKING CUTTER IN A HAND.", 0x00
 s_nobatt:
     #d "THE SUIT BATTERY IS TOO LOW FOR THE CUTTER.", 0x00
 s_cutting:
     #d "UNINSTALLING WITH THE CUTTER...", 0x00
-
-.chunk
 s_cutdone:
     #d "UNINSTALLED.  IT CAN BE PICKED UP NOW.", 0x00
 s_cutstop:
     #d "STOPPED - YOU WALKED AWAY.", 0x00
 s_inst:
     #d "INSTALLING...", 0x00
+
+.chunk
 s_instdone:
     #d "INSTALLED.  IT IS PART OF THE TUG NOW.", 0x00
 s_uninst:
@@ -854,22 +854,20 @@ s_installed:
     #d "INSTALLED", 0x00
 s_held:
     #d "HELD OPEN", 0x00
-
-.chunk
 s_plate:
     #d "THE DECK PLATE IS YOURS - OPEN SPACE UNDER IT NOW.", 0x00
 s_laid:
     #d "DECK PLATE LAID.", 0x00
 s_refill:
     #d "SUIT REFILLED.  THE TANK IS EMPTY NOW.", 0x00
+
+.chunk
 s_broken:
     #d "IT IS BROKEN - IT DOES NOT WORK.", 0x00
 s_repair:
     #d "REPAIRING...", 0x00
 s_repdone:
     #d "REPAIRED.  GOOD AS NEW.", 0x00
-
-.chunk
 s_suitoff:
     #d "SUIT OFF: QUICKER WORK, BUT YOU BREATHE THE ROOM AIR - MIND THE VACUUM.", 0x00
 s_suiton:
@@ -880,6 +878,8 @@ s_pl_suit:
     #d "SUIT   MK1 WORK SUIT     O2 ", 0x00
 s_pl_of:
     #d " OF 90 L", 0x00
+
+.chunk
 s_pl_batt:
     #d "BATT   SMALL CELL        CHARGE ", 0x00
 s_pl_hands:
@@ -894,8 +894,6 @@ s_tug:
     #d "TUG $", 0x00
 s_airon:
     #d "0, AIR ON", 0x00
-
-.chunk
 s_airoff:
     #d "0, NO AIR", 0x00
 s_air:
@@ -908,6 +906,8 @@ s_w2:
     #d "WARNING: SUIT O2 LOW - GET BACK TO THE TUG OR FIND AN O2 TANK.", 0x00
 s_w3:
     #d "CRITICAL: SUIT O2 ALMOST GONE!", 0x00
+
+.chunk
 s_w4:
     #d "YOU ARE BLACKING OUT - GET AIR NOW!", 0x00
 s_w5:

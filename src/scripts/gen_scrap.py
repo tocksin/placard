@@ -185,9 +185,9 @@ A_PICK, A_CUT, A_PUTL, A_PUTR, A_PUTB, A_REFILL = 5, 6, 7, 8, 9, 10
 A_HOLD, A_INSTALL, A_UNINST, A_LAY = 11, 12, 13, 14
 A_REPAIR, A_SKILLS, A_SUITOFF, A_SUITON = 15, 16, 17, 18
 ACTIONS = {A_OPEN: 'OPEN', A_CLOSE: 'CLOSE', A_INSPECT: 'INSPECT', A_WALK: 'WALK HERE',
-           A_PICK: 'PICK UP', A_CUT: 'CUT FREE', A_PUTL: 'PUT DOWN LEFT HAND',
-           A_PUTR: 'PUT DOWN RIGHT HAND', A_PUTB: 'PUT DOWN FROM BACK',
-           A_REFILL: 'REFILL SUIT FROM IT', A_HOLD: 'HOLD OPEN', A_INSTALL: 'INSTALL',
+           A_PICK: 'PICK UP', A_CUT: 'CUT FREE', A_PUTL: 'PUT DOWN LEFT',
+           A_PUTR: 'PUT DOWN RIGHT', A_PUTB: 'PUT DOWN BACK',
+           A_REFILL: 'REFILL SUIT', A_HOLD: 'HOLD OPEN', A_INSTALL: 'INSTALL',
            A_UNINST: 'UNINSTALL', A_LAY: 'LAY DECK PLATE', A_REPAIR: 'REPAIR',
            A_SKILLS: 'SKILLS', A_SUITOFF: 'TAKE OFF SUIT', A_SUITON: 'PUT ON SUIT'}
 
@@ -266,7 +266,7 @@ TYPES = [
      ['FUEL TANK, 400 L', '\x01', 'HEAVY: TAKES ONE CARRY SLOT', 'SKILL: HYDRAULICS'], [A_INSPECT],
      'A FUEL TANK.  IT SLOSHES WHEN YOU KNOCK.'),
     ('SCRUB', 'scrub', 'AIR SCRUBBER', F_DMG | F_ITEM | F_INST,
-     ['CO2 SCRUBBER', '\x01', 'INSTALLED WITH AN O2 TANK: THE TUG HAS AIR',
+     ['CO2 SCRUBBER', '\x01', 'WITH AN O2 TANK INSTALLED: AIR',
       'SKILLS: HYDRAULICS, ELECTRICAL'], [A_INSPECT],
      'AN AIR SCRUBBER.  THE FILTERS NEED CHANGING.'),
     ('BREACH', 'breach', 'HULL BREACH', F_SOLID | F_VAC,
@@ -288,7 +288,7 @@ TYPES = [
      ['A DOOR AND ITS FRAME, TAKEN OUT', '\x01', 'HEAVY.  SKILLS: MECH., HYDRAULICS',
       'INSTALL IT ON THE TUG: A DOOR'], [A_INSPECT],
      'A PRESSURE DOOR IN ITS FRAME, READY TO FIT.'),
-    ('PLATE', 'plate', 'LOOSE DECK PLATE', F_DMG | F_ITEM,
+    ('PLATE', 'plate', 'SPARE PLATE', F_DMG | F_ITEM,
      ['A DECK PLATE, TAKEN UP', '\x01', 'LAY IT ON OPEN SPACE NEXT TO YOU',
       'SKILL: MECHANICAL'], [A_INSPECT],
      'A STEEL DECK PLATE.  IT RINGS WHEN YOU TAP IT.'),
@@ -374,6 +374,8 @@ TUG = (0, 18, TUG_LOCK[0], 46)      # the tug's cells, x0, y0, x1, y1 (its value
                                     # room to build on round its hull)
 AIR_FULL = 100                      # a room's pressure: 100 = 1 atmosphere
 assert len(TYPES) <= 32
+assert all(len(line) <= 40 for t in TYPES for line in t[4])   # the menu is from column 42
+assert all(len(name) <= 14 for name in ACTIONS.values())       # " 1: " + 14 = a menu column
 
 PLAYER_INFO = []                    # drawn by scrap.masm (draw_player)
 PLAYER_ACTIONS = [A_INSPECT]

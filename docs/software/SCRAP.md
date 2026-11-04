@@ -31,7 +31,7 @@ shared through them.
 | Mouse over a cell | a yellow frame on the cell, and the panel shows it: name, damage bar, info on the left, actions on the right |
 | Mouse over yourself | your suit, battery, hands and pack |
 | Left click on a cell | locks the panel on it, so the mouse can go down to the actions |
-| Left click on an action, or keys **1-4** | does it (see below); each action has its key to its left, `1:` to `4:` |
+| Left click on an action, or keys **1-8** | does it (see below); the menu is two columns of four, each action with its key to its left, `1:` to `8:` |
 | Right click | unlocks the panel |
 | Esc | back to the DOS |
 
@@ -44,15 +44,15 @@ need you next to it, diagonals count):
 | HOLD OPEN | opens a door and keeps it open: it stays open behind you (the panel says HELD OPEN) until you CLOSE it.  The doors that start open are held open |
 | WALK HERE | walks toward the cell, across first, then up or down |
 | INSPECT | a line about it on the message row |
-| UNINSTALL | a part INSTALLED in the wreck: the cutter does it, in 1.5 s and 5 % of the suit battery, and needs a working cutter in a hand.  Walking away stops it.  The wreck's walls, decks and doors uninstall the same way, into a wall panel, a door kit or a deck plate.  INSTALLED in the tug: 1 s by hand (no cutter).  Either way it is LOOSE then.  On the tug the walls, decks and doors uninstall too (not the cell you stand on): a wall leaves a WALL PANEL lying on the deck, a door a PRESSURE DOOR kit, and a deck goes into a free carry slot as a LOOSE DECK PLATE, leaving open space |
+| UNINSTALL | a part INSTALLED in the wreck: the cutter does it, in 1.5 s and 5 % of the suit battery, and needs a working cutter in a hand.  Walking away stops it.  The wreck's walls, decks and doors uninstall the same way, into a wall panel, a door kit or a deck plate.  INSTALLED in the tug: 1 s by hand (no cutter).  Either way it is LOOSE then.  On the tug the walls, decks and doors uninstall too (not the cell you stand on): a wall leaves a WALL PANEL lying on the deck, a door a PRESSURE DOOR kit, and a deck goes into a free carry slot as a SPARE PLATE, leaving open space |
 | INSTALL | a LOOSE ship part on one of the tug's cells (O2 tank, scrubber, battery, fuel tank, helm, bunk, locker): 1 s, then it is INSTALLED and part of the tug.  A wall panel installs as a wall, a door kit as a closed door.  Cargo and the cutter can't be installed |
 | LAY DECK PLATE | open space next to you, with a deck plate in a carry slot: it is a deck now |
 | REPAIR | a damaged part, wall, deck or door next to you: 0.25 s a damage step at full speed (see **Skills**), then it has no damage.  A repaired wall or door stops leaking |
 | SKILLS | on yourself: your six skill levels on the message row |
 | TAKE OFF SUIT / PUT ON SUIT | on yourself: the suit goes into a free carry slot, or back on from its slot (see **The suit**) |
 | PICK UP | a LOOSE part goes into the first free carry slot: left hand, right hand, back |
-| PUT DOWN LEFT HAND / RIGHT HAND / FROM BACK | on a bare deck next to you |
-| REFILL SUIT FROM IT | a full O2 tank fills the suit (11 L less for each damage step) and is empty after |
+| PUT DOWN LEFT / RIGHT / BACK | from that carry slot onto a bare deck next to you |
+| REFILL SUIT | a full O2 tank fills the suit (11 L less for each damage step) and is empty after |
 
 You carry three things at most, one in each hand and one on your back,
 and you start with the plasma cutter in your right hand.  Each part you
@@ -132,9 +132,9 @@ inverse action row in the panel, show where the mouse is.
   pixels of art (32 x 32 on the monitor), 64 bytes.
 - Lines 384-479: 1 bpp, 2x, the panel (text rows 24-29, 80 columns).
   - Row 24: the name, tinted blue, INSTALLED or LOOSE for a part, the air
-    of its room, and the damage bar.
-  - Rows 25-28: the info on the left, the action menu after the bar on the
-    right.
+    of its room, and the damage bar (on yourself: the tug's worth and air).
+  - Rows 25-28: the info on the left (40 columns), the action menu after
+    the bar from column 42: two columns of four, actions 1-4 then 5-8.
   - Row 29: messages, tinted gold, cleared after 4 seconds; a warning,
     tinted red, while there is no message.
 

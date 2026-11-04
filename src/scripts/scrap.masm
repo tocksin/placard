@@ -132,8 +132,8 @@ w6 = 0x5E
 wk_m    = 0x5F              ; the job's skills (bit k skill k; SK_SUIT in the suit)
 s_t     = 0x60              ; the panel's subject: type
 s_f     = 0x61              ;   damage step 0-15
-n_act   = 0x62              ;   actions 0-4
-act0    = 0x63              ;   the action codes, x63-x66
+n_act   = 0x62              ;   actions 0-8 (two columns of 4)
+act0    = 0x36F0            ;   the action codes, x36F0-x36F7 (not zero page)
 wk_on   = 0x67              ; WALK HERE: 1 while walking to wk_x, wk_y
 wk_x    = 0x68
 wk_y    = 0x69
@@ -1190,24 +1190,49 @@ hu_ch:
 hu_e:
     LEAVE
 
-; hover_panel - m_sel = the action row under the pointer (FF none).  A
-; leaf.
+; hover_panel - m_sel = the action under the pointer (FF none): rows
+; 25-28, column 44 up (actions 0-3), from column 62 (4-7).  A leaf.
 .chunk
 hover_panel:
     ld   0xFF, ac
     ld   ac, [u3]
-    ld   [m_xh], ac             ; x >= 432 (column 54)
+    ld   [m_yh], ac             ; y >= 256
     beq  hp_s
-    ld   [m_xl], ac
-    sub  0xB0, ac
+    ld   [m_xl], ac             ; the text column, x / 8
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [u4]
+    ld   [m_xh], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [u4], ac
+    sub  44, ac
     bcs  hp_s
+    sub  18, ac
+    bcs  hp_a
+    ld   4, ac
+    bra  hp_b
+hp_a:
+    clr  ac
+hp_b:
+    ld   ac, [u5]
     ld   [m_yl], ac             ; text row (y - 384) / 16, rows 25-28
     sub  0x80, ac
+    bcs  hp_s
     shr  ac
     shr  ac
     shr  ac
     shr  ac
     dec
+    ld   ac, [u4]
+    sub  4, ac
+    bcc  hp_s
+    ld   [u4], ac
+    add  [u5], ac
     ld   ac, [u4]
     sub  [n_act], ac
     bcc  hp_s
@@ -1276,7 +1301,7 @@ click_right:
 ; keys and walking
 ; ============================================================
 
-; input_keys - 1-4: the panel's actions
+; input_keys - 1-8: the panel's actions
 .chunk
 input_keys:
     PUSH_LINK
@@ -1285,7 +1310,7 @@ input_keys:
     ld   ac, [key]
     sub  0x31, ac
     ld   ac, [u1]
-    sub  4, ac
+    sub  8, ac
     bcc  ik_e
     ld   [u1], ac
     CALL do_action
@@ -1584,17 +1609,17 @@ mp_e:
 ; actions
 ; ============================================================
 
-; do_action - AC = the panel's action row 0-3
+; do_action - AC = the panel's action 0-7
 .chunk
 do_action:
     PUSH_LINK
     ld   ac, [u0]
     sub  [n_act], ac
     bcc  da_e
+    ld   act0 >> 8, y
     ld   [u0], ac
-    add  act0, ac
-    ld   ac, x
-    ld   [x], ac
+    add  act0 & 0xFF, x
+    ld   [y,x], ac
     ld   ac, [w3]
     xor  A_INSPECT, ac
     bne  da_1
@@ -1836,7 +1861,7 @@ sl_a:
     ld   ac, [u0]
 sl_l:
     ld   [n_act], ac
-    xor  4, ac
+    xor  8, ac
     beq  sl_e
     ld   ACT_PG, y
     ld   [u0], x
@@ -1848,11 +1873,11 @@ sl_l:
     ld   [s_b], ac
     bne  sl_n
 sl_k:
+    ld   act0 >> 8, y
     ld   [n_act], ac
-    add  act0, ac
-    ld   ac, x
+    add  act0 & 0xFF, x
     ld   [u1], ac
-    ld   ac, [x]
+    ld   ac, [y,x]
     ld   [n_act], ac
     inc
     ld   ac, [n_act]
@@ -1926,19 +1951,19 @@ dy_2:
 dy_e:
     GOTO dyn_struct
 
-; add_act - AC = an action code, added to the subject's list (4 at most).
+; add_act - AC = an action code, added to the subject's list (8 at most).
 ; A leaf.
 .chunk
 add_act:
     ld   ac, [u1]
     ld   [n_act], ac
-    xor  4, ac
+    xor  8, ac
     beq  aa_e
+    ld   act0 >> 8, y
     ld   [n_act], ac
-    add  act0, ac
-    ld   ac, x
+    add  act0 & 0xFF, x
     ld   [u1], ac
-    ld   ac, [x]
+    ld   ac, [y,x]
     ld   [n_act], ac
     inc
     ld   ac, [n_act]
@@ -2011,8 +2036,8 @@ di_n:
     bne  di_l
     LEAVE
 
-; draw_menu - the action column, rows 25-28 from column 52 (the row
-; under the pointer in inverse)
+; draw_menu - the actions, two columns on rows 25-28 from column 42 (the
+; one under the pointer in inverse)
 .chunk
 draw_menu:
     PUSH_LINK
@@ -2029,14 +2054,15 @@ dm_l:
     bne  dm_l
     LEAVE
 
-; menu_row - action row w2: "| 1: OPEN" (the key to press, the action)
+; menu_row - text row 25 + w2: "| ", then actions w2 and w2 + 4 (two
+; columns from 44 and 62)
 .chunk
 menu_row:
     PUSH_LINK
     ld   [w2], ac
     add  25, ac
     ld   ac, [CUR_ROW]
-    ld   52, ac
+    ld   42, ac
     ld   ac, [CUR_COL]
     ld   [s_who], ac
     beq  mr_sp
@@ -2049,27 +2075,43 @@ mr_c:
     ld   0x20, ac
     CALL tputc
     ld   [w2], ac
-    sub  [n_act], ac
-    bcc  mr_pad
+    CALL menu_item
     ld   [w2], ac
+    add  4, ac
+    CALL menu_item
+    LEAVE
+
+; menu_item - action AC at the cursor: " 1: OPEN" (its key, its name) in
+; 18 columns, inverse under the pointer; blank past n_act
+.chunk
+menu_item:
+    PUSH_LINK
+    ld   ac, [w4]
+    ld   [CUR_COL], ac
+    add  18, ac
+    ld   ac, [w5]               ; the column after it
+    ld   [w4], ac
+    sub  [n_act], ac
+    bcc  mi_pad
+    ld   [w4], ac
     xor  [m_sel], ac
-    bne  mr_ni
+    bne  mi_ni
     ld   0x80, ac
     ld   ac, [p_inv]
-mr_ni:
+mi_ni:
     ld   0x20, ac
     CALL tputc
-    ld   [w2], ac               ; its key: "1: "
+    ld   [w4], ac
     add  0x31, ac
     CALL tputc
     ld   0x3A, ac
     CALL tputc
     ld   0x20, ac
     CALL tputc
-    ld   [w2], ac
-    add  act0, ac
-    ld   ac, x
-    ld   [x], ac
+    ld   act0 >> 8, y
+    ld   [w4], ac
+    add  act0 & 0xFF, x
+    ld   [y,x], ac
     ld   ac, [u0]
     ld   ACT_PG, ac
     ld   ac, [u5]
@@ -2081,8 +2123,14 @@ mr_ni:
     ld   ac, [u7]
     CALL tab_ptr
     CALL tputs
-mr_pad:
-    CALL pad80
+mi_pad:
+    ld   [CUR_COL], ac
+    xor  [w5], ac
+    beq  mi_e
+    ld   0x20, ac
+    CALL tputc
+    bra  mi_pad
+mi_e:
     clr  ac
     ld   ac, [p_inv]
     LEAVE
@@ -4301,7 +4349,9 @@ draw_player2:
 
 .chunk
 draw_player3:
-    ld   28, ac
+    ld   24, ac                 ; on the name row
+    ld   ac, [CUR_ROW]
+    ld   22, ac
     ld   ac, [CUR_COL]
     ld   s_tug & 0xFF, ac
     ld   ac, [R0]
