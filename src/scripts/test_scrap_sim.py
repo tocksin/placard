@@ -18,7 +18,8 @@ the upper socket, and boots it like the board (test_dos.Rig):
   3. walking: Right steps east a cell at a time (keys held), Up / Down /
      W / S too; walls stop the player
   4. the mouse: moving it frames the cell under it and the panel names it;
-     a left click locks the panel, the action keys 1-4 run the menu
+     a left click locks the panel, the action keys 1-8 run the menu (two
+     columns; the pointer picks one in the second too)
      (CLOSE / OPEN / HOLD OPEN on a door next to the player, INSPECT
      writes the message line); a right click unlocks
   5. doors: walking into a closed door opens it (it is drawn open); it
@@ -381,7 +382,8 @@ def main(argv):
     for line in r.panel():
         print('  |%s' % line)
     p = r.panel()
-    if (p[0].strip() != 'YOU' or 'MK1 WORK SUIT' not in p[1] or '1: SKILLS' not in p[1]
+    if (not p[0].strip().startswith('YOU') or 'AIR ON' not in p[0] or 'MK1 WORK SUIT' not in p[1]
+            or '1: SKILLS' not in p[1]
             or '2: TAKE OFF SUIT' not in p[2] or '3: INSPECT' not in p[3]):
         r.fail('the panel does not show the player')
     if not p[5].strip().startswith('DOCKED TO THE KESTREL 9'):
@@ -470,7 +472,7 @@ def main(argv):
     if r.zp('lock'):
         r.fail('a right click did not unlock')
     r.mouse_cell(r.zp('p_x'), r.zp('p_y'))
-    if r.panel()[0].strip() != 'YOU':
+    if not r.panel()[0].strip().startswith('YOU'):
         r.fail('hovering the player does not show YOU: %r' % r.panel()[0])
     r.check_view('after the mouse')
 
@@ -563,7 +565,7 @@ def phase3(r, args):
     p = r.panel()
     for line in p:
         print('  |%s' % line)
-    if 'O2 TANK' not in p[3] or 'NO AIR' not in p[4]:
+    if 'O2 TANK' not in p[3] or 'NO AIR' not in p[0]:
         r.fail('the player panel does not show the tank or the tug without air')
     d0 = mem[r.tsyms['walk_t']]
     if not r.act(*tank, gen_scrap.A_PUTL):
@@ -579,6 +581,24 @@ def phase3(r, args):
     print('  put down: %r' % p[0].strip())
     if 'LOOSE' not in p[0] or 'INSTALL' not in ''.join(p[1:5]):
         r.fail('the loose tank on the tug has no INSTALL')
+    r.click(1)                                  # the second column, by the mouse
+    acts = [mem[r.tsyms['act0'] + i] for i in range(z('n_act'))]
+    print('  its menu: %s' % ', '.join(gen_scrap.ACTIONS[c] for c in acts))
+    k = acts.index(gen_scrap.A_INSPECT) if gen_scrap.A_INSPECT in acts else -1
+    if k < 4:
+        r.fail('INSPECT is not in the second column: %s' % acts)
+    else:
+        r.mouse_to(8 * (44 + 18 * (k >> 2)) + 40, 16 * (25 + (k & 3)) + 8)
+        r.run(2)
+        print('  |%s' % r.panel()[1 + (k & 3)])
+        if z('m_sel') != k or 'inspect' not in r.panel()[1 + (k & 3)]:
+            r.fail('the pointer on column 2 does not pick INSPECT (m_sel %d)' % z('m_sel'))
+        r.click(1)
+        r.run(2)
+        print('  clicked: %r' % r.panel()[5].strip())
+        if 'OXYGEN TANK' not in r.panel()[5]:
+            r.fail('a click on INSPECT in column 2 did not inspect')
+    r.click(2)
     if not r.act(*tank, gen_scrap.A_INSTALL):
         return
     r.check_job('INSTALL', INST, T['O2'])
@@ -793,9 +813,11 @@ def skills_suit(r):
             r.fail('REPAIR left damage')
     q = r.room(z('p_x'), z('p_y'))
     saved = bytes(mem[0x4000:0x4040])
-    for _ in range(80):                            # the room's air gone
+    for _ in range(140):                           # the room's air gone
         mem[0x4000 + q] = 0
         r.run(1)
+        if z('stage') == 4 and 'BLACKING OUT' in r.panel()[5]:
+            break
     print('  no air, no suit: stage %d, %r, O2 %d' % (z('stage'), r.panel()[5].strip(), z('o2')))
     if z('stage') != 4 or 'BLACKING OUT' not in r.panel()[5]:
         r.fail('no air without the suit is not blacking out')
