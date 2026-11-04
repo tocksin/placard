@@ -1,0 +1,846 @@
+; ============================================================
+; scrap_inv.masm - SCRAPWRIGHT's inventory screen: SCRAP.INV
+; ============================================================
+;
+; Included at the end of scrap.masm, in the region SWAP_LO-x4CFF:
+; gen_plc.py --swap writes these bytes to SCRAP.INV, and inv_fetch reads
+; them in each time the inventory opens (rooms_build's work space, which
+; the inventory does not need: a rebuild waits until it closes).
+;
+; The screen (gen_scrap.py inventory_screen draws the same for the test):
+; the 4 bpp view area is 160 x 192 art pixels (a byte is two, the left one
+; in the low nibble; line pair p of byte column b is page x61 + 2b,
+; offset 2p + 32, or 2p - 223 from p 112).  A title bar, GEAR on the
+; left (suit, battery, O2, utility) and CARRYING on the right (left hand,
+; right hand, back): each slot the part's cell art in a one-pixel frame
+; (yellow under the mouse), its label and what is in it in a 3 x 5 font.
+; The mouse over a slot: the panel shows it, with its menu (a carried
+; part: s_who 3, inv_k 0-2; the gear: you, s_who 2).
+;
+; Date: 11/04/2026
+; ============================================================
+
+; inv_draw - the inventory screen.  The rest of draw_view
+.chunk
+inv_draw:
+    clr  ac                     ; the background, dark blue
+    ld   ac, [fr_on]
+    ld   ac, [w0]
+    ld   ac, [w1]
+    ld   80, ac
+    ld   ac, [w4]
+    ld   192, ac
+    ld   ac, [w5]
+    ld   0x11, ac
+    ld   ac, [w6]
+    CALL ip_fill
+    clr  ac                     ; the title bar
+    ld   ac, [w0]
+    ld   10, ac
+    ld   ac, [w5]
+    ld   0x33, ac
+    ld   ac, [w6]
+    CALL ip_fill
+    CALL ip_labels
+    CALL inv_slots
+    LEAVE
+
+; ip_addr - w2 = the page, w3 = the offset of byte column w0, line pair
+; w1.  A leaf.
+.chunk
+ip_addr:
+    ld   [w0], ac
+    shl
+    add  0x61, ac
+    ld   ac, [w2]
+    ld   [w1], ac
+    sub  112, ac
+    blt  pa5_lo
+    ld   [w1], ac
+    shl
+    sub  223, ac
+    ld   ac, [w3]
+    RET
+pa5_lo:
+    ld   [w1], ac
+    shl
+    add  32, ac
+    ld   ac, [w3]
+    RET
+
+; ip_fill - w4 byte columns from w0 (w0 after them), w5 line pairs from
+; w1, all byte w6
+.chunk
+ip_fill:
+    PUSH_LINK
+    ld   [w4], ac
+    ld   ac, [v0]
+pf5_c:
+    CALL ip_addr
+    ld   [w5], ac
+    ld   ac, [v1]
+    ld   [w2], y
+    ld   [w3], x
+pf5_l:
+    ld   [w6], ac
+    ld   ac, [y,x]
+    ld   ac, x                  ; x: the next line pair
+    ld   [w3], ac
+    add  2, ac
+    bne  pf5_n
+    ld   1, ac
+pf5_n:
+    ld   ac, [w3]
+    ld   ac, x
+    ld   [v1], ac
+    dec
+    ld   ac, [v1]
+    bne  pf5_l
+    ld   [w0], ac
+    inc
+    ld   ac, [w0]
+    ld   [v0], ac
+    dec
+    ld   ac, [v0]
+    bne  pf5_c
+    LEAVE
+
+; ip_color - the 3 x 5 font's colors: w4 on w5 (CMB: the four pixel
+; pairs).  A leaf.
+.chunk
+ip_color:
+    ld   [w5], ac
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [w6]               ; the background, high
+    ld   CMB >> 8, y
+    ld   [w5], ac
+    or   [w6], ac
+    ld   CMB & 0xFF, x
+    ld   ac, [y,x]
+    ld   [w4], ac
+    or   [w6], ac
+    ld   (CMB & 0xFF) + 1, x
+    ld   ac, [y,x]
+    ld   [w4], ac
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [w6]               ; the color, high
+    or   [w5], ac
+    ld   (CMB & 0xFF) + 2, x
+    ld   ac, [y,x]
+    ld   [w4], ac
+    or   [w6], ac
+    ld   (CMB & 0xFF) + 3, x
+    ld   ac, [y,x]
+    RET
+
+; ip_char - AC (20-5F) in the 3 x 5 font at byte column w0, line pair w1
+; (two bytes: three pixels and a gap); w0 two on
+.chunk
+ip_char:
+    PUSH_LINK
+    sub  0x20, ac
+    ld   ac, [u0]
+    CALL ip_addr
+    clr  ac
+    ld   ac, [u1]
+pc5_l:
+    ld   [u1], ac               ; the row's code: rows 0-3 in FNT_A, 4 in FNT_B
+    xor  4, ac
+    beq  pc5_4
+    ld   [u1], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    add  [u0], ac
+    ld   ac, x
+    ld   FNT_A >> 8, y
+    ld   [y,x], ac
+    bra  pc5_g
+pc5_4:
+    ld   [u0], ac
+    add  FNT_B & 0xFF, x
+    ld   FNT_B >> 8, y
+    ld   [y,x], ac
+pc5_g:
+    ld   ac, [u2]
+    and  3, ac
+    add  CMB & 0xFF, x
+    ld   CMB >> 8, y
+    ld   [y,x], ac
+    ld   ac, [u3]
+    ld   [u2], ac
+    shr  ac
+    shr  ac
+    add  CMB & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u4]
+    ld   [w2], y
+    ld   [w3], x
+    ld   [u3], ac
+    ld   ac, [y,x]
+    ld   [w2], ac
+    add  2, ac
+    ld   ac, y
+    ld   [u4], ac
+    ld   ac, [y,x]
+    ld   [w3], ac
+    add  2, ac
+    bne  pc5_n
+    ld   1, ac
+pc5_n:
+    ld   ac, [w3]
+    ld   [u1], ac
+    inc
+    ld   ac, [u1]
+    xor  5, ac
+    bne  pc5_l
+    ld   [w0], ac
+    add  2, ac
+    ld   ac, [w0]
+    LEAVE
+
+; ip_text - the string at R1:R0 from w0, w1 (ip_char)
+.chunk
+ip_text:
+    PUSH_LINK
+pt5_l:
+    ld   [R1], y
+    ld   [R0], x
+    ld   [y,x], ac
+    beq  pt5_e
+    CALL ip_char
+    ld   [R0], ac
+    inc
+    ld   ac, [R0]
+    bne  pt5_l
+    ld   [R1], ac
+    inc
+    ld   ac, [R1]
+    bra  pt5_l
+pt5_e:
+    LEAVE
+
+; ip_num - AC in decimal (no leading zeros) from w0, w1
+.chunk
+ip_num:
+    PUSH_LINK
+    ld   ac, [u5]
+    clr  ac
+    ld   ac, [u6]               ; 1: a digit was printed
+    ld   100, ac
+    CALL pn_dig
+    ld   10, ac
+    CALL pn_dig
+    ld   1, ac
+    ld   ac, [u6]
+    CALL pn_dig
+    LEAVE
+
+; pn_dig - the digit of u5 for AC (100, 10, 1); u5 less it
+.chunk
+pn_dig:
+    PUSH_LINK
+    ld   ac, [u7]
+    clr  ac
+    ld   ac, [v2]
+pd5_l:
+    ld   [u5], ac
+    sub  [u7], ac
+    bcs  pd5_d
+    ld   ac, [u5]
+    ld   [v2], ac
+    inc
+    ld   ac, [v2]
+    bra  pd5_l
+pd5_d:
+    ld   [v2], ac
+    or   [u6], ac
+    beq  pd5_e
+    ld   1, ac
+    ld   ac, [u6]
+    ld   [v2], ac
+    add  0x30, ac
+    CALL ip_char
+pd5_e:
+    LEAVE
+
+; ip_labels - the fixed text (LBL: column, line pair, color, background,
+; the string; FF ends)
+.chunk
+ip_labels:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [v3]
+pl5_l:
+    ld   LBL >> 8, y
+    ld   [v3], ac
+    add  LBL & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [w0]
+    xor  0xFF, ac
+    beq  pl5_e
+    ld   [v3], ac
+    add  (LBL & 0xFF) + 1, x
+    ld   [y,x], ac
+    ld   ac, [w1]
+    ld   [v3], ac
+    add  (LBL & 0xFF) + 2, x
+    ld   [y,x], ac
+    ld   ac, [w4]
+    ld   [v3], ac
+    add  (LBL & 0xFF) + 3, x
+    ld   [y,x], ac
+    ld   ac, [w5]
+    ld   [v3], ac
+    add  (LBL & 0xFF) + 4, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   LBL >> 8, ac
+    ld   ac, [R1]
+    CALL ip_color
+    CALL ip_text
+    ld   [v3], ac
+    add  5, ac
+    ld   ac, [v3]
+    bra  pl5_l
+pl5_e:
+    LEAVE
+
+; ip_art - the cell art at dc_ap:dc_ai (4 byte columns of 16) from byte
+; column w0 (w0 after it), line pair w1
+.chunk
+ip_art:
+    PUSH_LINK
+    ld   4, ac
+    ld   ac, [v0]
+pa5_c:
+    CALL ip_addr
+    ld   16, ac
+    ld   ac, [v1]
+pa5_l:
+    ld   [dc_ap], y
+    ld   [dc_ai], x
+    ld   [y,x], ac
+    ld   [w2], y
+    ld   [w3], x
+    ld   ac, [y,x]
+    ld   [dc_ai], ac
+    inc
+    ld   ac, [dc_ai]
+    ld   [w3], ac
+    add  2, ac
+    bne  pa5_n
+    ld   1, ac
+pa5_n:
+    ld   ac, [w3]
+    ld   [v1], ac
+    dec
+    ld   ac, [v1]
+    bne  pa5_l
+    ld   [w0], ac
+    inc
+    ld   ac, [w0]
+    ld   [v0], ac
+    dec
+    ld   ac, [v0]
+    bne  pa5_c
+    LEAVE
+
+; ip_frame - a one-pixel frame of color AC round the cell art at byte
+; column w0, line pair w1 (w0, w1 kept)
+.chunk
+ip_frame:
+    PUSH_LINK
+    ld   ac, [v4]               ; v4 the color low, v5 high, v6 both
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [v5]
+    or   [v4], ac
+    ld   ac, [v6]
+    ld   [w1], ac               ; the top and the bottom
+    dec
+    ld   ac, [w1]
+    CALL fr_row
+    ld   [w1], ac
+    add  17, ac
+    ld   ac, [w1]
+    CALL fr_row
+    ld   [w1], ac
+    sub  16, ac
+    ld   ac, [w1]
+    ld   [w0], ac               ; the sides: the right pixel of the byte
+    dec                         ; before, the left one of the byte after
+    ld   ac, [w0]
+    CALL ip_addr
+    ld   [w0], ac
+    inc
+    ld   ac, [w0]
+    ld   16, ac
+    ld   ac, [v1]
+fs5_l:
+    ld   [w2], y
+    ld   [w3], x
+    ld   [y,x], ac
+    and  0x0F, ac
+    or   [v5], ac
+    ld   ac, [y,x]
+    ld   [w2], ac
+    add  10, ac
+    ld   ac, y
+    ld   [y,x], ac
+    and  0xF0, ac
+    or   [v4], ac
+    ld   ac, [y,x]
+    ld   [w3], ac
+    add  2, ac
+    bne  fs5_n
+    ld   1, ac
+fs5_n:
+    ld   ac, [w3]
+    ld   [v1], ac
+    dec
+    ld   ac, [v1]
+    bne  fs5_l
+    LEAVE
+
+; fr_row - line pair w1 of the frame: the right pixel of byte w0 - 1,
+; bytes w0 to w0 + 3, the left pixel of w0 + 4 (ip_frame)
+.chunk
+fr_row:
+    PUSH_LINK
+    ld   [w0], ac
+    dec
+    ld   ac, [w0]
+    CALL ip_addr
+    ld   [w0], ac
+    inc
+    ld   ac, [w0]
+    ld   [w2], y
+    ld   [w3], x
+    ld   [y,x], ac
+    and  0x0F, ac
+    or   [v5], ac
+    ld   ac, [y,x]
+    ld   4, ac
+    ld   ac, [v1]
+fw5_l:
+    ld   [w2], ac
+    add  2, ac
+    ld   ac, [w2]
+    ld   ac, y
+    ld   [v6], ac
+    ld   ac, [y,x]
+    ld   [v1], ac
+    dec
+    ld   ac, [v1]
+    bne  fw5_l
+    ld   [w2], ac
+    add  2, ac
+    ld   ac, y
+    ld   [y,x], ac
+    and  0xF0, ac
+    or   [v4], ac
+    ld   ac, [y,x]
+    LEAVE
+
+; inv_slots - the seven slots: each its frame, its art and what is in it
+.chunk
+inv_slots:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [v7]
+is5_l:
+    CALL is_pos
+    ld   0x0B, ac               ; the frame: gray, yellow under the mouse
+    ld   ac, [u0]
+    ld   [inv_k], ac
+    xor  [v7], ac
+    bne  is5_f
+    ld   0x0E, ac
+    ld   ac, [u0]
+is5_f:
+    ld   [u0], ac
+    CALL ip_frame
+    CALL is_art
+    CALL is_pos                 ; what is in it, after a clear
+    ld   [w0], ac
+    add  6, ac
+    ld   ac, [w0]
+    ld   [w1], ac
+    add  10, ac
+    ld   ac, [w1]
+    ld   26, ac
+    ld   ac, [w4]
+    ld   [v7], ac
+    sub  3, ac
+    bcc  is5_w
+    ld   38, ac
+    ld   ac, [w4]
+is5_w:
+    ld   5, ac
+    ld   ac, [w5]
+    ld   0x11, ac
+    ld   ac, [w6]
+    ld   [w0], ac
+    ld   ac, [u1]
+    CALL ip_fill
+    ld   [u1], ac
+    ld   ac, [w0]
+    ld   0x0A, ac
+    ld   ac, [w4]
+    ld   1, ac
+    ld   ac, [w5]
+    CALL ip_color
+    CALL is_val
+    ld   [v7], ac
+    inc
+    ld   ac, [v7]
+    xor  7, ac
+    bne  is5_l
+    LEAVE
+
+; is_pos - w0, w1 = slot v7's art (SPOS).  A leaf.
+.chunk
+is_pos:
+    ld   SPOS >> 8, y
+    ld   [v7], ac
+    shl
+    add  SPOS & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [w0]
+    ld   [v7], ac
+    shl
+    add  (SPOS & 0xFF) + 1, x
+    ld   [y,x], ac
+    ld   ac, [w1]
+    RET
+
+; is_type - AC = the part slot v7 shows (0: an empty slot, drawn black)
+.chunk
+is_type:
+    ld   [v7], ac
+    sub  3, ac
+    bcc  it5_g
+    ld   [v7], ac
+    add  cl_t, ac
+    ld   ac, x
+    ld   [x], ac
+    RET
+it5_g:
+    ld   [v7], ac
+    xor  3, ac
+    bne  it5_b
+    ld   [suit_on], ac          ; the suit, worn
+    beq  it5_e
+    ld   T_SUIT, ac
+    RET
+it5_b:
+    ld   [v7], ac
+    xor  4, ac
+    bne  it5_o
+    ld   T_BATT, ac
+    RET
+it5_o:
+    ld   [v7], ac
+    xor  5, ac
+    bne  it5_e
+    ld   T_O2, ac
+    RET
+it5_e:
+    clr  ac
+    RET
+
+; is_art - slot v7's art at w0, w1
+.chunk
+is_art:
+    PUSH_LINK
+    CALL is_type
+    bne  ia5_a
+    ld   4, ac                  ; empty: black
+    ld   ac, [w4]
+    ld   16, ac
+    ld   ac, [w5]
+    clr  ac
+    ld   ac, [w6]
+    CALL ip_fill
+    LEAVE
+ia5_a:
+    ld   ac, [u0]
+    shr  ac
+    shr  ac
+    add  ART_PG, ac
+    ld   ac, [dc_ap]
+    ld   [u0], ac
+    and  3, ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [dc_ai]
+    CALL ip_art
+    LEAVE
+
+; is_val - what slot v7 holds, as text at w0, w1: a part's name or
+; EMPTY; MK1 WORK SUIT or TAKEN OFF; CELL n%; n L; NONE
+.chunk
+is_val:
+    PUSH_LINK
+    ld   [v7], ac
+    sub  3, ac
+    bcc  iv5_g
+    CALL is_type
+    bne  iv5_n
+    ld   s_iempty & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_iempty >> 8, ac
+    bra  iv5_t
+iv5_n:
+    add  TB_NAMEL, ac           ; its name (put_name's)
+    ld   ac, [u6]
+    add  TB_NAMEH - TB_NAMEL, ac
+    ld   ac, [u7]
+    ld   TAB_PG, ac
+    ld   ac, [u5]
+    CALL tab_ptr
+    CALL ip_text
+    LEAVE
+iv5_g:
+    GOTO is_gear
+iv5_t:
+    ld   ac, [R1]
+    CALL ip_text
+    LEAVE
+
+; is_gear - the gear slots' text (is_val)
+.chunk
+is_gear:
+    ld   [v7], ac
+    xor  3, ac
+    bne  ig5_b
+    ld   [suit_on], ac
+    beq  ig5_off
+    ld   s_isuit & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_isuit >> 8, ac
+    bra  ig5_t
+ig5_off:
+    ld   s_ioff & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_ioff >> 8, ac
+    bra  ig5_t
+ig5_b:
+    ld   [v7], ac
+    xor  4, ac
+    bne  ig5_o
+    ld   s_icell & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_icell >> 8, ac
+    ld   ac, [R1]
+    CALL ip_text
+    ld   [batt], ac
+    CALL ip_num
+    ld   0x25, ac
+    CALL ip_char
+    LEAVE
+ig5_o:
+    ld   [v7], ac
+    xor  5, ac
+    bne  ig5_u
+    ld   [o2], ac
+    CALL ip_num
+    ld   s_il & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_il >> 8, ac
+    bra  ig5_t
+ig5_u:
+    ld   s_inone & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_inone >> 8, ac
+ig5_t:
+    ld   ac, [R1]
+    CALL ip_text
+    LEAVE
+
+; inv_hover - the slot under the pointer (art pixel x m_x / 4, line pair
+; m_y / 2): inv_k, the frames, the panel.  The rest of hover_update
+.chunk
+inv_hover:
+    ld   0xFF, ac
+    ld   ac, [m_sel]
+    ld   ac, [u3]
+    ld   [m_yl], ac
+    shr  ac
+    ld   ac, [u1]
+    ld   [m_yh], ac
+    beq  ih_1
+    ld   [u1], ac
+    or   0x80, ac
+    ld   ac, [u1]
+ih_1:
+    ld   [m_xl], ac
+    shr  ac
+    shr  ac
+    ld   ac, [u2]
+    ld   [m_xh], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [u2], ac
+    ld   ac, [u2]
+    ld   [u1], ac               ; the rows: 22 + 32 i, the frame a line more
+    sub  21, ac
+    bcs  ih_k
+    ld   ac, [u1]
+    and  31, ac
+    sub  18, ac
+    bcc  ih_k
+    ld   [u1], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [u4]
+    sub  4, ac
+    bcc  ih_k
+    ld   [u2], ac               ; the columns: gear 5-68, carrying 71 on
+    sub  5, ac
+    bcs  ih_k
+    sub  64, ac
+    bcs  ih_g
+    ld   [u2], ac
+    sub  71, ac
+    bcs  ih_k
+    ld   [u4], ac
+    sub  3, ac
+    bcc  ih_k
+    ld   [u4], ac
+    ld   ac, [u3]
+    bra  ih_k
+ih_g:
+    ld   [u4], ac
+    add  3, ac
+    ld   ac, [u3]
+ih_k:
+    ld   [inv_k], ac
+    xor  [u3], ac
+    beq  ih_e
+    ld   [u3], ac
+    ld   ac, [inv_k]
+    CALL inv_slots
+    ld   [lock], ac
+    bne  ih_e
+    CALL inv_subject
+ih_e:
+    LEAVE
+
+; inv_subject - the panel on slot inv_k: a carried part (s_who 3), the
+; gear (you, 2), nothing (0).  A leaf.
+.chunk
+inv_subject:
+    ld   [inv_k], ac
+    sub  3, ac
+    bcs  iu_c
+    ld   [inv_k], ac
+    sub  7, ac
+    bcc  iu_n
+    ld   2, ac
+    bra  iu_w
+iu_c:
+    ld   [inv_k], ac
+    add  cl_t, ac
+    ld   ac, x
+    ld   [x], ac
+    beq  iu_w
+    ld   3, ac
+    bra  iu_w
+iu_n:
+    clr  ac
+iu_w:
+    ld   ac, [s_who]
+    ld   [dirty], ac
+    or   1, ac
+    ld   ac, [dirty]
+    RET
+
+; inv_load - the panel's subject from carry slot inv_k: INSTALL for a part
+; that says where it goes, PUT ON SUIT for the suit.  An empty slot:
+; nothing.  The rest of subj_load
+.chunk
+inv_load:
+    ld   [inv_k], ac
+    add  cl_t, ac
+    ld   ac, [u2]
+    ld   ac, x
+    ld   [x], ac
+    ld   ac, [s_t]
+    bne  il_ok
+    clr  ac
+    ld   ac, [s_who]
+    ld   ac, [n_act]
+    GOTO sl_e
+il_ok:
+    ld   [u2], ac
+    add  3, x
+    ld   [x], ac
+    ld   ac, [s_f]
+    clr  ac
+    ld   ac, [s_r]
+    ld   ac, [s_b]
+    ld   ac, [n_act]
+    ld   ACT_PG, y
+    ld   [s_t], ac
+    add  TB_SKILL, x
+    ld   [y,x], ac
+    and  0xC0, ac
+    beq  il_e
+    ld   A_INSTALL, ac
+    CALL add_act
+il_e:
+    ld   [s_t], ac
+    xor  T_SUIT, ac
+    bne  il_g
+    ld   A_SUITON, ac
+    CALL add_act
+il_g:
+    GOTO sl_a
+
+; inv_install - INSTALL in the inventory: back to the ship to pick the
+; cell (place, pl_t).  The rest of do_action
+.chunk
+inv_install:
+    ld   [inv_k], ac
+    add  cl_t, ac
+    ld   ac, [place]
+    ld   ac, x
+    ld   [x], ac
+    ld   ac, [pl_t]
+    ld   s_place & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_place >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    GOTO inv_toggle
+
+; the font's four pixel pairs for the colors (ip_color)
+.chunk
+CMB:
+    #d8 0x11, 0x1A, 0xA1, 0xAA
+
+.include "scrap_inv_data.masm"

@@ -38,7 +38,7 @@ they may share addresses with the ROM) in a second file next to the first
 each up to the last page that has code, in order.  The program reads that
 file itself (fs_open, fs_read) and copies the pages into place.
 
-    python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin
+    python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin --swap 0x4300,0x4D00,INV
 
 puts a file's bytes (SCRAPWRIGHT's map pages) in front of the overlay's,
 for a program that reads both from the one file.
@@ -75,6 +75,16 @@ def split_overlay(mem, lib, start, step):
         overlay = b''.join(bytes(high.get((pg << 8) + i, 0) for i in range(256))
                            for pg in range(start >> 8, last + 1, step))
     return {k: v for k, v in mem.items() if k < min(start, 0x10000)}, overlay
+
+
+def split_swap(mem, start, end):
+    """the bytes of a swap file: those assembled after #overlay at start up
+    to end (kept at + x10000; SCRAPWRIGHT's SCRAP.INV), from start to the
+    last one"""
+    got = {k - 0x10000: v for k, v in mem.items() if start + 0x10000 <= k < end + 0x10000}
+    if not got:
+        return b''
+    return bytes(got.get(a, 0) for a in range(start, max(got) + 1))
 
 
 def header(kind, load, length, entry):
@@ -120,12 +130,18 @@ def main(argv):
                     help='bytes from ADDR go to NAME.OVL, every STEP-th page')
     ap.add_argument('--overlay-head', metavar='FILE',
                     help='bytes put in front of the overlay\'s in NAME.OVL')
+    ap.add_argument('--swap', metavar='ADDR,END,EXT', action='append', default=[],
+                    help='the #overlay bytes at ADDR up to END go to NAME.EXT (read in at run time)')
     a = ap.parse_args(argv)
     src = open(a.asm).read()
     base = os.path.dirname(os.path.abspath(a.asm))
     mem, syms, _ = ps.assemble(src, base)
     lib, _, _ = ps.assemble(open(os.path.join(HERE, 'rom_lib.asm')).read(), HERE)
     overlay = None
+    swaps = []
+    for sw in a.swap:
+        lo, hi, ext = sw.split(',')
+        swaps.append((ext, int(lo, 0), split_swap(mem, int(lo, 0), int(hi, 0))))
     if a.overlay:
         start, step = a.overlay.split(',')
         start, step = int(start, 0), int(step, 0)
@@ -141,6 +157,10 @@ def main(argv):
         ovl = os.path.splitext(out)[0] + '.OVL'
         open(ovl, 'wb').write(overlay)
         print('%s: %d bytes, %d pages from x%04X' % (ovl, len(overlay), len(overlay) // 256, start))
+    for ext, lo, data in swaps:
+        name = os.path.splitext(out)[0] + '.' + ext
+        open(name, 'wb').write(data)
+        print('%s: %d bytes, read in at x%04X' % (name, len(data), lo))
     return 0
 
 
