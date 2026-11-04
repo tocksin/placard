@@ -46,7 +46,7 @@ the upper socket, and boots it like the board (test_dos.Rig):
      after, still installed, and the tug has no air)
  12. Esc brings the DOS's browser back
 
-Date: 2026-11-03
+Date: 2026-11-04
 """
 
 import argparse
@@ -401,7 +401,7 @@ def main(argv):
     p = r.panel()
     if (not p[0].strip().startswith('YOU') or 'AIR ON' not in p[0] or 'MK1 WORK SUIT' not in p[1]
             or '1: SKILLS' not in p[1]
-            or '2: TAKE OFF SUIT' not in p[2] or '3: INSPECT' not in p[3]):
+            or '2: TAKE OFF SUIT' not in p[2] or '3: INVENTORY' not in p[3]):
         r.fail('the panel does not show the player')
     if not p[5].strip().startswith('DOCKED TO THE KESTREL 9'):
         r.fail('the welcome message')
@@ -662,6 +662,7 @@ def phase3(r, args):
     if not 7 + 3 <= wd <= 7 + 4:        # read in the step's frame or the next
         r.fail('carrying a crate does not slow the walk')
     r.check_view('cut and carried')
+    inventory(r)
 
     print('9. a room without air: the vented section')
     r.go((38, 29), (38, 32), (61, 32), (61, 52))
@@ -861,6 +862,117 @@ def skills_suit(r):
     else:
         print('  %r: the suit on again, O2 %d' % (r.panel()[5].strip(), z('o2')))
     r.check_view('the suit on again')
+
+
+
+def check_inv(r, what):
+    """the inventory screen: open space, the three carry slots (an empty
+    one a bare deck) and the player, the hovered one framed"""
+    z = r.zp
+    k = z('inv_k')
+    bad = []
+    for cy in range(VIEW_H):
+        for cx in range(VIEW_W):
+            art = ARTS[T['SPACE']]
+            if cy == 5 and cx in (6, 8, 10, 12):
+                i = (cx - 6) // 2
+                if i == k:
+                    continue
+                if i == 3:
+                    art = ARTS[T['PLAYER']] if z('suit_on') else gen_scrap.art_bytes('player_ns')
+                else:
+                    art = ARTS[r.cpu.mem[r.tsyms['cl_t'] + i] or T['FLOOR']]
+            if r.cell_bytes(cx, cy) != art:
+                bad.append((cx, cy))
+    if bad:
+        r.fail('%s: %d inventory cells wrong, first %s' % (what, len(bad), bad[:4]))
+    else:
+        print('  %s: the inventory screen is right' % what)
+
+
+def inventory(r):
+    """the inventory screen (I); a wreck wall uninstalled, picked up and
+    installed again from the inventory onto the deck it left"""
+    z, mem = r.zp, r.cpu.mem
+    print('8b. the inventory; installing in the wreck from it')
+    px, py = z('p_x'), z('p_y')
+    wall = None
+    for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
+        if r.map_t(px + dx, py + dy) == T['WALL']:
+            wall = (px + dx, py + dy)
+            break
+    if not wall:
+        r.fail('no wall next to %d,%d' % (px, py))
+        return
+    if not r.act(*wall, gen_scrap.A_UNINST):
+        return
+    if r.map_t(*wall) != T['PANEL'] or not r.act(*wall, gen_scrap.A_PICK):
+        r.fail('the wreck wall at %d,%d did not come out as a panel' % wall)
+        return
+    if z('cb_t') != T['PANEL']:
+        r.fail('the panel is not on the back (%d %d %d)' % (z('cl_t'), z('cr_t'), z('cb_t')))
+        return
+    r.check_rooms('a wreck wall out')
+    r.key('i')
+    r.run(4)
+    print('  I: %r' % r.panel()[5].strip())
+    if not z('inv') or 'YOUR GEAR' not in r.panel()[5]:
+        r.fail('I did not open the inventory')
+    check_inv(r, 'opened')
+    r.mouse_to(8 * 32 + 16, 5 * 32 + 16)                # the right hand: the cutter
+    p = r.panel()
+    print('  |%s' % p[0])
+    if 'PLASMA CUTTER' not in p[0] or 'IN YOUR RIGHT HAND' not in p[0]:
+        r.fail('the right hand slot is not shown')
+    r.mouse_to(10 * 32 + 16, 5 * 32 + 16)               # the back: the panel
+    p = r.panel()
+    for line in p:
+        print('  |%s' % line)
+    if 'WALL PANEL' not in p[0] or 'ON YOUR BACK' not in p[0]:
+        r.fail('the back slot is not shown')
+    check_inv(r, 'the back framed')
+    r.click(1)
+    if not r.key_act(gen_scrap.A_INSTALL):
+        return
+    r.run(4)
+    print('  INSTALL: %r' % r.panel()[5].strip())
+    if z('inv') or z('place') != r.tsyms['cb_t'] or 'CLICK WHERE IT GOES' not in r.panel()[5]:
+        r.fail('INSTALL did not go back to the ship to pick the cell (inv %d, place %02X)'
+               % (z('inv'), z('place')))
+    r.check_view('picking the cell')
+    far = (px + 3, py)
+    r.mouse_cell(*far)
+    r.click(1)
+    print('  a cell 3 away: %r' % r.panel()[5].strip())
+    if z('cut_t') or 'TOO FAR' not in r.panel()[5].upper():
+        r.fail('placing 3 cells away was not refused')
+    sk0 = r.skills()
+    r.mouse_cell(*wall)
+    r.click(1)
+    r.run(2)
+    if not z('cut_t'):
+        r.fail('clicking the bare deck did not start the install')
+        return
+    r.settle()
+    print('  %r: %d,%d %s, back %d, skills %s -> %s'
+          % (r.panel()[5].strip(), wall[0], wall[1], gen_scrap.TYPES[r.map_t(*wall)][0],
+             z('cb_t'), sk0[0], r.skills()[0]))
+    if r.map_t(*wall) != T['WALL'] or z('cb_t') or z('place'):
+        r.fail('the wall was not installed from the inventory')
+    if r.skills() != gen_scrap.skill_gain(*sk0, gen_scrap.NEEDS['PANEL'], z('suit_on')):
+        r.fail('installing from the inventory: skills %s' % (r.skills(),))
+    r.click(2)
+    r.check_rooms('the wreck wall in again')
+    r.check_view('the wreck wall in again')
+    r.key('\t')
+    r.run(4)
+    if not z('inv'):
+        r.fail('Tab did not open the inventory')
+    r.key('i')
+    r.run(4)
+    if z('inv'):
+        r.fail('I did not close the inventory')
+    r.check_view('back on the ship')
 
 
 if __name__ == '__main__':

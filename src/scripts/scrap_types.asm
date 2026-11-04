@@ -55,6 +55,7 @@ A_REPAIR   = 15
 A_SKILLS   = 16
 A_SUITOFF  = 17
 A_SUITON   = 18
+A_INV      = 19
 SK_M       = 1
 SK_SUIT    = 32
 SKILL_START = 10

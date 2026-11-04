@@ -37,7 +37,7 @@ THE ART
     pixels 2c (low nibble, shown first) and 2c + 1 (high nibble) of line
     pair r.  Colors are the 4 bpp palette (docs/video/COLORS.md).
 
-Date: 2026-11-03
+Date: 2026-11-04
 """
 
 import os
@@ -189,12 +189,14 @@ A_OPEN, A_CLOSE, A_INSPECT, A_WALK = 1, 2, 3, 4
 A_PICK, A_CUT, A_PUTL, A_PUTR, A_PUTB, A_REFILL = 5, 6, 7, 8, 9, 10
 A_HOLD, A_INSTALL, A_UNINST, A_LAY = 11, 12, 13, 14
 A_REPAIR, A_SKILLS, A_SUITOFF, A_SUITON = 15, 16, 17, 18
+A_INV = 19
 ACTIONS = {A_OPEN: 'OPEN', A_CLOSE: 'CLOSE', A_INSPECT: 'INSPECT', A_WALK: 'WALK HERE',
            A_PICK: 'PICK UP', A_CUT: 'CUT FREE', A_PUTL: 'PUT DOWN LEFT',
            A_PUTR: 'PUT DOWN RIGHT', A_PUTB: 'PUT DOWN BACK',
            A_REFILL: 'REFILL SUIT', A_HOLD: 'HOLD OPEN', A_INSTALL: 'INSTALL',
            A_UNINST: 'UNINSTALL', A_LAY: 'LAY DECK PLATE', A_REPAIR: 'REPAIR',
-           A_SKILLS: 'SKILLS', A_SUITOFF: 'TAKE OFF SUIT', A_SUITON: 'PUT ON SUIT'}
+           A_SKILLS: 'SKILLS', A_SUITOFF: 'TAKE OFF SUIT', A_SUITON: 'PUT ON SUIT',
+           A_INV: 'INVENTORY'}
 
 TYPES = [
     # key, art, name, flags, info lines, actions, inspect
@@ -266,8 +268,9 @@ TYPES = [
      ['MK1 WORK SUIT, 90 L OF O2', '\x01', 'PUT IT ON: HOVER YOURSELF, PUT ON SUIT',
       'SKILL: MECHANICAL'], [A_INSPECT],
      'YOUR WORK SUIT.  IT SMELLS OF HARD WORK.'),
-    ('THRUST', 'thrust', 'THRUSTER', F_DMG | F_SOLID,
-     ['MAIN THRUSTER, 2 KN', '\x01', 'BOLTED TO THE HULL', 'SKILLS: MECHANICAL, HYDRAULICS'], [A_INSPECT],
+    ('THRUST', 'thrust', 'THRUSTER', F_DMG | F_SOLID | F_ITEM,
+     ['MAIN THRUSTER, 2 KN', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
+      'SKILLS: MECHANICAL, HYDRAULICS'], [A_INSPECT],
      'A THRUSTER NOZZLE, BLACK WITH SOOT.'),
     ('FUEL', 'fuel', 'FUEL TANK', F_DMG | F_ITEM | F_INST,
      ['FUEL TANK, 400 L', '\x01', 'HEAVY: TAKES ONE CARRY SLOT', 'SKILL: HYDRAULICS'], [A_INSPECT],
@@ -290,11 +293,11 @@ TYPES = [
      'A PLASMA CUTTER.  KEEP YOUR FINGERS CLEAR.'),
     ('PANEL', 'panel', 'WALL PANEL', F_DMG | F_ITEM | F_INST,
      ['A BULKHEAD SECTION, TAKEN OUT', '\x02', 'HEAVY.  SKILL: MECHANICAL',
-      'INSTALL IT ON THE TUG: A WALL'], [A_INSPECT],
+      'INSTALLED, IT IS A WALL'], [A_INSPECT],
      'A SECTION OF BULKHEAD.  THE BOLT HOLES ARE CLEAN.'),
     ('DOORK', 'doork', 'PRESSURE DOOR', F_DMG | F_ITEM | F_INST,
      ['A DOOR AND ITS FRAME, TAKEN OUT', '\x02', 'HEAVY.  SKILLS: MECH., HYDRAULICS',
-      'INSTALL IT ON THE TUG: A DOOR'], [A_INSPECT],
+      'INSTALLED, IT IS A CLOSED DOOR'], [A_INSPECT],
      'A PRESSURE DOOR IN ITS FRAME, READY TO FIT.'),
     ('PLATE', 'plate', 'SPARE PLATE', F_DMG | F_ITEM,
      ['A DECK PLATE, TAKEN UP', '\x01', 'LAY IT ON OPEN SPACE NEXT TO YOU',
@@ -316,6 +319,10 @@ NEEDS = {'FLOOR': SK_M, 'WALL': SK_M, 'DOOR': SK_M | SK_H, 'DOORO': SK_M | SK_H,
          'PIPE': SK_E, 'VENT': SK_M, 'LOCK': SK_M | SK_H, 'SUIT': SK_M,
          'THRUST': SK_M | SK_H, 'FUEL': SK_H, 'SCRUB': SK_H | SK_E, 'CUTTER': SK_E,
          'PANEL': SK_M, 'DOORK': SK_M | SK_H, 'PLATE': SK_M}
+# where a carried part installs from the inventory (bits 7:6 of TB_SKILL):
+# 1 open space, 2 a bare deck, 3 either; 0 it does not install
+WHERE = {'PLATE': 1, 'THRUST': 1, 'PANEL': 3, 'DOORK': 3}
+WHERE.update({t[0]: 2 for t in TYPES if t[3] & F_INST and t[0] not in WHERE})
 O2_SECS = 7                         # the suit uses 1 L every 7 s (scrap.masm O2_SECS): 10.5 min
 REPAIR_FRAMES = 15                  # a damage step, at full speed (scrap.masm: 16 s - s)
 CRATE_COL = 6                       # a loose part's frame: brown
@@ -401,7 +408,12 @@ MESSAGES = [   # (label, text): the strings scrap.masm prints
     ('s_cutdone', 'UNINSTALLED.  IT CAN BE PICKED UP NOW.'),
     ('s_cutstop', 'STOPPED - YOU WALKED AWAY.'),
     ('s_inst', 'INSTALLING...'),
-    ('s_instdone', 'INSTALLED.  IT IS PART OF THE TUG NOW.'),
+    ('s_instdone', 'INSTALLED.'),
+    ('s_inv', 'YOUR GEAR.  I OR TAB: BACK TO THE SHIP'),
+    ('s_place', 'CLICK WHERE IT GOES, NEXT TO YOU.  RIGHT CLICK: CANCEL'),
+    ('s_wspace', 'IT GOES ON OPEN SPACE.'),
+    ('s_wdeck', 'IT GOES ON A BARE DECK.'),
+    ('s_wboth', 'IT GOES ON A BARE DECK OR OPEN SPACE.'),
     ('s_uninst', 'UNINSTALLING...'),
     ('s_uninstdone', 'UNINSTALLED.  IT CAN BE PICKED UP NOW.'),
     ('s_installed', 'INSTALLED'),
@@ -753,7 +765,7 @@ def write_sources():
         ('PICK', A_PICK), ('CUT', A_CUT), ('PUTL', A_PUTL), ('PUTR', A_PUTR),
         ('PUTB', A_PUTB), ('REFILL', A_REFILL), ('HOLD', A_HOLD), ('INSTALL', A_INSTALL),
         ('UNINST', A_UNINST), ('LAY', A_LAY), ('REPAIR', A_REPAIR), ('SKILLS', A_SKILLS),
-        ('SUITOFF', A_SUITOFF), ('SUITON', A_SUITON))]
+        ('SUITOFF', A_SUITOFF), ('SUITON', A_SUITON), ('INV', A_INV))]
     lines += ['SK_M       = %d' % SK_M, 'SK_SUIT    = %d' % SK_SUIT,
               'SKILL_START = %d' % SKILL_START, 'SKILL_MAX  = %d' % SKILL_MAX,
               'REPAIR_FRAMES = %d' % REPAIR_FRAMES, 'CRATE_COL  = %d' % CRATE_COL,
@@ -860,7 +872,7 @@ def write_sources():
             act[4 * i + k] = str(a)
     assert SK_LV >> 8 == ACT_PAGE and SK_LV & 0xFF >= 0xC0 + len(TYPES)
     for i, ty in enumerate(TYPES):
-        act[0xC0 + i] = str(NEEDS.get(ty[0], 0))
+        act[0xC0 + i] = str(NEEDS.get(ty[0], 0) | WHERE.get(ty[0], 0) << 6)
     for a, txt in ACTIONS.items():
         lab = sref('za_%d' % a, txt)
         act[0x80 + a] = lab + ' & 0xFF'
@@ -910,7 +922,6 @@ def write_sources():
         sref(lab, txt)
     # the strings, packed into chunks of up to 240 bytes
     cur, size = [], 0
-    jb = [sref('zj_%d' % n, job_bar(n)) for n in range(17)]   # the job's bar
     for lab, s in strings:
         n = len(s) + 1
         if size + n > 240:
@@ -925,8 +936,7 @@ def write_sources():
         d.append('.chunk')
         d += cur
         d.append('')
-    d += ['.chunk', 'JB_TAB:', '    #d8 ' + ', '.join(l + ' & 0xFF' for l in jb),
-          '    #d8 ' + ', '.join(l + ' >> 8' for l in jb), '']
+    d += ['.chunk', 'JB_PCT:', '    #d8 ' + ', '.join(str(n * 100 // 16) for n in range(17)), '']
     b = art_bytes('player_ns')        # the player without the suit
     d += ['.chunk', 'PL_NOSUIT:'] + ['    #d8 ' + ', '.join('0x%02X' % v for v in b[o:o + 16])
                                       for o in range(0, 64, 16)] + ['']

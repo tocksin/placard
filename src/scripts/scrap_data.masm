@@ -195,7 +195,7 @@ INFO_TAB:
 TAB:
     #d8 97, 97, 19, 50, 50, 51, 14, 2
     #d8 14, 6, 14, 14, 14, 34, 3, 3
-    #d8 35, 6, 34, 14, 14, 97, 14, 6
+    #d8 35, 6, 38, 14, 14, 97, 14, 6
     #d8 14, 14, 6, 0, 0, 0, 0, 0
     #d8 zn_0 & 0xFF, zn_1 & 0xFF, zn_2 & 0xFF, zn_3 & 0xFF, zn_4 & 0xFF, zn_5 & 0xFF, zn_6 & 0xFF, zn_7 & 0xFF
     #d8 zn_8 & 0xFF, zn_9 & 0xFF, zn_10 & 0xFF, zn_11 & 0xFF, zn_12 & 0xFF, zn_13 & 0xFF, zn_14 & 0xFF, zn_15 & 0xFF
@@ -246,16 +246,16 @@ ACT_TAB:
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, za_1 & 0xFF, za_2 & 0xFF, za_3 & 0xFF, za_4 & 0xFF, za_5 & 0xFF, za_6 & 0xFF, za_7 & 0xFF
     #d8 za_8 & 0xFF, za_9 & 0xFF, za_10 & 0xFF, za_11 & 0xFF, za_12 & 0xFF, za_13 & 0xFF, za_14 & 0xFF, za_15 & 0xFF
-    #d8 za_16 & 0xFF, za_17 & 0xFF, za_18 & 0xFF, 0, 0, 0, 0, 0
+    #d8 za_16 & 0xFF, za_17 & 0xFF, za_18 & 0xFF, za_19 & 0xFF, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, za_1 >> 8, za_2 >> 8, za_3 >> 8, za_4 >> 8, za_5 >> 8, za_6 >> 8, za_7 >> 8
     #d8 za_8 >> 8, za_9 >> 8, za_10 >> 8, za_11 >> 8, za_12 >> 8, za_13 >> 8, za_14 >> 8, za_15 >> 8
-    #d8 za_16 >> 8, za_17 >> 8, za_18 >> 8, 0, 0, 0, 0, 0
+    #d8 za_16 >> 8, za_17 >> 8, za_18 >> 8, za_19 >> 8, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
-    #d8 0, 0, 1, 1, 17, 17, 16, 6
-    #d8 2, 1, 1, 10, 1, 9, 2, 1
-    #d8 17, 1, 17, 16, 18, 0, 16, 2
-    #d8 1, 17, 1, 0, 0, 0, 0, 0
+    #d8 0, 0, 1, 1, 17, 17, 144, 6
+    #d8 130, 1, 129, 138, 129, 9, 2, 1
+    #d8 17, 1, 81, 144, 146, 0, 144, 2
+    #d8 193, 209, 65, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
@@ -489,17 +489,17 @@ zi_18_0:
 zi_18_1:
     #d 0x01, 0x00
 zi_18_2:
-    #d "BOLTED TO THE HULL", 0x00
+    #d "GOES ON OPEN SPACE BY THE HULL", 0x00
 zi_18_3:
     #d "SKILLS: MECHANICAL, HYDRAULICS", 0x00
 zi_19_0:
     #d "FUEL TANK, 400 L", 0x00
 zi_19_1:
     #d 0x01, 0x00
-zi_19_2:
-    #d "HEAVY: TAKES ONE CARRY SLOT", 0x00
 
 .chunk
+zi_19_2:
+    #d "HEAVY: TAKES ONE CARRY SLOT", 0x00
 zi_19_3:
     #d "SKILL: HYDRAULICS", 0x00
 zi_20_0:
@@ -520,10 +520,10 @@ zi_22_0:
     #d "CAPACITY 120 L, EMPTY", 0x00
 zi_22_1:
     #d 0x01, 0x00
-zi_22_2:
-    #d "HEAVY.  SKILL: HYDRAULICS", 0x00
 
 .chunk
+zi_22_2:
+    #d "HEAVY.  SKILL: HYDRAULICS", 0x00
 zi_22_3:
     #d "A STATION REFILLS IT (LATER PHASE)", 0x00
 zi_23_0:
@@ -540,10 +540,10 @@ zi_24_1:
     #d 0x02, 0x00
 zi_24_2:
     #d "HEAVY.  SKILL: MECHANICAL", 0x00
-zi_24_3:
-    #d "INSTALL IT ON THE TUG: A WALL", 0x00
 
 .chunk
+zi_24_3:
+    #d "INSTALLED, IT IS A WALL", 0x00
 zi_25_0:
     #d "A DOOR AND ITS FRAME, TAKEN OUT", 0x00
 zi_25_1:
@@ -551,7 +551,7 @@ zi_25_1:
 zi_25_2:
     #d "HEAVY.  SKILLS: MECH., HYDRAULICS", 0x00
 zi_25_3:
-    #d "INSTALL IT ON THE TUG: A DOOR", 0x00
+    #d "INSTALLED, IT IS A CLOSED DOOR", 0x00
 zi_26_0:
     #d "A DECK PLATE, TAKEN UP", 0x00
 zi_26_1:
@@ -562,12 +562,12 @@ zi_26_3:
     #d "SKILL: MECHANICAL", 0x00
 zn_0:
     #d "OPEN SPACE", 0x00
+
+.chunk
 zx_0:
     #d "NOTHING OUT THERE BUT DEBRIS AND COLD.", 0x00
 zn_1:
     #d "OPEN SPACE", 0x00
-
-.chunk
 zx_1:
     #d "A DISTANT STAR.  NOT FOR SALE.", 0x00
 zn_2:
@@ -580,14 +580,14 @@ zx_3:
     #d "A SOLID BULKHEAD.  THE PAINT SAYS DECK 2.", 0x00
 zn_4:
     #d "DOOR (CLOSED)", 0x00
+
+.chunk
 zx_4:
     #d "A PRESSURE DOOR.  THE HAZARD STRIPES ARE FADED.", 0x00
 zn_5:
     #d "DOOR (OPEN)", 0x00
 zx_5:
     #d "AN OPEN PRESSURE DOOR.", 0x00
-
-.chunk
 zn_6:
     #d "O2 TANK", 0x00
 zx_6:
@@ -602,12 +602,12 @@ zx_8:
     #d "A SHIP BATTERY.  STILL WARM.", 0x00
 zn_9:
     #d "CARGO CRATE", 0x00
+
+.chunk
 zx_9:
     #d "THE LABEL READS ", 0x22, "MINING CHARGES - DO NOT DROP", 0x22, ".", 0x00
 zn_10:
     #d "BUNK", 0x00
-
-.chunk
 zx_10:
     #d "A CREW BUNK.  THE BLANKET IS FOLDED NEATLY.", 0x00
 zn_11:
@@ -620,12 +620,12 @@ zx_12:
     #d "A LOCKER.  THE LOCK IS RUSTED SHUT.", 0x00
 zn_13:
     #d "SECURITY TURRET", 0x00
+
+.chunk
 zx_13:
     #d "A SECURITY TURRET.  ITS LIGHT IS DARK, FOR NOW.", 0x00
 zn_14:
     #d "POWER CONDUIT", 0x00
-
-.chunk
 zx_14:
     #d "A POWER CONDUIT RUNS UNDER THE DECK HERE.", 0x00
 zn_15:
@@ -638,14 +638,14 @@ zx_16:
     #d "A DOCKING AIRLOCK.  THE SEAL IS HOLDING.", 0x00
 zn_17:
     #d "WORK SUIT", 0x00
+
+.chunk
 zx_17:
     #d "YOUR WORK SUIT.  IT SMELLS OF HARD WORK.", 0x00
 zn_18:
     #d "THRUSTER", 0x00
 zx_18:
     #d "A THRUSTER NOZZLE, BLACK WITH SOOT.", 0x00
-
-.chunk
 zn_19:
     #d "FUEL TANK", 0x00
 zx_19:
@@ -656,6 +656,8 @@ zx_20:
     #d "AN AIR SCRUBBER.  THE FILTERS NEED CHANGING.", 0x00
 zn_21:
     #d "HULL BREACH", 0x00
+
+.chunk
 zx_21:
     #d "SOMETHING PUNCHED RIGHT THROUGH THE HULL.", 0x00
 zn_22:
@@ -664,8 +666,6 @@ zx_22:
     #d "AN EMPTY OXYGEN TANK.  THE GAUGE READS ZERO.", 0x00
 zn_23:
     #d "PLASMA CUTTER", 0x00
-
-.chunk
 zx_23:
     #d "A PLASMA CUTTER.  KEEP YOUR FINGERS CLEAR.", 0x00
 zn_24:
@@ -674,6 +674,8 @@ zx_24:
     #d "A SECTION OF BULKHEAD.  THE BOLT HOLES ARE CLEAN.", 0x00
 zn_25:
     #d "PRESSURE DOOR", 0x00
+
+.chunk
 zx_25:
     #d "A PRESSURE DOOR IN ITS FRAME, READY TO FIT.", 0x00
 zn_26:
@@ -682,8 +684,6 @@ zx_26:
     #d "A STEEL DECK PLATE.  IT RINGS WHEN YOU TAP IT.", 0x00
 zn_27:
     #d "YOU", 0x00
-
-.chunk
 zx_27:
     #d "THAT IS YOU, IN A WORK SUIT THAT HAS SEEN BETTER DAYS.", 0x00
 zd_0:
@@ -704,6 +704,8 @@ zw_3:
     #d "WORKS AT 63%", 0x00
 zd_4:
     #d "25%", 0x00
+
+.chunk
 zw_4:
     #d "WORKS AT 50%", 0x00
 zd_5:
@@ -724,8 +726,6 @@ zw_8:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_9:
     #d "56%", 0x00
-
-.chunk
 zw_9:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_10:
@@ -746,6 +746,8 @@ zw_13:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_14:
     #d "88%", 0x00
+
+.chunk
 zw_14:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_15:
@@ -766,8 +768,6 @@ za_6:
     #d "CUT FREE", 0x00
 za_7:
     #d "PUT DOWN LEFT", 0x00
-
-.chunk
 za_8:
     #d "PUT DOWN RIGHT", 0x00
 za_9:
@@ -790,6 +790,10 @@ za_17:
     #d "TAKE OFF SUIT", 0x00
 za_18:
     #d "PUT ON SUIT", 0x00
+
+.chunk
+za_19:
+    #d "INVENTORY", 0x00
 zb_0:
     #d "[----------]", 0x00
 zb_1:
@@ -806,8 +810,6 @@ zb_6:
     #d "[####------]", 0x00
 zb_7:
     #d "[####------]", 0x00
-
-.chunk
 zb_8:
     #d "[#####-----]", 0x00
 zb_9:
@@ -826,6 +828,8 @@ zb_15:
     #d "[#########-]", 0x00
 zs_0:
     #d "SEALED - NO LEAKS", 0x00
+
+.chunk
 zs_1:
     #d "SEALED - NO LEAKS", 0x00
 zs_2:
@@ -838,8 +842,6 @@ zs_5:
     #d "SEALED - NO LEAKS", 0x00
 zs_6:
     #d "SEALED - NO LEAKS", 0x00
-
-.chunk
 zs_7:
     #d "SEALED - NO LEAKS", 0x00
 zs_8:
@@ -850,6 +852,8 @@ zs_10:
     #d "LEAKS AIR - NEEDS REPAIR", 0x00
 zs_11:
     #d "LEAKS AIR - NEEDS REPAIR", 0x00
+
+.chunk
 zs_12:
     #d "LEAKS AIR - NEEDS REPAIR", 0x00
 zs_13:
@@ -858,20 +862,18 @@ zs_14:
     #d "LEAKS AIR - NEEDS REPAIR", 0x00
 zs_15:
     #d "LEAKS AIR - NEEDS REPAIR", 0x00
-
-.chunk
 s_welcome:
     #d "DOCKED TO THE KESTREL 9.  ARROWS OR WASD WALK, MOUSE SHOWS AND CLICKS.", 0x00
 s_toofar:
     #d "TOO FAR AWAY - WALK NEXT TO IT FIRST.", 0x00
 s_inway:
     #d "SOMETHING IS IN THE WAY.", 0x00
+
+.chunk
 s_blocked:
     #d "THE WAY IS BLOCKED.", 0x00
 s_full:
     #d "YOUR HANDS AND BACK ARE FULL - PUT SOMETHING DOWN.", 0x00
-
-.chunk
 s_nocut:
     #d "IN A WRECK IT TAKES A WORKING CUTTER IN A HAND.", 0x00
 s_nobatt:
@@ -880,14 +882,26 @@ s_cutting:
     #d "UNINSTALLING WITH THE CUTTER...", 0x00
 s_cutdone:
     #d "UNINSTALLED.  IT CAN BE PICKED UP NOW.", 0x00
+
+.chunk
 s_cutstop:
     #d "STOPPED - YOU WALKED AWAY.", 0x00
 s_inst:
     #d "INSTALLING...", 0x00
+s_instdone:
+    #d "INSTALLED.", 0x00
+s_inv:
+    #d "YOUR GEAR.  I OR TAB: BACK TO THE SHIP", 0x00
+s_place:
+    #d "CLICK WHERE IT GOES, NEXT TO YOU.  RIGHT CLICK: CANCEL", 0x00
+s_wspace:
+    #d "IT GOES ON OPEN SPACE.", 0x00
+s_wdeck:
+    #d "IT GOES ON A BARE DECK.", 0x00
+s_wboth:
+    #d "IT GOES ON A BARE DECK OR OPEN SPACE.", 0x00
 
 .chunk
-s_instdone:
-    #d "INSTALLED.  IT IS PART OF THE TUG NOW.", 0x00
 s_uninst:
     #d "UNINSTALLING...", 0x00
 s_uninstdone:
@@ -902,12 +916,12 @@ s_laid:
     #d "DECK PLATE LAID.", 0x00
 s_refill:
     #d "SUIT REFILLED.  THE TANK IS EMPTY NOW.", 0x00
-
-.chunk
 s_broken:
     #d "IT IS BROKEN - IT DOES NOT WORK.", 0x00
 s_repair:
     #d "REPAIRING...", 0x00
+
+.chunk
 s_repdone:
     #d "REPAIRED.  GOOD AS NEW.", 0x00
 s_suitoff:
@@ -920,8 +934,6 @@ s_pl_suit:
     #d "SUIT   MK1 WORK SUIT     O2 ", 0x00
 s_pl_of:
     #d " OF 90 L", 0x00
-
-.chunk
 s_pl_batt:
     #d "BATT   SMALL CELL        CHARGE ", 0x00
 s_pl_hands:
@@ -932,6 +944,8 @@ s_slash:
     #d " / ", 0x00
 s_empty:
     #d "EMPTY", 0x00
+
+.chunk
 s_tug:
     #d "TUG $", 0x00
 s_airon:
@@ -948,53 +962,14 @@ s_w2:
     #d "WARNING: SUIT O2 LOW - GET BACK TO THE TUG OR FIND AN O2 TANK.", 0x00
 s_w3:
     #d "CRITICAL: SUIT O2 ALMOST GONE!", 0x00
-
-.chunk
 s_w4:
     #d "YOU ARE BLACKING OUT - GET AIR NOW!", 0x00
 s_w5:
     #d "YOU SUFFOCATED.  PRESS ENTER TO TRY AGAIN.", 0x00
-zj_0:
-    #d "[----------------] 0%", 0x00
-zj_1:
-    #d "[#---------------] 6%", 0x00
-zj_2:
-    #d "[##--------------] 12%", 0x00
-zj_3:
-    #d "[###-------------] 18%", 0x00
-zj_4:
-    #d "[####------------] 25%", 0x00
-zj_5:
-    #d "[#####-----------] 31%", 0x00
-zj_6:
-    #d "[######----------] 37%", 0x00
 
 .chunk
-zj_7:
-    #d "[#######---------] 43%", 0x00
-zj_8:
-    #d "[########--------] 50%", 0x00
-zj_9:
-    #d "[#########-------] 56%", 0x00
-zj_10:
-    #d "[##########------] 62%", 0x00
-zj_11:
-    #d "[###########-----] 68%", 0x00
-zj_12:
-    #d "[############----] 75%", 0x00
-zj_13:
-    #d "[#############---] 81%", 0x00
-zj_14:
-    #d "[##############--] 87%", 0x00
-zj_15:
-    #d "[###############-] 93%", 0x00
-zj_16:
-    #d "[################] 100%", 0x00
-
-.chunk
-JB_TAB:
-    #d8 zj_0 & 0xFF, zj_1 & 0xFF, zj_2 & 0xFF, zj_3 & 0xFF, zj_4 & 0xFF, zj_5 & 0xFF, zj_6 & 0xFF, zj_7 & 0xFF, zj_8 & 0xFF, zj_9 & 0xFF, zj_10 & 0xFF, zj_11 & 0xFF, zj_12 & 0xFF, zj_13 & 0xFF, zj_14 & 0xFF, zj_15 & 0xFF, zj_16 & 0xFF
-    #d8 zj_0 >> 8, zj_1 >> 8, zj_2 >> 8, zj_3 >> 8, zj_4 >> 8, zj_5 >> 8, zj_6 >> 8, zj_7 >> 8, zj_8 >> 8, zj_9 >> 8, zj_10 >> 8, zj_11 >> 8, zj_12 >> 8, zj_13 >> 8, zj_14 >> 8, zj_15 >> 8, zj_16 >> 8
+JB_PCT:
+    #d8 0, 6, 12, 18, 25, 31, 37, 43, 50, 56, 62, 68, 75, 81, 87, 93, 100
 
 .chunk
 PL_NOSUIT:
