@@ -775,6 +775,7 @@ draw_cell:
     shl
     shl
     ld   ac, [dc_ai]
+draw_cell_at:                   ; (or the art at dc_ap:dc_ai)
     CELLADDR
     ld   4, ac
     ld   ac, [dc_c]
@@ -895,7 +896,7 @@ vc_p:
     ld   ac, [dc_t]
 vc_d:
     CALL draw_cell
-    CALL crate_mark
+    CALL cell_extra
     LEAVE
 
 ; draw_view - every cell of the view, then the frame
@@ -2271,7 +2272,7 @@ tp_off:
     RET
 
 ; tputs - the string at R1:R0 (ending in 00); a 01 in it is the "works
-; at" line for damage step s_f
+; at" line for damage step s_f, a 02 the seal line (ts_seal)
 .chunk
 tputs:
     PUSH_LINK
@@ -2282,7 +2283,11 @@ ts_l:
     beq  ts_e
     xor  1, ac
     beq  ts_w
-    xor  1, ac
+    xor  3, ac
+    bne  ts_c
+    GOTO ts_seal
+ts_c:
+    xor  2, ac
     CALL tputc
 ts_n:
     ld   [R0], ac
@@ -3382,8 +3387,9 @@ ak_r:
     ld   ac, [v7]
     ld   [v6], ac
     sub  [v7], ac
+    bcs  ak_b                   ; a under b
     sub  2, ac
-    bcs  ak_b                   ; a not 2 or more over b
+    bcs  ak_e                   ; a not 2 or more over b
     ld   [v6], ac
     dec
     ld   [v4], x
@@ -4938,6 +4944,11 @@ su_on:
 su_m:
     ld   ac, [R1]
     CALL set_msg
+    ld   [p_x], ac              ; the player drawn again, in or out of it
+    ld   ac, [g_x]
+    ld   [p_y], ac
+    ld   ac, [g_y]
+    CALL refresh_cell
     ld   [dirty], ac
     or   1, ac
     ld   ac, [dirty]
@@ -5025,6 +5036,42 @@ nt_ok:
     clr  ac
     ld   ac, [col_t]
     GOTO ss_n
+
+; ts_seal - tputs' 02: a wall's or door's seal for damage step s_f
+; (ROOM_PG + x20 + step, high bytes + x30).  Back into tputs
+.chunk
+ts_seal:
+    ld   ROOM_PG, y
+    ld   [s_f], ac
+    add  0x20, x
+    ld   [y,x], ac
+    ld   ac, [w0]
+    ld   [s_f], ac
+    add  0x30, x
+    ld   [y,x], ac
+    ld   ac, [w1]
+    GOTO ts_wl
+
+; cell_extra - over a cell view_cell drew: the player without the suit
+; (PL_NOSUIT), or a loose part's crate frame
+.chunk
+cell_extra:
+    PUSH_LINK
+    ld   [dc_t], ac
+    xor  T_PLAYER, ac
+    bne  ce_c
+    ld   [suit_on], ac
+    bne  ce_e
+    ld   PL_NOSUIT >> 8, ac
+    ld   ac, [dc_ap]
+    ld   PL_NOSUIT & 0xFF, ac
+    ld   ac, [dc_ai]
+    CALL draw_cell_at
+    LEAVE
+ce_c:
+    CALL crate_mark
+ce_e:
+    LEAVE
 
 ; crate_mark - a loose part on screen cell dc_cx, dc_cy (map_get's c_t,
 ; c_b) gets a crate's frame, brown.  A leaf.

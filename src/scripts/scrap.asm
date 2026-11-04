@@ -1141,6 +1141,7 @@ draw_cell:
     shl
     shl
     ld   ac, [dc_ai]
+draw_cell_at:                   ; (or the art at dc_ap:dc_ai)
     ld   [dc_cx], ac
     shl
     shl
@@ -1367,12 +1368,12 @@ vc_d:
     ld   draw_cell >> 8, y
     jmp  draw_cell
 scw_r36:
-    ld   LINK_LO, x             ; CALL crate_mark
+    ld   LINK_LO, x             ; CALL cell_extra
     ld   scw_r37, [x]
     ld   LINK_HI, x
     ld   scw_r37 >> 8, [x]
-    ld   crate_mark >> 8, y
-    jmp  crate_mark
+    ld   cell_extra >> 8, y
+    jmp  cell_extra
 scw_r37:
     ld   sc_leave >> 8, y
     jmp  sc_leave
@@ -3301,7 +3302,7 @@ tp_off:
     jmp  [LINK_LO]
 
 ; tputs - the string at R1:R0 (ending in 00); a 01 in it is the "works
-; at" line for damage step s_f
+; at" line for damage step s_f, a 02 the seal line (ts_seal)
 dyn_acts:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -3844,7 +3845,12 @@ ts_l:
     beq  ts_e
     xor  1, ac
     beq  ts_w
-    xor  1, ac
+    xor  3, ac
+    bne  ts_c
+    ld   ts_seal >> 8, y
+    jmp  ts_seal
+ts_c:
+    xor  2, ac
     ld   LINK_LO, x             ; CALL tputc
     ld   scw_r137, [x]
     ld   LINK_HI, x
@@ -3905,25 +3911,6 @@ ts_e:
 
 ; game_init - the suit, the hands, the rooms' air, the tug (start, and
 ; again after dying)
-more_action:
-    ld   [w3], ac
-    xor  A_REPAIR, ac
-    bne  ma_1
-    ld   repair_action >> 8, y
-    jmp  repair_action
-ma_1:
-    ld   [w3], ac
-    xor  A_SKILLS, ac
-    bne  ma_2
-    ld   skills_action >> 8, y
-    jmp  skills_action
-ma_2:
-    ld   suit_action >> 8, y
-    jmp  suit_action
-
-; repair_action - REPAIR: a damaged part next to the player, REPAIR_FRAMES
-; (15) a damage step at full speed (cut_done: repair_done).  The rest of
-; do_action
 
 #addr 0x1800
 game_init:
@@ -4063,6 +4050,25 @@ gt_e:
 
 ; air_tick - open doors and the airlocks share their rooms' air (the
 ; average), then air_leak
+more_action:
+    ld   [w3], ac
+    xor  A_REPAIR, ac
+    bne  ma_1
+    ld   repair_action >> 8, y
+    jmp  repair_action
+ma_1:
+    ld   [w3], ac
+    xor  A_SKILLS, ac
+    bne  ma_2
+    ld   skills_action >> 8, y
+    jmp  skills_action
+ma_2:
+    ld   suit_action >> 8, y
+    jmp  suit_action
+
+; repair_action - REPAIR: a damaged part next to the player, REPAIR_FRAMES
+; (15) a damage step at full speed (cut_done: repair_done).  The rest of
+; do_action
 
 #addr 0x1900
 air_tick:
@@ -4695,6 +4701,21 @@ set_room:
 ; opposite sides (a room, or 0 for vacuum and the edge; a solid cell is
 ; none) make a link in DOOR_PG when they differ (64 at most); the cell
 ; gets the room of a side.  The rest of rooms_build.
+ts_seal:
+    ld   ROOM_PG, y
+    ld   [s_f], ac
+    add  0x20, x
+    ld   [y,x], ac
+    ld   ac, [w0]
+    ld   [s_f], ac
+    add  0x30, x
+    ld   [y,x], ac
+    ld   ac, [w1]
+    ld   ts_wl >> 8, y
+    jmp  ts_wl
+
+; cell_extra - over a cell view_cell drew: the player without the suit
+; (PL_NOSUIT), or a loose part's crate frame
 
 #addr 0x1D00
 put_action:
@@ -5525,8 +5546,9 @@ ak_r:
     ld   ac, [v7]
     ld   [v6], ac
     sub  [v7], ac
+    bcs  ak_b                   ; a under b
     sub  2, ac
-    bcs  ak_b                   ; a not 2 or more over b
+    bcs  ak_e                   ; a not 2 or more over b
     ld   [v6], ac
     dec
     ld   [v4], x
@@ -7510,6 +7532,17 @@ su_m:
     ld   set_msg >> 8, y
     jmp  set_msg
 scw_r276:
+    ld   [p_x], ac              ; the player drawn again, in or out of it
+    ld   ac, [g_x]
+    ld   [p_y], ac
+    ld   ac, [g_y]
+    ld   LINK_LO, x             ; CALL refresh_cell
+    ld   scw_r277, [x]
+    ld   LINK_HI, x
+    ld   scw_r277 >> 8, [x]
+    ld   refresh_cell >> 8, y
+    jmp  refresh_cell
+scw_r277:
     ld   [dirty], ac
     or   1, ac
     ld   ac, [dirty]
@@ -7524,6 +7557,35 @@ su_full:
 
 ; skills_action - SKILLS: the levels into SK_MSG (at SK_POS, two digits,
 ; a space for a leading 0) on the message row.  The rest of do_action
+nosuit_tick:
+    ld   [p_x], ac
+    ld   ac, [g_x]
+    ld   [p_y], ac
+    ld   ac, [g_y]
+    ld   LINK_LO, x             ; CALL map_get
+    ld   scw_r279, [x]
+    ld   LINK_HI, x
+    ld   scw_r279 >> 8, [x]
+    ld   map_get >> 8, y
+    jmp  map_get
+scw_r279:
+    ld   ROOM_P >> 8, y
+    ld   [c_r], x
+    ld   [y,x], ac
+    sub  BREATHE_P, ac
+    bcc  nt_ok
+    ld   ss_4 >> 8, y
+    jmp  ss_4
+nt_ok:
+    clr  ac
+    ld   ac, [col_t]
+    ld   ss_n >> 8, y
+    jmp  ss_n
+
+; ts_seal - tputs' 02: a wall's or door's seal for damage step s_f
+; (ROOM_PG + x20 + step, high bytes + x30).  Back into tputs
+
+#addr 0x3100
 skills_action:
     clr  ac
     ld   ac, [u4]
@@ -7575,47 +7637,70 @@ sa_p:
     ld   SK_MSG >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r277, [x]
+    ld   scw_r278, [x]
     ld   LINK_HI, x
-    ld   scw_r277 >> 8, [x]
+    ld   scw_r278 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r277:
+scw_r278:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
 ; nosuit_tick - second_tick without the suit: the room's air or nothing
 ; (collapsing, stage_set's ss_4); the suit keeps its O2.  The rest of
 ; second_tick
-
-#addr 0x3100
-nosuit_tick:
-    ld   [p_x], ac
-    ld   ac, [g_x]
-    ld   [p_y], ac
-    ld   ac, [g_y]
-    ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r278, [x]
+cell_extra:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   [dc_t], ac
+    xor  T_PLAYER, ac
+    bne  ce_c
+    ld   [suit_on], ac
+    bne  ce_e
+    ld   PL_NOSUIT >> 8, ac
+    ld   ac, [dc_ap]
+    ld   PL_NOSUIT & 0xFF, ac
+    ld   ac, [dc_ai]
+    ld   LINK_LO, x             ; CALL draw_cell_at
+    ld   scw_r280, [x]
     ld   LINK_HI, x
-    ld   scw_r278 >> 8, [x]
-    ld   map_get >> 8, y
-    jmp  map_get
-scw_r278:
-    ld   ROOM_P >> 8, y
-    ld   [c_r], x
-    ld   [y,x], ac
-    sub  BREATHE_P, ac
-    bcc  nt_ok
-    ld   ss_4 >> 8, y
-    jmp  ss_4
-nt_ok:
-    clr  ac
-    ld   ac, [col_t]
-    ld   ss_n >> 8, y
-    jmp  ss_n
+    ld   scw_r280 >> 8, [x]
+    ld   draw_cell_at >> 8, y
+    jmp  draw_cell_at
+scw_r280:
+    ld   sc_leave >> 8, y
+    jmp  sc_leave
+ce_c:
+    ld   LINK_LO, x             ; CALL crate_mark
+    ld   scw_r281, [x]
+    ld   LINK_HI, x
+    ld   scw_r281 >> 8, [x]
+    ld   crate_mark >> 8, y
+    jmp  crate_mark
+scw_r281:
+ce_e:
+    ld   sc_leave >> 8, y
+    jmp  sc_leave
 
 ; crate_mark - a loose part on screen cell dc_cx, dc_cy (map_get's c_t,
 ; c_b) gets a crate's frame, brown.  A leaf.
+s_w4:
+    #d "YOU ARE BLACKING OUT - GET AIR NOW!", 0x00
+s_w5:
+    #d "YOU SUFFOCATED.  PRESS ENTER TO TRY AGAIN.", 0x00
+
+
+#addr 0x3200
 crate_mark:
     ld   [c_b], ac
     bne  cm_e
@@ -7704,52 +7789,30 @@ cm_e:
 ; scrap_data.masm - generated by gen_scrap.py, do not edit by hand
 ; the art, tables and strings of scrap.masm (included at its end)
 
-s_w4:
-    #d "YOU ARE BLACKING OUT - GET AIR NOW!", 0x00
-s_w5:
-    #d "YOU SUFFOCATED.  PRESS ENTER TO TRY AGAIN.", 0x00
+PL_NOSUIT:
+    #d8 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x37, 0x33, 0x33, 0x3C, 0x3C, 0x77, 0x77, 0x77, 0x77, 0x77
+    #d8 0x67, 0x66, 0xC6, 0xCC, 0xCC, 0xC7, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x73, 0x73, 0x76, 0x77
+    #d8 0x76, 0x66, 0x6C, 0xCC, 0xCC, 0x7C, 0x33, 0x33, 0x3E, 0x33, 0x33, 0x33, 0x37, 0x37, 0x67, 0x77
+    #d8 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x73, 0x33, 0x33, 0xC3, 0xC3, 0x77, 0x77, 0x77, 0x77, 0x77
 
 
-#addr 0x3200
+#addr 0x3300
 zi_0_0:
     #d "VACUUM.  NO AIR, NO FLOOR.", 0x00
 zi_0_1:
     #d "LAY A DECK PLATE HERE TO BUILD ON IT", 0x00
+zi_0_2:
+    #d "SPACEWALK: YOUR SUIT AIR ONLY", 0x00
 zi_1_0:
     #d "VACUUM.  NO AIR, NO FLOOR.", 0x00
 zi_1_1:
     #d "LAY A DECK PLATE HERE TO BUILD ON IT", 0x00
+zi_1_2:
+    #d "SPACEWALK: YOUR SUIT AIR ONLY", 0x00
 zi_2_0:
     #d "STEEL DECK PLATE", 0x00
 zi_2_1:
     #d "WALKABLE", 0x00
-zi_2_2:
-    #d "TAKEN UP, IT LEAVES OPEN SPACE", 0x00
-zi_2_3:
-    #d "SKILL: MECHANICAL", 0x00
-zi_3_0:
-    #d "STEEL BULKHEAD, AIRTIGHT", 0x00
-
-
-#addr 0x3300
-zi_3_1:
-    #d "LEAKS AIR FROM 50% DAMAGE", 0x00
-zi_3_2:
-    #d "UNINSTALL IT (IN A WRECK: A CUTTER)", 0x00
-zi_3_3:
-    #d "SKILL: MECHANICAL", 0x00
-zi_4_0:
-    #d "PRESSURE DOOR, SEALS UNDER 50% DAMAGE", 0x00
-zi_4_1:
-    #d 0x01, 0x00
-zi_4_2:
-    #d "CLOSES BEHIND YOU UNLESS HELD OPEN", 0x00
-zi_4_3:
-    #d "SKILLS: MECHANICAL, HYDRAULICS", 0x00
-zi_5_0:
-    #d "PRESSURE DOOR, OPEN", 0x00
-zi_5_1:
-    #d 0x01, 0x00
 
 
 #addr 0x3400
@@ -7792,10 +7855,10 @@ ROOM_TAB:
     #d8 zb_8 & 0xFF, zb_9 & 0xFF, zb_10 & 0xFF, zb_11 & 0xFF, zb_12 & 0xFF, zb_13 & 0xFF, zb_14 & 0xFF, zb_15 & 0xFF
     #d8 zb_0 >> 8, zb_1 >> 8, zb_2 >> 8, zb_3 >> 8, zb_4 >> 8, zb_5 >> 8, zb_6 >> 8, zb_7 >> 8
     #d8 zb_8 >> 8, zb_9 >> 8, zb_10 >> 8, zb_11 >> 8, zb_12 >> 8, zb_13 >> 8, zb_14 >> 8, zb_15 >> 8
-    #d8 0, 0, 0, 0, 0, 0, 0, 0
-    #d8 0, 0, 0, 0, 0, 0, 0, 0
-    #d8 0, 0, 0, 0, 0, 0, 0, 0
-    #d8 0, 0, 0, 0, 0, 0, 0, 0
+    #d8 zs_0 & 0xFF, zs_1 & 0xFF, zs_2 & 0xFF, zs_3 & 0xFF, zs_4 & 0xFF, zs_5 & 0xFF, zs_6 & 0xFF, zs_7 & 0xFF
+    #d8 zs_8 & 0xFF, zs_9 & 0xFF, zs_10 & 0xFF, zs_11 & 0xFF, zs_12 & 0xFF, zs_13 & 0xFF, zs_14 & 0xFF, zs_15 & 0xFF
+    #d8 zs_0 >> 8, zs_1 >> 8, zs_2 >> 8, zs_3 >> 8, zs_4 >> 8, zs_5 >> 8, zs_6 >> 8, zs_7 >> 8
+    #d8 zs_8 >> 8, zs_9 >> 8, zs_10 >> 8, zs_11 >> 8, zs_12 >> 8, zs_13 >> 8, zs_14 >> 8, zs_15 >> 8
     #d8 0, 100, 100, 100, 100, 100, 100, 100
     #d8 100, 100, 100, 100, 100, 100, 100, 100
     #d8 100, 100, 0, 0, 0, 0, 0, 0
@@ -7822,7 +7885,7 @@ ROOM_TAB:
     #d8 0, 0, 0, 0, 0, 0, 0, 0
 
 ACT_TAB:
-    #d8 3, 0, 0, 0, 3, 0, 0, 0
+    #d8 4, 3, 0, 0, 4, 3, 0, 0
     #d8 4, 3, 0, 0, 3, 0, 0, 0
     #d8 1, 11, 3, 0, 2, 11, 3, 0
     #d8 3, 0, 0, 0, 3, 0, 0, 0
@@ -7832,7 +7895,7 @@ ACT_TAB:
     #d8 4, 3, 0, 0, 4, 3, 0, 0
     #d8 4, 3, 0, 0, 3, 0, 0, 0
     #d8 3, 0, 0, 0, 3, 0, 0, 0
-    #d8 3, 0, 0, 0, 3, 0, 0, 0
+    #d8 3, 0, 0, 0, 4, 3, 0, 0
     #d8 3, 0, 0, 0, 3, 0, 0, 0
     #d8 3, 0, 0, 0, 3, 0, 0, 0
     #d8 3, 0, 0, 0, 3, 0, 0, 0
@@ -7856,9 +7919,9 @@ ACT_TAB:
     #d8 0, 0, 0, 0, 0, 0, 0, 0
 
 TAB:
-    #d8 96, 96, 19, 50, 50, 51, 14, 2
+    #d8 97, 97, 19, 50, 50, 51, 14, 2
     #d8 14, 6, 14, 14, 14, 34, 3, 3
-    #d8 35, 6, 34, 14, 14, 96, 14, 6
+    #d8 35, 6, 34, 14, 14, 97, 14, 6
     #d8 14, 14, 6, 0, 0, 0, 0, 0
     #d8 zn_0 & 0xFF, zn_1 & 0xFF, zn_2 & 0xFF, zn_3 & 0xFF, zn_4 & 0xFF, zn_5 & 0xFF, zn_6 & 0xFF, zn_7 & 0xFF
     #d8 zn_8 & 0xFF, zn_9 & 0xFF, zn_10 & 0xFF, zn_11 & 0xFF, zn_12 & 0xFF, zn_13 & 0xFF, zn_14 & 0xFF, zn_15 & 0xFF
@@ -7890,7 +7953,7 @@ TAB:
     #d8 3, 8, 2, 0, 0, 0, 0, 0
 
 INFO_TAB:
-    #d8 zi_0_0 & 0xFF, zi_0_1 & 0xFF, 0, 0, zi_1_0 & 0xFF, zi_1_1 & 0xFF, 0, 0
+    #d8 zi_0_0 & 0xFF, zi_0_1 & 0xFF, zi_0_2 & 0xFF, 0, zi_1_0 & 0xFF, zi_1_1 & 0xFF, zi_1_2 & 0xFF, 0
     #d8 zi_2_0 & 0xFF, zi_2_1 & 0xFF, zi_2_2 & 0xFF, zi_2_3 & 0xFF, zi_3_0 & 0xFF, zi_3_1 & 0xFF, zi_3_2 & 0xFF, zi_3_3 & 0xFF
     #d8 zi_4_0 & 0xFF, zi_4_1 & 0xFF, zi_4_2 & 0xFF, zi_4_3 & 0xFF, zi_5_0 & 0xFF, zi_5_1 & 0xFF, zi_5_2 & 0xFF, zi_5_3 & 0xFF
     #d8 zi_6_0 & 0xFF, zi_6_1 & 0xFF, zi_6_2 & 0xFF, zi_6_3 & 0xFF, zi_7_0 & 0xFF, zi_7_1 & 0xFF, zi_7_2 & 0xFF, zi_7_3 & 0xFF
@@ -7900,13 +7963,13 @@ INFO_TAB:
     #d8 zi_14_0 & 0xFF, zi_14_1 & 0xFF, zi_14_2 & 0xFF, zi_14_3 & 0xFF, zi_15_0 & 0xFF, zi_15_1 & 0xFF, zi_15_2 & 0xFF, zi_15_3 & 0xFF
     #d8 zi_16_0 & 0xFF, zi_16_1 & 0xFF, zi_16_2 & 0xFF, zi_16_3 & 0xFF, zi_17_0 & 0xFF, zi_17_1 & 0xFF, zi_17_2 & 0xFF, zi_17_3 & 0xFF
     #d8 zi_18_0 & 0xFF, zi_18_1 & 0xFF, zi_18_2 & 0xFF, zi_18_3 & 0xFF, zi_19_0 & 0xFF, zi_19_1 & 0xFF, zi_19_2 & 0xFF, zi_19_3 & 0xFF
-    #d8 zi_20_0 & 0xFF, zi_20_1 & 0xFF, zi_20_2 & 0xFF, zi_20_3 & 0xFF, zi_21_0 & 0xFF, zi_21_1 & 0xFF, 0, 0
+    #d8 zi_20_0 & 0xFF, zi_20_1 & 0xFF, zi_20_2 & 0xFF, zi_20_3 & 0xFF, zi_21_0 & 0xFF, zi_21_1 & 0xFF, zi_21_2 & 0xFF, 0
     #d8 zi_22_0 & 0xFF, zi_22_1 & 0xFF, zi_22_2 & 0xFF, zi_22_3 & 0xFF, zi_23_0 & 0xFF, zi_23_1 & 0xFF, zi_23_2 & 0xFF, zi_23_3 & 0xFF
     #d8 zi_24_0 & 0xFF, zi_24_1 & 0xFF, zi_24_2 & 0xFF, zi_24_3 & 0xFF, zi_25_0 & 0xFF, zi_25_1 & 0xFF, zi_25_2 & 0xFF, zi_25_3 & 0xFF
     #d8 zi_26_0 & 0xFF, zi_26_1 & 0xFF, zi_26_2 & 0xFF, zi_26_3 & 0xFF, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
-    #d8 zi_0_0 >> 8, zi_0_1 >> 8, 0, 0, zi_1_0 >> 8, zi_1_1 >> 8, 0, 0
+    #d8 zi_0_0 >> 8, zi_0_1 >> 8, zi_0_2 >> 8, 0, zi_1_0 >> 8, zi_1_1 >> 8, zi_1_2 >> 8, 0
     #d8 zi_2_0 >> 8, zi_2_1 >> 8, zi_2_2 >> 8, zi_2_3 >> 8, zi_3_0 >> 8, zi_3_1 >> 8, zi_3_2 >> 8, zi_3_3 >> 8
     #d8 zi_4_0 >> 8, zi_4_1 >> 8, zi_4_2 >> 8, zi_4_3 >> 8, zi_5_0 >> 8, zi_5_1 >> 8, zi_5_2 >> 8, zi_5_3 >> 8
     #d8 zi_6_0 >> 8, zi_6_1 >> 8, zi_6_2 >> 8, zi_6_3 >> 8, zi_7_0 >> 8, zi_7_1 >> 8, zi_7_2 >> 8, zi_7_3 >> 8
@@ -7916,7 +7979,7 @@ INFO_TAB:
     #d8 zi_14_0 >> 8, zi_14_1 >> 8, zi_14_2 >> 8, zi_14_3 >> 8, zi_15_0 >> 8, zi_15_1 >> 8, zi_15_2 >> 8, zi_15_3 >> 8
     #d8 zi_16_0 >> 8, zi_16_1 >> 8, zi_16_2 >> 8, zi_16_3 >> 8, zi_17_0 >> 8, zi_17_1 >> 8, zi_17_2 >> 8, zi_17_3 >> 8
     #d8 zi_18_0 >> 8, zi_18_1 >> 8, zi_18_2 >> 8, zi_18_3 >> 8, zi_19_0 >> 8, zi_19_1 >> 8, zi_19_2 >> 8, zi_19_3 >> 8
-    #d8 zi_20_0 >> 8, zi_20_1 >> 8, zi_20_2 >> 8, zi_20_3 >> 8, zi_21_0 >> 8, zi_21_1 >> 8, 0, 0
+    #d8 zi_20_0 >> 8, zi_20_1 >> 8, zi_20_2 >> 8, zi_20_3 >> 8, zi_21_0 >> 8, zi_21_1 >> 8, zi_21_2 >> 8, 0
     #d8 zi_22_0 >> 8, zi_22_1 >> 8, zi_22_2 >> 8, zi_22_3 >> 8, zi_23_0 >> 8, zi_23_1 >> 8, zi_23_2 >> 8, zi_23_3 >> 8
     #d8 zi_24_0 >> 8, zi_24_1 >> 8, zi_24_2 >> 8, zi_24_3 >> 8, zi_25_0 >> 8, zi_25_1 >> 8, zi_25_2 >> 8, zi_25_3 >> 8
     #d8 zi_26_0 >> 8, zi_26_1 >> 8, zi_26_2 >> 8, zi_26_3 >> 8, 0, 0, 0, 0
@@ -8073,6 +8136,33 @@ ART:
 
 
 #overlay 0xC000
+zi_2_2:
+    #d "TAKEN UP, IT LEAVES OPEN SPACE", 0x00
+zi_2_3:
+    #d "SKILL: MECHANICAL", 0x00
+zi_3_0:
+    #d "STEEL BULKHEAD, LEAKS FROM 50% DAMAGE", 0x00
+zi_3_1:
+    #d 0x02, 0x00
+zi_3_2:
+    #d "UNINSTALL IT (IN A WRECK: A CUTTER)", 0x00
+zi_3_3:
+    #d "SKILL: MECHANICAL", 0x00
+zi_4_0:
+    #d "PRESSURE DOOR, LEAKS FROM 50% DAMAGE", 0x00
+zi_4_1:
+    #d 0x02, 0x00
+zi_4_2:
+    #d "CLOSES BEHIND YOU UNLESS HELD OPEN", 0x00
+
+
+#overlay 0xC200
+zi_4_3:
+    #d "SKILLS: MECHANICAL, HYDRAULICS", 0x00
+zi_5_0:
+    #d "PRESSURE DOOR, OPEN", 0x00
+zi_5_1:
+    #d 0x02, 0x00
 zi_5_2:
     #d "CLOSES BEHIND YOU UNLESS HELD OPEN", 0x00
 zi_5_3:
@@ -8089,13 +8179,13 @@ zi_7_0:
     #d "FUSION CORE, 40 KW", 0x00
 zi_7_1:
     #d 0x01, 0x00
+
+
+#overlay 0xC400
 zi_7_2:
     #d "TOO HEAVY TO CARRY WHOLE", 0x00
 zi_7_3:
     #d "SKILLS: NUCLEAR, ELECTRICAL", 0x00
-
-
-#overlay 0xC200
 zi_8_0:
     #d "STORAGE CELL, 8 KWH", 0x00
 zi_8_1:
@@ -8116,6 +8206,9 @@ zi_10_0:
     #d "CREW BUNK", 0x00
 zi_10_1:
     #d 0x01, 0x00
+
+
+#overlay 0xC600
 zi_10_2:
     #d "LIGHT SCRAP", 0x00
 zi_10_3:
@@ -8124,9 +8217,6 @@ zi_11_0:
     #d "FLIGHT CONSOLE", 0x00
 zi_11_1:
     #d 0x01, 0x00
-
-
-#overlay 0xC400
 zi_11_2:
     #d "HOLDS THE SHIP LOG (LATER PHASE)", 0x00
 zi_11_3:
@@ -8145,15 +8235,15 @@ zi_13_1:
     #d 0x01, 0x00
 zi_13_2:
     #d "DORMANT - NO POWER", 0x00
+
+
+#overlay 0xC800
 zi_13_3:
     #d "SKILLS: COMPUTERS, MECHANICAL", 0x00
 zi_14_0:
     #d "CONDUIT UNDER THE DECK", 0x00
 zi_14_1:
     #d 0x01, 0x00
-
-
-#overlay 0xC600
 zi_14_2:
     #d "CARRIES POWER BETWEEN PARTS", 0x00
 zi_14_3:
@@ -8172,15 +8262,15 @@ zi_16_1:
     #d 0x01, 0x00
 zi_16_2:
     #d "JOINS THE TUG TO THE WRECK", 0x00
+
+
+#overlay 0xCA00
 zi_16_3:
     #d "SKILLS: MECHANICAL, HYDRAULICS", 0x00
 zi_17_0:
     #d "MK1 WORK SUIT, 90 L OF O2", 0x00
 zi_17_1:
     #d 0x01, 0x00
-
-
-#overlay 0xC800
 zi_17_2:
     #d "PUT IT ON: HOVER YOURSELF, PUT ON SUIT", 0x00
 zi_17_3:
@@ -8199,6 +8289,9 @@ zi_19_1:
     #d 0x01, 0x00
 zi_19_2:
     #d "HEAVY: TAKES ONE CARRY SLOT", 0x00
+
+
+#overlay 0xCC00
 zi_19_3:
     #d "SKILL: HYDRAULICS", 0x00
 zi_20_0:
@@ -8207,21 +8300,23 @@ zi_20_1:
     #d 0x01, 0x00
 zi_20_2:
     #d "WITH AN O2 TANK INSTALLED: AIR", 0x00
-
-
-#overlay 0xCA00
 zi_20_3:
     #d "SKILLS: HYDRAULICS, ELECTRICAL", 0x00
 zi_21_0:
     #d "A HOLE IN THE HULL", 0x00
 zi_21_1:
     #d "AIR ESCAPES THROUGH HERE", 0x00
+zi_21_2:
+    #d "YOU CAN CLIMB OUT THROUGH IT", 0x00
 zi_22_0:
     #d "CAPACITY 120 L, EMPTY", 0x00
 zi_22_1:
     #d 0x01, 0x00
 zi_22_2:
     #d "HEAVY.  SKILL: HYDRAULICS", 0x00
+
+
+#overlay 0xCE00
 zi_22_3:
     #d "A STATION REFILLS IT (LATER PHASE)", 0x00
 zi_23_0:
@@ -8230,30 +8325,27 @@ zi_23_1:
     #d 0x01, 0x00
 zi_23_2:
     #d "WORKS FROM A HAND.  SKILL: ELECTRICAL", 0x00
-
-
-#overlay 0xCC00
 zi_23_3:
     #d "EACH CUT USES 5% OF THE SUIT BATTERY", 0x00
 zi_24_0:
     #d "A BULKHEAD SECTION, TAKEN OUT", 0x00
 zi_24_1:
-    #d 0x01, 0x00
+    #d 0x02, 0x00
 zi_24_2:
     #d "HEAVY.  SKILL: MECHANICAL", 0x00
 zi_24_3:
     #d "INSTALL IT ON THE TUG: A WALL", 0x00
+
+
+#overlay 0xD000
 zi_25_0:
     #d "A DOOR AND ITS FRAME, TAKEN OUT", 0x00
 zi_25_1:
-    #d 0x01, 0x00
+    #d 0x02, 0x00
 zi_25_2:
     #d "HEAVY.  SKILLS: MECH., HYDRAULICS", 0x00
 zi_25_3:
     #d "INSTALL IT ON THE TUG: A DOOR", 0x00
-
-
-#overlay 0xCE00
 zi_26_0:
     #d "A DECK PLATE, TAKEN UP", 0x00
 zi_26_1:
@@ -8268,6 +8360,9 @@ zx_0:
     #d "NOTHING OUT THERE BUT DEBRIS AND COLD.", 0x00
 zn_1:
     #d "OPEN SPACE", 0x00
+
+
+#overlay 0xD200
 zx_1:
     #d "A DISTANT STAR.  NOT FOR SALE.", 0x00
 zn_2:
@@ -8276,9 +8371,6 @@ zx_2:
     #d "SCUFFED DECK PLATE.  SOMEONE WALKED HERE A LOT.", 0x00
 zn_3:
     #d "BULKHEAD", 0x00
-
-
-#overlay 0xD000
 zx_3:
     #d "A SOLID BULKHEAD.  THE PAINT SAYS DECK 2.", 0x00
 zn_4:
@@ -8289,15 +8381,15 @@ zn_5:
     #d "DOOR (OPEN)", 0x00
 zx_5:
     #d "AN OPEN PRESSURE DOOR.", 0x00
+
+
+#overlay 0xD400
 zn_6:
     #d "O2 TANK", 0x00
 zx_6:
     #d "AN OXYGEN TANK.  THE GAUGE STILL MOVES.", 0x00
 zn_7:
     #d "REACTOR CORE", 0x00
-
-
-#overlay 0xD200
 zx_7:
     #d "A REACTOR CORE.  IT IS HUMMING VERY QUIETLY.", 0x00
 zn_8:
@@ -8310,13 +8402,13 @@ zx_9:
     #d "THE LABEL READS ", 0x22, "MINING CHARGES - DO NOT DROP", 0x22, ".", 0x00
 zn_10:
     #d "BUNK", 0x00
+
+
+#overlay 0xD600
 zx_10:
     #d "A CREW BUNK.  THE BLANKET IS FOLDED NEATLY.", 0x00
 zn_11:
     #d "HELM CONSOLE", 0x00
-
-
-#overlay 0xD400
 zx_11:
     #d "THE HELM.  THE LAST LOG ENTRY IS 212 DAYS OLD.", 0x00
 zn_12:
@@ -8329,13 +8421,13 @@ zx_13:
     #d "A SECURITY TURRET.  ITS LIGHT IS DARK, FOR NOW.", 0x00
 zn_14:
     #d "POWER CONDUIT", 0x00
+
+
+#overlay 0xD800
 zx_14:
     #d "A POWER CONDUIT RUNS UNDER THE DECK HERE.", 0x00
 zn_15:
     #d "DECK (NO AIR)", 0x00
-
-
-#overlay 0xD600
 zx_15:
     #d "FROST ON THE DECK.  THE AIR IS GONE.", 0x00
 zn_16:
@@ -8350,13 +8442,13 @@ zn_18:
     #d "THRUSTER", 0x00
 zx_18:
     #d "A THRUSTER NOZZLE, BLACK WITH SOOT.", 0x00
+
+
+#overlay 0xDA00
 zn_19:
     #d "FUEL TANK", 0x00
 zx_19:
     #d "A FUEL TANK.  IT SLOSHES WHEN YOU KNOCK.", 0x00
-
-
-#overlay 0xD800
 zn_20:
     #d "AIR SCRUBBER", 0x00
 zx_20:
@@ -8371,13 +8463,13 @@ zx_22:
     #d "AN EMPTY OXYGEN TANK.  THE GAUGE READS ZERO.", 0x00
 zn_23:
     #d "PLASMA CUTTER", 0x00
+
+
+#overlay 0xDC00
 zx_23:
     #d "A PLASMA CUTTER.  KEEP YOUR FINGERS CLEAR.", 0x00
 zn_24:
     #d "WALL PANEL", 0x00
-
-
-#overlay 0xDA00
 zx_24:
     #d "A SECTION OF BULKHEAD.  THE BOLT HOLES ARE CLEAN.", 0x00
 zn_25:
@@ -8390,13 +8482,13 @@ zx_26:
     #d "A STEEL DECK PLATE.  IT RINGS WHEN YOU TAP IT.", 0x00
 zn_27:
     #d "YOU", 0x00
+
+
+#overlay 0xDE00
 zx_27:
     #d "THAT IS YOU, IN A WORK SUIT THAT HAS SEEN BETTER DAYS.", 0x00
 zd_0:
     #d "0%", 0x00
-
-
-#overlay 0xDC00
 zw_0:
     #d "WORKS AT 100%", 0x00
 zd_1:
@@ -8433,6 +8525,9 @@ zw_8:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_9:
     #d "56%", 0x00
+
+
+#overlay 0xE000
 zw_9:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_10:
@@ -8445,9 +8540,6 @@ zw_11:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_12:
     #d "75%", 0x00
-
-
-#overlay 0xDE00
 zw_12:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_13:
@@ -8476,6 +8568,9 @@ za_6:
     #d "CUT FREE", 0x00
 za_7:
     #d "PUT DOWN LEFT", 0x00
+
+
+#overlay 0xE200
 za_8:
     #d "PUT DOWN RIGHT", 0x00
 za_9:
@@ -8488,9 +8583,6 @@ za_12:
     #d "INSTALL", 0x00
 za_13:
     #d "UNINSTALL", 0x00
-
-
-#overlay 0xE000
 za_14:
     #d "LAY DECK PLATE", 0x00
 za_15:
@@ -8517,6 +8609,9 @@ zb_6:
     #d "[####------]", 0x00
 zb_7:
     #d "[####------]", 0x00
+
+
+#overlay 0xE400
 zb_8:
     #d "[#####-----]", 0x00
 zb_9:
@@ -8529,13 +8624,48 @@ zb_12:
     #d "[########--]", 0x00
 zb_13:
     #d "[########--]", 0x00
-
-
-#overlay 0xE200
 zb_14:
     #d "[#########-]", 0x00
 zb_15:
     #d "[#########-]", 0x00
+zs_0:
+    #d "SEALED - NO LEAKS", 0x00
+zs_1:
+    #d "SEALED - NO LEAKS", 0x00
+zs_2:
+    #d "SEALED - NO LEAKS", 0x00
+zs_3:
+    #d "SEALED - NO LEAKS", 0x00
+zs_4:
+    #d "SEALED - NO LEAKS", 0x00
+zs_5:
+    #d "SEALED - NO LEAKS", 0x00
+zs_6:
+    #d "SEALED - NO LEAKS", 0x00
+
+
+#overlay 0xE600
+zs_7:
+    #d "SEALED - NO LEAKS", 0x00
+zs_8:
+    #d "LEAKS AIR - NEEDS REPAIR", 0x00
+zs_9:
+    #d "LEAKS AIR - NEEDS REPAIR", 0x00
+zs_10:
+    #d "LEAKS AIR - NEEDS REPAIR", 0x00
+zs_11:
+    #d "LEAKS AIR - NEEDS REPAIR", 0x00
+zs_12:
+    #d "LEAKS AIR - NEEDS REPAIR", 0x00
+zs_13:
+    #d "LEAKS AIR - NEEDS REPAIR", 0x00
+zs_14:
+    #d "LEAKS AIR - NEEDS REPAIR", 0x00
+zs_15:
+    #d "LEAKS AIR - NEEDS REPAIR", 0x00
+
+
+#overlay 0xE800
 s_welcome:
     #d "DOCKED TO THE KESTREL 9.  ARROWS OR WASD WALK, MOUSE SHOWS AND CLICKS.", 0x00
 s_toofar:
@@ -8548,7 +8678,7 @@ s_full:
     #d "YOUR HANDS AND BACK ARE FULL - PUT SOMETHING DOWN.", 0x00
 
 
-#overlay 0xE400
+#overlay 0xEA00
 s_nocut:
     #d "IN A WRECK IT TAKES A WORKING CUTTER IN A HAND.", 0x00
 s_nobatt:
@@ -8563,7 +8693,7 @@ s_inst:
     #d "INSTALLING...", 0x00
 
 
-#overlay 0xE600
+#overlay 0xEC00
 s_instdone:
     #d "INSTALLED.  IT IS PART OF THE TUG NOW.", 0x00
 s_uninst:
@@ -8582,7 +8712,7 @@ s_refill:
     #d "SUIT REFILLED.  THE TANK IS EMPTY NOW.", 0x00
 
 
-#overlay 0xE800
+#overlay 0xEE00
 s_broken:
     #d "IT IS BROKEN - IT DOES NOT WORK.", 0x00
 s_repair:
@@ -8601,7 +8731,7 @@ s_pl_of:
     #d " OF 90 L", 0x00
 
 
-#overlay 0xEA00
+#overlay 0xF000
 s_pl_batt:
     #d "BATT   SMALL CELL        CHARGE ", 0x00
 s_pl_hands:
@@ -8630,7 +8760,7 @@ s_w3:
     #d "CRITICAL: SUIT O2 ALMOST GONE!", 0x00
 
 
-#overlay 0xEC00
+#overlay 0xF200
 SK_MSG:
     #d "MECHANICAL 00  ELECTRICAL 00  NUCLEAR 00  COMPUTERS 00  HYDRAULICS 00  SUIT 00", 0x00
 SK_POS:
