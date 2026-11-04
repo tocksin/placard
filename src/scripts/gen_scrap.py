@@ -172,6 +172,35 @@ ART = {
                '11111111'],
 }
 
+# a broken part, wall or deck (damage from 50 %): its art with this crack
+# in black ('#'), so it looks broken (scrap.masm crack_cell; the inventory's
+# ip_art)
+CRACK = ['.....#..', '.....#..', '....#...', '....#...', '...##...', '...#....',
+         '..#.....', '..##....', '...#....', '...#....', '....#...', '...##...',
+         '..#..#..', '..#...#.', '.#......', '.#......']
+BROKEN_STEP = 8
+
+
+def crack_bytes():
+    """the crack as 64 AND masks in the art's order (byte 16 c + r)"""
+    out = bytearray(64)
+    for c in range(4):
+        for r in range(16):
+            lo = 0x0 if CRACK[r][2 * c] == '#' else 0xF
+            hi = 0x0 if CRACK[r][2 * c + 1] == '#' else 0xF
+            out[16 * c + r] = lo | hi << 4
+    return bytes(out)
+
+
+def broken_art(art):
+    """the art bytes of a broken one"""
+    return bytes(a & m for a, m in zip(art, crack_bytes()))
+
+
+# the inventory's mouse pointer: art pixels from its tip (0 black, A white)
+POINTER = ['0....', '00...', '0A0..', '0AA0.', '0AAA0', '0A000', '00...', '0....']
+
+
 # ------------------------------------------------------------------
 # the cell types: art, name, flags, info lines (\x02 = sealed or leaking
 # for a wall or door: seal(); \x01 = "works at" the
@@ -536,7 +565,7 @@ def build_map(seed=9):
         put(d[0], d[1], 'DOOR')
     put(62, 52, 'DOOR')                 # the vented section stays shut
     put(76, 46, 'DOOR')
-    put(90, 51, 'BREACH'); put(90, 52, 'BREACH')
+    # the hull breach: two broken hull wall segments (damage 15: they leak)
     # bridge
     for x in range(35, 41):
         put(x, 7, 'HELM')
@@ -585,8 +614,8 @@ def build_map(seed=9):
     for y in range(MAP_H):
         for x in range(MAP_W):
             k = TYPES[t[y][x]][0]
-            if k in ('SPACE', 'STAR', 'BREACH'):
-                continue
+            if k in ('SPACE', 'STAR', 'BREACH') or (x, y) in ((90, 51), (90, 52)):
+                continue                # (the breach: set below)
             if k in ('FLOOR',):
                 d[y][x] = rnd.choice((0, 0, 0, 1, 1, 2))
             elif k in ('WALL',):
@@ -599,6 +628,7 @@ def build_map(seed=9):
     d[46][76] = 5                       # the vented section's doors hold
     d[52][62] = 3
     d[49][90] = 10                      # a cracked hull wall: it leaks
+    d[51][90] = d[52][90] = 15          # the hull breach: broken wall segments
     d[42][36] = 3
     return t, d
 
@@ -937,6 +967,8 @@ def write_sources():
         d += cur
         d.append('')
     d += ['.chunk', 'JB_PCT:', '    #d8 ' + ', '.join(str(n * 100 // 16) for n in range(17)), '']
+    d += ['.chunk', 'CRACK:'] + ['    #d8 ' + ', '.join('0x%02X' % v for v in crack_bytes()[o:o + 16])
+                                 for o in range(0, 64, 16)] + ['']
     b = art_bytes('player_ns')        # the player without the suit
     d += ['.chunk', 'PL_NOSUIT:'] + ['    #d8 ' + ', '.join('0x%02X' % v for v in b[o:o + 16])
                                       for o in range(0, 64, 16)] + ['']
@@ -989,9 +1021,11 @@ def f35_code(ch, r):
     return a + 2 * b + 4 * c
 
 
-def inventory_screen(carry, suit_on, batt, o2, hot):
+def inventory_screen(carry, suit_on, batt, o2, hot, dmg=(0, 0, 0), mouse=None):
     """the inventory's 192 line pairs of 80 bytes, as scrap_inv.masm draws
-    them: carry = the three carry slots' types (0 empty), hot = inv_k"""
+    them: carry = the three carry slots' types (0 empty), dmg their damage
+    steps (a broken one cracked), hot = inv_k, mouse = the pointer's art
+    pixel (x, y), None: not on the screen"""
     scr = [bytearray([INV_BG * 0x11]) * 80 for _ in range(192)]
     for p in range(10):
         scr[p][:] = bytes([INV_BAR * 0x11]) * 80
@@ -1023,6 +1057,8 @@ def inventory_screen(carry, suit_on, batt, o2, hot):
         t = carry[k] if k < 3 else {3: TYPE['SUIT'] if suit_on else 0, 4: TYPE['BATT'],
                                     5: TYPE['O2'], 6: 0}[k]
         art = art_bytes(TYPES[t][1]) if t else bytes(64)
+        if k < 3 and t and dmg[k] >= BROKEN_STEP:
+            art = broken_art(art)
         for c in range(4):
             for y in range(16):
                 scr[p + y][bc + c] = art[16 * c + y]
@@ -1035,7 +1071,35 @@ def inventory_screen(carry, suit_on, batt, o2, hot):
             v = {3: 'MK1 WORK SUIT' if suit_on else 'TAKEN OFF', 4: 'CELL %d%%' % batt,
                  5: '%d L' % o2, 6: 'NONE'}[k]
         text(bc + 6, p + 10, v, 0xA, INV_BG)
+    if mouse is not None and mouse[1] < 192:
+        draw_pointer(scr, *mouse)
     return scr
+
+
+def pointer_bytes(sh, c):
+    """byte column c (0-2) of the pointer drawn from art pixel 2 b + sh:
+    its 8 AND masks and 8 colors, line pairs 0-7"""
+    m, k = [], []
+    for row in POINTER:
+        mm, kk = 0xFF, 0
+        for n in range(2):
+            i = 2 * c + n - sh
+            if 0 <= i < len(row) and row[i] != '.':
+                mm &= ~(0xF << 4 * n) & 0xFF
+                kk |= int(row[i], 16) << 4 * n
+        m.append(mm)
+        k.append(kk)
+    return m, k
+
+
+def draw_pointer(scr, x, y):
+    """the pointer onto inventory_screen's lines, its tip at art pixel x, y"""
+    for r, row in enumerate(POINTER):
+        for i, ch in enumerate(row):
+            if ch != '.' and x + i < 160 and y + r < 192:
+                b = scr[y + r][(x + i) >> 1]
+                c = int(ch, 16)
+                scr[y + r][(x + i) >> 1] = (b & 0xF0) | c if (x + i) & 1 == 0 else (b & 0x0F) | c << 4
 
 
 def write_inv_data():
@@ -1055,6 +1119,11 @@ def write_inv_data():
     for k, (bc, p, fg, bg, t) in enumerate(INV_LABELS):
         assert all(ch in F35 for ch in t), t
         d += ['zl_%d:' % k, '    #d "%s", 0x00' % t]
+    d += ['', '.chunk', 'PT_TAB:']           # 48 s + 16 c + r: AND mask, + 8 color
+    for sh in range(2):
+        for c in range(3):
+            m, k = pointer_bytes(sh, c)
+            d.append('    #d8 ' + ', '.join('0x%02X' % v for v in m + k))
     d += ['', '.chunk', 'SPOS:', '    #d8 ' + ', '.join('%d, %d' % bp for bp in INV_SLOTS), '']
     d += ['.chunk']
     for lab, t in INV_STR:

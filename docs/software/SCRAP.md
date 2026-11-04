@@ -29,7 +29,7 @@ shared through them.
 
 | Input | What it does |
 |-------|--------------|
-| Arrows, WASD, or the SNES pad | walk one cell (held: a step every 7 frames), on decks and out on open space or through a hull breach too (a spacewalk, on suit air: to repair the outside and build).  Walking into a closed door opens it, and it closes behind you unless it is held open |
+| Arrows, WASD, or the SNES pad | walk one cell (held: a step every 7 frames), on decks and out on open space too (a spacewalk, on suit air: to repair the outside and build).  Walking into a closed door opens it, and it closes behind you unless it is held open |
 | Mouse over a cell | a yellow frame on the cell, and the panel shows it: name, damage bar, info on the left, actions on the right |
 | Mouse over yourself | your suit, battery, hands and pack |
 | Left click on a cell | locks the panel on it, so the mouse can go down to the actions |
@@ -72,7 +72,8 @@ battery, its O2, a utility slot for later) and CARRYING on the right
 with its label and what is in it in a small 3 x 5 font.  The space under
 CARRYING is kept for an open bag (bags of up to 16 slots come later;
 one open at a time).  Walking stops while it is up, but the game goes
-on (air, jobs).  The mouse over a slot frames it in yellow and shows it
+on (air, jobs).  An arrow pointer (black with a white inside) shows
+where the mouse is.  The mouse over a slot frames it in yellow and shows it
 in the panel, with its menu as on the ship: a carried part (`IN YOUR
 LEFT HAND` and so on) has INSPECT, PUT ON SUIT for the suit and INSTALL
 for a part that installs; the gear slots show you (SKILLS, TAKE OFF
@@ -132,11 +133,12 @@ change to the ship, in the same order as `gen_scrap.py`'s `rooms()`: a
 new room's pressure is the average of its cells' old ones (a cell that
 was not air brings none).  Every 8 frames, each open door and the
 airlocks share their two rooms' air (the average), and the tug tops up
-its own rooms (working the rooms out takes about 0.3 s, a short pause in the game).  A room next to vacuum (a hull breach, open space where a
+its own rooms (working the rooms out takes about 0.3 s, a short pause in the game).  A room next to vacuum (open space where a
 deck or wall was taken out, the edge of the map) loses an eighth of its
 air, and one more.  A wall or a closed door at 50 % damage or worse leaks:
-a unit a tick to the room on its other side when that has less, two to
-vacuum.  The KESTREL 9 has a cracked hull wall in its vented section.
+a unit a tick to the room on its other side when that has less; with
+vacuum on its other side it is a hull breach, an eighth and one more.  The KESTREL 9's vented section has a hull breach: two broken
+hull wall segments (100 % damage) and a cracked one (63 %).
 A deck in a room under 40 is drawn frosted.  In a room under 60 your suit
 uses its own O2, 1 L every 7 seconds (90 L last 10.5 minutes).  The
 warnings show on the message row in red, and a worse one shows at once:
@@ -154,8 +156,9 @@ shut.  Open one and the air of the rooms beyond it goes too, until you
 close it again.
 
 The camera moves one cell when you come within 4 cells of the view's
-side (3 of its top or bottom) and redraws the view (no smooth scroll).  There is no arrow pointer yet: the frame on the cell, and the
-inverse action row in the panel, show where the mouse is.
+side (3 of its top or bottom) and redraws the view (no smooth scroll).  On the ship view the frame on the cell, and the
+inverse action row in the panel, show where the mouse is; the inventory
+screen draws an arrow pointer.
 
 ## The screen
 
@@ -174,7 +177,10 @@ from full at 0 % to nothing at 50 %, and from step 8 (50 %) on it is
 broken: the info line says `WORKS AT nn%` or `BROKEN - NEEDS REPAIR`.  A wall or door (and a wall
 panel or door kit) has no partial output: it holds its air fully up to
 50 % damage (`SEALED - NO LEAKS`) and leaks from there (`LEAKS AIR -
-NEEDS REPAIR`).
+NEEDS REPAIR`).  Anything broken (step 8 on: a part, a wall, a deck, a
+door) is drawn with a crack through its art, on the ship view and in the
+inventory's slots, so you can see what needs repair; a repair takes the
+crack off.
 
 ## Memory
 
@@ -188,7 +194,8 @@ NEEDS REPAIR`).
 | x3900-x3FFF | the cell art, 4 cells a page (28 kinds, the most there is room for) |
 | x4000-x407F | each room's pressure, and whether it is cold |
 | x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |
-| x4300-x4CFF | while the inventory is up: `SCRAP.INV` (`scrap_inv.masm`: its screen, font and routines), read from the card each time it opens; a rebuild of the rooms waits until it closes |
+| x4100-x4CFF | while the inventory is up: `SCRAP.INV` (`scrap_inv.masm`: its screen, font, pointer and routines; 6 sectors at most), read from the card each time it opens; a rebuild of the rooms waits until it closes |
+| x4080-x4097 | while the inventory is up: what is under its mouse pointer |
 | x5400-x55FF | sector buffer for loading `SCRAP.OVL` |
 | even pages x60-xBE | the map: 96 x 64 cells in 24 chunks of 16 x 16 |
 | odd pages x61-xBF | the screen (2x repeat leaves the even pages free) |
@@ -213,7 +220,7 @@ stubs that switch to map 07 around the call.
 cd src\scripts
 python gen_scrap.py                              scrap_types.asm, scrap_data.masm, scrap_map.bin
 python asm_expand.py scrap.masm                  scrap.asm
-python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin --swap 0x4300,0x4D00,INV
+python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
                                                  SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV
 python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png)
 ```
@@ -223,7 +230,7 @@ actions, inspect text) and the map generator.  `test_scrap_sim.py` boots
 the card in `placard_sim.py` with a PS/2 mouse and checks:
 
 - the map is loaded;
-- all 240 view cells against the map and the art;
+- all 240 view cells against the map and the art (a broken one cracked);
 - the panel;
 - walking and walls;
 - the mouse frame, lock and unlock;
@@ -235,7 +242,8 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
 - uninstalling a crate in the wreck with the cutter, the battery it uses, carrying it
   (slower steps);
 - the inventory (I, Tab): the whole screen against `gen_scrap.py`'s
-  `inventory_screen()`, the slots in the panel; a wreck wall
+  `inventory_screen()` (with the pointer and a broken part's crack),
+  the slots in the panel; a wreck wall
   uninstalled, picked up and installed again from the inventory (a cell
   too far refused), the rooms and the skills after it;
 - opening the vented section: the corridor's air drops, the decks frost,
