@@ -11,7 +11,7 @@ Date: 2026-11-03
 
 The design (proposal, phases, mock-ups) is the SCRAPWRIGHT design doc.
 This is **phase 3**: the walkable wreck with the mouse panel (phase 2),
-plus salvage, building the tug and air.  Power, hazards, enemies and the
+plus salvage, building the tug, air, skills and taking the suit off.  Power, hazards, enemies and the
 sector map come in later phases.
 
 ![SCRAPWRIGHT in the simulator](../../reference/scrap_sim.png)
@@ -47,6 +47,9 @@ need you next to it, diagonals count):
 | UNINSTALL | a part INSTALLED in the wreck: the cutter does it, in 1.5 s and 5 % of the suit battery, and needs a working cutter in a hand.  Walking away stops it.  The wreck's walls, decks and doors uninstall the same way, into a wall panel, a door kit or a deck plate.  INSTALLED in the tug: 1 s by hand (no cutter).  Either way it is LOOSE then.  On the tug the walls, decks and doors uninstall too (not the cell you stand on): a wall leaves a WALL PANEL lying on the deck, a door a PRESSURE DOOR kit, and a deck goes into a free carry slot as a LOOSE DECK PLATE, leaving open space |
 | INSTALL | a LOOSE ship part on one of the tug's cells (O2 tank, scrubber, battery, fuel tank, helm, bunk, locker): 1 s, then it is INSTALLED and part of the tug.  A wall panel installs as a wall, a door kit as a closed door.  Cargo and the cutter can't be installed |
 | LAY DECK PLATE | open space next to you, with a deck plate in a carry slot: it is a deck now |
+| REPAIR | a damaged part, wall, deck or door next to you: 0.25 s a damage step at full speed (see **Skills**), then it has no damage.  A repaired wall or door stops leaking |
+| SKILLS | on yourself: your six skill levels on the message row |
+| TAKE OFF SUIT / PUT ON SUIT | on yourself: the suit goes into a free carry slot, or back on from its slot (see **The suit**) |
 | PICK UP | a LOOSE part goes into the first free carry slot: left hand, right hand, back |
 | PUT DOWN LEFT HAND / RIGHT HAND / FROM BACK | on a bare deck next to you |
 | REFILL SUIT FROM IT | a full O2 tank fills the suit (11 L less for each damage step) and is empty after |
@@ -54,6 +57,29 @@ need you next to it, diagonals count):
 You carry three things at most, one in each hand and one on your back,
 and you start with the plasma cutter in your right hand.  Each part you
 carry (the cutter is light) makes a step 4 frames slower.
+
+A part that is not installed (LOOSE) is drawn in a brown crate frame,
+so you can see at a glance what is fitted and what is lying about.
+
+**Skills.**  You have six skills, 0-99, all starting at 10: MECHANICAL,
+ELECTRICAL, NUCLEAR, COMPUTERS, HYDRAULICS and SUIT.  Each part needs one
+or two of the first five (its info lines say which: a thruster needs
+MECHANICAL and HYDRAULICS, a helm COMPUTERS and ELECTRICAL, a wall
+MECHANICAL), and they set how fast you uninstall, install and repair it.
+A job is 16 work units a frame of its time at full speed (install and
+uninstall 1 s, the cutter 1.5 s, a repair 0.25 s a damage step), and you
+do 2 + a quarter of the needed skills' average a frame (16 is full
+speed).  In the suit you do half that, plus an eighth of your SUIT skill
+(never more than without it).  So at the start an install takes 4 s
+without the suit and 5.3 s in it.  Each job done raises the skills it
+used, and SUIT when you wore it: 2 (120 - level) of 256 toward the next
+level, so about a level a job at the start and slower as you get good.
+
+**The suit.**  TAKE OFF SUIT puts your suit in a free carry slot (it
+keeps its O2, and you can put it down like any part).  Without it you
+work quicker but breathe the room's air: in a room under 60 you black
+out at once and have 10 seconds to get air or PUT ON SUIT again.  Mind
+the airlock.
 
 **The tug.**  A part is part of the tug once it is installed on one of
 the tug's cells: a part you put down there is loose, and does nothing
@@ -64,7 +90,7 @@ With air, the tug tops up its rooms and fills your suit (3 L a second),
 and with a battery installed it charges your suit.  Uninstall its O2
 tank and the tug has no air until you install one again.
 
-**Building.**  The tug is the cells x 0-19, y 18-46: its hull and the
+**Building.**  The tug is the cells x 0-29, y 18-46: its hull and the
 space round it, so it can grow there.  Take walls out to join rooms, lay
 deck plates on open space and put walls and doors round them to add
 rooms.  Every change to a wall, deck or door works the rooms out again.
@@ -122,8 +148,9 @@ broken: the info line says `WORKS AT nn%` or `BROKEN - NEEDS REPAIR`.
 |---------|------|
 | x0100-x33FF | the program (asm_expand.py pages it) |
 | even pages xC0-xFE | more of the program: code and strings that `SCRAP.OVL` brings in after the map (asm_expand.py's overlay region, as in the tracker) |
-| x3400-x38FF | tables (gen_scrap.py): the doors, damage bars and rooms, actions, names and values, info lines |
-| x3900-x3FFF | the cell art, 4 cells a page (25 kinds now, room for 28) |
+| x3400-x38FF | tables (gen_scrap.py): the doors, damage bars and rooms, actions, the skills each part needs, names and values, info lines |
+| x36E0-x36ED | the skill levels (6) and their progress (6) |
+| x3900-x3FFF | the cell art, 4 cells a page (28 kinds, the most there is room for) |
 | x4000-x407F | each room's pressure, and whether it is cold |
 | x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |
 | x5400-x55FF | sector buffer for loading `SCRAP.OVL` |
@@ -179,5 +206,10 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
 - a deck plate taken up (the room leaks) and laid again; a wall
   uninstalled (two rooms join, and a broken hull wall leaks), carried,
   put down and installed (two rooms again);
+- each job's time against `gen_scrap.job_frames` and the skills it
+  raised against `skill_gain`; a loose part drawn crated;
+- SKILLS on the message row; TAKE OFF SUIT (O2 kept in air), a REPAIR
+  without the suit (quicker), no air without the suit (blacking out),
+  PUT ON SUIT;
 - refilling the suit from a tank (it stays installed);
 - Esc back to the DOS.
