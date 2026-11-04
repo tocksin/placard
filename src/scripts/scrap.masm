@@ -134,6 +134,10 @@ s_t     = 0x60              ; the panel's subject: type
 s_f     = 0x61              ;   damage step 0-15
 n_act   = 0x62              ;   actions 0-8 (two columns of 4)
 act0    = 0x36F0            ;   the action codes, x36F0-x36F7 (not zero page)
+JB_B    = 0x36F8            ; the job's bar: its frames at full speed (a 16th of the work),
+JB_N    = 0x36F9            ;   the 16ths done,
+JB_TL   = 0x36FA            ;   the work left at the next 16th
+JB_TH   = 0x36FB
 wk_on   = 0x67              ; WALK HERE: 1 while walking to wk_x, wk_y
 wk_x    = 0x68
 wk_y    = 0x69
@@ -2173,6 +2177,10 @@ dm_on:
     ld   [msg_h], ac
     ld   ac, [R1]
     CALL tputs
+    ld   [cut_t], ac
+    beq  dm_x
+    CALL job_bar
+dm_x:
     LEAVE
 dm_off:
     ld   0x04, ac
@@ -4600,6 +4608,9 @@ ki_l:
 ; while it runs.  A leaf.
 .chunk
 job_start:
+    ld   JB_B >> 8, y
+    ld   JB_B & 0xFF, x
+    ld   ac, [y,x]
     ld   ac, [u0]
     shl
     shl
@@ -4688,6 +4699,22 @@ js_r:
     ld   [u1], ac
     ld   ac, [wk_r]
 js_e:
+    ld   JB_B >> 8, y           ; the bar: none done, the next 16th at
+    ld   JB_N & 0xFF, x         ; 15 JB_B of work left
+    ld   0, [y,x]
+    ld   JB_B & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u2]
+    ld   [wk_l], ac
+    sub  [u2], ac
+    ld   JB_TL & 0xFF, x
+    ld   ac, [y,x]
+    ld   [wk_h], ac
+    bcc  js_t
+    dec
+js_t:
+    ld   JB_TH & 0xFF, x
+    ld   ac, [y,x]
     ld   1, ac
     ld   ac, [cut_t]
     RET
@@ -4705,7 +4732,7 @@ work_tick:
     beq  wt_d
     dec
     ld   ac, [wk_h]
-    LEAVE
+    GOTO jb_tick
 wt_z:
     bne  wt_x
     ld   [wk_h], ac
@@ -4715,7 +4742,81 @@ wt_d:
     ld   ac, [cut_t]
     CALL sk_gain
     CALL cut_done
+    LEAVE
 wt_x:
+    GOTO jb_tick
+
+; jb_tick - the job's bar: a 16th more done each time the work left
+; reaches JB_TH:JB_TL (then JB_B less); the message row drawn again and
+; kept up.  The rest of work_tick
+.chunk
+jb_tick:
+jt_l:
+    ld   JB_N >> 8, y
+    ld   JB_N & 0xFF, x
+    ld   [y,x], ac
+    xor  16, ac
+    beq  jt_e
+    ld   JB_TH & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   JB_TL & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u1]
+    ld   [wk_h], ac
+    sub  [u0], ac
+    bcs  jt_y                   ; the high byte under: reached
+    bne  jt_e                   ; over: not yet
+    ld   [u1], ac
+    sub  [wk_l], ac
+    bcs  jt_e                   ; the low byte over: not yet
+jt_y:
+    ld   JB_N & 0xFF, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    ld   JB_B & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u2]
+    ld   [u1], ac
+    sub  [u2], ac
+    ld   JB_TL & 0xFF, x
+    ld   ac, [y,x]
+    ld   [u0], ac
+    bcc  jt_m
+    dec
+jt_m:
+    ld   JB_TH & 0xFF, x
+    ld   ac, [y,x]
+    ld   MSG_FRAMES, ac
+    ld   ac, [msg_t]
+    ld   [dirty], ac
+    or   2, ac
+    ld   ac, [dirty]
+    bra  jt_l
+jt_e:
+    LEAVE
+
+; job_bar - after the message while a job runs: its bar, "[####----]
+; 25%", from column 44 (JB_TAB by JB_N)
+.chunk
+job_bar:
+    PUSH_LINK
+    ld   44, ac
+    ld   ac, [CUR_COL]
+    ld   JB_N >> 8, y
+    ld   JB_N & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   JB_TAB >> 8, y
+    add  JB_TAB & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   [u0], ac
+    add  (JB_TAB & 0xFF) + 17, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    CALL tputs
     LEAVE
 
 ; sk_gain - a job done: each skill it used (wk_m) gains 2 (120 - its

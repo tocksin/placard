@@ -73,7 +73,8 @@ speed).  In the suit you do half that, plus an eighth of your SUIT skill
 (never more than without it).  So at the start an install takes 4 s
 without the suit and 5.3 s in it.  Each job done raises the skills it
 used, and SUIT when you wore it: 2 (120 - level) of 256 toward the next
-level, so about a level a job at the start and slower as you get good.
+level, so about a level a job at the start and slower as you get good.  While a job runs, the message row shows its bar
+after the message, `[########--------] 50%`, filling a 16th at a time.
 
 **The suit.**  TAKE OFF SUIT puts your suit in a free carry slot (it
 keeps its O2, and you can put it down like any part).  Out of it you are drawn
@@ -154,6 +155,7 @@ NEEDS REPAIR`).
 | even pages xC0-xFE | more of the program: code and strings that `SCRAP.OVL` brings in after the map (asm_expand.py's overlay region, as in the tracker) |
 | x3400-x38FF | tables (gen_scrap.py): the doors, damage bars and rooms, actions, the skills each part needs, names and values, info lines |
 | x36E0-x36ED | the skill levels (6) and their progress (6) |
+| x36F0-x36FB | the panel's actions (8), the job's bar (its 16th, the 16ths done, the work left at the next) |
 | x3900-x3FFF | the cell art, 4 cells a page (28 kinds, the most there is room for) |
 | x4000-x407F | each room's pressure, and whether it is cold |
 | x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |

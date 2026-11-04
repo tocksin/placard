@@ -438,6 +438,11 @@ def dmg_pct(step):
     return '%d%%' % int(step * 6.25 + 0.5)
 
 
+def job_bar(n):
+    """the message row's bar while a job runs, n 16ths done (scrap.masm job_bar)"""
+    return '[%s%s] %d%%' % ('#' * n, '-' * (16 - n), n * 100 // 16)
+
+
 def seal(step):
     """a wall's or door's \x02 line: it holds its air fully up to 50 % damage"""
     return 'LEAKS AIR - NEEDS REPAIR' if step >= 8 else 'SEALED - NO LEAKS'
@@ -904,6 +909,7 @@ def write_sources():
         sref(lab, txt)
     # the strings, packed into chunks of up to 240 bytes
     cur, size = [], 0
+    jb = [sref('zj_%d' % n, job_bar(n)) for n in range(17)]   # the job's bar
     for lab, s in strings:
         n = len(s) + 1
         if size + n > 240:
@@ -918,6 +924,8 @@ def write_sources():
         d.append('.chunk')
         d += cur
         d.append('')
+    d += ['.chunk', 'JB_TAB:', '    #d8 ' + ', '.join(l + ' & 0xFF' for l in jb),
+          '    #d8 ' + ', '.join(l + ' >> 8' for l in jb), '']
     b = art_bytes('player_ns')        # the player without the suit
     d += ['.chunk', 'PL_NOSUIT:'] + ['    #d8 ' + ', '.join('0x%02X' % v for v in b[o:o + 16])
                                       for o in range(0, 64, 16)] + ['']
