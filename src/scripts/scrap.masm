@@ -138,6 +138,7 @@ JB_B    = 0x36F8            ; the job's bar: its frames at full speed (a 16th of
 JB_N    = 0x36F9            ;   the 16ths done,
 JB_TL   = 0x36FA            ;   the work left at the next 16th
 JB_TH   = 0x36FB
+O2_T    = 0x36FC            ; seconds since the suit last used a litre of O2
 wk_on   = 0x67              ; WALK HERE: 1 while walking to wk_x, wk_y
 wk_x    = 0x68
 wk_y    = 0x69
@@ -221,6 +222,7 @@ RB_STK  = 0x47              ; x4700-x4CFF: the fill stack, x and y a cell
 COLD_P  = 40                ; a room under this draws its deck frosted
 BREATHE_P = 60              ; a room under this: the suit uses its own O2
 SUIT_O2 = 90
+O2_SECS = 7                 ; the suit uses 1 L every 7 s: 90 L last 10.5 minutes
 CUT_FRAMES = 90             ; 1.5 seconds to cut a part free
 CUT_BATT = 5                ; battery percent a cut uses
 INST_FRAMES = 60            ; 1 second to install or uninstall a part
@@ -2593,7 +2595,8 @@ ac_e:
 ac_x:
     LEAVE
 
-; second_tick - once a second: the tug's parts; the suit uses its O2 in a
+; second_tick - once a second: the tug's parts; the suit uses its O2 (1 L
+; every O2_SECS seconds) in a
 ; room without air, and fills up (and charges) in the tug's air; then
 ; stage_set
 .chunk
@@ -2614,8 +2617,18 @@ st_0:
     ld   [y,x], ac
     sub  BREATHE_P, ac
     bcc  st_air
-    ld   [o2], ac               ; no air: the suit's
+    ld   [o2], ac               ; no air: the suit's, a litre every O2_SECS
     beq  st_g
+    ld   O2_T >> 8, y
+    ld   O2_T & 0xFF, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    sub  O2_SECS, ac
+    bcs  st_g
+    clr  ac
+    ld   ac, [y,x]
+    ld   [o2], ac
     dec
     ld   ac, [o2]
     bra  st_g

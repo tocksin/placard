@@ -109,16 +109,16 @@ air, and one more.  A wall or a closed door at 50 % damage or worse leaks:
 a unit a tick to the room on its other side when that has less, two to
 vacuum.  The KESTREL 9 has a cracked hull wall in its vented section.
 A deck in a room under 40 is drawn frosted.  In a room under 60 your suit
-uses its own O2, 1 L a second (90 L is a minute and a half).  The
+uses its own O2, 1 L every 7 seconds (90 L last 10.5 minutes).  The
 warnings show on the message row in red, and a worse one shows at once:
 
-| Suit O2 | Warning |
-|---------|---------|
-| under 45 L | CAUTION |
-| under 23 L | WARNING |
-| under 9 L | CRITICAL |
-| 0 | YOU ARE BLACKING OUT: 10 seconds to get air |
-| then | YOU SUFFOCATED: Enter starts the game again |
+| Suit O2 | Time left | Warning |
+|---------|-----------|---------|
+| under 45 L | about 5 min | CAUTION |
+| under 23 L | about 2.5 min | WARNING |
+| under 9 L | about 1 min | CRITICAL |
+| 0 | | YOU ARE BLACKING OUT: 10 seconds to get air |
+| then | | YOU SUFFOCATED: Enter starts the game again |
 
 The KESTREL 9's aft section lost its air through a breach; its doors are
 shut.  Open one and the air of the rooms beyond it goes too, until you

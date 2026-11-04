@@ -679,10 +679,10 @@ def phase3(r, args):
     if r.press(corr) >= 60:
         r.fail('the corridor kept its air with the vented room open')
     o0 = z('o2')
-    r.run(180)
-    print('  3 s more: suit O2 %d -> %d' % (o0, z('o2')))
-    if z('o2') >= o0:
-        r.fail('the suit does not use its O2 without air')
+    r.run(60 * (gen_scrap.O2_SECS + 1))
+    print('  %d s more: suit O2 %d -> %d' % (gen_scrap.O2_SECS + 1, o0, z('o2')))
+    if z('o2') != o0 - 1:
+        r.fail('the suit should use 1 L of O2 in %d s without air' % (gen_scrap.O2_SECS + 1))
     r.check_view('frost')
     if args.png:
         r.mouse_cell(64, 52)

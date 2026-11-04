@@ -316,6 +316,7 @@ NEEDS = {'FLOOR': SK_M, 'WALL': SK_M, 'DOOR': SK_M | SK_H, 'DOORO': SK_M | SK_H,
          'PIPE': SK_E, 'VENT': SK_M, 'LOCK': SK_M | SK_H, 'SUIT': SK_M,
          'THRUST': SK_M | SK_H, 'FUEL': SK_H, 'SCRUB': SK_H | SK_E, 'CUTTER': SK_E,
          'PANEL': SK_M, 'DOORK': SK_M | SK_H, 'PLATE': SK_M}
+O2_SECS = 7                         # the suit uses 1 L every 7 s (scrap.masm O2_SECS): 10.5 min
 REPAIR_FRAMES = 15                  # a damage step, at full speed (scrap.masm: 16 s - s)
 CRATE_COL = 6                       # a loose part's frame: brown
 
