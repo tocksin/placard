@@ -122,10 +122,10 @@ ART = {
              'B8B77B8B', 'B8B77B8B', 'B8B77B8B', 'B8B77B8B', 'B8B77B8B',
              'B8B77B8B', 'B8B77B8B', 'B8B77B8B', 'B8BBBB8B', 'B888888B',
              'BBBBBBBB'],
-    'tube': ['BBBBBBBB', 'B7B7B7B7', '77777777', '77777777', '77777777',
-             '77777777', '77777777', '77777777', '77777777', '77777777',
-             '77777777', '77777777', '77777777', '77777777', 'B7B7B7B7',
-             'BBBBBBBB'],
+    'suit': ['77777777', '77AAAA77', '7AA11AA7', '7A1111A7', '7AA11AA7',
+             '77AAAA77', '7BAAAAB7', 'BAAAAAAB', 'BAA88AAB', 'BAAAAAAB',
+             '7BAAAAB7', '77AAAA77', '7AA77AA7', '7AA77AA7', '7BB77BB7',
+             '77777777'],
     'thrust': ['11BBBB11', '1BB77BB1', '1B7777B1', '1B7777B1', '1B7777B1',
                '1BB77BB1', '11BBBB11', '11B77B11', '1BB77BB1', '1B7777B1',
                '1DDDDDD1', '11DEED11', '11DEED11', '111DD111', '1111D111',
@@ -183,11 +183,13 @@ F_VAC = 0x40        # vacuum: a room next to it leaks
 A_OPEN, A_CLOSE, A_INSPECT, A_WALK = 1, 2, 3, 4
 A_PICK, A_CUT, A_PUTL, A_PUTR, A_PUTB, A_REFILL = 5, 6, 7, 8, 9, 10
 A_HOLD, A_INSTALL, A_UNINST, A_LAY = 11, 12, 13, 14
+A_REPAIR, A_SKILLS, A_SUITOFF, A_SUITON = 15, 16, 17, 18
 ACTIONS = {A_OPEN: 'OPEN', A_CLOSE: 'CLOSE', A_INSPECT: 'INSPECT', A_WALK: 'WALK HERE',
            A_PICK: 'PICK UP', A_CUT: 'CUT FREE', A_PUTL: 'PUT DOWN LEFT HAND',
            A_PUTR: 'PUT DOWN RIGHT HAND', A_PUTB: 'PUT DOWN FROM BACK',
            A_REFILL: 'REFILL SUIT FROM IT', A_HOLD: 'HOLD OPEN', A_INSTALL: 'INSTALL',
-           A_UNINST: 'UNINSTALL', A_LAY: 'LAY DECK PLATE'}
+           A_UNINST: 'UNINSTALL', A_LAY: 'LAY DECK PLATE', A_REPAIR: 'REPAIR',
+           A_SKILLS: 'SKILLS', A_SUITOFF: 'TAKE OFF SUIT', A_SUITON: 'PUT ON SUIT'}
 
 TYPES = [
     # key, art, name, flags, info lines, actions, inspect
@@ -198,94 +200,172 @@ TYPES = [
      ['VACUUM.  NO AIR, NO FLOOR.', 'LAY A DECK PLATE HERE TO BUILD ON IT'], [A_INSPECT],
      'A DISTANT STAR.  NOT FOR SALE.'),
     ('FLOOR', 'floor', 'DECK PLATE', F_WALK | F_DMG | F_STRUCT,
-     ['STEEL DECK PLATE', 'WALKABLE', 'TAKEN UP, IT LEAVES OPEN SPACE'], [A_WALK, A_INSPECT],
+     ['STEEL DECK PLATE', 'WALKABLE', 'TAKEN UP, IT LEAVES OPEN SPACE',
+      'SKILL: MECHANICAL'], [A_WALK, A_INSPECT],
      'SCUFFED DECK PLATE.  SOMEONE WALKED HERE A LOT.'),
     ('WALL', 'wall', 'BULKHEAD', F_DMG | F_STRUCT | F_SOLID,
      ['STEEL BULKHEAD, AIRTIGHT', 'LEAKS AIR FROM 50% DAMAGE',
-      'UNINSTALL IT (IN A WRECK: A CUTTER)'], [A_INSPECT],
+      'UNINSTALL IT (IN A WRECK: A CUTTER)', 'SKILL: MECHANICAL'], [A_INSPECT],
      'A SOLID BULKHEAD.  THE PAINT SAYS DECK 2.'),
     ('DOOR', 'door', 'DOOR (CLOSED)', F_DMG | F_STRUCT | F_SOLID,
      ['PRESSURE DOOR, SEALS UNDER 50% DAMAGE', '\x01',
-      'OPENS WHEN YOU WALK INTO IT', 'CLOSES BEHIND YOU UNLESS HELD OPEN'],
+      'CLOSES BEHIND YOU UNLESS HELD OPEN', 'SKILLS: MECHANICAL, HYDRAULICS'],
      [A_OPEN, A_HOLD, A_INSPECT],
      'A PRESSURE DOOR.  THE HAZARD STRIPES ARE FADED.'),
     ('DOORO', 'dooro', 'DOOR (OPEN)', F_WALK | F_DMG | F_STRUCT | F_SOLID,
-     ['PRESSURE DOOR, OPEN', '\x01', 'AIR FLOWS THROUGH IT',
-      'CLOSES BEHIND YOU UNLESS HELD OPEN'], [A_CLOSE, A_HOLD, A_INSPECT],
+     ['PRESSURE DOOR, OPEN', '\x01', 'CLOSES BEHIND YOU UNLESS HELD OPEN',
+      'SKILLS: MECHANICAL, HYDRAULICS'], [A_CLOSE, A_HOLD, A_INSPECT],
      'AN OPEN PRESSURE DOOR.'),
     ('O2', 'o2', 'O2 TANK', F_DMG | F_ITEM | F_INST,
-     ['CAPACITY 120 L, FULL', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
+     ['CAPACITY 120 L, FULL', '\x01', 'HEAVY.  SKILL: HYDRAULICS',
       'REFILLS A SUIT ONCE (LESS IF DAMAGED)'], [A_INSPECT],
      'AN OXYGEN TANK.  THE GAUGE STILL MOVES.'),
     ('REACT', 'react', 'REACTOR CORE', F_DMG,
      ['FUSION CORE, 40 KW', '\x01', 'TOO HEAVY TO CARRY WHOLE',
-      'WORTH ABOUT $2,500 UNDAMAGED'], [A_INSPECT],
+      'SKILLS: NUCLEAR, ELECTRICAL'], [A_INSPECT],
      'A REACTOR CORE.  IT IS HUMMING VERY QUIETLY.'),
     ('BATT', 'batt', 'BATTERY', F_DMG | F_ITEM | F_INST,
-     ['STORAGE CELL, 8 KWH', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
+     ['STORAGE CELL, 8 KWH', '\x01', 'HEAVY.  SKILL: ELECTRICAL',
       'INSTALLED ON THE TUG: CHARGES YOUR SUIT'], [A_INSPECT],
      'A SHIP BATTERY.  STILL WARM.'),
     ('CRATE', 'crate', 'CARGO CRATE', F_DMG | F_ITEM,
-     ['SEALED CARGO CRATE', 'CONTENTS UNKNOWN', 'OPEN IT TO SEE (LATER PHASE)'], [A_INSPECT],
+     ['SEALED CARGO CRATE', 'CONTENTS UNKNOWN', 'OPEN IT TO SEE (LATER PHASE)',
+      'SKILL: MECHANICAL'], [A_INSPECT],
      'THE LABEL READS "MINING CHARGES - DO NOT DROP".'),
     ('BUNK', 'bunk', 'BUNK', F_DMG | F_ITEM | F_INST,
-     ['CREW BUNK', '\x01', 'LIGHT SCRAP'], [A_INSPECT],
+     ['CREW BUNK', '\x01', 'LIGHT SCRAP', 'SKILL: MECHANICAL'], [A_INSPECT],
      'A CREW BUNK.  THE BLANKET IS FOLDED NEATLY.'),
     ('HELM', 'helm', 'HELM CONSOLE', F_DMG | F_ITEM | F_INST,
-     ['FLIGHT CONSOLE', '\x01', 'HOLDS THE SHIP LOG (LATER PHASE)'], [A_INSPECT],
+     ['FLIGHT CONSOLE', '\x01', 'HOLDS THE SHIP LOG (LATER PHASE)',
+      'SKILLS: COMPUTERS, ELECTRICAL'], [A_INSPECT],
      'THE HELM.  THE LAST LOG ENTRY IS 212 DAYS OLD.'),
     ('LOCKER', 'locker', 'LOCKER', F_DMG | F_ITEM | F_INST,
-     ['STEEL LOCKER, 4 SLOTS', '\x01', 'MAY HOLD GEAR (LATER PHASE)'], [A_INSPECT],
+     ['STEEL LOCKER, 4 SLOTS', '\x01', 'MAY HOLD GEAR (LATER PHASE)', 'SKILL: MECHANICAL'], [A_INSPECT],
      'A LOCKER.  THE LOCK IS RUSTED SHUT.'),
     ('TURRET', 'turret', 'SECURITY TURRET', F_DMG | F_SOLID,
-     ['WALL TURRET, ARC TYPE', '\x01', 'DORMANT - NO POWER'], [A_INSPECT],
+     ['WALL TURRET, ARC TYPE', '\x01', 'DORMANT - NO POWER', 'SKILLS: COMPUTERS, MECHANICAL'], [A_INSPECT],
      'A SECURITY TURRET.  ITS LIGHT IS DARK, FOR NOW.'),
     ('PIPE', 'pipe', 'POWER CONDUIT', F_WALK | F_DMG,
-     ['CONDUIT UNDER THE DECK', '\x01', 'CARRIES POWER BETWEEN PARTS'], [A_WALK, A_INSPECT],
+     ['CONDUIT UNDER THE DECK', '\x01', 'CARRIES POWER BETWEEN PARTS', 'SKILL: ELECTRICAL'], [A_WALK, A_INSPECT],
      'A POWER CONDUIT RUNS UNDER THE DECK HERE.'),
     ('VENT', 'vent', 'DECK (NO AIR)', F_WALK | F_DMG,
-     ['DECK PLATE IN VACUUM', 'THIS ROOM HAS LOST ITS AIR', 'YOUR SUIT AIR ONLY'], [A_WALK, A_INSPECT],
+     ['DECK PLATE IN VACUUM', 'THIS ROOM HAS LOST ITS AIR', 'YOUR SUIT AIR ONLY', 'SKILL: MECHANICAL'], [A_WALK, A_INSPECT],
      'FROST ON THE DECK.  THE AIR IS GONE.'),
     ('LOCK', 'lock', 'AIRLOCK', F_WALK | F_DMG | F_SOLID,
-     ['DOCKING AIRLOCK', '\x01', 'JOINS THE TUG TO THE WRECK'], [A_WALK, A_INSPECT],
+     ['DOCKING AIRLOCK', '\x01', 'JOINS THE TUG TO THE WRECK',
+      'SKILLS: MECHANICAL, HYDRAULICS'], [A_WALK, A_INSPECT],
      'A DOCKING AIRLOCK.  THE SEAL IS HOLDING.'),
-    ('TUBE', 'tube', 'DOCKING TUBE', F_WALK | F_DMG,
-     ['FLEXIBLE DOCKING TUBE', 'PRESSURIZED'], [A_WALK, A_INSPECT],
-     'THE DOCKING TUBE FLEXES UNDER YOUR BOOTS.'),
+    ('SUIT', 'suit', 'WORK SUIT', F_DMG | F_ITEM,
+     ['MK1 WORK SUIT, 90 L OF O2', '\x01', 'PUT IT ON: HOVER YOURSELF, PUT ON SUIT',
+      'SKILL: MECHANICAL'], [A_INSPECT],
+     'YOUR WORK SUIT.  IT SMELLS OF HARD WORK.'),
     ('THRUST', 'thrust', 'THRUSTER', F_DMG | F_SOLID,
-     ['MAIN THRUSTER, 2 KN', '\x01', 'BOLTED TO THE HULL'], [A_INSPECT],
+     ['MAIN THRUSTER, 2 KN', '\x01', 'BOLTED TO THE HULL', 'SKILLS: MECHANICAL, HYDRAULICS'], [A_INSPECT],
      'A THRUSTER NOZZLE, BLACK WITH SOOT.'),
     ('FUEL', 'fuel', 'FUEL TANK', F_DMG | F_ITEM | F_INST,
-     ['FUEL TANK, 400 L', '\x01', 'HEAVY: TAKES ONE CARRY SLOT'], [A_INSPECT],
+     ['FUEL TANK, 400 L', '\x01', 'HEAVY: TAKES ONE CARRY SLOT', 'SKILL: HYDRAULICS'], [A_INSPECT],
      'A FUEL TANK.  IT SLOSHES WHEN YOU KNOCK.'),
     ('SCRUB', 'scrub', 'AIR SCRUBBER', F_DMG | F_ITEM | F_INST,
-     ['CO2 SCRUBBER', '\x01', 'INSTALLED WITH AN O2 TANK: THE TUG HAS AIR'], [A_INSPECT],
+     ['CO2 SCRUBBER', '\x01', 'INSTALLED WITH AN O2 TANK: THE TUG HAS AIR',
+      'SKILLS: HYDRAULICS, ELECTRICAL'], [A_INSPECT],
      'AN AIR SCRUBBER.  THE FILTERS NEED CHANGING.'),
     ('BREACH', 'breach', 'HULL BREACH', F_SOLID | F_VAC,
      ['A HOLE IN THE HULL', 'AIR ESCAPES THROUGH HERE'], [A_INSPECT],
      'SOMETHING PUNCHED RIGHT THROUGH THE HULL.'),
     ('O2E', 'o2e', 'EMPTY O2 TANK', F_DMG | F_ITEM | F_INST,
-     ['CAPACITY 120 L, EMPTY', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
+     ['CAPACITY 120 L, EMPTY', '\x01', 'HEAVY.  SKILL: HYDRAULICS',
       'A STATION REFILLS IT (LATER PHASE)'], [A_INSPECT],
      'AN EMPTY OXYGEN TANK.  THE GAUGE READS ZERO.'),
     ('CUTTER', 'cutter', 'PLASMA CUTTER', F_DMG | F_ITEM,
-     ['HAND TOOL: UNINSTALLS IN A WRECK', '\x01', 'WORKS FROM A HAND, NOT YOUR BACK',
+     ['HAND TOOL: UNINSTALLS IN A WRECK', '\x01', 'WORKS FROM A HAND.  SKILL: ELECTRICAL',
       'EACH CUT USES 5% OF THE SUIT BATTERY'], [A_INSPECT],
      'A PLASMA CUTTER.  KEEP YOUR FINGERS CLEAR.'),
     ('PANEL', 'panel', 'WALL PANEL', F_DMG | F_ITEM | F_INST,
-     ['A BULKHEAD SECTION, TAKEN OUT', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
+     ['A BULKHEAD SECTION, TAKEN OUT', '\x01', 'HEAVY.  SKILL: MECHANICAL',
       'INSTALL IT ON THE TUG: A WALL'], [A_INSPECT],
      'A SECTION OF BULKHEAD.  THE BOLT HOLES ARE CLEAN.'),
     ('DOORK', 'doork', 'PRESSURE DOOR', F_DMG | F_ITEM | F_INST,
-     ['A DOOR AND ITS FRAME, TAKEN OUT', '\x01', 'HEAVY: TAKES ONE CARRY SLOT',
+     ['A DOOR AND ITS FRAME, TAKEN OUT', '\x01', 'HEAVY.  SKILLS: MECH., HYDRAULICS',
       'INSTALL IT ON THE TUG: A DOOR'], [A_INSPECT],
      'A PRESSURE DOOR IN ITS FRAME, READY TO FIT.'),
     ('PLATE', 'plate', 'LOOSE DECK PLATE', F_DMG | F_ITEM,
-     ['A DECK PLATE, TAKEN UP', '\x01', 'LAY IT ON OPEN SPACE NEXT TO YOU'], [A_INSPECT],
+     ['A DECK PLATE, TAKEN UP', '\x01', 'LAY IT ON OPEN SPACE NEXT TO YOU',
+      'SKILL: MECHANICAL'], [A_INSPECT],
      'A STEEL DECK PLATE.  IT RINGS WHEN YOU TAP IT.'),
     ('PLAYER', 'player', 'YOU', 0, [], [], ''),
 ]
 TYPE = {t[0]: i for i, t in enumerate(TYPES)}
+# the player's skills: the ones a part needs set how long a job on it takes
+# (uninstall, install, repair); a job done raises them (job_start, sk_gain)
+SKILLS = ['MECHANICAL', 'ELECTRICAL', 'NUCLEAR', 'COMPUTERS', 'HYDRAULICS', 'SUIT']
+SK_M, SK_E, SK_N, SK_C, SK_H, SK_SUIT = 1, 2, 4, 8, 16, 32
+SKILL_START = 10                    # every skill at the start (0-99)
+SKILL_MAX = 99
+SK_LV, SK_PR = 0x36E0, 0x36E8       # in RAM (ACT_PAGE): the levels, their progress
+NEEDS = {'FLOOR': SK_M, 'WALL': SK_M, 'DOOR': SK_M | SK_H, 'DOORO': SK_M | SK_H,
+         'O2': SK_H, 'O2E': SK_H, 'REACT': SK_N | SK_E, 'BATT': SK_E, 'CRATE': SK_M,
+         'BUNK': SK_M, 'HELM': SK_C | SK_E, 'LOCKER': SK_M, 'TURRET': SK_C | SK_M,
+         'PIPE': SK_E, 'VENT': SK_M, 'LOCK': SK_M | SK_H, 'SUIT': SK_M,
+         'THRUST': SK_M | SK_H, 'FUEL': SK_H, 'SCRUB': SK_H | SK_E, 'CUTTER': SK_E,
+         'PANEL': SK_M, 'DOORK': SK_M | SK_H, 'PLATE': SK_M}
+REPAIR_FRAMES = 15                  # a damage step, at full speed (scrap.masm: 16 s - s)
+CRATE_COL = 6                       # a loose part's frame: brown
+
+
+def skill_msg():
+    """the SKILLS message (the levels at SK_POS) and where each level goes"""
+    s, pos = '', []
+    for name in SKILLS:
+        s += ('  ' if s else '') + name + ' '
+        pos.append(len(s))
+        s += '00'
+    return s, pos
+
+
+def crate_art(b):
+    """cell art b with a loose part's frame (scrap.masm crate_mark)"""
+    out = bytearray(b)
+    for c in range(4):
+        out[16 * c] = out[16 * c + 15] = CRATE_COL * 0x11
+    for r in range(1, 15):
+        out[r] = (out[r] & 0xF0) | CRATE_COL
+        out[48 + r] = (out[48 + r] & 0x0F) | CRATE_COL << 4
+    return bytes(out)
+
+
+def skill_names(mask):
+    return [SKILLS[k] for k in range(5) if mask >> k & 1]
+
+
+def job_rate(lv, mask, suit_on):
+    """work a frame (scrap.masm job_start): 2 + the average of the needed
+    skills' quarters; in the suit half that + the suit skill / 8 (not over
+    the rate)"""
+    ks = [k for k in range(5) if mask >> k & 1]
+    q = sum(lv[k] >> 2 for k in ks) // len(ks) if ks else SKILL_MAX >> 2
+    r = 2 + q
+    if suit_on:
+        r = min(r, (r >> 1) + (lv[5] >> 3))
+    return max(r, 1)
+
+
+def job_frames(base, lv, mask, suit_on):
+    """frames a job of base frames takes: 16 base work at job_rate a frame"""
+    r = job_rate(lv, mask, suit_on)
+    return -(-16 * base // r)
+
+
+def skill_gain(lv, pr, mask, suit_on):
+    """a job done: each needed skill (and the suit's, in it) gains
+    2 (120 - level) of 256 toward its next level"""
+    lv, pr = list(lv), list(pr)
+    for k in range(6):
+        if (mask | (SK_SUIT if suit_on else 0)) >> k & 1 and lv[k] < SKILL_MAX:
+            n = pr[k] + 2 * (120 - lv[k])
+            if n > 255:
+                lv[k] += 1
+            pr[k] = n & 255
+    return lv, pr
 # what a part is worth undamaged, in $10 (the tug's value: less with damage)
 VALUE = {'O2': 20, 'O2E': 8, 'REACT': 250, 'BATT': 30, 'CRATE': 15, 'BUNK': 5,
          'HELM': 60, 'LOCKER': 6, 'TURRET': 40, 'THRUST': 50, 'FUEL': 25,
@@ -319,6 +399,11 @@ MESSAGES = [   # (label, text): the strings scrap.masm prints
     ('s_laid', 'DECK PLATE LAID.'),
     ('s_refill', 'SUIT REFILLED.  THE TANK IS EMPTY NOW.'),
     ('s_broken', 'IT IS BROKEN - IT DOES NOT WORK.'),
+    ('s_repair', 'REPAIRING...'),
+    ('s_repdone', 'REPAIRED.  GOOD AS NEW.'),
+    ('s_suitoff', 'SUIT OFF: QUICKER WORK, BUT YOU BREATHE THE ROOM AIR - MIND THE VACUUM.'),
+    ('s_suiton', 'SUIT ON.'),
+    ('s_pl_nosuit', 'SUIT   NONE: YOU BREATHE THE ROOM AIR'),
     ('s_pl_suit', 'SUIT   MK1 WORK SUIT     O2 '),
     ('s_pl_of', ' OF 90 L'),
     ('s_pl_batt', 'BATT   SMALL CELL        CHARGE '),
@@ -469,7 +554,7 @@ def build_map(seed=9):
             k = TYPES[t[y][x]][0]
             if k in ('SPACE', 'STAR', 'BREACH'):
                 continue
-            if k in ('FLOOR', 'TUBE'):
+            if k in ('FLOOR',):
                 d[y][x] = rnd.choice((0, 0, 0, 1, 1, 2))
             elif k in ('WALL',):
                 d[y][x] = rnd.choice((0, 1, 1, 2, 3))
@@ -504,7 +589,7 @@ def rooms(t, d=None):
     A link is a door or airlock, or a wall from 50 % damage, with a room or
     vacuum (0) on two opposite sides (past an airlock next to it: the
     tug's and the wreck's are side by side); it gets the room of a side.  A room
-    leaks when an air cell of it (not the docking tube) is next to vacuum
+    leaks when an air cell of it is next to vacuum
     or the map's edge."""
     rid = [[0] * MAP_W for _ in range(MAP_H)]
     leaks = set()
@@ -518,14 +603,12 @@ def rooms(t, d=None):
             rid[y][x] = n
             while todo:
                 cx, cy = todo.pop()
-                tube = TYPES[t[cy][cx]][0] == 'TUBE'
                 for nx, ny in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
                     if not (0 <= nx < MAP_W and 0 <= ny < MAP_H):
-                        if not tube:
-                            leaks.add(n)
+                        leaks.add(n)
                         continue
                     k = TYPES[t[ny][nx]][0]
-                    if vac(k) and not tube:
+                    if vac(k):
                         leaks.add(n)
                     if not rid[ny][nx] and not solid(k):
                         rid[ny][nx] = n
@@ -648,7 +731,14 @@ def write_sources():
         ('OPEN', A_OPEN), ('CLOSE', A_CLOSE), ('INSPECT', A_INSPECT), ('WALK', A_WALK),
         ('PICK', A_PICK), ('CUT', A_CUT), ('PUTL', A_PUTL), ('PUTR', A_PUTR),
         ('PUTB', A_PUTB), ('REFILL', A_REFILL), ('HOLD', A_HOLD), ('INSTALL', A_INSTALL),
-        ('UNINST', A_UNINST), ('LAY', A_LAY))]
+        ('UNINST', A_UNINST), ('LAY', A_LAY), ('REPAIR', A_REPAIR), ('SKILLS', A_SKILLS),
+        ('SUITOFF', A_SUITOFF), ('SUITON', A_SUITON))]
+    lines += ['SK_M       = %d' % SK_M, 'SK_SUIT    = %d' % SK_SUIT,
+              'SKILL_START = %d' % SKILL_START, 'SKILL_MAX  = %d' % SKILL_MAX,
+              'REPAIR_FRAMES = %d' % REPAIR_FRAMES, 'CRATE_COL  = %d' % CRATE_COL,
+              'TB_SKILL   = 0xC0          ; ACT_PG + t: the skills a part needs (bit k skill k)',
+              'SK_LV      = 0x%04X        ; the skill levels (6), then SK_PR: their progress' % SK_LV,
+              'SK_PR      = 0x%04X' % SK_PR]
     lines += ['ART_PG     = 0x%02X' % ART_PAGE,
               'INFO_PG    = 0x%02X        ; x%02X00 + 4t + i: info line i, low bytes; + x80 high' % (TAB_PAGE, TAB_PAGE),
               'TAB_PG     = 0x%02X' % TAB2_PAGE,
@@ -747,6 +837,9 @@ def write_sources():
         acts = ty[5] if ty[0] != 'PLAYER' else PLAYER_ACTIONS
         for k, a in enumerate(acts[:4]):
             act[4 * i + k] = str(a)
+    assert SK_LV >> 8 == ACT_PAGE and SK_LV & 0xFF >= 0xC0 + len(TYPES)
+    for i, ty in enumerate(TYPES):
+        act[0xC0 + i] = str(NEEDS.get(ty[0], 0))
     for a, txt in ACTIONS.items():
         lab = sref('za_%d' % a, txt)
         act[0x80 + a] = lab + ' & 0xFF'
@@ -806,6 +899,9 @@ def write_sources():
         d.append('.chunk')
         d += cur
         d.append('')
+    msg, pos = skill_msg()            # the SKILLS message: written into
+    d += ['.chunk', 'SK_MSG:', '    #d ' + asm_string(msg), 'SK_POS:',
+          '    #d8 ' + ', '.join('(SK_MSG & 0xFF) + %d' % p for p in pos), '']
     open(os.path.join(HERE, 'scrap_data.masm'), 'w').write('\n'.join(d))
 
 

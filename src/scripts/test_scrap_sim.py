@@ -31,8 +31,13 @@ the upper socket, and boots it like the board (test_dos.Rig):
      change: a deck plate taken up (a hole: the room leaks) and laid again;
      a wall uninstalled (two rooms join; a broken hull wall leaks),
      carried, put down, installed (two rooms again)
-  8. CUT FREE a bolted crate in the wreck (time, battery), PICK UP, the
-     slower walk; the last step by WALK HERE
+     Each job's time against gen_scrap.job_frames (the skills it needs,
+     the suit) and the skills it raised against skill_gain; a loose part
+     drawn in its crate frame
+ 7c. SKILLS on the message row; TAKE OFF SUIT (the room's air, O2 kept),
+     REPAIR without the suit, no air without it (blacking out), PUT ON SUIT
+  8. UNINSTALL an installed crate in the wreck with the cutter (time,
+     battery), PICK UP, the slower walk; the last step by WALK HERE
   9. the vented section: its decks frosted; opening its door drains the
      corridor's air and the suit uses its O2
  10. each warning (red), then suffocating
@@ -62,6 +67,7 @@ VIEW_W, VIEW_H = 20, 12
 RIGHT, LEFT, UP, DOWN = '\x14', '\x13', '\x11', '\x12'
 T = gen_scrap.TYPE
 ARTS = [gen_scrap.art_bytes(t[1]) for t in gen_scrap.TYPES]
+INST, CUT = 60, 90            # scrap.masm INST_FRAMES, CUT_FRAMES: at full speed
 
 
 def line_off(p):
@@ -199,11 +205,34 @@ class Rig(test_tracker.Rig):
             self.fail('%s is not in the menu of %d,%d: %s' % (gen_scrap.ACTIONS[code], x, y, acts))
             self.click(2)
             return False
+        sk0, suit0, c0 = self.skills(), self.zp('suit_on'), self.cpu.clocks
         self.key(str(1 + acts.index(code)))
         self.run(2)
         self.settle()
+        self.job = (sk0, suit0, (self.cpu.clocks - c0) // FRAME)
         self.click(2)
         return True
+
+    def skills(self):
+        mem = self.cpu.mem
+        return ([mem[gen_scrap.SK_LV + k] for k in range(6)],
+                [mem[gen_scrap.SK_PR + k] for k in range(6)])
+
+    def check_job(self, what, base, t, extra=0):
+        """the last act's job: its time against gen_scrap.job_frames (the
+        skills and the suit before it; extra frames for the rooms worked
+        out after it), the skills it raised against skill_gain"""
+        (lv, pr), suit, frames = self.job
+        mask = gen_scrap.NEEDS.get(gen_scrap.TYPES[t][0], 0)
+        want = gen_scrap.job_frames(base, lv, mask, suit)
+        glv, gpr = gen_scrap.skill_gain(lv, pr, mask, suit)
+        print('  %s: %d frames (skills %s, %s): %d wanted; skills now %s'
+              % (what, frames, '/'.join(gen_scrap.skill_names(mask)) or '-',
+                 'in the suit' if suit else 'no suit', want, self.skills()[0]))
+        if not want - 2 <= frames <= want + 10 + extra:   # and the key, the frame loop
+            self.fail('%s took %d frames, not %d' % (what, frames, want))
+        if self.skills() != (glv, gpr):
+            self.fail('%s: skills %s, wanted %s' % (what, self.skills(), (glv, gpr)))
 
     def key_act(self, code):
         """the key of action code in the locked panel's menu; False if it
@@ -220,7 +249,7 @@ class Rig(test_tracker.Rig):
         """the work under way done (a cut, an install) and the frame loop
         back: working the rooms out takes about 18 frames"""
         loop = self.tsyms['loop']
-        self.run_until(lambda: self.cpu.pc == loop and not self.zp('cut_t'), 300, 'the work done')
+        self.run_until(lambda: self.cpu.pc == loop and not self.zp('cut_t'), 3000, 'the work done')
         self.run(1)
         self.run_until(lambda: self.cpu.pc == loop, 60, 'the frame loop')
 
@@ -253,7 +282,11 @@ class Rig(test_tracker.Rig):
                         t = T['VENT']           # a deck in a room without air
                 else:
                     t = T['SPACE']
-                if self.cell_bytes(cx, cy) != ARTS[t]:
+                art = ARTS[t]
+                if (gen_scrap.TYPES[t][3] & gen_scrap.F_ITEM and (x, y) != (px, py)
+                        and not self.bolted(x, y)):
+                    art = gen_scrap.crate_art(art)      # a loose part: crated
+                if self.cell_bytes(cx, cy) != art:
                     bad.append((cx, cy, gen_scrap.TYPES[t][0]))
         if bad:
             self.fail('%s: %d view cells differ from the map, first %s' % (what, len(bad), bad[:4]))
@@ -348,7 +381,8 @@ def main(argv):
     for line in r.panel():
         print('  |%s' % line)
     p = r.panel()
-    if p[0].strip() != 'YOU' or 'MK1 WORK SUIT' not in p[1] or 'INSPECT' not in p[1]:
+    if (p[0].strip() != 'YOU' or 'MK1 WORK SUIT' not in p[1] or '1: SKILLS' not in p[1]
+            or '2: TAKE OFF SUIT' not in p[2] or '3: INSPECT' not in p[3]):
         r.fail('the panel does not show the player')
     if not p[5].strip().startswith('DOCKED TO THE KESTREL 9'):
         r.fail('the welcome message')
@@ -408,6 +442,13 @@ def main(argv):
     r.mouse_cell(door[0] + 3, door[1] + 1)      # away: the panel stays on the door
     if 'DOOR' not in r.panel()[0]:
         r.fail('the locked panel followed the pointer: %r' % r.panel()[0])
+    if 'REPAIR' not in ''.join(r.panel()[1:5]):
+        r.fail('no REPAIR for the damaged door')
+    r.key_act(gen_scrap.A_INSPECT)    # held open: UNINSTALL, REPAIR, CLOSE, INSPECT
+    msg = r.panel()[5]
+    print('  INSPECT: %r' % msg.strip())
+    if 'OPEN PRESSURE DOOR' not in msg:
+        r.fail('INSPECT did not write the message line')
     r.key_act(gen_scrap.A_CLOSE)
     if r.map_t(*door) != T['DOOR']:
         r.fail('key 1 (CLOSE) did not close the door')
@@ -418,11 +459,6 @@ def main(argv):
         r.fail('key 1 (OPEN) did not open the door')
     if r.bolted(*door):
         r.fail('OPEN left the door held open')
-    r.key_act(gen_scrap.A_INSPECT)
-    msg = r.panel()[5]
-    print('  OPEN; INSPECT: %r' % msg.strip())
-    if 'OPEN PRESSURE DOOR' not in msg:
-        r.fail('INSPECT did not write the message line')
     r.key_act(gen_scrap.A_HOLD)
     print('  HOLD OPEN -> %r' % r.panel()[0].strip())
     if not r.bolted(*door) or 'HELD OPEN' not in r.panel()[0]:
@@ -511,7 +547,7 @@ def phase3(r, args):
         r.fail('the tug\'s tank is not shown installed, in air: %r' % p[0])
     if not r.act(*tank, gen_scrap.A_UNINST):
         return
-    r.run(gen_scrap_inst_frames() + 4)
+    r.check_job('UNINSTALL', INST, T['O2'])
     print('  %r; tug air %s' % (r.panel()[5].strip(), 'on' if z('sup') else 'off'))
     if r.bolted(*tank) or z('sup'):
         r.fail('UNINSTALL: the tank is still installed (bolted %s, air %d)' % (r.bolted(*tank), z('sup')))
@@ -537,6 +573,7 @@ def phase3(r, args):
         r.fail('PUT DOWN did not put the tank down loose')
     if z('sup'):
         r.fail('a tank put down, not installed, gives the tug air')
+    r.check_view('a loose tank (crated)')
     r.mouse_cell(*tank)
     p = r.panel()
     print('  put down: %r' % p[0].strip())
@@ -544,8 +581,7 @@ def phase3(r, args):
         r.fail('the loose tank on the tug has no INSTALL')
     if not r.act(*tank, gen_scrap.A_INSTALL):
         return
-    print('  %r' % r.panel()[5].strip())
-    r.run(gen_scrap_inst_frames() + 4)
+    r.check_job('INSTALL', INST, T['O2'])
     print('  %r' % r.panel()[5].strip())
     if not r.bolted(*tank) or not z('sup'):
         r.fail('INSTALL did not give the tug its tank back')
@@ -554,6 +590,7 @@ def phase3(r, args):
     r.check_view('the tug')
 
     rebuild(r)
+    skills_suit(r)
 
     print('8. uninstalling a part in the wreck (the cutter)')
     r.go((17, 35), (17, 32), (38, 32), (38, 29), (34, 29))   # the mess room (its door opens)
@@ -569,8 +606,7 @@ def phase3(r, args):
     b0 = z('batt')
     if not r.act(*crate, gen_scrap.A_UNINST):
         return
-    print('  %r' % r.panel()[5].strip())
-    r.run(gen_scrap_cut_frames() + 4)
+    r.check_job('UNINSTALL with the cutter', CUT, T['CRATE'], 20)
     print('  %r, battery %d%% -> %d%%' % (r.panel()[5].strip(), b0, z('batt')))
     if r.bolted(*crate) or z('batt') != b0 - 5:
         r.fail('the cut did not free the crate (bolted %s, battery %d)' % (r.bolted(*crate), z('batt')))
@@ -662,6 +698,7 @@ def rebuild(r):
     if not r.act(*deck, gen_scrap.A_UNINST):
         return
     r.settle()
+    r.check_job('UNINSTALL the deck', INST, T['FLOOR'], 35)
     q = r.room(16, 35)
     print('  %r: left hand %s, %d,%d %s' % (r.panel()[5].strip(), gen_scrap.TYPES[z('cl_t')][0],
                                           deck[0], deck[1], gen_scrap.TYPES[r.map_t(*deck)][0]))
@@ -688,6 +725,7 @@ def rebuild(r):
     if not r.act(*wall, gen_scrap.A_UNINST):
         return
     r.settle()
+    r.check_job('UNINSTALL the wall', INST, T['WALL'], 35)
     print('  %r: %d,%d %s; quarters room %d, hold room %d'
           % (r.panel()[5].strip(), wall[0], wall[1], gen_scrap.TYPES[r.map_t(*wall)][0],
              r.room(19, 35), r.room(21, 35)))
@@ -707,6 +745,7 @@ def rebuild(r):
     if not r.act(*wall, gen_scrap.A_INSTALL):
         return
     r.settle()
+    r.check_job('INSTALL the panel', INST, T['PANEL'], 35)
     if r.map_t(*wall) != T['WALL'] or r.room(19, 35) == r.room(21, 35):
         r.fail('INSTALL of the wall panel did not part the rooms')
     else:
@@ -715,12 +754,60 @@ def rebuild(r):
     r.check_view('the tug changed')
 
 
-def gen_scrap_cut_frames():
-    return 90
-
-
-def gen_scrap_inst_frames():
-    return 60
+def skills_suit(r):
+    """SKILLS on the message row; the suit off (the room's air, quicker
+    work: a REPAIR), no air without it (blacking out), the suit on again"""
+    z, mem = r.zp, r.cpu.mem
+    print('7c. skills, the suit, REPAIR')
+    if not r.act(z('p_x'), z('p_y'), gen_scrap.A_SKILLS):
+        return
+    msg, pos = gen_scrap.skill_msg()
+    for k, lv in enumerate(r.skills()[0]):
+        msg = msg[:pos[k]] + '%2d' % lv + msg[pos[k] + 2:]
+    print('  %r' % r.panel()[5].strip())
+    if r.panel()[5].strip() != msg:
+        r.fail('SKILLS: %r, wanted %r' % (r.panel()[5].strip(), msg))
+    o0 = z('o2')
+    if not r.act(z('p_x'), z('p_y'), gen_scrap.A_SUITOFF):
+        return
+    r.mouse_cell(z('p_x'), z('p_y'))
+    p = r.panel()
+    print('  |%s' % p[1])
+    print('  %r' % p[5].strip())
+    if z('suit_on') or T['SUIT'] not in (z('cl_t'), z('cr_t'), z('cb_t')) or 'NONE' not in p[1]:
+        r.fail('TAKE OFF SUIT: suit_on %d, carried %d %d %d' % (z('suit_on'), z('cl_t'), z('cr_t'), z('cb_t')))
+    if 'PUT ON SUIT' not in ''.join(p[1:5]):
+        r.fail('no PUT ON SUIT in the player\'s menu')
+    r.run(130)
+    if z('o2') != o0 or z('stage'):
+        r.fail('without the suit, in air: O2 %d -> %d, stage %d' % (o0, z('o2'), z('stage')))
+    r.go((16, 35))
+    tank = (15, 34)
+    dmg = r.map_raw(*tank)[1] & 15
+    if not dmg:
+        r.fail('the tank has no damage to repair')
+    elif r.act(*tank, gen_scrap.A_REPAIR):
+        r.check_job('REPAIR (no suit)', gen_scrap.REPAIR_FRAMES * dmg, T['O2'])
+        print('  %r: damage %d -> %d' % (r.panel()[5].strip(), dmg, r.map_raw(*tank)[1] & 15))
+        if r.map_raw(*tank)[1] & 15:
+            r.fail('REPAIR left damage')
+    q = r.room(z('p_x'), z('p_y'))
+    saved = bytes(mem[0x4000:0x4040])
+    for _ in range(80):                            # the room's air gone
+        mem[0x4000 + q] = 0
+        r.run(1)
+    print('  no air, no suit: stage %d, %r, O2 %d' % (z('stage'), r.panel()[5].strip(), z('o2')))
+    if z('stage') != 4 or 'BLACKING OUT' not in r.panel()[5]:
+        r.fail('no air without the suit is not blacking out')
+    mem[0x4000:0x4040] = saved                     # and back
+    r.wait_for(lambda: z('stage') == 0, 130, 'the air back')
+    if not r.act(z('p_x'), z('p_y'), gen_scrap.A_SUITON):
+        return
+    if not z('suit_on') or T['SUIT'] in (z('cl_t'), z('cr_t'), z('cb_t')) or z('o2') != o0:
+        r.fail('PUT ON SUIT: suit_on %d, O2 %d' % (z('suit_on'), z('o2')))
+    else:
+        print('  %r: the suit on again, O2 %d' % (r.panel()[5].strip(), z('o2')))
+    r.check_view('the suit on again')
 
 
 if __name__ == '__main__':

@@ -111,6 +111,9 @@ p_pg    = 0x49
 p_off   = 0x4A
 p_st    = 0x4B
 p_inv   = 0x4C              ; 80: inverse text
+wk_l    = 0x4D              ; the job: work left (16 bits), done at wk_r a frame
+wk_h    = 0x4E
+wk_r    = 0x4F
 u0 = 0x50                   ; scratch, the lower routines
 u1 = 0x51
 u2 = 0x52
@@ -126,6 +129,7 @@ w3 = 0x5B
 w4 = 0x5C
 w5 = 0x5D
 w6 = 0x5E
+wk_m    = 0x5F              ; the job's skills (bit k skill k; SK_SUIT in the suit)
 s_t     = 0x60              ; the panel's subject: type
 s_f     = 0x61              ;   damage step 0-15
 n_act   = 0x62              ;   actions 0-4
@@ -152,7 +156,7 @@ o2      = 0x79              ; suit O2, litres (0-90)
 batt    = 0x7A              ; suit battery, percent
 air_t   = 0x7B              ; frames to the next air tick (every 8)
 sec_t   = 0x7C              ; frames into the second
-cut_t   = 0x7D              ; frames of cutting left (0: not cutting)
+cut_t   = 0x7D              ; 1 while a job runs (job_start, work_tick)
 cut_x   = 0x7E              ;   the cell being cut
 cut_y   = 0x7F
 stage   = 0x80              ; the air warning: 0 none, 1 caution, 2 warning,
@@ -181,19 +185,20 @@ val_h   = 0x95
 num_l   = 0x96              ; put_dec: the number
 num_h   = 0x97
 num_z   = 0x98              ;   1: a digit was printed
-cut_m   = 0x99              ; what cut_t times: 0 a cut, 1 installing, 2 uninstalling
+cut_m   = 0x99              ; the job: 0 a cut, 1 installing, 2 uninstalling, 3 repairing
 n_door  = 0x9A              ; the links in DOOR_PG (rooms_build)
 n_room  = 0x9B              ; the rooms, 1 to n_room - 1
 rb_go   = 0x9C              ; 1: the rooms are worked out again (cut_done)
 stk_l   = 0x9D              ; rooms_build: the fill stack's top (x4700 up)
 stk_h   = 0x9E
+suit_on = 0x9F              ; 1: the player wears the suit
 rb_x    = w0                ; rooms_build (nothing it calls uses the w's):
 rb_y    = w1                ;   the cell scanned
 rb_n    = w2                ;   the room being filled
 rb_cx   = w3                ;   the cell taken off the stack
 rb_cy   = w4
 rb_k    = w5                ;   its neighbour 0-3
-rb_t    = w6                ;   0: the cell is the docking tube (sealed)
+rb_t    = w6                ;   scratch (rl_side)
 
 ROOM_P  = 0x4000            ; + room: its pressure, 0-100 (start: RM_P0)
 ROOM_C  = 0x4040            ; + room: 1 while it is cold (pressure under COLD_P)
@@ -890,6 +895,7 @@ vc_p:
     ld   ac, [dc_t]
 vc_d:
     CALL draw_cell
+    CALL crate_mark
     LEAVE
 
 ; draw_view - every cell of the view, then the frame
@@ -1807,6 +1813,7 @@ subj_load:
     ld   ac, [s_r]
     ld   ac, [s_b]
     ld   ac, [n_act]
+    CALL player_acts
     bra  sl_a
 sl_c:
     ld   [s_x], ac
@@ -2293,6 +2300,7 @@ game_init:
     ld   ac, [v0]
     ld   T_CUTTER, ac
     ld   ac, [cr_t]
+    CALL skills_init
     ld   SUIT_O2, ac
     ld   ac, [o2]
     ld   100, ac
@@ -2332,10 +2340,7 @@ game_tick:
     PUSH_LINK
     ld   [cut_t], ac
     beq  gt_1
-    dec
-    ld   ac, [cut_t]
-    bne  gt_1
-    CALL cut_done
+    CALL work_tick
 gt_1:
     ld   [air_t], ac
     inc
@@ -2534,6 +2539,10 @@ ac_x:
 second_tick:
     PUSH_LINK
     CALL tug_scan
+    ld   [suit_on], ac
+    bne  st_0
+    GOTO nosuit_tick
+st_0:
     ld   [p_x], ac
     ld   ac, [g_x]
     ld   [p_y], ac
@@ -2953,7 +2962,7 @@ cu_ok:
     clr  ac
     ld   ac, [cut_m]
     ld   CUT_FRAMES, ac
-    ld   ac, [cut_t]
+    CALL job_start
     ld   [s_x], ac
     ld   ac, [cut_x]
     ld   [s_y], ac
@@ -2991,6 +3000,12 @@ cut_done:
     ld   [cut_y], ac
     ld   ac, [g_y]
     CALL map_get
+    ld   [cut_m], ac
+    xor  3, ac
+    bne  cd_0
+    GOTO repair_done
+cd_0:
+    ld   [c_t], ac
     ld   ac, x
     ld   TAB_PG, y
     ld   [y,x], ac
@@ -3270,7 +3285,7 @@ ds_l:
 ds_a:
     CALL add_act
 ds_e:
-    LEAVE
+    GOTO dyn_rep
 
 ; air_crack - a link that is not open (v1:v2 its type byte, v3 its type):
 ; from 50 % damage it leaks, a unit a tick toward the lower side; to
@@ -3498,9 +3513,6 @@ rf_l:
     CALL rb_acc
     ld   [rb_n], ac
     CALL set_room
-    ld   [c_t], ac
-    xor  T_TUBE, ac
-    ld   ac, [rb_t]
     clr  ac
     ld   ac, [rb_k]
     GOTO rb_nbs
@@ -3515,8 +3527,6 @@ rb_nbs:
 rn_l:
     CALL rb_nb
     bne  rn_in
-    ld   [rb_t], ac
-    beq  rn_k
     CALL rb_leak
     bra  rn_k
 rn_in:
@@ -3532,8 +3542,6 @@ rn_in:
     ld   [y,x], ac
     ld   ac, [v1]
     and  F_VAC, ac
-    beq  rn_s
-    ld   [rb_t], ac
     beq  rn_s
     CALL rb_leak
 rn_s:
@@ -4087,6 +4095,11 @@ BIT_TAB:
 .chunk
 inst_action:
     ld   [w3], ac
+    sub  A_REPAIR, ac
+    bcs  in_0
+    GOTO more_action
+in_0:
+    ld   [w3], ac
     xor  A_LAY, ac
     bne  in_1
     GOTO lay_action
@@ -4103,7 +4116,7 @@ in_2:
     CALL plate_room
     beq  in_e
     ld   INST_FRAMES, ac
-    ld   ac, [cut_t]
+    CALL job_start
     ld   [s_x], ac
     ld   ac, [cut_x]
     ld   [s_y], ac
@@ -4216,6 +4229,15 @@ draw_player:
     ld   ac, [CUR_ROW]
     ld   1, ac
     ld   ac, [CUR_COL]
+    ld   [suit_on], ac
+    bne  dp_s
+    ld   s_pl_nosuit & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_pl_nosuit >> 8, ac
+    ld   ac, [R1]
+    CALL tputs
+    bra  dp_26
+dp_s:
     ld   s_pl_suit & 0xFF, ac
     ld   ac, [R0]
     ld   s_pl_suit >> 8, ac
@@ -4228,6 +4250,7 @@ draw_player:
     ld   s_pl_of >> 8, ac
     ld   ac, [R1]
     CALL tputs
+dp_26:
     ld   26, ac
     ld   ac, [CUR_ROW]
     ld   1, ac
@@ -4487,4 +4510,531 @@ pd_n:
 ; ============================================================
 ; the art, tables and strings (gen_scrap.py)
 ; ============================================================
+; ============================================================
+; skills, jobs, the suit
+; ============================================================
+
+; skills_init - every skill at SKILL_START, no progress; the suit on.  A
+; leaf.
+.chunk
+skills_init:
+    ld   1, ac
+    ld   ac, [suit_on]
+    ld   SK_LV >> 8, y
+    clr  ac
+    ld   ac, [u0]
+ki_l:
+    ld   [u0], ac
+    add  SK_LV & 0xFF, x
+    ld   SKILL_START, [y,x]
+    ld   [u0], ac
+    add  SK_PR & 0xFF, x
+    ld   0, [y,x]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  6, ac
+    bne  ki_l
+    RET
+
+; job_start - a job of AC frames at full speed on the panel's part (s_t):
+; 16 AC of work (wk), done at wk_r a frame (work_tick): 2 + the average
+; of the quarters of the skills the part needs (TB_SKILL); in the suit
+; half that and an eighth of the suit skill (not over it).  cut_t = 1
+; while it runs.  A leaf.
+.chunk
+job_start:
+    ld   ac, [u0]
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [wk_l]
+    ld   [u0], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [wk_h]
+    ld   ACT_PG, y
+    ld   [s_t], ac
+    add  TB_SKILL, x
+    ld   [y,x], ac
+    ld   ac, [wk_m]
+    ld   ac, [u0]               ; the skills, shifted down
+    clr  ac
+    ld   ac, [u1]               ; the quarters, summed
+    ld   ac, [u3]               ; how many
+    ld   ac, [u4]               ; skill k
+js_l:
+    ld   [u0], ac
+    and  1, ac
+    beq  js_n
+    ld   SK_LV >> 8, y
+    ld   [u4], ac
+    add  SK_LV & 0xFF, x
+    ld   [y,x], ac
+    shr  ac
+    shr  ac
+    add  [u1], ac
+    ld   ac, [u1]
+    ld   [u3], ac
+    inc
+    ld   ac, [u3]
+js_n:
+    ld   [u0], ac
+    shr  ac
+    ld   ac, [u0]
+    ld   [u4], ac
+    inc
+    ld   ac, [u4]
+    xor  5, ac
+    bne  js_l
+    ld   [u3], ac
+    bne  js_d
+    ld   SKILL_MAX >> 2, ac     ; no skill needed: full speed
+    bra  js_r
+js_d:
+    clr  ac
+    ld   ac, [u2]               ; the average: u1 / u3
+js_q:
+    ld   [u1], ac
+    sub  [u3], ac
+    bcs  js_a
+    ld   ac, [u1]
+    ld   [u2], ac
+    inc
+    ld   ac, [u2]
+    bra  js_q
+js_a:
+    ld   [u2], ac
+js_r:
+    add  2, ac
+    ld   ac, [wk_r]
+    ld   [suit_on], ac
+    beq  js_e
+    ld   [wk_m], ac
+    or   SK_SUIT, ac
+    ld   ac, [wk_m]
+    ld   SK_LV >> 8, y
+    ld   (SK_LV & 0xFF) + 5, x
+    ld   [y,x], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [u1]
+    ld   [wk_r], ac
+    shr  ac
+    add  [u1], ac
+    ld   ac, [u1]               ; half the rate and the suit's eighth
+    sub  [wk_r], ac
+    bcc  js_e                   ; not over the rate
+    ld   [u1], ac
+    ld   ac, [wk_r]
+js_e:
+    ld   1, ac
+    ld   ac, [cut_t]
+    RET
+
+; work_tick - a frame of the job: wk less wk_r.  Done: the skills it
+; used gain (sk_gain), then cut_done
+.chunk
+work_tick:
+    PUSH_LINK
+    ld   [wk_l], ac
+    sub  [wk_r], ac
+    ld   ac, [wk_l]
+    bcc  wt_z
+    ld   [wk_h], ac             ; a borrow
+    beq  wt_d
+    dec
+    ld   ac, [wk_h]
+    LEAVE
+wt_z:
+    bne  wt_x
+    ld   [wk_h], ac
+    bne  wt_x
+wt_d:
+    clr  ac
+    ld   ac, [cut_t]
+    CALL sk_gain
+    CALL cut_done
+wt_x:
+    LEAVE
+
+; sk_gain - a job done: each skill it used (wk_m) gains 2 (120 - its
+; level) of 256 toward the next level (SKILL_MAX at most).  A leaf.
+.chunk
+sk_gain:
+    ld   [wk_m], ac
+    ld   ac, [u0]
+    clr  ac
+    ld   ac, [u4]
+sg_l:
+    ld   [u0], ac
+    and  1, ac
+    beq  sg_n
+    ld   SK_LV >> 8, y
+    ld   [u4], ac
+    add  SK_LV & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u1]               ; the level
+    xor  SKILL_MAX, ac
+    beq  sg_n
+    ld   120, ac
+    sub  [u1], ac
+    shl
+    ld   ac, [u2]               ; the gain
+    ld   [u4], ac
+    add  SK_PR & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u3]               ; the progress before
+    add  [u2], ac
+    ld   ac, [y,x]
+    sub  [u3], ac               ; under it: round past 256, a level
+    bcc  sg_n
+    ld   [u4], ac
+    add  SK_LV & 0xFF, x
+    ld   [u1], ac
+    inc
+    ld   ac, [y,x]
+sg_n:
+    ld   [u0], ac
+    shr  ac
+    ld   ac, [u0]
+    ld   [u4], ac
+    inc
+    ld   ac, [u4]
+    xor  6, ac
+    bne  sg_l
+    RET
+
+; more_action - REPAIR, SKILLS, TAKE OFF SUIT, PUT ON SUIT (w3).  The
+; rest of do_action
+.chunk
+more_action:
+    ld   [w3], ac
+    xor  A_REPAIR, ac
+    bne  ma_1
+    GOTO repair_action
+ma_1:
+    ld   [w3], ac
+    xor  A_SKILLS, ac
+    bne  ma_2
+    GOTO skills_action
+ma_2:
+    GOTO suit_action
+
+; repair_action - REPAIR: a damaged part next to the player, REPAIR_FRAMES
+; (15) a damage step at full speed (cut_done: repair_done).  The rest of
+; do_action
+.chunk
+repair_action:
+    CALL near
+    beq  rpa_far
+    ld   [s_f], ac
+    beq  rpa_e
+    shl
+    shl
+    shl
+    shl
+    sub  [s_f], ac
+    CALL job_start
+    ld   3, ac
+    ld   ac, [cut_m]
+    ld   [s_x], ac
+    ld   ac, [cut_x]
+    ld   [s_y], ac
+    ld   ac, [cut_y]
+    ld   s_repair & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_repair >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+rpa_e:
+    LEAVE
+rpa_far:
+    MSG_TOOFAR
+    CALL set_msg
+    LEAVE
+
+; repair_done - the cell cut_done read (map_get) has no damage now; a
+; wall or door: the rooms again.  The rest of cut_done
+.chunk
+repair_done:
+    ld   [a_pg], ac             ; the flag byte, two pages up
+    add  2, ac
+    ld   ac, y
+    ld   [a_ix], x
+    ld   [y,x], ac
+    and  0xF0, ac
+    ld   ac, [y,x]
+    ld   [c_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_STRUCT, ac
+    beq  rd_m
+    ld   1, ac
+    ld   ac, [rb_go]
+rd_m:
+    ld   s_repdone & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_repdone >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    GOTO work_end
+
+; dyn_rep - REPAIR for a damaged part, wall, deck or door.  The end of
+; dyn_acts
+.chunk
+dyn_rep:
+    ld   [s_f], ac
+    beq  dq_e
+    ld   [s_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_DMG, ac
+    beq  dq_e
+    ld   A_REPAIR, ac
+    CALL add_act
+dq_e:
+    LEAVE
+
+; player_acts - the player's menu: SKILLS, then TAKE OFF SUIT, or PUT ON
+; SUIT with the suit in a carry slot
+.chunk
+player_acts:
+    PUSH_LINK
+    ld   A_SKILLS, ac
+    CALL add_act
+    ld   [suit_on], ac
+    beq  pa_1
+    ld   A_SUITOFF, ac
+    bra  pa_a
+pa_1:
+    CALL suit_slot
+    beq  pa_e
+    ld   A_SUITON, ac
+pa_a:
+    CALL add_act
+pa_e:
+    LEAVE
+
+; suit_slot - AC = the address of the carry slot that holds the suit, 0
+; none.  A leaf.
+.chunk
+suit_slot:
+    ld   [cl_t], ac
+    xor  T_SUIT, ac
+    bne  ss_1x
+    ld   cl_t, ac
+    RET
+ss_1x:
+    ld   [cr_t], ac
+    xor  T_SUIT, ac
+    bne  ss_2x
+    ld   cr_t, ac
+    RET
+ss_2x:
+    ld   [cb_t], ac
+    xor  T_SUIT, ac
+    bne  ss_3x
+    ld   cb_t, ac
+    RET
+ss_3x:
+    clr  ac
+    RET
+
+; suit_action - TAKE OFF SUIT: into the first free carry slot; PUT ON
+; SUIT: out of its slot.  The rest of do_action
+.chunk
+suit_action:
+    ld   [w3], ac
+    xor  A_SUITOFF, ac
+    bne  su_on
+    CALL free_slot
+    beq  su_full
+    ld   ac, [u0]
+    ld   ac, x
+    ld   T_SUIT, ac
+    ld   ac, [x]
+    ld   [u0], ac
+    add  3, x
+    clr  ac
+    ld   ac, [x]
+    ld   ac, [suit_on]
+    ld   s_suitoff & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_suitoff >> 8, ac
+    bra  su_m
+su_on:
+    CALL suit_slot
+    beq  su_e
+    ld   ac, [u0]
+    ld   ac, x
+    clr  ac
+    ld   ac, [x]
+    ld   [u0], ac
+    add  3, x
+    clr  ac
+    ld   ac, [x]
+    ld   1, ac
+    ld   ac, [suit_on]
+    ld   s_suiton & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_suiton >> 8, ac
+su_m:
+    ld   ac, [R1]
+    CALL set_msg
+    ld   [dirty], ac
+    or   1, ac
+    ld   ac, [dirty]
+su_e:
+    LEAVE
+su_full:
+    ld   s_full & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_full >> 8, ac
+    bra  su_m
+
+; skills_action - SKILLS: the levels into SK_MSG (at SK_POS, two digits,
+; a space for a leading 0) on the message row.  The rest of do_action
+.chunk
+skills_action:
+    clr  ac
+    ld   ac, [u4]
+sa_l:
+    ld   SK_LV >> 8, y
+    ld   [u4], ac
+    add  SK_LV & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u1]               ; the ones
+    ld   0x20, ac
+    ld   ac, [u2]               ; the tens
+sa_t:
+    ld   [u1], ac
+    sub  10, ac
+    bcs  sa_p
+    ld   ac, [u1]
+    ld   [u2], ac
+    xor  0x20, ac
+    bne  sa_i
+    ld   0x30, ac
+    ld   ac, [u2]
+sa_i:
+    ld   [u2], ac
+    inc
+    ld   ac, [u2]
+    bra  sa_t
+sa_p:
+    ld   SK_POS >> 8, y
+    ld   [u4], ac
+    add  SK_POS & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u3]
+    ld   ac, x
+    ld   SK_MSG >> 8, y
+    ld   [u2], ac
+    ld   ac, [y,x]
+    ld   [u3], ac
+    add  1, x
+    ld   [u1], ac
+    add  0x30, ac
+    ld   ac, [y,x]
+    ld   [u4], ac
+    inc
+    ld   ac, [u4]
+    xor  6, ac
+    bne  sa_l
+    ld   SK_MSG & 0xFF, ac
+    ld   ac, [R0]
+    ld   SK_MSG >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    LEAVE
+
+; nosuit_tick - second_tick without the suit: the room's air or nothing
+; (collapsing, stage_set's ss_4); the suit keeps its O2.  The rest of
+; second_tick
+.chunk
+nosuit_tick:
+    ld   [p_x], ac
+    ld   ac, [g_x]
+    ld   [p_y], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   ROOM_P >> 8, y
+    ld   [c_r], x
+    ld   [y,x], ac
+    sub  BREATHE_P, ac
+    bcc  nt_ok
+    GOTO ss_4
+nt_ok:
+    clr  ac
+    ld   ac, [col_t]
+    GOTO ss_n
+
+; crate_mark - a loose part on screen cell dc_cx, dc_cy (map_get's c_t,
+; c_b) gets a crate's frame, brown.  A leaf.
+.chunk
+crate_mark:
+    ld   [c_b], ac
+    bne  cm_e
+    ld   [c_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_ITEM, ac
+    beq  cm_e
+    CELLADDR
+    ld   [dc_sp], ac
+    ld   ac, [u0]
+    ld   4, ac
+    ld   ac, [dc_c]
+cm_tb:
+    ld   [u0], y                ; the top and bottom line pairs
+    ld   [dc_base], x
+    ld   CRATE_COL * 0x11, [y,x]
+    ld   [dc_base], ac
+    add  30, ac
+    ld   ac, x
+    ld   CRATE_COL * 0x11, [y,x]
+    ld   [u0], ac
+    add  2, ac
+    ld   ac, [u0]
+    ld   [dc_c], ac
+    dec
+    ld   ac, [dc_c]
+    bne  cm_tb
+    ld   [dc_base], ac          ; the sides
+    add  2, ac
+    ld   ac, [dc_so]
+    ld   14, ac
+    ld   ac, [dc_n]
+cm_s:
+    ld   [dc_sp], y
+    ld   [dc_so], x
+    ld   [y,x], ac
+    and  0xF0, ac
+    or   CRATE_COL, ac
+    ld   ac, [y,x]
+    ld   [dc_sp], ac
+    add  6, ac
+    ld   ac, y
+    ld   [y,x], ac
+    and  0x0F, ac
+    or   CRATE_COL << 4, ac
+    ld   ac, [y,x]
+    ld   [dc_so], ac
+    add  2, ac
+    ld   ac, [dc_so]
+    ld   [dc_n], ac
+    dec
+    ld   ac, [dc_n]
+    bne  cm_s
+cm_e:
+    RET
+
 .include "scrap_data.masm"
