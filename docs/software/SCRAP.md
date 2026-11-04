@@ -7,7 +7,7 @@ back, and build it into your own ship.  It is not in the demo menu: pick
 it in the DOS's file browser and press Enter ([DOS.md](DOS.md)), or set
 `BOOT.CFG` = `SCRAP.PLC` to run it at power-up.
 
-Date: 2026-11-03
+Date: 2026-11-04
 
 The design (proposal, phases, mock-ups) is the SCRAPWRIGHT design doc.
 This is **phase 3**: the walkable wreck with the mouse panel (phase 2),
@@ -17,6 +17,8 @@ sector map come in later phases.
 ![SCRAPWRIGHT in the simulator](../../reference/scrap_sim.png)
 
 ![a room without air](../../reference/scrap_sim_air.png)
+
+![the inventory](../../reference/scrap_sim_inv.png)
 
 ## Playing
 
@@ -32,7 +34,8 @@ shared through them.
 | Mouse over yourself | your suit, battery, hands and pack |
 | Left click on a cell | locks the panel on it, so the mouse can go down to the actions |
 | Left click on an action, or keys **1-8** | does it (see below); the menu is two columns of four, each action with its key to its left, `1:` to `8:` |
-| Right click | unlocks the panel |
+| Right click | unlocks the panel (and cancels picking a cell to install on) |
+| **I** or **Tab** | the inventory screen, and back (see **The inventory**) |
 | Esc | back to the DOS |
 
 The actions, on the cell the panel shows (all but WALK HERE and INSPECT
@@ -45,10 +48,11 @@ need you next to it, diagonals count):
 | WALK HERE | walks toward the cell, across first, then up or down |
 | INSPECT | a line about it on the message row |
 | UNINSTALL | a part INSTALLED in the wreck: the cutter does it, in 1.5 s and 5 % of the suit battery, and needs a working cutter in a hand.  Walking away stops it.  The wreck's walls, decks and doors uninstall the same way, into a wall panel, a door kit or a deck plate.  INSTALLED in the tug: 1 s by hand (no cutter).  Either way it is LOOSE then.  On the tug the walls, decks and doors uninstall too (not the cell you stand on): a wall leaves a WALL PANEL lying on the deck, a door a PRESSURE DOOR kit, and a deck goes into a free carry slot as a SPARE PLATE, leaving open space |
-| INSTALL | a LOOSE ship part on one of the tug's cells (O2 tank, scrubber, battery, fuel tank, helm, bunk, locker): 1 s, then it is INSTALLED and part of the tug.  A wall panel installs as a wall, a door kit as a closed door.  Cargo and the cutter can't be installed |
+| INSTALL | a LOOSE ship part lying on a deck, in the tug or in a wreck (O2 tank, scrubber, battery, fuel tank, helm, bunk, locker): 1 s, then it is INSTALLED (on the tug's cells it is part of the tug).  A wall panel installs as a wall, a door kit as a closed door.  Cargo and the cutter can't be installed.  Carried parts install from the inventory (below) |
 | LAY DECK PLATE | open space next to you, with a deck plate in a carry slot: it is a deck now |
 | REPAIR | a damaged part, wall, deck or door next to you: 0.25 s a damage step at full speed (see **Skills**), then it has no damage.  A repaired wall or door stops leaking |
 | SKILLS | on yourself: your six skill levels on the message row |
+| INVENTORY | on yourself: the inventory screen (the same as I) |
 | TAKE OFF SUIT / PUT ON SUIT | on yourself: the suit goes into a free carry slot, or back on from its slot (see **The suit**) |
 | PICK UP | a LOOSE part goes into the first free carry slot: left hand, right hand, back |
 | PUT DOWN LEFT / RIGHT / BACK | from that carry slot onto a bare deck next to you |
@@ -60,6 +64,27 @@ carry (the cutter is light) makes a step 4 frames slower.
 
 A part that is not installed (LOOSE) is drawn in a brown crate frame,
 so you can see at a glance what is fitted and what is lying about.
+
+**The inventory.**  I or Tab (or INVENTORY on yourself) swaps the view
+for your gear, drawn in the same cell art as the ship: left hand, right
+hand and back side by side (an empty slot is a bare deck plate), then
+you.  Walking stops while it is up, but the game goes on (air, jobs).
+The mouse over a slot shows that part in the panel (`IN YOUR LEFT HAND`
+and so on) with its menu, as on the ship: INSPECT, PUT ON SUIT for the
+suit, and INSTALL for a part that installs.  INSTALL goes back to the
+ship and asks you to click the cell next to you where it goes (right
+click cancels); a cell of the wrong kind says where it goes instead.
+Then it is a normal install job (its time from the part's skills), in
+the tug or in a wreck alike:
+
+| Part | Goes on |
+|------|---------|
+| O2 tank, scrubber, battery, fuel tank, helm, bunk, locker | a bare deck |
+| wall panel (a wall), pressure door (a closed door) | a bare deck or open space |
+| spare deck plate (a deck), thruster | open space |
+
+A thruster now uninstalls too (in a wreck with the cutter): it goes
+straight into a free carry slot and leaves open space, like a deck plate.
 
 **Skills.**  You have six skills, 0-99, all starting at 10: MECHANICAL,
 ELECTRICAL, NUCLEAR, COMPUTERS, HYDRAULICS and SUIT.  Each part needs one
@@ -204,6 +229,9 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
   putting it down (still no air while loose), installing it (air again);
 - uninstalling a crate in the wreck with the cutter, the battery it uses, carrying it
   (slower steps);
+- the inventory (I, Tab): its cells, the slots in the panel; a wreck wall
+  uninstalled, picked up and installed again from the inventory (a cell
+  too far refused), the rooms and the skills after it;
 - opening the vented section: the corridor's air drops, the decks frost,
   the suit uses its O2;
 - each warning, suffocating, and Enter starting again;
