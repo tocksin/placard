@@ -139,6 +139,10 @@ s_t     = 0x60              ; the panel's subject: type
 s_f     = 0x61              ;   damage step 0-15
 n_act   = 0x62              ;   actions 0-8 (two columns of 4)
 act0    = 0x36F0            ;   the action codes, x36F0-x36F7 (not zero page)
+JB_B    = 0x36F8            ; the job's bar: its frames at full speed (a 16th of the work),
+JB_N    = 0x36F9            ;   the 16ths done,
+JB_TL   = 0x36FA            ;   the work left at the next 16th
+JB_TH   = 0x36FB
 wk_on   = 0x67              ; WALK HERE: 1 while walking to wk_x, wk_y
 wk_x    = 0x68
 wk_y    = 0x69
@@ -1862,12 +1866,12 @@ hp_s:
 ; subject_hover - the panel on the cell under the pointer.  A leaf.
 act_done:
     ld   LINK_LO, x             ; CALL refresh_cell
-    ld   scw_r156, [x]
+    ld   scw_r157, [x]
     ld   LINK_HI, x
-    ld   scw_r156 >> 8, [x]
+    ld   scw_r157 >> 8, [x]
     ld   refresh_cell >> 8, y
     jmp  refresh_cell
-scw_r156:
+scw_r157:
     ld   [dirty], ac
     or   1, ac
     ld   ac, [dirty]
@@ -3722,34 +3726,34 @@ work_end:
     ld   [rb_go], ac
     beq  we_t
     ld   LINK_LO, x             ; CALL rooms_build
-    ld   scw_r176, [x]
-    ld   LINK_HI, x
-    ld   scw_r176 >> 8, [x]
-    ld   rooms_build >> 8, y
-    jmp  rooms_build
-scw_r176:
-    ld   LINK_LO, x             ; CALL draw_view
     ld   scw_r177, [x]
     ld   LINK_HI, x
     ld   scw_r177 >> 8, [x]
-    ld   draw_view >> 8, y
-    jmp  draw_view
+    ld   rooms_build >> 8, y
+    jmp  rooms_build
 scw_r177:
-    ld   LINK_LO, x             ; CALL hover_update
+    ld   LINK_LO, x             ; CALL draw_view
     ld   scw_r178, [x]
     ld   LINK_HI, x
     ld   scw_r178 >> 8, [x]
-    ld   hover_update >> 8, y
-    jmp  hover_update
+    ld   draw_view >> 8, y
+    jmp  draw_view
 scw_r178:
-we_t:
-    ld   LINK_LO, x             ; CALL tug_scan
+    ld   LINK_LO, x             ; CALL hover_update
     ld   scw_r179, [x]
     ld   LINK_HI, x
     ld   scw_r179 >> 8, [x]
+    ld   hover_update >> 8, y
+    jmp  hover_update
+scw_r179:
+we_t:
+    ld   LINK_LO, x             ; CALL tug_scan
+    ld   scw_r180, [x]
+    ld   LINK_HI, x
+    ld   scw_r180 >> 8, [x]
     ld   tug_scan >> 8, y
     jmp  tug_scan
-scw_r179:
+scw_r180:
     ld   [dirty], ac
     or   1, ac
     ld   ac, [dirty]
@@ -3810,17 +3814,27 @@ scw_r134:
     ld   tputs >> 8, y
     jmp  tputs
 scw_r135:
+    ld   [cut_t], ac
+    beq  dm_x
+    ld   LINK_LO, x             ; CALL job_bar
+    ld   scw_r136, [x]
+    ld   LINK_HI, x
+    ld   scw_r136 >> 8, [x]
+    ld   job_bar >> 8, y
+    jmp  job_bar
+scw_r136:
+dm_x:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 dm_off:
     ld   0x04, ac
     ld   LINK_LO, x             ; CALL msg_tint
-    ld   scw_r136, [x]
+    ld   scw_r137, [x]
     ld   LINK_HI, x
-    ld   scw_r136 >> 8, [x]
+    ld   scw_r137 >> 8, [x]
     ld   msg_tint >> 8, y
     jmp  msg_tint
-scw_r136:
+scw_r137:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
@@ -3852,12 +3866,12 @@ ts_l:
 ts_c:
     xor  2, ac
     ld   LINK_LO, x             ; CALL tputc
-    ld   scw_r137, [x]
+    ld   scw_r138, [x]
     ld   LINK_HI, x
-    ld   scw_r137 >> 8, [x]
+    ld   scw_r138 >> 8, [x]
     ld   tputc >> 8, y
     jmp  tputc
-scw_r137:
+scw_r138:
 ts_n:
     ld   [R0], ac
     inc
@@ -3885,12 +3899,12 @@ ts_wl:
     ld   [y,x], ac
     beq  ts_n
     ld   LINK_LO, x             ; CALL tputc
-    ld   scw_r138, [x]
+    ld   scw_r139, [x]
     ld   LINK_HI, x
-    ld   scw_r138 >> 8, [x]
+    ld   scw_r139 >> 8, [x]
     ld   tputc >> 8, y
     jmp  tputc
-scw_r138:
+scw_r139:
     ld   [w0], ac
     inc
     ld   ac, [w0]
@@ -3942,12 +3956,12 @@ game_init:
     ld   T_CUTTER, ac
     ld   ac, [cr_t]
     ld   LINK_LO, x             ; CALL skills_init
-    ld   scw_r139, [x]
+    ld   scw_r140, [x]
     ld   LINK_HI, x
-    ld   scw_r139 >> 8, [x]
+    ld   scw_r140 >> 8, [x]
     ld   skills_init >> 8, y
     jmp  skills_init
-scw_r139:
+scw_r140:
     ld   SUIT_O2, ac
     ld   ac, [o2]
     ld   100, ac
@@ -3977,19 +3991,19 @@ gi_n:
     xor  0x40, ac
     bne  gi_l
     ld   LINK_LO, x             ; CALL rooms_build
-    ld   scw_r140, [x]
-    ld   LINK_HI, x
-    ld   scw_r140 >> 8, [x]
-    ld   rooms_build >> 8, y
-    jmp  rooms_build
-scw_r140:
-    ld   LINK_LO, x             ; CALL tug_scan
     ld   scw_r141, [x]
     ld   LINK_HI, x
     ld   scw_r141 >> 8, [x]
+    ld   rooms_build >> 8, y
+    jmp  rooms_build
+scw_r141:
+    ld   LINK_LO, x             ; CALL tug_scan
+    ld   scw_r142, [x]
+    ld   LINK_HI, x
+    ld   scw_r142 >> 8, [x]
     ld   tug_scan >> 8, y
     jmp  tug_scan
-scw_r141:
+scw_r142:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
@@ -4011,12 +4025,12 @@ game_tick:
     ld   [cut_t], ac
     beq  gt_1
     ld   LINK_LO, x             ; CALL work_tick
-    ld   scw_r142, [x]
+    ld   scw_r143, [x]
     ld   LINK_HI, x
-    ld   scw_r142 >> 8, [x]
+    ld   scw_r143 >> 8, [x]
     ld   work_tick >> 8, y
     jmp  work_tick
-scw_r142:
+scw_r143:
 gt_1:
     ld   [air_t], ac
     inc
@@ -4024,12 +4038,12 @@ gt_1:
     ld   ac, [air_t]
     bne  gt_2
     ld   LINK_LO, x             ; CALL air_tick
-    ld   scw_r143, [x]
+    ld   scw_r144, [x]
     ld   LINK_HI, x
-    ld   scw_r143 >> 8, [x]
+    ld   scw_r144 >> 8, [x]
     ld   air_tick >> 8, y
     jmp  air_tick
-scw_r143:
+scw_r144:
 gt_2:
     ld   [sec_t], ac
     inc
@@ -4038,12 +4052,12 @@ gt_2:
     bne  gt_e
     ld   ac, [sec_t]            ; AC = 0
     ld   LINK_LO, x             ; CALL second_tick
-    ld   scw_r144, [x]
+    ld   scw_r145, [x]
     ld   LINK_HI, x
-    ld   scw_r144 >> 8, [x]
+    ld   scw_r145 >> 8, [x]
     ld   second_tick >> 8, y
     jmp  second_tick
-scw_r144:
+scw_r145:
 gt_e:
     ld   sc_leave >> 8, y
     jmp  sc_leave
@@ -4109,12 +4123,12 @@ at_d:
     xor  T_LOCK, ac
     beq  at_o
     ld   LINK_LO, x             ; a closed door or a wall: leaks if broken
-    ld   scw_r145, [x]
+    ld   scw_r146, [x]
     ld   LINK_HI, x
-    ld   scw_r145 >> 8, [x]
+    ld   scw_r146 >> 8, [x]
     ld   air_crack >> 8, y
     jmp  air_crack
-scw_r145:
+scw_r146:
     bra  at_n
 at_o:
     ld   DOOR_PG, y
@@ -4280,12 +4294,12 @@ ac_e:
     ld   [v3], ac
     beq  ac_x
     ld   LINK_LO, x             ; CALL draw_view
-    ld   scw_r146, [x]
+    ld   scw_r147, [x]
     ld   LINK_HI, x
-    ld   scw_r146 >> 8, [x]
+    ld   scw_r147 >> 8, [x]
     ld   draw_view >> 8, y
     jmp  draw_view
-scw_r146:
+scw_r147:
     ld   [dirty], ac
     or   1, ac
     ld   ac, [dirty]
@@ -4310,12 +4324,12 @@ second_tick:
     ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   LINK_LO, x             ; CALL tug_scan
-    ld   scw_r147, [x]
+    ld   scw_r148, [x]
     ld   LINK_HI, x
-    ld   scw_r147 >> 8, [x]
+    ld   scw_r148 >> 8, [x]
     ld   tug_scan >> 8, y
     jmp  tug_scan
-scw_r147:
+scw_r148:
     ld   [suit_on], ac
     bne  st_0
     ld   nosuit_tick >> 8, y
@@ -4326,12 +4340,12 @@ st_0:
     ld   [p_y], ac
     ld   ac, [g_y]
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r148, [x]
+    ld   scw_r149, [x]
     ld   LINK_HI, x
-    ld   scw_r148 >> 8, [x]
+    ld   scw_r149 >> 8, [x]
     ld   map_get >> 8, y
     jmp  map_get
-scw_r148:
+scw_r149:
     ld   ROOM_P >> 8, y
     ld   [c_r], x
     ld   [y,x], ac
@@ -4470,12 +4484,12 @@ ss_x:
 ; in $10); a part counts once it is installed (bolted).  Then tug_sum
 pick_action:
     ld   LINK_LO, x             ; CALL near
-    ld   scw_r150, [x]
+    ld   scw_r151, [x]
     ld   LINK_HI, x
-    ld   scw_r150 >> 8, [x]
+    ld   scw_r151 >> 8, [x]
     ld   near >> 8, y
     jmp  near
-scw_r150:
+scw_r151:
     beq  pk_far
     ld   cl_t, ac
     ld   ac, [v0]
@@ -4493,12 +4507,12 @@ pk_l:
     ld   s_full >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r151, [x]
+    ld   scw_r152, [x]
     ld   LINK_HI, x
-    ld   scw_r151 >> 8, [x]
+    ld   scw_r152 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r151:
+scw_r152:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 pk_s:
@@ -4513,28 +4527,28 @@ pk_s:
     ld   [s_y], ac
     ld   ac, [g_y]
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r152, [x]
-    ld   LINK_HI, x
-    ld   scw_r152 >> 8, [x]
-    ld   map_get >> 8, y
-    jmp  map_get
-scw_r152:
-    ld   T_FLOOR, ac
-    ld   LINK_LO, x             ; CALL map_put
     ld   scw_r153, [x]
     ld   LINK_HI, x
     ld   scw_r153 >> 8, [x]
-    ld   map_put >> 8, y
-    jmp  map_put
+    ld   map_get >> 8, y
+    jmp  map_get
 scw_r153:
-    clr  ac
-    ld   LINK_LO, x             ; CALL map_setd
+    ld   T_FLOOR, ac
+    ld   LINK_LO, x             ; CALL map_put
     ld   scw_r154, [x]
     ld   LINK_HI, x
     ld   scw_r154 >> 8, [x]
+    ld   map_put >> 8, y
+    jmp  map_put
+scw_r154:
+    clr  ac
+    ld   LINK_LO, x             ; CALL map_setd
+    ld   scw_r155, [x]
+    ld   LINK_HI, x
+    ld   scw_r155 >> 8, [x]
     ld   map_setd >> 8, y
     jmp  map_setd
-scw_r154:
+scw_r155:
     ld   act_done >> 8, y
     jmp  act_done
 pk_far:
@@ -4543,12 +4557,12 @@ pk_far:
     ld   s_toofar >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r155, [x]
+    ld   scw_r156, [x]
     ld   LINK_HI, x
-    ld   scw_r155 >> 8, [x]
+    ld   scw_r156 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r155:
+scw_r156:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
@@ -4587,12 +4601,12 @@ ty_x:
     ld   [v1], ac
     ld   ac, [g_y]
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r149, [x]
+    ld   scw_r150, [x]
     ld   LINK_HI, x
-    ld   scw_r149 >> 8, [x]
+    ld   scw_r150 >> 8, [x]
     ld   map_get >> 8, y
     jmp  map_get
-scw_r149:
+scw_r150:
     ld   ac, x                  ; a loose part is not part of the tug
     ld   TAB_PG, y
     ld   [y,x], ac
@@ -4720,12 +4734,12 @@ ts_seal:
 #addr 0x1D00
 put_action:
     ld   LINK_LO, x             ; CALL near
-    ld   scw_r157, [x]
+    ld   scw_r158, [x]
     ld   LINK_HI, x
-    ld   scw_r157 >> 8, [x]
+    ld   scw_r158 >> 8, [x]
     ld   near >> 8, y
     jmp  near
-scw_r157:
+scw_r158:
     beq  pu_far
     ld   [s_x], ac
     xor  [p_x], ac
@@ -4738,12 +4752,12 @@ scw_r157:
     ld   s_inway >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r158, [x]
+    ld   scw_r159, [x]
     ld   LINK_HI, x
-    ld   scw_r158 >> 8, [x]
+    ld   scw_r159 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r158:
+scw_r159:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 pu_ok:
@@ -4756,34 +4770,34 @@ pu_ok:
     ld   [s_y], ac
     ld   ac, [g_y]
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r159, [x]
+    ld   scw_r160, [x]
     ld   LINK_HI, x
-    ld   scw_r159 >> 8, [x]
+    ld   scw_r160 >> 8, [x]
     ld   map_get >> 8, y
     jmp  map_get
-scw_r159:
+scw_r160:
     xor  T_FLOOR, ac
     bne  pu_e
     ld   [v0], x
     ld   [x], ac
     beq  pu_e
     ld   LINK_LO, x             ; CALL map_put
-    ld   scw_r160, [x]
+    ld   scw_r161, [x]
     ld   LINK_HI, x
-    ld   scw_r160 >> 8, [x]
+    ld   scw_r161 >> 8, [x]
     ld   map_put >> 8, y
     jmp  map_put
-scw_r160:
+scw_r161:
     ld   [v0], ac
     add  3, x
     ld   [x], ac
     ld   LINK_LO, x             ; CALL map_setd
-    ld   scw_r161, [x]
+    ld   scw_r162, [x]
     ld   LINK_HI, x
-    ld   scw_r161 >> 8, [x]
+    ld   scw_r162 >> 8, [x]
     ld   map_setd >> 8, y
     jmp  map_setd
-scw_r161:
+scw_r162:
     ld   [v0], x
     clr  ac
     ld   ac, [x]
@@ -4795,12 +4809,12 @@ pu_far:
     ld   s_toofar >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r162, [x]
+    ld   scw_r163, [x]
     ld   LINK_HI, x
-    ld   scw_r162 >> 8, [x]
+    ld   scw_r163 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r162:
+scw_r163:
 pu_e:
     ld   sc_leave >> 8, y
     jmp  sc_leave
@@ -4824,24 +4838,24 @@ plate_room:
     xor  T_FLOOR, ac
     bne  pr_ok
     ld   LINK_LO, x             ; CALL free_slot
-    ld   scw_r187, [x]
+    ld   scw_r188, [x]
     ld   LINK_HI, x
-    ld   scw_r187 >> 8, [x]
+    ld   scw_r188 >> 8, [x]
     ld   free_slot >> 8, y
     jmp  free_slot
-scw_r187:
+scw_r188:
     bne  pr_ok
     ld   s_full & 0xFF, ac
     ld   ac, [R0]
     ld   s_full >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r188, [x]
+    ld   scw_r189, [x]
     ld   LINK_HI, x
-    ld   scw_r188 >> 8, [x]
+    ld   scw_r189 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r188:
+scw_r189:
     clr  ac
     ld   sc_leave >> 8, y
     jmp  sc_leave
@@ -4863,12 +4877,12 @@ dyn_rep:
     beq  dq_e
     ld   A_REPAIR, ac
     ld   LINK_LO, x             ; CALL add_act
-    ld   scw_r270, [x]
+    ld   scw_r272, [x]
     ld   LINK_HI, x
-    ld   scw_r270 >> 8, [x]
+    ld   scw_r272 >> 8, [x]
     ld   add_act >> 8, y
     jmp  add_act
-scw_r270:
+scw_r272:
 dq_e:
     ld   sc_leave >> 8, y
     jmp  sc_leave
@@ -4879,12 +4893,12 @@ dq_e:
 #addr 0x1E00
 cut_action:
     ld   LINK_LO, x             ; CALL near
-    ld   scw_r163, [x]
+    ld   scw_r164, [x]
     ld   LINK_HI, x
-    ld   scw_r163 >> 8, [x]
+    ld   scw_r164 >> 8, [x]
     ld   near >> 8, y
     jmp  near
-scw_r163:
+scw_r164:
     beq  cu_far
     ld   [cl_t], ac
     xor  T_CUTTER, ac
@@ -4905,22 +4919,22 @@ cu_no:
     ld   s_nocut >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r164, [x]
+    ld   scw_r165, [x]
     ld   LINK_HI, x
-    ld   scw_r164 >> 8, [x]
+    ld   scw_r165 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r164:
+scw_r165:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 cu_ok:
     ld   LINK_LO, x             ; CALL plate_room
-    ld   scw_r165, [x]
+    ld   scw_r166, [x]
     ld   LINK_HI, x
-    ld   scw_r165 >> 8, [x]
+    ld   scw_r166 >> 8, [x]
     ld   plate_room >> 8, y
     jmp  plate_room
-scw_r165:
+scw_r166:
     beq  cu_e
     ld   [batt], ac
     sub  CUT_BATT, ac
@@ -4929,12 +4943,12 @@ scw_r165:
     ld   ac, [cut_m]
     ld   CUT_FRAMES, ac
     ld   LINK_LO, x             ; CALL job_start
-    ld   scw_r166, [x]
+    ld   scw_r167, [x]
     ld   LINK_HI, x
-    ld   scw_r166 >> 8, [x]
+    ld   scw_r167 >> 8, [x]
     ld   job_start >> 8, y
     jmp  job_start
-scw_r166:
+scw_r167:
     ld   [s_x], ac
     ld   ac, [cut_x]
     ld   [s_y], ac
@@ -4944,12 +4958,12 @@ scw_r166:
     ld   s_cutting >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r167, [x]
+    ld   scw_r168, [x]
     ld   LINK_HI, x
-    ld   scw_r167 >> 8, [x]
+    ld   scw_r168 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r167:
+scw_r168:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 cu_nb:
@@ -4958,12 +4972,12 @@ cu_nb:
     ld   s_nobatt >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r168, [x]
+    ld   scw_r169, [x]
     ld   LINK_HI, x
-    ld   scw_r168 >> 8, [x]
+    ld   scw_r169 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r168:
+scw_r169:
 cu_e:
     ld   sc_leave >> 8, y
     jmp  sc_leave
@@ -4973,12 +4987,12 @@ cu_far:
     ld   s_toofar >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r169, [x]
+    ld   scw_r170, [x]
     ld   LINK_HI, x
-    ld   scw_r169 >> 8, [x]
+    ld   scw_r170 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r169:
+scw_r170:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
@@ -5023,12 +5037,12 @@ ds_l:
     ld   A_LAY, ac
 ds_a:
     ld   LINK_LO, x             ; CALL add_act
-    ld   scw_r195, [x]
+    ld   scw_r196, [x]
     ld   LINK_HI, x
-    ld   scw_r195 >> 8, [x]
+    ld   scw_r196 >> 8, [x]
     ld   add_act >> 8, y
     jmp  add_act
-scw_r195:
+scw_r196:
 ds_e:
     ld   dyn_rep >> 8, y
     jmp  dyn_rep
@@ -5058,12 +5072,12 @@ cut_done:
     ld   [cut_y], ac
     ld   ac, [g_y]
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r170, [x]
+    ld   scw_r171, [x]
     ld   LINK_HI, x
-    ld   scw_r170 >> 8, [x]
+    ld   scw_r171 >> 8, [x]
     ld   map_get >> 8, y
     jmp  map_get
-scw_r170:
+scw_r171:
     ld   [cut_m], ac
     xor  3, ac
     bne  cd_0
@@ -5094,12 +5108,12 @@ cd_k:
     ld   T_DOOR, ac
 cd_s:
     ld   LINK_LO, x             ; CALL map_put
-    ld   scw_r171, [x]
+    ld   scw_r172, [x]
     ld   LINK_HI, x
-    ld   scw_r171 >> 8, [x]
+    ld   scw_r172 >> 8, [x]
     ld   map_put >> 8, y
     jmp  map_put
-scw_r171:
+scw_r172:
     ld   1, ac
     ld   ac, [rb_go]
     bra  cd_im
@@ -5107,12 +5121,12 @@ cd_b:
     ld   [c_t], ac              ; a part: bolted
     or   0x80, ac
     ld   LINK_LO, x             ; CALL map_put
-    ld   scw_r172, [x]
+    ld   scw_r173, [x]
     ld   LINK_HI, x
-    ld   scw_r172 >> 8, [x]
+    ld   scw_r173 >> 8, [x]
     ld   map_put >> 8, y
     jmp  map_put
-scw_r172:
+scw_r173:
 cd_im:
     ld   s_instdone & 0xFF, ac
     ld   ac, [R0]
@@ -5121,12 +5135,12 @@ cd_im:
 cd_f:
     ld   [c_t], ac
     ld   LINK_LO, x             ; the same type, not bolted
-    ld   scw_r173, [x]
+    ld   scw_r174, [x]
     ld   LINK_HI, x
-    ld   scw_r173 >> 8, [x]
+    ld   scw_r174 >> 8, [x]
     ld   map_put >> 8, y
     jmp  map_put
-scw_r173:
+scw_r174:
     ld   [cut_m], ac
     beq  cd_c
     ld   s_uninstdone & 0xFF, ac
@@ -5135,24 +5149,24 @@ scw_r173:
     bra  cd_m
 cd_c:
     ld   LINK_LO, x             ; CALL cut_pay
-    ld   scw_r174, [x]
+    ld   scw_r175, [x]
     ld   LINK_HI, x
-    ld   scw_r174 >> 8, [x]
+    ld   scw_r175 >> 8, [x]
     ld   cut_pay >> 8, y
     jmp  cut_pay
-scw_r174:
+scw_r175:
     ld   s_cutdone & 0xFF, ac
     ld   ac, [R0]
     ld   s_cutdone >> 8, ac
 cd_m:
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r175, [x]
+    ld   scw_r176, [x]
     ld   LINK_HI, x
-    ld   scw_r175 >> 8, [x]
+    ld   scw_r176 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r175:
+scw_r176:
     ld   work_end >> 8, y
     jmp  work_end
 
@@ -5164,20 +5178,20 @@ rl_set:
     ld   [rb_cy], ac
     ld   ac, [g_y]
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r217, [x]
-    ld   LINK_HI, x
-    ld   scw_r217 >> 8, [x]
-    ld   map_get >> 8, y
-    jmp  map_get
-scw_r217:
-    ld   [v6], ac
-    ld   LINK_LO, x             ; CALL set_room
     ld   scw_r218, [x]
     ld   LINK_HI, x
     ld   scw_r218 >> 8, [x]
+    ld   map_get >> 8, y
+    jmp  map_get
+scw_r218:
+    ld   [v6], ac
+    ld   LINK_LO, x             ; CALL set_room
+    ld   scw_r219, [x]
+    ld   LINK_HI, x
+    ld   scw_r219 >> 8, [x]
     ld   set_room >> 8, y
     jmp  set_room
-scw_r218:
+scw_r219:
     ld   [rb_x], ac
     inc
     ld   ac, [rb_x]
@@ -5204,21 +5218,21 @@ sd_d:
     ld   T_DOORK, ac            ; a door, open or closed
 sd_p:
     ld   LINK_LO, x             ; loose, its damage kept
-    ld   scw_r180, [x]
-    ld   LINK_HI, x
-    ld   scw_r180 >> 8, [x]
-    ld   map_put >> 8, y
-    jmp  map_put
-scw_r180:
-    bra  sd_m
-sd_f:
-    ld   LINK_LO, x             ; CALL free_slot
     ld   scw_r181, [x]
     ld   LINK_HI, x
     ld   scw_r181 >> 8, [x]
+    ld   map_put >> 8, y
+    jmp  map_put
+scw_r181:
+    bra  sd_m
+sd_f:
+    ld   LINK_LO, x             ; CALL free_slot
+    ld   scw_r182, [x]
+    ld   LINK_HI, x
+    ld   scw_r182 >> 8, [x]
     ld   free_slot >> 8, y
     jmp  free_slot
-scw_r181:
+scw_r182:
     beq  sd_full
     ld   ac, [v0]
     ld   [v0], x
@@ -5230,30 +5244,30 @@ scw_r181:
     ld   ac, [x]
     ld   T_SPACE, ac
     ld   LINK_LO, x             ; CALL map_put
-    ld   scw_r182, [x]
-    ld   LINK_HI, x
-    ld   scw_r182 >> 8, [x]
-    ld   map_put >> 8, y
-    jmp  map_put
-scw_r182:
-    clr  ac
-    ld   LINK_LO, x             ; CALL map_setd
     ld   scw_r183, [x]
     ld   LINK_HI, x
     ld   scw_r183 >> 8, [x]
+    ld   map_put >> 8, y
+    jmp  map_put
+scw_r183:
+    clr  ac
+    ld   LINK_LO, x             ; CALL map_setd
+    ld   scw_r184, [x]
+    ld   LINK_HI, x
+    ld   scw_r184 >> 8, [x]
     ld   map_setd >> 8, y
     jmp  map_setd
-scw_r183:
+scw_r184:
 sd_m:
     ld   [cut_m], ac
     bne  sd_u
     ld   LINK_LO, x             ; CALL cut_pay
-    ld   scw_r184, [x]
+    ld   scw_r185, [x]
     ld   LINK_HI, x
-    ld   scw_r184 >> 8, [x]
+    ld   scw_r185 >> 8, [x]
     ld   cut_pay >> 8, y
     jmp  cut_pay
-scw_r184:
+scw_r185:
 sd_u:
     ld   [c_t], ac
     xor  T_FLOOR, ac
@@ -5276,12 +5290,12 @@ sd_pl:
 sd_e:
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r185, [x]
+    ld   scw_r186, [x]
     ld   LINK_HI, x
-    ld   scw_r185 >> 8, [x]
+    ld   scw_r186 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r185:
+scw_r186:
     ld   work_end >> 8, y
     jmp  work_end
 sd_full:
@@ -5290,12 +5304,12 @@ sd_full:
     ld   s_full >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r186, [x]
+    ld   scw_r187, [x]
     ld   LINK_HI, x
-    ld   scw_r186 >> 8, [x]
+    ld   scw_r187 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r186:
+scw_r187:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
@@ -5349,12 +5363,12 @@ rb_c2:
 #addr 0x2200
 lay_action:
     ld   LINK_LO, x             ; CALL near
-    ld   scw_r189, [x]
+    ld   scw_r190, [x]
     ld   LINK_HI, x
-    ld   scw_r189 >> 8, [x]
+    ld   scw_r190 >> 8, [x]
     ld   near >> 8, y
     jmp  near
-scw_r189:
+scw_r190:
     beq  ly_far
     ld   cl_t, ac
     ld   ac, [v0]
@@ -5376,30 +5390,30 @@ ly_ok:
     ld   [s_y], ac
     ld   ac, [g_y]
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r190, [x]
-    ld   LINK_HI, x
-    ld   scw_r190 >> 8, [x]
-    ld   map_get >> 8, y
-    jmp  map_get
-scw_r190:
-    ld   T_FLOOR, ac
-    ld   LINK_LO, x             ; CALL map_put
     ld   scw_r191, [x]
     ld   LINK_HI, x
     ld   scw_r191 >> 8, [x]
+    ld   map_get >> 8, y
+    jmp  map_get
+scw_r191:
+    ld   T_FLOOR, ac
+    ld   LINK_LO, x             ; CALL map_put
+    ld   scw_r192, [x]
+    ld   LINK_HI, x
+    ld   scw_r192 >> 8, [x]
     ld   map_put >> 8, y
     jmp  map_put
-scw_r191:
+scw_r192:
     ld   [v0], ac
     add  3, x
     ld   [x], ac
     ld   LINK_LO, x             ; CALL map_setd
-    ld   scw_r192, [x]
+    ld   scw_r193, [x]
     ld   LINK_HI, x
-    ld   scw_r192 >> 8, [x]
+    ld   scw_r193 >> 8, [x]
     ld   map_setd >> 8, y
     jmp  map_setd
-scw_r192:
+scw_r193:
     ld   [v0], x
     clr  ac
     ld   ac, [x]
@@ -5408,12 +5422,12 @@ scw_r192:
     ld   s_laid >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r193, [x]
+    ld   scw_r194, [x]
     ld   LINK_HI, x
-    ld   scw_r193 >> 8, [x]
+    ld   scw_r194 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r193:
+scw_r194:
     ld   1, ac
     ld   ac, [rb_go]
     ld   work_end >> 8, y
@@ -5424,12 +5438,12 @@ ly_far:
     ld   s_toofar >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r194, [x]
+    ld   scw_r195, [x]
     ld   LINK_HI, x
-    ld   scw_r194 >> 8, [x]
+    ld   scw_r195 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r194:
+scw_r195:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
@@ -5488,12 +5502,12 @@ rs_z:
     beq  rs_e
     clr  ac
     ld   LINK_LO, x             ; CALL set_room
-    ld   scw_r200, [x]
+    ld   scw_r201, [x]
     ld   LINK_HI, x
-    ld   scw_r200 >> 8, [x]
+    ld   scw_r201 >> 8, [x]
     ld   set_room >> 8, y
     jmp  set_room
-scw_r200:
+scw_r201:
 rs_e:
     ld   sc_leave >> 8, y
     jmp  sc_leave
@@ -5600,39 +5614,39 @@ rb_fill:
     ld   [SAVE_AC], ac
 rf_l:
     ld   LINK_LO, x             ; CALL rb_pop
-    ld   scw_r201, [x]
+    ld   scw_r202, [x]
     ld   LINK_HI, x
-    ld   scw_r201 >> 8, [x]
+    ld   scw_r202 >> 8, [x]
     ld   rb_pop >> 8, y
     jmp  rb_pop
-scw_r201:
+scw_r202:
     beq  rf_e
     ld   [rb_cx], ac
     ld   ac, [g_x]
     ld   [rb_cy], ac
     ld   ac, [g_y]
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r202, [x]
-    ld   LINK_HI, x
-    ld   scw_r202 >> 8, [x]
-    ld   map_get >> 8, y
-    jmp  map_get
-scw_r202:
-    ld   LINK_LO, x             ; CALL rb_acc
     ld   scw_r203, [x]
     ld   LINK_HI, x
     ld   scw_r203 >> 8, [x]
-    ld   rb_acc >> 8, y
-    jmp  rb_acc
+    ld   map_get >> 8, y
+    jmp  map_get
 scw_r203:
-    ld   [rb_n], ac
-    ld   LINK_LO, x             ; CALL set_room
+    ld   LINK_LO, x             ; CALL rb_acc
     ld   scw_r204, [x]
     ld   LINK_HI, x
     ld   scw_r204 >> 8, [x]
+    ld   rb_acc >> 8, y
+    jmp  rb_acc
+scw_r204:
+    ld   [rb_n], ac
+    ld   LINK_LO, x             ; CALL set_room
+    ld   scw_r205, [x]
+    ld   LINK_HI, x
+    ld   scw_r205 >> 8, [x]
     ld   set_room >> 8, y
     jmp  set_room
-scw_r204:
+scw_r205:
     clr  ac
     ld   ac, [rb_k]
     ld   rb_nbs >> 8, y
@@ -5684,24 +5698,24 @@ rb_sx:
     ld   [rb_y], ac
     ld   ac, [g_y]
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r196, [x]
+    ld   scw_r197, [x]
     ld   LINK_HI, x
-    ld   scw_r196 >> 8, [x]
+    ld   scw_r197 >> 8, [x]
     ld   map_get >> 8, y
     jmp  map_get
-scw_r196:
+scw_r197:
     ld   ac, x
     ld   TAB_PG, y
     ld   [y,x], ac
     and  F_SOLID, ac
     beq  rb_air
     ld   LINK_LO, x             ; CALL rb_solid
-    ld   scw_r197, [x]
+    ld   scw_r198, [x]
     ld   LINK_HI, x
-    ld   scw_r197 >> 8, [x]
+    ld   scw_r198 >> 8, [x]
     ld   rb_solid >> 8, y
     jmp  rb_solid
-scw_r197:
+scw_r198:
     bra  rb_nx
 rb_air:
     ld   [g_y], ac
@@ -5743,19 +5757,19 @@ rb_air:
     ld   ac, [rb_n]
 rb_f:
     ld   LINK_LO, x             ; CALL rb_push
-    ld   scw_r198, [x]
-    ld   LINK_HI, x
-    ld   scw_r198 >> 8, [x]
-    ld   rb_push >> 8, y
-    jmp  rb_push
-scw_r198:
-    ld   LINK_LO, x             ; CALL rb_fill
     ld   scw_r199, [x]
     ld   LINK_HI, x
     ld   scw_r199 >> 8, [x]
+    ld   rb_push >> 8, y
+    jmp  rb_push
+scw_r199:
+    ld   LINK_LO, x             ; CALL rb_fill
+    ld   scw_r200, [x]
+    ld   LINK_HI, x
+    ld   scw_r200 >> 8, [x]
     ld   rb_fill >> 8, y
     jmp  rb_fill
-scw_r199:
+scw_r200:
 rb_nx:
     ld   [rb_x], ac
     inc
@@ -5829,20 +5843,20 @@ ra_e:
 rb_nbs:
 rn_l:
     ld   LINK_LO, x             ; CALL rb_nb
-    ld   scw_r205, [x]
-    ld   LINK_HI, x
-    ld   scw_r205 >> 8, [x]
-    ld   rb_nb >> 8, y
-    jmp  rb_nb
-scw_r205:
-    bne  rn_in
-    ld   LINK_LO, x             ; CALL rb_leak
     ld   scw_r206, [x]
     ld   LINK_HI, x
     ld   scw_r206 >> 8, [x]
+    ld   rb_nb >> 8, y
+    jmp  rb_nb
+scw_r206:
+    bne  rn_in
+    ld   LINK_LO, x             ; CALL rb_leak
+    ld   scw_r207, [x]
+    ld   LINK_HI, x
+    ld   scw_r207 >> 8, [x]
     ld   rb_leak >> 8, y
     jmp  rb_leak
-scw_r206:
+scw_r207:
     bra  rn_k
 rn_in:
     ld   [g_y], ac
@@ -5877,12 +5891,12 @@ rn_in:
     and  [u4], ac
     bne  rn_k
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r207, [x]
+    ld   scw_r208, [x]
     ld   LINK_HI, x
-    ld   scw_r207 >> 8, [x]
+    ld   scw_r208 >> 8, [x]
     ld   map_get >> 8, y
     jmp  map_get
-scw_r207:
+scw_r208:
     ld   ac, x
     ld   TAB_PG, y
     ld   [y,x], ac
@@ -5890,23 +5904,23 @@ scw_r207:
     and  F_VAC, ac
     beq  rn_s
     ld   LINK_LO, x             ; CALL rb_leak
-    ld   scw_r208, [x]
+    ld   scw_r209, [x]
     ld   LINK_HI, x
-    ld   scw_r208 >> 8, [x]
+    ld   scw_r209 >> 8, [x]
     ld   rb_leak >> 8, y
     jmp  rb_leak
-scw_r208:
+scw_r209:
 rn_s:
     ld   [v1], ac
     and  F_SOLID, ac
     bne  rn_k
     ld   LINK_LO, x             ; CALL rb_push
-    ld   scw_r209, [x]
+    ld   scw_r210, [x]
     ld   LINK_HI, x
-    ld   scw_r209 >> 8, [x]
+    ld   scw_r210 >> 8, [x]
     ld   rb_push >> 8, y
     jmp  rb_push
-scw_r209:
+scw_r210:
 rn_k:
     ld   [rb_k], ac
     inc
@@ -5965,6 +5979,10 @@ nb_o:
 
 ; rb_push - g_x, g_y marked filled and on the stack (not when it is
 ; full).  A leaf.
+JB_TAB:
+    #d8 zj_0 & 0xFF, zj_1 & 0xFF, zj_2 & 0xFF, zj_3 & 0xFF, zj_4 & 0xFF, zj_5 & 0xFF, zj_6 & 0xFF, zj_7 & 0xFF, zj_8 & 0xFF, zj_9 & 0xFF, zj_10 & 0xFF, zj_11 & 0xFF, zj_12 & 0xFF, zj_13 & 0xFF, zj_14 & 0xFF, zj_15 & 0xFF, zj_16 & 0xFF
+    #d8 zj_0 >> 8, zj_1 >> 8, zj_2 >> 8, zj_3 >> 8, zj_4 >> 8, zj_5 >> 8, zj_6 >> 8, zj_7 >> 8, zj_8 >> 8, zj_9 >> 8, zj_10 >> 8, zj_11 >> 8, zj_12 >> 8, zj_13 >> 8, zj_14 >> 8, zj_15 >> 8, zj_16 >> 8
+
 
 #addr 0x2600
 rb_push:
@@ -6049,12 +6067,12 @@ rl_1:
     ld   ac, [rb_cy]
     ld   ac, [g_y]
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r210, [x]
+    ld   scw_r211, [x]
     ld   LINK_HI, x
-    ld   scw_r210 >> 8, [x]
+    ld   scw_r211 >> 8, [x]
     ld   map_get >> 8, y
     jmp  map_get
-scw_r210:
+scw_r211:
     ld   [a_pg], ac
     ld   ac, [v1]
     ld   [a_ix], ac
@@ -6064,41 +6082,31 @@ scw_r210:
     ld   1, ac                  ; left and right
     ld   ac, [rb_k]
     ld   LINK_LO, x             ; CALL rl_side
-    ld   scw_r211, [x]
-    ld   LINK_HI, x
-    ld   scw_r211 >> 8, [x]
-    ld   rl_side >> 8, y
-    jmp  rl_side
-scw_r211:
-    ld   ac, [v4]
-    clr  ac
-    ld   ac, [rb_k]
-    ld   LINK_LO, x             ; CALL rl_side
     ld   scw_r212, [x]
     ld   LINK_HI, x
     ld   scw_r212 >> 8, [x]
     ld   rl_side >> 8, y
     jmp  rl_side
 scw_r212:
-    ld   ac, [v3]
-    ld   LINK_LO, x             ; CALL rl_add
+    ld   ac, [v4]
+    clr  ac
+    ld   ac, [rb_k]
+    ld   LINK_LO, x             ; CALL rl_side
     ld   scw_r213, [x]
     ld   LINK_HI, x
     ld   scw_r213 >> 8, [x]
-    ld   rl_add >> 8, y
-    jmp  rl_add
+    ld   rl_side >> 8, y
+    jmp  rl_side
 scw_r213:
-    ld   3, ac                  ; up and down
-    ld   ac, [rb_k]
-    ld   LINK_LO, x             ; CALL rl_side
+    ld   ac, [v3]
+    ld   LINK_LO, x             ; CALL rl_add
     ld   scw_r214, [x]
     ld   LINK_HI, x
     ld   scw_r214 >> 8, [x]
-    ld   rl_side >> 8, y
-    jmp  rl_side
+    ld   rl_add >> 8, y
+    jmp  rl_add
 scw_r214:
-    ld   ac, [v4]
-    ld   2, ac
+    ld   3, ac                  ; up and down
     ld   ac, [rb_k]
     ld   LINK_LO, x             ; CALL rl_side
     ld   scw_r215, [x]
@@ -6107,14 +6115,24 @@ scw_r214:
     ld   rl_side >> 8, y
     jmp  rl_side
 scw_r215:
-    ld   ac, [v3]
-    ld   LINK_LO, x             ; CALL rl_add
+    ld   ac, [v4]
+    ld   2, ac
+    ld   ac, [rb_k]
+    ld   LINK_LO, x             ; CALL rl_side
     ld   scw_r216, [x]
     ld   LINK_HI, x
     ld   scw_r216 >> 8, [x]
+    ld   rl_side >> 8, y
+    jmp  rl_side
+scw_r216:
+    ld   ac, [v3]
+    ld   LINK_LO, x             ; CALL rl_add
+    ld   scw_r217, [x]
+    ld   LINK_HI, x
+    ld   scw_r217 >> 8, [x]
     ld   rl_add >> 8, y
     jmp  rl_add
-scw_r216:
+scw_r217:
     ld   rl_set >> 8, y
     jmp  rl_set
 
@@ -6135,20 +6153,20 @@ rl_side:
     ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   LINK_LO, x             ; CALL rb_nb
-    ld   scw_r219, [x]
-    ld   LINK_HI, x
-    ld   scw_r219 >> 8, [x]
-    ld   rb_nb >> 8, y
-    jmp  rb_nb
-scw_r219:
-    beq  sd_0
-    ld   LINK_LO, x             ; CALL map_get
     ld   scw_r220, [x]
     ld   LINK_HI, x
     ld   scw_r220 >> 8, [x]
+    ld   rb_nb >> 8, y
+    jmp  rb_nb
+scw_r220:
+    beq  sd_0
+    ld   LINK_LO, x             ; CALL map_get
+    ld   scw_r221, [x]
+    ld   LINK_HI, x
+    ld   scw_r221 >> 8, [x]
     ld   map_get >> 8, y
     jmp  map_get
-scw_r220:
+scw_r221:
     xor  T_LOCK, ac
     bne  sd_1
     ld   [rb_cx], ac            ; step over the other lock
@@ -6160,12 +6178,12 @@ scw_r220:
     ld   [g_y], ac
     ld   ac, [rb_cy]
     ld   LINK_LO, x             ; CALL rb_nb
-    ld   scw_r221, [x]
+    ld   scw_r222, [x]
     ld   LINK_HI, x
-    ld   scw_r221 >> 8, [x]
+    ld   scw_r222 >> 8, [x]
     ld   rb_nb >> 8, y
     jmp  rb_nb
-scw_r221:
+scw_r222:
     ld   ac, [v3]
     ld   [rb_y], ac             ; the link cell back
     ld   ac, [rb_cx]
@@ -6174,12 +6192,12 @@ scw_r221:
     ld   [v3], ac
     beq  sd_0
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r222, [x]
+    ld   scw_r223, [x]
     ld   LINK_HI, x
-    ld   scw_r222 >> 8, [x]
+    ld   scw_r223 >> 8, [x]
     ld   map_get >> 8, y
     jmp  map_get
-scw_r222:
+scw_r223:
 sd_1:
     ld   [c_t], ac
     ld   ac, x
@@ -6267,12 +6285,12 @@ put_dec8:
     clr  ac
     ld   ac, [num_h]
     ld   LINK_LO, x             ; CALL put_dec
-    ld   scw_r261, [x]
+    ld   scw_r262, [x]
     ld   LINK_HI, x
-    ld   scw_r261 >> 8, [x]
+    ld   scw_r262 >> 8, [x]
     ld   put_dec >> 8, y
     jmp  put_dec
-scw_r261:
+scw_r262:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
@@ -6289,12 +6307,12 @@ rp_l:
     sub  [rb_x], ac
     bcs  rp_z
     ld   LINK_LO, x             ; CALL rb_avg
-    ld   scw_r223, [x]
+    ld   scw_r224, [x]
     ld   LINK_HI, x
-    ld   scw_r223 >> 8, [x]
+    ld   scw_r224 >> 8, [x]
     ld   rb_avg >> 8, y
     jmp  rb_avg
-scw_r223:
+scw_r224:
     ld   ROOM_P >> 8, y
     ld   [rb_x], x
     ld   ac, [y,x]
@@ -6442,40 +6460,40 @@ in_1:
     xor  A_UNINST, ac
     bne  in_2
     ld   LINK_LO, x             ; CALL on_tug
-    ld   scw_r224, [x]
+    ld   scw_r225, [x]
     ld   LINK_HI, x
-    ld   scw_r224 >> 8, [x]
+    ld   scw_r225 >> 8, [x]
     ld   on_tug >> 8, y
     jmp  on_tug
-scw_r224:
+scw_r225:
     bne  in_2
     ld   cut_action >> 8, y
     jmp  cut_action
 in_2:
     ld   LINK_LO, x             ; CALL near
-    ld   scw_r225, [x]
-    ld   LINK_HI, x
-    ld   scw_r225 >> 8, [x]
-    ld   near >> 8, y
-    jmp  near
-scw_r225:
-    beq  in_far
-    ld   LINK_LO, x             ; CALL plate_room
     ld   scw_r226, [x]
     ld   LINK_HI, x
     ld   scw_r226 >> 8, [x]
-    ld   plate_room >> 8, y
-    jmp  plate_room
+    ld   near >> 8, y
+    jmp  near
 scw_r226:
-    beq  in_e
-    ld   INST_FRAMES, ac
-    ld   LINK_LO, x             ; CALL job_start
+    beq  in_far
+    ld   LINK_LO, x             ; CALL plate_room
     ld   scw_r227, [x]
     ld   LINK_HI, x
     ld   scw_r227 >> 8, [x]
+    ld   plate_room >> 8, y
+    jmp  plate_room
+scw_r227:
+    beq  in_e
+    ld   INST_FRAMES, ac
+    ld   LINK_LO, x             ; CALL job_start
+    ld   scw_r228, [x]
+    ld   LINK_HI, x
+    ld   scw_r228 >> 8, [x]
     ld   job_start >> 8, y
     jmp  job_start
-scw_r227:
+scw_r228:
     ld   [s_x], ac
     ld   ac, [cut_x]
     ld   [s_y], ac
@@ -6498,12 +6516,12 @@ in_u:
 in_m:
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r228, [x]
+    ld   scw_r229, [x]
     ld   LINK_HI, x
-    ld   scw_r228 >> 8, [x]
+    ld   scw_r229 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r228:
+scw_r229:
 in_e:
     ld   sc_leave >> 8, y
     jmp  sc_leave
@@ -6513,12 +6531,12 @@ in_far:
     ld   s_toofar >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r229, [x]
+    ld   scw_r230, [x]
     ld   LINK_HI, x
-    ld   scw_r229 >> 8, [x]
+    ld   scw_r230 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r229:
+scw_r230:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
@@ -6533,23 +6551,23 @@ draw_player3:
     ld   s_tug >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   scw_r249, [x]
+    ld   scw_r250, [x]
     ld   LINK_HI, x
-    ld   scw_r249 >> 8, [x]
+    ld   scw_r250 >> 8, [x]
     ld   tputs >> 8, y
     jmp  tputs
-scw_r249:
+scw_r250:
     ld   [val_l], ac
     ld   ac, [num_l]
     ld   [val_h], ac
     ld   ac, [num_h]
     ld   LINK_LO, x             ; CALL put_dec
-    ld   scw_r250, [x]
+    ld   scw_r251, [x]
     ld   LINK_HI, x
-    ld   scw_r250 >> 8, [x]
+    ld   scw_r251 >> 8, [x]
     ld   put_dec >> 8, y
     jmp  put_dec
-scw_r250:
+scw_r251:
     ld   [sup], ac
     beq  d3_off
     ld   s_airon & 0xFF, ac
@@ -6563,12 +6581,12 @@ d3_off:
 d3_p:
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   scw_r251, [x]
+    ld   scw_r252, [x]
     ld   LINK_HI, x
-    ld   scw_r251 >> 8, [x]
+    ld   scw_r252 >> 8, [x]
     ld   tputs >> 8, y
     jmp  tputs
-scw_r251:
+scw_r252:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
@@ -6577,12 +6595,12 @@ scw_r251:
 #addr 0x2A00
 refill_action:
     ld   LINK_LO, x             ; CALL near
-    ld   scw_r230, [x]
+    ld   scw_r231, [x]
     ld   LINK_HI, x
-    ld   scw_r230 >> 8, [x]
+    ld   scw_r231 >> 8, [x]
     ld   near >> 8, y
     jmp  near
-scw_r230:
+scw_r231:
     beq  rf_far
     ld   [s_f], ac
     sub  8, ac
@@ -6592,12 +6610,12 @@ scw_r230:
     ld   s_broken >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r231, [x]
+    ld   scw_r232, [x]
     ld   LINK_HI, x
-    ld   scw_r231 >> 8, [x]
+    ld   scw_r232 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r231:
+scw_r232:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 rf_ok:
@@ -6628,32 +6646,32 @@ rf_c:
     ld   s_refill >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r232, [x]
+    ld   scw_r233, [x]
     ld   LINK_HI, x
-    ld   scw_r232 >> 8, [x]
+    ld   scw_r233 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r232:
+scw_r233:
     ld   [s_x], ac
     ld   ac, [g_x]
     ld   [s_y], ac
     ld   ac, [g_y]
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r233, [x]
-    ld   LINK_HI, x
-    ld   scw_r233 >> 8, [x]
-    ld   map_get >> 8, y
-    jmp  map_get
-scw_r233:
-    ld   T_O2E, ac              ; still installed if it was
-    or   [c_b], ac
-    ld   LINK_LO, x             ; CALL map_put
     ld   scw_r234, [x]
     ld   LINK_HI, x
     ld   scw_r234 >> 8, [x]
+    ld   map_get >> 8, y
+    jmp  map_get
+scw_r234:
+    ld   T_O2E, ac              ; still installed if it was
+    or   [c_b], ac
+    ld   LINK_LO, x             ; CALL map_put
+    ld   scw_r235, [x]
+    ld   LINK_HI, x
+    ld   scw_r235 >> 8, [x]
     ld   map_put >> 8, y
     jmp  map_put
-scw_r234:
+scw_r235:
     ld   act_done >> 8, y
     jmp  act_done
 rf_far:
@@ -6662,12 +6680,12 @@ rf_far:
     ld   s_toofar >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r235, [x]
+    ld   scw_r236, [x]
     ld   LINK_HI, x
-    ld   scw_r235 >> 8, [x]
+    ld   scw_r236 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r235:
+scw_r236:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
@@ -6694,19 +6712,19 @@ put_name:
     ld   TAB_PG, ac
     ld   ac, [u5]
     ld   LINK_LO, x             ; CALL tab_ptr
-    ld   scw_r252, [x]
-    ld   LINK_HI, x
-    ld   scw_r252 >> 8, [x]
-    ld   tab_ptr >> 8, y
-    jmp  tab_ptr
-scw_r252:
-    ld   LINK_LO, x             ; CALL tputs
     ld   scw_r253, [x]
     ld   LINK_HI, x
     ld   scw_r253 >> 8, [x]
+    ld   tab_ptr >> 8, y
+    jmp  tab_ptr
+scw_r253:
+    ld   LINK_LO, x             ; CALL tputs
+    ld   scw_r254, [x]
+    ld   LINK_HI, x
+    ld   scw_r254 >> 8, [x]
     ld   tputs >> 8, y
     jmp  tputs
-scw_r253:
+scw_r254:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 pn_e:
@@ -6715,12 +6733,12 @@ pn_e:
     ld   s_empty >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   scw_r254, [x]
+    ld   scw_r255, [x]
     ld   LINK_HI, x
-    ld   scw_r254 >> 8, [x]
+    ld   scw_r255 >> 8, [x]
     ld   tputs >> 8, y
     jmp  tputs
-scw_r254:
+scw_r255:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
@@ -6752,12 +6770,12 @@ draw_player:
     ld   s_pl_nosuit >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   scw_r236, [x]
+    ld   scw_r237, [x]
     ld   LINK_HI, x
-    ld   scw_r236 >> 8, [x]
+    ld   scw_r237 >> 8, [x]
     ld   tputs >> 8, y
     jmp  tputs
-scw_r236:
+scw_r237:
     bra  dp_26
 dp_s:
     ld   s_pl_suit & 0xFF, ac
@@ -6765,31 +6783,31 @@ dp_s:
     ld   s_pl_suit >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   scw_r237, [x]
-    ld   LINK_HI, x
-    ld   scw_r237 >> 8, [x]
-    ld   tputs >> 8, y
-    jmp  tputs
-scw_r237:
-    ld   [o2], ac
-    ld   LINK_LO, x             ; CALL put_dec8
     ld   scw_r238, [x]
     ld   LINK_HI, x
     ld   scw_r238 >> 8, [x]
+    ld   tputs >> 8, y
+    jmp  tputs
+scw_r238:
+    ld   [o2], ac
+    ld   LINK_LO, x             ; CALL put_dec8
+    ld   scw_r239, [x]
+    ld   LINK_HI, x
+    ld   scw_r239 >> 8, [x]
     ld   put_dec8 >> 8, y
     jmp  put_dec8
-scw_r238:
+scw_r239:
     ld   s_pl_of & 0xFF, ac
     ld   ac, [R0]
     ld   s_pl_of >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   scw_r239, [x]
+    ld   scw_r240, [x]
     ld   LINK_HI, x
-    ld   scw_r239 >> 8, [x]
+    ld   scw_r240 >> 8, [x]
     ld   tputs >> 8, y
     jmp  tputs
-scw_r239:
+scw_r240:
 dp_26:
     ld   26, ac
     ld   ac, [CUR_ROW]
@@ -6800,40 +6818,40 @@ dp_26:
     ld   s_pl_batt >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   scw_r240, [x]
-    ld   LINK_HI, x
-    ld   scw_r240 >> 8, [x]
-    ld   tputs >> 8, y
-    jmp  tputs
-scw_r240:
-    ld   [batt], ac
-    ld   LINK_LO, x             ; CALL put_dec8
     ld   scw_r241, [x]
     ld   LINK_HI, x
     ld   scw_r241 >> 8, [x]
-    ld   put_dec8 >> 8, y
-    jmp  put_dec8
+    ld   tputs >> 8, y
+    jmp  tputs
 scw_r241:
-    ld   0x25, ac               ; %
-    ld   LINK_LO, x             ; CALL tputc
+    ld   [batt], ac
+    ld   LINK_LO, x             ; CALL put_dec8
     ld   scw_r242, [x]
     ld   LINK_HI, x
     ld   scw_r242 >> 8, [x]
+    ld   put_dec8 >> 8, y
+    jmp  put_dec8
+scw_r242:
+    ld   0x25, ac               ; %
+    ld   LINK_LO, x             ; CALL tputc
+    ld   scw_r243, [x]
+    ld   LINK_HI, x
+    ld   scw_r243 >> 8, [x]
     ld   tputc >> 8, y
     jmp  tputc
-scw_r242:
+scw_r243:
     ld   draw_player2 >> 8, y
     jmp  draw_player2
 
 draw_warn:
     ld   TINT_WARN | 0x04, ac
     ld   LINK_LO, x             ; CALL msg_tint
-    ld   scw_r259, [x]
+    ld   scw_r260, [x]
     ld   LINK_HI, x
-    ld   scw_r259 >> 8, [x]
+    ld   scw_r260 >> 8, [x]
     ld   msg_tint >> 8, y
     jmp  msg_tint
-scw_r259:
+scw_r260:
     ld   29, ac
     ld   ac, [CUR_ROW]
     ld   1, ac
@@ -6848,12 +6866,12 @@ scw_r259:
     ld   [y,x], ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   scw_r260, [x]
+    ld   scw_r261, [x]
     ld   LINK_HI, x
-    ld   scw_r260 >> 8, [x]
+    ld   scw_r261 >> 8, [x]
     ld   tputs >> 8, y
     jmp  tputs
-scw_r260:
+scw_r261:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
@@ -6869,39 +6887,39 @@ draw_player2:
     ld   s_pl_hands >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   scw_r243, [x]
-    ld   LINK_HI, x
-    ld   scw_r243 >> 8, [x]
-    ld   tputs >> 8, y
-    jmp  tputs
-scw_r243:
-    ld   [cl_t], ac
-    ld   LINK_LO, x             ; CALL put_name
     ld   scw_r244, [x]
     ld   LINK_HI, x
     ld   scw_r244 >> 8, [x]
+    ld   tputs >> 8, y
+    jmp  tputs
+scw_r244:
+    ld   [cl_t], ac
+    ld   LINK_LO, x             ; CALL put_name
+    ld   scw_r245, [x]
+    ld   LINK_HI, x
+    ld   scw_r245 >> 8, [x]
     ld   put_name >> 8, y
     jmp  put_name
-scw_r244:
+scw_r245:
     ld   s_slash & 0xFF, ac
     ld   ac, [R0]
     ld   s_slash >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   scw_r245, [x]
-    ld   LINK_HI, x
-    ld   scw_r245 >> 8, [x]
-    ld   tputs >> 8, y
-    jmp  tputs
-scw_r245:
-    ld   [cr_t], ac
-    ld   LINK_LO, x             ; CALL put_name
     ld   scw_r246, [x]
     ld   LINK_HI, x
     ld   scw_r246 >> 8, [x]
+    ld   tputs >> 8, y
+    jmp  tputs
+scw_r246:
+    ld   [cr_t], ac
+    ld   LINK_LO, x             ; CALL put_name
+    ld   scw_r247, [x]
+    ld   LINK_HI, x
+    ld   scw_r247 >> 8, [x]
     ld   put_name >> 8, y
     jmp  put_name
-scw_r246:
+scw_r247:
     ld   28, ac
     ld   ac, [CUR_ROW]
     ld   1, ac
@@ -6911,20 +6929,20 @@ scw_r246:
     ld   s_pl_back >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   scw_r247, [x]
-    ld   LINK_HI, x
-    ld   scw_r247 >> 8, [x]
-    ld   tputs >> 8, y
-    jmp  tputs
-scw_r247:
-    ld   [cb_t], ac
-    ld   LINK_LO, x             ; CALL put_name
     ld   scw_r248, [x]
     ld   LINK_HI, x
     ld   scw_r248 >> 8, [x]
+    ld   tputs >> 8, y
+    jmp  tputs
+scw_r248:
+    ld   [cb_t], ac
+    ld   LINK_LO, x             ; CALL put_name
+    ld   scw_r249, [x]
+    ld   LINK_HI, x
+    ld   scw_r249 >> 8, [x]
     ld   put_name >> 8, y
     jmp  put_name
-scw_r248:
+scw_r249:
     ld   draw_player3 >> 8, y
     jmp  draw_player3
 
@@ -6991,12 +7009,12 @@ pd_o:
     ld   [v7], ac
     add  0x30, ac
     ld   LINK_LO, x             ; CALL tputc
-    ld   scw_r262, [x]
+    ld   scw_r263, [x]
     ld   LINK_HI, x
-    ld   scw_r262 >> 8, [x]
+    ld   scw_r263 >> 8, [x]
     ld   tputc >> 8, y
     jmp  tputc
-scw_r262:
+scw_r263:
 pd_n:
     ld   [v6], ac
     inc
@@ -7061,12 +7079,12 @@ dt_l:
 dt_p:
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   scw_r255, [x]
+    ld   scw_r256, [x]
     ld   LINK_HI, x
-    ld   scw_r255 >> 8, [x]
+    ld   scw_r256 >> 8, [x]
     ld   tputs >> 8, y
     jmp  tputs
-scw_r255:
+scw_r256:
 dt_a:
     ld   [s_r], ac
     beq  dt_e
@@ -7077,30 +7095,30 @@ dt_a:
     ld   s_air >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL tputs
-    ld   scw_r256, [x]
+    ld   scw_r257, [x]
     ld   LINK_HI, x
-    ld   scw_r256 >> 8, [x]
+    ld   scw_r257 >> 8, [x]
     ld   tputs >> 8, y
     jmp  tputs
-scw_r256:
+scw_r257:
     ld   ROOM_P >> 8, y
     ld   [s_r], x
     ld   [y,x], ac
     ld   LINK_LO, x             ; CALL put_dec8
-    ld   scw_r257, [x]
-    ld   LINK_HI, x
-    ld   scw_r257 >> 8, [x]
-    ld   put_dec8 >> 8, y
-    jmp  put_dec8
-scw_r257:
-    ld   0x25, ac
-    ld   LINK_LO, x             ; CALL tputc
     ld   scw_r258, [x]
     ld   LINK_HI, x
     ld   scw_r258 >> 8, [x]
+    ld   put_dec8 >> 8, y
+    jmp  put_dec8
+scw_r258:
+    ld   0x25, ac
+    ld   LINK_LO, x             ; CALL tputc
+    ld   scw_r259, [x]
+    ld   LINK_HI, x
+    ld   scw_r259 >> 8, [x]
     ld   tputc >> 8, y
     jmp  tputc
-scw_r258:
+scw_r259:
 dt_e:
     ld   sc_leave >> 8, y
     jmp  sc_leave
@@ -7128,8 +7146,8 @@ work_tick:
     beq  wt_d
     dec
     ld   ac, [wk_h]
-    ld   sc_leave >> 8, y
-    jmp  sc_leave
+    ld   jb_tick >> 8, y
+    jmp  jb_tick
 wt_z:
     bne  wt_x
     ld   [wk_h], ac
@@ -7138,28 +7156,34 @@ wt_d:
     clr  ac
     ld   ac, [cut_t]
     ld   LINK_LO, x             ; CALL sk_gain
-    ld   scw_r263, [x]
-    ld   LINK_HI, x
-    ld   scw_r263 >> 8, [x]
-    ld   sk_gain >> 8, y
-    jmp  sk_gain
-scw_r263:
-    ld   LINK_LO, x             ; CALL cut_done
     ld   scw_r264, [x]
     ld   LINK_HI, x
     ld   scw_r264 >> 8, [x]
+    ld   sk_gain >> 8, y
+    jmp  sk_gain
+scw_r264:
+    ld   LINK_LO, x             ; CALL cut_done
+    ld   scw_r265, [x]
+    ld   LINK_HI, x
+    ld   scw_r265 >> 8, [x]
     ld   cut_done >> 8, y
     jmp  cut_done
-scw_r264:
-wt_x:
+scw_r265:
     ld   sc_leave >> 8, y
     jmp  sc_leave
+wt_x:
+    ld   jb_tick >> 8, y
+    jmp  jb_tick
 
-; sk_gain - a job done: each skill it used (wk_m) gains 2 (120 - its
-; level) of 256 toward the next level (SKILL_MAX at most).  A leaf.
+; jb_tick - the job's bar: a 16th more done each time the work left
+; reaches JB_TH:JB_TL (then JB_B less); the message row drawn again and
+; kept up.  The rest of work_tick
 
 #addr 0x2E00
 job_start:
+    ld   JB_B >> 8, y
+    ld   JB_B & 0xFF, x
+    ld   ac, [y,x]
     ld   ac, [u0]
     shl
     shl
@@ -7248,6 +7272,22 @@ js_r:
     ld   [u1], ac
     ld   ac, [wk_r]
 js_e:
+    ld   JB_B >> 8, y           ; the bar: none done, the next 16th at
+    ld   JB_N & 0xFF, x         ; 15 JB_B of work left
+    ld   0, [y,x]
+    ld   JB_B & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u2]
+    ld   [wk_l], ac
+    sub  [u2], ac
+    ld   JB_TL & 0xFF, x
+    ld   ac, [y,x]
+    ld   [wk_h], ac
+    bcc  js_t
+    dec
+js_t:
+    ld   JB_TH & 0xFF, x
+    ld   ac, [y,x]
     ld   1, ac
     ld   ac, [cut_t]
     ld   [LINK_HI], y
@@ -7255,6 +7295,97 @@ js_e:
 
 ; work_tick - a frame of the job: wk less wk_r.  Done: the skills it
 ; used gain (sk_gain), then cut_done
+job_bar:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   44, ac
+    ld   ac, [CUR_COL]
+    ld   JB_N >> 8, y
+    ld   JB_N & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   JB_TAB >> 8, y
+    add  JB_TAB & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   [u0], ac
+    add  (JB_TAB & 0xFF) + 17, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL tputs
+    ld   scw_r266, [x]
+    ld   LINK_HI, x
+    ld   scw_r266 >> 8, [x]
+    ld   tputs >> 8, y
+    jmp  tputs
+scw_r266:
+    ld   sc_leave >> 8, y
+    jmp  sc_leave
+
+; sk_gain - a job done: each skill it used (wk_m) gains 2 (120 - its
+; level) of 256 toward the next level (SKILL_MAX at most).  A leaf.
+
+#addr 0x2F00
+jb_tick:
+jt_l:
+    ld   JB_N >> 8, y
+    ld   JB_N & 0xFF, x
+    ld   [y,x], ac
+    xor  16, ac
+    beq  jt_e
+    ld   JB_TH & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   JB_TL & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u1]
+    ld   [wk_h], ac
+    sub  [u0], ac
+    bcs  jt_y                   ; the high byte under: reached
+    bne  jt_e                   ; over: not yet
+    ld   [u1], ac
+    sub  [wk_l], ac
+    bcs  jt_e                   ; the low byte over: not yet
+jt_y:
+    ld   JB_N & 0xFF, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    ld   JB_B & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u2]
+    ld   [u1], ac
+    sub  [u2], ac
+    ld   JB_TL & 0xFF, x
+    ld   ac, [y,x]
+    ld   [u0], ac
+    bcc  jt_m
+    dec
+jt_m:
+    ld   JB_TH & 0xFF, x
+    ld   ac, [y,x]
+    ld   MSG_FRAMES, ac
+    ld   ac, [msg_t]
+    ld   [dirty], ac
+    or   2, ac
+    ld   ac, [dirty]
+    bra  jt_l
+jt_e:
+    ld   sc_leave >> 8, y
+    jmp  sc_leave
+
+; job_bar - after the message while a job runs: its bar, "[####----]
+; 25%", from column 44 (JB_TAB by JB_N)
 sk_gain:
     ld   [wk_m], ac
     ld   ac, [u0]
@@ -7302,16 +7433,14 @@ sg_n:
 
 ; more_action - REPAIR, SKILLS, TAKE OFF SUIT, PUT ON SUIT (w3).  The
 ; rest of do_action
-
-#addr 0x2F00
 repair_action:
     ld   LINK_LO, x             ; CALL near
-    ld   scw_r265, [x]
+    ld   scw_r267, [x]
     ld   LINK_HI, x
-    ld   scw_r265 >> 8, [x]
+    ld   scw_r267 >> 8, [x]
     ld   near >> 8, y
     jmp  near
-scw_r265:
+scw_r267:
     beq  rpa_far
     ld   [s_f], ac
     beq  rpa_e
@@ -7321,12 +7450,12 @@ scw_r265:
     shl
     sub  [s_f], ac
     ld   LINK_LO, x             ; CALL job_start
-    ld   scw_r266, [x]
+    ld   scw_r268, [x]
     ld   LINK_HI, x
-    ld   scw_r266 >> 8, [x]
+    ld   scw_r268 >> 8, [x]
     ld   job_start >> 8, y
     jmp  job_start
-scw_r266:
+scw_r268:
     ld   3, ac
     ld   ac, [cut_m]
     ld   [s_x], ac
@@ -7338,12 +7467,12 @@ scw_r266:
     ld   s_repair >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r267, [x]
+    ld   scw_r269, [x]
     ld   LINK_HI, x
-    ld   scw_r267 >> 8, [x]
+    ld   scw_r269 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r267:
+scw_r269:
 rpa_e:
     ld   sc_leave >> 8, y
     jmp  sc_leave
@@ -7353,17 +7482,19 @@ rpa_far:
     ld   s_toofar >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r268, [x]
+    ld   scw_r270, [x]
     ld   LINK_HI, x
-    ld   scw_r268 >> 8, [x]
+    ld   scw_r270 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r268:
+scw_r270:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
 ; repair_done - the cell cut_done read (map_get) has no damage now; a
 ; wall or door: the rooms again.  The rest of cut_done
+
+#addr 0x3000
 repair_done:
     ld   [a_pg], ac             ; the flag byte, two pages up
     add  2, ac
@@ -7386,12 +7517,12 @@ rd_m:
     ld   s_repdone >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r269, [x]
+    ld   scw_r271, [x]
     ld   LINK_HI, x
-    ld   scw_r269 >> 8, [x]
+    ld   scw_r271 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r269:
+scw_r271:
     ld   work_end >> 8, y
     jmp  work_end
 
@@ -7412,42 +7543,40 @@ player_acts:
     ld   [SAVE_AC], ac
     ld   A_SKILLS, ac
     ld   LINK_LO, x             ; CALL add_act
-    ld   scw_r271, [x]
-    ld   LINK_HI, x
-    ld   scw_r271 >> 8, [x]
-    ld   add_act >> 8, y
-    jmp  add_act
-scw_r271:
-    ld   [suit_on], ac
-    beq  pa_1
-    ld   A_SUITOFF, ac
-    bra  pa_a
-pa_1:
-    ld   LINK_LO, x             ; CALL suit_slot
-    ld   scw_r272, [x]
-    ld   LINK_HI, x
-    ld   scw_r272 >> 8, [x]
-    ld   suit_slot >> 8, y
-    jmp  suit_slot
-scw_r272:
-    beq  pa_e
-    ld   A_SUITON, ac
-pa_a:
-    ld   LINK_LO, x             ; CALL add_act
     ld   scw_r273, [x]
     ld   LINK_HI, x
     ld   scw_r273 >> 8, [x]
     ld   add_act >> 8, y
     jmp  add_act
 scw_r273:
+    ld   [suit_on], ac
+    beq  pa_1
+    ld   A_SUITOFF, ac
+    bra  pa_a
+pa_1:
+    ld   LINK_LO, x             ; CALL suit_slot
+    ld   scw_r274, [x]
+    ld   LINK_HI, x
+    ld   scw_r274 >> 8, [x]
+    ld   suit_slot >> 8, y
+    jmp  suit_slot
+scw_r274:
+    beq  pa_e
+    ld   A_SUITON, ac
+pa_a:
+    ld   LINK_LO, x             ; CALL add_act
+    ld   scw_r275, [x]
+    ld   LINK_HI, x
+    ld   scw_r275 >> 8, [x]
+    ld   add_act >> 8, y
+    jmp  add_act
+scw_r275:
 pa_e:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
 ; suit_slot - AC = the address of the carry slot that holds the suit, 0
 ; none.  A leaf.
-
-#addr 0x3000
 suit_slot:
     ld   [cl_t], ac
     xor  T_SUIT, ac
@@ -7476,99 +7605,18 @@ ss_3x:
 
 ; suit_action - TAKE OFF SUIT: into the first free carry slot; PUT ON
 ; SUIT: out of its slot.  The rest of do_action
-suit_action:
-    ld   [w3], ac
-    xor  A_SUITOFF, ac
-    bne  su_on
-    ld   LINK_LO, x             ; CALL free_slot
-    ld   scw_r274, [x]
-    ld   LINK_HI, x
-    ld   scw_r274 >> 8, [x]
-    ld   free_slot >> 8, y
-    jmp  free_slot
-scw_r274:
-    beq  su_full
-    ld   ac, [u0]
-    ld   ac, x
-    ld   T_SUIT, ac
-    ld   ac, [x]
-    ld   [u0], ac
-    add  3, x
-    clr  ac
-    ld   ac, [x]
-    ld   ac, [suit_on]
-    ld   s_suitoff & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_suitoff >> 8, ac
-    bra  su_m
-su_on:
-    ld   LINK_LO, x             ; CALL suit_slot
-    ld   scw_r275, [x]
-    ld   LINK_HI, x
-    ld   scw_r275 >> 8, [x]
-    ld   suit_slot >> 8, y
-    jmp  suit_slot
-scw_r275:
-    beq  su_e
-    ld   ac, [u0]
-    ld   ac, x
-    clr  ac
-    ld   ac, [x]
-    ld   [u0], ac
-    add  3, x
-    clr  ac
-    ld   ac, [x]
-    ld   1, ac
-    ld   ac, [suit_on]
-    ld   s_suiton & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_suiton >> 8, ac
-su_m:
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r276, [x]
-    ld   LINK_HI, x
-    ld   scw_r276 >> 8, [x]
-    ld   set_msg >> 8, y
-    jmp  set_msg
-scw_r276:
-    ld   [p_x], ac              ; the player drawn again, in or out of it
-    ld   ac, [g_x]
-    ld   [p_y], ac
-    ld   ac, [g_y]
-    ld   LINK_LO, x             ; CALL refresh_cell
-    ld   scw_r277, [x]
-    ld   LINK_HI, x
-    ld   scw_r277 >> 8, [x]
-    ld   refresh_cell >> 8, y
-    jmp  refresh_cell
-scw_r277:
-    ld   [dirty], ac
-    or   1, ac
-    ld   ac, [dirty]
-su_e:
-    ld   sc_leave >> 8, y
-    jmp  sc_leave
-su_full:
-    ld   s_full & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_full >> 8, ac
-    bra  su_m
-
-; skills_action - SKILLS: the levels into SK_MSG (at SK_POS, two digits,
-; a space for a leading 0) on the message row.  The rest of do_action
 nosuit_tick:
     ld   [p_x], ac
     ld   ac, [g_x]
     ld   [p_y], ac
     ld   ac, [g_y]
     ld   LINK_LO, x             ; CALL map_get
-    ld   scw_r279, [x]
+    ld   scw_r281, [x]
     ld   LINK_HI, x
-    ld   scw_r279 >> 8, [x]
+    ld   scw_r281 >> 8, [x]
     ld   map_get >> 8, y
     jmp  map_get
-scw_r279:
+scw_r281:
     ld   ROOM_P >> 8, y
     ld   [c_r], x
     ld   [y,x], ac
@@ -7586,6 +7634,87 @@ nt_ok:
 ; (ROOM_PG + x20 + step, high bytes + x30).  Back into tputs
 
 #addr 0x3100
+suit_action:
+    ld   [w3], ac
+    xor  A_SUITOFF, ac
+    bne  su_on
+    ld   LINK_LO, x             ; CALL free_slot
+    ld   scw_r276, [x]
+    ld   LINK_HI, x
+    ld   scw_r276 >> 8, [x]
+    ld   free_slot >> 8, y
+    jmp  free_slot
+scw_r276:
+    beq  su_full
+    ld   ac, [u0]
+    ld   ac, x
+    ld   T_SUIT, ac
+    ld   ac, [x]
+    ld   [u0], ac
+    add  3, x
+    clr  ac
+    ld   ac, [x]
+    ld   ac, [suit_on]
+    ld   s_suitoff & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_suitoff >> 8, ac
+    bra  su_m
+su_on:
+    ld   LINK_LO, x             ; CALL suit_slot
+    ld   scw_r277, [x]
+    ld   LINK_HI, x
+    ld   scw_r277 >> 8, [x]
+    ld   suit_slot >> 8, y
+    jmp  suit_slot
+scw_r277:
+    beq  su_e
+    ld   ac, [u0]
+    ld   ac, x
+    clr  ac
+    ld   ac, [x]
+    ld   [u0], ac
+    add  3, x
+    clr  ac
+    ld   ac, [x]
+    ld   1, ac
+    ld   ac, [suit_on]
+    ld   s_suiton & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_suiton >> 8, ac
+su_m:
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL set_msg
+    ld   scw_r278, [x]
+    ld   LINK_HI, x
+    ld   scw_r278 >> 8, [x]
+    ld   set_msg >> 8, y
+    jmp  set_msg
+scw_r278:
+    ld   [p_x], ac              ; the player drawn again, in or out of it
+    ld   ac, [g_x]
+    ld   [p_y], ac
+    ld   ac, [g_y]
+    ld   LINK_LO, x             ; CALL refresh_cell
+    ld   scw_r279, [x]
+    ld   LINK_HI, x
+    ld   scw_r279 >> 8, [x]
+    ld   refresh_cell >> 8, y
+    jmp  refresh_cell
+scw_r279:
+    ld   [dirty], ac
+    or   1, ac
+    ld   ac, [dirty]
+su_e:
+    ld   sc_leave >> 8, y
+    jmp  sc_leave
+su_full:
+    ld   s_full & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_full >> 8, ac
+    bra  su_m
+
+; skills_action - SKILLS: the levels into SK_MSG (at SK_POS, two digits,
+; a space for a leading 0) on the message row.  The rest of do_action
 skills_action:
     clr  ac
     ld   ac, [u4]
@@ -7637,18 +7766,20 @@ sa_p:
     ld   SK_MSG >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL set_msg
-    ld   scw_r278, [x]
+    ld   scw_r280, [x]
     ld   LINK_HI, x
-    ld   scw_r278 >> 8, [x]
+    ld   scw_r280 >> 8, [x]
     ld   set_msg >> 8, y
     jmp  set_msg
-scw_r278:
+scw_r280:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
 ; nosuit_tick - second_tick without the suit: the room's air or nothing
 ; (collapsing, stage_set's ss_4); the suit keeps its O2.  The rest of
 ; second_tick
+
+#addr 0x3200
 cell_extra:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -7672,35 +7803,28 @@ cell_extra:
     ld   PL_NOSUIT & 0xFF, ac
     ld   ac, [dc_ai]
     ld   LINK_LO, x             ; CALL draw_cell_at
-    ld   scw_r280, [x]
+    ld   scw_r282, [x]
     ld   LINK_HI, x
-    ld   scw_r280 >> 8, [x]
+    ld   scw_r282 >> 8, [x]
     ld   draw_cell_at >> 8, y
     jmp  draw_cell_at
-scw_r280:
+scw_r282:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 ce_c:
     ld   LINK_LO, x             ; CALL crate_mark
-    ld   scw_r281, [x]
+    ld   scw_r283, [x]
     ld   LINK_HI, x
-    ld   scw_r281 >> 8, [x]
+    ld   scw_r283 >> 8, [x]
     ld   crate_mark >> 8, y
     jmp  crate_mark
-scw_r281:
+scw_r283:
 ce_e:
     ld   sc_leave >> 8, y
     jmp  sc_leave
 
 ; crate_mark - a loose part on screen cell dc_cx, dc_cy (map_get's c_t,
 ; c_b) gets a crate's frame, brown.  A leaf.
-s_w4:
-    #d "YOU ARE BLACKING OUT - GET AIR NOW!", 0x00
-s_w5:
-    #d "YOU SUFFOCATED.  PRESS ENTER TO TRY AGAIN.", 0x00
-
-
-#addr 0x3200
 crate_mark:
     ld   [c_b], ac
     bne  cm_e
@@ -7788,12 +7912,6 @@ cm_e:
 
 ; scrap_data.masm - generated by gen_scrap.py, do not edit by hand
 ; the art, tables and strings of scrap.masm (included at its end)
-
-PL_NOSUIT:
-    #d8 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x37, 0x33, 0x33, 0x3C, 0x3C, 0x77, 0x77, 0x77, 0x77, 0x77
-    #d8 0x67, 0x66, 0xC6, 0xCC, 0xCC, 0xC7, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x73, 0x73, 0x76, 0x77
-    #d8 0x76, 0x66, 0x6C, 0xCC, 0xCC, 0x7C, 0x33, 0x33, 0x3E, 0x33, 0x33, 0x33, 0x37, 0x37, 0x67, 0x77
-    #d8 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x73, 0x33, 0x33, 0xC3, 0xC3, 0x77, 0x77, 0x77, 0x77, 0x77
 
 
 #addr 0x3300
@@ -8761,6 +8879,56 @@ s_w3:
 
 
 #overlay 0xF200
+s_w4:
+    #d "YOU ARE BLACKING OUT - GET AIR NOW!", 0x00
+s_w5:
+    #d "YOU SUFFOCATED.  PRESS ENTER TO TRY AGAIN.", 0x00
+zj_0:
+    #d "[----------------] 0%", 0x00
+zj_1:
+    #d "[#---------------] 6%", 0x00
+zj_2:
+    #d "[##--------------] 12%", 0x00
+zj_3:
+    #d "[###-------------] 18%", 0x00
+zj_4:
+    #d "[####------------] 25%", 0x00
+zj_5:
+    #d "[#####-----------] 31%", 0x00
+zj_6:
+    #d "[######----------] 37%", 0x00
+
+
+#overlay 0xF400
+zj_7:
+    #d "[#######---------] 43%", 0x00
+zj_8:
+    #d "[########--------] 50%", 0x00
+zj_9:
+    #d "[#########-------] 56%", 0x00
+zj_10:
+    #d "[##########------] 62%", 0x00
+zj_11:
+    #d "[###########-----] 68%", 0x00
+zj_12:
+    #d "[############----] 75%", 0x00
+zj_13:
+    #d "[#############---] 81%", 0x00
+zj_14:
+    #d "[##############--] 87%", 0x00
+zj_15:
+    #d "[###############-] 93%", 0x00
+zj_16:
+    #d "[################] 100%", 0x00
+
+
+#overlay 0xF600
+PL_NOSUIT:
+    #d8 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x37, 0x33, 0x33, 0x3C, 0x3C, 0x77, 0x77, 0x77, 0x77, 0x77
+    #d8 0x67, 0x66, 0xC6, 0xCC, 0xCC, 0xC7, 0x33, 0x33, 0x33, 0x33, 0x33, 0x33, 0x73, 0x73, 0x76, 0x77
+    #d8 0x76, 0x66, 0x6C, 0xCC, 0xCC, 0x7C, 0x33, 0x33, 0x3E, 0x33, 0x33, 0x33, 0x37, 0x37, 0x67, 0x77
+    #d8 0x77, 0x77, 0x77, 0x77, 0x77, 0x77, 0x73, 0x33, 0x33, 0xC3, 0xC3, 0x77, 0x77, 0x77, 0x77, 0x77
+
 SK_MSG:
     #d "MECHANICAL 00  ELECTRICAL 00  NUCLEAR 00  COMPUTERS 00  HYDRAULICS 00  SUIT 00", 0x00
 SK_POS:

@@ -209,6 +209,11 @@ class Rig(test_tracker.Rig):
         sk0, suit0, c0 = self.skills(), self.zp('suit_on'), self.cpu.clocks
         self.key(str(1 + acts.index(code)))
         self.run(2)
+        self.mid = None
+        if self.zp('cut_t'):            # a job: its bar half way
+            if self.wait_for(lambda: self.cpu.mem[0x36F9] >= 8 or not self.zp('cut_t'), 3000, 'half the job'):
+                self.run(2)
+                self.mid = (self.cpu.mem[0x36F9], self.panel()[5])
         self.settle()
         self.job = (sk0, suit0, (self.cpu.clocks - c0) // FRAME)
         self.click(2)
@@ -230,6 +235,10 @@ class Rig(test_tracker.Rig):
         print('  %s: %d frames (skills %s, %s): %d wanted; skills now %s'
               % (what, frames, '/'.join(gen_scrap.skill_names(mask)) or '-',
                  'in the suit' if suit else 'no suit', want, self.skills()[0]))
+        if not self.mid or gen_scrap.job_bar(self.mid[0]) not in self.mid[1]:
+            self.fail('%s: no bar half way: %r' % (what, self.mid))
+        else:
+            print('  half way: %r' % self.mid[1].strip())
         if not want - 2 <= frames <= want + 10 + extra:   # and the key, the frame loop
             self.fail('%s took %d frames, not %d' % (what, frames, want))
         if self.skills() != (glv, gpr):
