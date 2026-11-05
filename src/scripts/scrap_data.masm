@@ -246,11 +246,11 @@ ACT_TAB:
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, za_1 & 0xFF, za_2 & 0xFF, za_3 & 0xFF, za_4 & 0xFF, za_5 & 0xFF, za_6 & 0xFF, za_7 & 0xFF
     #d8 za_8 & 0xFF, za_9 & 0xFF, za_10 & 0xFF, za_11 & 0xFF, za_12 & 0xFF, za_13 & 0xFF, za_14 & 0xFF, za_15 & 0xFF
-    #d8 za_16 & 0xFF, za_17 & 0xFF, za_18 & 0xFF, za_19 & 0xFF, 0, 0, 0, 0
+    #d8 za_16 & 0xFF, za_17 & 0xFF, za_18 & 0xFF, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, za_1 >> 8, za_2 >> 8, za_3 >> 8, za_4 >> 8, za_5 >> 8, za_6 >> 8, za_7 >> 8
     #d8 za_8 >> 8, za_9 >> 8, za_10 >> 8, za_11 >> 8, za_12 >> 8, za_13 >> 8, za_14 >> 8, za_15 >> 8
-    #d8 za_16 >> 8, za_17 >> 8, za_18 >> 8, za_19 >> 8, 0, 0, 0, 0
+    #d8 za_16 >> 8, za_17 >> 8, za_18 >> 8, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 1, 1, 17, 17, 144, 6
     #d8 130, 1, 129, 138, 129, 9, 2, 1
@@ -355,7 +355,7 @@ zi_2_2:
 zi_2_3:
     #d "SKILL: MECHANICAL", 0x00
 zi_3_0:
-    #d "STEEL BULKHEAD, LEAKS FROM 50% DAMAGE", 0x00
+    #d "STEEL BULKHEAD, LEAKS UNDER 50% HEALTH", 0x00
 zi_3_1:
     #d 0x02, 0x00
 zi_3_2:
@@ -363,7 +363,7 @@ zi_3_2:
 zi_3_3:
     #d "SKILL: MECHANICAL", 0x00
 zi_4_0:
-    #d "PRESSURE DOOR, LEAKS FROM 50% DAMAGE", 0x00
+    #d "PRESSURE DOOR, LEAKS UNDER 50% HEALTH", 0x00
 zi_4_1:
     #d 0x02, 0x00
 zi_4_2:
@@ -687,37 +687,37 @@ zn_27:
 zx_27:
     #d "THAT IS YOU, IN A WORK SUIT THAT HAS SEEN BETTER DAYS.", 0x00
 zd_0:
-    #d "0%", 0x00
+    #d "100%", 0x00
 zw_0:
     #d "WORKS AT 100%", 0x00
 zd_1:
-    #d "6%", 0x00
+    #d "94%", 0x00
 zw_1:
     #d "WORKS AT 88%", 0x00
 zd_2:
-    #d "13%", 0x00
+    #d "88%", 0x00
 zw_2:
     #d "WORKS AT 75%", 0x00
 zd_3:
-    #d "19%", 0x00
+    #d "81%", 0x00
 zw_3:
     #d "WORKS AT 63%", 0x00
 zd_4:
-    #d "25%", 0x00
+    #d "75%", 0x00
 
 .chunk
 zw_4:
     #d "WORKS AT 50%", 0x00
 zd_5:
-    #d "31%", 0x00
+    #d "69%", 0x00
 zw_5:
     #d "WORKS AT 38%", 0x00
 zd_6:
-    #d "38%", 0x00
+    #d "63%", 0x00
 zw_6:
     #d "WORKS AT 25%", 0x00
 zd_7:
-    #d "44%", 0x00
+    #d "56%", 0x00
 zw_7:
     #d "WORKS AT 13%", 0x00
 zd_8:
@@ -725,33 +725,33 @@ zd_8:
 zw_8:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_9:
-    #d "56%", 0x00
+    #d "44%", 0x00
 zw_9:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_10:
-    #d "63%", 0x00
+    #d "38%", 0x00
 zw_10:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_11:
-    #d "69%", 0x00
+    #d "31%", 0x00
 zw_11:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_12:
-    #d "75%", 0x00
+    #d "25%", 0x00
 zw_12:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_13:
-    #d "81%", 0x00
+    #d "19%", 0x00
 zw_13:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_14:
-    #d "88%", 0x00
+    #d "13%", 0x00
 
 .chunk
 zw_14:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_15:
-    #d "94%", 0x00
+    #d "6%", 0x00
 zw_15:
     #d "BROKEN - NEEDS REPAIR", 0x00
 za_1:
@@ -792,40 +792,38 @@ za_18:
     #d "PUT ON SUIT", 0x00
 
 .chunk
-za_19:
-    #d "INVENTORY", 0x00
 zb_0:
-    #d "[----------]", 0x00
+    #d "[##########]", 0x00
 zb_1:
-    #d "[#---------]", 0x00
+    #d "[#########-]", 0x00
 zb_2:
-    #d "[#---------]", 0x00
+    #d "[#########-]", 0x00
 zb_3:
-    #d "[##--------]", 0x00
+    #d "[########--]", 0x00
 zb_4:
-    #d "[###-------]", 0x00
+    #d "[#######---]", 0x00
 zb_5:
-    #d "[###-------]", 0x00
+    #d "[#######---]", 0x00
 zb_6:
-    #d "[####------]", 0x00
+    #d "[######----]", 0x00
 zb_7:
-    #d "[####------]", 0x00
+    #d "[######----]", 0x00
 zb_8:
     #d "[#####-----]", 0x00
 zb_9:
-    #d "[######----]", 0x00
+    #d "[####------]", 0x00
 zb_10:
-    #d "[######----]", 0x00
+    #d "[####------]", 0x00
 zb_11:
-    #d "[#######---]", 0x00
+    #d "[###-------]", 0x00
 zb_12:
-    #d "[########--]", 0x00
+    #d "[##--------]", 0x00
 zb_13:
-    #d "[########--]", 0x00
+    #d "[##--------]", 0x00
 zb_14:
-    #d "[#########-]", 0x00
+    #d "[#---------]", 0x00
 zb_15:
-    #d "[#########-]", 0x00
+    #d "[#---------]", 0x00
 zs_0:
     #d "SEALED - NO LEAKS", 0x00
 
@@ -952,6 +950,8 @@ s_airon:
     #d "0, AIR ON", 0x00
 s_airoff:
     #d "0, NO AIR", 0x00
+s_jam:
+    #d "THE DOOR IS JAMMED - REPAIR IT TO 50% HEALTH FIRST.", 0x00
 s_air:
     #d "AIR ", 0x00
 s_loose:
@@ -962,6 +962,8 @@ s_w2:
     #d "WARNING: SUIT O2 LOW - GET BACK TO THE TUG OR FIND AN O2 TANK.", 0x00
 s_w3:
     #d "CRITICAL: SUIT O2 ALMOST GONE!", 0x00
+
+.chunk
 s_w4:
     #d "YOU ARE BLACKING OUT - GET AIR NOW!", 0x00
 s_w5:
@@ -970,6 +972,25 @@ s_w5:
 .chunk
 JB_PCT:
     #d8 0, 6, 12, 18, 25, 31, 37, 43, 50, 56, 62, 68, 75, 81, 87, 93, 100
+
+.chunk
+PT_TAB:
+    #d8 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF0, 0x00, 0x00, 0xA0, 0xA0, 0xA0, 0xA0, 0x00, 0x00
+    #d8 0xFF, 0xFF, 0xF0, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x0A, 0xAA, 0x00, 0x00, 0x00
+    #d8 0xFF, 0xFF, 0xFF, 0xFF, 0xF0, 0xF0, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    #d8 0xFF, 0xF0, 0x00, 0x00, 0x00, 0x00, 0xF0, 0xFF, 0x00, 0x00, 0x0A, 0xAA, 0xAA, 0x0A, 0x00, 0x00
+    #d8 0xFF, 0xFF, 0xFF, 0xF0, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00, 0x00
+PT_SV:
+    #d8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+PT_ON:
+    #d8 0
+PT_C:
+    #d8 0
+PT_P:
+    #d8 0
+PT_B:
+    #d8 0
 
 .chunk
 CRACK:
