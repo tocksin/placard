@@ -106,10 +106,12 @@ the part.  If a deck ever breaks under a part (nothing in the game
 breaks a deck yet), the part on it is destroyed.
 
 **Comms.**  To communicate you need a working comms antenna (50 % health
-or more) installed outside the tug, on open space in its cells.
-Hovering yourself shows `, COMMS` or `, NO COMMS` after the air.  The
-tug's own antenna, above its hull, starts broken: repair it from a
-spacewalk.  The KESTREL 9 has a working one on its top hull.
+or more) installed outside the tug, on open space in its cells.  The
+game keeps whether you have one (`N_ANT`, worked out each second); comms
+show on the navigation station's display in the next game mode, for
+getting between derelicts and stations.  The tug's own antenna, above
+its hull, starts working, barely (56 %), so you can head out at once;
+under 50 % it stops.  The KESTREL 9 has a working one on its top hull.
 
 **Skills.**  You have six skills, 0-99, all starting at 10: MECHANICAL,
 ELECTRICAL, NUCLEAR, COMPUTERS, HYDRAULICS and SUIT.  Each part needs one

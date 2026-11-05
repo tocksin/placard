@@ -444,7 +444,7 @@ def main(argv):
     for line in r.panel():
         print('  |%s' % line)
     p = r.panel()
-    if (not p[0].strip().startswith('YOU') or 'AIR ON, NO COMMS' not in p[0] or 'MK1 WORK SUIT' not in p[1]
+    if (not p[0].strip().startswith('YOU') or 'AIR ON' not in p[0] or 'COMMS' in p[0] or 'MK1 WORK SUIT' not in p[1]
             or '1: SKILLS' not in p[1]
             or '2: TAKE OFF SUIT' not in p[2] or 'INVENTORY' in ''.join(p[1:5])):
         r.fail('the panel does not show the player')
@@ -998,7 +998,8 @@ def deck_rules(r):
 
 
 def comms(r):
-    """the tug's antenna, broken at the start: NO COMMS; working: COMMS"""
+    """the tug's antenna, barely working at the start: comms (N_ANT 1, for
+    the navigation mode); broken: N_ANT 0; the player's panel says nothing"""
     z = r.zp
     ant = gen_scrap.TUG_ANT
     a0 = r.map_raw(*ant)
@@ -1006,15 +1007,15 @@ def comms(r):
         r.fail('no antenna on the tug at %d,%d' % ant)
         return
     rows = []
-    for d in (a0[1] & 15, 0):
+    for d in (11, a0[1] & 15):
         set_cell(r, *ant, fl=(a0[1] & 0xF0) | d)
         r.run(70)                           # tug_scan: once a second
         r.mouse_cell(z('p_x'), z('p_y'))
         r.run(2)
-        rows.append(r.panel()[0][22:52].strip())
-    print('  the antenna broken: %r; working: %r' % tuple(rows))
-    if 'NO COMMS' not in rows[0] or not rows[1].endswith(', COMMS'):
-        r.fail('COMMS: %r' % rows)
+        rows.append((r.cpu.mem[r.tsyms['N_ANT']], r.panel()[0][22:52].strip()))
+    print('  the antenna broken: %r; as at the start: %r' % tuple(rows))
+    if rows[0][0] != 0 or rows[1][0] != 1 or any('COMMS' in p for _, p in rows):
+        r.fail('comms: %r' % rows)
     set_cell(r, *ant, fl=a0[1])
     r.run(70)
 

@@ -991,10 +991,6 @@ s_airon:
     #d "0, AIR ON", 0x00
 s_airoff:
     #d "0, NO AIR", 0x00
-s_comms:
-    #d ", COMMS", 0x00
-s_nocomms:
-    #d ", NO COMMS", 0x00
 s_hasc:
     #d "THERE IS A CONDUIT THERE ALREADY.", 0x00
 s_jam:
