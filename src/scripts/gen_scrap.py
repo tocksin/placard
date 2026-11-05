@@ -54,7 +54,7 @@ VIEW_W, VIEW_H = 20, 12
 TUG_DX = 10                         # the tug's cells, x from its plan
 TUG_LOCK = (19 + TUG_DX, 32)        # docked: the airlocks side by side,
 WRECK_LOCK = (30, 32)               # always aligned
-TUG_ANT = (14 + TUG_DX, 25)         # the tug's antenna (broken at the start)
+TUG_ANT = (14 + TUG_DX, 25)         # the tug's antenna (working, barely, at the start)
 START = (7 + TUG_DX, 32)            # the player, in the tug's corridor
 
 # ------------------------------------------------------------------
@@ -486,8 +486,6 @@ MESSAGES = [   # (label, text): the strings scrap.masm prints
     ('s_tug', 'TUG $'),
     ('s_airon', '0, AIR ON'),
     ('s_airoff', '0, NO AIR'),
-    ('s_comms', ', COMMS'),
-    ('s_nocomms', ', NO COMMS'),
     ('s_hasc', 'THERE IS A CONDUIT THERE ALREADY.'),
     ('s_jam', 'THE DOOR IS JAMMED - REPAIR IT TO 50% HEALTH FIRST.'),
     ('s_air', 'AIR '),
@@ -666,8 +664,8 @@ def build_map(seed=9):
     d[49][90] = 10                      # a cracked hull wall: it leaks
     d[51][90] = d[52][90] = 15          # the hull breach: broken wall segments
     d[42][36] = 3
-    t[TUG_ANT[1]][TUG_ANT[0]] = TYPE['ANT']   # the tug's antenna, above its hull: broken
-    d[TUG_ANT[1]][TUG_ANT[0]] = 11      #   (no comms until it is repaired)
+    t[TUG_ANT[1]][TUG_ANT[0]] = TYPE['ANT']   # the tug's antenna, above its hull: it
+    d[TUG_ANT[1]][TUG_ANT[0]] = 7       #   works, barely (56 %): you can head out at once
     t[5][50] = TYPE['ANT']              # the wreck's, on its hull: working
     d[5][50] = 2
     return t, d

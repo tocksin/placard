@@ -146,6 +146,7 @@ JB_TH   = 0x36FB
 O2_T    = 0x36FC            ; seconds since the suit last used a litre of O2
 CND_N   = 24                ; parts on conduits, at most (CND)
 N_ANT   = 0x36FD            ; 1: a working antenna installed on the tug (tug_scan): comms
+                            ;   (for the navigation mode's display; not shown here)
 inv     = 0x63              ; 1: the inventory screen is up (not the view)
 place   = 0x64              ; INSTALL from the inventory: the carry slot's address
                             ;   while you pick the cell (0 none)
@@ -4920,21 +4921,6 @@ d3_off:
     ld   ac, [R0]
     ld   s_airoff >> 8, ac
 d3_p:
-    ld   ac, [R1]
-    CALL tputs
-    ld   N_ANT >> 8, y
-    ld   N_ANT & 0xFF, x
-    ld   [y,x], ac
-    beq  d3_nc
-    ld   s_comms & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_comms >> 8, ac
-    bra  d3_q
-d3_nc:
-    ld   s_nocomms & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_nocomms >> 8, ac
-d3_q:
     ld   ac, [R1]
     CALL tputs
     LEAVE
