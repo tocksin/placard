@@ -57,8 +57,11 @@
 
 dos_back = 0x8008
 FBUF     = 0x5400           ; 512-byte sector buffer while loading SCRAP.OVL
-OVL_TAIL = 0x56             ; SCRAP.OVL's last pages: x5600-x59FF (code:
-OVL_END  = 0x5A             ;   the pointer, the repair steps, more)
+OVL_TAIL = 0x56             ; SCRAP.OVL's last pages: x5600-x59FF, then
+OVL_END  = 0x5A             ;   x5C00-x5DF2 (the audio buffer from x5DF3:
+OVL_TAIL2 = 0x5C            ;   silence_buf), then x5400-x55FF (FBUF's own:
+OVL_END2 = 0x5E             ;   its last sector); code: the pointer, the
+                            ;   repair steps, more
 VIEW_W   = 20
 VIEW_H   = 12
 WALK_FRAMES = 7             ; frames between steps while a direction is held
@@ -141,6 +144,8 @@ JB_N    = 0x36F9            ;   the 16ths done,
 JB_TL   = 0x36FA            ;   the work left at the next 16th
 JB_TH   = 0x36FB
 O2_T    = 0x36FC            ; seconds since the suit last used a litre of O2
+CND_N   = 24                ; parts on conduits, at most (CND)
+N_ANT   = 0x36FD            ; 1: a working antenna installed on the tug (tug_scan): comms
 inv     = 0x63              ; 1: the inventory screen is up (not the view)
 place   = 0x64              ; INSTALL from the inventory: the carry slot's address
                             ;   while you pick the cell (0 none)
@@ -358,6 +363,12 @@ ta_go\@:
     ld   s_jam >> 8, ac
     ld   ac, [R1]
 .endm
+.macro MSG_BDECK
+    ld   s_bdeck & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_bdeck >> 8, ac
+    ld   ac, [R1]
+.endm
 .macro MSG_INWAY
     ld   s_inway & 0xFF, ac
     ld   ac, [R0]
@@ -377,7 +388,236 @@ ta_go\@:
 .region 0x2000, 0x3400
 .region 0xC000, 0x10000, 2, overlay
 .region 0x5600, 0x5A00, 1, overlay
+.region 0x5C00, 0x5DF3, 1, overlay
+.region 0x5400, 0x5600, 1, overlay
 .region 0x0100, 0x1F00
+
+; ============================================================
+; x5600-x59FF: SCRAP.OVL's last pages (after xFE): the mouse pointer,
+; a repair's steps
+; ============================================================
+.region 0x5600, 0x5A00, 1, overlay
+
+; pt_hide - the pointer off (PT_SV, what was under it, back) if it is
+; drawn.  pt_show - the pointer at the mouse (its tip at art pixel m_x /
+; 4, m_y / 2) if it is off and the mouse is over the view area, what is
+; under it kept in PT_SV.  pt_walk (their end, AC 1 draws, 0 puts back):
+; 3 byte columns x 8 line pairs from byte column PT_C, line pair PT_P
+; (none past the right edge or line pair 191), PT_TAB + PT_B: AND mask,
+; + 8 the color.  Leaves; T0-T7 (the program does not use them) and u0.
+.chunk
+pt_hide:
+    ld   PT_TAB >> 8, y
+    ld   PT_ON & 0xFF, x
+    ld   [y,x], ac
+    beq  ph_e
+    ld   0, [y,x]
+    clr  ac
+    GOTO pt_walk
+pt_show:
+    ld   PT_TAB >> 8, y
+    ld   PT_ON & 0xFF, x
+    ld   [y,x], ac
+    bne  ph_e
+    ld   [m_yh], ac
+    beq  ps_v
+    ld   [m_yl], ac
+    sub  0x80, ac
+    bcc  ph_e                   ; over the panel: none
+ps_v:
+    ld   [m_yl], ac
+    shr  ac
+    ld   ac, [T1]
+    ld   [m_yh], ac
+    beq  ps_1
+    ld   [T1], ac
+    or   0x80, ac
+    ld   ac, [T1]
+ps_1:
+    ld   [m_xl], ac
+    shr  ac
+    shr  ac
+    ld   ac, [T0]
+    ld   [m_xh], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [T0], ac
+    ld   ac, [T0]
+    ld   1, [y,x]
+    ld   PT_P & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    ld   PT_C & 0xFF, x
+    ld   [T0], ac
+    shr  ac
+    ld   ac, [y,x]
+    ld   PT_B & 0xFF, x
+    ld   [T0], ac
+    and  1, ac
+    beq  ps_b
+    ld   48, ac                 ; an odd pixel: the shifted half
+ps_b:
+    ld   ac, [y,x]
+    ld   1, ac
+    GOTO pt_walk
+ph_e:
+    RET
+
+.chunk
+pt_walk:
+    ld   ac, [T7]               ; T7: 1 draw, 0 put back
+    ld   PT_TAB >> 8, y
+    ld   PT_C & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [T4]               ; T4: the byte column
+    ld   PT_P & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [T5]               ; T5: the first line pair
+    ld   PT_B & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [T6]               ; T6: PT_TAB + 16 c
+    clr  ac
+    ld   ac, [T3]               ; T3: PT_SV + 8 c
+pw_c:
+    ld   [T4], ac
+    sub  80, ac
+    bcc  pw_e
+    ld   [T4], ac
+    shl
+    add  0x61, ac
+    ld   ac, [T0]               ; T0, T1: the screen page, offset
+    ld   [T5], ac
+    sub  112, ac
+    bcs  pw_lo
+    ld   [T5], ac
+    shl
+    sub  223, ac
+    bra  pw_o
+pw_lo:
+    ld   [T5], ac
+    shl
+    add  32, ac
+pw_o:
+    ld   ac, [T1]
+    clr  ac
+    ld   ac, [T2]               ; T2: the line pair r
+pw_r:
+    ld   [T5], ac
+    add  [T2], ac
+    sub  192, ac
+    bcc  pw_n
+    ld   PT_TAB >> 8, y
+    ld   [T7], ac
+    bne  pw_d
+    ld   [T3], ac               ; put back
+    add  [T2], ac
+    add  PT_SV & 0xFF, x
+    ld   [y,x], ac
+    bra  pw_w
+pw_d:
+    ld   [T0], y                ; kept, then the pointer over it
+    ld   [T1], x
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   PT_TAB >> 8, y
+    ld   [T3], ac
+    add  [T2], ac
+    add  PT_SV & 0xFF, x
+    ld   [u0], ac
+    ld   ac, [y,x]
+    ld   [T6], ac
+    add  [T2], ac
+    add  PT_TAB & 0xFF, x
+    ld   [y,x], ac
+    and  [u0], ac
+    ld   ac, [u0]
+    ld   [T6], ac
+    add  [T2], ac
+    add  (PT_TAB & 0xFF) + 8, x
+    ld   [y,x], ac
+    or   [u0], ac
+pw_w:
+    ld   [T0], y
+    ld   [T1], x
+    ld   ac, [y,x]
+    ld   [T1], ac
+    add  2, ac
+    bne  pw_x
+    ld   1, ac
+pw_x:
+    ld   ac, [T1]
+    ld   [T2], ac
+    inc
+    ld   ac, [T2]
+    xor  8, ac
+    bne  pw_r
+pw_n:
+    ld   [T4], ac
+    inc
+    ld   ac, [T4]
+    ld   [T6], ac
+    add  16, ac
+    ld   ac, [T6]
+    ld   [T3], ac
+    add  8, ac
+    ld   ac, [T3]
+    xor  24, ac
+    bne  pw_c
+pw_e:
+    RET
+
+; rep_bar - after job_start for a repair: a damage step a 16th of the
+; work's bar (JB_B = 16 x 15 frames' work), so jb_tick takes a step off
+; each time (rep_step).  A leaf.
+.chunk
+rep_bar:
+    ld   JB_B >> 8, y
+    ld   JB_B & 0xFF, x
+    ld   240, [y,x]
+    ld   [wk_l], ac
+    sub  240, ac
+    ld   JB_TL & 0xFF, x
+    ld   ac, [y,x]
+    ld   [wk_h], ac
+    bcc  rbar_1
+    dec
+rbar_1:
+    ld   JB_TH & 0xFF, x
+    ld   ac, [y,x]
+    RET
+
+; rep_step - a repair's damage step done: the cell cut_x, cut_y a step
+; less damaged (kept if the repair stops), drawn again, the panel too
+.chunk
+rep_step:
+    PUSH_LINK
+    ld   [cut_x], ac
+    ld   ac, [g_x]
+    ld   [cut_y], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   [c_f], ac
+    beq  rst_e
+    ld   [a_pg], ac             ; the flag byte, two pages up
+    add  2, ac
+    ld   ac, y
+    ld   [a_ix], x
+    ld   [y,x], ac
+    dec
+    ld   ac, [y,x]
+    CALL refresh_cell
+    ld   [dirty], ac
+    or   1, ac
+    ld   ac, [dirty]
+rst_e:
+    LEAVE
+
+.region 0x0100, 0x1F00
+
 
 ; ============================================================
 ; main
@@ -390,6 +630,7 @@ main:
     ld   ac, [MAP_SHADOW]
     CALL l_fs_mount
     CALL ovl_load
+    CALL silence_buf
     MAPFF
     GOTO start
 
@@ -596,6 +837,29 @@ l_vid_mode:
     MAPFF
     LEAVE
 
+; silence_buf - the audio buffer x5DF3-x5FFF all silence (x80): the
+; overlay's page x5D wrote its start.  A leaf.
+.chunk
+silence_buf:
+    ld   0x5D, ac
+    ld   ac, [u1]
+    ld   0xF3, ac
+sb_l:
+    ld   [u1], y
+    ld   ac, x
+    ld   0x80, [y,x]
+    inc
+    bne  sb_l
+    ld   [u1], ac
+    inc
+    ld   ac, [u1]
+    xor  0x60, ac
+    beq  sb_e
+    clr  ac
+    bra  sb_l
+sb_e:
+    RET
+
 ; ------------------------------------------------------------
 ; ovl_load - SCRAP.OVL (the map) into the even pages from MAP_PAGE: a
 ; sector holds two of them (tracker.masm's ovl_load)
@@ -651,9 +915,25 @@ ov_st:
     ld   1, [y,x]
     ld   OVL_TAIL, ac
     ld   ac, [u5]
+    bra  ov_n
 ov_k:
-    xor  OVL_END, ac
+    xor  OVL_END, ac            ; after x59: x5C-x5D (past the mode bytes)
+    bne  ov_k1
+    ld   OVL_TAIL2, ac
+    bra  ov_kk
+ov_k1:
+    ld   [u5], ac               ; after x5D: x54-x55, the sector buffer
+    xor  OVL_END2, ac           ;   itself (the last sector, read in place)
+    bne  ov_k2
+    ld   FBUF >> 8, ac
+ov_kk:
+    ld   ac, [u5]
+    bra  ov_n
+ov_k2:
+    ld   [u5], ac               ; after x55: done
+    xor  OVL_TAIL, ac
     beq  ov_e
+ov_n:
     ld   [u7], ac
     dec
     ld   ac, [u7]
@@ -814,6 +1094,15 @@ draw_cell:
     shl
     shl
     ld   ac, [dc_ai]
+    ld   [dc_ap], ac            ; past the art pages: ART2
+    xor  ART_PG + ART_N, ac
+    bne  dc_a2
+    ld   ART2 >> 8, ac
+    ld   ac, [dc_ap]
+    ld   [dc_ai], ac
+    add  ART2 & 0xFF, ac
+    ld   ac, [dc_ai]
+dc_a2:
 draw_cell_at:                   ; (or the art at dc_ap:dc_ai)
     CELLADDR
     ld   4, ac
@@ -1394,6 +1683,11 @@ cl_v:
     beq  cl_l
     GOTO place_click
 cl_l:
+    ld   [lock], ac             ; locked on this cell already: the next
+    beq  cl_k                   ; thing in it (under_cycle)
+    CALL under_cycle
+    bne  cl_e
+cl_k:
     ld   1, ac
     ld   ac, [lock]
     CALL subject_hover
@@ -1990,8 +2284,13 @@ subj_load:
 sl_c:
     ld   [s_who], ac
     xor  3, ac
-    bne  sl_m
+    bne  sl_u
     GOTO inv_load
+sl_u:
+    ld   [s_who], ac
+    xor  4, ac
+    bne  sl_m
+    GOTO under_load
 sl_m:
     ld   [s_x], ac
     ld   ac, [g_x]
@@ -2081,9 +2380,13 @@ dy_o:
     ld   A_REFILL, ac
     CALL add_act
 dy_f:
-    ld   [s_t], ac
+    ld   [s_t], ac              ; a deck or a conduit: PUT DOWN
     xor  T_FLOOR, ac
+    beq  dy_p
+    ld   [s_t], ac
+    xor  T_PIPE, ac
     bne  dy_e
+dy_p:
     ld   [cl_t], ac
     beq  dy_1
     ld   A_PUTL, ac
@@ -2884,6 +3187,9 @@ tug_scan:
     ld   ac, [n_fuel]
     ld   ac, [v4]
     ld   ac, [v5]
+    ld   N_ANT >> 8, y
+    ld   N_ANT & 0xFF, x
+    ld   0, [y,x]
     ld   TUG_Y0, ac
     ld   ac, [v1]
 ty_y:
@@ -2951,10 +3257,17 @@ ty_2:
 ty_3:
     ld   [c_t], ac
     xor  T_FUEL, ac
-    bne  ty_n
+    bne  ty_4
     ld   [n_fuel], ac
     inc
     ld   ac, [n_fuel]
+ty_4:
+    ld   [c_t], ac
+    xor  T_ANT, ac
+    bne  ty_n
+    ld   N_ANT >> 8, y
+    ld   N_ANT & 0xFF, x
+    ld   1, [y,x]
 ty_n:
     ld   [v0], ac
     inc
@@ -3083,7 +3396,7 @@ pk_s:
     ld   [s_y], ac
     ld   ac, [g_y]
     CALL map_get
-    ld   T_FLOOR, ac
+    CALL under_take             ; the deck, or the conduit, under it
     CALL map_put
     clr  ac
     CALL map_setd
@@ -3128,8 +3441,14 @@ pu_ok:
     ld   [s_y], ac
     ld   ac, [g_y]
     CALL map_get
-    xor  T_FLOOR, ac
+    CALL deck_ok
+    beq  pu_d
+    xor  2, ac                  ; a broken deck: the message
     bne  pu_e
+    CALL set_msg
+    LEAVE
+pu_d:
+    CALL under_add
     ld   [v0], x
     ld   [x], ac
     beq  pu_e
@@ -3230,6 +3549,9 @@ cd_0:
     xor  T_THRUST, ac
     beq  cd_th
     ld   [c_t], ac
+    xor  T_ANT, ac
+    beq  cd_th
+    ld   [c_t], ac
     ld   ac, x
     ld   TAB_PG, y
     ld   [y,x], ac
@@ -3249,8 +3571,15 @@ cd_i:
 cd_k:
     ld   [c_t], ac
     xor  T_DOORK, ac
-    bne  cd_b
+    bne  cd_k2
     ld   T_DOOR, ac
+    bra  cd_s
+cd_k2:
+    ld   [c_t], ac
+    xor  T_COND, ac
+    bne  cd_b
+    CALL under_take             ; (its entry, if it lay on a conduit)
+    ld   T_PIPE, ac
 cd_s:
     CALL map_put
     ld   1, ac
@@ -3326,6 +3655,15 @@ struct_done:
     xor  T_THRUST, ac
     beq  sd_f
     ld   [c_t], ac
+    xor  T_ANT, ac
+    beq  sd_f
+    ld   [c_t], ac
+    xor  T_PIPE, ac
+    bne  sd_w
+    ld   T_COND, ac             ; a conduit: its section, on the deck
+    bra  sd_p
+sd_w:
+    ld   [c_t], ac
     xor  T_WALL, ac
     bne  sd_d
     ld   T_PANEL, ac
@@ -3339,10 +3677,10 @@ sd_f:
     CALL free_slot
     beq  sd_full
     ld   ac, [v0]
-    ld   [c_t], ac              ; a deck: its plate; a thruster
+    ld   [c_t], ac              ; a deck: its plate; a thruster, an antenna
     xor  T_FLOOR, ac
     beq  sd_pp
-    ld   T_THRUST, ac
+    ld   [c_t], ac
     bra  sd_st
 sd_pp:
     ld   T_PLATE, ac
@@ -4584,6 +4922,21 @@ d3_off:
 d3_p:
     ld   ac, [R1]
     CALL tputs
+    ld   N_ANT >> 8, y
+    ld   N_ANT & 0xFF, x
+    ld   [y,x], ac
+    beq  d3_nc
+    ld   s_comms & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_comms >> 8, ac
+    bra  d3_q
+d3_nc:
+    ld   s_nocomms & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_nocomms >> 8, ac
+d3_q:
+    ld   ac, [R1]
+    CALL tputs
     LEAVE
 
 ; put_name - the name of type AC (EMPTY for 0)
@@ -5621,11 +5974,30 @@ place_click:
     beq  pc_bad
 pc_1:
     CALL map_get
-    ld   0x80, ac               ; u5: x80 a bare deck, x40 open space, 0 neither
+    CALL deck_ok                ; u5: x80 a deck (or conduit), x40 open space,
+    ld   ac, [u5]               ; 1 a broken deck, 0 neither
+    beq  pc_dk
+    xor  2, ac
+    bne  pc_sp
+    ld   1, ac
     ld   ac, [u5]
+    bra  pc_w
+pc_dk:
+    ld   [pl_t], ac             ; a conduit section on a conduit: no
+    xor  T_COND, ac
+    bne  pc_dd
     ld   [c_t], ac
-    xor  T_FLOOR, ac
-    beq  pc_w
+    xor  T_PIPE, ac
+    bne  pc_dd
+    ld   s_hasc & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_hasc >> 8, ac
+    bra  pc_m
+pc_dd:
+    ld   0x80, ac
+    ld   ac, [u5]
+    bra  pc_w
+pc_sp:
     ld   0x40, ac
     ld   ac, [u5]
     ld   [c_t], ac
@@ -5647,25 +6019,7 @@ pc_w:
     beq  pc_no
     GOTO place_go
 pc_no:
-    ld   [u6], ac
-    xor  0x40, ac
-    bne  pc_2
-    ld   s_wspace & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_wspace >> 8, ac
-    bra  pc_m
-pc_2:
-    ld   [u6], ac
-    xor  0x80, ac
-    bne  pc_3
-    ld   s_wdeck & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_wdeck >> 8, ac
-    bra  pc_m
-pc_3:
-    ld   s_wboth & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_wboth >> 8, ac
+    GOTO place_why
 pc_m:
     ld   ac, [R1]
     CALL set_msg
@@ -5676,6 +6030,44 @@ pc_far:
     LEAVE
 pc_bad:
     MSG_INWAY
+    CALL set_msg
+    LEAVE
+
+; place_why - why the part does not go there (u5, u6: place_click).  The
+; rest of place_click
+.chunk
+place_why:
+    ld   [u5], ac               ; a broken deck, and the part goes on a deck
+    xor  1, ac
+    bne  py_n
+    ld   [u6], ac
+    and  0x80, ac
+    beq  py_n
+    MSG_BDECK
+    bra  py_mm
+py_n:
+    ld   [u6], ac
+    xor  0x40, ac
+    bne  py_2
+    ld   s_wspace & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_wspace >> 8, ac
+    bra  py_m
+py_2:
+    ld   [u6], ac
+    xor  0x80, ac
+    bne  py_3
+    ld   s_wdeck & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_wdeck >> 8, ac
+    bra  py_m
+py_3:
+    ld   s_wboth & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_wboth >> 8, ac
+py_m:
+    ld   ac, [R1]
+py_mm:
     CALL set_msg
     LEAVE
 
@@ -5727,7 +6119,15 @@ place_done:
     ld   [x], ac
     ld   ac, [v1]
     xor  [pl_t], ac
-    bne  pq_e
+    beq  pq_0
+    GOTO work_end
+pq_0:
+    GOTO place_put
+
+; place_put - the cell type the part v1 makes, put there.  The rest of
+; place_done
+.chunk
+place_put:
     ld   [v1], ac
     xor  T_PLATE, ac
     bne  pq_1
@@ -5742,13 +6142,22 @@ pq_1:
 pq_2:
     ld   [v1], ac
     xor  T_DOORK, ac
-    bne  pq_3
+    bne  pq_2c
     ld   T_DOOR, ac
+    bra  pq_s
+pq_2c:
+    ld   [v1], ac
+    xor  T_COND, ac
+    bne  pq_3
+    ld   T_PIPE, ac
     bra  pq_s
 pq_3:
     ld   [v1], ac
     or   0x80, ac
 pq_s:
+    ld   ac, [v1]
+    CALL under_add              ; on a conduit: it is listed
+    ld   [v1], ac
     CALL map_put
     ld   [v0], ac
     add  3, x
@@ -5764,8 +6173,199 @@ pq_s:
     ld   s_instdone >> 8, ac
     ld   ac, [R1]
     CALL set_msg
-pq_e:
     GOTO work_end
+
+; ------------------------------------------------------------
+; what is under a part: a part stands on a deck (no thruster: open
+; space; no turret: a wall), and that deck is never broken (deck_ok).
+; The map keeps one type a cell, so a part on a power conduit is listed
+; in CND (x, y; xFF xFF free, CND_N of them) and its pick-up lays the
+; conduit again; any other part had a whole bare deck under it.
+; ------------------------------------------------------------
+
+; deck_ok - after map_get: AC 0 a deck or a conduit at 50 % health or
+; more, 1 neither, 2 a broken one (R0, R1 its message).  A leaf.
+.chunk
+deck_ok:
+    ld   [c_t], ac
+    xor  T_FLOOR, ac
+    beq  dk_1
+    ld   [c_t], ac
+    xor  T_PIPE, ac
+    beq  dk_1
+    ld   1, ac
+    RET
+dk_1:
+    ld   [c_f], ac
+    sub  8, ac
+    bcs  dk_ok
+    MSG_BDECK
+    ld   2, ac
+    RET
+dk_ok:
+    clr  ac
+    RET
+
+; cnd_set - the CND entry T1, T2 found becomes T3, T4: AC T_PIPE, or
+; T_FLOOR when there is none.  under_add - after map_get, the cell
+; g_x, g_y (a conduit: into a free entry).  under_take - the type under
+; the part on g_x, g_y, its entry freed.  Leaves; T0-T4.
+.chunk
+under_add:
+    ld   [c_t], ac
+    xor  T_PIPE, ac
+    bne  ua_e
+    ld   0xFF, ac
+    ld   ac, [T1]
+    ld   ac, [T2]
+    ld   [g_x], ac
+    ld   ac, [T3]
+    ld   [g_y], ac
+    ld   ac, [T4]
+    GOTO cnd_set
+ua_e:
+    RET
+under_take:
+    ld   [g_x], ac
+    ld   ac, [T1]
+    ld   [g_y], ac
+    ld   ac, [T2]
+    ld   0xFF, ac
+    ld   ac, [T3]
+    ld   ac, [T4]
+    GOTO cnd_set
+
+.chunk
+cnd_set:
+    ld   CND & 0xFF, ac
+    ld   ac, [T0]
+cs_l:
+    ld   CND >> 8, y
+    ld   [T0], x
+    ld   [y,x], ac
+    xor  [T1], ac
+    bne  cs_n
+    ld   [T0], ac
+    add  1, x
+    ld   [y,x], ac
+    xor  [T2], ac
+    bne  cs_n
+    ld   [T4], ac
+    ld   ac, [y,x]
+    ld   [T0], x
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   T_PIPE, ac
+    RET
+cs_n:
+    ld   [T0], ac
+    add  2, ac
+    ld   ac, [T0]
+    xor  ((CND & 0xFF) + 2 * CND_N) & 0xFF, ac
+    bne  cs_l
+    ld   T_FLOOR, ac
+    RET
+
+; under_cycle - a click on the cell the panel is locked on: from a part
+; (no thruster) to what is under it (s_who 4), and back.  AC 1 if it
+; did.  A leaf.
+.chunk
+under_cycle:
+    ld   [h_x], ac
+    xor  [s_x], ac
+    bne  uc_no
+    ld   [h_y], ac
+    xor  [s_y], ac
+    bne  uc_no
+    ld   [s_who], ac
+    xor  4, ac
+    bne  uc_1
+    ld   1, ac
+    bra  uc_s
+uc_1:
+    ld   [s_who], ac
+    xor  1, ac
+    bne  uc_no
+    ld   [s_b], ac              ; installed on open space (a thruster): none
+    beq  uc_2
+    ld   ACT_PG, y
+    ld   [s_t], ac
+    add  TB_SKILL, x
+    ld   [y,x], ac
+    and  0xC0, ac
+    xor  0x40, ac
+    beq  uc_no
+uc_2:
+    ld   [s_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_ITEM, ac
+    beq  uc_no
+    ld   4, ac
+uc_s:
+    ld   ac, [s_who]
+    ld   [dirty], ac
+    or   1, ac
+    ld   ac, [dirty]
+    ld   1, ac
+    RET
+uc_no:
+    clr  ac
+    RET
+
+; under_load - the panel on the deck or conduit under the part on s_x,
+; s_y: INSPECT only, whole (deck_ok); no part there now, the cell
+; itself (s_who 1).  The rest of subj_load
+.chunk
+under_load:
+    ld   [s_x], ac
+    ld   ac, [g_x]
+    ld   ac, [T1]
+    ld   ac, [T3]
+    ld   [s_y], ac
+    ld   ac, [g_y]
+    ld   ac, [T2]
+    ld   ac, [T4]
+    CALL map_get
+    ld   [c_b], ac
+    beq  ul_2
+    ld   ACT_PG, y
+    ld   [c_t], ac
+    add  TB_SKILL, x
+    ld   [y,x], ac
+    and  0xC0, ac
+    xor  0x40, ac
+    beq  ul_m
+ul_2:
+    ld   [c_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_ITEM, ac
+    bne  ul_u
+ul_m:
+    ld   1, ac
+    ld   ac, [s_who]
+    GOTO sl_m
+ul_u:
+    ld   [c_r], ac
+    ld   ac, [s_r]
+    clr  ac
+    ld   ac, [s_f]
+    ld   ac, [s_b]
+    ld   ac, [n_act]
+    CALL cnd_set
+    ld   ac, [s_t]
+    ld   A_INSPECT, ac
+    CALL add_act
+    LEAVE
+
+; CND - the parts on conduits (x, y); xFF xFF free
+.chunk
+CND:
+    #d8 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
+    #d8 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 
 ; the panel's row 24 for a carried part (draw_tags)
 .chunk
@@ -5777,230 +6377,6 @@ s_sl1:
     #d "IN YOUR RIGHT HAND", 0x00
 s_sl2:
     #d "ON YOUR BACK", 0x00
-
-; ============================================================
-; x5600-x59FF: SCRAP.OVL's last pages (after xFE): the mouse pointer,
-; a repair's steps
-; ============================================================
-.region 0x5600, 0x5A00, 1, overlay
-
-; pt_hide - the pointer off (PT_SV, what was under it, back) if it is
-; drawn.  pt_show - the pointer at the mouse (its tip at art pixel m_x /
-; 4, m_y / 2) if it is off and the mouse is over the view area, what is
-; under it kept in PT_SV.  pt_walk (their end, AC 1 draws, 0 puts back):
-; 3 byte columns x 8 line pairs from byte column PT_C, line pair PT_P
-; (none past the right edge or line pair 191), PT_TAB + PT_B: AND mask,
-; + 8 the color.  Leaves; T0-T7 (the program does not use them) and u0.
-.chunk
-pt_hide:
-    ld   PT_TAB >> 8, y
-    ld   PT_ON & 0xFF, x
-    ld   [y,x], ac
-    beq  ph_e
-    ld   0, [y,x]
-    clr  ac
-    GOTO pt_walk
-pt_show:
-    ld   PT_TAB >> 8, y
-    ld   PT_ON & 0xFF, x
-    ld   [y,x], ac
-    bne  ph_e
-    ld   [m_yh], ac
-    beq  ps_v
-    ld   [m_yl], ac
-    sub  0x80, ac
-    bcc  ph_e                   ; over the panel: none
-ps_v:
-    ld   [m_yl], ac
-    shr  ac
-    ld   ac, [T1]
-    ld   [m_yh], ac
-    beq  ps_1
-    ld   [T1], ac
-    or   0x80, ac
-    ld   ac, [T1]
-ps_1:
-    ld   [m_xl], ac
-    shr  ac
-    shr  ac
-    ld   ac, [T0]
-    ld   [m_xh], ac
-    shl
-    shl
-    shl
-    shl
-    shl
-    shl
-    or   [T0], ac
-    ld   ac, [T0]
-    ld   1, [y,x]
-    ld   PT_P & 0xFF, x
-    ld   [T1], ac
-    ld   ac, [y,x]
-    ld   PT_C & 0xFF, x
-    ld   [T0], ac
-    shr  ac
-    ld   ac, [y,x]
-    ld   PT_B & 0xFF, x
-    ld   [T0], ac
-    and  1, ac
-    beq  ps_b
-    ld   48, ac                 ; an odd pixel: the shifted half
-ps_b:
-    ld   ac, [y,x]
-    ld   1, ac
-    GOTO pt_walk
-ph_e:
-    RET
-
-.chunk
-pt_walk:
-    ld   ac, [T7]               ; T7: 1 draw, 0 put back
-    ld   PT_TAB >> 8, y
-    ld   PT_C & 0xFF, x
-    ld   [y,x], ac
-    ld   ac, [T4]               ; T4: the byte column
-    ld   PT_P & 0xFF, x
-    ld   [y,x], ac
-    ld   ac, [T5]               ; T5: the first line pair
-    ld   PT_B & 0xFF, x
-    ld   [y,x], ac
-    ld   ac, [T6]               ; T6: PT_TAB + 16 c
-    clr  ac
-    ld   ac, [T3]               ; T3: PT_SV + 8 c
-pw_c:
-    ld   [T4], ac
-    sub  80, ac
-    bcc  pw_e
-    ld   [T4], ac
-    shl
-    add  0x61, ac
-    ld   ac, [T0]               ; T0, T1: the screen page, offset
-    ld   [T5], ac
-    sub  112, ac
-    bcs  pw_lo
-    ld   [T5], ac
-    shl
-    sub  223, ac
-    bra  pw_o
-pw_lo:
-    ld   [T5], ac
-    shl
-    add  32, ac
-pw_o:
-    ld   ac, [T1]
-    clr  ac
-    ld   ac, [T2]               ; T2: the line pair r
-pw_r:
-    ld   [T5], ac
-    add  [T2], ac
-    sub  192, ac
-    bcc  pw_n
-    ld   PT_TAB >> 8, y
-    ld   [T7], ac
-    bne  pw_d
-    ld   [T3], ac               ; put back
-    add  [T2], ac
-    add  PT_SV & 0xFF, x
-    ld   [y,x], ac
-    bra  pw_w
-pw_d:
-    ld   [T0], y                ; kept, then the pointer over it
-    ld   [T1], x
-    ld   [y,x], ac
-    ld   ac, [u0]
-    ld   PT_TAB >> 8, y
-    ld   [T3], ac
-    add  [T2], ac
-    add  PT_SV & 0xFF, x
-    ld   [u0], ac
-    ld   ac, [y,x]
-    ld   [T6], ac
-    add  [T2], ac
-    add  PT_TAB & 0xFF, x
-    ld   [y,x], ac
-    and  [u0], ac
-    ld   ac, [u0]
-    ld   [T6], ac
-    add  [T2], ac
-    add  (PT_TAB & 0xFF) + 8, x
-    ld   [y,x], ac
-    or   [u0], ac
-pw_w:
-    ld   [T0], y
-    ld   [T1], x
-    ld   ac, [y,x]
-    ld   [T1], ac
-    add  2, ac
-    bne  pw_x
-    ld   1, ac
-pw_x:
-    ld   ac, [T1]
-    ld   [T2], ac
-    inc
-    ld   ac, [T2]
-    xor  8, ac
-    bne  pw_r
-pw_n:
-    ld   [T4], ac
-    inc
-    ld   ac, [T4]
-    ld   [T6], ac
-    add  16, ac
-    ld   ac, [T6]
-    ld   [T3], ac
-    add  8, ac
-    ld   ac, [T3]
-    xor  24, ac
-    bne  pw_c
-pw_e:
-    RET
-
-; rep_bar - after job_start for a repair: a damage step a 16th of the
-; work's bar (JB_B = 16 x 15 frames' work), so jb_tick takes a step off
-; each time (rep_step).  A leaf.
-.chunk
-rep_bar:
-    ld   JB_B >> 8, y
-    ld   JB_B & 0xFF, x
-    ld   240, [y,x]
-    ld   [wk_l], ac
-    sub  240, ac
-    ld   JB_TL & 0xFF, x
-    ld   ac, [y,x]
-    ld   [wk_h], ac
-    bcc  rbar_1
-    dec
-rbar_1:
-    ld   JB_TH & 0xFF, x
-    ld   ac, [y,x]
-    RET
-
-; rep_step - a repair's damage step done: the cell cut_x, cut_y a step
-; less damaged (kept if the repair stops), drawn again, the panel too
-.chunk
-rep_step:
-    PUSH_LINK
-    ld   [cut_x], ac
-    ld   ac, [g_x]
-    ld   [cut_y], ac
-    ld   ac, [g_y]
-    CALL map_get
-    ld   [c_f], ac
-    beq  rst_e
-    ld   [a_pg], ac             ; the flag byte, two pages up
-    add  2, ac
-    ld   ac, y
-    ld   [a_ix], x
-    ld   [y,x], ac
-    dec
-    ld   ac, [y,x]
-    CALL refresh_cell
-    ld   [dirty], ac
-    or   1, ac
-    ld   ac, [dirty]
-rst_e:
-    LEAVE
 
 ; ============================================================
 ; SCRAP.INV: the inventory screen (scrap_inv.masm), read in when it opens

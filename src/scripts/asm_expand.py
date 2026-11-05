@@ -58,7 +58,7 @@ Lines before the first .chunk or .fixed (constants, #include, comments)
 are copied as they are.  The .asm made is the file to read and assemble;
 the .masm is its source (change that and run this again).
 
-Date: 11/02/2026
+Date: 11/05/2026
 """
 
 import os
@@ -296,7 +296,7 @@ def place(chunks, name):
         if c.fixed is not None or c.flow:
             continue
         if c.size > 256:
-            raise ExpandError('%s:%d: chunk of %d bytes, more than a page' % (name, c.lineno, c.size))
+            raise ExpandError('%s:%d: chunk of %d bytes, more than a page (%s)' % (name, c.lineno, c.size, c.lines[0].strip() if c.lines else ''))
         if c.last not in ENDERS and c.last != 'data' and c.size:
             raise ExpandError('%s:%d: chunk does not end with a jump (last: %s)'
                               % (name, c.lineno, c.last))
