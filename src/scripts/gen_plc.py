@@ -38,12 +38,12 @@ they may share addresses with the ROM) in a second file next to the first
 each up to the last page that has code, in order.  The program reads that
 file itself (fs_open, fs_read) and copies the pages into place.
 
-    python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
+    python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-tail 0x5400,0x5600,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
 
 puts a file's bytes (SCRAPWRIGHT's map pages) in front of the overlay's,
 for a program that reads both from the one file; --overlay-tail adds
-more pages (x5600-x59FF) after the overlay's, all of them to the top
-of memory then; --swap writes a file the program reads in when it needs it.
+more pages (x5600-x59FF, then x5C00-x5DFF, then x5400-x55FF: one range each time it
+is given) after the overlay's, all of them to the top of memory then; --swap writes a file the program reads in when it needs it.
 
 Date: 11/05/2026
 """
@@ -70,17 +70,20 @@ def split_overlay(mem, lib, start, step, tail=None):
     the bytes at and above start (those assembled after #overlay too), as
     the pages from start every step-th, 256 bytes each.  tail = (lo, hi,
     step): the #overlay pages from lo up to hi, every step-th, after the
-    last page (all of them up to the top of memory then)"""
+    last page (all of them up to the top of memory then); a list of such
+    ranges: each in turn"""
     own = own_bytes(mem, lib)
     high = {k & 0xFFFF: v for k, v in own.items() if (k & 0xFFFF) >= start}
     overlay = b''
     if tail:
-        lo, hi, tstep = tail
+        if isinstance(tail[0], int):
+            tail = [tail]
         last = (0x10000 >> 8) - step
         overlay = b''.join(bytes(high.get((pg << 8) + i, 0) for i in range(256))
                            for pg in range(start >> 8, last + 1, step))
-        overlay += b''.join(bytes(mem.get(0x10000 + (pg << 8) + i, 0) for i in range(256))
-                            for pg in range(lo >> 8, hi >> 8, tstep))
+        for lo, hi, tstep in tail:
+            overlay += b''.join(bytes(mem.get(0x10000 + (pg << 8) + i, 0) for i in range(256))
+                                for pg in range(lo >> 8, hi >> 8, tstep))
     elif high:
         last = max(high) >> 8
         overlay = b''.join(bytes(high.get((pg << 8) + i, 0) for i in range(256))
@@ -139,7 +142,7 @@ def main(argv):
     ap.add_argument('--type', type=int, choices=(0, 1), help='force the type')
     ap.add_argument('--overlay', metavar='ADDR,STEP',
                     help='bytes from ADDR go to NAME.OVL, every STEP-th page')
-    ap.add_argument('--overlay-tail', metavar='ADDR,END,STEP',
+    ap.add_argument('--overlay-tail', metavar='ADDR,END,STEP', action='append', default=[],
                     help='the #overlay pages from ADDR up to END, every STEP-th, after the overlay\'s')
     ap.add_argument('--overlay-head', metavar='FILE',
                     help='bytes put in front of the overlay\'s in NAME.OVL')
@@ -158,7 +161,7 @@ def main(argv):
     if a.overlay:
         start, step = a.overlay.split(',')
         start, step = int(start, 0), int(step, 0)
-        tail = tuple(int(v, 0) for v in a.overlay_tail.split(',')) if a.overlay_tail else None
+        tail = [tuple(int(v, 0) for v in t.split(',')) for t in a.overlay_tail] or None
         mem, overlay = split_overlay(mem, lib, start, step, tail)
         if a.overlay_head:
             overlay = open(a.overlay_head, 'rb').read() + overlay

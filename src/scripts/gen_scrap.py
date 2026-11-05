@@ -54,6 +54,7 @@ VIEW_W, VIEW_H = 20, 12
 TUG_DX = 10                         # the tug's cells, x from its plan
 TUG_LOCK = (19 + TUG_DX, 32)        # docked: the airlocks side by side,
 WRECK_LOCK = (30, 32)               # always aligned
+TUG_ANT = (14 + TUG_DX, 25)         # the tug's antenna (broken at the start)
 START = (7 + TUG_DX, 32)            # the player, in the tug's corridor
 
 # ------------------------------------------------------------------
@@ -162,6 +163,14 @@ ART = {
               '1777777B', '1777777B', '1777777B', '1777777B', '1777777B',
               '1777777B', '1777777B', '17B77B7B', '1777777B', '1BBBBBBB',
               '11111111'],
+    'cond': ['77777770', '77777770', '7EEEEEE0', '76666660', '77777770',
+             '77777770', '7EEEEEE0', '76666660', '77777770', '77777770',
+             '7EEEEEE0', '76666660', '77777770', '77777770', '77777770',
+             '00000000'],
+    'ant': ['111111A1', '11111B11', 'BBB1B111', 'B77BB111', 'B777B111',
+            '1B777B11', '11B777B1', '111B77B1', '1111BBB1', '111BB111',
+            '11BB1111', '1BB11111', 'BBBBBB11', '1B77B111', '1BBBB111',
+            '11111111'],
     'player': ['77777777', '77AAAA77', '7AA88AA7', '7A8888A7', '7AA88AA7',
                '77AAAA77', '7BAAAAB7', 'BAAAAAAB', 'BAAEEAAB', 'BAAAAAAB',
                '7BAAAAB7', '77AAAA77', '7AA77AA7', '7AA77AA7', '7BB77BB7',
@@ -281,8 +290,8 @@ TYPES = [
     ('TURRET', 'turret', 'SECURITY TURRET', F_DMG | F_SOLID,
      ['WALL TURRET, ARC TYPE', '\x01', 'DORMANT - NO POWER', 'SKILLS: COMPUTERS, MECHANICAL'], [A_INSPECT],
      'A SECURITY TURRET.  ITS LIGHT IS DARK, FOR NOW.'),
-    ('PIPE', 'pipe', 'POWER CONDUIT', F_WALK | F_DMG,
-     ['CONDUIT UNDER THE DECK', '\x01', 'CARRIES POWER BETWEEN PARTS', 'SKILL: ELECTRICAL'], [A_WALK, A_INSPECT],
+    ('PIPE', 'pipe', 'POWER CONDUIT', F_WALK | F_DMG | F_STRUCT,
+     ['CONDUIT IN THE DECK', '\x01', 'CARRIES POWER BETWEEN PARTS', 'SKILL: ELECTRICAL'], [A_WALK, A_INSPECT],
      'A POWER CONDUIT RUNS UNDER THE DECK HERE.'),
     ('VENT', 'vent', 'DECK (NO AIR)', F_WALK | F_DMG,
      ['DECK PLATE IN VACUUM', 'THIS ROOM HAS LOST ITS AIR', 'YOUR SUIT AIR ONLY', 'SKILL: MECHANICAL'], [A_WALK, A_INSPECT],
@@ -331,7 +340,17 @@ TYPES = [
       'SKILL: MECHANICAL'], [A_INSPECT],
      'A STEEL DECK PLATE.  IT RINGS WHEN YOU TAP IT.'),
     ('PLAYER', 'player', 'YOU', 0, [], [], ''),
+    # (after the player: their art is ART2, past the art pages)
+    ('COND', 'cond', 'CONDUIT SECTION', F_DMG | F_ITEM | F_INST,
+     ['A LENGTH OF POWER CONDUIT', '\x01', 'INSTALLED ON A DECK: A CONDUIT',
+      'SKILL: ELECTRICAL'], [A_INSPECT],
+     'A LENGTH OF POWER CONDUIT, ITS ENDS CAPPED.'),
+    ('ANT', 'ant', 'COMMS ANTENNA', F_DMG | F_SOLID | F_ITEM,
+     ['DISH ANTENNA, LONG RANGE', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
+      'WORKING ON THE TUG: COMMS'], [A_INSPECT],
+     'A DISH ANTENNA.  IT STILL TRACKS THE SKY.'),
 ]
+ART_PAGES = 7                       # x3900-x3FFF: the first 28 types' art; the rest ART2
 TYPE = {t[0]: i for i, t in enumerate(TYPES)}
 # the player's skills: the ones a part needs set how long a job on it takes
 # (uninstall, install, repair); a job done raises them (job_start, sk_gain)
@@ -345,10 +364,11 @@ NEEDS = {'FLOOR': SK_M, 'WALL': SK_M, 'DOOR': SK_M | SK_H, 'DOORO': SK_M | SK_H,
          'BUNK': SK_M, 'HELM': SK_C | SK_E, 'LOCKER': SK_M, 'TURRET': SK_C | SK_M,
          'PIPE': SK_E, 'VENT': SK_M, 'LOCK': SK_M | SK_H, 'SUIT': SK_M,
          'THRUST': SK_M | SK_H, 'FUEL': SK_H, 'SCRUB': SK_H | SK_E, 'CUTTER': SK_E,
-         'PANEL': SK_M, 'DOORK': SK_M | SK_H, 'PLATE': SK_M}
+         'PANEL': SK_M, 'DOORK': SK_M | SK_H, 'PLATE': SK_M, 'COND': SK_E,
+         'ANT': SK_C | SK_E}
 # where a carried part installs from the inventory (bits 7:6 of TB_SKILL):
 # 1 open space, 2 a bare deck, 3 either; 0 it does not install
-WHERE = {'PLATE': 1, 'THRUST': 1, 'PANEL': 3, 'DOORK': 3}
+WHERE = {'PLATE': 1, 'THRUST': 1, 'ANT': 1, 'PANEL': 3, 'DOORK': 3}
 WHERE.update({t[0]: 2 for t in TYPES if t[3] & F_INST and t[0] not in WHERE})
 O2_SECS = 7                         # the suit uses 1 L every 7 s (scrap.masm O2_SECS): 10.5 min
 REPAIR_FRAMES = 15                  # a damage step, at full speed (scrap.masm: 16 s - s)
@@ -412,7 +432,8 @@ def skill_gain(lv, pr, mask, suit_on):
 # what a part is worth undamaged, in $10 (the tug's value: less with damage)
 VALUE = {'O2': 20, 'O2E': 8, 'REACT': 250, 'BATT': 30, 'CRATE': 15, 'BUNK': 5,
          'HELM': 60, 'LOCKER': 6, 'TURRET': 40, 'THRUST': 50, 'FUEL': 25,
-         'SCRUB': 35, 'CUTTER': 12, 'PANEL': 3, 'DOORK': 8, 'PLATE': 2}
+         'SCRUB': 35, 'CUTTER': 12, 'PANEL': 3, 'DOORK': 8, 'PLATE': 2,
+         'COND': 4, 'ANT': 45}
 TUG = (0, 18, TUG_LOCK[0], 46)      # the tug's cells, x0, y0, x1, y1 (its value, its systems,
                                     # room to build on round its hull)
 AIR_FULL = 100                      # a room's pressure: 100 = 1 atmosphere
@@ -439,8 +460,9 @@ MESSAGES = [   # (label, text): the strings scrap.masm prints
     ('s_inv', 'YOUR GEAR.  I OR TAB: BACK TO THE SHIP'),
     ('s_place', 'CLICK WHERE IT GOES, NEXT TO YOU.  RIGHT CLICK: CANCEL'),
     ('s_wspace', 'IT GOES ON OPEN SPACE.'),
-    ('s_wdeck', 'IT GOES ON A BARE DECK.'),
-    ('s_wboth', 'IT GOES ON A BARE DECK OR OPEN SPACE.'),
+    ('s_wdeck', 'IT GOES ON A DECK OR A CONDUIT.'),
+    ('s_wboth', 'IT GOES ON A DECK, A CONDUIT OR OPEN SPACE.'),
+    ('s_bdeck', 'THE DECK IS BROKEN - REPAIR IT TO 50% HEALTH FIRST.'),
     ('s_uninst', 'UNINSTALLING...'),
     ('s_uninstdone', 'UNINSTALLED.  IT CAN BE PICKED UP NOW.'),
     ('s_installed', 'INSTALLED'),
@@ -464,6 +486,9 @@ MESSAGES = [   # (label, text): the strings scrap.masm prints
     ('s_tug', 'TUG $'),
     ('s_airon', '0, AIR ON'),
     ('s_airoff', '0, NO AIR'),
+    ('s_comms', ', COMMS'),
+    ('s_nocomms', ', NO COMMS'),
+    ('s_hasc', 'THERE IS A CONDUIT THERE ALREADY.'),
     ('s_jam', 'THE DOOR IS JAMMED - REPAIR IT TO 50% HEALTH FIRST.'),
     ('s_air', 'AIR '),
     ('s_loose', 'LOOSE'),
@@ -641,6 +666,10 @@ def build_map(seed=9):
     d[49][90] = 10                      # a cracked hull wall: it leaks
     d[51][90] = d[52][90] = 15          # the hull breach: broken wall segments
     d[42][36] = 3
+    t[TUG_ANT[1]][TUG_ANT[0]] = TYPE['ANT']   # the tug's antenna, above its hull: broken
+    d[TUG_ANT[1]][TUG_ANT[0]] = 11      #   (no comms until it is repaired)
+    t[5][50] = TYPE['ANT']              # the wreck's, on its hull: working
+    d[5][50] = 2
     return t, d
 
 
@@ -813,7 +842,7 @@ def write_sources():
               'TB_SKILL   = 0xC0          ; ACT_PG + t: the skills a part needs (bit k skill k)',
               'SK_LV      = 0x%04X        ; the skill levels (6), then SK_PR: their progress' % SK_LV,
               'SK_PR      = 0x%04X' % SK_PR]
-    lines += ['ART_PG     = 0x%02X' % ART_PAGE,
+    lines += ['ART_PG     = 0x%02X' % ART_PAGE, 'ART_N      = %d          ; art pages (then ART2)' % ART_PAGES,
               'INFO_PG    = 0x%02X        ; x%02X00 + 4t + i: info line i, low bytes; + x80 high' % (TAB_PAGE, TAB_PAGE),
               'TAB_PG     = 0x%02X' % TAB2_PAGE,
               'TB_FLAGS   = 0x00          ; + t', 'TB_NAMEL   = 0x20', 'TB_NAMEH   = 0x40',
@@ -850,7 +879,8 @@ def write_sources():
 
     # art pages
     arts = [art_bytes(ty[1]) for ty in TYPES]
-    for p in range((len(arts) + 3) // 4):
+    assert len(arts) <= 4 * ART_PAGES + 4    # ART2: 4 more at most (draw_cell)
+    for p in range(ART_PAGES):
         d.append('.fixed 0x%02X00' % (ART_PAGE + p))
         if p == 0:
             d.append('ART:')
@@ -862,6 +892,11 @@ def write_sources():
                 for o in range(0, 64, 16):
                     d.append('    #d8 ' + ', '.join('0x%02X' % v for v in b[o:o + 16]))
         d.append('')
+    d += ['.chunk', 'ART2:']          # the types after the art pages (draw_cell)
+    for i in range(4 * ART_PAGES, len(arts)):
+        d.append('; %s' % TYPES[i][0])
+        d += ['    #d8 ' + ', '.join('0x%02X' % v for v in arts[i][o:o + 16]) for o in range(0, 64, 16)]
+    d.append('')
     # info pointers
     info_lo, info_hi = ['0'] * 128, ['0'] * 128
     for i, ty in enumerate(TYPES):

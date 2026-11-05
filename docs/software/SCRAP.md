@@ -32,7 +32,7 @@ shared through them.
 | Arrows, WASD, or the SNES pad | walk one cell (held: a step every 7 frames), on decks and out on open space too (a spacewalk, on suit air: to repair the outside and build).  Walking into a closed door opens it, and it closes behind you unless it is held open.  A door under 50 % health is jammed as it is: a jammed shut door stops you until you repair it to 50 % |
 | Mouse over a cell | an arrow pointer and a yellow frame on the cell, and the panel shows it: name, health bar, info on the left, actions on the right |
 | Mouse over yourself | your suit, battery, hands and pack |
-| Left click on a cell | locks the panel on it, so the mouse can go down to the actions |
+| Left click on a cell | locks the panel on it, so the mouse can go down to the actions.  Another left click on a part it is locked on shows the deck or conduit under the part, and back |
 | Left click on an action, or keys **1-8** | does it (see below); the menu is two columns of four, each action with its key to its left, `1:` to `8:` |
 | Right click | unlocks the panel (and cancels picking a cell to install on) |
 | **I** or **Tab** | the inventory screen, and back (see **The inventory**) |
@@ -47,14 +47,14 @@ need you next to it, diagonals count):
 | HOLD OPEN | opens a door and keeps it open: it stays open behind you (the panel says HELD OPEN) until you CLOSE it.  The doors that start open are held open |
 | WALK HERE | walks toward the cell, across first, then up or down |
 | INSPECT | a line about it on the message row |
-| UNINSTALL | a part INSTALLED in the wreck: the cutter does it, in 1.5 s and 5 % of the suit battery, and needs a working cutter in a hand.  Walking away stops it.  The wreck's walls, decks and doors uninstall the same way, into a wall panel, a door kit or a deck plate.  INSTALLED in the tug: 1 s by hand (no cutter).  Either way it is LOOSE then.  On the tug the walls, decks and doors uninstall too (not the cell you stand on): a wall leaves a WALL PANEL lying on the deck, a door a PRESSURE DOOR kit, and a deck goes into a free carry slot as a SPARE PLATE, leaving open space |
-| INSTALL | a LOOSE ship part lying on a deck, in the tug or in a wreck (O2 tank, scrubber, battery, fuel tank, helm, bunk, locker): 1 s, then it is INSTALLED (on the tug's cells it is part of the tug).  A wall panel installs as a wall, a door kit as a closed door.  Cargo and the cutter can't be installed.  Carried parts install from the inventory (below) |
+| UNINSTALL | a part INSTALLED in the wreck: the cutter does it, in 1.5 s and 5 % of the suit battery, and needs a working cutter in a hand.  Walking away stops it.  The wreck's walls, decks and doors uninstall the same way, into a wall panel, a door kit or a deck plate.  INSTALLED in the tug: 1 s by hand (no cutter).  Either way it is LOOSE then.  On the tug the walls, decks and doors uninstall too (not the cell you stand on): a wall leaves a WALL PANEL lying on the deck, a door a PRESSURE DOOR kit, and a deck goes into a free carry slot as a SPARE PLATE, leaving open space.  A power conduit uninstalls into a loose CONDUIT SECTION lying on the deck |
+| INSTALL | a LOOSE ship part lying on a deck, in the tug or in a wreck (O2 tank, scrubber, battery, fuel tank, helm, bunk, locker): 1 s, then it is INSTALLED (on the tug's cells it is part of the tug).  A wall panel installs as a wall, a door kit as a closed door, a conduit section as a power conduit in the deck.  Cargo and the cutter can't be installed.  Carried parts install from the inventory (below) |
 | LAY DECK PLATE | open space next to you, with a deck plate in a carry slot: it is a deck now |
 | REPAIR | a damaged part, wall, deck or door next to you: 0.25 s a damage step at full speed (see **Skills**), its health bar rising a step at a time (no job bar), until it is at 100 %.  Walking away stops it, and the steps done stay done.  A wall or door repaired to 50 % stops leaking |
 | SKILLS | on yourself: your six skill levels on the message row |
 | TAKE OFF SUIT / PUT ON SUIT | on yourself: the suit goes into a free carry slot, or back on from its slot (see **The suit**) |
 | PICK UP | a LOOSE part goes into the first free carry slot: left hand, right hand, back |
-| PUT DOWN LEFT / RIGHT / BACK | from that carry slot onto a bare deck next to you |
+| PUT DOWN LEFT / RIGHT / BACK | from that carry slot onto a deck or a power conduit next to you, at 50 % health or more: `THE DECK IS BROKEN - REPAIR IT TO 50% HEALTH FIRST.` |
 | REFILL SUIT | a full O2 tank fills the suit (11 L less for each damage step) and is empty after |
 
 You carry three things at most, one in each hand and one on your back,
@@ -83,12 +83,33 @@ time from the part's skills), in the tug or in a wreck alike:
 
 | Part | Goes on |
 |------|---------|
-| O2 tank, scrubber, battery, fuel tank, helm, bunk, locker | a bare deck |
-| wall panel (a wall), pressure door (a closed door) | a bare deck or open space |
-| spare deck plate (a deck), thruster | open space |
+| O2 tank, scrubber, battery, fuel tank, helm, bunk, locker | a deck or a power conduit |
+| conduit section (a power conduit) | a deck (not a conduit already) |
+| wall panel (a wall), pressure door (a closed door) | a deck, a power conduit or open space |
+| spare deck plate (a deck), thruster, comms antenna | open space |
 
-A thruster now uninstalls too (in a wreck with the cutter): it goes
-straight into a free carry slot and leaves open space, like a deck plate.
+A thruster or an antenna uninstalls too (in a wreck with the cutter): it
+goes straight into a free carry slot and leaves open space, like a deck
+plate.
+
+**What is under a part.**  A part stands on a deck (or a power conduit
+in one), all but those that go on open space (a thruster, an antenna)
+and the wall turret.  A part can't be put down or installed on a broken
+deck (under 50 % health), so the deck under a part is never broken and
+its damage is not kept.  The map holds one type a cell, so the game
+keeps a list (CND, 24 at most) of the cells where a part stands on a
+conduit: picking the part up lays the conduit again; off any other part
+you find a whole bare deck.  Clicking a part the panel is already on
+(left click a second time) shows what is under it: the deck or the
+POWER CONDUIT, at 100 % health, with INSPECT; another click goes back to
+the part.  If a deck ever breaks under a part (nothing in the game
+breaks a deck yet), the part on it is destroyed.
+
+**Comms.**  To communicate you need a working comms antenna (50 % health
+or more) installed outside the tug, on open space in its cells.
+Hovering yourself shows `, COMMS` or `, NO COMMS` after the air.  The
+tug's own antenna, above its hull, starts broken: repair it from a
+spacewalk.  The KESTREL 9 has a working one on its top hull.
 
 **Skills.**  You have six skills, 0-99, all starting at 10: MECHANICAL,
 ELECTRICAL, NUCLEAR, COMPUTERS, HYDRAULICS and SUIT.  Each part needs one
@@ -194,12 +215,13 @@ a jammed shut armory door and a jammed open med bay door.
 | x3400-x38FF | tables (gen_scrap.py): the doors, damage bars and rooms, actions, the skills each part needs, names and values, info lines |
 | x36E0-x36ED | the skill levels (6) and their progress (6) |
 | x36F0-x36FB | the panel's actions (8), the job's bar (its 16th, the 16ths done, the work left at the next) |
-| x3900-x3FFF | the cell art, 4 cells a page (28 kinds, the most there is room for) |
+| x3900-x3FFF | the cell art, 4 cells a page (the first 28 kinds; the conduit section and the antenna are ART2, in the program) |
 | x4000-x407F | each room's pressure, and whether it is cold |
 | x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |
 | x4100-x4CFF | while the inventory is up: `SCRAP.INV` (`scrap_inv.masm`: its screen, font, pointer and routines; 6 sectors at most), read from the card each time it opens; a rebuild of the rooms waits until it closes |
-| x5400-x55FF | sector buffer for loading `SCRAP.OVL` |
-| x5600-x59FF | more of the program: `SCRAP.OVL`'s last 4 pages (after xFE), the mouse pointer (its art, what is under it), a repair's steps and what overflows |
+| x5400-x55FF | sector buffer for loading `SCRAP.OVL`, then more of the program: the file's last sector is read into it and stays |
+| x5600-x59FF | more of the program: `SCRAP.OVL`'s pages after xFE, the mouse pointer (its art, what is under it), a repair's steps and what overflows |
+| x5C00-x5DF2 | more of the program (`SCRAP.OVL`'s next 2 pages; the start of the audio buffer, x5DF3-x5DFF, is set to silence again after the load): what overflows |
 | even pages x60-xBE | the map: 96 x 64 cells in 24 chunks of 16 x 16 |
 | odd pages x61-xBF | the screen (2x repeat leaves the even pages free) |
 
@@ -209,7 +231,8 @@ the cell's room (at 6-5) and bit 7 (a part: installed; an open door: held open);
 (bits 3-0) and bits 3-0 of the room (at 7-4).  A link (a door, an airlock
 or a broken wall) has the room of one side; `rooms_build` lists the links
 (64 at most) with the rooms on both sides, 0 for vacuum.  `SCRAP.OVL` is those 48
-pages in order (12 KB), then the program's pages for xC0 up, read
+pages in order (12 KB), then the program's pages for xC0 up and the
+pages x56-x59, x5C-x5D and x54-x55, read
 straight from the card.  A later phase pages
 bigger maps from the card a chunk at a time.
 
@@ -223,7 +246,7 @@ stubs that switch to map 07 around the call.
 cd src\scripts
 python gen_scrap.py                              scrap_types.asm, scrap_data.masm, scrap_map.bin
 python asm_expand.py scrap.masm                  scrap.asm
-python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
+python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-tail 0x5400,0x5600,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
                                                  SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV
 python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png)
 ```

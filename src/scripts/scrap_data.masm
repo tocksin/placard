@@ -156,6 +156,19 @@ ART:
     #d8 0x77, 0xAA, 0xA8, 0x88, 0xA8, 0xAA, 0xAA, 0xAA, 0xAE, 0xAA, 0xAA, 0xAA, 0xA7, 0xA7, 0xB7, 0x77
     #d8 0x77, 0x77, 0x7A, 0x7A, 0x7A, 0x77, 0x7B, 0xBA, 0xBA, 0xBA, 0x7B, 0x77, 0x7A, 0x7A, 0x7B, 0x77
 
+.chunk
+ART2:
+; COND
+    #d8 0x77, 0x77, 0xE7, 0x67, 0x77, 0x77, 0xE7, 0x67, 0x77, 0x77, 0xE7, 0x67, 0x77, 0x77, 0x77, 0x00
+    #d8 0x77, 0x77, 0xEE, 0x66, 0x77, 0x77, 0xEE, 0x66, 0x77, 0x77, 0xEE, 0x66, 0x77, 0x77, 0x77, 0x00
+    #d8 0x77, 0x77, 0xEE, 0x66, 0x77, 0x77, 0xEE, 0x66, 0x77, 0x77, 0xEE, 0x66, 0x77, 0x77, 0x77, 0x00
+    #d8 0x07, 0x07, 0x0E, 0x06, 0x07, 0x07, 0x0E, 0x06, 0x07, 0x07, 0x0E, 0x06, 0x07, 0x07, 0x07, 0x00
+; ANT
+    #d8 0x11, 0x11, 0xBB, 0x7B, 0x7B, 0xB1, 0x11, 0x11, 0x11, 0x11, 0x11, 0xB1, 0xBB, 0xB1, 0xB1, 0x11
+    #d8 0x11, 0x11, 0x1B, 0xB7, 0x77, 0x77, 0x7B, 0xB1, 0x11, 0xB1, 0xBB, 0x1B, 0xBB, 0x77, 0xBB, 0x11
+    #d8 0x11, 0xB1, 0x1B, 0x1B, 0x1B, 0xB7, 0x77, 0x77, 0xBB, 0x1B, 0x11, 0x11, 0xBB, 0x1B, 0x1B, 0x11
+    #d8 0x1A, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1B, 0x1B, 0x1B, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11
+
 .fixed 0x3800
 INFO_TAB:
     #d8 zi_0_0 & 0xFF, zi_0_1 & 0xFF, zi_0_2 & 0xFF, 0, zi_1_0 & 0xFF, zi_1_1 & 0xFF, zi_1_2 & 0xFF, 0
@@ -172,7 +185,7 @@ INFO_TAB:
     #d8 zi_22_0 & 0xFF, zi_22_1 & 0xFF, zi_22_2 & 0xFF, zi_22_3 & 0xFF, zi_23_0 & 0xFF, zi_23_1 & 0xFF, zi_23_2 & 0xFF, zi_23_3 & 0xFF
     #d8 zi_24_0 & 0xFF, zi_24_1 & 0xFF, zi_24_2 & 0xFF, zi_24_3 & 0xFF, zi_25_0 & 0xFF, zi_25_1 & 0xFF, zi_25_2 & 0xFF, zi_25_3 & 0xFF
     #d8 zi_26_0 & 0xFF, zi_26_1 & 0xFF, zi_26_2 & 0xFF, zi_26_3 & 0xFF, 0, 0, 0, 0
-    #d8 0, 0, 0, 0, 0, 0, 0, 0
+    #d8 zi_28_0 & 0xFF, zi_28_1 & 0xFF, zi_28_2 & 0xFF, zi_28_3 & 0xFF, zi_29_0 & 0xFF, zi_29_1 & 0xFF, zi_29_2 & 0xFF, zi_29_3 & 0xFF
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 zi_0_0 >> 8, zi_0_1 >> 8, zi_0_2 >> 8, 0, zi_1_0 >> 8, zi_1_1 >> 8, zi_1_2 >> 8, 0
     #d8 zi_2_0 >> 8, zi_2_1 >> 8, zi_2_2 >> 8, zi_2_3 >> 8, zi_3_0 >> 8, zi_3_1 >> 8, zi_3_2 >> 8, zi_3_3 >> 8
@@ -188,31 +201,31 @@ INFO_TAB:
     #d8 zi_22_0 >> 8, zi_22_1 >> 8, zi_22_2 >> 8, zi_22_3 >> 8, zi_23_0 >> 8, zi_23_1 >> 8, zi_23_2 >> 8, zi_23_3 >> 8
     #d8 zi_24_0 >> 8, zi_24_1 >> 8, zi_24_2 >> 8, zi_24_3 >> 8, zi_25_0 >> 8, zi_25_1 >> 8, zi_25_2 >> 8, zi_25_3 >> 8
     #d8 zi_26_0 >> 8, zi_26_1 >> 8, zi_26_2 >> 8, zi_26_3 >> 8, 0, 0, 0, 0
-    #d8 0, 0, 0, 0, 0, 0, 0, 0
+    #d8 zi_28_0 >> 8, zi_28_1 >> 8, zi_28_2 >> 8, zi_28_3 >> 8, zi_29_0 >> 8, zi_29_1 >> 8, zi_29_2 >> 8, zi_29_3 >> 8
     #d8 0, 0, 0, 0, 0, 0, 0, 0
 
 .fixed 0x3700
 TAB:
     #d8 97, 97, 19, 50, 50, 51, 14, 2
-    #d8 14, 6, 14, 14, 14, 34, 3, 3
+    #d8 14, 6, 14, 14, 14, 34, 19, 3
     #d8 35, 6, 38, 14, 14, 97, 14, 6
-    #d8 14, 14, 6, 0, 0, 0, 0, 0
+    #d8 14, 14, 6, 0, 14, 38, 0, 0
     #d8 zn_0 & 0xFF, zn_1 & 0xFF, zn_2 & 0xFF, zn_3 & 0xFF, zn_4 & 0xFF, zn_5 & 0xFF, zn_6 & 0xFF, zn_7 & 0xFF
     #d8 zn_8 & 0xFF, zn_9 & 0xFF, zn_10 & 0xFF, zn_11 & 0xFF, zn_12 & 0xFF, zn_13 & 0xFF, zn_14 & 0xFF, zn_15 & 0xFF
     #d8 zn_16 & 0xFF, zn_17 & 0xFF, zn_18 & 0xFF, zn_19 & 0xFF, zn_20 & 0xFF, zn_21 & 0xFF, zn_22 & 0xFF, zn_23 & 0xFF
-    #d8 zn_24 & 0xFF, zn_25 & 0xFF, zn_26 & 0xFF, zn_27 & 0xFF, 0, 0, 0, 0
+    #d8 zn_24 & 0xFF, zn_25 & 0xFF, zn_26 & 0xFF, zn_27 & 0xFF, zn_28 & 0xFF, zn_29 & 0xFF, 0, 0
     #d8 zn_0 >> 8, zn_1 >> 8, zn_2 >> 8, zn_3 >> 8, zn_4 >> 8, zn_5 >> 8, zn_6 >> 8, zn_7 >> 8
     #d8 zn_8 >> 8, zn_9 >> 8, zn_10 >> 8, zn_11 >> 8, zn_12 >> 8, zn_13 >> 8, zn_14 >> 8, zn_15 >> 8
     #d8 zn_16 >> 8, zn_17 >> 8, zn_18 >> 8, zn_19 >> 8, zn_20 >> 8, zn_21 >> 8, zn_22 >> 8, zn_23 >> 8
-    #d8 zn_24 >> 8, zn_25 >> 8, zn_26 >> 8, zn_27 >> 8, 0, 0, 0, 0
+    #d8 zn_24 >> 8, zn_25 >> 8, zn_26 >> 8, zn_27 >> 8, zn_28 >> 8, zn_29 >> 8, 0, 0
     #d8 zx_0 & 0xFF, zx_1 & 0xFF, zx_2 & 0xFF, zx_3 & 0xFF, zx_4 & 0xFF, zx_5 & 0xFF, zx_6 & 0xFF, zx_7 & 0xFF
     #d8 zx_8 & 0xFF, zx_9 & 0xFF, zx_10 & 0xFF, zx_11 & 0xFF, zx_12 & 0xFF, zx_13 & 0xFF, zx_14 & 0xFF, zx_15 & 0xFF
     #d8 zx_16 & 0xFF, zx_17 & 0xFF, zx_18 & 0xFF, zx_19 & 0xFF, zx_20 & 0xFF, zx_21 & 0xFF, zx_22 & 0xFF, zx_23 & 0xFF
-    #d8 zx_24 & 0xFF, zx_25 & 0xFF, zx_26 & 0xFF, zx_27 & 0xFF, 0, 0, 0, 0
+    #d8 zx_24 & 0xFF, zx_25 & 0xFF, zx_26 & 0xFF, zx_27 & 0xFF, zx_28 & 0xFF, zx_29 & 0xFF, 0, 0
     #d8 zx_0 >> 8, zx_1 >> 8, zx_2 >> 8, zx_3 >> 8, zx_4 >> 8, zx_5 >> 8, zx_6 >> 8, zx_7 >> 8
     #d8 zx_8 >> 8, zx_9 >> 8, zx_10 >> 8, zx_11 >> 8, zx_12 >> 8, zx_13 >> 8, zx_14 >> 8, zx_15 >> 8
     #d8 zx_16 >> 8, zx_17 >> 8, zx_18 >> 8, zx_19 >> 8, zx_20 >> 8, zx_21 >> 8, zx_22 >> 8, zx_23 >> 8
-    #d8 zx_24 >> 8, zx_25 >> 8, zx_26 >> 8, zx_27 >> 8, 0, 0, 0, 0
+    #d8 zx_24 >> 8, zx_25 >> 8, zx_26 >> 8, zx_27 >> 8, zx_28 >> 8, zx_29 >> 8, 0, 0
     #d8 zd_0 & 0xFF, zd_1 & 0xFF, zd_2 & 0xFF, zd_3 & 0xFF, zd_4 & 0xFF, zd_5 & 0xFF, zd_6 & 0xFF, zd_7 & 0xFF
     #d8 zd_8 & 0xFF, zd_9 & 0xFF, zd_10 & 0xFF, zd_11 & 0xFF, zd_12 & 0xFF, zd_13 & 0xFF, zd_14 & 0xFF, zd_15 & 0xFF
     #d8 zd_0 >> 8, zd_1 >> 8, zd_2 >> 8, zd_3 >> 8, zd_4 >> 8, zd_5 >> 8, zd_6 >> 8, zd_7 >> 8
@@ -224,7 +237,7 @@ TAB:
     #d8 0, 0, 0, 0, 0, 0, 20, 250
     #d8 30, 15, 5, 60, 6, 40, 0, 0
     #d8 0, 0, 50, 25, 35, 0, 8, 12
-    #d8 3, 8, 2, 0, 0, 0, 0, 0
+    #d8 3, 8, 2, 0, 4, 45, 0, 0
 
 .fixed 0x3600
 ACT_TAB:
@@ -242,7 +255,7 @@ ACT_TAB:
     #d8 3, 0, 0, 0, 3, 0, 0, 0
     #d8 3, 0, 0, 0, 3, 0, 0, 0
     #d8 3, 0, 0, 0, 3, 0, 0, 0
-    #d8 0, 0, 0, 0, 0, 0, 0, 0
+    #d8 3, 0, 0, 0, 3, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, za_1 & 0xFF, za_2 & 0xFF, za_3 & 0xFF, za_4 & 0xFF, za_5 & 0xFF, za_6 & 0xFF, za_7 & 0xFF
     #d8 za_8 & 0xFF, za_9 & 0xFF, za_10 & 0xFF, za_11 & 0xFF, za_12 & 0xFF, za_13 & 0xFF, za_14 & 0xFF, za_15 & 0xFF
@@ -255,7 +268,7 @@ ACT_TAB:
     #d8 0, 0, 1, 1, 17, 17, 144, 6
     #d8 130, 1, 129, 138, 129, 9, 2, 1
     #d8 17, 1, 81, 144, 146, 0, 144, 2
-    #d8 193, 209, 65, 0, 0, 0, 0, 0
+    #d8 193, 209, 65, 0, 130, 74, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
     #d8 0, 0, 0, 0, 0, 0, 0, 0
@@ -451,7 +464,7 @@ zi_13_2:
 zi_13_3:
     #d "SKILLS: COMPUTERS, MECHANICAL", 0x00
 zi_14_0:
-    #d "CONDUIT UNDER THE DECK", 0x00
+    #d "CONDUIT IN THE DECK", 0x00
 zi_14_1:
     #d 0x01, 0x00
 zi_14_2:
@@ -560,10 +573,26 @@ zi_26_2:
     #d "LAY IT ON OPEN SPACE NEXT TO YOU", 0x00
 zi_26_3:
     #d "SKILL: MECHANICAL", 0x00
-zn_0:
-    #d "OPEN SPACE", 0x00
+zi_28_0:
+    #d "A LENGTH OF POWER CONDUIT", 0x00
+zi_28_1:
+    #d 0x01, 0x00
 
 .chunk
+zi_28_2:
+    #d "INSTALLED ON A DECK: A CONDUIT", 0x00
+zi_28_3:
+    #d "SKILL: ELECTRICAL", 0x00
+zi_29_0:
+    #d "DISH ANTENNA, LONG RANGE", 0x00
+zi_29_1:
+    #d 0x01, 0x00
+zi_29_2:
+    #d "GOES ON OPEN SPACE BY THE HULL", 0x00
+zi_29_3:
+    #d "WORKING ON THE TUG: COMMS", 0x00
+zn_0:
+    #d "OPEN SPACE", 0x00
 zx_0:
     #d "NOTHING OUT THERE BUT DEBRIS AND COLD.", 0x00
 zn_1:
@@ -572,6 +601,8 @@ zx_1:
     #d "A DISTANT STAR.  NOT FOR SALE.", 0x00
 zn_2:
     #d "DECK PLATE", 0x00
+
+.chunk
 zx_2:
     #d "SCUFFED DECK PLATE.  SOMEONE WALKED HERE A LOT.", 0x00
 zn_3:
@@ -580,8 +611,6 @@ zx_3:
     #d "A SOLID BULKHEAD.  THE PAINT SAYS DECK 2.", 0x00
 zn_4:
     #d "DOOR (CLOSED)", 0x00
-
-.chunk
 zx_4:
     #d "A PRESSURE DOOR.  THE HAZARD STRIPES ARE FADED.", 0x00
 zn_5:
@@ -590,6 +619,8 @@ zx_5:
     #d "AN OPEN PRESSURE DOOR.", 0x00
 zn_6:
     #d "O2 TANK", 0x00
+
+.chunk
 zx_6:
     #d "AN OXYGEN TANK.  THE GAUGE STILL MOVES.", 0x00
 zn_7:
@@ -602,12 +633,12 @@ zx_8:
     #d "A SHIP BATTERY.  STILL WARM.", 0x00
 zn_9:
     #d "CARGO CRATE", 0x00
-
-.chunk
 zx_9:
     #d "THE LABEL READS ", 0x22, "MINING CHARGES - DO NOT DROP", 0x22, ".", 0x00
 zn_10:
     #d "BUNK", 0x00
+
+.chunk
 zx_10:
     #d "A CREW BUNK.  THE BLANKET IS FOLDED NEATLY.", 0x00
 zn_11:
@@ -620,12 +651,12 @@ zx_12:
     #d "A LOCKER.  THE LOCK IS RUSTED SHUT.", 0x00
 zn_13:
     #d "SECURITY TURRET", 0x00
-
-.chunk
 zx_13:
     #d "A SECURITY TURRET.  ITS LIGHT IS DARK, FOR NOW.", 0x00
 zn_14:
     #d "POWER CONDUIT", 0x00
+
+.chunk
 zx_14:
     #d "A POWER CONDUIT RUNS UNDER THE DECK HERE.", 0x00
 zn_15:
@@ -638,14 +669,14 @@ zx_16:
     #d "A DOCKING AIRLOCK.  THE SEAL IS HOLDING.", 0x00
 zn_17:
     #d "WORK SUIT", 0x00
-
-.chunk
 zx_17:
     #d "YOUR WORK SUIT.  IT SMELLS OF HARD WORK.", 0x00
 zn_18:
     #d "THRUSTER", 0x00
 zx_18:
     #d "A THRUSTER NOZZLE, BLACK WITH SOOT.", 0x00
+
+.chunk
 zn_19:
     #d "FUEL TANK", 0x00
 zx_19:
@@ -656,8 +687,6 @@ zx_20:
     #d "AN AIR SCRUBBER.  THE FILTERS NEED CHANGING.", 0x00
 zn_21:
     #d "HULL BREACH", 0x00
-
-.chunk
 zx_21:
     #d "SOMETHING PUNCHED RIGHT THROUGH THE HULL.", 0x00
 zn_22:
@@ -666,6 +695,8 @@ zx_22:
     #d "AN EMPTY OXYGEN TANK.  THE GAUGE READS ZERO.", 0x00
 zn_23:
     #d "PLASMA CUTTER", 0x00
+
+.chunk
 zx_23:
     #d "A PLASMA CUTTER.  KEEP YOUR FINGERS CLEAR.", 0x00
 zn_24:
@@ -674,8 +705,6 @@ zx_24:
     #d "A SECTION OF BULKHEAD.  THE BOLT HOLES ARE CLEAN.", 0x00
 zn_25:
     #d "PRESSURE DOOR", 0x00
-
-.chunk
 zx_25:
     #d "A PRESSURE DOOR IN ITS FRAME, READY TO FIT.", 0x00
 zn_26:
@@ -684,8 +713,18 @@ zx_26:
     #d "A STEEL DECK PLATE.  IT RINGS WHEN YOU TAP IT.", 0x00
 zn_27:
     #d "YOU", 0x00
+
+.chunk
 zx_27:
     #d "THAT IS YOU, IN A WORK SUIT THAT HAS SEEN BETTER DAYS.", 0x00
+zn_28:
+    #d "CONDUIT SECTION", 0x00
+zx_28:
+    #d "A LENGTH OF POWER CONDUIT, ITS ENDS CAPPED.", 0x00
+zn_29:
+    #d "COMMS ANTENNA", 0x00
+zx_29:
+    #d "A DISH ANTENNA.  IT STILL TRACKS THE SKY.", 0x00
 zd_0:
     #d "100%", 0x00
 zw_0:
@@ -700,12 +739,12 @@ zw_2:
     #d "WORKS AT 75%", 0x00
 zd_3:
     #d "81%", 0x00
+
+.chunk
 zw_3:
     #d "WORKS AT 63%", 0x00
 zd_4:
     #d "75%", 0x00
-
-.chunk
 zw_4:
     #d "WORKS AT 50%", 0x00
 zd_5:
@@ -744,10 +783,10 @@ zd_13:
     #d "19%", 0x00
 zw_13:
     #d "BROKEN - NEEDS REPAIR", 0x00
-zd_14:
-    #d "13%", 0x00
 
 .chunk
+zd_14:
+    #d "13%", 0x00
 zw_14:
     #d "BROKEN - NEEDS REPAIR", 0x00
 zd_15:
@@ -895,11 +934,13 @@ s_place:
 s_wspace:
     #d "IT GOES ON OPEN SPACE.", 0x00
 s_wdeck:
-    #d "IT GOES ON A BARE DECK.", 0x00
-s_wboth:
-    #d "IT GOES ON A BARE DECK OR OPEN SPACE.", 0x00
+    #d "IT GOES ON A DECK OR A CONDUIT.", 0x00
 
 .chunk
+s_wboth:
+    #d "IT GOES ON A DECK, A CONDUIT OR OPEN SPACE.", 0x00
+s_bdeck:
+    #d "THE DECK IS BROKEN - REPAIR IT TO 50% HEALTH FIRST.", 0x00
 s_uninst:
     #d "UNINSTALLING...", 0x00
 s_uninstdone:
@@ -912,14 +953,14 @@ s_plate:
     #d "THE DECK PLATE IS YOURS - OPEN SPACE UNDER IT NOW.", 0x00
 s_laid:
     #d "DECK PLATE LAID.", 0x00
+
+.chunk
 s_refill:
     #d "SUIT REFILLED.  THE TANK IS EMPTY NOW.", 0x00
 s_broken:
     #d "IT IS BROKEN - IT DOES NOT WORK.", 0x00
 s_repair:
     #d "REPAIRING...", 0x00
-
-.chunk
 s_repdone:
     #d "REPAIRED.  GOOD AS NEW.", 0x00
 s_suitoff:
@@ -928,6 +969,8 @@ s_suiton:
     #d "SUIT ON.", 0x00
 s_pl_nosuit:
     #d "SUIT   NONE: YOU BREATHE THE ROOM AIR", 0x00
+
+.chunk
 s_pl_suit:
     #d "SUIT   MK1 WORK SUIT     O2 ", 0x00
 s_pl_of:
@@ -942,28 +985,32 @@ s_slash:
     #d " / ", 0x00
 s_empty:
     #d "EMPTY", 0x00
-
-.chunk
 s_tug:
     #d "TUG $", 0x00
 s_airon:
     #d "0, AIR ON", 0x00
 s_airoff:
     #d "0, NO AIR", 0x00
+s_comms:
+    #d ", COMMS", 0x00
+s_nocomms:
+    #d ", NO COMMS", 0x00
+s_hasc:
+    #d "THERE IS A CONDUIT THERE ALREADY.", 0x00
 s_jam:
     #d "THE DOOR IS JAMMED - REPAIR IT TO 50% HEALTH FIRST.", 0x00
 s_air:
     #d "AIR ", 0x00
 s_loose:
     #d "LOOSE", 0x00
+
+.chunk
 s_w1:
     #d "CAUTION: SUIT O2 BELOW HALF.", 0x00
 s_w2:
     #d "WARNING: SUIT O2 LOW - GET BACK TO THE TUG OR FIND AN O2 TANK.", 0x00
 s_w3:
     #d "CRITICAL: SUIT O2 ALMOST GONE!", 0x00
-
-.chunk
 s_w4:
     #d "YOU ARE BLACKING OUT - GET AIR NOW!", 0x00
 s_w5:

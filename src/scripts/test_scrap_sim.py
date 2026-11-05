@@ -51,6 +51,7 @@ Date: 2026-11-05
 
 import argparse
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -394,10 +395,12 @@ def build():
     inv = gen_plc.split_swap(prog, 0x4100, 0x4D00)      # SCRAP.INV
     if not inv or len(inv) > 0xC00:          # 6 sectors at most (inv_fetch)
         raise SystemExit('SCRAP.INV is %d bytes' % len(inv))
-    for lab in ('pt_walk', 'pt_show', 'rep_step', 'place_done', 'inv_toggle'):
-        if 0x4100 <= tsyms[lab] < 0x4D00:   # resident code spilled into the swap region
-            raise SystemExit('%s is in SCRAP.INV (x%04X)' % (lab, tsyms[lab]))
-    prog, code = gen_plc.split_overlay(prog, lib, 0xC000, 2, (0x5600, 0x5A00, 1))
+    own = set(re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, 'scrap_inv.masm')).read(), re.M))
+    own |= set(re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, 'scrap_inv_data.masm')).read(), re.M))
+    for lab in re.findall(r'^([A-Za-z_]\w*):', src, re.M):
+        if lab not in own and not lab.startswith('scw_') and 0x4100 <= tsyms.get(lab, 0) < 0x4D00:
+            raise SystemExit('%s is in SCRAP.INV (x%04X)' % (lab, tsyms[lab]))  # resident code spilled
+    prog, code = gen_plc.split_overlay(prog, lib, 0xC000, 2, [(0x5600, 0x5A00, 1), (0x5C00, 0x5E00, 1), (0x5400, 0x5600, 1)])
     if any(0x4000 <= a < 0xC000 for a in prog):
         raise SystemExit('scrap.asm reaches past x3FFF')
     plc = gen_plc.make(prog, tsyms, lib)[0]
@@ -441,7 +444,7 @@ def main(argv):
     for line in r.panel():
         print('  |%s' % line)
     p = r.panel()
-    if (not p[0].strip().startswith('YOU') or 'AIR ON' not in p[0] or 'MK1 WORK SUIT' not in p[1]
+    if (not p[0].strip().startswith('YOU') or 'AIR ON, NO COMMS' not in p[0] or 'MK1 WORK SUIT' not in p[1]
             or '1: SKILLS' not in p[1]
             or '2: TAKE OFF SUIT' not in p[2] or 'INVENTORY' in ''.join(p[1:5])):
         r.fail('the panel does not show the player')
@@ -914,6 +917,108 @@ def jammed_door(r):
     r.check_view('the door mended')
 
 
+def cnd(r):
+    """the CND list: the cells with a part on a conduit"""
+    a, n = r.tsyms['CND'], r.tsyms['CND_N']
+    m = r.cpu.mem
+    return [(m[a + 2 * i], m[a + 2 * i + 1]) for i in range(n) if m[a + 2 * i] != 0xFF]
+
+
+def deck_rules(r):
+    """a part goes on a deck or a conduit, never a broken one; the conduit
+    under a part comes back when it is picked up; a second click on a
+    part shows what is under it; a conduit uninstalls to a section that
+    installs again"""
+    z, mem = r.zp, r.cpu.mem
+    print('7d. decks, conduits')
+    r.go((17, 32), (24, 32), (24, 30), (23, 29))
+    pipe, deck = (23, 28), (24, 29)
+    p0, d0 = r.map_raw(*pipe), r.map_raw(*deck)
+    if r.map_t(*pipe) != T['PIPE'] or (z('p_x'), z('p_y')) != (23, 29):
+        r.fail('not by the tug\'s conduit: at %d,%d' % (z('p_x'), z('p_y')))
+        return
+    slots = [z('cl_t'), z('cr_t'), z('cb_t')]
+    if 0 not in slots:
+        r.fail('no free carry slot: %s' % slots)
+        return
+    k = slots.index(0)
+    mem[r.tsyms['cl_t'] + k] = T['CRATE']
+    mem[r.tsyms['cl_d'] + k] = 0
+    if r.act(*pipe, gen_scrap.A_PUTL + k):
+        print('  a crate put down on the conduit: %s, CND %s' % (gen_scrap.TYPES[r.map_t(*pipe)][0], cnd(r)))
+        if r.map_t(*pipe) != T['CRATE'] or cnd(r) != [pipe]:
+            r.fail('PUT DOWN on a conduit: %d, %s' % (r.map_t(*pipe), cnd(r)))
+    r.mouse_cell(*pipe)
+    r.click(1)
+    first = (z('s_who'), r.panel()[0][:40].strip())
+    r.click(1)
+    under = (z('s_who'), r.panel()[0], [mem[r.tsyms['act0'] + i] for i in range(z('n_act'))])
+    r.click(1)
+    back = (z('s_who'), r.panel()[0][:40].strip())
+    r.click(2)
+    print('  clicks on it: %r, then %r %r, then %r' % (first[1], under[1][:40].strip(),
+                                                     under[1][54:].strip(), back[1]))
+    if (first[0] != 1 or 'CARGO CRATE' not in first[1] or under[0] != 4
+            or 'POWER CONDUIT' not in under[1] or 'HEALTH %s %s' % (gen_scrap.bar(0), gen_scrap.health_pct(0)) not in under[1]
+            or under[2] != [gen_scrap.A_INSPECT] or back[0] != 1 or 'CARGO CRATE' not in back[1]):
+        r.fail('a second click does not show the conduit under the crate: %r %r %r' % (first, under, back))
+    if r.act(*pipe, gen_scrap.A_PICK):
+        print('  picked up: %s, CND %s' % (gen_scrap.TYPES[r.map_t(*pipe)][0], cnd(r)))
+        if r.map_t(*pipe) != T['PIPE'] or cnd(r) or mem[r.tsyms['cl_t'] + k] != T['CRATE']:
+            r.fail('PICK UP off a conduit did not leave the conduit')
+    set_cell(r, *deck, fl=(d0[1] & 0xF0) | 10)
+    if r.act(*deck, gen_scrap.A_PUTL + k):
+        print('  on a broken deck: %r' % r.panel()[5].strip())
+        if r.map_t(*deck) != T['FLOOR'] or 'BROKEN' not in r.panel()[5] or mem[r.tsyms['cl_t'] + k] != T['CRATE']:
+            r.fail('a part was put down on a broken deck')
+    set_cell(r, *deck, fl=d0[1])
+    mem[r.tsyms['cl_t'] + k] = 0
+    if r.act(*pipe, gen_scrap.A_UNINST):
+        print('  the conduit uninstalled: %s, bolted %s' % (gen_scrap.TYPES[r.map_t(*pipe)][0], r.bolted(*pipe)))
+        if r.map_t(*pipe) != T['COND'] or r.bolted(*pipe):
+            r.fail('UNINSTALL of a conduit: not a loose conduit section')
+    if r.act(*pipe, gen_scrap.A_PICK):
+        if r.map_t(*pipe) != T['FLOOR'] or mem[r.tsyms['cl_t'] + k] != T['COND']:
+            r.fail('PICK UP of the conduit section')
+    if r.act(*deck, gen_scrap.A_PUTL + k) and r.act(*deck, gen_scrap.A_INSTALL):
+        print('  the section put down and installed: %s' % gen_scrap.TYPES[r.map_t(*deck)][0])
+        if r.map_t(*deck) != T['PIPE'] or cnd(r):
+            r.fail('INSTALL of a conduit section: not a conduit')
+    if r.act(*deck, gen_scrap.A_UNINST) and r.act(*deck, gen_scrap.A_PICK):   # and back
+        if r.act(*pipe, gen_scrap.A_PUTL + k) and r.act(*pipe, gen_scrap.A_INSTALL):
+            pass
+    if r.map_t(*pipe) != T['PIPE'] or r.map_t(*deck) != T['FLOOR'] or mem[r.tsyms['cl_t'] + k]:
+        r.fail('the conduit not back: %d %d' % (r.map_t(*pipe), r.map_t(*deck)))
+    set_cell(r, *pipe, fl=p0[1])            # (the damage: under 8, drawn the same)
+    set_cell(r, *deck, fl=d0[1])
+    r.mouse_cell(*deck)
+    r.run(2)
+    r.check_view('the conduits back')
+    r.go((24, 30), (24, 32), (17, 32), (17, 34))
+
+
+def comms(r):
+    """the tug's antenna, broken at the start: NO COMMS; working: COMMS"""
+    z = r.zp
+    ant = gen_scrap.TUG_ANT
+    a0 = r.map_raw(*ant)
+    if r.map_t(*ant) != T['ANT'] or not r.bolted(*ant):
+        r.fail('no antenna on the tug at %d,%d' % ant)
+        return
+    rows = []
+    for d in (a0[1] & 15, 0):
+        set_cell(r, *ant, fl=(a0[1] & 0xF0) | d)
+        r.run(70)                           # tug_scan: once a second
+        r.mouse_cell(z('p_x'), z('p_y'))
+        r.run(2)
+        rows.append(r.panel()[0][22:52].strip())
+    print('  the antenna broken: %r; working: %r' % tuple(rows))
+    if 'NO COMMS' not in rows[0] or not rows[1].endswith(', COMMS'):
+        r.fail('COMMS: %r' % rows)
+    set_cell(r, *ant, fl=a0[1])
+    r.run(70)
+
+
 def skills_suit(r):
     """SKILLS on the message row; the suit off (the room's air, quicker
     work: a REPAIR), no air without it (blacking out), the suit on again"""
@@ -954,6 +1059,8 @@ def skills_suit(r):
             r.fail('REPAIR left damage')
     partial_repair(r)
     jammed_door(r)
+    deck_rules(r)
+    comms(r)
     q = r.room(z('p_x'), z('p_y'))
     saved = bytes(mem[0x4000:0x4040])
     for _ in range(140):                           # the room's air gone
