@@ -46,7 +46,7 @@ the upper socket, and boots it like the board (test_dos.Rig):
      after, still installed, and the tug has no air)
  12. Esc brings the DOS's browser back
 
-Date: 2026-11-04
+Date: 2026-11-05
 """
 
 import argparse
@@ -210,10 +210,18 @@ class Rig(test_tracker.Rig):
         self.key(str(1 + acts.index(code)))
         self.run(2)
         self.mid = None
+        d0 = self.map_raw(x, y)[1] & 15
+        rep = 3 if self.zp('cut_t') and self.zp('cut_m') == 3 else 0
+        half = (d0 + 1) // 2 if rep else 8      # a repair: its steps
         if self.zp('cut_t'):            # a job: its bar half way
-            if self.wait_for(lambda: self.cpu.mem[0x36F9] >= 8 or not self.zp('cut_t'), 3000, 'half the job'):
+            if self.wait_for(lambda: self.cpu.mem[0x36F9] >= half or not self.zp('cut_t'), 3000, 'half the job'):
                 self.run(2)
-                self.mid = (self.cpu.mem[0x36F9], self.panel()[5])
+                for _ in range(10):     # (the row is cleared, then written)
+                    if self.panel()[5].strip():
+                        break
+                    self.run(1)
+                self.mid = (self.cpu.mem[0x36F9], self.panel()[5], d0, self.map_raw(x, y)[1] & 15,
+                            self.panel()[0], self.zp('cut_m') if self.zp('cut_t') else rep)
         self.settle()
         self.job = (sk0, suit0, (self.cpu.clocks - c0) // FRAME)
         self.click(2)
@@ -235,7 +243,14 @@ class Rig(test_tracker.Rig):
         print('  %s: %d frames (skills %s, %s): %d wanted; skills now %s'
               % (what, frames, '/'.join(gen_scrap.skill_names(mask)) or '-',
                  'in the suit' if suit else 'no suit', want, self.skills()[0]))
-        if not self.mid or gen_scrap.job_bar(self.mid[0]) not in self.mid[1]:
+        if self.mid and self.mid[5] == 3 and self.mid[2] < 2:
+            print('  one step: no half way')
+        elif self.mid and self.mid[5] == 3:
+            n, msg, d0, d, top, _ = self.mid    # a repair: the health rises, no job bar
+            print('  half way: %d steps, damage %d -> %d, %r' % (n, d0, d, top[54:].strip()))
+            if d != d0 - n or '[' in msg or gen_scrap.bar(d) not in top:
+                self.fail('%s: half way %r' % (what, self.mid))
+        elif not self.mid or gen_scrap.job_bar(self.mid[0]) not in self.mid[1]:
             self.fail('%s: no bar half way: %r' % (what, self.mid))
         else:
             print('  half way: %r' % self.mid[1].strip())
@@ -275,9 +290,11 @@ class Rig(test_tracker.Rig):
 
     def check_view(self, what):
         """every view cell against the map in RAM and the art (a broken one
-        cracked, a loose part crated); the framed cell is left out (its border is drawn over it)"""
+        cracked, a loose part crated, the mouse pointer over it); the framed
+        cell is left out (its border is drawn over it)"""
         vx, vy, px, py = self.zp('v_x'), self.zp('v_y'), self.zp('p_x'), self.zp('p_y')
         frame = (self.zp('fr_x'), self.zp('fr_y')) if self.zp('fr_on') else None
+        ptr = self.pointer()            # the mouse pointer over it
         bad = []
         for cy in range(VIEW_H):
             for cx in range(VIEW_W):
@@ -287,7 +304,7 @@ class Rig(test_tracker.Rig):
                 if (x, y) == (px, py):
                     t = T['PLAYER']
                     if not self.zp('suit_on'):          # out of the suit
-                        if self.cell_bytes(cx, cy) != gen_scrap.art_bytes('player_ns'):
+                        if self.cell_bytes(cx, cy) != pointer_over(gen_scrap.art_bytes('player_ns'), cx, cy, ptr):
                             bad.append((cx, cy, 'PLAYER without the suit'))
                         continue
                 elif x < gen_scrap.MAP_W and y < gen_scrap.MAP_H:
@@ -303,8 +320,12 @@ class Rig(test_tracker.Rig):
                 if (gen_scrap.TYPES[t][3] & gen_scrap.F_ITEM and (x, y) != (px, py)
                         and not self.bolted(x, y)):
                     art = gen_scrap.crate_art(art)      # a loose part: crated
+                art = pointer_over(art, cx, cy, ptr)
                 if self.cell_bytes(cx, cy) != art:
-                    bad.append((cx, cy, gen_scrap.TYPES[t][0]))
+                    got = self.cell_bytes(cx, cy)
+                    bad.append((cx, cy, gen_scrap.TYPES[t][0], 'damage %d' % (self.map_raw(x, y)[1] & 15
+                                if x < gen_scrap.MAP_W and y < gen_scrap.MAP_H else 0),
+                                'bytes %s' % [i for i in range(64) if got[i] != art[i]][:6]))
         over = [(k, self.press(k)) for k in range(1, self.zp('n_room'))
                 if self.press(k) > gen_scrap.AIR_FULL]
         if over:                        # a leak that went under 0 (air_crack)
@@ -314,6 +335,18 @@ class Rig(test_tracker.Rig):
         else:
             print('  %s: all %d view cells match (view at %d,%d, player %d,%d)'
                   % (what, VIEW_W * VIEW_H, vx, vy, px, py))
+
+    def pointer(self):
+        """the mouse pointer's tip as drawn (art pixel x, y), None: off; a
+        check that it is where the mouse is"""
+        m, s = self.cpu.mem, self.tsyms
+        if not m[s['PT_ON']]:
+            return None
+        at = (2 * m[s['PT_C']] + (1 if m[s['PT_B']] else 0), m[s['PT_P']])
+        mx, my = self.zp('m_xl') | self.zp('m_xh') << 8, self.zp('m_yl') | self.zp('m_yh') << 8
+        if at != (mx // 4, my // 2):
+            self.fail('the pointer at %s, the mouse at %s' % (at, (mx // 4, my // 2)))
+        return at
 
     def hold(self, ch, frames):
         code = self.codes[ch]
@@ -361,7 +394,10 @@ def build():
     inv = gen_plc.split_swap(prog, 0x4100, 0x4D00)      # SCRAP.INV
     if not inv or len(inv) > 0xC00:          # 6 sectors at most (inv_fetch)
         raise SystemExit('SCRAP.INV is %d bytes' % len(inv))
-    prog, code = gen_plc.split_overlay(prog, lib, 0xC000, 2)
+    for lab in ('pt_walk', 'pt_show', 'rep_step', 'place_done', 'inv_toggle'):
+        if 0x4100 <= tsyms[lab] < 0x4D00:   # resident code spilled into the swap region
+            raise SystemExit('%s is in SCRAP.INV (x%04X)' % (lab, tsyms[lab]))
+    prog, code = gen_plc.split_overlay(prog, lib, 0xC000, 2, (0x5600, 0x5A00, 1))
     if any(0x4000 <= a < 0xC000 for a in prog):
         raise SystemExit('scrap.asm reaches past x3FFF')
     plc = gen_plc.make(prog, tsyms, lib)[0]
@@ -407,7 +443,7 @@ def main(argv):
     p = r.panel()
     if (not p[0].strip().startswith('YOU') or 'AIR ON' not in p[0] or 'MK1 WORK SUIT' not in p[1]
             or '1: SKILLS' not in p[1]
-            or '2: TAKE OFF SUIT' not in p[2] or '3: INVENTORY' not in p[3]):
+            or '2: TAKE OFF SUIT' not in p[2] or 'INVENTORY' in ''.join(p[1:5])):
         r.fail('the panel does not show the player')
     if not p[5].strip().startswith('DOCKED TO THE KESTREL 9'):
         r.fail('the welcome message')
@@ -457,8 +493,8 @@ def main(argv):
         r.fail('the panel does not name the door: %r' % p[0])
     if 'SEALED - NO LEAKS' not in p[2]:
         r.fail('the door (13 %% damage) is not shown sealed: %r' % p[2])
-    if 'DAMAGE' not in p[0]:
-        r.fail('no damage bar for the door')
+    if 'HEALTH [#########-] 88%' not in p[0]:
+        r.fail('no health bar for the door: %r' % p[0])
     if 'CLOSE' not in ''.join(p[1:5]):
         r.fail('no CLOSE in the menu')
     if 'HELD OPEN' not in p[0] or 'HOLD OPEN' in ''.join(p[1:5]):
@@ -791,11 +827,13 @@ def rebuild(r):
         r.fail('UNINSTALL of the wall did not join the quarters and the hold')
     r.check_rooms('the wall out, a broken hull wall')
     q = r.room(19, 35)
+    saved = bytes(mem[0x4000:0x4040])
     lo = min(r.press(q) for _ in range(180) if r.run(1) is None)
     print('  the broken hull wall: the room\'s air down to %d in 3 s' % lo)
     if lo >= 100:
         r.fail('the broken hull wall does not leak')
-    mem[a + 0x200] = fl                           # mended
+    mem[a + 0x200] = fl                           # mended, the air back
+    mem[0x4000:0x4040] = saved
     if not (r.act(*wall, gen_scrap.A_PICK) and r.act(*wall, gen_scrap.A_PUTL)):
         return
     if r.map_t(*wall) != T['PANEL'] or r.bolted(*wall):
@@ -810,6 +848,70 @@ def rebuild(r):
         print('  the panel installed: a wall again, two rooms')
     r.check_rooms('the wall in again')
     r.check_view('the tug changed')
+
+
+def set_cell(r, x, y, ty=None, fl=None):
+    """map cell x, y's type byte and flag byte (None: kept)"""
+    k = 6 * (y >> 4) + (x >> 4)
+    a = ((0x60 + 4 * k) << 8) + 16 * (y & 15) + (x & 15)
+    if ty is not None:
+        r.cpu.mem[a] = ty
+    if fl is not None:
+        r.cpu.mem[a + 0x200] = fl
+
+
+def partial_repair(r):
+    """REPAIR on a deck at 75 % damage, stopped part way by a step: the
+    steps done stay done"""
+    z, mem = r.zp, r.cpu.mem
+    deck = (16, 36)
+    ty, fl = r.map_raw(*deck)
+    set_cell(r, *deck, fl=(fl & 0xF0) | 12)
+    r.mouse_cell(*deck)
+    r.run(2)
+    print('  a deck at 12: %r' % r.panel()[0][54:].strip())
+    if 'HEALTH %s %s' % (gen_scrap.bar(12), gen_scrap.health_pct(12)) not in r.panel()[0]:
+        r.fail('the deck\'s health bar: %r' % r.panel()[0])
+    r.click(1)
+    acts = [mem[r.tsyms['act0'] + i] for i in range(z('n_act'))]
+    if gen_scrap.A_REPAIR not in acts:
+        r.fail('no REPAIR for the deck: %s' % acts)
+        r.click(2)
+        return
+    r.key(str(1 + acts.index(gen_scrap.A_REPAIR)))
+    r.wait_for(lambda: mem[0x36F9] >= 4, 3000, 'four repair steps')
+    if '[' in r.panel()[5]:
+        r.fail('a job bar while repairing: %r' % r.panel()[5])
+    r.hold(LEFT, 2)                       # a step away: the job stops
+    n, d = mem[0x36F9], r.map_raw(*deck)[1] & 15
+    r.run(60)
+    print('  stopped after %d steps: damage %d, then %d; %r' % (n, d, r.map_raw(*deck)[1] & 15,
+                                                           r.panel()[5].strip()))
+    if z('cut_t') or d != 12 - n or r.map_raw(*deck)[1] & 15 != d:
+        r.fail('a stopped repair did not keep its steps')
+    r.click(2)
+    r.check_view('the partial repair')
+
+
+def jammed_door(r):
+    """a closed door under 50 % health is jammed: no way through, no OPEN"""
+    z, mem = r.zp, r.cpu.mem
+    door = (17, 33)
+    ty, fl = r.map_raw(*door)
+    r.go((17, 34))
+    set_cell(r, *door, ty=(ty & 0x60) | T['DOOR'], fl=(fl & 0xF0) | 10)
+    r.hold(UP, 2)
+    r.run(2)
+    print('  into the jammed door: at %d,%d, %r' % (z('p_x'), z('p_y'), r.panel()[5].strip()))
+    if (z('p_x'), z('p_y')) != (17, 34) or 'JAMMED' not in r.panel()[5] or r.map_t(*door) != T['DOOR']:
+        r.fail('the jammed door let the player through')
+    if r.act(*door, gen_scrap.A_OPEN):
+        if r.map_t(*door) != T['DOOR'] or 'JAMMED' not in r.panel()[5]:
+            r.fail('OPEN opened the jammed door')
+    set_cell(r, *door, ty=ty, fl=fl)
+    r.mouse_cell(*door)
+    r.run(2)
+    r.check_view('the door mended')
 
 
 def skills_suit(r):
@@ -850,6 +952,8 @@ def skills_suit(r):
         print('  %r: damage %d -> %d' % (r.panel()[5].strip(), dmg, r.map_raw(*tank)[1] & 15))
         if r.map_raw(*tank)[1] & 15:
             r.fail('REPAIR left damage')
+    partial_repair(r)
+    jammed_door(r)
     q = r.room(z('p_x'), z('p_y'))
     saved = bytes(mem[0x4000:0x4040])
     for _ in range(140):                           # the room's air gone
@@ -872,6 +976,23 @@ def skills_suit(r):
 
 
 
+def pointer_over(art, cx, cy, ptr):
+    """cell art at screen cell cx, cy with the part of the mouse pointer
+    (its tip at art pixel ptr, None: not drawn) that falls on it"""
+    if ptr is None:
+        return art
+    out = bytearray(art)
+    for r, row in enumerate(gen_scrap.POINTER):
+        for i, ch in enumerate(row):
+            x, y = ptr[0] + i, ptr[1] + r
+            if ch == '.' or x >= 160 or y >= 192 or (x // 8, y // 16) != (cx, cy):
+                continue
+            b = 16 * ((x & 7) >> 1) + (y & 15)
+            c = int(ch, 16)
+            out[b] = (out[b] & 0xF0) | c if x & 1 == 0 else (out[b] & 0x0F) | c << 4
+    return bytes(out)
+
+
 def check_inv(r, what):
     """the inventory screen against gen_scrap.inventory_screen (the slots,
     the gear, the frame on the slot under the mouse, a broken part cracked,
@@ -879,9 +1000,8 @@ def check_inv(r, what):
     z, mem = r.zp, r.cpu.mem
     carry = [mem[r.tsyms['cl_t'] + i] for i in range(3)]
     dmg = [mem[r.tsyms['cl_d'] + i] for i in range(3)]
-    mx, my = z('m_xl') | z('m_xh') << 8, z('m_yl') | z('m_yh') << 8
     want = gen_scrap.inventory_screen(carry, z('suit_on'), z('batt'), z('o2'), z('inv_k'), dmg,
-                                      (mx // 4, my // 2) if my < 384 else None)
+                                      r.pointer())
     bad = []
     for p in range(192):
         for bc in range(80):

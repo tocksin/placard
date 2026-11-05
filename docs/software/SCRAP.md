@@ -7,7 +7,7 @@ back, and build it into your own ship.  It is not in the demo menu: pick
 it in the DOS's file browser and press Enter ([DOS.md](DOS.md)), or set
 `BOOT.CFG` = `SCRAP.PLC` to run it at power-up.
 
-Date: 2026-11-04
+Date: 2026-11-05
 
 The design (proposal, phases, mock-ups) is the SCRAPWRIGHT design doc.
 This is **phase 3**: the walkable wreck with the mouse panel (phase 2),
@@ -29,8 +29,8 @@ shared through them.
 
 | Input | What it does |
 |-------|--------------|
-| Arrows, WASD, or the SNES pad | walk one cell (held: a step every 7 frames), on decks and out on open space too (a spacewalk, on suit air: to repair the outside and build).  Walking into a closed door opens it, and it closes behind you unless it is held open |
-| Mouse over a cell | a yellow frame on the cell, and the panel shows it: name, damage bar, info on the left, actions on the right |
+| Arrows, WASD, or the SNES pad | walk one cell (held: a step every 7 frames), on decks and out on open space too (a spacewalk, on suit air: to repair the outside and build).  Walking into a closed door opens it, and it closes behind you unless it is held open.  A door under 50 % health is jammed as it is: a jammed shut door stops you until you repair it to 50 % |
+| Mouse over a cell | an arrow pointer and a yellow frame on the cell, and the panel shows it: name, health bar, info on the left, actions on the right |
 | Mouse over yourself | your suit, battery, hands and pack |
 | Left click on a cell | locks the panel on it, so the mouse can go down to the actions |
 | Left click on an action, or keys **1-8** | does it (see below); the menu is two columns of four, each action with its key to its left, `1:` to `8:` |
@@ -43,16 +43,15 @@ need you next to it, diagonals count):
 
 | Action | What it does |
 |--------|--------------|
-| OPEN / CLOSE | a door (not while you stand in it).  An opened door closes again once you have walked through it |
+| OPEN / CLOSE | a door (not while you stand in it).  An opened door closes again once you have walked through it.  Not a jammed door (under 50 % health): `THE DOOR IS JAMMED - REPAIR IT TO 50% HEALTH FIRST.` |
 | HOLD OPEN | opens a door and keeps it open: it stays open behind you (the panel says HELD OPEN) until you CLOSE it.  The doors that start open are held open |
 | WALK HERE | walks toward the cell, across first, then up or down |
 | INSPECT | a line about it on the message row |
 | UNINSTALL | a part INSTALLED in the wreck: the cutter does it, in 1.5 s and 5 % of the suit battery, and needs a working cutter in a hand.  Walking away stops it.  The wreck's walls, decks and doors uninstall the same way, into a wall panel, a door kit or a deck plate.  INSTALLED in the tug: 1 s by hand (no cutter).  Either way it is LOOSE then.  On the tug the walls, decks and doors uninstall too (not the cell you stand on): a wall leaves a WALL PANEL lying on the deck, a door a PRESSURE DOOR kit, and a deck goes into a free carry slot as a SPARE PLATE, leaving open space |
 | INSTALL | a LOOSE ship part lying on a deck, in the tug or in a wreck (O2 tank, scrubber, battery, fuel tank, helm, bunk, locker): 1 s, then it is INSTALLED (on the tug's cells it is part of the tug).  A wall panel installs as a wall, a door kit as a closed door.  Cargo and the cutter can't be installed.  Carried parts install from the inventory (below) |
 | LAY DECK PLATE | open space next to you, with a deck plate in a carry slot: it is a deck now |
-| REPAIR | a damaged part, wall, deck or door next to you: 0.25 s a damage step at full speed (see **Skills**), then it has no damage.  A repaired wall or door stops leaking |
+| REPAIR | a damaged part, wall, deck or door next to you: 0.25 s a damage step at full speed (see **Skills**), its health bar rising a step at a time (no job bar), until it is at 100 %.  Walking away stops it, and the steps done stay done.  A wall or door repaired to 50 % stops leaking |
 | SKILLS | on yourself: your six skill levels on the message row |
-| INVENTORY | on yourself: the inventory screen (the same as I) |
 | TAKE OFF SUIT / PUT ON SUIT | on yourself: the suit goes into a free carry slot, or back on from its slot (see **The suit**) |
 | PICK UP | a LOOSE part goes into the first free carry slot: left hand, right hand, back |
 | PUT DOWN LEFT / RIGHT / BACK | from that carry slot onto a bare deck next to you |
@@ -65,7 +64,7 @@ carry (the cutter is light) makes a step 4 frames slower.
 A part that is not installed (LOOSE) is drawn in a brown crate frame,
 so you can see at a glance what is fitted and what is lying about.
 
-**The inventory.**  I or Tab (or INVENTORY on yourself) swaps the view
+**The inventory.**  I or Tab swaps the view
 for the inventory screen: a title bar, GEAR on the left (your suit, its
 battery, its O2, a utility slot for later) and CARRYING on the right
 (left hand, right hand, back), each slot the part's cell art in a frame,
@@ -103,8 +102,9 @@ speed).  In the suit you do half that, plus an eighth of your SUIT skill
 (never more than without it).  So at the start an install takes 4 s
 without the suit and 5.3 s in it.  Each job done raises the skills it
 used, and SUIT when you wore it: 2 (120 - level) of 256 toward the next
-level, so about a level a job at the start and slower as you get good.  While a job runs, the message row shows its bar
-after the message, `[########--------] 50%`, filling a 16th at a time.
+level, so about a level a job at the start and slower as you get good.  While an install, uninstall or cut runs, the message row shows its bar
+after the message, `[########--------] 50%`, filling a 16th at a time; a
+repair shows in the part's health bar instead.
 
 **The suit.**  TAKE OFF SUIT puts your suit in a free carry slot (it
 keeps its O2, and you can put it down like any part).  Out of it you are drawn
@@ -156,9 +156,9 @@ shut.  Open one and the air of the rooms beyond it goes too, until you
 close it again.
 
 The camera moves one cell when you come within 4 cells of the view's
-side (3 of its top or bottom) and redraws the view (no smooth scroll).  On the ship view the frame on the cell, and the
-inverse action row in the panel, show where the mouse is; the inventory
-screen draws an arrow pointer.
+side (3 of its top or bottom) and redraws the view (no smooth scroll).  An arrow pointer (black, white
+inside) shows the mouse over the view and the inventory, with the frame
+on the cell under it; over the panel the inverse action row shows it.
 
 ## The screen
 
@@ -166,7 +166,8 @@ screen draws an arrow pointer.
   pixels of art (32 x 32 on the monitor), 64 bytes.
 - Lines 384-479: 1 bpp, 2x, the panel (text rows 24-29, 80 columns).
   - Row 24: the name, tinted blue, INSTALLED or LOOSE for a part, the air
-    of its room, and the damage bar (on yourself: the tug's worth and air).
+    of its room, and the health bar, `HEALTH [########--] 81%` (on yourself:
+    the tug's worth and air).
   - Rows 25-28: the info on the left (40 columns), the action menu after
     the bar from column 42: two columns of four, actions 1-4 then 5-8.
   - Row 29: messages, tinted gold, cleared after 4 seconds; a warning,
@@ -180,7 +181,9 @@ panel or door kit) has no partial output: it holds its air fully up to
 NEEDS REPAIR`).  Anything broken (step 8 on: a part, a wall, a deck, a
 door) is drawn with a crack through its art, on the ship view and in the
 inventory's slots, so you can see what needs repair; a repair takes the
-crack off.
+crack off.  The panel shows health, the other way round: 100 % undamaged,
+falling 6.25 % a damage step.  The KESTREL 9 has a few broken deck plates,
+a jammed shut armory door and a jammed open med bay door.
 
 ## Memory
 
@@ -195,8 +198,8 @@ crack off.
 | x4000-x407F | each room's pressure, and whether it is cold |
 | x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |
 | x4100-x4CFF | while the inventory is up: `SCRAP.INV` (`scrap_inv.masm`: its screen, font, pointer and routines; 6 sectors at most), read from the card each time it opens; a rebuild of the rooms waits until it closes |
-| x4080-x4097 | while the inventory is up: what is under its mouse pointer |
 | x5400-x55FF | sector buffer for loading `SCRAP.OVL` |
+| x5600-x59FF | more of the program: `SCRAP.OVL`'s last 4 pages (after xFE), the mouse pointer (its art, what is under it), a repair's steps and what overflows |
 | even pages x60-xBE | the map: 96 x 64 cells in 24 chunks of 16 x 16 |
 | odd pages x61-xBF | the screen (2x repeat leaves the even pages free) |
 
@@ -220,7 +223,7 @@ stubs that switch to map 07 around the call.
 cd src\scripts
 python gen_scrap.py                              scrap_types.asm, scrap_data.masm, scrap_map.bin
 python asm_expand.py scrap.masm                  scrap.asm
-python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
+python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
                                                  SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV
 python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png)
 ```
@@ -257,7 +260,8 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
 - each job's time against `gen_scrap.job_frames` and the skills it
   raised against `skill_gain`; a loose part drawn crated;
 - SKILLS on the message row; TAKE OFF SUIT (O2 kept in air), a REPAIR
-  without the suit (quicker), no air without the suit (blacking out),
-  PUT ON SUIT;
+  without the suit (quicker), a repair stopped part way (its steps kept,
+  the health bar), a jammed shut door (no way through, no OPEN), no air
+  without the suit (blacking out), PUT ON SUIT;
 - refilling the suit from a tank (it stays installed);
 - Esc back to the DOS.

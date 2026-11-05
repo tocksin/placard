@@ -37,7 +37,7 @@ THE ART
     pixels 2c (low nibble, shown first) and 2c + 1 (high nibble) of line
     pair r.  Colors are the 4 bpp palette (docs/video/COLORS.md).
 
-Date: 2026-11-04
+Date: 2026-11-05
 """
 
 import os
@@ -218,14 +218,12 @@ A_OPEN, A_CLOSE, A_INSPECT, A_WALK = 1, 2, 3, 4
 A_PICK, A_CUT, A_PUTL, A_PUTR, A_PUTB, A_REFILL = 5, 6, 7, 8, 9, 10
 A_HOLD, A_INSTALL, A_UNINST, A_LAY = 11, 12, 13, 14
 A_REPAIR, A_SKILLS, A_SUITOFF, A_SUITON = 15, 16, 17, 18
-A_INV = 19
 ACTIONS = {A_OPEN: 'OPEN', A_CLOSE: 'CLOSE', A_INSPECT: 'INSPECT', A_WALK: 'WALK HERE',
            A_PICK: 'PICK UP', A_CUT: 'CUT FREE', A_PUTL: 'PUT DOWN LEFT',
            A_PUTR: 'PUT DOWN RIGHT', A_PUTB: 'PUT DOWN BACK',
            A_REFILL: 'REFILL SUIT', A_HOLD: 'HOLD OPEN', A_INSTALL: 'INSTALL',
            A_UNINST: 'UNINSTALL', A_LAY: 'LAY DECK PLATE', A_REPAIR: 'REPAIR',
-           A_SKILLS: 'SKILLS', A_SUITOFF: 'TAKE OFF SUIT', A_SUITON: 'PUT ON SUIT',
-           A_INV: 'INVENTORY'}
+           A_SKILLS: 'SKILLS', A_SUITOFF: 'TAKE OFF SUIT', A_SUITON: 'PUT ON SUIT'}
 
 TYPES = [
     # key, art, name, flags, info lines, actions, inspect
@@ -242,11 +240,11 @@ TYPES = [
       'SKILL: MECHANICAL'], [A_WALK, A_INSPECT],
      'SCUFFED DECK PLATE.  SOMEONE WALKED HERE A LOT.'),
     ('WALL', 'wall', 'BULKHEAD', F_DMG | F_STRUCT | F_SOLID,
-     ['STEEL BULKHEAD, LEAKS FROM 50% DAMAGE', '\x02',
+     ['STEEL BULKHEAD, LEAKS UNDER 50% HEALTH', '\x02',
       'UNINSTALL IT (IN A WRECK: A CUTTER)', 'SKILL: MECHANICAL'], [A_INSPECT],
      'A SOLID BULKHEAD.  THE PAINT SAYS DECK 2.'),
     ('DOOR', 'door', 'DOOR (CLOSED)', F_DMG | F_STRUCT | F_SOLID,
-     ['PRESSURE DOOR, LEAKS FROM 50% DAMAGE', '\x02',
+     ['PRESSURE DOOR, LEAKS UNDER 50% HEALTH', '\x02',
       'CLOSES BEHIND YOU UNLESS HELD OPEN', 'SKILLS: MECHANICAL, HYDRAULICS'],
      [A_OPEN, A_HOLD, A_INSPECT],
      'A PRESSURE DOOR.  THE HAZARD STRIPES ARE FADED.'),
@@ -466,6 +464,7 @@ MESSAGES = [   # (label, text): the strings scrap.masm prints
     ('s_tug', 'TUG $'),
     ('s_airon', '0, AIR ON'),
     ('s_airoff', '0, NO AIR'),
+    ('s_jam', 'THE DOOR IS JAMMED - REPAIR IT TO 50% HEALTH FIRST.'),
     ('s_air', 'AIR '),
     ('s_loose', 'LOOSE'),
     ('s_w1', 'CAUTION: SUIT O2 BELOW HALF.'),
@@ -476,8 +475,9 @@ MESSAGES = [   # (label, text): the strings scrap.masm prints
 ]
 
 
-def dmg_pct(step):
-    return '%d%%' % int(step * 6.25 + 0.5)
+def health_pct(step):
+    """the panel's HEALTH percent of a damage step (16 steps of 6.25 %)"""
+    return '%d%%' % int((16 - step) * 6.25 + 0.5)
 
 
 def job_bar(n):
@@ -495,7 +495,8 @@ def works(step):
 
 
 def bar(step):
-    n = (step * 10 + 8) // 16
+    """the panel's health bar of a damage step: full undamaged"""
+    n = 10 - (step * 10 + 8) // 16
     return '[' + '#' * n + '-' * (10 - n) + ']'
 
 
@@ -624,6 +625,16 @@ def build_map(seed=9):
                 d[y][x] = rnd.choice((0, 1, 2))
             else:
                 d[y][x] = rnd.randint(1, 12)
+    for y in range(MAP_H):              # the wreck's doors mostly work
+        for x in range(MAP_W):
+            if TYPES[t[y][x]][0] in ('DOOR', 'DOORO') and d[y][x] >= 8:
+                d[y][x] = 3 + d[y][x] % 5
+    d[12][62] = 12                      # the armory's door: jammed shut (repair it)
+    t[24][58] = TYPE['DOORO']           # the med bay's: jammed open
+    d[24][58] = 10
+    for x, y, s in ((33, 32, 9), (34, 31, 12), (40, 22, 10), (41, 22, 8), (60, 20, 11),
+                    (55, 26, 13), (70, 40, 9)):
+        d[y][x] = s                     # broken deck plates
     d[50][70] = 9                       # a few worth reading about
     d[46][76] = 5                       # the vented section's doors hold
     d[52][62] = 3
@@ -795,7 +806,7 @@ def write_sources():
         ('PICK', A_PICK), ('CUT', A_CUT), ('PUTL', A_PUTL), ('PUTR', A_PUTR),
         ('PUTB', A_PUTB), ('REFILL', A_REFILL), ('HOLD', A_HOLD), ('INSTALL', A_INSTALL),
         ('UNINST', A_UNINST), ('LAY', A_LAY), ('REPAIR', A_REPAIR), ('SKILLS', A_SKILLS),
-        ('SUITOFF', A_SUITOFF), ('SUITON', A_SUITON), ('INV', A_INV))]
+        ('SUITOFF', A_SUITOFF), ('SUITON', A_SUITON))]
     lines += ['SK_M       = %d' % SK_M, 'SK_SUIT    = %d' % SK_SUIT,
               'SKILL_START = %d' % SKILL_START, 'SKILL_MAX  = %d' % SKILL_MAX,
               'REPAIR_FRAMES = %d' % REPAIR_FRAMES, 'CRATE_COL  = %d' % CRATE_COL,
@@ -881,7 +892,7 @@ def write_sources():
         setp(0x20, i, sref('zn_%d' % i, ty[2]))
         setp(0x60, i, sref('zx_%d' % i, ty[6] if ty[0] != 'PLAYER' else PLAYER_INSPECT))
     for st in range(16):
-        lab = sref('zd_%d' % st, dmg_pct(st))
+        lab = sref('zd_%d' % st, health_pct(st))
         tab[0xA0 + st] = lab + ' & 0xFF'
         tab[0xB0 + st] = lab + ' >> 8'
         lab = sref('zw_%d' % st, works(st))
@@ -967,6 +978,13 @@ def write_sources():
         d += cur
         d.append('')
     d += ['.chunk', 'JB_PCT:', '    #d8 ' + ', '.join(str(n * 100 // 16) for n in range(17)), '']
+    d += ['.chunk', 'PT_TAB:']             # 48 s + 16 c + r: AND mask, + 8 color
+    for sh in range(2):
+        for c in range(3):
+            m, k = pointer_bytes(sh, c)
+            d.append('    #d8 ' + ', '.join('0x%02X' % v for v in m + k))
+    d += ['PT_SV:', '    #d8 ' + ', '.join(['0'] * 24),   # what is under it
+          'PT_ON:', '    #d8 0', 'PT_C:', '    #d8 0', 'PT_P:', '    #d8 0', 'PT_B:', '    #d8 0', '']
     d += ['.chunk', 'CRACK:'] + ['    #d8 ' + ', '.join('0x%02X' % v for v in crack_bytes()[o:o + 16])
                                  for o in range(0, 64, 16)] + ['']
     b = art_bytes('player_ns')        # the player without the suit
@@ -1119,11 +1137,6 @@ def write_inv_data():
     for k, (bc, p, fg, bg, t) in enumerate(INV_LABELS):
         assert all(ch in F35 for ch in t), t
         d += ['zl_%d:' % k, '    #d "%s", 0x00' % t]
-    d += ['', '.chunk', 'PT_TAB:']           # 48 s + 16 c + r: AND mask, + 8 color
-    for sh in range(2):
-        for c in range(3):
-            m, k = pointer_bytes(sh, c)
-            d.append('    #d8 ' + ', '.join('0x%02X' % v for v in m + k))
     d += ['', '.chunk', 'SPOS:', '    #d8 ' + ', '.join('%d, %d' % bp for bp in INV_SLOTS), '']
     d += ['.chunk']
     for lab, t in INV_STR:

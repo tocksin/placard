@@ -17,28 +17,22 @@
 ; The mouse over a slot: the panel shows it, with its menu (a carried
 ; part: s_who 3, inv_k 0-2; the gear: you, s_who 2).
 ;
-; The mouse pointer (pt_show, pt_hide) is drawn over the screen at the
-; mouse, what is under it kept; inv_slots takes it off while it draws.
+; The mouse pointer is scrap.masm's (pt_show, pt_hide): inv_draw and
+; inv_slots take it off while they draw, the frame loop draws it again.
 ; A broken carried part (damage from 50 %) is drawn cracked.
 ;
-; Date: 11/04/2026
+; Date: 11/05/2026
 ; ============================================================
 
-pt_on   = dc_cx                 ; the pointer (dc_* are free while the
-pt_c    = dc_cy                 ;   inventory is up): 1 drawn, its byte
-pt_p    = dc_t                  ;   column, line pair, PT_TAB half,
-pt_b    = dc_sp                 ;   pt_walk's mode
-pt_m    = dc_so
-ip_k    = dc_n                  ; ip_art: 1 draws the art cracked
-PT_SV   = 0x4080                ; what is under the pointer (24 bytes, in
-                                ;   rooms_build's RB_DY: not in SCRAP.INV)
+ip_k    = dc_n                  ; ip_art: 1 draws the art cracked (dc_* are
+                                ;   free while the inventory is up)
 
 ; inv_draw - the inventory screen.  The rest of draw_view
 .chunk
 inv_draw:
+    CALL pt_hide
     clr  ac                     ; the background, dark blue
     ld   ac, [fr_on]
-    ld   ac, [pt_on]            ; (no pointer on the new screen)
     ld   ac, [w0]
     ld   ac, [w1]
     ld   80, ac
@@ -536,7 +530,6 @@ is5_w:
     ld   ac, [v7]
     xor  7, ac
     bne  is5_l
-    CALL pt_show
     LEAVE
 
 ; is_pos - w0, w1 = slot v7's art (SPOS).  A leaf.
@@ -723,7 +716,6 @@ ig5_t:
 ; m_y / 2): inv_k, the frames, the panel.  The rest of hover_update
 .chunk
 inv_hover:
-    CALL pt_hide
     CALL in_view
     bne  ih_v
     CALL hover_panel            ; the panel: no pointer drawn
@@ -780,126 +772,6 @@ ih_k:
 ih_x:
     LEAVE
 ih_e:
-    CALL pt_show
-    LEAVE
-
-; pt_hide - the pointer off (what was under it, PT_SV, back) if it is
-; drawn.  pt_show - the pointer drawn at the mouse when it is over the view
-; area (it must be off), what is under it kept in PT_SV.  pt_walk (their
-; end): the pointer's 3 byte columns x 8 line pairs from byte column pt_c,
-; line pair pt_p (none past the right edge or line pair 191): pt_m 1 saves
-; each byte and draws the pointer (PT_TAB + pt_b: AND mask, + 8 its
-; color), 0 puts PT_SV back
-.chunk
-pt_hide:
-    PUSH_LINK
-    ld   [pt_on], ac
-    beq  pw_e
-    clr  ac
-    ld   ac, [pt_on]
-    ld   ac, [pt_m]
-    bra  pt_walk
-pt_show:
-    PUSH_LINK
-    CALL in_view
-    beq  pw_e
-    CALL pt_xy
-    ld   [u2], ac               ; PT_TAB's half: an odd pixel, shifted
-    and  1, ac
-    beq  ps_b
-    ld   48, ac
-ps_b:
-    ld   ac, [pt_b]
-    ld   [u2], ac
-    shr  ac
-    ld   ac, [pt_c]
-    ld   [u1], ac
-    ld   ac, [pt_p]
-    ld   1, ac
-    ld   ac, [pt_on]
-    ld   ac, [pt_m]
-pt_walk:
-    clr  ac
-    ld   ac, [u5]               ; the column
-pw_c:
-    ld   [pt_c], ac
-    add  [u5], ac
-    ld   ac, [w0]
-    sub  80, ac
-    bcc  pw_e
-    ld   [pt_p], ac
-    ld   ac, [w1]
-    CALL ip_addr
-    clr  ac
-    ld   ac, [u6]               ; the line pair
-pw_r:
-    ld   [pt_p], ac
-    add  [u6], ac
-    sub  192, ac
-    bcc  pw_n
-    ld   [u5], ac               ; u4: PT_SV + 8 c + r
-    shl
-    shl
-    shl
-    or   [u6], ac
-    add  PT_SV & 0xFF, ac
-    ld   ac, [u4]
-    ld   [u5], ac               ; u3: PT_TAB + pt_b + 16 c + r
-    shl
-    shl
-    shl
-    shl
-    or   [u6], ac
-    add  [pt_b], ac
-    add  PT_TAB & 0xFF, ac
-    ld   ac, [u3]
-    ld   [pt_m], ac
-    bne  pw_d
-    ld   PT_SV >> 8, y          ; put back
-    ld   [u4], x
-    ld   [y,x], ac
-    bra  pw_w
-pw_d:
-    ld   [w2], y                ; kept, then the pointer over it
-    ld   [w3], x
-    ld   [y,x], ac
-    ld   ac, [u0]
-    ld   PT_SV >> 8, y
-    ld   [u4], x
-    ld   [u0], ac
-    ld   ac, [y,x]
-    ld   PT_TAB >> 8, y
-    ld   [u3], x
-    ld   [y,x], ac
-    and  [u0], ac
-    ld   ac, [u0]
-    ld   [u3], ac
-    add  8, ac
-    ld   ac, x
-    ld   [y,x], ac
-    or   [u0], ac
-pw_w:
-    ld   [w2], y
-    ld   [w3], x
-    ld   ac, [y,x]
-    ld   [w3], ac
-    add  2, ac
-    bne  pw_o
-    ld   1, ac
-pw_o:
-    ld   ac, [w3]
-    ld   [u6], ac
-    inc
-    ld   ac, [u6]
-    xor  8, ac
-    bne  pw_r
-pw_n:
-    ld   [u5], ac
-    inc
-    ld   ac, [u5]
-    xor  3, ac
-    bne  pw_c
-pw_e:
     LEAVE
 
 ; inv_subject - the panel on slot inv_k: a carried part (s_who 3), the

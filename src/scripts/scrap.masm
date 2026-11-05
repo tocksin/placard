@@ -45,10 +45,10 @@
 ;
 ;     python3 gen_scrap.py                            scrap_types.asm, scrap_data.masm, scrap_map.bin
 ;     python3 asm_expand.py scrap.masm                scrap.asm
-;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
+;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
 ;     python3 test_scrap_sim.py                       runs it in placard_sim
 ;
-; Date: 11/04/2026
+; Date: 11/05/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -57,6 +57,8 @@
 
 dos_back = 0x8008
 FBUF     = 0x5400           ; 512-byte sector buffer while loading SCRAP.OVL
+OVL_TAIL = 0x56             ; SCRAP.OVL's last pages: x5600-x59FF (code:
+OVL_END  = 0x5A             ;   the pointer, the repair steps, more)
 VIEW_W   = 20
 VIEW_H   = 12
 WALK_FRAMES = 7             ; frames between steps while a direction is held
@@ -350,6 +352,12 @@ ta_go\@:
     ld   s_toofar >> 8, ac
     ld   ac, [R1]
 .endm
+.macro MSG_JAM
+    ld   s_jam & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_jam >> 8, ac
+    ld   ac, [R1]
+.endm
 .macro MSG_INWAY
     ld   s_inway & 0xFF, ac
     ld   ac, [R0]
@@ -368,6 +376,7 @@ ta_go\@:
 .region 0x0100, 0x1F00
 .region 0x2000, 0x3400
 .region 0xC000, 0x10000, 2, overlay
+.region 0x5600, 0x5A00, 1, overlay
 .region 0x0100, 0x1F00
 
 ; ============================================================
@@ -448,6 +457,7 @@ loop:
     CALL input_walk
     CALL game_tick
     CALL update_panel
+    CALL pt_show                ; the mouse pointer, after all the drawing
     GOTO loop
 lp_dead:
     CALL update_panel           ; dead: Enter starts again
@@ -465,7 +475,7 @@ s_ovl:
 s_invf:
     #d "SCRAP.INV", 0x00
 s_dmg:
-    #d "DAMAGE ", 0x00
+    #d "HEALTH ", 0x00
 
 ; ------------------------------------------------------------
 ; sc_leave - the library's lib_leave (LEAVE) copied into the RAM: the
@@ -593,6 +603,9 @@ l_vid_mode:
 .chunk
 ovl_load:
     PUSH_LINK
+    ld   (ov_st + 1) >> 8, y    ; every 2nd page from x60
+    ld   (ov_st + 1) & 0xFF, x
+    ld   2, [y,x]
     ld   s_ovl & 0xFF, ac
     ld   ac, [R0]
     ld   s_ovl >> 8, ac
@@ -629,8 +642,17 @@ ov_b:
     inc
     ld   ac, [u6]
     ld   [u5], ac
-    add  2, ac
+ov_st:
+    add  2, ac                  ; (1 for the last pages: written below)
     ld   ac, [u5]
+    bne  ov_k
+    ld   (ov_st + 1) >> 8, y    ; after xFE: the pages x56-x59, one by one
+    ld   (ov_st + 1) & 0xFF, x
+    ld   1, [y,x]
+    ld   OVL_TAIL, ac
+    ld   ac, [u5]
+ov_k:
+    xor  OVL_END, ac
     beq  ov_e
     ld   [u7], ac
     dec
@@ -932,6 +954,7 @@ fr_s:
 .chunk
 view_cell:
     PUSH_LINK
+    CALL pt_hide                ; nothing drawn over the pointer
     ld   [v_x], ac
     add  [dc_cx], ac
     ld   ac, [g_x]
@@ -1209,6 +1232,7 @@ iv_y:
 .chunk
 hover_update:
     PUSH_LINK
+    CALL pt_hide                ; (the loop draws it again where it is now)
     ld   [inv], ac
     beq  hu_0
     GOTO inv_hover
@@ -1632,6 +1656,14 @@ try_move:
     CALL map_get
     xor  T_DOOR, ac
     bne  tm_w
+    ld   [c_f], ac              ; under 50 % health: stuck shut
+    sub  8, ac
+    bcs  tm_op
+    MSG_JAM
+    CALL set_msg
+    clr  ac
+    LEAVE
+tm_op:
     ld   T_DOORO, ac
     CALL map_put
     CALL refresh_cell
@@ -1679,6 +1711,9 @@ mp_c:
     bne  mp_m
     ld   [c_b], ac
     bne  mp_m
+    ld   [c_f], ac              ; under 50 % health: stuck open
+    sub  8, ac
+    bcc  mp_m
     ld   T_DOOR, ac
     CALL map_put
     ld   [dirty], ac
@@ -1786,6 +1821,13 @@ da_e:
 door_action:
     CALL near
     beq  dr_far
+    ld   [s_f], ac              ; under 50 % health: stuck as it is
+    sub  8, ac
+    bcs  dr_go
+    MSG_JAM
+    CALL set_msg
+    LEAVE
+dr_go:
     ld   [s_x], ac
     ld   ac, [g_x]
     ld   [s_y], ac
@@ -2078,7 +2120,8 @@ add_act:
 aa_e:
     RET
 
-; draw_dmg - "DAMAGE [###-------] 19%" at row 24, column 54
+; draw_dmg - "HEALTH [########--] 81%" at row 24, column 54 (from the
+; damage step: BAR_PG, TB_DMGL)
 .chunk
 draw_dmg:
     PUSH_LINK
@@ -2281,6 +2324,9 @@ dm_on:
     ld   ac, [R1]
     CALL tputs
     ld   [cut_t], ac
+    beq  dm_x
+    ld   [cut_m], ac            ; a repair: the health bar shows it
+    xor  3, ac
     beq  dm_x
     CALL job_bar
 dm_x:
@@ -4953,6 +4999,11 @@ jt_y:
 jt_m:
     ld   JB_TH & 0xFF, x
     ld   ac, [y,x]
+    ld   [cut_m], ac            ; repairing: a damage step off
+    xor  3, ac
+    bne  jt_k
+    CALL rep_step
+jt_k:
     ld   MSG_FRAMES, ac
     ld   ac, [msg_t]
     ld   [dirty], ac
@@ -5064,11 +5115,6 @@ ma_1:
     bne  ma_2
     GOTO skills_action
 ma_2:
-    ld   [w3], ac
-    xor  A_INV, ac
-    bne  ma_3
-    GOTO inv_toggle
-ma_3:
     GOTO suit_action
 
 ; repair_action - REPAIR: a damaged part next to the player, REPAIR_FRAMES
@@ -5086,6 +5132,7 @@ repair_action:
     shl
     sub  [s_f], ac
     CALL job_start
+    CALL rep_bar
     ld   3, ac
     ld   ac, [cut_m]
     ld   [s_x], ac
@@ -5171,8 +5218,6 @@ pa_1:
 pa_a:
     CALL add_act
 pa_e:
-    ld   A_INV, ac
-    CALL add_act
     LEAVE
 
 ; suit_slot - AC = the address of the carry slot that holds the suit, 0
@@ -5732,6 +5777,230 @@ s_sl1:
     #d "IN YOUR RIGHT HAND", 0x00
 s_sl2:
     #d "ON YOUR BACK", 0x00
+
+; ============================================================
+; x5600-x59FF: SCRAP.OVL's last pages (after xFE): the mouse pointer,
+; a repair's steps
+; ============================================================
+.region 0x5600, 0x5A00, 1, overlay
+
+; pt_hide - the pointer off (PT_SV, what was under it, back) if it is
+; drawn.  pt_show - the pointer at the mouse (its tip at art pixel m_x /
+; 4, m_y / 2) if it is off and the mouse is over the view area, what is
+; under it kept in PT_SV.  pt_walk (their end, AC 1 draws, 0 puts back):
+; 3 byte columns x 8 line pairs from byte column PT_C, line pair PT_P
+; (none past the right edge or line pair 191), PT_TAB + PT_B: AND mask,
+; + 8 the color.  Leaves; T0-T7 (the program does not use them) and u0.
+.chunk
+pt_hide:
+    ld   PT_TAB >> 8, y
+    ld   PT_ON & 0xFF, x
+    ld   [y,x], ac
+    beq  ph_e
+    ld   0, [y,x]
+    clr  ac
+    GOTO pt_walk
+pt_show:
+    ld   PT_TAB >> 8, y
+    ld   PT_ON & 0xFF, x
+    ld   [y,x], ac
+    bne  ph_e
+    ld   [m_yh], ac
+    beq  ps_v
+    ld   [m_yl], ac
+    sub  0x80, ac
+    bcc  ph_e                   ; over the panel: none
+ps_v:
+    ld   [m_yl], ac
+    shr  ac
+    ld   ac, [T1]
+    ld   [m_yh], ac
+    beq  ps_1
+    ld   [T1], ac
+    or   0x80, ac
+    ld   ac, [T1]
+ps_1:
+    ld   [m_xl], ac
+    shr  ac
+    shr  ac
+    ld   ac, [T0]
+    ld   [m_xh], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [T0], ac
+    ld   ac, [T0]
+    ld   1, [y,x]
+    ld   PT_P & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    ld   PT_C & 0xFF, x
+    ld   [T0], ac
+    shr  ac
+    ld   ac, [y,x]
+    ld   PT_B & 0xFF, x
+    ld   [T0], ac
+    and  1, ac
+    beq  ps_b
+    ld   48, ac                 ; an odd pixel: the shifted half
+ps_b:
+    ld   ac, [y,x]
+    ld   1, ac
+    GOTO pt_walk
+ph_e:
+    RET
+
+.chunk
+pt_walk:
+    ld   ac, [T7]               ; T7: 1 draw, 0 put back
+    ld   PT_TAB >> 8, y
+    ld   PT_C & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [T4]               ; T4: the byte column
+    ld   PT_P & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [T5]               ; T5: the first line pair
+    ld   PT_B & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [T6]               ; T6: PT_TAB + 16 c
+    clr  ac
+    ld   ac, [T3]               ; T3: PT_SV + 8 c
+pw_c:
+    ld   [T4], ac
+    sub  80, ac
+    bcc  pw_e
+    ld   [T4], ac
+    shl
+    add  0x61, ac
+    ld   ac, [T0]               ; T0, T1: the screen page, offset
+    ld   [T5], ac
+    sub  112, ac
+    bcs  pw_lo
+    ld   [T5], ac
+    shl
+    sub  223, ac
+    bra  pw_o
+pw_lo:
+    ld   [T5], ac
+    shl
+    add  32, ac
+pw_o:
+    ld   ac, [T1]
+    clr  ac
+    ld   ac, [T2]               ; T2: the line pair r
+pw_r:
+    ld   [T5], ac
+    add  [T2], ac
+    sub  192, ac
+    bcc  pw_n
+    ld   PT_TAB >> 8, y
+    ld   [T7], ac
+    bne  pw_d
+    ld   [T3], ac               ; put back
+    add  [T2], ac
+    add  PT_SV & 0xFF, x
+    ld   [y,x], ac
+    bra  pw_w
+pw_d:
+    ld   [T0], y                ; kept, then the pointer over it
+    ld   [T1], x
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   PT_TAB >> 8, y
+    ld   [T3], ac
+    add  [T2], ac
+    add  PT_SV & 0xFF, x
+    ld   [u0], ac
+    ld   ac, [y,x]
+    ld   [T6], ac
+    add  [T2], ac
+    add  PT_TAB & 0xFF, x
+    ld   [y,x], ac
+    and  [u0], ac
+    ld   ac, [u0]
+    ld   [T6], ac
+    add  [T2], ac
+    add  (PT_TAB & 0xFF) + 8, x
+    ld   [y,x], ac
+    or   [u0], ac
+pw_w:
+    ld   [T0], y
+    ld   [T1], x
+    ld   ac, [y,x]
+    ld   [T1], ac
+    add  2, ac
+    bne  pw_x
+    ld   1, ac
+pw_x:
+    ld   ac, [T1]
+    ld   [T2], ac
+    inc
+    ld   ac, [T2]
+    xor  8, ac
+    bne  pw_r
+pw_n:
+    ld   [T4], ac
+    inc
+    ld   ac, [T4]
+    ld   [T6], ac
+    add  16, ac
+    ld   ac, [T6]
+    ld   [T3], ac
+    add  8, ac
+    ld   ac, [T3]
+    xor  24, ac
+    bne  pw_c
+pw_e:
+    RET
+
+; rep_bar - after job_start for a repair: a damage step a 16th of the
+; work's bar (JB_B = 16 x 15 frames' work), so jb_tick takes a step off
+; each time (rep_step).  A leaf.
+.chunk
+rep_bar:
+    ld   JB_B >> 8, y
+    ld   JB_B & 0xFF, x
+    ld   240, [y,x]
+    ld   [wk_l], ac
+    sub  240, ac
+    ld   JB_TL & 0xFF, x
+    ld   ac, [y,x]
+    ld   [wk_h], ac
+    bcc  rbar_1
+    dec
+rbar_1:
+    ld   JB_TH & 0xFF, x
+    ld   ac, [y,x]
+    RET
+
+; rep_step - a repair's damage step done: the cell cut_x, cut_y a step
+; less damaged (kept if the repair stops), drawn again, the panel too
+.chunk
+rep_step:
+    PUSH_LINK
+    ld   [cut_x], ac
+    ld   ac, [g_x]
+    ld   [cut_y], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   [c_f], ac
+    beq  rst_e
+    ld   [a_pg], ac             ; the flag byte, two pages up
+    add  2, ac
+    ld   ac, y
+    ld   [a_ix], x
+    ld   [y,x], ac
+    dec
+    ld   ac, [y,x]
+    CALL refresh_cell
+    ld   [dirty], ac
+    or   1, ac
+    ld   ac, [dirty]
+rst_e:
+    LEAVE
 
 ; ============================================================
 ; SCRAP.INV: the inventory screen (scrap_inv.masm), read in when it opens
