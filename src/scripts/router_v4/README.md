@@ -210,10 +210,10 @@ raw route because 0.3 mm tracks can pass between pads and vias that the 0.125 gr
 | coarse raw (GRID 0.125) | 30.42 m | 730 / 882 | 8 | 13 min |
 | coarse + ladder 400 / 800 / 1600 (`l400`..`l1600`) | 28.05 / 28.06 / 28.2 m | 514 / 506 / 502 | 2 | +~35 min per rung |
 | fine raw (GRID 0.0625) | 28.48 m | 660 / 812 | 4 | 90 min |
-| fine + ladder 400 / 800 / 1600 (`fl400`..`fl1600`) | FL_TRACK | FL_VIAS | FL_DET | FL_TIME |
+| fine + ladder 400 / 800 / 1600 (`fl400`..`fl1600`) | 26.23 / 26.43 / 26.76 m | 514 / 494 / 483 | 0 | +55 / 45 / 13 min (tidy after the speed-ups) |
 
-So the raw fine route is already 2 m shorter than the raw coarse route with 70 fewer vias, before any tidy; the ladder then
-works on top of it. The price is time: the fine grid has 4x the cells, so the router takes 7x longer on the CPU and every
+So the raw fine route is already 2 m shorter than the raw coarse route with 70 fewer vias, before any tidy, and after the
+ladder the fine grid ends 1.4 m shorter with 19 fewer vias (483 vs 502) and no detour over 2 (coarse: 2). The price is time: the fine grid has 4x the cells, so the router takes 7x longer on the CPU and every
 tidy round on the whole board took hours. That is what the speed-ups below are for.
 
 **Tidy speed-ups (`gridcore.py`, `tidy.py`), same output:** `components()` labels only the window around the net's copper
@@ -236,5 +236,19 @@ same net (reported as `kept for a junction on the leg`).
 - Tidy `AGAINST=1.5` on the ladder: no better than 2.
 - `SHOVE=8` on the whole board (round 4): 4 vias in 2 h.
 
+**Parallel tidy (`WORKERS=N`, default min(cpus, 8), capped by free memory at ~230 bytes per grid cell per worker):** every
+pass is split over N worker processes, each with its own copy of the grid, tidying a spatially contiguous group of nets
+(stripes along x, then y, alternating per pass; neighbours for pair moves come from the whole board). The main process
+accepts each worker's changes as transactions (a pair move is one transaction) when the new copper is still free of all other
+copper, drops a transaction that collides with another worker's accepted change (retried in an extra pass, up to twice the
+pass count), and sends the accepted state to every worker. `WORKERS=1` is the sequential pass, bit-for-bit as before.
+r1 coarse rung VIA 400 with 3 workers (4-core container): 27.85 m / 520 vias in 11.4 min against 28.05 m / 514 in 31 min
+sequentially; the first attempt that merged net by net lost the pair moves across workers (569 vias). The result is not
+identical to the sequential pass (moves happen in another order) but of the same kind. Justin's laptop (24 cores, 15.7 GB)
+can run about 4 fine-grid workers before the memory cap bites; the cap keeps it from swapping.
+
 Whole-board fine grid (`run_wb_fine.bat`: router VIA 240, tidy VIA 400 + `AGAINST=2` as the first ladder rung, then
-`LADDER=800 1600`, corner45, score and snap after each rung): WBF_RESULTS
+`LADDER=800 1600`, corner45, score and snap after each rung; `STAGE=route` / `STAGE=tidy` run the two halves separately):
+the first run on the laptop filled the 8 GB card by iteration 2 (the cupy pool kept every launch's buffers; iterations went
+from 19 to 85 min) and was stopped; `mroute4.py` now frees the pool after every launch. The rerun is in progress; its
+results (`bench/wbf_*`) are reported in a follow-up.
