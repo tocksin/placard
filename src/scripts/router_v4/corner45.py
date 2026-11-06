@@ -1,5 +1,5 @@
 """corner45.py in out [NETS=@file|a,b] : 45-degree finishing. Every 90-degree corner of the scope nets' tracks (two
-segments meeting, same layer, no via or pad at the corner) is chamfered with a diagonal of up to LMAX mm (LMAX=2, at most
+segments meeting, same layer, no via or pad at the corner, no other copper of the net on the cut leg pieces) is chamfered with a diagonal of up to LMAX mm (LMAX=2, at most
 half of each leg, at least LMIN=0.5) when the diagonal keeps clearance to every other net's copper, the board edge
 rule and the mounting-hole bands. Checks use the original copper, so the result is conservative. The input file is not
 modified. env: LMAX=2 LMIN=0.5 KEEP=GND,+5V (never touched)"""
@@ -31,9 +31,9 @@ for m in viare.finditer(txt):
     blk=m.group(0); vias.append(dict(at=num(blk,'at'),d=float(re.search(r'\(size ([\d.]+)\)',blk).group(1)),net=int(re.search(r'\(net (\d+)\)',blk).group(1))))
 # obstacle trees per layer: other nets' copper (segments, vias, pads) + edge band + hole bands
 bp=Polygon(outline(edges)); band=bp.exterior.buffer(EDGE); holes=hole_edge_keepouts(pads,bp)
-geoms={L:[] for L in ('F.Cu','B.Cu')}; owners={L:[] for L in geoms}
-for s in segs:
-    if s['layer'] in geoms: geoms[s['layer']].append(LineString([s['a'],s['e']]).buffer(s['w']/2,8)); owners[s['layer']].append(s['net'])
+geoms={L:[] for L in ('F.Cu','B.Cu')}; owners={L:[] for L in geoms}; segidx={}
+for i,s in enumerate(segs):
+    if s['layer'] in geoms: segidx[i]=len(geoms[s['layer']]); geoms[s['layer']].append(LineString([s['a'],s['e']]).buffer(s['w']/2,8)); owners[s['layer']].append(s['net'])
 for v in vias:
     for L in geoms: geoms[L].append(Point(v['at']).buffer(v['d']/2,16)); owners[L].append(v['net'])
 for p in pads:
@@ -49,7 +49,7 @@ ends={}
 for i,s in enumerate(segs):
     if s['net'] not in scope or s['layer'] not in geoms or abs(s['w']-W)>1e-6: continue
     ends.setdefault((s['net'],s['layer'],P(*s['a'])),[]).append((i,'a')); ends.setdefault((s['net'],s['layer'],P(*s['e'])),[]).append((i,'e'))
-new=[]; moved={}; done=0; tried=0
+new=[]; moved={}; done=0; tried=0; junction=0
 for (n,L,pt),lst in ends.items():
     if len(lst)!=2 or pt in viapts: continue
     if any(padtree.geometries.take(k).contains(Point(pt)) for k in padtree.query(Point(pt))): continue
@@ -69,6 +69,11 @@ for (n,L,pt),lst in ends.items():
     for k in tree.query(diag):
         if own[k]!=n and tree.geometries.take(k).intersects(diag): ok=False; break
     if not ok: continue
+    # the leg pieces the chamfer removes must carry no other copper of the net (a T-junction, via or pad touching them)
+    pieces=LineString([pt,A]).buffer(W/2,8).union(LineString([pt,B]).buffer(W/2,8)); legk={segidx[legs[0][0]],segidx[legs[1][0]]}
+    for k in tree.query(pieces):
+        if own[k]==n and k not in legk and tree.geometries.take(k).intersects(pieces): ok=False; break
+    if not ok: junction+=1; continue
     for i,end,_,_,_ in legs: moved[(i,end)]=A if (i,end)==(legs[0][0],legs[0][1]) else B
     new.append((n,L,A,B)); done+=1
 # write: edited segment blocks + new diagonals before the final ')'
@@ -86,4 +91,4 @@ out.append(txt[pos:]); t=''.join(out)
 i=t.rstrip().rfind(')'); head=t[:i].rstrip('\n')
 add=[f'\t(segment\n\t\t(start {A[0]:.4f} {A[1]:.4f})\n\t\t(end {B[0]:.4f} {B[1]:.4f})\n\t\t(width {W})\n\t\t(layer "{L}")\n\t\t(net {n})\n\t\t(uuid "{uuid.uuid4()}")\n\t)' for n,L,A,B in new]
 open(dst,'w',encoding='utf-8').write(head+'\n'+'\n'.join(add)+'\n)\n')
-print(f'corners {tried}, chamfered {done} ({len(scope)} nets), zero-length tracks dropped {zero}; wrote {dst}')
+print(f'corners {tried}, chamfered {done} ({len(scope)} nets), {junction} kept for a junction on the leg, zero-length tracks dropped {zero}; wrote {dst}')
