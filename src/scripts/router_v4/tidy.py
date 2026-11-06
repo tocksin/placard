@@ -44,7 +44,7 @@ def bud_ok(*ns):
             new[n]=e
     EXC.update(new); return True
 from scipy.ndimage import binary_dilation
-from gridcore import _disk
+from gridcore import _disk, stamp_disks
 DK_T=_disk(W/2/G); DK_V=_disk(VD/2/G)
 def comp_masks(n,path):
     """components of the net without this chain, and which of them the chain's copper touches.
@@ -58,7 +58,7 @@ def comp_masks(n,path):
     for i,(l,iy,ix) in enumerate(path):
         cells[l][iy-j0,ix-i0]=True
         if i and path[i-1][0]!=l: vc[iy-j0,ix-i0]=True
-    vd=binary_dilation(vc,DK_V) if vc.any() else None
+    vd=stamp_disks(vc,DK_V) if vc.any() else None
     touched=set()
     for l,lab in enumerate((la,lb)):
         m=binary_dilation(cells[l],np.ones((3,3),bool)) if cells[l].any() else np.zeros_like(vc)   # 8-neighbours touch
@@ -77,11 +77,10 @@ def reroute_chain(n,path):
     g.apply_stamps(g.stamps[n],-1)
     bt,bv=g.blocked(n,hard=True)
     ring=g.own_ring(n)
-    ct=[1.0+g.RING*ring[l] for l in range(2)]; cvia=np.full((g.ny,g.nx),g.VIA_COST,np.float32)
-    pm={'F.Cu':np.zeros((g.ny,g.nx),bool),'B.Cu':np.zeros((g.ny,g.nx),bool)}
-    for l,iy,ix in path: pm[LAY[l]][iy,ix]=True
-    win=g.window([pm],WIN)
-    newp,ne=g.astar(srcm,goalm,bt,bv,ct,cvia,win)
+    ct=[1.0+g.RING*ring[l] for l in range(2)]
+    ys=[p[1] for p in path]; xs=[p[2] for p in path]; pad=int(WIN/G)
+    win=(max(0,min(xs)-pad),min(g.nx,max(xs)+pad+1),max(0,min(ys)-pad),min(g.ny,max(ys)+pad+1))
+    newp,ne=g.astar(srcm,goalm,bt,bv,ct,None,win)
     g.apply_stamps(g.stamps[n],1)
     return (newp if newp and len(newp)>=2 else None),False
 def rechain(n):

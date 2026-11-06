@@ -14,6 +14,13 @@ lib=ctypes.CDLL((os.path.join(TOOLS,'win','astar.dll') if os.name=='nt' else os.
 def c_u8(a): return a.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8))
 def c_f32(a): return a.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
+def stamp_disks(mask,disk):
+    """binary dilation of a sparse mask (a few via cells) by a disk, by stamping: far cheaper than scipy on a big window"""
+    out=np.zeros_like(mask); k=disk.shape[0]//2; ny,nx=mask.shape
+    for iy,ix in zip(*np.nonzero(mask)):
+        y0=max(0,iy-k); y1=min(ny,iy+k+1); x0=max(0,ix-k); x1=min(nx,ix+k+1)
+        out[y0:y1,x0:x1]|=disk[y0-iy+k:y1-iy+k,x0-ix+k:x1-ix+k]
+    return out
 def _disk(r):
     k=int(math.ceil(r)); y,x=np.mgrid[-k:k+1,-k:k+1]; return (x*x+y*y)<=r*r+1e-9
 class Grid:
@@ -266,20 +273,34 @@ class Grid:
         return paths
     # ---- components of a net's copper (fixed + routes), per cell
     def components(self,n,skip=None):
-        """label map per layer of the net's copper; skip = path whose cells are left out. returns (labels F, labels B, nlabels)"""
-        masks=[(self.cop[L]==n) for L in LAY]; thru=self.thru.copy()
-        cells=[np.zeros((self.ny,self.nx),bool) for _ in LAY]; vc=np.zeros((self.ny,self.nx),bool)
+        """label map per layer of the net's copper; skip = path whose cells are left out. returns (labels F, labels B, nlabels).
+        Work is done on the window around the net's copper (full-grid dilation and labelling dominated tidy on the fine grid)."""
+        from scipy.ndimage import binary_dilation
+        full=[(self.cop[L]==n) for L in LAY]
+        pts=[]
+        for path in self.routes.get(n,[]):
+            if path is skip: continue
+            pts.extend((p[1],p[2]) for p in path)
+        any_=full[0]|full[1]; ys,xs=np.nonzero(any_)
+        if pts:
+            py=np.fromiter((p[0] for p in pts),np.int64,len(pts)); px=np.fromiter((p[1] for p in pts),np.int64,len(pts)); ys=np.concatenate([ys,py]); xs=np.concatenate([xs,px])
+        R=int(math.ceil(VD/2/G))+2
+        if len(ys)==0: z=np.zeros((self.ny,self.nx),np.int32); self.last_copper=[np.zeros((self.ny,self.nx),bool) for _ in LAY]; return z,z.copy()
+        j0=max(0,int(ys.min())-R); j1=min(self.ny,int(ys.max())+R+1); i0=max(0,int(xs.min())-R); i1=min(self.nx,int(xs.max())+R+1)
+        masks=[m[j0:j1,i0:i1].copy() for m in full]; thru=self.thru[j0:j1,i0:i1].copy()
+        cells=[np.zeros((j1-j0,i1-i0),bool) for _ in LAY]; vc=np.zeros((j1-j0,i1-i0),bool)
         for path in self.routes.get(n,[]):
             if path is skip: continue
             for i,(l,iy,ix) in enumerate(path):
-                cells[l][iy,ix]=True
-                if i and path[i-1][0]!=l: vc[iy,ix]=True
-        from scipy.ndimage import binary_dilation
-        if vc.any(): vd=binary_dilation(vc,_disk(VD/2/G)); thru|=vd
+                cells[l][iy-j0,ix-i0]=True
+                if i and path[i-1][0]!=l: vc[iy-j0,ix-i0]=True
+        if vc.any(): vd=stamp_disks(vc,_disk(VD/2/G)); thru|=vd
         for l in range(2):   # track cells undilated (8-connectivity joins only touching copper), via pads as disks
             masks[l]|=cells[l]
             if vc.any(): masks[l]|=vd
-        self.last_copper=[m.copy() for m in masks]
+        self.last_copper=[]
+        for m in masks:
+            fm=np.zeros((self.ny,self.nx),bool); fm[j0:j1,i0:i1]=m; self.last_copper.append(fm)
         labs=[label(m,np.ones((3,3),bool))[0] for m in masks]; n0=labs[0].max(); labs[1]=np.where(labs[1]>0,labs[1]+n0,0)
         par=list(range(int(labs[1].max())+1))
         def f(i):
@@ -290,20 +311,44 @@ class Grid:
             ra,rb=f(int(a)),f(int(bb))
             if ra!=rb: par[rb]=ra
         lut=np.array([f(i) for i in range(len(par))],np.int32)
-        return lut[labs[0]],lut[labs[1]]
+        out=[]
+        for lb in labs:
+            fl=np.zeros((self.ny,self.nx),np.int32); fl[j0:j1,i0:i1]=lut[lb]; out.append(fl)
+        return out[0],out[1]
     # ---- A*
     def astar(self,srcm,goalm,bt,bv,ct,cvia,win):
-        wx0,wx1,wy0,wy1=win; nx,ny=self.nx,self.ny
-        gm=np.stack([goalm[L] for L in LAY]); sm=np.stack([srcm[L] for L in LAY])
-        H=np.full((ny,nx),1e9,np.float32)
-        sub=~gm.any(0)[wy0:wy1,wx0:wx1]
-        H[wy0:wy1,wx0:wx1]=distance_transform_edt(sub) if sub.any() else 0
-        btc=np.ascontiguousarray(np.stack(bt).astype(np.uint8)); bvc=np.ascontiguousarray(bv.astype(np.uint8))
-        ctc=np.ascontiguousarray(np.stack(ct).astype(np.float32)); cvc=np.ascontiguousarray(cvia.astype(np.float32))
-        smc=np.ascontiguousarray(sm.astype(np.uint8)); gmc=np.ascontiguousarray(gm.astype(np.uint8))
+        """cvia may be None (uniform VIA_COST). Only the window is converted: the C core reads the window of the full-size buffers."""
+        wx0,wx1,wy0,wy1=win; nx,ny=self.nx,self.ny; W=(slice(wy0,wy1),slice(wx0,wx1))
+        if not hasattr(self,'_ab'):
+            self._ab=dict(bt=np.zeros((2,ny,nx),np.uint8),bv=np.zeros((ny,nx),np.uint8),ct=np.ones((2,ny,nx),np.float32),cv=np.full((ny,nx),self.VIA_COST,np.float32),
+                          H=np.full((ny,nx),1e9,np.float32),sm=np.zeros((2,ny,nx),np.uint8),gm=np.zeros((2,ny,nx),np.uint8),cvval=self.VIA_COST)
+        A=self._ab
+        for l,L in enumerate(LAY):
+            A['gm'][l][W]=goalm[L][W]; A['sm'][l][W]=srcm[L][W]; A['bt'][l][W]=bt[l][W]; A['ct'][l][W]=ct[l][W]
+        A['bv'][W]=bv[W]
+        if cvia is None:
+            if A['cvval']!=self.VIA_COST: A['cv'][:]=self.VIA_COST; A['cvval']=self.VIA_COST
+            if A.get('cvwin'): A['cv'][A['cvwin']]=self.VIA_COST; A['cvwin']=None   # undo the last custom via-cost window
+        else: A['cv'][W]=cvia[W]; A['cvwin']=W
+        sub=(A['gm'][0][W]==0)&(A['gm'][1][W]==0)
+        A['H'][W]=distance_transform_edt(sub) if sub.any() else 0
         maxlen=400000; out=np.zeros(3*maxlen,np.int32); ne=ctypes.c_int64(0)
-        k=lib.astar(int(nx),int(ny),int(wx0),int(wx1),int(wy0),int(wy1),c_u8(btc),c_u8(bvc),c_f32(ctc),c_f32(cvc),c_f32(H),c_u8(smc),c_u8(gmc),
+        k=lib.astar(int(nx),int(ny),int(wx0),int(wx1),int(wy0),int(wy1),c_u8(A['bt']),c_u8(A['bv']),c_f32(A['ct']),c_f32(A['cv']),c_f32(A['H']),c_u8(A['sm']),c_u8(A['gm']),
                     ctypes.c_float(self.AGAINST),ctypes.c_float(self.BEND),c_u8(self.field),out.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),int(maxlen),ctypes.byref(ne),int(self.DIAG))
+        # the buffers keep stale window contents, which the next call overwrites for its own window; the C core only reads inside the window
+        if os.environ.get('ASTARCHECK'):
+            gm=np.stack([goalm[L] for L in LAY]); sm=np.stack([srcm[L] for L in LAY]); H=np.full((ny,nx),1e9,np.float32)
+            sub2=~gm.any(0)[wy0:wy1,wx0:wx1]; H[wy0:wy1,wx0:wx1]=distance_transform_edt(sub2) if sub2.any() else 0
+            btc=np.ascontiguousarray(np.stack(bt).astype(np.uint8)); bvc=np.ascontiguousarray(bv.astype(np.uint8))
+            ctc=np.ascontiguousarray(np.stack(ct).astype(np.float32)); cvc=np.ascontiguousarray((cvia if cvia is not None else np.full((ny,nx),self.VIA_COST,np.float32)).astype(np.float32))
+            smc=np.ascontiguousarray(sm.astype(np.uint8)); gmc=np.ascontiguousarray(gm.astype(np.uint8))
+            out2=np.zeros(3*maxlen,np.int32); ne2=ctypes.c_int64(0)
+            k2=lib.astar(int(nx),int(ny),int(wx0),int(wx1),int(wy0),int(wy1),c_u8(btc),c_u8(bvc),c_f32(ctc),c_f32(cvc),c_f32(H),c_u8(smc),c_u8(gmc),
+                    ctypes.c_float(self.AGAINST),ctypes.c_float(self.BEND),c_u8(self.field),out2.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),int(maxlen),ctypes.byref(ne2),int(self.DIAG))
+            same=(k==k2 and np.array_equal(out[:3*k],out2[:3*k2]))
+            if not same:
+                Wd=lambda a,b:int((a[W]!=b[W]).sum())
+                print('ASTARCHECK MISMATCH k',k,k2,'ne',ne.value,ne2.value,'win',win,'diffs bt',sum(Wd(A['bt'][l],btc[l]) for l in range(2)),'bv',Wd(A['bv'],bvc),'ct',sum(Wd(A['ct'][l],ctc[l]) for l in range(2)),'cv',Wd(A['cv'],cvc),'H',Wd(A['H'],H),'sm',sum(Wd(A['sm'][l],smc[l]) for l in range(2)),'gm',sum(Wd(A['gm'][l],gmc[l]) for l in range(2)),flush=True)
         if k==0: return None,ne.value
         p=out[:3*k].reshape(k,3)[::-1]
         return [(int(l),int(iy),int(ix)) for l,iy,ix in p],ne.value
