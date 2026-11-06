@@ -1,6 +1,6 @@
 # Documentation
 
-Date: 2026-11-03
+Date: 2026-11-06
 
 The design documents, grouped by subject.  Drawings sit next to the document that uses them.
 
@@ -41,6 +41,7 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 
 - [SCHEMATIC_PLAN.md](hardware/SCHEMATIC_PLAN.md): schematic rules
 - [BRINGUP.md](hardware/BRINGUP.md): build order and a test for each chip
+- [RELEASES.md](hardware/RELEASES.md): board revisions (rev A as ordered, rev B working)
 - Board drawings: layout, placement, the dimension drawing (`placard_main_dimensions.pdf`), cartridge placement, connector models, shell keepout
 
 ## [case/](case/)
