@@ -1,6 +1,6 @@
 # Bills of materials
 
-Date: 2026-11-03
+Date: 2026-11-06
 
 One BOM per assembly (Justin, 2026-10-25).  The case assembly takes the built main board as one
 line; each cartridge assembly is complete with its shell and screw.  Accessories
