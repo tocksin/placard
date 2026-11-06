@@ -9,8 +9,8 @@
 	(paper "C")
 	(title_block
 		(title "Placard")
-		(date "2026-11-03")
-		(rev "A")
+		(date "2026-11-06")
+		(rev "B")
 		(comment 1 "PCB PLC-1001, assembly PLC-2001")
 	)
 	(layers
@@ -95246,7 +95246,7 @@
 			)
 		)
 	)
-	(gr_text "PLC-1001 REV A"
+	(gr_text "PLC-1001 REV B"
 		(at 285 250.5 0)
 		(layer "F.SilkS")
 		(uuid "fd0a81b7-95d0-4e50-97be-0f6b97008f58")

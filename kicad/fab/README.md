@@ -1,5 +1,10 @@
 # Fabrication files
 
+These are the **rev A** outputs as ordered on 2026-11-06 (git tag `rev-A`,
+see [docs/hardware/RELEASES.md](../../docs/hardware/RELEASES.md)). The working
+main board and 32K cart files are now rev B, so these no longer match them;
+regenerate before ordering rev B.
+
 Generated with kicad-cli 9.0.8 from copies of the board files (the boards
 themselves were not changed). Main board regenerated 2026-11-03 from main at
 PR #243 (routed expansion-redesign board); cartridges 2026-10-29 (rev A).

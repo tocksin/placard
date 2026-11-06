@@ -9,8 +9,8 @@
 	(paper "A4")
 	(title_block
 		(title "PLACARD ROM cartridge, 32K")
-		(date "2026-10-29")
-		(rev "A")
+		(date "2026-11-06")
+		(rev "B")
 		(comment 1 "Placed by src/scripts/gen_kicad_cart_pcb.py; not routed")
 		(comment 2 "PCB PLC-1002, assembly PLC-2002")
 	)
@@ -6372,7 +6372,7 @@
 			(justify mirror)
 		)
 	)
-	(gr_text "PLC-1002 REV A"
+	(gr_text "PLC-1002 REV B"
 		(at 80.245 88.9 0)
 		(layer "B.SilkS")
 		(uuid "23c58118-24f1-46b1-b34d-4f5edb9998c9")
