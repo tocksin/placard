@@ -10,15 +10,16 @@ if not exist wb.kicad_pcb powershell -command "Expand-Archive -Path bench\wb.kic
 set GRID=0.0625
 set OUT=%TAG%.kicad_pcb
 echo backend %BACKEND% tag %TAG% grid %GRID%
-set NETS=@%OUT%.nets
 if "%STAGE%"=="tidy" goto tidy
 set VIA=240
 python mroute4.py wb.kicad_pcb %OUT% > %TAG%.log 2>&1
 type %TAG%.log
+set NETS=@%OUT%.nets
 python score.py %OUT% > %TAG%.score 2>&1
 type %TAG%.score
 if "%STAGE%"=="route" goto :eof
 :tidy
+set NETS=@%OUT%.nets
 set VIA=400
 set AGAINST=2
 python tidy.py %OUT% %TAG%_tidy.kicad_pcb > %TAG%_tidy.log 2>&1

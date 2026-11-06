@@ -197,3 +197,44 @@ Tried and kept as options only:
   0.125 grid (4.44/6.44/8.44), so on the fine grid every clearance stamp was half size and the first fine-grid whole-board
   route had 2508 clearance collisions; the radii now scale with `GRID` (3-net fine-grid test: 0 collisions). The fine-grid
   whole-board route itself (router at GRID 0.0625 on the laptop GPU) is reported below when it finishes.
+
+## Round 5 (2026-11-06, branch-127): fine grid, tidy speed, what did not help
+Justin's priority is the algorithms (measured on the benchmarks), not the current board. The bench is r1 (mux region,
+`NETS=@c_r1.kicad_pcb.nets`, 4 CPU cores in the container) and the whole board on the laptop GPU (`bench/wbf_*`).
+
+**Fine grid is the real win.** The router on `GRID=0.0625` (`VIA=240`, same mm as 120 on the coarse grid) finds a much better
+raw route because 0.3 mm tracks can pass between pads and vias that the 0.125 grid rounds shut:
+
+| r1 | track | vias (scope / board) | detour > 2 | router time |
+|---|---|---|---|---|
+| coarse raw (GRID 0.125) | 30.42 m | 730 / 882 | 8 | 13 min |
+| coarse + ladder 400 / 800 / 1600 (`l400`..`l1600`) | 28.05 / 28.06 / 28.2 m | 514 / 506 / 502 | 2 | +~35 min per rung |
+| fine raw (GRID 0.0625) | 28.48 m | 660 / 812 | 4 | 90 min |
+| fine + ladder 400 / 800 / 1600 (`fl400`..`fl1600`) | FL_TRACK | FL_VIAS | FL_DET | FL_TIME |
+
+So the raw fine route is already 2 m shorter than the raw coarse route with 70 fewer vias, before any tidy; the ladder then
+works on top of it. The price is time: the fine grid has 4x the cells, so the router takes 7x longer on the CPU and every
+tidy round on the whole board took hours. That is what the speed-ups below are for.
+
+**Tidy speed-ups (`gridcore.py`, `tidy.py`), same output:** `components()` labels only the window around the net's copper
+instead of the full grid; `astar()` keeps persistent full-size buffers and fills only the search window (a custom via-cost
+array is applied in its window and reset afterwards); the via keep-out disk is stamped sparsely at via cells instead of a
+full-grid dilation. On a 12-net fine-grid tidy test 199 -> 87 s with identical segments and vias; the coarse-grid test is
+identical too. `ASTARCHECK=1` recomputes every search the old way and prints `ASTARCHECK MISMATCH` on any difference.
+Remaining hot spots in a profile: the window copies for very large windows, `contains_xy` rasterisation at load, and the
+full-grid `blocked()` / own-ring passes.
+
+**Fixed:** `corner45.py` cut a 45-degree corner across a same-net T junction on one of its legs and opened net Y2 on r1
+(the junction segment then hung in the air). A corner is now kept when the cut leg pieces carry another segment of the
+same net (reported as `kept for a junction on the leg`).
+
+**No gain (tried on r1, kept as options or dropped):**
+- `VIAEND`/`VIARAMP` in `mroute4.py` (via cost ramped up over the rip-up iterations, e.g. 120 -> 400): 483 vias raw, worse
+  than the ladder from a cheap-via route. Kept as an option, off by default.
+- Router `AGAINST=2`: 393 vias raw but the same after the ladder (380 vs 514 -> 380 at VIA 400); `AGAINST=1.5`: 742 vias.
+- `DIAG=1` in the router: 424 vias, longer track; the corner45 pass already gives the 45-degree corners.
+- Tidy `AGAINST=1.5` on the ladder: no better than 2.
+- `SHOVE=8` on the whole board (round 4): 4 vias in 2 h.
+
+Whole-board fine grid (`run_wb_fine.bat`: router VIA 240, tidy VIA 400 + `AGAINST=2` as the first ladder rung, then
+`LADDER=800 1600`, corner45, score and snap after each rung): WBF_RESULTS
