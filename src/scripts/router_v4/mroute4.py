@@ -186,7 +186,10 @@ class GPU:
         def byval(st): return np.frombuffer(bytes(st),np.dtype((np.void,ctypes.sizeof(st))))[0]
         self.kern((len(jobs),),(1024,),(byval(maps),dJ,byval(work),qn))
         cp.cuda.Stream.null.synchronize()
-        return cp.asnumpy(dpath),cp.asnumpy(dplen),cp.asnumpy(dstatus)
+        out=(cp.asnumpy(dpath),cp.asnumpy(dplen),cp.asnumpy(dstatus))
+        del dp,dgid,dstate,dinq,downocc,downv,q0,q1,dpath,dplen,dstatus,qn,dJ,dh,dhv,do,dov,dbus,dst_,dsv_
+        cp.get_default_memory_pool().free_all_blocks()   # per-launch buffers differ in size every batch; without this the pool
+        return out                                        # grows until VRAM is full and the driver spills to system memory (fine grid)
 def make_backend():
     if BACKEND in ('auto','gpu'):
         try:
