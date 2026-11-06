@@ -1,7 +1,7 @@
 """mroute4.py in out : negotiated-congestion router v4. Nets are routed in parallel batches (CPU: OpenMP threads,
 GPU: one CUDA block per net) against the occupancy of all other nets, PathFinder style; then conflicted nets are
 re-routed with other routes blocked; what is still open is written out unrouted (finish with mroute3.py / tidy.py).
-env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=4 (nets per launch; larger batches converge worse even with SEQFIX)  ITERS=30  STALL=6  WIN=40 (mm)  VIA=120
+env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=4 (nets per launch; larger batches converge worse even with SEQFIX)  ITERS=30  STALL=6  WIN=40 (mm)  VIA=120  VIAEND=VIA VIARAMP=8 (via cost ramps VIA -> VIAEND over the first VIARAMP iterations)
      AGAINST=3  RING=8  PRES0=1 PRESF=1.5 PRESMAX=30  HARDROUNDS=6  NETS=a,b  GPUMEM=1.5 (GB per launch)  MAXSWEEPS=2000000  DELTA=1.5 (GPU near/far bucket width)
      BASE=<file> (scope = nets whose copper was added after BASE: that copper is stripped and re-routed)
      CHECKGPU=N compare CPU and GPU path costs for the first N nets and exit (backend self-test)
@@ -186,7 +186,10 @@ class GPU:
         def byval(st): return np.frombuffer(bytes(st),np.dtype((np.void,ctypes.sizeof(st))))[0]
         self.kern((len(jobs),),(1024,),(byval(maps),dJ,byval(work),qn))
         cp.cuda.Stream.null.synchronize()
-        return cp.asnumpy(dpath),cp.asnumpy(dplen),cp.asnumpy(dstatus)
+        out=(cp.asnumpy(dpath),cp.asnumpy(dplen),cp.asnumpy(dstatus))
+        del dp,dgid,dstate,dinq,downocc,downv,q0,q1,dpath,dplen,dstatus,qn,dJ,dh,dhv,do,dov,dbus,dst_,dsv_
+        cp.get_default_memory_pool().free_all_blocks()   # per-launch buffers differ in size every batch; without this the pool
+        return out                                        # grows until VRAM is full and the driver spills to system memory (fine grid)
 def make_backend():
     if BACKEND in ('auto','gpu'):
         try:
@@ -415,8 +418,9 @@ if PATTERN and todo:
     t0=time.time(); done,total,leftn=pattern_pass(g,todo); pat_left=set(leftn)
     print(f'pattern pass: {done}/{total} connections placed, {len(pat_left)} nets need the maze router, {time.time()-t0:.0f} s',flush=True)
 fails=set(); conflicted=set(todo); best=None; noimp=0; it=0; tot=0
+VIA0=g.VIA_COST; VIAEND=float(E('VIAEND',str(VIA0))); VIARAMP=max(1,int(E('VIARAMP','8')))   # via cost ramps VIA -> VIAEND over the first VIARAMP iterations
 while it<ITERS and todo:
-    t0=time.time()
+    t0=time.time(); g.VIA_COST=VIA0+(VIAEND-VIA0)*min(1.0,it/VIARAMP)
     work=todo if (it>0 and it%4==0) else ([n for n in todo if n in conflicted] if it>0 else [n for n in todo if n in pat_left])
     update_busmap()
     fails=route_all(work,False,WIN)
@@ -428,6 +432,7 @@ while it<ITERS and todo:
     if tot==0 and not fails: break
     if noimp>=STALL: break
     it+=1; PRES=min(PRES*PRESF,PRESMAX)
+g.VIA_COST=VIAEND
 if best and (len(conflicted),tot)>best[0]:
     print('restoring best iteration: conflicted',best[0][0],'overlap',best[0][1],flush=True)
     for n in todo: g.set_route(n,best[1].get(n,[]))

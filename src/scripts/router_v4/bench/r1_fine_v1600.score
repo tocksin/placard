@@ -1,0 +1,7 @@
+# score fl1600_c45.kicad_pcb  (scope 116 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 26.76 m | 483 / 635 | 4.6 % | 12.0 % | 1.1 | 0 | 2 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS4 917/9/1.2, DATABUS0 879/16/1.2, DATABUS5 824/10/1.1, DATABUS7 803/9/1.0, PC_ENABLE 788/12/1.5, DATABUS3 780/11/1.1, DATABUS2 779/14/1.1, DATABUS1 773/10/1.1
+edge: [('PC_ENABLE', 'B.Cu', (155.25, 253.25)), ('PC_ENABLE', 'B.Cu', (257.0, 264.0))]

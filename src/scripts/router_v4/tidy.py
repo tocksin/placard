@@ -14,25 +14,35 @@ env: VIA=200 (via cost in cells, higher than the router's to trade length for vi
      against everything else (largest component first, nearest other component each step, hard A*); kept when the
      whole net is cheaper. Finds the shorter tree that chain-by-chain moves cannot reach. NETPASSES=2 rounds.
      BUDGET=budgets.json (budgets.py): no move is kept that puts a budgeted net further over its track-length budgets
-     (summed mm over budget may not grow by more than 0.1 mm)."""
+     (summed mm over budget may not grow by more than 0.1 mm).
+     WORKERS=N (default min(cpus,8); 1 = the sequential pass): every pass is split over N worker processes, each holding its
+     own copy of the grid and tidying a spatially contiguous group of nets (stripes along x, then y, alternating per pass);
+     the main process then accepts each worker's changed nets in order when the new copper is still free of all other
+     copper (a change that collides with another worker's change is dropped and retried next pass), and sends the accepted
+     state to every worker. Results differ slightly from the sequential pass (a different order of moves), not in kind.
+     BUDGET forces WORKERS=1."""
 import sys, math, os, time
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
 os.environ.setdefault('VIA','200'); os.environ.setdefault('BEND','4')
 from gridcore import *
-src,dst=sys.argv[1:3]; BASE=E('BASE'); NETS=E('NETS'); WIN=float(E('WIN','25')); PASSES=int(E('PASSES','4')); MINGAIN=float(E('MINGAIN','4')); PAIR=int(E('PAIR','1')); NEIGH=int(E('NEIGH','3')); SHOVE=int(E('SHOVE','0')); NEIGHMM=float(E('NEIGHMM','1.0')); NETPASS=int(E('NETPASS','1')); NETPASSES=int(E('NETPASSES','2'))
+src,dst=sys.argv[1:3]; BASE=E('BASE'); NETS=E('NETS'); WIN=float(E('WIN','25')); PASSES=int(E('PASSES','4')); MINGAIN=float(E('MINGAIN','4')); PAIR=int(E('PAIR','1')); NEIGH=int(E('NEIGH','3')); SHOVE=int(E('SHOVE','0')); NEIGHMM=float(E('NEIGHMM','1.0')); NETPASS=int(E('NETPASS','1')); NETPASSES=int(E('NETPASSES','2')); WORKERS=int(E('WORKERS',str(min(os.cpu_count() or 1,8))))
 t0=time.time()
 def netlist(spec):
     if spec and spec.startswith('@'): return [l.strip() for l in open(spec[1:],encoding='utf-8') if l.strip()]
     return spec.split(',') if spec else []
-b0,n0,_f,_p,_e=load(src); nid0={v:k for k,v in n0.items()}
-g=Grid(src,BASE,scope={nid0[x] for x in netlist(NETS) if x in nid0} if NETS else None)
-nets=g.nets
-BUD=E('BUDGET'); BG=None; EXC={}
-if BUD:
-    import lenbudget
-    BG=lenbudget.Budgets(g,BUD,float(E('BUDGETSLACK','0'))); EXC={n:BG.excess(n)[0] for n in BG.nets()}
-    print(f'length budgets: {len(EXC)} nets, {sum(1 for v in EXC.values() if v>0)} over budget by {sum(EXC.values()):.0f} mm',flush=True)
+BUD=E('BUDGET'); BG=None; EXC={}; g=None; ACTIVE=None; LINKS=[]
+if BUD and WORKERS>1: WORKERS=1
+def setup(quiet=False):
+    """load the grid (main process and every worker)"""
+    global g,nets,BG,EXC,ACTIVE
+    b0,n0,_f,_p,_e=load(src); nid0={v:k for k,v in n0.items()}
+    g=Grid(src,BASE,scope={nid0[x] for x in netlist(NETS) if x in nid0} if NETS else None,quiet=quiet)
+    nets=g.nets; ACTIVE=g.scope
+    if BUD:
+        import lenbudget
+        BG=lenbudget.Budgets(g,BUD,float(E('BUDGETSLACK','0'))); EXC={n:BG.excess(n)[0] for n in BG.nets()}
+        if not quiet: print(f'length budgets: {len(EXC)} nets, {sum(1 for v in EXC.values() if v>0)} over budget by {sum(EXC.values()):.0f} mm',flush=True)
 def bud_ok(*ns):
     """True when none of the nets went further over its length budgets (and records the new excess)"""
     if not BG: return True
@@ -44,7 +54,7 @@ def bud_ok(*ns):
             new[n]=e
     EXC.update(new); return True
 from scipy.ndimage import binary_dilation
-from gridcore import _disk
+from gridcore import _disk, stamp_disks
 DK_T=_disk(W/2/G); DK_V=_disk(VD/2/G)
 def comp_masks(n,path):
     """components of the net without this chain, and which of them the chain's copper touches.
@@ -58,7 +68,7 @@ def comp_masks(n,path):
     for i,(l,iy,ix) in enumerate(path):
         cells[l][iy-j0,ix-i0]=True
         if i and path[i-1][0]!=l: vc[iy-j0,ix-i0]=True
-    vd=binary_dilation(vc,DK_V) if vc.any() else None
+    vd=stamp_disks(vc,DK_V) if vc.any() else None
     touched=set()
     for l,lab in enumerate((la,lb)):
         m=binary_dilation(cells[l],np.ones((3,3),bool)) if cells[l].any() else np.zeros_like(vc)   # 8-neighbours touch
@@ -77,11 +87,10 @@ def reroute_chain(n,path):
     g.apply_stamps(g.stamps[n],-1)
     bt,bv=g.blocked(n,hard=True)
     ring=g.own_ring(n)
-    ct=[1.0+g.RING*ring[l] for l in range(2)]; cvia=np.full((g.ny,g.nx),g.VIA_COST,np.float32)
-    pm={'F.Cu':np.zeros((g.ny,g.nx),bool),'B.Cu':np.zeros((g.ny,g.nx),bool)}
-    for l,iy,ix in path: pm[LAY[l]][iy,ix]=True
-    win=g.window([pm],WIN)
-    newp,ne=g.astar(srcm,goalm,bt,bv,ct,cvia,win)
+    ct=[1.0+g.RING*ring[l] for l in range(2)]
+    ys=[p[1] for p in path]; xs=[p[2] for p in path]; pad=int(WIN/G)
+    win=(max(0,min(xs)-pad),min(g.nx,max(xs)+pad+1),max(0,min(ys)-pad),min(g.ny,max(ys)+pad+1))
+    newp,ne=g.astar(srcm,goalm,bt,bv,ct,None,win)
     g.apply_stamps(g.stamps[n],1)
     return (newp if newp and len(newp)>=2 else None),False
 def rechain(n):
@@ -131,7 +140,7 @@ def pair_net(n):
             nc=g.path_cost(newp)+(0 if dropq else g.path_cost(newq))
             if nc<oc+oq-MINGAIN:
                 if not dropq: g.set_route(m,g.routes[m]+[newq])
-                if bud_ok(n,m): gain+=oc+oq-nc; changed+=1; break
+                if bud_ok(n,m): gain+=oc+oq-nc; changed+=1; LINKS.append((n,m)); break
             g.set_route(n,keep_n); g.set_route(m,keep_m)
     return gain,changed
 def polish_net(n):
@@ -204,7 +213,7 @@ def shove_net(n):
                         nc=g.path_cost(newp)+g.path_cost(nq)
                         if nc<oc+oq-MINGAIN and g.path_vias(newp)<g.path_vias(path):
                             g.set_route(n,[p for p in keep_n if p is not path]+[newp])
-                            if bud_ok(n,m): gain+=oc+oq-nc; changed+=1; done=True; break
+                            if bud_ok(n,m): gain+=oc+oq-nc; changed+=1; done=True; LINKS.append((n,m)); break
                             g.set_route(n,[p for p in keep_n if p is not path])
                     g.set_route(m,[p for p in keep_m if p is not q])
                 if done: break
@@ -231,51 +240,159 @@ def tidy_net(n):
             if bud_ok(n): gain+=oc-g.path_cost(newp); changed+=1
             else: g.set_route(n,old)
     return gain,changed,dropped
-tot_before={n:(sum(g.path_vias(p) for p in g.routes[n]),sum(len(p) for p in g.routes[n])) for n in g.scope}
-if NETPASS:
-    for ps in range(NETPASSES):
-        t1=time.time(); tg=0; tc=0
-        for n in sorted(g.scope,key=lambda n:-sum(g.path_cost(p) for p in g.routes[n])):
+def stage_pass(stage):
+    """one pass of a stage over the ACTIVE nets on this process' grid: (gain, changed, dropped)"""
+    tg=0.0; tc=0; td=0
+    if stage=='net':
+        for n in sorted(ACTIVE,key=lambda n:-sum(g.path_cost(p) for p in g.routes[n])):
             if not g.routes.get(n): continue
             gain,changed=polish_net(n); tg+=gain; tc+=changed
-        print(f'net pass {ps}: {tc} nets improved, cost gain {tg:.0f}, {time.time()-t1:.0f} s',flush=True)
-        if tc==0: break
-for ps in range(PASSES):
-    t1=time.time(); tg=0; tc=0; td=0
-    for n in sorted(g.scope,key=lambda n:-sum(g.path_vias(p) for p in g.routes[n])):
-        if not g.routes.get(n): continue
-        gain,changed,dropped=tidy_net(n); tg+=gain; tc+=changed; td+=dropped
-        if changed or dropped: rechain(n)
-    print(f'pass {ps}: {tc} chains improved, {td} dropped, cost gain {tg:.0f}, {time.time()-t1:.0f} s',flush=True)
-    if tc==0 and td==0: break
-if PAIR:
-    for ps in range(PASSES):
-        t1=time.time(); tg=0; tc=0
-        for n in sorted(g.scope,key=lambda n:-sum(g.path_vias(p) for p in g.routes[n])):
+    elif stage in ('chain','cleanup'):
+        order=sorted(ACTIVE,key=lambda n:-sum(g.path_vias(p) for p in g.routes[n])) if stage=='chain' else list(ACTIVE)
+        for n in order:
             if not g.routes.get(n): continue
-            gain,changed=pair_net(n); tg+=gain; tc+=changed
-            if changed: rechain(n)
-        print(f'pair pass {ps}: {tc} chain pairs improved, cost gain {tg:.0f}, {time.time()-t1:.0f} s',flush=True)
-        if tc==0: break
-        for n in g.scope:   # single-chain clean-up after the pair moves
-            if g.routes.get(n):
-                gain,changed,dropped=tidy_net(n)
-                if changed or dropped: rechain(n)
-if SHOVE:
-    for ps in range(PASSES):
-        t1=time.time(); tg=0; tc=0
-        for n in sorted(g.scope,key=lambda n:-sum(g.path_vias(p) for p in g.routes[n])):
+            gain,changed,dropped=tidy_net(n); tg+=gain; tc+=changed; td+=dropped
+            if changed or dropped: rechain(n)
+    else:
+        f=pair_net if stage=='pair' else shove_net
+        for n in sorted(ACTIVE,key=lambda n:-sum(g.path_vias(p) for p in g.routes[n])):
             if not g.routes.get(n): continue
-            gain,changed=shove_net(n); tg+=gain; tc+=changed
+            gain,changed=f(n); tg+=gain; tc+=changed
             if changed: rechain(n)
-        print(f'shove pass {ps}: {tc} chains improved, cost gain {tg:.0f}, {time.time()-t1:.0f} s',flush=True)
-        if tc==0: break
+    return tg,tc,td
+def worker_main(qin,qout):
+    global ACTIVE
+    setup(quiet=True)
+    while True:
+        msg=qin.get()
+        if msg is None: break
+        if msg[0]=='update':
+            for n,routes in msg[1].items(): g.set_route(n,routes)
+            qout.put('ok')
+        else:
+            ACTIVE=set(msg[2]); snap={n:list(g.routes.get(n,[])) for n in g.scope}; del LINKS[:]
+            tg,tc,td=stage_pass(msg[1])
+            touched={n:g.routes.get(n,[]) for n in g.scope if g.routes.get(n,[])!=snap[n]}
+            # nets moved together (pair / shove) form one transaction: the main process accepts or rejects them as a whole
+            par={n:n for n in touched}
+            def find(a):
+                while par[a]!=a: par[a]=par[par[a]]; a=par[a]
+                return a
+            for a,b in LINKS:
+                if a in par and b in par: par[find(a)]=find(b)
+            groups={}
+            for n in touched: groups.setdefault(find(n),{})[n]=touched[n]
+            qout.put((tg,tc,td,list(groups.values())))
+def free_cells(n,paths,old):
+    """True when every cell of the paths that is not already in the old paths is free of all copper but net n's fixed copper
+    (own routes lifted by the caller; cells the old routes used stay valid even where today's rules would block them)"""
+    cells=[c for p in paths for c in p]
+    if not cells: return True
+    oc=set(c for p in old for c in p); ov=set((q[1],q[2]) for p in old for k,q in enumerate(p) if k and p[k-1][0]!=q[0])
+    ys=[c[1] for c in cells]; xs=[c[2] for c in cells]; y0,y1,x0,x1=min(ys),max(ys)+1,min(xs),max(xs)+1; sl=(slice(y0,y1),slice(x0,x1))
+    bt=[(g.mul_t[L][sl]|((g.own_t[L][sl]!=0)&(g.own_t[L][sl]!=n))|g.edge_t[sl]|(g.occ_t[L][sl]>0)) for L in LAY]
+    bv=g.mul_v[sl]|((g.own_v[sl]!=0)&(g.own_v[sl]!=n))|g.edge_v[sl]|(g.occ_v[sl]>0)
+    for p in paths:
+        for i,(l,iy,ix) in enumerate(p):
+            if (l,iy,ix) not in oc and bt[l][iy-y0,ix-x0]: return False
+            if i and p[i-1][0]!=l and (iy,ix) not in ov and bv[iy-y0,ix-x0]: return False
+    return True
+class Pool:
+    """worker processes, each with its own grid; passes are split by stripes and merged with a collision check"""
+    def __init__(self,k):
+        import multiprocessing as mp
+        ctx=mp.get_context('spawn'); self.w=[]
+        for _ in range(k):
+            qi=ctx.Queue(); qo=ctx.Queue(); p=ctx.Process(target=worker_main,args=(qi,qo),daemon=True); p.start(); self.w.append((p,qi,qo))
+        self.k=k; self.ps=0
+    def groups(self):
+        cen={}
         for n in g.scope:
-            if g.routes.get(n):
-                gain,changed,dropped=tidy_net(n)
-                if changed or dropped: rechain(n)
-vb=sum(v for v,_ in tot_before.values()); va=sum(sum(g.path_vias(p) for p in g.routes[n]) for n in g.scope)
-cb=sum(c for _,c in tot_before.values()); ca=sum(sum(len(p) for p in g.routes[n]) for n in g.scope)
-print(f'vias {vb} -> {va}, cells {cb} -> {ca}, {time.time()-t0:.0f} s')
-if BG: print(f'length budgets after tidy: {sum(1 for v in EXC.values() if v>0)} nets over budget by {sum(EXC.values()):.0f} mm')
-g.write_out(dst)
+            cells=[c for p in g.routes.get(n,[]) for c in p]
+            if cells: cen[n]=(sum(c[2] for c in cells)/len(cells),sum(c[1] for c in cells)/len(cells))
+        ax=self.ps%2; order=sorted(cen,key=lambda n:cen[n][ax]); self.ps+=1
+        return [order[i::self.k] for i in range(self.k)] if len(order)<2*self.k else [order[i*len(order)//self.k:(i+1)*len(order)//self.k] for i in range(self.k)]
+    def run(self,stage):
+        """returns (worker gain, accepted nets, dropped chains reported, conflicts)"""
+        grp=self.groups()
+        for (p,qi,qo),gr in zip(self.w,grp): qi.put(('pass',stage,gr))
+        tg=0.0; td=0; acc=0; conf=0; touched={}; self.dup=0
+        for (p,qi,qo),gr in zip(self.w,grp):
+            wg,wc,wd,groups=qo.get(); tg+=wg; td+=wd
+            for tr in groups:
+                olds={n:g.routes.get(n,[]) for n in tr}
+                if any(n in touched for n in tr): conf+=1; self.dup+=1; continue        # a net another worker already changed this pass: retry next pass
+                for n in tr: g.set_route(n,[])
+                for n in tr: g.set_route(n,tr[n])
+                ok=True
+                for n in tr:
+                    g.set_route(n,[]); ok=free_cells(n,tr[n],olds[n]); g.set_route(n,tr[n])
+                    if not ok: break
+                if ok:
+                    for n in tr: rechain(n); touched[n]=g.routes[n]
+                    acc+=len(tr)
+                else:
+                    for n in tr: g.set_route(n,olds[n])
+                    conf+=1
+        for (p,qi,qo) in self.w: qi.put(('update',touched))
+        for (p,qi,qo) in self.w: qo.get()
+        return tg,acc,td,conf
+    def close(self):
+        for (p,qi,qo) in self.w: qi.put(None)
+        for (p,qi,qo) in self.w: p.join()
+def avail_bytes():
+    try:
+        if os.name=='nt':
+            import ctypes
+            class MS(ctypes.Structure): _fields_=[('dwLength',ctypes.c_ulong),('dwMemoryLoad',ctypes.c_ulong)]+[(k,ctypes.c_ulonglong) for k in ('tp','ap','tpf','apf','tv','av','aev')]
+            m=MS(); m.dwLength=ctypes.sizeof(MS); ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m)); return int(m.ap)
+        for l in open('/proc/meminfo'):
+            if l.startswith('MemAvailable'): return int(l.split()[1])*1024
+    except Exception: pass
+    return None
+def main():
+    global WORKERS
+    setup()
+    av=avail_bytes()
+    if WORKERS>1 and av:
+        cap=max(1,int(0.8*av/(230*g.nx*g.ny)))   # measured ~200 bytes per grid cell per worker
+        if cap<WORKERS: print(f'WORKERS {WORKERS} -> {cap} (available memory {av/1e9:.1f} GB)',flush=True); WORKERS=cap
+    pool=Pool(WORKERS) if WORKERS>1 else None
+    if pool: print(f'{WORKERS} workers',flush=True)
+    def run(stage):
+        if pool:
+            tg,tc,td,conf=pool.run(stage); run.conf=conf; return tg,tc,td,f' ({conf} conflicts, {pool.dup} with a net another worker moved)' if conf else ''
+        tg,tc,td=stage_pass(stage); run.conf=0; return tg,tc,td,''
+    run.conf=0
+    def more(ps,tc,td=0):
+        """keep going while something improved, or while conflicts remain to be retried (up to twice the passes)"""
+        return (tc or td) or (run.conf and ps<2*PASSES-1)
+    tot_before={n:(sum(g.path_vias(p) for p in g.routes[n]),sum(len(p) for p in g.routes[n])) for n in g.scope}
+    if NETPASS:
+        for ps in range(2*NETPASSES):
+            t1=time.time(); tg,tc,td,x=run('net')
+            print(f'net pass {ps}: {tc} nets improved, cost gain {tg:.0f}, {time.time()-t1:.0f} s{x}',flush=True)
+            if not (tc or (run.conf and ps<2*NETPASSES-1)) or (ps>=NETPASSES-1 and not run.conf): break
+    for ps in range(2*PASSES):
+        t1=time.time(); tg,tc,td,x=run('chain')
+        print(f'pass {ps}: {tc} chains improved, {td} dropped, cost gain {tg:.0f}, {time.time()-t1:.0f} s{x}',flush=True)
+        if not more(ps,tc,td) or (ps>=PASSES-1 and not run.conf): break
+    if PAIR:
+        for ps in range(2*PASSES):
+            t1=time.time(); tg,tc,td,x=run('pair')
+            print(f'pair pass {ps}: {tc} chain pairs improved, cost gain {tg:.0f}, {time.time()-t1:.0f} s{x}',flush=True)
+            if not more(ps,tc) or (ps>=PASSES-1 and not run.conf): break
+            run('cleanup')   # single-chain clean-up after the pair moves
+    if SHOVE:
+        for ps in range(2*PASSES):
+            t1=time.time(); tg,tc,td,x=run('shove')
+            print(f'shove pass {ps}: {tc} chains improved, cost gain {tg:.0f}, {time.time()-t1:.0f} s{x}',flush=True)
+            if not more(ps,tc) or (ps>=PASSES-1 and not run.conf): break
+            run('cleanup')
+    if pool: pool.close()
+    vb=sum(v for v,_ in tot_before.values()); va=sum(sum(g.path_vias(p) for p in g.routes[n]) for n in g.scope)
+    cb=sum(c for _,c in tot_before.values()); ca=sum(sum(len(p) for p in g.routes[n]) for n in g.scope)
+    print(f'vias {vb} -> {va}, cells {cb} -> {ca}, {time.time()-t0:.0f} s')
+    if BG: print(f'length budgets after tidy: {sum(1 for v in EXC.values() if v>0)} nets over budget by {sum(EXC.values()):.0f} mm')
+    g.write_out(dst)
+if __name__=='__main__': main()
