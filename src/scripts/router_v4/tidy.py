@@ -15,11 +15,14 @@ env: VIA=200 (via cost in cells, higher than the router's to trade length for vi
      whole net is cheaper. Finds the shorter tree that chain-by-chain moves cannot reach. NETPASSES=2 rounds.
      BUDGET=budgets.json (budgets.py): no move is kept that puts a budgeted net further over its track-length budgets
      (summed mm over budget may not grow by more than 0.1 mm).
-     WORKERS=N (default min(cpus,8); 1 = the sequential pass): every pass is split over N worker processes, each holding its
-     own copy of the grid and tidying a spatially contiguous group of nets (stripes along x, then y, alternating per pass);
-     the main process then accepts each worker's changed nets in order when the new copper is still free of all other
-     copper (a change that collides with another worker's change is dropped and retried next pass), and sends the accepted
-     state to every worker. Results differ slightly from the sequential pass (a different order of moves), not in kind.
+     WORKERS=N (default min(cpus,8), capped by free memory at ~40 B per grid cell per worker; 1 = the sequential pass):
+     worker processes attach to the main grid's read-only arrays (shared memory) and keep only their own occupancy and
+     routes. The main process hands out the nets of a pass one at a time in the sequential order (skipping up to LOOK=16
+     nets ahead past one whose window overlaps a net in flight), validates every returned move on its own grid (the new
+     copper must be free, and the move must not build on a net it had not yet seen updated), and streams each accepted
+     move to all workers at once; a rejected move is retried later in the pass (RETRY=2). Moves therefore follow the
+     sequential pass closely (a few per cent rejected), the result differs only in the order of equal-cost choices.
+     HCOARSE=4: the A* goal-distance heuristic is a distance transform on 4x4-cell blocks (1 = per cell, 16x slower).
      BUDGET forces WORKERS=1."""
 import sys, math, os, time
 import numpy as np
@@ -31,7 +34,7 @@ t0=time.time()
 def netlist(spec):
     if spec and spec.startswith('@'): return [l.strip() for l in open(spec[1:],encoding='utf-8') if l.strip()]
     return spec.split(',') if spec else []
-BUD=E('BUDGET'); BG=None; EXC={}; g=None; ACTIVE=None; LINKS=[]
+BUD=E('BUDGET'); BG=None; EXC={}; g=None; ACTIVE=None
 if BUD and WORKERS>1: WORKERS=1
 def setup(quiet=False):
     """load the grid (main process and every worker)"""
@@ -56,7 +59,7 @@ def bud_ok(*ns):
 from scipy.ndimage import binary_dilation
 from gridcore import _disk, stamp_disks
 DK_T=_disk(W/2/G); DK_V=_disk(VD/2/G)
-def comp_masks(n,path):
+def comp_masks(n,path,win):
     """components of the net without this chain, and which of them the chain's copper touches.
     returns (src, goal, drop): drop when the chain touches at most one component (redundant or dangling);
     (None,None,False) when it touches more than two (left alone)."""
@@ -78,18 +81,22 @@ def comp_masks(n,path):
     if len(touched)<=1: return None,None,True
     if len(touched)>2: return None,None,False
     ca,cb=sorted(touched); cF,cB=g.last_copper   # route between real copper cells, not the dilated labels
+    W=(slice(win[2],win[3]),slice(win[0],win[1])); la=la[W]; lb=lb[W]; cF=cF[W]; cB=cB[W]
     src={'F.Cu':(la==ca)&cF,'B.Cu':(lb==ca)&cB}; goal={'F.Cu':(la==cb)&cF,'B.Cu':(lb==cb)&cB}
     return src,goal,False
+def search_window(cells,pad_mm):
+    ys=[c[1] for c in cells]; xs=[c[2] for c in cells]; pad=int(pad_mm/G)
+    return (max(0,min(xs)-pad),min(g.nx,max(xs)+pad+1),max(0,min(ys)-pad),min(g.ny,max(ys)+pad+1))
 def reroute_chain(n,path):
-    """route the chain's job alone (own copper free, everything else blocked). returns (newpath or None, drop)"""
-    srcm,goalm,drop=comp_masks(n,path)
+    """route the chain's job alone (own copper free, everything else blocked). returns (newpath or None, drop)
+    everything is computed on the search window only (the chain's bbox + WIN mm)"""
+    win=search_window(path,WIN)
+    srcm,goalm,drop=comp_masks(n,path,win)
     if drop or srcm is None: return None,drop
     g.apply_stamps(g.stamps[n],-1)
-    bt,bv=g.blocked(n,hard=True)
-    ring=g.own_ring(n)
+    bt,bv=g.blocked(n,hard=True,win=win)
+    ring=g.own_ring(n,win)
     ct=[1.0+g.RING*ring[l] for l in range(2)]
-    ys=[p[1] for p in path]; xs=[p[2] for p in path]; pad=int(WIN/G)
-    win=(max(0,min(xs)-pad),min(g.nx,max(xs)+pad+1),max(0,min(ys)-pad),min(g.ny,max(ys)+pad+1))
     newp,ne=g.astar(srcm,goalm,bt,bv,ct,None,win)
     g.apply_stamps(g.stamps[n],1)
     return (newp if newp and len(newp)>=2 else None),False
@@ -140,7 +147,7 @@ def pair_net(n):
             nc=g.path_cost(newp)+(0 if dropq else g.path_cost(newq))
             if nc<oc+oq-MINGAIN:
                 if not dropq: g.set_route(m,g.routes[m]+[newq])
-                if bud_ok(n,m): gain+=oc+oq-nc; changed+=1; LINKS.append((n,m)); break
+                if bud_ok(n,m): gain+=oc+oq-nc; changed+=1; break
             g.set_route(n,keep_n); g.set_route(m,keep_m)
     return gain,changed
 def polish_net(n):
@@ -148,24 +155,21 @@ def polish_net(n):
     paths=list(g.routes.get(n,[]))
     if not paths: return 0.0,0
     oc=sum(g.path_cost(p) for p in paths)
-    pm={'F.Cu':np.zeros((g.ny,g.nx),bool),'B.Cu':np.zeros((g.ny,g.nx),bool)}
-    for p in paths:
-        for l,iy,ix in p: pm[LAY[l]][iy,ix]=True
-    win=g.window([pm],WIN)
+    win=search_window([c for p in paths for c in p],WIN); W=(slice(win[2],win[3]),slice(win[0],win[1]))
     g.set_route(n,[]); new=[]
     for _ in range(200):
         la,lb=g.components(n); cF,cB=g.last_copper
-        labs=np.unique(np.concatenate([la[la>0],lb[lb>0]]))
-        if len(labs)<=1: break
-        cnt={int(k):int(((la==k)&cF).sum()+((lb==k)&cB).sum()) for k in labs}
-        s=max(cnt,key=cnt.get)
+        la=la[W]; lb=lb[W]; cF=cF[W]; cB=cB[W]
+        ca=np.bincount(la[cF]); cbn=np.bincount(lb[cB]); m=max(len(ca),len(cbn)); cnt=np.zeros(m,np.int64); cnt[:len(ca)]+=ca; cnt[:len(cbn)]+=cbn; cnt[0]=0
+        if (cnt>0).sum()<=1: break
+        s=int(cnt.argmax())
         srcm={'F.Cu':(la==s)&cF,'B.Cu':(lb==s)&cB}; goalm={'F.Cu':(la>0)&(la!=s)&cF,'B.Cu':(lb>0)&(lb!=s)&cB}
-        bt,bv=g.blocked(n,hard=True); ring=g.own_ring(n)
-        ct=[1.0+g.RING*ring[l] for l in range(2)]; cvia=np.full((g.ny,g.nx),g.VIA_COST,np.float32)
-        newp,ne=g.astar(srcm,goalm,bt,bv,ct,cvia,win)
+        bt,bv=g.blocked(n,hard=True,win=win); ring=g.own_ring(n,win)
+        ct=[1.0+g.RING*ring[l] for l in range(2)]
+        newp,ne=g.astar(srcm,goalm,bt,bv,ct,None,win)
         if not newp or len(newp)<2: g.set_route(n,paths); return 0.0,0
         new.append(newp); g.set_route(n,new)
-    la,lb=g.components(n)
+    la,lb=g.components(n); la=la[W]; lb=lb[W]
     if len(np.unique(np.concatenate([la[la>0],lb[lb>0]])))>1: g.set_route(n,paths); return 0.0,0
     nc=sum(g.path_cost(p) for p in new)
     if nc<oc-MINGAIN and bud_ok(n): rechain(n); return oc-nc,1
@@ -213,7 +217,7 @@ def shove_net(n):
                         nc=g.path_cost(newp)+g.path_cost(nq)
                         if nc<oc+oq-MINGAIN and g.path_vias(newp)<g.path_vias(path):
                             g.set_route(n,[p for p in keep_n if p is not path]+[newp])
-                            if bud_ok(n,m): gain+=oc+oq-nc; changed+=1; done=True; LINKS.append((n,m)); break
+                            if bud_ok(n,m): gain+=oc+oq-nc; changed+=1; done=True; break
                             g.set_route(n,[p for p in keep_n if p is not path])
                     g.set_route(m,[p for p in keep_m if p is not q])
                 if done: break
@@ -240,49 +244,45 @@ def tidy_net(n):
             if bud_ok(n): gain+=oc-g.path_cost(newp); changed+=1
             else: g.set_route(n,old)
     return gain,changed,dropped
-def stage_pass(stage):
-    """one pass of a stage over the ACTIVE nets on this process' grid: (gain, changed, dropped)"""
-    tg=0.0; tc=0; td=0
+def stage_order(stage):
+    """the sequential order of a stage over the ACTIVE nets: costliest / most vias first"""
+    if stage=='net': return sorted(ACTIVE,key=lambda n:-sum(g.path_cost(p) for p in g.routes.get(n,[])))
+    if stage=='cleanup': return list(ACTIVE)
+    return sorted(ACTIVE,key=lambda n:-sum(g.path_vias(p) for p in g.routes.get(n,[])))
+def net_step(stage,n):
+    """one net of a stage on this process' grid: (gain, changed, dropped)"""
+    if not g.routes.get(n): return 0.0,0,0
     if stage=='net':
-        for n in sorted(ACTIVE,key=lambda n:-sum(g.path_cost(p) for p in g.routes[n])):
-            if not g.routes.get(n): continue
-            gain,changed=polish_net(n); tg+=gain; tc+=changed
-    elif stage in ('chain','cleanup'):
-        order=sorted(ACTIVE,key=lambda n:-sum(g.path_vias(p) for p in g.routes[n])) if stage=='chain' else list(ACTIVE)
-        for n in order:
-            if not g.routes.get(n): continue
-            gain,changed,dropped=tidy_net(n); tg+=gain; tc+=changed; td+=dropped
-            if changed or dropped: rechain(n)
-    else:
-        f=pair_net if stage=='pair' else shove_net
-        for n in sorted(ACTIVE,key=lambda n:-sum(g.path_vias(p) for p in g.routes[n])):
-            if not g.routes.get(n): continue
-            gain,changed=f(n); tg+=gain; tc+=changed
-            if changed: rechain(n)
+        gain,changed=polish_net(n); return gain,changed,0
+    if stage in ('chain','cleanup'):
+        gain,changed,dropped=tidy_net(n)
+        if changed or dropped: rechain(n)
+        return gain,changed,dropped
+    gain,changed=(pair_net if stage=='pair' else shove_net)(n)
+    if changed: rechain(n)
+    return gain,changed,0
+def stage_pass(stage):
+    """one sequential pass of a stage over the ACTIVE nets: (gain, changed, dropped)"""
+    tg=0.0; tc=0; td=0
+    for n in stage_order(stage):
+        a,b,c=net_step(stage,n); tg+=a; tc+=b; td+=c
     return tg,tc,td
-def worker_main(qin,qout):
-    global ACTIVE
-    setup(quiet=True)
+def worker_main(state,qin,qout,wid):
+    """a worker: attaches to the main process' shared read-only grid arrays, keeps its own routes and occupancy; the main
+    process hands it one net at a time and streams every accepted move of the other workers to it in between"""
+    global g,nets,ACTIVE
+    g=Grid.attach(state); nets=g.nets; ACTIVE=g.scope; ver={}
     while True:
         msg=qin.get()
         if msg is None: break
         if msg[0]=='update':
             for n,routes in msg[1].items(): g.set_route(n,routes)
-            qout.put('ok')
+            ver.update(msg[2])
         else:
-            ACTIVE=set(msg[2]); snap={n:list(g.routes.get(n,[])) for n in g.scope}; del LINKS[:]
-            tg,tc,td=stage_pass(msg[1])
-            touched={n:g.routes.get(n,[]) for n in g.scope if g.routes.get(n,[])!=snap[n]}
-            # nets moved together (pair / shove) form one transaction: the main process accepts or rejects them as a whole
-            par={n:n for n in touched}
-            def find(a):
-                while par[a]!=a: par[a]=par[par[a]]; a=par[a]
-                return a
-            for a,b in LINKS:
-                if a in par and b in par: par[find(a)]=find(b)
-            groups={}
-            for n in touched: groups.setdefault(find(n),{})[n]=touched[n]
-            qout.put((tg,tc,td,list(groups.values())))
+            stage,n=msg[1],msg[2]; snap={m:list(g.routes.get(m,[])) for m in g.scope}
+            tg,tc,td=net_step(stage,n)
+            touched={m:g.routes.get(m,[]) for m in g.scope if g.routes.get(m,[])!=snap[m]}
+            qout.put((wid,n,tg,tc,td,touched,{m:ver.get(m,0) for m in touched}))
 def free_cells(n,paths,old):
     """True when every cell of the paths that is not already in the old paths is free of all copper but net n's fixed copper
     (own routes lifted by the caller; cells the old routes used stay valid even where today's rules would block them)"""
@@ -297,49 +297,67 @@ def free_cells(n,paths,old):
             if (l,iy,ix) not in oc and bt[l][iy-y0,ix-x0]: return False
             if i and p[i-1][0]!=l and (iy,ix) not in ov and bv[iy-y0,ix-x0]: return False
     return True
+RETRY=int(E('RETRY','2')); LOOK=int(E('LOOK','16'))
 class Pool:
-    """worker processes, each with its own grid; passes are split by stripes and merged with a collision check"""
+    """worker processes, each with its own grid, fed one net at a time in the sequential order (skipping ahead past nets whose
+    windows overlap a net in flight); every move is validated on the main grid against the state the workers were told
+    about (per-net versions) and streamed to all workers, so a worker rarely builds on stale copper; a rejected move is
+    retried later in the pass on the fresh state"""
     def __init__(self,k):
         import multiprocessing as mp
-        ctx=mp.get_context('spawn'); self.w=[]
-        for _ in range(k):
-            qi=ctx.Queue(); qo=ctx.Queue(); p=ctx.Process(target=worker_main,args=(qi,qo),daemon=True); p.start(); self.w.append((p,qi,qo))
-        self.k=k; self.ps=0
-    def groups(self):
-        cen={}
-        for n in g.scope:
-            cells=[c for p in g.routes.get(n,[]) for c in p]
-            if cells: cen[n]=(sum(c[2] for c in cells)/len(cells),sum(c[1] for c in cells)/len(cells))
-        ax=self.ps%2; order=sorted(cen,key=lambda n:cen[n][ax]); self.ps+=1
-        return [order[i::self.k] for i in range(self.k)] if len(order)<2*self.k else [order[i*len(order)//self.k:(i+1)*len(order)//self.k] for i in range(self.k)]
+        ctx=mp.get_context('spawn'); self.w=[]; state=g.share(); self.qout=ctx.Queue()
+        for i in range(k):
+            qi=ctx.Queue(); p=ctx.Process(target=worker_main,args=(state,qi,self.qout,i),daemon=True); p.start(); self.w.append((p,qi))
+        self.k=k; self.ver={}
+    def box(self,n):
+        pad=int(WIN/G); cells=[c for p in g.routes.get(n,[]) for c in p]
+        if not cells: return None
+        ys=[c[1] for c in cells]; xs=[c[2] for c in cells]
+        return min(ys)-pad,max(ys)+pad,min(xs)-pad,max(xs)+pad
     def run(self,stage):
-        """returns (worker gain, accepted nets, dropped chains reported, conflicts)"""
-        grp=self.groups()
-        for (p,qi,qo),gr in zip(self.w,grp): qi.put(('pass',stage,gr))
-        tg=0.0; td=0; acc=0; conf=0; touched={}; self.dup=0
-        for (p,qi,qo),gr in zip(self.w,grp):
-            wg,wc,wd,groups=qo.get(); tg+=wg; td+=wd
-            for tr in groups:
-                olds={n:g.routes.get(n,[]) for n in tr}
-                if any(n in touched for n in tr): conf+=1; self.dup+=1; continue        # a net another worker already changed this pass: retry next pass
-                for n in tr: g.set_route(n,[])
-                for n in tr: g.set_route(n,tr[n])
+        """returns (accepted gain, accepted nets, dropped chains, rejected moves)"""
+        import collections
+        pending=collections.deque(stage_order(stage)); tries={}; inflight={}; idle=list(range(self.k)); boxes={}
+        tg=0.0; td=0; acc=0; conf=0; self.dup=0; twait=0.0
+        def apart(a,b): return a is None or b is None or a[1]<b[2] or b[1]<a[2] or a[3]<b[0] or b[3]<a[0]
+        def dispatch(wid):
+            pick=0
+            for i,n in enumerate(pending):
+                if i>=LOOK: break
+                bx=self.box(n)
+                if all(apart(bx,boxes[m]) for m in inflight.values()): pick=i; break
+            pending.rotate(-pick); n=pending.popleft(); pending.rotate(pick)
+            boxes[n]=self.box(n); inflight[wid]=n; self.w[wid][1].put(('do',stage,n))
+        while pending or inflight:
+            while idle and pending: dispatch(idle.pop())
+            t1=time.time(); wid,n,wg,wc,wd,touched,vseen=self.qout.get(); twait+=time.time()-t1
+            inflight.pop(wid); boxes.pop(n,None); idle.append(wid)
+            if not touched: continue
+            olds={m:g.routes.get(m,[]) for m in touched}
+            if any(self.ver.get(m,0)!=vseen.get(m,0) for m in touched): ok=False; self.dup+=1   # built on a move it had not seen yet
+            else:
+                for m in touched: g.set_route(m,[])
+                for m in touched: g.set_route(m,touched[m])
                 ok=True
-                for n in tr:
-                    g.set_route(n,[]); ok=free_cells(n,tr[n],olds[n]); g.set_route(n,tr[n])
+                for m in touched:
+                    g.set_route(m,[]); ok=free_cells(m,touched[m],olds[m]); g.set_route(m,touched[m])
                     if not ok: break
-                if ok:
-                    for n in tr: rechain(n); touched[n]=g.routes[n]
-                    acc+=len(tr)
-                else:
-                    for n in tr: g.set_route(n,olds[n])
-                    conf+=1
-        for (p,qi,qo) in self.w: qi.put(('update',touched))
-        for (p,qi,qo) in self.w: qo.get()
+            if ok:
+                for m in touched: rechain(m); self.ver[m]=self.ver.get(m,0)+1
+                upd=('update',{m:g.routes[m] for m in touched},{m:self.ver[m] for m in touched})
+                for p,qi in self.w: qi.put(upd)
+                tg+=wg; td+=wd; acc+=len(touched)
+            else:
+                for m in touched: g.set_route(m,olds[m])
+                self.w[wid][1].put(('update',olds,{m:self.ver.get(m,0) for m in touched}))
+                conf+=1; tries[n]=tries.get(n,0)+1
+                if tries[n]<RETRY: pending.append(n)
+        if E('TIMING'): print(f'  main waited {twait:.0f} s',flush=True)
         return tg,acc,td,conf
     def close(self):
-        for (p,qi,qo) in self.w: qi.put(None)
-        for (p,qi,qo) in self.w: p.join()
+        for p,qi in self.w: qi.put(None)
+        for p,qi in self.w: p.join()
+        g.unshare()
 def avail_bytes():
     try:
         if os.name=='nt':
@@ -355,13 +373,13 @@ def main():
     setup()
     av=avail_bytes()
     if WORKERS>1 and av:
-        cap=max(1,int(0.8*av/(230*g.nx*g.ny)))   # measured ~200 bytes per grid cell per worker
+        cap=max(1,int(0.8*av/(40*g.nx*g.ny+3e8)))   # a worker holds its occupancy + search temporaries, ~40 bytes per cell; the rest is shared
         if cap<WORKERS: print(f'WORKERS {WORKERS} -> {cap} (available memory {av/1e9:.1f} GB)',flush=True); WORKERS=cap
     pool=Pool(WORKERS) if WORKERS>1 else None
     if pool: print(f'{WORKERS} workers',flush=True)
     def run(stage):
         if pool:
-            tg,tc,td,conf=pool.run(stage); run.conf=conf; return tg,tc,td,f' ({conf} conflicts, {pool.dup} with a net another worker moved)' if conf else ''
+            tg,tc,td,conf=pool.run(stage); run.conf=conf; return tg,tc,td,f' ({conf} moves rejected, {pool.dup} built on a move not yet seen)' if conf else ''
         tg,tc,td=stage_pass(stage); run.conf=0; return tg,tc,td,''
     run.conf=0
     def more(ps,tc,td=0):

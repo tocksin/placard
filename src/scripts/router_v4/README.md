@@ -269,3 +269,50 @@ with 35 fewer vias). KiCad 9 DRC on the VIA 1600 board (zones refilled, `wbf_v16
 iterations of 55 min (12 and 16) when only a handful of board-spanning nets were left: one CUDA block per net on a
 board-sized window; splitting those searches over several blocks, or filling each launch with spatially disjoint nets, is
 the other next step.
+
+## Round 6 (2026-11-07, branch-132): slim streaming tidy workers, faster searches
+Round 5 left two problems: a fine-grid tidy worker needed ~3.7 GB (the laptop ran the whole-board ladder with one
+worker), and the parallel pass lost quality. All numbers are the fine-grid r1 bench (`f_r1`, 116 nets, 4-core container).
+
+**Slim workers (`Grid.share()` / `Grid.attach()`):** the read-only grid arrays (fixed copper, pad and edge masks, cost field)
+live once in `multiprocessing.shared_memory`; a worker keeps only its own occupancy and routes, no board text, items or
+writer, and the A* core gets window-sized copies (`blocked()`, `own_ring()`, the component masks and `polish_net` are all
+windowed). Measured on the fine grid (16.3 M cells): 0.45-0.7 GB private per worker plus 0.43 GB shared once, so the cap is
+now ~40 bytes per cell per worker and the laptop (8 GB free) can run 7-8 workers.
+
+**Why the striped pass lost quality:** a third of the moves of every pass were rejected (22 of 61 in the first net pass),
+because every worker built on the state at the start of the pass and the long r1 nets cross all stripes; the rejected nets
+were retried on a board that had moved on, and lost again. The first fine-grid 3-worker rung ended with 426 raw vias
+against 384 sequentially. Fixed by replacing the stripes with a **streaming pool**: the main process hands out one net at a
+time in the sequential order (skipping ahead past nets whose windows overlap a net in flight), validates each returned move
+on its own grid (new copper free, and the move must not build on a net it had not yet seen updated: per-net versions),
+and streams every accepted move to all workers immediately; a rejected move is retried later in the pass. Rejections fell
+to 4 of 66, and the pass follows the sequential one closely (same 66 nets improved in the first net pass).
+
+**Faster searches (sequential too):** the A* goal-distance heuristic is now a distance transform on 4x4-cell blocks,
+interpolated bilinearly and lowered by the block diagonal (`HCOARSE=4`; the per-cell transform was 25 % of a net pass).
+The first version used the block value directly, which is admissible but not consistent, and the C core never reopens a
+closed cell, so paths came out suboptimal (520 vias instead of 514 on the first rung); the interpolated one keeps every path
+optimal and the sequential rung is cell-for-cell the round 5 result. `components()` caches the bbox of each net's fixed copper
+and labels only the window, `polish_net` counts component cells with one `bincount` and ignores copper outside its search
+window (nets with an unconnected island elsewhere were never polished before), and the C-core inputs are bool views
+instead of converted copies. A sequential fine-grid net pass: 237 s (round 5) -> 191 s.
+
+| fine r1, VIA 400 / 800 / 1600 ladder | track | vias (scope) | detour > 2 | tidy time |
+|---|---|---|---|---|
+| round 5 sequential (`fl*`) | 26.23 / 26.43 / 26.76 m | 514 / 494 / 483 | 0 | 55 + 45 + 13 min |
+| round 5 stripes, 3 workers, first rung only (`pf400`) | 27.27 m | 556 | 3 | 46 min |
+| round 6 sequential, first rung (`sh400`) | 26.23 m | 514 | 0 | 38 min |
+| round 6 streaming, 3 workers (`ph*`, `bench/r1_fine6_*`) | 26.44 / 26.66 / 26.95 m | 489 / 471 / 460 | 1 | 16 + 12 + 12 min |
+
+The streaming ladder ends with 23 fewer vias than round 5 (460 vs 483) for 0.19 m more track, in 41 min instead of 113: the
+retries after a rejected move act like the extra passes of round 5's striped ladder and find more pair moves than the
+sequential pass does. `WORKERS=1` is the sequential pass of the new code. Best r1 so far: `bench/r1_fine6_v1600_results.kicad_pcb.zip`.
+
+**Router disjoint batching (`DISJOINT=16`, off by default):** a launch holds up to 16 nets whose boxes (fixed-copper bbox +
+`DJPAD=8` mm) do not overlap, under a `GPUMEM=4` GB window budget, so batch-mates cannot collide and the GPU keeps 16 blocks
+busy instead of 4 in the late iterations that re-route every net (iterations 12 and 16 of the whole-board fine route took
+55 min each). On the CPU (3 threads) the r1 coarse route ends at 739 vias / 30.88 m in 21 min against 730 / 30.42 m with
+plain batches (both still 300-400 overlap cells at iteration 29, so the negotiation converges about the same); the GPU
+timing is still to be measured on the laptop. Quality first, so it stays off until that run shows it is at least as good.
+
