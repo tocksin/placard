@@ -18,7 +18,7 @@ reserved sector, two FATs, a 512-entry root folder and one sector per
 cluster.  Names are short (8.3) names, upper case; folders are made as
 needed from the path.
 
-Date: 10/26/2026
+Date: 11/06/2026
 """
 
 import os
@@ -93,8 +93,12 @@ def make(files, size_kb=4096, spc=1, label='PLACARD'):
             return folders[path]
         parent_path = path.rpartition('/')[0]
         parent = folder(parent_path)
-        first, _ = alloc(spc * SECTOR)
-        d = bytearray(spc * SECTOR)
+        # big enough for its entries ("." and "..", files and folders in it)
+        names = set(k.replace('\\', '/').strip('/') for k in files)
+        kids = set(q[len(path) + 1:].split('/')[0] for q in names if q.startswith(path + '/'))
+        size = -(-(len(kids) + 2) * 32 // (spc * SECTOR)) * spc * SECTOR
+        first, _ = alloc(size)
+        d = bytearray(size)
         d[0:32] = entry(b'.          ', 0x10, first, 0)
         d[32:64] = entry(b'..         ', 0x10, parent[2], 0)
         folders[path] = [d, 64, first]

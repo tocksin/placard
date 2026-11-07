@@ -59,9 +59,9 @@ dos_back = 0x8008
 FBUF     = 0x5400           ; 512-byte sector buffer while loading SCRAP.OVL
 OVL_TAIL = 0x56             ; SCRAP.OVL's last pages: x5600-x59FF, then
 OVL_END  = 0x5A             ;   x5C00-x5DF2 (the audio buffer from x5DF3:
-OVL_TAIL2 = 0x5C            ;   silence_buf), then x5400-x55FF (FBUF's own:
-OVL_END2 = 0x5E             ;   its last sector); code: the pointer, the
-                            ;   repair steps, more
+OVL_TAIL2 = 0x5C            ;   silence_buf); code: the pointer, the repair
+OVL_END2 = 0x5E             ;   steps, more
+PRT_BUF  = FBUF             ; after the load: the text of 2 kinds (prt_load)
 VIEW_W   = 20
 VIEW_H   = 12
 WALK_FRAMES = 7             ; frames between steps while a direction is held
@@ -138,14 +138,15 @@ wk_m    = 0x5F              ; the job's skills (bit k skill k; SK_SUIT in the su
 s_t     = 0x60              ; the panel's subject: type
 s_f     = 0x61              ;   damage step 0-15
 n_act   = 0x62              ;   actions 0-8 (two columns of 4)
-act0    = 0x36F0            ;   the action codes, x36F0-x36F7 (not zero page)
-JB_B    = 0x36F8            ; the job's bar: its frames at full speed (a 16th of the work),
-JB_N    = 0x36F9            ;   the 16ths done,
-JB_TL   = 0x36FA            ;   the work left at the next 16th
-JB_TH   = 0x36FB
-O2_T    = 0x36FC            ; seconds since the suit last used a litre of O2
+act0    = ACT_PG * 256 + 0xF0           ;   the action codes, x36F0-x36F7 (not zero page)
+JB_B    = ACT_PG * 256 + 0xF8           ; the job's bar: its frames at full speed (a 16th of the work),
+JB_N    = ACT_PG * 256 + 0xF9           ;   the 16ths done,
+JB_TL   = ACT_PG * 256 + 0xFA           ;   the work left at the next 16th
+JB_TH   = ACT_PG * 256 + 0xFB
+O2_T    = ACT_PG * 256 + 0xFC           ; seconds since the suit last used a litre of O2
 CND_N   = 24                ; parts on conduits, at most (CND)
-N_ANT   = 0x36FD            ; 1: a working antenna installed on the tug (tug_scan): comms
+N_ANT   = ACT_PG * 256 + 0xFD           ; 1: a working antenna installed on the tug (tug_scan): comms
+PRT_K   = ACT_PG * 256 + 0xFE           ; the kinds pair whose text is in PRT_BUF (FF none)
                             ;   (for the navigation mode's display; not shown here)
 inv     = 0x63              ; 1: the inventory screen is up (not the view)
 place   = 0x64              ; INSTALL from the inventory: the carry slot's address
@@ -153,7 +154,7 @@ place   = 0x64              ; INSTALL from the inventory: the carry slot's addre
 inv_k   = 0x65              ; the inventory's slot under the mouse: 0-2 the carry
                             ;   slots, 3-6 the gear (suit, battery, O2, utility), FF none
 pl_t    = 0x66              ; the part being placed: its type
-PL_S    = 0x36EF            ;   its carry slot (the job: cut_m 4)
+PL_S    = ACT_PG * 256 + 0xEF           ;   its carry slot (the job: cut_m 4)
 SWAP_LO = 0x4100            ; SCRAP.INV (the inventory) is read in here, x4100-x4CFF
 wk_on   = 0x67              ; WALK HERE: 1 while walking to wk_x, wk_y
 wk_x    = 0x68
@@ -386,11 +387,10 @@ ta_go\@:
 .prefix scw
 .leave sc_leave
 .region 0x0100, 0x1F00
-.region 0x2000, 0x3400
+.region 0x2000, 0x3200
 .region 0xC000, 0x10000, 2, overlay
 .region 0x5600, 0x5A00, 1, overlay
 .region 0x5C00, 0x5DF3, 1, overlay
-.region 0x5400, 0x5600, 1, overlay
 .region 0x0100, 0x1F00
 
 ; ============================================================
@@ -637,6 +637,9 @@ main:
 
 .chunk
 start:
+    ld   PRT_K>>8, y
+    ld   PRT_K&0xFF, x
+    ld   0xFF, [y,x]
     CALL l_mouse_init
     bne  st_nm
     ld   1, ac
@@ -716,6 +719,12 @@ s_ovl:
     #d "SCRAP.OVL", 0x00
 s_invf:
     #d "SCRAP.INV", 0x00
+PRT_NM:                         ; prt_load's: the part text file, its folder
+    #d "K0A", 0x00
+s_prtd:
+    #d "SCRAP", 0x00
+s_up:
+    #d "..", 0x00
 s_dmg:
     #d "HEALTH ", 0x00
 
@@ -923,17 +932,12 @@ ov_k:
     ld   OVL_TAIL2, ac
     bra  ov_kk
 ov_k1:
-    ld   [u5], ac               ; after x5D: x54-x55, the sector buffer
-    xor  OVL_END2, ac           ;   itself (the last sector, read in place)
-    bne  ov_k2
-    ld   FBUF >> 8, ac
+    ld   [u5], ac               ; after x5D: done
+    xor  OVL_END2, ac
+    beq  ov_e
+    bra  ov_n
 ov_kk:
     ld   ac, [u5]
-    bra  ov_n
-ov_k2:
-    ld   [u5], ac               ; after x55: done
-    xor  OVL_TAIL, ac
-    beq  ov_e
 ov_n:
     ld   [u7], ac
     dec
@@ -1032,17 +1036,18 @@ map_get:
     shr  ac
     ld   ac, [c_r]
     ld   [a_pg], y
-    ld   [y,x], ac              ; the type byte: bolted, room bits 5:4, type
+    ld   [y,x], ac              ; the type byte: bolted, room bit 4, kind
     ld   ac, [u0]
     and  0x80, ac
     ld   ac, [c_b]
     ld   [u0], ac
-    and  0x60, ac
+    and  0x40, ac
+    shr  ac
     shr  ac
     or   [c_r], ac
     ld   ac, [c_r]
     ld   [u0], ac
-    and  0x1F, ac
+    and  0x3F, ac
     ld   ac, [c_t]
     RET
 
@@ -1054,7 +1059,7 @@ map_put:
     ld   [a_pg], y
     ld   [a_ix], x
     ld   [y,x], ac
-    and  0x60, ac
+    and  0x40, ac
     or   [u0], ac
     ld   ac, [y,x]
     RET
@@ -1095,15 +1100,6 @@ draw_cell:
     shl
     shl
     ld   ac, [dc_ai]
-    ld   [dc_ap], ac            ; past the art pages: ART2
-    xor  ART_PG + ART_N, ac
-    bne  dc_a2
-    ld   ART2 >> 8, ac
-    ld   ac, [dc_ap]
-    ld   [dc_ai], ac
-    add  ART2 & 0xFF, ac
-    ld   ac, [dc_ai]
-dc_a2:
 draw_cell_at:                   ; (or the art at dc_ap:dc_ai)
     CELLADDR
     ld   4, ac
@@ -2056,17 +2052,7 @@ do_action:
     ld   ac, [w3]
     xor  A_INSPECT, ac
     bne  da_1
-    ld   TAB_PG, ac             ; INSPECT: the type's line
-    ld   ac, [u5]
-    ld   [s_t], ac
-    add  TB_INSPL, ac
-    ld   ac, [u6]
-    ld   [s_t], ac
-    add  TB_INSPH, ac
-    ld   ac, [u7]
-    CALL tab_ptr
-    CALL set_msg
-    LEAVE
+    GOTO inspect_action
 da_1:
     ld   [w3], ac
     xor  A_WALK, ac
@@ -2315,7 +2301,7 @@ sl_l:
     ld   [n_act], ac
     xor  8, ac
     beq  sl_e
-    ld   ACT_PG, y
+    ld   ACTS_PG, y
     ld   [u0], x
     ld   [y,x], ac
     beq  sl_e
@@ -2446,7 +2432,7 @@ draw_dmg:
     CALL tputs
     ld   0x20, ac
     CALL tputc
-    ld   TAB_PG, ac
+    ld   ROOM_PG, ac
     ld   ac, [u5]
     ld   [s_f], ac
     add  TB_DMGL, ac
@@ -2462,6 +2448,8 @@ draw_dmg:
 .chunk
 draw_info:
     PUSH_LINK
+    ld   [s_t], ac              ; its text from the card (prt_load)
+    CALL prt_load
     clr  ac
     ld   ac, [w2]
 di_l:
@@ -2470,20 +2458,20 @@ di_l:
     ld   ac, [CUR_ROW]
     ld   1, ac
     ld   ac, [CUR_COL]
-    ld   INFO_PG, ac
-    ld   ac, [u5]
-    ld   [s_t], ac
+    ld   [s_t], ac              ; line w2: PRT_BUF + 256 (t & 1) + 48 w2
+    and  1, ac
+    add  PRT_BUF >> 8, ac
+    ld   ac, [R1]
+    ld   [w2], ac
     shl
     shl
-    add  [w2], ac
-    ld   ac, [u6]
-    add  0x80, ac
-    ld   ac, [u7]
-    CALL tab_ptr
-    ld   [R1], ac
-    beq  di_n
+    shl
+    shl
+    ld   ac, [R0]
+    shl
+    add  [R0], ac
+    ld   ac, [R0]
     CALL tputs
-di_n:
     ld   [w2], ac
     inc
     ld   ac, [w2]
@@ -2760,7 +2748,7 @@ ts_n:
     ld   ac, [R1]
     bra  ts_l
 ts_w:
-    ld   TAB_PG, y
+    ld   ROOM_PG, y
     ld   [s_f], ac
     add  TB_WRKL, ac
     ld   ac, x
@@ -2841,7 +2829,7 @@ gi_n:
     ld   [v0], ac
     inc
     ld   ac, [v0]
-    xor  0x40, ac
+    xor  32, ac
     bne  gi_l
     CALL rooms_build
     CALL tug_scan
@@ -2895,7 +2883,7 @@ at_d:
     ld   [v1], y
     ld   [v2], x
     ld   [y,x], ac
-    and  0x1F, ac
+    and  0x3F, ac
     ld   ac, [v3]
     xor  T_DOORO, ac
     beq  at_o
@@ -3235,12 +3223,17 @@ ty_c:
     ld   [c_f], ac
     sub  8, ac
     bcc  ty_n
-    ld   [c_t], ac
+    ld   [c_t], ac              ; an O2 tank counts with a pump by it
     xor  T_O2, ac
     bne  ty_1
+    ld   T_PUMP, ac
+    CALL adj_kind
+    beq  ty_o
     ld   [n_o2], ac
     inc
     ld   ac, [n_o2]
+ty_o:
+    GOTO ty_n
 ty_1:
     ld   [c_t], ac
     xor  T_SCRUB, ac
@@ -3257,11 +3250,15 @@ ty_2:
     ld   ac, [n_bat]
 ty_3:
     ld   [c_t], ac
-    xor  T_FUEL, ac
+    xor  T_FUEL, ac             ; a nitrogen tank with an intake by it: fuel
     bne  ty_4
+    ld   T_INTAKE, ac
+    CALL adj_kind
+    beq  ty_o
     ld   [n_fuel], ac
     inc
     ld   ac, [n_fuel]
+    GOTO ty_n
 ty_4:
     ld   [c_t], ac
     xor  T_ANT, ac
@@ -3546,12 +3543,9 @@ cut_done:
     bcs  cd_0
     GOTO repair_done            ; (and 4, placing)
 cd_0:
-    ld   [c_t], ac
-    xor  T_THRUST, ac
-    beq  cd_th
-    ld   [c_t], ac
-    xor  T_ANT, ac
-    beq  cd_th
+    ld   [c_t], ac              ; a thruster, antenna, radar: out to a slot
+    CALL on_space
+    bne  cd_th
     ld   [c_t], ac
     ld   ac, x
     ld   TAB_PG, y
@@ -3653,11 +3647,8 @@ struct_done:
     xor  T_FLOOR, ac
     beq  sd_f
     ld   [c_t], ac
-    xor  T_THRUST, ac
-    beq  sd_f
-    ld   [c_t], ac
-    xor  T_ANT, ac
-    beq  sd_f
+    CALL on_space
+    bne  sd_f
     ld   [c_t], ac
     xor  T_PIPE, ac
     bne  sd_w
@@ -3678,7 +3669,7 @@ sd_f:
     CALL free_slot
     beq  sd_full
     ld   ac, [v0]
-    ld   [c_t], ac              ; a deck: its plate; a thruster, an antenna
+    ld   [c_t], ac              ; a deck: its plate; a part on open space itself
     xor  T_FLOOR, ac
     beq  sd_pp
     ld   [c_t], ac
@@ -4018,8 +4009,8 @@ rb_air:
     ld   [y,x], ac
     and  [u4], ac
     bne  rb_nx
-    ld   [rb_n], ac             ; a new room (63 at most)
-    xor  63, ac
+    ld   [rb_n], ac             ; a new room (31 at most: more share 31)
+    xor  31, ac
     beq  rb_f
     ld   [rb_n], ac
     inc
@@ -4314,18 +4305,19 @@ rq_1:
 rq_e:
     RET
 
-; set_room - AC = the room of the cell map_get last found (type byte bits
-; 6-5: room bits 5-4; flag byte bits 7-4: room bits 3-0).  A leaf.
+; set_room - AC = the room of the cell map_get last found (type byte bit
+; 6: room bit 4; flag byte bits 7-4: room bits 3-0).  A leaf.
 .chunk
 set_room:
     ld   ac, [u0]
     ld   [a_pg], y
     ld   [a_ix], x
     ld   [y,x], ac
-    and  0x9F, ac
+    and  0xBF, ac
     ld   ac, [u1]
     ld   [u0], ac
-    and  0x30, ac
+    and  0x10, ac
+    shl
     shl
     or   [u1], ac
     ld   ac, [y,x]
@@ -4560,7 +4552,7 @@ rp_n:
     ld   [rb_x], ac
     inc
     ld   ac, [rb_x]
-    xor  64, ac
+    xor  32, ac
     bne  rp_l
     ld   ROOM_PG, y
     ld   [rb_y], ac
@@ -6346,6 +6338,171 @@ ul_u:
     ld   A_INSPECT, ac
     CALL add_act
     LEAVE
+
+; on_space - AC = a kind: AC 1 when it goes on open space (TB_SKILL where
+; bits x40: a thruster, an antenna, the radar, a deck plate), else 0.  A
+; leaf.
+.chunk
+on_space:
+    add  TB_SKILL, x
+    ld   ACT_PG, y
+    ld   [y,x], ac
+    and  0xC0, ac
+    xor  0x40, ac
+    beq  os_y
+    clr  ac
+    RET
+os_y:
+    ld   1, ac
+    RET
+
+; adj_kind - AC = a kind: 1 when one is installed and working (under 50 %
+; damage) on a side of cell v0, v1 (tug_scan's), else 0.  T6, T7
+.chunk
+adj_kind:
+    PUSH_LINK
+    ld   ac, [T6]
+    clr  ac
+    ld   ac, [T7]
+aj_l:
+    ld   ADJ >> 8, y
+    ld   [T7], ac
+    add  ADJ & 0xFF, x
+    ld   [y,x], ac
+    add  [v0], ac
+    ld   ac, [g_x]
+    ld   [T7], ac
+    add  (ADJ & 0xFF) + 4, x
+    ld   [y,x], ac
+    add  [v1], ac
+    ld   ac, [g_y]
+    CALL map_get
+    xor  [T6], ac
+    bne  aj_n
+    ld   [c_b], ac
+    beq  aj_n
+    ld   [c_f], ac
+    sub  8, ac
+    bcc  aj_n
+    ld   1, ac
+    LEAVE
+aj_n:
+    ld   [T7], ac
+    inc
+    ld   ac, [T7]
+    xor  4, ac
+    bne  aj_l
+    clr  ac
+    LEAVE
+
+; inspect_action - INSPECT: the kind's line (prt_load) copied to INSP_BUF
+; for the message row.  The rest of do_action
+.chunk
+inspect_action:
+    ld   [s_t], ac
+    CALL prt_load
+    ld   [s_t], ac
+    and  1, ac
+    add  PRT_BUF >> 8, ac
+    ld   ac, [u5]
+    clr  ac
+    ld   ac, [u0]
+ia_l:
+    ld   [u5], y
+    ld   [u0], ac
+    add  PRT_INSP, x
+    ld   [y,x], ac
+    ld   ac, [u1]
+    ld   INSP_BUF >> 8, y
+    ld   [u0], ac
+    add  INSP_BUF & 0xFF, x
+    ld   [u1], ac
+    ld   ac, [y,x]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  64, ac
+    bne  ia_l
+    ld   INSP_BUF & 0xFF, ac
+    ld   ac, [R0]
+    ld   INSP_BUF >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    LEAVE
+
+; prt_load - AC = a kind: PRT_BUF holds the text of kinds 2k and 2k + 1
+; (k = AC / 2: info line i at 256 (kind & 1) + 48 i, the INSPECT line at
+; + 192), read from the card (SCRAP/Kxy, x = '0' + k / 16, y = 'A' + k % 16)
+; unless it is there already (PRT_K).  Back in the program's folder after
+.chunk
+prt_load:
+    PUSH_LINK
+    shr  ac
+    ld   ac, [u0]
+    ld   PRT_K >> 8, y
+    ld   PRT_K & 0xFF, x
+    ld   [y,x], ac
+    xor  [u0], ac
+    beq  pr_e
+    ld   0xFF, [y,x]
+    ld   PRT_NM >> 8, y
+    ld   [u0], ac
+    and  15, ac
+    add  0x41, ac
+    ld   (PRT_NM + 2) & 0xFF, x
+    ld   ac, [y,x]
+    ld   [u0], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    add  0x30, ac
+    ld   (PRT_NM + 1) & 0xFF, x
+    ld   ac, [y,x]
+    ld   s_prtd & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_prtd >> 8, ac
+    ld   ac, [R1]
+    CALL l_fs_open
+    bne  pr_e
+    GOTO prt_file
+pr_e:
+    LEAVE
+
+; prt_file - the file PRT_NM in the folder SCRAP, then back up.  The rest
+; of prt_load
+.chunk
+prt_file:
+    ld   PRT_NM & 0xFF, ac
+    ld   ac, [R0]
+    ld   PRT_NM >> 8, ac
+    ld   ac, [R1]
+    CALL l_fs_open
+    bne  pf_u
+    ld   PRT_BUF & 0xFF, ac
+    ld   ac, [R4]
+    ld   PRT_BUF >> 8, ac
+    ld   ac, [R5]
+    CALL l_fs_read
+    bne  pf_u
+    ld   PRT_K >> 8, y
+    ld   PRT_K & 0xFF, x
+    ld   [u0], ac
+    ld   ac, [y,x]
+pf_u:
+    ld   s_up & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_up >> 8, ac
+    ld   ac, [R1]
+    CALL l_fs_open
+    LEAVE
+
+; INSPECT's line, adj_kind's sides
+.chunk
+ADJ:
+    #d8 1, 0xFF, 0, 0, 0, 0, 1, 0xFF
+INSP_BUF:
+    #d8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 ; CND - the parts on conduits (x, y); xFF xFF free
 .chunk

@@ -6,13 +6,13 @@ gen_web_assets.py - the built-in ROM and SD card of the web emulator
 
 Writes web/default_rom.js (the 32K image, built from rom32.asm the way
 gen_rom.tcl and test_dos.py build it) and web/default_sd.js (the files of
-the sdcard/ folder, except BOOT.CFG, so the emulator
+the sdcard/ folder (and its folders), except BOOT.CFG, so the emulator
 boots to the DOS).  They are plain scripts with the bytes in base64, so
 web/index.html works when opened straight from the disk (a page opened
 from a file may not fetch other files).  Run it again after a change to
 the ROM sources or to sdcard/.
 
-Date: 11/02/2026
+Date: 11/06/2026
 """
 
 import base64
@@ -43,8 +43,13 @@ def main():
         f.write('// the 32K ROM image (rom32.asm), made by src/scripts/gen_web_assets.py\n')
         f.write('var PLACARD_DEFAULT_ROM =\n%s;\n' % wrap(base64.b64encode(rom).decode()))
     # no BOOT.CFG on the built-in card: with none, the loader runs DOS.PLC
+    # (and the files of its folders, as 'DIR/NAME': SCRAP/ holds the part text)
     files = sorted(n for n in os.listdir(SDCARD)
                    if os.path.isfile(os.path.join(SDCARD, n)) and n.upper() != 'BOOT.CFG')
+    files += sorted(d + '/' + n for d in os.listdir(SDCARD)
+                    if os.path.isdir(os.path.join(SDCARD, d))
+                    for n in os.listdir(os.path.join(SDCARD, d))
+                    if os.path.isfile(os.path.join(SDCARD, d, n)))
     with open(os.path.join(WEB, 'default_sd.js'), 'w', newline='\n') as f:
         f.write('// the files of the sdcard/ folder (no BOOT.CFG), made by src/scripts/gen_web_assets.py\n')
         f.write('var PLACARD_DEFAULT_SD = {\n')

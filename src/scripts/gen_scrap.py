@@ -37,7 +37,7 @@ THE ART
     pixels 2c (low nibble, shown first) and 2c + 1 (high nibble) of line
     pair r.  Colors are the 4 bpp palette (docs/video/COLORS.md).
 
-Date: 2026-11-05
+Date: 2026-11-06
 """
 
 import os
@@ -171,6 +171,18 @@ ART = {
             '1B777B11', '11B777B1', '111B77B1', '1111BBB1', '111BB111',
             '11BB1111', '1BB11111', 'BBBBBB11', '1B77B111', '1BBBB111',
             '11111111'],
+    'radar': ['11111111', '1BBBBBB1', 'B777777B', 'B7E7E77B', 'B777777B',
+              '1BBBBBB1', '111BB111', '111BB111', '111BB111', '11BBBB11',
+              '1B7777B1', '1B7AA7B1', '1B7777B1', '1BBBBBB1', '11111111',
+              '11111111'],
+    'pump': ['77777777', '77BBBB77', '7B8888B7', 'B888888B', 'B88BB88B',
+             'B8B77B8B', 'B88BB88B', 'B888888B', '7B8888B7', '77BBBB77',
+             '777BB777', '7EEEEEE7', '76666667', '777BB777', '77BBBB77',
+             '77777777'],
+    'intake': ['77777777', '7BBBBBB7', 'B6D6D6DB', 'BD6D6D6B', 'B6D6D6DB',
+               'BD6D6D6B', 'B6D6D6DB', '7BBBBBB7', '777BB777', '777BB777',
+               '7DDDDDD7', '76666667', '777BB777', '777BB777', '77BBBB77',
+               '77777777'],
     'player': ['77777777', '77AAAA77', '7AA88AA7', '7A8888A7', '7AA88AA7',
                '77AAAA77', '7BAAAAB7', 'BAAAAAAB', 'BAAEEAAB', 'BAAAAAAB',
                '7BAAAAB7', '77AAAA77', '7AA77AA7', '7AA77AA7', '7BB77BB7',
@@ -308,11 +320,11 @@ TYPES = [
      ['MAIN THRUSTER, 2 KN', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
       'SKILLS: MECHANICAL, HYDRAULICS'], [A_INSPECT],
      'A THRUSTER NOZZLE, BLACK WITH SOOT.'),
-    ('FUEL', 'fuel', 'FUEL TANK', F_DMG | F_ITEM | F_INST,
-     ['FUEL TANK, 400 L', '\x01', 'HEAVY: TAKES ONE CARRY SLOT', 'SKILL: HYDRAULICS'], [A_INSPECT],
-     'A FUEL TANK.  IT SLOSHES WHEN YOU KNOCK.'),
+    ('FUEL', 'fuel', 'NITROGEN TANK', F_DMG | F_ITEM | F_INST,
+     ['THRUSTER GAS, 400 L', '\x01', 'THE THRUSTERS DRAW IT BY AN INTAKE', 'SKILL: HYDRAULICS'], [A_INSPECT],
+     'A NITROGEN TANK.  IT HISSES FAINTLY AT THE VALVE.'),
     ('SCRUB', 'scrub', 'AIR SCRUBBER', F_DMG | F_ITEM | F_INST,
-     ['CO2 SCRUBBER', '\x01', 'WITH AN O2 TANK INSTALLED: AIR',
+     ['CO2 SCRUBBER', '\x01', 'WITH AN O2 TANK AND A PUMP: AIR',
       'SKILLS: HYDRAULICS, ELECTRICAL'], [A_INSPECT],
      'AN AIR SCRUBBER.  THE FILTERS NEED CHANGING.'),
     ('BREACH', 'breach', 'HULL BREACH', F_WALK | F_SOLID | F_VAC,
@@ -340,7 +352,6 @@ TYPES = [
       'SKILL: MECHANICAL'], [A_INSPECT],
      'A STEEL DECK PLATE.  IT RINGS WHEN YOU TAP IT.'),
     ('PLAYER', 'player', 'YOU', 0, [], [], ''),
-    # (after the player: their art is ART2, past the art pages)
     ('COND', 'cond', 'CONDUIT SECTION', F_DMG | F_ITEM | F_INST,
      ['A LENGTH OF POWER CONDUIT', '\x01', 'INSTALLED ON A DECK: A CONDUIT',
       'SKILL: ELECTRICAL'], [A_INSPECT],
@@ -349,8 +360,21 @@ TYPES = [
      ['DISH ANTENNA, LONG RANGE', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
       'WORKING ON THE TUG: COMMS'], [A_INSPECT],
      'A DISH ANTENNA.  IT STILL TRACKS THE SKY.'),
+    ('RADAR', 'radar', 'RADAR ARRAY', F_DMG | F_SOLID | F_ITEM,
+     ['SHORT RANGE SEARCH RADAR', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
+      'DAMAGED, IT SEES LESS (NAVIGATION)'], [A_INSPECT],
+     'A RADAR ARRAY.  ONE PANEL IS DENTED.'),
+    ('PUMP', 'pump', 'AIR PUMP', F_DMG | F_ITEM | F_INST,
+     ['FEEDS THE AIR FROM AN O2 TANK', '\x01', 'GOES NEXT TO AN O2 TANK',
+      'SKILLS: HYDRAULICS, MECHANICAL'], [A_INSPECT],
+     'AN AIR PUMP.  IT CLICKS EVERY FEW SECONDS.'),
+    ('INTAKE', 'intake', 'GAS INTAKE', F_DMG | F_ITEM | F_INST,
+     ['FEEDS THE THRUSTERS NITROGEN', '\x01', 'GOES NEXT TO A NITROGEN TANK',
+      'SKILL: HYDRAULICS'], [A_INSPECT],
+     'A GAS INTAKE.  ITS FILTER IS CAKED WITH FROST.'),
 ]
-ART_PAGES = 7                       # x3900-x3FFF: the first 28 types' art; the rest ART2
+KINDS_MAX = 64                      # the map's kind field is 6 bits
+ROOMS_MAX = 32                      # the room field is 5 bits (room 0 is vacuum)
 TYPE = {t[0]: i for i, t in enumerate(TYPES)}
 # the player's skills: the ones a part needs set how long a job on it takes
 # (uninstall, install, repair); a job done raises them (job_start, sk_gain)
@@ -358,17 +382,18 @@ SKILLS = ['MECHANICAL', 'ELECTRICAL', 'NUCLEAR', 'COMPUTERS', 'HYDRAULICS', 'SUI
 SK_M, SK_E, SK_N, SK_C, SK_H, SK_SUIT = 1, 2, 4, 8, 16, 32
 SKILL_START = 10                    # every skill at the start (0-99)
 SKILL_MAX = 99
-SK_LV, SK_PR = 0x36E0, 0x36E8       # in RAM (ACT_PAGE): the levels, their progress
+_ACT = 0x40 - (len(TYPES) + 3) // 4 - 2   # ACT_PAGE (below)
+SK_LV, SK_PR = _ACT << 8 | 0xE0, _ACT << 8 | 0xE8   # in RAM: the levels, their progress
 NEEDS = {'FLOOR': SK_M, 'WALL': SK_M, 'DOOR': SK_M | SK_H, 'DOORO': SK_M | SK_H,
          'O2': SK_H, 'O2E': SK_H, 'REACT': SK_N | SK_E, 'BATT': SK_E, 'CRATE': SK_M,
          'BUNK': SK_M, 'HELM': SK_C | SK_E, 'LOCKER': SK_M, 'TURRET': SK_C | SK_M,
          'PIPE': SK_E, 'VENT': SK_M, 'LOCK': SK_M | SK_H, 'SUIT': SK_M,
          'THRUST': SK_M | SK_H, 'FUEL': SK_H, 'SCRUB': SK_H | SK_E, 'CUTTER': SK_E,
          'PANEL': SK_M, 'DOORK': SK_M | SK_H, 'PLATE': SK_M, 'COND': SK_E,
-         'ANT': SK_C | SK_E}
+         'ANT': SK_C | SK_E, 'RADAR': SK_C | SK_E, 'PUMP': SK_H | SK_M, 'INTAKE': SK_H}
 # where a carried part installs from the inventory (bits 7:6 of TB_SKILL):
 # 1 open space, 2 a bare deck, 3 either; 0 it does not install
-WHERE = {'PLATE': 1, 'THRUST': 1, 'ANT': 1, 'PANEL': 3, 'DOORK': 3}
+WHERE = {'PLATE': 1, 'THRUST': 1, 'ANT': 1, 'RADAR': 1, 'PANEL': 3, 'DOORK': 3}
 WHERE.update({t[0]: 2 for t in TYPES if t[3] & F_INST and t[0] not in WHERE})
 O2_SECS = 7                         # the suit uses 1 L every 7 s (scrap.masm O2_SECS): 10.5 min
 REPAIR_FRAMES = 15                  # a damage step, at full speed (scrap.masm: 16 s - s)
@@ -433,11 +458,12 @@ def skill_gain(lv, pr, mask, suit_on):
 VALUE = {'O2': 20, 'O2E': 8, 'REACT': 250, 'BATT': 30, 'CRATE': 15, 'BUNK': 5,
          'HELM': 60, 'LOCKER': 6, 'TURRET': 40, 'THRUST': 50, 'FUEL': 25,
          'SCRUB': 35, 'CUTTER': 12, 'PANEL': 3, 'DOORK': 8, 'PLATE': 2,
-         'COND': 4, 'ANT': 45}
+         'COND': 4, 'ANT': 45, 'RADAR': 55,
+         'PUMP': 18, 'INTAKE': 14}
 TUG = (0, 18, TUG_LOCK[0], 46)      # the tug's cells, x0, y0, x1, y1 (its value, its systems,
                                     # room to build on round its hull)
 AIR_FULL = 100                      # a room's pressure: 100 = 1 atmosphere
-assert len(TYPES) <= 32
+assert len(TYPES) <= KINDS_MAX
 assert all(len(line) <= 40 for t in TYPES for line in t[4])   # the menu is from column 42
 assert all(len(name) <= 14 for name in ACTIONS.values())       # " 1: " + 14 = a menu column
 
@@ -668,6 +694,13 @@ def build_map(seed=9):
     d[TUG_ANT[1]][TUG_ANT[0]] = 7       #   works, barely (56 %): you can head out at once
     t[5][50] = TYPE['ANT']              # the wreck's, on its hull: working
     d[5][50] = 2
+    for x, y, k, s in ((15, 35, 'PUMP', 1),       # the tug's air pump, by its O2 tank
+                       (28, 28, 'INTAKE', 2),     # its gas intake, by a nitrogen tank
+                       (27, 25, 'RADAR', 6),      # its radar, on the hull: dented
+                       (53, 36, 'PUMP', 4),       # the wreck's, by its O2 row
+                       (49, 51, 'INTAKE', 3), (53, 55, 'INTAKE', 9)):
+        t[y][x] = TYPE[k]
+        d[y][x] = s
     return t, d
 
 
@@ -699,7 +732,7 @@ def rooms(t, d=None):
         for x in range(MAP_W):
             if rid[y][x] or solid(TYPES[t[y][x]][0]):
                 continue
-            n = min(n + 1, 63)
+            n = min(n + 1, ROOMS_MAX - 1)   # room 33 on: shares room 31 (for now)
             todo = [(x, y)]
             rid[y][x] = n
             while todo:
@@ -743,7 +776,7 @@ def rooms(t, d=None):
 
 
 def encode(t, d):
-    """the map bytes: type byte = type (bits 4:0) | room bits 5:4 at 6:5 |
+    """the map bytes: type byte = type (bits 5:0) | room bit 4 at 6 |
     bit 7 (a part: bolted, in the tug installed; an open door: held open);
     flag byte =
     damage (3:0) | room bits 3:0 at 7:4"""
@@ -756,7 +789,7 @@ def encode(t, d):
             # every part starts bolted (in the tug: installed); a door
             # that starts open is held open
             bolted = TYPES[t[y][x]][3] & F_ITEM or TYPES[t[y][x]][0] == 'DOORO'
-            ty[y][x] = t[y][x] | (r >> 4) << 5 | (0x80 if bolted else 0)
+            ty[y][x] = t[y][x] | (r >> 4) << 6 | (0x80 if bolted else 0)
             fl[y][x] = d[y][x] | (r & 15) << 4
     return ty, fl
 
@@ -791,12 +824,18 @@ def art_bytes(name):
 # ------------------------------------------------------------------
 # scrap_types.asm, scrap_data.masm
 # ------------------------------------------------------------------
-ART_PAGE = 0x39          # x3900: art, 4 cells a page (7 pages: x3900-x3FFF)
-TAB_PAGE = 0x38          # x3800: info pointers (t * 4 + i), lo then hi
-TAB2_PAGE = 0x37         # x3700: the small tables
-ACT_PAGE = 0x36          # x3600: actions per type, action strings
-ROOM_PAGE = 0x35         # x3500: damage bars, the rooms
-DOOR_PAGE = 0x34         # x3400: the doors
+# the fixed pages, down from x3FFF: the art (4 kinds a page), then the
+# tables; the program's x2000 region ends at DOOR_PAGE (scrap.masm .region)
+ART_PAGE = 0x40 - (len(TYPES) + 3) // 4
+ACTS_PAGE = ART_PAGE - 1  # the actions of each kind (4t + i)
+ACT_PAGE = ART_PAGE - 2   # the skills each kind needs, action strings, RAM from xE0
+TAB2_PAGE = ART_PAGE - 3  # flags, names, worth of each kind
+ROOM_PAGE = ART_PAGE - 4  # damage bars, health and works strings, the rooms
+DOOR_PAGE = ART_PAGE - 5  # the doors
+PRT_DIR = 'SCRAP'        # sdcard/SCRAP/Knn: the info lines and INSPECT line of
+PRT_REC = 256            #   kinds 2k, 2k + 1 (prt_load), 256 bytes each:
+PRT_LINE = 48            #   line i at 48 i (40 characters at most), INSPECT at 192
+PRT_INSP = 192
 
 
 def asm_string(s):
@@ -837,18 +876,19 @@ def write_sources():
     lines += ['SK_M       = %d' % SK_M, 'SK_SUIT    = %d' % SK_SUIT,
               'SKILL_START = %d' % SKILL_START, 'SKILL_MAX  = %d' % SKILL_MAX,
               'REPAIR_FRAMES = %d' % REPAIR_FRAMES, 'CRATE_COL  = %d' % CRATE_COL,
-              'TB_SKILL   = 0xC0          ; ACT_PG + t: the skills a part needs (bit k skill k)',
+              'TB_SKILL   = 0x00          ; ACT_PG + t: the skills a part needs (bit k skill k)',
               'SK_LV      = 0x%04X        ; the skill levels (6), then SK_PR: their progress' % SK_LV,
               'SK_PR      = 0x%04X' % SK_PR]
-    lines += ['ART_PG     = 0x%02X' % ART_PAGE, 'ART_N      = %d          ; art pages (then ART2)' % ART_PAGES,
-              'INFO_PG    = 0x%02X        ; x%02X00 + 4t + i: info line i, low bytes; + x80 high' % (TAB_PAGE, TAB_PAGE),
+    lines += ['ART_PG     = 0x%02X' % ART_PAGE,
               'TAB_PG     = 0x%02X' % TAB2_PAGE,
-              'TB_FLAGS   = 0x00          ; + t', 'TB_NAMEL   = 0x20', 'TB_NAMEH   = 0x40',
-              'TB_INSPL   = 0x60', 'TB_INSPH   = 0x80',
-              'TB_DMGL    = 0xA0          ; + damage step', 'TB_DMGH    = 0xB0',
-              'TB_WRKL    = 0xC0', 'TB_WRKH    = 0xD0',
-              'TB_VAL     = 0xE0          ; + t: worth undamaged, in $10',
-              'ACT_PG     = 0x%02X          ; + 4t + i: action i of type t (0 none)' % ACT_PAGE,
+              'TB_FLAGS   = 0x00          ; + t', 'TB_NAMEL   = 0x40', 'TB_NAMEH   = 0x80',
+              'TB_VAL     = 0xC0          ; + t: worth undamaged, in $10',
+              'TB_DMGL    = 0x60          ; ROOM_PG + damage step: the health string', 'TB_DMGH    = 0x70',
+              'TB_WRKL    = 0xA0          ; ROOM_PG + damage step: the works string', 'TB_WRKH    = 0xB0',
+              'ACTS_PG    = 0x%02X          ; + 4t + i: action i of type t (0 none)' % ACTS_PAGE,
+              'ACT_PG     = 0x%02X' % ACT_PAGE,
+              'PRT_LINE   = %d          ; prt_load: info line i at PRT_BUF + 256 (t & 1) + 48 i' % PRT_LINE,
+              'PRT_INSP   = %d          ;   the INSPECT line' % PRT_INSP,
               'TB_ASTRL   = 0x80          ; + action code', 'TB_ASTRH   = 0xA0',
               'BAR_PG     = 0x%02X          ; + step: bar string low; + x10 high' % ROOM_PAGE,
               'ROOM_PG    = 0x%02X' % ROOM_PAGE,
@@ -877,8 +917,8 @@ def write_sources():
 
     # art pages
     arts = [art_bytes(ty[1]) for ty in TYPES]
-    assert len(arts) <= 4 * ART_PAGES + 4    # ART2: 4 more at most (draw_cell)
-    for p in range(ART_PAGES):
+    assert ART_PAGE + (len(arts) + 3) // 4 <= 0x40
+    for p in range((len(arts) + 3) // 4):
         d.append('.fixed 0x%02X00' % (ART_PAGE + p))
         if p == 0:
             d.append('ART:')
@@ -890,63 +930,35 @@ def write_sources():
                 for o in range(0, 64, 16):
                     d.append('    #d8 ' + ', '.join('0x%02X' % v for v in b[o:o + 16]))
         d.append('')
-    d += ['.chunk', 'ART2:']          # the types after the art pages (draw_cell)
-    for i in range(4 * ART_PAGES, len(arts)):
-        d.append('; %s' % TYPES[i][0])
-        d += ['    #d8 ' + ', '.join('0x%02X' % v for v in arts[i][o:o + 16]) for o in range(0, 64, 16)]
-    d.append('')
-    # info pointers
-    info_lo, info_hi = ['0'] * 128, ['0'] * 128
-    for i, ty in enumerate(TYPES):
-        for k, line in enumerate(ty[4][:4]):
-            lab = sref('zi_%d_%d' % (i, k), line)
-            info_lo[4 * i + k] = lab + ' & 0xFF'
-            info_hi[4 * i + k] = lab + ' >> 8'
-    for i, line in enumerate(PLAYER_INFO):
-        lab = sref('zi_pl_%d' % i, line)
-        info_lo[4 * TYPE['PLAYER'] + i] = lab + ' & 0xFF'
-        info_hi[4 * TYPE['PLAYER'] + i] = lab + ' >> 8'
-    d.append('.fixed 0x%02X00' % TAB_PAGE)
-    d.append('INFO_TAB:')
-    for o in range(0, 128, 8):
-        d.append('    #d8 ' + ', '.join(info_lo[o:o + 8]))
-    for o in range(0, 128, 8):
-        d.append('    #d8 ' + ', '.join(info_hi[o:o + 8]))
-    d.append('')
     # the small tables
     tab = ['0'] * 256
 
-    def setp(base, idx, lab):
-        tab[base + idx] = lab + ' & 0xFF'
-        tab[base + 0x20 + idx] = lab + ' >> 8'
-
     for i, ty in enumerate(TYPES):
         tab[i] = str(ty[3])
-        setp(0x20, i, sref('zn_%d' % i, ty[2]))
-        setp(0x60, i, sref('zx_%d' % i, ty[6] if ty[0] != 'PLAYER' else PLAYER_INSPECT))
-    for st in range(16):
-        lab = sref('zd_%d' % st, health_pct(st))
-        tab[0xA0 + st] = lab + ' & 0xFF'
-        tab[0xB0 + st] = lab + ' >> 8'
-        lab = sref('zw_%d' % st, works(st))
-        tab[0xC0 + st] = lab + ' & 0xFF'
-        tab[0xD0 + st] = lab + ' >> 8'
-    for i, ty in enumerate(TYPES):
-        tab[0xE0 + i] = str(VALUE.get(ty[0], 0))
+        lab = sref('zn_%d' % i, ty[2])
+        tab[0x40 + i] = lab + ' & 0xFF'
+        tab[0x80 + i] = lab + ' >> 8'
+        tab[0xC0 + i] = str(VALUE.get(ty[0], 0))
     d.append('.fixed 0x%02X00' % TAB2_PAGE)
     d.append('TAB:')
     for o in range(0, 256, 8):
         d.append('    #d8 ' + ', '.join(tab[o:o + 8]))
     d.append('')
     # actions per type, the action strings
-    act = ['0'] * 256
+    acts_t = ['0'] * 256
     for i, ty in enumerate(TYPES):
         acts = ty[5] if ty[0] != 'PLAYER' else PLAYER_ACTIONS
         for k, a in enumerate(acts[:4]):
-            act[4 * i + k] = str(a)
-    assert SK_LV >> 8 == ACT_PAGE and SK_LV & 0xFF >= 0xC0 + len(TYPES)
+            acts_t[4 * i + k] = str(a)
+    d.append('.fixed 0x%02X00' % ACTS_PAGE)
+    d.append('ACTS_TAB:')
+    for o in range(0, 256, 8):
+        d.append('    #d8 ' + ', '.join(acts_t[o:o + 8]))
+    d.append('')
+    act = ['0'] * 256
+    assert SK_LV >> 8 == ACT_PAGE and SK_LV & 0xFF >= 0xC0 and len(TYPES) <= 0x40
     for i, ty in enumerate(TYPES):
-        act[0xC0 + i] = str(NEEDS.get(ty[0], 0) | WHERE.get(ty[0], 0) << 6)
+        act[i] = str(NEEDS.get(ty[0], 0) | WHERE.get(ty[0], 0) << 6)
     for a, txt in ACTIONS.items():
         lab = sref('za_%d' % a, txt)
         act[0x80 + a] = lab + ' & 0xFF'
@@ -968,9 +980,17 @@ def write_sources():
         lab = sref('zs_%d' % st, seal(st))
         rm[0x20 + st] = lab + ' & 0xFF'
         rm[0x30 + st] = lab + ' >> 8'
+    assert len(press) <= ROOMS_MAX and len(leaks) < ROOMS_MAX
     for r, pr in enumerate(press):
         rm[0x40 + r] = str(pr)
         rm[0x80 + r] = '1' if r in tug else '0'
+    for st in range(16):
+        lab = sref('zd_%d' % st, health_pct(st))
+        rm[0x60 + st] = lab + ' & 0xFF'
+        rm[0x70 + st] = lab + ' >> 8'
+        lab = sref('zw_%d' % st, works(st))
+        rm[0xA0 + st] = lab + ' & 0xFF'
+        rm[0xB0 + st] = lab + ' >> 8'
     for k, r in enumerate(leaks):
         rm[0xC0 + k] = str(r)
     d.append('.fixed 0x%02X00' % ROOM_PAGE)
@@ -1188,8 +1208,47 @@ def write_ovl(path=None):
     return data
 
 
+def prt_name(k):
+    """the SD file of kinds 2k, 2k + 1 (prt_load): K0A, K0B ... K1P"""
+    return 'K%c%c' % (0x30 + k // 16, 0x41 + k % 16)
+
+
+def prt_files():
+    """{name: 512 bytes}: the info lines and INSPECT line of each kind"""
+    out = {}
+    for k in range((len(TYPES) + 1) // 2):
+        data = bytearray(2 * PRT_REC)
+        for j in range(2):
+            if 2 * k + j >= len(TYPES):
+                continue
+            ty = TYPES[2 * k + j]
+            info, insp = ty[4], ty[6]
+            assert len(info) <= 4 and len(insp) < 64, ty[0]
+            for i, ln in enumerate(info):
+                assert len(ln) <= 40, ln
+                b = ln.encode('latin-1')
+                data[PRT_REC * j + PRT_LINE * i:PRT_REC * j + PRT_LINE * i + len(b)] = b
+            b = insp.encode('latin-1')
+            data[PRT_REC * j + PRT_INSP:PRT_REC * j + PRT_INSP + len(b)] = b
+        out[prt_name(k)] = bytes(data)
+    return out
+
+
+def write_prt():
+    d = os.path.join(SDCARD, PRT_DIR)
+    os.makedirs(d, exist_ok=True)
+    for f in os.listdir(d):
+        if f.startswith('K'):
+            os.remove(os.path.join(d, f))
+    files = prt_files()
+    for name, data in files.items():
+        open(os.path.join(d, name), 'wb').write(data)
+    return files
+
+
 def main():
     write_sources()
+    write_prt()
     write_inv_data()
     data = write_ovl()
     print('scrap_types.asm, scrap_data.masm, scrap_inv_data.masm, scrap_map.bin (%d bytes)' % len(data))
