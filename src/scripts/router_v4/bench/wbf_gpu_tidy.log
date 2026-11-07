@@ -1,0 +1,17 @@
+grid 4688 3472
+rasterised 1583 items 0.9 s
+WORKERS 8 -> 1 (available memory 8.4 GB)
+net pass 0: 76 nets improved, cost gain 4636, 872 s
+net pass 1: 11 nets improved, cost gain 536, 874 s
+pass 0: 129 chains improved, 0 dropped, cost gain 5912, 303 s
+pass 1: 56 chains improved, 0 dropped, cost gain 4643, 356 s
+pass 2: 21 chains improved, 0 dropped, cost gain 557, 387 s
+pass 3: 3 chains improved, 0 dropped, cost gain 18, 389 s
+pair pass 0: 81 chain pairs improved, cost gain 5150, 811 s
+pair pass 1: 20 chain pairs improved, cost gain 809, 831 s
+pair pass 2: 6 chain pairs improved, cost gain 124, 833 s
+pair pass 3: 0 chain pairs improved, cost gain 0, 841 s
+vias 645 -> 572, cells 630902 -> 629302, 7640 s
+wrote wbf_gpu_tidy.kicad_pcb segments 4515 vias 572
+corners 3135, chamfered 634 (255 nets), 2 kept for a junction on the leg, zero-length tracks dropped 124; wrote wbf_gpu_c45.kicad_pcb
+Counter({'add': 1199}) via in pad: 0

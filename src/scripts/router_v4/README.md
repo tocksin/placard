@@ -242,13 +242,30 @@ pass is split over N worker processes, each with its own copy of the grid, tidyi
 accepts each worker's changes as transactions (a pair move is one transaction) when the new copper is still free of all other
 copper, drops a transaction that collides with another worker's accepted change (retried in an extra pass, up to twice the
 pass count), and sends the accepted state to every worker. `WORKERS=1` is the sequential pass, bit-for-bit as before.
-r1 coarse rung VIA 400 with 3 workers (4-core container): 27.85 m / 520 vias in 11.4 min against 28.05 m / 514 in 31 min
-sequentially; the first attempt that merged net by net lost the pair moves across workers (569 vias). The result is not
-identical to the sequential pass (moves happen in another order) but of the same kind. Justin's laptop (24 cores, 15.7 GB)
-can run about 4 fine-grid workers before the memory cap bites; the cap keeps it from swapping.
+r1 coarse ladder with 3 workers (4-core container): 520 / 502 / 484 vias for 27.85 / 28.08 / 27.95 m in 25 min against
+514 / 506 / 502 vias and 28.2 m in about 95 min sequentially (the conflict-retry passes find a few more moves); the first
+attempt that merged net by net lost the pair moves across workers (569 vias). The result is not identical to the sequential
+pass (moves happen in another order) but of the same kind. A fine-grid whole-board worker needs about 3.7 GB, so on Justin's
+laptop (24 cores but 15.7 GB, 8 GB free) the cap gave WORKERS 8 -> 1 and the whole-board ladder below ran sequentially;
+slimmer workers (read-only grid arrays in shared memory, no board text or shapes in the workers) are the next step.
 
 Whole-board fine grid (`run_wb_fine.bat`: router VIA 240, tidy VIA 400 + `AGAINST=2` as the first ladder rung, then
 `LADDER=800 1600`, corner45, score and snap after each rung; `STAGE=route` / `STAGE=tidy` run the two halves separately):
 the first run on the laptop filled the 8 GB card by iteration 2 (the cupy pool kept every launch's buffers; iterations went
-from 19 to 85 min) and was stopped; `mroute4.py` now frees the pool after every launch. The rerun is in progress; its
-results (`bench/wbf_*`) are reported in a follow-up.
+from 19 to 85 min) and was stopped; `mroute4.py` now frees the pool after every launch (rerun: peak 7.0 GB). The rerun
+(laptop RTX 4070, `bench/wbf_gpu*`; same wb bench as round 4, which is the board before the expansion redesign, so these are
+benchmark boards, not swappable into the project):
+
+| whole board, fine grid | track | vias (scope) | detour > 2 | time | coarse grid (round 4) |
+|---|---|---|---|---|---|
+| router (`wbf_gpu.score`) | 39.33 m | 645 | 1 | 6.0 h | 39.44 m / 685 |
+| + tidy VIA 400 (`wbf_gpu_tidy.score`, `wbf_results.kicad_pcb.zip`) | 38.89 m | 572 | 1 | 2.1 h | 39.54 m / 588 |
+| + VIA 800 (`wbf_gpu_v800.score`, `wbf_v800_results.kicad_pcb.zip`) | 39.38 m | 531 | 2 | 2.1 h | 39.98 m / 541 |
+| + VIA 1600 (`wbf_gpu_v1600.score`, `wbf_v1600_results.kicad_pcb.zip`) | 39.98 m | 506 | 3 | 1.8 h | 40.51 m / 524 |
+
+The fine grid ends 0.5 m shorter with 18 fewer vias than the coarse ladder (or, at the coarse VIA 800 length of 39.98 m,
+with 35 fewer vias). KiCad 9 DRC on the VIA 1600 board (zones refilled, `wbf_v1600_c45_drc.json`): 0 clearance faults,
+0 unconnected (the only entries are the library-path notes of the container). The router's 6 h are dominated by two
+iterations of 55 min (12 and 16) when only a handful of board-spanning nets were left: one CUDA block per net on a
+board-sized window; splitting those searches over several blocks, or filling each launch with spatially disjoint nets, is
+the other next step.
