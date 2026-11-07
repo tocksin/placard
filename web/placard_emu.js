@@ -1012,8 +1012,15 @@ function makeFat16(files, sizeKb, label) {
         if (folders.has(path)) return folders.get(path);
         const cut = path.lastIndexOf('/');
         const parent = folder(cut < 0 ? '' : path.slice(0, cut));
-        const first = alloc(clusterBytes);
-        const d = new Uint8Array(clusterBytes);
+        // big enough for its entries ("." and "..", files and folders in it)
+        const kids = new Set();
+        for (const k in files) {
+            const q = k.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+            if (q.startsWith(path + '/')) kids.add(q.slice(path.length + 1).split('/')[0]);
+        }
+        const size = Math.ceil((kids.size + 2) * 32 / clusterBytes) * clusterBytes;
+        const first = alloc(size);
+        const d = new Uint8Array(size);
         d.set(dirEntry('.          ', 0x10, first, 0), 0);
         d.set(dirEntry('..         ', 0x10, parent.cluster, 0), 32);
         const f = { buf: d, next: 64, cluster: first };

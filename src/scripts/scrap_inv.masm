@@ -612,15 +612,6 @@ ia5_a:
     shl
     shl
     ld   ac, [dc_ai]
-    ld   [dc_ap], ac            ; past the art pages: ART2
-    xor  ART_PG + ART_N, ac
-    bne  ia5_r
-    ld   ART2 >> 8, ac
-    ld   ac, [dc_ap]
-    ld   [dc_ai], ac
-    add  ART2 & 0xFF, ac
-    ld   ac, [dc_ai]
-ia5_r:
     clr  ac                     ; a broken part in a hand or on the back:
     ld   ac, [ip_k]             ;   cracked
     ld   [v7], ac

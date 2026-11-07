@@ -7,7 +7,7 @@ back, and build it into your own ship.  It is not in the demo menu: pick
 it in the DOS's file browser and press Enter ([DOS.md](DOS.md)), or set
 `BOOT.CFG` = `SCRAP.PLC` to run it at power-up.
 
-Date: 2026-11-05
+Date: 2026-11-06
 
 The design (proposal, phases, mock-ups) is the SCRAPWRIGHT design doc.
 This is **phase 3**: the walkable wreck with the mouse panel (phase 2),
@@ -48,7 +48,7 @@ need you next to it, diagonals count):
 | WALK HERE | walks toward the cell, across first, then up or down |
 | INSPECT | a line about it on the message row |
 | UNINSTALL | a part INSTALLED in the wreck: the cutter does it, in 1.5 s and 5 % of the suit battery, and needs a working cutter in a hand.  Walking away stops it.  The wreck's walls, decks and doors uninstall the same way, into a wall panel, a door kit or a deck plate.  INSTALLED in the tug: 1 s by hand (no cutter).  Either way it is LOOSE then.  On the tug the walls, decks and doors uninstall too (not the cell you stand on): a wall leaves a WALL PANEL lying on the deck, a door a PRESSURE DOOR kit, and a deck goes into a free carry slot as a SPARE PLATE, leaving open space.  A power conduit uninstalls into a loose CONDUIT SECTION lying on the deck |
-| INSTALL | a LOOSE ship part lying on a deck, in the tug or in a wreck (O2 tank, scrubber, battery, fuel tank, helm, bunk, locker): 1 s, then it is INSTALLED (on the tug's cells it is part of the tug).  A wall panel installs as a wall, a door kit as a closed door, a conduit section as a power conduit in the deck.  Cargo and the cutter can't be installed.  Carried parts install from the inventory (below) |
+| INSTALL | a LOOSE ship part lying on a deck, in the tug or in a wreck (O2 tank, scrubber, battery, nitrogen tank, air pump, gas intake, helm, bunk, locker, radar): 1 s, then it is INSTALLED (on the tug's cells it is part of the tug).  A wall panel installs as a wall, a door kit as a closed door, a conduit section as a power conduit in the deck.  Cargo and the cutter can't be installed.  Carried parts install from the inventory (below) |
 | LAY DECK PLATE | open space next to you, with a deck plate in a carry slot: it is a deck now |
 | REPAIR | a damaged part, wall, deck or door next to you: 0.25 s a damage step at full speed (see **Skills**), its health bar rising a step at a time (no job bar), until it is at 100 %.  Walking away stops it, and the steps done stay done.  A wall or door repaired to 50 % stops leaking |
 | SKILLS | on yourself: your six skill levels on the message row |
@@ -83,18 +83,20 @@ time from the part's skills), in the tug or in a wreck alike:
 
 | Part | Goes on |
 |------|---------|
-| O2 tank, scrubber, battery, fuel tank, helm, bunk, locker | a deck or a power conduit |
+| O2 tank, scrubber, battery, nitrogen tank, helm, bunk, locker | a deck or a power conduit |
+| air pump | a deck or a power conduit next to an O2 tank |
+| gas intake | a deck or a power conduit next to a nitrogen tank |
 | conduit section (a power conduit) | a deck (not a conduit already) |
 | wall panel (a wall), pressure door (a closed door) | a deck, a power conduit or open space |
-| spare deck plate (a deck), thruster, comms antenna | open space |
+| spare deck plate (a deck), thruster, comms antenna, radar array | open space |
 
-A thruster or an antenna uninstalls too (in a wreck with the cutter): it
+A thruster, an antenna or a radar uninstalls too (in a wreck with the cutter): it
 goes straight into a free carry slot and leaves open space, like a deck
 plate.
 
 **What is under a part.**  A part stands on a deck (or a power conduit
-in one), all but those that go on open space (a thruster, an antenna)
-and the wall turret.  A part can't be put down or installed on a broken
+in one), all but those that go on open space (a thruster, an antenna,
+a radar) and the wall turret.  A part can't be put down or installed on a broken
 deck (under 50 % health), so the deck under a part is never broken and
 its damage is not kept.  The map holds one type a cell, so the game
 keeps a list (CND, 24 at most) of the cells where a part stands on a
@@ -140,15 +142,29 @@ the airlock.
 the tug's cells: a part you put down there is loose, and does nothing
 until you INSTALL it.  Hovering yourself shows the tug's worth (each
 installed part's value, less with damage; its hull fittings too) and
-whether it has air: it needs a working O2 tank and a scrubber installed.
+whether it has air: it needs a working O2 tank with a working air pump
+installed next to it, and a scrubber.
 With air, the tug tops up its rooms and fills your suit (3 L a second),
 and with a battery installed it charges your suit.  Uninstall its O2
-tank and the tug has no air until you install one again.
+tank (or its pump) and the tug has no air until you install one again.
+
+**Nitrogen.**  The thrusters burn nitrogen.  A nitrogen tank feeds them
+through a working gas intake installed next to it (a side, not a
+corner), and the fuel the navigation mode will have is the nitrogen in
+the tanks with a working intake by them.  The tug starts with two
+nitrogen tanks, an intake by one, a pump by its O2 tank and a dented
+radar array on its hull; the KESTREL 9 has a pump by its O2 row
+and intakes in its nitrogen room.  The radar does nothing yet: it is for
+the navigation mode.
 
 **Building.**  The tug is the cells x 0-29, y 18-46: its hull and the
 space round it, so it can grow there.  Take walls out to join rooms, lay
 deck plates on open space and put walls and doors round them to add
 rooms.  Every change to a wall, deck or door works the rooms out again.
+There are 31 rooms at most on the map (vacuum is room 0 and costs none);
+for now a 32nd and later room shares room 31's air (a later phase
+refuses the build instead).  Stations will keep to about 16 rooms, so
+your ship has room to grow.
 
 **Air.**  Each room (the cells joined side by side) has a pressure of
 0-100.  `rooms_build` works the rooms out at the start and after every
@@ -212,29 +228,29 @@ a jammed shut armory door and a jammed open med bay door.
 
 | Address | What |
 |---------|------|
-| x0100-x33FF | the program (asm_expand.py pages it) |
+| x0100-x31FF | the program (asm_expand.py pages it) |
 | even pages xC0-xFE | more of the program: code and strings that `SCRAP.OVL` brings in after the map (asm_expand.py's overlay region, as in the tracker) |
-| x3400-x38FF | tables (gen_scrap.py): the doors, damage bars and rooms, actions, the skills each part needs, names and values, info lines |
-| x36E0-x36ED | the skill levels (6) and their progress (6) |
-| x36F0-x36FB | the panel's actions (8), the job's bar (its 16th, the 16ths done, the work left at the next) |
-| x3900-x3FFF | the cell art, 4 cells a page (the first 28 kinds; the conduit section and the antenna are ART2, in the program) |
+| x3200-x36FF | tables (gen_scrap.py), a page each: the doors (x32); damage bars, health strings and the rooms (x33); flags, names and values (x34); the skills each kind needs and the action strings (x35); the actions of each kind (x36).  They are placed down from the art, so each new kind of part can move them a page lower (gen_scrap.py works the pages out; the test checks the program's region still ends at them) |
+| x35E0-x35ED | the skill levels (6) and their progress (6) |
+| x35F0-x35FE | the panel's actions (8), the job's bar (its 16th, the 16ths done, the work left at the next), the O2 tank sum, `N_ANT`, which part text is loaded (`PRT_K`) |
+| x3700-x3FFF | the cell art, 4 kinds a page, the last kind at the top (kind t at x4000 - 64 (n - t) for n kinds rounded up to 4) |
 | x4000-x407F | each room's pressure, and whether it is cold |
 | x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |
 | x4100-x4CFF | while the inventory is up: `SCRAP.INV` (`scrap_inv.masm`: its screen, font, pointer and routines; 6 sectors at most), read from the card each time it opens; a rebuild of the rooms waits until it closes |
-| x5400-x55FF | sector buffer for loading `SCRAP.OVL`, then more of the program: the file's last sector is read into it and stays |
+| x5400-x55FF | sector buffer for loading `SCRAP.OVL`, then the part text of the panel's kind (two kinds, one sector of `SCRAP/Kxy`) |
 | x5600-x59FF | more of the program: `SCRAP.OVL`'s pages after xFE, the mouse pointer (its art, what is under it), a repair's steps and what overflows |
 | x5C00-x5DF2 | more of the program (`SCRAP.OVL`'s next 2 pages; the start of the audio buffer, x5DF3-x5DFF, is set to silence again after the load): what overflows |
 | even pages x60-xBE | the map: 96 x 64 cells in 24 chunks of 16 x 16 |
 | odd pages x61-xBF | the screen (2x repeat leaves the even pages free) |
 
 Chunk k (k = 6 (y / 16) + x / 16) is page x60 + 4k (the cell types) and
-x62 + 4k (the flags).  A type byte is the type (bits 4-0), bits 5-4 of
-the cell's room (at 6-5) and bit 7 (a part: installed; an open door: held open); a flag byte is the damage
+x62 + 4k (the flags).  A type byte is the kind (bits 5-0, 64 kinds), bit 4 of
+the cell's room (at 6) and bit 7 (a part: installed; an open door: held open); a flag byte is the damage
 (bits 3-0) and bits 3-0 of the room (at 7-4).  A link (a door, an airlock
 or a broken wall) has the room of one side; `rooms_build` lists the links
 (64 at most) with the rooms on both sides, 0 for vacuum.  `SCRAP.OVL` is those 48
 pages in order (12 KB), then the program's pages for xC0 up and the
-pages x56-x59, x5C-x5D and x54-x55, read
+pages x56-x59 and x5C-x5D, read
 straight from the card.  A later phase pages
 bigger maps from the card a chunk at a time.
 
@@ -248,13 +264,19 @@ stubs that switch to map 07 around the call.
 cd src\scripts
 python gen_scrap.py                              scrap_types.asm, scrap_data.masm, scrap_map.bin
 python asm_expand.py scrap.masm                  scrap.asm
-python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-tail 0x5400,0x5600,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
+python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
                                                  SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV
 python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png)
 ```
 
 `gen_scrap.py` holds the cell art, the item types (names, info lines,
-actions, inspect text) and the map generator.  `test_scrap_sim.py` boots
+actions, inspect text) and the map generator.  It also writes the part
+text to the card, `sdcard/SCRAP/K0A`, `K0B` ...: file `Kxy` (x = '0' +
+k / 16, y = 'A' + k mod 16) holds kinds 2k and 2k + 1, 256 bytes each
+(info line i at 48 i, 40 characters at most; the INSPECT line at 192).
+The panel reads the sector it needs (`prt_load`, about 0.3 s from the
+SCRAP folder) when it shows a kind from another pair, so the program
+keeps no text for the parts and there is room for 64 kinds.  `test_scrap_sim.py` boots
 the card in `placard_sim.py` with a PS/2 mouse and checks:
 
 - the map is loaded;
@@ -265,6 +287,9 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
 - CLOSE / OPEN / HOLD OPEN / INSPECT from the keys;
 - a bump opening a door, the door closing behind, a held door staying open;
 - the camera step;
+- the tug's air pump and gas intake: broken, the tug loses its air or its
+  fuel, and gets it back working;
+- the part text read from the card's SCRAP folder for the panel and INSPECT;
 - uninstalling the tug's O2 tank (the tug loses its air), carrying it,
   putting it down (still no air while loose), installing it (air again);
 - uninstalling a crate in the wreck with the cutter, the battery it uses, carrying it

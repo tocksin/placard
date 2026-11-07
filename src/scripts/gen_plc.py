@@ -38,11 +38,11 @@ they may share addresses with the ROM) in a second file next to the first
 each up to the last page that has code, in order.  The program reads that
 file itself (fs_open, fs_read) and copies the pages into place.
 
-    python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-tail 0x5400,0x5600,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
+    python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
 
 puts a file's bytes (SCRAPWRIGHT's map pages) in front of the overlay's,
 for a program that reads both from the one file; --overlay-tail adds
-more pages (x5600-x59FF, then x5C00-x5DFF, then x5400-x55FF: one range each time it
+more pages (x5600-x59FF, then x5C00-x5DFF: one range each time it
 is given) after the overlay's, all of them to the top of memory then; --swap writes a file the program reads in when it needs it.
 
 Date: 11/05/2026

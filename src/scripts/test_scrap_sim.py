@@ -46,7 +46,7 @@ the upper socket, and boots it like the board (test_dos.Rig):
      after, still installed, and the tug has no air)
  12. Esc brings the DOS's browser back
 
-Date: 2026-11-05
+Date: 2026-11-06
 """
 
 import argparse
@@ -106,14 +106,14 @@ class Rig(test_tracker.Rig):
         return self.cpu.mem[a], self.cpu.mem[a + 0x200]
 
     def map_t(self, x, y):
-        return self.map_raw(x, y)[0] & 0x1F
+        return self.map_raw(x, y)[0] & 0x3F
 
     def bolted(self, x, y):
         return bool(self.map_raw(x, y)[0] & 0x80)
 
     def room(self, x, y):
         ty, fl = self.map_raw(x, y)
-        return (ty & 0x60) >> 1 | fl >> 4
+        return (ty & 0x40) >> 2 | fl >> 4
 
     def press(self, room):
         return self.cpu.mem[0x4000 + room]
@@ -132,14 +132,14 @@ class Rig(test_tracker.Rig):
         n = self.zp('n_door')
         got = []
         for k in range(n):
-            pg, ix = mem[0x3400 + k], mem[0x3440 + k]
+            pg, ix = mem[(gen_scrap.DOOR_PAGE << 8) + k], mem[(gen_scrap.DOOR_PAGE << 8) + 0x40 + k]
             ck = (pg - 0x60) // 4
             x, y = 16 * (ck % 6) + (ix & 15), 16 * (ck // 6) + (ix >> 4)
-            got.append((x, y, mem[0x3480 + k], mem[0x34C0 + k]))
+            got.append((x, y, mem[(gen_scrap.DOOR_PAGE << 8) + 0x80 + k], mem[(gen_scrap.DOOR_PAGE << 8) + 0xC0 + k]))
         lk = []
-        while mem[0x35C0 + len(lk)]:
-            lk.append(mem[0x35C0 + len(lk)])
-        tg = set(r for r in range(1, 64) if mem[0x3580 + r] & 1)
+        while mem[(gen_scrap.ROOM_PAGE << 8) + 0xC0 + len(lk)]:
+            lk.append(mem[(gen_scrap.ROOM_PAGE << 8) + 0xC0 + len(lk)])
+        tg = set(r for r in range(1, gen_scrap.ROOMS_MAX) if mem[(gen_scrap.ROOM_PAGE << 8) + 0x80 + r] & 1)
         ok = True
         if bad:
             self.fail('%s: %d cells in another room than rooms() says, first %s' % (what, len(bad), bad[:4]))
@@ -215,13 +215,13 @@ class Rig(test_tracker.Rig):
         rep = 3 if self.zp('cut_t') and self.zp('cut_m') == 3 else 0
         half = (d0 + 1) // 2 if rep else 8      # a repair: its steps
         if self.zp('cut_t'):            # a job: its bar half way
-            if self.wait_for(lambda: self.cpu.mem[0x36F9] >= half or not self.zp('cut_t'), 3000, 'half the job'):
+            if self.wait_for(lambda: self.cpu.mem[self.tsyms['JB_N']] >= half or not self.zp('cut_t'), 3000, 'half the job'):
                 self.run(2)
                 for _ in range(10):     # (the row is cleared, then written)
                     if self.panel()[5].strip():
                         break
                     self.run(1)
-                self.mid = (self.cpu.mem[0x36F9], self.panel()[5], d0, self.map_raw(x, y)[1] & 15,
+                self.mid = (self.cpu.mem[self.tsyms['JB_N']], self.panel()[5], d0, self.map_raw(x, y)[1] & 15,
                             self.panel()[0], self.zp('cut_m') if self.zp('cut_t') else rep)
         self.settle()
         self.job = (sk0, suit0, (self.cpu.clocks - c0) // FRAME)
@@ -400,9 +400,11 @@ def build():
     for lab in re.findall(r'^([A-Za-z_]\w*):', src, re.M):
         if lab not in own and not lab.startswith('scw_') and 0x4100 <= tsyms.get(lab, 0) < 0x4D00:
             raise SystemExit('%s is in SCRAP.INV (x%04X)' % (lab, tsyms[lab]))  # resident code spilled
-    prog, code = gen_plc.split_overlay(prog, lib, 0xC000, 2, [(0x5600, 0x5A00, 1), (0x5C00, 0x5E00, 1), (0x5400, 0x5600, 1)])
+    prog, code = gen_plc.split_overlay(prog, lib, 0xC000, 2, [(0x5600, 0x5A00, 1), (0x5C00, 0x5E00, 1)])
     if any(0x4000 <= a < 0xC000 for a in prog):
         raise SystemExit('scrap.asm reaches past x3FFF')
+    if gen_scrap.DOOR_PAGE != 0x32:     # scrap.masm's .region 0x2000, 0x3200 ends there
+        raise SystemExit('the fixed pages start at x%02X00: change the region' % gen_scrap.DOOR_PAGE)
     plc = gen_plc.make(prog, tsyms, lib)[0]
     ovl += code                 # the code pages from xC000, after the map's
     return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv
@@ -415,6 +417,8 @@ def main(argv):
     rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv = build()
     files = {'DOS.PLC': dos_plc, 'SCRAP.PLC': plc, 'SCRAP.OVL': ovl, 'SCRAP.INV': inv,
              'BOOT.CFG': b'SCRAP.PLC\r\n'}
+    for n, data in gen_scrap.prt_files().items():   # the part text (SCRAP/Kxy)
+        files[gen_scrap.PRT_DIR + '/' + n] = data
     r = Rig(rom, syms, dsyms, lib, sdimage.make(files))
     r.port.mouse = io_devices.Ps2Mouse(bat_ms=50)
     r.tsyms = tsyms
@@ -863,6 +867,27 @@ def set_cell(r, x, y, ty=None, fl=None):
         r.cpu.mem[a + 0x200] = fl
 
 
+def pump_intake(r):
+    """the tug's air needs a working pump by its O2 tank; its fuel is the
+    nitrogen tanks with a working intake by them (one of its two)"""
+    z = r.zp
+    print('  O2 tanks with a pump %d, nitrogen tanks with an intake %d, air %s'
+          % (z('n_o2'), z('n_fuel'), 'on' if z('sup') else 'off'))
+    if (z('n_o2'), z('n_fuel')) != (1, 1) or not z('sup'):
+        r.fail('the tug\'s pump and intake at the start')
+    for cell, what in (((15, 35), 'pump'), ((28, 28), 'intake')):
+        ty, fl = r.map_raw(*cell)
+        want = (0, 1, 0) if what == 'pump' else (1, 0, 1)
+        state = lambda: (z('n_o2'), z('n_fuel'), 1 if z('sup') else 0)
+        set_cell(r, *cell, fl=(fl & 0xF0) | 10)      # broken (the scan is once a second)
+        ok = r.wait_for(lambda: state() == want, 200, 'the tug with its %s broken' % what)
+        got = state()
+        set_cell(r, *cell, fl=fl)
+        ok = r.wait_for(lambda: state() == (1, 1, 1), 200, 'the %s working again' % what) and ok
+        print('  the %s broken: O2 %d, fuel %d, air %s; working again: %s'
+              % (what, got[0], got[1], 'on' if got[2] else 'off', 'yes' if ok else 'no'))
+
+
 def partial_repair(r):
     """REPAIR on a deck at 75 % damage, stopped part way by a step: the
     steps done stay done"""
@@ -882,11 +907,14 @@ def partial_repair(r):
         r.click(2)
         return
     r.key(str(1 + acts.index(gen_scrap.A_REPAIR)))
-    r.wait_for(lambda: mem[0x36F9] >= 4, 3000, 'four repair steps')
+    r.wait_for(lambda: mem[r.tsyms['JB_N']] >= 4, 3000, 'four repair steps')
     if '[' in r.panel()[5]:
         r.fail('a job bar while repairing: %r' % r.panel()[5])
+    at = (z('p_x'), z('p_y'))
     r.hold(LEFT, 2)                       # a step away: the job stops
-    n, d = mem[0x36F9], r.map_raw(*deck)[1] & 15
+    if (z('p_x'), z('p_y')) == at:
+        r.hold(RIGHT, 2)                  # (the tug's air pump is to the left)
+    n, d = mem[r.tsyms['JB_N']], r.map_raw(*deck)[1] & 15
     r.run(60)
     print('  stopped after %d steps: damage %d, then %d; %r' % (n, d, r.map_raw(*deck)[1] & 15,
                                                            r.panel()[5].strip()))
@@ -902,7 +930,7 @@ def jammed_door(r):
     door = (17, 33)
     ty, fl = r.map_raw(*door)
     r.go((17, 34))
-    set_cell(r, *door, ty=(ty & 0x60) | T['DOOR'], fl=(fl & 0xF0) | 10)
+    set_cell(r, *door, ty=(ty & 0xC0) | T["DOOR"], fl=(fl & 0xF0) | 10)
     r.hold(UP, 2)
     r.run(2)
     print('  into the jammed door: at %d,%d, %r' % (z('p_x'), z('p_y'), r.panel()[5].strip()))
@@ -1059,6 +1087,7 @@ def skills_suit(r):
         if r.map_raw(*tank)[1] & 15:
             r.fail('REPAIR left damage')
     partial_repair(r)
+    pump_intake(r)
     jammed_door(r)
     deck_rules(r)
     comms(r)
