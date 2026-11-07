@@ -2,7 +2,9 @@
 GPU: one CUDA block per net) against the occupancy of all other nets, PathFinder style; then conflicted nets are
 re-routed with other routes blocked; what is still open is written out unrouted (finish with mroute3.py / tidy.py).
 env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=4 (nets per launch; larger batches converge worse even with SEQFIX)  ITERS=30  STALL=6  WIN=40 (mm)  VIA=120  VIAEND=VIA VIARAMP=8 (via cost ramps VIA -> VIAEND over the first VIARAMP iterations)
-     AGAINST=3  RING=8  PRES0=1 PRESF=1.5 PRESMAX=30  HARDROUNDS=6  NETS=a,b  GPUMEM=1.5 (GB per launch)  MAXSWEEPS=2000000  DELTA=1.5 (GPU near/far bucket width)
+     AGAINST=3  RING=8  PRES0=1 PRESF=1.5 PRESMAX=30  HARDROUNDS=6  NETS=a,b  GPUMEM=4 (GB of window buffers per launch, with DISJOINT)
+     DISJOINT=16 (0 = off): launches hold up to 16 nets whose boxes (bbox + DJPAD=8 mm) do not overlap, so batch-mates cannot
+     collide; on the GPU that keeps 16 blocks (SMs) busy instead of BATCH  MAXSWEEPS=2000000  DELTA=1.5 (GPU near/far bucket width)
      BASE=<file> (scope = nets whose copper was added after BASE: that copper is stripped and re-routed)
      CHECKGPU=N compare CPU and GPU path costs for the first N nets and exit (backend self-test)
      SEQFIX=1 a batch-mate routed through an earlier batch-mate's new route is re-routed alone (large batches converge)
@@ -20,7 +22,7 @@ E=os.environ.get
 src,dst=sys.argv[1:3]
 BACKEND=E('BACKEND','auto'); THREADS=int(E('THREADS','0')); BATCH=int(E('BATCH','4')); ITERS=int(E('ITERS','30')); STALL=int(E('STALL','6'))
 WIN=float(E('WIN','40')); PRES=float(E('PRES0','1.0')); PRESF=float(E('PRESF','1.5')); PRESMAX=float(E('PRESMAX','30')); HARDROUNDS=int(E('HARDROUNDS','6'))
-BUSGAIN=float(E('BUSGAIN','1.0')); GPUMEM=float(E('GPUMEM','1.5'))*1e9; MAXSWEEPS=int(E('MAXSWEEPS','2000000')); DELTA=float(E('DELTA','1.5')); NETS=E('NETS'); BASE=E('BASE')
+BUSGAIN=float(E('BUSGAIN','1.0')); GPUMEM=float(E('GPUMEM','4'))*1e9; MAXSWEEPS=int(E('MAXSWEEPS','2000000')); DELTA=float(E('DELTA','1.5')); NETS=E('NETS'); BASE=E('BASE')
 T0=time.time()
 def disk(r):
     k=int(math.ceil(r)); y,x=np.mgrid[-k:k+1,-k:k+1]; return (x*x+y*y)<=r*r+1e-9
@@ -247,6 +249,24 @@ def route_batch(batch,hard,win_mm,soft=None,partial=False):
     return out,status
 def batches(seq,size):
     for i in range(0,len(seq),size): yield seq[i:i+size]
+DISJOINT=int(E('DISJOINT','0')); DJPAD=float(E('DJPAD','8'))
+def disjoint_batches(seq,size,maxb):
+    """batches of up to maxb nets whose boxes (fixed-copper bbox + DJPAD mm) do not overlap, so batch-mates cannot collide
+    and SEQFIX has nothing to redo; a batch also stays under GPUMEM bytes of per-job window buffers (36 B per window cell)"""
+    if maxb<=size: yield from batches(seq,size); return
+    pad=int(DJPAD/G); wpad=int(WIN/G); box={}; cells={}
+    for n in seq:
+        x0,x1,y0,y1=groups0[n][3]; box[n]=(x0-pad,x1+pad,y0-pad,y1+pad)
+        cells[n]=2*(min(nx,x1+wpad+1)-max(0,x0-wpad))*(min(ny,y1+wpad+1)-max(0,y0-wpad))
+    def apart(a,b): return a[1]<b[0] or b[1]<a[0] or a[3]<b[2] or b[3]<a[2]
+    pending=list(seq)
+    while pending:
+        b=[]; rest=[]; mem=0
+        for n in pending:
+            if len(b)<maxb and mem+36*cells[n]<=GPUMEM and all(apart(box[n],box[m]) for m in b): b.append(n); mem+=36*cells[n]
+            else: rest.append(n)
+        if not b: b=[rest.pop(0)]
+        yield b; pending=rest
 def batch_size():
     if be.name=='gpu' or E('BATCH'): return BATCH
     return max(1,THREADS or os.cpu_count())
@@ -268,7 +288,7 @@ def route_all(nets_list,hard,win_mm,bsize=None):
     """route in batches; with SEQFIX a batch-mate whose new route runs through an earlier batch-mate's new route is
     re-routed alone afterwards, so a large batch converges like a sequential pass"""
     fails=set()
-    for b in batches(nets_list,bsize or batch_size()):
+    for b in (disjoint_batches(nets_list,batch_size(),DISJOINT) if DISJOINT and bsize is None else batches(nets_list,bsize or batch_size())):
         out,status=route_batch(b,hard,win_mm)
         retry=[n for n in b if out[n] is None and win_mm<1e8]
         if retry: out.update(route_batch(retry,hard,1e9)[0])

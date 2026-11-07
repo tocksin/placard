@@ -106,7 +106,7 @@ class Grid:
         self.field=np.zeros((ny,nx),np.uint8); self.field[np.ix_((YY>FY0)&(YY<FY1),(XX>FX0)&(XX<FX1))]=1
         self.edge_v|=self.field.astype(bool)
         self.occ_t={L:Z(np.int16) for L in LAY}; self.occ_v=Z(np.int16)
-        self.hist={L:Z(np.float32) for L in LAY}; self.hist_v=Z(np.float32)
+        self._hist=None   # negotiation history (router only), allocated on first use
         self.routes={}; self.stamps={}; self.PRES=0.0
         self.removed_s=set(); self.removed_v=set()
         # existing tail copper of scope nets -> cell paths (chains)
@@ -120,6 +120,53 @@ class Grid:
             for L,a,e,w,si in self.tailseg[n]: self.add_item(n,{L},LineString([a,e]).buffer(w/2,8),('seg',si))
             for (x,y),d,vi in self.tailvia[n]: self.add_item(n,set(LAY),Point(x,y).buffer(d/2,16),('via',vi))
             self.tailseg[n]=[]; self.tailvia[n]=[]
+    @property
+    def hist(self):
+        if self._hist is None: self._hist=({L:np.zeros((self.ny,self.nx),np.float32) for L in LAY},np.zeros((self.ny,self.nx),np.float32))
+        return self._hist[0]
+    @property
+    def hist_v(self): self.hist; return self._hist[1]
+    # ---- shared read-only arrays for worker processes (tidy WORKERS)
+    RO_LAYER=('own_t','mul_t','cop','pad_t'); RO_SINGLE=('own_v','mul_v','pad_v','thru','edge_t','edge_v','field')
+    def share(self):
+        """move the read-only grid arrays into shared memory and return the state a worker process attaches to
+        (routes, chains and scalars; the worker rebuilds its own occupancy stamps from the routes)"""
+        from multiprocessing import shared_memory
+        self._shm=[]; desc={}
+        def put(key,a):
+            a=np.ascontiguousarray(a)
+            try: sh=shared_memory.SharedMemory(create=True,size=a.nbytes,track=False)
+            except TypeError: sh=shared_memory.SharedMemory(create=True,size=a.nbytes)
+            b=np.ndarray(a.shape,a.dtype,buffer=sh.buf); b[:]=a; self._shm.append(sh); desc[key]=(sh.name,a.shape,str(a.dtype)); return b
+        for k in self.RO_LAYER:
+            d=getattr(self,k)
+            for L in LAY: d[L]=put((k,L),d[L])
+        for k in self.RO_SINGLE: setattr(self,k,put(k,getattr(self,k)))
+        return dict(desc=desc,scalars={k:getattr(self,k) for k in ('src','ox','oy','nx','ny','VIA_COST','AGAINST','BEND','RING','DIAG','EDGE','M','PRES')},
+                    scope=sorted(self.scope),nets=self.nets,nid=self.nid,tailseg=dict(self.tailseg),tailvia=dict(self.tailvia),routes=self.routes,unsnapped=sorted(self.unsnapped))
+    def unshare(self):
+        for sh in getattr(self,'_shm',[]):
+            try: sh.close(); sh.unlink()
+            except Exception: pass
+        self._shm=[]
+    @classmethod
+    def attach(cls,state):
+        """a worker's grid: shared read-only arrays, own occupancy and routes; no board text, items or writer"""
+        from multiprocessing import shared_memory
+        g=cls.__new__(cls); g.__dict__.update(state['scalars']); g._shm=[]
+        def get(key):
+            name,shape,dt=state['desc'][key]
+            try: sh=shared_memory.SharedMemory(name=name,track=False)
+            except TypeError: sh=shared_memory.SharedMemory(name=name)
+            g._shm.append(sh); return np.ndarray(shape,np.dtype(dt),buffer=sh.buf)
+        for k in cls.RO_LAYER: setattr(g,k,{L:get((k,L)) for L in LAY})
+        for k in cls.RO_SINGLE: setattr(g,k,get(k))
+        g.scope=set(state['scope']); g.nets=state['nets']; g.nid=state['nid']; g.unsnapped=set(state['unsnapped'])
+        g.tailseg=collections.defaultdict(list,state['tailseg']); g.tailvia=collections.defaultdict(list,state['tailvia'])
+        g.occ_t={L:np.zeros((g.ny,g.nx),np.int16) for L in LAY}; g.occ_v=np.zeros((g.ny,g.nx),np.int16); g._hist=None
+        g.routes={}; g.stamps={}; g.items=[]; g.tdz=[]; g.removed_s=set(); g.removed_v=set(); g.b=None; g.txt=None; g.pads=[]
+        for n,paths in state['routes'].items(): g.set_route(n,paths)
+        return g
     # ---- rasterisation
     def raster(self,geom):
         a,bb,c,d=geom.bounds; nx,ny,ox,oy=self.nx,self.ny,self.ox,self.oy
@@ -276,18 +323,19 @@ class Grid:
         """label map per layer of the net's copper; skip = path whose cells are left out. returns (labels F, labels B, nlabels).
         Work is done on the window around the net's copper (full-grid dilation and labelling dominated tidy on the fine grid)."""
         from scipy.ndimage import binary_dilation
-        full=[(self.cop[L]==n) for L in LAY]
-        pts=[]
+        cb=self.__dict__.setdefault('_copbox',{})
+        if n not in cb:   # bbox of the net's fixed copper (cop never changes while routing / tidying)
+            ys,xs=np.nonzero((self.cop['F.Cu']==n)|(self.cop['B.Cu']==n))
+            cb[n]=(int(ys.min()),int(ys.max()),int(xs.min()),int(xs.max())) if len(ys) else None
+        ys=[]; xs=[]
+        if cb[n]: ys+=[cb[n][0],cb[n][1]]; xs+=[cb[n][2],cb[n][3]]
         for path in self.routes.get(n,[]):
             if path is skip: continue
-            pts.extend((p[1],p[2]) for p in path)
-        any_=full[0]|full[1]; ys,xs=np.nonzero(any_)
-        if pts:
-            py=np.fromiter((p[0] for p in pts),np.int64,len(pts)); px=np.fromiter((p[1] for p in pts),np.int64,len(pts)); ys=np.concatenate([ys,py]); xs=np.concatenate([xs,px])
+            ys.append(min(p[1] for p in path)); ys.append(max(p[1] for p in path)); xs.append(min(p[2] for p in path)); xs.append(max(p[2] for p in path))
         R=int(math.ceil(VD/2/G))+2
-        if len(ys)==0: z=np.zeros((self.ny,self.nx),np.int32); self.last_copper=[np.zeros((self.ny,self.nx),bool) for _ in LAY]; return z,z.copy()
-        j0=max(0,int(ys.min())-R); j1=min(self.ny,int(ys.max())+R+1); i0=max(0,int(xs.min())-R); i1=min(self.nx,int(xs.max())+R+1)
-        masks=[m[j0:j1,i0:i1].copy() for m in full]; thru=self.thru[j0:j1,i0:i1].copy()
+        if not ys: z=np.zeros((self.ny,self.nx),np.int32); self.last_copper=[np.zeros((self.ny,self.nx),bool) for _ in LAY]; return z,z.copy()
+        j0=max(0,min(ys)-R); j1=min(self.ny,max(ys)+R+1); i0=max(0,min(xs)-R); i1=min(self.nx,max(xs)+R+1)
+        masks=[(self.cop[L][j0:j1,i0:i1]==n) for L in LAY]; thru=self.thru[j0:j1,i0:i1].copy()
         cells=[np.zeros((j1-j0,i1-i0),bool) for _ in LAY]; vc=np.zeros((j1-j0,i1-i0),bool)
         for path in self.routes.get(n,[]):
             if path is skip: continue
@@ -317,57 +365,63 @@ class Grid:
         return out[0],out[1]
     # ---- A*
     def astar(self,srcm,goalm,bt,bv,ct,cvia,win):
-        """cvia may be None (uniform VIA_COST). Only the window is converted: the C core reads the window of the full-size buffers."""
-        wx0,wx1,wy0,wy1=win; nx,ny=self.nx,self.ny; W=(slice(wy0,wy1),slice(wx0,wx1))
-        if not hasattr(self,'_ab'):
-            self._ab=dict(bt=np.zeros((2,ny,nx),np.uint8),bv=np.zeros((ny,nx),np.uint8),ct=np.ones((2,ny,nx),np.float32),cv=np.full((ny,nx),self.VIA_COST,np.float32),
-                          H=np.full((ny,nx),1e9,np.float32),sm=np.zeros((2,ny,nx),np.uint8),gm=np.zeros((2,ny,nx),np.uint8),cvval=self.VIA_COST)
-        A=self._ab
-        for l,L in enumerate(LAY):
-            A['gm'][l][W]=goalm[L][W]; A['sm'][l][W]=srcm[L][W]; A['bt'][l][W]=bt[l][W]; A['ct'][l][W]=ct[l][W]
-        A['bv'][W]=bv[W]
-        if cvia is None:
-            if A['cvval']!=self.VIA_COST: A['cv'][:]=self.VIA_COST; A['cvval']=self.VIA_COST
-            if A.get('cvwin'): A['cv'][A['cvwin']]=self.VIA_COST; A['cvwin']=None   # undo the last custom via-cost window
-        else: A['cv'][W]=cvia[W]; A['cvwin']=W
-        sub=(A['gm'][0][W]==0)&(A['gm'][1][W]==0)
-        A['H'][W]=distance_transform_edt(sub) if sub.any() else 0
+        """cvia may be None (uniform VIA_COST). The C core runs on window-sized copies (the window is its whole grid)."""
+        wx0,wx1,wy0,wy1=win; ww=wx1-wx0; wh=wy1-wy0
+        def w(a): return a if a.shape==(wh,ww) else a[wy0:wy1,wx0:wx1]   # inputs may be full-size or already window-sized
+        def u8(a): return np.ascontiguousarray(a.view(np.uint8) if a.dtype==bool else a.astype(np.uint8,copy=False))
+        btc=u8(np.stack([w(bt[l]) for l in range(2)])); bvc=u8(w(bv))
+        ctc=np.ascontiguousarray(np.stack([w(ct[l]) for l in range(2)]).astype(np.float32,copy=False))
+        cvc=np.ascontiguousarray(w(cvia).astype(np.float32,copy=False)) if cvia is not None else np.full((wh,ww),self.VIA_COST,np.float32)
+        sm=u8(np.stack([w(srcm[L]) for L in LAY])); gm=u8(np.stack([w(goalm[L]) for L in LAY]))
+        H=self.goal_heuristic(gm,wh,ww)
+        fld=np.ascontiguousarray(self.field[wy0:wy1,wx0:wx1])
         maxlen=400000; out=np.zeros(3*maxlen,np.int32); ne=ctypes.c_int64(0)
-        k=lib.astar(int(nx),int(ny),int(wx0),int(wx1),int(wy0),int(wy1),c_u8(A['bt']),c_u8(A['bv']),c_f32(A['ct']),c_f32(A['cv']),c_f32(A['H']),c_u8(A['sm']),c_u8(A['gm']),
-                    ctypes.c_float(self.AGAINST),ctypes.c_float(self.BEND),c_u8(self.field),out.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),int(maxlen),ctypes.byref(ne),int(self.DIAG))
-        # the buffers keep stale window contents, which the next call overwrites for its own window; the C core only reads inside the window
-        if os.environ.get('ASTARCHECK'):
-            gm=np.stack([goalm[L] for L in LAY]); sm=np.stack([srcm[L] for L in LAY]); H=np.full((ny,nx),1e9,np.float32)
-            sub2=~gm.any(0)[wy0:wy1,wx0:wx1]; H[wy0:wy1,wx0:wx1]=distance_transform_edt(sub2) if sub2.any() else 0
-            btc=np.ascontiguousarray(np.stack(bt).astype(np.uint8)); bvc=np.ascontiguousarray(bv.astype(np.uint8))
-            ctc=np.ascontiguousarray(np.stack(ct).astype(np.float32)); cvc=np.ascontiguousarray((cvia if cvia is not None else np.full((ny,nx),self.VIA_COST,np.float32)).astype(np.float32))
-            smc=np.ascontiguousarray(sm.astype(np.uint8)); gmc=np.ascontiguousarray(gm.astype(np.uint8))
-            out2=np.zeros(3*maxlen,np.int32); ne2=ctypes.c_int64(0)
-            k2=lib.astar(int(nx),int(ny),int(wx0),int(wx1),int(wy0),int(wy1),c_u8(btc),c_u8(bvc),c_f32(ctc),c_f32(cvc),c_f32(H),c_u8(smc),c_u8(gmc),
-                    ctypes.c_float(self.AGAINST),ctypes.c_float(self.BEND),c_u8(self.field),out2.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),int(maxlen),ctypes.byref(ne2),int(self.DIAG))
-            same=(k==k2 and np.array_equal(out[:3*k],out2[:3*k2]))
-            if not same:
-                Wd=lambda a,b:int((a[W]!=b[W]).sum())
-                print('ASTARCHECK MISMATCH k',k,k2,'ne',ne.value,ne2.value,'win',win,'diffs bt',sum(Wd(A['bt'][l],btc[l]) for l in range(2)),'bv',Wd(A['bv'],bvc),'ct',sum(Wd(A['ct'][l],ctc[l]) for l in range(2)),'cv',Wd(A['cv'],cvc),'H',Wd(A['H'],H),'sm',sum(Wd(A['sm'][l],smc[l]) for l in range(2)),'gm',sum(Wd(A['gm'][l],gmc[l]) for l in range(2)),flush=True)
+        k=lib.astar(int(ww),int(wh),0,int(ww),0,int(wh),c_u8(btc),c_u8(bvc),c_f32(ctc),c_f32(cvc),c_f32(H),c_u8(sm),c_u8(gm),
+                    ctypes.c_float(self.AGAINST),ctypes.c_float(self.BEND),c_u8(fld),out.ctypes.data_as(ctypes.POINTER(ctypes.c_int32)),int(maxlen),ctypes.byref(ne),int(self.DIAG))
         if k==0: return None,ne.value
         p=out[:3*k].reshape(k,3)[::-1]
-        return [(int(l),int(iy),int(ix)) for l,iy,ix in p],ne.value
+        return [(int(l),int(iy)+wy0,int(ix)+wx0) for l,iy,ix in p],ne.value
+    HCOARSE=int(E('HCOARSE','4'))
+    def goal_heuristic(self,gm,wh,ww):
+        """admissible AND consistent distance-to-goal for A* (the C core never reopens a closed cell, so an inconsistent
+        heuristic gives suboptimal paths): the distance transform on HCOARSE x HCOARSE blocks, interpolated bilinearly
+        (slope at most 1 cell per cell) and lowered by the block diagonal. 16x cheaper than the per-cell transform."""
+        sub=(gm[0]==0)&(gm[1]==0); D=self.HCOARSE
+        if not sub.any(): return np.zeros((wh,ww),np.float32)
+        if D<=1: H=np.full((wh,ww),1e9,np.float32); H[:]=distance_transform_edt(sub); return H
+        gy=(wh+D-1)//D; gx=(ww+D-1)//D; pad=np.ones((gy*D,gx*D),bool); pad[:wh,:ww]=sub
+        cg=pad.reshape(gy,D,gx,D).all(axis=(1,3))
+        if not cg.any(): return np.zeros((wh,ww),np.float32)
+        Hc=(D*distance_transform_edt(cg)).astype(np.float32)
+        w=((np.arange(D)+0.5)/D-0.5).astype(np.float32)   # bilinear, block centres as sample points (edges clamped)
+        def up(a,axis):
+            n=a.shape[axis]; idx=np.arange(n*D)//D; f=np.tile(w,n); other=np.clip(np.where(f<0,idx-1,idx+1),0,n-1)
+            t=np.abs(f).astype(np.float32); A=np.take(a,idx,axis=axis); B=np.take(a,other,axis=axis); sh=[1,1]; sh[axis]=-1
+            return A+(B-A)*t.reshape(sh)
+        Hi=up(up(Hc,0),1)[:wh,:ww]
+        return np.ascontiguousarray(np.maximum(0.0,0.999*Hi-D*1.41422).astype(np.float32))
     def window(self,masks,pad_mm):
         ys,xs=np.nonzero(np.logical_or.reduce([m[L] for m in masks for L in LAY]))
         pad=int(pad_mm/G)
         return max(0,xs.min()-pad),min(self.nx,xs.max()+pad+1),max(0,ys.min()-pad),min(self.ny,ys.max()+pad+1)
-    def blocked(self,n,hard=True):
-        bt=[(self.mul_t[L]|((self.own_t[L]!=0)&(self.own_t[L]!=n))|self.edge_t) for L in LAY]
-        bv=self.mul_v|((self.own_v!=0)&(self.own_v!=n))|self.edge_v
-        if hard: bt=[bt[l]|(self.occ_t[L]>0) for l,L in enumerate(LAY)]; bv=bv|(self.occ_v>0)
+    def blocked(self,n,hard=True,win=None):
+        """blocked cells for net n; with win=(x0,x1,y0,y1) only that window (window-sized arrays)"""
+        W=(slice(None),slice(None)) if win is None else (slice(win[2],win[3]),slice(win[0],win[1]))
+        bt=[(self.mul_t[L][W]|((self.own_t[L][W]!=0)&(self.own_t[L][W]!=n))|self.edge_t[W]) for L in LAY]
+        bv=self.mul_v[W]|((self.own_v[W]!=0)&(self.own_v[W]!=n))|self.edge_v[W]
+        if hard: bt=[bt[l]|(self.occ_t[L][W]>0) for l,L in enumerate(LAY)]; bv=bv|(self.occ_v[W]>0)
         return bt,bv
-    def own_ring(self,n):
-        """cells inside the net's own clearance ring but not on its copper (fixed + current routes)"""
-        ring=[((self.own_t[L]==n)&(self.cop[L]!=n)) for L in LAY]
+    def own_ring(self,n,win=None):
+        """cells inside the net's own clearance ring but not on its copper (fixed + current routes); windowed like blocked()"""
+        x0,x1,y0,y1=(0,self.nx,0,self.ny) if win is None else win; W=(slice(y0,y1),slice(x0,x1))
+        ring=[((self.own_t[L][W]==n)&(self.cop[L][W]!=n)) for L in LAY]
         for kind,L,j0,i0,m in self.stamps.get(n,[]):
-            if kind=='t': ring[LAY.index(L)][j0:j0+m.shape[0],i0:i0+m.shape[1]]|=m
+            if kind!='t': continue
+            a0=max(j0,y0); a1=min(j0+m.shape[0],y1); b0=max(i0,x0); b1=min(i0+m.shape[1],x1)
+            if a1>a0 and b1>b0: ring[LAY.index(L)][a0-y0:a1-y0,b0-x0:b1-x0]|=m[a0-j0:a1-j0,b0-i0:b1-i0]
         for path in self.routes.get(n,[]):
-            for l,iy,ix in path: ring[l][iy,ix]=False
+            for l,iy,ix in path:
+                if y0<=iy<y1 and x0<=ix<x1: ring[l][iy-y0,ix-x0]=False
         return [r.astype(np.float32) for r in ring]
     # ---- output
     def write_out(self,outpath,extra_nets=()):
