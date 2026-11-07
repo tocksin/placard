@@ -1,0 +1,7 @@
+# score wbf_gpu.kicad_pcb  (scope 255 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 39.33 m | 645 / 663 | 4.1 % | 0.0 % | 1.0 | 1 | 0 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): CLK 892/5/1.1, DATABUS6 867/17/1.1, DATABUS0 862/17/1.1, DATABUS4 858/14/1.1, DATABUS2 840/16/1.1, DATABUS3 832/15/1.1, DATABUS7 816/16/1.0, DATABUS5 808/19/1.1
+detour > 2: PC13

@@ -1,0 +1,7 @@
+grid 4688 3472
+rasterised 1583 items 1.1 s
+Traceback (most recent call last):
+  File "C:\Users\tocks\AppData\Local\Temp\wt127\src\scripts\router_v4\mroute4.py", line 70, in <module>
+    want=None if not NETS else {nid[x] for x in ([l.strip() for l in open(NETS[1:],encoding='utf-8') if l.strip()] if NETS.startswith('@') else NETS.split(',')) if x in nid}
+                                                                     ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'wbf_gpu.kicad_pcb.nets'
