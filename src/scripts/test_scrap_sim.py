@@ -72,6 +72,24 @@ ARTS = [gen_scrap.art_bytes(t[1]) for t in gen_scrap.TYPES]
 INST, CUT = 60, 90            # scrap.masm INST_FRAMES, CUT_FRAMES: at full speed
 
 
+FL = 0x4000                 # scrap_fl.masm's flight variables (FL_PG)
+
+
+def fl_get(mem, off, n, signed=True):
+    v = int.from_bytes(bytes(mem[FL + off:FL + off + n]), 'little')
+    return v - (1 << 8 * n) if signed and v >> (8 * n - 1) else v
+
+
+def fl_put(mem, off, n, v):
+    mem[FL + off:FL + off + n] = (v & ((1 << 8 * n) - 1)).to_bytes(n, 'little')
+
+
+def nav_pixel(mem, x, y):
+    """the 4 bpp view's art pixel x, y"""
+    b = mem[((0x61 + (x & 0xFE)) << 8) + line_off(y)]
+    return b >> 4 if x & 1 else b & 15
+
+
 def line_off(p):
     """offset in its page of 2x line pair p (VIDEO.md: lines 0-223 at 32 up)"""
     return 2 * p + 32 if p < 112 else 2 * p - 223
@@ -308,6 +326,8 @@ class Rig(test_tracker.Rig):
                         if self.cell_bytes(cx, cy) != pointer_over(gen_scrap.art_bytes('player_ns'), cx, cy, ptr):
                             bad.append((cx, cy, 'PLAYER without the suit'))
                         continue
+                elif x >= gen_scrap.WRECK_LOCK[0] and not self.cpu.mem[FL + 0x21]:
+                    t = T['SPACE']              # undocked: the KESTREL 9 is away
                 elif x < gen_scrap.MAP_W and y < gen_scrap.MAP_H:
                     t = self.map_t(x, y)
                     if t == T['FLOOR'] and self.cpu.mem[0x4040 + self.room(x, y)]:
@@ -315,7 +335,8 @@ class Rig(test_tracker.Rig):
                 else:
                     t = T['SPACE']
                 art = ARTS[t]
-                if ((x, y) != (px, py) and x < gen_scrap.MAP_W and y < gen_scrap.MAP_H
+                away = x >= gen_scrap.WRECK_LOCK[0] and not self.cpu.mem[FL + 0x21]
+                if ((x, y) != (px, py) and x < gen_scrap.MAP_W and y < gen_scrap.MAP_H and not away
                         and self.map_raw(x, y)[1] & 15 >= gen_scrap.BROKEN_STEP):
                     art = gen_scrap.broken_art(art)     # broken: cracked
                 if (gen_scrap.TYPES[t][3] & gen_scrap.F_ITEM and (x, y) != (px, py)
@@ -395,8 +416,12 @@ def build():
     inv = gen_plc.split_swap(prog, 0x4100, 0x4D00)      # SCRAP.INV
     if not inv or len(inv) > 0xC00:          # 6 sectors at most (inv_fetch)
         raise SystemExit('SCRAP.INV is %d bytes' % len(inv))
-    own = set(re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, 'scrap_inv.masm')).read(), re.M))
-    own |= set(re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, 'scrap_inv_data.masm')).read(), re.M))
+    nav = gen_plc.split_swap(prog, 0x4100, 0x4D00, 2)   # SCRAP.NAV
+    if not nav or len(nav) > 0xC00:
+        raise SystemExit('SCRAP.NAV is %d bytes' % len(nav))
+    own = set()
+    for f in ('scrap_inv.masm', 'scrap_inv_data.masm', 'scrap_nav.masm'):
+        own |= set(re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, f)).read(), re.M))
     for lab in re.findall(r'^([A-Za-z_]\w*):', src, re.M):
         if lab not in own and not lab.startswith('scw_') and 0x4100 <= tsyms.get(lab, 0) < 0x4D00:
             raise SystemExit('%s is in SCRAP.INV (x%04X)' % (lab, tsyms[lab]))  # resident code spilled
@@ -407,15 +432,15 @@ def build():
         raise SystemExit('the fixed pages start at x%02X00: change the region' % gen_scrap.DOOR_PAGE)
     plc = gen_plc.make(prog, tsyms, lib)[0]
     ovl += code                 # the code pages from xC000, after the map's
-    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv
+    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, nav
 
 
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('--png')
     args = ap.parse_args(argv)
-    rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv = build()
-    files = {'DOS.PLC': dos_plc, 'SCRAP.PLC': plc, 'SCRAP.OVL': ovl, 'SCRAP.INV': inv,
+    rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, nav = build()
+    files = {'DOS.PLC': dos_plc, 'SCRAP.PLC': plc, 'SCRAP.OVL': ovl, 'SCRAP.INV': inv, 'SCRAP.NAV': nav,
              'BOOT.CFG': b'SCRAP.PLC\r\n'}
     for n, data in gen_scrap.prt_files().items():   # the part text (SCRAP/Kxy)
         files[gen_scrap.PRT_DIR + '/' + n] = data
@@ -834,13 +859,13 @@ def rebuild(r):
         r.fail('UNINSTALL of the wall did not join the quarters and the hold')
     r.check_rooms('the wall out, a broken hull wall')
     q = r.room(19, 35)
-    saved = bytes(mem[0x4000:0x4040])
+    saved = bytes(mem[0x4000:0x4020])
     lo = min(r.press(q) for _ in range(180) if r.run(1) is None)
     print('  the broken hull wall: the room\'s air down to %d in 3 s' % lo)
     if lo >= 100:
         r.fail('the broken hull wall does not leak')
     mem[a + 0x200] = fl                           # mended, the air back
-    mem[0x4000:0x4040] = saved
+    mem[0x4000:0x4020] = saved
     if not (r.act(*wall, gen_scrap.A_PICK) and r.act(*wall, gen_scrap.A_PUTL)):
         return
     if r.map_t(*wall) != T['PANEL'] or r.bolted(*wall):
@@ -910,10 +935,7 @@ def partial_repair(r):
     r.wait_for(lambda: mem[r.tsyms['JB_N']] >= 4, 3000, 'four repair steps')
     if '[' in r.panel()[5]:
         r.fail('a job bar while repairing: %r' % r.panel()[5])
-    at = (z('p_x'), z('p_y'))
-    r.hold(LEFT, 2)                       # a step away: the job stops
-    if (z('p_x'), z('p_y')) == at:
-        r.hold(RIGHT, 2)                  # (the tug's air pump is to the left)
+    r.go((z('p_x') + 2, z('p_y')))        # away (not by it, diagonals count): the job stops
     n, d = mem[r.tsyms['JB_N']], r.map_raw(*deck)[1] & 15
     r.run(60)
     print('  stopped after %d steps: damage %d, then %d; %r' % (n, d, r.map_raw(*deck)[1] & 15,
@@ -1048,6 +1070,183 @@ def comms(r):
     r.run(70)
 
 
+def navigation(r):
+    """NAVIGATE at the helm: the nav screen, the tug's mass and thrusters,
+    undocking, thrust, turning, cruising while walking, a collision and
+    docking again"""
+    z, mem, cpu = r.zp, r.cpu.mem, r.cpu
+    print('7e. navigation')
+    W = gen_scrap.MASS
+    mass = nt = 0
+    for y in range(gen_scrap.TUG[1], gen_scrap.TUG[3] + 1):
+        for x in range(gen_scrap.TUG[0], gen_scrap.TUG[2] + 1):
+            t = r.map_t(x, y)
+            name = gen_scrap.TYPES[t][0]
+            if gen_scrap.TYPES[t][3] & gen_scrap.F_ITEM and not r.bolted(x, y):
+                continue
+            mass += W.get(name, 0)
+            nt += name == 'THRUST' and r.map_raw(x, y)[1] & 15 < 8
+    got = (fl_get(mem, 0x25, 2, False), mem[FL + 0x24])
+    print('  the tug: %d00 kg, %d thrusters (the map: %d00 kg, %d); docked %d'
+          % (got[0], got[1], mass, nt, mem[FL + 0x21]))
+    if got != (mass, nt) or mem[FL + 0x21] != 1:
+        r.fail('the tug\'s mass and thrusters: %s, wanted %s' % (got, (mass, nt)))
+    helm = (17, 27)
+    if not r.go((17, 28)):
+        return
+    r.mouse_cell(*helm)
+    r.click(1)
+    acts = [mem[r.tsyms['act0'] + i] for i in range(z('n_act'))]
+    if gen_scrap.A_NAV not in acts:
+        r.fail('no NAVIGATE at the helm: %s' % acts)
+        r.click(2)
+        return
+    r.key(str(1 + acts.index(gen_scrap.A_NAV)))
+    if not r.wait_for(lambda: mem[FL + 0x20] and r.text(24).strip().startswith('NAVIGATION'), 200, 'the nav screen'):
+        return
+    r.run(20)
+    p = r.panel()
+    for line in p[:5]:
+        print('  |%s' % line)
+    fuel0 = fl_get(mem, 0x2D, 2, False)
+    if ('DOCKED' not in p[0] or 'NITROGEN %d L' % fuel0 not in p[2].replace('  ', ' ')
+            or 'THRUSTERS %d' % nt not in p[2].replace('  ', ' ')):
+        r.fail('the nav panel: %r' % p[:3])
+    if nav_pixel(mem, 80, 96) != 0x0A:
+        r.fail('the tug is not drawn in the middle (%X)' % nav_pixel(mem, 80, 96))
+    r.key('k')
+    r.run(4)
+    print('  K docked: %r' % r.panel()[5].strip())
+    if 'ALREADY DOCKED' not in r.panel()[5]:
+        r.fail('K while docked: %r' % r.panel()[5])
+
+    r.key('u')
+    r.run(4)
+    vx = fl_get(mem, 0x68, 4)
+    print('  U: %r; vx %d (%d wanted), the locks %s %s'
+          % (r.panel()[5].strip(), vx, -gen_scrap.UNDOCK_V,
+             gen_scrap.TYPES[r.map_t(29, 32)][0], gen_scrap.TYPES[r.map_t(30, 32)][0]))
+    if (mem[FL + 0x21] or vx not in (-gen_scrap.UNDOCK_V, -gen_scrap.UNDOCK_V - 1)
+            or r.map_t(29, 32) != T['DOOR'] or r.map_t(30, 32) != T['WALL']):
+        r.fail('undocking')
+    dvx = fl_get(mem, 0x70, 2)
+    want = nt * 20000 / (mass * 100) / 3600 * 2 ** 24      # 20 kN a thruster
+    print('  a frame of thrust: %d (%.0f from 20 kN a thruster)' % (dvx, want))
+    if not 0.85 * want <= dvx <= 1.05 * want:
+        r.fail('the thrust per frame: %d, not %.0f' % (dvx, want))
+    r.hold(UP, 60)
+    n = (fl_get(mem, 0x68, 4) - vx) / dvx if dvx else 0
+    fuel1 = fl_get(mem, 0x2D, 2, False)
+    print('  Up held 60 frames: %.2f frames of thrust, nitrogen %d -> %d L' % (n, fuel0, fuel1))
+    if n != int(n) or not 58 <= n <= 64 or not nt * n // 60 - 1 <= fuel0 - fuel1 <= nt * n // 60 + 1:
+        r.fail('thrust: %.2f frames, %d L' % (n, fuel0 - fuel1))
+    h0 = mem[FL + 0x22]
+    r.hold(RIGHT, 3 * gen_scrap.NAV_TURN - 2)
+    h1 = mem[FL + 0x22]
+    r.hold(LEFT, 3)
+    h2 = mem[FL + 0x22]
+    print('  heading %d, Right 3 steps: %d, Left one: %d' % (h0, h1, h2))
+    if h1 != (h0 + 3) & 31 or h2 != (h0 + 2) & 31:
+        r.fail('turning')
+    r.hold(LEFT, 2 * gen_scrap.NAV_TURN - 2)
+    r.key('z')
+    r.run(10)
+    zoom = mem[FL + 0x2F]
+    if zoom != 1 or '10 KM' not in r.panel()[1]:
+        r.fail('Z: zoom %d, %r' % (zoom, r.panel()[1]))
+    r.key('z')
+    r.key('z')
+    r.run(20)
+    p = r.panel()
+    for line in p[:4]:
+        print('  |%s' % line)
+    if 'FLYING' not in p[0] or mem[FL + 0x2F] != 0:
+        r.fail('the panel undocked: %r' % p[0])
+    r.key('k')
+    r.run(4)
+    if 'DOCK: WITHIN' not in r.panel()[5]:
+        r.fail('K out of range: %r' % r.panel()[5])
+
+    print('  a collision: 30 m/s at the KESTREL 9')
+    saved = {pg: bytes(mem[pg << 8:(pg + 1) << 8]) for pg in range(0x60, 0xC0, 2)}
+    fl_put(mem, 0x60, 4, (gen_scrap.WRECK_POS[0] - gen_scrap.WRECK_BOX - 150) << 16)   # 5 s out
+    fl_put(mem, 0x64, 4, gen_scrap.WRECK_POS[1] << 16)
+    fl_put(mem, 0x68, 4, 0x800000)          # 0.5 m a frame east
+    fl_put(mem, 0x6C, 4, 0)
+    al = []
+    for _ in range(8 * 60):
+        r.run(1)
+        if mem[FL + 0x27] not in al:
+            al.append(mem[FL + 0x27])
+        if not fl_get(mem, 0x68, 4):
+            break
+    r.run(30)
+    hit = []                                # the flag pages (x62 + 4 k): damage
+    for pg, b in saved.items():
+        if (pg - 0x62) % 4 == 0:
+            k = (pg - 0x62) // 4
+            hit += [(16 * (k % 6) + (i & 15), 16 * (k // 6) + (i >> 4)) for i in range(256)
+                    if mem[(pg << 8) + i] != b[i]]
+    px = fl_get(mem, 0x62, 2, False)
+    print('  alarms %s; %r; %d cells damaged; stopped at x %d m (hull at %d)'
+          % (al, r.panel()[5].strip(), len(hit), px, gen_scrap.WRECK_POS[0] - gen_scrap.WRECK_BOX))
+    if 2 not in al or 'IMPACT!' not in r.panel()[5] or not 1 <= len(hit) <= 16 or fl_get(mem, 0x68, 4):
+        r.fail('the collision')
+    if any(not gen_scrap.TUG[0] <= x <= gen_scrap.TUG[2] for x, _ in hit):
+        r.fail('damage off the tug: %s' % hit[:4])
+    for pg, b in saved.items():             # the tug mended
+        mem[pg << 8:(pg + 1) << 8] = b
+
+    fl_put(mem, 0x60, 4, (gen_scrap.DOCK_POS[0] - 3000) << 16)   # cruising: 3 km out
+    fl_put(mem, 0x68, 4, -0x100000)         # 1/16 m a frame west
+    r.run(8)
+    print('  Esc: back to the ship, cruising')
+    r.port.kbd.press(r.codes['\x1b'])
+    r.run(10)
+    r.port.kbd.release(r.codes['\x1b'])
+    if not r.run_until(lambda: cpu.pc == r.tsyms['loop'] and not mem[FL + 0x20], 300, 'the ship again'):
+        return
+    r.run(30)
+    x0 = fl_get(mem, 0x60, 4)
+    r.hold(DOWN, 2)
+    r.run(60)
+    d = (fl_get(mem, 0x60, 4) - x0) / 65536
+    print('  walking: the tug moved %.1f m in about a second; at %d,%d' % (d, z('p_x'), z('p_y')))
+    if not -6 <= d <= -3:
+        r.fail('the tug does not cruise while walking')
+    r.check_view('undocked')
+    r.check_rooms('undocked')
+
+    r.go((17, 28))
+    r.mouse_cell(*helm)
+    r.click(1)
+    r.key(str(1 + acts.index(gen_scrap.A_NAV)))
+    if not r.wait_for(lambda: mem[FL + 0x20], 200, 'the nav screen again'):
+        return
+    fl_put(mem, 0x60, 4, (gen_scrap.DOCK_POS[0] + 6) << 16)
+    fl_put(mem, 0x64, 4, (gen_scrap.DOCK_POS[1] - 5) << 16)
+    fl_put(mem, 0x68, 4, 0x20000)           # 0.5 m/s
+    fl_put(mem, 0x6C, 4, 0)
+    r.run(4)
+    r.key('k')
+    r.run(4)
+    print('  K by the port: %r; locks %s %s' % (r.panel()[5].strip(), gen_scrap.TYPES[r.map_t(29, 32)][0],
+                                              gen_scrap.TYPES[r.map_t(30, 32)][0]))
+    if (mem[FL + 0x21] != 1 or 'DOCKED: THE CLAMPS' not in r.panel()[5]
+            or r.map_t(29, 32) != T['LOCK'] or r.map_t(30, 32) != T['LOCK'] or fl_get(mem, 0x68, 4)):
+        r.fail('docking')
+    r.port.kbd.press(r.codes['\x1b'])
+    r.run(10)
+    r.port.kbd.release(r.codes['\x1b'])
+    if not r.run_until(lambda: cpu.pc == r.tsyms['loop'] and not mem[FL + 0x20], 300, 'the ship again'):
+        return
+    r.settle()
+    r.check_view('docked again')
+    r.check_rooms('docked again')
+    r.click(2)
+    r.go((17, 32), (17, 34))
+
+
 def skills_suit(r):
     """SKILLS on the message row; the suit off (the room's air, quicker
     work: a REPAIR), no air without it (blacking out), the suit on again"""
@@ -1091,8 +1290,9 @@ def skills_suit(r):
     jammed_door(r)
     deck_rules(r)
     comms(r)
+    navigation(r)
     q = r.room(z('p_x'), z('p_y'))
-    saved = bytes(mem[0x4000:0x4040])
+    saved = bytes(mem[0x4000:0x4020])
     for _ in range(140):                           # the room's air gone
         mem[0x4000 + q] = 0
         r.run(1)
@@ -1101,7 +1301,7 @@ def skills_suit(r):
     print('  no air, no suit: stage %d, %r, O2 %d' % (z('stage'), r.panel()[5].strip(), z('o2')))
     if z('stage') != 4 or 'BLACKING OUT' not in r.panel()[5]:
         r.fail('no air without the suit is not blacking out')
-    mem[0x4000:0x4040] = saved                     # and back
+    mem[0x4000:0x4020] = saved                     # and back
     r.wait_for(lambda: z('stage') == 0, 130, 'the air back')
     if not r.act(z('p_x'), z('p_y'), gen_scrap.A_SUITON):
         return

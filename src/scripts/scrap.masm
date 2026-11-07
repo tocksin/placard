@@ -45,10 +45,10 @@
 ;
 ;     python3 gen_scrap.py                            scrap_types.asm, scrap_data.masm, scrap_map.bin
 ;     python3 asm_expand.py scrap.masm                scrap.asm
-;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
+;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2
 ;     python3 test_scrap_sim.py                       runs it in placard_sim
 ;
-; Date: 11/05/2026
+; Date: 11/06/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -640,6 +640,7 @@ start:
     ld   PRT_K>>8, y
     ld   PRT_K&0xFF, x
     ld   0xFF, [y,x]
+    CALL fl_init                ; docked to the KESTREL 9
     CALL l_mouse_init
     bne  st_nm
     ld   1, ac
@@ -719,6 +720,8 @@ s_ovl:
     #d "SCRAP.OVL", 0x00
 s_invf:
     #d "SCRAP.INV", 0x00
+s_navf:
+    #d "SCRAP.NAV", 0x00
 PRT_NM:                         ; prt_load's: the part text file, its folder
     #d "K0A", 0x00
 s_prtd:
@@ -1247,7 +1250,7 @@ view_cell:
     ld   [v_y], ac
     add  [dc_cy], ac
     ld   ac, [g_y]
-    CALL map_get
+    CALL map_see                ; (undocked: no KESTREL 9)
     ld   ac, [dc_t]
     xor  T_FLOOR, ac
     bne  vc_p
@@ -1308,6 +1311,12 @@ dv_cell:
 .chunk
 refresh_cell:
     PUSH_LINK
+    ld   FL_PG, y               ; the navigation screen is up: not drawn
+    ld   FL_NAV, x
+    ld   [y,x], ac
+    beq  rc_0
+    LEAVE
+rc_0:
     ld   [inv], ac
     beq  rc_go
     CALL inv_slots
@@ -1944,6 +1953,8 @@ try_move:
     ld   ac, [g_x]
     ld   [n_y], ac
     ld   ac, [g_y]
+    CALL fl_far                 ; undocked: the KESTREL 9 is not there
+    bne  tm_no
     CALL map_get
     xor  T_DOOR, ac
     bne  tm_w
@@ -2283,7 +2294,7 @@ sl_m:
     ld   ac, [g_x]
     ld   [s_y], ac
     ld   ac, [g_y]
-    CALL map_get
+    CALL map_see
     ld   ac, [s_t]
     ld   [c_f], ac
     ld   ac, [s_f]
@@ -2624,9 +2635,7 @@ dm_on:
 dm_x:
     LEAVE
 dm_off:
-    ld   0x04, ac
-    CALL msg_tint
-    LEAVE
+    GOTO draw_alarm
 
 ; msg_tint - AC = the mode byte of row 29's lines (x5BF0-x5BFF).  A leaf.
 .chunk
@@ -2840,6 +2849,7 @@ gi_n:
 .chunk
 game_tick:
     PUSH_LINK
+    CALL fl_tick                ; the flight, every frame
     ld   [cut_t], ac
     beq  gt_1
     CALL work_tick
@@ -2850,6 +2860,7 @@ gt_1:
     ld   ac, [air_t]
     bne  gt_2
     CALL air_tick
+    CALL fl_check
 gt_2:
     ld   [sec_t], ac
     inc
@@ -3169,16 +3180,7 @@ ss_x:
 .chunk
 tug_scan:
     PUSH_LINK
-    clr  ac
-    ld   ac, [n_o2]
-    ld   ac, [n_scr]
-    ld   ac, [n_bat]
-    ld   ac, [n_fuel]
-    ld   ac, [v4]
-    ld   ac, [v5]
-    ld   N_ANT >> 8, y
-    ld   N_ANT & 0xFF, x
-    ld   0, [y,x]
+    CALL fl_scan0               ; nothing counted yet
     ld   TUG_Y0, ac
     ld   ac, [v1]
 ty_y:
@@ -3190,6 +3192,7 @@ ty_x:
     ld   [v1], ac
     ld   ac, [g_y]
     CALL map_get
+    beq  ty_n                   ; open space: nothing (quick: most cells)
     ld   ac, x                  ; a loose part is not part of the tug
     ld   TAB_PG, y
     ld   [y,x], ac
@@ -3198,6 +3201,7 @@ ty_x:
     ld   [c_b], ac
     beq  ty_n
 ty_i:
+    CALL tug_mass               ; its mass, a working thruster
     ld   [c_t], ac
     add  TB_VAL, x
     ld   [y,x], ac
@@ -3311,7 +3315,7 @@ tug_sum:
     ld   1, ac
     ld   ac, [sup]
 tu_e:
-    LEAVE
+    GOTO fl_accel
 
 ; near - AC = 1 when the panel's cell is the player's or next to it
 ; (diagonals too).  A leaf.
@@ -3616,6 +3620,10 @@ work_end:
     beq  we_t
     ld   [inv], ac              ; in the inventory: when it closes
     bne  we_t                   ;   (rooms_build's space holds SCRAP.INV)
+    ld   FL_PG, y               ;   (or SCRAP.NAV)
+    ld   FL_NAV, x
+    ld   [y,x], ac
+    bne  we_t
     CALL rooms_build
     clr  ac
     ld   ac, [rb_go]
@@ -4663,7 +4671,7 @@ rc_s:
     ld   [rb_x], ac
     inc
     ld   ac, [rb_x]
-    xor  64, ac
+    xor  32, ac                 ; 32 rooms (x4060 up: the flight's)
     bne  rc_l
     LEAVE
 
@@ -5446,6 +5454,11 @@ ma_1:
     bne  ma_2
     GOTO skills_action
 ma_2:
+    ld   [w3], ac
+    xor  A_NAV, ac
+    bne  ma_3
+    GOTO nav_action
+ma_3:
     GOTO suit_action
 
 ; repair_action - REPAIR: a damaged part next to the player, REPAIR_FRAMES
@@ -5529,7 +5542,7 @@ dyn_rep:
     ld   A_REPAIR, ac
     CALL add_act
 dq_e:
-    LEAVE
+    GOTO dyn_nav
 
 ; player_acts - the player's menu: SKILLS, then TAKE OFF SUIT, or PUT ON
 ; SUIT with the suit in a carry slot
@@ -5870,14 +5883,15 @@ it_v:
     LEAVE
 
 ; inv_fetch - SCRAP.INV into x4100 up (6 sectors at most): AC = 0, or not
-; 0 when it is not on the card
+; 0 when it is not on the card.  swap_fetch - the file R1:R0 so
 .chunk
 inv_fetch:
-    PUSH_LINK
     ld   s_invf & 0xFF, ac
     ld   ac, [R0]
     ld   s_invf >> 8, ac
     ld   ac, [R1]
+swap_fetch:                     ; (R1:R0 another file: SCRAP.NAV)
+    PUSH_LINK
     CALL l_fs_open
     bne  vf_e
     ld   SWAP_LO >> 8, ac
@@ -6522,7 +6536,20 @@ s_sl2:
     #d "ON YOUR BACK", 0x00
 
 ; ============================================================
+; the flight (scrap_fl.masm): resident, in the even pages from xC000
+; ============================================================
+.region 0xC000, 0x10000, 2, overlay
+.include "scrap_fl.masm"
+
+; ============================================================
 ; SCRAP.INV: the inventory screen (scrap_inv.masm), read in when it opens
 ; ============================================================
 .region SWAP_LO, SWAP_LO + 0x0C00, 1, overlay
 .include "scrap_inv.masm"
+
+; ============================================================
+; SCRAP.NAV: the navigation screen (scrap_nav.masm), read in at the helm
+; (at SCRAP.INV's addresses: #overlay2, gen_plc.py --swap ...,NAV,2)
+; ============================================================
+.region SWAP_LO, SWAP_LO + 0x0C00, 1, overlay2
+.include "scrap_nav.masm"

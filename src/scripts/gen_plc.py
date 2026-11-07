@@ -38,14 +38,14 @@ they may share addresses with the ROM) in a second file next to the first
 each up to the last page that has code, in order.  The program reads that
 file itself (fs_open, fs_read) and copies the pages into place.
 
-    python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
+    python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2
 
 puts a file's bytes (SCRAPWRIGHT's map pages) in front of the overlay's,
 for a program that reads both from the one file; --overlay-tail adds
 more pages (x5600-x59FF, then x5C00-x5DFF: one range each time it
 is given) after the overlay's, all of them to the top of memory then; --swap writes a file the program reads in when it needs it.
 
-Date: 11/05/2026
+Date: 11/06/2026
 """
 
 import argparse
@@ -73,7 +73,7 @@ def split_overlay(mem, lib, start, step, tail=None):
     last page (all of them up to the top of memory then); a list of such
     ranges: each in turn"""
     own = own_bytes(mem, lib)
-    high = {k & 0xFFFF: v for k, v in own.items() if (k & 0xFFFF) >= start}
+    high = {k & 0xFFFF: v for k, v in own.items() if k < 0x20000 and (k & 0xFFFF) >= start}
     overlay = b''
     if tail:
         if isinstance(tail[0], int):
@@ -91,11 +91,12 @@ def split_overlay(mem, lib, start, step, tail=None):
     return {k: v for k, v in mem.items() if k < min(start, 0x10000)}, overlay
 
 
-def split_swap(mem, start, end):
-    """the bytes of a swap file: those assembled after #overlay at start up
-    to end (kept at + x10000; SCRAPWRIGHT's SCRAP.INV), from start to the
-    last one"""
-    got = {k - 0x10000: v for k, v in mem.items() if start + 0x10000 <= k < end + 0x10000}
+def split_swap(mem, start, end, bank=1):
+    """the bytes of a swap file: those assembled after #overlay (bank 1,
+    kept at + x10000; SCRAPWRIGHT's SCRAP.INV) or #overlay2 (bank 2, at
+    + x20000: SCRAP.NAV) at start up to end, from start to the last one"""
+    got = {k - 0x10000 * bank: v for k, v in mem.items()
+           if start + 0x10000 * bank <= k < end + 0x10000 * bank}
     if not got:
         return b''
     return bytes(got.get(a, 0) for a in range(start, max(got) + 1))
@@ -147,7 +148,7 @@ def main(argv):
     ap.add_argument('--overlay-head', metavar='FILE',
                     help='bytes put in front of the overlay\'s in NAME.OVL')
     ap.add_argument('--swap', metavar='ADDR,END,EXT', action='append', default=[],
-                    help='the #overlay bytes at ADDR up to END go to NAME.EXT (read in at run time)')
+                    help='the #overlay bytes at ADDR up to END go to NAME.EXT (read in at run time); ,2 at the end: the #overlay2 ones')
     a = ap.parse_args(argv)
     src = open(a.asm).read()
     base = os.path.dirname(os.path.abspath(a.asm))
@@ -156,8 +157,9 @@ def main(argv):
     overlay = None
     swaps = []
     for sw in a.swap:
-        lo, hi, ext = sw.split(',')
-        swaps.append((ext, int(lo, 0), split_swap(mem, int(lo, 0), int(hi, 0))))
+        lo, hi, ext, *bank = sw.split(',')
+        swaps.append((ext, int(lo, 0), split_swap(mem, int(lo, 0), int(hi, 0),
+                                                  int(bank[0], 0) if bank else 1)))
     if a.overlay:
         start, step = a.overlay.split(',')
         start, step = int(start, 0), int(step, 0)
