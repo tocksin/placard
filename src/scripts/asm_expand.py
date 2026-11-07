@@ -58,7 +58,7 @@ Lines before the first .chunk or .fixed (constants, #include, comments)
 are copied as they are.  The .asm made is the file to read and assemble;
 the .masm is its source (change that and run this again).
 
-Date: 11/05/2026
+Date: 11/06/2026
 """
 
 import os
@@ -203,7 +203,7 @@ def expand(src, name='?'):
         if word == '.region':
             parts = rest.split(',')
             region = [value(parts[0]), value(parts[1]), value(parts[2]) if len(parts) > 2 else 1,
-                      len(parts) > 3 and parts[3].strip() == 'overlay']
+                      {'overlay': 1, 'overlay2': 2}.get(parts[3].strip(), 0) if len(parts) > 3 else 0]
             if region not in regions:
                 regions.append(region)
             continue
@@ -286,11 +286,11 @@ def expand(src, name='?'):
 
 
 def place(chunks, name):
-    used = {}                               # page -> bytes used
-    for c in chunks:                        # a fixed chunk takes its page up to its end
-        if c.fixed is not None:
+    used = {}                               # (overlay set, page) -> bytes used: the
+    for c in chunks:                        # #overlay2 pages are a second set
+        if c.fixed is not None:             # a fixed chunk takes its page up to its end
             c.addr = c.fixed
-            page = c.addr >> 8
+            page = (0, c.addr >> 8)
             used[page] = max(used.get(page, 0), (c.addr & 0xFF) + c.size)
     for c in sorted(chunks, key=lambda c: not c.page):   # .page chunks first
         if c.fixed is not None or c.flow:
@@ -302,11 +302,11 @@ def place(chunks, name):
                               % (name, c.lineno, c.last))
         own = c.regions.index(c.region)
         for region in c.regions[own:]:
-            lo, hi, step, _ = region
+            lo, hi, step, ov = region
             page = lo >> 8
             start_off = lo & 0xFF
             while page << 8 < hi:
-                off = used.get(page, start_off if page == lo >> 8 else 0)
+                off = used.get((ov == 2, page), start_off if page == lo >> 8 else 0)
                 end = min(256, hi - (page << 8))
                 if c.page and off:
                     page += step
@@ -316,7 +316,7 @@ def place(chunks, name):
                 slack = 1 if c.last == 'bra' and end == 256 else 0
                 if off + c.size + slack <= end:
                     c.addr = (page << 8) + off
-                    used[page] = off + c.size
+                    used[(ov == 2, page)] = off + c.size
                     c.region = region
                     break
                 page += step
@@ -365,12 +365,14 @@ def render(head, chunks, name):
            '; ' + '=' * 60, '']
     out += head
     nxt = None
-    for c in sorted(chunks, key=lambda c: c.addr):
-        if c.addr != nxt:
+    kinds = {0: '#addr', 1: '#overlay', 2: '#overlay2'}
+    for c in sorted(chunks, key=lambda c: (c.region[3] if c.region else 0, c.addr)):
+        kind = kinds[c.region[3] if c.region else 0]
+        if (kind, c.addr) != nxt:
             out.append('')
-            out.append('%s 0x%04X' % ('#overlay' if c.region and c.region[3] else '#addr', c.addr))
+            out.append('%s 0x%04X' % (kind, c.addr))
         out.extend(c.lines)
-        nxt = c.addr + c.size
+        nxt = (kind, c.addr + c.size)
     return '\n'.join(out) + '\n'
 
 

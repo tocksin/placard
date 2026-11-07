@@ -1,0 +1,1228 @@
+; ============================================================
+; scrap_fl.masm - SCRAPWRIGHT's flight: resident, so the tug flies on
+; while you walk round it (the map screen is SCRAP.NAV, scrap_nav.masm)
+; ============================================================
+;
+; Included in scrap.masm's code.  The state is in x4020-x403F and
+; x4060-x407F (the rooms' tables there use 32 of their 64 entries).
+;
+; A sector of 64 x 64 km: positions in metres, 16.16 (4 bytes, the low
+; first), the KESTREL 9's centre at WRECK_X, WRECK_Y.  Velocities in
+; 1/2^24 m a frame, signed (4 bytes).  tug_scan sums the tug's mass (each
+; cell's kind, TB_MASS, but loose parts) and its working thrusters once a
+; second; fl_accel makes the acceleration A16 = n (THRUST_Q / mass) in
+; 1/2^20 m a frame a frame, kept as FL_A8 << FL_AE.  fl_dv makes a frame's
+; thrust forward (A16 cos h / 8 on x, sin on y) and back (half), and
+; fl_tick adds one to the velocity each frame a thrust key is held (and
+; there is nitrogen: a litre a second a thruster), then the velocity to
+; the position.  Every 8 frames fl_check looks at the KESTREL 9: closer
+; than WRECK_BOX metres each way from its centre is a hit (fl_hit:
+; damage by speed, the tug stopped where it last was clear); closing
+; within 300 m is PROXIMITY, and within 10 s of the hull IMPACT IN 10 S.
+;
+; Date: 11/06/2026
+; ============================================================
+
+FL_PG   = 0x40
+FL_NAV  = 0x20              ; 1 while the navigation screen is up
+FL_DOCK = 0x21              ; 1 docked to the KESTREL 9
+FL_HD   = 0x22              ; heading 0-31 (0 east, 8 south: the screen's down)
+FL_TH   = 0x23              ; this frame's thrust: 1 forward, 2 back (SCRAP.NAV's keys)
+FL_NT   = 0x24              ; working thrusters (tug_scan)
+FL_ML   = 0x25              ; the tug's mass, 100 kg (tug_scan)
+FL_MH   = 0x26
+FL_AL   = 0x27              ; the alarm: 0, 1 proximity, 2 impact in 10 s
+FL_A8   = 0x28              ; the acceleration: FL_A8 << FL_AE in 1/2^20 m a frame a frame
+FL_AE   = 0x29
+FL_FT   = 0x2A              ; thruster frames toward the next litre
+FL_FUL  = 0x2B              ; litres burnt
+FL_FUH  = 0x2C
+FL_FLL  = 0x2D              ; litres left (the nitrogen by working intakes, less those burnt)
+FL_FLH  = 0x2E
+FL_ZM   = 0x2F              ; the map's zoom, 0-2 (SCRAP.NAV)
+FL_GPL  = 0x30              ; the gap to the KESTREL 9's hull at the last check, metres
+FL_GPH  = 0x31
+FL_CL   = 0x32              ; closing: metres in the last 8 frames (0 moving away)
+FL_SV   = 0x33              ; x4033-x403A: the last position clear of the hull
+FL_DX   = 0x3B              ; fl_rel: the KESTREL 9's centre from the tug, metres
+FL_DY   = 0x3D
+FL_PX   = 0x60              ; position x, y (16.16 metres)
+FL_PY   = 0x64
+FL_VX   = 0x68              ; velocity x, y (1/2^24 m a frame)
+FL_VY   = 0x6C
+FL_DVX  = 0x70              ; a frame's thrust forward: x, y (signed, 2 bytes each)
+FL_DVY  = 0x72
+FL_RVX  = 0x74              ; and back
+FL_RVY  = 0x76
+                            ; x4078-x407F: SCRAP.NAV's
+
+; fl_init - docked to the KESTREL 9, heading east, nothing burnt.  A leaf.
+.chunk
+fl_init:
+    ld   FL_PG, y
+    ld   0x20, ac
+    ld   ac, [u0]
+fi_l:
+    ld   [u0], x
+    ld   0x00, [y,x]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  0x40, ac
+    bne  fi_2
+    ld   0x60, ac
+    ld   ac, [u0]
+fi_2:
+    ld   [u0], ac
+    xor  0x80, ac
+    bne  fi_l
+    ld   [RAND_LO], ac          ; rand8 needs a state that is not 0
+    or   [RAND_HI], ac
+    bne  fi_r
+    ld   0x5A, ac
+    ld   ac, [RAND_LO]
+fi_r:
+    GOTO fl_dock
+
+; fl_dock - docked: at the port, stopped; the airlocks joined (TUG_LKX and
+; WRECK_LKX, TUG_LKY, airlocks again).  A leaf; changes g_x, g_y and the
+; map_get state.
+.chunk
+fl_dock:
+    ld   FL_PG, y
+    ld   FL_DOCK, x
+    ld   1, [y,x]
+    ld   FL_AL, x
+    ld   0x00, [y,x]
+    ld   FL_VX, ac
+    ld   ac, [u0]
+fd_l:
+    ld   [u0], x
+    ld   0x00, [y,x]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  FL_VY + 4, ac
+    bne  fd_l
+    ld   FL_PX, x
+    ld   0x00, [y,x]
+    ld   FL_PX + 1, x
+    ld   0x00, [y,x]
+    ld   FL_PX + 2, x
+    ld   DOCK_X & 0xFF, [y,x]
+    ld   FL_PX + 3, x
+    ld   DOCK_X >> 8, [y,x]
+    ld   FL_PY, x
+    ld   0x00, [y,x]
+    ld   FL_PY + 1, x
+    ld   0x00, [y,x]
+    ld   FL_PY + 2, x
+    ld   DOCK_Y & 0xFF, [y,x]
+    ld   FL_PY + 3, x
+    ld   DOCK_Y >> 8, [y,x]
+    ld   T_LOCK, ac
+    ld   ac, [u7]
+    ld   T_LOCK, ac
+    GOTO fl_locks
+
+; fl_locks - the tug's airlock cell (TUG_LKX, TUG_LKY) becomes kind u7, the
+; KESTREL 9's (WRECK_LKX) kind AC.  A leaf (map_get's address code, inline).
+.chunk
+fl_locks:
+    ld   ac, [u6]
+    ld   TUG_LKX, ac
+    ld   ac, [u5]
+fk2_l:
+    ld   [u5], ac               ; chunk 6 (y >> 4) + x >> 4: page x60 + 4k
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    add  6 * (TUG_LKY >> 4), ac
+    shl
+    shl
+    add  0x60, ac
+    ld   ac, y
+    ld   [u5], ac
+    and  15, ac
+    add  16 * (TUG_LKY & 15), ac
+    ld   ac, x
+    ld   [y,x], ac
+    and  0x40, ac
+    or   [u7], ac
+    ld   ac, [y,x]
+    ld   [u5], ac
+    xor  WRECK_LKX, ac
+    beq  fk2_e
+    ld   WRECK_LKX, ac
+    ld   ac, [u5]
+    ld   [u6], ac
+    ld   ac, [u7]
+    bra  fk2_l
+fk2_e:
+    RET
+
+; fl_tick - once a frame: a held thrust (with nitrogen left) into the
+; velocity, the velocity into the position; nothing while docked
+.chunk
+fl_tick:
+    PUSH_LINK
+    ld   FL_PG, y
+    ld   FL_DOCK, x
+    ld   [y,x], ac
+    bne  ft_e
+    ld   FL_TH, x
+    ld   [y,x], ac
+    beq  ft_m
+    ld   ac, [w0]
+    ld   0x00, [y,x]            ; held: the keys set it again next frame
+    ld   FL_FLL, x
+    ld   [y,x], ac
+    ld   FL_FLH, x
+    or   [y,x], ac
+    beq  ft_m
+    ld   FL_A8, x
+    ld   [y,x], ac
+    beq  ft_m
+    ld   FL_DVX, ac
+    ld   ac, [w1]
+    ld   [w0], ac
+    xor  1, ac
+    beq  ft_f
+    ld   FL_RVX, ac
+    ld   ac, [w1]
+ft_f:
+    ld   FL_VX, ac
+    CALL fl_add24
+    ld   [w1], ac
+    add  2, ac
+    ld   ac, [w1]
+    ld   FL_VY, ac
+    CALL fl_add24
+    CALL fl_burn
+ft_m:
+    ld   FL_VX + 1, ac
+    ld   ac, [w1]
+    ld   FL_PX, ac
+    CALL fl_addp
+    ld   FL_VY + 1, ac
+    ld   ac, [w1]
+    ld   FL_PY, ac
+    CALL fl_addp
+ft_e:
+    LEAVE
+
+; fl_add24 - the 2 bytes at FL_PG + w1 (signed) into the 4 at FL_PG + AC.
+; fl_addp - the 3 at w1 (signed) into the 4 at AC.  Leaves (fl_add's).
+.chunk
+fl_add24:
+    ld   ac, [T0]
+    ld   [w1], ac
+    ld   ac, [T1]
+    ld   2, ac
+    ld   ac, [T2]
+    bra  fa4_n
+fl_addp:
+    ld   ac, [T0]
+    ld   [w1], ac
+    ld   ac, [T1]
+    ld   3, ac
+    ld   ac, [T2]
+fa4_n:
+    ld   4, ac
+    ld   ac, [T3]
+    GOTO fl_add
+
+; fl_add - T2 bytes at FL_PG + T1 (signed: the top one's sign carried on)
+; added into T3 bytes at FL_PG + T0 (low first).  A leaf; T0-T7.
+.chunk
+fl_add:
+    ld   FL_PG, y
+    clr  ac
+    ld   ac, [T4]               ; the carry
+    ld   ac, [T5]               ; the sign bytes past the source
+    ld   [T1], ac
+    add  [T2], ac
+    dec
+    ld   ac, x
+    ld   [y,x], ac
+    blt  fa_ng
+    bra  fa_l
+fa_ng:
+    ld   0xFF, ac
+    ld   ac, [T5]
+fa_l:
+    ld   [T5], ac
+    ld   ac, [T6]
+    ld   [T2], ac
+    beq  fa_s
+    dec
+    ld   ac, [T2]
+    ld   [T1], x
+    ld   [y,x], ac
+    ld   ac, [T6]
+    ld   [T1], ac
+    inc
+    ld   ac, [T1]
+fa_s:
+    clr  ac
+    ld   ac, [T7]
+    ld   [T0], x
+    ld   [y,x], ac
+    add  [T6], ac
+    ld   ac, [y,x]
+    bcc  fa_c
+    ld   1, ac
+    ld   ac, [T7]
+fa_c:
+    ld   [T4], ac
+    beq  fa_d
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    bne  fa_d
+    ld   1, ac
+    ld   ac, [T7]
+fa_d:
+    ld   [T7], ac
+    ld   ac, [T4]
+    ld   [T0], ac
+    inc
+    ld   ac, [T0]
+    ld   [T3], ac
+    dec
+    ld   ac, [T3]
+    bne  fa_l
+    RET
+
+; fl_burn - a frame of thrust: FL_NT thruster frames, a litre burnt (and
+; one less left) each 60.  A leaf.
+.chunk
+fl_burn:
+    ld   FL_PG, y
+    ld   FL_NT, x
+    ld   [y,x], ac
+    ld   FL_FT, x
+    add  [y,x], ac
+    ld   ac, [y,x]
+    sub  60, ac
+    bcs  fb_e
+    ld   ac, [y,x]
+    ld   FL_FUL, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    bne  fb_1
+    ld   FL_FUH, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+fb_1:
+    ld   FL_FLL, x
+    ld   [y,x], ac
+    bne  fb_2
+    ld   FL_FLH, x
+    ld   [y,x], ac
+    dec
+    ld   ac, [y,x]
+    ld   FL_FLL, x
+    ld   [y,x], ac
+fb_2:
+    dec
+    ld   ac, [y,x]
+fb_e:
+    RET
+
+; tug_mass - tug_scan's: the mass of kind c_t added in, and a working
+; thruster (c_f under 8) counted.  A leaf.
+.chunk
+tug_mass:
+    ld   ACT_PG, y
+    ld   [c_t], ac
+    add  TB_MASS, x
+    ld   [y,x], ac
+    ld   FL_PG, y
+    ld   FL_ML, x
+    add  [y,x], ac
+    ld   ac, [y,x]
+    bcc  tg_1
+    ld   FL_MH, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+tg_1:
+    ld   [c_t], ac
+    xor  T_THRUST, ac
+    bne  tg_e
+    ld   [c_f], ac
+    sub  8, ac
+    bcc  tg_e
+    ld   FL_NT, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+tg_e:
+    RET
+
+; fl_scan0 - tug_scan's: nothing counted yet (its parts, worth, antenna,
+; mass, thrusters).  A leaf.
+.chunk
+fl_scan0:
+    clr  ac
+    ld   ac, [n_o2]
+    ld   ac, [n_scr]
+    ld   ac, [n_bat]
+    ld   ac, [n_fuel]
+    ld   ac, [v4]
+    ld   ac, [v5]
+    ld   N_ANT >> 8, y
+    ld   N_ANT & 0xFF, x
+    ld   0, [y,x]
+    ld   FL_PG, y
+    ld   FL_ML, x
+    ld   0x00, [y,x]
+    ld   FL_MH, x
+    ld   0x00, [y,x]
+    ld   FL_NT, x
+    ld   0x00, [y,x]
+    RET
+
+; shr16 - R1:R0 >>= 1 (no sign).  A leaf.
+.chunk
+shr16:
+    ld   [R1], ac
+    and  1, ac
+    beq  sr_0
+    ld   0x80, ac
+sr_0:
+    ld   ac, [T0]
+    ld   [R0], ac
+    shr  ac
+    or   [T0], ac
+    ld   ac, [R0]
+    ld   [R1], ac
+    shr  ac
+    ld   ac, [R1]
+    RET
+
+; fl_accel - the acceleration from the mass and thrusters tug_scan found,
+; then fl_fuel.  The end of tug_scan (its LEAVE)
+.chunk
+fl_accel:
+    ld   FL_PG, y               ; the mass in w1:w0, THRUST_Q in R1:R0:
+    ld   FL_ML, x               ;   both halved until the mass fits a byte
+    ld   [y,x], ac
+    ld   ac, [w0]
+    ld   FL_MH, x
+    ld   [y,x], ac
+    ld   ac, [w1]
+    ld   THRUST_Q & 0xFF, ac
+    ld   ac, [R0]
+    ld   THRUST_Q >> 8, ac
+    ld   ac, [R1]
+fc_s:
+    ld   [w1], ac
+    beq  fc_d
+    CALL shr16
+    ld   [R0], ac
+    ld   ac, [w2]
+    ld   [R1], ac
+    ld   ac, [w3]
+    ld   [w0], ac
+    ld   ac, [R0]
+    ld   [w1], ac
+    ld   ac, [R1]
+    CALL shr16
+    ld   [R0], ac
+    ld   ac, [w0]
+    ld   [R1], ac
+    ld   ac, [w1]
+    ld   [w2], ac
+    ld   ac, [R0]
+    ld   [w3], ac
+    ld   ac, [R1]
+    bra  fc_s
+fc_d:
+    ld   255, ac                ; q = THRUST_Q / mass, 255 at most
+    ld   ac, [w2]
+    ld   [w0], ac
+    beq  fc_q
+    ld   ac, [R2]
+    CALL l_div16
+    ld   [R1], ac
+    bne  fc_q
+    ld   [R0], ac
+    ld   ac, [w2]
+fc_q:
+    GOTO fl_a16
+
+; fl_a16 - A16 = q (w2) x the thrusters, kept as FL_A8 << FL_AE (FL_AE 3
+; at most), then fl_fuel.  The rest of fl_accel
+.chunk
+fl_a16:
+    ld   [w2], ac
+    ld   ac, [R0]
+    ld   FL_PG, y
+    ld   FL_NT, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    CALL l_mul8
+    clr  ac
+    ld   ac, [w3]
+fa6_l:
+    ld   [R3], ac
+    beq  fa6_d
+    ld   [R2], ac
+    ld   ac, [R0]
+    ld   [R3], ac
+    ld   ac, [R1]
+    CALL shr16
+    ld   [R0], ac
+    ld   ac, [R2]
+    ld   [R1], ac
+    ld   ac, [R3]
+    ld   [w3], ac
+    inc
+    ld   ac, [w3]
+    bra  fa6_l
+fa6_d:
+    ld   [w3], ac
+    sub  4, ac
+    bcs  fa6_k
+    ld   255, ac                ; more than 3 shifts: the most
+    ld   ac, [R2]
+    ld   3, ac
+    ld   ac, [w3]
+fa6_k:
+    ld   FL_PG, y
+    ld   FL_A8, x
+    ld   [R2], ac
+    ld   ac, [y,x]
+    ld   FL_AE, x
+    ld   [w3], ac
+    ld   ac, [y,x]
+    GOTO fl_fuel
+
+; fl_fuel - the litres left: N2_TANK_L a nitrogen tank by a working intake
+; (n_fuel), less those burnt, 0 at least; then fl_dv.  The rest of
+; fl_accel
+.chunk
+fl_fuel:
+    ld   [n_fuel], ac
+    ld   ac, [R0]
+    ld   N2_TANK_L >> 1, ac
+    ld   ac, [R1]
+    CALL l_mul8
+    ld   [R2], ac               ; x 2
+    shl
+    ld   ac, [R2]
+    ld   [R3], ac
+    bcc  ff_1
+    shl
+    inc
+    bra  ff_2
+ff_1:
+    shl
+ff_2:
+    ld   ac, [R3]
+    ld   FL_PG, y
+    ld   FL_FUL, x
+    ld   [R2], ac
+    sub  [y,x], ac
+    ld   ac, [R2]
+    ld   FL_FUH, x
+    ld   [R3], ac
+    bcc  ff_3
+    dec
+    blt  ff_0                   ; (R3 was 0: a borrow past it)
+ff_3:
+    sub  [y,x], ac
+    bcs  ff_0
+    ld   ac, [R3]
+    bra  ff_s
+ff_0:
+    clr  ac
+    ld   ac, [R2]
+    ld   ac, [R3]
+ff_s:
+    ld   FL_FLL, x
+    ld   [R2], ac
+    ld   ac, [y,x]
+    ld   FL_FLH, x
+    ld   [R3], ac
+    ld   ac, [y,x]
+    CALL fl_dv
+    LEAVE
+
+; fl_dv - a frame's thrust for the heading: forward on x (cos h) and y
+; (sin h = cos (h + 24)), back (half, the other way: h + 16, h + 8)
+.chunk
+fl_dv:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [w3]
+    ld   FL_DVX, ac
+    ld   ac, [w2]
+    clr  ac
+    CALL fl_dv1
+    ld   FL_DVY, ac
+    ld   ac, [w2]
+    ld   24, ac
+    CALL fl_dv1
+    ld   1, ac
+    ld   ac, [w3]
+    ld   FL_RVX, ac
+    ld   ac, [w2]
+    ld   16, ac
+    CALL fl_dv1
+    ld   FL_RVY, ac
+    ld   ac, [w2]
+    ld   8, ac
+    CALL fl_dv1
+    LEAVE
+
+; fl_dv1 - FL_PG + w2 (2 bytes) = A8 (halved when w3) x cos (h + AC) / 8,
+; << FL_AE
+.chunk
+fl_dv1:
+    PUSH_LINK
+    ld   ac, [w1]
+    ld   FL_PG, y
+    ld   FL_HD, x
+    ld   [y,x], ac
+    add  [w1], ac
+    and  31, ac
+    add  COS32 & 0xFF, x
+    ld   COS32 >> 8, y
+    ld   [y,x], ac
+    ld   ac, [w1]               ; cos (signed)
+    blt  dv_ng
+    bra  dv_ps
+dv_ng:
+    xor  0xFF, ac
+    inc
+dv_ps:
+    ld   ac, [R1]
+    ld   FL_PG, y
+    ld   FL_A8, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   [w3], ac
+    beq  dv_f
+    ld   [R0], ac
+    shr  ac
+    ld   ac, [R0]
+dv_f:
+    CALL l_mul8                 ; R3:R2
+    ld   [R2], ac
+    ld   ac, [R0]
+    ld   [R3], ac
+    ld   ac, [R1]
+    ld   FL_PG, y
+    ld   FL_AE, x
+    ld   3, ac
+    sub  [y,x], ac
+    ld   ac, [w4]
+dv_sh:
+    ld   [w4], ac
+    beq  dv_s
+    dec
+    ld   ac, [w4]
+    CALL shr16
+    bra  dv_sh
+dv_s:
+    ld   [w1], ac
+    blt  dv_m
+    bra  dv_st
+dv_m:
+    ld   [R0], ac               ; negative: two's complement
+    xor  0xFF, ac
+    add  1, ac
+    ld   ac, [R0]
+    ld   [R1], ac
+    xor  0xFF, ac
+    bcc  dv_m1
+    inc
+dv_m1:
+    ld   ac, [R1]
+dv_st:
+    ld   FL_PG, y
+    ld   [w2], x
+    ld   [R0], ac
+    ld   ac, [y,x]
+    ld   [w2], ac
+    inc
+    ld   ac, x
+    ld   [R1], ac
+    ld   ac, [y,x]
+    LEAVE
+
+.chunk
+COS32:
+    #d8 127, 125, 117, 106, 90, 71, 49, 25, 0, -25 & 0xFF, -49 & 0xFF, -71 & 0xFF
+    #d8 -90 & 0xFF, -106 & 0xFF, -117 & 0xFF, -125 & 0xFF, -127 & 0xFF, -125 & 0xFF
+    #d8 -117 & 0xFF, -106 & 0xFF, -90 & 0xFF, -71 & 0xFF, -49 & 0xFF, -25 & 0xFF
+    #d8 0, 25, 49, 71, 90, 106, 117, 125
+
+; fl_abs - u1:u0 = |the 2 bytes at FL_PG + AC| (signed).  A leaf.
+.chunk
+fl_abs:
+    ld   ac, [u2]
+    ld   FL_PG, y
+    ld   [u2], x
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   [u2], ac
+    inc
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [u1]
+    blt  fb_ng
+    RET
+fb_ng:
+    ld   [u0], ac
+    xor  0xFF, ac
+    add  1, ac
+    ld   ac, [u0]
+    ld   [u1], ac
+    xor  0xFF, ac
+    bcc  fb_n1
+    inc
+fb_n1:
+    ld   ac, [u1]
+    RET
+
+; fl_max - w1:w0 = the larger of w1:w0 and u1:u0 (both 0-32767).  A leaf.
+.chunk
+fl_max:
+    ld   [u1], ac
+    sub  [w1], ac
+    blt  mx_e
+    bne  mx_u
+    ld   [u0], ac
+    sub  [w0], ac
+    bcs  mx_e
+mx_u:
+    ld   [u0], ac
+    ld   ac, [w0]
+    ld   [u1], ac
+    ld   ac, [w1]
+mx_e:
+    RET
+
+; fl_rel - FL_DX, FL_DY = the KESTREL 9's centre less the tug's position
+; (metres, signed), w1:w0 = the gap to its hull: the larger of |dx| and
+; |dy|, less WRECK_BOX (signed: under 0 inside)
+.chunk
+fl_rel:
+    PUSH_LINK
+    ld   FL_PG, y
+    ld   FL_PX + 2, x
+    ld   WRECK_X & 0xFF, ac
+    sub  [y,x], ac
+    ld   FL_DX, x
+    ld   ac, [y,x]
+    ld   FL_PX + 3, x
+    ld   WRECK_X >> 8, ac
+    bcc  fr_1
+    dec
+fr_1:
+    sub  [y,x], ac
+    ld   FL_DX + 1, x
+    ld   ac, [y,x]
+    ld   FL_PY + 2, x
+    ld   WRECK_Y & 0xFF, ac
+    sub  [y,x], ac
+    ld   FL_DY, x
+    ld   ac, [y,x]
+    ld   FL_PY + 3, x
+    ld   WRECK_Y >> 8, ac
+    bcc  fr_2
+    dec
+fr_2:
+    sub  [y,x], ac
+    ld   FL_DY + 1, x
+    ld   ac, [y,x]
+    ld   FL_DX, ac
+    CALL fl_abs
+    ld   [u0], ac
+    ld   ac, [w0]
+    ld   [u1], ac
+    ld   ac, [w1]
+    ld   FL_DY, ac
+    CALL fl_abs
+    CALL fl_max
+    ld   [w0], ac
+    sub  WRECK_BOX, ac
+    ld   ac, [w0]
+    ld   [w1], ac
+    bcc  fr_3
+    dec
+fr_3:
+    ld   ac, [w1]
+    LEAVE
+
+; fl_speed - w1:w0 = the larger of |vx| and |vy| in 1/256 m a frame (the
+; velocities' top two bytes)
+.chunk
+fl_speed:
+    PUSH_LINK
+    ld   FL_VX + 2, ac
+    CALL fl_abs
+    ld   [u0], ac
+    ld   ac, [w0]
+    ld   [u1], ac
+    ld   ac, [w1]
+    ld   FL_VY + 2, ac
+    CALL fl_abs
+    CALL fl_max
+    LEAVE
+
+; fl_save - the position kept as the last one clear of the hull (FL_SV);
+; fl_back (AC 1) puts it back.  A leaf.
+.chunk
+fl_save:
+    clr  ac
+fl_back:
+    ld   ac, [u3]
+    ld   FL_PG, y
+    clr  ac
+    ld   ac, [u2]
+fv_l:
+    ld   [u3], ac
+    bne  fv_b
+    ld   [u2], ac
+    add  FL_PX, x
+    ld   [y,x], ac
+    ld   ac, [u1]
+    ld   [u2], ac
+    add  FL_SV, x
+    ld   [u1], ac
+    ld   ac, [y,x]
+    bra  fv_n
+fv_b:
+    ld   [u2], ac
+    add  FL_SV, x
+    ld   [y,x], ac
+    ld   ac, [u1]
+    ld   [u2], ac
+    add  FL_PX, x
+    ld   [u1], ac
+    ld   ac, [y,x]
+fv_n:
+    ld   [u2], ac
+    inc
+    ld   ac, [u2]
+    xor  8, ac
+    bne  fv_l
+    RET
+
+; fl_check - every 8 frames, undocked: the KESTREL 9.  Inside its hull: a
+; hit (fl_hit); else the gap kept, the closing speed and the alarm
+.chunk
+fl_check:
+    PUSH_LINK
+    ld   FL_PG, y
+    ld   FL_DOCK, x
+    ld   [y,x], ac
+    beq  fc_go
+    LEAVE
+fc_go:
+    CALL fl_rel
+    ld   [w1], ac
+    blt  fc_hit
+    CALL fl_save
+    ld   FL_PG, y               ; closing = the last gap - this one
+    ld   FL_GPL, x
+    ld   [y,x], ac
+    sub  [w0], ac
+    ld   ac, [w2]
+    ld   FL_GPH, x
+    ld   [y,x], ac
+    bcc  fc_1
+    dec
+fc_1:
+    sub  [w1], ac
+    blt  fc_0                   ; moving away
+    beq  fc_2
+    ld   255, ac
+    ld   ac, [w2]
+    bra  fc_2
+fc_0:
+    clr  ac
+    ld   ac, [w2]
+fc_2:
+    ld   FL_CL, x
+    ld   [w2], ac
+    ld   ac, [y,x]
+    ld   FL_GPL, x
+    ld   [w0], ac
+    ld   ac, [y,x]
+    ld   FL_GPH, x
+    ld   [w1], ac
+    ld   ac, [y,x]
+    GOTO fl_alarm
+fc_hit:
+    GOTO fl_hit
+
+; fl_alarm - closing (w2 metres in 8 frames) within 300 m (w1:w0 the gap):
+; PROXIMITY (1); within 10 seconds (75 checks): IMPACT IN 10 S (2).  The
+; message row drawn again when it changes.  The rest of fl_check
+.chunk
+fl_alarm:
+    clr  ac
+    ld   ac, [w3]
+    ld   [w2], ac
+    beq  fl_al_s
+    ld   [w1], ac               ; 300 = x012C
+    sub  1, ac
+    blt  fl_al_p
+    bne  fl_al_s
+    ld   [w0], ac
+    sub  0x2C, ac
+    bcc  fl_al_s
+fl_al_p:
+    ld   1, ac
+    ld   ac, [w3]
+    ld   [w2], ac
+    ld   ac, [R0]
+    ld   75, ac
+    ld   ac, [R1]
+    CALL l_mul8                 ; R3:R2 = metres in 10 s
+    ld   [w1], ac
+    sub  [R3], ac
+    blt  fl_al_i
+    bne  fl_al_s
+    ld   [w0], ac
+    sub  [R2], ac
+    bcc  fl_al_s
+fl_al_i:
+    ld   2, ac
+    ld   ac, [w3]
+fl_al_s:
+    ld   FL_PG, y
+    ld   FL_AL, x
+    ld   [y,x], ac
+    xor  [w3], ac
+    beq  fl_al_e
+    ld   [w3], ac
+    ld   ac, [y,x]
+    ld   [dirty], ac
+    or   2, ac
+    ld   ac, [dirty]
+fl_al_e:
+    LEAVE
+
+; fl_hit - the tug hit the KESTREL 9: by speed (w1:w0 in 1/256 m a frame)
+; under 2 m/s a bump, to 20 m/s 1-3 damage steps on 4 cells of the tug,
+; to 100 m/s 4-11 on 16, more: 15 (broken) on 24.  Then stopped where it
+; was last clear.  The rest of fl_check
+.chunk
+fl_hit:
+    CALL fl_speed
+    clr  ac
+    ld   ac, [w4]               ; cells
+    ld   [w1], ac
+    bne  fh_2
+    ld   [w0], ac
+    sub  9, ac
+    bcs  fh_go
+    ld   [w0], ac
+    sub  85, ac
+    bcs  fh_1
+fh_2:
+    ld   [w1], ac               ; 427 = x01AB
+    sub  1, ac
+    blt  fh_3
+    bne  fh_4
+    ld   [w0], ac
+    sub  0xAB, ac
+    bcc  fh_4
+fh_3:
+    ld   16, ac
+    ld   ac, [w4]
+    ld   4, ac
+    ld   ac, [w5]               ; the least steps
+    ld   7, ac
+    ld   ac, [w6]               ; and a random 0-7 more
+    bra  fh_go
+fh_1:
+    ld   4, ac
+    ld   ac, [w4]
+    ld   1, ac
+    ld   ac, [w5]
+    ld   1, ac
+    ld   ac, [w6]
+    bra  fh_go
+fh_4:
+    ld   24, ac
+    ld   ac, [w4]
+    ld   15, ac
+    ld   ac, [w5]
+    clr  ac
+    ld   ac, [w6]
+fh_go:
+    GOTO fl_dmg
+
+; fl_dmg - w4 random cells of the tug: a wall, door or part (F_DMG or
+; F_STRUCT) takes w5 + (random & w6) damage steps (15 at most).  Then
+; fl_stop.  The rest of fl_hit
+.chunk
+fl_dmg:
+    ld   [w4], ac
+    beq  fm_e
+    CALL l_rand8
+    and  31, ac
+    sub  TUG_X1 - TUG_X0 + 1, ac
+    blt  fm_x
+    sub  16, ac
+fm_x:
+    add  TUG_X1 + 1, ac
+    ld   ac, [g_x]
+    CALL l_rand8
+    and  31, ac
+    sub  TUG_Y1 - TUG_Y0 + 1, ac
+    blt  fm_y
+    sub  16, ac
+fm_y:
+    add  TUG_Y1 + 1, ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_DMG | F_STRUCT, ac
+    beq  fm_n
+    CALL l_rand8
+    and  [w6], ac
+    add  [w5], ac
+    add  [c_f], ac
+    ld   ac, [w3]
+    sub  16, ac
+    bcs  fm_s
+    ld   15, ac
+    ld   ac, [w3]
+fm_s:
+    ld   [w3], ac
+    CALL map_setd
+    CALL refresh_cell
+    ld   1, ac
+    ld   ac, [rb_go]
+fm_n:
+    ld   [w4], ac
+    dec
+    ld   ac, [w4]
+    bra  fl_dmg
+fm_e:
+    GOTO fl_stop
+
+; fl_stop - stopped where it was last clear, the message, the rooms
+; worked out again (later when a screen holds their space).  The end of
+; fl_hit
+.chunk
+fl_stop:
+    ld   1, ac
+    CALL fl_back
+    ld   FL_PG, y
+    ld   FL_VX, ac
+    ld   ac, [u0]
+fs_vl:
+    ld   [u0], x
+    ld   0x00, [y,x]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  FL_VY + 4, ac
+    bne  fs_vl
+    ld   FL_AL, x
+    ld   0x00, [y,x]
+    ld   s_bump & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_bump >> 8, ac
+    ld   ac, [R1]
+    ld   [rb_go], ac
+    beq  fs_m
+    ld   s_hit & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_hit >> 8, ac
+    ld   ac, [R1]
+fs_m:
+    CALL set_msg
+    ld   [rb_go], ac
+    beq  ffs_e
+    ld   [inv], ac
+    bne  ffs_e
+    ld   FL_PG, y
+    ld   FL_NAV, x
+    ld   [y,x], ac
+    bne  ffs_e
+    CALL rooms_build
+    clr  ac
+    ld   ac, [rb_go]
+    CALL draw_view
+    CALL hover_update
+ffs_e:
+    LEAVE
+
+; draw_alarm - the flight's alarm on the message row (red), when there is
+; no message and no air warning.  The rest of draw_msg
+.chunk
+draw_alarm:
+    ld   FL_PG, y
+    ld   FL_AL, x
+    ld   [y,x], ac
+    bne  da_go
+    ld   0x04, ac
+    CALL msg_tint
+    LEAVE
+da_go:
+    ld   TINT_WARN | 0x04, ac
+    CALL msg_tint
+    ld   29, ac
+    ld   ac, [CUR_ROW]
+    ld   1, ac
+    ld   ac, [CUR_COL]
+    ld   s_prox & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_prox >> 8, ac
+    ld   ac, [R1]
+    ld   FL_PG, y
+    ld   FL_AL, x
+    ld   [y,x], ac
+    xor  1, ac
+    beq  fda_p
+    ld   s_imp & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_imp >> 8, ac
+    ld   ac, [R1]
+fda_p:
+    CALL tputs
+    LEAVE
+
+; map_see - map_get, but the KESTREL 9's side of the map (x from
+; WRECK_LKX) is open space while the tug is undocked: what the view,
+; the panel and walking see
+.chunk
+map_see:
+    PUSH_LINK
+    CALL map_get
+    CALL fl_far
+    beq  ms_e
+    ld   T_SPACE, ac
+    ld   ac, [c_t]
+    clr  ac
+    ld   ac, [c_f]
+    ld   ac, [c_b]
+    ld   ac, [c_r]
+ms_e:
+    ld   [c_t], ac
+    LEAVE
+
+; fl_far - AC = 1 when g_x is on the KESTREL 9's side and the tug is
+; undocked.  A leaf.
+.chunk
+fl_far:
+    ld   [g_x], ac
+    sub  WRECK_LKX, ac
+    bcs  ff_n
+    ld   FL_PG, y
+    ld   FL_DOCK, x
+    ld   [y,x], ac
+    bne  ff_n
+    ld   1, ac
+    RET
+ff_n:
+    clr  ac
+    RET
+
+; dyn_nav - NAVIGATE on a working helm installed on the tug.  The end of
+; dyn_acts (its LEAVE)
+.chunk
+dyn_nav:
+    ld   [s_t], ac
+    xor  T_HELM, ac
+    bne  dn_e
+    ld   [s_b], ac
+    beq  dn_e
+    ld   [s_f], ac
+    sub  8, ac
+    bcc  dn_e
+    CALL on_tug
+    beq  dn_e
+    ld   A_NAV, ac
+    CALL add_act
+dn_e:
+    LEAVE
+
+; nav_action - NAVIGATE: SCRAP.NAV read into x4100 (rooms_build's space:
+; a rebuild waits), its screen until Esc; then the ship again, the rooms
+; worked out if the ship changed.  The rest of do_action (its LEAVE)
+.chunk
+nav_action:
+    CALL near
+    bne  nv_ok
+    MSG_TOOFAR
+    CALL set_msg
+    LEAVE
+nv_ok:
+    ld   s_navf & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_navf >> 8, ac
+    ld   ac, [R1]
+    CALL swap_fetch
+    beq  nv_go
+    LEAVE
+nv_go:
+    CALL pt_hide
+    CALL nav_main
+    ld   [rb_go], ac
+    beq  nv_v
+    CALL rooms_build
+    clr  ac
+    ld   ac, [rb_go]
+nv_v:
+    clr  ac
+    ld   ac, [lock]
+    ld   ac, [h_on]
+    ld   ac, [wk_on]
+    CALL draw_view
+    CALL hover_update
+    ld   [dirty], ac
+    or   3, ac
+    ld   ac, [dirty]
+    LEAVE
+
+; l_mul8, l_div16, l_rand8 - the library's, under its map
+.chunk
+l_mul8:
+    PUSH_LINK
+    MAP07
+    CALL mul8
+    MAPFF
+    LEAVE
+
+.chunk
+l_div16:
+    PUSH_LINK
+    MAP07
+    CALL div16
+    MAPFF
+    LEAVE
+
+.chunk
+l_rand8:
+    PUSH_LINK
+    MAP07
+    CALL rand8
+    MAPFF
+    LEAVE
+
+.chunk
+s_bump:
+    #d "BUMPED THE KESTREL 9: NO DAMAGE.", 0x00
+s_hit:
+    #d "IMPACT!  THE TUG HIT THE KESTREL 9: CHECK THE HULL.", 0x00
+s_prox:
+    #d "PROXIMITY: THE KESTREL 9 IS CLOSE.  SLOW DOWN.", 0x00
+s_imp:
+    #d "IMPACT IN 10 S!  BRAKE OR TURN AWAY.", 0x00

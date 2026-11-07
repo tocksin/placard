@@ -11,8 +11,9 @@ Date: 2026-11-06
 
 The design (proposal, phases, mock-ups) is the SCRAPWRIGHT design doc.
 This is **phase 3**: the walkable wreck with the mouse panel (phase 2),
-plus salvage, building the tug, air, skills and taking the suit off.  Power, hazards, enemies and the
-sector map come in later phases.
+plus salvage, building the tug, air, skills and taking the suit off, and
+the first step of the navigation mode: flying the tug (see **Flying**).  Power, hazards, enemies,
+docking, radar, comms and other ships come in later steps.
 
 ![SCRAPWRIGHT in the simulator](../../reference/scrap_sim.png)
 
@@ -56,6 +57,7 @@ need you next to it, diagonals count):
 | PICK UP | a LOOSE part goes into the first free carry slot: left hand, right hand, back |
 | PUT DOWN LEFT / RIGHT / BACK | from that carry slot onto a deck or a power conduit next to you, at 50 % health or more: `THE DECK IS BROKEN - REPAIR IT TO 50% HEALTH FIRST.` |
 | REFILL SUIT | a full O2 tank fills the suit (11 L less for each damage step) and is empty after |
+| NAVIGATE | a working helm (50 % health or more) installed on the tug: the navigation screen (see **Flying**) |
 
 You carry three things at most, one in each hand and one on your back,
 and you start with the plasma cutter in your right hand.  Each part you
@@ -155,7 +157,56 @@ the tanks with a working intake by them.  The tug starts with two
 nitrogen tanks, an intake by one, a pump by its O2 tank and a dented
 radar array on its hull; the KESTREL 9 has a pump by its O2 row
 and intakes in its nitrogen room.  The radar does nothing yet: it is for
-the navigation mode.
+a later step of the navigation mode.
+
+**Flying.**  NAVIGATE at the tug's helm opens the navigation screen
+(`SCRAP.NAV`, read from the card into the inventory's place each time).
+The view is the sector map with the tug in the middle: a white dot and a
+yellow heading line, eight cyan dots where its velocity takes it (every
+64 frames), the KESTREL 9 as an orange box (its hull, 80 m each way from
+its centre) and its docking port as a green dot.  The panel shows the
+speed, the heading (degrees, 0 east, clockwise), the zoom, the nitrogen
+left, the tug's mass and working thrusters, the KESTREL 9's range (to its
+hull) and closing speed, and the keys.
+
+| Key | What it does |
+|-----|--------------|
+| Left / Right (A, D) | turn: a heading step (11.25 degrees, 32 a turn) every 11 frames while held |
+| Up / Down (W, S) | thrust forward, or back at half the thrust, while held |
+| Z | zoom: 8, 64 or 512 m a pixel across (1.3, 10 or 82 km across the view; up and down a pixel is half that, as the art pixels are twice as wide as tall) |
+| U | undock: the clamps off, 5 m/s away from the port (west) |
+| K | dock: within 20 m of the port each way and under 2 m/s |
+| Esc | back to the ship |
+
+The tug's mass is every cell of it but loose parts, each kind a set mass
+(`gen_scrap.MASS`, in 100 kg: a deck 300 kg, a wall 600, a reactor 6 t,
+a thruster 1.5 t): it starts at 99.8 t.  Each working thruster (under 50 %
+damage) gives 20 kN, so with two the tug speeds up by 0.4 m/s each
+second.  The nitrogen is 400 L for each nitrogen tank with a working gas
+intake by it, less what is burnt: a litre a second a thruster, and no
+thrust once it is gone.  It is worked out again with the tug's parts
+each second, so a tank or intake taken out takes its nitrogen with it.
+
+The flight goes on when you leave the screen: you walk round the tug
+while it cruises, and NAVIGATE again to steer.  Undocked, the tug's
+airlock is a closed door and the KESTREL 9's a wall (no air between
+them), and the wreck is out of sight: its side of the map (x 30 on) is
+open space for the view, the panel and walking.  It stays in the RAM as
+it was.  Every 8 frames the game looks at the KESTREL 9: closing within
+300 m is PROXIMITY, and within 10 s of its hull IMPACT IN 10 S, on the
+message row in red (on the ship's screen too).  Flying into the hull
+stops the tug where it was last clear, and damages it by the speed:
+
+| Speed | Damage |
+|-------|--------|
+| under 2 m/s | a bump, none |
+| 2-20 m/s | 4 cells of the tug, 1-2 damage steps |
+| 20-100 m/s | 16 cells, 4-11 steps |
+| over 100 m/s | 24 cells, broken |
+
+The cells are picked at random in the tug's area, and only parts,
+walls, decks and doors take damage.  Docking again (K) puts the tug at
+the port, stopped, and joins the airlocks.
 
 **Building.**  The tug is the cells x 0-29, y 18-46: its hull and the
 space round it, so it can grow there.  Take walls out to join rooms, lay
@@ -234,9 +285,11 @@ a jammed shut armory door and a jammed open med bay door.
 | x35E0-x35ED | the skill levels (6) and their progress (6) |
 | x35F0-x35FE | the panel's actions (8), the job's bar (its 16th, the 16ths done, the work left at the next), the O2 tank sum, `N_ANT`, which part text is loaded (`PRT_K`) |
 | x3700-x3FFF | the cell art, 4 kinds a page, the last kind at the top (kind t at x4000 - 64 (n - t) for n kinds rounded up to 4) |
-| x4000-x407F | each room's pressure, and whether it is cold |
+| x4000-x401F, x4040-x405F | each room's pressure, and whether it is cold (32 rooms) |
+| x4020-x403F, x4060-x407F | the flight (`scrap_fl.masm`): docked, heading, thrust, mass, thrusters, nitrogen, the alarm, the position (16.16 m) and velocity (1/2^24 m a frame) and the navigation screen's state |
 | x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |
 | x4100-x4CFF | while the inventory is up: `SCRAP.INV` (`scrap_inv.masm`: its screen, font, pointer and routines; 6 sectors at most), read from the card each time it opens; a rebuild of the rooms waits until it closes |
+| x4100-x4CFF | while the navigation screen is up: `SCRAP.NAV` (`scrap_nav.masm`; 6 sectors at most), read in the same way; the points it drew go in the file system's buffer at x4E00 |
 | x5400-x55FF | sector buffer for loading `SCRAP.OVL`, then the part text of the panel's kind (two kinds, one sector of `SCRAP/Kxy`) |
 | x5600-x59FF | more of the program: `SCRAP.OVL`'s pages after xFE, the mouse pointer (its art, what is under it), a repair's steps and what overflows |
 | x5C00-x5DF2 | more of the program (`SCRAP.OVL`'s next 2 pages; the start of the audio buffer, x5DF3-x5DFF, is set to silence again after the load): what overflows |
@@ -264,8 +317,8 @@ stubs that switch to map 07 around the call.
 cd src\scripts
 python gen_scrap.py                              scrap_types.asm, scrap_data.masm, scrap_map.bin
 python asm_expand.py scrap.masm                  scrap.asm
-python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV
-                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV
+python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2
+                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV
 python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png)
 ```
 
@@ -314,4 +367,10 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
   the health bar), a jammed shut door (no way through, no OPEN), no air
   without the suit (blacking out), PUT ON SUIT;
 - refilling the suit from a tank (it stays installed);
+- NAVIGATE at the helm: the tug's mass and thrusters against the map,
+  the navigation screen, K while docked, U (the speed, the airlocks), a
+  frame's thrust against 20 kN a thruster, 60 frames of thrust and the
+  nitrogen burnt, turning, the zoom, K out of range, a collision at
+  30 m/s (IMPACT IN 10 S, the damage, the stop), the tug cruising while
+  you walk (the view with the wreck hidden, the rooms), and docking again;
 - Esc back to the DOS.

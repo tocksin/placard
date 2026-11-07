@@ -239,12 +239,13 @@ A_OPEN, A_CLOSE, A_INSPECT, A_WALK = 1, 2, 3, 4
 A_PICK, A_CUT, A_PUTL, A_PUTR, A_PUTB, A_REFILL = 5, 6, 7, 8, 9, 10
 A_HOLD, A_INSTALL, A_UNINST, A_LAY = 11, 12, 13, 14
 A_REPAIR, A_SKILLS, A_SUITOFF, A_SUITON = 15, 16, 17, 18
+A_NAV = 19
 ACTIONS = {A_OPEN: 'OPEN', A_CLOSE: 'CLOSE', A_INSPECT: 'INSPECT', A_WALK: 'WALK HERE',
            A_PICK: 'PICK UP', A_CUT: 'CUT FREE', A_PUTL: 'PUT DOWN LEFT',
            A_PUTR: 'PUT DOWN RIGHT', A_PUTB: 'PUT DOWN BACK',
            A_REFILL: 'REFILL SUIT', A_HOLD: 'HOLD OPEN', A_INSTALL: 'INSTALL',
            A_UNINST: 'UNINSTALL', A_LAY: 'LAY DECK PLATE', A_REPAIR: 'REPAIR',
-           A_SKILLS: 'SKILLS', A_SUITOFF: 'TAKE OFF SUIT', A_SUITON: 'PUT ON SUIT'}
+           A_SKILLS: 'SKILLS', A_SUITOFF: 'TAKE OFF SUIT', A_SUITON: 'PUT ON SUIT', A_NAV: 'NAVIGATE'}
 
 TYPES = [
     # key, art, name, flags, info lines, actions, inspect
@@ -460,6 +461,27 @@ VALUE = {'O2': 20, 'O2E': 8, 'REACT': 250, 'BATT': 30, 'CRATE': 15, 'BUNK': 5,
          'SCRUB': 35, 'CUTTER': 12, 'PANEL': 3, 'DOORK': 8, 'PLATE': 2,
          'COND': 4, 'ANT': 45, 'RADAR': 55,
          'PUMP': 18, 'INTAKE': 14}
+# what each kind weighs, in 100 kg (the tug's mass: every cell of it but
+# loose parts; the navigation mode's acceleration)
+MASS = {'FLOOR': 3, 'WALL': 6, 'DOOR': 4, 'DOORO': 4, 'O2': 8, 'REACT': 60, 'BATT': 4,
+        'CRATE': 10, 'BUNK': 2, 'HELM': 3, 'LOCKER': 2, 'TURRET': 12, 'PIPE': 4, 'VENT': 3,
+        'LOCK': 8, 'SUIT': 1, 'THRUST': 15, 'FUEL': 10, 'SCRUB': 4, 'O2E': 3, 'CUTTER': 1,
+        'PANEL': 4, 'DOORK': 3, 'PLATE': 2, 'COND': 1, 'ANT': 2, 'RADAR': 3, 'PUMP': 2,
+        'INTAKE': 2}
+# the flight (scrap_fl.masm): positions in metres (16.16), speeds in
+# 1/2^24 m a frame; the acceleration A16 = n (THRUST_Q / mass) is in
+# 1/2^20 m a frame a frame (20 kN a thruster: 20000 x 2^20 / 3600 / 100 kg
+# = 58254), and a frame's thrust along heading h is A16 cos h / 8 (cos
+# x127), back half that
+THRUST_Q = 58254
+N2_TANK_L = 400                     # litres in a nitrogen tank; 1 L a second a thruster
+WRECK_POS = (0x8000, 0x8000)        # the KESTREL 9's centre in the sector, metres
+WRECK_BOX = 80                      # its hull: 80 m each way from the centre
+DOCK_POS = (WRECK_POS[0] - 100, WRECK_POS[1])   # the tug docked: its centre here
+DOCK_RANGE = 20                     # metres from DOCK_POS to clamp on (K)
+UNDOCK_V = 5 * 2 ** 24 // 60        # 5 m/s, in 1/2^24 m a frame
+NAV_TURN = 11                       # frames a heading step (32: 90 degrees in 1.5 s)
+COS32 = [round(127 * __import__('math').cos(2 * __import__('math').pi * h / 32)) for h in range(32)]
 TUG = (0, 18, TUG_LOCK[0], 46)      # the tug's cells, x0, y0, x1, y1 (its value, its systems,
                                     # room to build on round its hull)
 AIR_FULL = 100                      # a room's pressure: 100 = 1 atmosphere
@@ -872,7 +894,7 @@ def write_sources():
         ('PICK', A_PICK), ('CUT', A_CUT), ('PUTL', A_PUTL), ('PUTR', A_PUTR),
         ('PUTB', A_PUTB), ('REFILL', A_REFILL), ('HOLD', A_HOLD), ('INSTALL', A_INSTALL),
         ('UNINST', A_UNINST), ('LAY', A_LAY), ('REPAIR', A_REPAIR), ('SKILLS', A_SKILLS),
-        ('SUITOFF', A_SUITOFF), ('SUITON', A_SUITON))]
+        ('SUITOFF', A_SUITOFF), ('SUITON', A_SUITON), ('NAV', A_NAV))]
     lines += ['SK_M       = %d' % SK_M, 'SK_SUIT    = %d' % SK_SUIT,
               'SKILL_START = %d' % SKILL_START, 'SKILL_MAX  = %d' % SKILL_MAX,
               'REPAIR_FRAMES = %d' % REPAIR_FRAMES, 'CRATE_COL  = %d' % CRATE_COL,
@@ -890,6 +912,15 @@ def write_sources():
               'PRT_LINE   = %d          ; prt_load: info line i at PRT_BUF + 256 (t & 1) + 48 i' % PRT_LINE,
               'PRT_INSP   = %d          ;   the INSPECT line' % PRT_INSP,
               'TB_ASTRL   = 0x80          ; + action code', 'TB_ASTRH   = 0xA0',
+              'TB_MASS    = 0x40          ; ACT_PG + t: its mass in 100 kg',
+              'THRUST_Q   = %d' % THRUST_Q, 'N2_TANK_L  = %d' % N2_TANK_L,
+              'TUG_LKX    = %d' % TUG_LOCK[0], 'TUG_LKY    = %d' % TUG_LOCK[1],
+              'WRECK_LKX  = %d' % WRECK_LOCK[0],
+              'WRECK_X    = 0x%04X' % WRECK_POS[0], 'WRECK_Y    = 0x%04X' % WRECK_POS[1],
+              'WRECK_BOX  = %d' % WRECK_BOX,
+              'DOCK_X     = 0x%04X' % DOCK_POS[0], 'DOCK_Y     = 0x%04X' % DOCK_POS[1],
+              'DOCK_RANGE = %d' % DOCK_RANGE, 'NAV_TURN   = %d' % NAV_TURN,
+              ] + ['UNDOCK_B%d  = 0x%02X' % (i, (-UNDOCK_V) >> (8 * i) & 0xFF) for i in range(4)] + [
               'BAR_PG     = 0x%02X          ; + step: bar string low; + x10 high' % ROOM_PAGE,
               'ROOM_PG    = 0x%02X' % ROOM_PAGE,
               'RM_P0      = 0x40          ; + room: the pressure at the start',
@@ -959,6 +990,7 @@ def write_sources():
     assert SK_LV >> 8 == ACT_PAGE and SK_LV & 0xFF >= 0xC0 and len(TYPES) <= 0x40
     for i, ty in enumerate(TYPES):
         act[i] = str(NEEDS.get(ty[0], 0) | WHERE.get(ty[0], 0) << 6)
+        act[0x40 + i] = str(MASS.get(ty[0], 0))
     for a, txt in ACTIONS.items():
         lab = sref('za_%d' % a, txt)
         act[0x80 + a] = lab + ' & 0xFF'
