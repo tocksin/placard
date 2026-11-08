@@ -341,3 +341,34 @@ So round 7 adds options but no algorithmic gain. The best fine r1 board is now t
 the best, which the GPU makes affordable on the whole board. The whole-board round 6 runs on the laptop
 (`bench/wbf6_*`, branch-133) are reported there.
 
+
+## Round 8 (2026-11-08, branch-135, overnight): best-of-N ladder, what the router's all-net iterations cost
+Justin's direction for the night: keep improving the metrics unattended, and look at other routers and the
+pathfinding literature (the survey is `research.md`, written on the laptop together with the whole-board round 6
+results, branch-133; the laptop's constrained-via-minimisation pass `cvm.py` found nothing left to flip after the
+tidy ladder: all 134 flippable runs on the final whole board are blocked on the other layer).
+
+- **`ladder.py`** runs the via-cost ladder as a driver: every rung is tried `TRIES` times (`SEED=k` jitters the tidy's
+  net order; the streaming pool adds its own spread), each try is chamfered and scored, and the cheapest try
+  (`track_m*1000 + VIA*GRID*vias`, the tidy's own objective) feeds the next rung. Finished tries are reused when the
+  ladder is restarted. Fine r1, `TRIES=3`, 3 workers (`bench/r1_fine8_*`):
+  rung 400 tries 494 / 509 / 501 vias (26.40 / 26.21 / 26.18 m, the cost picks 501 / 26.18), rung 800 all three
+  tries 478 / 26.27, rung 1600 all three 473 / 26.40, rung 3200 465 / 469 / 465 (26.66 / 26.61 / 26.67 m); 2.6 h in all.
+  So the best of three per rung ends at 473 vias / 26.40 m after 1600, which does not beat the single lucky round 6
+  run (449 / 26.46 m, `bench/r1_fine7_*`): once a rung's start board is fixed, the later rungs converge to the same
+  moves whatever the seed, so the spread is in the first rung and it is luck, not search. The jitter itself changes
+  little (the net and chain passes converge to the same moves). A fourth rung at VIA 3200 saves 8 more vias for
+  0.26 m. Verdict: not worth 3x the time; run the plain ladder, and re-run only the first rung if a better start is wanted.
+- **Router `ALLEVERY`** (default 4: every 4th iteration re-routes every net, not only the conflicted ones). `ALLEVERY=0`
+  on the coarse r1 route, single CPU thread, same code: raw 670 vias / 30.09 m in 18 min against 743 / 30.84 m in
+  19 min; after an identical coarse ladder (2 workers, one try per rung) 525 / 515 / 514 vias, 28.58 / 28.85 / 28.90 m
+  against 549 / 524 / 516 vias, 29.22 / 29.40 / 29.56 m. Fewer vias and shorter track at every rung, and on the fine
+  whole board it would also drop the two 55-minute all-net iterations. Left at 4 until a whole-board fine run confirms
+  it (one coarse A/B pair is thin evidence); `run_wb_fine.bat` can set `ALLEVERY=0`.
+- **Router `WINLATE`** (search window pad shrinks to `WINLATE` mm from iteration `LATEFROM`, FastRoute-style): bad,
+  `WINLATE=10` leaves 9 nets unrouted and 913 overlap cells on the coarse r1. Off.
+
+Whole board, round 6 tidy on round 5's fine route (laptop, 2-3 workers, `bench/wbf6_r5_*`, KiCad 9 DRC clean):
+400 / 800 / 1600 / 3200 -> 571 / 533 / 504 / 494 vias, 38.87 / 39.33 / 40.01 / 40.59 m in 3.1 h for all four rungs
+(round 5: 572 / 531 / 506 in about 6 h for three). The 3200 rung buys 10 vias for 0.58 m; DATABUS0/1 then run at a
+1.4 detour for 5 vias each, so 3200 is about where vias stop paying.
