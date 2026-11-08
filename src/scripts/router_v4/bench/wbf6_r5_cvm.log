@@ -1,0 +1,8 @@
+grid 4688 3472
+rasterised 1583 items 1.0 s
+start: 494 vias, 658199 cells, 255 nets, 13 s
+single pass 0: 0 flips, vias 494, 9 s
+pair pass 0: 0 flips, vias 494, 9 s
+vias 494 -> 494, cells 658199 -> 658199, 31 s
+wrote wbf6_r5_cvm.kicad_pcb segments 4512 vias 494
+corners 3212, chamfered 770 (255 nets), 2 kept for a junction on the leg, zero-length tracks dropped 143; wrote wbf6_r5_cvm_c45.kicad_pcb

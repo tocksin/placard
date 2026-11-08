@@ -1,0 +1,7 @@
+# score wbf6_dj_c45.kicad_pcb  (scope 255 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 38.62 m | 591 / 609 | 4.1 % | 2.2 % | 0.99 | 1 | 0 | 0 | 1 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS2 843/17/1.1, DATABUS4 840/14/1.1, DATABUS0 836/14/1.0, DATABUS6 824/16/1.1, CLK 808/4/1.0, DATABUS3 800/11/1.0, DATABUS7 786/13/1.0, DATABUS1 786/13/1.0
+detour > 2: Net-(J13-CC2)

@@ -1,0 +1,11 @@
+grid 4688 3472
+rasterised 1583 items 0.9 s
+WORKERS 8 -> 1 (available memory 2.1 GB)
+pass 0: 0 chains improved, 0 dropped, cost gain 0, 133 s
+pair pass 0: 69 chain pairs improved, cost gain 37402, 1216 s
+pair pass 1: 19 chain pairs improved, cost gain 6720, 1269 s
+pair pass 2: 6 chain pairs improved, cost gain 3364, 1274 s
+pair pass 3: 0 chain pairs improved, cost gain 0, 1280 s
+vias 494 -> 478, cells 658199 -> 659421, 5552 s
+wrote wbf6_r5_n8.kicad_pcb segments 4457 vias 478
+corners 3171, chamfered 777 (255 nets), 4 kept for a junction on the leg, zero-length tracks dropped 141; wrote wbf6_r5_n8_c45.kicad_pcb
