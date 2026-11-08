@@ -1,6 +1,8 @@
 """gridcore.py : shared grid machinery for the v4 router tools (rasterised board, C A* core, routes as cell paths,
 stamps for occupancy, chain decomposition of existing copper, output writer). Built from mroute3.py (2026-10-31).
-env: GRID (mm, default 0.125; 0.0625 for the fine-grid tidy)  VIA (cells, default 120)  AGAINST (3)  BEND (2)  RING (8)  MARGIN (0.005)  DIAG (0)"""
+env: GRID (mm, default 0.125; 0.0625 for the fine-grid tidy)  VIA (cells, default 120)  AGAINST (3)  BEND (2)  RING (8)  MARGIN (0.005)
+     DIAG (0 = orthogonal moves only; 1 = 45-degree moves allowed; N>1 = 45-degree moves only where N-1 cells beside the step are
+     free on both sides, so tight spots are routed orthogonally; needs astar.so/.dll built from this astar.c)"""
 import sys, math, uuid, time, os, ctypes, re, collections
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
