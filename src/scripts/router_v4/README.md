@@ -419,8 +419,10 @@ with via sliding). Two of its ideas tested on the fine r1 bench (`ALLEVERY=0` ro
   Ladder 400 / 800 / 1600 / 3200 + wide rung: **472 / 457 / 439 / 437 -> 423 vias, 26.44 / 26.31 / 26.66 / 26.79 -> 26.73 m**
   against the streaming pool's 478 / 462 / 450 / 447 -> 434 vias (26.58 / 26.48 / 26.75 / 27.04 -> 27.06 m) on the same
   route: fewer vias at every rung and shorter track, in 93 min instead of 70 (`bench/r1_fine9_best_*`). The best fine r1
-  board is now **423 vias / 26.73 m** (round 5: 483 / 26.76; Freerouting 730 / 30.4). `BEST=1` is the recommended setting;
-  the default stays the streaming pool until the whole board confirms it.
+  board is now **423 vias / 26.73 m** (round 5: 483 / 26.76; Freerouting 730 / 30.4). A second run gave the identical
+  472 / 457 / 439 / 437 -> 423 board: the proposals are evaluated on the same pass-start state, so the result no longer
+  depends on which worker finishes first (the streaming pool's ~10-via run-to-run spread is gone). **`BEST=1` is now the
+  default** (`BEST=0` = the streaming pool).
 - **Diagonal moves (`DIAG`)**, one VIA 400 rung on the same route: orthogonal 478 vias / 26.58 m; diagonals anywhere
   (`DIAG=1`) 463 / 25.89 m; diagonals only with 8 free cells beside the step (`DIAG=9`, Justin's rule: back out of
   diagonals in tight spots) 475 / 26.00 m. Most of the via saving comes from diagonals in the tight spots, which is
