@@ -5,7 +5,9 @@ r1 bench), each try is chamfered (corner45.py) and scored (score.py), and the tr
     track_m*1000 + VIA*GRID*vias            (the tidy's own objective in mm)
 wins the rung. Outputs prefix_v<VIA>_t<k>.* per try and prefix_v<VIA>.kicad_pcb / _c45.kicad_pcb / .score for the winner.
 restartable: finished tries (their .json exists) are reused.
-env: VIAS ("400 800 1600")  TRIES (3)  GRID NETS WORKERS AGAINST and everything else tidy.py reads  SKIPC45 (0)."""
+env: VIAS ("400 800 1600")  TRIES (3)  GRID NETS WORKERS AGAINST and everything else tidy.py reads
+     WIDE=1: one more rung after the last VIA with the wide pair search (NEIGH=8 NEIGHMM=2.5, no net pass; one try):
+     16 fewer vias on the whole board, 7-13 on r1, for about the same track, in 3x the pair-pass time."""
 import sys, os, subprocess, json, shutil, time
 TOOLS=os.path.dirname(os.path.abspath(__file__))
 E=os.environ.get
@@ -39,4 +41,12 @@ for v in VIAS:
     with open(f'{prefix}_v{v}.score','w') as f: f.write(f'# ladder VIA {v}: best try {k} of {TRIES}: {m:.2f} m, {n} vias, cost {cost:.0f}\n')
     print(f'VIA {v} best: try {k}, {m:.2f} m, {n} vias ({time.time()-T0:.0f} s so far)',flush=True)
     prev=f'{prefix}_v{v}.kicad_pcb'
+if E('WIDE','0')=='1':
+    v=VIAS[-1]; t0=time.time(); out=f'{prefix}_v{v}_wide'
+    if not os.path.exists(out+'.json'):
+        run([PY,os.path.join(TOOLS,'tidy.py'),prev,out+'.kicad_pcb'],{'VIA':str(v),'NEIGH':'8','NEIGHMM':'2.5','NETPASS':'0'},out+'.log')
+        run([PY,os.path.join(TOOLS,'corner45.py'),out+'.kicad_pcb',out+'_c45.kicad_pcb'],{},out+'.log')
+    m,n=score(out+'_c45.kicad_pcb',out+'.json')
+    with open(out+'.score','w') as f: f.write(f'# ladder wide pair rung at VIA {v}: {m:.2f} m, {n} vias\n')
+    print(f'wide pair rung at VIA {v}: {m:.2f} m, {n} vias, {time.time()-t0:.0f} s',flush=True)
 print('LADDER DONE',flush=True)
