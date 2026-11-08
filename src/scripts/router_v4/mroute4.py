@@ -12,7 +12,11 @@ env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=4 (nets per launch; larger
      CHAINRIP=1 rip-up removes only the crossed chains of a neighbour, not its whole route (shove-like)
      PROT=a,b nets never ripped (default: the clock/stall/write/sync nets below)  CRIT=a,b timing-critical nets: routed first,
      CRITVIA=2 (via cost x) CRITPRES=0.5 (they yield less to congestion so they stay short)  (default = PROT list)
-     BUDGET=budgets.json: nets with track-length budgets join CRIT (BUDGETCRIT=0 turns that off); lenfix.py repairs them after"""
+     BUDGET=budgets.json: nets with track-length budgets join CRIT (BUDGETCRIT=0 turns that off); lenfix.py repairs them after
+     ALLEVERY=0 only conflicted nets are re-routed after iteration 0 (round 8 default; ALLEVERY=4 = the old every-4th-iteration
+     all-net re-route, which cost ~10 % more vias and the slow late iterations)
+     WINLATE=0 (mm) from iteration LATEFROM=4 on, the search window pad shrinks from WIN to WINLATE (a failed search widens
+     to WIN, then the whole board); smaller late windows = faster late iterations"""
 import sys, os, time, ctypes, math
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
@@ -291,6 +295,7 @@ def route_all(nets_list,hard,win_mm,bsize=None):
     for b in (disjoint_batches(nets_list,batch_size(),DISJOINT) if DISJOINT and bsize is None else batches(nets_list,bsize or batch_size())):
         out,status=route_batch(b,hard,win_mm)
         retry=[n for n in b if out[n] is None and win_mm<1e8]
+        if retry and win_mm<WIN: out.update(route_batch(retry,hard,WIN)[0]); retry=[n for n in retry if out[n] is None]
         if retry: out.update(route_batch(retry,hard,1e9)[0])
         for n in b:
             if out[n] is None: fails.add(n); g.set_route(n,[])
@@ -438,12 +443,13 @@ if PATTERN and todo:
     t0=time.time(); done,total,leftn=pattern_pass(g,todo); pat_left=set(leftn)
     print(f'pattern pass: {done}/{total} connections placed, {len(pat_left)} nets need the maze router, {time.time()-t0:.0f} s',flush=True)
 fails=set(); conflicted=set(todo); best=None; noimp=0; it=0; tot=0
+ALLEVERY=int(E('ALLEVERY','0')); WINLATE=float(E('WINLATE','0')); LATEFROM=int(E('LATEFROM','4'))
 VIA0=g.VIA_COST; VIAEND=float(E('VIAEND',str(VIA0))); VIARAMP=max(1,int(E('VIARAMP','8')))   # via cost ramps VIA -> VIAEND over the first VIARAMP iterations
 while it<ITERS and todo:
     t0=time.time(); g.VIA_COST=VIA0+(VIAEND-VIA0)*min(1.0,it/VIARAMP)
-    work=todo if (it>0 and it%4==0) else ([n for n in todo if n in conflicted] if it>0 else [n for n in todo if n in pat_left])
+    work=todo if (it>0 and ALLEVERY and it%ALLEVERY==0) else ([n for n in todo if n in conflicted] if it>0 else [n for n in todo if n in pat_left])
     update_busmap()
-    fails=route_all(work,False,WIN)
+    fails=route_all(work,False,WINLATE if (WINLATE and it>=LATEFROM) else WIN)
     ov={n:overlaps(n) for n in todo}; tot=sum(ov.values()); conflicted={n for n,c in ov.items() if c}|fails
     print(f'iter {it} overlap cells {tot} conflicted {len(conflicted)} fails {[nets[n] for n in fails]} {time.time()-t0:.0f} s (total {time.time()-T0:.0f} s)',flush=True)
     key=(len(conflicted),tot)

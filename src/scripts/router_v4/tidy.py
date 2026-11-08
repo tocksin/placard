@@ -366,12 +366,21 @@ def tidy_net(n):
             if bud_ok(n): gain+=oc-g.path_cost(newp); changed+=1
             else: g.set_route(n,old)
     return gain,changed,dropped
+SEED=int(E('SEED','0')); JITTER=float(E('JITTER','0.3')); _rng=None
+def _jit(keyf):
+    """SEED>0: multiply each sort key by 1+JITTER*u (u uniform) so different seeds visit the nets in different orders"""
+    global _rng
+    if not SEED: return keyf
+    if _rng is None:
+        import random; _rng=random.Random(SEED)
+    r=_rng
+    return lambda n: keyf(n)*(1+JITTER*r.random())
 def stage_order(stage):
-    """the sequential order of a stage over the ACTIVE nets: costliest / most vias first"""
-    if stage=='net': return sorted(ACTIVE,key=lambda n:-sum(g.path_cost(p) for p in g.routes.get(n,[])))
+    """the sequential order of a stage over the ACTIVE nets: costliest / most vias first (SEED jitters the order)"""
+    if stage=='net': return sorted(ACTIVE,key=_jit(lambda n:-sum(g.path_cost(p) for p in g.routes.get(n,[]))))
     if stage=='cleanup': return list(ACTIVE)
     if stage=='region': return region_boxes()
-    return sorted(ACTIVE,key=lambda n:-sum(g.path_vias(p) for p in g.routes.get(n,[])))
+    return sorted(ACTIVE,key=_jit(lambda n:-sum(g.path_vias(p) for p in g.routes.get(n,[]))))
 def net_step(stage,n):
     """one net (or one region box) of a stage on this process' grid: (gain, changed, dropped)"""
     if stage=='region':

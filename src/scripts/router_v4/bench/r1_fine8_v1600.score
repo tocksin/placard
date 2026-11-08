@@ -1,0 +1,9 @@
+# ladder VIA 1600: best try 0 of 3: 26.40 m, 473 vias, cost 73700
+# score b8_v1600_t0_c45.kicad_pcb  (scope 116 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 26.4 m | 473 / 625 | 4.6 % | 11.8 % | 1.11 | 1 | 2 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS4 877/10/1.2, DATABUS0 850/16/1.1, DATABUS6 817/9/1.1, DATABUS7 803/9/1.0, DATABUS5 789/13/1.1, DATABUS1 785/10/1.1, DATABUS3 783/13/1.1, DATABUS2 780/15/1.1
+detour > 2: Net-(U12-{slash}MAP_WR)
+edge: [('PC_ENABLE', 'B.Cu', (155.25, 253.25)), ('PC_ENABLE', 'B.Cu', (257.0, 264.0))]
