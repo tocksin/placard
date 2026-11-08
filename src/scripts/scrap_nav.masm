@@ -1,41 +1,74 @@
 ; ============================================================
-; scrap_nav.masm - SCRAPWRIGHT's navigation screen: SCRAP.NAV
+; scrap_nav.masm - SCRAPWRIGHT's navigation screen: SCRAP.NAV, SCRAP.NV2
 ; ============================================================
 ;
-; Included at the end of scrap.masm, in the region x4100-x4CFF as
-; #overlay2: gen_plc.py --swap 0x4100,0x4D00,NAV,2 writes these bytes to
-; SCRAP.NAV, and nav_action reads them in (over SCRAP.INV's place:
-; rooms_build's work space, a rebuild waits) when NAVIGATE is picked at
-; the helm.  The flight itself is resident (scrap_fl.masm): it goes on
-; when you leave this screen.
+; Included at the end of scrap.masm as #overlay2: the region x4100-x4CFF
+; (gen_plc.py --swap 0x4100,0x4D00,NAV,2: SCRAP.NAV, over SCRAP.INV's
+; place, rooms_build's work space: a rebuild waits) and what does not fit
+; in x3700-x3EFF (--swap 0x3700,0x3F00,NV2,2: SCRAP.NV2, over the cell
+; art, which SCRAP.ART puts back when the screen closes).  nav_action
+; reads them in when NAVIGATE is picked at the helm.  The flight itself is
+; resident (scrap_fl.masm): it goes on when you leave this screen.
 ;
-; The 4 bpp view area (160 x 192 art pixels) is the sector map, the tug
-; in the middle: a white dot with a yellow heading line, cyan dots for
-; where its velocity takes it (every 64 frames, 8 of them), the KESTREL 9
-; as an orange box (its hull, 80 m each way) and its docking port in
-; green.  Zoom (Z): 8, 64 or 512 m a pixel (1.3, 10 or 82 km across).  The
-; panel: speed, heading, zoom; nitrogen, mass, thrusters; the KESTREL 9's range and closing speed; the keys.
+; The 4 bpp view area (160 x 192 art pixels; an art pixel is twice as
+; wide as tall, so y is half the metres a pixel) is the sector map, the
+; tug in the middle: a dotted blue grid; the tug a white triangle at its
+; heading, green dots the way it drifts; the sector's objects (SCRAP/K3A,
+; read to x5400 with prt_load: gen_scrap.SECTOR): a station on an
+; asteroid as a circle its size, a derelict as an asterisk until you have
+; visited it (FL_VIS), then a diamond; the selected one in yellow corners.
+; + and - zoom in doubling steps: 4 to 512 m a pixel (640 m to 82 km
+; across).
+;
+; The panel is a control panel: boxed blocks with inverse titles, FLIGHT
+; (speed, heading, docked), PROPULSION (nitrogen, mass, thrusters) and
+; TARGET (the selected object: name, kind, registry, range, radar return,
+; visited, its speed toward it and across), then the keys as inverse caps.
 ;
 ; Keys: Left / Right (A, D) turn (a heading step each NAV_TURN frames),
-; Up / Down (W, S) thrust forward and back while held, Z zoom, U undock
-; (5 m/s away from the port), K dock (within DOCK_RANGE metres of the
-; port, under 2 m/s), Esc back to the ship.
+; Up / Down (W, S) thrust forward and back while held, + - zoom, a click
+; on an object or Tab picks the target, C comms / docking (step 2b), U
+; undock (5 m/s away from the port), K dock (within DOCK_RANGE metres of
+; the KESTREL 9's port, under 2 m/s), Esc back to the ship.
 ;
-; Date: 11/06/2026
+; Date: 11/07/2026
 ; ============================================================
 
 NV_T    = 0x78              ; FL_PG: frames, 0-15 (the map every 8, the panel every 16)
 NV_TW   = 0x79              ;   frames to the next heading step while turning
-NV_N    = 0x7A              ;   points drawn (NV_PTS)
+NV_N    = 0x7A              ;   points drawn (NV_PTX, NV_PTY)
 NV_ZS   = 0x7B              ;   the map's shift: metres >> NV_ZS = pixels
-NV_DL   = 0x7C              ;   scratch: 4 bytes (to x7F)
-NV_PTS  = 0x4E00            ; the points drawn (x, y), to rub out: the file
-                            ;   system's sector buffer, free while this is up
+NV_DL   = 0x7C              ;   an object from the tug: dx, dy (metres, 2 bytes each)
+NV_SEL  = 0x80              ; FL_PG + x80 up (rooms_build's, free while this is up):
+                            ;   the selected object
+NV_ANG  = 0x81              ;   nv_cm's angle (0-31)
+NV_I    = 0x82              ;   the object being drawn
+NV_AX   = 0x8A              ;   nv_atan's x, y (2 bytes each, x8A-x8D)
+NV_AY   = 0x8C
+NV_RS   = 0x8E              ;   nv_dot's sum (2 bytes)
+NV_OX   = 0x90              ;   each object's pixel: x (x90-x97), y (x98-x9F); FF off
+NV_OY   = 0x98
+NV_E    = 0xA0              ;   an object's 10 bytes (nv_ent):
+E_X     = 0xA0              ;     x, y (metres), its size (radius / half width)
+E_Y     = 0xA2
+E_R     = 0xA4
+E_SH    = 0xA6              ;     0 a station (a circle), 1 a derelict
+E_NM    = 0xA7              ;     its strings in page x55: name, registry, kind
+E_RF    = 0xA8              ;     its radar factor (size x 100 / 16)
+NV_S1   = 0xAA              ;   the strings: registry, kind (low bytes)
+NV_S2   = 0xAB
+NV_RG   = 0xAC              ;   the target's range, metres (2 bytes)
+NV_PTX  = 0x4E00            ; the points drawn, x and y, to rub out (255 at most):
+NV_PTY  = 0x4F00            ;   the file system's buffer, free while this is up
+SEC     = 0x5400            ; the sector file: the count, the objects from x5410
+SEC_STR = 0x55              ;   (SEC_REC bytes each), their strings in page x55
 
 ; nav_main - the screen until Esc (or you die); FL_NAV while it is up
 .chunk
 nav_main:
     PUSH_LINK
+    ld   SEC_K, ac              ; the sector's objects into x5400
+    CALL prt_load
     ld   FL_PG, y
     ld   FL_NAV, x
     ld   1, [y,x]
@@ -43,17 +76,26 @@ nav_main:
     ld   0x00, [y,x]
     ld   NV_TW, x
     ld   0x00, [y,x]
+    ld   NV_SEL, x
+    ld   0x00, [y,x]
     ld   32, ac                 ; the view black: even offsets 32 up,
     CALL clear_rows             ; then the odd ones (the panel too: drawn next)
     ld   1, ac
     CALL clear_rows
+    CALL nv_grid
     CALL nv_draw
     CALL nv_panel
+    GOTO nv_loop
+
+; nv_loop - a frame of the screen.  The rest of nav_main
+.chunk
+nv_loop:
 nm_l:
+    CALL pt_show
     ld   1, ac
     CALL l_wait_frames_io
     CALL l_kbd_scan
-    CALL l_mouse_poll
+    CALL input_mouse            ; (FL_NAV: a left click is nv_pick)
     ld   [KBD_NOW], ac          ; Esc (key 0; 0 = down)
     and  1, ac
     beq  nm_x
@@ -81,46 +123,106 @@ nm_l:
     CALL nv_panel
     bra  nm_l
 nm_x:
+    CALL pt_hide
     GOTO nv_exit
 
-; nv_exit - Esc let go (or the loop would take it for the DOS's), then
-; back.  The end of nav_main
+; nv_pick - a left click (input_mouse's while FL_NAV): the object nearest
+; the pointer (within 6 art pixels across, 12 down) is the target
 .chunk
-nv_exit:
-    ld   1, ac
-    CALL l_wait_frames_io
-    CALL l_kbd_scan
-    ld   [dead], ac
-    bne  nx_e
-    ld   [KBD_NOW], ac
-    and  1, ac
-    beq  nv_exit
-nx_e:
+nv_pick:
+    PUSH_LINK
+    CALL in_view
+    beq  pk_e
+    CALL pt_xy                  ; u2, u1 the art pixel
+    ld   [u2], ac
+    ld   ac, [u0]
+    ld   7, ac                  ; u3 the best distance so far, u4 its object
+    ld   ac, [u3]
+    ld   0xFF, ac
+    ld   ac, [u4]
+    clr  ac
+    ld   ac, [u2]
+npk_l:
+    CALL nv_cnt
+    xor  [u2], ac
+    beq  pk_d
     ld   FL_PG, y
-    ld   FL_NAV, x
-    ld   0x00, [y,x]
+    ld   [u2], ac
+    add  NV_OX, x
+    ld   [y,x], ac
+    sub  [u0], ac               ; |the difference| (a borrow: negative)
+    bcc  pk_4
+    xor  0xFF, ac
+    inc
+pk_4:
+    ld   ac, [u5]
+    ld   [u2], ac
+    add  NV_OY, x
+    ld   [y,x], ac
+    sub  [u1], ac
+    bcc  pk_5
+    xor  0xFF, ac
+    inc
+pk_5:
+    shr  ac
+    sub  [u5], ac               ; the larger
+    bcc  pk_2
+    ld   [u5], ac
+    bra  pk_3
+pk_2:
+    add  [u5], ac
+pk_3:
+    sub  [u3], ac
+    bcc  pk_n
+    add  [u3], ac
+    ld   ac, [u3]
+    ld   [u2], ac
+    ld   ac, [u4]
+pk_n:
+    ld   [u2], ac
+    inc
+    ld   ac, [u2]
+    bra  npk_l
+pk_d:
+    ld   [u4], ac
+    xor  0xFF, ac
+    beq  pk_e
+    ld   [u4], ac
+    GOTO nv_seln
+pk_e:
+    LEAVE
+
+; nv_cnt - AC = the sector's objects.  A leaf.
+.chunk
+nv_cnt:
+    ld   SEC >> 8, y
+    ld   0x00, x
+    ld   [y,x], ac
+    RET
+
+; nv_seln - AC: the new target; the map and the panel again.  The rest
+; of nv_pick, nv_keys
+.chunk
+nv_seln:
+    ld   FL_PG, y
+    ld   NV_SEL, x
+    ld   ac, [y,x]
+    CALL nv_draw
+    CALL nv_panel
     LEAVE
 
 ; nv_keys - thrust while Up / Down is held, a heading step each NAV_TURN
-; frames while Left / Right is, Z, U, K
+; frames while Left / Right is, + - Tab C U K
 .chunk
 nv_keys:
     PUSH_LINK
     CALL l_pad_read
     CALL read_dirs
-    ld   FL_PG, y
+    ld   FL_PG, y               ; (both: back)
     ld   FL_TH, x
     ld   [dirs], ac
-    and  1, ac
-    beq  nk_1
-    ld   1, [y,x]
-    bra  nk_t
-nk_1:
-    ld   [dirs], ac
-    and  2, ac
-    beq  nk_t
-    ld   2, [y,x]
-nk_t:
+    and  3, ac
+    ld   ac, [y,x]
     ld   NV_TW, x
     ld   [dirs], ac
     and  12, ac
@@ -154,32 +256,1536 @@ nk_k:
     beq  nk_e
     or   0x20, ac
     ld   ac, [key]
-    xor  0x7A, ac               ; z
-    bne  nk_u
+    xor  0x2D, ac               ; -: out
+    bne  nk_p
     ld   FL_PG, y
     ld   FL_ZM, x
     ld   [y,x], ac
+    xor  7, ac
+    beq  nk_e
+    ld   [y,x], ac
     inc
-    ld   ac, [y,x]
-    xor  3, ac
-    bne  nk_z
-    ld   0x00, [y,x]
+    bra  nk_z
+nk_p:
+    ld   [key], ac
+    xor  0x2B, ac               ; +
+    beq  nk_in
+    ld   [key], ac
+    xor  0x3D, ac               ; = (+ without shift)
+    bne  nk_o
+nk_in:
+    ld   FL_PG, y
+    ld   FL_ZM, x
+    ld   [y,x], ac
+    beq  nk_e
+    dec
 nk_z:
+    ld   ac, [y,x]
     CALL nv_draw
     CALL nv_panel
     LEAVE
-nk_u:
-    ld   [key], ac
-    xor  0x75, ac               ; u
-    bne  nk_d
-    GOTO nv_undock
-nk_d:
-    ld   [key], ac
-    xor  0x6B, ac               ; k
-    bne  nk_e
-    GOTO nv_dock
+nk_o:
+    GOTO nv_keys2
 nk_e:
     LEAVE
+
+; nv_keys2 - Tab, C, U, K.  The rest of nv_keys
+.chunk
+nv_keys2:
+    ld   [key], ac
+    xor  0x29, ac               ; Tab (09, or 20): the next target
+    bne  nk2_c
+    ld   FL_PG, y
+    ld   NV_SEL, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [u0]
+    CALL nv_cnt
+    xor  [u0], ac
+    beq  nk2_0
+    ld   [u0], ac
+nk2_0:
+    GOTO nv_seln
+nk2_c:
+    ld   [key], ac
+    xor  0x63, ac               ; c
+    bne  nk2_u
+    ld   s_comms & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_comms >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    LEAVE
+nk2_u:
+    ld   [key], ac
+    xor  0x75, ac               ; u
+    bne  nk2_d
+    GOTO nv_undock
+nk2_d:
+    ld   [key], ac
+    xor  0x6B, ac               ; k
+    bne  nk2_e
+    GOTO nv_dock
+nk2_e:
+    LEAVE
+
+
+; nv_put - art pixel u0, u1 in color u2 (off the view: nothing), kept in
+; NV_PTX, NV_PTY (255 at most) to rub out.  A leaf (nv_plot's).
+.chunk
+nv_put:
+    ld   [u0], ac
+    sub  160, ac
+    bcc  np_e
+    ld   [u1], ac
+    sub  192, ac
+    bcc  np_e
+    ld   FL_PG, y
+    ld   NV_N, x
+    ld   [y,x], ac
+    ld   ac, [u3]
+    xor  255, ac
+    beq  np_e
+    ld   [u3], ac
+    inc
+    ld   ac, [y,x]
+    ld   NV_PTX >> 8, y
+    ld   [u3], x
+    ld   [u0], ac
+    ld   ac, [y,x]
+    ld   NV_PTY >> 8, y
+    ld   [u1], ac
+    ld   ac, [y,x]
+    GOTO nv_plot
+np_e:
+    RET
+
+; nv_rub - the points drawn put back to the grid (or black)
+.chunk
+nv_rub:
+    PUSH_LINK
+nr_l:
+    ld   FL_PG, y
+    ld   NV_N, x
+    ld   [y,x], ac
+    beq  nr_e
+    dec
+    ld   ac, [y,x]
+    ld   ac, x
+    ld   NV_PTX >> 8, y
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   NV_PTY >> 8, y
+    ld   [y,x], ac
+    ld   ac, [u1]
+    CALL nv_bg
+    ld   ac, [u2]
+    CALL nv_plot
+    bra  nr_l
+nr_e:
+    LEAVE
+
+; nv_bg - AC = the grid's color at u0, u1 (3, blue), or 0: dotted lines
+; every 32 pixels across (x 16 + 32 k, a dot every 4 down) and every 64
+; down (y 32 + 64 k, a dot every 2 across): squares on the screen.  A leaf.
+.chunk
+nv_bg:
+    ld   [u0], ac
+    and  31, ac
+    xor  16, ac
+    bne  bg_h
+    ld   [u1], ac
+    and  3, ac
+    beq  bg_g
+bg_h:
+    ld   [u1], ac
+    and  63, ac
+    xor  32, ac
+    bne  bg_0
+    ld   [u0], ac
+    and  1, ac
+    beq  bg_g
+bg_0:
+    clr  ac
+    RET
+bg_g:
+    ld   3, ac
+    RET
+
+; nv_grid - the grid on the black view (once, as the screen opens)
+.chunk
+nv_grid:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [u1]
+ng_y:
+    clr  ac
+    ld   ac, [u0]
+ng_x:
+    CALL nv_bg
+    beq  ng_n
+    ld   ac, [u2]
+    CALL nv_plot
+ng_n:
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  160, ac
+    bne  ng_x
+    ld   [u1], ac
+    inc
+    ld   ac, [u1]
+    xor  192, ac
+    bne  ng_y
+    LEAVE
+
+; nv_draw - the map: the points rubbed out, each object, then the tug
+.chunk
+nv_draw:
+    PUSH_LINK
+    CALL pt_hide
+    CALL nv_rub
+    ld   FL_PG, y               ; NV_ZS = 2 + zoom
+    ld   FL_ZM, x
+    ld   [y,x], ac
+    add  2, ac
+    ld   NV_ZS, x
+    ld   ac, [y,x]
+    ld   NV_I, x
+    ld   0x00, [y,x]
+nd_l:
+    CALL nv_cnt
+    ld   ac, [u6]
+    ld   FL_PG, y
+    ld   NV_I, x
+    ld   [y,x], ac
+    xor  [u6], ac
+    beq  nd_t
+    CALL nv_obj
+    ld   FL_PG, y
+    ld   NV_I, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    bra  nd_l
+nd_t:
+    GOTO nv_tug
+
+; nv_ent - AC = an object: its SEC_REC bytes to NV_E (FL_PG), NV_DL = it
+; from the tug (metres).  A leaf.
+.chunk
+nv_ent:
+    shl
+    ld   ac, [u5]
+    shl
+    shl
+    add  [u5], ac               ; 10 i
+    add  0x10, ac
+    ld   ac, [u5]
+    clr  ac
+    ld   ac, [u6]
+ne_l:
+    ld   SEC >> 8, y
+    ld   [u5], ac
+    add  [u6], ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [u7]
+    ld   FL_PG, y
+    ld   [u6], ac
+    add  NV_E, x
+    ld   [u7], ac
+    ld   ac, [y,x]
+    ld   [u6], ac
+    inc
+    ld   ac, [u6]
+    xor  SEC_REC, ac
+    bne  ne_l
+    ld   E_X, x                 ; dx = its x - the tug's
+    ld   [y,x], ac
+    ld   FL_PX + 2, x
+    sub  [y,x], ac
+    ld   NV_DL, x
+    ld   ac, [y,x]
+    ld   E_X + 1, x
+    ld   [y,x], ac
+    bcc  ne_1
+    dec
+ne_1:
+    ld   FL_PX + 3, x
+    sub  [y,x], ac
+    ld   NV_DL + 1, x
+    ld   ac, [y,x]
+    ld   E_Y, x                 ; dy
+    ld   [y,x], ac
+    ld   FL_PY + 2, x
+    sub  [y,x], ac
+    ld   NV_DL + 2, x
+    ld   ac, [y,x]
+    ld   E_Y + 1, x
+    ld   [y,x], ac
+    bcc  ne_2
+    dec
+ne_2:
+    ld   FL_PY + 3, x
+    sub  [y,x], ac
+    ld   NV_DL + 3, x
+    ld   ac, [y,x]
+    RET
+
+; nv_obj - object NV_I: its pixel (NV_OX, NV_OY: for the mouse), a
+; circle (a station) or an asterisk (a derelict not visited) or a diamond,
+; yellow corners when it is the target
+.chunk
+nv_obj:
+    PUSH_LINK
+    ld   FL_PG, y
+    ld   NV_I, x
+    ld   [y,x], ac
+    CALL nv_ent
+    clr  ac
+    ld   ac, [u7]
+    ld   NV_DL, ac
+    CALL nv_px
+    ld   ac, [v0]
+    ld   NV_DL + 2, ac
+    CALL nv_py
+    ld   ac, [v1]
+    ld   FL_PG, y
+    ld   NV_I, x
+    ld   [y,x], ac
+    add  NV_OX, x
+    ld   [v0], ac
+    ld   ac, [y,x]
+    ld   NV_I, x
+    ld   [y,x], ac
+    add  NV_OY, x
+    ld   [v1], ac
+    ld   ac, [y,x]
+    ld   [v0], ac
+    xor  0xFF, ac
+    beq  no_e
+    ld   [v1], ac
+    xor  0xFF, ac
+    beq  no_e
+    ld   E_SH, x
+    ld   [y,x], ac
+    bne  no_d
+    GOTO nv_circ
+no_d:
+    ld   NV_I, x                ; visited: a diamond
+    ld   [y,x], ac
+    CALL nv_bit
+    ld   ac, [u6]
+    ld   FL_PG, y
+    ld   FL_VIS, x
+    ld   [y,x], ac
+    and  [u6], ac
+    beq  no_a
+    ld   SH_DIA & 0xFF, ac
+    bra  no_s
+no_a:
+    ld   SH_AST & 0xFF, ac
+no_s:
+    ld   ac, [u6]
+    ld   0x0B, ac
+    ld   ac, [u2]
+    ld   [u6], ac
+    CALL nv_shape
+    GOTO nv_osel
+no_e:
+    LEAVE
+
+; nv_osel - the target: yellow corners round it.  The end of nv_obj
+.chunk
+nv_osel:
+    ld   FL_PG, y               ; the target: yellow corners
+    ld   NV_I, x
+    ld   [y,x], ac
+    ld   ac, [u6]
+    ld   NV_SEL, x
+    ld   [y,x], ac
+    xor  [u6], ac
+    bne  os_e
+    ld   0x0E, ac
+    ld   ac, [u2]
+    ld   SH_SEL & 0xFF, ac
+    CALL nv_shape
+os_e:
+    LEAVE
+
+; nv_bit - AC = 1 << AC.  A leaf.
+.chunk
+nv_bit:
+    ld   ac, [u6]
+    ld   1, ac
+nb2_l:
+    ld   ac, [u7]
+    ld   [u6], ac
+    beq  nb2_e
+    dec
+    ld   ac, [u6]
+    ld   [u7], ac
+    shl
+    bra  nb2_l
+nb2_e:
+    ld   [u7], ac
+    RET
+
+; nv_shape - the shape whose low byte (in NV_SHP's page) is AC round v0,
+; v1 in color u2: its count, then x, y offsets (signed)
+.chunk
+nv_shape:
+    PUSH_LINK
+    ld   ac, [v6]
+    ld   NV_SHP >> 8, y
+    ld   [v6], x
+    ld   [y,x], ac
+    ld   ac, [v5]
+ns_l:
+    ld   [v6], ac
+    inc
+    ld   ac, [v6]
+    ld   ac, x
+    ld   NV_SHP >> 8, y
+    ld   [y,x], ac
+    add  [v0], ac
+    ld   ac, [u0]
+    ld   [v6], ac
+    inc
+    ld   ac, [v6]
+    ld   ac, x
+    ld   [y,x], ac
+    add  [v1], ac
+    ld   ac, [u1]
+    CALL nv_put
+    ld   [v5], ac
+    dec
+    ld   ac, [v5]
+    bne  ns_l
+    LEAVE
+
+; the shapes: a count, then x, y pairs (an art pixel is 4 x 2 on the
+; screen, so y offsets are twice the x ones for the same length)
+.chunk
+NV_SHP:
+SH_AST:                         ; an asterisk: a derelict not visited
+    #d8 9, 0, 0, 0xFF, 0, 1, 0, 0, 0xFE, 0, 2, 0xFF, 0xFE, 1, 2, 1, 0xFE, 0xFF, 2
+SH_DIA:                         ; a diamond: visited
+    #d8 8, 0, 0xFC, 1, 0xFE, 2, 0, 1, 2, 0, 4, 0xFF, 2, 0xFE, 0, 0xFF, 0xFE
+SH_SEL:                         ; the target's corners
+    #d8 12, 0xFC, 0xF9, 0xFC, 0xF8, 0xFD, 0xF8, 4, 0xF9, 4, 0xF8, 3, 0xF8
+    #d8 0xFC, 7, 0xFC, 8, 0xFD, 8, 4, 7, 4, 8, 3, 8
+
+; nv_circ - a station: a circle of its size (E_R >> NV_ZS pixels across,
+; 3 at least, 63 at most) round v0, v1, 32 points (nv_vert), teal; then
+; nv_osel.  The rest of nv_obj
+.chunk
+nv_circ:
+    ld   FL_PG, y
+    ld   E_R, x
+    ld   [y,x], ac
+    ld   ac, [w0]
+    ld   E_R + 1, x
+    ld   [y,x], ac
+    ld   ac, [w1]
+    ld   NV_ZS, x
+    ld   [y,x], ac
+    ld   ac, [v2]
+ncs_l:
+    ld   [v2], ac
+    beq  nc_d
+    dec
+    ld   ac, [v2]
+    CALL nv_sh2
+    bra  ncs_l
+nc_d:
+    ld   [w1], ac
+    bne  nc_b
+    ld   [w0], ac
+    sub  64, ac
+    bcc  nc_b
+    ld   [w0], ac
+    sub  3, ac
+    bcc  nc_r
+    ld   3, ac
+    bra  nc_v
+nc_b:
+    ld   63, ac
+    bra  nc_v
+nc_r:
+    ld   [w0], ac
+nc_v:
+    ld   ac, [v3]
+    ld   FL_PG, y
+    ld   NV_ANG, x
+    ld   0x00, [y,x]
+    ld   0x08, ac
+    ld   ac, [u2]
+    clr  ac
+    ld   ac, [v5]
+ncl:
+    ld   [v5], ac
+    CALL nv_vert
+    ld   [v0], ac
+    ld   ac, [u7]
+    ld   [u0], ac
+    CALL nv_addc
+    ld   ac, [u0]
+    ld   [v1], ac
+    ld   ac, [u7]
+    ld   [u1], ac
+    CALL nv_addc
+    ld   ac, [u1]
+    CALL nv_put
+    ld   [v5], ac
+    inc
+    ld   ac, [v5]
+    xor  32, ac
+    bne  ncl
+    GOTO nv_osel
+
+; nv_addc - AC = u7 + AC (AC signed), or xFF when that leaves 0-255.
+; A leaf.
+.chunk
+nv_addc:
+    blt  ad_n
+    add  [u7], ac
+    bcs  ad_f
+    RET
+ad_n:
+    add  [u7], ac
+    bcc  ad_f
+    RET
+ad_f:
+    ld   0xFF, ac
+    RET
+
+; nv_cm - AC = cos (NV_ANG + AC) x v3 / 128 (signed: 127 is 1)
+.chunk
+nv_cm:
+    PUSH_LINK
+    ld   ac, [w1]
+    ld   FL_PG, y
+    ld   NV_ANG, x
+    ld   [y,x], ac
+    add  [w1], ac
+    and  31, ac
+    add  COS32 & 0xFF, x
+    ld   COS32 >> 8, y
+    ld   [y,x], ac
+    ld   ac, [w1]
+    blt  cm_n
+    bra  cm_p
+cm_n:
+    xor  0xFF, ac
+    inc
+cm_p:
+    ld   ac, [R0]
+    ld   [v3], ac
+    ld   ac, [R1]
+    CALL l_mul8
+    ld   [R2], ac               ; rounded
+    add  64, ac
+    ld   ac, [R2]
+    ld   [R3], ac
+    bcc  cm_r
+    inc
+    ld   ac, [R3]
+cm_r:
+    ld   [R2], ac
+    and  0x80, ac
+    beq  cm_0
+    ld   1, ac
+cm_0:
+    ld   ac, [w0]
+    ld   [R3], ac
+    shl
+    or   [w0], ac
+    ld   ac, [w0]
+    ld   [w1], ac
+    blt  cm_m
+    ld   [w0], ac
+    LEAVE
+cm_m:
+    ld   [w0], ac
+    xor  0xFF, ac
+    inc
+    LEAVE
+
+; nv_vert - u0, u1 = the point v3 out at NV_ANG + AC (x: v3 cos, y:
+; 2 v3 sin, as the pixels are: an art pixel is 4 x 2)
+.chunk
+nv_vert:
+    PUSH_LINK
+    ld   ac, [v4]
+    CALL nv_cm
+    ld   ac, [u0]
+    ld   [v3], ac
+    shl
+    ld   ac, [v3]
+    ld   [v4], ac
+    add  24, ac
+    CALL nv_cm
+    ld   ac, [u1]
+    ld   [v3], ac
+    shr  ac
+    ld   ac, [v3]
+    LEAVE
+
+; nv_tug - the tug: a white triangle at its heading (NV_TUG: x, y of
+; points round its middle, pointing east, turned by the heading: nv_term),
+; then nv_drift.  The rest of nv_draw
+.chunk
+nv_tug:
+    ld   FL_PG, y
+    ld   FL_HD, x
+    ld   [y,x], ac
+    ld   NV_ANG, x
+    ld   ac, [y,x]
+    ld   0x0A, ac
+    ld   ac, [u2]
+    ld   NV_TUG & 0xFF, ac
+    ld   ac, [v6]
+    clr  ac
+    ld   ac, [v7]
+tg_l:                           ; (nv_drift's too: v7 1)
+    ld   NV_TUG >> 8, y
+    ld   [v6], x
+    ld   [y,x], ac
+    xor  0x80, ac
+    beq  tg_d
+    ld   [y,x], ac              ; x: u cos - w sin (cos (a + 8) = -sin)
+    ld   ac, [v2]
+    clr  ac
+    CALL nv_term
+    ld   ac, [v0]
+    CALL nv_tw
+    ld   8, ac
+    CALL nv_term
+    add  [v0], ac
+    add  80, ac
+    ld   ac, [u0]
+    ld   [v2], ac               ; y: 2 u sin + 2 w cos (cos (a + 24) = sin)
+    shl
+    ld   ac, [v2]
+    clr  ac
+    CALL nv_term
+    ld   ac, [v1]
+    ld   NV_TUG >> 8, y
+    ld   [v6], x
+    ld   [y,x], ac
+    shl
+    ld   ac, [v2]
+    ld   24, ac
+    CALL nv_term
+    add  [v1], ac
+    add  96, ac
+    ld   ac, [u1]
+    CALL nv_put
+    ld   [v6], ac
+    add  2, ac
+    ld   ac, [v6]
+    bra  tg_l
+tg_d:
+    ld   [v7], ac
+    bne  tg_x
+    GOTO nv_drift
+tg_x:
+    LEAVE
+
+; nv_tw - v2 = the point's y (NV_TUG + v6 + 1).  A leaf.
+.chunk
+nv_tw:
+    ld   NV_TUG >> 8, y
+    ld   [v6], ac
+    add  1, x
+    ld   [y,x], ac
+    ld   ac, [v2]
+    RET
+
+; nv_term - AC = v2 (signed) x cos (NV_ANG + AC): nv_cm's, which it ends in
+.chunk
+nv_term:
+    ld   ac, [v5]
+    ld   [v2], ac
+    blt  tm_n
+    ld   ac, [v3]
+    ld   [v5], ac
+    GOTO nv_cm
+tm_n:
+    xor  0xFF, ac
+    inc
+    ld   ac, [v3]
+    ld   [v5], ac
+    add  16, ac
+    GOTO nv_cm
+
+; the tug (gen: the edges of (6, 0), (-4, 4), (-4, -4), every pixel)
+; and its drift's dots (10, 12, 14 out): x, y pairs, then x80
+.chunk
+NV_DRT:
+    #d8 10, 0, 12, 0, 14, 0, 0x80
+NV_TUG:
+    #d8 0x06, 0x00, 0x05, 0x00, 0x04, 0x01, 0x03, 0x01, 0x02, 0x02, 0x01, 0x02
+    #d8 0x00, 0x02, 0xFF, 0x03, 0xFE, 0x03, 0xFD, 0x04, 0xFC, 0x04, 0xFC, 0x03
+    #d8 0xFC, 0x02, 0xFC, 0x01, 0xFC, 0x00, 0xFC, 0xFF, 0xFC, 0xFE, 0xFC, 0xFD
+    #d8 0xFC, 0xFC, 0xFD, 0xFC, 0xFE, 0xFD, 0xFF, 0xFD, 0x00, 0xFE, 0x01, 0xFE
+    #d8 0x02, 0xFE, 0x03, 0xFF, 0x04, 0xFF, 0x80
+
+; nv_drift - green dots 10-14 pixels out the way the tug drifts (when it
+; does, 2/256 m a frame or more): NV_DRT in nv_tug's loop.  The end of
+; nv_draw (its LEAVE)
+.chunk
+nv_drift:
+    CALL fl_speed
+    ld   [w1], ac
+    bne  ndr_go
+    ld   [w0], ac
+    sub  2, ac
+    bcc  ndr_go
+    LEAVE
+ndr_go:
+    ld   FL_VX + 2, ac
+    ld   ac, [u0]
+    ld   FL_VY + 2, ac
+    CALL nv_atv
+    ld   0x0F, ac
+    ld   ac, [u2]
+    ld   NV_DRT & 0xFF, ac
+    ld   ac, [v6]
+    ld   1, ac
+    ld   ac, [v7]
+    GOTO tg_l
+
+; nv_atv - NV_ANG = the angle of (the 2 bytes at FL_PG + u0, those at
+; FL_PG + AC): nv_atan of them
+.chunk
+nv_atv:
+    PUSH_LINK
+    ld   ac, [u1]
+    ld   FL_PG, y
+    ld   [u0], x
+    ld   [y,x], ac
+    ld   NV_AX, x
+    ld   ac, [y,x]
+    ld   [u0], ac
+    inc
+    ld   ac, x
+    ld   [y,x], ac
+    ld   NV_AX + 1, x
+    ld   ac, [y,x]
+    ld   [u1], x
+    ld   [y,x], ac
+    ld   NV_AY, x
+    ld   ac, [y,x]
+    ld   [u1], ac
+    inc
+    ld   ac, x
+    ld   [y,x], ac
+    ld   NV_AY + 1, x
+    ld   ac, [y,x]
+    CALL nv_atan
+    ld   FL_PG, y
+    ld   NV_ANG, x
+    ld   ac, [y,x]
+    LEAVE
+
+; nv_atan - AC = the angle (0-31, 0 east, 8 down) of NV_AX, NV_AY
+; (signed): the octant from the signs and which is larger, then the step
+; in it from the ratio against tan 5.6, 16.9, 28.1, 39.4 degrees
+.chunk
+nv_atan:
+    PUSH_LINK
+    ld   NV_AX, ac
+    CALL fl_abs
+    ld   [u0], ac
+    ld   ac, [w0]
+    ld   [u1], ac
+    ld   ac, [w1]
+    ld   NV_AY, ac
+    CALL fl_abs
+    ld   [u0], ac
+    ld   ac, [w2]
+    ld   [u1], ac
+    ld   ac, [w3]
+an_s:
+    ld   [w1], ac               ; both to 8 bits
+    or   [w3], ac
+    beq  an_d
+    CALL nv_sh2
+    bra  an_s
+an_d:
+    clr  ac
+    ld   ac, [w6]
+    ld   [w0], ac
+    ld   ac, [w4]               ; w4 the larger, w5 the smaller
+    ld   [w2], ac
+    ld   ac, [w5]
+    ld   [w0], ac
+    sub  [w2], ac
+    bcc  an_k
+    ld   [w2], ac
+    ld   ac, [w4]
+    ld   [w0], ac
+    ld   ac, [w5]
+    ld   1, ac
+    ld   ac, [w6]               ; w6: y the larger
+an_k:
+    GOTO nv_atan2
+
+; nv_atan2 - the step in the octant, the quadrant.  The rest of nv_atan
+.chunk
+nv_atan2:
+    clr  ac
+    ld   ac, [v5]
+    ld   ac, [v4]
+ak_l:
+    ld   [w4], ac
+    ld   ac, [R0]
+    ld   [v4], ac
+    add  NV_TAN & 0xFF, x
+    ld   NV_TAN >> 8, y
+    ld   [y,x], ac
+    ld   ac, [R1]
+    CALL l_mul8                 ; the larger x tan: R3 its whole part
+    ld   [R3], ac
+    sub  [w5], ac
+    bcc  ak_n
+    ld   [v5], ac
+    inc
+    ld   ac, [v5]
+ak_n:
+    ld   [v4], ac
+    inc
+    ld   ac, [v4]
+    xor  4, ac
+    bne  ak_l
+    ld   [w6], ac               ; a = k, or 8 - k
+    beq  ak_a
+    ld   8, ac
+    sub  [v5], ac
+    ld   ac, [v5]
+ak_a:
+    ld   FL_PG, y
+    ld   NV_AX + 1, x
+    ld   [y,x], ac
+    blt  ak_xn
+    ld   NV_AY + 1, x
+    ld   [y,x], ac
+    blt  ak_4
+    ld   [v5], ac               ; x+ y+: a
+    bra  nk_ae
+ak_4:
+    ld   32, ac                 ; x+ y-: 32 - a
+    sub  [v5], ac
+    bra  nk_ae
+ak_xn:
+    ld   NV_AY + 1, x
+    ld   [y,x], ac
+    blt  ak_3
+    ld   16, ac                 ; x- y+: 16 - a
+    sub  [v5], ac
+    bra  nk_ae
+ak_3:
+    ld   16, ac                 ; x- y-: 16 + a
+    add  [v5], ac
+nk_ae:
+    and  31, ac
+    LEAVE
+
+.chunk
+NV_TAN:
+    #d8 25, 78, 137, 210
+
+
+; ============================================================
+; the control panel: rows 24-27 three boxed blocks with inverse titles
+; (FLIGHT, PROPULSION, TARGET), each label with its unit and its value
+; to the right; row 28 the keys as inverse caps; row 29 the message
+; ============================================================
+
+; nv_panel - the panel again: the labels (NV_LAB: row, column, string in
+; NV_STR's page), then nv_pn1
+.chunk
+nv_panel:
+    PUSH_LINK
+    ld   161, ac
+    CALL clear_rows
+    clr  ac
+    ld   ac, [v0]
+lb_l:
+    ld   NV_LAB >> 8, y
+    ld   [v0], ac
+    add  NV_LAB & 0xFF, x
+    ld   [y,x], ac
+    beq  lb_e
+    ld   ac, [CUR_ROW]
+    ld   [v0], ac
+    add  (NV_LAB & 0xFF) + 1, x
+    ld   [y,x], ac
+    ld   ac, [CUR_COL]
+    ld   [v0], ac
+    add  (NV_LAB & 0xFF) + 2, x
+    ld   [y,x], ac
+    CALL nv_s
+    ld   [v0], ac
+    add  3, ac
+    ld   ac, [v0]
+    bra  lb_l
+lb_e:
+    GOTO nv_pn1
+NV_LAB:
+    #d8 24, 1, s_t1 & 0xFF, 24, 20, s_t2 & 0xFF, 24, 39, s_t3 & 0xFF
+    #d8 25, 1, s_speed & 0xFF, 26, 1, s_head & 0xFF
+    #d8 25, 20, s_n2 & 0xFF, 26, 20, s_mass & 0xFF, 27, 20, s_thr & 0xFF
+    #d8 25, 62, s_reg & 0xFF, 26, 39, s_rng & 0xFF, 26, 54, s_rad & 0xFF
+    #d8 27, 39, s_tow & 0xFF, 27, 57, s_acr & 0xFF, 0
+
+; nv_pn1 - the boxes, the target's name in its title (inverse, to the
+; block's end), speed, nitrogen.  The rest of nv_panel
+.chunk
+nv_pn1:
+    CALL nv_box
+    ld   FL_PG, y
+    ld   NV_SEL, x
+    ld   [y,x], ac
+    CALL nv_ent
+    ld   24, ac
+    ld   ac, [CUR_ROW]
+    ld   48, ac
+    ld   ac, [CUR_COL]
+    ld   0x80, ac
+    ld   ac, [p_inv]
+    ld   FL_PG, y
+    ld   E_NM, x
+    ld   [y,x], ac
+    CALL nv_s55
+p1_l:
+    ld   [CUR_COL], ac
+    xor  79, ac
+    beq  p1_e
+    ld   0x20, ac
+    CALL tputc
+    bra  p1_l
+p1_e:
+    ld   ac, [p_inv]            ; (AC 0)
+    ld   25, ac
+    ld   ac, [CUR_ROW]
+    CALL fl_speed
+    CALL nv_ms
+    ld   12, ac
+    CALL nv_dec
+    ld   FL_PG, y
+    ld   FL_FLL, x
+    ld   [y,x], ac
+    ld   ac, [num_l]
+    ld   FL_FLH, x
+    ld   [y,x], ac
+    ld   ac, [num_h]
+    ld   31, ac
+    CALL nv_dec
+    GOTO nv_pn2
+
+; nv_dec - num in decimal from column AC (put_dec's return is the
+; caller's).  nv_s - the string in NV_STR's page whose low byte is AC, at
+; the cursor.  nv_s55 - the same in the sector file's strings (page x55)
+.chunk
+nv_dec:
+    ld   ac, [CUR_COL]
+    GOTO put_dec
+nv_s:
+    ld   ac, [R0]
+    ld   NV_STR >> 8, ac
+    ld   ac, [R1]
+    GOTO tputs
+nv_s55:
+    ld   ac, [R0]
+    ld   SEC_STR, ac
+    ld   ac, [R1]
+    GOTO tputs
+
+; nv_next - AC = the offset after the string at offset AC of page x55.
+; A leaf.
+.chunk
+nv_next:
+    ld   ac, [u0]
+nx2_l:
+    ld   SEC_STR, y
+    ld   [u0], x
+    ld   [y,x], ac
+    ld   ac, [u1]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    ld   [u1], ac
+    bne  nx2_l
+    ld   [u0], ac
+    RET
+
+; nv_box - the blocks' sides (bit 7: the pixel glyphs leave blank) of
+; columns 0, 18, 19, 37, 38 and 78 down rows 25-27 (line pairs 8-31:
+; offsets 177-223), then a line under row 27 (offset 223) but in the gaps
+; between the blocks.  A leaf.
+.chunk
+nv_box:
+    clr  ac
+    ld   ac, [u0]
+bx_c:
+    ld   NV_BXC >> 8, y
+    ld   [u0], ac
+    add  NV_BXC & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u1]
+    ld   177, ac
+    ld   ac, [u2]
+bx_l:
+    ld   [u1], y
+    ld   [u2], x
+    ld   [y,x], ac
+    or   0x80, ac
+    ld   ac, [y,x]
+    ld   [u2], ac
+    add  2, ac
+    ld   ac, [u2]
+    xor  225, ac
+    bne  bx_l
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  6, ac
+    bne  bx_c
+    ld   0x63, ac               ; under: columns 1-78
+    ld   ac, [u1]
+bx_b:
+    ld   [u1], y
+    ld   223, x
+    ld   0xFF, [y,x]
+    ld   [u1], ac
+    add  2, ac
+    ld   ac, [u1]
+    xor  0xFF, ac
+    bne  bx_b
+    ld   0x61 + 38, y           ; the gaps: columns 19 and 38 their side only
+    ld   0x80, [y,x]
+    ld   0x61 + 76, y
+    ld   0x80, [y,x]
+    RET
+NV_BXC:
+    #d8 0x61, 0x61 + 36, 0x61 + 38, 0x61 + 74, 0x61 + 76, 0x61 + 156
+
+; nv_pn2 - heading, mass, thrusters, docked.  The rest of nv_panel
+.chunk
+nv_pn2:
+    ld   26, ac
+    ld   ac, [CUR_ROW]
+    ld   FL_PG, y
+    ld   FL_HD, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   45, ac
+    ld   ac, [R1]
+    CALL l_mul8
+    CALL nv_q4
+    ld   12, ac
+    CALL nv_dec
+    ld   FL_PG, y
+    ld   FL_ML, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   FL_MH, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    ld   10, ac
+    ld   ac, [R2]
+    CALL l_div16
+    ld   [R0], ac
+    ld   ac, [num_l]
+    ld   [R1], ac
+    ld   ac, [num_h]
+    ld   31, ac
+    CALL nv_dec
+    ld   27, ac
+    ld   ac, [CUR_ROW]
+    ld   FL_PG, y
+    ld   FL_NT, x
+    ld   [y,x], ac
+    ld   ac, [num_l]
+    clr  ac
+    ld   ac, [num_h]
+    ld   31, ac
+    CALL nv_dec
+    ld   1, ac
+    ld   ac, [CUR_COL]
+    ld   FL_PG, y
+    ld   FL_DOCK, x
+    ld   [y,x], ac
+    beq  p2_f
+    ld   s_dkd & 0xFF, ac
+    bra  p2_s
+p2_f:
+    ld   s_free & 0xFF, ac
+p2_s:
+    CALL nv_s
+    GOTO nv_pn3
+
+; nv_pn3 - the target: what it is, its registry; its range (the larger
+; of |dx| and |dy|).  The rest of nv_panel
+.chunk
+nv_pn3:
+    ld   25, ac
+    ld   ac, [CUR_ROW]
+    ld   39, ac
+    ld   ac, [CUR_COL]
+    ld   FL_PG, y
+    ld   E_SH, x
+    ld   [y,x], ac
+    beq  p3_st
+    ld   s_der & 0xFF, ac
+    bra  p3_s
+p3_st:
+    ld   s_stn & 0xFF, ac
+p3_s:
+    CALL nv_s
+    ld   FL_PG, y
+    ld   E_NM, x
+    ld   [y,x], ac
+    CALL nv_next
+    ld   FL_PG, y
+    ld   NV_S1, x
+    ld   ac, [y,x]
+    CALL nv_next
+    CALL nv_s55                 ; the kind
+    ld   66, ac
+    ld   ac, [CUR_COL]
+    ld   FL_PG, y
+    ld   NV_S1, x
+    ld   [y,x], ac
+    CALL nv_s55                 ; the registry
+    ld   NV_DL, ac
+    CALL fl_abs
+    ld   [u0], ac
+    ld   ac, [w0]
+    ld   [u1], ac
+    ld   ac, [w1]
+    ld   NV_DL + 2, ac
+    CALL fl_abs
+    CALL fl_max
+    GOTO nv_pn4
+
+; nv_pn4 - the range less its size (0 at least), the radar return,
+; visited.  The rest of nv_panel
+.chunk
+nv_pn4:
+    ld   FL_PG, y
+    ld   E_R, x
+    ld   [w0], ac
+    sub  [y,x], ac
+    ld   ac, [w0]
+    ld   E_R + 1, x
+    ld   [w1], ac
+    bcc  p4_1
+    dec
+p4_1:
+    sub  [y,x], ac
+    ld   ac, [w1]
+    blt  p4_0
+    bra  p4_2
+p4_0:
+    clr  ac
+    ld   ac, [w0]
+    ld   ac, [w1]
+p4_2:
+    ld   [w0], ac
+    ld   ac, [num_l]
+    ld   NV_RG, x
+    ld   ac, [y,x]
+    ld   [w1], ac
+    ld   ac, [num_h]
+    ld   NV_RG + 1, x
+    ld   ac, [y,x]
+    ld   26, ac
+    ld   ac, [CUR_ROW]
+    ld   47, ac
+    CALL nv_dec
+    ld   62, ac                 ; the radar return: its radar factor (size
+    ld   ac, [CUR_COL]          ; x 100 / 16) / (range / 256), 99 at most
+    ld   FL_PG, y
+    ld   NV_RG + 1, x
+    ld   [y,x], ac
+    beq  p4_99
+    ld   ac, [R2]
+    ld   E_RF, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   E_RF + 1, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    CALL l_div16
+    ld   [R1], ac
+    bne  p4_99
+    ld   [R0], ac
+    sub  100, ac
+    bcc  p4_99
+    ld   [R0], ac
+    bra  p4_p
+p4_99:
+    ld   99, ac
+p4_p:
+    CALL put_dec8
+    ld   66, ac
+    ld   ac, [CUR_COL]
+    ld   FL_PG, y
+    ld   NV_SEL, x
+    ld   [y,x], ac
+    CALL nv_bit
+    ld   ac, [u6]
+    ld   FL_PG, y
+    ld   FL_VIS, x
+    ld   [y,x], ac
+    and  [u6], ac
+    beq  p4_n
+    ld   s_vis & 0xFF, ac
+    bra  p4_v
+p4_n:
+    ld   s_nvis & 0xFF, ac
+p4_v:
+    CALL nv_s
+    GOTO nv_pn5
+
+; nv_pn5 - the tug's speed toward the target (along its bearing from the
+; tug: under 0 moving away) and across it.  The rest of nv_panel
+.chunk
+nv_pn5:
+    ld   27, ac
+    ld   ac, [CUR_ROW]
+    ld   NV_DL, ac
+    ld   ac, [u0]
+    ld   NV_DL + 2, ac
+    CALL nv_atv
+    ld   50, ac
+    ld   ac, [CUR_COL]
+    ld   FL_PG, y
+    ld   NV_ANG, x
+    ld   [y,x], ac
+    CALL nv_dot
+    ld   1, ac
+    CALL nv_spd
+    ld   68, ac
+    ld   ac, [CUR_COL]
+    ld   FL_PG, y
+    ld   NV_ANG, x
+    ld   [y,x], ac
+    add  8, ac
+    CALL nv_dot
+    clr  ac
+    CALL nv_spd
+    GOTO nv_pn6
+
+; nv_pn6 - row 28: the keys as inverse caps (the sector file's s_k0,
+; s_k1), the zoom's range in the first; then the message.  The end of
+; nv_panel
+.chunk
+nv_pn6:
+    ld   28, ac
+    ld   ac, [CUR_ROW]
+    ld   1, ac
+    ld   ac, [CUR_COL]
+    ld   s_k0 & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_k0 >> 8, ac
+    ld   ac, [R1]
+    CALL tputs
+    ld   0x80, ac
+    ld   ac, [p_inv]
+    ld   FL_PG, y
+    ld   FL_ZM, x
+    ld   [y,x], ac
+    add  NV_ZT & 0xFF, x
+    ld   NV_ZT >> 8, y
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   NV_ZT >> 8, ac
+    ld   ac, [R1]
+    CALL tputs
+    clr  ac
+    ld   ac, [p_inv]
+    ld   s_k1 & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_k1 >> 8, ac
+    ld   ac, [R1]
+    CALL tputs
+    CALL draw_msg
+    LEAVE
+
+; the map's range across at each zoom (4 m a pixel << FL_ZM, 160 pixels)
+.chunk
+NV_ZT:
+    #d8 s_z0 & 0xFF, s_z1 & 0xFF, s_z2 & 0xFF, s_z3 & 0xFF
+    #d8 s_z4 & 0xFF, s_z5 & 0xFF, s_z6 & 0xFF, s_z7 & 0xFF
+s_z0:
+    #d "640 M", 0x00
+s_z1:
+    #d "1.3 KM", 0x00
+s_z2:
+    #d "2.6 KM", 0x00
+s_z3:
+    #d "5.1 KM", 0x00
+s_z4:
+    #d "10 KM", 0x00
+s_z5:
+    #d "20 KM", 0x00
+s_z6:
+    #d "41 KM", 0x00
+s_z7:
+    #d "82 KM", 0x00
+
+; the panel's strings: one page (nv_s takes the low byte); the titles are
+; inverse letters (bit 7)
+.chunk
+NV_STR:
+s_t1:                           ; " FLIGHT", 18 wide
+    #d8 0xA0, 0xC6, 0xCC, 0xC9, 0xC7, 0xC8, 0xD4, 0xA0, 0xA0, 0xA0, 0xA0, 0xA0
+    #d8 0xA0, 0xA0, 0xA0, 0xA0, 0xA0, 0xA0, 0x00
+s_t2:                           ; " PROPULSION", 18 wide
+    #d8 0xA0, 0xD0, 0xD2, 0xCF, 0xD0, 0xD5, 0xCC, 0xD3, 0xC9, 0xCF, 0xCE, 0xA0
+    #d8 0xA0, 0xA0, 0xA0, 0xA0, 0xA0, 0xA0, 0x00
+s_t3:                           ; " TARGET: " (then its name)
+    #d8 0xA0, 0xD4, 0xC1, 0xD2, 0xC7, 0xC5, 0xD4, 0xBA, 0xA0, 0x00
+s_speed:
+    #d "SPEED M/S", 0x00
+s_head:
+    #d "HEADING", 0x00
+s_n2:
+    #d "NITROGEN L", 0x00
+s_mass:
+    #d "MASS T", 0x00
+s_thr:
+    #d "THRUSTERS", 0x00
+s_reg:
+    #d "REG", 0x00
+s_rng:
+    #d "RANGE M", 0x00
+s_rad:
+    #d "RADAR %", 0x00
+s_tow:
+    #d "TOWARD M/S", 0x00
+s_acr:
+    #d "ACROSS M/S", 0x00
+s_dkd:
+    #d "DOCKED", 0x00
+s_free:
+    #d "FREE FLIGHT", 0x00
+s_der:
+    #d "DERELICT ", 0x00
+s_stn:
+    #d "STATION ", 0x00
+s_nvis:
+    #d "NOT "
+s_vis:
+    #d "VISITED", 0x00
+
+; nv_sh2 - w1:w0 >>= 1, w3:w2 >>= 1 (no sign).  A leaf.
+.chunk
+nv_sh2:
+    ld   [w1], ac
+    and  1, ac
+    beq  sh_a
+    ld   0x80, ac
+sh_a:
+    ld   ac, [w6]
+    ld   [w0], ac
+    shr  ac
+    or   [w6], ac
+    ld   ac, [w0]
+    ld   [w1], ac
+    shr  ac
+    ld   ac, [w1]
+    ld   [w3], ac
+    and  1, ac
+    beq  sh_b
+    ld   0x80, ac
+sh_b:
+    ld   ac, [w6]
+    ld   [w2], ac
+    shr  ac
+    or   [w6], ac
+    ld   ac, [w2]
+    ld   [w3], ac
+    shr  ac
+    ld   ac, [w3]
+    RET
+
+; nv_spd - NV_RS (1/256 m a frame, signed) in m/s; a - first
+; when it is under 0 and AC is 1 (else its size)
+.chunk
+nv_spd:
+    PUSH_LINK
+    ld   ac, [v0]
+    ld   NV_RS, ac
+    CALL fl_abs
+    ld   [u1], ac
+    ld   ac, [w1]
+    ld   [u0], ac
+    ld   ac, [w0]
+    ld   [v0], ac
+    beq  nsp_p
+    ld   FL_PG, y
+    ld   NV_RS + 1, x
+    ld   [y,x], ac
+    blt  nsp_n
+    bra  nsp_p
+nsp_n:
+    ld   0x2D, ac
+    CALL tputc
+nsp_p:
+    CALL nv_ms
+    CALL put_dec
+    LEAVE
+
+; nv_dot - NV_RS = the tug's velocity along angle AC: vx cos + vy sin
+.chunk
+nv_dot:
+    PUSH_LINK
+    ld   ac, [v4]
+    ld   FL_PG, y
+    ld   NV_RS, x
+    ld   0x00, [y,x]
+    ld   NV_RS + 1, x
+    ld   0x00, [y,x]
+    ld   FL_VX + 2, ac
+    CALL nv_mt
+    ld   [v4], ac
+    add  24, ac
+    ld   ac, [v4]
+    ld   FL_VY + 2, ac
+    CALL nv_mt
+    LEAVE
+
+; nv_mt - NV_RS += the 2 bytes at FL_PG + AC (signed) x cos v4 (COS32:
+; 127 is 1) / 128
+.chunk
+nv_mt:
+    PUSH_LINK
+    CALL fl_abs                 ; u1:u0 its size, u2 where it is
+    ld   FL_PG, y
+    ld   [u2], ac
+    inc
+    ld   ac, x
+    ld   [y,x], ac
+    and  0x80, ac
+    ld   ac, [v6]               ; v6: under 0
+    ld   [v4], ac
+    and  31, ac
+    add  COS32 & 0xFF, x
+    ld   COS32 >> 8, y
+    ld   [y,x], ac
+    blt  mt_n
+    bra  mt_p
+mt_n:
+    xor  0xFF, ac
+    inc
+    ld   ac, [v7]
+    ld   [v6], ac
+    xor  0x80, ac
+    ld   ac, [v6]
+    ld   [v7], ac
+mt_p:
+    ld   ac, [v7]               ; v7 |cos|
+    ld   ac, [R1]
+    ld   [u0], ac
+    ld   ac, [R0]
+    CALL l_mul8                 ; the low byte x |cos| / 128: w0
+    ld   [R2], ac
+    and  0x80, ac
+    beq  mt_0
+    ld   1, ac
+mt_0:
+    ld   ac, [w0]
+    ld   [R3], ac
+    shl
+    or   [w0], ac
+    ld   ac, [w0]
+    ld   [u1], ac
+    ld   ac, [R0]
+    ld   [v7], ac
+    ld   ac, [R1]
+    CALL l_mul8                 ; the high byte x |cos| x 2: w3:w2
+    ld   [R2], ac
+    shl
+    ld   ac, [w2]
+    ld   [R3], ac
+    bcc  mt_1
+    shl
+    inc
+    bra  mt_2
+mt_1:
+    shl
+mt_2:
+    ld   ac, [w3]
+    GOTO nv_mt2
+
+; nv_mt2 - the sum, its sign, added to NV_RS.  The rest of nv_mt
+.chunk
+nv_mt2:
+    ld   [w2], ac
+    add  [w0], ac
+    ld   ac, [w2]
+    ld   [w3], ac
+    bcc  m2_1
+    inc
+m2_1:
+    ld   ac, [w3]
+    ld   [v6], ac
+    beq  m2_a
+    ld   [w2], ac
+    xor  0xFF, ac
+    add  1, ac
+    ld   ac, [w2]
+    ld   [w3], ac
+    xor  0xFF, ac
+    bcc  m2_2
+    inc
+m2_2:
+    ld   ac, [w3]
+m2_a:
+    ld   FL_PG, y
+    ld   NV_RS, x
+    ld   [y,x], ac
+    add  [w2], ac
+    ld   ac, [y,x]
+    ld   NV_RS + 1, x
+    ld   [y,x], ac
+    bcc  m2_3
+    inc
+m2_3:
+    add  [w3], ac
+    ld   ac, [y,x]
+    LEAVE
+
+
+; nv_exit - Esc let go (or the loop would take it for the DOS's), then
+; back.  The end of nav_main
+.chunk
+nv_exit:
+    ld   1, ac
+    CALL l_wait_frames_io
+    CALL l_kbd_scan
+    ld   [dead], ac
+    bne  nx_e
+    ld   [KBD_NOW], ac
+    and  1, ac
+    beq  nv_exit
+nx_e:
+    ld   FL_PG, y
+    ld   FL_NAV, x
+    ld   0x00, [y,x]
+    clr  ac                     ; the message off: its string may be in the
+    ld   ac, [msg_t]            ; sector file (part text again from now)
+    LEAVE
+
+
+
 
 ; nv_undock - U: undocked, 5 m/s away from the port (west); the tug's
 ; airlock a closed door, the KESTREL 9's a wall while it is away (no air
@@ -305,40 +1911,8 @@ nn_n:
     clr  ac
     RET
 
-; nv_put - art pixel u0, u1 in color u2 (off the view: nothing), kept in
-; NV_PTS (128 at most) to rub out.  A leaf (nv_plot's).
-.chunk
-nv_put:
-    ld   [u0], ac
-    sub  160, ac
-    bcc  np_e
-    ld   [u1], ac
-    sub  192, ac
-    bcc  np_e
-    ld   FL_PG, y
-    ld   NV_N, x
-    ld   [y,x], ac
-    ld   ac, [u3]
-    xor  128, ac
-    beq  np_e
-    ld   [u3], ac
-    inc
-    ld   ac, [y,x]
-    ld   NV_PTS >> 8, y
-    ld   [u3], ac
-    shl
-    ld   ac, x
-    ld   [u0], ac
-    ld   ac, [y,x]
-    ld   [u3], ac
-    shl
-    inc
-    ld   ac, x
-    ld   [u1], ac
-    ld   ac, [y,x]
-    GOTO nv_plot
-np_e:
-    RET
+
+
 
 ; nv_plot - art pixel u0, u1 in color u2: byte column u0 / 2 (page x61 +
 ; u0 & xFE), line pair u1 (offset 2 u1 + 32, or 2 u1 - 223 from 112), the
@@ -385,34 +1959,8 @@ pl_hi:
     ld   ac, [y,x]
     RET
 
-; nv_rub - the points drawn put back to black
-.chunk
-nv_rub:
-    PUSH_LINK
-nr_l:
-    ld   FL_PG, y
-    ld   NV_N, x
-    ld   [y,x], ac
-    beq  nr_e
-    dec
-    ld   ac, [y,x]
-    shl
-    ld   ac, [v0]
-    ld   NV_PTS >> 8, y
-    ld   [v0], x
-    ld   [y,x], ac
-    ld   ac, [u0]
-    ld   [v0], ac
-    inc
-    ld   ac, x
-    ld   [y,x], ac
-    ld   ac, [u1]
-    clr  ac
-    ld   ac, [u2]
-    CALL nv_plot
-    bra  nr_l
-nr_e:
-    LEAVE
+
+
 
 ; nv_px - AC = the x pixel of the 2 bytes at FL_PG + AC (metres from the
 ; tug, signed) >> NV_ZS + u7, from the middle (80), or xFF when off the
@@ -492,365 +2040,8 @@ pj_off:
     ld   0xFF, ac
     RET
 
-; nv_draw - the map: the points rubbed out, then the KESTREL 9, its port,
-; the tug and its course drawn
-.chunk
-nv_draw:
-    PUSH_LINK
-    CALL nv_rub
-    CALL fl_rel
-    ld   FL_PG, y               ; NV_ZS = 3 + 3 zoom
-    ld   FL_ZM, x
-    ld   [y,x], ac
-    ld   ac, [v0]
-    shl
-    add  [v0], ac
-    add  3, ac
-    ld   NV_ZS, x
-    ld   ac, [y,x]
-    clr  ac
-    ld   ac, [u7]
-    ld   FL_DX, ac
-    CALL nv_px
-    ld   ac, [v0]
-    ld   FL_DY, ac
-    CALL nv_py
-    ld   ac, [v1]
-    ld   [v0], ac
-    xor  0xFF, ac
-    beq  nd2_p
-    ld   [v1], ac
-    xor  0xFF, ac
-    beq  nd2_p
-    ld   FL_PG, y               ; the hull's half size in pixels
-    ld   FL_ZM, x
-    ld   [y,x], ac
-    add  NV_HS & 0xFF, x
-    ld   NV_HS >> 8, y
-    ld   [y,x], ac
-    ld   ac, [v2]
-    CALL nv_box
-nd2_p:
-    GOTO nv_port
 
-; nv_port - the KESTREL 9's port (100 m west of its centre) in green, then
-; nv_vel.  The rest of nv_draw
-.chunk
-nv_port:
-    CALL nv_pdx
-    clr  ac
-    ld   ac, [u7]
-    ld   NV_DL, ac
-    CALL nv_px
-    ld   ac, [v0]
-    ld   FL_DY, ac
-    CALL nv_py
-    ld   ac, [u1]
-    ld   [v0], ac
-    ld   ac, [u0]
-    ld   0x0F, ac
-    ld   ac, [u2]
-    CALL nv_put
-    GOTO nv_vel
 
-; nv_box - the KESTREL 9's hull: a square of half size v2 round v0, v1,
-; orange
-.chunk
-nv_box:
-    PUSH_LINK
-    clr  ac
-    ld   ac, [v3]
-nbx_l:
-    ld   [v3], ac
-    sub  [v2], ac
-    ld   ac, [v4]               ; i = v3 - v2
-    ld   [v0], ac
-    add  [v4], ac
-    ld   ac, [u0]
-    ld   [v1], ac
-    sub  [v2], ac
-    sub  [v2], ac
-    ld   ac, [u1]
-    CALL nb_put
-    ld   [v0], ac
-    add  [v4], ac
-    ld   ac, [u0]
-    ld   [v1], ac
-    add  [v2], ac
-    add  [v2], ac
-    ld   ac, [u1]
-    CALL nb_put
-    ld   [v0], ac
-    sub  [v2], ac
-    ld   ac, [u0]
-    ld   [v1], ac
-    add  [v4], ac
-    add  [v4], ac
-    ld   ac, [u1]
-    CALL nb_put
-    ld   [v0], ac
-    add  [v2], ac
-    ld   ac, [u0]
-    ld   [v1], ac
-    add  [v4], ac
-    add  [v4], ac
-    ld   ac, [u1]
-    CALL nb_put
-    ld   [v3], ac
-    inc
-    ld   ac, [v3]
-    ld   [v2], ac
-    shl
-    sub  [v3], ac
-    blt  nbx_e
-    bra  nbx_l
-nbx_e:
-    LEAVE
-
-; nb_put - u0, u1 in orange.  A leaf (nv_put's).
-.chunk
-nb_put:
-    ld   0x0D, ac
-    ld   ac, [u2]
-    GOTO nv_put
-
-; nv_tug - the tug: white in the middle, its heading in yellow (4 dots),
-; over the course.  The end of nv_draw (its LEAVE)
-.chunk
-nv_tug:
-    ld   80, ac
-    ld   ac, [u0]
-    ld   96, ac
-    ld   ac, [u1]
-    ld   0x0A, ac
-    ld   ac, [u2]
-    CALL nv_put
-    ld   2, ac
-    ld   ac, [v3]
-nt_l:
-    clr  ac
-    CALL nv_cm
-    add  80, ac
-    ld   ac, [v0]
-    ld   24, ac
-    CALL nv_cm
-    ld   ac, [u1]               ; (y: twice, as nv_py)
-    add  [u1], ac
-    add  96, ac
-    ld   ac, [u1]
-    ld   [v0], ac
-    ld   ac, [u0]
-    ld   0x0E, ac
-    ld   ac, [u2]
-    CALL nv_put
-    ld   [v3], ac
-    inc
-    ld   ac, [v3]
-    xor  6, ac
-    bne  nt_l
-    LEAVE
-
-; nv_cm - AC = cos (heading + AC) x v3 / 64 (signed: 127 is 1)
-.chunk
-nv_cm:
-    PUSH_LINK
-    ld   ac, [w1]
-    ld   FL_PG, y
-    ld   FL_HD, x
-    ld   [y,x], ac
-    add  [w1], ac
-    and  31, ac
-    add  COS32 & 0xFF, x
-    ld   COS32 >> 8, y
-    ld   [y,x], ac
-    ld   ac, [w1]
-    blt  cm_n
-    bra  cm_p
-cm_n:
-    xor  0xFF, ac
-    inc
-cm_p:
-    ld   ac, [R0]
-    ld   [v3], ac
-    ld   ac, [R1]
-    CALL l_mul8
-    ld   [R2], ac
-    shr  ac
-    shr  ac
-    shr  ac
-    shr  ac
-    shr  ac
-    shr  ac
-    ld   ac, [w0]
-    ld   [R3], ac
-    shl
-    shl
-    or   [w0], ac
-    ld   ac, [w0]
-    ld   [w1], ac
-    blt  cm_m
-    ld   [w0], ac
-    LEAVE
-cm_m:
-    ld   [w0], ac
-    xor  0xFF, ac
-    inc
-    LEAVE
-
-; nv_vel - 8 cyan dots: where the velocity takes the tug in k x 64
-; frames (v16 k / 4 metres, v16 the velocity's top two bytes); then
-; nv_tug.  The rest of nv_draw
-.chunk
-nv_vel:
-    ld   FL_PG, y
-    ld   NV_DL, x
-    ld   0x00, [y,x]
-    ld   NV_DL + 1, x
-    ld   0x00, [y,x]
-    clr  ac
-    ld   ac, [v4]
-    ld   ac, [v5]
-    ld   ac, [v3]
-nl_l:
-    ld   FL_PG, y               ; x: NV_DL += vx16
-    ld   FL_VX + 2, x
-    ld   [y,x], ac
-    ld   ac, [w0]
-    ld   FL_VX + 3, x
-    ld   [y,x], ac
-    ld   ac, [w1]
-    ld   NV_DL, ac
-    CALL nv_acc
-    ld   FL_PG, y               ; y: v5:v4 += vy16
-    ld   FL_VY + 2, x
-    ld   [y,x], ac
-    add  [v4], ac
-    ld   ac, [v4]
-    ld   FL_VY + 3, x
-    ld   [y,x], ac
-    bcc  nl_1
-    inc
-nl_1:
-    add  [v5], ac
-    ld   ac, [v5]
-    ld   2, ac
-    ld   ac, [u7]
-    ld   NV_DL, ac
-    CALL nv_px
-    ld   ac, [v0]
-    ld   FL_PG, y
-    ld   NV_DL + 2, x           ; (y in NV_DL + 2: nv_py reads FL_PG)
-    ld   [v4], ac
-    ld   ac, [y,x]
-    ld   NV_DL + 3, x
-    ld   [v5], ac
-    ld   ac, [y,x]
-    ld   NV_DL + 2, ac
-    CALL nv_py
-    ld   ac, [u1]
-    ld   [v0], ac
-    ld   ac, [u0]
-    ld   0x08, ac
-    ld   ac, [u2]
-    CALL nv_put
-    ld   [v3], ac
-    inc
-    ld   ac, [v3]
-    xor  8, ac
-    bne  nl_l
-    GOTO nv_tug
-
-; nv_acc - the 2 bytes at FL_PG + AC += w1:w0.  A leaf.
-.chunk
-nv_acc:
-    ld   ac, [w2]
-    ld   FL_PG, y
-    ld   [w2], x
-    ld   [y,x], ac
-    add  [w0], ac
-    ld   ac, [y,x]
-    ld   [w2], ac
-    inc
-    ld   ac, x
-    ld   [y,x], ac
-    bcc  na_1
-    inc
-na_1:
-    add  [w1], ac
-    ld   ac, [y,x]
-    RET
-
-.chunk
-NV_HS:
-    #d8 WRECK_BOX >> 3, WRECK_BOX >> 6, WRECK_BOX >> 9
-
-; nv_panel - rows 24-28: the flight's numbers and the keys; row 29 (the
-; message) again
-.chunk
-nv_panel:
-    PUSH_LINK
-    ld   161, ac
-    CALL clear_rows
-    ld   24, ac
-    ld   ac, [CUR_ROW]
-    ld   s_nav & 0xFF, ac
-    CALL nv_line
-    ld   FL_PG, y
-    ld   FL_DOCK, x
-    ld   [y,x], ac
-    beq  pn_u
-    ld   s_docked & 0xFF, ac
-    bra  pn_s
-pn_u:
-    ld   s_flying & 0xFF, ac
-pn_s:
-    CALL nv_s
-    ld   25, ac
-    ld   ac, [CUR_ROW]
-    ld   s_speed & 0xFF, ac
-    CALL nv_line
-    CALL fl_speed
-    CALL nv_ms
-    CALL put_dec
-    ld   s_head & 0xFF, ac
-    CALL nv_s
-    ld   FL_PG, y
-    ld   FL_HD, x
-    ld   [y,x], ac
-    ld   ac, [R0]
-    ld   45, ac
-    ld   ac, [R1]
-    CALL l_mul8
-    CALL nv_q4
-    CALL put_dec
-    ld   s_zoom & 0xFF, ac
-    CALL nv_s
-    ld   FL_PG, y
-    ld   FL_ZM, x
-    ld   [y,x], ac
-    add  NV_ZT & 0xFF, x
-    ld   NV_ZT >> 8, y
-    ld   [y,x], ac
-    CALL nv_s
-    GOTO nv_panel2
-
-; nv_line - from column 1 of row CUR_ROW: the string in NV_STR's page
-; whose low byte is AC.  nv_s - the same, where the cursor is.
-.chunk
-nv_line:
-    ld   ac, [u0]
-    ld   1, ac
-    ld   ac, [CUR_COL]
-    ld   [u0], ac
-    bra  nl2_s
-nv_s:
-    ld   ac, [u0]
-nl2_s:
-    ld   [u0], ac
-    ld   ac, [R0]
-    ld   NV_STR >> 8, ac
-    ld   ac, [R1]
-    GOTO tputs
 
 ; nv_q4 - num = R3:R2 / 4.  A leaf.
 .chunk
@@ -932,162 +2123,3 @@ nms_2:
     ld   ac, [num_h]
     RET
 
-; nv_panel2 - row 26: nitrogen, mass, thrusters.  The
-; rest of nv_panel
-.chunk
-nv_panel2:
-    ld   26, ac
-    ld   ac, [CUR_ROW]
-    ld   s_n2 & 0xFF, ac
-    CALL nv_line
-    ld   FL_PG, y
-    ld   FL_FLL, x
-    ld   [y,x], ac
-    ld   ac, [num_l]
-    ld   FL_FLH, x
-    ld   [y,x], ac
-    ld   ac, [num_h]
-    CALL put_dec
-    ld   s_mass & 0xFF, ac
-    CALL nv_s
-    ld   FL_PG, y
-    ld   FL_ML, x
-    ld   [y,x], ac
-    ld   ac, [R0]
-    ld   FL_MH, x
-    ld   [y,x], ac
-    ld   ac, [R1]
-    ld   10, ac
-    ld   ac, [R2]
-    CALL l_div16
-    ld   [R0], ac
-    ld   ac, [num_l]
-    ld   [R1], ac
-    ld   ac, [num_h]
-    CALL put_dec
-    ld   s_thr & 0xFF, ac
-    CALL nv_s
-    ld   FL_PG, y
-    ld   FL_NT, x
-    ld   [y,x], ac
-    CALL put_dec8
-    GOTO nv_panel3
-
-; nv_panel3 - row 27: the KESTREL 9's range (to its hull) and closing
-; speed; row 28: the keys; row 29.  The end of nv_panel
-.chunk
-nv_panel3:
-    ld   27, ac
-    ld   ac, [CUR_ROW]
-    ld   s_range & 0xFF, ac
-    CALL nv_line
-    CALL fl_rel
-    ld   [w1], ac
-    blt  p3_0
-    ld   [w0], ac
-    ld   ac, [num_l]
-    ld   [w1], ac
-    ld   ac, [num_h]
-    bra  p3_1
-p3_0:
-    clr  ac
-    ld   ac, [num_l]
-    ld   ac, [num_h]
-p3_1:
-    CALL put_dec
-    ld   s_clos & 0xFF, ac
-    CALL nv_s
-    ld   FL_PG, y
-    ld   FL_CL, x
-    ld   [y,x], ac
-    ld   ac, [R0]
-    ld   FL_DOCK, x
-    ld   [y,x], ac
-    beq  p3_c
-    clr  ac
-    ld   ac, [R0]
-p3_c:
-    ld   15, ac
-    ld   ac, [R1]
-    CALL l_mul8                 ; metres in 8 frames x 7.5: m/s
-    ld   [R3], ac
-    and  1, ac
-    beq  p3_2
-    ld   0x80, ac
-p3_2:
-    ld   ac, [num_l]
-    ld   [R2], ac
-    shr  ac
-    or   [num_l], ac
-    ld   ac, [num_l]
-    ld   [R3], ac
-    shr  ac
-    ld   ac, [num_h]
-    CALL put_dec
-    ld   s_ms & 0xFF, ac
-    CALL nv_s
-    ld   28, ac
-    ld   ac, [CUR_ROW]
-    ld   1, ac
-    ld   ac, [CUR_COL]
-    ld   s_keys & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_keys >> 8, ac
-    ld   ac, [R1]
-    CALL tputs
-    CALL draw_msg
-    LEAVE
-
-.chunk
-NV_ZT:
-    #d8 s_z0 & 0xFF, s_z1 & 0xFF, s_z2 & 0xFF
-
-; the screen's strings: one page (nv_line and nv_s take the low byte)
-.page
-NV_STR:
-s_nav:
-    #d "NAVIGATION    ", 0x00
-s_docked:
-    #d "DOCKED", 0x00
-s_flying:
-    #d "FLYING", 0x00
-s_speed:
-    #d "SPEED ", 0x00
-s_head:
-    #d " M/S   HEADING ", 0x00
-s_zoom:
-    #d "   ZOOM ", 0x00
-s_z0:
-    #d "1.3 KM", 0x00
-s_z1:
-    #d "10 KM", 0x00
-s_z2:
-    #d "82 KM", 0x00
-s_n2:
-    #d "NITROGEN ", 0x00
-s_mass:
-    #d " L   MASS ", 0x00
-s_thr:
-    #d " T   THRUSTERS ", 0x00
-s_range:
-    #d "KESTREL 9   RANGE ", 0x00
-s_clos:
-    #d " M   CLOSING ", 0x00
-s_ms:
-    #d " M/S", 0x00
-s_dock:
-    #d "DOCKED: THE CLAMPS ARE ON.", 0x00
-s_nodk:
-    #d "DOCK: WITHIN 20 M OF THE PORT, UNDER 2 M/S.", 0x00
-s_adock:
-    #d "ALREADY DOCKED.", 0x00
-
-.chunk
-s_keys:
-    #d "ARROWS FLY  Z ZOOM  U UNDOCK  K DOCK  ESC SHIP", 0x00
-.chunk
-s_ndock:
-    #d "NOT DOCKED.", 0x00
-.chunk
-s_undock:
-    #d "UNDOCKED.", 0x00

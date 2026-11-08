@@ -45,10 +45,10 @@
 ;
 ;     python3 gen_scrap.py                            scrap_types.asm, scrap_data.masm, scrap_map.bin
 ;     python3 asm_expand.py scrap.masm                scrap.asm
-;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2
+;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3700,0x3F00,NV2,2 --swap 0x3700,0x3F00,ART,0
 ;     python3 test_scrap_sim.py                       runs it in placard_sim
 ;
-; Date: 11/06/2026
+; Date: 11/07/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -156,6 +156,8 @@ inv_k   = 0x65              ; the inventory's slot under the mouse: 0-2 the carr
 pl_t    = 0x66              ; the part being placed: its type
 PL_S    = ACT_PG * 256 + 0xEF           ;   its carry slot (the job: cut_m 4)
 SWAP_LO = 0x4100            ; SCRAP.INV (the inventory) is read in here, x4100-x4CFF
+NAV2_LO = 0x3700            ; SCRAP.NV2 (more of the map screen) is read in here over
+                            ;   the cell art, x3700-x3EFF; SCRAP.ART puts the art back
 wk_on   = 0x67              ; WALK HERE: 1 while walking to wk_x, wk_y
 wk_x    = 0x68
 wk_y    = 0x69
@@ -722,6 +724,10 @@ s_invf:
     #d "SCRAP.INV", 0x00
 s_navf:
     #d "SCRAP.NAV", 0x00
+s_nv2f:
+    #d "SCRAP.NV2", 0x00
+s_artf:                         ; (nav_fetch: these three share a page)
+    #d "SCRAP.ART", 0x00
 PRT_NM:                         ; prt_load's: the part text file, its folder
     #d "K0A", 0x00
 s_prtd:
@@ -1488,7 +1494,14 @@ input_mouse:
     ld   ac, [m_yl]
     ld   [R3], ac
     ld   ac, [m_yh]
+    ld   FL_PG, y
+    ld   FL_NAV, x
+    ld   [y,x], ac
+    bne  im_h
     CALL hover_update
+    bra  im_b
+im_h:
+    CALL pt_hide
 im_b:
     ld   [m_b], ac
     xor  0xFF, ac
@@ -1499,11 +1512,22 @@ im_b:
     ld   [mb_new], ac
     and  1, ac
     beq  im_r
+    ld   FL_PG, y
+    ld   FL_NAV, x
+    ld   [y,x], ac
+    bne  im_p
     CALL click_left
+    bra  im_r
+im_p:
+    CALL nv_pick
 im_r:
     ld   [mb_new], ac
     and  2, ac
     beq  im_e
+    ld   FL_PG, y
+    ld   FL_NAV, x
+    ld   [y,x], ac
+    bne  im_e
     CALL click_right
 im_e:
     LEAVE
@@ -5883,21 +5907,22 @@ it_v:
     LEAVE
 
 ; inv_fetch - SCRAP.INV into x4100 up (6 sectors at most): AC = 0, or not
-; 0 when it is not on the card.  swap_fetch - the file R1:R0 so
+; 0 when it is not on the card.  swap_fetch - the file R1:R0 so, into
+; page u5 up, u6 sectors at most
 .chunk
 inv_fetch:
     ld   s_invf & 0xFF, ac
     ld   ac, [R0]
     ld   s_invf >> 8, ac
     ld   ac, [R1]
-swap_fetch:                     ; (R1:R0 another file: SCRAP.NAV)
-    PUSH_LINK
-    CALL l_fs_open
-    bne  vf_e
     ld   SWAP_LO >> 8, ac
     ld   ac, [u5]
     ld   6, ac
     ld   ac, [u6]
+swap_fetch:                     ; (R1:R0 another file: nav_fetch's)
+    PUSH_LINK
+    CALL l_fs_open
+    bne  vf_e
 vf_l:
     clr  ac
     ld   ac, [R4]
@@ -6551,5 +6576,8 @@ s_sl2:
 ; SCRAP.NAV: the navigation screen (scrap_nav.masm), read in at the helm
 ; (at SCRAP.INV's addresses: #overlay2, gen_plc.py --swap ...,NAV,2)
 ; ============================================================
-.region SWAP_LO, SWAP_LO + 0x0C00, 1, overlay2
+.region SWAP_LO, SWAP_LO + 0x0C00, 1, overlay2, pack
 .include "scrap_nav.masm"
+; what does not fit: SCRAP.NV2, read in over the cell art (gen_plc.py
+; --swap 0x3700,0x3F00,NV2,2; SCRAP.ART puts the art back)
+.region NAV2_LO, NAV2_LO + 0x0800, 1, overlay2

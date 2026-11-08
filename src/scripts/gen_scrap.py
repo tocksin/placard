@@ -37,11 +37,12 @@ THE ART
     pixels 2c (low nibble, shown first) and 2c + 1 (high nibble) of line
     pair r.  Colors are the 4 bpp palette (docs/video/COLORS.md).
 
-Date: 2026-11-06
+Date: 2026-11-07
 """
 
 import os
 import random
+import struct
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -480,6 +481,82 @@ WRECK_BOX = 80                      # its hull: 80 m each way from the centre
 DOCK_POS = (WRECK_POS[0] - 100, WRECK_POS[1])   # the tug docked: its centre here
 DOCK_RANGE = 20                     # metres from DOCK_POS to clamp on (K)
 UNDOCK_V = 5 * 2 ** 24 // 60        # 5 m/s, in 1/2^24 m a frame
+# the sector's objects (the navigation map, SCRAP.NAV): (name, registry,
+# kind, x, y, size in metres, shape 0 a station on an asteroid (a circle
+# of that radius), 1 a derelict).  Object 0 is the KESTREL 9 (the wreck in
+# the map: the only one you can walk into yet).  8 at most (FL_VIS bits)
+SECTOR = [
+    ('KESTREL 9', 'KS-0917-D', 'FREIGHTER', WRECK_POS[0], WRECK_POS[1], WRECK_BOX, 1),
+    ('HALVARD ROCK', 'HR-STN-02', 'ASTEROID BASE', WRECK_POS[0] + 5200, WRECK_POS[1] - 2600, 500, 0),
+    ('MARIS VANE', 'MV-4471-D', 'SURVEY SHIP', WRECK_POS[0] - 3800, WRECK_POS[1] + 2900, 60, 1),
+    ('ORE HAULER 7', 'OH-0007-C', 'ORE HAULER', WRECK_POS[0] + 9000, WRECK_POS[1] + 6000, 90, 1),
+    ('LANTERN BAY', 'LB-2210-D', 'TENDER', WRECK_POS[0] - 11000, WRECK_POS[1] - 7000, 70, 1),
+    ('GREY CURLEW', 'GC-8830-D', 'COURIER', WRECK_POS[0] + 2500, WRECK_POS[1] + 12000, 40, 1),
+    ('TOBENS LUCK', 'TL-5156-D', 'MINER', WRECK_POS[0] - 20000, WRECK_POS[1] + 15000, 50, 1),
+]
+SECTOR_KIND = 96                    # the sector file is "kinds" 96-97 for prt_load: SCRAP/K3A
+SECTOR_REC = 10                     # an object's bytes, from x10: x, y, size (2 each), shape,
+                                    # the low byte of its strings (name, registry, kind in page
+                                    # x55), the radar factor (size x 100 / 16, 2 bytes)
+
+
+def inv(t):
+    """t as inverse letters (bit 7 set: tputc's inverse font)"""
+    return bytes(ord(c) | 0x80 for c in t)
+
+
+# more of the navigation screen's strings, in the sector file's free bytes
+# (SCRAP.NAV is full): groups that stay in one page, (label, bytes).
+# scrap_types.asm gets their addresses.  The message strings go when the
+# screen closes (nv_exit clears the message: x5400 is part text again)
+SECTOR_STRS = [
+    [('s_k1', inv(' ') + b' ' + inv(' TAB TARGET ') + b' ' + inv(' C COMMS ') + b' ' + inv(' U UNDOCK ') + b' '
+      + inv(' K DOCK ') + b' ' + inv(' ESC SHIP '))],
+    [('s_dock', b'DOCKED: CLAMPS ON.'), ('s_nodk', b'DOCK: WITHIN 20 M OF THE PORT, UNDER 2 M/S.'),
+     ('s_adock', b'ALREADY DOCKED.')],
+    [('s_k0', inv(' +/- RANGE '))],
+    [('s_comms', b'COMMS: NOT FITTED YET.')],
+    [('s_ndock', b'NOT DOCKED.')],
+    [('s_undock', b'UNDOCKED.')],
+]
+
+
+def sector_labels():
+    """the SECTOR_STRS labels and their addresses, in order"""
+    labels = {}
+    sector_file(labels)
+    return sorted(labels.items(), key=lambda kv: kv[1])
+
+
+def sector_file(labels=None):
+    """512 bytes (SCRAP/K3A, read to x5400): the count, the objects from
+    x10, their strings (name, registry, kind, each ending in 00) at x100,
+    then SECTOR_STRS where they fit (their addresses into labels)"""
+    assert len(SECTOR) <= 8
+    data = bytearray(512)
+    data[0] = len(SECTOR)
+    at = 256
+    for i, (name, reg, kind, x, y, size, shape) in enumerate(SECTOR):
+        rec = struct.pack('<HHHBBH', x, y, size, shape, at - 256, min(65535, size * 100 // 16))
+        data[16 + SECTOR_REC * i:16 + SECTOR_REC * (i + 1)] = rec
+        for t in (name, reg, kind):
+            b = t.encode('latin-1') + b'\0'
+            data[at:at + len(b)] = b
+            at += len(b)
+    assert at <= 512
+    free = [16 + SECTOR_REC * len(SECTOR), at]    # the next free byte in each page
+    for group in SECTOR_STRS:
+        size = sum(len(b) + 1 for _, b in group)
+        pg = 0 if free[0] + size <= 256 else 1
+        assert free[pg] + size <= 256 * (pg + 1), 'the sector file is full'
+        for label, b in group:
+            if labels is not None:
+                labels[label] = 0x5400 + free[pg]
+            data[free[pg]:free[pg] + len(b)] = b
+            free[pg] += len(b) + 1
+    return bytes(data)
+
+
 NAV_TURN = 11                       # frames a heading step (32: 90 degrees in 1.5 s)
 COS32 = [round(127 * __import__('math').cos(2 * __import__('math').pi * h / 32)) for h in range(32)]
 TUG = (0, 18, TUG_LOCK[0], 46)      # the tug's cells, x0, y0, x1, y1 (its value, its systems,
@@ -918,9 +995,10 @@ def write_sources():
               'WRECK_LKX  = %d' % WRECK_LOCK[0],
               'WRECK_X    = 0x%04X' % WRECK_POS[0], 'WRECK_Y    = 0x%04X' % WRECK_POS[1],
               'WRECK_BOX  = %d' % WRECK_BOX,
-              'DOCK_X     = 0x%04X' % DOCK_POS[0], 'DOCK_Y     = 0x%04X' % DOCK_POS[1],
+              'SEC_K      = %d' % SECTOR_KIND, 'SEC_REC    = %d' % SECTOR_REC, 'DOCK_X     = 0x%04X' % DOCK_POS[0], 'DOCK_Y     = 0x%04X' % DOCK_POS[1],
               'DOCK_RANGE = %d' % DOCK_RANGE, 'NAV_TURN   = %d' % NAV_TURN,
               ] + ['UNDOCK_B%d  = 0x%02X' % (i, (-UNDOCK_V) >> (8 * i) & 0xFF) for i in range(4)] + [
+              '%-10s = 0x%04X          ; the sector file (SECTOR_STRS)' % kv for kv in sector_labels()] + [
               'BAR_PG     = 0x%02X          ; + step: bar string low; + x10 high' % ROOM_PAGE,
               'ROOM_PG    = 0x%02X' % ROOM_PAGE,
               'RM_P0      = 0x40          ; + room: the pressure at the start',
@@ -1263,6 +1341,7 @@ def prt_files():
             b = insp.encode('latin-1')
             data[PRT_REC * j + PRT_INSP:PRT_REC * j + PRT_INSP + len(b)] = b
         out[prt_name(k)] = bytes(data)
+    out[prt_name(SECTOR_KIND // 2)] = sector_file()
     return out
 
 
