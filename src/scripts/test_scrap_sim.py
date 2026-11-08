@@ -85,9 +85,10 @@ def fl_put(mem, off, n, v):
 
 
 def nav_pixel(mem, x, y):
-    """the 4 bpp view's art pixel x, y"""
-    b = mem[((0x61 + (x & 0xFE)) << 8) + line_off(y)]
-    return b >> 4 if x & 1 else b & 15
+    """the nav map's pixel x, y (2 bpp, 256 wide from byte column 8, under
+    the status row: line pair y + 8)"""
+    b = mem[((0x71 + ((x >> 1) & 0x7E)) << 8) + line_off(y + 8)]
+    return (b >> 2 * (x & 3)) & 3
 
 
 def line_off(p):
@@ -422,10 +423,13 @@ def build():
     nav = gen_plc.split_swap(prog, 0x4100, 0x4D00, 2)   # SCRAP.NAV
     if not nav or len(nav) > 0xC00:
         raise SystemExit('SCRAP.NAV is %d bytes' % len(nav))
-    nav2 = gen_plc.split_swap(prog, 0x3700, 0x3F00, 2)  # SCRAP.NV2, over the cell art
-    art = gen_plc.split_swap(prog, 0x3700, 0x3F00, 0)   # SCRAP.ART: the art back
-    if gen_scrap.ART_PAGE > 0x37 or not nav2 or len(nav2) > 0x800:
-        raise SystemExit('SCRAP.NV2 is %d bytes, the art at x%02X00' % (len(nav2), gen_scrap.ART_PAGE))
+    nav2 = gen_plc.split_swap(prog, 0x3600, 0x4000, 2)  # SCRAP.NV2, over the actions and the cell art
+    nav3 = gen_plc.split_swap(prog, 0x4E00, 0x5000, 2)  # SCRAP.NV3, in the file system's buffer
+    art = gen_plc.split_swap(prog, 0x3600, 0x4000, 0)   # SCRAP.ART: the actions and the art back
+    if gen_scrap.ART_PAGE > 0x37 or not nav2 or len(nav2) > 0xA00 or not nav3 or len(nav3) > 0x200:
+        raise SystemExit('SCRAP.NV2 is %d bytes, NV3 %d, the art at x%02X00' % (len(nav2), len(nav3), gen_scrap.ART_PAGE))
+    if not 0x4100 <= tsyms['nav_main'] < 0x4D00 and not 0x3600 <= tsyms['nav_main'] < 0x4000:
+        raise SystemExit('nav_main is in SCRAP.NV3 (x%04X): it reads that in' % tsyms['nav_main'])
     own = set()
     for f in ('scrap_inv.masm', 'scrap_inv_data.masm', 'scrap_nav.masm'):
         own |= set(re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, f)).read(), re.M))
@@ -439,13 +443,13 @@ def build():
         raise SystemExit('the fixed pages start at x%02X00: change the region' % gen_scrap.DOOR_PAGE)
     plc = gen_plc.make(prog, tsyms, lib)[0]
     ovl += code                 # the code pages from xC000, after the map's
-    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, (nav, nav2, art)
+    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, (nav, nav2, nav3, art)
 
 
 def swap_files(inv, navs):
     """the swap files for the SD image: build()'s inv and nav"""
-    nav, nav2, art = navs
-    return {'SCRAP.INV': inv, 'SCRAP.NAV': nav, 'SCRAP.NV2': nav2, 'SCRAP.ART': art}
+    nav, nav2, nav3, art = navs
+    return {'SCRAP.INV': inv, 'SCRAP.NAV': nav, 'SCRAP.NV2': nav2, 'SCRAP.NV3': nav3, 'SCRAP.ART': art}
 
 
 def main(argv):
@@ -1126,16 +1130,37 @@ def navigation(r):
     for line in p[:5]:
         print('  |%s' % line)
     fuel0 = fl_get(mem, 0x2D, 2, False)
-    if ('DOCKED' not in p[3] or 'NITROGEN L %d' % fuel0 not in p[1] or 'THRUSTERS %d' % nt not in p[3]
+    if ('DOCKED' not in p[2] or 'SPEED' in ''.join(p) or 'N2 KG %d' % fuel0 not in p[1]
+            or 'THRUSTERS %d' % nt not in p[3] or 'HEADING 0' not in p[1]
             or 'target: kestrel 9' not in p[0] or 'DERELICT FREIGHTER' not in p[1] or 'REG KS-0917-D' not in p[1]
             or 'RANGE M 20 ' not in p[2] or ' VISITED' not in p[2] or 'NOT VISITED' in p[2]
-            or 'range 640 m' not in p[4]):
+            or 'range 1 km' not in p[4]):
         r.fail('the nav panel: %r' % p[:5])
-    if nav_pixel(mem, 86, 96) != 0x0A or nav_pixel(mem, 76, 88) != 0x0A:
-        r.fail('the tug (east) is not drawn in the middle (%X %X)' % (nav_pixel(mem, 86, 96), nav_pixel(mem, 76, 88)))
-    k9 = 80 + 100 // 4                      # the KESTREL 9: 100 m east, a diamond (visited), the target
-    if nav_pixel(mem, k9, 96 - 4) != 0x0B or nav_pixel(mem, k9 - 4, 96 - 7) != 0x0E:
-        r.fail('the KESTREL 9 on the map (%X %X)' % (nav_pixel(mem, k9, 92), nav_pixel(mem, k9 - 4, 89)))
+    modes = [mem[0x5A20 + i] & 15 for i in (0, 15, 16, 383, 384)]
+    if modes != [0x04, 0x04, 0x05, 0x05, 0x04]:
+        r.fail('the status row 1 bpp, the map\'s lines 2 bpp: %s' % modes)
+    st = r.text(0)
+    mass5 = min(255, fl_get(mem, 0x25, 2, False) // 5)
+    dv = fuel0 * 40 // mass5
+    print('  status: |%s|' % st.rstrip())
+    clk = mem[0x35E6] | mem[0x35E7] << 8 | mem[0x35FF] << 16
+    times = ['%02d:%02d:%02d' % (t // 3600 % 24, t // 60 % 60, t % 60) for t in (clk, clk - 1)]
+    if (not re.search(r'05-07-2175 +\d\d:\d\d:\d\d +NITROGEN %d KG +DELTA-V %d M/S +BATTERIES \d' % (fuel0, dv), st)
+            or not any(t in st for t in times) or not 28800 < clk < 28800 + 3600):
+        r.fail('the status row: %r (delta-v %d, clock %s)' % (st, dv, times))
+    if nav_pixel(mem, 131, 92) != 3 or nav_pixel(mem, 126, 90) != 3 or nav_pixel(mem, 133, 92) == 3:
+        r.fail('the tug (east) is not drawn in the middle (%X %X)' % (nav_pixel(mem, 131, 92), nav_pixel(mem, 126, 90)))
+    gx = (fl_get(mem, 0x62, 2, False) >> 2) & 63      # the grid: world lines every 64 pixels
+    gy = ((fl_get(mem, 0x66, 2, False) >> 2) + 36) & 63
+    if (mem[0x40B8], mem[0x40B9]) != (gx, gy):
+        r.fail('the grid\'s offsets %s, not %s' % ((mem[0x40B8], mem[0x40B9]), (gx, gy)))
+    gxs = (-gx) & 63
+    gys = [y for y in range(0, 60) if (y + gy) & 3 == 0 and (y + gy) & 63]
+    if nav_pixel(mem, gxs, gys[0]) != 1 or nav_pixel(mem, gxs + 1, gys[0]) != 0 or nav_pixel(mem, gxs, gys[0] + 1) != 0:
+        r.fail('the grid (blue) at x %d' % gxs)
+    k9 = 128 + 100 // 4                     # the KESTREL 9: 100 m east, a diamond (visited), the target
+    if nav_pixel(mem, k9, 92 - 2) != 2 or nav_pixel(mem, k9 - 5, 92 - 5) != 2 or nav_pixel(mem, k9, 92) == 2:
+        r.fail('the KESTREL 9 on the map (%X %X)' % (nav_pixel(mem, k9, 90), nav_pixel(mem, k9 - 5, 87)))
     r.key('\t')
     r.run(20)
     p = [' '.join(line.replace('_', ' ').split()) for line in r.panel()]
@@ -1143,7 +1168,7 @@ def navigation(r):
     if (mem[0x4080] != 1 or 'target: halvard rock' not in p[0] or 'STATION ASTEROID BASE' not in p[1]
             or 'RANGE M 4800 ' not in p[2] or 'NOT VISITED' not in p[2]):
         r.fail('Tab: the next target: %r' % p[:3])
-    r.mouse_to(4 * k9 + 2, 2 * 96 + 1)     # a click on the KESTREL 9
+    r.mouse_to(64 + 2 * k9 + 1, 2 * (92 + 8) + 1)     # a click on the KESTREL 9
     r.click(1)
     r.run(20)
     if mem[0x4080] != 0 or 'target: kestrel 9' not in r.text(24):
@@ -1170,7 +1195,7 @@ def navigation(r):
     p = [' '.join(line.replace('_', ' ').split()) for line in r.panel()]
     m = re.search(r'TOWARD M/S (-?\d+) ACROSS M/S (\d+)', p[3])
     print('  |%s' % p[3])
-    if 'FREE FLIGHT' not in p[3] or not m or int(m.group(1)) not in (-4, -5) or m.group(2) != '0':
+    if 'FREE FLIGHT' not in p[2] or not m or int(m.group(1)) not in (-4, -5) or m.group(2) != '0':
         r.fail('undocked: the speed toward the KESTREL 9: %r' % p[3])
     dvx = fl_get(mem, 0x70, 2)
     want = nt * 20000 / (mass * 100) / 3600 * 2 ** 24      # 20 kN a thruster
@@ -1180,9 +1205,24 @@ def navigation(r):
     r.hold(UP, 60)
     n = (fl_get(mem, 0x68, 4) - vx) / dvx if dvx else 0
     fuel1 = fl_get(mem, 0x2D, 2, False)
-    print('  Up held 60 frames: %.2f frames of thrust, nitrogen %d -> %d L' % (n, fuel0, fuel1))
+    print('  Up held 60 frames: %.2f frames of thrust, nitrogen %d -> %d kg' % (n, fuel0, fuel1))
     if n != int(n) or not 58 <= n <= 64 or not nt * n // 60 - 1 <= fuel0 - fuel1 <= nt * n // 60 + 1:
         r.fail('thrust: %.2f frames, %d L' % (n, fuel0 - fuel1))
+    rvx = fl_get(mem, 0x74, 2)              # back: half, west while heading east
+    v0 = (fl_get(mem, 0x68, 4), fl_get(mem, 0x6C, 4))
+    r.hold('q', 30)
+    dq = (fl_get(mem, 0x68, 4) - v0[0], fl_get(mem, 0x6C, 4) - v0[1])
+    r.hold('e', 30)
+    de = (fl_get(mem, 0x68, 4) - v0[0], fl_get(mem, 0x6C, 4) - v0[1])
+    nq = dq[1] / rvx if rvx else 0
+    print('  Q held 30 frames: velocity +%s (%.2f frames of half thrust north); then E: +%s' % (dq, nq, de))
+    if dq[0] or nq != int(nq) or not 28 <= nq <= 34 or de[0] or abs(de[1]) > abs(rvx) * 4:
+        r.fail('sideways thrust (Q, E): %s %s' % (dq, de))
+    r.run(16)
+    g = ((fl_get(mem, 0x62, 2, False) >> 2) & 63, ((fl_get(mem, 0x66, 2, False) >> 2) + 36) & 63)
+    print('  the grid moved with the tug: offsets %s, then %s' % ((gx, gy), (mem[0x40B8], mem[0x40B9])))
+    if (mem[0x40B8], mem[0x40B9]) != g or g == (gx, gy):
+        r.fail('the grid does not move with the tug: %s, wanted %s' % ((mem[0x40B8], mem[0x40B9]), g))
     h0 = mem[FL + 0x22]
     r.hold(RIGHT, 3 * gen_scrap.NAV_TURN - 2)
     h1 = mem[FL + 0x22]
@@ -1196,7 +1236,7 @@ def navigation(r):
         r.key('-')
     r.run(10)
     zoom = mem[FL + 0x2F]
-    if zoom != 7 or 'range 82 km' not in r.panel()[4]:
+    if zoom != 7 or 'range 128 km' not in r.panel()[4]:
         r.fail('-: zoom %d, %r' % (zoom, r.panel()[4]))
     for _ in range(6):
         r.key('=')
@@ -1204,7 +1244,7 @@ def navigation(r):
     p = r.panel()
     for line in p[:5]:
         print('  |%s' % line)
-    if 'FREE FLIGHT' not in p[3] or mem[FL + 0x2F] != 1 or 'range 1.3 km' not in p[4]:
+    if 'FREE FLIGHT' not in p[2] or mem[FL + 0x2F] != 1 or 'range 2 km' not in p[4]:
         r.fail('the panel undocked, zoom 1: %r' % p[3:5])
     r.key('=')
     r.key('k')
@@ -1252,6 +1292,8 @@ def navigation(r):
     if not r.run_until(lambda: cpu.pc == r.tsyms['loop'] and not mem[FL + 0x20], 300, 'the ship again'):
         return
     r.run(30)
+    if [mem[0x5A20 + i] for i in (0, 383)] != [0x06, 0x06]:
+        r.fail('the ship\'s view is not 4 bpp again')
     x0 = fl_get(mem, 0x60, 4)
     r.hold(DOWN, 2)
     r.run(60)

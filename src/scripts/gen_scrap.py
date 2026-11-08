@@ -475,7 +475,7 @@ MASS = {'FLOOR': 3, 'WALL': 6, 'DOOR': 4, 'DOORO': 4, 'O2': 8, 'REACT': 60, 'BAT
 # = 58254), and a frame's thrust along heading h is A16 cos h / 8 (cos
 # x127), back half that
 THRUST_Q = 58254
-N2_TANK_L = 400                     # litres in a nitrogen tank; 1 L a second a thruster
+N2_TANK_L = 400                     # kg of nitrogen in a tank; 1 kg a second a thruster
 WRECK_POS = (0x8000, 0x8000)        # the KESTREL 9's centre in the sector, metres
 WRECK_BOX = 80                      # its hull: 80 m each way from the centre
 DOCK_POS = (WRECK_POS[0] - 100, WRECK_POS[1])   # the tug docked: its centre here

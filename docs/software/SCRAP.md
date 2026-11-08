@@ -162,18 +162,30 @@ a later step of the navigation mode.
 
 **Flying.**  NAVIGATE at the tug's helm opens the navigation screen
 (`SCRAP.NAV`, read from the card into the inventory's place each time,
-and `SCRAP.NV2` over the cell art, which `SCRAP.ART` puts back when the
-screen closes).  The view is the sector map with the tug in the middle, on
-a dotted blue grid: the tug a white triangle pointing along its heading
-(it turns like the Asteroids ship), three green dots the way it drifts,
-and the sector's objects (`gen_scrap.SECTOR`, the file `SCRAP/K3A`): the
-HALVARD ROCK station on its asteroid as a teal circle of its size, and
-the derelicts as asterisks until you have docked with one (visited), then
-diamonds.  The target has yellow corners round it.
+`SCRAP.NV2` over the actions table and the cell art, which `SCRAP.ART`
+puts back when the screen closes, and `SCRAP.NV3` in the file system's
+buffer).  The view is the sector map in 2 bpp (black, blue, gold,
+white; square pixels, 256 across and 192 down, framed in the middle of
+the screen so a position on it is a byte; 184 down under the status row),
+with the tug in the middle on a dotted blue grid that is fixed in space
+(lines every 64 pixels, moving as the tug moves): the tug a small white triangle pointing along its
+heading (it turns like the Asteroids ship), three gold dots the way it
+drifts, and the sector's objects (`gen_scrap.SECTOR`, the file
+`SCRAP/K3A`): the HALVARD ROCK station on its asteroid as a white circle
+of its size, and the derelicts as gold asterisks until you have docked
+with one (visited), then diamonds.  The target has gold corners round
+it.  The view's mode bytes go to 2 bpp as the screen opens and back to
+4 bpp as it closes.
+
+The status row at the top (row 0, 1 bpp) has the ship's date and time
+(05-07-2175 08:00:00 at the start, a second each second, also while you
+walk the ship), the nitrogen (kg), the delta-v it gives (m/s) and the
+working batteries (there is no ship power to drain them yet).
 
 The panel is a control panel: three boxed blocks with inverse titles.
-FLIGHT has the speed (m/s), the heading (degrees, 0 east, clockwise) and
-DOCKED or FREE FLIGHT; PROPULSION the nitrogen left, the tug's mass and
+FLIGHT has the heading (degrees, 0 east, clockwise) and DOCKED or FREE
+FLIGHT (no speed: a speed means something only against something else,
+so it is in TARGET); PROPULSION the nitrogen left, the tug's mass and
 its working thrusters; TARGET the target's name, what it is, its
 registry, its range (to its edge: the larger of the two distances, less
 its size), its radar return (its size over the range, 99 % at most),
@@ -184,7 +196,8 @@ ACROSS. The keys are on the row under it as inverse caps.
 |-----|--------------|
 | Left / Right (A, D) | turn: a heading step (11.25 degrees, 32 a turn) every 11 frames while held |
 | Up / Down (W, S) | thrust forward, or back at half the thrust, while held |
-| + (or =) and - | zoom in and out in doubling steps: 4 to 512 m a pixel across, 640 m to 82 km across the view (up and down a pixel is half that, as the art pixels are twice as wide as tall) |
+| Q / E | thrust sideways, left or right of the heading, at half the thrust, while held |
+| + (or =) and - | zoom in and out in doubling steps: 4 to 512 m a pixel, 1 to 128 km across the view (1.024 km << the zoom; the key row shows it in whole km) |
 | Tab, a click on an object | the target: the next object, or the one clicked |
 | C | comms and the docking approach (a later step: a message for now) |
 | U | undock: the clamps off, 5 m/s away from the port (west) |
@@ -195,8 +208,9 @@ The tug's mass is every cell of it but loose parts, each kind a set mass
 (`gen_scrap.MASS`, in 100 kg: a deck 300 kg, a wall 600, a reactor 6 t,
 a thruster 1.5 t): it starts at 99.8 t.  Each working thruster (under 50 %
 damage) gives 20 kN, so with two the tug speeds up by 0.4 m/s each
-second.  The nitrogen is 400 L for each nitrogen tank with a working gas
-intake by it, less what is burnt: a litre a second a thruster, and no
+second.  The nitrogen is 400 kg for each nitrogen tank with a working gas
+intake by it, less what is burnt: a kg a second a thruster (so a kg is
+20 kN s, and the delta-v is kg x 20 kN s / the mass), and no
 thrust once it is gone.  It is worked out again with the tug's parts
 each second, so a tank or intake taken out takes its nitrogen with it.
 
@@ -295,15 +309,17 @@ a jammed shut armory door and a jammed open med bay door.
 | x0100-x31FF | the program (asm_expand.py pages it) |
 | even pages xC0-xFE | more of the program: code and strings that `SCRAP.OVL` brings in after the map (asm_expand.py's overlay region, as in the tracker) |
 | x3200-x36FF | tables (gen_scrap.py), a page each: the doors (x32); damage bars, health strings and the rooms (x33); flags, names and values (x34); the skills each kind needs and the action strings (x35); the actions of each kind (x36).  They are placed down from the art, so each new kind of part can move them a page lower (gen_scrap.py works the pages out; the test checks the program's region still ends at them) |
-| x35E0-x35ED | the skill levels (6) and their progress (6) |
+| x35E0-x35ED | the skill levels (6, x35E0) and their progress (6, x35E8) |
+| x35E6, x35E7, x35FF | the ship's clock (`CLK_0`-`CLK_2`): seconds from 05-07-2175 00:00:00, 24 bits, 08:00:00 at the start, a second on in `second_tick` |
 | x35F0-x35FE | the panel's actions (8), the job's bar (its 16th, the 16ths done, the work left at the next), the O2 tank sum, `N_ANT`, which part text is loaded (`PRT_K`) |
-| x3700-x3FFF | the cell art, 4 kinds a page, the last kind at the top (kind t at x4000 - 64 (n - t) for n kinds rounded up to 4).  While the navigation screen is up x3700-x3EFF is `SCRAP.NV2`, the rest of its code (4 sectors); `SCRAP.ART` (the same bytes as the program's) puts the art back |
+| x3700-x3FFF | the cell art, 4 kinds a page, the last kind at the top (kind t at x4000 - 64 (n - t) for n kinds rounded up to 4).  While the navigation screen is up x3600-x3FFF (the actions of each kind and the art) is `SCRAP.NV2`, more of its code (5 sectors); `SCRAP.ART` (the same bytes as the program's) puts them back |
 | x4000-x401F, x4040-x405F | each room's pressure, and whether it is cold (32 rooms) |
 | x4020-x403F, x4060-x407F | the flight (`scrap_fl.masm`): docked, heading, thrust, mass, thrusters, nitrogen, the alarm, the position (16.16 m) and velocity (1/2^24 m a frame) and the navigation screen's state |
 | x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |
 | x4100-x4CFF | while the inventory is up: `SCRAP.INV` (`scrap_inv.masm`: its screen, font, pointer and routines; 6 sectors at most), read from the card each time it opens; a rebuild of the rooms waits until it closes |
 | x4080-x40FF | while the navigation screen is up: its state (the target, the object being drawn and its 10 bytes, the pixels of each object for the mouse) |
-| x4100-x4CFF | while the navigation screen is up: `SCRAP.NAV` (`scrap_nav.masm`; 6 sectors at most, packed largest chunk first: `.region ..., pack`), read in the same way; the points it drew go in the file system's buffer at x4E00 |
+| x4100-x4CFF | while the navigation screen is up: `SCRAP.NAV` (`scrap_nav.masm`; 6 sectors at most, packed largest chunk first: `.region ..., pack`), read in the same way; the points it drew (to rub out) go in the screen bytes no line shows (offsets 0-30 even of the odd pages x61-x9F) |
+| x4E00-x4FFF | the file system's buffer; while the navigation screen is up `SCRAP.NV3`, the last of its code (1 sector), read in by `nav_main` after its last card read |
 | x5400-x55FF | sector buffer for loading `SCRAP.OVL`, then the part text of the panel's kind (two kinds, one sector of `SCRAP/Kxy`); while the navigation screen is up the sector file `SCRAP/K3A` ("kinds" 96-97): the objects (x, y, size, shape, their strings, the radar factor), their names, registries and kinds, and some of the screen's strings (`gen_scrap.SECTOR_STRS`) |
 | x5600-x59FF | more of the program: `SCRAP.OVL`'s pages after xFE, the mouse pointer (its art, what is under it), a repair's steps and what overflows |
 | x5C00-x5DF2 | more of the program (`SCRAP.OVL`'s next 2 pages; the start of the audio buffer, x5DF3-x5DFF, is set to silence again after the load): what overflows |
@@ -331,8 +347,8 @@ stubs that switch to map 07 around the call.
 cd src\scripts
 python gen_scrap.py                              scrap_types.asm, scrap_data.masm, scrap_map.bin
 python asm_expand.py scrap.masm                  scrap.asm
-python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3700,0x3F00,NV2,2 --swap 0x3700,0x3F00,ART,0
-                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV, SCRAP.NV2, SCRAP.ART
+python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x3600,0x4000,ART,0
+                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV, SCRAP.NV2, SCRAP.NV3, SCRAP.ART
 python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png)
 ```
 
@@ -386,7 +402,9 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
   KESTREL 9's diamond and the target's corners), Tab and a click to pick
   the target, C, K while docked, U (the speed, the airlocks, the speed
   toward the KESTREL 9), a frame's thrust against 20 kN a thruster, 60
-  frames of thrust and the nitrogen burnt, turning, the zoom steps, K out
+  frames of thrust and the nitrogen burnt, Q and E sideways, the 2 bpp
+  lines, the status row (date, time, nitrogen, delta-v), the grid and
+  its moving with the tug, turning, the zoom steps, K out
   of range, a collision at
   30 m/s (IMPACT IN 10 S, the damage, the stop), the tug cruising while
   you walk (the view with the wreck hidden, the rooms), and docking again;

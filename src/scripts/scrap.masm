@@ -45,7 +45,7 @@
 ;
 ;     python3 gen_scrap.py                            scrap_types.asm, scrap_data.masm, scrap_map.bin
 ;     python3 asm_expand.py scrap.masm                scrap.asm
-;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3700,0x3F00,NV2,2 --swap 0x3700,0x3F00,ART,0
+;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x3600,0x4000,ART,0
 ;     python3 test_scrap_sim.py                       runs it in placard_sim
 ;
 ; Date: 11/07/2026
@@ -146,6 +146,9 @@ JB_TH   = ACT_PG * 256 + 0xFB
 O2_T    = ACT_PG * 256 + 0xFC           ; seconds since the suit last used a litre of O2
 CND_N   = 24                ; parts on conduits, at most (CND)
 N_ANT   = ACT_PG * 256 + 0xFD           ; 1: a working antenna installed on the tug (tug_scan): comms
+CLK_0   = ACT_PG * 256 + 0xE6           ; the ship's clock: seconds from 05-07-2175
+CLK_1   = ACT_PG * 256 + 0xE7           ;   00:00:00 (24 bits; second_tick; 08:00:00
+CLK_2   = ACT_PG * 256 + 0xFF           ;   at the start; SCRAP.NAV shows it)
 PRT_K   = ACT_PG * 256 + 0xFE           ; the kinds pair whose text is in PRT_BUF (FF none)
                             ;   (for the navigation mode's display; not shown here)
 inv     = 0x63              ; 1: the inventory screen is up (not the view)
@@ -156,8 +159,10 @@ inv_k   = 0x65              ; the inventory's slot under the mouse: 0-2 the carr
 pl_t    = 0x66              ; the part being placed: its type
 PL_S    = ACT_PG * 256 + 0xEF           ;   its carry slot (the job: cut_m 4)
 SWAP_LO = 0x4100            ; SCRAP.INV (the inventory) is read in here, x4100-x4CFF
-NAV2_LO = 0x3700            ; SCRAP.NV2 (more of the map screen) is read in here over
-                            ;   the cell art, x3700-x3EFF; SCRAP.ART puts the art back
+NAV3_LO = 0x4E00            ; SCRAP.NV3 (the rest of it) in the file system's buffer
+NAV2_LO = 0x3600            ; SCRAP.NV2 (more of the map screen) is read in here over
+                            ;   the actions table and the cell art, x3600-x3FFF;
+                            ;   SCRAP.ART puts them back
 wk_on   = 0x67              ; WALK HERE: 1 while walking to wk_x, wk_y
 wk_x    = 0x68
 wk_y    = 0x69
@@ -3069,6 +3074,27 @@ ac_e:
 ac_x:
     LEAVE
 
+; clk_tick - the ship's clock a second on.  A leaf.
+.chunk
+clk_tick:
+    ld   ACT_PG, y
+    ld   CLK_0 & 0xFF, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    bne  clk_e
+    ld   CLK_1 & 0xFF, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    bne  clk_e
+    ld   CLK_2 & 0xFF, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+clk_e:
+    RET
+
 ; second_tick - once a second: the tug's parts; the suit uses its O2 (1 L
 ; every O2_SECS seconds) in a
 ; room without air, and fills up (and charges) in the tug's air; then
@@ -3076,6 +3102,7 @@ ac_x:
 .chunk
 second_tick:
     PUSH_LINK
+    CALL clk_tick
     CALL tug_scan
     ld   [suit_on], ac
     bne  st_0
@@ -5172,6 +5199,12 @@ ki_l:
     ld   ac, [u0]
     xor  6, ac
     bne  ki_l
+    ld   CLK_0 & 0xFF, x        ; the ship's clock: 08:00:00 (28800 s)
+    ld   28800 & 0xFF, [y,x]
+    ld   CLK_1 & 0xFF, x
+    ld   28800 >> 8, [y,x]
+    ld   CLK_2 & 0xFF, x
+    ld   0x00, [y,x]
     RET
 
 ; job_start - a job of AC frames at full speed on the panel's part (s_t):
@@ -6578,6 +6611,9 @@ s_sl2:
 ; ============================================================
 .region SWAP_LO, SWAP_LO + 0x0C00, 1, overlay2, pack
 .include "scrap_nav.masm"
-; what does not fit: SCRAP.NV2, read in over the cell art (gen_plc.py
-; --swap 0x3700,0x3F00,NV2,2; SCRAP.ART puts the art back)
-.region NAV2_LO, NAV2_LO + 0x0800, 1, overlay2
+; what does not fit: SCRAP.NV2, read in over the actions of each kind and
+; the cell art (gen_plc.py --swap 0x3600,0x4000,NV2,2; SCRAP.ART puts them
+; back), then SCRAP.NV3 in the file system's buffer (--swap 0x4E00,0x5000,
+; NV3,2; nav_main reads it in after its last card read)
+.region NAV2_LO, NAV2_LO + 0x0A00, 1, overlay2, pack
+.region NAV3_LO, NAV3_LO + 0x0200, 1, overlay2, pack
