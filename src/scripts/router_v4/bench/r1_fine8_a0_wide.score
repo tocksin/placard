@@ -1,0 +1,9 @@
+# wide pair rung on r1_fine8_a0_v3200 (ALLEVERY=0 route): 1232 s
+# score fa0_w_c45.kicad_pcb  (scope 116 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 27.06 m | 434 / 586 | 5.8 % | 12.1 % | 1.12 | 1 | 2 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS5 1037/10/1.4, DATABUS6 875/8/1.2, DATABUS0 872/15/1.2, DATABUS4 853/8/1.2, DATABUS1 818/10/1.1, DATABUS7 807/10/1.0, DATABUS3 795/12/1.1, DATABUS2 764/12/1.0
+detour > 2: PC13
+edge: [('PC_ENABLE', 'B.Cu', (155.25, 253.25)), ('PC_ENABLE', 'B.Cu', (257.0, 264.0))]

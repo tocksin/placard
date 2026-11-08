@@ -1,0 +1,8 @@
+# wide pair rung (NEIGH=8 NEIGHMM=2.5 NETPASS=0 VIA=3200) on r1_fine8_best_v3200: 1162 s, 3 workers
+# score pj_w_c45.kicad_pcb  (scope 116 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 26.75 m | 431 / 583 | 5.4 % | 12.1 % | 1.09 | 0 | 2 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS5 1036/9/1.4, DATABUS4 895/9/1.2, DATABUS0 891/16/1.2, DATABUS6 853/9/1.1, DATABUS7 820/9/1.1, DATABUS3 780/11/1.1, DATABUS2 779/14/1.1, DATABUS1 773/10/1.1
+edge: [('PC_ENABLE', 'B.Cu', (155.25, 253.25)), ('PC_ENABLE', 'B.Cu', (257.0, 264.0))]
