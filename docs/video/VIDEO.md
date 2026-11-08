@@ -424,6 +424,15 @@ bytes (30 KB).  [reference/line_repeat_map.png](../../reference/line_repeat_map.
 (made by `src/scripts/gen_line_repeat_map.py`) shows one column in each
 mode.
 
+**Why column-major.**  [video_address_map.png](video_address_map.png) (made by
+`src/scripts/gen_video_address_map.py`) compares this address with the usual
+one (line in the high bits, byte column in the low bits).  Both leave the same
+27,136 bytes that are not pixels, but the usual way splits them into a 4 KB
+block plus a 48-byte hole on every line (22.5 KB in 479 holes through
+x1000-xFFFF), while swapping the counts puts horizontal blanking (byte
+columns 0-47) in one block, x0000-x5FFF (24 KB), with only a 32-byte hole at
+the bottom of each column.
+
 **The row address.**  The video address is column-major (A15:A9 = H9:H3,
 A8:A0 = the row), so just ignoring V0 would free every other byte of each
 column.  Instead the audio slot PLD makes four of the row
