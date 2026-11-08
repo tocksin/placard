@@ -1,0 +1,8 @@
+# score pj400_c45.kicad_pcb  (scope 116 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 26.4 m | 494 / 646 | 3.7 % | 11.8 % | 1.09 | 1 | 2 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS4 877/10/1.2, DATABUS0 845/16/1.1, DATABUS7 802/9/1.0, DATABUS3 783/13/1.1, DATABUS2 779/14/1.1, DATABUS5 778/13/1.1, DATABUS1 777/10/1.1, DATABUS6 765/10/1.0
+detour > 2: Y5
+edge: [('PC_ENABLE', 'B.Cu', (155.25, 253.25)), ('PC_ENABLE', 'B.Cu', (257.0, 264.0))]
