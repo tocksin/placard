@@ -59,7 +59,19 @@ int astar2(int nx,int ny,int wx0,int wx1,int wy0,int wy1,
             if(bt[js]) continue;
             if(dx && (field[c]||field[jc])) continue;
             float step;
-            if(dy&&dx){ if(bt[l*N+(size_t)iy*nx+jx]||bt[l*N+(size_t)jy*nx+ix]) continue; step=1.41421356f*(0.5f*(cv+ch)); }
+            if(dy&&dx){ if(bt[l*N+(size_t)iy*nx+jx]||bt[l*N+(size_t)jy*nx+ix]) continue;
+                /* diag>1: slack rule (Justin): a diagonal step needs diag-1 free cells beside it on both sides, otherwise the
+                   search falls back to orthogonal steps in tight spots */
+                int ok=1;
+                for(int t=2;t<=diag&&ok;t++){
+                    int ay=iy+t*dy, ax=ix+t*dx, by=jy-t*dy, bx=jx-t*dx;
+                    if(ay>=wy0&&ay<wy1&&bt[l*N+(size_t)ay*nx+ix]) ok=0;
+                    if(ax>=wx0&&ax<wx1&&bt[l*N+(size_t)iy*nx+ax]) ok=0;
+                    if(by>=wy0&&by<wy1&&bt[l*N+(size_t)by*nx+jx]) ok=0;
+                    if(bx>=wx0&&bx<wx1&&bt[l*N+(size_t)jy*nx+bx]) ok=0;
+                }
+                if(!ok) continue;
+                step=1.41421356f*(0.5f*(cv+ch)); }
             else step=dx?ch:cv;
             float nd=d+step*ct[js];
             if(p>=0 && (pdy||pdx) && (pdy!=dy||pdx!=dx)) nd+=bend;
