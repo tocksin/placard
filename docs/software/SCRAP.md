@@ -7,7 +7,7 @@ back, and build it into your own ship.  It is not in the demo menu: pick
 it in the DOS's file browser and press Enter ([DOS.md](DOS.md)), or set
 `BOOT.CFG` = `SCRAP.PLC` to run it at power-up.
 
-Date: 2026-11-07
+Date: 2026-11-08
 
 The design (proposal, phases, mock-ups) is the SCRAPWRIGHT design doc.
 This is **phase 3**: the walkable wreck with the mouse panel (phase 2),
@@ -169,7 +169,8 @@ white; square pixels, 256 across and 192 down, framed in the middle of
 the screen so a position on it is a byte; 184 down under the status row),
 with the tug in the middle on a dotted blue grid that is fixed in space
 (lines every 64 pixels, moving as the tug moves): the tug a small white triangle pointing along its
-heading (it turns like the Asteroids ship), three gold dots the way it
+heading to the nearest eighth of a turn (any finer is ragged at that
+size; the panel has the exact heading), three gold dots the way it
 drifts, and the sector's objects (`gen_scrap.SECTOR`, the file
 `SCRAP/K3A`): the HALVARD ROCK station on its asteroid as a white circle
 of its size, and the derelicts as gold asterisks until you have docked
@@ -194,15 +195,65 @@ ACROSS. The keys are on the row under it as inverse caps.
 
 | Key | What it does |
 |-----|--------------|
-| Left / Right (A, D) | turn: a heading step (11.25 degrees, 32 a turn) every 11 frames while held |
-| Up / Down (W, S) | thrust forward, or back at half the thrust, while held |
+| Left / Right (A, D) | spin the tug up, left or right: the spin goes up by 1/256 of a heading step (11.25 degrees, 32 a turn) a frame while held, to at most a step every 8 frames (a turn in 4.3 s), and it keeps spinning when you let go (also off the map, while you walk the ship: it is worked out when the map opens). No turning while docked |
+| R | stops the spin (1/256 a frame less until it is 0) |
+| Up / Down (W, S) | thrust forward, or back at half the thrust, while held (not while docked) |
 | Q / E | thrust sideways, left or right of the heading, at half the thrust, while held |
 | + (or =) and - | zoom in and out in doubling steps: 4 to 512 m a pixel, 1 to 128 km across the view (1.024 km << the zoom; the key row shows it in whole km) |
 | Tab, a click on an object | the target: the next object, or the one clicked |
-| C | comms and the docking approach (a later step: a message for now) |
-| U | undock: the clamps off, 5 m/s away from the port (west) |
-| K | dock: within 20 m of the KESTREL 9's port each way and under 2 m/s |
+| C | the docking and comms screen (below): hailing, docking, undocking |
 | Esc | back to the ship |
+
+**Docking.**  C on the map opens the docking and comms screen (`SCRAP.DCK`,
+read in over the map screen's code, with `SCRAP.DK2`, `SCRAP.DK4` and `SCRAP.DK3`; the
+map comes back when it closes).  The whole view is 1 bpp, in two boxes.
+DOCKING, on the left, has the readouts (the RANGE to the KESTREL 9's port
+in metres and the CLOSE speed toward it, the tug's SIDE offset from the
+port's line, right +, and UP, with their DRIFT speeds, in m/s) over two
+rings: the tug's, white and thick with a dashed cross, fixed in the
+middle, and the port's, thin, which sits where the port is: off to the
+side by the sideways offset, up or down by the height (a height of its
+own: the sector map is flat), and bigger as you close in (960 / (16 +
+the range in half metres) line pairs: 3 dots far off, the tug's ring's
+size at 2 m, 60 at the port).  It drifts: every 16 frames a small random
+push goes to the sideways speed and the height's, so you keep it
+centred.  The tug's turn comes with it from the map: its yaw is the
+map's heading (the port's line is east) turning at the map's spin, and
+it pitches too, starting level and turning at half the spin, up or down
+(the map is flat; this is its other part).  The angles move the port's
+ring off the middle as well (a heading step, 11.25 degrees, moves it as
+2 m to the side would): turned right the ring is to the left, pitched up
+it is lower.  So the pilot stops the turning and lines the rings up at
+the same time; forward thrust goes the way the tug points.  Back on the
+map the heading and the spin are the yaw's (the pitch is not kept).
+CLEAR TO CLAMP flashes under the rings when the clamps would hold:
+docking declared, under 3.5 m to go, the ring within 0.75 m of the
+middle each way (the angles in it), not turning, and every speed
+(closing, sideways, up / down) under 0.7 m/s.  Clamping lines the tug up
+(heading east, level, no turning).
+
+COMMS CONTROL, on the right, has the target, its port, the status, and
+five buttons (click one, or press its number; the one under the mouse is
+in normal video, the rest inverse):
+
+| Button | What it does |
+|--------|--------------|
+| 1 HAIL | calls the KESTREL 9 on the tug's antenna (a working one, `N_ANT`, or NO COMMS): no reply, it is a derelict |
+| 2 REQUEST DOCKING | once hailed, declares the docking (a derelict cannot answer, but it must be declared) |
+| 3 REQUEST UNDOCK | docked and hailed: declares the undocking |
+| 4 CLAMP | declared and clear to clamp: docked (CLAMPS MISSED otherwise); docked, RELEASE CLAMPS: only once undocking is declared (CLAMPS LOCKED), then 5 m/s away from the port (west) |
+| 5 BACK TO THE MAP | the map screen again (Esc too) |
+
+| Key (docking screen) | What it does |
+|-----|--------------|
+| W / S | thrust forward (the way the tug points) or back, while held |
+| Q / E | thrust sideways, at half the thrust |
+| Z / X | thrust up or down (the height), at half the thrust, the same nitrogen |
+| Left / Right (A / D) | turn (yaw), as the map's spin: faster while held, it keeps turning |
+| Up / Down | pitch up or down, the same way |
+| R | stops the turning (both) |
+| 1-5 | the buttons |
+| Esc | back to the map |
 
 The tug's mass is every cell of it but loose parts, each kind a set mass
 (`gen_scrap.MASS`, in 100 kg: a deck 300 kg, a wall 600, a reactor 6 t,
@@ -232,8 +283,9 @@ stops the tug where it was last clear, and damages it by the speed:
 | over 100 m/s | 24 cells, broken |
 
 The cells are picked at random in the tug's area, and only parts,
-walls, decks and doors take damage.  Docking again (K) puts the tug at
-the port, stopped, and joins the airlocks.
+walls, decks and doors take damage.  Docking again (4 CLAMP on the
+docking screen) puts the tug at the port, stopped and lined up, and
+joins the airlocks.
 
 **Building.**  The tug is the cells x 0-29, y 18-46: its hull and the
 space round it, so it can grow there.  Take walls out to join rooms, lay
@@ -319,10 +371,14 @@ a jammed shut armory door and a jammed open med bay door.
 | x4100-x4CFF | while the inventory is up: `SCRAP.INV` (`scrap_inv.masm`: its screen, font, pointer and routines; 6 sectors at most), read from the card each time it opens; a rebuild of the rooms waits until it closes |
 | x4080-x40FF | while the navigation screen is up: its state (the target, the object being drawn and its 10 bytes, the pixels of each object for the mouse) |
 | x4100-x4CFF | while the navigation screen is up: `SCRAP.NAV` (`scrap_nav.masm`; 6 sectors at most, packed largest chunk first: `.region ..., pack`), read in the same way; the points it drew (to rub out) go in the screen bytes no line shows (offsets 0-30 even of the odd pages x61-x9F) |
-| x4E00-x4FFF | the file system's buffer; while the navigation screen is up `SCRAP.NV3`, the last of its code (1 sector), read in by `nav_main` after its last card read |
-| x5400-x55FF | sector buffer for loading `SCRAP.OVL`, then the part text of the panel's kind (two kinds, one sector of `SCRAP/Kxy`); while the navigation screen is up the sector file `SCRAP/K3A` ("kinds" 96-97): the objects (x, y, size, shape, their strings, the radar factor), their names, registries and kinds, and some of the screen's strings (`gen_scrap.SECTOR_STRS`) |
+| x40BA-x40BE | the spin (1/256 heading steps a frame), the heading's 1/256 steps, the frame counter when the spin was last worked out, R's stop (`FL_SPN` ... `FL_STP`; `fl_init` clears x4080-x40BF) |
+| x40D0-x40FF | while the docking screen is up: its state (declared, the height and its speed, the ring drawn, the pointer, the yaw and pitch and their rates, the up and down thrust, the ring's offsets; x40FF `FL_GO`, the next screen) |
+| x4100-x4CFF | while the docking screen is up: `SCRAP.DCK` (`scrap_dck.masm`, `#overlay3`; `dock_main` a `.page` chunk at x4100), read in by `nav_action` when C closes the map; it reads `SCRAP.DK2` over x3600-x3FFF, `SCRAP.DK4` into x5400 and `SCRAP.DK3` into x4E00 |
+| x4E00-x4FFF | the file system's buffer; while the navigation screen is up `SCRAP.NV3`, the last of its code (1 sector), read in by `nav_main` after its last card read (and `SCRAP.DK3` while the docking screen is up) |
+| x5400-x55FF | sector buffer for loading `SCRAP.OVL`, then the part text of the panel's kind (two kinds, one sector of `SCRAP/Kxy`); while the navigation screen is up the sector file `SCRAP/K3A` ("kinds" 96-97): the objects (x, y, size, shape, their strings, the radar factor), their names, registries and kinds, and some of the screen's strings (`gen_scrap.SECTOR_STRS`); while the docking screen is up `SCRAP.DK4`, more of its code (1 sector; `PRT_K` is set to none, so the part text is read again) |
 | x5600-x59FF | more of the program: `SCRAP.OVL`'s pages after xFE, the mouse pointer (its art, what is under it), a repair's steps and what overflows |
-| x5C00-x5DF2 | more of the program (`SCRAP.OVL`'s next 2 pages; the start of the audio buffer, x5DF3-x5DFF, is set to silence again after the load): what overflows |
+| x5C00-x5CFF, x5D70-x5DF2 | more of the program (`SCRAP.OVL`'s next 2 pages; the start of the audio buffer, x5DF3-x5DFF, is set to silence again after the load): the library calls the flight makes under map 07 (`l_mul8`, `l_div16`, `l_rand8`, a `.page` chunk: they must be below x6000), then what overflows |
+| x5D00-x5D6F | the DOS's menu block (`placard_menu.asm`): `ovl_load` leaves it alone, so Esc goes back to the DOS (the test checks nothing is placed there) |
 | even pages x60-xBE | the map: 96 x 64 cells in 24 chunks of 16 x 16 |
 | odd pages x61-xBF | the screen (2x repeat leaves the even pages free) |
 
@@ -347,8 +403,8 @@ stubs that switch to map 07 around the call.
 cd src\scripts
 python gen_scrap.py                              scrap_types.asm, scrap_data.masm, scrap_map.bin
 python asm_expand.py scrap.masm                  scrap.asm
-python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x3600,0x4000,ART,0
-                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV, SCRAP.NV2, SCRAP.NV3, SCRAP.ART
+python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x4100,0x4D00,DCK,3 --swap 0x3600,0x4000,DK2,3 --swap 0x4E00,0x5000,DK3,3 --swap 0x5400,0x5600,DK4,3 --swap 0x3600,0x4000,ART,0
+                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV, SCRAP.NV2, SCRAP.NV3, SCRAP.DCK, SCRAP.DK2, SCRAP.DK3, SCRAP.DK4, SCRAP.ART
 python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png)
 ```
 
@@ -400,12 +456,18 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
 - NAVIGATE at the helm: the tug's mass and thrusters against the map,
   the navigation screen (the panel's blocks, the tug's triangle, the
   KESTREL 9's diamond and the target's corners), Tab and a click to pick
-  the target, C, K while docked, U (the speed, the airlocks, the speed
-  toward the KESTREL 9), a frame's thrust against 20 kN a thruster, 60
+  the target, C: the docking screen (its text, the rings, the modes),
+  RELEASE CLAMPS locked, HAIL, REQUEST UNDOCK, the clamps off (the speed,
+  the airlocks), the readouts and the port's ring a second out, the
+  speed toward the KESTREL 9 on the map, a frame's thrust against 20 kN a thruster, 60
   frames of thrust and the nitrogen burnt, Q and E sideways, the 2 bpp
   lines, the status row (date, time, nitrogen, delta-v), the grid and
-  its moving with the tug, turning, the zoom steps, K out
-  of range, a collision at
+  its moving with the tug, no turning or thrust while docked, the spin
+  (up to its top speed, going on, R stopping it), the zoom steps, a collision at
   30 m/s (IMPACT IN 10 S, the damage, the stop), the tug cruising while
-  you walk (the view with the wreck hidden, the rooms), and docking again;
-- Esc back to the DOS.
+  you walk (the view with the wreck hidden, the rooms), and docking again
+  on the docking screen (the map's spin carried over as yaw and half as
+  pitch, the ring off by the angle, R; CLAMP undeclared, REQUEST DOCKING before a hail,
+  a clamp 3 m off and its ring, CLEAR TO CLAMP flashing, the mouse on 4
+  CLAMP and a click: docked, the airlocks);
+- Esc back to the DOS (the DOS's map, not the game's).

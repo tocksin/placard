@@ -45,10 +45,10 @@
 ;
 ;     python3 gen_scrap.py                            scrap_types.asm, scrap_data.masm, scrap_map.bin
 ;     python3 asm_expand.py scrap.masm                scrap.asm
-;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x3600,0x4000,ART,0
+;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x4100,0x4D00,DCK,3 --swap 0x3600,0x4000,DK2,3 --swap 0x4E00,0x5000,DK3,3 --swap 0x5400,0x5600,DK4,3 --swap 0x3600,0x4000,ART,0
 ;     python3 test_scrap_sim.py                       runs it in placard_sim
 ;
-; Date: 11/07/2026
+; Date: 11/08/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -58,9 +58,10 @@
 dos_back = 0x8008
 FBUF     = 0x5400           ; 512-byte sector buffer while loading SCRAP.OVL
 OVL_TAIL = 0x56             ; SCRAP.OVL's last pages: x5600-x59FF, then
-OVL_END  = 0x5A             ;   x5C00-x5DF2 (the audio buffer from x5DF3:
-OVL_TAIL2 = 0x5C            ;   silence_buf); code: the pointer, the repair
-OVL_END2 = 0x5E             ;   steps, more
+OVL_END  = 0x5A             ;   x5C00-x5CFF and x5D70-x5DF2 (x5D00-x5D6F is
+OVL_TAIL2 = 0x5C            ;   the DOS's menu block; from x5DF3 the audio
+OVL_END2 = 0x5E             ;   buffer: silence_buf); code: the pointer, the
+                            ;   repair steps, more
 PRT_BUF  = FBUF             ; after the load: the text of 2 kinds (prt_load)
 VIEW_W   = 20
 VIEW_H   = 12
@@ -397,7 +398,8 @@ ta_go\@:
 .region 0x2000, 0x3200
 .region 0xC000, 0x10000, 2, overlay
 .region 0x5600, 0x5A00, 1, overlay
-.region 0x5C00, 0x5DF3, 1, overlay
+.region 0x5C00, 0x5D00, 1, overlay
+.region 0x5D70, 0x5DF3, 1, overlay
 .region 0x0100, 0x1F00
 
 ; ============================================================
@@ -721,6 +723,60 @@ lp_dead:
 lp_d:
     GOTO loop
 
+; the flight's alarms (scrap_fl.masm's; here, where there is room)
+.chunk
+s_prox:
+    #d "PROXIMITY: SLOW DOWN.", 0x00
+.chunk
+s_imp:
+    #d "IMPACT IN 10 S: BRAKE!", 0x00
+
+; nav_back - the map closed: C on it, the docking screen (SCRAP.DCK into
+; x4100; it reads in the rest), then the map again; else the ship's art
+; back.  The rest of nav_action
+; (scrap_fl.masm)
+.chunk
+nav_back:
+    ld   FL_PG, y
+    ld   FL_GO, x
+    ld   [y,x], ac
+    xor  2, ac
+    bne  nv_a
+    ld   ac, [y,x]
+    ld   SWAP_LO >> 8, ac
+    ld   ac, [u5]
+    ld   6, ac
+    ld   ac, [u6]
+    ld   s_dckf & 0xFF, ac
+    CALL nav_fetch
+    bne  nb_m
+    CALL dock_main
+nb_m:
+    GOTO nv_ok
+nv_a:
+    ld   NAV2_LO >> 8, ac       ; the art back (SCRAP.ART)
+    ld   ac, [u5]
+    ld   5, ac
+    ld   ac, [u6]
+    ld   s_artf & 0xFF, ac
+    CALL nav_fetch
+    ld   [rb_go], ac
+    beq  nv_v
+    CALL rooms_build
+    clr  ac
+    ld   ac, [rb_go]
+nv_v:
+    clr  ac
+    ld   ac, [lock]
+    ld   ac, [h_on]
+    ld   ac, [wk_on]
+    CALL draw_view
+    CALL hover_update
+    ld   [dirty], ac
+    or   3, ac
+    ld   ac, [dirty]
+    LEAVE
+
 ; the file the library reads (below x6000: it runs under map 07)
 .chunk
 s_ovl:
@@ -731,8 +787,10 @@ s_navf:
     #d "SCRAP.NAV", 0x00
 s_nv2f:
     #d "SCRAP.NV2", 0x00
-s_artf:                         ; (nav_fetch: these three share a page)
+s_artf:                         ; (nav_fetch: these four share a page)
     #d "SCRAP.ART", 0x00
+s_dckf:
+    #d "SCRAP.DCK", 0x00
 PRT_NM:                         ; prt_load's: the part text file, its folder
     #d "K0A", 0x00
 s_prtd:
@@ -915,6 +973,11 @@ ov_s:
     ld   ac, [u7]
 ov_p:
     clr  ac
+    ld   ac, [u4]
+    ld   [u5], ac               ; x5D: from x5D70, the DOS's menu block
+    xor  0x5D, ac               ; (x5D00-x5D6F) kept, so Esc goes back
+    bne  ov_b
+    ld   0x70, ac
     ld   ac, [u4]
 ov_b:
     ld   [u6], y
@@ -1524,6 +1587,11 @@ im_b:
     CALL click_left
     bra  im_r
 im_p:
+    xor  2, ac                  ; (FL_NAV 2: the docking screen's)
+    bne  im_q
+    CALL dk_pick
+    bra  im_r
+im_q:
     CALL nv_pick
 im_r:
     ld   [mb_new], ac
@@ -6596,7 +6664,30 @@ s_sl2:
 ; ============================================================
 ; the flight (scrap_fl.masm): resident, in the even pages from xC000
 ; ============================================================
-.region 0xC000, 0x10000, 2, overlay
+; the flight's calls into the library: under map 07 (RAM to x5FFF only), so
+; not in the pages from xC000 (the test checks): first in x5C00
+.region 0x5C00, 0x5D00, 1, overlay
+; l_mul8, l_div16, l_rand8 - the library's, under its map
+.page
+l_mul8:
+    PUSH_LINK
+    MAP07
+    CALL mul8
+    bra  lm_x
+l_div16:
+    PUSH_LINK
+    MAP07
+    CALL div16
+    bra  lm_x
+l_rand8:
+    PUSH_LINK
+    MAP07
+    CALL rand8
+lm_x:
+    MAPFF
+    LEAVE
+
+.region 0xC000, 0x10000, 2, overlay, pack
 .include "scrap_fl.masm"
 
 ; ============================================================
@@ -6617,3 +6708,18 @@ s_sl2:
 ; NV3,2; nav_main reads it in after its last card read)
 .region NAV2_LO, NAV2_LO + 0x0A00, 1, overlay2, pack
 .region NAV3_LO, NAV3_LO + 0x0200, 1, overlay2, pack
+
+; ============================================================
+; SCRAP.DCK: the docking and comms screen (scrap_dck.masm), read in when
+; C is pressed on the map (#overlay3: gen_plc.py --swap ...,DCK,3, at
+; SCRAP.NAV's addresses); what does not fit in SCRAP.DK2 over SCRAP.NV2's
+; (--swap 0x3600,0x4000,DK2,3), then SCRAP.DK3 in the file system's buffer
+; (--swap 0x4E00,0x5000,DK3,3) and SCRAP.DK4 in the part text's (--swap
+; 0x5400,0x5600,DK4,3).  dock_main is a .page chunk: at x4100, in
+; SCRAP.DCK (it reads the other three in)
+; ============================================================
+.region SWAP_LO, SWAP_LO + 0x0C00, 1, overlay3, pack
+.include "scrap_dck.masm"
+.region NAV2_LO, NAV2_LO + 0x0A00, 1, overlay3, pack
+.region NAV3_LO, NAV3_LO + 0x0200, 1, overlay3, pack
+.region 0x5400, 0x5600, 1, overlay3, pack

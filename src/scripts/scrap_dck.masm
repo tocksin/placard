@@ -1,0 +1,2403 @@
+; ============================================================
+; scrap_dck.masm - SCRAPWRIGHT's docking and comms screen: SCRAP.DCK,
+; SCRAP.DK2, SCRAP.DK3
+; ============================================================
+;
+; Included at the end of scrap.masm as #overlay3: the region x4100-x4CFF
+; (gen_plc.py --swap 0x4100,0x4D00,DCK,3: SCRAP.DCK, over SCRAP.NAV's
+; place) and what does not fit in x3600-x3FFF (--swap 0x3600,0x4000,DK2,3:
+; SCRAP.DK2, over SCRAP.NV2's), the last of it in the file system's
+; buffer (--swap 0x4E00,0x5000,DK3,3: SCRAP.DK3, as SCRAP.NV3), and
+; x5400-x55FF, the part text's buffer (--swap 0x5400,0x5600,DK4,3:
+; SCRAP.DK4).  C on the
+; map screen sets FL_GO 2 and closes it; nav_action (resident) reads
+; SCRAP.DCK in and calls dock_main, which reads SCRAP.DK2, DK4 and DK3
+; (dock_main must stay in SCRAP.DCK: a .page chunk, placed first, at x4100;
+; the test checks), runs the screen until Esc or
+; 5 BACK TO THE MAP, and nav_action opens the map again.  The flight
+; goes on all the while (game_tick).
+;
+; The view is 1 bpp (2x lines) while the screen is up, in two boxes.
+; DOCKING on the left: the range to the KESTREL 9's port (DOCK_X, DOCK_Y:
+; 100 m west of its centre) and the closing speed, the tug's offset from
+; the port's line sideways and up / down and their drift speeds, then the
+; rings: the tug's (white, thick, a dashed cross through it) fixed in the
+; middle, the port's (thin) where the port is: right or left by the
+; sideways offset, up or down by the height (a height of its own, DK_Y:
+; the sector map is flat), its size by the range (960 / (16 + half
+; metres): the tug's ring at 2 m).  It drifts (dk_drift: small random
+; pushes, every 16 frames, to the sideways speed and the height's).
+; Under the rings CLEAR TO CLAMP flashes when the clamps would hold:
+; docking declared, under 3.5 m to go (DK_D2 under 7), 0.75 m or less
+; off each way, every speed under 0.7 m/s (3/256 m a frame).
+;
+; COMMS CONTROL on the right: the target, its port, the status, five
+; buttons (a click, or keys 1-5; the one under the mouse in normal video,
+; the rest inverse): 1 HAIL (needs a working antenna: N_ANT; the KESTREL
+; 9 is a derelict, so no reply), 2 REQUEST DOCKING (hailed: declared),
+; 3 REQUEST UNDOCK (docked and hailed: declared), 4 CLAMP (declared and
+; clear: docked, fl_dock) or, docked, RELEASE CLAMPS (undock declared:
+; 5 m/s west of the port), 5 BACK TO THE MAP.
+;
+; Keys: W / S forward and back, Q / E sideways, Z / X up and down (the
+; height: the same thrust as sideways, the same nitrogen), Left / Right
+; (A / D) turn and Up / Down pitch (as the map's spin: 1/256 of a heading
+; step a frame more while held, to NAV_SPIN, and it keeps turning), R
+; stops the turning, 1-5 the buttons, Esc the map.
+;
+; The turn comes from the map: the yaw (DK_YW) is the heading (east is
+; the port's line), turning at the map's spin; the pitch (DK_PW) starts
+; level, turning at half the spin up or down (the map is flat: this is
+; its other part).  The port's ring is off the middle by the angles too
+; (a 1/256 step an eighth of 1/16 m: a heading step 2 m), so
+; the pilot stops the turn and lines up at once; the forward thrust is
+; along the heading (fl_dv).  Back on the map the heading and the spin
+; are the yaw's.
+;
+; Date: 11/08/2026
+; ============================================================
+
+DK_ST   = 0xD0              ; FL_PG (rooms_build's, free while this is up):
+                            ;   bit 0 hailed, 1 docking declared, 2 undocking
+DK_T    = 0xD1              ;   frames (the ring every 4, readouts, flashing)
+DK_HV   = 0xD2              ;   the button under the mouse (FF none)
+DK_DR   = 0xD3              ;   the buttons and the status to draw again: 6 all,
+                            ;     one a frame (dk_frame)
+DK_Y    = 0xD4              ;   the tug's height off the port's (16.16 m, down +)
+DK_VY   = 0xD8              ;   its speed (1/2^24 m a frame)
+DK_Z    = 0xDC              ;   4 zero bytes: the thrust vector up / down burns
+                            ;   with (FL_TH: fl_tick burns the nitrogen)
+DK_D2   = 0xE0              ;   the range in half metres, 0-239 (dk_sim)
+DK_X    = 0xE1              ;   the port from the tug sideways, 1/16 m (+-112)
+DK_YS   = 0xE2              ;   and up (+-112)
+DK_OK   = 0xE3              ;   1: clear to clamp
+DK_ON   = 0xE4              ;   1: the port's ring is drawn at DK_OX, DK_OY,
+DK_OX   = 0xE5              ;     radius DK_OR (to rub out: XOR)
+DK_OY   = 0xE6
+DK_OR   = 0xE7
+DK_K    = 0xE8              ;   a drift push (2 bytes)
+DK_PC   = 0xEA              ;   the pointer drawn: its byte column, bit,
+DK_PB   = 0xEB              ;     line pair, 1 while it is drawn
+DK_PL   = 0xEC
+DK_PO   = 0xED
+DK_YR   = 0xEE              ;   the yaw's rate (1/256 steps a frame, signed)
+DK_YW   = 0xEF              ;   the yaw: 1/256 steps, then steps (mod 32)
+DK_PR   = 0xF1              ;   the pitch's rate
+DK_PW   = 0xF2              ;   the pitch (2 bytes, as DK_YW; up +)
+DK_RS   = 0xF4              ;   1: R, the turning brought down to 0
+DK_RX   = 0xF8              ;   the port's ring off the middle (DK_X, DK_YS and
+DK_RY   = 0xF9              ;     the angles: dk_off)
+DK_UP   = 0xF6              ;   the thrust up and down (2 bytes each, half
+DK_DN   = 0xFA              ;     thrust: bit 1 set, dk_thr)
+
+DK_CX   = 80                ; the rings' middle: x / 2 (2 pixels), line pair
+DK_CY   = 104
+DK_TR   = 48                ; the tug's ring's radius
+
+; dock_main - SCRAP.DK2 and SCRAP.DK3 in, the screen until Esc (or 5, or
+; you die).  At x4100 (.page: placed first), in SCRAP.DCK
+.page
+dock_main:
+    PUSH_LINK
+    ld   s_dk2f & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_dk2f >> 8, ac
+    ld   ac, [R1]
+    ld   NAV2_LO >> 8, ac
+    ld   ac, [u5]
+    ld   5, ac
+    ld   ac, [u6]
+    CALL swap_fetch
+    bne  dm_e
+    ld   s_dk4f & 0xFF, ac      ; SCRAP.DK4 into x5400 (the part text's
+    ld   ac, [R0]               ; buffer: the map reads its own in again)
+    ld   s_dk4f >> 8, ac
+    ld   ac, [R1]
+    ld   0x54, ac
+    ld   ac, [u5]
+    ld   1, ac
+    ld   ac, [u6]
+    ld   PRT_K >> 8, y          ; (no part text there now: prt_load reads
+    ld   PRT_K & 0xFF, x        ; it again)
+    ld   0xFF, [y,x]
+    CALL swap_fetch
+    bne  dm_e
+    ld   s_dk3f & 0xFF, ac      ; then SCRAP.DK3 into the file system's
+    ld   ac, [R0]               ; buffer (no card reads after it while the
+    ld   s_dk3f >> 8, ac        ; screen is up)
+    ld   ac, [R1]
+    ld   NAV3_LO >> 8, ac
+    ld   ac, [u5]
+    ld   1, ac
+    ld   ac, [u6]
+    CALL swap_fetch
+    bne  dm_e
+    ld   0x4D, y                ; (no FAT sector in the buffer now: FS_VARS
+    ld   0x2F, x                ; V_FATC + 3)
+    ld   0xFF, [y,x]
+    GOTO dk_init
+dm_e:
+    LEAVE
+s_dk2f:                         ; (in dock_main's chunk: in SCRAP.DCK)
+    #d "SCRAP.DK2", 0x00
+s_dk3f:
+    #d "SCRAP.DK3", 0x00
+s_dk4f:
+    #d "SCRAP.DK4", 0x00
+
+; dk_init - FL_NAV 2, the state cleared, the height a random -8 to +7 m
+; (none docked), the tug pointing east; the screen.  The rest of dock_main
+.chunk
+dk_init:
+    ld   FL_PG, y
+    ld   FL_NAV, x
+    ld   2, [y,x]
+    ld   DK_ST, ac
+    ld   ac, [u0]
+dki_l:
+    ld   [u0], x
+    ld   0x00, [y,x]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    bne  dki_l                  ; (to FL_GO, xFF)
+    ld   DK_HV, x
+    ld   0xFF, [y,x]
+    ld   DK_DR, x
+    ld   6, [y,x]
+    ld   FL_DOCK, x
+    ld   [y,x], ac
+    bne  dki_d
+    CALL l_rand8
+    and  15, ac
+    sub  8, ac
+    ld   FL_PG, y
+    ld   DK_Y + 2, x
+    ld   ac, [y,x]
+    blt  dki_n
+    bra  dki_d
+dki_n:
+    ld   DK_Y + 3, x
+    ld   0xFF, [y,x]
+dki_d:
+    CALL dk_turn
+    CALL dk_scr
+    GOTO dk_loop
+
+; dk_loop - a frame: the pointer, the keys and the mouse, the flight,
+; the message, then this frame's part of the screen.  The rest of
+; dock_main
+.chunk
+dk_loop:
+dkl:
+    CALL dk_pon
+    ld   1, ac
+    CALL l_wait_frames_io
+    CALL dk_poff
+    CALL l_kbd_scan
+    CALL input_mouse            ; (FL_NAV 2: a left click is dk_pick)
+    ld   [KBD_NOW], ac          ; Esc (key 0; 0 = down)
+    and  1, ac
+    beq  dkl_x
+    ld   [dead], ac
+    bne  dkl_x
+    ld   FL_PG, y               ; 5: FL_GO 1
+    ld   FL_GO, x
+    ld   [y,x], ac
+    bne  dkl_x
+    CALL dk_keys
+    CALL game_tick
+    ld   [dirty], ac            ; the message's time and row (update_panel,
+    and  0xFE, ac               ; not the ship's panel)
+    ld   ac, [dirty]
+    CALL update_panel
+    CALL dk_frame
+    bra  dkl
+dkl_x:
+    GOTO dk_exit
+
+; dk_exit - Esc let go; FL_NAV, FL_GO 0, the message off (its string is
+; in this file).  The end of dock_main (its LEAVE)
+.chunk
+dk_exit:
+    ld   1, ac
+    CALL l_wait_frames_io
+    CALL l_kbd_scan
+    ld   [dead], ac
+    bne  dx_e
+    ld   [KBD_NOW], ac
+    and  1, ac
+    beq  dk_exit
+dx_e:
+    ld   FL_PG, y
+    ld   FL_NAV, x
+    ld   0x00, [y,x]
+    ld   FL_GO, x
+    ld   0x00, [y,x]
+    clr  ac
+    ld   ac, [msg_t]
+    GOTO dk_back
+
+; dk_back - the map's heading and spin from the yaw (the frame counter
+; now: nv_spt goes on from here).  The end of dock_main (its LEAVE)
+.chunk
+dk_back:
+    ld   FL_PG, y
+    ld   DK_YW, x
+    ld   [y,x], ac
+    ld   FL_HF, x
+    ld   ac, [y,x]
+    ld   DK_YR, x
+    ld   [y,x], ac
+    ld   FL_SPN, x
+    ld   ac, [y,x]
+    ld   FL_STP, x
+    ld   0x00, [y,x]
+    ld   FL_SFL, x
+    ld   [FRAME_LO], ac
+    ld   ac, [y,x]
+    ld   FL_SFH, x
+    ld   [FRAME_HI], ac
+    ld   ac, [y,x]
+    LEAVE
+
+; dk_turn - the turn from the map (DK_YW the heading, DK_YR the spin,
+; DK_PR half of it up or down: random); DK_UP, DK_DN (half thrust, cos 1
+; and -1: fl_dv1), the heading's thrust vectors.  dk_init's
+.chunk
+dk_turn:
+    PUSH_LINK
+    ld   FL_PG, y
+    ld   FL_HF, x
+    ld   [y,x], ac
+    ld   DK_YW, x
+    ld   ac, [y,x]
+    ld   FL_HD, x
+    ld   [y,x], ac
+    ld   DK_YW + 1, x
+    ld   ac, [y,x]
+    ld   FL_SPN, x
+    ld   [y,x], ac
+    ld   DK_YR, x
+    ld   ac, [y,x]
+    blt  tn_n
+    bra  tn_p
+tn_n:
+    xor  0xFF, ac
+    inc
+tn_p:
+    shr  ac
+    ld   DK_PR, x
+    ld   ac, [y,x]
+    CALL l_rand8
+    and  1, ac
+    beq  tn_s
+    ld   FL_PG, y
+    ld   DK_PR, x
+    ld   [y,x], ac
+    xor  0xFF, ac
+    inc
+    ld   ac, [y,x]
+tn_s:
+    ld   1, ac
+    ld   ac, [w3]
+    ld   DK_UP, ac
+    ld   ac, [w2]
+    ld   FL_PG, y
+    ld   FL_HD, x
+    ld   [y,x], ac
+    xor  0xFF, ac
+    add  17, ac                 ; 16 - h: -1 (up: the screen's)
+    CALL fl_dv1
+    ld   DK_DN, ac
+    ld   ac, [w2]
+    ld   FL_PG, y
+    ld   FL_HD, x
+    ld   [y,x], ac
+    xor  0xFF, ac
+    inc
+    CALL fl_dv1
+    CALL fl_dv
+    LEAVE
+
+; dk_frame - the height moved (undocked), the button under the mouse;
+; frames 0, 4, 8, 12 (of 16) the ring (the drift on 0), 2 the readouts,
+; 6 the flashing, others the buttons when they changed
+.chunk
+dk_frame:
+    PUSH_LINK
+    CALL dk_rots
+    ld   FL_PG, y
+    ld   FL_DOCK, x
+    ld   [y,x], ac
+    bne  dkf_h
+    ld   DK_VY + 1, ac
+    ld   ac, [w1]
+    ld   DK_Y, ac
+    CALL fl_addp
+dkf_h:
+    CALL dk_hov
+    ld   ac, [u0]
+    ld   FL_PG, y
+    ld   DK_HV, x
+    ld   [y,x], ac
+    xor  [u0], ac
+    beq  dkf_t
+    ld   [u0], ac
+    ld   ac, [y,x]
+    ld   DK_DR, x
+    ld   6, [y,x]
+dkf_t:
+    ld   DK_T, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    and  3, ac
+    bne  dkf_1
+    ld   [y,x], ac
+    and  15, ac
+    bne  dkf_s
+    CALL dk_drift
+dkf_s:
+    CALL dk_sim
+    CALL dk_ring
+    LEAVE
+dkf_1:
+    ld   [y,x], ac
+    and  15, ac
+    xor  2, ac
+    bne  dkf_2
+    CALL dk_read
+    LEAVE
+dkf_2:
+    xor  2 ^ 6, ac
+    bne  dkf_3
+    CALL dk_flash
+    LEAVE
+dkf_3:
+    ld   DK_DR, x               ; one a frame: the status, buttons 4 to 0
+    ld   [y,x], ac
+    beq  dkf_e
+    dec
+    ld   ac, [y,x]
+    CALL dk_bts
+dkf_e:
+    LEAVE
+
+; dk_keys - 1-5 the buttons; then the thrust (dk_thr)
+.chunk
+dk_keys:
+    PUSH_LINK
+    CALL l_kbd_getc
+    beq  kk_t
+    ld   ac, [u0]
+    or   0x20, ac
+    xor  0x72, ac               ; r: the turning stopped
+    bne  kk_d
+    ld   FL_PG, y
+    ld   DK_RS, x
+    ld   1, [y,x]
+    bra  kk_t
+kk_d:
+    ld   [u0], ac
+    sub  0x31, ac               ; 1-5
+    bcs  kk_t
+    ld   ac, [u0]
+    sub  5, ac
+    bcc  kk_t
+    ld   [u0], ac
+    CALL dk_btn
+kk_t:
+    GOTO dk_thr
+
+; dk_thr - undocked: the first key of DK_KT held (0 = down) is this
+; frame's thrust: forward, back, sideways (FL_TH: fl_tick's), or up /
+; down (DK_VY, while there is nitrogen; FL_TH DK_Z burns it).  The rest
+; of dk_keys
+.chunk
+dk_thr:
+    ld   FL_PG, y
+    ld   FL_DOCK, x
+    ld   [y,x], ac
+    bne  kt_e
+    CALL dk_rk
+    clr  ac
+    ld   ac, [v0]
+kt_l:
+    ld   DK_KT >> 8, y
+    ld   [v0], ac
+    add  DK_KT & 0xFF, x
+    ld   [y,x], ac
+    beq  kt_e
+    ld   ac, [u0]
+    ld   [v0], ac
+    add  (DK_KT & 0xFF) + 1, x
+    ld   [y,x], ac
+    ld   ac, [u1]
+    ld   [v0], ac
+    add  (DK_KT & 0xFF) + 2, x
+    ld   [y,x], ac
+    ld   ac, [u2]
+    ld   0x00, y
+    ld   [u0], ac
+    add  KBD_NOW, x
+    ld   [y,x], ac
+    and  [u1], ac
+    beq  kt_h
+    ld   [v0], ac
+    add  3, ac
+    ld   ac, [v0]
+    bra  kt_l
+kt_h:
+    ld   [u2], ac
+    and  2, ac
+    bne  kt_v
+    ld   FL_PG, y
+    ld   FL_TH, x
+    ld   [u2], ac
+    ld   ac, [y,x]
+kt_e:
+    LEAVE
+kt_v:
+    ld   FL_PG, y
+    ld   FL_FLL, x
+    ld   [y,x], ac
+    ld   FL_FLH, x
+    or   [y,x], ac
+    beq  kt_e
+    ld   FL_A8, x
+    ld   [y,x], ac
+    beq  kt_e
+    ld   FL_TH, x
+    ld   DK_Z, [y,x]
+    ld   [u2], ac
+    ld   ac, [w1]
+    ld   DK_VY, ac
+    CALL fl_add24
+    LEAVE
+DK_KT:                          ; KBD_NOW byte, bit, the vector (bit 1: up / down):
+    #d8 2, 0x01, FL_DVX, 3, 0x40, FL_RVX    ; W S
+    #d8 1, 0x80, FL_LVX, 2, 0x02, FL_SVX    ; Q E
+    #d8 5, 0x04, DK_UP, 5, 0x08, DK_DN, 0   ; Z X
+
+; dk_rk - the turning keys held (DK_RT: KBD_NOW byte, bit, the rate,
+; + or - 1): the rate on (not past NAV_SPIN either way), R's stop off.
+; A leaf.
+.chunk
+dk_rk:
+    clr  ac
+    ld   ac, [v0]
+rk_l:
+    ld   DK_RT >> 8, y
+    ld   [v0], ac
+    add  DK_RT & 0xFF, x
+    ld   [y,x], ac
+    beq  rk_e
+    add  KBD_NOW, ac
+    ld   ac, [u0]
+    ld   [v0], ac
+    add  (DK_RT & 0xFF) + 1, x
+    ld   [y,x], ac
+    ld   ac, [u1]
+    ld   [v0], ac
+    add  (DK_RT & 0xFF) + 2, x
+    ld   [y,x], ac
+    ld   ac, [u2]
+    ld   [v0], ac
+    add  (DK_RT & 0xFF) + 3, x
+    ld   [y,x], ac
+    ld   ac, [u3]
+    ld   0x00, y
+    ld   [u0], x
+    ld   [y,x], ac
+    and  [u1], ac
+    bne  rk_n
+    ld   FL_PG, y
+    ld   DK_RS, x
+    ld   0x00, [y,x]
+    ld   [u2], x
+    ld   [y,x], ac
+    add  [u3], ac
+    ld   ac, [u4]
+    xor  NAV_SPIN + 1, ac
+    beq  rk_n
+    ld   [u4], ac
+    xor  (0 - NAV_SPIN - 1) & 0xFF, ac
+    beq  rk_n
+    ld   [u4], ac
+    ld   ac, [y,x]
+rk_n:
+    ld   [v0], ac
+    add  4, ac
+    ld   ac, [v0]
+    bra  rk_l
+rk_e:
+    RET
+DK_RT:
+    #d8 7, 0x20, DK_YR, 0xFF, 3, 0x20, DK_YR, 0xFF   ; Left A
+    #d8 7, 0x80, DK_YR, 1, 3, 0x80, DK_YR, 1         ; Right D
+    #d8 6, 0x20, DK_PR, 1, 7, 0x40, DK_PR, 0xFF, 0   ; Up Down
+
+; dk_rots - a frame of turning: the yaw and the pitch (dk_rot), the
+; heading's thrust again when its step changed
+.chunk
+dk_rots:
+    PUSH_LINK
+    ld   DK_YR, ac
+    CALL dk_rot
+    ld   DK_PR, ac
+    CALL dk_rot
+    ld   FL_PG, y
+    ld   DK_YW + 1, x
+    ld   [y,x], ac
+    and  31, ac
+    ld   ac, [u0]
+    ld   FL_HD, x
+    xor  [y,x], ac
+    beq  drs_e
+    ld   [u0], ac
+    ld   ac, [y,x]
+    CALL fl_dv
+drs_e:
+    LEAVE
+
+; dk_rot - the rate at FL_PG + AC: R's stop (1 nearer 0), then into the
+; angle in the 2 bytes after it.  A leaf.
+.chunk
+dk_rot:
+    ld   ac, [u1]
+    ld   ac, x
+    ld   FL_PG, y
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   DK_RS, x
+    ld   [y,x], ac
+    beq  dr_m
+    ld   [u0], ac
+    beq  dr_m
+    blt  dr_up
+    dec
+    bra  dr_w
+dr_up:
+    inc
+dr_w:
+    ld   ac, [u0]
+    ld   [u1], x
+    ld   ac, [y,x]
+dr_m:
+    ld   [u1], ac
+    add  1, x
+    ld   [y,x], ac
+    add  [u0], ac
+    ld   ac, [y,x]
+    ld   [u0], ac
+    blt  dro_n
+    bcc  dr_e
+    ld   1, ac
+    bra  dro_h
+dro_n:
+    bcs  dr_e
+    ld   0xFF, ac
+dro_h:
+    ld   ac, [u0]
+    ld   [u1], ac
+    add  2, x
+    ld   [y,x], ac
+    add  [u0], ac
+    ld   ac, [y,x]
+dr_e:
+    RET
+
+; dk_hov - AC = the button under the mouse (0-4: rows 7, 9 .. 15,
+; columns 43-64), FF none.  A leaf.
+.chunk
+dk_hov:
+    ld   [m_ok], ac
+    beq  dh_n
+    ld   [m_yl], ac             ; the text row: m_y / 16
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [u0]
+    ld   [m_yh], ac
+    shl
+    shl
+    shl
+    shl
+    or   [u0], ac
+    sub  7, ac
+    bcs  dh_n
+    ld   ac, [u0]
+    and  1, ac
+    bne  dh_n
+    ld   [u0], ac
+    sub  9, ac
+    bcc  dh_n
+    ld   [m_xl], ac             ; the column: m_x / 8
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [u1]
+    ld   [m_xh], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [u1], ac
+    sub  43, ac
+    bcs  dh_n
+    sub  22, ac
+    bcc  dh_n
+    ld   [u0], ac
+    shr  ac
+    RET
+dh_n:
+    ld   0xFF, ac
+    RET
+
+; dk_pick - a left click (input_mouse's while FL_NAV is 2): the button
+; under the mouse
+.chunk
+dk_pick:
+    PUSH_LINK
+    CALL dk_hov
+    xor  0xFF, ac
+    beq  dpk_e
+    xor  0xFF, ac
+    CALL dk_btn
+dpk_e:
+    LEAVE
+
+; dk_btn - button AC (0-4) pressed
+.chunk
+dk_btn:
+    PUSH_LINK
+    bne  db_1
+    GOTO dk_hail
+db_1:
+    xor  1, ac
+    bne  db_2
+    GOTO dk_rqd
+db_2:
+    xor  1 ^ 2, ac
+    bne  db_3
+    GOTO dk_rqu
+db_3:
+    xor  2 ^ 3, ac
+    bne  db_4
+    GOTO dk_clamp
+db_4:
+    ld   FL_PG, y               ; 5: back to the map
+    ld   FL_GO, x
+    ld   1, [y,x]
+    LEAVE
+
+; dk_hail - 1 HAIL: a working antenna (N_ANT) and the KESTREL 9 hailed
+; (no reply: a derelict).  The rest of dk_btn
+.chunk
+dk_hail:
+    ld   N_ANT >> 8, y
+    ld   N_ANT & 0xFF, x
+    ld   [y,x], ac
+    bne  dha_ok
+    ld   s_nant & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_nant >> 8, ac
+    GOTO dk_msg
+dha_ok:
+    ld   1, ac
+    CALL dk_set
+    ld   s_hail & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_hail >> 8, ac
+    GOTO dk_msg
+
+; dk_set - DK_ST |= AC.  A leaf.
+.chunk
+dk_set:
+    ld   ac, [u0]
+    ld   FL_PG, y
+    ld   DK_ST, x
+    ld   [y,x], ac
+    or   [u0], ac
+    ld   ac, [y,x]
+    RET
+
+; dk_st - AC = DK_ST & AC.  A leaf.
+.chunk
+dk_st:
+    ld   ac, [u0]
+    ld   FL_PG, y
+    ld   DK_ST, x
+    ld   [y,x], ac
+    and  [u0], ac
+    RET
+
+; dk_dkd - AC = FL_DOCK.  A leaf.
+.chunk
+dk_dkd:
+    ld   FL_PG, y
+    ld   FL_DOCK, x
+    ld   [y,x], ac
+    RET
+
+; dk_rqd - 2 REQUEST DOCKING: not docked, hailed: declared.  The rest of
+; dk_btn
+.chunk
+dk_rqd:
+    CALL dk_dkd
+    beq  drq_1
+    ld   s_adk & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_adk >> 8, ac
+    GOTO dk_msg
+drq_1:
+    ld   1, ac
+    CALL dk_st
+    bne  rq_2
+    GOTO dk_hlf
+rq_2:
+    ld   2, ac
+    CALL dk_set
+    ld   s_rqd & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_rqd >> 8, ac
+    GOTO dk_msg
+
+; dk_rqu - 3 REQUEST UNDOCK: docked, hailed: declared.  The rest of
+; dk_btn
+.chunk
+dk_rqu:
+    CALL dk_dkd
+    bne  ru_1
+    ld   s_ndk & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_ndk >> 8, ac
+    GOTO dk_msg
+ru_1:
+    ld   1, ac
+    CALL dk_st
+    bne  ru_2
+    GOTO dk_hlf
+ru_2:
+    ld   4, ac
+    CALL dk_set
+    ld   s_rqu & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_rqu >> 8, ac
+    GOTO dk_msg
+
+; dk_hlf - HAIL FIRST.  dk_msg - the message R1 (AC): R0, the buttons and
+; the status again.  The end of dk_btn (its LEAVE)
+.chunk
+dk_hlf:
+    ld   s_hlf & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_hlf >> 8, ac
+dk_msg:
+    ld   ac, [R1]
+    CALL set_msg
+    ld   FL_PG, y
+    ld   DK_DR, x
+    ld   6, [y,x]
+    LEAVE
+
+; dk_clamp - 4: docked, RELEASE CLAMPS (undocking declared: dk_undk);
+; else CLAMP: docking declared and clear to clamp (DK_OK): docked
+; (fl_dock: the airlocks joined, the rooms worked out when the map
+; closes).  The rest of dk_btn
+.chunk
+dk_clamp:
+    CALL dk_dkd
+    beq  cl_u
+    ld   4, ac
+    CALL dk_st
+    bne  cl_r
+    ld   s_lock & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_lock >> 8, ac
+    GOTO dk_msg
+cl_r:
+    GOTO dk_undk
+cl_u:
+    ld   2, ac
+    CALL dk_st
+    bne  dcl_d
+    ld   s_ndc & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_ndc >> 8, ac
+    GOTO dk_msg
+dcl_d:
+    ld   FL_PG, y
+    ld   DK_OK, x
+    ld   [y,x], ac
+    bne  cl_on
+    ld   s_miss & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_miss >> 8, ac
+    GOTO dk_msg
+cl_on:
+    CALL fl_dock
+    ld   FL_PG, y               ; clamped: lined up, not turning (DK_YR to
+    ld   DK_YR, ac              ; DK_PW 0: heading east)
+    ld   ac, [u0]
+cz_l:
+    ld   [u0], x
+    ld   0x00, [y,x]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  DK_RS, ac
+    bne  cz_l
+    ld   1, ac
+    ld   ac, [rb_go]
+    ld   1, ac                  ; hailed only: declare again next time
+    CALL dk_hz
+    ld   s_dkon & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_dkon >> 8, ac
+    GOTO dk_msg
+
+; dk_hz - DK_ST &= AC, the height and its speed 0, clear to clamp off.
+; A leaf.
+.chunk
+dk_hz:
+    ld   ac, [u0]
+    ld   FL_PG, y
+    ld   DK_ST, x
+    ld   [y,x], ac
+    and  [u0], ac
+    ld   ac, [y,x]
+    ld   DK_Y, ac
+    ld   ac, [u0]
+hz_l:
+    ld   [u0], x
+    ld   0x00, [y,x]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  DK_Z, ac
+    bne  hz_l
+    ld   DK_OK, x
+    ld   0x00, [y,x]
+    RET
+
+; dk_undk - the clamps let go: undocked, 5 m/s away from the port
+; (west); the tug's airlock a closed door, the KESTREL 9's a wall while it
+; is away (no air between them), the rooms worked out when the map
+; closes.  The rest of dk_btn
+.chunk
+dk_undk:
+    ld   FL_PG, y
+    ld   FL_DOCK, x
+    ld   0x00, [y,x]
+    ld   FL_VX, x
+    ld   UNDOCK_B0, [y,x]
+    ld   FL_VX + 1, x
+    ld   UNDOCK_B1, [y,x]
+    ld   FL_VX + 2, x
+    ld   UNDOCK_B2, [y,x]
+    ld   FL_VX + 3, x
+    ld   UNDOCK_B3, [y,x]
+    ld   T_DOOR, ac
+    ld   ac, [u7]
+    ld   T_WALL, ac
+    CALL fl_locks
+    ld   1, ac
+    ld   ac, [rb_go]
+    CALL fl_rel
+    ld   FL_PG, y
+    ld   FL_GPL, x
+    ld   [w0], ac
+    ld   ac, [y,x]
+    ld   FL_GPH, x
+    ld   [w1], ac
+    ld   ac, [y,x]
+    CALL fl_save
+    ld   1, ac
+    CALL dk_hz
+    ld   s_undk & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_undk >> 8, ac
+    GOTO dk_msg
+
+; dk_drift - undocked: a random push to the height's speed and the
+; sideways one
+.chunk
+dk_drift:
+    PUSH_LINK
+    CALL dk_dkd
+    bne  dd_e
+    ld   DK_VY, ac
+    CALL dk_kick
+    ld   FL_VY, ac
+    CALL dk_kick
+dd_e:
+    LEAVE
+
+; dk_kick - a random -8192 to 8128 (1/2^24 m a frame) into the 4 bytes
+; at FL_PG + AC
+.chunk
+dk_kick:
+    PUSH_LINK
+    ld   ac, [u7]
+    CALL l_rand8
+    ld   ac, [u6]
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    ld   FL_PG, y
+    ld   DK_K, x
+    ld   ac, [y,x]
+    ld   [u6], ac
+    sub  128, ac
+    ld   ac, [u5]
+    shr  ac
+    shr  ac
+    ld   ac, [u4]
+    ld   [u5], ac
+    blt  kc_n
+    ld   [u4], ac
+    bra  kc_s
+kc_n:
+    ld   [u4], ac
+    or   0xC0, ac
+kc_s:
+    ld   FL_PG, y
+    ld   DK_K + 1, x
+    ld   ac, [y,x]
+    ld   DK_K, ac
+    ld   ac, [w1]
+    ld   [u7], ac
+    CALL fl_add24
+    LEAVE
+
+; dk_ld4 - w0-w3 = the 4 bytes at FL_PG + AC.  A leaf.
+.chunk
+dk_ld4:
+    ld   ac, [u4]
+    ld   FL_PG, y
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [w0]
+    ld   [u4], ac
+    add  1, x
+    ld   [y,x], ac
+    ld   ac, [w1]
+    ld   [u4], ac
+    add  2, x
+    ld   [y,x], ac
+    ld   ac, [w2]
+    ld   [u4], ac
+    add  3, x
+    ld   [y,x], ac
+    ld   ac, [w3]
+    RET
+
+; dk_neg - w3:w0 = -w3:w0.  A leaf.
+.chunk
+dk_neg:
+    ld   [w0], ac
+    xor  0xFF, ac
+    ld   ac, [w0]
+    ld   [w1], ac
+    xor  0xFF, ac
+    ld   ac, [w1]
+    ld   [w2], ac
+    xor  0xFF, ac
+    ld   ac, [w2]
+    ld   [w3], ac
+    xor  0xFF, ac
+    ld   ac, [w3]
+    ld   [w0], ac
+    inc
+    ld   ac, [w0]
+    bne  ng_e
+    ld   [w1], ac
+    inc
+    ld   ac, [w1]
+    bne  ng_e
+    ld   [w2], ac
+    inc
+    ld   ac, [w2]
+    bne  ng_e
+    ld   [w3], ac
+    inc
+    ld   ac, [w3]
+ng_e:
+    RET
+
+; dk_diff - w3:w0 = u6:u5 metres (16.16) less the position at FL_PG + AC
+.chunk
+dk_diff:
+    PUSH_LINK
+    CALL dk_ld4
+    CALL dk_neg
+    ld   [w2], ac
+    add  [u5], ac
+    ld   ac, [w2]
+    ld   [w3], ac
+    bcc  df_1
+    inc
+df_1:
+    add  [u6], ac
+    ld   ac, [w3]
+    LEAVE
+
+; dk_s16 - AC = w3:w0 (metres, 16.16) in 1/16 m, held to +-112 (7 m).
+; A leaf.
+.chunk
+dk_s16:
+    ld   [w3], ac
+    beq  sx_p
+    xor  0xFF, ac
+    bne  sx_b
+    ld   [w2], ac
+    sub  0xF9, ac
+    bcs  sx_lo
+    bra  sx_ok
+sx_p:
+    ld   [w2], ac
+    sub  7, ac
+    bcc  sx_hi
+sx_ok:
+    ld   [w2], ac
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [u0]
+    ld   [w1], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    or   [u0], ac
+    RET
+sx_b:
+    ld   [w3], ac
+    blt  sx_lo
+sx_hi:
+    ld   112, ac
+    RET
+sx_lo:
+    ld   0x90, ac               ; -112
+    RET
+
+; dk_sim - every 4 frames: the range in half metres (DK_D2: 0 a metre
+; past the port at most, else 239 past it or 120 m or more), the port
+; sideways and up in 1/16 m (DK_X, DK_YS), clear to clamp (dk_okd)
+.chunk
+dk_sim:
+    PUSH_LINK
+    ld   DOCK_X & 0xFF, ac
+    ld   ac, [u5]
+    ld   DOCK_X >> 8, ac
+    ld   ac, [u6]
+    ld   FL_PX, ac
+    CALL dk_diff
+    ld   [w3], ac
+    bne  sm_f
+    ld   [w2], ac
+    sub  120, ac
+    bcc  sm_b
+    ld   [w2], ac
+    shl
+    ld   ac, [u0]
+    ld   [w1], ac
+    and  0x80, ac
+    beq  sm_h
+    ld   [u0], ac
+    or   1, ac
+    bra  sm_s
+sm_h:
+    ld   [u0], ac
+    bra  sm_s
+sm_f:
+    xor  0xFF, ac               ; just past the port: 0
+    bne  sm_b
+    ld   [w2], ac
+    xor  0xFF, ac
+    beq  sm_s
+sm_b:
+    ld   239, ac
+sm_s:
+    ld   FL_PG, y
+    ld   DK_D2, x
+    ld   ac, [y,x]
+    GOTO dk_sim2
+
+; dk_sim2 - the offsets.  The rest of dk_sim
+.chunk
+dk_sim2:
+    ld   DOCK_Y & 0xFF, ac
+    ld   ac, [u5]
+    ld   DOCK_Y >> 8, ac
+    ld   ac, [u6]
+    ld   FL_PY, ac
+    CALL dk_diff
+    CALL dk_s16
+    ld   FL_PG, y
+    ld   DK_X, x
+    ld   ac, [y,x]
+    clr  ac
+    ld   ac, [u5]
+    ld   ac, [u6]
+    ld   DK_Y, ac
+    CALL dk_diff
+    CALL dk_s16
+    ld   FL_PG, y
+    ld   DK_YS, x
+    ld   ac, [y,x]
+    ld   DK_YW, ac              ; the angles: the yaw right moves the port
+    CALL dk_ang                 ; left, the pitch up moves it down
+    xor  0xFF, ac
+    inc
+    ld   ac, [u4]
+    ld   DK_X, ac
+    CALL dk_off
+    ld   DK_PW, ac
+    CALL dk_ang
+    ld   ac, [u4]
+    ld   DK_YS, ac
+    CALL dk_off
+    GOTO dk_okd
+
+; dk_ang - AC = the angle at FL_PG + AC (2 bytes: 1/256 steps, steps mod
+; 32, signed) / 16, held to +-64.  A leaf.
+.chunk
+dk_ang:
+    ld   ac, [u3]
+    ld   ac, x
+    ld   FL_PG, y
+    ld   [y,x], ac
+    ld   ac, [u2]
+    ld   [u3], ac
+    add  1, x
+    ld   [y,x], ac
+    add  16, ac
+    and  31, ac
+    ld   ac, [u3]
+    sub  20, ac
+    bcc  ag_h
+    ld   [u3], ac
+    sub  12, ac
+    bcs  ag_l
+    ld   [u3], ac
+    sub  16, ac
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [u3]
+    ld   [u2], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    add  [u3], ac
+    RET
+ag_h:
+    ld   64, ac
+    RET
+ag_l:
+    ld   0xC0, ac
+    RET
+
+; dk_off - (the byte at FL_PG + AC) / 2 + u4 (signed: halves, no carry
+; out) to FL_PG + AC + x17 (DK_X, DK_YS: DK_RX, DK_RY, half size).  A leaf.
+.chunk
+dk_off:
+    ld   ac, [u3]
+    ld   ac, x
+    ld   FL_PG, y
+    ld   [y,x], ac
+    blt  of_n
+    shr  ac
+    bra  of_a
+of_n:
+    shr  ac
+    or   0x80, ac
+of_a:
+    add  [u4], ac
+    ld   ac, [u5]
+    ld   [u3], ac
+    add  DK_RX - DK_X, x
+    ld   [u5], ac
+    ld   ac, [y,x]
+    RET
+
+; dk_okd - DK_OK from dk_okc; the buttons again when it changed.  The end
+; of dk_sim (its LEAVE)
+.chunk
+dk_okd:
+    CALL dk_okc
+    ld   ac, [u3]
+    ld   FL_PG, y
+    ld   DK_OK, x
+    ld   [y,x], ac
+    xor  [u3], ac
+    beq  ok_s
+    ld   DK_DR, x
+    ld   6, [y,x]
+ok_s:
+    ld   DK_OK, x
+    ld   [u3], ac
+    ld   ac, [y,x]
+    LEAVE
+
+; dk_okc - AC = 1 when the clamps would hold: undocked, docking declared,
+; under 3.5 m to go, 12/16 m or less off each way (the angles in it),
+; every speed under 3/256 m a frame, not turning
+.chunk
+dk_okc:
+    PUSH_LINK
+    CALL dk_dkd
+    bne  oc_n
+    ld   2, ac
+    CALL dk_st
+    beq  oc_n
+    ld   FL_PG, y               ; (a CALL's return sets y)
+    ld   DK_D2, x
+    ld   [y,x], ac
+    sub  7, ac
+    bcc  oc_n
+    ld   DK_RX, ac
+    CALL dk_sm
+    beq  oc_n
+    ld   DK_RY, ac
+    CALL dk_sm
+    beq  oc_n
+    ld   FL_VX, ac
+    CALL dk_slow
+    beq  oc_n
+    ld   FL_VY, ac
+    CALL dk_slow
+    beq  oc_n
+    ld   DK_VY, ac
+    CALL dk_slow
+    beq  oc_n
+    ld   FL_PG, y               ; not turning
+    ld   DK_YR, x
+    ld   [y,x], ac
+    ld   DK_PR, x
+    or   [y,x], ac
+    bne  oc_n
+    ld   1, ac
+    LEAVE
+oc_n:
+    clr  ac
+    LEAVE
+
+; dk_sm - AC = 1 when |the byte at FL_PG + AC| is 6 or less (DK_RX, DK_RY:
+; half size, 12/16 m).  A leaf.
+.chunk
+dk_sm:
+    ld   ac, x
+    ld   FL_PG, y
+    ld   [y,x], ac
+    blt  sq_n
+    bra  sq_c
+sq_n:
+    xor  0xFF, ac
+    inc
+sq_c:
+    sub  7, ac
+    bcs  sq_y
+    clr  ac
+    RET
+sq_y:
+    ld   1, ac
+    RET
+
+; dk_slow - AC = 1 when the speed at FL_PG + AC (4 bytes) is under 3/256
+; m a frame each way
+.chunk
+dk_slow:
+    PUSH_LINK
+    add  2, ac
+    CALL fl_abs
+    ld   [u1], ac
+    bne  dsl_n
+    ld   [u0], ac
+    sub  3, ac
+    bcc  dsl_n
+    ld   1, ac
+    LEAVE
+dsl_n:
+    clr  ac
+    LEAVE
+
+; dk_ring - the port's ring: radius 960 / (DK_D2 + 16) (2 at least), its
+; middle DK_CX + DK_RX, DK_CY + DK_RY (half size: dk_off); the old one rubbed out
+; (XOR) when it moved
+.chunk
+dk_ring:
+    PUSH_LINK
+    ld   0xC0, ac
+    ld   ac, [R0]
+    ld   0x03, ac
+    ld   ac, [R1]
+    ld   FL_PG, y
+    ld   DK_D2, x
+    ld   [y,x], ac
+    add  16, ac
+    ld   ac, [R2]
+    CALL l_div16
+    ld   [R0], ac
+    ld   ac, [u7]
+    sub  2, ac
+    bcc  dr_1
+    ld   2, ac
+    ld   ac, [u7]
+dr_1:
+    ld   FL_PG, y
+    ld   DK_RX, x
+    ld   [y,x], ac
+    add  DK_CX, ac
+    ld   ac, [u5]
+    ld   FL_PG, y
+    ld   DK_RY, x
+    ld   [y,x], ac
+    add  DK_CY, ac
+    ld   ac, [u6]
+    GOTO dk_ring2
+
+; dk_ring2 - the same ring: nothing; else the old one rubbed out, the new
+; one drawn.  The rest of dk_ring
+.chunk
+dk_ring2:
+    ld   FL_PG, y
+    ld   DK_ON, x
+    ld   [y,x], ac
+    beq  dr_n
+    ld   DK_OX, x
+    ld   [y,x], ac
+    xor  [u5], ac
+    bne  dr_c
+    ld   DK_OY, x
+    ld   [y,x], ac
+    xor  [u6], ac
+    bne  dr_c
+    ld   DK_OR, x
+    ld   [y,x], ac
+    xor  [u7], ac
+    bne  dr_c
+    LEAVE
+dr_c:
+    ld   [u5], ac
+    ld   ac, [w4]
+    ld   [u6], ac
+    ld   ac, [w5]
+    ld   [u7], ac
+    ld   ac, [w6]
+    ld   DK_OX, x
+    ld   [y,x], ac
+    ld   ac, [u5]
+    ld   DK_OY, x
+    ld   [y,x], ac
+    ld   ac, [u6]
+    ld   DK_OR, x
+    ld   [y,x], ac
+    ld   ac, [u7]
+    ld   4, ac
+    ld   ac, [v0]
+    CALL dk_circ
+    ld   [w4], ac
+    ld   ac, [u5]
+    ld   [w5], ac
+    ld   ac, [u6]
+    ld   [w6], ac
+    ld   ac, [u7]
+dr_n:
+    ld   FL_PG, y
+    ld   DK_ON, x
+    ld   1, [y,x]
+    ld   DK_OX, x
+    ld   [u5], ac
+    ld   ac, [y,x]
+    ld   DK_OY, x
+    ld   [u6], ac
+    ld   ac, [y,x]
+    ld   DK_OR, x
+    ld   [u7], ac
+    ld   ac, [y,x]
+    ld   4, ac
+    ld   ac, [v0]
+    CALL dk_circ
+    LEAVE
+
+; dk_circ - a circle round u5, u6 (x / 2, line pair), radius u7 (60 at
+; most), XOR (dk_px; v0 0 thick, 4 thin): the midpoint way, 8 points a
+; step (a point twice: drawn and rubbed out, so not twice)
+.chunk
+dk_circ:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [v1]               ; v1 x, v2 y, v3 the error
+    ld   [u7], ac
+    ld   ac, [v2]
+    ld   1, ac
+    sub  [u7], ac
+    ld   ac, [v3]
+dc_l:
+    ld   [v2], ac
+    sub  [v1], ac
+    bcs  dc_e
+    ld   [v1], ac
+    ld   ac, [v4]
+    ld   [v2], ac
+    ld   ac, [v5]
+    CALL dk_c4
+    ld   [v1], ac
+    xor  [v2], ac
+    beq  dc_s
+    ld   [v2], ac
+    ld   ac, [v4]
+    ld   [v1], ac
+    ld   ac, [v5]
+    CALL dk_c4
+dc_s:
+    ld   [v3], ac
+    blt  dci_n
+    ld   [v1], ac
+    sub  [v2], ac
+    shl
+    add  5, ac
+    add  [v3], ac
+    ld   ac, [v3]
+    ld   [v2], ac
+    dec
+    ld   ac, [v2]
+    bra  dc_x
+dci_n:
+    ld   [v1], ac
+    shl
+    add  3, ac
+    add  [v3], ac
+    ld   ac, [v3]
+dc_x:
+    ld   [v1], ac
+    inc
+    ld   ac, [v1]
+    bra  dc_l
+dc_e:
+    LEAVE
+
+; dk_c4 - the points +-v4, +-v5 from the middle (each once).  dk_c2 -
+; +-v4, AC
+.chunk
+dk_c4:
+    PUSH_LINK
+    ld   [v5], ac
+    CALL dk_c2
+    ld   [v5], ac
+    beq  c4_e
+    xor  0xFF, ac
+    inc
+    CALL dk_c2
+c4_e:
+    LEAVE
+
+.chunk
+dk_c2:
+    PUSH_LINK
+    add  [u6], ac
+    ld   ac, [u1]
+    ld   [v4], ac
+    add  [u5], ac
+    ld   ac, [u0]
+    CALL dk_px
+    ld   [v4], ac
+    beq  c2_e
+    ld   [u5], ac
+    sub  [v4], ac
+    ld   ac, [u0]
+    CALL dk_px
+c2_e:
+    LEAVE
+
+; dk_px - XOR the 2 pixels u0 (x / 2) at line pair u1, both (v0 0) or the
+; left one (v0 4), inside the rings' box (u0 2-157, line pairs 34-174).
+; A leaf; u3, u4.
+.chunk
+dk_px:
+    ld   [u0], ac
+    sub  2, ac
+    bcs  px_e
+    ld   [u0], ac
+    sub  158, ac
+    bcc  px_e
+    ld   [u1], ac
+    sub  34, ac
+    bcs  px_e
+    ld   [u1], ac
+    sub  175, ac
+    bcc  px_e
+    ld   DK_MK >> 8, y
+    ld   [u0], ac
+    and  3, ac
+    add  [v0], ac
+    add  DK_MK & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u3]
+    ld   [u1], ac
+    sub  112, ac
+    bcs  px_l
+    ld   [u1], ac
+    shl
+    sub  223, ac
+    bra  px_o
+px_l:
+    ld   [u1], ac
+    shl
+    add  32, ac
+px_o:
+    ld   ac, [u4]
+    ld   [u0], ac               ; byte column u0 / 4: page x61 + (u0 >> 1) & x7E
+    shr  ac
+    and  0x7E, ac
+    add  0x61, ac
+    ld   ac, y
+    ld   [u4], x
+    ld   [y,x], ac
+    xor  [u3], ac
+    ld   ac, [y,x]
+px_e:
+    RET
+DK_MK:                          ; (1 bpp: pixel i bit i)
+    #d8 0x03, 0x0C, 0x30, 0xC0, 0x01, 0x04, 0x10, 0x40
+
+; dk_pon - the pointer drawn (XOR) at the mouse: its byte column, bit
+; and line pair kept.  dk_poff - rubbed out
+.chunk
+dk_pon:
+    PUSH_LINK
+    ld   [m_ok], ac
+    beq  po_e
+    ld   FL_PG, y
+    ld   [m_xl], ac
+    and  7, ac
+    ld   DK_PB, x
+    ld   ac, [y,x]
+    ld   [m_xl], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [u0]
+    ld   [m_xh], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [u0], ac
+    ld   DK_PC, x
+    ld   ac, [y,x]
+    ld   [m_yl], ac
+    shr  ac
+    ld   ac, [u0]
+    ld   [m_yh], ac
+    beq  po_1
+    ld   [u0], ac
+    or   0x80, ac
+    ld   ac, [u0]
+po_1:
+    ld   [u0], ac
+    ld   DK_PL, x
+    ld   ac, [y,x]
+    ld   DK_PO, x
+    ld   1, [y,x]
+    CALL dk_pxr
+po_e:
+    LEAVE
+
+.chunk
+dk_poff:
+    PUSH_LINK
+    ld   FL_PG, y
+    ld   DK_PO, x
+    ld   [y,x], ac
+    beq  pf_e
+    ld   0x00, [y,x]
+    CALL dk_pxr
+pf_e:
+    LEAVE
+
+; dk_pxr - XOR the arrow (DK_AR, 7 line pairs) at DK_PC, DK_PB, DK_PL (no
+; line past 479, no byte past column 79).  A leaf; u0-u4.
+.chunk
+dk_pxr:
+    clr  ac
+    ld   ac, [u1]
+pr_l:
+    ld   DK_AR >> 8, y
+    ld   [u1], ac
+    add  DK_AR & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u2]
+    clr  ac
+    ld   ac, [u3]
+    ld   FL_PG, y
+    ld   DK_PB, x
+    ld   [y,x], ac
+    ld   ac, [u4]
+pr_s:
+    ld   [u4], ac
+    beq  pr_d
+    dec
+    ld   ac, [u4]
+    ld   [u3], ac
+    shl
+    ld   ac, [u3]
+    ld   [u2], ac
+    shl
+    ld   ac, [u2]
+    bcc  pr_s
+    ld   [u3], ac
+    or   1, ac
+    ld   ac, [u3]
+    bra  pr_s
+pr_d:
+    ld   DK_PL, x
+    ld   [y,x], ac
+    add  [u1], ac
+    ld   ac, [u0]
+    sub  240, ac
+    bcc  dpr_e
+    ld   [u0], ac
+    sub  112, ac
+    bcs  dpr_lo
+    ld   [u0], ac
+    shl
+    sub  223, ac
+    bra  pr_o
+dpr_lo:
+    ld   [u0], ac
+    shl
+    add  32, ac
+pr_o:
+    ld   ac, [u0]
+    ld   DK_PC, x
+    ld   [y,x], ac
+    shl
+    add  0x61, ac
+    ld   ac, [u4]
+    ld   [u4], y
+    ld   [u0], x
+    ld   [y,x], ac
+    xor  [u2], ac
+    ld   ac, [y,x]
+    ld   [u4], ac
+    xor  0xFF, ac
+    beq  dpr_n
+    ld   [u4], ac
+    add  2, ac
+    ld   ac, y
+    ld   [y,x], ac
+    xor  [u3], ac
+    ld   ac, [y,x]
+dpr_n:
+    ld   [u1], ac
+    inc
+    ld   ac, [u1]
+    xor  7, ac
+    bne  pr_l
+dpr_e:
+    RET
+DK_AR:
+    #d8 0x01, 0x03, 0x07, 0x0F, 0x1F, 0x07, 0x0D
+
+; dk_scr - the screen: black, lines 0-383 1 bpp, the boxes, the text, the
+; tug's ring; the buttons on the next frame that draws them (DK_DR)
+.chunk
+dk_scr:
+    PUSH_LINK
+    ld   32, ac
+    CALL clear_rows
+    ld   1, ac
+    CALL clear_rows
+    ld   0x5A, y                ; the mode bytes x5A20 + the line
+    ld   0x20, ac
+    ld   ac, [u0]
+dsc_1:
+    ld   [u0], x
+    ld   0x04, [y,x]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    bne  dsc_1
+    ld   0x5B, y
+dsc_2:
+    ld   [u0], x
+    ld   0x04, [y,x]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  0xA0, ac
+    bne  dsc_2
+    CALL dk_box
+    CALL dk_labs
+    CALL dk_tug
+    LEAVE
+
+; dk_box - the two boxes' lines: across at line pairs 4 and 187 (offsets
+; 40, 151) but column 40, down columns 0, 39, 41 and 79 (their outer
+; pixel).  A leaf.
+.chunk
+dk_box:
+    ld   0x61, ac
+    ld   ac, [u0]
+bxh_l:
+    ld   [u0], ac
+    xor  0x61 + 80, ac
+    beq  bxh_n
+    ld   [u0], y
+    ld   40, x
+    ld   0xFF, [y,x]
+    ld   151, x
+    ld   0xFF, [y,x]
+bxh_n:
+    ld   [u0], ac
+    add  2, ac
+    ld   ac, [u0]
+    xor  0x01, ac
+    bne  bxh_l
+    ld   40, ac
+    ld   ac, [u1]
+bxv_l:
+    ld   [u1], x
+    ld   0x61, y
+    ld   [y,x], ac
+    or   0x01, ac
+    ld   ac, [y,x]
+    ld   0x61 + 78, y
+    ld   [y,x], ac
+    or   0x80, ac
+    ld   ac, [y,x]
+    ld   0x61 + 82, y
+    ld   [y,x], ac
+    or   0x01, ac
+    ld   ac, [y,x]
+    ld   0xFF, y
+    ld   [y,x], ac
+    or   0x80, ac
+    ld   ac, [y,x]
+    ld   [u1], ac
+    add  2, ac
+    bcc  bxv_s
+    ld   1, ac
+bxv_s:
+    ld   ac, [u1]
+    xor  153, ac
+    bne  bxv_l
+    RET
+
+; dk_tug - the tug's ring (thick) and a dashed cross through the middle
+.chunk
+dk_tug:
+    PUSH_LINK
+    ld   DK_CX, ac
+    ld   ac, [u5]
+    ld   DK_CY, ac
+    ld   ac, [u6]
+    ld   DK_TR, ac
+    ld   ac, [u7]
+    clr  ac
+    ld   ac, [v0]
+    CALL dk_circ
+    ld   DK_CX - 40, ac         ; (inside the ring: none on it)
+    ld   ac, [v1]
+dtg_l:
+    ld   [v1], ac
+    ld   ac, [u0]
+    ld   DK_CY, ac
+    ld   ac, [u1]
+    CALL dk_px
+    ld   DK_CX, ac
+    ld   ac, [u0]
+    ld   [v1], ac
+    add  DK_CY - DK_CX, ac
+    ld   ac, [u1]
+    CALL dk_px
+    ld   [v1], ac
+    add  4, ac
+    ld   ac, [v1]
+    xor  DK_CX + 44, ac
+    bne  dtg_l
+    LEAVE
+
+; dk_labs - the fixed text (DK_LAB: row, bit 7 inverse; column; the
+; string)
+.chunk
+dk_labs:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [v0]
+dl_l:
+    ld   DK_LAB >> 8, y
+    ld   [v0], ac
+    add  DK_LAB & 0xFF, x
+    ld   [y,x], ac
+    xor  0xFF, ac
+    beq  dl_e
+    ld   [y,x], ac
+    and  0x80, ac
+    ld   ac, [p_inv]
+    ld   [y,x], ac
+    and  0x7F, ac
+    ld   ac, [CUR_ROW]
+    ld   [v0], ac
+    add  (DK_LAB & 0xFF) + 1, x
+    ld   [y,x], ac
+    ld   ac, [CUR_COL]
+    ld   [v0], ac
+    add  (DK_LAB & 0xFF) + 2, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   [v0], ac
+    add  (DK_LAB & 0xFF) + 3, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    CALL tputs
+    ld   [v0], ac
+    add  4, ac
+    ld   ac, [v0]
+    bra  dl_l
+dl_e:
+    clr  ac
+    ld   ac, [p_inv]
+    LEAVE
+DK_LAB:
+    #d8 0x80, 2, s_l0 & 0xFF, s_l0 >> 8, 0x80, 43, s_l1 & 0xFF, s_l1 >> 8
+    #d8 1, 2, s_l2 & 0xFF, s_l2 >> 8, 1, 20, s_l3 & 0xFF, s_l3 >> 8
+    #d8 2, 2, s_l4 & 0xFF, s_l4 >> 8, 2, 20, s_l5 & 0xFF, s_l5 >> 8
+    #d8 3, 2, s_l6 & 0xFF, s_l6 >> 8, 3, 20, s_l5 & 0xFF, s_l5 >> 8
+    #d8 2, 43, s_l7 & 0xFF, s_l7 >> 8, 3, 43, s_l8 & 0xFF, s_l8 >> 8
+    #d8 4, 43, s_l9 & 0xFF, s_l9 >> 8
+    #d8 17, 43, s_h0 & 0xFF, s_h0 >> 8, 18, 43, s_h1 & 0xFF, s_h1 >> 8
+    #d8 19, 43, s_h2 & 0xFF, s_h2 >> 8
+    #d8 25, 1, s_dk0 & 0xFF, s_dk0 >> 8, 26, 1, s_dk1 & 0xFF, s_dk1 >> 8
+    #d8 0xFF
+
+; dk_bts - button AC (0-4: inverse but the one under the mouse; 4
+; flashing while clear to clamp, RELEASE CLAMPS while docked), or 5 the
+; status (dk_frame: one a frame, DK_DR counting down from 6)
+.chunk
+dk_bts:
+    PUSH_LINK
+    ld   ac, [v0]
+    xor  5, ac
+    bne  bt_l
+    GOTO dk_stl
+bt_l:
+    ld   [v0], ac
+    shl
+    add  7, ac
+    ld   ac, [CUR_ROW]
+    ld   43, ac
+    ld   ac, [CUR_COL]
+    ld   0x80, ac
+    ld   ac, [v1]
+    ld   FL_PG, y
+    ld   DK_HV, x
+    ld   [y,x], ac
+    xor  [v0], ac
+    bne  bt_h
+    clr  ac
+    ld   ac, [v1]
+bt_h:
+    ld   [v0], ac
+    xor  3, ac
+    bne  bt_p
+    ld   DK_OK, x
+    ld   [y,x], ac
+    beq  bt_c
+    ld   DK_T, x
+    ld   [y,x], ac
+    and  16, ac
+    beq  bt_c
+    ld   [v1], ac
+    xor  0x80, ac
+    ld   ac, [v1]
+bt_c:
+    ld   FL_DOCK, x
+    ld   [y,x], ac
+    beq  bt_p
+    ld   5, ac
+    bra  bt_s
+bt_p:
+    ld   [v0], ac
+bt_s:
+    shl
+    ld   ac, [v2]
+    ld   [v1], ac
+    ld   ac, [p_inv]
+    ld   DK_BL >> 8, y
+    ld   [v2], ac
+    add  DK_BL & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   [v2], ac
+    add  (DK_BL & 0xFF) + 1, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    CALL tputs
+    clr  ac
+    ld   ac, [p_inv]
+    LEAVE
+DK_BL:
+    #d8 s_b0 & 0xFF, s_b0 >> 8, s_b1 & 0xFF, s_b1 >> 8, s_b2 & 0xFF, s_b2 >> 8
+    #d8 s_b3 & 0xFF, s_b3 >> 8, s_b4 & 0xFF, s_b4 >> 8, s_b5 & 0xFF, s_b5 >> 8
+
+; dk_stl - the status (row 4, from column 52).  The rest of dk_bts
+.chunk
+dk_stl:
+    ld   4, ac
+    ld   ac, [CUR_ROW]
+    ld   52, ac
+    ld   ac, [CUR_COL]
+    CALL dk_dkd
+    beq  st_u
+    ld   4, ac
+    CALL dk_st
+    beq  st_c
+    ld   s_s5 & 0xFF, ac
+    bra  st_p
+st_c:
+    ld   s_s4 & 0xFF, ac
+    bra  st_p
+st_u:
+    ld   2, ac
+    CALL dk_st
+    beq  dst_1
+    ld   s_s3 & 0xFF, ac
+    bra  st_p
+dst_1:
+    ld   1, ac
+    CALL dk_st
+    beq  dst_0
+    ld   s_s2 & 0xFF, ac
+    bra  st_p
+dst_0:
+    ld   s_s1 & 0xFF, ac
+st_p:
+    ld   ac, [R0]
+    ld   s_s1 >> 8, ac          ; (the statuses share a page: one chunk)
+    ld   ac, [R1]
+    CALL tputs
+    LEAVE
+
+; dk_flash - row 22: DOCKED steady, or CLEAR TO CLAMP flashing (inverse
+; every other 16 frames; the clamp button with it), or blank
+.chunk
+dk_flash:
+    PUSH_LINK
+    ld   22, ac
+    ld   ac, [CUR_ROW]
+    ld   11, ac
+    ld   ac, [CUR_COL]
+    CALL dk_dkd
+    beq  fl_1
+    ld   0x80, ac
+    ld   ac, [p_inv]
+    ld   s_dko & 0xFF, ac
+    bra  fl_s
+fl_1:
+    ld   FL_PG, y
+    ld   DK_OK, x
+    ld   [y,x], ac
+    beq  fl_b
+    ld   DK_DR, x
+    ld   6, [y,x]
+    ld   DK_T, x
+    ld   [y,x], ac
+    and  16, ac
+    shl
+    shl
+    shl
+    ld   ac, [p_inv]
+    ld   s_ctc & 0xFF, ac
+    bra  fl_s
+fl_b:
+    ld   s_blk & 0xFF, ac
+fl_s:
+    ld   ac, [R0]
+    ld   s_ctc >> 8, ac         ; (the three share a page: one chunk)
+    ld   ac, [R1]
+    CALL tputs
+    clr  ac
+    ld   ac, [p_inv]
+    LEAVE
+
+; dk_read - the readouts, rows 1-3: the range (metres) and the closing
+; speed, the tug sideways (right +) and its drift, up and its drift
+.chunk
+dk_read:
+    PUSH_LINK
+    ld   1, ac
+    ld   ac, [CUR_ROW]
+    ld   DOCK_X & 0xFF, ac
+    ld   ac, [u5]
+    ld   DOCK_X >> 8, ac
+    ld   ac, [u6]
+    ld   FL_PX, ac
+    CALL dk_diff
+    clr  ac
+    ld   ac, [v7]
+    CALL dk_sabs
+    ld   [w2], ac
+    ld   ac, [w0]
+    ld   [w3], ac
+    ld   ac, [w1]
+    ld   10, ac
+    CALL dk_pint
+    clr  ac
+    ld   ac, [v7]
+    ld   30, ac
+    ld   ac, [v6]
+    ld   FL_VX, ac
+    CALL dk_rate
+    ld   2, ac
+    ld   ac, [CUR_ROW]
+    ld   DOCK_Y & 0xFF, ac
+    ld   ac, [u5]
+    ld   DOCK_Y >> 8, ac
+    ld   ac, [u6]
+    ld   FL_PY, ac
+    CALL dk_diff
+    ld   0x80, ac
+    ld   ac, [v7]
+    ld   10, ac
+    ld   ac, [v6]
+    CALL dk_dist
+    GOTO dk_read2
+
+; dk_read2 - the rest of the readouts.  The rest of dk_read
+.chunk
+dk_read2:
+    clr  ac
+    ld   ac, [v7]
+    ld   30, ac
+    ld   ac, [v6]
+    ld   FL_VY, ac
+    CALL dk_rate
+    ld   3, ac
+    ld   ac, [CUR_ROW]
+    clr  ac
+    ld   ac, [u5]
+    ld   ac, [u6]
+    ld   DK_Y, ac
+    CALL dk_diff
+    clr  ac
+    ld   ac, [v7]
+    ld   10, ac
+    ld   ac, [v6]
+    CALL dk_dist
+    ld   0x80, ac
+    ld   ac, [v7]
+    ld   30, ac
+    ld   ac, [v6]
+    ld   DK_VY, ac
+    CALL dk_rate
+    LEAVE
+
+; dk_sabs - u7 = the sign of w3:w0 (80 negative) xor v7, w3:w0 = its
+; size.  A leaf (dk_neg inline).
+.chunk
+dk_sabs:
+    ld   [w3], ac
+    and  0x80, ac
+    xor  [v7], ac
+    ld   ac, [u7]
+    ld   [w3], ac
+    blt  sa_n
+    RET
+sa_n:
+    GOTO dk_neg
+
+; dk_rate - the speed at FL_PG + AC (4 bytes, 1/2^24 m a frame) in m/s
+; to a tenth from column v6 (its sign xor v7): (w2:w1) / 109 under 1 m a
+; frame, (w3:w2) x 75 / 32 to 16 m a frame, else 999.9
+.chunk
+dk_rate:
+    PUSH_LINK
+    CALL dk_ld4
+    CALL dk_sabs
+    ld   [w3], ac
+    bne  rt_b
+    ld   [w1], ac
+    ld   ac, [R0]
+    ld   [w2], ac
+    ld   ac, [R1]
+    ld   109, ac
+    ld   ac, [R2]
+    CALL l_div16
+    ld   [R0], ac
+    ld   ac, [w0]
+    ld   [R1], ac
+    ld   ac, [w1]
+    ld   [v6], ac
+    CALL dk_pt
+    LEAVE
+rt_b:
+    GOTO dk_rate2
+
+; dk_rate2 - 1 m a frame or more.  The rest of dk_rate
+.chunk
+dk_rate2:
+    ld   [w3], ac
+    sub  16, ac
+    bcc  rt_x
+    ld   [w2], ac
+    ld   ac, [R0]
+    ld   75, ac
+    ld   ac, [R1]
+    CALL l_mul8
+    ld   [R2], ac
+    ld   ac, [w0]
+    ld   [R3], ac
+    ld   ac, [w1]
+    ld   [w3], ac
+    ld   ac, [R0]
+    ld   75, ac
+    ld   ac, [R1]
+    CALL l_mul8
+    ld   [R2], ac
+    add  [w1], ac
+    ld   ac, [R1]
+    ld   [w0], ac
+    ld   ac, [R0]
+    ld   5, ac
+    ld   ac, [w4]
+rt_s:
+    CALL shr16
+    ld   [w4], ac
+    dec
+    ld   ac, [w4]
+    bne  rt_s
+    ld   [R0], ac
+    ld   ac, [w0]
+    ld   [R1], ac
+    ld   ac, [w1]
+    bra  rt_d
+rt_x:
+    ld   0x0F, ac               ; 9999
+    ld   ac, [w0]
+    ld   0x27, ac
+    ld   ac, [w1]
+rt_d:
+    ld   [v6], ac
+    CALL dk_pt
+    LEAVE
+
+; dk_dist - w3:w0 (metres, 16.16) to a tenth from column v6 (its sign
+; xor v7): w2 x 10 + w1 x 10 / 256 under 256 m, else 999.9
+.chunk
+dk_dist:
+    PUSH_LINK
+    CALL dk_sabs
+    ld   [w3], ac
+    bne  di_x
+    ld   [w1], ac
+    ld   ac, [R0]
+    ld   10, ac
+    ld   ac, [R1]
+    CALL l_mul8
+    ld   [R3], ac
+    ld   ac, [u3]
+    ld   [w2], ac
+    ld   ac, [R0]
+    ld   10, ac
+    ld   ac, [R1]
+    CALL l_mul8
+    ld   [R2], ac
+    add  [u3], ac
+    ld   ac, [w0]
+    ld   [R3], ac
+    bcc  di_c
+    inc
+di_c:
+    ld   ac, [w1]
+    bra  di_d
+di_x:
+    ld   0x0F, ac
+    ld   ac, [w0]
+    ld   0x27, ac
+    ld   ac, [w1]
+di_d:
+    ld   [v6], ac
+    CALL dk_pt
+    LEAVE
+
+; dk_pt - w1:w0 tenths from column AC (u7 its sign: 80 -), two spaces
+; after.  dk_pint - w1:w0 whole
+.chunk
+dk_pt:
+    PUSH_LINK
+    ld   ac, [CUR_COL]
+    CALL dk_sgn
+    ld   [w0], ac
+    ld   ac, [R0]
+    ld   [w1], ac
+    ld   ac, [R1]
+    ld   10, ac
+    ld   ac, [R2]
+    CALL l_div16
+    ld   ac, [u3]
+    ld   [R0], ac
+    ld   ac, [num_l]
+    ld   [R1], ac
+    ld   ac, [num_h]
+    CALL put_dec
+    ld   0x2E, ac
+    CALL tputc
+    ld   [u3], ac
+    add  0x30, ac
+    CALL tputc
+    GOTO dk_pad
+
+.chunk
+dk_pint:
+    PUSH_LINK
+    ld   ac, [CUR_COL]
+    CALL dk_sgn
+    ld   [w0], ac
+    ld   ac, [num_l]
+    ld   [w1], ac
+    ld   ac, [num_h]
+    CALL put_dec
+dk_pad:
+    ld   0x20, ac
+    CALL tputc
+    ld   0x20, ac
+    CALL tputc
+    LEAVE
+
+; dk_sgn - a space (w1:w0 0), + or - (u7).
+.chunk
+dk_sgn:
+    PUSH_LINK
+    ld   0x20, ac
+    ld   ac, [u2]
+    ld   [w0], ac
+    or   [w1], ac
+    beq  sg_p
+    ld   0x2B, ac
+    ld   ac, [u2]
+    ld   [u7], ac
+    beq  sg_p
+    ld   0x2D, ac
+    ld   ac, [u2]
+sg_p:
+    ld   [u2], ac
+    CALL tputc
+    LEAVE
+
+; ------------------------------------------------------------
+; the strings
+; ------------------------------------------------------------
+.chunk
+s_l0:
+    #d " DOCKING ", 0x00
+s_l1:
+    #d " COMMS CONTROL ", 0x00
+s_l2:
+    #d "RANGE M", 0x00
+s_l3:
+    #d "CLOSE M/S", 0x00
+s_l4:
+    #d "SIDE M", 0x00
+s_l5:
+    #d "DRIFT M/S", 0x00
+s_l6:
+    #d "UP M", 0x00
+s_l7:
+    #d "TARGET  KESTREL 9, A DERELICT", 0x00
+s_l8:
+    #d "PORT    1, ON ITS WEST SIDE", 0x00
+s_l9:
+    #d "STATUS", 0x00
+
+.chunk
+s_h0:
+    #d "HAIL, THEN DECLARE DOCKING.", 0x00
+s_h1:
+    #d "STOP TURNING, LINE THE RINGS UP", 0x00
+s_h2:
+    #d "UNDER 3.5 M AND 0.7 M/S: CLAMP", 0x00
+
+.chunk
+s_dk0:
+    #d "W S FWD  Q E SIDE  Z X UP DOWN  ARROWS TURN  R STOP", 0x00
+s_dk1:
+    #d "1-5 OR CLICK  THE BUTTONS   ESC  THE MAP", 0x00
+
+.chunk
+s_b0:
+    #d " 1  HAIL              ", 0x00
+s_b1:
+    #d " 2  REQUEST DOCKING   ", 0x00
+s_b2:
+    #d " 3  REQUEST UNDOCK    ", 0x00
+s_b3:
+    #d " 4  CLAMP             ", 0x00
+s_b4:
+    #d " 5  BACK TO THE MAP   ", 0x00
+s_b5:
+    #d " 4  RELEASE CLAMPS    ", 0x00
+
+.chunk
+s_s1:
+    #d "NOT HAILED              ", 0x00
+s_s2:
+    #d "HAILED: NO REPLY        ", 0x00
+s_s3:
+    #d "DOCKING DECLARED        ", 0x00
+s_s4:
+    #d "CLAMPED TO PORT 1       ", 0x00
+s_s5:
+    #d "CLAMPED, UNDOCK DECLARED", 0x00
+
+.chunk
+s_ctc:
+    #d " CLEAR TO CLAMP    ", 0x00
+s_dko:
+    #d " DOCKED: CLAMPS ON ", 0x00
+s_blk:
+    #d "                   ", 0x00
+
+.chunk
+s_nant:
+    #d "NO WORKING ANTENNA.", 0x00
+s_hail:
+    #d "NO REPLY: A DERELICT.  DECLARE DOCKING.", 0x00
+s_hlf:
+    #d "HAIL THE KESTREL 9 FIRST.", 0x00
+s_adk:
+    #d "ALREADY DOCKED.", 0x00
+s_ndk:
+    #d "NOT DOCKED.", 0x00
+
+.chunk
+s_rqd:
+    #d "DOCKING DECLARED: PORT 1.", 0x00
+s_rqu:
+    #d "UNDOCKING DECLARED: RELEASE CLAMPS.", 0x00
+s_lock:
+    #d "CLAMPS LOCKED: REQUEST UNDOCK.", 0x00
+
+.chunk
+s_undk:
+    #d "CLAMPS RELEASED: 5 M/S AWAY.", 0x00
+s_ndc:
+    #d "NOT CLEARED: REQUEST DOCKING.", 0x00
+s_dkon:
+    #d "CLAMPS ON: DOCKED.", 0x00
+s_miss:
+    #d "CLAMPS MISSED: LINE UP, SLOW DOWN.", 0x00
