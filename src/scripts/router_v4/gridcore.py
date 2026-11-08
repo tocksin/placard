@@ -63,12 +63,12 @@ class Grid:
             x,y=map(float,one(v,'at')[1:3]); n=int(one(v,'net')[1]); d=float(one(v,'size')[1])
             if vi>=nvia_old and n in self.scope: self.tailvia[n].append(((x,y),d,vi))
             else: self.items.append((n,set(LAY),Point(x,y).buffer(d/2,16),('via',vi)))
-        # off-grid tail copper (hand-routed, diagonal) stays fixed; only on-grid, axis-aligned copper becomes re-routable chains
+        # off-grid tail copper (hand-routed, odd angles) stays fixed; on-grid axis-aligned or exact 45-degree copper becomes re-routable chains
         for n in list(self.tailseg)+list(self.tailvia):
             keep=[]
             for L,a,e,w,si in self.tailseg.get(n,[]):
                 ca=self.cell(*a); ce=self.cell(*e)
-                if ca is None or ce is None or (ca[0]!=ce[0] and ca[1]!=ce[1]) or abs(w-W)>1e-6: self.items.append((n,{L},LineString([a,e]).buffer(w/2,8),('seg',si)))
+                if ca is None or ce is None or (ca[0]!=ce[0] and ca[1]!=ce[1] and abs(ca[0]-ce[0])!=abs(ca[1]-ce[1])) or abs(w-W)>1e-6: self.items.append((n,{L},LineString([a,e]).buffer(w/2,8),('seg',si)))   # axis-aligned or exact 45-degree on-grid copper is re-routable
                 else: keep.append((L,a,e,w,si))
             self.tailseg[n]=keep; keepv=[]
             for (x,y),d,vi in self.tailvia.get(n,[]):
@@ -288,7 +288,7 @@ class Grid:
             ca=self.cell(*a); ce=self.cell(*e)
             if ca is None or ce is None: return None
             l=LAY.index(L); (y0,x0),(y1,x1)=ca,ce
-            if y0!=y1 and x0!=x1: return None
+            if y0!=y1 and x0!=x1 and abs(y1-y0)!=abs(x1-x0): return None   # 45-degree runs (DIAG) step one cell in both axes
             if (y0,x0)==(y1,x1): continue
             steps=max(abs(y1-y0),abs(x1-x0)); dy=(y1-y0)//steps; dx=(x1-x0)//steps
             prev=(l,y0,x0)

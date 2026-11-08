@@ -427,5 +427,10 @@ with via sliding). Two of its ideas tested on the fine r1 bench (`ALLEVERY=0` ro
   (`DIAG=1`) 463 / 25.89 m; diagonals only with 8 free cells beside the step (`DIAG=9`, Justin's rule: back out of
   diagonals in tight spots) 475 / 26.00 m. Most of the via saving comes from diagonals in the tight spots, which is
   harmless in the tidy (everything is already routed) but is what the rule should prevent in the router's own search.
-  A full diagonal ladder needs later rungs to re-read 45-degree copper as movable chains (today it is fixed copper on
-  re-read); that work is on the laptop branch.
+  **Diagonal copper is now re-routable**: `gridcore.py` reads exact 45-degree on-grid segments as chain members (before,
+  any non-orthogonal segment was fixed copper on re-read), so the later rungs can move what an earlier `DIAG` rung laid.
+  **Full `DIAG=1` ladder** with the `BEST=1` tidy on the same route: 462 / 448 / 442 / 437 -> wide **424 vias / 26.34 m**
+  (25.72 / 25.84 / 25.86 / 26.26 m), 0 collisions, 0 edge hits, no detour over 2x, in 72 min, against the orthogonal
+  472 / 457 / 439 / 437 -> 423 / 26.73 m (93 min; `bench/r1_fine9_diag_*`). Same via count within one, 0.4 m (1.5 %)
+  shorter track and cleaner, so the diagonal gain at the low rungs is spent by VIA 3200 but the length gain stays.
+  15.6 % of the track is diagonal (12.2 % on the orthogonal board, all from `corner45.py` chamfers).
