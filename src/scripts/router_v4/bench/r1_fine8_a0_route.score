@@ -1,0 +1,10 @@
+# raw route, GRID=0.0625 VIA=240 ALLEVERY=0, 4 CPU threads, 4336 s
+# score fa0_r1.kicad_pcb  (scope 116 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 27.52 m | 592 / 744 | 5.1 % | 9.6 % | 1.19 | 5 | 3 | 1 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS0 884/20/1.2, DATABUS4 878/9/1.2, DATABUS1 820/12/1.1, DATABUS7 818/12/1.1, DATABUS5 815/14/1.1, DATABUS3 799/14/1.1, DATABUS2 788/14/1.1, DATABUS6 769/12/1.0
+detour > 2: ADDR13, PC13, PC5, PC8, Y4
+edge: [('PC_ENABLE', 'B.Cu', (166.0, 264.0)), ('PC_ENABLE', 'B.Cu', (155.25, 253.25)), ('PC_ENABLE', 'B.Cu', (257.0, 264.0))]
+hole band: [('PC_ENABLE', 'B.Cu', (166.0, 264.0))]

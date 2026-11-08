@@ -364,9 +364,13 @@ tidy ladder: all 134 flippable runs on the final whole board are blocked on the 
 - **Router `ALLEVERY`** (default 4: every 4th iteration re-routes every net, not only the conflicted ones). `ALLEVERY=0`
   on the coarse r1 route, single CPU thread, same code: raw 670 vias / 30.09 m in 18 min against 743 / 30.84 m in
   19 min; after an identical coarse ladder (2 workers, one try per rung) 525 / 515 / 514 vias, 28.58 / 28.85 / 28.90 m
-  against 549 / 524 / 516 vias, 29.22 / 29.40 / 29.56 m. Fewer vias and shorter track at every rung, and on the fine
-  whole board it would also drop the two 55-minute all-net iterations. Left at 4 until a whole-board fine run confirms
-  it (one coarse A/B pair is thin evidence); `run_wb_fine.bat` can set `ALLEVERY=0`.
+  against 549 / 524 / 516 vias, 29.22 / 29.40 / 29.56 m. Fine r1 route (`VIA=240`, 4 threads, `bench/r1_fine8_a0_*`):
+  raw 592 vias / 27.52 m in 72 min against 660 / 28.48 m in 90 min, and the round 6 ladder on it
+  478 / 462 / 450 / 447 vias, 26.58 / 26.48 / 26.75 / 27.04 m against 489 / 471 / 460 on the old route (26.44 / 26.66 /
+  26.95 m). Fewer vias and shorter track at every rung, three times out of three, and on the fine whole board it also
+  drops the two 55-minute all-net iterations. The all-net iterations re-route the conflict-free nets under a high
+  pressure cost, which makes them detour around copper they were not colliding with. **`ALLEVERY=0` is now the
+  default** (`ALLEVERY=4` restores the old behaviour); the whole-board confirmation is the next laptop run.
 - **Router `WINLATE`** (search window pad shrinks to `WINLATE` mm from iteration `LATEFROM`, FastRoute-style): bad,
   `WINLATE=10` leaves 9 nets unrouted and 913 overlap cells on the coarse r1. Off.
 

@@ -13,7 +13,8 @@ env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=4 (nets per launch; larger
      PROT=a,b nets never ripped (default: the clock/stall/write/sync nets below)  CRIT=a,b timing-critical nets: routed first,
      CRITVIA=2 (via cost x) CRITPRES=0.5 (they yield less to congestion so they stay short)  (default = PROT list)
      BUDGET=budgets.json: nets with track-length budgets join CRIT (BUDGETCRIT=0 turns that off); lenfix.py repairs them after
-     ALLEVERY=4 every 4th iteration re-routes every net, not only the conflicted ones (0 = never; FastRoute/NTHU-Route style)
+     ALLEVERY=0 only conflicted nets are re-routed after iteration 0 (round 8 default; ALLEVERY=4 = the old every-4th-iteration
+     all-net re-route, which cost ~10 % more vias and the slow late iterations)
      WINLATE=0 (mm) from iteration LATEFROM=4 on, the search window pad shrinks from WIN to WINLATE (a failed search widens
      to WIN, then the whole board); smaller late windows = faster late iterations"""
 import sys, os, time, ctypes, math
@@ -442,7 +443,7 @@ if PATTERN and todo:
     t0=time.time(); done,total,leftn=pattern_pass(g,todo); pat_left=set(leftn)
     print(f'pattern pass: {done}/{total} connections placed, {len(pat_left)} nets need the maze router, {time.time()-t0:.0f} s',flush=True)
 fails=set(); conflicted=set(todo); best=None; noimp=0; it=0; tot=0
-ALLEVERY=int(E('ALLEVERY','4')); WINLATE=float(E('WINLATE','0')); LATEFROM=int(E('LATEFROM','4'))
+ALLEVERY=int(E('ALLEVERY','0')); WINLATE=float(E('WINLATE','0')); LATEFROM=int(E('LATEFROM','4'))
 VIA0=g.VIA_COST; VIAEND=float(E('VIAEND',str(VIA0))); VIARAMP=max(1,int(E('VIARAMP','8')))   # via cost ramps VIA -> VIAEND over the first VIARAMP iterations
 while it<ITERS and todo:
     t0=time.time(); g.VIA_COST=VIA0+(VIAEND-VIA0)*min(1.0,it/VIARAMP)
