@@ -434,3 +434,7 @@ with via sliding). Two of its ideas tested on the fine r1 bench (`ALLEVERY=0` ro
   472 / 457 / 439 / 437 -> 423 / 26.73 m (93 min; `bench/r1_fine9_diag_*`). Same via count within one, 0.4 m (1.5 %)
   shorter track and cleaner, so the diagonal gain at the low rungs is spent by VIA 3200 but the length gain stays.
   15.6 % of the track is diagonal (12.2 % on the orthogonal board, all from `corner45.py` chamfers).
+  **Mixed ladder (`DIAGRUNGS=2`)**, Justin's rule at rung level: the VIA 400 and 800 rungs with diagonals, then VIA 1600,
+  3200 and the wide rung orthogonal, so the late rungs back the diagonals out where they boxed something in:
+  462 / 448 / 438 / 435 -> wide **422 vias / 26.13 m** (`bench/r1_fine9_mixed_*`), DRC clean, 67 min. New best fine r1
+  board: one via fewer than all-orthogonal and 0.6 m (2.2 %) shorter; 14.3 % of the track is diagonal.
