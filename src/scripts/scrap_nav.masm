@@ -5,14 +5,19 @@
 ; Included at the end of scrap.masm as #overlay2: the region x4100-x4CFF
 ; (gen_plc.py --swap 0x4100,0x4D00,NAV,2: SCRAP.NAV, over SCRAP.INV's
 ; place, rooms_build's work space: a rebuild waits) and what does not fit
-; in x3700-x3EFF (--swap 0x3700,0x3F00,NV2,2: SCRAP.NV2, over the cell
-; art, which SCRAP.ART puts back when the screen closes).  nav_action
-; reads them in when NAVIGATE is picked at the helm.  The flight itself is
+; in x3600-x3FFF (--swap 0x3600,0x4000,NV2,2: SCRAP.NV2, over the
+; actions table and the cell art, which SCRAP.ART puts back when the
+; screen closes).  nav_action
+; reads them in when NAVIGATE is picked at the helm; nav_main reads the
+; last of it, SCRAP.NV3, into the file system's buffer (x4E00-x4FFF; --swap
+; 0x4E00,0x5000,NV3,2) after the sector file, its last card read.  The flight itself is
 ; resident (scrap_fl.masm): it goes on when you leave this screen.
 ;
-; The view is 2 bpp while the screen is up (view_mode): the sector map,
-; 256 x 192 square pixels in byte columns 8-71 (a position a byte), the
-; tug in the middle: a dotted blue grid; the tug a small white triangle at
+; Row 0 is a 1 bpp status row (nv_stat): the ship's date and time, the
+; nitrogen (kg), its delta-v, the batteries.  Under it the view is 2 bpp
+; while the screen is up (view_mode): the sector map, 256 x 184 square
+; pixels in byte columns 8-71 (a position a byte), the tug in the middle:
+; a dotted blue grid fixed in space (nv_gmv); the tug a small white triangle at
 ; its heading, gold dots the way it drifts; the sector's objects
 ; (SCRAP/K3A, read to x5400 with prt_load: gen_scrap.SECTOR): a station
 ; on an asteroid as a white circle its size, a derelict as a gold
@@ -38,9 +43,20 @@
 
 NV_T    = 0xB0              ; FL_PG: frames, 0-15 (the map every 8, the panel every 16)
 NV_TW   = 0xB1              ;   frames to the next heading step while turning
-NV_N    = 0xB2              ;   points drawn (NV_PTX, NV_PTY)
+NV_N    = 0xB2              ;   points drawn (nv_put)
 NV_ZS   = 0xB3              ;   the map's shift: metres >> NV_ZS = pixels
 NV_DL   = 0xB4              ;   an object from the tug: dx, dy (metres, 2 bytes each)
+NV_GX   = 0xB8              ;   the grid's offsets (nv_gmv): its lines where x + GX,
+NV_GY   = 0xB9              ;   y + GY are 0 mod 64 (FF: none drawn yet)
+NV_Q    = 0xC0              ;   the status row's numbers (nv_stat): month, day, hour,
+NV_QMO  = 0xC0              ;     minute, second (a byte each), then the nitrogen
+NV_QD   = 0xC1              ;     (kg), the delta-v (m/s) and the batteries
+NV_QH   = 0xC2              ;     (2 bytes each)
+NV_QMI  = 0xC3
+NV_QS   = 0xC4
+NV_QL   = 0xC5
+NV_QDV  = 0xC7
+NV_QB   = 0xC9
 NV_SEL  = 0x80              ; FL_PG + x80 up (rooms_build's, free while this is up):
                             ;   the selected object
 NV_ANG  = 0x81              ;   nv_cm's angle (0-31)
@@ -60,8 +76,9 @@ E_RF    = 0xA8              ;     its radar factor (size x 100 / 16)
 NV_S1   = 0xAA              ;   the strings: registry, kind (low bytes)
 NV_S2   = 0xAB
 NV_RG   = 0xAC              ;   the target's range, metres (2 bytes)
-NV_PTX  = 0x4E00            ; the points drawn, x and y, to rub out (255 at most):
-NV_PTY  = 0x4F00            ;   the file system's buffer, free while this is up
+                            ; the points drawn, to rub out (255 at most): x, y in
+                            ;   the screen bytes no line shows (offsets 0-30 even
+                            ;   of pages x61-x7F, x81-x9F; nv_put)
 SEC     = 0x5400            ; the sector file: the count, the objects from x5410
 SEC_STR = 0x55              ;   (SEC_REC bytes each), their strings in page x55
 
@@ -71,6 +88,18 @@ nav_main:
     PUSH_LINK
     ld   SEC_K, ac              ; the sector's objects into x5400
     CALL prt_load
+    ld   s_nv3f & 0xFF, ac      ; then SCRAP.NV3 into the file system's
+    ld   ac, [R0]               ; buffer (no card reads after it while the
+    ld   s_nv3f >> 8, ac        ; screen is up)
+    ld   ac, [R1]
+    ld   NAV3_LO >> 8, ac
+    ld   ac, [u5]
+    ld   1, ac
+    ld   ac, [u6]
+    CALL swap_fetch
+    ld   0x4D, y                ; (no FAT sector in the buffer now: FS_VARS
+    ld   0x2F, x                ; V_FATC + 3)
+    ld   0xFF, [y,x]
     ld   FL_PG, y
     ld   FL_NAV, x
     ld   1, [y,x]
@@ -80,14 +109,18 @@ nav_main:
     ld   0x00, [y,x]
     ld   NV_SEL, x
     ld   0x00, [y,x]
+    ld   NV_GX, x
+    ld   0xFF, [y,x]
     ld   32, ac                 ; the view black: even offsets 32 up,
     CALL clear_rows             ; then the odd ones (the panel too: drawn next)
     ld   1, ac
     CALL clear_rows
-    CALL nv_grid
+    CALL nv_modes
     CALL nv_draw
     CALL nv_panel
     GOTO nv_loop
+s_nv3f:                         ; (in nav_main's chunk: not in SCRAP.NV3)
+    #d "SCRAP.NV3", 0x00
 
 ; nv_loop - a frame of the screen.  The rest of nav_main
 .chunk
@@ -115,6 +148,12 @@ nm_l:
     inc
     and  15, ac
     ld   ac, [y,x]
+    xor  4, ac                  ; frame 4: the status row (on its own:
+    bne  nm_8                   ; a frame is not enough for it and more)
+    CALL nv_stat
+    bra  nm_l
+nm_8:
+    ld   [y,x], ac
     and  7, ac
     bne  nm_l
     CALL nv_draw
@@ -135,8 +174,12 @@ nv_pick:
     PUSH_LINK
     CALL in_view
     beq  pk_e
-    CALL pt_xy                  ; u1 the map pixel's y, u2 m_x / 4:
-    ld   [u2], ac               ; u0 the x (m_x / 2 - 32, to 2 pixels)
+    CALL pt_xy                  ; u1 m_y / 2 (less 8: the map's y), u2
+    ld   [u1], ac               ; m_x / 4: u0 the x (m_x / 2 - 32, to 2
+    sub  8, ac                  ; pixels)
+    bcs  pk_e
+    ld   ac, [u1]
+    ld   [u2], ac
     sub  16, ac
     bcs  pk_e
     shl
@@ -361,14 +404,14 @@ nk2_e:
 
 
 ; nv_put - map pixel u0, u1 in color u2 (off the view: nothing), kept in
-; NV_PTX, NV_PTY (255 at most) to rub out.  A leaf (nv_plot's).
+; the hidden screen bytes (255 at most) to rub out.  A leaf (nv_plot's).
 .chunk
 nv_put:
     ld   [u0], ac
     xor  0xFF, ac
     beq  np_e
     ld   [u1], ac
-    sub  192, ac
+    sub  184, ac
     bcc  np_e
     ld   FL_PG, y
     ld   NV_N, x
@@ -379,11 +422,26 @@ nv_put:
     ld   [u3], ac
     inc
     ld   ac, [y,x]
-    ld   NV_PTX >> 8, y
-    ld   [u3], x
+    ld   [u3], ac               ; point i: offset (i << 1) & x1E,
+    shl                         ; page x61 + (i >> 3) & x1E (x), + x20 (y)
+    and  0x1E, ac
+    ld   ac, x
+    ld   [u3], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    and  0x1E, ac
+    add  0x61, ac
+    ld   ac, y
     ld   [u0], ac
     ld   ac, [y,x]
-    ld   NV_PTY >> 8, y
+    ld   [u3], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    and  0x1E, ac
+    add  0x81, ac
+    ld   ac, y
     ld   [u1], ac
     ld   ac, [y,x]
     GOTO nv_plot
@@ -401,11 +459,26 @@ nr_l:
     beq  nr_e
     dec
     ld   ac, [y,x]
+    ld   ac, [u3]               ; (nv_put's place for point u3)
+    shl
+    and  0x1E, ac
     ld   ac, x
-    ld   NV_PTX >> 8, y
+    ld   [u3], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    and  0x1E, ac
+    add  0x61, ac
+    ld   ac, y
     ld   [y,x], ac
     ld   ac, [u0]
-    ld   NV_PTY >> 8, y
+    ld   [u3], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    and  0x1E, ac
+    add  0x81, ac
+    ld   ac, y
     ld   [y,x], ac
     ld   ac, [u1]
     CALL nv_bg
@@ -416,22 +489,30 @@ nr_e:
     LEAVE
 
 ; nv_bg - AC = the grid's color at u0, u1 (1, blue), or 0: dotted lines
-; every 64 pixels across (x 64 k, a dot every 4 down) and down (y 32 +
-; 64 k, a dot every 4 across), through the middle.  A leaf.
+; where u0 + NV_GX is 0 mod 64 (a dot where u1 + NV_GY is 0 mod 4) and
+; where u1 + NV_GY is 0 mod 64 (a dot every 4 across).  A leaf.
 .chunk
 nv_bg:
+    ld   FL_PG, y
+    ld   NV_GX, x
     ld   [u0], ac
+    add  [y,x], ac
+    ld   ac, [u3]
+    ld   NV_GY, x
+    ld   [u1], ac
+    add  [y,x], ac
+    ld   ac, [u4]
+    ld   [u3], ac
     and  63, ac
     bne  bg_h
-    ld   [u1], ac
+    ld   [u4], ac
     and  3, ac
     beq  bg_g
 bg_h:
-    ld   [u1], ac
+    ld   [u4], ac
     and  63, ac
-    xor  32, ac
     bne  bg_0
-    ld   [u0], ac
+    ld   [u3], ac
     and  3, ac
     beq  bg_g
 bg_0:
@@ -441,32 +522,146 @@ bg_g:
     ld   1, ac
     RET
 
-; nv_grid - the grid on the black view (once, as the screen opens), then
-; the view 2 bpp
+; nv_gl - the grid's dots in color AC (0: off) at NV_GX, NV_GY (nv_bg's)
 .chunk
-nv_grid:
+nv_gl:
     PUSH_LINK
-    clr  ac
-    ld   ac, [u1]
-ng_y:
-    clr  ac
-    ld   ac, [u0]
-ng_x:
-    CALL nv_bg
-    beq  ng_n
     ld   ac, [u2]
-    CALL nv_plot
-ng_n:
-    ld   [u0], ac
-    inc
+    ld   FL_PG, y
+    ld   NV_GX, x
+    clr  ac
+    sub  [y,x], ac
+    ld   ac, [v2]               ; v2 = -GX, v3 = -GY
+    ld   NV_GY, x
+    clr  ac
+    sub  [y,x], ac
+    ld   ac, [v3]
+    ld   [v2], ac               ; down: x = -GX mod 64, + 64 k
+    and  63, ac
+    ld   ac, [v0]
+gv_x:
+    ld   [v3], ac
+    and  3, ac
+    ld   ac, [v1]
+gv_y:
+    CALL nv_gp
+    ld   [v1], ac
+    add  4, ac
+    ld   ac, [v1]
+    sub  184, ac
+    bcs  gv_y
+    ld   [v0], ac
+    add  64, ac
+    ld   ac, [v0]
+    bcc  gv_x
+    ld   [v3], ac               ; across: y = -GY mod 64, + 64 k
+    and  63, ac
+    ld   ac, [v1]
+gh_y:
+    ld   [v2], ac
+    and  3, ac
+    ld   ac, [v0]
+gh_x:
+    CALL nv_gp
+    ld   [v0], ac
+    add  4, ac
+    ld   ac, [v0]
+    bcc  gh_x
+    ld   [v1], ac
+    add  64, ac
+    ld   ac, [v1]
+    sub  184, ac
+    bcs  gh_y
+    LEAVE
+
+; nv_gp - nv_plot at v0, v1.  The rest of the caller's (nv_plot's RET)
+.chunk
+nv_gp:
+    ld   [v0], ac
     ld   ac, [u0]
-    bne  ng_x
-    ld   [u1], ac
-    inc
+    ld   [v1], ac
     ld   ac, [u1]
-    xor  192, ac
-    bne  ng_y
-    ld   0x05, ac               ; the map 2 bpp while it is up
+    GOTO nv_plot
+
+; nv_gmv - the grid's offsets from the tug's position (metres >> NV_ZS,
+; mod 64; y + 36, so lines cross at the middle, 92): when they change, the
+; old grid off and the new one on
+.chunk
+nv_gmv:
+    PUSH_LINK
+    ld   FL_PG, y
+    ld   FL_PX + 2, x
+    ld   [y,x], ac
+    ld   ac, [w0]
+    ld   FL_PX + 3, x
+    ld   [y,x], ac
+    ld   ac, [w1]
+    ld   FL_PY + 2, x
+    ld   [y,x], ac
+    ld   ac, [w2]
+    ld   FL_PY + 3, x
+    ld   [y,x], ac
+    ld   ac, [w3]
+    ld   NV_ZS, x
+    ld   [y,x], ac
+    ld   ac, [v2]
+gm_s:
+    ld   [v2], ac
+    beq  gm_d
+    dec
+    ld   ac, [v2]
+    CALL nv_sh2
+    bra  gm_s
+gm_d:
+    ld   [w0], ac
+    and  63, ac
+    ld   ac, [v4]
+    ld   [w2], ac
+    add  36, ac
+    and  63, ac
+    ld   ac, [v5]
+    ld   FL_PG, y
+    ld   NV_GX, x
+    ld   [y,x], ac
+    xor  [v4], ac
+    bne  gm_m
+    ld   NV_GY, x
+    ld   [y,x], ac
+    xor  [v5], ac
+    beq  gm_e
+gm_m:
+    clr  ac
+    CALL nv_gl
+    ld   FL_PG, y
+    ld   NV_GX, x
+    ld   [v4], ac
+    ld   ac, [y,x]
+    ld   NV_GY, x
+    ld   [v5], ac
+    ld   ac, [y,x]
+    ld   1, ac
+    CALL nv_gl
+gm_e:
+    LEAVE
+
+; nv_modes - the status row's lines (0-15) 1 bpp, the map's (16-383) 2 bpp
+.chunk
+nv_modes:
+    PUSH_LINK
+    ld   0x5A, y
+    ld   0x2F, ac
+nmd_l:
+    ld   ac, x
+    ld   0x04, [y,x]
+    xor  0x20, ac
+    beq  nmd_e
+    xor  0x20, ac
+    dec
+    bra  nmd_l
+nmd_e:
+    ld   0x30, ac
+    ld   ac, [u2]
+    ld   0x05, ac
     GOTO view_mode
 
 ; nv_draw - the map: the points rubbed out, each object, then the tug
@@ -481,6 +676,8 @@ nv_draw:
     add  2, ac
     ld   NV_ZS, x
     ld   ac, [y,x]
+    CALL nv_gmv
+    ld   FL_PG, y
     ld   NV_I, x
     ld   0x00, [y,x]
 nd_l:
@@ -899,7 +1096,7 @@ tg_l:                           ; (nv_drift's too: v7 1)
     ld   24, ac
     CALL nv_term
     add  [v1], ac
-    add  96, ac
+    add  92, ac
     ld   ac, [u1]
     CALL nv_put
     ld   [v6], ac
@@ -1543,6 +1740,18 @@ s_km:
 ; inverse letters (bit 7)
 .chunk
 NV_STR:
+s_q0:
+    #d "-", 0x00
+s_q1:
+    #d "-2175  ", 0x00
+s_q2:
+    #d ":", 0x00
+s_q3:
+    #d "   NITROGEN ", 0x00
+s_q5:
+    #d " KG   DELTA-V ", 0x00
+s_q6:
+    #d " M/S   BATTERIES ", 0x00
 s_t1:                           ; " FLIGHT", 18 wide
     #d8 0xA0, 0xC6, 0xCC, 0xC9, 0xC7, 0xC8, 0xD4, 0xA0, 0xA0, 0xA0, 0xA0, 0xA0
     #d8 0xA0, 0xA0, 0xA0, 0xA0, 0xA0, 0xA0, 0x00
@@ -1554,7 +1763,7 @@ s_t3:                           ; " TARGET: " (then its name)
 s_head:
     #d "HEADING", 0x00
 s_n2:
-    #d "NITROGEN L", 0x00
+    #d "N2 KG", 0x00
 s_mass:
     #d "MASS T", 0x00
 s_thr:
@@ -1780,20 +1989,22 @@ nx_e:
     ld   0x00, [y,x]
     clr  ac                     ; the message off: its string may be in the
     ld   ac, [msg_t]            ; sector file (part text again from now)
-    ld   0x06, ac               ; the ship's view 4 bpp again
+    ld   0x20, ac               ; the ship's view 4 bpp again
+    ld   ac, [u2]
+    ld   0x06, ac
     GOTO view_mode
 
 
 
 
-; view_mode - AC = the mode byte of the view's lines (0-383: x5A20-
-; x5B9F): x06 the ship (4 bpp), x05 the map (2 bpp).  The end of nv_grid
-; and nv_exit (their LEAVE)
+; view_mode - AC = the mode byte of the view's lines from u2 (x20 + the
+; line) to 383 (x5B9F): x06 the ship (4 bpp), x05 the map (2 bpp).  The
+; end of nv_modes and nv_exit (their LEAVE)
 .chunk
 view_mode:
     ld   ac, [u0]
     ld   0x5A, y
-    ld   0x20, ac
+    ld   [u2], ac
 vwm_1:
     ld   ac, x                  ; (the library's vid_mode, the view only)
     inc
@@ -1812,6 +2023,255 @@ vwm_2:
     ld   ac, [y,x]
     ld   [u1], ac
     bne  vwm_2
+    LEAVE
+
+; nv_stat - the status row (row 0): the ship's date and time (CLK: seconds
+; from 05-07-2175 00:00:00, 08:00:00 at the start), the nitrogen (kg),
+; the delta-v it gives (a kg is 20 kN s: kg x 200 / the mass in 100 kg)
+; and the working batteries (NV_QT)
+.chunk
+nv_stat:
+    PUSH_LINK
+    ld   ACT_PG, y              ; w2:w1:w0 = the clock (seconds from
+    ld   CLK_0 & 0xFF, x        ; 05-07-2175 00:00:00)
+    ld   [y,x], ac
+    ld   ac, [w0]
+    ld   CLK_1 & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [w1]
+    ld   CLK_2 & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [w2]
+    ld   60, ac                 ; seconds, minutes, hours
+    CALL nv_dv
+    ld   NV_QS, ac
+    CALL nv_qput
+    ld   60, ac
+    CALL nv_dv
+    ld   NV_QMI, ac
+    CALL nv_qput
+    ld   24, ac
+    CALL nv_dv
+    ld   NV_QH, ac
+    CALL nv_qput
+    GOTO nv_stat2
+
+; nv_qput - FL_PG + AC = w3 (nv_dv's remainder).  A leaf.
+.chunk
+nv_qput:
+    ld   ac, x
+    ld   FL_PG, y
+    ld   [w3], ac
+    ld   ac, [y,x]
+    RET
+
+; nv_stat2 - the date from the days (w0: May 7 is day 0), the nitrogen.
+; The rest of nv_stat
+.chunk
+nv_stat2:
+    ld   [w0], ac               ; v3 the day of the month - 1, v4 the month
+    add  6, ac
+    ld   ac, [v3]
+    ld   5, ac
+    ld   ac, [v4]
+ms_l:
+    ld   NV_ML >> 8, y
+    ld   [v4], ac
+    add  ((NV_ML & 0xFF) - 5) & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [v5]
+    ld   [v3], ac
+    sub  [v5], ac
+    bcs  ms_d
+    ld   ac, [v3]
+    ld   [v4], ac
+    inc
+    ld   ac, [v4]
+    bra  ms_l
+ms_d:
+    ld   FL_PG, y
+    ld   NV_QMO, x
+    ld   [v4], ac
+    ld   ac, [y,x]
+    ld   NV_QD, x
+    ld   [v3], ac
+    inc
+    ld   ac, [y,x]
+    ld   NV_QB, x               ; the batteries
+    ld   [n_bat], ac
+    ld   ac, [y,x]
+    ld   NV_QB + 1, x
+    ld   0x00, [y,x]
+    ld   FL_FLL, x              ; the nitrogen, litres
+    ld   [y,x], ac
+    ld   ac, [w0]
+    ld   NV_QL, x
+    ld   ac, [y,x]
+    ld   FL_FLH, x
+    ld   [y,x], ac
+    ld   ac, [w1]
+    ld   NV_QL + 1, x
+    ld   ac, [y,x]
+    GOTO nv_stat3
+
+; the months' days, May to December
+NV_ML:
+    #d8 31, 30, 31, 31, 30, 31, 30, 31
+
+; nv_stat3 - the delta-v: kg x 40 / (the mass / 5), the mass in 100 kg
+; (255 at most after / 5); then the row (NV_QT).  The rest of nv_stat
+.chunk
+nv_stat3:
+    ld   FL_PG, y
+    ld   FL_ML, x
+    ld   [y,x], ac
+    ld   ac, [w0]
+    ld   FL_MH, x
+    ld   [y,x], ac
+    ld   ac, [w1]
+    clr  ac
+    ld   ac, [w2]
+    ld   5, ac
+    CALL nv_dv
+    ld   [w1], ac
+    beq  dv_mq
+    ld   0xFF, ac
+    ld   ac, [w0]
+dv_mq:
+    ld   [w0], ac               ; (not 0: the tug weighs something)
+    ld   ac, [v6]
+    ld   FL_PG, y               ; kg x 40: low byte, then high byte x 40
+    ld   NV_QL, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   40, ac
+    ld   ac, [R1]
+    CALL l_mul8
+    ld   [R2], ac
+    ld   ac, [w0]
+    ld   [R3], ac
+    ld   ac, [w1]
+    ld   FL_PG, y
+    ld   NV_QL + 1, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   40, ac
+    ld   ac, [R1]
+    CALL l_mul8
+    ld   [R2], ac
+    add  [w1], ac
+    ld   ac, [w1]
+    ld   [R3], ac
+    bcc  dv_n
+    inc
+dv_n:
+    ld   ac, [w2]
+    ld   [v6], ac
+    CALL nv_dv
+    ld   FL_PG, y
+    ld   NV_QDV, x
+    ld   [w0], ac
+    ld   ac, [y,x]
+    ld   NV_QDV + 1, x
+    ld   [w1], ac
+    ld   ac, [y,x]
+    GOTO nv_strow
+
+; nv_strow - the status row from NV_QT: a code (0 the end, 1 a string in
+; NV_STR's page, 2 a byte at FL_PG + the next byte in 2 digits, 3 two
+; bytes there in decimal) and its byte.  The end of nv_stat (its LEAVE)
+.chunk
+nv_strow:
+    clr  ac
+    ld   ac, [CUR_ROW]
+    ld   ac, [CUR_COL]
+    ld   ac, [p_inv]
+sr_c:
+    ld   0x20, ac
+    CALL tputc
+    ld   [CUR_COL], ac
+    xor  80, ac
+    bne  sr_c
+    ld   1, ac
+    ld   ac, [CUR_COL]
+    clr  ac
+    ld   ac, [v0]
+sr_l:
+    ld   NV_QT >> 8, y
+    ld   [v0], ac
+    add  NV_QT & 0xFF, x
+    ld   [y,x], ac
+    beq  sr_e
+    ld   ac, [v1]
+    ld   [v0], ac
+    add  (NV_QT & 0xFF) + 1, x
+    ld   [y,x], ac
+    ld   ac, [v2]
+    ld   [v0], ac
+    add  2, ac
+    ld   ac, [v0]
+    ld   [v1], ac
+    xor  1, ac
+    bne  sr_n
+    ld   [v2], ac
+    CALL nv_s
+    bra  sr_l
+sr_n:
+    ld   FL_PG, y
+    ld   [v2], x
+    ld   [y,x], ac
+    ld   ac, [num_l]
+    clr  ac
+    ld   ac, [num_h]
+    ld   [v1], ac
+    xor  2, ac
+    beq  sr_2
+    ld   [v2], ac
+    inc
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [num_h]
+    bra  sr_d
+sr_2:
+    ld   [num_l], ac
+    sub  10, ac
+    bcc  sr_d
+    ld   0x30, ac
+    CALL tputc
+sr_d:
+    CALL put_dec
+    bra  sr_l
+sr_e:
+    LEAVE
+NV_QT:
+    #d8 2, NV_QMO, 1, s_q0 & 0xFF, 2, NV_QD, 1, s_q1 & 0xFF, 2, NV_QH
+    #d8 1, s_q2 & 0xFF, 2, NV_QMI, 1, s_q2 & 0xFF, 2, NV_QS
+    #d8 1, s_q3 & 0xFF, 3, NV_QL
+    #d8 1, s_q5 & 0xFF, 3, NV_QDV, 1, s_q6 & 0xFF, 3, NV_QB, 0
+
+; nv_dv - w2:w1:w0 /= AC (w2:w1 / AC under 256 x AC), the remainder in w3
+.chunk
+nv_dv:
+    PUSH_LINK
+    ld   ac, [R2]
+    ld   [w2], ac
+    ld   ac, [R1]
+    ld   [w1], ac
+    ld   ac, [R0]
+    CALL l_div16
+    ld   ac, [w3]               ; the remainder
+    ld   [R1], ac               ; w2:w1 = the quotient
+    ld   ac, [w2]
+    ld   [R0], ac
+    ld   ac, [w1]
+    ld   [w3], ac               ; then the remainder:w0
+    ld   ac, [R1]
+    ld   [w0], ac
+    ld   ac, [R0]
+    CALL l_div16
+    ld   ac, [w3]
+    ld   [R0], ac
+    ld   ac, [w0]
     LEAVE
 
 ; nv_undock - U: undocked, 5 m/s away from the port (west); the tug's
@@ -1942,9 +2402,9 @@ nn_n:
 
 
 ; nv_plot - map pixel u0, u1 in color u2 (2 bpp: 0-3): byte column 8 +
-; u0 / 4 (page x71 + (u0 >> 1) & x7E), line pair u1 (offset 2 u1 + 32,
-; or 2 u1 - 223 from 112), bits 2 (u0 & 3) up (the first pixel the low
-; bits).  A leaf.
+; u0 / 4 (page x71 + (u0 >> 1) & x7E), line pair u1 + 8 (under the status
+; row: offset 2 u1 + 48, or 2 u1 - 207 from 104), bits 2 (u0 & 3) up (the
+; first pixel the low bits).  A leaf.
 .chunk
 nv_plot:
     ld   [u0], ac
@@ -1953,16 +2413,16 @@ nv_plot:
     add  0x71, ac
     ld   ac, [u4]
     ld   [u1], ac
-    sub  112, ac
+    sub  104, ac
     blt  pl_lo
     ld   [u1], ac
     shl
-    sub  223, ac
+    sub  207, ac
     bra  pl_go
 pl_lo:
     ld   [u1], ac
     shl
-    add  32, ac
+    add  48, ac
 pl_go:
     ld   ac, [u5]
     ld   [u2], ac
@@ -2001,7 +2461,7 @@ NV_PM:
 
 ; nv_px - AC = the x pixel of the 2 bytes at FL_PG + AC (metres from the
 ; tug, signed) >> NV_ZS + u7, from the middle (128), or xFF when off the
-; view.  nv_py - the y pixel (96).  A leaf.
+; view.  nv_py - the y pixel (92).  A leaf.
 .chunk
 nv_px:
     ld   ac, [w2]
@@ -2009,7 +2469,7 @@ nv_px:
     bra  nx_go
 nv_py:
     ld   ac, [w2]
-    ld   96, ac
+    ld   92, ac
 nx_go:
     ld   ac, [w3]               ; w3 the middle and the half size
     ld   FL_PG, y               ; w1:w0 the metres, w2 the shift

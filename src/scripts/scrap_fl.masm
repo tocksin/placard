@@ -14,7 +14,7 @@
 ; 1/2^20 m a frame a frame, kept as FL_A8 << FL_AE.  fl_dv makes a frame's
 ; thrust forward (A16 cos h / 8 on x, sin on y) and back (half), and
 ; fl_tick adds one to the velocity each frame a thrust key is held (and
-; there is nitrogen: a litre a second a thruster), then the velocity to
+; there is nitrogen: a kg a second a thruster), then the velocity to
 ; the position.  Every 8 frames fl_check looks at the KESTREL 9: closer
 ; than WRECK_BOX metres each way from its centre is a hit (fl_hit:
 ; damage by speed, the tug stopped where it last was clear); closing
@@ -34,10 +34,10 @@ FL_MH   = 0x26
 FL_AL   = 0x27              ; the alarm: 0, 1 proximity, 2 impact in 10 s
 FL_A8   = 0x28              ; the acceleration: FL_A8 << FL_AE in 1/2^20 m a frame a frame
 FL_AE   = 0x29
-FL_FT   = 0x2A              ; thruster frames toward the next litre
-FL_FUL  = 0x2B              ; litres burnt
+FL_FT   = 0x2A              ; thruster frames toward the next kg
+FL_FUL  = 0x2B              ; kg burnt
 FL_FUH  = 0x2C
-FL_FLL  = 0x2D              ; litres left (the nitrogen by working intakes, less those burnt)
+FL_FLL  = 0x2D              ; kg left (the nitrogen by working intakes, less that burnt)
 FL_FLH  = 0x2E
 FL_ZM   = 0x2F              ; the map's zoom, 0-7 (SCRAP.NAV: 4 m a pixel << it)
 FL_GPL  = 0x30              ; the gap to the KESTREL 9's hull at the last check, metres
@@ -299,7 +299,7 @@ fa_d:
     bne  fa_l
     RET
 
-; fl_burn - a frame of thrust: FL_NT thruster frames, a litre burnt (and
+; fl_burn - a frame of thrust: FL_NT thruster frames, a kg burnt (and
 ; one less left) each 60.  A leaf.
 .chunk
 fl_burn:
@@ -507,7 +507,7 @@ fa6_k:
     ld   ac, [y,x]
     GOTO fl_fuel
 
-; fl_fuel - the litres left: N2_TANK_L a nitrogen tank by a working intake
+; fl_fuel - the kg left: N2_TANK_L a nitrogen tank by a working intake
 ; (n_fuel), less those burnt, 0 at least; then fl_dv.  The rest of
 ; fl_accel
 .chunk
@@ -1187,7 +1187,7 @@ nav_action:
     LEAVE
 nv_ok:
     ld   SWAP_LO >> 8, ac       ; SCRAP.NAV into x4100 (6 sectors), SCRAP.NV2
-    ld   ac, [u5]               ; over the art (x3700-x3EFF, 4: the ship view
+    ld   ac, [u5]               ; over the art (x3600-x3FFF, 5: the ship view
     ld   6, ac                  ; is not drawn while the map is up)
     ld   ac, [u6]
     ld   s_navf & 0xFF, ac
@@ -1197,7 +1197,7 @@ nv_ok:
 nv_2:
     ld   NAV2_LO >> 8, ac
     ld   ac, [u5]
-    ld   4, ac
+    ld   5, ac
     ld   ac, [u6]
     ld   s_nv2f & 0xFF, ac
     CALL nav_fetch
@@ -1207,7 +1207,7 @@ nv_2:
 nv_a:
     ld   NAV2_LO >> 8, ac       ; the art back (SCRAP.ART)
     ld   ac, [u5]
-    ld   4, ac
+    ld   5, ac
     ld   ac, [u6]
     ld   s_artf & 0xFF, ac
     CALL nav_fetch
@@ -1265,9 +1265,12 @@ l_rand8:
 .chunk
 s_bump:
     #d "BUMPED THE KESTREL 9: NO DAMAGE.", 0x00
+.chunk
 s_hit:
-    #d "IMPACT!  THE TUG HIT THE KESTREL 9: CHECK THE HULL.", 0x00
+    #d "IMPACT!  HIT THE KESTREL 9: CHECK THE HULL.", 0x00
+.chunk
 s_prox:
     #d "PROXIMITY: THE KESTREL 9 IS CLOSE.  SLOW DOWN.", 0x00
+.chunk
 s_imp:
     #d "IMPACT IN 10 S!  BRAKE OR TURN AWAY.", 0x00
