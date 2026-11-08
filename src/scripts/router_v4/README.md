@@ -359,6 +359,8 @@ tidy ladder: all 134 flippable runs on the final whole board are blocked on the 
   moves whatever the seed, so the spread is in the first rung and it is luck, not search. The jitter itself changes
   little (the net and chain passes converge to the same moves). A fourth rung at VIA 3200 saves 8 more vias for
   0.26 m. Verdict: not worth 3x the time; run the plain ladder, and re-run only the first rung if a better start is wanted.
+  The same VIA 3200 rung on the best round 6 board (449 / 26.46 m) gives the best fine r1 board so far:
+  **438 vias / 26.77 m** (`bench/r1_fine8_best_v3200*`, 13 min, detour mean 1.09, DATABUS5 at 1.4).
 - **Router `ALLEVERY`** (default 4: every 4th iteration re-routes every net, not only the conflicted ones). `ALLEVERY=0`
   on the coarse r1 route, single CPU thread, same code: raw 670 vias / 30.09 m in 18 min against 743 / 30.84 m in
   19 min; after an identical coarse ladder (2 workers, one try per rung) 525 / 515 / 514 vias, 28.58 / 28.85 / 28.90 m
