@@ -7,13 +7,14 @@ back, and build it into your own ship.  It is not in the demo menu: pick
 it in the DOS's file browser and press Enter ([DOS.md](DOS.md)), or set
 `BOOT.CFG` = `SCRAP.PLC` to run it at power-up.
 
-Date: 2026-11-06
+Date: 2026-11-07
 
 The design (proposal, phases, mock-ups) is the SCRAPWRIGHT design doc.
 This is **phase 3**: the walkable wreck with the mouse panel (phase 2),
 plus salvage, building the tug, air, skills and taking the suit off, and
-the first step of the navigation mode: flying the tug (see **Flying**).  Power, hazards, enemies,
-docking, radar, comms and other ships come in later steps.
+the navigation mode's first steps: flying the tug and the sector map
+(see **Flying**).  Power, hazards, enemies, the docking approach, radar,
+comms and other ships come in later steps.
 
 ![SCRAPWRIGHT in the simulator](../../reference/scrap_sim.png)
 
@@ -160,22 +161,34 @@ and intakes in its nitrogen room.  The radar does nothing yet: it is for
 a later step of the navigation mode.
 
 **Flying.**  NAVIGATE at the tug's helm opens the navigation screen
-(`SCRAP.NAV`, read from the card into the inventory's place each time).
-The view is the sector map with the tug in the middle: a white dot and a
-yellow heading line, eight cyan dots where its velocity takes it (every
-64 frames), the KESTREL 9 as an orange box (its hull, 80 m each way from
-its centre) and its docking port as a green dot.  The panel shows the
-speed, the heading (degrees, 0 east, clockwise), the zoom, the nitrogen
-left, the tug's mass and working thrusters, the KESTREL 9's range (to its
-hull) and closing speed, and the keys.
+(`SCRAP.NAV`, read from the card into the inventory's place each time,
+and `SCRAP.NV2` over the cell art, which `SCRAP.ART` puts back when the
+screen closes).  The view is the sector map with the tug in the middle, on
+a dotted blue grid: the tug a white triangle pointing along its heading
+(it turns like the Asteroids ship), three green dots the way it drifts,
+and the sector's objects (`gen_scrap.SECTOR`, the file `SCRAP/K3A`): the
+HALVARD ROCK station on its asteroid as a teal circle of its size, and
+the derelicts as asterisks until you have docked with one (visited), then
+diamonds.  The target has yellow corners round it.
+
+The panel is a control panel: three boxed blocks with inverse titles.
+FLIGHT has the speed (m/s), the heading (degrees, 0 east, clockwise) and
+DOCKED or FREE FLIGHT; PROPULSION the nitrogen left, the tug's mass and
+its working thrusters; TARGET the target's name, what it is, its
+registry, its range (to its edge: the larger of the two distances, less
+its size), its radar return (its size over the range, 99 % at most),
+visited or not, and the tug's speed TOWARD it (under 0 moving away) and
+ACROSS. The keys are on the row under it as inverse caps.
 
 | Key | What it does |
 |-----|--------------|
 | Left / Right (A, D) | turn: a heading step (11.25 degrees, 32 a turn) every 11 frames while held |
 | Up / Down (W, S) | thrust forward, or back at half the thrust, while held |
-| Z | zoom: 8, 64 or 512 m a pixel across (1.3, 10 or 82 km across the view; up and down a pixel is half that, as the art pixels are twice as wide as tall) |
+| + (or =) and - | zoom in and out in doubling steps: 4 to 512 m a pixel across, 640 m to 82 km across the view (up and down a pixel is half that, as the art pixels are twice as wide as tall) |
+| Tab, a click on an object | the target: the next object, or the one clicked |
+| C | comms and the docking approach (a later step: a message for now) |
 | U | undock: the clamps off, 5 m/s away from the port (west) |
-| K | dock: within 20 m of the port each way and under 2 m/s |
+| K | dock: within 20 m of the KESTREL 9's port each way and under 2 m/s |
 | Esc | back to the ship |
 
 The tug's mass is every cell of it but loose parts, each kind a set mass
@@ -284,13 +297,14 @@ a jammed shut armory door and a jammed open med bay door.
 | x3200-x36FF | tables (gen_scrap.py), a page each: the doors (x32); damage bars, health strings and the rooms (x33); flags, names and values (x34); the skills each kind needs and the action strings (x35); the actions of each kind (x36).  They are placed down from the art, so each new kind of part can move them a page lower (gen_scrap.py works the pages out; the test checks the program's region still ends at them) |
 | x35E0-x35ED | the skill levels (6) and their progress (6) |
 | x35F0-x35FE | the panel's actions (8), the job's bar (its 16th, the 16ths done, the work left at the next), the O2 tank sum, `N_ANT`, which part text is loaded (`PRT_K`) |
-| x3700-x3FFF | the cell art, 4 kinds a page, the last kind at the top (kind t at x4000 - 64 (n - t) for n kinds rounded up to 4) |
+| x3700-x3FFF | the cell art, 4 kinds a page, the last kind at the top (kind t at x4000 - 64 (n - t) for n kinds rounded up to 4).  While the navigation screen is up x3700-x3EFF is `SCRAP.NV2`, the rest of its code (4 sectors); `SCRAP.ART` (the same bytes as the program's) puts the art back |
 | x4000-x401F, x4040-x405F | each room's pressure, and whether it is cold (32 rooms) |
 | x4020-x403F, x4060-x407F | the flight (`scrap_fl.masm`): docked, heading, thrust, mass, thrusters, nitrogen, the alarm, the position (16.16 m) and velocity (1/2^24 m a frame) and the navigation screen's state |
 | x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |
 | x4100-x4CFF | while the inventory is up: `SCRAP.INV` (`scrap_inv.masm`: its screen, font, pointer and routines; 6 sectors at most), read from the card each time it opens; a rebuild of the rooms waits until it closes |
-| x4100-x4CFF | while the navigation screen is up: `SCRAP.NAV` (`scrap_nav.masm`; 6 sectors at most), read in the same way; the points it drew go in the file system's buffer at x4E00 |
-| x5400-x55FF | sector buffer for loading `SCRAP.OVL`, then the part text of the panel's kind (two kinds, one sector of `SCRAP/Kxy`) |
+| x4080-x40FF | while the navigation screen is up: its state (the target, the object being drawn and its 10 bytes, the pixels of each object for the mouse) |
+| x4100-x4CFF | while the navigation screen is up: `SCRAP.NAV` (`scrap_nav.masm`; 6 sectors at most, packed largest chunk first: `.region ..., pack`), read in the same way; the points it drew go in the file system's buffer at x4E00 |
+| x5400-x55FF | sector buffer for loading `SCRAP.OVL`, then the part text of the panel's kind (two kinds, one sector of `SCRAP/Kxy`); while the navigation screen is up the sector file `SCRAP/K3A` ("kinds" 96-97): the objects (x, y, size, shape, their strings, the radar factor), their names, registries and kinds, and some of the screen's strings (`gen_scrap.SECTOR_STRS`) |
 | x5600-x59FF | more of the program: `SCRAP.OVL`'s pages after xFE, the mouse pointer (its art, what is under it), a repair's steps and what overflows |
 | x5C00-x5DF2 | more of the program (`SCRAP.OVL`'s next 2 pages; the start of the audio buffer, x5DF3-x5DFF, is set to silence again after the load): what overflows |
 | even pages x60-xBE | the map: 96 x 64 cells in 24 chunks of 16 x 16 |
@@ -317,8 +331,8 @@ stubs that switch to map 07 around the call.
 cd src\scripts
 python gen_scrap.py                              scrap_types.asm, scrap_data.masm, scrap_map.bin
 python asm_expand.py scrap.masm                  scrap.asm
-python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2
-                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV
+python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3700,0x3F00,NV2,2 --swap 0x3700,0x3F00,ART,0
+                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV, SCRAP.NV2, SCRAP.ART
 python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png)
 ```
 
@@ -368,9 +382,12 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
   without the suit (blacking out), PUT ON SUIT;
 - refilling the suit from a tank (it stays installed);
 - NAVIGATE at the helm: the tug's mass and thrusters against the map,
-  the navigation screen, K while docked, U (the speed, the airlocks), a
-  frame's thrust against 20 kN a thruster, 60 frames of thrust and the
-  nitrogen burnt, turning, the zoom, K out of range, a collision at
+  the navigation screen (the panel's blocks, the tug's triangle, the
+  KESTREL 9's diamond and the target's corners), Tab and a click to pick
+  the target, C, K while docked, U (the speed, the airlocks, the speed
+  toward the KESTREL 9), a frame's thrust against 20 kN a thruster, 60
+  frames of thrust and the nitrogen burnt, turning, the zoom steps, K out
+  of range, a collision at
   30 m/s (IMPACT IN 10 S, the damage, the stop), the tug cruising while
   you walk (the view with the wreck hidden, the rooms), and docking again;
 - Esc back to the DOS.

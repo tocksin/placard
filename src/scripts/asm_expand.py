@@ -37,6 +37,9 @@ return label) and places its code page by page with #addr (LIBRARY.md,
                     the same, for RAM under a ROM address: its chunks get
                     #overlay instead of #addr (placard_sim.py), and
                     gen_plc.py --overlay puts them in a second file
+    .region a, b, s, kind, pack
+                    the same, its chunks placed largest first (they fit
+                    in fewer pages: scrap_nav.masm)
     .chunk          a piece of code that must stay in one page: its
                     branches are local.  It must end with a jump (jmp,
                     bra, GOTO, LEAVE, RET) or be data.  Chunks are placed
@@ -58,7 +61,7 @@ Lines before the first .chunk or .fixed (constants, #include, comments)
 are copied as they are.  The .asm made is the file to read and assemble;
 the .masm is its source (change that and run this again).
 
-Date: 11/06/2026
+Date: 11/07/2026
 """
 
 import os
@@ -181,6 +184,7 @@ def expand(src, name='?'):
     nret = 0
     region = None
     regions = []
+    packed = []                 # .region ..., pack: largest chunk first
     consts = {}
 
     def value(expr):
@@ -206,6 +210,8 @@ def expand(src, name='?'):
                       {'overlay': 1, 'overlay2': 2}.get(parts[3].strip(), 0) if len(parts) > 3 else 0]
             if region not in regions:
                 regions.append(region)
+            if len(parts) > 4 and parts[4].strip() == 'pack':
+                packed.append(region)
             continue
         if word in ('.chunk', '.fixed', '.flow', '.page'):
             if word != '.fixed' and region is None:
@@ -282,6 +288,7 @@ def expand(src, name='?'):
         cur.lines.extend(out)
     for c in chunks:
         c.regions = regions
+        c.pack = any(c.region is r for r in packed)
     return head, chunks
 
 
@@ -292,7 +299,11 @@ def place(chunks, name):
             c.addr = c.fixed
             page = (0, c.addr >> 8)
             used[page] = max(used.get(page, 0), (c.addr & 0xFF) + c.size)
-    for c in sorted(chunks, key=lambda c: not c.page):   # .page chunks first
+    order = sorted(chunks, key=lambda c: not c.page)    # .page chunks first
+    slots = [i for i, c in enumerate(order) if getattr(c, 'pack', False) and not c.page]
+    for i, c in zip(slots, sorted((order[i] for i in slots), key=lambda c: -c.size)):
+        order[i] = c                                    # .region ..., pack: largest first
+    for c in order:
         if c.fixed is not None or c.flow:
             continue
         if c.size > 256:

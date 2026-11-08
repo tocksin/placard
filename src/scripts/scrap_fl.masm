@@ -20,7 +20,7 @@
 ; damage by speed, the tug stopped where it last was clear); closing
 ; within 300 m is PROXIMITY, and within 10 s of the hull IMPACT IN 10 S.
 ;
-; Date: 11/06/2026
+; Date: 11/07/2026
 ; ============================================================
 
 FL_PG   = 0x40
@@ -39,13 +39,15 @@ FL_FUL  = 0x2B              ; litres burnt
 FL_FUH  = 0x2C
 FL_FLL  = 0x2D              ; litres left (the nitrogen by working intakes, less those burnt)
 FL_FLH  = 0x2E
-FL_ZM   = 0x2F              ; the map's zoom, 0-2 (SCRAP.NAV)
+FL_ZM   = 0x2F              ; the map's zoom, 0-7 (SCRAP.NAV: 4 m a pixel << it)
 FL_GPL  = 0x30              ; the gap to the KESTREL 9's hull at the last check, metres
 FL_GPH  = 0x31
 FL_CL   = 0x32              ; closing: metres in the last 8 frames (0 moving away)
 FL_SV   = 0x33              ; x4033-x403A: the last position clear of the hull
 FL_DX   = 0x3B              ; fl_rel: the KESTREL 9's centre from the tug, metres
 FL_DY   = 0x3D
+FL_VIS  = 0x3F              ; a bit a sector object: visited (docked to it); the
+                            ;   KESTREL 9 is object 0
 FL_PX   = 0x60              ; position x, y (16.16 metres)
 FL_PY   = 0x64
 FL_VX   = 0x68              ; velocity x, y (1/2^24 m a frame)
@@ -92,6 +94,10 @@ fl_dock:
     ld   FL_PG, y
     ld   FL_DOCK, x
     ld   1, [y,x]
+    ld   FL_VIS, x              ; the KESTREL 9 visited
+    ld   [y,x], ac
+    or   1, ac
+    ld   ac, [y,x]
     ld   FL_AL, x
     ld   0x00, [y,x]
     ld   FL_VX, ac
@@ -1165,16 +1171,31 @@ nav_action:
     CALL set_msg
     LEAVE
 nv_ok:
+    ld   SWAP_LO >> 8, ac       ; SCRAP.NAV into x4100 (6 sectors), SCRAP.NV2
+    ld   ac, [u5]               ; over the art (x3700-x3EFF, 4: the ship view
+    ld   6, ac                  ; is not drawn while the map is up)
+    ld   ac, [u6]
     ld   s_navf & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_navf >> 8, ac
-    ld   ac, [R1]
-    CALL swap_fetch
-    beq  nv_go
+    CALL nav_fetch
+    beq  nv_2
     LEAVE
-nv_go:
+nv_2:
+    ld   NAV2_LO >> 8, ac
+    ld   ac, [u5]
+    ld   4, ac
+    ld   ac, [u6]
+    ld   s_nv2f & 0xFF, ac
+    CALL nav_fetch
+    bne  nv_a
     CALL pt_hide
     CALL nav_main
+nv_a:
+    ld   NAV2_LO >> 8, ac       ; the art back (SCRAP.ART)
+    ld   ac, [u5]
+    ld   4, ac
+    ld   ac, [u6]
+    ld   s_artf & 0xFF, ac
+    CALL nav_fetch
     ld   [rb_go], ac
     beq  nv_v
     CALL rooms_build
@@ -1191,6 +1212,15 @@ nv_v:
     or   3, ac
     ld   ac, [dirty]
     LEAVE
+
+; nav_fetch - swap_fetch of the file whose low byte is AC (in s_navf's
+; page): SCRAP.NAV, SCRAP.NV2 or SCRAP.ART.  The rest is swap_fetch's
+.chunk
+nav_fetch:
+    ld   ac, [R0]
+    ld   s_navf >> 8, ac
+    ld   ac, [R1]
+    GOTO swap_fetch
 
 ; l_mul8, l_div16, l_rand8 - the library's, under its map
 .chunk
