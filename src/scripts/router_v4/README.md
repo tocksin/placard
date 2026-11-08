@@ -339,13 +339,13 @@ Three ideas tried on the fine r1 bench, all kept as options, all off by default:
 So round 7 adds options but no algorithmic gain. The best fine r1 board is now the second round 6 run:
 **449 vias / 26.46 m** (`bench/r1_fine7_*`, 43 min with 3 workers) against round 5's 483 / 26.76 m. A cheap way to use the spread is to run the ladder two or three times and keep
 the best, which the GPU makes affordable on the whole board. The whole-board round 6 runs on the laptop
-(`bench/wbf6_*`, branch-133) are reported there.
+(`bench/wbf6_*`, branch-137) are reported there.
 
 
 ## Round 8 (2026-11-08, branch-135, overnight): best-of-N ladder, what the router's all-net iterations cost
 Justin's direction for the night: keep improving the metrics unattended, and look at other routers and the
 pathfinding literature (the survey is `research.md`, written on the laptop together with the whole-board round 6
-results, branch-133; the laptop's constrained-via-minimisation pass `cvm.py` found nothing left to flip after the
+results, branch-137; the laptop's constrained-via-minimisation pass `cvm.py` found nothing left to flip after the
 tidy ladder: all 134 flippable runs on the final whole board are blocked on the other layer).
 
 - **`ladder.py`** runs the via-cost ladder as a driver: every rung is tried `TRIES` times (`SEED=k` jitters the tidy's
@@ -379,7 +379,32 @@ tidy ladder: all 134 flippable runs on the final whole board are blocked on the 
 - **Router `WINLATE`** (search window pad shrinks to `WINLATE` mm from iteration `LATEFROM`, FastRoute-style): bad,
   `WINLATE=10` leaves 9 nets unrouted and 913 overlap cells on the coarse r1. Off.
 
-Whole board, round 6 tidy on round 5's fine route (laptop, 2-3 workers, `bench/wbf6_r5_*`, KiCad 9 DRC clean):
+Whole board, round 6 tidy on round 5's fine route (laptop, 1-3 workers, `bench/wbf6_r5_*`, KiCad 9 DRC clean):
 400 / 800 / 1600 / 3200 -> 571 / 533 / 504 / 494 vias, 38.87 / 39.33 / 40.01 / 40.59 m in 3.1 h for all four rungs
 (round 5: 572 / 531 / 506 in about 6 h for three). The 3200 rung buys 10 vias for 0.58 m; DATABUS0/1 then run at a
 1.4 detour for 5 vias each, so 3200 is about where vias stop paying.
+
+### Round 6 on the whole board (laptop, 2026-11-07/08, `bench/wbf6_*`)
+Same wb bench as rounds 4-5. Two runs: the round 6 tidy on round 5's own route (`wbf6_r5`, a copy of `wbf_gpu.kicad_pcb`), and a new
+GPU route with `DISJOINT=16` followed by the tidy (`wbf6_dj`). Both ladders got a fourth rung (VIA 3200) and then a wider
+pair rung (`VIA=3200 NEIGH=8 NEIGHMM=2.5 NETPASS=0`). Track / vias in scope after corner45:
+
+| | router | VIA 400 | VIA 800 | VIA 1600 | VIA 3200 | wider pairs |
+|---|---|---|---|---|---|---|
+| round 5 | 39.33 m / 645 | 38.89 / 572 | 39.38 / 531 | 39.98 / 506 | | |
+| round 6 tidy, round 5 route (`wbf6_r5`) | as round 5 | 38.87 / 571 | 39.33 / 533 | 40.01 / 504 | 40.59 / 494 | 40.66 / 478 |
+| round 6 tidy, DISJOINT route (`wbf6_dj`) | 39.09 / 664 | 38.62 / 591 | 38.90 / 550 | 39.83 / 510 | 40.11 / 504 | 40.17 / 484 |
+| tidy time, min (workers), `wbf6_r5` | | 37.5 (2) | 50.1 (2) | 74.5 (1) | 20.6 (3) | 92.5 (1) |
+| tidy time, min (workers), `wbf6_dj` | | 14.0 (7) | 12.4 (6) | 15.1 (6) | 12.2 (6) | 55.8 (4) |
+
+All boards: 0 open nets, 0 collisions. KiCad 9 DRC with zones refilled on `wbf6_r5_v3200`, `wbf6_r5_n8`, `wbf6_dj_v3200`
+and `wbf6_dj_n8` (`bench/*_c45_drc.json`): 0 unconnected, 0 clearance or copper faults (only the library-path notes).
+- **Tidy speed:** with the memory free the four rungs of `wbf6_dj` took 54 min; round 5 took 6 h for three. The `wbf6_r5` run shared
+  RAM with the route, so the worker cap gave only 1-3 workers.
+- **Wider pair rung:** the best new lever, -16 vias for +0.07 m on `wbf6_r5`, -20 vias for +0.06 m on `wbf6_dj`.
+  Best board: `bench/wbf6_r5_n8_results.kicad_pcb.zip`, 478 vias, 40.66 m. Shortest of similar via count: `wbf6_dj_n8`, 484 vias, 40.17 m.
+- **DISJOINT=16 on the GPU:** the full re-route iterations (12, 16) took 1350 / 1340 s instead of 3321 / 3173 s, but the route was not
+  faster overall (6.3 h vs 6.0 h: all 30 iterations ran, full re-routes came every fourth iteration, early iterations shared the
+  machine with the CPU tidy) and left more raw vias (664 vs 645). The two routes differ by no more than run-to-run noise after the ladder.
+  It stays off by default.
+- **Layer flips (`cvm.py`):** 0 vias removed on the finished board; see `research.md`, which also reviews other routers and papers.
