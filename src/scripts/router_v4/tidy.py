@@ -33,9 +33,10 @@ env: VIA=200 (via cost in cells, higher than the router's to trade length for vi
      (chains cut at the window edge) and re-route the nets with a window negotiation (pressure + history, REGIONROUNDS);
      kept when cheaper. No gain on r1: the entry points pin the nets and the dense bus windows do not converge.
      BUDGET forces WORKERS=1.
-    BEST=1 (needs WORKERS>1): a pass first proposes every net's move on the pass-start state, then commits the proposals in
-    order of gain (each validated against the ones committed before it); conflicting proposals wait for the next pass.
-    Freerouting's optimiser idea (try all, commit the best) instead of the streaming pool's first-come order."""
+    BEST=1 (default since round 9; WORKERS>1): a pass first proposes every net's move on the pass-start state, then commits
+    the proposals in order of gain (each validated against the ones committed before it); conflicting proposals wait for
+    the next pass. Freerouting's optimiser idea (try all, commit the best); fewer vias than the streaming pool at every
+    rung and, since no move depends on worker timing, bit-identical results run to run. BEST=0 = the streaming pool."""
 import sys, math, os, time
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
@@ -436,7 +437,7 @@ def free_cells(n,paths,old):
             if (l,iy,ix) not in oc and bt[l][iy-y0,ix-x0]: return False
             if i and p[i-1][0]!=l and (iy,ix) not in ov and bv[iy-y0,ix-x0]: return False
     return True
-RETRY=int(E('RETRY','2')); LOOK=int(E('LOOK','16')); BEST=int(E('BEST','0'))
+RETRY=int(E('RETRY','2')); LOOK=int(E('LOOK','16')); BEST=int(E('BEST','1'))
 class Pool:
     """worker processes, each with its own grid, fed one net at a time in the sequential order (skipping ahead past nets whose
     windows overlap a net in flight); every move is validated on the main grid against the state the workers were told
