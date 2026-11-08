@@ -20,7 +20,7 @@
 ; damage by speed, the tug stopped where it last was clear); closing
 ; within 300 m is PROXIMITY, and within 10 s of the hull IMPACT IN 10 S.
 ;
-; Date: 11/07/2026
+; Date: 11/08/2026
 ; ============================================================
 
 FL_PG   = 0x40
@@ -61,6 +61,8 @@ FL_LVY  = 0x7A
 FL_SVX  = 0x7C
 FL_SVY  = 0x7E
                             ; x4078-x407F: SCRAP.NAV's
+FL_GO   = 0xFF              ; (x40FF, rooms_build's space) the next screen: 2 the
+                            ;   docking screen (SCRAP.DCK) after the map, 1 the map
 
 ; fl_init - docked to the KESTREL 9, heading east, nothing burnt.  A leaf.
 .chunk
@@ -80,7 +82,7 @@ fi_l:
     ld   ac, [u0]
 fi_2:
     ld   [u0], ac
-    xor  0x80, ac
+    xor  0xC0, ac               ; (x4080-x40BF too: the nav screen's, the spin)
     bne  fi_l
     ld   [RAND_LO], ac          ; rand8 needs a state that is not 0
     or   [RAND_HI], ac
@@ -218,6 +220,8 @@ ft_e:
 
 ; fl_add24 - the 2 bytes at FL_PG + w1 (signed) into the 4 at FL_PG + AC.
 ; fl_addp - the 3 at w1 (signed) into the 4 at AC.  Leaves (fl_add's).
+.region 0x2000, 0x3200
+.region 0x0100, 0x1F00
 .chunk
 fl_add24:
     ld   ac, [T0]
@@ -236,6 +240,7 @@ fa4_n:
     ld   4, ac
     ld   ac, [T3]
     GOTO fl_add
+.region 0xC000, 0x10000, 2, overlay, pack
 
 ; fl_add - T2 bytes at FL_PG + T1 (signed: the top one's sign carried on)
 ; added into T3 bytes at FL_PG + T0 (low first).  A leaf; T0-T7.
@@ -310,7 +315,7 @@ fl_burn:
     add  [y,x], ac
     ld   ac, [y,x]
     sub  60, ac
-    bcs  fb_e
+    bcs  fb_r
     ld   ac, [y,x]
     ld   FL_FUL, x
     ld   [y,x], ac
@@ -322,6 +327,16 @@ fl_burn:
     inc
     ld   ac, [y,x]
 fb_1:
+    GOTO fl_burn2
+fb_r:
+    RET
+
+; fl_burn2 - a kg less left.  The rest of fl_burn (a leaf)
+.region 0x2000, 0x3200
+.region 0x0100, 0x1F00
+.chunk
+fl_burn2:
+    ld   FL_PG, y
     ld   FL_FLL, x
     ld   [y,x], ac
     bne  fb_2
@@ -336,6 +351,7 @@ fb_2:
     ld   ac, [y,x]
 fb_e:
     RET
+.region 0xC000, 0x10000, 2, overlay, pack
 
 ; tug_mass - tug_scan's: the mass of kind c_t added in, and a working
 ; thruster (c_f under 8) counted.  A leaf.
@@ -355,6 +371,12 @@ tug_mass:
     inc
     ld   ac, [y,x]
 tg_1:
+    GOTO tug_thr
+
+; tug_thr - a working thruster counted.  The rest of tug_mass
+.chunk
+tug_thr:
+    ld   FL_PG, y
     ld   [c_t], ac
     xor  T_THRUST, ac
     bne  tg_e
@@ -714,6 +736,8 @@ fb_n1:
     RET
 
 ; fl_max - w1:w0 = the larger of w1:w0 and u1:u0 (both 0-32767).  A leaf.
+.region 0x2000, 0x3200
+.region 0x0100, 0x1F00
 .chunk
 fl_max:
     ld   [u1], ac
@@ -730,6 +754,7 @@ mx_u:
     ld   ac, [w1]
 mx_e:
     RET
+.region 0xC000, 0x10000, 2, overlay, pack
 
 ; fl_rel - FL_DX, FL_DY = the KESTREL 9's centre less the tug's position
 ; (metres, signed), w1:w0 = the gap to its hull: the larger of |dx| and
@@ -1141,6 +1166,8 @@ ms_e:
 
 ; fl_far - AC = 1 when g_x is on the KESTREL 9's side and the tug is
 ; undocked.  A leaf.
+.region 0x2000, 0x3200
+.region 0x0100, 0x1F00
 .chunk
 fl_far:
     ld   [g_x], ac
@@ -1155,6 +1182,7 @@ fl_far:
 ff_n:
     clr  ac
     RET
+.region 0xC000, 0x10000, 2, overlay, pack
 
 ; dyn_nav - NAVIGATE on a working helm installed on the tug.  The end of
 ; dyn_acts (its LEAVE)
@@ -1168,16 +1196,24 @@ dyn_nav:
     ld   [s_f], ac
     sub  8, ac
     bcc  dn_e
+    GOTO dyn_nav2
+dn_e:
+    LEAVE
+
+; dyn_nav2 - on the tug: NAVIGATE.  The rest of dyn_nav
+.chunk
+dyn_nav2:
     CALL on_tug
-    beq  dn_e
+    beq  dn2_e
     ld   A_NAV, ac
     CALL add_act
-dn_e:
+dn2_e:
     LEAVE
 
 ; nav_action - NAVIGATE: SCRAP.NAV read into x4100 (rooms_build's space:
 ; a rebuild waits), its screen until Esc; then the ship again, the rooms
-; worked out if the ship changed.  The rest of do_action (its LEAVE)
+; worked out if the ship changed (C on the map: the docking screen,
+; SCRAP.DCK, between).  The rest of do_action (its LEAVE)
 .chunk
 nav_action:
     CALL near
@@ -1201,35 +1237,15 @@ nv_2:
     ld   ac, [u6]
     ld   s_nv2f & 0xFF, ac
     CALL nav_fetch
-    bne  nv_a
+    bne  nv_f
     CALL pt_hide
     CALL nav_main
-nv_a:
-    ld   NAV2_LO >> 8, ac       ; the art back (SCRAP.ART)
-    ld   ac, [u5]
-    ld   5, ac
-    ld   ac, [u6]
-    ld   s_artf & 0xFF, ac
-    CALL nav_fetch
-    ld   [rb_go], ac
-    beq  nv_v
-    CALL rooms_build
-    clr  ac
-    ld   ac, [rb_go]
-nv_v:
-    clr  ac
-    ld   ac, [lock]
-    ld   ac, [h_on]
-    ld   ac, [wk_on]
-    CALL draw_view
-    CALL hover_update
-    ld   [dirty], ac
-    or   3, ac
-    ld   ac, [dirty]
-    LEAVE
+    GOTO nav_back               ; (in scrap.masm's code, where there is room)
+nv_f:
+    GOTO nv_a
 
 ; nav_fetch - swap_fetch of the file whose low byte is AC (in s_navf's
-; page): SCRAP.NAV, SCRAP.NV2 or SCRAP.ART.  The rest is swap_fetch's
+; page): SCRAP.NAV, SCRAP.NV2, SCRAP.ART or SCRAP.DCK.  The rest is swap_fetch's
 .chunk
 nav_fetch:
     ld   ac, [R0]
@@ -1237,40 +1253,9 @@ nav_fetch:
     ld   ac, [R1]
     GOTO swap_fetch
 
-; l_mul8, l_div16, l_rand8 - the library's, under its map
-.chunk
-l_mul8:
-    PUSH_LINK
-    MAP07
-    CALL mul8
-    MAPFF
-    LEAVE
-
-.chunk
-l_div16:
-    PUSH_LINK
-    MAP07
-    CALL div16
-    MAPFF
-    LEAVE
-
-.chunk
-l_rand8:
-    PUSH_LINK
-    MAP07
-    CALL rand8
-    MAPFF
-    LEAVE
-
 .chunk
 s_bump:
     #d "BUMPED THE KESTREL 9: NO DAMAGE.", 0x00
 .chunk
 s_hit:
     #d "IMPACT!  HIT THE KESTREL 9: CHECK THE HULL.", 0x00
-.chunk
-s_prox:
-    #d "PROXIMITY: THE KESTREL 9 IS CLOSE.  SLOW DOWN.", 0x00
-.chunk
-s_imp:
-    #d "IMPACT IN 10 S!  BRAKE OR TURN AWAY.", 0x00

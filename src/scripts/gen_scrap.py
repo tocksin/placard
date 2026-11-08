@@ -37,7 +37,7 @@ THE ART
     pixels 2c (low nibble, shown first) and 2c + 1 (high nibble) of line
     pair r.  Colors are the 4 bpp palette (docs/video/COLORS.md).
 
-Date: 2026-11-07
+Date: 2026-11-08
 """
 
 import os
@@ -510,14 +510,8 @@ def inv(t):
 # scrap_types.asm gets their addresses.  The message strings go when the
 # screen closes (nv_exit clears the message: x5400 is part text again)
 SECTOR_STRS = [
-    [('s_k1', inv(' ') + b' ' + inv(' TAB TARGET ') + b' ' + inv(' C COMMS ') + b' ' + inv(' U UNDOCK ') + b' '
-      + inv(' K DOCK ') + b' ' + inv(' ESC SHIP '))],
-    [('s_dock', b'DOCKED: CLAMPS ON.'), ('s_nodk', b'DOCK: WITHIN 20 M OF THE PORT, UNDER 2 M/S.'),
-     ('s_adock', b'ALREADY DOCKED.')],
+    [('s_k1', inv(' ') + b' ' + inv(' TAB TARGET ') + b' ' + inv(' C DOCKING AND COMMS ') + b' ' + inv(' ESC SHIP '))],
     [('s_k0', inv(' +/- RANGE '))],
-    [('s_comms', b'COMMS: NOT FITTED YET.')],
-    [('s_ndock', b'NOT DOCKED.')],
-    [('s_undock', b'UNDOCKED.')],
 ]
 
 
@@ -557,7 +551,8 @@ def sector_file(labels=None):
     return bytes(data)
 
 
-NAV_TURN = 11                       # frames a heading step (32: 90 degrees in 1.5 s)
+NAV_SPIN = 32                       # the fastest spin: 1/256 heading steps a frame (a step each 8
+                                    # frames: a turn in 4.3 s); Left / Right add 1 a frame
 COS32 = [round(127 * __import__('math').cos(2 * __import__('math').pi * h / 32)) for h in range(32)]
 TUG = (0, 18, TUG_LOCK[0], 46)      # the tug's cells, x0, y0, x1, y1 (its value, its systems,
                                     # room to build on round its hull)
@@ -996,7 +991,7 @@ def write_sources():
               'WRECK_X    = 0x%04X' % WRECK_POS[0], 'WRECK_Y    = 0x%04X' % WRECK_POS[1],
               'WRECK_BOX  = %d' % WRECK_BOX,
               'SEC_K      = %d' % SECTOR_KIND, 'SEC_REC    = %d' % SECTOR_REC, 'DOCK_X     = 0x%04X' % DOCK_POS[0], 'DOCK_Y     = 0x%04X' % DOCK_POS[1],
-              'DOCK_RANGE = %d' % DOCK_RANGE, 'NAV_TURN   = %d' % NAV_TURN,
+              'DOCK_RANGE = %d' % DOCK_RANGE, 'NAV_SPIN   = %d' % NAV_SPIN,
               ] + ['UNDOCK_B%d  = 0x%02X' % (i, (-UNDOCK_V) >> (8 * i) & 0xFF) for i in range(4)] + [
               '%-10s = 0x%04X          ; the sector file (SECTOR_STRS)' % kv for kv in sector_labels()] + [
               'BAR_PG     = 0x%02X          ; + step: bar string low; + x10 high' % ROOM_PAGE,

@@ -325,14 +325,15 @@ def assemble(src, base_dir='.'):
                 kw = d[0].lower()
                 if kw in ('#include', '#bankdef', '#bits', '#outp', '#size', '{', '}'):
                     continue
-                if kw in ('#addr', '#overlay', '#overlay2'):
+                if kw in ('#addr', '#overlay', '#overlay2', '#overlay3'):
                     # may go backwards, as in customasm; overlapping bytes are an error.
                     # #overlay: the bytes that follow are RAM under a ROM address (a
                     # program's overlay, gen_plc.py --overlay): kept at address + x10000
                     addr = evaluate(d[1], syms) if pass_no == 2 else evaluate(d[1], dict(syms))
                     # (#overlay2: a second set at x20000, SCRAPWRIGHT's SCRAP.NAV
-                    # at the addresses of SCRAP.INV)
-                    base = {'#overlay': 0x10000, '#overlay2': 0x20000}.get(kw, 0)
+                    # at the addresses of SCRAP.INV; #overlay3: a third, x30000,
+                    # SCRAP.DCK)
+                    base = {'#overlay': 0x10000, '#overlay2': 0x20000, '#overlay3': 0x30000}.get(kw, 0)
                     continue
                 if kw == '#d8':
                     for v in d[1].split(','):

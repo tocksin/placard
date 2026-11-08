@@ -239,9 +239,12 @@ class Rig(test_tracker.Rig):
         if self.zp('cut_t'):            # a job: its bar half way
             if self.wait_for(lambda: self.cpu.mem[self.tsyms['JB_N']] >= half or not self.zp('cut_t'), 3000, 'half the job'):
                 self.run(2)
-                for _ in range(10):     # (the row is cleared, then written)
-                    if self.panel()[5].strip():
+                last = None
+                for _ in range(12):     # (the row is cleared, then written: wait till it holds still)
+                    row = self.panel()[5]
+                    if row.strip() and row == last:
                         break
+                    last = row
                     self.run(1)
                 self.mid = (self.cpu.mem[self.tsyms['JB_N']], self.panel()[5], d0, self.map_raw(x, y)[1] & 15,
                             self.panel()[0], self.zp('cut_m') if self.zp('cut_t') else rep)
@@ -430,8 +433,21 @@ def build():
         raise SystemExit('SCRAP.NV2 is %d bytes, NV3 %d, the art at x%02X00' % (len(nav2), len(nav3), gen_scrap.ART_PAGE))
     if not 0x4100 <= tsyms['nav_main'] < 0x4D00 and not 0x3600 <= tsyms['nav_main'] < 0x4000:
         raise SystemExit('nav_main is in SCRAP.NV3 (x%04X): it reads that in' % tsyms['nav_main'])
+    dck = gen_plc.split_swap(prog, 0x4100, 0x4D00, 3)   # SCRAP.DCK, the docking screen
+    dk2 = gen_plc.split_swap(prog, 0x3600, 0x4000, 3)   # SCRAP.DK2, over SCRAP.NV2's
+    dk3 = gen_plc.split_swap(prog, 0x4E00, 0x5000, 3)   # SCRAP.DK3, in the file system's buffer
+    dk4 = gen_plc.split_swap(prog, 0x5400, 0x5600, 3)   # SCRAP.DK4, in the part text's
+    if not dck or len(dck) > 0xC00 or len(dk2) > 0xA00 or len(dk3) > 0x200 or len(dk4) > 0x200:
+        raise SystemExit('SCRAP.DCK is %d bytes, DK2 %d, DK3 %d, DK4 %d' % (len(dck), len(dk2), len(dk3), len(dk4)))
+    if any(0x5D00 <= a < 0x5D70 for a in prog):     # the DOS's menu block: Esc needs it
+        raise SystemExit('scrap.asm puts bytes in x5D00-x5D6F (the menu block)')
+    for lab in ('l_mul8', 'l_div16', 'l_rand8'):     # MAP07: the library over x6000 up
+        if tsyms[lab] >= 0x6000:
+            raise SystemExit('%s is at x%04X: it runs under map 07' % (lab, tsyms[lab]))
+    if not 0x4100 <= tsyms['dock_main'] < 0x4D00:
+        raise SystemExit('dock_main is not in SCRAP.DCK (x%04X): it reads the rest in' % tsyms['dock_main'])
     own = set()
-    for f in ('scrap_inv.masm', 'scrap_inv_data.masm', 'scrap_nav.masm'):
+    for f in ('scrap_inv.masm', 'scrap_inv_data.masm', 'scrap_nav.masm', 'scrap_dck.masm'):
         own |= set(re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, f)).read(), re.M))
     for lab in re.findall(r'^([A-Za-z_]\w*):', src, re.M):
         if lab not in own and not lab.startswith('scw_') and 0x4100 <= tsyms.get(lab, 0) < 0x4D00:
@@ -443,13 +459,14 @@ def build():
         raise SystemExit('the fixed pages start at x%02X00: change the region' % gen_scrap.DOOR_PAGE)
     plc = gen_plc.make(prog, tsyms, lib)[0]
     ovl += code                 # the code pages from xC000, after the map's
-    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, (nav, nav2, nav3, art)
+    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, (nav, nav2, nav3, art, dck, dk2, dk3, dk4)
 
 
 def swap_files(inv, navs):
     """the swap files for the SD image: build()'s inv and nav"""
-    nav, nav2, nav3, art = navs
-    return {'SCRAP.INV': inv, 'SCRAP.NAV': nav, 'SCRAP.NV2': nav2, 'SCRAP.NV3': nav3, 'SCRAP.ART': art}
+    nav, nav2, nav3, art, dck, dk2, dk3, dk4 = navs
+    return {'SCRAP.INV': inv, 'SCRAP.NAV': nav, 'SCRAP.NV2': nav2, 'SCRAP.NV3': nav3, 'SCRAP.ART': art,
+            'SCRAP.DCK': dck, 'SCRAP.DK2': dk2, 'SCRAP.DK3': dk3, 'SCRAP.DK4': dk4}
 
 
 def main(argv):
@@ -635,7 +652,8 @@ def main(argv):
     phase3(r, args)
 
     print('12. Esc')
-    test_dos.esc_to_dos(r)
+    if test_dos.esc_to_dos(r) and r.cpu.map == 0xFF:     # (the DOS runs under map 07)
+        r.fail('Esc: the game\'s map, not the DOS\'s')
     print('PASS' if r.ok else 'FAILED')
     return 0 if r.ok else 1
 
@@ -1091,10 +1109,41 @@ def comms(r):
     r.run(70)
 
 
+def dk_pix(mem, x, p):
+    """the docking screen's 2 pixels x (x / 2) at line pair p (1 bpp: 0-3)"""
+    b = mem[((0x61 + ((x >> 1) & 0x7E)) << 8) + line_off(p)]
+    return (b >> 2 * (x & 3)) & 3
+
+
+def dock_open(r):
+    """C on the map: the docking screen (SCRAP.DCK, DK2, DK3 read in)"""
+    mem = r.cpu.mem
+    r.mouse_to(0, 27 * 16 + 4)             # the pointer off the text (a blank panel row)
+    r.key('c')
+    if not r.wait_for(lambda: mem[FL + 0x20] == 2 and 'COMMS CONTROL' in r.text(0).upper()
+                      and 'HAIL' in r.text(7).upper(), 300, 'the docking screen'):
+        return False
+    r.run(20)
+    return True
+
+
+def dock_close(r):
+    """Esc: back to the map"""
+    mem = r.cpu.mem
+    r.port.kbd.press(r.codes['\x1b'])
+    r.run(10)
+    r.port.kbd.release(r.codes['\x1b'])
+    if not r.wait_for(lambda: mem[FL + 0x20] == 1 and 'target' in r.text(24), 300, 'the map again'):
+        return False
+    r.run(20)
+    return True
+
+
 def navigation(r):
     """NAVIGATE at the helm: the nav screen, the tug's mass and thrusters,
-    undocking, thrust, turning, cruising while walking, a collision and
-    docking again"""
+    the docking screen (hail, undock), thrust, turning, cruising while
+    walking, a collision and docking again (declared, a miss, the rings
+    lined up, the clamps)"""
     z, mem, cpu = r.zp, r.cpu.mem, r.cpu
     print('7e. navigation')
     W = gen_scrap.MASS
@@ -1126,6 +1175,12 @@ def navigation(r):
     if not r.wait_for(lambda: mem[FL + 0x20] and 'flight' in r.text(24), 200, 'the nav screen'):
         return
     r.run(20)
+    pos0 = bytes(mem[0x4022:0x4023]) + bytes(mem[0x4060:0x4070])
+    r.hold(RIGHT, 20)       # docked: no turning, no thrust
+    r.hold(UP, 20)
+    if bytes(mem[0x4022:0x4023]) + bytes(mem[0x4060:0x4070]) != pos0:
+        r.fail('docked, the tug turned or moved: heading %d' % mem[FL + 0x22])
+    r.run(20)
     p = [' '.join(line.replace('_', ' ').split()) for line in r.panel()]
     for line in p[:5]:
         print('  |%s' % line)
@@ -1148,8 +1203,8 @@ def navigation(r):
     if (not re.search(r'05-07-2175 +\d\d:\d\d:\d\d +NITROGEN %d KG +DELTA-V %d M/S +BATTERIES \d' % (fuel0, dv), st)
             or not any(t in st for t in times) or not 28800 < clk < 28800 + 3600):
         r.fail('the status row: %r (delta-v %d, clock %s)' % (st, dv, times))
-    if nav_pixel(mem, 131, 92) != 3 or nav_pixel(mem, 126, 90) != 3 or nav_pixel(mem, 133, 92) == 3:
-        r.fail('the tug (east) is not drawn in the middle (%X %X)' % (nav_pixel(mem, 131, 92), nav_pixel(mem, 126, 90)))
+    if nav_pixel(mem, 129, 92) != 3 or nav_pixel(mem, 126, 95) != 3 or nav_pixel(mem, 130, 92) == 3:
+        r.fail('the tug (east) is not drawn in the middle (%X %X)' % (nav_pixel(mem, 129, 92), nav_pixel(mem, 126, 95)))
     gx = (fl_get(mem, 0x62, 2, False) >> 2) & 63      # the grid: world lines every 64 pixels
     gy = ((fl_get(mem, 0x66, 2, False) >> 2) + 36) & 63
     if (mem[0x40B8], mem[0x40B9]) != (gx, gy):
@@ -1173,25 +1228,53 @@ def navigation(r):
     r.run(20)
     if mem[0x4080] != 0 or 'target: kestrel 9' not in r.text(24):
         r.fail('a click on the KESTREL 9: target %d, %r' % (mem[0x4080], r.text(24)))
-    r.key('c')
+    if not dock_open(r):
+        return
+    rows = [r.text(k).upper() for k in range(24)]
+    for k in (0, 1, 2, 4, 7, 13, 22):
+        print('  |%s' % rows[k])
+    modes = [mem[0x5A20 + k] & 15 for k in (0, 200, 383, 384)]
+    ring = [mem[FL + k] for k in range(0xE4, 0xE8)]
+    if (' DOCKING ' not in rows[0] or ' COMMS CONTROL ' not in rows[0] or 'CLAMPED TO PORT 1' not in rows[4]
+            or ' 1  HAIL' not in rows[7] or ' 4  RELEASE CLAMPS' not in rows[13] or 'RANGE M  0' not in rows[1]
+            or 'DOCKED: CLAMPS ON' not in rows[22] or modes != [4, 4, 4, 4]):
+        r.fail('the docking screen: %r, modes %s' % (rows[:23], modes))
+    if dk_pix(mem, 80 + 48, 104) != 3 or dk_pix(mem, 80, 104 - 48) != 3 or ring != [1, 80, 104, 60] \
+            or dk_pix(mem, 80 + 60, 104) != 1:
+        r.fail('the rings: the tug\'s %d %d, the port\'s %s %d'
+               % (dk_pix(mem, 128, 104), dk_pix(mem, 80, 56), ring, dk_pix(mem, 140, 104)))
+    for key, want in (('4', 'CLAMPS LOCKED'), ('3', 'HAIL THE KESTREL 9 FIRST'), ('1', 'NO REPLY'),
+                      ('3', 'UNDOCKING DECLARED')):
+        r.key(key)
+        r.run(4)
+        print('  %s: %r' % (key, r.panel()[5].strip()))
+        if want not in r.panel()[5] or not mem[FL + 0x21]:
+            r.fail('docked, %s: %r' % (key, r.panel()[5]))
+    r.run(16)
+    if 'CLAMPED, UNDOCK DECLARED' not in r.text(4):
+        r.fail('the status: %r' % r.text(4))
+    r.key('4')
     r.run(4)
-    if 'COMMS' not in r.panel()[5]:
-        r.fail('C: %r' % r.panel()[5])
-    r.key('k')
-    r.run(4)
-    print('  K docked: %r' % r.panel()[5].strip())
-    if 'ALREADY DOCKED' not in r.panel()[5]:
-        r.fail('K while docked: %r' % r.panel()[5])
-
-    r.key('u')
-    r.run(20)
     vx = fl_get(mem, 0x68, 4)
-    print('  U: %r; vx %d (%d wanted), the locks %s %s'
+    print('  4: %r; vx %d (%d wanted), the locks %s %s'
           % (r.panel()[5].strip(), vx, -gen_scrap.UNDOCK_V,
              gen_scrap.TYPES[r.map_t(29, 32)][0], gen_scrap.TYPES[r.map_t(30, 32)][0]))
     if (mem[FL + 0x21] or vx not in (-gen_scrap.UNDOCK_V, -gen_scrap.UNDOCK_V - 1)
+            or 'CLAMPS RELEASED' not in r.panel()[5]
             or r.map_t(29, 32) != T['DOOR'] or r.map_t(30, 32) != T['WALL']):
         r.fail('undocking')
+    r.run(64)
+    rows = [r.text(k).upper() for k in range(24)]
+    d2, rr = mem[FL + 0xE0], mem[FL + 0xE7]
+    print('  |%s' % rows[1])
+    print('  a second out: %.1f m, the port\'s ring radius %d (range %d half metres)'
+          % (((gen_scrap.DOCK_POS[0] << 16) - fl_get(mem, 0x60, 4)) / 65536, rr, d2))
+    if (not re.search(r'RANGE M \+[4-6] .*CLOSE M/S -(4\.[89]|5\.0)', rows[1]) or rr != max(2, 960 // (d2 + 16))
+            or not 10 <= d2 <= 12 or 'NOT HAILED' in rows[4] or not rows[13].endswith(' 4  CLAMP')
+            or 'DOCKED' in rows[22] or 'CLEAR' in rows[22]):
+        r.fail('undocked: the readouts %r, the ring %d (%d)' % (rows[1:5] + rows[13:14] + rows[22:23], rr, d2))
+    if not dock_close(r):
+        return
     p = [' '.join(line.replace('_', ' ').split()) for line in r.panel()]
     m = re.search(r'TOWARD M/S (-?\d+) ACROSS M/S (\d+)', p[3])
     print('  |%s' % p[3])
@@ -1223,15 +1306,29 @@ def navigation(r):
     print('  the grid moved with the tug: offsets %s, then %s' % ((gx, gy), (mem[0x40B8], mem[0x40B9])))
     if (mem[0x40B8], mem[0x40B9]) != g or g == (gx, gy):
         r.fail('the grid does not move with the tug: %s, wanted %s' % ((mem[0x40B8], mem[0x40B9]), g))
-    h0 = mem[FL + 0x22]
-    r.hold(RIGHT, 3 * gen_scrap.NAV_TURN - 2)
+    h0 = mem[FL + 0x22]                 # the spin: Left / Right spin up, it goes on, R stops it
+    r.hold(RIGHT, 2 * gen_scrap.NAV_SPIN)
+    s1 = mem[FL + 0xBA]
     h1 = mem[FL + 0x22]
-    r.hold(LEFT, 3)
+    r.run(40)
     h2 = mem[FL + 0x22]
-    print('  heading %d, Right 3 steps: %d, Left one: %d' % (h0, h1, h2))
-    if h1 != (h0 + 3) & 31 or h2 != (h0 + 2) & 31:
-        r.fail('turning')
-    r.hold(LEFT, 2 * gen_scrap.NAV_TURN - 2)
+    r.key('r')
+    r.run(2 * gen_scrap.NAV_SPIN)
+    s3, h3 = mem[FL + 0xBA], mem[FL + 0x22]
+    r.run(30)
+    print('  heading %d; Right held: spin %d/256 a frame, heading %d, 40 frames on %d; R: spin %d, heading %d, then %d'
+          % (h0, s1, h1, h2, s3, h3, mem[FL + 0x22]))
+    if (s1 != gen_scrap.NAV_SPIN or h1 == h0 or not 4 <= (h2 - h1) & 31 <= 6
+            or s3 or mem[FL + 0x22] != h3):
+        r.fail('the spin')
+    r.hold(LEFT, 10)
+    if not 256 - 13 <= mem[FL + 0xBA] <= 256 - 8:
+        r.fail('Left: spin %d' % mem[FL + 0xBA])
+    mem[FL + 0x22], mem[FL + 0xBB], mem[FL + 0xBA], mem[FL + 0xBE] = (h0 - 1) & 31, 0xFF, 1, 0
+    r.run(2)                            # heading h0 again (by a step: the thrust worked out), no spin
+    mem[FL + 0xBA] = 0
+    if mem[FL + 0x22] != h0:
+        r.fail('back to heading %d: %d' % (h0, mem[FL + 0x22]))
     for _ in range(8):
         r.key('-')
     r.run(10)
@@ -1247,10 +1344,6 @@ def navigation(r):
     if 'FREE FLIGHT' not in p[2] or mem[FL + 0x2F] != 1 or 'range 2 km' not in p[4]:
         r.fail('the panel undocked, zoom 1: %r' % p[3:5])
     r.key('=')
-    r.key('k')
-    r.run(4)
-    if 'DOCK: WITHIN' not in r.panel()[5]:
-        r.fail('K out of range: %r' % r.panel()[5])
 
     print('  a collision: 30 m/s at the KESTREL 9')
     saved = {pg: bytes(mem[pg << 8:(pg + 1) << 8]) for pg in range(0x60, 0xC0, 2)}
@@ -1310,18 +1403,76 @@ def navigation(r):
     r.key(str(1 + acts.index(gen_scrap.A_NAV)))
     if not r.wait_for(lambda: mem[FL + 0x20], 200, 'the nav screen again'):
         return
-    fl_put(mem, 0x60, 4, (gen_scrap.DOCK_POS[0] + 6) << 16)
-    fl_put(mem, 0x64, 4, (gen_scrap.DOCK_POS[1] - 5) << 16)
-    fl_put(mem, 0x68, 4, 0x20000)           # 0.5 m/s
+    fl_put(mem, 0x60, 4, (gen_scrap.DOCK_POS[0] - 2) << 16)     # 2 m from the port, still
+    fl_put(mem, 0x64, 4, gen_scrap.DOCK_POS[1] << 16)
+    fl_put(mem, 0x68, 4, 0)
     fl_put(mem, 0x6C, 4, 0)
+    mem[FL + 0xBA], mem[FL + 0xBE] = 16, 0  # spinning on the map
+    if not dock_open(r):
+        return
+    yr, pr = mem[FL + 0xEE], mem[FL + 0xF1]
+    yw0 = mem[FL + 0xEF] | mem[FL + 0xF0] << 8
+    r.run(40)
+    yw = ((mem[FL + 0xEF] | mem[FL + 0xF0] << 8) - yw0) & 0x1FFF
+    rx, dx = mem[FL + 0xF8], mem[FL + 0xE1]
+    r.key('r')
+    r.run(2 * gen_scrap.NAV_SPIN)
+    print('  the spin carried: yaw rate %d, pitch rate %d; 40 frames on: yaw +x%04X, the ring %d (the side %d);'
+          ' R: rates %d %d' % (yr, pr, yw, rx, dx, mem[FL + 0xEE], mem[FL + 0xF1]))
+    if (yr != 16 or pr not in (8, 248) or not 0x200 <= yw <= 0x300 or rx == (dx >> 1)
+            or mem[FL + 0xEE] or mem[FL + 0xF1]):
+        r.fail('turning on the docking screen')
+    mem[FL + 0xEF:FL + 0xF4] = bytes(5)     # lined up again
+    r.run(8)
+    if mem[FL + 0x22]:
+        r.fail('the heading after the yaw went to 0: %d' % mem[FL + 0x22])
+    mem[FL + 0xD4:FL + 0xDC] = bytes(8)     # level with the port
+    for key, want in (('4', 'NOT CLEARED'), ('2', 'HAIL THE KESTREL 9 FIRST'), ('1', 'NO REPLY'),
+                      ('2', 'DOCKING DECLARED')):
+        r.key(key)
+        r.run(4)
+        print('  %s: %r' % (key, r.panel()[5].strip()))
+        if want not in r.panel()[5] or mem[FL + 0x21]:
+            r.fail('by the port, %s: %r' % (key, r.panel()[5]))
+    fl_put(mem, 0x64, 4, (gen_scrap.DOCK_POS[1] + 3) << 16)     # 3 m off to the side
+    fl_put(mem, 0x6C, 4, 0)
+    r.run(8)
+    ring = [mem[FL + k] for k in range(0xE4, 0xE8)]
+    r.key('4')
     r.run(4)
-    r.key('k')
-    r.run(4)
-    print('  K by the port: %r; locks %s %s' % (r.panel()[5].strip(), gen_scrap.TYPES[r.map_t(29, 32)][0],
-                                              gen_scrap.TYPES[r.map_t(30, 32)][0]))
-    if (mem[FL + 0x21] != 1 or 'DOCKED: CLAMPS ON' not in r.panel()[5]
+    print('  3 m off: the port\'s ring %s; 4: %r' % (ring, r.panel()[5].strip()))
+    if (mem[FL + 0x21] or 'CLAMPS MISSED' not in r.panel()[5] or mem[FL + 0xE3]
+            or ring[:3] != [1, 80 - 24, 104] or ring[3] != 960 // (4 + 16)):
+        r.fail('a clamp 3 m off: %s %r' % (ring, r.panel()[5]))
+    fl_put(mem, 0x64, 4, gen_scrap.DOCK_POS[1] << 16)
+    fl_put(mem, 0x6C, 4, 0)
+    mem[FL + 0xD4:FL + 0xDC] = bytes(8)
+    if not r.wait_for(lambda: mem[FL + 0xE3] == 1, 30, 'clear to clamp'):
+        print('  the docking state: %s, v %d %d' % (bytes(mem[FL + 0xD0:FL + 0xE8]).hex(), fl_get(mem, 0x68, 4),
+                                                     fl_get(mem, 0x6C, 4)))
+        return
+    flash = set()
+    for _ in range(40):
+        r.run(1)
+        t = r.text(22)
+        if 'CLEAR TO CLAMP' in t.upper():
+            flash.add(t.strip())
+    print('  clear to clamp: %s' % sorted(flash))
+    if len(flash) != 2:
+        r.fail('CLEAR TO CLAMP does not flash: %s' % flash)
+    r.mouse_to(60 * 8 + 4, 13 * 16 + 8)     # the mouse on 4 CLAMP (its blank end)
+    r.run(20)
+    if mem[FL + 0xD2] != 3 or ' 4  CLAMP' not in r.text(13).upper():
+        r.fail('the mouse over 4: %d %r' % (mem[FL + 0xD2], r.text(13)))
+    r.click(1)
+    r.run(20)
+    print('  a click on 4: %r; locks %s %s; |%s' % (r.panel()[5].strip(), gen_scrap.TYPES[r.map_t(29, 32)][0],
+                                                   gen_scrap.TYPES[r.map_t(30, 32)][0], r.text(4).strip()))
+    if (mem[FL + 0x21] != 1 or 'CLAMPS ON' not in r.panel()[5] or 'CLAMPED TO PORT 1' not in r.text(4)
             or r.map_t(29, 32) != T['LOCK'] or r.map_t(30, 32) != T['LOCK'] or fl_get(mem, 0x68, 4)):
         r.fail('docking')
+    if not dock_close(r):
+        return
     r.port.kbd.press(r.codes['\x1b'])
     r.run(10)
     r.port.kbd.release(r.codes['\x1b'])

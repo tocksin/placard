@@ -31,23 +31,29 @@
 ; selected object: name, kind, registry, range, radar return, visited,
 ; the tug's speed toward it and across), then the keys as inverse caps.
 ;
-; Keys: Left / Right (A, D) turn (a heading step each NAV_TURN frames),
+; Keys: Left / Right (A, D) spin the tug up (1/256 of a heading step a
+; frame more, to NAV_SPIN; it keeps spinning: nv_spt), R stops the spin,
 ; Up / Down (W, S) thrust forward and back while held, Q / E sideways
 ; (left, right of the heading, at the back thrust), + - zoom, a click
-; on an object or Tab picks the target, C comms / docking (step 2b), U
-; undock (5 m/s away from the port), K dock (within DOCK_RANGE metres of
-; the KESTREL 9's port, under 2 m/s), Esc back to the ship.
+; on an object or Tab picks the target, C the docking and comms screen
+; (SCRAP.DCK, scrap_dck.masm: hailing, docking, undocking), Esc back to
+; the ship.
 ;
-; Date: 11/07/2026
+; Date: 11/08/2026
 ; ============================================================
 
 NV_T    = 0xB0              ; FL_PG: frames, 0-15 (the map every 8, the panel every 16)
-NV_TW   = 0xB1              ;   frames to the next heading step while turning
+NV_TW   = 0xB1              ;   (free)
 NV_N    = 0xB2              ;   points drawn (nv_put)
 NV_ZS   = 0xB3              ;   the map's shift: metres >> NV_ZS = pixels
 NV_DL   = 0xB4              ;   an object from the tug: dx, dy (metres, 2 bytes each)
 NV_GX   = 0xB8              ;   the grid's offsets (nv_gmv): its lines where x + GX,
 NV_GY   = 0xB9              ;   y + GY are 0 mod 64 (FF: none drawn yet)
+FL_SPN  = 0xBA              ; the spin: 1/256 heading steps a frame (signed), kept
+FL_HF   = 0xBB              ;   the heading's 1/256 steps
+FL_SFL  = 0xBC              ;   the frame counter when the spin was last worked out
+FL_SFH  = 0xBD              ;   (nv_spt: the spin goes on off this screen too)
+FL_STP  = 0xBE              ;   1: R, the spin brought down to 0 (1 a frame)
 NV_Q    = 0xC0              ;   the status row's numbers (nv_stat): month, day, hour,
 NV_QMO  = 0xC0              ;     minute, second (a byte each), then the nitrogen
 NV_QD   = 0xC1              ;     (kg), the delta-v (m/s) and the batteries
@@ -105,16 +111,17 @@ nav_main:
     ld   1, [y,x]
     ld   NV_N, x
     ld   0x00, [y,x]
-    ld   NV_TW, x
-    ld   0x00, [y,x]
     ld   NV_SEL, x
     ld   0x00, [y,x]
     ld   NV_GX, x
     ld   0xFF, [y,x]
+    ld   FL_GO, x
+    ld   0x00, [y,x]
     ld   32, ac                 ; the view black: even offsets 32 up,
     CALL clear_rows             ; then the odd ones (the panel too: drawn next)
     ld   1, ac
     CALL clear_rows
+    CALL nv_spt                 ; the spin while the map was away
     CALL nv_modes
     CALL nv_draw
     CALL nv_panel
@@ -137,6 +144,11 @@ nm_l:
     ld   [dead], ac
     bne  nm_x
     CALL nv_keys
+    CALL nv_spt
+    ld   FL_PG, y               ; C: FL_GO 2, the docking screen next
+    ld   FL_GO, x
+    ld   [y,x], ac
+    bne  nm_x
     CALL game_tick
     ld   [dirty], ac            ; the message's time and row (update_panel,
     and  0xFE, ac               ; not the ship's panel)
@@ -292,43 +304,42 @@ nv_seln:
     CALL nv_panel
     LEAVE
 
-; nv_keys - thrust while Up / Down is held, a heading step each NAV_TURN
-; frames while Left / Right is, + - Tab C U K
+; nv_keys - thrust while Up / Down is held, the spin up while Left /
+; Right is (neither while docked), + - Tab C R
 .chunk
 nv_keys:
     PUSH_LINK
     CALL l_pad_read
     CALL read_dirs
+    ld   FL_PG, y               ; docked: no thrust, no turning
+    ld   FL_DOCK, x
+    ld   [y,x], ac
+    bne  nk_k
     CALL nv_thr
     ld   FL_PG, y
-    ld   NV_TW, x
     ld   [dirs], ac
     and  12, ac
-    bne  nk_tr
-    ld   0x00, [y,x]
-    bra  nk_k
-nk_tr:
-    ld   [y,x], ac
-    beq  nk_go
-    dec
-    ld   ac, [y,x]
-    bra  nk_k
-nk_go:
-    ld   NAV_TURN, [y,x]
-    ld   FL_HD, x
+    beq  nk_k
+    ld   FL_STP, x              ; Left / Right: the spin up (not past
+    ld   0x00, [y,x]            ; NAV_SPIN either way)
+    ld   FL_SPN, x
     ld   [dirs], ac
     and  4, ac
     beq  nk_r
+    ld   [y,x], ac
+    xor  (0 - NAV_SPIN) & 0xFF, ac
+    beq  nk_k
     ld   [y,x], ac
     dec
     bra  nk_h
 nk_r:
     ld   [y,x], ac
+    xor  NAV_SPIN, ac
+    beq  nk_k
+    ld   [y,x], ac
     inc
 nk_h:
-    and  31, ac
     ld   ac, [y,x]
-    CALL fl_dv
 nk_k:
     CALL l_kbd_getc
     beq  nk_e
@@ -365,7 +376,7 @@ nk_o:
 nk_e:
     LEAVE
 
-; nv_keys2 - Tab, C, U, K.  The rest of nv_keys
+; nv_keys2 - Tab, C.  The rest of nv_keys
 .chunk
 nv_keys2:
     ld   [key], ac
@@ -383,24 +394,123 @@ nv_keys2:
 nk2_0:
     GOTO nv_seln
 nk2_c:
-    xor  0x29 ^ 0x63, ac        ; c
-    bne  nk2_u
-    ld   s_comms & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_comms >> 8, ac
-    ld   ac, [R1]
-    CALL set_msg
+    xor  0x29 ^ 0x63, ac        ; c: the docking and comms screen (SCRAP.DCK:
+    bne  nk2_r                  ; nav_action reads it in when this closes)
+    ld   FL_PG, y
+    ld   FL_GO, x
+    ld   2, [y,x]
     LEAVE
-nk2_u:
-    xor  0x63 ^ 0x75, ac        ; u
-    bne  nk2_d
-    GOTO nv_undock
-nk2_d:
-    xor  0x75 ^ 0x6B, ac        ; k
+nk2_r:
+    xor  0x63 ^ 0x72, ac        ; r: the spin stopped
     bne  nk2_e
-    GOTO nv_dock
+    ld   FL_PG, y
+    ld   FL_STP, x
+    ld   1, [y,x]
 nk2_e:
     LEAVE
+
+; nv_spt - the spin worked out to now: nv_spin for each frame since
+; FL_SFL, FL_SFH (mod 8192: the heading comes round in that many at any
+; spin), then fl_dv when the heading changed
+.chunk
+nv_spt:
+    PUSH_LINK
+    ld   FL_PG, y
+    ld   FL_SFL, x
+    ld   [FRAME_LO], ac
+    sub  [y,x], ac
+    ld   ac, [v0]
+    ld   [FRAME_LO], ac
+    ld   ac, [y,x]
+    ld   FL_SFH, x
+    ld   [FRAME_HI], ac
+    bcc  st_nb
+    dec
+st_nb:
+    sub  [y,x], ac
+    and  0x1F, ac
+    ld   ac, [v1]
+    ld   [FRAME_HI], ac
+    ld   ac, [y,x]
+    ld   FL_SPN, x              ; not spinning: nothing to work out
+    ld   [y,x], ac
+    beq  st_e
+    clr  ac
+    ld   ac, [v2]
+st_l:
+    ld   [v0], ac
+    or   [v1], ac
+    beq  st_d
+    CALL nv_spin
+    or   [v2], ac
+    ld   ac, [v2]
+    ld   [v0], ac
+    bne  spt_1
+    ld   [v1], ac
+    dec
+    ld   ac, [v1]
+spt_1:
+    ld   [v0], ac
+    dec
+    ld   ac, [v0]
+    bra  st_l
+st_d:
+    ld   [v2], ac
+    beq  st_e
+    CALL fl_dv
+st_e:
+    LEAVE
+
+; nv_spin - a frame of spin: R's stop (the spin 1 nearer 0), then the
+; heading's fraction + the spin, a step on when it carries (AC 1, else
+; 0).  A leaf (u0).
+.chunk
+nv_spin:
+    ld   FL_PG, y
+    ld   FL_SPN, x
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   FL_STP, x
+    ld   [y,x], ac
+    beq  sp_m
+    ld   [u0], ac
+    beq  sp_0
+    blt  sp_up
+    dec
+    bra  sp_w
+sp_up:
+    inc
+sp_w:
+    ld   ac, [u0]
+    ld   FL_SPN, x
+    ld   ac, [y,x]
+    bra  sp_m
+sp_0:
+    ld   0x00, [y,x]            ; stopped
+sp_m:
+    ld   FL_HF, x
+    ld   [y,x], ac
+    add  [u0], ac
+    ld   ac, [y,x]
+    ld   FL_HD, x
+    ld   [u0], ac
+    blt  spn_n
+    bcc  sp_no                  ; spinning right: a carry, a step on
+    ld   [y,x], ac
+    inc
+    bra  sp_h
+spn_n:
+    bcs  sp_no                  ; left: no carry, a step back
+    ld   [y,x], ac
+    dec
+sp_h:
+    and  31, ac
+    ld   ac, [y,x]
+    ld   1, ac
+    RET
+sp_no:
+    clr  ac
+    RET
 
 
 ; nv_put - map pixel u0, u1 in color u2 (off the view: nothing), kept in
@@ -1053,24 +1163,92 @@ nv_vert:
     ld   ac, [u1]
     LEAVE
 
-; nv_tug - the tug: a white triangle at its heading (NV_TUG: x, y of
-; points round its middle, pointing east, turned by the heading: nv_term),
-; then nv_drift.  The rest of nv_draw
+; nv_tug - the tug: a small white triangle pointing along its heading, to
+; the nearest of 8 (any finer is ragged at this size): NV_TS's shape for 0
+; or 45 degrees (dx, dy pairs, x80 the end) turned by quarters, then
+; nv_drift.  The rest of
+; nv_draw
 .chunk
 nv_tug:
     ld   FL_PG, y
     ld   FL_HD, x
     ld   [y,x], ac
-    ld   NV_ANG, x
-    ld   ac, [y,x]
+    add  2, ac
+    shr  ac
+    shr  ac
+    and  7, ac
+    ld   ac, [v4]               ; the heading in 8ths
+    and  1, ac
+    add  NV_TS & 0xFF, x
+    ld   NV_TS >> 8, y
+    ld   [y,x], ac
+    ld   ac, [v6]               ; its shape
+tu_l:
+    ld   NV_TS >> 8, y
+    ld   [v6], x
+    ld   [y,x], ac
+    xor  0x80, ac
+    beq  tu_d
+    ld   [y,x], ac
+    ld   ac, [v0]
+    ld   [v6], ac
+    add  1, x
+    ld   [y,x], ac
+    ld   ac, [v1]
+    ld   [v4], ac
+    shr  ac
+    ld   ac, [v5]               ; quarter turns: (x, y) to (-y, x)
+tu_q:
+    ld   [v5], ac
+    beq  tu_p
+    dec
+    ld   ac, [v5]
+    ld   [v1], ac
+    xor  0xFF, ac
+    inc
+    ld   ac, [v2]
+    ld   [v0], ac
+    ld   ac, [v1]
+    ld   [v2], ac
+    ld   ac, [v0]
+    bra  tu_q
+tu_p:
+    ld   [v0], ac
+    add  128, ac
+    ld   ac, [u0]
+    ld   [v1], ac
+    add  92, ac
+    ld   ac, [u1]
     ld   3, ac
     ld   ac, [u2]
-    ld   NV_TUG & 0xFF, ac
+    CALL nv_put
+    ld   [v6], ac
+    add  2, ac
     ld   ac, [v6]
-    clr  ac
-    ld   ac, [v7]
-tg_l:                           ; (nv_drift's too: v7 1)
-    ld   NV_TUG >> 8, y
+    bra  tu_l
+tu_d:
+    GOTO nv_drift
+
+; the tug's shapes: filled, pointing 0 degrees (7 tall, 4 long) and 45 (a right
+; triangle, its square corner the tip)
+.chunk
+NV_TS:
+    #d8 NV_T0 & 0xFF, NV_T1 & 0xFF
+NV_T0:
+    #d8 0xFE, 0xFD, 0xFE, 0xFE, 0xFF, 0xFE, 0xFE, 0xFF, 0xFF, 0xFF, 0x00, 0xFF
+    #d8 0xFE, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x01, 0x00, 0xFE, 0x01, 0xFF, 0x01
+    #d8 0x00, 0x01, 0xFE, 0x02, 0xFF, 0x02, 0xFE, 0x03, 0x80
+NV_T1:
+    #d8 0x01, 0xFD, 0x00, 0xFE, 0x01, 0xFE, 0xFF, 0xFF, 0x00, 0xFF, 0x01, 0xFF
+    #d8 0xFE, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x01, 0x00, 0xFD, 0x01, 0xFE, 0x01
+    #d8 0xFF, 0x01, 0x00, 0x01, 0x01, 0x01, 0x80
+
+; nv_tg - nv_drift's dots: NV_DRT's points round the tug turned to NV_ANG
+; (nv_term).  The end of nv_draw
+.chunk
+nv_tg:
+tg_l:
+    ld   NV_DRT >> 8, y
     ld   [v6], x
     ld   [y,x], ac
     xor  0x80, ac
@@ -1089,7 +1267,7 @@ tg_l:                           ; (nv_drift's too: v7 1)
     clr  ac                     ; y: u sin + w cos (cos (a + 24) = sin)
     CALL nv_term
     ld   ac, [v1]
-    ld   NV_TUG >> 8, y
+    ld   NV_DRT >> 8, y
     ld   [v6], x
     ld   [y,x], ac
     ld   ac, [v2]
@@ -1104,16 +1282,12 @@ tg_l:                           ; (nv_drift's too: v7 1)
     ld   ac, [v6]
     bra  tg_l
 tg_d:
-    ld   [v7], ac
-    bne  tg_x
-    GOTO nv_drift
-tg_x:
     LEAVE
 
-; nv_tw - v2 = the point's y (NV_TUG + v6 + 1).  A leaf.
+; nv_tw - v2 = the point's y (NV_DRT + v6 + 1).  A leaf.
 .chunk
 nv_tw:
-    ld   NV_TUG >> 8, y
+    ld   NV_DRT >> 8, y
     ld   [v6], ac
     add  1, x
     ld   [y,x], ac
@@ -1137,15 +1311,10 @@ tm_n:
     add  16, ac
     GOTO nv_cm
 
-; the tug (gen: the edges of (3, 0), (-2, 2), (-2, -2), every pixel)
-; and its drift's dots (9, 12, 15 out): x, y pairs, then x80
+; the tug's drift's dots (9, 12, 15 out): x, y pairs, then x80
 .chunk
 NV_DRT:
     #d8 9, 0, 12, 0, 15, 0, 0x80
-NV_TUG:
-    #d8 0x03, 0x00, 0x02, 0x00, 0x01, 0x01, 0x00, 0x01, 0xFF, 0x02, 0xFE, 0x02
-    #d8 0xFE, 0x01, 0xFE, 0x00, 0xFE, 0xFF, 0xFE, 0xFE, 0xFF, 0xFE, 0x00, 0xFF
-    #d8 0x01, 0xFF, 0x80
 
 ; nv_drift - gold dots 9-15 pixels out the way the tug drifts (when it
 ; does, 2/256 m a frame or more): NV_DRT in nv_tug's loop.  The end of
@@ -1168,8 +1337,6 @@ ndr_go:
     ld   ac, [u2]
     ld   NV_DRT & 0xFF, ac
     ld   ac, [v6]
-    ld   1, ac
-    ld   ac, [v7]
     GOTO tg_l
 
 ; nv_atv - NV_ANG = the angle of (the 2 bytes at FL_PG + u0, those at
@@ -2273,133 +2440,6 @@ nv_dv:
     ld   [R0], ac
     ld   ac, [w0]
     LEAVE
-
-; nv_undock - U: undocked, 5 m/s away from the port (west); the tug's
-; airlock a closed door, the KESTREL 9's a wall while it is away (no air
-; between them), the rooms worked out when the screen closes.  The rest
-; of nv_keys
-.chunk
-nv_undock:
-    ld   FL_PG, y
-    ld   FL_DOCK, x
-    ld   [y,x], ac
-    bne  nu_go
-    ld   s_ndock & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_ndock >> 8, ac
-    ld   ac, [R1]
-    CALL set_msg
-    LEAVE
-nu_go:
-    ld   0x00, [y,x]
-    ld   FL_VX, x
-    ld   UNDOCK_B0, [y,x]
-    ld   FL_VX + 1, x
-    ld   UNDOCK_B1, [y,x]
-    ld   FL_VX + 2, x
-    ld   UNDOCK_B2, [y,x]
-    ld   FL_VX + 3, x
-    ld   UNDOCK_B3, [y,x]
-    ld   T_DOOR, ac
-    ld   ac, [u7]
-    ld   T_WALL, ac
-    CALL fl_locks
-    ld   1, ac
-    ld   ac, [rb_go]
-    CALL fl_rel
-    ld   FL_PG, y
-    ld   FL_GPL, x
-    ld   [w0], ac
-    ld   ac, [y,x]
-    ld   FL_GPH, x
-    ld   [w1], ac
-    ld   ac, [y,x]
-    CALL fl_save
-    ld   s_undock & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_undock >> 8, ac
-    ld   ac, [R1]
-    CALL set_msg
-    CALL nv_panel
-    LEAVE
-
-; nv_dock - K: docked when within DOCK_RANGE metres of the port (100 m
-; west of the KESTREL 9's centre) each way and under 2 m/s (9/256 m a
-; frame).  The rest of nv_keys
-.chunk
-nv_dock:
-    ld   FL_PG, y
-    ld   FL_DOCK, x
-    ld   [y,x], ac
-    beq  nd_go
-    ld   s_adock & 0xFF, ac
-    bra  nd_m
-nd_go:
-    CALL fl_rel
-    CALL nv_pdx
-    ld   NV_DL, ac
-    CALL fl_abs
-    CALL nd_near
-    beq  nd_no
-    ld   FL_DY, ac
-    CALL fl_abs
-    CALL nd_near
-    beq  nd_no
-    CALL fl_speed
-    ld   [w1], ac
-    bne  nd_no
-    ld   [w0], ac
-    sub  9, ac
-    bcc  nd_no
-    CALL fl_dock
-    ld   1, ac
-    ld   ac, [rb_go]
-    ld   s_dock & 0xFF, ac
-    bra  nd_m
-nd_no:
-    ld   s_nodk & 0xFF, ac
-nd_m:
-    ld   ac, [R0]
-    ld   s_dock >> 8, ac        ; (the strings share a page: nv_str)
-    ld   ac, [R1]
-    CALL set_msg
-    CALL nv_panel
-    LEAVE
-
-; nv_pdx - NV_DL = FL_DX - 100: the port's dx.  A leaf.
-.chunk
-nv_pdx:
-    ld   FL_PG, y
-    ld   FL_DX, x
-    ld   [y,x], ac
-    sub  100, ac
-    ld   NV_DL, x
-    ld   ac, [y,x]
-    ld   FL_DX + 1, x
-    ld   [y,x], ac
-    bcc  pd_1
-    dec
-pd_1:
-    ld   NV_DL + 1, x
-    ld   ac, [y,x]
-    RET
-
-; nd_near - AC = 1 when u1:u0 is DOCK_RANGE or less.  A leaf.
-.chunk
-nd_near:
-    ld   [u1], ac
-    bne  nn_n
-    ld   [u0], ac
-    sub  DOCK_RANGE + 1, ac
-    bcc  nn_n
-    ld   1, ac
-    RET
-nn_n:
-    clr  ac
-    RET
-
-
-
 
 ; nv_plot - map pixel u0, u1 in color u2 (2 bpp: 0-3): byte column 8 +
 ; u0 / 4 (page x71 + (u0 >> 1) & x7E), line pair u1 + 8 (under the status

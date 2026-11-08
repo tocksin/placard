@@ -207,7 +207,7 @@ def expand(src, name='?'):
         if word == '.region':
             parts = rest.split(',')
             region = [value(parts[0]), value(parts[1]), value(parts[2]) if len(parts) > 2 else 1,
-                      {'overlay': 1, 'overlay2': 2}.get(parts[3].strip(), 0) if len(parts) > 3 else 0]
+                      {'overlay': 1, 'overlay2': 2, 'overlay3': 3}.get(parts[3].strip(), 0) if len(parts) > 3 else 0]
             if region not in regions:
                 regions.append(region)
             if len(parts) > 4 and parts[4].strip() == 'pack':
@@ -317,7 +317,7 @@ def place(chunks, name):
             page = lo >> 8
             start_off = lo & 0xFF
             while page << 8 < hi:
-                off = used.get((ov == 2, page), start_off if page == lo >> 8 else 0)
+                off = used.get((ov if ov > 1 else 0, page), start_off if page == lo >> 8 else 0)
                 end = min(256, hi - (page << 8))
                 if c.page and off:
                     page += step
@@ -327,7 +327,7 @@ def place(chunks, name):
                 slack = 1 if c.last == 'bra' and end == 256 else 0
                 if off + c.size + slack <= end:
                     c.addr = (page << 8) + off
-                    used[(ov == 2, page)] = off + c.size
+                    used[(ov if ov > 1 else 0, page)] = off + c.size
                     c.region = region
                     break
                 page += step
@@ -376,7 +376,7 @@ def render(head, chunks, name):
            '; ' + '=' * 60, '']
     out += head
     nxt = None
-    kinds = {0: '#addr', 1: '#overlay', 2: '#overlay2'}
+    kinds = {0: '#addr', 1: '#overlay', 2: '#overlay2', 3: '#overlay3'}
     for c in sorted(chunks, key=lambda c: (c.region[3] if c.region else 0, c.addr)):
         kind = kinds[c.region[3] if c.region else 0]
         if (kind, c.addr) != nxt:
