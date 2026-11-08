@@ -32,7 +32,10 @@ env: VIA=200 (via cost in cells, higher than the router's to trade length for vi
      REGION=0 (mm; off): after the pair passes, rip up the copper inside the REGIONMAX densest REGION x REGION windows
      (chains cut at the window edge) and re-route the nets with a window negotiation (pressure + history, REGIONROUNDS);
      kept when cheaper. No gain on r1: the entry points pin the nets and the dense bus windows do not converge.
-     BUDGET forces WORKERS=1."""
+     BUDGET forces WORKERS=1.
+    BEST=1 (needs WORKERS>1): a pass first proposes every net's move on the pass-start state, then commits the proposals in
+    order of gain (each validated against the ones committed before it); conflicting proposals wait for the next pass.
+    Freerouting's optimiser idea (try all, commit the best) instead of the streaming pool's first-come order."""
 import sys, math, os, time
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
@@ -417,6 +420,8 @@ def worker_main(state,qin,qout,wid):
             tg,tc,td=net_step(stage,n)
             touched={m:g.routes.get(m,[]) for m in g.scope if g.routes.get(m,[])!=snap[m]}
             qout.put((wid,n,tg,tc,td,touched,{m:ver.get(m,0) for m in touched}))
+            if msg[0]=='eval':   # BEST mode: the move is only proposed; the worker's grid goes back to the shared state
+                for m in touched: g.set_route(m,snap[m])
 def free_cells(n,paths,old):
     """True when every cell of the paths that is not already in the old paths is free of all copper but net n's fixed copper
     (own routes lifted by the caller; cells the old routes used stay valid even where today's rules would block them)"""
@@ -431,7 +436,7 @@ def free_cells(n,paths,old):
             if (l,iy,ix) not in oc and bt[l][iy-y0,ix-x0]: return False
             if i and p[i-1][0]!=l and (iy,ix) not in ov and bv[iy-y0,ix-x0]: return False
     return True
-RETRY=int(E('RETRY','2')); LOOK=int(E('LOOK','16'))
+RETRY=int(E('RETRY','2')); LOOK=int(E('LOOK','16')); BEST=int(E('BEST','0'))
 class Pool:
     """worker processes, each with its own grid, fed one net at a time in the sequential order (skipping ahead past nets whose
     windows overlap a net in flight); every move is validated on the main grid against the state the workers were told
@@ -450,8 +455,39 @@ class Pool:
         if not cells: return None
         ys=[c[1] for c in cells]; xs=[c[2] for c in cells]
         return min(ys)-pad,max(ys)+pad,min(xs)-pad,max(xs)+pad
+    def run_best(self,stage):
+        """BEST mode (Freerouting's optimiser idea): every net's move is proposed on the pass-start state, then the moves are
+        committed in order of gain, each validated against the moves committed before it; conflicting proposals wait for
+        the next pass. Returns (accepted gain, accepted nets, dropped chains, rejected moves)."""
+        order=stage_order(stage); inflight={}; idle=list(range(self.k)); props=[]; i=0
+        while i<len(order) or inflight:
+            while idle and i<len(order):
+                wid=idle.pop(); inflight[wid]=order[i]; self.w[wid][1].put(('eval',stage,order[i])); i+=1
+            wid,n,wg,wc,wd,touched,vseen=self.qout.get(); inflight.pop(wid); idle.append(wid)
+            if touched: props.append((wg,n,wd,touched,vseen))
+        props.sort(key=lambda t:-t[0]); tg=0.0; td=0; acc=0; conf=0; self.dup=0; upd={}
+        for wg,n,wd,touched,vseen in props:
+            olds={m:g.routes.get(m,[]) for m in touched}
+            if any(self.ver.get(m,0)!=vseen.get(m,0) for m in touched): conf+=1; continue   # a committed move changed a net it used
+            for m in touched: g.set_route(m,[])
+            for m in touched: g.set_route(m,touched[m])
+            ok=True
+            for m in touched:
+                g.set_route(m,[]); ok=free_cells(m,touched[m],olds[m]); g.set_route(m,touched[m])
+                if not ok: break
+            if ok:
+                for m in touched: rechain(m); self.ver[m]=self.ver.get(m,0)+1; upd[m]=g.routes[m]
+                tg+=wg; td+=wd; acc+=len(touched)
+            else:
+                for m in touched: g.set_route(m,olds[m])
+                conf+=1
+        if upd:
+            msg=('update',upd,{m:self.ver[m] for m in upd})
+            for p,qi in self.w: qi.put(msg)
+        return tg,acc,td,conf
     def run(self,stage):
         """returns (accepted gain, accepted nets, dropped chains, rejected moves)"""
+        if BEST: return self.run_best(stage)
         import collections
         pending=collections.deque(stage_order(stage)); tries={}; inflight={}; idle=list(range(self.k)); boxes={}
         tg=0.0; td=0; acc=0; conf=0; self.dup=0; twait=0.0
