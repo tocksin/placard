@@ -27,7 +27,7 @@ FL_PG   = 0x40
 FL_NAV  = 0x20              ; 1 while the navigation screen is up
 FL_DOCK = 0x21              ; 1 docked to the KESTREL 9
 FL_HD   = 0x22              ; heading 0-31 (0 east, 8 south: the screen's down)
-FL_TH   = 0x23              ; this frame's thrust: 1 forward, 2 back (SCRAP.NAV's keys)
+FL_TH   = 0x23              ; this frame's thrust: its vector's offset (FL_DVX, FL_RVX, ...: SCRAP.NAV's keys), 0 none
 FL_NT   = 0x24              ; working thrusters (tug_scan)
 FL_ML   = 0x25              ; the tug's mass, 100 kg (tug_scan)
 FL_MH   = 0x26
@@ -56,6 +56,10 @@ FL_DVX  = 0x70              ; a frame's thrust forward: x, y (signed, 2 bytes ea
 FL_DVY  = 0x72
 FL_RVX  = 0x74              ; and back
 FL_RVY  = 0x76
+FL_LVX  = 0x78              ; and left (Q), right (E): half, sideways
+FL_LVY  = 0x7A
+FL_SVX  = 0x7C
+FL_SVY  = 0x7E
                             ; x4078-x407F: SCRAP.NAV's
 
 ; fl_init - docked to the KESTREL 9, heading east, nothing burnt.  A leaf.
@@ -190,14 +194,8 @@ fl_tick:
     ld   FL_A8, x
     ld   [y,x], ac
     beq  ft_m
-    ld   FL_DVX, ac
-    ld   ac, [w1]
-    ld   [w0], ac
-    xor  1, ac
-    beq  ft_f
-    ld   FL_RVX, ac
-    ld   ac, [w1]
-ft_f:
+    ld   [w0], ac               ; the thrust's vector (FL_DVX, FL_RVX or the
+    ld   ac, [w1]               ; nav screen's sideways one)
     ld   FL_VX, ac
     CALL fl_add24
     ld   [w1], ac
@@ -561,7 +559,8 @@ ff_s:
     LEAVE
 
 ; fl_dv - a frame's thrust for the heading: forward on x (cos h) and y
-; (sin h = cos (h + 24)), back (half, the other way: h + 16, h + 8)
+; (sin h = cos (h + 24)), back (half, the other way: h + 16, h + 8),
+; left and right (half: h + 24, h + 16 and h + 8, h)
 .chunk
 fl_dv:
     PUSH_LINK
@@ -584,6 +583,22 @@ fl_dv:
     ld   FL_RVY, ac
     ld   ac, [w2]
     ld   8, ac
+    CALL fl_dv1
+    ld   FL_LVX, ac             ; sideways (half): left h - 8, right h + 8
+    ld   ac, [w2]
+    ld   24, ac
+    CALL fl_dv1
+    ld   FL_LVY, ac
+    ld   ac, [w2]
+    ld   16, ac
+    CALL fl_dv1
+    ld   FL_SVX, ac
+    ld   ac, [w2]
+    ld   8, ac
+    CALL fl_dv1
+    ld   FL_SVY, ac
+    ld   ac, [w2]
+    clr  ac
     CALL fl_dv1
     LEAVE
 

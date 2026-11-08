@@ -163,17 +163,22 @@ a later step of the navigation mode.
 **Flying.**  NAVIGATE at the tug's helm opens the navigation screen
 (`SCRAP.NAV`, read from the card into the inventory's place each time,
 and `SCRAP.NV2` over the cell art, which `SCRAP.ART` puts back when the
-screen closes).  The view is the sector map with the tug in the middle, on
-a dotted blue grid: the tug a white triangle pointing along its heading
-(it turns like the Asteroids ship), three green dots the way it drifts,
-and the sector's objects (`gen_scrap.SECTOR`, the file `SCRAP/K3A`): the
-HALVARD ROCK station on its asteroid as a teal circle of its size, and
-the derelicts as asterisks until you have docked with one (visited), then
-diamonds.  The target has yellow corners round it.
+screen closes).  The view is the sector map in 2 bpp (black, blue, gold,
+white; square pixels, 256 across and 192 down, framed in the middle of
+the screen so a position on it is a byte), with the tug in the middle on
+a dotted blue grid: the tug a small white triangle pointing along its
+heading (it turns like the Asteroids ship), three gold dots the way it
+drifts, and the sector's objects (`gen_scrap.SECTOR`, the file
+`SCRAP/K3A`): the HALVARD ROCK station on its asteroid as a white circle
+of its size, and the derelicts as gold asterisks until you have docked
+with one (visited), then diamonds.  The target has gold corners round
+it.  The view's mode bytes go to 2 bpp as the screen opens and back to
+4 bpp as it closes.
 
 The panel is a control panel: three boxed blocks with inverse titles.
-FLIGHT has the speed (m/s), the heading (degrees, 0 east, clockwise) and
-DOCKED or FREE FLIGHT; PROPULSION the nitrogen left, the tug's mass and
+FLIGHT has the heading (degrees, 0 east, clockwise) and DOCKED or FREE
+FLIGHT (no speed: a speed means something only against something else,
+so it is in TARGET); PROPULSION the nitrogen left, the tug's mass and
 its working thrusters; TARGET the target's name, what it is, its
 registry, its range (to its edge: the larger of the two distances, less
 its size), its radar return (its size over the range, 99 % at most),
@@ -184,7 +189,8 @@ ACROSS. The keys are on the row under it as inverse caps.
 |-----|--------------|
 | Left / Right (A, D) | turn: a heading step (11.25 degrees, 32 a turn) every 11 frames while held |
 | Up / Down (W, S) | thrust forward, or back at half the thrust, while held |
-| + (or =) and - | zoom in and out in doubling steps: 4 to 512 m a pixel across, 640 m to 82 km across the view (up and down a pixel is half that, as the art pixels are twice as wide as tall) |
+| Q / E | thrust sideways, left or right of the heading, at half the thrust, while held |
+| + (or =) and - | zoom in and out in doubling steps: 4 to 512 m a pixel, 1 to 128 km across the view (1.024 km << the zoom; the key row shows it in whole km) |
 | Tab, a click on an object | the target: the next object, or the one clicked |
 | C | comms and the docking approach (a later step: a message for now) |
 | U | undock: the clamps off, 5 m/s away from the port (west) |
@@ -386,7 +392,8 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
   KESTREL 9's diamond and the target's corners), Tab and a click to pick
   the target, C, K while docked, U (the speed, the airlocks, the speed
   toward the KESTREL 9), a frame's thrust against 20 kN a thruster, 60
-  frames of thrust and the nitrogen burnt, turning, the zoom steps, K out
+  frames of thrust and the nitrogen burnt, Q and E sideways, the 2 bpp
+  lines and the grid, turning, the zoom steps, K out
   of range, a collision at
   30 m/s (IMPACT IN 10 S, the damage, the stop), the tug cruising while
   you walk (the view with the wreck hidden, the rooms), and docking again;

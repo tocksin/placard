@@ -6580,4 +6580,4 @@ s_sl2:
 .include "scrap_nav.masm"
 ; what does not fit: SCRAP.NV2, read in over the cell art (gen_plc.py
 ; --swap 0x3700,0x3F00,NV2,2; SCRAP.ART puts the art back)
-.region NAV2_LO, NAV2_LO + 0x0800, 1, overlay2
+.region NAV2_LO, NAV2_LO + 0x0800, 1, overlay2, pack
