@@ -23,6 +23,15 @@ env: VIA=200 (via cost in cells, higher than the router's to trade length for vi
      move to all workers at once; a rejected move is retried later in the pass (RETRY=2). Moves therefore follow the
      sequential pass closely (a few per cent rejected), the result differs only in the order of equal-cost choices.
      HCOARSE=4: the A* goal-distance heuristic is a distance transform on 4x4-cell blocks (1 = per cell, 16x slower).
+     POLSTARTS=1: whole-net polish roots per net (2+ also try the next-largest pieces as the root; no gain measured).
+     POLBRANCH=0: 1 lets a whole-net polish path start from or cross a path found earlier in the same polish (the net's
+     own clearance is lifted during the search, the ring cost stays), i.e. Steiner-like branching. The net pass then
+     saves far more (81 nets, 442 vias instead of 460 on fine r1) but the chain and pair passes recover less afterwards:
+     the ladder ends at the same cost with fewer vias and more track (sequential rung 372 vias / 26.53 m against 384 /
+     26.23 m). Off by default; worth trying when vias matter more than length.
+     REGION=0 (mm; off): after the pair passes, rip up the copper inside the REGIONMAX densest REGION x REGION windows
+     (chains cut at the window edge) and re-route the nets with a window negotiation (pressure + history, REGIONROUNDS);
+     kept when cheaper. No gain on r1: the entry points pin the nets and the dense bus windows do not converge.
      BUDGET forces WORKERS=1."""
 import sys, math, os, time
 import numpy as np
@@ -150,30 +159,143 @@ def pair_net(n):
                 if bud_ok(n,m): gain+=oc+oq-nc; changed+=1; break
             g.set_route(n,keep_n); g.set_route(m,keep_m)
     return gain,changed
+def connect_net(n,win,W,start=0,extra=None,soft=None,branch=False):
+    """connect the pieces of net n that lie inside window W (largest piece first, or piece number `start` by size for the
+    first join, nearest other piece each step, hard A* against everything else); the new paths are added to the net as
+    they are found. Returns the new paths, or None."""
+    new=[]
+    for it in range(200):
+        la,lb=g.components(n); cF,cB=g.last_copper
+        la=la[W]; lb=lb[W]; cF=cF[W]; cB=cB[W]
+        ca=np.bincount(la[cF]); cbn=np.bincount(lb[cB]); m=max(len(ca),len(cbn)); cnt=np.zeros(m,np.int64); cnt[:len(ca)]+=ca; cnt[:len(cbn)]+=cbn; cnt[0]=0
+        if (cnt>0).sum()<=1: return new
+        s=int(cnt.argmax()) if not (it==0 and start) else int(np.argsort(-cnt)[min(start,int((cnt>0).sum())-1)])
+        srcm={'F.Cu':(la==s)&cF,'B.Cu':(lb==s)&cB}; goalm={'F.Cu':(la>0)&(la!=s)&cF,'B.Cu':(lb>0)&(lb!=s)&cB}
+        if branch: g.apply_stamps(g.stamps.get(n,[]),-1)   # own clearance lifted: a new path may start from or cross an
+        bt,bv=g.blocked(n,hard=True,win=win); ring=g.own_ring(n,win)   # earlier path of this search (ring cost only)
+        if extra is not None: bt=[bt[l]|extra[l] for l in range(2)]
+        ct=[1.0+g.RING*ring[l] for l in range(2)]; cvia=None
+        if soft is not None: ct=[ct[l]+soft[0][l] for l in range(2)]; cvia=soft[1]
+        newp,ne=g.astar(srcm,goalm,bt,bv,ct,cvia,win)
+        if branch: g.apply_stamps(g.stamps.get(n,[]),1)
+        if not newp or len(newp)<2: return None
+        new.append(newp); g.set_route(n,list(g.routes.get(n,[]))+[newp])
+    return None
 def polish_net(n):
     """lift the whole net and re-route it from scratch with everything else fixed; keep when cheaper"""
     paths=list(g.routes.get(n,[]))
     if not paths: return 0.0,0
     oc=sum(g.path_cost(p) for p in paths)
     win=search_window([c for p in paths for c in p],WIN); W=(slice(win[2],win[3]),slice(win[0],win[1]))
-    g.set_route(n,[]); new=[]
-    for _ in range(200):
-        la,lb=g.components(n); cF,cB=g.last_copper
-        la=la[W]; lb=lb[W]; cF=cF[W]; cB=cB[W]
-        ca=np.bincount(la[cF]); cbn=np.bincount(lb[cB]); m=max(len(ca),len(cbn)); cnt=np.zeros(m,np.int64); cnt[:len(ca)]+=ca; cnt[:len(cbn)]+=cbn; cnt[0]=0
-        if (cnt>0).sum()<=1: break
-        s=int(cnt.argmax())
-        srcm={'F.Cu':(la==s)&cF,'B.Cu':(lb==s)&cB}; goalm={'F.Cu':(la>0)&(la!=s)&cF,'B.Cu':(lb>0)&(lb!=s)&cB}
-        bt,bv=g.blocked(n,hard=True,win=win); ring=g.own_ring(n,win)
-        ct=[1.0+g.RING*ring[l] for l in range(2)]
-        newp,ne=g.astar(srcm,goalm,bt,bv,ct,None,win)
-        if not newp or len(newp)<2: g.set_route(n,paths); return 0.0,0
-        new.append(newp); g.set_route(n,new)
-    la,lb=g.components(n); la=la[W]; lb=lb[W]
-    if len(np.unique(np.concatenate([la[la>0],lb[lb>0]])))>1: g.set_route(n,paths); return 0.0,0
-    nc=sum(g.path_cost(p) for p in new)
+    best=None
+    for start in range(POLSTARTS):   # the tree grows from the largest piece; more starts try the next pieces as the root
+        g.set_route(n,[]); new=connect_net(n,win,W,start,branch=POLBRANCH)
+        if new is None: continue
+        nc=sum(g.path_cost(p) for p in new)
+        if best is None or nc<best[0]: best=(nc,list(g.routes[n]))
+        if start==0 and len(new)<2: break   # two-piece net: the root does not matter
+    if best is None: g.set_route(n,paths); return 0.0,0
+    nc=best[0]; g.set_route(n,best[1])
     if nc<oc-MINGAIN and bud_ok(n): rechain(n); return oc-nc,1
     g.set_route(n,paths); return 0.0,0
+REGION=float(E('REGION','0')); RORDERS=int(E('RORDERS','2')); REGIONMAX=int(E('REGIONMAX','40')); REGIONVIAS=int(E('REGIONVIAS','3')); POLSTARTS=int(E('POLSTARTS','1')); POLBRANCH=int(E('POLBRANCH','0'))
+def region_boxes():
+    """windows of REGION mm (half overlapping) that hold at least two vias of the scope nets, most vias first"""
+    rw=max(8,int(REGION/G)); st=max(1,rw//2); cnt={}
+    for n in g.scope:
+        for p in g.routes.get(n,[]):
+            for i in range(1,len(p)):
+                if p[i][0]!=p[i-1][0]:
+                    iy,ix=p[i][1],p[i][2]
+                    for by in range(max(0,(iy-rw)//st+1),iy//st+1):
+                        for bx in range(max(0,(ix-rw)//st+1),ix//st+1):
+                            if by*st<=iy<by*st+rw and bx*st<=ix<bx*st+rw: cnt[(bx,by)]=cnt.get((bx,by),0)+1
+    boxes=[(bx*st,min(g.nx,bx*st+rw),by*st,min(g.ny,by*st+rw)) for (bx,by),c in cnt.items() if c>=REGIONVIAS]
+    return sorted(boxes,key=lambda b:-cnt[(b[0]//st,b[2]//st)])[:REGIONMAX]   # the REGIONMAX densest windows per pass
+REGIONROUNDS=int(E('REGIONROUNDS','12')); RPRES0=float(E('RPRES0','1')); RPRESF=float(E('RPRESF','1.5')); RHIST=float(E('RHIST','1'))
+def region_negotiate(lifted,keep,win,W):
+    """negotiated re-route of the lifted nets inside the window: every net is routed against the other lifted nets' new
+    copper as a soft cost (pressure x overlap count + history) and everything else hard; nets that still overlap are
+    re-routed with rising pressure until nothing overlaps (mroute4's scheme on a window). Returns (cost, {n: routes}) or None."""
+    wh=win[3]-win[2]; ww=win[1]-win[0]; y0,x0=win[2],win[0]
+    cnt_t=[np.zeros((wh,ww),np.int16) for _ in LAY]; cnt_v=np.zeros((wh,ww),np.int16)
+    hist_t=[np.zeros((wh,ww),np.float32) for _ in LAY]; hist_v=np.zeros((wh,ww),np.float32)
+    new={n:[] for n in lifted}; st={n:[] for n in lifted}
+    def apply(n,sign):
+        for kind,L,j0,i0,m in st[n]:
+            a0=max(j0,y0); a1=min(j0+m.shape[0],y0+wh); b0=max(i0,x0); b1=min(i0+m.shape[1],x0+ww)
+            if a1<=a0 or b1<=b0: continue
+            mm=m[a0-j0:a1-j0,b0-i0:b1-i0]
+            if kind=='t': cnt_t[LAY.index(L)][a0-y0:a1-y0,b0-x0:b1-x0]+=sign*mm
+            else: cnt_v[a0-y0:a1-y0,b0-x0:b1-x0]+=sign*mm
+    def own_cells(n):
+        t=[np.zeros((wh,ww),bool) for _ in LAY]; v=np.zeros((wh,ww),bool)
+        for p in new[n]:
+            for i,(l,iy,ix) in enumerate(p):
+                if y0<=iy<y0+wh and x0<=ix<x0+ww:
+                    t[l][iy-y0,ix-x0]=True
+                    if i and p[i-1][0]!=l: v[iy-y0,ix-x0]=True
+        return t,v
+    for n in lifted: g.set_route(n,keep[n])
+    todo=sorted(lifted,key=lambda n:-sum(g.path_vias(p) for p in lifted[n])); pres=RPRES0
+    for rnd in range(REGIONROUNDS):
+        if rnd and rnd%4==0: todo=sorted(lifted,key=lambda n:-sum(g.path_vias(p) for p in lifted[n]))   # all nets again (mroute4)
+        for n in todo:
+            apply(n,-1); g.set_route(n,keep[n])
+            soft=([pres*cnt_t[l]+hist_t[l] for l in range(2)],(g.VIA_COST*(1.0+pres*cnt_v)+hist_v).astype(np.float32))
+            paths=connect_net(n,win,W,soft=soft,branch=True)
+            new[n]=paths or []; st[n]=[q for p in new[n] for q in g.path_stamps(p)]
+            g.set_route(n,keep[n]); apply(n,1)
+            if paths is None: return None
+        todo=[]
+        for n in lifted:   # a net overlaps when one of its cells lies in another lifted net's clearance
+            t,v=own_cells(n)
+            apply(n,-1); bad=any((cnt_t[l][t[l]]>0).any() for l in range(2)) or (cnt_v[v]>0).any()
+            if bad:
+                todo.append(n)
+                for l in range(2): hist_t[l][t[l]&(cnt_t[l]>0)]+=RHIST
+                hist_v[v&(cnt_v>0)]+=RHIST
+            apply(n,1)
+        if not todo: break
+        pres=min(30.0,pres*RPRESF)
+    if todo:
+        return None
+    routes={n:keep[n]+new[n] for n in lifted}
+    return sum(g.path_cost(p) for n in lifted for p in new[n]),routes
+def region_step(box):
+    """rip up the copper of the scope nets inside the box (chains are cut at the box edge, the outside parts stay as stubs
+    that the re-route reconnects) and re-route the nets one after another (RORDERS orders: most vias inside first, longest
+    inside first); kept when the lifted copper got cheaper as a whole. A net that cannot be re-routed gets its old copper
+    back when that is still free, otherwise the order fails."""
+    x0,x1,y0,y1=box; lifted={}; keep={}; t0r=time.time()
+    def inside(c): return y0<=c[1]<y1 and x0<=c[2]<x1
+    for n in g.scope:
+        lf=[]; kp=[]
+        for p in g.routes.get(n,[]):
+            if not any(inside(c) for c in p): kp.append(p); continue
+            run=[]; flag=None
+            for c in p+[None]:
+                f=None if c is None else inside(c)
+                if f!=flag and run:
+                    (lf if flag else kp).append(run) if len(run)>=2 else None; run=[]
+                if c is not None: run.append(c); flag=f
+        if lf: lifted[n]=lf; keep[n]=kp
+    if sum(g.path_vias(p) for ps in lifted.values() for p in ps)<2: return 0.0,0
+    old={n:list(g.routes[n]) for n in lifted}
+    oc=sum(g.path_cost(p) for ps in lifted.values() for p in ps)
+    cells=[c for ps in lifted.values() for p in ps for c in p]
+    win=search_window(cells,WIN); W=(slice(win[2],win[3]),slice(win[0],win[1]))
+    orders=[sorted(lifted,key=lambda n:-sum(g.path_vias(p) for p in lifted[n])),sorted(lifted,key=lambda n:-sum(len(p) for p in lifted[n]))][:max(1,RORDERS)]
+    best=region_negotiate(lifted,keep,win,W)
+    for n in lifted: g.set_route(n,old[n])
+    if E('TIMING'): print(f'   region {box}: {len(lifted)} nets, {sum(g.path_vias(p) for ps in lifted.values() for p in ps)} vias, cost {oc:.0f} -> {best[0] if best else -1:.0f}, {time.time()-t0r:.0f} s',flush=True)
+    if best and best[0]<oc-MINGAIN:
+        for n in lifted: g.set_route(n,best[1][n])
+        if all(bud_ok(n) for n in lifted):
+            for n in lifted: rechain(n)
+            return oc-best[0],len(lifted)
+        for n in lifted: g.set_route(n,old[n])
+    return 0.0,0
 def runs(path):
     out=[]; i=0
     while i<len(path)-1:
@@ -248,9 +370,12 @@ def stage_order(stage):
     """the sequential order of a stage over the ACTIVE nets: costliest / most vias first"""
     if stage=='net': return sorted(ACTIVE,key=lambda n:-sum(g.path_cost(p) for p in g.routes.get(n,[])))
     if stage=='cleanup': return list(ACTIVE)
+    if stage=='region': return region_boxes()
     return sorted(ACTIVE,key=lambda n:-sum(g.path_vias(p) for p in g.routes.get(n,[])))
 def net_step(stage,n):
-    """one net of a stage on this process' grid: (gain, changed, dropped)"""
+    """one net (or one region box) of a stage on this process' grid: (gain, changed, dropped)"""
+    if stage=='region':
+        gain,changed=region_step(n); return gain,changed,0
     if not g.routes.get(n): return 0.0,0,0
     if stage=='net':
         gain,changed=polish_net(n); return gain,changed,0
@@ -310,7 +435,9 @@ class Pool:
             qi=ctx.Queue(); p=ctx.Process(target=worker_main,args=(state,qi,self.qout,i),daemon=True); p.start(); self.w.append((p,qi))
         self.k=k; self.ver={}
     def box(self,n):
-        pad=int(WIN/G); cells=[c for p in g.routes.get(n,[]) for c in p]
+        pad=int(WIN/G)
+        if isinstance(n,tuple): return n[2]-pad,n[3]+pad,n[0]-pad,n[1]+pad   # a region box (x0,x1,y0,y1)
+        cells=[c for p in g.routes.get(n,[]) for c in p]
         if not cells: return None
         ys=[c[1] for c in cells]; xs=[c[2] for c in cells]
         return min(ys)-pad,max(ys)+pad,min(xs)-pad,max(xs)+pad
@@ -401,6 +528,12 @@ def main():
             print(f'pair pass {ps}: {tc} chain pairs improved, cost gain {tg:.0f}, {time.time()-t1:.0f} s{x}',flush=True)
             if not more(ps,tc) or (ps>=PASSES-1 and not run.conf): break
             run('cleanup')   # single-chain clean-up after the pair moves
+    if REGION:
+        for ps in range(2*PASSES):
+            t1=time.time(); tg,tc,td,x=run('region')
+            print(f'region pass {ps}: {tc} nets moved in regions, cost gain {tg:.0f}, {time.time()-t1:.0f} s{x}',flush=True)
+            if not more(ps,tc) or (ps>=PASSES-1 and not run.conf): break
+            run('cleanup')
     if SHOVE:
         for ps in range(2*PASSES):
             t1=time.time(); tg,tc,td,x=run('shove')

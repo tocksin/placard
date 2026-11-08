@@ -316,3 +316,28 @@ busy instead of 4 in the late iterations that re-route every net (iterations 12 
 plain batches (both still 300-400 overlap cells at iteration 29, so the negotiation converges about the same); the GPU
 timing is still to be measured on the laptop. Quality first, so it stays off until that run shows it is at least as good.
 
+## Round 7 (2026-11-07/08, branch-134): what did not help in the tidy
+Three ideas tried on the fine r1 bench, all kept as options, all off by default:
+
+- **Window rip-up (`REGION=20`)**: cut every chain at the edge of a 20 x 20 mm window, lift the copper inside, re-route
+  the nets together. One-after-another re-routing (two orders) walls nets in inside the bus regions (24-28 nets through
+  one window); reserving every net's entry points does not help; a window negotiation (pressure x overlap + history,
+  mroute4's scheme, 12-40 rounds, all nets every 4th round) still leaves 9-13 nets overlapping in the dense windows and
+  converges only in sparse ones, where it finds nothing cheaper. The entry points pin the nets to the old crossing order,
+  so the only legal solutions are the old one and its neighbours, which the chain and pair passes already explore.
+- **Multi-root whole-net polish (`POLSTARTS=3`)**: growing the tree from the next-largest pieces too and keeping the
+  cheapest: 69 nets improved for a gain of 30203 against 66 / 30909 with one root, in twice the time.
+- **Branching polish (`POLBRANCH=1`)**: a polish path may start from or cross an earlier path of the same polish (the
+  net's own clearance is lifted during the search). The net pass gets much stronger (81 nets improved, 442 vias instead
+  of 460, gain 46844 instead of 30909, and 10 % faster), but the chain and pair passes find less afterwards and the rung
+  ends at the same cost: sequential VIA 400 rung 372 vias / 26.53 m against 384 / 26.23 m; the 3-worker ladder
+  506 / 478 / 469 vias, 26.48 / 26.59 / 26.84 m against round 6's 489 / 471 / 460 (26.44 / 26.66 / 26.95 m) and a
+  second run of the round 6 code, 494 / 472 / 449 vias, 26.40 / 26.31 / 26.46 m. The streaming pool's run-to-run
+  spread is therefore about 10 vias (the order in which workers finish decides the move order), which is larger than
+  any of the three ideas.
+
+So round 7 adds options but no algorithmic gain. The best fine r1 board is now the second round 6 run:
+**449 vias / 26.46 m** (`bench/r1_fine7_*`, 43 min with 3 workers) against round 5's 483 / 26.76 m. A cheap way to use the spread is to run the ladder two or three times and keep
+the best, which the GPU makes affordable on the whole board. The whole-board round 6 runs on the laptop
+(`bench/wbf6_*`, branch-133) are reported there.
+
