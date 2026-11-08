@@ -408,3 +408,22 @@ and `wbf6_dj_n8` (`bench/*_c45_drc.json`): 0 unconnected, 0 clearance or copper 
   machine with the CPU tidy) and left more raw vias (664 vs 645). The two routes differ by no more than run-to-run noise after the ladder.
   It stays off by default.
 - **Layer flips (`cvm.py`):** 0 vias removed on the finished board; see `research.md`, which also reviews other routers and papers.
+
+## Round 9 (2026-11-08, branch-138/139): what Freerouting's source suggested
+`research.md` section 5 now describes Freerouting from its source (shape-based A*, via cost 50 x radius = our router's 15 mm,
+rip-up 100 x pass divided by the victim's detour, an optimiser that tries every move and commits only the best, pull-tight
+with via sliding). Two of its ideas tested on the fine r1 bench (`ALLEVERY=0` route, `bench/r1_fine8_a0_route.score`):
+
+- **Commit-by-gain tidy passes (`BEST=1`)**: every net's move is proposed on the pass-start state, then the proposals are
+  committed in order of gain, each validated against the ones before it (a conflicting proposal waits for the next pass).
+  Ladder 400 / 800 / 1600 / 3200 + wide rung: **472 / 457 / 439 / 437 -> 423 vias, 26.44 / 26.31 / 26.66 / 26.79 -> 26.73 m**
+  against the streaming pool's 478 / 462 / 450 / 447 -> 434 vias (26.58 / 26.48 / 26.75 / 27.04 -> 27.06 m) on the same
+  route: fewer vias at every rung and shorter track, in 93 min instead of 70 (`bench/r1_fine9_best_*`). The best fine r1
+  board is now **423 vias / 26.73 m** (round 5: 483 / 26.76; Freerouting 730 / 30.4). `BEST=1` is the recommended setting;
+  the default stays the streaming pool until the whole board confirms it.
+- **Diagonal moves (`DIAG`)**, one VIA 400 rung on the same route: orthogonal 478 vias / 26.58 m; diagonals anywhere
+  (`DIAG=1`) 463 / 25.89 m; diagonals only with 8 free cells beside the step (`DIAG=9`, Justin's rule: back out of
+  diagonals in tight spots) 475 / 26.00 m. Most of the via saving comes from diagonals in the tight spots, which is
+  harmless in the tidy (everything is already routed) but is what the rule should prevent in the router's own search.
+  A full diagonal ladder needs later rungs to re-read 45-degree copper as movable chains (today it is fixed copper on
+  re-read); that work is on the laptop branch.

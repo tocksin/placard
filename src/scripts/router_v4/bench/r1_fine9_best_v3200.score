@@ -1,0 +1,9 @@
+# ladder VIA 3200: best try 0 of 1: 26.79 m, 437 vias, cost 114190
+# score bl_v3200_t0_c45.kicad_pcb  (scope 116 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 26.79 m | 437 / 589 | 5.5 % | 12.1 % | 1.11 | 1 | 2 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS5 950/9/1.3, DATABUS0 881/16/1.2, DATABUS4 847/9/1.1, DATABUS1 816/11/1.1, DATABUS7 807/9/1.1, DATABUS3 795/12/1.1, DATABUS6 787/9/1.1, DATABUS2 782/12/1.1
+detour > 2: PC13
+edge: [('PC_ENABLE', 'B.Cu', (155.25, 253.25)), ('PC_ENABLE', 'B.Cu', (257.0, 264.0))]
