@@ -539,3 +539,32 @@ swap U3/U12; U10 to (273.37,203.38) rot 0; swap U10/U8; U35 to (284.69,132.54); 
 U14 to (311.08,156.68); U15 to (320.66,142.70) rot 180; swap U42/U11; swap U42/U7; U11 to (185.86,149.85) rot 0; U25 to (182.22,187.19)
 rot 180; U42 to (149.56,204.65); U19 to (71.12,213.24); R5 to (78.87,176.74) rot 0; U6 to (116.66,242.69); U21 to (116.66,231.05);
 U5 to (76.71,242.69); U20 to (81.28,224.70).
+
+### From scratch (`scratch` mode, 2026-11-09)
+`python placeguide.py board.kicad_pcb scratch OUT=dir [ICROTS=90,270] [ROUNDS=40]` keeps only `SCRATCHFIXED` parts (connectors,
+slots, cartridge, mounting holes, switches, logo) and places every chip and passive from the netlist alone, ignoring where they
+are now:
+1. global placement: quadratic (star model per net, the fixed pads as anchors), spread over the free board area by recursive
+   bisection and pulled toward the spread positions with growing weight (SimPL style), 25 iterations;
+2. legalisation: biggest parts first, each at the cheapest legal spot and rotation near its target (`HALO` 0.5 mm spacing);
+   plane-only parts (decoupling caps, GND / +5V test points) then go beside the ICs, at most one more per IC at a time;
+3. refinement: `optimize` on the result (moves + swaps, everything but the fixed parts may move).
+
+Routed the same way as the check above (coarse route + tidy VIA 400):
+
+| placement | model cost | routed vias | routed track |
+|---|---|---|---|
+| current (Justin's) | 48.1 k | 578 | 41.49 m |
+| current + 20 `optimize` changes | 44.0 k | **532** | **38.42 m** |
+| scratch, free rotation (after the swap-overlap fix) | 44.4 k | 600 | 39.21 m |
+| scratch, ICs in horizontal rows (`ICROTS=90,270`) | 47.9 k | 652 | 41.52 m |
+| scratch, first two runs (overlap bug, see below) | 43.5 k | 634 / 655 | 39.49 / 39.30 m |
+
+From scratch the tool gets within 4 % of the hand placement's vias with 5.5 % less track, but does not beat it; starting from the
+hand placement and refining it is the best result. The via model is too optimistic for layouts far from the board it was fitted
+on (it ranked the first scratch runs above the current board): fewer crossings did not turn into fewer vias there, and the bends
+went up (497 -> 559-568). Refitting on all six routed boards still mis-ranks them, so the next model change should come from the
+routed differences (pin access, packing, mixed orientations), not more weight tuning. Forcing every IC horizontal made it worse.
+Fixed in this round: a swap of two parts with different rotations could overlap them (`Legal.ok` saw no moved parts after the swap
+had taken them out of its table; now it also checks the moved parts against each other). The 2026-11-09 morning `optimize` result
+had no such overlap (its swaps were between parts with the same rotation).

@@ -32,7 +32,9 @@ Modes:
   swaps [OUT=dir]            ranked position swaps of movable parts with the same footprint.
   optimize OUT=dir           greedy: apply the best legal move or swap, repeat (ROUNDS, MINGAIN), write the move list and
                              OUT/placed.kicad_pcb (copy, signal tracks removed).
-Env: BIN=5 RES=0.1 TRACK=0.3 CLR=0.25 ALIGN=1.0 WW=0.25 VIAMM=15 OVW=2 MARGIN=1.0 (courtyard to outline) GAP=0 (courtyard gap)
+Env (scratch: SCRATCHFIXED regex of parts that keep their place, HALO=0.5 spacing in legalisation, GPITERS=25, ANCHORW,
+     ICROTS=90,270 restricts parts with 8+ pads to those absolute rotations, in every mode)
+     BIN=5 RES=0.1 TRACK=0.3 CLR=0.25 ALIGN=1.0 WW=0.25 VIAMM=15 OVW=2 MARGIN=1.0 (courtyard to outline) GAP=0 (courtyard gap)
      FIXED=regex of parts never moved (default connectors, holes, switches, relay, clock, jumpers, test points, net ties)
      FREE=refs,.. (movable despite FIXED)  ONLY=refs,.. (only these move)  DECAPR=12 (cap on GND/+5V joins the nearest IC)
      SNAP=0.635 (a rotated part's origin stays on this grid)  RAD=10 STEP=1.27 ROTS=0,90,180,270 KEEP=24 (candidates per part passed from the quick screen to the full model)  TOP=25  ROUNDS=30  MINGAIN=5  BUDGET=  DETOUR=1.15  BUDW=20
@@ -46,7 +48,9 @@ E=os.environ.get
 BIN=float(E('BIN','5.0')); RES=float(E('RES','0.1')); TRACK=float(E('TRACK','0.3')); CLR=float(E('CLR','0.25'))
 ALIGN=float(E('ALIGN','1.0')); WW=float(E('WW','0.25')); VIAMM=float(E('VIAMM','15')); OVW=float(E('OVW','2'))
 MARGIN=float(E('MARGIN','1.0')); GAP=float(E('GAP','0')); DECAPR=float(E('DECAPR','12'))
-EDGEBAND=float(E('EDGE','1.0')); STRIPS=int(E('STRIPS','5')); SNAP=float(E('SNAP','0.635')); PITCH=TRACK+CLR; GROW=CLR+TRACK/2
+EDGEBAND=float(E('EDGE','1.0')); STRIPS=int(E('STRIPS','5')); HALO=float(E('HALO','0.5'))
+SNAP=float(E('SNAP','0.635')); PITCH=TRACK+CLR; GROW=CLR+TRACK/2
+ICROTS={int(float(a))%360 for a in E('ICROTS','').split(',') if a}   # allowed absolute rotations of parts with 8+ pads (empty = any)
 FIXED_RE=re.compile(E('FIXED',r'^(J|H|SW|K|X|JP|TP|NT|G|LOGO|REF)\d*$'))
 FREE=set(x for x in E('FREE','').split(',') if x); ONLY=set(x for x in E('ONLY','').split(',') if x)
 PLANES=set(E('PLANES','GND,+5V').split(','))
@@ -234,6 +238,9 @@ class Legal:
     def ok(self,S,changed):
         if not hasattr(self,'_C'): self._arrays()
         cur={i:S.boxes(i) for i in changed if i in self.base}
+        if ICROTS:
+            for i in cur:
+                if len(self.B.parts[i].pads)>=8 and int(round(S.a[i]))%360 not in ICROTS: return False
         for i,(c,es) in cur.items():
             if not self.inside(c): return False
             bad=set(self._k[self._hits(c,self._C,GAP)])|set(self._ek[self._hits(c,self._E)])
@@ -241,6 +248,11 @@ class Legal:
             for k in bad:
                 if k in cur: continue
                 if (min(i,k),max(i,k)) not in self.allowed: return False
+        ks=list(cur)
+        for x in range(len(ks)):
+            for y in range(x+1,len(ks)):
+                a,b=ks[x],ks[y]
+                if self._clash(cur[a],cur[b]) and (min(a,b),max(a,b)) not in self.allowed: return False
         return True
     def commit(self,S,changed):
         for i in changed:
@@ -758,12 +770,8 @@ def swap_delta(M,g,h,commit=False):
     old1=S.apply(g,dx,dy,da); old2=S.apply(h,-dx,-dy,-da)
     try:
         mem=M.B.members[g]+M.B.members[h]
-        # legality against everything else (the two swap into each other's room)
-        saveb={i:M.L.base[i] for i in mem if i in M.L.base}
-        for i in mem: M.L.base.pop(i,None)
-        ok=M.L.ok(S,mem)
-        M.L.base.update(saveb)
-        if not ok: return None
+        # legality against everything else (ok() skips the moved parts' own old boxes, so the two swap into each other's room)
+        if not M.L.ok(S,mem): return None
         return M._delta(mem,old1+old2,True)
     finally:
         S.undo(old2); S.undo(old1); M._restore_cap()
@@ -937,6 +945,169 @@ def mode_optimize(M,out):
     json.dump([dict(change=m,gain=g) for m,g,_ in log],open(os.path.join(out,'suggestions.json'),'w'),indent=1)
     print('\n'.join(lines)); print(f'wrote {out}/suggestions.md suggestions.png placed.kicad_pcb  ({time.time()-t:.0f} s)')
 
+
+# ------------------------------------------------------------------ placement from scratch
+SCRATCH_FIXED=re.compile(E('SCRATCHFIXED',r'^(J|H|SW|LOGO|G|REF)\d*$'))
+
+def set_centre(S,i,cx,cy,a,snap=0.635):
+    """put part i with rotation a so that its courtyard centre is at cx,cy (origin snapped to the grid)"""
+    S.a[i]=a; S.x[i]=0.0; S.y[i]=0.0; S._pads(i); c=S.boxes(i)[0]; ox=(c[0]+c[2])/2; oy=(c[1]+c[3])/2
+    S.x[i]=round((cx-ox)/snap)*snap; S.y[i]=round((cy-oy)/snap)*snap; S._pads(i)
+
+def global_place(B,S,mov,iters=None):
+    """quadratic placement (star model per net, fixed pads as anchors) with SimPL-style spreading: each iteration the
+    solution is spread over the free board area by recursive bisection and pulled toward the spread positions by
+    pseudo-nets of growing weight. Pins sit at the part centres (rotation is not known yet). Returns {part: (x, y)}."""
+    import scipy.sparse as sp, scipy.sparse.linalg as sla
+    iters=int(E('GPITERS','25')) if iters is None else iters
+    movi={i:k for k,i in enumerate(mov)}; nm=len(mov)
+    nets=[n for n in B.nets if any(i in movi for i,j in B.nets[n])]
+    nv=nm+len(nets)                         # one star node per net
+    area=np.zeros(nm); fixedxy={}
+    for k,i in enumerate(mov):
+        c,es=S.boxes(i); bx=bbox([(c[0],c[1]),(c[2],c[3])]+[(e[0],e[1]) for e in es]+[(e[2],e[3]) for e in es])
+        area[k]=(bx[2]-bx[0]+2*HALO)*(bx[3]-bx[1]+2*HALO)
+    # free area raster (1 mm): inside the outline margin and outside fixed parts
+    from matplotlib.path import Path
+    from shapely.geometry import Polygon
+    poly=Polygon(B.outline).buffer(-MARGIN-1.0,join_style=2); path=Path(np.array(poly.exterior.coords))
+    gx=np.arange(B.bx0+0.5,B.bx1,1.0); gy=np.arange(B.by0+0.5,B.by1,1.0); XX,YY=np.meshgrid(gx,gy)
+    free=path.contains_points(np.c_[XX.ravel(),YY.ravel()]).reshape(XX.shape)
+    for i,P in enumerate(B.parts):
+        if i in movi: continue
+        c,es=S.boxes(i)
+        for b in [c]+es:
+            free&=~((XX>=b[0]-HALO)&(XX<=b[2]+HALO)&(YY>=b[1]-HALO)&(YY<=b[3]+HALO))
+    fx_,fy_=XX[free],YY[free]
+    def spread(px,py):
+        out=np.zeros((nm,2))
+        def rec(idx,mask_idx,depth):
+            if len(idx)==0: return
+            xs=fx_[mask_idx]; ys=fy_[mask_idx]
+            if len(idx)==1 or len(xs)<4:
+                out[idx,0]=xs.mean() if len(xs) else px[idx].mean(); out[idx,1]=ys.mean() if len(ys) else py[idx].mean(); return
+            horiz=(xs.max()-xs.min())>=(ys.max()-ys.min())
+            cc=px if horiz else py; ff=xs if horiz else ys
+            o=idx[np.argsort(cc[idx])]; ca=np.cumsum(area[o]); half=np.searchsorted(ca,ca[-1]/2)+1; half=min(max(half,1),len(o)-1)
+            frac=ca[half-1]/ca[-1]
+            fo=np.argsort(ff); cut=int(round(frac*len(fo)))
+            rec(o[:half],mask_idx[fo[:cut]],depth+1); rec(o[half:],mask_idx[fo[cut:]],depth+1)
+        rec(np.arange(nm),np.arange(len(fx_)),0); return out
+    cx0=(B.bx0+B.bx1)/2; cy0=(B.by0+B.by1)/2
+    anchors=None; pos=None
+    for it in range(iters+1):
+        rows=[];cols=[];vals=[]; bx_=np.zeros(nv); by_=np.zeros(nv)
+        def add(a,b,w):
+            rows.extend([a,b,a,b]); cols.extend([a,b,b,a]); vals.extend([w,w,-w,-w])
+        for k,n in enumerate(nets):
+            star=nm+k; pins=B.nets[n]; w=1.0*len(pins)/(len(pins)-1)
+            for i,j in pins:
+                if i in movi: add(movi[i],star,w)
+                else:
+                    x,y=S.pad(i,j); rows.append(star); cols.append(star); vals.append(w); bx_[star]+=w*x; by_[star]+=w*y
+        for k in range(nm):          # weak pull to the board centre keeps the system regular
+            rows.append(k); cols.append(k); vals.append(1e-4); bx_[k]+=1e-4*cx0; by_[k]+=1e-4*cy0
+        if anchors is not None:
+            wa=float(E('ANCHORW','0.02'))*(1.6**it)
+            for k in range(nm):
+                rows.append(k); cols.append(k); vals.append(wa); bx_[k]+=wa*anchors[k,0]; by_[k]+=wa*anchors[k,1]
+        A=sp.csr_matrix((vals,(rows,cols)),shape=(nv,nv))
+        px=sla.spsolve(A.tocsc(),bx_)[:nm]; py=sla.spsolve(A.tocsc(),by_)[:nm]
+        anchors=spread(px,py); pos=(px,py)
+    return {i:(anchors[k,0],anchors[k,1]) for k,i in enumerate(mov)},{i:(pos[0][k],pos[1][k]) for k,i in enumerate(mov)}
+
+def legalize(B,S,mov,target,followers):
+    """greedy legalisation: big parts first, each at the legal spot and rotation (0/90/180/270) near its target that costs
+    least (MST length + bends of its nets with unplaced parts at their targets, plus displacement); then each plane-only
+    part (decoupling caps, GND/+5V test points) beside the nearest IC that has none yet"""
+    from matplotlib.path import Path
+    path=Path(B.outline); placed=[]
+    for i in range(len(B.parts)):
+        if i not in mov and i not in followers: placed.append(S.boxes(i))
+    def clash(cb):
+        c,es=cb
+        if not path.contains_points([(c[0]-MARGIN,c[1]-MARGIN),(c[2]+MARGIN,c[1]-MARGIN),(c[2]+MARGIN,c[3]+MARGIN),(c[0]-MARGIN,c[3]+MARGIN)]).all(): return True
+        for (pc,pes) in placed:
+            if ovl(c,pc,HALO): return True
+            if any(ovl(e,pc) for e in es) or any(ovl(e,c) for e in pes): return True
+        return False
+    # unplaced parts sit at their targets for the wirelength estimate
+    for i in mov: set_centre(S,i,target[i][0],target[i][1],0.0)
+    for i in followers: set_centre(S,i,(B.bx0+B.bx1)/2,(B.by0+B.by1)/2,0.0)
+    fol=set(followers)
+    def wl(i):
+        t=0.0
+        for n in B.partnets[i]:
+            pts=[S.pad(a,b) for a,b in B.nets[n] if a not in fol]
+            for x0,y0,x1,y1 in mst_edges(pts):
+                dx=abs(x1-x0); dy=abs(y1-y0); t+=dx+dy+(VIAMM*0.5 if min(dx,dy)>ALIGN else 0)
+        return t
+    order=sorted(mov,key=lambda i:-(lambda c:(c[2]-c[0])*(c[3]-c[1]))(S.boxes(i)[0]))
+    step=1.27; done=[]
+    for i in order:
+        tx,ty=target[i]; best=None
+        for a in (0.0,90.0,180.0,270.0):
+            if len(B.parts[i].pads)<=2 and a>=180: continue
+            if ICROTS and len(B.parts[i].pads)>=8 and int(a)%360 not in ICROTS: continue
+            found=0
+            for r in range(0,80):
+                ring=[(dx,dy) for dx in range(-r,r+1) for dy in range(-r,r+1) if max(abs(dx),abs(dy))==r]
+                for dx,dy in ring:
+                    set_centre(S,i,tx+dx*step,ty+dy*step,a)
+                    cb=S.boxes(i)
+                    if clash(cb): continue
+                    c=wl(i)+float(E('DISPW','2.0'))*math.hypot(dx*step,dy*step)
+                    if best is None or c<best[0]: best=(c,S.x[i],S.y[i],a)
+                    found+=1
+                if found>=6: break
+        if best is None: raise SystemExit(f'no legal spot for {B.parts[i].ref}')
+        S.x[i],S.y[i],S.a[i]=best[1],best[2],best[3]; S._pads(i); placed.append(S.boxes(i)); done.append(i)
+    # followers next to ICs
+    ics=[i for i in mov if B.parts[i].ref.startswith('U') and len(B.parts[i].pads)>=8]
+    used=collections.Counter()
+    for f in sorted(followers,key=lambda i:B.parts[i].ref):
+        cand=sorted(ics,key=lambda u:(used[u],0))
+        best=None
+        for u in cand[:max(1,len([x for x in ics if used[x]==used[cand[0]]]))]:
+            c=S.boxes(u)[0]; ux,uy=(c[0]+c[2])/2,(c[1]+c[3])/2
+            for r in range(0,30):
+                ok=None
+                for dx in range(-r,r+1):
+                    for dy in range(-r,r+1):
+                        if max(abs(dx),abs(dy))!=r: continue
+                        for a in (0.0,90.0):
+                            set_centre(S,f,ux+dx*step,uy+dy*step,a)
+                            if not clash(S.boxes(f)):
+                                d=math.hypot(dx,dy)
+                                if ok is None or d<ok[0]: ok=(d,S.x[f],S.y[f],a)
+                if ok: break
+            if ok and (best is None or ok[0]<best[0]): best=ok+(u,)
+        if best is None: raise SystemExit(f'no spot for {B.parts[f].ref}')
+        S.x[f],S.y[f],S.a[f]=best[1],best[2],best[3]; S._pads(f); placed.append(S.boxes(f)); used[best[4]]+=1
+
+def mode_scratch(M,out):
+    """placement from scratch: only SCRATCHFIXED parts (connectors, slots, cartridge, holes, switches, logo) keep their
+    place; every chip and passive is placed by global_place + legalize without looking at its present position, then
+    the result is written and refined by the optimizer (ROUNDS) on a fresh model of the written copy"""
+    global FIXED_RE
+    FIXED_RE=SCRATCH_FIXED                      # the refinement may move everything the scratch placement placed
+    t=time.time(); B=M.B; S=M.S
+    mov=[]; fol=[]
+    pl={n for n,m in B.netname.items() if m in PLANES}
+    for i,P in enumerate(B.parts):
+        if SCRATCH_FIXED.match(P.ref): continue
+        if all((p['net'] in pl) or not p['net'] for p in P.pads): fol.append(i)
+        else: mov.append(i)
+    for i in mov+fol: set_centre(S,i,(B.bx0+B.bx1)/2,(B.by0+B.by1)/2,0.0)   # forget the present placement
+    print(f'scratch: {len(mov)} parts placed from the netlist, {len(fol)} plane-only parts follow the ICs, {len(B.parts)-len(mov)-len(fol)} fixed',flush=True)
+    target,raw=global_place(B,S,mov); print(f'global placement {time.time()-t:.0f} s',flush=True)
+    legalize(B,S,mov,target,fol); print(f'legalised {time.time()-t:.0f} s',flush=True)
+    os.makedirs(out,exist_ok=True); p0=os.path.join(out,'scratch_legal.kicad_pcb'); write_copy(M,B.path,p0)
+    M2=Model(p0); M2.ready(); T=M2.terms(); print('legal:',fmt_terms(M2,T),flush=True)
+    draw(M2,os.path.join(out,'scratch_legal.png'),'from-scratch placement after legalisation')
+    if int(E('ROUNDS','30'))>0: mode_optimize(M2,out)
+    print(f'scratch done {time.time()-t:.0f} s')
+
 def main():
     a=[x for x in sys.argv[1:] if '=' not in x]
     for x in sys.argv[1:]:
@@ -952,6 +1123,7 @@ def main():
     elif mode=='moves': mode_moves(M,out)
     elif mode=='swaps': mode_swaps(M,out)
     elif mode=='optimize': mode_optimize(M,out)
+    elif mode=='scratch': mode_scratch(M,out)
     else: print(__doc__); sys.exit(1)
 
 if __name__=='__main__': main()
