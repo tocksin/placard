@@ -26,7 +26,7 @@ comms and other ships come in later steps.
 
 You start in your tug's cabin, docked to the KESTREL 9.  The tug is
 small (8 x 8 cells, `gen_scrap.TUG_PLAN`): a cockpit and engine room
-(helm, reactor, battery, two nitrogen tanks) above a cabin (air
+(helm, battery, two nitrogen tanks: no reactor) above a cabin (air
 scrubber, O2 tank and its pump, bunks, lockers), one door between them.
 Docked, the tug's airlock is right next to the wreck's, side by side:
 always aligned, so you step from one into the other, and the air of the
@@ -124,14 +124,57 @@ into each powered part beside it that is installed, so it looks plugged
 in (the reactor, batteries, helm, turret, thrusters, scrubber, antenna,
 radar, air pump and gas intake take or give power: `gen_scrap.POWERED`).
 A powered part beside a conduit gets the line's other half, into its
-own cell.  A conduit network is live when a working reactor or an
-installed battery (under 50 % damage) is on one of its cells or beside
-one: its lines are yellow; a network with none is orange.  The lines go
-over the parts in the power view only.  The tug is wired through its
-hull walls (`gen_scrap.TUG_WIRE`), the reactor and battery beside the
-top wall, so all of it is live at the start; the KESTREL 9's engine
-room conduits are dark (its reactor is broken).  Power is only shown so
-far: a part works the same plugged in or not.
+own cell.  A conduit network is live when a power source is on one
+of its cells or beside one: its lines are yellow; a network with none is
+orange.  The lines go over the parts in the power view only.  The tug
+is wired through its hull walls (`gen_scrap.TUG_WIRE`), the battery
+beside the top wall, so all of it is live at the start; the
+KESTREL 9's engine room conduits are dark (its reactor is broken).
+
+**The battery bank.**  The tug's installed batteries share one charge
+(`PW_CL`/`PW_CH`, in kW ticks of 4 s), up to 8 kWh a battery
+(`gen_scrap.BATT_CAP`).  Every 4 s the load comes off it: each working,
+installed part with power draws (`gen_scrap.LOAD`: helm 2 kW, scrubber
+3, air pump 2, gas intake 2, radar 3, antenna 2, turret 4; thrusters
+nothing idle).  The tug at the start draws 16 kW, so its one battery
+lasts about 30 minutes; every part taken out or switched off makes it
+last longer.  While the bank has charge an installed battery (under
+50 % damage) is a source; flat, nothing has power: the scrubber, the
+air pump, the gas intake, the antenna and the thrusters stop (no air,
+no comms, no fuel), and they start again once the bank has charge.  A
+part on a dead network is the same as a part taken out.  A loose
+battery is charged (BATTERY) or flat (FLAT BATTERY, the wreck's are
+half and half).  Installing a charged one adds its charge to the bank;
+a flat one adds room but no charge (it becomes a BATTERY: the bank
+charges it).  Uninstalling one takes a battery's charge out with it;
+when the bank has less than that the battery comes out flat.
+
+**Power lights.**  Every installed part in the tug that takes or gives
+power has a small light in its top right corner: green when it has
+power (a battery while the bank has charge, a reactor while it runs),
+red when it has none or is broken.  Loose parts and the wreck's parts
+have none, and a power switch shows its own lamp.  The lights are a bit
+a tug cell at x4100-x4173 (`LAMP_PG`, set by `pw_count`, drawn by
+`pw_lamp`), worked out with the rest of the power (`PW_ST` bit 2); a
+swap file read into x4100 clears them and the power is worked out again
+back in the ship view.
+
+**Power switches.**  A POWER SWITCH installs on a deck or a power
+conduit like any part.  On a conduit it is part of the line while it is
+ON; TURN OFF (next to it, no time) cuts the network there, so whatever
+is only fed through it goes dead; TURN ON joins it again.
+
+**The reactor.**  A reactor gives 40 kW (`gen_scrap.REACT_KW`, the
+load first, the rest charging the bank) while a working DEUTERIUM CELL
+is installed beside it; a cell lasts about 2 hours
+(`gen_scrap.DEUT_TICKS`), then it is used up and gone.  The tug starts
+with no reactor: one has to be salvaged (the KESTREL 9's four reactor
+cells are broken; each uninstalls with the cutter, repairs, carries and
+installs on a deck like any part), and deuterium is rare: there is none
+on the KESTREL 9.  The work is in `scrap_pwr.masm`: `pw_tick` (resident, every
+second: the 4 s tick), `pw_chk`/`pw_all` (SCRAP.PW2, after a change:
+the batteries, the reactor's cell, `power_build`, the load and the
+parts without power, then `tug_scan`).
 
 **Comms.**  To communicate you need a working comms antenna (50 % health
 or more) installed outside the tug, on open space in its cells.  The
@@ -204,7 +247,7 @@ it.  The view's mode bytes go to 2 bpp as the screen opens and back to
 The status row at the top (row 0, 1 bpp) has the ship's date and time
 (05-07-2175 08:00:00 at the start, a second each second, also while you
 walk the ship), the nitrogen (kg), the delta-v it gives (m/s) and the
-working batteries (there is no ship power to drain them yet).
+working batteries.
 
 The panel is a control panel: three boxed blocks with inverse titles.
 FLIGHT has the heading (degrees, 0 east, clockwise) and DOCKED or FREE
@@ -280,9 +323,9 @@ in normal video, the rest inverse):
 
 The tug's mass is every cell of it but loose parts, each kind a set mass
 (`gen_scrap.MASS`, in 100 kg; the hull is aluminum: a deck 100 kg, a
-wall 200, a reactor 6 t, a thruster 1.5 t): it starts at 33.7 t.  Each
+wall 200, a reactor 6 t, a thruster 1.5 t): it starts at 28.1 t (no reactor).  Each
 working thruster (under 50 % damage) gives 20 kN, so with the eight it
-starts with the tug speeds up by 4.7 m/s each second.  The nitrogen is 400 kg for each nitrogen tank with a working gas
+starts with the tug speeds up by 5.7 m/s each second.  The nitrogen is 400 kg for each nitrogen tank with a working gas
 intake by it, less what is burnt: a kg a second a thruster (so a kg is
 20 kN s, and the delta-v is kg x 20 kN s / the mass), and no
 thrust once it is gone.  It is worked out again with the tug's parts
@@ -399,8 +442,8 @@ a jammed shut armory door and a jammed open med bay door.
 | x40BA-x40BE | the spin (1/256 heading steps a frame), the heading's 1/256 steps, the frame counter when the spin was last worked out, R's stop (`FL_SPN` ... `FL_STP`; `fl_init` clears x4080-x40BF) |
 | x40D0-x40FF | while the docking screen is up: its state (declared, the height and its speed, the ring drawn, the pointer, the yaw and pitch and their rates, the up and down thrust, the ring's offsets; x40FF `FL_GO`, the next screen) |
 | x4100-x4CFF | while the docking screen is up: `SCRAP.DCK` (`scrap_dck.masm`, `#overlay3`; `dock_main` a `.page` chunk at x4100), read in by `nav_action` when C closes the map; it reads `SCRAP.DK2` over x3600-x3FFF, `SCRAP.DK4` into x5400 and `SCRAP.DK3` into x4E00 |
-| x4E00-x4FFF | the file system's buffer; while the navigation screen is up `SCRAP.NV3`, the last of its code (1 sector), read in by `nav_main` after its last card read (and `SCRAP.DK3` while the docking screen is up) |
-| x5400-x55FF | sector buffer for loading `SCRAP.OVL`, then the part text of the panel's kind (two kinds, one sector of `SCRAP/Kxy`); while the navigation screen is up the sector file `SCRAP/K3A` ("kinds" 96-97): the objects (x, y, size, shape, their strings, the radar factor), their names, registries and kinds, and some of the screen's strings (`gen_scrap.SECTOR_STRS`); while the docking screen is up `SCRAP.DK4`, more of its code (1 sector; `PRT_K` is set to none, so the part text is read again) |
+| x4E00-x4FFF | the file system's buffer; while the navigation screen is up `SCRAP.NV3`, the last of its code (1 sector), read in by `nav_main` after its last card read (and `SCRAP.DK3` while the docking screen is up); `SCRAP.RB1`, most of `rooms_build` (`scrap_rms.masm`, `#overlay5`), read in by `rooms_build` each time, after `SCRAP.RB2`; `SCRAP.PW2` (`#overlay4`), the battery bank and what has power, read in by `pw_chk` after a change (with `SCRAP.PW3` into x4200-x42FF and `SCRAP.PWR` unless it is in) |
+| x5400-x55FF | sector buffer for loading `SCRAP.OVL`, then the part text of the panel's kind (two kinds, one sector of `SCRAP/Kxy`); while the navigation screen is up the sector file `SCRAP/K3A` ("kinds" 96-97): the objects (x, y, size, shape, their strings, the radar factor), their names, registries and kinds, and some of the screen's strings (`gen_scrap.SECTOR_STRS`); while the docking screen is up `SCRAP.DK4`, more of its code (1 sector; `PRT_K` is set to none, so the part text is read again); `SCRAP.ACT` (some actions: TURN, REFILL, LAY DECK PLATE) and `SCRAP.RB2` (the rest of `rooms_build`) the same way |
 | x5600-x59FF | more of the program: `SCRAP.OVL`'s pages after xFE, the mouse pointer (its art, what is under it), a repair's steps and what overflows |
 | x5C00-x5CFF, x5D70-x5DF2 | more of the program (`SCRAP.OVL`'s next 2 pages; the start of the audio buffer, x5DF3-x5DFF, is set to silence again after the load): the library calls the flight makes under map 07 (`l_mul8`, `l_div16`, `l_rand8`, a `.page` chunk: they must be below x6000), then what overflows |
 | x5D00-x5D6F | the DOS's menu block (`placard_menu.asm`): `ovl_load` leaves it alone, so Esc goes back to the DOS (the test checks nothing is placed there) |
@@ -428,8 +471,8 @@ stubs that switch to map 07 around the call.
 cd src\scripts
 python gen_scrap.py                              scrap_types.asm, scrap_data.masm, scrap_map.bin
 python asm_expand.py scrap.masm                  scrap.asm
-python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x4100,0x4D00,DCK,3 --swap 0x3600,0x4000,DK2,3 --swap 0x4E00,0x5000,DK3,3 --swap 0x5400,0x5600,DK4,3 --swap 0x3600,0x4000,ART,0 --swap 0x4700,0x4D00,PWR,4 --swap 0x4100,0x4500,INI,4
-                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV, SCRAP.NV2, SCRAP.NV3, SCRAP.DCK, SCRAP.DK2, SCRAP.DK3, SCRAP.DK4, SCRAP.ART, SCRAP.PWR, SCRAP.INI
+python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x4100,0x4D00,DCK,3 --swap 0x3600,0x4000,DK2,3 --swap 0x4E00,0x5000,DK3,3 --swap 0x5400,0x5600,DK4,3 --swap 0x3600,0x4000,ART,0 --swap 0x4700,0x4D00,PWR,4 --swap 0x4E00,0x5000,PW2,4 --swap 0x4200,0x4300,PW3,4 --swap 0x5400,0x5600,ACT,4 --swap 0x4100,0x4500,INI,5 --swap 0x4E00,0x5000,RB1,5 --swap 0x5400,0x5600,RB2,5
+                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV, SCRAP.NV2, SCRAP.NV3, SCRAP.DCK, SCRAP.DK2, SCRAP.DK3, SCRAP.DK4, SCRAP.ART, SCRAP.PWR, SCRAP.PW2, SCRAP.PW3, SCRAP.ACT, SCRAP.INI, SCRAP.RB1, SCRAP.RB2
 python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png; --power: only the conduits and the power view, quick)
 ```
 
@@ -475,6 +518,14 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
   view's lines (`pw_overlay`), the reactor and battery broken (all
   dark), a conduit section placed under the O2 tank and on a deck from
   the inventory, one in a wall that has one refused;
+- the battery bank: its load against `gen_scrap.pw_load` (16 kW at the
+  start, a battery's charge), a tick taking the load off, the bank
+  going flat (no air) and charged again, the battery taken out (its
+  charge goes) and put in again, taken out half charged (it comes out
+  flat) and put in flat; a power switch off on the gas intake's
+  conduit (14 kW), TURN ON and TURN OFF; a deuterium cell beside the
+  reactor (running, its fuel, a tick charging) and burning out (gone,
+  the conduit back);
 - a deck plate taken up (the room leaks) and laid again; a wall
   uninstalled (two rooms join, and a broken hull wall leaks), carried,
   put down and installed (two rooms again);

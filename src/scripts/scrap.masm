@@ -160,9 +160,16 @@ pl_t    = 0x66              ; the part being placed: its type
 PL_S    = ACT_PG * 256 + 0xEF           ;   its carry slot (the job: cut_m 4)
 SWAP_LO = 0x4100            ; SCRAP.INV (the inventory) is read in here, x4100-x4CFF
 PRG_TOP = 0x3100            ; the program region x2000 up ends at the tables (DOOR_PG)
+PW2_LO  = 0x4E00            ; SCRAP.PW2 (the power worked out) in the file system's buffer
+PW3_LO  = 0x4200            ; SCRAP.PW3 (more of it) here, x4200-x42FF (power_build's stack below)
 ACT_LO  = 0x5400            ; SCRAP.ACT (some actions, scrap_act.masm) here, x5400-x55FF
+RB1_LO  = 0x4E00            ; SCRAP.RB1 (rooms_build's, scrap_rms.masm) in the file system's buffer
+RB2_LO  = 0x5400            ; SCRAP.RB2 (more of it) over the part text
 PWR_LO  = 0x4700            ; SCRAP.PWR (the power view, scrap_pwr.masm) here, x4700-x4CFF
 INI_LO  = 0x4100            ; SCRAP.INI (the start's code, scrap_pwr.masm) here, x4100-x44FF
+LAMP_PG = 0x41              ; the tug's lights: a bit a cell, 4 bytes a row (pw_count, pw_lamp)
+LAMP_ON = 0x0F              ;   green: it has power
+LAMP_OFF = 0x04             ;   red: none
 CB_PG   = 0xA1              ; the conduit bits: odd pages xA1-xFF, even offsets 0-30 (cb_get)
 NAV3_LO = 0x4E00            ; SCRAP.NV3 (the rest of it) in the file system's buffer
 NAV2_LO = 0x3600            ; SCRAP.NV2 (more of the map screen) is read in here over
@@ -634,6 +641,11 @@ start:
     CALL ini_fetch              ; SCRAP.INI: the start's code (pw_start)
     CALL pw_start
     CALL rooms_build            ; (over SCRAP.INI)
+    CALL pw_fetch3              ; the battery bank, what has power (the
+    CALL pw_all                 ;   view is drawn below)
+    ld   PW_ST >> 8, y
+    ld   PW_GO & 0xFF, x
+    ld   0, [y,x]
     CALL tug_scan
     CALL camera_fit
     CALL draw_view
@@ -746,6 +758,14 @@ s_inif:
     #d "SCRAP.INI", 0x00
 s_actf:
     #d "SCRAP.ACT", 0x00
+s_pw2f:
+    #d "SCRAP.PW2", 0x00
+s_pw3f:
+    #d "SCRAP.PW3", 0x00
+s_rb1f:
+    #d "SCRAP.RB1", 0x00
+s_rb2f:
+    #d "SCRAP.RB2", 0x00
 PRT_NM:                         ; prt_load's: the part text file, its folder
     #d "K0A", 0x00
 s_prtd:
@@ -1266,6 +1286,7 @@ vc_d:
     CALL draw_cell
     CALL crack_cell
     CALL cell_extra
+    CALL pw_lamp                ; a tug part's power light
     ld   PW_ST >> 8, y          ; the power view: its lines over it
     ld   PW_ST & 0xFF, x
     ld   [y,x], ac
@@ -3050,7 +3071,8 @@ clk_e:
 second_tick:
     PUSH_LINK
     CALL clk_tick
-    CALL tug_scan
+    CALL pw_tick
+    CALL pw_chk                 ; (tug_scan: in pw_all)
     ld   [suit_on], ac
     bne  st_0
     GOTO nosuit_tick
@@ -3299,6 +3321,7 @@ tug_sum:
     shr  ac
     shr  ac
     ld   ac, [val_h]
+tug_sup:                        ; (pw_less: after what has no power)
     clr  ac
     ld   ac, [sup]
     ld   [n_o2], ac
@@ -3413,6 +3436,9 @@ pk_far:
 ; action (do_action's LEAVE).
 .chunk
 act_done:
+    ld   PW_ST >> 8, y          ; the power worked out again (pw_chk)
+    ld   PW_GO & 0xFF, x
+    ld   1, [y,x]
     CALL refresh_cell
     ld   [dirty], ac
     or   1, ac
@@ -3617,7 +3643,9 @@ cd_m:
 .chunk
 work_end:
     ld   PW_ST >> 8, y          ; the power view: a part's power may have
-    ld   PW_ST & 0xFF, x        ;   changed, worked out and drawn again
+    ld   PW_GO & 0xFF, x        ;   changed, worked out (pw_chk) and drawn
+    ld   1, [y,x]               ;   again
+    ld   PW_ST & 0xFF, x
     ld   [y,x], ac
     and  1, ac
     ld   ac, [y,x]
@@ -3926,6 +3954,22 @@ ak_e:
 .chunk
 rooms_build:
     PUSH_LINK
+    ld   s_rb2f & 0xFF, ac      ; the code: SCRAP.RB2 over the part text,
+    ld   ac, [R0]               ; then SCRAP.RB1 in the file system's
+    ld   RB2_LO >> 8, ac        ; buffer (scrap_rms.masm)
+    CALL swap_one
+    ld   s_rb1f & 0xFF, ac
+    ld   ac, [R0]
+    ld   RB1_LO >> 8, ac
+    CALL swap_one
+    ld   PRT_K >> 8, y          ; (prt_load reads the part text again)
+    ld   PRT_K & 0xFF, x
+    ld   0xFF, [y,x]
+    GOTO rb_init
+
+; rb_init - rooms_build's work space cleared.  The rest of rooms_build
+.chunk
+rb_init:
     ld   PW_ST >> 8, y          ; (over SCRAP.PWR and the live bits)
     ld   PW_ST & 0xFF, x
     ld   [y,x], ac
@@ -3958,162 +4002,19 @@ rb_c2:
     ld   ac, [stk_h]
     GOTO rb_scan
 
-; rb_scan - every cell in map order: a solid cell's room is 0 (a link is
-; listed), an air cell not filled yet starts a room.  The rest of
-; rooms_build.
+; rb_leak - room rb_n leaks.  A leaf.
 .chunk
-rb_scan:
-rb_sy:
-    clr  ac
-    ld   ac, [rb_x]
-rb_sx:
-    ld   [rb_x], ac
-    ld   ac, [g_x]
-    ld   [rb_y], ac
-    ld   ac, [g_y]
-    CALL map_get
-    ld   ac, x
-    ld   TAB_PG, y
-    ld   [y,x], ac
-    and  F_SOLID, ac
-    beq  rb_air
-    CALL rb_solid
-    bra  rb_nx
-rb_air:
-    VISADDR
-    ld   [u2], y
-    ld   [u3], x
-    ld   [y,x], ac
-    and  [u4], ac
-    bne  rb_nx
-    ld   [rb_n], ac             ; a new room (31 at most: more share 31)
-    xor  31, ac
-    beq  rb_f
+rb_leak:
+    ld   RB_LK >> 8, y
     ld   [rb_n], ac
-    inc
-    ld   ac, [rb_n]
-rb_f:
-    CALL rb_push
-    CALL rb_fill
-rb_nx:
-    ld   [rb_x], ac
-    inc
-    ld   ac, [rb_x]
-    xor  MAP_W, ac
-    bne  rb_sx
-    ld   [rb_y], ac
-    inc
-    ld   ac, [rb_y]
-    xor  MAP_H, ac
-    bne  rb_sy
-    GOTO rb_links
+    add  RB_LK & 0xFF, x
+    ld   1, [y,x]
+    RET
 
-; rb_solid - the solid cell map_get found: room 0; a door, an airlock or
-; a wall from 50 % damage goes on the list to link (64 at most)
-.chunk
-rb_solid:
-    PUSH_LINK
-    ld   [c_t], ac
-    xor  T_WALL, ac
-    bne  rs_d
-    ld   [c_f], ac
-    sub  8, ac
-    bcs  rs_z
-    bra  rs_l
-rs_d:
-    ld   [c_t], ac
-    xor  T_DOOR, ac
-    beq  rs_l
-    ld   [c_t], ac
-    xor  T_DOORO, ac
-    beq  rs_l
-    ld   [c_t], ac
-    xor  T_LOCK, ac
-    bne  rs_z
-rs_l:
-    ld   [n_door], ac
-    xor  64, ac
-    beq  rs_z
-    ld   RB_DX >> 8, y
-    ld   [n_door], ac
-    add  RB_DX & 0xFF, x
-    ld   [rb_x], ac
-    ld   ac, [y,x]
-    ld   RB_DY >> 8, y
-    ld   [n_door], ac
-    add  RB_DY & 0xFF, x
-    ld   [rb_y], ac
-    ld   ac, [y,x]
-    ld   [n_door], ac
-    inc
-    ld   ac, [n_door]
-rs_z:
-    ld   [c_r], ac              ; most are 0 already
-    beq  rs_e
-    clr  ac
-    CALL set_room
-rs_e:
-    LEAVE
 
-; rb_fill - the room rb_n from the cells on the stack: each cell's old
-; pressure summed, its room set, its neighbours (rb_nbs)
-.chunk
-rb_fill:
-    PUSH_LINK
-rf_l:
-    CALL rb_pop
-    beq  rf_e
-    ld   [rb_cx], ac
-    ld   ac, [g_x]
-    ld   [rb_cy], ac
-    ld   ac, [g_y]
-    CALL map_get
-    CALL rb_acc
-    ld   [rb_n], ac
-    CALL set_room
-    clr  ac
-    ld   ac, [rb_k]
-    GOTO rb_nbs
-rf_e:
-    LEAVE
 
-; rb_nbs - the four neighbours of rb_cx, rb_cy: vacuum or the edge next
-; to it, the room leaks; an air cell not filled yet goes on the stack.
-; Back to rb_fill's loop.
-.chunk
-rb_nbs:
-rn_l:
-    CALL rb_nb
-    bne  rn_in
-    CALL rb_leak
-    bra  rn_k
-rn_in:
-    VISADDR                     ; filled already: air, nothing to do
-    ld   [u2], y
-    ld   [u3], x
-    ld   [y,x], ac
-    and  [u4], ac
-    bne  rn_k
-    CALL map_get
-    ld   ac, x
-    ld   TAB_PG, y
-    ld   [y,x], ac
-    ld   ac, [v1]
-    and  F_VAC, ac
-    beq  rn_s
-    CALL rb_leak
-rn_s:
-    ld   [v1], ac
-    and  F_SOLID, ac
-    bne  rn_k
-    CALL rb_push
-rn_k:
-    ld   [rb_k], ac
-    inc
-    ld   ac, [rb_k]
-    xor  4, ac
-    bne  rn_l
-    GOTO rf_l
+
+
 
 ; rb_acc - the cell map_get found: its old room's pressure added to room
 ; rb_n's sum, a cell counted, the tug's room marked.  A leaf.
@@ -4168,60 +4069,7 @@ ra_2:
 ra_e:
     RET
 
-; rb_leak - room rb_n leaks.  A leaf.
-.chunk
-rb_leak:
-    ld   RB_LK >> 8, y
-    ld   [rb_n], ac
-    add  RB_LK & 0xFF, x
-    ld   1, [y,x]
-    RET
 
-; rb_nb - g_x, g_y = neighbour rb_k of rb_cx, rb_cy (0 right, 1 left, 2
-; down, 3 up); AC = 0 when it is off the map.  A leaf.
-.chunk
-rb_nb:
-    ld   [rb_cx], ac
-    ld   ac, [g_x]
-    ld   [rb_cy], ac
-    ld   ac, [g_y]
-    ld   [rb_k], ac
-    beq  nb_r
-    xor  1, ac
-    beq  nb_l
-    ld   [rb_k], ac
-    xor  2, ac
-    beq  nb_d
-    ld   [g_y], ac
-    beq  nb_o
-    dec
-    ld   ac, [g_y]
-    bra  nb_i
-nb_r:
-    ld   [g_x], ac
-    inc
-    ld   ac, [g_x]
-    xor  MAP_W, ac
-    beq  nb_o
-    bra  nb_i
-nb_l:
-    ld   [g_x], ac
-    beq  nb_o
-    dec
-    ld   ac, [g_x]
-    bra  nb_i
-nb_d:
-    ld   [g_y], ac
-    inc
-    ld   ac, [g_y]
-    xor  MAP_H, ac
-    beq  nb_o
-nb_i:
-    ld   1, ac
-    RET
-nb_o:
-    clr  ac
-    RET
 
 ; rb_push - g_x, g_y marked filled and on the stack (not when it is
 ; full).  A leaf.
@@ -4313,61 +4161,6 @@ set_room:
     ld   ac, [y,x]
     RET
 
-; rb_links - each listed door, airlock or broken wall: the rooms on two
-; opposite sides (a room, or 0 for vacuum and the edge; a solid cell is
-; none) make a link in DOOR_PG when they differ (64 at most); the cell
-; gets the room of a side.  The rest of rooms_build.
-.chunk
-rb_links:
-    ld   [n_door], ac
-    ld   ac, [v7]
-    clr  ac
-    ld   ac, [n_door]
-    ld   ac, [rb_x]
-rl_l:
-    ld   [rb_x], ac
-    xor  [v7], ac
-    bne  rl_1
-    GOTO rb_press
-rl_1:
-    ld   RB_DX >> 8, y
-    ld   [rb_x], ac
-    add  RB_DX & 0xFF, x
-    ld   [y,x], ac
-    ld   ac, [rb_cx]
-    ld   ac, [g_x]
-    ld   RB_DY >> 8, y
-    ld   [rb_x], ac
-    add  RB_DY & 0xFF, x
-    ld   [y,x], ac
-    ld   ac, [rb_cy]
-    ld   ac, [g_y]
-    CALL map_get
-    ld   [a_pg], ac
-    ld   ac, [v1]
-    ld   [a_ix], ac
-    ld   ac, [v2]
-    clr  ac
-    ld   ac, [v6]
-    ld   1, ac                  ; left and right
-    ld   ac, [rb_k]
-    CALL rl_side
-    ld   ac, [v4]
-    clr  ac
-    ld   ac, [rb_k]
-    CALL rl_side
-    ld   ac, [v3]
-    CALL rl_add
-    ld   3, ac                  ; up and down
-    ld   ac, [rb_k]
-    CALL rl_side
-    ld   ac, [v4]
-    ld   2, ac
-    ld   ac, [rb_k]
-    CALL rl_side
-    ld   ac, [v3]
-    CALL rl_add
-    GOTO rl_set
 
 ; rl_set - the link cell's room (v6).  Back to rb_links' loop.
 .chunk
@@ -4384,97 +4177,7 @@ rl_set:
     ld   ac, [rb_x]
     GOTO rl_l
 
-; rl_side - AC = the room of neighbour rb_k of the link cell: 0 vacuum or
-; the edge, xFF a solid cell.  An airlock there (two docked side by side):
-; the cell past it.  Uses rb_y, rb_t, v3 (free in rb_links).
-.chunk
-rl_side:
-    PUSH_LINK
-    CALL rb_nb
-    beq  sd_0
-    CALL map_get
-    xor  T_LOCK, ac
-    bne  sd_1
-    ld   [rb_cx], ac            ; step over the other lock
-    ld   ac, [rb_y]
-    ld   [rb_cy], ac
-    ld   ac, [rb_t]
-    ld   [g_x], ac
-    ld   ac, [rb_cx]
-    ld   [g_y], ac
-    ld   ac, [rb_cy]
-    CALL rb_nb
-    ld   ac, [v3]
-    ld   [rb_y], ac             ; the link cell back
-    ld   ac, [rb_cx]
-    ld   [rb_t], ac
-    ld   ac, [rb_cy]
-    ld   [v3], ac
-    beq  sd_0
-    CALL map_get
-sd_1:
-    ld   [c_t], ac
-    ld   ac, x
-    ld   TAB_PG, y
-    ld   [y,x], ac
-    ld   ac, [u5]
-    and  F_VAC, ac
-    bne  sd_0
-    ld   [u5], ac
-    and  F_SOLID, ac
-    beq  sd_r
-    ld   0xFF, ac
-    LEAVE
-sd_r:
-    ld   [c_r], ac
-    LEAVE
-sd_0:
-    clr  ac
-    LEAVE
 
-; rl_add - a link v4 - v3 (rooms, 0 vacuum, xFF none) for the cell at
-; v1:v2 when both sides are something, not both vacuum, and differ; v6 =
-; the room of a side.  A leaf.
-.chunk
-rl_add:
-    ld   [v4], ac
-    xor  0xFF, ac
-    beq  la_e
-    ld   [v3], ac
-    xor  0xFF, ac
-    beq  la_e
-    ld   [v3], ac
-    xor  [v4], ac
-    beq  la_e
-    ld   [n_door], ac
-    xor  64, ac
-    beq  la_e
-    ld   DOOR_PG, y
-    ld   [n_door], x
-    ld   [v1], ac
-    ld   ac, [y,x]
-    ld   [n_door], ac
-    add  0x40, x
-    ld   [v2], ac
-    ld   ac, [y,x]
-    ld   [n_door], ac
-    add  0x80, x
-    ld   [v4], ac
-    ld   ac, [y,x]
-    ld   [n_door], ac
-    add  0xC0, x
-    ld   [v3], ac
-    ld   ac, [y,x]
-    ld   [n_door], ac
-    inc
-    ld   ac, [n_door]
-    ld   [v4], ac
-    bne  la_s
-    ld   [v3], ac
-la_s:
-    ld   ac, [v6]
-la_e:
-    RET
 
 ; rb_press - each room's pressure (the sum / the cells), whether it is the
 ; tug's, the leaking rooms' list; the rooms past the last emptied; then
@@ -5349,7 +5052,13 @@ ma_t:
     beq  ma_3
     sub  A_SUITON - A_SUITOFF, ac
     beq  ma_3
-    GOTO act_swap               ; TURN, TURN ON, TURN OFF
+    sub  A_SWON - A_SUITON, ac
+    beq  ma_4
+    sub  A_SWOFF - A_SWON, ac
+    beq  ma_4
+    GOTO act_swap               ; TURN
+ma_4:
+    GOTO switch_action
 ma_3:
     GOTO suit_action
 
@@ -5766,11 +5475,20 @@ inv_fetch:
     ld   ac, [u6]
 swap_fetch:                     ; (R1:R0 another file: nav_fetch's)
     PUSH_LINK
-    ld   PW_ST >> 8, y          ; (over SCRAP.PWR and the live bits)
-    ld   PW_ST & 0xFF, x
+    ld   PW_ST >> 8, y          ; (over SCRAP.PWR; into x4100: over the
+    ld   PW_ST & 0xFF, x        ;   live bits and the lights too, worked
+    ld   [y,x], ac              ;   out again back in the ship view)
+    and  5, ac
+    ld   ac, [y,x]
+    ld   [u5], ac
+    xor  SWAP_LO >> 8, ac
+    bne  vf_k
     ld   [y,x], ac
     and  1, ac
     ld   ac, [y,x]
+    ld   PW_GO & 0xFF, x
+    ld   1, [y,x]
+vf_k:
     CALL l_fs_open
     bne  vf_e
 vf_l:
@@ -6171,6 +5889,387 @@ cc_go:
     GOTO place_go
 
 
+; pw_tick - second_tick's: every PW_SECS seconds the bank gives the load
+; (kW ticks, not under 0) and, with the reactor running, takes REACT_KW
+; (not over its capacity: pk_rx).  Then pk_w.  A leaf: u0-u4
+.chunk
+pw_tick:
+    ld   PW_ST >> 8, y
+    ld   PW_TK & 0xFF, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    xor  PW_SECS, ac
+    beq  pk_0
+    RET
+pk_0:
+    ld   0, [y,x]
+    ld   PW_CL & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   PW_CH & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u1]
+    or   [u0], ac
+    ld   ac, [u2]               ; not 0: it had charge
+    ld   PW_LD & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u3]
+    GOTO pk_sub
+
+; pk_sub - pw_tick's: u1:u0 less the load u3, not under 0
+.chunk
+pk_sub:
+    ld   [u0], ac
+    sub  [u3], ac
+    ld   ac, [u0]
+    bcc  pk_r                   ; (carry: a borrow)
+    ld   [u1], ac
+    sub  1, ac
+    ld   ac, [u1]
+    bcc  pk_r
+    clr  ac
+    ld   ac, [u0]
+    ld   ac, [u1]
+pk_r:
+    ld   PW_ST >> 8, y
+    ld   PW_RON & 0xFF, x
+    ld   [y,x], ac
+    beq  pt_n
+    GOTO pk_rx
+pt_n:
+    GOTO pk_w
+
+; pk_rx - pw_tick's, the reactor running: REACT_KW more (pw_clamp), its
+; cell a tick less (burnt out: not running, PW_GO 3)
+.chunk
+pk_rx:
+    ld   PW_ST >> 8, y
+    ld   [u0], ac
+    add  REACT_KW, ac
+    ld   ac, [u0]
+    bcc  pkx_1
+    ld   [u1], ac
+    inc
+    ld   ac, [u1]
+pkx_1:
+    ld   PW_FL & 0xFF, x
+    ld   [y,x], ac
+    sub  1, ac
+    ld   ac, [y,x]
+    ld   ac, [u4]
+    ld   PW_FH & 0xFF, x
+    ld   [y,x], ac
+    bcc  pkx_2
+    sub  1, ac
+    ld   ac, [y,x]
+pkx_2:
+    or   [u4], ac
+    bne  pkx_e
+    ld   PW_RON & 0xFF, x
+    ld   0, [y,x]
+    ld   PW_GO & 0xFF, x
+    ld   3, [y,x]
+pkx_e:
+    GOTO pk_w
+
+; pk_w - pw_tick's: the charge u1:u0 (not over the capacity, pw_clamp)
+; kept; the bank flat now or charged again: PW_GO bit 0, and flat with
+; the reactor not running, nothing has power (pk_dead)
+.chunk
+pk_w:
+    ld   PW_ST >> 8, y          ; (a GOTO leaves y its page)
+    ld   PW_CL & 0xFF, x
+    ld   [u0], ac
+    ld   ac, [y,x]
+    ld   PW_CH & 0xFF, x
+    ld   [u1], ac
+    ld   ac, [y,x]
+    GOTO pk_c
+
+.chunk
+pk_c:
+    PUSH_LINK
+    CALL pw_clamp
+    ld   PW_ST >> 8, y
+    ld   PW_CL & 0xFF, x
+    ld   [y,x], ac
+    ld   PW_CH & 0xFF, x
+    or   [y,x], ac
+    beq  pk_z
+    ld   1, ac
+pk_z:
+    ld   ac, [u4]
+    ld   [u2], ac
+    beq  pk_z1
+    ld   1, ac
+pk_z1:
+    xor  [u4], ac
+    beq  pt_e
+    ld   PW_GO & 0xFF, x
+    ld   [y,x], ac
+    or   1, ac
+    ld   ac, [y,x]
+    ld   [u4], ac
+    bne  pt_e
+    ld   PW_RON & 0xFF, x
+    ld   [y,x], ac
+    bne  pt_e
+    GOTO pk_dead
+pt_e:
+    LEAVE
+
+; pk_dead - the bank gone flat, no reactor: the tug's O2, scrubbers,
+; batteries, nitrogen, antenna and thrusters (pw_chk works it out again
+; in the ship view).  The rest of pk_c
+.chunk
+pk_dead:
+    clr  ac
+    ld   ac, [n_o2]
+    ld   ac, [n_scr]
+    ld   ac, [n_bat]
+    ld   ac, [n_fuel]
+    ld   ac, [sup]
+    ld   N_ANT >> 8, y
+    ld   N_ANT & 0xFF, x
+    ld   0, [y,x]
+    ld   FL_PG, y
+    ld   FL_NT, x
+    ld   0, [y,x]
+    LEAVE
+
+; pw_lamp - after view_cell drew a cell: an installed part in the tug
+; that takes or gives power (not a switch: it has its own) gets a light
+; in its top right corner, green with power, red without (LAMP_PG's bit,
+; pw_count), while they are worked out (PW_ST bit 2)
+.chunk
+pw_lamp:
+    PUSH_LINK
+    ld   PW_ST >> 8, y
+    ld   PW_ST & 0xFF, x
+    ld   [y,x], ac
+    and  4, ac
+    beq  plm_x
+    ld   [dc_t], ac
+    xor  T_PLAYER, ac
+    beq  plm_x
+    ld   [c_t], ac
+    xor  T_SWITCHO, ac
+    beq  plm_x
+    ld   [c_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    ld   ac, [u0]
+    and  F_PWR, ac
+    beq  plm_x
+    ld   [u0], ac
+    and  F_ITEM, ac
+    beq  plm_t
+    ld   [c_b], ac
+    beq  plm_x                  ; loose
+plm_t:
+    ld   [g_x], ac              ; in the tug (TUG_X0 0)
+    sub  TUG_X1 + 1, ac
+    bcc  plm_x
+    ld   [g_y], ac
+    sub  TUG_Y0, ac
+    bcs  plm_x
+    sub  TUG_Y1 + 1 - TUG_Y0, ac
+    bcc  plm_x
+    CALL lamp_addr
+    beq  plm_r
+    ld   LAMP_ON, ac
+    bra  plm_c
+plm_r:
+    ld   LAMP_OFF, ac
+plm_c:
+    ld   ac, [u0]
+    GOTO plm_draw
+plm_x:
+    LEAVE
+
+; plm_draw - pw_lamp's: colour u0 in the right pixel of art rows 1 and 2
+; of the cell's last byte column.  The rest of pw_lamp
+.chunk
+plm_draw:
+    CELLADDR
+    ld   [dc_sp], ac
+    add  6, ac
+    ld   ac, [u1]
+    ld   [dc_base], ac
+    add  2, ac
+    ld   ac, [u2]
+    ld   2, ac
+    ld   ac, [u3]
+plm_l:
+    ld   [u1], y
+    ld   [u2], x
+    ld   [y,x], ac
+    and  0xF0, ac
+    or   [u0], ac
+    ld   ac, [y,x]
+    ld   [u2], ac
+    add  2, ac
+    ld   ac, [u2]
+    ld   [u3], ac
+    dec
+    ld   ac, [u3]
+    bne  plm_l
+    LEAVE
+
+; lamp_addr - g_x, g_y (in the tug): u1 its light's byte at LAMP_PG (4
+; (y - TUG_Y0) + x >> 3), u0 its bit, AC that bit of it.  A leaf
+.chunk
+lamp_addr:
+    ld   [g_y], ac
+    sub  TUG_Y0, ac
+    shl
+    shl
+    ld   ac, [u1]
+    ld   [g_x], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    add  [u1], ac
+    ld   ac, [u1]
+    ld   [g_x], ac
+    and  7, ac
+    add  BIT_TAB & 0xFF, x
+    ld   BIT_TAB >> 8, y
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   LAMP_PG, y
+    ld   [u1], x
+    ld   [y,x], ac
+    and  [u0], ac
+    RET
+
+; pw_clamp - the charge not over the capacity.  A leaf (y the PW_ST page)
+.chunk
+pw_clamp:
+    ld   PW_ST >> 8, y
+    ld   PW_CL & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u3]
+    ld   PW_KL & 0xFF, x
+    ld   [y,x], ac
+    sub  [u3], ac               ; the capacity less the charge (carry: a
+    ld   PW_CH & 0xFF, x        ;   borrow, the charge over it)
+    ld   [y,x], ac
+    ld   ac, [u3]
+    ld   PW_KH & 0xFF, x
+    ld   [y,x], ac
+    bcc  pcl_h
+    sub  1, ac
+    bcs  pcl_c
+pcl_h:
+    sub  [u3], ac
+    bcc  pcl_e
+pcl_c:
+    ld   PW_KH & 0xFF, x
+    ld   [y,x], ac
+    ld   PW_CH & 0xFF, x
+    ld   ac, [y,x]
+    ld   PW_KL & 0xFF, x
+    ld   [y,x], ac
+    ld   PW_CL & 0xFF, x
+    ld   ac, [y,x]
+pcl_e:
+    RET
+
+; pw_chk - when the power is to be worked out again (PW_GO) and the ship
+; view is up (rooms_build's space free): SCRAP.PWR, PW2, PW3 (pw_fetch3),
+; pw_all, then the view drawn again if the power view is on or a part
+; changed
+.chunk
+pw_chk:
+    PUSH_LINK
+    ld   PW_ST >> 8, y
+    ld   PW_GO & 0xFF, x
+    ld   [y,x], ac
+    beq  pc_e
+    ld   [inv], ac
+    bne  pc_e
+    ld   FL_PG, y
+    ld   FL_NAV, x
+    ld   [y,x], ac
+    bne  pc_e
+    CALL pw_fetch3
+    bne  pc_e
+    CALL pw_all
+    GOTO pc_draw
+pc_e:
+    LEAVE
+
+; pc_draw - the rest of pw_chk: the view drawn again (the lights)
+.chunk
+pc_draw:
+    ld   PW_ST >> 8, y
+    ld   PW_GO & 0xFF, x
+    ld   0, [y,x]
+    CALL draw_view
+    CALL hover_update
+    LEAVE
+
+; pw_fetch3 - SCRAP.PWR (unless it is in: PW_ST bit 1), SCRAP.PW3 into
+; x4200-x42FF and SCRAP.PW2 into the file system's buffer: AC 0, or not
+; 0 when one is not on the card
+.chunk
+pw_fetch3:
+    PUSH_LINK
+    ld   PW_ST >> 8, y
+    ld   PW_ST & 0xFF, x
+    ld   [y,x], ac
+    and  2, ac
+    bne  pf3_3
+    CALL pwr_fetch
+    bne  pf3_e
+pf3_3:
+    ld   s_pw3f & 0xFF, ac
+    ld   ac, [R0]
+    ld   PW3_LO >> 8, ac
+    CALL swap_one
+    bne  pf3_e
+    ld   s_pw2f & 0xFF, ac
+    ld   ac, [R0]
+    ld   PW2_LO >> 8, ac
+    CALL swap_one
+pf3_e:
+    LEAVE
+
+; swap_one - one sector of a swap file (R0 its name's low byte: the s_ovl
+; page) into page AC.  The rest of swap_fetch's callers
+.chunk
+swap_one:
+    ld   ac, [u5]
+    ld   s_ovl >> 8, ac
+    ld   ac, [R1]
+    ld   1, ac
+    ld   ac, [u6]
+    GOTO swap_fetch
+
+; switch_action - TURN ON, TURN OFF: the power switch next to the player
+; (installed or loose as it was); the power worked out again (act_done)
+.chunk
+switch_action:
+    CALL near
+    beq  sw_far
+    ld   [s_x], ac
+    ld   ac, [g_x]
+    ld   [s_y], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   [c_b], ac
+    or   [c_t], ac
+    xor  T_SWITCH ^ T_SWITCHO, ac
+    CALL map_put
+    GOTO act_done
+sw_far:
+    MSG_TOOFAR
+    CALL set_msg
+    LEAVE
+
 ; pw_toggle - V: the power view on or off (PW_ST bit 0; the live
 ; conduits worked out again), the view drawn again.  The rest of input_keys
 .chunk
@@ -6419,10 +6518,42 @@ ini_fetch:
     GOTO swap_fetch
 
 ; PW_ST - bit 0 the power view is on, bit 1 SCRAP.PWR is in and the live
-; conduits worked out (RB_VIS)
+; conduits worked out (RB_VIS), bit 2 the tug's lights worked out too
+; (LAMP_PG, pw_count).  The battery bank and the reactor
+; (pw_tick, SCRAP.PWR's pw_all): its charge and capacity (kW ticks), the
+; load (kW), the reactor running, its cell's fuel left (ticks), the
+; seconds into the tick, PW_GO (bit 0 the power to work out again, bit 1
+; a deuterium cell burnt out), the batteries installed, and what has no
+; power (pw_count, pw_less): O2 tanks, scrubbers, batteries, nitrogen
+; tanks, the antenna, thrusters
 .chunk
 PW_ST:
     #d8 0
+PW_CL:
+    #d8 0
+PW_CH:
+    #d8 0
+PW_KL:
+    #d8 0
+PW_KH:
+    #d8 0
+PW_LD:
+    #d8 0
+PW_RON:
+    #d8 0
+PW_FL:
+    #d8 0
+PW_FH:
+    #d8 0
+PW_TK:
+    #d8 0
+PW_GO:
+    #d8 0
+PW_NB:
+    #d8 0
+PW_LO2:
+    #d8 0, 0, 0, 0, 0, 0
+PW_END:
 s_wcond:
     #d "A CONDUIT GOES ON A DECK, IN A WALL OR UNDER A PART.", 0x00
 
@@ -6769,10 +6900,25 @@ lm_x:
 ; ============================================================
 ; SCRAP.PWR: the power view (scrap_pwr.masm), read in when the power
 ; view needs it (#overlay4: gen_plc.py --swap 0x4700,0x4D00,PWR,4;
-; rooms_build's fill stack), then SCRAP.INI: the start's code (--swap
-; 0x4100,0x4500,INI,4)
+; rooms_build's fill stack); SCRAP.PW2 and PW3, the battery bank and
+; what has power (--swap 0x4E00,0x5000,PW2,4 --swap 0x4200,0x4300,PW3,4,
+; pw_fetch3); SCRAP.ACT (--swap 0x5400,0x5600,ACT,4); then SCRAP.INI:
+; the start's code (#overlay5: --swap 0x4100,0x4500,INI,5)
 ; ============================================================
+.region PW2_LO, PW2_LO + 0x0200, 1, overlay4, pack
+.region PW3_LO, PW3_LO + 0x0100, 1, overlay4, pack
 .region PWR_LO, PWR_LO + 0x0600, 1, overlay4, pack
 .include "scrap_pwr.masm"
 .region ACT_LO, ACT_LO + 0x0200, 1, overlay4, pack
 .include "scrap_act.masm"
+
+; ============================================================
+; SCRAP.RB1, SCRAP.RB2: most of rooms_build (scrap_rms.masm), read in
+; by rooms_build each time (#overlay5, with SCRAP.INI: gen_plc.py --swap
+; 0x4E00,0x5000,RB1,5 in the file system's buffer, --swap
+; 0x5400,0x5600,RB2,5 over the part text)
+; ============================================================
+.region RB1_LO, RB1_LO + 0x0200, 1, overlay5, pack
+.region RB2_LO, RB2_LO + 0x0200, 1, overlay5, pack
+.region RB1_LO, RB1_LO + 0x0200, 1, overlay5, pack
+.include "scrap_rms.masm"

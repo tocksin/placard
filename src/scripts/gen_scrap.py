@@ -67,7 +67,7 @@ TUG_KEY = {' ': None, '#': 'WALL', '.': 'FLOOR', 'd': 'DOORO', 'L': 'LOCK', 'H':
            'r': 'RADAR', 'U': 'THRUST', '<': 'THRUST_L', 'v': 'THRUST_D'}
 TUG_PLAN = ['  U A r U',       # y27: thrusters, the antenna, the radar on the hull
             ' ########',       # y28
-            '<#HHRBFF#',       # y29: helm, reactor, battery, two nitrogen tanks
+            '<#HH.BFF#',       # y29: helm, battery, two nitrogen tanks (no reactor: one to salvage)
             ' #..===I#',       # y30: conduit (reactor, battery, intake), the intake by one tank
             ' ##d#####',       # y31: the door between the rooms
             '<#S.....L',       # y32: scrubber, the airlock
@@ -356,8 +356,8 @@ TYPES = [
      ['CAPACITY 120 L, FULL', '\x01', 'HEAVY.  SKILL: HYDRAULICS',
       'REFILLS A SUIT ONCE (LESS IF DAMAGED)'], [A_INSPECT],
      'AN OXYGEN TANK.  THE GAUGE STILL MOVES.'),
-    ('REACT', 'react', 'REACTOR CORE', F_DMG,
-     ['FUSION CORE, 40 KW, RUNS ON DEUTERIUM', '\x01', 'TOO HEAVY TO CARRY WHOLE',
+    ('REACT', 'react', 'REACTOR CORE', F_DMG | F_ITEM | F_INST,
+     ['FUSION CORE, 40 KW, RUNS ON DEUTERIUM', '\x01', 'VERY HEAVY',
       'SKILLS: NUCLEAR, ELECTRICAL'], [A_INSPECT],
      'A REACTOR CORE.  COLD UNTIL IT IS FUELED.'),
     ('BATT', 'batt', 'BATTERY', F_DMG | F_ITEM | F_INST,
@@ -1499,19 +1499,30 @@ def in_tug(x, y):
     return TUG[0] <= x <= TUG[2] and TUG[1] <= y <= TUG[3]
 
 
-def pw_source(t, d, x, y, bolted=None, charge=True, fuel=True):
+def pw_fueled(t, d, bolted=None):
+    """the reactors run (PW_RON): a working installed reactor in the tug has
+    a working installed deuterium cell beside it"""
+    for y in range(TUG[1], TUG[3] + 1):
+        for x in range(TUG[0], TUG[2] + 1):
+            b = True if bolted is None else bolted[y][x]
+            if TYPES[t[y][x]][0] != 'REACT' or d[y][x] >= 8 or not b:
+                continue
+            if any(TYPES[t[y + dy][x + dx]][0] == 'DEUT' and d[y + dy][x + dx] < 8 and
+                   (bolted is None or bolted[y + dy][x + dx])
+                   for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                return True
+    return False
+
+
+def pw_source(t, d, x, y, bolted=None, charge=True, ron=True):
     """a working power source in the tug: an installed battery while the
-    bank has charge, or a reactor with a deuterium cell installed beside
-    it while there is fuel (both under 50 % damage)"""
+    bank has charge, or any reactor while the reactors run (pw_fueled and
+    fuel left; both under 50 % damage)"""
     k = TYPES[t[y][x]][0]
     b = True if bolted is None else bolted[y][x]
     if not in_tug(x, y) or d[y][x] >= 8 or not plugged(k, b) or k not in PW_SOURCES:
         return False
-    if k == 'BATT':
-        return charge
-    return fuel and any(TYPES[t[y + dy][x + dx]][0] == 'DEUT' and d[y + dy][x + dx] < 8 and
-                        (bolted is None or bolted[y + dy][x + dx])
-                        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+    return charge if k == 'BATT' else ron
 
 
 def live(t, d, cond, bolted=None, charge=True, fuel=True):
@@ -1519,9 +1530,10 @@ def live(t, d, cond, bolted=None, charge=True, fuel=True):
     on one of its cells or beside one; bolted[y][x] (default: every part)
     whether a part is installed.  A switch that is off is no conduit"""
     cs = set(c for c in cond if TYPES[t[c[1]][c[0]]][0] != 'SWITCHO')
+    ron = fuel and pw_fueled(t, d, bolted)
     out = set()
     for c in cs:
-        if c in out or not any(pw_source(t, d, c[0] + dx, c[1] + dy, bolted, charge, fuel)
+        if c in out or not any(pw_source(t, d, c[0] + dx, c[1] + dy, bolted, charge, ron)
                                for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1))):
             continue
         todo = [c]
@@ -1561,7 +1573,8 @@ def write_pwr_data():
     for i in range(0, len(c), 8):
         d.append('    #d8 ' + ', '.join('%d, %d' % xy for xy in c[i:i + 8]))
     d.append('    #d8 0xFF')
-    d += ['', '; each kind\'s load with power, kW (pw_count)', '.chunk', 'PW_LOADT:',
+    d += ['', '; each kind\'s load with power, kW (pw_count; resident, not in SCRAP.INI)',
+          '.region 0xC000, 0x10000, 2, overlay, pack', '.chunk', 'PW_LOADT:',
           '    #d8 ' + ', '.join(str(LOAD.get(TYPES[kind_base(i)][0], 0)) for i in range(len(TYPES)))]
     d.append('')
     open(os.path.join(HERE, 'scrap_pwr_data.masm'), 'w').write('\n'.join(d))
