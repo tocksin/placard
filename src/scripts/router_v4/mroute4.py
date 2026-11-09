@@ -8,6 +8,7 @@ env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=4 (nets per launch; larger
      BASE=<file> (scope = nets whose copper was added after BASE: that copper is stripped and re-routed)
      CHECKGPU=N compare CPU and GPU path costs for the first N nets and exit (backend self-test)
      SEQFIX=1 a batch-mate routed through an earlier batch-mate's new route is re-routed alone (large batches converge)
+     CKPT=file: checkpoint after every iteration and phase; a run started with the file present resumes from it (for runs under a wall-clock cap)
      PATTERN=1 pattern (straight/L/Z) warm start before negotiation (patroute.py; neutral on the benchmark, off by default)
      CHAINRIP=1 rip-up removes only the crossed chains of a neighbour, not its whole route (shove-like)
      PROT=a,b nets never ripped (default: the clock/stall/write/sync nets below)  CRIT=a,b timing-critical nets: routed first,
@@ -56,6 +57,21 @@ nets=g.nets; nid=g.nid; nx,ny=g.nx,g.ny; N=nx*ny
 for n in list(g.scope): g.set_route(n,[])
 # nets to route: every net with more than one group of fixed copper
 todo=[]; groups0={}
+def pack_groups(la,lb,k):
+    """group labels of a net's fixed copper, stored sparse (cells, labels) per layer: a full-grid pair per net is 65 MB on
+    the fine grid, 16 GB for the whole board"""
+    sp=[]
+    for a in (la,lb):
+        ys,xs=np.nonzero(a); sp.append((ys.astype(np.int32),xs.astype(np.int32),a[ys,xs].astype(np.int16)))
+    ys=np.concatenate([sp[0][0],sp[1][0]]); xs=np.concatenate([sp[0][1],sp[1][1]])
+    return (sp[0],sp[1],k,(int(xs.min()),int(xs.max()),int(ys.min()),int(ys.max())))
+def group_window(gr,wy0,wy1,wx0,wx1):
+    """the group labels scattered into a window (2, wh, ww)"""
+    a=np.zeros((2,wy1-wy0,wx1-wx0),np.int16)
+    for l in range(2):
+        ys,xs,v=gr[l]; m=(ys>=wy0)&(ys<wy1)&(xs>=wx0)&(xs<wx1)
+        a[l,ys[m]-wy0,xs[m]-wx0]=v[m]
+    return a
 S8=np.ones((3,3),bool)
 def fixed_groups(n):
     masks=[(g.cop[L]==n) for L in LAY]
@@ -79,7 +95,7 @@ if g.scope: cands=[n for n in cands if n in g.scope or want is not None]
 for n in cands:
     la,lb,k=fixed_groups(n)
     if k>1:
-        todo.append(n); ys,xs=np.nonzero((la>0)|(lb>0)); groups0[n]=(la.astype(np.int16),lb.astype(np.int16),k,(xs.min(),xs.max(),ys.min(),ys.max()))
+        todo.append(n); groups0[n]=pack_groups(la,lb,k)
 print('open nets',len(todo),[nets[n] for n in todo],round(time.time()-T0),'s',flush=True)
 CRITDEF='CLK,CLK_E,STALL_OUT,STALL_IN,RUN,~{WE},PIXEL_ENABLE,~{HSYNC},~{VSYNC}'
 CRITN={nid[x] for x in E('CRIT',E('PROT',CRITDEF)).split(',') if x in nid}; CRITVIA=float(E('CRITVIA','2')); CRITPRES=float(E('CRITPRES','0.5'))
@@ -214,16 +230,15 @@ def net_groups(n):
     la,lb=g.components(n); ids=sorted(set(np.unique(la[la>0]).tolist())|set(np.unique(lb[lb>0]).tolist()))
     remap=np.zeros(int(max(la.max(),lb.max()))+1,np.int16)
     for k,i in enumerate(ids): remap[i]=k+1
-    la=remap[la]; lb=remap[lb]; ys,xs=np.nonzero((la>0)|(lb>0))
-    return la.astype(np.int16),lb.astype(np.int16),len(ids),(xs.min(),xs.max(),ys.min(),ys.max())
+    return pack_groups(remap[la],remap[lb],len(ids))
 def route_batch(batch,hard,win_mm,soft=None,partial=False):
     """route the nets of batch in parallel; their own stamps are removed first. returns ({n: paths or None}, status)
     partial: kept routes count as groups (only the missing links are routed; the result is appended by the caller)"""
     jobs=[]; gids=[]; states=[]; owns=[]; ownvs=[]; off=0; poff=0
     for n in batch:
-        la,lb,k,(x0,x1,y0,y1)=net_groups(n) if partial else groups0[n]; pad=int(win_mm/G)
+        gr=net_groups(n) if partial else groups0[n]; k=gr[2]; x0,x1,y0,y1=gr[3]; pad=int(win_mm/G)
         wx0=max(0,x0-pad); wx1=min(nx,x1+pad+1); wy0=max(0,y0-pad); wy1=min(ny,y1+pad+1); ww=wx1-wx0; wh=wy1-wy0; W2=2*ww*wh
-        gw=np.ascontiguousarray(np.stack([la[wy0:wy1,wx0:wx1],lb[wy0:wy1,wx0:wx1]]).reshape(-1)).astype(np.int16)
+        gw=np.ascontiguousarray(group_window(gr,wy0,wy1,wx0,wx1).reshape(-1))
         st=np.zeros(W2,np.uint8); smallest=min(range(1,k+1),key=lambda i:(gw==i).sum()); st[gw==smallest]=1
         oc=np.zeros((2,wh,ww),np.int16); ov=np.zeros((wh,ww),np.int16)
         for kind,L,j0,i0,mm in g.stamps.get(n,[]):   # the net's own previous route: not an obstacle to itself
@@ -373,7 +388,7 @@ def rip_fixed(n,paths,rip_t,rip_v):
         g.reraster(mm)
         la,lb,k=fixed_groups(mm)
         if k>1:
-            ys,xs=np.nonzero((la>0)|(lb>0)); groups0[mm]=(la.astype(np.int16),lb.astype(np.int16),k,(xs.min(),xs.max(),ys.min(),ys.max()))
+            groups0[mm]=pack_groups(la,lb,k)
             if mm not in todo: todo.append(mm); g.scope.add(mm)
             ripped.add(mm)
         print('  rip:',nets[n],'crosses fixed',nets[mm],'-> removed',len(hit),'pieces; groups',k,flush=True)
@@ -437,12 +452,34 @@ if E('CHECKGPU'):
             for n in todo: overlaps(n)
     sys.exit(0)
 PATTERN=E('PATTERN','0')=='1'; pat_left=set(todo)
+CKPT=E('CKPT')   # CKPT=file: the route state is saved after every iteration and phase, and a run started with the file present resumes there
+def save_ckpt(phase,**kw):
+    if not CKPT: return
+    import pickle
+    st=dict(phase=phase,routes={n:[list(p) for p in g.routes.get(n,[])] for n in todo},**kw)
+    with open(CKPT+'.tmp','wb') as f: pickle.dump(st,f)
+    if phase=='iter': np.savez_compressed(CKPT+'.hist.npz',hF=g.hist[LAY[0]],hB=g.hist[LAY[1]],hv=g.hist_v)   # PathFinder conflict history
+    os.replace(CKPT+'.tmp',CKPT)
+ck=None
+if CKPT and os.path.exists(CKPT):
+    import pickle
+    ck=pickle.load(open(CKPT,'rb'))
+    for n,ps in ck['routes'].items(): g.set_route(n,[[tuple(c) for c in p] for p in ps])
+    if ck['phase']=='iter' and os.path.exists(CKPT+'.hist.npz'):
+        h=np.load(CKPT+'.hist.npz'); g.hist[LAY[0]][:]=h['hF']; g.hist[LAY[1]][:]=h['hB']; g.hist_v[:]=h['hv']
+    print('resumed from',CKPT,'phase',ck['phase'],flush=True)
+    PATTERN=False; pat_left=set()
 if PATTERN and todo:
     # warm start (Justin's lane idea): straight / L / Z pattern routes first; the negotiation then only re-routes what conflicts
     from patroute import pattern_pass
     t0=time.time(); done,total,leftn=pattern_pass(g,todo); pat_left=set(leftn)
     print(f'pattern pass: {done}/{total} connections placed, {len(pat_left)} nets need the maze router, {time.time()-t0:.0f} s',flush=True)
 fails=set(); conflicted=set(todo); best=None; noimp=0; it=0; tot=0
+if ck and ck['phase']=='iter':
+    it=ck['it']+1; PRES=min(ck['pres']*PRESF,PRESMAX); noimp=ck['noimp']; conflicted=set(ck['conflicted']); fails=set(ck['fails']); tot=ck['tot']
+    best=(tuple(ck['best'][0]),{n:[[tuple(c) for c in p] for p in ps] for n,ps in ck['best'][1].items()},set(ck['best'][2])) if ck['best'] else None
+    if ck.get('done'): it=ITERS   # the loop had ended; go on to the hard rounds
+elif ck: it=ITERS   # resumed past the negotiation loop
 ALLEVERY=int(E('ALLEVERY','0')); WINLATE=float(E('WINLATE','0')); LATEFROM=int(E('LATEFROM','4'))
 VIA0=g.VIA_COST; VIAEND=float(E('VIAEND',str(VIA0))); VIARAMP=max(1,int(E('VIARAMP','8')))   # via cost ramps VIA -> VIAEND over the first VIARAMP iterations
 while it<ITERS and todo:
@@ -455,10 +492,14 @@ while it<ITERS and todo:
     key=(len(conflicted),tot)
     if best is None or key<best[0]: best=(key,{n:list(p) for n,p in g.routes.items()},set(fails)); noimp=0
     else: noimp+=1
-    if tot==0 and not fails: break
-    if noimp>=STALL: break
+    done=(tot==0 and not fails) or noimp>=STALL
+    save_ckpt('iter',it=it,pres=PRES,noimp=noimp,conflicted=list(conflicted),fails=list(fails),tot=tot,done=done,
+              best=(best[0],{n:[list(p) for p in ps] for n,ps in best[1].items()},list(best[2])) if best else None)
+    if E('CKPTSTOP') and it==int(E('CKPTSTOP')): print('checkpoint stop after iteration',it,flush=True); sys.exit(0)   # test hook
+    if done: break
     it+=1; PRES=min(PRES*PRESF,PRESMAX)
 g.VIA_COST=VIAEND
+if ck and ck['phase']!='iter': best=None; conflicted=set(ck.get('conflicted',[])); fails=set(ck.get('fails',[]))
 if best and (len(conflicted),tot)>best[0]:
     print('restoring best iteration: conflicted',best[0][0],'overlap',best[0][1],flush=True)
     for n in todo: g.set_route(n,best[1].get(n,[]))
@@ -466,6 +507,7 @@ if best and (len(conflicted),tot)>best[0]:
 conflicted={n for n in todo if overlaps(n,False)}|fails
 # hard rounds: conflicted nets re-routed one at a time with everything else blocked
 PRES=0.0
+if ck and ck['phase'] in ('hard','rip','improve'): HARDROUNDS=0
 for r in range(HARDROUNDS):
     if not conflicted: break
     t0=time.time(); work=sorted(conflicted,key=lambda n:-overlaps(n,False))
@@ -474,15 +516,18 @@ for r in range(HARDROUNDS):
     conflicted={n for n in todo if overlaps(n,False)}|fails
     print(f'hard round {r}: conflicted {len(conflicted)} fails {len(fails)} {time.time()-t0:.0f} s',flush=True)
     if not (conflicted-fails): break
-left=[]
-if conflicted:
+if not (ck and ck['phase'] in ('hard','rip','improve')): save_ckpt('hard',conflicted=list(conflicted),fails=list(fails))
+left=list(ck.get('left',[])) if ck and ck['phase'] in ('rip','improve') else []
+if conflicted and not (ck and ck['phase'] in ('rip','improve')):
     left=ripretry(sorted(conflicted,key=lambda n:-overlaps(n,False)))
 for n in left: g.set_route(n,[])
+if not (ck and ck['phase'] in ('rip','improve')): save_ckpt('rip',left=left)
 # improvement passes: each net re-routed alone with everything else blocked, kept when cheaper
 IMPROVE=int(E('IMPROVE','2'))
 if IMPROVE and not left:
     PRES=0.0
-    for ip in range(IMPROVE):
+    ip0=ck['ip']+1 if ck and ck['phase']=='improve' else 0
+    for ip in range(ip0,IMPROVE):
         t0=time.time(); gain=0.0; nimp=0
         for n in sorted(todo,key=lambda n:-sum(g.path_cost(p) for p in g.routes.get(n,[]))):
             old=g.routes.get(n,[]); oc=sum(g.path_cost(p) for p in old)
@@ -490,6 +535,7 @@ if IMPROVE and not left:
             if out[n] and sum(g.path_cost(p) for p in out[n])<oc-1e-6:
                 gain+=oc-sum(g.path_cost(p) for p in out[n]); nimp+=1; g.set_route(n,out[n])
         print(f'improve pass {ip}: nets improved {nimp}, cost gain {gain:.0f}, {time.time()-t0:.0f} s',flush=True)
+        save_ckpt('improve',ip=ip,left=left)
         if nimp==0: break
 print('UNROUTED',len(left),[nets[n] for n in left],'total',round(time.time()-T0),'s',flush=True)
 vias=sum(g.path_vias(p) for n in todo for p in g.routes.get(n,[])); cells=sum(len(p) for n in todo for p in g.routes.get(n,[]))

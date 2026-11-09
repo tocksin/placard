@@ -1,0 +1,32 @@
+$ VIA=3200 NEIGH=8 NEIGHMM=2.5 NETPASS=0 DIAG=0 /usr/local/bin/python3 /tmp/claude-0/tools6/tidy.py wba0_v3200.kicad_pcb wba0_v3200_wide.kicad_pcb
+grid 4688 3472
+rasterised 1583 items 2.2 s
+3 workers
+pass 0: 0 chains improved, 0 dropped, cost gain 0, 78 s
+pair pass 0: 40 chain pairs improved, cost gain 41537, 683 s (11 moves rejected, 0 built on a move not yet seen)
+pair pass 1: 34 chain pairs improved, cost gain 8988, 648 s (21 moves rejected, 0 built on a move not yet seen)
+/usr/local/lib/python3.13/multiprocessing/resource_tracker.py:479: UserWarning: resource_tracker: There appear to be 12 leaked semaphore objects to clean up at shutdown: {'/mp-m0_rrof4', '/mp-o2kryi6a', '/mp-tgluf9k_', '/mp-w370m18a', '/mp-zcq7mvwf', '/mp-80xx_06o', '/mp-54ay4_2y', '/mp-hifoti55', '/mp-tj6gr_fy', '/mp-c5hsi_qd', '/mp-3he95kal', '/mp-dl6w89qz'}
+  warnings.warn(
+$ VIA=3200 NEIGH=8 NEIGHMM=2.5 NETPASS=0 DIAG=0 /usr/local/bin/python3 /tmp/claude-0/tools6/tidy.py wba0_v3200.kicad_pcb wba0_v3200_wide.kicad_pcb
+grid 4688 3472
+rasterised 1583 items 2.6 s
+3 workers
+pass 0: 0 chains improved, 0 dropped, cost gain 0, 81 s
+pair pass 0: 40 chain pairs improved, cost gain 41537, 680 s (11 moves rejected, 0 built on a move not yet seen)
+pair pass 1: 34 chain pairs improved, cost gain 8988, 644 s (21 moves rejected, 0 built on a move not yet seen)
+pair pass 2: 16 chain pairs improved, cost gain 5752, 704 s (10 moves rejected, 0 built on a move not yet seen)
+pair pass 3: 7 chain pairs improved, cost gain 2839, 711 s (2 moves rejected, 0 built on a move not yet seen)
+pair pass 4: 3 chain pairs improved, cost gain 111, 703 s (3 moves rejected, 0 built on a move not yet seen)
+pair pass 5: 2 chain pairs improved, cost gain 1223, 684 s
+vias 491 -> 468, cells 624874 -> 627776, 4588 s
+wrote wba0_v3200_wide.kicad_pcb segments 4819 vias 468
+$  /usr/local/bin/python3 /tmp/claude-0/tools6/corner45.py wba0_v3200_wide.kicad_pcb wba0_v3200_wide_c45.kicad_pcb
+corners 1783, chamfered 360 (255 nets), 0 kept for a junction on the leg, zero-length tracks dropped 65; wrote wba0_v3200_wide_c45.kicad_pcb
+$ JSON=wba0_v3200_wide.json /usr/local/bin/python3 /tmp/claude-0/tools6/score.py wba0_v3200_wide_c45.kicad_pcb
+# score wba0_v3200_wide_c45.kicad_pcb  (scope 255 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 39.54 m | 468 / 486 | 5.4 % | 6.5 % | 0.99 | 2 | 0 | 0 | 1 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS1 1045/6/1.4, DATABUS0 925/14/1.2, DATABUS4 909/11/1.2, DATABUS2 822/14/1.1, DATABUS6 813/13/1.0, DATABUS5 807/17/1.1, DATABUS7 802/15/1.0, CLK 796/5/1.0
+detour > 2: /Video and audio out/GRN3, I3

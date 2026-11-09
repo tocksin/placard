@@ -460,6 +460,32 @@ shorter, the lowest ladder cost so far. The diagonal rungs give most of the via 
 the orthogonal rungs keep it (11 fewer at VIA 3200) and the wide rung lands 5 below round 6. The run took 4.0 h on 4 CPU
 cores (restarted twice at the 2 h background cap; `ladder.py` resumes from the finished rungs).
 
+## Round 10 (2026-11-09, branch-149): whole-board route on the cloud CPU, checkpointing, memory
+- **Router checkpoint (`CKPT=file`)**: the route state (routes, PathFinder pressure and conflict history, best iteration,
+  then the hard-round, rip-retry and improve phases) is saved after every iteration and phase; a run started with the file
+  present resumes there. A resumed run is bit-identical to an uninterrupted one (checked on a 12-net coarse route with the
+  `CKPTSTOP=N` test hook). Needed because cloud background jobs are capped at 2 h.
+- **Memory**: `groups0` held a full-grid int16 label pair per net (65 MB each on the fine grid, 16 GB for 255 nets): the
+  whole-board route was OOM-killed on a 16 GB machine. The labels are now stored sparse (cells and labels per layer) and
+  scattered into the search window per job; the route is 2 GB and the output unchanged.
+- **Per-victim rip-up costs** (Freerouting idea 4) were not implemented: on the r1 route the rip-retry phase places 4 nets
+  in 9 rounds and on the whole board it did not run at all (the negotiation converged at iteration 15), so per-victim
+  pricing could only change those few nets. Robustness feature, no via gain to expect here.
+
+### Round 10 on the whole board (cloud CPU, `bench/wbf10_a0_*`)
+Fresh fine-grid route with the round 8 router defaults (`ALLEVERY=0`, `VIA=240`, CPU backend, 4 threads, 16 iterations,
+about 6 h including the restarts), then the round 9 ladder (`BEST=1` tidy, `DIAGRUNGS=2`, `WIDE=1`, 3 workers, 3.6 h):
+
+| | router | VIA 400 | VIA 800 | VIA 1600 | VIA 3200 | wider pairs |
+|---|---|---|---|---|---|---|
+| round 5 GPU route + round 6 ladder (`wbf6_r5`) | 39.33 / 645 | 38.87 / 571 | 39.33 / 533 | 40.01 / 504 | 40.59 / 494 | 40.66 / 478 |
+| DISJOINT route + round 9 ladder (`wbf9_dj`) | 39.09 / 664 | 38.15 / 563 | 38.29 / 535 | 39.02 / 505 | 39.45 / 493 | 39.69 / 479 |
+| **ALLEVERY=0 route + round 9 ladder (`wbf10_a0`)** | 38.88 / 643 | 38.14 / 538 | 38.29 / 520 | 38.66 / 506 | 39.45 / 491 | **39.54 / 468** |
+
+**468 vias / 39.54 m**, 0 open nets, 0 collisions (score.py; KiCad DRC not run in the cloud), 6.5 % diagonal track: 10 fewer
+vias than round 8's best board and 1.1 m (2.8 %) shorter. The router without the all-net re-route iterations gives a better
+start (643 vias, 38.88 m) and the ladder keeps most of the lead to the end. Justin's hand layout: 956 vias / 41.85 m.
+
 ## Placement guidance (`placeguide.py`, branch-143, modes and route check branch-146)
 `python placeguide.py board.kicad_pcb MODE` judges a placement from the pads and nets alone (no routing, existing copper ignored) and
 searches moves, rotations and swaps that should make it easier to route. The board file is never written; `optimize` writes a moved
