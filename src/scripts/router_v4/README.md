@@ -486,6 +486,16 @@ about 6 h including the restarts), then the round 9 ladder (`BEST=1` tidy, `DIAG
 vias than round 8's best board and 1.1 m (2.8 %) shorter. The router without the all-net re-route iterations gives a better
 start (643 vias, 38.88 m) and the ladder keeps most of the lead to the end. Justin's hand layout: 956 vias / 41.85 m.
 
+### Round 10: what did not help (fine r1, from the 422-via board or the fa0 route)
+- **VIA 6400 rung** after the wide rung: nothing moves (converged at VIA 3200).
+- **VIA 3200 rung with `AGAINST=1`** (no layer-direction penalty): 420 vias / 26.14 m, 2 vias for 1 cm of track and 0.3 %
+  more wrong-way copper. Not adopted.
+- **Router via cost ramped 240 -> 480** (`VIAEND=480`): the raw route is worse (618 vias / 28.95 m against 592 / 27.52,
+  30 iterations with 22 nets still conflicting against 18) and the ladder ends at 434 / 26.90 m against 422 / 26.13. The
+  router's via cost stays at 240 cells (15 mm); the ladder is where the vias are traded away.
+- Diagonal moves in the router's own search would need the `pfcpu.c` / `pfgpu.cu` kernels (today only the tidy's `astar.c`
+  has them); the DIAG rungs re-route most chains anyway, so this was not pursued.
+
 ## Placement guidance (`placeguide.py`, branch-143, modes and route check branch-146)
 `python placeguide.py board.kicad_pcb MODE` judges a placement from the pads and nets alone (no routing, existing copper ignored) and
 searches moves, rotations and swaps that should make it easier to route. The board file is never written; `optimize` writes a moved
