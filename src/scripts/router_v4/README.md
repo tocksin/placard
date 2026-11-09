@@ -438,3 +438,16 @@ with via sliding). Two of its ideas tested on the fine r1 bench (`ALLEVERY=0` ro
   3200 and the wide rung orthogonal, so the late rungs back the diagonals out where they boxed something in:
   462 / 448 / 438 / 435 -> wide **422 vias / 26.13 m** (`bench/r1_fine9_mixed_*`), DRC clean, 67 min. New best fine r1
   board: one via fewer than all-orthogonal and 0.6 m (2.2 %) shorter; 14.3 % of the track is diagonal.
+
+## Placement guidance (`placeguide.py`, branch-143)
+`python placeguide.py board.kicad_pcb [prefix]` estimates how hard a placement is to route from pads and nets alone, without routing and
+without editing the board, and suggests moves (position and rotation). It reports the wirelength (rectilinear MST per net,
+critical nets weighted), RUDY congestion per 4 mm tile against the capacity of the two layers, and a via estimate from tree edges that
+need both axes and crossings between nets; GND/+5V are planes and do not count. Output: report, `<prefix>_moves.csv`, `<prefix>.svg`.
+Connectors, holes, switches, relays, crystals, jumpers, net ties, locked parts and plane-only parts (decoupling) are held (`FIX`, `ALLOW`).
+
+When the board has copper it calibrates: on the routed bench board (`wbf6_r5_n8`) vias per net = 0.43 x two-axis edges + 0.028 x crossings - 0.22,
+r = 0.82 per net; the same coefficients applied to the current `kicad/placard.kicad_pcb` give r = 0.88 and 514 predicted vias against 532 real (the two
+boards share most of their placement, so this is a weak independent test). Estimated congestion against real copper per tile: r = 0.62-0.63.
+25 suggested moves on the current board: wirelength estimate 38.73 -> 36.85 m, overflow 46.5 -> 20.0, via estimate 514 -> 498. These are model
+predictions; no suggested placement has been routed yet.
