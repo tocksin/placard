@@ -42,6 +42,7 @@ F_INST     = 0x08
 F_STRUCT   = 0x10
 F_SOLID    = 0x20
 F_VAC      = 0x40
+F_PWR      = 0x80
 A_OPEN     = 1
 A_CLOSE    = 2
 A_INSPECT  = 3

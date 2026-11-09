@@ -68,13 +68,19 @@ TUG_KEY = {' ': None, '#': 'WALL', '.': 'FLOOR', 'd': 'DOORO', 'L': 'LOCK', 'H':
 TUG_PLAN = ['  T A r T',       # y27: thrusters, the antenna, the radar on the hull
             ' ########',       # y28
             'T#HHRBFF#',       # y29: helm, reactor, battery, two nitrogen tanks
-            ' #..==.I#',       # y30: conduit, the intake by one tank
+            ' #..===I#',       # y30: conduit (reactor, battery, intake), the intake by one tank
             ' ##d#####',       # y31: the door between the rooms
             'T#S.....L',       # y32: scrubber, the airlock
             ' #O....k#',       # y33: O2 tank, a locker
             'T#P..bbk#',       # y34: its pump, bunks, a locker
             ' ########',       # y35
             '  T T T  ']       # y36: thrusters
+# the tug's wiring in its hull walls (conduits on wall cells: the power
+# view, V): the top, left and bottom walls, so the thrusters, antenna,
+# radar, helm, scrubber and pump plug in (live: the reactor and the
+# battery are beside the top wall)
+TUG_WIRE = ([(x, 28) for x in range(22, 30)] + [(22, y) for y in range(29, 36)] +
+            [(x, 35) for x in range(23, 29)])
 TUG_DMG = {(24, 31): 2,              # the door above the start: 88 %
            (23, 33): 1,              # the O2 tank (a REPAIR to do)
            (23, 34): 1, (28, 30): 2, # its pump, the intake
@@ -267,6 +273,11 @@ F_INST = 0x08       # a part that can be installed in the tug (a ship system)
 F_STRUCT = 0x10     # the ship itself: a wall, deck or door (UNINSTALL / CUT FREE)
 F_SOLID = 0x20      # not air: the rooms end at it
 F_VAC = 0x40        # vacuum: a room next to it leaks
+F_PWR = 0x80        # it takes (or gives) power: a conduit beside it plugs in (TAB only)
+# the parts that make power (a working one on a conduit or beside it makes
+# that conduit's network live) and those that use it
+PW_SOURCES = ('REACT', 'BATT')
+POWERED = PW_SOURCES + ('HELM', 'TURRET', 'THRUST', 'SCRUB', 'ANT', 'RADAR', 'PUMP', 'INTAKE')
 
 A_OPEN, A_CLOSE, A_INSPECT, A_WALK = 1, 2, 3, 4
 A_PICK, A_CUT, A_PUTL, A_PUTR, A_PUTB, A_REFILL = 5, 6, 7, 8, 9, 10
@@ -979,7 +990,7 @@ def write_sources():
               'F_WALK     = 0x%02X' % F_WALK, 'F_DMG      = 0x%02X' % F_DMG,
               'F_ITEM     = 0x%02X' % F_ITEM, 'F_INST     = 0x%02X' % F_INST,
               'F_STRUCT   = 0x%02X' % F_STRUCT, 'F_SOLID    = 0x%02X' % F_SOLID,
-              'F_VAC      = 0x%02X' % F_VAC]
+              'F_VAC      = 0x%02X' % F_VAC, 'F_PWR      = 0x%02X' % F_PWR]
     lines += ['A_%-8s = %d' % (k, v) for k, v in (
         ('OPEN', A_OPEN), ('CLOSE', A_CLOSE), ('INSPECT', A_INSPECT), ('WALK', A_WALK),
         ('PICK', A_PICK), ('CUT', A_CUT), ('PUTL', A_PUTL), ('PUTR', A_PUTR),
@@ -1057,7 +1068,7 @@ def write_sources():
     tab = ['0'] * 256
 
     for i, ty in enumerate(TYPES):
-        tab[i] = str(ty[3])
+        tab[i] = str(ty[3] | (F_PWR if ty[0] in POWERED else 0))
         lab = sref('zn_%d' % i, ty[2])
         tab[0x40 + i] = lab + ' & 0xFF'
         tab[0x80 + i] = lab + ' >> 8'
@@ -1359,6 +1370,62 @@ def prt_files():
     return out
 
 
+# ------------------------------------------------------------
+# power (scrap_pwr.masm, SCRAP.PWR): conduits are a bit a cell, under
+# anything on a deck or in a wall; the power view (V) draws them
+# ------------------------------------------------------------
+def conduits(t):
+    """the cells with a conduit at the start: every PIPE (a bare deck's)
+    and the tug's wiring in its walls (TUG_WIRE)"""
+    c = [(x, y) for y in range(MAP_H) for x in range(MAP_W) if TYPES[t[y][x]][0] == 'PIPE']
+    for x, y in TUG_WIRE:
+        assert TYPES[t[y][x]][0] == 'WALL', (x, y)
+    return c + list(TUG_WIRE)
+
+
+def plugged(k, bolted):
+    """a part of kind name k takes power: installed (a fixed part counts)"""
+    return k in POWERED and (bolted or not TYPES[TYPE[k]][3] & F_ITEM)
+
+
+def live(t, d, cond, bolted=None):
+    """the conduits whose network has a working power source (a reactor, or
+    an installed battery, under 50 % damage) on one of its cells or beside
+    one; bolted[y][x] (default: every part) whether a part is installed"""
+    cs = set(cond)
+    def src(x, y):
+        k = TYPES[t[y][x]][0]
+        b = True if bolted is None else bolted[y][x]
+        return k in PW_SOURCES and plugged(k, b) and d[y][x] < 8
+    out = set()
+    for c in cond:
+        if c in out or not any(src(c[0] + dx, c[1] + dy) for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1))):
+            continue
+        todo = [c]
+        out.add(c)
+        while todo:
+            x, y = todo.pop()
+            for n in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if n in cs and n not in out:
+                    out.add(n)
+                    todo.append(n)
+    return out
+
+
+def write_pwr_data():
+    """scrap_pwr_data.masm: the conduits at the start (CB0: x, y, xFF ends)"""
+    t, _ = build_map()
+    d = ['; scrap_pwr_data.masm - made by gen_scrap.py: the conduits at the start', '; (SCRAP.PWR\'s cb_init sets their bits)', '',
+         '.chunk', 'CB0:']
+    c = conduits(t)
+    for i in range(0, len(c), 8):
+        d.append('    #d8 ' + ', '.join('%d, %d' % xy for xy in c[i:i + 8]))
+    d.append('    #d8 0xFF')
+    d.append('')
+    open(os.path.join(HERE, 'scrap_pwr_data.masm'), 'w').write('\n'.join(d))
+    return c
+
+
 def write_prt():
     d = os.path.join(SDCARD, PRT_DIR)
     os.makedirs(d, exist_ok=True)
@@ -1375,8 +1442,9 @@ def main():
     write_sources()
     write_prt()
     write_inv_data()
+    write_pwr_data()
     data = write_ovl()
-    print('scrap_types.asm, scrap_data.masm, scrap_inv_data.masm, scrap_map.bin (%d bytes)' % len(data))
+    print('scrap_types.asm, scrap_data.masm, scrap_inv_data.masm, scrap_pwr_data.masm, scrap_map.bin (%d bytes)' % len(data))
 
 
 if __name__ == '__main__':

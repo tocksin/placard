@@ -20,7 +20,7 @@
 ; damage by speed, the tug stopped where it last was clear); closing
 ; within 300 m is PROXIMITY, and within 10 s of the hull IMPACT IN 10 S.
 ;
-; Date: 11/08/2026
+; Date: 11/09/2026
 ; ============================================================
 
 FL_PG   = 0x40
@@ -64,33 +64,7 @@ FL_SVY  = 0x7E
 FL_GO   = 0xFF              ; (x40FF, rooms_build's space) the next screen: 2 the
                             ;   docking screen (SCRAP.DCK) after the map, 1 the map
 
-; fl_init - docked to the KESTREL 9, heading east, nothing burnt.  A leaf.
-.chunk
-fl_init:
-    ld   FL_PG, y
-    ld   0x20, ac
-    ld   ac, [u0]
-fi_l:
-    ld   [u0], x
-    ld   0x00, [y,x]
-    ld   [u0], ac
-    inc
-    ld   ac, [u0]
-    xor  0x40, ac
-    bne  fi_2
-    ld   0x60, ac
-    ld   ac, [u0]
-fi_2:
-    ld   [u0], ac
-    xor  0xC0, ac               ; (x4080-x40BF too: the nav screen's, the spin)
-    bne  fi_l
-    ld   [RAND_LO], ac          ; rand8 needs a state that is not 0
-    or   [RAND_HI], ac
-    bne  fi_r
-    ld   0x5A, ac
-    ld   ac, [RAND_LO]
-fi_r:
-    GOTO fl_dock
+; fl_init - in scrap_pwr.masm (SCRAP.PWR: the start)
 
 ; fl_dock - docked: at the port, stopped; the airlocks joined (TUG_LKX and
 ; WRECK_LKX, TUG_LKY, airlocks again).  A leaf; changes g_x, g_y and the
@@ -708,6 +682,8 @@ COS32:
     #d8 0, 25, 49, 71, 90, 106, 117, 125
 
 ; fl_abs - u1:u0 = |the 2 bytes at FL_PG + AC| (signed).  A leaf.
+.region 0x2000, 0x3200
+.region 0x0100, 0x1F00
 .chunk
 fl_abs:
     ld   ac, [u2]
@@ -734,6 +710,7 @@ fb_ng:
 fb_n1:
     ld   ac, [u1]
     RET
+.region 0xC000, 0x10000, 2, overlay, pack
 
 ; fl_max - w1:w0 = the larger of w1:w0 and u1:u0 (both 0-32767).  A leaf.
 .region 0x2000, 0x3200
@@ -1253,9 +1230,12 @@ nav_fetch:
     ld   ac, [R1]
     GOTO swap_fetch
 
+.region 0x2000, 0x3200
+.region 0x0100, 0x1F00
 .chunk
 s_bump:
     #d "BUMPED THE KESTREL 9: NO DAMAGE.", 0x00
 .chunk
 s_hit:
     #d "IMPACT!  HIT THE KESTREL 9: CHECK THE HULL.", 0x00
+.region 0xC000, 0x10000, 2, overlay, pack

@@ -41,6 +41,7 @@ cabin and the wreck's corridor is shared through them.
 | Left click on an action, or keys **1-8** | does it (see below); the menu is two columns of four, each action with its key to its left, `1:` to `8:` |
 | Right click | unlocks the panel (and cancels picking a cell to install on) |
 | **I** or **Tab** | the inventory screen, and back (see **The inventory**) |
+| **V** | the power view, and back (see **Power**) |
 | Esc | back to the DOS |
 
 The actions, on the cell the panel shows (all but WALK HERE and INSPECT
@@ -92,7 +93,7 @@ time from the part's skills), in the tug or in a wreck alike:
 | O2 tank, scrubber, battery, nitrogen tank, helm, bunk, locker | a deck or a power conduit |
 | air pump | a deck or a power conduit next to an O2 tank |
 | gas intake | a deck or a power conduit next to a nitrogen tank |
-| conduit section (a power conduit) | a deck (not a conduit already) |
+| conduit section (a power conduit) | a deck, a wall, or under a part standing on a deck, where there is no conduit yet: `THERE IS A CONDUIT THERE ALREADY.` |
 | wall panel (a wall), pressure door (a closed door) | a deck, a power conduit or open space |
 | spare deck plate (a deck), thruster, comms antenna, radar array | open space |
 
@@ -104,14 +105,32 @@ plate.
 in one), all but those that go on open space (a thruster, an antenna,
 a radar) and the wall turret.  A part can't be put down or installed on a broken
 deck (under 50 % health), so the deck under a part is never broken and
-its damage is not kept.  The map holds one type a cell, so the game
-keeps a list (CND, 24 at most) of the cells where a part stands on a
-conduit: picking the part up lays the conduit again; off any other part
-you find a whole bare deck.  Clicking a part the panel is already on
+its damage is not kept.  The map holds one type a cell, so a conduit is
+a bit a cell of its own (`cb_get`): it can run under any part on a deck
+and in any wall, and picking a part up lays the conduit again where the
+bit is set (off any other part you find a whole bare deck).  A wall or
+door taken out leaves its conduit in the deck under the panel or kit.
+A bare deck's conduit shows on the view; one under a part or in a wall
+shows in the power view.  Clicking a part the panel is already on
 (left click a second time) shows what is under it: the deck or the
 POWER CONDUIT, at 100 % health, with INSPECT; another click goes back to
 the part.  If a deck ever breaks under a part (nothing in the game
 breaks a deck yet), the part on it is destroyed.
+
+**Power.**  **V** turns the power view on and off.  Over the view, every
+conduit is a line drawn on the fly: to each side with a conduit, and
+into each powered part beside it that is installed, so it looks plugged
+in (the reactor, batteries, helm, turret, thrusters, scrubber, antenna,
+radar, air pump and gas intake take or give power: `gen_scrap.POWERED`).
+A powered part beside a conduit gets the line's other half, into its
+own cell.  A conduit network is live when a working reactor or an
+installed battery (under 50 % damage) is on one of its cells or beside
+one: its lines are yellow; a network with none is orange.  The lines go
+over the parts in the power view only.  The tug is wired through its
+hull walls (`gen_scrap.TUG_WIRE`), the reactor and battery beside the
+top wall, so all of it is live at the start; the KESTREL 9's engine
+room conduits are dark (its reactor is broken).  Power is only shown so
+far: a part works the same plugged in or not.
 
 **Comms.**  To communicate you need a working comms antenna (50 % health
 or more) installed outside the tug, on open space in its cells.  The
@@ -371,6 +390,8 @@ a jammed shut armory door and a jammed open med bay door.
 | x4000-x401F, x4040-x405F | each room's pressure, and whether it is cold (32 rooms) |
 | x4020-x403F, x4060-x407F | the flight (`scrap_fl.masm`): docked, heading, thrust, mass, thrusters, nitrogen, the alarm, the position (16.16 m) and velocity (1/2^24 m a frame) and the navigation screen's state |
 | x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |
+| x4100-x44FF | at the start: `SCRAP.INI` (`scrap_pwr.masm`'s end: the start's code, `fl_init`, `game_init`, `screen_init`, `cb_init` and the conduits at the start), read in by `start`, which then works out the rooms over it |
+| x4700-x4CFF | `SCRAP.PWR` (`scrap_pwr.masm`, `#overlay4`: the power view), read in when the power view draws after `rooms_build` or a swap file has been over it (`PW_ST` bit 1 off; `V` turning it on works it out again too); `power_build`'s live conduits are the fill's bits (x4300-x46FF), its stack x4100-x42FF |
 | x4100-x4CFF | while the inventory is up: `SCRAP.INV` (`scrap_inv.masm`: its screen, font, pointer and routines; 6 sectors at most), read from the card each time it opens; a rebuild of the rooms waits until it closes |
 | x4080-x40FF | while the navigation screen is up: its state (the target, the object being drawn and its 10 bytes, the pixels of each object for the mouse) |
 | x4100-x4CFF | while the navigation screen is up: `SCRAP.NAV` (`scrap_nav.masm`; 6 sectors at most, packed largest chunk first: `.region ..., pack`), read in the same way; the points it drew (to rub out) go in the screen bytes no line shows (offsets 0-30 even of the odd pages x61-x9F) |
@@ -383,7 +404,7 @@ a jammed shut armory door and a jammed open med bay door.
 | x5C00-x5CFF, x5D70-x5DF2 | more of the program (`SCRAP.OVL`'s next 2 pages; the start of the audio buffer, x5DF3-x5DFF, is set to silence again after the load): the library calls the flight makes under map 07 (`l_mul8`, `l_div16`, `l_rand8`, a `.page` chunk: they must be below x6000), then what overflows |
 | x5D00-x5D6F | the DOS's menu block (`placard_menu.asm`): `ovl_load` leaves it alone, so Esc goes back to the DOS (the test checks nothing is placed there) |
 | even pages x60-xBE | the map: 96 x 64 cells in 24 chunks of 16 x 16 |
-| odd pages x61-xBF | the screen (2x repeat leaves the even pages free) |
+| odd pages x61-xFF | the screen (2x repeat leaves the even pages free); the conduits are in the bytes no line shows of pages xA1-xFF: cell x, y is bit x & 7 at page xA1 + (x & xF8) + 2 (y >> 4), offset 2 (y & 15) (768 bytes; `screen_init` clears them, `cb_init` sets the start's) |
 
 Chunk k (k = 6 (y / 16) + x / 16) is page x60 + 4k (the cell types) and
 x62 + 4k (the flags).  A type byte is the kind (bits 5-0, 64 kinds), bit 4 of
@@ -406,9 +427,9 @@ stubs that switch to map 07 around the call.
 cd src\scripts
 python gen_scrap.py                              scrap_types.asm, scrap_data.masm, scrap_map.bin
 python asm_expand.py scrap.masm                  scrap.asm
-python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x4100,0x4D00,DCK,3 --swap 0x3600,0x4000,DK2,3 --swap 0x4E00,0x5000,DK3,3 --swap 0x5400,0x5600,DK4,3 --swap 0x3600,0x4000,ART,0
-                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV, SCRAP.NV2, SCRAP.NV3, SCRAP.DCK, SCRAP.DK2, SCRAP.DK3, SCRAP.DK4, SCRAP.ART
-python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png)
+python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x4100,0x4D00,DCK,3 --swap 0x3600,0x4000,DK2,3 --swap 0x4E00,0x5000,DK3,3 --swap 0x5400,0x5600,DK4,3 --swap 0x3600,0x4000,ART,0 --swap 0x4700,0x4D00,PWR,4 --swap 0x4100,0x4500,INI,4
+                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV, SCRAP.NV2, SCRAP.NV3, SCRAP.DCK, SCRAP.DK2, SCRAP.DK3, SCRAP.DK4, SCRAP.ART, SCRAP.PWR, SCRAP.INI
+python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png; --power: only the conduits and the power view, quick)
 ```
 
 `gen_scrap.py` holds the cell art, the item types (names, info lines,
@@ -446,6 +467,13 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
 - each warning, suffocating, and Enter starting again;
 - the rooms `rooms_build` works out against `gen_scrap.py`'s `rooms()`,
   at the start and after each change below;
+- the conduits: their bits at the start against `gen_scrap.conduits`,
+  a part put down on one and picked up (the conduit back), a conduit
+  uninstalled and installed; V: the live conduits against
+  `gen_scrap.live`, every view cell against the art with the power
+  view's lines (`pw_overlay`), the reactor and battery broken (all
+  dark), a conduit section placed under the O2 tank and on a deck from
+  the inventory, one in a wall that has one refused;
 - a deck plate taken up (the room leaks) and laid again; a wall
   uninstalled (two rooms join, and a broken hull wall leaks), carried,
   put down and installed (two rooms again);
