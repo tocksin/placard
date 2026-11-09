@@ -186,6 +186,22 @@ ART = {
               'B989898B', 'B898989B', 'B989898B', 'B898989B', 'B989898B',
               'B898989B', 'B989898B', 'BBBBBBBB', '7B7777B7', '7B7777B7',
               '77777777'],
+    'batte': ['77777777', '77B77B77', '7BBBBBB7', '7B0000B7', '7B0000B7',
+              '7B0000B7', '7B0000B7', '7B0000B7', '7B0000B7', '7B0000B7',
+              '7B0000B7', '7B0440B7', '7B0000B7', '7BBBBBB7', '77777777',
+              '77777777'],
+    'switch': ['77777777', '7BBBBBB7', '7B2222B7', '7B2222B7', '7B222FB7',
+               '7B22F2B7', '7B2F22B7', '7BBF22B7', '7B2BB2B7', '7B2222B7',
+               '7B2222B7', '7BBBBBB7', '7B9999B7', '7BBBBBB7', '77777777',
+               '77777777'],
+    'switcho': ['77777777', '7BBBBBB7', '7B2222B7', '7B2222B7', '7B4222B7',
+                '7B2422B7', '7B2242B7', '7B22FBB7', '7B2BB2B7', '7B2222B7',
+                '7B2222B7', '7BBBBBB7', '7B4444B7', '7BBBBBB7', '77777777',
+                '77777777'],
+    'deut': ['777BB777', '77B88B77', '7B8888B7', '7B8AA8B7', '7B8888B7',
+             '7B8888B7', '7B3333B7', '7B3AA3B7', '7B3333B7', '7B8888B7',
+             '7B8888B7', '7B8AA8B7', '7B8888B7', '77B88B77', '777BB777',
+             '77777777'],
     'o2e': ['777BB777', '77BAAB77', '7BBBBBB7', 'B7BBBBBB', 'B7BBBBBB',
             'B7BBBB0B', 'B7BBBB0B', 'B7BBBB0B', 'B7BBBB0B', 'B7BBBB0B',
             'B7BBBB0B', 'BBBBBB0B', 'BBBBBBBB', '7BBBBBB7', '77777777',
@@ -285,20 +301,29 @@ F_PWR = 0x80        # it takes (or gives) power: a conduit beside it plugs in (T
 # the parts that make power (a working one on a conduit or beside it makes
 # that conduit's network live) and those that use it
 PW_SOURCES = ('REACT', 'BATT')
-POWERED = PW_SOURCES + ('HELM', 'TURRET', 'THRUST', 'SCRUB', 'ANT', 'RADAR', 'PUMP', 'INTAKE')
+POWERED = PW_SOURCES + ('HELM', 'TURRET', 'THRUST', 'SCRUB', 'ANT', 'RADAR', 'PUMP', 'INTAKE',
+                        'SWITCHO')
+# what each part draws with power, in kW (thrusters: nothing while idle)
+LOAD = {'HELM': 2, 'SCRUB': 3, 'PUMP': 2, 'INTAKE': 2, 'RADAR': 3, 'ANT': 2, 'TURRET': 4}
+PW_SECS = 4                         # the bank is worked out every 4 s (pw_tick)
+BATT_KWH = 8                        # a battery's charge, kWh: 30 min of the start's 16 kW
+BATT_CAP = BATT_KWH * 3600 // PW_SECS   # in kW ticks
+REACT_KW = 40                       # a running reactor gives 40 kW (the load first)
+DEUT_TICKS = 2 * 3600 // PW_SECS    # a deuterium cell lasts 2 hours
 
 A_OPEN, A_CLOSE, A_INSPECT, A_WALK = 1, 2, 3, 4
 A_PICK, A_CUT, A_PUTL, A_PUTR, A_PUTB, A_REFILL = 5, 6, 7, 8, 9, 10
 A_HOLD, A_INSTALL, A_UNINST, A_LAY = 11, 12, 13, 14
 A_REPAIR, A_SKILLS, A_SUITOFF, A_SUITON = 15, 16, 17, 18
 A_NAV, A_TURN = 19, 20
+A_SWON, A_SWOFF = 21, 22
 ACTIONS = {A_OPEN: 'OPEN', A_CLOSE: 'CLOSE', A_INSPECT: 'INSPECT', A_WALK: 'WALK HERE',
            A_PICK: 'PICK UP', A_CUT: 'CUT FREE', A_PUTL: 'PUT DOWN LEFT',
            A_PUTR: 'PUT DOWN RIGHT', A_PUTB: 'PUT DOWN BACK',
            A_REFILL: 'REFILL SUIT', A_HOLD: 'HOLD OPEN', A_INSTALL: 'INSTALL',
            A_UNINST: 'UNINSTALL', A_LAY: 'LAY DECK PLATE', A_REPAIR: 'REPAIR',
            A_SKILLS: 'SKILLS', A_SUITOFF: 'TAKE OFF SUIT', A_SUITON: 'PUT ON SUIT', A_NAV: 'NAVIGATE',
-           A_TURN: 'TURN'}
+           A_TURN: 'TURN', A_SWON: 'TURN ON', A_SWOFF: 'TURN OFF'}
 
 TYPES = [
     # key, art, name, flags, info lines, actions, inspect
@@ -332,9 +357,9 @@ TYPES = [
       'REFILLS A SUIT ONCE (LESS IF DAMAGED)'], [A_INSPECT],
      'AN OXYGEN TANK.  THE GAUGE STILL MOVES.'),
     ('REACT', 'react', 'REACTOR CORE', F_DMG,
-     ['FUSION CORE, 40 KW', '\x01', 'TOO HEAVY TO CARRY WHOLE',
+     ['FUSION CORE, 40 KW, RUNS ON DEUTERIUM', '\x01', 'TOO HEAVY TO CARRY WHOLE',
       'SKILLS: NUCLEAR, ELECTRICAL'], [A_INSPECT],
-     'A REACTOR CORE.  IT IS HUMMING VERY QUIETLY.'),
+     'A REACTOR CORE.  COLD UNTIL IT IS FUELED.'),
     ('BATT', 'batt', 'BATTERY', F_DMG | F_ITEM | F_INST,
      ['STORAGE CELL, 8 KWH', '\x01', 'HEAVY.  SKILL: ELECTRICAL',
       'INSTALLED ON THE TUG: CHARGES YOUR SUIT'], [A_INSPECT],
@@ -414,6 +439,22 @@ TYPES = [
      ['FEEDS THE THRUSTERS NITROGEN', '\x01', 'GOES NEXT TO A NITROGEN TANK',
       'SKILL: HYDRAULICS'], [A_INSPECT],
      'A GAS INTAKE.  ITS FILTER IS CAKED WITH FROST.'),
+    ('BATTE', 'batte', 'FLAT BATTERY', F_DMG | F_ITEM | F_INST,
+     ['STORAGE CELL, 8 KWH, FLAT', '\x01', 'HEAVY.  SKILL: ELECTRICAL',
+      'INSTALLED, THE TUG CAN CHARGE IT'], [A_INSPECT],
+     'A SHIP BATTERY.  COLD AND DEAD.'),
+    ('SWITCH', 'switch', 'POWER SWITCH (ON)', F_DMG | F_ITEM | F_INST,
+     ['A BREAKER BETWEEN TWO CONDUITS', '\x01', 'OFF, IT CUTS THE NETWORK IN TWO',
+      'SKILL: ELECTRICAL'], [A_SWOFF, A_INSPECT],
+     'A HEAVY BREAKER SWITCH.  THE LAMP IS GREEN.'),
+    ('SWITCHO', 'switcho', 'POWER SWITCH (OFF)', F_DMG | F_ITEM | F_INST,
+     ['A BREAKER BETWEEN TWO CONDUITS', '\x01', 'OFF, IT CUTS THE NETWORK IN TWO',
+      'SKILL: ELECTRICAL'], [A_SWON, A_INSPECT],
+     'A HEAVY BREAKER SWITCH.  THE LAMP IS RED.'),
+    ('DEUT', 'deut', 'DEUTERIUM CELL', F_DMG | F_ITEM | F_INST,
+     ['REACTOR FUEL, ABOUT 2 HOURS', '\x01', 'INSTALLED BESIDE A REACTOR, IT RUNS',
+      'RARE.  SKILLS: NUCLEAR, ELECTRICAL'], [A_INSPECT],
+     'A DEUTERIUM FUEL CELL.  HANDLE WITH CARE.'),
     ('ANT', 'ant', 'COMMS ANTENNA', F_DMG | F_SOLID | F_ITEM,
      ['DISH ANTENNA, LONG RANGE', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
       'WORKING ON THE TUG: COMMS'], [A_INSPECT],
@@ -479,7 +520,8 @@ NEEDS = {'FLOOR': SK_M, 'WALL': SK_M, 'DOOR': SK_M | SK_H, 'DOORO': SK_M | SK_H,
          'PIPE': SK_E, 'VENT': SK_M, 'LOCK': SK_M | SK_H, 'SUIT': SK_M,
          'THRUST': SK_M | SK_H, 'FUEL': SK_H, 'SCRUB': SK_H | SK_E, 'CUTTER': SK_E,
          'PANEL': SK_M, 'DOORK': SK_M | SK_H, 'PLATE': SK_M, 'COND': SK_E,
-         'ANT': SK_C | SK_E, 'RADAR': SK_C | SK_E, 'PUMP': SK_H | SK_M, 'INTAKE': SK_H}
+         'ANT': SK_C | SK_E, 'RADAR': SK_C | SK_E, 'PUMP': SK_H | SK_M, 'INTAKE': SK_H,
+         'BATTE': SK_E, 'SWITCH': SK_E, 'SWITCHO': SK_E, 'DEUT': SK_N | SK_E}
 # where a carried part installs from the inventory (bits 7:6 of TB_SKILL):
 # 1 open space, 2 a bare deck, 3 either; 0 it does not install
 WHERE = {'PLATE': 1, 'THRUST': 1, 'ANT': 1, 'RADAR': 1, 'PANEL': 3, 'DOORK': 3}
@@ -548,7 +590,7 @@ VALUE = {'O2': 20, 'O2E': 8, 'REACT': 250, 'BATT': 30, 'CRATE': 15, 'BUNK': 5,
          'HELM': 60, 'LOCKER': 6, 'TURRET': 40, 'THRUST': 50, 'FUEL': 25,
          'SCRUB': 35, 'CUTTER': 12, 'PANEL': 3, 'DOORK': 8, 'PLATE': 2,
          'COND': 4, 'ANT': 45, 'RADAR': 55,
-         'PUMP': 18, 'INTAKE': 14}
+         'PUMP': 18, 'INTAKE': 14, 'BATTE': 20, 'SWITCH': 6, 'SWITCHO': 6, 'DEUT': 300}
 # what each kind weighs, in 100 kg (the tug's mass: every cell of it but
 # loose parts; the navigation mode's acceleration)
 # (aluminum: a wall cell 200 kg, a deck plate 100 kg)
@@ -556,7 +598,7 @@ MASS = {'FLOOR': 1, 'WALL': 2, 'DOOR': 4, 'DOORO': 4, 'O2': 8, 'REACT': 60, 'BAT
         'CRATE': 10, 'BUNK': 2, 'HELM': 3, 'LOCKER': 2, 'TURRET': 12, 'PIPE': 4, 'VENT': 3,
         'LOCK': 8, 'SUIT': 1, 'THRUST': 15, 'FUEL': 10, 'SCRUB': 4, 'O2E': 3, 'CUTTER': 1,
         'PANEL': 2, 'DOORK': 3, 'PLATE': 1, 'COND': 1, 'ANT': 2, 'RADAR': 3, 'PUMP': 2,
-        'INTAKE': 2}
+        'INTAKE': 2, 'BATTE': 4, 'SWITCH': 1, 'SWITCHO': 1, 'DEUT': 2}
 for _f in FACES:                    # a facing kind: the plain part's numbers
     for _k in FACE_PARTS:
         for _d in (NEEDS, WHERE, VALUE, MASS):
@@ -810,7 +852,7 @@ def build_map(seed=9):
     # engine room: reactor block, batteries, conduit
     put(36, 42, 'REACT'); put(37, 42, 'REACT'); put(36, 43, 'REACT'); put(37, 43, 'REACT')
     for y in range(37, 56, 3):
-        put(31, y, 'BATT')
+        put(31, y, 'BATTE' if y % 2 == 0 else 'BATT')     # (half of them flat)
     fill(38, 42, 45, 42, 'PIPE')
     fill(35, 44, 35, 52, 'PIPE')
     for x in (33, 40):
@@ -1046,7 +1088,7 @@ def write_sources():
         ('PICK', A_PICK), ('CUT', A_CUT), ('PUTL', A_PUTL), ('PUTR', A_PUTR),
         ('PUTB', A_PUTB), ('REFILL', A_REFILL), ('HOLD', A_HOLD), ('INSTALL', A_INSTALL),
         ('UNINST', A_UNINST), ('LAY', A_LAY), ('REPAIR', A_REPAIR), ('SKILLS', A_SKILLS),
-        ('SUITOFF', A_SUITOFF), ('SUITON', A_SUITON), ('NAV', A_NAV), ('TURN', A_TURN))]
+        ('SUITOFF', A_SUITOFF), ('SUITON', A_SUITON), ('NAV', A_NAV), ('TURN', A_TURN), ('SWON', A_SWON), ('SWOFF', A_SWOFF))]
     lines += ['SK_M       = %d' % SK_M, 'SK_SUIT    = %d' % SK_SUIT,
               'SKILL_START = %d' % SKILL_START, 'SKILL_MAX  = %d' % SKILL_MAX,
               'REPAIR_FRAMES = %d' % REPAIR_FRAMES, 'CRATE_COL  = %d' % CRATE_COL,
@@ -1086,6 +1128,9 @@ def write_sources():
               'TUG_X0     = %d' % TUG[0], 'TUG_Y0     = %d' % TUG[1],
               'TUG_X1     = %d' % TUG[2], 'TUG_Y1     = %d' % TUG[3],
               'MAP_PAGE   = 0x%02X' % MAP_PAGE,
+              'PW_SECS    = %d          ; the battery bank: worked out every PW_SECS s' % PW_SECS,
+              'BATT_CAP   = %d        ; a battery\'s charge, kW ticks' % BATT_CAP,
+              'REACT_KW   = %d' % REACT_KW, 'DEUT_TICKS = %d' % DEUT_TICKS,
               'MAP_W      = %d' % MAP_W, 'MAP_H      = %d' % MAP_H,
               'START_X    = %d' % START[0], 'START_Y    = %d' % START[1],
               'OVL_PAGES  = 48', '']
@@ -1449,18 +1494,35 @@ def plugged(k, bolted):
     return TYPES[kind_base(TYPE[k])][0] in POWERED and (bolted or not TYPES[TYPE[k]][3] & F_ITEM)
 
 
-def live(t, d, cond, bolted=None):
-    """the conduits whose network has a working power source (a reactor, or
-    an installed battery, under 50 % damage) on one of its cells or beside
-    one; bolted[y][x] (default: every part) whether a part is installed"""
-    cs = set(cond)
-    def src(x, y):
-        k = TYPES[t[y][x]][0]
-        b = True if bolted is None else bolted[y][x]
-        return k in PW_SOURCES and plugged(k, b) and d[y][x] < 8
+def in_tug(x, y):
+    """the tug's box (TUG_X0-X1, TUG_Y0-Y1): its parts are the ship's"""
+    return TUG[0] <= x <= TUG[2] and TUG[1] <= y <= TUG[3]
+
+
+def pw_source(t, d, x, y, bolted=None, charge=True, fuel=True):
+    """a working power source in the tug: an installed battery while the
+    bank has charge, or a reactor with a deuterium cell installed beside
+    it while there is fuel (both under 50 % damage)"""
+    k = TYPES[t[y][x]][0]
+    b = True if bolted is None else bolted[y][x]
+    if not in_tug(x, y) or d[y][x] >= 8 or not plugged(k, b) or k not in PW_SOURCES:
+        return False
+    if k == 'BATT':
+        return charge
+    return fuel and any(TYPES[t[y + dy][x + dx]][0] == 'DEUT' and d[y + dy][x + dx] < 8 and
+                        (bolted is None or bolted[y + dy][x + dx])
+                        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+
+
+def live(t, d, cond, bolted=None, charge=True, fuel=True):
+    """the conduits whose network has a working power source (pw_source)
+    on one of its cells or beside one; bolted[y][x] (default: every part)
+    whether a part is installed.  A switch that is off is no conduit"""
+    cs = set(c for c in cond if TYPES[t[c[1]][c[0]]][0] != 'SWITCHO')
     out = set()
-    for c in cond:
-        if c in out or not any(src(c[0] + dx, c[1] + dy) for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1))):
+    for c in cs:
+        if c in out or not any(pw_source(t, d, c[0] + dx, c[1] + dy, bolted, charge, fuel)
+                               for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1))):
             continue
         todo = [c]
         out.add(c)
@@ -1473,6 +1535,23 @@ def live(t, d, cond, bolted=None):
     return out
 
 
+def powered(lv, x, y):
+    """a part on cell x, y has power: a live conduit on it or beside it"""
+    return any((x + dx, y + dy) in lv for dx, dy in ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1)))
+
+
+def pw_load(t, d, lv, bolted=None):
+    """the tug's load (kW): every working installed part with power"""
+    n = 0
+    for y in range(TUG[1], TUG[3] + 1):
+        for x in range(TUG[0], TUG[2] + 1):
+            k = TYPES[kind_base(t[y][x])][0]
+            b = True if bolted is None else bolted[y][x]
+            if k in LOAD and d[y][x] < 8 and plugged(TYPES[t[y][x]][0], b) and powered(lv, x, y):
+                n += LOAD[k]
+    return n
+
+
 def write_pwr_data():
     """scrap_pwr_data.masm: the conduits at the start (CB0: x, y, xFF ends)"""
     t, _ = build_map()
@@ -1482,6 +1561,8 @@ def write_pwr_data():
     for i in range(0, len(c), 8):
         d.append('    #d8 ' + ', '.join('%d, %d' % xy for xy in c[i:i + 8]))
     d.append('    #d8 0xFF')
+    d += ['', '; each kind\'s load with power, kW (pw_count)', '.chunk', 'PW_LOADT:',
+          '    #d8 ' + ', '.join(str(LOAD.get(TYPES[kind_base(i)][0], 0)) for i in range(len(TYPES)))]
     d.append('')
     open(os.path.join(HERE, 'scrap_pwr_data.masm'), 'w').write('\n'.join(d))
     return c

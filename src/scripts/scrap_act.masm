@@ -1,0 +1,170 @@
+; ============================================================
+; scrap_act.masm - SCRAP.ACT: actions the panel does now and then
+; (#overlay4, x5400-x55FF, in the part text's buffer)
+; ============================================================
+; Date: 11/09/2026
+;
+; act_fetch reads SCRAP.ACT over the part text (PRT_BUF: prt_load reads
+; that again, PRT_K FF) and act_go does the action in w3.  Nothing here
+; may draw the panel (prt_load would read over it).
+
+.chunk
+act_go:
+    ld   [w3], ac
+    xor  A_TURN, ac
+    bne  ag_3
+    GOTO turn_action
+ag_3:
+    ld   [w3], ac
+    xor  A_REFILL, ac
+    bne  ag_4
+    GOTO refill_action
+ag_4:
+    ld   [w3], ac
+    xor  A_LAY, ac
+    bne  ag_5
+    GOTO lay_action
+ag_5:
+    LEAVE
+
+; lay_action - LAY DECK PLATE: a carried deck plate onto the open space
+; the panel shows, next to the player.  The rest of do_action.
+.chunk
+lay_action:
+    CALL near
+    beq  ly_far
+    ld   cl_t, ac
+    ld   ac, [v0]
+ly_l:
+    ld   [v0], x
+    ld   [x], ac
+    xor  T_PLATE, ac
+    beq  ly_ok
+    ld   [v0], ac
+    inc
+    ld   ac, [v0]
+    xor  cb_t + 1, ac
+    bne  ly_l
+    LEAVE
+ly_ok:
+    ld   [s_x], ac
+    ld   ac, [g_x]
+    ld   [s_y], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   T_FLOOR, ac
+    CALL map_put
+    ld   [v0], ac
+    add  3, x
+    ld   [x], ac
+    CALL map_setd
+    ld   [v0], x
+    clr  ac
+    ld   ac, [x]
+    ld   s_laid & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_laid >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    ld   1, ac
+    ld   ac, [rb_go]
+    GOTO work_end
+ly_far:
+    MSG_TOOFAR
+    CALL set_msg
+    LEAVE
+
+; refill_action - REFILL SUIT: a full tank fills the suit (11 L less for
+; each damage step) and is empty.  The rest of do_action.
+.chunk
+refill_action:
+    CALL near
+    beq  rf_far
+    ld   [s_f], ac
+    sub  8, ac
+    bcs  rf_ok
+    ld   s_broken & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_broken >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    LEAVE
+rf_ok:
+    ld   SUIT_O2, ac
+    ld   ac, [v1]
+    ld   [s_f], ac
+    ld   ac, [v2]
+rf_d:
+    ld   [v2], ac
+    beq  rf_a
+    dec
+    ld   ac, [v2]
+    ld   [v1], ac
+    sub  11, ac
+    ld   ac, [v1]
+    bra  rf_d
+rf_a:
+    ld   [o2], ac
+    add  [v1], ac
+    ld   ac, [o2]
+    sub  SUIT_O2 + 1, ac
+    bcs  rf_c
+    ld   SUIT_O2, ac
+    ld   ac, [o2]
+rf_c:
+    ld   s_refill & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_refill >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    ld   [s_x], ac
+    ld   ac, [g_x]
+    ld   [s_y], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   T_O2E, ac              ; still installed if it was
+    or   [c_b], ac
+    CALL map_put
+    GOTO act_done
+rf_far:
+    MSG_TOOFAR
+    CALL set_msg
+    LEAVE
+
+; turn_action - TURN: a part that faces a way (an antenna, a radar, a
+; thruster) next to the player, to its next facing (up, right, down,
+; left), installed or loose as it was.  The rest of do_action
+.chunk
+turn_action:
+    CALL near
+    beq  tq_far
+    ld   [s_x], ac
+    ld   ac, [g_x]
+    ld   [s_y], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   [c_t], ac
+    sub  FACE0 + 3, ac
+    bcs  tq_up
+    add  FACE0, ac              ; left, down, right: 3 kinds back
+    bra  tq_b
+tq_up:
+    add  FACE0 + 12, ac         ; up: right, 9 kinds on
+tq_b:
+    ld   ac, [w4]
+    ld   [c_b], ac
+    beq  tq_p
+    ld   [w4], ac
+    or   0x80, ac               ; installed: it stays installed
+    ld   ac, [w4]
+tq_p:
+    ld   [w4], ac
+    CALL map_put
+    GOTO act_done
+tq_far:
+    MSG_TOOFAR
+    CALL set_msg
+    LEAVE
+
+
+

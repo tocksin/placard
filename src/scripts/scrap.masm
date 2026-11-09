@@ -159,6 +159,8 @@ inv_k   = 0x65              ; the inventory's slot under the mouse: 0-2 the carr
 pl_t    = 0x66              ; the part being placed: its type
 PL_S    = ACT_PG * 256 + 0xEF           ;   its carry slot (the job: cut_m 4)
 SWAP_LO = 0x4100            ; SCRAP.INV (the inventory) is read in here, x4100-x4CFF
+PRG_TOP = 0x3100            ; the program region x2000 up ends at the tables (DOOR_PG)
+ACT_LO  = 0x5400            ; SCRAP.ACT (some actions, scrap_act.masm) here, x5400-x55FF
 PWR_LO  = 0x4700            ; SCRAP.PWR (the power view, scrap_pwr.masm) here, x4700-x4CFF
 INI_LO  = 0x4100            ; SCRAP.INI (the start's code, scrap_pwr.masm) here, x4100-x44FF
 CB_PG   = 0xA1              ; the conduit bits: odd pages xA1-xFF, even offsets 0-30 (cb_get)
@@ -397,7 +399,7 @@ ta_go\@:
 .prefix scw
 .leave sc_leave
 .region 0x0100, 0x1F00
-.region 0x2000, 0x3200
+.region 0x2000, PRG_TOP
 .region 0xC000, 0x10000, 2, overlay, pack
 .region 0x5600, 0x5A00, 1, overlay
 .region 0x5C00, 0x5D00, 1, overlay
@@ -582,25 +584,6 @@ pw_n:
 pw_e:
     RET
 
-; rep_bar - after job_start for a repair: a damage step a 16th of the
-; work's bar (JB_B = 16 x 15 frames' work), so jb_tick takes a step off
-; each time (rep_step).  A leaf.
-.chunk
-rep_bar:
-    ld   JB_B >> 8, y
-    ld   JB_B & 0xFF, x
-    ld   240, [y,x]
-    ld   [wk_l], ac
-    sub  240, ac
-    ld   JB_TL & 0xFF, x
-    ld   ac, [y,x]
-    ld   [wk_h], ac
-    bcc  rbar_1
-    dec
-rbar_1:
-    ld   JB_TH & 0xFF, x
-    ld   ac, [y,x]
-    RET
 
 ; rep_step - a repair's damage step done: the cell cut_x, cut_y a step
 ; less damaged (kept if the repair stops), drawn again, the panel too
@@ -761,6 +744,8 @@ s_pwrf:
     #d "SCRAP.PWR", 0x00
 s_inif:
     #d "SCRAP.INI", 0x00
+s_actf:
+    #d "SCRAP.ACT", 0x00
 PRT_NM:                         ; prt_load's: the part text file, its folder
     #d "K0A", 0x00
 s_prtd:
@@ -2133,7 +2118,7 @@ da_4:
     ld   [w3], ac
     xor  A_REFILL, ac
     bne  da_5
-    GOTO refill_action
+    GOTO act_swap
 da_5:
     ld   [w3], ac
     sub  A_HOLD, ac
@@ -3802,52 +3787,6 @@ pr_ok:
     ld   1, ac
     LEAVE
 
-; lay_action - LAY DECK PLATE: a carried deck plate onto the open space
-; the panel shows, next to the player.  The rest of do_action.
-.chunk
-lay_action:
-    CALL near
-    beq  ly_far
-    ld   cl_t, ac
-    ld   ac, [v0]
-ly_l:
-    ld   [v0], x
-    ld   [x], ac
-    xor  T_PLATE, ac
-    beq  ly_ok
-    ld   [v0], ac
-    inc
-    ld   ac, [v0]
-    xor  cb_t + 1, ac
-    bne  ly_l
-    LEAVE
-ly_ok:
-    ld   [s_x], ac
-    ld   ac, [g_x]
-    ld   [s_y], ac
-    ld   ac, [g_y]
-    CALL map_get
-    ld   T_FLOOR, ac
-    CALL map_put
-    ld   [v0], ac
-    add  3, x
-    ld   [x], ac
-    CALL map_setd
-    ld   [v0], x
-    clr  ac
-    ld   ac, [x]
-    ld   s_laid & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_laid >> 8, ac
-    ld   ac, [R1]
-    CALL set_msg
-    ld   1, ac
-    ld   ac, [rb_go]
-    GOTO work_end
-ly_far:
-    MSG_TOOFAR
-    CALL set_msg
-    LEAVE
 
 ; dyn_struct - the ship's own cells (not the player's): UNINSTALL (by hand
 ; on the tug, with the cutter in a wreck); LAY DECK PLATE on open space with a plate in
@@ -4727,7 +4666,7 @@ in_0b:
     ld   [w3], ac
     xor  A_LAY, ac
     bne  in_1
-    GOTO lay_action
+    GOTO act_swap
 in_1:
     ld   [w3], ac               ; UNINSTALL off the tug: the cutter's work
     xor  A_UNINST, ac
@@ -4788,62 +4727,6 @@ ot_n:
     clr  ac
     RET
 
-; refill_action - REFILL SUIT: a full tank fills the suit (11 L less for
-; each damage step) and is empty.  The rest of do_action.
-.chunk
-refill_action:
-    CALL near
-    beq  rf_far
-    ld   [s_f], ac
-    sub  8, ac
-    bcs  rf_ok
-    ld   s_broken & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_broken >> 8, ac
-    ld   ac, [R1]
-    CALL set_msg
-    LEAVE
-rf_ok:
-    ld   SUIT_O2, ac
-    ld   ac, [v1]
-    ld   [s_f], ac
-    ld   ac, [v2]
-rf_d:
-    ld   [v2], ac
-    beq  rf_a
-    dec
-    ld   ac, [v2]
-    ld   [v1], ac
-    sub  11, ac
-    ld   ac, [v1]
-    bra  rf_d
-rf_a:
-    ld   [o2], ac
-    add  [v1], ac
-    ld   ac, [o2]
-    sub  SUIT_O2 + 1, ac
-    bcs  rf_c
-    ld   SUIT_O2, ac
-    ld   ac, [o2]
-rf_c:
-    ld   s_refill & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_refill >> 8, ac
-    ld   ac, [R1]
-    CALL set_msg
-    ld   [s_x], ac
-    ld   ac, [g_x]
-    ld   [s_y], ac
-    ld   ac, [g_y]
-    CALL map_get
-    ld   T_O2E, ac              ; still installed if it was
-    or   [c_b], ac
-    CALL map_put
-    GOTO act_done
-rf_far:
-    MSG_TOOFAR
-    CALL set_msg
-    LEAVE
 
 ; draw_player - the player's rows 25-28: suit O2, battery, hands, back
 ; and the tug
@@ -5442,8 +5325,8 @@ sg_n:
     bne  sg_l
     RET
 
-; more_action - REPAIR, SKILLS, TAKE OFF SUIT, PUT ON SUIT (w3).  The
-; rest of do_action
+; more_action - REPAIR, SKILLS, NAVIGATE, TAKE OFF SUIT, PUT ON SUIT (w3);
+; the rest from SCRAP.ACT (act_swap).  The rest of do_action
 .chunk
 more_action:
     ld   [w3], ac
@@ -5462,46 +5345,14 @@ ma_2:
     GOTO nav_action
 ma_t:
     ld   [w3], ac
-    xor  A_TURN, ac
-    bne  ma_3
-    GOTO turn_action
+    sub  A_SUITOFF, ac
+    beq  ma_3
+    sub  A_SUITON - A_SUITOFF, ac
+    beq  ma_3
+    GOTO act_swap               ; TURN, TURN ON, TURN OFF
 ma_3:
     GOTO suit_action
 
-; turn_action - TURN: a part that faces a way (an antenna, a radar, a
-; thruster) next to the player, to its next facing (up, right, down,
-; left), installed or loose as it was.  The rest of do_action
-.chunk
-turn_action:
-    CALL near
-    beq  tq_far
-    ld   [s_x], ac
-    ld   ac, [g_x]
-    ld   [s_y], ac
-    ld   ac, [g_y]
-    CALL map_get
-    ld   [c_t], ac
-    sub  FACE0 + 3, ac
-    bcs  tq_up
-    add  FACE0, ac              ; left, down, right: 3 kinds back
-    bra  tq_b
-tq_up:
-    add  FACE0 + 12, ac         ; up: right, 9 kinds on
-tq_b:
-    ld   ac, [w4]
-    ld   [c_b], ac
-    beq  tq_p
-    ld   [w4], ac
-    or   0x80, ac               ; installed: it stays installed
-    ld   ac, [w4]
-tq_p:
-    ld   [w4], ac
-    CALL map_put
-    GOTO act_done
-tq_far:
-    MSG_TOOFAR
-    CALL set_msg
-    LEAVE
 
 ; ty_ant - tug_scan's: a working antenna (any facing): comms.  The rest
 ; of tug_scan
@@ -5623,39 +5474,6 @@ df_n:
     bne  df_col
     RET
 
-; repair_action - REPAIR: a damaged part next to the player, REPAIR_FRAMES
-; (15) a damage step at full speed (cut_done: repair_done).  The rest of
-; do_action
-.chunk
-repair_action:
-    CALL near
-    beq  rpa_far
-    ld   [s_f], ac
-    beq  rpa_e
-    shl
-    shl
-    shl
-    shl
-    sub  [s_f], ac
-    CALL job_start
-    CALL rep_bar
-    ld   3, ac
-    ld   ac, [cut_m]
-    ld   [s_x], ac
-    ld   ac, [cut_x]
-    ld   [s_y], ac
-    ld   ac, [cut_y]
-    ld   s_repair & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_repair >> 8, ac
-    ld   ac, [R1]
-    CALL set_msg
-rpa_e:
-    LEAVE
-rpa_far:
-    MSG_TOOFAR
-    CALL set_msg
-    LEAVE
 
 ; repair_done - the cell cut_done read (map_get) has no damage now; a
 ; wall or door: the rooms again.  The rest of cut_done
@@ -5751,118 +5569,7 @@ ss_3x:
     clr  ac
     RET
 
-; suit_action - TAKE OFF SUIT: into the first free carry slot; PUT ON
-; SUIT: out of its slot.  The rest of do_action
-.chunk
-suit_action:
-    ld   [w3], ac
-    xor  A_SUITOFF, ac
-    bne  su_on
-    CALL free_slot
-    beq  su_full
-    ld   ac, [u0]
-    ld   ac, x
-    ld   T_SUIT, ac
-    ld   ac, [x]
-    ld   [u0], ac
-    add  3, x
-    clr  ac
-    ld   ac, [x]
-    ld   ac, [suit_on]
-    ld   s_suitoff & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_suitoff >> 8, ac
-    bra  su_m
-su_on:
-    CALL suit_slot
-    beq  su_e
-    ld   ac, [u0]
-    ld   ac, x
-    clr  ac
-    ld   ac, [x]
-    ld   [u0], ac
-    add  3, x
-    clr  ac
-    ld   ac, [x]
-    ld   1, ac
-    ld   ac, [suit_on]
-    ld   s_suiton & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_suiton >> 8, ac
-su_m:
-    ld   ac, [R1]
-    CALL set_msg
-    ld   [p_x], ac              ; the player drawn again, in or out of it
-    ld   ac, [g_x]
-    ld   [p_y], ac
-    ld   ac, [g_y]
-    CALL refresh_cell
-    ld   [dirty], ac
-    or   1, ac
-    ld   ac, [dirty]
-su_e:
-    LEAVE
-su_full:
-    ld   s_full & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_full >> 8, ac
-    bra  su_m
 
-; skills_action - SKILLS: the levels into SK_MSG (at SK_POS, two digits,
-; a space for a leading 0) on the message row.  The rest of do_action
-.chunk
-skills_action:
-    clr  ac
-    ld   ac, [u4]
-sa_l:
-    ld   SK_LV >> 8, y
-    ld   [u4], ac
-    add  SK_LV & 0xFF, x
-    ld   [y,x], ac
-    ld   ac, [u1]               ; the ones
-    ld   0x20, ac
-    ld   ac, [u2]               ; the tens
-sa_t:
-    ld   [u1], ac
-    sub  10, ac
-    bcs  sa_p
-    ld   ac, [u1]
-    ld   [u2], ac
-    xor  0x20, ac
-    bne  sa_i
-    ld   0x30, ac
-    ld   ac, [u2]
-sa_i:
-    ld   [u2], ac
-    inc
-    ld   ac, [u2]
-    bra  sa_t
-sa_p:
-    ld   SK_POS >> 8, y
-    ld   [u4], ac
-    add  SK_POS & 0xFF, x
-    ld   [y,x], ac
-    ld   ac, [u3]
-    ld   ac, x
-    ld   SK_MSG >> 8, y
-    ld   [u2], ac
-    ld   ac, [y,x]
-    ld   [u3], ac
-    add  1, x
-    ld   [u1], ac
-    add  0x30, ac
-    ld   ac, [y,x]
-    ld   [u4], ac
-    inc
-    ld   ac, [u4]
-    xor  6, ac
-    bne  sa_l
-    ld   SK_MSG & 0xFF, ac
-    ld   ac, [R0]
-    ld   SK_MSG >> 8, ac
-    ld   ac, [R1]
-    CALL set_msg
-    LEAVE
 
 ; nosuit_tick - second_tick without the suit: the room's air or nothing
 ; (collapsing, stage_set's ss_4); the suit keeps its O2.  The rest of
@@ -6510,6 +6217,194 @@ pwr_fetch:
     ld   ac, [u6]
     GOTO swap_fetch
 
+; repair_action - REPAIR: a damaged part next to the player, REPAIR_FRAMES
+; (15) a damage step at full speed (cut_done: repair_done).  The rest of
+; do_action
+.chunk
+repair_action:
+    CALL near
+    beq  rpa_far
+    ld   [s_f], ac
+    beq  rpa_e
+    shl
+    shl
+    shl
+    shl
+    sub  [s_f], ac
+    CALL job_start
+    CALL rep_bar
+    ld   3, ac
+    ld   ac, [cut_m]
+    ld   [s_x], ac
+    ld   ac, [cut_x]
+    ld   [s_y], ac
+    ld   ac, [cut_y]
+    ld   s_repair & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_repair >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+rpa_e:
+    LEAVE
+rpa_far:
+    MSG_TOOFAR
+    CALL set_msg
+    LEAVE
+
+; rep_bar - after job_start for a repair: a damage step a 16th of the
+; work's bar (JB_B = 16 x 15 frames' work), so jb_tick takes a step off
+; each time (rep_step).  A leaf.
+.chunk
+rep_bar:
+    ld   JB_B >> 8, y
+    ld   JB_B & 0xFF, x
+    ld   240, [y,x]
+    ld   [wk_l], ac
+    sub  240, ac
+    ld   JB_TL & 0xFF, x
+    ld   ac, [y,x]
+    ld   [wk_h], ac
+    bcc  rbar_1
+    dec
+rbar_1:
+    ld   JB_TH & 0xFF, x
+    ld   ac, [y,x]
+    RET
+
+; suit_action - TAKE OFF SUIT: into the first free carry slot; PUT ON
+; SUIT: out of its slot.  The rest of do_action
+.chunk
+suit_action:
+    ld   [w3], ac
+    xor  A_SUITOFF, ac
+    bne  su_on
+    CALL free_slot
+    beq  su_full
+    ld   ac, [u0]
+    ld   ac, x
+    ld   T_SUIT, ac
+    ld   ac, [x]
+    ld   [u0], ac
+    add  3, x
+    clr  ac
+    ld   ac, [x]
+    ld   ac, [suit_on]
+    ld   s_suitoff & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_suitoff >> 8, ac
+    bra  su_m
+su_on:
+    CALL suit_slot
+    beq  su_e
+    ld   ac, [u0]
+    ld   ac, x
+    clr  ac
+    ld   ac, [x]
+    ld   [u0], ac
+    add  3, x
+    clr  ac
+    ld   ac, [x]
+    ld   1, ac
+    ld   ac, [suit_on]
+    ld   s_suiton & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_suiton >> 8, ac
+su_m:
+    ld   ac, [R1]
+    CALL set_msg
+    ld   [p_x], ac              ; the player drawn again, in or out of it
+    ld   ac, [g_x]
+    ld   [p_y], ac
+    ld   ac, [g_y]
+    CALL refresh_cell
+    ld   [dirty], ac
+    or   1, ac
+    ld   ac, [dirty]
+su_e:
+    LEAVE
+su_full:
+    ld   s_full & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_full >> 8, ac
+    bra  su_m
+
+; skills_action - SKILLS: the levels into SK_MSG (at SK_POS, two digits,
+; a space for a leading 0) on the message row.  The rest of do_action
+.chunk
+skills_action:
+    clr  ac
+    ld   ac, [u4]
+sa_l:
+    ld   SK_LV >> 8, y
+    ld   [u4], ac
+    add  SK_LV & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u1]               ; the ones
+    ld   0x20, ac
+    ld   ac, [u2]               ; the tens
+sa_t:
+    ld   [u1], ac
+    sub  10, ac
+    bcs  sa_p
+    ld   ac, [u1]
+    ld   [u2], ac
+    xor  0x20, ac
+    bne  sa_i
+    ld   0x30, ac
+    ld   ac, [u2]
+sa_i:
+    ld   [u2], ac
+    inc
+    ld   ac, [u2]
+    bra  sa_t
+sa_p:
+    ld   SK_POS >> 8, y
+    ld   [u4], ac
+    add  SK_POS & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u3]
+    ld   ac, x
+    ld   SK_MSG >> 8, y
+    ld   [u2], ac
+    ld   ac, [y,x]
+    ld   [u3], ac
+    add  1, x
+    ld   [u1], ac
+    add  0x30, ac
+    ld   ac, [y,x]
+    ld   [u4], ac
+    inc
+    ld   ac, [u4]
+    xor  6, ac
+    bne  sa_l
+    ld   SK_MSG & 0xFF, ac
+    ld   ac, [R0]
+    ld   SK_MSG >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    LEAVE
+
+
+
+; act_swap - an action from SCRAP.ACT (act_go: w3): read into x5400-x55FF
+; over the part text (PRT_K: prt_load reads it again).  The rest of
+; do_action
+.chunk
+act_swap:
+    ld   s_actf & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_actf >> 8, ac
+    ld   ac, [R1]
+    ld   ACT_LO >> 8, ac
+    ld   ac, [u5]
+    ld   2, ac
+    ld   ac, [u6]
+    CALL swap_fetch
+    ld   PRT_K >> 8, y
+    ld   PRT_K & 0xFF, x
+    ld   0xFF, [y,x]
+    GOTO act_go
+
 ; ini_fetch - SCRAP.INI into x4100-x44FF (2 sectors), for start
 .chunk
 ini_fetch:
@@ -6879,3 +6774,5 @@ lm_x:
 ; ============================================================
 .region PWR_LO, PWR_LO + 0x0600, 1, overlay4, pack
 .include "scrap_pwr.masm"
+.region ACT_LO, ACT_LO + 0x0200, 1, overlay4, pack
+.include "scrap_act.masm"

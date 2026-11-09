@@ -194,7 +194,7 @@ ft_e:
 
 ; fl_add24 - the 2 bytes at FL_PG + w1 (signed) into the 4 at FL_PG + AC.
 ; fl_addp - the 3 at w1 (signed) into the 4 at AC.  Leaves (fl_add's).
-.region 0x2000, 0x3200
+.region 0x2000, PRG_TOP
 .region 0x0100, 0x1F00
 .chunk
 fl_add24:
@@ -306,7 +306,7 @@ fb_r:
     RET
 
 ; fl_burn2 - a kg less left.  The rest of fl_burn (a leaf)
-.region 0x2000, 0x3200
+.region 0x2000, PRG_TOP
 .region 0x0100, 0x1F00
 .chunk
 fl_burn2:
@@ -689,7 +689,7 @@ COS32:
     #d8 0, 25, 49, 71, 90, 106, 117, 125
 
 ; fl_abs - u1:u0 = |the 2 bytes at FL_PG + AC| (signed).  A leaf.
-.region 0x2000, 0x3200
+.region 0x2000, PRG_TOP
 .region 0x0100, 0x1F00
 .chunk
 fl_abs:
@@ -720,7 +720,7 @@ fb_n1:
 .region 0xC000, 0x10000, 2, overlay, pack
 
 ; fl_max - w1:w0 = the larger of w1:w0 and u1:u0 (both 0-32767).  A leaf.
-.region 0x2000, 0x3200
+.region 0x2000, PRG_TOP
 .region 0x0100, 0x1F00
 .chunk
 fl_max:
@@ -1150,7 +1150,7 @@ ms_e:
 
 ; fl_far - AC = 1 when g_x is on the KESTREL 9's side and the tug is
 ; undocked.  A leaf.
-.region 0x2000, 0x3200
+.region 0x2000, PRG_TOP
 .region 0x0100, 0x1F00
 .chunk
 fl_far:
@@ -1237,7 +1237,7 @@ nav_fetch:
     ld   ac, [R1]
     GOTO swap_fetch
 
-.region 0x2000, 0x3200
+.region 0x2000, PRG_TOP
 .region 0x0100, 0x1F00
 .chunk
 s_bump:

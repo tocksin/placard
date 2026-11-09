@@ -450,6 +450,12 @@ def build():
     ini = gen_plc.split_swap(prog, 0x4100, 0x4500, 4)   # SCRAP.INI, the start
     if not pwr or len(pwr) > 0x600 or not ini or len(ini) > 0x400:
         raise SystemExit('SCRAP.PWR is %d bytes, SCRAP.INI %d' % (len(pwr), len(ini)))
+    act = gen_plc.split_swap(prog, 0x5400, 0x5600, 4)   # SCRAP.ACT, some actions, in the part text's
+    if not act or len(act) > 0x200:
+        raise SystemExit('SCRAP.ACT is %d bytes' % len(act))
+    for lab in re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, 'scrap_act.masm')).read(), re.M):
+        if not 0x5400 <= tsyms[lab] < 0x5600:
+            raise SystemExit('%s (SCRAP.ACT) is at x%04X' % (lab, tsyms[lab]))
     pw_src = open(os.path.join(HERE, 'scrap_pwr.masm')).read()
     k = pw_src.index('; SCRAP.INI: the start')
     for lab in re.findall(r'^([A-Za-z_]\w*):', pw_src[:k], re.M):     # each in its own file
@@ -462,7 +468,7 @@ def build():
         raise SystemExit('dock_main is not in SCRAP.DCK (x%04X): it reads the rest in' % tsyms['dock_main'])
     own = set()
     for f in ('scrap_inv.masm', 'scrap_inv_data.masm', 'scrap_nav.masm', 'scrap_dck.masm', 'scrap_pwr.masm',
-              'scrap_pwr_data.masm'):
+              'scrap_pwr_data.masm', 'scrap_act.masm'):
         own |= set(re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, f)).read(), re.M))
     for lab in re.findall(r'^([A-Za-z_]\w*):', src, re.M):
         if lab not in own and not lab.startswith('scw_') and 0x4100 <= tsyms.get(lab, 0) < 0x4D00:
@@ -470,19 +476,19 @@ def build():
     prog, code = gen_plc.split_overlay(prog, lib, 0xC000, 2, [(0x5600, 0x5A00, 1), (0x5C00, 0x5E00, 1)])
     if any(0x4000 <= a < 0xC000 for a in prog):
         raise SystemExit('scrap.asm reaches past x3FFF')
-    if gen_scrap.DOOR_PAGE != 0x32:     # scrap.masm's .region 0x2000, 0x3200 ends there
+    if gen_scrap.DOOR_PAGE != 0x31:     # scrap.masm's PRG_TOP: .region 0x2000, PRG_TOP ends there
         raise SystemExit('the fixed pages start at x%02X00: change the region' % gen_scrap.DOOR_PAGE)
     plc = gen_plc.make(prog, tsyms, lib)[0]
     ovl += code                 # the code pages from xC000, after the map's
-    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, (nav, nav2, nav3, art, dck, dk2, dk3, dk4, pwr, ini)
+    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, (nav, nav2, nav3, art, dck, dk2, dk3, dk4, pwr, ini, act)
 
 
 def swap_files(inv, navs):
     """the swap files for the SD image: build()'s inv and nav"""
-    nav, nav2, nav3, art, dck, dk2, dk3, dk4, pwr, ini = navs
+    nav, nav2, nav3, art, dck, dk2, dk3, dk4, pwr, ini, act = navs
     return {'SCRAP.INV': inv, 'SCRAP.NAV': nav, 'SCRAP.NV2': nav2, 'SCRAP.NV3': nav3, 'SCRAP.ART': art,
             'SCRAP.DCK': dck, 'SCRAP.DK2': dk2, 'SCRAP.DK3': dk3, 'SCRAP.DK4': dk4,
-            'SCRAP.PWR': pwr, 'SCRAP.INI': ini}
+            'SCRAP.PWR': pwr, 'SCRAP.INI': ini, 'SCRAP.ACT': act}
 
 
 def main(argv):
