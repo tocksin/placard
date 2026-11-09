@@ -36,7 +36,10 @@ env: VIA=200 (via cost in cells, higher than the router's to trade length for vi
     BEST=1 (default since round 9; WORKERS>1): a pass first proposes every net's move on the pass-start state, then commits
     the proposals in order of gain (each validated against the ones committed before it); conflicting proposals wait for
     the next pass. Freerouting's optimiser idea (try all, commit the best); fewer vias than the streaming pool at every
-    rung and, since no move depends on worker timing, bit-identical results run to run. BEST=0 = the streaming pool."""
+    rung and, since no move depends on worker timing, bit-identical results run to run. BEST=0 = the streaming pool.
+    JUNC=1 (off by default while under test): after the pair passes, every junction of a net (three or more chains meeting
+    at a via or a T) is lifted with its chains and the pieces are connected again from scratch in their window, so the
+    junction slides, changes layer or disappears (Freerouting's via sliding, at tree level). Kept when cheaper."""
 import sys, math, os, time
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
@@ -351,6 +354,33 @@ def shove_net(n):
             g.set_route(n,keep_n); g.set_route(m,keep_m)
         if not done: g.set_route(n,[p for p in g.routes[n]] if g.routes.get(n) else [])
     return gain,changed
+def junctions(n):
+    """nodes where three or more chains of the net meet (a via or a T on the copper the router laid): (iy,ix) -> chains"""
+    ends={}
+    for p in g.routes.get(n,[]):
+        for c in (p[0],p[-1]):
+            l=ends.setdefault((c[1],c[2]),[])
+            if not any(q is p for q in l): l.append(p)
+    return [(k,ps) for k,ps in ends.items() if len(ps)>=3]
+def junction_net(n):
+    """for each junction of the net (most vias first): lift the chains that meet there and connect the pieces again from
+    scratch inside their window (connect_net), so the junction moves, changes layer or disappears as the search finds
+    best (Freerouting slides junction vias along the tracks; this is the same move on the grid). Kept when cheaper."""
+    gain=0.0; changed=0; tried=set()
+    while True:
+        js=[(k,ps) for k,ps in junctions(n) if k not in tried]
+        if not js: break
+        key,inc=max(js,key=lambda t:(sum(g.path_vias(p) for p in t[1]),sum(len(p) for p in t[1])))
+        tried.add(key)
+        keep=list(g.routes[n]); rest=[p for p in keep if not any(p is q for q in inc)]
+        oc=sum(g.path_cost(p) for p in inc)
+        win=search_window([c for p in inc for c in p],WIN); W=(slice(win[2],win[3]),slice(win[0],win[1]))
+        g.set_route(n,rest); new=connect_net(n,win,W)
+        if new is None: g.set_route(n,keep); continue
+        nc=sum(g.path_cost(p) for p in new)
+        if nc<oc-MINGAIN and bud_ok(n): gain+=oc-nc; changed+=1; rechain(n)
+        else: g.set_route(n,keep)
+    return gain,changed
 def tidy_net(n):
     gain=0.0; changed=0; dropped=0
     paths=list(g.routes.get(n,[]))
@@ -396,6 +426,8 @@ def net_step(stage,n):
         gain,changed,dropped=tidy_net(n)
         if changed or dropped: rechain(n)
         return gain,changed,dropped
+    if stage=='junction':
+        gain,changed=junction_net(n); return gain,changed,0
     gain,changed=(pair_net if stage=='pair' else shove_net)(n)
     if changed: rechain(n)
     return gain,changed,0
@@ -437,7 +469,7 @@ def free_cells(n,paths,old):
             if (l,iy,ix) not in oc and bt[l][iy-y0,ix-x0]: return False
             if i and p[i-1][0]!=l and (iy,ix) not in ov and bv[iy-y0,ix-x0]: return False
     return True
-RETRY=int(E('RETRY','2')); LOOK=int(E('LOOK','16')); BEST=int(E('BEST','1'))
+JUNC=int(E('JUNC','0')); RETRY=int(E('RETRY','2')); LOOK=int(E('LOOK','16')); BEST=int(E('BEST','1'))
 class Pool:
     """worker processes, each with its own grid, fed one net at a time in the sequential order (skipping ahead past nets whose
     windows overlap a net in flight); every move is validated on the main grid against the state the workers were told
@@ -574,6 +606,12 @@ def main():
             print(f'pair pass {ps}: {tc} chain pairs improved, cost gain {tg:.0f}, {time.time()-t1:.0f} s{x}',flush=True)
             if not more(ps,tc) or (ps>=PASSES-1 and not run.conf): break
             run('cleanup')   # single-chain clean-up after the pair moves
+    if JUNC:
+        for ps in range(2*PASSES):
+            t1=time.time(); tg,tc,td,x=run('junction')
+            print(f'junction pass {ps}: {tc} nets improved, cost gain {tg:.0f}, {time.time()-t1:.0f} s{x}',flush=True)
+            if not more(ps,tc) or (ps>=PASSES-1 and not run.conf): break
+            run('cleanup')
     if REGION:
         for ps in range(2*PASSES):
             t1=time.time(); tg,tc,td,x=run('region')

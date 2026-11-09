@@ -438,6 +438,27 @@ with via sliding). Two of its ideas tested on the fine r1 bench (`ALLEVERY=0` ro
   3200 and the wide rung orthogonal, so the late rungs back the diagonals out where they boxed something in:
   462 / 448 / 438 / 435 -> wide **422 vias / 26.13 m** (`bench/r1_fine9_mixed_*`), DRC clean, 67 min. New best fine r1
   board: one via fewer than all-orthogonal and 0.6 m (2.2 %) shorter; 14.3 % of the track is diagonal.
+- **Junction move (`JUNC=1`, off)**: Freerouting slides junction vias along their tracks; here the chains meeting at a
+  junction (three or more at a via or a T) are lifted and the pieces connected again from scratch in their window, so
+  the junction moves, changes layer or disappears. On the fine r1 board only 5 of the 411 chain ends are such junctions
+  (the trees branch on pads, which are fixed), and none of the 5 moves was cheaper. Kept as an option, no gain here.
+
+### Round 9 on the whole board (cloud CPU, 2026-11-09, `bench/wbf9_dj_*`)
+The round 9 ladder (`BEST=1` tidy, `DIAGRUNGS=2`, `WIDE=1`, `TRIES=1`, 3 workers, `AGAINST=2`) on round 6's DISJOINT fine
+route `wbf6_dj.kicad_pcb` (39.09 m / 664 vias), the same start as the `wbf6_dj` row above. Track / vias in scope after
+corner45:
+
+| | VIA 400 | VIA 800 | VIA 1600 | VIA 3200 | wider pairs |
+|---|---|---|---|---|---|
+| round 6 tidy (`wbf6_dj`) | 38.62 / 591 | 38.90 / 550 | 39.83 / 510 | 40.11 / 504 | 40.17 / 484 |
+| round 9 ladder (`wbf9_dj`) | 38.15 / 563 | 38.29 / 535 | 39.02 / 505 | 39.45 / 493 | **39.69 / 479** |
+| round 9 tidy time, min (3 workers) | 59 | 31 | 42 | 39 | 70 |
+
+**479 vias / 39.69 m**, 0 open nets, 0 collisions (score.py; KiCad DRC not run in the cloud), 6.9 % diagonal track. Against
+the previous best whole board (round 8, 478 vias / 40.66 m from the round 5 route): one via more and 0.97 m (2.4 %)
+shorter, the lowest ladder cost so far. The diagonal rungs give most of the via gain (28 and 15 fewer at VIA 400 / 800),
+the orthogonal rungs keep it (11 fewer at VIA 3200) and the wide rung lands 5 below round 6. The run took 4.0 h on 4 CPU
+cores (restarted twice at the 2 h background cap; `ladder.py` resumes from the finished rungs).
 
 ## Placement guidance (`placeguide.py`, branch-143, modes and route check branch-146)
 `python placeguide.py board.kicad_pcb MODE` judges a placement from the pads and nets alone (no routing, existing copper ignored) and
