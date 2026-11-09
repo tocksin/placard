@@ -663,8 +663,8 @@ def phase3(r, args):
     cpu, mem, z = r.cpu, r.cpu.mem, r.zp
     r.check_rooms('the rooms at the start')
     print('7. the tug: uninstalling its O2 tank, carrying it away, back, installing it')
-    tank = (15, 34)
-    r.go((17, 32), (17, 35), (16, 35))   # down into the quarters
+    tank = (23, 33)
+    r.go((24, 32), (24, 33))             # down to the cabin's O2 tank
     print('  at %d,%d; tug: %d O2 tank, %d scrubber, air %s, worth $%d0'
           % (z('p_x'), z('p_y'), z('n_o2'), z('n_scr'), 'on' if z('sup') else 'off',
              z('val_l') | z('val_h') << 8))
@@ -741,7 +741,7 @@ def phase3(r, args):
     skills_suit(r)
 
     print('8. uninstalling a part in the wreck (the cutter)')
-    r.go((17, 35), (17, 32), (38, 32), (38, 29), (34, 29))   # the mess room (its door opens)
+    r.go((24, 32), (38, 32), (38, 29), (34, 29))   # the mess room (its door opens)
     r.walk_to(33, 29)             # the last step by WALK HERE
     crate = (32, 29)
     print('  at %d,%d' % (z('p_x'), z('p_y')))
@@ -823,9 +823,9 @@ def phase3(r, args):
     r.check_view('again')
 
     print('11. REFILL SUIT from the tug\'s tank')
-    r.go((17, 35), (16, 35))
+    r.go((24, 33))
     mem[r.tsyms['o2']] = 5
-    tank = (15, 34)
+    tank = (23, 33)
     dmg = r.map_raw(*tank)[1] & 15
     if r.act(*tank, gen_scrap.A_REFILL):
         want = min(90, 5 + 90 - 11 * dmg)
@@ -844,12 +844,13 @@ def rebuild(r):
     put back in; a broken hull wall leaking"""
     z, mem = r.zp, r.cpu.mem
     print('7b. changing the tug: a deck plate, a wall')
-    deck = (17, 36)
+    air0 = bytes(mem[0x4000:0x4020])        # the rooms' air before (the cabin shares the
+    deck = (25, 34)                         #   wreck corridor's: the leaks drain both)
     if not r.act(*deck, gen_scrap.A_UNINST):
         return
     r.settle()
     r.check_job('UNINSTALL the deck', INST, T['FLOOR'], 35)
-    q = r.room(16, 35)
+    q = r.room(24, 33)
     print('  %r: left hand %s, %d,%d %s' % (r.panel()[5].strip(), gen_scrap.TYPES[z('cl_t')][0],
                                           deck[0], deck[1], gen_scrap.TYPES[r.map_t(*deck)][0]))
     if r.map_t(*deck) != T['SPACE'] or z('cl_t') != T['PLATE']:
@@ -857,16 +858,16 @@ def rebuild(r):
     r.check_rooms('a hole in the deck')
     p0 = r.press(q)
     r.run(120)
-    print('  the quarters\' air: %d -> %d in 2 s' % (p0, r.press(q)))
+    print('  the cabin\'s air: %d -> %d in 2 s' % (p0, r.press(q)))
     if r.press(q) >= p0:
         r.fail('the hole in the deck does not leak')
-    r.go((17, 35), deck)                    # out onto open space: a spacewalk
+    r.go((25, 33), deck)                    # out onto open space: a spacewalk
     print('  standing on the hole at %d,%d (%s)' % (z('p_x'), z('p_y'),
                                                   gen_scrap.TYPES[r.map_t(*deck)][0]))
     if (z('p_x'), z('p_y')) != deck:
         r.fail('could not walk onto open space')
     r.check_view('on open space')
-    r.go((17, 35))
+    r.go((25, 33))
     if not r.act(*deck, gen_scrap.A_LAY):
         return
     r.run(4)
@@ -874,8 +875,8 @@ def rebuild(r):
         r.fail('LAY DECK PLATE did not lay it')
     r.check_rooms('the deck laid again')
 
-    r.go((19, 35))
-    wall, hull = (20, 35), (14, 35)
+    r.go((26, 32))
+    wall, hull = (26, 31), (22, 33)
     ty, fl = r.map_raw(*hull)
     a = ((0x60 + 4 * (6 * (hull[1] >> 4) + (hull[0] >> 4))) << 8) + 16 * (hull[1] & 15) + (hull[0] & 15)
     mem[a + 0x200] = (fl & 0xF0) | 9              # the hull wall: 56 % damage
@@ -887,13 +888,13 @@ def rebuild(r):
         return
     r.settle()
     r.check_job('UNINSTALL the wall', INST, T['WALL'], 35)
-    print('  %r: %d,%d %s; quarters room %d, hold room %d'
+    print('  %r: %d,%d %s; cabin room %d, cockpit room %d'
           % (r.panel()[5].strip(), wall[0], wall[1], gen_scrap.TYPES[r.map_t(*wall)][0],
-             r.room(19, 35), r.room(21, 35)))
-    if r.map_t(*wall) != T['PANEL'] or r.room(19, 35) != r.room(21, 35):
-        r.fail('UNINSTALL of the wall did not join the quarters and the hold')
+             r.room(26, 32), r.room(26, 30)))
+    if r.map_t(*wall) != T['PANEL'] or r.room(26, 32) != r.room(26, 30):
+        r.fail('UNINSTALL of the wall did not join the cabin and the cockpit')
     r.check_rooms('the wall out, a broken hull wall')
-    q = r.room(19, 35)
+    q = r.room(26, 32)
     saved = bytes(mem[0x4000:0x4020])
     lo = min(r.press(q) for _ in range(180) if r.run(1) is None)
     print('  the broken hull wall: the room\'s air down to %d in 3 s' % lo)
@@ -909,11 +910,13 @@ def rebuild(r):
         return
     r.settle()
     r.check_job('INSTALL the panel', INST, T['PANEL'], 35)
-    if r.map_t(*wall) != T['WALL'] or r.room(19, 35) == r.room(21, 35):
+    if r.map_t(*wall) != T['WALL'] or r.room(26, 32) == r.room(26, 30):
         r.fail('INSTALL of the wall panel did not part the rooms')
     else:
         print('  the panel installed: a wall again, two rooms')
     r.check_rooms('the wall in again')
+    mem[0x4000:0x4020] = air0                     # the air back (the same rooms again)
+    r.wait_for(lambda: z('o2') == 90, 200, 'the suit filled again')   # (it used its own)
     r.check_view('the tug changed')
 
 
@@ -935,7 +938,7 @@ def pump_intake(r):
           % (z('n_o2'), z('n_fuel'), 'on' if z('sup') else 'off'))
     if (z('n_o2'), z('n_fuel')) != (1, 1) or not z('sup'):
         r.fail('the tug\'s pump and intake at the start')
-    for cell, what in (((15, 35), 'pump'), ((28, 28), 'intake')):
+    for cell, what in (((23, 34), 'pump'), ((28, 30), 'intake')):
         ty, fl = r.map_raw(*cell)
         want = (0, 1, 0) if what == 'pump' else (1, 0, 1)
         state = lambda: (z('n_o2'), z('n_fuel'), 1 if z('sup') else 0)
@@ -952,7 +955,7 @@ def partial_repair(r):
     """REPAIR on a deck at 75 % damage, stopped part way by a step: the
     steps done stay done"""
     z, mem = r.zp, r.cpu.mem
-    deck = (16, 36)
+    deck = (24, 34)
     ty, fl = r.map_raw(*deck)
     set_cell(r, *deck, fl=(fl & 0xF0) | 12)
     r.mouse_cell(*deck)
@@ -984,14 +987,14 @@ def partial_repair(r):
 def jammed_door(r):
     """a closed door under 50 % health is jammed: no way through, no OPEN"""
     z, mem = r.zp, r.cpu.mem
-    door = (17, 33)
+    door = (24, 31)
     ty, fl = r.map_raw(*door)
-    r.go((17, 34))
+    r.go((24, 32))
     set_cell(r, *door, ty=(ty & 0xC0) | T["DOOR"], fl=(fl & 0xF0) | 10)
     r.hold(UP, 2)
     r.run(2)
     print('  into the jammed door: at %d,%d, %r' % (z('p_x'), z('p_y'), r.panel()[5].strip()))
-    if (z('p_x'), z('p_y')) != (17, 34) or 'JAMMED' not in r.panel()[5] or r.map_t(*door) != T['DOOR']:
+    if (z('p_x'), z('p_y')) != (24, 32) or 'JAMMED' not in r.panel()[5] or r.map_t(*door) != T['DOOR']:
         r.fail('the jammed door let the player through')
     if r.act(*door, gen_scrap.A_OPEN):
         if r.map_t(*door) != T['DOOR'] or 'JAMMED' not in r.panel()[5]:
@@ -1016,10 +1019,10 @@ def deck_rules(r):
     installs again"""
     z, mem = r.zp, r.cpu.mem
     print('7d. decks, conduits')
-    r.go((17, 32), (24, 32), (24, 30), (23, 29))
-    pipe, deck = (23, 28), (24, 29)
+    r.go((24, 30))
+    pipe, deck = (25, 30), (23, 30)
     p0, d0 = r.map_raw(*pipe), r.map_raw(*deck)
-    if r.map_t(*pipe) != T['PIPE'] or (z('p_x'), z('p_y')) != (23, 29):
+    if r.map_t(*pipe) != T['PIPE'] or (z('p_x'), z('p_y')) != (24, 30):
         r.fail('not by the tug\'s conduit: at %d,%d' % (z('p_x'), z('p_y')))
         return
     slots = [z('cl_t'), z('cr_t'), z('cb_t')]
@@ -1079,7 +1082,7 @@ def deck_rules(r):
     r.mouse_cell(*deck)
     r.run(2)
     r.check_view('the conduits back')
-    r.go((24, 30), (24, 32), (17, 32), (17, 34))
+    r.go((24, 32))
 
 
 def comms(r):
@@ -1200,8 +1203,8 @@ def navigation(r):
           % (got[0], got[1], mass, nt, mem[FL + 0x21]))
     if got != (mass, nt) or mem[FL + 0x21] != 1:
         r.fail('the tug\'s mass and thrusters: %s, wanted %s' % (got, (mass, nt)))
-    helm = (17, 27)
-    if not r.go((17, 28)):
+    helm = (24, 29)
+    if not r.go((24, 30)):
         return
     r.mouse_cell(*helm)
     r.click(1)
@@ -1435,7 +1438,7 @@ def navigation(r):
     r.check_view('undocked')
     r.check_rooms('undocked')
 
-    r.go((17, 28))
+    r.go((24, 30))
     r.mouse_cell(*helm)
     r.click(1)
     r.key(str(1 + acts.index(gen_scrap.A_NAV)))
@@ -1520,7 +1523,7 @@ def navigation(r):
     r.check_view('docked again')
     r.check_rooms('docked again')
     r.click(2)
-    r.go((17, 32), (17, 34))
+    r.go((24, 32), (24, 33))
 
 
 def skills_suit(r):
@@ -1551,8 +1554,8 @@ def skills_suit(r):
     r.run(130)
     if z('o2') != o0 or z('stage'):
         r.fail('without the suit, in air: O2 %d -> %d, stage %d' % (o0, z('o2'), z('stage')))
-    r.go((16, 35))
-    tank = (15, 34)
+    r.go((24, 33))
+    tank = (23, 33)
     dmg = r.map_raw(*tank)[1] & 15
     if not dmg:
         r.fail('the tank has no damage to repair')

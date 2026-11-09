@@ -24,10 +24,13 @@ comms and other ships come in later steps.
 
 ## Playing
 
-You start in your tug's corridor, docked to the KESTREL 9.  Docked, the
-tug's airlock is right next to the wreck's, side by side: always aligned,
-so you step from one into the other, and the air of the two corridors is
-shared through them.
+You start in your tug's cabin, docked to the KESTREL 9.  The tug is
+small (8 x 8 cells, `gen_scrap.TUG_PLAN`): a cockpit and engine room
+(helm, reactor, battery, two nitrogen tanks) above a cabin (air
+scrubber, O2 tank and its pump, bunks, lockers), one door between them.
+Docked, the tug's airlock is right next to the wreck's, side by side:
+always aligned, so you step from one into the other, and the air of the
+cabin and the wreck's corridor is shared through them.
 
 | Input | What it does |
 |-------|--------------|
@@ -256,10 +259,10 @@ in normal video, the rest inverse):
 | Esc | back to the map |
 
 The tug's mass is every cell of it but loose parts, each kind a set mass
-(`gen_scrap.MASS`, in 100 kg: a deck 300 kg, a wall 600, a reactor 6 t,
-a thruster 1.5 t): it starts at 108.8 t.  Each working thruster (under 50 %
-damage) gives 20 kN, so with the eight it starts with the tug speeds up
-by 1.5 m/s each second.  The nitrogen is 400 kg for each nitrogen tank with a working gas
+(`gen_scrap.MASS`, in 100 kg; the hull is aluminum: a deck 100 kg, a
+wall 200, a reactor 6 t, a thruster 1.5 t): it starts at 33.7 t.  Each
+working thruster (under 50 % damage) gives 20 kN, so with the eight it
+starts with the tug speeds up by 4.7 m/s each second.  The nitrogen is 400 kg for each nitrogen tank with a working gas
 intake by it, less what is burnt: a kg a second a thruster (so a kg is
 20 kN s, and the delta-v is kg x 20 kN s / the mass), and no
 thrust once it is gone.  It is worked out again with the tug's parts
