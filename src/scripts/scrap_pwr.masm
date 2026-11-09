@@ -23,7 +23,7 @@
 
 PW_LIVE = 0xEE              ; the power view: a live conduit yellow
 PW_DEAD = 0xDD              ;   a dead one orange
-PW_STK  = 0x41              ; power_build's stack: x4100-x42FF (rooms_build's sums)
+PW_STK  = 0x41              ; power_build's stack: x4100-x41FF (rooms_build's sums)
 
 ; power_build - RB_VIS: a bit for each live conduit.  From each conduit
 ; not live yet with a working source on it or beside it (pw_touch), its
@@ -31,6 +31,11 @@ PW_STK  = 0x41              ; power_build's stack: x4100-x42FF (rooms_build's su
 .chunk
 power_build:
     PUSH_LINK
+    ld   PW_ST >> 8, y          ; (its stack over the lights)
+    ld   PW_ST & 0xFF, x
+    ld   [y,x], ac
+    and  0xFB, ac
+    ld   ac, [y,x]
     ld   RB_VIS, ac             ; the fill map cleared (x4300-x46FF)
     ld   ac, [u0]
 pwb_c:
@@ -59,7 +64,7 @@ pwb_x:
     ld   ac, [g_x]
     ld   [w1], ac
     ld   ac, [g_y]
-    CALL cb_get
+    CALL pw_cond
     bne  pwb_k
     ld   [u2], ac               ; none in its byte: the next byte
     bne  pwb_n
@@ -133,7 +138,7 @@ pwf_s:
     ld   [y,x], ac
     add  [w3], ac
     ld   ac, [g_y]
-    CALL cb_get
+    CALL pw_cond
     beq  pwf_n
     CALL pw_col
     xor  PW_LIVE, ac
@@ -149,8 +154,8 @@ pwf_n:
 pwf_e:
     LEAVE
 
-; pw_push - conduit g_x, g_y live, onto the stack (full at RB_VIS: the
-; rest of a very big network, 256 cells on, stays dark)
+; pw_push - conduit g_x, g_y live, onto the stack (full at x4200, SCRAP.PW3:
+; the rest of a very big network, 128 cells on, stays dark)
 .chunk
 pw_push:
     PUSH_LINK
@@ -161,7 +166,7 @@ pw_push:
     or   [u4], ac
     ld   ac, [y,x]
     ld   [stk_h], ac
-    xor  RB_VIS, ac
+    xor  PW3_LO >> 8, ac
     beq  pwp_e
     ld   [stk_h], y
     ld   [stk_l], x
@@ -181,8 +186,9 @@ pw_push:
 pwp_e:
     LEAVE
 
-; pw_touch - AC 1: a working power source (a reactor, or a battery
-; installed) under 50 % damage on cell g_x, g_y or beside it, else 0.
+; pw_touch - AC 1: a working power source in the tug (the reactor while
+; it runs, or a battery installed while the bank has charge) under 50 %
+; damage on cell g_x, g_y or beside it, else 0.
 ; g_x, g_y kept.  T0-T3
 .chunk
 pw_touch:
@@ -206,14 +212,33 @@ pwt_l:
     add  [T1], ac
     ld   ac, [g_y]
     CALL map_get
+    ld   PW_ST >> 8, y
     xor  T_REACT, ac
-    beq  pwt_w
+    bne  pwt_b
+    ld   PW_RON & 0xFF, x       ; a reactor: running (pw_scan)
+    ld   [y,x], ac
+    bne  pwt_w
+    bra  pwt_n
+pwt_b:
     ld   [c_t], ac
     xor  T_BATT, ac
     bne  pwt_n
     ld   [c_b], ac
     beq  pwt_n
+    ld   PW_CL & 0xFF, x        ; a battery: the bank not flat
+    ld   [y,x], ac
+    ld   PW_CH & 0xFF, x
+    or   [y,x], ac
+    beq  pwt_n
 pwt_w:
+    ld   [g_y], ac              ; in the tug
+    sub  TUG_Y0, ac             ; (carry: a borrow)
+    bcs  pwt_n
+    sub  TUG_Y1 - TUG_Y0 + 1, ac
+    bcc  pwt_n
+    ld   [g_x], ac
+    sub  TUG_X1 + 1, ac
+    bcc  pwt_n
     ld   [c_f], ac
     sub  8, ac
     bcs  pwt_y
@@ -236,6 +261,20 @@ pwt_r:
     ld   [T3], ac
     LEAVE
 
+; pw_cond - cb_get (AC its bit, u2 its byte), but 0 for a power switch
+; that is off: it is no conduit then
+.chunk
+pw_cond:
+    PUSH_LINK
+    CALL cb_get
+    beq  pcd_e
+    CALL map_get
+    xor  T_SWITCHO, ac
+    beq  pcd_e
+    ld   1, ac
+pcd_e:
+    LEAVE
+
 ; pw_col - AC = T6 = the colour of cell g_x, g_y's network, PW_LIVE or
 ; PW_DEAD (its RB_VIS bit: u2:u3, u4).  A leaf
 .chunk
@@ -254,28 +293,6 @@ pwl_s:
     ld   ac, [T6]
     RET
 
-; pw_kind - after map_see: AC 1 when the cell is a powered part that is
-; installed (a fixed one, the reactor or a turret, counts), else 0.  A leaf
-.chunk
-pw_kind:
-    ld   [c_t], ac
-    ld   ac, x
-    ld   TAB_PG, y
-    ld   [y,x], ac
-    and  F_PWR, ac
-    beq  pwk_r
-    ld   [c_b], ac
-    bne  pwk_1
-    ld   [y,x], ac
-    and  F_ITEM, ac
-    bne  pwk_0
-pwk_1:
-    ld   1, ac
-    RET
-pwk_0:
-    clr  ac
-pwk_r:
-    RET
 
 ; ov_cell - the power view over screen cell dc_cx, dc_cy: its conduit to
 ; each side with a conduit or a powered part (T3: a conduit here), or a
@@ -297,7 +314,7 @@ ov_cell:
     beq  pwo_e
     CALL pw_kind
     ld   ac, [T4]
-    CALL cb_get
+    CALL pw_cond
     ld   ac, [T3]
     or   [T4], ac
     beq  pwo_e
@@ -349,20 +366,6 @@ pwo_n:
 pwo_e:
     LEAVE
 
-; ov_dot - a conduit with nothing beside it: a dot.  The rest of ov_cell
-.chunk
-ov_dot:
-    ld   [T7], ac
-    bne  pwd_e
-    ld   [T3], ac
-    beq  pwd_e
-    ld   [T5], ac
-    ld   ac, [T6]
-    clr  ac
-    ld   ac, [T2]
-    CALL seg
-pwd_e:
-    LEAVE
 
 ; seg - in screen cell dc_cx, dc_cy (dc_base: its first line pair's
 ; offset), colour T6: the half line to side T2 (PWADJ's: 1 right, 2 left,
@@ -456,21 +459,571 @@ SEGT:
     #d8 0, 1, 1, 0, 0
     #d8 0, 0, 0, 2, 2
 
+; ------------------------------------------------------------
+; the power worked out again (pw_chk, the ship view: SCRAP.PWR, SCRAP.PW2
+; and SCRAP.PW3 in).  These go in SCRAP.PW2 (the file system's buffer:
+; nothing here reads the card), SCRAP.PW3 or SCRAP.PWR
+; ------------------------------------------------------------
+.region PW2_LO, PW2_LO + 0x0200, 1, overlay4, pack
+
+; pw_all - the tug's batteries and reactor (pw_scan: a burnt-out
+; deuterium cell taken away), the bank (pw_bank), the live conduits
+; (power_build), what has power (pw_count); PW_GO x80 when a part changed
+; (the view to draw again), else 0; then tug_scan, less what has no
+; power (pw_less).  w6
+.chunk
+pw_all:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [w6]
+    CALL pw_scan
+    CALL pw_bank
+    CALL power_build
+    CALL pw_count
+    ld   PW_ST >> 8, y
+    ld   PW_GO & 0xFF, x
+    ld   [w6], ac
+    ld   ac, [y,x]
+    CALL tug_scan
+    GOTO pw_less
+
+; pw_less - tug_scan's counts less what has no power (PW_LO2 on: O2
+; tanks, scrubbers, batteries, nitrogen tanks, the antenna, thrusters);
+; the bank flat: no battery (the suit does not charge), and with the
+; reactor not running, nothing.  Then tug_sum's air and acceleration
+; (tug_sup: pw_all's LEAVE).  u5-u7
+.chunk
+pw_less:
+    ld   PW_ST >> 8, y
+    clr  ac
+    ld   ac, [u7]
+    ld   PW_CL & 0xFF, x
+    ld   [y,x], ac
+    ld   PW_CH & 0xFF, x
+    or   [y,x], ac
+    bne  pls_g
+    ld   (PW_LO2 + 2) & 0xFF, x
+    ld   0xFF, [y,x]
+    ld   PW_RON & 0xFF, x
+    ld   [y,x], ac
+    bne  pls_g
+    ld   0xFF, ac
+    ld   ac, [u7]
+pls_g:
+    clr  ac
+    ld   ac, [u6]
+pls_l:
+    ld   [u6], ac
+    add  PW_LO2 & 0xFF, x
+    ld   [y,x], ac
+    or   [u7], ac
+    ld   ac, [u5]
+    ld   [u6], ac
+    add  n_o2, x
+    ld   [x], ac
+    sub  [u5], ac
+    bcc  pls_s                  ; (carry: a borrow)
+    clr  ac
+pls_s:
+    ld   ac, [x]
+    ld   [u6], ac
+    inc
+    ld   ac, [u6]
+    xor  4, ac
+    bne  pls_l
+    ld   (PW_LO2 + 4) & 0xFF, x
+    ld   [y,x], ac
+    or   [u7], ac
+    beq  pls_t
+    ld   N_ANT >> 8, y          ; the antenna has none: no comms
+    ld   N_ANT & 0xFF, x
+    ld   0, [y,x]
+    ld   PW_ST >> 8, y
+pls_t:
+    ld   (PW_LO2 + 5) & 0xFF, x
+    ld   [y,x], ac
+    or   [u7], ac
+    ld   ac, [u5]
+    ld   FL_PG, y
+    ld   FL_NT, x
+    ld   [y,x], ac
+    sub  [u5], ac
+    bcc  pls_u
+    clr  ac
+pls_u:
+    ld   ac, [y,x]
+    GOTO tug_sup
+
+; pw_scan - the tug's cells: w2 the batteries installed, w3 the flat ones
+; just installed (made charged ones now: the bank's charge is theirs), w4
+; 1 with a working reactor with a deuterium cell installed beside it
+; (pw_rx), w5 1 with a loose battery (at v2, v3)
+.chunk
+pw_scan:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [w2]
+    ld   ac, [w3]
+    ld   ac, [w4]
+    ld   ac, [w5]
+    ld   TUG_Y0, ac
+    ld   ac, [v1]
+psc_y:
+    ld   TUG_X0, ac
+    ld   ac, [v0]
+psc_x:
+    ld   [v0], ac
+    ld   ac, [g_x]
+    ld   [v1], ac
+    ld   ac, [g_y]
+    CALL map_get
+    beq  psc_n
+    xor  T_BATT, ac
+    bne  psc_1
+    ld   [c_b], ac
+    beq  psc_l
+    ld   [w2], ac
+    inc
+    ld   ac, [w2]
+    bra  psc_n
+psc_l:
+    ld   [v0], ac
+    ld   ac, [v2]
+    ld   [v1], ac
+    ld   ac, [v3]
+    ld   1, ac
+    ld   ac, [w5]
+    bra  psc_n
+psc_1:
+    ld   [c_t], ac
+    xor  T_BATTE, ac
+    bne  psc_2
+    ld   [c_b], ac
+    beq  psc_n
+    ld   [w3], ac
+    inc
+    ld   ac, [w3]
+    ld   T_BATT | 0x80, ac      ; installed, it is one of the bank
+    CALL map_put
+    ld   0x80, ac
+    ld   ac, [w6]
+    bra  psc_n
+psc_2:
+    ld   [c_t], ac
+    xor  T_REACT, ac
+    bne  psc_n
+    ld   [c_f], ac
+    sub  8, ac
+    bcc  psc_n
+    GOTO pw_rx
+psc_n:
+    ld   [v0], ac
+    inc
+    ld   ac, [v0]
+    xor  TUG_X1 + 1, ac
+    bne  psc_x
+    ld   [v1], ac
+    inc
+    ld   ac, [v1]
+    xor  TUG_Y1 + 1, ac
+    bne  psc_y
+    LEAVE
+
+; pw_rx - the working reactor at v0, v1: a deuterium cell installed
+; beside it runs it (w4 1); one burnt out (PW_GO bit 1) is taken away
+; first (the deck, and its conduit, back).  The rest of pw_scan
+.chunk
+pw_rx:
+    ld   T_DEUT, ac
+    CALL adj_kind
+    beq  prx_n
+    ld   PW_ST >> 8, y
+    ld   PW_GO & 0xFF, x
+    ld   [y,x], ac
+    and  2, ac
+    beq  prx_on
+    ld   1, [y,x]
+    clr  ac
+    ld   ac, [T7]
+prx_l:
+    ld   ADJ >> 8, y
+    ld   [T7], ac
+    add  ADJ & 0xFF, x
+    ld   [y,x], ac
+    add  [v0], ac
+    ld   ac, [g_x]
+    ld   [T7], ac
+    add  (ADJ & 0xFF) + 4, x
+    ld   [y,x], ac
+    add  [v1], ac
+    ld   ac, [g_y]
+    CALL map_get
+    xor  T_DEUT, ac
+    bne  prx_s
+    ld   [c_b], ac
+    bne  prx_b
+prx_s:
+    ld   [T7], ac
+    inc
+    ld   ac, [T7]
+    xor  4, ac
+    bne  prx_l
+    bra  pw_rx
+prx_b:
+    clr  ac
+    CALL map_setd
+    CALL cb_get
+    beq  prx_f
+    ld   T_PIPE, ac
+    bra  prx_p
+prx_f:
+    ld   T_FLOOR, ac
+prx_p:
+    CALL map_put
+    ld   0x80, ac
+    ld   ac, [w6]
+    bra  pw_rx                  ; another cell beside it?
+prx_on:
+    ld   1, ac
+    ld   ac, [w4]
+prx_n:
+    GOTO psc_n
+
+; pw_bank - pw_scan's counts: batteries installed charged add their
+; charge (pw_mul), one taken out takes a battery's (or, the bank under
+; that, comes out flat: the loose one at v2, v3); then pw_cap
+.chunk
+pw_bank:
+    PUSH_LINK
+    ld   PW_ST >> 8, y
+    ld   PW_NB & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u7]               ; u7: the batteries before
+    ld   [w2], ac
+    sub  [u7], ac
+    bcs  pb_out                 ; (carry: a borrow)
+    beq  pb_k
+    CALL pw_mul                 ; more charged ones: u3:u2 theirs
+    ld   PW_ST >> 8, y
+    ld   PW_CL & 0xFF, x
+    ld   [y,x], ac
+    add  [u2], ac
+    ld   ac, [y,x]
+    ld   PW_CH & 0xFF, x
+    ld   [y,x], ac
+    bcc  pb_h
+    inc
+    beq  pb_m
+pb_h:
+    add  [u3], ac
+    bcs  pb_m
+    ld   ac, [y,x]
+    bra  pb_k
+pb_m:
+    ld   0xFF, [y,x]
+    ld   PW_CL & 0xFF, x
+    ld   0xFF, [y,x]
+    bra  pb_k
+pb_out:
+    ld   [w2], ac
+    add  [w3], ac
+    sub  [u7], ac
+    bcc  pb_k
+    GOTO pw_out
+pb_k:
+    GOTO pw_cap
+
+; pw_out - a battery taken out of the bank: it takes a battery's charge,
+; or (the bank under that) comes out flat.  The rest of pw_bank
+.chunk
+pw_out:
+    ld   PW_ST >> 8, y          ; (a GOTO leaves y its page)
+    ld   PW_CL & 0xFF, x
+    ld   [y,x], ac
+    sub  BATT_CAP & 0xFF, ac
+    ld   ac, [u0]
+    ld   PW_CH & 0xFF, x
+    ld   [y,x], ac
+    bcc  pv_1                   ; (carry: a borrow)
+    sub  1, ac
+    bcs  po_f
+pv_1:
+    sub  BATT_CAP >> 8, ac
+    bcs  po_f
+    ld   ac, [y,x]
+    ld   PW_CL & 0xFF, x
+    ld   [u0], ac
+    ld   ac, [y,x]
+    GOTO pw_cap
+po_f:
+    ld   [w5], ac
+    beq  pv_e
+    ld   [v2], ac
+    ld   ac, [g_x]
+    ld   [v3], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   T_BATTE, ac
+    CALL map_put
+    ld   0x80, ac
+    ld   ac, [w6]
+pv_e:
+    GOTO pw_cap
+
+
+; pw_cap - the rest of pw_bank: PW_NB the batteries now, the capacity
+; theirs, the charge not over it; the reactor running (a new cell:
+; DEUT_TICKS of fuel)
+.chunk
+pw_cap:
+    ld   [w2], ac
+    add  [w3], ac
+    ld   PW_ST >> 8, y
+    ld   PW_NB & 0xFF, x
+    ld   ac, [y,x]
+    CALL pw_mul
+    ld   PW_ST >> 8, y
+    ld   PW_KL & 0xFF, x
+    ld   [u2], ac
+    ld   ac, [y,x]
+    ld   PW_KH & 0xFF, x
+    ld   [u3], ac
+    ld   ac, [y,x]
+    CALL pw_clamp
+    ld   PW_ST >> 8, y
+    ld   PW_RON & 0xFF, x
+    ld   [w4], ac
+    ld   ac, [y,x]
+    beq  pp_e
+    ld   PW_FL & 0xFF, x        ; running: a new cell's fuel
+    ld   [y,x], ac
+    ld   PW_FH & 0xFF, x
+    or   [y,x], ac
+    bne  pp_e
+    ld   DEUT_TICKS >> 8, [y,x]
+    ld   PW_FL & 0xFF, x
+    ld   DEUT_TICKS & 0xFF, [y,x]
+pp_e:
+    LEAVE
+
+; pw_count - after power_build: what in the tug has no power (PW_LO2 on:
+; for each pump without it an O2 tank, scrubbers, for each intake a
+; nitrogen tank, the antenna, thrusters) and the load (PW_LD: every
+; working installed part with power, pw_part)
+.chunk
+pw_count:
+    PUSH_LINK
+    ld   PW_ST >> 8, y
+    ld   PW_LO2 & 0xFF, ac
+pcn_c:
+    ld   ac, x
+    ld   0x00, [y,x]
+    inc
+    xor  PW_END & 0xFF, ac
+    beq  pcn_0
+    xor  PW_END & 0xFF, ac
+    bra  pcn_c
+pcn_0:
+    ld   LAMP_PG, y             ; the lights all off (x4100-x4173)
+pcn_l:
+    ld   ac, x
+    ld   0x00, [y,x]
+    inc
+    xor  4 * (TUG_Y1 + 1 - TUG_Y0), ac
+    beq  pcn_1
+    xor  4 * (TUG_Y1 + 1 - TUG_Y0), ac
+    bra  pcn_l
+pcn_1:
+    ld   ac, [w2]               ; w2: the load
+    ld   TUG_Y0, ac
+    ld   ac, [v1]
+pcn_y:
+    ld   TUG_X0, ac
+    ld   ac, [v0]
+pcn_x:
+    ld   [v0], ac
+    ld   ac, [g_x]
+    ld   [v1], ac
+    ld   ac, [g_y]
+    CALL map_get
+    beq  pcn_n
+    ld   [c_f], ac
+    sub  8, ac
+    bcc  pcn_n                  ; broken (carry: a borrow)
+    ld   [c_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_PWR, ac
+    beq  pcn_n                  ; takes no power
+    ld   [y,x], ac
+    and  F_ITEM, ac
+    beq  pcn_i
+    ld   [c_b], ac
+    beq  pcn_n                  ; loose
+pcn_i:
+    GOTO pw_part
+pcn_n:
+    ld   [v0], ac
+    inc
+    ld   ac, [v0]
+    xor  TUG_X1 + 1, ac
+    bne  pcn_x
+    ld   [v1], ac
+    inc
+    ld   ac, [v1]
+    xor  TUG_Y1 + 1, ac
+    bne  pcn_y
+    ld   PW_ST >> 8, y
+    ld   PW_LD & 0xFF, x
+    ld   [w2], ac
+    ld   ac, [y,x]
+    ld   PW_ST & 0xFF, x        ; the lights worked out
+    ld   [y,x], ac
+    or   4, ac
+    ld   ac, [y,x]
+    LEAVE
+
+; pw_part - pw_count's: the working installed part at v0, v1 (with
+; power: its light on; a reactor while it runs, a battery while the bank
+; has charge).  The rest of pw_count
+.chunk
+pw_part:
+    ld   [c_t], ac
+    CALL kind_base
+    ld   ac, [w3]
+    ld   PW_ST >> 8, y
+    xor  T_REACT, ac
+    bne  ppt_b
+    ld   PW_RON & 0xFF, x
+    ld   [y,x], ac
+    bra  ppt_s
+ppt_b:
+    ld   [w3], ac
+    xor  T_BATT, ac
+    bne  ppt_p
+    ld   PW_CL & 0xFF, x
+    ld   [y,x], ac
+    ld   PW_CH & 0xFF, x
+    or   [y,x], ac
+    bra  ppt_s
+ppt_p:
+    CALL pw_on
+ppt_s:
+    beq  ppt_0
+    ld   [v0], ac
+    ld   ac, [g_x]
+    ld   [v1], ac
+    ld   ac, [g_y]
+    CALL lamp_addr
+    ld   LAMP_PG, y             ; (a return leaves y and x its own)
+    ld   [u1], x
+    ld   [y,x], ac
+    or   [u0], ac
+    ld   ac, [y,x]
+    ld   PW_LOADT >> 8, y       ; with power: its load
+    ld   [w3], ac
+    add  PW_LOADT & 0xFF, x
+    ld   [y,x], ac
+    add  [w2], ac
+    bcc  ppt_l
+    ld   0xFF, ac
+ppt_l:
+    ld   ac, [w2]
+    GOTO pcn_n
+ppt_0:
+    ld   PWLOST >> 8, y         ; none: what it takes off
+    clr  ac
+    ld   ac, [u0]
+ppt_f:
+    ld   [u0], ac
+    add  PWLOST & 0xFF, x
+    ld   [y,x], ac
+    xor  [w3], ac
+    beq  ppt_i
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  6, ac
+    bne  ppt_f
+    GOTO pcn_n
+ppt_i:
+    ld   [u0], ac
+    add  PW_LO2 & 0xFF, x
+    ld   PW_ST >> 8, y
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    GOTO pcn_n
+
+; pw_on - AC 1 when a live conduit is on cell v0, v1 or beside it
+; (power_build's RB_VIS), else 0.  A leaf: g_x, g_y, u2-u4, u7
+.chunk
+pw_on:
+    clr  ac
+    ld   ac, [u7]
+pn_l:
+    ld   PWADJ >> 8, y
+    ld   [u7], ac
+    add  PWADJ & 0xFF, x
+    ld   [y,x], ac
+    add  [v0], ac
+    ld   ac, [g_x]
+    ld   [u7], ac
+    add  (PWADJ & 0xFF) + 5, x
+    ld   [y,x], ac
+    add  [v1], ac
+    ld   ac, [g_y]
+    VISADDR
+    ld   [u2], y
+    ld   [u3], x
+    ld   [y,x], ac
+    and  [u4], ac
+    bne  pn_y
+    ld   [u7], ac
+    inc
+    ld   ac, [u7]
+    xor  5, ac
+    bne  pn_l
+    clr  ac
+    RET
+pn_y:
+    ld   1, ac
+    RET
+
+; the kinds whose part without power takes one off PW_LO2 + i: a pump an
+; O2 tank, a scrubber, (no battery), an intake a nitrogen tank, the
+; antenna, a thruster
+.chunk
+PWLOST:
+    #d8 T_PUMP, T_SCRUB, 0xFF, T_INTAKE, T_ANT, T_THRUST
+
 ; ============================================================
 ; SCRAP.INI: the start (scrap.masm's, fl_init from scrap_fl.masm: here
 ; to leave room in the program), read into x4100-x44FF by start, which
-; then works out the rooms over it (#overlay4 too: gen_plc.py --swap
-; 0x4100,0x4500,INI,4)
+; then works out the rooms over it (#overlay5: gen_plc.py --swap
+; 0x4100,0x4500,INI,5)
 ; ============================================================
-.region INI_LO, INI_LO + 0x0400, 1, overlay4, pack
+.region INI_LO, INI_LO + 0x0400, 1, overlay5, pack
 
-; cb_init - PW_ST off, the conduits at the start (CB0) set.  The rest
-; of pw_start
+; cb_init - PW_ST off, the bank empty (pw_all: the batteries installed
+; give it their charge), the power to work out; the conduits at the start
+; (CB0) set.  The rest of pw_start
 .chunk
 cb_init:
+    ld   PW_ST & 0xFF, ac
+pwi_c:
+    ld   ac, x
     ld   PW_ST >> 8, y
-    ld   PW_ST & 0xFF, x
     ld   0x00, [y,x]
+    inc
+    xor  PW_END & 0xFF, ac
+    beq  pwi_g
+    xor  PW_END & 0xFF, ac
+    bra  pwi_c
+pwi_g:
+    ld   PW_GO & 0xFF, x
+    ld   1, [y,x]
     clr  ac
     ld   ac, [w0]
 pwi_l:
@@ -700,3 +1253,74 @@ ki_l:
     RET
 
 .include "scrap_pwr_data.masm"
+
+
+; (resident: the power view's, they do not fit in SCRAP.PWR)
+; pw_kind - after map_see: AC 1 when the cell is a powered part that is
+; installed (a fixed one, the reactor or a turret, counts), else 0.  A leaf
+.chunk
+pw_kind:
+    ld   [c_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_PWR, ac
+    beq  pwk_r
+    ld   [c_b], ac
+    bne  pwk_1
+    ld   [y,x], ac
+    and  F_ITEM, ac
+    bne  pwk_0
+pwk_1:
+    ld   1, ac
+    RET
+pwk_0:
+    clr  ac
+pwk_r:
+    RET
+
+; ov_dot - a conduit with nothing beside it: a dot.  The rest of ov_cell
+.chunk
+ov_dot:
+    ld   [T7], ac
+    bne  pwd_e
+    ld   [T3], ac
+    beq  pwd_e
+    ld   [T5], ac
+    ld   ac, [T6]
+    clr  ac
+    ld   ac, [T2]
+    CALL seg
+pwd_e:
+    LEAVE
+
+; pw_mul - u3:u2 = AC x BATT_CAP (xFFFF at most).  A leaf: u1-u3
+.chunk
+pw_mul:
+    ld   ac, [u1]
+    clr  ac
+    ld   ac, [u2]
+    ld   ac, [u3]
+pm_l:
+    ld   [u1], ac
+    beq  pm_e
+    dec
+    ld   ac, [u1]
+    ld   [u2], ac
+    add  BATT_CAP & 0xFF, ac
+    ld   ac, [u2]
+    ld   [u3], ac
+    bcc  pm_1
+    inc
+    beq  pm_m
+pm_1:
+    add  BATT_CAP >> 8, ac
+    ld   ac, [u3]
+    bcc  pm_l
+pm_m:
+    ld   0xFF, ac
+    ld   ac, [u2]
+    ld   ac, [u3]
+pm_e:
+    RET
+

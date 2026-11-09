@@ -10,3 +10,9 @@ CB0:
     #d8 22, 33, 22, 34, 22, 35, 23, 35, 24, 35, 25, 35, 26, 35, 27, 35
     #d8 28, 35
     #d8 0xFF
+
+; each kind's load with power, kW (pw_count; resident, not in SCRAP.INI)
+.region 0xC000, 0x10000, 2, overlay, pack
+.chunk
+PW_LOADT:
+    #d8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 4, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 2, 3, 0, 2, 3, 0, 2, 3, 0, 2, 3, 0

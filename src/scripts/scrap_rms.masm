@@ -1,0 +1,365 @@
+; ============================================================
+; scrap_rms.masm - SCRAP.RB1 and SCRAP.RB2: most of rooms_build
+; (#overlay5, x4E00-x4FFF in the file system's buffer and x5400-x55FF
+; over the part text)
+; ============================================================
+; Date: 11/09/2026
+;
+; rooms_build (resident) reads these two in and goes to rb_init.  Nothing
+; here may read the card (the file system's buffer holds SCRAP.RB1) or
+; draw the panel (prt_load would read the part text over SCRAP.RB2), and
+; nothing here may be called from anywhere but rooms_build.
+
+
+; rb_scan - every cell in map order: a solid cell's room is 0 (a link is
+; listed), an air cell not filled yet starts a room.  The rest of
+; rooms_build.
+.chunk
+rb_scan:
+rb_sy:
+    clr  ac
+    ld   ac, [rb_x]
+rb_sx:
+    ld   [rb_x], ac
+    ld   ac, [g_x]
+    ld   [rb_y], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_SOLID, ac
+    beq  rb_air
+    CALL rb_solid
+    bra  rb_nx
+rb_air:
+    VISADDR
+    ld   [u2], y
+    ld   [u3], x
+    ld   [y,x], ac
+    and  [u4], ac
+    bne  rb_nx
+    ld   [rb_n], ac             ; a new room (31 at most: more share 31)
+    xor  31, ac
+    beq  rb_f
+    ld   [rb_n], ac
+    inc
+    ld   ac, [rb_n]
+rb_f:
+    CALL rb_push
+    CALL rb_fill
+rb_nx:
+    ld   [rb_x], ac
+    inc
+    ld   ac, [rb_x]
+    xor  MAP_W, ac
+    bne  rb_sx
+    ld   [rb_y], ac
+    inc
+    ld   ac, [rb_y]
+    xor  MAP_H, ac
+    bne  rb_sy
+    GOTO rb_links
+
+; rb_solid - the solid cell map_get found: room 0; a door, an airlock or
+; a wall from 50 % damage goes on the list to link (64 at most)
+.chunk
+rb_solid:
+    PUSH_LINK
+    ld   [c_t], ac
+    xor  T_WALL, ac
+    bne  rs_d
+    ld   [c_f], ac
+    sub  8, ac
+    bcs  rs_z
+    bra  rs_l
+rs_d:
+    ld   [c_t], ac
+    xor  T_DOOR, ac
+    beq  rs_l
+    ld   [c_t], ac
+    xor  T_DOORO, ac
+    beq  rs_l
+    ld   [c_t], ac
+    xor  T_LOCK, ac
+    bne  rs_z
+rs_l:
+    ld   [n_door], ac
+    xor  64, ac
+    beq  rs_z
+    ld   RB_DX >> 8, y
+    ld   [n_door], ac
+    add  RB_DX & 0xFF, x
+    ld   [rb_x], ac
+    ld   ac, [y,x]
+    ld   RB_DY >> 8, y
+    ld   [n_door], ac
+    add  RB_DY & 0xFF, x
+    ld   [rb_y], ac
+    ld   ac, [y,x]
+    ld   [n_door], ac
+    inc
+    ld   ac, [n_door]
+rs_z:
+    ld   [c_r], ac              ; most are 0 already
+    beq  rs_e
+    clr  ac
+    CALL set_room
+rs_e:
+    LEAVE
+
+; rb_fill - the room rb_n from the cells on the stack: each cell's old
+; pressure summed, its room set, its neighbours (rb_nbs)
+.chunk
+rb_fill:
+    PUSH_LINK
+rf_l:
+    CALL rb_pop
+    beq  rf_e
+    ld   [rb_cx], ac
+    ld   ac, [g_x]
+    ld   [rb_cy], ac
+    ld   ac, [g_y]
+    CALL map_get
+    CALL rb_acc
+    ld   [rb_n], ac
+    CALL set_room
+    clr  ac
+    ld   ac, [rb_k]
+    GOTO rb_nbs
+rf_e:
+    LEAVE
+
+; rb_nbs - the four neighbours of rb_cx, rb_cy: vacuum or the edge next
+; to it, the room leaks; an air cell not filled yet goes on the stack.
+; Back to rb_fill's loop.
+.chunk
+rb_nbs:
+rn_l:
+    CALL rb_nb
+    bne  rn_in
+    CALL rb_leak
+    bra  rn_k
+rn_in:
+    VISADDR                     ; filled already: air, nothing to do
+    ld   [u2], y
+    ld   [u3], x
+    ld   [y,x], ac
+    and  [u4], ac
+    bne  rn_k
+    CALL map_get
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    ld   ac, [v1]
+    and  F_VAC, ac
+    beq  rn_s
+    CALL rb_leak
+rn_s:
+    ld   [v1], ac
+    and  F_SOLID, ac
+    bne  rn_k
+    CALL rb_push
+rn_k:
+    ld   [rb_k], ac
+    inc
+    ld   ac, [rb_k]
+    xor  4, ac
+    bne  rn_l
+    GOTO rf_l
+
+; rb_nb - g_x, g_y = neighbour rb_k of rb_cx, rb_cy (0 right, 1 left, 2
+; down, 3 up); AC = 0 when it is off the map.  A leaf.
+.chunk
+rb_nb:
+    ld   [rb_cx], ac
+    ld   ac, [g_x]
+    ld   [rb_cy], ac
+    ld   ac, [g_y]
+    ld   [rb_k], ac
+    beq  nb_r
+    xor  1, ac
+    beq  nb_l
+    ld   [rb_k], ac
+    xor  2, ac
+    beq  nb_d
+    ld   [g_y], ac
+    beq  nb_o
+    dec
+    ld   ac, [g_y]
+    bra  nb_i
+nb_r:
+    ld   [g_x], ac
+    inc
+    ld   ac, [g_x]
+    xor  MAP_W, ac
+    beq  nb_o
+    bra  nb_i
+nb_l:
+    ld   [g_x], ac
+    beq  nb_o
+    dec
+    ld   ac, [g_x]
+    bra  nb_i
+nb_d:
+    ld   [g_y], ac
+    inc
+    ld   ac, [g_y]
+    xor  MAP_H, ac
+    beq  nb_o
+nb_i:
+    ld   1, ac
+    RET
+nb_o:
+    clr  ac
+    RET
+
+
+; rb_links - each listed door, airlock or broken wall: the rooms on two
+; opposite sides (a room, or 0 for vacuum and the edge; a solid cell is
+; none) make a link in DOOR_PG when they differ (64 at most); the cell
+; gets the room of a side.  The rest of rooms_build.
+.chunk
+rb_links:
+    ld   [n_door], ac
+    ld   ac, [v7]
+    clr  ac
+    ld   ac, [n_door]
+    ld   ac, [rb_x]
+rl_l:
+    ld   [rb_x], ac
+    xor  [v7], ac
+    bne  rl_1
+    GOTO rb_press
+rl_1:
+    ld   RB_DX >> 8, y
+    ld   [rb_x], ac
+    add  RB_DX & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [rb_cx]
+    ld   ac, [g_x]
+    ld   RB_DY >> 8, y
+    ld   [rb_x], ac
+    add  RB_DY & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [rb_cy]
+    ld   ac, [g_y]
+    CALL map_get
+    ld   [a_pg], ac
+    ld   ac, [v1]
+    ld   [a_ix], ac
+    ld   ac, [v2]
+    clr  ac
+    ld   ac, [v6]
+    ld   1, ac                  ; left and right
+    ld   ac, [rb_k]
+    CALL rl_side
+    ld   ac, [v4]
+    clr  ac
+    ld   ac, [rb_k]
+    CALL rl_side
+    ld   ac, [v3]
+    CALL rl_add
+    ld   3, ac                  ; up and down
+    ld   ac, [rb_k]
+    CALL rl_side
+    ld   ac, [v4]
+    ld   2, ac
+    ld   ac, [rb_k]
+    CALL rl_side
+    ld   ac, [v3]
+    CALL rl_add
+    GOTO rl_set
+
+; rl_side - AC = the room of neighbour rb_k of the link cell: 0 vacuum or
+; the edge, xFF a solid cell.  An airlock there (two docked side by side):
+; the cell past it.  Uses rb_y, rb_t, v3 (free in rb_links).
+.chunk
+rl_side:
+    PUSH_LINK
+    CALL rb_nb
+    beq  sd_0
+    CALL map_get
+    xor  T_LOCK, ac
+    bne  sd_1
+    ld   [rb_cx], ac            ; step over the other lock
+    ld   ac, [rb_y]
+    ld   [rb_cy], ac
+    ld   ac, [rb_t]
+    ld   [g_x], ac
+    ld   ac, [rb_cx]
+    ld   [g_y], ac
+    ld   ac, [rb_cy]
+    CALL rb_nb
+    ld   ac, [v3]
+    ld   [rb_y], ac             ; the link cell back
+    ld   ac, [rb_cx]
+    ld   [rb_t], ac
+    ld   ac, [rb_cy]
+    ld   [v3], ac
+    beq  sd_0
+    CALL map_get
+sd_1:
+    ld   [c_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    ld   ac, [u5]
+    and  F_VAC, ac
+    bne  sd_0
+    ld   [u5], ac
+    and  F_SOLID, ac
+    beq  sd_r
+    ld   0xFF, ac
+    LEAVE
+sd_r:
+    ld   [c_r], ac
+    LEAVE
+sd_0:
+    clr  ac
+    LEAVE
+
+; rl_add - a link v4 - v3 (rooms, 0 vacuum, xFF none) for the cell at
+; v1:v2 when both sides are something, not both vacuum, and differ; v6 =
+; the room of a side.  A leaf.
+.chunk
+rl_add:
+    ld   [v4], ac
+    xor  0xFF, ac
+    beq  la_e
+    ld   [v3], ac
+    xor  0xFF, ac
+    beq  la_e
+    ld   [v3], ac
+    xor  [v4], ac
+    beq  la_e
+    ld   [n_door], ac
+    xor  64, ac
+    beq  la_e
+    ld   DOOR_PG, y
+    ld   [n_door], x
+    ld   [v1], ac
+    ld   ac, [y,x]
+    ld   [n_door], ac
+    add  0x40, x
+    ld   [v2], ac
+    ld   ac, [y,x]
+    ld   [n_door], ac
+    add  0x80, x
+    ld   [v4], ac
+    ld   ac, [y,x]
+    ld   [n_door], ac
+    add  0xC0, x
+    ld   [v3], ac
+    ld   ac, [y,x]
+    ld   [n_door], ac
+    inc
+    ld   ac, [n_door]
+    ld   [v4], ac
+    bne  la_s
+    ld   [v3], ac
+la_s:
+    ld   ac, [v6]
+la_e:
+    RET
+

@@ -321,6 +321,7 @@ class Rig(test_tracker.Rig):
         vx, vy, px, py = self.zp('v_x'), self.zp('v_y'), self.zp('p_x'), self.zp('p_y')
         frame = (self.zp('fr_x'), self.zp('fr_y')) if self.zp('fr_on') else None
         ptr = self.pointer()            # the mouse pointer over it
+        lamps = self.lamps()
         bad = []
         for cy in range(VIEW_H):
             for cx in range(VIEW_W):
@@ -349,6 +350,15 @@ class Rig(test_tracker.Rig):
                 if (gen_scrap.TYPES[t][3] & gen_scrap.F_ITEM and (x, y) != (px, py)
                         and not self.bolted(x, y)):
                     art = gen_scrap.crate_art(art)      # a loose part: crated
+                if (x, y) != (px, py) and (x, y) in lamps[0]:
+                    art = bytearray(art)        # a tug part's power light (not worked
+                    got = self.cell_bytes(cx, cy)   # out yet: as it was drawn, or none)
+                    for i in (49, 50):
+                        if lamps[2]:
+                            art[i] = (art[i] & 0xF0) | (0x0F if (x, y) in lamps[1] else 0x04)
+                        elif got[i] & 0x0F in (0x0F, 0x04):
+                            art[i] = (art[i] & 0xF0) | (got[i] & 0x0F)
+                    art = bytes(art)
                 if pv and not away and x < gen_scrap.MAP_W and y < gen_scrap.MAP_H:
                     art = pw_overlay(self, art, x, y, pv)       # the power view's lines
                 art = pointer_over(art, cx, cy, ptr)
@@ -356,7 +366,8 @@ class Rig(test_tracker.Rig):
                     got = self.cell_bytes(cx, cy)
                     bad.append((cx, cy, gen_scrap.TYPES[t][0], 'damage %d' % (self.map_raw(x, y)[1] & 15
                                 if x < gen_scrap.MAP_W and y < gen_scrap.MAP_H else 0),
-                                'bytes %s' % [i for i in range(64) if got[i] != art[i]][:6]))
+                                'bytes %s' % ['%d: %02X not %02X' % (i, got[i], art[i])
+                                              for i in range(64) if got[i] != art[i]][:3]))
         over = [(k, self.press(k)) for k in range(1, self.zp('n_room'))
                 if self.press(k) > gen_scrap.AIR_FULL]
         if over:                        # a leak that went under 0 (air_crack)
@@ -366,6 +377,28 @@ class Rig(test_tracker.Rig):
         else:
             print('  %s: all %d view cells match (view at %d,%d, player %d,%d)'
                   % (what, VIEW_W * VIEW_H, vx, vy, px, py))
+
+    def lamps(self):
+        """the tug's power lights (pw_lamp): None while they are not worked
+        out (PW_ST bit 2), else (the cells with one, those that are green)"""
+        m, s = self.cpu.mem, self.tsyms
+        t, d, b = ram_map(self)
+        charge = m[s['PW_CL']] | m[s['PW_CH']] << 8
+        ron = bool(m[s['PW_RON']])
+        lv = gen_scrap.live(t, d, cbits(self), b, charge=charge > 0, fuel=ron)
+        cells, on = set(), set()
+        TG = gen_scrap.TUG
+        for y in range(TG[1], TG[3] + 1):
+            for x in range(TG[0], TG[2] + 1):
+                k = gen_scrap.TYPES[t[y][x]][0]
+                if k == 'SWITCHO' or not gen_scrap.plugged(k, b[y][x]):
+                    continue
+                cells.add((x, y))
+                if d[y][x] >= 8:
+                    continue
+                if (ron if k == 'REACT' else charge > 0 if k == 'BATT' else gen_scrap.powered(lv, x, y)):
+                    on.add((x, y))
+        return cells, on, bool(m[s['PW_ST']] & 4)
 
     def pointer(self):
         """the mouse pointer's tip as drawn (art pixel x, y), None: off; a
@@ -447,22 +480,49 @@ def build():
         if tsyms[lab] >= 0x6000:
             raise SystemExit('%s is at x%04X: it runs under map 07' % (lab, tsyms[lab]))
     pwr = gen_plc.split_swap(prog, 0x4700, 0x4D00, 4)   # SCRAP.PWR, the power view
-    ini = gen_plc.split_swap(prog, 0x4100, 0x4500, 4)   # SCRAP.INI, the start
-    if not pwr or len(pwr) > 0x600 or not ini or len(ini) > 0x400:
-        raise SystemExit('SCRAP.PWR is %d bytes, SCRAP.INI %d' % (len(pwr), len(ini)))
-    pw_src = open(os.path.join(HERE, 'scrap_pwr.masm')).read()
-    k = pw_src.index('; SCRAP.INI: the start')
-    for lab in re.findall(r'^([A-Za-z_]\w*):', pw_src[:k], re.M):     # each in its own file
-        if not 0x4700 <= tsyms[lab] < 0x4D00:
-            raise SystemExit('%s (SCRAP.PWR) is at x%04X' % (lab, tsyms[lab]))
-    for lab in re.findall(r'^([A-Za-z_]\w*):', pw_src[k:], re.M):
-        if not 0x4100 <= tsyms[lab] < 0x4500:
-            raise SystemExit('%s (SCRAP.INI) is at x%04X' % (lab, tsyms[lab]))
+    pw2 = gen_plc.split_swap(prog, 0x4E00, 0x5000, 4)   # SCRAP.PW2, the power worked out (file system's buffer)
+    pw3 = gen_plc.split_swap(prog, 0x4200, 0x4300, 4)   # SCRAP.PW3, more of it
+    ini = gen_plc.split_swap(prog, 0x4100, 0x4500, 5)   # SCRAP.INI, the start
+    rb1 = gen_plc.split_swap(prog, 0x4E00, 0x5000, 5)   # SCRAP.RB1, rooms_build (file system's buffer)
+    rb2 = gen_plc.split_swap(prog, 0x5400, 0x5600, 5)   # SCRAP.RB2, more of it (part text's)
+    if (not pwr or len(pwr) > 0x600 or not ini or len(ini) > 0x400 or not pw2 or len(pw2) > 0x200
+            or not pw3 or len(pw3) > 0x100 or not rb1 or len(rb1) > 0x200 or not rb2 or len(rb2) > 0x200):
+        raise SystemExit('SCRAP.PWR is %d bytes, PW2 %d, PW3 %d, INI %d, RB1 %d, RB2 %d'
+                         % (len(pwr), len(pw2), len(pw3), len(ini), len(rb1), len(rb2)))
+    act = gen_plc.split_swap(prog, 0x5400, 0x5600, 4)   # SCRAP.ACT, some actions, in the part text's
+    if not act or len(act) > 0x200:
+        raise SystemExit('SCRAP.ACT is %d bytes' % len(act))
+    for lab in re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, 'scrap_act.masm')).read(), re.M):
+        if not 0x5400 <= tsyms[lab] < 0x5600:
+            raise SystemExit('%s (SCRAP.ACT) is at x%04X' % (lab, tsyms[lab]))
+    for lab in re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, 'scrap_rms.masm')).read(), re.M):
+        if not (0x4E00 <= tsyms[lab] < 0x5000 or 0x5400 <= tsyms[lab] < 0x5600):
+            raise SystemExit('%s (SCRAP.RB1, RB2) is at x%04X' % (lab, tsyms[lab]))
+    # scrap_pwr.masm: each label in its section's swap file (.region lines)
+    ranges = {'PWR_LO': [(0x4700, 0x4D00)], 'PW2_LO': [(0x4E00, 0x5000), (0x4200, 0x4300), (0x4700, 0x4D00)],
+              'INI_LO': [(0x4100, 0x4500)], '0xC000': None}
+    cur = ranges['PWR_LO']
+    for ln in open(os.path.join(HERE, 'scrap_pwr.masm')).read().replace(
+            '.include "scrap_pwr_data.masm"', open(os.path.join(HERE, 'scrap_pwr_data.masm')).read()).split('\n'):
+        m = re.match(r'\.region\s+(\w+)', ln)
+        if m:
+            cur = ranges[m.group(1)]
+            continue
+        m = re.match(r'([A-Za-z_]\w*):', ln)
+        if not m:
+            continue
+        a = tsyms[m.group(1)]
+        if cur is None:         # resident
+            bad = 0x4100 <= a < 0x5600
+        else:
+            bad = not any(lo <= a < hi for lo, hi in cur)
+        if bad:
+            raise SystemExit('%s (scrap_pwr.masm) is at x%04X' % (m.group(1), a))
     if not 0x4100 <= tsyms['dock_main'] < 0x4D00:
         raise SystemExit('dock_main is not in SCRAP.DCK (x%04X): it reads the rest in' % tsyms['dock_main'])
     own = set()
     for f in ('scrap_inv.masm', 'scrap_inv_data.masm', 'scrap_nav.masm', 'scrap_dck.masm', 'scrap_pwr.masm',
-              'scrap_pwr_data.masm'):
+              'scrap_pwr_data.masm', 'scrap_act.masm', 'scrap_rms.masm'):
         own |= set(re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, f)).read(), re.M))
     for lab in re.findall(r'^([A-Za-z_]\w*):', src, re.M):
         if lab not in own and not lab.startswith('scw_') and 0x4100 <= tsyms.get(lab, 0) < 0x4D00:
@@ -470,19 +530,20 @@ def build():
     prog, code = gen_plc.split_overlay(prog, lib, 0xC000, 2, [(0x5600, 0x5A00, 1), (0x5C00, 0x5E00, 1)])
     if any(0x4000 <= a < 0xC000 for a in prog):
         raise SystemExit('scrap.asm reaches past x3FFF')
-    if gen_scrap.DOOR_PAGE != 0x32:     # scrap.masm's .region 0x2000, 0x3200 ends there
+    if gen_scrap.DOOR_PAGE != 0x31:     # scrap.masm's PRG_TOP: .region 0x2000, PRG_TOP ends there
         raise SystemExit('the fixed pages start at x%02X00: change the region' % gen_scrap.DOOR_PAGE)
     plc = gen_plc.make(prog, tsyms, lib)[0]
     ovl += code                 # the code pages from xC000, after the map's
-    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, (nav, nav2, nav3, art, dck, dk2, dk3, dk4, pwr, ini)
+    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, (nav, nav2, nav3, art, dck, dk2, dk3, dk4, pwr, ini, act, pw2, pw3, rb1, rb2)
 
 
 def swap_files(inv, navs):
     """the swap files for the SD image: build()'s inv and nav"""
-    nav, nav2, nav3, art, dck, dk2, dk3, dk4, pwr, ini = navs
+    nav, nav2, nav3, art, dck, dk2, dk3, dk4, pwr, ini, act, pw2, pw3, rb1, rb2 = navs
     return {'SCRAP.INV': inv, 'SCRAP.NAV': nav, 'SCRAP.NV2': nav2, 'SCRAP.NV3': nav3, 'SCRAP.ART': art,
             'SCRAP.DCK': dck, 'SCRAP.DK2': dk2, 'SCRAP.DK3': dk3, 'SCRAP.DK4': dk4,
-            'SCRAP.PWR': pwr, 'SCRAP.INI': ini}
+            'SCRAP.PWR': pwr, 'SCRAP.INI': ini, 'SCRAP.ACT': act, 'SCRAP.PW2': pw2, 'SCRAP.PW3': pw3,
+            'SCRAP.RB1': rb1, 'SCRAP.RB2': rb2}
 
 
 def main(argv):
@@ -537,6 +598,7 @@ def main(argv):
     if args.power:
         deck_rules(r)
         power(r, args)
+        power_bank(r)
         print('PASS' if r.ok else 'FAILED')
         return 0 if r.ok else 1
 
@@ -969,10 +1031,12 @@ def pump_intake(r):
         ty, fl = r.map_raw(*cell)
         want = (0, 1, 0) if what == 'pump' else (1, 0, 1)
         state = lambda: (z('n_o2'), z('n_fuel'), 1 if z('sup') else 0)
-        set_cell(r, *cell, fl=(fl & 0xF0) | 10)      # broken (the scan is once a second)
+        set_cell(r, *cell, fl=(fl & 0xF0) | 10)      # broken (worked out again: pw_chk)
+        r.cpu.mem[r.tsyms['PW_GO']] = 1
         ok = r.wait_for(lambda: state() == want, 200, 'the tug with its %s broken' % what)
         got = state()
         set_cell(r, *cell, fl=fl)
+        r.cpu.mem[r.tsyms['PW_GO']] = 1
         ok = r.wait_for(lambda: state() == (1, 1, 1), 200, 'the %s working again' % what) and ok
         print('  the %s broken: O2 %d, fuel %d, air %s; working again: %s'
               % (what, got[0], got[1], 'on' if got[2] else 'off', 'yes' if ok else 'no'))
@@ -1130,7 +1194,7 @@ def power(r, args):
         if mem[st_a] & 1:
             r.fail('V did not turn the power view off')
         r.check_view('the power view off')
-    react, batt = (25, 29), (26, 29)
+    batt = (26, 29)
     lv = view_on('the start', [((24, 28), 0xE), ((23, 35), 0xE), ((26, 30), 0xE)])
     if not {(22, 28), (25, 30), (27, 30)} <= lv:
         r.fail('the tug\'s conduits are not live')
@@ -1138,14 +1202,12 @@ def power(r, args):
         ps.render(mem, args.png.replace('.png', '_power.png'))
         print('  wrote', args.png.replace('.png', '_power.png'))
     view_off()
-    rd, bd = r.map_raw(*react), r.map_raw(*batt)
-    set_cell(r, *react, fl=(rd[1] & 0xF0) | 9)          # the reactor and battery broken: all dark
-    set_cell(r, *batt, fl=(bd[1] & 0xF0) | 8)
+    bd = r.map_raw(*batt)
+    set_cell(r, *batt, fl=(bd[1] & 0xF0) | 8)           # the battery broken: all dark
     lv = view_on('no working source', [((24, 28), 0xD), ((26, 30), 0xD)])
     if lv & set(gen_scrap.TUG_WIRE):
         r.fail('the tug\'s conduits live with no working source')
     view_off()
-    set_cell(r, *react, fl=rd[1])
     set_cell(r, *batt, fl=bd[1])
     # a conduit section in a wall, under a part (from a carry slot)
     slots = [z('cl_t'), z('cr_t'), z('cb_t')]
@@ -1193,6 +1255,145 @@ def power(r, args):
     view_on('two sections placed', [((23, 33), 0xE), ((24, 32), 0xD)])   # (24,32: by no conduit, dark)
     view_off()
     r.go((24, 32))
+
+
+def power_bank(r):
+    """the battery bank: the load of what has power, a flat bank stops
+    the air; a battery taken out takes its charge (a flat one if the bank
+    has less); a power switch turned off cuts its conduit; a reactor with
+    a deuterium cell beside it charges the bank till the cell burns out"""
+    z, mem, a = r.zp, r.cpu.mem, r.tsyms
+    print('7f. the battery bank, a power switch, the reactor')
+    def charge():
+        return mem[a['PW_CL']] | mem[a['PW_CH']] << 8
+    def set_charge(n):
+        mem[a['PW_CL']], mem[a['PW_CH']] = n & 0xFF, n >> 8
+        mem[a['PW_TK']] = 0             # (the next tick 4 s away)
+    def again(what):
+        mem[a['PW_GO']] = 1
+        r.wait_for(lambda: mem[a['PW_GO']] == 0, 200, what)
+        r.run(2)
+    def check(what, flat=False):
+        t, d, b = ram_map(r)
+        cond = cbits(r)
+        lv = gen_scrap.live(t, d, cond, b, charge=not flat)
+        load = gen_scrap.pw_load(t, d, lv, b)
+        vis = {(x, y) for (x, y) in cond if mem[((0x43 + (y >> 4)) << 8) + 16 * (y & 15) + (x >> 3)] >> (x & 7) & 1}
+        nb = sum(1 for y in range(gen_scrap.TUG[1], gen_scrap.TUG[3] + 1) for x in range(gen_scrap.TUG[0], gen_scrap.TUG[2] + 1)
+                 if t[y][x] == T['BATT'] and b[y][x])
+        cap = mem[a['PW_KL']] | mem[a['PW_KH']] << 8
+        print('  %s: charge %d of %d (%d batteries), load %d kW (model %d), %d live, reactor %s, air %d'
+              % (what, charge(), cap, mem[a['PW_NB']], mem[a['PW_LD']], load, len(vis), mem[a['PW_RON']], z('sup')))
+        if vis != lv:
+            r.fail('%s: live conduits %s missing, %s extra' % (what, sorted(lv - vis)[:4], sorted(vis - lv)[:4]))
+        if mem[a['PW_LD']] != load:
+            r.fail('%s: the load is %d kW, not %d' % (what, mem[a['PW_LD']], load))
+        if mem[a['PW_NB']] != nb or cap != min(nb * gen_scrap.BATT_CAP, 0xFFFF):
+            r.fail('%s: %d batteries, capacity %d (%d installed)' % (what, mem[a['PW_NB']], cap, nb))
+        return load
+    load = check('the start')
+    if load != 16 or not 0 < charge() <= gen_scrap.BATT_CAP:
+        r.fail('the start: %d kW, charge %d (a battery is %d: 30 minutes)' % (load, charge(), gen_scrap.BATT_CAP))
+    # a tick takes the load off
+    c0 = charge()
+    r.wait_for(lambda: charge() != c0, 60 * (gen_scrap.PW_SECS + 2), 'a tick of the bank')
+    if c0 - charge() != load:
+        r.fail('a tick took %d off, not the load %d' % (c0 - charge(), load))
+    # flat: nothing has power, the air stops; charged again: it all comes back
+    set_charge(2 * load + 1)
+    r.wait_for(lambda: charge() == 0 and mem[a['PW_GO']] == 0, 60 * (3 * gen_scrap.PW_SECS + 2), 'the bank going flat')
+    r.run(2)
+    check('the bank flat', flat=True)
+    if z('sup') or z('n_scr') or z('n_o2'):
+        r.fail('the bank flat: air %d, scrubbers %d, O2 %d' % (z('sup'), z('n_scr'), z('n_o2')))
+    set_charge(gen_scrap.BATT_CAP)
+    again('charged again')
+    check('charged again')
+    if not z('sup'):
+        r.fail('charged again: no air')
+    # the battery taken out (charged bank): its charge goes with it, then back
+    bat = (26, 29)
+    b0 = r.map_raw(*bat)
+    set_charge(gen_scrap.BATT_CAP)
+    set_cell(r, *bat, ty=b0[0] & 0x7F)
+    again('the battery out')
+    check('the battery out', flat=True)
+    if charge() or r.map_t(*bat) != T['BATT']:
+        r.fail('the battery out: charge %d, it is %s' % (charge(), gen_scrap.TYPES[r.map_t(*bat)][0]))
+    set_charge(0)
+    set_cell(r, *bat, ty=b0[0])
+    again('the battery in')
+    check('the battery in')
+    if charge() != gen_scrap.BATT_CAP:
+        r.fail('the battery in again: charge %d' % charge())
+    # half charged, taken out: it leaves flat; put in flat: no charge
+    set_charge(gen_scrap.BATT_CAP // 2)
+    set_cell(r, *bat, ty=b0[0] & 0x7F)
+    again('the battery out, half charged')
+    print('  out half charged: it is %s' % gen_scrap.TYPES[r.map_t(*bat)][0])
+    if r.map_t(*bat) != T['BATTE'] or charge():
+        r.fail('a half charged battery taken out: %s, charge %d' % (gen_scrap.TYPES[r.map_t(*bat)][0], charge()))
+    set_cell(r, *bat, ty=(r.map_raw(*bat)[0] | 0x80))
+    again('a flat battery in')
+    if r.map_t(*bat) != T['BATT'] or charge():
+        r.fail('a flat battery put in: %s, charge %d' % (gen_scrap.TYPES[r.map_t(*bat)][0], charge()))
+    check('a flat battery in', flat=True)
+    set_charge(gen_scrap.BATT_CAP)
+    again('charged')
+    # a power switch on the intake's conduit
+    sw = (27, 30)
+    s0 = r.map_raw(*sw)
+    set_cell(r, *sw, ty=(s0[0] & 0x40) | 0x80 | T['SWITCHO'])
+    again('the switch off')
+    off = check('a switch off')
+    if off != load - gen_scrap.LOAD['INTAKE']:
+        r.fail('the switch off: %d kW' % off)
+    r.go((24, 31), (24, 30), (26, 30))
+    if r.act(*sw, gen_scrap.A_SWON):
+        r.run(4)
+        again('the switch on')
+        on = check('turned on')
+        if r.map_t(*sw) != T['SWITCH'] or not r.bolted(*sw) or on != load:
+            r.fail('TURN ON: %s, %d kW' % (gen_scrap.TYPES[r.map_t(*sw)][0], on))
+    if r.act(*sw, gen_scrap.A_SWOFF):
+        r.run(4)
+        again('the switch off again')
+        if r.map_t(*sw) != T['SWITCHO'] or check('turned off') != off:
+            r.fail('TURN OFF: %s' % gen_scrap.TYPES[r.map_t(*sw)][0])
+    set_cell(r, *sw, ty=s0[0], fl=s0[1])
+    # a reactor (salvaged: the tug has none) and a deuterium cell beside it
+    react, cell = (25, 29), (25, 30)
+    if r.map_t(*react) != T['FLOOR']:
+        r.fail('the tug has a %s where a reactor would go' % gen_scrap.TYPES[r.map_t(*react)][0])
+    rc0, c0 = r.map_raw(*react), r.map_raw(*cell)
+    set_cell(r, *react, ty=(rc0[0] & 0x40) | 0x80 | T['REACT'], fl=rc0[1] & 0xF0)
+    again('a reactor in, no fuel')
+    check('a reactor, no fuel')
+    if mem[a['PW_RON']]:
+        r.fail('a reactor with no deuterium runs')
+    set_cell(r, *cell, ty=(c0[0] & 0x40) | 0x80 | T['DEUT'], fl=c0[1] & 0xF0)
+    again('a deuterium cell in')
+    load = check('fuelled')
+    fuel = mem[a['PW_FL']] | mem[a['PW_FH']] << 8
+    if not mem[a['PW_RON']] or fuel != gen_scrap.DEUT_TICKS:
+        r.fail('fuelled: reactor %d, fuel %d' % (mem[a['PW_RON']], fuel))
+    set_charge(100)
+    r.wait_for(lambda: charge() != 100, 60 * (gen_scrap.PW_SECS + 2), 'a tick with the reactor')
+    print('  a tick with the reactor: %d to %d' % (100, charge()))
+    if charge() != 100 + gen_scrap.REACT_KW - load:
+        r.fail('a tick with the reactor: charge %d, not %d' % (charge(), 100 + gen_scrap.REACT_KW - load))
+    mem[a['PW_FL']], mem[a['PW_FH']] = 1, 0
+    r.wait_for(lambda: not mem[a['PW_RON']] and mem[a['PW_GO']] == 0, 60 * (gen_scrap.PW_SECS + 3), 'the cell burning out')
+    r.run(2)
+    print('  burnt out: the cell\'s cell is %s, bit %s' % (gen_scrap.TYPES[r.map_t(*cell)][0], cbit(r, *cell)))
+    if r.map_t(*cell) != T['PIPE'] or not cbit(r, *cell):
+        r.fail('the deuterium cell burnt out: %s' % gen_scrap.TYPES[r.map_t(*cell)][0])
+    check('burnt out')
+    set_cell(r, *cell, ty=c0[0], fl=c0[1])
+    set_cell(r, *react, ty=rc0[0], fl=rc0[1])
+    set_charge(gen_scrap.BATT_CAP)
+    again('back as at the start')
+    r.go((24, 30), (24, 31), (24, 32))
 
 
 def deck_rules(r):
@@ -1319,7 +1520,8 @@ def comms(r):
     rows = []
     for d in (11, a0[1] & 15):
         set_cell(r, *ant, fl=(a0[1] & 0xF0) | d)
-        r.run(70)                           # tug_scan: once a second
+        r.cpu.mem[r.tsyms['PW_GO']] = 1     # (worked out again: pw_chk)
+        r.run(70)
         seen = 0                            # (it takes more than a frame: N_ANT is 0
         for _ in range(70):                 # while it counts)
             r.run(1)
@@ -1331,6 +1533,7 @@ def comms(r):
     if rows[0][0] != 0 or rows[1][0] != 1 or any('COMMS' in p for _, p in rows):
         r.fail('comms: %r' % rows)
     set_cell(r, *ant, fl=a0[1])
+    r.cpu.mem[r.tsyms['PW_GO']] = 1
     r.run(70)
 
 
@@ -1462,7 +1665,8 @@ def navigation(r):
     mass5 = min(255, fl_get(mem, 0x25, 2, False) // 5)
     dv = fuel0 * 40 // mass5
     print('  status: |%s|' % st.rstrip())
-    clk = mem[0x35E6] | mem[0x35E7] << 8 | mem[0x35FF] << 16
+    ck = gen_scrap.ACT_PAGE << 8
+    clk = mem[ck + 0xE6] | mem[ck + 0xE7] << 8 | mem[ck + 0xFF] << 16
     times = ['%02d:%02d:%02d' % (t // 3600 % 24, t // 60 % 60, t % 60) for t in (clk, clk - 1)]
     if (not re.search(r'05-07-2175 +\d\d:\d\d:\d\d +NITROGEN %d KG +DELTA-V %d M/S +BATTERIES \d' % (fuel0, dv), st)
             or not any(t in st for t in times) or not 28800 < clk < 28800 + 3600):
@@ -1791,6 +1995,7 @@ def skills_suit(r):
     jammed_door(r)
     deck_rules(r)
     power(r, r.args)
+    power_bank(r)
     facing(r)
     comms(r)
     navigation(r)
@@ -1941,6 +2146,7 @@ def inventory(r, args):
     r.click(2)
     r.check_rooms('the wreck wall in again')
     r.check_view('the wreck wall in again')
+    r.run(60)                       # (the power worked out again after the change)
     r.key('\t')
     r.run(4)
     if not z('inv'):
