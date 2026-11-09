@@ -1269,6 +1269,44 @@ def deck_rules(r):
     r.go((24, 32))
 
 
+def facing(r):
+    """a part that faces a way: TURN steps a loose radar round (up, right,
+    down, left; down and right drawn turned by dc_face), PICK UP gives the
+    plain part back"""
+    z, mem = r.zp, r.cpu.mem
+    print("7f. TURN")
+    cell = (z('p_x') + 1, z('p_y'))
+    ty, fl = r.map_raw(*cell)
+    if r.map_t(*cell) != T['FLOOR']:
+        r.fail('no deck next to the player at %d,%d' % cell)
+        return
+    set_cell(r, *cell, ty=(ty & 0x40) | T['RADAR'], fl=(fl & 0xF0) | 2)
+    got = []
+    for _ in range(4):
+        if not r.act(*cell, gen_scrap.A_TURN):
+            return
+        r.run(2)
+        got.append(gen_scrap.TYPES[r.map_t(*cell)][0])
+        r.check_view('turned: %s' % got[-1])
+    print('  TURN x4: %s' % ', '.join(got))
+    if got != ['RADAR_R', 'RADAR_D', 'RADAR_L', 'RADAR']:
+        r.fail('TURN: %s' % got)
+    if not r.act(*cell, gen_scrap.A_TURN) or not r.act(*cell, gen_scrap.A_PICK):
+        return
+    slots = [z('cl_t'), z('cr_t'), z('cb_t')]
+    print('  picked up facing right: carried %s' % [gen_scrap.TYPES[k][0] for k in slots])
+    if T['RADAR'] not in slots or any(k >= gen_scrap.FACE0 + 3 for k in slots):
+        r.fail('PICK UP of a turned part: %s' % slots)
+    for i, k in enumerate(slots):
+        if k == T['RADAR']:
+            mem[r.tsyms['cl_t'] + i] = 0
+            break
+    set_cell(r, *cell, ty=ty, fl=fl)
+    r.mouse_cell(*cell)
+    r.run(2)
+    r.check_view('the deck again')
+
+
 def comms(r):
     """the tug's antenna, barely working at the start: comms (N_ANT 1, for
     the navigation mode); broken: N_ANT 0; the player's panel says nothing"""
@@ -1381,7 +1419,7 @@ def navigation(r):
             if gen_scrap.TYPES[t][3] & gen_scrap.F_ITEM and not r.bolted(x, y):
                 continue
             mass += W.get(name, 0)
-            nt += name == 'THRUST' and r.map_raw(x, y)[1] & 15 < 8
+            nt += name.startswith('THRUST') and r.map_raw(x, y)[1] & 15 < 8
     got = (fl_get(mem, 0x25, 2, False), mem[FL + 0x24])
     print('  the tug: %d00 kg, %d thrusters (the map: %d00 kg, %d); docked %d'
           % (got[0], got[1], mass, nt, mem[FL + 0x21]))
@@ -1753,6 +1791,7 @@ def skills_suit(r):
     jammed_door(r)
     deck_rules(r)
     power(r, r.args)
+    facing(r)
     comms(r)
     navigation(r)
     q = r.room(z('p_x'), z('p_y'))

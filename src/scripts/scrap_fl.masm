@@ -350,10 +350,17 @@ tg_1:
 ; tug_thr - a working thruster counted.  The rest of tug_mass
 .chunk
 tug_thr:
-    ld   FL_PG, y
     ld   [c_t], ac
+tt_b:                           ; (kind_base: a leaf here)
+    sub  FACE0 + 3, ac
+    bcs  tt_x
+    add  FACE0, ac
+    bra  tt_b
+tt_x:
+    add  FACE0 + 3, ac
     xor  T_THRUST, ac
     bne  tg_e
+    ld   FL_PG, y
     ld   [c_f], ac
     sub  8, ac
     bcc  tg_e

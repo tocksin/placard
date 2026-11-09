@@ -62,6 +62,7 @@ need you next to it, diagonals count):
 | PICK UP | a LOOSE part goes into the first free carry slot: left hand, right hand, back |
 | PUT DOWN LEFT / RIGHT / BACK | from that carry slot onto a deck or a power conduit next to you, at 50 % health or more: `THE DECK IS BROKEN - REPAIR IT TO 50% HEALTH FIRST.` |
 | REFILL SUIT | a full O2 tank fills the suit (11 L less for each damage step) and is empty after |
+| TURN | an antenna, a radar array or a thruster next to you, installed or loose: turns it to its next facing (up, right, down, left), so it sits flat on the hull on whichever side it is.  Each facing is its own kind in the code (`gen_scrap.FACE_PARTS`; up and left have their own art, down and right are drawn turned by `dc_face`), with the same name, worth and text; picked up, it is the plain part again |
 | NAVIGATE | a working helm (50 % health or more) installed on the tug: the navigation screen (see **Flying**) |
 
 You carry three things at most, one in each hand and one on your back,
@@ -386,7 +387,7 @@ a jammed shut armory door and a jammed open med bay door.
 | x35E0-x35ED | the skill levels (6, x35E0) and their progress (6, x35E8) |
 | x35E6, x35E7, x35FF | the ship's clock (`CLK_0`-`CLK_2`): seconds from 05-07-2175 00:00:00, 24 bits, 08:00:00 at the start, a second on in `second_tick` |
 | x35F0-x35FE | the panel's actions (8), the job's bar (its 16th, the 16ths done, the work left at the next), the O2 tank sum, `N_ANT`, which part text is loaded (`PRT_K`) |
-| x3700-x3FFF | the cell art, 4 kinds a page, the last kind at the top (kind t at x4000 - 64 (n - t) for n kinds rounded up to 4).  While the navigation screen is up x3600-x3FFF (the actions of each kind and the art) is `SCRAP.NV2`, more of its code (5 sectors); `SCRAP.ART` (the same bytes as the program's) puts them back |
+| x3700-x3FFF | the cell art, 4 kinds a page, the last kind at the top (kind t at x4000 - 64 (n - t) for the n = `NART` kinds with art of their own, rounded up to 4; the down and right facings have none).  While the navigation screen is up x3600-x3FFF (the actions of each kind and the art) is `SCRAP.NV2`, more of its code (5 sectors); `SCRAP.ART` (the same bytes as the program's) puts them back |
 | x4000-x401F, x4040-x405F | each room's pressure, and whether it is cold (32 rooms) |
 | x4020-x403F, x4060-x407F | the flight (`scrap_fl.masm`): docked, heading, thrust, mass, thrusters, nitrogen, the alarm, the position (16.16 m) and velocity (1/2^24 m a frame) and the navigation screen's state |
 | x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |

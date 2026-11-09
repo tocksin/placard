@@ -1091,6 +1091,11 @@ map_setd:
 .chunk
 draw_cell:
     ld   [dc_t], ac
+    sub  FACE0 + 6, ac          ; a part facing down or right: dc_face
+    bcs  dc_0
+    GOTO dc_face
+dc_0:
+    ld   [dc_t], ac
     shr  ac
     shr  ac
     add  ART_PG, ac
@@ -3272,12 +3277,7 @@ ty_3:
     ld   ac, [n_fuel]
     GOTO ty_n
 ty_4:
-    ld   [c_t], ac
-    xor  T_ANT, ac
-    bne  ty_n
-    ld   N_ANT >> 8, y
-    ld   N_ANT & 0xFF, x
-    ld   1, [y,x]
+    GOTO ty_ant
 ty_n:
     ld   [v0], ac
     inc
@@ -3396,6 +3396,8 @@ pk_l:
     LEAVE
 pk_s:
     ld   [s_t], ac
+    CALL kind_base              ; a facing part: the plain one
+    ld   [v0], x
     ld   ac, [x]
     ld   [v0], ac
     add  3, x
@@ -3783,6 +3785,7 @@ plate_room:
     xor  T_FLOOR, ac
     beq  pr_c
     ld   [s_t], ac
+    CALL kind_base
     xor  T_THRUST, ac
     bne  pr_ok
 pr_c:
@@ -5455,10 +5458,170 @@ ma_1:
 ma_2:
     ld   [w3], ac
     xor  A_NAV, ac
-    bne  ma_3
+    bne  ma_t
     GOTO nav_action
+ma_t:
+    ld   [w3], ac
+    xor  A_TURN, ac
+    bne  ma_3
+    GOTO turn_action
 ma_3:
     GOTO suit_action
+
+; turn_action - TURN: a part that faces a way (an antenna, a radar, a
+; thruster) next to the player, to its next facing (up, right, down,
+; left), installed or loose as it was.  The rest of do_action
+.chunk
+turn_action:
+    CALL near
+    beq  tq_far
+    ld   [s_x], ac
+    ld   ac, [g_x]
+    ld   [s_y], ac
+    ld   ac, [g_y]
+    CALL map_get
+    ld   [c_t], ac
+    sub  FACE0 + 3, ac
+    bcs  tq_up
+    add  FACE0, ac              ; left, down, right: 3 kinds back
+    bra  tq_b
+tq_up:
+    add  FACE0 + 12, ac         ; up: right, 9 kinds on
+tq_b:
+    ld   ac, [w4]
+    ld   [c_b], ac
+    beq  tq_p
+    ld   [w4], ac
+    or   0x80, ac               ; installed: it stays installed
+    ld   ac, [w4]
+tq_p:
+    ld   [w4], ac
+    CALL map_put
+    GOTO act_done
+tq_far:
+    MSG_TOOFAR
+    CALL set_msg
+    LEAVE
+
+; ty_ant - tug_scan's: a working antenna (any facing): comms.  The rest
+; of tug_scan
+.chunk
+ty_ant:
+    ld   [c_t], ac
+    CALL kind_base
+    xor  T_ANT, ac
+    bne  ta_n
+    ld   N_ANT >> 8, y
+    ld   N_ANT & 0xFF, x
+    ld   1, [y,x]
+ta_n:
+    GOTO ty_n
+
+; kind_base - AC = a kind; AC = the plain part of a facing kind (FACE0 + 3
+; on: 3 kinds back until it is one of the first three).  A leaf.
+.chunk
+kind_base:
+    sub  FACE0 + 3, ac
+    bcs  kb_x
+    add  FACE0, ac
+    bra  kind_base
+kb_x:
+    add  FACE0 + 3, ac
+    RET
+
+; dc_face - draw_cell for a part facing down or right (kinds FACE0 + 6
+; on, no art of their own): the art of kind dc_t - 6 (up, left) upside
+; down (byte 16 c + r from 16 c + 15 - r) or mirrored (from 16 (3 - c) +
+; r, its two pixels swapped): byte d from d xor K, K = the art's index |
+; 0x0F or 0x30, kept in dc_t (not T_PLAYER: cell_extra).  A leaf.
+.chunk
+dc_face:
+    ld   [dc_t], ac
+    sub  6, ac
+    shr  ac
+    shr  ac
+    add  ART_PG, ac
+    ld   ac, [dc_ap]
+    ld   [dc_t], ac
+    sub  6, ac
+    and  3, ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   0x0F, ac
+    ld   ac, [dc_ai]
+    ld   [dc_t], ac
+    sub  FACE0 + 9, ac
+    bcs  df_k
+    ld   [dc_ai], ac
+    xor  0x3F, ac               ; right: 0x30
+    ld   ac, [dc_ai]
+df_k:
+    ld   [dc_ai], ac
+    ld   ac, [dc_t]
+    CELLADDR
+    clr  ac
+    ld   ac, [dc_ai]
+    ld   4, ac
+    ld   ac, [dc_c]
+df_col:
+    ld   [dc_base], ac
+    ld   ac, [dc_so]
+    ld   16, ac
+    ld   ac, [dc_n]
+df_byte:
+    ld   [dc_ai], ac
+    xor  [dc_t], ac
+    ld   ac, x
+    ld   [dc_ap], y
+    ld   [y,x], ac
+    ld   [dc_sp], y
+    ld   [dc_so], x
+    ld   ac, [y,x]
+    ld   [dc_t], ac
+    and  1, ac
+    bne  df_n
+    ld   [y,x], ac              ; mirrored: the two pixels swapped
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [y,x]
+    ld   [dc_ai], ac
+    xor  [dc_t], ac
+    ld   ac, x
+    ld   [dc_ap], y
+    ld   [y,x], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   [dc_sp], y
+    ld   [dc_so], x
+    or   [y,x], ac
+    ld   ac, [y,x]
+df_n:
+    ld   [dc_ai], ac
+    inc
+    ld   ac, [dc_ai]
+    ld   [dc_so], ac
+    add  2, ac
+    ld   ac, [dc_so]
+    ld   [dc_n], ac
+    dec
+    ld   ac, [dc_n]
+    bne  df_byte
+    ld   [dc_sp], ac
+    add  2, ac
+    ld   ac, [dc_sp]
+    ld   [dc_c], ac
+    dec
+    ld   ac, [dc_c]
+    bne  df_col
+    RET
 
 ; repair_action - REPAIR: a damaged part next to the player, REPAIR_FRAMES
 ; (15) a damage step at full speed (cut_done: repair_done).  The rest of
