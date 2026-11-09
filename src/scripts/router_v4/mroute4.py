@@ -57,6 +57,21 @@ nets=g.nets; nid=g.nid; nx,ny=g.nx,g.ny; N=nx*ny
 for n in list(g.scope): g.set_route(n,[])
 # nets to route: every net with more than one group of fixed copper
 todo=[]; groups0={}
+def pack_groups(la,lb,k):
+    """group labels of a net's fixed copper, stored sparse (cells, labels) per layer: a full-grid pair per net is 65 MB on
+    the fine grid, 16 GB for the whole board"""
+    sp=[]
+    for a in (la,lb):
+        ys,xs=np.nonzero(a); sp.append((ys.astype(np.int32),xs.astype(np.int32),a[ys,xs].astype(np.int16)))
+    ys=np.concatenate([sp[0][0],sp[1][0]]); xs=np.concatenate([sp[0][1],sp[1][1]])
+    return (sp[0],sp[1],k,(int(xs.min()),int(xs.max()),int(ys.min()),int(ys.max())))
+def group_window(gr,wy0,wy1,wx0,wx1):
+    """the group labels scattered into a window (2, wh, ww)"""
+    a=np.zeros((2,wy1-wy0,wx1-wx0),np.int16)
+    for l in range(2):
+        ys,xs,v=gr[l]; m=(ys>=wy0)&(ys<wy1)&(xs>=wx0)&(xs<wx1)
+        a[l,ys[m]-wy0,xs[m]-wx0]=v[m]
+    return a
 S8=np.ones((3,3),bool)
 def fixed_groups(n):
     masks=[(g.cop[L]==n) for L in LAY]
@@ -80,7 +95,7 @@ if g.scope: cands=[n for n in cands if n in g.scope or want is not None]
 for n in cands:
     la,lb,k=fixed_groups(n)
     if k>1:
-        todo.append(n); ys,xs=np.nonzero((la>0)|(lb>0)); groups0[n]=(la.astype(np.int16),lb.astype(np.int16),k,(xs.min(),xs.max(),ys.min(),ys.max()))
+        todo.append(n); groups0[n]=pack_groups(la,lb,k)
 print('open nets',len(todo),[nets[n] for n in todo],round(time.time()-T0),'s',flush=True)
 CRITDEF='CLK,CLK_E,STALL_OUT,STALL_IN,RUN,~{WE},PIXEL_ENABLE,~{HSYNC},~{VSYNC}'
 CRITN={nid[x] for x in E('CRIT',E('PROT',CRITDEF)).split(',') if x in nid}; CRITVIA=float(E('CRITVIA','2')); CRITPRES=float(E('CRITPRES','0.5'))
@@ -215,16 +230,15 @@ def net_groups(n):
     la,lb=g.components(n); ids=sorted(set(np.unique(la[la>0]).tolist())|set(np.unique(lb[lb>0]).tolist()))
     remap=np.zeros(int(max(la.max(),lb.max()))+1,np.int16)
     for k,i in enumerate(ids): remap[i]=k+1
-    la=remap[la]; lb=remap[lb]; ys,xs=np.nonzero((la>0)|(lb>0))
-    return la.astype(np.int16),lb.astype(np.int16),len(ids),(xs.min(),xs.max(),ys.min(),ys.max())
+    return pack_groups(remap[la],remap[lb],len(ids))
 def route_batch(batch,hard,win_mm,soft=None,partial=False):
     """route the nets of batch in parallel; their own stamps are removed first. returns ({n: paths or None}, status)
     partial: kept routes count as groups (only the missing links are routed; the result is appended by the caller)"""
     jobs=[]; gids=[]; states=[]; owns=[]; ownvs=[]; off=0; poff=0
     for n in batch:
-        la,lb,k,(x0,x1,y0,y1)=net_groups(n) if partial else groups0[n]; pad=int(win_mm/G)
+        gr=net_groups(n) if partial else groups0[n]; k=gr[2]; x0,x1,y0,y1=gr[3]; pad=int(win_mm/G)
         wx0=max(0,x0-pad); wx1=min(nx,x1+pad+1); wy0=max(0,y0-pad); wy1=min(ny,y1+pad+1); ww=wx1-wx0; wh=wy1-wy0; W2=2*ww*wh
-        gw=np.ascontiguousarray(np.stack([la[wy0:wy1,wx0:wx1],lb[wy0:wy1,wx0:wx1]]).reshape(-1)).astype(np.int16)
+        gw=np.ascontiguousarray(group_window(gr,wy0,wy1,wx0,wx1).reshape(-1))
         st=np.zeros(W2,np.uint8); smallest=min(range(1,k+1),key=lambda i:(gw==i).sum()); st[gw==smallest]=1
         oc=np.zeros((2,wh,ww),np.int16); ov=np.zeros((wh,ww),np.int16)
         for kind,L,j0,i0,mm in g.stamps.get(n,[]):   # the net's own previous route: not an obstacle to itself
@@ -374,7 +388,7 @@ def rip_fixed(n,paths,rip_t,rip_v):
         g.reraster(mm)
         la,lb,k=fixed_groups(mm)
         if k>1:
-            ys,xs=np.nonzero((la>0)|(lb>0)); groups0[mm]=(la.astype(np.int16),lb.astype(np.int16),k,(xs.min(),xs.max(),ys.min(),ys.max()))
+            groups0[mm]=pack_groups(la,lb,k)
             if mm not in todo: todo.append(mm); g.scope.add(mm)
             ripped.add(mm)
         print('  rip:',nets[n],'crosses fixed',nets[mm],'-> removed',len(hit),'pieces; groups',k,flush=True)
