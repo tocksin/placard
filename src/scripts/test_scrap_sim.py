@@ -46,7 +46,7 @@ the upper socket, and boots it like the board (test_dos.Rig):
      after, still installed, and the tug has no air)
  12. Esc brings the DOS's browser back
 
-Date: 2026-11-07
+Date: 2026-11-09
 """
 
 import argparse
@@ -1139,6 +1139,45 @@ def dock_close(r):
     return True
 
 
+# the tug's shapes for headings 0-4 (scrap_nav.masm NV_TS): (first x, length)
+# for each row from y = -4 down
+TUG_ROWS = [[(-3, 1), (-3, 3), (-2, 5), (-2, 7), (-1, 8), (-2, 7), (-2, 5), (-3, 3), (-3, 1)],
+            [(-2, 1), (-2, 3), (-2, 4), (-1, 5), (-1, 6), (-2, 9), (-3, 7), (-4, 3)],
+            [(-2, 2), (-1, 2), (-1, 3), (0, 3), (0, 4), (-2, 7), (-4, 10)],
+            [(-1, 2), (-1, 3), (-1, 3), (-1, 4), (-3, 7), (-4, 8), (-3, 8), (2, 4)],
+            [(0, 2), (0, 2), (0, 2), (-1, 4), (-4, 7), (-4, 8), (-1, 5), (1, 4), (3, 2)]]
+
+
+def tug_shape(h):
+    """the tug's pixels (dx, dy) at heading h (0-31): 5-7 are 3-1 with x and
+    y swapped, then quarter turns clockwise"""
+    b = h & 7
+    k = 8 - b if b > 4 else b
+    pts = {(x0 + i, y - 4) for y, (x0, n) in enumerate(TUG_ROWS[k]) for i in range(n)}
+    if b > 4:
+        pts = {(y, x) for x, y in pts}
+    for _ in range(h >> 3 & 3):
+        pts = {(-y, x) for x, y in pts}
+    return pts
+
+
+def tug_headings(r):
+    """the tug in the middle of the map (128, 92) at every one of its 32
+    headings, then back to the one it had"""
+    mem = r.cpu.mem
+    h0 = mem[FL + 0x22]
+    bad = []
+    for h in list(range(32)) + [h0]:
+        mem[FL + 0x22] = h
+        r.run(20)
+        got = {(x - 128, y - 92) for y in range(84, 101) for x in range(120, 137) if nav_pixel(mem, x, y) == 3}
+        if got != tug_shape(h):
+            bad.append(h)
+    print('  the tug drawn at all 32 headings%s' % (': wrong at %s' % bad if bad else ''))
+    if bad:
+        r.fail('the tug at headings %s' % bad)
+
+
 def navigation(r):
     """NAVIGATE at the helm: the nav screen, the tug's mass and thrusters,
     the docking screen (hail, undock), thrust, turning, cruising while
@@ -1203,8 +1242,7 @@ def navigation(r):
     if (not re.search(r'05-07-2175 +\d\d:\d\d:\d\d +NITROGEN %d KG +DELTA-V %d M/S +BATTERIES \d' % (fuel0, dv), st)
             or not any(t in st for t in times) or not 28800 < clk < 28800 + 3600):
         r.fail('the status row: %r (delta-v %d, clock %s)' % (st, dv, times))
-    if nav_pixel(mem, 129, 92) != 3 or nav_pixel(mem, 126, 95) != 3 or nav_pixel(mem, 130, 92) == 3:
-        r.fail('the tug (east) is not drawn in the middle (%X %X)' % (nav_pixel(mem, 129, 92), nav_pixel(mem, 126, 95)))
+    tug_headings(r)
     gx = (fl_get(mem, 0x62, 2, False) >> 2) & 63      # the grid: world lines every 64 pixels
     gy = ((fl_get(mem, 0x66, 2, False) >> 2) + 36) & 63
     if (mem[0x40B8], mem[0x40B9]) != (gx, gy):

@@ -17,7 +17,7 @@
 ; nitrogen (kg), its delta-v, the batteries.  Under it the view is 2 bpp
 ; while the screen is up (view_mode): the sector map, 256 x 184 square
 ; pixels in byte columns 8-71 (a position a byte), the tug in the middle:
-; a dotted blue grid fixed in space (nv_gmv); the tug a small white triangle at
+; a dotted blue grid fixed in space (nv_gmv); the tug a white notched triangle at
 ; its heading, gold dots the way it drifts; the sector's objects
 ; (SCRAP/K3A, read to x5400 with prt_load: gen_scrap.SECTOR): a station
 ; on an asteroid as a white circle its size, a derelict as a gold
@@ -39,7 +39,7 @@
 ; (SCRAP.DCK, scrap_dck.masm: hailing, docking, undocking), Esc back to
 ; the ship.
 ;
-; Date: 11/08/2026
+; Date: 11/09/2026
 ; ============================================================
 
 NV_T    = 0xB0              ; FL_PG: frames, 0-15 (the map every 8, the panel every 16)
@@ -1163,40 +1163,71 @@ nv_vert:
     ld   ac, [u1]
     LEAVE
 
-; nv_tug - the tug: a small white triangle pointing along its heading, to
-; the nearest of 8 (any finer is ragged at this size): NV_TS's shape for 0
-; or 45 degrees (dx, dy pairs, x80 the end) turned by quarters, then
-; nv_drift.  The rest of
-; nv_draw
+; nv_tug - the tug: a white triangle with a notch in its back, pointing along
+; its heading (FL_HD, 32 steps of 11.25 degrees, 0 to the right, clockwise).
+; NV_TS holds steps 0-4 (tug_32_big.py); 5-7 are 3-1 with x and y swapped,
+; and the heading's quarters turn that, (x, y) to (-y, x).  Then nv_drift.
+; The rest of nv_draw
 .chunk
 nv_tug:
     ld   FL_PG, y
     ld   FL_HD, x
     ld   [y,x], ac
-    add  2, ac
-    shr  ac
-    shr  ac
+    ld   ac, [v4]               ; the heading
     and  7, ac
-    ld   ac, [v4]               ; the heading in 8ths
-    and  1, ac
+    ld   ac, [v3]               ; its step in the quarter
+    sub  5, ac
+    bcc  tu_m
+    ld   0x00, ac
+    ld   ac, [v7]               ; 0-4: as stored
+    ld   [v3], ac
+    bra  tu_s
+tu_m:
+    ld   1, ac
+    ld   ac, [v7]               ; 5-7: 8 - step, x and y swapped
+    ld   [v3], ac
+    xor  0xFF, ac
+    add  9, ac
+tu_s:
     add  NV_TS & 0xFF, x
     ld   NV_TS >> 8, y
     ld   [y,x], ac
-    ld   ac, [v6]               ; its shape
-tu_l:
+    ld   ac, [v6]               ; its rows
+    ld   0xFC, ac
+    ld   ac, [v3]               ; from y = -4
+tu_r:
     ld   NV_TS >> 8, y
     ld   [v6], x
     ld   [y,x], ac
-    xor  0x80, ac
     beq  tu_d
+    and  15, ac
+    ld   ac, [w3]               ; a row: its length,
     ld   [y,x], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    sub  4, ac
+    ld   ac, [w2]               ;   its first x (x + 4 in the high nibble)
+tu_l:
+    ld   [w2], ac
     ld   ac, [v0]
-    ld   [v6], ac
-    add  1, x
-    ld   [y,x], ac
+    ld   [v3], ac
     ld   ac, [v1]
+    ld   [v7], ac
+    beq  tu_n
+    ld   [v1], ac               ; swapped: (x, y) to (y, x)
+    ld   ac, [v2]
+    ld   [v0], ac
+    ld   ac, [v1]
+    ld   [v2], ac
+    ld   ac, [v0]
+tu_n:
     ld   [v4], ac
     shr  ac
+    shr  ac
+    shr  ac
+    and  3, ac
     ld   ac, [v5]               ; quarter turns: (x, y) to (-y, x)
 tu_q:
     ld   [v5], ac
@@ -1222,26 +1253,39 @@ tu_p:
     ld   3, ac
     ld   ac, [u2]
     CALL nv_put
+    ld   [w2], ac
+    inc
+    ld   ac, [w2]
+    ld   [w3], ac
+    dec
+    ld   ac, [w3]
+    bne  tu_l
+    ld   [v3], ac
+    inc
+    ld   ac, [v3]
     ld   [v6], ac
-    add  2, ac
+    inc
     ld   ac, [v6]
-    bra  tu_l
+    bra  tu_r
 tu_d:
     GOTO nv_drift
 
-; the tug's shapes: filled, pointing 0 degrees (7 tall, 4 long) and 45 (a right
-; triangle, its square corner the tip)
+; the tug's shapes, steps 0-4 (tug_32_big.py: about 9 tall, 11 long, a
+; notch in the back): a byte a row from y = -4 down, x + 4 in the high
+; nibble, the length in the low; 0 the end
 .chunk
 NV_TS:
-    #d8 NV_T0 & 0xFF, NV_T1 & 0xFF
-NV_T0:
-    #d8 0xFE, 0xFD, 0xFE, 0xFE, 0xFF, 0xFE, 0xFE, 0xFF, 0xFF, 0xFF, 0x00, 0xFF
-    #d8 0xFE, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x01, 0x00, 0xFE, 0x01, 0xFF, 0x01
-    #d8 0x00, 0x01, 0xFE, 0x02, 0xFF, 0x02, 0xFE, 0x03, 0x80
-NV_T1:
-    #d8 0x01, 0xFD, 0x00, 0xFE, 0x01, 0xFE, 0xFF, 0xFF, 0x00, 0xFF, 0x01, 0xFF
-    #d8 0xFE, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x01, 0x00, 0xFD, 0x01, 0xFE, 0x01
-    #d8 0xFF, 0x01, 0x00, 0x01, 0x01, 0x01, 0x80
+    #d8 TUG_S0 & 0xFF, TUG_S1 & 0xFF, TUG_S2 & 0xFF, TUG_S3 & 0xFF, TUG_S4 & 0xFF
+TUG_S0:
+    #d8 0x11, 0x13, 0x25, 0x27, 0x38, 0x27, 0x25, 0x13, 0x11, 0x00
+TUG_S1:
+    #d8 0x21, 0x23, 0x24, 0x35, 0x36, 0x29, 0x17, 0x03, 0x00
+TUG_S2:
+    #d8 0x22, 0x32, 0x33, 0x43, 0x44, 0x27, 0x0A, 0x00
+TUG_S3:
+    #d8 0x32, 0x33, 0x33, 0x34, 0x17, 0x08, 0x18, 0x64, 0x00
+TUG_S4:
+    #d8 0x42, 0x42, 0x42, 0x34, 0x07, 0x08, 0x35, 0x54, 0x72, 0x00
 
 ; nv_tg - nv_drift's dots: NV_DRT's points round the tug turned to NV_ANG
 ; (nv_term).  The end of nv_draw
