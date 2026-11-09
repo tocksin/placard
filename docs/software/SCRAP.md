@@ -7,7 +7,7 @@ back, and build it into your own ship.  It is not in the demo menu: pick
 it in the DOS's file browser and press Enter ([DOS.md](DOS.md)), or set
 `BOOT.CFG` = `SCRAP.PLC` to run it at power-up.
 
-Date: 2026-11-08
+Date: 2026-11-09
 
 The design (proposal, phases, mock-ups) is the SCRAPWRIGHT design doc.
 This is **phase 3**: the walkable wreck with the mouse panel (phase 2),
@@ -168,9 +168,9 @@ buffer).  The view is the sector map in 2 bpp (black, blue, gold,
 white; square pixels, 256 across and 192 down, framed in the middle of
 the screen so a position on it is a byte; 184 down under the status row),
 with the tug in the middle on a dotted blue grid that is fixed in space
-(lines every 64 pixels, moving as the tug moves): the tug a small white triangle pointing along its
-heading to the nearest eighth of a turn (any finer is ragged at that
-size; the panel has the exact heading), three gold dots the way it
+(lines every 64 pixels, moving as the tug moves): the tug a white triangle (about 9 by 11 pixels) with a notch in its
+back, drawn at every one of its 32 headings (headings 0-4 are stored, the
+rest are mirrors and quarter turns of those), three gold dots the way it
 drifts, and the sector's objects (`gen_scrap.SECTOR`, the file
 `SCRAP/K3A`): the HALVARD ROCK station on its asteroid as a white circle
 of its size, and the derelicts as gold asterisks until you have docked

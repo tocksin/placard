@@ -9166,7 +9166,7 @@ s_inone:
 ; nitrogen (kg), its delta-v, the batteries.  Under it the view is 2 bpp
 ; while the screen is up (view_mode): the sector map, 256 x 184 square
 ; pixels in byte columns 8-71 (a position a byte), the tug in the middle:
-; a dotted blue grid fixed in space (nv_gmv); the tug a small white triangle at
+; a dotted blue grid fixed in space (nv_gmv); the tug a white notched triangle at
 ; its heading, gold dots the way it drifts; the sector's objects
 ; (SCRAP/K3A, read to x5400 with prt_load: gen_scrap.SECTOR): a station
 ; on an asteroid as a white circle its size, a derelict as a gold
@@ -9188,7 +9188,7 @@ s_inone:
 ; (SCRAP.DCK, scrap_dck.masm: hailing, docking, undocking), Esc back to
 ; the ship.
 ;
-; Date: 11/08/2026
+; Date: 11/09/2026
 ; ============================================================
 
 NV_T    = 0xB0              ; FL_PG: frames, 0-15 (the map every 8, the panel every 16)
@@ -13901,6 +13901,164 @@ nv_f:
 ; page): SCRAP.NAV, SCRAP.NV2, SCRAP.ART or SCRAP.DCK.  The rest is swap_fetch's
 
 #overlay2 0x3600
+nv_mt:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   LINK_LO, x             ; u1:u0 its size, u2 where it is
+    ld   scw_r579, [x]
+    ld   LINK_HI, x
+    ld   scw_r579 >> 8, [x]
+    ld   fl_abs >> 8, y
+    jmp  fl_abs
+scw_r579:
+    ld   FL_PG, y
+    ld   [u2], ac
+    inc
+    ld   ac, x
+    ld   [y,x], ac
+    and  0x80, ac
+    ld   ac, [v6]               ; v6: under 0
+    ld   [v4], ac
+    and  31, ac
+    add  COS32 & 0xFF, x
+    ld   COS32 >> 8, y
+    ld   [y,x], ac
+    blt  mt_n
+    bra  mt_p
+mt_n:
+    xor  0xFF, ac
+    inc
+    ld   ac, [v7]
+    ld   [v6], ac
+    xor  0x80, ac
+    ld   ac, [v6]
+    ld   [v7], ac
+mt_p:
+    ld   ac, [v7]               ; v7 |cos|
+    ld   ac, [R1]
+    ld   [u0], ac
+    ld   ac, [R0]
+    ld   LINK_LO, x             ; the low byte x |cos| / 128: w0
+    ld   scw_r580, [x]
+    ld   LINK_HI, x
+    ld   scw_r580 >> 8, [x]
+    ld   l_mul8 >> 8, y
+    jmp  l_mul8
+scw_r580:
+    ld   [R2], ac
+    and  0x80, ac
+    beq  mt_0
+    ld   1, ac
+mt_0:
+    ld   ac, [w0]
+    ld   [R3], ac
+    shl
+    or   [w0], ac
+    ld   ac, [w0]
+    ld   [u1], ac
+    ld   ac, [R0]
+    ld   [v7], ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; the high byte x |cos| x 2: w3:w2
+    ld   scw_r581, [x]
+    ld   LINK_HI, x
+    ld   scw_r581 >> 8, [x]
+    ld   l_mul8 >> 8, y
+    jmp  l_mul8
+scw_r581:
+    ld   [R2], ac
+    shl
+    ld   ac, [w2]
+    ld   [R3], ac
+    bcc  mt_1
+    shl
+    inc
+    bra  mt_2
+mt_1:
+    shl
+mt_2:
+    ld   ac, [w3]
+    ld   nv_mt2 >> 8, y
+    jmp  nv_mt2
+
+; nv_mt2 - the sum, its sign, added to NV_RS.  The rest of nv_mt
+nv_atan2:
+    clr  ac
+    ld   ac, [v5]
+    ld   ac, [v4]
+ak_l:
+    ld   [w4], ac
+    ld   ac, [R0]
+    ld   [v4], ac
+    add  NV_TAN & 0xFF, x
+    ld   NV_TAN >> 8, y
+    ld   [y,x], ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; the larger x tan: R3 its whole part
+    ld   scw_r533, [x]
+    ld   LINK_HI, x
+    ld   scw_r533 >> 8, [x]
+    ld   l_mul8 >> 8, y
+    jmp  l_mul8
+scw_r533:
+    ld   [R3], ac
+    sub  [w5], ac
+    bcc  ak_n
+    ld   [v5], ac
+    inc
+    ld   ac, [v5]
+ak_n:
+    ld   [v4], ac
+    inc
+    ld   ac, [v4]
+    xor  4, ac
+    bne  ak_l
+    ld   [w6], ac               ; a = k, or 8 - k
+    beq  ak_a
+    ld   8, ac
+    sub  [v5], ac
+    ld   ac, [v5]
+ak_a:
+    ld   FL_PG, y
+    ld   NV_AX + 1, x
+    ld   [y,x], ac
+    blt  ak_xn
+    ld   NV_AY + 1, x
+    ld   [y,x], ac
+    blt  ak_4
+    ld   [v5], ac               ; x+ y+: a
+    bra  nk_ae
+ak_4:
+    ld   32, ac                 ; x+ y-: 32 - a
+    sub  [v5], ac
+    bra  nk_ae
+ak_xn:
+    ld   NV_AY + 1, x
+    ld   [y,x], ac
+    blt  ak_3
+    ld   16, ac                 ; x- y+: 16 - a
+    sub  [v5], ac
+    bra  nk_ae
+ak_3:
+    ld   16, ac                 ; x- y-: 16 + a
+    add  [v5], ac
+nk_ae:
+    and  31, ac
+    ld   sc_leave >> 8, y
+    jmp  sc_leave
+
+
+#overlay2 0x3700
 nv_gmv:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -13989,77 +14147,76 @@ gm_e:
     jmp  sc_leave
 
 ; nv_modes - the status row's lines (0-15) 1 bpp, the map's (16-383) 2 bpp
-nv_tug:
-    ld   FL_PG, y
-    ld   FL_HD, x
-    ld   [y,x], ac
-    add  2, ac
-    shr  ac
-    shr  ac
-    and  7, ac
-    ld   ac, [v4]               ; the heading in 8ths
-    and  1, ac
-    add  NV_TS & 0xFF, x
-    ld   NV_TS >> 8, y
-    ld   [y,x], ac
-    ld   ac, [v6]               ; its shape
-tu_l:
-    ld   NV_TS >> 8, y
-    ld   [v6], x
-    ld   [y,x], ac
-    xor  0x80, ac
-    beq  tu_d
-    ld   [y,x], ac
-    ld   ac, [v0]
-    ld   [v6], ac
-    add  1, x
-    ld   [y,x], ac
-    ld   ac, [v1]
-    ld   [v4], ac
-    shr  ac
-    ld   ac, [v5]               ; quarter turns: (x, y) to (-y, x)
-tu_q:
-    ld   [v5], ac
-    beq  tu_p
+nv_spd:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
     dec
-    ld   ac, [v5]
-    ld   [v1], ac
-    xor  0xFF, ac
-    inc
-    ld   ac, [v2]
-    ld   [v0], ac
-    ld   ac, [v1]
-    ld   [v2], ac
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
     ld   ac, [v0]
-    bra  tu_q
-tu_p:
-    ld   [v0], ac
-    add  128, ac
-    ld   ac, [u0]
-    ld   [v1], ac
-    add  92, ac
-    ld   ac, [u1]
-    ld   3, ac
-    ld   ac, [u2]
-    ld   LINK_LO, x             ; CALL nv_put
-    ld   scw_r520, [x]
+    ld   NV_RS, ac
+    ld   LINK_LO, x             ; CALL fl_abs
+    ld   scw_r572, [x]
     ld   LINK_HI, x
-    ld   scw_r520 >> 8, [x]
-    ld   nv_put >> 8, y
-    jmp  nv_put
-scw_r520:
-    ld   [v6], ac
-    add  2, ac
-    ld   ac, [v6]
-    bra  tu_l
-tu_d:
-    ld   nv_drift >> 8, y
-    jmp  nv_drift
+    ld   scw_r572 >> 8, [x]
+    ld   fl_abs >> 8, y
+    jmp  fl_abs
+scw_r572:
+    ld   [u1], ac
+    ld   ac, [R3]
+    ld   [u0], ac
+    ld   ac, [R2]
+    ld   [v0], ac
+    beq  nsp_p
+    ld   FL_PG, y
+    ld   NV_RS + 1, x
+    ld   [y,x], ac
+    blt  nsp_n
+    bra  nsp_p
+nsp_n:
+    ld   0x2D, ac
+    ld   LINK_LO, x             ; CALL tputc
+    ld   scw_r573, [x]
+    ld   LINK_HI, x
+    ld   scw_r573 >> 8, [x]
+    ld   tputc >> 8, y
+    jmp  tputc
+scw_r573:
+nsp_p:
+    ld   LINK_LO, x             ; CALL nv_q4
+    ld   scw_r574, [x]
+    ld   LINK_HI, x
+    ld   scw_r574 >> 8, [x]
+    ld   nv_q4 >> 8, y
+    jmp  nv_q4
+scw_r574:
+    ld   LINK_LO, x             ; CALL nv_ms
+    ld   scw_r575, [x]
+    ld   LINK_HI, x
+    ld   scw_r575 >> 8, [x]
+    ld   nv_ms >> 8, y
+    jmp  nv_ms
+scw_r575:
+    ld   LINK_LO, x             ; CALL put_dec
+    ld   scw_r576, [x]
+    ld   LINK_HI, x
+    ld   scw_r576 >> 8, [x]
+    ld   put_dec >> 8, y
+    jmp  put_dec
+scw_r576:
+    ld   sc_leave >> 8, y
+    jmp  sc_leave
 
-; the tug's shapes: filled, pointing 0 degrees (7 tall, 4 long) and 45 (a right
-; triangle, its square corner the tip)
+; nv_dot - NV_RS = the tug's velocity along angle AC: vx cos + vy sin
 
-#overlay2 0x3700
+#overlay2 0x3800
 nv_stat3:
     ld   FL_PG, y
     ld   FL_ML, x
@@ -14375,7 +14532,7 @@ s_km:
 ; the panel's strings: one page (nv_s takes the low byte); the titles are
 ; inverse letters (bit 7)
 
-#overlay2 0x3900
+#overlay2 0x3A00
 nv_tg:
 tg_l:
     ld   NV_DRT >> 8, y
@@ -14526,7 +14683,7 @@ scw_r571:
 
 ; the range's unit
 
-#overlay2 0x3A00
+#overlay2 0x3B00
 nv_draw:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -14906,92 +15063,6 @@ scw_r540:
 ; nv_dec - num in decimal from column AC (put_dec's return is the
 ; caller's).  nv_s - the string in NV_STR's page whose low byte is AC, at
 ; the cursor.  nv_s55 - the same in the sector file's strings (page x55)
-nv_spd:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   ac, [v0]
-    ld   NV_RS, ac
-    ld   LINK_LO, x             ; CALL fl_abs
-    ld   scw_r572, [x]
-    ld   LINK_HI, x
-    ld   scw_r572 >> 8, [x]
-    ld   fl_abs >> 8, y
-    jmp  fl_abs
-scw_r572:
-    ld   [u1], ac
-    ld   ac, [R3]
-    ld   [u0], ac
-    ld   ac, [R2]
-    ld   [v0], ac
-    beq  nsp_p
-    ld   FL_PG, y
-    ld   NV_RS + 1, x
-    ld   [y,x], ac
-    blt  nsp_n
-    bra  nsp_p
-nsp_n:
-    ld   0x2D, ac
-    ld   LINK_LO, x             ; CALL tputc
-    ld   scw_r573, [x]
-    ld   LINK_HI, x
-    ld   scw_r573 >> 8, [x]
-    ld   tputc >> 8, y
-    jmp  tputc
-scw_r573:
-nsp_p:
-    ld   LINK_LO, x             ; CALL nv_q4
-    ld   scw_r574, [x]
-    ld   LINK_HI, x
-    ld   scw_r574 >> 8, [x]
-    ld   nv_q4 >> 8, y
-    jmp  nv_q4
-scw_r574:
-    ld   LINK_LO, x             ; CALL nv_ms
-    ld   scw_r575, [x]
-    ld   LINK_HI, x
-    ld   scw_r575 >> 8, [x]
-    ld   nv_ms >> 8, y
-    jmp  nv_ms
-scw_r575:
-    ld   LINK_LO, x             ; CALL put_dec
-    ld   scw_r576, [x]
-    ld   LINK_HI, x
-    ld   scw_r576 >> 8, [x]
-    ld   put_dec >> 8, y
-    jmp  put_dec
-scw_r576:
-    ld   sc_leave >> 8, y
-    jmp  sc_leave
-
-; nv_dot - NV_RS = the tug's velocity along angle AC: vx cos + vy sin
-nv_term:
-    ld   ac, [v5]
-    ld   [v2], ac
-    blt  tm_n
-    ld   ac, [v3]
-    ld   [v5], ac
-    ld   nv_cm >> 8, y
-    jmp  nv_cm
-tm_n:
-    xor  0xFF, ac
-    inc
-    ld   ac, [v3]
-    ld   [v5], ac
-    add  16, ac
-    ld   nv_cm >> 8, y
-    jmp  nv_cm
-
-; the tug's drift's dots (9, 12, 15 out): x, y pairs, then x80
 nv_px:
     ld   ac, [w2]
     ld   128, ac
@@ -15065,6 +15136,24 @@ pj_off:
 
 
 ; nv_q4 - num = R3:R2 / 4.  A leaf.
+nv_term:
+    ld   ac, [v5]
+    ld   [v2], ac
+    blt  tm_n
+    ld   ac, [v3]
+    ld   [v5], ac
+    ld   nv_cm >> 8, y
+    jmp  nv_cm
+tm_n:
+    xor  0xFF, ac
+    inc
+    ld   ac, [v3]
+    ld   [v5], ac
+    add  16, ac
+    ld   nv_cm >> 8, y
+    jmp  nv_cm
+
+; the tug's drift's dots (9, 12, 15 out): x, y pairs, then x80
 nv_box:
     clr  ac
     ld   ac, [u0]
@@ -15113,48 +15202,6 @@ NV_BXC:
     #d8 0x61, 0x61 + 36, 0x61 + 38, 0x61 + 74, 0x61 + 76, 0x61 + 156
 
 ; nv_pn2 - heading, mass, docked, thrusters.  The rest of nv_panel
-nv_vert:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   ac, [v4]
-    ld   LINK_LO, x             ; CALL nv_cm
-    ld   scw_r518, [x]
-    ld   LINK_HI, x
-    ld   scw_r518 >> 8, [x]
-    ld   nv_cm >> 8, y
-    jmp  nv_cm
-scw_r518:
-    ld   ac, [u0]
-    ld   [v4], ac
-    add  24, ac
-    ld   LINK_LO, x             ; CALL nv_cm
-    ld   scw_r519, [x]
-    ld   LINK_HI, x
-    ld   scw_r519 >> 8, [x]
-    ld   nv_cm >> 8, y
-    jmp  nv_cm
-scw_r519:
-    ld   ac, [u1]
-    ld   sc_leave >> 8, y
-    jmp  sc_leave
-
-; nv_tug - the tug: a small white triangle pointing along its heading, to
-; the nearest of 8 (any finer is ragged at this size): NV_TS's shape for 0
-; or 45 degrees (dx, dy pairs, x80 the end) turned by quarters, then
-; nv_drift.  The rest of
-; nv_draw
-
-#overlay2 0x3E00
 nv_atv:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -15206,49 +15253,6 @@ scw_r529:
 ; nv_atan - AC = the angle (0-31, 0 east, 8 down) of NV_AX, NV_AY
 ; (signed): the octant from the signs and which is larger, then the step
 ; in it from the ratio against tan 5.6, 16.9, 28.1, 39.4 degrees
-nv_dot:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   ac, [v4]
-    ld   FL_PG, y
-    ld   NV_RS, x
-    ld   0x00, [y,x]
-    ld   NV_RS + 1, x
-    ld   0x00, [y,x]
-    ld   FL_VX + 2, ac
-    ld   LINK_LO, x             ; CALL nv_mt
-    ld   scw_r577, [x]
-    ld   LINK_HI, x
-    ld   scw_r577 >> 8, [x]
-    ld   nv_mt >> 8, y
-    jmp  nv_mt
-scw_r577:
-    ld   [v4], ac
-    add  24, ac
-    ld   ac, [v4]
-    ld   FL_VY + 2, ac
-    ld   LINK_LO, x             ; CALL nv_mt
-    ld   scw_r578, [x]
-    ld   LINK_HI, x
-    ld   scw_r578 >> 8, [x]
-    ld   nv_mt >> 8, y
-    jmp  nv_mt
-scw_r578:
-    ld   sc_leave >> 8, y
-    jmp  sc_leave
-
-; nv_mt - NV_RS += the 2 bytes at FL_PG + AC (signed) x cos v4 (COS32:
-; 127 is 1) / 128
 nv_put:
     ld   [u0], ac
     xor  0xFF, ac
@@ -15294,50 +15298,31 @@ np_e:
     jmp  [LINK_LO]
 
 ; nv_rub - the points drawn put back to the grid (or black)
-view_mode:
-    ld   ac, [u0]
-    ld   0x5A, y
-    ld   [u2], ac
-vwm_1:
-    ld   ac, x                  ; (the library's vid_mode, the view only)
-    inc
-    ld   ac, [u1]
-    ld   [u0], ac
-    ld   ac, [y,x]
-    ld   [u1], ac
-    bne  vwm_1
-    ld   0x5B, y
-    ld   0xA0, ac
-vwm_2:
-    dec
-    ld   ac, x
-    ld   ac, [u1]
-    ld   [u0], ac
-    ld   ac, [y,x]
-    ld   [u1], ac
-    bne  vwm_2
-    ld   sc_leave >> 8, y
-    jmp  sc_leave
+nv_q4:
+    ld   [R2], ac
+    shr  ac
+    shr  ac
+    ld   ac, [num_l]
+    ld   [R3], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [num_l], ac
+    ld   ac, [num_l]
+    ld   [R3], ac
+    shr  ac
+    shr  ac
+    ld   ac, [num_h]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
 
-; nv_stat - the status row (row 0): the ship's date and time (CLK: seconds
-; from 05-07-2175 00:00:00, 08:00:00 at the start), the nitrogen (kg),
-; the delta-v it gives (a kg is 20 kN s: kg x 200 / the mass in 100 kg)
-; and the working batteries (NV_QT)
+; nv_ms - num -= num / 16: after nv_q4, 1/256 m a frame in m/s (x 15 /
+; 64).  A leaf.
 
 #overlay2 0x3F00
-NV_TS:
-    #d8 NV_T0 & 0xFF, NV_T1 & 0xFF
-NV_T0:
-    #d8 0xFE, 0xFD, 0xFE, 0xFE, 0xFF, 0xFE, 0xFE, 0xFF, 0xFF, 0xFF, 0x00, 0xFF
-    #d8 0xFE, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x01, 0x00, 0xFE, 0x01, 0xFF, 0x01
-    #d8 0x00, 0x01, 0xFE, 0x02, 0xFF, 0x02, 0xFE, 0x03, 0x80
-NV_T1:
-    #d8 0x01, 0xFD, 0x00, 0xFE, 0x01, 0xFE, 0xFF, 0xFF, 0x00, 0xFF, 0x01, 0xFF
-    #d8 0xFE, 0x00, 0xFF, 0x00, 0x00, 0x00, 0x01, 0x00, 0xFD, 0x01, 0xFE, 0x01
-    #d8 0xFF, 0x01, 0x00, 0x01, 0x01, 0x01, 0x80
-
-; nv_tg - nv_drift's dots: NV_DRT's points round the tug turned to NV_ANG
-; (nv_term).  The end of nv_draw
 nv_keys2:
     ld   [key], ac
     xor  0x29, ac               ; Tab (09, or 20): the next target
@@ -15381,6 +15366,46 @@ nk2_e:
 ; nv_spt - the spin worked out to now: nv_spin for each frame since
 ; FL_SFL, FL_SFH (mod 8192: the heading comes round in that many at any
 ; spin), then fl_dv when the heading changed
+nv_vert:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   ac, [v4]
+    ld   LINK_LO, x             ; CALL nv_cm
+    ld   scw_r518, [x]
+    ld   LINK_HI, x
+    ld   scw_r518 >> 8, [x]
+    ld   nv_cm >> 8, y
+    jmp  nv_cm
+scw_r518:
+    ld   ac, [u0]
+    ld   [v4], ac
+    add  24, ac
+    ld   LINK_LO, x             ; CALL nv_cm
+    ld   scw_r519, [x]
+    ld   LINK_HI, x
+    ld   scw_r519 >> 8, [x]
+    ld   nv_cm >> 8, y
+    jmp  nv_cm
+scw_r519:
+    ld   ac, [u1]
+    ld   sc_leave >> 8, y
+    jmp  sc_leave
+
+; nv_tug - the tug: a white triangle with a notch in its back, pointing along
+; its heading (FL_HD, 32 steps of 11.25 degrees, 0 to the right, clockwise).
+; NV_TS holds steps 0-4 (tug_32_big.py); 5-7 are 3-1 with x and y swapped,
+; and the heading's quarters turn that, (x, y) to (-y, x).  Then nv_drift.
+; The rest of nv_draw
 nv_thr:
     ld   FL_PG, y
     ld   FL_TH, x
@@ -15457,6 +15482,16 @@ m2_3:
 
 ; nv_exit - Esc let go (or the loop would take it for the DOS's), then
 ; back.  The end of nav_main
+nv_qput:
+    ld   ac, x
+    ld   FL_PG, y
+    ld   [w3], ac
+    ld   ac, [y,x]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+; nv_stat2 - the date from the days (w0: May 7 is day 0), the nitrogen.
+; The rest of nv_stat
 
 #overlay2 0x4100
 NV_STR:
@@ -15825,6 +15860,171 @@ SH_SEL:                         ; the target's corners
 ; nv_osel.  The rest of nv_obj
 
 #overlay2 0x4400
+nv_tug:
+    ld   FL_PG, y
+    ld   FL_HD, x
+    ld   [y,x], ac
+    ld   ac, [v4]               ; the heading
+    and  7, ac
+    ld   ac, [v3]               ; its step in the quarter
+    sub  5, ac
+    bcc  tu_m
+    ld   0x00, ac
+    ld   ac, [v7]               ; 0-4: as stored
+    ld   [v3], ac
+    bra  tu_s
+tu_m:
+    ld   1, ac
+    ld   ac, [v7]               ; 5-7: 8 - step, x and y swapped
+    ld   [v3], ac
+    xor  0xFF, ac
+    add  9, ac
+tu_s:
+    add  NV_TS & 0xFF, x
+    ld   NV_TS >> 8, y
+    ld   [y,x], ac
+    ld   ac, [v6]               ; its rows
+    ld   0xFC, ac
+    ld   ac, [v3]               ; from y = -4
+tu_r:
+    ld   NV_TS >> 8, y
+    ld   [v6], x
+    ld   [y,x], ac
+    beq  tu_d
+    and  15, ac
+    ld   ac, [w3]               ; a row: its length,
+    ld   [y,x], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    sub  4, ac
+    ld   ac, [w2]               ;   its first x (x + 4 in the high nibble)
+tu_l:
+    ld   [w2], ac
+    ld   ac, [v0]
+    ld   [v3], ac
+    ld   ac, [v1]
+    ld   [v7], ac
+    beq  tu_n
+    ld   [v1], ac               ; swapped: (x, y) to (y, x)
+    ld   ac, [v2]
+    ld   [v0], ac
+    ld   ac, [v1]
+    ld   [v2], ac
+    ld   ac, [v0]
+tu_n:
+    ld   [v4], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    and  3, ac
+    ld   ac, [v5]               ; quarter turns: (x, y) to (-y, x)
+tu_q:
+    ld   [v5], ac
+    beq  tu_p
+    dec
+    ld   ac, [v5]
+    ld   [v1], ac
+    xor  0xFF, ac
+    inc
+    ld   ac, [v2]
+    ld   [v0], ac
+    ld   ac, [v1]
+    ld   [v2], ac
+    ld   ac, [v0]
+    bra  tu_q
+tu_p:
+    ld   [v0], ac
+    add  128, ac
+    ld   ac, [u0]
+    ld   [v1], ac
+    add  92, ac
+    ld   ac, [u1]
+    ld   3, ac
+    ld   ac, [u2]
+    ld   LINK_LO, x             ; CALL nv_put
+    ld   scw_r520, [x]
+    ld   LINK_HI, x
+    ld   scw_r520 >> 8, [x]
+    ld   nv_put >> 8, y
+    jmp  nv_put
+scw_r520:
+    ld   [w2], ac
+    inc
+    ld   ac, [w2]
+    ld   [w3], ac
+    dec
+    ld   ac, [w3]
+    bne  tu_l
+    ld   [v3], ac
+    inc
+    ld   ac, [v3]
+    ld   [v6], ac
+    inc
+    ld   ac, [v6]
+    bra  tu_r
+tu_d:
+    ld   nv_drift >> 8, y
+    jmp  nv_drift
+
+; the tug's shapes, steps 0-4 (tug_32_big.py: about 9 tall, 11 long, a
+; notch in the back): a byte a row from y = -4 down, x + 4 in the high
+; nibble, the length in the low; 0 the end
+nv_spin:
+    ld   FL_PG, y
+    ld   FL_SPN, x
+    ld   [y,x], ac
+    ld   ac, [u0]
+    ld   FL_STP, x
+    ld   [y,x], ac
+    beq  sp_m
+    ld   [u0], ac
+    beq  sp_0
+    blt  sp_up
+    dec
+    bra  sp_w
+sp_up:
+    inc
+sp_w:
+    ld   ac, [u0]
+    ld   FL_SPN, x
+    ld   ac, [y,x]
+    bra  sp_m
+sp_0:
+    ld   0x00, [y,x]            ; stopped
+sp_m:
+    ld   FL_HF, x
+    ld   [y,x], ac
+    add  [u0], ac
+    ld   ac, [y,x]
+    ld   FL_HD, x
+    ld   [u0], ac
+    blt  spn_n
+    bcc  sp_no                  ; spinning right: a carry, a step on
+    ld   [y,x], ac
+    inc
+    bra  sp_h
+spn_n:
+    bcs  sp_no                  ; left: no carry, a step back
+    ld   [y,x], ac
+    dec
+sp_h:
+    and  31, ac
+    ld   ac, [y,x]
+    ld   1, ac
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+sp_no:
+    clr  ac
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+
+; nv_put - map pixel u0, u1 in color u2 (off the view: nothing), kept in
+; the hidden screen bytes (255 at most) to rub out.  A leaf (nv_plot's).
+
+#overlay2 0x4500
 nav_main:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -15925,58 +16125,49 @@ s_nv3f:                         ; (in nav_main's chunk: not in SCRAP.NV3)
     #d "SCRAP.NV3", 0x00
 
 ; nv_loop - a frame of the screen.  The rest of nav_main
-nv_spin:
+nv_dot:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   ac, [v4]
     ld   FL_PG, y
-    ld   FL_SPN, x
-    ld   [y,x], ac
-    ld   ac, [u0]
-    ld   FL_STP, x
-    ld   [y,x], ac
-    beq  sp_m
-    ld   [u0], ac
-    beq  sp_0
-    blt  sp_up
-    dec
-    bra  sp_w
-sp_up:
-    inc
-sp_w:
-    ld   ac, [u0]
-    ld   FL_SPN, x
-    ld   ac, [y,x]
-    bra  sp_m
-sp_0:
-    ld   0x00, [y,x]            ; stopped
-sp_m:
-    ld   FL_HF, x
-    ld   [y,x], ac
-    add  [u0], ac
-    ld   ac, [y,x]
-    ld   FL_HD, x
-    ld   [u0], ac
-    blt  spn_n
-    bcc  sp_no                  ; spinning right: a carry, a step on
-    ld   [y,x], ac
-    inc
-    bra  sp_h
-spn_n:
-    bcs  sp_no                  ; left: no carry, a step back
-    ld   [y,x], ac
-    dec
-sp_h:
-    and  31, ac
-    ld   ac, [y,x]
-    ld   1, ac
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-sp_no:
-    clr  ac
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
+    ld   NV_RS, x
+    ld   0x00, [y,x]
+    ld   NV_RS + 1, x
+    ld   0x00, [y,x]
+    ld   FL_VX + 2, ac
+    ld   LINK_LO, x             ; CALL nv_mt
+    ld   scw_r577, [x]
+    ld   LINK_HI, x
+    ld   scw_r577 >> 8, [x]
+    ld   nv_mt >> 8, y
+    jmp  nv_mt
+scw_r577:
+    ld   [v4], ac
+    add  24, ac
+    ld   ac, [v4]
+    ld   FL_VY + 2, ac
+    ld   LINK_LO, x             ; CALL nv_mt
+    ld   scw_r578, [x]
+    ld   LINK_HI, x
+    ld   scw_r578 >> 8, [x]
+    ld   nv_mt >> 8, y
+    jmp  nv_mt
+scw_r578:
+    ld   sc_leave >> 8, y
+    jmp  sc_leave
 
-
-; nv_put - map pixel u0, u1 in color u2 (off the view: nothing), kept in
-; the hidden screen bytes (255 at most) to rub out.  A leaf (nv_plot's).
+; nv_mt - NV_RS += the 2 bytes at FL_PG + AC (signed) x cos v4 (COS32:
+; 127 is 1) / 128
 NV_TAN:
     #d8 25, 78, 137, 210
 
@@ -16300,7 +16491,7 @@ scw_r511:
 
 ; the shapes: a count, then x, y pairs (pixels are square)
 
-#overlay2 0x4700
+#overlay2 0x4800
 nv_obj:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -16457,7 +16648,7 @@ scw_r599:
 ; row: offset 2 u1 + 48, or 2 u1 - 207 from 104), bits 2 (u0 & 3) up (the
 ; first pixel the low bits).  A leaf.
 
-#overlay2 0x4800
+#overlay2 0x4900
 nv_pick:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -16615,7 +16806,7 @@ NV_ML:
 ; nv_stat3 - the delta-v: kg x 40 / (the mass / 5), the mass in 100 kg
 ; (255 at most after / 5); then the row (NV_QT).  The rest of nv_stat
 
-#overlay2 0x4900
+#overlay2 0x4A00
 nv_pn2:
     ld   FL_PG, y
     ld   FL_HD, x
@@ -16778,7 +16969,7 @@ ne_2:
 ; circle (a station) or an asterisk (a derelict not visited) or a diamond,
 ; yellow corners when it is the target
 
-#overlay2 0x4A00
+#overlay2 0x4B00
 nv_circ:
     ld   FL_PG, y
     ld   E_R, x
@@ -16942,7 +17133,7 @@ nr_e:
 ; where u0 + NV_GX is 0 mod 64 (a dot where u1 + NV_GY is 0 mod 4) and
 ; where u1 + NV_GY is 0 mod 64 (a dot every 4 across).  A leaf.
 
-#overlay2 0x4B00
+#overlay2 0x4C00
 nv_pn3:
     ld   25, ac
     ld   ac, [CUR_ROW]
@@ -17101,162 +17292,6 @@ NV_DRT:
 ; nv_drift - gold dots 9-15 pixels out the way the tug drifts (when it
 ; does, 2/256 m a frame or more): NV_DRT in nv_tug's loop.  The end of
 ; nv_draw (its LEAVE)
-nv_mt:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    ld   LINK_LO, x             ; u1:u0 its size, u2 where it is
-    ld   scw_r579, [x]
-    ld   LINK_HI, x
-    ld   scw_r579 >> 8, [x]
-    ld   fl_abs >> 8, y
-    jmp  fl_abs
-scw_r579:
-    ld   FL_PG, y
-    ld   [u2], ac
-    inc
-    ld   ac, x
-    ld   [y,x], ac
-    and  0x80, ac
-    ld   ac, [v6]               ; v6: under 0
-    ld   [v4], ac
-    and  31, ac
-    add  COS32 & 0xFF, x
-    ld   COS32 >> 8, y
-    ld   [y,x], ac
-    blt  mt_n
-    bra  mt_p
-mt_n:
-    xor  0xFF, ac
-    inc
-    ld   ac, [v7]
-    ld   [v6], ac
-    xor  0x80, ac
-    ld   ac, [v6]
-    ld   [v7], ac
-mt_p:
-    ld   ac, [v7]               ; v7 |cos|
-    ld   ac, [R1]
-    ld   [u0], ac
-    ld   ac, [R0]
-    ld   LINK_LO, x             ; the low byte x |cos| / 128: w0
-    ld   scw_r580, [x]
-    ld   LINK_HI, x
-    ld   scw_r580 >> 8, [x]
-    ld   l_mul8 >> 8, y
-    jmp  l_mul8
-scw_r580:
-    ld   [R2], ac
-    and  0x80, ac
-    beq  mt_0
-    ld   1, ac
-mt_0:
-    ld   ac, [w0]
-    ld   [R3], ac
-    shl
-    or   [w0], ac
-    ld   ac, [w0]
-    ld   [u1], ac
-    ld   ac, [R0]
-    ld   [v7], ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; the high byte x |cos| x 2: w3:w2
-    ld   scw_r581, [x]
-    ld   LINK_HI, x
-    ld   scw_r581 >> 8, [x]
-    ld   l_mul8 >> 8, y
-    jmp  l_mul8
-scw_r581:
-    ld   [R2], ac
-    shl
-    ld   ac, [w2]
-    ld   [R3], ac
-    bcc  mt_1
-    shl
-    inc
-    bra  mt_2
-mt_1:
-    shl
-mt_2:
-    ld   ac, [w3]
-    ld   nv_mt2 >> 8, y
-    jmp  nv_mt2
-
-; nv_mt2 - the sum, its sign, added to NV_RS.  The rest of nv_mt
-nv_atan2:
-    clr  ac
-    ld   ac, [v5]
-    ld   ac, [v4]
-ak_l:
-    ld   [w4], ac
-    ld   ac, [R0]
-    ld   [v4], ac
-    add  NV_TAN & 0xFF, x
-    ld   NV_TAN >> 8, y
-    ld   [y,x], ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; the larger x tan: R3 its whole part
-    ld   scw_r533, [x]
-    ld   LINK_HI, x
-    ld   scw_r533 >> 8, [x]
-    ld   l_mul8 >> 8, y
-    jmp  l_mul8
-scw_r533:
-    ld   [R3], ac
-    sub  [w5], ac
-    bcc  ak_n
-    ld   [v5], ac
-    inc
-    ld   ac, [v5]
-ak_n:
-    ld   [v4], ac
-    inc
-    ld   ac, [v4]
-    xor  4, ac
-    bne  ak_l
-    ld   [w6], ac               ; a = k, or 8 - k
-    beq  ak_a
-    ld   8, ac
-    sub  [v5], ac
-    ld   ac, [v5]
-ak_a:
-    ld   FL_PG, y
-    ld   NV_AX + 1, x
-    ld   [y,x], ac
-    blt  ak_xn
-    ld   NV_AY + 1, x
-    ld   [y,x], ac
-    blt  ak_4
-    ld   [v5], ac               ; x+ y+: a
-    bra  nk_ae
-ak_4:
-    ld   32, ac                 ; x+ y-: 32 - a
-    sub  [v5], ac
-    bra  nk_ae
-ak_xn:
-    ld   NV_AY + 1, x
-    ld   [y,x], ac
-    blt  ak_3
-    ld   16, ac                 ; x- y+: 16 - a
-    sub  [v5], ac
-    bra  nk_ae
-ak_3:
-    ld   16, ac                 ; x- y-: 16 + a
-    add  [v5], ac
-nk_ae:
-    and  31, ac
-    ld   sc_leave >> 8, y
-    jmp  sc_leave
-
 
 #overlay2 0x4E00
 nv_drift:
@@ -17333,6 +17368,21 @@ nx_e:
 ; view_mode - AC = the mode byte of the view's lines from u2 (x20 + the
 ; line) to 383 (x5B9F): x06 the ship (4 bpp), x05 the map (2 bpp).  The
 ; end of nv_modes and nv_exit (their LEAVE)
+NV_TS:
+    #d8 TUG_S0 & 0xFF, TUG_S1 & 0xFF, TUG_S2 & 0xFF, TUG_S3 & 0xFF, TUG_S4 & 0xFF
+TUG_S0:
+    #d8 0x11, 0x13, 0x25, 0x27, 0x38, 0x27, 0x25, 0x13, 0x11, 0x00
+TUG_S1:
+    #d8 0x21, 0x23, 0x24, 0x35, 0x36, 0x29, 0x17, 0x03, 0x00
+TUG_S2:
+    #d8 0x22, 0x32, 0x33, 0x43, 0x44, 0x27, 0x0A, 0x00
+TUG_S3:
+    #d8 0x32, 0x33, 0x33, 0x34, 0x17, 0x08, 0x18, 0x64, 0x00
+TUG_S4:
+    #d8 0x42, 0x42, 0x42, 0x34, 0x07, 0x08, 0x35, 0x54, 0x72, 0x00
+
+; nv_tg - nv_drift's dots: NV_DRT's points round the tug turned to NV_ANG
+; (nv_term).  The end of nv_draw
 nv_modes:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -17364,38 +17414,6 @@ nmd_e:
     jmp  view_mode
 
 ; nv_draw - the map: the points rubbed out, each object, then the tug
-nv_sh2:
-    ld   [w1], ac
-    and  1, ac
-    beq  sh_a
-    ld   0x80, ac
-sh_a:
-    ld   ac, [w6]
-    ld   [w0], ac
-    shr  ac
-    or   [w6], ac
-    ld   ac, [w0]
-    ld   [w1], ac
-    shr  ac
-    ld   ac, [w1]
-    ld   [w3], ac
-    and  1, ac
-    beq  sh_b
-    ld   0x80, ac
-sh_b:
-    ld   ac, [w6]
-    ld   [w2], ac
-    shr  ac
-    or   [w6], ac
-    ld   ac, [w2]
-    ld   [w3], ac
-    shr  ac
-    ld   ac, [w3]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
-; nv_spd - NV_RS (1/256 m a frame, signed) in m/s; a - first
-; when it is under 0 and AC is 1 (else its size)
 nv_ms:
     ld   [num_l], ac            ; w1:w0 = num >> 4
     shr  ac
@@ -17540,8 +17558,67 @@ DK_TR   = 48                ; the tug's ring's radius
 
 ; dock_main - SCRAP.DK2 and SCRAP.DK3 in, the screen until Esc (or 5, or
 ; you die).  At x4100 (.page: placed first), in SCRAP.DCK
+nv_sh2:
+    ld   [w1], ac
+    and  1, ac
+    beq  sh_a
+    ld   0x80, ac
+sh_a:
+    ld   ac, [w6]
+    ld   [w0], ac
+    shr  ac
+    or   [w6], ac
+    ld   ac, [w0]
+    ld   [w1], ac
+    shr  ac
+    ld   ac, [w1]
+    ld   [w3], ac
+    and  1, ac
+    beq  sh_b
+    ld   0x80, ac
+sh_b:
+    ld   ac, [w6]
+    ld   [w2], ac
+    shr  ac
+    or   [w6], ac
+    ld   ac, [w2]
+    ld   [w3], ac
+    shr  ac
+    ld   ac, [w3]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
 
-#overlay2 0x4F00
+; nv_spd - NV_RS (1/256 m a frame, signed) in m/s; a - first
+; when it is under 0 and AC is 1 (else its size)
+view_mode:
+    ld   ac, [u0]
+    ld   0x5A, y
+    ld   [u2], ac
+vwm_1:
+    ld   ac, x                  ; (the library's vid_mode, the view only)
+    inc
+    ld   ac, [u1]
+    ld   [u0], ac
+    ld   ac, [y,x]
+    ld   [u1], ac
+    bne  vwm_1
+    ld   0x5B, y
+    ld   0xA0, ac
+vwm_2:
+    dec
+    ld   ac, x
+    ld   ac, [u1]
+    ld   [u0], ac
+    ld   ac, [y,x]
+    ld   [u1], ac
+    bne  vwm_2
+    ld   sc_leave >> 8, y
+    jmp  sc_leave
+
+; nv_stat - the status row (row 0): the ship's date and time (CLK: seconds
+; from 05-07-2175 00:00:00, 08:00:00 at the start), the nitrogen (kg),
+; the delta-v it gives (a kg is 20 kN s: kg x 200 / the mass in 100 kg)
+; and the working batteries (NV_QT)
 nv_osel:
     ld   FL_PG, y               ; the target: yellow corners
     ld   NV_I, x
@@ -17589,29 +17666,6 @@ scw_r483:
 
 ; nv_keys - thrust while Up / Down is held, the spin up while Left /
 ; Right is (neither while docked), + - Tab C R
-nv_q4:
-    ld   [R2], ac
-    shr  ac
-    shr  ac
-    ld   ac, [num_l]
-    ld   [R3], ac
-    shl
-    shl
-    shl
-    shl
-    shl
-    shl
-    or   [num_l], ac
-    ld   ac, [num_l]
-    ld   [R3], ac
-    shr  ac
-    shr  ac
-    ld   ac, [num_h]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
-; nv_ms - num -= num / 16: after nv_q4, 1/256 m a frame in m/s (x 15 /
-; 64).  A leaf.
 nv_bit:
     ld   ac, [u6]
     ld   1, ac
@@ -17668,16 +17722,6 @@ ad_f:
     jmp  [LINK_LO]
 
 ; nv_cm - AC = cos (NV_ANG + AC) x v3 / 128 (signed: 127 is 1)
-nv_qput:
-    ld   ac, x
-    ld   FL_PG, y
-    ld   [w3], ac
-    ld   ac, [y,x]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
-; nv_stat2 - the date from the days (w0: May 7 is day 0), the nitrogen.
-; The rest of nv_stat
 
 #overlay3 0x3600
 dk_pxr:
