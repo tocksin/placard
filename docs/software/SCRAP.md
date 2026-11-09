@@ -156,7 +156,7 @@ through a working gas intake installed next to it (a side, not a
 corner), and the fuel the navigation mode will have is the nitrogen in
 the tanks with a working intake by them.  The tug starts with two
 nitrogen tanks, an intake by one, a pump by its O2 tank and a dented
-radar array on its hull; the KESTREL 9 has a pump by its O2 row
+radar array and eight thrusters on its hull; the KESTREL 9 has a pump by its O2 row
 and intakes in its nitrogen room.  The radar does nothing yet: it is for
 a later step of the navigation mode.
 
@@ -257,9 +257,9 @@ in normal video, the rest inverse):
 
 The tug's mass is every cell of it but loose parts, each kind a set mass
 (`gen_scrap.MASS`, in 100 kg: a deck 300 kg, a wall 600, a reactor 6 t,
-a thruster 1.5 t): it starts at 99.8 t.  Each working thruster (under 50 %
-damage) gives 20 kN, so with two the tug speeds up by 0.4 m/s each
-second.  The nitrogen is 400 kg for each nitrogen tank with a working gas
+a thruster 1.5 t): it starts at 108.8 t.  Each working thruster (under 50 %
+damage) gives 20 kN, so with the eight it starts with the tug speeds up
+by 1.5 m/s each second.  The nitrogen is 400 kg for each nitrogen tank with a working gas
 intake by it, less what is burnt: a kg a second a thruster (so a kg is
 20 kN s, and the delta-v is kg x 20 kN s / the mass), and no
 thrust once it is gone.  It is worked out again with the tug's parts

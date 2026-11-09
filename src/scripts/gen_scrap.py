@@ -791,6 +791,12 @@ def build_map(seed=9):
     for x, y, k, s in ((15, 35, 'PUMP', 1),       # the tug's air pump, by its O2 tank
                        (28, 28, 'INTAKE', 2),     # its gas intake, by a nitrogen tank
                        (27, 25, 'RADAR', 6),      # its radar, on the hull: dented
+                       (13, 30, 'THRUST', 1),     # six more thrusters (eight in all),
+                       (13, 34, 'THRUST', 0),     #   set here, after the random damage,
+                       (17, 25, 'THRUST', 2),     #   so the wreck's damage stays the same
+                       (20, 25, 'THRUST', 1),
+                       (17, 39, 'THRUST', 0),
+                       (25, 39, 'THRUST', 2),
                        (53, 36, 'PUMP', 4),       # the wreck's, by its O2 row
                        (49, 51, 'INTAKE', 3), (53, 55, 'INTAKE', 9)):
         t[y][x] = TYPE[k]
