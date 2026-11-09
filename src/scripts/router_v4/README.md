@@ -578,3 +578,46 @@ routed differences (pin access, packing, mixed orientations), not more weight tu
 Fixed in this round: a swap of two parts with different rotations could overlap them (`Legal.ok` saw no moved parts after the swap
 had taken them out of its table; now it also checks the moved parts against each other). The 2026-11-09 morning `optimize` result
 had no such overlap (its swaps were between parts with the same rotation).
+
+### Rules placement and pin swaps (`rules` and `pinswap` modes, 2026-11-09)
+Justin's placement rules (after the `scratch` result "looked like a mess"):
+parts whose nets go to one place sit right at it (the VGA resistors at the VGA connector, packed tight), then the one chip they
+connect to; chips on the same bus side by side; build from the edge inward and leave the middle free for congestion; horizontal
+rows by default, a chip at the end of a bus may turn; gaps around chips; pin swapping goes hand in hand with layout.
+
+`python placeguide.py board.kicad_pcb rules OUT=dir [CENTREW=3] [ROUNDS=20]`: only `SCRATCHFIXED` parts stay; passive banks are
+placed at the fixed connectors first (bank orientation from their mates), then each time the chip with the most links to what is
+already placed goes on a row grid (`ROWPITCH` 19.05 mm, `ICROTS` 90/270) with its decap at the pin-1 end and its own
+single-destination passives beside it. `CENTREW` weights distance from the edge (outside-in), `CHALO` / `PHALO` are the gaps
+around chips / passives. `ROUNDS>0` then runs `optimize` with any rotation (`REFINEROTS`).
+
+`python placeguide.py board.kicad_pcb pinswap OUT=dir` changes pin assignments only (no part moves), from the swap table in
+`pinswap.py`: (D, Q) pairs of 74x377 / 273 / 574 registers and (A, Y) pairs of 74x541 buffers move together; SRAM address pins
+trade among themselves, data pins among themselves; ATF22V10C signals may move to any pin that can carry them (inputs to any
+input or I/O pin, outputs to an I/O pin whose OLMC has enough product terms, 8 to 16; pin 1 and power fixed). Product terms are
+estimated from the `.pld` equations (intermediate names expanded, the smaller of the function and its complement as sum of
+products, never more than the pin it compiles on today), so check each moved output in WinCUPL. ROMs are left out (the image would
+need reordering), and a PLD pin the design leaves unused but the board ties to a net stays put. Greedy: every allowed pair is scored
+with the model, taken best first and re-scored before each commit, four passes. Writes `pinswaps.md` (final was / now table per
+pin) and `pinswapped.kicad_pcb` (a router bench with the pad nets swapped). The swaps are suggestions: applying them means changing
+the schematic and the PLD `PIN` lines. Run it on any placement, e.g. `OUT/placed.kicad_pcb` from `optimize` or `rules`.
+
+Routed the same way (coarse route + tidy VIA 400; the main board is only the test bench, rev A is not changed):
+
+| placement | model cost | routed vias | routed track |
+|---|---|---|---|
+| current (Justin's) | 48.1 k | 578 | 41.49 m |
+| current + pin swaps (401 pins on 30 parts) | 42.9 k | 467 | 38.49 m |
+| current + 20 `optimize` changes | 44.0 k | 532 | 38.42 m |
+| current + `optimize` + pin swaps | 40.7 k | **447** | 36.47 m |
+| `rules`, `CENTREW=1` | 48.6 k | 764 | 43.61 m |
+| `rules`, `CENTREW=3` | 45.4 k | 603 | 39.48 m |
+| `rules`, `CENTREW=3`, wider gaps (`CHALO=3 ROWPITCH=21.59`) | 53.1 k | 757 | 46.44 m |
+| `rules`, `CENTREW=3`, `ROUNDS=20` | 42.2 k | 611 | 37.24 m |
+| `rules` + `ROUNDS=20` + pin swaps | 39.1 k | 515 | **35.76 m** |
+
+Pin swaps are the biggest single gain found so far: -19 % vias on the hand placement, -16 % on the others, and the router
+(not budget-aware in these runs) leaves 10-11 timing lengths over budget instead of 49-55 (`budgets.py U11E=1 DUTY=0.5,0.5`).
+The rules placer gives the shortest track (-14 % with swaps) but still more vias than starting from the hand placement; building
+outside-in matters (`CENTREW` 1 -> 3: 764 -> 603 vias). Uniformly wider gaps cost length and vias: the room has to be left where
+the routing needs it, not everywhere.

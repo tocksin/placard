@@ -32,6 +32,11 @@ Modes:
   swaps [OUT=dir]            ranked position swaps of movable parts with the same footprint.
   optimize OUT=dir           greedy: apply the best legal move or swap, repeat (ROUNDS, MINGAIN), write the move list and
                              OUT/placed.kicad_pcb (copy, signal tracks removed).
+  scratch OUT=dir            place every chip and passive from the netlist (only SCRATCHFIXED parts stay), then optimize.
+  rules OUT=dir              Justin's rules: single-destination passives at their connector, chips outside-in on rows with
+                             bus partners side by side, decap at pin 1 (CENTREW, CHALO, PHALO, ROWPITCH, ROUNDS, REFINEROTS).
+  pinswap OUT=dir            pin swaps only (pinswap.py table: register / buffer bit pairs, SRAM address / data, ATF22V10C pins
+                             within product-term limits): OUT/pinswaps.md + OUT/pinswapped.kicad_pcb (PSMIN, PSPASSES).
 Env (scratch: SCRATCHFIXED regex of parts that keep their place, HALO=0.5 spacing in legalisation, GPITERS=25, ANCHORW,
      ICROTS=90,270 restricts parts with 8+ pads to those absolute rotations, in every mode)
      BIN=5 RES=0.1 TRACK=0.3 CLR=0.25 ALIGN=1.0 WW=0.25 VIAMM=15 OVW=2 MARGIN=1.0 (courtyard to outline) GAP=0 (courtyard gap)
@@ -39,7 +44,7 @@ Env (scratch: SCRATCHFIXED regex of parts that keep their place, HALO=0.5 spacin
      FREE=refs,.. (movable despite FIXED)  ONLY=refs,.. (only these move)  DECAPR=12 (cap on GND/+5V joins the nearest IC)
      SNAP=0.635 (a rotated part's origin stays on this grid)  RAD=10 STEP=1.27 ROTS=0,90,180,270 KEEP=24 (candidates per part passed from the quick screen to the full model)  TOP=25  ROUNDS=30  MINGAIN=5  BUDGET=  DETOUR=1.15  BUDW=20
 """
-import os, sys, re, math, json, collections, time
+import os, sys, re, math, json, collections, time, itertools
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
 from sexpr import parse, find, one
@@ -96,7 +101,7 @@ class Board:
                 drill=float([v for v in dr[1:] if not isinstance(v,list) and v!='oval'][0]) if dr else 0.0
                 lay=one(p,'layers')[1:]
                 P.pads.append(dict(num=p[1],kind=p[2],shape=p[3],lx=lx,ly=ly,rang=pang-P.a,w=float(sz[1]),h=float(sz[2]),
-                    net=int(n[1]) if n else 0,drill=drill,
+                    net=int(n[1]) if n else 0,drill=drill,olx=lx,oly=ly,
                     tht=p[2]=='thru_hole', smd_layer=('F' if 'F.Cu' in lay else 'B')))
             crt=[]; eco=[]
             for g in fp:
@@ -548,8 +553,8 @@ class Model:
         nets=set()
         for i in mem: nets|=self.B.partnets[i]
         return sorted(nets)
-    def _delta(self,mem,old,full):
-        nets=self._affected(mem); B=self.B
+    def _delta(self,mem,old,full,nets=None):
+        nets=self._affected(mem) if nets is None else nets; B=self.B
         if not nets and not full: return 0.0
         mask=np.isin(self.En,nets)
         Eo=self.E[mask]; Eno=self.En[mask]; Er=self.E[~mask]; Enr=self.En[~mask]
@@ -874,12 +879,107 @@ def write_copy(M,src,dst,strip=True):
                         ang=(float(mm.group(3)) if mm.group(3) else 0.0)+da; ang=(ang+180)%360-180
                         return f'{mm.group(1)}(at {mm.group(2)} {ang:g})'
                     blk=re.sub(r'(\n\t\t\((?:pad|fp_text|property)\b[^\n]*?(?:\n[^\n]*?)??)\(at ([-\d.]+ [-\d.]+)(?: ([-\d.]+))?\)',fix,blk)
+            pm=pin_netmap(P)
+            if pm:
+                def padnet(mm):
+                    pb=mm.group(0); num=re.match(r'\(pad "([^"]*)"',pb).group(1)
+                    if num not in pm: return pb
+                    nid=pm[num]; nn=nets.get(nid,'')
+                    pat_=r'\(net \d+ "(?:[^"\\]|\\.)*"\)'
+                    if not nid: return re.sub(r'\n\t\t\t'+pat_,'',pb,count=1)
+                    if re.search(pat_,pb): return re.sub(pat_,f'(net {nid} "{nn}")',pb,count=1)
+                    return re.sub(r'(\(layers [^\n]*)',lambda q:q.group(1)+f'\n\t\t\t(net {nid} "{nn}")',pb,count=1)
+                blk=re.sub(r'\(pad "[^"]*"[^\n]*(?:\n\t\t\t[^\n]*)*',padnet,blk)
             out.append(s[i:j]+blk); i=e; continue
         nm=re.search(r'\(net (\d+)\)',blk)
         if (not strip) or (nm and nets.get(int(nm.group(1)),'') in keep): out.append(s[i:e]); i=e
         else: out.append(s[i:m.start()]); i=e
     assert idx==len(M.B.parts),(idx,len(M.B.parts))
     open(dst,'w',encoding='utf-8').write(''.join(out))
+
+def pin_netmap(P):
+    """after pin swaps: {pad number: net id} for every pad whose net changed (the pad now at a pin's original spot carries its net)"""
+    spot={(round(p['olx'],3),round(p['oly'],3)):p['num'] for p in P.pads}; out={}
+    for p in P.pads:
+        if (round(p['lx'],3),round(p['ly'],3))==(round(p['olx'],3),round(p['oly'],3)): continue
+        num=spot.get((round(p['lx'],3),round(p['ly'],3)))
+        if num is not None: out[num]=p['net']
+    return out
+
+def _pinswap(M,i,a,b):
+    P=M.B.parts[i]
+    for ja,jb in zip(a,b):
+        pa,pb=P.pads[ja],P.pads[jb]
+        pa['lx'],pb['lx']=pb['lx'],pa['lx']; pa['ly'],pb['ly']=pb['ly'],pa['ly']
+    M.S._pads(i)
+
+def pin_swap_pass(M,log=print):
+    """greedy pin swaps from the swap table (pinswap.py): every allowed pair is scored, then taken best first, each one
+    re-scored just before it is committed; repeats until no swap gains PSMIN mm-equivalent. Returns the swaps taken."""
+    import pinswap
+    B=M.B; T=pinswap.table(B); done=[]; PSMIN=float(E('PSMIN','1.0'))
+    for g in T:  # a pin the PLD leaves unused but the board ties to a net is not free
+        if g['info'] is None: continue
+        for sl,(k,nd) in list(g['info'].items()):
+            if k=='free' and B.parts[g['i']].pads[sl[0]]['net'] and not B.netname.get(B.parts[g['i']].pads[sl[0]]['net'],'').startswith('unconnected-'):
+                g['info'][sl]=('fixed',0)
+    def nets_of(i,a,b):
+        return sorted({B.parts[i].pads[j]['net'] for j in a+b}&set(B.nets))
+    def score(g,a,b):
+        i=g['i']; ns=nets_of(i,a,b)
+        if not ns: return 0.0
+        _pinswap(M,i,a,b)
+        try: return M._delta([i],None,False,nets=ns)
+        finally: _pinswap(M,i,a,b)
+    log(f'pin-swap table: {len(T)} groups, '+', '.join(f"{g['ref']} {g['kind']} ({len(g['slots'])})" for g in T))
+    for it in range(int(E('PSPASSES','4'))):
+        cand=[]
+        for g in T:
+            for a,b in itertools.combinations(g['slots'],2):
+                if not pinswap.can_swap(g,a,b): continue
+                d=score(g,a,b)
+                if d<-PSMIN: cand.append((d,id(g),g,a,b))
+        cand.sort(key=lambda c:c[0]); took=0
+        for _,_,g,a,b in cand:
+            d=score(g,a,b)
+            if d>=-PSMIN or not pinswap.can_swap(g,a,b): continue
+            i=g['i']; ns=nets_of(i,a,b); _pinswap(M,i,a,b)
+            for n in ns: M.netedges[n]=M._edges(M.S,n)
+            M._rebuild(); M._bud0=M._budget_excess(M.S)
+            g['pins'][a],g['pins'][b]=g['pins'][b],g['pins'][a]  # the pads (and their signals) moved; the pin numbers they sit on swap
+            P=B.parts[i]; nm=lambda j:B.netname.get(P.pads[j]['net'],'-') or '-'
+            done.append(dict(ref=g['ref'],kind=g['kind'],a=g['pins'][a],b=g['pins'][b],
+                             nets_a='/'.join(nm(j) for j in b),nets_b='/'.join(nm(j) for j in a),gain=-d))
+            took+=1
+        T0=M.terms(); log(f'pass {it+1}: {len(cand)} candidates, {took} swaps, cost {M.cost(T0):.0f} vias {M.vias(T0):.0f} length {T0["length"]/1000:.2f} m')
+        if not took: break
+    return done
+
+def pin_changes_md(M):
+    """final pin assignment changes per part (a chain of greedy swaps collapses to one table row per pin)"""
+    B=M.B; L=['| part | pin | was | now |','|---|---|---|---|']; nparts=npins=0
+    for P in B.parts:
+        pm=pin_netmap(P)
+        if not pm: continue
+        orig={p['num']:p['net'] for p in P.pads}; rows=[(k,orig.get(k,0),v) for k,v in pm.items() if orig.get(k,0)!=v]
+        if not rows: continue
+        nparts+=1; npins+=len(rows)
+        for k,o,v in sorted(rows,key=lambda r:int(r[0]) if r[0].isdigit() else 0):
+            L.append(f"| {P.ref} | {k} | {B.netname.get(o,'-') or '-'} | {B.netname.get(v,'-') or '-'} |")
+    return [f'{npins} pins change on {nparts} parts.','']+L
+
+def mode_pinswap(M,out):
+    """pin swaps only (no part moves) on the board as it is: suggestions table + a router bench copy with the pad nets swapped"""
+    os.makedirs(out,exist_ok=True); T0=M.terms(); c0=M.cost(T0)
+    print(f'start: cost {c0:.0f}, vias {M.vias(T0):.0f}, length {T0["length"]/1000:.2f} m')
+    done=pin_swap_pass(M); T1=M.terms()
+    L=['# Pin-swap suggestions','',f'Board `{M.B.path}`. Model cost {c0:.0f} -> {M.cost(T1):.0f}, expected vias {M.vias(T0):.0f} -> {M.vias(T1):.0f}, '
+       f'MST length {T0["length"]/1000:.2f} -> {T1["length"]/1000:.2f} m ({len(done)} greedy steps).','',
+       'Suggestions only: each change needs the schematic (and for a PLD its PIN lines) changed and rechecked.','']
+    L+=pin_changes_md(M)
+    open(os.path.join(out,'pinswaps.md'),'w').write('\n'.join(L)+'\n')
+    write_copy(M,M.B.path,os.path.join(out,'pinswapped.kicad_pcb'))
+    print('\n'.join(L)); print(f'wrote {out}/pinswaps.md pinswapped.kicad_pcb')
 
 def mode_optimize(M,out):
     """greedy: best legal move or swap of all parts, commit, repeat. Each part's best move is cached and only re-searched when
@@ -1108,6 +1208,155 @@ def mode_scratch(M,out):
     if int(E('ROUNDS','30'))>0: mode_optimize(M2,out)
     print(f'scratch done {time.time()-t:.0f} s')
 
+# ------------------------------------------------------------------ rule-based constructive placement (Justin's rules)
+def mode_rules(M,out):
+    """Constructive placement from the netlist with Justin's rules (2026-11-09):
+    1. a part whose nets go to one place sits at that place: passives (<= 3 pads) are placed outward-in from the fixed parts,
+       packed tightly in banks of one orientation at the connector pins they serve (VGA ladder at J7, audio at J6, ...); passives
+       that only reach other passives of a bank follow that bank;
+    2. then the chip most connected to what is already placed goes next (the colour decoder after the VGA resistors, the audio
+       register after the audio resistors), at the row position that is cheapest for its nets to the placed parts;
+    3. chips on the same bus attract each other through their shared nets, so bus chips land side by side;
+    5. outside in (Justin): the edge is the tight place, so every candidate pays CENTREW mm per mm of distance from the nearest
+       board edge; the middle stays free for the wiring;
+    4. chips are DIPs in rows (ROWPITCH, rotation ICROTS, default 90/270 = horizontal) with the decoupling cap at the pin-1 end;
+       passives that serve a chip are placed right after it, next to its pins.
+    Only SCRATCHFIXED parts keep their place. Writes OUT/rules.kicad_pcb (copy, signal tracks stripped) and a PNG; ROUNDS>0 then
+    refines with optimize (moves only within RAD)."""
+    global FIXED_RE, ICROTS
+    FIXED_RE=SCRATCH_FIXED
+    if not ICROTS: ICROTS={90,270}
+    t=time.time(); B=M.B; S=M.S
+    ROWP=float(E('ROWPITCH','19.05')); PHALO=float(E('PHALO','0.3')); CHALO=float(E('CHALO','1.0')); CENTREW=float(E('CENTREW','1.0'))
+    def edge_d(i):
+        c=S.boxes(i)[0]; return min(c[0]-B.bx0,B.bx1-c[2],c[1]-B.by0,B.by1-c[3])   # outside-in: distance to the nearest board edge
+    pl={n for n,m in B.netname.items() if m in PLANES}
+    fixed=[i for i,P in enumerate(B.parts) if SCRATCH_FIXED.match(P.ref)]
+    fol=[]; chips=[]; pas=[]
+    for i,P in enumerate(B.parts):
+        if i in fixed: continue
+        if all((p['net'] in pl) or not p['net'] for p in P.pads): fol.append(i)
+        elif len(P.pads)<=3: pas.append(i)
+        else: chips.append(i)
+    caps=[i for i in fol if B.parts[i].ref.startswith('C')]; tps=[i for i in fol if i not in caps]
+    # connection weight between parts: each net adds 1/(parts-1)
+    W=collections.defaultdict(collections.Counter)
+    for n,v in B.nets.items():
+        ps={i for i,j in v}
+        if len(ps)<2: continue
+        for a in ps:
+            for b in ps:
+                if a!=b: W[a][b]+=1.0/(len(ps)-1)
+    from matplotlib.path import Path
+    path=Path(B.outline); placed=set(fixed); boxes=[]
+    for i in fixed: boxes.append(S.boxes(i))
+    BX=[]
+    def rebuild():
+        nonlocal BX
+        BX=np.array([b[0] for b in boxes]); 
+    EB=[]
+    def clash(cb,halo):
+        c,es=cb
+        if not path.contains_points([(c[0]-MARGIN,c[1]-MARGIN),(c[2]+MARGIN,c[1]-MARGIN),(c[2]+MARGIN,c[3]+MARGIN),(c[0]-MARGIN,c[3]+MARGIN)]).all(): return True
+        A=np.array([b[0] for b in boxes])
+        if ((c[0]<A[:,2]+halo)&(A[:,0]<c[2]+halo)&(c[1]<A[:,3]+halo)&(A[:,1]<c[3]+halo)).any(): return True
+        for b in boxes:
+            if any(ovl(e,b[0]) for e in es) or any(ovl(e,c) for e in b[1]): return True
+        return False
+    off=(B.bx0-1000,B.by0-1000)
+    for i in chips+pas+fol: S.x[i],S.y[i]=off; S._pads(i)      # forget the present placement
+    def netcost(i):
+        """MST length + bends of part i's nets over the pads of placed parts (and i)"""
+        tcost=0.0
+        for n in B.partnets[i]:
+            pts=[S.pad(a,b) for a,b in B.nets[n] if a in placed or a==i]
+            for x0,y0,x1,y1 in mst_edges(pts):
+                dx=abs(x1-x0); dy=abs(y1-y0); tcost+=dx+dy+(VIAMM*M.K['KB'] if min(dx,dy)>ALIGN else 0)
+        return tcost
+    def put(i,cx,cy,a): set_centre(S,i,cx,cy,a)
+    def place_near(i,tx,ty,rots,halo,maxr=60,need=8,step=1.27):
+        best=None; found=0
+        for r in range(0,maxr):
+            for dx in range(-r,r+1):
+                for dy in range(-r,r+1):
+                    if max(abs(dx),abs(dy))!=r: continue
+                    for a in rots:
+                        put(i,tx+dx*step,ty+dy*step,a)
+                        if clash(S.boxes(i),halo): continue
+                        c=netcost(i)+0.5*math.hypot(dx*step,dy*step)+CENTREW*edge_d(i); found+=1
+                        if best is None or c<best[0]: best=(c,S.x[i],S.y[i],a)
+            if found>=need: break
+        if best is None:
+            if halo>0 or maxr<200:  # board too full for the halo: retry tight and wider
+                print(f'  {B.parts[i].ref}: no spot with halo {halo}, retrying tight'); return place_near(i,tx,ty,rots,0.0,200,1,step)
+            raise SystemExit(f'no spot for {B.parts[i].ref}')
+        S.x[i],S.y[i],S.a[i]=best[1],best[2],best[3]; S._pads(i); placed.add(i); boxes.append(S.boxes(i))
+    def pin_target(i):
+        """centroid of the placed pads part i connects to"""
+        pts=[S.pad(a,b) for n in B.partnets[i] for a,b in B.nets[n] if a in placed and a!=i]
+        return (np.mean([p[0] for p in pts]),np.mean([p[1] for p in pts])) if pts else None
+    log=[]
+    def place_passives(level_from):
+        """passives reachable from the given placed parts through passives only, nearest first (banks)"""
+        todo=[i for i in pas if i not in placed and any(k in level_from for k in W[i])]
+        while todo:
+            todo.sort(key=lambda i:-sum(w for k,w in W[i].items() if k in placed))
+            i=todo.pop(0)
+            if i in placed: continue
+            tg=pin_target(i)
+            if tg is None: continue
+            # bank orientation: the orientation of the passives already placed at the same home, else best of 0/90
+            home=max((k for k in W[i] if k in placed),key=lambda k:W[i][k])
+            mates=[k for k in pas if k in placed and home in W[k]]
+            rots=[S.a[mates[0]]%360] if mates else [0.0,90.0]
+            place_near(i,tg[0],tg[1],rots,PHALO,need=4); log.append(f'{B.parts[i].ref} at {B.parts[home].ref}')
+            todo+= [k for k in pas if k not in placed and i in W[k] and k not in todo]
+    place_passives(set(fixed))
+    rows=np.arange(B.by0+MARGIN+8,B.by1-MARGIN-5,ROWP)
+    capq=list(caps)
+    while True:
+        rest=[i for i in chips if i not in placed]
+        if not rest: break
+        att=lambda i:sum(w for k,w in W[i].items() if k in placed)
+        i=max(rest,key=lambda i:(att(i),len(B.parts[i].pads)))
+        P=B.parts[i]; dip='DIP' in P.lib
+        tg=pin_target(i) or ((B.bx0+B.bx1)/2,(B.by0+B.by1)/2)
+        if dip:
+            best=None
+            for ry in rows:
+                if abs(ry-tg[1])>80: continue
+                for xx in np.arange(B.bx0+MARGIN+2,B.bx1-MARGIN-2,2.54):
+                    if abs(xx-tg[0])>110: continue
+                    for a in sorted(ICROTS):
+                        put(i,xx,ry,float(a))
+                        c,_=S.boxes(i)
+                        # room for the decap left of the chip (vertical cap, 1 mm gap)
+                        if clash(((c[0]-5.0,c[1],c[2],c[3]),S.boxes(i)[1]),CHALO): continue
+                        cc=netcost(i)+CENTREW*edge_d(i)
+                        if best is None or cc<best[0]: best=(cc,S.x[i],S.y[i],float(a))
+            if best is None: place_near(i,tg[0],tg[1],[float(a) for a in ICROTS],CHALO)
+            else: S.x[i],S.y[i],S.a[i]=best[1],best[2],best[3]; S._pads(i); placed.add(i); boxes.append(S.boxes(i))
+            if capq:
+                k=capq.pop(0); c,_=S.boxes(i); put(k,c[0]-2.0,(c[1]+c[3])/2,90.0)
+                if clash(S.boxes(k),0.0): place_near(k,c[0]-2.0,(c[1]+c[3])/2,[90.0,0.0],0.0,need=1)
+                else: placed.add(k); boxes.append(S.boxes(k))
+        else:
+            place_near(i,tg[0],tg[1],[0.0,90.0,180.0,270.0],CHALO)
+        log.append(f'{P.ref} ({att(i):.1f} links to placed)')
+        place_passives({i})
+    for i in [k for k in pas if k not in placed]:
+        tg=pin_target(i) or ((B.bx0+B.bx1)/2,(B.by0+B.by1)/2); place_near(i,tg[0],tg[1],[0.0,90.0],PHALO,need=4)
+    for k in capq+tps:
+        place_near(k,(B.bx0+B.bx1)/2,(B.by0+B.by1)/2,[90.0,0.0],0.3,maxr=120,need=1)
+    print(f'rules placement {time.time()-t:.0f} s; order: '+', '.join(l for l in log if l.startswith('U') or l.startswith('X') or l.startswith('K')),flush=True)
+    os.makedirs(out,exist_ok=True); p0=os.path.join(out,'rules.kicad_pcb'); write_copy(M,B.path,p0)
+    M2=Model(p0); M2.ready(); T=M2.terms(); print('rules:',fmt_terms(M2,T),flush=True)
+    draw(M2,os.path.join(out,'rules.png'),'rule-based placement (from scratch)')
+    if int(E('ROUNDS','0'))>0:
+        # clean-up: any rotation is allowed now (Justin: turning a chip at the end of a bus can make sense), taken only when it pays
+        ICROTS={int(float(a))%360 for a in E('REFINEROTS','0,90,180,270').split(',') if a}
+        mode_optimize(M2,out)
+
 def main():
     a=[x for x in sys.argv[1:] if '=' not in x]
     for x in sys.argv[1:]:
@@ -1124,6 +1373,8 @@ def main():
     elif mode=='swaps': mode_swaps(M,out)
     elif mode=='optimize': mode_optimize(M,out)
     elif mode=='scratch': mode_scratch(M,out)
+    elif mode=='rules': mode_rules(M,out)
+    elif mode=='pinswap': mode_pinswap(M,out)
     else: print(__doc__); sys.exit(1)
 
 if __name__=='__main__': main()
