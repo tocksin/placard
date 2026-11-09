@@ -1,339 +1,957 @@
-"""placeguide.py board.kicad_pcb [out_prefix] : placement guidance for routability. Never routes and never edits the board.
-Estimates how hard the placement is to route from the pads and nets alone, explains where and why, and suggests component
-moves (translation + rotation) that should make routing easier. Ignores existing copper for the estimate; when the board
-has copper it is used to calibrate the model (how well the estimate predicts the copper and vias the router really made).
-What the model treats as routing difficulty (GND/+5V are inner planes and do not count as wiring):
-  - wirelength: rectilinear minimum spanning tree per net, critical nets weighted (WL).
-  - congestion: RUDY (Spindler and Johannes, DATE 2007), each tree edge spreads its wire uniformly over its bounding box,
-    per TILE mm tile; capacity is the two routing layers at the track pitch, minus pads and their clearance (UTIL of it usable).
-  - via pressure: tree edges that need both axes (a bend, usually a layer change on a horizontal/vertical two-layer board) and
-    crossings with other nets' edges; fitted against the real per-net via counts when the board has copper.
-Moves: every free component is tried at positions within RADIUS mm on a STEP mm grid and in 4 rotations; a fast half-perimeter
-filter keeps the best KEEP legal candidates, the full model scores those, and the best moves are applied in turn (in memory) for
-ROUNDS rounds, so later suggestions build on the earlier ones. Legal = courtyard inside the board edge, clear of other courtyards
-(same side, or either part through-hole), the edge keep-outs and the J8 pad field.
-Held in place: locked footprints, references matching FIX (connectors, mounting holes, switches, relays, crystals by default)
-and parts whose only nets are planes (decoupling capacitors: placement is electrical, not routing).
-env: TILE=4  UTIL=0.6  CAPFLOOR=0.25  COEF=a,b,c (via model coefficients instead of fitting them to this board's copper)  STEP=2.54  RADIUS=12.7  KEEP=12  ROUNDS=4  MAXMOVES=25  MINGAIN=2 (mm-equivalent)  VIAMM=25 (mm of track worth one via)
-     OVW=30 (mm-equivalent per unit of squared overflow)  CRIT=3 (weight of critical nets)  FIX=<regex>  ALLOW=<refs, comma list, only these move>
-Outputs: report on stdout, <prefix>.svg (congestion map and arrows), <prefix>_moves.csv. Predictions are model estimates, not routed results."""
-import sys, os, math, re, csv, time
+"""placeguide.py board.kicad_pcb MODE [args] : component placement guidance from the pads only (no routing, tracks ignored).
+
+It scores a placement with what makes the router v4 work hard on this board (2 signal layers, F.Cu horizontal, B.Cu vertical,
+inner planes GND / +5V, through-hole parts), and searches moves, rotations and swaps that lower the score.
+The board file is never written to; MODE optimize writes a moved COPY with the signal tracks removed (a router bench).
+
+Model (all from pads; GND / +5V go to the planes and are left out):
+  - topology  : every net becomes its rectilinear minimum spanning tree (MST) of pads; each MST edge is one connection.
+  - length    : sum of the Manhattan lengths of the MST edges (mm).
+  - bends     : a connection whose pads differ by more than ALIGN in both x and y needs an L, and with layer discipline an L
+                means one via; an aligned connection can be one straight track on its own layer with no via.
+  - crossings : two connections of different nets that run the same way (both mostly horizontal, or both vertical) and swap
+                order along their common span must cross on the same layer: one of them has to jog (vias). Counted in three
+                classes: both aligned (a2), one aligned (a1), neither (a0). Bus pin-order inversions are the big source.
+  - congestion: the board is binned at BIN mm. Capacity of a bin per direction = parallel tracks (TRACK + CLR pitch) that pass
+                straight through it on its preferred layer, plus WW x the other layer, after pads (dilated by CLR + TRACK/2),
+                NPTH holes, the 1 mm outline band and the mounting-hole bands are rasterised at RES mm. Demand = RUDY spread of
+                each connection over its bounding box, split by direction. Overflow = demand above capacity (tracks).
+  - vias      : expected vias = KB*bends + K2*a2 + K1*a1 + K0*a0 + KC*congestion exposure; the K values come from `fit`
+                (least squares of the per-net via counts of a routed board against the per-net features).
+  cost = length + VIAMM * expected vias + OVW * overflow * BIN   (VIAMM 15 mm = the router's via cost; all in mm)
+  - budgets   : BUDGET=budgets.json (budgets.py) adds BUDW mm per mm that a pair's straight distance x DETOUR is over its budget.
+
+Modes:
+  report [OUT=dir]           metrics, problem lists (worst bus-order pairs, hottest bins, nets with most bends, budget pairs
+                             that cannot be met), congestion heatmap PNG, JSON.
+  fit [routed.kicad_pcb ..]  calibrate K values against the routed board(s) (default: the board itself); writes
+                             placeguide_fit.json (read by the other modes through FIT=, default next to this script).
+  sweep REF [OUT=dir]        cost of REF (with its decoupling caps) over every legal position in RAD mm at STEP mm and the
+                             four rotations: heatmap PNG + best positions.
+  moves [OUT=dir]            best single move / rotation of every movable part, ranked by gain.
+  swaps [OUT=dir]            ranked position swaps of movable parts with the same footprint.
+  optimize OUT=dir           greedy: apply the best legal move or swap, repeat (ROUNDS, MINGAIN), write the move list and
+                             OUT/placed.kicad_pcb (copy, signal tracks removed).
+Env: BIN=5 RES=0.1 TRACK=0.3 CLR=0.25 ALIGN=1.0 WW=0.25 VIAMM=15 OVW=2 MARGIN=1.0 (courtyard to outline) GAP=0 (courtyard gap)
+     FIXED=regex of parts never moved (default connectors, holes, switches, relay, clock, jumpers, test points, net ties)
+     FREE=refs,.. (movable despite FIXED)  ONLY=refs,.. (only these move)  DECAPR=12 (cap on GND/+5V joins the nearest IC)
+     SNAP=0.635 (a rotated part's origin stays on this grid)  RAD=10 STEP=1.27 ROTS=0,90,180,270 KEEP=24 (candidates per part passed from the quick screen to the full model)  TOP=25  ROUNDS=30  MINGAIN=5  BUDGET=  DETOUR=1.15  BUDW=20
+"""
+import os, sys, re, math, json, collections, time
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
-from board import load, outline, rot
-from sexpr import find, one
-import rules
-from shapely.geometry import Polygon, box
-from shapely.prepared import prep
+from sexpr import parse, find, one
+from board import rot, outline
 E=os.environ.get
-src=sys.argv[1]; prefix=sys.argv[2] if len(sys.argv)>2 else os.path.splitext(os.path.basename(src))[0]+'_place'
-T=float(E('TILE','4')); CAPFLOOR=float(E('CAPFLOOR','0.25')); UTIL=float(E('UTIL','0.6')); STEP=float(E('STEP','2.54')); RADIUS=float(E('RADIUS','12.7')); KEEP=int(E('KEEP','12'))
-ROUNDS=int(E('ROUNDS','4')); MAXMOVES=int(E('MAXMOVES','25')); MINGAIN=float(E('MINGAIN','2')); VIAMM=float(E('VIAMM','25')); OVW=float(E('OVW','30')); CRITW=float(E('CRIT','3'))
-FIX=re.compile(E('FIX',r'^(J|JP|H|SW|K|Y|LS|BT|TP|FID|MH|NT)\d')); ALLOW=set(filter(None,E('ALLOW','').split(',')))
-PITCH=0.55; CLR=0.25; AXIS=1.0
-CRIT={'STALL_IN','STALL_OUT','~{HSYNC}','~{VSYNC}','~{WE}','PIXEL_ENABLE','CLK','RUN'}
-t0=time.time()
-b,nets,fps,pads,edges=load(src)
-bp=Polygon(outline(edges)); inner=prep(bp.buffer(-rules.EDGE)); bx0,by0,bx1,by1=bp.bounds
-OX=math.floor(bx0)-T; OY=math.floor(by0)-T; NX=int((bx1-OX)/T)+2; NY=int((by1-OY)/T)+2
-FX0,FX1,FY0,FY1=233.6,268.4,125.6,133.6   # J8 pad field (as gridcore)
-keepouts=rules.hole_edge_keepouts(pads,bp,CLR)+[box(FX0,FY0,FX1,FY1)]
-# ---- components
-fpnode={}
-for fp in find(b,'footprint'):
-    ref=([p[2] for p in find(fp,'property') if p[1]=='Reference']+[t[2] for t in find(fp,'fp_text') if t[1]=='reference'])[0]
-    fpnode[ref]=fp
-def courtyard(fp):
+BIN=float(E('BIN','5.0')); RES=float(E('RES','0.1')); TRACK=float(E('TRACK','0.3')); CLR=float(E('CLR','0.25'))
+ALIGN=float(E('ALIGN','1.0')); WW=float(E('WW','0.25')); VIAMM=float(E('VIAMM','15')); OVW=float(E('OVW','2'))
+MARGIN=float(E('MARGIN','1.0')); GAP=float(E('GAP','0')); DECAPR=float(E('DECAPR','12'))
+EDGEBAND=float(E('EDGE','1.0')); STRIPS=int(E('STRIPS','5')); SNAP=float(E('SNAP','0.635')); PITCH=TRACK+CLR; GROW=CLR+TRACK/2
+FIXED_RE=re.compile(E('FIXED',r'^(J|H|SW|K|X|JP|TP|NT|G|LOGO|REF)\d*$'))
+FREE=set(x for x in E('FREE','').split(',') if x); ONLY=set(x for x in E('ONLY','').split(',') if x)
+PLANES=set(E('PLANES','GND,+5V').split(','))
+FITFILE=E('FIT',os.path.join(TOOLS,'placeguide_fit.json'))
+DEFAULT_K={'KB':0.55,'K2':1.0,'K1':0.05,'K0':0.05,'KC':0.1,'KX':0.1}
+
+def lin(v): return [float(t) for t in v]
+
+# ------------------------------------------------------------------ board model
+class Part:
+    pass
+
+def _gpts(g):
     pts=[]
-    for kind in ('fp_line','fp_rect','fp_arc','fp_circle','fp_poly'):
-        for g in find(fp,kind):
-            L=one(g,'layer')
-            if not L or not str(L[1]).endswith('CrtYd'): continue
-            for k in ('start','mid','end','center'):
-                q=one(g,k)
-                if q: pts.append((float(q[1]),float(q[2])))
-            if kind=='fp_poly':
-                pts+=[(float(q[1]),float(q[2])) for q in find(one(g,'pts'),'xy')]
-            if kind=='fp_circle':
-                c=one(g,'center'); e=one(g,'end'); r=math.hypot(float(e[1])-float(c[1]),float(e[2])-float(c[2]))
-                pts+=[(float(c[1])+r,float(c[2])+r),(float(c[1])-r,float(c[2])-r)]
+    for k in ('start','end','mid','center'):
+        o=one(g,k)
+        if o: pts.append(tuple(lin(o[1:3])))
+    if g[0]=='fp_circle':
+        c=one(g,'center'); e=one(g,'end')
+        if c and e:
+            cx,cy=lin(c[1:3]); r=math.dist((cx,cy),lin(e[1:3])); pts+= [(cx-r,cy-r),(cx+r,cy+r)]
+    pl=one(g,'pts')
+    if pl: pts+=[tuple(lin(xy[1:3])) for xy in find(pl,'xy')]
     return pts
-idx={}; C=[]
-for ref,x,y,a,lib in fps:
-    fp=fpnode[ref]; locked=any(s=='locked' for s in fp[:4] if isinstance(s,str)) or (one(fp,'locked') is not None and one(fp,'locked')[1]=='yes')
-    side='B' if one(fp,'layer')[1]=='B.Cu' else 'F'
-    idx[ref]=len(C); C.append(dict(ref=ref,x=x,y=y,a=a,lib=lib,locked=locked,side=side,pads=[],crt=courtyard(fp),x0=x,y0=y))
-P=[]
-for p in pads:
-    c=C[idx[p['ref']]]; p['ci']=idx[p['ref']]; p['i']=len(P); c['pads'].append(len(P)); P.append(p)
-px=np.array([p['x'] for p in P]); py=np.array([p['y'] for p in P])
-pw=np.array([max(abs(p['w']*math.cos(math.radians(p['ang'])))+abs(p['h']*math.sin(math.radians(p['ang']))),0.1) for p in P])+2*CLR
-ph=np.array([max(abs(p['h']*math.cos(math.radians(p['ang'])))+abs(p['w']*math.sin(math.radians(p['ang']))),0.1) for p in P])+2*CLR
-THRU=np.array([p['kind'] in ('thru_hole','np_thru_hole') for p in P]);
-for c in C:
-    c['tht']=bool(c['pads'] and THRU[c['pads']].any())
-    if c['crt']:
-        q=[rot(u,v,c['a']) for u,v in c['crt']]; c['ofs']=q
-    else:
-        s=[(px[i]-c['x'],py[i]-c['y']) for i in c['pads']] or [(0,0)]
-        xs=[u for u,v in s]; ys=[v for u,v in s]; g=0.75; c['ofs']=[(min(xs)-g,min(ys)-g),(max(xs)+g,max(ys)+g)]
-def aabb(ofs,cx,cy):
-    xs=[cx+u for u,v in ofs]; ys=[cy+v for u,v in ofs]; return min(xs),min(ys),max(xs),max(ys)
-for c in C: c['box']=aabb(c['ofs'],c['x'],c['y'])
-CX0=np.array([c['box'][0] for c in C]); CY0=np.array([c['box'][1] for c in C]); CX1=np.array([c['box'][2] for c in C]); CY1=np.array([c['box'][3] for c in C])
-CSIDE=np.array([c['side']=='F' for c in C]); CTHT=np.array([c['tht'] for c in C])
-# ---- nets
-netpads={}
-for p in P:
-    if p['net'] and p['netname'] not in rules.PLANE_NETS and not p['netname'].startswith('unconnected'): netpads.setdefault(p['net'],[]).append(p['i'])
-netpads={n:np.array(v) for n,v in netpads.items() if len(v)>=2}
-netw={n:(CRITW if nets[n] in CRIT else 1.0) for n in netpads}
-def plane_only(c): return all(P[i]['netname'] in rules.PLANE_NETS or not P[i]['net'] for i in c['pads'])
-for c in C:
-    c['free']=not (c['locked'] or FIX.match(c['ref']) or plane_only(c) or not c['pads'])
-    if ALLOW: c['free']=c['free'] and c['ref'] in ALLOW
-    c['nets']=sorted({P[i]['net'] for i in c['pads'] if P[i]['net'] in netpads})
-def mst(n):
-    """rectilinear MST of the net's pads (Prim); returns edge array (x0,y0,x1,y1), one row per edge"""
-    ii=netpads[n]; x=px[ii]; y=py[ii]; m=len(ii)
-    d=np.abs(x-x[0])+np.abs(y-y[0]); par=np.zeros(m,int); inn=np.zeros(m,bool); inn[0]=True; out=np.zeros((m-1,4))
-    for k in range(m-1):
-        dd=d.copy(); dd[inn]=np.inf; j=int(dd.argmin()); out[k]=(x[par[j]],y[par[j]],x[j],y[j]); inn[j]=True
-        nd=np.abs(x-x[j])+np.abs(y-y[j]); upd=nd<d; d[upd]=nd[upd]; par[upd]=j
+
+def bbox(pts):
+    xs=[p[0] for p in pts]; ys=[p[1] for p in pts]; return (min(xs),min(ys),max(xs),max(ys))
+
+class Board:
+    def __init__(self,path):
+        self.path=path; s=open(path,encoding='utf-8').read(); b=parse(s); self.tree=b
+        self.netname={int(n[1]):n[2] for n in find(b,'net')}
+        self.parts=[]; self.npth=[]
+        for fp in find(b,'footprint'):
+            P=Part(); P.lib=fp[1]
+            P.ref=([p[2] for p in find(fp,'property') if p[1]=='Reference']+[t[2] for t in find(fp,'fp_text') if t[1]=='reference'])[0]
+            at=one(fp,'at'); P.x,P.y=float(at[1]),float(at[2]); P.a=float(at[3]) if len(at)>3 else 0.0
+            P.layer=one(fp,'layer')[1]
+            P.pads=[]
+            for p in find(fp,'pad'):
+                pa=one(p,'at'); lx,ly=float(pa[1]),float(pa[2]); pang=float(pa[3]) if len(pa)>3 else 0.0
+                sz=one(p,'size'); n=one(p,'net'); dr=one(p,'drill')
+                drill=float([v for v in dr[1:] if not isinstance(v,list) and v!='oval'][0]) if dr else 0.0
+                lay=one(p,'layers')[1:]
+                P.pads.append(dict(num=p[1],kind=p[2],shape=p[3],lx=lx,ly=ly,rang=pang-P.a,w=float(sz[1]),h=float(sz[2]),
+                    net=int(n[1]) if n else 0,drill=drill,
+                    tht=p[2]=='thru_hole', smd_layer=('F' if 'F.Cu' in lay else 'B')))
+            crt=[]; eco=[]
+            for g in fp:
+                if not (isinstance(g,list) and g and g[0] in ('fp_line','fp_rect','fp_poly','fp_circle','fp_arc')): continue
+                L=one(g,'layer')
+                if not L: continue
+                if L[1] in ('F.CrtYd','B.CrtYd'): crt+=_gpts(g)
+                elif L[1]=='Eco1.User': eco.append(bbox(_gpts(g)))
+            if not crt:
+                crt=[(p['lx']-p['w']/2-0.25,p['ly']-p['h']/2-0.25) for p in P.pads]+[(p['lx']+p['w']/2+0.25,p['ly']+p['h']/2+0.25) for p in P.pads]
+            P.crt=bbox(crt) if crt else (-0.5,-0.5,0.5,0.5)
+            P.eco=eco
+            self.parts.append(P)
+        self.byref={P.ref:i for i,P in enumerate(self.parts)}
+        edges=[]
+        for g in find(b,'gr_line')+find(b,'gr_arc')+find(b,'gr_rect'):
+            if one(g,'layer')[1]!='Edge.Cuts': continue
+            if g[0]=='gr_rect':
+                x0,y0=lin(one(g,'start')[1:3]); x1,y1=lin(one(g,'end')[1:3])
+                edges+= [[(x0,y0),(x1,y0)],[(x1,y0),(x1,y1)],[(x1,y1),(x0,y1)],[(x0,y1),(x0,y0)]]; continue
+            edges.append([tuple(lin(one(g,k)[1:3])) for k in ('start','mid','end') if one(g,k)])
+        self.outline=outline(edges)
+        ox=[p[0] for p in self.outline]; oy=[p[1] for p in self.outline]
+        self.bx0,self.by0,self.bx1,self.by1=min(ox),min(oy),max(ox),max(oy)
+        # nets: (part, pad) lists, planes and single-pad nets out
+        nl=collections.defaultdict(list)
+        for i,P in enumerate(self.parts):
+            for j,p in enumerate(P.pads):
+                if p['kind']=='np_thru_hole' or not p['net']: continue
+                nm=self.netname.get(p['net'],'')
+                if nm in PLANES or nm.startswith('unconnected-'): continue
+                nl[p['net']].append((i,j))
+        self.nets={n:v for n,v in nl.items() if len(v)>=2}
+        self.partnets=collections.defaultdict(set)
+        for n,v in self.nets.items():
+            for i,j in v: self.partnets[i].add(n)
+        self._groups()
+
+    def _groups(self):
+        """movable groups: each movable part, with decoupling caps (2 pads on GND and +5V) riding along with the nearest IC"""
+        pl={n for n,m in self.netname.items() if m in PLANES}
+        def mov(P):
+            if ONLY: return P.ref in ONLY
+            return P.ref in FREE or not FIXED_RE.match(P.ref)
+        ics=[i for i,P in enumerate(self.parts) if P.ref.startswith('U') and mov(P)]
+        self.leader={}; self.members=collections.defaultdict(list)
+        for i,P in enumerate(self.parts):
+            if not mov(P): continue
+            nets={p['net'] for p in P.pads}
+            if P.ref.startswith('C') and len(P.pads)==2 and nets<=pl and len(nets)==2 and ics:
+                k=min(ics,key=lambda u:math.dist((self.parts[u].x,self.parts[u].y),(P.x,P.y)))
+                if math.dist((self.parts[k].x,self.parts[k].y),(P.x,P.y))<=DECAPR:
+                    self.leader[i]=k; continue
+        for i,P in enumerate(self.parts):
+            if mov(P) and i not in self.leader: self.members[i]=[i]+[c for c,k in self.leader.items() if k==i]
+        self.movable=sorted(self.members)
+
+# ------------------------------------------------------------------ geometry of a state
+def rbox(b,a):
+    """local box b rotated by a (multiples of 90 exact; others: box of the rotated corners)"""
+    pts=[rot(x,y,a) for x in (b[0],b[2]) for y in (b[1],b[3])]
+    return bbox(pts)
+
+class State:
+    """positions/angles of every part; pad coordinates cached"""
+    def __init__(self,B):
+        self.B=B; self.x=np.array([P.x for P in B.parts]); self.y=np.array([P.y for P in B.parts]); self.a=np.array([P.a for P in B.parts])
+        self.padxy=[None]*len(B.parts)
+        for i in range(len(B.parts)): self._pads(i)
+    def copy(self):
+        s=State.__new__(State); s.B=self.B; s.x=self.x.copy(); s.y=self.y.copy(); s.a=self.a.copy(); s.padxy=list(self.padxy); return s
+    def _pads(self,i):
+        P=self.B.parts[i]; a=self.a[i]
+        self.padxy[i]=[(self.x[i]+rot(p['lx'],p['ly'],a)[0],self.y[i]+rot(p['lx'],p['ly'],a)[1]) for p in P.pads]
+    def pad(self,i,j): return self.padxy[i][j]
+    def boxes(self,i):
+        """absolute courtyard box and eco boxes of part i"""
+        P=self.B.parts[i]; a=self.a[i]; x,y=self.x[i],self.y[i]
+        c=rbox(P.crt,a); c=(c[0]+x,c[1]+y,c[2]+x,c[3]+y)
+        es=[]
+        for e in P.eco:
+            r=rbox(e,a); es.append((r[0]+x,r[1]+y,r[2]+x,r[3]+y))
+        return c,es
+    def apply(self,g,dx,dy,da):
+        """rotate group g (leader and its decoupling caps) by da about the centre of the leader's courtyard, then move it by
+        dx,dy; returns undo info. A 180-degree turn keeps the part where it is (a DIP footprint's origin is pin 1, not the centre)"""
+        B=self.B; mem=B.members[g]; c=self.boxes(g)[0]; cx,cy=(c[0]+c[2])/2,(c[1]+c[3])/2
+        old=[(i,self.x[i],self.y[i],self.a[i],self.padxy[i]) for i in mem]
+        for i in mem:
+            ox,oy=self.x[i]-cx,self.y[i]-cy
+            if da:
+                # KiCad: rotating by +da (CCW on screen) maps local offsets with rot(.,.,da)
+                ox,oy=rot(ox,oy,da)
+            self.x[i]=cx+dx+ox; self.y[i]=cy+dy+oy; self.a[i]=(self.a[i]+da)%360
+            if self.a[i]>180: self.a[i]-=360
+        if da and SNAP>0:
+            # keep the leader's origin on its SNAP grid (pins stay on the 0.635 mm grid of the board)
+            sx=round((self.x[g]-old[0][1])/SNAP)*SNAP-(self.x[g]-old[0][1]); sy=round((self.y[g]-old[0][2])/SNAP)*SNAP-(self.y[g]-old[0][2])
+            for i in mem: self.x[i]+=sx; self.y[i]+=sy
+        for i in mem: self._pads(i)
+        return old
+    def centre(self,g):
+        c=self.boxes(g)[0]; return (c[0]+c[2])/2,(c[1]+c[3])/2
+    def undo(self,old):
+        for i,x,y,a,pp in old: self.x[i]=x; self.y[i]=y; self.a[i]=a; self.padxy[i]=pp
+
+def ovl(a,b,g=0.0): return a[0]<b[2]+g and b[0]<a[2]+g and a[1]<b[3]+g and b[1]<a[3]+g
+
+class Legal:
+    """courtyard overlap, puller (Eco1) boxes against courtyards, outline margin"""
+    def __init__(self,B,S):
+        from matplotlib.path import Path
+        self.B=B; self.path=Path(B.outline)
+        self.base={}
+        for i in range(len(B.parts)):
+            if B.parts[i].ref.startswith('LOGO') or B.parts[i].lib.endswith('Logo'): continue
+            self.base[i]=S.boxes(i)
+        self.allowed=set()   # overlaps already present in the input placement are tolerated (decap tucked in a socket, etc.)
+        for i in self.base:
+            for k in self.base:
+                if k<=i: continue
+                if self._clash(self.base[i],self.base[k]): self.allowed.add((i,k))
+    def _clash(self,A,Bx):
+        ca,ea=A; cb,eb=Bx
+        if ovl(ca,cb,GAP): return True
+        return any(ovl(e,cb) for e in ea) or any(ovl(e,ca) for e in eb)
+    def inside(self,c):
+        x0,y0,x1,y1=c; m=MARGIN
+        pts=[(x0-m,y0-m),(x1+m,y0-m),(x1+m,y1+m),(x0-m,y1+m),((x0+x1)/2,y0-m),((x0+x1)/2,y1+m),(x0-m,(y0+y1)/2),(x1+m,(y0+y1)/2)]
+        return bool(self.path.contains_points(pts).all())
+    def _arrays(self):
+        ks=sorted(self.base); self._k=np.array(ks)
+        self._C=np.array([self.base[k][0] for k in ks])
+        ec=[(k,e) for k in ks for e in self.base[k][1]]
+        self._ek=np.array([k for k,e in ec]); self._E=np.array([e for k,e in ec]) if ec else np.zeros((0,4))
+    def _hits(self,bx,arr,g=0.0):
+        if len(arr)==0: return np.zeros(0,bool)
+        return (bx[0]<arr[:,2]+g)&(arr[:,0]<bx[2]+g)&(bx[1]<arr[:,3]+g)&(arr[:,1]<bx[3]+g)
+    def ok(self,S,changed):
+        if not hasattr(self,'_C'): self._arrays()
+        cur={i:S.boxes(i) for i in changed if i in self.base}
+        for i,(c,es) in cur.items():
+            if not self.inside(c): return False
+            bad=set(self._k[self._hits(c,self._C,GAP)])|set(self._ek[self._hits(c,self._E)])
+            for e in es: bad|=set(self._k[self._hits(e,self._C)])
+            for k in bad:
+                if k in cur: continue
+                if (min(i,k),max(i,k)) not in self.allowed: return False
+        return True
+    def commit(self,S,changed):
+        for i in changed:
+            if i in self.base: self.base[i]=S.boxes(i)
+        self._arrays()
+
+# ------------------------------------------------------------------ net topology
+def mst_edges(pts):
+    n=len(pts)
+    if n<2: return []
+    P=np.array(pts); inT=np.zeros(n,bool); inT[0]=True
+    d=np.abs(P[:,0]-P[0,0])+np.abs(P[:,1]-P[0,1]); par=np.zeros(n,int); out=[]
+    d[0]=np.inf
+    for _ in range(n-1):
+        dd=np.where(inT,np.inf,d); j=int(np.argmin(dd)); out.append((P[par[j],0],P[par[j],1],P[j,0],P[j,1])); inT[j]=True
+        nd=np.abs(P[:,0]-P[j,0])+np.abs(P[:,1]-P[j,1]); upd=(nd<d)&~inT; d=np.where(upd,nd,d); par=np.where(upd,j,par)
     return out
-def frac(a0,a1,org,n):
-    """tile range overlapped by [a0,a1] and the overlap length in each tile"""
-    i0=max(0,int(math.floor((a0-org)/T))); i1=min(n,int(math.ceil((a1-org)/T)))
-    if i1<=i0: return 0,0,None
-    lo=org+np.arange(i0,i1)*T
-    return i0,i1,np.clip(np.minimum(a1,lo+T)-np.maximum(a0,lo),0,None)
-def rudy(D,E_,sign):
-    for x0,y0,x1,y1 in E_:
-        dx=abs(x1-x0); dy=abs(y1-y0); L=dx+dy
-        if L<=0: continue
-        bw=max(dx,T); bh=max(dy,T); cx=(x0+x1)/2; cy=(y0+y1)/2
-        a,a2,fx=frac(cx-bw/2,cx+bw/2,OX,NX); b_,b2,fy=frac(cy-bh/2,cy+bh/2,OY,NY)
-        if fx is None or fy is None: continue
-        D[b_:b2,a:a2]+=sign*(L/(bw*bh))*np.outer(fy,fx)
-def blockage(B,idxs,dx,dy,sign,rotate=None):
-    for i in idxs:
-        x=px[i]+dx; y=py[i]+dy; w=pw[i]; h=ph[i]
-        a,a2,fx=frac(x-w/2,x+w/2,OX,NX); b_,b2,fy=frac(y-h/2,y+h/2,OY,NY)
-        if fx is None or fy is None: continue
-        B[b_:b2,a:a2]+=sign*(2 if THRU[i] else 1)*np.outer(fy,fx)
-# outside-board area per tile (fixed, both layers)
-Bfix=np.zeros((NY,NX));
-for j in range(NY):
-    for i in range(NX):
-        if not bp.contains(box(OX+i*T,OY+j*T,OX+(i+1)*T,OY+(j+1)*T)):
-            Bfix[j,i]=2*T*T*(1-bp.intersection(box(OX+i*T,OY+j*T,OX+(i+1)*T,OY+(j+1)*T)).area/(T*T))
-NOMCAP=2*T*T/PITCH*UTIL
-def cap(B): return np.maximum((2*T*T-Bfix-B)/PITCH*UTIL,CAPFLOOR*NOMCAP)   # a tile full of pads still passes some wiring (between and around pins)
-def overflow(D,B): return float((np.clip(D/cap(B)-1,0,None)**2).sum())
-# ---- via model
-def nonaxis(e): return int(((np.abs(e[:,2]-e[:,0])>AXIS)&(np.abs(e[:,3]-e[:,1])>AXIS)).sum())
-def crossings(A,Bx):
-    """number of pairs (edge of A, edge of Bx) whose straight lines cross properly"""
-    if len(A)==0 or len(Bx)==0: return 0
-    ax=A[:,0:1]; ay=A[:,1:2]; bx=A[:,2:3]; by=A[:,3:4]; cx=Bx[:,0][None]; cy=Bx[:,1][None]; dx=Bx[:,2][None]; dy=Bx[:,3][None]
+
+def edge_arrays(edges):
+    if not edges: return np.zeros((0,4))
+    return np.array(edges,float)
+
+def classify(e):
+    """e: (n,4) array -> dx, dy, horiz (bool), aligned (bool)"""
+    dx=np.abs(e[:,2]-e[:,0]); dy=np.abs(e[:,3]-e[:,1]); return dx,dy,dx>=dy,np.minimum(dx,dy)<=ALIGN
+
+def _cross_one_dir(A,Bv,eps=0.05):
+    """A (n,4), Bv (m,4) edges both mostly horizontal: n x m bool, True where they swap y order over their common x span"""
+    if len(A)==0 or len(Bv)==0: return np.zeros((len(A),len(Bv)),bool)
+    def norm(e):
+        sw=e[:,0]>e[:,2]; x0=np.where(sw,e[:,2],e[:,0]); y0=np.where(sw,e[:,3],e[:,1]); x1=np.where(sw,e[:,0],e[:,2]); y1=np.where(sw,e[:,1],e[:,3])
+        return x0,y0,x1,y1
+    ax0,ay0,ax1,ay1=norm(A); bx0,by0,bx1,by1=norm(Bv)
+    lo=np.maximum(ax0[:,None],bx0[None,:]); hi=np.minimum(ax1[:,None],bx1[None,:])
+    span=hi-lo
+    def yat(x0,y0,x1,y1,x):
+        d=np.where(x1-x0>1e-9,x1-x0,1.0)
+        t=np.clip((x-x0)/d,0,1); return y0+t*(y1-y0)
+    ya_lo=yat(ax0[:,None],ay0[:,None],ax1[:,None],ay1[:,None],lo); yb_lo=yat(bx0[None,:],by0[None,:],bx1[None,:],by1[None,:],lo)
+    ya_hi=yat(ax0[:,None],ay0[:,None],ax1[:,None],ay1[:,None],hi); yb_hi=yat(bx0[None,:],by0[None,:],bx1[None,:],by1[None,:],hi)
+    d0=ya_lo-yb_lo; d1=ya_hi-yb_hi
+    return (span>eps)&(((d0>eps)&(d1<-eps))|((d0<-eps)&(d1>eps)))
+
+def crossings(A,An,Bv,Bn,same=False):
+    """same-direction crossings between edge sets A and B of different nets: counts (a2, a1, a0) and per-A-edge / per-B-edge counts"""
+    out=np.zeros(3); pa=np.zeros((len(A),3)); pb=np.zeros((len(Bv),3))
+    if len(A)==0 or len(Bv)==0: return out,pa,pb
+    _,_,ha,aa=classify(A); _,_,hb,ab=classify(Bv)
+    for hor in (True,False):
+        ia=np.where(ha==hor)[0]; ib=np.where(hb==hor)[0]
+        if len(ia)==0 or len(ib)==0: continue
+        a=A[ia]; b=Bv[ib]
+        if not hor: a=a[:,[1,0,3,2]]; b=b[:,[1,0,3,2]]
+        X=_cross_one_dir(a,b)
+        X&=(An[ia][:,None]!=Bn[ib][None,:])
+        if same: X&=(ia[:,None]<ib[None,:])
+        cls=2-(aa[ia][:,None].astype(int)+ab[ib][None,:].astype(int))   # 0=a2 1=a1 2=a0
+        for c in range(3):
+            M=X&(cls==c); out[c]+=M.sum(); pa[ia,c]+=M.sum(1); pb[ib,c]+=M.sum(0)
+    return out,pa,pb
+
+def proper_crossings(e,en,f=None,fn=None):
+    """per edge of e: number of other-net edges (of f, default e) whose straight lines cross it properly, any direction
+    (the PR #282 measure)"""
+    if f is None: f,fn=e,en
+    if len(e)==0 or len(f)==0: return np.zeros(len(e))
+    ax=e[:,0:1]; ay=e[:,1:2]; bx=e[:,2:3]; by=e[:,3:4]; cx=f[:,0][None]; cy=f[:,1][None]; dx=f[:,2][None]; dy=f[:,3][None]
     def o(px_,py_,qx,qy,rx,ry): return (qx-px_)*(ry-py_)-(qy-py_)*(rx-px_)
     a=o(ax,ay,bx,by,cx,cy); b2=o(ax,ay,bx,by,dx,dy); c=o(cx,cy,dx,dy,ax,ay); d=o(cx,cy,dx,dy,bx,by)
-    return int(((a*b2<0)&(c*d<0)).sum())
-state={n:mst(n) for n in netpads}
-wl_of=lambda e: float(np.abs(e[:,2]-e[:,0]).sum()+np.abs(e[:,3]-e[:,1]).sum())
-def all_edges(skip=()):
-    arr=[state[n] for n in netpads if n not in skip]
-    return np.vstack(arr) if arr else np.zeros((0,4))
-D=np.zeros((NY,NX)); B=np.zeros((NY,NX))
-for n,e in state.items(): rudy(D,e,1)
-blockage(B,range(len(P)),0,0,1)
-# ---- calibration against existing copper
-A_NON=0.45; A_CROSS=0.10; INTER=0.0
-segs=find(b,'segment'); vias=find(b,'via'); calib=None
-rt_nets={n for n in netpads}
-if segs:
-    actual=np.zeros((NY,NX))
-    nvia={n:0 for n in netpads}
-    for s in segs:
-        if int(one(s,'net')[1]) not in rt_nets: continue
-        x0,y0=map(float,one(s,'start')[1:3]); x1,y1=map(float,one(s,'end')[1:3]); L=math.hypot(x1-x0,y1-y0)
-        for k in range(max(1,int(L/T)+1)):
-            t=(k+.5)/max(1,int(L/T)+1); i=int((x0+(x1-x0)*t-OX)/T); j=int((y0+(y1-y0)*t-OY)/T)
-            if 0<=i<NX and 0<=j<NY: actual[j,i]+=L/max(1,int(L/T)+1)
-    for v in vias:
-        n=int(one(v,'net')[1])
-        if n in nvia: nvia[n]+=1
-    mask=Bfix<T*T
-    r_tile=float(np.corrcoef(D[mask],actual[mask])[0,1])
-    X=[];y=[];names=[]
-    for n in netpads:
-        e=state[n]; X.append([nonaxis(e),crossings(e,all_edges(skip=(n,))),1.0]); y.append(nvia[n]); names.append(n)
-    X=np.array(X,float); y=np.array(y,float); FIXED=E('COEF'); coef=np.array([float(v) for v in FIXED.split(',')]) if FIXED else np.linalg.lstsq(X,y,rcond=None)[0]; pred=X@coef
-    r_via=float(np.corrcoef(pred,y)[0,1])
-    calib=dict(r_tile=r_tile,r_via=r_via,coef=coef.tolist(),total=int(y.sum()),pred=float(pred.sum()),fixed=bool(FIXED))
-    if coef[0]>0 and coef[1]>0: A_NON,A_CROSS,INTER=float(coef[0]),float(coef[1]),float(coef[2])
-def cross_total():
-    arrs=[state[n] for n in netpads]; t=0
-    E_=np.vstack(arrs); t=crossings(E_,E_)//2   # includes same-net pairs (tree edges rarely cross)
-    return t
-def summary():
-    wl=sum(netw[n]*wl_of(state[n]) for n in netpads); rawwl=sum(wl_of(state[n]) for n in netpads)
-    na=sum(nonaxis(state[n]) for n in netpads); cr=cross_total(); ov=overflow(D,B)
-    return dict(wl=wl,rawwl=rawwl,nonaxis=na,cross=cr,over=ov,vias=A_NON*na+A_CROSS*cr*2+INTER*len(netpads),cost=wl+VIAMM*(A_NON*na+A_CROSS*cr*2)+OVW*ov)
-# ---- moves
-GRID=np.arange(-int(RADIUS/STEP),int(RADIUS/STEP)+1)*STEP
-def legal(i,bx):
-    x0,y0,x1,y1=bx
-    hit=(CX0<x1)&(CX1>x0)&(CY0<y1)&(CY1>y0); hit[i]=False
-    c=C[i]; conf=(CSIDE==(c['side']=='F'))|CTHT|c['tht']
-    if (hit&conf).any(): return False
-    g=box(x0,y0,x1,y1)
-    return inner.contains(g) and not any(k.intersects(g) for k in keepouts)
-def pad_offsets(c,da):
-    if da==0: return None
-    r=[rot(px[i]-c['x'],py[i]-c['y'],da) for i in c['pads']]
-    return np.array([c['x']+u for u,v in r])-px[c['pads']],np.array([c['y']+v for u,v in r])-py[c['pads']]
-def rot_ofs(ofs,da):
-    return [rot(u,v,da) for u,v in ofs] if da else ofs
-def candidates(i):
-    """legal candidates by half-perimeter wirelength: list of (hp_delta,dx,dy,da)"""
-    c=C[i]; own=c['pads']; ownset=set(own); cand=[]
-    data=[]
-    for n in c['nets']:
-        ii=netpads[n]; mine=np.array([k for k,v in enumerate(ii) if v in ownset],int); oth=np.array([k for k,v in enumerate(ii) if v not in ownset],int)
-        if len(oth): ox0,ox1,oy0,oy1=px[ii[oth]].min(),px[ii[oth]].max(),py[ii[oth]].min(),py[ii[oth]].max()
-        else: ox0=ox1=oy0=oy1=None
-        data.append((n,ii[mine],ox0,ox1,oy0,oy1))
-    def hp(dx,dy,oo):
-        tot=np.zeros(np.shape(dx))
-        pos={int(k):v for v,k in enumerate(own)}
-        for n,mine,ox0,ox1,oy0,oy1 in data:
-            mx=px[mine]+(oo[0][[pos[int(k)] for k in mine]] if oo else 0); my=py[mine]+(oo[1][[pos[int(k)] for k in mine]] if oo else 0)
-            if ox0 is None: continue
-            x0=np.minimum(ox0,mx.min()+dx); x1=np.maximum(ox1,mx.max()+dx); y0=np.minimum(oy0,my.min()+dy); y1=np.maximum(oy1,my.max()+dy)
-            tot+=netw[n]*((x1-x0)+(y1-y0))
-        return tot
-    base=float(hp(np.zeros(1),np.zeros(1),None)[0])
-    DX,DY=np.meshgrid(GRID,GRID)
-    for da in (0,90,180,270):
-        oo=pad_offsets(c,da); h=hp(DX,DY,oo)-base
-        for k in np.argsort(h,axis=None):
-            j=int(k); dx=float(DX.flat[j]); dy=float(DY.flat[j])
-            if da==0 and dx==0 and dy==0: continue
-            cand.append((float(h.flat[j]),dx,dy,da))
-    cand.sort(); out=[]
-    ro={}
-    for h,dx,dy,da in cand[:400]:
-        if da not in ro: ro[da]=rot_ofs(c['ofs'],da)
-        if legal(i,aabb(ro[da],c['x']+dx,c['y']+dy)): out.append((h,dx,dy,da))
-        if len(out)>=KEEP: break
-    return out
-def evaluate(i,dx,dy,da):
-    """full model on a candidate; returns (gain, dWL, dNonAxis, dCross, dOver) and leaves the state unchanged"""
-    c=C[i]; own=np.array(c['pads']); oo=pad_offsets(c,da)
-    ax=dx+(oo[0] if oo else 0); ay=dy+(oo[1] if oo else 0)
-    affected=c['nets']; old={n:state[n] for n in affected}
-    rest=all_edges(skip=affected)
-    wl0=sum(netw[n]*wl_of(old[n]) for n in affected); na0=sum(nonaxis(old[n]) for n in affected); cr0=sum(crossings(old[n],rest) for n in affected)
-    D2=D.copy(); B2=B.copy(); blockage(B2,own,0,0,-1)
-    px[own]+=ax; py[own]+=ay
+    X=(a*b2<0)&(c*d<0)&(en[:,None]!=fn[None,:]); return X.sum(1)
+
+# ------------------------------------------------------------------ congestion grid
+class Grid:
+    def __init__(self,B,S):
+        self.B=B; self.x0=B.bx0; self.y0=B.by0
+        self.nx=int(math.ceil((B.bx1-B.bx0)/BIN)); self.ny=int(math.ceil((B.by1-B.by0)/BIN))
+        self.sub=int(round(BIN/RES)); self.W=self.nx*self.sub; self.H=self.ny*self.sub
+        self._static()
+        self.capH=np.zeros((self.ny,self.nx)); self.capV=np.zeros((self.ny,self.nx))
+        self.blkF=self.static.copy(); self.blkB=self.static.copy()
+        self._raster_pads(S,None)
+        self._cap_all()
+    def _static(self):
+        from matplotlib.path import Path
+        from shapely.geometry import Polygon
+        import rules
+        xs=self.x0+(np.arange(self.W)+0.5)*RES; ys=self.y0+(np.arange(self.H)+0.5)*RES
+        self.xs=xs; self.ys=ys
+        poly=Polygon(self.B.outline).buffer(-(EDGEBAND+TRACK/2),join_style=2)
+        path=Path(np.array(poly.exterior.coords))
+        XX,YY=np.meshgrid(xs,ys)
+        inside=path.contains_points(np.c_[XX.ravel(),YY.ravel()]).reshape(self.H,self.W)
+        st=~inside
+        pads=[]
+        for i,P in enumerate(self.B.parts):
+            for p in P.pads: pads.append(dict(ref=P.ref,x=0,y=0,w=p['w'],h=p['h'],drill=p['drill']))
+        # mounting-hole bands (rules.py): need pad coordinates
+        S=State(self.B); pl=[]
+        for i,P in enumerate(self.B.parts):
+            for j,p in enumerate(P.pads):
+                x,y=S.pad(i,j); pl.append(dict(ref=P.ref,x=x,y=y,w=p['w'],h=p['h'],drill=p['drill']))
+        for r in rules.hole_edge_keepouts(pl,poly,0.0):
+            x0,y0,x1,y1=r.bounds; c0,r0=self._cell(x0-GROW,y0-GROW); c1,r1=self._cell(x1+GROW,y1+GROW)
+            st[max(0,r0):r1+1,max(0,c0):c1+1]=True
+        self.static=st
+    def _cell(self,x,y): return int((x-self.x0)/RES),int((y-self.y0)/RES)
+    def _mask_pad(self,blk,x,y,w,h,ang,shape,grow):
+        a=ang%180
+        if abs(a-90)<1e-3: w,h=h,w
+        elif abs(a)>1e-3 and abs(a-180)>1e-3: w=h=max(w,h)
+        hw=w/2+grow; hh=h/2+grow
+        c0,r0=self._cell(x-hw,y-hh); c1,r1=self._cell(x+hw,y+hh)
+        c0=max(c0,0); r0=max(r0,0); c1=min(c1,self.W-1); r1=min(r1,self.H-1)
+        if c1<c0 or r1<r0: return
+        X=self.xs[c0:c1+1][None,:]-x; Y=self.ys[r0:r1+1][:,None]-y
+        if shape in ('circle','oval'):
+            rr=min(w,h)/2; qx=np.maximum(np.abs(X)-(w/2-rr),0); qy=np.maximum(np.abs(Y)-(h/2-rr),0)
+            m=qx*qx+qy*qy<=(rr+grow)**2
+        else:
+            m=(np.abs(X)<=hw)&(np.abs(Y)<=hh)
+        blk[r0:r1+1,c0:c1+1]|=m
+    def _raster_pads(self,S,region):
+        """region: (r0,r1,c0,c1) cell range to rebuild, or None = all"""
+        if region is None:
+            r0,r1,c0,c1=0,self.H-1,0,self.W-1
+        else: r0,r1,c0,c1=region
+        self.blkF[r0:r1+1,c0:c1+1]=self.static[r0:r1+1,c0:c1+1]; self.blkB[r0:r1+1,c0:c1+1]=self.static[r0:r1+1,c0:c1+1]
+        X0=self.x0+c0*RES-5; X1=self.x0+(c1+1)*RES+5; Y0=self.y0+r0*RES-5; Y1=self.y0+(r1+1)*RES+5
+        subF=self.blkF[r0:r1+1,c0:c1+1]; subB=self.blkB[r0:r1+1,c0:c1+1]
+        save=(self.xs,self.ys,self.W,self.H,self.x0,self.y0)
+        # rasterise into the sub-window by shifting the origin
+        self.xs=save[0][c0:c1+1]; self.ys=save[1][r0:r1+1]; self.W=c1-c0+1; self.H=r1-r0+1; self.x0=save[4]+c0*RES; self.y0=save[5]+r0*RES
+        try:
+            for i,P in enumerate(self.B.parts):
+                for j,p in enumerate(P.pads):
+                    x,y=S.padxy[i][j]
+                    if x<X0 or x>X1 or y<Y0 or y>Y1: continue
+                    ang=p['rang']+S.a[i]
+                    if p['kind']=='np_thru_hole':
+                        d=max(p['drill'],p['w']); g=0.3+TRACK/2
+                        self._mask_pad(subF,x,y,d,d,0,'circle',g); self._mask_pad(subB,x,y,d,d,0,'circle',g); continue
+                    if p['tht'] or p['smd_layer']=='F': self._mask_pad(subF,x,y,p['w'],p['h'],ang,p['shape'],GROW)
+                    if p['tht'] or p['smd_layer']=='B': self._mask_pad(subB,x,y,p['w'],p['h'],ang,p['shape'],GROW)
+        finally:
+            self.xs,self.ys,self.W,self.H,self.x0,self.y0=save
+    @staticmethod
+    def _tracks(freevec):
+        """number of parallel tracks at PITCH that fit in the runs of True of a 1-D vector of RES cells"""
+        v=np.concatenate([[False],freevec,[False]]).astype(np.int8); d=np.diff(v)
+        st=np.where(d==1)[0]; en=np.where(d==-1)[0]; run=(en-st)
+        return float(np.sum(np.floor((run-1)*RES/PITCH)+1)) if len(run) else 0.0
+    def _cap_bin(self,r,c):
+        """tracks per direction: the bin is cut into STRIPS slices across the direction of travel, the free tracks of each slice
+        are counted and averaged (a connector pad row blocks its own slice, not the whole bin)"""
+        s=self.sub; F=self.blkF[r*s:(r+1)*s,c*s:(c+1)*s]; Bb=self.blkB[r*s:(r+1)*s,c*s:(c+1)*s]
+        k=STRIPS; cut=np.linspace(0,s,k+1).astype(int)
+        hF=np.mean([self._tracks(~F[:,cut[i]:cut[i+1]].any(1)) for i in range(k)]); hB=np.mean([self._tracks(~Bb[:,cut[i]:cut[i+1]].any(1)) for i in range(k)])
+        vB=np.mean([self._tracks(~Bb[cut[i]:cut[i+1],:].any(0)) for i in range(k)]); vF=np.mean([self._tracks(~F[cut[i]:cut[i+1],:].any(0)) for i in range(k)])
+        self.capH[r,c]=hF+WW*hB; self.capV[r,c]=vB+WW*vF
+    def _cap_all(self):
+        for r in range(self.ny):
+            for c in range(self.nx): self._cap_bin(r,c)
+    def update(self,S,boxes):
+        """re-rasterise the bins under boxes (absolute mm) after a move"""
+        bins=set()
+        for (x0,y0,x1,y1) in boxes:
+            c0=max(0,int((x0-GROW-self.x0)//BIN)); c1=min(self.nx-1,int((x1+GROW-self.x0)//BIN))
+            r0=max(0,int((y0-GROW-self.y0)//BIN)); r1=min(self.ny-1,int((y1+GROW-self.y0)//BIN))
+            for r in range(r0,r1+1):
+                for c in range(c0,c1+1): bins.add((r,c))
+        if not bins: return bins
+        rs=[b[0] for b in bins]; cs=[b[1] for b in bins]; s=self.sub
+        self._raster_pads(S,(min(rs)*s,(max(rs)+1)*s-1,min(cs)*s,(max(cs)+1)*s-1))
+        for r,c in bins: self._cap_bin(r,c)
+        return bins
+    def demand(self,e):
+        """RUDY demand of edges e (n,4): (DH, DV) arrays (ny, nx) in tracks"""
+        DH=np.zeros((self.ny,self.nx)); DV=np.zeros((self.ny,self.nx))
+        if len(e)==0: return DH,DV
+        bx=self.x0+np.arange(self.nx+1)*BIN; by=self.y0+np.arange(self.ny+1)*BIN
+        for x0,y0,x1,y1 in e:
+            if x0>x1: x0,x1=x1,x0
+            if y0>y1: y0,y1=y1,y0
+            w=x1-x0; h=y1-y0
+            if w<PITCH: xc=(x0+x1)/2; x0,x1=xc-PITCH/2,xc+PITCH/2
+            if h<PITCH: yc=(y0+y1)/2; y0,y1=yc-PITCH/2,yc+PITCH/2
+            ox=np.clip(np.minimum(bx[1:],x1)-np.maximum(bx[:-1],x0),0,None); oy=np.clip(np.minimum(by[1:],y1)-np.maximum(by[:-1],y0),0,None)
+            if w>=PITCH: DH+=np.outer(oy/(y1-y0),ox/BIN)
+            if h>=PITCH: DV+=np.outer(oy/BIN,ox/(x1-x0))
+        return DH,DV
+
+# ------------------------------------------------------------------ the evaluator
+class Model:
+    def __init__(self,path,K=None,budget=None):
+        t=time.time()
+        self.B=Board(path); self.S=State(self.B); self.L=Legal(self.B,self.S)
+        self.G=Grid(self.B,self.S)
+        self.K=dict(DEFAULT_K)
+        if K is None and os.path.exists(FITFILE): K=json.load(open(FITFILE)).get('K')
+        if K: self.K.update(K)
+        self.budget=self._budget(budget or E('BUDGET',''))
+        self.netlist=sorted(self.B.nets)
+        self.netedges={}
+        for n in self.netlist: self.netedges[n]=self._edges(self.S,n)
+        self._rebuild()
+        self.t_load=time.time()-t
+    def _budget(self,f):
+        if not f: return []
+        J=json.load(open(f)); out=[]; nid={v:k for k,v in self.B.netname.items()}
+        for net,d in J.get('max',{}).items():
+            if net not in nid: continue
+            for a,dd in d.items():
+                for b,mm in dd.items():
+                    ra,pa=a.rsplit('-',1); rb,pb=b.rsplit('-',1)
+                    if ra not in self.B.byref or rb not in self.B.byref: continue
+                    ia=self.B.byref[ra]; ib=self.B.byref[rb]
+                    ja=[j for j,p in enumerate(self.B.parts[ia].pads) if p['num']==pa]; jb=[j for j,p in enumerate(self.B.parts[ib].pads) if p['num']==pb]
+                    if ja and jb: out.append((nid[net],ia,ja[0],ib,jb[0],float(mm),f'{net} {a}->{b}'))
+        return out
+    def _edges(self,S,n):
+        pts=[S.pad(i,j) for i,j in self.B.nets[n]]
+        return edge_arrays(mst_edges(pts))
+    def _rebuild(self):
+        es=[self.netedges[n] for n in self.netlist]
+        self.E=np.concatenate(es) if es else np.zeros((0,4))
+        self.En=np.concatenate([np.full(len(self.netedges[n]),n) for n in self.netlist])
+        self.DH,self.DV=self.G.demand(self.E)
+    # --- terms
+    def terms(self,detail=False):
+        e=self.E; dx,dy,h,al=classify(e)
+        wl=float((dx+dy).sum()); bends=int((~al).sum())
+        x,pa,pb=crossings(e,self.En,e,self.En,same=True)
+        ovH=np.maximum(self.DH-self.G.capH,0); ovV=np.maximum(self.DV-self.G.capV,0); ov=float(ovH.sum()+ovV.sum())
+        uH=self.DH/np.maximum(self.G.capH,0.5); uV=self.DV/np.maximum(self.G.capV,0.5)
+        cong=self._cong_exposure(e,uH,uV)
+        bud=self._budget_excess(self.S)
+        xall=float(proper_crossings(e,self.En).sum())/2
+        T=dict(length=wl,bends=bends,a2=float(x[0]),a1=float(x[1]),a0=float(x[2]),xall=xall,overflow=ov,cong=float(cong.sum()),budget=bud)
+        if detail: T.update(_pa=pa+pb,_cong=cong,_uH=uH,_uV=uV)
+        return T
+    def _cong_exposure(self,e,uH,uV):
+        """per edge: sum over its bbox bins of its own demand x max(0, utilisation - 0.7)"""
+        out=np.zeros(len(e)); G=self.G
+        bx=G.x0+np.arange(G.nx+1)*BIN; by=G.y0+np.arange(G.ny+1)*BIN
+        pH=np.maximum(uH-0.7,0); pV=np.maximum(uV-0.7,0)
+        for k,(x0,y0,x1,y1) in enumerate(e):
+            if x0>x1: x0,x1=x1,x0
+            if y0>y1: y0,y1=y1,y0
+            w=x1-x0; h=y1-y0
+            if w<PITCH: xc=(x0+x1)/2; x0,x1=xc-PITCH/2,xc+PITCH/2
+            if h<PITCH: yc=(y0+y1)/2; y0,y1=yc-PITCH/2,yc+PITCH/2
+            ox=np.clip(np.minimum(bx[1:],x1)-np.maximum(bx[:-1],x0),0,None); oy=np.clip(np.minimum(by[1:],y1)-np.maximum(by[:-1],y0),0,None)
+            s=0.0
+            if w>=PITCH: s+=float((np.outer(oy/(y1-y0),ox/BIN)*pH).sum())
+            if h>=PITCH: s+=float((np.outer(oy/BIN,ox/(x1-x0))*pV).sum())
+            out[k]=s
+        return out
+    def _budget_excess(self,S):
+        DET=float(E('DETOUR','1.15')); s=0.0
+        for n,ia,ja,ib,jb,mm,_ in self.budget:
+            (x0,y0),(x1,y1)=S.pad(ia,ja),S.pad(ib,jb); s+=max(0.0,(abs(x1-x0)+abs(y1-y0))*DET-mm)
+        return s
+    def vias(self,T):
+        K=self.K; return K['KB']*T['bends']+K['K2']*T['a2']+K['K1']*T['a1']+K['K0']*T['a0']+K['KC']*T['cong']+2*K['KX']*T['xall']
+    def cost(self,T):
+        return T['length']+VIAMM*self.vias(T)+OVW*T['overflow']*BIN+float(E('BUDW','20'))*T['budget']
+    # --- incremental evaluation of a group move
+    def try_move(self,g,dx,dy,da,check=True,full=False):
+        """cost delta of moving group g; None when illegal. full=True also re-rasterises capacity (else demand-only screen)"""
+        S=self.S; mem=self.B.members[g]
+        old=S.apply(g,dx,dy,da)
+        try:
+            if check and not self.L.ok(S,mem): return None
+            return self._delta(mem,old,full)
+        finally:
+            S.undo(old)
+            if full: self._restore_cap()
+    def quick(self,g,dx,dy,da):
+        """cheap screen: legality, then MST length + bends of the affected nets only (no crossings, no congestion)"""
+        S=self.S; mem=self.B.members[g]; old=S.apply(g,dx,dy,da)
+        try:
+            if not self.L.ok(S,mem): return None
+            d=0.0; KB=self.K['KB']
+            for n in self._affected(mem):
+                e0=self.netedges[n]; e1=self._edges(S,n)
+                for e,sg in ((e1,1),(e0,-1)):
+                    if len(e)==0: continue
+                    ddx=np.abs(e[:,2]-e[:,0]); ddy=np.abs(e[:,3]-e[:,1])
+                    d+=sg*((ddx+ddy).sum()+VIAMM*KB*(np.minimum(ddx,ddy)>ALIGN).sum())
+            return float(d)
+        finally: S.undo(old)
+    def _affected(self,mem):
+        nets=set()
+        for i in mem: nets|=self.B.partnets[i]
+        return sorted(nets)
+    def _delta(self,mem,old,full):
+        nets=self._affected(mem); B=self.B
+        if not nets and not full: return 0.0
+        mask=np.isin(self.En,nets)
+        Eo=self.E[mask]; Eno=self.En[mask]; Er=self.E[~mask]; Enr=self.En[~mask]
+        new=[self._edges(self.S,n) for n in nets]
+        En=np.concatenate(new) if new else np.zeros((0,4)); Enn=np.concatenate([np.full(len(a),n) for a,n in zip(new,nets)]) if new else np.zeros(0)
+        K=self.K
+        def local(EA,EAn):
+            dx,dy,h,al=classify(EA); wl=(dx+dy).sum(); bends=(~al).sum()
+            x1,_,_=crossings(EA,EAn,Er,Enr); x2,_,_=crossings(EA,EAn,EA,EAn,same=True)
+            x=x1+x2
+            xa=proper_crossings(EA,EAn,Er,Enr).sum()+proper_crossings(EA,EAn).sum()/2
+            return wl+VIAMM*(K['KB']*bends+K['K2']*x[0]+K['K1']*x[1]+K['K0']*x[2]+2*K['KX']*xa)
+        d=local(En,Enn)-local(Eo,Eno)
+        # congestion: demand change and (full) capacity change
+        DHo,DVo=self.G.demand(Eo); DHn,DVn=self.G.demand(En)
+        capH,capV=self.G.capH,self.G.capV
+        if full:
+            self._save_cap()
+            boxes=[]
+            for i,x,y,a,pp in old:
+                pts=pp+self.S.padxy[i]
+                if pts: boxes.append(bbox(pts))
+            self.G.update(self.S,boxes); capH,capV=self.G.capH,self.G.capV
+            ov0=np.maximum(self.DH-self._capH0,0).sum()+np.maximum(self.DV-self._capV0,0).sum()
+        else:
+            ov0=np.maximum(self.DH-capH,0).sum()+np.maximum(self.DV-capV,0).sum()
+        DH=self.DH-DHo+DHn; DV=self.DV-DVo+DVn
+        ov1=np.maximum(DH-capH,0).sum()+np.maximum(DV-capV,0).sum()
+        d+=OVW*(ov1-ov0)*BIN
+        if self.budget:
+            b1=self._budget_excess(self.S)
+            d+=float(E('BUDW','20'))*(b1-self._bud0)
+        return float(d)
+    def _save_cap(self):
+        self._capH0=self.G.capH.copy(); self._capV0=self.G.capV.copy(); self._blk=(self.G.blkF.copy(),self.G.blkB.copy())
+    def _restore_cap(self):
+        if hasattr(self,'_capH0'):
+            self.G.capH=self._capH0; self.G.capV=self._capV0; self.G.blkF,self.G.blkB=self._blk; del self._capH0
+    def commit(self,g,dx,dy,da):
+        S=self.S; mem=self.B.members[g]; old=S.apply(g,dx,dy,da)
+        boxes=[bbox(pp+S.padxy[i]) for i,x,y,a,pp in old if pp]
+        self.G.update(S,boxes); self.L.commit(S,mem)
+        for n in self._affected(mem): self.netedges[n]=self._edges(S,n)
+        self._rebuild(); self._bud0=self._budget_excess(S)
+    def ready(self):
+        self._bud0=self._budget_excess(self.S)
+
+# ------------------------------------------------------------------ reports
+def per_net_features(M):
+    T=M.terms(detail=True); e=M.E; dx,dy,h,al=classify(e); out={}
+    pa=T['_pa']; cg=T['_cong']; xall=proper_crossings(e,M.En)
+    for n in M.netlist:
+        m=M.En==n
+        out[n]=dict(length=float((dx[m]+dy[m]).sum()),bends=int((~al[m]).sum()),a2=float(pa[m,0].sum()),a1=float(pa[m,1].sum()),
+                    a0=float(pa[m,2].sum()),cong=float(cg[m].sum()),pins=len(M.B.nets[n]),xall=float(xall[m].sum()))
+    return T,out
+
+def routed_vias(path,B):
+    """per-net via count of a routed board (by net name), and per-bin routed track density per direction"""
+    b=parse(open(path,encoding='utf-8').read()); nn={int(n[1]):n[2] for n in find(b,'net')}
+    v=collections.Counter(nn.get(int(one(x,'net')[1]),'') for x in find(b,'via'))
+    segs=[]
+    for s in find(b,'segment'):
+        a=lin(one(s,'start')[1:3]); e=lin(one(s,'end')[1:3]); segs.append((nn.get(int(one(s,'net')[1]),''),one(s,'layer')[1],a,e))
+    return v,segs,nn
+
+def bus_pairs(M,minshared=3):
+    """chip pairs sharing >= minshared nets: pin-order inversions across the gap"""
+    B=M.B; S=M.S; out=[]
+    pn=collections.defaultdict(dict)   # part -> net -> pad index
+    for n,v in B.nets.items():
+        for i,j in v: pn[i].setdefault(n,j)
+    ics=[i for i in pn if len(B.parts[i].pads)>=8]; movg=set(B.movable)
+    for ai in range(len(ics)):
+        for bi in range(ai+1,len(ics)):
+            a,b=ics[ai],ics[bi]; sh=sorted(set(pn[a])&set(pn[b]))
+            if len(sh)<minshared or not ({a,b}&movg): continue
+            pa=np.array([S.pad(a,pn[a][n]) for n in sh]); pb=np.array([S.pad(b,pn[b][n]) for n in sh])
+            hor=abs(S.x[a]-S.x[b])>=abs(S.y[a]-S.y[b]); k=1 if hor else 0
+            ua=pa[:,k]; ub=pb[:,k]; inv=0; tot=0
+            for i in range(len(sh)):
+                for j in range(i+1,len(sh)):
+                    if abs(ua[i]-ua[j])<0.5 or abs(ub[i]-ub[j])<0.5: continue
+                    tot+=1; inv+= (ua[i]-ua[j])*(ub[i]-ub[j])<0
+            out.append(dict(a=B.parts[a].ref,b=B.parts[b].ref,shared=len(sh),pairs=int(tot),inversions=int(inv),
+                            dir='horizontal' if hor else 'vertical',nets=[B.netname[n] for n in sh]))
+    # identical rows (the four expansion slots are wired in parallel) are merged: J9/J10/J11/J12-U31
+    m={}
+    for d in out:
+        k=(d['b'],d['shared'],d['pairs'],d['inversions'],d['dir']) ; k2=(d['a'],d['shared'],d['pairs'],d['inversions'],d['dir'])
+        if k in m and m[k]['a']!=d['a']: m[k]['a']+='/'+d['a']; continue
+        if k2 in m and m[k2]['b']!=d['b'] and m[k2]['a']==d['a']: m[k2]['b']+='/'+d['b']; continue
+        m[k]=d
+    out=list(m.values()); out.sort(key=lambda d:-d['inversions']); return out
+
+def draw(M,path,title,extra=None,arrows=None):
+    import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle
+    G=M.G; uH=M.DH/np.maximum(G.capH,0.5); uV=M.DV/np.maximum(G.capV,0.5); u=np.maximum(uH,uV)
+    fig,ax=plt.subplots(1,1,figsize=(16,12),dpi=110)
+    ext=(G.x0,G.x0+G.nx*BIN,G.y0+G.ny*BIN,G.y0)
+    im=ax.imshow(extra if extra is not None else u,extent=ext,cmap='inferno_r' if extra is None else 'viridis',vmin=0,vmax=(1.6 if extra is None else None),alpha=0.85,interpolation='nearest')
+    cb=fig.colorbar(im,ax=ax,shrink=0.7); cb.set_label('demand / capacity (worst direction)' if extra is None else 'cost delta (mm)')
+    ol=np.array(M.B.outline+[M.B.outline[0]]); ax.plot(ol[:,0],ol[:,1],'k-',lw=1.5)
+    for i,P in enumerate(M.B.parts):
+        c,es=M.S.boxes(i)
+        ax.add_patch(Rectangle((c[0],c[1]),c[2]-c[0],c[3]-c[1],fill=False,ec='#1565c0',lw=0.8))
+        if len(P.pads)>=8 or P.ref[0] in 'JUX': ax.text((c[0]+c[2])/2,(c[1]+c[3])/2,P.ref,ha='center',va='center',fontsize=7,color='#0d47a1',weight='bold')
+    if arrows:
+        for (x0,y0,x1,y1,lab) in arrows:
+            ax.annotate('',xy=(x1,y1),xytext=(x0,y0),arrowprops=dict(arrowstyle='->',color='#00c853',lw=2))
+            ax.plot([x0],[y0],'o',color='#00c853',ms=4)
+    ax.set_xlim(G.x0-2,G.x0+G.nx*BIN+2); ax.set_ylim(G.y0+G.ny*BIN+2,G.y0-2); ax.set_aspect('equal'); ax.set_title(title,fontsize=14)
+    fig.tight_layout(); fig.savefig(path); plt.close(fig)
+
+def fmt_terms(M,T):
+    return (f"length {T['length']/1000:.2f} m | bends {T['bends']} | crossings {T['xall']:.0f} (same-way a2 {T['a2']:.0f} a1 {T['a1']:.0f} a0 {T['a0']:.0f}) | "
+            f"overflow {T['overflow']:.1f} tracks | cong {T['cong']:.1f} | budget {T['budget']:.0f} mm | expected vias {M.vias(T):.0f} | cost {M.cost(T):.0f}")
+
+def mode_report(M,out):
+    t=time.time(); T,pn=per_net_features(M); B=M.B
+    lines=[f'# placement report: {os.path.basename(M.B.path)}','',fmt_terms(M,T),'',
+           f'{len(B.parts)} parts, {len(B.movable)} movable groups, {len(B.nets)} routed nets (planes {",".join(sorted(PLANES))} left out), '
+           f'{len(M.E)} connections; bins {BIN} mm ({M.G.nx}x{M.G.ny}); K {json.dumps({k:round(v,3) for k,v in M.K.items()})}','']
+    bp=bus_pairs(M)
+    lines+=['## Bus pin-order inversions (chip pairs sharing 3+ nets)','','| pair | shared | inversions / pairs | across |','|---|---|---|---|']
+    for d in bp[:int(E('TOP','25'))]:
+        if d['inversions']==0: break
+        lines.append(f"| {d['a']}-{d['b']} | {d['shared']} | {d['inversions']} / {d['pairs']} | {d['dir']} |")
+    G=M.G; uH=M.DH/np.maximum(G.capH,0.5); uV=M.DV/np.maximum(G.capV,0.5)
+    hot=[]
+    for r in range(G.ny):
+        for c in range(G.nx):
+            for d,u,D,C in (('H',uH[r,c],M.DH[r,c],G.capH[r,c]),('V',uV[r,c],M.DV[r,c],G.capV[r,c])):
+                if D>0.5: hot.append((u,d,r,c,D,C))
+    hot.sort(reverse=True)
+    def near(r,c):
+        x=G.x0+(c+0.5)*BIN; y=G.y0+(r+0.5)*BIN
+        k=min(range(len(B.parts)),key=lambda i:math.dist((M.S.x[i],M.S.y[i]),(x,y))); return x,y,B.parts[k].ref
+    lines+=['','## Hottest bins','','| bin centre (mm) | near | dir | demand | capacity | ratio |','|---|---|---|---|---|---|']
+    for u,d,r,c,D,C in hot[:int(E('TOP','25'))]:
+        x,y,ref=near(r,c); lines.append(f'| {x:.0f},{y:.0f} | {ref} | {d} | {D:.1f} | {C:.1f} | {u:.2f} |')
+    lines+=['','## Nets with the most L bends (each is about one via)','','| net | pins | bends | crossings a2/a1/a0 | MST mm |','|---|---|---|---|---|']
+    for n in sorted(pn,key=lambda n:-pn[n]['bends'])[:int(E('TOP','25'))]:
+        f=pn[n]; lines.append(f"| {B.netname[n]} | {f['pins']} | {f['bends']} | {f['a2']:.0f}/{f['a1']:.0f}/{f['a0']:.0f} | {f['length']:.0f} |")
+    if M.budget:
+        DET=float(E('DETOUR','1.15')); bl=[]
+        for n,ia,ja,ib,jb,mm,lab in M.budget:
+            (x0,y0),(x1,y1)=M.S.pad(ia,ja),M.S.pad(ib,jb); man=abs(x1-x0)+abs(y1-y0)
+            bl.append((mm-man*DET,lab,man,mm))
+        bl.sort()
+        lines+=['',f'## Tightest length budgets (straight distance x {DET} against the budget)','','| pair | straight mm | budget mm | room mm |','|---|---|---|---|']
+        for room,lab,man,mm in bl[:15]: lines.append(f'| {lab} | {man:.0f} | {mm:.0f} | {room:+.0f} |')
+    os.makedirs(out,exist_ok=True)
+    draw(M,os.path.join(out,'congestion.png'),f'routability: demand / capacity per {BIN:g} mm bin (pads only)')
+    open(os.path.join(out,'report.md'),'w').write('\n'.join(lines)+'\n')
+    json.dump(dict(terms={k:float(v) for k,v in T.items() if not k.startswith('_')},expected_vias=M.vias(T),cost=M.cost(T),bus=bp[:40],
+                   nets={B.netname[n]:f for n,f in pn.items()}),open(os.path.join(out,'report.json'),'w'),indent=1)
+    print('\n'.join(lines[:6])); print(f'wrote {out}/report.md congestion.png report.json  ({time.time()-t:.1f} s)')
+
+def mode_fit(M,routed,out):
+    """least squares: per-net routed vias ~ KB*bends + K2*a2 + K1*a1 + K0*a0 + KC*cong (non-negative)"""
+    from scipy.optimize import nnls
+    rows=[]; y=[]; names=[]
+    for path in routed:
+        Mr=M if os.path.abspath(path)==os.path.abspath(M.B.path) else Model(path,K=DEFAULT_K)
+        T,pn=per_net_features(Mr); v,segs,nn=routed_vias(path,Mr.B)
+        for n,f in pn.items():
+            nm=Mr.B.netname[n]
+            rows.append([f['bends'],f['a2'],f['a1'],f['a0'],f['cong'],f['xall']]); y.append(v.get(nm,0)); names.append((os.path.basename(path),nm))
+    A=np.array(rows,float); y=np.array(y,float); XALL=A[:,5]
+    def r2of(X):
+        kk=nnls(X,y)[0]; pp=X@kk; return float(1-((y-pp)**2).sum()/max(((y-y.mean())**2).sum(),1e-9)),float(np.corrcoef(pp,y)[0,1]),float(pp.sum())
+    alt={'bends only':r2of(A[:,:1]),'bends + any-direction crossings (PR #282 model)':r2of(np.c_[A[:,0],XALL]),
+         'bends + same-way crossings':r2of(A[:,:4]),'same-way crossings + congestion, no any-direction':r2of(A[:,:5]),'full':r2of(A)}
+    k,res=nnls(A,y); pred=A@k
+    r2=1-((y-pred)**2).sum()/max(((y-y.mean())**2).sum(),1e-9)
+    kb=nnls(A[:,:1],y)[0]; pb=A[:,:1]@kb; r2b=1-((y-pb)**2).sum()/max(((y-y.mean())**2).sum(),1e-9)
+    K=dict(zip(['KB','K2','K1','K0','KC','KX'],map(float,k)))
+    rep=dict(K=K,r2=float(r2),r2_bends_only=float(r2b),kb_only=float(kb[0]),nets=len(y),vias_routed=float(y.sum()),vias_predicted=float(pred.sum()),
+             boards=[os.path.basename(p) for p in routed],corr=float(np.corrcoef(pred,y)[0,1]),
+             compare={k:dict(r2=v[0],r=v[1],vias=v[2]) for k,v in alt.items()})
+    json.dump(rep,open(out,'w'),indent=1)
+    print(json.dumps(rep,indent=1)); return rep,names,A,y,pred
+
+# ------------------------------------------------------------------ search
+def candidates(rad=None,step=None):
+    rad=float(E('RAD','10')) if rad is None else rad; step=float(E('STEP','1.27')) if step is None else step
+    n=int(round(rad/step)); rots=[float(r) for r in E('ROTS','0,90,180,270').split(',')]
+    return [(i*step,j*step,r) for r in rots for i in range(-n,n+1) for j in range(-n,n+1)]
+
+def best_move(M,g,cands,verify=5,keep=None):
+    """three stages: every candidate on legality + MST length/bends (quick), the best KEEP on the full model with demand
+    only, the best few of those with the capacity re-rasterised"""
+    keep=int(E('KEEP','24')) if keep is None else keep
+    q=[]
+    for dx,dy,da in cands:
+        if dx==0 and dy==0 and da==0: continue
+        d=M.quick(g,dx,dy,da)
+        if d is not None: q.append((d,dx,dy,da))
+    q.sort(); sc=[]
+    for _,dx,dy,da in q[:keep]:
+        d=M.try_move(g,dx,dy,da,check=False)
+        if d is not None: sc.append((d,dx,dy,da))
+    sc.sort()
+    best=None
+    for d,dx,dy,da in sc[:verify]:
+        f=M.try_move(g,dx,dy,da,check=False,full=True)
+        if best is None or f<best[0]: best=(f,dx,dy,da)
+    return best,sc
+
+def swap_delta(M,g,h,commit=False):
+    """exchange the places (courtyard centres) of groups g and h (same footprint); each keeps its own rotation and its
+    decoupling caps"""
+    S=M.S; (gx,gy),(hx,hy)=S.centre(g),S.centre(h); dx=hx-gx; dy=hy-gy; da=0.0
+    if commit:
+        M.commit(g,dx,dy,da); M.commit(h,-dx,-dy,-da); return None
+    old1=S.apply(g,dx,dy,da); old2=S.apply(h,-dx,-dy,-da)
     try:
-        blockage(B2,own,0,0,1)
-        new={n:mst(n) for n in affected}
-        wl1=sum(netw[n]*wl_of(new[n]) for n in affected); na1=sum(nonaxis(new[n]) for n in affected); cr1=sum(crossings(new[n],rest) for n in affected)
+        mem=M.B.members[g]+M.B.members[h]
+        # legality against everything else (the two swap into each other's room)
+        saveb={i:M.L.base[i] for i in mem if i in M.L.base}
+        for i in mem: M.L.base.pop(i,None)
+        ok=M.L.ok(S,mem)
+        M.L.base.update(saveb)
+        if not ok: return None
+        return M._delta(mem,old1+old2,True)
     finally:
-        px[own]-=ax; py[own]-=ay
-    for n in affected: rudy(D2,old[n],-1); rudy(D2,new[n],1)
-    ov0=overflow(D,B); ov1=overflow(D2,B2)
-    gain=(wl0-wl1)+VIAMM*(A_NON*(na0-na1)+2*A_CROSS*(cr0-cr1))+OVW*(ov0-ov1)   # a crossing counts for both nets in the per-net fit
-    return gain,wl0-wl1,na0-na1,cr0-cr1,ov0-ov1
-def apply(i,dx,dy,da):
-    c=C[i]; own=np.array(c['pads']); oo=pad_offsets(c,da)
-    ax=dx+(oo[0] if oo else 0); ay=dy+(oo[1] if oo else 0)
-    blockage(B,own,0,0,-1)
-    for n in c['nets']: rudy(D,state[n],-1)
-    px[own]+=ax; py[own]+=ay
-    blockage(B,own,0,0,1)
-    for n in c['nets']:
-        state[n]=mst(n); rudy(D,state[n],1)
-    c['x']+=dx; c['y']+=dy; c['a']=(c['a']+da)%360; c['ofs']=rot_ofs(c['ofs'],da); c['box']=aabb(c['ofs'],c['x'],c['y'])
-    CX0[i],CY0[i],CX1[i],CY1[i]=c['box']
-# ---- report
-s0=summary(); print(f'{src}: {len(C)} components ({sum(c["free"] for c in C)} free to move), {len(netpads)} signal nets, {len(P)} pads; {NX}x{NY} tiles of {T} mm')
-print('\nWHAT THE MODEL READS (placement only, existing copper ignored)')
-print(f'  wirelength (MST): {s0["rawwl"]/1000:.2f} m; edges needing both axes: {s0["nonaxis"]}; edge crossings: {s0["cross"]}; overflow: {s0["over"]:.1f}; tiles over capacity: {int((D/cap(B)>1).sum())}')
-if calib:
-    print('\nCALIBRATION AGAINST THE COPPER ON THIS BOARD')
-    print(f'  congestion estimate vs real copper per tile: r = {calib["r_tile"]:.2f}')
-    print(f'  via model vs real vias per net: r = {calib["r_via"]:.2f} ({"coefficients given, not fitted here" if calib["fixed"] else "fitted on this board"}; real signal-net vias {calib["total"]}, model {calib["pred"]:.0f}); vias per net = {calib["coef"][0]:.2f}*two-axis edges + {calib["coef"][1]:.3f}*crossings + {calib["coef"][2]:.2f}')
-else: print('\n(no copper on this board: default via weights used)')
-def tileref(i,j): return f'({OX+(i+.5)*T:.0f},{OY+(j+.5)*T:.0f})'
-R=D/cap(B); oo=np.argsort(-R,axis=None)[:8]
-print('\nHOTTEST TILES (demand / capacity)')
-for k in oo:
-    j,i=np.unravel_index(int(k),R.shape); print(f'  {tileref(i,j)} mm: {R[j,i]:.2f}')
-cscore=[]
-for i,c in enumerate(C):
-    if not c['pads']: continue
-    v=[]
-    for k in c['pads']:
-        ii=int((px[k]-OX)/T); jj=int((py[k]-OY)/T)
-        if 0<=ii<NX and 0<=jj<NY: v.append(R[jj,ii])
-    if v: cscore.append((max(v),np.mean(v),c['ref'],len(c['pads']),c['free']))
-print('\nCOMPONENTS IN THE MOST CONGESTED AREAS (peak, mean demand/capacity at their pads)')
-for pk,mn,ref,np_,fr in sorted(cscore,reverse=True)[:10]:
-    print(f'  {ref:6s} {np_:3d} pads  peak {pk:.2f} mean {mn:.2f}{"" if fr else "  (held)"}')
-init={c['ref']:(c['x'],c['y'],c['a']) for c in C}
-moves=[]; tt=time.time()
-for rnd in range(ROUNDS):
-    best=[]
-    for i,c in enumerate(C):
-        if not c['free'] or not c['nets']: continue
-        b_=None
-        for h,dx,dy,da in candidates(i):
-            r=evaluate(i,dx,dy,da)
-            if b_ is None or r[0]>b_[0][0]: b_=(r,dx,dy,da)
-        if b_ and b_[0][0]>MINGAIN: best.append((b_[0][0],i,b_))
-    best.sort(key=lambda t:-t[0]); applied=0
-    for g,i,(r,dx,dy,da) in best:
-        if len(moves)>=MAXMOVES: break
-        c=C[i]; ro=rot_ofs(c['ofs'],da)
-        if not legal(i,aabb(ro,c['x']+dx,c['y']+dy)): continue
-        rr=evaluate(i,dx,dy,da)
-        if rr[0]<=MINGAIN: continue
-        apply(i,dx,dy,da); moves.append(dict(rnd=rnd,ref=c['ref'],dx=dx,dy=dy,da=da,gain=rr[0],dwl=rr[1],dna=rr[2],dcr=rr[3],dov=rr[4])); applied+=1
-    print(f'round {rnd}: {len(best)} parts with a gain, {applied} moves applied, {time.time()-tt:.0f} s',flush=True)
-    if not applied or len(moves)>=MAXMOVES: break
-s1=summary()
-print('\nSUGGESTED MOVES (in order; each builds on the ones before it; last four columns are savings, positive = better)')
-print(f'  {"#":>2} {"ref":6s} {"from x,y,rot":>20s}  {"to x,y,rot":>20s}  {"gain":>6s}  {"track":>7s}  {"2-axis":>6s}  {"cross":>5s}  {"overflow":>8s}')
-pos=dict(init); rows=[]
-for k,m in enumerate(moves):
-    f=pos[m['ref']]; t_=(f[0]+m['dx'],f[1]+m['dy'],(f[2]+m['da'])%360); pos[m['ref']]=t_
-    print(f'  {k+1:2d} {m["ref"]:6s} {f[0]:8.2f},{f[1]:7.2f},{f[2]:3.0f}  {t_[0]:8.2f},{t_[1]:7.2f},{t_[2]:3.0f}  {m["gain"]:6.0f}  {m["dwl"]:+7.1f}  {m["dna"]:+6d}  {m["dcr"]:+5d}  {m["dov"]:+8.2f}')
-    rows.append(dict(order=k+1,ref=m['ref'],fromX=f[0],fromY=f[1],fromRot=f[2],toX=t_[0],toY=t_[1],toRot=t_[2],gain=round(m['gain'],1),trackSavedMm=round(m['dwl'],1),twoAxisEdgesSaved=m['dna'],crossingsSaved=m['dcr'],overflowSaved=round(m['dov'],2)))
-print('\nPREDICTED BOARD AFTER ALL MOVES (model estimate, not a routed result)')
-for k,lab,fmt in (('rawwl','wirelength mm','{:.0f}'),('nonaxis','two-axis edges','{:d}'),('cross','crossings','{:d}'),('over','overflow','{:.1f}')):
-    print(f'  {lab:16s} {fmt.format(s0[k])} -> {fmt.format(s1[k])}')
-print(f'  via estimate     {s0["vias"]:.0f} -> {s1["vias"]:.0f}  (signal nets)')
-print(f'  {time.time()-t0:.0f} s')
-with open(prefix+'_moves.csv','w',newline='',encoding='utf-8') as f:
-    w=csv.DictWriter(f,fieldnames=['order','ref','fromX','fromY','fromRot','toX','toY','toRot','gain','trackSavedMm','twoAxisEdgesSaved','crossingsSaved','overflowSaved']); w.writeheader(); w.writerows(rows)
-# ---- map: congestion of the original placement is not kept, so the map shows the state after the moves plus arrows from the old positions
-S=8; R=D/cap(B); out=[f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {NX*S} {NY*S}" width="{NX*S}" height="{NY*S}"><rect width="100%" height="100%" fill="white"/>']
-for j in range(NY):
-    for i in range(NX):
-        if Bfix[j,i]>=2*T*T*.99: continue
-        v=min(1.0,float(R[j,i])/1.5); r_=255; g_=int(255-200*v); b__=int(255-235*v) if v>.3 else int(255-120*v)
-        out.append(f'<rect x="{i*S}" y="{j*S}" width="{S}" height="{S}" fill="rgb({r_},{g_},{b__})"/>')
-sx=lambda x:(x-OX)/T*S; sy=lambda y:(y-OY)/T*S
-for c in C:
-    x0,y0,x1,y1=c['box']; col='#1a5' if c['free'] else '#888'
-    out.append(f'<rect x="{sx(x0):.1f}" y="{sy(y0):.1f}" width="{(x1-x0)/T*S:.1f}" height="{(y1-y0)/T*S:.1f}" fill="none" stroke="{col}" stroke-width="0.6"/>')
-for ref,t_ in pos.items():
-    f=init[ref]
-    if f[:2]!=t_[:2] or f[2]!=t_[2]:
-        out.append(f'<line x1="{sx(f[0]):.1f}" y1="{sy(f[1]):.1f}" x2="{sx(t_[0]):.1f}" y2="{sy(t_[1]):.1f}" stroke="#03c" stroke-width="1.2"/><circle cx="{sx(t_[0]):.1f}" cy="{sy(t_[1]):.1f}" r="2" fill="#03c"/><text x="{sx(t_[0])+3:.1f}" y="{sy(t_[1])-3:.1f}" font-size="9" fill="#024">{ref}</text>')
-out.append('</svg>')
-open(prefix+'.svg','w',encoding='utf-8').write('\n'.join(out))
-print(f'wrote {prefix}_moves.csv and {prefix}.svg')
+        S.undo(old2); S.undo(old1); M._restore_cap()
+
+def mode_sweep(M,ref,out):
+    B=M.B; i=B.byref[ref]; g=B.leader.get(i,i)
+    if g not in B.members: raise SystemExit(f'{ref} is fixed (FIXED / ONLY / FREE)')
+    rad=float(E('RAD','20')); step=float(E('STEP','1.27')); n=int(round(rad/step)); rots=[float(r) for r in E('ROTS','0,90,180,270').split(',')]
+    grid=np.full((len(rots),2*n+1,2*n+1),np.nan); cx0,cy0=M.S.centre(g); a0=M.S.a[g]
+    for ri,da in enumerate(rots):
+        for a in range(-n,n+1):
+            for b in range(-n,n+1):
+                d=M.try_move(g,a*step,b*step,da) if (a or b or da) else 0.0
+                if d is not None: grid[ri,b+n,a+n]=d
+    import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt
+    fig,axs=plt.subplots(1,len(rots),figsize=(5*len(rots),5),dpi=110)
+    vmin=np.nanmin(grid); vmax=np.nanpercentile(grid,90)
+    for ri,ax in enumerate(np.atleast_1d(axs)):
+        im=ax.imshow(grid[ri],extent=(cx0-rad-step/2,cx0+rad+step/2,cy0+rad+step/2,cy0-rad-step/2),cmap='RdYlGn_r',vmin=vmin,vmax=vmax)
+        ax.plot([cx0],[cy0],'k+',ms=14); ax.set_title(f'{ref} at {(a0+rots[ri]+180)%360-180:g} deg'+(' (now)' if rots[ri]==0 else ''))
+        k=np.unravel_index(np.nanargmin(grid[ri]),grid[ri].shape) if np.isfinite(grid[ri]).any() else None
+        if k: ax.plot([cx0+(k[1]-n)*step],[cy0+(k[0]-n)*step],'bo',mfc='none',ms=12)
+        ax.set_xlabel('courtyard centre x (mm)'); ax.set_ylabel('y (mm)')
+    fig.colorbar(im,ax=axs,shrink=0.8,label='cost change in mm (lower is better; blank = illegal; + = now; o = best)')
+    fig.suptitle(f'{ref}: placement cost over legal positions (step {step} mm, congestion capacity not re-rasterised)')
+    os.makedirs(out,exist_ok=True); fig.savefig(os.path.join(out,f'sweep_{ref}.png')); plt.close(fig)
+    flat=[(grid[ri,b,a],(a-n)*step,(b-n)*step,rots[ri]) for ri in range(len(rots)) for b in range(2*n+1) for a in range(2*n+1) if np.isfinite(grid[ri,b,a])]
+    flat.sort()
+    print(f'{ref} centre ({cx0:.2f},{cy0:.2f}) rot {a0:g}; best positions (screen, then full with capacity):')
+    for d,dx,dy,da in flat[:8]:
+        f=M.try_move(g,dx,dy,da,check=False,full=True)
+        print(f'  centre to ({cx0+dx:.2f},{cy0+dy:.2f}) at {(a0+da+180)%360-180:g} deg: {d:+.0f} mm (full {f:+.0f})')
+    print('wrote',os.path.join(out,f'sweep_{ref}.png'))
+
+def breakdown(M,g,dx,dy,da):
+    """term changes of one move (committed, measured, undone)"""
+    T0=M.terms(); M.commit(g,dx,dy,da); T1=M.terms(); M.commit(g,-dx,-dy,0); M.commit(g,0,0,-da)
+    return {k:T1[k]-T0[k] for k in ('length','bends','xall','overflow','budget')}|{'vias':M.vias(T1)-M.vias(T0)}
+
+def mode_moves(M,out):
+    t=time.time(); cands=candidates(); res=[]
+    for g in M.B.movable:
+        b,_=best_move(M,g,cands)
+        if b and b[0]<0: res.append((b[0],g)+b[1:])
+    res.sort(); B=M.B; lines=['# best single moves (each on its own, from the input placement; gain in mm, one via = %g mm)'%VIAMM,'',
+        '| part | move dx,dy mm | rotate | to | gain mm | track mm | bends | crossings | overflow | exp. vias |','|---|---|---|---|---|---|---|---|---|---|']
+    for d,g,dx,dy,da in res[:int(E('TOP','25'))]:
+        bd=breakdown(M,g,dx,dy,da)
+        lines.append(f'| {B.parts[g].ref} | {dx:+.2f},{dy:+.2f} | +{da:g} | ({M.S.x[g]+dx:.2f},{M.S.y[g]+dy:.2f}) | {-d:.0f} | {bd["length"]:+.0f} | {bd["bends"]:+d} | {bd["xall"]:+.0f} | {bd["overflow"]:+.1f} | {bd["vias"]:+.1f} |')
+    os.makedirs(out,exist_ok=True); open(os.path.join(out,'moves.md'),'w').write('\n'.join(lines)+'\n'); print('\n'.join(lines)); print(f'{time.time()-t:.0f} s')
+    return res
+
+def mode_swaps(M,out):
+    B=M.B; bylib=collections.defaultdict(list)
+    for g in B.movable: bylib[B.parts[g].lib].append(g)
+    res=[]
+    for lib,gs in bylib.items():
+        if len(B.parts[gs[0]].pads)<3: continue      # passives: a swap is just a move of each
+        for a in range(len(gs)):
+            for b in range(a+1,len(gs)):
+                d=swap_delta(M,gs[a],gs[b])
+                if d is not None and d<0: res.append((d,gs[a],gs[b]))
+    res.sort(); lines=['# best swaps (same footprint; cost change in mm)','','| swap | gain mm |','|---|---|']
+    for d,a,b in res[:int(E('TOP','25'))]: lines.append(f'| {B.parts[a].ref} <-> {B.parts[b].ref} | {-d:.0f} |')
+    os.makedirs(out,exist_ok=True); open(os.path.join(out,'swaps.md'),'w').write('\n'.join(lines)+'\n'); print('\n'.join(lines)); return res
+
+def write_copy(M,src,dst,strip=True):
+    """copy of src with every footprint at its model position/angle (pad, text and property angles follow); signal tracks
+    and vias removed (KEEP nets stay) so the copy is a router bench"""
+    s=open(src,encoding='utf-8').read(); n=len(s)
+    def block_end(j):
+        depth=0; q=False; k=j
+        while k<n:
+            c=s[k]
+            if q:
+                if c=='\\': k+=1
+                elif c=='"': q=False
+            elif c=='"': q=True
+            elif c=='(': depth+=1
+            elif c==')':
+                depth-=1
+                if depth==0: return k+1
+            k+=1
+    out=[]; i=0; idx=0; keep=set(E('KEEP','GND,+5V').split(','))
+    nets={int(a):b for a,b in re.findall(r'\(net (\d+) "((?:[^"\\]|\\.)*)"\)',s)}
+    pat=re.compile(r'\n\t\((footprint|segment|arc|via)\b')
+    while True:
+        m=pat.search(s,i)
+        if not m: out.append(s[i:]); break
+        j=m.start()+2; e=block_end(j); blk=s[j:e]
+        if m.group(1)=='footprint':
+            k=idx; idx+=1
+            P=M.B.parts[k]; x,y,a=M.S.x[k],M.S.y[k],M.S.a[k]; da=a-P.a
+            if abs(x-P.x)>1e-6 or abs(y-P.y)>1e-6 or abs(da)>1e-6:
+                fa=f' {a:g}' if abs(a)>1e-9 else ''
+                blk=re.sub(r'^(\(footprint "[^"]*"(?:\s|\n)*(?:\([^()]*\)\s*)*?)\(at [-\d.]+ [-\d.]+(?: [-\d.]+)?\)',
+                           lambda mm:mm.group(1)+f'(at {x:.4f} {y:.4f}{fa})',blk,count=1)
+                if abs(da)>1e-6:
+                    def fix(mm):
+                        ang=(float(mm.group(3)) if mm.group(3) else 0.0)+da; ang=(ang+180)%360-180
+                        return f'{mm.group(1)}(at {mm.group(2)} {ang:g})'
+                    blk=re.sub(r'(\n\t\t\((?:pad|fp_text|property)\b[^\n]*?(?:\n[^\n]*?)??)\(at ([-\d.]+ [-\d.]+)(?: ([-\d.]+))?\)',fix,blk)
+            out.append(s[i:j]+blk); i=e; continue
+        nm=re.search(r'\(net (\d+)\)',blk)
+        if (not strip) or (nm and nets.get(int(nm.group(1)),'') in keep): out.append(s[i:e]); i=e
+        else: out.append(s[i:m.start()]); i=e
+    assert idx==len(M.B.parts),(idx,len(M.B.parts))
+    open(dst,'w',encoding='utf-8').write(''.join(out))
+
+def mode_optimize(M,out):
+    """greedy: best legal move or swap of all parts, commit, repeat. Each part's best move is cached and only re-searched when
+    a committed change shares a net with it or lands within NEAR mm; a cached move is re-checked in full before it is taken."""
+    t=time.time(); B=M.B; rounds=int(E('ROUNDS','30')); ming=float(E('MINGAIN','5')); cands=candidates(); near=float(E('NEAR','25'))
+    T0=M.terms(); c0=M.cost(T0); log=[]; arrows=[]
+    print('start',fmt_terms(M,T0),flush=True)
+    tabu=collections.Counter(); cache={}; swapc=None
+    bylib=collections.defaultdict(list)
+    for g in B.movable: bylib[B.parts[g].lib].append(g)
+    swapsets=[gs for gs in bylib.values() if len(B.parts[gs[0]].pads)>=3 and len(gs)>1]
+    def nets_of(g):
+        s_=set()
+        for i in B.members[g]: s_|=B.partnets[i]
+        return s_
+    for r in range(rounds):
+        for g in B.movable:
+            if tabu[g]>=3: cache[g]=None; continue
+            if g not in cache:
+                b,_=best_move(M,g,cands,verify=3); cache[g]=b
+        if E('SWAPS','1')=='1' and swapc is None:
+            swapc=[]
+            for gs in swapsets:
+                for a in range(len(gs)):
+                    for bb in range(a+1,len(gs)):
+                        d=swap_delta(M,gs[a],gs[bb])
+                        if d is not None and d<0: swapc.append((d,gs[a],gs[bb]))
+        opts=[(b[0],'move',g)+tuple(b[1:]) for g,b in cache.items() if b]+[(d,'swap',a,bb) for d,a,bb in (swapc or [])]
+        opts.sort(); best=None
+        for o in opts[:10]:
+            if o[0]>-ming: break
+            if o[1]=='move':
+                d=M.try_move(o[2],o[3],o[4],o[5],check=True,full=True)
+                if d is not None and d<=-ming: best=(d,)+o[1:]; break
+                cache.pop(o[2],None)
+            else:
+                d=swap_delta(M,o[2],o[3])
+                if d is not None and d<=-ming: best=(d,)+o[1:]; break
+        if best is None: break
+        if best[1]=='move':
+            d,_,g,dx,dy,da=best; x0,y0=M.S.x[g],M.S.y[g]; c0_=M.S.centre(g); M.commit(g,dx,dy,da); tabu[g]+=1; moved=[g]
+            msg=f'{B.parts[g].ref}: move {dx:+.2f},{dy:+.2f} mm, rotate +{da:g} -> ({M.S.x[g]:.2f},{M.S.y[g]:.2f}) rot {M.S.a[g]:g}'
+            arrows.append(c0_+M.S.centre(g)+(B.parts[g].ref,))
+        else:
+            d,_,g,h=best; xg,yg,xh,yh=M.S.x[g],M.S.y[g],M.S.x[h],M.S.y[h]; cg_=M.S.centre(g); ch_=M.S.centre(h); swap_delta(M,g,h,commit=True); tabu[g]+=1; tabu[h]+=1; moved=[g,h]
+            msg=f'swap {B.parts[g].ref} <-> {B.parts[h].ref}'; arrows+=[cg_+M.S.centre(g)+(B.parts[g].ref,),ch_+M.S.centre(h)+(B.parts[h].ref,)]
+        # invalidate cached searches the change can affect
+        mn=set(); pts=[]
+        for m_ in moved: mn|=nets_of(m_); pts.append((M.S.x[m_],M.S.y[m_]))
+        if best[1]=='move': pts.append((x0,y0))
+        else: pts+=[(xg,yg),(xh,yh)]
+        for k in list(cache):
+            if k in moved or (nets_of(k)&mn) or min(math.dist((M.S.x[k],M.S.y[k]),p_) for p_ in pts)<near: cache.pop(k)
+        swapc=None if any(m_ in gs for gs in swapsets for m_ in moved) or best[1]=='swap' else swapc
+        T=M.terms(); log.append((msg,-d,T)); print(f'round {r+1}: {msg}  gain {-d:.0f} mm | {fmt_terms(M,T)}  ({time.time()-t:.0f} s)',flush=True)
+    T1=M.terms(); os.makedirs(out,exist_ok=True)
+    lines=['# placement suggestions (greedy, pads only)','',f'before: {fmt_terms(M,T0)}',f'after:  {fmt_terms(M,T1)}','',
+           '| step | change | gain mm | expected vias after | length after m |','|---|---|---|---|---|']
+    for k,(msg,gn,T) in enumerate(log): lines.append(f'| {k+1} | {msg} | {gn:.0f} | {M.vias(T):.0f} | {T["length"]/1000:.2f} |')
+    open(os.path.join(out,'suggestions.md'),'w').write('\n'.join(lines)+'\n')
+    write_copy(M,B.path,os.path.join(out,'placed.kicad_pcb'))
+    draw(M,os.path.join(out,'suggestions.png'),'suggested moves (green arrows) over the new congestion map',arrows=arrows)
+    json.dump([dict(change=m,gain=g) for m,g,_ in log],open(os.path.join(out,'suggestions.json'),'w'),indent=1)
+    print('\n'.join(lines)); print(f'wrote {out}/suggestions.md suggestions.png placed.kicad_pcb  ({time.time()-t:.0f} s)')
+
+def main():
+    a=[x for x in sys.argv[1:] if '=' not in x]
+    for x in sys.argv[1:]:
+        if '=' in x: k,v=x.split('=',1); os.environ[k]=v
+    if len(a)<2: print(__doc__); sys.exit(1)
+    path,mode=a[0],a[1]; out=E('OUT','placeguide_out')
+    if mode=='fit':
+        M=Model(path,K=DEFAULT_K); M.ready(); mode_fit(M,a[2:] or [path],E('FITOUT',FITFILE)); return
+    M=Model(path); M.ready()
+    print(f'loaded {path}: {len(M.B.parts)} parts, {len(M.B.movable)} movable, {len(M.B.nets)} nets, {len(M.E)} connections ({M.t_load:.1f} s)')
+    if mode=='report': mode_report(M,out)
+    elif mode=='sweep': mode_sweep(M,a[2],out)
+    elif mode=='moves': mode_moves(M,out)
+    elif mode=='swaps': mode_swaps(M,out)
+    elif mode=='optimize': mode_optimize(M,out)
+    else: print(__doc__); sys.exit(1)
+
+if __name__=='__main__': main()
