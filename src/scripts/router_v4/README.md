@@ -439,15 +439,56 @@ with via sliding). Two of its ideas tested on the fine r1 bench (`ALLEVERY=0` ro
   462 / 448 / 438 / 435 -> wide **422 vias / 26.13 m** (`bench/r1_fine9_mixed_*`), DRC clean, 67 min. New best fine r1
   board: one via fewer than all-orthogonal and 0.6 m (2.2 %) shorter; 14.3 % of the track is diagonal.
 
-## Placement guidance (`placeguide.py`, branch-143)
-`python placeguide.py board.kicad_pcb [prefix]` estimates how hard a placement is to route from pads and nets alone, without routing and
-without editing the board, and suggests moves (position and rotation). It reports the wirelength (rectilinear MST per net,
-critical nets weighted), RUDY congestion per 4 mm tile against the capacity of the two layers, and a via estimate from tree edges that
-need both axes and crossings between nets; GND/+5V are planes and do not count. Output: report, `<prefix>_moves.csv`, `<prefix>.svg`.
-Connectors, holes, switches, relays, crystals, jumpers, net ties, locked parts and plane-only parts (decoupling) are held (`FIX`, `ALLOW`).
+## Placement guidance (`placeguide.py`, branch-143, modes and route check branch-146)
+`python placeguide.py board.kicad_pcb MODE` judges a placement from the pads and nets alone (no routing, existing copper ignored) and
+searches moves, rotations and swaps that should make it easier to route. The board file is never written; `optimize` writes a moved
+copy with the signal tracks stripped, ready for the router. The docstring has every setting.
 
-When the board has copper it calibrates: on the routed bench board (`wbf6_r5_n8`) vias per net = 0.43 x two-axis edges + 0.028 x crossings - 0.22,
-r = 0.82 per net; the same coefficients applied to the current `kicad/placard.kicad_pcb` give r = 0.88 and 514 predicted vias against 532 real (the two
-boards share most of their placement, so this is a weak independent test). Estimated congestion against real copper per tile: r = 0.62-0.63.
-25 suggested moves on the current board: wirelength estimate 38.73 -> 36.85 m, overflow 46.5 -> 20.0, via estimate 514 -> 498. These are model
-predictions; no suggested placement has been routed yet.
+What the score reads (GND / +5V are the inner planes and are left out):
+- **length**: each net's rectilinear minimum spanning tree (MST) of pads; each tree edge is one connection.
+- **bends**: a connection whose pads differ by more than `ALIGN` (1 mm) in both x and y needs an L; with F.Cu horizontal and
+  B.Cu vertical an L costs a via. Pin alignment matters more than distance.
+- **crossings**: pairs of connections of different nets whose straight lines cross (any direction, the PR #282 measure); also
+  counted by class (same direction, aligned or not), and per chip pair as bus pin-order inversions in the report.
+- **congestion**: 5 mm bins. Capacity per direction = tracks at 0.55 mm pitch that pass the bin on its preferred layer (+0.25 x the
+  other layer), after pads + clearance, NPTH, the 1 mm outline band and the mounting-hole bands are rasterised at 0.1 mm, averaged
+  over 5 slices so a connector pad row blocks only its own slice. Demand = RUDY spread of each connection over its bounding box.
+- **expected vias** = KB x bends + KX x crossings + K1/K0 x same-direction crossings + KC x congestion exposure, with the K values
+  fitted by `fit` (non-negative least squares of the per-net via counts of a routed board) and kept in `placeguide_fit.json`.
+- **cost** = length + 15 mm per expected via + 10 mm per track of overflow (+ `BUDW` per mm a timing budget would be broken with
+  `BUDGET=budgets.json`).
+
+Modes: `report` (metrics, worst bus pin-order pairs, hottest bins, nets with the most bends, tightest budgets, congestion PNG),
+`fit [routed boards]`, `sweep REF` (heatmap of one part's cost over every legal spot and the 4 rotations), `moves` (best single
+move per part with the change in length / bends / crossings / overflow / vias), `swaps` (same-footprint place swaps), `optimize`
+(greedy moves and swaps; each part's best move is cached and searched again only when a committed change shares a net with it or
+lands within 25 mm).
+Legality: courtyards inside the outline by 1 mm and clear of each other, Eco1.User puller boxes clear of other courtyards (overlaps
+already in the input are tolerated). Decoupling caps (two pads on GND and +5V) move with the nearest IC; connectors, holes, switches,
+the relay, the oscillator, jumpers, test points and net ties stay (`FIXED`, `FREE`, `ONLY`). A part turns about its courtyard
+centre and its origin stays on the 0.635 mm grid.
+
+**Calibration** (`fit` on the routed main board, 253 nets, 532 vias): per-net vias r = 0.88 (R2 0.78). Bends alone: R2 0.65;
+bends + any-direction crossings: 0.776; bends + same-direction crossings only: 0.73 (so the "only same-layer crossings cost vias"
+idea fitted worse than plain crossings); all terms: 0.777.
+
+**Route check (2026-11-09, container CPU, 4 threads).** The current placement and the `optimize` result (20 changes: 5 swaps of
+same-footprint chips and 15 moves / rotations, below) were each stripped of signal copper and routed the same way
+(`mroute4.py` coarse 0.125 mm grid, CPU; then one `tidy.py` rung VIA=400 AGAINST=2):
+
+| | model length | model vias | routed track | routed vias | router time |
+|---|---|---|---|---|---|
+| current placement | 38.73 m | 554 | 40.93 m | 735 | 60 min |
+| `optimize` (20 changes) | 36.03 m | 496 | 37.94 m | 668 | 44 min |
+| change | -7.0 % | -10.5 % | -7.3 % | -9.1 % | -27 % |
+
+After the first tidy rung (VIA=400, 3 workers): current 578 vias / 41.49 m, suggested 532 vias / 38.42 m (-8.0 % vias, -7.4 %
+track); both 0 open, 0 collisions.
+The model predicted the direction and roughly the size of both gains. Timing (`budgets.py U11E=1` on both placements): every check
+stays feasible (worst detour ratio 1.54 on `rom_fetch_oe`); neither route was length-budgeted, so both have some pairs over budget
+that `lenfix.py` would repair. The suggested placement is a test bench, not a proposal to change the frozen rev A board.
+Moves applied (old pin-1-pivot convention of that run; positions are the footprint origins after the move):
+swap U3/U12; U10 to (273.37,203.38) rot 0; swap U10/U8; U35 to (284.69,132.54); U29 to (297.16,170.65) rot -90; U2 to (233.68,243.23);
+U14 to (311.08,156.68); U15 to (320.66,142.70) rot 180; swap U42/U11; swap U42/U7; U11 to (185.86,149.85) rot 0; U25 to (182.22,187.19)
+rot 180; U42 to (149.56,204.65); U19 to (71.12,213.24); R5 to (78.87,176.74) rot 0; U6 to (116.66,242.69); U21 to (116.66,231.05);
+U5 to (76.71,242.69); U20 to (81.28,224.70).
