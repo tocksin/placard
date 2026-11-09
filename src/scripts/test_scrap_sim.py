@@ -314,7 +314,7 @@ class Rig(test_tracker.Rig):
                 out[16 * c + y] = mem[(page << 8) + line_off(16 * cy + y)]
         return bytes(out)
 
-    def check_view(self, what):
+    def check_view(self, what, pv=None):
         """every view cell against the map in RAM and the art (a broken one
         cracked, a loose part crated, the mouse pointer over it); the framed
         cell is left out (its border is drawn over it)"""
@@ -349,6 +349,8 @@ class Rig(test_tracker.Rig):
                 if (gen_scrap.TYPES[t][3] & gen_scrap.F_ITEM and (x, y) != (px, py)
                         and not self.bolted(x, y)):
                     art = gen_scrap.crate_art(art)      # a loose part: crated
+                if pv and not away and x < gen_scrap.MAP_W and y < gen_scrap.MAP_H:
+                    art = pw_overlay(self, art, x, y, pv)       # the power view's lines
                 art = pointer_over(art, cx, cy, ptr)
                 if self.cell_bytes(cx, cy) != art:
                     got = self.cell_bytes(cx, cy)
@@ -444,10 +446,23 @@ def build():
     for lab in ('l_mul8', 'l_div16', 'l_rand8'):     # MAP07: the library over x6000 up
         if tsyms[lab] >= 0x6000:
             raise SystemExit('%s is at x%04X: it runs under map 07' % (lab, tsyms[lab]))
+    pwr = gen_plc.split_swap(prog, 0x4700, 0x4D00, 4)   # SCRAP.PWR, the power view
+    ini = gen_plc.split_swap(prog, 0x4100, 0x4500, 4)   # SCRAP.INI, the start
+    if not pwr or len(pwr) > 0x600 or not ini or len(ini) > 0x400:
+        raise SystemExit('SCRAP.PWR is %d bytes, SCRAP.INI %d' % (len(pwr), len(ini)))
+    pw_src = open(os.path.join(HERE, 'scrap_pwr.masm')).read()
+    k = pw_src.index('; SCRAP.INI: the start')
+    for lab in re.findall(r'^([A-Za-z_]\w*):', pw_src[:k], re.M):     # each in its own file
+        if not 0x4700 <= tsyms[lab] < 0x4D00:
+            raise SystemExit('%s (SCRAP.PWR) is at x%04X' % (lab, tsyms[lab]))
+    for lab in re.findall(r'^([A-Za-z_]\w*):', pw_src[k:], re.M):
+        if not 0x4100 <= tsyms[lab] < 0x4500:
+            raise SystemExit('%s (SCRAP.INI) is at x%04X' % (lab, tsyms[lab]))
     if not 0x4100 <= tsyms['dock_main'] < 0x4D00:
         raise SystemExit('dock_main is not in SCRAP.DCK (x%04X): it reads the rest in' % tsyms['dock_main'])
     own = set()
-    for f in ('scrap_inv.masm', 'scrap_inv_data.masm', 'scrap_nav.masm', 'scrap_dck.masm'):
+    for f in ('scrap_inv.masm', 'scrap_inv_data.masm', 'scrap_nav.masm', 'scrap_dck.masm', 'scrap_pwr.masm',
+              'scrap_pwr_data.masm'):
         own |= set(re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, f)).read(), re.M))
     for lab in re.findall(r'^([A-Za-z_]\w*):', src, re.M):
         if lab not in own and not lab.startswith('scw_') and 0x4100 <= tsyms.get(lab, 0) < 0x4D00:
@@ -459,19 +474,21 @@ def build():
         raise SystemExit('the fixed pages start at x%02X00: change the region' % gen_scrap.DOOR_PAGE)
     plc = gen_plc.make(prog, tsyms, lib)[0]
     ovl += code                 # the code pages from xC000, after the map's
-    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, (nav, nav2, nav3, art, dck, dk2, dk3, dk4)
+    return rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, (nav, nav2, nav3, art, dck, dk2, dk3, dk4, pwr, ini)
 
 
 def swap_files(inv, navs):
     """the swap files for the SD image: build()'s inv and nav"""
-    nav, nav2, nav3, art, dck, dk2, dk3, dk4 = navs
+    nav, nav2, nav3, art, dck, dk2, dk3, dk4, pwr, ini = navs
     return {'SCRAP.INV': inv, 'SCRAP.NAV': nav, 'SCRAP.NV2': nav2, 'SCRAP.NV3': nav3, 'SCRAP.ART': art,
-            'SCRAP.DCK': dck, 'SCRAP.DK2': dk2, 'SCRAP.DK3': dk3, 'SCRAP.DK4': dk4}
+            'SCRAP.DCK': dck, 'SCRAP.DK2': dk2, 'SCRAP.DK3': dk3, 'SCRAP.DK4': dk4,
+            'SCRAP.PWR': pwr, 'SCRAP.INI': ini}
 
 
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('--png')
+    ap.add_argument('--power', action='store_true', help='only the conduits and the power view (quick)')
     args = ap.parse_args(argv)
     rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, nav = build()
     files = {'DOS.PLC': dos_plc, 'SCRAP.PLC': plc, 'SCRAP.OVL': ovl, 'BOOT.CFG': b'SCRAP.PLC\r\n'}
@@ -479,6 +496,7 @@ def main(argv):
     for n, data in gen_scrap.prt_files().items():   # the part text (SCRAP/Kxy)
         files[gen_scrap.PRT_DIR + '/' + n] = data
     r = Rig(rom, syms, dsyms, lib, sdimage.make(files))
+    r.args = args
     r.port.mouse = io_devices.Ps2Mouse(bat_ms=50)
     r.tsyms = tsyms
     cpu, mem = r.cpu, r.cpu.mem
@@ -515,6 +533,12 @@ def main(argv):
         r.fail('the welcome message')
     if mem[0x5BA0] & 0x70 != 0x40 or mem[0x5BF0] & 0x70 != 0x30:
         r.fail('the panel tints (%02X %02X)' % (mem[0x5BA0], mem[0x5BF0]))
+
+    if args.power:
+        deck_rules(r)
+        power(r, args)
+        print('PASS' if r.ok else 'FAILED')
+        return 0 if r.ok else 1
 
     print('3. walking')
     x0, y0 = r.zp('p_x'), r.zp('p_y')
@@ -722,7 +746,10 @@ def phase3(r, args):
         if z('m_sel') != k or 'inspect' not in r.panel()[1 + (k & 3)]:
             r.fail('the pointer on column 2 does not pick INSPECT (m_sel %d)' % z('m_sel'))
         r.click(1)
-        r.run(2)
+        for _ in range(10):                     # (the text is read from the SD card)
+            r.run(1)
+            if 'OXYGEN TANK' in r.panel()[5]:
+                break
         print('  clicked: %r' % r.panel()[5].strip())
         if 'OXYGEN TANK' not in r.panel()[5]:
             r.fail('a click on INSPECT in column 2 did not inspect')
@@ -1005,11 +1032,167 @@ def jammed_door(r):
     r.check_view('the door mended')
 
 
-def cnd(r):
-    """the CND list: the cells with a part on a conduit"""
-    a, n = r.tsyms['CND'], r.tsyms['CND_N']
-    m = r.cpu.mem
-    return [(m[a + 2 * i], m[a + 2 * i + 1]) for i in range(n) if m[a + 2 * i] != 0xFF]
+def cbit(r, x, y):
+    """cell x, y's conduit bit (cb_get: the screen bytes no line shows)"""
+    a = ((0xA1 + (x & 0xF8) + 2 * (y >> 4)) << 8) + 2 * (y & 15)
+    return bool(r.cpu.mem[a] >> (x & 7) & 1)
+
+
+def cbits(r):
+    """every cell with a conduit"""
+    return {(x, y) for y in range(gen_scrap.MAP_H) for x in range(gen_scrap.MAP_W) if cbit(r, x, y)}
+
+
+def ram_map(r):
+    """the map in RAM: kinds, damage, bolted (rows of cells)"""
+    t = [[r.map_t(x, y) for x in range(gen_scrap.MAP_W)] for y in range(gen_scrap.MAP_H)]
+    d = [[r.map_raw(x, y)[1] & 15 for x in range(gen_scrap.MAP_W)] for y in range(gen_scrap.MAP_H)]
+    b = [[r.bolted(x, y) for x in range(gen_scrap.MAP_W)] for y in range(gen_scrap.MAP_H)]
+    return t, d, b
+
+
+PW_SEGT = ((4, 8, 1, 0, 0), (4, 8, 4, 1, 0), (0, 8, 5, 1, 0), (4, 8, 4, 0, 2), (4, 0, 5, 0, 2))
+PW_ADJ = ((0, 0), (1, 0), (-1, 0), (0, 1), (0, -1))
+
+
+def pw_seg(b, side, col):
+    """scrap_pwr.masm's seg on art bytes b (16 c + row): the half line to
+    side (PW_ADJ's), colour col (a nibble)"""
+    px, row, n, dpx, drow = PW_SEGT[side]
+    for _ in range(n):
+        for rr in (row, row + 1):
+            i = 16 * (px >> 1) + rr
+            b[i] = (b[i] & 0xF0) | col if px & 1 else (b[i] & 0x0F) | col << 4
+        px, row = px + dpx, row + drow
+
+
+def pw_overlay(r, art, x, y, st):
+    """the power view's lines over cell x, y's art (ov_cell); st = (kinds,
+    bolted, conduits, live)"""
+    t, b, cond, lv = st
+    name = gen_scrap.TYPES[t[y][x]][0]
+    if name == 'SPACE':
+        return art
+    me_c, me_p = (x, y) in cond, gen_scrap.plugged(name, b[y][x])
+    if not me_c and not me_p:
+        return art
+    out, drawn = bytearray(art), False
+    mine = 0xE if (x, y) in lv else 0xD
+    for s in range(1, 5):
+        n = (x + PW_ADJ[s][0], y + PW_ADJ[s][1])
+        if n in cond:
+            pw_seg(out, s, mine if me_c else (0xE if n in lv else 0xD))
+            drawn = True
+        elif me_c and gen_scrap.plugged(gen_scrap.TYPES[t[n[1]][n[0]]][0], b[n[1]][n[0]]):
+            pw_seg(out, s, mine)
+            drawn = True
+    if me_c and not drawn:
+        pw_seg(out, 0, mine)
+    return bytes(out)
+
+
+def power(r, args):
+    """conduits are a bit a cell (under parts, in walls); V: the power
+    view, live conduits yellow, dead ones orange, plugged-in stubs; a
+    conduit section placed in a wall and under a part"""
+    z, mem = r.zp, r.cpu.mem
+    st_a = r.tsyms['PW_ST']
+    print('7e. conduits and the power view')
+    t0, d0 = gen_scrap.build_map()
+    want = set(gen_scrap.conduits(t0))
+    got = cbits(r)
+    print('  %d conduits at the start (%d in walls), the bits: %d' % (len(want), len(gen_scrap.TUG_WIRE), len(got)))
+    if got != want:
+        r.fail('the conduit bits: %s missing, %s extra' % (sorted(want - got)[:4], sorted(got - want)[:4]))
+    def view_on(what, cells=()):
+        c0 = r.cpu.clocks
+        r.key('v')
+        r.run_until(lambda: mem[st_a] == 3 and r.cpu.pc == r.tsyms['loop'], 600, 'the power view')
+        r.run(2)
+        t, d, b = ram_map(r)
+        cond = cbits(r)
+        lv = gen_scrap.live(t, d, cond, b)
+        vis = {(x, y) for y in range(64) for x in range(96)
+               if (x, y) in cond and mem[((0x43 + (y >> 4)) << 8) + 16 * (y & 15) + (x >> 3)] >> (x & 7) & 1}
+        print('  V (%s): %d frames, %d of %d conduits live' % (what, (r.cpu.clocks - c0) // FRAME, len(vis), len(cond)))
+        if vis != lv:
+            r.fail('%s: live conduits %s missing, %s extra' % (what, sorted(lv - vis)[:4], sorted(vis - lv)[:4]))
+        r.check_view('the power view, %s' % what, pv=(t, b, cond, lv))
+        for c, col in cells:
+            cx, cy = c[0] - z('v_x'), c[1] - z('v_y')
+            got = r.cell_bytes(cx, cy)[16 * 2 + 8] >> 4      # pixel 4, row 8
+            if got != col:
+                r.fail('%s: %d,%d is colour %X, not %X' % (what, c[0], c[1], got, col))
+        return lv
+    def view_off():
+        r.key('v')
+        r.run(4)
+        if mem[st_a] & 1:
+            r.fail('V did not turn the power view off')
+        r.check_view('the power view off')
+    react, batt = (25, 29), (26, 29)
+    lv = view_on('the start', [((24, 28), 0xE), ((23, 35), 0xE), ((26, 30), 0xE)])
+    if not {(22, 28), (25, 30), (27, 30)} <= lv:
+        r.fail('the tug\'s conduits are not live')
+    if args.png:
+        ps.render(mem, args.png.replace('.png', '_power.png'))
+        print('  wrote', args.png.replace('.png', '_power.png'))
+    view_off()
+    rd, bd = r.map_raw(*react), r.map_raw(*batt)
+    set_cell(r, *react, fl=(rd[1] & 0xF0) | 9)          # the reactor and battery broken: all dark
+    set_cell(r, *batt, fl=(bd[1] & 0xF0) | 8)
+    lv = view_on('no working source', [((24, 28), 0xD), ((26, 30), 0xD)])
+    if lv & set(gen_scrap.TUG_WIRE):
+        r.fail('the tug\'s conduits live with no working source')
+    view_off()
+    set_cell(r, *react, fl=rd[1])
+    set_cell(r, *batt, fl=bd[1])
+    # a conduit section in a wall, under a part (from a carry slot)
+    slots = [z('cl_t'), z('cr_t'), z('cb_t')]
+    k = slots.index(0) if 0 in slots else None
+    if k is None:
+        r.fail('no free carry slot: %s' % slots)
+        return
+    r.go((24, 33))
+    for target, kind in (((23, 33), 'O2'), ((24, 32), None)):
+        mem[r.tsyms['cl_t'] + k] = T['COND']
+        mem[r.tsyms['cl_d'] + k] = 0
+        r.key('i')
+        r.run(4)
+        inv_mouse(r, k)
+        r.click(1)
+        if not r.key_act(gen_scrap.A_INSTALL):
+            return
+        r.run(4)
+        r.mouse_cell(*target)
+        r.click(1)
+        r.run(2)
+        r.settle()
+        r.click(2)
+        name = gen_scrap.TYPES[r.map_t(*target)][0]
+        print('  a conduit section placed at %d,%d: %s, bit %s, slot %d' % (target[0], target[1], name, cbit(r, *target),
+                                                                            mem[r.tsyms['cl_t'] + k]))
+        if not cbit(r, *target) or mem[r.tsyms['cl_t'] + k] or name != (kind or 'PIPE'):
+            r.fail('a conduit section at %d,%d: %s, bit %s' % (target[0], target[1], name, cbit(r, *target)))
+    mem[r.tsyms['cl_t'] + k] = T['COND']               # where there is one: refused
+    r.key('i')
+    r.run(4)
+    inv_mouse(r, k)
+    r.click(1)
+    if r.key_act(gen_scrap.A_INSTALL):
+        r.run(4)
+        r.mouse_cell(23, 33)                           # (under the O2 tank: the one just placed)
+        r.click(1)
+        r.run(2)
+        print('  where there is a conduit: %r' % r.panel()[5].strip())
+        if z('cut_t') or 'CONDUIT THERE ALREADY' not in r.panel()[5]:
+            r.fail('a second conduit in a cell was not refused')
+        r.click(2)
+    mem[r.tsyms['cl_t'] + k] = 0
+    r.run(4)
+    view_on('two sections placed', [((23, 33), 0xE), ((24, 32), 0xD)])   # (24,32: by no conduit, dark)
+    view_off()
+    r.go((24, 32))
 
 
 def deck_rules(r):
@@ -1033,9 +1216,9 @@ def deck_rules(r):
     mem[r.tsyms['cl_t'] + k] = T['CRATE']
     mem[r.tsyms['cl_d'] + k] = 0
     if r.act(*pipe, gen_scrap.A_PUTL + k):
-        print('  a crate put down on the conduit: %s, CND %s' % (gen_scrap.TYPES[r.map_t(*pipe)][0], cnd(r)))
-        if r.map_t(*pipe) != T['CRATE'] or cnd(r) != [pipe]:
-            r.fail('PUT DOWN on a conduit: %d, %s' % (r.map_t(*pipe), cnd(r)))
+        print('  a crate put down on the conduit: %s, its bit %s' % (gen_scrap.TYPES[r.map_t(*pipe)][0], cbit(r, *pipe)))
+        if r.map_t(*pipe) != T['CRATE'] or not cbit(r, *pipe):
+            r.fail('PUT DOWN on a conduit: %d, bit %s' % (r.map_t(*pipe), cbit(r, *pipe)))
     r.mouse_cell(*pipe)
     r.click(1)
     first = (z('s_who'), r.panel()[0][:40].strip())
@@ -1051,8 +1234,8 @@ def deck_rules(r):
             or under[2] != [gen_scrap.A_INSPECT] or back[0] != 1 or 'CARGO CRATE' not in back[1]):
         r.fail('a second click does not show the conduit under the crate: %r %r %r' % (first, under, back))
     if r.act(*pipe, gen_scrap.A_PICK):
-        print('  picked up: %s, CND %s' % (gen_scrap.TYPES[r.map_t(*pipe)][0], cnd(r)))
-        if r.map_t(*pipe) != T['PIPE'] or cnd(r) or mem[r.tsyms['cl_t'] + k] != T['CRATE']:
+        print('  picked up: %s, its bit %s' % (gen_scrap.TYPES[r.map_t(*pipe)][0], cbit(r, *pipe)))
+        if r.map_t(*pipe) != T['PIPE'] or not cbit(r, *pipe) or mem[r.tsyms['cl_t'] + k] != T['CRATE']:
             r.fail('PICK UP off a conduit did not leave the conduit')
     set_cell(r, *deck, fl=(d0[1] & 0xF0) | 10)
     if r.act(*deck, gen_scrap.A_PUTL + k):
@@ -1063,19 +1246,20 @@ def deck_rules(r):
     mem[r.tsyms['cl_t'] + k] = 0
     if r.act(*pipe, gen_scrap.A_UNINST):
         print('  the conduit uninstalled: %s, bolted %s' % (gen_scrap.TYPES[r.map_t(*pipe)][0], r.bolted(*pipe)))
-        if r.map_t(*pipe) != T['COND'] or r.bolted(*pipe):
+        if r.map_t(*pipe) != T['COND'] or r.bolted(*pipe) or cbit(r, *pipe):
             r.fail('UNINSTALL of a conduit: not a loose conduit section')
     if r.act(*pipe, gen_scrap.A_PICK):
         if r.map_t(*pipe) != T['FLOOR'] or mem[r.tsyms['cl_t'] + k] != T['COND']:
             r.fail('PICK UP of the conduit section')
     if r.act(*deck, gen_scrap.A_PUTL + k) and r.act(*deck, gen_scrap.A_INSTALL):
         print('  the section put down and installed: %s' % gen_scrap.TYPES[r.map_t(*deck)][0])
-        if r.map_t(*deck) != T['PIPE'] or cnd(r):
+        if r.map_t(*deck) != T['PIPE'] or not cbit(r, *deck):
             r.fail('INSTALL of a conduit section: not a conduit')
     if r.act(*deck, gen_scrap.A_UNINST) and r.act(*deck, gen_scrap.A_PICK):   # and back
         if r.act(*pipe, gen_scrap.A_PUTL + k) and r.act(*pipe, gen_scrap.A_INSTALL):
             pass
-    if r.map_t(*pipe) != T['PIPE'] or r.map_t(*deck) != T['FLOOR'] or mem[r.tsyms['cl_t'] + k]:
+    if (r.map_t(*pipe) != T['PIPE'] or r.map_t(*deck) != T['FLOOR'] or mem[r.tsyms['cl_t'] + k]
+            or not cbit(r, *pipe) or cbit(r, *deck)):
         r.fail('the conduit not back: %d %d' % (r.map_t(*pipe), r.map_t(*deck)))
     set_cell(r, *pipe, fl=p0[1])            # (the damage: under 8, drawn the same)
     set_cell(r, *deck, fl=d0[1])
@@ -1568,6 +1752,7 @@ def skills_suit(r):
     pump_intake(r)
     jammed_door(r)
     deck_rules(r)
+    power(r, r.args)
     comms(r)
     navigation(r)
     q = r.room(z('p_x'), z('p_y'))

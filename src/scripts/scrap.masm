@@ -48,7 +48,7 @@
 ;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x4100,0x4D00,DCK,3 --swap 0x3600,0x4000,DK2,3 --swap 0x4E00,0x5000,DK3,3 --swap 0x5400,0x5600,DK4,3 --swap 0x3600,0x4000,ART,0
 ;     python3 test_scrap_sim.py                       runs it in placard_sim
 ;
-; Date: 11/08/2026
+; Date: 11/09/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -145,7 +145,6 @@ JB_N    = ACT_PG * 256 + 0xF9           ;   the 16ths done,
 JB_TL   = ACT_PG * 256 + 0xFA           ;   the work left at the next 16th
 JB_TH   = ACT_PG * 256 + 0xFB
 O2_T    = ACT_PG * 256 + 0xFC           ; seconds since the suit last used a litre of O2
-CND_N   = 24                ; parts on conduits, at most (CND)
 N_ANT   = ACT_PG * 256 + 0xFD           ; 1: a working antenna installed on the tug (tug_scan): comms
 CLK_0   = ACT_PG * 256 + 0xE6           ; the ship's clock: seconds from 05-07-2175
 CLK_1   = ACT_PG * 256 + 0xE7           ;   00:00:00 (24 bits; second_tick; 08:00:00
@@ -160,6 +159,9 @@ inv_k   = 0x65              ; the inventory's slot under the mouse: 0-2 the carr
 pl_t    = 0x66              ; the part being placed: its type
 PL_S    = ACT_PG * 256 + 0xEF           ;   its carry slot (the job: cut_m 4)
 SWAP_LO = 0x4100            ; SCRAP.INV (the inventory) is read in here, x4100-x4CFF
+PWR_LO  = 0x4700            ; SCRAP.PWR (the power view, scrap_pwr.masm) here, x4700-x4CFF
+INI_LO  = 0x4100            ; SCRAP.INI (the start's code, scrap_pwr.masm) here, x4100-x44FF
+CB_PG   = 0xA1              ; the conduit bits: odd pages xA1-xFF, even offsets 0-30 (cb_get)
 NAV3_LO = 0x4E00            ; SCRAP.NV3 (the rest of it) in the file system's buffer
 NAV2_LO = 0x3600            ; SCRAP.NV2 (more of the map screen) is read in here over
                             ;   the actions table and the cell art, x3600-x3FFF;
@@ -396,7 +398,7 @@ ta_go\@:
 .leave sc_leave
 .region 0x0100, 0x1F00
 .region 0x2000, 0x3200
-.region 0xC000, 0x10000, 2, overlay
+.region 0xC000, 0x10000, 2, overlay, pack
 .region 0x5600, 0x5A00, 1, overlay
 .region 0x5C00, 0x5D00, 1, overlay
 .region 0x5D70, 0x5DF3, 1, overlay
@@ -646,47 +648,11 @@ main:
 
 .chunk
 start:
-    ld   PRT_K>>8, y
-    ld   PRT_K&0xFF, x
-    ld   0xFF, [y,x]
-    CALL fl_init                ; docked to the KESTREL 9
-    CALL l_mouse_init
-    bne  st_nm
-    ld   1, ac
-    bra  st_m
-st_nm:
-    clr  ac
-st_m:
-    ld   ac, [m_ok]
-    clr  ac
-    ld   ac, [m_b]
-    ld   ac, [m_xh]
-    ld   ac, [m_yh]
-    ld   ac, [lock]
-    ld   ac, [h_on]
-    ld   ac, [fr_on]
-    ld   ac, [wk_on]
-    ld   ac, [walk_t]
-    ld   ac, [dirty]
-    ld   ac, [p_inv]
-    ld   0x40, ac               ; the pointer starts at 320, 240
-    ld   ac, [m_xl]
-    ld   1, ac
-    ld   ac, [m_xh]
-    ld   0xF0, ac
-    ld   ac, [m_yl]
-    ld   0xFF, ac
-    ld   ac, [m_sel]
-    ld   ac, [o_sel]
-    ld   2, ac
-    ld   ac, [s_who]
-    ld   START_X, ac
-    ld   ac, [p_x]
-    ld   START_Y, ac
-    ld   ac, [p_y]
-    CALL game_init
+    CALL ini_fetch              ; SCRAP.INI: the start's code (pw_start)
+    CALL pw_start
+    CALL rooms_build            ; (over SCRAP.INI)
+    CALL tug_scan
     CALL camera_fit
-    CALL screen_init
     CALL draw_view
     ld   s_welcome & 0xFF, ac
     ld   ac, [R0]
@@ -791,6 +757,10 @@ s_artf:                         ; (nav_fetch: these four share a page)
     #d "SCRAP.ART", 0x00
 s_dckf:
     #d "SCRAP.DCK", 0x00
+s_pwrf:
+    #d "SCRAP.PWR", 0x00
+s_inif:
+    #d "SCRAP.INI", 0x00
 PRT_NM:                         ; prt_load's: the part text file, its folder
     #d "K0A", 0x00
 s_prtd:
@@ -1022,49 +992,6 @@ ov_n:
     bne  ov_p
     bra  ov_s
 ov_e:
-    LEAVE
-
-; ------------------------------------------------------------
-; screen_init - the pixels (the odd pages) cleared; every line 4 bpp
-; 2x, the panel's lines 1 bpp 2x, its name row tinted
-; ------------------------------------------------------------
-.chunk
-screen_init:
-    PUSH_LINK
-    ld   0x61, ac
-    ld   ac, [u0]
-sci_p:
-    ld   [u0], y
-    clr  ac
-sci_b:
-    ld   ac, x
-    ld   0x00, [y,x]
-    inc
-    bne  sci_b
-    ld   [u0], ac
-    add  2, ac
-    ld   ac, [u0]
-    xor  0x01, ac
-    bne  sci_p
-    ld   0x06, ac               ; 4 bpp, 2x
-    CALL l_vid_mode
-    ld   0x5B, y                ; lines 384-479: x5BA0-x5BFF
-    ld   0xA0, ac
-    ld   ac, [u1]
-sci_m:
-    ld   [u1], x
-    ld   [u1], ac
-    sub  0xB0, ac
-    bcc  si_m4
-    ld   TINT_NAME | 0x04, [y,x]
-    bra  sci_mn
-si_m4:
-    ld   0x04, [y,x]
-sci_mn:
-    ld   [u1], ac
-    inc
-    ld   ac, [u1]
-    bne  sci_m
     LEAVE
 
 ; ============================================================
@@ -1349,6 +1276,13 @@ vc_d:
     CALL draw_cell
     CALL crack_cell
     CALL cell_extra
+    ld   PW_ST >> 8, y          ; the power view: its lines over it
+    ld   PW_ST & 0xFF, x
+    ld   [y,x], ac
+    and  1, ac
+    beq  vc_e
+    CALL pw_over
+vc_e:
     LEAVE
 
 ; draw_view - every cell of the view, then the frame
@@ -1827,6 +1761,12 @@ input_keys:
     xor  0x09, ac
     beq  ik_i
     ld   [key], ac
+    xor  0x76, ac               ; V: the power view on or off
+    beq  ik_v
+    ld   [key], ac
+    xor  0x56, ac
+    beq  ik_v
+    ld   [key], ac
     sub  0x31, ac
     ld   ac, [u1]
     sub  8, ac
@@ -1837,6 +1777,8 @@ ik_e:
     LEAVE
 ik_i:
     GOTO inv_toggle
+ik_v:
+    GOTO pw_toggle
 
 ; input_walk - the held directions (arrows, WASD, pad 1) or WALK HERE:
 ; a step every WALK_FRAMES frames
@@ -2888,59 +2830,6 @@ ts_e:
 
 ; PSTR-style loads are spelled out: R1:R0 = a string, then tputs.
 
-; game_init - the suit, the hands, the rooms' air, the tug (start, and
-; again after dying)
-.chunk
-game_init:
-    PUSH_LINK
-    clr  ac
-    ld   ac, [cl_t]
-    ld   ac, [cb_t]
-    ld   ac, [cl_d]
-    ld   ac, [cr_d]
-    ld   ac, [cb_d]
-    ld   ac, [air_t]
-    ld   ac, [sec_t]
-    ld   ac, [cut_t]
-    ld   ac, [stage]
-    ld   ac, [col_t]
-    ld   ac, [dead]
-    ld   ac, [v0]
-    ld   T_CUTTER, ac
-    ld   ac, [cr_t]
-    CALL skills_init
-    ld   SUIT_O2, ac
-    ld   ac, [o2]
-    ld   100, ac
-    ld   ac, [batt]
-gi_l:
-    ld   ROOM_PG, y             ; ROOM_P = RM_P0, ROOM_C = under COLD_P
-    ld   [v0], ac
-    add  RM_P0, x
-    ld   [y,x], ac
-    ld   ac, [v1]
-    ld   ROOM_P >> 8, y
-    ld   [v0], x
-    ld   ac, [y,x]
-    ld   [v0], ac
-    add  ROOM_C & 0xFF, x
-    ld   [v1], ac
-    sub  COLD_P, ac
-    bcs  gi_c
-    ld   0, [y,x]
-    bra  gi_n
-gi_c:
-    ld   1, [y,x]
-gi_n:
-    ld   [v0], ac
-    inc
-    ld   ac, [v0]
-    xor  32, ac
-    bne  gi_l
-    CALL rooms_build
-    CALL tug_scan
-    LEAVE
-
 ; game_tick - once a frame: cutting, the air (every 8 frames), the suit
 ; (every second)
 .chunk
@@ -3517,7 +3406,13 @@ pk_s:
     ld   [s_y], ac
     ld   ac, [g_y]
     CALL map_get
-    CALL under_take             ; the deck, or the conduit, under it
+    CALL cb_get                 ; the deck, or the conduit, under it
+    beq  pk_fl
+    ld   T_PIPE, ac
+    bra  pk_pt
+pk_fl:
+    ld   T_FLOOR, ac
+pk_pt:
     CALL map_put
     clr  ac
     CALL map_setd
@@ -3569,7 +3464,6 @@ pu_ok:
     CALL set_msg
     LEAVE
 pu_d:
-    CALL under_add
     ld   [v0], x
     ld   [x], ac
     beq  pu_e
@@ -3696,7 +3590,7 @@ cd_k2:
     ld   [c_t], ac
     xor  T_COND, ac
     bne  cd_b
-    CALL under_take             ; (its entry, if it lay on a conduit)
+    CALL cb_set                 ; (its bit)
     ld   T_PIPE, ac
 cd_s:
     CALL map_put
@@ -3735,7 +3629,12 @@ cd_m:
 ; panel.  The end of cut_done (its LEAVE).
 .chunk
 work_end:
-    ld   [rb_go], ac
+    ld   PW_ST >> 8, y          ; the power view: a part's power may have
+    ld   PW_ST & 0xFF, x        ;   changed, worked out and drawn again
+    ld   [y,x], ac
+    and  1, ac
+    ld   ac, [y,x]
+    or   [rb_go], ac
     beq  we_t
     ld   [inv], ac              ; in the inventory: when it closes
     bne  we_t                   ;   (rooms_build's space holds SCRAP.INV)
@@ -3743,9 +3642,12 @@ work_end:
     ld   FL_NAV, x
     ld   [y,x], ac
     bne  we_t
+    ld   [rb_go], ac
+    beq  we_v
     CALL rooms_build
     clr  ac
     ld   ac, [rb_go]
+we_v:
     CALL draw_view
     CALL hover_update
 we_t:
@@ -3779,7 +3681,8 @@ struct_done:
     ld   [c_t], ac
     xor  T_PIPE, ac
     bne  sd_w
-    ld   T_COND, ac             ; a conduit: its section, on the deck
+    CALL cb_clr                 ; a conduit: its section, on the deck
+    ld   T_COND, ac
     bra  sd_p
 sd_w:
     ld   [c_t], ac
@@ -4081,6 +3984,11 @@ ak_e:
 .chunk
 rooms_build:
     PUSH_LINK
+    ld   PW_ST >> 8, y          ; (over SCRAP.PWR and the live bits)
+    ld   PW_ST & 0xFF, x
+    ld   [y,x], ac
+    and  1, ac
+    ld   ac, [y,x]
     ld   RB_S0 >> 8, ac         ; x4100-x46FF cleared
     ld   ac, [v0]
 rb_c:
@@ -5241,40 +5149,6 @@ pd_n:
 ; skills, jobs, the suit
 ; ============================================================
 
-; skills_init - every skill at SKILL_START, no progress; the suit on.  A
-; leaf.
-.chunk
-skills_init:
-    clr  ac                     ; the inventory off, nothing to place
-    ld   ac, [inv]
-    ld   ac, [place]
-    ld   0xFF, ac
-    ld   ac, [inv_k]
-    ld   1, ac
-    ld   ac, [suit_on]
-    ld   SK_LV >> 8, y
-    clr  ac
-    ld   ac, [u0]
-ki_l:
-    ld   [u0], ac
-    add  SK_LV & 0xFF, x
-    ld   SKILL_START, [y,x]
-    ld   [u0], ac
-    add  SK_PR & 0xFF, x
-    ld   0, [y,x]
-    ld   [u0], ac
-    inc
-    ld   ac, [u0]
-    xor  6, ac
-    bne  ki_l
-    ld   CLK_0 & 0xFF, x        ; the ship's clock: 08:00:00 (28800 s)
-    ld   28800 & 0xFF, [y,x]
-    ld   CLK_1 & 0xFF, x
-    ld   28800 >> 8, [y,x]
-    ld   CLK_2 & 0xFF, x
-    ld   0x00, [y,x]
-    RET
-
 ; job_start - a job of AC frames at full speed on the panel's part (s_t):
 ; 16 AC of work (wk), done at wk_r a frame (work_tick): 2 + the average
 ; of the quarters of the skills the part needs (TB_SKILL); in the suit
@@ -6022,6 +5896,11 @@ inv_fetch:
     ld   ac, [u6]
 swap_fetch:                     ; (R1:R0 another file: nav_fetch's)
     PUSH_LINK
+    ld   PW_ST >> 8, y          ; (over SCRAP.PWR and the live bits)
+    ld   PW_ST & 0xFF, x
+    ld   [y,x], ac
+    and  1, ac
+    ld   ac, [y,x]
     CALL l_fs_open
     bne  vf_e
 vf_l:
@@ -6092,6 +5971,11 @@ place_click:
     beq  pc_bad
 pc_1:
     CALL map_get
+    ld   [pl_t], ac             ; a conduit section: cond_click
+    xor  T_COND, ac
+    bne  pc_2
+    GOTO cond_click
+pc_2:
     CALL deck_ok                ; u5: x80 a deck (or conduit), x40 open space,
     ld   ac, [u5]               ; 1 a broken deck, 0 neither
     beq  pc_dk
@@ -6101,17 +5985,6 @@ pc_1:
     ld   ac, [u5]
     bra  pc_w
 pc_dk:
-    ld   [pl_t], ac             ; a conduit section on a conduit: no
-    xor  T_COND, ac
-    bne  pc_dd
-    ld   [c_t], ac
-    xor  T_PIPE, ac
-    bne  pc_dd
-    ld   s_hasc & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_hasc >> 8, ac
-    bra  pc_m
-pc_dd:
     ld   0x80, ac
     ld   ac, [u5]
     bra  pc_w
@@ -6267,20 +6140,22 @@ pq_2c:
     ld   [v1], ac
     xor  T_COND, ac
     bne  pq_3
+    CALL cb_set                 ; a conduit: its bit; a deck shows it (in a
+    ld   [c_t], ac              ;   wall or under a part: the power view)
+    xor  T_FLOOR, ac
+    bne  pq_k
     ld   T_PIPE, ac
     bra  pq_s
 pq_3:
     ld   [v1], ac
     or   0x80, ac
 pq_s:
-    ld   ac, [v1]
-    CALL under_add              ; on a conduit: it is listed
-    ld   [v1], ac
     CALL map_put
     ld   [v0], ac
     add  3, x
     ld   [x], ac
     CALL map_setd
+pq_k:
     ld   [v0], x
     clr  ac
     ld   ac, [x]
@@ -6296,9 +6171,10 @@ pq_s:
 ; ------------------------------------------------------------
 ; what is under a part: a part stands on a deck (no thruster: open
 ; space; no turret: a wall), and that deck is never broken (deck_ok).
-; The map keeps one type a cell, so a part on a power conduit is listed
-; in CND (x, y; xFF xFF free, CND_N of them) and its pick-up lays the
-; conduit again; any other part had a whole bare deck under it.
+; The map keeps one type a cell, so a conduit is a bit a cell of its own
+; (cb_get): a part's pick-up lays the conduit (PIPE) again where the bit
+; is set, else a whole bare deck.  The bit stays under a wall, a door and
+; any part (scrap_pwr.masm: the power view shows them).
 ; ------------------------------------------------------------
 
 ; deck_ok - after map_get: AC 0 a deck or a conduit at 50 % health or
@@ -6324,65 +6200,173 @@ dk_ok:
     clr  ac
     RET
 
-; cnd_set - the CND entry T1, T2 found becomes T3, T4: AC T_PIPE, or
-; T_FLOOR when there is none.  under_add - after map_get, the cell
-; g_x, g_y (a conduit: into a free entry).  under_take - the type under
-; the part on g_x, g_y, its entry freed.  Leaves; T0-T4.
+; cb_get - g_x, g_y: AC = its conduit bit (0 none; u2 its byte, u4 the
+; bit).  cb_set, cb_clr - set it, clear it.  The bits are in the screen
+; bytes no line shows: page xA1 + (x & xF8) + 2 (y >> 4), offset
+; 2 (y & 15), bit x & 7 (all 768 of them: even offsets 0-30 of the odd
+; pages xA1-xFF; screen_init clears them, cb_init sets the start's).
+; A leaf: u0, u2, u4, u5
 .chunk
-under_add:
-    ld   [c_t], ac
-    xor  T_PIPE, ac
-    bne  ua_e
-    ld   0xFF, ac
-    ld   ac, [T1]
-    ld   ac, [T2]
-    ld   [g_x], ac
-    ld   ac, [T3]
+cb_clr:
+    ld   2, ac
+    bra  cg_go
+cb_set:
+    ld   1, ac
+    bra  cg_go
+cb_get:
+    clr  ac
+cg_go:
+    ld   ac, [u5]
     ld   [g_y], ac
-    ld   ac, [T4]
-    GOTO cnd_set
-ua_e:
+    shr  ac
+    shr  ac
+    shr  ac
+    and  0xFE, ac
+    ld   ac, [u0]
+    ld   [g_x], ac
+    and  0xF8, ac
+    add  [u0], ac
+    add  CB_PG, ac
+    ld   ac, [u0]
+    ld   [g_x], ac
+    and  7, ac
+    add  BIT_TAB & 0xFF, x
+    ld   BIT_TAB >> 8, y
+    ld   [y,x], ac
+    ld   ac, [u4]
+    ld   [g_y], ac
+    and  15, ac
+    shl
+    ld   ac, x
+    ld   [u0], y
+    ld   [y,x], ac
+    ld   ac, [u2]
+    ld   [u5], ac
+    beq  cg_r
+    xor  1, ac
+    beq  cg_s
+    ld   [u4], ac
+    xor  0xFF, ac
+    and  [u2], ac
+    bra  cg_w
+cg_s:
+    ld   [u4], ac
+    or   [u2], ac
+cg_w:
+    ld   ac, [y,x]
+    ld   ac, [u2]
+cg_r:
+    ld   [u2], ac
+    and  [u4], ac
     RET
-under_take:
-    ld   [g_x], ac
-    ld   ac, [T1]
-    ld   [g_y], ac
-    ld   ac, [T2]
-    ld   0xFF, ac
-    ld   ac, [T3]
-    ld   ac, [T4]
-    GOTO cnd_set
 
+; cond_click - placing a conduit section: on a whole deck, in a wall or
+; under a part on a deck, where there is no conduit yet (place_go); else
+; why not.  The rest of place_click
 .chunk
-cnd_set:
-    ld   CND & 0xFF, ac
-    ld   ac, [T0]
-cs_l:
-    ld   CND >> 8, y
-    ld   [T0], x
+cond_click:
+    CALL cb_get
+    beq  cc_0
+    ld   s_hasc & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_hasc >> 8, ac
+    bra  cc_m
+cc_0:
+    ld   [c_t], ac
+    xor  T_WALL, ac
+    beq  cc_go
+    CALL deck_ok
+    beq  cc_go
+    xor  2, ac                  ; a broken deck (its message)
+    beq  cc_mm
+    ld   [c_t], ac
+    CALL on_space
+    bne  cc_no
+    ld   [c_t], ac              ; a part (on a deck)
+    ld   ac, x
+    ld   TAB_PG, y
     ld   [y,x], ac
-    xor  [T1], ac
-    bne  cs_n
-    ld   [T0], ac
-    add  1, x
+    and  F_ITEM, ac
+    bne  cc_go
+cc_no:
+    ld   s_wcond & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_wcond >> 8, ac
+cc_m:
+    ld   ac, [R1]
+cc_mm:
+    CALL set_msg
+    LEAVE
+cc_go:
+    GOTO place_go
+
+
+; pw_toggle - V: the power view on or off (PW_ST bit 0; the live
+; conduits worked out again), the view drawn again.  The rest of input_keys
+.chunk
+pw_toggle:
+    ld   PW_ST >> 8, y          ; (worked out again each time)
+    ld   PW_ST & 0xFF, x
     ld   [y,x], ac
-    xor  [T2], ac
-    bne  cs_n
-    ld   [T4], ac
+    xor  1, ac
+    and  1, ac
     ld   ac, [y,x]
-    ld   [T0], x
-    ld   [T3], ac
-    ld   ac, [y,x]
-    ld   T_PIPE, ac
-    RET
-cs_n:
-    ld   [T0], ac
-    add  2, ac
-    ld   ac, [T0]
-    xor  ((CND & 0xFF) + 2 * CND_N) & 0xFF, ac
-    bne  cs_l
-    ld   T_FLOOR, ac
-    RET
+    CALL draw_view
+    LEAVE
+
+; pw_over - the power view over the cell view_cell drew (ov_cell): first
+; SCRAP.PWR read in again and the live conduits worked out, when
+; rooms_build or a swap file has been over them since (PW_ST bit 1 off)
+.chunk
+pw_over:
+    PUSH_LINK
+    ld   PW_ST >> 8, y
+    ld   PW_ST & 0xFF, x
+    ld   [y,x], ac
+    and  2, ac
+    bne  pwv_d
+    CALL pwr_fetch
+    bne  pwv_e
+    CALL power_build
+pwv_d:
+    CALL ov_cell
+pwv_e:
+    LEAVE
+
+; pwr_fetch - SCRAP.PWR into x4700-x4CFF (3 sectors): AC 0, or not 0 when
+; it is not on the card
+.chunk
+pwr_fetch:
+    ld   s_pwrf & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_pwrf >> 8, ac
+    ld   ac, [R1]
+    ld   PWR_LO >> 8, ac
+    ld   ac, [u5]
+    ld   3, ac
+    ld   ac, [u6]
+    GOTO swap_fetch
+
+; ini_fetch - SCRAP.INI into x4100-x44FF (2 sectors), for start
+.chunk
+ini_fetch:
+    ld   s_inif & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_inif >> 8, ac
+    ld   ac, [R1]
+    ld   INI_LO >> 8, ac
+    ld   ac, [u5]
+    ld   2, ac
+    ld   ac, [u6]
+    GOTO swap_fetch
+
+; PW_ST - bit 0 the power view is on, bit 1 SCRAP.PWR is in and the live
+; conduits worked out (RB_VIS)
+.chunk
+PW_ST:
+    #d8 0
+s_wcond:
+    #d "A CONDUIT GOES ON A DECK, IN A WALL OR UNDER A PART.", 0x00
 
 ; under_cycle - a click on the cell the panel is locked on: from a part
 ; (no thruster) to what is under it (s_who 4), and back.  AC 1 if it
@@ -6473,7 +6457,13 @@ ul_u:
     ld   ac, [s_f]
     ld   ac, [s_b]
     ld   ac, [n_act]
-    CALL cnd_set
+    CALL cb_get
+    beq  ul_f
+    ld   T_PIPE, ac
+    bra  ul_t
+ul_f:
+    ld   T_FLOOR, ac
+ul_t:
     ld   ac, [s_t]
     ld   A_INSPECT, ac
     CALL add_act
@@ -6644,12 +6634,6 @@ ADJ:
 INSP_BUF:
     #d8 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
-; CND - the parts on conduits (x, y); xFF xFF free
-.chunk
-CND:
-    #d8 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-    #d8 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-
 ; the panel's row 24 for a carried part (draw_tags)
 .chunk
 SLOT_TAB:
@@ -6723,3 +6707,12 @@ lm_x:
 .region NAV2_LO, NAV2_LO + 0x0A00, 1, overlay3, pack
 .region NAV3_LO, NAV3_LO + 0x0200, 1, overlay3, pack
 .region 0x5400, 0x5600, 1, overlay3, pack
+
+; ============================================================
+; SCRAP.PWR: the power view (scrap_pwr.masm), read in when the power
+; view needs it (#overlay4: gen_plc.py --swap 0x4700,0x4D00,PWR,4;
+; rooms_build's fill stack), then SCRAP.INI: the start's code (--swap
+; 0x4100,0x4500,INI,4)
+; ============================================================
+.region PWR_LO, PWR_LO + 0x0600, 1, overlay4, pack
+.include "scrap_pwr.masm"

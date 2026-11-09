@@ -45,7 +45,7 @@ for a program that reads both from the one file; --overlay-tail adds
 more pages (x5600-x59FF, then x5C00-x5DFF: one range each time it
 is given) after the overlay's, all of them to the top of memory then; --swap writes a file the program reads in when it needs it.
 
-Date: 11/07/2026
+Date: 11/09/2026
 """
 
 import argparse
@@ -148,7 +148,7 @@ def main(argv):
     ap.add_argument('--overlay-head', metavar='FILE',
                     help='bytes put in front of the overlay\'s in NAME.OVL')
     ap.add_argument('--swap', metavar='ADDR,END,EXT', action='append', default=[],
-                    help='the #overlay bytes at ADDR up to END go to NAME.EXT (read in at run time); ,2 at the end: the #overlay2 ones (,3 #overlay3)')
+                    help='the #overlay bytes at ADDR up to END go to NAME.EXT (read in at run time); ,2 at the end: the #overlay2 ones (,3 #overlay3, ,4 #overlay4)')
     a = ap.parse_args(argv)
     src = open(a.asm).read()
     base = os.path.dirname(os.path.abspath(a.asm))

@@ -1,0 +1,702 @@
+; ============================================================
+; scrap_pwr.masm - SCRAP.PWR: the power view (#overlay4, x4700-x4CFF),
+; and SCRAP.INI: the start (x4100-x44FF)
+; ============================================================
+; Date: 11/09/2026
+;
+; A conduit is a bit a cell (cb_get, resident: the hidden screen bytes of
+; the odd pages xA1-xFF), so one can run under anything on a deck and in
+; a wall.  V turns the power view on and off: every conduit drawn over
+; the cells as a line to each side with a conduit or a powered part
+; (F_PWR, installed: it looks plugged in), and a powered part's stub to
+; each side with a conduit; yellow when its network is live (a working
+; reactor or installed battery on one of its cells or beside one), orange
+; when it is not.  The normal view shows a bare deck's conduit (PIPE) by
+; its art and hides the rest.
+;
+; SCRAP.PWR is read into x4700-x4CFF (rooms_build's fill stack) by
+; pwr_fetch when the power view draws after rooms_build or a swap file
+; overwrote it (PW_ST bit 1 clear).  SCRAP.INI (the end of this file) is
+; the start's code, read in once by start.
+; power_build's live bits are rooms_build's fill map (RB_VIS); its stack
+; is x4100-x42FF (rooms_build's sums).
+
+PW_LIVE = 0xEE              ; the power view: a live conduit yellow
+PW_DEAD = 0xDD              ;   a dead one orange
+PW_STK  = 0x41              ; power_build's stack: x4100-x42FF (rooms_build's sums)
+
+; power_build - RB_VIS: a bit for each live conduit.  From each conduit
+; not live yet with a working source on it or beside it (pw_touch), its
+; network (pw_fill).  PW_ST bit 1 set.  w0, w1
+.chunk
+power_build:
+    PUSH_LINK
+    ld   RB_VIS, ac             ; the fill map cleared (x4300-x46FF)
+    ld   ac, [u0]
+pwb_c:
+    ld   [u0], y
+    clr  ac
+pwb_cb:
+    ld   ac, x
+    ld   0x00, [y,x]
+    inc
+    bne  pwb_cb
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  RB_STK, ac
+    bne  pwb_c
+    ld   PW_STK, ac             ; the stack empty
+    ld   ac, [stk_h]
+    clr  ac
+    ld   ac, [stk_l]
+    ld   ac, [w1]
+pwb_y:
+    clr  ac
+    ld   ac, [w0]
+pwb_x:
+    ld   [w0], ac
+    ld   ac, [g_x]
+    ld   [w1], ac
+    ld   ac, [g_y]
+    CALL cb_get
+    bne  pwb_k
+    ld   [u2], ac               ; none in its byte: the next byte
+    bne  pwb_n
+    ld   [w0], ac
+    or   7, ac
+    ld   ac, [w0]
+    bra  pwb_n
+pwb_k:
+    CALL pw_col
+    xor  PW_LIVE, ac
+    beq  pwb_n
+    CALL pw_touch
+    beq  pwb_n
+    CALL pw_push
+    CALL pw_fill
+pwb_n:
+    ld   [w0], ac
+    inc
+    ld   ac, [w0]
+    xor  MAP_W, ac
+    bne  pwb_x
+    ld   [w1], ac
+    inc
+    ld   ac, [w1]
+    xor  MAP_H, ac
+    bne  pwb_y
+    ld   PW_ST >> 8, y
+    ld   PW_ST & 0xFF, x
+    ld   [y,x], ac
+    or   2, ac
+    ld   ac, [y,x]
+    LEAVE
+
+; pw_fill - each cell taken off the stack: its sides' conduits not live
+; yet made live and put on it (pw_push), until it is empty.  w2-w4
+.chunk
+pw_fill:
+    PUSH_LINK
+pwf_l:
+    ld   [stk_l], ac
+    bne  pwf_q
+    ld   [stk_h], ac
+    xor  PW_STK, ac
+    beq  pwf_e
+    ld   [stk_h], ac
+    dec
+    ld   ac, [stk_h]
+pwf_q:
+    ld   [stk_l], ac
+    sub  2, ac
+    ld   ac, [stk_l]
+    ld   [stk_h], y
+    ld   [stk_l], x
+    ld   [y,x], ac
+    ld   ac, [w2]
+    ld   [stk_l], ac
+    add  1, x
+    ld   [y,x], ac
+    ld   ac, [w3]
+    ld   1, ac
+    ld   ac, [w4]
+pwf_s:
+    ld   PWADJ >> 8, y
+    ld   [w4], ac
+    add  PWADJ & 0xFF, x
+    ld   [y,x], ac
+    add  [w2], ac
+    ld   ac, [g_x]
+    ld   [w4], ac
+    add  (PWADJ & 0xFF) + 5, x
+    ld   [y,x], ac
+    add  [w3], ac
+    ld   ac, [g_y]
+    CALL cb_get
+    beq  pwf_n
+    CALL pw_col
+    xor  PW_LIVE, ac
+    beq  pwf_n
+    CALL pw_push
+pwf_n:
+    ld   [w4], ac
+    inc
+    ld   ac, [w4]
+    xor  5, ac
+    bne  pwf_s
+    bra  pwf_l
+pwf_e:
+    LEAVE
+
+; pw_push - conduit g_x, g_y live, onto the stack (full at RB_VIS: the
+; rest of a very big network, 256 cells on, stays dark)
+.chunk
+pw_push:
+    PUSH_LINK
+    CALL pw_col
+    ld   [u2], y
+    ld   [u3], x
+    ld   [y,x], ac
+    or   [u4], ac
+    ld   ac, [y,x]
+    ld   [stk_h], ac
+    xor  RB_VIS, ac
+    beq  pwp_e
+    ld   [stk_h], y
+    ld   [stk_l], x
+    ld   [g_x], ac
+    ld   ac, [y,x]
+    ld   [stk_l], ac
+    add  1, x
+    ld   [g_y], ac
+    ld   ac, [y,x]
+    ld   [stk_l], ac
+    add  2, ac
+    ld   ac, [stk_l]
+    bne  pwp_e
+    ld   [stk_h], ac
+    inc
+    ld   ac, [stk_h]
+pwp_e:
+    LEAVE
+
+; pw_touch - AC 1: a working power source (a reactor, or a battery
+; installed) under 50 % damage on cell g_x, g_y or beside it, else 0.
+; g_x, g_y kept.  T0-T3
+.chunk
+pw_touch:
+    PUSH_LINK
+    ld   [g_x], ac
+    ld   ac, [T0]
+    ld   [g_y], ac
+    ld   ac, [T1]
+    clr  ac
+    ld   ac, [T2]
+pwt_l:
+    ld   PWADJ >> 8, y
+    ld   [T2], ac
+    add  PWADJ & 0xFF, x
+    ld   [y,x], ac
+    add  [T0], ac
+    ld   ac, [g_x]
+    ld   [T2], ac
+    add  (PWADJ & 0xFF) + 5, x
+    ld   [y,x], ac
+    add  [T1], ac
+    ld   ac, [g_y]
+    CALL map_get
+    xor  T_REACT, ac
+    beq  pwt_w
+    ld   [c_t], ac
+    xor  T_BATT, ac
+    bne  pwt_n
+    ld   [c_b], ac
+    beq  pwt_n
+pwt_w:
+    ld   [c_f], ac
+    sub  8, ac
+    bcs  pwt_y
+pwt_n:
+    ld   [T2], ac
+    inc
+    ld   ac, [T2]
+    xor  5, ac
+    bne  pwt_l
+    clr  ac
+    bra  pwt_r
+pwt_y:
+    ld   1, ac
+pwt_r:
+    ld   ac, [T3]
+    ld   [T0], ac
+    ld   ac, [g_x]
+    ld   [T1], ac
+    ld   ac, [g_y]
+    ld   [T3], ac
+    LEAVE
+
+; pw_col - AC = T6 = the colour of cell g_x, g_y's network, PW_LIVE or
+; PW_DEAD (its RB_VIS bit: u2:u3, u4).  A leaf
+.chunk
+pw_col:
+    VISADDR
+    ld   [u2], y
+    ld   [u3], x
+    ld   [y,x], ac
+    and  [u4], ac
+    beq  pwl_d
+    ld   PW_LIVE, ac
+    bra  pwl_s
+pwl_d:
+    ld   PW_DEAD, ac
+pwl_s:
+    ld   ac, [T6]
+    RET
+
+; pw_kind - after map_see: AC 1 when the cell is a powered part that is
+; installed (a fixed one, the reactor or a turret, counts), else 0.  A leaf
+.chunk
+pw_kind:
+    ld   [c_t], ac
+    ld   ac, x
+    ld   TAB_PG, y
+    ld   [y,x], ac
+    and  F_PWR, ac
+    beq  pwk_r
+    ld   [c_b], ac
+    bne  pwk_1
+    ld   [y,x], ac
+    and  F_ITEM, ac
+    bne  pwk_0
+pwk_1:
+    ld   1, ac
+    RET
+pwk_0:
+    clr  ac
+pwk_r:
+    RET
+
+; ov_cell - the power view over screen cell dc_cx, dc_cy: its conduit to
+; each side with a conduit or a powered part (T3: a conduit here), or a
+; powered part's stub to each side with a conduit (T4), in its network's
+; colour (a stub: the conduit's); a conduit alone is a dot.  T0-T7
+.chunk
+ov_cell:
+    PUSH_LINK
+    ld   [v_x], ac
+    add  [dc_cx], ac
+    ld   ac, [T0]
+    ld   ac, [g_x]
+    ld   [v_y], ac
+    add  [dc_cy], ac
+    ld   ac, [T1]
+    ld   ac, [g_y]
+    CALL map_see
+    xor  T_SPACE, ac            ; (the KESTREL 9 out of sight: nothing)
+    beq  pwo_e
+    CALL pw_kind
+    ld   ac, [T4]
+    CALL cb_get
+    ld   ac, [T3]
+    or   [T4], ac
+    beq  pwo_e
+    CALL pw_col
+    ld   ac, [T5]
+    clr  ac
+    ld   ac, [T7]               ; the sides drawn
+    ld   1, ac
+    ld   ac, [T2]
+pwo_l:
+    ld   PWADJ >> 8, y
+    ld   [T2], ac
+    add  PWADJ & 0xFF, x
+    ld   [y,x], ac
+    add  [T0], ac
+    ld   ac, [g_x]
+    ld   [T2], ac
+    add  (PWADJ & 0xFF) + 5, x
+    ld   [y,x], ac
+    add  [T1], ac
+    ld   ac, [g_y]
+    CALL cb_get
+    bne  pwo_c
+    ld   [T3], ac               ; a powered part beside a conduit here
+    beq  pwo_n
+    CALL map_see
+    CALL pw_kind
+    beq  pwo_n
+    bra  pwo_m
+pwo_c:
+    ld   [T3], ac               ; a conduit beside: a part's stub in its colour
+    bne  pwo_m
+    CALL pw_col
+    bra  pwo_s
+pwo_m:
+    ld   [T5], ac
+    ld   ac, [T6]
+pwo_s:
+    CALL seg
+    ld   1, ac
+    ld   ac, [T7]
+pwo_n:
+    ld   [T2], ac
+    inc
+    ld   ac, [T2]
+    xor  5, ac
+    bne  pwo_l
+    GOTO ov_dot
+pwo_e:
+    LEAVE
+
+; ov_dot - a conduit with nothing beside it: a dot.  The rest of ov_cell
+.chunk
+ov_dot:
+    ld   [T7], ac
+    bne  pwd_e
+    ld   [T3], ac
+    beq  pwd_e
+    ld   [T5], ac
+    ld   ac, [T6]
+    clr  ac
+    ld   ac, [T2]
+    CALL seg
+pwd_e:
+    LEAVE
+
+; seg - in screen cell dc_cx, dc_cy (dc_base: its first line pair's
+; offset), colour T6: the half line to side T2 (PWADJ's: 1 right, 2 left,
+; 3 down, 4 up; 0 the middle), SEGT's: pixel 4 down (1 wide), pixels
+; 8-9 across (2 high).  A leaf.  u0-u7
+.chunk
+seg:
+    ld   SEGT >> 8, y
+    ld   [T2], ac
+    add  SEGT & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [u1]               ; the pixel
+    ld   [T2], ac
+    add  (SEGT & 0xFF) + 5, x
+    ld   [y,x], ac
+    ld   ac, [u2]               ; the row (even)
+    ld   [T2], ac
+    add  (SEGT & 0xFF) + 10, x
+    ld   [y,x], ac
+    ld   ac, [u5]               ; the steps
+    ld   [T2], ac
+    add  (SEGT & 0xFF) + 15, x
+    ld   [y,x], ac
+    ld   ac, [u0]               ; a step across
+    ld   [T2], ac
+    add  (SEGT & 0xFF) + 20, x
+    ld   [y,x], ac
+    ld   ac, [u4]               ;   and down
+    ld   [dc_cx], ac
+    shl
+    shl
+    shl
+    add  0x61, ac
+    ld   ac, [u7]               ; the cell's first column's page
+pws_l:
+    ld   [u1], ac               ; even pixels the high nibble
+    and  1, ac
+    beq  pws_h
+    ld   0xF0, ac
+    bra  pws_k
+pws_h:
+    ld   0x0F, ac
+pws_k:
+    ld   ac, [u3]               ; the nibble kept
+    xor  0xFF, ac
+    and  [T6], ac
+    ld   ac, [u6]               ; the colour's
+    ld   [u1], ac
+    and  6, ac
+    add  [u7], ac
+    ld   ac, y
+    ld   [u2], ac               ; rows u2 and u2 + 1
+    shl
+    add  [dc_base], ac
+    ld   ac, x
+    ld   [y,x], ac
+    and  [u3], ac
+    or   [u6], ac
+    ld   ac, [y,x]
+    ld   [u2], ac
+    shl
+    add  [dc_base], ac
+    add  2, x
+    ld   [y,x], ac
+    and  [u3], ac
+    or   [u6], ac
+    ld   ac, [y,x]
+    ld   [u1], ac
+    add  [u0], ac
+    ld   ac, [u1]
+    ld   [u2], ac
+    add  [u4], ac
+    ld   ac, [u2]
+    ld   [u5], ac
+    dec
+    ld   ac, [u5]
+    bne  pws_l
+    RET
+
+; PWADJ - the cell and its sides (0 itself, 1 right, 2 left, 3 down, 4
+; up): x steps, then y steps.  SEGT - seg's lines for each: the first
+; pixel, the first row, the steps, a step's pixels across and rows down
+.chunk
+PWADJ:
+    #d8 0, 1, 0xFF, 0, 0
+    #d8 0, 0, 0, 1, 0xFF
+SEGT:
+    #d8 4, 4, 0, 4, 4
+    #d8 8, 8, 8, 8, 0
+    #d8 1, 4, 5, 4, 5
+    #d8 0, 1, 1, 0, 0
+    #d8 0, 0, 0, 2, 2
+
+; ============================================================
+; SCRAP.INI: the start (scrap.masm's, fl_init from scrap_fl.masm: here
+; to leave room in the program), read into x4100-x44FF by start, which
+; then works out the rooms over it (#overlay4 too: gen_plc.py --swap
+; 0x4100,0x4500,INI,4)
+; ============================================================
+.region INI_LO, INI_LO + 0x0400, 1, overlay4, pack
+
+; cb_init - PW_ST off, the conduits at the start (CB0) set.  The rest
+; of pw_start
+.chunk
+cb_init:
+    ld   PW_ST >> 8, y
+    ld   PW_ST & 0xFF, x
+    ld   0x00, [y,x]
+    clr  ac
+    ld   ac, [w0]
+pwi_l:
+    ld   CB0 >> 8, y
+    ld   [w0], ac
+    add  CB0 & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [g_x]
+    xor  0xFF, ac
+    beq  pwi_e
+    ld   [w0], ac
+    add  (CB0 & 0xFF) + 1, x
+    ld   [y,x], ac
+    ld   ac, [g_y]
+    CALL cb_set
+    ld   [w0], ac
+    add  2, ac
+    ld   ac, [w0]
+    bra  pwi_l
+pwi_e:
+    LEAVE
+
+; pw_start - the start (and again after dying), from SCRAP.INI (start
+; reads it in): the flight, the mouse, the player, game_init, the screen
+; and the conduits; then start works out the rooms (over this file)
+.chunk
+pw_start:
+    PUSH_LINK
+    ld   PRT_K>>8, y
+    ld   PRT_K&0xFF, x
+    ld   0xFF, [y,x]
+    CALL fl_init                ; docked to the KESTREL 9
+    CALL l_mouse_init
+    bne  st_nm
+    ld   1, ac
+    bra  st_m
+st_nm:
+    clr  ac
+st_m:
+    ld   ac, [m_ok]
+    clr  ac
+    ld   ac, [m_b]
+    ld   ac, [m_xh]
+    ld   ac, [m_yh]
+    ld   ac, [lock]
+    ld   ac, [h_on]
+    ld   ac, [fr_on]
+    ld   ac, [wk_on]
+    ld   ac, [walk_t]
+    ld   ac, [dirty]
+    ld   ac, [p_inv]
+    ld   0x40, ac               ; the pointer starts at 320, 240
+    ld   ac, [m_xl]
+    ld   1, ac
+    ld   ac, [m_xh]
+    ld   0xF0, ac
+    ld   ac, [m_yl]
+    ld   0xFF, ac
+    ld   ac, [m_sel]
+    ld   ac, [o_sel]
+    ld   2, ac
+    ld   ac, [s_who]
+    ld   START_X, ac
+    ld   ac, [p_x]
+    ld   START_Y, ac
+    ld   ac, [p_y]
+    CALL game_init
+    CALL screen_init
+    GOTO cb_init
+
+; game_init - the suit, the hands, the rooms' air (pw_start; start then
+; works out the rooms and the tug)
+.chunk
+game_init:
+    PUSH_LINK
+    clr  ac
+    ld   ac, [cl_t]
+    ld   ac, [cb_t]
+    ld   ac, [cl_d]
+    ld   ac, [cr_d]
+    ld   ac, [cb_d]
+    ld   ac, [air_t]
+    ld   ac, [sec_t]
+    ld   ac, [cut_t]
+    ld   ac, [stage]
+    ld   ac, [col_t]
+    ld   ac, [dead]
+    ld   ac, [v0]
+    ld   T_CUTTER, ac
+    ld   ac, [cr_t]
+    CALL skills_init
+    ld   SUIT_O2, ac
+    ld   ac, [o2]
+    ld   100, ac
+    ld   ac, [batt]
+gi_l:
+    ld   ROOM_PG, y             ; ROOM_P = RM_P0, ROOM_C = under COLD_P
+    ld   [v0], ac
+    add  RM_P0, x
+    ld   [y,x], ac
+    ld   ac, [v1]
+    ld   ROOM_P >> 8, y
+    ld   [v0], x
+    ld   ac, [y,x]
+    ld   [v0], ac
+    add  ROOM_C & 0xFF, x
+    ld   [v1], ac
+    sub  COLD_P, ac
+    bcs  gi_c
+    ld   0, [y,x]
+    bra  gi_n
+gi_c:
+    ld   1, [y,x]
+gi_n:
+    ld   [v0], ac
+    inc
+    ld   ac, [v0]
+    xor  32, ac
+    bne  gi_l
+    LEAVE
+
+
+; ------------------------------------------------------------
+; screen_init - the pixels (the odd pages) cleared; every line 4 bpp
+; 2x, the panel's lines 1 bpp 2x, its name row tinted
+; ------------------------------------------------------------
+.chunk
+screen_init:
+    PUSH_LINK
+    ld   0x61, ac
+    ld   ac, [u0]
+sci_p:
+    ld   [u0], y
+    clr  ac
+sci_b:
+    ld   ac, x
+    ld   0x00, [y,x]
+    inc
+    bne  sci_b
+    ld   [u0], ac
+    add  2, ac
+    ld   ac, [u0]
+    xor  0x01, ac
+    bne  sci_p
+    ld   0x06, ac               ; 4 bpp, 2x
+    CALL l_vid_mode
+    ld   0x5B, y                ; lines 384-479: x5BA0-x5BFF
+    ld   0xA0, ac
+    ld   ac, [u1]
+sci_m:
+    ld   [u1], x
+    ld   [u1], ac
+    sub  0xB0, ac
+    bcc  si_m4
+    ld   TINT_NAME | 0x04, [y,x]
+    bra  sci_mn
+si_m4:
+    ld   0x04, [y,x]
+sci_mn:
+    ld   [u1], ac
+    inc
+    ld   ac, [u1]
+    bne  sci_m
+    LEAVE
+
+; fl_init - docked to the KESTREL 9, heading east, nothing burnt.  A leaf
+; (scrap_fl.masm's: here with the rest of the start).
+.chunk
+fl_init:
+    ld   FL_PG, y
+    ld   0x20, ac
+    ld   ac, [u0]
+fi_l:
+    ld   [u0], x
+    ld   0x00, [y,x]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  0x40, ac
+    bne  fi_2
+    ld   0x60, ac
+    ld   ac, [u0]
+fi_2:
+    ld   [u0], ac
+    xor  0xC0, ac               ; (x4080-x40BF too: the nav screen's, the spin)
+    bne  fi_l
+    ld   [RAND_LO], ac          ; rand8 needs a state that is not 0
+    or   [RAND_HI], ac
+    bne  fi_r
+    ld   0x5A, ac
+    ld   ac, [RAND_LO]
+fi_r:
+    GOTO fl_dock
+
+; skills_init - every skill at SKILL_START, no progress; the suit on.  A
+; leaf.
+.chunk
+skills_init:
+    clr  ac                     ; the inventory off, nothing to place
+    ld   ac, [inv]
+    ld   ac, [place]
+    ld   0xFF, ac
+    ld   ac, [inv_k]
+    ld   1, ac
+    ld   ac, [suit_on]
+    ld   SK_LV >> 8, y
+    clr  ac
+    ld   ac, [u0]
+ki_l:
+    ld   [u0], ac
+    add  SK_LV & 0xFF, x
+    ld   SKILL_START, [y,x]
+    ld   [u0], ac
+    add  SK_PR & 0xFF, x
+    ld   0, [y,x]
+    ld   [u0], ac
+    inc
+    ld   ac, [u0]
+    xor  6, ac
+    bne  ki_l
+    ld   CLK_0 & 0xFF, x        ; the ship's clock: 08:00:00 (28800 s)
+    ld   28800 & 0xFF, [y,x]
+    ld   CLK_1 & 0xFF, x
+    ld   28800 >> 8, [y,x]
+    ld   CLK_2 & 0xFF, x
+    ld   0x00, [y,x]
+    RET
+
+.include "scrap_pwr_data.masm"
