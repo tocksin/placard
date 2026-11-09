@@ -37,7 +37,7 @@ THE ART
     pixels 2c (low nibble, shown first) and 2c + 1 (high nibble) of line
     pair r.  Colors are the 4 bpp palette (docs/video/COLORS.md).
 
-Date: 2026-11-08
+Date: 2026-11-09
 """
 
 import os
@@ -52,11 +52,43 @@ MAP_W, MAP_H = 96, 64
 CHUNKS_X = 6
 MAP_PAGE = 0x60
 VIEW_W, VIEW_H = 20, 12
-TUG_DX = 10                         # the tug's cells, x from its plan
-TUG_LOCK = (19 + TUG_DX, 32)        # docked: the airlocks side by side,
+TUG_LOCK = (29, 32)                 # docked: the airlocks side by side,
 WRECK_LOCK = (30, 32)               # always aligned
-TUG_ANT = (14 + TUG_DX, 25)         # the tug's antenna (working, barely, at the start)
-START = (7 + TUG_DX, 32)            # the player, in the tug's corridor
+TUG_ANT = (25, 27)                  # the tug's antenna (working, barely, at the start)
+START = (24, 32)                    # the player, in the tug's cabin under its door
+
+# the tug: hull x22-29, y28-35 (a quarter of the first tug's size), two
+# rooms: the cockpit / engine room above, the cabin below.  Its key, the
+# cell types and their damage at the start (TUG_PLAN row y, x from 21)
+TUG_X0, TUG_Y0 = 21, 27
+TUG_KEY = {' ': None, '#': 'WALL', '.': 'FLOOR', 'd': 'DOORO', 'L': 'LOCK', 'H': 'HELM',
+           'R': 'REACT', 'B': 'BATT', 'F': 'FUEL', '=': 'PIPE', 'I': 'INTAKE', 'O': 'O2',
+           'S': 'SCRUB', 'P': 'PUMP', 'b': 'BUNK', 'k': 'LOCKER', 'T': 'THRUST', 'A': 'ANT',
+           'r': 'RADAR'}
+TUG_PLAN = ['  T A r T',       # y27: thrusters, the antenna, the radar on the hull
+            ' ########',       # y28
+            'T#HHRBFF#',       # y29: helm, reactor, battery, two nitrogen tanks
+            ' #..==.I#',       # y30: conduit, the intake by one tank
+            ' ##d#####',       # y31: the door between the rooms
+            'T#S.....L',       # y32: scrubber, the airlock
+            ' #O....k#',       # y33: O2 tank, a locker
+            'T#P..bbk#',       # y34: its pump, bunks, a locker
+            ' ########',       # y35
+            '  T T T  ']       # y36: thrusters
+TUG_DMG = {(24, 31): 2,              # the door above the start: 88 %
+           (23, 33): 1,              # the O2 tank (a REPAIR to do)
+           (23, 34): 1, (28, 30): 2, # its pump, the intake
+           (25, 27): 7, (27, 27): 6, # the antenna works, barely (56 %); the radar is dented
+           (29, 32): 1, (23, 29): 1, (24, 29): 2, (26, 29): 2, (23, 32): 2}
+                                     # the rest: (x + 2 y) % 3 (the tug is looked after)
+# the first tug's cells as the damage pass saw them (x13-29, y26-38: f a
+# deck, w a wall, o anything else), so the wreck's random damage stays
+# as it was
+OLD_TUG = [' wwwwwwwwwwwwwwww', ' wfooffwfoofffoow', 'owfffffwfoooooffw',
+           ' wfffffwffffffffw', ' wfffffwffffffffw', ' wwwowwwwwwowwwww',
+           ' wffffffffffffffo', ' wwwowwwwwwowwwww', ' woofffwffffffffw',
+           ' wfffffwffffffffw', 'owoffffwfffffffow', ' wofffowffffffoow',
+           ' wwwwwwwwwwwwwwww']
 
 # ------------------------------------------------------------------
 # the cell art: 8 x 16 pixels, one hex digit (palette index) per pixel
@@ -319,7 +351,7 @@ TYPES = [
       'SKILL: MECHANICAL'], [A_INSPECT],
      'YOUR WORK SUIT.  IT SMELLS OF HARD WORK.'),
     ('THRUST', 'thrust', 'THRUSTER', F_DMG | F_SOLID | F_ITEM,
-     ['MAIN THRUSTER, 2 KN', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
+     ['MAIN THRUSTER, 20 KN', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
       'SKILLS: MECHANICAL, HYDRAULICS'], [A_INSPECT],
      'A THRUSTER NOZZLE, BLACK WITH SOOT.'),
     ('FUEL', 'fuel', 'NITROGEN TANK', F_DMG | F_ITEM | F_INST,
@@ -464,10 +496,11 @@ VALUE = {'O2': 20, 'O2E': 8, 'REACT': 250, 'BATT': 30, 'CRATE': 15, 'BUNK': 5,
          'PUMP': 18, 'INTAKE': 14}
 # what each kind weighs, in 100 kg (the tug's mass: every cell of it but
 # loose parts; the navigation mode's acceleration)
-MASS = {'FLOOR': 3, 'WALL': 6, 'DOOR': 4, 'DOORO': 4, 'O2': 8, 'REACT': 60, 'BATT': 4,
+# (aluminum: a wall cell 200 kg, a deck plate 100 kg)
+MASS = {'FLOOR': 1, 'WALL': 2, 'DOOR': 4, 'DOORO': 4, 'O2': 8, 'REACT': 60, 'BATT': 4,
         'CRATE': 10, 'BUNK': 2, 'HELM': 3, 'LOCKER': 2, 'TURRET': 12, 'PIPE': 4, 'VENT': 3,
         'LOCK': 8, 'SUIT': 1, 'THRUST': 15, 'FUEL': 10, 'SCRUB': 4, 'O2E': 3, 'CUTTER': 1,
-        'PANEL': 4, 'DOORK': 3, 'PLATE': 2, 'COND': 1, 'ANT': 2, 'RADAR': 3, 'PUMP': 2,
+        'PANEL': 2, 'DOORK': 3, 'PLATE': 1, 'COND': 1, 'ANT': 2, 'RADAR': 3, 'PUMP': 2,
         'INTAKE': 2}
 # the flight (scrap_fl.masm): positions in metres (16.16), speeds in
 # 1/2^24 m a frame; the acceleration A16 = n (THRUST_Q / mass) is in
@@ -659,32 +692,13 @@ def build_map(seed=9):
             for x in range(x0, x1 + 1):
                 put(x, y, key)
 
-    # the tug: hull x14-29, y26-38; docked, its airlock (29, 32) is next
-    # to the wreck's (30, 32)
-    X = TUG_DX
-
-    def tput(x, y, key):
-        put(x + X, y, key)
-
-    def tfill(x0, y0, x1, y1, key):
-        fill(x0 + X, y0, x1 + X, y1, key)
-
-    tfill(4, 26, 19, 38, 'WALL')
-    tfill(5, 27, 9, 30, 'FLOOR')        # cockpit
-    tfill(11, 27, 18, 30, 'FLOOR')      # engine bay
-    tfill(5, 32, 18, 32, 'FLOOR')       # corridor
-    tfill(5, 34, 9, 37, 'FLOOR')        # quarters
-    tfill(11, 34, 18, 37, 'FLOOR')      # hold
-    for d in ((7, 31), (14, 31), (7, 33), (14, 33)):
-        tput(d[0], d[1], 'DOORO')
-    tput(6, 27, 'HELM'); tput(7, 27, 'HELM')
-    tput(12, 27, 'REACT'); tput(13, 27, 'BATT'); tput(17, 27, 'FUEL'); tput(18, 27, 'FUEL')
-    tfill(12, 28, 16, 28, 'PIPE')
-    tput(5, 36, 'BUNK'); tput(5, 37, 'BUNK'); tput(9, 37, 'LOCKER'); tput(5, 34, 'O2'); tput(6, 34, 'SCRUB')
-    tput(17, 37, 'LOCKER'); tput(18, 37, 'LOCKER'); tput(18, 36, 'LOCKER')
-    tput(3, 28, 'THRUST'); tput(3, 36, 'THRUST')
-    tput(19, 32, 'LOCK')                # docked: right next to the wreck's
-    assert (TUG_LOCK[0] + 1, TUG_LOCK[1]) == WRECK_LOCK
+    # the tug (TUG_PLAN): docked, its airlock is next to the wreck's
+    for j, row in enumerate(TUG_PLAN):
+        for i, ch in enumerate(row):
+            if TUG_KEY[ch]:
+                put(TUG_X0 + i, TUG_Y0 + j, TUG_KEY[ch])
+    assert t[TUG_LOCK[1]][TUG_LOCK[0]] == TYPE['LOCK'] and (TUG_LOCK[0] + 1, TUG_LOCK[1]) == WRECK_LOCK
+    assert t[TUG_ANT[1]][TUG_ANT[0]] == TYPE['ANT'] and t[START[1]][START[0]] == TYPE['FLOOR']
 
     # the wreck: hull x30-90, y6-58
     for y in range(6, 59):
@@ -758,6 +772,8 @@ def build_map(seed=9):
     for y in range(MAP_H):
         for x in range(MAP_W):
             k = TYPES[t[y][x]][0]
+            if 13 <= x <= 29 and 26 <= y <= 38:     # the first tug's random draws
+                k = {'f': 'FLOOR', 'w': 'WALL', 'o': 'HELM', ' ': 'SPACE'}[OLD_TUG[y - 26][x - 13]]
             if k in ('SPACE', 'STAR', 'BREACH') or (x, y) in ((90, 51), (90, 52)):
                 continue                # (the breach: set below)
             if k in ('FLOOR',):
@@ -784,20 +800,17 @@ def build_map(seed=9):
     d[49][90] = 10                      # a cracked hull wall: it leaks
     d[51][90] = d[52][90] = 15          # the hull breach: broken wall segments
     d[42][36] = 3
-    t[TUG_ANT[1]][TUG_ANT[0]] = TYPE['ANT']   # the tug's antenna, above its hull: it
-    d[TUG_ANT[1]][TUG_ANT[0]] = 7       #   works, barely (56 %): you can head out at once
+    for j, row in enumerate(TUG_PLAN):  # the tug's damage (TUG_DMG), not drawn at random
+        for i, ch in enumerate(row):
+            x, y = TUG_X0 + i, TUG_Y0 + j
+            d[y][x] = TUG_DMG.get((x, y), (x + 2 * y) % 3) if ch != ' ' else 0
+    for y in range(26, 39):             # the first tug's space: no damage
+        for x in range(13, 30):
+            if TYPES[t[y][x]][0] in ('SPACE', 'STAR'):
+                d[y][x] = 0
     t[5][50] = TYPE['ANT']              # the wreck's, on its hull: working
     d[5][50] = 2
-    for x, y, k, s in ((15, 35, 'PUMP', 1),       # the tug's air pump, by its O2 tank
-                       (28, 28, 'INTAKE', 2),     # its gas intake, by a nitrogen tank
-                       (27, 25, 'RADAR', 6),      # its radar, on the hull: dented
-                       (13, 30, 'THRUST', 1),     # six more thrusters (eight in all),
-                       (13, 34, 'THRUST', 0),     #   set here, after the random damage,
-                       (17, 25, 'THRUST', 2),     #   so the wreck's damage stays the same
-                       (20, 25, 'THRUST', 1),
-                       (17, 39, 'THRUST', 0),
-                       (25, 39, 'THRUST', 2),
-                       (53, 36, 'PUMP', 4),       # the wreck's, by its O2 row
+    for x, y, k, s in ((53, 36, 'PUMP', 4),       # the wreck's, by its O2 row
                        (49, 51, 'INTAKE', 3), (53, 55, 'INTAKE', 9)):
         t[y][x] = TYPE[k]
         d[y][x] = s
