@@ -64,17 +64,17 @@ TUG_X0, TUG_Y0 = 21, 27
 TUG_KEY = {' ': None, '#': 'WALL', '.': 'FLOOR', 'd': 'DOORO', 'L': 'LOCK', 'H': 'HELM',
            'R': 'REACT', 'B': 'BATT', 'F': 'FUEL', '=': 'PIPE', 'I': 'INTAKE', 'O': 'O2',
            'S': 'SCRUB', 'P': 'PUMP', 'b': 'BUNK', 'k': 'LOCKER', 'T': 'THRUST', 'A': 'ANT',
-           'r': 'RADAR'}
-TUG_PLAN = ['  T A r T',       # y27: thrusters, the antenna, the radar on the hull
+           'r': 'RADAR', 'U': 'THRUST', '<': 'THRUST_L', 'v': 'THRUST_D'}
+TUG_PLAN = ['  U A r U',       # y27: thrusters, the antenna, the radar on the hull
             ' ########',       # y28
-            'T#HHRBFF#',       # y29: helm, reactor, battery, two nitrogen tanks
+            '<#HHRBFF#',       # y29: helm, reactor, battery, two nitrogen tanks
             ' #..===I#',       # y30: conduit (reactor, battery, intake), the intake by one tank
             ' ##d#####',       # y31: the door between the rooms
-            'T#S.....L',       # y32: scrubber, the airlock
+            '<#S.....L',       # y32: scrubber, the airlock
             ' #O....k#',       # y33: O2 tank, a locker
-            'T#P..bbk#',       # y34: its pump, bunks, a locker
+            '<#P..bbk#',       # y34: its pump, bunks, a locker
             ' ########',       # y35
-            '  T T T  ']       # y36: thrusters
+            '  v v v  ']       # y36: thrusters
 # the tug's wiring in its hull walls (conduits on wall cells: the power
 # view, V): the top, left and bottom walls, so the thrusters, antenna,
 # radar, helm, scrubber and pump plug in (live: the reactor and the
@@ -170,10 +170,14 @@ ART = {
              '77AAAA77', '7BAAAAB7', 'BAAAAAAB', 'BAA88AAB', 'BAAAAAAB',
              '7BAAAAB7', '77AAAA77', '7AA77AA7', '7AA77AA7', '7BB77BB7',
              '77777777'],
-    'thrust': ['11BBBB11', '1BB77BB1', '1B7777B1', '1B7777B1', '1B7777B1',
-               '1BB77BB1', '11BBBB11', '11B77B11', '1BB77BB1', '1B7777B1',
-               '1DDDDDD1', '11DEED11', '11DEED11', '111DD111', '1111D111',
-               '11111111'],
+    'thrust': ['1BB66BB1', '11B66B11', '11BBBB11', '111BB111', '11177111',   # an RCS quad,
+               '11177111', 'B117711B', 'B1BBBB1B', 'BBB77BBB', '6B7AA7B6',   # its block on
+               '6B7AA7B6', 'BBB77BBB', 'B1BBBB1B', '11B77B11', '1BBBBBB1',   # the hull below:
+               'BBBBBBBB'],                                                  # up, left, right
+    'thrust_l': ['111B66B1', '1111BB11', '11117711', '111BBBB1', 'B11B77BB',  # the hull on
+                 'BB1B77BB', '6BBBAABB', '6B77AABB', '6B77AABB', '6BBBAABB',  # the right: left,
+                 'BB1B77BB', 'B11B77BB', '111BBBB1', '11117711', '1111BB11',  # up, down
+                 '111B66B1'],
     'fuel': ['77666677', '76DDDD67', '6DDDDDD6', '6D6666D6',
              '6DDDDDD6', '6DDDDDD6', '6DDDDDD6', '6D6666D6', '6DDDDDD6',
              '6DDDDDD6', '6DDDDDD6', '6D6666D6', '6DDDDDD6', '76DDDD67',
@@ -206,14 +210,18 @@ ART = {
              '77777770', '7EEEEEE0', '76666660', '77777770', '77777770',
              '7EEEEEE0', '76666660', '77777770', '77777770', '77777770',
              '00000000'],
-    'ant': ['111111A1', '11111B11', 'BBB1B111', 'B77BB111', 'B777B111',
-            '1B777B11', '11B777B1', '111B77B1', '1111BBB1', '111BB111',
-            '11BB1111', '1BB11111', 'BBBBBB11', '1B77B111', '1BBBB111',
-            '11111111'],
-    'radar': ['11111111', '1BBBBBB1', 'B777777B', 'B7E7E77B', 'B777777B',
-              '1BBBBBB1', '111BB111', '111BB111', '111BB111', '11BBBB11',
-              '1B7777B1', '1B7AA7B1', '1B7777B1', '1BBBBBB1', '11111111',
-              '11111111'],
+    'ant': ['11111111', '111111A1', '11111B11', 'BBB1B111', 'B77BB111', 'B777B111',
+            '1B777B11', '11B777B1', '111B77B1', '1111BBB1', '111BB111', '11BB1111',
+            '1BB11111', 'BBBBBB11', '1B77B111', 'BBBBBB11'],
+    'ant_l': ['11111111', '1BB11111', 'B77B1111', 'B777B111', '1B777B11', '1B777B1B',
+              '11B77B1B', 'A1B77BBB', 'A1B77BBB', '11B77B1B', '1B777B1B', '1B777B11',
+              'B777B111', 'B77B1111', '1BB11111', '11111111'],
+    'radar': ['11111111', '11111111', '11111111', '1BBBBBB1', 'B777777B', 'B7E7E77B',
+              'B777777B', '1BBBBBB1', '111BB111', '111BB111', '111BB111', '11BBBB11',
+              '1B7777B1', '1B7AA7B1', '1B7777B1', 'BBBBBBBB'],
+    'radar_l': ['11111111', '1B111111', 'B7B11111', 'BEB11111', 'B7B11BBB', 'B7B1B77B',
+                'B7BBB7AB', 'BEBBB7AB', 'BEBBB7AB', 'B7BBB7AB', 'B7B1B77B', 'B7B11BBB',
+                'B7B11111', 'BEB11111', 'B7B11111', '1B111111'],
     'pump': ['77777777', '77BBBB77', '7B8888B7', 'B888888B', 'B88BB88B',
              'B8B77B8B', 'B88BB88B', 'B888888B', '7B8888B7', '77BBBB77',
              '777BB777', '7EEEEEE7', '76666667', '777BB777', '77BBBB77',
@@ -283,13 +291,14 @@ A_OPEN, A_CLOSE, A_INSPECT, A_WALK = 1, 2, 3, 4
 A_PICK, A_CUT, A_PUTL, A_PUTR, A_PUTB, A_REFILL = 5, 6, 7, 8, 9, 10
 A_HOLD, A_INSTALL, A_UNINST, A_LAY = 11, 12, 13, 14
 A_REPAIR, A_SKILLS, A_SUITOFF, A_SUITON = 15, 16, 17, 18
-A_NAV = 19
+A_NAV, A_TURN = 19, 20
 ACTIONS = {A_OPEN: 'OPEN', A_CLOSE: 'CLOSE', A_INSPECT: 'INSPECT', A_WALK: 'WALK HERE',
            A_PICK: 'PICK UP', A_CUT: 'CUT FREE', A_PUTL: 'PUT DOWN LEFT',
            A_PUTR: 'PUT DOWN RIGHT', A_PUTB: 'PUT DOWN BACK',
            A_REFILL: 'REFILL SUIT', A_HOLD: 'HOLD OPEN', A_INSTALL: 'INSTALL',
            A_UNINST: 'UNINSTALL', A_LAY: 'LAY DECK PLATE', A_REPAIR: 'REPAIR',
-           A_SKILLS: 'SKILLS', A_SUITOFF: 'TAKE OFF SUIT', A_SUITON: 'PUT ON SUIT', A_NAV: 'NAVIGATE'}
+           A_SKILLS: 'SKILLS', A_SUITOFF: 'TAKE OFF SUIT', A_SUITON: 'PUT ON SUIT', A_NAV: 'NAVIGATE',
+           A_TURN: 'TURN'}
 
 TYPES = [
     # key, art, name, flags, info lines, actions, inspect
@@ -361,10 +370,6 @@ TYPES = [
      ['MK1 WORK SUIT, 90 L OF O2', '\x01', 'PUT IT ON: HOVER YOURSELF, PUT ON SUIT',
       'SKILL: MECHANICAL'], [A_INSPECT],
      'YOUR WORK SUIT.  IT SMELLS OF HARD WORK.'),
-    ('THRUST', 'thrust', 'THRUSTER', F_DMG | F_SOLID | F_ITEM,
-     ['MAIN THRUSTER, 20 KN', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
-      'SKILLS: MECHANICAL, HYDRAULICS'], [A_INSPECT],
-     'A THRUSTER NOZZLE, BLACK WITH SOOT.'),
     ('FUEL', 'fuel', 'NITROGEN TANK', F_DMG | F_ITEM | F_INST,
      ['THRUSTER GAS, 400 L', '\x01', 'THE THRUSTERS DRAW IT BY AN INTAKE', 'SKILL: HYDRAULICS'], [A_INSPECT],
      'A NITROGEN TANK.  IT HISSES FAINTLY AT THE VALVE.'),
@@ -401,14 +406,6 @@ TYPES = [
      ['A LENGTH OF POWER CONDUIT', '\x01', 'INSTALLED ON A DECK: A CONDUIT',
       'SKILL: ELECTRICAL'], [A_INSPECT],
      'A LENGTH OF POWER CONDUIT, ITS ENDS CAPPED.'),
-    ('ANT', 'ant', 'COMMS ANTENNA', F_DMG | F_SOLID | F_ITEM,
-     ['DISH ANTENNA, LONG RANGE', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
-      'WORKING ON THE TUG: COMMS'], [A_INSPECT],
-     'A DISH ANTENNA.  IT STILL TRACKS THE SKY.'),
-    ('RADAR', 'radar', 'RADAR ARRAY', F_DMG | F_SOLID | F_ITEM,
-     ['SHORT RANGE SEARCH RADAR', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
-      'DAMAGED, IT SEES LESS (NAVIGATION)'], [A_INSPECT],
-     'A RADAR ARRAY.  ONE PANEL IS DENTED.'),
     ('PUMP', 'pump', 'AIR PUMP', F_DMG | F_ITEM | F_INST,
      ['FEEDS THE AIR FROM AN O2 TANK', '\x01', 'GOES NEXT TO AN O2 TANK',
       'SKILLS: HYDRAULICS, MECHANICAL'], [A_INSPECT],
@@ -417,7 +414,54 @@ TYPES = [
      ['FEEDS THE THRUSTERS NITROGEN', '\x01', 'GOES NEXT TO A NITROGEN TANK',
       'SKILL: HYDRAULICS'], [A_INSPECT],
      'A GAS INTAKE.  ITS FILTER IS CAKED WITH FROST.'),
+    ('ANT', 'ant', 'COMMS ANTENNA', F_DMG | F_SOLID | F_ITEM,
+     ['DISH ANTENNA, LONG RANGE', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
+      'WORKING ON THE TUG: COMMS'], [A_INSPECT],
+     'A DISH ANTENNA.  IT STILL TRACKS THE SKY.'),
+    ('RADAR', 'radar', 'RADAR ARRAY', F_DMG | F_SOLID | F_ITEM,
+     ['SHORT RANGE SEARCH RADAR', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
+      'DAMAGED, IT SEES LESS (NAVIGATION)'], [A_INSPECT],
+     'A RADAR ARRAY.  ONE PANEL IS DENTED.'),
+    ('THRUST', 'thrust', 'THRUSTER', F_DMG | F_SOLID | F_ITEM,
+     ['MAIN THRUSTER, 20 KN', '\x01', 'GOES ON OPEN SPACE BY THE HULL',
+      'SKILLS: MECHANICAL, HYDRAULICS'], [A_INSPECT],
+     'A THRUSTER NOZZLE, BLACK WITH SOOT.'),
 ]
+# the parts that face a way (the hull on one side): kinds FACE0-FACE0+2 face
+# up (their art: the hull below), then FACE0+3 on: left (their own art: the
+# hull on the right), down (drawn from the up art upside down: scrap.masm
+# dc_face), right (the left art mirrored), three kinds each.  They share
+# the plain part's name, worth and text; picked up, a part is the plain
+# (up) one again (kind_base); TURN steps it round (up, right, down, left).
+FACE_PARTS = ['ANT', 'RADAR', 'THRUST']
+FACES = ['L', 'D', 'R']                 # the kinds after the plain ones
+FACE0 = len(TYPES) - 3
+assert [t[0] for t in TYPES[FACE0:]] == FACE_PARTS
+for _f in FACES:
+    for _k in FACE_PARTS:
+        _t = TYPES[FACE0 + FACE_PARTS.index(_k)]
+        TYPES.append((_k + '_' + _f, _t[1] + '_' + _f.lower(), _t[2], _t[3], _t[4],
+                      _t[5] + [A_TURN], _t[6]))
+for _i in range(FACE0, FACE0 + 3):
+    TYPES[_i] = TYPES[_i][:5] + (TYPES[_i][5] + [A_TURN],) + TYPES[_i][6:]
+NART = FACE0 + 6                    # kinds with art of their own (down, right: drawn)
+for _k in FACE_PARTS:                   # the drawn ones, as scrap.masm draws them
+    ART[_k.lower() + '_d'] = ART[_k.lower()][::-1]
+    ART[_k.lower() + '_r'] = [r[::-1] for r in ART[_k.lower() + '_l']]
+
+
+def kind_base(t):
+    """the plain part of a facing kind (scrap.masm kind_base)"""
+    while t >= FACE0 + 3:
+        t -= 3
+    return t
+
+
+def kind_turn(t):
+    """TURN: the next facing, clockwise (scrap.masm turn_action)"""
+    return t + 9 if t < FACE0 + 3 else t - 3
+
+
 KINDS_MAX = 64                      # the map's kind field is 6 bits
 ROOMS_MAX = 32                      # the room field is 5 bits (room 0 is vacuum)
 TYPE = {t[0]: i for i, t in enumerate(TYPES)}
@@ -427,7 +471,7 @@ SKILLS = ['MECHANICAL', 'ELECTRICAL', 'NUCLEAR', 'COMPUTERS', 'HYDRAULICS', 'SUI
 SK_M, SK_E, SK_N, SK_C, SK_H, SK_SUIT = 1, 2, 4, 8, 16, 32
 SKILL_START = 10                    # every skill at the start (0-99)
 SKILL_MAX = 99
-_ACT = 0x40 - (len(TYPES) + 3) // 4 - 2   # ACT_PAGE (below)
+_ACT = 0x40 - (NART + 3) // 4 - 2   # ACT_PAGE (below)
 SK_LV, SK_PR = _ACT << 8 | 0xE0, _ACT << 8 | 0xE8   # in RAM: the levels, their progress
 NEEDS = {'FLOOR': SK_M, 'WALL': SK_M, 'DOOR': SK_M | SK_H, 'DOORO': SK_M | SK_H,
          'O2': SK_H, 'O2E': SK_H, 'REACT': SK_N | SK_E, 'BATT': SK_E, 'CRATE': SK_M,
@@ -513,6 +557,12 @@ MASS = {'FLOOR': 1, 'WALL': 2, 'DOOR': 4, 'DOORO': 4, 'O2': 8, 'REACT': 60, 'BAT
         'LOCK': 8, 'SUIT': 1, 'THRUST': 15, 'FUEL': 10, 'SCRUB': 4, 'O2E': 3, 'CUTTER': 1,
         'PANEL': 2, 'DOORK': 3, 'PLATE': 1, 'COND': 1, 'ANT': 2, 'RADAR': 3, 'PUMP': 2,
         'INTAKE': 2}
+for _f in FACES:                    # a facing kind: the plain part's numbers
+    for _k in FACE_PARTS:
+        for _d in (NEEDS, WHERE, VALUE, MASS):
+            if _k in _d:
+                _d[_k + '_' + _f] = _d[_k]
+
 # the flight (scrap_fl.masm): positions in metres (16.16), speeds in
 # 1/2^24 m a frame; the acceleration A16 = n (THRUST_Q / mass) is in
 # 1/2^20 m a frame a frame (20 kN a thruster: 20000 x 2^20 / 3600 / 100 kg
@@ -765,7 +815,7 @@ def build_map(seed=9):
     fill(35, 44, 35, 52, 'PIPE')
     for x in (33, 40):
         put(x, 58, 'WALL')
-    put(33, 59, 'THRUST'); put(40, 59, 'THRUST')
+    put(33, 59, 'THRUST_D'); put(40, 59, 'THRUST_D')
     # life support
     put(49, 35, 'SCRUB'); put(50, 35, 'SCRUB'); put(51, 35, 'SCRUB')
     for x in range(53, 58):
@@ -950,7 +1000,7 @@ def art_bytes(name):
 # ------------------------------------------------------------------
 # the fixed pages, down from x3FFF: the art (4 kinds a page), then the
 # tables; the program's x2000 region ends at DOOR_PAGE (scrap.masm .region)
-ART_PAGE = 0x40 - (len(TYPES) + 3) // 4
+ART_PAGE = 0x40 - (NART + 3) // 4
 ACTS_PAGE = ART_PAGE - 1  # the actions of each kind (4t + i)
 ACT_PAGE = ART_PAGE - 2   # the skills each kind needs, action strings, RAM from xE0
 TAB2_PAGE = ART_PAGE - 3  # flags, names, worth of each kind
@@ -986,7 +1036,7 @@ def write_sources():
         lines.append('T_%-8s = %d' % (ty[0], i))
     t, dm = build_map()
     rid, doors, leaks, press, tug = rooms(t, dm)
-    lines += ['NTYPES     = %d' % n,
+    lines += ['NTYPES     = %d' % n, 'FACE0      = %d          ; the parts that face a way (kind_base)' % FACE0,
               'F_WALK     = 0x%02X' % F_WALK, 'F_DMG      = 0x%02X' % F_DMG,
               'F_ITEM     = 0x%02X' % F_ITEM, 'F_INST     = 0x%02X' % F_INST,
               'F_STRUCT   = 0x%02X' % F_STRUCT, 'F_SOLID    = 0x%02X' % F_SOLID,
@@ -996,7 +1046,7 @@ def write_sources():
         ('PICK', A_PICK), ('CUT', A_CUT), ('PUTL', A_PUTL), ('PUTR', A_PUTR),
         ('PUTB', A_PUTB), ('REFILL', A_REFILL), ('HOLD', A_HOLD), ('INSTALL', A_INSTALL),
         ('UNINST', A_UNINST), ('LAY', A_LAY), ('REPAIR', A_REPAIR), ('SKILLS', A_SKILLS),
-        ('SUITOFF', A_SUITOFF), ('SUITON', A_SUITON), ('NAV', A_NAV))]
+        ('SUITOFF', A_SUITOFF), ('SUITON', A_SUITON), ('NAV', A_NAV), ('TURN', A_TURN))]
     lines += ['SK_M       = %d' % SK_M, 'SK_SUIT    = %d' % SK_SUIT,
               'SKILL_START = %d' % SKILL_START, 'SKILL_MAX  = %d' % SKILL_MAX,
               'REPAIR_FRAMES = %d' % REPAIR_FRAMES, 'CRATE_COL  = %d' % CRATE_COL,
@@ -1045,12 +1095,19 @@ def write_sources():
          '; the art, tables and strings of scrap.masm (included at its end)', '']
     strings = []
 
-    def sref(label, text):
+    seen, alias = {}, []
+
+    def sref(label, text):              # the same text: the one string (saves room)
+        if text in seen:
+            if label not in seen.values():
+                alias.append((label, seen[text]))
+            return seen[text]
+        seen[text] = label
         strings.append((label, text))
         return label
 
     # art pages
-    arts = [art_bytes(ty[1]) for ty in TYPES]
+    arts = [art_bytes(ty[1]) for ty in TYPES[:NART]]   # (the rest: drawn from these)
     assert ART_PAGE + (len(arts) + 3) // 4 <= 0x40
     for p in range((len(arts) + 3) // 4):
         d.append('.fixed 0x%02X00' % (ART_PAGE + p))
@@ -1068,8 +1125,10 @@ def write_sources():
     tab = ['0'] * 256
 
     for i, ty in enumerate(TYPES):
-        tab[i] = str(ty[3] | (F_PWR if ty[0] in POWERED else 0))
-        lab = sref('zn_%d' % i, ty[2])
+        tab[i] = str(ty[3] | (F_PWR if TYPES[kind_base(i)][0] in POWERED else 0))
+        lab = 'zn_%d' % kind_base(i)   # a facing kind: the plain part's name
+        if kind_base(i) == i:
+            sref(lab, ty[2])
         tab[0x40 + i] = lab + ' & 0xFF'
         tab[0x80 + i] = lab + ' >> 8'
         tab[0xC0 + i] = str(VALUE.get(ty[0], 0))
@@ -1091,6 +1150,7 @@ def write_sources():
     d.append('')
     act = ['0'] * 256
     assert SK_LV >> 8 == ACT_PAGE and SK_LV & 0xFF >= 0xC0 and len(TYPES) <= 0x40
+    assert TYPE['PLAYER'] not in (0x0F, 0x30)   # (dc_face's dc_t: not the player)
     for i, ty in enumerate(TYPES):
         act[i] = str(NEEDS.get(ty[0], 0) | WHERE.get(ty[0], 0) << 6)
         act[0x40 + i] = str(MASS.get(ty[0], 0))
@@ -1149,6 +1209,7 @@ def write_sources():
     for lab, txt in [('s_welcome', WELCOME), ('s_toofar', TOO_FAR), ('s_inway', IN_WAY),
                      ('s_blocked', BLOCKED)] + MESSAGES:
         sref(lab, txt)
+    d += ['%s = %s' % la for la in alias] + ['']   # (the same text as another)
     # the strings, packed into chunks of up to 240 bytes
     cur, size = [], 0
     for lab, s in strings:
@@ -1385,7 +1446,7 @@ def conduits(t):
 
 def plugged(k, bolted):
     """a part of kind name k takes power: installed (a fixed part counts)"""
-    return k in POWERED and (bolted or not TYPES[TYPE[k]][3] & F_ITEM)
+    return TYPES[kind_base(TYPE[k])][0] in POWERED and (bolted or not TYPES[TYPE[k]][3] & F_ITEM)
 
 
 def live(t, d, cond, bolted=None):
