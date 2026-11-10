@@ -763,8 +763,11 @@ def main(argv):
     print('12. Esc')
     if test_dos.esc_to_dos(r) and r.cpu.map == 0xFF:     # (the DOS runs under map 07)
         r.fail('Esc: the game\'s map, not the DOS\'s')
-    if r.find_row('SCRAP.PLC') is None:                   # the game ran in SCRAP: back in the root
-        r.fail('Esc: the DOS is not back in the root folder (%r)' % r.row(0))
+    dclus = bytes(r.cpu.mem[0x4D60:0x4D64])               # FSV V_DCLUS: the game ran in SCRAP,
+    if any(dclus):                                         # the DOS is back in the root
+        r.fail('Esc: the DOS is not back in the root folder (V_DCLUS %s)' % dclus.hex())
+    else:
+        print('  the DOS is back in the root folder')
     print('PASS' if r.ok else 'FAILED')
     return 0 if r.ok else 1
 
@@ -1060,6 +1063,9 @@ def pump_intake(r):
         set_cell(r, *cell, fl=(fl & 0xF0) | 10)      # broken (worked out again: pw_chk)
         r.cpu.mem[r.tsyms['PW_GO']] = 1
         ok = r.wait_for(lambda: state() == want, 200, 'the tug with its %s broken' % what)
+        # (tug_scan zeroes the counts first: let pw_chk finish, or its pc_draw
+        # clears the PW_GO set below)
+        r.run_until(lambda: r.cpu.pc == r.tsyms['loop'], 60, 'the frame loop')
         got = state()
         set_cell(r, *cell, fl=fl)
         r.cpu.mem[r.tsyms['PW_GO']] = 1
