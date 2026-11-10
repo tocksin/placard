@@ -546,9 +546,34 @@ by the placement model (expected vias and length), not yet verified by routing e
 | ladder with pin swaps: 436 / 421 / 419 / 416, wide | 412 | 25.93 m |
 | + jumper rung | 394 | 25.60 m |
 
-On the whole board 393 pins on 31 parts would swap (model: 532 -> 418 vias expected); the fine whole-board route with
-the swaps (about 6 h route + 4 h ladder on the cloud CPU) has not been run yet. A swapped board is a test bench: the
-schematic, the PLD PIN lines and a WinCUPL compile have to follow before any of it is real. `bench/r1_fine11_pinswap_*`.
+### Round 11 on the whole board (laptop RTX 4070 route + CPU ladder, 2026-11-10, branch-161, `bench/wbf11_ps_*`)
+
+393 pins on 31 parts swap (the placement model expected 532 -> 418 vias). Same recipe as round 10 plus `PINSWAP=1`,
+`JUMPRUNG=1` and one more jumper rung with `JENTRY=0.25`.
+
+| stage | track | vias | time |
+|---|---|---|---|
+| round 10 route, no swaps (cloud CPU) | 38.88 m | 643 | |
+| route with pin swaps (GPU) | 36.64 m | 568 | 129 min |
+| VIA 400 (diagonal) | 35.99 m | 475 | 30 min |
+| VIA 800 (diagonal) | 36.23 m | 452 | 15 min |
+| VIA 1600 | 36.58 m | 433 | 12 min |
+| VIA 3200 | 37.38 m | 406 | 17 min |
+| wide pair rung | 37.45 m | 393 | 32 min |
+| jumper rung, default price | 37.45 m | 393 (0 jumpers) | 3 min |
+| jumper rung, `JENTRY=0.25` | **37.42 m** | **388** (4 jumpers on 3 nets, 28.4 mm) | 14 min |
+| round 10 best, no swaps | 39.54 m | 468 | |
+| hand layout | 41.85 m | 956 | |
+
+0 open nets, 0 collisions, +5V plane one piece. KiCad 9 (zones refilled, `kicad-cli pcb drc --severity-all`) on the
+wide, jump and j25 boards and on the jumper-only board `wbf11_jump_e025`: no clearance or copper errors, no
+unconnected items, no starved thermals or zone islands on In2.Cu; only the 191 library-path notes (`*_drc.json`).
+GPU against the 4-core cloud CPU on iterations 0-9 of the route: 6410 s against about 12900 s. `placeguide.py`
+works without matplotlib now (numpy point-in-polygon fallback).
+
+A swapped board is a test bench: the schematic, the PLD PIN lines and a WinCUPL compile have to follow before any of
+it is real, and each swap's interchangeability should be checked per part (`bench/wbf11_ps_pswb.pinswaps.md`).
+`bench/r1_fine11_pinswap_*`.
 
 ## Placement guidance (`placeguide.py`, branch-143, modes and route check branch-146)
 `python placeguide.py board.kicad_pcb MODE` judges a placement from the pads and nets alone (no routing, existing copper ignored) and

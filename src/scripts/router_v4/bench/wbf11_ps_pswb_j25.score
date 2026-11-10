@@ -1,0 +1,11 @@
+# score pswb_j25_c45.kicad_pcb  (scope 255 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 37.42 m | 388 / 406 | 6.1 % | 6.7 % | 1.0 | 1 | 0 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS0 1101/4/1.4, DATABUS4 832/12/1.1, CLK 824/5/1.0, DATABUS1 815/8/1.1, DATABUS2 807/15/1.1, DATABUS5 774/11/1.1, DATABUS3 772/12/1.1, DATABUS7 764/10/1.1
+
+power-layer jumpers (In2.Cu): 4 on 3 nets, 28.4 mm in all, longest 9.88 mm, closest pair 24.33 mm apart
++5V plane: 1 piece(s) (without the jumpers 1), 0 of 100 +5V pads and vias off the main piece (without the jumpers 0)
+jumper nets: ADDR15, DATABUS3, ~{LOAD_IMM}
+detour > 2: Net-(J13-CC2)
