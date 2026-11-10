@@ -46,7 +46,7 @@ and runs in place.  The most used parts are highest:
 | xD700-xDBFF | Sound driver | `SND_CODE` | `placard_snd.asm` |
 | xD500-xD6FF | Line input, mouse pointer | `INPUT_CODE` | `placard_input.asm` |
 | xC700-xD4FF | FAT file reader | `FS_CODE` | `placard_fs.asm` |
-| xC600-xC6FF | Expansion slot helpers | `SLOT_CODE` | `placard_slot.asm` |
+| xC600-xC6FF | Expansion slot helpers, then `con_dec16` in the page's free end | `SLOT_CODE` | `placard_slot.asm`, `lib_dec16.asm` |
 | xC500-xC5FF | Menu hook | `MENU_CODE` | `placard_menu.asm` |
 | xC000-xC4FF | PS/2 driver: keyboard decoding, the turns, `ps2_pause`, `wait_frames_io`; the mouse routines, `ps2_tx`/`ps2_rx`, `ps2_poll`, `ps2_cmd` and `kbd_lights` sit in free ends of I/O pages 1 and B-E; xC200-xC217 stay free (the bring-up ROM's marker) | `PS2_CODE` | `placard_ps2.asm` |
 | RAM x1F00-x1FFF | Code that reads the video RAM (end of `plot1`, `con_scroll`), and `lib_far` at x1FA0 (`LIB_FAR`) | `LIB_RAM` | `placard_lib.asm` |
