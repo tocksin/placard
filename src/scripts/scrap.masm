@@ -37,7 +37,7 @@
 ; scrap_data.masm).  The map is in the even video pages x60-xBE that the
 ; 2x screen leaves free (gen_scrap.py: chunk k of 16 x 16 cells is page
 ; x60 + 4k, the types, and x62 + 4k, the flags); main reads it from
-; SCRAP.OVL.  The video RAM is above x6000, so like the tracker this
+; SCRAP/SCRAP.OVL.  The video RAM is above x6000, so like the tracker this
 ; program runs with the map at FF (every section RAM) and calls the
 ; library through the l_* stubs, which switch to 07 around the call.
 ; More code and strings go in the even pages from xC000 (the overlay
@@ -45,7 +45,7 @@
 ;
 ;     python3 gen_scrap.py                            scrap_types.asm, scrap_data.masm, scrap_map.bin
 ;     python3 asm_expand.py scrap.masm                scrap.asm
-;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x4100,0x4D00,DCK,3 --swap 0x3600,0x4000,DK2,3 --swap 0x4E00,0x5000,DK3,3 --swap 0x5400,0x5600,DK4,3 --swap 0x3600,0x4000,ART,0
+;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --dir SCRAP --overlay 0xC000,2 ...   (the whole line: docs/software/SCRAP.md)
 ;     python3 test_scrap_sim.py                       runs it in placard_sim
 ;
 ; Date: 11/10/2026
@@ -766,12 +766,10 @@ s_rb1f:
     #d "SCRAP.RB1", 0x00
 s_rb2f:
     #d "SCRAP.RB2", 0x00
-PRT_NM:                         ; prt_load's: the part text file, its folder
+PRT_NM:                         ; prt_load's: the part text file
     #d "K0A", 0x00
-s_prtd:
+s_prtd:                         ; the game's folder (ovl_load)
     #d "SCRAP", 0x00
-s_up:
-    #d "..", 0x00
 s_dmg:
     #d "HEALTH ", 0x00
 
@@ -924,6 +922,11 @@ sb_e:
 .chunk
 ovl_load:
     PUSH_LINK
+    ld   s_prtd & 0xFF, ac      ; into the folder SCRAP: the game's files
+    ld   ac, [R0]               ;   (all but SCRAP.PLC) are there, and it
+    ld   s_prtd >> 8, ac        ;   stays the current folder (Esc: the DOS
+    ld   ac, [R1]               ;   goes back to the one it ran this from)
+    CALL l_fs_open
     ld   (ov_st + 1) >> 8, y    ; every 2nd page from x60
     ld   (ov_st + 1) & 0xFF, x
     ld   2, [y,x]
@@ -6765,7 +6768,7 @@ ia_l:
 ; prt_load - AC = a kind: PRT_BUF holds the text of kinds 2k and 2k + 1
 ; (k = AC / 2: info line i at 256 (kind & 1) + 48 i, the INSPECT line at
 ; + 192), read from the card (SCRAP/Kxy, x = '0' + k / 16, y = 'A' + k % 16)
-; unless it is there already (PRT_K).  Back in the program's folder after
+; unless it is there already (PRT_K).  SCRAP is the current folder (ovl_load)
 .chunk
 prt_load:
     PUSH_LINK
@@ -6791,18 +6794,11 @@ prt_load:
     add  0x30, ac
     ld   (PRT_NM + 1) & 0xFF, x
     ld   ac, [y,x]
-    ld   s_prtd & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_prtd >> 8, ac
-    ld   ac, [R1]
-    CALL l_fs_open
-    bne  pr_e
     GOTO prt_file
 pr_e:
     LEAVE
 
-; prt_file - the file PRT_NM in the folder SCRAP, then back up.  The rest
-; of prt_load
+; prt_file - the file PRT_NM (in the folder SCRAP).  The rest of prt_load
 .chunk
 prt_file:
     ld   PRT_NM & 0xFF, ac
@@ -6810,23 +6806,18 @@ prt_file:
     ld   PRT_NM >> 8, ac
     ld   ac, [R1]
     CALL l_fs_open
-    bne  pf_u
+    bne  pf_x
     ld   PRT_BUF & 0xFF, ac
     ld   ac, [R4]
     ld   PRT_BUF >> 8, ac
     ld   ac, [R5]
     CALL l_fs_read
-    bne  pf_u
+    bne  pf_x
     ld   PRT_K >> 8, y
     ld   PRT_K & 0xFF, x
     ld   [u0], ac
     ld   ac, [y,x]
-pf_u:
-    ld   s_up & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_up >> 8, ac
-    ld   ac, [R1]
-    CALL l_fs_open
+pf_x:
     LEAVE
 
 ; INSPECT's line, adj_kind's sides

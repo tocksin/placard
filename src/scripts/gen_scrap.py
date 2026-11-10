@@ -5,7 +5,7 @@ the cell types' names, info lines and actions, and the hand-made wreck
 
     python3 gen_scrap.py        writes scrap_types.asm, scrap_data.masm
                                 and scrap_map.bin (the map pages; gen_plc.py
-                                puts them in ../../sdcard/SCRAP.OVL)
+                                puts them in ../../sdcard/SCRAP/SCRAP.OVL)
 
 SCRAPWRIGHT is a top-down salvage game (design: the SCRAPWRIGHT proposal
 doc; docs/software/SCRAP.md).  Phase 2 is a wreck to walk through: the
