@@ -7,7 +7,7 @@ back, and build it into your own ship.  It is not in the demo menu: pick
 it in the DOS's file browser and press Enter ([DOS.md](DOS.md)), or set
 `BOOT.CFG` = `SCRAP.PLC` to run it at power-up.
 
-Date: 2026-11-09
+Date: 2026-11-10
 
 The design (proposal, phases, mock-ups) is the SCRAPWRIGHT design doc.
 This is **phase 3**: the walkable wreck with the mouse panel (phase 2),
@@ -21,6 +21,8 @@ comms and other ships come in later steps.
 ![a room without air](../../reference/scrap_sim_air.png)
 
 ![the inventory](../../reference/scrap_sim_inv.png)
+
+![the ship's map](../../reference/scrap_sim_map.png)
 
 ## Playing
 
@@ -42,6 +44,7 @@ cabin and the wreck's corridor is shared through them.
 | Right click | unlocks the panel (and cancels picking a cell to install on) |
 | **I** or **Tab** | the inventory screen, and back (see **The inventory**) |
 | **V** | the power view, and back (see **Power**) |
+| **M** | the ship's map, and back (see **The ship's map**) |
 | Esc | back to the DOS |
 
 The actions, on the cell the panel shows (all but WALK HERE and INSPECT
@@ -101,6 +104,21 @@ time from the part's skills), in the tug or in a wreck alike:
 A thruster, an antenna or a radar uninstalls too (in a wreck with the cutter): it
 goes straight into a free carry slot and leaves open space, like a deck
 plate.
+
+**The ship's map.**  M swaps the view for the whole 96 x 64 map, zoomed
+out: a pixel a cell (one art pixel by two line pairs, so square on the
+monitor, 4 x 4 screen pixels), centred on black under a SHIP MAP title
+bar, you in white.  Each cell is its kind's color: the average of its
+art, pushed twice as far from gray as it is (`gen_scrap.MAP_CHROMA`) and
+matched to the nearest of the 16 colors, so open space is dark blue,
+decks dark gray, bulkheads light gray, doors and fuel orange, O2 and
+scrubbers cyan, the reactor green (`gen_scrap.map_color`, the table
+`MCOL`).  Undocked, the KESTREL 9's side is open space, as on the view.
+It is only a view: walking stops and the mouse does nothing on it (the
+game goes on, as in the inventory), and it shows the ship as it was when
+it opened.  It is drawn by `map_draw` in `SCRAP.INV` (`inv` = 2; the
+inventory is `inv` = 1), in about 14 frames.  M again, or I, goes back
+to the ship.
 
 **What is under a part.**  A part stands on a deck (or a power conduit
 in one), all but those that go on open space (a thruster, an antenna,
@@ -436,7 +454,7 @@ a jammed shut armory door and a jammed open med bay door.
 | x4080-x4CFF | `rooms_build`'s work space: each room's sums, the links to check, a bit a cell for the fill, its stack |
 | x4100-x44FF | at the start: `SCRAP.INI` (`scrap_pwr.masm`'s end: the start's code, `fl_init`, `game_init`, `screen_init`, `cb_init` and the conduits at the start), read in by `start`, which then works out the rooms over it |
 | x4700-x4CFF | `SCRAP.PWR` (`scrap_pwr.masm`, `#overlay4`: the power view), read in when the power view draws after `rooms_build` or a swap file has been over it (`PW_ST` bit 1 off; `V` turning it on works it out again too); `power_build`'s live conduits are the fill's bits (x4300-x46FF), its stack x4100-x42FF |
-| x4100-x4CFF | while the inventory is up: `SCRAP.INV` (`scrap_inv.masm`: its screen, font, pointer and routines; 6 sectors at most), read from the card each time it opens; a rebuild of the rooms waits until it closes |
+| x4100-x4CFF | while the inventory or the ship's map is up: `SCRAP.INV` (`scrap_inv.masm`: its screen, the map's, the font, pointer and routines; 6 sectors at most), read from the card each time it opens; a rebuild of the rooms waits until it closes |
 | x4080-x40FF | while the navigation screen is up: its state (the target, the object being drawn and its 10 bytes, the pixels of each object for the mouse) |
 | x4100-x4CFF | while the navigation screen is up: `SCRAP.NAV` (`scrap_nav.masm`; 6 sectors at most, packed largest chunk first: `.region ..., pack`), read in the same way; the points it drew (to rub out) go in the screen bytes no line shows (offsets 0-30 even of the odd pages x61-x9F) |
 | x40BA-x40BE | the spin (1/256 heading steps a frame), the heading's 1/256 steps, the frame counter when the spin was last worked out, R's stop (`FL_SPN` ... `FL_STP`; `fl_init` clears x4080-x40BF) |
@@ -473,7 +491,7 @@ python gen_scrap.py                              scrap_types.asm, scrap_data.mas
 python asm_expand.py scrap.masm                  scrap.asm
 python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x4100,0x4D00,DCK,3 --swap 0x3600,0x4000,DK2,3 --swap 0x4E00,0x5000,DK3,3 --swap 0x5400,0x5600,DK4,3 --swap 0x3600,0x4000,ART,0 --swap 0x4700,0x4D00,PWR,4 --swap 0x4E00,0x5000,PW2,4 --swap 0x4200,0x4300,PW3,4 --swap 0x5400,0x5600,ACT,4 --swap 0x4100,0x4500,INI,5 --swap 0x4E00,0x5000,RB1,5 --swap 0x5400,0x5600,RB2,5
                                                  SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV, SCRAP.NV2, SCRAP.NV3, SCRAP.DCK, SCRAP.DK2, SCRAP.DK3, SCRAP.DK4, SCRAP.ART, SCRAP.PWR, SCRAP.PW2, SCRAP.PW3, SCRAP.ACT, SCRAP.INI, SCRAP.RB1, SCRAP.RB2
-python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png; --power: only the conduits and the power view, quick)
+python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png, scrap_map.png; --power: only the conduits and the power view, --map: only the ship's map, quick)
 ```
 
 `gen_scrap.py` holds the cell art, the item types (names, info lines,
@@ -506,6 +524,9 @@ the card in `placard_sim.py` with a PS/2 mouse and checks:
   the slots in the panel; a wreck wall
   uninstalled, picked up and installed again from the inventory (a cell
   too far refused), the rooms and the skills after it;
+- the ship's map (M): the whole screen against `gen_scrap.py`'s
+  `map_screen()`, no walking on it, M back to the view, I still opening
+  the inventory after it;
 - opening the vented section: the corridor's air drops, the decks frost,
   the suit uses its O2;
 - each warning, suffocating, and Enter starting again;

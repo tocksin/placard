@@ -46,7 +46,7 @@ the upper socket, and boots it like the board (test_dos.Rig):
      after, still installed, and the tug has no air)
  12. Esc brings the DOS's browser back
 
-Date: 2026-11-09
+Date: 2026-11-10
 """
 
 import argparse
@@ -232,6 +232,11 @@ class Rig(test_tracker.Rig):
         sk0, suit0, c0 = self.skills(), self.zp('suit_on'), self.cpu.clocks
         self.key(str(1 + acts.index(code)))
         self.run(2)
+        if code in (gen_scrap.A_INSTALL, gen_scrap.A_UNINST, gen_scrap.A_REPAIR, gen_scrap.A_CUT):
+            for _ in range(4):          # a job may start a frame or two later (the frame
+                if self.zp('cut_t'):    #   loop's phase: the panel, the second's tick)
+                    break
+                self.run(1)
         self.mid = None
         d0 = self.map_raw(x, y)[1] & 15
         rep = 3 if self.zp('cut_t') and self.zp('cut_m') == 3 else 0
@@ -458,6 +463,17 @@ def build():
     inv = gen_plc.split_swap(prog, 0x4100, 0x4D00)      # SCRAP.INV
     if not inv or len(inv) > 0xC00:          # 6 sectors at most (inv_fetch)
         raise SystemExit('SCRAP.INV is %d bytes' % len(inv))
+    inv_labs = set()                         # SCRAP.INV's labels all in it (#overlay, bank 1):
+    for f in ('scrap_inv.masm', 'scrap_inv_data.masm'):     # a chunk that does not fit goes on
+        inv_labs |= set(re.findall(r'^([A-Za-z_]\w*):', open(os.path.join(HERE, f)).read(), re.M))
+    bank = None                              #   to the next region (SCRAP.NAV's)
+    for ln in src.split('\n'):
+        m = re.match(r'\s*#(addr|overlay\d*)\b', ln)
+        if m:
+            bank = m.group(1)
+        m = re.match(r'([A-Za-z_]\w*):', ln)
+        if m and m.group(1) in inv_labs and bank != 'overlay':
+            raise SystemExit('%s (SCRAP.INV) is placed under #%s' % (m.group(1), bank))
     nav = gen_plc.split_swap(prog, 0x4100, 0x4D00, 2)   # SCRAP.NAV
     if not nav or len(nav) > 0xC00:
         raise SystemExit('SCRAP.NAV is %d bytes' % len(nav))
@@ -550,6 +566,7 @@ def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('--png')
     ap.add_argument('--power', action='store_true', help='only the conduits and the power view (quick)')
+    ap.add_argument('--map', action='store_true', help="only the ship's map (quick)")
     args = ap.parse_args(argv)
     rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, nav = build()
     files = {'DOS.PLC': dos_plc, 'SCRAP.PLC': plc, 'SCRAP.OVL': ovl, 'BOOT.CFG': b'SCRAP.PLC\r\n'}
@@ -594,6 +611,11 @@ def main(argv):
         r.fail('the welcome message')
     if mem[0x5BA0] & 0x70 != 0x40 or mem[0x5BF0] & 0x70 != 0x30:
         r.fail('the panel tints (%02X %02X)' % (mem[0x5BA0], mem[0x5BF0]))
+
+    if args.map:
+        ship_map(r, args)
+        print('PASS' if r.ok else 'FAILED')
+        return 0 if r.ok else 1
 
     if args.power:
         deck_rules(r)
@@ -861,6 +883,7 @@ def phase3(r, args):
         r.fail('carrying a crate does not slow the walk')
     r.check_view('cut and carried')
     inventory(r, args)
+    ship_map(r, args)
 
     print('9. a room without air: the vented section')
     r.go((38, 29), (38, 32), (61, 32), (61, 52))
@@ -1171,7 +1194,7 @@ def power(r, args):
     def view_on(what, cells=()):
         c0 = r.cpu.clocks
         r.key('v')
-        r.run_until(lambda: mem[st_a] == 3 and r.cpu.pc == r.tsyms['loop'], 600, 'the power view')
+        r.run_until(lambda: mem[st_a] & 3 == 3 and r.cpu.pc == r.tsyms['loop'], 600, 'the power view')
         r.run(2)
         t, d, b = ram_map(r)
         cond = cbits(r)
@@ -2057,6 +2080,53 @@ def check_inv(r, what):
     else:
         print('  %s: the inventory screen is as inventory_screen() draws it' % what)
     return not bad
+
+
+def ship_map(r, args):
+    """M: the ship's map (a pixel a cell, the kind's average color, the
+    player white) as gen_scrap.map_screen draws it; walking stops; M again:
+    the ship view back"""
+    z, mem = r.zp, r.cpu.mem
+    print('8c. the ship\'s map (M)')
+    r.mouse_to(320, 430)                    # the pointer over the panel, not the map
+    px, py = z('p_x'), z('p_y')
+    loop = r.tsyms['loop']
+    f0 = r.cpu.clocks // FRAME
+    r.port.kbd.press(r.codes['m'])
+    r.run_until(lambda: z('inv') == 2, 30, 'the map to open')
+    r.port.kbd.release(r.codes['m'])
+    r.run_until(lambda: r.cpu.pc == loop, 200, 'the frame loop')
+    print('  M: %r, drawn in %d frames' % (r.panel()[5].strip(), r.cpu.clocks // FRAME - f0))
+    r.run(4)
+    if z('inv') != 2 or "SHIP'S MAP" not in r.panel()[5]:
+        r.fail('M did not open the map (inv %d)' % z('inv'))
+    t = ram_map(r)[0]
+    want = gen_scrap.map_screen(t, (px, py), far=not mem[FL + 0x21])
+    bad = [(bc, q) for q in range(192) for bc in range(80)
+           if mem[((0x61 + 2 * bc) << 8) + line_off(q)] != want[q][bc]]
+    if bad:
+        r.fail('the map: %d bytes differ, first (column, line) %s' % (len(bad), bad[:4]))
+    else:
+        print('  the map is as map_screen() draws it (%d x %d cells)' % (gen_scrap.MAP_W, gen_scrap.MAP_H))
+    if args.png:
+        ps.render(mem, args.png.replace('.png', '_map.png'))
+        print('  wrote', args.png.replace('.png', '_map.png'))
+    r.hold(RIGHT, 12)
+    if (z('p_x'), z('p_y')) != (px, py):
+        r.fail('walked on the map screen')
+    r.key('m')
+    r.run_until(lambda: r.cpu.pc == loop, 200, 'the frame loop')
+    r.run(4)
+    if z('inv'):
+        r.fail('M did not close the map')
+    r.check_view('the map closed')
+    r.key('i')                              # the inventory still opens as before
+    r.run(4)
+    if z('inv') != 1:
+        r.fail('I after the map did not open the inventory (inv %d)' % z('inv'))
+    check_inv(r, 'after the map')
+    r.key('i')
+    r.run(4)
 
 
 def inv_mouse(r, k):

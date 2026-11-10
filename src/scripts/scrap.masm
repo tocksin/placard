@@ -48,7 +48,7 @@
 ;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x4100,0x4D00,DCK,3 --swap 0x3600,0x4000,DK2,3 --swap 0x4E00,0x5000,DK3,3 --swap 0x5400,0x5600,DK4,3 --swap 0x3600,0x4000,ART,0
 ;     python3 test_scrap_sim.py                       runs it in placard_sim
 ;
-; Date: 11/09/2026
+; Date: 11/10/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -151,7 +151,7 @@ CLK_1   = ACT_PG * 256 + 0xE7           ;   00:00:00 (24 bits; second_tick; 08:0
 CLK_2   = ACT_PG * 256 + 0xFF           ;   at the start; SCRAP.NAV shows it)
 PRT_K   = ACT_PG * 256 + 0xFE           ; the kinds pair whose text is in PRT_BUF (FF none)
                             ;   (for the navigation mode's display; not shown here)
-inv     = 0x63              ; 1: the inventory screen is up (not the view)
+inv     = 0x63              ; 1: the inventory screen is up (not the view), 2: the map
 place   = 0x64              ; INSTALL from the inventory: the carry slot's address
                             ;   while you pick the cell (0 none)
 inv_k   = 0x65              ; the inventory's slot under the mouse: 0-2 the carry
@@ -1778,6 +1778,12 @@ input_keys:
     xor  0x56, ac
     beq  ik_v
     ld   [key], ac
+    xor  0x6D, ac               ; M: the ship's map (inv 2)
+    beq  ik_m
+    ld   [key], ac
+    xor  0x4D, ac
+    beq  ik_m
+    ld   [key], ac
     sub  0x31, ac
     ld   ac, [u1]
     sub  8, ac
@@ -1787,6 +1793,12 @@ input_keys:
 ik_e:
     LEAVE
 ik_i:
+    ld   1, ac                  ; inv_toggle opens inv_k's screen
+    bra  ik_t
+ik_m:
+    ld   2, ac
+ik_t:
+    ld   ac, [inv_k]
     GOTO inv_toggle
 ik_v:
     GOTO pw_toggle
@@ -5413,10 +5425,11 @@ cm_e:
 ; deck, a wall panel or a door on a deck or open space, a deck plate or a
 ; thruster on open space).  The job (cut_m 4) puts it there (place_done).
 
-; inv_toggle - the inventory up (SCRAP.INV read into x4100-x4CFF, the
-; work space rooms_build leaves alone between builds), or back to the
-; ship (the rooms worked out then if a job changed the ship meanwhile).
-; The rest of the routine that GOTOs it (its LEAVE)
+; inv_toggle - the inventory (inv_k 1) or the ship's map (inv_k 2) up
+; (SCRAP.INV read into x4100-x4CFF, the work space rooms_build leaves
+; alone between builds), or back to the ship (the rooms worked out then if
+; a job changed the ship meanwhile).  The rest of the routine that GOTOs
+; it (its LEAVE)
 .chunk
 inv_toggle:
     ld   [inv], ac
@@ -5425,7 +5438,7 @@ inv_toggle:
     beq  it_o
     LEAVE
 it_o:
-    ld   1, ac
+    ld   [inv_k], ac            ; 1 the inventory, 2 the map (input_keys)
     ld   ac, [inv]
     clr  ac                     ; nothing to place
     ld   ac, [place]
