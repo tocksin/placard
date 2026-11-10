@@ -1,12 +1,14 @@
 # Schematic rules
 
-Date: 2026-11-02
+Date: 2026-11-10
 
 The KiCad schematic (`kicad/`) is drawn by
 `src/scripts/gen_kicad_schematic.py` (with `kicad_sch_lib.py` and the router
 `kicad_route.py`).  This page keeps the rules it follows, so a revision
 draws the same way.  The nets themselves are the pin-by-pin list in the
-script; `--check` compares KiCad's netlist with it.
+script; `--check` compares KiCad's netlist with it.  Justin's own requests
+for how the drawings should look, with his words and dates, are collected in
+[SCHEMATIC_DRAWING_RULES.md](SCHEMATIC_DRAWING_RULES.md).
 
 ## Projects and sheets
 
@@ -75,8 +77,10 @@ part goes on the sheet of the block it belongs to.
 
 ## How the sheets are drawn
 
-Edit the script and rerun it after any pin or part change; never edit the
-sheets by hand, or the next run overwrites the edit.
+Since 2026-10-30 Justin edits the main-board sheets in KiCad, so his saved
+sheets are the source: never commit a full regeneration of them.  Run the
+script in a scratch copy, take only the sheet you need, and check the
+netlist against his.
 
 - **Blocks first, then nets, then text.**  Chips sit on a grid with room
   around them, then the text is made as large as fits.  References are
