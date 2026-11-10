@@ -484,6 +484,16 @@ to reach the video RAM and its map, and calls the library through `l_*`
 stubs that go through the library's `lib_far` (map 07 for the call,
 [LIBRARY.md](LIBRARY.md#calls-from-a-program-that-maps-every-section-to-ram)).
 
+## Known bugs
+
+- The tug's worth on the panel ("TUG $10,150") is wrong. `tug_scan` reads
+  `TB_VAL + type` with Y still set to its own code page after
+  `CALL tug_mass` (a RET leaves Y = the caller's page), so it adds code
+  bytes. The true sum of the tug's parts is $7,040. The one-line fix
+  (`ld TAB_PG, y` after the call) gives that, but then the full
+  `test_scrap_sim.py` run fails at 7f (PICK UP of a turned radar) and later
+  steps, though that step passes alone. Shelved 2026-11-10.
+
 ## On the card
 
 Only `SCRAP.PLC`, the file the DOS runs, is in the card's top folder.
