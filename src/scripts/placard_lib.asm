@@ -26,7 +26,7 @@
 ;     xD700-xDBFF  SND_CODE    sound driver (placard_snd.asm)
 ;     xD500-xD6FF  INPUT_CODE  line input, mouse pointer (placard_input.asm)
 ;     xC700-xD4FF  FS_CODE     FAT file reader (placard_fs.asm)
-;     xC600-xC6FF  SLOT_CODE   expansion slot helpers (placard_slot.asm)
+;     xC600-xC6FF  SLOT_CODE   expansion slot helpers (placard_slot.asm), con_dec16 (lib_dec16.asm)
 ;     xC500-xC5FF  MENU_CODE   program menu hook (placard_menu.asm)
 ;     xC000-xC4FF  PS2_CODE    PS/2 keyboard and mouse (placard_ps2.asm);
 ;                              the rest of that driver is in I/O pages 1
@@ -168,6 +168,7 @@ LIB_FAR    = 0x1FA0     ; lib_far: a library call from a program that maps
 #include "placard_io.asm"     ; I/O drivers at IO_CODE (docs/architecture/IO.md)
 #include "placard_snd.asm"    ; sound driver at SND_CODE (docs/sound/SOUND.md)
 #include "placard_slot.asm"   ; expansion slot helpers at SLOT_CODE (docs/architecture/EXPANSION.md)
+#include "lib_dec16.asm"      ; con_dec16, in the free end of the slot page
 #include "placard_fs.asm"     ; FAT file reading at FS_CODE (docs/architecture/IO.md)
 #include "placard_input.asm"  ; line input, mouse pointer at INPUT_CODE (docs/architecture/IO.md)
 #include "placard_menu.asm"   ; program menu hook at MENU_CODE (docs/software/MENU.md)
@@ -851,10 +852,6 @@ plot1:
     jmp  vid_addr
                                 ; vid_addr returns to pl_back in LIB_RAM
 
-cw_pow:                         ; con_dec16's powers of ten (in a free end)
-    #d8 0x10, 0xE8, 0x64, 0x0A  ; 10000, 1000, 100, 10: low bytes
-    #d8 0x27, 0x03, 0x00, 0x00  ;   high bytes
-
 ; ============================================================
 ; Page 4: text console - character output
 ; ============================================================
@@ -1153,79 +1150,6 @@ hx_back2:
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
-; ------------------------------------------------------------
-; con_dec16 - print a 16-bit value in decimal, no leading zeros
-;   in:      R1:R0 = value, 0-65535
-;   out:     R1:R0 = 0, R2 = 10
-;   changes: AC, X, Y, T0-T5
-;   clocks:  about 900-4,200 (about 800 a digit, con_putc included)
-;   Uses 2 stack bytes.  Each digit is the count of times its power of
-;   ten can be taken off.  R1:R0 = the value left, R2 = the power's index
-;   (bit 7 set once a digit is printed); con_putc keeps them.
-; ------------------------------------------------------------
-con_dec16:
-    ld   ac, [SAVE_AC]          ; PUSH_LINK
-    ld   [SP], x
-    ld   [LINK_HI], ac
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, x
-    dec
-    ld   ac, [SP]
-    ld   [LINK_LO], ac
-    ld   ac, [x]
-    ld   [SAVE_AC], ac
-    clr  ac
-    ld   ac, [R2]
-cw_dig:
-    ld   [R2], ac               ; T2:T1 = the power: 10000, 1000, 100, 10
-    and  0x03, ac
-    add  cw_pow & 0xFF, x
-    ld   cw_pow >> 8, y
-    ld   [y,x], ac
-    ld   ac, [T1]
-    ld   [R2], ac
-    and  0x03, ac
-    add  (cw_pow & 0xFF) + 4, x
-    ld   [y,x], ac
-    ld   ac, [T2]
-    ld   0x30, ac
-    ld   ac, [T0]               ; the digit, as a character
-cw_sub:
-    ld   [R1], ac               ; value >= power?  high bytes first
-    sub  [T2], ac
-    bcs  cw_out
-    ld   ac, [T4]
-    ld   [R0], ac
-    sub  [T1], ac
-    ld   ac, [T3]
-    bcc  cw_ok
-    ld   [T4], ac               ; a borrow from the high byte
-    beq  cw_out
-    dec
-    ld   ac, [T4]
-cw_ok:
-    ld   [T3], ac               ; value -= power, digit + 1
-    ld   ac, [R0]
-    ld   [T4], ac
-    ld   ac, [R1]
-    ld   [T0], ac
-    inc
-    ld   ac, [T0]
-    bra  cw_sub
-cw_out:
-    ld   [R2], ac               ; a 0 before any other digit is not printed
-    blt  cw_p
-    ld   [T0], ac
-    xor  0x30, ac
-    beq  cw_n
-cw_p:                           ; the rest is in page 6
-    ld   cw_put >> 8, y
-    jmp  cw_put
-cw_n:
-    ld   cw_next >> 8, y
-    jmp  cw_next
 
 
 ; ============================================================
@@ -1351,44 +1275,6 @@ cd_back3:
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
 
-; con_dec16's last part (from page 5): print the digit, the next power
-cw_put:
-    ld   [R2], ac
-    or   0x80, ac
-    ld   ac, [R2]
-    ld   [T0], ac
-    ld   LINK_LO, x             ; CALL con_putc
-    ld   cw_back1, [x]
-    ld   LINK_HI, x
-    ld   cw_back1 >> 8, [x]
-    ld   con_putc >> 8, y
-    jmp  con_putc
-cw_back1:
-cw_next:
-    ld   [R2], ac
-    inc
-    ld   ac, [R2]
-    and  0x7F, ac
-    xor  4, ac
-    beq  cw_units
-    ld   cw_dig >> 8, y
-    jmp  cw_dig
-cw_units:
-    ld   [R0], ac               ; the units, always printed
-    add  0x30, ac
-    ld   LINK_LO, x             ; CALL con_putc
-    ld   cw_back2, [x]
-    ld   LINK_HI, x
-    ld   cw_back2 >> 8, [x]
-    ld   con_putc >> 8, y
-    jmp  con_putc
-cw_back2:
-    clr  ac
-    ld   ac, [R0]
-    ld   10, ac
-    ld   ac, [R2]
-    ld   lib_leave >> 8, y      ; LEAVE
-    jmp  lib_leave
 
 
 
