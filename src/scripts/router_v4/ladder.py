@@ -10,7 +10,9 @@ env: VIAS ("400 800 1600")  TRIES (3)  GRID NETS WORKERS AGAINST and everything 
      16 fewer vias on the whole board, 7-13 on r1, for about the same track, in 3x the pair-pass time.
      DIAGRUNGS=N: the first N rungs run the tidy with DIAG=1 (45-degree moves anywhere), the rest orthogonal (DIAG=0),
      which backs the diagonals out of the tight spots they made (Justin's rule). Fine r1: DIAGRUNGS=2 of 4 + WIDE gives
-     422 vias / 26.13 m against 423 / 26.73 all-orthogonal and 424 / 26.34 all-diagonal."""
+     422 vias / 26.13 m against 423 / 26.73 all-orthogonal and 424 / 26.34 all-diagonal.
+     JUMPRUNG=1: a last rung with JUMP=1 (short jumpers on the +5V inner plane in tough spots, see gridcore.py; no net pass).
+     Always the last step: only the tidy understands jumpers, the router does not."""
 import sys, os, subprocess, json, shutil, time
 TOOLS=os.path.dirname(os.path.abspath(__file__))
 E=os.environ.get
@@ -54,4 +56,13 @@ if E('WIDE','0')=='1':
     m,n=score(out+'_c45.kicad_pcb',out+'.json')
     with open(out+'.score','w') as f: f.write(f'# ladder wide pair rung at VIA {v}: {m:.2f} m, {n} vias\n')
     print(f'wide pair rung at VIA {v}: {m:.2f} m, {n} vias, {time.time()-t0:.0f} s',flush=True)
+    prev=out+'.kicad_pcb'
+if E('JUMPRUNG','0')=='1':
+    v=VIAS[-1]; t0=time.time(); out=f'{prefix}_v{v}_jump'
+    if not os.path.exists(out+'.json'):
+        run([PY,os.path.join(TOOLS,'tidy.py'),prev,out+'.kicad_pcb'],{'VIA':str(v),'JUMP':'1','NETPASS':'0',**({'DIAG':'0'} if DIAGRUNGS else {})},out+'.log')
+        run([PY,os.path.join(TOOLS,'corner45.py'),out+'.kicad_pcb',out+'_c45.kicad_pcb'],{},out+'.log')
+    m,n=score(out+'_c45.kicad_pcb',out+'.json'); t=json.load(open(out+'.json'))['total']
+    with open(out+'.score','w') as f: f.write(f'# ladder jumper rung at VIA {v}: {m:.2f} m, {n} vias, {t.get("jumpers",0)} jumpers\n')
+    print(f'jumper rung at VIA {v}: {m:.2f} m, {n} vias, {t.get("jumpers",0)} jumpers ({t.get("jumper_mm",0)} mm on the power layer), {time.time()-t0:.0f} s',flush=True)
 print('LADDER DONE',flush=True)

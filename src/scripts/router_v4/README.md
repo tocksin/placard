@@ -496,6 +496,60 @@ start (643 vias, 38.88 m) and the ladder keeps most of the lead to the end. Just
 - Diagonal moves in the router's own search would need the `pfcpu.c` / `pfgpu.cu` kernels (today only the tidy's `astar.c`
   has them); the DIAG rungs re-route most chains anyway, so this was not pursued.
 
+## Round 11 (2026-11-10, branch-159): power-layer jumpers and pin swapping in the router
+
+**Power-layer jumpers (tidy `JUMP=1`, ladder `JUMPRUNG=1`).** Justin's rule: in a tough spot a short trace may drop to the
+power layer; not too many in one area; never on the ground layer. The tidy's search gets a third layer, In2.Cu (the +5V
+plane, `JLAYER` / `JPLANE`), next to F.Cu and B.Cu (`astar3` in astar.c):
+
+- a run on it costs `JENTRY` via costs once (default 1.0) plus `JMUL` (4) per cell, so it is taken only where it saves
+  more than a via; through-hole pads and vias of the net are free entry points, anywhere else a via is needed;
+- a run is at most `JMAX` mm long (10; enforced inside the search and checked again afterwards);
+- every jumper keeps `JSPACE` mm (5) from every other jumper (bounding box), so the plane is not chopped up;
+- it keeps the usual clearance from every other net's through pads and vias and `THERMCLR` from the +5V pads (their spokes);
+- vias of other nets keep clear of jumper tracks like of any track.
+
+Only the single-chain moves (and with them the pair moves) make jumpers; whole-net, junction and region moves search
+the two outer layers. A board that already has jumpers is read with the third layer known (`JUMP` not needed), its
+jumpers are ordinary re-routable chains. The router (`mroute4.py`) does not make jumpers: the jumper rung is the last
+step. `score.py` reports the jumpers (number, length, longest, closest pair), checks clearance on In2.Cu and rebuilds
+the +5V zone from its outline (0.3 mm clearance, 0.25 mm minimum width) to check that it is still one piece that
+reaches every +5V pad and via. KiCad's own zone fill and DRC were not run in the cloud.
+
+| board (fine grid, VIA 3200 rung) | before | with jumpers | jumpers |
+|---|---|---|---|
+| r1, best board (round 9) | 422 vias / 26.13 m | 418 / 26.04 m | 3 (19.9 mm, longest 7.6) |
+| r1, same with `JMAX=5` | 422 / 26.13 | no change | 0 |
+| r1, `JENTRY=0.5 JMAX=5` | 422 / 26.13 | 419 / 26.06 | 2 (7.2 mm) |
+| r1 with pin swaps (below) | 412 / 25.93 | **394 / 25.60** | 5 (38.2 mm, longest 9.6) |
+| whole board, best board (round 10) | 468 / 39.54 | no change | 0 |
+| whole board, `JENTRY=0.25` | 468 / 39.54 | **463 / 39.49** | 5 (33.9 mm), four of them at the expansion connectors J9-J12 |
+
+The plane stays one piece in every case. On the finished whole board nothing pays at the default price (a jumper
+costs one via on top of the vias it needs); at a quarter of a via five jumpers appear, four at the expansion connectors,
+which is where Justin expected them. On the r1 bench (hand-routed neighbours as fixed obstacles) the jumpers free
+room for the pair moves, which is where most of the 18 vias come from. `bench/r1_fine11_jump*`, `bench/wbf11_jump_*`.
+
+**Pin swapping before routing (`mroute4.py PINSWAP=1`).** Justin asked for the pin-swap tool of the placement work
+(`placeguide.py pinswap`, table in `pinswap.py`) in the router, without the part moves. With `PINSWAP=1` the router
+first runs the pin-swap pass on its input (register and buffer bit pairs, SRAM address / data pins, ATF22V10C pins
+within their product-term limits), routes the swapped copy `<out>.pinswap/pinswapped.kicad_pcb` and writes the pin
+change list to `<out>.pinswaps.md`. Pins of nets that already have copper in the input stay (`PSFIX`), and that copper
+is kept. `pinswap.py` takes `SCHDIR` / `PLDDIR` when the tools run from a copy outside the repo. The swaps are chosen
+by the placement model (expected vias and length), not yet verified by routing each one.
+
+| fine r1 (116 nets; only 41 pins on 7 parts may move, the other nets' copper is fixed) | vias | track |
+|---|---|---|
+| route, no swaps (round 8 router) | 592 | 27.52 m |
+| route with pin swaps | 569 | 27.00 m |
+| ladder (DIAGRUNGS=2, wide), no swaps = best so far | 422 | 26.13 m |
+| ladder with pin swaps: 436 / 421 / 419 / 416, wide | 412 | 25.93 m |
+| + jumper rung | 394 | 25.60 m |
+
+On the whole board 393 pins on 31 parts would swap (model: 532 -> 418 vias expected); the fine whole-board route with
+the swaps (about 6 h route + 4 h ladder on the cloud CPU) has not been run yet. A swapped board is a test bench: the
+schematic, the PLD PIN lines and a WinCUPL compile have to follow before any of it is real. `bench/r1_fine11_pinswap_*`.
+
 ## Placement guidance (`placeguide.py`, branch-143, modes and route check branch-146)
 `python placeguide.py board.kicad_pcb MODE` judges a placement from the pads and nets alone (no routing, existing copper ignored) and
 searches moves, rotations and swaps that should make it easier to route. The board file is never written; `optimize` writes a moved

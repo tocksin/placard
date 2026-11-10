@@ -83,22 +83,21 @@ def comp_masks(n,path,win):
     ys=[p[1] for p in path]; xs=[p[2] for p in path]
     R=max(5,int(math.ceil(VD/2/G))+1)   # bbox margin must hold the via disk (fine grid)
     j0=max(0,min(ys)-R); j1=min(g.ny,max(ys)+R+1); i0=max(0,min(xs)-R); i1=min(g.nx,max(xs)+R+1)
-    cells=[np.zeros((j1-j0,i1-i0),bool) for _ in LAY]; vc=np.zeros((j1-j0,i1-i0),bool)
+    cells=[np.zeros((j1-j0,i1-i0),bool) for _ in LAYS]; vc=np.zeros((j1-j0,i1-i0),bool)
     for i,(l,iy,ix) in enumerate(path):
         cells[l][iy-j0,ix-i0]=True
         if i and path[i-1][0]!=l: vc[iy-j0,ix-i0]=True
     vd=stamp_disks(vc,DK_V) if vc.any() else None
-    touched=set()
-    for l,lab in enumerate((la,lb)):
+    touched=set(); labs=[la,lb]+([g.last_lab_j] if JUMP else [])
+    for l,lab in enumerate(labs):
         m=binary_dilation(cells[l],np.ones((3,3),bool)) if cells[l].any() else np.zeros_like(vc)   # 8-neighbours touch
         if vd is not None: m|=vd
         touched|=set(np.unique(lab[j0:j1,i0:i1][m]).tolist())
     touched.discard(0)
     if len(touched)<=1: return None,None,True
     if len(touched)>2: return None,None,False
-    ca,cb=sorted(touched); cF,cB=g.last_copper   # route between real copper cells, not the dilated labels
-    W=(slice(win[2],win[3]),slice(win[0],win[1])); la=la[W]; lb=lb[W]; cF=cF[W]; cB=cB[W]
-    src={'F.Cu':(la==ca)&cF,'B.Cu':(lb==ca)&cB}; goal={'F.Cu':(la==cb)&cF,'B.Cu':(lb==cb)&cB}
+    ca,cb=sorted(touched); W=(slice(win[2],win[3]),slice(win[0],win[1]))   # route between real copper cells, not the dilated labels
+    src={L:(labs[l][W]==ca)&g.last_copper[l][W] for l,L in enumerate(LAYS)}; goal={L:(labs[l][W]==cb)&g.last_copper[l][W] for l,L in enumerate(LAYS)}
     return src,goal,False
 def search_window(cells,pad_mm):
     ys=[c[1] for c in cells]; xs=[c[2] for c in cells]; pad=int(pad_mm/G)
@@ -110,10 +109,16 @@ def reroute_chain(n,path):
     srcm,goalm,drop=comp_masks(n,path,win)
     if drop or srcm is None: return None,drop
     g.apply_stamps(g.stamps[n],-1)
-    bt,bv=g.blocked(n,hard=True,win=win)
-    ring=g.own_ring(n,win)
-    ct=[1.0+g.RING*ring[l] for l in range(2)]
-    newp,ne=g.astar(srcm,goalm,bt,bv,ct,None,win)
+    ring=g.own_ring(n,win); ct=[1.0+g.RING*ring[l] for l in range(2)]
+    newp=None; two=True
+    if g.jump_on:   # with the jumper layer first; a jumper that is too long or too near another one is refused and the search repeats on two layers
+        g.jump_skip=(path,); bt,bv=g.blocked(n,hard=True,win=win); g.jump_skip=()
+        newp,ne=g.astar(srcm,goalm,bt,bv,ct+[np.full(bt[0].shape,JMUL,np.float32)],None,win)
+        if not newp or g.jump_ok(newp,(path,)): two=False   # nothing to find, or a good path
+        else: newp=None
+    if two:
+        jon=g.jump_on; g.jump_on=False; bt,bv=g.blocked(n,hard=True,win=win); g.jump_on=jon
+        newp,ne=g.astar(srcm,goalm,bt,bv,ct,None,win)
     g.apply_stamps(g.stamps[n],1)
     return (newp if newp and len(newp)>=2 else None),False
 def rechain(n):
@@ -122,7 +127,7 @@ def rechain(n):
     for p in g.routes[n]:
         for a,b in zip(p,p[1:]):
             if a[0]!=b[0]: vias.append((g.mm(a[1],a[2]),VD,-1))
-            else: segs.append((LAY[a[0]],g.mm(a[1],a[2]),g.mm(b[1],b[2]),W,-1))
+            else: segs.append((LAYS[a[0]],g.mm(a[1],a[2]),g.mm(b[1],b[2]),W,-1))
     g.tailseg[n]=segs; g.tailvia[n]=vias
     newpaths=g.paths_from_tail(n)
     if newpaths is not None: g.set_route(n,newpaths)
@@ -132,7 +137,7 @@ def chain_bbox(path,pad):
 def neighbours(n,path):
     """chains of other scope nets whose stamps cover cells next to this chain, nearest (most covered cells) first"""
     R=max(4,int(round(NEIGHMM/G))); j0,j1,i0,i1=chain_bbox(path,R+2); score={}
-    cells=[np.zeros((j1-j0,i1-i0),bool) for _ in LAY]
+    cells=[np.zeros((j1-j0,i1-i0),bool) for _ in LAYS]
     for l,iy,ix in path: cells[l][iy-j0,ix-i0]=True
     for m in g.scope:
         if m==n: continue
@@ -172,14 +177,16 @@ def connect_net(n,win,W,start=0,extra=None,soft=None,branch=False):
     they are found. Returns the new paths, or None."""
     new=[]
     for it in range(200):
-        la,lb=g.components(n); cF,cB=g.last_copper
-        la=la[W]; lb=lb[W]; cF=cF[W]; cB=cB[W]
-        ca=np.bincount(la[cF]); cbn=np.bincount(lb[cB]); m=max(len(ca),len(cbn)); cnt=np.zeros(m,np.int64); cnt[:len(ca)]+=ca; cnt[:len(cbn)]+=cbn; cnt[0]=0
+        la,lb=g.components(n); labs=[x[W] for x in [la,lb]+([g.last_lab_j] if JUMP else [])]; cops=[x[W] for x in g.last_copper]
+        bc=[np.bincount(lab[c]) for lab,c in zip(labs,cops)]; cnt=np.zeros(max(len(x) for x in bc),np.int64)
+        for x in bc: cnt[:len(x)]+=x
+        cnt[0]=0
         if (cnt>0).sum()<=1: return new
         s=int(cnt.argmax()) if not (it==0 and start) else int(np.argsort(-cnt)[min(start,int((cnt>0).sum())-1)])
-        srcm={'F.Cu':(la==s)&cF,'B.Cu':(lb==s)&cB}; goalm={'F.Cu':(la>0)&(la!=s)&cF,'B.Cu':(lb>0)&(lb!=s)&cB}
+        srcm={L:(labs[l]==s)&cops[l] for l,L in enumerate(LAYS)}; goalm={L:(labs[l]>0)&(labs[l]!=s)&cops[l] for l,L in enumerate(LAYS)}
         if branch: g.apply_stamps(g.stamps.get(n,[]),-1)   # own clearance lifted: a new path may start from or cross an
-        bt,bv=g.blocked(n,hard=True,win=win); ring=g.own_ring(n,win)   # earlier path of this search (ring cost only)
+        jon=g.jump_on; g.jump_on=False   # whole-net, junction and region moves search the two outer layers only (jumpers come from the chain moves)
+        bt,bv=g.blocked(n,hard=True,win=win); ring=g.own_ring(n,win); g.jump_on=jon   # earlier path of this search (ring cost only)
         if extra is not None: bt=[bt[l]|extra[l] for l in range(2)]
         ct=[1.0+g.RING*ring[l] for l in range(2)]; cvia=None
         if soft is not None: ct=[ct[l]+soft[0][l] for l in range(2)]; cvia=soft[1]
@@ -288,6 +295,7 @@ def region_step(box):
                 if c is not None: run.append(c); flag=f
         if lf: lifted[n]=lf; keep[n]=kp
     if sum(g.path_vias(p) for ps in lifted.values() for p in ps)<2: return 0.0,0
+    if any(c[0]==2 for ps in lifted.values() for p in ps for c in p): return 0.0,0   # a jumper in the box: left alone
     old={n:list(g.routes[n]) for n in lifted}
     oc=sum(g.path_cost(p) for ps in lifted.values() for p in ps)
     cells=[c for ps in lifted.values() for p in ps for c in p]
@@ -334,7 +342,7 @@ def shove_net(n):
             g.set_route(n,[p for p in keep_n if p is not path]); g.set_route(m,[p for p in keep_m if p is not q])
             bt,bv=g.blocked(m,hard=True)
             for (i,j,l,d) in runs(q):
-                if j-i<int(1/G): continue
+                if j-i<int(1/G) or l==2: continue
                 ys=[q[k][1] for k in range(i,j+1)]; xs=[q[k][2] for k in range(i,j+1)]
                 if max(ys)<j0 or min(ys)>=j1 or max(xs)<i0 or min(xs)>=i1: continue
                 for s in [v for k in range(1,SHOVE+1) for v in (k,-k)]:
@@ -462,13 +470,19 @@ def free_cells(n,paths,old):
     if not cells: return True
     oc=set(c for p in old for c in p); ov=set((q[1],q[2]) for p in old for k,q in enumerate(p) if k and p[k-1][0]!=q[0])
     ys=[c[1] for c in cells]; xs=[c[2] for c in cells]; y0,y1,x0,x1=min(ys),max(ys)+1,min(xs),max(xs)+1; sl=(slice(y0,y1),slice(x0,x1))
-    bt=[(g.mul_t[L][sl]|((g.own_t[L][sl]!=0)&(g.own_t[L][sl]!=n))|g.edge_t[sl]|(g.occ_t[L][sl]>0)) for L in LAY]
+    bt=[(g.mul_t[L][sl]|((g.own_t[L][sl]!=0)&(g.own_t[L][sl]!=n))|g.edge_t[sl]|(g.occ_t[L][sl]>0)) for L in LAYS]
+    if JUMP: bt[2]=bt[2]|g.therm_j[sl]
     bv=g.mul_v[sl]|((g.own_v[sl]!=0)&(g.own_v[sl]!=n))|g.edge_v[sl]|(g.occ_v[sl]>0)
     for p in paths:
         for i,(l,iy,ix) in enumerate(p):
             if (l,iy,ix) not in oc and bt[l][iy-y0,ix-x0]: return False
             if i and p[i-1][0]!=l and (iy,ix) not in ov and bv[iy-y0,ix-x0]: return False
     return True
+def jumps_ok(touched):
+    """the committed paths' jumpers still keep their distance from every other jumper (another move of the pass may have
+    put one nearby)"""
+    if not JUMP: return True
+    return all(g.jump_ok(p,(p,)) for m in touched for p in touched[m] if any(c[0]==2 for c in p))
 JUNC=int(E('JUNC','0')); RETRY=int(E('RETRY','2')); LOOK=int(E('LOOK','16')); BEST=int(E('BEST','1'))
 class Pool:
     """worker processes, each with its own grid, fed one net at a time in the sequential order (skipping ahead past nets whose
@@ -508,6 +522,7 @@ class Pool:
             for m in touched:
                 g.set_route(m,[]); ok=free_cells(m,touched[m],olds[m]); g.set_route(m,touched[m])
                 if not ok: break
+            ok=ok and jumps_ok(touched)
             if ok:
                 for m in touched: rechain(m); self.ver[m]=self.ver.get(m,0)+1; upd[m]=g.routes[m]
                 tg+=wg; td+=wd; acc+=len(touched)
@@ -547,6 +562,7 @@ class Pool:
                 for m in touched:
                     g.set_route(m,[]); ok=free_cells(m,touched[m],olds[m]); g.set_route(m,touched[m])
                     if not ok: break
+                ok=ok and jumps_ok(touched)
             if ok:
                 for m in touched: rechain(m); self.ver[m]=self.ver.get(m,0)+1
                 upd=('update',{m:g.routes[m] for m in touched},{m:self.ver[m] for m in touched})

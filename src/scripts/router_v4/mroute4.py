@@ -8,6 +8,8 @@ env: BACKEND=auto|gpu|cpu  THREADS=cpu threads  BATCH=4 (nets per launch; larger
      BASE=<file> (scope = nets whose copper was added after BASE: that copper is stripped and re-routed)
      CHECKGPU=N compare CPU and GPU path costs for the first N nets and exit (backend self-test)
      SEQFIX=1 a batch-mate routed through an earlier batch-mate's new route is re-routed alone (large batches converge)
+     PINSWAP=1: pin swapping before routing (placeguide.py pinswap mode, no part moves): the swapped copy <out>.pinswap/pinswapped.kicad_pcb
+     is routed and the pin change list is written to <out minus .kicad_pcb>.pinswaps.md. A test bench until the schematic (and PLD PIN lines) follow.
      CKPT=file: checkpoint after every iteration and phase; a run started with the file present resumes from it (for runs under a wall-clock cap)
      PATTERN=1 pattern (straight/L/Z) warm start before negotiation (patroute.py; neutral on the benchmark, off by default)
      CHAINRIP=1 rip-up removes only the crossed chains of a neighbour, not its whole route (shove-like)
@@ -25,6 +27,21 @@ from gridcore import *
 from scipy.ndimage import binary_dilation, label
 E=os.environ.get
 src,dst=sys.argv[1:3]
+if E('PINSWAP','0')=='1':
+    # pin swapping first (Justin 2026-11-10): placeguide.py's pinswap mode picks the swaps (pinswap.py table: register and
+    # buffer bit pairs, SRAM address / data pins, ATF22V10C pins within their product-term limits; no part moves), the
+    # swapped copy is routed and the pin change list is written next to the result. Pins of nets that already have
+    # copper in the input stay where they are, and that copper is kept.
+    import subprocess, re, shutil
+    _od=dst+'.pinswap'; _sw=os.path.join(_od,'pinswapped.kicad_pcb')
+    if not os.path.exists(_sw):   # a restart (CKPT) reuses the swapped board
+        _t=open(src,encoding='utf-8').read(); _nn={int(a):b for a,b in re.findall(r'\(net (\d+) "((?:[^"\\]|\\.)*)"\)',_t)}
+        _have=sorted({_nn.get(int(n),'') for n in re.findall(r'\n\t\((?:segment|via|arc)\b(?:[^()]|\([^()]*\))*?\(net (\d+)\)',_t)}-{''})
+        _e=dict(os.environ); _e['PSFIX']=','.join(x for x in _have if x not in ('GND','+5V')); _e['KEEP']=','.join(sorted(set(_have)|{'GND','+5V'}))
+        subprocess.run([sys.executable,os.path.join(TOOLS,'placeguide.py'),src,'pinswap','OUT='+_od],env=_e,check=True,stdout=open(dst+'.pinswap.log','w'),stderr=subprocess.STDOUT)
+    shutil.copyfile(os.path.join(_od,'pinswaps.md'),re.sub(r'\.kicad_pcb$','',dst)+'.pinswaps.md')
+    print('pin swaps:',open(os.path.join(_od,'pinswaps.md'),encoding='utf-8').read().split('\n')[6],'->',re.sub(r'\.kicad_pcb$','',dst)+'.pinswaps.md',flush=True)
+    src=_sw
 BACKEND=E('BACKEND','auto'); THREADS=int(E('THREADS','0')); BATCH=int(E('BATCH','4')); ITERS=int(E('ITERS','30')); STALL=int(E('STALL','6'))
 WIN=float(E('WIN','40')); PRES=float(E('PRES0','1.0')); PRESF=float(E('PRESF','1.5')); PRESMAX=float(E('PRESMAX','30')); HARDROUNDS=int(E('HARDROUNDS','6'))
 BUSGAIN=float(E('BUSGAIN','1.0')); GPUMEM=float(E('GPUMEM','4'))*1e9; MAXSWEEPS=int(E('MAXSWEEPS','2000000')); DELTA=float(E('DELTA','1.5')); NETS=E('NETS'); BASE=E('BASE')

@@ -1,0 +1,15 @@
+VIA 400 try 0: 25.50 m, 436 vias, cost 36400, 1301 s
+VIA 400 best: try 0, 25.50 m, 436 vias (1301 s so far)
+VIA 800 try 0: 25.56 m, 421 vias, cost 46610, 836 s
+VIA 800 best: try 0, 25.56 m, 421 vias (2137 s so far)
+VIA 400 try 0: 25.50 m, 436 vias, cost 36400, 0 s
+VIA 400 best: try 0, 25.50 m, 436 vias (0 s so far)
+VIA 800 try 0: 25.56 m, 421 vias, cost 46610, 0 s
+VIA 800 best: try 0, 25.56 m, 421 vias (0 s so far)
+VIA 1600 try 0: 25.65 m, 419 vias, cost 67550, 467 s
+VIA 1600 best: try 0, 25.65 m, 419 vias (467 s so far)
+VIA 3200 try 0: 25.90 m, 416 vias, cost 109100, 476 s
+VIA 3200 best: try 0, 25.90 m, 416 vias (943 s so far)
+wide pair rung at VIA 3200: 25.93 m, 412 vias, 1321 s
+jumper rung at VIA 3200: 25.60 m, 394 vias, 5 jumpers (38.2 mm on the power layer), 915 s
+LADDER DONE

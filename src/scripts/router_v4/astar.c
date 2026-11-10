@@ -27,29 +27,34 @@ static HE hpop(void){
    out: path as (l,iy,ix) triplets, goal first; returns length (triplets) or 0 if none; expanded in *ne. */
 /* astar2: as astar, with sinit[2][ny][nx] (may be NULL) = start cost of each source cell (length-budget repair: the copper
    distance from the driver to that tree cell, so the search minimises driver-to-load length, not just the new branch) */
-int astar2(int nx,int ny,int wx0,int wx1,int wy0,int wy1,
+/* astar3: nl layers (2 or 3). Layer 2 is the jumper layer (Justin 2026-11-10: short runs on the +5V inner plane in tough
+   spots): no preferred direction, every run on it pays jentry once (when a source cell on it starts the path, or when a
+   via enters it), its per-cell cost is in ct[2]. A via at a cell joins all layers (through via). A run on it is at most
+   jmax cells long (the length of the cheapest way to each cell is what counts; 0 = no limit). */
+int astar3(int nl,int nx,int ny,int wx0,int wx1,int wy0,int wy1,
           const uint8_t *bt,const uint8_t *bv,const float *ct,const float *cvia,const float *H,
           const uint8_t *src,const uint8_t *goal,float against,float bend,const uint8_t *field,
-          int32_t *out,int maxlen,int64_t *ne,int diag,const float *sinit)
+          int32_t *out,int maxlen,int64_t *ne,int diag,const float *sinit,float jentry,int jmax)
 {
-    size_t N=(size_t)nx*ny, N2=2*N;
+    size_t N=(size_t)nx*ny, N2=(size_t)nl*N;
     float *dist=malloc(N2*sizeof(float)); int32_t *prev=malloc(N2*sizeof(int32_t)); uint8_t *closed=calloc(N2,1);
+    int32_t *jlen=(nl>2&&jmax>0)?calloc(N,sizeof(int32_t)):NULL;
     for(size_t i=0;i<N2;i++) dist[i]=INFINITY;
     memset(prev,-1,N2*sizeof(int32_t));
     hn=0;
-    for(int l=0;l<2;l++) for(int iy=wy0;iy<wy1;iy++) for(int ix=wx0;ix<wx1;ix++){
+    for(int l=0;l<nl;l++) for(int iy=wy0;iy<wy1;iy++) for(int ix=wx0;ix<wx1;ix++){
         size_t c=(size_t)iy*nx+ix, s=l*N+c;
-        if(src[s] && !bt[s]){ float d0=sinit?sinit[s]:0.0f; dist[s]=d0; hpush(d0+H[c],(int32_t)s); }
+        if(src[s] && !bt[s]){ float d0=(sinit?sinit[s]:0.0f)+(l==2?jentry:0.0f); dist[s]=d0; hpush(d0+H[c],(int32_t)s); }
     }
     int64_t cnt=0; int32_t end=-1;
     while(hn){
         HE e=hpop(); size_t s=e.idx;
         if(closed[s]) continue; closed[s]=1; cnt++;
         if(goal[s]){ end=(int32_t)s; break; }
-        int l=s>=N; size_t c=s-l*N; int iy=c/nx, ix=c%nx; float d=dist[s];
-        float cv = l==0?against:1.0f, ch = l==0?1.0f:against;
+        int l=(int)(s/N); size_t c=s-l*N; int iy=c/nx, ix=c%nx; float d=dist[s];
+        float cv = l==0?against:1.0f, ch = l==1?against:1.0f;
         int pdy=0,pdx=0; int32_t p=prev[s];
-        if(p>=0 && (p>=(int32_t)N)==l){ size_t pc=p-l*N; pdy=iy-(int)(pc/nx); pdx=ix-(int)(pc%nx); }
+        if(p>=0 && (int)((size_t)p/N)==l){ size_t pc=p-l*N; pdy=iy-(int)(pc/nx); pdx=ix-(int)(pc%nx); }
         const int dys[8]={1,-1,0,0,1,1,-1,-1}, dxs[8]={0,0,1,-1,1,-1,1,-1};
         int nk=diag?8:4;
         for(int k=0;k<nk;k++){
@@ -73,21 +78,22 @@ int astar2(int nx,int ny,int wx0,int wx1,int wy0,int wy1,
                 if(!ok) continue;
                 step=1.41421356f*(0.5f*(cv+ch)); }
             else step=dx?ch:cv;
+            if(jlen && l==2 && jlen[c]+1>jmax) continue;
             float nd=d+step*ct[js];
             if(p>=0 && (pdy||pdx) && (pdy!=dy||pdx!=dx)) nd+=bend;
-            if(nd<dist[js]){ dist[js]=nd; prev[js]=(int32_t)s; hpush(nd+H[jc],(int32_t)js); }
+            if(nd<dist[js]){ dist[js]=nd; prev[js]=(int32_t)s; if(jlen&&l==2) jlen[jc]=jlen[c]+1; hpush(nd+H[jc],(int32_t)js); }
         }
         if(!bv[c]){
-            int m=1-l; size_t ms=m*N+c;
-            if(!bt[ms]){ float nd=d+cvia[c]; if(nd<dist[ms]){ dist[ms]=nd; prev[ms]=(int32_t)s; hpush(nd+H[c],(int32_t)ms); } }
+            for(int m=0;m<nl;m++){ if(m==l) continue; size_t ms=m*N+c;
+                if(!bt[ms]){ float nd=d+cvia[c]+(m==2?jentry:0.0f); if(nd<dist[ms]){ dist[ms]=nd; prev[ms]=(int32_t)s; if(jlen&&m==2) jlen[c]=0; hpush(nd+H[c],(int32_t)ms); } } }
         }
     }
     *ne=cnt; int len=0;
     if(end>=0){
         int32_t s=end;
-        while(s>=0 && len<maxlen){ int l=s>=(int32_t)N; size_t c=s-l*N; out[3*len]=l; out[3*len+1]=c/nx; out[3*len+2]=c%nx; len++; s=prev[s]; }
+        while(s>=0 && len<maxlen){ int l=(int)((size_t)s/N); size_t c=s-l*N; out[3*len]=l; out[3*len+1]=c/nx; out[3*len+2]=c%nx; len++; s=prev[s]; }
     }
-    free(dist); free(prev); free(closed);
+    free(dist); free(prev); free(closed); free(jlen);
     return len;
 }
 
@@ -96,5 +102,12 @@ int astar(int nx,int ny,int wx0,int wx1,int wy0,int wy1,
           const uint8_t *src,const uint8_t *goal,float against,float bend,const uint8_t *field,
           int32_t *out,int maxlen,int64_t *ne,int diag)
 {
-    return astar2(nx,ny,wx0,wx1,wy0,wy1,bt,bv,ct,cvia,H,src,goal,against,bend,field,out,maxlen,ne,diag,NULL);
+    return astar3(2,nx,ny,wx0,wx1,wy0,wy1,bt,bv,ct,cvia,H,src,goal,against,bend,field,out,maxlen,ne,diag,NULL,0.0f,0);
+}
+int astar2(int nx,int ny,int wx0,int wx1,int wy0,int wy1,
+          const uint8_t *bt,const uint8_t *bv,const float *ct,const float *cvia,const float *H,
+          const uint8_t *src,const uint8_t *goal,float against,float bend,const uint8_t *field,
+          int32_t *out,int maxlen,int64_t *ne,int diag,const float *sinit)
+{
+    return astar3(2,nx,ny,wx0,wx1,wy0,wy1,bt,bv,ct,cvia,H,src,goal,against,bend,field,out,maxlen,ne,diag,sinit,0.0f,0);
 }
