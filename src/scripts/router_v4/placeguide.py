@@ -48,6 +48,21 @@ Env (scratch: SCRATCHFIXED regex of parts that keep their place, HALO=0.5 spacin
 import os, sys, re, math, json, collections, time, itertools
 import numpy as np
 TOOLS=os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0,TOOLS)
+class PolyPath:
+    """point-in-polygon with the part of matplotlib.path.Path used here (contains_points), in numpy: the laptop has no matplotlib"""
+    def __init__(self,pts):
+        import numpy as _np; self.v=_np.asarray(pts,float)
+    def contains_points(self,pts):
+        import numpy as _np
+        q=_np.asarray(pts,float).reshape(-1,2); x=q[:,0:1]; y=q[:,1:2]; v=self.v; a=v; b=_np.roll(v,-1,axis=0)
+        ax=a[:,0][None]; ay=a[:,1][None]; bx=b[:,0][None]; by=b[:,1][None]
+        cond=(ay>y)!=(by>y)
+        with _np.errstate(divide='ignore',invalid='ignore'): xs=ax+(y-ay)*(bx-ax)/(by-ay)
+        return ((cond&(x<xs)).sum(axis=1)%2)==1
+try:
+    from matplotlib.path import Path as _MPLPath
+except ImportError:
+    _MPLPath=PolyPath
 from sexpr import parse, find, one
 from board import rot, outline
 E=os.environ.get
@@ -214,7 +229,7 @@ def ovl(a,b,g=0.0): return a[0]<b[2]+g and b[0]<a[2]+g and a[1]<b[3]+g and b[1]<
 class Legal:
     """courtyard overlap, puller (Eco1) boxes against courtyards, outline margin"""
     def __init__(self,B,S):
-        from matplotlib.path import Path
+        Path=_MPLPath
         self.B=B; self.path=Path(B.outline)
         self.base={}
         for i in range(len(B.parts)):
@@ -342,7 +357,7 @@ class Grid:
         self._raster_pads(S,None)
         self._cap_all()
     def _static(self):
-        from matplotlib.path import Path
+        Path=_MPLPath
         from shapely.geometry import Polygon
         import rules
         xs=self.x0+(np.arange(self.W)+0.5)*RES; ys=self.y0+(np.arange(self.H)+0.5)*RES
@@ -1074,7 +1089,7 @@ def global_place(B,S,mov,iters=None):
         c,es=S.boxes(i); bx=bbox([(c[0],c[1]),(c[2],c[3])]+[(e[0],e[1]) for e in es]+[(e[2],e[3]) for e in es])
         area[k]=(bx[2]-bx[0]+2*HALO)*(bx[3]-bx[1]+2*HALO)
     # free area raster (1 mm): inside the outline margin and outside fixed parts
-    from matplotlib.path import Path
+    Path=_MPLPath
     from shapely.geometry import Polygon
     poly=Polygon(B.outline).buffer(-MARGIN-1.0,join_style=2); path=Path(np.array(poly.exterior.coords))
     gx=np.arange(B.bx0+0.5,B.bx1,1.0); gy=np.arange(B.by0+0.5,B.by1,1.0); XX,YY=np.meshgrid(gx,gy)
@@ -1126,7 +1141,7 @@ def legalize(B,S,mov,target,followers):
     """greedy legalisation: big parts first, each at the legal spot and rotation (0/90/180/270) near its target that costs
     least (MST length + bends of its nets with unplaced parts at their targets, plus displacement); then each plane-only
     part (decoupling caps, GND/+5V test points) beside the nearest IC that has none yet"""
-    from matplotlib.path import Path
+    Path=_MPLPath
     path=Path(B.outline); placed=[]
     for i in range(len(B.parts)):
         if i not in mov and i not in followers: placed.append(S.boxes(i))
@@ -1253,7 +1268,7 @@ def mode_rules(M,out):
         for a in ps:
             for b in ps:
                 if a!=b: W[a][b]+=1.0/(len(ps)-1)
-    from matplotlib.path import Path
+    Path=_MPLPath
     path=Path(B.outline); placed=set(fixed); boxes=[]
     for i in fixed: boxes.append(S.boxes(i))
     BX=[]

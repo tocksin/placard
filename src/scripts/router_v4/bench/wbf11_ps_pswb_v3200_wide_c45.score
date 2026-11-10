@@ -1,0 +1,7 @@
+# score pswb_v3200_wide_c45.kicad_pcb  (scope 255 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 37.45 m | 393 / 411 | 5.9 % | 6.8 % | 1.0 | 1 | 0 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS0 1101/4/1.4, DATABUS4 832/12/1.1, CLK 824/5/1.0, DATABUS1 815/8/1.1, DATABUS2 791/16/1.1, DATABUS3 780/13/1.1, DATABUS5 774/11/1.1, DATABUS7 765/10/1.1
+detour > 2: Net-(J13-CC2)

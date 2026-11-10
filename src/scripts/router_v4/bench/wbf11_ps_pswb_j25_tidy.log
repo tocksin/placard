@@ -1,0 +1,14 @@
+grid 4688 3472
+rasterised 1583 items 0.9 s
+WORKERS 8 -> 6 (available memory 7.6 GB)
+6 workers
+pass 0: 2 chains improved, 0 dropped, cost gain 3712, 57 s
+pass 1: 0 chains improved, 0 dropped, cost gain 0, 47 s
+pair pass 0: 2 chain pairs improved, cost gain 1397, 108 s (1 moves rejected, 0 built on a move not yet seen)
+pair pass 1: 5 chain pairs improved, cost gain 2615, 107 s (1 moves rejected, 0 built on a move not yet seen)
+pair pass 2: 2 chain pairs improved, cost gain 42, 104 s
+pair pass 3: 1 chain pairs improved, cost gain 42, 102 s (1 moves rejected, 0 built on a move not yet seen)
+pair pass 4: 0 chain pairs improved, cost gain 0, 102 s
+vias 393 -> 388, cells 594793 -> 595059, 824 s
+wrote work11\pswb_j25.kicad_pcb segments 4555 vias 388
+corners 1527, chamfered 369 (255 nets), 3 kept for a junction on the leg, zero-length tracks dropped 69; wrote work11\pswb_j25_c45.kicad_pcb
