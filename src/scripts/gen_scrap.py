@@ -37,7 +37,7 @@ THE ART
     pixels 2c (low nibble, shown first) and 2c + 1 (high nibble) of line
     pair r.  Colors are the 4 bpp palette (docs/video/COLORS.md).
 
-Date: 2026-11-09
+Date: 2026-11-10
 """
 
 import os
@@ -1095,6 +1095,9 @@ def write_sources():
               'TB_SKILL   = 0x00          ; ACT_PG + t: the skills a part needs (bit k skill k)',
               'SK_LV      = 0x%04X        ; the skill levels (6), then SK_PR: their progress' % SK_LV,
               'SK_PR      = 0x%04X' % SK_PR]
+    lines += ['MAP_BC     = %d          ; the ship\'s map (map_draw): its first byte column,' % MAP_BC,
+              'MAP_LP     = %d          ;   line pair, the player\'s color' % MAP_LP,
+              'MAP_ME     = 0x%X' % MAP_ME]
     lines += ['ART_PG     = 0x%02X' % ART_PAGE,
               'TAB_PG     = 0x%02X' % TAB2_PAGE,
               'TB_FLAGS   = 0x00          ; + t', 'TB_NAMEL   = 0x40', 'TB_NAMEH   = 0x80',
@@ -1322,8 +1325,64 @@ INV_LABELS = [  # (byte column, line pair, color, background, text)
 # the slots' art (byte column, line pair): 0-2 carrying, 3-6 the gear.
 # Below CARRYING (line pairs 118 on) stays free for an open bag (later).
 INV_SLOTS = [(36, 22 + 32 * i) for i in range(3)] + [(3, 22 + 32 * i) for i in range(4)]
+# the ship's map (M, scrap_inv.masm map_draw): a pixel a cell, two line
+# pairs tall (square on the monitor), 96 x 64 cells centred in the view
+MAP_BC, MAP_LP = (80 - MAP_W // 2) // 2, (192 - 2 * MAP_H) // 2   # byte column 16, line pair 32
+MAP_ME = 0xA                            # the player: white
+MAP_CHROMA = 2                          # the average's color pushed away from its gray, so a
+                                        #   part is not just another gray in 16 colors
+MAP_LABELS = [(1, 3, 0xA, INV_BAR, 'SHIP MAP'), (60, 3, 0xA, INV_BAR, 'M - CLOSE')]
+# the 4 bpp palette (docs/video/COLORS.md): red, green 0-7, blue 0-3
+PAL4 = [(0, 0, 0), (0, 0, 1), (4, 0, 2), (0, 0, 3), (7, 0, 0), (7, 0, 3), (4, 2, 0), (2, 2, 1),
+        (0, 7, 3), (0, 4, 0), (7, 7, 3), (5, 5, 2), (7, 4, 2), (7, 4, 0), (7, 7, 0), (1, 7, 0)]
+
+
+def map_color(t):
+    """the map's color of kind t: its art's average color (the chroma pushed
+    MAP_CHROMA times further from its gray), the nearest of the palette"""
+    if t >= len(TYPES):
+        return 0
+    pal = [(r / 7, g / 7, b / 3) for r, g, b in PAL4]
+    px = [int(c, 16) for row in ART[TYPES[t][1]] for c in row]
+    av = [sum(pal[c][k] for c in px) / len(px) for k in range(3)]
+    m = sum(av) / 3
+    av = [min(1, max(0, m + MAP_CHROMA * (a - m))) for a in av]
+    return min(range(16), key=lambda c: (sum((pal[c][k] - av[k]) ** 2 for k in range(3)), c))
+
+
+def map_screen(types, p, far=False):
+    """the map screen's 192 line pairs of 80 bytes, as map_draw draws it:
+    types[y][x] the kinds (bits 5-0), p the player's cell, far: undocked
+    (the KESTREL 9's side, x from WRECK_LOCK, open space)"""
+    scr = [bytearray(80) for _ in range(192)]
+    for q in range(10):
+        scr[q][:] = bytes([INV_BAR * 0x11]) * 80
+
+    def px(x, y, c):
+        b = scr[y][x >> 1]
+        scr[y][x >> 1] = (b & 0xF0) | c if x & 1 == 0 else (b & 0x0F) | c << 4
+
+    for bc, q, fg, bg, s in MAP_LABELS:
+        for ch in s:
+            for r in range(5):
+                g = F35.get(ch, F35[' '])[3 * r:3 * r + 3]
+                for k in range(4):
+                    px(2 * bc + k, q + r, fg if k < 3 and g[k] == '1' else bg)
+            bc += 2
+    for y in range(MAP_H):
+        for x in range(MAP_W):
+            k = types[y][x] & 0x3F
+            if far and x >= WRECK_LOCK[0]:
+                k = TYPE['SPACE']
+            c = MAP_ME if (x, y) == tuple(p) else map_color(k)
+            for q in (0, 1):
+                px(2 * MAP_BC + x, MAP_LP + 2 * y + q, c)
+    return scr
+
+
 INV_STR = [('s_iempty', 'EMPTY'), ('s_isuit', 'MK1 WORK SUIT'), ('s_ioff', 'TAKEN OFF'),
-           ('s_icell', 'CELL '), ('s_il', ' L'), ('s_inone', 'NONE')]
+           ('s_icell', 'CELL '), ('s_il', ' L'), ('s_inone', 'NONE'),
+           ('s_imap', "THE SHIP'S MAP.  M: BACK TO THE SHIP")]
 
 
 def f35_code(ch, r):
@@ -1428,13 +1487,19 @@ def write_inv_data():
     for k, (bc, p, fg, bg, t) in enumerate(INV_LABELS):
         d.append('    #d8 %d, %d, %d, %d, zl_%d & 0xFF' % (bc, p, fg, bg, k))
     d.append('    #d8 0xFF')
-    for k, (bc, p, fg, bg, t) in enumerate(INV_LABELS):
+    d.append('MLBL:')                       # the map's (ip_lbl_v3 from MLBL - LBL)
+    for k, (bc, p, fg, bg, t) in enumerate(MAP_LABELS):
+        d.append('    #d8 %d, %d, %d, %d, zl_%d & 0xFF' % (bc, p, fg, bg, len(INV_LABELS) + k))
+    d.append('    #d8 0xFF')
+    for k, (bc, p, fg, bg, t) in enumerate(INV_LABELS + MAP_LABELS):
         assert all(ch in F35 for ch in t), t
         d += ['zl_%d:' % k, '    #d "%s", 0x00' % t]
+    d += ['', '.chunk', 'MCOL:']            # the map's color of each kind, both nibbles
+    for o in range(0, KINDS_MAX, 16):
+        d.append('    #d8 ' + ', '.join('0x%02X' % (map_color(k) * 0x11) for k in range(o, o + 16)))
     d += ['', '.chunk', 'SPOS:', '    #d8 ' + ', '.join('%d, %d' % bp for bp in INV_SLOTS), '']
-    d += ['.chunk']
-    for lab, t in INV_STR:
-        d += ['%s:' % lab, '    #d "%s", 0x00' % t]
+    for lab, t in INV_STR:                  # a chunk each (they fit in the gaps)
+        d += ['.chunk', '%s:' % lab, '    #d "%s", 0x00' % t]
     d.append('')
     for t in TYPES:
         assert all(ch in F35 for ch in t[2]), t[2]

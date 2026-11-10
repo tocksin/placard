@@ -21,7 +21,7 @@
 ; inv_slots take it off while they draw, the frame loop draws it again.
 ; A broken carried part (damage from 50 %) is drawn cracked.
 ;
-; Date: 11/05/2026
+; Date: 11/10/2026
 ; ============================================================
 
 ip_k    = dc_n                  ; ip_art: 1 draws the art cracked (dc_* are
@@ -41,6 +41,11 @@ inv_draw:
     ld   ac, [w5]
     ld   0x11, ac
     ld   ac, [w6]
+    ld   [inv], ac              ; the map: on black
+    xor  2, ac
+    bne  id_f
+    ld   ac, [w6]
+id_f:
     CALL ip_fill
     clr  ac                     ; the title bar
     ld   ac, [w0]
@@ -49,8 +54,103 @@ inv_draw:
     ld   0x33, ac
     ld   ac, [w6]
     CALL ip_fill
+    ld   [inv], ac
+    xor  2, ac
+    bne  id_i
+    GOTO map_draw
+id_i:
     CALL ip_labels
     CALL inv_slots
+    LEAVE
+
+; map_draw - the ship's map (inv 2, M): a pixel a map cell (two line pairs
+; tall, so it is square), the kind's color (MCOL: its art's average), the
+; player white.  The 96 x 64 cells at byte columns 16-63, line pairs
+; 32-159.  Just a view: no slots, no frame.  The rest of inv_draw
+.chunk
+map_draw:
+    ld   MLBL - LBL, ac         ; its title bar's labels
+    ld   ac, [v3]
+    CALL ip_lbl_v3
+    ld   s_imap & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_imap >> 8, ac
+    ld   ac, [R1]
+    CALL set_msg
+    clr  ac
+    ld   ac, [v1]               ; v1: the cell row
+md_r:
+    clr  ac
+    ld   ac, [v0]               ; v0: the cell column (even: two a byte)
+md_c:
+    ld   [v1], ac
+    ld   ac, [g_y]
+    ld   [v0], ac
+    ld   ac, [g_x]
+    CALL md_col
+    and  0x0F, ac               ; the left pixel in the low nibble
+    ld   ac, [v2]
+    ld   [v0], ac
+    inc
+    ld   ac, [g_x]
+    CALL md_col
+    and  0xF0, ac
+    or   [v2], ac
+    ld   ac, [v2]
+    ld   [v0], ac
+    shr  ac
+    add  MAP_BC, ac
+    ld   ac, [w0]
+    ld   [v1], ac
+    shl
+    add  MAP_LP, ac
+    ld   ac, [w1]
+    CALL ip_addr
+    ld   [w2], y
+    ld   [w3], x
+    ld   [v2], ac
+    ld   ac, [y,x]
+    ld   [w1], ac
+    inc
+    ld   ac, [w1]
+    CALL ip_addr
+    ld   [w2], y
+    ld   [w3], x
+    ld   [v2], ac
+    ld   ac, [y,x]
+    ld   [v0], ac
+    add  2, ac
+    ld   ac, [v0]
+    xor  MAP_W, ac
+    bne  md_c
+    ld   [v1], ac
+    inc
+    ld   ac, [v1]
+    xor  MAP_H, ac
+    bne  md_r
+    LEAVE
+
+; md_col - AC = map cell g_x, g_y's color in both nibbles (map_see: the
+; KESTREL 9's side is open space while undocked), the player's cell white
+.chunk
+md_col:
+    PUSH_LINK
+    CALL map_see
+    and  0x3F, ac
+    add  MCOL & 0xFF, x
+    ld   MCOL >> 8, y
+    ld   [y,x], ac
+    ld   ac, [v3]
+    ld   [g_x], ac
+    xor  [p_x], ac
+    bne  mc_e
+    ld   [g_y], ac
+    xor  [p_y], ac
+    bne  mc_e
+    ld   MAP_ME * 0x11, ac
+    ld   ac, [v3]
+mc_e:
+    ld   [v3], ac
     LEAVE
 
 ; ip_addr - w2 = the page, w3 = the offset of byte column w0, line pair
@@ -285,9 +385,10 @@ pd5_e:
 ; the string; FF ends)
 .chunk
 ip_labels:
-    PUSH_LINK
     clr  ac
     ld   ac, [v3]
+ip_lbl_v3:                      ; (v3: the first label's offset in LBL)
+    PUSH_LINK
 pl5_l:
     ld   LBL >> 8, y
     ld   [v3], ac
@@ -479,6 +580,11 @@ fw5_l:
 .chunk
 inv_slots:
     PUSH_LINK
+    ld   [inv], ac              ; the map has no slots
+    xor  2, ac
+    bne  is5_g
+    LEAVE
+is5_g:
     CALL pt_hide
     clr  ac
     ld   ac, [v7]
@@ -721,6 +827,9 @@ inv_hover:
     CALL hover_panel            ; the panel: no pointer drawn
     LEAVE
 ih_v:
+    ld   [inv], ac              ; the map: nothing to hover
+    xor  2, ac
+    beq  ih_e
     ld   0xFF, ac
     ld   ac, [m_sel]
     ld   ac, [u3]
