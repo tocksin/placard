@@ -1,0 +1,10 @@
+# score r1j_e1_m10_c45.kicad_pcb  (scope 116 nets)
+| open nets | open conns | track | vias (scope / board) | wrong-way | diagonal | detour mean | detour>2 | edge | hole band | self-par | collisions |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 26.04 m | 418 / 570 | 3.9 % | 14.3 % | 1.08 | 0 | 0 | 0 | 0 | 0 |
+
+worst nets (track mm, vias, detour): DATABUS6 966/7/1.3, DATABUS0 867/16/1.2, DATABUS4 855/8/1.2, DATABUS1 836/7/1.2, DATABUS3 795/12/1.1, DATABUS7 794/9/1.0, DATABUS5 788/11/1.1, DATABUS2 755/11/1.0
+
+power-layer jumpers (In2.Cu): 3 on 3 nets, 19.9 mm in all, longest 7.56 mm, closest pair 26.45 mm apart
++5V plane: 1 piece(s) (without the jumpers 1), 0 of 98 +5V pads and vias off the main piece (without the jumpers 0)
+jumper nets: ADDR8, DATABUS2, Z_HIGH

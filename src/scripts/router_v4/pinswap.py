@@ -14,8 +14,8 @@ Swaps are suggestions only: applying one needs the schematic (and for a PLD the 
 """
 import os, re, glob, itertools
 
-PLD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'pld')
-SCH_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'kicad')
+PLD_DIR = os.environ.get('PLDDIR') or os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'pld')       # the .pld sources
+SCH_DIR = os.environ.get('SCHDIR') or os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'kicad')  # the schematic sheets (part types)
 PTCAP = {14: 8, 23: 8, 15: 10, 22: 10, 16: 12, 21: 12, 17: 14, 20: 14, 18: 16, 19: 16}
 INPUT_ONLY = set(range(2, 12)) | {13}
 REG377 = [(3, 2), (4, 5), (7, 6), (8, 9), (13, 12), (14, 15), (17, 16), (18, 19)]   # (D, Q)

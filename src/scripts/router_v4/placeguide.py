@@ -36,7 +36,8 @@ Modes:
   rules OUT=dir              Justin's rules: single-destination passives at their connector, chips outside-in on rows with
                              bus partners side by side, decap at pin 1 (CENTREW, CHALO, PHALO, ROWPITCH, ROUNDS, REFINEROTS).
   pinswap OUT=dir            pin swaps only (pinswap.py table: register / buffer bit pairs, SRAM address / data, ATF22V10C pins
-                             within product-term limits): OUT/pinswaps.md + OUT/pinswapped.kicad_pcb (PSMIN, PSPASSES).
+                             within product-term limits): OUT/pinswaps.md + OUT/pinswapped.kicad_pcb (PSMIN, PSPASSES;
+                             PSFIX=net,net: pins on these nets stay; mroute4.py PINSWAP=1 runs this mode before routing).
 Env (scratch: SCRATCHFIXED regex of parts that keep their place, HALO=0.5 spacing in legalisation, GPITERS=25, ANCHORW,
      ICROTS=90,270 restricts parts with 8+ pads to those absolute rotations, in every mode)
      BIN=5 RES=0.1 TRACK=0.3 CLR=0.25 ALIGN=1.0 WW=0.25 VIAMM=15 OVW=2 MARGIN=1.0 (courtyard to outline) GAP=0 (courtyard gap)
@@ -923,6 +924,10 @@ def pin_swap_pass(M,log=print):
         for sl,(k,nd) in list(g['info'].items()):
             if k=='free' and B.parts[g['i']].pads[sl[0]]['net'] and not B.netname.get(B.parts[g['i']].pads[sl[0]]['net'],'').startswith('unconnected-'):
                 g['info'][sl]=('fixed',0)
+    fixn=set(x for x in E('PSFIX','').split(',') if x)   # nets whose pins never move (the router passes the nets that already have copper)
+    if fixn:
+        for g in T:
+            g['slots']=[sl for sl in g['slots'] if not any(B.netname.get(B.parts[g['i']].pads[j]['net'],'') in fixn for j in sl)]
     def nets_of(i,a,b):
         return sorted({B.parts[i].pads[j]['net'] for j in a+b}&set(B.nets))
     def score(g,a,b):
@@ -931,6 +936,7 @@ def pin_swap_pass(M,log=print):
         _pinswap(M,i,a,b)
         try: return M._delta([i],None,False,nets=ns)
         finally: _pinswap(M,i,a,b)
+    if not T: log('pin-swap table is EMPTY: no schematic sheets / .pld files found (pinswap.py SCHDIR, PLDDIR)')
     log(f'pin-swap table: {len(T)} groups, '+', '.join(f"{g['ref']} {g['kind']} ({len(g['slots'])})" for g in T))
     for it in range(int(E('PSPASSES','4'))):
         cand=[]
