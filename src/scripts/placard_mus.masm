@@ -40,7 +40,7 @@
 ; mus_tool.py has the reference model (Model): test_mus.py checks this
 ; player against it sample for sample.  Change one, change the other.
 ;
-; Date: 11/01/2026
+; Date: 11/10/2026
 ; ============================================================
 
 MUS_SAW    = MUS_TABLES
@@ -122,6 +122,7 @@ W_WPG    = W_RET      ; shared: RET only during a trigger
 ; globals in MUS_VS page 0 (below the state)
 G_T5  = 0x00
 G_NR  = 0x03
+G_FRM = 0x01         ; FRAME_LO when M_REND was set (mus_frame)
 
 .include "mus_tables.masm"
 
@@ -273,7 +274,10 @@ mg_one:
 ; 131 ahead again, and repeats while the video moved during the fill.
 ; A call more than 131 groups (a lap less a group) after the last one
 ; loses the samples in between (the video replays the old ones), so a
-; program calls at least once a frame.  The tick (at group x7C) takes a
+; program calls at least once a frame.  A call exactly a lap after the
+; last fill ended reads the same line (d = 0): the frame counter
+; (FRAME_LO, kept by wait_frames or frame_poll, saved in G_FRM) tells it
+; from a second call in the same group, and the lap counts as passed.  The tick (at group x7C) takes a
 ; few groups' time; if the video passes the write pointer meanwhile the
 ; groups it passed are skipped, so the rest stays in time.  mus_init
 ; fills the buffer once (131 groups of silence) so the song's first tick
@@ -293,16 +297,31 @@ mf_go:
     add  132, ac
 mf_a:
     ld   ac, [T7]
+    bne  mf_d                   ; d = 0: none read, or a whole lap (a call
+    ld   MUS_VS >> 8, y         ;   exactly a frame after the last fill
+    ld   G_FRM, x               ;   ended): the frame counter tells
+    ld   [FRAME_LO], ac
+    xor  [y,x], ac
+    beq  mf_d
+    ld   [T6], ac               ; a lap: as when the video passed the
+    ld   ac, [M_REND]           ;   write pointer
+    bra  mf_p
+mf_d:
     ld   [T6], ac
     ld   ac, [M_REND]
     ld   [M_AHEAD], ac
     sub  [T7], ac
     bcc  mf_b
+mf_p:
     ld   [T6], ac               ; the video passed the write pointer: go on
     ld   ac, [M_RPTR]           ; from where it is now
     clr  ac
 mf_b:
     ld   ac, [M_AHEAD]
+    ld   MUS_VS >> 8, y         ; the frame of REND
+    ld   G_FRM, x
+    ld   [FRAME_LO], ac
+    ld   ac, [y,x]
 mf_fill:
     ld   131, ac
     sub  [M_AHEAD], ac
@@ -361,6 +380,10 @@ me_b:
     ld   [M_AHEAD], ac
     sub  [T7], ac
     ld   ac, [M_AHEAD]
+    ld   MUS_VS >> 8, y         ; the frame of REND
+    ld   G_FRM, x
+    ld   [FRAME_LO], ac
+    ld   ac, [y,x]
     GOTO mf_fill
 
 ; ============================================================

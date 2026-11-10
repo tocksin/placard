@@ -9,7 +9,7 @@ cartridge's EEPROM image, and `src/hdl/ram.mem` (the main RAM) and
 cartridge model is `src/hdl/cartridge.vhd`.  Programs and the standard
 library live in the ROM.
 
-Date: 2026-11-02
+Date: 2026-11-10
 
 There are two images.  The **32K image** (x8000-xFFFF: boot loader, library
 and the DOS, "The 32K image" below) is the one the machine ships with, on
@@ -37,7 +37,7 @@ the font, the I/O drivers and the rest, down to xC000.
 |-------------|----------|-----------|
 | x0000-x0004 | nop (for the cartridge hand-off), reset jump to the boot loader (PC starts at 0000) | `rom_boot.asm` |
 | x0004-x1EFF | Free | |
-| x1F00-x1FFF | `LIB_RAM`: library code the boot copies to RAM x1F00 (the end of `plot1`, `con_scroll`) | `rom_lib.asm` |
+| x1F00-x1FFF | `LIB_RAM`: library code the boot copies to RAM x1F00 (the end of `plot1`, `con_scroll`, and `lib_far` at x1FA0) | `rom_lib.asm` |
 | x2000-x3FFF | Program, more code and tables (runs in place) | the program |
 | x4000-x4FFF | Free (section 2 reads RAM while a program runs) | |
 | x5000-x53FF | I/O window, the ROM is never read here | |

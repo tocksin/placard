@@ -143,7 +143,7 @@
 ; active video) and include the 8-clock RETURN but not the 18-clock CALL.
 ; test_lib.py measures them.
 ;
-; Date: 10/22/2026
+; Date: 11/10/2026
 ; ============================================================
 
 #include "zeropage.asm"
@@ -161,6 +161,8 @@ PS2_CODE   = 0xC000     ; PS/2 keyboard, listening, xC000-xC4FF (placard_ps2.asm
 PS2_TAB_CODE  = IO_CODE + 0xA60      ; ps2_set2, ps2_e0, in I/O page A (the rest of the
                                      ; PS/2 code is in I/O pages 1 and B-E)
 LIB_RAM    = 0x1F00     ; 256 bytes of library code copied to RAM by the boot
+LIB_FAR    = 0x1FA0     ; lib_far: a library call from a program that maps
+                        ;   every section to RAM (fixed, never moves)
 
 #include "lib_font.asm"
 #include "placard_io.asm"     ; I/O drivers at IO_CODE (docs/architecture/IO.md)
@@ -405,49 +407,64 @@ s16_n:
 ; mul8 - 8 x 8 bit unsigned multiply
 ;   in:      R0 = a, R1 = b
 ;   out:     R3:R2 = a * b, AC = R3
-;   changes: T0, T1
-;   clocks:  476-719 (476 + about 12-30 per 1 bit in b)
+;   changes: T0, T1, T2
+;   clocks:  48 when a factor is 0, then about 80 a bit of the smaller
+;            factor up to its top 1 bit: 96 for 1, about 340 under 16,
+;            about 580 under 128, 691 at most
+;   The smaller factor is the multiplier, read from bit 0 up; the loop
+;   stops when no 1 bits are left in it.
 ; ------------------------------------------------------------
 mul8:
     clr  ac
     ld   ac, [R2]
     ld   ac, [R3]
+    ld   ac, [T1]               ; multiplicand high byte
+    ld   [R0], ac
+    sub  [R1], ac
+    bcs  m8_alb                 ; a < b: a is the multiplier
+    ld   [R0], ac
+    ld   ac, [T0]               ; multiplicand low byte
     ld   [R1], ac
-    ld   ac, [T0]               ; multiplier, read from bit 7 down
-    ld   8, ac
-    ld   ac, [T1]
+    bra  m8_go
+m8_alb:
+    ld   [R1], ac
+    ld   ac, [T0]
+    ld   [R0], ac
+m8_go:
+    ld   ac, [T2]               ; multiplier
+    beq  m8_done
 m8_loop:
-    ld   [R3], ac               ; product <<= 1
-    shl
-    ld   ac, [R3]
-    ld   [R2], ac
-    shl                         ; carry = bit 7 of the low byte
+    and  1, ac
+    beq  m8_skip
+    ld   [R2], ac               ; product += multiplicand
+    add  [T0], ac
     ld   ac, [R2]
-    bcc  m8_s
     ld   [R3], ac
-    or   1, ac
-    ld   ac, [R3]
-m8_s:
-    ld   [T0], ac               ; next multiplier bit
-    blt  m8_add
-    shl
-    ld   ac, [T0]
-    bra  m8_next
-m8_add:
-    shl
-    ld   ac, [T0]
-    ld   [R2], ac               ; product += a
-    add  [R0], ac
-    ld   ac, [R2]
-    bcc  m8_next                ; the carry flag from the add
-    ld   [R3], ac
+    bcc  m8_nc
     inc
+m8_nc:
+    add  [T1], ac
     ld   ac, [R3]
-m8_next:
+m8_skip:
+    ld   [T2], ac               ; multiplier >>= 1, done when 0
+    shr  ac
+    ld   ac, [T2]
+    beq  m8_done
+    ld   [T0], ac               ; multiplicand <<= 1
+    shl
+    ld   ac, [T0]
     ld   [T1], ac
-    dec
+    bcc  m8_s0
+    shl
+    or   1, ac
+    bra  m8_s1
+m8_s0:
+    shl
+m8_s1:
     ld   ac, [T1]
-    bne  m8_loop
+    ld   [T2], ac
+    bra  m8_loop
+m8_done:
     ld   [R3], ac
     ld   [LINK_HI], y
     jmp  [LINK_LO]
@@ -834,6 +851,10 @@ plot1:
     jmp  vid_addr
                                 ; vid_addr returns to pl_back in LIB_RAM
 
+cw_pow:                         ; con_dec16's powers of ten (in a free end)
+    #d8 0x10, 0xE8, 0x64, 0x0A  ; 10000, 1000, 100, 10: low bytes
+    #d8 0x27, 0x03, 0x00, 0x00  ;   high bytes
+
 ; ============================================================
 ; Page 4: text console - character output
 ; ============================================================
@@ -1137,8 +1158,10 @@ hx_back2:
 ;   in:      R1:R0 = value, 0-65535
 ;   out:     R1:R0 = 0, R2 = 10
 ;   changes: AC, X, Y, T0-T5
-;   clocks:  about 2,000 per digit (2,000-10,860)
-;   Uses up to 8 stack bytes.
+;   clocks:  about 900-4,200 (about 800 a digit, con_putc included)
+;   Uses 2 stack bytes.  Each digit is the count of times its power of
+;   ten can be taken off.  R1:R0 = the value left, R2 = the power's index
+;   (bit 7 set once a digit is printed); con_putc keeps them.
 ; ------------------------------------------------------------
 con_dec16:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
@@ -1153,53 +1176,60 @@ con_dec16:
     ld   [LINK_LO], ac
     ld   ac, [x]
     ld   [SAVE_AC], ac
-    clr  ac                     ; PUSH 0, the end marker
-    ld   [SP], x
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, [SP]
-d16p_div:
-    ld   10, ac
+    clr  ac
     ld   ac, [R2]
-    ld   LINK_LO, x             ; CALL div16
-    ld   d16p_back1, [x]
-    ld   LINK_HI, x
-    ld   d16p_back1 >> 8, [x]
-    ld   div16 >> 8, y
-    jmp  div16
-d16p_back1:
-    add  0x30, ac               ; PUSH the digit
-    ld   [SP], x
-    ld   ac, [x]
-    ld   [SP], ac
-    dec
-    ld   ac, [SP]
+cw_dig:
+    ld   [R2], ac               ; T2:T1 = the power: 10000, 1000, 100, 10
+    and  0x03, ac
+    add  cw_pow & 0xFF, x
+    ld   cw_pow >> 8, y
+    ld   [y,x], ac
+    ld   ac, [T1]
+    ld   [R2], ac
+    and  0x03, ac
+    add  (cw_pow & 0xFF) + 4, x
+    ld   [y,x], ac
+    ld   ac, [T2]
+    ld   0x30, ac
+    ld   ac, [T0]               ; the digit, as a character
+cw_sub:
+    ld   [R1], ac               ; value >= power?  high bytes first
+    sub  [T2], ac
+    bcs  cw_out
+    ld   ac, [T4]
     ld   [R0], ac
-    or   [R1], ac
-    bne  d16p_div
-d16p_out:
-    ld   [SP], ac               ; POP a digit, most significant first
+    sub  [T1], ac
+    ld   ac, [T3]
+    bcc  cw_ok
+    ld   [T4], ac               ; a borrow from the high byte
+    beq  cw_out
+    dec
+    ld   ac, [T4]
+cw_ok:
+    ld   [T3], ac               ; value -= power, digit + 1
+    ld   ac, [R0]
+    ld   [T4], ac
+    ld   ac, [R1]
+    ld   [T0], ac
     inc
-    ld   ac, [SP]
-    ld   ac, x
-    ld   [x], ac
-    beq  d16p_done
-    ld   LINK_LO, x             ; CALL con_putc
-    ld   d16p_back2, [x]
-    ld   LINK_HI, x
-    ld   d16p_back2 >> 8, [x]
-    ld   con_putc >> 8, y
-    jmp  con_putc
-d16p_back2:
-    bra  d16p_out
-d16p_done:
-    ld   lib_leave >> 8, y      ; LEAVE
-    jmp  lib_leave
+    ld   ac, [T0]
+    bra  cw_sub
+cw_out:
+    ld   [R2], ac               ; a 0 before any other digit is not printed
+    blt  cw_p
+    ld   [T0], ac
+    xor  0x30, ac
+    beq  cw_n
+cw_p:                           ; the rest is in page 6
+    ld   cw_put >> 8, y
+    jmp  cw_put
+cw_n:
+    ld   cw_next >> 8, y
+    jmp  cw_next
 
 
 ; ============================================================
-; Page 6: text console - 8-bit decimal
+; Page 6: text console - decimal
 ; ============================================================
 #addr LIB_CODE + 0x600
 
@@ -1320,6 +1350,47 @@ cd_u:
 cd_back3:
     ld   lib_leave >> 8, y      ; LEAVE
     jmp  lib_leave
+
+; con_dec16's last part (from page 5): print the digit, the next power
+cw_put:
+    ld   [R2], ac
+    or   0x80, ac
+    ld   ac, [R2]
+    ld   [T0], ac
+    ld   LINK_LO, x             ; CALL con_putc
+    ld   cw_back1, [x]
+    ld   LINK_HI, x
+    ld   cw_back1 >> 8, [x]
+    ld   con_putc >> 8, y
+    jmp  con_putc
+cw_back1:
+cw_next:
+    ld   [R2], ac
+    inc
+    ld   ac, [R2]
+    and  0x7F, ac
+    xor  4, ac
+    beq  cw_units
+    ld   cw_dig >> 8, y
+    jmp  cw_dig
+cw_units:
+    ld   [R0], ac               ; the units, always printed
+    add  0x30, ac
+    ld   LINK_LO, x             ; CALL con_putc
+    ld   cw_back2, [x]
+    ld   LINK_HI, x
+    ld   cw_back2 >> 8, [x]
+    ld   con_putc >> 8, y
+    jmp  con_putc
+cw_back2:
+    clr  ac
+    ld   ac, [R0]
+    ld   10, ac
+    ld   ac, [R2]
+    ld   lib_leave >> 8, y      ; LEAVE
+    jmp  lib_leave
+
+
 
 
 ; ============================================================
@@ -1622,3 +1693,56 @@ cs_d:
     ld   [T4], ac
     ld   [LINK_HI], y
     jmp  [LINK_LO]
+
+; ------------------------------------------------------------
+; lib_far - call a library routine from a program that runs with every
+; section mapped to RAM (map FF), so it can't see the ROM
+;   in:      LINK = the caller's return address (an ordinary CALL of the
+;            program's stub), lf_jmp's two address bytes = the routine
+;            (the stub writes them), AC and R0-R7 = the routine's inputs,
+;            MAP_SHADOW = the map the library runs under (07 or 05)
+;   out:     the routine's AC, R0-R7, T0-T7 and carry flag; X does not
+;            come back; the map is FF again
+;   changes: X, Y, SAVE_AC, LINK, what the routine changes
+;   clocks:  about 100 more than a CALL of the routine itself
+;   Fixed at LIB_FAR (x1FA0): programs reach it without the ROM.  Not
+;   re-entrant: the routine must not call lib_far.  A stub in the program,
+;   one per routine (12 bytes, runs under any map):
+;       l_mul8:
+;           ld   LF_HI >> 8, y
+;           ld   LF_HI & 0xFF, x
+;           ld   mul8 >> 8, [y,x]
+;           ld   LF_LO & 0xFF, x
+;           ld   mul8 & 0xFF, [y,x]
+;           ld   LIB_FAR >> 8, y
+;           jmp  LIB_FAR
+; ------------------------------------------------------------
+#addr LIB_FAR
+lib_far:
+    ld   ac, [SAVE_AC]          ; AC parked
+    ld   LIB_FAR >> 8, y        ; the caller's return address into lf_ret
+    ld   [LINK_LO], ac
+    ld   (lf_ret + 3) & 0xFF, x
+    ld   ac, [y,x]
+    ld   [LINK_HI], ac
+    ld   (lf_ret + 1) & 0xFF, x
+    ld   ac, [y,x]
+    ld   LINK_LO, x             ; the routine returns to lf_back
+    ld   lf_back & 0xFF, [x]
+    ld   LINK_HI, x
+    ld   lf_back >> 8, [x]
+    ld   [MAP_SHADOW], ac       ; the library's map
+    ld   0x50, y
+    ld   ac, [y,x]
+    ld   [SAVE_AC], ac
+lf_jmp:
+    ld   0x00, y                ; the stub writes the routine's address
+    jmp  0x00                   ;   into these two instructions
+lf_back:
+    ld   0x50, y                ; every section RAM again (AC, carry kept)
+    ld   0xFF, [y,x]
+lf_ret:
+    ld   0x00, y                ; lib_far wrote the caller's return
+    jmp  0x00                   ;   address here
+LF_HI = lf_jmp + 1
+LF_LO = lf_jmp + 3
