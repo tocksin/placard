@@ -8,7 +8,8 @@ the ROM's loader in placard_sim
                                                scrap_air.png)
 
 Builds the 32K ROM and a card holding DOS.PLC, SCRAP.PLC (from scrap.asm)
-and SCRAP.OVL (gen_scrap.py's map, then the code gen_plc.py puts at xC000),
+and, in the folder SCRAP, SCRAP.OVL (gen_scrap.py's map, then the code
+gen_plc.py puts at xC000), the swap files and the part text,
 BOOT.CFG = SCRAP.PLC, with a PS/2 mouse in
 the upper socket, and boots it like the board (test_dos.Rig):
   1. the DOS loads SCRAP.PLC, which reads SCRAP.OVL into the even video
@@ -556,10 +557,10 @@ def build():
 def swap_files(inv, navs):
     """the swap files for the SD image: build()'s inv and nav"""
     nav, nav2, nav3, art, dck, dk2, dk3, dk4, pwr, ini, act, pw2, pw3, rb1, rb2 = navs
-    return {'SCRAP.INV': inv, 'SCRAP.NAV': nav, 'SCRAP.NV2': nav2, 'SCRAP.NV3': nav3, 'SCRAP.ART': art,
-            'SCRAP.DCK': dck, 'SCRAP.DK2': dk2, 'SCRAP.DK3': dk3, 'SCRAP.DK4': dk4,
-            'SCRAP.PWR': pwr, 'SCRAP.INI': ini, 'SCRAP.ACT': act, 'SCRAP.PW2': pw2, 'SCRAP.PW3': pw3,
-            'SCRAP.RB1': rb1, 'SCRAP.RB2': rb2}
+    return {'SCRAP/SCRAP.INV': inv, 'SCRAP/SCRAP.NAV': nav, 'SCRAP/SCRAP.NV2': nav2, 'SCRAP/SCRAP.NV3': nav3, 'SCRAP/SCRAP.ART': art,
+            'SCRAP/SCRAP.DCK': dck, 'SCRAP/SCRAP.DK2': dk2, 'SCRAP/SCRAP.DK3': dk3, 'SCRAP/SCRAP.DK4': dk4,
+            'SCRAP/SCRAP.PWR': pwr, 'SCRAP/SCRAP.INI': ini, 'SCRAP/SCRAP.ACT': act, 'SCRAP/SCRAP.PW2': pw2, 'SCRAP/SCRAP.PW3': pw3,
+            'SCRAP/SCRAP.RB1': rb1, 'SCRAP/SCRAP.RB2': rb2}
 
 
 def main(argv):
@@ -569,7 +570,7 @@ def main(argv):
     ap.add_argument('--map', action='store_true', help="only the ship's map (quick)")
     args = ap.parse_args(argv)
     rom, syms, dsyms, lib, dos_plc, plc, tsyms, ovl, inv, nav = build()
-    files = {'DOS.PLC': dos_plc, 'SCRAP.PLC': plc, 'SCRAP.OVL': ovl, 'BOOT.CFG': b'SCRAP.PLC\r\n'}
+    files = {'DOS.PLC': dos_plc, 'SCRAP.PLC': plc, 'SCRAP/SCRAP.OVL': ovl, 'BOOT.CFG': b'SCRAP.PLC\r\n'}
     files.update(swap_files(inv, nav))
     for n, data in gen_scrap.prt_files().items():   # the part text (SCRAP/Kxy)
         files[gen_scrap.PRT_DIR + '/' + n] = data
@@ -762,6 +763,8 @@ def main(argv):
     print('12. Esc')
     if test_dos.esc_to_dos(r) and r.cpu.map == 0xFF:     # (the DOS runs under map 07)
         r.fail('Esc: the game\'s map, not the DOS\'s')
+    if r.find_row('SCRAP.PLC') is None:                   # the game ran in SCRAP: back in the root
+        r.fail('Esc: the DOS is not back in the root folder (%r)' % r.row(0))
     print('PASS' if r.ok else 'FAILED')
     return 0 if r.ok else 1
 

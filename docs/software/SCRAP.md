@@ -483,14 +483,23 @@ Like the tracker, the program runs with the map at FF (every section RAM)
 to reach the video RAM and its map, and calls the library through `l_*`
 stubs that switch to map 07 around the call.
 
+## On the card
+
+Only `SCRAP.PLC`, the file the DOS runs, is in the card's top folder.
+Everything else the game reads is in the folder `SCRAP`: `SCRAP.OVL`,
+the swap files (`SCRAP.INV`, `SCRAP.NAV` ...) and the part text
+(`K0A` ...).  `ovl_load` opens that folder first and it stays the current
+folder while the game runs; Esc goes back to the DOS in the folder it was
+run from (the ROM keeps it in the menu block).
+
 ## Building
 
 ```
 cd src\scripts
 python gen_scrap.py                              scrap_types.asm, scrap_data.masm, scrap_map.bin
 python asm_expand.py scrap.masm                  scrap.asm
-python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x4100,0x4D00,DCK,3 --swap 0x3600,0x4000,DK2,3 --swap 0x4E00,0x5000,DK3,3 --swap 0x5400,0x5600,DK4,3 --swap 0x3600,0x4000,ART,0 --swap 0x4700,0x4D00,PWR,4 --swap 0x4E00,0x5000,PW2,4 --swap 0x4200,0x4300,PW3,4 --swap 0x5400,0x5600,ACT,4 --swap 0x4100,0x4500,INI,5 --swap 0x4E00,0x5000,RB1,5 --swap 0x5400,0x5600,RB2,5
-                                                 SCRAP.PLC, SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV, SCRAP.NV2, SCRAP.NV3, SCRAP.DCK, SCRAP.DK2, SCRAP.DK3, SCRAP.DK4, SCRAP.ART, SCRAP.PWR, SCRAP.PW2, SCRAP.PW3, SCRAP.ACT, SCRAP.INI, SCRAP.RB1, SCRAP.RB2
+python gen_plc.py scrap.asm -o ..\..\sdcard\SCRAP.PLC --dir SCRAP --overlay 0xC000,2 --overlay-tail 0x5600,0x5A00,1 --overlay-tail 0x5C00,0x5E00,1 --overlay-head scrap_map.bin --swap 0x4100,0x4D00,INV --swap 0x4100,0x4D00,NAV,2 --swap 0x3600,0x4000,NV2,2 --swap 0x4E00,0x5000,NV3,2 --swap 0x4100,0x4D00,DCK,3 --swap 0x3600,0x4000,DK2,3 --swap 0x4E00,0x5000,DK3,3 --swap 0x5400,0x5600,DK4,3 --swap 0x3600,0x4000,ART,0 --swap 0x4700,0x4D00,PWR,4 --swap 0x4E00,0x5000,PW2,4 --swap 0x4200,0x4300,PW3,4 --swap 0x5400,0x5600,ACT,4 --swap 0x4100,0x4500,INI,5 --swap 0x4E00,0x5000,RB1,5 --swap 0x5400,0x5600,RB2,5
+                                                 SCRAP.PLC; in sdcard\SCRAP\: SCRAP.OVL (the map, then the code), SCRAP.INV, SCRAP.NAV, SCRAP.NV2, SCRAP.NV3, SCRAP.DCK, SCRAP.DK2, SCRAP.DK3, SCRAP.DK4, SCRAP.ART, SCRAP.PWR, SCRAP.PW2, SCRAP.PW3, SCRAP.ACT, SCRAP.INI, SCRAP.RB1, SCRAP.RB2
 python test_scrap_sim.py --png scrap.png         SCRAP.PLC in placard_sim (also scrap_air.png, scrap_map.png; --power: only the conduits and the power view, --map: only the ship's map, quick)
 ```
 

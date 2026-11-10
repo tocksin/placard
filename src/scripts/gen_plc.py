@@ -44,8 +44,11 @@ puts a file's bytes (SCRAPWRIGHT's map pages) in front of the overlay's,
 for a program that reads both from the one file; --overlay-tail adds
 more pages (x5600-x59FF, then x5C00-x5DFF: one range each time it
 is given) after the overlay's, all of them to the top of memory then; --swap writes a file the program reads in when it needs it.
+--dir SCRAP puts the .OVL and the --swap files in that folder next to the
+.PLC (sdcard/SCRAP/SCRAP.OVL ...), so only the .PLC is in the card's
+folder; the program opens the folder itself.
 
-Date: 11/09/2026
+Date: 11/10/2026
 """
 
 import argparse
@@ -147,6 +150,8 @@ def main(argv):
                     help='the #overlay pages from ADDR up to END, every STEP-th, after the overlay\'s')
     ap.add_argument('--overlay-head', metavar='FILE',
                     help='bytes put in front of the overlay\'s in NAME.OVL')
+    ap.add_argument('--dir', metavar='FOLDER',
+                    help='write NAME.OVL and the --swap files in FOLDER next to the .PLC')
     ap.add_argument('--swap', metavar='ADDR,END,EXT', action='append', default=[],
                     help='the #overlay bytes at ADDR up to END go to NAME.EXT (read in at run time); ,2 at the end: the #overlay2 ones (,3 #overlay3, ,4 #overlay4, ,5 #overlay5)')
     a = ap.parse_args(argv)
@@ -172,12 +177,17 @@ def main(argv):
     open(out, 'wb').write(data)
     print('%s: %d bytes, %s, load x%04X, entry x%04X'
           % (out, len(data), 'RAM image' if kind else 'library program', load, entry))
+    stem = os.path.splitext(out)[0]
+    if a.dir:       # the other files in a folder next to the .PLC
+        folder = os.path.join(os.path.dirname(out), a.dir)
+        os.makedirs(folder, exist_ok=True)
+        stem = os.path.join(folder, os.path.basename(stem))
     if overlay:
-        ovl = os.path.splitext(out)[0] + '.OVL'
+        ovl = stem + '.OVL'
         open(ovl, 'wb').write(overlay)
         print('%s: %d bytes, %d pages from x%04X' % (ovl, len(overlay), len(overlay) // 256, start))
     for ext, lo, data in swaps:
-        name = os.path.splitext(out)[0] + '.' + ext
+        name = stem + '.' + ext
         open(name, 'wb').write(data)
         print('%s: %d bytes, read in at x%04X' % (name, len(data), lo))
     return 0
