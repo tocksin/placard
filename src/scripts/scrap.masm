@@ -39,7 +39,8 @@
 ; x60 + 4k, the types, and x62 + 4k, the flags); main reads it from
 ; SCRAP/SCRAP.OVL.  The video RAM is above x6000, so like the tracker this
 ; program runs with the map at FF (every section RAM) and calls the
-; library through the l_* stubs, which switch to 07 around the call.
+; library through the l_* stubs, which call it through lib_far (x1FA0:
+; the map goes to MAP_SHADOW = 07 for the call, then back to FF).
 ; More code and strings go in the even pages from xC000 (the overlay
 ; region): SCRAP.OVL holds them after the map, and ovl_load reads both.
 ;
@@ -798,99 +799,111 @@ sc_leave:
 ; ------------------------------------------------------------
 .chunk
 l_wait_frames_io:
-    PUSH_LINK
-    MAP07
-    CALL wait_frames_io
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: wait_frames_io under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   wait_frames_io >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   wait_frames_io & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_kbd_scan:
-    PUSH_LINK
-    MAP07
-    CALL kbd_scan
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: kbd_scan under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   kbd_scan >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   kbd_scan & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_kbd_getc:
-    PUSH_LINK
-    MAP07
-    CALL kbd_getc
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: kbd_getc under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   kbd_getc >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   kbd_getc & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_menu_poll:
-    PUSH_LINK
-    MAP07
-    CALL menu_poll
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: menu_poll under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   menu_poll >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   menu_poll & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_pad_read:
-    PUSH_LINK
-    MAP07
-    CALL pad_read
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: pad_read under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   pad_read >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   pad_read & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_mouse_init:
-    PUSH_LINK
-    MAP07
-    CALL mouse_init
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: mouse_init under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   mouse_init >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   mouse_init & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_mouse_poll:
-    PUSH_LINK
-    MAP07
-    CALL mouse_poll
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: mouse_poll under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   mouse_poll >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   mouse_poll & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_mouse_move:
-    PUSH_LINK
-    MAP07
-    CALL mouse_move
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: mouse_move under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   mouse_move >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   mouse_move & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_fs_mount:
-    PUSH_LINK
-    MAP07
-    CALL fs_mount
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: fs_mount under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   fs_mount >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   fs_mount & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_fs_open:
-    PUSH_LINK
-    MAP07
-    CALL fs_open
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: fs_open under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   fs_open >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   fs_open & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_fs_read:
-    PUSH_LINK
-    MAP07
-    CALL fs_read
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: fs_read under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   fs_read >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   fs_read & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_vid_mode:
-    PUSH_LINK
-    MAP07
-    CALL vid_mode
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: vid_mode under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   vid_mode >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   vid_mode & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 ; silence_buf - the audio buffer x5DF3-x5FFF all silence (x80): the
 ; overlay's page x5D wrote its start.  A leaf.
@@ -6841,28 +6854,35 @@ s_sl2:
 ; ============================================================
 ; the flight (scrap_fl.masm): resident, in the even pages from xC000
 ; ============================================================
-; the flight's calls into the library: under map 07 (RAM to x5FFF only), so
-; not in the pages from xC000 (the test checks): first in x5C00
+; the flight's calls into the library (lib_far stubs; they were under map
+; 07, RAM to x5FFF only, so the test still checks they are under x6000):
+; first in x5C00
 .region 0x5C00, 0x5D00, 1, overlay
-; l_mul8, l_div16, l_rand8 - the library's, under its map
-.page
+; l_mul8, l_div16, l_rand8 - the library's, under its map (lib_far)
+.chunk
 l_mul8:
-    PUSH_LINK
-    MAP07
-    CALL mul8
-    bra  lm_x
+    ld   LF_HI >> 8, y          ; lib_far: mul8 under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   mul8 >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   mul8 & 0xFF, [y,x]
+    GOTO LIB_FAR
+.chunk
 l_div16:
-    PUSH_LINK
-    MAP07
-    CALL div16
-    bra  lm_x
+    ld   LF_HI >> 8, y          ; lib_far: div16 under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   div16 >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   div16 & 0xFF, [y,x]
+    GOTO LIB_FAR
+.chunk
 l_rand8:
-    PUSH_LINK
-    MAP07
-    CALL rand8
-lm_x:
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: rand8 under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   rand8 >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   rand8 & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .region 0xC000, 0x10000, 2, overlay, pack
 .include "scrap_fl.masm"

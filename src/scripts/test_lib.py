@@ -18,7 +18,7 @@ The simulator does not model the video line read at x5000, so this script
 supplies it: a read of x5000-x50FF returns V9:V2 of a V counter that steps
 every 800 clocks through 499-1023 (525 lines, one frame = 420,000 clocks).
 
-Date: 10/19/2026
+Date: 11/10/2026
 """
 
 import argparse
@@ -557,10 +557,63 @@ def t_stack(lib, n):
     assert c.mem[SP] == 0xFF, 'SP not restored'
 
 
+def t_far(lib, n):
+    """lib_far: library calls from a program running with map FF"""
+    def stub(name, routine):
+        return ['%s:' % name,
+                '    ld   LF_HI >> 8, y', '    ld   LF_HI & 0xFF, x',
+                '    ld   %s >> 8, [y,x]' % routine, '    ld   LF_LO & 0xFF, x',
+                '    ld   %s & 0xFF, [y,x]' % routine,
+                '    ld   LIB_FAR >> 8, y', '    jmp  LIB_FAR']
+    extra = ['#addr 0x1300', 'far_test:',
+             '    ld   0x50, y', '    ld   0xFF, [y,x]',      # every section RAM
+             '    ld   [0x40], ac', '    ld   ac, [R0]', '    ld   [0x41], ac', '    ld   ac, [R1]', 'far_c:']
+    extra += call('l_mul8', 110)
+    extra += ['    ld   ac, [0x30]',                         # AC = R3
+              '    ld   [R2], ac', '    ld   ac, [0x32]', '    ld   [R3], ac', '    ld   ac, [0x33]',
+              '    ld   [0x42], ac', '    ld   ac, [R0]', '    clr  ac', '    ld   ac, [R1]',
+              '    ld   [0x43], ac', '    ld   ac, [R2]']
+    extra += call('l_div16', 111)
+    extra += ['    ld   ac, [0x31]',                         # AC = remainder
+              'far_halt:', '    bra  far_halt']
+    extra += ['#addr 0x1400'] + stub('l_mul8', 'mul8') + stub('l_div16', 'div16')
+    lib2 = Lib(extra)
+    cases = [(0, 0, 1), (255, 255, 255), (3, 200, 7), (7, 9, 1), (250, 251, 13), (200, 0, 1)]
+    cases += [(random.randrange(256), random.randrange(256), random.randrange(1, 256))
+              for _ in range(n // 6)]
+    for a, b, d in cases:
+        c = lib2.cpu()
+        c.mem[SP] = 0xFF
+        c.mem[0x40], c.mem[0x41], c.mem[0x42], c.mem[0x43] = a, b, a, d
+        c.pc = lib2.syms['far_test']
+        k0 = c.clocks
+        while c.pc != lib2.syms['far_halt']:
+            c.step()
+            assert c.steps < 100000, 'lib_far did not return'
+        p = a * b
+        assert c.mem[0x32] | c.mem[0x33] << 8 == p, 'lib_far mul8 %d * %d' % (a, b)
+        assert c.mem[0x30] == p >> 8, 'lib_far mul8 AC'
+        assert c.mem[0x31] == a % d, 'lib_far div16 remainder %d %% %d' % (a, d)
+        assert c.mem[0x10] == a // d and c.mem[0x11] == 0, 'lib_far div16 quotient'
+        assert c.map == 0xFF, 'lib_far left map %02X' % c.map
+        assert c.mem[SP] == 0xFF, 'lib_far moved SP'
+    # the cost: CALL l_mul8 through lib_far, less mul8 called directly
+    c = lib2.cpu()
+    c.mem[0x40], c.mem[0x41], c.mem[0x42], c.mem[0x43] = 3, 5, 3, 1
+    c.pc = lib2.syms['far_test']
+    while c.pc != lib2.syms['far_c']:
+        c.step()
+    k0 = c.clocks
+    while c.pc != lib2.syms['back_110']:
+        c.step()
+    _, direct = lib.call('mul8', zp={'R0': 3, 'R1': 5})
+    STATS.add('lib_far extra', c.clocks - k0 - direct)
+
+
 TESTS = [('add16/sub16', t_add_sub), ('mul8', t_mul8), ('div8', t_div8), ('div16', t_div16),
          ('rand8', t_rand8), ('memset/memcpy', t_memory), ('vid_addr', t_vid_addr),
          ('vid_clear/vid_mode', t_vid_clear), ('plot1', t_plot1), ('console', t_console),
-         ('scroll', t_scroll), ('frames', t_frames), ('map_set', t_map_set), ('stack', t_stack)]
+         ('scroll', t_scroll), ('frames', t_frames), ('map_set', t_map_set), ('stack', t_stack), ('lib_far', t_far)]
 
 
 def main():

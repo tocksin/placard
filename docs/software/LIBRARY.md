@@ -6,7 +6,7 @@ page map that every program shares.  `src/scripts/lib_demo.asm` is a short
 example program that uses it, and `src/scripts/test_lib.py` tests every
 routine in the simulator.
 
-Date: 11/01/2026
+Date: 11/10/2026
 
 | File | What it is |
 |------|------------|
@@ -49,7 +49,7 @@ and runs in place.  The most used parts are highest:
 | xC600-xC6FF | Expansion slot helpers | `SLOT_CODE` | `placard_slot.asm` |
 | xC500-xC5FF | Menu hook | `MENU_CODE` | `placard_menu.asm` |
 | xC000-xC4FF | PS/2 driver: keyboard decoding, the turns, `ps2_pause`, `wait_frames_io`; the mouse routines, `ps2_tx`/`ps2_rx`, `ps2_poll`, `ps2_cmd` and `kbd_lights` sit in free ends of I/O pages 1 and B-E; xC200-xC217 stay free (the bring-up ROM's marker) | `PS2_CODE` | `placard_ps2.asm` |
-| RAM x1F00-x1FFF | Code that reads the video RAM (end of `plot1`, `con_scroll`) | `LIB_RAM` | `placard_lib.asm` |
+| RAM x1F00-x1FFF | Code that reads the video RAM (end of `plot1`, `con_scroll`), and `lib_far` at x1FA0 (`LIB_FAR`) | `LIB_RAM` | `placard_lib.asm` |
 
 `placard_lib.asm` sets every constant and includes the other files.  These
 are standard places that every program shares, so keep them.  The library
@@ -296,7 +296,7 @@ All of them use the carry flag (`bcs`, `bcc`, see [Idioms](#idioms)).
 |---------|----|-----|---------|--------|
 | `add16` | R1:R0 = a, R3:R2 = b | R1:R0 = a + b (mod 65536), AC = R1 | - | 36-40 |
 | `sub16` | R1:R0 = a, R3:R2 = b | R1:R0 = a - b (mod 65536), AC = R1 | - | 36-40 |
-| `mul8` | R0 = a, R1 = b | R3:R2 = a × b, AC = R3 | T0, T1 | 476-719 (476 + about 12-30 per 1 bit in b) |
+| `mul8` | R0 = a, R1 = b | R3:R2 = a × b, AC = R3 | T0-T2 | 48 when a factor is 0, then about 80 a bit of the smaller factor up to its top 1 bit: 96 for 1, about 340 under 16, about 580 under 128, 691 at most |
 | `div8` | R0 = dividend, R1 = divisor | AC = quotient, X = remainder | T0-T3 | about 580-790 |
 | `div16` | R1:R0 = dividend, R2 = divisor | R1:R0 = quotient, AC = X = remainder | T1-T3 | about 1300-1890 |
 | `rand8` | RAND_HI:RAND_LO = state (seed it once, not 0) | AC = random byte | T0, state | 73-93 |
@@ -389,7 +389,7 @@ after setting the modes yourself) before printing.
 | `con_puts` | R1:R0 = string ending in a 00 byte | R1:R0 = address of the 00 | AC, X, Y, T0-T5 | about 369 per character | 2 |
 | `con_hex8` | AC = value | Two hex digits, AC kept | X, Y, T0-T5 | 859 | 3 |
 | `con_dec8` | AC = value 0-255 | Decimal, no leading zeros | AC, X, Y, T0-T7 | 570-1527 | 4 |
-| `con_dec16` | R1:R0 = value 0-65535 | Decimal, no leading zeros; R1:R0 = 0, R2 = 10 | AC, X, Y, T0-T5 | about 2,000 per digit | up to 8 |
+| `con_dec16` | R1:R0 = value 0-65535 | Decimal, no leading zeros; R1:R0 = 0, R2 = 10 | AC, X, Y, T0-T5 | about 900-4,200 (about 800 a digit) | 2 |
 
 Moving past column 79 wraps to the next row, and moving past row 59 scrolls
 the screen up one text row (49 ms) and stays on row 59.  Strings in a
@@ -417,6 +417,39 @@ others only set a sound up.  [SOUND.md](../sound/SOUND.md#software) has the deta
 | `snd_play` | R1:R0 = samples, R3:R2 = count, AC = rate 1-128 (128 = 31.5 kHz) | | AC | about 90 |
 | `snd_stop` | | Silent within a frame | AC | 20 |
 | `snd_busy` | | AC = 0 when silent | | 17 |
+
+### Calls from a program that maps every section to RAM
+
+A program that keeps code or data above x6000 in the RAM (SCRAPWRIGHT and
+the tracker run with the map at FF) can't see the ROM, so it can't call the
+library directly.  `lib_far`, at the fixed address `LIB_FAR` (x1FA0, in
+`LIB_RAM`, so it is there under any map), makes the call for it: it sets
+the map to `MAP_SHADOW` (07 or 05: set it once at the start), calls the
+routine, sets the map back to FF and returns to the caller.  The program
+has one small stub per routine, which writes the routine's address into
+`lib_far` and jumps to it; the program CALLs the stub as if it were the
+routine:
+
+```
+l_mul8:                         ; CALL l_mul8 as if it were mul8
+    ld   LF_HI >> 8, y
+    ld   LF_HI & 0xFF, x
+    ld   mul8 >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   mul8 & 0xFF, [y,x]
+    ld   LIB_FAR >> 8, y
+    jmp  LIB_FAR
+```
+
+| Routine | In | Out | Changes | Clocks |
+|---------|----|-----|---------|--------|
+| `lib_far` | The stub's CALL (LINK), the routine's address (written by the stub), the routine's AC and R0-R7, `MAP_SHADOW` = the library's map | The routine's AC, R0-R7 and carry; the map FF | X, Y, LINK, SAVE_AC, what the routine changes (X does not come back) | 95 more than calling the routine directly |
+
+The stub (14 bytes) runs under any map, uses no stack, and keeps every T
+register the routine keeps; a stub that wraps the call in PUSH_LINK, a
+map write, CALL, a map write and LEAVE is about 48 bytes and 129 clocks.
+`lib_far` is not re-entrant (no library routine calls back into a
+program).
 
 ### Expansion cards
 

@@ -42,8 +42,9 @@
 ;
 ; The map.  The CPU reads the ROM above x6000 under the map a library
 ; program runs with (07), so this program sets the map to FF (every
-; section RAM) and goes back to 07 only inside the l_* stubs below, which
-; wrap each library and DOS routine it calls, and in tputc while it reads
+; section RAM) and goes back to 07 only for the library and DOS routines
+; it calls (the l_* stubs below call them through the library's lib_far,
+; x1FA0, which uses MAP_SHADOW = 07) and in tputc while it reads
 ; the font.  LEAVE goes to tr_leave, a copy of lib_leave in the RAM.  The
 ; stubs, tr_leave, tputc, ovl_load and exit_dos must therefore sit below
 ; x3400 (they do: they come first in the file).
@@ -72,7 +73,7 @@
 ;                                                     (and TRACKER.OVL)
 ;     python3 test_tracker.py                         runs it in placard_sim
 ;
-; Date: 11/02/2026
+; Date: 11/10/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -316,91 +317,102 @@ tr_leave:
 ; ------------------------------------------------------------
 .chunk
 l_wait_frames:
-    PUSH_LINK
-    MAP07
-    CALL wait_frames
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: wait_frames under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   wait_frames >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   wait_frames & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_kbd_scan:
-    PUSH_LINK
-    MAP07
-    CALL kbd_scan
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: kbd_scan under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   kbd_scan >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   kbd_scan & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_kbd_getc:
-    PUSH_LINK
-    MAP07
-    CALL kbd_getc
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: kbd_getc under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   kbd_getc >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   kbd_getc & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_fs_mount:
-    PUSH_LINK
-    MAP07
-    CALL fs_mount
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: fs_mount under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   fs_mount >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   fs_mount & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_fs_open:
-    PUSH_LINK
-    MAP07
-    CALL fs_open
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: fs_open under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   fs_open >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   fs_open & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_fs_read:
-    PUSH_LINK
-    MAP07
-    CALL fs_read
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: fs_read under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   fs_read >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   fs_read & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_fs_create:
-    PUSH_LINK
-    MAP07
-    CALL fs_create
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: fs_create under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   fs_create >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   fs_create & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_fs_write:
-    PUSH_LINK
-    MAP07
-    CALL fs_write
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: fs_write under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   fs_write >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   fs_write & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_fs_close:
-    PUSH_LINK
-    MAP07
-    CALL fs_close
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: fs_close under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   fs_close >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   fs_close & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_vid_mode:
-    PUSH_LINK
-    MAP07
-    CALL vid_mode
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: vid_mode under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   vid_mode >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   vid_mode & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 l_vid_clear:
-    PUSH_LINK
-    MAP07
-    CALL vid_clear
-    MAPFF
-    LEAVE
+    ld   LF_HI >> 8, y          ; lib_far: vid_clear under the library's map
+    ld   LF_HI & 0xFF, x
+    ld   vid_clear >> 8, [y,x]
+    ld   LF_LO & 0xFF, x
+    ld   vid_clear & 0xFF, [y,x]
+    GOTO LIB_FAR
 
 .chunk
 exit_dos:

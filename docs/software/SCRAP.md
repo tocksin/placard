@@ -481,7 +481,8 @@ bigger maps from the card a chunk at a time.
 
 Like the tracker, the program runs with the map at FF (every section RAM)
 to reach the video RAM and its map, and calls the library through `l_*`
-stubs that switch to map 07 around the call.
+stubs that go through the library's `lib_far` (map 07 for the call,
+[LIBRARY.md](LIBRARY.md#calls-from-a-program-that-maps-every-section-to-ram)).
 
 ## On the card
 

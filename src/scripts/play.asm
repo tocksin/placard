@@ -619,16 +619,31 @@ mf_go:
     add  132, ac
 mf_a:
     ld   ac, [T7]
+    bne  mf_d                   ; d = 0: none read, or a whole lap (a call
+    ld   MUS_VS >> 8, y         ;   exactly a frame after the last fill
+    ld   G_FRM, x               ;   ended): the frame counter tells
+    ld   [FRAME_LO], ac
+    xor  [y,x], ac
+    beq  mf_d
+    ld   [T6], ac               ; a lap: as when the video passed the
+    ld   ac, [M_REND]           ;   write pointer
+    bra  mf_p
+mf_d:
     ld   [T6], ac
     ld   ac, [M_REND]
     ld   [M_AHEAD], ac
     sub  [T7], ac
     bcc  mf_b
+mf_p:
     ld   [T6], ac               ; the video passed the write pointer: go on
     ld   ac, [M_RPTR]           ; from where it is now
     clr  ac
 mf_b:
     ld   ac, [M_AHEAD]
+    ld   MUS_VS >> 8, y         ; the frame of REND
+    ld   G_FRM, x
+    ld   [FRAME_LO], ac
+    ld   ac, [y,x]
 mf_fill:
     ld   131, ac
     sub  [M_AHEAD], ac
@@ -660,31 +675,16 @@ me_b:
     ld   [M_AHEAD], ac
     sub  [T7], ac
     ld   ac, [M_AHEAD]
+    ld   MUS_VS >> 8, y         ; the frame of REND
+    ld   G_FRM, x
+    ld   [FRAME_LO], ac
+    ld   ac, [y,x]
     ld   mf_fill >> 8, y
     jmp  mf_fill
 
 ; ============================================================
 ; the tick: once a lap, between the samples for x5DF3 and x5DF4
 ; ============================================================
-mus_tick:
-    ld   MUS_VS >> 8, y
-    ld   G_T5, x
-    ld   [T5], ac
-    ld   ac, [y,x]
-    ld   G_NR, x
-    ld   0, [y,x]
-    ld   [M_PLAY], ac
-    and  1, ac
-    beq  mt_0
-    ld   [M_TICK], ac
-    bne  mt_0
-    ld   1, [y,x]               ; a new row
-mt_0:
-    clr  ac
-    ld   ac, [M_VIDX]
-    ld   mt_voice >> 8, y
-    jmp  mt_voice
-
 rr_stop:
     ld   1, ac
     ld   ac, [W_STOP]
@@ -757,7 +757,7 @@ tints:
 ; mus_tool.py has the reference model (Model): test_mus.py checks this
 ; player against it sample for sample.  Change one, change the other.
 ;
-; Date: 11/01/2026
+; Date: 11/10/2026
 ; ============================================================
 
 MUS_SAW    = MUS_TABLES
@@ -839,6 +839,7 @@ W_WPG    = W_RET      ; shared: RET only during a trigger
 ; globals in MUS_VS page 0 (below the state)
 G_T5  = 0x00
 G_NR  = 0x03
+G_FRM = 0x01         ; FRAME_LO when M_REND was set (mus_frame)
 
 ; mus_tables.masm - the music player's tables (placard_mus.masm),
 ; made by "python3 mus_tool.py tables": do not edit, change mus_tool.py
@@ -849,6 +850,25 @@ G_NR  = 0x03
 ; per ADSR value (attack low xC0, high xD0; decay/release low xE0, high xF0).
 ;
 ; Date: 11/01/2026
+
+mus_tick:
+    ld   MUS_VS >> 8, y
+    ld   G_T5, x
+    ld   [T5], ac
+    ld   ac, [y,x]
+    ld   G_NR, x
+    ld   0, [y,x]
+    ld   [M_PLAY], ac
+    and  1, ac
+    beq  mt_0
+    ld   [M_TICK], ac
+    bne  mt_0
+    ld   1, [y,x]               ; a new row
+mt_0:
+    clr  ac
+    ld   ac, [M_VIDX]
+    ld   mt_voice >> 8, y
+    jmp  mt_voice
 
 mt_out:
     ld   copy_out >> 8, y
@@ -886,45 +906,21 @@ mr_no:
 ;   T0 = instrument (FF none), T1:T2 = effect, parameter, T6 = ends seen,
 ;   T7 = the byte
 ; ------------------------------------------------------------
-ve_rel:
-    ld   [W_SR], ac
-    and  15, ac
-    ld   ac, [T0]
-    ld   MUS_TAB >> 8, y
-    add  0xF0, x
-    ld   [y,x], ac
-    ld   ac, [T1]
-    ld   [T0], ac
-    add  0xE0, x
-    ld   [y,x], ac
-    ld   ac, [T2]
-    ld   [W_ENL], ac
-    sub  [T2], ac
-    ld   ac, [T2]
-    ld   [W_ENH], ac
-    bcc  vr_b
-    sub  1, ac
-    bcs  vr_0
-vr_b:
-    sub  [T1], ac
-    bcs  vr_0
-    ld   ac, [W_ENH]
-    ld   [T2], ac
-    ld   ac, [W_ENL]
-    ld   vslot >> 8, y
-    jmp  vslot
-vr_0:
-    clr  ac
-    ld   ac, [W_ENH]
-    ld   ac, [W_ENL]
-    ld   vslot >> 8, y
-    jmp  vslot
+ms_back:
+    ld   [M_T1], ac
+    bne  mb_p
+    ld   mi_s2 >> 8, y
+    jmp  mi_s2
+mb_p:
+    ld   mp_s2 >> 8, y
+    jmp  mp_s2
 
 ; ------------------------------------------------------------
-; vslot - which mixer slot hears this voice (M_SLOT, FF none) and its wave
-; page (W_WPG): pulse and custom pages are rebuilt here, noise picks a
-; random page and phase
+; mus_play - start subtune AC from its beginning
+;   changes: AC, X, Y, T0-T7
 ; ------------------------------------------------------------
+
+#addr 0x0600
 mus_gen:
 mg_loop:
     ld   [P0L], ac
@@ -1069,56 +1065,54 @@ mg_one:
 ; 131 ahead again, and repeats while the video moved during the fill.
 ; A call more than 131 groups (a lap less a group) after the last one
 ; loses the samples in between (the video replays the old ones), so a
-; program calls at least once a frame.  The tick (at group x7C) takes a
+; program calls at least once a frame.  A call exactly a lap after the
+; last fill ended reads the same line (d = 0): the frame counter
+; (FRAME_LO, kept by wait_frames or frame_poll, saved in G_FRM) tells it
+; from a second call in the same group, and the lap counts as passed.  The tick (at group x7C) takes a
 ; few groups' time; if the video passes the write pointer meanwhile the
 ; groups it passed are skipped, so the rest stays in time.  mus_init
 ; fills the buffer once (131 groups of silence) so the song's first tick
 ; starts well ahead of the video.
 ; ------------------------------------------------------------
-vz_3:
-    ld   (mv3_sl + 1) >> 8, y
-    ld   (mv3_sl + 1) & 0xFF, x
-    ld   [T6], ac
-    ld   ac, [y,x]
-    ld   (mv3_sh + 1) & 0xFF, x
-    ld   [T7], ac
-    ld   ac, [y,x]
-    ld   (mv3_wp + 1) & 0xFF, x
-    ld   [W_WPG], ac
-    ld   ac, [y,x]
-    ld   (mv3_vo + 1) & 0xFF, x
+ve_rel:
+    ld   [W_SR], ac
+    and  15, ac
+    ld   ac, [T0]
+    ld   MUS_TAB >> 8, y
+    add  0xF0, x
+    ld   [y,x], ac
+    ld   ac, [T1]
     ld   [T0], ac
-    ld   ac, [y,x]
-    ld   (mv3_vp + 1) & 0xFF, x
-    ld   [T1], ac
-    ld   ac, [y,x]
-    ld   mt_out >> 8, y
-    jmp  mt_out
+    add  0xE0, x
+    ld   [y,x], ac
+    ld   ac, [T2]
+    ld   [W_ENL], ac
+    sub  [T2], ac
+    ld   ac, [T2]
+    ld   [W_ENH], ac
+    bcc  vr_b
+    sub  1, ac
+    bcs  vr_0
+vr_b:
+    sub  [T1], ac
+    bcs  vr_0
+    ld   ac, [W_ENH]
+    ld   [T2], ac
+    ld   ac, [W_ENL]
+    ld   vslot >> 8, y
+    jmp  vslot
+vr_0:
+    clr  ac
+    ld   ac, [W_ENH]
+    ld   ac, [W_ENL]
+    ld   vslot >> 8, y
+    jmp  vslot
 
 ; ------------------------------------------------------------
-; mus_init - start the player: R1 = the song's page; all voices quiet
-;   changes: AC, X, Y, T0-T7
+; vslot - which mixer slot hears this voice (M_SLOT, FF none) and its wave
+; page (W_WPG): pulse and custom pages are rebuilt here, noise picks a
+; random page and phase
 ; ------------------------------------------------------------
-ms_3:
-    ld   (mv3_sl + 1) >> 8, y
-    ld   (mv3_sl + 1) & 0xFF, x
-    ld   [T6], ac
-    ld   ac, [y,x]
-    ld   (mv3_sh + 1) & 0xFF, x
-    ld   [T7], ac
-    ld   ac, [y,x]
-    ld   (mv3_wp + 1) & 0xFF, x
-    ld   [W_WPG], ac
-    ld   ac, [y,x]
-    ld   (mv3_vo + 1) & 0xFF, x
-    ld   [T0], ac
-    ld   ac, [y,x]
-    ld   (mv3_vp + 1) & 0xFF, x
-    ld   [T1], ac
-    ld   ac, [y,x]
-    ld   ms_back >> 8, y
-    jmp  ms_back
-
 
 #addr 0x0700
 mt_end:
@@ -1247,50 +1241,50 @@ copy_in:
     ld   ac, [x]
     ld   copy_in2 >> 8, y
     jmp  copy_in2
-ms_back:
-    ld   [M_T1], ac
-    bne  mb_p
-    ld   mi_s2 >> 8, y
-    jmp  mi_s2
-mb_p:
-    ld   mp_s2 >> 8, y
-    jmp  mp_s2
+vz_3:
+    ld   (mv3_sl + 1) >> 8, y
+    ld   (mv3_sl + 1) & 0xFF, x
+    ld   [T6], ac
+    ld   ac, [y,x]
+    ld   (mv3_sh + 1) & 0xFF, x
+    ld   [T7], ac
+    ld   ac, [y,x]
+    ld   (mv3_wp + 1) & 0xFF, x
+    ld   [W_WPG], ac
+    ld   ac, [y,x]
+    ld   (mv3_vo + 1) & 0xFF, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   (mv3_vp + 1) & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    ld   mt_out >> 8, y
+    jmp  mt_out
 
 ; ------------------------------------------------------------
-; mus_play - start subtune AC from its beginning
+; mus_init - start the player: R1 = the song's page; all voices quiet
 ;   changes: AC, X, Y, T0-T7
 ; ------------------------------------------------------------
-mus_stop:
-    ld   0x80, ac
-    ld   ac, [M_PLAY]
-    ld   W_EST, x
-    ld   MUS_VS >> 8, y
-    ld   3, [y,x]
-    ld   (MUS_VS >> 8) + 1, y
-    ld   3, [y,x]
-    ld   (MUS_VS >> 8) + 2, y
-    ld   3, [y,x]
-    ld   (MUS_VS >> 8) + 3, y
-    ld   3, [y,x]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
+ms_3:
+    ld   (mv3_sl + 1) >> 8, y
+    ld   (mv3_sl + 1) & 0xFF, x
+    ld   [T6], ac
+    ld   ac, [y,x]
+    ld   (mv3_sh + 1) & 0xFF, x
+    ld   [T7], ac
+    ld   ac, [y,x]
+    ld   (mv3_wp + 1) & 0xFF, x
+    ld   [W_WPG], ac
+    ld   ac, [y,x]
+    ld   (mv3_vo + 1) & 0xFF, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   (mv3_vp + 1) & 0xFF, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    ld   ms_back >> 8, y
+    jmp  ms_back
 
-; ------------------------------------------------------------
-; mus_sfx - AC = note 0-95, R0 = instrument, R1 = frames: a sound effect
-; on voice 4, heard in voice 3's place (mixer slot 3) for R1 frames
-;   changes: AC, X, Y, T0-T7
-; ------------------------------------------------------------
-mus_sfx:
-    ld   ac, [T7]
-    sub  96, ac
-    bcs  sx_a
-    ld   95, ac
-    ld   ac, [T7]
-sx_a:
-    ld   [R1], ac
-    ld   ac, [M_SFXN]
-    ld   sfx_in >> 8, y
-    jmp  sfx_in
 
 #addr 0x0800
 copy_in2:
@@ -1627,6 +1621,26 @@ rr_s:
 ; ------------------------------------------------------------
 ; np - the orderlist: the next pattern (M_T0 counts the bytes read)
 ; ------------------------------------------------------------
+mus_stop:
+    ld   0x80, ac
+    ld   ac, [M_PLAY]
+    ld   W_EST, x
+    ld   MUS_VS >> 8, y
+    ld   3, [y,x]
+    ld   (MUS_VS >> 8) + 1, y
+    ld   3, [y,x]
+    ld   (MUS_VS >> 8) + 2, y
+    ld   3, [y,x]
+    ld   (MUS_VS >> 8) + 3, y
+    ld   3, [y,x]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+; ------------------------------------------------------------
+; mus_sfx - AC = note 0-95, R0 = instrument, R1 = frames: a sound effect
+; on voice 4, heard in voice 3's place (mixer slot 3) for R1 frames
+;   changes: AC, X, Y, T0-T7
+; ------------------------------------------------------------
 
 #addr 0x0A00
 np:
@@ -1765,6 +1779,17 @@ rn_trig:
 ; ------------------------------------------------------------
 ; trig - start note T7 with instrument W_INS; W_RET 0: back to rfx, 1: sfx
 ; ------------------------------------------------------------
+mus_sfx:
+    ld   ac, [T7]
+    sub  96, ac
+    bcs  sx_a
+    ld   95, ac
+    ld   ac, [T7]
+sx_a:
+    ld   [R1], ac
+    ld   ac, [M_SFXN]
+    ld   sfx_in >> 8, y
+    jmp  sfx_in
 
 #addr 0x0B00
 trig:
