@@ -1,0 +1,94 @@
+/* PIN-SWAP VARIANT for U17 (router test bench, 2026-11-11): only the PIN lines differ from ATF22V10_IR.pld.
+   Not a released design: compile-check only. */
+Name     INSTR_REG;
+PartNo   00;
+Date     11/11/2026 ;
+Revision 01;
+Designer ;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   INSTRUCTION REGISTER   (ATF22V10C-7, DIP-24)
+   ============================================================
+
+   Replaces the instruction register 74F377 (chip #17).  It loads
+   the opcode from the data bus in FETCH, like the F377, and holds
+   02h (`ld ac, ac`) while RUN is low, so the CPU can only run that
+   instruction while the ROM cartridge loads (docs/architecture/ROM.md, "Loading
+   the cartridge").
+
+   I.D = !RUN & (bit of 02h)
+       # RUN & LOAD_INSTR & D
+       # RUN & !LOAD_INSTR & I
+
+   While RUN is low every register takes its bit of 02h at every
+   clock, so the IR is 02h from the first clock on, whatever the
+   State PLD's strobe does.  When the cartridge raises RUN the IR
+   still holds 02h and loads the next opcode in the next FETCH.
+   At power-up the registers are 00h; the CPU is stalled in FETCH
+   then (the cartridge holds STALL), so nothing decodes it.
+
+   TIMING (ATF22V10C-7)
+      Opcode setup tS 3.5 ns (the F377's was 2 ns): the fetch into
+      the IR is 39.0 ns of the 39.72 ns clock (+0.7), the same as
+      the fetch into the State PLD.  Clock to output tCO 5.5 ns
+      (the F377's was 10.5 ns), so every path that starts at the IR
+      (the single-clock ALU, the branch decision, /AC_SEL) gains
+      5 ns.
+
+   PIN BUDGET
+      Inputs (11): CLK, D7:D0, /LOAD_INSTR, RUN
+      Outputs (8): I7:I0, registered
+      Unused: pin 13, pins 22 and 23.
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 1  = CLK;
+PIN 2  = D0;
+/* PIN 3: not used after the pin swap (was D1) */
+/* PIN 4: not used after the pin swap (was D2) */
+/* PIN 5: not used after the pin swap (was D3) */
+PIN 6  = D4;
+PIN 7  = D5;
+PIN 8  = D3;  /* pin swap: was on pin 5 */
+PIN 9  = D1;  /* pin swap: was on pin 3 */
+PIN 10 = RUN;          /* from the ROM cartridge: low = hold 02h */  /* pin swap: was on pin 11 */
+PIN 11 = D2;  /* pin swap: was on pin 4 */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+PIN 14 = I4;  /* pin swap: was on pin 18 */
+PIN 15 = !LOAD_INSTR;  /* State PLD pin 14, low = load (was the F377's /E) */  /* pin swap: was on pin 10 */
+PIN 16 = I2;
+PIN 17 = I3;
+PIN 18 = I0;  /* pin swap: was on pin 14 */
+PIN 19 = D6;  /* pin swap: was on pin 8 */
+PIN 20 = I5;  /* pin swap: was on pin 19 */
+PIN 21 = I7;
+PIN 23 = I1;           /* also the D source F541's /OE2 and the audio slot PLD */  /* pin swap: was on pin 15 */
+PIN 22 = I6;  /* pin swap: was on pin 20 */
+PIN 13 = D7;  /* pin swap: was on pin 9 */
+
+
+/* ---------------- EQUATIONS ---------------- */
+
+/* 02h while RUN is low: I1 = 1, every other bit 0 */
+
+I0.D = RUN & LOAD_INSTR & D0 # RUN & !LOAD_INSTR & I0;
+I1.D = !RUN # LOAD_INSTR & D1 # !LOAD_INSTR & I1;
+I2.D = RUN & LOAD_INSTR & D2 # RUN & !LOAD_INSTR & I2;
+I3.D = RUN & LOAD_INSTR & D3 # RUN & !LOAD_INSTR & I3;
+I4.D = RUN & LOAD_INSTR & D4 # RUN & !LOAD_INSTR & I4;
+I5.D = RUN & LOAD_INSTR & D5 # RUN & !LOAD_INSTR & I5;
+I6.D = RUN & LOAD_INSTR & D6 # RUN & !LOAD_INSTR & I6;
+I7.D = RUN & LOAD_INSTR & D7 # RUN & !LOAD_INSTR & I7;
+
+[I7..I0].AR = 'b'0;
+[I7..I0].SP = 'b'0;

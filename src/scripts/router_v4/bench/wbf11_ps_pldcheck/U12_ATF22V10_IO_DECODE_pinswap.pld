@@ -1,0 +1,159 @@
+/* PIN-SWAP VARIANT for U12 (router test bench, 2026-11-11): only the PIN lines differ from ATF22V10_IO_DECODE.pld.
+   Not a released design: compile-check only. */
+Name     IO_DECODE;
+PartNo   00;
+Date     11/11/2026 ;
+Revision 07;
+Designer ;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   I/O DECODE AND UPPER RAM CHIP SELECT
+   (ATF22V10C, DIP-24 / PLCC-28)
+   ============================================================
+
+   Two jobs, both decoded in one array pass (see docs/timing/TIMING.md):
+
+   1. /CE_HI, the chip enable of the upper 32K RAM (and ROM) chip.
+      It is !A15, but A15 is rebuilt here from the high-byte
+      address mux's own selects and sources instead of from the
+      mux output, so it is valid at the same time as the mux
+      output (13 ns since revision 05, 20.5 before) and needs no
+      '04.  The lower chip's /CE is the mux's A15 output directly.
+      With both chip enables settled before /WE can go low, a
+      store to one chip can no longer also write the other.
+
+      Revision 05 (docs/timing/FETCH_TIMING.md): the mux PLDs
+      (QUAD_4TO1_MUX revision 02) take PIXEL_ENABLE, PC_ENABLE and
+      Y_ENABLE as their selects directly, so this PLD takes the
+      same three (pins 2, 3 and 14) in place of ADDR_SEL,
+      ADDR_SEL_HI and RW, with the same priority:
+
+          PIXEL_ENABLE PC_ENABLE Y_ENABLE   high byte   A15
+               1           x        x       video       H9 (video address bit 15)
+               0           1        x       PC          PC15
+               0           0        1       Y           Y7
+               0           0        0       00h         0
+
+   2. The I/O selects for 5000h - 53FFh, one 256-byte page per
+      device:
+
+          page  address      select   devices
+           0    5000h-50FFh  /P0      map register (write), line read
+           1    5100h-517Fh  /EXP1    slot 1
+                5180h-51FFh  /EXP3    slot 3
+           2    5200h-52FFh  /PORT    port PLD, PS/2 receiver PLD
+           3    5300h-537Fh  /EXP2    slot 2
+                5380h-53FFh  /EXP4    slot 4
+
+   SELECTS FROM THE REGISTERS (revision 07)
+      An I/O address is only ever reached through [Y,X] (FETCH and
+      LOAD_IMM read at the PC, [0,X] and [0,D] have high byte 00h,
+      and the video reads only RAM).  So the I/O page is decoded
+      from the Y register itself, not from the address mux output:
+
+          IOSEL = !PIXEL_ENABLE & !PC_ENABLE & Y_ENABLE
+                  & Y = 0101 00xx
+
+      and the slot half from X7, the low byte's bit 7 (A7 in
+      [Y,X]).  Y7:Y0 and X7 are register outputs, settled long
+      before the address mux output, and PIXEL_ENABLE, PC_ENABLE
+      and Y_ENABLE are the mux selects themselves.  So every select
+      is valid when the address is (13 ns), one PLD pass (7.5 ns)
+      earlier than in revision 06 (20.5 ns).  This is the
+      expansion card's read budget (docs/architecture/EXPANSION.md,
+      "Card timing"): with /EXPn at 13 ns a plain 15 ns SRAM card
+      (/CE = /EXPn, /OE = Q0, /WE = /WE) reads in time.
+      [Y,D] to an I/O address is not supported: the page still
+      decodes (the high byte is Y either way), but the slot half
+      follows X7, not D7.  Nothing in the software does it.
+
+      The selects are address only.  The strobes are made where the
+      select is used:
+        - /MAP_WR (map register clock) in the Sync PLD (revision
+          12), from /P0, with the same timing as /WE.
+        - The line read F541 takes /P0 on /OE1 and Q0 (State PLD
+          pin 18) on /OE2, so it drives the bus in LOAD_MEM only,
+          as /LINE_RD did (revision 06).
+        - The port PLD (revision 05) clocks its register on /WE
+          and holds it unless /PORT is low; it and the PS/2 PLD
+          (revision 03) read while /PORT and Q0 are low.
+        - Each slot has its own select, /EXPn on contact A16, and
+          Q0 on contact A10 (was SEL, which is gone).
+      This frees the A14-A8 inputs and the WE_N and Q0 inputs, and
+      the four outputs /MAP_WR, /LINE_RD, /PORT_WR, /PORT_RD become
+      /P0 and /PORT, which leaves room for Y6:Y0, X7 and two more
+      slot selects.
+
+      Because they come from registers that do not change during a
+      clock, the selects no longer glitch while the address mux
+      output settles, so a card's write strobe made from /EXPn and
+      /WE is clean (EXPANSION.md "To check" asked about this).
+
+   PIN BUDGET
+      Inputs (14): PIXEL_ENABLE, PC_ENABLE, Y_ENABLE, PC15, H9,
+                   Y7-Y0, X7
+      Outputs (7): /CE_HI, /P0, /PORT, /EXP1-/EXP4
+      Pin 1 is not used (tie it to GND).  Each select is one
+      product term, CE_HI three.  Every output is one array pass.
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 2  = X7;           /* X register bit 7, A7 of [Y,X] (I/O pin used as input; revision 07, was Q0) */  /* pin swap: was on pin 23 */
+PIN 3  = Y2;  /* pin swap: was on pin 10 */
+PIN 4  = PC_ENABLE;    /* State PLD: program counter */  /* pin swap: was on pin 3 */
+PIN 5  = Y5;  /* pin swap: was on pin 8 */
+PIN 6  = Y3;           /* I/O pin used as input (revision 07; was A11) */  /* pin swap: was on pin 18 */
+PIN 7  = Y1;  /* pin swap: was on pin 11 */
+PIN 8  = PC15;         /* PC high PLD, bit 7 */  /* pin swap: was on pin 4 */
+PIN 9  = Y6;  /* pin swap: was on pin 7 */
+PIN 10 = Y_ENABLE;     /* State PLD: Y register (I/O pin used as input) */  /* pin swap: was on pin 14 */
+PIN 11 = Y7;           /* Y register bits 7-0 (revision 07: Y6-Y0 were A14-A8) */  /* pin swap: was on pin 6 */
+PIN 13 = H9;           /* video address bit 15 (H counter H9) */  /* pin swap: was on pin 5 */
+
+PIN 14 = !P0;          /* page 0, 5000h-50FFh (revision 07; was /LINE_RD) */  /* pin swap: was on pin 17 */
+PIN 18 = Y0;  /* pin swap: was on pin 13 */
+PIN 23 = !PORT;        /* page 2, 5200h-52FFh (revision 07; was /PORT_RD) */  /* pin swap: was on pin 20 */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+PIN 15 = PIXEL_ENABLE; /* Sync PLD pin 19: video read */  /* pin swap: was on pin 2 */
+
+PIN 16 = !EXP3;        /* slot 3, 5180h-51FFh (revision 07; was /MAP_WR) */
+PIN 17 = !CE_HI;       /* low when A15 = 1: upper 32K chip enable */  /* pin swap: was on pin 15 */
+PIN 19 = !EXP4;        /* slot 4, 5380h-53FFh (revision 07; was /PORT_WR) */
+PIN 20 = Y4;  /* pin swap: was on pin 9 */
+PIN 21 = !EXP1;        /* slot 1, 5100h-517Fh (revision 07; was 5100h-51FFh) */
+PIN 22 = !EXP2;        /* slot 2, 5300h-537Fh (revision 07; was 5300h-53FFh) */
+
+
+/* ---------------- A15, REBUILT FROM THE MUX INPUTS ---------------- */
+
+A15 = ( PIXEL_ENABLE & H9)
+    # (!PIXEL_ENABLE &  PC_ENABLE & PC15)
+    # (!PIXEL_ENABLE & !PC_ENABLE & Y_ENABLE & Y7);
+
+
+/* ---------------- I/O WINDOW FROM THE Y REGISTER ---------------- */
+
+IOSEL = !PIXEL_ENABLE & !PC_ENABLE & Y_ENABLE
+      & !Y7 & Y6 & !Y5 & Y4 & !Y3 & !Y2;           /* Y = 50h - 53h */
+
+
+/* ---------------- EQUATIONS ---------------- */
+
+CE_HI = A15;
+
+P0    = IOSEL & !Y1 & !Y0;
+EXP1  = IOSEL & !Y1 &  Y0 & !X7;
+EXP3  = IOSEL & !Y1 &  Y0 &  X7;
+PORT  = IOSEL &  Y1 & !Y0;
+EXP2  = IOSEL &  Y1 &  Y0 & !X7;
+EXP4  = IOSEL &  Y1 &  Y0 &  X7;

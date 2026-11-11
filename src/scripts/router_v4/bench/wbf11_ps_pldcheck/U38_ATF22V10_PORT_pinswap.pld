@@ -1,0 +1,152 @@
+/* PIN-SWAP VARIANT for U38 (router test bench, 2026-11-11): only the PIN lines differ from ATF22V10_PORT.pld.
+   Not a released design: compile-check only. */
+Name     PORT;
+PartNo   00;
+Date     11/11/2026 ;
+Revision 05;
+Designer Justin;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   SHARED PORT: LATCH AND INPUT   (ATF22V10C)
+   ============================================================
+
+   The whole shared port at 5200h (docs/architecture/IO.md) in one chip.  The SNES
+   pads, the SD card and the two PS/2 ports are all polled, never at
+   the same moment, so they share this PLD's output register and its
+   two read addresses.
+
+   Revision 03 (2026-10-25): the Cherry MX key matrix is gone (a PS/2
+   keyboard plugs into the lower PS/2 socket instead).  With no
+   columns to drive and no rows to read, this PLD takes over the jobs
+   of the port latch (74HC574, U37) and the row buffer (74F541, U39),
+   and both chips are removed.
+   Revision 04 (2026-10-25): the PS/2 bytes are received by the PS/2
+   receiver PLD (ATF22V10_PS2.pld) at x5202/x5203, so this PLD only
+   drives the bus while A1 = 0, no longer reads the PS/2 DATA line,
+   and reads one clock line, RXCLK (the free device's clock, the two
+   clock lines diode-ORed for the receiver), in place of the two.
+
+   SELECT AND STROBES (revision 05)
+      The I/O decode PLD (revision 07) no longer makes /PORT_WR and
+      /PORT_RD.  It gives one select for the page, /PORT on pin 2
+      (low for any access to 5200h-52FFh, from the Y register, valid
+      at 13 ns, the old /PORT_RD net), and:
+        - Pin 1 is /WE (Sync PLD pin 20).  The registers clock on
+          the rising edge of every /WE and load D4:D0 only when /PORT
+          is low; otherwise each one loads its own value back (a hold
+          term, 2 product terms per register).  The edge is the end
+          of the write, as /PORT_WR's was, but one I/O decode pass
+          (7.5 ns) earlier, which gives the data more hold time.
+          /PORT must hold past the /WE edge (tH 0): it only changes
+          after the state register's clock and one PLD pass, and
+          /WE rises on CLK_E, ahead of every other clock
+          (docs/timing/TIMING.md, "port_sel_hold").
+        - Pin 15 (spare before) is Q0, State PLD pin 18.  The reads
+          are PORT & !Q0 (LOAD_MEM), as /PORT_RD was.
+
+   OUTPUT REGISTER (was the 74HC574)
+      Pin 1 is /WE (revision 05; was /PORT_WR); the five registers
+      load D4:D0 on its rising edge at the end of a write to any
+      x52xx, as the 74HC574 did.  The setup time (3.5 ns) is shorter than
+      the 74HC574's.  Data bits 7:5 are not stored any more (they
+      were the column code); software may write anything there.
+          bit 0  SCK, pads' CLOCK
+          bit 1  MOSI, pads' LATCH
+          bit 2  SD /CS; 0 also holds the mouse's CLK low (diode)
+          bit 3  0 holds the shared PS/2 DATA line low (diode)
+          bit 4  K0: 0 holds the PS/2 keyboard's CLK low (diode),
+                 1 frees the keyboard
+      The registers clear at power-up.  SCK, MOSI and the DATA hold
+      are declared active low, so a cleared register leaves those
+      pins high; /CS and K0 are active high, so they start low.  The
+      port therefore powers up at its rest value EB (no PS/2 device
+      can send, the card is selected and idle); the 74HC574 powered
+      up with random bits.
+      The pads' CLOCK and LATCH inputs are CMOS (4021, high at least
+      3.5 V).  The PLD's data sheet only promises 2.4 V at 4 mA, but
+      into CMOS inputs and the SD dividers (about 1 mA) its high is
+      expected near 5 V: check with a meter at bring-up (BRINGUP.md).
+
+   READS (x5200, x5201: A1 = 0)
+      Even address (A0 = 0):  D7 = SD MISO    D5 = RXCLK
+      Odd address (A0 = 1):   D7 = pad 1 DATA  D6 = pad 2 DATA
+                              D5 = RXCLK
+      The other bits are not driven; reads must mask them (the data
+      bus pull-ups make them 1).  RXCLK is the clock line of the PS/2
+      device whose clock the latch has let go, for the routines that
+      send a command to a device and must follow its clock.  The
+      received bytes are read from the PS/2 receiver PLD at x5202
+      and x5203 (A1 = 1); this PLD drives nothing there.  MISO is a
+      3.3 V signal and goes straight to pin 13; the PLD's TTL input
+      reads 2.0 V as high.  The output enable is 7.5 ns from
+      /PORT, faster than the 74F541's 9.5 ns.
+
+   PIN BUDGET
+      Inputs (13): /WE (clock), /PORT, A0, D0-D4, PAD1, PAD2,
+                   RXCLK, MISO on pin 13, A1 on I/O pin 14 and Q0 on
+                   I/O pin 15 (revision 05)
+      Outputs (8):  SCK, MOSI, /CS, DATA hold, K0 (registered);
+                    D5, D6, D7 (combinational, 3-state)
+      No spare pins.  The registers and D7 are two product terms,
+      D5 and D6 one; the data outputs have one more for the output
+      enable.  One array pass.
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 1  = !WE;          /* RAM /WE, Sync PLD pin 20: clocks the registers on its rising edge (revision 05; was /PORT_WR) */
+PIN 2  = MISO;         /* SD card DO, 3.3 V (10k pull-up to 3.3 V) */  /* pin swap: was on pin 13 */
+PIN 3  = PAD1;         /* SNES pad 1 DATA (10k pull-up: no pad reads 1) */  /* pin swap: was on pin 9 */
+PIN 4  = PAD2;         /* SNES pad 2 DATA (10k pull-up) */  /* pin swap: was on pin 10 */
+PIN 5  = D1;
+PIN 6  = Q0;           /* State PLD pin 18, state bit 0: 0 in LOAD_MEM (I/O pin used as input, revision 05) */  /* pin swap: was on pin 15 */
+PIN 7  = A1;           /* address bit 1: 1 = the PS/2 receiver's addresses, this PLD stays off the bus */  /* pin swap: was on pin 14 */
+PIN 8  = D0;           /* data bus, written to the register */  /* pin swap: was on pin 4 */
+PIN 9  = !PORT;        /* I/O decode PLD pin 20, low for any access to 5200h-52FFh (revision 05; was /PORT_RD) */  /* pin swap: was on pin 2 */
+PIN 10 = RXCLK;        /* the free PS/2 device's clock (KBD_CLK and MOUS_CLK diode-ORed, 22k to GND) */  /* pin swap: was on pin 11 */
+PIN 11 = A0;           /* address bit 0: 0 = MISO and PS/2 lines, 1 = pads */  /* pin swap: was on pin 3 */
+PIN 13 = D3;  /* pin swap: was on pin 7 */
+PIN 14 = D4;  /* pin swap: was on pin 8 */
+PIN 15 = !DHOLD;       /* latch bit 3: low holds PS/2 DATA low (diode); high at power-up */  /* pin swap: was on pin 17 */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+PIN 16 = K0;           /* latch bit 4: keyboard CLK hold (diode) and pad 2 select */
+PIN 17 = D2;  /* pin swap: was on pin 6 */
+PIN 18 = SDCS;         /* latch bit 2: SD /CS, low also holds the mouse CLK (diode) */
+PIN 19 = D7;           /* data bus bit 7, 3-state: MISO on even, pad 1 on odd reads */  /* pin swap: was on pin 23 */
+PIN 20 = D6;           /* data bus bit 6, 3-state: pad 2 on odd reads */  /* pin swap: was on pin 22 */
+PIN 21 = D5;           /* data bus bit 5, 3-state: RXCLK */
+PIN 22 = !MOSIN;       /* latch bit 1: MOSI and pads' LATCH, pin = D1; high at power-up */  /* pin swap: was on pin 19 */
+PIN 23 = !SCKN;        /* latch bit 0: SCK and pads' CLOCK, pin = D0; high at power-up */  /* pin swap: was on pin 20 */
+
+
+/* ---------------- EQUATIONS ---------------- */
+
+/* Output register: the pin follows the data bit written. */
+PORT_RD = PORT & !Q0;     /* revision 05: LOAD_MEM, as /PORT_RD was */
+
+/* Output register: the pin follows the data bit written while /PORT
+   is low, and holds on every other /WE (revision 05). */
+SCKN.D  =  PORT & !D0  #  !PORT & SCKN;
+MOSIN.D =  PORT & !D1  #  !PORT & MOSIN;
+SDCS.D  =  PORT &  D2  #  !PORT & SDCS;
+DHOLD.D =  PORT & !D3  #  !PORT & DHOLD;
+K0.D    =  PORT &  D4  #  !PORT & K0;
+
+D7    = !A0 & MISO
+      #  A0 & PAD1;
+D7.OE = PORT_RD & !A1;
+
+D6    = PAD2;
+D6.OE = PORT_RD & !A1 & A0;
+
+D5    = RXCLK;
+D5.OE = PORT_RD & !A1;

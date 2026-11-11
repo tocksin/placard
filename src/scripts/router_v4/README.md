@@ -700,3 +700,9 @@ Pin swaps are the biggest single gain found so far: -19 % vias on the hand place
 The rules placer gives the shortest track (-14 % with swaps) but still more vias than starting from the hand placement; building
 outside-in matters (`CENTREW` 1 -> 3: 764 -> 603 vias). Uniformly wider gaps cost length and vias: the room has to be left where
 the routing needs it, not everywhere.
+
+### Checking PLD pin swaps (2026-11-11)
+
+`pldcheck.py before.kicad_pcb after.kicad_pcb outdir` checks every ATF22V10 pin swap against the chip: product terms of the new pin, input-only pins, the clock pin, and one pin per signal. It also writes one `<Uref>_<design>_pinswap.pld` per chip (only the PIN lines differ) for a WinCUPL compile. On the 388-via pin-swap board all 20 PLDs pass (92 outputs moved, none over its pin's terms; two are now full: U4 Q5 and U14 Q6 at 10/10), and all 20 swapped files compile with WinCUPL (`bench/wbf11_ps_pldchk.md`, `bench/wbf11_ps_pldcheck/`).
+
+Two things the check showed. The whole-board bench board is the netlist from before the expansion redesign (U12, U15, U38, U42 differ from today's board), so swaps must be recomputed on the current board before they are adopted. And chips that share a design (U7-U10 QUAD_MUX, U3/U4 PC_COUNTER8, U5/U6 ALU_SHR) get different swaps, so each would need its own .pld and .jed.

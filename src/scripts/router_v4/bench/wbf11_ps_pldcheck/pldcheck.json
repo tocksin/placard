@@ -1,0 +1,4034 @@
+{
+ "U1": {
+  "file": "ATF22V10_STATE.pld",
+  "moved": 15,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 13,
+    "signal": "SRC0",
+    "net": "I0",
+    "kind": "in"
+   },
+   {
+    "pin": 5,
+    "frompin": 6,
+    "signal": "MEM1",
+    "net": "I3",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 11,
+    "signal": "DB_MEM2",
+    "net": "DATABUS4",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 10,
+    "signal": "DB_MEM0",
+    "net": "DATABUS2",
+    "kind": "in"
+   },
+   {
+    "pin": 8,
+    "frompin": 9,
+    "signal": "DB_MEM1",
+    "net": "DATABUS3",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 7,
+    "signal": "MEM0",
+    "net": "I2",
+    "kind": "in"
+   },
+   {
+    "pin": 10,
+    "frompin": 5,
+    "signal": "MEM2",
+    "net": "I4",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 2,
+    "signal": "PIXEL_ENABLE",
+    "net": "STALL_OUT",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 8,
+    "signal": "BRANCH_BLOCK",
+    "net": "/Control/BRANCH_BLOCK",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 23,
+    "signal": "MEM_WR",
+    "net": "RW",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 8,
+    "need": [
+     2,
+     5
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 15,
+    "frompin": 19,
+    "signal": "LOAD_IMM",
+    "net": "~{LOAD_IMM}",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 16,
+    "need": [
+     2,
+     3
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 19,
+    "frompin": 15,
+    "signal": "Q1",
+    "net": "PC_ENABLE",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 10,
+    "need": [
+     9,
+     7
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 20,
+    "frompin": 22,
+    "signal": "LOAD_AC",
+    "net": "~{LOAD_AC}",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 10,
+    "need": [
+     2,
+     6
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 22,
+    "frompin": 20,
+    "signal": "LOAD_X",
+    "net": "~{LOAD_X}",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 14,
+    "need": [
+     1,
+     7
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 23,
+    "frompin": 14,
+    "signal": "LOAD_INSTR",
+    "net": "Net-(U1-{slash}LOAD_INSTR)",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 8,
+    "need": [
+     1,
+     3
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "CLK",
+   "3": "DB_SRC1",
+   "4": "DB_SRC0",
+   "12": null,
+   "16": "X_ENABLE",
+   "17": "Y_ENABLE",
+   "18": "Q0",
+   "21": "LOAD_Y",
+   "24": null,
+   "2": "SRC0",
+   "5": "MEM1",
+   "6": "DB_MEM2",
+   "7": "DB_MEM0",
+   "8": "DB_MEM1",
+   "9": "MEM0",
+   "10": "MEM2",
+   "11": "PIXEL_ENABLE",
+   "13": "BRANCH_BLOCK",
+   "14": "MEM_WR",
+   "15": "LOAD_IMM",
+   "19": "Q1",
+   "20": "LOAD_AC",
+   "22": "LOAD_X",
+   "23": "LOAD_INSTR"
+  },
+  "oldpins": {
+   "1": "CLK",
+   "2": "PIXEL_ENABLE",
+   "3": "DB_SRC1",
+   "4": "DB_SRC0",
+   "5": "MEM2",
+   "6": "MEM1",
+   "7": "MEM0",
+   "8": "BRANCH_BLOCK",
+   "9": "DB_MEM1",
+   "10": "DB_MEM0",
+   "11": "DB_MEM2",
+   "13": "SRC0",
+   "18": "Q0",
+   "15": "Q1",
+   "16": "X_ENABLE",
+   "17": "Y_ENABLE",
+   "14": "LOAD_INSTR",
+   "19": "LOAD_IMM",
+   "20": "LOAD_X",
+   "21": "LOAD_Y",
+   "22": "LOAD_AC",
+   "23": "MEM_WR"
+  }
+ },
+ "U2": {
+  "file": "ATF22V10_BRANCH.pld",
+  "moved": 14,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 7,
+    "signal": "Z_LOW",
+    "net": "Z_LOW",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 14,
+    "signal": "COUT",
+    "net": "COUT",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 13,
+    "signal": "Z_HIGH",
+    "net": "Z_HIGH",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 11,
+    "signal": "PC_ENABLE",
+    "net": "PC_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 9,
+    "signal": "PIXEL_ENABLE",
+    "net": "PIXEL_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 3,
+    "signal": "I5",
+    "net": "I5",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 20,
+    "signal": "CARRY",
+    "net": "unconnected-(U2-CARRY-Pad20)",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 14,
+    "need": [
+     3,
+     4
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 16,
+    "frompin": 18,
+    "signal": "ALU_DONE",
+    "net": "unconnected-(U2-ALU_DONE-Pad18)",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 16,
+    "need": [
+     3,
+     14
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 17,
+    "frompin": 22,
+    "signal": "LOAD_PC_HIGH",
+    "net": "LOAD_PC_HIGH",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 10,
+    "need": [
+     1,
+     9
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 18,
+    "frompin": 16,
+    "signal": "SRC_EN",
+    "net": "~{SRC_EN}",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 12,
+    "need": [
+     1,
+     3
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 19,
+    "frompin": 21,
+    "signal": "LOAD_PC_LOW",
+    "net": "LOAD_PC_LOW",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 12,
+    "need": [
+     10,
+     19
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 20,
+    "frompin": 17,
+    "signal": "I7",
+    "net": "I7",
+    "kind": "in"
+   },
+   {
+    "pin": 21,
+    "frompin": 2,
+    "signal": "I6",
+    "net": "I6",
+    "kind": "in"
+   },
+   {
+    "pin": 22,
+    "frompin": 19,
+    "signal": "STALL",
+    "net": "STALL_IN",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 16,
+    "need": [
+     3,
+     7
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "CLK",
+   "4": "M2",
+   "5": "M1",
+   "6": "M0",
+   "8": "NEG",
+   "10": "Q0",
+   "12": null,
+   "15": "PIX_LD",
+   "23": "BRANCH_BLOCK",
+   "24": null,
+   "2": "Z_LOW",
+   "3": "COUT",
+   "7": "Z_HIGH",
+   "9": "PC_ENABLE",
+   "11": "PIXEL_ENABLE",
+   "13": "I5",
+   "14": "CARRY",
+   "16": "ALU_DONE",
+   "17": "LOAD_PC_HIGH",
+   "18": "SRC_EN",
+   "19": "LOAD_PC_LOW",
+   "20": "I7",
+   "21": "I6",
+   "22": "STALL"
+  },
+  "oldpins": {
+   "1": "CLK",
+   "17": "I7",
+   "2": "I6",
+   "3": "I5",
+   "4": "M2",
+   "5": "M1",
+   "6": "M0",
+   "7": "Z_LOW",
+   "8": "NEG",
+   "9": "PIXEL_ENABLE",
+   "10": "Q0",
+   "11": "PC_ENABLE",
+   "13": "Z_HIGH",
+   "14": "COUT",
+   "21": "LOAD_PC_LOW",
+   "22": "LOAD_PC_HIGH",
+   "23": "BRANCH_BLOCK",
+   "18": "ALU_DONE",
+   "19": "STALL",
+   "16": "SRC_EN",
+   "20": "CARRY",
+   "15": "PIX_LD"
+  }
+ },
+ "U3": {
+  "file": "ATF22V10_PC_COUNTER8.pld",
+  "moved": 14,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 8,
+    "signal": "D6",
+    "net": "DATABUS6",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 2,
+    "signal": "D0",
+    "net": "DATABUS0",
+    "kind": "in"
+   },
+   {
+    "pin": 5,
+    "frompin": 7,
+    "signal": "D5",
+    "net": "DATABUS5",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 4,
+    "signal": "D2",
+    "net": "DATABUS2",
+    "kind": "in"
+   },
+   {
+    "pin": 8,
+    "frompin": 5,
+    "signal": "D3",
+    "net": "DATABUS3",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 11,
+    "signal": "EN",
+    "net": "PC_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 10,
+    "frompin": 9,
+    "signal": "D7",
+    "net": "DATABUS7",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 10,
+    "signal": "LOAD",
+    "net": "LOAD_PC_LOW",
+    "kind": "in"
+   },
+   {
+    "pin": 15,
+    "frompin": 23,
+    "signal": "CO",
+    "net": "Net-(U3-CO)",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 8,
+    "need": [
+     1,
+     9
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 17,
+    "frompin": 18,
+    "signal": "Q7",
+    "net": "PC7",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 16,
+    "need": [
+     12,
+     23
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 18,
+    "frompin": 19,
+    "signal": "Q6",
+    "net": "PC6",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 16,
+    "need": [
+     11,
+     21
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 19,
+    "frompin": 20,
+    "signal": "Q4",
+    "net": "PC4",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 14,
+    "need": [
+     9,
+     17
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 20,
+    "frompin": 17,
+    "signal": "Q5",
+    "net": "PC5",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 14,
+    "need": [
+     10,
+     19
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 23,
+    "frompin": 15,
+    "signal": "Q0",
+    "net": "PC0",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 10,
+    "need": [
+     5,
+     9
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "CLK",
+   "3": "D1",
+   "6": "D4",
+   "12": null,
+   "13": "CIN",
+   "14": "PIXEL_ENABLE",
+   "16": "Q3",
+   "21": "Q2",
+   "22": "Q1",
+   "24": null,
+   "2": "D6",
+   "4": "D0",
+   "5": "D5",
+   "7": "D2",
+   "8": "D3",
+   "9": "EN",
+   "10": "D7",
+   "11": "LOAD",
+   "15": "CO",
+   "17": "Q7",
+   "18": "Q6",
+   "19": "Q4",
+   "20": "Q5",
+   "23": "Q0"
+  },
+  "oldpins": {
+   "1": "CLK",
+   "2": "D0",
+   "3": "D1",
+   "4": "D2",
+   "5": "D3",
+   "6": "D4",
+   "7": "D5",
+   "8": "D6",
+   "9": "D7",
+   "10": "LOAD",
+   "11": "EN",
+   "13": "CIN",
+   "14": "PIXEL_ENABLE",
+   "15": "Q0",
+   "22": "Q1",
+   "21": "Q2",
+   "16": "Q3",
+   "20": "Q4",
+   "17": "Q5",
+   "19": "Q6",
+   "18": "Q7",
+   "23": "CO"
+  }
+ },
+ "U4": {
+  "file": "ATF22V10_PC_COUNTER8.pld",
+  "moved": 16,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 3,
+    "signal": "D1",
+    "net": "Y1",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 2,
+    "signal": "D0",
+    "net": "Y0",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 13,
+    "signal": "CIN",
+    "net": "Net-(U3-CO)",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 14,
+    "signal": "PIXEL_ENABLE",
+    "net": "STALL_OUT",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 6,
+    "signal": "D4",
+    "net": "Y4",
+    "kind": "in"
+   },
+   {
+    "pin": 8,
+    "frompin": 4,
+    "signal": "D2",
+    "net": "Y2",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 8,
+    "signal": "D6",
+    "net": "Y6",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 9,
+    "signal": "D7",
+    "net": "Y7",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 23,
+    "signal": "CO",
+    "net": "unconnected-(U4-CO-Pad23)",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 8,
+    "need": [
+     1,
+     9
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 15,
+    "frompin": 17,
+    "signal": "Q5",
+    "net": "PC13",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 14,
+    "need": [
+     10,
+     19
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 16,
+    "frompin": 20,
+    "signal": "Q4",
+    "net": "PC12",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 14,
+    "need": [
+     9,
+     17
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 17,
+    "frompin": 19,
+    "signal": "Q6",
+    "net": "PC14",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 16,
+    "need": [
+     11,
+     21
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 19,
+    "frompin": 7,
+    "signal": "D5",
+    "net": "Y5",
+    "kind": "in"
+   },
+   {
+    "pin": 20,
+    "frompin": 21,
+    "signal": "Q2",
+    "net": "PC10",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 12,
+    "need": [
+     7,
+     13
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 21,
+    "frompin": 16,
+    "signal": "Q3",
+    "net": "PC11",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 12,
+    "need": [
+     8,
+     15
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 23,
+    "frompin": 15,
+    "signal": "Q0",
+    "net": "PC8",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 10,
+    "need": [
+     5,
+     9
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "CLK",
+   "5": "D3",
+   "10": "LOAD",
+   "11": "EN",
+   "12": null,
+   "18": "Q7",
+   "22": "Q1",
+   "24": null,
+   "2": "D1",
+   "3": "D0",
+   "4": "CIN",
+   "6": "PIXEL_ENABLE",
+   "7": "D4",
+   "8": "D2",
+   "9": "D6",
+   "13": "D7",
+   "14": "CO",
+   "15": "Q5",
+   "16": "Q4",
+   "17": "Q6",
+   "19": "D5",
+   "20": "Q2",
+   "21": "Q3",
+   "23": "Q0"
+  },
+  "oldpins": {
+   "1": "CLK",
+   "2": "D0",
+   "3": "D1",
+   "4": "D2",
+   "5": "D3",
+   "6": "D4",
+   "7": "D5",
+   "8": "D6",
+   "9": "D7",
+   "10": "LOAD",
+   "11": "EN",
+   "13": "CIN",
+   "14": "PIXEL_ENABLE",
+   "15": "Q0",
+   "22": "Q1",
+   "21": "Q2",
+   "16": "Q3",
+   "20": "Q4",
+   "17": "Q5",
+   "19": "Q6",
+   "18": "Q7",
+   "23": "CO"
+  }
+ },
+ "U5": {
+  "file": "ALU_SHR.pld",
+  "moved": 12,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 7,
+    "signal": "B2",
+    "net": "DATABUS2",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 6,
+    "signal": "B1",
+    "net": "DATABUS1",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 13,
+    "signal": "CIN",
+    "net": "GND",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 3,
+    "signal": "A2",
+    "net": "AC2",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 2,
+    "signal": "A1",
+    "net": "AC1",
+    "kind": "in"
+   },
+   {
+    "pin": 8,
+    "frompin": 23,
+    "signal": "SHIFT_RIGHT_IN",
+    "net": "AC4",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 4,
+    "signal": "A3",
+    "net": "AC3",
+    "kind": "in"
+   },
+   {
+    "pin": 17,
+    "frompin": 21,
+    "signal": "F3",
+    "net": "/ALU and registers/F3",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 12,
+    "need": [
+     11,
+     20
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 19,
+    "frompin": 20,
+    "signal": "F1",
+    "net": "/ALU and registers/F1",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 14,
+    "need": [
+     11,
+     20
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 20,
+    "frompin": 19,
+    "signal": "D2",
+    "net": "unconnected-(U5-nc-Pad19)",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 16,
+    "need": [
+     13,
+     13
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 21,
+    "frompin": 17,
+    "signal": "F0",
+    "net": "/ALU and registers/F0",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 14,
+    "need": [
+     11,
+     20
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 23,
+    "frompin": 8,
+    "signal": "B3",
+    "net": "DATABUS3",
+    "kind": "in"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "A0",
+   "5": "B0",
+   "9": "S0",
+   "10": "S1",
+   "11": "S2",
+   "12": null,
+   "14": "Z",
+   "15": "D1",
+   "16": "F2",
+   "18": "COUT",
+   "22": "D3",
+   "24": null,
+   "2": "B2",
+   "3": "B1",
+   "4": "CIN",
+   "6": "A2",
+   "7": "A1",
+   "8": "SHIFT_RIGHT_IN",
+   "13": "A3",
+   "17": "F3",
+   "19": "F1",
+   "20": "D2",
+   "21": "F0",
+   "23": "B3"
+  },
+  "oldpins": {
+   "1": "A0",
+   "2": "A1",
+   "3": "A2",
+   "4": "A3",
+   "5": "B0",
+   "6": "B1",
+   "7": "B2",
+   "8": "B3",
+   "9": "S0",
+   "10": "S1",
+   "11": "S2",
+   "13": "CIN",
+   "23": "SHIFT_RIGHT_IN",
+   "17": "F0",
+   "20": "F1",
+   "16": "F2",
+   "21": "F3",
+   "18": "COUT",
+   "14": "Z",
+   "15": "D1",
+   "19": "D2",
+   "22": "D3"
+  }
+ },
+ "U6": {
+  "file": "ALU_SHR.pld",
+  "moved": 12,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 23,
+    "signal": "SHIFT_RIGHT_IN",
+    "net": "GND",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 10,
+    "signal": "S1",
+    "net": "I6",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 11,
+    "signal": "S2",
+    "net": "I7",
+    "kind": "in"
+   },
+   {
+    "pin": 5,
+    "frompin": 9,
+    "signal": "S0",
+    "net": "I5",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 5,
+    "signal": "B0",
+    "net": "DATABUS4",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 2,
+    "signal": "A1",
+    "net": "AC5",
+    "kind": "in"
+   },
+   {
+    "pin": 8,
+    "frompin": 3,
+    "signal": "A2",
+    "net": "AC6",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 6,
+    "signal": "B1",
+    "net": "DATABUS5",
+    "kind": "in"
+   },
+   {
+    "pin": 10,
+    "frompin": 7,
+    "signal": "B2",
+    "net": "DATABUS6",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 8,
+    "signal": "B3",
+    "net": "DATABUS7",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 4,
+    "signal": "A3",
+    "net": "AC7",
+    "kind": "in"
+   },
+   {
+    "pin": 23,
+    "frompin": 13,
+    "signal": "CIN",
+    "net": "Net-(U5-COUT)",
+    "kind": "in"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "A0",
+   "12": null,
+   "14": "Z",
+   "15": "D1",
+   "16": "F2",
+   "17": "F0",
+   "18": "COUT",
+   "19": "D2",
+   "20": "F1",
+   "21": "F3",
+   "22": "D3",
+   "24": null,
+   "2": "SHIFT_RIGHT_IN",
+   "3": "S1",
+   "4": "S2",
+   "5": "S0",
+   "6": "B0",
+   "7": "A1",
+   "8": "A2",
+   "9": "B1",
+   "10": "B2",
+   "11": "B3",
+   "13": "A3",
+   "23": "CIN"
+  },
+  "oldpins": {
+   "1": "A0",
+   "2": "A1",
+   "3": "A2",
+   "4": "A3",
+   "5": "B0",
+   "6": "B1",
+   "7": "B2",
+   "8": "B3",
+   "9": "S0",
+   "10": "S1",
+   "11": "S2",
+   "13": "CIN",
+   "23": "SHIFT_RIGHT_IN",
+   "17": "F0",
+   "20": "F1",
+   "16": "F2",
+   "21": "F3",
+   "18": "COUT",
+   "14": "Z",
+   "15": "D1",
+   "19": "D2",
+   "22": "D3"
+  }
+ },
+ "U7": {
+  "file": "ATF22V10_QUAD_MUX.pld",
+  "moved": 18,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 6,
+    "signal": "X0",
+    "net": "X0",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 5,
+    "signal": "D0",
+    "net": "D0",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 10,
+    "signal": "X1",
+    "net": "X1",
+    "kind": "in"
+   },
+   {
+    "pin": 5,
+    "frompin": 9,
+    "signal": "D1",
+    "net": "D1",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 17,
+    "signal": "Y3",
+    "net": "Y1",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 14,
+    "signal": "Y2",
+    "net": "Y0",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 13,
+    "signal": "PC1",
+    "net": "PC1",
+    "kind": "in"
+   },
+   {
+    "pin": 10,
+    "frompin": 16,
+    "signal": "PC2",
+    "net": "PC8",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 19,
+    "signal": "PC3",
+    "net": "PC9",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 11,
+    "signal": "V1",
+    "net": "VA1",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 2,
+    "signal": "PC_ENABLE",
+    "net": "PC_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 15,
+    "frompin": 3,
+    "signal": "X_ENABLE",
+    "net": "X_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 16,
+    "frompin": 4,
+    "signal": "Y_ENABLE",
+    "net": "Y_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 17,
+    "frompin": 7,
+    "signal": "V0",
+    "net": "VA0",
+    "kind": "in"
+   },
+   {
+    "pin": 19,
+    "frompin": 15,
+    "signal": "V2",
+    "net": "VA8",
+    "kind": "in"
+   },
+   {
+    "pin": 20,
+    "frompin": 22,
+    "signal": "HI0",
+    "net": "ADDR8",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 10,
+    "need": [
+     3,
+     11
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 21,
+    "frompin": 20,
+    "signal": "LO0",
+    "net": "ADDR0",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 14,
+    "need": [
+     4,
+     15
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 22,
+    "frompin": 21,
+    "signal": "LO1",
+    "net": "ADDR1",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 12,
+    "need": [
+     4,
+     15
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "PIXEL_ENABLE",
+   "8": "PC0",
+   "12": null,
+   "18": "V3",
+   "23": "HI1",
+   "24": null,
+   "2": "X0",
+   "3": "D0",
+   "4": "X1",
+   "5": "D1",
+   "6": "Y3",
+   "7": "Y2",
+   "9": "PC1",
+   "10": "PC2",
+   "11": "PC3",
+   "13": "V1",
+   "14": "PC_ENABLE",
+   "15": "X_ENABLE",
+   "16": "Y_ENABLE",
+   "17": "V0",
+   "19": "V2",
+   "20": "HI0",
+   "21": "LO0",
+   "22": "LO1"
+  },
+  "oldpins": {
+   "1": "PIXEL_ENABLE",
+   "2": "PC_ENABLE",
+   "3": "X_ENABLE",
+   "4": "Y_ENABLE",
+   "5": "D0",
+   "6": "X0",
+   "7": "V0",
+   "8": "PC0",
+   "9": "D1",
+   "10": "X1",
+   "11": "V1",
+   "13": "PC1",
+   "14": "Y2",
+   "15": "V2",
+   "16": "PC2",
+   "17": "Y3",
+   "18": "V3",
+   "19": "PC3",
+   "20": "LO0",
+   "21": "LO1",
+   "22": "HI0",
+   "23": "HI1"
+  }
+ },
+ "U8": {
+  "file": "ATF22V10_QUAD_MUX.pld",
+  "moved": 18,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 10,
+    "signal": "X1",
+    "net": "X3",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 5,
+    "signal": "D0",
+    "net": "D2",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 8,
+    "signal": "PC0",
+    "net": "PC2",
+    "kind": "in"
+   },
+   {
+    "pin": 5,
+    "frompin": 6,
+    "signal": "X0",
+    "net": "X2",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 17,
+    "signal": "Y3",
+    "net": "Y3",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 14,
+    "signal": "Y2",
+    "net": "Y2",
+    "kind": "in"
+   },
+   {
+    "pin": 8,
+    "frompin": 4,
+    "signal": "Y_ENABLE",
+    "net": "Y_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 13,
+    "signal": "PC1",
+    "net": "PC3",
+    "kind": "in"
+   },
+   {
+    "pin": 10,
+    "frompin": 19,
+    "signal": "PC3",
+    "net": "PC11",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 16,
+    "signal": "PC2",
+    "net": "PC10",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 7,
+    "signal": "V0",
+    "net": "V2",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 22,
+    "signal": "HI0",
+    "net": "ADDR10",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 10,
+    "need": [
+     3,
+     11
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 15,
+    "frompin": 11,
+    "signal": "V1",
+    "net": "V3",
+    "kind": "in"
+   },
+   {
+    "pin": 16,
+    "frompin": 3,
+    "signal": "X_ENABLE",
+    "net": "X_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 17,
+    "frompin": 15,
+    "signal": "V2",
+    "net": "H4",
+    "kind": "in"
+   },
+   {
+    "pin": 19,
+    "frompin": 23,
+    "signal": "HI1",
+    "net": "ADDR11",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 8,
+    "need": [
+     3,
+     11
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 22,
+    "frompin": 2,
+    "signal": "PC_ENABLE",
+    "net": "PC_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 23,
+    "frompin": 9,
+    "signal": "D1",
+    "net": "D3",
+    "kind": "in"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "PIXEL_ENABLE",
+   "12": null,
+   "18": "V3",
+   "20": "LO0",
+   "21": "LO1",
+   "24": null,
+   "2": "X1",
+   "3": "D0",
+   "4": "PC0",
+   "5": "X0",
+   "6": "Y3",
+   "7": "Y2",
+   "8": "Y_ENABLE",
+   "9": "PC1",
+   "10": "PC3",
+   "11": "PC2",
+   "13": "V0",
+   "14": "HI0",
+   "15": "V1",
+   "16": "X_ENABLE",
+   "17": "V2",
+   "19": "HI1",
+   "22": "PC_ENABLE",
+   "23": "D1"
+  },
+  "oldpins": {
+   "1": "PIXEL_ENABLE",
+   "2": "PC_ENABLE",
+   "3": "X_ENABLE",
+   "4": "Y_ENABLE",
+   "5": "D0",
+   "6": "X0",
+   "7": "V0",
+   "8": "PC0",
+   "9": "D1",
+   "10": "X1",
+   "11": "V1",
+   "13": "PC1",
+   "14": "Y2",
+   "15": "V2",
+   "16": "PC2",
+   "17": "Y3",
+   "18": "V3",
+   "19": "PC3",
+   "20": "LO0",
+   "21": "LO1",
+   "22": "HI0",
+   "23": "HI1"
+  }
+ },
+ "U9": {
+  "file": "ATF22V10_QUAD_MUX.pld",
+  "moved": 15,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 10,
+    "signal": "X1",
+    "net": "X5",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 13,
+    "signal": "PC1",
+    "net": "PC5",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 9,
+    "signal": "D1",
+    "net": "D5",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 17,
+    "signal": "Y3",
+    "net": "Y5",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 8,
+    "signal": "PC0",
+    "net": "PC4",
+    "kind": "in"
+   },
+   {
+    "pin": 8,
+    "frompin": 4,
+    "signal": "Y_ENABLE",
+    "net": "Y_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 16,
+    "signal": "PC2",
+    "net": "PC12",
+    "kind": "in"
+   },
+   {
+    "pin": 10,
+    "frompin": 19,
+    "signal": "PC3",
+    "net": "PC13",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 2,
+    "signal": "PC_ENABLE",
+    "net": "PC_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 11,
+    "signal": "V1",
+    "net": "V5",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 18,
+    "signal": "V3",
+    "net": "H7",
+    "kind": "in"
+   },
+   {
+    "pin": 16,
+    "frompin": 7,
+    "signal": "V0",
+    "net": "V4",
+    "kind": "in"
+   },
+   {
+    "pin": 17,
+    "frompin": 3,
+    "signal": "X_ENABLE",
+    "net": "X_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 18,
+    "frompin": 14,
+    "signal": "Y2",
+    "net": "Y4",
+    "kind": "in"
+   },
+   {
+    "pin": 19,
+    "frompin": 6,
+    "signal": "X0",
+    "net": "X4",
+    "kind": "in"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "PIXEL_ENABLE",
+   "5": "D0",
+   "12": null,
+   "15": "V2",
+   "20": "LO0",
+   "21": "LO1",
+   "22": "HI0",
+   "23": "HI1",
+   "24": null,
+   "2": "X1",
+   "3": "PC1",
+   "4": "D1",
+   "6": "Y3",
+   "7": "PC0",
+   "8": "Y_ENABLE",
+   "9": "PC2",
+   "10": "PC3",
+   "11": "PC_ENABLE",
+   "13": "V1",
+   "14": "V3",
+   "16": "V0",
+   "17": "X_ENABLE",
+   "18": "Y2",
+   "19": "X0"
+  },
+  "oldpins": {
+   "1": "PIXEL_ENABLE",
+   "2": "PC_ENABLE",
+   "3": "X_ENABLE",
+   "4": "Y_ENABLE",
+   "5": "D0",
+   "6": "X0",
+   "7": "V0",
+   "8": "PC0",
+   "9": "D1",
+   "10": "X1",
+   "11": "V1",
+   "13": "PC1",
+   "14": "Y2",
+   "15": "V2",
+   "16": "PC2",
+   "17": "Y3",
+   "18": "V3",
+   "19": "PC3",
+   "20": "LO0",
+   "21": "LO1",
+   "22": "HI0",
+   "23": "HI1"
+  }
+ },
+ "U10": {
+  "file": "ATF22V10_QUAD_MUX.pld",
+  "moved": 20,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 17,
+    "signal": "Y3",
+    "net": "Y7",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 4,
+    "signal": "Y_ENABLE",
+    "net": "Y_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 2,
+    "signal": "PC_ENABLE",
+    "net": "PC_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 5,
+    "frompin": 6,
+    "signal": "X0",
+    "net": "X6",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 8,
+    "signal": "PC0",
+    "net": "PC6",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 5,
+    "signal": "D0",
+    "net": "D6",
+    "kind": "in"
+   },
+   {
+    "pin": 8,
+    "frompin": 13,
+    "signal": "PC1",
+    "net": "PC7",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 16,
+    "signal": "PC2",
+    "net": "PC14",
+    "kind": "in"
+   },
+   {
+    "pin": 10,
+    "frompin": 9,
+    "signal": "D1",
+    "net": "D7",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 14,
+    "signal": "Y2",
+    "net": "Y6",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 15,
+    "signal": "V2",
+    "net": "H8",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 7,
+    "signal": "V0",
+    "net": "V6",
+    "kind": "in"
+   },
+   {
+    "pin": 15,
+    "frompin": 11,
+    "signal": "V1",
+    "net": "VA7",
+    "kind": "in"
+   },
+   {
+    "pin": 16,
+    "frompin": 18,
+    "signal": "V3",
+    "net": "H9",
+    "kind": "in"
+   },
+   {
+    "pin": 17,
+    "frompin": 20,
+    "signal": "LO0",
+    "net": "ADDR6",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 14,
+    "need": [
+     4,
+     15
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 18,
+    "frompin": 22,
+    "signal": "HI0",
+    "net": "ADDR14",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 10,
+    "need": [
+     3,
+     11
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 19,
+    "frompin": 23,
+    "signal": "HI1",
+    "net": "ADDR15",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 8,
+    "need": [
+     3,
+     11
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 20,
+    "frompin": 3,
+    "signal": "X_ENABLE",
+    "net": "X_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 22,
+    "frompin": 10,
+    "signal": "X1",
+    "net": "X7",
+    "kind": "in"
+   },
+   {
+    "pin": 23,
+    "frompin": 19,
+    "signal": "PC3",
+    "net": "PC15",
+    "kind": "in"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "PIXEL_ENABLE",
+   "12": null,
+   "21": "LO1",
+   "24": null,
+   "2": "Y3",
+   "3": "Y_ENABLE",
+   "4": "PC_ENABLE",
+   "5": "X0",
+   "6": "PC0",
+   "7": "D0",
+   "8": "PC1",
+   "9": "PC2",
+   "10": "D1",
+   "11": "Y2",
+   "13": "V2",
+   "14": "V0",
+   "15": "V1",
+   "16": "V3",
+   "17": "LO0",
+   "18": "HI0",
+   "19": "HI1",
+   "20": "X_ENABLE",
+   "22": "X1",
+   "23": "PC3"
+  },
+  "oldpins": {
+   "1": "PIXEL_ENABLE",
+   "2": "PC_ENABLE",
+   "3": "X_ENABLE",
+   "4": "Y_ENABLE",
+   "5": "D0",
+   "6": "X0",
+   "7": "V0",
+   "8": "PC0",
+   "9": "D1",
+   "10": "X1",
+   "11": "V1",
+   "13": "PC1",
+   "14": "Y2",
+   "15": "V2",
+   "16": "PC2",
+   "17": "Y3",
+   "18": "V3",
+   "19": "PC3",
+   "20": "LO0",
+   "21": "LO1",
+   "22": "HI0",
+   "23": "HI1"
+  }
+ },
+ "U11": {
+  "file": "ATF22V10_MEM_CTRL.pld",
+  "moved": 17,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 8,
+    "signal": "RAMSEL3",
+    "net": "/Memory and I/O decode/RAMSEL3",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 15,
+    "signal": "RAMSEL2",
+    "net": "/Memory and I/O decode/RAMSEL2",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 17,
+    "signal": "RUN",
+    "net": "RUN",
+    "kind": "in"
+   },
+   {
+    "pin": 5,
+    "frompin": 7,
+    "signal": "RAMSEL1",
+    "net": "/Memory and I/O decode/RAMSEL1",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 21,
+    "signal": "A10",
+    "net": "ADDR10",
+    "kind": "in"
+   },
+   {
+    "pin": 8,
+    "frompin": 3,
+    "signal": "A14",
+    "net": "ADDR14",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 22,
+    "signal": "SRC_EN",
+    "net": "~{SRC_EN}",
+    "kind": "in"
+   },
+   {
+    "pin": 10,
+    "frompin": 23,
+    "signal": "PIXEL_ENABLE",
+    "net": "PIXEL_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 4,
+    "signal": "A13",
+    "net": "ADDR13",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 5,
+    "signal": "A12",
+    "net": "ADDR12",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 20,
+    "signal": "A11",
+    "net": "ADDR11",
+    "kind": "in"
+   },
+   {
+    "pin": 15,
+    "frompin": 2,
+    "signal": "A15",
+    "net": "ADDR15",
+    "kind": "in"
+   },
+   {
+    "pin": 17,
+    "frompin": 9,
+    "signal": "RAMSEL4",
+    "net": "/Memory and I/O decode/RAMSEL4",
+    "kind": "in"
+   },
+   {
+    "pin": 20,
+    "frompin": 13,
+    "signal": "RAMSEL7",
+    "net": "/Memory and I/O decode/RAMSEL7",
+    "kind": "in"
+   },
+   {
+    "pin": 21,
+    "frompin": 14,
+    "signal": "RW",
+    "net": "RW",
+    "kind": "in"
+   },
+   {
+    "pin": 22,
+    "frompin": 11,
+    "signal": "RAMSEL6",
+    "net": "/Memory and I/O decode/RAMSEL6",
+    "kind": "in"
+   },
+   {
+    "pin": 23,
+    "frompin": 10,
+    "signal": "RAMSEL5",
+    "net": "/Memory and I/O decode/RAMSEL5",
+    "kind": "in"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "CLK",
+   "6": "RAMSEL0",
+   "12": null,
+   "16": null,
+   "18": "RAM_OE",
+   "19": "ROM_OE",
+   "24": null,
+   "2": "RAMSEL3",
+   "3": "RAMSEL2",
+   "4": "RUN",
+   "5": "RAMSEL1",
+   "7": "A10",
+   "8": "A14",
+   "9": "SRC_EN",
+   "10": "PIXEL_ENABLE",
+   "11": "A13",
+   "13": "A12",
+   "14": "A11",
+   "15": "A15",
+   "17": "RAMSEL4",
+   "20": "RAMSEL7",
+   "21": "RW",
+   "22": "RAMSEL6",
+   "23": "RAMSEL5"
+  },
+  "oldpins": {
+   "1": "CLK",
+   "2": "A15",
+   "3": "A14",
+   "4": "A13",
+   "5": "A12",
+   "6": "RAMSEL0",
+   "7": "RAMSEL1",
+   "8": "RAMSEL3",
+   "9": "RAMSEL4",
+   "10": "RAMSEL5",
+   "11": "RAMSEL6",
+   "13": "RAMSEL7",
+   "15": "RAMSEL2",
+   "14": "RW",
+   "23": "PIXEL_ENABLE",
+   "20": "A11",
+   "21": "A10",
+   "22": "SRC_EN",
+   "17": "RUN",
+   "19": "ROM_OE",
+   "18": "RAM_OE"
+  }
+ },
+ "U12": {
+  "file": "ATF22V10_IO_DECODE.pld",
+  "moved": 17,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 23,
+    "signal": "X7",
+    "net": "~{LOAD_IMM}",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 10,
+    "signal": "Y2",
+    "net": "ADDR10",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 3,
+    "signal": "PC_ENABLE",
+    "net": "PC_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 5,
+    "frompin": 8,
+    "signal": "Y5",
+    "net": "ADDR13",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 18,
+    "signal": "Y3",
+    "net": "ADDR11",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 11,
+    "signal": "Y1",
+    "net": "ADDR9",
+    "kind": "in"
+   },
+   {
+    "pin": 8,
+    "frompin": 4,
+    "signal": "PC15",
+    "net": "PC15",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 7,
+    "signal": "Y6",
+    "net": "ADDR14",
+    "kind": "in"
+   },
+   {
+    "pin": 10,
+    "frompin": 14,
+    "signal": "Y_ENABLE",
+    "net": "Y_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 6,
+    "signal": "Y7",
+    "net": "Y7",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 5,
+    "signal": "H9",
+    "net": "H9",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 17,
+    "signal": "P0",
+    "net": "~{LINE_RD}",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 14,
+    "need": [
+     1,
+     11
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 15,
+    "frompin": 2,
+    "signal": "PIXEL_ENABLE",
+    "net": "PIXEL_ENABLE",
+    "kind": "in"
+   },
+   {
+    "pin": 17,
+    "frompin": 15,
+    "signal": "CE_HI",
+    "net": "Net-(J8-{slash}CE_HI)",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 10,
+    "need": [
+     3,
+     11
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 18,
+    "frompin": 13,
+    "signal": "Y0",
+    "net": "ADDR8",
+    "kind": "in"
+   },
+   {
+    "pin": 20,
+    "frompin": 9,
+    "signal": "Y4",
+    "net": "ADDR12",
+    "kind": "in"
+   },
+   {
+    "pin": 23,
+    "frompin": 20,
+    "signal": "PORT",
+    "net": "~{PORT_RD}",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 14,
+    "need": [
+     1,
+     11
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": null,
+   "12": null,
+   "16": "EXP3",
+   "19": "EXP4",
+   "21": "EXP1",
+   "22": "EXP2",
+   "24": null,
+   "2": "X7",
+   "3": "Y2",
+   "4": "PC_ENABLE",
+   "5": "Y5",
+   "6": "Y3",
+   "7": "Y1",
+   "8": "PC15",
+   "9": "Y6",
+   "10": "Y_ENABLE",
+   "11": "Y7",
+   "13": "H9",
+   "14": "P0",
+   "15": "PIXEL_ENABLE",
+   "17": "CE_HI",
+   "18": "Y0",
+   "20": "Y4",
+   "23": "PORT"
+  },
+  "oldpins": {
+   "2": "PIXEL_ENABLE",
+   "3": "PC_ENABLE",
+   "4": "PC15",
+   "5": "H9",
+   "6": "Y7",
+   "7": "Y6",
+   "8": "Y5",
+   "9": "Y4",
+   "10": "Y2",
+   "11": "Y1",
+   "13": "Y0",
+   "14": "Y_ENABLE",
+   "18": "Y3",
+   "23": "X7",
+   "15": "CE_HI",
+   "16": "EXP3",
+   "17": "P0",
+   "19": "EXP4",
+   "20": "PORT",
+   "21": "EXP1",
+   "22": "EXP2"
+  }
+ },
+ "U13": {
+  "file": "ATF22V10_HCOUNT.pld",
+  "moved": 10,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 6,
+    "signal": "LC7",
+    "net": "LC7",
+    "kind": "in"
+   },
+   {
+    "pin": 5,
+    "frompin": 2,
+    "signal": "RESET",
+    "net": "GND",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 5,
+    "signal": "H2",
+    "net": "H2",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 23,
+    "signal": "H_TC",
+    "net": "Net-(U13-H_TC)",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 8,
+    "need": [
+     1,
+     10
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 16,
+    "frompin": 19,
+    "signal": "H8",
+    "net": "H8",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 16,
+    "need": [
+     9,
+     9
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 17,
+    "frompin": 14,
+    "signal": "H3",
+    "net": "H3",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 8,
+    "need": [
+     4,
+     4
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 18,
+    "frompin": 16,
+    "signal": "H5",
+    "net": "H5",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 12,
+    "need": [
+     7,
+     6
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 19,
+    "frompin": 18,
+    "signal": "H7",
+    "net": "H7",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 16,
+    "need": [
+     9,
+     8
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 22,
+    "frompin": 17,
+    "signal": "H6",
+    "net": "H6",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 14,
+    "need": [
+     8,
+     7
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 23,
+    "frompin": 22,
+    "signal": "H_VIDEO_ACTIVE",
+    "net": "H_VIDEO_ACTIVE",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 10,
+    "need": [
+     3,
+     90
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "CLK",
+   "3": "H0",
+   "4": "H1",
+   "7": null,
+   "8": null,
+   "9": null,
+   "10": null,
+   "11": null,
+   "12": null,
+   "13": null,
+   "15": "H4",
+   "20": "H9",
+   "21": "HSYNC",
+   "24": null,
+   "2": "LC7",
+   "5": "RESET",
+   "6": "H2",
+   "14": "H_TC",
+   "16": "H8",
+   "17": "H3",
+   "18": "H5",
+   "19": "H7",
+   "22": "H6",
+   "23": "H_VIDEO_ACTIVE"
+  },
+  "oldpins": {
+   "1": "CLK",
+   "2": "RESET",
+   "3": "H0",
+   "4": "H1",
+   "5": "H2",
+   "6": "LC7",
+   "14": "H3",
+   "15": "H4",
+   "16": "H5",
+   "17": "H6",
+   "18": "H7",
+   "19": "H8",
+   "20": "H9",
+   "21": "HSYNC",
+   "22": "H_VIDEO_ACTIVE",
+   "23": "H_TC"
+  }
+ },
+ "U14": {
+  "file": "ATF22V10_VCOUNT.pld",
+  "moved": 8,
+  "rows": [
+   {
+    "pin": 15,
+    "frompin": 20,
+    "signal": "Q6",
+    "net": "V6",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 14,
+    "need": [
+     10,
+     60
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 16,
+    "frompin": 17,
+    "signal": "Q7",
+    "net": "V7",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 14,
+    "need": [
+     11,
+     67
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 17,
+    "frompin": 16,
+    "signal": "Q4",
+    "net": "V4",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 12,
+    "need": [
+     8,
+     46
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 18,
+    "frompin": 22,
+    "signal": "Q2",
+    "net": "V2",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 10,
+    "need": [
+     4,
+     4
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 19,
+    "frompin": 18,
+    "signal": "Q8",
+    "net": "V8",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 16,
+    "need": [
+     12,
+     74
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 20,
+    "frompin": 21,
+    "signal": "Q5",
+    "net": "V5",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 12,
+    "need": [
+     9,
+     53
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 21,
+    "frompin": 19,
+    "signal": "Q9",
+    "net": "V9",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 16,
+    "need": [
+     11,
+     11
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 22,
+    "frompin": 15,
+    "signal": "Q3",
+    "net": "V3",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 10,
+    "need": [
+     5,
+     5
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "CLK",
+   "2": "EN",
+   "3": null,
+   "4": null,
+   "5": null,
+   "6": null,
+   "7": null,
+   "8": null,
+   "9": null,
+   "10": null,
+   "11": null,
+   "12": null,
+   "13": null,
+   "14": "Q0",
+   "23": "Q1",
+   "24": null,
+   "15": "Q6",
+   "16": "Q7",
+   "17": "Q4",
+   "18": "Q2",
+   "19": "Q8",
+   "20": "Q5",
+   "21": "Q9",
+   "22": "Q3"
+  },
+  "oldpins": {
+   "1": "CLK",
+   "2": "EN",
+   "14": "Q0",
+   "23": "Q1",
+   "22": "Q2",
+   "15": "Q3",
+   "16": "Q4",
+   "21": "Q5",
+   "20": "Q6",
+   "17": "Q7",
+   "18": "Q8",
+   "19": "Q9"
+  }
+ },
+ "U15": {
+  "file": "ATF22V10_SYNC.pld",
+  "moved": 18,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 8,
+    "signal": "H_VIDEO_ACTIVE",
+    "net": "H_VIDEO_ACTIVE",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 2,
+    "signal": "V9",
+    "net": "V9",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 11,
+    "signal": "RUN",
+    "net": "RUN",
+    "kind": "in"
+   },
+   {
+    "pin": 5,
+    "frompin": 13,
+    "signal": "BLANK_RD",
+    "net": "Net-(U15-BLANK_RD)",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 21,
+    "signal": "P0",
+    "net": "unconnected-(U15-nc-Pad21)",
+    "kind": "in"
+   },
+   {
+    "pin": 8,
+    "frompin": 5,
+    "signal": "V3",
+    "net": "V3",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 3,
+    "signal": "V5",
+    "net": "V5",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 4,
+    "signal": "V4",
+    "net": "V4",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 19,
+    "signal": "PIXEL_ENABLE",
+    "net": "PIXEL_ENABLE",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 16,
+    "need": [
+     2,
+     5
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 15,
+    "frompin": 6,
+    "signal": "V2",
+    "net": "V2",
+    "kind": "in"
+   },
+   {
+    "pin": 16,
+    "frompin": 20,
+    "signal": "WE",
+    "net": "~{WE}",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 14,
+    "need": [
+     1,
+     4
+    ],
+    "registered": false,
+    "oe": true,
+    "verdict": "ok"
+   },
+   {
+    "pin": 17,
+    "frompin": 23,
+    "signal": "V_VIDEO_ACTIVE",
+    "net": "unconnected-(U15-V_VIDEO_ACTIVE-Pad23)",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 8,
+    "need": [
+     2,
+     2
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 18,
+    "frompin": 22,
+    "signal": "MAP_WR",
+    "net": "unconnected-(U15-nc-Pad22)",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 10,
+    "need": [
+     1,
+     5
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 19,
+    "frompin": 16,
+    "signal": "H2",
+    "net": "H2",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 12,
+    "need": [
+     3,
+     3
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 20,
+    "frompin": 17,
+    "signal": "VIDEN",
+    "net": "VIDEN",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 14,
+    "need": [
+     4,
+     7
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 21,
+    "frompin": 15,
+    "signal": "H1",
+    "net": "H1",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 10,
+    "need": [
+     2,
+     2
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 22,
+    "frompin": 14,
+    "signal": "H0",
+    "net": "H0",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 8,
+    "need": [
+     1,
+     1
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 23,
+    "frompin": 18,
+    "signal": "VSYNC",
+    "net": "~{VSYNC}",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 16,
+    "need": [
+     1,
+     6
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "CLK",
+   "7": "V1",
+   "9": "CLK_E",
+   "10": "RW",
+   "12": null,
+   "24": null,
+   "2": "H_VIDEO_ACTIVE",
+   "3": "V9",
+   "4": "RUN",
+   "5": "BLANK_RD",
+   "6": "P0",
+   "8": "V3",
+   "11": "V5",
+   "13": "V4",
+   "14": "PIXEL_ENABLE",
+   "15": "V2",
+   "16": "WE",
+   "17": "V_VIDEO_ACTIVE",
+   "18": "MAP_WR",
+   "19": "H2",
+   "20": "VIDEN",
+   "21": "H1",
+   "22": "H0",
+   "23": "VSYNC"
+  },
+  "oldpins": {
+   "1": "CLK",
+   "2": "V9",
+   "3": "V5",
+   "4": "V4",
+   "5": "V3",
+   "6": "V2",
+   "7": "V1",
+   "8": "H_VIDEO_ACTIVE",
+   "9": "CLK_E",
+   "10": "RW",
+   "11": "RUN",
+   "13": "BLANK_RD",
+   "14": "H0",
+   "15": "H1",
+   "16": "H2",
+   "17": "VIDEN",
+   "18": "VSYNC",
+   "19": "PIXEL_ENABLE",
+   "20": "WE",
+   "21": "P0",
+   "22": "MAP_WR",
+   "23": "V_VIDEO_ACTIVE"
+  }
+ },
+ "U16": {
+  "file": "ATF22V10_COLORDECODER.pld",
+  "moved": 14,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 6,
+    "signal": "D4",
+    "net": "/Video and audio out/PIX4",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 2,
+    "signal": "D0",
+    "net": "/Video and audio out/PIX0",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 8,
+    "signal": "D6",
+    "net": "/Video and audio out/PIX6",
+    "kind": "in"
+   },
+   {
+    "pin": 5,
+    "frompin": 11,
+    "signal": "MODE1",
+    "net": "/Video and audio out/LC1",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 3,
+    "signal": "D1",
+    "net": "/Video and audio out/PIX1",
+    "kind": "in"
+   },
+   {
+    "pin": 8,
+    "frompin": 5,
+    "signal": "D3",
+    "net": "/Video and audio out/PIX3",
+    "kind": "in"
+   },
+   {
+    "pin": 10,
+    "frompin": 4,
+    "signal": "D2",
+    "net": "/Video and audio out/PIX2",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 14,
+    "signal": "H2",
+    "net": "H2",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 23,
+    "signal": "VIDEN",
+    "net": "VIDEN",
+    "kind": "in"
+   },
+   {
+    "pin": 15,
+    "frompin": 22,
+    "signal": "BLU2",
+    "net": "/Video and audio out/BLU2",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 10,
+    "need": [
+     10,
+     60
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 16,
+    "frompin": 21,
+    "signal": "RED3",
+    "net": "/Video and audio out/RED3",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 12,
+    "need": [
+     12,
+     61
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 21,
+    "frompin": 16,
+    "signal": "RED2",
+    "net": "/Video and audio out/RED2",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 12,
+    "need": null,
+    "registered": false,
+    "oe": false,
+    "verdict": "ok (new pin has at least as many terms as the old one)"
+   },
+   {
+    "pin": 22,
+    "frompin": 15,
+    "signal": "RED1",
+    "net": "/Video and audio out/RED1",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 10,
+    "need": [
+     10,
+     65
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 23,
+    "frompin": 10,
+    "signal": "MODE0",
+    "net": "/Video and audio out/LC0",
+    "kind": "in"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "H1",
+   "7": "D5",
+   "9": "D7",
+   "12": null,
+   "13": "H0",
+   "17": "GRN1",
+   "18": "BLU3",
+   "19": "GRN3",
+   "20": "GRN2",
+   "24": null,
+   "2": "D4",
+   "3": "D0",
+   "4": "D6",
+   "5": "MODE1",
+   "6": "D1",
+   "8": "D3",
+   "10": "D2",
+   "11": "H2",
+   "14": "VIDEN",
+   "15": "BLU2",
+   "16": "RED3",
+   "21": "RED2",
+   "22": "RED1",
+   "23": "MODE0"
+  },
+  "oldpins": {
+   "2": "D0",
+   "3": "D1",
+   "4": "D2",
+   "5": "D3",
+   "6": "D4",
+   "7": "D5",
+   "8": "D6",
+   "9": "D7",
+   "10": "MODE0",
+   "11": "MODE1",
+   "13": "H0",
+   "1": "H1",
+   "14": "H2",
+   "23": "VIDEN",
+   "15": "RED1",
+   "16": "RED2",
+   "21": "RED3",
+   "22": "BLU2",
+   "18": "BLU3",
+   "17": "GRN1",
+   "20": "GRN2",
+   "19": "GRN3"
+  }
+ },
+ "U17": {
+  "file": "ATF22V10_IR.pld",
+  "moved": 15,
+  "rows": [
+   {
+    "pin": 3,
+    "frompin": 13,
+    "signal": null,
+    "net": "unconnected-(U17-nc-Pad13)",
+    "kind": "unused"
+   },
+   {
+    "pin": 4,
+    "frompin": 23,
+    "signal": null,
+    "net": "unconnected-(U17-nc-Pad23)",
+    "kind": "unused"
+   },
+   {
+    "pin": 5,
+    "frompin": 22,
+    "signal": null,
+    "net": "unconnected-(U17-nc-Pad22)",
+    "kind": "unused"
+   },
+   {
+    "pin": 8,
+    "frompin": 5,
+    "signal": "D3",
+    "net": "DATABUS3",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 3,
+    "signal": "D1",
+    "net": "DATABUS1",
+    "kind": "in"
+   },
+   {
+    "pin": 10,
+    "frompin": 11,
+    "signal": "RUN",
+    "net": "RUN",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 4,
+    "signal": "D2",
+    "net": "DATABUS2",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 9,
+    "signal": "D7",
+    "net": "DATABUS7",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 18,
+    "signal": "I4",
+    "net": "I4",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 16,
+    "need": [
+     2,
+     4
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 15,
+    "frompin": 10,
+    "signal": "LOAD_INSTR",
+    "net": "Net-(U1-{slash}LOAD_INSTR)",
+    "kind": "in"
+   },
+   {
+    "pin": 18,
+    "frompin": 14,
+    "signal": "I0",
+    "net": "I0",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 8,
+    "need": [
+     2,
+     4
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 19,
+    "frompin": 8,
+    "signal": "D6",
+    "net": "DATABUS6",
+    "kind": "in"
+   },
+   {
+    "pin": 20,
+    "frompin": 19,
+    "signal": "I5",
+    "net": "I5",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 16,
+    "need": [
+     2,
+     4
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 22,
+    "frompin": 20,
+    "signal": "I6",
+    "net": "I6",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 14,
+    "need": [
+     2,
+     4
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 23,
+    "frompin": 15,
+    "signal": "I1",
+    "net": "I1",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 10,
+    "need": [
+     3,
+     3
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "CLK",
+   "2": "D0",
+   "6": "D4",
+   "7": "D5",
+   "12": null,
+   "16": "I2",
+   "17": "I3",
+   "21": "I7",
+   "24": null,
+   "3": null,
+   "4": null,
+   "5": null,
+   "8": "D3",
+   "9": "D1",
+   "10": "RUN",
+   "11": "D2",
+   "13": "D7",
+   "14": "I4",
+   "15": "LOAD_INSTR",
+   "18": "I0",
+   "19": "D6",
+   "20": "I5",
+   "22": "I6",
+   "23": "I1"
+  },
+  "oldpins": {
+   "1": "CLK",
+   "2": "D0",
+   "3": "D1",
+   "4": "D2",
+   "5": "D3",
+   "6": "D4",
+   "7": "D5",
+   "8": "D6",
+   "9": "D7",
+   "10": "LOAD_INSTR",
+   "11": "RUN",
+   "14": "I0",
+   "15": "I1",
+   "16": "I2",
+   "17": "I3",
+   "18": "I4",
+   "19": "I5",
+   "20": "I6",
+   "21": "I7"
+  }
+ },
+ "U35": {
+  "file": "ATF22V10_AUDIO.pld",
+  "moved": 16,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 14,
+    "signal": "LC2",
+    "net": "LC2",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 9,
+    "signal": "V9",
+    "net": "V9",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 5,
+    "signal": "H6",
+    "net": "H6",
+    "kind": "in"
+   },
+   {
+    "pin": 5,
+    "frompin": 2,
+    "signal": "H9",
+    "net": "H9",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 4,
+    "signal": "H7",
+    "net": "H7",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 6,
+    "signal": "H5",
+    "net": "H5",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 16,
+    "signal": "I1",
+    "net": "I1",
+    "kind": "in"
+   },
+   {
+    "pin": 10,
+    "frompin": 7,
+    "signal": "H4",
+    "net": "H4",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 19,
+    "signal": "R7",
+    "net": "VA7",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 16,
+    "need": [
+     4,
+     2
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 15,
+    "frompin": 18,
+    "signal": "R1",
+    "net": "VA1",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 16,
+    "need": [
+     4,
+     5
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 16,
+    "frompin": 3,
+    "signal": "H8",
+    "net": "H8",
+    "kind": "in"
+   },
+   {
+    "pin": 18,
+    "frompin": 10,
+    "signal": "V1",
+    "net": "V1",
+    "kind": "in"
+   },
+   {
+    "pin": 19,
+    "frompin": 21,
+    "signal": "AC_SEL",
+    "net": "~{AC_SEL}",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 12,
+    "need": [
+     1,
+     1
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 20,
+    "frompin": 23,
+    "signal": "BLANK_RD",
+    "net": "Net-(U15-BLANK_RD)",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 8,
+    "need": [
+     3,
+     8
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 21,
+    "frompin": 20,
+    "signal": "R8",
+    "net": "VA8",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 14,
+    "need": [
+     6,
+     2
+    ],
+    "registered": false,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 23,
+    "frompin": 15,
+    "signal": "LC3",
+    "net": "LC3",
+    "kind": "in"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "V0",
+   "8": "H3",
+   "11": "V7",
+   "12": null,
+   "13": "V8",
+   "17": "R0",
+   "22": "MODE_LD",
+   "24": null,
+   "2": "LC2",
+   "3": "V9",
+   "4": "H6",
+   "5": "H9",
+   "6": "H7",
+   "7": "H5",
+   "9": "I1",
+   "10": "H4",
+   "14": "R7",
+   "15": "R1",
+   "16": "H8",
+   "18": "V1",
+   "19": "AC_SEL",
+   "20": "BLANK_RD",
+   "21": "R8",
+   "23": "LC3"
+  },
+  "oldpins": {
+   "1": "V0",
+   "2": "H9",
+   "3": "H8",
+   "4": "H7",
+   "5": "H6",
+   "6": "H5",
+   "7": "H4",
+   "8": "H3",
+   "9": "V9",
+   "10": "V1",
+   "11": "V7",
+   "13": "V8",
+   "14": "LC2",
+   "15": "LC3",
+   "16": "I1",
+   "17": "R0",
+   "18": "R1",
+   "19": "R7",
+   "20": "R8",
+   "22": "MODE_LD",
+   "23": "BLANK_RD",
+   "21": "AC_SEL"
+  }
+ },
+ "U38": {
+  "file": "ATF22V10_PORT.pld",
+  "moved": 17,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 13,
+    "signal": "MISO",
+    "net": "/Shared port/SD_MISO",
+    "kind": "in"
+   },
+   {
+    "pin": 3,
+    "frompin": 9,
+    "signal": "PAD1",
+    "net": "/Shared port/PAD1_DATA",
+    "kind": "in"
+   },
+   {
+    "pin": 4,
+    "frompin": 10,
+    "signal": "PAD2",
+    "net": "/Shared port/PAD2_DATA",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 15,
+    "signal": "Q0",
+    "net": "unconnected-(U38-nc-Pad15)",
+    "kind": "in"
+   },
+   {
+    "pin": 7,
+    "frompin": 14,
+    "signal": "A1",
+    "net": "ADDR1",
+    "kind": "in"
+   },
+   {
+    "pin": 8,
+    "frompin": 4,
+    "signal": "D0",
+    "net": "DATABUS0",
+    "kind": "in"
+   },
+   {
+    "pin": 9,
+    "frompin": 2,
+    "signal": "PORT",
+    "net": "~{PORT_RD}",
+    "kind": "in"
+   },
+   {
+    "pin": 10,
+    "frompin": 11,
+    "signal": "RXCLK",
+    "net": "/Shared port/RXCLK",
+    "kind": "in"
+   },
+   {
+    "pin": 11,
+    "frompin": 3,
+    "signal": "A0",
+    "net": "ADDR0",
+    "kind": "in"
+   },
+   {
+    "pin": 13,
+    "frompin": 7,
+    "signal": "D3",
+    "net": "DATABUS3",
+    "kind": "in"
+   },
+   {
+    "pin": 14,
+    "frompin": 8,
+    "signal": "D4",
+    "net": "DATABUS4",
+    "kind": "in"
+   },
+   {
+    "pin": 15,
+    "frompin": 17,
+    "signal": "DHOLD",
+    "net": "/Shared port/P_PS2D",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 14,
+    "need": [
+     2,
+     3
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 17,
+    "frompin": 6,
+    "signal": "D2",
+    "net": "DATABUS2",
+    "kind": "in"
+   },
+   {
+    "pin": 19,
+    "frompin": 23,
+    "signal": "D7",
+    "net": "DATABUS7",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 8,
+    "need": [
+     2,
+     3
+    ],
+    "registered": false,
+    "oe": true,
+    "verdict": "ok"
+   },
+   {
+    "pin": 20,
+    "frompin": 22,
+    "signal": "D6",
+    "net": "DATABUS6",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 10,
+    "need": [
+     1,
+     1
+    ],
+    "registered": false,
+    "oe": true,
+    "verdict": "ok"
+   },
+   {
+    "pin": 22,
+    "frompin": 19,
+    "signal": "MOSIN",
+    "net": "/Shared port/P_MOSI",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 16,
+    "need": [
+     2,
+     3
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   },
+   {
+    "pin": 23,
+    "frompin": 20,
+    "signal": "SCKN",
+    "net": "/Shared port/P_SCK",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 14,
+    "need": [
+     2,
+     3
+    ],
+    "registered": true,
+    "oe": false,
+    "verdict": "ok"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "WE",
+   "5": "D1",
+   "12": null,
+   "16": "K0",
+   "18": "SDCS",
+   "21": "D5",
+   "24": null,
+   "2": "MISO",
+   "3": "PAD1",
+   "4": "PAD2",
+   "6": "Q0",
+   "7": "A1",
+   "8": "D0",
+   "9": "PORT",
+   "10": "RXCLK",
+   "11": "A0",
+   "13": "D3",
+   "14": "D4",
+   "15": "DHOLD",
+   "17": "D2",
+   "19": "D7",
+   "20": "D6",
+   "22": "MOSIN",
+   "23": "SCKN"
+  },
+  "oldpins": {
+   "1": "WE",
+   "2": "PORT",
+   "3": "A0",
+   "4": "D0",
+   "5": "D1",
+   "6": "D2",
+   "7": "D3",
+   "8": "D4",
+   "9": "PAD1",
+   "10": "PAD2",
+   "11": "RXCLK",
+   "13": "MISO",
+   "14": "A1",
+   "15": "Q0",
+   "16": "K0",
+   "17": "DHOLD",
+   "18": "SDCS",
+   "19": "MOSIN",
+   "20": "SCKN",
+   "21": "D5",
+   "22": "D6",
+   "23": "D7"
+  }
+ },
+ "U42": {
+  "file": "ATF22V10_PS2.pld",
+  "moved": 13,
+  "rows": [
+   {
+    "pin": 2,
+    "frompin": 5,
+    "signal": "A0",
+    "net": "ADDR0",
+    "kind": "in"
+   },
+   {
+    "pin": 5,
+    "frompin": 6,
+    "signal": "A1",
+    "net": "ADDR1",
+    "kind": "in"
+   },
+   {
+    "pin": 6,
+    "frompin": 13,
+    "signal": null,
+    "net": "unconnected-(U42-nc-Pad13)",
+    "kind": "unused"
+   },
+   {
+    "pin": 13,
+    "frompin": 2,
+    "signal": "PDATA",
+    "net": "/Shared port/PS2_DATA",
+    "kind": "in"
+   },
+   {
+    "pin": 15,
+    "frompin": 18,
+    "signal": "N6",
+    "net": "DATABUS2",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 16,
+    "need": [
+     3,
+     4
+    ],
+    "registered": true,
+    "oe": true,
+    "verdict": "ok"
+   },
+   {
+    "pin": 16,
+    "frompin": 22,
+    "signal": "N2",
+    "net": "DATABUS6",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 10,
+    "need": [
+     3,
+     4
+    ],
+    "registered": true,
+    "oe": true,
+    "verdict": "ok"
+   },
+   {
+    "pin": 17,
+    "frompin": 19,
+    "signal": "N5",
+    "net": "DATABUS3",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 16,
+    "need": [
+     3,
+     4
+    ],
+    "registered": true,
+    "oe": true,
+    "verdict": "ok"
+   },
+   {
+    "pin": 18,
+    "frompin": 15,
+    "signal": "A",
+    "net": "DATABUS7",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 10,
+    "need": [
+     2,
+     1
+    ],
+    "registered": true,
+    "oe": true,
+    "verdict": "ok"
+   },
+   {
+    "pin": 19,
+    "frompin": 21,
+    "signal": "N3",
+    "net": "DATABUS5",
+    "kind": "out",
+    "cap_new": 16,
+    "cap_old": 12,
+    "need": [
+     3,
+     4
+    ],
+    "registered": true,
+    "oe": true,
+    "verdict": "ok"
+   },
+   {
+    "pin": 20,
+    "frompin": 23,
+    "signal": "N1",
+    "net": "DATABUS7",
+    "kind": "out",
+    "cap_new": 14,
+    "cap_old": 8,
+    "need": [
+     3,
+     4
+    ],
+    "registered": true,
+    "oe": true,
+    "verdict": "ok"
+   },
+   {
+    "pin": 21,
+    "frompin": 20,
+    "signal": "N4",
+    "net": "DATABUS4",
+    "kind": "out",
+    "cap_new": 12,
+    "cap_old": 14,
+    "need": [
+     3,
+     4
+    ],
+    "registered": true,
+    "oe": true,
+    "verdict": "ok"
+   },
+   {
+    "pin": 22,
+    "frompin": 17,
+    "signal": "N7",
+    "net": "DATABUS1",
+    "kind": "out",
+    "cap_new": 10,
+    "cap_old": 14,
+    "need": [
+     3,
+     4
+    ],
+    "registered": true,
+    "oe": true,
+    "verdict": "ok"
+   },
+   {
+    "pin": 23,
+    "frompin": 16,
+    "signal": "N8",
+    "net": "DATABUS0",
+    "kind": "out",
+    "cap_new": 8,
+    "cap_old": 12,
+    "need": [
+     3,
+     4
+    ],
+    "registered": true,
+    "oe": true,
+    "verdict": "ok"
+   }
+  ],
+  "issues": [],
+  "newpins": {
+   "1": "RXCLK",
+   "3": "PORT",
+   "4": "WE",
+   "7": "Q0",
+   "8": null,
+   "9": null,
+   "10": null,
+   "11": null,
+   "12": null,
+   "14": "B",
+   "24": null,
+   "2": "A0",
+   "5": "A1",
+   "6": null,
+   "13": "PDATA",
+   "15": "N6",
+   "16": "N2",
+   "17": "N5",
+   "18": "A",
+   "19": "N3",
+   "20": "N1",
+   "21": "N4",
+   "22": "N7",
+   "23": "N8"
+  },
+  "oldpins": {
+   "1": "RXCLK",
+   "2": "PDATA",
+   "3": "PORT",
+   "4": "WE",
+   "5": "A0",
+   "6": "A1",
+   "7": "Q0",
+   "14": "B",
+   "15": "A",
+   "16": "N8",
+   "17": "N7",
+   "18": "N6",
+   "19": "N5",
+   "20": "N4",
+   "21": "N3",
+   "22": "N2",
+   "23": "N1"
+  }
+ }
+}

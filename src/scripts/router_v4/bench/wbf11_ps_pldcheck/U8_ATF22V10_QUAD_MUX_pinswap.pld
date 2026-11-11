@@ -1,0 +1,122 @@
+/* PIN-SWAP VARIANT for U8 (router test bench, 2026-11-11): only the PIN lines differ from ATF22V10_QUAD_MUX.pld.
+   Not a released design: compile-check only. */
+Name     QUAD_4TO1_MUX;
+PartNo   ATF22V10C;
+Date     11/11/2026 ;
+Revision 02;
+Designer ;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* =========================================================
+   ADDRESS MUX, TWO LOW BITS AND TWO HIGH BITS PER CHIP
+   =========================================================
+
+   Revision 02 (docs/timing/FETCH_TIMING.md): the four address
+   mux PLDs take the address-source enables as their selects
+   directly, instead of the three ADDR_SEL lines the Sync PLD
+   decoded from them.  That removes one PLD pass (7.5 ns) from the
+   instruction fetch and from every X, Y and video read.
+
+   The selects are PIXEL_ENABLE (Sync PLD pin 19, registered) and
+   PC_ENABLE, X_ENABLE and Y_ENABLE (State PLD, registered), with
+   the same priority the Sync PLD used (revision 09):
+
+       1. Video address    PIXEL_ENABLE
+       2. Program counter  PC_ENABLE
+       3. X / Y registers  X_ENABLE (low byte), Y_ENABLE (high byte)
+       4. Default          D register (low byte), 00h (high byte)
+
+   Four low bits would need 16 data + 3 selects + 4 outputs = 23
+   pins, so each chip makes two LOW address bits (sources D, X,
+   video, PC) and two HIGH address bits (sources 00h, Y, video,
+   PC): 8 + 6 data + 4 selects + 4 outputs = 22 pins.  One source
+   file serves all four chips; bit n of the chip's low pair is
+   address bit n, and bit n of its high pair is address bit n + 8:
+
+       chip   low pair   high pair
+       U7     A1:A0      A9:A8
+       U8     A3:A2      A11:A10
+       U9     A5:A4      A13:A12
+       U10    A7:A6      A15:A14
+
+   Every output is four product terms (three for a high bit) and
+   one array pass.  The 00h default of the high byte needs no term.
+
+   Revision 01 was a plain quad 4:1 mux (four bits of one byte,
+   selects S1 S0 from the Sync PLD).
+   ========================================================= */
+
+
+/* =========================================================
+   INPUT PINS
+   ========================================================= */
+
+/* Selects */
+PIN 1  = PIXEL_ENABLE;   /* Sync PLD pin 19: video read */
+PIN 2  = X1;  /* pin swap: was on pin 10 */
+PIN 3  = D0;             /* D register */  /* pin swap: was on pin 5 */
+PIN 4  = PC0;            /* program counter */  /* pin swap: was on pin 8 */
+
+/* Low bit 0 (address bit n) */
+PIN 5  = X0;             /* X register */  /* pin swap: was on pin 6 */
+PIN 6  = Y3;  /* pin swap: was on pin 17 */
+PIN 7  = Y2;             /* Y register */  /* pin swap: was on pin 14 */
+PIN 8  = Y_ENABLE;       /* State PLD: Y register (high byte) */  /* pin swap: was on pin 4 */
+
+/* Low bit 1 (address bit n + 1) */
+PIN 9  = PC1;  /* pin swap: was on pin 13 */
+PIN 10 = PC3;  /* pin swap: was on pin 19 */
+PIN 11 = PC2;            /* program counter */  /* pin swap: was on pin 16 */
+PIN 13 = V0;             /* video address */  /* pin swap: was on pin 7 */
+
+/* High bit 0 (address bit n + 8) */
+PIN 14 = HI0;            /* address bit n + 8 */  /* pin swap: was on pin 22 */
+PIN 15 = V1;  /* pin swap: was on pin 11 */
+PIN 16 = X_ENABLE;       /* State PLD: X register (low byte) */  /* pin swap: was on pin 3 */
+
+/* High bit 1 (address bit n + 9) */
+PIN 17 = V2;             /* video address */  /* pin swap: was on pin 15 */
+PIN 18 = V3;
+PIN 19 = HI1;            /* address bit n + 9 */  /* pin swap: was on pin 23 */
+
+
+/* =========================================================
+   OUTPUT PINS
+   ========================================================= */
+
+PIN 20 = LO0;            /* address bit n */
+PIN 21 = LO1;            /* address bit n + 1 */
+PIN 22 = PC_ENABLE;      /* State PLD: program counter */  /* pin swap: was on pin 2 */
+PIN 23 = D1;  /* pin swap: was on pin 9 */
+
+
+/* =========================================================
+   LOW BITS: D register, X register, video address, PC
+   ========================================================= */
+
+LO0 =  PIXEL_ENABLE & V0
+    # !PIXEL_ENABLE &  PC_ENABLE & PC0
+    # !PIXEL_ENABLE & !PC_ENABLE &  X_ENABLE & X0
+    # !PIXEL_ENABLE & !PC_ENABLE & !X_ENABLE & D0;
+
+LO1 =  PIXEL_ENABLE & V1
+    # !PIXEL_ENABLE &  PC_ENABLE & PC1
+    # !PIXEL_ENABLE & !PC_ENABLE &  X_ENABLE & X1
+    # !PIXEL_ENABLE & !PC_ENABLE & !X_ENABLE & D1;
+
+
+/* =========================================================
+   HIGH BITS: 00h, Y register, video address, PC
+   ========================================================= */
+
+HI0 =  PIXEL_ENABLE & V2
+    # !PIXEL_ENABLE &  PC_ENABLE & PC2
+    # !PIXEL_ENABLE & !PC_ENABLE &  Y_ENABLE & Y2;
+
+HI1 =  PIXEL_ENABLE & V3
+    # !PIXEL_ENABLE &  PC_ENABLE & PC3
+    # !PIXEL_ENABLE & !PC_ENABLE &  Y_ENABLE & Y3;
