@@ -13,7 +13,7 @@ Every clock gives one pixel: the color decoder's outputs for the pixel
 buffer and line code at that clock, gated by VIDEN, so the 8-pixel
 stripes, the bands and the blank lines fall where the hardware puts them.
 
-Steps 19-21 run the bring-up ROM in the simulator (test_bringup_sim.py)
+Steps 22-24 run the bring-up ROM in the simulator (test_bringup_sim.py)
 and draw its status screen.
 
 The RAM powers up random, so the pictures with RAM in them are examples:
@@ -22,7 +22,7 @@ seed is fixed so the images don't change from run to run.
 
     python3 gen_bringup_screens.py            all images
     python3 gen_bringup_screens.py --hw       steps 5-13 only (fast)
-    python3 gen_bringup_screens.py --rom      steps 19-21 only
+    python3 gen_bringup_screens.py --rom      steps 22-24 only
 
 Images go to docs/hardware/bringup_screens/.  The ROM part takes about
 4 minutes.
@@ -246,7 +246,7 @@ def bringup_rom():
 
 
 def rom_steps():
-    """steps 19-21: the status screen from the simulator"""
+    """steps 22-24: the status screen from the simulator"""
     import io_devices as iod
     import sdimage
     ps, tb, rom, syms = bringup_rom()
@@ -266,15 +266,15 @@ def rom_steps():
         save(Image.open(path).convert('RGB'), name)
         os.remove(path)
 
-    # step 19: the shared port PLDs aren't in yet, so nothing answers on
+    # step 22: the shared port PLDs aren't in yet, so nothing answers on
     # the port: no keyboard, mouse or SD card
     rig = tb.Rig(rom, sd=False, mouse=False)
     rig.port.kbd = None
     rig.port._link()
     boot(rig)
-    shot(rig, 'step19_status.png')
+    shot(rig, 'step22_status.png')
 
-    # step 20: keyboard, mouse, a FAT card and a pad plugged in (power off)
+    # step 23: keyboard, mouse, a FAT card and a pad plugged in (power off)
     rig = tb.Rig(rom, sd=False, mouse=True)
     rig.port.sd = iod.SdCard(bytearray(sdimage.make({})))
     boot(rig)
@@ -291,14 +291,14 @@ def rom_steps():
     assert rig.frames(4) is None
     rig.port.kbd.press(0x1C)                                # a held: its KBD_NOW bit clears
     assert rig.frames(6) is None
-    shot(rig, 'step20_io.png')
+    shot(rig, 'step23_io.png')
     rig.port.kbd.release(0x1C)
     rig.port.pads[0].buttons = 0
     assert rig.frames(6) is None
 
-    # step 21: T turns on the test tone
+    # step 24: T turns on the test tone
     press(0x2C)
-    shot(rig, 'step21_tone.png')
+    shot(rig, 'step24_tone.png')
 
 
 def main(argv):

@@ -12,8 +12,14 @@ can't run the boot loader yet can still run it.  The cartridge shows its
 x0000 + f and at x8000 + f: the library sits where it always does in
 x8000-xFFFF and the test code uses the pages it leaves free, at whichever
 of the two addresses suits (image() folds the two halves and checks that
-no two bytes meet).  It first runs the CPU core tests, which
-need nothing but the CPU, the ROM, the RAM and the map register:
+no two bytes meet).
+
+It starts with seven chip gates in pages x01-x07, one for each step in
+which BRINGUP.md fits a CPU chip with the cartridge already in: the PC
+stops in a gate's page until that step's chips work (see gates()), so PC
+high is the number of the gate it is waiting in.  Then it runs the CPU
+core tests, which need nothing but the CPU, the ROM, the RAM and the map
+register:
 
      1  branches on AC (BEQ, BNE, BLT, BLE)        9  AC -> X, immediate -> X (read back via x3F00)
      2  AND                                       10  Y as the address high byte
@@ -27,7 +33,8 @@ need nothing but the CPU, the ROM, the RAM and the map register:
 A test that fails sets the map back to all ROM and jumps to a loop of its
 own at ROM x0080 + 4 x N, where it stays.  The PC then holds still at
 x00(80 + 4N) to x00(82 + 4N), so a multimeter on the PC PLDs reads the test
-number: PC high all 0 V, PC low Q7 high and Q6:Q2 = N.
+number: PC high all 0 V, PC low Q7 high and Q6:Q2 = N.  Test 16 at
+start-up is the exception: it is gate 7, and waits in page x07.
 
 When they all pass it copies the library's RAM code, sets the map to 05,
 draws a status screen with the standard library (text, color bands in 4, 2
@@ -60,18 +67,25 @@ FAIL_BASE = 0x0080              # fail loop N at FAIL_BASE + 4 N
 # The library leaves xD600-xD617 free (after the FAT reader; the bring-up
 # ROM has no FAT writer).
 Y_MARKS = [(p << 8 | 0xF0, p) for p in (0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40)]
-SEC_MARKS = [(0x0210, 0x02), (0x2010, 0x20), (0x5610, 0x56), (0x7E10, 0x7E),
-             (0x8210, 0x02), (0xA010, 0x20), (0xD610, 0x56), (0xFE10, 0x7E)]
-X_PAGE = 0x01                   # X walk: ROM x0100 + v = v ^ 5A
+SEC_MARKS = [(0x0F10, 0x0F), (0x2010, 0x20), (0x5610, 0x56), (0x7E10, 0x7E),
+             (0x8F10, 0x0F), (0xA010, 0x20), (0xD610, 0x56), (0xFE10, 0x7E)]
+X_PAGE = 0x3A                   # X walk: ROM x3A00 + v = v ^ 5A
+# the chip gates (see gates()): pages 1-7, one per build step, run in order
+# from the reset by falling off the end of each page
+GATE_PAGES = range(1, 8)
+# gate 3: pages that hold their own number in every byte, so a read through
+# [Y,X] tells the page whatever X is.  Between them every address bit 14-8
+# is 0 in one and 1 in another.  (Section 0's map marker x0F10 is one of
+# these bytes.)
+CONST_PAGES = [0x39, 0x5E, 0x11, 0x0F]
 # pages (as the CPU addresses them) for the code after the core tests: the
 # free pages under the library, in the order the code fills them.  A page
 # with a Y marker ends at xF0.
-CODE_PAGES = [0x83, 0x85, 0x86, 0x87] + list(range(0x89, 0x90)) + [0x91] + \
-             list(range(0xB9, 0xBF)) + list(range(0xD7, 0xE0))
+CODE_PAGES = list(range(0x8A, 0x8F)) + [0xBB, 0xBC, 0xBD, 0xBE] + list(range(0xD7, 0xDE))
 HELPER_PAGES = [0x72, 0x73, 0x7C, 0x7D]     # section 3 (the mirror of section 7's free pages)
-TBL4, TBL2, RT_TABLE = 0x8400, 0x8800, 0x9000   # tables that start a page (indexed by X)
+TBL4, TBL2, RT_TABLE = 0x8900, 0x8800, 0x9000   # tables that start a page (indexed by X)
 # free ends for the strings: (start, end)
-STR_ROOM = [(0x8220, 0x82F0), (0x8450, 0x84F0), (0x8850, 0x88F0), (0x90A0, 0x90F0)]
+STR_ROOM = [(0x8950, 0x89F0), (0x8850, 0x88F0), (0x90A0, 0x90F0)]
 X_VALUES = [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0xFF]
 ID_TABLE = 0x3F00               # ROM data test: x3F00 + n = n
 
@@ -183,6 +197,166 @@ class Asm:
     def map(self, v):
         with self.block(6):
             self.i('ld   0x50, y', 'ld   0x00, x', 'ld   0x%02X, [y,x]' % v)
+
+
+def gate_page(a, page, lines, trap=0xFC, fill=(0xFC,), last=False):
+    """one gate page.  lines: the code from offset 0 ((label,) or text).  The
+    rest of the page is fill, so a PC that lands anywhere in it ends in the
+    page's trap; offsets xFE and xFF are the way on (two nops, then the next
+    page) unless this is the last gate.  A Y marker at xF0 is left alone."""
+    a.org(page << 8, 'gate %d' % page)
+    a.lock += 1
+    for ln in lines:
+        if isinstance(ln, tuple):
+            if ln[0].startswith('@'):           # ('@E0', 'label'): code at a fixed offset
+                pad_to(a, page, int(ln[0][1:], 16), fill)
+                a.label(ln[1])
+            else:
+                a.label(ln[0])
+        else:
+            a.i(ln)
+    a.lock -= 1
+    pad_to(a, page, 0xFE, fill)
+    if last:
+        pad_to(a, page, 0x100, fill)
+    else:
+        a.label('gate_exit%d' % page)
+        a.lock += 1
+        a.i('nop', 'nop')
+        a.lock -= 1
+    assert a.addr == (page + 1) << 8, 'gate %d: %04X' % (page, a.addr)
+
+
+def pad_to(a, page, off, fill):
+    """fill bytes up to offset off of the page (not the Y marker at xF0)"""
+    start = a.addr & 0xFF if a.addr >> 8 == page else 0x100
+    assert a.addr >> 8 in (page, page + 1) and start <= off, 'gate %d is too long (%04X)' % (page, a.addr)
+    marks = set(ad & 0xFF for ad, v in Y_MARKS if ad >> 8 == page)
+    run = []
+    for o in range(start, off):
+        if o in marks:
+            if run:
+                a.data(run)
+                run = []
+            a.org((page << 8) | (o + 1))
+            continue
+        run.append(fill[o % len(fill)])
+    if run:
+        a.data(run)
+    a.addr = (page << 8) + off
+
+
+def gates(a):
+    """the chip gates: pages 1-7, one per build step of BRINGUP.md.
+
+    The CPU chips go in one build step at a time with the cartridge already
+    in, and each gate lets the PC through only when its step's chips work.
+    A gate that fails stops in a tight loop in its own page, so PC high
+    (U4's Q pins, steady levels on a multimeter) is the number of the gate
+    it is waiting in:
+
+        1  accumulator U19, ALU U5 and U6      5  D source buffer U26 (with the RAM in)
+        2  AC source buffer U27                6  RAM U31, U32
+        3  Y register U21                      7  line read buffer U29
+        4  X register U20
+
+    A gate may use only the chips of the gates before it:
+
+      - No jumps until gate 3 has passed (a jump loads PC high from Y):
+        the code runs from the reset into page 1 and from each gate into
+        the next by falling off the end of the page.
+      - Until gate 5, the D source buffer U26 is not in.  A D source
+        still works then, because the data bus keeps the byte the ROM
+        just put on it (the operand, or the memory byte: the same byte
+        D holds) for the one clock that matters; its 10k pull-ups take
+        about a microsecond to move it.  With the RAM in that is no
+        longer true: a video read between the load and the execute clock
+        leaves the RAM's byte on the bus.  So the RAM stays out until
+        the step that fits U26, and gate 5 is the test for it.
+      - Unused bytes are xFC (bra xFC), and offsets xFC, xFD hold xFC xFC:
+        a PC that lands anywhere in the page ends in the loop at xFC.
+
+    Gate 5 has to stop for good when U26 is missing, although nothing with
+    a D source can be trusted then (not even a branch to a fixed place), so
+    its stop uses the AC source only: clr ac, bra ac goes to offset 0,
+    where beq ac (one byte) branches to itself while AC is 0.  Its filler
+    is those two bytes.  The test loads and checks 15 constants 256 times
+    (about 50 lines, 100 video reads or more), twice.
+    """
+    T = 'bra  0xFC'                             # only as a comment: the trap is the filler
+    del T
+    for pg in GATE_PAGES:
+        a.lines.append('gate%d_stop = 0x%04X' % (pg, (pg << 8) | (0xF0 if pg == 5 else 0xFC)))
+    # gate 1: AC and the ALU.  Four stops, by what failed.
+    g = [('gate1',)]
+    g += ['ld   0x00, ac', 'bne  g1_flags', 'blt  g1_flags',
+          'ld   0x80, ac', 'beq  g1_flags', 'blt  g1_neg', 'bra  g1_flags', ('g1_neg',),
+          'ld   0x7F, ac', 'beq  g1_flags', 'blt  g1_flags']
+    for v in (0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80):
+        g += ['ld   0x%02X, ac' % v, 'beq  g1_bits', 'xor  0x%02X, ac' % v, 'bne  g1_bits']
+    g += ['ld   0xFF, ac', 'xor  0xFF, ac', 'bne  g1_bits',
+          'ld   0xF0, ac', 'and  0x3C, ac', 'xor  0x30, ac', 'bne  g1_bits',
+          'ld   0x12, ac', 'or   0x21, ac', 'xor  0x33, ac', 'bne  g1_bits',
+          'ld   0x0F, ac', 'add  0x01, ac', 'xor  0x10, ac', 'bne  g1_carry',
+          'ld   0xFF, ac', 'add  0x01, ac', 'bne  g1_carry', 'bcc  g1_carry',
+          'ld   0x7F, ac', 'add  0x01, ac', 'bcs  g1_carry',
+          'ld   0x00, ac', 'sub  0x01, ac', 'bcc  g1_carry', 'xor  0xFF, ac', 'bne  g1_carry',
+          'ld   0x80, ac', 'shr  ac', 'xor  0x40, ac', 'bne  g1_shift',
+          'ld   0x10, ac', 'shr  ac', 'xor  0x08, ac', 'bne  g1_shift',
+          'ld   0x01, ac', 'shr  ac', 'bne  g1_shift',
+          'bra  gate_exit1',
+          ('@E0', 'g1_flags'), 'bra  g1_flags',
+          ('@E4', 'g1_bits'), 'bra  g1_bits',
+          ('@E8', 'g1_carry'), 'bra  g1_carry',
+          ('@EC', 'g1_shift'), 'bra  g1_shift']
+    gate_page(a, 1, g)
+    # gate 2: the AC source buffer.  With an AC source the ALU's B input is
+    # AC; with no buffer it is the byte the bus still holds, the opcode
+    # itself (clr ac = x62, shl = x82), so the result is wrong for these
+    # values.  Then one branch to AC's address.
+    g = [('gate2',)]
+    for v in (0x55, 0xAA, 0x0F, 0xF0):
+        g += ['ld   0x%02X, ac' % v, 'clr  ac', 'bne  gate2_stop']
+    for v in (0x01, 0x21, 0x48, 0x14):
+        g += ['ld   0x%02X, ac' % v, 'shl  ac', 'xor  0x%02X, ac' % (2 * v), 'bne  gate2_stop']
+    g += ['ld   g2_a, ac', 'bra  ac', ('@80', 'g2_a'), 'bra  gate_exit2']
+    gate_page(a, 2, g)
+    # gate 3: the Y register, as the address high byte
+    g = [('gate3',)]
+    for pg in CONST_PAGES:
+        g += ['ld   0x%02X, y' % pg, 'ld   [y,x], ac', 'xor  0x%02X, ac' % pg, 'bne  gate3_stop']
+    g += ['bra  gate_exit3']
+    gate_page(a, 3, g)
+    # gate 4: the X register, as the address low byte (immediate -> X and
+    # AC -> X), read back from the table at x3F00
+    g = [('gate4',), 'ld   0x%02X, y' % (ID_TABLE >> 8)]
+    for v in WALK:
+        g += ['ld   0x%02X, x' % v, 'ld   [y,x], ac', 'xor  0x%02X, ac' % v, 'bne  gate4_stop']
+    for v in (0x3C, 0xC3):
+        g += ['ld   0x%02X, ac' % v, 'ld   ac, x', 'ld   0x00, ac', 'ld   [y,x], ac',
+              'xor  0x%02X, ac' % v, 'bne  gate4_stop']
+    g += ['ld   0x5A, ac', 'bra  gate_exit4']       # gate 5 starts with AC not 0
+    gate_page(a, 4, g)
+    # gate 5: the D source buffer, with the RAM in
+    g = [('gate5',), 'beq  ac', 'ld   0x%02X, y' % (ID_TABLE >> 8)]
+    vals = [0x00, 0xFF, 0x55, 0xAA, 0x0F, 0xF0, 0x33, 0xCC, 0x01, 0x80, 0x69, 0x96, 0x3C, 0xC3, 0x5A]
+    for rnd in range(2):
+        g += ['ld   0x00, ac', ('g5_loop%d' % rnd,), 'ld   ac, x']
+        for v in vals[rnd * 8:] + vals[:rnd * 8]:
+            g += ['ld   0x%02X, ac' % v, 'xor  0x%02X, ac' % v, 'bne  gate5_stop']
+        g += ['ld   [y,x], ac', 'sub  0x01, ac', 'bne  g5_loop%d' % rnd]
+    g += ['bra  gate_exit5']
+    gate_page(a, 5, g, fill=(0x62, 0xFE))
+    # gate 6: is the RAM there?  One byte in each chip (sections 1 and 4),
+    # two patterns, then on to the core tests.
+    g = [('gate6',), 'ld   0x50, y', 'ld   0x00, x', 'ld   0x12, [y,x]']
+    for pg, v in ((0x20, 0xA5), (0x90, 0x5A), (0x20, 0x5A), (0x90, 0xA5)):
+        g += ['ld   0x%02X, y' % pg, 'ld   0x10, x', 'ld   0x%02X, [y,x]' % v, 'ld   0x00, ac',
+              'ld   [y,x], ac', 'xor  0x%02X, ac' % v, 'bne  gate6_stop']
+    g += ['ld   0x50, y', 'ld   0x00, x', 'ld   0x00, [y,x]', 'ld   start >> 8, y', 'jmp  start']
+    gate_page(a, 6, g)
+    # gate 7: where test 16 (the video line read) waits at start-up
+    gate_page(a, 7, [('gate7',)], last=True)
 
 
 def fail_jump(a, n, handler):
@@ -355,10 +529,15 @@ def core_tests(a, tag, handler, helper_s1, startup):
                 'bne  %s' % lp,
                 'ld   [0x%02X], ac' % ZP['LR_CH'], 'dec', 'ld   ac, [0x%02X]' % ZP['LR_CH'],
                 'bne  %s' % lp)
-        a.i('ld   [0x%02X], ac' % ZP['LR_AND'])
-        expect(a, 0x00, 16, h)
-        a.i('ld   [0x%02X], ac' % ZP['LR_OR'])
-        expect(a, 0xFF, 16, h)
+        a.c('at start-up a failure waits in gate 7 (the line read buffer U29 is the')
+        a.c('last chip of the CPU to go in), not in fail loop 16')
+        for zp, want in (('LR_AND', 0x00), ('LR_OR', 0xFF)):
+            with a.block(20):
+                ok = a.uniq('ok')
+                a.i('ld   [0x%02X], ac' % ZP[zp], 'xor  0x%02X, ac' % want, 'beq  %s' % ok,
+                    'ld   0x50, y', 'ld   0x00, x', 'ld   0x00, [y,x]',
+                    'ld   gate7 >> 8, y', 'jmp  gate7')
+                a.label(ok)
     return helper_s1_back, t14_back
 
 
@@ -752,8 +931,12 @@ def generate():
           '; and at x8000 + f, so no two bytes here are x8000 apart',
           '; (test_bringup_sim.py --bin writes bringup.bin).',
           ';',
+          '; Chip gates: pages x01-x07 stop the PC until the chips of one build step',
+          '; work, so PC high = the gate it waits in: 1 AC and ALU, 2 AC source',
+          '; buffer, 3 Y, 4 X, 5 D source buffer, 6 RAM, 7 line read buffer.',
+          ';',
           '; Fail loops: test N stops at x0080 + 4N (PC high = 00, PC low Q7 = 1,',
-          '; Q6:Q2 = N).  Tests:']
+          '; Q6:Q2 = N); test 16 at start-up waits in gate 7.  Tests:']
     L += [';   %s' % t for t in (
         '1 branches  2 AND  3 OR  4 XOR  5 ADD  6 SUB  7 carry  8 SHR',
         '9 AC/X  10 Y address  11 X address  12 ROM data  13 RAM data',
@@ -766,7 +949,7 @@ def generate():
     a.org(0x0000, 'reset (the CPU starts at x0000 with the map all ROM); the nop is for\n'
              '; the cartridge hand-off, which can skip x0000 (docs/architecture/ROM.md)')
     a.lock += 1
-    a.i('nop', 'ld   start >> 8, y', 'jmp  start')
+    a.i('nop', 'bra  gate_exit0')
     a.lock -= 1
     a.org(FAIL_BASE + 4, 'fail loops: test N stops here at x0080 + 4N')
     for n in range(1, 17):
@@ -775,12 +958,24 @@ def generate():
         a.lock += 1
         a.i('bra  fail%d' % n)
         a.lock -= 1
+    a.org(0x00FE, 'the end of the page: on into gate 1 (no jump: Y is not tested yet)')
+    a.label('gate_exit0')
+    a.lock += 1
+    a.i('nop', 'nop')
+    a.lock -= 1
+    gates(a)
     # markers and tables
     a.org(0x0100, 'ROM markers for tests 10 and 14 (address -> value); sections 4-7 read\n'
                   '; the markers of sections 0-3 through the mirror')
     for ad, v in sorted(set(Y_MARKS) | set(m for m in SEC_MARKS if m[0] < 0x8000)):
+        if (ad >> 8) in CONST_PAGES:
+            assert v == ad >> 8             # already there: the page holds its number
+            continue
         a.org(ad)
         a.data([v])
+    for pg in CONST_PAGES:
+        a.org(pg << 8, 'gate 3: page x%02X holds x%02X in every byte' % (pg, pg))
+        a.data([pg] * 256)
     for (lo, v), (hi, w) in zip(SEC_MARKS[:4], SEC_MARKS[4:]):
         assert hi == lo + 0x8000 and v == w
     a.org(X_PAGE << 8, 'test 11: x%02X00 + v = v xor 5A' % X_PAGE)
