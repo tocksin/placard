@@ -10,8 +10,12 @@ itself as proven.  The power input goes in
 first, alone, so a wiring or polarity fault there can't reach a chip.  The
 video section comes next because it runs with no software.  The CPU comes next: it runs a known
 pattern with no memory at all (the "FF free run"), and then the bring-up
-test ROM checks the rest of the CPU and the memory by itself.  The I/O and
-the audio go in last, and the ROM shows their state on the screen.
+cartridge goes in with the bring-up test ROM, and the rest of the CPU
+chips follow one at a time: the ROM waits at a numbered "gate" until each
+chip works, and the gate number reads straight off the program counter
+(see [The chip gates](#the-chip-gates)).  With the last one in, the ROM
+tests the memory by itself and draws a status screen.  The I/O and
+the audio go in last, and the ROM shows their state on that screen.
 
 Every part is named by its reference designator on the schematic.  The
 chips' U numbers are their numbers in [CHIPS.md](../architecture/CHIPS.md); a part on the
@@ -25,7 +29,7 @@ Where a step changes the picture on the monitor, an example of what you
 should see follows it.  The pictures are made by
 `src/scripts/gen_bringup_screens.py` from the same model, pixel by pixel
 (steps 5-13), and from the bring-up ROM running in the simulator (steps
-19-21).  RAM powers up random, so a picture with RAM in it shows the kind
+22-24).  RAM powers up random, so a picture with RAM in it shows the kind
 of pattern to expect, not the exact one.
 
 Each step's parts table is followed by a picture of the board, seen from
@@ -117,7 +121,9 @@ places get a temporary resistor (a strap, from step 6 on).
 With nothing driving it, the bus reads FF.  After a chip drives it and lets
 go, the bus keeps that byte for about 0.5 µs (the 10k and the bus
 capacitance), so "an empty bus reads FF" holds only when nothing has driven
-it for a while.  That is why steps 13-18 run with the RAM taken out.
+it for a while.  That is why steps 13-20 run with the RAM taken out: the free run needs
+the empty bus to read FF, and the chip gates of steps 16-20 use the kept
+byte (see [The chip gates](#the-chip-gates)).
 
 **Meter readings.**  The frequency is what the counter shows; the DC
 average is what the volts range shows for a signal that toggles faster
@@ -153,7 +159,7 @@ so its readings shift a little with the line and frame; read the average.
 ![Step 1: the parts to fit, highlighted on the board](bringup_boards/step01_board.png)
 
 Fit only these power input parts on the bare board (power sheet).
-Leave U40, C40 and C47 (the 3.3 V regulator) for step 20, with the SD card.
+Leave U40, C40 and C47 (the 3.3 V regulator) for step 23, with the SD card.
 
 **Before power** (meter on ohms and diode test, no supply plugged in):
 
@@ -705,7 +711,7 @@ and the D register load FF.
 
 ![Step 13: a black screen](bringup_screens/step05_black.png)
 
-*Steps 13 to 18: black.  With the RAM out every mode byte reads FF, which
+*Steps 13 to 15: black.  With the RAM out every mode byte reads FF, which
 blanks every line.*
 
 | Pin | Frequency | Duty | DC average |
@@ -781,77 +787,77 @@ power switch.  PC high is a binary counter now: each bit is half the one below.
 | Q6 = A14 (pin 19) | 65.4 kHz | 50 % | 2.50 V |
 | Q7 = A15 (pin 18) | 32.73 kHz | 50 % | 2.50 V |
 
-### Step 16: accumulator (U19), ALU low (U5), ALU high (U6)
+### The chip gates
+
+From here on the cartridge is in, with the bring-up ROM on it, and the
+rest of the CPU chips go in one at a time.  The first seven pages of the
+ROM are seven **gates**, one for each chip (or group of chips) still to
+come.  Each gate is a short test that uses only the chips fitted so far
+plus the one it is waiting for.  While that chip is missing or not
+working, the CPU stops in a tight loop inside the gate's own page.  Once
+the chip works, the test passes and the CPU runs on into the next gate,
+where it stops again.  So after every step the CPU must stop exactly one
+gate further on, and **PC high is the number of the gate it is waiting
+in**.
+
+Read the gate number on PC high (U4) with the multimeter.  The pins are
+steady, 0 V or 5 V:
+
+| Gate | Waits for | U4 Q2 (pin 21) | U4 Q1 (pin 22) | U4 Q0 (pin 15) |
+|--:|---|---|---|---|
+| 1 | accumulator U19, ALU U5 and U6 | 0 V | 0 V | 5 V |
+| 2 | AC source buffer U27 | 0 V | 5 V | 0 V |
+| 3 | Y register U21 | 0 V | 5 V | 5 V |
+| 4 | X register U20 | 5 V | 0 V | 0 V |
+| 5 | D source buffer U26 | 5 V | 0 V | 5 V |
+| 6 | RAM U31, U32 | 5 V | 5 V | 0 V |
+| 7 | line read buffer U29 | 5 V | 5 V | 5 V |
+
+U4 Q3-Q7 (pins 16, 20, 17, 19, 18) are 0 V in every gate.  On PC low
+(U3) the top bits are steady and Q1, Q0 toggle (the stop is a 3-clock
+branch to itself).  A gate takes well under a second, so the reading is
+there as soon as you can measure it.
+
+What each reading means after a step:
+
+- **The expected gate:** the chip you just fitted works.  Go on.
+- **The gate before it** (the same reading as before the step): the new
+  chip isn't doing its job.  Check that it is the right part, the right
+  way round and fully seated, then its solder joints and the pins the
+  step lists.
+- **An earlier gate, or 00:** the new chip is upsetting something that
+  worked: usually a solder bridge at its socket, or the chip driving the
+  bus when it shouldn't.  Pull it and check the reading goes back.
+- **PC high pins not steady** (a frequency, or a DC level between 0 V
+  and 5 V): the CPU is lost.  Treat it like the line above.
+
+The gates are careful about what they use.  There are no jumps until the
+Y register has passed its gate (a jump loads PC high from Y): the code
+gets from one gate to the next by running off the end of the page.  Every
+unused byte of a gate page is a branch to that page's stop loop, so a PC
+that lands anywhere in the page ends in the loop.
+
+One thing the gates rely on needs saying plainly.  Until step 21 the D
+source buffer U26 is not in, yet gates 1-4 load constants and branch to
+fixed places, which U26 normally puts on the bus.  That works because the
+data bus keeps the byte the ROM just put on it (the operand, the same
+byte the D register holds) for the one clock that matters; the 10k
+pull-ups need about a microsecond to move it.  The cartridge loader
+relies on the same thing.  It holds only while the RAM is out: with the
+RAM in, a video read can land between the two clocks and leave the RAM's
+byte on the bus.  That is why the RAM stays out until U26 goes in, and
+why they go in together at step 21.
+
+With no RAM the picture on the monitor means nothing in steps 16-20: the
+video shows whatever byte the ROM last left on the bus, so expect black,
+stripes or flicker.  Ignore the screen until step 21.
+
+### Step 16: the cartridge with the bring-up ROM (J8)
 
 **Parts for this step:**
 
 | Ref | Part | Value or part number | Note |
 |---|---|---|---|
-| U5, U6 | PLD, ALU low, ALU high | ATF22V10C-7PX, programmed from `ALU_SHR.pld` |  |
-| U19 | Accumulator, octal D flip-flop | TI SN74F377AN |  |
-| U5, U6 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
-| U19 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
-| C5, C6, C19 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-
-![Step 16: the parts to fit, highlighted on the board](bringup_boards/step16_board.png)
-
-**Program first:** U5 ALU low and U6 ALU high, two copies of
-`ALU_SHR.pld` (rev 07); verify and label them.
-
-Turn off the power switch.  Insert U19, U5 and U6 into their sockets.
-Turn on the power switch.  The accumulator powers up random and is never loaded in the free run.  The
-ALU does PASS A for a branch, so each ALU F output must equal the
-accumulator bit it comes from, at a steady 0 V or 5 V: low ALU F0-F3
-(pins 17, 20, 16, 21) = AC Q0-Q3, high ALU F0-F3 = AC Q4-Q7 (F377 pins 2,
-5, 6, 9, 12, 15, 16, 19).  Each ALU's Z (pin 14) is 5 V when its four
-bits are all 0.  Power off and on a few times to see other values.  The PC
-readings of steps 14 and 15 must not change.
-
-### Step 17: X (U20) and Y (U21) registers
-
-**Parts for this step:**
-
-| Ref | Part | Value or part number | Note |
-|---|---|---|---|
-| U20, U21 | X and Y registers, octal D flip-flop | TI SN74F377AN |  |
-| U20, U21 sockets | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
-| C20, C21 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-
-![Step 17: the parts to fit, highlighted on the board](bringup_boards/step17_board.png)
-
-Turn off the power switch.  Insert U20 and U21 into their sockets.  Turn
-on the power switch.  Also random and never loaded: their Q pins read steady 0 V or 5 V.  The
-free run readings must not change.
-
-### Step 18: D source buffer (U26)
-
-**Parts for this step:**
-
-| Ref | Part | Value or part number | Note |
-|---|---|---|---|
-| U26 | D source buffer, octal 3-state buffer | TI SN74F541N |  |
-| U26 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
-| C26 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| R5-R12 | Resistor, source buffers to the data bus | 47 ohm |  |
-
-![Step 18: the parts to fit, highlighted on the board](bringup_boards/step18_board.png)
-
-Turn off the power switch.  Insert U26 into its socket.  Turn on the
-power switch.  The free run never selects it (its /OE2 is instruction bit 1, which is 1),
-so the readings of steps 13-15 must not change.  If they do, the buffer is
-driving the bus when it shouldn't: check its /OE1 (Branch /SRC_EN, pin 16)
-and /OE2 (instruction register PLD I1, pin 15) wiring.
-
-### Step 19: AC source buffer (U27), line read buffer (U29), RAM back, the cartridge
-
-**Parts for this step:**
-
-| Ref | Part | Value or part number | Note |
-|---|---|---|---|
-| U27, U29 | AC source buffer, line read buffer, octal 3-state buffer | TI SN74F541N |  |
-| U27, U29 sockets | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
-| C27, C29 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
-| U31, U32 | SRAM (out since step 13, back in now) | Alliance AS7C256C-15PCN |  |
 | J8 | Cartridge slot, card edge, 64 contacts | Molex 87715-9106 |  |
 | R13 | Resistor, /CART pull-up | 10k |  |
 | cartridge PCB | 32K cartridge board |  |  |
@@ -863,14 +869,9 @@ and /OE2 (instruction register PLD I1, pin 15) wiring.
 | cartridge U3 socket | IC socket | DIP-28 0.3" (On Shore ED281DT) |  |
 | cartridge C1-C3 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
-![Step 19: the parts to fit, highlighted on the board](bringup_boards/step19_board.png)
+![Step 16: the parts to fit, highlighted on the board](bringup_boards/step16_board.png)
 
 ![The 32K cartridge board and its parts](bringup_boards/cartridge_32k_board.png)
-
-The free run does select the AC source buffer (source 11), and the
-accumulator is random, so it goes in with the memories.  Turn off the power switch and insert the AC
-source buffer U27, the line read buffer U29 and both RAM chips U31 and
-U32 into their sockets.
 
 Build the 32K cartridge: sockets and C1-C3 (100 nF) first, then program
 and insert its chips into their sockets one at a time:
@@ -887,21 +888,242 @@ and insert its chips into their sockets one at a time:
    same 32 KB in both halves of the ROM, x0000-x7FFF and x8000-xFFFF.
 3. **SRAM.**  Insert cartridge U3 into its socket (no programming).
 
-Take the shunts off JP1 and JP2 on the main board and plug
-the cartridge into J8.  Turn on the power switch: within about half a second the
-screen shows the bring-up ROM's status screen ([below](#the-bring-up-rom)).
-If it doesn't, read where the CPU stopped (next section).
+Turn off the power switch.  Solder J8 and R13.  Take the shunts off JP1
+and JP2 (the cartridge drives STALL_IN and RUN now) and plug the
+cartridge into J8.  The RAM chips U31 and U32 stay out.  Turn on the
+power switch.
 
-![Step 19: the bring-up ROM's status screen](bringup_screens/step19_status.png)
+The CPU runs a few instructions in page 0 that need none of the missing
+chips and then meets gate 1, which needs the accumulator and the ALU.  They aren't in, so it stops there:
 
-*Step 19, about a second after power-on.  The shared port isn't in until
-step 20, so the keyboard, pad, SD card and mouse rows show nothing
+| Pin | Reading |
+|---|---|
+| U4 Q0 (pin 15) | 5 V |
+| U4 Q1-Q7 (pins 22, 21, 16, 20, 17, 19, 18) | 0 V |
+
+**Gate 1** (PC high = 01).  If instead PC high still counts as in step 15
+(every pin 2.50 V), the CPU is reading FF everywhere, so the ROM isn't
+reaching the bus: check that the cartridge is seated, that the shunts are
+off, J8's solder joints, and that cartridge U2 was programmed and
+verified.  If PC high and PC low are all 0 V and nothing toggles, the CPU
+is stalled: check cartridge U1 and R13.
+
+### Step 17: accumulator (U19), ALU low (U5), ALU high (U6)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U5, U6 | PLD, ALU low, ALU high | ATF22V10C-7PX, programmed from `ALU_SHR.pld` |  |
+| U19 | Accumulator, octal D flip-flop | TI SN74F377AN |  |
+| U5, U6 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
+| U19 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C5, C6, C19 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+
+![Step 17: the parts to fit, highlighted on the board](bringup_boards/step17_board.png)
+
+**Program first:** U5 ALU low and U6 ALU high, two copies of
+`ALU_SHR.pld` (rev 07); verify and label them.
+
+Turn off the power switch.  Insert U19, U5 and U6 into their sockets.
+Turn on the power switch.  Gate 1 loads constants into the accumulator
+and checks them with the flags and every ALU function, passes, and the
+CPU stops in gate 2, which needs the AC source buffer:
+
+| Pin | Reading |
+|---|---|
+| U4 Q1 (pin 22) | 5 V |
+| U4 Q0, Q2 (pins 15, 21) | 0 V |
+
+**Gate 2** (PC high = 02).  If it is still in gate 1, PC low (U3) tells
+which check failed.  Q7, Q6, Q5 (pins 18, 19, 17) are 5 V and Q4
+(pin 20) is 0 V; read Q3 (pin 16) and Q2 (pin 21):
+
+| U3 Q3 | U3 Q2 | Failed check | Look at |
+|---|---|---|---|
+| 0 V | 0 V | zero and sign flags | each ALU's Z (pin 14) to the Branch PLD U2 pins 7 and 13, the high ALU's F3 (pin 21) to U2 pin 8, /LOAD_AC (State pin 22) to U19 |
+| 0 V | 5 V | a data bit, AND, OR or XOR | the ALU F outputs (pins 17, 20, 16, 21) to U19's D pins, U19's Q pins to the ALU A inputs, the D register U18 to the ALU B inputs |
+| 5 V | 0 V | ADD, SUB or the carry flag | the carry from the low ALU to the high ALU, the high ALU's COUT (pin 18) to U2 pin 14, U2's ALU_DONE (pin 18) |
+| 5 V | 5 V | shift right | the shift-in wiring (SHIFT_RIGHT_IN, pin 23) |
+
+(Q4 at 5 V with Q3 and Q2 at 5 V is the page's catch-all stop: the CPU
+got lost inside the gate, so start with the first row.)
+
+### Step 18: AC source buffer (U27)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U27 | AC source buffer, octal 3-state buffer | TI SN74F541N |  |
+| U27 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C27 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| R5-R12 | Resistor, source buffers to the data bus | 47 ohm |  |
+
+![Step 18: the parts to fit, highlighted on the board](bringup_boards/step18_board.png)
+
+Turn off the power switch.  Solder R5-R12 and insert U27 into its socket.
+Turn on the power switch.  Gate 2 clears and shifts the accumulator, which
+puts AC on the bus through U27, then branches to an address held in AC.
+It passes, and the CPU stops in gate 3, which needs the Y register:
+
+| Pin | Reading |
+|---|---|
+| U4 Q0, Q1 (pins 15, 22) | 5 V |
+| U4 Q2 (pin 21) | 0 V |
+
+**Gate 3** (PC high = 03).  If it is still in gate 2: U27's /OE1 (Branch
+/SRC_EN, pin 16), its /OE2 (/AC_SEL, audio PLD U35 pin 21), R5-R12, and
+U19's Q pins to U27's inputs.
+
+### Step 19: Y register (U21)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U21 | Y register, octal D flip-flop | TI SN74F377AN |  |
+| U21 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C21 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+
+![Step 19: the parts to fit, highlighted on the board](bringup_boards/step19_board.png)
+
+Turn off the power switch.  Insert U21 into its socket.  Turn on the
+power switch.  Gate 3 loads Y with four page numbers and reads a byte
+from each page of the ROM (each of those pages is filled with its own
+number).  It passes, and the CPU stops in gate 4, which needs the X
+register:
+
+| Pin | Reading |
+|---|---|
+| U4 Q2 (pin 21) | 5 V |
+| U4 Q0, Q1 (pins 15, 22) | 0 V |
+
+**Gate 4** (PC high = 04).  If it is still in gate 3: /LOAD_Y (State
+pin 21) and Y_ENABLE (State pin 17), the ALU F outputs to U21's D pins,
+and U21's Q pins to the high address muxes U9 and U10.
+
+### Step 20: X register (U20)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U20 | X register, octal D flip-flop | TI SN74F377AN |  |
+| U20 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C20 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+
+![Step 20: the parts to fit, highlighted on the board](bringup_boards/step20_board.png)
+
+Turn off the power switch.  Insert U20 into its socket.  Turn on the
+power switch.  Gate 4 loads X with a walking bit and reads a ROM table
+in which every byte holds its own address.  It passes.  Gate 5, the test
+for the D source buffer, passes too: with the RAM out the bus hold stands
+in for U26, so gate 5 can't tell yet.  The CPU stops in gate 6, which
+needs the RAM:
+
+| Pin | Reading |
+|---|---|
+| U4 Q1, Q2 (pins 22, 21) | 5 V |
+| U4 Q0 (pin 15) | 0 V |
+
+**Gate 6** (PC high = 06).  If it is still in gate 4: /LOAD_X (State
+pin 20) and X_ENABLE (State pin 16), the ALU F outputs to U20's D pins,
+and U20's Q pins to the low address muxes U7 and U8.
+
+### Step 21: D source buffer (U26) and the RAM back in (U31, U32)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U26 | D source buffer, octal 3-state buffer | TI SN74F541N |  |
+| U26 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C26 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| U31, U32 | SRAM (out since step 13, back in now) | Alliance AS7C256C-15PCN |  |
+
+![Step 21: the parts to fit, highlighted on the board](bringup_boards/step21_board.png)
+
+Turn off the power switch.  Insert U26 and both RAM chips U31 and U32
+into their sockets.  Turn on the power switch.  The video reads the RAM
+again, so the bus hold is gone and every constant has to come through
+U26.  Gate 5 loads and checks 15 constants several thousand times, over
+about a hundred video reads.  Gate 6 writes and reads back a byte in
+each RAM chip.  Both pass, the ROM goes on to its full tests (see
+[The bring-up ROM](#the-bring-up-rom)) and stops at the last one, the
+video line read, which needs U29:
+
+| Pin | Reading |
+|---|---|
+| U4 Q0, Q1, Q2 (pins 15, 22, 21) | 5 V |
+| U4 Q3-Q7 (pins 16, 20, 17, 19, 18) | 0 V |
+
+**Gate 7** (PC high = 07).  The screen shows the random RAM again:
+
+![Step 21: random colored noise with black lines](bringup_screens/step11_random.png)
+
+*Step 21: the kind of picture to expect while the CPU waits in gate 7.*
+
+Anything other than a steady 07 here:
+
+- **05, 00, another page or a PC that keeps moving:** the D source
+  buffer.  Without it the CPU picks up RAM bytes in place of its
+  constants, so where it ends up varies from one power-up to the next; it
+  never settles in gate 7.  Check U26's /OE1 (Branch /SRC_EN, pin 16),
+  its /OE2 (instruction register PLD I1, pin 15), and the D register
+  U18's Q pins to U26's inputs.
+- **06:** the RAM.  Check U31 and U32 are seated (a bent data pin stops
+  here too), then /WE, /RAM_OE and the map register U25 (gate 6 sets map
+  bits 1 and 4 to reach one byte in each chip).
+- **00 with PC low Q7 (pin 18) at 5 V:** one of the ROM's full tests
+  failed; read its number as in [The bring-up ROM](#the-bring-up-rom).
+
+### Step 22: line read buffer (U29)
+
+**Parts for this step:**
+
+| Ref | Part | Value or part number | Note |
+|---|---|---|---|
+| U29 | Line read buffer, octal 3-state buffer | TI SN74F541N |  |
+| U29 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
+| C29 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+
+![Step 22: the parts to fit, highlighted on the board](bringup_boards/step22_board.png)
+
+Turn off the power switch.  Insert U29 into its socket.  Turn on the
+power switch.  The last gate opens: within about half a second the
+screen shows the bring-up ROM's status screen
+([below](#the-bring-up-rom)).  If it is still in gate 7, check U29's
+enable (/P0, I/O decode U12) and its inputs from the V counter.
+
+![Step 22: the bring-up ROM's status screen](bringup_screens/step22_status.png)
+
+*Step 22, about a second after power-on.  The shared port isn't in until
+step 23, so the keyboard, pad, SD card and mouse rows show nothing
 attached (SD_INIT 01, MOUSE_INIT 01; their exact values don't matter
 yet).  FRAME, LOOPS and PASSES count up; ERRORS stays 0.*
 
 ## The bring-up ROM
 
-At power-up it runs these tests from the ROM, using only the CPU, the ROM,
+The ROM starts with the seven [chip gates](#the-chip-gates) of steps
+16-22, in pages x01 to x07:
+
+| Gate | Page | Tests | Stops at |
+|--:|---|---|---|
+| 1 | x01 | AC and the ALU: the Z and sign flags, each data bit, AND, OR, XOR, ADD, SUB, the carry flag, SHR | x01E0 flags, x01E4 bits, x01E8 carry, x01EC shift |
+| 2 | x02 | the AC source buffer: clear and shift left (AC is the ALU's second input), then a branch to the address in AC | x02FC |
+| 3 | x03 | the Y register: read pages x39, x5E, x11 and x0F, each filled with its own number | x03FC |
+| 4 | x04 | the X register: a walking bit from an immediate and two values from AC, read back from the table at x3F00 | x04FC |
+| 5 | x05 | the D source buffer: 15 constants loaded and compared, 256 times, twice | x0500 |
+| 6 | x06 | the RAM: map bits 1 and 4 set, then A5 and 5A written and read at x2010 (U31) and x9010 (U32), so every data bit is seen both ways | x06FC |
+| 7 | x07 | the video line read: where test 16 below goes when it fails | x07FC |
+
+Gate 5 has to stop for good when U26 is missing, when nothing that comes
+through U26 can be trusted, not even a branch to a fixed place.  So its
+stop uses only the AC source: it clears AC and branches to the address
+in AC, x0500, where a one-byte branch-if-zero loops on itself.
+
+After gate 6 the ROM runs these tests, using only the CPU, the ROM,
 the RAM and the map register:
 
 | N | Test | What it needs |
@@ -923,11 +1145,9 @@ the RAM and the map register:
 | 15 | RAM address lines, both chips | RAM A14:A0, the lower chip's /CE (A15) and /CE_HI |
 | 16 | Video line read (x5000) | line read buffer (U29), /P0 and Q0 |
 
-The code that runs these tests uses only a few instructions before test 1
-(a jump and the map write), so a CPU that can't run the tests usually
-still reaches a fail loop.
-
-**A failed test stops the CPU in a loop of its own at ROM x0080 + 4N.**
+**A failed test 1-15 stops the CPU in a loop of its own at ROM x0080 + 4N.**
+(Test 16 at power-up stops in gate 7 instead, so that step 21 ends on a
+gate like the steps before it.)
 Read N off the PC with the meter:
 
 - PC high (U4) Q0-Q7 all **0 V**
@@ -937,14 +1157,13 @@ Read N off the PC with the meter:
 
 For example test 13 = 01101: Q6 0 V, Q5 5 V, Q4 5 V, Q3 0 V, Q2 5 V.
 
-A PC that keeps moving with no status screen means the CPU is lost before
-or between the tests.  The usual cause is the ALU or a register load:
-every register (AC, X, Y, the PC's jump target) loads through the ALU, so
-one stuck ALU output can break the very first jump.  An ALU output pin
-stuck can also hide from the tests that compare with XOR (the compare goes
-through the same pin) and show up first as 1, 5 or 6.  In either case go
-back to the free run (pull the ROM and the RAM) and check steps 13-18
-again, then the ALU outputs against the accumulator as in step 16.
+The gates have already proved the registers, the ALU and both source
+buffers by the time these tests run, so a fail loop here points at the
+memory side: the address muxes, the RAM, the map register and memory
+control.  A stuck ALU output or flag never gets this far; it stops in
+gate 1.  A PC that keeps moving with no status screen means the CPU is
+lost: go back through the gates (pull the RAM, then U26 and the chips
+after it in reverse order, and check each step's gate number again).
 
 When all pass, the ROM sets up the library, draws the status screen and
 runs a loop once a frame:
@@ -967,16 +1186,21 @@ every 0.8 s and ERRORS stays 0.  If a core test fails later, the CPU stops
 in its fail loop as above and the screen freezes.
 
 The source is `src/scripts/gen_bringup.py`, which writes `bringup.asm`.
-`python3 test_bringup_sim.py` runs it in the simulator on a good machine
-(screen, counters, keys, tone, SD retry) and with faults: a RAM data bit
-stuck (fail 13), a map register bit stuck (14), a RAM address line stuck
-(15), a line read bit stuck (16), an ALU output stuck (1, 5, or lost before
-the tests), and a RAM bit that goes bad after start-up (counted by the
-page test).  It takes several minutes.
+`python3 test_bringup_sim.py` runs it in the simulator three ways.
+First with chips missing, as in steps 16-22: for each step it leaves out
+the chips not yet fitted, lets their pins float (many random runs) and
+checks that the CPU stops in that step's gate and in no other; and with
+U26 missing but the RAM in, that it never reaches gate 7 or the status
+screen.  Then on a good machine (screen, counters, keys, tone, SD retry).
+Then with faults: an ALU output stuck (gate 1), a RAM data bit stuck
+(gate 6), a map register bit stuck (gate 6 for bit 1, which gate 6 uses,
+fail 14 for the others), a RAM address line stuck (15), a line read bit
+stuck (gate 7), and a RAM bit that goes bad after
+start-up (counted by the page test).  It takes about 20 minutes.
 
 ## I/O and audio
 
-### Step 20: shared port: port PLD (U38) and PS/2 receiver PLD (U42)
+### Step 23: shared port: port PLD (U38) and PS/2 receiver PLD (U42)
 
 **Parts for this step:**
 
@@ -999,7 +1223,7 @@ page test).  It takes several minutes.
 | R45-R47 | Resistor, SD dividers | 3.3k |  |
 | R48 | Resistor, MISO pull-up to 3.3 V | 10k |  |
 
-![Step 20: the parts to fit, highlighted on the board](bringup_boards/step20_board.png)
+![Step 23: the parts to fit, highlighted on the board](bringup_boards/step23_board.png)
 
 **Program first:** U38 shared port from `ATF22V10_PORT.pld` (rev 05) and
 U42 PS/2 receiver from `ATF22V10_PS2.pld` (rev 03); verify and label
@@ -1068,13 +1292,13 @@ U40's output and at the SD socket's pin 4.
   a keyboard whose keys double up on the display points at a hold the
   keyboard does not see (it should be 100 us or more on the scope).
 
-![Step 20: the status screen with a keyboard, mouse, pad and SD card](bringup_screens/step20_io.png)
+![Step 23: the status screen with a keyboard, mouse, pad and SD card](bringup_screens/step23_io.png)
 
-*Step 20, an example: "placard" typed and A held (one KBD_NOW byte reads
+*Step 23, an example: "placard" typed and A held (one KBD_NOW byte reads
 DF), B held on pad 1 (0001), a FAT card in (SD_INIT 00, FS_MOUNT 00) and
 the mouse moved (MOUSE_INIT 00, X 120, Y 45).*
 
-### Step 21: audio DAC (U36)
+### Step 24: audio DAC (U36)
 
 **Parts for this step:**
 
@@ -1092,7 +1316,7 @@ the mouse moved (MOUSE_INIT 00, X 120, Y 45).*
 | R39 | Resistor, output | 10k |  |
 | J6 | Audio line out jack, 3.5 mm TRRS | Tensility 54-00174 |  |
 
-![Step 21: the parts to fit, highlighted on the board](bringup_boards/step21_board.png)
+![Step 24: the parts to fit, highlighted on the board](bringup_boards/step24_board.png)
 
 Turn off the power switch.  Insert the DAC register U36 into its socket
 and fit its supply
@@ -1111,9 +1335,9 @@ With no sound playing the sample is 80h:
 The ladder output sits at about 2.5 V when silent.  Press T: a 1 kHz tone
 from the line out (into an amplifier or powered speakers); T again stops it.
 
-![Step 21: the status screen with the test tone on](bringup_screens/step21_tone.png)
+![Step 24: the status screen with the test tone on](bringup_screens/step24_tone.png)
 
-*Step 21: after T the SOUND row ends in ON.*
+*Step 24: after T the SOUND row ends in ON.*
 
 When everything passes, load the normal ROM image: take cartridge U2
 out, program it with the 32K ROM (`rom_32k.bin`, written by

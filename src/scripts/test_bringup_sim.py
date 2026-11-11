@@ -14,16 +14,21 @@ LIB_RAM bytes at x1F00), so the simulator runs it with
 no boot loader, from random RAM, with the hardware ALU model and the shared
 port model (PS/2 keyboard and mouse, pads, SD card).  Checks:
 
+  - the chip gates: for each build step of BRINGUP.md, with only the chips
+    fitted so far (PartCpu: the missing chips' pins float, the bus keeps
+    its last byte) the PC stops in that step's gate page and no other;
+    with the D source buffer missing but the RAM in, it never settles in
+    gate 7 or reaches the status screen
   - a good machine passes the startup tests, draws the status screen and
     runs the frame loop: LOOPS and FRAME count up, the RAM test makes
     passes with no errors, SD_INIT and MOUSE_INIT show the attached parts
   - typed keys echo; T turns the test tone on (the audio buffer changes)
     and off; S retries the SD card
-  - injected faults stop the CPU in the right fail loop (PC = x0080 + 4N):
-    a RAM data bit (13), a map register bit (14), a RAM address line (15),
-    a stuck line read bit (16), an ALU output pin (one of 1-8, or lost
-    before the tests: every register loads through the ALU), and a RAM bit
-    that goes bad later is counted by the RAM page test
+  - injected faults stop the CPU in the right place: an ALU output pin in
+    gate 1, a RAM data bit (or the map bit gate 6 uses) in gate 6, a
+    stuck line read bit in gate 7, and in the fail loops (PC = x0080 + 4N)
+    a map register bit (14) and a RAM address line (15); a RAM bit that goes bad later is counted by
+    the RAM page test
 
 Video stalls are not modeled, so the CPU runs about 10 % faster than on
 the board; the per-frame work is bounded, so the frame loop runs once per
@@ -213,16 +218,21 @@ def run_fault(rom, syms, name, want, read=None, line=None, alu=None, addr_mask=0
     if alu is not None:
         plain_alu = cpu.alu
         cpu.alu = lambda s, a, b: alu(s, plain_alu(s, a, b))
+    stops = {syms[k]: 'gate 1' for k in ('g1_flags', 'g1_bits', 'g1_carry', 'g1_shift')}
+    stops.update({syms['gate%d_stop' % n]: 'gate %d' % n for n in gb.GATE_PAGES if n != 5})
     got = None
     while cpu.clocks < limit_frames * CLOCKS_PER_FRAME:
         cpu.step()
         if cpu.pc in FAILS:
             got = FAILS[cpu.pc]
             break
+        if cpu.pc in stops:
+            got = stops[cpu.pc]
+            break
     wants = want if isinstance(want, tuple) else (want,)
     ok = got in wants
-    print('%-44s fail loop %-4s (want %s)  %s' % (name, got, ' or '.join(map(str, wants)),
-                                                 'ok' if ok else 'WRONG'))
+    print('%-44s stops in %-7s (want %s)  %s' % (name, got if isinstance(got, str) else 'fail loop %s' % got,
+                                                 ' or '.join(map(str, wants)), 'ok' if ok else 'WRONG'))
     return ok
 
 
@@ -233,10 +243,10 @@ def in_ram(cpu, ad):
 def faults(rom, syms):
     ok = True
     # RAM data bit 5 of the lower chip stuck at 0
-    ok &= run_fault(rom, syms, 'RAM data bit 5 stuck low (lower chip)', 13,
+    ok &= run_fault(rom, syms, 'RAM data bit 5 stuck low (lower chip)', 'gate 6',
                     read=lambda cpu, ad, v: v & ~0x20 if in_ram(cpu, ad) and ad < 0x8000 else v)
     # upper chip data bit 2 stuck high
-    ok &= run_fault(rom, syms, 'RAM data bit 2 stuck high (upper chip)', 13,
+    ok &= run_fault(rom, syms, 'RAM data bit 2 stuck high (upper chip)', 'gate 6',
                     read=lambda cpu, ad, v: v | 0x04 if in_ram(cpu, ad) and ad >= 0x8000 else v)
     # map register bits stuck at 0 (the section reads ROM)
     for b in (1, 2, 5, 7):
@@ -244,7 +254,8 @@ def faults(rom, syms):
             if (ad >> 13) == b and (cpu.map >> b) & 1:
                 return cpu.rom[ad]
             return v
-        ok &= run_fault(rom, syms, 'map register bit %d stuck low' % b, 14, read=rd)
+        ok &= run_fault(rom, syms, 'map register bit %d stuck low' % b,
+                        'gate 6' if b == 1 else 14, read=rd)   # gate 6 puts its RAM in sections 1 and 4
     # map bit 6 stuck high: section 6 reads RAM when the map says ROM
     def rd6(cpu, ad, v):
         if (ad >> 13) == 6:
@@ -262,17 +273,17 @@ def faults(rom, syms):
     for b in (0, 4, 9, 13, 14):
         ok &= run_fault(rom, syms, 'RAM address line A%d stuck low' % b, 15, addr_mask=1 << b)
     # line read bit stuck
-    ok &= run_fault(rom, syms, 'line read bit V5 stuck low', 16, line=lambda v: v & ~0x08)
-    ok &= run_fault(rom, syms, 'line read bit V9 stuck high', 16, line=lambda v: v | 0x80)
-    # an ALU output pin stuck low: every operation sees it, the XOR that
-    # checks a result too, so it can hide until a test the compare can't fix.
-    # Every register loads through the ALU, so it can also break the jumps
-    # before any test (F0 low turns the first jump's page x21 into x20):
-    # None = the CPU never reaches a fail loop (BRINGUP.md says what then)
-    for b in (0, 3, 7):
-        ok &= run_fault(rom, syms, 'ALU output F%d stuck low' % b, tuple(range(1, 9)) + (None,),
+    # line read bit stuck: at start-up test 16 waits in gate 7
+    ok &= run_fault(rom, syms, 'line read bit V5 stuck low', 'gate 7', line=lambda v: v & ~0x08)
+    ok &= run_fault(rom, syms, 'line read bit V9 stuck high', 'gate 7', line=lambda v: v | 0x80)
+    # an ALU output pin stuck: gate 1 stops it before the first jump (every
+    # register, the jump's page in Y too, loads through the ALU)
+    for b in range(8):
+        ok &= run_fault(rom, syms, 'ALU output F%d stuck low' % b, 'gate 1',
                         alu=lambda s, r, b=b: r & ~(1 << b))
-    ok &= run_fault(rom, syms, 'ADD result bit 4 stuck low', 5,
+        ok &= run_fault(rom, syms, 'ALU output F%d stuck high' % b, 'gate 1',
+                        alu=lambda s, r, b=b: r | (1 << b))
+    ok &= run_fault(rom, syms, 'ADD result bit 4 stuck low', 'gate 1',
                     alu=lambda s, r: r & ~0x10 if s == 4 else r)
     return ok
 
@@ -297,12 +308,197 @@ def ram_late_fault(rom, syms, font):
     return ok
 
 
+# ---------------------------------------------------------------------------
+# The chip gates: the CPU with chips missing, as it is in the build steps
+# ---------------------------------------------------------------------------
+CHIPS = ('alu', 'u27', 'y', 'x', 'u26', 'ram', 'u29')    # 'alu' is AC + both ALU PLDs
+
+
+class PartCpu(ps.Cpu):
+    """the CPU with some chips not fitted yet (have: the ones that are).
+
+    What a missing chip does:
+      - no ALU and AC: the flags Z, N and the carry are pins that float at
+        some level (fz, fn, fc); nothing loads AC, X or Y with sense (the
+        registers' inputs float high: FF)
+      - no X or Y register: that address byte floats (fx, fy)
+      - no source buffer (U26 for D, U27 for AC): the data bus keeps the
+        last byte a memory put on it.  For a D source that is the byte D
+        holds, so it works, unless the RAM is in: then a video read between
+        the load and the execute clock leaves the RAM's byte there instead
+        (chance hit per instruction, a random byte)
+      - no RAM: a RAM read, and no line read buffer U29: a read of x5000,
+        leaves the bus as it was
+    float_rnd: the floating values are taken again at every use (they need
+    not hold still) instead of once."""
+
+    def __init__(self, rom, have, seed=1, hit=0.05, float_rnd=False):
+        super().__init__({}, hw_alu=True, rom=rom)
+        self.have = set(have)
+        self.rnd = random.Random(seed)
+        r = self.rnd
+        self.mem = bytearray(r.randrange(256) for _ in range(65536))
+        self.fl = dict(z=r.randrange(2), n=r.randrange(2), c=r.randrange(2),
+                       x=r.randrange(256), y=r.randrange(256))
+        self.float_rnd = float_rnd
+        self.hit = hit
+        self.bus = 0xFF
+        self.ac = r.randrange(256)
+        self.pages = set()                # the PC high bytes it has run in
+
+    def f(self, k):
+        if self.float_rnd:
+            return self.rnd.randrange(2 if k in 'znc' else 256)
+        return self.fl[k]
+
+    def rd(self, ad):
+        if 0x5000 <= ad < 0x5400:
+            if ad < 0x5100 and 'u29' in self.have:
+                self.bus = self.line_read()
+            return self.bus                       # nothing else answers in the I/O window
+        if (self.map >> (ad >> 13)) & 1:
+            if 'ram' in self.have:
+                self.bus = self.mem[ad]
+        else:
+            self.bus = self.rom[ad]
+        return self.bus
+
+    def step(self):
+        have = self.have
+        here = self.pc
+        self.pages.add(here >> 8)
+        opc = self.rd(self.pc)
+        self.pc = (self.pc + 1) & 0xFFFF
+        a, m, s = opc >> 5, (opc >> 2) & 7, opc & 3
+        clocks = 2
+        if (s == 0) or (s == 1 and m in (0, 3, 4, 5)) or (s >= 2 and m == 5):
+            self.d = self.rd(self.pc)
+            self.pc = (self.pc + 1) & 0xFFFF
+            clocks += 1
+        x = self.x if 'x' in have else self.f('x')
+        y = self.y if 'y' in have else self.f('y')
+        if m in (0, 3, 4, 5):
+            ad = self.d
+        elif m in (1, 6):
+            ad = x
+        else:
+            ad = (y << 8) | x
+        if s == 1 or (s >= 2 and m in (6, 7)):
+            v = self.rd(ad)                       # LOAD_MEM (for an AC source the byte is not used)
+            if s == 1:
+                self.d = v
+            clocks += 1
+        if s < 2:
+            src = self.d
+            if 'u26' not in have:
+                src = self.bus
+                if 'ram' in have and self.rnd.random() < self.hit:
+                    src = self.rnd.randrange(256)     # a video read got in between
+        else:
+            src = self.ac if 'u27' in have else self.bus
+        self.bus = src
+        alu = 'alu' in have
+        res = self.alu(a, self.ac, src) if alu else 0xFF
+        if a == 7:
+            if alu:
+                z, neg, c = self.ac == 0, (self.ac >> 7) & 1, self.c
+            else:
+                z, neg, c = self.f('z'), self.f('n'), self.f('c')
+            if [True, c, (not z) and neg, not z, z, not c, z or neg, True][m]:
+                self.pc = (self.pc & 0xFF00) | src
+                if m == 0:
+                    self.pc = (y << 8) | src
+        else:
+            if a in (4, 5) and m <= 4:
+                clocks += 1
+                if alu:
+                    self.c = self.carry(a, self.ac, src)
+            if m in (0, 1, 2):
+                if alu:
+                    self.ac = res
+            elif m == 3:
+                self.x = res
+            elif m == 4:
+                self.y = res
+            else:
+                if 'ram' in have:
+                    self.mem[ad] = src
+                if ad & 0xFF00 == 0x5000:
+                    self.map = src
+        self.steps += 1
+        self.clocks += clocks
+        return here
+
+
+def settle(cpu, syms, clocks):
+    """runs it; returns the gate page it stopped in (PC high held still for
+    the last half of the run), 'main' if it reached the status screen code,
+    or None"""
+    half = None
+    while cpu.clocks < clocks:
+        cpu.step()
+        if cpu.pc == syms['main']:
+            return 'main'
+        if half is None and cpu.clocks >= clocks // 2:
+            half = cpu.pc >> 8
+            cpu.pages = set()
+    return half if cpu.pages == {half} else None
+
+
+def gate_checks(rom, syms):
+    """each build step: with the chips fitted so far the PC must stop in the
+    next chip's gate page, whatever the missing chips' pins float at, and
+    never get past it"""
+    ok = True
+    steps = [((), 1, 'the cartridge alone'),
+             (('alu',), 2, 'then AC and the ALU (U19, U5, U6)'),
+             (('alu', 'u27'), 3, 'then the AC source buffer (U27)'),
+             (('alu', 'u27', 'y'), 4, 'then the Y register (U21)'),
+             (('alu', 'u27', 'y', 'x'), 6, 'then the X register (U20)'),
+             (('alu', 'u27', 'y', 'x', 'u26', 'ram'), 7, 'then the D source buffer (U26) and the RAM'),
+             (('alu', 'u27', 'y', 'x', 'u26', 'ram', 'u29'), 'main', 'then the line read buffer (U29)')]
+    for have, want, name in steps:
+        bad = {}
+        n = 0
+        for float_rnd in (False, True):
+            for seed in range({7: 5, 'main': 2}.get(want, 60)):
+                cpu = PartCpu(rom, have, seed=seed, float_rnd=float_rnd)
+                got = settle(cpu, syms, {7: 2_000_000, 'main': 60_000_000}.get(want, 400_000))
+                n += 1
+                if got != want:
+                    bad[got] = bad.get(got, 0) + 1
+        good = not bad
+        ok &= good
+        print('%-46s %-16s %3d runs  %s'
+              % (name, 'status screen' if want == 'main' else 'stops in gate %s' % want, n, 'ok' if good else 'WRONG: %r' % bad))
+    # the D source buffer missing with the RAM in: where it ends up depends on
+    # how often a video read lands between LOAD and EXEC, but it must never
+    # look like a pass (steady in gate 7, or the status screen)
+    past = 0
+    where = {}
+    runs = 60
+    for seed in range(runs):
+        cpu = PartCpu(rom, ('alu', 'u27', 'y', 'x', 'ram'), seed=seed, hit=(0.01, 0.05, 0.2)[seed % 3])
+        got = settle(cpu, syms, 2_000_000)
+        if got in (7, 'main'):
+            past += 1
+        key = 'main' if got == 'main' else 'wanders' if got is None else '%02X' % got
+        where[key] = where.get(key, 0) + 1
+    good = past == 0
+    ok &= good
+    print('%-46s never gate 7 or the status screen: %d of %d runs did  %s  (%s)'
+          % ('no U26 with the RAM in', past, runs, 'ok' if good else 'WRONG',
+             ', '.join('%s: %d' % kv for kv in sorted(where.items()))))
+    return ok
+
+
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('--png')
     ap.add_argument('--bin', action='store_true')
     ap.add_argument('--no-faults', action='store_true')
     ap.add_argument('--faults-only', action='store_true')
+    ap.add_argument('--gates-only', action='store_true')
     ap.add_argument('-v', '--verbose', action='store_true')
     args = ap.parse_args(argv)
     mem, syms = build()
@@ -312,9 +508,13 @@ def main(argv):
     if args.bin:
         open(os.path.join(HERE, 'bringup.bin'), 'wb').write(img)
         print('wrote bringup.bin (%d bytes)' % len(img))
+    if args.gates_only:
+        ok = gate_checks(rom, syms)
+        print('OK' if ok else 'FAILED')
+        return 0 if ok else 1
     if not args.faults_only:
         check_good(rom, syms, font, args)
-    ok = True
+    ok = gate_checks(rom, syms)
     if not args.no_faults:
         ok &= faults(rom, syms)
         ok &= ram_late_fault(rom, syms, font)
