@@ -29,9 +29,10 @@
 ; (x4E00-x4FFF) for folder and FAT sectors, both in section 2, which must
 ; read RAM (it does in the standard map 05).  They change R0-R5 and the
 ; I/O drivers' zero page bytes, besides T0-T7.  placard_lib.asm includes
-; this file; its code is at FS_CODE (xC700-xD4FF).
+; this file; its code is at FS_CODE (xC800-xD5FF), in ROM
+; section 6 with the SD card driver and the FAT writer.
 ;
-; Date: 10/25/2026
+; Date: 11/11/2026
 ; ============================================================
 
 FS_VARS   = 0x4D00      ; the file system's variables, 128 bytes

@@ -1,9 +1,9 @@
 ; lib_dec16.asm - con_dec16 for placard_lib.asm, which includes it right
 ; after placard_slot.asm: it goes on in the free end of the slot helpers'
-; page (xC600-xC6FF), the one library page with room for all of it, so
+; page (xF000-xF0FF), the one library page with room for all of it, so
 ; it runs without jumps between pages.  Every branch stays in this page.
 ;
-; Date: 11/10/2026
+; Date: 11/11/2026
 
 ; ------------------------------------------------------------
 ; con_dec16 - print a 16-bit value in decimal, no leading zeros
@@ -12,7 +12,7 @@
 ;   changes: AC, X, Y, T0-T5
 ;   clocks:  about 900-4,200 (about 800 a digit, con_putc included)
 ;   Uses 2 stack bytes.  It is in the free end of the slot helpers' page
-;   (xC600, SLOT_CODE), the one library page with room for all of it.  Each digit is the count of times its power of
+;   (xF000, SLOT_CODE), the one library page with room for all of it.  Each digit is the count of times its power of
 ;   ten can be taken off.  R1:R0 = the value left, R2 = the power's index
 ;   (bit 7 set once a digit is printed); con_putc keeps them.
 ; ------------------------------------------------------------

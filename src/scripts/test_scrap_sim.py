@@ -47,7 +47,7 @@ the upper socket, and boots it like the board (test_dos.Rig):
      after, still installed, and the tug has no air)
  12. Esc brings the DOS's browser back
 
-Date: 2026-11-10
+Date: 2026-11-11
 """
 
 import argparse
@@ -545,7 +545,7 @@ def build():
         if lab not in own and not lab.startswith('scw_') and 0x4100 <= tsyms.get(lab, 0) < 0x4D00:
             raise SystemExit('%s is in SCRAP.INV (x%04X)' % (lab, tsyms[lab]))  # resident code spilled
     prog, code = gen_plc.split_overlay(prog, lib, 0xC000, 2, [(0x5600, 0x5A00, 1), (0x5C00, 0x5E00, 1)])
-    if any(0x4000 <= a < 0xC000 for a in prog):
+    if any(0x4000 <= a < 0xC000 and a not in lib for a in prog):
         raise SystemExit('scrap.asm reaches past x3FFF')
     if gen_scrap.DOOR_PAGE != 0x31:     # scrap.masm's PRG_TOP: .region 0x2000, PRG_TOP ends there
         raise SystemExit('the fixed pages start at x%02X00: change the region' % gen_scrap.DOOR_PAGE)

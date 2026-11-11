@@ -20,7 +20,7 @@ end Esc must bring the DOS back.
 and it prints the clocks a view and a column took.  Video stalls are not
 modeled (the board is about 10 % slower: 1 clock in 8 during active video).
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import argparse
@@ -45,6 +45,7 @@ def main(argv):
                     help='the SD card program (RAYCAST.PLC as gen_raycast.py --sd makes it), '
                          'loaded as the DOS loads it')
     args = ap.parse_args(argv)
+    args.sd = True      # the ROM build went on 2026-11-11 (docs/architecture/ROM.md)
 
     src, _ = rc.gen(sd=args.sd)
     mem, syms, _ = ps.assemble(src, HERE)

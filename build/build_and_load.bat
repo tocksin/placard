@@ -4,7 +4,8 @@ rem build_and_load.bat  <program> [noasm] [fast]
 rem
 rem Builds one assembly program into the FPGA and loads it on the board:
 rem   1. assembles src\scripts\<program>.asm into <program>.hex, and the ROM's
-rem      boot loader and library (rom_boot.asm, rom_lib.asm)
+rem      boot loader, library and 32K image (rom_boot.asm, rom_lib.asm,
+rem      rom32.asm: every ROM has the 32K image in its upper half)
 rem      (customasm if it is on the PATH, otherwise placard_sim.py with
 rem      Python; if neither is found the existing .hex files are used)
 rem   2. makes src\hdl\ram.mem and cart_ram.mem (gen_random_ram.tcl, random
@@ -30,7 +31,7 @@ rem (newest version).  Set VIVADO to the full path of vivado.bat to override.
 rem
 rem Plays a sound when it finishes (ding.bat; set PLACARD_QUIET=1 for none).
 rem
-rem Date: 10/26/2026
+rem Date: 11/11/2026
 rem ===========================================================================
 setlocal EnableExtensions EnableDelayedExpansion
 
@@ -77,7 +78,7 @@ if not exist "%ASM_FILE%" if not exist "%HEX_FILE%" (
 rem ---- 1. assemble -----------------------------------------------------------
 if defined NOASM echo build_and_load: noasm, using existing %PROG%.hex
 if not defined NOASM (
-    for %%P in (rom_boot rom_lib %PROG%) do (
+    for %%P in (rom_boot rom_lib rom32 %PROG%) do (
         if exist "%SCRIPTS_DIR%\%%P.asm" (
             call :assemble %%P || goto failed
         )

@@ -35,11 +35,12 @@
 ; reader (about 10 bytes).
 ;
 ; This is not in the library proper: it is part of the DOS image at
-; FSW_CODE (xB000-xBFFF), reached by programs through the DOS vectors at
+; FSW_CODE (xD600-xDFFF, ROM section 6, after the SD driver and the FAT
+; reader), reached by programs through the DOS vectors at
 ; x8010-x8020 (dos.masm, docs/software/DOS.md).  placard_lib.asm's jump table is
 ; unchanged.  asm_expand.py writes placard_fsw.asm from this file.
 ;
-; Date: 10/25/2026
+; Date: 11/11/2026
 ; ============================================================
 
 V_WCLUS   = 0x6D        ; 4: the file's first cluster, 0 = none yet
@@ -53,15 +54,43 @@ V_WDIRTY  = 0x7F        ; 1 = FS_BUF holds a changed FAT sector (V_FATC)
 V_WBUF    = 0x3B        ; 2: fs_write's caller's buffer (R5:R4) while it
                         ; works on the FAT (x3B-x3F are free in the reader)
 V_WSAVE   = 0x3D        ; 2: fs_save's buffer address while fs_create works
-FSW_CODE  = 0xB000      ; the code (the DOS image, docs/architecture/ROM.md)
 
 E_NOFILE  = 12
 E_FOLDER  = 13
 E_FULL    = 14
 E_DIRFULL = 11
 
+FSW_CODE  = 0xD600      ; the pages after the FAT reader (FS_CODE, placard_lib.asm)
+
 .prefix fsw
-.region FSW_CODE, FSW_CODE + 0x1000
+; The code: the pages after the FAT reader, then the free ends of the SD
+; driver's and the reader's pages, so that all the file code is in ROM
+; section 6 (docs/architecture/ROM.md).
+.region FSW_CODE + 0x18, 0xE000
+; gaps: begin (lib_gaps.py --write)
+.region 0xC0E6, 0xC100
+.region 0xC1C4, 0xC200
+.region 0xC2AB, 0xC300
+.region 0xC3AA, 0xC400
+.region 0xC4E9, 0xC500
+.region 0xC5CD, 0xC600
+.region 0xC653, 0xC700
+.region 0xC742, 0xC800
+.region 0xC89B, 0xC900
+.region 0xC9A2, 0xCA00
+.region 0xCA84, 0xCB00
+.region 0xCB85, 0xCC00
+.region 0xCCE3, 0xCD00
+.region 0xCDE7, 0xCE00
+.region 0xCEE9, 0xCF00
+.region 0xCFA7, 0xD000
+.region 0xD0C9, 0xD100
+.region 0xD1E4, 0xD200
+.region 0xD2D0, 0xD300
+.region 0xD4C7, 0xD500
+.region 0xD5D3, 0xD600
+; gaps: end
+.region FSW_CODE + 0x18, 0xE000, 1, rom, pack    ; the chunks start here, largest first, and go on into the gaps
 
 ; ============================================================
 ; leaf helpers
@@ -1151,6 +1180,10 @@ fcl_fill:
     add  21, x
     ld   [T3], ac
     ld   ac, [y,x]
+    GOTO fcl_size
+
+.chunk  fcl_size: ... and the size (a chunk of its own so both fit in the pages' free ends)
+fcl_size:
     ld   V_UBUF, ac
     CALL fs_get
     ld   [IO_T0], ac

@@ -23,7 +23,7 @@ strips in the video RAM must be unchanged and Esc must bring the DOS back.
 Video stalls are not modeled: the board is about 10 % slower, so the
 margins printed should be well above 10 %.
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import argparse
@@ -55,6 +55,7 @@ def main(argv):
                     help='the SD card program (SCROLLER.PLC + .OVL, gen_scroller.py --sd), '
                          'booted from a card as the board does')
     args = ap.parse_args(argv)
+    args.sd = True      # the ROM build went on 2026-11-11 (docs/architecture/ROM.md)
 
     src, _ = sc.gen(sd=args.sd)
     mem, syms, _ = ps.assemble(src, HERE)

@@ -1,6 +1,6 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-11-03
+Date: 2026-11-11
 
 The Placard has four expansion slots and one ROM cartridge slot, all the
 same keyed 2 x 32, 1.0 mm pitch socket (Molex 87715-9106, "ROM cartridge
@@ -359,7 +359,7 @@ its EEPROM onto D7:D0) only while /CART is high.  So:
 **No ROM.**  A machine booted this way runs from RAM only, and x6000-xFFFF
 is the screen, so a program and its library get about 20 KB (x0100-x4FFF
 and the free parts of x5400-x5FFF), less any screen area it leaves unused.
-The standard library runs in place from the cartridge ROM at xC000-xFFFF
+The standard library runs in place from the cartridge ROM at x8000-xFFFF
 and can't be used as it is.  A boot card can carry a small program, or a
 loader that loads one from the SD card or the card's own hardware.
 

@@ -11,11 +11,11 @@ library live in the ROM.
 
 Date: 2026-11-11
 
-There are two images.  The **32K image** (x8000-xFFFF: boot loader, library
-and the DOS, "The 32K image" below) is the one the machine ships with, on
-either cartridge; programs come from the SD card.  The **64K development
-image** holds one program in place at x6000-xBFFF (and x2000-x3FFF) over
-the same library; `build\<program>.bat` builds it for the 64K cartridge.
+The ROM that ships is the **32K image** (x8000-xFFFF: boot loader, library,
+card loader, BASIC and the FAT writer, "The 32K image" below).  It is the
+only release; programs come from the SD card.  A **development ROM** is the
+same 32K in the upper half of a 64K ROM with one program in the lower half
+("Development ROMs" below); `build\<program>.bat` builds one for the FPGA.
 
 ## Video always reads the RAM
 
@@ -29,44 +29,83 @@ change.
 
 ## ROM map
 
-The library is one block at the top of the ROM, under the boot loader,
-with the most used parts highest: the jump table, then the core routines,
-the font, the I/O drivers and the rest, down to xC000.
+The 32K image is laid out by ROM section (the 8 KB pieces the map register
+switches between ROM and RAM), one job to a section, so that a program can
+switch a section it does not need to RAM and use the 8 KB:
+
+| Section | Address | Holds | A program that maps it to RAM loses |
+|---------|---------|-------|-------------------------------------|
+| 7 | xE000-xFFFF | Boot loader, jump table, core routines, keys, pads, mouse, PS/2 keyboard, line input, slots, menu hook | Never: the library is called through here |
+| 6 | xC000-xDFFF | Files: SD card driver, FAT reader, FAT writer | Files only |
+| 5 | xA000-xBFFF | BASIC (8 KB of it) | BASIC only |
+| 4 | x8000-x9FFF | Vectors, card loader, the rest of BASIC, sound driver, standard font, `LIB_RAM`'s bytes | The way back to the DOS (x8008), sound, the standard font |
+
+Section 7 calls sections 6 and 4 only through the jump table (`fs_*`, `sd_*`,
+`spi_byte`, `snd_*`), so a program that calls none of those may map them to
+RAM.  The font is read through `FONT_PG` (zero page xBF), so a program with
+its own font does not need the standard one.
 
 | ROM address | Contents | Made from |
 |-------------|----------|-----------|
-| x0000-x0004 | nop (for the cartridge hand-off), reset jump to the boot loader (PC starts at 0000) | `rom_boot.asm` |
-| x0004-x1EFF | Free | |
-| x1F00-x1FFF | `LIB_RAM`: library code the boot copies to RAM x1F00 (the end of `plot1`, `con_scroll`, and `lib_far` at x1FA0) | `rom_lib.asm` |
-| x2000-x3FFF | Program, more code and tables (runs in place) | the program |
-| x4000-x4FFF | Free (section 2 reads RAM while a program runs) | |
-| x5000-x53FF | I/O window, the ROM is never read here | |
-| x5400-x5FFF | Free (section 2 reads RAM while a program runs) | |
-| x6000-xBFFF | Program, runs in place, entry at x6000 | the program |
-| xC000-xC4FF | PS/2 keyboard driver and listening (`PS2_CODE`): `wait_frames_io` ([IO.md](IO.md)) | `rom_lib.asm` |
-| xC500-xC5FF | Menu hook (`MENU_CODE`): `menu_poll` ([MENU.md](../software/MENU.md)) | `rom_lib.asm` |
-| xC600-xC6FF | Expansion slot helpers (`SLOT_CODE`): `slot_id` | `rom_lib.asm` |
-| xC700-xD4FF | FAT file reader (`FS_CODE`) | `rom_lib.asm` |
-| xD500-xD6FF | Line input and mouse pointer (`INPUT_CODE`): `con_gets`, `mouse_move` | `rom_lib.asm` |
-| xD700-xDBFF | Sound driver (`SND_CODE`) | `rom_lib.asm` |
-| xDC00-xEBFF | I/O drivers (`IO_CODE`): keyboard, pads, SD card, mouse ([IO.md](IO.md)) | `rom_lib.asm` |
-| xEC00-xF3FF | Standard font (`LIB_FONT`) | `rom_lib.asm` |
+| x8000-x8004 | nop (for the cartridge hand-off), reset jump to the boot loader: a 32K cartridge shows it at x0000, where the PC starts | `rom_boot.asm` |
+| x8005 | Boot mode 02 (read at x0005; see "Development ROMs") | `gen_rom.tcl` |
+| x8008-x8027 | Vectors: `dos_back`, `dos_run`, `fs_create`, `fs_write`, `fs_close`, `fs_delete`, `fs_save`, `basic` ([DOS.md](../software/DOS.md#dos-vectors)); x8028-x80FF free for more | `rom32.masm` |
+| x8100-x91FF | The card loader (power-up, BOOT.CFG, running `.PLC` files, about 1.5 KB), then the part of BASIC that does not fit in section 5 | `rom32.masm`, `basic.masm`, `basic.vm` |
+| x9200-x96FF | Sound driver (`SND_CODE`) | `rom_lib.asm` |
+| x9700-x9EFF | Standard font (`LIB_FONT`) | `rom_lib.asm` |
+| x9F00-x9FFF | `LIB_RAM`'s bytes: library code the boot copies to RAM x1F00 (the end of `plot1`, `con_scroll`, `memset`'s loop, and `lib_far` at x1FA0); the boot reads them at x1F00 | `rom_lib.asm` |
+| xA000-xBFFF | BASIC ([BASIC.md](../software/BASIC.md)); about 1.2 KB free at the end | `basic.masm`, `basic.vm` |
+| xC000-xC7FF | SD card driver (`SD_CODE`) ([IO.md](IO.md)) | `rom_lib.asm` |
+| xC800-xD5FF | FAT file reader (`FS_CODE`) | `rom_lib.asm` |
+| xD600-xD617 | Free (the bring-up ROM's section 6 marker) | |
+| xD618-xDFFF | FAT file writer ([DOS.md](../software/DOS.md#the-fat-writer)); it also fills the free ends of the pages xC000-xD5FF (`lib_gaps.py`) | `placard_fsw.masm` |
+| xE000-xE2FF | I/O drivers (`IO_CODE`): port, key buffer, pads, key to character | `rom_lib.asm` |
+| xE300-xE7FF | PS/2 keyboard driver and listening (`PS2_CODE`): `wait_frames_io` ([IO.md](IO.md)) | `rom_lib.asm` |
+| xE800-xE9FF | Line input and mouse pointer (`INPUT_CODE`): `con_gets`, `mouse_move` | `rom_lib.asm` |
+| xEA00-xEAFF | Menu hook (`MENU_CODE`): `menu_poll` ([MENU.md](../software/MENU.md)) | `rom_lib.asm` |
+| xEB00-xEFFF | I/O drivers: PS/2 bytes, mouse, key tables | `rom_lib.asm` |
+| xF000-xF0FF | Expansion slot helpers (`SLOT_CODE`): `slot_id`; `con_dec16` | `rom_lib.asm` |
+| xF100-xF19A | PS/2 keyboard tables (`PS2_TAB_CODE`); xF19B-xF3FF free (613 bytes) | `rom_lib.asm` |
 | xF400-xFAFF | Standard library core routines (`LIB_CODE`) | `rom_lib.asm` |
-| xFB00-xFBFF | Jump table (`LIB_JT`), 55 of 64 entries used ([LIBRARY.md](../software/LIBRARY.md#jump-table)) | `rom_lib.asm` |
-| xFC00 | Boot mode: 00 = ROM program, 01 = RAM image, 02 = the DOS | `gen_rom.tcl` |
+| xFB00-xFBFF | Jump table (`LIB_JT`), 57 of 64 entries used ([LIBRARY.md](../software/LIBRARY.md#jump-table)) | `rom_lib.asm` |
+| xFC00 | 02: marks `rom32.asm` as the 32K image's program for the tools (the boot does not read it) | `rom32.masm` |
 | xFC01-xFCFF | `mul8`'s quarter squares, high bytes (`SQ_HI` + 1) | `lib_sqtab.asm` in `rom_boot.asm` |
-| xFD00-xFD7E | Boot loader | `rom_boot.asm` |
+| xFD00-xFDF5 | Boot loader | `rom_boot.asm` |
 | xFE00-xFE07 | Map switch (RAM image boot only) | `rom_boot.asm` |
-| xFE08-xFEA1 | Expansion card scan | `rom_boot.asm` |
+| xFE08-xFEA9 | Expansion card scan | `rom_boot.asm` |
 | xFF00-xFFFF | `mul8`'s quarter squares, low bytes (`SQ_LO`) | `lib_sqtab.asm` in `rom_boot.asm` |
+
+About 4.7 KB of the 32K is free: 487 bytes in section 4, 1,190 in section
+5, 873 in section 6 and 2,126 in section 7 (measured 2026-11-11), mostly
+page ends.
+
+## Development ROMs
+
+A development ROM is a 64K ROM for the FPGA or a 64K cartridge: the 32K
+image above in x8000-xFFFF, unchanged, and one program in x0000-x7FFF.
+
+| ROM address | Contents |
+|-------------|----------|
+| x0000-x0004 | nop, reset jump to the boot loader |
+| x0005 | Boot mode: 00 = ROM program, 01 = RAM image.  On a 32K cartridge (and in the 32K image's own ROM) the boot reads x8005 here, 02 |
+| x1F00-x1FFF | `LIB_RAM`'s bytes |
+| x2000-x3FFF | ROM program, more code and tables; or a RAM image's x2000-x3FFF |
+| x4000-x49FF | A RAM image's x4000-x49FF |
+| x5000-x53FF | I/O window, the ROM is never read here |
+| x6000-x7FFF | ROM program, entry at x6000; or a RAM image's x0000-x1FFF |
+
+A program that runs in place therefore has 16 KB (x6000-x7FFF and
+x2000-x3FFF).  Until 2026-11-11 it had x6000-xBFFF; the ray casters, the
+side scroller, the text demo and the ROM builds of the Boing and wireframe
+demos needed that and are card programs only now.
 
 ## Cartridge sizes
 
 There are two cartridge boards, and a machine takes either:
 
 - **64K** (`kicad/cartridge_64k`, 5 chips): EEPROMs U2 (x0000-x7FFF,
-  `/CE_LO`) and U3 (x8000-xFFFF, `/CE_HI`), SRAMs U4 and U5.  The map
-  above is for this one; development uses it.
+  `/CE_LO`) and U3 (x8000-xFFFF, `/CE_HI`), SRAMs U4 and U5.  It takes
+  the 32K image twice, or a development ROM.
 - **32K** (`kicad/cartridge_32k`, 3 chips): one EEPROM U2 and one SRAM U3,
   both always selected (/CE tied to GND), so the same 32K appears at
   x0000-x7FFF and again at x8000-xFFFF.  The loader copies it twice (the
@@ -74,26 +113,14 @@ There are two cartridge boards, and a machine takes either:
 
 ## The 32K image
 
-The 32K image is x8000-xFFFF only, so it fits one 32K EEPROM;
-`gen_rom.tcl` puts the same 32K in both halves of `rom.mem` (and writes
+The 32K image is x8000-xFFFF only ("ROM map" above), so it fits one 32K
+EEPROM; `gen_rom.tcl` puts the same 32K in both halves of `rom.mem` (and writes
 `src/hdl/rom_32k.bin`, the EEPROM file), so a 64K cartridge with two EEPROMs
 takes the same image twice and boots the same way.  Everything below x8000
-that the boot or the library needs is read through the mirror:
+that the boot needs (the reset code, the boot mode at x0005, `LIB_RAM` at
+x1F00) is read through the mirror.
 
-| ROM address | Contents | Made from |
-|-------------|----------|-----------|
-| x8000-x8004 | nop, reset jump (a copy of x0000-x0004: a 32K cartridge shows it at x0000) | `rom_boot.asm` |
-| x8008-x8027 | Vectors: `dos_back`, `dos_run`, `fs_create`, `fs_write`, `fs_close`, `fs_delete`, `fs_save`, `basic` ([DOS.md](../software/DOS.md#dos-vectors)) | `rom32.masm` |
-| x8100-x9EFF | The loader (power-up, BOOT.CFG, running `.PLC` files, about 1.5 KB), then BASIC ([BASIC.md](../software/BASIC.md)); about 770 bytes free at x9BFE | `rom32.masm`, `basic.masm`, `basic.vm` |
-| x9F00-x9FFF | `LIB_RAM`'s bytes (the boot reads them at x1F00) | `rom_lib.asm` |
-| xA000-xAFFF | BASIC (about 9 KB in all, with the part above) | `basic.masm`, `basic.vm` |
-| xB000-xBFFF | FAT file writer ([DOS.md](../software/DOS.md#the-fat-writer)) | `placard_fsw.masm` |
-| xC000-xFBFF | The library, as above | `rom_lib.asm` |
-| xFC00 | Boot mode 02 | `rom32.masm` |
-| xFC01-xFCFF, xFF00-xFFFF | `mul8`'s tables, as above | `lib_sqtab.asm` |
-| xFD00-xFEA1 | Boot loader, as above | `rom_boot.asm` |
-
-The boot loader is unchanged: it copies `LIB_RAM` from x1F00 (the mirror of
+The boot loader copies `LIB_RAM` from x1F00 (the mirror of
 x9F00), scans the expansion slots, and for mode 02 writes map 05 and jumps
 to the loader at x8100.  The loader runs with map **07**: RAM x0000-x5FFF
 for the programs it loads (x0100-x3FFF) and their data (x4000-x5FFF), the
@@ -105,8 +132,7 @@ image (`build_dos_rom`) and `test_dos.py` runs it.
 Programs are `.PLC` files on the SD card ([DOS.md](../software/DOS.md#program-files-plc)):
 library programs assembled for RAM x0100-x3FFF (16 KB), or the older RAM
 images (x0000-x49FF).  The DOS and the demo menu are two of them
-([MENU.md](../software/MENU.md)).  The ROM demos (the ray casters, the side scroller and the text
-demo) still build as 64K development images and have card versions too.
+([MENU.md](../software/MENU.md)).
 
 ## Map while a program runs
 
@@ -117,13 +143,14 @@ The boot loader writes map = **05**:
 | 0 | x0000-x1FFF | RAM | Zero page, program variables and buffers, `LIB_RAM` at x1F00 |
 | 1 | x2000-x3FFF | ROM | Program code and tables |
 | 2 | x4000-x4FFF, x5400-x5FFF | RAM | Program data x4000-x4CFF, SD/FAT buffers x4D00-x4FFF, x5400-x5A1F and x5C00-x5DF2, mode bytes, audio buffer |
-| 3-5 | x6000-xBFFF | ROM | Program code and tables (the video still shows the RAM) |
-| 6-7 | xC000-xFFFF | ROM | The library and the boot loader |
+| 3 | x6000-x7FFF | ROM | Program code and tables (the video still shows the RAM) |
+| 4-7 | x8000-xFFFF | ROM | The 32K image: the library and the boot loader ("ROM map" above) |
 
 `MAP_SHADOW` (x07) is set to 05.  A routine that changes the map must keep
 its own section's bit (the fetch after a map write uses the old map) and put
-the map back to `MAP_SHADOW` before it returns.  Sections 6 and 7 must read
-ROM whenever the library is called.  The library code that reads the video
+the map back to `MAP_SHADOW` before it returns.  Section 7 must read ROM
+whenever the library is called, section 6 for the file routines, and
+section 4 for sound and for text in the standard font.  The library code that reads the video
 RAM (the end of `plot1`, and `con_scroll`) maps sections 3-7 to RAM, so it
 runs from `LIB_RAM` in the RAM at x1F00-x1FFF, which the boot copies there
 first; programs must leave x1F00-x1FFF alone.
@@ -137,15 +164,15 @@ first; programs must leave x1F00-x1FFF alone.
 | Library RAM code | RAM x1F00-x1FFF | `LIB_RAM` in `placard_lib.asm` |
 | Jump table | ROM xFB00-xFBFF | `LIB_JT` in `placard_lib.asm` |
 | Library core routines | ROM xF400-xFAFF | `LIB_CODE` in `placard_lib.asm` |
-| Font (8x8, printable ASCII) | ROM xEC00-xF3FF, or wherever `FONT_PG` (zero page xBF) points | `LIB_FONT` in `placard_lib.asm` |
-| I/O drivers | ROM xDC00-xEBFF | `IO_CODE` in `placard_lib.asm` |
-| Sound driver | ROM xD700-xDBFF | `SND_CODE` in `placard_lib.asm` |
-| Line input, mouse pointer | ROM xD500-xD6FF | `INPUT_CODE` in `placard_lib.asm` |
-| FAT file reader | ROM xC700-xD4FF | `FS_CODE` in `placard_lib.asm` |
-| Expansion slot helpers | ROM xC600-xC6FF | `SLOT_CODE` in `placard_lib.asm` |
+| Font (8x8, printable ASCII) | ROM x9700-x9EFF, or wherever `FONT_PG` (zero page xBF) points | `LIB_FONT` in `placard_lib.asm` |
+| I/O drivers | ROM xE000-xE2FF, xEB00-xEFFF; SD card xC000-xC7FF (`SD_CODE`) | `IO_CODE` in `placard_lib.asm` |
+| Sound driver | ROM x9200-x96FF | `SND_CODE` in `placard_lib.asm` |
+| Line input, mouse pointer | ROM xE800-xE9FF | `INPUT_CODE` in `placard_lib.asm` |
+| FAT file reader | ROM xC800-xD5FF | `FS_CODE` in `placard_lib.asm` |
+| Expansion slot helpers | ROM xF000-xF0FF | `SLOT_CODE` in `placard_lib.asm` |
 | SD/FAT variables and sector buffer | RAM x4D00-x4FFF | `FS_VARS`, `FS_BUF` in `placard_fs.asm` |
 | Program entry | ROM x6000 | the program (`#addr 0x6000`) |
-| Program code and tables | ROM x6000-xBFFF and x2000-x3FFF | the program |
+| Program code and tables (development ROM) | ROM x6000-x7FFF and x2000-x3FFF | the program |
 | Mode bytes | RAM x5A20-x5BFF | video hardware |
 | Audio buffer | RAM x5DF3-x5FFF | video hardware |
 | Video | RAM x6000-xFFFF | video hardware |
@@ -271,8 +298,9 @@ nothing loads the ROM.
 hands off, so the CPU runs ROM x0000 (the nop) and x0001, which jumps to the boot loader at xFD00.  Its
 first job is to copy `LIB_RAM` (ROM x1F00-x1FFF) into the RAM under it,
 while the map is still 00 (reads from ROM, writes to RAM), about 3,000
-clocks.  It reads the boot mode byte at xFC00 after the expansion card scan
-below.
+clocks.  After the expansion card scan below it writes map = 00 again and
+reads the boot mode byte at ROM x0005 (a 32K cartridge shows x8005 there:
+02).
 
 **Expansion card scan (Apple II style):** the boot writes map = 01 (the
 zero page reads RAM) and looks at slots 4, 3, 2 and 1.  When it finds a
@@ -287,8 +315,8 @@ called with AC = slot number, R1:R0 = the slot's base address, SP = FE and
 boot, or never returns to take the boot over.  An empty slot reads FF and
 fails the check.  [EXPANSION.md](EXPANSION.md) has the header and rules.
 
-**ROM program (00):** write map = 05 and `MAP_SHADOW` = 05, then jump to
-x6000.  The boot loader runs in section 7, which stays ROM, so no copy is
+**ROM program (00):** write map = 05 and `MAP_SHADOW` = 05, set `FONT_PG`
+to the standard font, then jump to x6000.  The boot loader runs in section 7, which stays ROM, so no copy is
 needed.  The program starts a few clocks after reset.
 
 **The 32K image (02):** write map = 05 and `MAP_SHADOW` = 05, then jump to
@@ -297,11 +325,14 @@ the loader at x8100 ("The 32K image" above).
 **RAM image (01):** for the older demos (pi spigot, Mandelbrot, game of life,
 CPU test, test_video), which were written to run from RAM x0000 and keep
 code and variables mixed there and don't use the library.  `gen_rom.tcl`
-stores such a program at ROM x6000-xA9FF (ROM address = RAM address +
-x6000) and the boot loader:
+stores such a program in the lower half of the ROM, RAM x0000-x1FFF at
+ROM x6000-x7FFF and RAM x2000-x49FF at its own address, and the boot
+loader:
 
 1. writes map = 01, so the zero page reads RAM for its two page counters;
-2. copies RAM pages x01-x49 from ROM x6100-xA9FF, then page x00 last;
+2. copies RAM pages x01-x1F from ROM x6100-x7FFF and pages x20-x49 from
+   the ROM at the same address (a read comes from the ROM, a write goes
+   to the RAM), then page x00 from ROM x6000 last;
 3. copies the map switch (xFE00-xFE07) into the RAM under it, because the
    fetch right after a map write still uses the old map (xFE00-xFE1F is
    the first 32 bytes of byte column 79, which never show on the screen);
@@ -310,10 +341,13 @@ x6000) and the boot loader:
 The copy takes about 23 ms.  It does not set `MAP_SHADOW`, because those
 programs keep code there.
 
-`gen_rom.tcl` makes the 32K image when the program's byte at xFC00 is 02
-(`rom32.asm` sets it), treats a program as a RAM image when its hex has any
-byte in x0000-x1FFF or x4000-x5FFF other than the library's own bytes, and
-otherwise as a ROM program, with its bytes in x2000-x3FFF and x6000-xBFFF.
+`gen_rom.tcl` always puts the 32K image in the upper half (from `rom32.hex`,
+which holds the library too).  It makes the 32K image in both halves when
+the program's byte at xFC00 is 02 (`rom32.asm` sets it), treats a program
+as a RAM image when its hex has any byte in x0000-x1FFF or x4000-x5FFF
+other than the library's own bytes, and otherwise as a ROM program, with
+its bytes in x2000-x3FFF and x6000-x7FFF.  `placard_sim.py`'s `build_rom`
+makes the same bytes.
 
 ## Building
 

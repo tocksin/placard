@@ -5,13 +5,9 @@ a red and white checkered ball, its axis tilted 17 degrees, spinning and
 bouncing in front of a purple grid with its shadow on the wall.  It runs
 at a steady 60 frames a second and uses about a third of the CPU.  It is a
 library program for the SD card (run it from the DOS's file browser; Esc
-goes back), made by `src/scripts/gen_boing.py`.  `build\boing.bat` loads a
-ROM build of the same program for testing on the board without the SD card
-(`src/scripts/boing_rom.asm`: a stub at x6000 copies the program from ROM
-x8000-xBEFF to RAM x0100-x3FFF and runs it as the DOS would; without the
-DOS, Esc does nothing).
+goes back), made by `src/scripts/gen_boing.py`.
 
-Date: 10/28/2026
+Date: 11/11/2026
 
 ![Boing Ball in the simulator](../../reference/boing_sim.gif)
 
@@ -78,15 +74,13 @@ grid or a second ball.
 ## Building and testing
 
 ```
-python3 gen_boing.py           boing.masm, boing.asm, ../../sdcard/BOING.PLC, boing_rom.asm/.hex
+python3 gen_boing.py           boing.masm, boing.asm, ../../sdcard/BOING.PLC
 python3 test_boing_sim.py      130 frames checked pixel for pixel against the model, timing, beam lead
 python3 test_boing_sim.py --frames 88 --gif ../../reference/boing_sim.gif
-python3 test_boing_sim.py --rom          the ROM build from power-up
 ```
 
 `test_boing_sim.py` works out the expected picture of every frame pixel by
 pixel (background, shadow disc, ball phase), not byte by byte as the
 program does, so it also catches leftovers from the last frame.  It also
 checks that every row is written before the beam reaches it and that no
-frame takes more than one video frame.  `customasm` 0.14 builds
-`boing_rom.asm` byte for byte the same as `placard_sim.py`.
+frame takes more than one video frame.

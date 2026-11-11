@@ -5,7 +5,7 @@ that the ROM's loader ([DOS.md](DOS.md)) runs at power-up when `BOOT.CFG`
 names it.  It shows the demo programs and runs them in turn, asking the
 loader to load each one from the card.
 
-Date: 11/02/2026
+Date: 11/11/2026
 
 The menu and the demos are files on the card.  The 32K ROM image
 ([ROM.md](../architecture/ROM.md#the-32k-image)) holds the loader, BASIC and the
@@ -49,9 +49,9 @@ library, and the DOS and the demos are files.
   (row tints, mode byte bits 6:4, [VIDEO.md](../video/VIDEO.md#row-tint)).
 
 The ray caster, the side scroller, the textured ray caster and the text
-demo were ROM programs; their generators now also make card versions
-(below).  The ROM versions still build each as its own 64K development
-image (`build\text_demo.bat`, `build\raycast_tex.bat` and so on).
+demo were ROM programs; their generators now make the card versions only
+(below): a development ROM keeps its program in the first 32K, which is
+too small for them.
 
 ### The ray casters and the scroller on the card
 

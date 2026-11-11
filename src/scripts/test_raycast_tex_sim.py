@@ -23,7 +23,7 @@ drives).  For each view it checks:
 and it prints the clocks a view and a column took.  Video stalls are not
 modeled (the board is about 10 % slower: 1 clock in 8 during active video).
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import argparse
@@ -48,6 +48,7 @@ def main(argv):
                     help='the SD card program (RAYTEX.PLC + .OVL, gen_raycast_tex.py --sd), '
                          'booted from a card as the board does')
     args = ap.parse_args(argv)
+    args.sd = True      # the ROM build went on 2026-11-11 (docs/architecture/ROM.md)
 
     src, mem, syms, info = rc.build(sd=args.sd)
     if args.sd:

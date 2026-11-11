@@ -16,7 +16,7 @@ benchmark: `src/scripts/test_wire3d_sim.py` runs it in `placard_sim.py`,
 checks every frame pixel for pixel against a Python model of the same
 integer arithmetic, and times each part.
 
-Date: 10/28/2026
+Date: 11/11/2026
 
 ![wire3d in the simulator](../../reference/wire3d_sim.gif)
 
@@ -190,16 +190,9 @@ details in its docstring):
 
 ```
 cd src/scripts
-python3 gen_wire3d.py                       wire3d.masm, wire3d.asm, ../../sdcard/WIRE3D.PLC, wire3d_rom.asm/.hex
+python3 gen_wire3d.py                       wire3d.masm, wire3d.asm, ../../sdcard/WIRE3D.PLC
 python3 gen_wire3d.py --ships 8 --pace 0 -o /tmp/w8.masm --plc none
 python3 test_wire3d_sim.py                  both modes, no cap: checks and timing
 python3 test_wire3d_sim.py --mode 1 --ships 7   filled only, 7 ships (1-8 fit)
 python3 test_wire3d_sim.py --pace 2 --secs 2 --frames 110 --gif ../../reference/wire3d_sim.gif
-python3 test_wire3d_sim.py --rom            the ROM build from power-up
 ```
-
-For testing on the board without the SD card, `build\wire3d.bat` loads a
-temporary 64K development image, `src/scripts/wire3d_rom.asm` (made by
-`gen_wire3d.py`): a stub at x6000 copies the program from ROM x8000-xBEFF
-into RAM x0100-x3FFF (leaving LIB_RAM alone), sets map 07 as the DOS does
-and runs it.  There is no DOS then, so Esc does nothing.

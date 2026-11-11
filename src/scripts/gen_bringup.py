@@ -47,11 +47,13 @@ FAIL_BASE = 0x0080              # fail loop N at FAIL_BASE + 4 N
 # ROM markers: (address, value).  Y walk: page p offset x10 = p.  The map
 # test uses one marker per 8 KB section, all at offsets x10 of a page whose
 # column offset is below x20, so the RAM bytes it writes there are never on
-# the screen.  The library leaves xC200-xC217 free for section 6's marker.
+# the screen.  The library leaves xD600-xD617 free for section 6's marker
+# (after the FAT reader; the bring-up ROM has no FAT writer).
 Y_MARKS = [(p << 8 | 0x10, p) for p in (0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80)]
 SEC_MARKS = [(0x0110, 0x01), (0x2010, 0x20), (0x4010, 0x40), (0x7E10, 0x7E),
-             (0x8010, 0x80), (0xA010, 0xA0), (0xC210, 0xC2), (0xFE10, 0xE7)]
+             (0x8010, 0x80), (0xA010, 0xA0), (0xD610, 0xD6), (0xFE10, 0xE7)]
 X_PAGE = 0x0F                   # X walk: ROM x0F00 + v = v ^ 5A
+MAIN2 = 0xB800      # where main goes on, after the RAM test in section 5
 X_VALUES = [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0xFF]
 ID_TABLE = 0x3F00               # ROM data test: x3F00 + n = n
 
@@ -85,6 +87,7 @@ class Asm:
         self.addr = 0
         self.lock = 0
         self.n = 0
+        self.skips = {}         # page start -> where the code goes on instead
 
     def org(self, a, comment=None):
         if comment:
@@ -114,6 +117,7 @@ class Asm:
 
     def next_page(self):
         nxt = (self.addr | 0xFF) + 1
+        nxt = self.skips.get(nxt, nxt)
         lb = self.uniq('pg')
         self.lines.append('    ld   %s >> 8, y' % lb)
         self.lines.append('    jmp  %s' % lb)
@@ -792,9 +796,13 @@ def generate():
     a.label('tbl2')
     a.data([(c // 20) * 0x55 for c in range(80)])
 
+    # main fills section 4 up to the library's sound driver and font (SND_CODE,
+    # x9200) and goes on in section 5 after the RAM test
+    a.skips[0x9200] = MAIN2
     main_program(a)
-    if a.addr > 0xA000:
-        raise SystemExit('main runs into the RAM test (%04X)' % a.addr)
+    if not (a.addr <= 0x9200 or MAIN2 <= a.addr <= 0xC000):
+        raise SystemExit('main does not fit (%04X)' % a.addr)
+    del a.skips[0x9200]
     ram_page_test(a)
     # an error goes back to its pattern's loop: the bad-byte path left the
     # pattern number in T15B

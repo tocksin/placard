@@ -6,7 +6,7 @@ loads memory as files.  The 32K ROM image ([ROM.md](../architecture/ROM.md#the-3
 holds the boot loader, the library, BASIC and a small loader
 (`src/scripts/rom32.masm`) that starts the DOS and runs the programs.
 
-Date: 11/02/2026
+Date: 11/11/2026
 
 The DOS is on the card, so the ROM can hold BASIC, which is useful with no
 card at all.
@@ -156,7 +156,7 @@ the library as before ([LIBRARY.md](LIBRARY.md#sd-card-files-fat16-and-fat32)).
 
 ### The FAT writer
 
-`placard_fsw.masm` (xB000-xBFFF of the image) writes FAT16 and FAT32 cards:
+`placard_fsw.masm` (xD600-xDFFF of the image and the free page ends below it, in ROM section 6 with the SD card driver and the FAT reader) writes FAT16 and FAT32 cards:
 
 | Routine | In | Out |
 |---------|----|-----|

@@ -82,7 +82,7 @@ CONTROLS
     (2.8 degrees) a tick.  Walls are kept 1/4 cell away; each axis is
     tried on its own, so the player slides along walls.
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import argparse
@@ -1592,6 +1592,8 @@ def main(argv):
                     help='the SD card program instead: raycast_sd.asm and ../../sdcard/RAYCAST.PLC')
     ap.add_argument('--plc', default=os.path.join(HERE, '..', '..', 'sdcard', 'RAYCAST.PLC'))
     args = ap.parse_args(argv)
+    args.sd = True      # the ROM build went on 2026-11-11: a development ROM's program has
+                        # x6000-x7FFF and x2000-x3FFF only (docs/architecture/ROM.md)
     if args.sd:
         if args.o == ap.get_default('o'):
             args.o = os.path.join(HERE, 'raycast_sd.asm')

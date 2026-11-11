@@ -68,7 +68,7 @@ CONTROLS
     (keyboard) turns the textures off and on: off, each wall is one flat
     color (FLAT: its texture's commonest texel, through the same shading).
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import argparse
@@ -1849,6 +1849,8 @@ def main(argv):
                          '../../sdcard/RAYTEX.PLC, RAYTEX.OVL')
     ap.add_argument('--plc', default=os.path.join(HERE, '..', '..', 'sdcard', 'RAYTEX.PLC'))
     args = ap.parse_args(argv)
+    args.sd = True      # the ROM build went on 2026-11-11: a development ROM's program has
+                        # x6000-x7FFF and x2000-x3FFF only (docs/architecture/ROM.md)
     if args.sd:
         if args.o == ap.get_default('o'):
             args.o = os.path.join(HERE, 'raycast_tex_sd.asm')

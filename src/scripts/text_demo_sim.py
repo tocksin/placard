@@ -27,7 +27,7 @@ frame count), the 256-color ring (every ring pixel against HUE and the
 phase) and the row tints of rows 0-95 (TINTB, with the raster bar BARP at
 BARY[phase / 2]).
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import argparse
@@ -126,6 +126,7 @@ def main(argv):
                     help='RAM address whose bit 3 always reads back flipped')
     ap.add_argument('--sd', action='store_true', help='TEXT.PLC from a card')
     args = ap.parse_args(argv)
+    args.sd = True      # the ROM build went on 2026-11-11 (docs/architecture/ROM.md)
     global PAGES, NPAGES
 
     if args.sd:

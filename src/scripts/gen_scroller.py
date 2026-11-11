@@ -63,7 +63,7 @@ THE GAME
     Controls: arrow keys or SNES pad 1 Left / Right, Up / Space / pad B
     or A to jump.
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import argparse
@@ -2283,6 +2283,8 @@ def main(argv):
                          '../../sdcard/SCROLLER.PLC, SCROLLER.OVL')
     ap.add_argument('--plc', default=os.path.join(HERE, '..', '..', 'sdcard', 'SCROLLER.PLC'))
     args = ap.parse_args(argv)
+    args.sd = True      # the ROM build went on 2026-11-11: a development ROM's program has
+                        # x6000-x7FFF and x2000-x3FFF only (docs/architecture/ROM.md)
     if args.sd:
         if args.o == ap.get_default('o'):
             args.o = os.path.join(HERE, 'scroller_sd.asm')

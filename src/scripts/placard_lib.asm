@@ -17,29 +17,37 @@
 ;         ld   ac, [SP]
 ;         ...
 ;
-; The library is one block at the top of the ROM, xC000-xFBFF (sections 6
-; and 7), below the boot loader, with the most used parts highest:
+; The library is grouped by 8 KB ROM section, so that a program that maps
+; a section to RAM loses one kind of thing (docs/architecture/ROM.md):
+;   section 7 (xE000-xFFFF): what almost every program uses
 ;     xFB00-xFBFF  LIB_JT      jump table
 ;     xF400-xFAFF  LIB_CODE    core routines (this file)
-;     xEC00-xF3FF  LIB_FONT    8x8 font (lib_font.asm)
-;     xDC00-xEBFF  IO_CODE     I/O drivers (placard_io.asm)
-;     xD700-xDBFF  SND_CODE    sound driver (placard_snd.asm)
-;     xD500-xD6FF  INPUT_CODE  line input, mouse pointer (placard_input.asm)
-;     xC700-xD4FF  FS_CODE     FAT file reader (placard_fs.asm)
-;     xC600-xC6FF  SLOT_CODE   expansion slot helpers (placard_slot.asm), con_dec16 (lib_dec16.asm)
-;     xC500-xC5FF  MENU_CODE   program menu hook (placard_menu.asm)
-;     xC000-xC4FF  PS2_CODE    PS/2 keyboard and mouse (placard_ps2.asm);
-;                              the rest of that driver is in I/O pages 1
-;                              and B-E and its tables at PS2_TAB_CODE (I/O
-;                              page A).  xC200-xC217 stay free (the
-;                              bring-up ROM's section 6 marker)
-; The library has no free pages left; it can grow down below xC000, or
-; into the free ends of pages (each page's own code stays first).  It runs in
-; place from the ROM, so sections 6 and 7 must read ROM whenever a program
-; calls the library.  These are standard places that every program shares,
-; so keep them; moving them means changing gen_rom.tcl and placard_sim.py
-; too (docs/architecture/ROM.md).  Every base is a multiple of 0x100, because every
-; routine keeps its branches inside one 256-byte page.
+;     xF100-xF1FF  PS2_TAB_CODE  the keyboard's key tables
+;     xF000-xF0FF  SLOT_CODE   expansion slot helpers (placard_slot.asm), con_dec16 (lib_dec16.asm)
+;     xEB00-xEFFF  IO_CODE pages B-F: PS/2 keyboard and mouse, joy_read
+;     xEA00-xEAFF  MENU_CODE   program menu hook (placard_menu.asm)
+;     xE800-xE9FF  INPUT_CODE  line input, mouse pointer (placard_input.asm)
+;     xE300-xE7FF  PS2_CODE    PS/2 keyboard and mouse (placard_ps2.asm)
+;     xE000-xE2FF  IO_CODE pages 0-2: the shared port, pads, PS/2 bytes
+;   section 6 (xC000-xDFFF): files
+;     xD600-xDFFF  FSW_CODE    FAT file writer (placard_fsw.masm, in the
+;                              32K image; it also fills the free ends of
+;                              the pages below)
+;     xC800-xD5FF  FS_CODE     FAT file reader (placard_fs.asm)
+;     xC000-xC7FF  SD_CODE     SD card driver (placard_io.asm)
+;   section 5 (xA000-xBFFF): BASIC (rom32.masm, the 32K image)
+;   section 4 (x8000-x9FFF):
+;     x9F00-x9FFF  the LIB_RAM image
+;     x9700-x9EFF  LIB_FONT    8x8 font (lib_font.asm), read through FONT_PG
+;     x9200-x96FF  SND_CODE    sound driver (placard_snd.asm)
+;     x8000-x91FF  the 32K image's vector page, loader and the end of BASIC
+; xF200-xF3FF are free.  Section 7 calls sections 6 and 4 only through the
+; jump table.  The library runs in place from the ROM, so the section a
+; routine is in must read ROM when a program calls it.  These are standard
+; places that every program shares, so keep them; moving them means
+; changing gen_rom.tcl and placard_sim.py too (docs/architecture/ROM.md).
+; Every base is a multiple of 0x100, because every routine keeps its
+; branches inside one 256-byte page.
 ;
 ; JUMP TABLE: LIB_JT (xFB00-xFBFF) holds one 4-byte entry per public
 ; routine (ld routine >> 8, y / jmp routine), in a fixed order that only
@@ -150,16 +158,20 @@
 
 LIB_JT     = 0xFB00     ; jump table, 64 entries, xFB00-xFBFF
 LIB_CODE   = 0xF400     ; core routines, xF400-xFAFF
-LIB_FONT   = 0xEC00     ; 2 KB font, xEC00-xF3FF (see lib_font.asm)
-IO_CODE    = 0xDC00     ; I/O drivers, xDC00-xEBFF (placard_io.asm)
-SND_CODE   = 0xD700     ; sound driver, xD700-xDBFF (placard_snd.asm)
-INPUT_CODE = 0xD500     ; line input, mouse pointer, xD500-xD6FF (placard_input.asm)
-FS_CODE    = 0xC700     ; FAT file reader, xC700-xD4FF (placard_fs.asm)
-SLOT_CODE  = 0xC600     ; expansion slot helpers, xC600-xC6FF (placard_slot.asm)
-MENU_CODE  = 0xC500     ; program menu hook, xC500-xC5FF (placard_menu.asm)
-PS2_CODE   = 0xC000     ; PS/2 keyboard, listening, xC000-xC4FF (placard_ps2.asm)
-PS2_TAB_CODE  = IO_CODE + 0xA60      ; ps2_set2, ps2_e0, in I/O page A (the rest of the
-                                     ; PS/2 code is in I/O pages 1 and B-E)
+SLOT_CODE  = 0xF000     ; expansion slot helpers, con_dec16, xF000-xF0FF (placard_slot.asm)
+PS2_TAB_CODE = 0xF100   ; ps2_set2, ps2_e0: the PS/2 keyboard's tables (placard_ps2.asm)
+IO_CODE    = 0xE000     ; I/O drivers: keys and pads xE000-xE2FF, mouse and PS/2 xEB00-xEEFF,
+                        ;   tables xEF00 (placard_io.asm, placard_ps2.asm)
+PS2_CODE   = 0xE300     ; PS/2 keyboard, listening, xE300-xE7FF (placard_ps2.asm)
+INPUT_CODE = 0xE800     ; line input, mouse pointer, xE800-xE9FF (placard_input.asm)
+MENU_CODE  = 0xEA00     ; program menu hook, xEA00-xEAFF (placard_menu.asm)
+FS_CODE    = 0xC800     ; FAT file reader, xC800-xD5FF (placard_fs.asm); the FAT writer
+                        ;   (placard_fsw.masm, part of the 32K image) has xD618-xDFFF and
+                        ;   the free ends of the pages from SD_CODE (lib_gaps.py).
+                        ;   xD600-xD617 stay free (the bring-up ROM's section 6 marker)
+SD_CODE    = 0xC000     ; SD card driver, xC000-xC7FF (placard_io.asm)
+LIB_FONT   = 0x9700     ; 2 KB font, x9700-x9EFF (see lib_font.asm)
+SND_CODE   = 0x9200     ; sound driver, x9200-x96FF (placard_snd.asm)
 LIB_RAM    = 0x1F00     ; 256 bytes of library code copied to RAM by the boot
 SQ_LO      = 0xFF00     ; mul8's quarter squares, low bytes (lib_sqtab.asm, in
 SQ_HI      = 0xFC00     ;   rom_boot.asm's pages); high bytes, no entry 0

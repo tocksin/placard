@@ -1,6 +1,6 @@
 # Software roadmap
 
-Date: 2026-11-02
+Date: 2026-11-11
 
 Programs to write for the Placard, what each needs, and where it fits.
 The libraries it builds on are in [LIBRARY.md](LIBRARY.md)
@@ -14,8 +14,8 @@ drivers, FAT, sound), the boot loader, and a small resident program that
 can find and load everything else from the SD card.  Other programs are
 files on the SD card, loaded into RAM one at a time.  The cartridge can be
 32 KB (x8000-xFFFF, mirrored) or 64 KB (ROM.md, "Loading the cartridge"),
-so the resident set should fit in **x8000-xBFFF (16 KB)** plus whatever the
-library has room for below xC000.
+so the resident set shares **x8000-xFFFF (32 KB)** with the library, one
+kind of thing per 8 KB section (ROM.md, "ROM map").
 
 ### What the machine gives a program
 
@@ -43,7 +43,7 @@ from RAM (as `plot1` and `con_scroll` do), not from ROM x6000-xFFFF.
 
 | Piece | Needed by | Size | Notes |
 |---|---|---|---|
-| FAT write | DOS, editor, assembler, BASIC SAVE | 3.2 KB | **Done 2026-10-26** (`placard_fsw.masm`, in the 32K image at xB000, vectors x8010-x8020): create, write, close, delete, save; every FAT kept up to date.  Not yet: rename, make folder. |
+| FAT write | DOS, editor, assembler, BASIC SAVE | 3.2 KB | **Done 2026-10-26** (`placard_fsw.masm`, in the 32K image at xD600, vectors x8010-x8020): create, write, close, delete, save; every FAT kept up to date.  Not yet: rename, make folder. |
 | Program file format | DOS, loader, every SD program | small | **Done 2026-10-26**: the `.PLC` header ("PLC", type, load address, length, entry; [DOS.md](DOS.md#program-files-plc)), `gen_plc.py` |
 | Faster scroll / partial redraw | editor, monitor, BASIC | 0.5-1 KB | `con_scroll` takes 46 ms for the full 60 rows; an editor redraws only changed lines and scrolls a 28-row window (about half the time) |
 
@@ -72,7 +72,7 @@ ROM keeps a 1.5 KB loader, `rom32.masm`, that starts it and runs programs).  A f
 picks the boot program) with a command line (`RUN`, `LOAD`, `SAVE`, `DEL`,
 `CD`, `BOOT`, `DIR`), `BOOT.CFG` for what starts at power-up, Esc held at
 power-up for the browser.  The FAT writer (`placard_fsw.masm`, 3.2 KB at
-xB000) and the `.PLC` program file format (`gen_plc.py`) came with it; the
+xD600) and the `.PLC` program file format (`gen_plc.py`) came with it; the
 demo menu became a program on the card (`menu.masm`).  Not yet: `TYPE`,
 `COPY`, `REN`, `MD`, `RD`.
 
