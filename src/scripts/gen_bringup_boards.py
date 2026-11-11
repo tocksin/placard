@@ -7,9 +7,18 @@ main board from kicad/placard.kicad_pcb, seen from the component side as
 in the layout, with
 
     orange   the parts that step's "Parts for this step" table fits
+    blue     a socket that step fits and leaves empty (its chip comes in a
+             later step); it stays pale blue until the chip goes in
     red      the chips that step takes out (step 13: the RAM)
     gray     what earlier steps fitted
     outline  what comes later
+    green    the temporary straps, drawn from pin to pin, from the step
+             that puts them in until the step that takes them out
+
+A step with straps also gets a close-up of the sockets that hold them
+(stepNN_straps.png): every pin numbered, each strap between its two pins
+and the test lead clip points.  The straps come from the "- **Sn**, in
+Un (...): ... pin a ... to pin b ... Out at step m." lines of the guide.
 
 The parts are read from the Ref column of each step's table in
 BRINGUP.md ("U7-U10 sockets", "R14, R17", ...), so the pictures follow the
@@ -81,6 +90,7 @@ class Part:
     def __init__(self, ref, x, y, rot):
         self.ref, self.x, self.y, self.rot = ref, x, y, rot
         self.pts = []                    # courtyard points, board mm
+        self.pads = {}                   # pad number -> (x, y), board mm
         self.circle = None               # (cx, cy, r) for a round courtyard
 
     def place(self, px, py):
@@ -123,6 +133,9 @@ def read_board(path):
                     p.circle = (gx, gy, math.hypot(ex - cx, ey - cy))
             if p.pts or p.circle:
                 break
+        for pad in kids(f, 'pad'):
+            px, py = xy(pad, 'at')
+            p.pads.setdefault(pad[1], p.place(px, py))
         if p.pts or p.circle:
             parts[ref] = p
     edge = []
@@ -167,12 +180,12 @@ def read_steps():
     for line in open(DOC).read().split('\n'):
         m = re.match(r'### Step (\d+): (.*)', line)
         if m:
-            cur = [int(m.group(1)), m.group(2), []]
+            cur = [int(m.group(1)), m.group(2), [], set()]
             steps.append(cur)
             in_table = False
             continue
         if line.startswith('## Expansion slots'):
-            cur = ['expansion', 'expansion slots', []]
+            cur = ['expansion', 'expansion slots', [], set()]
             steps.append(cur)
             in_table = False
             continue
@@ -190,10 +203,38 @@ def read_steps():
                 continue
             if set(line) <= set('|- '):
                 continue
-            for r in cell_refs(line.split('|')[1]):
+            cell = line.split('|')[1]
+            for r in cell_refs(cell):
                 if r not in cur[2]:
                     cur[2].append(r)
-    return steps
+                if 'socket' not in cell:
+                    cur[3].add(r)            # the part itself, not only its socket
+    # a socket whose chip isn't in the same step's table is fitted empty
+    return [(key, title, refs, [r for r in refs if r[0] == 'U' and r not in full])
+            for key, title, refs, full in steps]
+
+
+STRAP = re.compile(r'- \*\*(S\d+)\*\*, in (U\d+)[^:]*:(.*?)pin (\d+).*?to pin (\d+).*?Out at step (\d+)', re.S)
+LEAD = re.compile(r"\*\*(Ground|Power) lead:\*\* clip it to strap (S\d+)'s lead at (U\d+)'s pin (\d+)")
+
+
+def read_straps():
+    """[dict(name, ref, a, b, kind, first, out)] and the test lead clip
+    points [(step, 'Ground'|'Power', ref, pin)] from the guide's text"""
+    text = open(DOC).read()
+    straps, leads = [], []
+    for sec in re.split(r'\n(?=### Step \d+:)', text):
+        m = re.match(r'### Step (\d+):', sec)
+        if not m:
+            continue
+        step = int(m.group(1))
+        sec = re.split(r'\n## ', sec)[0]
+        for name, ref, how, a, b, out in STRAP.findall(sec):
+            straps.append(dict(name=name, ref=ref, a=a, b=b, first=step, out=int(out),
+                               kind='wire link' if 'wire' in how else '10k'))
+        for which, name, ref, pin in LEAD.findall(sec):
+            leads.append((step, which, ref, pin))
+    return straps, leads
 
 
 def arc_points(s, m, e, n=24):
@@ -217,13 +258,19 @@ def arc_points(s, m, e, n=24):
 STYLE = {
     'now':   dict(fc='#ff9d1c', ec='#8a3d00', lw=1.6, z=4),
     'out':   dict(fc='#ff6b6b', ec='#8a0000', lw=1.6, z=4),
+    'socket': dict(fc='#4aa3ff', ec='#0b3d91', lw=1.6, z=4),
+    'empty': dict(fc='#d5e8ff', ec='#5b86c4', lw=0.8, z=2),
     'done':  dict(fc='#b9bec6', ec='#6c727c', lw=0.6, z=2),
     'later': dict(fc='#ffffff', ec='#c3c7ce', lw=0.6, z=1),
 }
 
 
-def draw(parts, edge, state, title, path, scale=1.0, legend=True):
-    """state: ref -> 'now' | 'out' | 'done' (anything else is 'later')"""
+STRAP_COL = '#0a8f3c'
+
+
+def draw(parts, edge, state, title, path, scale=1.0, legend=True, straps=()):
+    """state: ref -> 'now' | 'socket' | 'empty' | 'out' | 'done' (anything
+    else is 'later'); straps: the ones in place during this step"""
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
@@ -268,19 +315,48 @@ def draw(parts, edge, state, title, path, scale=1.0, legend=True):
         s = state.get(ref, 'later')
         bw, bh = bx1 - bx0, by1 - by0
         big = max(bw, bh) >= 9
-        if s in ('now', 'out') or big:
-            col = '#000000' if s in ('now', 'out') else ('#4a4f57' if s == 'done' else '#a6abb3')
+        hot = s in ('now', 'out', 'socket')
+        if hot or big:
+            col = '#000000' if hot else ('#4a4f57' if s in ('done', 'empty') else '#a6abb3')
             rot = 90 if bh > bw * 1.3 else 0
-            size = fs if (max(bw, bh) >= 5.5 or s not in ('now', 'out')) else fs * 0.8
-            ax.text((bx0 + bx1) / 2, (by0 + by1) / 2, ref, ha='center', va='center', rotation=rot,
-                    fontsize=size, color=col, zorder=6,
-                    fontweight='bold' if s in ('now', 'out') else 'normal', clip_on=False)
+            size = fs if (max(bw, bh) >= 5.5 or not hot) else fs * 0.8
+            has_strap = any(t['ref'] == ref for t in straps)
+            ax.text((bx0 + bx1) / 2, (by0 + by1) / 2 + (0 if rot or not has_strap else 0),
+                    ref + (' socket' if s == 'socket' else ''), ha='center', va='center',
+                    rotation=rot, fontsize=size, color=col, zorder=6,
+                    fontweight='bold' if hot else 'normal', clip_on=False)
+    for t in straps:
+        p = parts[t['ref']]
+        (ax1, ay1), (ax2, ay2) = p.pads[t['a']], p.pads[t['b']]
+        ax.plot([ax1, ax2], [ay1, ay2], color=STRAP_COL, lw=2.2, zorder=7, solid_capstyle='round')
+        ax.plot([ax1, ax2], [ay1, ay2], 'o', color=STRAP_COL, ms=4.5, zorder=7)
+    for ref in sorted(set(t['ref'] for t in straps)):
+        # one label per socket, outside it, on the side nearer its straps
+        mine = [t for t in straps if t['ref'] == ref]
+        p = parts[ref]
+        bx0, by0, bx1, by1 = p.box()
+        ys = [p.pads[t[k]][1] for t in mine for k in ('a', 'b')]
+        above = sum(ys) / len(ys) <= (by0 + by1) / 2
+        gap = 1.6 + 1.5 * len(mine)
+        ax.text((bx0 + bx1) / 2, (by0 - gap) if above else (by1 + gap),
+                '\n'.join('%s %s: pin %s to %s' % (t['name'], t['kind'], t['a'], t['b'])
+                          for t in mine),
+                ha='center', va='center', fontsize=fs, color=STRAP_COL, fontweight='bold',
+                zorder=8, bbox=dict(fc='white', ec=STRAP_COL, lw=0.6, pad=1.5))
     fig.text(0.012, 1 - 0.30 / (h * k + 0.9), title, fontsize=12 * min(1.0, scale * 1.0) + 1,
              fontweight='bold', va='center')
     if legend:
         hs = [Patch(fc=STYLE['now']['fc'], ec=STYLE['now']['ec'], label='fit in this step')]
+        if 'socket' in state.values():
+            hs.append(Patch(fc=STYLE['socket']['fc'], ec=STYLE['socket']['ec'],
+                            label='fit the socket only'))
         if 'out' in state.values():
             hs.append(Patch(fc=STYLE['out']['fc'], ec=STYLE['out']['ec'], label='take out'))
+        if 'empty' in state.values():
+            hs.append(Patch(fc=STYLE['empty']['fc'], ec=STYLE['empty']['ec'], label='empty socket'))
+        if straps:
+            from matplotlib.lines import Line2D
+            hs.append(Line2D([0], [0], color=STRAP_COL, lw=2.2, marker='o', ms=4, label='strap'))
         if 'done' in state.values():
             hs.append(Patch(fc=STYLE['done']['fc'], ec=STYLE['done']['ec'], label='already fitted'))
         hs.append(Patch(fc=STYLE['later']['fc'], ec=STYLE['later']['ec'], label='later'))
@@ -292,12 +368,98 @@ def draw(parts, edge, state, title, path, scale=1.0, legend=True):
     print('wrote', os.path.relpath(path, ROOT))
 
 
+def closeup(parts, straps, leads, step, path):
+    """the sockets that get straps in this step, enlarged, in the same
+    orientation as the board picture: every pin numbered, the straps and
+    the test lead clip points"""
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle, Circle
+
+    refs = []
+    for t in straps:
+        if t['ref'] not in refs:
+            refs.append(t['ref'])
+    refs.sort(key=lambda r: parts[r].box()[0])
+    k = 0.2                                   # inches per mm
+    boxes = [parts[r].box() for r in refs]
+    widths = [b[2] - b[0] + (22 if b[3] - b[1] > b[2] - b[0] else 8) for b in boxes]
+    height = max(b[3] - b[1] for b in boxes) + 20
+    fig = plt.figure(figsize=(sum(widths) * k, height * k + 0.5))
+    left = 0.0
+    for r, b, w in zip(refs, boxes, widths):
+        p = parts[r]
+        ax = fig.add_axes([left / sum(widths), 0, w / sum(widths), height * k / (height * k + 0.5)])
+        left += w
+        cx, cy = (b[0] + b[2]) / 2, (b[1] + b[3]) / 2
+        ax.set_xlim(cx - w / 2, cx + w / 2)
+        ax.set_ylim(cy + height / 2, cy - height / 2)
+        ax.set_aspect('equal')
+        ax.axis('off')
+        ax.add_patch(Rectangle((b[0], b[1]), b[2] - b[0], b[3] - b[1], fc=STYLE['empty']['fc'],
+                               ec=STYLE['empty']['ec'], lw=1.2))
+        if (b[3] - b[1]) > (b[2] - b[0]):
+            ax.text(cx, b[3] + 3, "%s socket" % r, ha='center', va='center', fontsize=11,
+                    color='#3b5f93')
+        else:
+            ax.text(cx, b[3] + 6.5, "%s socket" % r, ha='center', va='center', fontsize=11,
+                    color='#3b5f93')
+        used = {}
+        for t in straps:
+            if t['ref'] == r:
+                used[t['a']] = used[t['b']] = t
+        for num, (x, y) in p.pads.items():
+            hot = num in used
+            if num == '1':
+                ax.add_patch(Rectangle((x - 0.8, y - 0.8), 1.6, 1.6, fc=STRAP_COL if hot else 'white',
+                                       ec='#333333', lw=1, zorder=3))
+            else:
+                ax.add_patch(Circle((x, y), 0.8, fc=STRAP_COL if hot else 'white', ec='#333333',
+                                    lw=1, zorder=3))
+            # the number goes on the outside of the pin row
+            vert = (b[3] - b[1]) > (b[2] - b[0])
+            if vert:
+                dx, dy = (-2.6 if x < cx else 2.6), 0
+            else:
+                dx, dy = 0, (-2.6 if y < cy else 2.6)
+            ax.text(x + dx, y + dy, num, ha='center', va='center', fontsize=9,
+                    fontweight='bold' if hot else 'normal', color='#000000' if hot else '#555555')
+        for t in straps:
+            if t['ref'] != r:
+                continue
+            (x1, y1), (x2, y2) = p.pads[t['a']], p.pads[t['b']]
+            ax.plot([x1, x2], [y1, y2], color=STRAP_COL, lw=4, zorder=4, solid_capstyle='round')
+            mx, my = (x1 + x2) / 2, (y1 + y2) / 2
+            ax.text(mx, my, '%s\n%s' % (t['name'], t['kind']), ha='center', va='center', fontsize=9,
+                    fontweight='bold', color=STRAP_COL, zorder=5,
+                    bbox=dict(fc='white', ec=STRAP_COL, lw=1, pad=2))
+        for _, which, ref, pin in leads:
+            if ref != r:
+                continue
+            x, y = p.pads[pin]
+            vert = (b[3] - b[1]) > (b[2] - b[0])
+            if vert:
+                tx, ty, ha = (x - 9 if x < cx else x + 9), y, ('right' if x < cx else 'left')
+            else:
+                tx, ty, ha = x, (y - 6.5 if y < cy else y + 6.5), 'center'
+            ax.annotate('%s lead\nclips here' % which.lower(), xy=(x, y), xytext=(tx, ty), ha=ha,
+                        va='center', fontsize=9, color='#b00020', fontweight='bold', zorder=6,
+                        arrowprops=dict(arrowstyle='->', color='#b00020', lw=1.2))
+    fig.text(0.01, 1 - 0.25 / (height * k + 0.5),
+             'Step %d straps (same way up as the board picture; pin 1 is the square pad)' % step,
+             fontsize=11, fontweight='bold', va='center')
+    fig.savefig(path, dpi=110)
+    plt.close(fig)
+    print('wrote', os.path.relpath(path, ROOT))
+
+
 def main(argv):
     steps = read_steps()
     parts, edge = read_board(BOARD)
     bad = False
     listed = set()
-    for key, title, refs in steps:
+    for key, title, refs, _ in steps:
         miss = [r for r in refs if r not in parts]
         if miss:
             bad = True
@@ -310,19 +472,33 @@ def main(argv):
         return 1
     if '--check' in argv:
         return 0
+    straps, leads = read_straps()
+    for t in straps:
+        p = parts.get(t['ref'])
+        if p is None or t['a'] not in p.pads or t['b'] not in p.pads:
+            print('strap %s: no such pins on %s' % (t['name'], t['ref']))
+            return 1
     os.makedirs(OUT, exist_ok=True)
-    done = set()
-    for key, title, refs in steps:
+    done, empty = set(), set()
+    for key, title, refs, sockets in steps:
         out = REMOVED.get(key, [])
         state = {r: 'done' for r in done}
+        state.update({r: 'empty' for r in empty})
         state.update({r: 'out' for r in out})
         state.update({r: 'now' for r in refs})
+        state.update({r: 'socket' for r in sockets})
         if key == 'expansion':
             draw(parts, edge, state, 'Expansion slots (optional)', os.path.join(OUT, 'expansion_board.png'))
         else:
+            here = [t for t in straps if t['first'] <= key < t['out']]
             draw(parts, edge, state, 'Step %d: %s' % (key, title),
-                 os.path.join(OUT, 'step%02d_board.png' % key))
-        done |= set(refs)
+                 os.path.join(OUT, 'step%02d_board.png' % key), straps=here)
+            new = [t for t in straps if t['first'] == key]
+            if new:
+                closeup(parts, new, [l for l in leads if l[0] == key], key,
+                        os.path.join(OUT, 'step%02d_straps.png' % key))
+        done |= set(refs) - set(sockets)
+        empty = (empty | set(sockets)) - (set(refs) - set(sockets))
         done -= set(out)
     cparts, cedge = read_board(CART)
     # J1 is the card edge itself, nothing to fit

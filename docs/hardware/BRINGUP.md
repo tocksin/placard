@@ -30,10 +30,14 @@ of pattern to expect, not the exact one.
 
 Each step's parts table is followed by a picture of the board, seen from
 the component side with the back edge (the connectors) at the top: the
-parts to fit in that step are orange (a chip to take out is red), the ones
-already fitted gray and
-the rest outlined.  `src/scripts/gen_bringup_boards.py` draws them from
-the parts tables and the board layout.
+parts to fit in that step are orange, a socket that is fitted but left
+empty for now is blue (pale blue in later steps, until its chip goes in),
+a chip to take out is red, the parts already fitted are gray and the rest
+are outlined.  The temporary straps are drawn in green from pin to pin
+for as long as they stay in, and the step that puts them in has a
+close-up of the socket with every pin numbered.
+`src/scripts/gen_bringup_boards.py` draws them from the parts tables, the
+strap descriptions and the board layout.
 
 ## Before you start
 
@@ -346,6 +350,8 @@ nothing needs clipping while the board is powered:
 - **Ground lead:** clip it to strap S1's lead at U23's pin 19 (10k to GND).
 - **Power lead:** clip it to strap S2's lead at U23's pin 12 (10k to +5 V).
 
+![Step 6: straps S1 and S2 in U23's socket, pin by pin, and where the test leads clip on](bringup_boards/step06_straps.png)
+
 Insert U16 into its socket, and connect the monitor and USB power cable.
 Turn on the power switch.  The screen shows a random color at first (the
 inputs power up at no particular level).  These are the pins to touch:
@@ -470,6 +476,8 @@ in yet, so turn off the power switch and put in:
   Out at step 9.
 - **S4**, in U11 (memory control): 10k from pin 18 (/RAM_OE) to pin 12
   (GND).  The RAM drives the bus all the time.  Out at step 12.
+
+![Step 8: strap S4 in U11's socket and wire link S3 in U2's socket, pin by pin](bringup_boards/step08_straps.png)
 
 Insert U31 and U22 into their sockets.  Turn on the power switch.
 
