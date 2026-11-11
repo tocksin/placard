@@ -21,6 +21,13 @@ of the PLD equations as they are wired at each step.  The test ROM is made
 by `src/scripts/gen_bringup.py` and checked by
 `src/scripts/test_bringup_sim.py` (see [The bring-up ROM](#the-bring-up-rom)).
 
+Where a step changes the picture on the monitor, an example of what you
+should see follows it.  The pictures are made by
+`src/scripts/gen_bringup_screens.py` from the same model, pixel by pixel
+(steps 5-13), and from the bring-up ROM running in the simulator (steps
+19-21).  RAM powers up random, so a picture with RAM in it shows the kind
+of pattern to expect, not the exact one.
+
 ## Before you start
 
 **Sockets.**  Put every chip in a socket.  Each step fits only the
@@ -257,6 +264,11 @@ monitor.  Turn on the power switch.  V9:V0 count lines, 499-1023, 525
 lines a frame.  The monitor should now lock to 640 x 480 at 60 Hz and show a **black screen** (the
 color decoder isn't in yet).
 
+![Step 5: a black screen](bringup_screens/step05_black.png)
+
+*Step 5: the monitor locks and shows black.  A "no signal" message
+instead means the sync isn't right.*
+
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
 | V0 (pin 14) | 15.7 kHz | 50.1 % | 2.50 V |
@@ -319,6 +331,11 @@ Insert U16 into its socket, and connect the monitor and USB power cable.
 Turn on the power switch.  The screen shows a random color at first (the
 inputs power up at no particular level).  These are the pins to touch:
 
+![Step 6 at power-up: an example of fine vertical stripes](bringup_screens/step06_powerup.png)
+
+*Step 6 at power-up, an example (here 2 bpp, pixel pins 6C): one color
+or fine vertical stripes that repeat every 8 pixels.  Yours will differ.*
+
 | U16 pin | Input | What it sets |
 |---|---|---|
 | 2 | D0 | pixel bit 0 (8 bpp: RED1, pin 15) |
@@ -339,11 +356,21 @@ inputs power up at no particular level).  These are the pins to touch:
    **white** with a black border (8 bpp, every pixel FF), and every
    output reads 28.77 kHz, 73.1 %, 3.66 V.
 
+| 1. Every pin grounded | 2. Every pin at power |
+|---|---|
+| ![Step 6: black](bringup_screens/step06_ground.png) | ![Step 6: white](bringup_screens/step06_power.png) |
+
 You'll see each touch change the picture along the way.  Feel free to
 touch any of these pins with either the power or ground probe in any
 order to explore the different colors and color modes.  In 8 bpp
 (MODE0 and MODE1 high) each pixel pin drives the one output named in the
 table, which drops to 0 V when that pin is low.
+
+![Step 6: four examples, one in each color mode](bringup_screens/step06_explore.png)
+
+*Step 6, exploring: one example in each color mode.  The pixel pins never
+change during a line, so every picture is a solid color (8 bpp) or
+vertical stripes that repeat every 8 pixels.*
 
 A color output that stays at 0 V when it should toggle, or toggles when it
 should be 0 V, points at that pin's wiring or the color resistors
@@ -430,6 +457,14 @@ buffer loads that one byte; in the eighth, the video read, the byte from
 the video address shows through.  Only U31 is in, so only the left 16 byte
 columns (A15 = 0) read the RAM; the other 64 read FF from RN1.
 
+![Step 8: one byte repeated, in each of the four color modes](bringup_screens/step08_modes.png)
+
+*Step 8, an example in each color mode (you see the one MODE1:MODE0 came
+up in).  The repeated byte makes the stripes or the solid color; the thin
+stripe in every 8 pixels is steady (FF) in the right 64 columns and
+speckled with RAM data in the left 16.  Your byte and colors will differ.
+Open the image full size to see the single-pixel stripes.*
+
 The color mode is wherever MODE1:MODE0 came up.  To try other modes, clip
 the test leads on as in step 6 before you turn the power on and touch
 only MODE0 and MODE1 (pins 10, 11); the pixel pins are driven by U22 now.
@@ -456,6 +491,12 @@ repeat in bands (the audio slot PLD U35 isn't in, so four of the row
 address bits are stuck).  The other 64 columns read FF (white in 1 bpp
 and 8 bpp).
 
+![Step 9: random RAM in the left 16 columns, in each of the four color modes](bringup_screens/step09_modes.png)
+
+*Step 9, an example in each color mode.  The noise is in bands 4 lines
+tall, and the pattern repeats down the screen every 128 lines.  FF is
+white in 1, 2 and 8 bpp and bright green (color 15) in 4 bpp.*
+
 ### Step 10: RAM (U32) and I/O decode (U12)
 
 **Parts for this step:**
@@ -475,6 +516,11 @@ U32's chip enable /CE_HI (U12 pin 15) is low when A15 is 1; on a video
 read A15 is H9.  Turn off the power switch.  Insert U32 and U12 into their
 sockets.  Turn on the power switch.  All 80 byte columns now show
 **random RAM**.
+
+![Step 10: random RAM across the whole screen, in each of the four color modes](bringup_screens/step10_modes.png)
+
+*Step 10, an example in each color mode: the same banded noise as step 9,
+now across the whole screen.*
 
 ### Step 11: audio and mode slot PLD (U35), line code (U23)
 
@@ -503,6 +549,12 @@ colored noise** in a mix of modes, line repeats and row tints, with about
 half the lines black (bit 7 of a random mode byte blanks the line).
 Nothing writes the RAM (R63 holds /WE high), so the picture holds still.  Power off and on: a
 different picture.
+
+![Step 11: random colored noise with black lines](bringup_screens/step11_random.png)
+
+*Step 11, an example: each line has its own random mode byte, so color
+modes, tints and line repeats change from line to line and about half the
+lines are black.*
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -609,6 +661,11 @@ shunts on JP1 and JP2, then insert the State PLD U1, the instruction
 register U17 and the D register U18 into their sockets.  Turn on the
 power switch (the screen is black, with no RAM).  The instruction register
 and the D register load FF.
+
+![Step 13: a black screen](bringup_screens/step05_black.png)
+
+*Steps 13 to 18: black.  With the RAM out every mode byte reads FF, which
+blanks every line.*
 
 | Pin | Frequency | Duty | DC average |
 |---|---|---|---|
@@ -780,6 +837,13 @@ the cartridge into J8.  Turn on the power switch: within about half a second the
 screen shows the bring-up ROM's status screen ([below](#the-bring-up-rom)).
 If it doesn't, read where the CPU stopped (next section).
 
+![Step 19: the bring-up ROM's status screen](bringup_screens/step19_status.png)
+
+*Step 19, about a second after power-on.  The shared port isn't in until
+step 20, so the keyboard, pad, SD card and mouse rows show nothing
+attached (SD_INIT 01, MOUSE_INIT 01; their exact values don't matter
+yet).  FRAME, LOOPS and PASSES count up; ERRORS stays 0.*
+
 ## The bring-up ROM
 
 At power-up it runs these tests from the ROM, using only the CPU, the ROM,
@@ -947,6 +1011,12 @@ U40's output and at the SD socket's pin 4.
   a keyboard whose keys double up on the display points at a hold the
   keyboard does not see (it should be 100 us or more on the scope).
 
+![Step 20: the status screen with a keyboard, mouse, pad and SD card](bringup_screens/step20_io.png)
+
+*Step 20, an example: "placard" typed and A held (one KBD_NOW byte reads
+DF), B held on pad 1 (0001), a FAT card in (SD_INIT 00, FS_MOUNT 00) and
+the mouse moved (MOUSE_INIT 00, X 120, Y 45).*
+
 ### Step 21: audio DAC (U36)
 
 **Parts for this step:**
@@ -981,6 +1051,10 @@ With no sound playing the sample is 80h:
 
 The ladder output sits at about 2.5 V when silent.  Press T: a 1 kHz tone
 from the line out (into an amplifier or powered speakers); T again stops it.
+
+![Step 21: the status screen with the test tone on](bringup_screens/step21_tone.png)
+
+*Step 21: after T the SOUND row ends in ON.*
 
 When everything passes, load the normal ROM image: take cartridge U2
 out, program it with the 32K ROM (`rom_32k.bin`, written by
