@@ -893,7 +893,9 @@ plot1:
 ;   out:     AC = character; cursor moved, past row 59 the screen
 ;            scrolls up one text row
 ;   changes: X, Y, T0-T5
-;   clocks:  327, or 1,159,075 (46.0 ms) when it scrolls
+;   clocks:  376, or 1,159,075 (46.0 ms) when it scrolls
+;   The glyph comes from the font FONT_PG points at (zeropage.asm): the
+;   standard font, or a program's own 8 pages.
 ;   The cursor must be valid: call con_clear or con_home first.
 ; ------------------------------------------------------------
 con_putc:
@@ -924,7 +926,7 @@ cp_top:
     ld   ac, [T2]
 cp_draw:
     ld   [T0], x                ; row 0
-    ld   (LIB_FONT >> 8) + 0, y
+    ld   [FONT_PG], y
     ld   [y,x], ac
     ld   [T1], x
     ld   [T2], y
@@ -933,7 +935,8 @@ cp_draw:
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 1
-    ld   (LIB_FONT >> 8) + 1, y
+    ld   1, ac
+    add  [FONT_PG], y
     ld   [y,x], ac
     ld   [T1], x
     ld   [T2], y
@@ -942,7 +945,8 @@ cp_draw:
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 2
-    ld   (LIB_FONT >> 8) + 2, y
+    ld   2, ac
+    add  [FONT_PG], y
     ld   [y,x], ac
     ld   [T1], x
     ld   [T2], y
@@ -951,7 +955,8 @@ cp_draw:
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 3
-    ld   (LIB_FONT >> 8) + 3, y
+    ld   3, ac
+    add  [FONT_PG], y
     ld   [y,x], ac
     ld   [T1], x
     ld   [T2], y
@@ -960,7 +965,8 @@ cp_draw:
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 4
-    ld   (LIB_FONT >> 8) + 4, y
+    ld   4, ac
+    add  [FONT_PG], y
     ld   [y,x], ac
     ld   [T1], x
     ld   [T2], y
@@ -969,7 +975,8 @@ cp_draw:
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 5
-    ld   (LIB_FONT >> 8) + 5, y
+    ld   5, ac
+    add  [FONT_PG], y
     ld   [y,x], ac
     ld   [T1], x
     ld   [T2], y
@@ -978,7 +985,8 @@ cp_draw:
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 6
-    ld   (LIB_FONT >> 8) + 6, y
+    ld   6, ac
+    add  [FONT_PG], y
     ld   [y,x], ac
     ld   [T1], x
     ld   [T2], y
@@ -987,7 +995,8 @@ cp_draw:
     inc
     ld   ac, [T1]
     ld   [T0], x                ; row 7
-    ld   (LIB_FONT >> 8) + 7, y
+    ld   7, ac
+    add  [FONT_PG], y
     ld   [y,x], ac
     ld   [T1], x
     ld   [T2], y

@@ -58,7 +58,7 @@
 ;     build\rom32.bat                         the FPGA, rom_32k.bin
 ;     python3 test_dos.py                     runs it with a card image
 ;
-; Date: 11/02/2026
+; Date: 11/11/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -256,7 +256,10 @@ pb_prog:
 ; dos_back (vector x8008) - a program is done
 ; start_dos - DOS.PLC from the root folder (BASIC when it can't)
 ; ============================================================
+        ; standard font back in FONT_PG (a leaf)
 lib_ram_copy:
+    ld   LIB_FONT >> 8, ac
+    ld   ac, [FONT_PG]
     clr  ac
     ld   ac, [l_t]
 lrc:
@@ -272,9 +275,9 @@ lrc:
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 
-w_DELLN:
-    #d8 12, 25, 19, 12, 21, 27, 14, 8, 56, 33, 15, 28
-    #d8 21, 28, 45, 8, 56, 20, 28, 9, 56, 0
+w_TYPE:
+    #d8 w_COUNT >> 8, w_COUNT & 0xFF, 12, 4, 10, 15, 25, w_EMIT >> 8, w_EMIT & 0xFF, 34, 14, 33
+    #d8 14, 3, 243, 13, 13, 0
 pu_title:
     ld   LINK_LO, x             ; the sound buffer powers up random: silence it
     ld   rom_r1, [x]
@@ -566,9 +569,9 @@ rom_r14:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 
-w_NEXTLN:
-    #d8 8, 54, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 12, 25, 27
-    #d8 12, 25, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 5, w_GOLINE & 0xFF, w_GOLINE >> 8
+w_DELLN:
+    #d8 12, 25, 19, 12, 21, 27, 14, 8, 56, 33, 15, 28
+    #d8 21, 28, 45, 8, 56, 20, 28, 9, 56, 0
 start_dos:
     ld   STACK_TOP, ac
     ld   ac, [SP]
@@ -1052,7 +1055,7 @@ s_basic:    #d "BASIC", 0x00
 ; The library is used as by any program (CALL, the stack at xC0-xFF);
 ; R0-R7 and T0-T7 are free between primitives.
 ;
-; Date: 10/27/2026
+; Date: 11/11/2026
 ; ============================================================
 
 ; the machine's zero page
@@ -1435,6 +1438,10 @@ w_STRLIT:
     #d8 51, 8, 48, 8, 48, 25, 12, 1, 34, 37, 14, 40
     #d8 30, 40, 4, 3, 51, 3, 240, 8, 48, 15, 28, w_MKSTR >> 8
     #d8 w_MKSTR & 0xFF, 8, 48, 25, 4, 1, 51, 1, 1, 11, 66, 0
+w_KWMATCH:
+    #d8 2, (w_KWTAB) & 0xFF, (w_KWTAB) >> 8, 1, 128, 15, 25, 4, 21, 15, w_KWCMP >> 8, w_KWCMP & 0xFF
+    #d8 w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 7, 8, 48, 27, 9, 48, 16, 0, 14
+    #d8 w_KWSKIP >> 8, w_KWSKIP & 0xFF, 14, 33, 3, 231, 13, 13, 1, 0, 0
 w_STORELN:
     #d8 1, 0, 9, 72, w_CLEARV >> 8, w_CLEARV & 0xFF, 12, w_FINDLN >> 8, w_FINDLN & 0xFF, 12, 25, 4
     #d8 13, 12, 33, 23, 1, 2, w_PICK >> 8, w_PICK & 0xFF, 37, 4, 3, 12
@@ -1471,10 +1478,6 @@ w_NEXT_:
     #d8 49, 58, 4, 4, w_VARREF >> 8, w_VARREF & 0xFF, 3, 2, 1, 0, w_FINDFOR >> 8, w_FINDFOR & 0xFF
     #d8 62, 12, 4, 16, 1, 12, 27, 9, 64, 49, 1, 44
     #d8 37, 40, 4, 1, 0, 51, 3, 224, 13, 0
-w_SDIVMOD:
-    #d8 12, 40, 4, 2, w_D0ERR >> 8, w_D0ERR & 0xFF, 18, 31, 19, 15, 19, w_ABS >> 8
-    #d8 w_ABS & 0xFF, 14, w_ABS >> 8, w_ABS & 0xFF, 14, 43, 20, 41, 4, 4, 14, 32
-    #d8 33, 14, 20, 41, 4, 2, 32, 33, 0
 w_FNTAB:
     #d8 w_F_ABS & 0xFF, w_F_ABS >> 8, w_F_RND & 0xFF, w_F_RND >> 8, w_F_PEEK & 0xFF, w_F_PEEK >> 8, w_F_SGN & 0xFF, w_F_SGN >> 8, w_F_FRE & 0xFF, w_F_FRE >> 8, w_F_INKEY & 0xFF, w_F_INKEY >> 8
     #d8 w_F_PAD & 0xFF, w_F_PAD >> 8, w_F_LEN & 0xFF, w_F_LEN >> 8, w_F_ASC & 0xFF, w_F_ASC >> 8, w_F_VAL & 0xFF, w_F_VAL >> 8, w_F_CHR & 0xFF, w_F_CHR >> 8, w_F_STR & 0xFF, w_F_STR >> 8
@@ -1565,6 +1568,9 @@ w_GOLN:
 w_TMPALLOC:
     #d8 8, 62, 14, 15, 26, 12, 25, 33, 15, 27, 12, 2
     #d8 0, 90, 38, 40, 4, 2, w_STLERR >> 8, w_STLERR & 0xFF, 9, 62, 0
+w_SCROLL:
+    #d8 10, 50, 34, 1, 0, 18, 14, 39, 4, 7, 12, 33
+    #d8 15, 55, 33, 3, 244, 13, 5, w_CLRROW & 0xFF, w_CLRROW >> 8
 w_KWTYPE:
     #d8 w_KWADDR >> 8, w_KWADDR & 0xFF, 12, 25, 12, 1, 127, 29, w_EMIT >> 8, w_EMIT & 0xFF, 1, 128
     #d8 29, 40, 4, 3, 33, 3, 239, 13, 0
@@ -1604,9 +1610,6 @@ w_CALL_:
 w_TEXT_:
     #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, 12, 1, 30, 37, 15, 1, 60, 37, 30, 40
     #d8 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 5, w_TEXTSET & 0xFF, w_TEXTSET >> 8
-w_TYPE:
-    #d8 w_COUNT >> 8, w_COUNT & 0xFF, 12, 4, 10, 15, 25, w_EMIT >> 8, w_EMIT & 0xFF, 34, 14, 33
-    #d8 14, 3, 243, 13, 13, 0
 w_NCOMPARE:
     #d8 18, 37, 4, 5, 13, 13, 1, 2, 0, 39, 4, 3
     #d8 1, 1, 0, 1, 4, 0
@@ -2596,11 +2599,9 @@ p_cstore:                       ; C! ( v a -- )
     ld   ac, [y,x]
     bra  st_pop2
 
-w_SCROLL:
-    #d8 10, 50, 34, 1, 0, 18, 14, 39, 4, 7, 12, 33
-    #d8 15, 55, 33, 3, 244, 13, 5, w_CLRROW & 0xFF, w_CLRROW >> 8
-w_EMPTYS:
-    #d8 0
+w_NEXTLN:
+    #d8 8, 54, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 12, 25, 27
+    #d8 12, 25, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 5, w_GOLINE & 0xFF, w_GOLINE >> 8
 p_rot:                          ; ( a b c -- b c a )
     ld   [DSP], ac              ; W1:W0 = a (at DSP + 2)
     add  2, x
@@ -3370,8 +3371,8 @@ cm_done:
     ld   p_drop >> 8, y
     jmp  p_drop
 
-
-#addr 0xAA00
+w_EMPTYS:
+    #d8 0
 p_eq:
     ld   [DSP], x
     ld   [x], ac
@@ -3928,7 +3929,7 @@ gl_row:
     shl
     add  [W1], ac
     ld   ac, [W1]
-    ld   LIB_FONT >> 8, ac
+    ld   [FONT_PG], ac
     ld   ac, [W3]
 gl_lp:
     ld   [TL], x
@@ -3943,7 +3944,8 @@ gl_lp:
     ld   [W3], ac
     inc
     ld   ac, [W3]
-    xor  (LIB_FONT >> 8) + 8, ac
+    sub  [FONT_PG], ac
+    xor  8, ac
     bne  gl_lp
     ld   p_drop >> 8, y
     jmp  p_drop
@@ -4054,10 +4056,10 @@ rc_back:
     ld   p_drop >> 8, y
     jmp  p_drop
 
-w_KWMATCH:
-    #d8 2, (w_KWTAB) & 0xFF, (w_KWTAB) >> 8, 1, 128, 15, 25, 4, 21, 15, w_KWCMP >> 8, w_KWCMP & 0xFF
-    #d8 w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 7, 8, 48, 27, 9, 48, 16, 0, 14
-    #d8 w_KWSKIP >> 8, w_KWSKIP & 0xFF, 14, 33, 3, 231, 13, 13, 1, 0, 0
+w_SDIVMOD:
+    #d8 12, 40, 4, 2, w_D0ERR >> 8, w_D0ERR & 0xFF, 18, 31, 19, 15, 19, w_ABS >> 8
+    #d8 w_ABS & 0xFF, 14, w_ABS >> 8, w_ABS & 0xFF, 14, 43, 20, 41, 4, 4, 14, 32
+    #d8 33, 14, 20, 41, 4, 2, 32, 33, 0
 ; vr_ram: read a video byte
 rc_ram:
     ld   0x50, y

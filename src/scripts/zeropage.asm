@@ -51,7 +51,10 @@
 ;   BD         FS_IDX        FAT       index for the FAT reader's helpers
 ;   BE         PS2_LSN       PS/2      the latch value letting the listened PS/2
 ;                                      device send: EB neither, EF mouse, FB keyboard
-;   BF         (spare)       I/O       kept for the I/O drivers
+;   BF         FONT_PG       console   high byte of the font's first page: the
+;                                      boot sets LIB_FONT >> 8; a program may
+;                                      point it at its own 8 pages (page k =
+;                                      row k of every character)
 ;   C0-FF      STACK         stack     software stack, 64 bytes, grows down
 ;                                      from FF
 ;
@@ -67,7 +70,7 @@
 ;   - The stack may grow down past C0 into the program area if a program
 ;     nests deeper than 64 bytes; nothing checks for that.
 ;
-; Date: 10/25/2026
+; Date: 11/11/2026
 ; ============================================================
 
 LINK_LO    = 0x04
@@ -117,6 +120,7 @@ IO_T1      = 0xBA
 IO_T2      = 0xBB
 IO_T3      = 0xBC
 FS_IDX     = 0xBD       ; FAT reader: index for the 4-byte helpers
+FONT_PG    = 0xBF       ; console: high byte of the font's first page
 PS2_LSN    = 0xBE       ; PS/2: the latch value letting the listened device send (P_IDLE, P_FREE, P_KFREE)
 
 SND_ZP     = 0x90       ; first byte of the sound driver's variables

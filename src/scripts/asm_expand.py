@@ -61,7 +61,7 @@ Lines before the first .chunk or .fixed (constants, #include, comments)
 are copied as they are.  The .asm made is the file to read and assemble;
 the .masm is its source (change that and run this again).
 
-Date: 11/09/2026
+Date: 11/11/2026
 """
 
 import os
@@ -344,7 +344,7 @@ def place(chunks, name):
             a = lo
             while a < hi:
                 page = a >> 8
-                off = used.get(page, a & 0xFF if page == lo >> 8 else 0)
+                off = used.get((0, page), a & 0xFF if page == lo >> 8 else 0)
                 start = max(a, (page << 8) + off)
                 end = min(hi, (page + 1) << 8)
                 if start < end:

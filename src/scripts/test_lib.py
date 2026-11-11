@@ -18,7 +18,7 @@ The simulator does not model the video line read at x5000, so this script
 supplies it: a read of x5000-x50FF returns V9:V2 of a V counter that steps
 every 800 clocks through 499-1023 (525 lines, one frame = 420,000 clocks).
 
-Date: 11/10/2026
+Date: 11/11/2026
 """
 
 import argparse
@@ -151,6 +151,7 @@ class Lib:
         c.mem.cpu = c
         c.map = MAP_RUN
         c.mem[MAP_SHADOW] = MAP_RUN
+        c.mem[self.syms['FONT_PG']] = self.syms['LIB_FONT'] >> 8     # as the boot leaves it
         return c
 
     def call(self, name, ac=0, zp=None, cpu=None, clocks0=0, max_steps=5_000_000):
@@ -424,6 +425,17 @@ def t_console(lib, n):
         STATS.add('con_putc', k)
         assert c.ac == ord(ch)
     assert read_text(lib, c.mem, 0) == 'Hello, Placard!', read_text(lib, c.mem, 0)
+    # a program's own font: 8 pages in the RAM at x4200 (page k = row k of
+    # every character), FONT_PG pointed at it
+    c2 = lib.cpu()
+    lib.call('con_clear', cpu=c2)
+    mine = (0x81, 0x42, 0x24, 0x18, 0x18, 0x24, 0x42, 0x81)
+    for kk, v in enumerate(mine):
+        c2.mem[0x4200 + kk * 256 + ord('A')] = v
+    c2.mem[lib.syms['FONT_PG']] = 0x42
+    lib.call('con_putc', ac=ord('A'), cpu=c2)
+    got = tuple(c2.mem[byte_addr(0, kk)] for kk in range(8))
+    assert got == mine, 'own font: %r' % (got,)
     c, k = lib.call('con_newline', cpu=c)
     STATS.add('con_newline', k)
     # string in RAM at x4100

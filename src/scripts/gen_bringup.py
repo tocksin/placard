@@ -35,7 +35,7 @@ The generator keeps every block of code whose branches stay inside it in
 one 256-byte page (branches only change PC low), and jumps to the next page
 when a block does not fit.
 
-Date: 10/25/2026
+Date: 11/11/2026
 """
 
 import os
@@ -435,6 +435,7 @@ def main_program(a):
         a.i('ld   ac, x', 'ld   [y,x], [y,x]', 'inc', 'bne  %s' % lp)
     a.map(0x05)
     a.i('ld   0x05, ac', 'ld   ac, [MAP_SHADOW]', 'ld   STACK_TOP, ac', 'ld   ac, [SP]')
+    a.i('ld   LIB_FONT >> 8, ac', 'ld   ac, [FONT_PG]')    # the RAM tests wrote over the boot's
     for k in ('LOOP_LO', 'LOOP_HI', 'RT_IDX', 'RT_PL', 'RT_PH', 'RT_EL', 'RT_EH', 'RT_BADH', 'RT_BADL',
               'RT_BADE', 'RT_BADG', 'TONE', 'MX_LO', 'MX_HI', 'MY_LO', 'MY_HI', 'KEYV'):
         a.i('ld   0x00, ac', 'ld   ac, [0x%02X]' % ZP[k])
@@ -732,7 +733,7 @@ def generate():
         '1 branches  2 AND  3 OR  4 XOR  5 ADD  6 SUB  7 carry  8 SHR',
         '9 AC/X  10 Y address  11 X address  12 ROM data  13 RAM data',
         '14 map register  15 RAM address lines  16 video line read')]
-    L += [';', '; Date: 10/25/2026', '',
+    L += [';', '; Date: 11/11/2026', '',
           '#include "placard.asm"', '#include "placard_lib.asm"', '']
     for k, v in ZP.items():
         L.append('%-8s = 0x%02X' % (k, v))
