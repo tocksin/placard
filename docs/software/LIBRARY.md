@@ -6,7 +6,7 @@ page map that every program shares.  `src/scripts/lib_demo.asm` is a short
 example program that uses it, and `src/scripts/test_lib.py` tests every
 routine in the simulator.
 
-Date: 11/10/2026
+Date: 11/11/2026
 
 | File | What it is |
 |------|------------|
@@ -49,7 +49,7 @@ and runs in place.  The most used parts are highest:
 | xC600-xC6FF | Expansion slot helpers, then `con_dec16` in the page's free end | `SLOT_CODE` | `placard_slot.asm`, `lib_dec16.asm` |
 | xC500-xC5FF | Menu hook | `MENU_CODE` | `placard_menu.asm` |
 | xC000-xC4FF | PS/2 driver: keyboard decoding, the turns, `ps2_pause`, `wait_frames_io`; the mouse routines, `ps2_tx`/`ps2_rx`, `ps2_poll`, `ps2_cmd` and `kbd_lights` sit in free ends of I/O pages 1 and B-E; xC200-xC217 stay free (the bring-up ROM's marker) | `PS2_CODE` | `placard_ps2.asm` |
-| RAM x1F00-x1FFF | Code that reads the video RAM (end of `plot1`, `con_scroll`), and `lib_far` at x1FA0 (`LIB_FAR`) | `LIB_RAM` | `placard_lib.asm` |
+| RAM x1F00-x1FFF | Code that reads the video RAM (end of `plot1`, `con_scroll`), `lib_far` at x1FA0 (`LIB_FAR`) and `memset`'s loop (`ms_run`) | `LIB_RAM` | `placard_lib.asm` |
 
 `placard_lib.asm` sets every constant and includes the other files.  These
 are standard places that every program shares, so keep them.  The library
@@ -296,23 +296,31 @@ All of them use the carry flag (`bcs`, `bcc`, see [Idioms](#idioms)).
 |---------|----|-----|---------|--------|
 | `add16` | R1:R0 = a, R3:R2 = b | R1:R0 = a + b (mod 65536), AC = R1 | - | 36-40 |
 | `sub16` | R1:R0 = a, R3:R2 = b | R1:R0 = a - b (mod 65536), AC = R1 | - | 36-40 |
-| `mul8` | R0 = a, R1 = b | R3:R2 = a × b, AC = R3 | T0-T2 | 48 when a factor is 0, then about 80 a bit of the smaller factor up to its top 1 bit: 96 for 1, about 340 under 16, about 580 under 128, 691 at most |
+| `mul8` | R0 = a, R1 = b | R3:R2 = a × b, AC = R3 | T0 | 62-164, 123 on average (two table look-ups; the longer times are for a + b over 255) |
 | `div8` | R0 = dividend, R1 = divisor | AC = quotient, X = remainder | T0-T3 | about 580-790 |
-| `div16` | R1:R0 = dividend, R2 = divisor | R1:R0 = quotient, AC = X = remainder | T1-T3 | about 1300-1890 |
+| `div16` | R1:R0 = dividend, R2 = divisor | R1:R0 = quotient, AC = X = remainder | T1-T3 | about 1300-1890; about 680-890 for a dividend under 256 (8 steps instead of 16) |
 | `rand8` | RAND_HI:RAND_LO = state (seed it once, not 0) | AC = random byte | T0, state | 73-93 |
 
-All are unsigned.  A divisor of 0 gives a quotient of all ones and the
-dividend as the remainder.  `rand8` is xorshift16 (`x ^= x << 7; x ^= x >> 9;
+All are unsigned.  A divisor of 0 gives a quotient of all ones (00FF from
+`div16` for a dividend under 256) and the dividend as the remainder.
+`mul8` is a quarter-square multiply, as the 6502 machines did it: a × b =
+f(a + b) - f(|a - b|) with f(n) = n² / 4 from two 256-byte tables in the
+boot loader's free pages (`SQ_LO` xFF00, `SQ_HI` xFC00; `lib_sqtab.asm`,
+made by `gen_lib_sqtab.py`, included by `rom_boot.asm`).  `rand8` is xorshift16 (`x ^= x << 7; x ^= x >> 9;
 x ^= x << 8`), which runs through all 65,535 non-zero states.
 
 ### Memory
 
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
-| `memset` | AC = value, R1:R0 = address, R2 = count (0 = 256) | R1:R0 = end address, R2 = 0 | X, Y, T0 | 12 + 43 per byte |
+| `memset` | AC = value, R1:R0 = address, R2 = count (0 = 256) | R1:R0 = end address, R2 = 0 | X, Y, T0, T1 | about 95 + 14 per byte (3,735 for 256; about 60 more across a page end) |
 | `memcpy` | R1:R0 = source, R3:R2 = destination, R4 = count (0 = 256) | R1:R0, R3:R2 advanced, R4 = 0 | AC, X, Y | 9 + 64 per byte |
 
-`memcpy` copies first byte first, so an overlap is safe only when the
+`memset`'s loop is four instructions in `LIB_RAM` (`ms_run`), where
+`memset` writes the value and the offset into the loop's own operands
+(self-modifying code, which a ROM routine can't do); it fills each run
+from its last byte down, and is slower than the old loop only for 1 to 3
+bytes.  `memcpy` copies first byte first, so an overlap is safe only when the
 destination is below the source.  For more than 256 bytes, call again: the
 pointers already point at the next block.
 
@@ -519,7 +527,7 @@ tested a few instructions later (CPU.md, "Carry flag").
 
 **AC ≥ 0 / AC > 0**: `blt` or `ble` round the code that runs when it is.
 
-**Bit 7 into the carry**: `shl` (it also shifts AC).  `mul8` and `div8`
+**Bit 7 into the carry**: `shl` (it also shifts AC).  `div8` and `div16`
 shift a byte left and test the bit that fell out with `bcc`.
 
 **16-bit add** (how `add16` does it): add the low bytes, then add the
