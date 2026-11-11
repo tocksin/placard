@@ -26,7 +26,7 @@ and changes nothing else:
 The demo already calls menu_poll, so Esc goes back to the DOS (or the demo
 menu) and the menu's time limit works.
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import os
@@ -50,13 +50,15 @@ def source():
 
 
 def own_pages(src):
-    """{page: set of low bytes} the program itself uses (not the library)"""
-    mem, syms, _ = ps.assemble(src, HERE)
-    lib, _, _ = ps.assemble('#include "placard.asm"\n#include "placard_lib.asm"\n', HERE)
+    """{page: set of low bytes} the program itself uses (not the library).
+    text_demo.asm's ROM pages go up to xB0, over the library's parts in ROM
+    section 4, so it is assembled here with the library's names only."""
+    lib, lsyms, _ = ps.assemble('#include "placard.asm"\n#include "placard_lib.asm"\n', HERE)
+    names = '\n'.join('%s = 0x%X' % (k, v) for k, v in lsyms.items())
+    assert src.count('#include "placard_lib.asm"') == 1
+    mem, syms, _ = ps.assemble(src.replace('#include "placard_lib.asm"', names), HERE)
     pages = {}
     for a in mem:
-        if a in lib:
-            continue
         pages.setdefault(a >> 8, set()).add(a & 0xFF)
     return pages
 

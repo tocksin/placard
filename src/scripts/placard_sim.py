@@ -705,22 +705,22 @@ ROM_IMAGE_BASE = 0x6000      # RAM image: ROM address of RAM x0000 (RAM x0000-x1
 IMAGE_SAME = 0x2000          # RAM image: from here up the ROM address is the RAM address
 IMAGE_SIZE = 0x4A00          # RAM x0000-x49FF is copied at boot
 LIB_RAM_START, LIB_RAM_END = 0x1F00, 0x2000   # library code the boot copies to RAM (LIB_RAM)
-SYS_START, SYS_END = 0xC000, 0xFC00   # the library block (placard_lib.asm), up to the jump table
-LIB_FONT = 0xEC00            # the font (LIB_FONT in placard_lib.asm)
+LIB_FONT = 0x9700            # the font (LIB_FONT in placard_lib.asm)
 PROG_START, PROG_END = 0x6000, 0x8000   # ROM program area, entry at PROG_START
 PROG2_START, PROG2_END = 0x2000, 0x4000 # more ROM program area (section 1)
 BOOT_MODE = 0x0005           # 00 = ROM program, 01 = RAM image, 02 = the 32K image: the boot reads
                              # ROM x0005, where a 32K cartridge shows x8005
 DOS_MARK = 0xFC00            # rom32.asm puts 02 here: how the tools know the 32K image's program
 MODE_DOS = 2
-DOS_START, DOS_END = 0x8000, 0xC000     # the 32K image's own area: vectors, loader, BASIC, FAT writer
 LIB_RAM_IMAGE = 0x9F00       # where the 32K image keeps LIB_RAM (a 32K cartridge
                              # shows it at x1F00 too, where the boot copies it from)
 
 
 def lib_area(a):
-    """True for the addresses the library's own bytes go to in the ROM"""
-    return SYS_START <= a < SYS_END or LIB_RAM_START <= a < LIB_RAM_END
+    """True for the addresses the library's own bytes go to in the ROM: the
+    upper half (the 32K image; the library's parts are in sections 4, 6 and
+    7, docs/architecture/ROM.md) and LIB_RAM"""
+    return a >= 0x8000 or LIB_RAM_START <= a < LIB_RAM_END
 
 
 def is_ram_image(prog, lib):
@@ -737,20 +737,19 @@ def is_ram_image(prog, lib):
 
 
 def is_dos_image(prog):
-    """True for the 32K image's program (rom32.asm): it sets the boot mode
-    byte to 02 itself"""
+    """True for the 32K image's program (rom32.asm): it has 02 at DOS_MARK"""
     return prog.get(DOS_MARK) == MODE_DOS
 
 
 def build_dos_rom(dos, boot, lib):
     """the 64K ROM for the 32K image's program (rom32.asm): the 32K image x8000-xFFFF (docs/architecture/ROM.md, "The
     32K image") in both halves, so a 32K cartridge (one EEPROM, read in
-    both halves) and a 64K one boot the same.  The upper half holds the
-    boot loader and the library as every ROM does, LIB_RAM's bytes at
-    x9F00 (read at x1F00 by the boot through the mirror), rom32.asm's own
-    bytes in x8000-xBFFF (vectors, loader, BASIC, FAT writer), BOOT_MODE = 02, and a
-    copy of the reset code (x0000-x0004 of rom_boot.asm) at x8000, where a
-    32K cartridge shows it at x0000."""
+    both halves) and a 64K one boot the same.  rom32.asm includes the
+    library and the FAT writer, so its bytes from x8000 up are the image,
+    with the boot loader's (rom_boot.asm: xFC01 up), LIB_RAM's bytes at
+    x9F00 (read at x1F00 by the boot through the mirror), BOOT_MODE = 02
+    at x8005 and a copy of the reset code (x0000-x0004 of rom_boot.asm) at
+    x8000, where a 32K cartridge shows it at x0000."""
     rom = {}
     for a, v in boot.items():
         if a >= 0x8000:
@@ -758,21 +757,26 @@ def build_dos_rom(dos, boot, lib):
     for a in range(5):
         rom[0x8000 + a] = boot.get(a, 0)
     for a, v in lib.items():
-        if SYS_START <= a < SYS_END:
-            rom[a] = v
-        elif LIB_RAM_START <= a < LIB_RAM_END:
+        if LIB_RAM_START <= a < LIB_RAM_END:
             rom[a - LIB_RAM_START + LIB_RAM_IMAGE] = v
     for a, v in dos.items():
         if a == DOS_MARK:
             continue
-        if DOS_START <= a < DOS_END:
+        if a >= 0x8000:
             if LIB_RAM_IMAGE <= a < LIB_RAM_IMAGE + 0x100 and v:
-                raise AsmError('DOS byte at %04X is in the LIB_RAM image (x9F00-x9FFF)' % a)
+                raise AsmError('32K image byte at %04X is in the LIB_RAM image (x9F00-x9FFF)' % a)
             if a < 0x8005 and v != rom[a]:
-                raise AsmError('DOS byte at %04X differs from the boot loader\'s reset code' % a)
+                raise AsmError('32K image byte at %04X differs from the boot loader\'s reset code' % a)
+            if a in boot and a >= 0x8005:
+                raise AsmError('32K image byte at %04X is in the boot loader' % a)
+            if a in lib and v != lib[a]:
+                raise AsmError('32K image byte at %04X differs from the library (rom_lib.asm)' % a)
             rom[a] = v
-        elif v and not (lib_area(a) and v == lib.get(a, 0)):
-            raise AsmError('DOS byte at %04X is outside the 32K image (x8000-xBFFF)' % a)
+        elif v and not (LIB_RAM_START <= a < LIB_RAM_END and v == lib.get(a, 0)):
+            raise AsmError('32K image byte at %04X is outside the 32K image (x8000-xFFFF)' % a)
+    for a in lib:
+        if a >= 0x8000 and a not in dos:
+            raise AsmError('library byte at %04X is not in the 32K image' % a)
     rom[DOS_MARK] = MODE_DOS
     rom[BOOT_MODE + 0x8000] = MODE_DOS
     for a in range(0x8000):
@@ -813,7 +817,7 @@ def build_rom(prog, base_dir=None):
         for a, v in prog.items():
             if PROG_START <= a < PROG_END or PROG2_START <= a < PROG2_END:
                 rom[a] = v
-            elif v and not (lib_area(a) and v == lib.get(a, 0)):
+            elif v and not (lib_area(a) and v == (rom if a >= 0x8000 else lib).get(a, 0)):
                 raise AsmError('program byte at %04X is outside the ROM program area '
                                '(x%04X-x%04X, x%04X-x%04X)'
                                % (a, PROG_START, PROG_END - 1, PROG2_START, PROG2_END - 1))
@@ -821,7 +825,7 @@ def build_rom(prog, base_dir=None):
         return rom
     rom[BOOT_MODE] = 1
     for a, v in prog.items():
-        if a >= IMAGE_SIZE and v and not (lib_area(a) and v == lib.get(a, 0)):
+        if a >= IMAGE_SIZE and v and not (lib_area(a) and v == rom.get(a, 0)):
             raise AsmError('program byte at %04X is past the RAM image (x0000-x%04X)'
                            % (a, IMAGE_SIZE - 1))
     # RAM x0000-x1FFF is kept at ROM x6000-x7FFF, x2000-x49FF at its own address

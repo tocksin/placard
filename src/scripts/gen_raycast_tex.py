@@ -68,7 +68,7 @@ CONTROLS
     (keyboard) turns the textures off and on: off, each wall is one flat
     color (FLAT: its texture's commonest texel, through the same shading).
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import argparse

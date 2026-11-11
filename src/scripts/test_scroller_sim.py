@@ -23,7 +23,7 @@ strips in the video RAM must be unchanged and Esc must bring the DOS back.
 Video stalls are not modeled: the board is about 10 % slower, so the
 margins printed should be well above 10 %.
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import argparse

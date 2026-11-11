@@ -57,9 +57,9 @@
 ; programs; the DOS (DOS.PLC) and the menu (MENU.PLC) are programs on the
 ; SD card.
 ;
-; placard_lib.asm includes this file; its code is at MENU_CODE (xC500).
+; placard_lib.asm includes this file; its code is at MENU_CODE (xEA00).
 ;
-; Date: 10/26/2026
+; Date: 11/11/2026
 ; ============================================================
 
 MENU_BLK  = 0x5D00

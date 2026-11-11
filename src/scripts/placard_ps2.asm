@@ -49,7 +49,7 @@
 ; (IO_CODE, placard_io.asm), part of the library.  The variables are in
 ; RAM at PS2_RAM (x4D80-x4D9F), next to the FAT reader's.
 ;
-; Date: 10/26/2026
+; Date: 11/11/2026
 ; ============================================================
 
 PS2V      = 0x4D        ; the page of PS2_RAM (x4D80-x4D9F)
@@ -383,8 +383,7 @@ cb_p2:
 
 
 ; ============================================================
-; Page 2: kbd_scan (xC200-xC217 stay free: the bring-up ROM's marker for
-; ROM section 6 is at xC210, gen_bringup.py)
+; Page 2: kbd_scan (xE500-xE517 are free)
 ; ============================================================
 #addr PS2_CODE + 0x218
 

@@ -136,8 +136,8 @@ fail16:
     #d8 0x80
 #addr 0xA010
     #d8 0xA0
-#addr 0xC210
-    #d8 0xC2
+#addr 0xD610
+    #d8 0xD6
 #addr 0xFE10
     #d8 0xE7
 
@@ -1867,16 +1867,16 @@ ok_205:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_206:
-    ld   0xC2, y
+    ld   0xD6, y
     ld   0x10, x
-    ld   0x3D, [y,x]
+    ld   0x29, [y,x]
     ld   0x50, y
     ld   0x00, x
     ld   0x40, [y,x]
-    ld   0xC2, y
+    ld   0xD6, y
     ld   0x10, x
     ld   [y,x], ac
-    xor  0x3D, ac
+    xor  0x29, ac
     beq  ok_207
     ld   0xB8, ac
     ld   fail_h >> 8, y
@@ -1885,10 +1885,10 @@ ok_207:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
-    ld   0xC2, y
+    ld   0xD6, y
     ld   0x10, x
     ld   [y,x], ac
-    xor  0xC2, ac
+    xor  0xD6, ac
     beq  ok_208
     ld   0xB8, ac
     ld   fail_h >> 8, y
@@ -3650,16 +3650,16 @@ ok_420:
     ld   fail_h >> 8, y
     jmp  fail_h
 ok_421:
-    ld   0xC2, y
+    ld   0xD6, y
     ld   0x10, x
-    ld   0x3D, [y,x]
+    ld   0x29, [y,x]
     ld   0x50, y
     ld   0x00, x
     ld   0x40, [y,x]
-    ld   0xC2, y
+    ld   0xD6, y
     ld   0x10, x
     ld   [y,x], ac
-    xor  0x3D, ac
+    xor  0x29, ac
     beq  ok_422
     ld   0xB8, ac
     ld   fail_h >> 8, y
@@ -3668,10 +3668,10 @@ ok_422:
     ld   0x50, y
     ld   0x00, x
     ld   0x00, [y,x]
-    ld   0xC2, y
+    ld   0xD6, y
     ld   0x10, x
     ld   [y,x], ac
-    xor  0xC2, ac
+    xor  0xD6, ac
     beq  ok_423
     ld   0xB8, ac
     ld   fail_h >> 8, y
@@ -4996,7 +4996,7 @@ ret_532:
     ld   [0x10], ac
     ld   pg_534 >> 8, y
     jmp  pg_534
-#addr 0x9200
+#addr 0xB800
 pg_534:
     ld   LINK_LO, x
     ld   ret_533, [x]
@@ -5136,7 +5136,7 @@ mouse_done:
     ld   [0x5B], ac
     ld   pg_547 >> 8, y
     jmp  pg_547
-#addr 0x9300
+#addr 0xB900
 pg_547:
     ld   LINK_LO, x
     ld   ret_546, [x]
@@ -5278,7 +5278,7 @@ nc_557:
     ld   ac, [R1]
     ld   pg_559 >> 8, y
     jmp  pg_559
-#addr 0x9400
+#addr 0xBA00
 pg_559:
     ld   LINK_LO, x
     ld   ret_558, [x]

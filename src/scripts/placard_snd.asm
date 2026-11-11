@@ -20,12 +20,12 @@
 ; Tones and noise can run for a number of frames and fade by a step each
 ; frame; with neither they play until the next sound or snd_stop.
 ;
-; placard_lib.asm includes this file.  The code is at SND_CODE (xD700),
-; part of the library in ROM sections 6-7, which runs in place, so those
-; sections must read the ROM when a program calls it.  The driver
+; placard_lib.asm includes this file.  The code is at SND_CODE (x9200),
+; in ROM section 4, and runs in place, so that section must read the ROM
+; when a program calls it.  The driver
 ; uses zero page x90-x9E (zeropage.asm) and T0-T3.
 ;
-; Date: 11/01/2026
+; Date: 11/11/2026
 ; ============================================================
 
 SND_BUF   = 0x5DF3      ; first sample of the buffer

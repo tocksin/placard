@@ -23,7 +23,7 @@ drives).  For each view it checks:
 and it prints the clocks a view and a column took.  Video stalls are not
 modeled (the board is about 10 % slower: 1 clock in 8 during active video).
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import argparse

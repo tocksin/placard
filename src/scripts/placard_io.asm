@@ -8,8 +8,9 @@
 ; has them too.  They use the library's calling convention (docs/software/LIBRARY.md)
 ; and the I/O zero page bytes xA0-xBF (zeropage.asm).
 ;
-; The code sits at IO_CODE (xDC00-xEBFF, set in placard_lib.asm), part of
-; the library block at the top of the ROM, and runs in place.
+; The code sits at IO_CODE (xE000-xE2FF and xEB00-xEFFF, ROM section 7) and
+; the SD card driver at SD_CODE (xC000-xC7FF, ROM section 6, with the FAT
+; code); both are set in placard_lib.asm and run in place.
 ;
 ; ------------------------------------------------------------
 ; THE SHARED PORT (x5200-x52FF)
@@ -41,7 +42,7 @@
 ; off first (ps2_pause) and let the listened one go again after; the SD
 ; transfers only toggle SCK and MOSI.
 ;
-; Date: 10/25/2026
+; Date: 11/11/2026
 ; ============================================================
 
 PORT      = 0x52        ; the shared port's page
@@ -341,7 +342,7 @@ kk_ret:
 ; ============================================================
 ; Page 3: SPI byte and SD commands
 ; ============================================================
-#addr IO_CODE + 0x300
+#addr SD_CODE + 0x000
 
 ; ------------------------------------------------------------
 ; spi_byte - send and receive one byte on the SD card's SPI bus
@@ -522,7 +523,7 @@ sc_done:
 ; ============================================================
 ; Page 4: SD card start-up
 ; ============================================================
-#addr IO_CODE + 0x400
+#addr SD_CODE + 0x100
 
 ; ------------------------------------------------------------
 ; sd_init - start the SD card in SPI mode
@@ -662,7 +663,7 @@ si_out1:
 ; ============================================================
 ; Page 5: SD card start-up, continued
 ; ============================================================
-#addr IO_CODE + 0x500
+#addr SD_CODE + 0x200
 
 si_start:
     clr  ac                     ; ACMD41 for about 1 s: 5 x 256 tries
@@ -770,7 +771,7 @@ si_out:
 ; ============================================================
 ; Page 6: SD block read
 ; ============================================================
-#addr IO_CODE + 0x600
+#addr SD_CODE + 0x300
 
 ; ------------------------------------------------------------
 ; sd_read - read one 512-byte block from the SD card
@@ -890,7 +891,7 @@ sr_out:
 ; ============================================================
 ; Page 7: SD block write
 ; ============================================================
-#addr IO_CODE + 0x700
+#addr SD_CODE + 0x400
 
 ; ------------------------------------------------------------
 ; sd_write - write one 512-byte block to the SD card
@@ -1046,7 +1047,7 @@ sw_out:
 ; ============================================================
 ; Page 8: 512 bytes in at full speed
 ; ============================================================
-#addr IO_CODE + 0x800
+#addr SD_CODE + 0x500
 
 ; ------------------------------------------------------------
 ; sd_rx512 - receive 512 bytes into memory (sending FF)
@@ -1191,7 +1192,7 @@ rx_nc:
 ; ============================================================
 ; Page 9: 512 bytes out
 ; ============================================================
-#addr IO_CODE + 0x900
+#addr SD_CODE + 0x600
 
 ; ------------------------------------------------------------
 ; sd_tx512 - send 512 bytes from memory (MISO is ignored)
@@ -1254,7 +1255,7 @@ tx_sh:
 ; ============================================================
 ; Page A: block address
 ; ============================================================
-#addr IO_CODE + 0xA00
+#addr SD_CODE + 0x700
 
 ; ------------------------------------------------------------
 ; sd_arg - set up T3-T7 for a block command

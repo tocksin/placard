@@ -34,37 +34,45 @@ main:
     ...
 ```
 
-The library is one block at the top of the ROM, just under the boot loader,
-and runs in place.  The most used parts are highest:
+The library runs in place from the ROM, grouped by 8 KB map section
+([ROM.md](../architecture/ROM.md#rom-map)) so that a program that maps a
+section to RAM gives up one kind of thing: section 7 has what almost every
+program uses, section 6 the files, section 4 the sound driver and the font.
 
-| ROM address | Part | Constant | Source |
-|-------------|------|----------|--------|
-| xFB00-xFBFF | Jump table | `LIB_JT` | `placard_lib.asm` |
-| xF400-xFAFF | Core routines | `LIB_CODE` | `placard_lib.asm` |
-| xEC00-xF3FF | 8x8 font | `LIB_FONT` | `lib_font.asm` |
-| xDC00-xEBFF | I/O drivers | `IO_CODE` | `placard_io.asm` |
-| xD700-xDBFF | Sound driver | `SND_CODE` | `placard_snd.asm` |
-| xD500-xD6FF | Line input, mouse pointer | `INPUT_CODE` | `placard_input.asm` |
-| xC700-xD4FF | FAT file reader | `FS_CODE` | `placard_fs.asm` |
-| xC600-xC6FF | Expansion slot helpers, then `con_dec16` in the page's free end | `SLOT_CODE` | `placard_slot.asm`, `lib_dec16.asm` |
-| xC500-xC5FF | Menu hook | `MENU_CODE` | `placard_menu.asm` |
-| xC000-xC4FF | PS/2 driver: keyboard decoding, the turns, `ps2_pause`, `wait_frames_io`; the mouse routines, `ps2_tx`/`ps2_rx`, `ps2_poll`, `ps2_cmd` and `kbd_lights` sit in free ends of I/O pages 1 and B-E; xC200-xC217 stay free (the bring-up ROM's marker) | `PS2_CODE` | `placard_ps2.asm` |
-| RAM x1F00-x1FFF | Code that reads the video RAM (end of `plot1`, `con_scroll`), `lib_far` at x1FA0 (`LIB_FAR`) and `memset`'s loop (`ms_run`) | `LIB_RAM` | `placard_lib.asm` |
+| ROM address | Section | Part | Constant | Source |
+|-------------|---------|------|----------|--------|
+| xFB00-xFBFF | 7 | Jump table | `LIB_JT` | `placard_lib.asm` |
+| xF400-xFAFF | 7 | Core routines | `LIB_CODE` | `placard_lib.asm` |
+| xF100-xF1FF | 7 | The keyboard's key tables (xF200-xF3FF are free) | `PS2_TAB_CODE` | `placard_ps2.asm` |
+| xF000-xF0FF | 7 | Expansion slot helpers, then `con_dec16` in the page's free end | `SLOT_CODE` | `placard_slot.asm`, `lib_dec16.asm` |
+| xEB00-xEFFF | 7 | I/O drivers, pages B-F: the mouse routines, `ps2_tx`/`ps2_rx`, `ps2_poll`, `ps2_cmd`, `kbd_lights`, `joy_read` | `IO_CODE` | `placard_ps2.asm`, `placard_io.asm` |
+| xEA00-xEAFF | 7 | Menu hook | `MENU_CODE` | `placard_menu.asm` |
+| xE800-xE9FF | 7 | Line input, mouse pointer | `INPUT_CODE` | `placard_input.asm` |
+| xE300-xE7FF | 7 | PS/2 driver: keyboard decoding, the turns, `ps2_pause`, `wait_frames_io` | `PS2_CODE` | `placard_ps2.asm` |
+| xE000-xE2FF | 7 | I/O drivers, pages 0-2: the shared port, the SNES pads, PS/2 bytes | `IO_CODE` | `placard_io.asm`, `placard_ps2.asm` |
+| xD600-xDFFF | 6 | FAT file writer (in the 32K image, reached through the vectors x8010-x8020; it also fills the free ends of the pages below) | `FSW_CODE` | `placard_fsw.masm` |
+| xC800-xD5FF | 6 | FAT file reader | `FS_CODE` | `placard_fs.asm` |
+| xC000-xC7FF | 6 | SD card driver | `SD_CODE` | `placard_io.asm` |
+| x9700-x9EFF | 4 | 8x8 font, read through `FONT_PG` | `LIB_FONT` | `lib_font.asm` |
+| x9200-x96FF | 4 | Sound driver | `SND_CODE` | `placard_snd.asm` |
+| RAM x1F00-x1FFF | 0 | Code that reads the video RAM (end of `plot1`, `con_scroll`), `lib_far` at x1FA0 (`LIB_FAR`) and `memset`'s loop (`ms_run`) | `LIB_RAM` | `placard_lib.asm` |
 
 `placard_lib.asm` sets every constant and includes the other files.  These
 are standard places that every program shares, so keep them.  The library
-runs in sections 6 and 7, so they must read the ROM whenever a program
-calls it (they do in map 05).  The code that reads the video RAM maps
+runs in place, so the section a routine is in must read the ROM whenever a
+program calls it (they all do in maps 05 and 07).  Section 7's code calls
+sections 6 and 4 only through the jump table, and section 5 (BASIC) is
+never called by the library, so a program that needs RAM at x8000-xDFFF
+picks which of the files, the sound and the font it gives up.  The code that reads the video RAM maps
 sections 3-7 to RAM, so it can't run from there: it is assembled at
 `LIB_RAM`, x1F00-x1FFF, and the boot loader copies it from the ROM into the
 RAM before anything else.  Programs must leave RAM x1F00-x1FFF alone.
 
-A program runs in place from ROM x6000-xBFFF (entry at x6000) and may put
-more code and tables at ROM x2000-x3FFF (the 64K development image), or is
-a `.PLC` file on the SD card that the ROM's loader (for the DOS) loads into RAM x0100-x3FFF
-([DOS.md](DOS.md#program-files-plc)); the library is the same for both.  The boot loader maps the zero
-page and x4000-x5FFF to RAM (map = 05, also in `MAP_SHADOW`) and jumps to
-x6000.  Program variables and buffers go in RAM: the zero page x20-x8F,
+A program is a `.PLC` file on the SD card that the ROM's loader (for the DOS) loads into RAM x0100-x3FFF
+([DOS.md](DOS.md#program-files-plc)), or, on a development ROM, runs in place from ROM x6000-x7FFF
+(entry at x6000) with more code and tables at ROM x2000-x3FFF
+([ROM.md](../architecture/ROM.md#development-roms)); the library is the same for both.  The boot loader maps the zero
+page and x4000-x5FFF to RAM (map = 05, also in `MAP_SHADOW`).  Program variables and buffers go in RAM: the zero page x20-x8F,
 x0100-x1EFF, x4000-x4CFF (x4D00-x4FFF if the program does not use the
 FAT reader), x5400-x5A1F and x5C00-x5DF2 (the mode bytes are
 at x5A20-x5BFF and the audio buffer is x5DF3-x5FFF).  A 2x or 4x screen
@@ -594,8 +602,7 @@ The keyboard, SNES pad, SD card and mouse drivers are in
 `placard_io.asm` at `IO_CODE`, included by `placard_lib.asm`, with the
 same calling convention; [IO.md](../architecture/IO.md) lists them and `test_io.py` tests
 them.  Pixel routines for 2, 4 and 8 bpp rows, line drawing and writing
-files to the SD card are good next additions.  The library has no free
-pages left (the PS/2 keyboard driver takes xC000-xC4FF): new
-code goes below xC000 (taking ROM from the program area) or into the free
-ends of pages, and new public routines get the next jump table entries.  `test_snd.py`, `test_fs.py` and `test_slots.py` test the
+files to the SD card are good next additions.  New code goes into the section it belongs to: section 7 has xF200-xF3FF
+and page ends free, sections 4-6 the free ends of pages
+(`lib_gaps.py` lists section 6's, which the FAT writer fills), and new public routines get the next jump table entries.  `test_snd.py`, `test_fs.py` and `test_slots.py` test the
 sound driver, the FAT reader and the slot helpers.

@@ -82,7 +82,7 @@ CONTROLS
     (2.8 degrees) a tick.  Walls are kept 1/4 cell away; each axis is
     tried on its own, so the player slides along walls.
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import argparse

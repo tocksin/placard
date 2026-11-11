@@ -7,7 +7,6 @@ test_wire3d_sim.py - run the 3D demo (gen_wire3d.py) in placard_sim
     python3 test_wire3d_sim.py --ships 10      a stress build (written to a scratch .masm)
     python3 test_wire3d_sim.py --secs 1 --frames 200 --pace 2 --gif ../../reference/wire3d_sim.gif
                                                the demo as it runs, switching every second
-    python3 test_wire3d_sim.py --rom           the ROM build from power-up (build\\wire3d.bat)
 
 The program runs as the DOS would start it (a library program at x0100,
 map 07, the library in ROM), with the video stall clocks modeled.  After
@@ -20,7 +19,7 @@ last frame).  The clocks of each part are added up by the labels the
 program passes (pm_* in gen_wire3d.py), and the line pixels drawn are
 counted at the px_* labels of the line loops.
 
-Date: 10/28/2026
+Date: 11/11/2026
 """
 
 import argparse
@@ -49,7 +48,7 @@ def build(nships, pace=0, secs=gw.MODE_SECS, start=0):
 
 def make_cpu(mem, syms, lib):
     rom = {a: v for a, v in lib.items() if ps.lib_area(a)}
-    ram = {a: v for a, v in mem.items() if a < 0x4000 and not ps.SYS_START <= a}
+    ram = {a: v for a, v in mem.items() if a < 0x4000}
     for a in range(ps.LIB_RAM_START, ps.LIB_RAM_END):
         ram[a] = lib.get(a, 0)
     cpu = ps.Cpu(ram, rom=rom)

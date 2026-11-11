@@ -5,9 +5,9 @@
 ;     con_gets     type a line on the console (keyboard, with Backspace)
 ;     mouse_move   move a pointer position by the last mouse packet
 ;
-; placard_lib.asm includes this file; its code is at INPUT_CODE (xD500).
+; placard_lib.asm includes this file; its code is at INPUT_CODE (xE800).
 ;
-; Date: 10/22/2026
+; Date: 11/11/2026
 ; ============================================================
 
 #addr INPUT_CODE

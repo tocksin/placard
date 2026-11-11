@@ -63,7 +63,7 @@ THE GAME
     Controls: arrow keys or SNES pad 1 Left / Right, Up / Space / pad B
     or A to jump.
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import argparse

@@ -27,7 +27,7 @@ frame count), the 256-color ring (every ring pixel against HUE and the
 phase) and the row tints of rows 0-95 (TINTB, with the raster bar BARP at
 BARY[phase / 2]).
 
-Date: 11/02/2026
+Date: 11/11/2026
 """
 
 import argparse

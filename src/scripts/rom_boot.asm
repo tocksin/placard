@@ -5,32 +5,35 @@
 ; The ROM/RAM map clears to all ROM at power-up, so the CPU starts here,
 ; in the ROM, at PC = 0000.  Video reads always read the RAM (memory
 ; control PLD revision 04); only CPU reads follow the map.  The byte at
-; BOOT_MODE (written by gen_rom.tcl) picks one of two ways to start the
-; program.  docs/architecture/ROM.md has the ROM layout.
+; BOOT_MODE (ROM x0005, written by gen_rom.tcl) picks how to start.
+; docs/architecture/ROM.md has the ROM layout.  Every ROM has the released
+; 32K image's sections 4-7 (x8000-xFFFF: the library, the FAT code, BASIC);
+; a development ROM adds a program in the first 32K.
 ;
-; BOOT_MODE = 00: ROM program (the standard way).
-;   The program runs in place from ROM x6000-xBFFF (and x2000-x3FFF) and
-;   calls the I/O drivers, standard library and library bank 2 in place
-;   at ROM xC000-xFBFF.  The boot writes map = 05: sections 0 (zero page,
-;   x0000-x1FFF) and 2 (x4000-x5FFF: mode bytes, audio, program data)
-;   read RAM; 1 and 3-7 (program, library) read ROM, while the video
-;   still shows the RAM.  It sets MAP_SHADOW = 05 and
-;   jumps to the program's entry at x6000.
+; BOOT_MODE = 02: the 32K image (the release, docs/architecture/ROM.md "The 32K image").
+;   Map = 05 and MAP_SHADOW = 05, then a jump to the loader at DOS_START
+;   (x8100).  The image is x8000-xFFFF: gen_rom.tcl puts a copy of the
+;   reset code at x8000 and BOOT_MODE at x8005, which a 32K cartridge
+;   reads at x0000 and x0005.  Programs come from the SD card.
 ;
-; BOOT_MODE = 02: the DOS (the 32K image, docs/architecture/ROM.md "The 32K image").
-;   Map = 05 and MAP_SHADOW = 05 as for a ROM program, then a jump to the
-;   DOS at DOS_START (x8100).  The image is x8000-xFFFF: gen_rom.tcl puts a
-;   copy of the reset code at x8000, which a 32K cartridge reads at x0000,
-;   and the same 32K in both halves for a 64K cartridge.  Programs come
-;   from the SD card.
+; BOOT_MODE = 00: ROM program (a development ROM, 64K cartridge).
+;   The program runs in place from ROM x6000-x7FFF (and x2000-x3FFF) and
+;   calls the library in place.  The boot writes map = 05: sections 0
+;   (zero page, x0000-x1FFF) and 2 (x4000-x5FFF: mode bytes, audio,
+;   program data) read RAM; 1 and 3-7 (program, library) read ROM, while
+;   the video still shows the RAM.  It sets MAP_SHADOW = 05 and jumps to
+;   the program's entry at x6000.
 ;
-; BOOT_MODE = 01: RAM image (the older demos, written to run at RAM x0000).
-;     ROM x6000-xA9FF  ->  RAM x0000-x49FF      (ROM address = RAM + x6000)
+; BOOT_MODE = 01: RAM image (the older demos, written to run at RAM x0000;
+; a development ROM, 64K cartridge).
+;     ROM x6000-x7FFF  ->  RAM x0000-x1FFF      (ROM address = RAM + x6000)
+;     ROM x2000-x49FF  ->  RAM x2000-x49FF      (the same address)
 ;   1. map = 01: section 0 (the zero page) reads RAM, so the loop can keep
 ;      its page counters there.  The boot loader runs in section 7, whose
 ;      map bit does not change, so the next fetch is safe.
-;   2. copy RAM pages x01-x49 from ROM pages x61-xA9, then page x00 from
-;      ROM x60 (last, because it holds the loop's counters).
+;   2. copy RAM pages x01-x1F from ROM pages x61-x7F, pages x20-x49 from
+;      the same ROM pages (IMAGE_SAME), then page x00 from ROM x60 (last,
+;      because it holds the loop's counters).
 ;   3. copy map_switch (8 bytes) from the ROM into the RAM under it, so the
 ;      fetch after the map write reads the same bytes from either memory.
 ;      map_switch is in byte column 79's first 32 bytes (xFE00-xFE1F),
@@ -41,6 +44,10 @@
 ;      because the older demos keep code there).
 ;   The copy takes about 30 clocks a byte (the count is kept in the zero
 ;   page, X is not a source), about 23 ms for the 18,944 bytes.
+;
+; The boot reads BOOT_MODE from the ROM with map 00 just before it starts
+; the program (not earlier into the zero page, which a card's boot code may
+; use).
 ;
 ;     customasm rom_boot.asm -f hexstr -o rom_boot.hex
 ;     python3 placard_sim.py rom_boot.asm
@@ -91,7 +98,7 @@ SRC         = 0xFF      ; ROM page being read (then page x00's count)
 CNT         = 0xFD      ; byte in the page (X is not a source)
 MAP_SHADOW  = 0x07      ; zeropage.asm: copy of the map register
 FONT_PG     = 0xBF      ; zeropage.asm: high byte of the font's first page
-LIB_FONT    = 0xEC00    ; placard_lib.asm: the standard font
+LIB_FONT    = 0x9700    ; placard_lib.asm: the standard font
 MAP_ROM_RUN = 0x05      ; ROM program: sections 0 and 2 read RAM, 1 and 3-7 ROM
 PROG_START  = 0x6000    ; ROM program entry
 DOS_START   = 0x8100    ; the DOS's entry (dos.masm)

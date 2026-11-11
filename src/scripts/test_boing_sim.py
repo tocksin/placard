@@ -5,7 +5,6 @@ test_boing_sim.py - run the Boing Ball demo (gen_boing.py) in placard_sim
     python3 test_boing_sim.py                  130 frames (a bounce and a half, a turn
                                                at a wall): check, time, beam margin
     python3 test_boing_sim.py --frames 88 --gif ../../reference/boing_sim.gif
-    python3 test_boing_sim.py --rom            the ROM build from power-up (build\\boing.bat)
 
 The program runs as the DOS would start it (a library program at x0100,
 map 07, the library in ROM), with the video stall clocks modeled.  After
@@ -18,7 +17,7 @@ frame) and that every row is written before the beam reaches it: the
 simulator's beam is at line (clocks / 800) mod 525, the frame wraps at line
 0 and 4x picture row r starts at line 45 + 4 r.
 
-Date: 10/28/2026
+Date: 11/11/2026
 """
 
 import argparse
@@ -48,7 +47,7 @@ def build():
 
 def make_cpu(mem, syms, lib):
     rom = {a: v for a, v in lib.items() if ps.lib_area(a)}
-    ram = {a: v for a, v in mem.items() if a < 0x4000 and not ps.SYS_START <= a}
+    ram = {a: v for a, v in mem.items() if a < 0x4000}
     for a in range(ps.LIB_RAM_START, ps.LIB_RAM_END):
         ram[a] = lib.get(a, 0)
     cpu = ps.Cpu(ram, rom=rom)

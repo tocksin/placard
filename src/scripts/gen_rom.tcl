@@ -4,43 +4,42 @@
 # 65536 lines, address 0..65535.  Loaded by sp_ram.vhd (romComp in
 # cartridge.vhd) at elaboration / synthesis; the cartridge copies it into its
 # SRAM at power-up.  docs/architecture/ROM.md describes the layout.
-# Video reads always read the RAM, so the ROM under the video area holds
-# programs:
+# Every ROM has the released 32K image in its upper half (rom32.hex: the
+# library grouped by 8 KB section, the FAT code, BASIC); a development ROM
+# adds one program in the first 32K:
 #
 #     x0000-x0004   nop, reset jump to the boot loader     rom_boot.hex
+#     x0005         boot mode: 00 = ROM program, 01 = RAM image,
+#                   02 = the 32K image
 #     x1F00-x1FFF   LIB_RAM: library code the boot copies  rom_lib.hex
 #                   to the RAM
 #     x2000-x3FFF   more ROM program (runs in place)       the program
-#     x6000-xBFFF   ROM program (runs in place, entry x6000) the program
-#     xC000-xC4FF   PS/2 keyboard driver, listening        rom_lib.hex
-#     xC500-xC5FF   program menu hook (menu_poll)          rom_lib.hex
-#     xC600-xC6FF   expansion slot helpers                 rom_lib.hex
-#     xC700-xD4FF   FAT file reader                        rom_lib.hex
-#     xD500-xD6FF   line input, mouse pointer              rom_lib.hex
-#     xD700-xDBFF   sound driver                           rom_lib.hex
-#     xDC00-xEBFF   I/O drivers                            rom_lib.hex
-#     xEC00-xF3FF   standard font                          rom_lib.hex
-#     xF400-xFAFF   standard library core routines         rom_lib.hex
-#     xFB00-xFBFF   jump table                             rom_lib.hex
-#     xFC00         boot mode: 00 = ROM program, 01 = RAM image
-#     xFD00-xFE07   boot loader                             rom_boot.hex
+#     x6000-x7FFF   ROM program (runs in place, entry x6000) the program
+#     x8000-x9FFF   section 4: vectors, loader, sound      rom32.hex
+#                   driver, font, LIB_RAM's image
+#     xA000-xBFFF   section 5: BASIC                       rom32.hex
+#     xC000-xDFFF   section 6: SD driver, FAT reader and   rom32.hex
+#                   writer
+#     xE000-xFBFF   section 7: keyboard, pads, mouse,      rom32.hex
+#                   input, core routines, jump table
+#     xFD00-xFE07   boot loader                            rom_boot.hex
 #
-# rom32.asm (which sets the boot mode byte xFC00 to 02 itself) makes the
-# 32K image instead (docs/architecture/ROM.md, "The 32K image"): x8000-xFFFF holds the
-# boot loader and library as above, LIB_RAM's bytes at x9F00, rom32.asm's
-# own bytes (vectors, loader, BASIC, FAT writer: x8000-x9EFF, xA000-xBFFF), BOOT_MODE = 02 and a copy of the
-# reset code at x8000, and the lower half is a copy of the upper one, so a
-# 32K cartridge (its one EEPROM read in both halves) and a 64K cartridge
-# boot the same.  rom_32k.bin, the 32K EEPROM file, is written next to
-# rom.mem.  The DOS (DOS.PLC) and the programs then come from the SD card
+# rom32.asm itself (it has 02 at xFC00, which is how this script knows it)
+# makes the 32K image (docs/architecture/ROM.md, "The 32K image"): the upper
+# half as above with boot mode 02 at x8005 and a copy of the reset code at
+# x8000, and the lower half a copy of the upper one, so a 32K cartridge
+# (its one EEPROM read in both halves) and a 64K cartridge boot the same.
+# rom_32k.bin, the 32K EEPROM file, is written next to rom.mem.  The DOS
+# (DOS.PLC) and the programs then come from the SD card
 # (docs/software/DOS.md); with no card the machine starts BASIC.
 #
-# A program assembled at x6000-xBFFF and x2000-x3FFF (with the library
-# included or not) is a ROM program (the 64K development image).  An older program written to run at
-# RAM x0000 (bytes in x0000-x1FFF or x4000-x5FFF other than the library's
-# own) is a RAM image instead: it is stored at ROM x6000-xA9FF (ROM address
-# = RAM address + x6000), and the boot loader copies it to RAM x0000-x49FF
-# and runs it from the RAM with map FF, so it can't use the library.
+# A program assembled at x6000-x7FFF and x2000-x3FFF (with the library
+# included or not) is a ROM program.  An older program written to run at
+# RAM x0000 (bytes in x0000-x1FFF or x4000-x49FF other than the library's
+# own) is a RAM image instead: its x0000-x1FFF is stored at ROM x6000-x7FFF
+# and its x2000-x49FF at the same ROM address, and the boot loader copies
+# it to RAM x0000-x49FF and runs it from the RAM with map FF, so it can't
+# use the library.
 #
 # Run from the Vivado Tcl console:   source /path/to/gen_rom.tcl
 # or stand-alone:                    tclsh gen_rom.tcl
@@ -72,15 +71,12 @@ set PROG2_START     [expr {0x2000}] ;# more ROM program area (section 1)
 set PROG2_END       [expr {0x4000}]
 set PROG_START      [expr {0x6000}] ;# ROM program area and entry
 set PROG_END        [expr {0x8000}] ;# end of the ROM program area
-set SYS_START       [expr {0xC000}] ;# the library block (placard_lib.asm): slot helpers,
-set SYS_END         [expr {0xFC00}] ;# FAT, input, sound, I/O, font, code, jump table
 set BOOT_MODE       [expr {0x0005}] ;# 00 = ROM program, 01 = RAM image, 02 = the 32K image:
                                     ;# ROM x0005 (a 32K cartridge shows x8005 there)
 set DOS_MARK        [expr {0xFC00}] ;# rom32.asm puts 02 here: the 32K image's own program
 set IMAGE_SAME      [expr {0x2000}] ;# RAM image: from here up, ROM address = RAM address
 set MODE_DOS        2
-set DOS_START       [expr {0x8000}] ;# the 32K image's own area (vectors, loader, BASIC, FAT writer)
-set DOS_END         [expr {0xC000}]
+set DOS_START       [expr {0x8000}] ;# the 32K image
 set LIB_RAM_IMAGE   [expr {0x9F00}] ;# LIB_RAM in the 32K image (read at x1F00 through the mirror)
 
 # ---------------------------------------------------------------------------
@@ -129,8 +125,7 @@ proc read_asm_bytes {fileName} {
 # True for the addresses the library's own bytes go to in the ROM
 # ---------------------------------------------------------------------------
 proc lib_area {a} {
-    return [expr {($a >= $::SYS_START && $a < $::SYS_END) ||
-                  ($a >= $::LIB_RAM_START && $a < $::LIB_RAM_END)}]
+    return [expr {$a >= 0x8000 || ($a >= $::LIB_RAM_START && $a < $::LIB_RAM_END)}]
 }
 
 # ---------------------------------------------------------------------------
@@ -152,11 +147,11 @@ proc gen_rom {outFile} {
     }
     set a 0
     foreach b [read_asm_bytes $bootFile] {
-        if {$b != 0 && [lib_area $a]} {
-            error "gen_rom: rom_boot.hex has a byte at [format %04X $a],\
-                   in the library or program area"
+        if {$b != 0 && $a >= $::LIB_RAM_START && $a < $::LIB_RAM_END} {
+            error "gen_rom: rom_boot.hex has a byte at [format %04X $a], in LIB_RAM"
         }
         set rom($a) $b
+        set boot($a) $b
         incr a
     }
 
@@ -166,11 +161,11 @@ proc gen_rom {outFile} {
         error "gen_rom: $libFile not found (assemble rom_lib.asm)"
     }
     set lib [read_asm_bytes $libFile]
-    foreach {lo hi} [list $::LIB_RAM_START $::LIB_RAM_END $::SYS_START $::SYS_END] {
-        for {set a $lo} {$a < $hi} {incr a} {
-            if {$a < [llength $lib]} {
-                set rom($a) [lindex $lib $a]
-            }
+    # LIB_RAM's bytes; the library's other bytes come with rom32.hex (rom32.asm
+    # includes the library), and must be the same as rom_lib.hex's
+    for {set a $::LIB_RAM_START} {$a < $::LIB_RAM_END} {incr a} {
+        if {$a < [llength $lib]} {
+            set rom($a) [lindex $lib $a]
         }
     }
 
@@ -230,21 +225,28 @@ proc gen_rom {outFile} {
             if {$a == $::DOS_MARK} {
                 continue
             }
-            if {$a >= $::DOS_START && $a < $::DOS_END} {
+            if {$a >= $::DOS_START} {
                 if {$b != 0 && $a >= $::LIB_RAM_IMAGE && $a < $::LIB_RAM_IMAGE + 0x100} {
                     error "gen_rom: 32K image byte at [format %04X $a] is in the LIB_RAM image (9F00-9FFF)"
                 }
                 if {$a < 5 + $::DOS_START && $b != $rom([expr {$a - $::DOS_START}])} {
                     error "gen_rom: 32K image byte at [format %04X $a] differs from the reset code"
                 }
-                set rom($a) $b
+                if {$b != 0 && $a >= 5 + $::DOS_START && [info exists boot($a)] && $boot($a) != 0} {
+                    error "gen_rom: 32K image byte at [format %04X $a] is in the boot loader"
+                }
+                if {$a < [llength $lib] && [lindex $lib $a] != 0 && [lindex $lib $a] != $b} {
+                    error "gen_rom: 32K image byte at [format %04X $a] differs from the library\
+                           (rom_lib.hex; assemble both again)"
+                }
                 if {$b != 0} {
+                    set rom($a) $b
                     incr dosBytes
                 }
                 continue
             }
-            if {$b != 0 && !([lib_area $a] && $b == $rom($a))} {
-                error "gen_rom: 32K image byte at [format %04X $a] is outside the 32K image (8000-BFFF)"
+            if {$b != 0 && !($a >= $::LIB_RAM_START && $a < $::LIB_RAM_END && $b == $rom($a))} {
+                error "gen_rom: 32K image byte at [format %04X $a] is outside the 32K image (8000-FFFF)"
             }
         }
         for {set a 0} {$a < 5} {incr a} {
@@ -260,7 +262,7 @@ proc gen_rom {outFile} {
         for {set a 0} {$a < 0x8000} {incr a} {
             set rom($a) $rom([expr {$a + 0x8000}])
         }
-        puts "gen_rom: the 32K image, $dosBytes bytes (not 00) in 8000-BFFF from $::ASM_FILE,\
+        puts "gen_rom: the 32K image, $dosBytes bytes (not 00) in 8000-FFFF from $::ASM_FILE,\
               in both halves"
         set fh [open [file join [file dirname $outFile] rom_32k.bin] w]
         fconfigure $fh -translation binary

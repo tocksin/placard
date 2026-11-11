@@ -170,7 +170,7 @@ into byte addresses for SDSC cards.  About 90 KB/s reading.
 
 ### Files on the SD card
 
-`src/scripts/placard_fs.asm` (in the library at `FS_CODE`, ROM xC700-xD4FF) reads files
+`src/scripts/placard_fs.asm` (in the library at `FS_CODE`, ROM xC800-xD5FF, in section 6 with the SD card driver and the FAT writer) reads files
 from a card formatted on a PC, FAT16 or FAT32, with a partition table (the
 first partition) or without one.  It is read only, finds short 8.3 names
 ("LONGFI~1.TXT" for a long name), and does not read FAT12 (volumes under
@@ -327,7 +327,7 @@ are not hot-pluggable: one plugged in later is not recognized until the
 machine is reset (SW2, the reset button).
 
 `placard_ps2.asm`, in the library
-at `PS2_CODE` (xC000-xC4FF, plus pieces in free ends of other library
+at `PS2_CODE` (xE300-xE7FF, in ROM section 7, plus pieces in other library
 pages: the mouse routines and `ps2_tx`/`ps2_rx` in I/O pages B-E, `ps2_poll`,
 `ps2_cmd` and `kbd_lights` in I/O page 1).  `kbd_scan` reads the PS/2
 keyboard into the `KBD_NOW` bits and the key buffer, with the key numbers
@@ -493,7 +493,8 @@ command being sent.
 ## Code
 
 The drivers are `src/scripts/placard_io.asm`, at `IO_CODE` (ROM
-xDC00-xEBFF), part of the library block at the top of the ROM, running in
+xE000-xE2FF and xEB00-xEFFF, section 7) and, for the SD card, `SD_CODE`
+(xC000-xC7FF, section 6, with the FAT code), running in
 place (ROM.md).  They use the library's calling convention, and the public
 ones have fixed jump table entries ([LIBRARY.md](../software/LIBRARY.md#jump-table)).
 `placard_lib.asm` includes them.

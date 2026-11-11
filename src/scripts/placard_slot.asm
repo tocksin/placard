@@ -14,9 +14,9 @@
 ;                  R1:R0 = the slot's base address
 ;   60-7F  free for the card's registers
 ;
-; placard_lib.asm includes this file; its code is at SLOT_CODE (xC600).
+; placard_lib.asm includes this file; its code is at SLOT_CODE (xF000).
 ;
-; Date: 10/19/2026
+; Date: 11/11/2026
 ; ============================================================
 
 #addr SLOT_CODE

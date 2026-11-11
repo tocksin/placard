@@ -50,9 +50,14 @@
 ; 0), the menu block x5D00-x5D6F (placard_menu.asm) and the FAT driver's
 ; x4D00-x4FFF.
 ;
-; ROM: x8000-x80FF vectors, x8100-x9EFF and xA000-xAFFF this code and
-; BASIC (asm_expand.py pages it), x9F00-x9FFF LIB_RAM's image (the boot
-; reads it at x1F00 on a 32K cartridge), xB000-xBFFF the FAT writer.
+; ROM, grouped by 8 KB section (docs/architecture/ROM.md): section 4 has
+; the vectors x8000-x80FF (the boot mode byte 02 at x8005), this loader and
+; the end of BASIC x8100-x91FF, then the library's sound driver, font and
+; LIB_RAM's image x9F00-x9FFF (the boot reads it at x1F00 on a 32K
+; cartridge); section 5 xA000-xBFFF is BASIC and nothing else (asm_expand.py
+; pages it and lets it run on into section 4); section 6 has the SD driver,
+; the FAT reader and the FAT writer; section 7 the rest of the library and
+; the boot loader.
 ;
 ;     python3 asm_expand.py rom32.masm        writes rom32.asm
 ;     build\rom32.bat                         the FPGA, rom_32k.bin
@@ -65,12 +70,12 @@
 #include "placard_lib.asm"
 #include "placard_fsw.asm"
 
-ROM_CODE  = 0x8100      ; this code, up to LIB_RAM's image
-ROM_TOP   = 0x9F00
-ROM_CODE2 = 0xA000      ; and on after it, up to the FAT writer
-ROM_TOP2  = 0xB000
+ROM_CODE  = 0x8100      ; this code, up to the sound driver (SND_CODE): ROM section 4
+ROM_TOP   = 0x9200
+ROM_CODE2 = 0xA000      ; BASIC: ROM section 5, and what is left of section 4
+ROM_TOP2  = 0xC000
 BOOT      = 0xFD00      ; rom_boot.asm: the boot loader (its reset code jumps here)
-BOOT_MODE = 0xFC00      ; the boot mode byte: 02 = the 32K image (jump to x8100)
+BOOT_MODE = 0xFC00      ; 02 here marks the 32K image for the tools (the boot reads x8005)
 MODE_32K  = 0x02
 MAP_RUN   = 0x07        ; sections 0-2 RAM, 3-7 ROM
 LIB_RAM_IMG = 0x9F00    ; LIB_RAM's bytes in the 32K image
@@ -427,8 +432,8 @@ sv_cp:
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 
-w_TRUE:
-    #d8 2, 255, 255, 0
+w_O_MUL:
+    #d8 w_NRIGHT >> 8, w_NRIGHT & 0xFF, 42, 0
 pu_card:
     ld   LINK_LO, x             ; CALL mount
     ld   rom_r8, [x]
@@ -569,9 +574,9 @@ rom_r14:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 
-w_DELLN:
-    #d8 12, 25, 19, 12, 21, 27, 14, 8, 56, 33, 15, 28
-    #d8 21, 28, 45, 8, 56, 20, 28, 9, 56, 0
+w_NEXTLN:
+    #d8 8, 54, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 12, 25, 27
+    #d8 12, 25, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 5, w_GOLINE & 0xFF, w_GOLINE >> 8
 start_dos:
     ld   STACK_TOP, ac
     ld   ac, [SP]
@@ -1155,6 +1160,18 @@ w_LINE_:
     #d8 w__P__ST_ >> 8, w__P__ST_ & 0xFF, 2, 154, 93, 23, 14, 39, 40, 4, 174, 2
     #d8 154, 93, 23, 2, 162, 93, w__P__ST_ >> 8, w__P__ST_ & 0xFF, 2, 160, 93, 23
     #d8 2, 152, 93, w__P__ST_ >> 8, w__P__ST_ & 0xFF, 3, 154, 0
+w_GC:
+    #d8 2, 0, 30, 2, 140, 93, 24, 2, 0, 30, 2, 142
+    #d8 93, 24, 8, 60, 2, 140, 93, 23, 38, 4, 97, 2
+    #d8 140, 93, 23, 1, 3, 28, 25, 1, 4, 27, 2, 144
+    #d8 93, 24, 2, 140, 93, 23, 2, 144, 93, 23, 28, 2
+    #d8 146, 93, 24, 2, 140, 93, 23, 1, 2, 28, 23, w__Q_DUP >> 8
+    #d8 w__Q_DUP & 0xFF, 4, 47, 12, 23, 2, 146, 93, 23, 37, 4, 37
+    #d8 2, 142, 93, 23, 2, 144, 93, 23, 28, 12, 17, 24
+    #d8 2, 146, 93, 23, 14, 2, 144, 93, 23, 46, 2, 142
+    #d8 93, 23, 2, 144, 93, 23, 28, 2, 142, 93, 24, 3
+    #d8 1, 13, 2, 146, 93, 23, 2, 140, 93, 24, 3, 150
+    #d8 2, 142, 93, 23, 9, 60, 0
 w_ATOM:
     #d8 1, 0, 11, 66, 49, 12, 58, 4, 19, 13, w_VARREF >> 8, w_VARREF & 0xFF
     #d8 10, 66, 4, 10, 23, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 40, 4, 5, 2, (w_EMPTYS) & 0xFF
@@ -1353,528 +1370,9 @@ w_INPUT_:
     #d8 37, 30, 4, 1, 51, 8, 48, 2, 130, 93, 24, 2
     #d8 130, 93, 23, 9, 48, 1, 0, 2, 118, 93, 24, w_INVARS >> 8
     #d8 w_INVARS & 0xFF, 4, 240, 0
-w_SNUMOK:
-    #d8 49, 1, 45, 37, 4, 6, 51, 2, 255, 255, 3, 2
-    #d8 1, 0, 19, 49, 57, 4, 6, 50, 2, 255, 255, 3
-    #d8 18, 49, 1, 38, 37, 4, 8, 51, w_HEXNUM >> 8, w_HEXNUM & 0xFF, 2, 255
-    #d8 255, 3, 4, 1, 0, 1, 0, 14, 20, 4, 2, 32
-    #d8 33, 14, 0
-w_SETSCREEN:
-    #d8 w_TMB >> 8, w_TMB & 0xFF, 2, (vid_clear) & 0xFF, (vid_clear) >> 8, 48, 13, 8, 76, 2, 224, 1
-    #d8 39, 4, 15, 2, 32, 90, 8, 76, 27, 2, 224, 1
-    #d8 8, 76, 28, w_GMB >> 8, w_GMB & 0xFF, 47, 2, 32, 90, 8, 76, w_TMB >> 8
-    #d8 w_TMB & 0xFF, 1, 128, 30, 47, 1, 0, 2, 202, 93, 26, 5
-    #d8 w_HOME & 0xFF, w_HOME >> 8
-w_READ_:
-    #d8 w_VARREF >> 8, w_VARREF & 0xFF, 10, 66, 19, 8, 48, 2, 116, 93, 24, w_DFIND >> 8
-    #d8 w_DFIND & 0xFF, 21, w_PFIELD >> 8, w_PFIELD & 0xFF, 8, 48, 9, 70, 2, 116, 93, 23
-    #d8 9, 48, 40, 4, 2, w_SYNERR >> 8, w_SYNERR & 0xFF, 20, 4, 4, w_SASSIGN >> 8, w_SASSIGN & 0xFF
-    #d8 3, 2, 14, 24, 49, 1, 44, 37, 4, 3, 51, 3
-    #d8 207, 0
-w_PEXPR:
-    #d8 19, 49, 1, 175, 37, 21, 1, 4, 39, 29, 4, 10
-    #d8 51, 1, 3, w_PEXPR >> 8, w_PEXPR & 0xFF, w_NUMCHK >> 8, w_NUMCHK & 0xFF, 32, 3, 2, w_ATOM >> 8, w_ATOM & 0xFF
-    #d8 61, 12, 21, 39, 4, 3, 13, 22, 0, 35, 2, (w_OPTAB - 2) & 0xFF
-    #d8 (w_OPTAB - 2) >> 8, 27, 23, 44, 3, 238, 0
-w_FORPURGE:
-    #d8 8, 64, 12, 2, 0, 31, 38, 4, 7, 12, 23, 1
-    #d8 2, 37, 3, 2, 1, 0, 4, 20, 18, 1, 2, 27
-    #d8 23, 37, 4, 7, 1, 12, 27, 9, 64, 13, 0, 1
-    #d8 12, 27, 3, 218, 13, 13, 0
-w_INNEXT:
-    #d8 2, 118, 93, 23, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 3, 25, 3, 2, 1
-    #d8 0, 40, 4, 25, 2, 118, 93, 23, 4, 4, 1, 63
-    #d8 w_EMIT >> 8, w_EMIT & 0xFF, 7, 2, 63, 32, w_TYPE >> 8, w_TYPE & 0xFF, w_ACCEPT >> 8, w_ACCEPT & 0xFF, 2, 0
-    #d8 84, 2, 118, 93, 24, 0
-w_DFIND:
-    #d8 8, 70, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 12, 9, 48, 49, 1, 44, 37
-    #d8 4, 24, 51, 0, 3, 20, 2, 0, 32, 25, 40, 4
-    #d8 2, w_ODERR >> 8, w_ODERR & 0xFF, 2, 0, 32, 12, 9, 68, 1, 3, 27
-    #d8 9, 48, 5, w_DSCAN & 0xFF, w_DSCAN >> 8
-w_LOG2:
-    #d8 12, 1, 1, 37, 4, 4, 13, 1, 0, 0, 12, 1
-    #d8 2, 37, 4, 4, 13, 1, 1, 0, 12, 1, 4, 37
-    #d8 4, 4, 13, 1, 2, 0, 1, 8, 37, 4, 3, 1
-    #d8 3, 0, 5, w_ILLQ & 0xFF, w_ILLQ >> 8
-w_SCAN_:
-    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 19, 12
-    #d8 2, 224, 1, 38, 40, 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 15, 28, 33
-    #d8 12, 1, 1, 39, 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 14, 2, 32, 90
-    #d8 27, 14, 20, 47, 0
-w_DSCAN:
-    #d8 8, 48, 25, 12, 1, 131, 37, 4, 3, 13, 51, 0
-    #d8 4, 3, 51, 3, 239, 8, 68, 12, 25, 27, 12, 25
-    #d8 40, 4, 2, w_ODERR >> 8, w_ODERR & 0xFF, 12, 9, 68, 1, 3, 27, 9
-    #d8 48, 3, 217, 0
-w_ARRREF:
-    #d8 51, w_NEXPR >> 8, w_NEXPR & 0xFF, 1, 41, w_EXPECT >> 8, w_EXPECT & 0xFF, 14, 12, 59, w__Q_DUP >> 8, w__Q_DUP & 0xFF
-    #d8 40, 4, 7, 1, 10, 14, w_DIMARR >> 8, w_DIMARR & 0xFF, 3, 1, 16, 18
-    #d8 1, 2, 28, 23, 36, 38, 40, 4, 2, w_BSERR >> 8, w_BSERR & 0xFF, 14
-    #d8 35, 27, 0
-w_KWCMP:
-    #d8 8, 48, 15, 25, 15, 25, w_UPC >> 8, w_UPC & 0xFF, 15, 1, 127, 29
-    #d8 37, 4, 17, 1, 128, 29, 4, 6, 16, 33, 8, 48
-    #d8 28, 0, 33, 14, 33, 14, 3, 226, 13, 13, 13, 1
-    #d8 0, 0
-w_NEWVAR:
-    #d8 12, 1, 4, 27, w_ROOM >> 8, w_ROOM & 0xFF, 8, 58, 19, 14, 21, 24
-    #d8 12, 21, 1, 2, 27, 24, 21, 1, 4, 27, 15, 1
-    #d8 0, 47, 1, 4, 27, 21, 27, 9, 58, 20, 1, 4
-    #d8 27, 0
-w_SOUND_:
-    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 49, 1, 44, 37, 4, 5
-    #d8 51, w_NEXPR >> 8, w_NEXPR & 0xFF, 3, 2, 1, 96, 19, 11, 18, 1, 0
-    #d8 11, 19, 2, (snd_note) & 0xFF, (snd_note) >> 8, 48, 13, 20, 2, (snd_tone) & 0xFF, (snd_tone) >> 8, 48
-    #d8 13, 0
-w_CONCAT:
-    #d8 15, 25, 15, 25, 27, 12, 1, 255, 14, 39, 4, 2
-    #d8 w_STLERR >> 8, w_STLERR & 0xFF, w_TMPALLOC >> 8, w_TMPALLOC & 0xFF, 17, 18, w_COUNT >> 8, w_COUNT & 0xFF, 17, 33, 14, 45
-    #d8 25, 15, 27, 33, 17, w_COUNT >> 8, w_COUNT & 0xFF, 19, 14, 20, 45, 0
-w_O_CMP:
-    #d8 w_RELOP >> 8, w_RELOP & 0xFF, 19, 10, 66, 19, 1, 4, w_PEXPR >> 8, w_PEXPR & 0xFF, 10, 66
-    #d8 21, 28, 4, 2, w_TMERR >> 8, w_TMERR & 0xFF, 20, 4, 4, w_SCOMPARE >> 8, w_SCOMPARE & 0xFF, 3
-    #d8 2, w_NCOMPARE >> 8, w_NCOMPARE & 0xFF, 20, 29, 40, 40, 1, 0, 11, 66, 0
-w_STRLIT:
-    #d8 51, 8, 48, 8, 48, 25, 12, 1, 34, 37, 14, 40
-    #d8 30, 40, 4, 3, 51, 3, 240, 8, 48, 15, 28, w_MKSTR >> 8
-    #d8 w_MKSTR & 0xFF, 8, 48, 25, 4, 1, 51, 1, 1, 11, 66, 0
-w_KWMATCH:
-    #d8 2, (w_KWTAB) & 0xFF, (w_KWTAB) >> 8, 1, 128, 15, 25, 4, 21, 15, w_KWCMP >> 8, w_KWCMP & 0xFF
-    #d8 w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 7, 8, 48, 27, 9, 48, 16, 0, 14
-    #d8 w_KWSKIP >> 8, w_KWSKIP & 0xFF, 14, 33, 3, 231, 13, 13, 1, 0, 0
-w_STORELN:
-    #d8 1, 0, 9, 72, w_CLEARV >> 8, w_CLEARV & 0xFF, 12, w_FINDLN >> 8, w_FINDLN & 0xFF, 12, 25, 4
-    #d8 13, 12, 33, 23, 1, 2, w_PICK >> 8, w_PICK & 0xFF, 37, 4, 3, 12
-    #d8 w_DELLN >> 8, w_DELLN & 0xFF, 49, 4, 3, 5, w_INSLN & 0xFF, w_INSLN >> 8, 13, 13, 0
-w_LISTLN:
-    #d8 12, 33, 23, w_U_D_ >> 8, w_U_D_ & 0xFF, w_SPACE >> 8, w_SPACE & 0xFF, 1, 3, 27, 12, 25
-    #d8 w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 15, 12, 1, 128, 39, 4, 4, w_EMIT >> 8, w_EMIT & 0xFF
-    #d8 3, 2, w_KWTYPE >> 8, w_KWTYPE & 0xFF, 33, 3, 235, 13, 5, w_CR & 0xFF, w_CR >> 8
-w_CAPTURE:
-    #d8 2, 120, 93, 23, 19, 2, (w_TMPEMIT) & 0xFF, (w_TMPEMIT) >> 8, 2, 120, 93, 24
-    #d8 8, 62, 19, 1, 0, 8, 62, 26, 44, 21, 25, 33
-    #d8 21, 27, 9, 62, 20, 20, 2, 120, 93, 24, 0
-w_DIM_:
-    #d8 60, 12, 41, 40, 4, 2, w_SYNERR >> 8, w_SYNERR & 0xFF, 51, w_NEXPR >> 8, w_NEXPR & 0xFF, 1
-    #d8 41, w_EXPECT >> 8, w_EXPECT & 0xFF, 12, 41, 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 14, w_DIMARR >> 8, w_DIMARR & 0xFF
-    #d8 13, 49, 1, 44, 37, 4, 3, 51, 3, 222, 0
-w_SCREMIT:
-    #d8 12, 1, 10, 37, 4, 4, 13, 5, w_SCRCR & 0xFF, w_SCRCR >> 8, 10, 50
-    #d8 4, 4, w_SGLYPH >> 8, w_SGLYPH & 0xFF, 3, 1, 13, 10, 13, 33, 12, 11
-    #d8 13, 1, 80, 37, 4, 3, 5, w_SCRCR & 0xFF, w_SCRCR >> 8, 0
-w_VARREF:
-    #d8 60, 12, 41, 4, 16, 12, 19, w_ARRREF >> 8, w_ARRREF & 0xFF, 20, 1, 128
-    #d8 29, 40, 40, 1, 1, 29, 11, 66, 0, 12, 59, 12
-    #d8 4, 2, 16, 0, 13, 1, 2, 5, w_NEWVAR & 0xFF, w_NEWVAR >> 8
-w_SVAL:
-    #d8 w_COUNT >> 8, w_COUNT & 0xFF, 1, 15, w_MIN >> 8, w_MIN & 0xFF, 19, 2, 170, 93, 21, 45
-    #d8 1, 0, 2, 170, 93, 20, 27, 26, 8, 48, 19, 2
-    #d8 170, 93, 9, 48, w_SNUM >> 8, w_SNUM & 0xFF, 20, 9, 48, 0
-w_SUBSTR:
-    #d8 19, 15, 25, w_MIN >> 8, w_MIN & 0xFF, 15, 25, 15, 28, 20, w_MIN >> 8, w_MIN & 0xFF
-    #d8 1, 0, w_MAX >> 8, w_MAX & 0xFF, 12, w_TMPALLOC >> 8, w_TMPALLOC & 0xFF, 19, 17, 33, 17, 27
-    #d8 21, 33, 17, 45, 20, 1, 1, 11, 66, 0
-w_NEXT_:
-    #d8 49, 58, 4, 4, w_VARREF >> 8, w_VARREF & 0xFF, 3, 2, 1, 0, w_FINDFOR >> 8, w_FINDFOR & 0xFF
-    #d8 62, 12, 4, 16, 1, 12, 27, 9, 64, 49, 1, 44
-    #d8 37, 40, 4, 1, 0, 51, 3, 224, 13, 0
-w_FNTAB:
-    #d8 w_F_ABS & 0xFF, w_F_ABS >> 8, w_F_RND & 0xFF, w_F_RND >> 8, w_F_PEEK & 0xFF, w_F_PEEK >> 8, w_F_SGN & 0xFF, w_F_SGN >> 8, w_F_FRE & 0xFF, w_F_FRE >> 8, w_F_INKEY & 0xFF, w_F_INKEY >> 8
-    #d8 w_F_PAD & 0xFF, w_F_PAD >> 8, w_F_LEN & 0xFF, w_F_LEN >> 8, w_F_ASC & 0xFF, w_F_ASC >> 8, w_F_VAL & 0xFF, w_F_VAL >> 8, w_F_CHR & 0xFF, w_F_CHR >> 8, w_F_STR & 0xFF, w_F_STR >> 8
-    #d8 w_F_LEFT & 0xFF, w_F_LEFT >> 8, w_F_MID & 0xFF, w_F_MID >> 8, w_F_RIGHT & 0xFF, w_F_RIGHT >> 8, w_F_HEX & 0xFF, w_F_HEX >> 8
-w_SNUM:
-    #d8 49, 1, 45, 37, 4, 6, 51, w_SNUM >> 8, w_SNUM & 0xFF, 32, 33, 0
-    #d8 49, 1, 38, 37, 4, 4, 51, 5, w_HEXNUM & 0xFF, w_HEXNUM >> 8, 49, 57
-    #d8 4, 2, 50, 0, 1, 0, 0
-w_F_MID:
-    #d8 w_STRN >> 8, w_STRN & 0xFF, 12, 1, 1, 39, 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 34, 49
-    #d8 1, 44, 37, 4, 5, 51, w_NEXPR >> 8, w_NEXPR & 0xFF, 3, 2, 1, 255
-    #d8 1, 41, w_EXPECT >> 8, w_EXPECT & 0xFF, 5, w_SUBSTR & 0xFF, w_SUBSTR >> 8
-w_RETURN_:
-    #d8 8, 64, 2, 0, 31, 37, 4, 2, w_RGERR >> 8, w_RGERR & 0xFF, w_CPOP >> 8, w_CPOP & 0xFF
-    #d8 1, 1, 37, 4, 9, w_CPOP >> 8, w_CPOP & 0xFF, 9, 48, w_CPOP >> 8, w_CPOP & 0xFF, 9
-    #d8 54, 0, w_FORDROP >> 8, w_FORDROP & 0xFF, 3, 226, 0
-w_IF_:
-    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, 49, 1, 136, 37, 40, 4, 4, 1, 172, w_EXPECT >> 8
-    #d8 w_EXPECT & 0xFF, 4, 12, 49, 57, 4, 3, w_GOTO_ >> 8, w_GOTO_ & 0xFF, 0, 1, 1
-    #d8 11, 67, 0, 5, w_SKIPLINE & 0xFF, w_SKIPLINE >> 8, 0
-w_GET_:
-    #d8 w_VARREF >> 8, w_VARREF & 0xFF, w_KEY_Q_ >> 8, w_KEY_Q_ & 0xFF, 10, 66, 4, 20, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 10
-    #d8 1, 1, w_TMPALLOC >> 8, w_TMPALLOC & 0xFF, 14, 15, 33, 26, 3, 3, 2, (w_EMPTYS) & 0xFF
-    #d8 (w_EMPTYS) >> 8, 5, w_SASSIGN & 0xFF, w_SASSIGN >> 8, 14, 24, 0
-w_RAND:
-    #d8 8, 11, 40, 4, 7, 8, 8, 1, 1, 30, 9, 11
-    #d8 1, 0, 2, (rand8) & 0xFF, (rand8) >> 8, 48, 1, 0, 2, (rand8) & 0xFF, (rand8) >> 8, 48
-    #d8 2, 0, 1, 42, 27, 0
-w_WARM:
-    #d8 53, 2, (w_SCREMIT) & 0xFF, (w_SCREMIT) >> 8, 2, 120, 93, 24, w_TEXTBACK >> 8, w_TEXTBACK & 0xFF, 10, 13
-    #d8 4, 2, w_CR >> 8, w_CR & 0xFF, 7, 5, 82, 101, 97, 100, 121, w_TYPE >> 8
-    #d8 w_TYPE & 0xFF, w_CR >> 8, w_CR & 0xFF, 5, w_MAIN & 0xFF, w_MAIN >> 8
-w_MAIN:
-    #d8 w_ACCEPT >> 8, w_ACCEPT & 0xFF, w_CRUNCH >> 8, w_CRUNCH & 0xFF, 2, 0, 84, 9, 48, 49, 57, 4
-    #d8 5, 50, w_STORELN >> 8, w_STORELN & 0xFF, 3, 238, 49, 4, 235, 1, 0, 9
-    #d8 54, w_EXECLINE >> 8, w_EXECLINE & 0xFF, 3, 227, 0
-w_HEXNUM:
-    #d8 49, 1, 72, 37, 4, 1, 51, 1, 0, 8, 48, 25
-    #d8 w_HEXDIG >> 8, w_HEXDIG & 0xFF, 12, 41, 40, 4, 8, 14, 1, 16, 42, 27
-    #d8 51, 3, 238, 13, 0
-w_LOCATE_:
-    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 12, 1, 80, 38, 40, 4
-    #d8 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 11, 13, 12, 10, 50, 38, 40, 4, 2
-    #d8 w_ILLQ >> 8, w_ILLQ & 0xFF, 11, 14, 0
-w_FPUT:
-    #d8 2, 122, 93, 23, 26, 2, 122, 93, w_1_P__ST_ >> 8, w_1_P__ST_ & 0xFF, 2, 124
-    #d8 93, w_1_P__ST_ >> 8, w_1_P__ST_ & 0xFF, 2, 122, 93, 23, 2, 0, 88, 37, 4
-    #d8 3, 5, w_WRITESEC & 0xFF, w_WRITESEC >> 8, 0
-w_RUN_:
-    #d8 49, 1, 34, 37, 4, 7, w_LOADFILE >> 8, w_LOADFILE & 0xFF, w_CLEARV >> 8, w_CLEARV & 0xFF, 5, w_RUNSTART & 0xFF
-    #d8 w_RUNSTART >> 8, w_CLEARV >> 8, w_CLEARV & 0xFF, 49, 57, 4, 5, w_LINENO >> 8, w_LINENO & 0xFF, 5, w_GOLN & 0xFF, w_GOLN >> 8
-    #d8 5, w_RUNSTART & 0xFF, w_RUNSTART >> 8, 0
-w_LET_:
-    #d8 w_VARREF >> 8, w_VARREF & 0xFF, 10, 66, 19, 1, 61, w_EXPECT >> 8, w_EXPECT & 0xFF, w_EXPR >> 8, w_EXPR & 0xFF, 10
-    #d8 66, 21, 28, 4, 2, w_TMERR >> 8, w_TMERR & 0xFF, 20, 4, 3, 5, w_SASSIGN & 0xFF
-    #d8 w_SASSIGN >> 8, 14, 24, 0
-w_SCRCR:
-    #d8 1, 0, 11, 13, 10, 50, 40, 4, 1, 0, 10, 14
-    #d8 33, 12, 10, 50, 38, 4, 3, 11, 14, 0, 13, 5
-    #d8 w_SCROLL & 0xFF, w_SCROLL >> 8
-w_FINDLN:
-    #d8 19, 2, 0, 32, 12, 25, 4, 7, 12, 33, 23, 21
-    #d8 38, 3, 2, 1, 0, 4, 5, 12, 25, 27, 3, 236
-    #d8 22, 0
-w_HEXDIG:
-    #d8 12, 57, 4, 4, 1, 48, 28, 0, 12, 1, 65, 1
-    #d8 71, w_WITHIN >> 8, w_WITHIN & 0xFF, 4, 4, 1, 55, 28, 0, 13, 2, 255
-    #d8 255, 0
-w_TYPEN:
-    #d8 12, 4, 20, 15, 25, 12, 1, 32, 37, 4, 4, 13
-    #d8 13, 13, 0, w_EMIT >> 8, w_EMIT & 0xFF, 34, 14, 33, 14, 3, 233, 13
-    #d8 13, 0
-w_TEXTSET:
-    #d8 12, 1, 30, 37, 1, 1, 29, 11, 51, 12, 2, 126
-    #d8 93, 26, 11, 50, 2, 224, 1, 9, 76, 5, w_SETSCREEN & 0xFF, w_SETSCREEN >> 8
-w_BACK:
-    #d8 10, 13, 4, 6, 10, 13, 34, 11, 13, 0, 10, 14
-    #d8 4, 9, 10, 14, 34, 11, 14, 1, 79, 11, 13, 0
-w_O_ADD:
-    #d8 51, 10, 66, 19, 1, 6, w_PEXPR >> 8, w_PEXPR & 0xFF, 10, 66, 21, 28
-    #d8 4, 2, w_TMERR >> 8, w_TMERR & 0xFF, 20, 4, 3, 5, w_CONCAT & 0xFF, w_CONCAT >> 8, 27, 0
-w_NOISE_:
-    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 11, 18
-    #d8 11, 16, 1, 0, 11, 19, 2, (snd_noise) & 0xFF, (snd_noise) >> 8, 48, 13, 0
-w_GOLN:
-    #d8 12, w_FINDLN >> 8, w_FINDLN & 0xFF, 12, 25, 4, 12, 14, 15, 33, 23, 37
-    #d8 4, 6, 5, w_GOLINE & 0xFF, w_GOLINE >> 8, 3, 1, 16, 5, w_ULERR & 0xFF, w_ULERR >> 8
-w_TMPALLOC:
-    #d8 8, 62, 14, 15, 26, 12, 25, 33, 15, 27, 12, 2
-    #d8 0, 90, 38, 40, 4, 2, w_STLERR >> 8, w_STLERR & 0xFF, 9, 62, 0
-w_SCROLL:
-    #d8 10, 50, 34, 1, 0, 18, 14, 39, 4, 7, 12, 33
-    #d8 15, 55, 33, 3, 244, 13, 5, w_CLRROW & 0xFF, w_CLRROW >> 8
-w_KWTYPE:
-    #d8 w_KWADDR >> 8, w_KWADDR & 0xFF, 12, 25, 12, 1, 127, 29, w_EMIT >> 8, w_EMIT & 0xFF, 1, 128
-    #d8 29, 40, 4, 3, 33, 3, 239, 13, 0
-w_PREVLET_Q_:
-    #d8 2, 114, 93, 23, 2, 0, 84, 37, 4, 3, 1, 0
-    #d8 0, 2, 114, 93, 23, 34, 25, 58, 0
-w_CLEARV:
-    #d8 2, 0, 1, 9, 58, 2, 0, 30, 9, 60, 2, 0
-    #d8 31, 9, 64, 1, 0, 9, 70, 0
-w_ROOM:
-    #d8 12, w_FREE >> 8, w_FREE & 0xFF, 38, 4, 2, 13, 0, w_GC >> 8, w_GC & 0xFF, w_FREE >> 8, w_FREE & 0xFF
-    #d8 38, 40, 4, 3, 5, w_OOMERR & 0xFF, w_OOMERR >> 8, 0
-w_F_PAD:
-    #d8 w_NARG >> 8, w_NARG & 0xFF, 1, 0, 2, (pad_read) & 0xFF, (pad_read) >> 8, 48, 13, 1, 1, 37
-    #d8 4, 3, 8, 16, 0, 8, 18, 0
-w_CONT_:
-    #d8 8, 72, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 40, 4, 2, w_CCERR >> 8, w_CCERR & 0xFF, 9, 54, 8
-    #d8 74, 9, 48, 1, 1, 11, 67, 0
-w_WAIT_:
-    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, 8, 8, 27, 52, 4, 2, w_BREAK >> 8, w_BREAK & 0xFF, 12, 8
-    #d8 8, 28, 41, 40, 4, 243, 13, 0
-w_WRITESEC:
-    #d8 2, 0, 86, 9, 20, 1, 0, 2, (fs_write) & 0xFF, (fs_write) >> 8, w_FCALL >> 8, w_FCALL & 0xFF
-    #d8 2, 0, 86, 2, 122, 93, 24, 0
-w_KWADDR:
-    #d8 1, 128, 28, 2, (w_KWTAB) & 0xFF, (w_KWTAB) >> 8, 14, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 7, 14
-    #d8 w_KWSKIP >> 8, w_KWSKIP & 0xFF, 14, 34, 3, 245, 0
-w_CPUSH:
-    #d8 8, 64, 1, 2, 28, 12, 2, 0, 30, 38, 4, 2
-    #d8 w_OOMERR >> 8, w_OOMERR & 0xFF, 12, 9, 64, 24, 0
-w_O_SUB:
-    #d8 51, 10, 66, 4, 2, w_TMERR >> 8, w_TMERR & 0xFF, 1, 6, w_PEXPR >> 8, w_PEXPR & 0xFF, 10
-    #d8 66, 4, 2, w_TMERR >> 8, w_TMERR & 0xFF, 28, 0
-w_CALL_:
-    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, 49, 1, 44, 37, 4, 5, 51, w_NEXPR >> 8, w_NEXPR & 0xFF, 3
-    #d8 2, 1, 0, 14, 48, 13, 0
-w_TEXT_:
-    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, 12, 1, 30, 37, 15, 1, 60, 37, 30, 40
-    #d8 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 5, w_TEXTSET & 0xFF, w_TEXTSET >> 8
-w_NCOMPARE:
-    #d8 18, 37, 4, 5, 13, 13, 1, 2, 0, 39, 4, 3
-    #d8 1, 1, 0, 1, 4, 0
-w_F_ASC:
-    #d8 w_SARG >> 8, w_SARG & 0xFF, 12, 25, 4, 4, 33, 25, 3, 3, 13, 1
-    #d8 0, 1, 0, 11, 66, 0
-w_F_RIGHT:
-    #d8 w_STRN >> 8, w_STRN & 0xFF, 1, 41, w_EXPECT >> 8, w_EXPECT & 0xFF, 15, 25, 15, 28, 1, 0
-    #d8 w_MAX >> 8, w_MAX & 0xFF, 14, 5, w_SUBSTR & 0xFF, w_SUBSTR >> 8
-w_ERRMSG:
-    #d8 2, (w_ERRTAB) & 0xFF, (w_ERRTAB) >> 8, 14, 34, 12, 4, 7, 14, w_COUNT >> 8, w_COUNT & 0xFF, 27
-    #d8 14, 3, 245, 13, 0
-w_NRIGHT:
-    #d8 51, 10, 66, 4, 2, w_TMERR >> 8, w_TMERR & 0xFF, w_ATOM >> 8, w_ATOM & 0xFF, 10, 66, 4
-    #d8 3, 5, w_TMERR & 0xFF, w_TMERR >> 8, 0
-w_F_SGN:
-    #d8 w_NARG >> 8, w_NARG & 0xFF, 12, 41, 4, 5, 13, 2, 255, 255, 0, 40
-    #d8 40, 1, 1, 29, 0
-w_DOGOSUB:
-    #d8 w_SKIPSTMT >> 8, w_SKIPSTMT & 0xFF, 8, 54, w_CPUSH >> 8, w_CPUSH & 0xFF, 8, 48, w_CPUSH >> 8, w_CPUSH & 0xFF, 1, 1
-    #d8 w_CPUSH >> 8, w_CPUSH & 0xFF, 5, w_GOLN & 0xFF, w_GOLN >> 8
-w_TABTO:
-    #d8 1, 79, w_MIN >> 8, w_MIN & 0xFF, 12, 10, 13, 14, 39, 4, 4, w_SPACE >> 8
-    #d8 w_SPACE & 0xFF, 3, 245, 13, 0
-w_BEEP_:
-    #d8 49, w_ENDS_Q_ >> 8, w_ENDS_Q_ & 0xFF, 4, 4, 1, 69, 3, 2, w_NEXPR >> 8, w_NEXPR & 0xFF, 2
-    #d8 (snd_beep) & 0xFF, (snd_beep) >> 8, 48, 13, 0
 w_KEY:
     #d8 52, 13, 1, 0, 2, (ps2_poll) & 0xFF, (ps2_poll) >> 8, 48, 13, w_KEY_Q_ >> 8, w_KEY_Q_ & 0xFF, w__Q_DUP >> 8
     #d8 w__Q_DUP & 0xFF, 4, 241, 0
-w_NEWPROG:
-    #d8 2, 0, 32, 9, 56, 1, 0, 2, 0, 32, 26, 1
-    #d8 0, 9, 72, 0
-w_OPTAB:
-    #d8 w_O_OR & 0xFF, w_O_OR >> 8, w_O_AND & 0xFF, w_O_AND >> 8, w_O_CMP & 0xFF, w_O_CMP >> 8, w_O_ADD & 0xFF, w_O_ADD >> 8, w_O_SUB & 0xFF, w_O_SUB >> 8, w_O_MUL & 0xFF, w_O_MUL >> 8
-    #d8 w_O_DIV & 0xFF, w_O_DIV >> 8, w_O_MOD & 0xFF, w_O_MOD >> 8
-w_F_RND:
-    #d8 w_NARG >> 8, w_NARG & 0xFF, 12, 1, 1, 39, 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, w_RAND >> 8, w_RAND & 0xFF
-    #d8 14, 43, 13, 0
-w_RSHIFT:
-    #d8 12, 4, 10, 14, 36, 2, 255, 127, 29, 14, 34, 3
-    #d8 243, 13, 0
-w_U_D_:
-    #d8 1, 10, 43, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 2, w_U_D_ >> 8, w_U_D_ & 0xFF, 1, 48, 27
-    #d8 5, w_EMIT & 0xFF, w_EMIT >> 8
-w_F_CHR:
-    #d8 w_NARG >> 8, w_NARG & 0xFF, 1, 1, w_TMPALLOC >> 8, w_TMPALLOC & 0xFF, 14, 15, 33, 26, 1, 1
-    #d8 11, 66, 0
-w_RUNSTART:
-    #d8 2, 0, 32, 25, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 2, 0, 32
-    #d8 5, w_GOLINE & 0xFF, w_GOLINE >> 8
-w_SGN1:
-    #d8 12, 41, 4, 5, 13, 2, 255, 255, 0, 40, 40, 1
-    #d8 1, 29, 0
-w_HEXCH:
-    #d8 12, 1, 9, 14, 39, 4, 3, 1, 7, 27, 1, 48
-    #d8 27, 0
-w_H_D_:
-    #d8 1, 16, 43, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 2, w_H_D_ >> 8, w_H_D_ & 0xFF, w_HEXCH >> 8, w_HEXCH & 0xFF, 5
-    #d8 w_EMIT & 0xFF, w_EMIT >> 8
-w_CARD:
-    #d8 1, 0, 2, (mount) & 0xFF, (mount) >> 8, 48, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 3, 5, w_FERR & 0xFF
-    #d8 w_FERR >> 8, 0
-w_N_D_:
-    #d8 12, 41, 4, 6, 1, 45, w_EMIT >> 8, w_EMIT & 0xFF, 32, 33, 5, w_U_D_ & 0xFF
-    #d8 w_U_D_ >> 8
-w_BREAK:
-    #d8 8, 54, 9, 72, 8, 48, 9, 74, 1, 14, 5, w_ERROR & 0xFF
-    #d8 w_ERROR >> 8
-w_KWSKIP:
-    #d8 12, 25, 1, 128, 29, 40, 4, 3, 33, 3, 245, 33
-    #d8 0
-w_CPYREST:
-    #d8 8, 48, 25, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 5, w_PUTB >> 8, w_PUTB & 0xFF, 51, 3, 244
-    #d8 0
-w_GOLINE:
-    #d8 12, 9, 54, 1, 3, 27, 9, 48, 1, 1, 11, 67
-    #d8 0
-w_PLOT_:
-    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 5, w_PSET & 0xFF
-    #d8 w_PSET >> 8
-w_FEMIT:
-    #d8 12, 1, 10, 37, 4, 4, 1, 13, w_FPUT >> 8, w_FPUT & 0xFF, 5, w_FPUT & 0xFF
-    #d8 w_FPUT >> 8
-w_DOS_:
-    #d8 1, 0, 2, (MENU_BLK + MB_PARENT) & 0xFF, (MENU_BLK + MB_PARENT) >> 8, 26, 1, 0, 2, (dos_back) & 0xFF, (dos_back) >> 8, 48
-    #d8 0
-w_DIMARR:
-    #d8 12, 59, 4, 2, w_RDERR >> 8, w_RDERR & 0xFF, 14, 33, 35, 5, w_NEWVAR & 0xFF, w_NEWVAR >> 8
-w_F_STR:
-    #d8 w_NARG >> 8, w_NARG & 0xFF, 2, (w_N_D_) & 0xFF, (w_N_D_) >> 8, w_CAPTURE >> 8, w_CAPTURE & 0xFF, 1, 1, 11, 66, 0
-w_F_HEX:
-    #d8 w_NARG >> 8, w_NARG & 0xFF, 2, (w_H_D_) & 0xFF, (w_H_D_) >> 8, w_CAPTURE >> 8, w_CAPTURE & 0xFF, 1, 1, 11, 66, 0
-w_F_LEFT:
-    #d8 w_STRN >> 8, w_STRN & 0xFF, 1, 41, w_EXPECT >> 8, w_EXPECT & 0xFF, 1, 0, 14, 5, w_SUBSTR & 0xFF, w_SUBSTR >> 8
-w_ZONE:
-    #d8 w_SPACE >> 8, w_SPACE & 0xFF, 10, 13, 1, 10, 43, 13, 40, 4, 245, 0
-w_BPPM:
-    #d8 1, 1, 1, 1, 10, 78, w_LSHIFT >> 8, w_LSHIFT & 0xFF, w_LSHIFT >> 8, w_LSHIFT & 0xFF, 34, 0
-w_LSHIFT:
-    #d8 12, 4, 6, 14, 35, 14, 34, 3, 247, 13, 0
-w_STRLEN:
-    #d8 12, 12, 25, 4, 3, 33, 3, 249, 14, 28, 0
-w_PUTB:
-    #d8 2, 114, 93, 23, 26, 2, 114, 93, 5, w_1_P__ST_ & 0xFF, w_1_P__ST_ >> 8
-w_CPOP:
-    #d8 8, 64, 12, 23, 14, 1, 2, 27, 9, 64, 0
-w_TMPEMIT:
-    #d8 8, 62, 12, 25, 33, 18, 14, 26, 27, 26, 0
-w_SEXPR:
-    #d8 w_EXPR >> 8, w_EXPR & 0xFF, 10, 66, 40, 4, 3, 5, w_TMERR & 0xFF, w_TMERR >> 8, 0
-w_NARG:
-    #d8 1, 40, w_EXPECT >> 8, w_EXPECT & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 1, 41, 5, w_EXPECT & 0xFF, w_EXPECT >> 8
-w_SARG:
-    #d8 1, 40, w_EXPECT >> 8, w_EXPECT & 0xFF, w_SEXPR >> 8, w_SEXPR & 0xFF, 1, 41, 5, w_EXPECT & 0xFF, w_EXPECT >> 8
-w_O_OR:
-    #d8 51, w_NUMCHK >> 8, w_NUMCHK & 0xFF, 1, 2, w_PEXPR >> 8, w_PEXPR & 0xFF, w_NUMCHK >> 8, w_NUMCHK & 0xFF, 30, 0
-w_O_AND:
-    #d8 51, w_NUMCHK >> 8, w_NUMCHK & 0xFF, 1, 3, w_PEXPR >> 8, w_PEXPR & 0xFF, w_NUMCHK >> 8, w_NUMCHK & 0xFF, 29, 0
-w_STRN:
-    #d8 1, 40, w_EXPECT >> 8, w_EXPECT & 0xFF, w_SEXPR >> 8, w_SEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, 5, w_NEXPR & 0xFF, w_NEXPR >> 8
-w_GH:
-    #d8 2, 224, 1, 8, 76, 28, 10, 79, 5, w_RSHIFT & 0xFF, w_RSHIFT >> 8
-w_MKSTR:
-    #d8 12, w_TMPALLOC >> 8, w_TMPALLOC & 0xFF, 12, 19, 33, 14, 45, 20, 0
-w_DEL_:
-    #d8 w_FILENAME >> 8, w_FILENAME & 0xFF, 1, 0, 2, (fs_delete) & 0xFF, (fs_delete) >> 8, 5, w_FCALL & 0xFF, w_FCALL >> 8
-w_PICK:
-    #d8 35, 1, 2, 27, 10, (DSP) & 0xFF, 27, 23, 0
-w_HOME:
-    #d8 1, 0, 11, 13, 1, 0, 11, 14, 0
-w_FERR:
-    #d8 2, 128, 93, 24, 1, 17, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_LINENO:
-    #d8 49, 57, 40, 4, 2, w_SYNERR >> 8, w_SYNERR & 0xFF, 50, 0
-w_SKIPLINE:
-    #d8 8, 48, 25, 4, 3, 51, 3, 248, 0
-w_F_VAL:
-    #d8 w_SARG >> 8, w_SARG & 0xFF, w_SVAL >> 8, w_SVAL & 0xFF, 1, 0, 11, 66, 0
-w_POKE_:
-    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 14, 26, 0
-w_FCALL:
-    #d8 48, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 3, 5, w_FERR & 0xFF, w_FERR >> 8, 0
-w_MIN:
-    #d8 18, 39, 4, 2, 13, 0, 16, 0
-w_MAX:
-    #d8 18, 39, 4, 2, 16, 0, 13, 0
-w_ENDS_Q_:
-    #d8 12, 40, 14, 1, 58, 37, 30, 0
-w_GMB:
-    #d8 10, 79, 35, 35, 10, 78, 27, 0
-w_NUMCHK:
-    #d8 10, 66, 4, 3, 5, w_TMERR & 0xFF, w_TMERR >> 8, 0
-w_F_FRE:
-    #d8 w_NARG >> 8, w_NARG & 0xFF, 13, w_GC >> 8, w_GC & 0xFF, 5, w_FREE & 0xFF, w_FREE >> 8
-w_F_LEN:
-    #d8 w_SARG >> 8, w_SARG & 0xFF, 25, 1, 0, 11, 66, 0
-w_FORDROP:
-    #d8 8, 64, 1, 10, 27, 9, 64, 0
-w_GW:
-    #d8 2, 128, 2, 10, 78, 5, w_RSHIFT & 0xFF, w_RSHIFT >> 8
-w_PPBM:
-    #d8 1, 8, 10, 78, w_RSHIFT >> 8, w_RSHIFT & 0xFF, 34, 0
-w_ABS:
-    #d8 12, 41, 4, 2, 32, 33, 0
-w__P__ST_:
-    #d8 12, 19, 23, 27, 20, 24, 0
-w_WITHIN:
-    #d8 15, 28, 19, 28, 20, 38, 0
-w_KEY_Q_:
-    #d8 1, 0, 2, (kbd_getc) & 0xFF, (kbd_getc) >> 8, 48, 0
-w_NEW_:
-    #d8 w_NEWPROG >> 8, w_NEWPROG & 0xFF, w_CLEARV >> 8, w_CLEARV & 0xFF, 5, w_WARM & 0xFF, w_WARM >> 8
-w_ALNUM_Q_:
-    #d8 12, 57, 14, 58, 30, 0
-w_EMIT:
-    #d8 2, 120, 93, 23, 44, 0
-w_FREE:
-    #d8 8, 60, 8, 58, 28, 0
-w_O_DIV:
-    #d8 w_NRIGHT >> 8, w_NRIGHT & 0xFF, w_SDIVMOD >> 8, w_SDIVMOD & 0xFF, 16, 0
-w_O_MOD:
-    #d8 w_NRIGHT >> 8, w_NRIGHT & 0xFF, w_SDIVMOD >> 8, w_SDIVMOD & 0xFF, 13, 0
-w_COUNT:
-    #d8 12, 33, 14, 25, 0
-w_CR:
-    #d8 1, 10, 5, w_EMIT & 0xFF, w_EMIT >> 8
-w_SPACE:
-    #d8 1, 32, 5, w_EMIT & 0xFF, w_EMIT >> 8
-w_SYNERR:
-    #d8 1, 1, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_OOMERR:
-    #d8 1, 2, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_ULERR:
-    #d8 1, 3, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_TMERR:
-    #d8 1, 4, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_D0ERR:
-    #d8 1, 5, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_RGERR:
-    #d8 1, 6, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_NFERR:
-    #d8 1, 7, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_ODERR:
-    #d8 1, 8, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_BSERR:
-    #d8 1, 9, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_ILLQ:
-    #d8 1, 10, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_STLERR:
-    #d8 1, 11, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_CCERR:
-    #d8 1, 12, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_RDERR:
-    #d8 1, 13, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_IDERR:
-    #d8 1, 15, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_LAYERR:
-    #d8 1, 16, 5, w_ERROR & 0xFF, w_ERROR >> 8
-w_COMMA:
-    #d8 1, 44, 5, w_EXPECT & 0xFF, w_EXPECT >> 8
-w_TMPCOPY:
-    #d8 w_COUNT >> 8, w_COUNT & 0xFF, 5, w_MKSTR & 0xFF, w_MKSTR >> 8
-w_NEXPR:
-    #d8 w_EXPR >> 8, w_EXPR & 0xFF, 5, w_NUMCHK & 0xFF, w_NUMCHK >> 8
-w_EXPR:
-    #d8 1, 1, 5, w_PEXPR & 0xFF, w_PEXPR >> 8
-w_F_ABS:
-    #d8 w_NARG >> 8, w_NARG & 0xFF, 5, w_ABS & 0xFF, w_ABS >> 8
-w_GOTO_:
-    #d8 w_LINENO >> 8, w_LINENO & 0xFF, 5, w_GOLN & 0xFF, w_GOLN >> 8
-w_GOSUB_:
-    #d8 w_LINENO >> 8, w_LINENO & 0xFF, 5, w_DOGOSUB & 0xFF, w_DOGOSUB >> 8
-w_RESTORE_:
-    #d8 1, 0, 9, 70, 0
-w_LOAD_:
-    #d8 w_LOADFILE >> 8, w_LOADFILE & 0xFF, 5, w_WARM & 0xFF, w_WARM >> 8
-w_F_PEEK:
-    #d8 w_NARG >> 8, w_NARG & 0xFF, 25, 0
-w_TUCK:
-    #d8 14, 15, 0
-w_NEGATE:
-    #d8 32, 33, 0
-w__GT_:
-    #d8 14, 39, 0
-w__LT__GT_:
-    #d8 37, 40, 0
-w_0_LT__GT_:
-    #d8 40, 40, 0
-w_LNUM:
-    #d8 33, 23, 0
-w_F_INKEY:
-    #d8 5, w_KEY_Q_ & 0xFF, w_KEY_Q_ >> 8
-w_END_:
-    #d8 5, w_WARM & 0xFF, w_WARM >> 8
-w_STOP_:
-    #d8 5, w_BREAK & 0xFF, w_BREAK >> 8
-w_REM_:
-    #d8 5, w_SKIPLINE & 0xFF, w_SKIPLINE >> 8
-w_DATA_:
-    #d8 5, w_SKIPSTMT & 0xFF, w_SKIPSTMT >> 8
-w_CLEAR_:
-    #d8 5, w_CLEARV & 0xFF, w_CLEARV >> 8
-w_CLS_:
-    #d8 5, w_SETSCREEN & 0xFF, w_SETSCREEN >> 8
 
 #addr 0xA000
 vm_jump:
@@ -2004,8 +1502,8 @@ vm_jump:
     jmp  p_opq
     ld   p_fornext >> 8, y
     jmp  p_fornext
-w_SGLYPH:
-    #d8 w_SHOWROW >> 8, w_SHOWROW & 0xFF, 54, 0
+w_TRUE:
+    #d8 2, 255, 255, 0
 basic:
     ld   STACK_TOP, ac
     ld   ac, [SP]
@@ -2599,9 +2097,9 @@ p_cstore:                       ; C! ( v a -- )
     ld   ac, [y,x]
     bra  st_pop2
 
-w_NEXTLN:
-    #d8 8, 54, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 12, 25, 27
-    #d8 12, 25, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 5, w_GOLINE & 0xFF, w_GOLINE >> 8
+w_DELLN:
+    #d8 12, 25, 19, 12, 21, 27, 14, 8, 56, 33, 15, 28
+    #d8 21, 28, 45, 8, 56, 20, 28, 9, 56, 0
 p_rot:                          ; ( a b c -- b c a )
     ld   [DSP], ac              ; W1:W0 = a (at DSP + 2)
     add  2, x
@@ -3916,8 +3414,8 @@ w_RELOP:
     #d8 3, 22, 12, 1, 61, 37, 4, 5, 13, 1, 2, 3
     #d8 11, 1, 62, 37, 4, 4, 1, 4, 3, 2, 1, 0
     #d8 w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 4, 30, 51, 3, 214, 0
-w_O_MUL:
-    #d8 w_NRIGHT >> 8, w_NRIGHT & 0xFF, 42, 0
+w_SGLYPH:
+    #d8 w_SHOWROW >> 8, w_SHOWROW & 0xFF, 54, 0
 ; ROWCPY ( from to -- ): copy a text row
 p_glyph:
     clr  ac
@@ -4209,18 +3707,525 @@ VM_P_VARNAME = 60
 VM_P_OPQ = 61
 VM_P_FORNEXT = 62
 
-w_GC:
-    #d8 2, 0, 30, 2, 140, 93, 24, 2, 0, 30, 2, 142
-    #d8 93, 24, 8, 60, 2, 140, 93, 23, 38, 4, 97, 2
-    #d8 140, 93, 23, 1, 3, 28, 25, 1, 4, 27, 2, 144
-    #d8 93, 24, 2, 140, 93, 23, 2, 144, 93, 23, 28, 2
-    #d8 146, 93, 24, 2, 140, 93, 23, 1, 2, 28, 23, w__Q_DUP >> 8
-    #d8 w__Q_DUP & 0xFF, 4, 47, 12, 23, 2, 146, 93, 23, 37, 4, 37
-    #d8 2, 142, 93, 23, 2, 144, 93, 23, 28, 12, 17, 24
-    #d8 2, 146, 93, 23, 14, 2, 144, 93, 23, 46, 2, 142
-    #d8 93, 23, 2, 144, 93, 23, 28, 2, 142, 93, 24, 3
-    #d8 1, 13, 2, 146, 93, 23, 2, 140, 93, 24, 3, 150
-    #d8 2, 142, 93, 23, 9, 60, 0
+w_SNUMOK:
+    #d8 49, 1, 45, 37, 4, 6, 51, 2, 255, 255, 3, 2
+    #d8 1, 0, 19, 49, 57, 4, 6, 50, 2, 255, 255, 3
+    #d8 18, 49, 1, 38, 37, 4, 8, 51, w_HEXNUM >> 8, w_HEXNUM & 0xFF, 2, 255
+    #d8 255, 3, 4, 1, 0, 1, 0, 14, 20, 4, 2, 32
+    #d8 33, 14, 0
+w_SETSCREEN:
+    #d8 w_TMB >> 8, w_TMB & 0xFF, 2, (vid_clear) & 0xFF, (vid_clear) >> 8, 48, 13, 8, 76, 2, 224, 1
+    #d8 39, 4, 15, 2, 32, 90, 8, 76, 27, 2, 224, 1
+    #d8 8, 76, 28, w_GMB >> 8, w_GMB & 0xFF, 47, 2, 32, 90, 8, 76, w_TMB >> 8
+    #d8 w_TMB & 0xFF, 1, 128, 30, 47, 1, 0, 2, 202, 93, 26, 5
+    #d8 w_HOME & 0xFF, w_HOME >> 8
+w_READ_:
+    #d8 w_VARREF >> 8, w_VARREF & 0xFF, 10, 66, 19, 8, 48, 2, 116, 93, 24, w_DFIND >> 8
+    #d8 w_DFIND & 0xFF, 21, w_PFIELD >> 8, w_PFIELD & 0xFF, 8, 48, 9, 70, 2, 116, 93, 23
+    #d8 9, 48, 40, 4, 2, w_SYNERR >> 8, w_SYNERR & 0xFF, 20, 4, 4, w_SASSIGN >> 8, w_SASSIGN & 0xFF
+    #d8 3, 2, 14, 24, 49, 1, 44, 37, 4, 3, 51, 3
+    #d8 207, 0
+w_PEXPR:
+    #d8 19, 49, 1, 175, 37, 21, 1, 4, 39, 29, 4, 10
+    #d8 51, 1, 3, w_PEXPR >> 8, w_PEXPR & 0xFF, w_NUMCHK >> 8, w_NUMCHK & 0xFF, 32, 3, 2, w_ATOM >> 8, w_ATOM & 0xFF
+    #d8 61, 12, 21, 39, 4, 3, 13, 22, 0, 35, 2, (w_OPTAB - 2) & 0xFF
+    #d8 (w_OPTAB - 2) >> 8, 27, 23, 44, 3, 238, 0
+w_FORPURGE:
+    #d8 8, 64, 12, 2, 0, 31, 38, 4, 7, 12, 23, 1
+    #d8 2, 37, 3, 2, 1, 0, 4, 20, 18, 1, 2, 27
+    #d8 23, 37, 4, 7, 1, 12, 27, 9, 64, 13, 0, 1
+    #d8 12, 27, 3, 218, 13, 13, 0
+w_INNEXT:
+    #d8 2, 118, 93, 23, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 3, 25, 3, 2, 1
+    #d8 0, 40, 4, 25, 2, 118, 93, 23, 4, 4, 1, 63
+    #d8 w_EMIT >> 8, w_EMIT & 0xFF, 7, 2, 63, 32, w_TYPE >> 8, w_TYPE & 0xFF, w_ACCEPT >> 8, w_ACCEPT & 0xFF, 2, 0
+    #d8 84, 2, 118, 93, 24, 0
+w_DFIND:
+    #d8 8, 70, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 12, 9, 48, 49, 1, 44, 37
+    #d8 4, 24, 51, 0, 3, 20, 2, 0, 32, 25, 40, 4
+    #d8 2, w_ODERR >> 8, w_ODERR & 0xFF, 2, 0, 32, 12, 9, 68, 1, 3, 27
+    #d8 9, 48, 5, w_DSCAN & 0xFF, w_DSCAN >> 8
+w_LOG2:
+    #d8 12, 1, 1, 37, 4, 4, 13, 1, 0, 0, 12, 1
+    #d8 2, 37, 4, 4, 13, 1, 1, 0, 12, 1, 4, 37
+    #d8 4, 4, 13, 1, 2, 0, 1, 8, 37, 4, 3, 1
+    #d8 3, 0, 5, w_ILLQ & 0xFF, w_ILLQ >> 8
+w_SCAN_:
+    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 19, 12
+    #d8 2, 224, 1, 38, 40, 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 15, 28, 33
+    #d8 12, 1, 1, 39, 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 14, 2, 32, 90
+    #d8 27, 14, 20, 47, 0
+w_DSCAN:
+    #d8 8, 48, 25, 12, 1, 131, 37, 4, 3, 13, 51, 0
+    #d8 4, 3, 51, 3, 239, 8, 68, 12, 25, 27, 12, 25
+    #d8 40, 4, 2, w_ODERR >> 8, w_ODERR & 0xFF, 12, 9, 68, 1, 3, 27, 9
+    #d8 48, 3, 217, 0
+w_ARRREF:
+    #d8 51, w_NEXPR >> 8, w_NEXPR & 0xFF, 1, 41, w_EXPECT >> 8, w_EXPECT & 0xFF, 14, 12, 59, w__Q_DUP >> 8, w__Q_DUP & 0xFF
+    #d8 40, 4, 7, 1, 10, 14, w_DIMARR >> 8, w_DIMARR & 0xFF, 3, 1, 16, 18
+    #d8 1, 2, 28, 23, 36, 38, 40, 4, 2, w_BSERR >> 8, w_BSERR & 0xFF, 14
+    #d8 35, 27, 0
+w_KWCMP:
+    #d8 8, 48, 15, 25, 15, 25, w_UPC >> 8, w_UPC & 0xFF, 15, 1, 127, 29
+    #d8 37, 4, 17, 1, 128, 29, 4, 6, 16, 33, 8, 48
+    #d8 28, 0, 33, 14, 33, 14, 3, 226, 13, 13, 13, 1
+    #d8 0, 0
+w_NEWVAR:
+    #d8 12, 1, 4, 27, w_ROOM >> 8, w_ROOM & 0xFF, 8, 58, 19, 14, 21, 24
+    #d8 12, 21, 1, 2, 27, 24, 21, 1, 4, 27, 15, 1
+    #d8 0, 47, 1, 4, 27, 21, 27, 9, 58, 20, 1, 4
+    #d8 27, 0
+w_SOUND_:
+    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 49, 1, 44, 37, 4, 5
+    #d8 51, w_NEXPR >> 8, w_NEXPR & 0xFF, 3, 2, 1, 96, 19, 11, 18, 1, 0
+    #d8 11, 19, 2, (snd_note) & 0xFF, (snd_note) >> 8, 48, 13, 20, 2, (snd_tone) & 0xFF, (snd_tone) >> 8, 48
+    #d8 13, 0
+w_CONCAT:
+    #d8 15, 25, 15, 25, 27, 12, 1, 255, 14, 39, 4, 2
+    #d8 w_STLERR >> 8, w_STLERR & 0xFF, w_TMPALLOC >> 8, w_TMPALLOC & 0xFF, 17, 18, w_COUNT >> 8, w_COUNT & 0xFF, 17, 33, 14, 45
+    #d8 25, 15, 27, 33, 17, w_COUNT >> 8, w_COUNT & 0xFF, 19, 14, 20, 45, 0
+w_O_CMP:
+    #d8 w_RELOP >> 8, w_RELOP & 0xFF, 19, 10, 66, 19, 1, 4, w_PEXPR >> 8, w_PEXPR & 0xFF, 10, 66
+    #d8 21, 28, 4, 2, w_TMERR >> 8, w_TMERR & 0xFF, 20, 4, 4, w_SCOMPARE >> 8, w_SCOMPARE & 0xFF, 3
+    #d8 2, w_NCOMPARE >> 8, w_NCOMPARE & 0xFF, 20, 29, 40, 40, 1, 0, 11, 66, 0
+w_STRLIT:
+    #d8 51, 8, 48, 8, 48, 25, 12, 1, 34, 37, 14, 40
+    #d8 30, 40, 4, 3, 51, 3, 240, 8, 48, 15, 28, w_MKSTR >> 8
+    #d8 w_MKSTR & 0xFF, 8, 48, 25, 4, 1, 51, 1, 1, 11, 66, 0
+w_KWMATCH:
+    #d8 2, (w_KWTAB) & 0xFF, (w_KWTAB) >> 8, 1, 128, 15, 25, 4, 21, 15, w_KWCMP >> 8, w_KWCMP & 0xFF
+    #d8 w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 7, 8, 48, 27, 9, 48, 16, 0, 14
+    #d8 w_KWSKIP >> 8, w_KWSKIP & 0xFF, 14, 33, 3, 231, 13, 13, 1, 0, 0
+w_STORELN:
+    #d8 1, 0, 9, 72, w_CLEARV >> 8, w_CLEARV & 0xFF, 12, w_FINDLN >> 8, w_FINDLN & 0xFF, 12, 25, 4
+    #d8 13, 12, 33, 23, 1, 2, w_PICK >> 8, w_PICK & 0xFF, 37, 4, 3, 12
+    #d8 w_DELLN >> 8, w_DELLN & 0xFF, 49, 4, 3, 5, w_INSLN & 0xFF, w_INSLN >> 8, 13, 13, 0
+w_LISTLN:
+    #d8 12, 33, 23, w_U_D_ >> 8, w_U_D_ & 0xFF, w_SPACE >> 8, w_SPACE & 0xFF, 1, 3, 27, 12, 25
+    #d8 w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 15, 12, 1, 128, 39, 4, 4, w_EMIT >> 8, w_EMIT & 0xFF
+    #d8 3, 2, w_KWTYPE >> 8, w_KWTYPE & 0xFF, 33, 3, 235, 13, 5, w_CR & 0xFF, w_CR >> 8
+w_CAPTURE:
+    #d8 2, 120, 93, 23, 19, 2, (w_TMPEMIT) & 0xFF, (w_TMPEMIT) >> 8, 2, 120, 93, 24
+    #d8 8, 62, 19, 1, 0, 8, 62, 26, 44, 21, 25, 33
+    #d8 21, 27, 9, 62, 20, 20, 2, 120, 93, 24, 0
+w_DIM_:
+    #d8 60, 12, 41, 40, 4, 2, w_SYNERR >> 8, w_SYNERR & 0xFF, 51, w_NEXPR >> 8, w_NEXPR & 0xFF, 1
+    #d8 41, w_EXPECT >> 8, w_EXPECT & 0xFF, 12, 41, 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 14, w_DIMARR >> 8, w_DIMARR & 0xFF
+    #d8 13, 49, 1, 44, 37, 4, 3, 51, 3, 222, 0
+w_SCREMIT:
+    #d8 12, 1, 10, 37, 4, 4, 13, 5, w_SCRCR & 0xFF, w_SCRCR >> 8, 10, 50
+    #d8 4, 4, w_SGLYPH >> 8, w_SGLYPH & 0xFF, 3, 1, 13, 10, 13, 33, 12, 11
+    #d8 13, 1, 80, 37, 4, 3, 5, w_SCRCR & 0xFF, w_SCRCR >> 8, 0
+w_VARREF:
+    #d8 60, 12, 41, 4, 16, 12, 19, w_ARRREF >> 8, w_ARRREF & 0xFF, 20, 1, 128
+    #d8 29, 40, 40, 1, 1, 29, 11, 66, 0, 12, 59, 12
+    #d8 4, 2, 16, 0, 13, 1, 2, 5, w_NEWVAR & 0xFF, w_NEWVAR >> 8
+w_SVAL:
+    #d8 w_COUNT >> 8, w_COUNT & 0xFF, 1, 15, w_MIN >> 8, w_MIN & 0xFF, 19, 2, 170, 93, 21, 45
+    #d8 1, 0, 2, 170, 93, 20, 27, 26, 8, 48, 19, 2
+    #d8 170, 93, 9, 48, w_SNUM >> 8, w_SNUM & 0xFF, 20, 9, 48, 0
+w_SUBSTR:
+    #d8 19, 15, 25, w_MIN >> 8, w_MIN & 0xFF, 15, 25, 15, 28, 20, w_MIN >> 8, w_MIN & 0xFF
+    #d8 1, 0, w_MAX >> 8, w_MAX & 0xFF, 12, w_TMPALLOC >> 8, w_TMPALLOC & 0xFF, 19, 17, 33, 17, 27
+    #d8 21, 33, 17, 45, 20, 1, 1, 11, 66, 0
+w_NEXT_:
+    #d8 49, 58, 4, 4, w_VARREF >> 8, w_VARREF & 0xFF, 3, 2, 1, 0, w_FINDFOR >> 8, w_FINDFOR & 0xFF
+    #d8 62, 12, 4, 16, 1, 12, 27, 9, 64, 49, 1, 44
+    #d8 37, 40, 4, 1, 0, 51, 3, 224, 13, 0
+w_FNTAB:
+    #d8 w_F_ABS & 0xFF, w_F_ABS >> 8, w_F_RND & 0xFF, w_F_RND >> 8, w_F_PEEK & 0xFF, w_F_PEEK >> 8, w_F_SGN & 0xFF, w_F_SGN >> 8, w_F_FRE & 0xFF, w_F_FRE >> 8, w_F_INKEY & 0xFF, w_F_INKEY >> 8
+    #d8 w_F_PAD & 0xFF, w_F_PAD >> 8, w_F_LEN & 0xFF, w_F_LEN >> 8, w_F_ASC & 0xFF, w_F_ASC >> 8, w_F_VAL & 0xFF, w_F_VAL >> 8, w_F_CHR & 0xFF, w_F_CHR >> 8, w_F_STR & 0xFF, w_F_STR >> 8
+    #d8 w_F_LEFT & 0xFF, w_F_LEFT >> 8, w_F_MID & 0xFF, w_F_MID >> 8, w_F_RIGHT & 0xFF, w_F_RIGHT >> 8, w_F_HEX & 0xFF, w_F_HEX >> 8
+w_SNUM:
+    #d8 49, 1, 45, 37, 4, 6, 51, w_SNUM >> 8, w_SNUM & 0xFF, 32, 33, 0
+    #d8 49, 1, 38, 37, 4, 4, 51, 5, w_HEXNUM & 0xFF, w_HEXNUM >> 8, 49, 57
+    #d8 4, 2, 50, 0, 1, 0, 0
+w_F_MID:
+    #d8 w_STRN >> 8, w_STRN & 0xFF, 12, 1, 1, 39, 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 34, 49
+    #d8 1, 44, 37, 4, 5, 51, w_NEXPR >> 8, w_NEXPR & 0xFF, 3, 2, 1, 255
+    #d8 1, 41, w_EXPECT >> 8, w_EXPECT & 0xFF, 5, w_SUBSTR & 0xFF, w_SUBSTR >> 8
+w_RETURN_:
+    #d8 8, 64, 2, 0, 31, 37, 4, 2, w_RGERR >> 8, w_RGERR & 0xFF, w_CPOP >> 8, w_CPOP & 0xFF
+    #d8 1, 1, 37, 4, 9, w_CPOP >> 8, w_CPOP & 0xFF, 9, 48, w_CPOP >> 8, w_CPOP & 0xFF, 9
+    #d8 54, 0, w_FORDROP >> 8, w_FORDROP & 0xFF, 3, 226, 0
+w_IF_:
+    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, 49, 1, 136, 37, 40, 4, 4, 1, 172, w_EXPECT >> 8
+    #d8 w_EXPECT & 0xFF, 4, 12, 49, 57, 4, 3, w_GOTO_ >> 8, w_GOTO_ & 0xFF, 0, 1, 1
+    #d8 11, 67, 0, 5, w_SKIPLINE & 0xFF, w_SKIPLINE >> 8, 0
+w_GET_:
+    #d8 w_VARREF >> 8, w_VARREF & 0xFF, w_KEY_Q_ >> 8, w_KEY_Q_ & 0xFF, 10, 66, 4, 20, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 10
+    #d8 1, 1, w_TMPALLOC >> 8, w_TMPALLOC & 0xFF, 14, 15, 33, 26, 3, 3, 2, (w_EMPTYS) & 0xFF
+    #d8 (w_EMPTYS) >> 8, 5, w_SASSIGN & 0xFF, w_SASSIGN >> 8, 14, 24, 0
+w_RAND:
+    #d8 8, 11, 40, 4, 7, 8, 8, 1, 1, 30, 9, 11
+    #d8 1, 0, 2, (rand8) & 0xFF, (rand8) >> 8, 48, 1, 0, 2, (rand8) & 0xFF, (rand8) >> 8, 48
+    #d8 2, 0, 1, 42, 27, 0
+w_WARM:
+    #d8 53, 2, (w_SCREMIT) & 0xFF, (w_SCREMIT) >> 8, 2, 120, 93, 24, w_TEXTBACK >> 8, w_TEXTBACK & 0xFF, 10, 13
+    #d8 4, 2, w_CR >> 8, w_CR & 0xFF, 7, 5, 82, 101, 97, 100, 121, w_TYPE >> 8
+    #d8 w_TYPE & 0xFF, w_CR >> 8, w_CR & 0xFF, 5, w_MAIN & 0xFF, w_MAIN >> 8
+w_MAIN:
+    #d8 w_ACCEPT >> 8, w_ACCEPT & 0xFF, w_CRUNCH >> 8, w_CRUNCH & 0xFF, 2, 0, 84, 9, 48, 49, 57, 4
+    #d8 5, 50, w_STORELN >> 8, w_STORELN & 0xFF, 3, 238, 49, 4, 235, 1, 0, 9
+    #d8 54, w_EXECLINE >> 8, w_EXECLINE & 0xFF, 3, 227, 0
+w_HEXNUM:
+    #d8 49, 1, 72, 37, 4, 1, 51, 1, 0, 8, 48, 25
+    #d8 w_HEXDIG >> 8, w_HEXDIG & 0xFF, 12, 41, 40, 4, 8, 14, 1, 16, 42, 27
+    #d8 51, 3, 238, 13, 0
+w_LOCATE_:
+    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 12, 1, 80, 38, 40, 4
+    #d8 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 11, 13, 12, 10, 50, 38, 40, 4, 2
+    #d8 w_ILLQ >> 8, w_ILLQ & 0xFF, 11, 14, 0
+w_FPUT:
+    #d8 2, 122, 93, 23, 26, 2, 122, 93, w_1_P__ST_ >> 8, w_1_P__ST_ & 0xFF, 2, 124
+    #d8 93, w_1_P__ST_ >> 8, w_1_P__ST_ & 0xFF, 2, 122, 93, 23, 2, 0, 88, 37, 4
+    #d8 3, 5, w_WRITESEC & 0xFF, w_WRITESEC >> 8, 0
+w_RUN_:
+    #d8 49, 1, 34, 37, 4, 7, w_LOADFILE >> 8, w_LOADFILE & 0xFF, w_CLEARV >> 8, w_CLEARV & 0xFF, 5, w_RUNSTART & 0xFF
+    #d8 w_RUNSTART >> 8, w_CLEARV >> 8, w_CLEARV & 0xFF, 49, 57, 4, 5, w_LINENO >> 8, w_LINENO & 0xFF, 5, w_GOLN & 0xFF, w_GOLN >> 8
+    #d8 5, w_RUNSTART & 0xFF, w_RUNSTART >> 8, 0
+w_LET_:
+    #d8 w_VARREF >> 8, w_VARREF & 0xFF, 10, 66, 19, 1, 61, w_EXPECT >> 8, w_EXPECT & 0xFF, w_EXPR >> 8, w_EXPR & 0xFF, 10
+    #d8 66, 21, 28, 4, 2, w_TMERR >> 8, w_TMERR & 0xFF, 20, 4, 3, 5, w_SASSIGN & 0xFF
+    #d8 w_SASSIGN >> 8, 14, 24, 0
+w_SCRCR:
+    #d8 1, 0, 11, 13, 10, 50, 40, 4, 1, 0, 10, 14
+    #d8 33, 12, 10, 50, 38, 4, 3, 11, 14, 0, 13, 5
+    #d8 w_SCROLL & 0xFF, w_SCROLL >> 8
+w_FINDLN:
+    #d8 19, 2, 0, 32, 12, 25, 4, 7, 12, 33, 23, 21
+    #d8 38, 3, 2, 1, 0, 4, 5, 12, 25, 27, 3, 236
+    #d8 22, 0
+w_HEXDIG:
+    #d8 12, 57, 4, 4, 1, 48, 28, 0, 12, 1, 65, 1
+    #d8 71, w_WITHIN >> 8, w_WITHIN & 0xFF, 4, 4, 1, 55, 28, 0, 13, 2, 255
+    #d8 255, 0
+w_TYPEN:
+    #d8 12, 4, 20, 15, 25, 12, 1, 32, 37, 4, 4, 13
+    #d8 13, 13, 0, w_EMIT >> 8, w_EMIT & 0xFF, 34, 14, 33, 14, 3, 233, 13
+    #d8 13, 0
+w_TEXTSET:
+    #d8 12, 1, 30, 37, 1, 1, 29, 11, 51, 12, 2, 126
+    #d8 93, 26, 11, 50, 2, 224, 1, 9, 76, 5, w_SETSCREEN & 0xFF, w_SETSCREEN >> 8
+w_BACK:
+    #d8 10, 13, 4, 6, 10, 13, 34, 11, 13, 0, 10, 14
+    #d8 4, 9, 10, 14, 34, 11, 14, 1, 79, 11, 13, 0
+w_O_ADD:
+    #d8 51, 10, 66, 19, 1, 6, w_PEXPR >> 8, w_PEXPR & 0xFF, 10, 66, 21, 28
+    #d8 4, 2, w_TMERR >> 8, w_TMERR & 0xFF, 20, 4, 3, 5, w_CONCAT & 0xFF, w_CONCAT >> 8, 27, 0
+w_NOISE_:
+    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 11, 18
+    #d8 11, 16, 1, 0, 11, 19, 2, (snd_noise) & 0xFF, (snd_noise) >> 8, 48, 13, 0
+w_GOLN:
+    #d8 12, w_FINDLN >> 8, w_FINDLN & 0xFF, 12, 25, 4, 12, 14, 15, 33, 23, 37
+    #d8 4, 6, 5, w_GOLINE & 0xFF, w_GOLINE >> 8, 3, 1, 16, 5, w_ULERR & 0xFF, w_ULERR >> 8
+w_TMPALLOC:
+    #d8 8, 62, 14, 15, 26, 12, 25, 33, 15, 27, 12, 2
+    #d8 0, 90, 38, 40, 4, 2, w_STLERR >> 8, w_STLERR & 0xFF, 9, 62, 0
+w_SCROLL:
+    #d8 10, 50, 34, 1, 0, 18, 14, 39, 4, 7, 12, 33
+    #d8 15, 55, 33, 3, 244, 13, 5, w_CLRROW & 0xFF, w_CLRROW >> 8
+w_KWTYPE:
+    #d8 w_KWADDR >> 8, w_KWADDR & 0xFF, 12, 25, 12, 1, 127, 29, w_EMIT >> 8, w_EMIT & 0xFF, 1, 128
+    #d8 29, 40, 4, 3, 33, 3, 239, 13, 0
+w_PREVLET_Q_:
+    #d8 2, 114, 93, 23, 2, 0, 84, 37, 4, 3, 1, 0
+    #d8 0, 2, 114, 93, 23, 34, 25, 58, 0
+w_CLEARV:
+    #d8 2, 0, 1, 9, 58, 2, 0, 30, 9, 60, 2, 0
+    #d8 31, 9, 64, 1, 0, 9, 70, 0
+w_ROOM:
+    #d8 12, w_FREE >> 8, w_FREE & 0xFF, 38, 4, 2, 13, 0, w_GC >> 8, w_GC & 0xFF, w_FREE >> 8, w_FREE & 0xFF
+    #d8 38, 40, 4, 3, 5, w_OOMERR & 0xFF, w_OOMERR >> 8, 0
+w_F_PAD:
+    #d8 w_NARG >> 8, w_NARG & 0xFF, 1, 0, 2, (pad_read) & 0xFF, (pad_read) >> 8, 48, 13, 1, 1, 37
+    #d8 4, 3, 8, 16, 0, 8, 18, 0
+w_CONT_:
+    #d8 8, 72, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 40, 4, 2, w_CCERR >> 8, w_CCERR & 0xFF, 9, 54, 8
+    #d8 74, 9, 48, 1, 1, 11, 67, 0
+w_WAIT_:
+    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, 8, 8, 27, 52, 4, 2, w_BREAK >> 8, w_BREAK & 0xFF, 12, 8
+    #d8 8, 28, 41, 40, 4, 243, 13, 0
+w_WRITESEC:
+    #d8 2, 0, 86, 9, 20, 1, 0, 2, (fs_write) & 0xFF, (fs_write) >> 8, w_FCALL >> 8, w_FCALL & 0xFF
+    #d8 2, 0, 86, 2, 122, 93, 24, 0
+w_KWADDR:
+    #d8 1, 128, 28, 2, (w_KWTAB) & 0xFF, (w_KWTAB) >> 8, 14, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 7, 14
+    #d8 w_KWSKIP >> 8, w_KWSKIP & 0xFF, 14, 34, 3, 245, 0
+w_CPUSH:
+    #d8 8, 64, 1, 2, 28, 12, 2, 0, 30, 38, 4, 2
+    #d8 w_OOMERR >> 8, w_OOMERR & 0xFF, 12, 9, 64, 24, 0
+w_O_SUB:
+    #d8 51, 10, 66, 4, 2, w_TMERR >> 8, w_TMERR & 0xFF, 1, 6, w_PEXPR >> 8, w_PEXPR & 0xFF, 10
+    #d8 66, 4, 2, w_TMERR >> 8, w_TMERR & 0xFF, 28, 0
+w_CALL_:
+    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, 49, 1, 44, 37, 4, 5, 51, w_NEXPR >> 8, w_NEXPR & 0xFF, 3
+    #d8 2, 1, 0, 14, 48, 13, 0
+w_TEXT_:
+    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, 12, 1, 30, 37, 15, 1, 60, 37, 30, 40
+    #d8 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, 5, w_TEXTSET & 0xFF, w_TEXTSET >> 8
+w_NCOMPARE:
+    #d8 18, 37, 4, 5, 13, 13, 1, 2, 0, 39, 4, 3
+    #d8 1, 1, 0, 1, 4, 0
+w_F_ASC:
+    #d8 w_SARG >> 8, w_SARG & 0xFF, 12, 25, 4, 4, 33, 25, 3, 3, 13, 1
+    #d8 0, 1, 0, 11, 66, 0
+w_F_RIGHT:
+    #d8 w_STRN >> 8, w_STRN & 0xFF, 1, 41, w_EXPECT >> 8, w_EXPECT & 0xFF, 15, 25, 15, 28, 1, 0
+    #d8 w_MAX >> 8, w_MAX & 0xFF, 14, 5, w_SUBSTR & 0xFF, w_SUBSTR >> 8
+w_ERRMSG:
+    #d8 2, (w_ERRTAB) & 0xFF, (w_ERRTAB) >> 8, 14, 34, 12, 4, 7, 14, w_COUNT >> 8, w_COUNT & 0xFF, 27
+    #d8 14, 3, 245, 13, 0
+w_NRIGHT:
+    #d8 51, 10, 66, 4, 2, w_TMERR >> 8, w_TMERR & 0xFF, w_ATOM >> 8, w_ATOM & 0xFF, 10, 66, 4
+    #d8 3, 5, w_TMERR & 0xFF, w_TMERR >> 8, 0
+w_F_SGN:
+    #d8 w_NARG >> 8, w_NARG & 0xFF, 12, 41, 4, 5, 13, 2, 255, 255, 0, 40
+    #d8 40, 1, 1, 29, 0
+w_DOGOSUB:
+    #d8 w_SKIPSTMT >> 8, w_SKIPSTMT & 0xFF, 8, 54, w_CPUSH >> 8, w_CPUSH & 0xFF, 8, 48, w_CPUSH >> 8, w_CPUSH & 0xFF, 1, 1
+    #d8 w_CPUSH >> 8, w_CPUSH & 0xFF, 5, w_GOLN & 0xFF, w_GOLN >> 8
+w_TABTO:
+    #d8 1, 79, w_MIN >> 8, w_MIN & 0xFF, 12, 10, 13, 14, 39, 4, 4, w_SPACE >> 8
+    #d8 w_SPACE & 0xFF, 3, 245, 13, 0
+w_BEEP_:
+    #d8 49, w_ENDS_Q_ >> 8, w_ENDS_Q_ & 0xFF, 4, 4, 1, 69, 3, 2, w_NEXPR >> 8, w_NEXPR & 0xFF, 2
+    #d8 (snd_beep) & 0xFF, (snd_beep) >> 8, 48, 13, 0
+w_NEWPROG:
+    #d8 2, 0, 32, 9, 56, 1, 0, 2, 0, 32, 26, 1
+    #d8 0, 9, 72, 0
+w_OPTAB:
+    #d8 w_O_OR & 0xFF, w_O_OR >> 8, w_O_AND & 0xFF, w_O_AND >> 8, w_O_CMP & 0xFF, w_O_CMP >> 8, w_O_ADD & 0xFF, w_O_ADD >> 8, w_O_SUB & 0xFF, w_O_SUB >> 8, w_O_MUL & 0xFF, w_O_MUL >> 8
+    #d8 w_O_DIV & 0xFF, w_O_DIV >> 8, w_O_MOD & 0xFF, w_O_MOD >> 8
+w_F_RND:
+    #d8 w_NARG >> 8, w_NARG & 0xFF, 12, 1, 1, 39, 4, 2, w_ILLQ >> 8, w_ILLQ & 0xFF, w_RAND >> 8, w_RAND & 0xFF
+    #d8 14, 43, 13, 0
+w_RSHIFT:
+    #d8 12, 4, 10, 14, 36, 2, 255, 127, 29, 14, 34, 3
+    #d8 243, 13, 0
+w_U_D_:
+    #d8 1, 10, 43, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 2, w_U_D_ >> 8, w_U_D_ & 0xFF, 1, 48, 27
+    #d8 5, w_EMIT & 0xFF, w_EMIT >> 8
+w_F_CHR:
+    #d8 w_NARG >> 8, w_NARG & 0xFF, 1, 1, w_TMPALLOC >> 8, w_TMPALLOC & 0xFF, 14, 15, 33, 26, 1, 1
+    #d8 11, 66, 0
+w_RUNSTART:
+    #d8 2, 0, 32, 25, 40, 4, 2, w_WARM >> 8, w_WARM & 0xFF, 2, 0, 32
+    #d8 5, w_GOLINE & 0xFF, w_GOLINE >> 8
+w_SGN1:
+    #d8 12, 41, 4, 5, 13, 2, 255, 255, 0, 40, 40, 1
+    #d8 1, 29, 0
+w_HEXCH:
+    #d8 12, 1, 9, 14, 39, 4, 3, 1, 7, 27, 1, 48
+    #d8 27, 0
+w_H_D_:
+    #d8 1, 16, 43, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 2, w_H_D_ >> 8, w_H_D_ & 0xFF, w_HEXCH >> 8, w_HEXCH & 0xFF, 5
+    #d8 w_EMIT & 0xFF, w_EMIT >> 8
+w_CARD:
+    #d8 1, 0, 2, (mount) & 0xFF, (mount) >> 8, 48, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 3, 5, w_FERR & 0xFF
+    #d8 w_FERR >> 8, 0
+w_N_D_:
+    #d8 12, 41, 4, 6, 1, 45, w_EMIT >> 8, w_EMIT & 0xFF, 32, 33, 5, w_U_D_ & 0xFF
+    #d8 w_U_D_ >> 8
+w_BREAK:
+    #d8 8, 54, 9, 72, 8, 48, 9, 74, 1, 14, 5, w_ERROR & 0xFF
+    #d8 w_ERROR >> 8
+w_KWSKIP:
+    #d8 12, 25, 1, 128, 29, 40, 4, 3, 33, 3, 245, 33
+    #d8 0
+w_CPYREST:
+    #d8 8, 48, 25, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 5, w_PUTB >> 8, w_PUTB & 0xFF, 51, 3, 244
+    #d8 0
+w_GOLINE:
+    #d8 12, 9, 54, 1, 3, 27, 9, 48, 1, 1, 11, 67
+    #d8 0
+w_PLOT_:
+    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 5, w_PSET & 0xFF
+    #d8 w_PSET >> 8
+w_FEMIT:
+    #d8 12, 1, 10, 37, 4, 4, 1, 13, w_FPUT >> 8, w_FPUT & 0xFF, 5, w_FPUT & 0xFF
+    #d8 w_FPUT >> 8
+w_DOS_:
+    #d8 1, 0, 2, (MENU_BLK + MB_PARENT) & 0xFF, (MENU_BLK + MB_PARENT) >> 8, 26, 1, 0, 2, (dos_back) & 0xFF, (dos_back) >> 8, 48
+    #d8 0
+w_DIMARR:
+    #d8 12, 59, 4, 2, w_RDERR >> 8, w_RDERR & 0xFF, 14, 33, 35, 5, w_NEWVAR & 0xFF, w_NEWVAR >> 8
+w_F_STR:
+    #d8 w_NARG >> 8, w_NARG & 0xFF, 2, (w_N_D_) & 0xFF, (w_N_D_) >> 8, w_CAPTURE >> 8, w_CAPTURE & 0xFF, 1, 1, 11, 66, 0
+w_F_HEX:
+    #d8 w_NARG >> 8, w_NARG & 0xFF, 2, (w_H_D_) & 0xFF, (w_H_D_) >> 8, w_CAPTURE >> 8, w_CAPTURE & 0xFF, 1, 1, 11, 66, 0
+w_F_LEFT:
+    #d8 w_STRN >> 8, w_STRN & 0xFF, 1, 41, w_EXPECT >> 8, w_EXPECT & 0xFF, 1, 0, 14, 5, w_SUBSTR & 0xFF, w_SUBSTR >> 8
+w_ZONE:
+    #d8 w_SPACE >> 8, w_SPACE & 0xFF, 10, 13, 1, 10, 43, 13, 40, 4, 245, 0
+w_BPPM:
+    #d8 1, 1, 1, 1, 10, 78, w_LSHIFT >> 8, w_LSHIFT & 0xFF, w_LSHIFT >> 8, w_LSHIFT & 0xFF, 34, 0
+w_LSHIFT:
+    #d8 12, 4, 6, 14, 35, 14, 34, 3, 247, 13, 0
+w_STRLEN:
+    #d8 12, 12, 25, 4, 3, 33, 3, 249, 14, 28, 0
+w_PUTB:
+    #d8 2, 114, 93, 23, 26, 2, 114, 93, 5, w_1_P__ST_ & 0xFF, w_1_P__ST_ >> 8
+w_CPOP:
+    #d8 8, 64, 12, 23, 14, 1, 2, 27, 9, 64, 0
+w_TMPEMIT:
+    #d8 8, 62, 12, 25, 33, 18, 14, 26, 27, 26, 0
+w_SEXPR:
+    #d8 w_EXPR >> 8, w_EXPR & 0xFF, 10, 66, 40, 4, 3, 5, w_TMERR & 0xFF, w_TMERR >> 8, 0
+w_NARG:
+    #d8 1, 40, w_EXPECT >> 8, w_EXPECT & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 1, 41, 5, w_EXPECT & 0xFF, w_EXPECT >> 8
+w_SARG:
+    #d8 1, 40, w_EXPECT >> 8, w_EXPECT & 0xFF, w_SEXPR >> 8, w_SEXPR & 0xFF, 1, 41, 5, w_EXPECT & 0xFF, w_EXPECT >> 8
+w_O_OR:
+    #d8 51, w_NUMCHK >> 8, w_NUMCHK & 0xFF, 1, 2, w_PEXPR >> 8, w_PEXPR & 0xFF, w_NUMCHK >> 8, w_NUMCHK & 0xFF, 30, 0
+w_O_AND:
+    #d8 51, w_NUMCHK >> 8, w_NUMCHK & 0xFF, 1, 3, w_PEXPR >> 8, w_PEXPR & 0xFF, w_NUMCHK >> 8, w_NUMCHK & 0xFF, 29, 0
+w_STRN:
+    #d8 1, 40, w_EXPECT >> 8, w_EXPECT & 0xFF, w_SEXPR >> 8, w_SEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, 5, w_NEXPR & 0xFF, w_NEXPR >> 8
+w_GH:
+    #d8 2, 224, 1, 8, 76, 28, 10, 79, 5, w_RSHIFT & 0xFF, w_RSHIFT >> 8
+w_MKSTR:
+    #d8 12, w_TMPALLOC >> 8, w_TMPALLOC & 0xFF, 12, 19, 33, 14, 45, 20, 0
+w_DEL_:
+    #d8 w_FILENAME >> 8, w_FILENAME & 0xFF, 1, 0, 2, (fs_delete) & 0xFF, (fs_delete) >> 8, 5, w_FCALL & 0xFF, w_FCALL >> 8
+w_PICK:
+    #d8 35, 1, 2, 27, 10, (DSP) & 0xFF, 27, 23, 0
+w_HOME:
+    #d8 1, 0, 11, 13, 1, 0, 11, 14, 0
+w_FERR:
+    #d8 2, 128, 93, 24, 1, 17, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_LINENO:
+    #d8 49, 57, 40, 4, 2, w_SYNERR >> 8, w_SYNERR & 0xFF, 50, 0
+w_SKIPLINE:
+    #d8 8, 48, 25, 4, 3, 51, 3, 248, 0
+w_F_VAL:
+    #d8 w_SARG >> 8, w_SARG & 0xFF, w_SVAL >> 8, w_SVAL & 0xFF, 1, 0, 11, 66, 0
+w_POKE_:
+    #d8 w_NEXPR >> 8, w_NEXPR & 0xFF, w_COMMA >> 8, w_COMMA & 0xFF, w_NEXPR >> 8, w_NEXPR & 0xFF, 14, 26, 0
+w_FCALL:
+    #d8 48, w__Q_DUP >> 8, w__Q_DUP & 0xFF, 4, 3, 5, w_FERR & 0xFF, w_FERR >> 8, 0
+w_MIN:
+    #d8 18, 39, 4, 2, 13, 0, 16, 0
+w_MAX:
+    #d8 18, 39, 4, 2, 16, 0, 13, 0
+w_ENDS_Q_:
+    #d8 12, 40, 14, 1, 58, 37, 30, 0
+w_GMB:
+    #d8 10, 79, 35, 35, 10, 78, 27, 0
+w_NUMCHK:
+    #d8 10, 66, 4, 3, 5, w_TMERR & 0xFF, w_TMERR >> 8, 0
+w_F_FRE:
+    #d8 w_NARG >> 8, w_NARG & 0xFF, 13, w_GC >> 8, w_GC & 0xFF, 5, w_FREE & 0xFF, w_FREE >> 8
+w_F_LEN:
+    #d8 w_SARG >> 8, w_SARG & 0xFF, 25, 1, 0, 11, 66, 0
+w_FORDROP:
+    #d8 8, 64, 1, 10, 27, 9, 64, 0
+w_GW:
+    #d8 2, 128, 2, 10, 78, 5, w_RSHIFT & 0xFF, w_RSHIFT >> 8
+w_PPBM:
+    #d8 1, 8, 10, 78, w_RSHIFT >> 8, w_RSHIFT & 0xFF, 34, 0
+w_ABS:
+    #d8 12, 41, 4, 2, 32, 33, 0
+w__P__ST_:
+    #d8 12, 19, 23, 27, 20, 24, 0
+w_WITHIN:
+    #d8 15, 28, 19, 28, 20, 38, 0
+w_KEY_Q_:
+    #d8 1, 0, 2, (kbd_getc) & 0xFF, (kbd_getc) >> 8, 48, 0
+w_NEW_:
+    #d8 w_NEWPROG >> 8, w_NEWPROG & 0xFF, w_CLEARV >> 8, w_CLEARV & 0xFF, 5, w_WARM & 0xFF, w_WARM >> 8
+w_ALNUM_Q_:
+    #d8 12, 57, 14, 58, 30, 0
+w_EMIT:
+    #d8 2, 120, 93, 23, 44, 0
+w_FREE:
+    #d8 8, 60, 8, 58, 28, 0
+w_O_DIV:
+    #d8 w_NRIGHT >> 8, w_NRIGHT & 0xFF, w_SDIVMOD >> 8, w_SDIVMOD & 0xFF, 16, 0
+w_O_MOD:
+    #d8 w_NRIGHT >> 8, w_NRIGHT & 0xFF, w_SDIVMOD >> 8, w_SDIVMOD & 0xFF, 13, 0
+w_COUNT:
+    #d8 12, 33, 14, 25, 0
+w_CR:
+    #d8 1, 10, 5, w_EMIT & 0xFF, w_EMIT >> 8
+w_SPACE:
+    #d8 1, 32, 5, w_EMIT & 0xFF, w_EMIT >> 8
+w_SYNERR:
+    #d8 1, 1, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_OOMERR:
+    #d8 1, 2, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_ULERR:
+    #d8 1, 3, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_TMERR:
+    #d8 1, 4, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_D0ERR:
+    #d8 1, 5, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_RGERR:
+    #d8 1, 6, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_NFERR:
+    #d8 1, 7, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_ODERR:
+    #d8 1, 8, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_BSERR:
+    #d8 1, 9, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_ILLQ:
+    #d8 1, 10, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_STLERR:
+    #d8 1, 11, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_CCERR:
+    #d8 1, 12, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_RDERR:
+    #d8 1, 13, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_IDERR:
+    #d8 1, 15, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_LAYERR:
+    #d8 1, 16, 5, w_ERROR & 0xFF, w_ERROR >> 8
+w_COMMA:
+    #d8 1, 44, 5, w_EXPECT & 0xFF, w_EXPECT >> 8
+w_TMPCOPY:
+    #d8 w_COUNT >> 8, w_COUNT & 0xFF, 5, w_MKSTR & 0xFF, w_MKSTR >> 8
+w_NEXPR:
+    #d8 w_EXPR >> 8, w_EXPR & 0xFF, 5, w_NUMCHK & 0xFF, w_NUMCHK >> 8
+w_EXPR:
+    #d8 1, 1, 5, w_PEXPR & 0xFF, w_PEXPR >> 8
+w_F_ABS:
+    #d8 w_NARG >> 8, w_NARG & 0xFF, 5, w_ABS & 0xFF, w_ABS >> 8
+w_GOTO_:
+    #d8 w_LINENO >> 8, w_LINENO & 0xFF, 5, w_GOLN & 0xFF, w_GOLN >> 8
+w_GOSUB_:
+    #d8 w_LINENO >> 8, w_LINENO & 0xFF, 5, w_DOGOSUB & 0xFF, w_DOGOSUB >> 8
+w_RESTORE_:
+    #d8 1, 0, 9, 70, 0
+w_LOAD_:
+    #d8 w_LOADFILE >> 8, w_LOADFILE & 0xFF, 5, w_WARM & 0xFF, w_WARM >> 8
+w_F_PEEK:
+    #d8 w_NARG >> 8, w_NARG & 0xFF, 25, 0
+w_TUCK:
+    #d8 14, 15, 0
+w_NEGATE:
+    #d8 32, 33, 0
+w__GT_:
+    #d8 14, 39, 0
+w__LT__GT_:
+    #d8 37, 40, 0
+w_0_LT__GT_:
+    #d8 40, 40, 0
+w_LNUM:
+    #d8 33, 23, 0
+w_F_INKEY:
+    #d8 5, w_KEY_Q_ & 0xFF, w_KEY_Q_ >> 8
+w_END_:
+    #d8 5, w_WARM & 0xFF, w_WARM >> 8
+w_STOP_:
+    #d8 5, w_BREAK & 0xFF, w_BREAK >> 8
+w_REM_:
+    #d8 5, w_SKIPLINE & 0xFF, w_SKIPLINE >> 8
+w_DATA_:
+    #d8 5, w_SKIPSTMT & 0xFF, w_SKIPSTMT >> 8
+w_CLEAR_:
+    #d8 5, w_CLEARV & 0xFF, w_CLEARV >> 8
+w_CLS_:
+    #d8 5, w_SETSCREEN & 0xFF, w_SETSCREEN >> 8
 
 #addr 0xFC00
     #d8 MODE_32K

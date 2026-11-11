@@ -45,9 +45,14 @@
 ; 0), the menu block x5D00-x5D6F (placard_menu.asm) and the FAT driver's
 ; x4D00-x4FFF.
 ;
-; ROM: x8000-x80FF vectors, x8100-x9EFF and xA000-xAFFF this code and
-; BASIC (asm_expand.py pages it), x9F00-x9FFF LIB_RAM's image (the boot
-; reads it at x1F00 on a 32K cartridge), xB000-xBFFF the FAT writer.
+; ROM, grouped by 8 KB section (docs/architecture/ROM.md): section 4 has
+; the vectors x8000-x80FF (the boot mode byte 02 at x8005), this loader and
+; the end of BASIC x8100-x91FF, then the library's sound driver, font and
+; LIB_RAM's image x9F00-x9FFF (the boot reads it at x1F00 on a 32K
+; cartridge); section 5 xA000-xBFFF is BASIC and nothing else (asm_expand.py
+; pages it and lets it run on into section 4); section 6 has the SD driver,
+; the FAT reader and the FAT writer; section 7 the rest of the library and
+; the boot loader.
 ;
 ;     python3 asm_expand.py rom32.masm        writes rom32.asm
 ;     build\rom32.bat                         the FPGA, rom_32k.bin
@@ -60,12 +65,12 @@
 #include "placard_lib.asm"
 #include "placard_fsw.asm"
 
-ROM_CODE  = 0x8100      ; this code, up to LIB_RAM's image
-ROM_TOP   = 0x9F00
-ROM_CODE2 = 0xA000      ; and on after it, up to the FAT writer
-ROM_TOP2  = 0xB000
+ROM_CODE  = 0x8100      ; this code, up to the sound driver (SND_CODE): ROM section 4
+ROM_TOP   = 0x9200
+ROM_CODE2 = 0xA000      ; BASIC: ROM section 5, and what is left of section 4
+ROM_TOP2  = 0xC000
 BOOT      = 0xFD00      ; rom_boot.asm: the boot loader (its reset code jumps here)
-BOOT_MODE = 0xFC00      ; the boot mode byte: 02 = the 32K image (jump to x8100)
+BOOT_MODE = 0xFC00      ; 02 here marks the 32K image for the tools (the boot reads x8005)
 MODE_32K  = 0x02
 MAP_RUN   = 0x07        ; sections 0-2 RAM, 3-7 ROM
 LIB_RAM_IMG = 0x9F00    ; LIB_RAM's bytes in the 32K image
@@ -120,7 +125,8 @@ l_dos   = 0x2B          ; 1 = loading DOS.PLC (from the root; a failure starts B
     #d8 MODE_32K
 
 .prefix rom
-.region ROM_CODE, ROM_TOP
+.region ROM_CODE2, ROM_TOP2     ; named first so that BASIC's chunks go on from it into
+.region ROM_CODE, ROM_TOP       ; section 4; the loader's own chunks stay in section 4
 
 ; ============================================================
 ; power_up - the boot loader comes here with map 05
