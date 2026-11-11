@@ -11,7 +11,7 @@
 ;   9 AC/X  10 Y address  11 X address  12 ROM data  13 RAM data
 ;   14 map register  15 RAM address lines  16 video line read
 ;
-; Date: 10/25/2026
+; Date: 11/11/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -4220,6 +4220,8 @@ cp_465:
     ld   ac, [MAP_SHADOW]
     ld   STACK_TOP, ac
     ld   ac, [SP]
+    ld   LIB_FONT >> 8, ac
+    ld   ac, [FONT_PG]
     ld   0x00, ac
     ld   ac, [0x41]
     ld   0x00, ac

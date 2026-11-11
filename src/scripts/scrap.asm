@@ -54,7 +54,7 @@
 ;     python3 gen_plc.py scrap.asm -o ../../sdcard/SCRAP.PLC --dir SCRAP --overlay 0xC000,2 ...   (the whole line: docs/software/SCRAP.md)
 ;     python3 test_scrap_sim.py                       runs it in placard_sim
 ;
-; Date: 11/10/2026
+; Date: 11/11/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -4101,7 +4101,7 @@ ta_go10:
     ld   ac, [p_k]
 tp_l:
     ld   [p_k], ac
-    add  LIB_FONT >> 8, y
+    add  [FONT_PG], y
     ld   [p_ch], x
     ld   [y,x], ac
     ld   [p_pg], y

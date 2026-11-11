@@ -53,7 +53,7 @@
 ;     build\rom32.bat                         the FPGA, rom_32k.bin
 ;     python3 test_dos.py                     runs it with a card image
 ;
-; Date: 11/02/2026
+; Date: 11/11/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -492,8 +492,11 @@ mount:
 m_x:
     LEAVE
 
-.chunk  lib_ram_copy - LIB_RAM back: ROM x9F00-x9FFF to RAM x1F00-x1FFF (a leaf)
+.chunk  lib_ram_copy - LIB_RAM back: ROM x9F00-x9FFF to RAM x1F00-x1FFF, and the
+        ; standard font back in FONT_PG (a leaf)
 lib_ram_copy:
+    ld   LIB_FONT >> 8, ac
+    ld   ac, [FONT_PG]
     clr  ac
     ld   ac, [l_t]
 lrc:

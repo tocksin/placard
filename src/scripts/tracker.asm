@@ -78,7 +78,7 @@
 ;                                                     (and TRACKER.OVL)
 ;     python3 test_tracker.py                         runs it in placard_sim
 ;
-; Date: 11/10/2026
+; Date: 11/11/2026
 ; ============================================================
 
 #include "placard.asm"
@@ -807,7 +807,7 @@ ta_go3:
     ld   ac, [p_k]
 tp_l:
     ld   [p_k], ac
-    add  LIB_FONT >> 8, y
+    add  [FONT_PG], y
     ld   [p_ch], x
     ld   [y,x], ac
     ld   [p_pg], y

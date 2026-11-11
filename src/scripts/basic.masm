@@ -24,7 +24,7 @@
 ; The library is used as by any program (CALL, the stack at xC0-xFF);
 ; R0-R7 and T0-T7 are free between primitives.
 ;
-; Date: 10/27/2026
+; Date: 11/11/2026
 ; ============================================================
 
 ; the machine's zero page
@@ -1621,7 +1621,7 @@ gl_row:
     shl
     add  [W1], ac
     ld   ac, [W1]
-    ld   LIB_FONT >> 8, ac
+    ld   [FONT_PG], ac
     ld   ac, [W3]
 gl_lp:
     ld   [TL], x
@@ -1636,7 +1636,8 @@ gl_lp:
     ld   [W3], ac
     inc
     ld   ac, [W3]
-    xor  (LIB_FONT >> 8) + 8, ac
+    sub  [FONT_PG], ac
+    xor  8, ac
     bne  gl_lp
     ld   p_drop >> 8, y
     jmp  p_drop

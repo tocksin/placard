@@ -1,6 +1,6 @@
 # I/O: SNES pads, SD card, PS/2 keyboard and mouse
 
-Date: 2026-11-02
+Date: 2026-11-11
 
 Both SNES pads, the SD card, a PS/2 mouse and a PS/2 keyboard share one
 port at x5200-x52FF.  They are polled, never used at the same moment, so
@@ -483,7 +483,7 @@ The drivers use xA0-xBF (`zeropage.asm`); programs have x20-x8F.
 | xB9-xBC | IO_T0-IO_T3 | Driver scratch |
 | xBD | FS_IDX | FAT reader scratch |
 | xBE | PS2_LSN | The latch value letting the listened PS/2 device send: EB none, EF the mouse, FB the keyboard |
-| xBF | — | spare |
+| xBF | `FONT_PG` | Not an I/O byte: the high byte of the font's first page ([LIBRARY.md](../software/LIBRARY.md#text-console)) |
 
 The PS/2 driver's state is in RAM at x4D80-x4D99 (next to the FAT
 reader's x4D00-x4D7F): new presses, the decoder state, the probe retry

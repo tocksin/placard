@@ -89,6 +89,8 @@ DST         = 0xFE      ; RAM page being written (zero page, during the copy)
 SRC         = 0xFF      ; ROM page being read (then page x00's count)
 CNT         = 0xFD      ; byte in the page (X is not a source)
 MAP_SHADOW  = 0x07      ; zeropage.asm: copy of the map register
+FONT_PG     = 0xBF      ; zeropage.asm: high byte of the font's first page
+LIB_FONT    = 0xEC00    ; placard_lib.asm: the standard font
 MAP_ROM_RUN = 0x05      ; ROM program: sections 0 and 2 read RAM, 1 and 3-7 ROM
 PROG_START  = 0x6000    ; ROM program entry
 DOS_START   = 0x8100    ; the DOS's entry (dos.masm)
@@ -229,6 +231,8 @@ boot_rom:
     ld   MAP_ROM_RUN, [y,x]     ; map = 05 (section 7 keeps its bit)
     ld   MAP_ROM_RUN, ac
     ld   ac, [MAP_SHADOW]
+    ld   LIB_FONT >> 8, ac      ; the standard font
+    ld   ac, [FONT_PG]
     ld   PROG_START >> 8, y
     jmp  PROG_START & 0xFF
 

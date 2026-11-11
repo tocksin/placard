@@ -50,7 +50,7 @@
 ;     python3 placard_sim.py text_demo.asm --run --max-steps 3000000 --png td.png
 ;     python3 text_demo_sim.py                (checks it; --gif for an animation)
 ;
-; Date: 10/22/2026
+; Date: 11/11/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -387,7 +387,7 @@ td_g_r:
     ld   [y,x], ac
     ld   ac, [c_ch]
     ld   [i1], ac               ; font byte
-    add  LIB_FONT >> 8, ac
+    add  [FONT_PG], ac
     ld   ac, y
     ld   [c_ch], x
     ld   [y,x], ac
@@ -1108,7 +1108,7 @@ td_sc_pages:
     add  0x14, x
     ld   [y,x], ac
     ld   ac, [sc_tro]
-    ld   LIB_FONT >> 8, ac      ; font row 0
+    ld   [FONT_PG], ac          ; font row 0
     ld   ac, [sc_fp]
     ld   SC_X0, ac
     ld   ac, [sc_vx]
@@ -1462,7 +1462,7 @@ td_c2_hi:
 #addr 0x6E00
 td_c2_row:
     ld   [c_fr], ac             ; font byte
-    add  LIB_FONT >> 8, ac
+    add  [FONT_PG], ac
     ld   ac, y
     ld   [c_ch], x
     ld   [y,x], ac
@@ -1532,7 +1532,7 @@ td_char4:
 #addr 0x6F00
 td_c4_row:
     ld   [c_fr], ac             ; font byte
-    add  LIB_FONT >> 8, ac
+    add  [FONT_PG], ac
     ld   ac, y
     ld   [c_ch], x
     ld   [y,x], ac

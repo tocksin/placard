@@ -387,11 +387,28 @@ bytes to move it.  The font has printable ASCII (20-7E); codes 80-FF print
 the same characters in inverse video.  Call `con_clear` (or `con_home`
 after setting the modes yourself) before printing.
 
+**Your own font.**  `con_putc` (and so `con_puts`, the number routines and
+`con_gets`) takes each character's pixels from the font that `FONT_PG`
+(zero page xBF) points at.  The boot and the card loader set it to the
+standard font, `LIB_FONT >> 8`.  To use another, put 8 pages somewhere the
+program's map reads (RAM x0100-x5FFF for a card program), page k holding
+row k (0 = top) of all 256 characters, the same layout as `lib_font.asm`
+(`gen_lib_font.py` writes it), and store the first page's high byte:
+
+```
+    ld   MY_FONT >> 8, ac
+    ld   ac, [FONT_PG]
+```
+
+BASIC, SCRAPWRIGHT, the tracker and the text demo draw their own text and
+read the font through `FONT_PG` as well.  The loader puts the standard font
+back whenever a program starts or ends.
+
 | Routine | In | Out | Changes | Clocks | Stack |
 |---------|----|-----|---------|--------|-------|
 | `con_clear` | | Screen cleared, every row 1 bpp, cursor at 0, 0 | AC, X, Y, T0, T1 | 505,814 (20.1 ms) | |
 | `con_home` | | Cursor at column 0, row 0 | X | 20 | |
-| `con_putc` | AC = character, 0A = newline | AC kept, cursor moved on | X, Y, T0-T5 | 327 | |
+| `con_putc` | AC = character, 0A = newline | AC kept, cursor moved on | X, Y, T0-T5 | 376 | |
 | `con_newline` | | AC kept, cursor at the start of the next row | X, Y, T0-T5 | 39 | |
 | `con_scroll` | | AC kept, text moved up one row, bottom row cleared | X, Y, T1-T5 | 1,159,005 (46.0 ms) | |
 | `con_puts` | R1:R0 = string ending in a 00 byte | R1:R0 = address of the 00 | AC, X, Y, T0-T5 | about 369 per character | 2 |

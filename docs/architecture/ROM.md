@@ -137,7 +137,7 @@ first; programs must leave x1F00-x1FFF alone.
 | Library RAM code | RAM x1F00-x1FFF | `LIB_RAM` in `placard_lib.asm` |
 | Jump table | ROM xFB00-xFBFF | `LIB_JT` in `placard_lib.asm` |
 | Library core routines | ROM xF400-xFAFF | `LIB_CODE` in `placard_lib.asm` |
-| Font (8x8, printable ASCII) | ROM xEC00-xF3FF | `LIB_FONT` in `placard_lib.asm` |
+| Font (8x8, printable ASCII) | ROM xEC00-xF3FF, or wherever `FONT_PG` (zero page xBF) points | `LIB_FONT` in `placard_lib.asm` |
 | I/O drivers | ROM xDC00-xEBFF | `IO_CODE` in `placard_lib.asm` |
 | Sound driver | ROM xD700-xDBFF | `SND_CODE` in `placard_lib.asm` |
 | Line input, mouse pointer | ROM xD500-xD6FF | `INPUT_CODE` in `placard_lib.asm` |
