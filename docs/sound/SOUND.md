@@ -16,13 +16,13 @@ sample to a resistor DAC.  Software only keeps a 525-byte buffer filled.
 
 ## Schematic
 
-![Placard audio schematic](../../schematics/placard_audio_schematic.png)
+![Video and audio out, sheet 9 of the schematic](../../schematics/placard_video_audio_schematic.png)
 
-The drawing is made by `src/scripts/gen_audio_schematic.py`;
-rerun it when the pins change.  It shows the audio slot PLD (U35), the Sync
-PLD pins that make the read (U15), the pixel buffer (U22), the DAC register
-(U36) with its filtered supply, the R-2R ladder, the filter and the jack (J6),
-and the timing of one line around the read.
+This is sheet 9 of the schematic (`schematics/placard_main.pdf`): the pixel
+buffer (U22), the DAC register (U36) with its filtered supply (R22, C44,
+C36), the R-2R ladder (R23-R38), the filter (C45, C46, R39) and the jack
+(J6).  The audio slot PLD (U35) and the Sync PLD (U15) that make the read
+are on sheet 8.
 
 ## How the sample is read
 

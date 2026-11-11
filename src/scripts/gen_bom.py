@@ -22,7 +22,7 @@ shells, screws) are added here.
     python3 src/scripts/gen_kicad_schematic.py    # after a part change
     python3 src/scripts/gen_bom.py
 
-Date: 2026-11-03
+Date: 2026-11-11
 """
 import csv
 import glob
@@ -33,7 +33,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-11-06"
+DATE = "2026-11-11"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 
@@ -312,9 +312,9 @@ CART_SHELL_NOTE = ("Not designed yet: two halves round the card and J8's body, 4
 PCB_LINES = {
     "Main board": [mech(1, "PCB, main board, 290 x 215 mm, 4-layer, 1.6 mm, HASL lead-free", 16.00,
                         "JLCPCB/PCBWay typical", mpn="PLC-1001 rev B", mfr="(custom PCB)")],
-    "Cartridge, 64K": [mech(1, "PCB, 64K cartridge, 39 x 102.2 mm, 2-layer, ENIG, hard-gold bevelled fingers", 4.00,
+    "Cartridge, 64K": [mech(1, "PCB, 64K cartridge, 39 x 102.2 mm, 4-layer, ENIG, hard-gold bevelled fingers", 4.00,
                             "JLCPCB/PCBWay typical", mpn="PLC-1003 rev A", mfr="(custom PCB)")],
-    "Cartridge, 32K": [mech(1, "PCB, 32K cartridge, 39 x 66.0 mm, 2-layer, ENIG, hard-gold bevelled fingers", 3.50,
+    "Cartridge, 32K": [mech(1, "PCB, 32K cartridge, 39 x 66.0 mm, 4-layer, ENIG, hard-gold bevelled fingers", 3.50,
                             "JLCPCB/PCBWay typical (smaller than the 64K board)", mpn="PLC-1002 rev B",
                             mfr="(custom PCB)")],
 }

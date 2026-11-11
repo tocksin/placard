@@ -5,16 +5,22 @@ the audio slot PLD, the Sync PLD pins that make the blanking reads, the
 pixel buffer, the DAC register and its filtered supply, the R-2R ladder,
 the filter and the audio line out jack, plus the timing of one line.
 
-    python3 gen_audio_schematic.py              writes schematics/placard_audio_schematic.png
+    python3 gen_audio_schematic.py              writes docs/archive/schematics/placard_audio_sketch_2026-10-19.png
     python3 gen_audio_schematic.py out.png      writes out.png
 
 Needs matplotlib (python3 -m pip install matplotlib).  The pin numbers are
 typed in from ATF22V10_AUDIO.pld, ATF22V10_SYNC.pld, ATF22V10_HCOUNT.pld,
 ATF22V10_QUAD_MUX.pld, docs/sound/SOUND.md, docs/architecture/CHIPS.md and the parts' data
 sheets; update them here when those change and rerun.  Nets with the same
-label are connected.  Same drawing style as gen_io_schematic.py.
+label are connected.
 
-Date: 2026-11-02
+ARCHIVED (2026-11-11): this sketch was drawn before the KiCad schematic and
+its part numbers (R12-R29, C3-C6) and PLD revisions are the ones of
+2026-10-19.  The real audio circuit is sheet 9 of schematics/placard_main.pdf
+(schematics/placard_video_audio_schematic.png).  Kept for the line timing
+drawing; bring the pins and part numbers up to date before using it again.
+
+Date: 2026-11-11
 """
 import os
 import sys
@@ -451,7 +457,7 @@ T(nx, ny + 37, "Each chip has a 100 nF capacitor across its supply pins.  U-numb
 T(nx, ny + 39.8, "docs/video/VIDEO.md, the PLD files, 2026-10-19.", fs=6.8, color=MUTE)
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "..", "schematics", "placard_audio_schematic.png")
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "docs", "archive", "schematics", "placard_audio_sketch_2026-10-19.png")
 fit_text(fig, ax)
 fig.savefig(out, dpi=100)
 print("wrote", os.path.normpath(out))

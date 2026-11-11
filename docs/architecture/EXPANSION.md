@@ -510,8 +510,10 @@ middle.  The footprint `Molex_87715-9106_Expansion_Slot` puts the
 connector 7.63 mm from its origin.  The shell adds 0.5 mm
 air and a 2 mm wall each end, and the keepout 1 mm more.
 
-![64K cartridge board](../hardware/cart_placement_64k.png)
-![32K cartridge board](../hardware/cart_placement_32k.png)
+![32K cartridge board](../hardware/cart_board_32k.png)
+![64K cartridge board](../hardware/cart_board_64k.png)
+
+(`src/scripts/gen_board_pictures.py` draws both from the board files.)
 
 | Slot | Shell outside | Keepout (courtyard) | From the footprint origin |
 |---|---|---|---|
@@ -519,7 +521,8 @@ air and a 2 mm wall each end, and the keepout 1 mm more.
 | J9-J12 card | 77 x 22.6 mm | 79 x 24.6 mm | x -15.37 to 63.63, y -7.25 (side B) to 17.35 (side A) |
 
 **Expansion slot pitch.**  A card's keepout is 24.6 mm across, so the
-slots need at least 24.6 mm between centres: 1.05" (26.67 mm) or more.  A
+slots need at least 24.6 mm between centres.  The main board puts them
+27 mm apart, slot 1 (J9) nearest the middle of the board.  A
 card that reaches the board's back edge for its own connector needs that strip kept clear too; the keepout
 covers only the shell over the slot.
 

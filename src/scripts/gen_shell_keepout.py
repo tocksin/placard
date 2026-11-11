@@ -13,7 +13,7 @@ there shows here after a rerun of both scripts:
   keepouts);
 - the four expansion slots side by side at the old and new pitch.
 
-Date: 2026-11-02
+Date: 2026-11-11
 """
 
 import os
@@ -137,8 +137,8 @@ def top_views(ax):
 def pitch_view(ax):
     c = gc.EXP_OFS + 16.5
     hd, hl = 3.75, 19.25
-    for row, (pitch, lab) in enumerate([(20.32, "0.8\" (20.32 mm), as now: shells collide"),
-                                        (26.67, "1.05\" (26.67 mm): keepouts clear")]):
+    for row, (pitch, lab) in enumerate([(20.32, "0.8\" (20.32 mm): shells would collide"),
+                                        (27.0, "27 mm, as built: keepouts clear")]):
         yo = -row * 120
         for i in range(4):
             x0, y0, x1, y1 = gc.shell_box(c, gc.EXP_W, hd, gc.EXP_PARTS)
@@ -146,9 +146,9 @@ def pitch_view(ax):
             bx = i * pitch
             box(ax, bx + y0, yo + x0 - c, bx + y1, yo + x1 - c, fc=KEEP, alpha=0.15, ec=KEEP, lw=1)
             box(ax, bx - hd, yo - hl, bx + hd, yo + hl, fc="#cccccc", ec="black", lw=0.5)
-            ax.text(bx, yo, "J%d" % (9 + i), rotation=90, ha="center", va="center", fontsize=7)
+            ax.text(bx, yo, "J%d" % (12 - i), rotation=90, ha="center", va="center", fontsize=7)
         ax.text(-12, yo + 45, lab, fontsize=9, weight="bold", color=KEEP if row == 0 else "black")
-    ax.set_xlim(-14, 3 * 26.67 + 22)
+    ax.set_xlim(-14, 3 * 27.0 + 22)
     ax.set_ylim(-170, 58)
     ax.set_aspect("equal")
     ax.set_title("Expansion slot pitch", fontsize=10)

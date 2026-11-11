@@ -1,48 +1,59 @@
 # KiCad project
 
-The Placard schematic and PCB layout, one KiCad project (made in the KiCad 7
-file format, so KiCad 7, 8 and 9 all open it; a newer KiCad upgrades the files
-when it saves them).
+Date: 2026-11-11
+
+The Placard schematic and PCB layout, one KiCad project for the main board
+and one for each cartridge.  The files are saved by KiCad 9, so open them
+with KiCad 9 or newer.  Board revisions are in
+[docs/hardware/RELEASES.md](../docs/hardware/RELEASES.md): rev A is the
+board as ordered (git tag `rev-A`), and the files here are the working
+rev B.
 
 | File | What it is |
 |------|------------|
 | `placard.kicad_pro` | the project; open this in KiCad |
 | `placard.kicad_sch` | the schematic's root sheet (A3): one box per sheet, laid out like the block diagram |
 | `power.kicad_sch` ... `expansion.kicad_sch` | the ten sheets (power and clock, control, PC and address mux, ALU and registers, data bus, memory and I/O decode, video timing, video and audio out, shared port, expansion slots), docs/hardware/SCHEMATIC_PLAN.md |
-| `cartridge_64k/` | the 64K ROM cartridge (5 chips), its own project (`cartridge_64k.kicad_pro`, one sheet and a placed, unrouted 2-layer board), using the same `lib/` |
-| `cartridge_32k/` | the 32K ROM cartridge (3 chips), its own project (`cartridge_32k.kicad_pro`, one sheet and a placed, unrouted 2-layer board), using the same `lib/`; mounting hole H1 at the same place as on the 64K board |
-| `placard.kicad_pcb` | the board: 4 layers (F.Cu, In1.Cu = GND, In2.Cu = VCC, B.Cu) |
+| `cartridge_64k/` | the 64K ROM cartridge (5 chips), its own project (`cartridge_64k.kicad_pro`, one sheet and a routed 4-layer board), using the same `lib/` |
+| `cartridge_32k/` | the 32K ROM cartridge (3 chips), its own project (`cartridge_32k.kicad_pro`, one sheet and a routed 4-layer board), using the same `lib/`; mounting hole H1 at the same place as on the 64K board |
+| `placard.kicad_pcb` | the main board, routed: 4 layers (F.Cu, In1.Cu = GND, In2.Cu = VCC, B.Cu) |
 | `lib/placard.kicad_sym` | PLD symbols: `ATF22V10C` (generic) and one `ATF22V10C_<name>` per `.pld` file, with its pin names |
 | `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `PS2_Dual_Stacked`, `USB_C_Power` |
 | `lib/placard_std.kicad_sym` | copies of the stock KiCad symbols the sheets use (74xx, R, C, D, connectors, regulator, the cartridge EEPROM `28C256`, and the power symbols `+5V`, `GND`, `+3V3`, `GNDA`, `PWR_FLAG`) with larger pin text, written by `src/scripts/gen_kicad_std.py` |
-| `lib/placard.pretty/` | project footprints: the main board's connectors and switches (preliminary, written by `src/scripts/gen_kicad_connectors.py`), and kit versions of KiCad's DIP socket footprints (`DIP-nn_..._Socket_Puller`: chip-puller room on User.Eco1, part number in silkscreen) and of the axial resistor (`..._Value`: value in silkscreen), written by `src/scripts/gen_kicad_kit_footprints.py`, and copies of the KiCad 9.0.6 footprints the boards use (capacitors, diodes, LED, pin header, oscillator, TO-92, SIP resistor array, mounting holes, net tie; KiCad 9 format), written by `src/scripts/gen_kicad_stock_footprints.py` |
+| `lib/placard.pretty/` | project footprints: the main board's connectors and switches (written by `src/scripts/gen_kicad_connectors.py`), and kit versions of KiCad's DIP socket footprints (`DIP-nn_..._Socket_Puller`: chip-puller room on User.Eco1, part number in silkscreen) and of the axial resistor (`..._Value`: value in silkscreen), written by `src/scripts/gen_kicad_kit_footprints.py`, and copies of the KiCad 9.0.6 footprints the boards use (capacitors, diodes, LED, pin header, oscillator, TO-92, SIP resistor array, mounting holes, net tie; KiCad 9 format), written by `src/scripts/gen_kicad_stock_footprints.py` |
 | `lib/placard.3dshapes/` | 3D models (STEP) for the connectors, switches and polyfuse, named after their footprints and referenced as `${KIPRJMOD}/lib/placard.3dshapes/...`, so they show in any KiCad version without a 3D library path; written by `src/scripts/gen_kicad_3d_models.py` (CadQuery), which also copies in KiCad's own models for SW2, J7 and J13, and KiCad's models for the stock, socket and resistor footprints, copied by `src/scripts/gen_kicad_stock_footprints.py` |
 | `sym-lib-table`, `fp-lib-table` | point KiCad at the project libraries |
-| `fab/` | Gerbers, drill files, BOM and placement files for a board order |
+| `fab/` | the rev A Gerber and drill files as ordered ([fab/README.md](fab/README.md)) |
 
-The board is 290 x 215 mm (290 wide, the keyboard's width; 215 deep, so kit
-builders have room), 4 layers, with the
-outline, dimensions, user connectors, cartridge slot, expansion slots,
-and mounting holes placed by `src/scripts/gen_kicad_pcb.py`
-(run with `python3.12`, which KiCad 7's Python module is built for; `--png`
-also draws [docs/hardware/placard_board_layout.png](../docs/hardware/placard_board_layout.png)).
+The main board is 290 x 215 mm (290 wide, the keyboard's width; 215 deep, so
+kit builders have room), 4 layers, placed and routed.
+
+![Main board](../docs/hardware/placard_board_layout.png)
+
+![Main board copper, front red and back blue](../docs/hardware/placard_board_routing.png)
+
 The back edge carries USB-C power, audio line out, VGA and the stacked PS/2;
-the left side the power switch, reset button and SD card; the right side
-the two SNES ports.  The cartridge and the four expansion cards stand up
-through the case top at the back, behind the keyboard, which lies over
-the front 65 mm.  Rerunning the script moves only the parts it places.
-It also places every other part as a fit test, unrouted
-([docs/hardware/placard_placement.png](../docs/hardware/placard_placement.png)): six rows of
-socketed chips 35 mm apart, spread across the width, every DIP on KiCad's
-`_Socket` footprint with 2.5 mm of chip-puller room clear past each socket
-end, Cn 1 mm beside Un, and the script reports courtyard overlaps
-(KiCad DRC) and puller-room conflicts.
+the left side the power switch, reset button and SD card; the front edge the
+two SNES ports.  The cartridge and the four expansion cards stand up
+through the case top.  Every DIP sits in a socket footprint with 2.5 mm of
+chip-puller room clear past each socket end, and Cn sits beside Un.
+`src/scripts/gen_board_pictures.py` draws the two pictures (and the
+cartridge pictures in [EXPANSION.md](../docs/architecture/EXPANSION.md))
+from the board files without changing them; rerun it after a layout change.
+
+The board file is edited in KiCad and by the autorouter, so it is the
+source.  `src/scripts/gen_kicad_pcb.py` made the first outline and placement
+and `src/scripts/gen_kicad_cart_pcb.py` the cartridges' placement; do not
+run either on the boards now (the cartridge script leaves an existing board
+alone unless given `--force`).  The first placement drawings are in
+[docs/archive/](../docs/archive/README.md).
+
 The footprints KiCad has no part for (cartridge slot, expansion slots,
-PS/2, SNES, the two switches) are written by
-`src/scripts/gen_kicad_connectors.py` from typical dimensions and are
-preliminary: check their holes against the datasheets before ordering.
-Their 3D models (`src/scripts/gen_kicad_3d_models.py`, picture in
-[docs/hardware/connector_3d_models.png](../docs/hardware/connector_3d_models.png)) are drawn at typical
+PS/2, SNES, the power switch, the relay) are written by
+`src/scripts/gen_kicad_connectors.py`.  The SNES sockets were measured from
+the part; the others are drawn from typical dimensions for the part family,
+so check them against the parts when the rev A boards arrive.
+Their 3D models (`src/scripts/gen_kicad_3d_models.py`) are drawn at typical
 dimensions too, with the leads put on the footprint pads.  J4 (SD), J7 (VGA),
 F1 and SW2 use project copies of KiCad's footprints (`placard:` library) only so
 they can point at the project's models; the pads are KiCad's.
@@ -117,15 +128,17 @@ review sheets (needs kicad-cli, cairosvg and Pillow).
 
 ## Schematic sheets
 
-`src/scripts/gen_kicad_schematic.py` writes all the `.kicad_sch` files
-(main board and cartridge) from its pin-by-pin net lists, so change a
-connection there and rerun it; a hand edit in KiCad is lost at the next
-run.  Nets with two or more pins on a sheet are wired by the small router in
+`src/scripts/gen_kicad_schematic.py` wrote the `.kicad_sch` files (main
+board and cartridges) from its pin-by-pin net lists.  Since 2026-10-30 the
+main-board sheets are edited in KiCad and the saved sheets are the source:
+never commit a full regeneration of them.  To use the script for one sheet,
+run it in a scratch copy, take only that sheet and check the netlist
+against the saved one (docs/hardware/SCHEMATIC_PLAN.md).  Nets with two or more pins on a sheet are wired by the small router in
 `src/scripts/kicad_route.py`, and numbered groups (`D0`-`D7`, ...) are drawn
 as one bus per sheet (docs/hardware/SCHEMATIC_PLAN.md, "How the sheets are drawn").
 `--check` compares KiCad's exported netlist with the script's nets and
-runs basic electrical checks; the full ERC needs KiCad 8 or newer (open the
-project, Inspect > Electrical Rules Checker).  PDFs of both are in
+runs basic electrical checks; for the full ERC open the project in KiCad
+(Inspect > Electrical Rules Checker).  PDFs of both are in
 [`../schematics/`](../schematics/).
 
 ## Dimension drawing
