@@ -966,9 +966,6 @@ def main(argv):
     asm = a.out[:-5] + '.asm'
     if a.plc != 'none':
         subprocess.check_call([sys.executable, os.path.join(HERE, 'gen_plc.py'), asm, '-o', a.plc])
-        rom = os.path.join(HERE, 'boing_rom.asm')
-        rom_wrapper(asm, rom)
-        subprocess.check_call([sys.executable, os.path.join(HERE, 'placard_sim.py'), rom])
     return 0
 
 

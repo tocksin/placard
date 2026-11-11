@@ -48,6 +48,7 @@ def main(argv):
                     help='the SD card program (RAYTEX.PLC + .OVL, gen_raycast_tex.py --sd), '
                          'booted from a card as the board does')
     args = ap.parse_args(argv)
+    args.sd = True      # the ROM build went on 2026-11-11 (docs/architecture/ROM.md)
 
     src, mem, syms, info = rc.build(sd=args.sd)
     if args.sd:

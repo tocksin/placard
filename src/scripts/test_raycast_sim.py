@@ -45,6 +45,7 @@ def main(argv):
                     help='the SD card program (RAYCAST.PLC as gen_raycast.py --sd makes it), '
                          'loaded as the DOS loads it')
     args = ap.parse_args(argv)
+    args.sd = True      # the ROM build went on 2026-11-11 (docs/architecture/ROM.md)
 
     src, _ = rc.gen(sd=args.sd)
     mem, syms, _ = ps.assemble(src, HERE)

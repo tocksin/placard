@@ -4507,9 +4507,6 @@ def main(argv):
     plc = a.plc or (os.path.join(HERE, '..', '..', 'sdcard', 'WIRE3D.PLC') if demo else None)
     if plc and plc != 'none':
         subprocess.check_call([sys.executable, os.path.join(HERE, 'gen_plc.py'), asm, '-o', plc])
-        rom = os.path.join(HERE, 'wire3d_rom.asm')
-        rom_wrapper(asm, rom)
-        subprocess.check_call([sys.executable, os.path.join(HERE, 'placard_sim.py'), rom])
     return 0
 
 

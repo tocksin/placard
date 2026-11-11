@@ -61,20 +61,23 @@
 # The image is written to ../hdl/rom.mem (relative to this script).  Set
 # ::ROM_OUT before sourcing to write to a different path instead.
 #
-# Date: 10/26/2026
+# Date: 11/11/2026
 
 set ROM_SIZE        65536
-set ROM_IMAGE_BASE  [expr {0x6000}] ;# RAM image: ROM address of RAM x0000
+set ROM_IMAGE_BASE  [expr {0x6000}] ;# RAM image: ROM address of RAM x0000 (x0000-x1FFF)
 set IMAGE_SIZE      [expr {0x4A00}] ;# RAM image: RAM x0000-x49FF is copied at boot
 set LIB_RAM_START   [expr {0x1F00}] ;# LIB_RAM in placard_lib.asm (copied to RAM at boot)
 set LIB_RAM_END     [expr {0x2000}]
 set PROG2_START     [expr {0x2000}] ;# more ROM program area (section 1)
 set PROG2_END       [expr {0x4000}]
 set PROG_START      [expr {0x6000}] ;# ROM program area and entry
-set PROG_END        [expr {0xC000}] ;# end of the ROM program area
+set PROG_END        [expr {0x8000}] ;# end of the ROM program area
 set SYS_START       [expr {0xC000}] ;# the library block (placard_lib.asm): slot helpers,
 set SYS_END         [expr {0xFC00}] ;# FAT, input, sound, I/O, font, code, jump table
-set BOOT_MODE       [expr {0xFC00}] ;# 00 = ROM program, 01 = RAM image, 02 = the 32K image
+set BOOT_MODE       [expr {0x0005}] ;# 00 = ROM program, 01 = RAM image, 02 = the 32K image:
+                                    ;# ROM x0005 (a 32K cartridge shows x8005 there)
+set DOS_MARK        [expr {0xFC00}] ;# rom32.asm puts 02 here: the 32K image's own program
+set IMAGE_SAME      [expr {0x2000}] ;# RAM image: from here up, ROM address = RAM address
 set MODE_DOS        2
 set DOS_START       [expr {0x8000}] ;# the 32K image's own area (vectors, loader, BASIC, FAT writer)
 set DOS_END         [expr {0xC000}]
@@ -190,7 +193,7 @@ proc gen_rom {outFile} {
     if {$n == $::ROM_SIZE} {
         set diff 0
         for {set a 0} {$a < $n} {incr a} {
-            if {([lib_area $a] || $a >= $::BOOT_MODE) && [lindex $bytes $a] != $rom($a)} {
+            if {([lib_area $a] || $a >= $::DOS_MARK) && [lindex $bytes $a] != $rom($a)} {
                 incr diff
             }
             set rom($a) [lindex $bytes $a]
@@ -206,12 +209,25 @@ proc gen_rom {outFile} {
         set skipProgram 0
     }
 
-    # rom32.asm: the 32K image, twice (see the top of this file)
-    if {!$skipProgram && $n > $::BOOT_MODE && [lindex $bytes $::BOOT_MODE] == $::MODE_DOS} {
+    # ---- the 32K image, in the upper half of every ROM ---------------------
+    # rom32.hex next to this script, or the program itself when it is
+    # rom32.asm's (it has 02 at DOS_MARK)
+    set isDos [expr {!$skipProgram && $n > $::DOS_MARK && [lindex $bytes $::DOS_MARK] == $::MODE_DOS}]
+    if {!$skipProgram} {
+        if {$isDos} {
+            set dos $bytes
+            set dosName $::ASM_FILE
+        } else {
+            set dosName [file join $dir rom32.hex]
+            if {![file exists $dosName]} {
+                error "gen_rom: $dosName not found (assemble rom32.asm)"
+            }
+            set dos [read_asm_bytes $dosName]
+        }
         set dosBytes 0
-        for {set a 0} {$a < $n} {incr a} {
-            set b [lindex $bytes $a]
-            if {$a == $::BOOT_MODE} {
+        for {set a 0} {$a < [llength $dos]} {incr a} {
+            set b [lindex $dos $a]
+            if {$a == $::DOS_MARK} {
                 continue
             }
             if {$a >= $::DOS_START && $a < $::DOS_END} {
@@ -237,7 +253,10 @@ proc gen_rom {outFile} {
         for {set a 0} {$a < 0x100} {incr a} {
             set rom([expr {$::LIB_RAM_IMAGE + $a}]) $rom([expr {$::LIB_RAM_START + $a}])
         }
-        set rom($::BOOT_MODE) $::MODE_DOS
+        set rom($::DOS_MARK) $::MODE_DOS
+        set rom([expr {$::BOOT_MODE + 0x8000}]) $::MODE_DOS
+    }
+    if {$isDos} {
         for {set a 0} {$a < 0x8000} {incr a} {
             set rom($a) $rom([expr {$a + 0x8000}])
         }
@@ -255,6 +274,7 @@ proc gen_rom {outFile} {
         set skipProgram 1
     }
 
+    # ---- a development ROM: the program in the lower half -------------------
     # a RAM image has bytes in x0000-x1FFF or x4000-x5FFF other than the
     # library's own
     set ramImage 0
@@ -291,8 +311,8 @@ proc gen_rom {outFile} {
         }
         set rom($::BOOT_MODE) 0
         if {$n > 0} {
-            puts "gen_rom: ROM program, $progBytes bytes (not 00) in 2000-3FFF and 6000-BFFF\
-                  from $::ASM_FILE"
+            puts "gen_rom: ROM program, $progBytes bytes (not 00) in 2000-3FFF and 6000-7FFF\
+                  from $::ASM_FILE; the 32K image in 8000-FFFF"
         }
     } else {
         # customasm pads to the last byte, so only the bytes past the image
@@ -305,12 +325,18 @@ proc gen_rom {outFile} {
                        image (x0000-[format %04X [expr {$::IMAGE_SIZE - 1}]])"
             }
         }
-        for {set a 0} {$a < $n && $a < $::IMAGE_SIZE} {incr a} {
-            set rom([expr {$::ROM_IMAGE_BASE + $a}]) [lindex $bytes $a]
+        # RAM x0000-x1FFF is kept at ROM x6000-x7FFF, x2000-x49FF at its own address
+        for {set a 0} {$a < $::IMAGE_SIZE} {incr a} {
+            set b [expr {$a < $n ? [lindex $bytes $a] : 0}]
+            if {$a < $::IMAGE_SAME} {
+                set rom([expr {$::ROM_IMAGE_BASE + $a}]) $b
+            } else {
+                set rom($a) $b
+            }
         }
         set rom($::BOOT_MODE) 1
-        puts "gen_rom: RAM image, $n program bytes for RAM 0000 (ROM\
-              [format %04X $::ROM_IMAGE_BASE]) from $::ASM_FILE"
+        puts "gen_rom: RAM image, $n program bytes for RAM 0000 (ROM 6000-7FFF, 2000-49FF)\
+              from $::ASM_FILE; the 32K image in 8000-FFFF"
     }
 
     # ---- write file ------------------------------------------------------------

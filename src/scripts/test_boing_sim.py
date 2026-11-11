@@ -163,25 +163,6 @@ def run(frames, gif=None, png=None, quiet=False, check=True):
         raise AssertionError('the beam caught up with the drawing')
 
 
-def run_rom(frames):
-    """the ROM build (boing_rom.asm, build\\boing.bat) from power-up, as the
-    board runs it: boot loader, the stub's copy to RAM, then the program"""
-    mem, syms, _ = ps.assemble(open(os.path.join(HERE, 'boing_rom.asm')).read(), HERE)
-    cpu = ps.Cpu({}, rom=ps.build_rom(mem))
-    cpu.stalls = True
-    fe = syms['B_FE_MARK']
-    motion = gb.Motion()
-    for f in range(frames):
-        while cpu.pc != fe:
-            cpu.step()
-        cpu.step()
-        if picture(cpu.mem) != gb.screen(*motion.state()):
-            raise AssertionError('ROM build, frame %d: picture differs' % (f + 1))
-        motion.step()
-    print('ROM build: %d frames match the model, %.2f s from power-up'
-          % (frames, cpu.clocks / CLK))
-
-
 def save_gif(images, path):
     frames = [img.resize((320, 240), 0).convert('P', palette=1, colors=16) for img in images]
     frames[0].save(path, save_all=True, append_images=frames[1:], duration=20, loop=0,
@@ -194,14 +175,10 @@ def main(argv):
     ap.add_argument('--frames', type=int, default=130)
     ap.add_argument('--gif')
     ap.add_argument('--png')
-    ap.add_argument('--rom', action='store_true', help='check the ROM build (boing_rom.asm) instead')
     ap.add_argument('--no-check', action='store_true')
     ap.add_argument('--quiet', action='store_true')
     a = ap.parse_args(argv)
-    if a.rom:
-        run_rom(a.frames)
-    else:
-        run(a.frames, gif=a.gif, png=a.png, quiet=a.quiet, check=not a.no_check)
+    run(a.frames, gif=a.gif, png=a.png, quiet=a.quiet, check=not a.no_check)
     print('PASS')
     return 0
 

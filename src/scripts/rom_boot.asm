@@ -84,6 +84,7 @@
 
 ROM_IMAGE   = 0x60      ; ROM page that holds RAM page x00
 IMAGE_END   = 0x4A      ; first RAM page not copied (x4A00; the older demos fit below it)
+IMAGE_SAME  = 0x20      ; RAM pages from here up are kept in the ROM at their own address
 MAP_PORT    = 0x50      ; ROM/RAM map register page (write only)
 DST         = 0xFE      ; RAM page being written (zero page, during the copy)
 SRC         = 0xFF      ; ROM page being read (then page x00's count)
@@ -94,7 +95,7 @@ LIB_FONT    = 0xEC00    ; placard_lib.asm: the standard font
 MAP_ROM_RUN = 0x05      ; ROM program: sections 0 and 2 read RAM, 1 and 3-7 ROM
 PROG_START  = 0x6000    ; ROM program entry
 DOS_START   = 0x8100    ; the DOS's entry (dos.masm)
-BOOT_MODE   = 0xFC00    ; 00 = ROM program, 01 = RAM image, 02 = DOS (set by gen_rom.tcl)
+BOOT_MODE   = 0x05      ; ROM x0005: 00 = ROM program, 01 = RAM image, 02 = the 32K image (set by gen_rom.tcl)
 MODE_DOS    = 0x02
 PORT        = 0x5200    ; shared port latch (placard_io.asm)
 PORT_RX     = 0x02      ; x5202: the PS/2 receiver's byte; a write re-arms it
@@ -212,9 +213,9 @@ ew_esc:
     jmp  boot_go
 
 boot_go:
-    ld   BOOT_MODE >> 8, y
-    ld   BOOT_MODE & 0xFF, x
-    ld   [y,x], ac
+    ld   MAP_PORT, y            ; map = 00 again: the zero page reads the ROM,
+    ld   0x00, [y,x]            ; where BOOT_MODE is (x0005; a 32K cartridge
+    ld   [BOOT_MODE], ac        ; shows x8005 there)
     beq  boot_rom
     xor  MODE_DOS, ac
     bne  boot_copy
@@ -240,7 +241,7 @@ boot_copy:                      ; RAM image
     ld   MAP_PORT, y
     ld   0x01, [y,x]            ; map = 01: section 0 reads RAM, the rest ROM
 
-    ld   0x01, ac               ; pages x01-x49 first
+    ld   0x01, ac               ; pages x01-x49 first (the zero page is RAM now)
     ld   ac, [DST]
     ld   ROM_IMAGE + 1, ac
     ld   ac, [SRC]
@@ -264,7 +265,13 @@ copy_byte:                      ; X = CNT = byte in the page, 00 at the start of
     inc
     ld   ac, [DST]
     xor  IMAGE_END, ac
+    beq  copy_done
+    xor  IMAGE_END ^ IMAGE_SAME, ac
     bne  copy_byte
+    ld   IMAGE_SAME, ac         ; from here the ROM page is the RAM page
+    ld   ac, [SRC]
+    bra  copy_byte
+copy_done:
 
     ld   ac, [SRC]              ; AC = X = 00: SRC counts page x00 now
 copy_page0:                     ; page x00 last: it overwrites DST, CNT and,

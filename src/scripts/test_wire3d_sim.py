@@ -214,26 +214,6 @@ def run(nships, frames, gif=None, check=True, png=None, quiet=False, pace=0,
             'edges': sum(len(gw.MODELS[s[0]]['e']) for s in ships)}
 
 
-def run_rom(frames):
-    """the ROM build (wire3d_rom.asm, build\\wire3d.bat) from power-up, as the
-    board runs it: boot loader, the stub's copy to RAM, then the program"""
-    mem, syms, _ = ps.assemble(open(os.path.join(HERE, 'wire3d_rom.asm')).read(), HERE)
-    cpu = ps.Cpu({}, rom=ps.build_rom(mem))
-    cpu.stalls = True
-    model = gw.Model(gw.ship_set(gw.DEMO_SHIPS))
-    expected = Expected(gw.DEMO_SHIPS)
-    fe = syms['W_FE_MARK']
-    for f in range(frames):
-        while cpu.pc != fe:
-            cpu.step()
-        mode = cpu.mem[zp('mode')]
-        cpu.step()
-        if picture(cpu.mem) != expected(model.frame(), mode):
-            raise AssertionError('ROM build, frame %d: picture differs' % (f + 1))
-    print('ROM build: %d frames match the model, %.2f s from power-up'
-          % (frames, cpu.clocks / CLK))
-
-
 def save_gif(images, path):
     frames = []
     durs = []
@@ -294,13 +274,8 @@ def main(argv):
     ap.add_argument('--gif')
     ap.add_argument('--png')
     ap.add_argument('--no-check', action='store_true')
-    ap.add_argument('--rom', action='store_true', help='check the ROM build (wire3d_rom.asm) instead')
     ap.add_argument('--quiet', action='store_true')
     a = ap.parse_args(argv)
-    if a.rom:
-        run_rom(a.frames)
-        print('PASS')
-        return 0
     kw = dict(gif=a.gif, check=not a.no_check, png=a.png, quiet=a.quiet, pace=a.pace)
     if a.secs is not None:
         rs = [run(a.ships, a.frames, secs=a.secs, start=gw.DEMO_START if a.mode is None else a.mode, **kw)]
