@@ -1,6 +1,6 @@
 # Bring-up: build order and a test for each chip
 
-Date: 2026-11-02
+Date: 2026-11-11
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
@@ -70,8 +70,8 @@ ROM off and the instruction register PLD at 02h.  For the steps before
 the cartridge is built, fit two jumpers: STALL_IN to STALL_OUT (JP1:
 the Branch PLD's STALL reaches the State and PC PLDs directly) and RUN to
 +5 V (JP2: the board reads the ROM and the IR loads opcodes).  Then
-nothing loads the ROM SRAMs, so those steps only check what they can
-without a ROM image (or with SRAMs loaded some other way).  Remove both
+nothing loads the ROM SRAM, so those steps only check what they can
+without a ROM image (or with the SRAM loaded some other way).  Remove both
 jumpers when the cartridge goes in.  The clock runs from power-up either
 way.
 
@@ -85,7 +85,7 @@ short press resets cleanly.  The bulk 220 µF C41 sits on +5V after K1, so it
 carries the board through the NC contact's bounce when SW2 lets go.
 At power-up the ATF22V10C registers
 start at 0, so the CPU starts in FETCH at x0000.  The cartridge stalls
-the CPU while it loads its SRAMs (about 33 ms; the video runs and shows
+the CPU while it loads its SRAM (about 33 ms; the video runs and shows
 the random RAM), and RUN holds the map register clear (all ROM) until it
 hands off at x0000, which holds a nop.  To
 restart, press SW2 or switch SW1 off and on.
@@ -746,35 +746,34 @@ and /OE2 (instruction register PLD I1, pin 15) wiring.
 | U31, U32 | SRAM (out since step 13, back in now) | Alliance AS7C256C-15PCN |  |
 | J8 | Cartridge slot, card edge, 64 contacts | Molex 87715-9106 |  |
 | R13 | Resistor, /CART pull-up | 10k |  |
-| cartridge PCB | 64K cartridge board |  |  |
+| cartridge PCB | 32K cartridge board |  |  |
 | cartridge U1 | PLD, cartridge loader | ATF22V10C-7PX, programmed from `ATF22V10_CART.pld` |  |
-| cartridge U2, U3 | EEPROM, 32K x 8 | Microchip AT28C256-15PU, programmed with `bringup_lo.bin`, `bringup_hi.bin` |  |
-| cartridge U4, U5 | SRAM, 32K x 8 | Alliance AS7C256C-15PCN |  |
+| cartridge U2 | EEPROM, 32K x 8 | Microchip AT28C256-15PU, programmed with `bringup.bin` |  |
+| cartridge U3 | SRAM, 32K x 8 | Alliance AS7C256C-15PCN |  |
 | cartridge U1 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
-| cartridge U2, U3 sockets | IC socket | DIP-28 0.6" (On Shore ED28DT) |  |
-| cartridge U4, U5 sockets | IC socket | DIP-28 0.3" (On Shore ED281DT) |  |
-| cartridge C1-C5 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+| cartridge U2 socket | IC socket | DIP-28 0.6" (On Shore ED28DT) |  |
+| cartridge U3 socket | IC socket | DIP-28 0.3" (On Shore ED281DT) |  |
+| cartridge C1-C3 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
 The free run does select the AC source buffer (source 11), and the
 accumulator is random, so it goes in with the memories.  Turn off the power switch and insert the AC
 source buffer U27, the line read buffer U29 and both RAM chips U31 and
 U32 into their sockets.
 
-Build the 64K cartridge: sockets and C1-C5 (100 nF) first, then program
+Build the 32K cartridge: sockets and C1-C3 (100 nF) first, then program
 and insert its chips into their sockets one at a time:
 
 1. **Loader PLD.**  Program cartridge U1 from `ATF22V10_CART.pld`
    (rev 04), verify, label and insert it into its socket.
-2. **EEPROMs.**  Make the bring-up ROM image: `python3 test_bringup_sim.py
-   --bin` in `src/scripts` writes `bringup_lo.bin` (ROM x0000-x7FFF) and
-   `bringup_hi.bin` (x8000-xFFFF).  It is a complete image with its own
-   reset code, so it replaces the normal ROM (boot loader and library)
-   until the board works.  Program cartridge U2 (the lower AT28C256) with
-   `bringup_lo.bin` and cartridge U3 (the upper one) with
-   `bringup_hi.bin`, verify both, label them "lo" and "hi", and insert them into their sockets.
-   The cartridge copies them into its SRAMs at power-up
-   ([ROM.md](../architecture/ROM.md#loading-the-cartridge)).
-3. **SRAMs.**  Insert cartridge U4 and U5 into their sockets (no programming).
+2. **EEPROM.**  Make the bring-up ROM image: `python3 test_bringup_sim.py
+   --bin` in `src/scripts` writes `bringup.bin` (32 KB).  It is a complete
+   image with its own reset code, so it replaces the normal ROM (boot
+   loader and library) until the board works.  Program cartridge U2 (the
+   AT28C256) with `bringup.bin`, verify, label it and insert it into its
+   socket.  The cartridge copies it into its SRAM at power-up
+   ([ROM.md](../architecture/ROM.md#loading-the-cartridge)) and shows the
+   same 32 KB in both halves of the ROM, x0000-x7FFF and x8000-xFFFF.
+3. **SRAM.**  Insert cartridge U3 into its socket (no programming).
 
 Take the shunts off JP1 and JP2 on the main board and plug
 the cartridge into J8.  Turn on the power switch: within about half a second the
@@ -797,9 +796,9 @@ the RAM and the map register:
 | 7 | Carry flag: BCS, BCC | high ALU COUT (pin 18) to Branch pin 14, Branch CARRY (pin 20) |
 | 8 | SHR | the ALU's shift-in wiring (SHIFT_RIGHT_IN, pin 23) |
 | 9 | AC to X, immediate to X, read back through [Y,X] from the ROM table at x3F00 | X register, AC source buffer and /AC_SEL (audio PLD pin 21); X can't be a source, so this also needs the address path of tests 10-12 |
-| 10 | Y as the address high byte | Y register, the high address muxes (U9, U10), Y_ENABLE |
+| 10 | Y as the address high byte, bits 14-8 (the 32K cartridge's ROM has no bit 15; tests 13-15 check it through the RAM) | Y register, the high address muxes (U9, U10), Y_ENABLE |
 | 11 | X as the address low byte | the low address muxes (U7, U8), X_ENABLE |
-| 12 | ROM data (a 256-byte table) | the ROM chips' data and low address pins, /ROM_OE |
+| 12 | ROM data (a 256-byte table) | the cartridge's data and low address pins, /ROM_OE |
 | 13 | RAM data: [0,D], [0,X], [Y,X] in both chips | RAM data pins, /WE, /RAM_OE, the source buffers on a store, the series resistors, map bits 0 and 4 |
 | 14 | Map register, all 8 bits | ACT273 (U25), /MAP_WR (Sync PLD U15 pin 22), RUN, memory control RAMSEL pins |
 | 15 | RAM address lines, both chips | RAM A14:A0, the lower chip's /CE (A15) and /CE_HI |
@@ -984,8 +983,8 @@ The ladder output sits at about 2.5 V when silent.  Press T: a 1 kHz tone
 from the line out (into an amplifier or powered speakers); T again stops it.
 
 When everything passes, load the normal ROM image: take cartridge U2
-and U3 out, program them with the two halves of the normal image
-(`gen_rom.tcl`, [ROM.md](../architecture/ROM.md)), verify, relabel and insert them into their sockets again.
+out, program it with the 32K ROM (`rom_32k.bin`, written by
+`build\rom32.bat` or `gen_rom.tcl`, [ROM.md](../architecture/ROM.md)), verify, relabel and insert it into its socket again.
 
 ## Expansion slots
 

@@ -5,12 +5,12 @@ test_bringup_sim.py - run the bring-up test ROM (bringup.asm) in placard_sim
     python3 gen_bringup.py                  writes bringup.asm
     python3 test_bringup_sim.py             all the checks below
     python3 test_bringup_sim.py --png b.png also save the status screen
-    python3 test_bringup_sim.py --bin       also write bringup_lo.bin and
-                                            bringup_hi.bin (32 KB each, for
-                                            the ROM chips #33 and #34)
+    python3 test_bringup_sim.py --bin       also write bringup.bin (32 KB, for
+                                            the 32K cartridge's EEPROM)
 
-The ROM image is the whole 64 KB (its own reset code at x0000, the library
-at xC000-xFBFF and its LIB_RAM bytes at x1F00), so the simulator runs it with
+The ROM image is 32 KB, read in both halves of the ROM as the 32K cartridge
+shows it (its own reset code at x0000, the library at x8000-xFBFF and its
+LIB_RAM bytes at x1F00), so the simulator runs it with
 no boot loader, from random RAM, with the hardware ALU model and the shared
 port model (PS/2 keyboard and mouse, pads, SD card).  Checks:
 
@@ -29,7 +29,7 @@ Video stalls are not modeled, so the CPU runs about 10 % faster than on
 the board; the per-frame work is bounded, so the frame loop runs once per
 frame on both.
 
-Date: 10/25/2026
+Date: 11/11/2026
 """
 
 import argparse
@@ -251,6 +251,13 @@ def faults(rom, syms):
             return cpu.mem[ad]
         return v
     ok &= run_fault(rom, syms, 'map register bit 6 stuck high', 14, read=rd6)
+    # map bits 2 and 6 swapped: their sections share a ROM marker (the mirror)
+    def rd26(cpu, ad, v):
+        sec = ad >> 13
+        if sec in (2, 6) and not 0x5000 <= ad < 0x5400:
+            return cpu.mem[ad] if (cpu.map >> (sec ^ 4)) & 1 else cpu.rom[ad]
+        return v
+    ok &= run_fault(rom, syms, 'map register bits 2 and 6 swapped', 14, read=rd26)
     # RAM address lines stuck low (both chips share A14:A0)
     for b in (0, 4, 9, 13, 14):
         ok &= run_fault(rom, syms, 'RAM address line A%d stuck low' % b, 15, addr_mask=1 << b)
@@ -299,13 +306,12 @@ def main(argv):
     ap.add_argument('-v', '--verbose', action='store_true')
     args = ap.parse_args(argv)
     mem, syms = build()
-    rom = dict(mem)
+    img = gb.image(mem)            # 32 KB, read in both halves of the ROM
+    rom = {a: img[a & 0x7FFF] for a in range(65536)}
     font = make_font(rom)
     if args.bin:
-        img = bytes(rom.get(a, 0xFF) for a in range(65536))
-        open(os.path.join(HERE, 'bringup_lo.bin'), 'wb').write(img[:0x8000])
-        open(os.path.join(HERE, 'bringup_hi.bin'), 'wb').write(img[0x8000:])
-        print('wrote bringup_lo.bin and bringup_hi.bin')
+        open(os.path.join(HERE, 'bringup.bin'), 'wb').write(img)
+        print('wrote bringup.bin (%d bytes)' % len(img))
     if not args.faults_only:
         check_good(rom, syms, font, args)
     ok = True
