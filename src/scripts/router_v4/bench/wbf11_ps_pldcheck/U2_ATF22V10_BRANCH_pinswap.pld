@@ -1,0 +1,269 @@
+/* PIN-SWAP VARIANT for U2 (router test bench, 2026-11-11): only the PIN lines differ from ATF22V10_BRANCH.pld.
+   Not a released design: compile-check only. */
+Name     BRANCH_CTRL;
+PartNo   00;
+Date     11/11/2026 ;
+Revision 15;
+Designer ;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   BRANCH / JUMP CONTROL   (ATF22V10C, DIP-24 / PLCC-28)
+   ============================================================
+
+   ALU field I7:I5 = 111 selects branch/jump.  The ALU performs
+   PASS A for this opcode, so each ALU Z output is the zero flag
+   of one nibble of the accumulator.
+   Memory-mode field M2:M0 (instruction bits 4:2) selects type:
+
+       000 JMP  always, 16-bit load (PC low + PC high)
+       001 BCS  carry flag set              (was BGT, AC > 0)
+       010 BLT  AC < 0
+       011 BNE  AC <> 0
+       100 BEQ  AC = 0
+       101 BCC  carry flag clear            (was BGE, AC >= 0)
+       110 BLE  AC <= 0
+       111 BRA  always, 8-bit load (PC low only)
+
+   Z_LOW  = low  ALU nibble is zero  (AC3:AC0 = 0)
+   Z_HIGH = high ALU nibble is zero  (AC7:AC4 = 0)
+   AC = 0 is   Z_LOW & Z_HIGH
+   AC <> 0 is  !Z_LOW # !Z_HIGH
+   NEG = accumulator MSB (negative)
+   AC = 0 and NEG are never both true.
+
+   PIXEL_ENABLE = 1 means video owns the bus.
+
+   EXEC STATE
+   The State PLD has no EXEC output, but EXEC = Q1 & Q0.
+   Q0 is State PLD pin 18 (true polarity).  State PLD pin 15
+   is declared !Q1, so its pin level is PC_ENABLE = !Q1.
+       EXEC = Q0 & !PC_ENABLE
+   Wire State PLD pin 18 to Q0 and State PLD pin 15 to PC_ENABLE.
+
+   LOAD_PC_LOW and LOAD_PC_HIGH are active only in EXEC with
+   PIXEL_ENABLE = 0.  That keeps a stale branch opcode in the
+   instruction register from acting during FETCH, LOAD_IMM or
+   LOAD_MEM.
+
+   BRANCH DECODE
+   I7:I5 from the instruction register, valid from LOAD_IMM
+   onward.  Active in EXEC only.
+       BRANCH_A = I7 & I6 & I5 & EXEC & !PIXEL_ENABLE
+   It drives LOAD_PC_LOW and LOAD_PC_HIGH.
+
+   BRANCH_BLOCK = I7 & I6 & I5 goes to State PLD pin 8 (revision
+   09).  It is high whenever the instruction register holds a
+   branch/jump.  The State PLD only uses it in EXEC, where it
+   inhibits LOAD_AC, LOAD_X, LOAD_Y and MEM_WR.  (PC_INC is already
+   low in EXEC because PC_ENABLE = 0 there.)  Revision 08 and
+   earlier used BRANCH_A, which also has EXEC and !PIXEL_ENABLE.
+   That made it valid only 13 ns into the EXEC clock, so the State
+   PLD's MEM_WR showed a write for up to 20.5 ns at the start of
+   every BGE (now BCC), BLE or BRA (memory field 101, 110, 111).  The memory
+   control PLD gates the write with the clock, so MEM_WR has to be
+   settled before the clock falls; from the instruction register
+   it is (see docs/timing/TIMING.md, end-of-write contention).
+   Active high.  For an active-low pin declare
+   PIN 23 = !BRANCH_BLOCK;  (the equation is unchanged).
+
+   Revision 08 removed a second decode of the opcode on the data
+   bus (DB7:DB5, pins 14-16) during FETCH.  The State PLD used it to
+   send BGE with an AC or X target straight to EXEC, but that path
+   was too slow (docs/timing/TIMING.md); BGE with an AC or X target now
+   has a pad byte and goes through LOAD_IMM like a zero-page store.
+   (Memory field 101 is BCC since revision 11, with the same pad
+   byte.)  Pins 14-16 were unused.
+
+   ALU WAIT CLOCK (revisions 06 and 07)
+   ADD and SUB need two clocks for the carry to ripple through
+   both ALU PLDs at 25.175 MHz (see docs/timing/ALU_TIMING.md).  The first
+   EXEC clock of an ADD/SUB with an AC, X or Y destination is a
+   stall clock, so the result is loaded at the end of the second:
+
+       STALL = PIXEL_ENABLE
+             # EXEC & ADDSUB_REG & !ALU_DONE
+
+       ALU_DONE.D = EXEC & !PIXEL_ENABLE & ADDSUB_REG & !ALU_DONE
+                  # ALU_DONE & PIXEL_ENABLE
+
+   ALU_DONE is set by the first EXEC clock the CPU owns and holds
+   through a video stall, so the second ALU clock can be delayed by
+   the video without adding another wait.  It clears on the clock
+   that loads the result.
+
+   (Revision 06 set the register on the first EXEC clock and used it
+   to stall the second one, but the State PLD had already loaded AC
+   and left EXEC at the end of the first, so the wait clock came
+   after the load.)
+
+   STALL goes to the State PLD (pin 2) and both PC PLDs (pin 14) in
+   place of PIXEL_ENABLE, so the CPU holds EXEC with all loads
+   blocked.  The video side (Sync PLD, address mux, pixel buffer)
+   keeps the real PIXEL_ENABLE, so a wait clock never takes the bus.
+   A store (destination RAM) writes the source bus, not the ALU
+   result, so it does not wait.
+
+   Pin 1 is now the register clock, so I7 moved to pin 17.
+
+   SOURCE BUS ENABLE (revision 10)
+   The RAM write-data buffer is gone: the source bus and the memory
+   data bus are one bus.  The source F541s drive it only in EXEC
+   with PIXEL_ENABLE = 0 (the source '138's enables take Q0,
+   PC_ENABLE and PIXEL_ENABLE straight from their pins).  SRC_EN is
+   the same condition for the memory control PLD, which blocks CPU
+   memory reads while the source drivers own the bus.
+
+   /SRC_EN DRIVES THE SOURCE F541s (revision 13)
+   X is no longer a source and the source '138 is gone.  There are two
+   source F541s, D and AC, and each has two active-low enables:
+       D  F541:  /OE1 = /SRC_EN (pin 16), /OE2 = I1
+       AC F541:  /OE1 = /SRC_EN (pin 16), /OE2 = /AC_SEL = !I1
+                 (audio PLD pin 21, revision 04)
+   so source codes 00 and 01 drive D and 10 and 11 drive AC.  Pin 16
+   is now active low (the same equation), and the memory control PLD
+   (pin 22, revision 07) reads it active low.  A source that is D always
+   has a LOAD clock before EXEC, so I1 is settled a clock before
+   /SRC_EN falls; the only select change at the start of EXEC is D to
+   AC (I1 0 -> 1), which turns D off (I1 direct, about 10 ns) before
+   /SRC_EN falls (about 13 ns), so the two never drive together.
+
+   CARRY FLAG (revision 11)
+   BGT (001) and BGE (101) are replaced by BCS and BCC, which test a
+   carry flag.  BLE and BLT are kept, so every sign test can still be
+   made by branching the other way (AC > 0: BLE around the code;
+   AC >= 0: BLT around it).  BGT used two product terms and BCS uses
+   one (BGE and BCC one each), so LOAD_PC_LOW drops from 12 terms to 11.
+
+   COUT (pin 14) is the high ALU PLD's COUT (its pin 18): the carry out
+   of an ADD, or the borrow out of a SUB (ALU_SHR.pld).  CARRY (pin 20,
+   registered) latches it on the clock that loads the result of an ADD
+   or SUB with an AC, X or Y destination, which is the EXEC clock with
+   ALU_DONE set and PIXEL_ENABLE low (ALU_DONE is only set during the
+   second clock of such an instruction, so it needs nothing else).
+   Every other clock holds it, so loads, stores and branches between
+   the ADD/SUB and the BCS/BCC leave it alone.  An ADD or SUB that
+   stores to RAM has no wait clock and does not change it.
+
+       CARRY.D = ALU_DONE & !PIXEL_ENABLE & COUT
+               # ALU_DONE & PIXEL_ENABLE & CARRY
+               # !ALU_DONE & CARRY
+
+   The carry is settled before the ALU result: the low chip's
+   B -> D2 -> COUT and the high chip's CIN -> D2 -> COUT are four
+   array passes (30 ns), against five to F3 (docs/timing/ALU_TIMING.md).  From a
+   FETCH -> EXEC ADD with source AC: IR 10.5 + audio PLD 7.5 + '541
+   enable 9.5 + 30 + CARRY setup 3.5 = 61 ns, inside the two clocks
+   (79.44 ns) the ALU wait clock gives, 18.4 ns to spare.  BCS and BCC
+   read CARRY through its feedback, much faster than the Z and NEG
+   path of the other branches.
+
+   Pin 20 needs no connection on the board (a test point).
+
+   PIXEL BUFFER LOAD (revision 12)
+   The video pixel buffer is a 74F377, which loads when its /E is
+   low, and PIXEL_ENABLE is high on the video read clock.  No other
+   PLD had a free pin for the inverted copy, so pin 15 (free until
+   now) makes it:
+
+       PIX_LD = PIXEL_ENABLE   (pin 15 is declared !PIX_LD, so it is low on a video read)
+
+   One term, one array pass: PIXEL_ENABLE tCO 5.5 + 7.5 = 13 ns into
+   the read clock, against the F377's 4.5 ns /E setup before the
+   edge at 39.7 ns.  It goes high again at least 3 + 3 ns after that
+   edge (F377 /E hold 0 ns).
+   ============================================================ 
+   REVISION 15 (2026-10-21): the same logic as revision 13.  Revision
+   14 stored the opcode byte XOR FDh (to drop the cartridge 74AC541)
+   and was reverted: the plain encoding was easier to use.
+
+*/
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 1  = CLK;             /* CPU clock, for ALU_DONE */
+
+PIN 17 = LOAD_PC_HIGH;    /*  1 product term,  pin has 10 */  /* pin swap: was on pin 22 */
+PIN 2  = Z_LOW;           /* low  ALU nibble zero flag */  /* pin swap: was on pin 7 */
+PIN 3  = COUT;            /* high ALU PLD pin 18: carry / borrow out */  /* pin swap: was on pin 14 */
+
+PIN 4  = M2;
+PIN 5  = M1;
+PIN 6  = M0;
+
+PIN 7  = Z_HIGH;          /* high ALU nibble zero flag */  /* pin swap: was on pin 13 */
+PIN 8  = NEG;
+
+PIN 9  = PC_ENABLE;       /* State PLD pin 15, = !Q1 */  /* pin swap: was on pin 11 */
+
+PIN 10 = Q0;              /* State PLD pin 18, state bit 0 */
+PIN 11 = PIXEL_ENABLE;    /* 1 = video owns the bus */  /* pin swap: was on pin 9 */
+
+PIN 13 = I5;  /* pin swap: was on pin 3 */
+
+PIN 14 = CARRY;           /* registered, 3 product terms, pin has 14 */  /* pin swap: was on pin 20 */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+PIN 21 = I6;  /* pin swap: was on pin 2 */
+PIN 22 = STALL;           /* 3 product terms, pin has 16 */  /* pin swap: was on pin 19 */
+PIN 23 = BRANCH_BLOCK;    /*  1 product term,  pin has  8 */
+
+PIN 18 = !SRC_EN;         /* 1 product term: source F541s' /OE1 and memory control PLD pin 22 */  /* pin swap: was on pin 16 */
+PIN 19 = LOAD_PC_LOW;     /* 11 product terms, pin has 12 */  /* pin swap: was on pin 21 */
+PIN 16 = ALU_DONE;        /* registered, 3 product terms */  /* pin swap: was on pin 18 */
+PIN 20 = I7;              /* I/O pin used as an input */  /* pin swap: was on pin 17 */
+PIN 15 = !PIX_LD;         /* revision 12: pixel buffer (F377) /E, low on a video read; 1 term, pin has 10 */
+
+
+/* ---------------- COMMON TERMS ---------------- */
+
+EXEC   = Q0 & !PC_ENABLE;
+
+/* Opcode in the instruction register, EXEC state. */
+BRANCH_A = I7 & I6 & I5 & EXEC & !PIXEL_ENABLE;
+
+/* ADD (100) or SUB (101) with destination AC, X or Y
+   (M = 000, 001, 010, 011, 100; not 101, 110, 111 = RAM). */
+ADDSUB_REG = I7 & !I6 & !(M2 & (M1 # M0));
+
+
+/* ---------------- EQUATIONS ---------------- */
+
+ALU_DONE.D = EXEC & !PIXEL_ENABLE & ADDSUB_REG & !ALU_DONE
+           # ALU_DONE & PIXEL_ENABLE;
+
+STALL = PIXEL_ENABLE
+      # EXEC & ADDSUB_REG & !ALU_DONE;
+
+CARRY.D = ALU_DONE & !PIXEL_ENABLE & COUT
+        # ALU_DONE & PIXEL_ENABLE & CARRY
+        # !ALU_DONE & CARRY;
+
+BRANCH_BLOCK = I7 & I6 & I5;
+
+SRC_EN = EXEC & !PIXEL_ENABLE;
+
+/* Pixel buffer load (revision 12): pin 15 is low while PIXEL_ENABLE is high. */
+PIX_LD = PIXEL_ENABLE;
+
+LOAD_PC_HIGH = BRANCH_A & !M2 & !M1 & !M0;                       /* JMP */
+
+LOAD_PC_LOW =
+      BRANCH_A & !M2 & !M1 & !M0                                 /* JMP */
+    # BRANCH_A & !M2 & !M1 &  M0 &  CARRY                      /* BCS */
+    # BRANCH_A & !M2 &  M1 & !M0 & !Z_LOW  &  NEG                /* BLT, low nibble <> 0  */
+    # BRANCH_A & !M2 &  M1 & !M0 & !Z_HIGH &  NEG                /* BLT, high nibble <> 0 */
+    # BRANCH_A & !M2 &  M1 &  M0 & !Z_LOW                        /* BNE, low nibble <> 0  */
+    # BRANCH_A & !M2 &  M1 &  M0 & !Z_HIGH                       /* BNE, high nibble <> 0 */
+    # BRANCH_A &  M2 & !M1 & !M0 &  Z_LOW & Z_HIGH               /* BEQ */
+    # BRANCH_A &  M2 & !M1 &  M0 & !CARRY                      /* BCC */
+    # BRANCH_A &  M2 &  M1 & !M0 &  Z_LOW & Z_HIGH               /* BLE, AC=0 */
+    # BRANCH_A &  M2 &  M1 & !M0 &  NEG                          /* BLE, AC<0 */
+    # BRANCH_A &  M2 &  M1 &  M0;                                /* BRA */

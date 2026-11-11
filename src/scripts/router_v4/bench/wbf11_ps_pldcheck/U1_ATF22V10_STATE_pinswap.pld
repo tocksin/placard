@@ -1,0 +1,350 @@
+/* PIN-SWAP VARIANT for U1 (router test bench, 2026-11-11): only the PIN lines differ from ATF22V10_STATE.pld.
+   Not a released design: compile-check only. */
+Name     STATE_CTRL;
+PartNo   00;
+Date     11/11/2026 ;
+Revision 15;
+Designer Justin;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   CPU STATE CONTROL   (ATF22V10C, DIP-24 / PLCC-28)
+   ============================================================
+
+   States (binary, Q1 Q0):
+       00  FETCH      instruction -> instruction FF, PC increments
+       01  LOAD_IMM   operand byte (PC address) -> D FF, PC increments
+                      (immediate value, or zero-page address)
+       10  LOAD_MEM   memory ([Y/0,X/D] address) -> D FF, PC holds
+       11  EXEC       data bus (D or ACC or X) -> ACC / X / Y / RAM
+
+   SOURCE FIELD (instruction bits 1:0)
+       00  immediate (D)      01  RAM/ROM      10  ACC      11  X
+
+   ZERO-PAGE ([0,D]) MEMORY MODES  (MEM2:0 = 000, 011, 100, 101)
+   The address is an operand byte after the opcode.  It is loaded
+   into D by LOAD_IMM first, then the memory read uses D as address.
+
+   FETCH -> LOAD_IMM   source 00 (immediate)
+         -> LOAD_IMM   source 01 and [0,D] mode (000, 011, 100)
+                       (fetch the zero-page address, then LOAD_MEM)
+         -> LOAD_MEM   source 01 and [0,X] / [Y,X] mode (001, 010,
+                       110, 111)
+         -> LOAD_IMM   source 1x and MEM = 101
+                       (store to zero page, fetch the address into D;
+                       or BGE with an AC or X target, which has a pad
+                       byte after the opcode, see revision 11 below)
+         -> LOAD_MEM   source 1x and [0,X] / [Y,X] mode (110, 111)
+                       (stores from AC or X: see STORE TIMING below)
+         -> EXEC       source 1x otherwise
+   LOAD_IMM -> LOAD_MEM  if SRC0 = 1 and MEM != 101 (zero-page read)
+            -> EXEC      otherwise
+              (In LOAD_IMM the source is 00, 01, or 1x with MEM = 101.
+               MEM = 101 is always a zero-page store, so it goes to
+               EXEC.  Otherwise SRC0 = 1 means source 01 = read.
+               SRC1 is therefore not needed.)
+   LOAD_MEM -> EXEC
+   EXEC     -> FETCH
+
+   Clocks: register op 2, immediate 3, [x]/[y,x] read 3,
+           [x]/[y,x] store 3, zero-page store 3, zero-page read 4,
+           BGE with an AC or X target 3 (pad byte, revision 11).
+
+   STORE TIMING (revision 10)
+     A store from AC or X to [0,X] or [Y,X] used to go straight from
+     FETCH to EXEC, so the write had the instruction FF, the source
+     decode and the RAM address all settling in the write clock, and
+     the data reached the RAM 1.1 ns too late at 25.175 MHz.  It now
+     passes through LOAD_MEM, which reads the target location into D
+     (D is not used by a store from AC or X) and holds the PC, so in
+     EXEC the address, the source bus and the instruction FF are all
+     a clock old.  BLE and BRA with an AC or X target (the branch
+     codes with MEM = 110, 111) take the same path; LOAD_MEM does not
+     touch the PC, so they still work, one clock slower.
+
+   BGE PAD BYTE (revision 11)
+     (Branch PLD revision 11 turned memory field 101 from BGE into BCC,
+     branch if carry clear.  The equations here are unchanged:
+     everything below about BGE now applies to BCC.)
+     MEM = 101 is a zero-page store on an ALU op but BGE on a branch.
+     Revision 10 told them apart in FETCH with BRANCH_BLOCK from the
+     Branch PLD, decoded from the opcode on the data bus, so the
+     next-state path was the instruction read plus two PLD levels
+     (46.5 ns against a 39.72 ns clock, see docs/timing/TIMING.md).  Now
+     source 1x with MEM = 101 always goes to LOAD_IMM, and the
+     assembler puts a pad byte after BGE with an AC or X target.
+     LOAD_IMM loads the pad byte into D and increments the PC past
+     it, and EXEC branches to the AC or X value as before (BRANCH_BLOCK
+     still blocks the write).  BGE with an AC or X target is 2 bytes
+     and 3 clocks; BGE with an immediate target is unchanged.
+
+   Limits of this encoding
+     - Source 01 with MEM = 101 (read-modify-write of a zero-page
+       location) is not supported: D holds the address, but the read
+       overwrites D with the data.  Treated like [0,X] (illegal).
+     - BGE with a memory target (I7:I5 = 111, MEM = 101, source 01)
+       is not supported (it would fetch D through LOAD_MEM and use
+       it as the target).  BGE with an immediate, AC or X target
+       works.
+     - Source 00 with MEM = 101 is illegal (D can't be value and
+       address).
+
+   Every state advances only on a clock where PIXEL_ENABLE = 0
+   (PIXEL_ENABLE comes from the Sync PLD).  When it
+   is 1 the video owns the bus, the state holds, and every load
+   strobe is forced inactive.  MEM_WR is not (revision 12): the
+   memory control PLD blocks the write strobe itself.
+
+   BRANCH_BLOCK (from the Branch PLD pin 23, active high):
+     It is 1 whenever the instruction register holds a branch/jump
+     (Branch PLD revision 09), and is only used in EXEC.  It forces LOAD_AC, LOAD_X, LOAD_Y and
+     MEM_WR inactive so a branch opcode cannot also write a
+     register or RAM.  (Revision 10 and earlier also used it in
+     FETCH; see BGE PAD BYTE above.)
+
+   MACROCELL BUDGET
+      Requested outputs: PC Increment, PC Enable, X Enable,
+      Y Enable, Load Instruction, Load Immediate, Load X,
+      Load Y, Load AC, Memory R/W = 10, plus 2 state bits = 12.
+      The 22V10 has 10 macrocells.  Two things make it fit:
+        - Q1 is brought out on pin 15 as PC_ENABLE (PC_ENABLE
+          = !Q1), so one pin is both a state bit and an output.
+        - PC_INC is NOT generated here.  Make it outside the
+          PLD with one gate:
+              PC_INC = PC_ENABLE & !PIXEL_ENABLE
+          (identical to the PC_INC equation in the old revision).
+
+   PRODUCT TERMS
+      Q0 (pin 18):  9 used, 16 available.  (Moved from pin 14, which
+                    has 8, in revision 10; LOAD_INSTR moved to pin 14.)
+      Q1 (pin 15):  9 used, 10 available.
+      The terms are reduced using the illegal MEM combinations as
+      don't-cares (see the limits above).
+
+   DATABUS SOURCE (instruction bits 1:0)
+       00  Immediate (D register)  -> LOAD_IMM
+       01  RAM/ROM                 -> LOAD_MEM (via LOAD_IMM if [0,D])
+       10  Accumulator             -> EXEC (no load)
+       11  X register              -> EXEC (no load)
+
+   MEMORY SOURCE / DESTINATION (MEM2:MEM0, from instruction FF)
+       000  [0,D]  load AC           100  [0,D]  load Y
+       001  [0,X]  load AC           101  [0,D]  store to RAM
+       010  [Y,X]  load AC           110  [0,X]  store to RAM
+       011  [0,D]  load X            111  [Y,X]  store to RAM
+   ============================================================ 
+   REVISION 15 (2026-10-21): the same logic as revision 13.  Revision
+   14 stored the opcode byte XOR FDh (to drop the cartridge 74AC541)
+   and was reverted: the plain encoding was easier to use.
+
+*/
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 1  = CLK;
+
+/* STALL from the Branch PLD (pin 19) = Sync PLD PIXEL_ENABLE, or the
+   first EXEC clock of an ADD/SUB.
+   1 = hold the state and block every load and write (video owns the
+   bus, or an ADD/SUB is waiting one clock for its carry). */
+PIN 2  = SRC0;  /* pin swap: was on pin 13 */
+
+/* Source and memory fields of the instruction BEING FETCHED.
+   These must come straight from the data bus bits, NOT from the
+   instruction FF: the instruction FF is only loaded at the end
+   of the FETCH clock, the same edge at which this PLD picks its
+   next state.  Only used in FETCH on a clock where
+   PIXEL_ENABLE = 0.
+       DB_SRC1:DB_SRC0            = data bus bits 1:0
+       DB_MEM2:DB_MEM1:DB_MEM0    = data bus bits 4:2 */
+PIN 3  = DB_SRC1;
+PIN 4  = DB_SRC0;
+
+/* Memory source / destination field, from the instruction FF
+   (valid from LOAD_IMM onward). */
+PIN 5  = MEM1;  /* pin swap: was on pin 6 */
+PIN 6  = DB_MEM2;      /* data bus bit 4 */  /* pin swap: was on pin 11 */
+PIN 7  = DB_MEM0;      /* data bus bit 2 */  /* pin swap: was on pin 10 */
+
+/* Branch block from the Branch PLD (pin 23).
+   1 = the instruction register holds a branch/jump, so in EXEC
+   inhibit LOAD_AC, LOAD_X, LOAD_Y and MEM_WR. */
+PIN 8  = DB_MEM1;      /* data bus bit 3 */  /* pin swap: was on pin 9 */
+
+/* Memory field of the instruction being fetched (data bus 4:2). */
+PIN 9  = MEM0;  /* pin swap: was on pin 7 */
+PIN 10 = MEM2;  /* pin swap: was on pin 5 */
+PIN 11 = PIXEL_ENABLE;  /* pin swap: was on pin 2 */
+
+/* Source field bit 0, from the instruction FF (valid from LOAD_IMM
+   onward).  Used in LOAD_IMM, together with MEM2:0, to tell a
+   zero-page read (source 01) from everything else. */
+PIN 13 = BRANCH_BLOCK;  /* pin swap: was on pin 8 */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+/* State bit 0 (registered). */
+PIN 18 = Q0;
+
+/* State bit 1 (registered).  The pin is declared inverted, so the
+   pin level is !Q1 = PC_ENABLE:  high in FETCH and LOAD_IMM,
+   low in LOAD_MEM and EXEC.  The register powers up to Q1 = 0,
+   so the machine starts in FETCH. */
+PIN 15 = !LOAD_IMM;    /* D register /E (LOAD_IMM and LOAD_MEM states) */  /* pin swap: was on pin 19 */
+
+/* Address-source selects to the Sync PLD (registered).  They are
+   decoded from the memory field on the data bus during FETCH and
+   loaded on the same edge as the instruction FF, so they always
+   match the instruction FF's memory field but are valid at tCO
+   instead of after the instruction FF and a decode.  The Sync PLD
+   gives priority to video and PC_ENABLE, so these only take
+   effect in LOAD_MEM and EXEC (see docs/timing/XY_TIMING.md). */
+PIN 16 = X_ENABLE;
+PIN 17 = Y_ENABLE;
+
+/* Bus-cycle strobes.  Each includes !PIXEL_ENABLE, so it is only
+   active on a clock where the CPU really owns the bus.
+   Revision 13: declared active low.  Each drives the /E pin of a
+   74F377 (instruction register, D, X, Y, AC), which loads when /E
+   is low.  Until revision 12 the pins were active high, so each
+   register would have loaded on every clock except its own (the
+   FPGA model used them as active-high enables and hid this).  The
+   equations do not change; the pin is low while the strobe is true.
+   The I/O decode PLD (revision 04) reads pin 19 as !LOAD_IMM. */
+PIN 14 = !MEM_WR;  /* pin swap: was on pin 23 */
+PIN 19 = !Q1;  /* pin swap: was on pin 15 */
+PIN 20 = !LOAD_AC;     /* accumulator /E                               */  /* pin swap: was on pin 22 */
+PIN 21 = !LOAD_Y;      /* Y register /E                                */
+PIN 22 = !LOAD_X;      /* X register /E                                */  /* pin swap: was on pin 20 */
+
+/* Memory R/W.  Pin level: 1 = read, 0 = write.  Declared inverted
+   so the equation below is the write condition.  Forced to read
+   while BRANCH_BLOCK = 1.
+
+   Revision 12: MEM_WR no longer has !PIXEL_ENABLE.  It is low (a
+   write) for the whole EXEC state of a store, including a video
+   stall clock, and the memory control PLD blocks the write strobe
+   with the real PIXEL_ENABLE and the clock.  Through the STALL pin
+   MEM_WR used to settle 20.5 ns into the clock after a video stall,
+   which is after the clock can fall; now it settles from the state
+   registers and the instruction register alone. */
+PIN 23 = !LOAD_INSTR;  /* instruction register /E                      */  /* pin swap: was on pin 14 */
+
+
+/* ---------------- STATE DECODE ---------------- */
+
+S_FETCH = !Q1 & !Q0;
+S_LIMM  = !Q1 &  Q0;
+S_LMEM  =  Q1 & !Q0;
+S_EXEC  =  Q1 &  Q0;
+
+
+/* ---------------- STATE MACHINE ----------------
+
+   Next state from FETCH, using the data bus fields (DS = source,
+   DM = memory field):
+
+     to LOAD_IMM (Q1'=0, Q0'=1):
+         DS = 00
+         DS = 01 and DM = 000, 100 (!DM1 & !DM0) or 011
+         DS = 1x and DM = 101
+     to LOAD_MEM (Q1'=1, Q0'=0):
+         DS = 01 and DM = 001, 101(x), 010, 110, 111
+         DS = 1x and DM = 110, 111
+     to EXEC (Q1'=1, Q0'=1):
+         DS = 1x and DM = 000-100
+
+   Next state from LOAD_IMM:
+         SRC0 = 1 and MEM != 101  -> LOAD_MEM (Q1'=1, Q0'=0)
+         else                     -> EXEC     (Q1'=1, Q0'=1)
+
+   Q0' (9 terms)
+       hold
+       FETCH: DB_SRC1 & DM != 11x, DS = 00, DM = x00-type or 011
+       LOAD_IMM: !SRC0 # (MEM = 101)
+       LOAD_MEM -> EXEC
+   Q1' (9 terms)
+       hold
+       FETCH, DS = 01: DM = !M1&M0 (001,101), M2&M1 (110,111), 010
+       FETCH, DS = 1x: DM != 101  (!M2 # M1 # !M0)
+       LOAD_IMM, LOAD_MEM -> 1
+*/
+
+Q0.D = (Q0 & PIXEL_ENABLE)
+     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & !DB_MEM1)
+     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & !DB_MEM2)
+     # (S_FETCH & !PIXEL_ENABLE & !DB_SRC1 & !DB_SRC0)
+     # (S_FETCH & !PIXEL_ENABLE & !DB_MEM1 & !DB_MEM0)
+     # (S_FETCH & !PIXEL_ENABLE & !DB_MEM2 & DB_MEM1 & DB_MEM0)
+     # (S_LIMM  & !PIXEL_ENABLE & !SRC0)
+     # (S_LIMM  & !PIXEL_ENABLE & MEM2 & !MEM1 & MEM0)
+     # (S_LMEM  & !PIXEL_ENABLE);
+
+Q1.D = (Q1 & PIXEL_ENABLE)
+     # (S_FETCH & !PIXEL_ENABLE & !DB_SRC1 & DB_SRC0 & !DB_MEM1 & DB_MEM0)
+     # (S_FETCH & !PIXEL_ENABLE & !DB_SRC1 & DB_SRC0 & DB_MEM2 & DB_MEM1)
+     # (S_FETCH & !PIXEL_ENABLE & !DB_SRC1 & DB_SRC0 & !DB_MEM2 & DB_MEM1 & !DB_MEM0)
+     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & !DB_MEM2)
+     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & DB_MEM1)
+     # (S_FETCH & !PIXEL_ENABLE & DB_SRC1 & !DB_MEM0)
+     # (S_LIMM  & !PIXEL_ENABLE)
+     # (S_LMEM  & !PIXEL_ENABLE);
+
+
+/* ---------------- MEMORY FIELD DECODE ---------------- */
+
+/* Memory-mode address selects (registered).
+   Loaded from the data bus memory field on a FETCH clock the CPU
+   owns (the same condition as LOAD_INSTR), held otherwise.
+   X_ENABLE: 4 load terms + 3 hold terms (pin 16 has 12).
+   Y_ENABLE: 2 load terms + 3 hold terms (pin 17 has 14). */
+X_ENABLE.D = (S_FETCH & !PIXEL_ENABLE & !DB_MEM2 & !DB_MEM1 &  DB_MEM0)   /* 001 [0,X] */
+           # (S_FETCH & !PIXEL_ENABLE & !DB_MEM2 &  DB_MEM1 & !DB_MEM0)   /* 010 [Y,X] */
+           # (S_FETCH & !PIXEL_ENABLE &  DB_MEM2 &  DB_MEM1 & !DB_MEM0)   /* 110 [0,X] */
+           # (S_FETCH & !PIXEL_ENABLE &  DB_MEM2 &  DB_MEM1 &  DB_MEM0)   /* 111 [Y,X] */
+           # (Q1 & X_ENABLE)
+           # (Q0 & X_ENABLE)
+           # (PIXEL_ENABLE & X_ENABLE);
+
+Y_ENABLE.D = (S_FETCH & !PIXEL_ENABLE & !DB_MEM2 &  DB_MEM1 & !DB_MEM0)   /* 010 [Y,X] */
+           # (S_FETCH & !PIXEL_ENABLE &  DB_MEM2 &  DB_MEM1 &  DB_MEM0)   /* 111 [Y,X] */
+           # (Q1 & Y_ENABLE)
+           # (Q0 & Y_ENABLE)
+           # (PIXEL_ENABLE & Y_ENABLE);
+
+/* Destination decode */
+DEST_AC = (!MEM2 & !MEM1 & !MEM0)       /* 000 */
+        # (!MEM2 & !MEM1 &  MEM0)       /* 001 */
+        # (!MEM2 &  MEM1 & !MEM0);      /* 010 */
+
+DEST_X  =  !MEM2 &  MEM1 &  MEM0;       /* 011 */
+
+DEST_Y  =   MEM2 & !MEM1 & !MEM0;       /* 100 */
+
+DEST_RAM = ( MEM2 & !MEM1 &  MEM0)      /* 101 */
+         # ( MEM2 &  MEM1 & !MEM0)      /* 110 */
+         # ( MEM2 &  MEM1 &  MEM0);     /* 111 */
+
+
+/* ---------------- STROBES ---------------- */
+
+LOAD_INSTR = S_FETCH & !PIXEL_ENABLE;
+
+LOAD_IMM   = (S_LIMM & !PIXEL_ENABLE)
+           # (S_LMEM & !PIXEL_ENABLE);
+
+LOAD_AC    = S_EXEC & !PIXEL_ENABLE & !BRANCH_BLOCK & DEST_AC;
+
+LOAD_X     = S_EXEC & !PIXEL_ENABLE & !BRANCH_BLOCK & DEST_X;
+
+LOAD_Y     = S_EXEC & !PIXEL_ENABLE & !BRANCH_BLOCK & DEST_Y;
+
+/* Write only in EXEC, and never during a branch/jump.  The memory
+   control PLD writes only on a clock the CPU owns the bus. */
+MEM_WR     = S_EXEC & !BRANCH_BLOCK & DEST_RAM;

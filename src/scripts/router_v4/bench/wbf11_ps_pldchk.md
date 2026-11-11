@@ -1,8 +1,8 @@
-﻿# PLD pin-swap check (wbf11_ps, 2026-11-11)
+# PLD pin-swap check (wbf11_ps, 2026-11-11)
 
 Each ATF22V10C on the bench board: the router's pin permutation applied to today's .pld PIN lines, then compiled with WinCUPL (`cupl -j -l -x -f`, g22v10). A compile fails when an output lands on an input-only pin or needs more product terms than its OLMC has (checked: moving BRANCH's LOAD_PC_LOW, 10 terms, to pin 23 with 8 fails).
 
-**All 20 PLDs compile after the swaps (295 signal moves). Product-term margins are unchanged: the tightest outputs are U16 RED1/BLU2 10/10, RED2/RED3 12/12, GRN1 14/14, as before the swaps.**
+**All 20 PLDs compile after the swaps (295 signal moves). Every moved output fits its new pin.** Some margins did change, because outputs moved between pins of different size: U4 Q5 (10 terms) went from pin 17 (14) to pin 15 (10) and U14 Q6 (10 terms) from pin 20 (14) to pin 15 (10), so both are now full; U16 RED1/BLU2 10/10 and RED2/RED3 12/12 are full as before. The term count of every moved output against its new pin is in wbf11_ps_pldcheck/pldcheck.md (static check, pldcheck.py).
 
 | part | source | signal moves | before | after |
 |---|---|---|---|---|
