@@ -4,6 +4,13 @@ gen_kicad_pcb.py - lay out the main board's outline, dimensions, connectors,
 expansion slots, cartridge slot and mounting holes in kicad/placard.kicad_pcb,
 and draw the layout drawing docs/hardware/placard_board_layout.png.
 
+HISTORICAL (2026-11-11): this script made the first outline and placement
+(290 x 290 mm, unrouted; its drawings are in docs/archive/hardware/).  The
+board is now 290 x 215 mm, routed and edited in KiCad, and the board file is
+the source: do not run this on it.  docs/hardware/placard_board_layout.png
+is drawn by gen_board_pictures.py now; --png here writes the archived
+drawings.
+
     python3.12 gen_kicad_pcb.py          # update the board file
     python3.12 gen_kicad_pcb.py --png    # and export the drawing
 
@@ -45,7 +52,7 @@ Footprints: KiCad's own where it has the part, and the PRELIMINARY ones from
 gen_kicad_connectors.py otherwise (cartridge slot, expansion slots, PS/2,
 SNES, switches), whose hole patterns must be checked against the datasheets.
 
-Date: 2026-11-03
+Date: 2026-11-11
 """
 
 import glob
@@ -64,8 +71,8 @@ import gen_kicad_stock_footprints  # noqa: E402
 ROOT = os.path.normpath(os.path.join(HERE, "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 PCB = os.path.join(KDIR, "placard.kicad_pcb")
-PNG = os.path.join(ROOT, "docs", "hardware", "placard_board_layout.png")
-PLACE_PNG = os.path.join(ROOT, "docs", "hardware", "placard_placement.png")
+PNG = os.path.join(ROOT, "docs", "archive", "hardware", "placard_board_layout_290x290_2026-10-23.png")
+PLACE_PNG = os.path.join(ROOT, "docs", "archive", "hardware", "placard_placement_290x290_2026-10-23.png")
 STOCK = os.environ.get("KICAD7_FOOTPRINT_DIR", "/usr/share/kicad/footprints")
 LIBS = {"placard": os.path.join(KDIR, "lib", "placard.pretty")}
 KICAD_COPY = {name: lib for lib, name in gen_kicad_stock_footprints.STOCK}

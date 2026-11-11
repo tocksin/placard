@@ -1,6 +1,6 @@
 """
 schematic_text.py - size the text of a matplotlib schematic after the
-drawing is laid out (used by gen_io_schematic.py and gen_audio_schematic.py).
+drawing is laid out (used by gen_audio_schematic.py).
 
 The blocks, wires and labels are placed first at their base font sizes.
 fit_text() then scales every text up by SCALE and shrinks, a step at a time,

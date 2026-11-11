@@ -212,7 +212,7 @@ its socket isn't in until step 3):
 
 ![Step 3: the parts to fit, highlighted on the board](bringup_boards/step03_board.png)
 
-**Program first:** U15 Sync from `ATF22V10_SYNC.pld` (rev 10); verify
+**Program first:** U15 Sync from `ATF22V10_SYNC.pld` (rev 12); verify
 and label it.
 
 Turn off the power switch.  Insert U15 into its socket.  Turn on the
@@ -228,7 +228,7 @@ power switch.  The Sync PLD's H2:H0 count the clock by themselves.
 
 CLK_E is the clock straight from X1, before the long track that takes it
 to every other chip (CPU.md, "RAM write timing"); U15 makes the RAM's
-/WE from it (rev 10), but lets go of the pin while RUN (pin 11) is low,
+/WE from it, but lets go of the pin while RUN (pin 11) is low,
 which R4 holds it at until step 12.
 
 ### Step 4: H counter PLD (U13)
@@ -537,7 +537,7 @@ white in 1, 2 and 8 bpp and bright green (color 15) in 4 bpp.*
 ![Step 10: the parts to fit, highlighted on the board](bringup_boards/step10_board.png)
 
 **Program first:** U12 I/O decode from `ATF22V10_IO_DECODE.pld`
-(rev 05); verify and label it.
+(rev 07); verify and label it.
 
 U32's chip enable /CE_HI (U12 pin 15) is low when A15 is 1; on a video
 read A15 is H9.  Turn off the power switch.  Insert U32 and U12 into their
@@ -993,8 +993,8 @@ page test).  It takes several minutes.
 
 ![Step 20: the parts to fit, highlighted on the board](bringup_boards/step20_board.png)
 
-**Program first:** U38 shared port from `ATF22V10_PORT.pld` (rev 04) and
-U42 PS/2 receiver from `ATF22V10_PS2.pld` (rev 02); verify and label
+**Program first:** U38 shared port from `ATF22V10_PORT.pld` (rev 05) and
+U42 PS/2 receiver from `ATF22V10_PS2.pld` (rev 03); verify and label
 them.
 
 Turn off the power switch.  Insert the two PLDs U38 and U42 into their

@@ -7,10 +7,10 @@ gen_state_diagram.py - draw the State PLD's state diagram as a PNG.
 
 Needs matplotlib (python3 -m pip install matplotlib).  The states,
 transitions and outputs are typed in below from src/pld/ATF22V10_STATE.pld
-(revision 12) and the STALL equation in ATF22V10_BRANCH.pld (revision 09);
+(revision 15) and the STALL equation in ATF22V10_BRANCH.pld (revision 15);
 update them here when those change and rerun.
 
-Date: 2026-10-18
+Date: 2026-11-11
 """
 import os
 import sys
@@ -70,7 +70,7 @@ def stall_loop(name, side):
 edge("FETCH", "LOAD_IMM", "source 00 (immediate)\nsource 01, MEM 000/011/100 ([0,D])\n"
      "source 1x, MEM 101 (zero-page store,\nor the pad byte of BCC ac / x)", (47, 44))
 edge("FETCH", "LOAD_MEM", "source 01, MEM 001/010/110/111\n([0,X] or [Y,X] read)\n"
-     "source 1x, MEM 110/111\n(store from AC or X, rev 10)", (45, 101))
+     "source 1x, MEM 110/111\n(store from AC or X)", (45, 101))
 edge("FETCH", "EXEC", "source 1x (AC or X),\nMEM 000-100", (62, 72))
 edge("LOAD_IMM", "LOAD_MEM", "SRC0 = 1, MEM != 101\n(zero-page read: D\nnow holds the address)",
      (85, 60))
@@ -109,14 +109,14 @@ outbox(104, 104, 40, 23, "LOAD_MEM outputs", ["PC_ENABLE = 0 (the PC holds)", "L
        "(D register <- the memory read)", "X_ENABLE / Y_ENABLE pick the address"], "#EEF6FE")
 outbox(152, 8, 46, 41, "EXEC outputs", ["PC_ENABLE = 0", "MEM 000-010 -> LOAD_AC",
        "MEM 011 -> LOAD_X", "MEM 100 -> LOAD_Y", "MEM 101-111 -> MEM_WR (R/W = 0);",
-       "  the memory control PLD gates /WE", "  with PIXEL_ENABLE (rev 12)",
+       "  the Sync PLD makes /WE from it,", "  off while PIXEL_ENABLE = 1",
        "BRANCH_BLOCK = 1 (a branch): none of",
        "  these; the Branch PLD loads the PC"], "#EAF9EC")
 outbox(152, 100, 46, 26, "Clocks per instruction", ["register op 2, immediate 3",
        "[x] / [y,x] read or store 3", "zero-page store 3, zero-page read 4",
        "ADD / SUB into AC, X or Y: +1", "plus 1 per video stall clock"], "#F4F4F4")
 
-ax.text(100, 5, "State PLD (ATF22V10_STATE, revision 12): state diagram", ha="center",
+ax.text(100, 5, "State PLD (ATF22V10_STATE, revision 15): state diagram", ha="center",
         fontsize=21, weight="bold", va="center")
 ax.text(2, 144,
         "STALL is the State PLD's pin 2 (named PIXEL_ENABLE in the PLD file), from the Branch PLD: "

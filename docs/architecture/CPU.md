@@ -1,6 +1,6 @@
 # CPU operations
 
-Date: 2026-11-02
+Date: 2026-11-11
 
 The CPU in this system is made of logic gates and registers.  The CPU 
 interfaces to the memory space (RAM/ROM) by outputting a memory address, and 
@@ -93,7 +93,7 @@ See [TIMING.md](../timing/TIMING.md) for the timing analysis with these parts.
 The RAM is asynchronous, so the write pulse must start after the address, data
 and R/W have settled and must end before they change.  The State PLD's R/W
 (pin 23, 1 = read) is low for the whole EXEC state of a store.  The Sync
-PLD (ATF22V10_SYNC.pld, revision 10) makes the write strobe from it, the
+PLD (ATF22V10_SYNC.pld) makes the write strobe from it, the
 early clock tap CLK_E and PIXEL_ENABLE, and the memory control PLD
 (ATF22V10_MEM_CTRL.pld) makes both read enables:
 

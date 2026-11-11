@@ -1,6 +1,6 @@
 # Bill of materials: main board assembly PLC-2001
 
-Date: 2026-11-06
+Date: 2026-11-11
 
 The main board, built: the bare PCB, every part on the schematic, and the sockets, jumper shunts that are not drawn.  It is one line of the case assembly.
 

@@ -19,7 +19,7 @@ The expansion slots are described in [EXPANSION.md](EXPANSION.md).
 | Part | Job |
 |---|---|
 | ATF22V10C-7PX | Port PLD (`ATF22V10_PORT.pld`, rev 05): the port latch (5 registers written at any x52xx: clocked by /WE, loaded while /PORT, I/O decode PLD pin 20, is low), MISO and the free PS/2 clock on reads of x5200, pad DATA on reads of x5201 |
-| ATF22V10C-7PX | PS/2 receiver (`ATF22V10_PS2.pld`, rev 02): shifts in one byte from the mouse or the keyboard on its clock, holds the device off after it, byte at x5202, ready flag at x5203 (D7 = 0), re-armed by a write there |
+| ATF22V10C-7PX | PS/2 receiver (`ATF22V10_PS2.pld`, rev 03): shifts in one byte from the mouse or the keyboard on its clock, holds the device off after it, byte at x5202, ready flag at x5203 (D7 = 0), re-armed by a write there |
 | MCP1700-3302E/TO | 3.3 V regulator (U40, TO-92) for the SD card |
 
 Besides the chips: 3 Schottky diodes from the latch outputs to the PS/2
@@ -523,8 +523,8 @@ The PS/2 driver (keyboard, mouse, the turns, `ps2_pause`) is
 
 ## FPGA model (Basys3)
 
-`basys_top.vhd` has the port PLD (`port_pld.vhd`, rev 04, with the
-register inside) and the PS/2 receiver (`ps2_pld.vhd`, rev 02), both
+`basys_top.vhd` has the port PLD (`port_pld.vhd`, rev 05, with the
+register inside) and the PS/2 receiver (`ps2_pld.vhd`, rev 03), both
 transcribed from the `.pld` files; the model's data bus mux follows
 their output enables (x5200/x5201 from the port PLD, x5202/x5203 from
 the receiver).

@@ -1,6 +1,6 @@
 # Documentation
 
-Date: 2026-11-10
+Date: 2026-11-11
 
 The design documents, grouped by subject.  Drawings sit next to the document that uses them.
 
@@ -44,7 +44,7 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 - [SCHEMATIC_DRAWING_RULES.md](hardware/SCHEMATIC_DRAWING_RULES.md): how Justin wants schematics drawn, with his requests
 - [BRINGUP.md](hardware/BRINGUP.md): build order and a test for each chip
 - [RELEASES.md](hardware/RELEASES.md): board revisions (rev A as ordered, rev B working)
-- Board drawings: layout, placement, the dimension drawing (`placard_main_dimensions.pdf`), cartridge placement, connector models, shell keepout
+- Board pictures, drawn from the board files by `src/scripts/gen_board_pictures.py`: the main board (`placard_board_layout.png`), its copper (`placard_board_routing.png`) and the cartridges (`cart_board_32k.png`, `cart_board_64k.png`); the dimension drawing (`placard_main_dimensions.pdf`) and the shell keepouts (`shell_keepout.png`)
 
 ## [case/](case/)
 
@@ -58,3 +58,4 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 
 - [WORKFLOW.md](WORKFLOW.md): how changes reach `main`
 - [logo/](logo/README.md): the logo
+- [archive/](archive/README.md): drawings the design has moved on from, kept for reference

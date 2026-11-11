@@ -10,7 +10,7 @@ in below from README.md (Memory Map), docs/architecture/ROM.md, docs/software/LI
 page), docs/video/VIDEO.md (mode byte, line repeat), docs/sound/SOUND.md, docs/architecture/IO.md and
 docs/architecture/EXPANSION.md; update them here when the map changes and rerun.
 
-Date: 2026-11-02
+Date: 2026-11-11
 """
 import os
 import sys
@@ -26,8 +26,9 @@ C = {
     "lib": "#8E6CC9", "font": "#B9A2E0", "drv": "#5E9FB8", "fat": "#C77DB5",
     "prog": "#F5D96B", "boot": "#555555", "zp": "#7A7A7A", "jt": "#3B3B8F",
     "free": "#EDEDED", "unused": "#FFFFFF",
+    "basic": "#F0B27A",
 }
-LIGHT = {C["free"], C["unused"], C["iodim"], C["font"], C["videogap"], C["prog"]}
+LIGHT = {C["free"], C["unused"], C["iodim"], C["font"], C["videogap"], C["prog"], C["basic"]}
 
 fig = plt.figure(figsize=(24, 14), dpi=120)
 fig.suptitle("PLACARD memory map (64 KB RAM + 64 KB ROM behind one 16-bit address)", fontsize=21,
@@ -35,10 +36,10 @@ fig.suptitle("PLACARD memory map (64 KB RAM + 64 KB ROM behind one 16-bit addres
 fig.text(0.5, 0.942,
          "Writes always go to the RAM.  CPU reads follow the map register (x5000): bit n = 1 reads section n "
          "from RAM.  Video reads always read the RAM.\n"
-         "A running program uses map = 05: sections 0 and 2 read RAM; the program (x2000-x3FFF, x6000-xBFFF) "
-         "and the library (xC000-xFBFF) run in place from ROM.\n"
-         "The 32K image (x8000-xFFFF, the same on both cartridges) holds BASIC and a loader instead of a program; the loader "
-         "runs the DOS (DOS.PLC) and programs from the SD card in RAM x0100-x3FFF with map = 07.",
+         "The ROM is the 32K image at x8000-xFFFF (read at x0000-x7FFF too), one job to each 8 KB section: "
+         "4 loader, sound and font; 5 BASIC; 6 files; 7 library and boot.\n"
+         "The loader runs the DOS (DOS.PLC) and programs from the SD card in RAM x0100-x3FFF with map = 07.  "
+         "A development ROM adds one program in x6000-x7FFF and x2000-x3FFF, run in place with map = 05.",
          ha="center", va="top", fontsize=12, color="#444", linespacing=1.5)
 
 
@@ -85,21 +86,24 @@ def side_label(ax, x, y0, y1, text, color):
 axA = fig.add_axes([0.012, 0.05, 0.155, 0.77])
 setup(axA, 0x10000 + 0x1400, "Whole space\n(to scale)", 2.9)
 ram = [
-    (0x0000, 0x1FFF, C["zp"], "", "0\nRAM"),
+    (0x0000, 0x1FFF, C["zp"], "", "0"),
     (0x2000, 0x3FFF, C["free"], "", "1"),
-    (0x4000, 0x4FFF, C["mode"], "", "2\nRAM"),
+    (0x4000, 0x4FFF, C["mode"], "", "2"),
     (0x5000, 0x53FF, C["io"], "", None),
     (0x5400, 0x5FFF, C["mode"], "", None),
     (0x6000, 0xFFFF, C["video"], "", "3-7\n\nvideo\nRAM"),
 ]
 rom = [
     (0x0000, 0x1FFF, C["free"], "", "0"),
-    (0x2000, 0x3FFF, C["prog"], "", "1\nROM"),
+    (0x2000, 0x3FFF, C["prog"], "", "1\ndev\nprogram"),
     (0x4000, 0x4FFF, C["free"], "", "2"),
     (0x5000, 0x53FF, C["io"], "", None),
     (0x5400, 0x5FFF, C["free"], "", None),
-    (0x6000, 0xBFFF, C["prog"], "", "3-5\n\nprogram\nROM"),
-    (0xC000, 0xFFFF, C["lib"], "", "6-7\n\nlibrary\n+ boot\nROM"),
+    (0x6000, 0x7FFF, C["prog"], "", "3\ndev\nprogram"),
+    (0x8000, 0x9FFF, C["audio"], "", "4\nloader\nsound\nfont"),
+    (0xA000, 0xBFFF, C["basic"], "", "5\nBASIC"),
+    (0xC000, 0xDFFF, C["fat"], "", "6\nfiles"),
+    (0xE000, 0xFFFF, C["lib"], "", "7\nlibrary\n+ boot"),
 ]
 for x, regs in ((0.0, ram), (0.85, rom)):
     y = 0
@@ -114,7 +118,7 @@ axA.text(1.225, -0x200, "ROM", ha="center", fontsize=11, weight="bold")
 for a in (0x0000, 0x2000, 0x4000, 0x5000, 0x6000, 0x8000, 0xA000, 0xC000, 0xE000, 0x10000):
     axA.text(1.67, a, f"x{a:04X}" if a < 0x10000 else "", va="center", fontsize=9.5, family="monospace")
     axA.plot([1.6, 1.65], [a, a], color="#333", lw=0.8)
-axA.text(0.0, 0x10000 + 0x600, "Number = section (map bit).\nRAM or ROM in a box = side read in map 05.",
+axA.text(0.0, 0x10000 + 0x600, "Number = section (map bit).",
          va="top", fontsize=9.5, color="#555")
 
 # ---- Panel B: x0000-x3FFF, RAM and ROM ---------------------------------------
@@ -126,10 +130,10 @@ low_ram = [
     (0x2000, 0x3FFF, C["unused"], "Under the ROM;\nwrites land here", None),
 ]
 low_rom = [
-    (0x0000, 0x0003, C["boot"], "Reset jump", None),
-    (0x0004, 0x1EFF, C["free"], "Free ROM", None),
+    (0x0000, 0x0005, C["boot"], "Reset jump, boot mode", None),
+    (0x0006, 0x1EFF, C["free"], "Free on a development\nROM (on a 32K cartridge\nx0000-x7FFF reads the\n32K image again)", None),
     (0x1F00, 0x1FFF, C["lib"], "LIB_RAM image", "lib"),
-    (0x2000, 0x3FFF, C["prog"], "Program code\nand tables\n(more room)", "program"),
+    (0x2000, 0x3FFF, C["prog"], "Development ROM:\nprogram code\nand tables\n(more room)", "program"),
 ]
 hB_ram = [8, 44, 8, 52]
 hB_rom = [6, 46, 8, 52]
@@ -141,7 +145,7 @@ column(axB, 2.9, low_rom, hB_rom, total=112, desc_dx=0.0, fs=10)
 zp = ["00-03  reset code", "04-05  LINK_LO/HI", "06     SP", "07     MAP_SHADOW",
       "08-0A  frame counter", "0B-0C  RAND", "0D-0E  cursor col/row", "0F     SAVE_AC",
       "10-17  R0-R7 args", "18-1F  T0-T7 scratch", "20-8F  program vars", "90-9F  sound driver",
-      "A0-BF  I/O drivers", "C0-FF  software stack"]
+      "A0-BE  I/O drivers", "BF     FONT_PG", "C0-FF  software stack"]
 axB.text(0.0, 114, "Zero page x00-xFF (RAM)\n" + "\n".join(zp), va="top", fontsize=9, family="monospace",
          bbox=dict(boxstyle="round,pad=0.4", fc="#F4F4F4", ec="#999"))
 axB.set_ylim(150, 0)
@@ -180,33 +184,34 @@ axC.set_ylim(sum(hC) + 12, 0)
 # ---- Panel D: x6000-xFFFF ROM ------------------------------------------------
 axD = fig.add_axes([0.625, 0.05, 0.16, 0.77])
 hi = [
-    (0x6000, 0x7FFF, C["prog"], "Program code and tables\n(64K development image:\nx6000-xBFFF, entry x6000)", "program"),
-    (0x8000, 0x80FF, C["boot"], "32K image: vectors, reset copy", None),
-    (0x8100, 0x9EFF, C["prog"], "32K image: program loader,\nBASIC (DOS.PLC on the card)", "BASIC"),
-    (0x9F00, 0x9FFF, C["lib"], "32K image: LIB_RAM's bytes", None),
-    (0xA000, 0xAFFF, C["prog"], "32K image: BASIC", None),
-    (0xB000, 0xBFFF, C["fat"], "32K image: FAT file writer", None),
-    (0xC000, 0xC4FF, C["drv"], "PS/2 keyboard, listening", None),
-    (0xC500, 0xC5FF, C["lib"], "Menu hook (menu_poll)", None),
-    (0xC600, 0xC6FF, C["lib"], "Slot helpers (slot_id)", None),
-    (0xC700, 0xD4FF, C["fat"], "FAT file reader", None),
-    (0xD500, 0xD6FF, C["lib"], "con_gets, mouse_move", None),
-    (0xD700, 0xDBFF, C["audio"], "Sound driver", None),
-    (0xDC00, 0xEBFF, C["drv"], "I/O drivers: keyboard,\npads, SD card, mouse", "I/O"),
-    (0xEC00, 0xF3FF, C["font"], "8x8 font (LIB_FONT)", "font"),
+    (0x6000, 0x7FFF, C["prog"], "Development ROM only:\nprogram code and tables,\nentry x6000", "program"),
+    (0x8000, 0x80FF, C["boot"], "Reset jump, boot mode, vectors", None),
+    (0x8100, 0x91FF, C["basic"], "Card loader, then the\nend of BASIC", "loader"),
+    (0x9200, 0x96FF, C["audio"], "Sound driver (SND_CODE)", None),
+    (0x9700, 0x9EFF, C["font"], "8x8 font (LIB_FONT),\nread through FONT_PG", "font"),
+    (0x9F00, 0x9FFF, C["lib"], "LIB_RAM's bytes", None),
+    (0xA000, 0xBFFF, C["basic"], "BASIC", "BASIC"),
+    (0xC000, 0xC7FF, C["drv"], "SD card driver (SD_CODE)", None),
+    (0xC800, 0xD5FF, C["fat"], "FAT file reader (FS_CODE)", "FAT"),
+    (0xD600, 0xDFFF, C["fat"], "FAT file writer", None),
+    (0xE000, 0xE2FF, C["drv"], "I/O drivers: port, keys, pads", None),
+    (0xE300, 0xE7FF, C["drv"], "PS/2 keyboard, listening", None),
+    (0xE800, 0xE9FF, C["lib"], "con_gets, mouse_move", None),
+    (0xEA00, 0xEAFF, C["lib"], "Menu hook (menu_poll)", None),
+    (0xEB00, 0xEFFF, C["drv"], "PS/2 bytes, mouse", None),
+    (0xF000, 0xF3FF, C["lib"], "Slot helpers, PS/2 tables", None),
     (0xF400, 0xFAFF, C["lib"], "Core routines (LIB_CODE)", "core"),
     (0xFB00, 0xFBFF, C["jt"], "Jump table (LIB_JT)", None),
-    (0xFC00, 0xFC00, C["boot"], "Boot mode byte", None),
-    (0xFD00, 0xFD7E, C["boot"], "Boot loader", None),
-    (0xFE00, 0xFEA1, C["boot"], "Map switch, card scan", None),
+    (0xFC00, 0xFFFF, C["boot"], "Boot loader xFD00, card scan\nxFE08, mul8 tables", "boot"),
 ]
-hD = [9, 4, 7, 4, 4, 4, 4, 4, 4, 6, 4, 5, 7, 6, 6, 4, 4, 4, 4]
+hD = [8, 4, 6, 4, 6, 4, 8, 4, 6, 5, 4, 4, 4, 4, 4, 4, 6, 4, 6]
+SEC = [("3", 0, 1), ("section 4", 1, 6), ("5", 6, 7), ("section 6", 7, 10), ("section 7", 10, 19)]
 setup(axD, sum(hD), "x6000-xFFFF ROM  (sections 3-7)\nnot to scale", 3.7)
 column(axD, 0.0, hi, hD, desc_dx=0.0, fs=10)
-l0 = sum(hD[:6]); l1 = sum(hD[:16])
-side_label(axD, -0.12, l0, l1, "library (most used at the top)", C["lib"])
-side_label(axD, -0.12, l1, sum(hD), "boot", C["boot"])
-axD.text(0.0, sum(hD) + 1.5, "Unlisted bytes in xFC01-xFFFF\nare free.", va="top", fontsize=9.5, color="#555")
+for i, (name, i0, i1) in enumerate(SEC):
+    side_label(axD, -0.12, sum(hD[:i0]) + 0.25, sum(hD[:i1]) - 0.25, name,
+               ("#A0681A", "#555555")[i % 2])
+axD.text(0.0, sum(hD) + 1.5, "About 4.7 KB of the 32K is free,\nmostly page ends (ROM.md).", va="top", fontsize=9.5, color="#555")
 axD.set_ylim(sum(hD) + 10, 0)
 
 # one-line labels in C and D: move the description under the address so the
@@ -256,12 +261,12 @@ axE.text(-2, 600, "Line repeat (mode byte bits 3:2) frees video RAM:\n"
 # ---- legend --------------------------------------------------------------------
 items = [("Video RAM", C["video"]), ("Line codes", C["mode"]), ("Audio buffer", C["audio"]),
          ("I/O", C["io"]), ("I/O drivers", C["drv"]), ("Library", C["lib"]), ("Font", C["font"]),
-         ("FAT", C["fat"]), ("Jump table", C["jt"]), ("Program (ROM)", C["prog"]), ("Boot", C["boot"]),
+         ("FAT", C["fat"]), ("Jump table", C["jt"]), ("Program (dev ROM)", C["prog"]), ("BASIC, loader", C["basic"]), ("Boot", C["boot"]),
          ("Zero page", C["zp"]), ("Free", C["free"])]
 handles = [Rectangle((0, 0), 1, 1, fc=c, ec="#333") for _, c in items]
 fig.legend(handles, [n for n, _ in items], loc="lower right", bbox_to_anchor=(0.995, 0.035), ncol=3,
            fontsize=10, frameon=True)
-fig.text(0.995, 0.01, "Source: README.md and docs/ on main, 2026-10-26", ha="right", fontsize=8.5,
+fig.text(0.995, 0.01, "Source: README.md and docs/architecture/ROM.md on main, 2026-11-11", ha="right", fontsize=8.5,
          color="#777")
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
