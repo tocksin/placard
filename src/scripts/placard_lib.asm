@@ -143,7 +143,7 @@
 ; active video) and include the 8-clock RETURN but not the 18-clock CALL.
 ; test_lib.py measures them.
 ;
-; Date: 11/10/2026
+; Date: 11/11/2026
 ; ============================================================
 
 #include "zeropage.asm"
@@ -161,6 +161,8 @@ PS2_CODE   = 0xC000     ; PS/2 keyboard, listening, xC000-xC4FF (placard_ps2.asm
 PS2_TAB_CODE  = IO_CODE + 0xA60      ; ps2_set2, ps2_e0, in I/O page A (the rest of the
                                      ; PS/2 code is in I/O pages 1 and B-E)
 LIB_RAM    = 0x1F00     ; 256 bytes of library code copied to RAM by the boot
+SQ_LO      = 0xFF00     ; mul8's quarter squares, low bytes (lib_sqtab.asm, in
+SQ_HI      = 0xFC00     ;   rom_boot.asm's pages); high bytes, no entry 0
 LIB_FAR    = 0x1FA0     ; lib_far: a library call from a program that maps
                         ;   every section to RAM (fixed, never moves)
 
@@ -408,63 +410,63 @@ s16_n:
 ; mul8 - 8 x 8 bit unsigned multiply
 ;   in:      R0 = a, R1 = b
 ;   out:     R3:R2 = a * b, AC = R3
-;   changes: T0, T1, T2
-;   clocks:  48 when a factor is 0, then about 80 a bit of the smaller
-;            factor up to its top 1 bit: 96 for 1, about 340 under 16,
-;            about 580 under 128, 691 at most
-;   The smaller factor is the multiplier, read from bit 0 up; the loop
-;   stops when no 1 bits are left in it.
+;   changes: T0
+;   clocks:  see docs/software/LIBRARY.md (about 100)
+;   Quarter squares, as the 6502 machines did it: a * b = f(a + b) -
+;   f(|a - b|), f(n) = n * n / 4, from the tables SQ_LO and SQ_HI
+;   (lib_sqtab.asm, f(0) - f(255)).  For a + b = 256 + k, f is f(k) +
+;   128 k + 16384.  SQ_HI has no entry 0, so a 0 is not looked up.
 ; ------------------------------------------------------------
 mul8:
-    clr  ac
+    ld   [R0], ac
+    add  [R1], ac               ; carry = a + b is over 255
+    ld   ac, [T0]               ; n = its low byte (loads keep the carry)
+    ld   ac, x
+    ld   SQ_LO >> 8, y
+    ld   [y,x], ac
     ld   ac, [R2]
+    ld   SQ_HI >> 8, y
+    ld   [T0], ac
+    beq  m8_h0                  ; f(0) = 0
+    ld   [y,x], ac
+m8_h0:
     ld   ac, [R3]
-    ld   ac, [T1]               ; multiplicand high byte
-    ld   [R0], ac
-    sub  [R1], ac
-    bcs  m8_alb                 ; a < b: a is the multiplier
-    ld   [R0], ac
-    ld   ac, [T0]               ; multiplicand low byte
-    ld   [R1], ac
-    bra  m8_go
-m8_alb:
-    ld   [R1], ac
-    ld   ac, [T0]
-    ld   [R0], ac
-m8_go:
-    ld   ac, [T2]               ; multiplier
-    beq  m8_done
-m8_loop:
-    and  1, ac
-    beq  m8_skip
-    ld   [R2], ac               ; product += multiplicand
-    add  [T0], ac
-    ld   ac, [R2]
-    ld   [R3], ac
-    bcc  m8_nc
-    inc
-m8_nc:
-    add  [T1], ac
-    ld   ac, [R3]
-m8_skip:
-    ld   [T2], ac               ; multiplier >>= 1, done when 0
+    bcc  m8_dif
+    ld   [T0], ac               ; + 128 k + 16384
     shr  ac
-    ld   ac, [T2]
-    beq  m8_done
-    ld   [T0], ac               ; multiplicand <<= 1
-    shl
-    ld   ac, [T0]
-    ld   [T1], ac
-    bcc  m8_s0
-    shl
-    or   1, ac
-    bra  m8_s1
-m8_s0:
-    shl
-m8_s1:
-    ld   ac, [T1]
-    ld   [T2], ac
-    bra  m8_loop
+    add  64, ac
+    add  [R3], ac
+    ld   ac, [R3]
+    ld   [T0], ac
+    and  1, ac
+    beq  m8_dif
+    ld   [R2], ac
+    add  0x80, ac
+    ld   ac, [R2]
+    bcc  m8_dif
+    ld   [R3], ac
+    inc
+    ld   ac, [R3]
+m8_dif:
+    ld   [R0], ac               ; d = |a - b|
+    sub  [R1], ac
+    bcc  m8_d
+    ld   [R1], ac
+    sub  [R0], ac
+m8_d:
+    beq  m8_done                ; f(0) = 0
+    ld   ac, x
+    ld   SQ_LO >> 8, y
+    ld   [R2], ac
+    sub  [y,x], ac
+    ld   ac, [R2]
+    ld   SQ_HI >> 8, y
+    ld   [R3], ac
+    bcc  m8_nb
+    dec
+m8_nb:
+    sub  [y,x], ac
+    ld   ac, [R3]
 m8_done:
     ld   [R3], ac
     ld   [LINK_HI], y
@@ -474,33 +476,46 @@ m8_done:
 ; memset - fill memory with a byte
 ;   in:      AC = value, R1:R0 = address, R2 = count (0 = 256)
 ;   out:     R1:R0 = address + count, R2 = 0
-;   changes: X, Y, T0
-;   clocks:  12 + 43 per byte
+;   changes: X, Y, T0, T1
+;   clocks:  about 110 + 12 per byte (about 60 more across a page end)
 ;   Any address, including the I/O window, so be careful with x5000.
+;   The loop (ms_run) is in LIB_RAM, where its operands can be written:
+;   the value and the run's first offset go into its instructions, and
+;   AC counts the run down (the 6502 machines' self-modifying loops).
+;   A fill across a page end is two runs.  Each run fills from its last
+;   byte down.
 ; ------------------------------------------------------------
 #addr LIB_CODE + 0x1C7            ; entry addresses stay fixed (carry flag rewrite left a gap)
 memset:
-    ld   ac, [T0]
-ms_loop:
-    ld   [R0], x
-    ld   [R1], y
-    ld   [T0], ac
-    ld   ac, [y,x]
+    ld   LIB_RAM >> 8, y
+    ld   (ms_val + 1) & 0xFF, x
+    ld   ac, [y,x]              ; the value into ms_run's store
     ld   [R0], ac
-    inc
-    ld   ac, [R0]
-    bne  ms_nc
-    ld   [R1], ac
-    inc
-    ld   ac, [R1]
-ms_nc:
-    ld   [R2], ac
     dec
-    ld   ac, [R2]
-    bne  ms_loop
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
+    ld   (ms_base + 1) & 0xFF, x
+    ld   ac, [y,x]              ; X = count left + offset - 1
+    ld   [R0], ac
+    add  [R2], ac               ; the end's offset, carry = past the page
+    ld   ac, [T1]
+    ld   [R2], ac
+    beq  ms_256
+    bcc  ms_one
+    ld   [T1], ac
+    bne  ms_two                 ; (ends at the page end exactly: one run)
+ms_one:
+    clr  ac                     ; one run of R2 bytes
+    ld   ac, [T0]
+    ld   [R2], ac
+    jmp  ms_run
+ms_256:
+    ld   [R0], ac               ; 256 bytes: one run from offset 0
+    beq  ms_one
+ms_two:
+    ld   [T1], ac               ; to the page end, then T0 = T1 more
+    ld   ac, [T0]
+    clr  ac
+    sub  [R0], ac
+    jmp  ms_run
 
 ; ============================================================
 ; Page 2: divide, memory copy
@@ -567,13 +582,25 @@ d8_next:
 ;   in:      R1:R0 = dividend, R2 = divisor (not 0)
 ;   out:     R1:R0 = quotient, AC = X = remainder
 ;   changes: T1, T2, T3
-;   clocks:  about 1300-1890
+;   clocks:  about 1300-1890; about 670-960 for a dividend under 256
+;            (8 steps instead of 16)
 ; ------------------------------------------------------------
+; a dividend under 256 (R1 = 0, AC = 0): 8 steps on R0 alone, as R1
+d16_small:
+    ld   [R0], ac
+    ld   ac, [R1]
+    clr  ac
+    ld   ac, [R0]
+    ld   8, ac
+    bra  d16_c
 #addr LIB_CODE + 0x257            ; entry addresses stay fixed (carry flag rewrite left a gap)
 div16:
     clr  ac
     ld   ac, [T1]               ; remainder
+    ld   [R1], ac
+    beq  d16_small
     ld   16, ac
+d16_c:
     ld   ac, [T2]
 d16_loop:
     ld   [T1], ac               ; remainder:R1:R0 <<= 1
@@ -1152,6 +1179,38 @@ hx_back2:
 
 
 
+; ------------------------------------------------------------
+; ms_ret - memset after a run (ms_run in LIB_RAM comes back here):
+; the second run when the fill crosses a page end (T0 = T1 bytes from
+; offset 0 of the next page), then R1:R0 = the end, R2 = 0
+; ------------------------------------------------------------
+ms_ret:
+    ld   [T0], ac
+    beq  ms_fin
+    ld   [R1], ac
+    inc
+    ld   ac, [R1]
+    ld   LIB_RAM >> 8, y
+    ld   (ms_base + 1) & 0xFF, x
+    ld   0xFF, [y,x]            ; X = count left - 1
+    clr  ac
+    ld   ac, [T0]
+    ld   [T1], ac
+    jmp  ms_run
+ms_fin:
+    ld   [T1], ac
+    ld   ac, [R0]
+    bne  ms_f2
+    ld   [R1], ac               ; the fill ended at a page end
+    inc
+    ld   ac, [R1]
+ms_f2:
+    clr  ac
+    ld   ac, [R2]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+
 ; ============================================================
 ; Page 6: text console - decimal
 ; ============================================================
@@ -1632,3 +1691,19 @@ lf_ret:
     jmp  0x00                   ;   address here
 LF_HI = lf_jmp + 1
 LF_LO = lf_jmp + 3
+
+; ------------------------------------------------------------
+; ms_run - memset's loop: AC bytes (0 = 256) of page R1, from the last
+; one down.  memset writes the value into ms_val and the first offset
+; less 1 into ms_base, so X = AC + offset - 1.  Back to ms_ret (ROM).
+; ------------------------------------------------------------
+ms_run:
+    ld   [R1], y
+ms_base:
+    add  0x00, x
+ms_val:
+    ld   0x00, [y,x]
+    dec
+    bne  ms_base
+    ld   ms_ret >> 8, y
+    jmp  ms_ret

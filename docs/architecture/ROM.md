@@ -9,7 +9,7 @@ cartridge's EEPROM image, and `src/hdl/ram.mem` (the main RAM) and
 cartridge model is `src/hdl/cartridge.vhd`.  Programs and the standard
 library live in the ROM.
 
-Date: 2026-11-10
+Date: 2026-11-11
 
 There are two images.  The **32K image** (x8000-xFFFF: boot loader, library
 and the DOS, "The 32K image" below) is the one the machine ships with, on
@@ -54,9 +54,11 @@ the font, the I/O drivers and the rest, down to xC000.
 | xF400-xFAFF | Standard library core routines (`LIB_CODE`) | `rom_lib.asm` |
 | xFB00-xFBFF | Jump table (`LIB_JT`), 55 of 64 entries used ([LIBRARY.md](../software/LIBRARY.md#jump-table)) | `rom_lib.asm` |
 | xFC00 | Boot mode: 00 = ROM program, 01 = RAM image, 02 = the DOS | `gen_rom.tcl` |
+| xFC01-xFCFF | `mul8`'s quarter squares, high bytes (`SQ_HI` + 1) | `lib_sqtab.asm` in `rom_boot.asm` |
 | xFD00-xFD7E | Boot loader | `rom_boot.asm` |
 | xFE00-xFE07 | Map switch (RAM image boot only) | `rom_boot.asm` |
 | xFE08-xFEA1 | Expansion card scan | `rom_boot.asm` |
+| xFF00-xFFFF | `mul8`'s quarter squares, low bytes (`SQ_LO`) | `lib_sqtab.asm` in `rom_boot.asm` |
 
 ## Cartridge sizes
 
@@ -88,6 +90,7 @@ that the boot or the library needs is read through the mirror:
 | xB000-xBFFF | FAT file writer ([DOS.md](../software/DOS.md#the-fat-writer)) | `placard_fsw.masm` |
 | xC000-xFBFF | The library, as above | `rom_lib.asm` |
 | xFC00 | Boot mode 02 | `rom32.masm` |
+| xFC01-xFCFF, xFF00-xFFFF | `mul8`'s tables, as above | `lib_sqtab.asm` |
 | xFD00-xFEA1 | Boot loader, as above | `rom_boot.asm` |
 
 The boot loader is unchanged: it copies `LIB_RAM` from x1F00 (the mirror of

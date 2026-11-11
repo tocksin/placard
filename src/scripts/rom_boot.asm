@@ -78,7 +78,7 @@
 ; byte there is either run or skipped, and the CPU fetches x0001 next
 ; (docs/architecture/ROM.md, "Loading the cartridge").
 ;
-; Date: 10/26/2026
+; Date: 11/11/2026
 
 #include "placard.asm"
 
@@ -390,3 +390,7 @@ slot_hi:    ; slots 1-4: x5100, x5300, x5180, x5380
     #d8 0x51, 0x53, 0x51, 0x53
 slot_lo:
     #d8 0x00, 0x00, 0x80, 0x80
+
+; mul8's quarter-square tables (placard_lib.asm), in the free pages here:
+; the high bytes at xFC01-xFCFF, the low bytes at xFF00-xFFFF
+#include "lib_sqtab.asm"

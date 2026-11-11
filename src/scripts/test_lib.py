@@ -71,10 +71,10 @@ CHANGES = {
     'rand8': zset('T0', 'RAND_LO', 'RAND_HI'),
     'add16': zset('R0', 'R1'),
     'sub16': zset('R0', 'R1'),
-    'mul8': zset('R2', 'R3', 'T0-T4'),
+    'mul8': zset('R2', 'R3', 'T0'),
     'div8': zset('T0-T3'),
     'div16': zset('R0', 'R1', 'T1-T3'),
-    'memset': zset('R0', 'R1', 'R2', 'T0'),
+    'memset': zset('R0', 'R1', 'R2', 'T0', 'T1'),
     'memcpy': zset('R0-R4'),
     'vid_clear': zset('T0', 'T1'),
     'vid_mode': zset('T0'),
@@ -119,6 +119,7 @@ def build_source(extra=()):
                 '    bra  halt_%s' % r]
         n += 1
     src += list(extra)
+    src.append('#include "lib_sqtab.asm"')     # mul8's tables (in rom_boot.asm's pages)
     return '\n'.join(src) + '\n'
 
 
@@ -277,10 +278,12 @@ def t_div8(lib, n):
 
 def t_div16(lib, n):
     cases = [(65535, 1), (65535, 255), (0, 9), (65535, 10), (12345, 10), (256, 129), (65280, 255)]
+    cases += [(255, 1), (255, 255), (254, 255), (200, 3), (1, 1), (128, 129)]   # under 256: the short path
     cases += [(random.randrange(65536), random.randrange(1, 256)) for _ in range(n)]
+    cases += [(random.randrange(256), random.randrange(1, 256)) for _ in range(n // 4)]
     for a, b in cases:
         c, k = lib.call('div16', zp={'R0': a, 'R1': a >> 8, 'R2': b})
-        STATS.add('div16', k)
+        STATS.add('div16' if a > 255 else 'div16 (under 256)', k)
         q = c.mem[0x10] | c.mem[0x11] << 8
         assert (q, c.ac, c.x) == (a // b, a % b, a % b), \
             'div16 %d / %d = %d r %d' % (a, b, q, c.ac)
@@ -312,10 +315,15 @@ def t_rand8(lib, n):
 
 
 def t_memory(lib, n):
-    for i in range(n):
+    # memset's page ends: a run to the last byte of a page, across it, a whole page
+    edges = [(0x0900, 256), (0x0900, 1), (0x09FF, 1), (0x09FF, 2), (0x09FF, 256), (0x0901, 255),
+             (0x0901, 256), (0x0980, 128), (0x0980, 129), (0x0980, 127), (0x0A00, 255), (0x09FE, 3)]
+    for i in range(n + len(edges)):
         dst = random.randrange(0x0800, 0x1E00)
         cnt = random.choice([1, 2, 255, 256, random.randrange(1, 257)])
-        val = random.randrange(256)
+        if i < len(edges):
+            dst, cnt = edges[i]
+        val = random.randrange(1, 256)
         c = lib.cpu()
         c, k = lib.call('memset', ac=val, cpu=c, zp={'R0': dst, 'R1': dst >> 8, 'R2': cnt})
         STATS.add('memset', k)
