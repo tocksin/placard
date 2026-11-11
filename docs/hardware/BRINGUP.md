@@ -28,6 +28,13 @@ should see follows it.  The pictures are made by
 19-21).  RAM powers up random, so a picture with RAM in it shows the kind
 of pattern to expect, not the exact one.
 
+Each step's parts table is followed by a picture of the board, seen from
+the component side with the back edge (the connectors) at the top: the
+parts to fit in that step are orange (a chip to take out is red), the ones
+already fitted gray and
+the rest outlined.  `src/scripts/gen_bringup_boards.py` draws them from
+the parts tables and the board layout.
+
 ## Before you start
 
 **Sockets.**  Put every chip in a socket.  Each step fits only the
@@ -139,6 +146,8 @@ so its readings shift a little with the line and frame; read the average.
 | TP1, TP2 | Test point loop, GND | Keystone 5011 (black) | clip points for the ground test lead |
 | TP3 | Test point loop, +5V (after K1) | Keystone 5010 (red) |  |
 
+![Step 1: the parts to fit, highlighted on the board](bringup_boards/step01_board.png)
+
 Fit only these power input parts on the bare board (power sheet).
 Leave U40, C40 and C47 (the 3.3 V regulator) for step 20, with the SD card.
 
@@ -177,6 +186,8 @@ Pass when every row above reads as listed.
 | X1 | Oscillator, 25.175 MHz, full-size DIP-14 can | ECS ECS-100A-251.7 | no socket: solder it in, pin 1 (dot or square corner) on the footprint's pin 1 |
 | C43 | Capacitor, beside X1 | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
+![Step 2: the parts to fit, highlighted on the board](bringup_boards/step02_board.png)
+
 Fit only the 25.175 MHz oscillator X1 and its decoupler C43 (100 nF);
 every other part goes in with the step that first needs it.  X1 has no
 socket: solder it in, with the can's dot or square corner (pin 1) on
@@ -198,6 +209,8 @@ its socket isn't in until step 3):
 | U15 | PLD, Sync | ATF22V10C-7PX, programmed from `ATF22V10_SYNC.pld` |  |
 | U15 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
 | C15 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+
+![Step 3: the parts to fit, highlighted on the board](bringup_boards/step03_board.png)
 
 **Program first:** U15 Sync from `ATF22V10_SYNC.pld` (rev 10); verify
 and label it.
@@ -228,6 +241,8 @@ which R4 holds it at until step 12.
 | U13 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
 | C13 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
+![Step 4: the parts to fit, highlighted on the board](bringup_boards/step04_board.png)
+
 **Program first:** U13 H counter from `ATF22V10_HCOUNT.pld` (rev 08);
 verify and label it.
 
@@ -255,6 +270,8 @@ power switch.  H9:H3 count groups of 8 clocks, 28-127, 800 clocks a line.
 | C14 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | J7 | VGA connector, DE-15 | Assmann A-HDF 15 A-KG/T |  |
 | R61, R62 | Resistor, sync series (beside U13 and U15) | 47 ohm |  |
+
+![Step 5: the parts to fit, highlighted on the board](bringup_boards/step05_board.png)
 
 **Program first:** U14 V counter from `ATF22V10_VCOUNT.pld` (rev 03);
 verify and label it.
@@ -301,6 +318,8 @@ instead means the sync isn't right.*
 | S1 | Strap (temporary), in U23's socket | 10k | out at step 11 |
 | S2 | Strap (temporary), in U23's socket | 10k | out at step 11 |
 | (leads) | Test leads, 2: a clip on one end, a probe tip on the other | in the kit | one for ground, one for power |
+
+![Step 6: the parts to fit, highlighted on the board](bringup_boards/step06_board.png)
 
 **Program first:** U16 color decoder from `ATF22V10_COLORDECODER.pld`
 (rev 07); verify and label it.
@@ -387,6 +406,8 @@ S2 stay until step 11.
 | U7-U10 sockets | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
 | C7-C10 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
+![Step 7: the parts to fit, highlighted on the board](bringup_boards/step07_board.png)
+
 **Program first:** U7, U8, U9 and U10 address muxes, four copies of
 `ATF22V10_QUAD_MUX.pld` (rev 02); verify and label them.
 
@@ -431,6 +452,8 @@ mux's wiring or its H or V input.
 | C11 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | S3 | Strap (temporary), in U2's socket | wire link | out at step 9 |
 | S4 | Strap (temporary), in U11's socket | 10k | out at step 12 |
+
+![Step 8: the parts to fit, highlighted on the board](bringup_boards/step08_board.png)
 
 U31 and U22 need no programming.  U22 must be marked SN74F377AN (the
 silkscreen above its socket says 74F377), not the CD74HCT377E that goes
@@ -477,6 +500,8 @@ only MODE0 and MODE1 (pins 10, 11); the pixel pins are driven by U22 now.
 |---|---|---|---|
 | U2 | PLD, Branch | ATF22V10C-7PX, programmed from `ATF22V10_BRANCH.pld` | socket fitted at step 8 |
 
+![Step 9: the parts to fit, highlighted on the board](bringup_boards/step09_board.png)
+
 **Program first:** U2 Branch from `ATF22V10_BRANCH.pld` (rev 15); verify
 and label it.
 
@@ -509,6 +534,8 @@ white in 1, 2 and 8 bpp and bright green (color 15) in 4 bpp.*
 | U12 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
 | C32, C12 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
+![Step 10: the parts to fit, highlighted on the board](bringup_boards/step10_board.png)
+
 **Program first:** U12 I/O decode from `ATF22V10_IO_DECODE.pld`
 (rev 05); verify and label it.
 
@@ -535,6 +562,8 @@ now across the whole screen.*
 | R56-R58 | Resistor, row tint | 910 ohm |  |
 | D9-D11 | Schottky diode, row tint | 1N5817 (black) | band (cathode) as on the silkscreen |
 | D12-D17 | Diode, row tint | 1N4148 | band (cathode) as on the silkscreen |
+
+![Step 11: the parts to fit, highlighted on the board](bringup_boards/step11_board.png)
 
 **Program first:** U35 audio and mode slots from `ATF22V10_AUDIO.pld`
 (rev 04); verify and label it.  U23 needs no programming; it is the
@@ -574,6 +603,8 @@ lines are black.*
 | R4 | Resistor, RUN pull-down | 10k |  |
 | JP2 | Pin header, 1 x 2 (bring-up jumper) | Sullins PREC002SAAN-RC | RUN to +5 V |
 | JP2 shunt | Jumper shunt | Sullins QPC02SXGN-RC | on only for the write check |
+
+![Step 12: the parts to fit, highlighted on the board](bringup_boards/step12_board.png)
 
 **Program first:** U11 memory control from `ATF22V10_MEM_CTRL.pld`
 (rev 10); verify and label it.  U25 needs no programming.
@@ -652,6 +683,8 @@ the State, Branch and PC chips with no memory and no software.
 | JP1 | Pin header, 1 x 2 (bring-up jumper) | Sullins PREC002SAAN-RC | STALL_IN to STALL_OUT (JP2, RUN to +5 V, is in from step 12) |
 | JP1 shunt | Jumper shunt | Sullins QPC02SXGN-RC | on, with the JP2 shunt (see "Without the cartridge") |
 
+![Step 13: the parts to fit, highlighted on the board](bringup_boards/step13_board.png)
+
 **Program first:** U1 State from `ATF22V10_STATE.pld` (rev 15) and U17
 instruction register from `ATF22V10_IR.pld` (rev 01); verify and label
 them.  U18 needs no programming; check it is marked SN74F377AN.
@@ -696,6 +729,8 @@ blanks every line.*
 | U3 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
 | C3 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
+![Step 14: the parts to fit, highlighted on the board](bringup_boards/step14_board.png)
+
 **Program first:** U3 PC low from `ATF22V10_PC_COUNTER8.pld` (rev 02);
 verify and label it.
 
@@ -718,6 +753,8 @@ All eight bits move together (FF, 00, FF).
 | U4 | PLD, PC high | ATF22V10C-7PX, programmed from `ATF22V10_PC_COUNTER8.pld` |  |
 | U4 socket | IC socket | DIP-24 0.3" (On Shore ED241DT) |  |
 | C4 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+
+![Step 15: the parts to fit, highlighted on the board](bringup_boards/step15_board.png)
 
 **Program first:** U4 PC high from `ATF22V10_PC_COUNTER8.pld` (rev 02),
 the same file as U3; verify and label it.
@@ -748,6 +785,8 @@ power switch.  PC high is a binary counter now: each bit is half the one below.
 | U19 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
 | C5, C6, C19 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
+![Step 16: the parts to fit, highlighted on the board](bringup_boards/step16_board.png)
+
 **Program first:** U5 ALU low and U6 ALU high, two copies of
 `ALU_SHR.pld` (rev 07); verify and label them.
 
@@ -770,6 +809,8 @@ readings of steps 14 and 15 must not change.
 | U20, U21 sockets | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
 | C20, C21 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 
+![Step 17: the parts to fit, highlighted on the board](bringup_boards/step17_board.png)
+
 Turn off the power switch.  Insert U20 and U21 into their sockets.  Turn
 on the power switch.  Also random and never loaded: their Q pins read steady 0 V or 5 V.  The
 free run readings must not change.
@@ -784,6 +825,8 @@ free run readings must not change.
 | U26 socket | IC socket | DIP-20 0.3" (On Shore ED20DT) |  |
 | C26 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
 | R5-R12 | Resistor, source buffers to the data bus | 47 ohm |  |
+
+![Step 18: the parts to fit, highlighted on the board](bringup_boards/step18_board.png)
 
 Turn off the power switch.  Insert U26 into its socket.  Turn on the
 power switch.  The free run never selects it (its /OE2 is instruction bit 1, which is 1),
@@ -811,6 +854,10 @@ and /OE2 (instruction register PLD I1, pin 15) wiring.
 | cartridge U2 socket | IC socket | DIP-28 0.6" (On Shore ED28DT) |  |
 | cartridge U3 socket | IC socket | DIP-28 0.3" (On Shore ED281DT) |  |
 | cartridge C1-C3 | Capacitor | 100 nF ceramic (TDK FG28X7R1H104KNT00) |  |
+
+![Step 19: the parts to fit, highlighted on the board](bringup_boards/step19_board.png)
+
+![The 32K cartridge board and its parts](bringup_boards/cartridge_32k_board.png)
 
 The free run does select the AC source buffer (source 11), and the
 accumulator is random, so it goes in with the memories.  Turn off the power switch and insert the AC
@@ -944,6 +991,8 @@ page test).  It takes several minutes.
 | R45-R47 | Resistor, SD dividers | 3.3k |  |
 | R48 | Resistor, MISO pull-up to 3.3 V | 10k |  |
 
+![Step 20: the parts to fit, highlighted on the board](bringup_boards/step20_board.png)
+
 **Program first:** U38 shared port from `ATF22V10_PORT.pld` (rev 04) and
 U42 PS/2 receiver from `ATF22V10_PS2.pld` (rev 02); verify and label
 them.
@@ -1035,6 +1084,8 @@ the mouse moved (MOUSE_INIT 00, X 120, Y 45).*
 | R39 | Resistor, output | 10k |  |
 | J6 | Audio line out jack, 3.5 mm TRRS | Tensility 54-00174 |  |
 
+![Step 21: the parts to fit, highlighted on the board](bringup_boards/step21_board.png)
+
 Turn off the power switch.  Insert the DAC register U36 into its socket
 and fit its supply
 filter R22 (2.2 ohm) and C44 (220 µF), the R-2R ladder R23-R31 (2k) and
@@ -1067,6 +1118,8 @@ out, program it with the 32K ROM (`rom_32k.bin`, written by
 | Ref | Part | Value or part number | Note |
 |---|---|---|---|
 | J9-J12 | Expansion slot, Molex 87715-9106 as the cartridge slot (optional) | Molex 87715-9106 | fit only the ones a card will use |
+
+![Expansion slots: where J9-J12 go](bringup_boards/expansion_board.png)
 
 The slots J9-J12 are optional: fit only the ones a card will use (each has
 its own select, /EXP1-/EXP4; the SEL resistors R51-R54 went with I/O decode
