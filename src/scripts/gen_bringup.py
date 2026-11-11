@@ -5,9 +5,14 @@ gen_bringup.py - writes bringup.asm, the bring-up test ROM (docs/hardware/BRINGU
     python3 gen_bringup.py          writes bringup.asm
     python3 test_bringup_sim.py     runs it in the simulator and checks it
 
-The ROM is one 64 KB image (both ROM chips) with its own reset code at
-x0000: it does not use the normal boot loader, so a CPU that can't run the
-boot loader yet can still run it.  It first runs the CPU core tests, which
+The ROM is one 32 KB image for the 32K cartridge (bringup.bin), with its own
+reset code at x0000: it does not use the normal boot loader, so a CPU that
+can't run the boot loader yet can still run it.  The cartridge shows its
+32 KB in both halves of the ROM, so the byte at file offset f is read at
+x0000 + f and at x8000 + f: the library sits where it always does in
+x8000-xFFFF and the test code uses the pages it leaves free, at whichever
+of the two addresses suits (image() folds the two halves and checks that
+no two bytes meet).  It first runs the CPU core tests, which
 need nothing but the CPU, the ROM, the RAM and the map register:
 
      1  branches on AC (BEQ, BNE, BLT, BLE)        9  AC -> X, immediate -> X (read back via x3F00)
@@ -44,16 +49,29 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 FAIL_BASE = 0x0080              # fail loop N at FAIL_BASE + 4 N
 
-# ROM markers: (address, value).  Y walk: page p offset x10 = p.  The map
-# test uses one marker per 8 KB section, all at offsets x10 of a page whose
-# column offset is below x20, so the RAM bytes it writes there are never on
-# the screen.  The library leaves xD600-xD617 free for section 6's marker
-# (after the FAT reader; the bring-up ROM has no FAT writer).
-Y_MARKS = [(p << 8 | 0x10, p) for p in (0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80)]
-SEC_MARKS = [(0x0110, 0x01), (0x2010, 0x20), (0x4010, 0x40), (0x7E10, 0x7E),
-             (0x8010, 0x80), (0xA010, 0xA0), (0xD610, 0xD6), (0xFE10, 0xE7)]
-X_PAGE = 0x0F                   # X walk: ROM x0F00 + v = v ^ 5A
-MAIN2 = 0xB800      # where main goes on, after the RAM test in section 5
+# ROM markers: (address, value).  Y walk: page p offset xF0 = p, for the
+# seven address bits 14-8 the ROM has (the 32K cartridge's ROM does not see
+# bit 15: tests 14 and 15 check it through the RAM).  xC0F0, the mirror of
+# x40F0, is in the free end of the SD card driver's first page.
+# The map test uses one marker per 8 KB section, at offset x10 of a page:
+# in the video area (sections 3-7) that is an even page's offset below x20,
+# so the RAM bytes the test writes there are never on the screen.  Sections
+# s and s + 4 share a ROM byte (the mirror); the RAM under them differs.
+# The library leaves xD600-xD617 free (after the FAT reader; the bring-up
+# ROM has no FAT writer).
+Y_MARKS = [(p << 8 | 0xF0, p) for p in (0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40)]
+SEC_MARKS = [(0x0210, 0x02), (0x2010, 0x20), (0x5610, 0x56), (0x7E10, 0x7E),
+             (0x8210, 0x02), (0xA010, 0x20), (0xD610, 0x56), (0xFE10, 0x7E)]
+X_PAGE = 0x01                   # X walk: ROM x0100 + v = v ^ 5A
+# pages (as the CPU addresses them) for the code after the core tests: the
+# free pages under the library, in the order the code fills them.  A page
+# with a Y marker ends at xF0.
+CODE_PAGES = [0x83, 0x85, 0x86, 0x87] + list(range(0x89, 0x90)) + [0x91] + \
+             list(range(0xB9, 0xBF)) + list(range(0xD7, 0xE0))
+HELPER_PAGES = [0x72, 0x73, 0x7C, 0x7D]     # section 3 (the mirror of section 7's free pages)
+TBL4, TBL2, RT_TABLE = 0x8400, 0x8800, 0x9000   # tables that start a page (indexed by X)
+# free ends for the strings: (start, end)
+STR_ROOM = [(0x8220, 0x82F0), (0x8450, 0x84F0), (0x8850, 0x88F0), (0x90A0, 0x90F0)]
 X_VALUES = [0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0xFF]
 ID_TABLE = 0x3F00               # ROM data test: x3F00 + n = n
 
@@ -87,7 +105,7 @@ class Asm:
         self.addr = 0
         self.lock = 0
         self.n = 0
-        self.skips = {}         # page start -> where the code goes on instead
+        self.pages = None       # the pages the code may use, in order (None: every page)
 
     def org(self, a, comment=None):
         if comment:
@@ -117,7 +135,11 @@ class Asm:
 
     def next_page(self):
         nxt = (self.addr | 0xFF) + 1
-        nxt = self.skips.get(nxt, nxt)
+        if self.pages is not None:
+            k = self.pages.index(self.addr >> 8) + 1
+            if k >= len(self.pages):
+                raise SystemExit('out of pages after x%04X' % self.addr)
+            nxt = self.pages[k] << 8
         lb = self.uniq('pg')
         self.lines.append('    ld   %s >> 8, y' % lb)
         self.lines.append('    jmp  %s' % lb)
@@ -428,7 +450,7 @@ STRINGS = [
 
 
 def main_program(a):
-    a.org(0x8100, 'main: library set-up, status screen, frame loop (section 4)')
+    a.org(CODE_PAGES[0] << 8, 'main: library set-up, status screen, frame loop')
     a.label('main')
     a.c('copy LIB_RAM (ROM x1F00-x1FFF) into the RAM under it, map 00')
     a.map(0x00)
@@ -485,10 +507,7 @@ def main_program(a):
     a.i('ld   [LINE_LAST], ac')     # harmless; frame_poll sets it
     a.call('frame_poll')
     a.i('ld   [FRAME_LO], ac', 'ld   ac, [0x%02X]' % ZP['LASTF'])
-    # jump, don't fall through the unused bytes up to x9000
-    a.i('ld   frame_loop >> 8, y', 'jmp  frame_loop')
-
-    a.org(0x9000, 'frame loop')
+    a.c('frame loop')
     a.label('frame_loop')
     with a.block(40):
         w = a.uniq('wait')
@@ -605,7 +624,8 @@ def main_program(a):
 def ram_page_test(a):
     """one page a frame, 6 patterns: 00 FF 55 AA, the address low byte, its
     complement.  Counts errors and keeps the last bad address."""
-    a.org(0xA100, 'RAM page test, one page per frame (section 5)')
+    a.next_page()
+    a.c('RAM page test, one page per frame')
     a.label('ram_page_test')
     a.i('ld   [0x%02X], x' % ZP['RT_IDX'], 'ld   rt_pages >> 8, y', 'ld   [y,x], ac',
         'ld   ac, [0x%02X]' % ZP['RT_PAGE'])
@@ -726,10 +746,11 @@ def generate():
     L = a.lines
     L += ['; bringup.asm - the bring-up test ROM (docs/hardware/BRINGUP.md)',
           ';',
-          '; Written by gen_bringup.py; edit that, not this file.  A complete 64 KB',
-          '; ROM image with its own reset code: burn x0000-x7FFF into the lower ROM',
-          '; chip (#33) and x8000-xFFFF into the upper one (#34)',
-          '; (test_bringup_sim.py --bin writes bringup_lo.bin and bringup_hi.bin).',
+          '; Written by gen_bringup.py; edit that, not this file.  A complete 32 KB',
+          '; ROM image with its own reset code, for the 32K cartridge, which shows it',
+          '; in both halves of the ROM: the byte at file offset f is read at x0000 + f',
+          '; and at x8000 + f, so no two bytes here are x8000 apart',
+          '; (test_bringup_sim.py --bin writes bringup.bin).',
           ';',
           '; Fail loops: test N stops at x0080 + 4N (PC high = 00, PC low Q7 = 1,',
           '; Q6:Q2 = N).  Tests:']
@@ -755,11 +776,14 @@ def generate():
         a.i('bra  fail%d' % n)
         a.lock -= 1
     # markers and tables
-    a.org(0x0100, 'ROM markers for tests 10 and 13 (address -> value)')
-    for ad, v in sorted(set(Y_MARKS) | set(SEC_MARKS)):
+    a.org(0x0100, 'ROM markers for tests 10 and 14 (address -> value); sections 4-7 read\n'
+                  '; the markers of sections 0-3 through the mirror')
+    for ad, v in sorted(set(Y_MARKS) | set(m for m in SEC_MARKS if m[0] < 0x8000)):
         a.org(ad)
         a.data([v])
-    a.org(X_PAGE << 8, 'test 11: x0F00 + v = v xor 5A')
+    for (lo, v), (hi, w) in zip(SEC_MARKS[:4], SEC_MARKS[4:]):
+        assert hi == lo + 0x8000 and v == w
+    a.org(X_PAGE << 8, 'test 11: x%02X00 + v = v xor 5A' % X_PAGE)
     for v in X_VALUES:
         a.org((X_PAGE << 8) | v)
         a.data([v ^ 0x5A])
@@ -781,7 +805,8 @@ def generate():
         raise SystemExit('section 1 code runs into the x3F00 table (%04X)' % a.addr)
 
     # section 3: helpers that can't run in section 1
-    a.org(0x6000, 'section 3: map test for section 1, RAM address test')
+    a.org(HELPER_PAGES[0] << 8, 'section 3: map test for section 1, RAM address test')
+    a.pages = HELPER_PAGES
     fail_handler(a, 'fail_h3')
     for name, back in (('map_s1_a', s1_back_a), ('map_s1_b', s1_back_b)):
         a.label(name)
@@ -789,40 +814,74 @@ def generate():
         map_section_test(a, 1, ad, m, 'fail_h3')
         a.jump(back)
     ram_addr_test(a, t14_back)
-    a.org(0x6E00, 'band tables')
+
+    # tables that start a page, and the RAM test's error return after one
+    a.pages = None
+    a.org(TBL4, 'band tables')
     a.label('tbl4')
     a.data([(c // 5) * 0x11 for c in range(80)])
-    a.org(0x6F00)
+    a.org(TBL2)
     a.label('tbl2')
     a.data([(c // 20) * 0x55 for c in range(80)])
-
-    # main fills section 4 up to the library's sound driver and font (SND_CODE,
-    # x9200) and goes on in section 5 after the RAM test
-    a.skips[0x9200] = MAIN2
-    main_program(a)
-    if not (a.addr <= 0x9200 or MAIN2 <= a.addr <= 0xC000):
-        raise SystemExit('main does not fit (%04X)' % a.addr)
-    del a.skips[0x9200]
-    ram_page_test(a)
-    # an error goes back to its pattern's loop: the bad-byte path left the
-    # pattern number in T15B
-    a.org(0xB000, 'RAM test error return and tables')
-    a.label('rt_dispatch')
-    for pat in range(6):
-        with a.block(14):
-            nx = a.uniq('dp')
-            a.i('ld   [0x%02X], ac' % ZP['T15B'], 'xor  %d, ac' % pat, 'bne  %s' % nx)
-            a.jump('rt_ret%d' % pat)
-            a.label(nx)
-    a.jump('rt_ret0')
-    a.org(0xB200)
+    a.org(RT_TABLE, 'RAM test pages')
     a.label('rt_pages')
     a.data(RT_PAGES)
-    a.org(0xB300, 'strings')
-    for lb, s in STRINGS:
-        a.label(lb)
-        a.string(s)
+    # an error goes back to its pattern's loop: the bad-byte path left the
+    # pattern number in T15B
+    a.c('RAM test error return')
+    a.label('rt_dispatch')
+    a.lock += 1
+    for pat in range(6):
+        nx = a.uniq('dp')
+        a.i('ld   [0x%02X], ac' % ZP['T15B'], 'xor  %d, ac' % pat, 'bne  %s' % nx)
+        a.i('ld   rt_ret%d >> 8, y' % pat, 'jmp  rt_ret%d' % pat)
+        a.label(nx)
+    a.i('ld   rt_ret0 >> 8, y', 'jmp  rt_ret0')
+    a.lock -= 1
+    if a.addr > STR_ROOM[-1][0]:
+        raise SystemExit('the RAM test error return is too long (%04X)' % a.addr)
+
+    # strings: in the free ends of those pages, the rest in the last code pages
+    room = [list(r) for r in STR_ROOM]
+    rest = []
+    for lb, st in STRINGS:
+        for r in room:
+            if r[0] + len(st) + 1 <= r[1]:
+                a.org(r[0])
+                a.label(lb)
+                a.string(st)
+                r[0] = a.addr
+                break
+        else:
+            rest.append((lb, st))
+    code_pages = list(CODE_PAGES)
+    n = sum(len(st) + 1 for lb, st in rest)
+    if n:
+        npg = (n + 255) // 256
+        spages, code_pages = code_pages[-npg:], code_pages[:-npg]
+        assert spages == list(range(spages[0], spages[0] + npg))
+        a.org(spages[0] << 8, 'strings')
+        for lb, st in rest:
+            a.label(lb)
+            a.string(st)
+
+    # main and the RAM page test fill the free pages under the library
+    a.pages = code_pages
+    main_program(a)
+    ram_page_test(a)
     return '\n'.join(a.lines) + '\n'
+
+
+def image(mem):
+    """the 32 KB ROM file from the assembled bytes {address: value}: address
+    a is file offset a & x7FFF.  Two bytes at one offset stop it."""
+    img = {}
+    for ad, v in mem.items():
+        f = ad & 0x7FFF
+        if f in img:
+            raise SystemExit('x%04X and x%04X both use ROM file offset x%04X' % (f, f | 0x8000, f))
+        img[f] = v
+    return bytes(img.get(f, 0xFF) for f in range(0x8000))
 
 
 if __name__ == '__main__':
