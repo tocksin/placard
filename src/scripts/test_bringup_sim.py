@@ -24,6 +24,8 @@ port model (PS/2 keyboard and mouse, pads, SD card).  Checks:
     passes with no errors, SD_INIT and MOUSE_INIT show the attached parts
   - typed keys echo; T turns the test tone on (the audio buffer changes)
     and off; S retries the SD card
+  - a stop after the X register is in says so on the screen: the number of
+    the failed test in the top left corner, or the "waiting for U29" text
   - injected faults stop the CPU in the right place: an ALU output pin in
     gate 1, a RAM data bit (or the map bit gate 6 uses) in gate 6, a
     stuck line read bit in gate 7, and in the fail loops (PC = x0080 + 4N)
@@ -202,7 +204,7 @@ class AliasMem(bytearray):
 
 
 def run_fault(rom, syms, name, want, read=None, line=None, alu=None, addr_mask=0,
-              limit_frames=40):
+              limit_frames=40, screen_must=False, png=None):
     """want: the fail loop, or a tuple of the ones that may catch it first"""
     rig = Rig(rom, sd=False, mouse=False)
     cpu = rig.cpu
@@ -231,9 +233,38 @@ def run_fault(rom, syms, name, want, read=None, line=None, alu=None, addr_mask=0
             break
     wants = want if isinstance(want, tuple) else (want,)
     ok = got in wants
-    print('%-44s stops in %-7s (want %s)  %s' % (name, got if isinstance(got, str) else 'fail loop %s' % got,
-                                                 ' or '.join(map(str, wants)), 'ok' if ok else 'WRONG'))
+    # what the screen says: a fail loop's number in the top left corner
+    # (fail_show), or the "waiting for U29" text in gate 7
+    for _ in range(40):
+        cpu.step()                        # a few turns of the loop, harmless
+    scr = ''
+    if got == 14:
+        scr = 'no number for the map test'
+    elif isinstance(got, int):
+        scr = screen_number(cpu.mem)
+        scr = 'screen shows %s' % scr if scr else 'screen unreadable'
+        if screen_must and scr != 'screen shows %02d' % got:
+            ok = False
+    elif got == 'gate 7':
+        w = all(cpu.mem[0x6000 + 0x20 + r] == rom[ps.LIB_FONT + 256 * r + ord('P')] for r in range(8))
+        scr = 'screen shows the U29 text' if w else 'no U29 text'
+        ok &= w
+    if png:
+        ps.render(cpu.mem, png)
+    print('%-44s stops in %-7s (want %s)  %s  %s' % (name, got if isinstance(got, str) else 'fail loop %s' % got,
+                                                 ' or '.join(map(str, wants)), scr, 'ok' if ok else 'WRONG'))
     return ok
+
+
+def screen_number(mem):
+    """the two digits fail_show wrote in the top left corner, or None"""
+    out = ''
+    for col in (0, 1):
+        rows = tuple(mem[0x6000 + 0x200 * col + 0x20 + r] for r in range(8))
+        if rows not in gb.DIGITS or any(mem[0x5A20 + r] for r in range(8)):
+            return None
+        out += str(gb.DIGITS.index(rows))
+    return out
 
 
 def in_ram(cpu, ad):
@@ -271,7 +302,8 @@ def faults(rom, syms):
     ok &= run_fault(rom, syms, 'map register bits 2 and 6 swapped', 14, read=rd26)
     # RAM address lines stuck low (both chips share A14:A0)
     for b in (0, 4, 9, 13, 14):
-        ok &= run_fault(rom, syms, 'RAM address line A%d stuck low' % b, 15, addr_mask=1 << b)
+        ok &= run_fault(rom, syms, 'RAM address line A%d stuck low' % b, 15, addr_mask=1 << b,
+                        screen_must=b >= 13)     # a low address line garbles the digits it aliases
     # line read bit stuck
     # line read bit stuck: at start-up test 16 waits in gate 7
     ok &= run_fault(rom, syms, 'line read bit V5 stuck low', 'gate 7', line=lambda v: v & ~0x08)
@@ -450,7 +482,9 @@ def gate_checks(rom, syms):
     register and the D source buffer U26 are in before it): with the chips
     fitted so far the PC must stop in the next chip's gate page, whatever
     the missing chips' pins float at, and never get past it.  Gates 5 (U26
-    again) and 6 (the RAM) pass at once, so X goes from gate 4 to gate 7."""
+    again) and 6 (the RAM) pass at once, so X goes from gate 4 to gate 7.
+    Waiting for X, gate 4 must blink a line on the screen; waiting for U29,
+    the screen must show the text."""
     ok = True
     base = ('u26', 'ram')
     steps = [((), 1, 'the cartridge (U18, U26 and the RAM in)'),
@@ -465,10 +499,20 @@ def gate_checks(rom, syms):
         for float_rnd in (False, True):
             for seed in range({7: 5, 'main': 2}.get(want, 60)):
                 cpu = PartCpu(rom, base + have, seed=seed, float_rnd=float_rnd)
-                got = settle(cpu, syms, {7: 2_000_000, 'main': 60_000_000}.get(want, 400_000))
+                got = settle(cpu, syms, {7: 4_000_000, 'main': 60_000_000}.get(want, 400_000))
                 n += 1
                 if got != want:
                     bad[got] = bad.get(got, 0) + 1
+                # what the screen shows while it waits
+                if want == 4 and not float_rnd:
+                    # gate 4 blinks the row the floating X lines point at
+                    xf = cpu.fl['x']
+                    line = set(cpu.mem[(pg << 8) | xf] for pg in range(0x60, 0x100))
+                    if line not in ({0x00}, {0xFF}) or cpu.mem[0x5A00 | xf] or cpu.mem[0x5B00 | xf]:
+                        bad['no line'] = bad.get('no line', 0) + 1
+                if want == 7:
+                    if not all(cpu.mem[0x6000 + 0x20 + r] == rom[ps.LIB_FONT + 256 * r + ord('P')] for r in range(8)):
+                        bad['no text'] = bad.get('no text', 0) + 1
         good = not bad
         ok &= good
         print('%-46s %-16s %3d runs  %s'

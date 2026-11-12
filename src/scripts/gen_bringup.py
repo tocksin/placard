@@ -30,11 +30,14 @@ register:
      7  carry flag (BCS, BCC)                     15  RAM address lines, both chips
      8  SHR                                       16  video line read (x5000)
 
-A test that fails sets the map back to all ROM and jumps to a loop of its
-own at ROM x0080 + 4 x N, where it stays.  The PC then holds still at
+A test that fails sets the map back to all ROM, writes its number in the
+top left corner of the screen (fail_show, which uses no RAM of its own)
+and jumps to a loop of its own at ROM x0080 + 4 x N, where it stays.  The PC then holds still at
 x00(80 + 4N) to x00(82 + 4N), so a multimeter on the PC PLDs reads the test
 number: PC high all 0 V, PC low Q7 high and Q6:Q2 = N.  Test 16 at
-start-up is the exception: it is gate 7, and waits in page x07.
+start-up is the exception: it is gate 7, and waits in page x07 with a
+"waiting for U29" text on the screen.  Gate 4 (waiting for X) blinks one
+screen row.
 
 When they all pass it copies the library's RAM code, sets the map to 05,
 draws a status screen with the standard library (text, color bands in 4, 2
@@ -81,7 +84,14 @@ CONST_PAGES = [0x39, 0x5E, 0x11, 0x0F]
 # pages (as the CPU addresses them) for the code after the core tests: the
 # free pages under the library, in the order the code fills them.  A page
 # with a Y marker ends at xF0.
-CODE_PAGES = list(range(0x8A, 0x8F)) + [0xBB, 0xBC, 0xBD, 0xBE] + list(range(0xD7, 0xDE))
+CODE_PAGES = list(range(0x8A, 0x8F)) + [0xBB, 0xBC, 0xBD, 0xBE] + [0xD7, 0xD8, 0xDC, 0xDD]
+FAIL_PAGES = [0xD9, 0xDA, 0xDB, 0xDF, 0xFF]       # the failed test's number on the screen (fail_show)
+# the digits 0-9 of the library's font, one byte a row, bit 0 = the left pixel
+DIGITS = [(0x3E, 0x63, 0x73, 0x7B, 0x6F, 0x67, 0x3E, 0x00), (0x0C, 0x0E, 0x0C, 0x0C, 0x0C, 0x0C, 0x3F, 0x00),
+          (0x1E, 0x33, 0x30, 0x1C, 0x06, 0x33, 0x3F, 0x00), (0x1E, 0x33, 0x30, 0x1C, 0x30, 0x33, 0x1E, 0x00),
+          (0x38, 0x3C, 0x36, 0x33, 0x7F, 0x30, 0x78, 0x00), (0x3F, 0x03, 0x1F, 0x30, 0x30, 0x33, 0x1E, 0x00),
+          (0x1C, 0x06, 0x03, 0x1F, 0x33, 0x33, 0x1E, 0x00), (0x3F, 0x33, 0x30, 0x18, 0x0C, 0x0C, 0x0C, 0x00),
+          (0x1E, 0x33, 0x33, 0x1E, 0x33, 0x33, 0x1E, 0x00), (0x1E, 0x33, 0x33, 0x3E, 0x30, 0x18, 0x0E, 0x00)]
 HELPER_PAGES = [0x72, 0x73, 0x7C, 0x7D]     # section 3 (the mirror of section 7's free pages)
 TBL4, TBL2, RT_TABLE = 0x8900, 0x8800, 0x9000   # tables that start a page (indexed by X)
 # free ends for the strings: (start, end)
@@ -329,11 +339,29 @@ def gates(a):
     # AC -> X), read back from the table at x3F00
     g = [('gate4',), 'ld   0x%02X, y' % (ID_TABLE >> 8)]
     for v in WALK:
-        g += ['ld   0x%02X, x' % v, 'ld   [y,x], ac', 'xor  0x%02X, ac' % v, 'bne  gate4_stop']
+        g += ['ld   0x%02X, x' % v, 'ld   [y,x], ac', 'xor  0x%02X, ac' % v, 'bne  g4_bar']
     for v in (0x3C, 0xC3):
         g += ['ld   0x%02X, ac' % v, 'ld   ac, x', 'ld   0x00, ac', 'ld   [y,x], ac',
-              'xor  0x%02X, ac' % v, 'bne  gate4_stop']
+              'xor  0x%02X, ac' % v, 'bne  g4_bar']
     g += ['ld   0x5A, ac', 'bra  gate_exit4']       # gate 5 starts with AC not 0
+    # Waiting for X, the gate shows it on the screen: Y works, so it can
+    # reach every page, at the one offset the floating X lines give.  That
+    # offset is one screen row (two, when it is x20 or more): the row's mode
+    # byte (x5A00 or x5B00 + offset) is set to 1 bpp and its byte in each of
+    # the 160 pixel pages x60-xFF goes white, then black, about 0.7 s each.
+    # The delay counters are RAM bytes at that offset of pages x21-x23
+    # (section 1 mapped to RAM; this page stays ROM).
+    g += [('g4_bar',), 'ld   0x50, y', 'ld   0x02, [y,x]', ('g4_blink',)]
+    for v in (0xFF, 0x00):
+        g += ['ld   0x5A, y', 'ld   0x00, [y,x]', 'ld   0x5B, y', 'ld   0x00, [y,x]',
+              'ld   0x60, ac', ('g4_sw%02X' % v,), 'ld   ac, y', 'ld   0x%02X, [y,x]' % v,
+              'add  0x01, ac', 'bne  g4_sw%02X' % v, ('g4_dl%02X' % v,)]
+        for pg, step in ((0x21, 1), (0x22, 1), (0x23, 0x20)):
+            g += ['ld   0x%02X, y' % pg, 'ld   [y,x], ac', 'add  0x%02X, ac' % step]
+            if step != 1:
+                g += ['and  0x%02X, ac' % (-step & 0xFF)]     # the RAM starts random: drop the low bits
+            g += ['ld   ac, [y,x]', 'bne  g4_dl%02X' % v]
+    g += ['bra  g4_blink']
     gate_page(a, 4, g)
     # gate 5: the D source buffer, with the RAM in
     g = [('gate5',), 'beq  ac', 'ld   0x%02X, y' % (ID_TABLE >> 8)]
@@ -534,7 +562,7 @@ def core_tests(a, tag, handler, helper_s1, startup):
                 ok = a.uniq('ok')
                 a.i('ld   [0x%02X], ac' % ZP[zp], 'xor  0x%02X, ac' % want, 'beq  %s' % ok,
                     'ld   0x50, y', 'ld   0x00, x', 'ld   0x00, [y,x]',
-                    'ld   gate7 >> 8, y', 'jmp  gate7')
+                    'ld   wait_u29 >> 8, y', 'jmp  wait_u29')
                 a.label(ok)
     return helper_s1_back, t14_back
 
@@ -551,10 +579,93 @@ def map_section_test(a, sec, ad, m, h):
 
 
 def fail_handler(a, name):
-    """AC = fail loop low byte: map = 00 (page 0 reads ROM), jump there"""
-    with a.block(16):
+    """AC = fail loop low byte: map = 00 (every section reads ROM), then
+    fail_show puts the test's number on the screen and goes to the loop.
+    Not for test 14, the map register: with a map bit stuck, fail_show's
+    own pages may read RAM, so that one goes straight to its loop."""
+    s14 = FAIL_BASE + 4 * 14
+    with a.block(28):
         a.label(name)
-        a.i('ld   0x50, y', 'ld   0x00, x', 'ld   0x00, [y,x]', 'ld   0x00, y', 'jmp  ac')
+        show = a.uniq('fh')
+        a.i('ld   0x50, y', 'ld   0x00, x', 'ld   0x00, [y,x]',
+            'xor  0x%02X, ac' % s14, 'bne  %s' % show, 'ld   0x%02X, ac' % s14, 'ld   0x00, y', 'jmp  ac')
+        a.label(show)
+        a.i('xor  0x%02X, ac' % s14, 'ld   fail_show >> 8, y', 'jmp  fail_show')
+
+
+def fail_show(a):
+    """AC = fail loop low byte (x80 + 4N): write N as two digits in the top
+    left corner of the screen, blank the rest, then go to fail loop N.
+
+    A failed test may mean bad RAM, so this uses no RAM at all: no stack, no
+    variables, no library.  Every byte it writes is an immediate (a store
+    reaches the RAM whatever the map says), and AC is the only thing that
+    remembers N.  So:
+      - the entry sets rows 0-7 to 1 bpp and clears the tens cell and the
+        two cells after the number, with immediates only (AC untouched)
+      - a chain of xors finds N; once it has passed 9 it writes the tens
+        digit 1.  The match for N blanks every other line (mode bytes with
+        bit 7 set; that loop needs AC, which is why it is here 15 times),
+        loads AC with N's loop address again and jumps to the ones digit
+      - the ones digit routine leaves AC alone and ends with jmp ac in
+        page 0: straight into fail loop N"""
+    entry, ch_a, ch_b, gl_a, gl_b = FAIL_PAGES
+
+    def cell(col, rows):
+        a.i('ld   0x%02X, y' % (0x60 + 2 * col))
+        for r in range(8):
+            a.i('ld   0x%02X, x' % (0x20 + r), 'ld   0x%02X, [y,x]' % rows[r])
+
+    a.pages = None
+    a.org(entry << 8, 'fail_show: the failed test\'s number on the screen, then its fail loop')
+    a.label('fail_show')
+    a.lock += 1
+    a.c('rows 0-7 to 1 bpp (mode bytes x5A20-x5A27)')
+    a.i('ld   0x5A, y')
+    for r in range(8):
+        a.i('ld   0x%02X, x' % (0x20 + r), 'ld   0x00, [y,x]')
+    a.c('clear the tens cell and the two cells after the number')
+    for col in (0, 2, 3):
+        cell(col, [0] * 8)
+    a.i('ld   fsh_chain >> 8, y', 'jmp  fsh_chain')
+    assert a.addr <= (entry << 8) + 0x100, 'fail_show entry too long'
+    a.org(ch_a << 8, 'fail_show: which test?  AC = x80 + 4N; each xor leaves AC = that xor the\n'
+                     '; next N\'s address')
+    a.label('fsh_chain')
+    prev = 0
+    for n in range(1, 16):
+        if n == 9:
+            a.i('ld   fsh_chain2 >> 8, y', 'jmp  fsh_chain2')
+            assert a.addr <= (ch_a << 8) + 0x100, 'fail_show chain too long'
+            a.org(ch_b << 8)
+            a.label('fsh_chain2')
+        if n == 10:
+            a.c('10 or more: the tens digit')
+            cell(0, DIGITS[1])
+        slot = FAIL_BASE + 4 * n        # (14 never comes here: see fail_handler)
+        nx = a.uniq('fsh')
+        a.i('xor  0x%02X, ac' % (slot ^ prev), 'bne  %s' % nx)
+        if n == 15:
+            a.label(nx)                 # nothing else it can be
+        l1, l2 = a.uniq('fshb'), a.uniq('fshb')
+        a.i('ld   0x5A, y', 'ld   0x28, ac')
+        a.label(l1)
+        a.i('ld   ac, x', 'ld   0x80, [y,x]', 'add  0x01, ac', 'bne  %s' % l1, 'ld   0x5B, y')
+        a.label(l2)
+        a.i('ld   ac, x', 'ld   0x80, [y,x]', 'add  0x01, ac', 'bne  %s' % l2)
+        a.i('ld   0x%02X, ac' % slot, 'ld   fsh_o%d >> 8, y' % (n % 10), 'jmp  fsh_o%d' % (n % 10))
+        if n != 15:
+            a.label(nx)
+        prev = slot
+    assert a.addr <= (ch_b << 8) + 0x100, 'fail_show chain too long (%04X)' % a.addr
+    for pg, part in ((gl_a, range(0, 6)), (gl_b, range(6, 10))):
+        a.org(pg << 8, 'fail_show: the ones digit, then jmp ac = fail loop N in page 0')
+        for d in part:
+            a.label('fsh_o%d' % d)
+            cell(1, DIGITS[d])
+            a.i('ld   0x00, y', 'jmp  ac')
+        assert a.addr <= (pg << 8) + 0x100
+    a.lock -= 1
 
 
 def ram_addr_test(a, back_label):
@@ -622,13 +733,15 @@ STRINGS = [
     ('s_on', 'ON '),
     ('s_off', 'OFF'),
     ('s_line', 'VIDEO LINE READ (V9:V2):'),
+    ('s_w1', 'PLACARD BRING-UP ROM'),
+    ('s_w2', 'CPU AND MEMORY TESTS 1-15 PASSED.'),
+    ('s_w3', 'WAITING FOR THE LINE READ BUFFER U29 (STEP 22).'),
+    ('s_w4', 'FIT U29, OR IF IT IS IN, CHECK IT.  PC HIGH = 07.'),
     ('s_bands', 'BANDS BELOW: 16 COLORS (4 BPP), 4 COLORS (2 BPP), 256 COLORS (8 BPP)'),
 ]
 
 
-def main_program(a):
-    a.org(CODE_PAGES[0] << 8, 'main: library set-up, status screen, frame loop')
-    a.label('main')
+def lib_setup(a):
     a.c('copy LIB_RAM (ROM x1F00-x1FFF) into the RAM under it, map 00')
     a.map(0x00)
     with a.block(30):
@@ -639,6 +752,21 @@ def main_program(a):
     a.map(0x05)
     a.i('ld   0x05, ac', 'ld   ac, [MAP_SHADOW]', 'ld   STACK_TOP, ac', 'ld   ac, [SP]')
     a.i('ld   LIB_FONT >> 8, ac', 'ld   ac, [FONT_PG]')    # the RAM tests wrote over the boot's
+
+
+def main_program(a):
+    a.org(CODE_PAGES[0] << 8, 'main: library set-up, status screen, frame loop')
+    a.label('wait_u29')
+    a.c('test 16 failed at start-up: tests 1-15 passed, so the CPU and the memory')
+    a.c('work and the library can say so on the screen; then wait in gate 7')
+    lib_setup(a)
+    a.call('con_clear')
+    for row, lb in enumerate(('s_w1', 's_w2', 's_w3', 's_w4')):
+        put_str(a, 0, 2 * row, lb)
+    a.map(0x00)
+    a.jump('gate7')
+    a.label('main')
+    lib_setup(a)
     for k in ('LOOP_LO', 'LOOP_HI', 'RT_IDX', 'RT_PL', 'RT_PH', 'RT_EL', 'RT_EH', 'RT_BADH', 'RT_BADL',
               'RT_BADE', 'RT_BADG', 'TONE', 'MX_LO', 'MX_HI', 'MY_LO', 'MY_HI', 'KEYV'):
         a.i('ld   0x00, ac', 'ld   ac, [0x%02X]' % ZP[k])
@@ -934,7 +1062,8 @@ def generate():
           '; buffer, 3 Y, 4 X, 5 D source buffer, 6 RAM, 7 line read buffer.',
           ';',
           '; Fail loops: test N stops at x0080 + 4N (PC high = 00, PC low Q7 = 1,',
-          '; Q6:Q2 = N); test 16 at start-up waits in gate 7.  Tests:']
+          '; Q6:Q2 = N) with its number in the top left corner of the screen;',
+          '; test 16 at start-up waits in gate 7 with a text on the screen.  Tests:']
     L += [';   %s' % t for t in (
         '1 branches  2 AND  3 OR  4 XOR  5 ADD  6 SUB  7 carry  8 SHR',
         '9 AC/X  10 Y address  11 X address  12 ROM data  13 RAM data',
@@ -1062,6 +1191,7 @@ def generate():
     a.pages = code_pages
     main_program(a)
     ram_page_test(a)
+    fail_show(a)
     return '\n'.join(a.lines) + '\n'
 
 
