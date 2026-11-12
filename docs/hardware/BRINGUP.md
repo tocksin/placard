@@ -816,7 +816,7 @@ and each bit is half the one below.
 
 These two carry every constant and every branch target, so the ROM can't
 even stop in a loop without them.  They go in together, ahead of the
-cartridge, and the cartridge step is their test.
+cartridge.
 
 Check U18 is marked SN74F377AN and U26 SN74F541N.  Turn off the power
 switch.  Solder R5-R12 and insert U18 and U26 into their sockets.  Turn
@@ -826,6 +826,22 @@ instruction register still reads 02h (step 13) and PC high still counts
 (step 15).  If they changed, U26 is driving the bus when it shouldn't:
 check its /OE1 (Branch /SRC_EN, pin 16) and /OE2 (instruction register
 PLD I1, pin 15).
+
+Then check each chip sits in the right socket, the right way round, with
+its control pins connected.  Measure at the chips' own pins:
+
+| Pin | Frequency | DC average |
+|---|---|---|
+| U18 pin 1 (/E, from State /LOAD_IMM) | 5.4 to 8 MHz | 3.4 to 3.9 V |
+| U18 pin 11 (CLK) | 25.175 MHz (if the meter reaches it) | 2.5 V |
+| U26 pin 1 (/OE1, from Branch /SRC_EN) | 8 to 9.3 MHz | 3.2 to 3.4 V |
+| U26 pin 19 (/OE2, from instruction register I1) | 0 | 5 V |
+| U18 and U26 pin 20 (+5 V) | 0 | 5 V |
+| U18 and U26 pin 10 (GND) | 0 | 0 V |
+
+This is an assembly check, and it is all step 16 needs: both chips are
+unprogrammed parts, and the nop never passes data through them.  The
+first time they carry data is the next step.
 
 ### The chip gates
 
