@@ -9,7 +9,7 @@ in the layout, with
     orange   the parts that step's "Parts for this step" table fits
     blue     a socket that step fits and leaves empty (its chip comes in a
              later step); it stays pale blue until the chip goes in
-    red      the chips that step takes out (step 13: the RAM)
+    red      the chips a step takes out (REMOVED; no step does now)
     gray     what earlier steps fitted
     outline  what comes later
     green    the temporary straps, drawn from pin to pin, from the step
@@ -33,7 +33,7 @@ builds it.  A Ref the board doesn't have is reported and the run fails.
 Images go to docs/hardware/bringup_boards/.  KiCad isn't needed: the
 board file is read as text and never written.
 
-Date: 2026-11-11
+Date: 2026-11-12
 """
 
 import math
@@ -49,7 +49,7 @@ CART = os.path.join(ROOT, 'kicad', 'cartridge_32k', 'cartridge_32k.kicad_pcb')
 OUT = os.path.join(ROOT, 'docs', 'hardware', 'bringup_boards')
 
 # chips a step takes out again (they go back in with the step that lists them)
-REMOVED = {13: ['U31', 'U32']}
+REMOVED = {}
 NOT_PARTS = ('H', 'LOGO', 'NT')          # mounting holes, logo, net ties: nothing to fit
 
 TOKEN = re.compile(r'\(|\)|"(?:\\.|[^"\\])*"|[^\s()]+')
