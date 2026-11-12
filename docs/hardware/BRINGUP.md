@@ -29,7 +29,7 @@ Where a step changes the picture on the monitor, an example of what you
 should see follows it.  The pictures are made by
 `src/scripts/gen_bringup_screens.py` from the same model, pixel by pixel
 (steps 5-11), and from the bring-up ROM running in the simulator (steps
-22-24).  RAM powers up random, so a picture with RAM in it shows the kind
+20-24).  RAM powers up random, so a picture with RAM in it shows the kind
 of pattern to expect, not the exact one.
 
 Each step's parts table is followed by a picture of the board, seen from
@@ -878,8 +878,11 @@ gets from one gate to the next by running off the end of the page.  Every
 unused byte of a gate page is a branch to that page's stop loop, so a PC
 that lands anywhere in the page ends in the loop.
 
-The picture on the monitor stays as it was in step 12 until step 22: the
-gates don't touch the RAM (gate 6 changes two bytes).
+The meter is needed for steps 17 to 19.  From step 20 the ROM can reach
+the screen memory, so the monitor shows where it is waiting: faintly at
+step 20, in plain text from step 21 on.  Before that the picture stays as
+it was in step 12, because every write to the RAM takes its address from
+the X and Y registers and they aren't in yet.
 
 ### Step 17: the cartridge with the bring-up ROM (J8)
 
@@ -1040,6 +1043,21 @@ register:
 pin 21) and Y_ENABLE (State pin 17), the ALU F outputs to U21's D pins,
 and U21's Q pins to the high address muxes U9 and U10.
 
+While it waits in gate 4 the ROM also gives a sign on the screen.  With Y
+working it can reach every page of the RAM, but only at the one offset
+the floating X lines happen to give, and on the screen that is a single
+row.  So it turns that row white and black in turn, about three times in
+two seconds: **one thin line across the full width of the picture
+blinks**, or two lines 256 rows apart.  Where it is differs from board to
+board.  The rest of the noise holds still, so look for the only thing
+that moves.  It is easy to miss, so the meter reading above is the sure
+check; if you see the line, you don't need the meter.
+
+![Step 20: random noise with one blinking line, marked at both edges](bringup_screens/step20_line.png)
+
+*Step 20, an example with the line lit: the red marks (not on the real
+screen) point at the two rows that blink.*
+
 ### Step 21: X register (U20)
 
 **Parts for this step:**
@@ -1059,24 +1077,32 @@ pass at once: gate 5 loads and checks 15 constants several thousand
 times through U26, and gate 6 writes and reads back a byte in each RAM
 chip.  The ROM then goes on to its full tests (see
 [The bring-up ROM](#the-bring-up-rom)) and stops at the last one, the
-video line read, which needs U29:
+video line read, which needs U29.  It says so on the screen, with no
+meter:
 
-| Pin | Reading |
-|---|---|
-| U4 Q0, Q1, Q2 (pins 15, 22, 21) | 5 V |
-| U4 Q3-Q7 (pins 16, 20, 17, 19, 18) | 0 V |
+![Step 21: the ROM's text: tests 1-15 passed, waiting for U29](bringup_screens/step21_wait_u29.png)
 
-**Gate 7** (PC high = 07).  Anything else:
+*Step 21: the CPU and the memory work, and the ROM waits for U29.*
 
-- **04:** the X register.  Check /LOAD_X (State pin 20) and X_ENABLE
-  (State pin 16), the ALU F outputs to U20's D pins, and U20's Q pins to
-  the low address muxes U7 and U8.
-- **05:** the D source buffer fails under load.  Check U26 and R5-R12.
-- **06:** the RAM.  Check U31 and U32 are seated (a bent data pin stops
-  here too), then /WE, /RAM_OE and the map register U25 (gate 6 sets map
-  bits 1 and 4 to reach one byte in each chip).
-- **00 with PC low Q7 (pin 18) at 5 V:** one of the ROM's full tests
-  failed; read its number as in [The bring-up ROM](#the-bring-up-rom).
+The PC is in **gate 7** (PC high = 07: U4 Q0, Q1, Q2, pins 15, 22, 21, at
+5 V and Q3-Q7 at 0 V).  If the screen shows something else:
+
+- **A two-digit number in the top left corner, the rest black:** that
+  test of the ROM's full tests failed; see
+  [The bring-up ROM](#the-bring-up-rom).
+- **Still the noise of step 20, with or without the blinking line:**
+  read PC high with the meter:
+
+  - **00 with PC low Q7 (pin 18) at 5 V:** one of the full tests failed
+    without a number (the map register test, 14, shows none); read it as
+    in [The bring-up ROM](#the-bring-up-rom).
+  - **04:** the X register.  Check /LOAD_X (State pin 20) and X_ENABLE
+    (State pin 16), the ALU F outputs to U20's D pins, and U20's Q pins
+    to the low address muxes U7 and U8.
+  - **05:** the D source buffer fails under load.  Check U26 and R5-R12.
+  - **06:** the RAM.  Check U31 and U32 are seated (a bent data pin
+    stops here too), then /WE, /RAM_OE and the map register U25 (gate 6
+    sets map bits 1 and 4 to reach one byte in each chip).
 
 ### Step 22: line read buffer (U29)
 
@@ -1093,8 +1119,9 @@ video line read, which needs U29:
 Turn off the power switch.  Insert U29 into its socket.  Turn on the
 power switch.  The last gate opens: within about half a second the
 screen shows the bring-up ROM's status screen
-([below](#the-bring-up-rom)).  If it is still in gate 7, check U29's
-enable (/P0, I/O decode U12) and its inputs from the V counter.
+([below](#the-bring-up-rom)).  If it still shows the "waiting for U29"
+text of step 21, check U29's enable (/P0, I/O decode U12) and its inputs
+from the V counter.
 
 ![Step 22: the bring-up ROM's status screen](bringup_screens/step22_status.png)
 
@@ -1113,10 +1140,10 @@ The ROM starts with the seven [chip gates](#the-chip-gates) of steps
 | 1 | x01 | AC and the ALU: the Z and sign flags, each data bit, AND, OR, XOR, ADD, SUB, the carry flag, SHR | x01E0 flags, x01E4 bits, x01E8 carry, x01EC shift |
 | 2 | x02 | the AC source buffer: clear and shift left (AC is the ALU's second input), then a branch to the address in AC | x02FC |
 | 3 | x03 | the Y register: read pages x39, x5E, x11 and x0F, each filled with its own number | x03FC |
-| 4 | x04 | the X register: a walking bit from an immediate and two values from AC, read back from the table at x3F00 | x04FC |
+| 4 | x04 | the X register: a walking bit from an immediate and two values from AC, read back from the table at x3F00 | a loop in x04 that blinks one screen row |
 | 5 | x05 | the D source buffer: 15 constants loaded and compared, 256 times, twice | x0500 |
 | 6 | x06 | the RAM: map bits 1 and 4 set, then A5 and 5A written and read at x2010 (U31) and x9010 (U32), so every data bit is seen both ways | x06FC |
-| 7 | x07 | the video line read: where test 16 below goes when it fails | x07FC |
+| 7 | x07 | the video line read: where test 16 below goes when it fails, after it has put the "waiting for U29" text on the screen | x07FC |
 
 Gates 5 and 6 test chips that are in before the cartridge, so on a good
 board they pass at once.  Gate 5 is a soak test of U26 that the earlier
@@ -1147,10 +1174,25 @@ the RAM and the map register:
 | 15 | RAM address lines, both chips | RAM A14:A0, the lower chip's /CE (A15) and /CE_HI |
 | 16 | Video line read (x5000) | line read buffer (U29), /P0 and Q0 |
 
-**A failed test 1-15 stops the CPU in a loop of its own at ROM x0080 + 4N.**
-(Test 16 at power-up stops in gate 7 instead, so that step 21 ends on a
-gate like the steps before it.)
-Read N off the PC with the meter:
+**A failed test 1-15 puts its number on the screen and stops the CPU in a
+loop of its own at ROM x0080 + 4N.**  (Test 16 at power-up stops in
+gate 7 instead, so that step 21 ends on a gate like the steps before it.)
+
+The number is two digits in the top left corner; every other line is
+blanked, and the thin band to the right of the number is leftover RAM.
+
+![A failed test: 15 in the top left corner of a black screen](bringup_screens/fail_number.png)
+
+*Test 15 failed (here RAM address line A13 stuck low).*
+
+The code that draws it uses no RAM for itself (no stack, no variables),
+because a failed test may mean bad RAM.  But the digits are stored in the
+RAM like any picture, so a RAM fault can garble them: a stuck address
+line can show the same digit twice, for one.  Test 14, the map register,
+shows no number at all: with a map bit stuck the drawing code itself may
+not be readable, so that test goes straight to its loop and the screen
+keeps whatever it had.  If the number isn't 01 to 15, or there is none,
+read N off the PC with the meter:
 
 - PC high (U4) Q0-Q7 all **0 V**
 - PC low (U3) Q7 (pin 18) **5 V**; Q6:Q2 (pins 19, 17, 20, 16, 21) are N
@@ -1184,19 +1226,22 @@ runs a loop once a frame:
 | 44 | legend for the color bands below it: rows 368-399 16 colors (4 bpp), 400-415 4 colors (2 bpp), 416-479 256 colors (8 bpp) |
 
 A good board: FRAME and LOOPS count up together, PASSES goes up about
-every 0.8 s and ERRORS stays 0.  If a core test fails later, the CPU stops
-in its fail loop as above and the screen freezes.
+every 0.8 s and ERRORS stays 0.  If a core test fails later, the screen
+goes black with the test's number in the corner and the CPU stops in its
+fail loop as above.
 
 The source is `src/scripts/gen_bringup.py`, which writes `bringup.asm`.
 `python3 test_bringup_sim.py` runs it in the simulator three ways.
 First with chips missing, as in steps 17-22: for each step it leaves out
 the chips not yet fitted, lets their pins float (many random runs) and
-checks that the CPU stops in that step's gate and in no other; and with
-U26 missing at the cartridge step, that it never settles in gate 1.  Then on a good machine (screen, counters, keys, tone, SD retry).
+checks that the CPU stops in that step's gate and in no other, that the
+line blinks while it waits for X and that the text is there while it
+waits for U29; and with U26 missing at the cartridge step, that it never
+settles in gate 1.  Then on a good machine (screen, counters, keys, tone, SD retry).
 Then with faults: an ALU output stuck (gate 1), a RAM data bit stuck
 (gate 6), a map register bit stuck (gate 6 for bit 1, which gate 6 uses,
 fail 14 for the others), a RAM address line stuck (15), a line read bit
-stuck (gate 7), and a RAM bit that goes bad after
+stuck (gate 7, with the text), and a RAM bit that goes bad after
 start-up (counted by the page test).  It takes about 20 minutes.
 
 ## I/O and audio

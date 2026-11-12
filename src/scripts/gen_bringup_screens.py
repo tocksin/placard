@@ -13,7 +13,7 @@ Every clock gives one pixel: the color decoder's outputs for the pixel
 buffer and line code at that clock, gated by VIDEN, so the 8-pixel
 stripes, the bands and the blank lines fall where the hardware puts them.
 
-Steps 22-24 run the bring-up ROM in the simulator (test_bringup_sim.py)
+Steps 20-24 run the bring-up ROM in the simulator (test_bringup_sim.py)
 and draw its status screen.
 
 The RAM powers up random, so the pictures with RAM in them are examples:
@@ -22,7 +22,7 @@ seed is fixed so the images don't change from run to run.
 
     python3 gen_bringup_screens.py            all images
     python3 gen_bringup_screens.py --hw       steps 5-11 only (fast)
-    python3 gen_bringup_screens.py --rom      steps 22-24 only
+    python3 gen_bringup_screens.py --rom      steps 20-24 only
 
 Images go to docs/hardware/bringup_screens/.  The ROM part takes about
 4 minutes.
@@ -246,7 +246,7 @@ def bringup_rom():
 
 
 def rom_steps():
-    """steps 22-24: the status screen from the simulator"""
+    """steps 20-24: the bring-up ROM in the simulator"""
     import io_devices as iod
     import sdimage
     ps, tb, rom, syms = bringup_rom()
@@ -265,6 +265,49 @@ def rom_steps():
         from PIL import Image
         save(Image.open(path).convert('RGB'), name)
         os.remove(path)
+
+    # step 20: Y is in, X is not: gate 4 blinks one screen row (two when the
+    # floating X lines read x20 or more) white.  Marked at both edges here,
+    # because a still picture can't show it blinking.
+    from PIL import Image, ImageDraw
+    cpu = tb.PartCpu(rom, ('u26', 'ram', 'alu', 'u27', 'y'), seed=3)
+    xf = cpu.fl['x']
+    rows = [r for r in (xf - 32, xf + 224) if 0 <= r < 480]
+    while not (cpu.pc == syms['g4_dlFF'] and all(cpu.mem[0x6000 + 79 * 512 + 32 + r] == 0xFF for r in rows)):
+        cpu.step()
+        assert cpu.clocks < 60_000_000, 'no bar'
+    path = os.path.join(OUT, '_tmp.png')
+    ps.render(cpu.mem, path)
+    scr = Image.open(path).convert('RGB')
+    os.remove(path)
+    m = 28
+    pic = Image.new('RGB', (W + 2 * m, H), (255, 255, 255))
+    pic.paste(scr, (m, 0))
+    d = ImageDraw.Draw(pic)
+    for r in rows:
+        d.polygon([(4, r - 7), (4, r + 7), (m - 4, r)], fill=(220, 0, 0))
+        d.polygon([(W + 2 * m - 4, r - 7), (W + 2 * m - 4, r + 7), (W + m + 4, r)], fill=(220, 0, 0))
+    save(pic, 'step20_line.png')
+
+    # step 21: X is in, the line read buffer U29 is not: the ROM says so
+    cpu = tb.PartCpu(rom, ('u26', 'ram', 'alu', 'u27', 'y', 'x'), seed=3)
+    assert tb.settle(cpu, syms, 3_000_000) == 7
+    rig = type('R', (), {'cpu': cpu})
+    shot(rig, 'step21_wait_u29.png')
+
+    # a failed test: its number in the top left corner (here 15, RAM address
+    # line A13 stuck low)
+    rig = tb.Rig(rom, sd=False, mouse=False)
+    cpu = rig.cpu
+    cpu.mem = tb.AliasMem(cpu.mem)
+    cpu.mem.mask = 1 << 13
+    while cpu.pc not in tb.FAILS:
+        cpu.step()
+        assert cpu.clocks < 40 * tb.CLOCKS_PER_FRAME
+    assert tb.FAILS[cpu.pc] == 15
+    for _ in range(40):
+        cpu.step()
+    shot(rig, 'fail_number.png')
 
     # step 22: the shared port PLDs aren't in yet, so nothing answers on
     # the port: no keyboard, mouse or SD card
