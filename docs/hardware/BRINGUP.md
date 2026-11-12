@@ -11,9 +11,9 @@ first, alone, so a wiring or polarity fault there can't reach a chip.  The
 video section comes next because it runs with no software.  The CPU comes next: it runs a known
 pattern with no ROM at all (the "nop run"), and then the bring-up
 cartridge goes in with the bring-up test ROM, and the rest of the CPU
-chips follow one at a time: the ROM waits at a numbered "gate" until each
-chip works, and the gate number reads straight off the program counter
-(see [The chip gates](#the-chip-gates)).  With the last one in, the ROM
+chips follow one at a time: the ROM waits at a numbered test stage until each
+chip works, and the stage number reads straight off the program counter
+(see [The test stages](#the-test-stages)).  With the last one in, the ROM
 tests the memory by itself and draws a status screen.  The I/O and
 the audio go in last, and the ROM shows their state on that screen.
 
@@ -664,9 +664,12 @@ address the muxes point at, so one byte of the picture may change; that
 is harmless.  Turn off the power switch, unclip the lead and take the
 shunt off JP2.  Turn the power on: /WE reads a steady 5 V again.
 
-## CPU
+## CPU, before the cartridge
 
-The RAM stays in for the whole CPU section; nothing is taken out again.
+The RAM stays in for both CPU sections; nothing is taken out again.
+This first one checks the chips that fetch instructions, with no ROM:
+the State PLD, the instruction register, the program counter, and the
+two chips that carry operands.
 
 ### The nop run
 
@@ -843,22 +846,24 @@ This is an assembly check, and it is all step 16 needs: both chips are
 unprogrammed parts, and the nop never passes data through them.  The
 first time they carry data is the next step.
 
-### The chip gates
+## CPU, with the cartridge
+
+### The test stages
 
 From here on the cartridge is in, with the bring-up ROM on it, and the
 rest of the CPU chips go in one at a time.  The first seven pages of the
-ROM are seven **gates**.  Each gate is a short test that uses only the
+ROM are seven **stages**.  Each stage is a short test that uses only the
 chips fitted so far plus the one it is waiting for.  While that chip is
-missing or not working, the CPU stops in a tight loop inside the gate's
+missing or not working, the CPU stops in a tight loop inside the stage's
 own page.  Once the chip works, the test passes and the CPU runs on into
-the next gate, where it stops again.  So after every step the CPU must
-stop further on, and **PC high is the number of the gate it is waiting
+the next stage, where it stops again.  So after every step the CPU must
+stop further on, and **PC high is the number of the stage it is waiting
 in**.
 
-Read the gate number on PC high (U4) with the multimeter.  The pins are
+Read the stage number on PC high (U4) with the multimeter.  The pins are
 steady, 0 V or 5 V:
 
-| Gate | Waits for | U4 Q2 (pin 21) | U4 Q1 (pin 22) | U4 Q0 (pin 15) |
+| Stage | Waits for | U4 Q2 (pin 21) | U4 Q1 (pin 22) | U4 Q0 (pin 15) |
 |--:|---|---|---|---|
 | 1 | accumulator U19, ALU U5 and U6 | 0 V | 0 V | 5 V |
 | 2 | AC source buffer U27 | 0 V | 5 V | 0 V |
@@ -868,30 +873,30 @@ steady, 0 V or 5 V:
 | 6 | (RAM U31, U32) | 5 V | 5 V | 0 V |
 | 7 | line read buffer U29 | 5 V | 5 V | 5 V |
 
-Gates 5 and 6 test chips that are already in, so a good board goes
-straight from gate 4 to gate 7; a stop in 5 or 6 is a fault.  U4 Q3-Q7
-(pins 16, 20, 17, 19, 18) are 0 V in every gate.  On PC low (U3) the top
+Stages 5 and 6 test chips that are already in, so a good board goes
+straight from stage 4 to stage 7; a stop in 5 or 6 is a fault.  U4 Q3-Q7
+(pins 16, 20, 17, 19, 18) are 0 V in every stage.  On PC low (U3) the top
 bits are steady and Q1, Q0 toggle (the stop is a 3-clock branch to
-itself).  A gate takes well under a second, so the reading is there as
+itself).  A stage takes well under a second, so the reading is there as
 soon as you can measure it.
 
 What each reading means after a step:
 
-- **The expected gate:** the chip you just fitted works.  Go on.
-- **The gate before it** (the same reading as before the step): the new
+- **The expected stage:** the chip you just fitted works.  Go on.
+- **The stage before it** (the same reading as before the step): the new
   chip isn't doing its job.  Check that it is the right part, the right
   way round and fully seated, then its solder joints and the pins the
   step lists.
-- **An earlier gate, or 00:** the new chip is upsetting something that
+- **An earlier stage, or 00:** the new chip is upsetting something that
   worked: usually a solder bridge at its socket, or the chip driving the
   bus when it shouldn't.  Pull it and check the reading goes back.
 - **PC high pins not steady** (a frequency, or a DC level between 0 V
   and 5 V): the CPU is lost.  Treat it like the line above.
 
-The gates are careful about what they use.  There are no jumps until the
-Y register has passed its gate (a jump loads PC high from Y): the code
-gets from one gate to the next by running off the end of the page.  Every
-unused byte of a gate page is a branch to that page's stop loop, so a PC
+The stages are careful about what they use.  There are no jumps until the
+Y register has passed its stage (a jump loads PC high from Y): the code
+gets from one stage to the next by running off the end of the page.  Every
+unused byte of a stage page is a branch to that page's stop loop, so a PC
 that lands anywhere in the page ends in the loop.
 
 The meter is needed for steps 17 to 19.  From step 20 the ROM can reach
@@ -941,7 +946,7 @@ Turn off the power switch.  Solder J8 and R13.  Take the shunt off JP1
 off) and plug the cartridge into J8.  Turn on the power switch.
 
 The CPU runs a few instructions in page 0 that need none of the missing
-chips and then meets gate 1, which needs the accumulator and the ALU.
+chips and then meets stage 1, which needs the accumulator and the ALU.
 They aren't in, so it stops there:
 
 | Pin | Reading |
@@ -949,7 +954,7 @@ They aren't in, so it stops there:
 | U4 Q0 (pin 15) | 5 V |
 | U4 Q1-Q7 (pins 22, 21, 16, 20, 17, 19, 18) | 0 V |
 
-**Gate 1** (PC high = 01).  This one steady reading is the test for the
+**Stage 1** (PC high = 01).  This one steady reading is the test for the
 cartridge and for U18 and U26 from step 16.  If it is anything else:
 
 - **PC high still counts as in step 15** (every pin 2.5 V at the same
@@ -983,16 +988,16 @@ cartridge and for U18 and U26 from step 16.  If it is anything else:
 `ALU_SHR.pld` (rev 07); verify and label them.
 
 Turn off the power switch.  Insert U19, U5 and U6 into their sockets.
-Turn on the power switch.  Gate 1 loads constants into the accumulator
+Turn on the power switch.  Stage 1 loads constants into the accumulator
 and checks them with the flags and every ALU function, passes, and the
-CPU stops in gate 2, which needs the AC source buffer:
+CPU stops in stage 2, which needs the AC source buffer:
 
 | Pin | Reading |
 |---|---|
 | U4 Q1 (pin 22) | 5 V |
 | U4 Q0, Q2 (pins 15, 21) | 0 V |
 
-**Gate 2** (PC high = 02).  If it is still in gate 1, PC low (U3) tells
+**Stage 2** (PC high = 02).  If it is still in stage 1, PC low (U3) tells
 which check failed.  Q7, Q6, Q5 (pins 18, 19, 17) are 5 V and Q4
 (pin 20) is 0 V; read Q3 (pin 16) and Q2 (pin 21):
 
@@ -1004,7 +1009,7 @@ which check failed.  Q7, Q6, Q5 (pins 18, 19, 17) are 5 V and Q4
 | 5 V | 5 V | shift right | the shift-in wiring (SHIFT_RIGHT_IN, pin 23) |
 
 (Q4 at 5 V with Q3 and Q2 at 5 V is the page's catch-all stop: the CPU
-got lost inside the gate, so start with the first row.)
+got lost inside the stage, so start with the first row.)
 
 ### Step 19: AC source buffer (U27)
 
@@ -1019,16 +1024,16 @@ got lost inside the gate, so start with the first row.)
 ![Step 19: the parts to fit, highlighted on the board](bringup_boards/step19_board.png)
 
 Turn off the power switch.  Insert U27 into its socket.  Turn on the
-power switch.  Gate 2 clears and shifts the accumulator, which puts AC on
+power switch.  Stage 2 clears and shifts the accumulator, which puts AC on
 the bus through U27, then branches to an address held in AC.  It passes,
-and the CPU stops in gate 3, which needs the Y register:
+and the CPU stops in stage 3, which needs the Y register:
 
 | Pin | Reading |
 |---|---|
 | U4 Q0, Q1 (pins 15, 22) | 5 V |
 | U4 Q2 (pin 21) | 0 V |
 
-**Gate 3** (PC high = 03).  If it is still in gate 2: U27's /OE1 (Branch
+**Stage 3** (PC high = 03).  If it is still in stage 2: U27's /OE1 (Branch
 /SRC_EN, pin 16), its /OE2 (/AC_SEL, audio PLD U35 pin 21), and U19's Q
 pins to U27's inputs.
 
@@ -1045,9 +1050,9 @@ pins to U27's inputs.
 ![Step 20: the parts to fit, highlighted on the board](bringup_boards/step20_board.png)
 
 Turn off the power switch.  Insert U21 into its socket.  Turn on the
-power switch.  Gate 3 loads Y with four page numbers and reads a byte
+power switch.  Stage 3 loads Y with four page numbers and reads a byte
 from each page of the ROM (each of those pages is filled with its own
-number).  It passes, and the CPU stops in gate 4, which needs the X
+number).  It passes, and the CPU stops in stage 4, which needs the X
 register:
 
 | Pin | Reading |
@@ -1055,11 +1060,11 @@ register:
 | U4 Q2 (pin 21) | 5 V |
 | U4 Q0, Q1 (pins 15, 22) | 0 V |
 
-**Gate 4** (PC high = 04).  If it is still in gate 3: /LOAD_Y (State
+**Stage 4** (PC high = 04).  If it is still in stage 3: /LOAD_Y (State
 pin 21) and Y_ENABLE (State pin 17), the ALU F outputs to U21's D pins,
 and U21's Q pins to the high address muxes U9 and U10.
 
-While it waits in gate 4 the ROM also gives a sign on the screen.  With Y
+While it waits in stage 4 the ROM also gives a sign on the screen.  With Y
 working it can reach every page of the RAM, but only at the one offset
 the floating X lines happen to give, and on the screen that is a single
 row.  So it turns that row white and black in turn, about three times in
@@ -1087,10 +1092,10 @@ screen) point at the two rows that blink.*
 ![Step 21: the parts to fit, highlighted on the board](bringup_boards/step21_board.png)
 
 Turn off the power switch.  Insert U20 into its socket.  Turn on the
-power switch.  Gate 4 loads X with a walking bit and reads a ROM table
-in which every byte holds its own address.  It passes.  Gates 5 and 6
-pass at once: gate 5 loads and checks 15 constants several thousand
-times through U26, and gate 6 writes and reads back a byte in each RAM
+power switch.  Stage 4 loads X with a walking bit and reads a ROM table
+in which every byte holds its own address.  It passes.  Stages 5 and 6
+pass at once: stage 5 loads and checks 15 constants several thousand
+times through U26, and stage 6 writes and reads back a byte in each RAM
 chip.  The ROM then goes on to its full tests (see
 [The bring-up ROM](#the-bring-up-rom)) and stops at the last one, the
 video line read, which needs U29.  It says so on the screen, with no
@@ -1100,7 +1105,7 @@ meter:
 
 *Step 21: the CPU and the memory work, and the ROM waits for U29.*
 
-The PC is in **gate 7** (PC high = 07: U4 Q0, Q1, Q2, pins 15, 22, 21, at
+The PC is in **stage 7** (PC high = 07: U4 Q0, Q1, Q2, pins 15, 22, 21, at
 5 V and Q3-Q7 at 0 V).  If the screen shows something else:
 
 - **A two-digit number in the top left corner, the rest black:** that
@@ -1117,7 +1122,7 @@ The PC is in **gate 7** (PC high = 07: U4 Q0, Q1, Q2, pins 15, 22, 21, at
     to the low address muxes U7 and U8.
   - **05:** the D source buffer fails under load.  Check U26 and R5-R12.
   - **06:** the RAM.  Check U31 and U32 are seated (a bent data pin
-    stops here too), then /WE, /RAM_OE and the map register U25 (gate 6
+    stops here too), then /WE, /RAM_OE and the map register U25 (stage 6
     sets map bits 1 and 4 to reach one byte in each chip).
 
 ### Step 22: line read buffer (U29)
@@ -1133,7 +1138,7 @@ The PC is in **gate 7** (PC high = 07: U4 Q0, Q1, Q2, pins 15, 22, 21, at
 ![Step 22: the parts to fit, highlighted on the board](bringup_boards/step22_board.png)
 
 Turn off the power switch.  Insert U29 into its socket.  Turn on the
-power switch.  The last gate opens: within about half a second the
+power switch.  The last stage passes: within about half a second the
 screen shows the bring-up ROM's status screen
 ([below](#the-bring-up-rom)).  If it still shows the "waiting for U29"
 text of step 21, check U29's enable (/P0, I/O decode U12) and its inputs
@@ -1148,10 +1153,10 @@ yet).  FRAME, LOOPS and PASSES count up; ERRORS stays 0.*
 
 ## The bring-up ROM
 
-The ROM starts with the seven [chip gates](#the-chip-gates) of steps
+The ROM starts with the seven [test stages](#the-test-stages) of steps
 17-22, in pages x01 to x07:
 
-| Gate | Page | Tests | Stops at |
+| Stage | Page | Tests | Stops at |
 |--:|---|---|---|
 | 1 | x01 | AC and the ALU: the Z and sign flags, each data bit, AND, OR, XOR, ADD, SUB, the carry flag, SHR | x01E0 flags, x01E4 bits, x01E8 carry, x01EC shift |
 | 2 | x02 | the AC source buffer: clear and shift left (AC is the ALU's second input), then a branch to the address in AC | x02FC |
@@ -1161,14 +1166,14 @@ The ROM starts with the seven [chip gates](#the-chip-gates) of steps
 | 6 | x06 | the RAM: map bits 1 and 4 set, then A5 and 5A written and read at x2010 (U31) and x9010 (U32), so every data bit is seen both ways | x06FC |
 | 7 | x07 | the video line read: where test 16 below goes when it fails, after it has put the "waiting for U29" text on the screen | x07FC |
 
-Gates 5 and 6 test chips that are in before the cartridge, so on a good
-board they pass at once.  Gate 5 is a soak test of U26 that the earlier
-gates can't do (it needs AC, X and Y), and its stop uses only the AC
+Stages 5 and 6 test chips that are in before the cartridge, so on a good
+board they pass at once.  Stage 5 is a soak test of U26 that the earlier
+stages can't do (it needs AC, X and Y), and its stop uses only the AC
 source, so it holds even when U26 can't be trusted: it clears AC and
 branches to the address in AC, x0500, where a one-byte branch-if-zero
 loops on itself.
 
-After gate 6 the ROM runs these tests, using only the CPU, the ROM,
+After stage 6 the ROM runs these tests, using only the CPU, the ROM,
 the RAM and the map register:
 
 | N | Test | What it needs |
@@ -1192,7 +1197,7 @@ the RAM and the map register:
 
 **A failed test 1-15 puts its number on the screen and stops the CPU in a
 loop of its own at ROM x0080 + 4N.**  (Test 16 at power-up stops in
-gate 7 instead, so that step 21 ends on a gate like the steps before it.)
+stage 7 instead, so that step 21 ends on a stage like the steps before it.)
 
 The number is two digits in the top left corner; every other line is
 blanked, and the thin band to the right of the number is leftover RAM.
@@ -1217,13 +1222,13 @@ read N off the PC with the meter:
 
 For example test 13 = 01101: Q6 0 V, Q5 5 V, Q4 5 V, Q3 0 V, Q2 5 V.
 
-The gates have already proved the registers, the ALU and both source
+The stages have already proved the registers, the ALU and both source
 buffers by the time these tests run, so a fail loop here points at the
 memory side: the address muxes, the RAM, the map register and memory
 control.  A stuck ALU output or flag never gets this far; it stops in
-gate 1.  A PC that keeps moving with no status screen means the CPU is
-lost: go back through the gates (pull the RAM, then U26 and the chips
-after it in reverse order, and check each step's gate number again).
+stage 1.  A PC that keeps moving with no status screen means the CPU is
+lost: go back through steps 17 to 21 and check each step's stage number
+again.
 
 When all pass, the ROM sets up the library, draws the status screen and
 runs a loop once a frame:
@@ -1250,14 +1255,14 @@ The source is `src/scripts/gen_bringup.py`, which writes `bringup.asm`.
 `python3 test_bringup_sim.py` runs it in the simulator three ways.
 First with chips missing, as in steps 17-22: for each step it leaves out
 the chips not yet fitted, lets their pins float (many random runs) and
-checks that the CPU stops in that step's gate and in no other, that the
+checks that the CPU stops in that step's stage and in no other, that the
 line blinks while it waits for X and that the text is there while it
 waits for U29; and with U26 missing at the cartridge step, that it never
-settles in gate 1.  Then on a good machine (screen, counters, keys, tone, SD retry).
-Then with faults: an ALU output stuck (gate 1), a RAM data bit stuck
-(gate 6), a map register bit stuck (gate 6 for bit 1, which gate 6 uses,
+settles in stage 1.  Then on a good machine (screen, counters, keys, tone, SD retry).
+Then with faults: an ALU output stuck (stage 1), a RAM data bit stuck
+(stage 6), a map register bit stuck (stage 6 for bit 1, which stage 6 uses,
 fail 14 for the others), a RAM address line stuck (15), a line read bit
-stuck (gate 7, with the text), and a RAM bit that goes bad after
+stuck (stage 7, with the text), and a RAM bit that goes bad after
 start-up (counted by the page test).  It takes about 20 minutes.
 
 ## I/O and audio

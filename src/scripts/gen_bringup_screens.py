@@ -10,7 +10,7 @@ decoder equations), wired as each step wires them: the straps, the pin
 keepers that hold an undriven input where it powered up, the stuck row
 bits while the audio slot PLD is out, and the RAM chips that are in.
 Every clock gives one pixel: the color decoder's outputs for the pixel
-buffer and line code at that clock, gated by VIDEN, so the 8-pixel
+buffer and line code at that clock, staged by VIDEN, so the 8-pixel
 stripes, the bands and the blank lines fall where the hardware puts them.
 
 Steps 20-24 run the bring-up ROM in the simulator (test_bringup_sim.py)
@@ -266,7 +266,7 @@ def rom_steps():
         save(Image.open(path).convert('RGB'), name)
         os.remove(path)
 
-    # step 20: Y is in, X is not: gate 4 blinks one screen row (two when the
+    # step 20: Y is in, X is not: stage 4 blinks one screen row (two when the
     # floating X lines read x20 or more) white.  Marked at both edges here,
     # because a still picture can't show it blinking.
     from PIL import Image, ImageDraw
