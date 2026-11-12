@@ -47,7 +47,7 @@ The generator keeps every block of code whose branches stay inside it in
 one 256-byte page (branches only change PC low), and jumps to the next page
 when a block does not fit.
 
-Date: 11/11/2026
+Date: 11/12/2026
 """
 
 import os
@@ -265,20 +265,18 @@ def gates(a):
       - No jumps until gate 3 has passed (a jump loads PC high from Y):
         the code runs from the reset into page 1 and from each gate into
         the next by falling off the end of the page.
-      - Until gate 5, the D source buffer U26 is not in.  A D source
-        still works then, because the data bus keeps the byte the ROM
-        just put on it (the operand, or the memory byte: the same byte
-        D holds) for the one clock that matters; its 10k pull-ups take
-        about a microsecond to move it.  With the RAM in that is no
-        longer true: a video read between the load and the execute clock
-        leaves the RAM's byte on the bus.  So the RAM stays out until
-        the step that fits U26, and gate 5 is the test for it.
+      - The D register U18, the D source buffer U26 and the RAM are in
+        before the cartridge (BRINGUP.md step 16), so constants and
+        branch targets work from the first gate on, and gates 5 and 6
+        pass at once on a good board.  (Gates 1-4 would also run with
+        U26 and the RAM both out, on the byte the data bus keeps, but
+        the guide no longer builds it that way.)
       - Unused bytes are xFC (bra xFC), and offsets xFC, xFD hold xFC xFC:
         a PC that lands anywhere in the page ends in the loop at xFC.
 
-    Gate 5 has to stop for good when U26 is missing, although nothing with
-    a D source can be trusted then (not even a branch to a fixed place), so
-    its stop uses the AC source only: clr ac, bra ac goes to offset 0,
+    Gate 5 is a soak test of U26.  It has to stop for good when U26 is
+    bad, although nothing with a D source can be trusted then (not even a
+    branch to a fixed place), so its stop uses the AC source only: clr ac, bra ac goes to offset 0,
     where beq ac (one byte) branches to itself while AC is 0.  Its filler
     is those two bytes.  The test loads and checks 15 constants 256 times
     (about 50 lines, 100 video reads or more), twice.
@@ -941,7 +939,7 @@ def generate():
         '1 branches  2 AND  3 OR  4 XOR  5 ADD  6 SUB  7 carry  8 SHR',
         '9 AC/X  10 Y address  11 X address  12 ROM data  13 RAM data',
         '14 map register  15 RAM address lines  16 video line read')]
-    L += [';', '; Date: 11/11/2026', '',
+    L += [';', '; Date: 11/12/2026', '',
           '#include "placard.asm"', '#include "placard_lib.asm"', '']
     for k, v in ZP.items():
         L.append('%-8s = 0x%02X' % (k, v))

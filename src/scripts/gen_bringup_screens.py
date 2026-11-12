@@ -3,7 +3,7 @@
 gen_bringup_screens.py - example monitor pictures for docs/hardware/BRINGUP.md
 
 For each bring-up step where the picture on the monitor changes, this
-draws what the person assembling the board should see.  Steps 5-13 (no
+draws what the person assembling the board should see.  Steps 5-11 (no
 software yet) come from the clock-by-clock video PLD model in
 bringup_signals.py (Sync, H counter, V counter, audio slot and color
 decoder equations), wired as each step wires them: the straps, the pin
@@ -21,13 +21,13 @@ the pattern on a real board differs in its details, not its look.  The
 seed is fixed so the images don't change from run to run.
 
     python3 gen_bringup_screens.py            all images
-    python3 gen_bringup_screens.py --hw       steps 5-13 only (fast)
+    python3 gen_bringup_screens.py --hw       steps 5-11 only (fast)
     python3 gen_bringup_screens.py --rom      steps 22-24 only
 
 Images go to docs/hardware/bringup_screens/.  The ROM part takes about
 4 minutes.
 
-Date: 2026-11-11
+Date: 2026-11-12
 """
 
 import os
@@ -208,7 +208,7 @@ def label_font(size):
 def hardware_steps():
     from PIL import Image
     pos = raster_positions()
-    # step 5 (no color decoder) and step 13 (no RAM: every line blank)
+    # step 5 (no color decoder)
     save(Image.new('RGB', (W, H)), 'step05_black.png')
     # step 6: the color decoder alone, inputs on the pin keepers
     save(Board(pix=0x6C, mode=1).frame(pos), 'step06_powerup.png')

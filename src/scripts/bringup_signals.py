@@ -4,9 +4,9 @@ bringup_signals.py - expected multimeter readings for docs/hardware/BRINGUP.md
 
 A clock-by-clock model of the video PLDs (Sync rev 08, H counter rev 08,
 V counter rev 03, audio slot rev 04, color decoder rev 07) as
-they are wired in the early build steps, and the CPU's "FF free run"
-(State rev 15, Branch rev 15, PC counters rev 02) with no memory on the
-data bus.  Every equation is the PLD source's, written out per clock.
+they are wired in the early build steps, and the CPU's "nop run"
+(State rev 15, Branch rev 15, instruction register rev 01, PC counters
+rev 02) with the RAM in and no cartridge.  Every equation is the PLD source's, written out per clock.
 
 It runs one frame to settle, then measures one whole frame (800 x 525 =
 420,000 clocks, the pattern repeats exactly every frame) and prints, for
@@ -284,88 +284,100 @@ def run_probes(cases):
     return out
 
 
-def run_free_run(step):
-    """steps 13-15: the CPU with nothing driving the data bus, so every byte
-    it reads is FF (the 10k pull-ups): BRA with source 11 (AC), through
-    LOAD_MEM.  The source bus is FF too (no source F541s), so EXEC loads
-    PC low = FF."""
-    vid = Video(blank_rd=True, lc_from_bus=True, bus=0xFF)
+def run_nop_run(step, decay, seed=1):
+    """steps 13-15: the CPU with the RAM in and no cartridge.  RUN is low,
+    so the instruction register PLD holds 02h (ld ac, ac: no branch, no
+    write) and the PC only counts.  The State PLD still takes its path from
+    the data bus bits, and nothing but the video reads drives the bus: it
+    carries the RAM byte of the last video read until the 10k pull-ups bring
+    it back to FF.  decay = how many clocks that takes (0: at once, None:
+    never); the truth is in between, so the tables give both ends."""
+    import random
+    rnd = random.Random(seed)
+    ram = bytearray(rnd.getrandbits(8) for _ in range(65536))
+    vid = Video(blank_rd=True, lc_from_bus=True)
     m = Meter()
     q0 = q1 = 0
     x_en = y_en = 0
-    alu_done = 0
     pc = 0
-    ir = 0xFF
+    bus, age = 0xFF, 99
+    pins = [15, 22, 21, 16, 20, 17, 19, 18]
     for clk in range(3 * FRAME):
         c = vid.comb()
         pe = vid.pe
-        # Branch PLD (IR = FF: branch, BRA, never ADD/SUB)
-        pc_enable = 1 - q1
-        exec_ = q0 & (1 - pc_enable)
-        stall = pe                      # ADDSUB_REG = 0
-        branch_a = exec_ & (1 - pe)
-        load_pc_low = branch_a          # BRA
-        src_en = exec_ & (1 - pe)
+        if pe:
+            bus, age = ram[vid.video_addr(c)], 0
+        else:
+            age += 1
+            if decay is not None and age > decay:
+                bus = 0xFF
+        vid.bus = bus
+        np_ = 1 - pe
         s_fetch = (1 - q1) & (1 - q0)
-        s_lmem = q1 & (1 - q0)
         s_limm = (1 - q1) & q0
-        load_instr = s_fetch & (1 - stall)
-        load_imm = (s_limm | s_lmem) & (1 - stall)
+        s_lmem = q1 & (1 - q0)
+        s_exec = q1 & q0
+        ds1, ds0 = (bus >> 1) & 1, bus & 1
+        m2, m1, m0 = (bus >> 4) & 1, (bus >> 3) & 1, (bus >> 2) & 1
+        f = s_fetch & np_
+        # State PLD rev 15, with the instruction register's MEM = 000, SRC0 = 0
+        n_q0 = ((q0 & pe) | (f & ds1 & (1 - m1)) | (f & ds1 & (1 - m2)) | (f & (1 - ds1) & (1 - ds0))
+                | (f & (1 - m1) & (1 - m0)) | (f & (1 - m2) & m1 & m0) | (s_limm & np_) | (s_lmem & np_))
+        n_q1 = ((q1 & pe) | (f & (1 - ds1) & ds0 & (1 - m1) & m0) | (f & (1 - ds1) & ds0 & m2 & m1)
+                | (f & (1 - ds1) & ds0 & (1 - m2) & m1 & (1 - m0)) | (f & ds1 & (1 - m2)) | (f & ds1 & m1)
+                | (f & ds1 & (1 - m0)) | (s_limm & np_) | (s_lmem & np_))
+        n_x = (f & (m1 & (1 - m0) | (1 - m2) & (1 - m1) & m0 | m2 & m1 & m0)) | (x_en & (1 - f))
+        n_y = (f & m1 & ((1 - m2) & (1 - m0) | m2 & m0)) | (y_en & (1 - f))
+        pc_enable = 1 - q1
+        load = s_exec & np_                # LOAD_AC and SRC_EN (02h: destination AC)
         lo, hi = pc & 0xFF, pc >> 8
-        co = int(lo == 0xFF)
         if clk >= 2 * FRAME:
             if step == 13:
                 m.add('State Q0 (pin 18)', q0)
                 m.add('State PC_ENABLE (pin 15)', pc_enable)
                 m.add('State X_ENABLE (pin 16)', x_en)
                 m.add('State Y_ENABLE (pin 17)', y_en)
-                m.add('State /LOAD_INSTR (pin 14)', 1 - load_instr)
-                m.add('State /LOAD_IMM (pin 19)', 1 - load_imm)
-                m.add('State /LOAD_X, /LOAD_Y, /LOAD_AC (pins 20-22)', 1)
+                m.add('State /LOAD_INSTR (pin 14)', 1 - f)
+                m.add('State /LOAD_IMM (pin 19)', 1 - ((s_limm | s_lmem) & np_))
+                m.add('State /LOAD_X, /LOAD_Y (pins 20, 21)', 1)
+                m.add('State /LOAD_AC (pin 22)', 1 - load)
                 m.add('State R/W (pin 23)', 1)
-                m.add('Branch STALL (pin 19)', stall)
-                m.add('Branch LOAD_PC_LOW (pin 21)', load_pc_low)
-                m.add('Branch LOAD_PC_HIGH (pin 22)', 0)
-                m.add('Branch BRANCH_BLOCK (pin 23)', 1)
-                m.add('Branch /SRC_EN (pin 16)', 1 - src_en)
-                m.add('Branch ALU_DONE (pin 18)', alu_done)
+                m.add('Branch STALL (pin 19)', pe)
+                m.add('Branch LOAD_PC_LOW, LOAD_PC_HIGH (pins 21, 22)', 0)
+                m.add('Branch BRANCH_BLOCK (pin 23)', 0)
+                m.add('Branch /SRC_EN (pin 16)', 1 - load)
+                m.add('Branch ALU_DONE (pin 18)', 0)
                 m.add('Audio /AC_SEL (pin 21)', 0)          # I1 = 1
-                m.add('Instruction register Q0-Q7', 1)
+                m.add('Instruction register I1 (pin 15)', 1)
+                m.add('Instruction register I0, I2-I7 (pins 14, 16-21)', 0)
             if step == 14:
-                pins = [15, 22, 21, 16, 20, 17, 19, 18]
                 for n in range(8):
                     m.add('PC low Q%d (pin %d)' % (n, pins[n]), (lo >> n) & 1)
-                m.add('PC low CO (pin 23)', co)
             if step == 15:
-                pins = [15, 22, 21, 16, 20, 17, 19, 18]
                 for n in range(8):
                     m.add('PC high Q%d = A%d (pin %d)' % (n, n + 8, pins[n]), (hi >> n) & 1)
-        # clock edge
-        if stall:
-            n_q0, n_q1 = q0, q1
-            n_x, n_y = x_en, y_en
-        else:
-            if s_fetch:               # data bus FF: source 11, mem 111 -> LOAD_MEM
-                n_q1, n_q0 = 1, 0
-                n_x, n_y = 1, 1       # mem 111 = [Y,X]
-            elif s_lmem:
-                n_q1, n_q0 = 1, 1
-                n_x, n_y = x_en, y_en
-            elif s_limm:
-                n_q1, n_q0 = 1, 1
-                n_x, n_y = x_en, y_en
-            else:                     # EXEC -> FETCH
-                n_q1, n_q0 = 0, 0
-                n_x, n_y = x_en, y_en
-        if load_pc_low:
-            n_pc = (pc & 0xFF00) | 0xFF
-        elif pc_enable and not stall:
-            n_pc = (pc + 1) & 0xFFFF
-        else:
-            n_pc = pc
-        q0, q1, x_en, y_en, pc = n_q0, n_q1, n_x, n_y, n_pc
+        if pc_enable and not pe:
+            pc = (pc + 1) & 0xFFFF
+        q0, q1, x_en, y_en = n_q0, n_q1, n_x, n_y
         vid.clock(c)
     return m.rows()
+
+
+def range_table(runs, title):
+    """the same pins from several runs: lowest to highest reading"""
+    def span(vals, fmt):
+        lo, hi = fmt(min(vals)), fmt(max(vals))
+        return lo if lo == hi else '%s to %s' % (lo, hi)
+    lines = [title, '', '| Pin | Frequency | DC average |', '|---|---|---|']
+    for i, (n, _, _) in enumerate(runs[0]):
+        fs = [r[i][1] for r in runs]
+        ds = [r[i][2] for r in runs]
+        if max(fs) == 0:
+            lines.append('| %s | 0 | %s |' % (n, '5 V' if ds[0] > 0.5 else '0 V'))
+        else:
+            lines.append('| %s | %s | %s |' % (n, span(fs, lambda f: fmt_f(float('%.2g' % f))),
+                                               span(ds, lambda d: '%.1f V' % (d * 5))))
+    return '\n'.join(lines) + '\n'
 
 
 def main(argv):
@@ -386,11 +398,10 @@ def main(argv):
         print(table(run_video(11), 'Step 11: audio slot PLD'))
     if want(12):
         print(table(run_video(12), 'Step 12: memory control PLD'))
-    for s, t in ((13, 'Step 13: State PLD (and the Branch PLD), FF free run'), (14, 'Step 14: PC low'),
+    for s, t in ((13, 'Step 13: State PLD (and the Branch PLD), nop run'), (14, 'Step 14: PC low'),
                  (15, 'Step 15: PC high')):
         if want(s):
-            print(table(run_free_run(s), t))
-
+            print(range_table([run_nop_run(s, decay, seed) for decay in (0, None) for seed in (1, 2)], t))
 
 if __name__ == '__main__':
     main(sys.argv[1:])

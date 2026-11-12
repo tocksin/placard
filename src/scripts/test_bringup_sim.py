@@ -14,11 +14,11 @@ LIB_RAM bytes at x1F00), so the simulator runs it with
 no boot loader, from random RAM, with the hardware ALU model and the shared
 port model (PS/2 keyboard and mouse, pads, SD card).  Checks:
 
-  - the chip gates: for each build step of BRINGUP.md, with only the chips
-    fitted so far (PartCpu: the missing chips' pins float, the bus keeps
-    its last byte) the PC stops in that step's gate page and no other;
-    with the D source buffer missing but the RAM in, it never settles in
-    gate 7 or reaches the status screen
+  - the chip gates: for each build step of BRINGUP.md from the cartridge
+    on, with only the chips fitted so far (PartCpu: the missing chips'
+    pins float, the bus keeps its last byte) the PC stops in that step's
+    gate page and no other; with the D source buffer missing at the
+    cartridge step it never settles in gate 1
   - a good machine passes the startup tests, draws the status screen and
     runs the frame loop: LOOPS and FRAME count up, the RAM test makes
     passes with no errors, SD_INIT and MOUSE_INIT show the attached parts
@@ -34,7 +34,7 @@ Video stalls are not modeled, so the CPU runs about 10 % faster than on
 the board; the per-frame work is bounded, so the frame loop runs once per
 frame on both.
 
-Date: 11/11/2026
+Date: 11/12/2026
 """
 
 import argparse
@@ -446,23 +446,25 @@ def settle(cpu, syms, clocks):
 
 
 def gate_checks(rom, syms):
-    """each build step: with the chips fitted so far the PC must stop in the
-    next chip's gate page, whatever the missing chips' pins float at, and
-    never get past it"""
+    """each build step of BRINGUP.md from the cartridge on (the RAM, the D
+    register and the D source buffer U26 are in before it): with the chips
+    fitted so far the PC must stop in the next chip's gate page, whatever
+    the missing chips' pins float at, and never get past it.  Gates 5 (U26
+    again) and 6 (the RAM) pass at once, so X goes from gate 4 to gate 7."""
     ok = True
-    steps = [((), 1, 'the cartridge alone'),
+    base = ('u26', 'ram')
+    steps = [((), 1, 'the cartridge (U18, U26 and the RAM in)'),
              (('alu',), 2, 'then AC and the ALU (U19, U5, U6)'),
              (('alu', 'u27'), 3, 'then the AC source buffer (U27)'),
              (('alu', 'u27', 'y'), 4, 'then the Y register (U21)'),
-             (('alu', 'u27', 'y', 'x'), 6, 'then the X register (U20)'),
-             (('alu', 'u27', 'y', 'x', 'u26', 'ram'), 7, 'then the D source buffer (U26) and the RAM'),
-             (('alu', 'u27', 'y', 'x', 'u26', 'ram', 'u29'), 'main', 'then the line read buffer (U29)')]
+             (('alu', 'u27', 'y', 'x'), 7, 'then the X register (U20)'),
+             (('alu', 'u27', 'y', 'x', 'u29'), 'main', 'then the line read buffer (U29)')]
     for have, want, name in steps:
         bad = {}
         n = 0
         for float_rnd in (False, True):
             for seed in range({7: 5, 'main': 2}.get(want, 60)):
-                cpu = PartCpu(rom, have, seed=seed, float_rnd=float_rnd)
+                cpu = PartCpu(rom, base + have, seed=seed, float_rnd=float_rnd)
                 got = settle(cpu, syms, {7: 2_000_000, 'main': 60_000_000}.get(want, 400_000))
                 n += 1
                 if got != want:
@@ -471,23 +473,26 @@ def gate_checks(rom, syms):
         ok &= good
         print('%-46s %-16s %3d runs  %s'
               % (name, 'status screen' if want == 'main' else 'stops in gate %s' % want, n, 'ok' if good else 'WRONG: %r' % bad))
-    # the D source buffer missing with the RAM in: where it ends up depends on
-    # how often a video read lands between LOAD and EXEC, but it must never
-    # look like a pass (steady in gate 7, or the status screen)
-    past = 0
+    # the D source buffer missing at the cartridge step: a video read between
+    # the load and the execute clock leaves a RAM byte on the bus, so the stop
+    # loops can't hold.  It must not look like a pass (steady in gate 1).
+    runs = 24
+    clocks = 6_000_000
     where = {}
-    runs = 60
     for seed in range(runs):
-        cpu = PartCpu(rom, ('alu', 'u27', 'y', 'x', 'ram'), seed=seed, hit=(0.01, 0.05, 0.2)[seed % 3])
-        got = settle(cpu, syms, 2_000_000)
-        if got in (7, 'main'):
-            past += 1
-        key = 'main' if got == 'main' else 'wanders' if got is None else '%02X' % got
+        cpu = PartCpu(rom, ('ram',), seed=seed, hit=(0.03, 0.12, 0.3)[seed % 3], float_rnd=bool(seed & 1))
+        late = False
+        while cpu.clocks < clocks:
+            cpu.step()
+            if not late and cpu.clocks >= clocks * 3 // 4:
+                late = True
+                cpu.pages = set()
+        key = 'wanders' if len(cpu.pages) > 2 else ','.join('%02X' % p for p in sorted(cpu.pages))
         where[key] = where.get(key, 0) + 1
-    good = past == 0
+    good = '01' not in where
     ok &= good
-    print('%-46s never gate 7 or the status screen: %d of %d runs did  %s  (%s)'
-          % ('no U26 with the RAM in', past, runs, 'ok' if good else 'WRONG',
+    print('%-46s never settles in gate 1: %s  (%s)'
+          % ('no U26 at the cartridge step', 'ok' if good else 'WRONG',
              ', '.join('%s: %d' % kv for kv in sorted(where.items()))))
     return ok
 
