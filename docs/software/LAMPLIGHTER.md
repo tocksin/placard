@@ -74,7 +74,7 @@ the deep Wellshaft is behind soot: extras, not on a boss's way.
 **Bramblejaw** paces its side of the den and spits a bolt every half
 second, two at Wick's height and then two over his head.  A pit in the
 floor stops it.  It takes 32 sparks.  The test's bot beats it with the
-lantern alone and 30 energy, losing 24, by standing off, jumping the low
+lantern alone and 30 energy, losing none, by standing off, jumping the low
 bolts and firing; the Bellows make the jumps easier and the flasks leave
 more room for mistakes.
 
@@ -137,7 +137,9 @@ that stores a tile's bytes with immediates, compiled sprites), changed so
 the picture can also move up and down:
 
 1. **Wait for the beam** to be 20 lines above the playfield's last tile
-   row (the line counter read through `frame_poll`, value 235).
+   row (the line counter read through `frame_poll`, value 235).  After a
+   room was read from the card the beam may be past that line: then the
+   wait is for the next time round.
 2. **Draw the playfield, tile row by tile row from the top** (8,960 to
    10,240 bytes).  A tile row takes about as long to draw as the beam
    takes for 16 lines, a quarter of a tile row, so the beam is below every
@@ -239,15 +241,25 @@ tile row is drawn behind the beam and each sprite is done before the beam
 is back at it.  At the end: that the bot got through its route, that the
 routines in the video RAM are unchanged and that Esc brings the DOS back.
 
-The route goes through all 14 rooms: the bot first lets a Mite take all
-its energy (and starts again), shoots creatures, takes the Burrow Rig,
-crawls to the Gardens, takes the flask and the Updraft Bellows, crosses
-the Thorn Gate, beats Bramblejaw, takes the Ash Sail and climbs all the
-way back to the Landing Ledge by way of the Keeper's Duct.  The fight is
-played by a rule (stand off, jump a bolt that is near and at Wick's
-height, fire); the rest is planned.  It is 7,535
-frames and takes about 25 minutes, most of it the planning.  In it the
-drawing is never less than 55 screen rows behind the beam, and a sprite is
-done at least 10 screen rows before the beam is at it.
+First, on the model alone, it shows that every boss can be reached and
+beaten with nothing collected: a run from the Landing Ledge to Bramblejaw
+(2,291 frames, no energy lost in the fight) and one to Clinker (1,726
+frames, 24 energy left of the 30 Wick starts with), in which the search
+may not pick anything up.
+
+Then the long route in the simulator, through all 22 rooms: the bot first
+lets a Mite take all its energy (and starts again), shoots creatures,
+takes the Burrow Rig, crawls to the Gardens, takes the flask and the
+Updraft Bellows, crosses the Thorn Gate, beats Bramblejaw and takes the
+Ash Sail; in the Slagworks it takes the Kiln Charge, blasts the Soot
+Lock open, beats Clinker, takes the Cinder Coat and the hot room's flask;
+it blasts its way to the deep Wellshaft's flask and climbs all the way
+back to the Landing Ledge by way of the Keeper's Duct.  The fights are
+played by rules (Bramblejaw: stand off, jump a bolt that is near and at
+Wick's height, fire; Clinker: keep just off its middle and fire up), a
+blast by holding the key; the rest is planned.  It is 10,964 frames and
+takes about 45 minutes, most of it the planning.  In it the drawing is
+never less than 55 screen rows behind the beam, and a sprite is done at
+least 30 screen rows before the beam is at it.
 
 `python3 src/scripts/gen_lamp.py --preview DIR` draws every room.
