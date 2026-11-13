@@ -4,12 +4,12 @@
 ;
 ;     python3 gen_skyward.py                  writes skyward.asm next to this script,
 ;                                             ../../sdcard/SKYWARD.PLC and the course
-;                                             files ../../sdcard/SKYWARD/CA.LVL - CM.LVL
+;                                             files ../../sdcard/SKYWARD/CA.LVL - CX.LVL
 ;     python3 gen_skyward.py --preview DIR    also draws every course (whole length)
 ;                                             and a first screen with the Python model
 ;     python3 test_skyward_sim.py             runs it in placard_sim from a card
 ;
-; A port of World 1 of Skyward Tobi 4 (an NES game by Mark Szlemko,
+; A port of the two worlds of Skyward Tobi 4 (an NES game by Mark Szlemko,
 ; github.com/Zebshine/skyward-tobi-4) to the Placard: the story, the cast, the
 ; courses' ideas, Tobi and the enemy art are his (skyward_art.py holds the
 ; frames copied later), laid out again for 160 x 112 pixels in 16 colors.  The engine is the Placard's own (gen_scroller.py's: no scroll
@@ -29,7 +29,7 @@
 ; FILES ON THE CARD
 ;     SKYWARD.PLC         the program: the sprite blitter and Tobi's frames at
 ;                         x0100, the code from x2000
-;     SKYWARD/Cx.LVL      one file a course (x = A-M), read when the course
+;     SKYWARD/Cx.LVL      one file a course (x = A-X), read when the course
 ;                         starts: 6 sectors of tables to x4000-x4BFF (strip
 ;                         addresses, the tile map, the objects, the sprite
 ;                         routines' addresses, three lines of text), then a
@@ -38,19 +38,21 @@
 ;                         band or of a tile) and the course's own sprites, in
 ;                         the video RAM the screen leaves free (offsets
 ;                         x040-x17F of each 512-byte byte column).
-;     CA is the title and the story, CB-CL are played, CM is the ending.
+;     CA is the title and the story, CM the boat between the worlds and CX
+;     the ending; the others are played.
 ;
 ; THE GAME
 ;     Run right, jump the gaps, land on the Bumblers, Buzzbees and Shellbys
 ;     (touching one from the side is a hit), keep off the Spindles and the
 ;     Snapjaws, collect Mabel's Stunt Medals and reach the windsock.  Crates
-;     hold a Sky Berry (one hit), a Glide Feather (a hit, and a glider) or the
-;     Tengu Geta (walks on thorns).  With the glider, hold the jump key in the
+;     hold a Sky Berry (one hit), an Ember Pepper (a hit, and embers to throw),
+;     a Glide Feather (a hit, and a glider) or the Tengu Geta (walks on thorns).  With the glider, hold the jump key in the
 ;     air to glide.  Gale Fort ends with Captain Squall and Crow Keep with
-;     Baron Rook: land on them three times.  docs/software/SKYWARD.md has
+;     Baron Rook: land on them three times (in Squall Fort and Dust Keep, four).  docs/software/SKYWARD.md has
 ;     the rest.
 ;     Controls: arrow keys or SNES pad 1 Left / Right, Up / Space / pad B
-;     or A to jump (hold to glide), Esc back to the DOS.
+;     or A to jump (hold to glide), Down or pad Y to throw an ember, Esc back
+;     to the DOS.
 ;
 ; Date: 11/13/2026
 
@@ -137,13 +139,20 @@ NROW       = 112
 GLIDE      = 96
 DROWN_G    = 100
 ROOK_SAFE  = 24
-NCOURSE    = 13
+NCOURSE    = 24
 BLOCK_END  = 19456
 FID_MEDAL  = 12
 NPF        = 6
 ENEMY      = 21504
 V_POWER    = 112
 V_GETA     = 113
+V_EMB      = 114
+V_EMXL     = 115
+V_EMG      = 117
+V_EMD      = 118
+V_FPREV    = 119
+V_EMXH     = 123
+EMBER_LIFE = 40
 BOUNCEV_LO = 128
 BOUNCEV_HI = 249
 UPV_LO     = 8
@@ -531,6 +540,13 @@ i_3:
     or   4, ac
     ld   ac, [inp]
 i_4:
+    ld   [R0], ac               ; Y (bit 1): the Ember Pepper
+    and  0x02, ac
+    beq  i_5
+    ld   [inp], ac
+    or   8, ac
+    ld   ac, [inp]
+i_5:
     ld   [KBD_NOW + 7], ac      ; Right key (column 7 row 7, 0 = down)
     and  0x80, ac
     bne  k_1
@@ -556,6 +572,13 @@ k_3:
     or   4, ac
     ld   ac, [inp]
 k_4:
+    ld   [KBD_NOW + 7], ac      ; Down (row 6)
+    and  0x40, ac
+    bne  k_5
+    ld   [inp], ac
+    or   8, ac
+    ld   ac, [inp]
+k_5:
     ld   LINK_LO, x             ; CALL game
     ld   f_game, [x]
     ld   LINK_HI, x
@@ -606,6 +629,10 @@ lc_0:
     ld   fs_open >> 8, y
     jmp  fs_open
 lc_1:
+    ld   hop_3 >> 8, y
+    jmp  hop_3                  ; (to the next page)
+#addr 0x2300
+hop_3:
     ld   [course], ac           ; "Cx.LVL", x = A for the title on
     add  0x41, ac
     ld   s_file >> 8, y
@@ -615,10 +642,6 @@ lc_1:
     ld   ac, [R0]
     ld   s_file >> 8, ac
     ld   ac, [R1]
-    ld   hop_3 >> 8, y
-    jmp  hop_3                  ; (to the next page)
-#addr 0x2300
-hop_3:
     ld   LINK_LO, x             ; CALL fs_open
     ld   lc_2, [x]
     ld   LINK_HI, x
@@ -699,6 +722,8 @@ lc_6:
     ld   V_GETA, x
     ld   0, [y,x]
 lc_p1:
+    ld   V_EMB, x
+    ld   0, [y,x]
     ld   V_POWER, x
     ld   [y,x], ac
     sub  3, ac
@@ -754,6 +779,10 @@ lc_t0:
     ld   con_puts >> 8, y
     jmp  con_puts
 lc_t1:
+    ld   hop_4 >> 8, y
+    jmp  hop_4                  ; (to the next page)
+#addr 0x2400
+hop_4:
     clr  ac
     ld   ac, [CUR_COL]
     ld   3, ac
@@ -762,10 +791,6 @@ lc_t1:
     ld   ac, [R0]
     ld   0x4A, ac
     ld   ac, [R1]
-    ld   hop_4 >> 8, y
-    jmp  hop_4                  ; (to the next page)
-#addr 0x2400
-hop_4:
     ld   LINK_LO, x             ; CALL con_puts
     ld   lc_t2, [x]
     ld   LINK_HI, x
@@ -1816,13 +1841,237 @@ go_cn:
     ld   go_c >> 8, y
     jmp  go_c
 go_cd:
+    ld   gm_emb >> 8, y
+    jmp  gm_emb
+
+; game: the Ember Pepper (Down or pad Y throws an ember; one at a time)
+gm_emb:
+    ld   ENEMY >> 8, y
+    ld   [inp], ac
+    and  8, ac
+    ld   ac, [tmp]
+    ld   V_FPREV, x
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   [tmp], ac
+    ld   ac, [y,x]
+    beq  ge_mv                  ; the key newly down, playing, with the pepper,
+    ld   [tmp2], ac             ; and no ember in the air
+    bne  ge_mv
+    ld   [mode], ac
+    bne  ge_mv
+    ld   V_POWER, x
+    ld   [y,x], ac
+    sub  2, ac
+    bne  ge_mv
+    ld   V_EMB, x
+    ld   [y,x], ac
+    bne  ge_mv
+    ld   EMBER_LIFE, [y,x]
+    ld   V_EMXL, x
+    ld   [pxl], ac
+    ld   ac, [y,x]
+    ld   V_EMXH, x
+    ld   [pxh], ac
+    ld   ac, [y,x]
+    ld   V_EMG, x
+    ld   [pyh], ac
+    ld   ac, [y,x]
+    ld   V_EMD, x
+    ld   [facing], ac
+    ld   ac, [y,x]
+    ld   96, ac
+    ld   LINK_LO, x             ; CALL snd_beep
+    ld   ge_b, [x]
+    ld   LINK_HI, x
+    ld   ge_b >> 8, [x]
+    ld   snd_beep >> 8, y
+    jmp  snd_beep
+ge_b:
+ge_mv:
+    ld   ENEMY >> 8, y
+    ld   V_EMB, x
+    ld   [y,x], ac
+    bne  ge_1
+ge_out:
+    ld   ge_x >> 8, y
+    jmp  ge_x
+ge_1:
+    sub  1, ac
+    ld   ac, [y,x]
+    ld   V_EMD, x
+    ld   [y,x], ac
+    bne  ge_l
+    ld   V_EMXL, x              ; right: two byte columns
+    ld   [y,x], ac
+    add  2, ac
+    ld   ac, [y,x]
+    bcc  ge_d
+    ld   V_EMXH, x
+    ld   [y,x], ac
+    add  1, ac
+    and  3, ac
+    ld   ac, [y,x]
+    bra  ge_d
+ge_l:
+    ld   V_EMXL, x
+    ld   [y,x], ac
+    sub  2, ac
+    ld   ac, [y,x]
+    bcc  ge_d
+    ld   V_EMXH, x
+    ld   [y,x], ac
+    sub  1, ac
+    and  3, ac
+    ld   ac, [y,x]
+ge_d:
+    ld   ge_w >> 8, y
+    jmp  ge_w
+    ld   hop_13 >> 8, y
+    jmp  hop_13                  ; (to the next page)
+#addr 0x2D00
+hop_13:
+ge_w:
+    ld   ENEMY >> 8, y          ; a wall puts it out
+    ld   V_EMG, x
+    ld   [y,x], ac
+    add  8, ac
+    ld   ac, [ta_g]
+    ld   V_EMXH, x
+    ld   [y,x], ac
+    ld   ac, [ta_hi]
+    ld   V_EMXL, x
+    ld   [y,x], ac
+    add  4, ac
+    ld   ac, [ta_lo]
+    bcc  ge_w1
+    ld   [ta_hi], ac
+    add  1, ac
+    ld   ac, [ta_hi]
+ge_w1:
+    ld   LINK_LO, x             ; CALL tile_at
+    ld   ge_w2, [x]
+    ld   LINK_HI, x
+    ld   ge_w2 >> 8, [x]
+    ld   tile_at >> 8, y
+    jmp  tile_at
+ge_w2:
+    beq  ge_dr
+    ld   ENEMY >> 8, y
+    ld   V_EMB, x
+    ld   0, [y,x]
+    ld   ge_x >> 8, y
+    jmp  ge_x
+ge_dr:
+    ld   V_EMXL, ac
+    ld   ac, [o_i]
+    ld   ENEMY >> 8, y
+    ld   [o_i], ac
+    add  8, x
+    ld   [y,x], ac
+    ld   ac, [dhi]
+    ld   [o_i], ac
+    add  0, x
+    ld   [y,x], ac
+    sub  [scl], ac
+    ld   ac, [dlo]
+    ld   [dhi], ac
+    bcc  ge_x_sc_1
+    sub  1, ac
+ge_x_sc_1:
+    sub  [sch], ac
+    ld   ac, [dhi]
+    ld   [dlo], ac
+    add  8, ac
+    ld   ac, [dlo]
+    ld   [dhi], ac
+    bcc  ge_x_sc_2
+    add  1, ac
+ge_x_sc_2:
+    and  3, ac
+    bne  ge_x_sc_off
+    ld   [dlo], ac
+    sub  88, ac
+    bcs  ge_x_sc_on
+ge_x_sc_off:
+    ld   ge_x >> 8, y
+    jmp  ge_x
+ge_x_sc_on:
+    ld   ENEMY >> 8, y
+    ld   V_EMG, x
+    ld   [y,x], ac
+    add  32, ac
+    ld   ac, [tmp3]
+    ld   OBJ >> 8, y
+    ld   0x6E, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   LINK_LO, x             ; CALL sl_add
+    ld   ge_s, [x]
+    ld   LINK_HI, x
+    ld   ge_s >> 8, [x]
+    ld   sl_add >> 8, y
+    jmp  sl_add
+ge_s:
+    ld   ge_x >> 8, y
+    jmp  ge_x
+ge_x:
     clr  ac
     ld   ac, [o_i]
     ld   go_e >> 8, y
     jmp  go_e
+go_emb:
+    ld   ENEMY >> 8, y          ; an ember in the air, and this one can be
+    ld   V_EMB, x               ; knocked out: its x - the ember's in -6..6,
+    ld   [y,x], ac              ; its top cell - the ember's in -12..12
+    beq  gb_no
+    ld   [ekind], ac
+    and  0x13, ac
+    bne  gb_no
+    ld   V_EMXL, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   [o_i], x
+    ld   [y,x], ac
+    sub  [tmp], ac
+    add  6, ac
+    sub  13, ac
+    bcc  gb_no
+    ld   V_EMG, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   [tmp3], ac
+    sub  20, ac
+    sub  [tmp], ac
+    sub  25, ac
+    bcc  gb_no
+    ld   V_EMB, x
+    ld   0, [y,x]
+    ld   [o_i], ac
+    add  0x40, x
+    ld   0, [y,x]
+    ld   1, ac
+    ld   ac, [hud_dirty]
+    ld   [score_lo], ac
+    add  100, ac
+    ld   ac, [score_lo]
+    bcc  gb_s
+    ld   [score_hi], ac
+    add  1, ac
+    ld   ac, [score_hi]
+gb_s:
+    ld   go_h1 >> 8, y
+    jmp  go_h1
+gb_no:
+    ld   go_ect >> 8, y
+    jmp  go_ect
 
 ; game: the objects (Bumblers, Buzzbees, Baron Rook, pictures)
 go_e:
+    ld   hop_14 >> 8, y
+    jmp  hop_14                  ; (to the next page)
+#addr 0x2E00
+hop_14:
     ld   [o_i], ac
     sub  [n_en], ac
     bne  go_e00
@@ -1921,10 +2170,10 @@ go_e5:
     ld   go_en >> 8, y
     jmp  go_en
 go_e6:
-    ld   hop_13 >> 8, y
-    jmp  hop_13                  ; (to the next page)
-#addr 0x2D00
-hop_13:
+    ld   hop_15 >> 8, y
+    jmp  hop_15                  ; (to the next page)
+#addr 0x2F00
+hop_15:
     ld   ENEMY >> 8, y
     ld   [o_i], ac
     add  8, x
@@ -1966,6 +2215,9 @@ go_en_sc_on:
     sub  [pyh], ac              ; eg - pyh, in tmp2
     sub  32, ac
     ld   ac, [tmp2]
+    ld   go_emb >> 8, y
+    jmp  go_emb
+go_ect:
     ld   [mode], ac             ; only while playing, not just after a lost
     bne  go_eaj                ; life, and not a picture
     ld   [inv], ac
@@ -2000,10 +2252,10 @@ go_ebig:
 go_eaj:
     ld   go_eadd >> 8, y
     jmp  go_eadd
-    ld   hop_14 >> 8, y
-    jmp  hop_14                  ; (to the next page)
-#addr 0x2E00
-hop_14:
+    ld   hop_16 >> 8, y
+    jmp  hop_16                  ; (to the next page)
+#addr 0x3000
+hop_16:
 go_eadd:
     ld   ENEMY >> 8, y          ; frame: the object's first, + 1 every 16 frames
     ld   [o_i], ac
@@ -2108,10 +2360,10 @@ go_en:
     jmp  go_e
 
 ; game: Shellby (x58 + n: 3 walking, 2 a shell at rest, 1 a shell sliding)
-    ld   hop_15 >> 8, y
-    jmp  hop_15                  ; (to the next page)
-#addr 0x2F00
-hop_15:
+    ld   hop_17 >> 8, y
+    jmp  hop_17                  ; (to the next page)
+#addr 0x3100
+hop_17:
 go_shl:
     ld   ENEMY >> 8, y
     ld   [o_i], ac
@@ -2238,10 +2490,10 @@ gk_n:
     add  1, ac
     ld   ac, [sc]
     bra  gk_1
-    ld   hop_16 >> 8, y
-    jmp  hop_16                  ; (to the next page)
-#addr 0x3000
-hop_16:
+    ld   hop_18 >> 8, y
+    jmp  hop_18                  ; (to the next page)
+#addr 0x3200
+hop_18:
 go_shit:
     ld   ENEMY >> 8, y          ; Shellby and the player touch
     ld   [o_i], ac
@@ -2378,10 +2630,10 @@ go_hurt:
     ld   go_eadd >> 8, [x]
     ld   hurt >> 8, y
     jmp  hurt
-    ld   hop_17 >> 8, y
-    jmp  hop_17                  ; (to the next page)
-#addr 0x3100
-hop_17:
+    ld   hop_19 >> 8, y
+    jmp  hop_19                  ; (to the next page)
+#addr 0x3300
+hop_19:
 go_pl:
     ld   [inv], ac              ; the player last (blinks while safe)
     and  4, ac
@@ -2519,10 +2771,10 @@ hu_4:
     ld   con_dec8 >> 8, y
     jmp  con_dec8
 hu_5:
-    ld   hop_18 >> 8, y
-    jmp  hop_18                  ; (to the next page)
-#addr 0x3200
-hop_18:
+    ld   hop_20 >> 8, y
+    jmp  hop_20                  ; (to the next page)
+#addr 0x3400
+hop_20:
     ld   45, ac                 ; the power-up at column 45, the geta at 54
     ld   ac, [CUR_COL]
     ld   ENEMY >> 8, y
@@ -2565,7 +2817,7 @@ hu_7:
     jmp  lib_leave
 
 ; text and tables
-#addr 0x3300
+#addr 0x3500
 s_score: #d "SCORE 0        MEDALS 0        TOBI  3", 0x00
 s_sp:    #d "  ", 0x00
 s_dir:   #d "SKYWARD", 0x00

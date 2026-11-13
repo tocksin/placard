@@ -19,7 +19,8 @@ The 32K ROM boots from a card with BOOT.CFG = SKYWARD.PLC and the SKYWARD
 folder.  A bot plays through pad 1: it presses B at the title and the
 course cards, runs right, and jumps at gaps, walls and enemies (it reads
 the course from gen_skyward and the player from the zero page), holding B
-in the air to glide.  For every frame the test checks:
+in the air to glide and throwing embers (pad Y) when it has the Ember
+Pepper.  For every frame the test checks:
   - the background: after the bands and the course are drawn, every byte
     of the 160 x 112 playfield matches gen_skyward's model for the scroll
   - the sprites: after the blitter, the playfield matches the background
@@ -46,7 +47,7 @@ import test_dos            # noqa: E402
 
 FRAME = 525 * 800
 FIRST_LINE = 45
-B, LEFT, RIGHT = 0x0001, 0x0040, 0x0080     # pad 1's buttons
+B, Y, LEFT, RIGHT = 0x0001, 0x0002, 0x0040, 0x0080      # pad 1's buttons
 
 
 def bot(cs, st, held):
@@ -66,6 +67,11 @@ def bot(cs, st, held):
         return btn
     btn = RIGHT
     feet = py + 16
+    if st['power'] == 2 and not st['emb'] and not st['fprev'] and not st['facing']:
+        # the Ember Pepper: an ember at whatever is ahead at Tobi's height
+        if any(e['alive'] and not e['kind'] & 0x13 and 10 <= e['x'] - px <= 44 and abs(e['g'] - py) <= 10
+               for e in st['en']):
+            btn |= Y
     if st['onground']:
         want = False
         if not any(cs.solid_at(px + 7, feet + 16 * k) for k in range(3)):
@@ -103,12 +109,14 @@ class Model:
         self.px = cs.start; self.py = 0; self.pyl = 0; self.vy = 0; self.onground = 0
         self.chk = cs.start; self.inv = sk.INV_FRAMES; self.mode = 1; self.lives = 3
         self.jprev = 0; self.frame = 0; self.medals = 0; self.deaths = []
-        self.en = [dict(x=o['x'], g=o['g'], lo=o['lo'], hi=o['hi'], dir=0, alive=1, kind=sk.KIND[o['ch']], hp=3) for o in cs.objs]
+        self.en = [dict(x=o['x'], g=o['g'], lo=o['lo'], hi=o['hi'], dir=0, alive=1, kind=sk.KIND[o['ch']], hp=sk.HP.get(o['ch'], 3)) for o in cs.objs]
         self.got = [0] * len(cs.medals)
         self.clear = False
         self.power = 0; self.geta = 0; self.glider = cs.c['glider']
         self.used = set()       # (tile column, tile row) of the crates taken
         self.frame0 = 0
+        self.facing = 0; self.fprev = 0
+        self.emb = 0; self.emx = 0; self.emg = 0; self.emd = 0     # the ember: frames left, where, direction
 
     def clone(self):
         m = copy.copy(self)
@@ -118,7 +126,8 @@ class Model:
 
     def state(self):
         return dict(px=self.px, py=self.py, mode=self.mode, onground=self.onground, en=self.en,
-                    frame=self.frame, geta=self.geta, glider=self.glider, attr=self.attr)
+                    frame=self.frame, geta=self.geta, glider=self.glider, attr=self.attr,
+                    power=self.power, emb=self.emb, fprev=self.fprev, facing=self.facing)
 
     def attr(self, x, g):
         tr = self.cs.cell_tr(x, g)
@@ -152,9 +161,11 @@ class Model:
                 self.mode = 0
             inp = 0
         if inp & RIGHT:
+            self.facing = 0
             if not (s(self.px + 8, self.py + 1) or s(self.px + 8, self.py + 8) or s(self.px + 8, self.py + 15)):
                 self.px = (self.px + 1) & 1023
         elif inp & LEFT:
+            self.facing = 1
             if not (s(self.px - 1, self.py + 1) or s(self.px - 1, self.py + 8) or s(self.px - 1, self.py + 15)):
                 self.px = (self.px - 1) & 1023
         if self.attr(self.px + 4, self.py + 8) & sk.A_UP:
@@ -222,6 +233,15 @@ class Model:
         for i, (cx, cg) in enumerate(cs.medals):
             if not self.got[i] and -3 <= cx - self.px <= 6 and -7 <= cg - self.py <= 15:
                 self.got[i] = 1; self.medals += 1
+        fire = inp & Y
+        if fire and not self.fprev and self.mode == 0 and self.power == 2 and not self.emb:
+            self.emb = sk.EMBER_LIFE; self.emx = self.px; self.emg = self.py; self.emd = self.facing
+        self.fprev = fire
+        if self.emb:
+            self.emb -= 1
+            self.emx = (self.emx + (-2 if self.emd else 2)) & 1023
+            if s(self.emx + 4, self.emg + 8):
+                self.emb = 0
         for e in self.en:
             if not e['alive']:
                 continue
@@ -243,6 +263,12 @@ class Model:
                     e['x'] = (e['x'] - 1) & 1023
                     if e['x'] == e['lo']: e['dir'] = 0
             if k & sk.K_SNAP and not self.frame & 0x40:
+                continue
+            if ((e['x'] - self.px + sk.SCREEN_X + 8) & 1023) >= 88:
+                continue        # off the screen
+            if self.emb and not k & 0x13 and ((e['x'] - self.emx + 6) & 255) < 13 \
+                    and ((e['g'] - self.emg + 12) & 255) < 25:
+                e['alive'] = 0; self.emb = 0
                 continue
             if self.mode or self.inv or k & (sk.K_PIC | sk.K_LIFT):
                 continue
@@ -372,13 +398,16 @@ def model_of(cs, mem, z):
                   hp=mem[e + 0x58 + i])
     m.power, m.geta, m.glider = mem[e + 0x70], mem[e + 0x71], mem[z['glider']]
     m.used = used_crates(cs, mem)
+    m.facing = 1 if mem[z['facing']] else 0
+    m.emb, m.emx, m.emg = mem[e + 0x72], mem[e + 0x73] | mem[e + 0x7B] << 8, mem[e + 0x75]
+    m.emd, m.fprev = (1 if mem[e + 0x76] else 0), mem[e + 0x77]
     return m
 
 
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('--course', type=int, default=0)
-    ap.add_argument('--max-frames', type=int, default=20000)
+    ap.add_argument('--max-frames', type=int, default=40000)
     ap.add_argument('--shots')
     ap.add_argument('--shot-every', type=int, default=0)
     ap.add_argument('--fast', action='store_true', help='skip the idle wait for the next frame')
