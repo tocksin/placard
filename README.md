@@ -138,7 +138,7 @@ Four demos show what the CPU can do with no sprite or collision hardware.  The f
 
 ![SCRAPWRIGHT in the simulator](reference/scrap_sim.png)
 
-`sdcard/SKYWARD.PLC` (`src/scripts/gen_skyward.py`, with its courses in `sdcard/SKYWARD/`) is Skyward Tobi, a port of World 1 of *Skyward Tobi 4*, an NES platform game by Zeb and Mark (MIT License): four side-scrolling courses at 160 × 112, 4 bpp, on the scroller's engine with five rows of tiles, each course a file read from the card.  Tobi runs, jumps, glides, lands on Bumblers and Buzzbees, collects Stunt Medals and meets Baron Rook in Crow Keep.  Run it from the DOS's file browser (arrow keys or SNES pad 1; Up, Space or pad B to jump).  `test_skyward_sim.py` plays it through with a bot ([docs/software/SKYWARD.md](docs/software/SKYWARD.md)).
+`sdcard/SKYWARD.PLC` (`src/scripts/gen_skyward.py`, with its courses in `sdcard/SKYWARD/`) is Skyward Tobi, a port of World 1 of *Skyward Tobi 4*, an NES platform game by Mark Szlemko (MIT License): four side-scrolling courses at 160 × 112, 4 bpp, on the scroller's engine with five rows of tiles, each course a file read from the card.  Tobi runs, jumps, glides, lands on Bumblers and Buzzbees, collects Stunt Medals and meets Baron Rook in Crow Keep.  Run it from the DOS's file browser (arrow keys or SNES pad 1; Up, Space or pad B to jump).  `test_skyward_sim.py` plays it through with a bot ([docs/software/SKYWARD.md](docs/software/SKYWARD.md)).
 
 ![Skyward Tobi's four courses](reference/skyward_courses.png)
 

@@ -10,7 +10,7 @@ platform game on the SD card (a library program in the RAM)
                                             and a first screen with the Python model
     python3 test_skyward_sim.py             runs it in placard_sim from a card
 
-A port of World 1 of Skyward Tobi 4 (an NES game by Zeb and Mark,
+A port of World 1 of Skyward Tobi 4 (an NES game by Mark Szlemko,
 github.com/Zebshine/skyward-tobi-4) to the Placard: the story, the cast, the
 courses' ideas and the enemy art are theirs, redrawn for 160 x 112 pixels in
 16 colors.  The engine is the Placard's own (gen_scroller.py's: no scroll
