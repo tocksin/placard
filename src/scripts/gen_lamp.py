@@ -81,6 +81,10 @@ HURTV = 0x0200          # the hop when Wick is hurt
 INV_FRAMES = 60         # no harm for that long after a hit
 PUFF_FRAMES = 12
 BOLT_FRAMES = 90        # what a creature spits lasts that long
+CHG_FULL = 45           # frames of the fire key held that fill the Kiln Charge
+BLAST_PW = 4            # a blast is that many sparks
+HOP_REST = 24           # frames a hopper sits between hops
+HOPDY = [-4, -4, -3, -3, -2, -2, -1, -1, 1, 1, 2, 2, 3, 3, 4, 4]
 DROP_NEAR = 12          # a dropper falls when Wick is that many byte columns from under it
 EMBER_FRAMES = 250
 MSG_FRAMES = 240
@@ -92,6 +96,7 @@ IN_RIGHT, IN_LEFT, IN_JUMP, IN_FIRE, IN_UP, IN_DOWN = 1, 2, 4, 8, 16, 32
 PAD_B, PAD_Y, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT, PAD_A, PAD_X = 1, 2, 0x10, 0x20, 0x40, 0x80, 0x100, 0x200
 # tile attributes
 A_TOP, A_BOT, A_DOOR, A_DBOT = 1, 2, 4, 64      # solid upper half, lower half; a door; its lower tile
+A_SOOT = 8                                      # a sooted block: a blast breaks it
 A_SOLID = A_TOP | A_BOT
 # exits
 EX_L, EX_R, EX_U, EX_D = 1, 2, 3, 4
@@ -100,30 +105,32 @@ EX_L, EX_R, EX_U, EX_D = 1, 2, 3, 4
 TS_LO, TS_HI, ATTR, FR = 0x4000, 0x4100, 0x4200, 0x4300
 SPEC = 0x4400           # the area's kinds of things: what they do, frame, hits, harm
 SPEC_BEH, SPEC_FRAME, SPEC_HP, SPEC_DMG, SPEC_ANIM = 0x00, 0x10, 0x20, 0x30, 0x40
-SPEC_DIRM, SPEC_W, SPEC_H, SPEC_SPIT, SPEC_WIDE = 0x50, 0x60, 0x70, 0x80, 0x90
+SPEC_DIRM, SPEC_W, SPEC_H, SPEC_SPIT, SPEC_WIDE, SPEC_AIM = 0x50, 0x60, 0x70, 0x80, 0x90, 0xA0
 TABLES_END = 0x4600
 MAP = 0x4600            # 2 pages: tile number * 8 of tile (tx, ty) at (ty << 5) | tx
 HDR = 0x4800            # the room's header
 OBJ = 0x5500            # the room's things
 O_KIND, O_X, O_Y, O_D, O_T, O_HP, O_P = 0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30
 GOT = 0x5600            # item n is found
+V_MSG, V_MSG_T, V_MSG_D = 0x80, 0x81, 0x82      # variables in that page: the message line
 SL = 0x5400             # the sprite list
 SL_LO, SL_HI, SL_C, SL_G = 0x00, 0x10, 0x20, 0x30
 MAX_SPR = 16
 SD_OVL = 0x6000
 # the header page
-H_W, H_H, H_AREA, H_NOBJ, H_RW, H_RCY, H_RWX, H_RHY = range(8)
+H_W, H_H, H_AREA, H_NOBJ, H_RW, H_RCY, H_RWX, H_RHY, H_FLAGS = range(9)
+HF_HOT = 1              # a hot room: energy drains without the Cinder Coat
 HX_SIDE, HX_LO, HX_HI, HX_DEST, HX_DELTA = 0x10, 0x18, 0x20, 0x28, 0x30
 HO_KIND, HO_X, HO_Y, HO_P = 0x40, 0x48, 0x50, 0x58
 # what a thing does
 # (B_WALK and above: a shot hurts it)
-B_ITEM, B_EMBER, B_PUFF, B_BOLT, B_WALK, B_FLY, B_SIT, B_DROP = range(8)
+B_ITEM, B_EMBER, B_PUFF, B_BOLT, B_WALK, B_FLY, B_SIT, B_DROP, B_HOP, B_HOVER = range(10)
 # the kinds every area has
 S_NONE, S_ITEM, S_EMBER, S_PUFF, S_BOLT = range(5)
 # items: the type is the upper 3 bits of a thing's parameter, the item's
 # number (its GOT flag) the lower 5
-I_FLASK, I_RIG, I_BELLOWS, I_SAIL = range(4)
-IT_RIG, IT_BELLOWS, IT_SAIL = 1, 2, 4       # bits of 'items'
+I_FLASK, I_RIG, I_BELLOWS, I_SAIL, I_KILN, I_WIDE, I_COAT, I_BOOTS = range(8)
+IT_RIG, IT_BELLOWS, IT_SAIL, IT_KILN, IT_WIDE, IT_COAT, IT_BOOTS = 1, 2, 4, 8, 16, 32, 64   # bits of 'items'
 H_NAME = 0x80
 NAME_W = 40
 
@@ -181,6 +188,12 @@ HERO_CRAWL = ["................"] * 9 + [
 SHOT = [".ee.",
         "eaae",
         ".ee."]
+BLAST = ["..8888..",
+         ".8aaaa8.",
+         "8aaeeaa8",
+         "8aaeeaa8",
+         ".8aaaa8.",
+         "..8888.."]
 HERO_FRAMES = ['stand', 'run1', 'run2', 'jump', 'crawl']
 NPF = len(HERO_FRAMES)
 F_STAND, F_RUN1, F_RUN2, F_JUMP, F_CRAWL = range(NPF)
@@ -234,9 +247,48 @@ ITEM_ART = [
           ".....7.77.7.....",
           "......7777......",
           ".......dd......."], 5),
+    tall(["......bbbb......",        # the Kiln Charge
+          ".....b7777b.....",
+          "....b744447b....",
+          "...b74dddd47b...",
+          "...b74deed47b...",
+          "...b74deed47b...",
+          "...b74dddd47b...",
+          "....b744447b....",
+          ".....b7777b.....",
+          "......bbbb......"], 5),
+    tall(["..e.....e.....e.",        # the Wide Flame
+          "...e....e....e..",
+          "....d...d...d...",
+          ".....d..d..d....",
+          "......d.d.d.....",
+          ".......ddd......",
+          "......bbbbb.....",
+          "......b777b.....",
+          "......bbbbb....."], 6),
+    tall([".....bbbbbb.....",        # the Cinder Coat
+          "..bbb444444bbb..",
+          ".b444444444444b.",
+          ".b44b444444b44b.",
+          ".b44b444d44b44b.",
+          "..bbb444444bbb..",
+          "....b444d44b....",
+          "....b444444b....",
+          "....b444d44b....",
+          "....bbbbbbbb...."], 5),
+    tall(["...bbbb..bbbb...",        # the Ballast Boots
+          "...b33b..b33b...",
+          "...b33b..b33b...",
+          "...b33b..b33b...",
+          "...b33bb.b33bb..",
+          "...b333b.b333b..",
+          "..7777777777777.",
+          "..7777777777777."], 8),
 ]
 ITEM_MSG = ["OIL FLASK: THE LANTERN HOLDS MORE", "BURROW RIG: HOLD DOWN TO CRAWL",
-            "UPDRAFT BELLOWS: JUMP AGAIN IN THE AIR", "ASH SAIL: HOLD JUMP TO FALL SLOWLY"]
+            "UPDRAFT BELLOWS: JUMP AGAIN IN THE AIR", "ASH SAIL: HOLD JUMP TO FALL SLOWLY",
+            "KILN CHARGE: HOLD FIRE, LET GO: A BLAST", "WIDE FLAME: THREE SPARKS AT A TIME",
+            "CINDER COAT: HALF THE HARM, NO HEAT", "BALLAST BOOTS: NO DRAG UNDER WATER"]
 MSG_DEAD = "THE LANTERN WENT OUT"
 EMBER_ART = [
     tall(["......dd........",
@@ -400,10 +452,103 @@ JAW_SHUT = {15: "9f99eeeeeeeeeeee", 16: "9f99e9e9e9e9e9e9", 17: "9f99eeeeeeeeeee
             28: "...66...66....66", 29: "...6....6.....6.", 30: "..66...66....66.", 31: ".666..666...666."}
 
 
-def jaw(shut):
-    rows = [JAW_SHUT.get(i, r) if shut else r for i, r in enumerate(JAW_HALF)]
-    assert len(rows) == 32 and all(len(r) == 16 for r in rows)
+def boss(half, other, alt):
+    """a boss 32 x 32 from its left half (the right is its mirror); alt:
+    its second frame, with the rows of 'other'"""
+    rows = [other.get(i, r) if alt else r for i, r in enumerate(half)]
+    assert len(rows) == 32 and all(len(r) == 16 for r in rows), [len(r) for r in rows]
     return [r + r[::-1] for r in rows]
+
+
+def jaw(shut):
+    return boss(JAW_HALF, JAW_SHUT, shut)
+
+
+# Clinker, the Slagworks' boss: a furnace that floats
+CLINKER_HALF = [
+    "................",
+    "..........777777",
+    "........77bbbbbb",
+    "......77bb777777",
+    ".....7bb77777777",
+    "....7b7777777777",
+    "...7b77777444477",
+    "...7b7777444e447",
+    "..7b77777444e447",
+    "..7b777777444477",
+    "..7b777777777777",
+    ".7b7777777777777",
+    ".7b77dd777777777",
+    ".7b77dd777777777",
+    ".7b7777777777777",
+    ".7b77777bbbbbbbb",
+    ".7b7777b4d4d4d4d",
+    ".7b7777b4d4d4d4d",
+    ".7b7777bbbbbbbbb",
+    "..7b777777777777",
+    "..7b777777777777",
+    "..7b7777dd7777dd",
+    "...7b77777777777",
+    "...7b77777777777",
+    "....7b7777777777",
+    ".....7bb77777777",
+    "......77bb777777",
+    "........77bbbbbb",
+    "..........777777",
+    ".............ded",
+    "..............e.",
+    "................",
+]
+CLINKER_ALT = {16: ".7b7777bd4d4d4d4", 17: ".7b7777bd4d4d4d4", 29: "..............d.", 30: "................"}
+HOP_ART = [
+    tall(["....44444444....",
+          "...4dddddddd4...",
+          "..4ddeddddedd4..",
+          "..4dd0dddd0dd4..",
+          "..4dddddddddd4..",
+          "...4dddddddd4...",
+          "....44444444....",
+          "...44......44...",
+          "..444......444..",
+          ".4444......4444."], 6),
+    tall(["....44444444....",
+          "...4dddddddd4...",
+          "..4ddeddddedd4..",
+          "..4dd0dddd0dd4..",
+          "..4dddddddddd4..",
+          "...4dddddddd4...",
+          "....44444444....",
+          "....44....44....",
+          "....44....44....",
+          "...444....444...",
+          "..4444....4444.."], 5),
+]
+FLUE_ART = [
+    tall(["....bbbbbbbb....",
+          "....b444444b....",
+          "....b4dddd4b....",
+          "....bbbbbbbb....",
+          ".....777777.....",
+          ".....7b77b7.....",
+          ".....777777.....",
+          ".....7b77b7.....",
+          ".....777777.....",
+          ".....7b77b7.....",
+          "....77777777....",
+          "...7777777777..."], 4),
+    tall(["....bbbbbbbb....",
+          "....b4dddd4b....",
+          "....b4deed4b....",
+          "....bbbbbbbb....",
+          ".....777777.....",
+          ".....7b77b7.....",
+          ".....777777.....",
+          ".....7b77b7.....",
+          ".....777777.....",
+          ".....7b77b7.....",
+          "....77777777....",
+          "...7777777777..."], 4),
+]
 
 
 def recolor(art, old, new):
@@ -445,6 +590,7 @@ def common_frames():
             art = hero(f)
             fr.append((('L_' if flip else 'R_') + f, [r[::-1] for r in art] if flip else art))
     fr.append(('shot', SHOT))
+    fr.append(('blast', BLAST))
     for i, art in enumerate(ITEM_ART):
         fr.append(('item%d' % i, art))
     fr += [('ember0', EMBER_ART[0]), ('ember1', EMBER_ART[1]), ('puff0', PUFF_ART[0]), ('puff1', PUFF_ART[1]),
@@ -453,20 +599,21 @@ def common_frames():
 
 
 COMMON = common_frames()
-F_ITEM = F_SHOT + 1
+F_BLAST = F_SHOT + 1
+F_ITEM = F_BLAST + 1
 F_EMBER = F_ITEM + len(ITEM_ART)
 F_PUFF = F_EMBER + 2
 F_BOLT = F_PUFF + 2
 # a kind of thing: (name, what it does, frame, hits, harm, animated, the bits
 # of its direction that pick a frame, width in byte columns, height in
 # cells, spits when its timer & this is 0 (0: never), frame offset of its
-# right half (0: 16 pixels wide))
-K_NAME, K_BEH, K_FRAME, K_HP, K_DMG, K_ANIM, K_DIRM, K_W, K_H, K_SPIT, K_WIDE = range(11)
+# right half (0: 16 pixels wide), 1: it spits down, not sideways)
+K_NAME, K_BEH, K_FRAME, K_HP, K_DMG, K_ANIM, K_DIRM, K_W, K_H, K_SPIT, K_WIDE, K_AIM = range(12)
 # the kinds every area has
-COMMON_SPEC = [('none', B_ITEM, 0, 0, 0, 0, 0, 8, 16, 0, 0), ('item', B_ITEM, F_ITEM, 0, 0, 0, 7, 8, 16, 0, 0),
-               ('ember', B_EMBER, F_EMBER, 0, 0, 1, 0, 8, 16, 0, 0),
-               ('puff', B_PUFF, F_PUFF, 0, 0, 1, 0, 8, 16, 0, 0),
-               ('bolt', B_BOLT, F_BOLT, 0, 6, 1, 0, 4, 8, 0, 0)]
+COMMON_SPEC = [('none', B_ITEM, 0, 0, 0, 0, 0, 8, 16, 0, 0, 0), ('item', B_ITEM, F_ITEM, 0, 0, 0, 7, 8, 16, 0, 0, 0),
+               ('ember', B_EMBER, F_EMBER, 0, 0, 1, 0, 8, 16, 0, 0, 0),
+               ('puff', B_PUFF, F_PUFF, 0, 0, 1, 0, 8, 16, 0, 0, 0),
+               ('bolt', B_BOLT, F_BOLT, 0, 6, 1, 0, 4, 8, 0, 0, 0)]
 
 # ---------------------------------------------------------------------------
 # tiles (16 x 16, one hex digit a pixel).  Tiles 0-4 are the same in every
@@ -536,6 +683,11 @@ COMMON_TILES = [(' ', done(grid()), 0),
                 ('e', door(True, False), 0)]
 T_DT, T_DB, T_DOT, T_DOB = 8, 16, 24, 32        # tile number * 8
 
+# a sooted block: a blast of the Kiln Charge breaks it
+SOOT_TILE = block('1', '7', '0', [(4, 4, '7'), (10, 9, '7'), (7, 12, '7'), (12, 3, '7'), (3, 10, '0'),
+                                  (9, 5, '0')])
+
+
 def rock(kind, face='7', hi='b', lo='1', fleck='6'):
     """a rock tile: 'in' the inside, 'top' with a lit upper edge (open
     above), 'under' with a dark lower edge (open below)"""
@@ -568,6 +720,7 @@ AREAS = [
         ('U', rock('under'), A_SOLID),
         ('_', half(False, '7', 'b', '1'), A_BOT),
         ('=', half(True, '7', 'b', '1'), A_TOP),
+        ('S', SOOT_TILE, A_SOLID | A_SOOT),
     ], creatures=[
         dict(name='mite', beh=B_WALK, hp=2, dmg=8, art=MITE_ART),
         dict(name='moth', beh=B_FLY, hp=1, dmg=5, art=MOTH_ART),
@@ -611,9 +764,30 @@ AREAS += [
         dict(name='sporecap', beh=B_SIT, hp=2, dmg=6, art=recolor(SPORECAP_ART, '4', '2'), spit=127),
         dict(name='drip', beh=B_DROP, hp=1, dmg=6, art=DRIP_ART),
     ]),
-    # (the den has its own set: Bramblejaw's frames take the room of the others)
+    # (a boss's room has its own set: its frames take the room of the others)
     dict(name="BRAMBLEJAW'S DEN", tiles=GARDEN_TILES, creatures=[
         dict(name='bramblejaw', beh=B_WALK, hp=32, dmg=12, art=[jaw(False), jaw(True)], spit=31),
+    ]),
+]
+SLAG_TILES = [
+    (',', specks([(3, 2, '4'), (11, 6, '6'), (6, 12, '6'), (13, 13, '4')]), 0),
+    ('#', rock('in', '7', 'd', '0', '4'), A_SOLID),
+    ('T', rock('top', '7', 'd', '0', '4'), A_SOLID),
+    ('U', rock('under', '7', 'd', '0', '4'), A_SOLID),
+    ('_', half(False, '7', 'd', '0'), A_BOT),
+    ('=', half(True, '7', 'd', '0'), A_TOP),
+    ('S', SOOT_TILE, A_SOLID | A_SOOT),
+]
+AREAS += [
+    dict(name='THE SLAGWORKS', tiles=SLAG_TILES, creatures=[
+        dict(name='cinderhop', beh=B_HOP, hp=2, dmg=8, art=HOP_ART),
+        dict(name='emberwing', beh=B_FLY, hp=1, dmg=6, art=recolor(MOTH_ART, 'ba25', '4d7e')),
+        dict(name='flue', beh=B_SIT, hp=3, dmg=6, art=FLUE_ART, spit=63),
+        dict(name='slagback', beh=B_WALK, hp=4, dmg=10, art=recolor(MITE_ART, '25c', '74d')),
+    ]),
+    dict(name="CLINKER'S FORGE", tiles=SLAG_TILES, creatures=[
+        dict(name='clinker', beh=B_HOVER, hp=40, dmg=12, spit=15, aim=1,
+             art=[boss(CLINKER_HALF, CLINKER_ALT, False), boss(CLINKER_HALF, CLINKER_ALT, True)]),
     ]),
 ]
 
@@ -663,7 +837,8 @@ ROOMS = [
         " E" + " " * 8 + "=" * 13 + "   ,   " + "##",
         "#" * 32]),
     dict(name='THE WELLSHAFT, LOWER', area=0,
-         exits=[('U', 4, 5, 1, 0), ('L', 13, 14, 4, -4), ('R', 13, 14, 5, -9)], objs=[('moth', 4, 7)], rows=[
+         exits=[('U', 4, 5, 1, 0), ('L', 13, 14, 4, -4), ('R', 13, 14, 5, -7), ('D', 4, 5, 14, 0)],
+         objs=[('moth', 4, 7)], rows=[
         "####  ####",
         "##      ##",
         "##  ##  ##",
@@ -679,37 +854,39 @@ ROOMS = [
         "##    _ ##",
         " D      D ",
         " E      E ",
-        "##########"]),
-    dict(name='WEST GALLERY', area=0, exits=[('R', 9, 10, 3, 4), ('L', 10, 10, 6, -5)],
+        "####  ####"]),
+    dict(name='WEST GALLERY', area=0, exits=[('R', 9, 10, 3, 4), ('L', 10, 10, 6, -5), ('L', 1, 2, 6, 0)],
          objs=[('item', 3, 5, I_RIG, 3), ('mite', 10, 10), ('mite', 20, 10), ('moth', 20, 5)], rows=[
         "################################",
-        "#        ####          ,       #",
-        "#  ,                ,          #",
-        "#          ,    __             #",
+        "         ####          ,       #",
+        "   ,                ,          #",
+        "###        ,    __             #",
         "#                     ####     #",
-        "#        ,                     #",
+        "#     __ ,                     #",
         "#  __         ####         ,   #",
         "#                          __  #",
         "#       ###          ,         #",
         "# ,              ##           D ",
         "==    __     ,          ###   E ",
         "################################"]),
-    dict(name='EAST GATE', area=0, exits=[('L', 4, 5, 3, 9)],
-         objs=[('mite', 9, 5), ('drip', 12, 1)], rows=[
-        "####################",
-        "#        ,         #",
-        "#   ,              #",
-        "#          ###     #",
-        " D     __        ###",
-        " E  ##         #####",
-        "####################"]),
+    dict(name='EAST GATE', area=0, exits=[('L', 6, 7, 3, 7), ('R', 6, 7, 15, 0)],
+         objs=[('mite', 8, 7), ('drip', 16, 1)], rows=[
+        "######################",
+        "#                    #",
+        "#   ,          ,     #",
+        "#                    #",
+        "#        ,  ##       #",
+        "#           ##       #",
+        " D     __   ##  __  D ",
+        " E  ##      ##   ,  E ",
+        "######################"]),
     # ---- the Glasswort Gardens
-    dict(name='GLASSWORT GATE', area=1, exits=[('R', 5, 5, 4, 5), ('L', 4, 5, 7, -2)],
+    dict(name='GLASSWORT GATE', area=1, exits=[('R', 5, 5, 4, 5), ('L', 4, 5, 7, -2), ('R', 1, 2, 4, 0)],
          objs=[('mossback', 12, 5), ('gnat', 8, 2)], rows=[
         "########################",
-        "#v    v    ,     v    ##",
-        "#        ,          ####",
-        "#   ,        ##      ###",
+        "#v    v    ,     v      ",
+        "#        ,              ",
+        "#   ,        ##  __  ###",
         " D        g       g  ###",
         " E   g   ##   g   ##  ==",
         "########################"]),
@@ -792,7 +969,7 @@ ROOMS = [
         "#                      #",
         "#         ##           #",
         "#         ##     ,     #",
-        " D        ##          D ",
+        " D   __   ##   __     D ",
         " E   g    ##      g   E ",
         "########################"]),
     dict(name="BRAMBLEJAW'S DEN", area=2, exits=[('R', 4, 5, 12, 1)],
@@ -804,6 +981,107 @@ ROOMS = [
         "#                 D ",
         "#                 E ",
         "############ #######"]),
+    # ---- the deep Wellshaft
+    dict(name='THE WELLSHAFT, DEEP', area=0, exits=[('U', 4, 5, 3, 0)],
+         objs=[('item', 1, 14, I_FLASK, 6), ('moth', 5, 9)], rows=[
+        "####  ####",
+        "##      ##",
+        "##  ##  ##",
+        "##      ##",
+        "## ,  _ ##",
+        "##      ##",
+        "## _    ##",
+        "##    , ##",
+        "##   __ ##",
+        "##      ##",
+        "## _    ##",
+        "## ,    ##",
+        "##    _ ##",
+        "#  S    ##",
+        "#  S    ##",
+        "##########"]),
+    # ---- the Slagworks
+    dict(name='SLAG STAIR', area=3, exits=[('L', 6, 7, 5, 0), ('R', 3, 4, 16, -1)],
+         objs=[('cinderhop', 10, 7), ('flue', 20, 4), ('emberwing', 8, 2)], rows=[
+        "########################",
+        "#     ,          ,     #",
+        "#                      #",
+        "#               __    D ",
+        "#          __         E ",
+        "#      __          #####",
+        " D                ######",
+        " E      ,   ##   #######",
+        "########################"]),
+    dict(name='FLUE HALL', area=3,
+         exits=[('L', 2, 3, 15, 1), ('R', 7, 8, 17, -3), ('L', 11, 12, 18, -7), ('D', 4, 5, 19, 0)],
+         objs=[('emberwing', 4, 5), ('cinderhop', 6, 12)], rows=[
+        "##########",
+        "##   ,  ##",
+        " D      ##",
+        " E      ##",
+        "#####   ##",
+        "##,     ##",
+        "##    __##",
+        "##      D ",
+        "##__    E ",
+        "##    ####",
+        "##    , ##",
+        " D  __  ##",
+        " E      ##",
+        "#####   ##",
+        "####    ##",
+        "####  ####"]),
+    dict(name='KILN LOFT', area=3, exits=[('L', 4, 5, 16, 3)],
+         objs=[('item', 16, 5, I_KILN, 7), ('flue', 11, 2), ('cinderhop', 9, 5)], rows=[
+        "####################",
+        "#   ,          ,   #",
+        "#                  #",
+        "#         ###      #",
+        " D                 #",
+        " E    ##       ,   #",
+        "####################"]),
+    dict(name='CINDER RUN', area=3, hot=True, exits=[('R', 4, 5, 16, 7)],
+         objs=[('item', 2, 5, I_FLASK, 8), ('emberwing', 12, 2), ('cinderhop', 20, 5)], rows=[
+        "################################",
+        "#                              #",
+        "#   ,        ,        ,        #",
+        "#        __         __         #",
+        "#                             D ",
+        "#  ,   ##      ##       ##    E ",
+        "################################"]),
+    dict(name='SLAG LAKE', area=3, exits=[('U', 4, 5, 16, 0), ('R', 4, 5, 20, 3)],
+         objs=[('emberwing', 14, 3), ('slagback', 24, 5), ('cinderhop', 13, 8)], rows=[
+        "####  ##########################",
+        "#                              #",
+        "#   ##                         #",
+        "#                              #",
+        "# _                           D ",
+        "#                             E ",
+        "########            ############",
+        "########            ############",
+        "######## __      __ ############",
+        "################################"]),
+    dict(name='SOOT LOCK', area=3, exits=[('L', 7, 8, 19, -3), ('R', 7, 8, 21, -3)],
+         objs=[('slagback', 3, 8), ('flue', 7, 3), ('slagback', 12, 8)], rows=[
+        "################",
+        "#   ,      ,   #",
+        "#              #",
+        "#              #",
+        "#      ##      #",
+        "#      ##      #",
+        "#  __  ##  __  #",
+        " D     SS     D ",
+        " E     SS     E ",
+        "################"]),
+    dict(name="CLINKER'S FORGE", area=4, exits=[('L', 4, 5, 20, 3)],
+         objs=[('clinker', 9, 1, I_COAT, 9)], rows=[
+        "####################",
+        "#                  #",
+        "#                  #",
+        "#                  #",
+        " D                 #",
+        " E                 #",
+        "####################"]),
 ]
 SIDES = {'L': EX_L, 'R': EX_R, 'U': EX_U, 'D': EX_D}
 
@@ -837,7 +1115,7 @@ class Area:
             assert w in (8, 16) and all(len(r) == 2 * w for a in art for r in a), name
             wide = w == 16
             self.spec.append((name, c['beh'], len(self.frames), c['hp'], c['dmg'], 1, 0 if wide else 2, w,
-                              len(art[0]), c.get('spit', 0), 2 if wide else 0))
+                              len(art[0]), c.get('spit', 0), 2 if wide else 0, c.get('aim', 0)))
             if wide:        # (it looks the same both ways) the left halves, then the right
                 for half in (0, 1):
                     for k, a in enumerate(art):
@@ -855,7 +1133,7 @@ class Area:
         for i, sp in enumerate(self.spec):
             for off, k in ((SPEC_BEH, K_BEH), (SPEC_FRAME, K_FRAME), (SPEC_HP, K_HP), (SPEC_DMG, K_DMG),
                            (SPEC_ANIM, K_ANIM), (SPEC_DIRM, K_DIRM), (SPEC_W, K_W), (SPEC_H, K_H),
-                           (SPEC_SPIT, K_SPIT), (SPEC_WIDE, K_WIDE)):
+                           (SPEC_SPIT, K_SPIT), (SPEC_WIDE, K_WIDE), (SPEC_AIM, K_AIM)):
                 pg[off + i] = sp[k]
         return bytes(pg)
 
@@ -913,6 +1191,7 @@ class Room:
         h = bytearray(256)
         h[H_W], h[H_H], h[H_AREA] = self.w, self.h, self.r['area']
         h[H_RW], h[H_RCY], h[H_RWX], h[H_RHY] = self.rw, self.rcy, self.rwx, self.rhy
+        h[H_FLAGS] = HF_HOT if self.r.get('hot') else 0
         for i, (side, lo, hi, dest, delta) in enumerate(self.exits):
             h[HX_SIDE + i], h[HX_LO + i], h[HX_HI + i] = side, lo, hi
             h[HX_DEST + i], h[HX_DELTA + i] = dest, delta & 255
@@ -935,6 +1214,7 @@ def check_rooms():
     assert len(ids) == len(set(ids)), 'two items with one number'
     for rm in rooms:
         ar = rm.area
+        assert not any(ar.attr[t] & A_SOOT for t in rm.map[:MAP_W]), rm.name   # (a blast clears the block over)
         for side, lo, hi, dest, delta in rm.exits:
             d = rooms[dest]
             for p in range(lo, hi + 1):
@@ -1106,9 +1386,9 @@ ob_p       = 0x88       ;   an item: type << 5 | number
 ob_b       = 0x89       ;   what it does (B_...)
 inv        = 0x8A       ; frames Wick cannot be hurt
 ajump      = 0x8B       ; the jump in the air is used
-msg        = 0x8C       ; the message line
-msg_t      = 0x8D
-msg_d      = 0x8E       ;   to be printed
+chg        = 0x8C       ; the Kiln Charge: frames the fire key is held
+blast_i    = 0x8D       ; 1 + the shot that is a blast (0: none)
+wet        = 0x8E
 touchf     = 0x8F       ; the thing touches Wick
 '''
 
@@ -1267,7 +1547,7 @@ class Model:
         self.onground = self.facing = self.moving = self.crawl = 0
         self.inp = self.fcnt = 0
         self.energy, self.emax = START_ENERGY, START_EMAX
-        self.items = self.inv = self.ajump = self.msg = self.msg_t = 0
+        self.items = self.inv = self.ajump = self.msg = self.msg_t = self.chg = self.blast = 0
         self.got = bytearray(32)
         self.shots = [[0, 0, 0, 0, 0] for _ in range(3)]    # t, x, y, dx, dy
         self.door_t = self.door_c = self.door_x = 0
@@ -1290,7 +1570,7 @@ class Model:
         self.map = bytearray(self.rm.map)
         self.attr = self.rm.area.attr
         self.shots = [[0, 0, 0, 0, 0] for _ in range(3)]
-        self.door_t = 0
+        self.door_t = self.blast = 0
         self.spec = self.rm.area.spec
         self.objs = [[0] * 7 for _ in range(MAXOBJ)]    # kind, x, y, d, t, hp, p
         for o, (k, x, y, p) in zip(self.objs, self.rm.objs):
@@ -1306,9 +1586,29 @@ class Model:
         return (((self.px - o[1] + 5) & 255) < sp[K_W] + 3
                 and ((self.py - o[2] + 13) & 255) < sp[K_H] + (5 if self.crawl else 13))
 
+    def spawn(self, blast):
+        """a spark (or a blast) from the lantern, in the first free place"""
+        for i, s in enumerate(self.shots):
+            if not s[0]:
+                s[0] = SHOT_FRAMES
+                if self.inp & IN_UP:
+                    s[1:] = [(self.px + 3) & 255, (self.py - 4) & 255, 0, 0xFC]
+                elif self.facing:
+                    s[1:] = [self.px, (self.py + 6) & 255, 0xFE, 0]
+                else:
+                    s[1:] = [(self.px + 7) & 255, (self.py + 6) & 255, 2, 0]
+                if blast:
+                    self.blast = i + 1
+                elif self.blast == i + 1:
+                    self.blast = 0
+                break
+
     def hurt(self, o):
         if not self.inv:
-            self.energy = max(self.energy - self.spec[o[0]][K_DMG], 0)
+            dmg = self.spec[o[0]][K_DMG]
+            if self.items & IT_COAT:
+                dmg = (dmg + 1) >> 1
+            self.energy = max(self.energy - dmg, 0)
             self.inv = INV_FRAMES
             if not self.crawl:
                 self.vy = -HURTV
@@ -1368,10 +1668,19 @@ class Model:
         sp = self.spec[o[0]]
         if b == B_BOLT:
             o[4] -= 1
-            if not o[4] or self.front(o, 4)[0]:
+            if not o[4]:
                 o[0] = 0
                 return
-            o[1] += -2 if o[3] else 2
+            if o[3] == 4:                   # down
+                if self.solid(o[1] + 2, o[2] + 8):
+                    o[0] = 0
+                    return
+                o[2] = (o[2] + 2) & 255
+            elif self.front(o, 4)[0]:
+                o[0] = 0
+                return
+            else:
+                o[1] += -2 if o[3] else 2
             if touch:
                 self.hurt(o)
                 o[0] = 0
@@ -1406,15 +1715,48 @@ class Model:
                 return
             else:
                 o[2] = (o[2] + 3) & 255
+        elif b == B_HOP:
+            t = o[4]
+            if t < HOP_REST:
+                o[4] = t + 1
+                if o[4] == HOP_REST:
+                    o[3] = 2 if self.px < o[1] else 0
+            else:
+                if t < HOP_REST + 16:
+                    dy = HOPDY[t - HOP_REST]
+                    o[4] = t + 1
+                    if not self.front(o, 8)[0]:
+                        o[1] += -1 if o[3] else 1
+                else:
+                    dy = 4
+                if dy < 0:
+                    if not self.solid(o[1] + 4, o[2] + dy):
+                        o[2] = (o[2] + dy) & 255
+                else:
+                    o[2] = (o[2] + dy) & 255
+                    if self.solid(o[1] + 4, o[2] + 16):
+                        o[2] = (((o[2] + 16) & 0xF8) - 16) & 255
+                        o[4] = 0
+        elif b == B_HOVER:
+            if self.fcnt & 1:
+                a = (o[1] + sp[K_W] // 2 - 4) & 255
+                if self.px != a:
+                    o[3] = 2 if self.px < a else 0
+                    if not self.front(o, 8)[0]:
+                        o[1] += -1 if o[3] else 1
         if sp[K_SPIT]:
             o[4] = (o[4] + 1) & 255
             if not o[4] & sp[K_SPIT]:
                 for q in self.objs:
                     if not q[0]:
                         left = self.px < o[1]
-                        q[:] = [S_BOLT, (o[1] - 4 if left else o[1] + sp[K_W]) & 255,
-                                (o[2] + 4 + ((o[4] >> 2) & (sp[K_H] - 16))) & 255, 2 if left else 0,
-                                BOLT_FRAMES, 0, 0]
+                        if sp[K_AIM]:
+                            q[:] = [S_BOLT, (o[1] + sp[K_W] // 2 - 2) & 255, (o[2] + sp[K_H]) & 255, 4,
+                                    BOLT_FRAMES, 0, 0]
+                        else:
+                            q[:] = [S_BOLT, (o[1] - 4 if left else o[1] + sp[K_W]) & 255,
+                                    (o[2] + 4 + ((o[4] >> 2) & (sp[K_H] - 16))) & 255, 2 if left else 0,
+                                    BOLT_FRAMES, 0, 0]
                         break
         if touch:
             self.hurt(o)
@@ -1557,7 +1899,7 @@ class Model:
                 self.onground = 0
         self.camera()
         # shots
-        for s in self.shots:
+        for n, s in enumerate(self.shots):
             if not s[0]:
                 continue
             s[0] -= 1
@@ -1569,9 +1911,14 @@ class Model:
                 s[0] = 0
                 continue
             hit, a, i = self.at(s[1], s[2])
+            blast = self.blast == n + 1
             if hit:
                 if a & A_DOOR:
                     self.open_door(a, i)
+                elif a & A_SOOT and blast:       # (and a sooted block right over it)
+                    self.map[i] = 0
+                    if self.attr[self.map[i - MAP_W]] & A_SOOT:
+                        self.map[i - MAP_W] = 0
                 s[0] = 0
                 continue
             for o in self.objs:
@@ -1579,21 +1926,21 @@ class Model:
                 if (o[0] and sp[K_BEH] >= B_WALK and (s[1] - o[1]) & 255 < sp[K_W]
                         and (s[2] - o[2]) & 255 < sp[K_H]):
                     s[0] = 0
-                    o[5] -= 1
+                    o[5] = max(o[5] - (BLAST_PW if blast else 1), 0)
                     if not o[5]:
                         o[0], o[3], o[4] = S_PUFF, 0, PUFF_FRAMES
                     break
         if inp & IN_FIRE and not prev & IN_FIRE and not self.crawl:
-            for s in self.shots:
-                if not s[0]:
-                    s[0] = SHOT_FRAMES
-                    if inp & IN_UP:
-                        s[1:] = [(self.px + 3) & 255, (self.py - 4) & 255, 0, 0xFC]
-                    elif self.facing:
-                        s[1:] = [self.px, (self.py + 6) & 255, 0xFE, 0]
-                    else:
-                        s[1:] = [(self.px + 7) & 255, (self.py + 6) & 255, 2, 0]
-                    break
+            self.spawn(False)
+        elif self.items & IT_KILN:          # the fire key held fills the charge; let go when full: a blast
+            if inp & IN_FIRE:
+                if self.chg != CHG_FULL:
+                    self.chg += 1
+            else:
+                full = self.chg == CHG_FULL
+                self.chg = 0
+                if full and not self.crawl:
+                    self.spawn(True)
         # the door shuts again
         if self.door_t:
             self.door_t -= 1
@@ -1608,6 +1955,8 @@ class Model:
                 self.obj_step(o)
         if self.inv:
             self.inv -= 1
+        if self.rm.r.get('hot') and not self.items & IT_COAT and not self.fcnt & 15 and self.energy:
+            self.energy -= 1
         if not self.energy:
             self.restart()
         # the message line
@@ -1629,9 +1978,10 @@ class Model:
         out = []
         if not self.inv & 2:
             out.append((f + NPF * self.facing, (self.px - self.sx + 8) & 255, (self.py - self.sy + 32) & 255))
-        for s in self.shots:
+        for n, s in enumerate(self.shots):
             if s[0]:
-                out.append((F_SHOT, (s[1] - self.sx + 8) & 255, (s[2] - self.sy + 32) & 255))
+                out.append((F_BLAST if self.blast == n + 1 else F_SHOT, (s[1] - self.sx + 8) & 255,
+                            (s[2] - self.sy + 32) & 255))
         for o in self.objs:
             c, g = (o[1] - self.sx + 8) & 255, (o[2] - self.sy + 32) & 255
             if o[0] and c < 88 and g < 144:
@@ -1714,14 +2064,18 @@ def masm():
                   SPEC_BEH=SPEC_BEH, SPEC_FRAME=SPEC_FRAME, SPEC_HP=SPEC_HP, SPEC_DMG=SPEC_DMG,
                   SPEC_ANIM=SPEC_ANIM, SPEC_DIRM=SPEC_DIRM, SPEC_W=SPEC_W, SPEC_H=SPEC_H,
                   SPEC_SPIT=SPEC_SPIT, SPEC_WIDE=SPEC_WIDE, S_BOLT=S_BOLT, BOLT_FRAMES=BOLT_FRAMES,
-                  DROP_NEAR=DROP_NEAR, OBJ=OBJ, O_KIND=O_KIND, O_X=O_X, O_Y=O_Y, O_D=O_D, O_T=O_T, O_HP=O_HP,
+                  DROP_NEAR=DROP_NEAR, SPEC_AIM=SPEC_AIM, CHG_FULL=CHG_FULL, BLAST_PW=BLAST_PW,
+                  HOP_REST=HOP_REST, A_SOOT=A_SOOT, IT_KILN=IT_KILN, IT_WIDE=IT_WIDE, IT_COAT=IT_COAT,
+                  IT_BOOTS=IT_BOOTS, F_BLAST=F_BLAST, H_FLAGS=H_FLAGS, HF_HOT=HF_HOT, V_MSG=V_MSG,
+                  V_MSG_T=V_MSG_T, V_MSG_D=V_MSG_D, OBJ=OBJ, O_KIND=O_KIND, O_X=O_X, O_Y=O_Y, O_D=O_D, O_T=O_T, O_HP=O_HP,
                   O_P=O_P, GOT=GOT, HO_KIND=HO_KIND, HO_X=HO_X, HO_Y=HO_Y, HO_P=HO_P, B_WALK=B_WALK,
                   S_ITEM=S_ITEM, S_EMBER=S_EMBER, S_PUFF=S_PUFF, IT_SAIL=IT_SAIL, SAILV=SAILV, IT_RIG=IT_RIG, IT_BELLOWS=IT_BELLOWS,
                   M_DEAD=len(ITEM_MSG) + 1)
     assert HURTV & 255 == 0
     msgs = [''] + ITEM_MSG + [MSG_DEAD]
     assert all(len(m) <= NAME_W for m in msgs)
-    mtext = '\n'.join('s_m%d: #d "%s", 0x00' % (i, m.ljust(NAME_W)) for i, m in enumerate(msgs))
+    mtext = '\n'.join(('.chunk\n' if i and i % 5 == 0 else '') + 's_m%d: #d "%s", 0x00' % (i, m.ljust(NAME_W))
+                      for i, m in enumerate(msgs))
     mtab = ('m_lo: #d8 ' + ', '.join('s_m%d & 0xFF' % i for i in range(len(msgs)))
             + '\nm_hi: #d8 ' + ', '.join('s_m%d >> 8' % i for i in range(len(msgs))))
     head = ['; lamp.asm - LAMPLIGHTER, made by gen_lamp.py from lamp_code.masm: do not edit', ';']
@@ -1736,7 +2090,8 @@ def masm():
     src = (src.replace('@@ROWX@@', '\n'.join(data_lines(ROWX_T)))
            .replace('@@VPG@@', '\n'.join(data_lines(VPG_T)))
            .replace('@@ROWT@@', rowt).replace('@@VPGS@@', vpgs).replace('@@INPUT@@', input_tests())
-           .replace('@@MSGS@@', mtext).replace('@@MTAB@@', mtab))
+           .replace('@@MSGS@@', mtext).replace('@@MTAB@@', mtab)
+           .replace('@@HOPDY@@', ', '.join('0x%02X' % (v & 255) for v in HOPDY)))
     assert '@@' not in src
     return '\n'.join(head) + '\n' + src
 

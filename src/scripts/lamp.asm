@@ -131,9 +131,9 @@ ob_p       = 0x88       ;   an item: type << 5 | number
 ob_b       = 0x89       ;   what it does (B_...)
 inv        = 0x8A       ; frames Wick cannot be hurt
 ajump      = 0x8B       ; the jump in the air is used
-msg        = 0x8C       ; the message line
-msg_t      = 0x8D
-msg_d      = 0x8E       ;   to be printed
+chg        = 0x8C       ; the Kiln Charge: frames the fire key is held
+blast_i    = 0x8D       ; 1 + the shot that is a blast (0: none)
+wet        = 0x8E
 touchf     = 0x8F       ; the thing touches Wick
 
 MODE_PF     = 10
@@ -219,6 +219,21 @@ SPEC_WIDE   = 144
 S_BOLT      = 4
 BOLT_FRAMES = 90
 DROP_NEAR   = 12
+SPEC_AIM    = 160
+CHG_FULL    = 45
+BLAST_PW    = 4
+HOP_REST    = 24
+A_SOOT      = 8
+IT_KILN     = 8
+IT_WIDE     = 16
+IT_COAT     = 32
+IT_BOOTS    = 64
+F_BLAST     = 11
+H_FLAGS     = 8
+HF_HOT      = 1
+V_MSG       = 128
+V_MSG_T     = 129
+V_MSG_D     = 130
 OBJ         = 21760
 O_KIND      = 0
 O_X         = 8
@@ -240,7 +255,7 @@ IT_SAIL     = 4
 SAILV       = 96
 IT_RIG      = 1
 IT_BELLOWS  = 2
-M_DEAD      = 5
+M_DEAD      = 9
 ; ============================================================
 ; lamp_code.masm - LAMPLIGHTER's code.  gen_lamp.py puts the constants
 ; and the zero page in front of it, fills in the marked parts (tables
@@ -356,11 +371,7 @@ m_g:
     ld   ac, x
     ld   0, [y,x]
     inc
-    xor  32, ac
-    beq  m_g1
-    xor  32, ac
-    bra  m_g
-m_g1:
+    bne  m_g
     ld   LINK_LO, x             ; CALL load_room
     ld   lp_r3, [x]
     ld   LINK_HI, x
@@ -435,22 +446,37 @@ frame_go:
     ld   bg_row >> 8, y
     jmp  bg_row
 
-ob_lo: #d8 ob_item & 0xFF, ob_ember & 0xFF, ob_puff & 0xFF, ob_bolt & 0xFF, ob_walk & 0xFF, ob_fly & 0xFF, ob_sit & 0xFF, ob_drop & 0xFF
-ob_hi: #d8 ob_item >> 8, ob_ember >> 8, ob_puff >> 8, ob_bolt >> 8, ob_walk >> 8, ob_fly >> 8, ob_sit >> 8, ob_drop >> 8
+camera:
+    ld   [px], ac
+    sub  CAM_X, ac
+    bcc  cm_1
+    clr  ac
+cm_1:
+    ld   ac, [sx]
+    ld   [rw], ac
+    sub  [sx], ac
+    bcc  cm_2
+    ld   [rw], ac
+    ld   ac, [sx]
+cm_2:
+    ld   [py], ac
+    sub  CAM_Y, ac
+    bcc  cm_3
+    clr  ac
+cm_3:
+    ld   ac, [sy]
+    ld   [rcy], ac
+    sub  [sy], ac
+    bcc  cm_4
+    ld   [rcy], ac
+    ld   ac, [sy]
+cm_4:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
 
-; ob_store: the copy back to thing ob_i
-ob_save:
-    ld   LINK_LO, x             ; CALL ob_store
-    ld   lp_r38, [x]
-    ld   LINK_HI, x
-    ld   lp_r38 >> 8, [x]
-    ld   ob_store >> 8, y
-    jmp  ob_store
-lp_r38:
-    ld   ob_next >> 8, y
-    jmp  ob_next
-
-; an item: found when Wick touches it
+; ------------------------------------------------------------
+; game: the camera, the shots
+; ------------------------------------------------------------
 
 #addr 0x0400
 bg_row:
@@ -736,37 +762,35 @@ gc_done:
 ; ------------------------------------------------------------
 ; game: sideways
 ; ------------------------------------------------------------
-camera:
-    ld   [px], ac
-    sub  CAM_X, ac
-    bcc  cm_1
-    clr  ac
-cm_1:
-    ld   ac, [sx]
-    ld   [rw], ac
-    sub  [sx], ac
-    bcc  cm_2
-    ld   [rw], ac
-    ld   ac, [sx]
-cm_2:
-    ld   [py], ac
-    sub  CAM_Y, ac
-    bcc  cm_3
-    clr  ac
-cm_3:
-    ld   ac, [sy]
-    ld   [rcy], ac
-    sub  [sy], ac
-    bcc  cm_4
-    ld   [rcy], ac
-    ld   ac, [sy]
-cm_4:
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
+gs_soot2:
+    ld   [ta_pg], ac
+    ld   ac, [tmp2]
+    ld   [ta_i], ac
+    sub  32, ac
+    ld   ac, [tmp]
+    ld   [ta_i], ac
+    sub  32, ac
+    bcc  gt_1
+    ld   [tmp2], ac
+    dec
+    ld   ac, [tmp2]
+gt_1:
+    ld   [tmp2], y
+    ld   [tmp], x
+    ld   [y,x], ac
+    ld   ac, x
+    ld   ATTR >> 8, y
+    ld   [y,x], ac
+    and  A_SOOT, ac
+    beq  gt_2
+    ld   [tmp2], y
+    ld   [tmp], x
+    ld   0, [y,x]
+gt_2:
+    ld   gs_kill >> 8, y
+    jmp  gs_kill
 
-; ------------------------------------------------------------
-; game: the camera, the shots
-; ------------------------------------------------------------
+; a shot in the open: does it hit a creature?
 
 #addr 0x0600
 read_input:
@@ -917,21 +941,18 @@ gh_none:
     ld   g_jump >> 8, y
     jmp  g_jump
 
-ob_sit:
-    ld   [px], ac
-    sub  [ob_x], ac
-    bcs  os_l
-    clr  ac
-    bra  os_1
-os_l:
-    ld   2, ac
-os_1:
-    ld   ac, [ob_d]
-    ld   ob_spit >> 8, y
-    jmp  ob_spit
+ob_save:
+    ld   LINK_LO, x             ; CALL ob_store
+    ld   lp_r40, [x]
+    ld   LINK_HI, x
+    ld   lp_r40 >> 8, [x]
+    ld   ob_store >> 8, y
+    jmp  ob_store
+lp_r40:
+    ld   ob_next >> 8, y
+    jmp  ob_next
 
-; ob_spit: a kind that spits: a bolt toward Wick when its timer & the
-; kind's mask is 0, in the first free place
+; an item: found when Wick touches it
 
 #addr 0x0700
 g_right:
@@ -1069,25 +1090,11 @@ sf_out:
 
 ; tile_at: AC = 0 when cell ta_y of byte column ta_x is open; ta_a = the
 ; tile's attributes, ta_pg / ta_i = its place in the map.  Changes X, Y, T0.
-ob_fwd:
-    ld   [ob_d], ac
-    bne  ofw_l
-    ld   [ob_x], ac
-    inc
-    ld   ac, [ob_x]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-ofw_l:
-    ld   [ob_x], ac
-    dec
-    ld   ac, [ob_x]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
+ob_lo: #d8 ob_item & 0xFF, ob_ember & 0xFF, ob_puff & 0xFF, ob_bolt & 0xFF, ob_walk & 0xFF, ob_fly & 0xFF, ob_sit & 0xFF, ob_drop & 0xFF, ob_hop & 0xFF, ob_hover & 0xFF
+ob_hi: #d8 ob_item >> 8, ob_ember >> 8, ob_puff >> 8, ob_bolt >> 8, ob_walk >> 8, ob_fly >> 8, ob_sit >> 8, ob_drop >> 8, ob_hop >> 8, ob_hover >> 8
+hopdy: #d8 0xFC, 0xFC, 0xFD, 0xFD, 0xFE, 0xFE, 0xFF, 0xFF, 0x01, 0x01, 0x02, 0x02, 0x03, 0x03, 0x04, 0x04
 
-; a creature that touches Wick hurts him
-m_lo: #d8 s_m0 & 0xFF, s_m1 & 0xFF, s_m2 & 0xFF, s_m3 & 0xFF, s_m4 & 0xFF, s_m5 & 0xFF
-m_hi: #d8 s_m0 >> 8, s_m1 >> 8, s_m2 >> 8, s_m3 >> 8, s_m4 >> 8, s_m5 >> 8
-
+; ob_store: the copy back to thing ob_i
 
 #addr 0x0800
 tile_at:
@@ -1231,21 +1238,34 @@ od_1:
 ; ------------------------------------------------------------
 ; game: jumping and gravity
 ; ------------------------------------------------------------
-ob_enemy:
-    ld   [touchf], ac
-    beq  on_x
-    ld   LINK_LO, x             ; CALL hurt
-    ld   lp_r55, [x]
-    ld   LINK_HI, x
-    ld   lp_r55 >> 8, [x]
-    ld   hurt >> 8, y
-    jmp  hurt
-lp_r55:
-on_x:
-    ld   ob_save >> 8, y
-    jmp  ob_save
+msg_set:
+    ld   GOT >> 8, y
+    ld   V_MSG, x
+    ld   ac, [y,x]
+    ld   V_MSG_T, x
+    ld   MSG_FRAMES, [y,x]
+    ld   V_MSG_D, x
+    ld   1, [y,x]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
 
-; hurt: thing ob_k's harm off Wick's energy (not again for a second)
+; an ember: energy when Wick touches it, gone after a while
+; a puff: where a creature was; then, every other time, an ember
+ob_sit:
+    ld   [px], ac
+    sub  [ob_x], ac
+    bcs  os_l
+    clr  ac
+    bra  os_1
+os_l:
+    ld   2, ac
+os_1:
+    ld   ac, [ob_d]
+    ld   ob_spit >> 8, y
+    jmp  ob_spit
+
+; ob_spit: a kind that spits: a bolt toward Wick when its timer & the
+; kind's mask is 0, in the first free place
 
 #addr 0x0900
 do_exit:
@@ -1535,6 +1555,22 @@ gu_top:
     ld   ac, [py]
     bra  gu_b1
 
+ob_fwd:
+    ld   [ob_d], ac
+    bne  ofw_l
+    ld   [ob_x], ac
+    inc
+    ld   ac, [ob_x]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+ofw_l:
+    ld   [ob_x], ac
+    dec
+    ld   ac, [ob_x]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+; a creature that touches Wick hurts him
 
 #addr 0x0B00
 g_down:
@@ -1715,7 +1751,7 @@ lp_r32:
     beq  gs_obj
     ld   [ta_a], ac             ; a wall stops it; a door opens
     and  A_DOOR, ac
-    beq  gs_kill
+    beq  gs_soot
     ld   LINK_LO, x             ; CALL open_door
     ld   lp_r33, [x]
     ld   LINK_HI, x
@@ -1747,17 +1783,252 @@ gs_keep:
 gs_obj:
     ld   gs_hit >> 8, y
     jmp  gs_hit
+gs_soot:
+    ld   [ta_a], ac             ; a blast breaks a sooted block
+    and  A_SOOT, ac
+    beq  gs_kill
+    ld   [o_i], ac
+    inc
+    xor  [blast_i], ac
+    bne  gs_kill
+    ld   [ta_pg], y
+    ld   [ta_i], x
+    ld   0, [y,x]
+    ld   gs_soot2 >> 8, y
+    jmp  gs_soot2
 
-; a shot in the open: does it hit a creature?
+; ... and the sooted block right over it
+gs_hit:
+    clr  ac
+    ld   ac, [ob_i]
+sq_lp:
+    ld   OBJ >> 8, y
+    ld   [ob_i], x
+    ld   [y,x], ac
+    ld   ac, [ob_k]
+    add  SPEC_BEH, x
+    ld   SPEC >> 8, y
+    ld   [y,x], ac
+    sub  B_WALK, ac
+    bcs  sq_nx
+    ld   OBJ >> 8, y
+    ld   [ob_i], ac
+    add  O_X, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   [ta_x], ac
+    sub  [tmp], ac
+    ld   ac, [tmp]
+    ld   [ob_k], ac
+    add  SPEC_W, x
+    ld   SPEC >> 8, y
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   [tmp], ac
+    sub  [tmp2], ac
+    bcc  sq_nx
+    ld   OBJ >> 8, y
+    ld   [ob_i], ac
+    add  O_Y, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   [ta_y], ac
+    sub  [tmp], ac
+    ld   ac, [tmp]
+    ld   [ob_k], ac
+    add  SPEC_H, x
+    ld   SPEC >> 8, y
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   [tmp], ac
+    sub  [tmp2], ac
+    bcc  sq_nx
+    ld   OBJ >> 8, y
+    ld   [o_i], ac              ; a hit: the shot is gone
+    add  SH_T, x
+    ld   0, [x]
+    ld   sq_2 >> 8, y
+    jmp  sq_2
+sq_nx:
+    ld   [ob_i], ac
+    inc
+    ld   ac, [ob_i]
+    xor  MAXOBJ, ac
+    beq  sq_x1
+    ld   sq_lp >> 8, y
+    jmp  sq_lp
+sq_x1:
+    ld   gs_nx >> 8, y
+    jmp  gs_nx
+
+ob_enemy:
+    ld   [touchf], ac
+    beq  on_x
+    ld   LINK_LO, x             ; CALL hurt
+    ld   lp_r65, [x]
+    ld   LINK_HI, x
+    ld   lp_r65 >> 8, [x]
+    ld   hurt >> 8, y
+    jmp  hurt
+lp_r65:
+on_x:
+    ld   ob_save >> 8, y
+    jmp  ob_save
+
+; hurt: thing ob_k's harm off Wick's energy (not again for a second)
+
+#addr 0x0D00
+sq_2:
+    ld   OBJ >> 8, y
+    ld   [ob_i], ac
+    add  O_HP, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   1, ac                  ; a spark takes 1 hit off it, a blast more
+    ld   ac, [tmp2]
+    ld   [o_i], ac
+    inc
+    xor  [blast_i], ac
+    bne  sq_p
+    ld   BLAST_PW, ac
+    ld   ac, [tmp2]
+sq_p:
+    ld   [tmp], ac
+    sub  [tmp2], ac
+    bcc  sq_h
+    clr  ac
+sq_h:
+    ld   ac, [tmp]
+    ld   [ob_i], ac
+    add  O_HP, x
+    ld   [tmp], ac
+    ld   ac, [y,x]
+    bne  sq_snd
+    ld   [ob_i], x              ; its last: a puff
+    ld   S_PUFF, [y,x]
+    ld   [ob_i], ac
+    add  O_T, x
+    ld   PUFF_FRAMES, [y,x]
+    ld   [ob_i], ac
+    add  O_D, x
+    ld   0, [y,x]
+    ld   10, ac
+    ld   ac, [R0]
+    ld   8, ac
+    ld   ac, [R2]
+    ld   4, ac
+    ld   ac, [R3]
+    ld   50, ac
+    ld   LINK_LO, x             ; CALL snd_noise
+    ld   lp_r35, [x]
+    ld   LINK_HI, x
+    ld   lp_r35 >> 8, [x]
+    ld   snd_noise >> 8, y
+    jmp  snd_noise
+lp_r35:
+    bra  sq_x
+sq_snd:
+    ld   60, ac
+    ld   LINK_LO, x             ; CALL snd_beep
+    ld   lp_r36, [x]
+    ld   LINK_HI, x
+    ld   lp_r36 >> 8, [x]
+    ld   snd_beep >> 8, y
+    jmp  snd_beep
+lp_r36:
+sq_x:
+    ld   gs_nx >> 8, y
+    jmp  gs_nx
+
 g_fire:
-    ld   [inp], ac              ; a new press of the fire key, not crawling
+    clr  ac
+    ld   ac, [tmp3]             ; (1: a blast)
+    ld   [inp], ac              ; a new press of the fire key, not crawling: a spark
     and  IN_FIRE, ac
-    beq  gf_no
+    beq  gf_chg
     ld   [inp_prev], ac
     and  IN_FIRE, ac
+    bne  gf_chg
+    ld   [crawl], ac
+    bne  gf_chg
+    ld   gf_find >> 8, y
+    jmp  gf_find
+gf_chg:
+    ld   [items], ac            ; the Kiln Charge: the key held fills it; let
+    and  IT_KILN, ac            ; go when it is full: a blast
+    beq  gf_no
+    ld   [inp], ac
+    and  IN_FIRE, ac
+    beq  gf_rel
+    ld   [chg], ac
+    xor  CHG_FULL, ac
+    beq  gf_no
+    ld   [chg], ac
+    inc
+    ld   ac, [chg]
+    xor  CHG_FULL, ac
+    bne  gf_no
+    ld   91, ac                 ; (full)
+    ld   LINK_LO, x             ; CALL snd_beep
+    ld   lp_r37, [x]
+    ld   LINK_HI, x
+    ld   lp_r37 >> 8, [x]
+    ld   snd_beep >> 8, y
+    jmp  snd_beep
+lp_r37:
+gf_no:
+    ld   g_door >> 8, y
+    jmp  g_door
+gf_rel:
+    ld   [chg], ac
+    ld   ac, [tmp]
+    clr  ac
+    ld   ac, [chg]
+    ld   [tmp], ac
+    xor  CHG_FULL, ac
     bne  gf_no
     ld   [crawl], ac
     bne  gf_no
+    ld   1, ac
+    ld   ac, [tmp3]
+    ld   gf_find >> 8, y
+    jmp  gf_find
+
+ob_store:
+    ld   OBJ >> 8, y
+    ld   [ob_i], x
+    ld   [ob_k], ac
+    ld   ac, [y,x]
+    ld   [ob_i], ac
+    add  O_X, x
+    ld   [ob_x], ac
+    ld   ac, [y,x]
+    ld   [ob_i], ac
+    add  O_Y, x
+    ld   [ob_y], ac
+    ld   ac, [y,x]
+    ld   [ob_i], ac
+    add  O_D, x
+    ld   [ob_d], ac
+    ld   ac, [y,x]
+    ld   [ob_i], ac
+    add  O_T, x
+    ld   [ob_t], ac
+    ld   ac, [y,x]
+    ld   [ob_i], ac
+    add  O_HP, x
+    ld   [ob_hp], ac
+    ld   ac, [y,x]
+    ld   [ob_i], ac
+    add  O_P, x
+    ld   [ob_p], ac
+    ld   ac, [y,x]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+
+#addr 0x0E00
+gf_find:
     clr  ac                     ; a free shot
     ld   ac, [o_i]
 gf_lp:
@@ -1770,7 +2041,6 @@ gf_lp:
     ld   ac, [o_i]
     xor  3, ac
     bne  gf_lp
-gf_no:
     ld   g_door >> 8, y
     jmp  g_door
 gf_slot:
@@ -1824,121 +2094,47 @@ gf_up:
     sub  4, ac
     ld   ac, [x]
 gf_snd:
-    ld   84, ac
+    ld   gf_kind >> 8, y
+    jmp  gf_kind
+
+gf_kind:
+    ld   [o_i], ac              ; which of the shots is the blast
+    inc
+    ld   ac, [tmp]
+    ld   [tmp3], ac
+    beq  gf_n
+    ld   [tmp], ac
+    ld   ac, [blast_i]
+    ld   60, ac
     ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r37, [x]
+    ld   lp_r38, [x]
     ld   LINK_HI, x
-    ld   lp_r37 >> 8, [x]
+    ld   lp_r38 >> 8, [x]
     ld   snd_beep >> 8, y
     jmp  snd_beep
-lp_r37:
+lp_r38:
+    ld   g_door >> 8, y
+    jmp  g_door
+gf_n:
+    ld   [tmp], ac
+    xor  [blast_i], ac
+    bne  gf_b
+    ld   ac, [blast_i]
+gf_b:
+    ld   84, ac
+    ld   LINK_LO, x             ; CALL snd_beep
+    ld   lp_r39, [x]
+    ld   LINK_HI, x
+    ld   lp_r39 >> 8, [x]
+    ld   snd_beep >> 8, y
+    jmp  snd_beep
+lp_r39:
     ld   g_door >> 8, y
     jmp  g_door
 
 ; ------------------------------------------------------------
 ; game: the open door shuts again (not on the hero)
 ; ------------------------------------------------------------
-
-#addr 0x0D00
-gs_hit:
-    clr  ac
-    ld   ac, [ob_i]
-sq_lp:
-    ld   OBJ >> 8, y
-    ld   [ob_i], x
-    ld   [y,x], ac
-    ld   ac, [ob_k]
-    add  SPEC_BEH, x
-    ld   SPEC >> 8, y
-    ld   [y,x], ac
-    sub  B_WALK, ac
-    bcs  sq_nx
-    ld   OBJ >> 8, y
-    ld   [ob_i], ac
-    add  O_X, x
-    ld   [y,x], ac
-    ld   ac, [tmp]
-    ld   [ta_x], ac
-    sub  [tmp], ac
-    ld   ac, [tmp]
-    ld   [ob_k], ac
-    add  SPEC_W, x
-    ld   SPEC >> 8, y
-    ld   [y,x], ac
-    ld   ac, [tmp2]
-    ld   [tmp], ac
-    sub  [tmp2], ac
-    bcc  sq_nx
-    ld   OBJ >> 8, y
-    ld   [ob_i], ac
-    add  O_Y, x
-    ld   [y,x], ac
-    ld   ac, [tmp]
-    ld   [ta_y], ac
-    sub  [tmp], ac
-    ld   ac, [tmp]
-    ld   [ob_k], ac
-    add  SPEC_H, x
-    ld   SPEC >> 8, y
-    ld   [y,x], ac
-    ld   ac, [tmp2]
-    ld   [tmp], ac
-    sub  [tmp2], ac
-    bcc  sq_nx
-    ld   OBJ >> 8, y
-    ld   [o_i], ac              ; a hit: the shot is gone
-    add  SH_T, x
-    ld   0, [x]
-    ld   [ob_i], ac
-    add  O_HP, x
-    ld   [y,x], ac
-    dec
-    ld   ac, [y,x]
-    bne  sq_snd
-    ld   [ob_i], x              ; its last: a puff
-    ld   S_PUFF, [y,x]
-    ld   [ob_i], ac
-    add  O_T, x
-    ld   PUFF_FRAMES, [y,x]
-    ld   [ob_i], ac
-    add  O_D, x
-    ld   0, [y,x]
-    ld   10, ac
-    ld   ac, [R0]
-    ld   8, ac
-    ld   ac, [R2]
-    ld   4, ac
-    ld   ac, [R3]
-    ld   50, ac
-    ld   LINK_LO, x             ; CALL snd_noise
-    ld   lp_r35, [x]
-    ld   LINK_HI, x
-    ld   lp_r35 >> 8, [x]
-    ld   snd_noise >> 8, y
-    jmp  snd_noise
-lp_r35:
-    bra  sq_x
-sq_snd:
-    ld   60, ac
-    ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r36, [x]
-    ld   LINK_HI, x
-    ld   lp_r36 >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
-lp_r36:
-sq_x:
-    ld   gs_nx >> 8, y
-    jmp  gs_nx
-sq_nx:
-    ld   [ob_i], ac
-    inc
-    ld   ac, [ob_i]
-    xor  MAXOBJ, ac
-    beq  sq_x
-    ld   sq_lp >> 8, y
-    jmp  sq_lp
-
 g_obj:
     clr  ac
     ld   ac, [ob_i]
@@ -1989,8 +2185,6 @@ ob_live:
     ld   ob_touch >> 8, y
     jmp  ob_touch
 
-
-#addr 0x0E00
 ob_touch:
     clr  ac                     ; does it touch Wick?
     ld   ac, [touchf]
@@ -2035,38 +2229,6 @@ ob_go:
     ld   [tmp2], y
     jmp  ac
 
-ob_store:
-    ld   OBJ >> 8, y
-    ld   [ob_i], x
-    ld   [ob_k], ac
-    ld   ac, [y,x]
-    ld   [ob_i], ac
-    add  O_X, x
-    ld   [ob_x], ac
-    ld   ac, [y,x]
-    ld   [ob_i], ac
-    add  O_Y, x
-    ld   [ob_y], ac
-    ld   ac, [y,x]
-    ld   [ob_i], ac
-    add  O_D, x
-    ld   [ob_d], ac
-    ld   ac, [y,x]
-    ld   [ob_i], ac
-    add  O_T, x
-    ld   [ob_t], ac
-    ld   ac, [y,x]
-    ld   [ob_i], ac
-    add  O_HP, x
-    ld   [ob_hp], ac
-    ld   ac, [y,x]
-    ld   [ob_i], ac
-    add  O_P, x
-    ld   [ob_p], ac
-    ld   ac, [y,x]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-
 ob_item:
     ld   [touchf], ac
     bne  oi_get
@@ -2097,27 +2259,27 @@ oi_fill:
     ld   ac, [energy]
     ld   1, ac
     ld   ac, [hud_dirty]
-    ld   ac, [msg_d]
     ld   [ob_d], ac
     inc
-    ld   ac, [msg]
-    ld   MSG_FRAMES, ac
-    ld   ac, [msg_t]
+    ld   LINK_LO, x             ; CALL msg_set
+    ld   lp_r41, [x]
+    ld   LINK_HI, x
+    ld   lp_r41 >> 8, [x]
+    ld   msg_set >> 8, y
+    jmp  msg_set
+lp_r41:
     ld   79, ac
     ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r39, [x]
+    ld   lp_r42, [x]
     ld   LINK_HI, x
-    ld   lp_r39 >> 8, [x]
+    ld   lp_r42 >> 8, [x]
     ld   snd_beep >> 8, y
     jmp  snd_beep
-lp_r39:
+lp_r42:
     ld   ob_save >> 8, y
     jmp  ob_save
 
-; an ember: energy when Wick touches it, gone after a while
-; a puff: where a creature was; then, every other time, an ember
-
-#addr 0x0F00
+; msg_set: message AC on the third text line, for a while
 ob_ember:
     ld   [ob_t], ac
     dec
@@ -2137,12 +2299,12 @@ oe_ok:
     ld   ac, [hud_dirty]
     ld   81, ac
     ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r40, [x]
+    ld   lp_r43, [x]
     ld   LINK_HI, x
-    ld   lp_r40 >> 8, [x]
+    ld   lp_r43 >> 8, [x]
     ld   snd_beep >> 8, y
     jmp  snd_beep
-lp_r40:
+lp_r43:
 ob_gone:
     clr  ac
     ld   ac, [ob_k]
@@ -2177,6 +2339,8 @@ op_item:
 
 ; a walker: a step every other frame; it turns at a wall and at the end
 ; of its floor
+
+#addr 0x1000
 ob_walk:
     ld   [fcnt], ac
     and  1, ac
@@ -2189,31 +2353,31 @@ ob_walk:
     sub  4, ac
     ld   ac, [tmp3]
     ld   LINK_LO, x             ; CALL ob_front
-    ld   lp_r41, [x]
+    ld   lp_r44, [x]
     ld   LINK_HI, x
-    ld   lp_r41 >> 8, [x]
+    ld   lp_r44 >> 8, [x]
     ld   ob_front >> 8, y
     jmp  ob_front
-lp_r41:
+lp_r44:
     bne  ow_turn
     ld   [ob_y], ac             ; (ob_front left ta_x there)
     add  [tmp2], ac
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r42, [x]
+    ld   lp_r45, [x]
     ld   LINK_HI, x
-    ld   lp_r42 >> 8, [x]
+    ld   lp_r45 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r42:
+lp_r45:
     beq  ow_turn
     ld   LINK_LO, x             ; CALL ob_fwd
-    ld   lp_r43, [x]
+    ld   lp_r46, [x]
     ld   LINK_HI, x
-    ld   lp_r43 >> 8, [x]
+    ld   lp_r46 >> 8, [x]
     ld   ob_fwd >> 8, y
     jmp  ob_fwd
-lp_r43:
+lp_r46:
     bra  ow_x
 ow_turn:
     ld   [ob_d], ac
@@ -2253,6 +2417,25 @@ ot_x:
     jmp  ob_enemy
 ot_put:
     ld   S_BOLT, [y,x]
+    ld   ot_1 >> 8, y
+    jmp  ot_1
+
+ot_1:
+    ld   SPEC >> 8, y
+    ld   [ob_k], ac
+    add  SPEC_AIM, x
+    ld   [y,x], ac
+    beq  ot_side
+    ld   [ob_k], ac             ; down: from the middle of its underside
+    add  SPEC_W, x
+    ld   [y,x], ac
+    shr  ac
+    sub  2, ac
+    add  [ob_x], ac
+    ld   ac, [tmp3]
+    ld   4, ac
+    bra  ot_d
+ot_side:
     ld   [px], ac
     sub  [ob_x], ac
     bcs  ot_left
@@ -2274,8 +2457,50 @@ ot_d:
     ld   ot_2 >> 8, y
     jmp  ot_2
 
+ob_hover:
+    ld   [fcnt], ac
+    and  1, ac
+    beq  ov_x
+    ld   SPEC >> 8, y
+    ld   [ob_k], ac
+    add  SPEC_W, x
+    ld   [y,x], ac
+    shr  ac
+    sub  4, ac
+    add  [ob_x], ac
+    ld   ac, [tmp]
+    ld   [px], ac
+    sub  [tmp], ac
+    beq  ov_x
+    bcs  ov_l
+    clr  ac
+    bra  ov_d
+ov_l:
+    ld   2, ac
+ov_d:
+    ld   ac, [ob_d]
+    ld   8, ac
+    ld   ac, [tmp3]
+    ld   LINK_LO, x             ; CALL ob_front
+    ld   lp_r57, [x]
+    ld   LINK_HI, x
+    ld   lp_r57 >> 8, [x]
+    ld   ob_front >> 8, y
+    jmp  ob_front
+lp_r57:
+    bne  ov_x
+    ld   LINK_LO, x             ; CALL ob_fwd
+    ld   lp_r58, [x]
+    ld   LINK_HI, x
+    ld   lp_r58 >> 8, [x]
+    ld   ob_fwd >> 8, y
+    jmp  ob_fwd
+lp_r58:
+ov_x:
+    ld   ob_spit >> 8, y
+    jmp  ob_spit
 
-#addr 0x1000
+; a dropper: it hangs until Wick is under it, falls, and bursts on the floor
 ot_2:
     ld   OBJ >> 8, y
     ld   [tmp], ac
@@ -2297,6 +2522,17 @@ ot_2:
     ld   0, [y,x]
     ld   SPEC >> 8, y           ; cell: its top + 4, every other one 16 lower when it is tall
     ld   [ob_k], ac
+    add  SPEC_AIM, x
+    ld   [y,x], ac
+    beq  ot_y1
+    ld   [ob_k], ac             ; (down: its underside)
+    add  SPEC_H, x
+    ld   [y,x], ac
+    add  [ob_y], ac
+    ld   ac, [tmp2]
+    bra  ot_y2
+ot_y1:
+    ld   [ob_k], ac
     add  SPEC_H, x
     ld   [y,x], ac
     sub  16, ac
@@ -2308,6 +2544,7 @@ ot_2:
     add  [ob_y], ac
     add  4, ac
     ld   ac, [tmp2]
+ot_y2:
     ld   OBJ >> 8, y
     ld   [tmp], ac
     add  O_Y, x
@@ -2315,12 +2552,12 @@ ot_2:
     ld   ac, [y,x]
     ld   66, ac
     ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r44, [x]
+    ld   lp_r47, [x]
     ld   LINK_HI, x
-    ld   lp_r44 >> 8, [x]
+    ld   lp_r47 >> 8, [x]
     ld   snd_beep >> 8, y
     jmp  snd_beep
-lp_r44:
+lp_r47:
     ld   ob_enemy >> 8, y
     jmp  ob_enemy
 
@@ -2330,39 +2567,62 @@ ob_bolt:
     dec
     ld   ac, [ob_t]
     beq  ol_gone
-    ld   4, ac
-    ld   ac, [tmp3]
-    ld   LINK_LO, x             ; CALL ob_front
-    ld   lp_r45, [x]
-    ld   LINK_HI, x
-    ld   lp_r45 >> 8, [x]
-    ld   ob_front >> 8, y
-    jmp  ob_front
-lp_r45:
-    bne  ol_gone
-    ld   LINK_LO, x             ; CALL ob_fwd
-    ld   lp_r46, [x]
-    ld   LINK_HI, x
-    ld   lp_r46 >> 8, [x]
-    ld   ob_fwd >> 8, y
-    jmp  ob_fwd
-lp_r46:
-    ld   LINK_LO, x             ; CALL ob_fwd
-    ld   lp_r47, [x]
-    ld   LINK_HI, x
-    ld   lp_r47 >> 8, [x]
-    ld   ob_fwd >> 8, y
-    jmp  ob_fwd
-lp_r47:
-    ld   [touchf], ac
-    beq  ol_keep
-    ld   LINK_LO, x             ; CALL hurt
+    ld   [ob_d], ac
+    xor  4, ac
+    bne  ol_side
+    ld   [ob_x], ac             ; down
+    add  2, ac
+    ld   ac, [ta_x]
+    ld   [ob_y], ac
+    add  8, ac
+    ld   ac, [ta_y]
+    ld   LINK_LO, x             ; CALL tile_at
     ld   lp_r48, [x]
     ld   LINK_HI, x
     ld   lp_r48 >> 8, [x]
+    ld   tile_at >> 8, y
+    jmp  tile_at
+lp_r48:
+    bne  ol_gone
+    ld   [ob_y], ac
+    add  2, ac
+    ld   ac, [ob_y]
+    bra  ol_t
+ol_side:
+    ld   4, ac
+    ld   ac, [tmp3]
+    ld   LINK_LO, x             ; CALL ob_front
+    ld   lp_r49, [x]
+    ld   LINK_HI, x
+    ld   lp_r49 >> 8, [x]
+    ld   ob_front >> 8, y
+    jmp  ob_front
+lp_r49:
+    bne  ol_gone
+    ld   LINK_LO, x             ; CALL ob_fwd
+    ld   lp_r50, [x]
+    ld   LINK_HI, x
+    ld   lp_r50 >> 8, [x]
+    ld   ob_fwd >> 8, y
+    jmp  ob_fwd
+lp_r50:
+    ld   LINK_LO, x             ; CALL ob_fwd
+    ld   lp_r51, [x]
+    ld   LINK_HI, x
+    ld   lp_r51 >> 8, [x]
+    ld   ob_fwd >> 8, y
+    jmp  ob_fwd
+lp_r51:
+ol_t:
+    ld   [touchf], ac
+    beq  ol_keep
+    ld   LINK_LO, x             ; CALL hurt
+    ld   lp_r52, [x]
+    ld   LINK_HI, x
+    ld   lp_r52 >> 8, [x]
     ld   hurt >> 8, y
     jmp  hurt
-lp_r48:
+lp_r52:
 ol_gone:
     clr  ac
     ld   ac, [ob_k]
@@ -2370,7 +2630,114 @@ ol_keep:
     ld   ob_save >> 8, y
     jmp  ob_save
 
-; a dropper: it hangs until Wick is under it, falls, and bursts on the floor
+; a hopper: it sits, then hops toward Wick: 16 frames of an arc, then a
+; fall until it lands
+m_lo: #d8 s_m0 & 0xFF, s_m1 & 0xFF, s_m2 & 0xFF, s_m3 & 0xFF, s_m4 & 0xFF, s_m5 & 0xFF, s_m6 & 0xFF, s_m7 & 0xFF, s_m8 & 0xFF, s_m9 & 0xFF
+m_hi: #d8 s_m0 >> 8, s_m1 >> 8, s_m2 >> 8, s_m3 >> 8, s_m4 >> 8, s_m5 >> 8, s_m6 >> 8, s_m7 >> 8, s_m8 >> 8, s_m9 >> 8
+
+
+#addr 0x1200
+ob_hop:
+    ld   [ob_t], ac
+    sub  HOP_REST, ac
+    bcc  oh_air
+    ld   [ob_t], ac
+    inc
+    ld   ac, [ob_t]
+    xor  HOP_REST, ac
+    bne  oh_e
+    ld   [px], ac
+    sub  [ob_x], ac
+    bcs  oh_fl
+    clr  ac
+    bra  oh_fd
+oh_fl:
+    ld   2, ac
+oh_fd:
+    ld   ac, [ob_d]
+oh_e:
+    ld   ob_enemy >> 8, y
+    jmp  ob_enemy
+oh_air:
+    ld   ac, [tmp2]
+    sub  16, ac
+    bcc  oh_fall
+    ld   [tmp2], ac
+    add  hopdy & 0xFF, x
+    ld   hopdy >> 8, y
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   [ob_t], ac
+    inc
+    ld   ac, [ob_t]
+    ld   8, ac
+    ld   ac, [tmp3]
+    ld   LINK_LO, x             ; CALL ob_front
+    ld   lp_r53, [x]
+    ld   LINK_HI, x
+    ld   lp_r53 >> 8, [x]
+    ld   ob_front >> 8, y
+    jmp  ob_front
+lp_r53:
+    bne  oh_v
+    ld   LINK_LO, x             ; CALL ob_fwd
+    ld   lp_r54, [x]
+    ld   LINK_HI, x
+    ld   lp_r54 >> 8, [x]
+    ld   ob_fwd >> 8, y
+    jmp  ob_fwd
+lp_r54:
+    bra  oh_v
+oh_fall:
+    ld   4, ac
+    ld   ac, [tmp2]
+oh_v:
+    ld   ob_hop2 >> 8, y
+    jmp  ob_hop2
+
+ob_hop2:
+    ld   [ob_x], ac
+    add  4, ac
+    ld   ac, [ta_x]
+    ld   [tmp2], ac
+    blt  oh_up
+    add  [ob_y], ac             ; down: does it land?
+    ld   ac, [ob_y]
+    add  16, ac
+    ld   ac, [ta_y]
+    ld   LINK_LO, x             ; CALL tile_at
+    ld   lp_r55, [x]
+    ld   LINK_HI, x
+    ld   lp_r55 >> 8, [x]
+    ld   tile_at >> 8, y
+    jmp  tile_at
+lp_r55:
+    beq  oh_e2
+    ld   [ta_y], ac
+    and  0xF8, ac
+    sub  16, ac
+    ld   ac, [ob_y]
+    clr  ac
+    ld   ac, [ob_t]
+    bra  oh_e2
+oh_up:
+    add  [ob_y], ac             ; up, when nothing is in the way
+    ld   ac, [ta_y]
+    ld   LINK_LO, x             ; CALL tile_at
+    ld   lp_r56, [x]
+    ld   LINK_HI, x
+    ld   lp_r56 >> 8, [x]
+    ld   tile_at >> 8, y
+    jmp  tile_at
+lp_r56:
+    bne  oh_e2
+    ld   [ta_y], ac
+    ld   ac, [ob_y]
+oh_e2:
+    ld   ob_enemy >> 8, y
+    jmp  ob_enemy
+
+; a hoverer: every other frame a step toward the place over Wick
 ob_drop:
     ld   [ob_t], ac
     bne  od_fall
@@ -2390,12 +2757,12 @@ od_fall:
     add  16, ac
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r49, [x]
+    ld   lp_r59, [x]
     ld   LINK_HI, x
-    ld   lp_r49 >> 8, [x]
+    ld   lp_r59 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r49:
+lp_r59:
     bne  od_burst
     ld   [ob_y], ac
     add  3, ac
@@ -2416,7 +2783,7 @@ od_burst:
 ; a flyer: a step sideways every other frame, turning at a wall; between
 ; them up for 16 frames, then down for 16
 
-#addr 0x1100
+#addr 0x1300
 ob_fly:
     ld   [ob_t], ac
     inc
@@ -2427,20 +2794,20 @@ ob_fly:
     ld   8, ac
     ld   ac, [tmp3]
     ld   LINK_LO, x             ; CALL ob_front
-    ld   lp_r50, [x]
+    ld   lp_r60, [x]
     ld   LINK_HI, x
-    ld   lp_r50 >> 8, [x]
+    ld   lp_r60 >> 8, [x]
     ld   ob_front >> 8, y
     jmp  ob_front
-lp_r50:
+lp_r60:
     bne  of_turn
     ld   LINK_LO, x             ; CALL ob_fwd
-    ld   lp_r51, [x]
+    ld   lp_r61, [x]
     ld   LINK_HI, x
-    ld   lp_r51 >> 8, [x]
+    ld   lp_r61 >> 8, [x]
     ld   ob_fwd >> 8, y
     jmp  ob_fwd
-lp_r51:
+lp_r61:
     bra  of_x
 of_turn:
     ld   [ob_d], ac
@@ -2458,12 +2825,12 @@ of_vert:
     add  16, ac
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r52, [x]
+    ld   lp_r62, [x]
     ld   LINK_HI, x
-    ld   lp_r52 >> 8, [x]
+    ld   lp_r62 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r52:
+lp_r62:
     bne  of_x
     ld   [ob_y], ac
     inc
@@ -2473,12 +2840,12 @@ of_up:
     dec
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r53, [x]
+    ld   lp_r63, [x]
     ld   LINK_HI, x
-    ld   lp_r53 >> 8, [x]
+    ld   lp_r63 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r53:
+lp_r63:
     bne  of_x
     ld   [ob_y], ac
     dec
@@ -2519,12 +2886,12 @@ of_chk:
     add  [tmp3], ac
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r54, [x]
+    ld   lp_r64, [x]
     ld   LINK_HI, x
-    ld   lp_r54 >> 8, [x]
+    ld   lp_r64 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r54:
+lp_r64:
     bra  of_out
 of_edge:
     ld   1, ac
@@ -2575,7 +2942,7 @@ sl_add:
 ; the text lines
 ; ------------------------------------------------------------
 
-#addr 0x1200
+#addr 0x1400
 hurt:
     ld   [inv], ac
     bne  hu_r
@@ -2600,6 +2967,14 @@ hurt:
     ld   SPEC >> 8, y
     ld   [y,x], ac
     ld   ac, [tmp]
+    ld   [items], ac            ; (the Cinder Coat: half)
+    and  IT_COAT, ac
+    beq  hu_d
+    ld   [tmp], ac
+    inc
+    shr  ac
+    ld   ac, [tmp]
+hu_d:
     ld   [energy], ac
     sub  [tmp], ac
     bcc  hu_e
@@ -2621,12 +2996,12 @@ hu_s:
     ld   ac, [R3]
     ld   30, ac
     ld   LINK_LO, x             ; CALL snd_noise
-    ld   lp_r56, [x]
+    ld   lp_r66, [x]
     ld   LINK_HI, x
-    ld   lp_r56 >> 8, [x]
+    ld   lp_r66 >> 8, [x]
     ld   snd_noise >> 8, y
     jmp  snd_noise
-lp_r56:
+lp_r66:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 hu_r:
@@ -2641,6 +3016,24 @@ g_inv:
     dec
     ld   ac, [inv]
 gi_1:
+    ld   HDR >> 8, y            ; a hot room without the Cinder Coat
+    ld   H_FLAGS, x
+    ld   [y,x], ac
+    and  HF_HOT, ac
+    beq  gi_2
+    ld   [items], ac
+    and  IT_COAT, ac
+    bne  gi_2
+    ld   [fcnt], ac
+    and  15, ac
+    bne  gi_2
+    ld   [energy], ac
+    beq  gi_2
+    dec
+    ld   ac, [energy]
+    ld   1, ac
+    ld   ac, [hud_dirty]
+gi_2:
     ld   [energy], ac
     bne  gi_x
     ld   START_ROOM, ac
@@ -2658,25 +3051,27 @@ gi_1:
     ld   ac, [crawl]
     ld   ac, [inv]
     ld   M_DEAD, ac
-    ld   ac, [msg]
-    ld   MSG_FRAMES, ac
-    ld   ac, [msg_t]
-    ld   1, ac
-    ld   ac, [msg_d]
-    ld   LINK_LO, x             ; CALL load_room
-    ld   lp_r57, [x]
+    ld   LINK_LO, x             ; CALL msg_set
+    ld   lp_r67, [x]
     ld   LINK_HI, x
-    ld   lp_r57 >> 8, [x]
+    ld   lp_r67 >> 8, [x]
+    ld   msg_set >> 8, y
+    jmp  msg_set
+lp_r67:
+    ld   LINK_LO, x             ; CALL load_room
+    ld   lp_r68, [x]
+    ld   LINK_HI, x
+    ld   lp_r68 >> 8, [x]
     ld   load_room >> 8, y
     jmp  load_room
-lp_r57:
+lp_r68:
     ld   LINK_LO, x             ; CALL camera
-    ld   lp_r58, [x]
+    ld   lp_r69, [x]
     ld   LINK_HI, x
-    ld   lp_r58 >> 8, [x]
+    ld   lp_r69 >> 8, [x]
     ld   camera >> 8, y
     jmp  camera
-lp_r58:
+lp_r69:
 gi_x:
     ld   g_spr >> 8, y
     jmp  g_spr
@@ -2684,46 +3079,8 @@ gi_x:
 ; ------------------------------------------------------------
 ; game: the sprite list
 ; ------------------------------------------------------------
-sp_shots:
-    clr  ac                     ; the shots
-    ld   ac, [o_i]
-sp_lp:
-    ld   [o_i], ac
-    add  SH_T, x
-    ld   [x], ac
-    beq  sp_nx
-    ld   F_SHOT, ac
-    ld   ac, [tmp]
-    ld   [o_i], ac
-    add  SH_X, x
-    ld   [x], ac
-    sub  [sx], ac
-    add  8, ac
-    ld   ac, [tmp2]
-    ld   [o_i], ac
-    add  SH_Y, x
-    ld   [x], ac
-    sub  [sy], ac
-    add  32, ac
-    ld   ac, [tmp3]
-    ld   LINK_LO, x             ; CALL sl_add
-    ld   lp_r60, [x]
-    ld   LINK_HI, x
-    ld   lp_r60 >> 8, [x]
-    ld   sl_add >> 8, y
-    jmp  sl_add
-lp_r60:
-sp_nx:
-    ld   [o_i], ac
-    inc
-    ld   ac, [o_i]
-    xor  3, ac
-    bne  sp_lp
-    ld   sp_obj >> 8, y
-    jmp  sp_obj
 
-
-#addr 0x1300
+#addr 0x1500
 g_spr:
     clr  ac
     ld   ac, [sl_n]
@@ -2765,16 +3122,96 @@ sp_3:
     add  32, ac
     ld   ac, [tmp3]
     ld   LINK_LO, x             ; CALL sl_add
-    ld   lp_r59, [x]
+    ld   lp_r70, [x]
     ld   LINK_HI, x
-    ld   lp_r59 >> 8, [x]
+    ld   lp_r70 >> 8, [x]
     ld   sl_add >> 8, y
     jmp  sl_add
-lp_r59:
+lp_r70:
 sp_4:
     ld   sp_shots >> 8, y
     jmp  sp_shots
 
+sp_shots:
+    clr  ac                     ; the shots
+    ld   ac, [o_i]
+sp_lp:
+    ld   [o_i], ac
+    add  SH_T, x
+    ld   [x], ac
+    beq  sp_nx
+    ld   [o_i], ac
+    inc
+    xor  [blast_i], ac
+    beq  sp_bl
+    ld   F_SHOT, ac
+    bra  sp_sf
+sp_bl:
+    ld   F_BLAST, ac
+sp_sf:
+    ld   ac, [tmp]
+    ld   [o_i], ac
+    add  SH_X, x
+    ld   [x], ac
+    sub  [sx], ac
+    add  8, ac
+    ld   ac, [tmp2]
+    ld   [o_i], ac
+    add  SH_Y, x
+    ld   [x], ac
+    sub  [sy], ac
+    add  32, ac
+    ld   ac, [tmp3]
+    ld   LINK_LO, x             ; CALL sl_add
+    ld   lp_r71, [x]
+    ld   LINK_HI, x
+    ld   lp_r71 >> 8, [x]
+    ld   sl_add >> 8, y
+    jmp  sl_add
+lp_r71:
+sp_nx:
+    ld   [o_i], ac
+    inc
+    ld   ac, [o_i]
+    xor  3, ac
+    bne  sp_lp
+    ld   sp_obj >> 8, y
+    jmp  sp_obj
+
+g_hud:
+    ld   [hud_dirty], ac
+    beq  hu_x
+    clr  ac
+    ld   ac, [hud_dirty]
+    ld   7, ac
+    ld   ac, [CUR_COL]
+    ld   1, ac
+    ld   ac, [CUR_ROW]
+    ld   [energy], ac
+    ld   LINK_LO, x             ; CALL con_dec8
+    ld   lp_r74, [x]
+    ld   LINK_HI, x
+    ld   lp_r74 >> 8, [x]
+    ld   con_dec8 >> 8, y
+    jmp  con_dec8
+lp_r74:
+    ld   s_sp & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_sp >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL con_puts
+    ld   lp_r75, [x]
+    ld   LINK_HI, x
+    ld   lp_r75 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+lp_r75:
+hu_x:
+    ld   g_msg >> 8, y
+    jmp  g_msg
+
+
+#addr 0x1600
 sp_obj:
     clr  ac                     ; the things on the screen
     ld   ac, [ob_i]
@@ -2827,12 +3264,12 @@ so_lp:
     add  [tmp], ac
     ld   ac, [tmp]
     ld   LINK_LO, x             ; CALL sl_add
-    ld   lp_r61, [x]
+    ld   lp_r72, [x]
     ld   LINK_HI, x
-    ld   lp_r61 >> 8, [x]
+    ld   lp_r72 >> 8, [x]
     ld   sl_add >> 8, y
     jmp  sl_add
-lp_r61:
+lp_r72:
     ld   SPEC >> 8, y           ; 32 pixels wide: its right half
     ld   [ob_k], ac
     add  SPEC_WIDE, x
@@ -2846,12 +3283,12 @@ lp_r61:
     sub  88, ac
     bcc  so_nx
     ld   LINK_LO, x             ; CALL sl_add
-    ld   lp_r62, [x]
+    ld   lp_r73, [x]
     ld   LINK_HI, x
-    ld   lp_r62 >> 8, [x]
+    ld   lp_r73 >> 8, [x]
     ld   sl_add >> 8, y
     jmp  sl_add
-lp_r62:
+lp_r73:
 so_nx:
     ld   [ob_i], ac
     inc
@@ -2862,69 +3299,45 @@ so_nx:
     jmp  g_hud
 
 ; sl_add: add frame tmp at byte column + 8 tmp2, cell + 32 tmp3 to the list
-
-#addr 0x1400
-g_hud:
-    ld   [hud_dirty], ac
-    beq  hu_x
-    clr  ac
-    ld   ac, [hud_dirty]
-    ld   7, ac
-    ld   ac, [CUR_COL]
-    ld   1, ac
-    ld   ac, [CUR_ROW]
-    ld   [energy], ac
-    ld   LINK_LO, x             ; CALL con_dec8
-    ld   lp_r63, [x]
-    ld   LINK_HI, x
-    ld   lp_r63 >> 8, [x]
-    ld   con_dec8 >> 8, y
-    jmp  con_dec8
-lp_r63:
-    ld   s_sp & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_sp >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL con_puts
-    ld   lp_r64, [x]
-    ld   LINK_HI, x
-    ld   lp_r64 >> 8, [x]
-    ld   con_puts >> 8, y
-    jmp  con_puts
-lp_r64:
-hu_x:
-    ld   [msg_t], ac            ; the message line: blank again after a while
+g_msg:
+    ld   GOT >> 8, y            ; the message line: blank again after a while
+    ld   V_MSG_T, x
+    ld   [y,x], ac
     beq  hu_1
     dec
-    ld   ac, [msg_t]
+    ld   ac, [y,x]
     bne  hu_1
-    ld   ac, [msg]
-    ld   1, ac
-    ld   ac, [msg_d]
+    ld   V_MSG, x
+    ld   ac, [y,x]
+    ld   V_MSG_D, x
+    ld   1, [y,x]
 hu_1:
-    ld   [msg_d], ac
+    ld   V_MSG_D, x
+    ld   [y,x], ac
     beq  hu_2
+    ld   0, [y,x]
     clr  ac
-    ld   ac, [msg_d]
     ld   ac, [CUR_COL]
     ld   2, ac
     ld   ac, [CUR_ROW]
-    ld   [msg], ac
+    ld   V_MSG, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
     add  m_lo & 0xFF, x
     ld   m_lo >> 8, y
     ld   [y,x], ac
     ld   ac, [R0]
-    ld   [msg], ac
+    ld   [tmp], ac
     add  m_hi & 0xFF, x
     ld   [y,x], ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
-    ld   lp_r65, [x]
+    ld   lp_r76, [x]
     ld   LINK_HI, x
-    ld   lp_r65 >> 8, [x]
+    ld   lp_r76 >> 8, [x]
     ld   con_puts >> 8, y
     jmp  con_puts
-lp_r65:
+lp_r76:
 hu_2:
     ld   frame >> 8, y
     jmp  frame
@@ -2933,6 +3346,8 @@ hu_2:
 ; load_room: read LAMP/Rnn.RM (nn = room, hex) to MAP and HDR, and its
 ; area's tiles when they are not the ones loaded
 ; ------------------------------------------------------------
+
+#addr 0x1700
 load_room:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -2947,23 +3362,23 @@ load_room:
     ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   LINK_LO, x             ; CALL fs_root
-    ld   lp_r66, [x]
+    ld   lp_r77, [x]
     ld   LINK_HI, x
-    ld   lp_r66 >> 8, [x]
+    ld   lp_r77 >> 8, [x]
     ld   fs_root >> 8, y
     jmp  fs_root
-lp_r66:
+lp_r77:
     ld   s_dir & 0xFF, ac
     ld   ac, [R0]
     ld   s_dir >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL fs_open
-    ld   lp_r67, [x]
+    ld   lp_r78, [x]
     ld   LINK_HI, x
-    ld   lp_r67 >> 8, [x]
+    ld   lp_r78 >> 8, [x]
     ld   fs_open >> 8, y
     jmp  fs_open
-lp_r67:
+lp_r78:
     ld   [room], ac
     shr  ac
     shr  ac
@@ -2985,12 +3400,12 @@ lp_r67:
     ld   s_room >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL fs_open
-    ld   lp_r68, [x]
+    ld   lp_r79, [x]
     ld   LINK_HI, x
-    ld   lp_r68 >> 8, [x]
+    ld   lp_r79 >> 8, [x]
     ld   fs_open >> 8, y
     jmp  fs_open
-lp_r68:
+lp_r79:
     beq  lr_ok
     ld   dos_back >> 8, y
     jmp  dos_back
@@ -3000,109 +3415,21 @@ lr_ok:
     ld   MAP >> 8, ac
     ld   ac, [R5]
     ld   LINK_LO, x             ; CALL fs_read
-    ld   lp_r69, [x]
+    ld   lp_r80, [x]
     ld   LINK_HI, x
-    ld   lp_r69 >> 8, [x]
+    ld   lp_r80 >> 8, [x]
     ld   fs_read >> 8, y
     jmp  fs_read
-lp_r69:
+lp_r80:
     ld   LINK_LO, x             ; CALL fs_read
-    ld   lp_r70, [x]
+    ld   lp_r81, [x]
     ld   LINK_HI, x
-    ld   lp_r70 >> 8, [x]
+    ld   lp_r81 >> 8, [x]
     ld   fs_read >> 8, y
     jmp  fs_read
-lp_r70:
+lp_r81:
     ld   lr_2 >> 8, y
     jmp  lr_2
-
-
-#addr 0x1500
-lr_2:
-    ld   HDR >> 8, y
-    ld   H_AREA, x
-    ld   [y,x], ac
-    xor  [area], ac
-    beq  lr_3
-    xor  [area], ac
-    ld   ac, [area]
-    ld   LINK_LO, x             ; CALL load_area
-    ld   lp_r71, [x]
-    ld   LINK_HI, x
-    ld   lp_r71 >> 8, [x]
-    ld   load_area >> 8, y
-    jmp  load_area
-lp_r71:
-lr_3:
-    ld   HDR >> 8, y
-    ld   H_RW, x
-    ld   [y,x], ac
-    ld   ac, [rw]
-    ld   H_RCY, x
-    ld   [y,x], ac
-    ld   ac, [rcy]
-    ld   H_RWX, x
-    ld   [y,x], ac
-    ld   ac, [rwx]
-    ld   H_RHY, x
-    ld   [y,x], ac
-    ld   ac, [rhy]
-    clr  ac
-    ld   ac, [door_t]
-    ld   ac, [SH_T]
-    ld   ac, [SH_T + 1]
-    ld   ac, [SH_T + 2]
-    ld   ac, [CUR_COL]          ; row 0: the room's name
-    ld   ac, [CUR_ROW]
-    ld   H_NAME, ac
-    ld   ac, [R0]
-    ld   HDR >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL con_puts
-    ld   lp_r72, [x]
-    ld   LINK_HI, x
-    ld   lp_r72 >> 8, [x]
-    ld   con_puts >> 8, y
-    jmp  con_puts
-lp_r72:
-    clr  ac                     ; row 1: the energy
-    ld   ac, [CUR_COL]
-    ld   1, ac
-    ld   ac, [CUR_ROW]
-    ld   ac, [hud_dirty]
-    ld   s_energy & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_energy >> 8, ac
-    ld   ac, [R1]
-    ld   LINK_LO, x             ; CALL con_puts
-    ld   lp_r73, [x]
-    ld   LINK_HI, x
-    ld   lp_r73 >> 8, [x]
-    ld   con_puts >> 8, y
-    jmp  con_puts
-lp_r73:
-    clr  ac                     ; the room's things
-    ld   ac, [ob_i]
-ls_lp:
-    ld   HDR >> 8, y
-    ld   [ob_i], ac
-    add  HO_KIND, x
-    ld   [y,x], ac
-    ld   ac, [ob_k]
-    ld   [ob_i], ac
-    add  HO_X, x
-    ld   [y,x], ac
-    ld   ac, [ob_x]
-    ld   [ob_i], ac
-    add  HO_Y, x
-    ld   [y,x], ac
-    ld   ac, [ob_y]
-    ld   [ob_i], ac
-    add  HO_P, x
-    ld   [y,x], ac
-    ld   ac, [ob_p]
-    ld   ls_2 >> 8, y
-    jmp  ls_2
 
 ls_2:
     clr  ac
@@ -3136,12 +3463,12 @@ ls_3:
     ld   ac, [ob_d]
 ls_put:
     ld   LINK_LO, x             ; CALL ob_store
-    ld   lp_r74, [x]
+    ld   lp_r85, [x]
     ld   LINK_HI, x
-    ld   lp_r74 >> 8, [x]
+    ld   lp_r85 >> 8, [x]
     ld   ob_store >> 8, y
     jmp  ob_store
-lp_r74:
+lp_r85:
     ld   [ob_i], ac
     inc
     ld   ac, [ob_i]
@@ -3156,7 +3483,104 @@ ls_x:
 ; load_area: read LAMP/An.TS (n = area): 4 pages of tables to TS_LO on,
 ; the rest to x6000 on
 
-#addr 0x1600
+#addr 0x1800
+lr_2:
+    ld   HDR >> 8, y
+    ld   H_AREA, x
+    ld   [y,x], ac
+    xor  [area], ac
+    beq  lr_3
+    xor  [area], ac
+    ld   ac, [area]
+    ld   LINK_LO, x             ; CALL load_area
+    ld   lp_r82, [x]
+    ld   LINK_HI, x
+    ld   lp_r82 >> 8, [x]
+    ld   load_area >> 8, y
+    jmp  load_area
+lp_r82:
+lr_3:
+    ld   HDR >> 8, y
+    ld   H_RW, x
+    ld   [y,x], ac
+    ld   ac, [rw]
+    ld   H_RCY, x
+    ld   [y,x], ac
+    ld   ac, [rcy]
+    ld   H_RWX, x
+    ld   [y,x], ac
+    ld   ac, [rwx]
+    ld   H_RHY, x
+    ld   [y,x], ac
+    ld   ac, [rhy]
+    clr  ac
+    ld   ac, [door_t]
+    ld   ac, [blast_i]
+    ld   ac, [SH_T]
+    ld   ac, [SH_T + 1]
+    ld   ac, [SH_T + 2]
+    ld   ac, [CUR_COL]          ; row 0: the room's name
+    ld   ac, [CUR_ROW]
+    ld   H_NAME, ac
+    ld   ac, [R0]
+    ld   HDR >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL con_puts
+    ld   lp_r83, [x]
+    ld   LINK_HI, x
+    ld   lp_r83 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+lp_r83:
+    clr  ac                     ; row 1: the energy
+    ld   ac, [CUR_COL]
+    ld   1, ac
+    ld   ac, [CUR_ROW]
+    ld   ac, [hud_dirty]
+    ld   s_energy & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_energy >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL con_puts
+    ld   lp_r84, [x]
+    ld   LINK_HI, x
+    ld   lp_r84 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+lp_r84:
+    clr  ac                     ; the room's things
+    ld   ac, [ob_i]
+ls_lp:
+    ld   HDR >> 8, y
+    ld   [ob_i], ac
+    add  HO_KIND, x
+    ld   [y,x], ac
+    ld   ac, [ob_k]
+    ld   [ob_i], ac
+    add  HO_X, x
+    ld   [y,x], ac
+    ld   ac, [ob_x]
+    ld   [ob_i], ac
+    add  HO_Y, x
+    ld   [y,x], ac
+    ld   ac, [ob_y]
+    ld   [ob_i], ac
+    add  HO_P, x
+    ld   [y,x], ac
+    ld   ac, [ob_p]
+    ld   ls_2 >> 8, y
+    jmp  ls_2
+
+s_dir:    #d "LAMP", 0x00
+s_room:   #d "R00.RM", 0x00
+s_area:   #d "A0.TS", 0x00
+s_hex:    #d "0123456789ABCDEF"
+s_energy: #d "ENERGY", 0x00
+s_sp:     #d "  ", 0x00
+s_bits:   #d8 1, 2, 4, 8, 16, 32, 64, 128
+
+
+#addr 0x1900
 load_area:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -3171,23 +3595,23 @@ load_area:
     ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   LINK_LO, x             ; CALL fs_root
-    ld   lp_r75, [x]
+    ld   lp_r86, [x]
     ld   LINK_HI, x
-    ld   lp_r75 >> 8, [x]
+    ld   lp_r86 >> 8, [x]
     ld   fs_root >> 8, y
     jmp  fs_root
-lp_r75:
+lp_r86:
     ld   s_dir & 0xFF, ac
     ld   ac, [R0]
     ld   s_dir >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL fs_open
-    ld   lp_r76, [x]
+    ld   lp_r87, [x]
     ld   LINK_HI, x
-    ld   lp_r76 >> 8, [x]
+    ld   lp_r87 >> 8, [x]
     ld   fs_open >> 8, y
     jmp  fs_open
-lp_r76:
+lp_r87:
     ld   [area], ac
     add  0x30, ac
     ld   s_area >> 8, y
@@ -3198,12 +3622,12 @@ lp_r76:
     ld   s_area >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL fs_open
-    ld   lp_r77, [x]
+    ld   lp_r88, [x]
     ld   LINK_HI, x
-    ld   lp_r77 >> 8, [x]
+    ld   lp_r88 >> 8, [x]
     ld   fs_open >> 8, y
     jmp  fs_open
-lp_r77:
+lp_r88:
     beq  la_ok
     ld   dos_back >> 8, y
     jmp  dos_back
@@ -3214,12 +3638,12 @@ la_ok:
     ld   ac, [R5]
 la_rd:
     ld   LINK_LO, x             ; CALL fs_read
-    ld   lp_r78, [x]
+    ld   lp_r89, [x]
     ld   LINK_HI, x
-    ld   lp_r78 >> 8, [x]
+    ld   lp_r89 >> 8, [x]
     ld   fs_read >> 8, y
     jmp  fs_read
-lp_r78:
+lp_r89:
     bne  la_done
     ld   [R5], ac               ; after the tables: the video RAM
     xor  TABLES_END >> 8, ac
@@ -3231,19 +3655,17 @@ la_done:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 
-s_dir:    #d "LAMP", 0x00
-s_room:   #d "R00.RM", 0x00
-s_area:   #d "A0.TS", 0x00
-s_hex:    #d "0123456789ABCDEF"
-s_energy: #d "ENERGY", 0x00
-s_sp:     #d "  ", 0x00
-s_bits:   #d8 1, 2, 4, 8, 16, 32, 64, 128
 
-
-#addr 0x1700
+#addr 0x1A00
 s_m0: #d "                                        ", 0x00
 s_m1: #d "OIL FLASK: THE LANTERN HOLDS MORE       ", 0x00
 s_m2: #d "BURROW RIG: HOLD DOWN TO CRAWL          ", 0x00
 s_m3: #d "UPDRAFT BELLOWS: JUMP AGAIN IN THE AIR  ", 0x00
 s_m4: #d "ASH SAIL: HOLD JUMP TO FALL SLOWLY      ", 0x00
-s_m5: #d "THE LANTERN WENT OUT                    ", 0x00
+
+#addr 0x1B00
+s_m5: #d "KILN CHARGE: HOLD FIRE, LET GO: A BLAST ", 0x00
+s_m6: #d "WIDE FLAME: THREE SPARKS AT A TIME      ", 0x00
+s_m7: #d "CINDER COAT: HALF THE HARM, NO HEAT     ", 0x00
+s_m8: #d "BALLAST BOOTS: NO DRAG UNDER WATER      ", 0x00
+s_m9: #d "THE LANTERN WENT OUT                    ", 0x00

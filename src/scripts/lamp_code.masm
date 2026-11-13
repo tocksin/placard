@@ -74,11 +74,7 @@ m_g:
     ld   ac, x
     ld   0, [y,x]
     inc
-    xor  32, ac
-    beq  m_g1
-    xor  32, ac
-    bra  m_g
-m_g1:
+    bne  m_g
     CALL load_room
     CALL camera
     GOTO frame
@@ -933,7 +929,7 @@ gs_test:
     beq  gs_obj
     ld   [ta_a], ac             ; a wall stops it; a door opens
     and  A_DOOR, ac
-    beq  gs_kill
+    beq  gs_soot
     CALL open_door
     ld   8, ac
     ld   ac, [R0]
@@ -951,6 +947,47 @@ gs_keep:
     GOTO gs_nx
 gs_obj:
     GOTO gs_hit
+gs_soot:
+    ld   [ta_a], ac             ; a blast breaks a sooted block
+    and  A_SOOT, ac
+    beq  gs_kill
+    ld   [o_i], ac
+    inc
+    xor  [blast_i], ac
+    bne  gs_kill
+    ld   [ta_pg], y
+    ld   [ta_i], x
+    ld   0, [y,x]
+    GOTO gs_soot2
+
+; ... and the sooted block right over it
+.chunk
+gs_soot2:
+    ld   [ta_pg], ac
+    ld   ac, [tmp2]
+    ld   [ta_i], ac
+    sub  32, ac
+    ld   ac, [tmp]
+    ld   [ta_i], ac
+    sub  32, ac
+    bcc  gt_1
+    ld   [tmp2], ac
+    dec
+    ld   ac, [tmp2]
+gt_1:
+    ld   [tmp2], y
+    ld   [tmp], x
+    ld   [y,x], ac
+    ld   ac, x
+    ld   ATTR >> 8, y
+    ld   [y,x], ac
+    and  A_SOOT, ac
+    beq  gt_2
+    ld   [tmp2], y
+    ld   [tmp], x
+    ld   0, [y,x]
+gt_2:
+    GOTO gs_kill
 
 ; a shot in the open: does it hit a creature?
 .chunk
@@ -1003,10 +1040,42 @@ sq_lp:
     ld   [o_i], ac              ; a hit: the shot is gone
     add  SH_T, x
     ld   0, [x]
+    GOTO sq_2
+sq_nx:
+    ld   [ob_i], ac
+    inc
+    ld   ac, [ob_i]
+    xor  MAXOBJ, ac
+    beq  sq_x1
+    GOTO sq_lp
+sq_x1:
+    GOTO gs_nx
+
+.chunk
+sq_2:
+    ld   OBJ >> 8, y
     ld   [ob_i], ac
     add  O_HP, x
     ld   [y,x], ac
-    dec
+    ld   ac, [tmp]
+    ld   1, ac                  ; a spark takes 1 hit off it, a blast more
+    ld   ac, [tmp2]
+    ld   [o_i], ac
+    inc
+    xor  [blast_i], ac
+    bne  sq_p
+    ld   BLAST_PW, ac
+    ld   ac, [tmp2]
+sq_p:
+    ld   [tmp], ac
+    sub  [tmp2], ac
+    bcc  sq_h
+    clr  ac
+sq_h:
+    ld   ac, [tmp]
+    ld   [ob_i], ac
+    add  O_HP, x
+    ld   [tmp], ac
     ld   ac, [y,x]
     bne  sq_snd
     ld   [ob_i], x              ; its last: a puff
@@ -1031,24 +1100,55 @@ sq_snd:
     CALL snd_beep
 sq_x:
     GOTO gs_nx
-sq_nx:
-    ld   [ob_i], ac
-    inc
-    ld   ac, [ob_i]
-    xor  MAXOBJ, ac
-    beq  sq_x
-    GOTO sq_lp
 
 .chunk
 g_fire:
-    ld   [inp], ac              ; a new press of the fire key, not crawling
+    clr  ac
+    ld   ac, [tmp3]             ; (1: a blast)
+    ld   [inp], ac              ; a new press of the fire key, not crawling: a spark
     and  IN_FIRE, ac
-    beq  gf_no
+    beq  gf_chg
     ld   [inp_prev], ac
     and  IN_FIRE, ac
+    bne  gf_chg
+    ld   [crawl], ac
+    bne  gf_chg
+    GOTO gf_find
+gf_chg:
+    ld   [items], ac            ; the Kiln Charge: the key held fills it; let
+    and  IT_KILN, ac            ; go when it is full: a blast
+    beq  gf_no
+    ld   [inp], ac
+    and  IN_FIRE, ac
+    beq  gf_rel
+    ld   [chg], ac
+    xor  CHG_FULL, ac
+    beq  gf_no
+    ld   [chg], ac
+    inc
+    ld   ac, [chg]
+    xor  CHG_FULL, ac
+    bne  gf_no
+    ld   91, ac                 ; (full)
+    CALL snd_beep
+gf_no:
+    GOTO g_door
+gf_rel:
+    ld   [chg], ac
+    ld   ac, [tmp]
+    clr  ac
+    ld   ac, [chg]
+    ld   [tmp], ac
+    xor  CHG_FULL, ac
     bne  gf_no
     ld   [crawl], ac
     bne  gf_no
+    ld   1, ac
+    ld   ac, [tmp3]
+    GOTO gf_find
+
+.chunk
+gf_find:
     clr  ac                     ; a free shot
     ld   ac, [o_i]
 gf_lp:
@@ -1061,7 +1161,6 @@ gf_lp:
     ld   ac, [o_i]
     xor  3, ac
     bne  gf_lp
-gf_no:
     GOTO g_door
 gf_slot:
     ld   SHOT_FRAMES, [x]
@@ -1114,6 +1213,26 @@ gf_up:
     sub  4, ac
     ld   ac, [x]
 gf_snd:
+    GOTO gf_kind
+
+.chunk
+gf_kind:
+    ld   [o_i], ac              ; which of the shots is the blast
+    inc
+    ld   ac, [tmp]
+    ld   [tmp3], ac
+    beq  gf_n
+    ld   [tmp], ac
+    ld   ac, [blast_i]
+    ld   60, ac
+    CALL snd_beep
+    GOTO g_door
+gf_n:
+    ld   [tmp], ac
+    xor  [blast_i], ac
+    bne  gf_b
+    ld   ac, [blast_i]
+gf_b:
     ld   84, ac
     CALL snd_beep
     GOTO g_door
@@ -1250,8 +1369,9 @@ ob_go:
     jmp  ac
 
 .chunk
-ob_lo: #d8 ob_item & 0xFF, ob_ember & 0xFF, ob_puff & 0xFF, ob_bolt & 0xFF, ob_walk & 0xFF, ob_fly & 0xFF, ob_sit & 0xFF, ob_drop & 0xFF
-ob_hi: #d8 ob_item >> 8, ob_ember >> 8, ob_puff >> 8, ob_bolt >> 8, ob_walk >> 8, ob_fly >> 8, ob_sit >> 8, ob_drop >> 8
+ob_lo: #d8 ob_item & 0xFF, ob_ember & 0xFF, ob_puff & 0xFF, ob_bolt & 0xFF, ob_walk & 0xFF, ob_fly & 0xFF, ob_sit & 0xFF, ob_drop & 0xFF, ob_hop & 0xFF, ob_hover & 0xFF
+ob_hi: #d8 ob_item >> 8, ob_ember >> 8, ob_puff >> 8, ob_bolt >> 8, ob_walk >> 8, ob_fly >> 8, ob_sit >> 8, ob_drop >> 8, ob_hop >> 8, ob_hover >> 8
+hopdy: #d8 @@HOPDY@@
 
 ; ob_store: the copy back to thing ob_i
 .chunk
@@ -1322,15 +1442,24 @@ oi_fill:
     ld   ac, [energy]
     ld   1, ac
     ld   ac, [hud_dirty]
-    ld   ac, [msg_d]
     ld   [ob_d], ac
     inc
-    ld   ac, [msg]
-    ld   MSG_FRAMES, ac
-    ld   ac, [msg_t]
+    CALL msg_set
     ld   79, ac
     CALL snd_beep
     GOTO ob_save
+
+; msg_set: message AC on the third text line, for a while
+.chunk
+msg_set:
+    ld   GOT >> 8, y
+    ld   V_MSG, x
+    ld   ac, [y,x]
+    ld   V_MSG_T, x
+    ld   MSG_FRAMES, [y,x]
+    ld   V_MSG_D, x
+    ld   1, [y,x]
+    RET
 
 ; an ember: energy when Wick touches it, gone after a while
 ; a puff: where a creature was; then, every other time, an ember
@@ -1460,6 +1589,25 @@ ot_x:
     GOTO ob_enemy
 ot_put:
     ld   S_BOLT, [y,x]
+    GOTO ot_1
+
+.chunk
+ot_1:
+    ld   SPEC >> 8, y
+    ld   [ob_k], ac
+    add  SPEC_AIM, x
+    ld   [y,x], ac
+    beq  ot_side
+    ld   [ob_k], ac             ; down: from the middle of its underside
+    add  SPEC_W, x
+    ld   [y,x], ac
+    shr  ac
+    sub  2, ac
+    add  [ob_x], ac
+    ld   ac, [tmp3]
+    ld   4, ac
+    bra  ot_d
+ot_side:
     ld   [px], ac
     sub  [ob_x], ac
     bcs  ot_left
@@ -1502,6 +1650,17 @@ ot_2:
     ld   0, [y,x]
     ld   SPEC >> 8, y           ; cell: its top + 4, every other one 16 lower when it is tall
     ld   [ob_k], ac
+    add  SPEC_AIM, x
+    ld   [y,x], ac
+    beq  ot_y1
+    ld   [ob_k], ac             ; (down: its underside)
+    add  SPEC_H, x
+    ld   [y,x], ac
+    add  [ob_y], ac
+    ld   ac, [tmp2]
+    bra  ot_y2
+ot_y1:
+    ld   [ob_k], ac
     add  SPEC_H, x
     ld   [y,x], ac
     sub  16, ac
@@ -1513,6 +1672,7 @@ ot_2:
     add  [ob_y], ac
     add  4, ac
     ld   ac, [tmp2]
+ot_y2:
     ld   OBJ >> 8, y
     ld   [tmp], ac
     add  O_Y, x
@@ -1529,12 +1689,29 @@ ob_bolt:
     dec
     ld   ac, [ob_t]
     beq  ol_gone
+    ld   [ob_d], ac
+    xor  4, ac
+    bne  ol_side
+    ld   [ob_x], ac             ; down
+    add  2, ac
+    ld   ac, [ta_x]
+    ld   [ob_y], ac
+    add  8, ac
+    ld   ac, [ta_y]
+    CALL tile_at
+    bne  ol_gone
+    ld   [ob_y], ac
+    add  2, ac
+    ld   ac, [ob_y]
+    bra  ol_t
+ol_side:
     ld   4, ac
     ld   ac, [tmp3]
     CALL ob_front
     bne  ol_gone
     CALL ob_fwd
     CALL ob_fwd
+ol_t:
     ld   [touchf], ac
     beq  ol_keep
     CALL hurt
@@ -1543,6 +1720,115 @@ ol_gone:
     ld   ac, [ob_k]
 ol_keep:
     GOTO ob_save
+
+; a hopper: it sits, then hops toward Wick: 16 frames of an arc, then a
+; fall until it lands
+.chunk
+ob_hop:
+    ld   [ob_t], ac
+    sub  HOP_REST, ac
+    bcc  oh_air
+    ld   [ob_t], ac
+    inc
+    ld   ac, [ob_t]
+    xor  HOP_REST, ac
+    bne  oh_e
+    ld   [px], ac
+    sub  [ob_x], ac
+    bcs  oh_fl
+    clr  ac
+    bra  oh_fd
+oh_fl:
+    ld   2, ac
+oh_fd:
+    ld   ac, [ob_d]
+oh_e:
+    GOTO ob_enemy
+oh_air:
+    ld   ac, [tmp2]
+    sub  16, ac
+    bcc  oh_fall
+    ld   [tmp2], ac
+    add  hopdy & 0xFF, x
+    ld   hopdy >> 8, y
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   [ob_t], ac
+    inc
+    ld   ac, [ob_t]
+    ld   8, ac
+    ld   ac, [tmp3]
+    CALL ob_front
+    bne  oh_v
+    CALL ob_fwd
+    bra  oh_v
+oh_fall:
+    ld   4, ac
+    ld   ac, [tmp2]
+oh_v:
+    GOTO ob_hop2
+
+.chunk
+ob_hop2:
+    ld   [ob_x], ac
+    add  4, ac
+    ld   ac, [ta_x]
+    ld   [tmp2], ac
+    blt  oh_up
+    add  [ob_y], ac             ; down: does it land?
+    ld   ac, [ob_y]
+    add  16, ac
+    ld   ac, [ta_y]
+    CALL tile_at
+    beq  oh_e2
+    ld   [ta_y], ac
+    and  0xF8, ac
+    sub  16, ac
+    ld   ac, [ob_y]
+    clr  ac
+    ld   ac, [ob_t]
+    bra  oh_e2
+oh_up:
+    add  [ob_y], ac             ; up, when nothing is in the way
+    ld   ac, [ta_y]
+    CALL tile_at
+    bne  oh_e2
+    ld   [ta_y], ac
+    ld   ac, [ob_y]
+oh_e2:
+    GOTO ob_enemy
+
+; a hoverer: every other frame a step toward the place over Wick
+.chunk
+ob_hover:
+    ld   [fcnt], ac
+    and  1, ac
+    beq  ov_x
+    ld   SPEC >> 8, y
+    ld   [ob_k], ac
+    add  SPEC_W, x
+    ld   [y,x], ac
+    shr  ac
+    sub  4, ac
+    add  [ob_x], ac
+    ld   ac, [tmp]
+    ld   [px], ac
+    sub  [tmp], ac
+    beq  ov_x
+    bcs  ov_l
+    clr  ac
+    bra  ov_d
+ov_l:
+    ld   2, ac
+ov_d:
+    ld   ac, [ob_d]
+    ld   8, ac
+    ld   ac, [tmp3]
+    CALL ob_front
+    bne  ov_x
+    CALL ob_fwd
+ov_x:
+    GOTO ob_spit
 
 ; a dropper: it hangs until Wick is under it, falls, and bursts on the floor
 .chunk
@@ -1712,6 +1998,14 @@ hurt:
     ld   SPEC >> 8, y
     ld   [y,x], ac
     ld   ac, [tmp]
+    ld   [items], ac            ; (the Cinder Coat: half)
+    and  IT_COAT, ac
+    beq  hu_d
+    ld   [tmp], ac
+    inc
+    shr  ac
+    ld   ac, [tmp]
+hu_d:
     ld   [energy], ac
     sub  [tmp], ac
     bcc  hu_e
@@ -1746,6 +2040,24 @@ g_inv:
     dec
     ld   ac, [inv]
 gi_1:
+    ld   HDR >> 8, y            ; a hot room without the Cinder Coat
+    ld   H_FLAGS, x
+    ld   [y,x], ac
+    and  HF_HOT, ac
+    beq  gi_2
+    ld   [items], ac
+    and  IT_COAT, ac
+    bne  gi_2
+    ld   [fcnt], ac
+    and  15, ac
+    bne  gi_2
+    ld   [energy], ac
+    beq  gi_2
+    dec
+    ld   ac, [energy]
+    ld   1, ac
+    ld   ac, [hud_dirty]
+gi_2:
     ld   [energy], ac
     bne  gi_x
     ld   START_ROOM, ac
@@ -1763,11 +2075,7 @@ gi_1:
     ld   ac, [crawl]
     ld   ac, [inv]
     ld   M_DEAD, ac
-    ld   ac, [msg]
-    ld   MSG_FRAMES, ac
-    ld   ac, [msg_t]
-    ld   1, ac
-    ld   ac, [msg_d]
+    CALL msg_set
     CALL load_room
     CALL camera
 gi_x:
@@ -1830,7 +2138,15 @@ sp_lp:
     add  SH_T, x
     ld   [x], ac
     beq  sp_nx
+    ld   [o_i], ac
+    inc
+    xor  [blast_i], ac
+    beq  sp_bl
     ld   F_SHOT, ac
+    bra  sp_sf
+sp_bl:
+    ld   F_BLAST, ac
+sp_sf:
     ld   ac, [tmp]
     ld   [o_i], ac
     add  SH_X, x
@@ -1981,28 +2297,38 @@ g_hud:
     ld   ac, [R1]
     CALL con_puts
 hu_x:
-    ld   [msg_t], ac            ; the message line: blank again after a while
+    GOTO g_msg
+
+.chunk
+g_msg:
+    ld   GOT >> 8, y            ; the message line: blank again after a while
+    ld   V_MSG_T, x
+    ld   [y,x], ac
     beq  hu_1
     dec
-    ld   ac, [msg_t]
+    ld   ac, [y,x]
     bne  hu_1
-    ld   ac, [msg]
-    ld   1, ac
-    ld   ac, [msg_d]
+    ld   V_MSG, x
+    ld   ac, [y,x]
+    ld   V_MSG_D, x
+    ld   1, [y,x]
 hu_1:
-    ld   [msg_d], ac
+    ld   V_MSG_D, x
+    ld   [y,x], ac
     beq  hu_2
+    ld   0, [y,x]
     clr  ac
-    ld   ac, [msg_d]
     ld   ac, [CUR_COL]
     ld   2, ac
     ld   ac, [CUR_ROW]
-    ld   [msg], ac
+    ld   V_MSG, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
     add  m_lo & 0xFF, x
     ld   m_lo >> 8, y
     ld   [y,x], ac
     ld   ac, [R0]
-    ld   [msg], ac
+    ld   [tmp], ac
     add  m_hi & 0xFF, x
     ld   [y,x], ac
     ld   ac, [R1]
@@ -2081,6 +2407,7 @@ lr_3:
     ld   ac, [rhy]
     clr  ac
     ld   ac, [door_t]
+    ld   ac, [blast_i]
     ld   ac, [SH_T]
     ld   ac, [SH_T + 1]
     ld   ac, [SH_T + 2]
