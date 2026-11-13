@@ -202,3 +202,16 @@ build makes them, and `create_project.tcl` makes the default images if they
 are missing.  A project made before the ROM had its own file lists
 `video_ram.mem`; the next build swaps it for the new files, or run
 `build\create_project.bat force`.
+
+## License
+Placard is open hardware and open software.  Each kind of work has the license written for it:
+
+| Part | License |
+|------|---------|
+| Hardware: the KiCad boards and schematics (`kicad/`, `schematics/`), the PLD equations and VHDL (`src/pld/`, `src/hdl/`, `src/sim/`) and the case (`case/`) | [CERN-OHL-S v2](LICENSES/CERN-OHL-S-2.0.txt) |
+| Software: the ROM, BASIC, DOS, demos, games, tools and emulator (`src/scripts/`, `src/music/`, `sdcard/`, `web/`, `build/`) | [GPL v3 or later](LICENSES/GPL-3.0-or-later.txt) |
+| Documentation and images (`README.md`, `docs/`, `reference/`) | [CC BY-SA 4.0](LICENSES/CC-BY-SA-4.0.txt) |
+
+All three are share-alike: you may build, change and sell the design, and you pass your changes on under the same license.  A program you write for the Placard, loaded from the SD card or a cartridge, is your own work under any license you choose.  [LICENSE](LICENSE) has the full folder list and the third-party parts (KiCad library copies, the Digilent debouncer, the Inter lettering in the logo).
+
+The PLD's datasheet is not kept here; it is on Microchip's [ATF22V10C product page](https://www.microchip.com/en-us/product/ATF22V10C).
