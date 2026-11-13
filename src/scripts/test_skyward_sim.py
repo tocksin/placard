@@ -9,7 +9,9 @@ test_skyward_sim.py - run SKYWARD TOBI (gen_skyward.py) in placard_sim from a ca
     python3 test_skyward_sim.py --shots DIR       a PNG at the start of every
                                                   course, and some on the way
     python3 test_skyward_sim.py --stop-after 4    stops when course 4 loads
-    python3 test_skyward_sim.py --course 3 --lives 1 --stop-after 0
+    python3 test_skyward_sim.py --stomp           the bot lands on every enemy it
+                                                  can (shells, hits, power-ups)
+    python3 test_skyward_sim.py --course 1 --lives 1 --walk --stop-after 0
                                                   the last life lost: the title
                                                   comes back
 
@@ -55,7 +57,7 @@ def bot(cs, st, held):
         return 0 if held else B
     if st['mode'] != 0:
         return 0
-    boss = [e for e in st['en'] if e['alive'] and e['kind'] == 1 and abs(e['x'] - px) < 72]
+    boss = [e for e in st['en'] if e['alive'] and e['kind'] & 1 and abs(e['x'] - px) < 72]
     if boss:
         d = boss[0]['x'] + 4 - px
         btn = RIGHT if d > 0 else LEFT
@@ -68,20 +70,27 @@ def bot(cs, st, held):
         want = False
         if not any(cs.solid_at(px + 7, feet + 16 * k) for k in range(3)):
             want = True
+        if st['attr'](px + 7, feet) & sk.A_THORN and not st['geta']:
+            want = True         # thorns: as a gap
         if cs.solid_at(px + 9, py + 8) or cs.solid_at(px + 9, py + 15):
             want = True
         for e in st['en']:
-            if not e['alive'] or e['kind'] & 2:
+            if not e['alive'] or e['kind'] & 0x12:
                 continue
             d = e['x'] - px
             if 6 <= d <= 22 and -40 <= e['g'] - py <= 20:
                 want = True
+        if any(st['attr'](px + 3, py + 8 - 16 * k) & sk.A_CRATE for k in (1, 2, 3)):
+            want = True         # a crate overhead
         if want:
             btn |= 0 if held else B
-    elif cs.c['glider']:
+    elif st['glider']:
         # glide over a gap; let go above ground, to land on it
         if not any(cs.solid_at(px + dx, feet + 16 * k) for k in range(6) for dx in (1, 6)):
             btn |= B
+        elif any(e['alive'] and not e['kind'] & 0x12 and -10 <= e['x'] - px <= 30 and e['g'] > py
+                 for e in st['en']):
+            btn |= B            # and over an enemy underneath
     elif held:
         btn |= B
     return btn
@@ -97,56 +106,115 @@ class Model:
         self.en = [dict(x=o['x'], g=o['g'], lo=o['lo'], hi=o['hi'], dir=0, alive=1, kind=sk.KIND[o['ch']], hp=3) for o in cs.objs]
         self.got = [0] * len(cs.medals)
         self.clear = False
+        self.power = 0; self.geta = 0; self.glider = cs.c['glider']
+        self.used = set()       # (tile column, tile row) of the crates taken
+        self.frame0 = 0
+
+    def clone(self):
+        m = copy.copy(self)
+        m.en = [dict(e) for e in self.en]
+        m.got = list(self.got); m.deaths = list(self.deaths); m.used = set(self.used)
+        return m
+
     def state(self):
-        return dict(px=self.px, py=self.py, mode=self.mode, onground=self.onground, en=self.en)
+        return dict(px=self.px, py=self.py, mode=self.mode, onground=self.onground, en=self.en,
+                    frame=self.frame, geta=self.geta, glider=self.glider, attr=self.attr)
+
+    def attr(self, x, g):
+        tr = self.cs.cell_tr(x, g)
+        if tr is None:
+            return 0
+        return 1 if tr in self.used else self.cs.attr_t(*tr)
+
     def die(self, why):
         self.deaths.append((self.frame, self.px, self.py, why))
         self.lives -= 1
+        self.power = self.geta = 0; self.glider = self.cs.c['glider']
         self.px = self.chk; self.py = 0; self.pyl = 0; self.vy = 0; self.onground = 0; self.inv = sk.INV_FRAMES
+
+    def hurt(self, why):
+        if self.geta:
+            self.geta = 0
+        elif self.power:
+            self.power = 0; self.glider = self.cs.c['glider']
+        else:
+            return self.die(why)
+        self.inv = sk.INV_FRAMES
+
     def step(self, btn):
-        cs = self.cs; s = cs.solid_at
-        self.frame += 1
+        cs = self.cs
+        s = lambda x, g: self.attr(x, g) & 1
+        self.frame = (self.frame + 1) & 255
         jnow = btn & B
         inp = btn
         if self.mode == 1:
             if jnow and not self.jprev:
                 self.mode = 0
             inp = 0
-        moved = 0
         if inp & RIGHT:
             if not (s(self.px + 8, self.py + 1) or s(self.px + 8, self.py + 8) or s(self.px + 8, self.py + 15)):
-                self.px += 1
+                self.px = (self.px + 1) & 1023
         elif inp & LEFT:
             if not (s(self.px - 1, self.py + 1) or s(self.px - 1, self.py + 8) or s(self.px - 1, self.py + 15)):
-                self.px -= 1
+                self.px = (self.px - 1) & 1023
+        if self.attr(self.px + 4, self.py + 8) & sk.A_UP:
+            self.vy = -sk.UPV - sk.GRAV
         if (inp & B) and not self.jprev and self.onground and self.mode == 0:
             self.vy = -sk.JUMPV
         self.vy += sk.GRAV
         if self.vy >= 0:
-            if cs.c['glider'] and (inp & B) and not self.onground:
+            if self.glider and (inp & B) and not self.onground:
                 if self.vy >= sk.GLIDE:
                     self.vy = sk.GLIDE
             if self.vy >= sk.MAXFALL:
                 self.vy = sk.MAXFALL
         y = self.py * 256 + self.pyl + self.vy
-        dead = False
         if self.vy < 0:
             if y < 0:
                 self.py = self.pyl = 0; self.vy = 0
             else:
                 self.py, self.pyl = y >> 8, y & 255
-                if s(self.px + 1, self.py) or s(self.px + 6, self.py):
+                at = self.attr(self.px + 1, self.py)
+                xx = self.px + 1
+                if not at & 1:
+                    at = self.attr(self.px + 6, self.py); xx = self.px + 6
+                if at & 1:
+                    if at & sk.A_CRATE:
+                        self.used.add(cs.cell_tr(xx, self.py))
+                        p = at >> 5
+                        if p == 3:
+                            self.geta = 1
+                        else:
+                            self.power = p + 1
+                            self.glider = 1 if p == 2 else cs.c['glider']
                     self.py = ((self.py - 32) & 0xF0) + 48; self.pyl = 0; self.vy = 0
                 self.onground = 0
         else:
             self.py, self.pyl = y >> 8, y & 255
             if self.py >= sk.DROWN_G:
-                self.die('fell'); dead = True
-            elif s(self.px + 1, self.py + 16) or s(self.px + 6, self.py + 16):
-                self.py = ((self.py + 16 - 32) & 0xF0) + 16; self.pyl = 0; self.vy = 0
-                self.onground = 1; self.chk = self.px
+                self.die('fell')
             else:
-                self.onground = 0
+                at = self.attr(self.px + 1, self.py + 16)
+                if not at & 1:
+                    at = self.attr(self.px + 6, self.py + 16)
+                if at & 1:
+                    top = ((self.py + 16 - 32) & 0xF0) + 16
+                    if at & sk.A_BOUNCE:
+                        self.py = top; self.pyl = 0; self.onground = 0; self.vy = -sk.BOUNCEV
+                    elif at & sk.A_THORN and not self.geta and not self.inv:
+                        self.hurt('thorns')
+                    else:
+                        self.py = top; self.pyl = 0; self.vy = 0
+                        self.onground = 1; self.chk = self.px
+                else:
+                    self.onground = 0
+                    for e in self.en:
+                        if e['kind'] & sk.K_LIFT and ((e['x'] + 6 - self.px) & 1023) < 13 \
+                                and ((self.py + 16 - e['g']) & 255) < 8:
+                            self.py = e['g'] - 16; self.pyl = 0; self.vy = 0; self.onground = 1
+                            if self.frame & 1:
+                                self.px = (self.px + (-1 if e['dir'] else 1)) & 1023
+                            break
         if self.inv:
             self.inv -= 1
         if self.mode == 0 and self.px >= cs.goal:
@@ -157,21 +225,40 @@ class Model:
         for e in self.en:
             if not e['alive']:
                 continue
-            if not e['kind'] & 2 and self.frame & 1:
+            k = e['kind']
+            shell = e['hp'] if k & sk.K_SHELL else 3
+            if shell == 1:      # sliding
+                if e['x'] in (e['lo'], e['hi']):
+                    e['alive'] = 0
+                    continue
+                for o in self.en:
+                    if o is not e and o['alive'] and not o['kind'] & 0x13 and o['g'] == e['g'] \
+                            and ((o['x'] + 6 - e['x']) & 1023) < 13:
+                        o['alive'] = 0
+            if shell != 2 and not k & (sk.K_PIC | sk.K_SNAP) and (k & sk.K_FAST or shell == 1 or self.frame & 1):
                 if e['dir'] == 0:
-                    e['x'] += 1
+                    e['x'] = (e['x'] + 1) & 1023
                     if e['x'] == e['hi']: e['dir'] = 1
                 else:
-                    e['x'] -= 1
+                    e['x'] = (e['x'] - 1) & 1023
                     if e['x'] == e['lo']: e['dir'] = 0
-            if self.mode or self.inv or e['kind'] & 2:
+            if k & sk.K_SNAP and not self.frame & 0x40:
+                continue
+            if self.mode or self.inv or k & (sk.K_PIC | sk.K_LIFT):
                 continue
             dx, dy = e['x'] - self.px, e['g'] - self.py
-            hit = (-14 <= dx <= 5 and -30 <= dy <= 14) if e['kind'] == 1 else (-6 <= dx <= 6 and -14 <= dy <= 14)
-            if hit:
-                if self.vy >= 0 and dy >= 8:
+            hit = (-14 <= dx <= 5 and -30 <= dy <= 14) if k & 1 else (-6 <= dx <= 6 and -14 <= dy <= 14)
+            if hit and k & sk.K_SHELL:
+                if shell == 2:
+                    e['hp'] = 1; e['dir'] = 0 if dx >= 0 else 1; self.inv = sk.ROOK_SAFE
+                elif self.vy >= 0 and dy >= 8:
+                    e['hp'] = 2; self.vy = -0x300
+                else:
+                    self.hurt('shell at %d' % e['x'])
+            elif hit:
+                if (not k & sk.K_SPIKE or self.geta) and self.vy >= 0 and dy >= 8:
                     self.vy = -0x300
-                    if e['kind'] == 1:
+                    if k & 1:
                         e['hp'] -= 1
                         self.inv = sk.ROOK_SAFE
                         if e['hp'] == 0:
@@ -179,13 +266,17 @@ class Model:
                     else:
                         e['alive'] = 0
                 else:
-                    self.die('enemy at %d' % e['x'])
+                    self.hurt('enemy at %d' % e['x'])
         self.jprev = jnow
 
 
-def rollout(m, first, held, horizon):
-    """(frames survived (horizon if no life lost), Rook's hits left)"""
-    m = copy.deepcopy(m)
+STOMP = False      # --stomp: the bot goes for every enemy it can land on
+
+
+def rollout(m, first, held, horizon, hold=1):
+    """(frames survived (horizon if no life lost), Rook's hits left) with the
+    pad at first for hold frames, and the simple bot's choices after that"""
+    m = m.clone()
     n0 = len(m.deaths)
     btn = first
     t = horizon
@@ -197,8 +288,15 @@ def rollout(m, first, held, horizon):
         if m.clear:
             break
         held = bool(btn & B)
-        btn = bot(m.cs, m.state(), held)
-    return t, sum(e['hp'] for e in m.en if e['kind'] == 1 and e['alive'])
+        btn = first if k + 1 < hold else bot(m.cs, m.state(), held)
+    left = sum(e['hp'] for e in m.en if e['kind'] & 1 and e['alive'])
+    if STOMP:       # every enemy counts: a walking Shellby 3, its shell 2, sliding 1
+        left += sum((e['hp'] if e['kind'] & sk.K_SHELL else 1) for e in m.en
+                    if e['alive'] and not e['kind'] & 0x1B) + 4 * (3 - m.lives) - m.power
+    return t, left
+
+
+COMMIT = [0, 0]     # plan()'s pad for the next frames: [buttons, frames left]
 
 
 def plan(m, held, horizon=150):
@@ -208,17 +306,51 @@ def plan(m, held, horizon=150):
     st = m.state()
     first = bot(m.cs, st, held)
     if st['mode'] != 0:
+        COMMIT[1] = 0
         return first
-    fight = any(e['alive'] and e['kind'] == 1 and abs(e['x'] - m.px) < 72 for e in m.en)
+    if COMMIT[1]:       # a pad held for some frames (below), while it still works
+        if rollout(m, COMMIT[0], held, horizon, COMMIT[1])[0] >= horizon:
+            COMMIT[1] -= 1
+            return COMMIT[0]
+        COMMIT[1] = 0
+    fight = any(e['alive'] and e['kind'] & 1 and abs(e['x'] - m.px) < 72 for e in m.en)
+    if STOMP and any(e['alive'] and not e['kind'] & 0x1B and abs(e['x'] - m.px) < 48 for e in m.en):
+        fight = True
     best = None
-    for btn in (first, RIGHT, RIGHT | B, 0, B, LEFT, LEFT | B):
+    opts = [first, RIGHT, RIGHT | B, 0, B, LEFT, LEFT | B]
+    if st['onground'] and held:     # B still down from the last jump: let it go, or
+        opts = [first, RIGHT, 0, LEFT]      # there is never a new press
+    for btn in opts:
         t, hp = rollout(m, btn, held, horizon)
         if t >= horizon and not fight:
             return btn
+        if best is None and t > 60 and not fight and not st['glider']:
+            return btn      # trouble that far off is dealt with nearer to it
         key = (t, -hp)
         if best is None or key > best[0]:
             best = (key, btn)
+    if not fight:       # every choice loses a life: a shorter jump (in the air,
+        m2, h2 = m, held        # the same pad for longer), also for a jump from here
+        if st['onground'] and first & B:
+            m2 = m.clone()
+            m2.step(first)
+            h2 = True
+        if not m2.onground:
+            for hold in (6, 16, 30):
+                for btn in (0, B, LEFT):
+                    if rollout(m2, btn, h2, horizon, hold)[0] >= horizon:
+                        if m2 is not m:
+                            COMMIT[:] = [btn, hold]
+                            return first
+                        COMMIT[:] = [btn, hold - 1]
+                        return btn
     return best[1]
+
+
+def used_crates(cs, mem):
+    """{(tile column, tile row)} of the crates taken, from the tile map in the RAM"""
+    lv = [sk.PAGES['LVA'], sk.PAGES['LVA'] + 128, sk.PAGES['LVB'], sk.PAGES['LVB'] + 128, sk.PAGES['LVC']]
+    return set((t, r) for r, t in cs.crates if mem[lv[r] + t] == 8 * cs.cid[(r, 'X')])
 
 
 def model_of(cs, mem, z):
@@ -233,26 +365,32 @@ def model_of(cs, mem, z):
     m.inv = mem[z['inv']]
     m.mode = mem[z['mode']]
     m.jprev = mem[z['jprev']]
-    m.frame = mem[0x08]
+    m.frame = (mem[0x08] - 1) & 255     # (step() counts it first)
     e = sk.ENEMY
     for i, en in enumerate(m.en):
         en.update(x=mem[e + i] | mem[e + 8 + i] << 8, dir=mem[e + 0x18 + i], alive=mem[e + 0x40 + i],
                   hp=mem[e + 0x58 + i])
+    m.power, m.geta, m.glider = mem[e + 0x70], mem[e + 0x71], mem[z['glider']]
+    m.used = used_crates(cs, mem)
     return m
 
 
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('--course', type=int, default=0)
-    ap.add_argument('--max-frames', type=int, default=12000)
+    ap.add_argument('--max-frames', type=int, default=20000)
     ap.add_argument('--shots')
     ap.add_argument('--shot-every', type=int, default=0)
     ap.add_argument('--fast', action='store_true', help='skip the idle wait for the next frame')
+    ap.add_argument('--walk', action='store_true', help='the bot only walks right (to lose a life)')
+    ap.add_argument('--stomp', action='store_true', help='the bot lands on every enemy it can')
     ap.add_argument('--lives', type=int, default=0,
                     help='with --course: start that course with this many lives')
     ap.add_argument('--stop-after', type=int, default=sk.NCOURSE - 1,
                     help='stop when this course has come up')
     args = ap.parse_args(argv)
+    global STOMP
+    STOMP = args.stomp
 
     plc, files, z, info = sk.sd_files()
     rig = test_dos.boot_plc('SKYWARD.PLC', plc, z['main'], files)
@@ -323,7 +461,7 @@ def main(argv):
             dt = t - t0
             limit = (FIRST_LINE + 32 + 4 * sk.GROUND_G) * 800
             worst_bg = max(worst_bg, dt / limit)
-            want = cs.background(scroll)
+            want = cs.background(scroll, used_crates(cs, mem))
             bad = [a for a, v in want.items() if mem[a] != v]
             if bad:
                 a = bad[0]
@@ -333,7 +471,7 @@ def main(argv):
             continue
         # all drawn
         frames += 1
-        want = cs.background(scroll)
+        want = cs.background(scroll, used_crates(cs, mem))
         model = bytearray(65536)
         for a, v in want.items():
             model[a] = v
@@ -385,7 +523,7 @@ def main(argv):
                 drift += 1
                 if drift <= 5:
                     print('frame %d: the model said x, y %s, the program has %s' % (frames, pred, (m.px, m.py, m.pyl)))
-            btn = plan(m, held)
+            btn = RIGHT if args.walk else plan(m, held)
             m.step(btn)
             pred = (m.px, m.py, m.pyl) if m.mode == 0 and not m.clear else None
             if last_px == px:
