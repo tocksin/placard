@@ -55,13 +55,50 @@ ROUTE = [('dead', 0, 0), ('kill', 0, 0), ('room', 1), ('room', 3), ('room', 4), 
          ('room', 6), ('room', 7), ('room', 8), ('item', 8, 0), ('room', 7), ('room', 9), ('kill', 9, 0),
          ('room', 10), ('item', 10, 0), ('room', 9), ('room', 7), ('room', 11), ('room', 12), ('room', 13),
          ('fight', 13, 0), ('item', 13, 0), ('room', 12), ('room', 11), ('at', 11, 4, 1), ('room', 7),
-         ('at', 7, 6, 12), ('at', 7, 2, 8), ('at', 7, 6, 3), ('room', 6), ('room', 4),
-         ('room', 3), ('at', 3, 4, 1), ('room', 1), ('room', 2), ('item', 2, 0), ('room', 1), ('room', 0)]
+         ('at', 7, 6, 12), ('at', 7, 2, 8), ('at', 7, 6, 3), ('room', 6), ('room', 4), ('room', 3),
+         # the Slagworks: the Kiln Charge, through the Soot Lock, Clinker, the hot room's flask
+         ('room', 5), ('room', 15), ('room', 16), ('room', 17), ('item', 17, 0), ('room', 16), ('room', 19),
+         ('room', 20), ('soot', 20, 7, 8), ('soot', 20, 8, 8), ('room', 21), ('fight', 21, 0), ('item', 21, 0),
+         ('room', 20), ('room', 19), ('room', 16), ('room', 18), ('item', 18, 0), ('room', 16),
+         ('at', 16, 6, 8), ('at', 16, 2, 3), ('room', 15), ('room', 5), ('room', 3),
+         # the deep Wellshaft's flask, behind soot; then up to the top
+         ('room', 14), ('at', 14, 5, 14), ('soot', 14, 3, 14), ('item', 14, 0), ('at', 14, 4, 1), ('room', 3),
+         ('at', 3, 5, 8), ('at', 3, 4, 1), ('room', 1), ('room', 2), ('item', 2, 0), ('room', 1), ('room', 0)]
+# every boss can be reached and beaten with nothing collected: these runs,
+# from the start, on the model alone (the long run shows the program and
+# the model agree)
+BARE = [[('room', 1), ('room', 3), ('room', 4), ('room', 6), ('room', 7), ('room', 11), ('room', 12),
+         ('kill', 12, 0), ('room', 13), ('fight', 13, 0)],
+        [('room', 1), ('room', 3), ('room', 5), ('room', 15), ('room', 16), ('room', 19), ('room', 20),
+         ('room', 21), ('fight', 21, 0)]]
+
+
+def bare_runs(rooms):
+    """-> True when the model reaches and beats every boss with no item"""
+    ok = True
+    for route in BARE:
+        m = gl.Model(rooms)
+        n = 0
+        for g in route:
+            q = plan(m, g) or plan(m, g, unhurt=False)
+            if not q:
+                print('with nothing collected: no way to %s from room %d (%d, %d)' % (g, m.room, m.px, m.py))
+                ok = False
+                break
+            for b in q:
+                m.step(gl.pad_to_inp(b))
+            n += len(q)
+        else:
+            if m.items or m.emax != gl.START_EMAX:
+                ok = False
+            print('with nothing collected: %s beaten in room %d after %d frames, energy %d of %d%s'
+                  % (m.rm.name, m.room, n, m.energy, m.emax, '' if not m.items else ' (BUT AN ITEM WAS TAKEN)'))
+    return ok
 
 
 def target(m, goal):
     """the place (byte column, cell) the goal is at, in the room the model is in"""
-    if goal[0] == 'at' and m.room == goal[1]:
+    if goal[0] in ('at', 'soot') and m.room == goal[1]:
         return goal[2] * 8, goal[3] * 16
     if goal[0] in ('item', 'kill', 'dead', 'fight') and m.room == goal[1]:
         return m.objs[goal[2]][1], m.objs[goal[2]][2]
@@ -81,6 +118,8 @@ def reached(m, goal):
         return m.room == goal[1] and m.onground and not m.objs[goal[2]][0]
     if goal[0] == 'dead':
         return m.msg == len(gl.ITEM_MSG) + 1 and m.msg_t > gl.MSG_FRAMES - 8
+    if goal[0] == 'soot':
+        return m.room == goal[1] and not m.attr[m.map[goal[3] * gl.MAP_W + goal[2]]] & gl.A_SOOT
     if goal[0] in ('kill', 'fight'):
         return m.room == goal[1] and m.onground and m.beh(m.objs[goal[2]]) < gl.B_WALK
     return (m.room == goal[1] and m.onground and (m.px + 4) >> 3 == goal[2]
@@ -96,6 +135,15 @@ def plan(m0, goal, max_nodes=400000, unhurt=True):
     kill = goal[0] == 'kill' and m0.room == goal[1]
     if goal[0] == 'fight':
         return fight(m0, goal)
+    if goal[0] == 'soot':       # no search: face it, hold the fire key until the charge is full, let go
+        c, out = m0.clone(), []
+        while not reached(c, goal) and len(out) < 900:
+            left = goal[2] * 8 < c.px
+            k = len(out) % 80
+            b = (LEFT if left else RIGHT) if c.facing != left else (Y if k < gl.CHG_FULL + 2 else 0)
+            out.append(b)
+            c.step(gl.pad_to_inp(b))
+        return out if reached(c, goal) else None
     dead = goal[0] == 'dead'
     if dead:            # no search: walk and hop into the creature until the energy is gone
         c, out = m0.clone(), []
@@ -144,6 +192,8 @@ def plan(m0, goal, max_nodes=400000, unhurt=True):
                 c.step(inp)
             if c.energy < m.energy and (unhurt or c.energy < 10):
                 continue
+            if c.items != m.items and goal[0] != 'item':    # (only when it is asked for)
+                continue
             k = key(c)
             if k in seen:
                 continue
@@ -156,9 +206,11 @@ def plan(m0, goal, max_nodes=400000, unhurt=True):
 
 
 def fight(m0, goal):
-    """the buttons that beat the boss, by rule: face it from 5 to 9 tiles
+    """the buttons that beat the boss, by rule: face it from 3 to 7 tiles
     away, jump when a bolt at Wick's height is near, fire all the time"""
     c, out = m0.clone(), []
+    if c.beh(c.objs[goal[2]]) == gl.B_HOVER:
+        return fight_hover(m0, goal)
     while not reached(c, goal) and len(out) < 6000:
         if c.room != goal[1]:
             return None
@@ -170,19 +222,47 @@ def fight(m0, goal):
             back = LEFT if side == RIGHT else RIGHT
             if c.py > o[2] + 16:        # in a pit: out, away from it
                 b = back | (0 if c.inp & gl.IN_JUMP else B)
-            elif away < 40:
+            elif away < 24:
                 b = back
-            elif c.facing != (side == LEFT) or (away > 72 and c.solid(c.px + (12 if side == RIGHT else -6),
+            elif c.facing != (side == LEFT) or (away > 56 and c.solid(c.px + (12 if side == RIGHT else -6),
                                                                       c.py + 16)):
                 b = side
             for q in c.objs:
-                if (q[0] == gl.S_BOLT and abs(q[1] - c.px) < 14 and (c.py - q[2] + 13) & 255 < 21
+                if (q[0] == gl.S_BOLT and abs(q[1] - c.px) < 10 and (c.py - q[2] + 13) & 255 < 21
                         and c.onground and not c.inp & gl.IN_JUMP):
                     b |= B
             if not c.onground and c.vy < 0:
                 b |= B                  # (the whole jump)
             if len(out) & 1 and c.facing == (side == LEFT):
                 b |= Y
+        out.append(b)
+        c.step(gl.pad_to_inp(b))
+    return out if reached(c, goal) else None
+
+
+def fight_hover(m0, goal):
+    """a boss that floats over Wick and drops bolts: keep just off its
+    middle, under its body, and fire up; change sides at a wall, right
+    after a bolt has left"""
+    c, out, d = m0.clone(), [], 1
+    while not reached(c, goal) and len(out) < 6000:
+        if c.room != goal[1]:
+            return None
+        o = c.objs[goal[2]]
+        b = 0
+        if c.beh(o) >= gl.B_WALK:
+            rel = c.px - o[1]
+            if d > 0 and c.px > c.rm.rwx - 16 and o[4] & 31 < 3:
+                d = -1
+            elif d < 0 and c.px < 16 and o[4] & 31 < 3:
+                d = 1
+            lo = 8 if d > 0 else -3
+            if rel < lo:
+                b = RIGHT
+            elif rel > lo + 3:
+                b = LEFT
+            if len(out) & 1 and 0 <= rel + 3 < 16:
+                b |= UP | Y
         out.append(b)
         c.step(gl.pad_to_inp(b))
     return out if reached(c, goal) else None
@@ -203,7 +283,7 @@ def read_state(mem, z):
                 facing=mem[z['facing']], sx=mem[z['sx']], sy=mem[z['sy']], door=mem[z['door_t']],
                 shots=[(mem[z['SH_T'] + i], mem[z['SH_X'] + i], mem[z['SH_Y'] + i]) for i in range(3)],
                 energy=mem[z['energy']], emax=mem[z['emax']], items=mem[z['items']], inv=mem[z['inv']],
-                ajump=mem[z['ajump']], got=bytes(mem[gl.GOT:gl.GOT + 32]),
+                ajump=mem[z['ajump']], chg=mem[z['chg']], blast=mem[z['blast_i']], got=bytes(mem[gl.GOT:gl.GOT + 32]),
                 objs=[tuple(mem[gl.OBJ + f + i] for f in (gl.O_KIND, gl.O_X, gl.O_Y, gl.O_D, gl.O_T, gl.O_HP,
                                                           gl.O_P)) if mem[gl.OBJ + i] else None
                       for i in range(gl.MAXOBJ)])
@@ -214,7 +294,8 @@ def model_state(m):
                 facing=m.facing, sx=m.sx, sy=m.sy, door=m.door_t,
                 shots=[(s[0], s[1], s[2]) if s[0] else (0, mem_x, mem_y) for s, (mem_x, mem_y) in
                        zip(m.shots, [(s[1], s[2]) for s in m.shots])],
-                energy=m.energy, emax=m.emax, items=m.items, inv=m.inv, ajump=m.ajump, got=bytes(m.got),
+                energy=m.energy, emax=m.emax, items=m.items, inv=m.inv, ajump=m.ajump, chg=m.chg, blast=m.blast,
+                got=bytes(m.got),
                 objs=[tuple(o) if o[0] else None for o in m.objs])
 
 
@@ -238,6 +319,7 @@ def main(argv):
     rooms = info['rooms']
     model = gl.Model(rooms)
     route = (eval(args.route) if args.route else ROUTE)[:args.goals]
+    bare_ok = args.route is not None or args.goals < len(ROUTE) or bare_runs(rooms)
     goal_i = 0
     queue = []
     ok = True
@@ -402,6 +484,9 @@ def main(argv):
     pad.buttons = 0
     if not test_dos.esc_to_dos(rig):
         print('FAIL: Esc did not bring the DOS back')
+        ok = False
+    if not bare_ok:
+        print('FAIL: a boss cannot be reached and beaten with nothing collected')
         ok = False
     print('PASS' if ok else 'FAIL')
     return 0 if ok else 1
