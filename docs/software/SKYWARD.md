@@ -1,7 +1,7 @@
 # Skyward Tobi
 
-`sdcard/SKYWARD.PLC` is a side-scrolling platform game: World 1 of
-*Skyward Tobi 4*, an NES game by Mark Szlemko
+`sdcard/SKYWARD.PLC` is a side-scrolling platform game: Breezy Isle and
+Gusty Mesa, the two worlds of *Skyward Tobi 4*, an NES game by Mark Szlemko
 (github.com/Zebshine/skyward-tobi-4), ported to the Placard.  It is a
 library program for the SD card (run it from the DOS's file browser; Esc
 goes back), made by `src/scripts/gen_skyward.py`.  Everything it reads
@@ -13,11 +13,14 @@ Date: 11/13/2026
 
 ![Whistling Cave, Gale Fort, Shellback Beach, Skyrail Rise, Thorn Garden and Bouncy Boughs](../../reference/skyward_courses.png)
 
+![Gusty Mesa: the harbor (the playfield as the model draws it), Sandstone Trail, an ember in Spindle Gulch and Dust Keep in the simulator](../../reference/skyward_world2.png)
+
 ## The game
 
 Baron Rook's lightning broke Mabel Tailspin's biplane, her Stunt Medals fell
 across Breezy Isle and his crows carried her off to Crow Keep.  Tobi, the
-isle's young mechanic, runs after them.
+isle's young mechanic, runs after them.  When Crow Keep falls the Baron
+flies off with her over the water to Gusty Mesa, and Tobi takes the boat.
 
 | File | Course | Name | The idea |
 |---|---|---|---|
@@ -33,10 +36,22 @@ isle's young mechanic, runs after them.
 | `CJ` | 1-8 | Bouncy Boughs | Bounce drums: over tall walls and wide gaps |
 | `CK` | bonus | Cloud Cellar | A room of medals and a Glide Feather |
 | `CL` | keep | Crow Keep | Fire pits, then Baron Rook: land on him three times |
-| `CM` | ending | | Mabel is free |
+| `CM` | the harbor | | The boat to Gusty Mesa (a picture) |
+| `CN` | 2-1 | Sandstone Trail | Updrafts out of the chasms |
+| `CO` | 2-2 | Thermal Ridge | One updraft after another |
+| `CP` | 2-3 | Updraft Canyon | Lifts and updrafts over a canyon; a Glide Feather |
+| `CQ` | 2-4 | Drywell Cavern | A lift over a well of thorns, a vent over a wall |
+| `CR` | 2-5 | Spindle Gulch | The Ember Pepper, and Spindles to try it on |
+| `CS` | 2-6 | Glider Gorge | A Glide Feather for the gorges; lifts for those without it |
+| `CT` | 2-7 | Tengu Skywalk | Bridges and thorns in the sky, with the Tengu Geta |
+| `CU` | 2-8 | Mirage Mesa | Blocks that cannot be seen; the medals lie along them |
+| `CV` | fort | Squall Fort | Captain Squall again: four landings |
+| `CW` | keep | Dust Keep | Fire pits and a quicker Baron Rook: four landings |
+| `CX` | ending | | Mabel is free |
 
 - **Controls:** arrow keys or SNES pad 1 Left / Right to run; Up, Space,
-  pad B or A to jump; Esc back to the DOS.  A jump needs a new key press.
+  pad B or A to jump; Down or pad Y to throw an ember (with the Ember
+  Pepper); Esc back to the DOS.  A jump needs a new key press.
 - **Glider:** hold the jump key in the air and Tobi falls slowly (3/8 of a
   pixel a frame, against up to 5).  Kite Cliffs and Crow Keep give it; the
   Glide Feather gives it anywhere.
@@ -47,15 +62,18 @@ isle's young mechanic, runs after them.
   away, knocking out whatever it meets, until the end of its run.  A sliding
   shell hurts unless it is landed on, which stops it.
 - **Bosses:** Captain Squall (Gale Fort) and Baron Rook (Crow Keep) take
-  three landings each (1,100 points).
+  three landings each (1,100 points); in Squall Fort and Dust Keep, four.
 - **Crates:** jump into one from below.  A **Sky Berry** takes one hit for
-  Tobi; a **Glide Feather** does too, and is a glider; the **Tengu Geta**
+  Tobi; an **Ember Pepper** does too, and throws embers: one at a time,
+  straight ahead for 80 byte columns or to the first wall, and an ember
+  knocks out any enemy but a boss (100 points); a **Glide Feather** takes
+  a hit and is a glider; the **Tengu Geta**
   is a sandal that walks on thorns and lands on Spindles and Snapjaws, and
   takes a hit of its own.  What Tobi carries is on the score line and goes
   on to the next course.
 - **Course pieces:** thorns hurt from above; a bounce drum throws Tobi
   about six blocks up; an air vent lifts him as long as he is in it; a lift
-  carries him.
+  carries him; a mirage block (Mirage Mesa) is solid and cannot be seen.
 - **Medals** are 10 points each.  The windsock ends a course.
 - **Lives:** three.  After a lost life Tobi comes back where he last stood
   and blinks for 1.5 s, safe.  With none left the game goes back to the title.
@@ -78,10 +96,12 @@ Changed or left out:
 |---|---|---|
 | 256 × 240, 13 rows of tiles, hardware scrolling and sprites | 160 × 112, 5 rows of tiles, all drawn in software | The Placard has no scroll registers or sprites; see "How it draws" |
 | Courses laid out on 13 rows, about 200 tiles long | Each course built again around its idea on 5 rows, 128 tiles long (1,024 byte columns, so positions wrap for free) | The screen, and the engine's 10-bit positions |
-| 2 worlds, a world map, treasure houses, secret exits, Sun Bell Tower | World 1's courses in a row; World 2 is to come | In stages |
+| 2 worlds on two maps joined by a boat, treasure houses, secret exits, Sun Bell Tower | Both worlds' courses in a row, the boat as a picture between them | The Placard's screen; kept simple |
+| Dotted blocks that the Sun Bell makes solid | Mirage blocks: always solid, never seen | No bell |
 | Run button, speed that builds up, a run meter, a status box | One running speed; the score is a text line | The Placard's screen: four text lines over the playfield |
 | Big and small Tobi; the jacket's color shows the power-up | Small Tobi; the power-up is named on the score line | 16 × 16 sprites, drawn in software |
-| Ember Pepper, a reserve box | Not yet | With World 2, whose courses use the pepper |
+| Ember Pepper: bouncing embers, two at a time; a reserve box | One ember at a time, straight ahead; no reserve box | Kept simple |
+| Baron Rook takes five hits in Dust Keep | Four, and he moves every frame | A fight the same size as the others |
 | A shell can be carried, and breaks bricks | It slides and knocks out enemies | Kept simple |
 | Captain Squall runs at Tobi and leaps | He runs the hall end to end | Kept simple |
 | Music on seven channels, story pictures | Sound effects only, story as text | To come |
@@ -126,11 +146,11 @@ has been opened is one byte changed in it.
 | x0100-x1EFF | `ROWX` and `VPG` tables, the blitter (`draw_sprites`), 14 of the 16 common sprite frames (Tobi's twelve and the medal) |
 | x2000-x3FFF | The program |
 | x4000-x4BFF | The course's tables (6 sectors of its file): band and tile strip addresses, the tile map (5 × 128), each tile's type, the objects, the sprite routines' addresses, three lines of text |
-| x5400-x55FF | The objects' state, the power-up and the geta, the medals taken |
+| x5400-x55FF | The objects' state, the power-up, the geta and the ember, the medals taken |
 | x6000-xFFFF, offsets x040-x17F of each byte column | The course's strips and the sprite frames that are not in the low RAM (the 4x playfield and the text rows leave these bytes free) |
 
-`SKYWARD/CA.LVL` to `CM.LVL` are the title, the eleven courses and the
-ending.  A file is the 6 sectors of tables and then a straight image of the
+`SKYWARD/CA.LVL` to `CX.LVL` are the title, the 21 courses, the harbor and
+the ending.  A file is the 6 sectors of tables and then a straight image of the
 RAM from x6000, as many whole byte columns (sectors) as the course's strips
 reach: 21 to 34 KB.  `load_course` reads the tables to x4000 and the rest
 to x6000 on (about 0.4 s); the playfield goes black a column at a time as
@@ -138,10 +158,11 @@ the image passes over it, and the first frame draws it again.
 
 A course is 5 rows of 128 letters in `gen_skyward.py` (`COURSES`).  Tiles:
 `#` ground, `H` `B` `K` `D` blocks, `=` a bridge, `^` thorns, `U` a bounce
-drum, `$` an air vent, `1` `3` `4` a crate (Sky Berry, Glide Feather, Tengu
-Geta), `u` a stump.  Things that stand in it: `S` the start, `o` a medal,
+drum, `$` an air vent, `1` `2` `3` `4` a crate (Sky Berry, Ember Pepper,
+Glide Feather, Tengu Geta), `u` a stump, `i` a mirage block.  Things that stand in it: `S` the start, `o` a medal,
 `e` a Bumbler, `z` a Buzzbee, `x` a Spindle, `k` a Shellby, `j` a Snapjaw,
-`l` a lift, `G` the windsock, `Q` Captain Squall, `R` Baron Rook, `M`
+`l` a lift, `G` the windsock, `Q` Captain Squall, `R` Baron Rook (`q` and
+`V`: the same two with four hits, and Rook moving every frame), `M`
 Mabel, `p` the biplane.  The first two and the last four tile columns are a
 wall, so the wrap from byte column 1,023 to 0 never shows.  A course may
 have 8 objects, 40 medals and 32 different (tile row, tile) pairs.
@@ -161,7 +182,7 @@ every frame too.  For every frame the test checks the background and the
 sprites byte for byte against `gen_skyward.py`'s model and that the
 drawing is ahead of the beam; at the end, that every course was cleared in
 order, that the strips are unchanged and that Esc brings the DOS back.
-A whole game is about 13,000 frames and takes about an hour and a half;
+A whole game is about 23,400 frames and takes about two hours;
 `--course n` starts at course n, `--stop-after n` stops when course n
 loads, `--stomp` has the bot land on every enemy it can (the Shellbys'
 shells, the crates), and `--course 1 --lives 1 --walk --stop-after 0` (a
