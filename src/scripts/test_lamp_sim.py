@@ -66,9 +66,9 @@ ROUTE = [('dead', 0, 0), ('kill', 0, 0), ('room', 1), ('room', 3), ('room', 4), 
          # the Brine Vaults: the Ballast Boots, the Drowned Hall's flask, Old Gulper, the Wide Flame
          ('room', 22), ('room', 23), ('room', 25), ('item', 25, 0), ('room', 23), ('room', 24), ('item', 24, 0),
          ('room', 26), ('room', 27), ('fight', 27, 0), ('item', 27, 0), ('room', 26),
-         ('kill', 26, 0), ('room', 24), ('room', 23), ('room', 22), ('room', 14),
+         ('kill', 26, 0), ('room', 24), ('room', 23), ('at', 23, 6, 8), ('at', 23, 2, 3), ('room', 22), ('room', 14),
          # then up to the top
-         ('at', 14, 4, 1), ('room', 3),
+         ('at', 14, 5, 8), ('at', 14, 4, 1), ('room', 3),
          ('at', 3, 5, 8), ('at', 3, 4, 1), ('room', 1), ('room', 2), ('item', 2, 0), ('room', 1), ('room', 0)]
 # every boss can be reached and beaten with nothing collected: these runs,
 # from the start, on the model alone (the long run shows the program and
@@ -134,7 +134,7 @@ def reached(m, goal):
             and (m.py + 15) >> 4 == goal[3])
 
 
-def plan(m0, goal, max_nodes=400000, unhurt=True):
+def plan(m0, goal, max_nodes=800000, unhurt=True):
     """the pad buttons, frame by frame, that take the model from m0 to the
     goal: A* over the model, HOLD frames an action.  unhurt: only ways
     that cost no energy"""
