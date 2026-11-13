@@ -24,17 +24,23 @@ SCREEN
 
 FILES ON THE CARD
     LAMP.PLC        the program (x0100-x3FFF)
-    LAMP/An.TS      area n's tile set and sprites: 4 pages of tables to
+    LAMP/An.TS      area n's tile set and sprites: 6 pages of tables to
                     x4000 (tile routine addresses, tile attributes, sprite
-                    routine addresses), then a straight image of the RAM
+                    routine addresses, the area's creatures), then a
+                    straight image of the RAM
                     from x6000: the tile routines and the sprite routines,
                     in the video RAM the screen leaves free
     LAMP/Rnn.RM     room nn (hex): the tile map (32 x 16, 512 bytes) to
-                    x4400, then its header (size, exits, name) to x4600
+                    x4600, then its header (size, exits, objects, name) to
+                    x4800
 
-Controls: arrow keys or SNES pad Left / Right to walk, Down to crawl, Z,
-Space or pad B / A to jump (hold for a higher jump), X or pad Y / X to
-fire (hold Up to fire up), Esc back to the DOS.
+Controls: arrow keys or SNES pad Left / Right to walk, Z, Space or pad
+B / A to jump (hold for a higher jump), X or pad Y / X to fire (hold Up to
+fire up), Down to crawl (with the Burrow Rig), Esc back to the DOS.
+
+A room has up to 6 things (creatures, their bolts, items, embers); what a
+kind of thing does, its frames, hits, harm and size are in its area's
+table.  Model.obj_step has the rules.
 
 Date: 11/13/2026
 """
@@ -53,17 +59,32 @@ MODE_PF = 0x0A          # 4 bpp, 4x
 NCOL = 80               # byte columns on the screen (2 pixels each)
 NROW = 112              # pixel rows (cells)
 MAP_W, MAP_H = 32, 16   # the largest room, tiles
-LINE_GO = 240           # frame_poll's line value where the drawing starts
-                        # (screen row 416: the beam is in the last tile row)
+LINE_GO = 235           # frame_poll's line value where the drawing starts
+                        # (screen row 396, 20 lines above the last tile row: a
+                        # tile row takes about 16 lines' time to draw, so the
+                        # beam has left each row when the drawing gets to it)
 GRAV = 0x28             # cells / 256 a frame a frame
 JUMPV = 0x0400
 JUMP_CUT = 0x0100       # the rise left when the jump key is let go
 MAXFALL = 0x0400
+SAILV = 0x0060          # the fall with the Ash Sail open (the jump key held)
 SHOT_FRAMES = 30
 DOOR_FRAMES = 150
 CAM_X, CAM_Y = 36, 48   # the hero's place on the screen
 START_ROOM, START_X, START_Y = 0, 24, 80
 START_ENERGY = 30
+START_EMAX = 50
+FLASK = 25              # an Oil Flask: that much more energy
+EMBER = 5               # an ember: that much energy back
+AIRV = 0x0380           # the Updraft Bellows' jump in the air
+HURTV = 0x0200          # the hop when Wick is hurt
+INV_FRAMES = 60         # no harm for that long after a hit
+PUFF_FRAMES = 12
+BOLT_FRAMES = 90        # what a creature spits lasts that long
+DROP_NEAR = 12          # a dropper falls when Wick is that many byte columns from under it
+EMBER_FRAMES = 250
+MSG_FRAMES = 240
+MAXOBJ = 6              # things in a room: creatures, items, embers
 
 # input bits
 IN_RIGHT, IN_LEFT, IN_JUMP, IN_FIRE, IN_UP, IN_DOWN = 1, 2, 4, 8, 16, 32
@@ -77,9 +98,15 @@ EX_L, EX_R, EX_U, EX_D = 1, 2, 3, 4
 
 # RAM
 TS_LO, TS_HI, ATTR, FR = 0x4000, 0x4100, 0x4200, 0x4300
-TABLES_END = 0x4400
-MAP = 0x4400            # 2 pages: tile number * 8 of tile (tx, ty) at (ty << 5) | tx
-HDR = 0x4600            # the room's header
+SPEC = 0x4400           # the area's kinds of things: what they do, frame, hits, harm
+SPEC_BEH, SPEC_FRAME, SPEC_HP, SPEC_DMG, SPEC_ANIM = 0x00, 0x10, 0x20, 0x30, 0x40
+SPEC_DIRM, SPEC_W, SPEC_H, SPEC_SPIT, SPEC_WIDE = 0x50, 0x60, 0x70, 0x80, 0x90
+TABLES_END = 0x4600
+MAP = 0x4600            # 2 pages: tile number * 8 of tile (tx, ty) at (ty << 5) | tx
+HDR = 0x4800            # the room's header
+OBJ = 0x5500            # the room's things
+O_KIND, O_X, O_Y, O_D, O_T, O_HP, O_P = 0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30
+GOT = 0x5600            # item n is found
 SL = 0x5400             # the sprite list
 SL_LO, SL_HI, SL_C, SL_G = 0x00, 0x10, 0x20, 0x30
 MAX_SPR = 16
@@ -87,6 +114,16 @@ SD_OVL = 0x6000
 # the header page
 H_W, H_H, H_AREA, H_NOBJ, H_RW, H_RCY, H_RWX, H_RHY = range(8)
 HX_SIDE, HX_LO, HX_HI, HX_DEST, HX_DELTA = 0x10, 0x18, 0x20, 0x28, 0x30
+HO_KIND, HO_X, HO_Y, HO_P = 0x40, 0x48, 0x50, 0x58
+# what a thing does
+# (B_WALK and above: a shot hurts it)
+B_ITEM, B_EMBER, B_PUFF, B_BOLT, B_WALK, B_FLY, B_SIT, B_DROP = range(8)
+# the kinds every area has
+S_NONE, S_ITEM, S_EMBER, S_PUFF, S_BOLT = range(5)
+# items: the type is the upper 3 bits of a thing's parameter, the item's
+# number (its GOT flag) the lower 5
+I_FLASK, I_RIG, I_BELLOWS, I_SAIL = range(4)
+IT_RIG, IT_BELLOWS, IT_SAIL = 1, 2, 4       # bits of 'items'
 H_NAME = 0x80
 NAME_W = 40
 
@@ -150,6 +187,251 @@ F_STAND, F_RUN1, F_RUN2, F_JUMP, F_CRAWL = range(NPF)
 F_SHOT = 2 * NPF
 
 
+def tall(rows, above):
+    art = ["................"] * above + rows
+    art += ["................"] * (16 - len(art))
+    assert len(art) == 16 and all(len(r) == 16 for r in art), rows
+    return art
+
+
+ITEM_ART = [
+    tall(["......bbbb......",        # an Oil Flask
+          "......b77b......",
+          ".......bb.......",
+          "......b88b......",
+          ".....b8dd8b.....",
+          "....b8dddd8b....",
+          "....b8dedd8b....",
+          "....b8dddd8b....",
+          "....b8dddd8b....",
+          ".....b8dd8b.....",
+          "......bbbb......"], 5),
+    tall(["....bbbbbbbb....",        # the Burrow Rig
+          "...b33333333b...",
+          "...b3a3333a3b...",
+          "...b33333333b...",
+          "....bbbbbbbb....",
+          "..777777777777..",
+          ".7e7e7e7e7e7e7e.",
+          "..777777777777.."], 8),
+    tall(["......e.........",        # the Updraft Bellows
+          ".....eae........",
+          "......e.........",
+          "..66666666......",
+          ".6dddddddd6.....",
+          ".6dddddddd6bbbb.",
+          ".6d6d6d6dd6b....",
+          ".6dddddddd6bbbb.",
+          ".6dddddddd6.....",
+          "..66666666......"], 6),
+    tall(["....bbbbbbbb....",        # the Ash Sail
+          "...baaaaaaaab...",
+          "..baaaaaaaaaab..",
+          "..baabaabaabab..",
+          "..b..b..b..b.b..",
+          "...7...77...7...",
+          "....7..77..7....",
+          ".....7.77.7.....",
+          "......7777......",
+          ".......dd......."], 5),
+]
+ITEM_MSG = ["OIL FLASK: THE LANTERN HOLDS MORE", "BURROW RIG: HOLD DOWN TO CRAWL",
+            "UPDRAFT BELLOWS: JUMP AGAIN IN THE AIR", "ASH SAIL: HOLD JUMP TO FALL SLOWLY"]
+MSG_DEAD = "THE LANTERN WENT OUT"
+EMBER_ART = [
+    tall(["......dd........",
+          ".....deed.......",
+          ".....deed.......",
+          "......dd........"], 6),
+    tall(["......e.........",
+          ".....ede........",
+          "....edade.......",
+          ".....ede........",
+          "......e........."], 5),
+]
+PUFF_ART = [
+    tall([".....b..b.......",
+          "...b......b.....",
+          "......aa........",
+          "..b..a..a..b....",
+          "......aa........",
+          "...b......b.....",
+          ".....b..b......."], 4),
+    tall(["....b....b......",
+          "................",
+          ".b..........b...",
+          "................",
+          "......7..7......",
+          "................",
+          ".b..........b...",
+          "................",
+          "....b....b......"], 2),
+]
+BOLT_ART = [
+    tall(["..dddd..........",
+          ".deeeed.........",
+          "deeaaeed........",
+          "deeaaeed........",
+          ".deeeed.........",
+          "..dddd.........."], 1),
+    tall(["...dd...........",
+          "..deed..........",
+          ".deaaed.........",
+          ".deaaed.........",
+          "..deed..........",
+          "...dd..........."], 1),
+]
+MITE_ART = [
+    tall(["....22222222....",
+          "...2555555552...",
+          "..255c55555552..",
+          ".25c5555555a152.",
+          ".2555555555a152.",
+          "2555555555555552",
+          "2222222222222222",
+          ".6..6..6..6..6..",
+          ".6..6..6..6..6..",
+          "66.66.66.66.66.."], 6),
+    tall(["....22222222....",
+          "...2555555552...",
+          "..255c55555552..",
+          ".25c5555555a152.",
+          ".2555555555a152.",
+          "2555555555555552",
+          "2222222222222222",
+          "..6..6..6..6..6.",
+          "..6..6..6..6..6.",
+          "..66.66.66.66.66"], 6),
+]
+DRIP_ART = [
+    tall(["......7777......",
+          ".....799997.....",
+          ".....799997.....",
+          "....79999997....",
+          "....79f99997....",
+          "....79999997....",
+          ".....799997.....",
+          ".....799997.....",
+          "......7997......",
+          ".......77......."], 0),
+    tall(["......7777......",
+          ".....799997.....",
+          ".....799997.....",
+          "....79999997....",
+          "....79f99997....",
+          "....79999997....",
+          "....79999997....",
+          ".....799997.....",
+          ".....799997.....",
+          "......7997......",
+          "......7997......",
+          ".......77......."], 0),
+]
+SPORECAP_ART = [
+    ["................",
+     "................",
+     "................",
+     "................",
+     ".....444444.....",
+     "...4444e44444...",
+     "..44e444444e44..",
+     ".4444444e444444.",
+     ".44e44444444e44.",
+     ".44444444444444.",
+     "..bbbbbbbbbbbb..",
+     ".....baaab......",
+     ".....ba1ab......",
+     ".....baaab......",
+     "....bbaaabb.....",
+     "...bbbbbbbbb...."],
+    ["................",
+     "................",
+     "................",
+     "......4444......",
+     "....44444444....",
+     "...44e4444e44...",
+     "..444444e44444..",
+     ".44e444444444e4.",
+     ".444444e4444444.",
+     ".44444444444444.",
+     "..bbbbbbbbbbbb..",
+     ".....baaab......",
+     ".....ba1ab......",
+     ".....baaab......",
+     "....bbaaabb.....",
+     "...bbbbbbbbb...."],
+]
+# Bramblejaw: its left half; the right half is the mirror of it
+JAW_HALF = [
+    "................",
+    "..........f.....",
+    ".....f...9f9....",
+    "....9f9..999...9",
+    "....999.99999.99",
+    ".....9999999999f",
+    "....99ffffffffff",
+    "...99fff99999999",
+    "..99ff9999999999",
+    ".99ff99aaaa99999",
+    ".9ff999a44a99999",
+    "99f9999aaaa99999",
+    "9ff9999999999999",
+    "9f99999999999999",
+    "9f999eeeeeeeeeee",
+    "9f99e4e4e4e4e4e4",
+    "9f99444444444444",
+    "9f99e4e4e4e4e4e4",
+    "9ff99eeeeeeeeeee",
+    ".9f9999999999999",
+    ".99ff99999999999",
+    "..99fff999999999",
+    "...999ffffffffff",
+    ".....99999999999",
+    "......6699996666",
+    ".....66.6996..66",
+    "....66..666...66",
+    "...66...66....66",
+    "..66....66...66.",
+    "..6.....6....6..",
+    ".66....66...66..",
+    "666...666..666..",
+]
+JAW_SHUT = {15: "9f99eeeeeeeeeeee", 16: "9f99e9e9e9e9e9e9", 17: "9f99eeeeeeeeeeee",
+            28: "...66...66....66", 29: "...6....6.....6.", 30: "..66...66....66.", 31: ".666..666...666."}
+
+
+def jaw(shut):
+    rows = [JAW_SHUT.get(i, r) if shut else r for i, r in enumerate(JAW_HALF)]
+    assert len(rows) == 32 and all(len(r) == 16 for r in rows)
+    return [r + r[::-1] for r in rows]
+
+
+def recolor(art, old, new):
+    return [[r.translate(str.maketrans(old, new)) for r in a] for a in art]
+
+
+MOTH_ART = [
+    tall(["..b..........b..",
+          ".bab........bab.",
+          ".baab......baab.",
+          ".baaab....baaab.",
+          "..baaab22baaab..",
+          "...baa2552aab...",
+          "....bb2ee2bb....",
+          ".....225522.....",
+          "......2552......",
+          "......2222......",
+          ".......22......."], 1),
+    tall(["......2222......",
+          "..bbbb2552bbbb..",
+          ".baaaa2ee2aaaab.",
+          ".baaab2552baaab.",
+          ".baab.2552.baab.",
+          ".bab..2222..bab.",
+          "..b....22....b.."], 5),
+]
+
+
 def hero(name):
     art = HERO_CRAWL if name == 'crawl' else HERO_TOP + HERO_LEGS[name]
     assert len(art) == 16 and all(len(r) == 16 for r in art), name
@@ -163,10 +445,28 @@ def common_frames():
             art = hero(f)
             fr.append((('L_' if flip else 'R_') + f, [r[::-1] for r in art] if flip else art))
     fr.append(('shot', SHOT))
+    for i, art in enumerate(ITEM_ART):
+        fr.append(('item%d' % i, art))
+    fr += [('ember0', EMBER_ART[0]), ('ember1', EMBER_ART[1]), ('puff0', PUFF_ART[0]), ('puff1', PUFF_ART[1]),
+           ('bolt0', BOLT_ART[0]), ('bolt1', BOLT_ART[1])]
     return fr
 
 
 COMMON = common_frames()
+F_ITEM = F_SHOT + 1
+F_EMBER = F_ITEM + len(ITEM_ART)
+F_PUFF = F_EMBER + 2
+F_BOLT = F_PUFF + 2
+# a kind of thing: (name, what it does, frame, hits, harm, animated, the bits
+# of its direction that pick a frame, width in byte columns, height in
+# cells, spits when its timer & this is 0 (0: never), frame offset of its
+# right half (0: 16 pixels wide))
+K_NAME, K_BEH, K_FRAME, K_HP, K_DMG, K_ANIM, K_DIRM, K_W, K_H, K_SPIT, K_WIDE = range(11)
+# the kinds every area has
+COMMON_SPEC = [('none', B_ITEM, 0, 0, 0, 0, 0, 8, 16, 0, 0), ('item', B_ITEM, F_ITEM, 0, 0, 0, 7, 8, 16, 0, 0),
+               ('ember', B_EMBER, F_EMBER, 0, 0, 1, 0, 8, 16, 0, 0),
+               ('puff', B_PUFF, F_PUFF, 0, 0, 1, 0, 8, 16, 0, 0),
+               ('bolt', B_BOLT, F_BOLT, 0, 6, 1, 0, 4, 8, 0, 0)]
 
 # ---------------------------------------------------------------------------
 # tiles (16 x 16, one hex digit a pixel).  Tiles 0-4 are the same in every
@@ -268,6 +568,52 @@ AREAS = [
         ('U', rock('under'), A_SOLID),
         ('_', half(False, '7', 'b', '1'), A_BOT),
         ('=', half(True, '7', 'b', '1'), A_TOP),
+    ], creatures=[
+        dict(name='mite', beh=B_WALK, hp=2, dmg=8, art=MITE_ART),
+        dict(name='moth', beh=B_FLY, hp=1, dmg=5, art=MOTH_ART),
+        dict(name='drip', beh=B_DROP, hp=1, dmg=6, art=DRIP_ART),
+    ]),
+]
+
+
+def plant(kind):
+    """scenery of the Gardens: 'g' a glasswort, 'v' a hanging vine"""
+    g = grid()
+    if kind == 'g':
+        for y in range(4, 16):
+            g[y][7], g[y][8] = ('a' if y % 4 == 0 else '8'), '3'
+        for x, y in ((6, 7), (5, 6), (4, 5), (4, 4), (9, 10), (10, 9), (11, 8), (11, 7), (11, 6)):
+            g[y][x] = '8'
+        g[3][4] = g[5][11] = g[3][7] = 'a'
+    else:
+        for y in range(0, 12):
+            g[y][4] = 'f' if y % 3 == 0 else '9'
+        for y in range(0, 7):
+            g[y][11] = 'f' if y % 3 == 1 else '9'
+        g[12][4] = g[7][11] = 'e'
+    return done(g)
+
+
+GARDEN_TILES = [
+    (',', specks([(3, 2, '9'), (11, 6, '1'), (6, 12, '9'), (13, 13, '8')]), 0),
+    ('#', rock('in', '6', 'f', '1', '9'), A_SOLID),
+    ('T', rock('top', '6', 'f', '1', '9'), A_SOLID),
+    ('U', rock('under', '6', 'f', '1', '9'), A_SOLID),
+    ('_', half(False, '6', 'f', '1'), A_BOT),
+    ('=', half(True, '6', 'f', '1'), A_TOP),
+    ('g', plant('g'), 0),
+    ('v', plant('v'), 0),
+]
+AREAS += [
+    dict(name='THE GLASSWORT GARDENS', tiles=GARDEN_TILES, creatures=[
+        dict(name='mossback', beh=B_WALK, hp=3, dmg=8, art=recolor(MITE_ART, '25c', '9fe')),
+        dict(name='gnat', beh=B_FLY, hp=1, dmg=5, art=recolor(MOTH_ART, 'ba25', 'de6d')),
+        dict(name='sporecap', beh=B_SIT, hp=2, dmg=6, art=recolor(SPORECAP_ART, '4', '2'), spit=127),
+        dict(name='drip', beh=B_DROP, hp=1, dmg=6, art=DRIP_ART),
+    ]),
+    # (the den has its own set: Bramblejaw's frames take the room of the others)
+    dict(name="BRAMBLEJAW'S DEN", tiles=GARDEN_TILES, creatures=[
+        dict(name='bramblejaw', beh=B_WALK, hp=32, dmg=12, art=[jaw(False), jaw(True)], spit=31),
     ]),
 ]
 
@@ -276,9 +622,12 @@ AREAS = [
 # room, delta): leaving by that side between tiles lo and hi (rows for L
 # and R, columns for U and D) leads to the room, delta tiles along the edge.
 # The edge column of an L / R exit is open; its door stands one tile in.
+# objs: (creature, tx, ty), (creature, tx, ty, item type, number) when it
+# leaves that item, or ('item', tx, ty, type, number): the thing's box
+# starts at that tile.  Item numbers are 1-31.
 # ---------------------------------------------------------------------------
 ROOMS = [
-    dict(name='LANDING LEDGE', area=0, exits=[('R', 4, 5, 1, -2)], rows=[
+    dict(name='LANDING LEDGE', area=0, exits=[('R', 4, 5, 1, -2)], objs=[('mite', 12, 5), ('drip', 8, 1)], rows=[
         "########################",
         "#,        ,           ##",
         "#     ,         ,     ##",
@@ -287,7 +636,7 @@ ROOMS = [
         "#   ##         __     E ",
         "########################"]),
     dict(name='THE WELLSHAFT, UPPER', area=0,
-         exits=[('L', 2, 3, 0, 2), ('R', 8, 9, 2, -4), ('D', 4, 5, 3, 0)], rows=[
+         exits=[('L', 2, 3, 0, 2), ('R', 8, 9, 2, -4), ('D', 4, 5, 3, 0)], objs=[('moth', 4, 11)], rows=[
         "##########",
         "##   ,  ##",
         " D      ##",
@@ -304,7 +653,8 @@ ROOMS = [
         "##     _##",
         "##      ##",
         "####  ####"]),
-    dict(name="KEEPER'S DUCT", area=0, exits=[('L', 4, 5, 1, 4)], rows=[
+    dict(name="KEEPER'S DUCT", area=0, exits=[('L', 4, 5, 1, 4)],
+         objs=[('item', 26, 5, I_FLASK, 1), ('mite', 6, 5), ('moth', 27, 3)], rows=[
         "#" * 32,
         "#######" + " " * 10 + "#" * 15,
         "#######" + "   ,      " + "#######" + "  ,   " + "##",
@@ -313,7 +663,7 @@ ROOMS = [
         " E" + " " * 8 + "=" * 13 + "   ,   " + "##",
         "#" * 32]),
     dict(name='THE WELLSHAFT, LOWER', area=0,
-         exits=[('U', 4, 5, 1, 0), ('L', 13, 14, 4, -4), ('R', 13, 14, 5, -9)], rows=[
+         exits=[('U', 4, 5, 1, 0), ('L', 13, 14, 4, -4), ('R', 13, 14, 5, -9)], objs=[('moth', 4, 7)], rows=[
         "####  ####",
         "##      ##",
         "##  ##  ##",
@@ -330,20 +680,22 @@ ROOMS = [
         " D      D ",
         " E      E ",
         "##########"]),
-    dict(name='WEST GALLERY', area=0, exits=[('R', 9, 10, 3, 4)], rows=[
+    dict(name='WEST GALLERY', area=0, exits=[('R', 9, 10, 3, 4), ('L', 10, 10, 6, -5)],
+         objs=[('item', 3, 5, I_RIG, 3), ('mite', 10, 10), ('mite', 20, 10), ('moth', 20, 5)], rows=[
         "################################",
         "#        ####          ,       #",
         "#  ,                ,          #",
         "#          ,    __             #",
-        "#    ###              ####     #",
+        "#                     ####     #",
         "#        ,                     #",
         "#  __         ####         ,   #",
         "#                          __  #",
         "#       ###          ,         #",
         "# ,              ##           D ",
-        "#     __     ,          ###   E ",
+        "==    __     ,          ###   E ",
         "################################"]),
-    dict(name='EAST GATE', area=0, exits=[('L', 4, 5, 3, 9)], rows=[
+    dict(name='EAST GATE', area=0, exits=[('L', 4, 5, 3, 9)],
+         objs=[('mite', 9, 5), ('drip', 12, 1)], rows=[
         "####################",
         "#        ,         #",
         "#   ,              #",
@@ -351,6 +703,107 @@ ROOMS = [
         " D     __        ###",
         " E  ##         #####",
         "####################"]),
+    # ---- the Glasswort Gardens
+    dict(name='GLASSWORT GATE', area=1, exits=[('R', 5, 5, 4, 5), ('L', 4, 5, 7, -2)],
+         objs=[('mossback', 12, 5), ('gnat', 8, 2)], rows=[
+        "########################",
+        "#v    v    ,     v    ##",
+        "#        ,          ####",
+        "#   ,        ##      ###",
+        " D        g       g  ###",
+        " E   g   ##   g   ##  ==",
+        "########################"]),
+    dict(name='THE CONSERVATORY', area=1,
+         exits=[('R', 2, 3, 6, 2), ('L', 7, 8, 8, -2), ('R', 11, 12, 9, -2), ('D', 4, 5, 11, 0)],
+         objs=[('gnat', 4, 5), ('drip', 3, 1)], rows=[
+        "##########",
+        "##  v   ##",
+        "##      D ",
+        "##      E ",
+        "##   #####",
+        "##     ,##",
+        "##__    ##",
+        " D      ##",
+        " E    __##",
+        "####    ##",
+        "## g    ##",
+        "##  __  D ",
+        "##      E ",
+        "##   #####",
+        "##    ####",
+        "####  ####"]),
+    dict(name='FROND WALK', area=1, exits=[('R', 5, 6, 7, 2)],
+         objs=[('item', 3, 3, I_FLASK, 4), ('mossback', 15, 6), ('gnat', 20, 2), ('drip', 10, 1),
+               ('sporecap', 5, 6)], rows=[
+        "################################",
+        "#   v      v        ####   v   #",
+        "#                              #",
+        "#     ,       __        ,      #",
+        "#  __              ###         #",
+        "#        ###   g          __  D ",
+        "#  g    #####      g   ##     E ",
+        "################################"]),
+    dict(name='SPORE HALL', area=1, exits=[('L', 9, 10, 7, 2), ('R', 5, 6, 10, -1)],
+         objs=[('sporecap', 17, 10), ('mossback', 22, 10), ('sporecap', 19, 5), ('gnat', 10, 2),
+               ('drip', 5, 5)], rows=[
+        "################################",
+        "#    v        v         v      #",
+        "#                              #",
+        "#           ,        __        #",
+        "#   ###          ,        ###  #",
+        "#          __                 D ",
+        "#                 ####        E ",
+        "#      ,                  ######",
+        "#  __       ###     ,     ######",
+        " D                  __       ###",
+        " E     g    ##            g  ###",
+        "################################"]),
+    dict(name='BELLOWS NOOK', area=1, exits=[('L', 4, 5, 9, 1)],
+         objs=[('item', 8, 5, I_BELLOWS, 2)], rows=[
+        "############",
+        "#  v    v ##",
+        "#         ##",
+        "#     ,   ##",
+        " D        ##",
+        " E   g    ##",
+        "############"]),
+    dict(name='ROOT CELLAR', area=1, exits=[('U', 4, 5, 7, 0), ('L', 13, 14, 12, -8)],
+         objs=[('gnat', 4, 7), ('drip', 6, 1)], rows=[
+        "####  ####",
+        "##      ##",
+        "##  ##  ##",
+        "##      ##",
+        "## ,  _ ##",
+        "##      ##",
+        "## _    ##",
+        "##    , ##",
+        "##   __ ##",
+        "##      ##",
+        "## _    ##",
+        "## ,    ##",
+        "##    _ ##",
+        " D      ##",
+        " E      ##",
+        "##########"]),
+    dict(name='THORN GATE', area=1, exits=[('R', 5, 6, 11, 8), ('L', 5, 6, 13, -1)],
+         objs=[('sporecap', 10, 2), ('mossback', 16, 6)], rows=[
+        "########################",
+        "#   v       v      v   #",
+        "#                      #",
+        "#         ##           #",
+        "#         ##     ,     #",
+        " D        ##          D ",
+        " E   g    ##      g   E ",
+        "########################"]),
+    dict(name="BRAMBLEJAW'S DEN", area=2, exits=[('R', 4, 5, 12, 1)],
+         objs=[('bramblejaw', 4, 4, I_SAIL, 5)], rows=[
+        "####################",
+        "#   v     v     v  #",
+        "#                  #",
+        "#                  #",
+        "#                 D ",
+        "#                 E ",
+        "############ #######"]),
 ]
 SIDES = {'L': EX_L, 'R': EX_R, 'U': EX_U, 'D': EX_D}
 
@@ -376,7 +829,35 @@ class Area:
         for i, (_, _, at) in enumerate(self.tiles):
             self.attr[8 * i] = at
         self.frames = list(COMMON)
+        self.spec = list(COMMON_SPEC)
+        for c in AREAS[n].get('creatures', []):
+            name, art = c['name'], c['art']
+            assert len(art) == 2
+            w = len(art[0][0]) // 2
+            assert w in (8, 16) and all(len(r) == 2 * w for a in art for r in a), name
+            wide = w == 16
+            self.spec.append((name, c['beh'], len(self.frames), c['hp'], c['dmg'], 1, 0 if wide else 2, w,
+                              len(art[0]), c.get('spit', 0), 2 if wide else 0))
+            if wide:        # (it looks the same both ways) the left halves, then the right
+                for half in (0, 1):
+                    for k, a in enumerate(art):
+                        self.frames.append(('%s_%d%d' % (name, half, k), [r[16 * half:16 * half + 16] for r in a]))
+                continue
+            for flip in (False, True):
+                for k, a in enumerate(art):
+                    self.frames.append(('%s_%s%d' % (name, 'LR'[not flip], k), [r[::-1] for r in a] if flip else a))
+        assert len(self.spec) <= 16 and len(self.frames) <= 128
+        self.kind = {sp[0]: i for i, sp in enumerate(self.spec)}
         self.frame_id = {nm: i for i, (nm, _) in enumerate(self.frames)}
+
+    def spec_page(self):
+        pg = bytearray(256)
+        for i, sp in enumerate(self.spec):
+            for off, k in ((SPEC_BEH, K_BEH), (SPEC_FRAME, K_FRAME), (SPEC_HP, K_HP), (SPEC_DMG, K_DMG),
+                           (SPEC_ANIM, K_ANIM), (SPEC_DIRM, K_DIRM), (SPEC_W, K_W), (SPEC_H, K_H),
+                           (SPEC_SPIT, K_SPIT), (SPEC_WIDE, K_WIDE)):
+                pg[off + i] = sp[k]
+        return bytes(pg)
 
 
 class Room:
@@ -405,6 +886,24 @@ class Room:
                 self.map[ty * MAP_W + tx] = self.area.num[ch]
         self.exits = [(SIDES[s], lo, hi, dest, delta) for s, lo, hi, dest, delta in r['exits']]
         assert len(self.exits) <= 8
+        self.objs = []          # (kind, byte column, cell, parameter)
+        for o in r.get('objs', []):
+            tx, ty = o[1], o[2]
+            assert not self.area.attr[self.map[ty * MAP_W + tx]] & A_SOLID, (r['name'], o)
+            prm = 0
+            if len(o) > 3:
+                assert o[3] < len(ITEM_ART) and 0 < o[4] < 32, o
+                prm = o[3] << 5 | o[4]
+            if o[0] == 'item':
+                self.objs.append((S_ITEM, tx * 8, ty * 16, prm))
+            else:
+                k = self.area.kind[o[0]]
+                sp = self.area.spec[k]
+                if sp[K_BEH] in (B_WALK, B_SIT):
+                    below = self.map[(ty + sp[K_H] // 16) * MAP_W + tx]
+                    assert self.area.attr[below] & A_TOP, (r['name'], o)
+                self.objs.append((k, tx * 8, ty * 16, prm))
+        assert len(self.objs) <= MAXOBJ, r['name']
         self.rw = self.w * 8 - NCOL
         self.rcy = self.h * 16 - NROW
         self.rwx = self.w * 8 - 8
@@ -417,6 +916,9 @@ class Room:
         for i, (side, lo, hi, dest, delta) in enumerate(self.exits):
             h[HX_SIDE + i], h[HX_LO + i], h[HX_HI + i] = side, lo, hi
             h[HX_DEST + i], h[HX_DELTA + i] = dest, delta & 255
+        h[H_NOBJ] = len(self.objs)
+        for i, (k, x, y, p) in enumerate(self.objs):
+            h[HO_KIND + i], h[HO_X + i], h[HO_Y + i], h[HO_P + i] = k, x, y, p
         assert len(self.name) <= NAME_W
         h[H_NAME:H_NAME + NAME_W] = self.name.ljust(NAME_W).encode('ascii')
         return bytes(h)
@@ -429,16 +931,18 @@ def check_rooms():
     """every exit's edge tiles are open, lead to an exit back, and land in the open"""
     rooms = [Room(n) for n in range(len(ROOMS))]
     opp = {EX_L: EX_R, EX_R: EX_L, EX_U: EX_D, EX_D: EX_U}
+    ids = [o[3] & 31 for rm in rooms for o in rm.objs if o[3]]
+    assert len(ids) == len(set(ids)), 'two items with one number'
     for rm in rooms:
         ar = rm.area
         for side, lo, hi, dest, delta in rm.exits:
             d = rooms[dest]
             for p in range(lo, hi + 1):
                 tx, ty = {EX_L: (0, p), EX_R: (rm.w - 1, p), EX_U: (p, 0), EX_D: (p, rm.h - 1)}[side]
-                assert not ar.attr[rm.map[ty * MAP_W + tx]] & A_SOLID, (rm.name, side, p)
+                assert ar.attr[rm.map[ty * MAP_W + tx]] & A_SOLID != A_SOLID, (rm.name, side, p)
                 q = p + delta
                 tx, ty = {EX_L: (d.w - 1, q), EX_R: (0, q), EX_U: (q, d.h - 1), EX_D: (q, 0)}[side]
-                assert not d.area.attr[d.map[ty * MAP_W + tx]] & A_SOLID, (rm.name, side, p, d.name)
+                assert d.area.attr[d.map[ty * MAP_W + tx]] & A_SOLID != A_SOLID, (rm.name, side, p, d.name)
                 back = [e for e in d.exits if e[0] == opp[side] and e[1] <= q <= e[2] and e[3] == rm.n
                         and e[4] == -delta]
                 assert back, (rm.name, side, p, d.name)
@@ -589,8 +1093,23 @@ ex_i       = 0x7B
 ex_d       = 0x7C
 sv_lo      = 0x7D       ; side_free's return address
 sv_hi      = 0x7E
-items      = 0x7F
+items      = 0x7F       ; the power-ups found: 1 Burrow Rig, 2 Updraft Bellows, 4 Ash Sail
 tcnt       = 0x80       ; byte columns left of the tile being drawn
+ob_i       = 0x81       ; the thing being moved, and a copy of it:
+ob_k       = 0x82       ;   its kind (0: none)
+ob_x       = 0x83       ;   byte column, cell
+ob_y       = 0x84
+ob_d       = 0x85       ;   0 right, 2 left (an item: its type)
+ob_t       = 0x86       ;   its timer
+ob_hp      = 0x87       ;   hits left
+ob_p       = 0x88       ;   an item: type << 5 | number
+ob_b       = 0x89       ;   what it does (B_...)
+inv        = 0x8A       ; frames Wick cannot be hurt
+ajump      = 0x8B       ; the jump in the air is used
+msg        = 0x8C       ; the message line
+msg_t      = 0x8D
+msg_d      = 0x8E       ;   to be printed
+touchf     = 0x8F       ; the thing touches Wick
 '''
 
 
@@ -689,7 +1208,13 @@ def area_file(n):
             out.extend(lines)
             nstrip += 1
     nhop = 0
+    same = {}
+    alias = {}
     for fi, (name, art) in enumerate(ar.frames):
+        if tuple(art) in same:      # (a creature that looks the same both ways)
+            alias[name] = same[tuple(art)]
+            continue
+        same[tuple(art)] = name
         first = True
         for ch in sprite_rows(name, art):
             size = Asm.size(ch)
@@ -719,9 +1244,9 @@ def area_file(n):
             ts_lo[8 * i + j], ts_hi[8 * i + j] = ad & 255, ad >> 8
     fr = [0] * 256
     for fi, (name, art) in enumerate(ar.frames):
-        ad = syms['spr_' + name]
+        ad = syms['spr_' + alias.get(name, name)]
         fr[fi], fr[128 + fi] = ad & 255, ad >> 8
-    block = bytes(ts_lo) + bytes(ts_hi) + bytes(ar.attr) + bytes(fr)
+    block = bytes(ts_lo) + bytes(ts_hi) + bytes(ar.attr) + bytes(fr) + ar.spec_page() + bytes(256)
     assert len(block) == TABLES_END - TS_LO
     top = SD_OVL + ((max(mem) - SD_OVL) // 512 + 1) * 512
     image = bytes(mem.get(a, 0) for a in range(SD_OVL, top))
@@ -741,7 +1266,9 @@ class Model:
         self.px, self.py, self.pyf, self.vy = START_X, START_Y, 0, 0
         self.onground = self.facing = self.moving = self.crawl = 0
         self.inp = self.fcnt = 0
-        self.energy = START_ENERGY
+        self.energy, self.emax = START_ENERGY, START_EMAX
+        self.items = self.inv = self.ajump = self.msg = self.msg_t = 0
+        self.got = bytearray(32)
         self.shots = [[0, 0, 0, 0, 0] for _ in range(3)]    # t, x, y, dx, dy
         self.door_t = self.door_c = self.door_x = 0
         self.sx = self.sy = 0
@@ -753,6 +1280,8 @@ class Model:
         m.__dict__.update(self.__dict__)
         m.map = bytearray(self.map)
         m.shots = [list(s) for s in self.shots]
+        m.objs = [list(o) for o in self.objs]
+        m.got = bytearray(self.got)
         return m
 
     def enter(self, n):
@@ -762,6 +1291,133 @@ class Model:
         self.attr = self.rm.area.attr
         self.shots = [[0, 0, 0, 0, 0] for _ in range(3)]
         self.door_t = 0
+        self.spec = self.rm.area.spec
+        self.objs = [[0] * 7 for _ in range(MAXOBJ)]    # kind, x, y, d, t, hp, p
+        for o, (k, x, y, p) in zip(self.objs, self.rm.objs):
+            if p and self.got[p & 31]:
+                continue
+            o[:] = [k, x, y, p >> 5 if k == S_ITEM else 0, 0, self.spec[k][K_HP], p]
+
+    def beh(self, o):
+        return self.spec[o[0]][K_BEH]
+
+    def touch(self, o):
+        sp = self.spec[o[0]]
+        return (((self.px - o[1] + 5) & 255) < sp[K_W] + 3
+                and ((self.py - o[2] + 13) & 255) < sp[K_H] + (5 if self.crawl else 13))
+
+    def hurt(self, o):
+        if not self.inv:
+            self.energy = max(self.energy - self.spec[o[0]][K_DMG], 0)
+            self.inv = INV_FRAMES
+            if not self.crawl:
+                self.vy = -HURTV
+
+    def front(self, o, row):
+        """the thing cannot step the way it faces -> (blocked?, the byte column in front)"""
+        if o[3] == 0:
+            if o[1] >= self.rm.rwx:
+                return True, 0
+            fx = o[1] + self.spec[o[0]][K_W]
+        else:
+            if o[1] < 2:
+                return True, 0
+            fx = o[1] - 1
+        return bool(self.solid(fx, o[2] + row)), fx
+
+    def restart(self):
+        self.px, self.py, self.pyf, self.vy = START_X, START_Y, 0, 0
+        self.crawl = self.inv = 0
+        self.energy = START_ENERGY
+        self.msg, self.msg_t = len(ITEM_MSG) + 1, MSG_FRAMES
+        self.enter(START_ROOM)
+        self.camera()
+
+    def obj_step(self, o):
+        b = self.beh(o)
+        touch = self.touch(o)
+        if b == B_ITEM:
+            if touch:
+                self.got[o[6] & 31] = 1
+                if o[3] == I_FLASK:
+                    self.emax += FLASK
+                else:
+                    self.items |= 1 << (o[3] - 1)
+                self.energy = self.emax
+                self.msg, self.msg_t = o[3] + 1, MSG_FRAMES
+                o[0] = 0
+            return
+        if b == B_EMBER:
+            o[4] -= 1
+            if not o[4]:
+                o[0] = 0
+            elif touch:
+                self.energy = min(self.energy + EMBER, self.emax)
+                o[0] = 0
+            return
+        if b == B_PUFF:
+            o[4] -= 1
+            if not o[4]:
+                if o[6]:                    # what it guarded
+                    o[0], o[3] = S_ITEM, o[6] >> 5
+                elif self.fcnt & 1:
+                    o[0], o[4] = S_EMBER, EMBER_FRAMES
+                else:
+                    o[0] = 0
+            return
+        sp = self.spec[o[0]]
+        if b == B_BOLT:
+            o[4] -= 1
+            if not o[4] or self.front(o, 4)[0]:
+                o[0] = 0
+                return
+            o[1] += -2 if o[3] else 2
+            if touch:
+                self.hurt(o)
+                o[0] = 0
+            return
+        if b == B_WALK:
+            if self.fcnt & 1:
+                blocked, fx = self.front(o, sp[K_H] - 4)
+                if blocked or not self.solid(fx, o[2] + sp[K_H]):
+                    o[3] ^= 2
+                else:
+                    o[1] += -1 if o[3] else 1
+        elif b == B_FLY:
+            o[4] = (o[4] + 1) & 63
+            if o[4] & 1:
+                if self.front(o, 8)[0]:
+                    o[3] ^= 2
+                else:
+                    o[1] += -1 if o[3] else 1
+            elif o[4] & 32:                 # down for 16 frames, up for 16
+                if not self.solid(o[1] + 4, o[2] + 16):
+                    o[2] = (o[2] + 1) & 255
+            elif not self.solid(o[1] + 4, o[2] - 1):
+                o[2] = (o[2] - 1) & 255
+        elif b == B_SIT:
+            o[3] = 2 if self.px < o[1] else 0
+        elif b == B_DROP:
+            if not o[4]:
+                if (self.px - o[1] + DROP_NEAR) & 255 < 2 * DROP_NEAR + 1:
+                    o[4] = 1
+            elif self.solid(o[1] + 4, o[2] + 16):
+                o[0], o[3], o[4] = S_PUFF, 0, PUFF_FRAMES
+                return
+            else:
+                o[2] = (o[2] + 3) & 255
+        if sp[K_SPIT]:
+            o[4] = (o[4] + 1) & 255
+            if not o[4] & sp[K_SPIT]:
+                for q in self.objs:
+                    if not q[0]:
+                        left = self.px < o[1]
+                        q[:] = [S_BOLT, (o[1] - 4 if left else o[1] + sp[K_W]) & 255,
+                                (o[2] + 4 + ((o[4] >> 2) & (sp[K_H] - 16))) & 255, 2 if left else 0,
+                                BOLT_FRAMES, 0, 0]
+                        break
+        if touch:
+            self.hurt(o)
 
     def at(self, x, y):
         """(solid?, attributes, map index) of byte column x, cell y"""
@@ -828,7 +1484,7 @@ class Model:
         prev, self.inp = self.inp, inp
         self.fcnt = (self.fcnt + 1) & 255
         # crawling
-        if inp & IN_DOWN and self.onground:
+        if inp & IN_DOWN and self.onground and self.items & IT_RIG:
             self.crawl = 1
         elif self.crawl and not (self.solid(self.px + 1, self.py) or self.solid(self.px + 6, self.py)):
             self.crawl = 0
@@ -855,13 +1511,18 @@ class Model:
                 self.px -= 1
         # jumping, gravity
         if inp & IN_JUMP:
-            if not prev & IN_JUMP and self.onground and not self.crawl:
-                self.vy = -JUMPV
+            if not prev & IN_JUMP and not self.crawl:
+                if self.onground:
+                    self.vy = -JUMPV
+                elif self.items & IT_BELLOWS and not self.ajump:
+                    self.vy = -AIRV
+                    self.ajump = 1
         elif self.vy < -JUMP_CUT:
             self.vy = -JUMP_CUT
         self.vy += GRAV
-        if self.vy >= MAXFALL:
-            self.vy = MAXFALL
+        cap = SAILV if self.items & IT_SAIL and inp & IN_JUMP else MAXFALL
+        if self.vy >= cap:
+            self.vy = cap
         old = self.py
         y = ((self.py << 8 | self.pyf) + self.vy) & 0xFFFF
         self.py, self.pyf = y >> 8, y & 255
@@ -891,6 +1552,7 @@ class Model:
             if land:
                 self.pyf = self.vy = 0
                 self.onground = 1
+                self.ajump = 0
             else:
                 self.onground = 0
         self.camera()
@@ -911,6 +1573,16 @@ class Model:
                 if a & A_DOOR:
                     self.open_door(a, i)
                 s[0] = 0
+                continue
+            for o in self.objs:
+                sp = self.spec[o[0]]
+                if (o[0] and sp[K_BEH] >= B_WALK and (s[1] - o[1]) & 255 < sp[K_W]
+                        and (s[2] - o[2]) & 255 < sp[K_H]):
+                    s[0] = 0
+                    o[5] -= 1
+                    if not o[5]:
+                        o[0], o[3], o[4] = S_PUFF, 0, PUFF_FRAMES
+                    break
         if inp & IN_FIRE and not prev & IN_FIRE and not self.crawl:
             for s in self.shots:
                 if not s[0]:
@@ -930,6 +1602,19 @@ class Model:
                     self.door_t = 1
                 else:
                     self.close_door()
+        # the room's things
+        for o in self.objs:
+            if o[0]:
+                self.obj_step(o)
+        if self.inv:
+            self.inv -= 1
+        if not self.energy:
+            self.restart()
+        # the message line
+        if self.msg_t:
+            self.msg_t -= 1
+            if not self.msg_t:
+                self.msg = 0
 
     def sprites(self):
         """the sprite list: [(frame id, SL_C, SL_G)]"""
@@ -941,10 +1626,20 @@ class Model:
             f = F_RUN1 + ((self.fcnt >> 3) & 1)
         else:
             f = F_STAND
-        out = [(f + NPF * self.facing, (self.px - self.sx + 8) & 255, (self.py - self.sy + 32) & 255)]
+        out = []
+        if not self.inv & 2:
+            out.append((f + NPF * self.facing, (self.px - self.sx + 8) & 255, (self.py - self.sy + 32) & 255))
         for s in self.shots:
             if s[0]:
                 out.append((F_SHOT, (s[1] - self.sx + 8) & 255, (s[2] - self.sy + 32) & 255))
+        for o in self.objs:
+            c, g = (o[1] - self.sx + 8) & 255, (o[2] - self.sy + 32) & 255
+            if o[0] and c < 88 and g < 144:
+                sp = self.spec[o[0]]
+                f = sp[K_FRAME] + ((self.fcnt >> 3) & sp[K_ANIM]) + (o[3] & sp[K_DIRM])
+                out.append((f, c, g))
+                if sp[K_WIDE] and c + 8 < 88:
+                    out.append((f + sp[K_WIDE], c + 8, g))
         return out
 
 
@@ -1012,7 +1707,23 @@ def masm():
                   SL_C=SL_C, SL_G=SL_G, H_AREA=H_AREA, H_RW=H_RW, H_RCY=H_RCY, H_RWX=H_RWX, H_RHY=H_RHY,
                   HX_SIDE=HX_SIDE, HX_LO=HX_LO, HX_HI=HX_HI, HX_DEST=HX_DEST, HX_DELTA=HX_DELTA,
                   H_NAME=H_NAME, T_DT=T_DT, T_DB=T_DB, T_DOT=T_DOT, T_DOB=T_DOB, NPF=NPF, F_RUN1=F_RUN1,
-                  F_JUMP=F_JUMP, F_CRAWL=F_CRAWL, F_SHOT=F_SHOT)
+                  F_JUMP=F_JUMP, F_CRAWL=F_CRAWL, F_SHOT=F_SHOT, START_EMAX=START_EMAX, FLASK=FLASK,
+                  EMBER=EMBER, AIRV_LO=(-AIRV) & 255, AIRV_HI=((-AIRV) >> 8) & 255,
+                  HURTV_HI=((-HURTV) >> 8) & 255, INV_FRAMES=INV_FRAMES, PUFF_FRAMES=PUFF_FRAMES,
+                  EMBER_FRAMES=EMBER_FRAMES, MSG_FRAMES=MSG_FRAMES, MAXOBJ=MAXOBJ, SPEC=SPEC,
+                  SPEC_BEH=SPEC_BEH, SPEC_FRAME=SPEC_FRAME, SPEC_HP=SPEC_HP, SPEC_DMG=SPEC_DMG,
+                  SPEC_ANIM=SPEC_ANIM, SPEC_DIRM=SPEC_DIRM, SPEC_W=SPEC_W, SPEC_H=SPEC_H,
+                  SPEC_SPIT=SPEC_SPIT, SPEC_WIDE=SPEC_WIDE, S_BOLT=S_BOLT, BOLT_FRAMES=BOLT_FRAMES,
+                  DROP_NEAR=DROP_NEAR, OBJ=OBJ, O_KIND=O_KIND, O_X=O_X, O_Y=O_Y, O_D=O_D, O_T=O_T, O_HP=O_HP,
+                  O_P=O_P, GOT=GOT, HO_KIND=HO_KIND, HO_X=HO_X, HO_Y=HO_Y, HO_P=HO_P, B_WALK=B_WALK,
+                  S_ITEM=S_ITEM, S_EMBER=S_EMBER, S_PUFF=S_PUFF, IT_SAIL=IT_SAIL, SAILV=SAILV, IT_RIG=IT_RIG, IT_BELLOWS=IT_BELLOWS,
+                  M_DEAD=len(ITEM_MSG) + 1)
+    assert HURTV & 255 == 0
+    msgs = [''] + ITEM_MSG + [MSG_DEAD]
+    assert all(len(m) <= NAME_W for m in msgs)
+    mtext = '\n'.join('s_m%d: #d "%s", 0x00' % (i, m.ljust(NAME_W)) for i, m in enumerate(msgs))
+    mtab = ('m_lo: #d8 ' + ', '.join('s_m%d & 0xFF' % i for i in range(len(msgs)))
+            + '\nm_hi: #d8 ' + ', '.join('s_m%d >> 8' % i for i in range(len(msgs))))
     head = ['; lamp.asm - LAMPLIGHTER, made by gen_lamp.py from lamp_code.masm: do not edit', ';']
     for ln in __doc__.strip().split('\n')[1:]:
         head.append(('; ' + ln).rstrip())
@@ -1024,7 +1735,8 @@ def masm():
                      for k in range(8))
     src = (src.replace('@@ROWX@@', '\n'.join(data_lines(ROWX_T)))
            .replace('@@VPG@@', '\n'.join(data_lines(VPG_T)))
-           .replace('@@ROWT@@', rowt).replace('@@VPGS@@', vpgs).replace('@@INPUT@@', input_tests()))
+           .replace('@@ROWT@@', rowt).replace('@@VPGS@@', vpgs).replace('@@INPUT@@', input_tests())
+           .replace('@@MSGS@@', mtext).replace('@@MTAB@@', mtab))
     assert '@@' not in src
     return '\n'.join(head) + '\n' + src
 
