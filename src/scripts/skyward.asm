@@ -4,15 +4,15 @@
 ;
 ;     python3 gen_skyward.py                  writes skyward.asm next to this script,
 ;                                             ../../sdcard/SKYWARD.PLC and the course
-;                                             files ../../sdcard/SKYWARD/C0.LVL - C5.LVL
+;                                             files ../../sdcard/SKYWARD/CA.LVL - CM.LVL
 ;     python3 gen_skyward.py --preview DIR    also draws every course (whole length)
 ;                                             and a first screen with the Python model
 ;     python3 test_skyward_sim.py             runs it in placard_sim from a card
 ;
 ; A port of World 1 of Skyward Tobi 4 (an NES game by Mark Szlemko,
 ; github.com/Zebshine/skyward-tobi-4) to the Placard: the story, the cast, the
-; courses' ideas and the enemy art are theirs, redrawn for 160 x 112 pixels in
-; 16 colors.  The engine is the Placard's own (gen_scroller.py's: no scroll
+; courses' ideas, Tobi and the enemy art are his (skyward_art.py holds the
+; frames copied later), laid out again for 160 x 112 pixels in 16 colors.  The engine is the Placard's own (gen_scroller.py's: no scroll
 ; registers and no sprite hardware, so the whole playfield is drawn again
 ; every frame, ahead of the beam).
 ;
@@ -29,7 +29,7 @@
 ; FILES ON THE CARD
 ;     SKYWARD.PLC         the program: the sprite blitter and Tobi's frames at
 ;                         x0100, the code from x2000
-;     SKYWARD/Cn.LVL      one file a course (n = 0-5), read when the course
+;     SKYWARD/Cx.LVL      one file a course (x = A-M), read when the course
 ;                         starts: 6 sectors of tables to x4000-x4BFF (strip
 ;                         addresses, the tile map, the objects, the sprite
 ;                         routines' addresses, three lines of text), then a
@@ -38,14 +38,17 @@
 ;                         band or of a tile) and the course's own sprites, in
 ;                         the video RAM the screen leaves free (offsets
 ;                         x040-x17F of each 512-byte byte column).
-;     Course 0 is the title and the story, 1-4 are played, 5 is the ending.
+;     CA is the title and the story, CB-CL are played, CM is the ending.
 ;
 ; THE GAME
-;     Run right, jump the gaps, land on the Bumblers and Buzzbees (touching
-;     one from the side costs a life), collect Mabel's Stunt Medals and reach
-;     the windsock.  From course 3 on Tobi has the glider: hold the jump key
-;     in the air to glide.  Course 4 is Crow Keep: land on Baron Rook three
-;     times.
+;     Run right, jump the gaps, land on the Bumblers, Buzzbees and Shellbys
+;     (touching one from the side is a hit), keep off the Spindles and the
+;     Snapjaws, collect Mabel's Stunt Medals and reach the windsock.  Crates
+;     hold a Sky Berry (one hit), a Glide Feather (a hit, and a glider) or the
+;     Tengu Geta (walks on thorns).  With the glider, hold the jump key in the
+;     air to glide.  Gale Fort ends with Captain Squall and Crow Keep with
+;     Baron Rook: land on them three times.  docs/software/SKYWARD.md has
+;     the rest.
 ;     Controls: arrow keys or SNES pad 1 Left / Right, Up / Space / pad B
 ;     or A to jump (hold to glide), Esc back to the DOS.
 ;
@@ -77,7 +80,7 @@ onground   = 0x30
 facing     = 0x31       ; 0 right, 6 left (frame offset)
 anim       = 0x32
 inp        = 0x33       ; input: 1 right, 2 left, 4 jump
-course     = 0x34       ; 0 title, 1-4, 5 ending
+course     = 0x34       ; 0 title, the courses, then the ending
 kind       = 0x35       ; 0 a course to play, 1 a picture (jump: the next course)
 glider     = 0x36       ; 1: Tobi has the glider
 last_frame = 0x37
@@ -134,11 +137,17 @@ NROW       = 112
 GLIDE      = 96
 DROWN_G    = 100
 ROOK_SAFE  = 24
-NCOURSE    = 6
+NCOURSE    = 13
 BLOCK_END  = 19456
 FID_MEDAL  = 12
 NPF        = 6
 ENEMY      = 21504
+V_POWER    = 112
+V_GETA     = 113
+BOUNCEV_LO = 128
+BOUNCEV_HI = 249
+UPV_LO     = 8
+UPV_HI     = 254
 COIN_GOT   = 21760
 COIN_XL    = 128
 COIN_XH    = 168
@@ -597,8 +606,8 @@ lc_0:
     ld   fs_open >> 8, y
     jmp  fs_open
 lc_1:
-    ld   [course], ac           ; "Cn.LVL"
-    add  0x30, ac
+    ld   [course], ac           ; "Cx.LVL", x = A for the title on
+    add  0x41, ac
     ld   s_file >> 8, y
     ld   (s_file + 1) & 0xFF, x
     ld   ac, [y,x]
@@ -682,6 +691,21 @@ lc_6:
     ld   ac, [clear_t]
     ld   ac, [facing]
     ld   ac, [sl_n]             ; (the list's routines were the last course's)
+    ld   ENEMY >> 8, y          ; the title: no power-up; the feather is a glider
+    ld   [course], ac
+    bne  lc_p1
+    ld   V_POWER, x
+    ld   0, [y,x]
+    ld   V_GETA, x
+    ld   0, [y,x]
+lc_p1:
+    ld   V_POWER, x
+    ld   [y,x], ac
+    sub  3, ac
+    bne  lc_p2
+    ld   1, ac
+    ld   ac, [glider]
+lc_p2:
     ld   LINK_LO, x             ; CALL respawn
     ld   lc_7, [x]
     ld   LINK_HI, x
@@ -738,6 +762,10 @@ lc_t1:
     ld   ac, [R0]
     ld   0x4A, ac
     ld   ac, [R1]
+    ld   hop_4 >> 8, y
+    jmp  hop_4                  ; (to the next page)
+#addr 0x2400
+hop_4:
     ld   LINK_LO, x             ; CALL con_puts
     ld   lc_t2, [x]
     ld   LINK_HI, x
@@ -753,10 +781,6 @@ lc_t2:
     ld   ac, [R0]
     ld   s_score >> 8, ac
     ld   ac, [R1]
-    ld   hop_4 >> 8, y
-    jmp  hop_4                  ; (to the next page)
-#addr 0x2400
-hop_4:
     ld   LINK_LO, x             ; CALL con_puts
     ld   lc_t9, [x]
     ld   LINK_HI, x
@@ -815,16 +839,20 @@ ta_1:
     ld   [tmp3], ac
     shr  ac
     add  LVA >> 8, ac
+    ld   ac, [dhi]              ; (dhi:dlo: the tile's place in the map)
     ld   ac, y
     ld   [dlo], x
     ld   [y,x], ac
     ld   ac, x
     ld   SOLID >> 8, y
     ld   [y,x], ac
+    ld   ac, [tmp3]             ; tmp3 = its type; AC = 1 when it is solid
+    and  1, ac
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 ta_no:
     clr  ac
+    ld   ac, [tmp3]
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 reset_objs:
@@ -1065,6 +1093,35 @@ gm_vert_j:
 
 ; game: jumping, gliding and falling
 gm_vert:
+    ld   [pyh], ac              ; in an updraft (the cell at Tobi's middle)?
+    add  8, ac
+    ld   ac, [ta_g]
+    ld   [pxl], ac
+    add  4, ac
+    ld   ac, [ta_lo]
+    ld   [pxh], ac
+    bcc  gm_u1
+    add  1, ac
+gm_u1:
+    ld   ac, [ta_hi]
+    ld   LINK_LO, x             ; CALL tile_at
+    ld   gm_u2, [x]
+    ld   LINK_HI, x
+    ld   gm_u2 >> 8, [x]
+    ld   tile_at >> 8, y
+    jmp  tile_at
+gm_u2:
+    ld   [tmp3], ac
+    and  8, ac
+    beq  gm_u3
+    ld   UPV_LO, ac             ; it carries him up
+    ld   ac, [vyl]
+    ld   UPV_HI, ac
+    ld   ac, [vyh]
+gm_u3:
+    ld   gm_vert2 >> 8, y
+    jmp  gm_vert2
+gm_vert2:
     ld   hop_7 >> 8, y
     jmp  hop_7                  ; (to the next page)
 #addr 0x2700
@@ -1193,6 +1250,12 @@ gm_h3c:
 gm_h3:
     beq  gm_h4
 gm_bump:
+    ld   [tmp3], ac             ; a crate?
+    and  0x10, ac
+    beq  gm_bp0
+    ld   gm_crate >> 8, y
+    jmp  gm_crate
+gm_bp0:
     ld   [pyh], ac              ; below that tile
     sub  GROUND_G, ac
     and  0xF0, ac
@@ -1257,11 +1320,15 @@ gm_f3c:
     jmp  tile_at
 gm_f3:
     bne  gm_land
-    clr  ac
-    ld   ac, [onground]
-    ld   gm_obj >> 8, y
-    jmp  gm_obj
+    ld   gm_lift >> 8, y
+    jmp  gm_lift
 gm_land:
+    ld   [tmp3], ac             ; thorns or a bounce drum?
+    and  6, ac
+    beq  gm_ld0
+    ld   gm_special >> 8, y
+    jmp  gm_special
+gm_ld0:
     ld   [pyh], ac              ; stand on the tile: y = its top - 16
     add  16 - GROUND_G, ac
     and  0xF0, ac
@@ -1277,6 +1344,228 @@ gm_land:
     ld   ac, [chk_lo]
     ld   [pxh], ac
     ld   ac, [chk_hi]
+    ld   gm_obj >> 8, y
+    jmp  gm_obj
+
+; game: thorns, bounce drums, crates, lifts, a hit
+gm_special:
+    ld   [tmp3], ac
+    and  4, ac
+    bne  gm_bnc
+    ld   ENEMY >> 8, y          ; thorns: safe on the geta, and just after a hit
+    ld   V_GETA, x
+    ld   [y,x], ac
+    bne  gm_sp1
+    ld   [inv], ac
+    bne  gm_sp1
+    ld   LINK_LO, x
+    ld   gm_obj & 0xFF, [x]
+    ld   LINK_HI, x
+    ld   gm_obj >> 8, [x]
+    ld   hurt >> 8, y
+    jmp  hurt
+gm_sp1:
+    ld   gm_ld0 >> 8, y
+    jmp  gm_ld0
+gm_bnc:
+    ld   [pyh], ac              ; a bounce drum: up from its top
+    add  16 - GROUND_G, ac
+    and  0xF0, ac
+    add  GROUND_G - 16, ac
+    ld   ac, [pyh]
+    clr  ac
+    ld   ac, [pyl]
+    ld   ac, [onground]
+    ld   BOUNCEV_LO, ac
+    ld   ac, [vyl]
+    ld   BOUNCEV_HI, ac
+    ld   ac, [vyh]
+    ld   LINK_LO, x
+    ld   gm_obj & 0xFF, [x]
+    ld   LINK_HI, x
+    ld   gm_obj >> 8, [x]
+    ld   80, ac
+    ld   snd_beep >> 8, y
+    jmp  snd_beep
+    ld   hop_9 >> 8, y
+    jmp  hop_9                  ; (to the next page)
+#addr 0x2900
+hop_9:
+gm_crate:
+    ld   [ta_g], ac             ; the crate becomes a used one (X of this tile
+    sub  GROUND_G, ac           ; row, from the course's header)
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    add  0x68, x
+    ld   OBJ >> 8, y
+    ld   [y,x], ac
+    ld   [dhi], y
+    ld   [dlo], x
+    ld   ac, [y,x]
+    ld   1, ac
+    ld   ac, [hud_dirty]
+    ld   ENEMY >> 8, y
+    ld   [tmp3], ac             ; what was in it: type / 32
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    sub  3, ac
+    bne  gm_cr1
+    ld   V_GETA, x              ; the Tengu Geta
+    ld   1, [y,x]
+    bra  gm_cr3
+gm_cr1:
+    add  4, ac                  ; 1 Sky Berry, 2 Ember Pepper, 3 Glide Feather
+    ld   V_POWER, x
+    ld   ac, [y,x]
+    ld   ac, [tmp]
+    ld   0x66, x                ; the glider: the course's, or the feather's
+    ld   [y,x], ac
+    ld   ac, [glider]
+    ld   [tmp], ac
+    sub  3, ac
+    bne  gm_cr3
+    ld   1, ac
+    ld   ac, [glider]
+gm_cr3:
+    ld   LINK_LO, x
+    ld   gm_bp0 & 0xFF, [x]
+    ld   LINK_HI, x
+    ld   gm_bp0 >> 8, [x]
+    ld   92, ac
+    ld   snd_beep >> 8, y
+    jmp  snd_beep
+hurt:
+    ld   ENEMY >> 8, y          ; the geta takes a hit, or the power-up does,
+    ld   V_GETA, x              ; or a life is lost; returns via LINK
+    ld   [y,x], ac
+    beq  hr_1
+    ld   0, [y,x]
+    bra  hr_2
+hr_1:
+    ld   V_POWER, x
+    ld   [y,x], ac
+    bne  hr_p
+    ld   lose_life >> 8, y
+    jmp  lose_life
+hr_p:
+    ld   0, [y,x]
+    ld   0x66, x
+    ld   [y,x], ac
+    ld   ac, [glider]
+hr_2:
+    ld   INV_FRAMES, ac
+    ld   ac, [inv]
+    ld   1, ac
+    ld   ac, [hud_dirty]
+    ld   40, ac
+    ld   snd_beep >> 8, y
+    jmp  snd_beep
+gm_lift:
+    clr  ac                     ; not on a tile: on a lift?
+    ld   ac, [onground]
+    ld   ac, [o_i]
+gl_1:
+    ld   [o_i], ac
+    sub  [n_en], ac
+    bne  gl_2
+    ld   gm_obj >> 8, y
+    jmp  gm_obj
+gl_2:
+    ld   ENEMY >> 8, y
+    ld   [o_i], ac
+    add  0x48, x
+    ld   [y,x], ac
+    and  0x10, ac
+    beq  gl_n
+    ld   [o_i], ac              ; its x + 6 - px in 0..12
+    add  8, x
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   [o_i], x
+    ld   [y,x], ac
+    add  6, ac
+    ld   ac, [tmp]
+    ld   [tmp2], ac
+    bcc  gl_3
+    add  1, ac
+gl_3:
+    ld   ac, [tmp2]
+    ld   [tmp], ac
+    sub  [pxl], ac
+    ld   ac, [tmp]
+    ld   [tmp2], ac
+    bcc  gl_4
+    sub  1, ac
+gl_4:
+    sub  [pxh], ac
+    and  3, ac
+    bne  gl_n
+    ld   [tmp], ac
+    sub  13, ac
+    bcc  gl_n
+    ld   [o_i], ac              ; feet in its top 8 cells
+    add  0x10, x
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   [pyh], ac
+    add  16, ac
+    sub  [tmp2], ac
+    sub  8, ac
+    bcc  gl_n
+    ld   gl_on >> 8, y
+    jmp  gl_on
+gl_n:
+    ld   [o_i], ac
+    add  1, ac
+    ld   ac, [o_i]
+    bra  gl_1
+    ld   hop_10 >> 8, y
+    jmp  hop_10                  ; (to the next page)
+#addr 0x2A00
+hop_10:
+gl_on:
+    ld   [tmp2], ac             ; stand on it, and ride along when it moves
+    sub  16, ac
+    ld   ac, [pyh]
+    clr  ac
+    ld   ac, [pyl]
+    ld   ac, [vyl]
+    ld   ac, [vyh]
+    ld   1, ac
+    ld   ac, [onground]
+    ld   [FRAME_LO], ac
+    and  1, ac
+    beq  gl_d
+    ld   ENEMY >> 8, y
+    ld   [o_i], ac
+    add  0x18, x
+    ld   [y,x], ac
+    bne  gl_l
+    ld   [pxl], ac
+    add  1, ac
+    ld   ac, [pxl]
+    bne  gl_d
+    ld   [pxh], ac
+    add  1, ac
+    and  3, ac
+    ld   ac, [pxh]
+    bra  gl_d
+gl_l:
+    ld   [pxl], ac
+    sub  1, ac
+    ld   ac, [pxl]
+    xor  0xFF, ac
+    bne  gl_d
+    ld   [pxh], ac
+    sub  1, ac
+    and  3, ac
+    ld   ac, [pxh]
+gl_d:
     ld   gm_obj >> 8, y
     jmp  gm_obj
 
@@ -1302,6 +1591,14 @@ lose_life:
     ld   snd_noise >> 8, y
     jmp  snd_noise
 ll_2:
+    ld   ENEMY >> 8, y          ; the power-up and the geta go with it
+    ld   V_POWER, x
+    ld   0, [y,x]
+    ld   V_GETA, x
+    ld   0, [y,x]
+    ld   0x66, x
+    ld   [y,x], ac
+    ld   ac, [glider]
     ld   [lives], ac
     sub  1, ac
     ld   ac, [lives]
@@ -1355,10 +1652,10 @@ sa_full:
 
 ; game: camera, the goal, medals
 gm_obj:
-    ld   hop_9 >> 8, y
-    jmp  hop_9                  ; (to the next page)
-#addr 0x2900
-hop_9:
+    ld   hop_11 >> 8, y
+    jmp  hop_11                  ; (to the next page)
+#addr 0x2B00
+hop_11:
     ld   [onground], ac         ; animation: count while running on the ground
     beq  go_a1
     ld   [moved], ac
@@ -1501,10 +1798,10 @@ go_cadd:
     and  3, ac
     add  FID_MEDAL, ac
     ld   ac, [tmp]
-    ld   hop_10 >> 8, y
-    jmp  hop_10                  ; (to the next page)
-#addr 0x2A00
-hop_10:
+    ld   hop_12 >> 8, y
+    jmp  hop_12                  ; (to the next page)
+#addr 0x2C00
+hop_12:
     ld   LINK_LO, x             ; CALL sl_add
     ld   go_ca1, [x]
     ld   LINK_HI, x
@@ -1544,11 +1841,23 @@ go_e1:
     add  0x48, x
     ld   [y,x], ac
     ld   ac, [ekind]
-    and  2, ac                  ; a picture stays where it is
+    and  0x20, ac               ; a Shellby: walking, or a shell
+    beq  go_e1n
+    ld   go_shl >> 8, y
+    jmp  go_shl
+go_e1n:
+    ld   ENEMY >> 8, y
+    ld   [ekind], ac
+    and  0x0A, ac               ; a picture and a Snapjaw stay where they are
     bne  go_e5
-    ld   [FRAME_LO], ac         ; move a byte every other frame
+    ld   [ekind], ac            ; a byte every other frame (x40: every frame)
+    and  0x40, ac
+    bne  go_emv
+    ld   [FRAME_LO], ac
     and  1, ac
     beq  go_e5
+go_emv:
+    ld   ENEMY >> 8, y
     ld   [o_i], ac
     add  0x18, x
     ld   [y,x], ac              ; direction 0 right, 1 left
@@ -1603,10 +1912,19 @@ go_e3:
     add  0x18, x
     ld   0, [y,x]
 go_e5:
-    ld   hop_11 >> 8, y
-    jmp  hop_11                  ; (to the next page)
-#addr 0x2B00
-hop_11:
+    ld   [ekind], ac            ; a Snapjaw is down in its stump half the time
+    and  8, ac
+    beq  go_e6
+    ld   [FRAME_LO], ac
+    and  0x40, ac
+    bne  go_e6
+    ld   go_en >> 8, y
+    jmp  go_en
+go_e6:
+    ld   hop_13 >> 8, y
+    jmp  hop_13                  ; (to the next page)
+#addr 0x2D00
+hop_13:
     ld   ENEMY >> 8, y
     ld   [o_i], ac
     add  8, x
@@ -1652,10 +1970,11 @@ go_en_sc_on:
     bne  go_eaj                ; life, and not a picture
     ld   [inv], ac
     bne  go_eaj
-    ld   [ekind], ac
-    and  2, ac
+    ld   [ekind], ac            ; (nor a lift)
+    and  0x12, ac
     bne  go_eaj
     ld   [ekind], ac
+    and  1, ac
     bne  go_ebig
     ld   [dlo], ac              ; touching the player?  ex - px in -6..6
     sub  32, ac
@@ -1681,10 +2000,10 @@ go_ebig:
 go_eaj:
     ld   go_eadd >> 8, y
     jmp  go_eadd
-    ld   hop_12 >> 8, y
-    jmp  hop_12                  ; (to the next page)
-#addr 0x2C00
-hop_12:
+    ld   hop_14 >> 8, y
+    jmp  hop_14                  ; (to the next page)
+#addr 0x2E00
+hop_14:
 go_eadd:
     ld   ENEMY >> 8, y          ; frame: the object's first, + 1 every 16 frames
     ld   [o_i], ac
@@ -1698,6 +2017,17 @@ go_eadd:
     shr  ac
     and  1, ac
     ld   ac, [tmp2]
+    ld   [ekind], ac            ; a Shellby in its shell: its third frame
+    and  0x20, ac
+    beq  go_ea0
+    ld   [o_i], ac
+    add  0x58, x
+    ld   [y,x], ac
+    sub  3, ac
+    beq  go_ea0
+    ld   2, ac
+    ld   ac, [tmp2]
+go_ea0:
     ld   [ekind], ac
     and  1, ac
     bne  go_e4p
@@ -1777,12 +2107,206 @@ go_en:
     ld   go_e >> 8, y
     jmp  go_e
 
+; game: Shellby (x58 + n: 3 walking, 2 a shell at rest, 1 a shell sliding)
+    ld   hop_15 >> 8, y
+    jmp  hop_15                  ; (to the next page)
+#addr 0x2F00
+hop_15:
+go_shl:
+    ld   ENEMY >> 8, y
+    ld   [o_i], ac
+    add  0x58, x
+    ld   [y,x], ac
+    sub  2, ac
+    bne  gs_1
+    ld   go_e5 >> 8, y          ; at rest
+    jmp  go_e5
+gs_1:
+    sub  1, ac
+    bne  gs_2
+    ld   go_e1n >> 8, y         ; walking, as a Bumbler does
+    jmp  go_e1n
+gs_2:
+    ld   [o_i], x               ; sliding: at either end of its run it is gone
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   [o_i], ac
+    add  8, x
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   [o_i], ac
+    add  0x20, x
+    ld   [y,x], ac
+    sub  [tmp], ac
+    bne  gs_3
+    ld   [o_i], ac
+    add  0x28, x
+    ld   [y,x], ac
+    sub  [tmp2], ac
+    beq  gs_die
+gs_3:
+    ld   [o_i], ac
+    add  0x30, x
+    ld   [y,x], ac
+    sub  [tmp], ac
+    bne  gs_4
+    ld   [o_i], ac
+    add  0x38, x
+    ld   [y,x], ac
+    sub  [tmp2], ac
+    beq  gs_die
+gs_4:
+    ld   [o_i], ac
+    add  0x10, x
+    ld   [y,x], ac
+    ld   ac, [sy]
+    clr  ac
+    ld   ac, [sc]
+    ld   gk_1 >> 8, y
+    jmp  gk_1
+gs_die:
+    ld   [o_i], ac
+    add  0x40, x
+    ld   0, [y,x]
+    ld   go_en >> 8, y
+    jmp  go_en
+gk_1:
+    ld   [sc], ac               ; it knocks out what it runs into: object sc,
+    sub  [n_en], ac             ; on its level, x + 6 - its x in 0..12
+    bne  gk_2
+    ld   go_emv >> 8, y
+    jmp  go_emv
+gk_2:
+    ld   ENEMY >> 8, y
+    ld   [sc], ac
+    sub  [o_i], ac
+    beq  gk_n
+    ld   [sc], ac
+    add  0x40, x
+    ld   [y,x], ac
+    beq  gk_n
+    ld   [sc], ac
+    add  0x48, x
+    ld   [y,x], ac
+    and  0x13, ac
+    bne  gk_n
+    ld   [sc], ac
+    add  0x10, x
+    ld   [y,x], ac
+    sub  [sy], ac
+    bne  gk_n
+    ld   [sc], ac
+    add  8, x
+    ld   [y,x], ac
+    ld   ac, [dhi]
+    ld   [sc], x
+    ld   [y,x], ac
+    add  6, ac
+    ld   ac, [dlo]
+    ld   [dhi], ac
+    bcc  gk_3
+    add  1, ac
+gk_3:
+    ld   ac, [dhi]
+    ld   [dlo], ac
+    sub  [tmp], ac
+    ld   ac, [dlo]
+    ld   [dhi], ac
+    bcc  gk_4
+    sub  1, ac
+gk_4:
+    sub  [tmp2], ac
+    and  3, ac
+    bne  gk_n
+    ld   [dlo], ac
+    sub  13, ac
+    bcc  gk_n
+    ld   [sc], ac
+    add  0x40, x
+    ld   0, [y,x]
+    ld   1, ac
+    ld   ac, [hud_dirty]
+    ld   [score_lo], ac
+    add  100, ac
+    ld   ac, [score_lo]
+    bcc  gk_n
+    ld   [score_hi], ac
+    add  1, ac
+    ld   ac, [score_hi]
+gk_n:
+    ld   [sc], ac
+    add  1, ac
+    ld   ac, [sc]
+    bra  gk_1
+    ld   hop_16 >> 8, y
+    jmp  hop_16                  ; (to the next page)
+#addr 0x3000
+hop_16:
+go_shit:
+    ld   ENEMY >> 8, y          ; Shellby and the player touch
+    ld   [o_i], ac
+    add  0x58, x
+    ld   [y,x], ac
+    sub  2, ac
+    bne  gh_1
+    ld   1, [y,x]               ; a shell at rest: it slides away from him
+    ld   [o_i], ac
+    add  0x18, x
+    ld   0, [y,x]
+    ld   [dlo], ac
+    sub  38, ac
+    bcc  gh_k
+    ld   1, [y,x]
+gh_k:
+    ld   ROOK_SAFE, ac
+    ld   ac, [inv]
+    ld   66, ac
+    bra  gh_b
+gh_1:
+    ld   [vyh], ac              ; walking or sliding: landed on, it stops as a
+    blt  gh_hurt                ; shell; any other way it is a hit
+    ld   [tmp2], ac
+    sub  8, ac
+    blt  gh_hurt
+    ld   [o_i], ac
+    add  0x58, x
+    ld   2, [y,x]
+    ld   0xFD, ac
+    ld   ac, [vyh]
+    clr  ac
+    ld   ac, [vyl]
+    ld   60, ac
+gh_b:
+    ld   LINK_LO, x
+    ld   go_eadd & 0xFF, [x]
+    ld   LINK_HI, x
+    ld   go_eadd >> 8, [x]
+    ld   snd_beep >> 8, y
+    jmp  snd_beep
+gh_hurt:
+    ld   LINK_LO, x
+    ld   go_eadd & 0xFF, [x]
+    ld   LINK_HI, x
+    ld   go_eadd >> 8, [x]
+    ld   hurt >> 8, y
+    jmp  hurt
+
 ; game: an object touches the player; the player into the list
-    ld   hop_13 >> 8, y
-    jmp  hop_13                  ; (to the next page)
-#addr 0x2D00
-hop_13:
 go_hit:
+    ld   [ekind], ac
+    and  0x20, ac
+    beq  go_h0
+    ld   go_shit >> 8, y
+    jmp  go_shit
+go_h0:
+    ld   [ekind], ac            ; spiked: only the geta can land on it
+    and  4, ac
+    beq  go_hs
+    ld   ENEMY >> 8, y
+    ld   V_GETA, x
+    ld   [y,x], ac
+    beq  go_hurt
+go_hs:
     ld   [vyh], ac              ; falling and feet in its top half: landed on it
     blt  go_hurt
     ld   [tmp2], ac             ; eg - pyh >= 8
@@ -1796,8 +2320,9 @@ go_hit:
     ld   ac, [hud_dirty]
     ld   ENEMY >> 8, y
     ld   [ekind], ac
+    and  1, ac
     beq  go_dead
-    ld   [o_i], ac              ; Rook: three times
+    ld   [o_i], ac              ; Rook and Captain Squall: three times
     add  0x58, x
     ld   [y,x], ac
     sub  1, ac
@@ -1851,8 +2376,12 @@ go_hurt:
     ld   go_eadd & 0xFF, [x]
     ld   LINK_HI, x
     ld   go_eadd >> 8, [x]
-    ld   lose_life >> 8, y
-    jmp  lose_life
+    ld   hurt >> 8, y
+    jmp  hurt
+    ld   hop_17 >> 8, y
+    jmp  hop_17                  ; (to the next page)
+#addr 0x3100
+hop_17:
 go_pl:
     ld   [inv], ac              ; the player last (blinks while safe)
     and  4, ac
@@ -1893,6 +2422,21 @@ go_p3:
     ld   sl_add >> 8, y
     jmp  sl_add
 go_p4:
+    ld   ENEMY >> 8, y          ; the geta under his feet
+    ld   V_GETA, x
+    ld   [y,x], ac
+    beq  go_done
+    ld   OBJ >> 8, y
+    ld   0x6D, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   LINK_LO, x             ; CALL sl_add
+    ld   go_p5, [x]
+    ld   LINK_HI, x
+    ld   go_p5 >> 8, [x]
+    ld   sl_add >> 8, y
+    jmp  sl_add
+go_p5:
 go_done:
     ld   [jnow], ac
     ld   ac, [jprev]
@@ -1926,10 +2470,6 @@ hu_s:
     ld   ac, [R0]
     ld   [score_hi], ac
     ld   ac, [R1]
-    ld   hop_14 >> 8, y
-    jmp  hop_14                  ; (to the next page)
-#addr 0x2E00
-hop_14:
     ld   LINK_LO, x             ; CALL con_dec16
     ld   hu_1, [x]
     ld   LINK_HI, x
@@ -1979,13 +2519,61 @@ hu_4:
     ld   con_dec8 >> 8, y
     jmp  con_dec8
 hu_5:
+    ld   hop_18 >> 8, y
+    jmp  hop_18                  ; (to the next page)
+#addr 0x3200
+hop_18:
+    ld   45, ac                 ; the power-up at column 45, the geta at 54
+    ld   ac, [CUR_COL]
+    ld   ENEMY >> 8, y
+    ld   V_POWER, x
+    ld   [y,x], ac
+    shl
+    shl
+    shl
+    add  s_pow & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_pow >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL con_puts
+    ld   hu_6, [x]
+    ld   LINK_HI, x
+    ld   hu_6 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+hu_6:
+    ld   54, ac
+    ld   ac, [CUR_COL]
+    ld   ENEMY >> 8, y
+    ld   V_GETA, x
+    ld   [y,x], ac
+    shl
+    shl
+    shl
+    add  s_get & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_get >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL con_puts
+    ld   hu_7, [x]
+    ld   LINK_HI, x
+    ld   hu_7 >> 8, [x]
+    ld   con_puts >> 8, y
+    jmp  con_puts
+hu_7:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 
 ; text and tables
-#addr 0x2F00
+#addr 0x3300
 s_score: #d "SCORE 0        MEDALS 0        TOBI  3", 0x00
 s_sp:    #d "  ", 0x00
 s_dir:   #d "SKYWARD", 0x00
-s_file:  #d "C0.LVL", 0x00
+s_file:  #d "CA.LVL", 0x00
+s_pow:   #d "       ", 0x00
+s_pow1:  #d "BERRY  ", 0x00
+s_pow2:  #d "PEPPER ", 0x00
+s_pow3:  #d "FEATHER", 0x00
+s_get:   #d "       ", 0x00
+s_get1:  #d "GETA   ", 0x00
 RUNSEQ:  #d8 1, 2, 3, 2
