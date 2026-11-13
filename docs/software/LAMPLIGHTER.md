@@ -254,23 +254,25 @@ is back at it.  At the end: that the bot got through its route, that the
 routines in the video RAM are unchanged and that Esc brings the DOS back.
 
 First, on the model alone, it shows that every boss can be reached and
-beaten with nothing collected: a run from the Landing Ledge to Bramblejaw
-(2,291 frames, no energy lost in the fight) and one to Clinker (1,726
-frames, 24 energy left of the 30 Wick starts with), in which the search
-may not pick anything up.
+beaten with nothing collected: runs from the Landing Ledge to Bramblejaw
+(2,291 frames, 35 energy left), to Clinker (1,726 frames, 24 left) and to
+Old Gulper (2,399 frames, 4 left), in which the search may not pick
+anything up.
 
-Then the long route in the simulator, through all 22 rooms: the bot first
+Then the long route in the simulator, through all 28 rooms: the bot first
 lets a Mite take all its energy (and starts again), shoots creatures,
 takes the Burrow Rig, crawls to the Gardens, takes the flask and the
 Updraft Bellows, crosses the Thorn Gate, beats Bramblejaw and takes the
 Ash Sail; in the Slagworks it takes the Kiln Charge, blasts the Soot
 Lock open, beats Clinker, takes the Cinder Coat and the hot room's flask;
-it blasts its way to the deep Wellshaft's flask and climbs all the way
-back to the Landing Ledge by way of the Keeper's Duct.  The fights are
-played by rules (Bramblejaw: stand off, jump a bolt that is near and at
+it blasts its way to the deep Wellshaft's flask; in the Brine Vaults it
+takes the Ballast Boots and the Drowned Hall's flask, beats Old Gulper
+and takes the Wide Flame; and it climbs all the way back to the Landing
+Ledge by way of the Keeper's Duct.  The fights are played by rules
+(Bramblejaw and Old Gulper: stand off, jump a bolt that is near and at
 Wick's height, fire; Clinker: keep just off its middle and fire up), a
-blast by holding the key; the rest is planned.  It is 10,964 frames and
-takes about 45 minutes, most of it the planning.  In it the drawing is
+blast by holding the key; the rest is planned.  It is 14,579 frames and
+takes about an hour, most of it the planning.  In it the drawing is
 never less than 55 screen rows behind the beam, and a sprite is done at
 least 30 screen rows before the beam is at it.
 
