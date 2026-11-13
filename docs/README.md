@@ -33,6 +33,7 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 - [MENU.md](software/MENU.md): the demo menu
 - [TEST.md](software/TEST.md): the system test on the SD card (`TEST.PLC`)
 - [SCRAP.md](software/SCRAP.md): SCRAPWRIGHT, a ship salvage game (`SCRAP.PLC`, phase 3)
+- [SKYWARD.md](software/SKYWARD.md): Skyward Tobi, a side-scrolling platform game (`SKYWARD.PLC`)
 - [EMULATOR.md](software/EMULATOR.md): the web emulator
 - [BOING.md](software/BOING.md), [WIRE3D.md](software/WIRE3D.md): demos
 - [ROM_SURVEY.md](software/ROM_SURVEY.md): what other machines' ROMs have, and which of their speed tricks ours uses

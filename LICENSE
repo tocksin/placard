@@ -61,3 +61,7 @@ Third-party material, under its owners' terms:
     src/ip/clk_wiz_0.xci             AMD Vivado clocking wizard settings
     docs/logo/      lettering outlines from Inter Display, SIL Open Font
                     License 1.1
+    src/scripts/gen_skyward.py, sdcard/SKYWARD.PLC, sdcard/SKYWARD/
+                    the story, cast, course ideas and some sprite frames
+                    are from Skyward Tobi 4, Copyright (c) 2026 Mark
+                    Szlemko, MIT License (the notice is in gen_skyward.py)
