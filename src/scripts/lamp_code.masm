@@ -87,6 +87,8 @@ frame:
     CALL frame_poll             ; AC = the line (V9:V2)
     sub  LINE_GO, ac
     bcs  frame
+    sub  2, ac                  ; (past it, after a room was read: the next time round)
+    bcc  frame
 frame_go:
     ld   0x50, y                ; map FF: the tile and sprite routines are in
     ld   0xFF, [y,x]            ; the video RAM

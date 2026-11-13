@@ -63,7 +63,7 @@ ROUTE = [('dead', 0, 0), ('kill', 0, 0), ('room', 1), ('room', 3), ('room', 4), 
          ('at', 16, 6, 8), ('at', 16, 2, 3), ('room', 15), ('room', 5), ('room', 3),
          # the deep Wellshaft's flask, behind soot; then up to the top
          ('room', 14), ('at', 14, 5, 14), ('soot', 14, 3, 14), ('item', 14, 0), ('at', 14, 4, 1), ('room', 3),
-         ('at', 3, 4, 1), ('room', 1), ('room', 2), ('item', 2, 0), ('room', 1), ('room', 0)]
+         ('at', 3, 5, 8), ('at', 3, 4, 1), ('room', 1), ('room', 2), ('item', 2, 0), ('room', 1), ('room', 0)]
 # every boss can be reached and beaten with nothing collected: these runs,
 # from the start, on the model alone (the long run shows the program and
 # the model agree)

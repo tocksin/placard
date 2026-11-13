@@ -402,6 +402,8 @@ frame:
 lp_r5:
     sub  LINE_GO, ac
     bcs  frame
+    sub  2, ac                  ; (past it, after a room was read: the next time round)
+    bcc  frame
 frame_go:
     ld   0x50, y                ; map FF: the tile and sprite routines are in
     ld   0xFF, [y,x]            ; the video RAM
@@ -477,8 +479,6 @@ cm_4:
 ; ------------------------------------------------------------
 ; game: the camera, the shots
 ; ------------------------------------------------------------
-
-#addr 0x0400
 bg_row:
     ld   ROWX >> 8, y           ; the video offsets of this tile row's 16 cells
     ld   [rowb], x
