@@ -61,8 +61,14 @@ ROUTE = [('dead', 0, 0), ('kill', 0, 0), ('room', 1), ('room', 3), ('room', 4), 
          ('room', 20), ('soot', 20, 7, 8), ('soot', 20, 8, 8), ('room', 21), ('fight', 21, 0), ('item', 21, 0),
          ('room', 20), ('room', 19), ('room', 16), ('room', 18), ('item', 18, 0), ('room', 16),
          ('at', 16, 6, 8), ('at', 16, 2, 3), ('room', 15), ('room', 5), ('room', 3),
-         # the deep Wellshaft's flask, behind soot; then up to the top
-         ('room', 14), ('at', 14, 5, 14), ('soot', 14, 3, 14), ('item', 14, 0), ('at', 14, 4, 1), ('room', 3),
+         # the deep Wellshaft's flask, behind soot
+         ('room', 14), ('at', 14, 5, 14), ('soot', 14, 3, 14), ('item', 14, 0),
+         # the Brine Vaults: the Ballast Boots, the Drowned Hall's flask, Old Gulper, the Wide Flame
+         ('room', 22), ('room', 23), ('room', 25), ('item', 25, 0), ('room', 23), ('room', 24), ('item', 24, 0),
+         ('room', 26), ('room', 27), ('fight', 27, 0), ('item', 27, 0), ('room', 26),
+         ('kill', 26, 0), ('room', 24), ('room', 23), ('at', 23, 6, 8), ('at', 23, 2, 3), ('room', 22), ('room', 14),
+         # then up to the top
+         ('at', 14, 5, 8), ('at', 14, 4, 1), ('room', 3),
          ('at', 3, 5, 8), ('at', 3, 4, 1), ('room', 1), ('room', 2), ('item', 2, 0), ('room', 1), ('room', 0)]
 # every boss can be reached and beaten with nothing collected: these runs,
 # from the start, on the model alone (the long run shows the program and
@@ -70,7 +76,9 @@ ROUTE = [('dead', 0, 0), ('kill', 0, 0), ('room', 1), ('room', 3), ('room', 4), 
 BARE = [[('room', 1), ('room', 3), ('room', 4), ('room', 6), ('room', 7), ('room', 11), ('room', 12),
          ('kill', 12, 0), ('room', 13), ('fight', 13, 0)],
         [('room', 1), ('room', 3), ('room', 5), ('room', 15), ('room', 16), ('room', 19), ('room', 20),
-         ('room', 21), ('fight', 21, 0)]]
+         ('room', 21), ('fight', 21, 0)],
+        [('room', 1), ('room', 3), ('room', 14), ('room', 22), ('room', 23), ('room', 24), ('room', 26),
+         ('room', 27), ('fight', 27, 0)]]
 
 
 def bare_runs(rooms):
@@ -126,7 +134,7 @@ def reached(m, goal):
             and (m.py + 15) >> 4 == goal[3])
 
 
-def plan(m0, goal, max_nodes=400000, unhurt=True):
+def plan(m0, goal, max_nodes=800000, unhurt=True):
     """the pad buttons, frame by frame, that take the model from m0 to the
     goal: A* over the model, HOLD frames an action.  unhurt: only ways
     that cost no energy"""
@@ -192,7 +200,7 @@ def plan(m0, goal, max_nodes=400000, unhurt=True):
                 c.step(inp)
             if c.energy < m.energy and (unhurt or c.energy < 10):
                 continue
-            if c.items != m.items and goal[0] != 'item':    # (only when it is asked for)
+            if (c.items != m.items or c.emax != m.emax) and goal[0] != 'item':    # (only when it is asked for)
                 continue
             k = key(c)
             if k in seen:
@@ -228,7 +236,7 @@ def fight(m0, goal):
                                                                       c.py + 16)):
                 b = side
             for q in c.objs:
-                if (q[0] == gl.S_BOLT and abs(q[1] - c.px) < 10 and (c.py - q[2] + 13) & 255 < 21
+                if (q[0] == gl.S_BOLT and abs(q[1] - c.px) < (14 if c.wet else 10) and (c.py - q[2] + 13) & 255 < 21
                         and c.onground and not c.inp & gl.IN_JUMP):
                     b |= B
             if not c.onground and c.vy < 0:
@@ -283,7 +291,7 @@ def read_state(mem, z):
                 facing=mem[z['facing']], sx=mem[z['sx']], sy=mem[z['sy']], door=mem[z['door_t']],
                 shots=[(mem[z['SH_T'] + i], mem[z['SH_X'] + i], mem[z['SH_Y'] + i]) for i in range(3)],
                 energy=mem[z['energy']], emax=mem[z['emax']], items=mem[z['items']], inv=mem[z['inv']],
-                ajump=mem[z['ajump']], chg=mem[z['chg']], blast=mem[z['blast_i']], got=bytes(mem[gl.GOT:gl.GOT + 32]),
+                ajump=mem[z['ajump']], chg=mem[z['chg']], blast=mem[z['blast_i']], wet=mem[z['wet']], got=bytes(mem[gl.GOT:gl.GOT + 32]),
                 objs=[tuple(mem[gl.OBJ + f + i] for f in (gl.O_KIND, gl.O_X, gl.O_Y, gl.O_D, gl.O_T, gl.O_HP,
                                                           gl.O_P)) if mem[gl.OBJ + i] else None
                       for i in range(gl.MAXOBJ)])
@@ -294,7 +302,7 @@ def model_state(m):
                 facing=m.facing, sx=m.sx, sy=m.sy, door=m.door_t,
                 shots=[(s[0], s[1], s[2]) if s[0] else (0, mem_x, mem_y) for s, (mem_x, mem_y) in
                        zip(m.shots, [(s[1], s[2]) for s in m.shots])],
-                energy=m.energy, emax=m.emax, items=m.items, inv=m.inv, ajump=m.ajump, chg=m.chg, blast=m.blast,
+                energy=m.energy, emax=m.emax, items=m.items, inv=m.inv, ajump=m.ajump, chg=m.chg, blast=m.blast, wet=m.wet,
                 got=bytes(m.got),
                 objs=[tuple(o) if o[0] else None for o in m.objs])
 

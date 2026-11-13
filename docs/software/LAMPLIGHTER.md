@@ -21,6 +21,8 @@ for the Placard.  It is in the exploration-platformer genre.
 
 ![The seven rooms of the Slagworks and the deep Wellshaft](../../reference/lamp_slag.png)
 
+![The six rooms of the Brine Vaults](../../reference/lamp_brine.png)
+
 ## The game
 
 The hollow moon Cairn carried the great lamp that ships steered by.  The
@@ -56,6 +58,7 @@ down the Wellshaft to find out why, with a lantern that throws sparks.
 | The Wellshaft (the hub) | Landing Ledge, the Wellshaft (upper, lower, deep), Keeper's Duct, West Gallery, East Gate | Mite (walks), Moth (flies), Drip (falls from the ceiling) | The Burrow Rig, two Oil Flasks |
 | The Glasswort Gardens | Glasswort Gate, the Conservatory, Frond Walk, Spore Hall, Bellows Nook, Root Cellar, Thorn Gate, Bramblejaw's Den | Mossback, Lumen Gnat, Sporecap (sits and spits), Drip; the boss Bramblejaw | The Updraft Bellows, an Oil Flask, the Ash Sail (Bramblejaw's) |
 | The Slagworks | Slag Stair, Flue Hall, Kiln Loft, Cinder Run (hot), Slag Lake, Soot Lock, Clinker's Forge | Cinderhop (hops toward Wick), Emberwing, Flue (sits and spits), Slagback; the boss Clinker | The Kiln Charge, an Oil Flask, the Cinder Coat (Clinker's) |
+| The Brine Vaults (from the foot of the deep Wellshaft) | Brine Gate, Sump Stair, the Drowned Hall, Boot Locker, Tide Lock, Old Gulper's Cistern | Brinefin (swims), Limpet (sits and spits), Shellback, Drip; the boss Old Gulper | The Ballast Boots, an Oil Flask, the Wide Flame (Old Gulper's) |
 
 **Every boss can be reached and beaten with nothing collected.**  A
 power-up is never a key: it is a shorter or a safer way.
@@ -67,6 +70,7 @@ power-up is never a key: it is a shorter or a safer way.
 | Slag Lake (a pit 12 tiles wide, Cinderhops in it) | Down into the pit and out by its ledges | The Ash Sail: a jump and a slow fall across the top |
 | Soot Lock (sooted blocks in the passage) | Over the wall above, past the Flue that sits on it | The Kiln Charge: a blast breaks the block it hits and a sooted block right over it |
 | Cinder Run (a hot room: 1 energy every quarter second) | In and out fast for its flask | The Cinder Coat: no harm |
+| Water (the Drowned Hall, the Tide Lock, the Cistern) | Wick wades: a step every other frame, and a jump of under 2 tiles, so the Hall's walls are climbed by the ledges at their feet | The Ballast Boots: he walks and jumps as on land |
 
 The Keeper's Duct (a flask) needs the Rig, and the flask at the foot of
 the deep Wellshaft is behind soot: extras, not on a boss's way.
@@ -86,6 +90,14 @@ and changing sides at a wall just after a bolt has left; the Kiln Charge's
 blasts are worth four sparks each and the Cinder Coat (its own prize, for
 the areas after) halves every hit.
 
+**Old Gulper** wades its side of a flooded cistern, behind a gap in the
+floor, and spits as Bramblejaw does; it takes 48 sparks.  Without the
+Ballast Boots Wick is slow in the water and his jump is low, so a low
+bolt has to be jumped early.  The bot beats it with the lantern alone and
+30 energy, losing 6.  Its prize is the Wide Flame: every shot is three
+sparks, one straight and one a little to each side, when the lantern's
+three places are free.
+
 ### The plan
 
 The game is built in stages, each merged when it passes its test.
@@ -95,7 +107,7 @@ The game is built in stages, each merged when it passes its test.
 | 1 | The engine: two-way scrolling rooms from the card, the hero, shots, doors, crawling; six rooms of the Wellshaft | Done |
 | 2 | Creatures, energy and damage, items; the first area (the Glasswort Gardens), the first three power-ups, the first boss | Done |
 | 3a | The deep Wellshaft, the Slagworks, the Kiln Charge and the Cinder Coat, the second boss; a way to every boss that needs no power-up | Done |
-| 3b | The Brine Vaults, the Ballast Boots, the Wide Flame, the third boss | |
+| 3b | The Brine Vaults, water, the Ballast Boots, the Wide Flame, the third boss | Done |
 | 3c | The Orrery and the last boss | |
 | 4 | Music, the title and the ending, saving to the card at save lamps | |
 
@@ -172,7 +184,7 @@ and the rules the time the beam spends on the picture.
 | Where | What |
 |---|---|
 | x0100-x02FF | `ROWX` and `VPG`: video offset of a cell, video page of a byte column |
-| x0300-x1EFF, x2000-x3FFF | The program (7 KB in stage 3a) |
+| x0300-x1EFF, x2000-x3FFF | The program (7 KB in stage 3b) |
 | x4000-x45FF | The area's tables: tile routine addresses (2 pages), tile attributes, sprite routine addresses, the area's kinds of things, a spare page |
 | x4600-x47FF | The room's tile map, 32 × 16 bytes (tile number × 8) |
 | x4800-x48FF | The room's header: size, camera limits, exits, things, name |
@@ -189,8 +201,8 @@ and the rules the time the beam spends on the picture.
 A tile has attribute bits: solid in its upper half, solid in its lower half
 (both: a wall; one: a ledge or a duct's roof), a door, a door's lower
 tile.  Tiles 0-4 are the same in every area: empty, and a door's two
-tiles, shut and open.  A fifth bit marks a sooted block, and a room's
-header has a flag for a hot room.
+tiles, shut and open.  A fifth bit marks a sooted block, a sixth water,
+and a room's header has a flag for a hot room.
 
 A room is rows of letters in `gen_lamp.py` (`ROOMS`) with its exits: the
 side, the tiles of the edge it covers, the room it leads to and how far
@@ -242,23 +254,25 @@ is back at it.  At the end: that the bot got through its route, that the
 routines in the video RAM are unchanged and that Esc brings the DOS back.
 
 First, on the model alone, it shows that every boss can be reached and
-beaten with nothing collected: a run from the Landing Ledge to Bramblejaw
-(2,291 frames, no energy lost in the fight) and one to Clinker (1,726
-frames, 24 energy left of the 30 Wick starts with), in which the search
-may not pick anything up.
+beaten with nothing collected: runs from the Landing Ledge to Bramblejaw
+(2,291 frames, 35 energy left), to Clinker (1,726 frames, 24 left) and to
+Old Gulper (2,399 frames, 4 left), in which the search may not pick
+anything up.
 
-Then the long route in the simulator, through all 22 rooms: the bot first
+Then the long route in the simulator, through all 28 rooms: the bot first
 lets a Mite take all its energy (and starts again), shoots creatures,
 takes the Burrow Rig, crawls to the Gardens, takes the flask and the
 Updraft Bellows, crosses the Thorn Gate, beats Bramblejaw and takes the
 Ash Sail; in the Slagworks it takes the Kiln Charge, blasts the Soot
 Lock open, beats Clinker, takes the Cinder Coat and the hot room's flask;
-it blasts its way to the deep Wellshaft's flask and climbs all the way
-back to the Landing Ledge by way of the Keeper's Duct.  The fights are
-played by rules (Bramblejaw: stand off, jump a bolt that is near and at
+it blasts its way to the deep Wellshaft's flask; in the Brine Vaults it
+takes the Ballast Boots and the Drowned Hall's flask, beats Old Gulper
+and takes the Wide Flame; and it climbs all the way back to the Landing
+Ledge by way of the Keeper's Duct.  The fights are played by rules
+(Bramblejaw and Old Gulper: stand off, jump a bolt that is near and at
 Wick's height, fire; Clinker: keep just off its middle and fire up), a
-blast by holding the key; the rest is planned.  It is 10,964 frames and
-takes about 45 minutes, most of it the planning.  In it the drawing is
+blast by holding the key; the rest is planned.  It is 14,579 frames and
+takes about an hour, most of it the planning.  In it the drawing is
 never less than 55 screen rows behind the beam, and a sprite is done at
 least 30 screen rows before the beam is at it.
 
