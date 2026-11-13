@@ -1,7 +1,7 @@
 # Skyward Tobi
 
 `sdcard/SKYWARD.PLC` is a side-scrolling platform game: World 1 of
-*Skyward Tobi 4*, an NES game by Zeb and Mark
+*Skyward Tobi 4*, an NES game by Mark Szlemko
 (github.com/Zebshine/skyward-tobi-4), ported to the Placard.  It is a
 library program for the SD card (run it from the DOS's file browser; Esc
 goes back), made by `src/scripts/gen_skyward.py`.  Everything it reads
