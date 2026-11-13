@@ -60,7 +60,8 @@
 #include "placard_lib.asm"
 
 ; ---------------------------------------------------------------------------
-; program variables (zero page x20-x8F)
+; program variables (zero page x20-x5F; the music player has x60-x9F), and
+; the sprite list in the RAM (the medals' page)
 ; ---------------------------------------------------------------------------
 colpage    = 0x20       ; video page of the column being drawn (x61 + 2 * col)
 rl         = 0x21       ; strip return address
@@ -103,26 +104,26 @@ sy         = 0x45
 srl        = 0x46       ; return address for the sprite routines
 srh        = 0x47
 vpg        = 0x48       ; x48-x4F: video page of each of the sprite's 8 columns
-SL_LO      = 0x50       ; x50-x5B: sprite routine address, low
-SL_HI      = 0x5C       ; x5C-x67: high
-SL_C       = 0x68       ; x68-x73: byte column + 8 (0-87)
-SL_G       = 0x74       ; x74-x7F: top cell + 32
-mode       = 0x80       ; 0 playing, 1 waiting for the jump key, 2 course clear (counting down)
-clear_t    = 0x81       ;   frames left of mode 2
-o_i        = 0x82       ; object loop index
-dlo        = 0x83
-dhi        = 0x84
-inv        = 0x85       ; frames of safety after a lost life
-gliding    = 0x86       ; 1: the glider is open this frame
-moved      = 0x87
-tmp3       = 0x88
-n_med      = 0x89       ; medals in this course
-n_en       = 0x8A       ; objects in this course
-ll_lo      = 0x8B       ; lose_life's return address
-ll_hi      = 0x8C
-goal_lo    = 0x8D       ; the course is clear at this byte column
-goal_hi    = 0x8E
-jprev      = 0x8F       ; the jump key last frame (4 = down)
+SL_LO      = 0x5780     ; 12 bytes each: sprite routine address, low
+SL_HI      = 0x578C     ;   high
+SL_C       = 0x5798     ;   byte column + 8 (0-87)
+SL_G       = 0x57A4     ;   top cell + 32
+mode       = 0x50       ; 0 playing, 1 waiting for the jump key, 2 course clear (counting down)
+clear_t    = 0x51       ;   frames left of mode 2
+o_i        = 0x52       ; object loop index
+dlo        = 0x53
+dhi        = 0x54
+inv        = 0x55       ; frames of safety after a lost life
+gliding    = 0x56       ; 1: the glider is open this frame
+moved      = 0x57
+tmp3       = 0x58
+n_med      = 0x59       ; medals in this course
+n_en       = 0x5A       ; objects in this course
+ll_lo      = 0x5B       ; lose_life's return address
+ll_hi      = 0x5C
+goal_lo    = 0x5D       ; the course is clear at this byte column
+goal_hi    = 0x5E
+jprev      = 0x5F       ; the jump key last frame (4 = down)
 ekind      = 0x1E       ; (T6) this object's kind
 jnow       = 0x1F       ; (T7) the jump key this frame
 
@@ -143,7 +144,7 @@ NCOURSE    = 24
 BLOCK_END  = 19456
 FID_MEDAL  = 12
 NPF        = 6
-ENEMY      = 21504
+ENEMY      = 22016
 V_POWER    = 112
 V_GETA     = 113
 V_EMB      = 114
@@ -157,7 +158,7 @@ BOUNCEV_LO = 128
 BOUNCEV_HI = 249
 UPV_LO     = 8
 UPV_HI     = 254
-COIN_GOT   = 21760
+COIN_GOT   = 22272
 COIN_XL    = 128
 COIN_XH    = 168
 COIN_G     = 208
@@ -1643,31 +1644,34 @@ sl_add:
     ld   [sl_n], ac
     sub  MAX_SPR, ac
     beq  sa_full
+    ld   SL_C >> 8, y
     ld   [sl_n], ac
-    add  SL_C, x
+    add  SL_C & 0xFF, x
     ld   [dlo], ac
-    ld   ac, [x]
+    ld   ac, [y,x]
     ld   [sl_n], ac
-    add  SL_G, x
+    add  SL_G & 0xFF, x
     ld   [tmp3], ac
-    ld   ac, [x]
+    ld   ac, [y,x]
     ld   [tmp], x
     ld   FR >> 8, y
     ld   [y,x], ac
     ld   ac, [tmp2]
+    ld   SL_C >> 8, y
     ld   [sl_n], ac
-    add  SL_LO, x
+    add  SL_LO & 0xFF, x
     ld   [tmp2], ac
-    ld   ac, [x]
+    ld   ac, [y,x]
     ld   [tmp], ac
     add  128, x
     ld   FR >> 8, y
     ld   [y,x], ac
     ld   ac, [tmp2]
+    ld   SL_C >> 8, y
     ld   [sl_n], ac
-    add  SL_HI, x
+    add  SL_HI & 0xFF, x
     ld   [tmp2], ac
-    ld   ac, [x]
+    ld   ac, [y,x]
     ld   [sl_n], ac
     add  1, ac
     ld   ac, [sl_n]
