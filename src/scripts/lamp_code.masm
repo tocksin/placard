@@ -1,0 +1,1279 @@
+; ============================================================
+; lamp_code.masm - LAMPLIGHTER's code.  gen_lamp.py puts the constants
+; and the zero page in front of it, fills in the marked parts (tables
+; and unrolled loops) and runs asm_expand over it: lamp.asm.
+;
+; The frame (docs/software/LAMPLIGHTER.md, "How it draws"):
+;   frame      wait until the beam is in the playfield's last tile row
+;   draw_bg    the playfield from the tile map, tile row by tile row from
+;              the top (map FF: the tile routines are in the video RAM)
+;   draw_spr   the sprite list over it
+;   logic      sound, pads, keys, the rules, the sprite list, the text
+; ============================================================
+
+.prefix lp
+.region 0x0300, 0x1F00
+.region 0x2000, 0x4000
+.region 0x0300, 0x1F00
+
+.fixed 0x0100               ; ROWX: video offset (low byte) of top cell + 32, x10 off the playfield
+ROWX:
+@@ROWX@@
+
+.fixed 0x0200               ; VPG: video page of byte column + 8, x60 off the screen
+VPG:
+@@VPG@@
+
+; ------------------------------------------------------------
+; main
+; ------------------------------------------------------------
+.chunk
+main:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    CALL con_clear
+    CALL snd_init
+    ld   0x5A, y                ; rows 32-479 (x5A40-x5BFF): 4 bpp 4x
+    ld   0x40, ac
+m_mb1:
+    ld   ac, x
+    ld   MODE_PF, [y,x]
+    inc
+    bne  m_mb1
+    ld   0x5B, y
+m_mb2:
+    ld   ac, x
+    ld   MODE_PF, [y,x]
+    inc
+    bne  m_mb2
+    ld   0x20, ac               ; program variables x20-x8F = 0
+m_z:
+    ld   ac, x
+    ld   0, [x]
+    inc
+    xor  0x90, ac
+    beq  m_z1
+    xor  0x90, ac
+    bra  m_z
+m_z1:
+    ld   0xFF, ac               ; no area loaded
+    ld   ac, [area]
+    ld   START_ROOM, ac
+    ld   ac, [room]
+    ld   START_X, ac
+    ld   ac, [px]
+    ld   START_Y, ac
+    ld   ac, [py]
+    ld   START_ENERGY, ac
+    ld   ac, [energy]
+    ld   ac, [emax]
+    CALL load_room
+    CALL camera
+    GOTO frame
+
+; ------------------------------------------------------------
+; frame: wait for the beam, then draw behind it
+; ------------------------------------------------------------
+.chunk
+frame:
+    CALL frame_poll             ; AC = the line (V9:V2)
+    sub  LINE_GO, ac
+    bcs  frame
+frame_go:
+    ld   0x50, y                ; map FF: the tile and sprite routines are in
+    ld   0xFF, [y,x]            ; the video RAM
+    ld   [sy], ac               ; the first tile row's top: ROWX index 32 - (sy & 15)
+    and  15, ac
+    ld   ac, [tmp]
+    ld   32, ac
+    sub  [tmp], ac
+    ld   ac, [rowb]
+    ld   [sx], ac               ; the first tile's first byte column
+    and  7, ac
+    ld   ac, [j0]
+    ld   [sx], ac               ; map byte of the first tile: (ty << 5) | tx
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [tmp]
+    ld   [sy], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [tmp2]
+    and  7, ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [tmp], ac
+    ld   ac, [mrow]
+    ld   [tmp2], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    add  MAP >> 8, ac
+    ld   ac, [mpg]
+    ld   t_ret & 0xFF, ac       ; every tile routine comes back to t_ret
+    ld   ac, [rl]
+    ld   t_ret >> 8, ac
+    ld   ac, [rh]
+    GOTO bg_row
+
+.chunk
+bg_row:
+    ld   ROWX >> 8, y           ; the video offsets of this tile row's 16 cells
+@@ROWT@@
+    ld   0x61, ac
+    ld   ac, [colpage]
+    ld   8, ac                  ; the first tile: from byte column j0
+    sub  [j0], ac
+    ld   ac, [tcnt]
+    ld   [mrow], ac
+    ld   ac, [mx]
+    ld   ac, x
+    ld   [mpg], y
+    ld   [y,x], ac
+    or   [j0], ac
+    bra  t_go
+t_ret:
+    bcs  row_done               ; past column 79
+    ld   8, ac
+    ld   ac, [tcnt]
+    ld   [mx], ac               ; the next tile
+    inc
+    ld   ac, [mx]
+    ld   ac, x
+    ld   [mpg], y
+    ld   [y,x], ac
+t_go:
+    ld   ac, x                  ; its routine for that byte column
+    ld   TS_LO >> 8, y
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   TS_HI >> 8, y
+    ld   [y,x], ac
+    ld   ac, y
+    ld   [tmp], ac
+    jmp  ac
+row_done:
+    ld   [rowb], ac             ; the next tile row, while it is on the screen
+    add  16, ac
+    ld   ac, [rowb]
+    sub  144, ac
+    bcc  bg_done
+    ld   [mrow], ac
+    add  32, ac
+    ld   ac, [mrow]
+    bcc  bg_row
+    ld   [mpg], ac
+    inc
+    ld   ac, [mpg]
+    bra  bg_row
+bg_done:
+    GOTO draw_spr
+
+; ------------------------------------------------------------
+; draw_spr: draw the sprite list (still map FF), then the map back
+; ------------------------------------------------------------
+.chunk
+draw_spr:
+    ld   ds_next & 0xFF, ac     ; every sprite routine returns to ds_next
+    ld   ac, [srl]
+    ld   ds_next >> 8, ac
+    ld   ac, [srh]
+    clr  ac
+    ld   ac, [s_i]
+ds_next:
+    ld   [s_i], ac
+    sub  [sl_n], ac
+    bne  ds_one
+    ld   0x50, y                ; done: map 07 (the library)
+    ld   0x07, [y,x]
+    GOTO logic
+ds_one:
+    ld   SL >> 8, y
+    ld   [s_i], ac
+    add  SL_C, x
+    ld   [y,x], ac
+    ld   ac, [sc]
+    ld   [s_i], ac
+    add  SL_G, x
+    ld   [y,x], ac
+    ld   ac, [spy]
+    ld   [s_i], ac
+    add  SL_HI, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   [s_i], ac
+    add  SL_LO, x
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   VPG >> 8, y
+@@VPGS@@
+    ld   [s_i], ac
+    inc
+    ld   ac, [s_i]
+    ld   [tmp], y
+    ld   [tmp2], ac
+    jmp  ac
+
+; ------------------------------------------------------------
+; logic: sound, input
+; ------------------------------------------------------------
+.chunk
+logic:
+    CALL snd_update
+    CALL pad_read
+    CALL kbd_scan
+    CALL menu_poll              ; (Esc: back to the DOS)
+    ld   [inp], ac
+    ld   ac, [inp_prev]
+    clr  ac
+    ld   ac, [inp]
+    GOTO read_input
+
+.chunk
+read_input:
+@@INPUT@@
+    GOTO game
+
+; ------------------------------------------------------------
+; game: crawling
+; ------------------------------------------------------------
+.chunk
+game:
+    ld   [fcnt], ac
+    inc
+    ld   ac, [fcnt]
+    ld   [inp], ac              ; Down on the ground: crawl
+    and  IN_DOWN, ac
+    beq  gc_up
+    ld   [onground], ac
+    beq  gc_up
+    ld   1, ac
+    ld   ac, [crawl]
+    bra  gc_done
+gc_up:
+    ld   [crawl], ac
+    beq  gc_done
+    ld   [py], ac               ; stand up when the upper half is free
+    ld   ac, [ta_y]
+    ld   [px], ac
+    inc
+    ld   ac, [ta_x]
+    CALL tile_at
+    bne  gc_done
+    ld   [px], ac
+    add  6, ac
+    ld   ac, [ta_x]
+    CALL tile_at
+    bne  gc_done
+    clr  ac
+    ld   ac, [crawl]
+gc_done:
+    GOTO g_horiz
+
+; ------------------------------------------------------------
+; game: sideways
+; ------------------------------------------------------------
+.chunk
+g_horiz:
+    clr  ac
+    ld   ac, [moving]
+    ld   [inp], ac
+    and  IN_RIGHT, ac
+    beq  gh_1
+    clr  ac
+    ld   ac, [facing]
+    ld   1, ac
+    ld   ac, [moving]
+    bra  gh_gate
+gh_1:
+    ld   [inp], ac
+    and  IN_LEFT, ac
+    beq  gh_none
+    ld   1, ac
+    ld   ac, [facing]
+    ld   ac, [moving]
+gh_gate:
+    ld   [crawl], ac            ; a step 3 frames of 4; crawling, every other
+    bne  gh_slow
+    ld   [fcnt], ac
+    and  3, ac
+    xor  3, ac
+    beq  gh_none
+    bra  gh_go
+gh_slow:
+    ld   [fcnt], ac
+    and  1, ac
+    beq  gh_none
+gh_go:
+    ld   [facing], ac
+    bne  gh_left
+    GOTO g_right
+gh_left:
+    GOTO g_left
+gh_none:
+    GOTO g_jump
+
+.chunk
+g_right:
+    ld   [px], ac               ; a wall at byte column px + 7?
+    add  7, ac
+    ld   ac, [ta_x]
+    CALL side_free
+    bne  gr_no
+    ld   [px], ac
+    inc
+    ld   ac, [px]
+    sub  [rwx], ac
+    bcs  gr_no
+    ld   [py], ac               ; at the right edge: an exit?
+    add  8, ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [ex_pos]
+    ld   EX_R, ac
+    ld   ac, [ex_side]
+    CALL find_exit
+    bne  gr_exit
+    ld   [px], ac               ; none: back
+    dec
+    ld   ac, [px]
+gr_no:
+    GOTO g_jump
+gr_exit:
+    GOTO do_exit
+
+.chunk
+g_left:
+    ld   [px], ac
+    bne  gl_1
+    ld   [py], ac               ; at the left edge: an exit?
+    add  8, ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [ex_pos]
+    ld   EX_L, ac
+    ld   ac, [ex_side]
+    CALL find_exit
+    beq  gl_no
+    GOTO do_exit
+gl_1:
+    ld   ac, [ta_x]             ; a wall at byte column px?
+    CALL side_free
+    bne  gl_no
+    ld   [px], ac
+    dec
+    ld   ac, [px]
+gl_no:
+    GOTO g_jump
+
+; side_free: AC = 0 when byte column ta_x is open beside the hero
+.chunk
+side_free:
+    ld   [LINK_LO], ac
+    ld   ac, [sv_lo]
+    ld   [LINK_HI], ac
+    ld   ac, [sv_hi]
+    ld   [crawl], ac
+    bne  sf_low
+    ld   [py], ac
+    ld   ac, [ta_y]
+    CALL tile_at
+    bne  sf_out
+sf_low:
+    ld   [py], ac
+    add  8, ac
+    ld   ac, [ta_y]
+    CALL tile_at
+    bne  sf_out
+    ld   [py], ac
+    add  15, ac
+    ld   ac, [ta_y]
+    CALL tile_at
+sf_out:
+    ld   ac, [tmp]
+    ld   [sv_lo], ac
+    ld   ac, [LINK_LO]
+    ld   [sv_hi], ac
+    ld   ac, [LINK_HI]
+    ld   [tmp], ac
+    RET
+
+; tile_at: AC = 0 when cell ta_y of byte column ta_x is open; ta_a = the
+; tile's attributes, ta_pg / ta_i = its place in the map.  Changes X, Y, T0.
+.chunk
+tile_at:
+    ld   [ta_y], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [T0]
+    shr  ac
+    shr  ac
+    shr  ac
+    add  MAP >> 8, ac
+    ld   ac, [ta_pg]
+    ld   ac, y
+    ld   [T0], ac
+    and  7, ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [T0]
+    ld   [ta_x], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    or   [T0], ac
+    ld   ac, [ta_i]
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, x
+    ld   ATTR >> 8, y
+    ld   [y,x], ac
+    ld   ac, [ta_a]
+    ld   [ta_y], ac
+    and  8, ac
+    bne  ta_low
+    ld   [ta_a], ac
+    and  1, ac
+    RET
+ta_low:
+    ld   [ta_a], ac
+    and  2, ac
+    RET
+
+; find_exit: AC = 0 when the room has no exit on side ex_side at tile
+; ex_pos; else ex_i = the exit
+.chunk
+find_exit:
+    clr  ac
+    ld   ac, [ex_i]
+fe_lp:
+    ld   HDR >> 8, y
+    ld   [ex_i], ac
+    add  HX_SIDE, x
+    ld   [y,x], ac
+    xor  [ex_side], ac
+    bne  fe_nx
+    ld   [ex_i], ac
+    add  HX_LO, x
+    ld   [y,x], ac
+    ld   ac, [T0]
+    ld   [ex_pos], ac
+    sub  [T0], ac
+    bcs  fe_nx
+    ld   [ex_i], ac
+    add  HX_HI, x
+    ld   [y,x], ac
+    sub  [ex_pos], ac
+    bcs  fe_nx
+    ld   1, ac
+    RET
+fe_nx:
+    ld   [ex_i], ac
+    inc
+    ld   ac, [ex_i]
+    xor  8, ac
+    bne  fe_lp
+    RET
+
+; ------------------------------------------------------------
+; do_exit: through exit ex_i into its room (the frame ends here)
+; ------------------------------------------------------------
+.chunk
+do_exit:
+    ld   HDR >> 8, y
+    ld   [ex_i], ac
+    add  HX_DELTA, x
+    ld   [y,x], ac
+    ld   ac, [ex_d]
+    ld   [ex_i], ac
+    add  HX_DEST, x
+    ld   [y,x], ac
+    ld   ac, [room]
+    CALL load_room
+    ld   [ex_side], ac
+    xor  EX_L, ac
+    beq  de_l
+    xor  3, ac                  ; (EX_L ^ EX_R)
+    beq  de_r
+    xor  1, ac                  ; (EX_R ^ EX_U)
+    beq  de_u
+    clr  ac                     ; down: in at the top
+    ld   ac, [py]
+    bra  de_v
+de_u:
+    ld   [rhy], ac              ; up: in at the bottom
+    dec
+    ld   ac, [py]
+de_v:
+    clr  ac
+    ld   ac, [pyf]
+    ld   [ex_d], ac
+    shl
+    shl
+    shl
+    add  [px], ac
+    ld   ac, [px]
+    GOTO de_done
+de_l:
+    ld   [rwx], ac              ; left: in at the right edge
+    dec
+    ld   ac, [px]
+    sub  7, ac
+    ld   ac, [ta_x]
+    bra  de_h
+de_r:
+    ld   1, ac                  ; right: in at the left edge
+    ld   ac, [px]
+    ld   8, ac
+    ld   ac, [ta_x]
+de_h:
+    ld   [ex_d], ac
+    shl
+    shl
+    shl
+    shl
+    add  [py], ac
+    ld   ac, [py]
+    add  8, ac                  ; a door in the way opens
+    ld   ac, [ta_y]
+    CALL tile_at
+    ld   [ta_a], ac
+    and  A_DOOR, ac
+    beq  de_done
+    CALL open_door
+de_done:
+    CALL camera
+    GOTO g_spr
+
+; open_door: open the door whose tile tile_at just found (ta_a, ta_pg,
+; ta_i), shutting the one that is open
+.chunk
+open_door:
+    ld   [door_t], ac
+    beq  od_0
+    ld   [door_pg], y           ; shut the other door
+    ld   [door_i], x
+    ld   T_DT, [y,x]
+    ld   [door_i], ac
+    add  32, ac
+    ld   ac, x
+    bcc  od_c1
+    ld   [door_pg], ac
+    inc
+    ld   ac, y
+od_c1:
+    ld   T_DB, [y,x]
+od_0:
+    ld   [ta_a], ac             ; hit in its lower tile: the upper one is a row up
+    and  A_DBOT, ac
+    beq  od_top
+    ld   [ta_i], ac
+    sub  32, ac
+    ld   ac, [ta_i]
+    bcc  od_top
+    ld   [ta_pg], ac
+    dec
+    ld   ac, [ta_pg]
+od_top:
+    ld   [ta_pg], ac
+    ld   ac, [door_pg]
+    ld   ac, y
+    ld   [ta_i], ac
+    ld   ac, [door_i]
+    ld   ac, x
+    ld   T_DOT, [y,x]
+    add  32, ac
+    ld   ac, x
+    bcc  od_1
+    ld   [door_pg], ac
+    inc
+    ld   ac, y
+od_1:
+    ld   T_DOB, [y,x]
+    ld   DOOR_FRAMES, ac
+    ld   ac, [door_t]
+    ld   [door_i], ac
+    and  31, ac
+    shl
+    shl
+    shl
+    ld   ac, [door_x]
+    RET
+
+; ------------------------------------------------------------
+; game: jumping and gravity
+; ------------------------------------------------------------
+.chunk
+g_jump:
+    ld   [inp], ac
+    and  IN_JUMP, ac
+    beq  gj_no
+    ld   [inp_prev], ac         ; a new press, on the ground, not crawling
+    and  IN_JUMP, ac
+    bne  gj_grav
+    ld   [onground], ac
+    beq  gj_grav
+    ld   [crawl], ac
+    bne  gj_grav
+    ld   JUMPV_LO, ac
+    ld   ac, [vyl]
+    ld   JUMPV_HI, ac
+    ld   ac, [vyh]
+    ld   72, ac
+    CALL snd_beep
+    bra  gj_grav
+gj_no:
+    ld   [vyh], ac              ; the key let go: a fast rise is cut to 1 cell a frame
+    blt  gj_c1
+    bra  gj_grav
+gj_c1:
+    xor  0xFF, ac
+    beq  gj_grav
+    ld   0xFF, ac
+    ld   ac, [vyh]
+    clr  ac
+    ld   ac, [vyl]
+gj_grav:
+    ld   [vyl], ac              ; gravity
+    add  GRAV, ac
+    ld   ac, [vyl]
+    ld   [vyh], ac
+    bcc  gj_g1
+    inc
+gj_g1:
+    ld   ac, [vyh]
+    blt  gj_move
+    sub  MAXFALL_HI, ac
+    bcs  gj_move
+    ld   MAXFALL_HI, ac
+    ld   ac, [vyh]
+    clr  ac
+    ld   ac, [vyl]
+gj_move:
+    ld   [py], ac               ; y += vy
+    ld   ac, [tmp2]
+    ld   [pyf], ac
+    add  [vyl], ac
+    ld   ac, [pyf]
+    ld   [py], ac
+    bcc  gj_m1
+    inc
+gj_m1:
+    add  [vyh], ac
+    ld   ac, [py]
+    ld   [vyh], ac
+    blt  gj_up
+    GOTO g_down
+gj_up:
+    GOTO g_up
+
+.chunk
+g_up:
+    clr  ac
+    ld   ac, [onground]
+    ld   [tmp2], ac             ; past the top (py wrapped)?
+    sub  [py], ac
+    bcs  gu_wrap
+    ld   [crawl], ac            ; the head in a solid tile?
+    shl
+    shl
+    shl
+    add  [py], ac
+    ld   ac, [ta_y]
+    ld   [px], ac
+    inc
+    ld   ac, [ta_x]
+    CALL tile_at
+    bne  gu_bump
+    ld   [px], ac
+    add  6, ac
+    ld   ac, [ta_x]
+    CALL tile_at
+    beq  gu_free
+gu_bump:
+    ld   [ta_y], ac             ; below that half tile
+    and  0xF8, ac
+    add  8, ac
+    ld   ac, [py]
+    ld   [crawl], ac
+    beq  gu_b1
+    ld   [py], ac
+    sub  8, ac
+    ld   ac, [py]
+gu_b1:
+    clr  ac
+    ld   ac, [pyf]
+    ld   ac, [vyl]
+    ld   ac, [vyh]
+gu_free:
+    GOTO g_post
+gu_wrap:
+    ld   [px], ac               ; an exit above?
+    add  4, ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [ex_pos]
+    ld   EX_U, ac
+    ld   ac, [ex_side]
+    CALL find_exit
+    beq  gu_top
+    GOTO do_exit
+gu_top:
+    clr  ac                     ; none: stop at the top
+    ld   ac, [py]
+    bra  gu_b1
+
+.chunk
+g_down:
+    ld   [py], ac               ; at the bottom edge?
+    sub  [rhy], ac
+    bcs  gd_in
+    ld   [px], ac               ; an exit below?
+    add  4, ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [ex_pos]
+    ld   EX_D, ac
+    ld   ac, [ex_side]
+    CALL find_exit
+    beq  gd_floor
+    GOTO do_exit
+gd_floor:
+    ld   [rhy], ac
+    ld   ac, [py]
+    bra  gd_landed
+gd_in:
+    ld   [py], ac               ; the feet on a solid half tile?
+    add  16, ac
+    ld   ac, [ta_y]
+    ld   [px], ac
+    inc
+    ld   ac, [ta_x]
+    CALL tile_at
+    bne  gd_land
+    ld   [px], ac
+    add  6, ac
+    ld   ac, [ta_x]
+    CALL tile_at
+    bne  gd_land
+    clr  ac
+    ld   ac, [onground]
+    GOTO g_post
+gd_land:
+    ld   [ta_y], ac
+    and  0xF8, ac
+    sub  16, ac
+    ld   ac, [py]
+gd_landed:
+    clr  ac
+    ld   ac, [pyf]
+    ld   ac, [vyl]
+    ld   ac, [vyh]
+    ld   1, ac
+    ld   ac, [onground]
+    GOTO g_post
+
+; camera: sx, sy from the hero's place
+.chunk
+camera:
+    ld   [px], ac
+    sub  CAM_X, ac
+    bcc  cm_1
+    clr  ac
+cm_1:
+    ld   ac, [sx]
+    ld   [rw], ac
+    sub  [sx], ac
+    bcc  cm_2
+    ld   [rw], ac
+    ld   ac, [sx]
+cm_2:
+    ld   [py], ac
+    sub  CAM_Y, ac
+    bcc  cm_3
+    clr  ac
+cm_3:
+    ld   ac, [sy]
+    ld   [rcy], ac
+    sub  [sy], ac
+    bcc  cm_4
+    ld   [rcy], ac
+    ld   ac, [sy]
+cm_4:
+    RET
+
+; ------------------------------------------------------------
+; game: the camera, the shots
+; ------------------------------------------------------------
+.chunk
+g_post:
+    CALL camera
+    clr  ac
+    ld   ac, [o_i]
+gs_lp:
+    ld   [o_i], ac
+    add  SH_T, x
+    ld   [x], ac
+    bne  gs_live
+gs_nx:
+    ld   [o_i], ac
+    inc
+    ld   ac, [o_i]
+    xor  3, ac
+    bne  gs_lp
+    GOTO g_fire
+gs_live:
+    dec
+    ld   ac, [x]
+    beq  gs_nx
+    ld   [o_i], ac              ; x += dx, y += dy
+    add  SH_DX, x
+    ld   [x], ac
+    ld   ac, [tmp]
+    ld   [o_i], ac
+    add  SH_X, x
+    ld   [x], ac
+    add  [tmp], ac
+    ld   ac, [x]
+    ld   ac, [ta_x]
+    ld   [o_i], ac
+    add  SH_DY, x
+    ld   [x], ac
+    ld   ac, [tmp]
+    ld   [o_i], ac
+    add  SH_Y, x
+    ld   [x], ac
+    add  [tmp], ac
+    ld   ac, [x]
+    ld   ac, [ta_y]
+    GOTO gs_test
+
+.chunk
+gs_test:
+    ld   [ta_x], ac             ; off the screen: gone
+    sub  [sx], ac
+    sub  80, ac
+    bcc  gs_kill
+    ld   [ta_y], ac
+    sub  [sy], ac
+    sub  112, ac
+    bcc  gs_kill
+    CALL tile_at
+    beq  gs_keep
+    ld   [ta_a], ac             ; a wall stops it; a door opens
+    and  A_DOOR, ac
+    beq  gs_kill
+    CALL open_door
+    ld   8, ac
+    ld   ac, [R0]
+    ld   10, ac
+    ld   ac, [R2]
+    ld   6, ac
+    ld   ac, [R3]
+    ld   60, ac
+    CALL snd_noise
+gs_kill:
+    ld   [o_i], ac
+    add  SH_T, x
+    ld   0, [x]
+gs_keep:
+    GOTO gs_nx
+
+.chunk
+g_fire:
+    ld   [inp], ac              ; a new press of the fire key, not crawling
+    and  IN_FIRE, ac
+    beq  gf_no
+    ld   [inp_prev], ac
+    and  IN_FIRE, ac
+    bne  gf_no
+    ld   [crawl], ac
+    bne  gf_no
+    clr  ac                     ; a free shot
+    ld   ac, [o_i]
+gf_lp:
+    ld   [o_i], ac
+    add  SH_T, x
+    ld   [x], ac
+    beq  gf_slot
+    ld   [o_i], ac
+    inc
+    ld   ac, [o_i]
+    xor  3, ac
+    bne  gf_lp
+gf_no:
+    GOTO g_door
+gf_slot:
+    ld   SHOT_FRAMES, [x]
+    ld   [inp], ac
+    and  IN_UP, ac
+    bne  gf_up
+    ld   [o_i], ac              ; sideways, from the lantern
+    add  SH_DY, x
+    ld   0, [x]
+    ld   [o_i], ac
+    add  SH_Y, x
+    ld   [py], ac
+    add  6, ac
+    ld   ac, [x]
+    ld   [facing], ac
+    bne  gf_left
+    ld   [o_i], ac
+    add  SH_DX, x
+    ld   2, [x]
+    ld   [o_i], ac
+    add  SH_X, x
+    ld   [px], ac
+    add  7, ac
+    ld   ac, [x]
+    bra  gf_snd
+gf_left:
+    ld   [o_i], ac
+    add  SH_DX, x
+    ld   0xFE, [x]
+    ld   [o_i], ac
+    add  SH_X, x
+    ld   [px], ac
+    ld   ac, [x]
+    bra  gf_snd
+gf_up:
+    ld   [o_i], ac              ; up, from the head
+    add  SH_DX, x
+    ld   0, [x]
+    ld   [o_i], ac
+    add  SH_DY, x
+    ld   0xFC, [x]
+    ld   [o_i], ac
+    add  SH_X, x
+    ld   [px], ac
+    add  3, ac
+    ld   ac, [x]
+    ld   [o_i], ac
+    add  SH_Y, x
+    ld   [py], ac
+    sub  4, ac
+    ld   ac, [x]
+gf_snd:
+    ld   84, ac
+    CALL snd_beep
+    GOTO g_door
+
+; ------------------------------------------------------------
+; game: the open door shuts again (not on the hero)
+; ------------------------------------------------------------
+.chunk
+g_door:
+    ld   [door_t], ac
+    beq  gd_x
+    dec
+    ld   ac, [door_t]
+    bne  gd_x
+    ld   [px], ac               ; in the doorway: wait
+    sub  [door_x], ac
+    add  6, ac
+    sub  13, ac
+    bcs  gd_hold
+    ld   [door_pg], y
+    ld   [door_i], x
+    ld   T_DT, [y,x]
+    ld   [door_i], ac
+    add  32, ac
+    ld   ac, x
+    bcc  gd_c1
+    ld   [door_pg], ac
+    inc
+    ld   ac, y
+gd_c1:
+    ld   T_DB, [y,x]
+    bra  gd_x
+gd_hold:
+    ld   1, ac
+    ld   ac, [door_t]
+gd_x:
+    GOTO g_spr
+
+; ------------------------------------------------------------
+; game: the sprite list
+; ------------------------------------------------------------
+.chunk
+g_spr:
+    clr  ac
+    ld   ac, [sl_n]
+    ld   [crawl], ac            ; the hero's frame
+    beq  sp_1
+    ld   F_CRAWL, ac
+    bra  sp_f
+sp_1:
+    ld   [onground], ac
+    bne  sp_2
+    ld   F_JUMP, ac
+    bra  sp_f
+sp_2:
+    ld   [moving], ac
+    beq  sp_f
+    ld   [fcnt], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    and  1, ac
+    add  F_RUN1, ac
+sp_f:
+    ld   ac, [tmp]
+    ld   [facing], ac
+    beq  sp_3
+    ld   [tmp], ac
+    add  NPF, ac
+    ld   ac, [tmp]
+sp_3:
+    ld   [px], ac
+    sub  [sx], ac
+    add  8, ac
+    ld   ac, [tmp2]
+    ld   [py], ac
+    sub  [sy], ac
+    add  32, ac
+    ld   ac, [tmp3]
+    CALL sl_add
+    clr  ac                     ; the shots
+    ld   ac, [o_i]
+sp_lp:
+    ld   [o_i], ac
+    add  SH_T, x
+    ld   [x], ac
+    beq  sp_nx
+    ld   F_SHOT, ac
+    ld   ac, [tmp]
+    ld   [o_i], ac
+    add  SH_X, x
+    ld   [x], ac
+    sub  [sx], ac
+    add  8, ac
+    ld   ac, [tmp2]
+    ld   [o_i], ac
+    add  SH_Y, x
+    ld   [x], ac
+    sub  [sy], ac
+    add  32, ac
+    ld   ac, [tmp3]
+    CALL sl_add
+sp_nx:
+    ld   [o_i], ac
+    inc
+    ld   ac, [o_i]
+    xor  3, ac
+    bne  sp_lp
+    GOTO g_hud
+
+; sl_add: add frame tmp at byte column + 8 tmp2, cell + 32 tmp3 to the list
+.chunk
+sl_add:
+    ld   [tmp], x
+    ld   FR >> 8, y
+    ld   [y,x], ac
+    ld   ac, [T0]
+    ld   [tmp], ac
+    add  128, x
+    ld   [y,x], ac
+    ld   ac, [T1]
+    ld   SL >> 8, y
+    ld   [sl_n], ac
+    add  SL_C, x
+    ld   [tmp2], ac
+    ld   ac, [y,x]
+    ld   [sl_n], ac
+    add  SL_G, x
+    ld   [tmp3], ac
+    ld   ac, [y,x]
+    ld   [sl_n], ac
+    add  SL_LO, x
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [sl_n], ac
+    add  SL_HI, x
+    ld   [T1], ac
+    ld   ac, [y,x]
+    ld   [sl_n], ac
+    inc
+    ld   ac, [sl_n]
+    RET
+
+; ------------------------------------------------------------
+; the text lines
+; ------------------------------------------------------------
+.chunk
+g_hud:
+    ld   [hud_dirty], ac
+    beq  hu_x
+    clr  ac
+    ld   ac, [hud_dirty]
+    ld   7, ac
+    ld   ac, [CUR_COL]
+    ld   1, ac
+    ld   ac, [CUR_ROW]
+    ld   [energy], ac
+    CALL con_dec8
+    ld   s_sp & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_sp >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+hu_x:
+    GOTO frame
+
+; ------------------------------------------------------------
+; load_room: read LAMP/Rnn.RM (nn = room, hex) to MAP and HDR, and its
+; area's tiles when they are not the ones loaded
+; ------------------------------------------------------------
+.chunk
+load_room:
+    PUSH_LINK
+    CALL fs_root
+    ld   s_dir & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_dir >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    ld   [room], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    add  s_hex & 0xFF, x
+    ld   s_hex >> 8, y
+    ld   [y,x], ac
+    ld   (s_room + 1) & 0xFF, x
+    ld   ac, [y,x]
+    ld   [room], ac
+    and  15, ac
+    add  s_hex & 0xFF, x
+    ld   [y,x], ac
+    ld   (s_room + 2) & 0xFF, x
+    ld   ac, [y,x]
+    ld   s_room & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_room >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    beq  lr_ok
+    GOTO dos_back
+lr_ok:
+    clr  ac
+    ld   ac, [R4]
+    ld   MAP >> 8, ac
+    ld   ac, [R5]
+    CALL fs_read
+    CALL fs_read
+    GOTO lr_2
+
+.chunk
+lr_2:
+    ld   HDR >> 8, y
+    ld   H_AREA, x
+    ld   [y,x], ac
+    xor  [area], ac
+    beq  lr_3
+    xor  [area], ac
+    ld   ac, [area]
+    CALL load_area
+lr_3:
+    ld   HDR >> 8, y
+    ld   H_RW, x
+    ld   [y,x], ac
+    ld   ac, [rw]
+    ld   H_RCY, x
+    ld   [y,x], ac
+    ld   ac, [rcy]
+    ld   H_RWX, x
+    ld   [y,x], ac
+    ld   ac, [rwx]
+    ld   H_RHY, x
+    ld   [y,x], ac
+    ld   ac, [rhy]
+    clr  ac
+    ld   ac, [door_t]
+    ld   ac, [SH_T]
+    ld   ac, [SH_T + 1]
+    ld   ac, [SH_T + 2]
+    ld   ac, [CUR_COL]          ; row 0: the room's name
+    ld   ac, [CUR_ROW]
+    ld   H_NAME, ac
+    ld   ac, [R0]
+    ld   HDR >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    clr  ac                     ; row 1: the energy
+    ld   ac, [CUR_COL]
+    ld   1, ac
+    ld   ac, [CUR_ROW]
+    ld   ac, [hud_dirty]
+    ld   s_energy & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_energy >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    LEAVE
+
+; load_area: read LAMP/An.TS (n = area): 4 pages of tables to TS_LO on,
+; the rest to x6000 on
+.chunk
+load_area:
+    PUSH_LINK
+    CALL fs_root
+    ld   s_dir & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_dir >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    ld   [area], ac
+    add  0x30, ac
+    ld   s_area >> 8, y
+    ld   (s_area + 1) & 0xFF, x
+    ld   ac, [y,x]
+    ld   s_area & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_area >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    beq  la_ok
+    GOTO dos_back
+la_ok:
+    clr  ac
+    ld   ac, [R4]
+    ld   TS_LO >> 8, ac
+    ld   ac, [R5]
+la_rd:
+    CALL fs_read
+    bne  la_done
+    ld   [R5], ac               ; after the tables: the video RAM
+    xor  TABLES_END >> 8, ac
+    bne  la_rd
+    ld   0x60, ac
+    ld   ac, [R5]
+    bra  la_rd
+la_done:
+    LEAVE
+
+.chunk
+s_dir:    #d "LAMP", 0x00
+s_room:   #d "R00.RM", 0x00
+s_area:   #d "A0.TS", 0x00
+s_hex:    #d "0123456789ABCDEF"
+s_energy: #d "ENERGY", 0x00
+s_sp:     #d "  ", 0x00
