@@ -142,6 +142,10 @@ Four demos show what the CPU can do with no sprite or collision hardware.  The f
 
 ![Skyward Tobi's four courses](reference/skyward_courses.png)
 
+`sdcard/LAMP.PLC` (`src/scripts/gen_lamp.py` and `lamp_code.masm`, with its rooms and tile sets in `sdcard/LAMP/`) is Lamplighter, an original exploration platform game in progress: Wick, a beacon keeper, climbs down through the hollow moon Cairn to relight its great lamp.  Rooms of up to 32 × 16 tiles scroll both ways at 160 × 112, 4 bpp, and join at their edges into a world that branches from a central shaft; a room is a 1 KB file read from the card as Wick enters it.  The playfield is redrawn every frame, tile row by tile row just behind the beam, each tile one jump into unrolled code, and compiled sprites go over it.  Stage 1 is the engine and six rooms: walking, jumping, crawling through ducts, a lantern that fires sparks, doors that open to a shot.  Run it from the DOS's file browser (arrow keys or SNES pad 1; Z, Space or pad B to jump, X or pad Y to fire, Down to crawl).  `test_lamp_sim.py` plays it with a bot that plans its route by searching a Python model of the rules, and compares the program with that model on every frame ([docs/software/LAMPLIGHTER.md](docs/software/LAMPLIGHTER.md)).
+
+![Lamplighter's first six rooms](reference/lamp_rooms.png)
+
 ## Standard library
 `src/scripts/placard_lib.asm` holds subroutines for new programs: 16-bit
 arithmetic, multiply and divide, memory fill and copy, random numbers, frame

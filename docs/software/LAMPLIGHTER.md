@@ -14,7 +14,7 @@ Date: 11/13/2026
 The game, its world, its names, its art and its map are original, written
 for the Placard.  It is in the exploration-platformer genre.
 
-![The Landing Ledge, the Wellshaft and the West Gallery in the simulator](../../reference/lamp_sim.png)
+![The Landing Ledge, the Keeper's Duct, the Wellshaft and the West Gallery in the simulator](../../reference/lamp_sim.png)
 
 ![The six rooms of stage 1](../../reference/lamp_rooms.png)
 
