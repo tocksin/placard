@@ -287,6 +287,27 @@ gc_up:
     clr  ac
     ld   ac, [crawl]
 gc_done:
+    GOTO g_wet
+
+; under water (the tile at his middle), without the Ballast Boots
+.chunk
+g_wet:
+    ld   [px], ac
+    add  4, ac
+    ld   ac, [ta_x]
+    ld   [py], ac
+    add  8, ac
+    ld   ac, [ta_y]
+    CALL tile_at
+    ld   [ta_a], ac
+    and  A_WATER, ac
+    ld   ac, [wet]
+    ld   [items], ac
+    and  IT_BOOTS, ac
+    beq  gw_1
+    clr  ac
+    ld   ac, [wet]
+gw_1:
     GOTO g_horiz
 
 ; ------------------------------------------------------------
@@ -312,7 +333,8 @@ gh_1:
     ld   ac, [facing]
     ld   ac, [moving]
 gh_gate:
-    ld   [crawl], ac            ; a step 3 frames of 4; crawling, every other
+    ld   [crawl], ac            ; a step 3 frames of 4; crawling or in water, every other
+    or   [wet], ac
     bne  gh_slow
     ld   [fcnt], ac
     and  3, ac
@@ -658,6 +680,8 @@ g_jump:
     CALL snd_beep
     bra  gj_grav
 gj_do:
+    ld   [wet], ac
+    bne  gj_wet
     ld   JUMPV_LO, ac
     ld   ac, [vyl]
     ld   JUMPV_HI, ac
@@ -677,6 +701,14 @@ gj_c1:
     clr  ac
     ld   ac, [vyl]
 gj_grav:
+    GOTO g_grav
+gj_wet:
+    ld   WETV_LO, ac
+    ld   ac, [vyl]
+    ld   WETV_HI, ac
+    ld   ac, [vyh]
+    ld   66, ac
+    CALL snd_beep
     GOTO g_grav
 
 .chunk
@@ -1215,6 +1247,86 @@ gf_up:
     sub  4, ac
     ld   ac, [x]
 gf_snd:
+    GOTO gf_wide
+
+; the Wide Flame: a spark each side of it, in the free places
+.chunk
+gf_wide:
+    ld   [tmp3], ac             ; (a blast stays one)
+    bne  gw_x
+    ld   [items], ac
+    and  IT_WIDE, ac
+    beq  gw_x
+    ld   0xFF, ac               ; the spread: -1, then 1
+    ld   ac, [ta_a]
+    clr  ac
+    ld   ac, [ta_i]
+gw_lp:
+    ld   [ta_i], ac
+    add  SH_T, x
+    ld   [x], ac
+    bne  gw_nx
+    ld   SHOT_FRAMES, [x]
+    ld   [o_i], ac
+    add  SH_X, x
+    ld   [x], ac
+    ld   ac, [tmp]
+    ld   [ta_i], ac
+    add  SH_X, x
+    ld   [tmp], ac
+    ld   ac, [x]
+    ld   [o_i], ac
+    add  SH_Y, x
+    ld   [x], ac
+    ld   ac, [tmp]
+    ld   [ta_i], ac
+    add  SH_Y, x
+    ld   [tmp], ac
+    ld   ac, [x]
+    ld   [o_i], ac
+    add  SH_DX, x
+    ld   [x], ac
+    ld   ac, [tmp]
+    ld   [ta_i], ac
+    add  SH_DX, x
+    ld   [tmp], ac
+    ld   ac, [x]
+    ld   [o_i], ac
+    add  SH_DY, x
+    ld   [x], ac
+    ld   ac, [tmp]
+    ld   [ta_i], ac
+    add  SH_DY, x
+    ld   [tmp], ac
+    ld   ac, [x]
+    ld   [ta_i], ac             ; sideways: up or down a little; upward: left or right
+    add  SH_DX, x
+    ld   [x], ac
+    bne  gw_dy
+    ld   [ta_a], ac
+    ld   ac, [x]
+    bra  gw_bl
+gw_dy:
+    ld   [ta_i], ac
+    add  SH_DY, x
+    ld   [ta_a], ac
+    ld   ac, [x]
+gw_bl:
+    ld   [ta_i], ac             ; (it is not the blast that was here)
+    inc
+    xor  [blast_i], ac
+    bne  gw_s
+    ld   ac, [blast_i]
+gw_s:
+    ld   1, ac
+    ld   ac, [ta_a]
+gw_nx:
+    ld   [ta_i], ac
+    inc
+    ld   ac, [ta_i]
+    xor  3, ac
+    bne  gw_lp
+gw_x:
     GOTO gf_kind
 
 .chunk

@@ -67,6 +67,7 @@ GRAV = 0x28             # cells / 256 a frame a frame
 JUMPV = 0x0400
 JUMP_CUT = 0x0100       # the rise left when the jump key is let go
 MAXFALL = 0x0400
+WETV = 0x0300           # the jump from under water without the Ballast Boots
 SAILV = 0x0060          # the fall with the Ash Sail open (the jump key held)
 SHOT_FRAMES = 30
 DOOR_FRAMES = 150
@@ -97,6 +98,7 @@ PAD_B, PAD_Y, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT, PAD_A, PAD_X = 1, 2, 0x10, 
 # tile attributes
 A_TOP, A_BOT, A_DOOR, A_DBOT = 1, 2, 4, 64      # solid upper half, lower half; a door; its lower tile
 A_SOOT = 8                                      # a sooted block: a blast breaks it
+A_WATER = 16                                    # water: without the Ballast Boots Wick is slow in it
 A_SOLID = A_TOP | A_BOT
 # exits
 EX_L, EX_R, EX_U, EX_D = 1, 2, 3, 4
@@ -551,6 +553,64 @@ FLUE_ART = [
 ]
 
 
+FIN_ART = [
+    tall(["................",
+          "......3333......",
+          "....33888833..3.",
+          "..3388888888333.",
+          ".38a088888888833",
+          ".388888888888833",
+          "..3388888888333.",
+          "....33888833..3.",
+          "......3333......"], 3),
+    tall(["................",
+          "......3333......",
+          "....33888833....",
+          "..33888888883.3.",
+          ".38a08888888833.",
+          ".38888888888833.",
+          "..33888888883.3.",
+          "....33888833....",
+          "......3333......"], 3),
+]
+# Old Gulper, the Brine Vaults' boss: its left half
+GULP_HALF = [
+    "...............e",
+    "..............e8",
+    "...............8",
+    "...............8",
+    ".........3333338",
+    ".......333888888",
+    ".....33388888888",
+    "....338888888888",
+    "...3388aaaa88888",
+    "..3388aa00aa8888",
+    "..388aa0000a8888",
+    ".3388aa00aa88888",
+    ".33888aaaa888888",
+    ".388888888888888",
+    "3388888888888888",
+    "3388111111111111",
+    "33811aaaaaaaaaaa",
+    "3381a1a1a1a1a1a1",
+    "3381444444444444",
+    "3381444444444444",
+    "3381a1a1a1a1a1a1",
+    "33811aaaaaaaaaaa",
+    "3388111111111111",
+    "3338888888888888",
+    ".338888888888888",
+    ".333888888883333",
+    "..33388888833333",
+    "...3333333333333",
+    "....33333333..33",
+    ".....33..33.....",
+    "....333.333.....",
+    "...333..333.....",
+]
+GULP_SHUT = {18: "3381a1a1a1a1a1a1", 19: "3381a1a1a1a1a1a1", 0: "..............e.", 1: "...............8"}
+
+
 def recolor(art, old, new):
     return [[r.translate(str.maketrans(old, new)) for r in a] for a in art]
 
@@ -791,6 +851,48 @@ AREAS += [
     ]),
 ]
 
+def water(top):
+    g = grid('1')
+    for x, y in ((2, 5), (3, 5), (10, 9), (11, 9), (6, 13), (7, 13), (13, 3)):
+        g[y][x] = '3'
+    if top:
+        for y in range(4):
+            g[y] = list('0' * 16)
+        g[4] = list('8838' * 4)
+        g[5] = list('3313' * 4)
+    return done(g)
+
+
+def over(back, art):
+    """art with the tile 'back' where it is empty"""
+    return [''.join(b if a == '0' else a for a, b in zip(ra, rb)) for ra, rb in zip(art, back)]
+
+
+BRINE_TILES = [
+    (',', specks([(3, 2, '2'), (11, 6, '1'), (6, 12, '2'), (13, 13, '5')]), 0),
+    ('#', rock('in', '2', 'c', '1', '5'), A_SOLID),
+    ('T', rock('top', '2', 'c', '1', '5'), A_SOLID),
+    ('U', rock('under', '2', 'c', '1', '5'), A_SOLID),
+    ('_', half(False, '2', 'c', '1'), A_BOT),
+    ('=', half(True, '2', 'c', '1'), A_TOP),
+    ('w', water(False), A_WATER),
+    ('~', water(True), A_WATER),
+    ('-', over(water(False), half(False, '2', 'c', '1')), A_BOT),    # a ledge under water
+    ('^', over(water(True), half(False, '2', 'c', '1')), A_BOT),     # ... at its top
+]
+AREAS += [
+    dict(name='THE BRINE VAULTS', tiles=BRINE_TILES, creatures=[
+        dict(name='brinefin', beh=B_FLY, hp=2, dmg=8, art=FIN_ART),
+        dict(name='limpet', beh=B_SIT, hp=3, dmg=6, art=recolor(SPORECAP_ART, '4', '5'), spit=63),
+        dict(name='shellback', beh=B_WALK, hp=4, dmg=10, art=recolor(MITE_ART, '25c', '38a')),
+        dict(name='drip', beh=B_DROP, hp=1, dmg=6, art=DRIP_ART),
+    ]),
+    dict(name="OLD GULPER'S CISTERN", tiles=BRINE_TILES, creatures=[
+        dict(name='gulper', beh=B_WALK, hp=48, dmg=14, spit=31,
+             art=[boss(GULP_HALF, GULP_SHUT, False), boss(GULP_HALF, GULP_SHUT, True)]),
+    ]),
+]
+
 # ---------------------------------------------------------------------------
 # rooms.  Rows of tile letters, up to 32 x 16.  An exit is (side, lo, hi,
 # room, delta): leaving by that side between tiles lo and hi (rows for L
@@ -982,7 +1084,7 @@ ROOMS = [
         "#                 E ",
         "############ #######"]),
     # ---- the deep Wellshaft
-    dict(name='THE WELLSHAFT, DEEP', area=0, exits=[('U', 4, 5, 3, 0)],
+    dict(name='THE WELLSHAFT, DEEP', area=0, exits=[('U', 4, 5, 3, 0), ('R', 13, 14, 22, -9)],
          objs=[('item', 1, 14, I_FLASK, 6), ('moth', 5, 9)], rows=[
         "####  ####",
         "##      ##",
@@ -997,8 +1099,8 @@ ROOMS = [
         "## _    ##",
         "## ,    ##",
         "##    _ ##",
-        "#  S    ##",
-        "#  S    ##",
+        "#  S    D ",
+        "#  S    E ",
         "##########"]),
     # ---- the Slagworks
     dict(name='SLAG STAIR', area=3, exits=[('L', 6, 7, 5, 0), ('R', 3, 4, 16, -1)],
@@ -1082,6 +1184,72 @@ ROOMS = [
         " D                 #",
         " E                 #",
         "####################"]),
+    # ---- the Brine Vaults
+    dict(name='BRINE GATE', area=5, exits=[('L', 4, 5, 14, 9), ('R', 4, 5, 23, -2)],
+         objs=[('shellback', 14, 5), ('drip', 9, 1)], rows=[
+        "####################",
+        "#   ,          ,   #",
+        "#                  #",
+        "#                  #",
+        " D                D ",
+        " E    ##~~~~##    E ",
+        "####################"]),
+    dict(name='SUMP STAIR', area=5,
+         exits=[('L', 2, 3, 22, 2), ('R', 7, 8, 25, -3), ('R', 12, 13, 24, -7)],
+         objs=[('brinefin', 6, 12), ('limpet', 3, 3)], rows=[
+        "##########",
+        "##   ,  ##",
+        " D      ##",
+        " E      ##",
+        "#####   ##",
+        "##,     ##",
+        "##    __##",
+        "##      D ",
+        "##__    E ",
+        "##    ####",
+        "##      ##",
+        "##  __  ##",
+        "##~~^~~~D ",
+        "##wwwwwwE ",
+        "##########",
+        "##########"]),
+    dict(name='THE DROWNED HALL', area=5, exits=[('L', 5, 6, 23, 7), ('R', 5, 6, 26, -1)],
+         objs=[('item', 16, 2, I_FLASK, 10), ('brinefin', 6, 5), ('brinefin', 24, 5), ('limpet', 10, 4)], rows=[
+        "################################",
+        "#   ,        ,        ,        #",
+        "#                              #",
+        "#     __        __        __   #",
+        "#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#",
+        " Dwwwwwwww##wwwwwwww##wwwwwwwwD ",
+        " Ewwww-www##www-wwww##wwww-wwwE ",
+        "################################"]),
+    dict(name='BOOT LOCKER', area=5, exits=[('L', 4, 5, 23, 3)],
+         objs=[('item', 17, 5, I_BOOTS, 11), ('shellback', 10, 5), ('limpet', 15, 4)], rows=[
+        "####################",
+        "#   ,          ,   #",
+        "#                  #",
+        "#            __    #",
+        " D       __        #",
+        " E    ##       ##  #",
+        "####################"]),
+    dict(name='TIDE LOCK', area=5, exits=[('L', 4, 5, 24, 1), ('R', 4, 5, 27, 0)],
+         objs=[('brinefin', 5, 4), ('brinefin', 10, 5)], rows=[
+        "################",
+        "#   ,      ,   #",
+        "#              #",
+        "#      __      #",
+        " D~~~~~~~~~~~~D ",
+        " EwwwwwwwwwwwwE ",
+        "################"]),
+    dict(name="OLD GULPER'S CISTERN", area=6, exits=[('L', 4, 5, 26, 0)],
+         objs=[('gulper', 13, 4, I_WIDE, 12)], rows=[
+        "####################",
+        "#                  #",
+        "#                  #",
+        "#                  #",
+        " D                 #",
+        " E~~~~~~~~~~~~~~~~~#",
+        "###### #############"]),
 ]
 SIDES = {'L': EX_L, 'R': EX_R, 'U': EX_U, 'D': EX_D}
 
@@ -1547,7 +1715,7 @@ class Model:
         self.onground = self.facing = self.moving = self.crawl = 0
         self.inp = self.fcnt = 0
         self.energy, self.emax = START_ENERGY, START_EMAX
-        self.items = self.inv = self.ajump = self.msg = self.msg_t = self.chg = self.blast = 0
+        self.items = self.inv = self.ajump = self.msg = self.msg_t = self.chg = self.blast = self.wet = 0
         self.got = bytearray(32)
         self.shots = [[0, 0, 0, 0, 0] for _ in range(3)]    # t, x, y, dx, dy
         self.door_t = self.door_c = self.door_x = 0
@@ -1599,8 +1767,18 @@ class Model:
                     s[1:] = [(self.px + 7) & 255, (self.py + 6) & 255, 2, 0]
                 if blast:
                     self.blast = i + 1
-                elif self.blast == i + 1:
+                    break
+                if self.blast == i + 1:
                     self.blast = 0
+                if self.items & IT_WIDE:        # the Wide Flame: one each side of it, where there is room
+                    spread = 0xFF
+                    for j, q in enumerate(self.shots):
+                        if not q[0]:
+                            q[:] = s
+                            q[3 if not s[3] else 4] = spread
+                            spread = 1
+                            if self.blast == j + 1:
+                                self.blast = 0
                 break
 
     def hurt(self, o):
@@ -1830,12 +2008,14 @@ class Model:
             self.crawl = 1
         elif self.crawl and not (self.solid(self.px + 1, self.py) or self.solid(self.px + 6, self.py)):
             self.crawl = 0
+        # under water (the tile at his middle), without the Ballast Boots
+        self.wet = 0 if self.items & IT_BOOTS else self.at(self.px + 4, self.py + 8)[1] & A_WATER
         # sideways
         d = 1 if inp & IN_RIGHT else (-1 if inp & IN_LEFT else 0)
         self.moving = 1 if d else 0
         if d:
             self.facing = 0 if d > 0 else 1
-        go = (self.fcnt & 1) if self.crawl else (self.fcnt & 3) != 3
+        go = (self.fcnt & 1) if self.crawl or self.wet else (self.fcnt & 3) != 3
         if d > 0 and go:
             if self.side_free(self.px + 7):
                 self.px += 1
@@ -1855,7 +2035,7 @@ class Model:
         if inp & IN_JUMP:
             if not prev & IN_JUMP and not self.crawl:
                 if self.onground:
-                    self.vy = -JUMPV
+                    self.vy = -(WETV if self.wet else JUMPV)
                 elif self.items & IT_BELLOWS and not self.ajump:
                     self.vy = -AIRV
                     self.ajump = 1
@@ -2070,7 +2250,7 @@ def masm():
                   V_MSG_T=V_MSG_T, V_MSG_D=V_MSG_D, OBJ=OBJ, O_KIND=O_KIND, O_X=O_X, O_Y=O_Y, O_D=O_D, O_T=O_T, O_HP=O_HP,
                   O_P=O_P, GOT=GOT, HO_KIND=HO_KIND, HO_X=HO_X, HO_Y=HO_Y, HO_P=HO_P, B_WALK=B_WALK,
                   S_ITEM=S_ITEM, S_EMBER=S_EMBER, S_PUFF=S_PUFF, IT_SAIL=IT_SAIL, SAILV=SAILV, IT_RIG=IT_RIG, IT_BELLOWS=IT_BELLOWS,
-                  M_DEAD=len(ITEM_MSG) + 1)
+                  M_DEAD=len(ITEM_MSG) + 1, A_WATER=A_WATER, WETV_LO=(-WETV) & 255, WETV_HI=((-WETV) >> 8) & 255)
     assert HURTV & 255 == 0
     msgs = [''] + ITEM_MSG + [MSG_DEAD]
     assert all(len(m) <= NAME_W for m in msgs)
