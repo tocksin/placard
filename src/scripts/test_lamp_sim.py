@@ -5,6 +5,7 @@ test_lamp_sim.py - play LAMPLIGHTER (gen_lamp.py) in placard_sim from a card
     python3 test_lamp_sim.py                 the bot walks the route below
     python3 test_lamp_sim.py --shots DIR     a PNG in every room, and some on the way
     python3 test_lamp_sim.py --goals 2       only the first 2 goals of the route
+    python3 test_lamp_sim.py --route "[('kill', 0, 0)]"     another route
 
 The 32K ROM boots from a card with BOOT.CFG = LAMP.PLC and the LAMP folder.
 A bot plays through pad 1.  It plans each leg of its route with
@@ -12,14 +13,14 @@ gen_lamp's Python model of the rules (a search over the model: which
 buttons, 4 frames at a time, reach the next room or place), so the model
 and the program are compared on every frame too.  For every frame the
 test checks:
-  - the rules: the hero, the camera, the shots, the door and the room
-    are what the model says
+  - the rules: the hero, his energy and power-ups, the camera, the shots,
+    the door, the room and its creatures and items are what the model says
   - the background: after the tile rows are drawn, every byte of the
     160 x 112 playfield matches the model's picture of the tile map
   - the sprites: after the blitter, the playfield matches that with the
     model's sprite list drawn over it
   - the beam: each tile row is drawn after the beam has passed it, and
-    the sprites are finished before the beam is back at the playfield
+    each sprite is finished before the beam is back at its first row
 and at the end that the bot got through its route, that the tile and
 sprite routines in the video RAM are unchanged and that Esc brings the
 DOS back.
@@ -46,15 +47,24 @@ B, Y, UP, DOWN, LEFT, RIGHT = gl.PAD_B, gl.PAD_Y, gl.PAD_UP, gl.PAD_DOWN, gl.PAD
 ACTIONS = [RIGHT, LEFT, RIGHT | B, LEFT | B, B, 0, RIGHT | DOWN, LEFT | DOWN, Y, RIGHT | Y, LEFT | Y, UP | Y]
 HOLD = 4
 
-# the route: ('room', n) get into room n; ('at', n, tx, ty) stand in tile (tx, ty) of room n
-ROUTE = [('room', 1), ('room', 2), ('at', 2, 26, 5), ('room', 1), ('room', 3), ('room', 4), ('at', 4, 2, 10),
-         ('room', 3), ('room', 5), ('at', 5, 14, 4), ('room', 3), ('room', 1), ('room', 0)]
+# the route: ('room', n) get into room n; ('at', n, tx, ty) stand in tile (tx, ty) of room n;
+# ('item', n, i) take thing i of room n; ('kill', n, i) shoot creature i of room n;
+# ('dead', n, i) let creature i of room n hurt Wick until his energy is gone;
+# ('fight', n, i) the boss, thing i of room n: keep away, jump its low bolts, fire
+ROUTE = [('dead', 0, 0), ('kill', 0, 0), ('room', 1), ('room', 3), ('room', 4), ('kill', 4, 2), ('item', 4, 0),
+         ('room', 6), ('room', 7), ('room', 8), ('item', 8, 0), ('room', 7), ('room', 9), ('kill', 9, 0),
+         ('room', 10), ('item', 10, 0), ('room', 9), ('room', 7), ('room', 11), ('room', 12), ('room', 13),
+         ('fight', 13, 0), ('item', 13, 0), ('room', 12), ('room', 11), ('at', 11, 4, 1), ('room', 7),
+         ('at', 7, 6, 12), ('at', 7, 2, 8), ('at', 7, 6, 3), ('room', 6), ('room', 4),
+         ('room', 3), ('at', 3, 4, 1), ('room', 1), ('room', 2), ('item', 2, 0), ('room', 1), ('room', 0)]
 
 
 def target(m, goal):
     """the place (byte column, cell) the goal is at, in the room the model is in"""
     if goal[0] == 'at' and m.room == goal[1]:
         return goal[2] * 8, goal[3] * 16
+    if goal[0] in ('item', 'kill', 'dead', 'fight') and m.room == goal[1]:
+        return m.objs[goal[2]][1], m.objs[goal[2]][2]
     want = goal[1]
     for side, lo, hi, dest, delta in m.rm.exits:
         if dest == want:
@@ -67,24 +77,51 @@ def target(m, goal):
 def reached(m, goal):
     if goal[0] == 'room':
         return m.room == goal[1] and m.onground
+    if goal[0] == 'item':
+        return m.room == goal[1] and m.onground and not m.objs[goal[2]][0]
+    if goal[0] == 'dead':
+        return m.msg == len(gl.ITEM_MSG) + 1 and m.msg_t > gl.MSG_FRAMES - 8
+    if goal[0] in ('kill', 'fight'):
+        return m.room == goal[1] and m.onground and m.beh(m.objs[goal[2]]) < gl.B_WALK
     return (m.room == goal[1] and m.onground and (m.px + 4) >> 3 == goal[2]
             and (m.py + 15) >> 4 == goal[3])
 
 
-def plan(m0, goal, max_nodes=150000):
+def plan(m0, goal, max_nodes=400000, unhurt=True):
     """the pad buttons, frame by frame, that take the model from m0 to the
-    goal: A* over the model, HOLD frames an action"""
+    goal: A* over the model, HOLD frames an action.  unhurt: only ways
+    that cost no energy"""
     room0 = m0.room
     tx, ty = target(m0, goal)
+    kill = goal[0] == 'kill' and m0.room == goal[1]
+    if goal[0] == 'fight':
+        return fight(m0, goal)
+    dead = goal[0] == 'dead'
+    if dead:            # no search: walk and hop into the creature until the energy is gone
+        c, out = m0.clone(), []
+        while not reached(c, goal) and len(out) < 2000:
+            o = c.objs[goal[2]]
+            b = RIGHT if o[1] > c.px + 2 else (LEFT if o[1] < c.px - 2 else 0)
+            if abs(o[1] - c.px) > 24 and (len(out) >> 4) & 1:   # (over what is in the way)
+                b |= B
+            out.append(b)
+            c.step(gl.pad_to_inp(b))
+        return out if reached(c, goal) else None
 
     def h(m):
         if m.room != room0:
             return 0
+        if kill:        # anywhere near will do: the shots do the rest
+            o = m.objs[goal[2]]
+            return max(abs(m.px - o[1]) - 16, 0) / 0.75 + abs(m.py - o[2]) / 4.0
         return max(abs(m.px - tx) / 0.75, abs(m.py - ty) / 4.0)
 
     def key(m):
-        return (m.room, m.px, m.py, m.vy >> 5, m.onground, m.crawl, m.inp & (gl.IN_JUMP | gl.IN_FIRE),
-                m.door_t > 0, tuple(s[0] > 0 for s in m.shots), m.fcnt & 3)
+        k = (m.room, m.px, m.py, m.vy >> 5, m.onground, m.crawl, m.inp & (gl.IN_JUMP | gl.IN_FIRE),
+             m.door_t > 0, tuple(s[0] > 0 for s in m.shots), m.fcnt & 3, m.ajump, m.inv > 0)
+        if kill:
+            k += (m.objs[goal[2]][1], m.objs[goal[2]][5], m.facing)
+        return k
 
     heap = [(h(m0), 0, 0, m0, None, None)]
     seen = {key(m0)}
@@ -105,6 +142,8 @@ def plan(m0, goal, max_nodes=150000):
             inp = gl.pad_to_inp(a)
             for _ in range(HOLD):
                 c.step(inp)
+            if c.energy < m.energy and (unhurt or c.energy < 10):
+                continue
             k = key(c)
             if k in seen:
                 continue
@@ -112,8 +151,41 @@ def plan(m0, goal, max_nodes=150000):
             n += 1
             if n > max_nodes:
                 return None
-            heapq.heappush(heap, (g + HOLD + h(c), g + HOLD, n, c, node, a))
+            heapq.heappush(heap, (g + HOLD + 1.5 * h(c), g + HOLD, n, c, node, a))
     return None
+
+
+def fight(m0, goal):
+    """the buttons that beat the boss, by rule: face it from 5 to 9 tiles
+    away, jump when a bolt at Wick's height is near, fire all the time"""
+    c, out = m0.clone(), []
+    while not reached(c, goal) and len(out) < 6000:
+        if c.room != goal[1]:
+            return None
+        o = c.objs[goal[2]]
+        b = 0
+        if c.beh(o) >= gl.B_WALK:
+            away = abs(o[1] + 4 - c.px)
+            side = RIGHT if o[1] > c.px else LEFT
+            back = LEFT if side == RIGHT else RIGHT
+            if c.py > o[2] + 16:        # in a pit: out, away from it
+                b = back | (0 if c.inp & gl.IN_JUMP else B)
+            elif away < 40:
+                b = back
+            elif c.facing != (side == LEFT) or (away > 72 and c.solid(c.px + (12 if side == RIGHT else -6),
+                                                                      c.py + 16)):
+                b = side
+            for q in c.objs:
+                if (q[0] == gl.S_BOLT and abs(q[1] - c.px) < 14 and (c.py - q[2] + 13) & 255 < 21
+                        and c.onground and not c.inp & gl.IN_JUMP):
+                    b |= B
+            if not c.onground and c.vy < 0:
+                b |= B                  # (the whole jump)
+            if len(out) & 1 and c.facing == (side == LEFT):
+                b |= Y
+        out.append(b)
+        c.step(gl.pad_to_inp(b))
+    return out if reached(c, goal) else None
 
 
 def replay(m0, btns):
@@ -129,20 +201,28 @@ def read_state(mem, z):
     return dict(room=mem[z['room']], px=mem[z['px']], py=mem[z['py']], pyf=mem[z['pyf']],
                 vy=vy - 65536 if vy & 0x8000 else vy, onground=mem[z['onground']], crawl=mem[z['crawl']],
                 facing=mem[z['facing']], sx=mem[z['sx']], sy=mem[z['sy']], door=mem[z['door_t']],
-                shots=[(mem[z['SH_T'] + i], mem[z['SH_X'] + i], mem[z['SH_Y'] + i]) for i in range(3)])
+                shots=[(mem[z['SH_T'] + i], mem[z['SH_X'] + i], mem[z['SH_Y'] + i]) for i in range(3)],
+                energy=mem[z['energy']], emax=mem[z['emax']], items=mem[z['items']], inv=mem[z['inv']],
+                ajump=mem[z['ajump']], got=bytes(mem[gl.GOT:gl.GOT + 32]),
+                objs=[tuple(mem[gl.OBJ + f + i] for f in (gl.O_KIND, gl.O_X, gl.O_Y, gl.O_D, gl.O_T, gl.O_HP,
+                                                          gl.O_P)) if mem[gl.OBJ + i] else None
+                      for i in range(gl.MAXOBJ)])
 
 
 def model_state(m):
     return dict(room=m.room, px=m.px, py=m.py, pyf=m.pyf, vy=m.vy, onground=m.onground, crawl=m.crawl,
                 facing=m.facing, sx=m.sx, sy=m.sy, door=m.door_t,
                 shots=[(s[0], s[1], s[2]) if s[0] else (0, mem_x, mem_y) for s, (mem_x, mem_y) in
-                       zip(m.shots, [(s[1], s[2]) for s in m.shots])])
+                       zip(m.shots, [(s[1], s[2]) for s in m.shots])],
+                energy=m.energy, emax=m.emax, items=m.items, inv=m.inv, ajump=m.ajump, got=bytes(m.got),
+                objs=[tuple(o) if o[0] else None for o in m.objs])
 
 
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('--max-frames', type=int, default=20000)
     ap.add_argument('--goals', type=int, default=len(ROUTE))
+    ap.add_argument('--route', help='another route, as a Python list of goals')
     ap.add_argument('--shots')
     ap.add_argument('--shot-every', type=int, default=0)
     ap.add_argument('--slow', action='store_true', help='do not skip the wait for the beam')
@@ -157,7 +237,7 @@ def main(argv):
     print('started at frame %d' % (cpu.clocks // FRAME))
     rooms = info['rooms']
     model = gl.Model(rooms)
-    route = ROUTE[:args.goals]
+    route = (eval(args.route) if args.route else ROUTE)[:args.goals]
     goal_i = 0
     queue = []
     ok = True
@@ -174,7 +254,8 @@ def main(argv):
         if args.shots:
             ps.render(mem, os.path.join(args.shots, name + '.png'))
 
-    stops = {z[n]: n for n in ('frame', 'frame_go', 'bg_row', 'row_done', 'bg_done', 'logic')}
+    stops = {z[n]: n for n in ('frame', 'frame_go', 'bg_row', 'row_done', 'bg_done', 'ds_next', 'logic')}
+    spare = slack = 999
     in_wait = False
     while frames < args.max_frames:
         cpu.step()
@@ -218,7 +299,7 @@ def main(argv):
             if goal_i >= len(route):
                 break
             if not queue:
-                queue = plan(model, route[goal_i])
+                queue = plan(model, route[goal_i]) or plan(model, route[goal_i], unhurt=False)
                 if not queue:
                     print('frame %d: the bot found no way to %s from room %d (%d, %d)'
                           % (frames, route[goal_i], model.room, model.px, model.py))
@@ -245,6 +326,8 @@ def main(argv):
         if what == 'bg_row':
             g_top = mem[z['rowb']] - 32
             bottom = min(g_top + 16, gl.NROW)
+            if same:
+                slack = min(slack, beam_row - (32 + 4 * bottom))
             if same and beam_row < 32 + 4 * bottom:
                 bad_beam += 1
                 if bad_beam <= 5:
@@ -259,6 +342,18 @@ def main(argv):
                           % (frames, g_top, beam_row))
             continue
         sprites, mm, area, sx, sy = drawn
+        if what == 'ds_next':
+            n = mem[z['s_i']]
+            if n and n <= len(sprites):
+                first = 32 + 4 * max(sprites[n - 1][2] - 32, 0)     # its first screen row
+                if not same:
+                    spare = min(spare, first - beam_row)
+                    if beam_row >= first:
+                        bad_beam += 1
+                        if bad_beam <= 5:
+                            print('frame %d: sprite %d (rows from %d) done with the beam on screen row %d'
+                                  % (frames, n - 1, first, beam_row))
+            continue
         want = gl.background(area, mm, sx, sy)
         if what == 'bg_done':
             bad = [a for a, v in want.items() if mem[a] != v]
@@ -286,8 +381,11 @@ def main(argv):
         dt = t - t_go
         limit = FRAME - GO_CLOCK + TOP_CLOCK
         worst = max(worst, dt / limit)
-    print('%d frames; rooms %s; drawing done at %d %% of the time before the beam is back'
+    print('%d frames; rooms %s; drawing done at %d %% of the time before the beam is back at the playfield'
           % (frames, seen, 100 * worst))
+    print('a tile row was drawn at least %d screen rows behind the beam' % slack)
+    if spare < 999:
+        print('a sprite drawn after that was done at least %d screen rows before the beam reached it' % spare)
     shot('last')
     for name, n in (('rules', bad_rules), ('background', bad_bg), ('sprites', bad_spr), ('beam', bad_beam)):
         if n:
@@ -295,9 +393,6 @@ def main(argv):
             ok = False
     if goal_i < len(route):
         print('FAIL: the bot reached %d of %d goals' % (goal_i, len(route)))
-        ok = False
-    if worst > 0.95:
-        print('FAIL: the drawing is not done before the beam is back')
         ok = False
     img = info['areas'][model.rm.r['area']]['image']
     bad = [a for a, v in img.items() if mem[a] != v]

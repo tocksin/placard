@@ -4,7 +4,7 @@
 ; and unrolled loops) and runs asm_expand over it: lamp.asm.
 ;
 ; The frame (docs/software/LAMPLIGHTER.md, "How it draws"):
-;   frame      wait until the beam is in the playfield's last tile row
+;   frame      wait until the beam is near the playfield's last tile row
 ;   draw_bg    the playfield from the tile map, tile row by tile row from
 ;              the top (map FF: the tile routines are in the video RAM)
 ;   draw_spr   the sprite list over it
@@ -66,7 +66,19 @@ m_z1:
     ld   ac, [py]
     ld   START_ENERGY, ac
     ld   ac, [energy]
+    ld   START_EMAX, ac
     ld   ac, [emax]
+    ld   GOT >> 8, y            ; nothing found yet
+    clr  ac
+m_g:
+    ld   ac, x
+    ld   0, [y,x]
+    inc
+    xor  32, ac
+    beq  m_g1
+    xor  32, ac
+    bra  m_g
+m_g1:
     CALL load_room
     CALL camera
     GOTO frame
@@ -252,6 +264,9 @@ game:
     and  IN_DOWN, ac
     beq  gc_up
     ld   [onground], ac
+    beq  gc_up
+    ld   [items], ac            ; (with the Burrow Rig)
+    and  IT_RIG, ac
     beq  gc_up
     ld   1, ac
     ld   ac, [crawl]
@@ -623,13 +638,28 @@ g_jump:
     ld   [inp], ac
     and  IN_JUMP, ac
     beq  gj_no
-    ld   [inp_prev], ac         ; a new press, on the ground, not crawling
+    ld   [inp_prev], ac         ; a new press, not crawling
     and  IN_JUMP, ac
     bne  gj_grav
-    ld   [onground], ac
-    beq  gj_grav
     ld   [crawl], ac
     bne  gj_grav
+    ld   [onground], ac
+    bne  gj_do
+    ld   [items], ac            ; in the air: once, with the Updraft Bellows
+    and  IT_BELLOWS, ac
+    beq  gj_grav
+    ld   [ajump], ac
+    bne  gj_grav
+    ld   1, ac
+    ld   ac, [ajump]
+    ld   AIRV_LO, ac
+    ld   ac, [vyl]
+    ld   AIRV_HI, ac
+    ld   ac, [vyh]
+    ld   77, ac
+    CALL snd_beep
+    bra  gj_grav
+gj_do:
     ld   JUMPV_LO, ac
     ld   ac, [vyl]
     ld   JUMPV_HI, ac
@@ -649,6 +679,10 @@ gj_c1:
     clr  ac
     ld   ac, [vyl]
 gj_grav:
+    GOTO g_grav
+
+.chunk
+g_grav:
     ld   [vyl], ac              ; gravity
     add  GRAV, ac
     ld   ac, [vyl]
@@ -658,6 +692,25 @@ gj_grav:
 gj_g1:
     ld   ac, [vyh]
     blt  gj_move
+    ld   [items], ac            ; the Ash Sail, the jump key held: a slow fall
+    and  IT_SAIL, ac
+    beq  gj_cap
+    ld   [inp], ac
+    and  IN_JUMP, ac
+    beq  gj_cap
+    ld   [vyh], ac
+    bne  gj_sail
+    ld   [vyl], ac
+    sub  SAILV, ac
+    bcs  gj_move
+gj_sail:
+    clr  ac
+    ld   ac, [vyh]
+    ld   SAILV, ac
+    ld   ac, [vyl]
+    bra  gj_move
+gj_cap:
+    ld   [vyh], ac
     sub  MAXFALL_HI, ac
     bcs  gj_move
     ld   MAXFALL_HI, ac
@@ -786,6 +839,7 @@ gd_landed:
     ld   ac, [pyf]
     ld   ac, [vyl]
     ld   ac, [vyh]
+    ld   ac, [ajump]
     ld   1, ac
     ld   ac, [onground]
     GOTO g_post
@@ -876,7 +930,7 @@ gs_test:
     sub  112, ac
     bcc  gs_kill
     CALL tile_at
-    beq  gs_keep
+    beq  gs_obj
     ld   [ta_a], ac             ; a wall stops it; a door opens
     and  A_DOOR, ac
     beq  gs_kill
@@ -895,6 +949,95 @@ gs_kill:
     ld   0, [x]
 gs_keep:
     GOTO gs_nx
+gs_obj:
+    GOTO gs_hit
+
+; a shot in the open: does it hit a creature?
+.chunk
+gs_hit:
+    clr  ac
+    ld   ac, [ob_i]
+sq_lp:
+    ld   OBJ >> 8, y
+    ld   [ob_i], x
+    ld   [y,x], ac
+    ld   ac, [ob_k]
+    add  SPEC_BEH, x
+    ld   SPEC >> 8, y
+    ld   [y,x], ac
+    sub  B_WALK, ac
+    bcs  sq_nx
+    ld   OBJ >> 8, y
+    ld   [ob_i], ac
+    add  O_X, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   [ta_x], ac
+    sub  [tmp], ac
+    ld   ac, [tmp]
+    ld   [ob_k], ac
+    add  SPEC_W, x
+    ld   SPEC >> 8, y
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   [tmp], ac
+    sub  [tmp2], ac
+    bcc  sq_nx
+    ld   OBJ >> 8, y
+    ld   [ob_i], ac
+    add  O_Y, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   [ta_y], ac
+    sub  [tmp], ac
+    ld   ac, [tmp]
+    ld   [ob_k], ac
+    add  SPEC_H, x
+    ld   SPEC >> 8, y
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   [tmp], ac
+    sub  [tmp2], ac
+    bcc  sq_nx
+    ld   OBJ >> 8, y
+    ld   [o_i], ac              ; a hit: the shot is gone
+    add  SH_T, x
+    ld   0, [x]
+    ld   [ob_i], ac
+    add  O_HP, x
+    ld   [y,x], ac
+    dec
+    ld   ac, [y,x]
+    bne  sq_snd
+    ld   [ob_i], x              ; its last: a puff
+    ld   S_PUFF, [y,x]
+    ld   [ob_i], ac
+    add  O_T, x
+    ld   PUFF_FRAMES, [y,x]
+    ld   [ob_i], ac
+    add  O_D, x
+    ld   0, [y,x]
+    ld   10, ac
+    ld   ac, [R0]
+    ld   8, ac
+    ld   ac, [R2]
+    ld   4, ac
+    ld   ac, [R3]
+    ld   50, ac
+    CALL snd_noise
+    bra  sq_x
+sq_snd:
+    ld   60, ac
+    CALL snd_beep
+sq_x:
+    GOTO gs_nx
+sq_nx:
+    ld   [ob_i], ac
+    inc
+    ld   ac, [ob_i]
+    xor  MAXOBJ, ac
+    beq  sq_x
+    GOTO sq_lp
 
 .chunk
 g_fire:
@@ -1007,6 +1150,627 @@ gd_hold:
     ld   1, ac
     ld   ac, [door_t]
 gd_x:
+    GOTO g_obj
+
+; ------------------------------------------------------------
+; game: the room's things (creatures, items, embers)
+; ------------------------------------------------------------
+.chunk
+g_obj:
+    clr  ac
+    ld   ac, [ob_i]
+ob_lp:
+    ld   OBJ >> 8, y
+    ld   [ob_i], x
+    ld   [y,x], ac
+    bne  ob_live
+ob_next:
+    ld   [ob_i], ac
+    inc
+    ld   ac, [ob_i]
+    xor  MAXOBJ, ac
+    bne  ob_lp
+    GOTO g_inv
+ob_live:
+    ld   ac, [ob_k]             ; a copy of it in the zero page
+    add  SPEC_BEH, x
+    ld   SPEC >> 8, y
+    ld   [y,x], ac
+    ld   ac, [ob_b]
+    ld   OBJ >> 8, y
+    ld   [ob_i], ac
+    add  O_X, x
+    ld   [y,x], ac
+    ld   ac, [ob_x]
+    ld   [ob_i], ac
+    add  O_Y, x
+    ld   [y,x], ac
+    ld   ac, [ob_y]
+    ld   [ob_i], ac
+    add  O_D, x
+    ld   [y,x], ac
+    ld   ac, [ob_d]
+    ld   [ob_i], ac
+    add  O_T, x
+    ld   [y,x], ac
+    ld   ac, [ob_t]
+    ld   [ob_i], ac
+    add  O_HP, x
+    ld   [y,x], ac
+    ld   ac, [ob_hp]
+    ld   [ob_i], ac
+    add  O_P, x
+    ld   [y,x], ac
+    ld   ac, [ob_p]
+    GOTO ob_touch
+
+.chunk
+ob_touch:
+    clr  ac                     ; does it touch Wick?
+    ld   ac, [touchf]
+    ld   SPEC >> 8, y
+    ld   [ob_k], ac
+    add  SPEC_W, x
+    ld   [y,x], ac
+    add  3, ac
+    ld   ac, [tmp]
+    ld   [px], ac
+    sub  [ob_x], ac
+    add  5, ac
+    sub  [tmp], ac
+    bcc  ob_go
+    ld   [ob_k], ac
+    add  SPEC_H, x
+    ld   [y,x], ac
+    add  13, ac
+    ld   ac, [tmp]
+    ld   [crawl], ac
+    beq  ob_t1
+    ld   [tmp], ac
+    sub  8, ac
+    ld   ac, [tmp]
+ob_t1:
+    ld   [py], ac
+    sub  [ob_y], ac
+    add  13, ac
+    sub  [tmp], ac
+    bcc  ob_go
+    ld   1, ac
+    ld   ac, [touchf]
+ob_go:
+    ld   [ob_b], ac             ; what it does
+    add  ob_hi & 0xFF, x
+    ld   ob_hi >> 8, y
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   [ob_b], ac
+    add  ob_lo & 0xFF, x
+    ld   [y,x], ac
+    ld   [tmp2], y
+    jmp  ac
+
+.chunk
+ob_lo: #d8 ob_item & 0xFF, ob_ember & 0xFF, ob_puff & 0xFF, ob_bolt & 0xFF, ob_walk & 0xFF, ob_fly & 0xFF, ob_sit & 0xFF, ob_drop & 0xFF
+ob_hi: #d8 ob_item >> 8, ob_ember >> 8, ob_puff >> 8, ob_bolt >> 8, ob_walk >> 8, ob_fly >> 8, ob_sit >> 8, ob_drop >> 8
+
+; ob_store: the copy back to thing ob_i
+.chunk
+ob_store:
+    ld   OBJ >> 8, y
+    ld   [ob_i], x
+    ld   [ob_k], ac
+    ld   ac, [y,x]
+    ld   [ob_i], ac
+    add  O_X, x
+    ld   [ob_x], ac
+    ld   ac, [y,x]
+    ld   [ob_i], ac
+    add  O_Y, x
+    ld   [ob_y], ac
+    ld   ac, [y,x]
+    ld   [ob_i], ac
+    add  O_D, x
+    ld   [ob_d], ac
+    ld   ac, [y,x]
+    ld   [ob_i], ac
+    add  O_T, x
+    ld   [ob_t], ac
+    ld   ac, [y,x]
+    ld   [ob_i], ac
+    add  O_HP, x
+    ld   [ob_hp], ac
+    ld   ac, [y,x]
+    ld   [ob_i], ac
+    add  O_P, x
+    ld   [ob_p], ac
+    ld   ac, [y,x]
+    RET
+
+.chunk
+ob_save:
+    CALL ob_store
+    GOTO ob_next
+
+; an item: found when Wick touches it
+.chunk
+ob_item:
+    ld   [touchf], ac
+    bne  oi_get
+    GOTO ob_next
+oi_get:
+    clr  ac
+    ld   ac, [ob_k]
+    ld   [ob_p], ac
+    and  31, ac
+    ld   ac, x
+    ld   GOT >> 8, y
+    ld   1, [y,x]
+    ld   [ob_d], ac             ; its type: 0 an Oil Flask, else a power-up
+    bne  oi_pow
+    ld   [emax], ac
+    add  FLASK, ac
+    ld   ac, [emax]
+    bra  oi_fill
+oi_pow:
+    add  (s_bits - 1) & 0xFF, x
+    ld   s_bits >> 8, y
+    ld   [y,x], ac
+    or   [items], ac
+    ld   ac, [items]
+oi_fill:
+    ld   [emax], ac
+    ld   ac, [energy]
+    ld   1, ac
+    ld   ac, [hud_dirty]
+    ld   ac, [msg_d]
+    ld   [ob_d], ac
+    inc
+    ld   ac, [msg]
+    ld   MSG_FRAMES, ac
+    ld   ac, [msg_t]
+    ld   79, ac
+    CALL snd_beep
+    GOTO ob_save
+
+; an ember: energy when Wick touches it, gone after a while
+; a puff: where a creature was; then, every other time, an ember
+.chunk
+ob_ember:
+    ld   [ob_t], ac
+    dec
+    ld   ac, [ob_t]
+    beq  ob_gone
+    ld   [touchf], ac
+    beq  ob_keep
+    ld   [energy], ac
+    add  EMBER, ac
+    ld   ac, [energy]
+    sub  [emax], ac
+    bcs  oe_ok
+    ld   [emax], ac
+    ld   ac, [energy]
+oe_ok:
+    ld   1, ac
+    ld   ac, [hud_dirty]
+    ld   81, ac
+    CALL snd_beep
+ob_gone:
+    clr  ac
+    ld   ac, [ob_k]
+ob_keep:
+    GOTO ob_save
+ob_puff:
+    ld   [ob_t], ac
+    dec
+    ld   ac, [ob_t]
+    bne  ob_keep
+    ld   [ob_p], ac             ; what it guarded
+    bne  op_item
+    ld   [fcnt], ac
+    and  1, ac
+    beq  ob_gone
+    ld   S_EMBER, ac
+    ld   ac, [ob_k]
+    ld   EMBER_FRAMES, ac
+    ld   ac, [ob_t]
+    bra  ob_keep
+op_item:
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [ob_d]
+    ld   S_ITEM, ac
+    ld   ac, [ob_k]
+    bra  ob_keep
+
+; a walker: a step every other frame; it turns at a wall and at the end
+; of its floor
+.chunk
+ob_walk:
+    ld   [fcnt], ac
+    and  1, ac
+    beq  ow_x
+    ld   SPEC >> 8, y
+    ld   [ob_k], ac
+    add  SPEC_H, x
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    sub  4, ac
+    ld   ac, [tmp3]
+    CALL ob_front
+    bne  ow_turn
+    ld   [ob_y], ac             ; (ob_front left ta_x there)
+    add  [tmp2], ac
+    ld   ac, [ta_y]
+    CALL tile_at
+    beq  ow_turn
+    CALL ob_fwd
+    bra  ow_x
+ow_turn:
+    ld   [ob_d], ac
+    xor  2, ac
+    ld   ac, [ob_d]
+ow_x:
+    GOTO ob_spit
+
+; a sitter: it faces Wick
+.chunk
+ob_sit:
+    ld   [px], ac
+    sub  [ob_x], ac
+    bcs  os_l
+    clr  ac
+    bra  os_1
+os_l:
+    ld   2, ac
+os_1:
+    ld   ac, [ob_d]
+    GOTO ob_spit
+
+; ob_spit: a kind that spits: a bolt toward Wick when its timer & the
+; kind's mask is 0, in the first free place
+.chunk
+ob_spit:
+    ld   SPEC >> 8, y
+    ld   [ob_k], ac
+    add  SPEC_SPIT, x
+    ld   [y,x], ac
+    beq  ot_x
+    ld   ac, [tmp]
+    ld   [ob_t], ac
+    inc
+    ld   ac, [ob_t]
+    and  [tmp], ac
+    bne  ot_x
+    clr  ac
+    ld   ac, [tmp]
+ot_lp:
+    ld   OBJ >> 8, y
+    ld   [tmp], x
+    ld   [y,x], ac
+    beq  ot_put
+    ld   [tmp], ac
+    inc
+    ld   ac, [tmp]
+    xor  MAXOBJ, ac
+    bne  ot_lp
+ot_x:
+    GOTO ob_enemy
+ot_put:
+    ld   S_BOLT, [y,x]
+    ld   [px], ac
+    sub  [ob_x], ac
+    bcs  ot_left
+    ld   SPEC >> 8, y           ; to the right: from its right edge
+    ld   [ob_k], ac
+    add  SPEC_W, x
+    ld   [y,x], ac
+    add  [ob_x], ac
+    ld   ac, [tmp3]
+    clr  ac
+    bra  ot_d
+ot_left:
+    ld   [ob_x], ac
+    sub  4, ac
+    ld   ac, [tmp3]
+    ld   2, ac
+ot_d:
+    ld   ac, [tmp2]
+    GOTO ot_2
+
+.chunk
+ot_2:
+    ld   OBJ >> 8, y
+    ld   [tmp], ac
+    add  O_D, x
+    ld   [tmp2], ac
+    ld   ac, [y,x]
+    ld   [tmp], ac
+    add  O_X, x
+    ld   [tmp3], ac
+    ld   ac, [y,x]
+    ld   [tmp], ac
+    add  O_T, x
+    ld   BOLT_FRAMES, [y,x]
+    ld   [tmp], ac
+    add  O_HP, x
+    ld   0, [y,x]
+    ld   [tmp], ac
+    add  O_P, x
+    ld   0, [y,x]
+    ld   SPEC >> 8, y           ; cell: its top + 4, every other one 16 lower when it is tall
+    ld   [ob_k], ac
+    add  SPEC_H, x
+    ld   [y,x], ac
+    sub  16, ac
+    ld   ac, [tmp2]
+    ld   [ob_t], ac
+    shr  ac
+    shr  ac
+    and  [tmp2], ac
+    add  [ob_y], ac
+    add  4, ac
+    ld   ac, [tmp2]
+    ld   OBJ >> 8, y
+    ld   [tmp], ac
+    add  O_Y, x
+    ld   [tmp2], ac
+    ld   ac, [y,x]
+    ld   66, ac
+    CALL snd_beep
+    GOTO ob_enemy
+
+; a bolt: 2 byte columns a frame until a wall, the room's edge or Wick
+.chunk
+ob_bolt:
+    ld   [ob_t], ac
+    dec
+    ld   ac, [ob_t]
+    beq  ol_gone
+    ld   4, ac
+    ld   ac, [tmp3]
+    CALL ob_front
+    bne  ol_gone
+    CALL ob_fwd
+    CALL ob_fwd
+    ld   [touchf], ac
+    beq  ol_keep
+    CALL hurt
+ol_gone:
+    clr  ac
+    ld   ac, [ob_k]
+ol_keep:
+    GOTO ob_save
+
+; a dropper: it hangs until Wick is under it, falls, and bursts on the floor
+.chunk
+ob_drop:
+    ld   [ob_t], ac
+    bne  od_fall
+    ld   [px], ac
+    sub  [ob_x], ac
+    add  DROP_NEAR, ac
+    sub  2 * DROP_NEAR + 1, ac
+    bcc  od_x
+    ld   1, ac
+    ld   ac, [ob_t]
+    bra  od_x
+od_fall:
+    ld   [ob_x], ac
+    add  4, ac
+    ld   ac, [ta_x]
+    ld   [ob_y], ac
+    add  16, ac
+    ld   ac, [ta_y]
+    CALL tile_at
+    bne  od_burst
+    ld   [ob_y], ac
+    add  3, ac
+    ld   ac, [ob_y]
+od_x:
+    GOTO ob_enemy
+od_burst:
+    ld   S_PUFF, ac
+    ld   ac, [ob_k]
+    ld   PUFF_FRAMES, ac
+    ld   ac, [ob_t]
+    clr  ac
+    ld   ac, [ob_d]
+    GOTO ob_save
+
+; a flyer: a step sideways every other frame, turning at a wall; between
+; them up for 16 frames, then down for 16
+.chunk
+ob_fly:
+    ld   [ob_t], ac
+    inc
+    and  63, ac
+    ld   ac, [ob_t]
+    and  1, ac
+    beq  of_vert
+    ld   8, ac
+    ld   ac, [tmp3]
+    CALL ob_front
+    bne  of_turn
+    CALL ob_fwd
+    bra  of_x
+of_turn:
+    ld   [ob_d], ac
+    xor  2, ac
+    ld   ac, [ob_d]
+    bra  of_x
+of_vert:
+    ld   [ob_x], ac
+    add  4, ac
+    ld   ac, [ta_x]
+    ld   [ob_t], ac
+    and  32, ac
+    beq  of_up
+    ld   [ob_y], ac
+    add  16, ac
+    ld   ac, [ta_y]
+    CALL tile_at
+    bne  of_x
+    ld   [ob_y], ac
+    inc
+    bra  of_sy
+of_up:
+    ld   [ob_y], ac
+    dec
+    ld   ac, [ta_y]
+    CALL tile_at
+    bne  of_x
+    ld   [ob_y], ac
+    dec
+of_sy:
+    ld   ac, [ob_y]
+of_x:
+    GOTO ob_enemy
+
+; ob_front: AC != 0 when the thing cannot step the way it faces: the
+; room's edge, or a wall at cell ob_y + tmp3 of the byte column in front
+; (which is left in ta_x)
+.chunk
+ob_front:
+    ld   [LINK_LO], ac
+    ld   ac, [sv_lo]
+    ld   [LINK_HI], ac
+    ld   ac, [sv_hi]
+    ld   [ob_d], ac
+    bne  of_left
+    ld   [ob_x], ac
+    sub  [rwx], ac
+    bcc  of_edge
+    ld   SPEC >> 8, y
+    ld   [ob_k], ac
+    add  SPEC_W, x
+    ld   [y,x], ac
+    add  [ob_x], ac
+    bra  of_chk
+of_left:
+    ld   [ob_x], ac
+    sub  2, ac
+    bcs  of_edge
+    ld   [ob_x], ac
+    dec
+of_chk:
+    ld   ac, [ta_x]
+    ld   [ob_y], ac
+    add  [tmp3], ac
+    ld   ac, [ta_y]
+    CALL tile_at
+    bra  of_out
+of_edge:
+    ld   1, ac
+of_out:
+    ld   ac, [tmp]
+    ld   [sv_lo], ac
+    ld   ac, [LINK_LO]
+    ld   [sv_hi], ac
+    ld   ac, [LINK_HI]
+    ld   [tmp], ac
+    RET
+
+; ob_fwd: a step the way the thing faces
+.chunk
+ob_fwd:
+    ld   [ob_d], ac
+    bne  ofw_l
+    ld   [ob_x], ac
+    inc
+    ld   ac, [ob_x]
+    RET
+ofw_l:
+    ld   [ob_x], ac
+    dec
+    ld   ac, [ob_x]
+    RET
+
+; a creature that touches Wick hurts him
+.chunk
+ob_enemy:
+    ld   [touchf], ac
+    beq  on_x
+    CALL hurt
+on_x:
+    GOTO ob_save
+
+; hurt: thing ob_k's harm off Wick's energy (not again for a second)
+.chunk
+hurt:
+    ld   [inv], ac
+    bne  hu_r
+    PUSH_LINK
+    ld   INV_FRAMES, ac
+    ld   ac, [inv]
+    ld   1, ac
+    ld   ac, [hud_dirty]
+    ld   [ob_k], ac
+    add  SPEC_DMG, x
+    ld   SPEC >> 8, y
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   [energy], ac
+    sub  [tmp], ac
+    bcc  hu_e
+    clr  ac
+hu_e:
+    ld   ac, [energy]
+    ld   [crawl], ac
+    bne  hu_s
+    ld   HURTV_HI, ac           ; a hop
+    ld   ac, [vyh]
+    clr  ac
+    ld   ac, [vyl]
+hu_s:
+    ld   12, ac
+    ld   ac, [R0]
+    ld   10, ac
+    ld   ac, [R2]
+    ld   3, ac
+    ld   ac, [R3]
+    ld   30, ac
+    CALL snd_noise
+    LEAVE
+hu_r:
+    RET
+
+; after the things: the time Wick cannot be hurt; no energy left: back to
+; the landing, with what was found
+.chunk
+g_inv:
+    ld   [inv], ac
+    beq  gi_1
+    dec
+    ld   ac, [inv]
+gi_1:
+    ld   [energy], ac
+    bne  gi_x
+    ld   START_ROOM, ac
+    ld   ac, [room]
+    ld   START_X, ac
+    ld   ac, [px]
+    ld   START_Y, ac
+    ld   ac, [py]
+    ld   START_ENERGY, ac
+    ld   ac, [energy]
+    clr  ac
+    ld   ac, [pyf]
+    ld   ac, [vyl]
+    ld   ac, [vyh]
+    ld   ac, [crawl]
+    ld   ac, [inv]
+    ld   M_DEAD, ac
+    ld   ac, [msg]
+    ld   MSG_FRAMES, ac
+    ld   ac, [msg_t]
+    ld   1, ac
+    ld   ac, [msg_d]
+    CALL load_room
+    CALL camera
+gi_x:
     GOTO g_spr
 
 ; ------------------------------------------------------------
@@ -1042,6 +1806,9 @@ sp_f:
     add  NPF, ac
     ld   ac, [tmp]
 sp_3:
+    ld   [inv], ac              ; (hurt: he blinks)
+    and  2, ac
+    bne  sp_4
     ld   [px], ac
     sub  [sx], ac
     add  8, ac
@@ -1051,6 +1818,11 @@ sp_3:
     add  32, ac
     ld   ac, [tmp3]
     CALL sl_add
+sp_4:
+    GOTO sp_shots
+
+.chunk
+sp_shots:
     clr  ac                     ; the shots
     ld   ac, [o_i]
 sp_lp:
@@ -1079,6 +1851,80 @@ sp_nx:
     ld   ac, [o_i]
     xor  3, ac
     bne  sp_lp
+    GOTO sp_obj
+
+.chunk
+sp_obj:
+    clr  ac                     ; the things on the screen
+    ld   ac, [ob_i]
+so_lp:
+    ld   OBJ >> 8, y
+    ld   [ob_i], x
+    ld   [y,x], ac
+    beq  so_nx
+    ld   ac, [ob_k]
+    ld   [ob_i], ac
+    add  O_X, x
+    ld   [y,x], ac
+    sub  [sx], ac
+    add  8, ac
+    ld   ac, [tmp2]
+    sub  88, ac
+    bcc  so_nx
+    ld   [ob_i], ac
+    add  O_Y, x
+    ld   [y,x], ac
+    sub  [sy], ac
+    add  32, ac
+    ld   ac, [tmp3]
+    sub  144, ac
+    bcc  so_nx
+    ld   [ob_i], ac             ; frame: the kind's + the way it faces + 0 or 1
+    add  O_D, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   SPEC >> 8, y
+    ld   [ob_k], ac
+    add  SPEC_DIRM, x
+    ld   [y,x], ac
+    and  [tmp], ac
+    ld   ac, [tmp]
+    ld   [ob_k], ac
+    add  SPEC_ANIM, x
+    ld   [y,x], ac
+    ld   ac, [T0]
+    ld   [fcnt], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    and  [T0], ac
+    add  [tmp], ac
+    ld   ac, [tmp]
+    ld   [ob_k], ac
+    add  SPEC_FRAME, x
+    ld   [y,x], ac
+    add  [tmp], ac
+    ld   ac, [tmp]
+    CALL sl_add
+    ld   SPEC >> 8, y           ; 32 pixels wide: its right half
+    ld   [ob_k], ac
+    add  SPEC_WIDE, x
+    ld   [y,x], ac
+    beq  so_nx
+    add  [tmp], ac
+    ld   ac, [tmp]
+    ld   [tmp2], ac
+    add  8, ac
+    ld   ac, [tmp2]
+    sub  88, ac
+    bcc  so_nx
+    CALL sl_add
+so_nx:
+    ld   [ob_i], ac
+    inc
+    ld   ac, [ob_i]
+    xor  MAXOBJ, ac
+    bne  so_lp
     GOTO g_hud
 
 ; sl_add: add frame tmp at byte column + 8 tmp2, cell + 32 tmp3 to the list
@@ -1135,6 +1981,33 @@ g_hud:
     ld   ac, [R1]
     CALL con_puts
 hu_x:
+    ld   [msg_t], ac            ; the message line: blank again after a while
+    beq  hu_1
+    dec
+    ld   ac, [msg_t]
+    bne  hu_1
+    ld   ac, [msg]
+    ld   1, ac
+    ld   ac, [msg_d]
+hu_1:
+    ld   [msg_d], ac
+    beq  hu_2
+    clr  ac
+    ld   ac, [msg_d]
+    ld   ac, [CUR_COL]
+    ld   2, ac
+    ld   ac, [CUR_ROW]
+    ld   [msg], ac
+    add  m_lo & 0xFF, x
+    ld   m_lo >> 8, y
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   [msg], ac
+    add  m_hi & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    CALL con_puts
+hu_2:
     GOTO frame
 
 ; ------------------------------------------------------------
@@ -1228,6 +2101,68 @@ lr_3:
     ld   s_energy >> 8, ac
     ld   ac, [R1]
     CALL con_puts
+    clr  ac                     ; the room's things
+    ld   ac, [ob_i]
+ls_lp:
+    ld   HDR >> 8, y
+    ld   [ob_i], ac
+    add  HO_KIND, x
+    ld   [y,x], ac
+    ld   ac, [ob_k]
+    ld   [ob_i], ac
+    add  HO_X, x
+    ld   [y,x], ac
+    ld   ac, [ob_x]
+    ld   [ob_i], ac
+    add  HO_Y, x
+    ld   [y,x], ac
+    ld   ac, [ob_y]
+    ld   [ob_i], ac
+    add  HO_P, x
+    ld   [y,x], ac
+    ld   ac, [ob_p]
+    GOTO ls_2
+
+.chunk
+ls_2:
+    clr  ac
+    ld   ac, [ob_d]
+    ld   ac, [ob_t]
+    ld   SPEC >> 8, y
+    ld   [ob_k], ac
+    add  SPEC_HP, x
+    ld   [y,x], ac
+    ld   ac, [ob_hp]
+    ld   [ob_p], ac             ; with an item: none when it is found
+    beq  ls_put
+    and  31, ac
+    ld   ac, x
+    ld   GOT >> 8, y
+    ld   [y,x], ac
+    beq  ls_3
+    clr  ac
+    ld   ac, [ob_k]
+    bra  ls_put
+ls_3:
+    ld   [ob_k], ac             ; an item: its type picks its frame
+    xor  S_ITEM, ac
+    bne  ls_put
+    ld   [ob_p], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [ob_d]
+ls_put:
+    CALL ob_store
+    ld   [ob_i], ac
+    inc
+    ld   ac, [ob_i]
+    xor  MAXOBJ, ac
+    beq  ls_x
+    GOTO ls_lp
+ls_x:
     LEAVE
 
 ; load_area: read LAMP/An.TS (n = area): 4 pages of tables to TS_LO on,
@@ -1277,3 +2212,10 @@ s_area:   #d "A0.TS", 0x00
 s_hex:    #d "0123456789ABCDEF"
 s_energy: #d "ENERGY", 0x00
 s_sp:     #d "  ", 0x00
+s_bits:   #d8 1, 2, 4, 8, 16, 32, 64, 128
+
+.chunk
+@@MTAB@@
+
+.chunk
+@@MSGS@@
