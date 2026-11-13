@@ -5,12 +5,12 @@ platform game on the SD card (a library program in the RAM)
 
     python3 gen_skyward.py                  writes skyward.asm next to this script,
                                             ../../sdcard/SKYWARD.PLC and the course
-                                            files ../../sdcard/SKYWARD/CA.LVL - CM.LVL
+                                            files ../../sdcard/SKYWARD/CA.LVL - CX.LVL
     python3 gen_skyward.py --preview DIR    also draws every course (whole length)
                                             and a first screen with the Python model
     python3 test_skyward_sim.py             runs it in placard_sim from a card
 
-A port of World 1 of Skyward Tobi 4 (an NES game by Mark Szlemko,
+A port of the two worlds of Skyward Tobi 4 (an NES game by Mark Szlemko,
 github.com/Zebshine/skyward-tobi-4) to the Placard: the story, the cast, the
 courses' ideas, Tobi and the enemy art are his (skyward_art.py holds the
 frames copied later), laid out again for 160 x 112 pixels in 16 colors.  The engine is the Placard's own (gen_scroller.py's: no scroll
@@ -30,7 +30,7 @@ SCREEN
 FILES ON THE CARD
     SKYWARD.PLC         the program: the sprite blitter and Tobi's frames at
                         x0100, the code from x2000
-    SKYWARD/Cx.LVL      one file a course (x = A-M), read when the course
+    SKYWARD/Cx.LVL      one file a course (x = A-X), read when the course
                         starts: 6 sectors of tables to x4000-x4BFF (strip
                         addresses, the tile map, the objects, the sprite
                         routines' addresses, three lines of text), then a
@@ -39,19 +39,21 @@ FILES ON THE CARD
                         band or of a tile) and the course's own sprites, in
                         the video RAM the screen leaves free (offsets
                         x040-x17F of each 512-byte byte column).
-    CA is the title and the story, CB-CL are played, CM is the ending.
+    CA is the title and the story, CM the boat between the worlds and CX
+    the ending; the others are played.
 
 THE GAME
     Run right, jump the gaps, land on the Bumblers, Buzzbees and Shellbys
     (touching one from the side is a hit), keep off the Spindles and the
     Snapjaws, collect Mabel's Stunt Medals and reach the windsock.  Crates
-    hold a Sky Berry (one hit), a Glide Feather (a hit, and a glider) or the
-    Tengu Geta (walks on thorns).  With the glider, hold the jump key in the
+    hold a Sky Berry (one hit), an Ember Pepper (a hit, and embers to throw),
+    a Glide Feather (a hit, and a glider) or the Tengu Geta (walks on thorns).  With the glider, hold the jump key in the
     air to glide.  Gale Fort ends with Captain Squall and Crow Keep with
-    Baron Rook: land on them three times.  docs/software/SKYWARD.md has
+    Baron Rook: land on them three times (in Squall Fort and Dust Keep, four).  docs/software/SKYWARD.md has
     the rest.
     Controls: arrow keys or SNES pad 1 Left / Right, Up / Space / pad B
-    or A to jump (hold to glide), Esc back to the DOS.
+    or A to jump (hold to glide), Down or pad Y to throw an ember, Esc back
+    to the DOS.
 
 Date: 11/13/2026
 """
@@ -389,7 +391,12 @@ SETS['Q'] = ([('squall1_%d' % i, q) for i, q in enumerate(pieces(recolor(ART['sq
 LIFT = ["6666666666666666", "6dddddd66dddddd6", "6dddddd66dddddd6", "6666666666666666",
         ".6............6.", "..6..........6..", "...6666666666..."] + ["................"] * 9
 SETS['l'] = [('lift1', LIFT), ('lift2', LIFT)]
+SETS['q'] = SETS['Q']
+SETS['V'] = SETS['R']
 GETA = recolor(ART['geta_idle'], PAL['geta'])
+EMBER = ['................'] * 4 + ['.....44.........', '....4dd4........', '...4deed4.......', '...4deed4.......',
+         '....4dd4........', '.....44.........'] + ['................'] * 6
+EMBER_LIFE = 40         # frames an ember flies (two byte columns a frame)
 # kinds: 0 walks and can be landed on, 1 Baron Rook (32 x 32, three hits),
 # 2 a picture (16 x 16), 3 a big picture (32 x 32)
 # + 4 spiked (hurts from above too, unless Tobi rides the geta), + 8 Snapjaw
@@ -398,7 +405,10 @@ GETA = recolor(ART['geta_idle'], PAL['geta'])
 # x40 moves every frame
 K_BIG, K_PIC, K_SPIKE, K_SNAP, K_LIFT, K_SHELL, K_FAST = 1, 2, 4, 8, 0x10, 0x20, 0x40
 KIND = {'e': 0, 'z': 0, 'R': 1, 'G': 2, 'M': 2, 'p': 3, 'r': 3,
-        'x': K_SPIKE, 'k': K_SHELL, 'j': K_SPIKE | K_SNAP, 'Q': K_BIG | K_FAST, 'l': K_LIFT}
+        'x': K_SPIKE, 'k': K_SHELL, 'j': K_SPIKE | K_SNAP, 'Q': K_BIG | K_FAST, 'l': K_LIFT,
+        'q': K_BIG | K_FAST, 'V': K_BIG | K_FAST}
+HP = {'q': 4, 'V': 4}       # landings a boss takes (the others: 3)
+BIG_CH = 'RQqV'
 
 # ---------------------------------------------------------------------------
 # tiles (16 x 16, one hex digit a pixel) and band pictures, by theme
@@ -517,7 +527,7 @@ def extra_tiles(bg):
     }
 
 
-ATTR = {'#': 1, 'D': 1, 'B': 1, 'H': 1, 'K': 1, '=': 1, 'W': 1, 'X': 1, 'u': 1,
+ATTR = {'#': 1, 'D': 1, 'B': 1, 'H': 1, 'K': 1, '=': 1, 'W': 1, 'X': 1, 'u': 1, 'i': 1, '<': 1, '_': 1, '>': 1,
         '^': 3, 'U': 5, '$': 8, '1': 0x11, '2': 0x31, '3': 0x51, '4': 0x71}
 A_SOLID, A_THORN, A_BOUNCE, A_UP, A_CRATE = 1, 2, 4, 8, 0x10
 SOLID_TILES = set(k for k, v in ATTR.items() if v & 1)
@@ -526,6 +536,7 @@ for _k, _v in extra_tiles('8').items():
 for _k, _v in extra_tiles('1').items():
     if _k != '$':
         KEEP_TILES[_k] = [r.replace('.', '1') for r in _v]
+EXTRA_SKY = {_k: [r.replace('.', '8') for r in _v] for _k, _v in extra_tiles('8').items()}
 BOUNCEV = 0x0680
 UPV = 0x01C0
 
@@ -600,7 +611,82 @@ def cave_bands():
     return [hi, lo]
 
 
+# Gusty Mesa: sand, sandstone, saguaros; thin high cloud in the low band
+SANDSTONE = ["ddddddd6ddddddd6", "dedddddd6ddddd6d", "ddddddd6ddddddd6", "6666666666666666",
+             "ddd6ddddddd6dddd", "dd6dddedd6dddddd", "ddd6ddddddd6dddd", "6666666666666666"] * 2
+DESERT_TILES = {
+    ' ': ["8" * 16] * 16,
+    '#': ["eeeeeeeeeeeeeeee", "eedeeeedeeedeeed", "deddeddddeddedde"] + SOIL[:13],
+    'D': SOIL,
+    'K': SANDSTONE,
+    'B': BRICK,
+    'H': HARD,
+    '=': GRASS_TILES['='],
+    'c': GRASS_TILES['c'],
+    'i': ["8" * 16] * 16,       # a mirage block: solid, and not to be seen
+    'm': on_sky(["................"] * 9 + [
+                 "......eeee......", "....eeeeeeee....", "...eeeedeeeee...", "..eeeeeeeeedee..",
+                 ".eedeeeeeeeeeee.", "eeeeeedeeeeeedee", "eeeeeeeeeeeeeeee"]),
+    'T': on_sky(["......ffff......", ".....ff9fff.....", ".....ffff9f.....", ".....f9ffff..ff.",
+                 ".ff..ffff9f.ff9f", "ff9f.ff9fff.ffff", "ffff.ffffff.f9ff", "f9ff.f9ff9f.ffff",
+                 "ffff.ffffffffff9", "ff9ffff9ffff9ff.", ".fffffffffffff..", "..fffff9fff.....",
+                 ".....ffff9f.....", ".....f9ffff.....", ".....ffff9f.....", ".....ff9fff....."]),
+    't': on_sky([".....ffff9f.....", ".....f9ffff.....", ".....ffffff.....", ".....ff9f9f....."] * 4),
+    'f': on_sky(["................"] * 10 + [
+                 "..6...6.........", "...6.6..6.......", "..6.66.6....bb..", "...666.6...bbbb.",
+                 "....66.....b7bb.", "....6.....bbbb7b"]),
+}
+
+
+def desert_bands():
+    W = BAND_W * 2
+    hi = [['8'] * W for _ in range(16)]
+    for g in range(16):
+        for x in range(W):
+            if g < 2:
+                hi[g][x] = '3'
+            elif g < 5:
+                hi[g][x] = '3' if (x + g) % 2 else '8'
+    for x in range(70, 88):
+        hi[9][x] = 'a'
+    for x in range(73, 86):
+        hi[10][x] = 'b'
+    lo = [['8'] * W for _ in range(16)]     # thin high cloud
+    for cx, cy, cw in ((60, 4, 22), (70, 6, 14), (100, 11, 20), (2, 12, 10), (24, 8, 16), (30, 10, 8)):
+        for x in range(cx, cx + cw):
+            lo[cy][x % W] = 'a'
+    return [hi, lo]
+
+
+# the boat between the worlds (a picture)
+SEA_TILES = dict(GRASS_TILES)
+SEA_TILES.update({
+    '~': ["8888888888888888", "88aa888888aa8888", "8a33a8888a33a888", "3333333333333333",
+          "3333333333333333", "3333388833333333", "3333333333338883", "3333333333333333"] * 2,
+    '<': ["8888888888888888", "6666666666666666", "86dddddddddddddd", "886ddddddddddddd", "8886dddddddddddd",
+          "88886666dd666666", "33333666dd666666", "33333366dd666666"] + ["3333333666666666"] * 2
+         + ["3333333333333333"] * 6,
+    '_': ["6666666666666666", "6666666666666666", "dddddddddddddddd", "dddddddddddddddd", "dddddddddddddddd",
+          "666dd666dd666dd6", "666dd666dd666dd6", "666dd666dd666dd6"] + ["6666666666666666"] * 2
+         + ["3333333333333333"] * 6,
+    '>': ["8888888888888888", "6666666666666666", "dddddddddddddd68", "ddddddddddddd688", "dddddddddddd6888",
+          "666666dd66668888", "666666dd66633333", "666666dd66333333"] + ["6666666663333333"] * 2
+         + ["3333333333333333"] * 6,
+    '|': ["8888888668888888"] * 16,
+    'A': ["8888888668888888", "8888888a68888888", "888888aa68888888", "88888aaa68888888", "8888aaab68888888",
+          "888aaaab68888888", "88aaaaab68888888", "8aaaaabb68888888", "aaaaaabb68888888", "aaaaabbb68888888",
+          "aaaabbbb68888888", "8888888668888888", "8888888668888888", "8888888668888888", "8888888668888888",
+          "8888888668888888"],
+    'a': ["8888888668888888", "8888888648888888", "8888888644888888", "8888888644488888", "8888888644888888",
+          "8888888648888888"] + ["8888888668888888"] * 10,
+})
+
+DESERT_TILES.update(EXTRA_SKY)
+
+
 THEMES = {
+    'desert': dict(tiles=DESERT_TILES, bands=desert_bands),
+    'sea': dict(tiles=SEA_TILES, bands=sky_bands),
     'grass': dict(tiles=GRASS_TILES, bands=sky_bands),
     'cave': dict(tiles=CAVE_TILES, bands=cave_bands),
     'keep': dict(tiles=KEEP_TILES, bands=keep_bands),
@@ -622,7 +708,7 @@ def course(name, theme, kind, glider, text, segs):
 
 COURSES = [
     course('title', 'grass', 1, 0,
-           ["SKYWARD TOBI     WORLD 1: BREEZY ISLE     A PLACARD PORT OF SKYWARD TOBI 4",
+           ["SKYWARD TOBI     BREEZY ISLE AND GUSTY MESA     A PLACARD PORT OF SKYWARD TOBI 4",
             "BARON ROOK'S LIGHTNING BROKE MABEL TAILSPIN'S BIPLANE.  HER STUNT MEDALS FELL",
             "ACROSS THE ISLE AND HIS CROWS CARRIED HER OFF TO CROW KEEP.   PRESS JUMP"],
            [("KK.......r......", "KK....p.........", "KK.......cc....c", "KK...S.....mT...", "################"),
@@ -761,8 +847,136 @@ COURSES = [
             ("................", "..w.....w.....w.", "................", "..%.........%...", "###LL###########"),
             ("...P........P...", ".......w........", "..........R.....", "W.....%.......%.", "################"),
             ("WWWWWWWWWWWWWWWW", "WWWWWWWWWWWWWWWW", "WWWWWWWWWWWWWWWW", "WWWWWWWWWWWWWWWW", "################")]),
+    course('boat', 'sea', 1, 0,
+           ["THE HARBOR",
+            "CROW KEEP HAS FALLEN, BUT BARON ROOK FLEW OFF WITH MABEL OVER THE WATER TO",
+            "GUSTY MESA.  THE HARBOR IS OPEN AGAIN, AND TOBI TAKES THE BOAT.      PRESS JUMP"],
+           [("KK..............", "KK....a.........", "KK....A....c....", "KK...S|.........", "##~~<___>~~~~~~~"),
+            ("................", "....c...........", "..........c.....", "................", "~~~~~~~~~~~~~~~~"),
+            ] + [("................", "................", "................", "................", "~~~~~~~~~~~~~~~~")] * 5
+           + [("............KKKK", "............KKKK", "............KKKK", "............KKKK", "~~~~~~~~~~~~####")]),
+    course('trail', 'desert', 0, 0,
+           ["COURSE 2-1   SANDSTONE TRAIL",
+            "GUSTY MESA: SAND, SANDSTONE AND HOT AIR.  THE UPDRAFTS RISE OUT OF THE CHASMS:",
+            "STEP INTO ONE AND IT CARRIES TOBI UP AND OVER.                       PRESS JUMP"],
+           [("KK..............", "KK...c..........", "KK..............", "KK.S......ooo...", "################"),
+            ("................", "...$$$..o.o.....", "...$$$..........", "...$$$.......e..", "###$$$...#######"),
+            ("....c...........", "......ooo.......", "..T.............", "..t..####....m..", "#####DDDD#######"),
+            ("......$.........", "......$K........", "..o...$K........", "..o...$K...e....", "################"),
+            ("................", ".....ooo........", "....=====.......", "................", "######....######"),
+            ("................", "....1.....z.....", "................", "..T.........m...", "################"),
+            ("................", "....$$$...oo....", "....$$$.........", "....$$$.........", "####$$$...######"),
+            ("............KKKK", "............KKKK", "............KKKK", ".........G..KKKK", "################")]),
+    course('ridge', 'desert', 0, 0,
+           ["COURSE 2-2   THERMAL RIDGE",
+            "ONE UPDRAFT AFTER ANOTHER: LEAVE THE FIRST HIGH ENOUGH TO REACH THE NEXT.",
+            "A SHELLBY HAS WANDERED UP FROM THE BEACH.                            PRESS JUMP"],
+           [("KK..............", "KK...c..........", "KK..............", "KK.S......ooo...", "################"),
+            ("................", "...$$$..o.o.....", "...$$$..........", "...$$$......k...", "###$$$...#######"),
+            ("........c.......", "....ooo.........", "....HHH.........", "..T.........m...", "################"),
+            ("......$.........", "......$K........", "..o...$KK.......", "..o...$KKK..e...", "################"),
+            ("................", "...$$$...$$$....", "...$$$...$$$....", "...$$$...$$$....", "###$$$...$$$...#"),
+            ("................", "....1...........", "................", "......e......f..", "################"),
+            ("................", "....$$$...oo....", "....$$$.........", "....$$$.........", "####$$$...######"),
+            ("............KKKK", "............KKKK", "............KKKK", ".........G..KKKK", "################")]),
+    course('canyon', 'desert', 0, 0,
+           ["COURSE 2-3   UPDRAFT CANYON",
+            "THE CANYON IS TOO WIDE TO JUMP: RIDE THE LIFTS AND THE UPDRAFTS ACROSS IT.",
+            "THE CRATE NEAR THE END HOLDS A GLIDE FEATHER.                        PRESS JUMP"],
+           [("KK..............", "KK...c..........", "KK..............", "KK.S......oo....", "############l..."),
+            ("................", "....ooo.........", "................", "..........e.....", ".....###########"),
+            ("................", "....$$$..o.o....", "....$$$.........", "....$$$.........", "####$$$...######"),
+            ("......$.........", "......$K........", "..o...$K........", "..o...$K...x....", "################"),
+            ("........c.......", "................", "..ooo......ooo..", "................", "##l.......l....."),
+            ("................", "......o.o.......", "................", "................", "..######l......."),
+            ("................", "....3...........", "................", "...........T....", "################"),
+            ("............KKKK", "............KKKK", "............KKKK", ".........G..KKKK", "################")]),
+    course('drywell', 'cave', 0, 0,
+           ["COURSE 2-4   DRYWELL CAVERN",
+            "THE OLD WELLS UNDER THE MESA ARE DRY, AND THORNS GROW IN THEM: TAKE THE LIFT",
+            "ACROSS, AND THE VENT OVER THE WALL.                                  PRESS JUMP"],
+           [("KK..............", "KK..............", "KK..............", "KK.S......oo....", "################"),
+            ("................", "................", ".....ooo........", "..........######", "##########DDDDDD"),
+            ("................", "...ooo..........", "................", "###l......######", "DDD^^^^^^^DDDDDD"),
+            ("..........$.....", "..........$.....", "..........$K....", "#####.....$K....", "DDDDD###########"),
+            ("................", "......ooo.......", "................", "................", "######...#######"),
+            ("................", "........1.......", "................", "....j......x....", "####u###########"),
+            ("................", "....$$$...z.....", "....$$$.........", "....$$$.........", "####$$$...######"),
+            ("............KKKK", "............KKKK", "............KKKK", ".........G..KKKK", "################")]),
+    course('gulch', 'desert', 0, 0,
+           ["COURSE 2-5   SPINDLE GULCH",
+            "SPINDLES CANNOT BE LANDED ON.  THE CRATE HOLDS AN EMBER PEPPER: DOWN OR PAD Y",
+            "THROWS AN EMBER, AND AN EMBER KNOCKS OUT WHAT IT MEETS.              PRESS JUMP"],
+           [("KK..............", "KK.......2......", "KK..............", "KK.S............", "################"),
+            ("................", "....ooo.........", "................", "......x.....x...", "################"),
+            ("...c............", "................", "......ooo.......", ".....####.......", "#####DDDD..#####"),
+            ("................", "......2.........", "................", "..x.......x.....", "################"),
+            ("................", "..oo....oo......", "..HH....HH......", "......x.........", "################"),
+            ("......c.........", "................", "....ooo.........", "...........x....", "#######..#######"),
+            ("................", "....ooo.........", "................", ".T.....x.....m..", "################"),
+            ("............KKKK", "............KKKK", "............KKKK", ".........G..KKKK", "################")]),
+    course('gorge', 'desert', 0, 0,
+           ["COURSE 2-6   GLIDER GORGE",
+            "THE CRATE HOLDS A GLIDE FEATHER: RUN, JUMP AND HOLD ON OVER THE GORGES.",
+            "THE LIFTS ARE THE SLOW WAY FOR ANYONE WHO HAS LOST IT.               PRESS JUMP"],
+           [("KK..............", "KK.......3......", "KK..............", "KK.S............", "################"),
+            ("................", "......o.o.o.....", "................", "................", "####l.......####"),
+            ("....c...........", "......ooo.......", ".....####.......", "..e..DDDD.......", "#########l......"),
+            ("................", "................", "....ooo.........", "..........z.....", "################"),
+            ("................", "....o.o.o.o.....", "....H...........", "...HH...........", "######l........."),
+            ("................", ".....3..........", "................", "..T......e...m..", "################"),
+            ("..c.............", "......o.o.o.o...", "................", "................", "####l.......####"),
+            ("............KKKK", "............KKKK", "............KKKK", ".........G..KKKK", "################")]),
+    course('skywalk', 'grass', 0, 0,
+           ["COURSE 2-7   TENGU SKYWALK",
+            "A WALK IN THE SKY ON BRIDGES AND THORNS.  THE CRATES HOLD THE TENGU GETA,",
+            "WHICH WALKS ON THORNS AND LANDS ON SPINDLES.                         PRESS JUMP"],
+           [("KK..............", "KK.......4......", "KK..............", "KK.S............", "################"),
+            ("................", "....ooo.........", "................", "................", "####==^^^^==####"),
+            ("...c............", "................", ".=========......", "...oooooo.......", "##^^^^^^^^######"),
+            ("................", "......4.........", "................", "..x.......x.....", "====############"),
+            ("................", "..oo....oo......", "................", "................", "==^^^^==^^^^===="),
+            ("......c.........", "......ooo.......", "................", "................", "======...======="),
+            ("................", "....ooo.........", "...........z....", "...x............", "================"),
+            ("............KKKK", "............KKKK", "............KKKK", ".........G..KKKK", "################")]),
+    course('mirage', 'desert', 0, 0,
+           ["COURSE 2-8   MIRAGE MESA",
+            "THE HEAT PLAYS TRICKS: SOME BLOCKS HERE CANNOT BE SEEN.  MABEL'S MEDALS LIE",
+            "ALONG THEM, SO WALK WHERE THE MEDALS ARE.                            PRESS JUMP"],
+           [("KK..............", "KK...c..........", "KK..............", "KK.S......ooo...", "################"),
+            ("................", "................", "................", ".....o.o.o.o....", "#####iiiiiii####"),
+            ("................", ".......ooo......", ".....o.iii......", "...o.iii.....e..", "################"),
+            ("................", "....o.o.o.o.....", "....iiiiiii.....", "..i...x...x.....", "################"),
+            ("....c...........", "...........1....", "................", "...o.o.o........", "###iiiii########"),
+            ("................", "....o.o.o.......", "....iiiii.......", "..i.......k.....", "####......######"),
+            ("................", "................", "....ooo.........", "..T....x.....m..", "################"),
+            ("............KKKK", "............KKKK", "............KKKK", ".........G..KKKK", "################")]),
+    course('fort2', 'keep', 0, 0,
+           ["SQUALL FORT",
+            "CAPTAIN SQUALL'S OWN FORT.  THE CRATE HOLDS AN EMBER PEPPER FOR THE SPINDLES.",
+            "THE CAPTAIN IS READY THIS TIME: LAND ON HIM FOUR TIMES.              PRESS JUMP"],
+           [("WW.....P........", "WW..w......w....", "WW..............", "WW.S...%...oo...", "################"),
+            ("....P...........", "..........2...w.", "......oo........", "......HH....x...", "#####LL#########"),
+            ("...........P....", "..w.............", ".....oo.........", "....^^^...^^^...", "################"),
+            ("................", "....w....oo.....", "..............w.", "..%.............", "####U.....######"),
+            ("......P.........", "...ooo..........", "............w...", ".x..........x.%.", "####LL###LL#####"),
+            ("................", "..w.....w.....w.", ".....oo.........", "..%..HH.....%...", "###LL###########"),
+            ("...P........P...", ".......w........", "..........q.....", "W.....%.......%.", "################"),
+            ("WWWWWWWWWWWWWWWW", "WWWWWWWWWWWWWWWW", "WWWWWWWWWWWWWWWW", "WWWWWWWWWWWWWWWW", "################")]),
+    course('keep2', 'keep', 0, 1,
+           ["DUST KEEP",
+            "BARON ROOK'S KEEP ON THE MESA, AND MABEL IS IN IT.  THE GLIDER HELPS OVER THE",
+            "FIRE.  HE IS QUICKER HERE: LAND ON HIM FOUR TIMES.                   PRESS JUMP"],
+           [("WW.....P........", "WW..w......w....", "WW..............", "WW.S...%...oo...", "################"),
+            ("....P...........", ".........ooo..w.", ".........HHH....", "............x.%.", "#####LLL########"),
+            ("...........P....", "..w.............", ".....oo.........", "....####....e...", "####WWWW##LLL###"),
+            ("................", "....w....oo.....", ".........HH..w..", "..%...H.........", "#####LLLLLLL####"),
+            ("......P.........", "...ooo..........", "...HHH......w...", ".e........x...%.", "#####LLL##LL####"),
+            ("................", "..w.....w.....w.", "................", "..%.........%...", "###LL####LLL####"),
+            ("...P........P...", ".......w........", "..........V.....", "W.....%.......%.", "################"),
+            ("WWWWWWWWWWWWWWWW", "WWWWWWWWWWWWWWWW", "WWWWWWWWWWWWWWWW", "WWWWWWWWWWWWWWWW", "################")]),
     course('ending', 'grass', 1, 0,
-           ["SKYWARD TOBI     WORLD 1 CLEAR",
+           ["SKYWARD TOBI     BREEZY ISLE AND GUSTY MESA CLEAR",
             "\"TOOK YOU LONG ENOUGH, KID.  I HAD HIM RIGHT WHERE I WANTED HIM.\"  MABEL IS",
             "FREE, AND THE BIPLANE'S FIRST PIECE IS BACK.  THANK YOU FOR PLAYING. PRESS JUMP"],
            [("KK..............", "KK.....c........", "KK......p.......", "KK...S.M...m..T.", "################"),
@@ -770,7 +984,7 @@ COURSES = [
             ] + [("................", "................", "................", "................", "################")] * 5
            + [("............KKKK", "............KKKK", "............KKKK", "............KKKK", "################")]),
 ]
-OBJ_CH = set('SoezGRMprxkjQl')
+OBJ_CH = set('SoezGRMprxkjQlqV')
 NCOURSE = len(COURSES)
 
 
@@ -832,9 +1046,9 @@ class Course:
                     if ch not in letters:
                         letters.append(ch)
                     lo = hi = t
-                    if ch in 'exkRQ':
-                        w = 2 if ch in 'RQ' else 1
-                        r_feet = r + (1 if ch in 'RQ' else 0)
+                    if ch in 'exk' + BIG_CH:
+                        w = 2 if ch in BIG_CH else 1
+                        r_feet = r + (1 if ch in BIG_CH else 0)
                         while lo > 0 and self.solid_t(lo - 1, r_feet + 1) and not self.solid_t(lo - 1, r_feet):
                             lo -= 1
                         while (hi + w < LEVEL_W and self.solid_t(hi + w, r_feet + 1)
@@ -866,6 +1080,8 @@ class Course:
         self.geta_fid = 0
         self.geta_fid = len(self.frames)
         self.frames.append(('geta', GETA))
+        self.ember_fid = len(self.frames)
+        self.frames.append(('ember', EMBER))
         self.frame_id = {nm: i for i, (nm, _) in enumerate(self.frames)}
 
     def solid_t(self, t, r):
@@ -923,7 +1139,7 @@ class Course:
             obj[0x40 + i] = 1
             obj[0x48 + i] = KIND[o['ch']]
             obj[0x50 + i] = self.fid0[o['ch']]
-            obj[0x58 + i] = 3
+            obj[0x58 + i] = HP.get(o['ch'], 3)
         obj[0x60] = len(self.objs)
         obj[0x61] = len(self.medals)
         obj[0x62] = self.goal & 255
@@ -935,6 +1151,7 @@ class Course:
         for r in range(NTROW):
             obj[0x68 + r] = 8 * self.cid.get((r, 'X'), 0)
         obj[0x6D] = self.geta_fid
+        obj[0x6E] = self.ember_fid
         for i, (x, g) in enumerate(self.medals):
             obj[0x80 + i] = x & 255
             obj[0xA8 + i] = x >> 8
@@ -1325,7 +1542,8 @@ def gen():
     consts = dict(MODE_PF=MODE_PF, GRAV=GRAV, JUMPV_LO=(-JUMPV) & 0xFF, JUMPV_HI=((-JUMPV) >> 8) & 0xFF,
                   MAXFALL_HI=MAXFALL >> 8, INV_FRAMES=INV_FRAMES, MAX_SPR=MAX_SPR, GROUND_G=GROUND_G,
                   NROW=NROW, GLIDE=GLIDE, DROWN_G=DROWN_G, ROOK_SAFE=ROOK_SAFE, NCOURSE=NCOURSE, BLOCK_END=BLOCK_END, FID_MEDAL=FID_MEDAL, NPF=NPF,
-                  ENEMY=ENEMY, V_POWER=0x70, V_GETA=0x71, BOUNCEV_LO=(-BOUNCEV) & 0xFF, BOUNCEV_HI=((-BOUNCEV) >> 8) & 0xFF,
+                  ENEMY=ENEMY, V_POWER=0x70, V_GETA=0x71, V_EMB=0x72, V_EMXL=0x73, V_EMG=0x75, V_EMD=0x76, V_FPREV=0x77,
+                  V_EMXH=0x7B, EMBER_LIFE=EMBER_LIFE, BOUNCEV_LO=(-BOUNCEV) & 0xFF, BOUNCEV_HI=((-BOUNCEV) >> 8) & 0xFF,
                   UPV_LO=(-UPV - GRAV) & 0xFF, UPV_HI=((-UPV - GRAV) >> 8) & 0xFF, COIN_GOT=COIN_GOT, COIN_XL=0x80, COIN_XH=0xA8, COIN_G=0xD0)
     for k, v in consts.items():
         a.raw('%-10s = %d' % (k, v))
@@ -1562,7 +1780,14 @@ i_3:
     ld   [inp], ac
     or   4, ac
     ld   ac, [inp]
-i_4:''')
+i_4:
+    ld   [R0], ac               ; Y (bit 1): the Ember Pepper
+    and  0x02, ac
+    beq  i_5
+    ld   [inp], ac
+    or   8, ac
+    ld   ac, [inp]
+i_5:''')
     a.g('''
     ld   [KBD_NOW + 7], ac      ; Right key (column 7 row 7, 0 = down)
     and  0x80, ac
@@ -1588,7 +1813,14 @@ k_3:
     ld   [inp], ac
     or   4, ac
     ld   ac, [inp]
-k_4:''')
+k_4:
+    ld   [KBD_NOW + 7], ac      ; Down (row 6)
+    and  0x40, ac
+    bne  k_5
+    ld   [inp], ac
+    or   8, ac
+    ld   ac, [inp]
+k_5:''')
     call('game', 'f_game')
     call('hud', 'f_hud')
     a.jump('frame')
@@ -1684,6 +1916,8 @@ lc_5:''')
     ld   V_GETA, x
     ld   0, [y,x]
 lc_p1:
+    ld   V_EMB, x
+    ld   0, [y,x]
     ld   V_POWER, x
     ld   [y,x], ac
     sub  3, ac
@@ -2694,10 +2928,192 @@ go_cn:
     ld   go_c >> 8, y
     jmp  go_c
 go_cd:
+    ld   gm_emb >> 8, y
+    jmp  gm_emb''')
+
+    a.sect('game: the Ember Pepper (Down or pad Y throws an ember; one at a time)')
+    a.begin()
+    a.g('''
+gm_emb:
+    ld   ENEMY >> 8, y
+    ld   [inp], ac
+    and  8, ac
+    ld   ac, [tmp]
+    ld   V_FPREV, x
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   [tmp], ac
+    ld   ac, [y,x]
+    beq  ge_mv                  ; the key newly down, playing, with the pepper,
+    ld   [tmp2], ac             ; and no ember in the air
+    bne  ge_mv
+    ld   [mode], ac
+    bne  ge_mv
+    ld   V_POWER, x
+    ld   [y,x], ac
+    sub  2, ac
+    bne  ge_mv
+    ld   V_EMB, x
+    ld   [y,x], ac
+    bne  ge_mv
+    ld   EMBER_LIFE, [y,x]
+    ld   V_EMXL, x
+    ld   [pxl], ac
+    ld   ac, [y,x]
+    ld   V_EMXH, x
+    ld   [pxh], ac
+    ld   ac, [y,x]
+    ld   V_EMG, x
+    ld   [pyh], ac
+    ld   ac, [y,x]
+    ld   V_EMD, x
+    ld   [facing], ac
+    ld   ac, [y,x]
+    ld   96, ac''')
+    call('snd_beep', 'ge_b')
+    a.g('''
+ge_mv:
+    ld   ENEMY >> 8, y
+    ld   V_EMB, x
+    ld   [y,x], ac
+    bne  ge_1
+ge_out:
+    ld   ge_x >> 8, y
+    jmp  ge_x
+ge_1:
+    sub  1, ac
+    ld   ac, [y,x]
+    ld   V_EMD, x
+    ld   [y,x], ac
+    bne  ge_l
+    ld   V_EMXL, x              ; right: two byte columns
+    ld   [y,x], ac
+    add  2, ac
+    ld   ac, [y,x]
+    bcc  ge_d
+    ld   V_EMXH, x
+    ld   [y,x], ac
+    add  1, ac
+    and  3, ac
+    ld   ac, [y,x]
+    bra  ge_d
+ge_l:
+    ld   V_EMXL, x
+    ld   [y,x], ac
+    sub  2, ac
+    ld   ac, [y,x]
+    bcc  ge_d
+    ld   V_EMXH, x
+    ld   [y,x], ac
+    sub  1, ac
+    and  3, ac
+    ld   ac, [y,x]
+ge_d:
+    ld   ge_w >> 8, y
+    jmp  ge_w''')
+    a.end()
+    a.begin()
+    a.g('''
+ge_w:
+    ld   ENEMY >> 8, y          ; a wall puts it out
+    ld   V_EMG, x
+    ld   [y,x], ac
+    add  8, ac
+    ld   ac, [ta_g]
+    ld   V_EMXH, x
+    ld   [y,x], ac
+    ld   ac, [ta_hi]
+    ld   V_EMXL, x
+    ld   [y,x], ac
+    add  4, ac
+    ld   ac, [ta_lo]
+    bcc  ge_w1
+    ld   [ta_hi], ac
+    add  1, ac
+    ld   ac, [ta_hi]
+ge_w1:''')
+    call('tile_at', 'ge_w2')
+    a.g('''
+    beq  ge_dr
+    ld   ENEMY >> 8, y
+    ld   V_EMB, x
+    ld   0, [y,x]
+    ld   ge_x >> 8, y
+    jmp  ge_x
+ge_dr:
+    ld   V_EMXL, ac
+    ld   ac, [o_i]''')
+    a.g(screen_col('ENEMY', '0', '8', 'ge_x'))
+    a.g('''
+    ld   ENEMY >> 8, y
+    ld   V_EMG, x
+    ld   [y,x], ac
+    add  32, ac
+    ld   ac, [tmp3]
+    ld   OBJ >> 8, y
+    ld   0x6E, x
+    ld   [y,x], ac
+    ld   ac, [tmp]''')
+    call('sl_add', 'ge_s')
+    a.g('''
+    ld   ge_x >> 8, y
+    jmp  ge_x''')
+    a.end()
+    a.g('''
+ge_x:
     clr  ac
     ld   ac, [o_i]
     ld   go_e >> 8, y
     jmp  go_e''')
+
+    a.begin()
+    a.g('''
+go_emb:
+    ld   ENEMY >> 8, y          ; an ember in the air, and this one can be
+    ld   V_EMB, x               ; knocked out: its x - the ember's in -6..6,
+    ld   [y,x], ac              ; its top cell - the ember's in -12..12
+    beq  gb_no
+    ld   [ekind], ac
+    and  0x13, ac
+    bne  gb_no
+    ld   V_EMXL, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   [o_i], x
+    ld   [y,x], ac
+    sub  [tmp], ac
+    add  6, ac
+    sub  13, ac
+    bcc  gb_no
+    ld   V_EMG, x
+    ld   [y,x], ac
+    ld   ac, [tmp]
+    ld   [tmp3], ac
+    sub  20, ac
+    sub  [tmp], ac
+    sub  25, ac
+    bcc  gb_no
+    ld   V_EMB, x
+    ld   0, [y,x]
+    ld   [o_i], ac
+    add  0x40, x
+    ld   0, [y,x]
+    ld   1, ac
+    ld   ac, [hud_dirty]
+    ld   [score_lo], ac
+    add  100, ac
+    ld   ac, [score_lo]
+    bcc  gb_s
+    ld   [score_hi], ac
+    add  1, ac
+    ld   ac, [score_hi]
+gb_s:
+    ld   go_h1 >> 8, y
+    jmp  go_h1
+gb_no:
+    ld   go_ect >> 8, y
+    jmp  go_ect''')
+    a.end()
 
     a.sect('game: the objects (Bumblers, Buzzbees, Baron Rook, pictures)')
     a.raw('go_e:')
@@ -2815,6 +3231,9 @@ go_e6:''')
     sub  [pyh], ac              ; eg - pyh, in tmp2
     sub  32, ac
     ld   ac, [tmp2]
+    ld   go_emb >> 8, y
+    jmp  go_emb
+go_ect:
     ld   [mode], ac             ; only while playing, not just after a lost
     bne  go_eaj                ; life, and not a picture
     ld   [inv], ac
