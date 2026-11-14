@@ -15,6 +15,8 @@ Date: 11/14/2026
 
 ![Gusty Mesa: the harbor (the playfield as the model draws it), Sandstone Trail, an ember in Spindle Gulch and Dust Keep in the simulator](../../reference/skyward_world2.png)
 
+![Mark's nine story pictures in the Placard's 16 colors: six open the game, three close it](../../reference/skyward_story.png)
+
 ## The game
 
 Baron Rook's lightning broke Mabel Tailspin's biplane, her Stunt Medals fell
@@ -207,9 +209,13 @@ game through pad 1 with a bot.  The bot looks ahead with a Python model of
 the rules (the same file), so the model and the program are compared on
 every frame too.  For every frame the test checks the background and the
 sprites byte for byte against `gen_skyward.py`'s model and that the
-drawing is ahead of the beam; at the end, that every course was cleared in
-order, that the strips are unchanged and that Esc brings the DOS back.
-A whole game is about 23,400 frames and takes about two hours;
+drawing is ahead of the beam (a story picture: byte for byte against the
+picture); that the song is in the sound buffer on at least 3 frames in 4;
+at the end, that every course was cleared in order, that the strips are
+unchanged and that Esc brings the DOS back.  With the music the background
+is done by 66 % of the beam's time and the whole frame's work by about
+48 % of the frame.  A whole game is about 26,200 frames and takes about
+two and a half hours;
 `--course n` starts at course n, `--stop-after n` stops when course n
 loads, `--stomp` has the bot land on every enemy it can (the Shellbys'
 shells, the crates), and `--course 1 --lives 1 --walk --stop-after 0` (a
