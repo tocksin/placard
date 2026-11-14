@@ -99,6 +99,7 @@ PAD_B, PAD_Y, PAD_UP, PAD_DOWN, PAD_LEFT, PAD_RIGHT, PAD_A, PAD_X = 1, 2, 0x10, 
 A_TOP, A_BOT, A_DOOR, A_DBOT = 1, 2, 4, 64      # solid upper half, lower half; a door; its lower tile
 A_SOOT = 8                                      # a sooted block: a blast breaks it
 A_WATER = 16                                    # water: without the Ballast Boots Wick is slow in it
+A_SEAL = 32                                     # a seal: opens when the room's keepers are beaten
 A_SOLID = A_TOP | A_BOT
 # exits
 EX_L, EX_R, EX_U, EX_D = 1, 2, 3, 4
@@ -122,6 +123,8 @@ SD_OVL = 0x6000
 # the header page
 H_W, H_H, H_AREA, H_NOBJ, H_RW, H_RCY, H_RWX, H_RHY, H_FLAGS = range(9)
 HF_HOT = 1              # a hot room: energy drains without the Cinder Coat
+H_SEALN, H_SEAL, H_MSG = 0x09, 0x0A, 0x0E     # the room's seal: how many keepers, their item numbers; its message
+G_BEAT = 32             # GOT + 32 + n: the keeper of item n is beaten
 HX_SIDE, HX_LO, HX_HI, HX_DEST, HX_DELTA = 0x10, 0x18, 0x20, 0x28, 0x30
 HO_KIND, HO_X, HO_Y, HO_P = 0x40, 0x48, 0x50, 0x58
 # what a thing does
@@ -292,6 +295,7 @@ ITEM_MSG = ["OIL FLASK: THE LANTERN HOLDS MORE", "BURROW RIG: HOLD DOWN TO CRAWL
             "KILN CHARGE: HOLD FIRE, LET GO: A BLAST", "WIDE FLAME: THREE SPARKS AT A TIME",
             "CINDER COAT: HALF THE HARM, NO HEAT", "BALLAST BOOTS: NO DRAG UNDER WATER"]
 MSG_DEAD = "THE LANTERN WENT OUT"
+ROOM_MSG = ["THREE KEEPERS DOWN: THE SEAL IS OPEN", "THE GREAT LAMP BURNS AGAIN"]
 EMBER_ART = [
     tall(["......dd........",
           ".....deed.......",
@@ -611,6 +615,45 @@ GULP_HALF = [
 GULP_SHUT = {18: "3381a1a1a1a1a1a1", 19: "3381a1a1a1a1a1a1", 0: "..............e.", 1: "...............8"}
 
 
+# the Snuffer, the Orrery's keeper: a great snuffer's cap with eyes in it
+SNUFF_HALF = [
+    "..............bb",
+    "..............b7",
+    "..............b7",
+    "..............b7",
+    ".............b77",
+    "............b777",
+    "...........b7777",
+    "..........b77777",
+    ".........b777777",
+    "........b7777777",
+    ".......b77777777",
+    "......b777777777",
+    ".....b7777777777",
+    ".....b7777777777",
+    "....b77777dd7777",
+    "....b7777dddd777",
+    "...b77777dddd777",
+    "...b777777dd7777",
+    "..b7777777777777",
+    "..b7777777777777",
+    ".b77777777777777",
+    ".b77777777777777",
+    "b777777777777777",
+    "bbbbbbbbbbbbbbbb",
+    "1111111111111111",
+    ".1.1.1.1.1.1.1.1",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+]
+SNUFF_ALT = {14: "....b77777ee7777", 15: "....b7777eeee777", 16: "...b77777eeee777", 17: "...b777777ee7777",
+             25: "1.1.1.1.1.1.1.1.", 26: ".1...1...1...1..", 27: "..1.....1.....1."}
+
+
 def recolor(art, old, new):
     return [[r.translate(str.maketrans(old, new)) for r in a] for a in art]
 
@@ -748,6 +791,11 @@ SOOT_TILE = block('1', '7', '0', [(4, 4, '7'), (10, 9, '7'), (7, 12, '7'), (12, 
                                   (9, 5, '0')])
 
 
+# a seal: a brass grate that opens when the room's keepers are beaten
+SEAL_TILE = done([("6ee6" * 4) if y in (0, 15) else ("6" + "e" * 14 + "6") if y in (5, 10) else
+                  ".6e..e6..6e..e6.".replace(".", "0") for y in range(16)])
+
+
 def rock(kind, face='7', hi='b', lo='1', fleck='6'):
     """a rock tile: 'in' the inside, 'top' with a lit upper edge (open
     above), 'under' with a dark lower edge (open below)"""
@@ -781,6 +829,7 @@ AREAS = [
         ('_', half(False, '7', 'b', '1'), A_BOT),
         ('=', half(True, '7', 'b', '1'), A_TOP),
         ('S', SOOT_TILE, A_SOLID | A_SOOT),
+        ('X', SEAL_TILE, A_SOLID | A_SEAL),
     ], creatures=[
         dict(name='mite', beh=B_WALK, hp=2, dmg=8, art=MITE_ART),
         dict(name='moth', beh=B_FLY, hp=1, dmg=5, art=MOTH_ART),
@@ -868,6 +917,44 @@ def over(back, art):
     return [''.join(b if a == '0' else a for a, b in zip(ra, rb)) for ra, rb in zip(art, back)]
 
 
+
+
+def lamp(part):
+    """the great lamp, 2 tiles wide and 3 high: 'l' 'm' its globe, 'p' 'q'
+    'P' 'Q' its column"""
+    pic = [['0'] * 32 for _ in range(48)]
+    for y in range(1, 16):
+        for x in range(32):
+            if (x - 15.5) ** 2 / 196 + (y - 9) ** 2 / 64 < 1:
+                pic[y][x] = 'e'
+            if (x - 15.5) ** 2 / 36 + (y - 9.5) ** 2 / 36 < 1:
+                pic[y][x] = 'd'
+            if (x - 15.5) ** 2 / 6 + (y - 10.5) ** 2 / 6 < 1:
+                pic[y][x] = 'a'
+    for x in range(6, 26):
+        pic[15][x] = pic[16][x] = 'b'
+    for y in range(17, 48):
+        for x in range(11, 21):
+            pic[y][x] = 'b' if x in (11, 20) or y % 8 == 0 else '6'
+    for y in (46, 47):
+        for x in range(6, 26):
+            pic[y][x] = 'b'
+    tx, ty = {'l': (0, 0), 'm': (1, 0), 'p': (0, 1), 'q': (1, 1), 'P': (0, 2), 'Q': (1, 2)}[part]
+    return [''.join(pic[16 * ty + y][16 * tx:16 * tx + 16]) for y in range(16)]
+
+
+def planet():
+    """scenery of the Orrery: a small ringed planet"""
+    g = grid()
+    for y in range(5, 11):
+        for x in range(5, 11):
+            if (x - 7.5) ** 2 + (y - 7.5) ** 2 < 9:
+                g[y][x] = '3' if x + y < 15 else '1'
+    for x in range(2, 14):
+        g[8 if x < 8 else 7][x] = 'e' if g[8 if x < 8 else 7][x] == '0' or x in (2, 3, 12, 13) else g[8 if x < 8 else 7][x]
+    return done(g)
+
+
 BRINE_TILES = [
     (',', specks([(3, 2, '2'), (11, 6, '1'), (6, 12, '2'), (13, 13, '5')]), 0),
     ('#', rock('in', '2', 'c', '1', '5'), A_SOLID),
@@ -890,6 +977,35 @@ AREAS += [
     dict(name="OLD GULPER'S CISTERN", tiles=BRINE_TILES, creatures=[
         dict(name='gulper', beh=B_WALK, hp=48, dmg=14, spit=31,
              art=[boss(GULP_HALF, GULP_SHUT, False), boss(GULP_HALF, GULP_SHUT, True)]),
+    ]),
+]
+
+ORRERY_TILES = [
+    (',', specks([(3, 2, '8'), (11, 6, 'a'), (6, 12, 'e'), (13, 13, '8')]), 0),
+    ('#', rock('in', '1', '8', '0', 'e'), A_SOLID),
+    ('T', rock('top', '1', '8', '0', 'e'), A_SOLID),
+    ('U', rock('under', '1', '8', '0', 'e'), A_SOLID),
+    ('_', half(False, '6', 'e', '1'), A_BOT),
+    ('=', half(True, '6', 'e', '1'), A_TOP),
+    ('o', planet(), 0),
+    ('l', lamp('l'), 0),
+    ('m', lamp('m'), 0),
+    ('p', lamp('p'), 0),
+    ('q', lamp('q'), 0),
+    ('P', lamp('P'), 0),
+    ('Q', lamp('Q'), 0),
+    ('X', SEAL_TILE, A_SOLID | A_SEAL),
+]
+AREAS += [
+    dict(name='THE ORRERY', tiles=ORRERY_TILES, creatures=[
+        dict(name='cogmite', beh=B_WALK, hp=4, dmg=10, art=recolor(MITE_ART, '25c', '6ed')),
+        dict(name='wisp', beh=B_FLY, hp=2, dmg=8, art=recolor(MOTH_ART, 'ba25', '8a3e')),
+        dict(name='lens', beh=B_SIT, hp=3, dmg=8, art=recolor(FLUE_ART, 'b4de7', 'e3a81'), spit=63),
+        dict(name='orbit', beh=B_HOP, hp=3, dmg=8, art=recolor(HOP_ART, '4de0', '38a1')),
+    ]),
+    dict(name="THE SNUFFER'S VAULT", tiles=ORRERY_TILES, creatures=[
+        dict(name='snuffer', beh=B_HOVER, hp=120, dmg=14, spit=15, aim=3,
+             art=[boss(SNUFF_HALF, SNUFF_ALT, False), boss(SNUFF_HALF, SNUFF_ALT, True)]),
     ]),
 ]
 
@@ -1084,7 +1200,8 @@ ROOMS = [
         "#                 E ",
         "############ #######"]),
     # ---- the deep Wellshaft
-    dict(name='THE WELLSHAFT, DEEP', area=0, exits=[('U', 4, 5, 3, 0), ('R', 13, 14, 22, -9)],
+    dict(name='THE WELLSHAFT, DEEP', area=0, exits=[('U', 4, 5, 3, 0), ('R', 13, 14, 22, -9), ('D', 4, 5, 28, 0)],
+         seal=[5, 9, 12], msg=0,
          objs=[('item', 1, 14, I_FLASK, 6), ('moth', 5, 9)], rows=[
         "####  ####",
         "##      ##",
@@ -1101,7 +1218,7 @@ ROOMS = [
         "##    _ ##",
         "#  S    D ",
         "#  S    E ",
-        "##########"]),
+        "####XX####"]),
     # ---- the Slagworks
     dict(name='SLAG STAIR', area=3, exits=[('L', 6, 7, 5, 0), ('R', 3, 4, 16, -1)],
          objs=[('cinderhop', 10, 7), ('flue', 20, 4), ('emberwing', 8, 2)], rows=[
@@ -1250,6 +1367,78 @@ ROOMS = [
         " D                 #",
         " E~~~~~~~~~~~~~~~~~#",
         "###### #############"]),
+    # ---- the Orrery
+    dict(name='ORRERY STAIR', area=7, exits=[('U', 4, 5, 14, 0), ('R', 13, 14, 29, -9)],
+         objs=[('wisp', 4, 7)], rows=[
+        "####  ####",
+        "##      ##",
+        "##  ##  ##",
+        "##      ##",
+        "## o  _ ##",
+        "##      ##",
+        "## _    ##",
+        "##    , ##",
+        "##   __ ##",
+        "##      ##",
+        "## _    ##",
+        "## ,    ##",
+        "##    _ ##",
+        "##      D ",
+        "##      E ",
+        "##########"]),
+    dict(name='GEAR HALL', area=7, exits=[('L', 4, 5, 28, 9), ('R', 4, 5, 30, -2)],
+         objs=[('cogmite', 12, 5), ('wisp', 20, 2), ('orbit', 26, 5)], rows=[
+        "################################",
+        "#   o        ,        o        #",
+        "#                              #",
+        "#        __         __         #",
+        " D                            D ",
+        " E    ##      ##       ##     E ",
+        "################################"]),
+    dict(name='PENDULUM WELL', area=7, exits=[('L', 2, 3, 29, 2), ('D', 4, 5, 31, 0)],
+         objs=[('wisp', 4, 5), ('orbit', 6, 12)], rows=[
+        "##########",
+        "##   o  ##",
+        " D      ##",
+        " E      ##",
+        "#####   ##",
+        "##,     ##",
+        "##    __##",
+        "##      ##",
+        "##__    ##",
+        "##    ####",
+        "##    , ##",
+        "##  __  ##",
+        "##      ##",
+        "#####   ##",
+        "####    ##",
+        "####  ####"]),
+    dict(name='LENS GALLERY', area=7, exits=[('U', 4, 5, 30, 0), ('R', 4, 5, 32, 0)],
+         objs=[('item', 8, 2, I_FLASK, 14), ('lens', 16, 5), ('cogmite', 11, 5)], rows=[
+        "####  ##################",
+        "#                 ,    #",
+        "#   __                 #",
+        "#       __     o       #",
+        "#                     D ",
+        "#  ,  ##              E ",
+        "########################"]),
+    dict(name="THE SNUFFER'S VAULT", area=8, exits=[('L', 4, 5, 31, 0), ('R', 4, 5, 33, 0)],
+         seal=[13], objs=[('snuffer', 9, 1, I_FLASK, 13)], rows=[
+        "####################",
+        "#                  #",
+        "#                  #",
+        "#                  #",
+        " D                 X",
+        " E                 X",
+        "####################"]),
+    dict(name='THE GREAT LAMP', area=7, exits=[('L', 4, 5, 32, 0)], msg=1, rows=[
+        "##########",
+        "#  o   o #",
+        "#        #",
+        "#   lm   #",
+        "    pq   #",
+        "    PQ   #",
+        "##########"]),
 ]
 SIDES = {'L': EX_L, 'R': EX_R, 'U': EX_U, 'D': EX_D}
 
@@ -1360,6 +1549,11 @@ class Room:
         h[H_W], h[H_H], h[H_AREA] = self.w, self.h, self.r['area']
         h[H_RW], h[H_RCY], h[H_RWX], h[H_RHY] = self.rw, self.rcy, self.rwx, self.rhy
         h[H_FLAGS] = HF_HOT if self.r.get('hot') else 0
+        seal = self.r.get('seal', [])
+        assert len(seal) <= 4
+        h[H_SEALN] = len(seal)
+        h[H_SEAL:H_SEAL + len(seal)] = bytes(seal)
+        h[H_MSG] = len(ITEM_MSG) + 2 + self.r['msg'] if 'msg' in self.r else 0
         for i, (side, lo, hi, dest, delta) in enumerate(self.exits):
             h[HX_SIDE + i], h[HX_LO + i], h[HX_HI + i] = side, lo, hi
             h[HX_DEST + i], h[HX_DELTA + i] = dest, delta & 255
@@ -1387,10 +1581,10 @@ def check_rooms():
             d = rooms[dest]
             for p in range(lo, hi + 1):
                 tx, ty = {EX_L: (0, p), EX_R: (rm.w - 1, p), EX_U: (p, 0), EX_D: (p, rm.h - 1)}[side]
-                assert ar.attr[rm.map[ty * MAP_W + tx]] & A_SOLID != A_SOLID, (rm.name, side, p)
+                assert ar.attr[rm.map[ty * MAP_W + tx]] & (A_SOLID | A_SEAL) != A_SOLID, (rm.name, side, p)
                 q = p + delta
                 tx, ty = {EX_L: (d.w - 1, q), EX_R: (0, q), EX_U: (q, d.h - 1), EX_D: (q, 0)}[side]
-                assert d.area.attr[d.map[ty * MAP_W + tx]] & A_SOLID != A_SOLID, (rm.name, side, p, d.name)
+                assert d.area.attr[d.map[ty * MAP_W + tx]] & (A_SOLID | A_SEAL) != A_SOLID, (rm.name, side, p, d.name)
                 back = [e for e in d.exits if e[0] == opp[side] and e[1] <= q <= e[2] and e[3] == rm.n
                         and e[4] == -delta]
                 assert back, (rm.name, side, p, d.name)
@@ -1716,7 +1910,7 @@ class Model:
         self.inp = self.fcnt = 0
         self.energy, self.emax = START_ENERGY, START_EMAX
         self.items = self.inv = self.ajump = self.msg = self.msg_t = self.chg = self.blast = self.wet = 0
-        self.got = bytearray(32)
+        self.got = bytearray(64)
         self.shots = [[0, 0, 0, 0, 0] for _ in range(3)]    # t, x, y, dx, dy
         self.door_t = self.door_c = self.door_x = 0
         self.sx = self.sy = 0
@@ -1740,11 +1934,25 @@ class Model:
         self.shots = [[0, 0, 0, 0, 0] for _ in range(3)]
         self.door_t = self.blast = 0
         self.spec = self.rm.area.spec
+        if self.seal_check() and 'msg' in self.rm.r:
+            self.msg, self.msg_t = len(ITEM_MSG) + 2 + self.rm.r['msg'], MSG_FRAMES
         self.objs = [[0] * 7 for _ in range(MAXOBJ)]    # kind, x, y, d, t, hp, p
         for o, (k, x, y, p) in zip(self.objs, self.rm.objs):
             if p and self.got[p & 31]:
                 continue
             o[:] = [k, x, y, p >> 5 if k == S_ITEM else 0, 0, self.spec[k][K_HP], p]
+
+    def seal_check(self):
+        """the room's seal opens when its keepers are beaten"""
+        seal = self.rm.r.get('seal')
+        if not seal:
+            return True
+        if not all(self.got[G_BEAT + n] for n in seal):
+            return False
+        for i in range(MAP_W * MAP_H):
+            if self.attr[self.map[i]] & A_SEAL:
+                self.map[i] = 0
+        return True
 
     def beh(self, o):
         return self.spec[o[0]][K_BEH]
@@ -1836,8 +2044,10 @@ class Model:
         if b == B_PUFF:
             o[4] -= 1
             if not o[4]:
-                if o[6]:                    # what it guarded
+                if o[6]:                    # what it guarded; its keeper is beaten
                     o[0], o[3] = S_ITEM, o[6] >> 5
+                    self.got[G_BEAT + (o[6] & 31)] = 1
+                    self.seal_check()
                 elif self.fcnt & 1:
                     o[0], o[4] = S_EMBER, EMBER_FRAMES
                 else:
@@ -1916,7 +2126,7 @@ class Model:
                         o[2] = (((o[2] + 16) & 0xF8) - 16) & 255
                         o[4] = 0
         elif b == B_HOVER:
-            if self.fcnt & 1:
+            if self.fcnt & 1 or (sp[K_AIM] & 2 and o[5] < sp[K_HP] >> 1):    # (wounded: every frame)
                 a = (o[1] + sp[K_W] // 2 - 4) & 255
                 if self.px != a:
                     o[3] = 2 if self.px < a else 0
@@ -1924,7 +2134,10 @@ class Model:
                         o[1] += -1 if o[3] else 1
         if sp[K_SPIT]:
             o[4] = (o[4] + 1) & 255
-            if not o[4] & sp[K_SPIT]:
+            mask = sp[K_SPIT]
+            if sp[K_AIM] & 2 and o[5] < sp[K_HP] >> 1:     # (wounded: twice as often)
+                mask >>= 1
+            if not o[4] & mask:
                 for q in self.objs:
                     if not q[0]:
                         left = self.px < o[1]
@@ -2250,9 +2463,10 @@ def masm():
                   V_MSG_T=V_MSG_T, V_MSG_D=V_MSG_D, OBJ=OBJ, O_KIND=O_KIND, O_X=O_X, O_Y=O_Y, O_D=O_D, O_T=O_T, O_HP=O_HP,
                   O_P=O_P, GOT=GOT, HO_KIND=HO_KIND, HO_X=HO_X, HO_Y=HO_Y, HO_P=HO_P, B_WALK=B_WALK,
                   S_ITEM=S_ITEM, S_EMBER=S_EMBER, S_PUFF=S_PUFF, IT_SAIL=IT_SAIL, SAILV=SAILV, IT_RIG=IT_RIG, IT_BELLOWS=IT_BELLOWS,
-                  M_DEAD=len(ITEM_MSG) + 1, A_WATER=A_WATER, WETV_LO=(-WETV) & 255, WETV_HI=((-WETV) >> 8) & 255)
+                  M_DEAD=len(ITEM_MSG) + 1, A_WATER=A_WATER, A_SEAL=A_SEAL, H_SEALN=H_SEALN, H_SEAL=H_SEAL,
+                  H_MSG=H_MSG, G_BEAT=G_BEAT, WETV_LO=(-WETV) & 255, WETV_HI=((-WETV) >> 8) & 255)
     assert HURTV & 255 == 0
-    msgs = [''] + ITEM_MSG + [MSG_DEAD]
+    msgs = [''] + ITEM_MSG + [MSG_DEAD] + ROOM_MSG
     assert all(len(m) <= NAME_W for m in msgs)
     mtext = '\n'.join(('.chunk\n' if i and i % 5 == 0 else '') + 's_m%d: #d "%s", 0x00' % (i, m.ljust(NAME_W))
                       for i, m in enumerate(msgs))

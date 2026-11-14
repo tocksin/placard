@@ -1618,15 +1618,7 @@ ob_puff:
     ld   ac, [ob_t]
     bra  ob_keep
 op_item:
-    shr  ac
-    shr  ac
-    shr  ac
-    shr  ac
-    shr  ac
-    ld   ac, [ob_d]
-    ld   S_ITEM, ac
-    ld   ac, [ob_k]
-    bra  ob_keep
+    GOTO op_beat
 
 ; a walker: a step every other frame; it turns at a wall and at the end
 ; of its floor
@@ -1682,6 +1674,23 @@ ob_spit:
     ld   [y,x], ac
     beq  ot_x
     ld   ac, [tmp]
+    ld   [ob_k], ac             ; wounded (aim bit 1, under half its hits): twice as often
+    add  SPEC_AIM, x
+    ld   [y,x], ac
+    and  2, ac
+    beq  ot_m
+    ld   [ob_k], ac
+    add  SPEC_HP, x
+    ld   [y,x], ac
+    shr  ac
+    ld   ac, [tmp2]
+    ld   [ob_hp], ac
+    sub  [tmp2], ac
+    bcc  ot_m
+    ld   [tmp], ac
+    shr  ac
+    ld   ac, [tmp]
+ot_m:
     ld   [ob_t], ac
     inc
     ld   ac, [ob_t]
@@ -1917,7 +1926,22 @@ oh_e2:
 ob_hover:
     ld   [fcnt], ac
     and  1, ac
+    bne  ov_go
+    ld   SPEC >> 8, y           ; (wounded, aim bit 1: every frame)
+    ld   [ob_k], ac
+    add  SPEC_AIM, x
+    ld   [y,x], ac
+    and  2, ac
     beq  ov_x
+    ld   [ob_k], ac
+    add  SPEC_HP, x
+    ld   [y,x], ac
+    shr  ac
+    ld   ac, [tmp]
+    ld   [ob_hp], ac
+    sub  [tmp], ac
+    bcc  ov_x
+ov_go:
     ld   SPEC >> 8, y
     ld   [ob_k], ac
     add  SPEC_W, x
@@ -2604,7 +2628,101 @@ ls_put:
     beq  ls_x
     GOTO ls_lp
 ls_x:
+    GOTO ls_end
+
+; the end of a room's reading: its seal, its message
+.chunk
+ls_end:
+    CALL seal_check
+    ld   [tmp3], ac             ; (no message while the seal is shut)
+    beq  le_x
+    ld   HDR >> 8, y
+    ld   H_MSG, x
+    ld   [y,x], ac
+    beq  le_x
+    CALL msg_set
+le_x:
     LEAVE
+
+; the thing that a beaten creature guarded; its keeper is beaten
+.chunk
+op_beat:
+    ld   [ob_p], ac
+    and  31, ac
+    add  G_BEAT, x
+    ld   GOT >> 8, y
+    ld   1, [y,x]
+    CALL seal_check
+    ld   [ob_p], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [ob_d]
+    ld   S_ITEM, ac
+    ld   ac, [ob_k]
+    GOTO ob_keep
+
+; seal_check: the room's seal opens (its tiles become empty) when every
+; keeper it names is beaten.  tmp3: 0 when it stays shut
+.chunk
+seal_check:
+    ld   1, ac
+    ld   ac, [tmp3]
+    ld   HDR >> 8, y
+    ld   H_SEALN, x
+    ld   [y,x], ac
+    beq  sc_x
+    ld   ac, [tmp3]
+    ld   H_SEAL, ac
+    ld   ac, [tmp2]
+sc_lp:
+    ld   HDR >> 8, y
+    ld   [tmp2], x
+    ld   [y,x], ac
+    add  G_BEAT, x
+    ld   GOT >> 8, y
+    ld   [y,x], ac
+    beq  sc_shut
+    ld   [tmp2], ac
+    inc
+    ld   ac, [tmp2]
+    ld   [tmp3], ac
+    dec
+    ld   ac, [tmp3]
+    bne  sc_lp
+    ld   MAP >> 8, ac
+    ld   ac, [tmp3]
+    clr  ac
+    ld   ac, [tmp2]
+sc_t:
+    ld   [tmp3], y
+    ld   [tmp2], x
+    ld   [y,x], ac
+    ld   ac, x
+    ld   ATTR >> 8, y
+    ld   [y,x], ac
+    and  A_SEAL, ac
+    beq  sc_n
+    ld   [tmp3], y
+    ld   [tmp2], x
+    ld   0, [y,x]
+sc_n:
+    ld   [tmp2], ac
+    inc
+    ld   ac, [tmp2]
+    bne  sc_t
+    ld   [tmp3], ac
+    inc
+    ld   ac, [tmp3]
+    xor  (MAP >> 8) + 2, ac
+    bne  sc_t
+sc_x:
+    RET
+sc_shut:
+    ld   ac, [tmp3]
+    RET
 
 ; load_area: read LAMP/An.TS (n = area): 4 pages of tables to TS_LO on,
 ; the rest to x6000 on

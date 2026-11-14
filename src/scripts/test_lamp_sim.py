@@ -69,7 +69,10 @@ ROUTE = [('dead', 0, 0), ('kill', 0, 0), ('room', 1), ('room', 3), ('room', 4), 
          ('kill', 26, 0), ('room', 24), ('room', 23), ('at', 23, 6, 8), ('at', 23, 2, 3), ('room', 22), ('room', 14),
          # then up to the top
          ('at', 14, 5, 8), ('at', 14, 4, 1), ('room', 3),
-         ('at', 3, 5, 8), ('at', 3, 4, 1), ('room', 1), ('room', 2), ('item', 2, 0), ('room', 1), ('room', 0)]
+         ('at', 3, 5, 8), ('at', 3, 4, 1), ('room', 1), ('room', 2), ('item', 2, 0), ('room', 1),
+         # down again, through the open seal: the Orrery, the Snuffer, the Great Lamp
+         ('room', 3), ('room', 14), ('room', 28), ('room', 29), ('room', 30), ('room', 31), ('item', 31, 0),
+         ('room', 32), ('fight', 32, 0), ('item', 32, 0), ('room', 33)]
 # every boss can be reached and beaten with nothing collected: these runs,
 # from the start, on the model alone (the long run shows the program and
 # the model agree)
@@ -78,7 +81,11 @@ BARE = [[('room', 1), ('room', 3), ('room', 4), ('room', 6), ('room', 7), ('room
         [('room', 1), ('room', 3), ('room', 5), ('room', 15), ('room', 16), ('room', 19), ('room', 20),
          ('room', 21), ('fight', 21, 0)],
         [('room', 1), ('room', 3), ('room', 14), ('room', 22), ('room', 23), ('room', 24), ('room', 26),
-         ('room', 27), ('fight', 27, 0)]]
+         ('room', 27), ('fight', 27, 0)],
+        # the last: the seal opens when the three keepers are beaten, so here
+        # they are, and still nothing is collected
+        [('beaten', 5, 9, 12), ('room', 1), ('room', 3), ('room', 14), ('room', 28), ('room', 29), ('room', 30),
+         ('room', 31), ('room', 32), ('fight', 32, 0)]]
 
 
 def bare_runs(rooms):
@@ -88,6 +95,10 @@ def bare_runs(rooms):
         m = gl.Model(rooms)
         n = 0
         for g in route:
+            if g[0] == 'beaten':
+                for k in g[1:]:
+                    m.got[gl.G_BEAT + k] = 1
+                continue
             q = plan(m, g) or plan(m, g, unhurt=False)
             if not q:
                 print('with nothing collected: no way to %s from room %d (%d, %d)' % (g, m.room, m.px, m.py))
@@ -291,7 +302,7 @@ def read_state(mem, z):
                 facing=mem[z['facing']], sx=mem[z['sx']], sy=mem[z['sy']], door=mem[z['door_t']],
                 shots=[(mem[z['SH_T'] + i], mem[z['SH_X'] + i], mem[z['SH_Y'] + i]) for i in range(3)],
                 energy=mem[z['energy']], emax=mem[z['emax']], items=mem[z['items']], inv=mem[z['inv']],
-                ajump=mem[z['ajump']], chg=mem[z['chg']], blast=mem[z['blast_i']], wet=mem[z['wet']], got=bytes(mem[gl.GOT:gl.GOT + 32]),
+                ajump=mem[z['ajump']], chg=mem[z['chg']], blast=mem[z['blast_i']], wet=mem[z['wet']], got=bytes(mem[gl.GOT:gl.GOT + 64]),
                 objs=[tuple(mem[gl.OBJ + f + i] for f in (gl.O_KIND, gl.O_X, gl.O_Y, gl.O_D, gl.O_T, gl.O_HP,
                                                           gl.O_P)) if mem[gl.OBJ + i] else None
                       for i in range(gl.MAXOBJ)])
@@ -313,6 +324,7 @@ def main(argv):
     ap.add_argument('--goals', type=int, default=len(ROUTE))
     ap.add_argument('--route', help='another route, as a Python list of goals')
     ap.add_argument('--shots')
+    ap.add_argument('--beaten', help='keepers taken as beaten at the start (item numbers, as 5,9,12): for short runs')
     ap.add_argument('--shot-every', type=int, default=0)
     ap.add_argument('--slow', action='store_true', help='do not skip the wait for the beam')
     args = ap.parse_args(argv)
@@ -363,6 +375,9 @@ def main(argv):
                         cpu.clocks = nxt
                 continue
             in_wait = True
+            if not frames:
+                for k in (args.beaten.split(',') if args.beaten else []):
+                    model.got[gl.G_BEAT + int(k)] = mem[gl.GOT + gl.G_BEAT + int(k)] = 1
             # ---- a frame's rules are done: compare, then the pad for the next
             got, want = read_state(mem, z), model_state(model)
             for i, s in enumerate(want['shots']):
