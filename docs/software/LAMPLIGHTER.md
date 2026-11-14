@@ -141,7 +141,7 @@ The game is built in stages, each merged when it passes its test.
 | 3b | The Brine Vaults, water, the Ballast Boots, the Wide Flame, the third boss | Done |
 | 3c | The Orrery, the seal the three bosses open, the last boss, the Great Lamp | Done |
 | 4a | The title, save lamps (the game on the card), the ending | Done |
-| 4b | Music | |
+| 4b | Music: a four-voice song for each area and den, the title's and the ending's; sound effects through the music player | Done |
 
 The world is a hub, the Wellshaft (a tall shaft of rooms one above the
 other, with passages off it at different depths), and four areas: the
@@ -167,6 +167,7 @@ alone; the power-ups make it much easier.
 | One set of tiles and sprites in the cartridge | A tile set and a sprite set for each area, read when the area changes (about half a second); a boss's den has a set of its own | Tiles and sprites are code (below); a set has 25 KB of free video RAM, enough for the tiles, Wick, the items and four kinds of creature, or a boss |
 | Dozens of sprites, 8 on a line | Wick, 3 sparks and 6 things in a room (creatures, bolts, items, embers); a boss is 2 sprites side by side | The drawing has to be done before the beam is back |
 | A password | Saving to the card at save lamps | The card can be written (the DOS's FAT writer, `fs_save`) |
+| A sound chip | The four-voice music player in software (`placard_mus.masm`), about a fifth of the CPU | The Placard plays samples from a buffer the video reads ([MUSIC.md](../sound/MUSIC.md)) |
 
 ## The screen
 
@@ -204,31 +205,81 @@ the picture can also move up and down:
    compiled code as well, 16 pixels wide and 16 or 32 high).  Each is done
    before the beam is back at its first row; the test measures by how
    much.
-4. **Sound, pads, keyboard, the rules, the sprite list, the text** while
-   the beam draws the playfield.
+4. **The music** (`mus_tick`, still in map FF): the sound effect the
+   rules asked for last frame, then `mus_frame`, which fills the audio
+   buffer ahead of the video (about 84,000 clocks).
+5. **Pads, keyboard, the rules, the sprite list, the text** while the beam
+   draws the playfield.
 
 Starting at the vertical blanking, as the Skyward engine does, would draw
 the sprites of the top rows after the beam has passed them.  Starting near
 the last tile row gives the drawing the rest of the frame and the blanking,
 and the rules the time the beam spends on the picture.
 
+## Music
+
+Each area's file starts with its song (`lamp_music.py`, built with
+`mus_tool.py`), so a song is read with the area's tiles: the Wellshaft's
+(and the title's, its subtune 1), the Glasswort Gardens', the Slagworks',
+the Brine Vaults', the Orrery's (and the ending's, its subtune 1), and one
+for each keeper's den.  All of it is written for this game.
+
+| Song | Key, speed | Feel |
+|---|---|---|
+| The title | D minor, 150 bpm | The lamp's theme: a pulse bass in octaves, arpeggiated chords, a saw lead |
+| The Wellshaft | A minor, 112 bpm | Long bass notes, a triangle arpeggio, a few falling notes |
+| The Glasswort Gardens | E dorian, 128 bpm | Bouncing bass, plucked pulse tune |
+| The Slagworks | C phrygian, 180 bpm | Hammering bass, anvil bells, fifths |
+| The Brine Vaults | B minor, 100 bpm | Slow triangle arpeggios, drips, a soft tune |
+| The Orrery | G lydian, 128 bpm | A ticking clock, major sevenths, bells |
+| The ending | D major, 150 bpm | The lamp's theme in the major |
+| The dens | Their own keys, 150-180 bpm | A riff each over the drums |
+
+The player (`placard_mus.masm`) is assembled apart by `gen_lamp.py` and
+takes about 4.3 KB of code, 10 pages of tables and 10 pages of RAM.  The
+program had no 17 KB to spare below x6000, so:
+
+- **Its code** is in four places: x2700-x28FF in `LAMP.PLC`, and, read
+  with every area, the song's unused pages (x3600-x37FF: the player is
+  given songs with instruments 0-F only and no custom waves), x3B00-x3DFF,
+  the ends of two table pages, x5800-x59FF and the last 17 stretches of
+  free video RAM (the areas' tiles and sprites keep out of them; the
+  largest, the Orrery's, uses the other 141).  So it runs in map FF, which
+  it can: it calls nothing in the ROM.  While an area is read the player
+  is stopped (`mus_quiet`: silence in the buffer) and started again after
+  (`mus_start`).
+- **Its zero page** is x60-x9F, and the game's variables were x20-x8F:
+  around every call to the player `zswap` trades x60-x8F with a copy at
+  x5C60 (about 2,000 clocks).
+- **Sound effects** come from the rules (map 07), so `sfx_b` and `sfx_n`
+  only note one; `mus_tick` hands it to `mus_sfx` (instruments E and F of
+  every song) and it takes voice 4's place while it lasts.
+- **Card work** keeps the music going where it can: `load_room` calls
+  `mus_frame` between its reads; a save lamp's write (a few frames)
+  stops the song and starts it again.
+
 ## Memory and files
 
 | Where | What |
 |---|---|
 | x0100-x02FF | `ROWX` and `VPG`: video offset of a cell, video page of a byte column |
-| x0300-x1EFF, x2000-x3FFF | The program (7 KB in stage 3b) |
-| x4000-x45FF | The area's tables: tile routine addresses (2 pages), tile attributes, sprite routine addresses, the area's kinds of things, a spare page |
-| x4600-x47FF | The room's tile map, 32 × 16 bytes (tile number × 8) |
-| x4800-x48FF | The room's header: size, camera limits, exits, things, name |
-| x5400 | The sprite list |
-| x5500 | The room's 6 things: kind, place, direction, timer, hits left, item |
-| x5600 | The items found (a byte each, 1-31); from x5620 the bosses beaten, by the number of the item each guards; from x5680 the message line, the mode (play, title, ending), the last save lamp and the time played.  This page is the save file |
-| x6000-xFFFF, offsets x040-x17F of each byte column | The area's tile routines and sprite routines (the 4x playfield and the text rows leave these bytes free) |
+| x0300-x1EFF, x2000-x26FF | The program (8.5 KB) |
+| x2700-x28FF | Music player code |
+| x2900-x32FF | The music player's tables |
+| x3300-x42FF | The area block, read from `An.TS`: the song (x3300-x3AFF; its x3600-x37FF music player code), music player code (x3B00-x3DFF), sprite routine addresses (x3E00), the area's kinds of things (x3F00), tile routine addresses (x4000, x4100), tile attributes (x4200) |
+| x4300-x4CFF | The music player's RAM: wave pages (x4300-x47FF) and voice state (x76-x9F of x4800-x4CFF) |
+| x4900 | The sprite list (x00-x3F) |
+| x4A00 | The room's 6 things: kind, place, direction, timer, hits left, item (x00-x37) |
+| x4B00 | The items found (a byte each, 1-31); from x4B20 the bosses beaten, by the number of the item each guards; from x4BA0 the message line, the mode (play, title, ending), the last save lamp and the time played.  This page is the save file |
+| x5400-x55FF | The room's tile map, 32 × 16 bytes (tile number × 8) |
+| x5600-x56FF | The room's header: size, camera limits, exits, things, name (then a spare page, x5700) |
+| x5800-x59FF | Music player code, read from `An.TS` |
+| x5C00 | x60-x8F: the zero page's other copy (the game's or the player's); x00-x03 the music's flags and the sound effect asked for |
+| x6000-xFFFF, offsets x040-x17F of each byte column | The area's tile routines and sprite routines (the 4x playfield and the text rows leave these bytes free); the last 17 of these stretches hold music player code |
 
 | File | What |
 |---|---|
-| `LAMP/An.TS` | Area n: the 6 pages of tables, then a straight image of the RAM from x6000 |
+| `LAMP/An.TS` | Area n: the area block (x3300-x42FF: the song, player code, the tables), x5800-x59FF, then a straight image of the RAM from x6000 |
 | `LAMP/Rnn.RM` | Room nn (hex): the tile map, the header, a spare page |
 
 A tile has attribute bits: solid in its upper half, solid in its lower half
@@ -285,7 +336,7 @@ has found, the camera, the shots, the door, the room, its things and the
 tile map.  For every frame it also checks the playfield byte for byte
 against the model's picture, before and after the sprites, and that each
 tile row is drawn behind the beam and each sprite is done before the beam
-is back at it.  At the end: that the bot got through its route, that the
+is back at it, and counts the frames in which the audio buffer holds music (more than four different sample values); at least three quarters must.  At the end: that the bot got through its route, that the
 routines in the video RAM are unchanged and that Esc brings the DOS back.
 
 First, on the model alone, it shows that every boss can be reached and
@@ -317,7 +368,7 @@ keep just off its middle and fire up), a blast by holding the key; the
 rest is planned.  It is 16,199 frames and takes about 1.5 hours, most of
 it the planning.  In it the drawing is never less than 55 screen rows
 behind the beam, and a sprite is done at least 30 screen rows before the
-beam is at it.  `--beaten 5,9,12 --route ...` starts a short run with
+beam is at it, and music is in the audio buffer in 15,440 of the 16,199 frames (most of the rest are room and area loads, when the player is quiet).  `--beaten 5,9,12 --route ...` starts a short run with
 the seal open.
 
 `python3 src/scripts/gen_lamp.py --preview DIR` draws every room.

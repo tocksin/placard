@@ -13,7 +13,7 @@
 
 .prefix lp
 .region 0x0300, 0x1F00
-.region 0x2000, 0x4000
+.region 0x2000, PROG2_END
 .region 0x0300, 0x1F00
 
 .fixed 0x0100               ; ROWX: video offset (low byte) of top cell + 32, x10 off the playfield
@@ -32,7 +32,12 @@ main:
     ld   STACK_TOP, ac
     ld   ac, [SP]
     CALL con_clear
-    CALL snd_init
+    CALL snd_init               ; (silence in the buffer until the first song)
+    ld   ZSAVE >> 8, y          ; no song yet
+    ld   ZV_ON, x
+    ld   0, [y,x]
+    ld   ZV_SN, x
+    ld   0, [y,x]
     ld   0x5A, y                ; rows 32-479 (x5A40-x5BFF): 4 bpp 4x
     ld   0x40, ac
 m_mb1:
@@ -394,9 +399,7 @@ ds_next:
     ld   [s_i], ac
     sub  [sl_n], ac
     bne  ds_one
-    ld   0x50, y                ; done: map 07 (the library)
-    ld   0x07, [y,x]
-    GOTO logic
+    GOTO mus_tick               ; done: the music (map FF), then map 07
 ds_one:
     ld   SL >> 8, y
     ld   [s_i], ac
@@ -429,7 +432,6 @@ ds_one:
 ; ------------------------------------------------------------
 .chunk
 logic:
-    CALL snd_update
     CALL pad_read
     CALL kbd_scan
     CALL menu_poll              ; (Esc: back to the DOS)
@@ -901,7 +903,7 @@ g_jump:
     ld   AIRV_HI, ac
     ld   ac, [vyh]
     ld   77, ac
-    CALL snd_beep
+    CALL sfx_b
     bra  gj_grav
 gj_do:
     ld   [wet], ac
@@ -911,7 +913,7 @@ gj_do:
     ld   JUMPV_HI, ac
     ld   ac, [vyh]
     ld   72, ac
-    CALL snd_beep
+    CALL sfx_b
     bra  gj_grav
 gj_no:
     ld   [vyh], ac              ; the key let go: a fast rise is cut to 1 cell a frame
@@ -932,7 +934,7 @@ gj_wet:
     ld   WETV_HI, ac
     ld   ac, [vyh]
     ld   66, ac
-    CALL snd_beep
+    CALL sfx_b
     GOTO g_grav
 
 .chunk
@@ -1196,7 +1198,7 @@ gs_test:
     ld   6, ac
     ld   ac, [R3]
     ld   60, ac
-    CALL snd_noise
+    CALL sfx_n
 gs_kill:
     ld   [o_i], ac
     add  SH_T, x
@@ -1351,11 +1353,11 @@ sq_h:
     ld   4, ac
     ld   ac, [R3]
     ld   50, ac
-    CALL snd_noise
+    CALL sfx_n
     bra  sq_x
 sq_snd:
     ld   60, ac
-    CALL snd_beep
+    CALL sfx_b
 sq_x:
     GOTO gs_nx
 
@@ -1388,7 +1390,7 @@ gf_chg:
     xor  CHG_FULL, ac
     bne  gf_no
     ld   91, ac                 ; (full)
-    CALL snd_beep
+    CALL sfx_b
 gf_no:
     GOTO g_door
 gf_rel:
@@ -1563,7 +1565,7 @@ gf_kind:
     ld   [tmp], ac
     ld   ac, [blast_i]
     ld   60, ac
-    CALL snd_beep
+    CALL sfx_b
     GOTO g_door
 gf_n:
     ld   [tmp], ac
@@ -1572,7 +1574,7 @@ gf_n:
     ld   ac, [blast_i]
 gf_b:
     ld   84, ac
-    CALL snd_beep
+    CALL sfx_b
     GOTO g_door
 
 ; ------------------------------------------------------------
@@ -1784,7 +1786,7 @@ oi_fill:
     inc
     CALL msg_set
     ld   79, ac
-    CALL snd_beep
+    CALL sfx_b
     GOTO ob_save
 
 ; a save lamp: touched, once a visit: the lantern is filled and the game
@@ -1827,6 +1829,7 @@ ol_s:
 
 .chunk
 ol_w:
+    CALL mus_quiet              ; (a few frames of card writes)
     CALL fs_root
     ld   s_dir & 0xFF, ac
     ld   ac, [R0]
@@ -1845,8 +1848,10 @@ ol_w:
     ld   1, ac
     ld   ac, [R3]
     CALL fs_save
+    clr  ac                     ; (mus_quiet before: the song again)
+    CALL mus_start
     ld   88, ac
-    CALL snd_beep
+    CALL sfx_b
     GOTO ob_save
 
 ; msg_set: message AC on the third text line, for a while
@@ -1882,7 +1887,7 @@ oe_ok:
     ld   1, ac
     ld   ac, [hud_dirty]
     ld   81, ac
-    CALL snd_beep
+    CALL sfx_b
 ob_gone:
     clr  ac
     ld   ac, [ob_k]
@@ -2088,7 +2093,7 @@ ot_y2:
     ld   [tmp2], ac
     ld   ac, [y,x]
     ld   66, ac
-    CALL snd_beep
+    CALL sfx_b
     GOTO ob_enemy
 
 ; a bolt: 2 byte columns a frame until a wall, the room's edge or Wick
@@ -2450,7 +2455,7 @@ hu_s:
     ld   3, ac
     ld   ac, [R3]
     ld   30, ac
-    CALL snd_noise
+    CALL sfx_n
     LEAVE
 hu_r:
     RET
@@ -2817,12 +2822,15 @@ load_room:
     beq  lr_ok
     GOTO dos_back
 lr_ok:
+    CALL mus_poll
     clr  ac
     ld   ac, [R4]
     ld   MAP >> 8, ac
     ld   ac, [R5]
     CALL fs_read
+    CALL mus_poll               ; (R4, R5 kept)
     CALL fs_read
+    CALL mus_poll
     GOTO lr_2
 
 .chunk
@@ -2958,6 +2966,8 @@ le_y:
 ; the end: the time and the things found on the fourth line; then a key
 .chunk
 ending:
+    ld   1, ac                  ; the song's subtune 1: the ending's
+    CALL mus_start
     ld   GOT >> 8, y
     ld   V_MODE, x
     ld   M_END, [y,x]
@@ -3106,11 +3116,12 @@ sc_shut:
     ld   ac, [tmp3]
     RET
 
-; load_area: read LAMP/An.TS (n = area): 4 pages of tables to TS_LO on,
-; the rest to x6000 on
+; load_area: read LAMP/An.TS (n = area): 8 sectors to AREA_BLK on (the
+; song, player code, the tables), one to PCODE_B, the rest to x6000 on
 .chunk
 load_area:
     PUSH_LINK
+    CALL mus_quiet              ; (the player's code is read again)
     CALL fs_root
     ld   s_dir & 0xFF, ac
     ld   ac, [R0]
@@ -3132,18 +3143,35 @@ load_area:
 la_ok:
     clr  ac
     ld   ac, [R4]
-    ld   TS_LO >> 8, ac
+    ld   AREA_BLK >> 8, ac
     ld   ac, [R5]
 la_rd:
     CALL fs_read
     bne  la_done
-    ld   [R5], ac               ; after the tables: the video RAM
-    xor  TABLES_END >> 8, ac
-    bne  la_rd
+    ld   [R5], ac               ; after the block: PCODE_B
+    xor  AREA_END >> 8, ac
+    beq  la_b
+    xor  (AREA_END ^ (PCODE_B + 0x200)) >> 8, ac
+    bne  la_rd                  ; after that: the video RAM
     ld   0x60, ac
     ld   ac, [R5]
     bra  la_rd
+la_b:
+    ld   PCODE_B >> 8, ac
+    ld   ac, [R5]
+    bra  la_rd
 la_done:
+    ld   GOT >> 8, y            ; the song: subtune 1 on the title, else 0
+    ld   V_MODE, x
+    ld   [y,x], ac
+    xor  M_TITLE, ac
+    beq  la_t
+    clr  ac
+    CALL mus_start
+    LEAVE
+la_t:
+    ld   1, ac
+    CALL mus_start
     LEAVE
 
 .chunk
@@ -3170,3 +3198,155 @@ s_bits:   #d8 1, 2, 4, 8, 16, 32, 64, 128
 
 .chunk
 @@MSGS@@
+
+.region 0x2000, PROG2_END
+; ------------------------------------------------------------
+; music: the player (placard_mus.masm, assembled apart by gen_lamp.py:
+; part of its code is in the video RAM and the area block) runs in map FF,
+; with x60-x8F of the zero page its own: zswap trades them with ZSAVE.
+; The game asks for a sound effect with sfx_b / sfx_n (map 07); mus_tick
+; plays it and calls mus_frame once a frame, after the drawing.
+; ------------------------------------------------------------
+ZV_ON  = 0x00                   ; (ZSAVE page) 1: a song is set up
+ZV_SN  = 0x01                   ; a sound effect waiting: its note (0: none)
+ZV_SI  = 0x02                   ;   instrument
+ZV_SF  = 0x03                   ;   frames
+
+; zswap: x60-x8F <-> ZSAVE + x60-x8F.  Changes AC, X, Y, T0, T1.
+.chunk
+zswap:
+    ld   0x60, ac
+zs_l:
+    ld   ac, [T1]
+    ld   ac, x
+    ld   [x], ac
+    ld   ac, [T0]
+    ld   ZSAVE >> 8, y
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [T1], ac
+    inc
+    xor  0x90, ac
+    beq  zs_d
+    xor  0x90, ac
+    bra  zs_l
+zs_d:
+    RET
+
+; mus_tick: (GOTO, map FF after the sprites) the waiting sound effect and
+; mus_frame, then map 07 and the rules
+.chunk
+mus_tick:
+    ld   ZSAVE >> 8, y
+    ld   ZV_ON, x
+    ld   [y,x], ac
+    beq  mt_x
+    CALL zswap
+    ld   ZSAVE >> 8, y
+    ld   ZV_SI, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   ZV_SF, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    ld   ZV_SN, x
+    ld   [y,x], ac
+    beq  mt_f
+    ld   0, [y,x]
+    CALL mus_sfx
+mt_f:
+    CALL mus_frame
+    CALL zswap
+mt_x:
+    ld   0x50, y                ; map 07 (the library)
+    ld   0x07, [y,x]
+    GOTO logic
+
+; mus_start: AC = subtune: the area's song (SONG) from the start
+.chunk
+mus_start:
+    PUSH_LINK
+    ld   ac, [R2]
+    CALL zswap
+    ld   0x50, y                ; map FF: the player
+    ld   0xFF, [y,x]
+    ld   SONG >> 8, ac
+    ld   ac, [R1]
+    CALL mus_init
+    ld   [R2], ac
+    CALL mus_play
+    ld   0x50, y
+    ld   0x07, [y,x]
+    CALL zswap
+    ld   ZSAVE >> 8, y
+    ld   ZV_ON, x
+    ld   1, [y,x]
+    ld   ZV_SN, x
+    ld   0, [y,x]
+    LEAVE
+
+; mus_quiet: silence in the buffer and no more ticks (before the player's
+; code or the song is read again, or a long card write)
+.chunk
+mus_quiet:
+    PUSH_LINK
+    ld   ZSAVE >> 8, y
+    ld   ZV_ON, x
+    ld   [y,x], ac
+    beq  mq_x
+    ld   0, [y,x]
+    CALL zswap
+    ld   0x50, y
+    ld   0xFF, [y,x]
+    ld   SONG >> 8, ac
+    ld   ac, [R1]
+    CALL mus_init
+    ld   0x50, y
+    ld   0x07, [y,x]
+    CALL zswap
+mq_x:
+    LEAVE
+
+; mus_poll: mus_frame from the rules (map 07), while the card is read
+.chunk
+mus_poll:
+    PUSH_LINK
+    ld   ZSAVE >> 8, y
+    ld   ZV_ON, x
+    ld   [y,x], ac
+    beq  mp_x
+    CALL zswap
+    ld   0x50, y
+    ld   0xFF, [y,x]
+    CALL mus_frame
+    ld   0x50, y
+    ld   0x07, [y,x]
+    CALL zswap
+mp_x:
+    LEAVE
+
+; sfx_b: AC = MIDI note: a short fading note.  sfx_n: AC = MIDI note
+; (the noise's pitch): a hit.  The latest asked for in a frame plays.
+.chunk
+sfx_b:
+    sub  12, ac                 ; (the player's C-0 is note 0)
+    ld   ZSAVE >> 8, y
+    ld   ZV_SN, x
+    ld   ac, [y,x]
+    ld   ZV_SI, x
+    ld   SFX_BEEP, [y,x]
+    ld   ZV_SF, x
+    ld   12, [y,x]
+    RET
+sfx_n:
+    sub  12, ac
+    ld   ZSAVE >> 8, y
+    ld   ZV_SN, x
+    ld   ac, [y,x]
+    ld   ZV_SI, x
+    ld   SFX_NOISE, [y,x]
+    ld   ZV_SF, x
+    ld   6, [y,x]
+    RET

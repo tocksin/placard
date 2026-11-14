@@ -137,6 +137,11 @@ blast_i    = 0x8D       ; 1 + the shot that is a blast (0: none)
 wet        = 0x8E
 touchf     = 0x8F       ; the thing touches Wick
 
+mus_init   = 0x3797       ; the music player
+mus_play   = 0x3D8B       ; the music player
+mus_frame  = 0xFC40       ; the music player
+mus_stop   = 0xFCD0       ; the music player
+mus_sfx    = 0xF0EC       ; the music player
 MODE_PF     = 10
 LINE_GO     = 235
 GRAV        = 40
@@ -166,11 +171,14 @@ EX_D        = 4
 TS_LO       = 16384
 TS_HI       = 16640
 ATTR        = 16896
-FR          = 17152
-TABLES_END  = 17920
-MAP         = 17920
-HDR         = 18432
-SL          = 21504
+FR          = 15872
+AREA_BLK    = 13056
+AREA_END    = 17152
+PCODE_B     = 22528
+PROG2_END   = 9984
+MAP         = 21504
+HDR         = 22016
+SL          = 18688
 SL_LO       = 0
 SL_HI       = 16
 SL_C        = 32
@@ -206,7 +214,7 @@ PUFF_FRAMES = 12
 EMBER_FRAMES = 250
 MSG_FRAMES  = 240
 MAXOBJ      = 6
-SPEC        = 17408
+SPEC        = 16128
 SPEC_BEH    = 0
 SPEC_FRAME  = 16
 SPEC_HP     = 32
@@ -232,10 +240,10 @@ IT_BOOTS    = 64
 F_BLAST     = 11
 H_FLAGS     = 8
 HF_HOT      = 1
-V_MSG       = 128
-V_MSG_T     = 129
-V_MSG_D     = 130
-OBJ         = 21760
+V_MSG       = 160
+V_MSG_T     = 161
+V_MSG_D     = 162
+OBJ         = 18944
 O_KIND      = 0
 O_X         = 8
 O_Y         = 16
@@ -243,7 +251,7 @@ O_D         = 24
 O_T         = 32
 O_HP        = 40
 O_P         = 48
-GOT         = 22016
+GOT         = 19200
 HO_KIND     = 64
 HO_X        = 72
 HO_Y        = 80
@@ -263,17 +271,17 @@ H_SEALN     = 9
 H_SEAL      = 10
 H_MSG       = 14
 G_BEAT      = 32
-V_MODE      = 131
-V_SAVED     = 132
-V_SROOM     = 133
-V_SX        = 134
-V_SY        = 135
-V_SITEMS    = 136
-V_SEMAX     = 137
-V_FR        = 138
-V_SEC       = 139
-V_MIN       = 140
-V_HASSAVE   = 141
+V_MODE      = 163
+V_SAVED     = 164
+V_SROOM     = 165
+V_SX        = 166
+V_SY        = 167
+V_SITEMS    = 168
+V_SEMAX     = 169
+V_FR        = 170
+V_SEC       = 171
+V_MIN       = 172
+V_HASSAVE   = 173
 M_SAVE      = 12
 END_ROOM    = 33
 N_ITEMS     = 14
@@ -281,6 +289,10 @@ M_TITLE     = 1
 M_END       = 2
 WETV_LO     = 0
 WETV_HI     = 253
+SONG        = 13056
+ZSAVE       = 23552
+SFX_BEEP    = 15
+SFX_NOISE   = 14
 ; ============================================================
 ; lamp_code.masm - LAMPLIGHTER's code.  gen_lamp.py puts the constants
 ; and the zero page in front of it, fills in the marked parts (tables
@@ -348,13 +360,18 @@ main:
     ld   con_clear >> 8, y
     jmp  con_clear
 lp_r1:
-    ld   LINK_LO, x             ; CALL snd_init
+    ld   LINK_LO, x             ; (silence in the buffer until the first song)
     ld   lp_r2, [x]
     ld   LINK_HI, x
     ld   lp_r2 >> 8, [x]
     ld   snd_init >> 8, y
     jmp  snd_init
 lp_r2:
+    ld   ZSAVE >> 8, y          ; no song yet
+    ld   ZV_ON, x
+    ld   0, [y,x]
+    ld   ZV_SN, x
+    ld   0, [y,x]
     ld   0x5A, y                ; rows 32-479 (x5A40-x5BFF): 4 bpp 4x
     ld   0x40, ac
 m_mb1:
@@ -483,18 +500,6 @@ lp_r9:
     ld   title_txt >> 8, y
     jmp  title_txt
 
-ob_save:
-    ld   LINK_LO, x             ; CALL ob_store
-    ld   lp_r59, [x]
-    ld   LINK_HI, x
-    ld   lp_r59 >> 8, [x]
-    ld   ob_store >> 8, y
-    jmp  ob_store
-lp_r59:
-    ld   ob_next >> 8, y
-    jmp  ob_next
-
-; an item: found when Wick touches it
 
 #addr 0x0400
 title_txt:
@@ -916,34 +921,27 @@ bg_done:
 ; draw_spr: draw the sprite list (still map FF), then the map back
 ; ------------------------------------------------------------
 logic:
-    ld   LINK_LO, x             ; CALL snd_update
+    ld   LINK_LO, x             ; CALL pad_read
     ld   lp_r23, [x]
     ld   LINK_HI, x
     ld   lp_r23 >> 8, [x]
-    ld   snd_update >> 8, y
-    jmp  snd_update
+    ld   pad_read >> 8, y
+    jmp  pad_read
 lp_r23:
-    ld   LINK_LO, x             ; CALL pad_read
+    ld   LINK_LO, x             ; CALL kbd_scan
     ld   lp_r24, [x]
     ld   LINK_HI, x
     ld   lp_r24 >> 8, [x]
-    ld   pad_read >> 8, y
-    jmp  pad_read
+    ld   kbd_scan >> 8, y
+    jmp  kbd_scan
 lp_r24:
-    ld   LINK_LO, x             ; CALL kbd_scan
+    ld   LINK_LO, x             ; (Esc: back to the DOS)
     ld   lp_r25, [x]
     ld   LINK_HI, x
     ld   lp_r25 >> 8, [x]
-    ld   kbd_scan >> 8, y
-    jmp  kbd_scan
-lp_r25:
-    ld   LINK_LO, x             ; (Esc: back to the DOS)
-    ld   lp_r26, [x]
-    ld   LINK_HI, x
-    ld   lp_r26 >> 8, [x]
     ld   menu_poll >> 8, y
     jmp  menu_poll
-lp_r26:
+lp_r25:
     ld   [inp], ac
     ld   ac, [inp_prev]
     clr  ac
@@ -951,8 +949,18 @@ lp_r26:
     ld   read_input >> 8, y
     jmp  read_input
 
+ob_save:
+    ld   LINK_LO, x             ; CALL ob_store
+    ld   lp_r58, [x]
+    ld   LINK_HI, x
+    ld   lp_r58 >> 8, [x]
+    ld   ob_store >> 8, y
+    jmp  ob_store
+lp_r58:
+    ld   ob_next >> 8, y
+    jmp  ob_next
 
-#addr 0x0700
+; an item: found when Wick touches it
 draw_spr:
     ld   ds_next & 0xFF, ac     ; every sprite routine returns to ds_next
     ld   ac, [srl]
@@ -964,10 +972,8 @@ ds_next:
     ld   [s_i], ac
     sub  [sl_n], ac
     bne  ds_one
-    ld   0x50, y                ; done: map 07 (the library)
-    ld   0x07, [y,x]
-    ld   logic >> 8, y
-    jmp  logic
+    ld   mus_tick >> 8, y       ; done: the music (map FF), then map 07
+    jmp  mus_tick
 ds_one:
     ld   SL >> 8, y
     ld   [s_i], ac
@@ -1084,23 +1090,23 @@ gc_up:
     inc
     ld   ac, [ta_x]
     ld   LINK_LO, x             ; CALL tile_at
+    ld   lp_r26, [x]
+    ld   LINK_HI, x
+    ld   lp_r26 >> 8, [x]
+    ld   tile_at >> 8, y
+    jmp  tile_at
+lp_r26:
+    bne  gc_done
+    ld   [px], ac
+    add  6, ac
+    ld   ac, [ta_x]
+    ld   LINK_LO, x             ; CALL tile_at
     ld   lp_r27, [x]
     ld   LINK_HI, x
     ld   lp_r27 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
 lp_r27:
-    bne  gc_done
-    ld   [px], ac
-    add  6, ac
-    ld   ac, [ta_x]
-    ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r28, [x]
-    ld   LINK_HI, x
-    ld   lp_r28 >> 8, [x]
-    ld   tile_at >> 8, y
-    jmp  tile_at
-lp_r28:
     bne  gc_done
     clr  ac
     ld   ac, [crawl]
@@ -1225,12 +1231,12 @@ g_wet:
     add  8, ac
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r29, [x]
+    ld   lp_r28, [x]
     ld   LINK_HI, x
-    ld   lp_r29 >> 8, [x]
+    ld   lp_r28 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r29:
+lp_r28:
     ld   [ta_a], ac
     and  A_WATER, ac
     ld   ac, [wet]
@@ -1324,12 +1330,12 @@ g_right:
     add  7, ac
     ld   ac, [ta_x]
     ld   LINK_LO, x             ; CALL side_free
-    ld   lp_r30, [x]
+    ld   lp_r29, [x]
     ld   LINK_HI, x
-    ld   lp_r30 >> 8, [x]
+    ld   lp_r29 >> 8, [x]
     ld   side_free >> 8, y
     jmp  side_free
-lp_r30:
+lp_r29:
     bne  gr_no
     ld   [px], ac
     inc
@@ -1346,12 +1352,12 @@ lp_r30:
     ld   EX_R, ac
     ld   ac, [ex_side]
     ld   LINK_LO, x             ; CALL find_exit
-    ld   lp_r31, [x]
+    ld   lp_r30, [x]
     ld   LINK_HI, x
-    ld   lp_r31 >> 8, [x]
+    ld   lp_r30 >> 8, [x]
     ld   find_exit >> 8, y
     jmp  find_exit
-lp_r31:
+lp_r30:
     bne  gr_exit
     ld   [px], ac               ; none: back
     dec
@@ -1376,24 +1382,24 @@ g_left:
     ld   EX_L, ac
     ld   ac, [ex_side]
     ld   LINK_LO, x             ; CALL find_exit
-    ld   lp_r32, [x]
+    ld   lp_r31, [x]
     ld   LINK_HI, x
-    ld   lp_r32 >> 8, [x]
+    ld   lp_r31 >> 8, [x]
     ld   find_exit >> 8, y
     jmp  find_exit
-lp_r32:
+lp_r31:
     beq  gl_no
     ld   do_exit >> 8, y
     jmp  do_exit
 gl_1:
     ld   ac, [ta_x]             ; a wall at byte column px?
     ld   LINK_LO, x             ; CALL side_free
-    ld   lp_r33, [x]
+    ld   lp_r32, [x]
     ld   LINK_HI, x
-    ld   lp_r33 >> 8, [x]
+    ld   lp_r32 >> 8, [x]
     ld   side_free >> 8, y
     jmp  side_free
-lp_r33:
+lp_r32:
     bne  gl_no
     ld   [px], ac
     dec
@@ -1446,6 +1452,18 @@ side_free:
     ld   [py], ac
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
+    ld   lp_r33, [x]
+    ld   LINK_HI, x
+    ld   lp_r33 >> 8, [x]
+    ld   tile_at >> 8, y
+    jmp  tile_at
+lp_r33:
+    bne  sf_out
+sf_low:
+    ld   [py], ac
+    add  8, ac
+    ld   ac, [ta_y]
+    ld   LINK_LO, x             ; CALL tile_at
     ld   lp_r34, [x]
     ld   LINK_HI, x
     ld   lp_r34 >> 8, [x]
@@ -1453,9 +1471,8 @@ side_free:
     jmp  tile_at
 lp_r34:
     bne  sf_out
-sf_low:
     ld   [py], ac
-    add  8, ac
+    add  15, ac
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
     ld   lp_r35, [x]
@@ -1464,17 +1481,6 @@ sf_low:
     ld   tile_at >> 8, y
     jmp  tile_at
 lp_r35:
-    bne  sf_out
-    ld   [py], ac
-    add  15, ac
-    ld   ac, [ta_y]
-    ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r36, [x]
-    ld   LINK_HI, x
-    ld   lp_r36 >> 8, [x]
-    ld   tile_at >> 8, y
-    jmp  tile_at
-lp_r36:
 sf_out:
     ld   ac, [tmp]
     ld   [sv_lo], ac
@@ -1614,12 +1620,12 @@ do_exit:
     ld   [y,x], ac
     ld   ac, [room]
     ld   LINK_LO, x             ; CALL load_room
-    ld   lp_r37, [x]
+    ld   lp_r36, [x]
     ld   LINK_HI, x
-    ld   lp_r37 >> 8, [x]
+    ld   lp_r36 >> 8, [x]
     ld   load_room >> 8, y
     jmp  load_room
-lp_r37:
+lp_r36:
     ld   [ex_side], ac
     xor  EX_L, ac
     beq  de_l
@@ -1668,30 +1674,30 @@ de_h:
     add  8, ac                  ; a door in the way opens
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r38, [x]
+    ld   lp_r37, [x]
     ld   LINK_HI, x
-    ld   lp_r38 >> 8, [x]
+    ld   lp_r37 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r38:
+lp_r37:
     ld   [ta_a], ac
     and  A_DOOR, ac
     beq  de_done
     ld   LINK_LO, x             ; CALL open_door
+    ld   lp_r38, [x]
+    ld   LINK_HI, x
+    ld   lp_r38 >> 8, [x]
+    ld   open_door >> 8, y
+    jmp  open_door
+lp_r38:
+de_done:
+    ld   LINK_LO, x             ; CALL camera
     ld   lp_r39, [x]
     ld   LINK_HI, x
     ld   lp_r39 >> 8, [x]
-    ld   open_door >> 8, y
-    jmp  open_door
-lp_r39:
-de_done:
-    ld   LINK_LO, x             ; CALL camera
-    ld   lp_r40, [x]
-    ld   LINK_HI, x
-    ld   lp_r40 >> 8, [x]
     ld   camera >> 8, y
     jmp  camera
-lp_r40:
+lp_r39:
     ld   g_spr >> 8, y
     jmp  g_spr
 
@@ -1757,12 +1763,12 @@ ob_enemy:
     ld   [touchf], ac
     beq  on_x
     ld   LINK_LO, x             ; CALL hurt
-    ld   lp_r89, [x]
+    ld   lp_r90, [x]
     ld   LINK_HI, x
-    ld   lp_r89 >> 8, [x]
+    ld   lp_r90 >> 8, [x]
     ld   hurt >> 8, y
     jmp  hurt
-lp_r89:
+lp_r90:
 on_x:
     ld   ob_save >> 8, y
     jmp  ob_save
@@ -1793,13 +1799,13 @@ g_jump:
     ld   AIRV_HI, ac
     ld   ac, [vyh]
     ld   77, ac
-    ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r41, [x]
+    ld   LINK_LO, x             ; CALL sfx_b
+    ld   lp_r40, [x]
     ld   LINK_HI, x
-    ld   lp_r41 >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
-lp_r41:
+    ld   lp_r40 >> 8, [x]
+    ld   sfx_b >> 8, y
+    jmp  sfx_b
+lp_r40:
     bra  gj_grav
 gj_do:
     ld   [wet], ac
@@ -1809,13 +1815,13 @@ gj_do:
     ld   JUMPV_HI, ac
     ld   ac, [vyh]
     ld   72, ac
-    ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r42, [x]
+    ld   LINK_LO, x             ; CALL sfx_b
+    ld   lp_r41, [x]
     ld   LINK_HI, x
-    ld   lp_r42 >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
-lp_r42:
+    ld   lp_r41 >> 8, [x]
+    ld   sfx_b >> 8, y
+    jmp  sfx_b
+lp_r41:
     bra  gj_grav
 gj_no:
     ld   [vyh], ac              ; the key let go: a fast rise is cut to 1 cell a frame
@@ -1837,13 +1843,13 @@ gj_wet:
     ld   WETV_HI, ac
     ld   ac, [vyh]
     ld   66, ac
-    ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r43, [x]
+    ld   LINK_LO, x             ; CALL sfx_b
+    ld   lp_r42, [x]
     ld   LINK_HI, x
-    ld   lp_r43 >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
-lp_r43:
+    ld   lp_r42 >> 8, [x]
+    ld   sfx_b >> 8, y
+    jmp  sfx_b
+lp_r42:
     ld   g_grav >> 8, y
     jmp  g_grav
 
@@ -1936,23 +1942,23 @@ g_up:
     inc
     ld   ac, [ta_x]
     ld   LINK_LO, x             ; CALL tile_at
+    ld   lp_r43, [x]
+    ld   LINK_HI, x
+    ld   lp_r43 >> 8, [x]
+    ld   tile_at >> 8, y
+    jmp  tile_at
+lp_r43:
+    bne  gu_bump
+    ld   [px], ac
+    add  6, ac
+    ld   ac, [ta_x]
+    ld   LINK_LO, x             ; CALL tile_at
     ld   lp_r44, [x]
     ld   LINK_HI, x
     ld   lp_r44 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
 lp_r44:
-    bne  gu_bump
-    ld   [px], ac
-    add  6, ac
-    ld   ac, [ta_x]
-    ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r45, [x]
-    ld   LINK_HI, x
-    ld   lp_r45 >> 8, [x]
-    ld   tile_at >> 8, y
-    jmp  tile_at
-lp_r45:
     beq  gu_free
 gu_bump:
     ld   [ta_y], ac             ; below that half tile
@@ -1982,12 +1988,12 @@ gu_wrap:
     ld   EX_U, ac
     ld   ac, [ex_side]
     ld   LINK_LO, x             ; CALL find_exit
-    ld   lp_r46, [x]
+    ld   lp_r45, [x]
     ld   LINK_HI, x
-    ld   lp_r46 >> 8, [x]
+    ld   lp_r45 >> 8, [x]
     ld   find_exit >> 8, y
     jmp  find_exit
-lp_r46:
+lp_r45:
     beq  gu_top
     ld   do_exit >> 8, y
     jmp  do_exit
@@ -2009,12 +2015,12 @@ g_down:
     ld   EX_D, ac
     ld   ac, [ex_side]
     ld   LINK_LO, x             ; CALL find_exit
-    ld   lp_r47, [x]
+    ld   lp_r46, [x]
     ld   LINK_HI, x
-    ld   lp_r47 >> 8, [x]
+    ld   lp_r46 >> 8, [x]
     ld   find_exit >> 8, y
     jmp  find_exit
-lp_r47:
+lp_r46:
     beq  gd_floor
     ld   do_exit >> 8, y
     jmp  do_exit
@@ -2030,23 +2036,23 @@ gd_in:
     inc
     ld   ac, [ta_x]
     ld   LINK_LO, x             ; CALL tile_at
+    ld   lp_r47, [x]
+    ld   LINK_HI, x
+    ld   lp_r47 >> 8, [x]
+    ld   tile_at >> 8, y
+    jmp  tile_at
+lp_r47:
+    bne  gd_land
+    ld   [px], ac
+    add  6, ac
+    ld   ac, [ta_x]
+    ld   LINK_LO, x             ; CALL tile_at
     ld   lp_r48, [x]
     ld   LINK_HI, x
     ld   lp_r48 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
 lp_r48:
-    bne  gd_land
-    ld   [px], ac
-    add  6, ac
-    ld   ac, [ta_x]
-    ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r49, [x]
-    ld   LINK_HI, x
-    ld   lp_r49 >> 8, [x]
-    ld   tile_at >> 8, y
-    jmp  tile_at
-lp_r49:
     bne  gd_land
     clr  ac
     ld   ac, [onground]
@@ -2073,12 +2079,12 @@ gd_landed:
 #addr 0x0E00
 g_post:
     ld   LINK_LO, x             ; CALL camera
-    ld   lp_r50, [x]
+    ld   lp_r49, [x]
     ld   LINK_HI, x
-    ld   lp_r50 >> 8, [x]
+    ld   lp_r49 >> 8, [x]
     ld   camera >> 8, y
     jmp  camera
-lp_r50:
+lp_r49:
     clr  ac
     ld   ac, [o_i]
 gs_lp:
@@ -2131,23 +2137,23 @@ gs_test:
     sub  112, ac
     bcc  gs_kill
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r51, [x]
+    ld   lp_r50, [x]
     ld   LINK_HI, x
-    ld   lp_r51 >> 8, [x]
+    ld   lp_r50 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r51:
+lp_r50:
     beq  gs_obj
     ld   [ta_a], ac             ; a wall stops it; a door opens
     and  A_DOOR, ac
     beq  gs_soot
     ld   LINK_LO, x             ; CALL open_door
-    ld   lp_r52, [x]
+    ld   lp_r51, [x]
     ld   LINK_HI, x
-    ld   lp_r52 >> 8, [x]
+    ld   lp_r51 >> 8, [x]
     ld   open_door >> 8, y
     jmp  open_door
-lp_r52:
+lp_r51:
     ld   8, ac
     ld   ac, [R0]
     ld   10, ac
@@ -2155,13 +2161,13 @@ lp_r52:
     ld   6, ac
     ld   ac, [R3]
     ld   60, ac
-    ld   LINK_LO, x             ; CALL snd_noise
-    ld   lp_r53, [x]
+    ld   LINK_LO, x             ; CALL sfx_n
+    ld   lp_r52, [x]
     ld   LINK_HI, x
-    ld   lp_r53 >> 8, [x]
-    ld   snd_noise >> 8, y
-    jmp  snd_noise
-lp_r53:
+    ld   lp_r52 >> 8, [x]
+    ld   sfx_n >> 8, y
+    jmp  sfx_n
+lp_r52:
 gs_kill:
     ld   [o_i], ac
     add  SH_T, x
@@ -2196,13 +2202,13 @@ gf_kind:
     ld   [tmp], ac
     ld   ac, [blast_i]
     ld   60, ac
-    ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r57, [x]
+    ld   LINK_LO, x             ; CALL sfx_b
+    ld   lp_r56, [x]
     ld   LINK_HI, x
-    ld   lp_r57 >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
-lp_r57:
+    ld   lp_r56 >> 8, [x]
+    ld   sfx_b >> 8, y
+    jmp  sfx_b
+lp_r56:
     ld   g_door >> 8, y
     jmp  g_door
 gf_n:
@@ -2212,13 +2218,13 @@ gf_n:
     ld   ac, [blast_i]
 gf_b:
     ld   84, ac
-    ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r58, [x]
+    ld   LINK_LO, x             ; CALL sfx_b
+    ld   lp_r57, [x]
     ld   LINK_HI, x
-    ld   lp_r58 >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
-lp_r58:
+    ld   lp_r57 >> 8, [x]
+    ld   sfx_b >> 8, y
+    jmp  sfx_b
+lp_r57:
     ld   g_door >> 8, y
     jmp  g_door
 
@@ -2331,23 +2337,23 @@ sq_h:
     ld   4, ac
     ld   ac, [R3]
     ld   50, ac
-    ld   LINK_LO, x             ; CALL snd_noise
-    ld   lp_r54, [x]
+    ld   LINK_LO, x             ; CALL sfx_n
+    ld   lp_r53, [x]
     ld   LINK_HI, x
-    ld   lp_r54 >> 8, [x]
-    ld   snd_noise >> 8, y
-    jmp  snd_noise
-lp_r54:
+    ld   lp_r53 >> 8, [x]
+    ld   sfx_n >> 8, y
+    jmp  sfx_n
+lp_r53:
     bra  sq_x
 sq_snd:
     ld   60, ac
-    ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r55, [x]
+    ld   LINK_LO, x             ; CALL sfx_b
+    ld   lp_r54, [x]
     ld   LINK_HI, x
-    ld   lp_r55 >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
-lp_r55:
+    ld   lp_r54 >> 8, [x]
+    ld   sfx_b >> 8, y
+    jmp  sfx_b
+lp_r54:
 sq_x:
     ld   gs_nx >> 8, y
     jmp  gs_nx
@@ -2359,12 +2365,12 @@ op_beat:
     ld   GOT >> 8, y
     ld   1, [y,x]
     ld   LINK_LO, x             ; CALL seal_check
-    ld   lp_r120, [x]
+    ld   lp_r125, [x]
     ld   LINK_HI, x
-    ld   lp_r120 >> 8, [x]
+    ld   lp_r125 >> 8, [x]
     ld   seal_check >> 8, y
     jmp  seal_check
-lp_r120:
+lp_r125:
     ld   [ob_p], ac
     shr  ac
     shr  ac
@@ -2410,13 +2416,13 @@ gf_chg:
     xor  CHG_FULL, ac
     bne  gf_no
     ld   91, ac                 ; (full)
-    ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r56, [x]
+    ld   LINK_LO, x             ; CALL sfx_b
+    ld   lp_r55, [x]
     ld   LINK_HI, x
-    ld   lp_r56 >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
-lp_r56:
+    ld   lp_r55 >> 8, [x]
+    ld   sfx_b >> 8, y
+    jmp  sfx_b
+lp_r55:
 gf_no:
     ld   g_door >> 8, y
     jmp  g_door
@@ -2784,20 +2790,20 @@ oi_fill:
     ld   [ob_d], ac
     inc
     ld   LINK_LO, x             ; CALL msg_set
+    ld   lp_r59, [x]
+    ld   LINK_HI, x
+    ld   lp_r59 >> 8, [x]
+    ld   msg_set >> 8, y
+    jmp  msg_set
+lp_r59:
+    ld   79, ac
+    ld   LINK_LO, x             ; CALL sfx_b
     ld   lp_r60, [x]
     ld   LINK_HI, x
     ld   lp_r60 >> 8, [x]
-    ld   msg_set >> 8, y
-    jmp  msg_set
+    ld   sfx_b >> 8, y
+    jmp  sfx_b
 lp_r60:
-    ld   79, ac
-    ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r61, [x]
-    ld   LINK_HI, x
-    ld   lp_r61 >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
-lp_r61:
     ld   ob_save >> 8, y
     jmp  ob_save
 
@@ -2839,16 +2845,23 @@ ol_s:
     ld   ac, [hud_dirty]
     ld   M_SAVE, ac
     ld   LINK_LO, x             ; CALL msg_set
-    ld   lp_r62, [x]
+    ld   lp_r61, [x]
     ld   LINK_HI, x
-    ld   lp_r62 >> 8, [x]
+    ld   lp_r61 >> 8, [x]
     ld   msg_set >> 8, y
     jmp  msg_set
-lp_r62:
+lp_r61:
     ld   ol_w >> 8, y
     jmp  ol_w
 
 ol_w:
+    ld   LINK_LO, x             ; (a few frames of card writes)
+    ld   lp_r62, [x]
+    ld   LINK_HI, x
+    ld   lp_r62 >> 8, [x]
+    ld   mus_quiet >> 8, y
+    jmp  mus_quiet
+lp_r62:
     ld   LINK_LO, x             ; CALL fs_root
     ld   lp_r63, [x]
     ld   LINK_HI, x
@@ -2885,18 +2898,73 @@ lp_r64:
     ld   fs_save >> 8, y
     jmp  fs_save
 lp_r65:
-    ld   88, ac
-    ld   LINK_LO, x             ; CALL snd_beep
+    clr  ac                     ; (mus_quiet before: the song again)
+    ld   LINK_LO, x             ; CALL mus_start
     ld   lp_r66, [x]
     ld   LINK_HI, x
     ld   lp_r66 >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   mus_start >> 8, y
+    jmp  mus_start
 lp_r66:
+    ld   88, ac
+    ld   LINK_LO, x             ; CALL sfx_b
+    ld   lp_r67, [x]
+    ld   LINK_HI, x
+    ld   lp_r67 >> 8, [x]
+    ld   sfx_b >> 8, y
+    jmp  sfx_b
+lp_r67:
     ld   ob_save >> 8, y
     jmp  ob_save
 
 ; msg_set: message AC on the third text line, for a while
+ob_walk:
+    ld   [fcnt], ac
+    and  1, ac
+    beq  ow_x
+    ld   SPEC >> 8, y
+    ld   [ob_k], ac
+    add  SPEC_H, x
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    sub  4, ac
+    ld   ac, [tmp3]
+    ld   LINK_LO, x             ; CALL ob_front
+    ld   lp_r69, [x]
+    ld   LINK_HI, x
+    ld   lp_r69 >> 8, [x]
+    ld   ob_front >> 8, y
+    jmp  ob_front
+lp_r69:
+    bne  ow_turn
+    ld   [ob_y], ac             ; (ob_front left ta_x there)
+    add  [tmp2], ac
+    ld   ac, [ta_y]
+    ld   LINK_LO, x             ; CALL tile_at
+    ld   lp_r70, [x]
+    ld   LINK_HI, x
+    ld   lp_r70 >> 8, [x]
+    ld   tile_at >> 8, y
+    jmp  tile_at
+lp_r70:
+    beq  ow_turn
+    ld   LINK_LO, x             ; CALL ob_fwd
+    ld   lp_r71, [x]
+    ld   LINK_HI, x
+    ld   lp_r71 >> 8, [x]
+    ld   ob_fwd >> 8, y
+    jmp  ob_fwd
+lp_r71:
+    bra  ow_x
+ow_turn:
+    ld   [ob_d], ac
+    xor  2, ac
+    ld   ac, [ob_d]
+ow_x:
+    ld   ob_spit >> 8, y
+    jmp  ob_spit
+
+; a sitter: it faces Wick
 ob_ember:
     ld   [ob_t], ac
     dec
@@ -2915,13 +2983,13 @@ oe_ok:
     ld   1, ac
     ld   ac, [hud_dirty]
     ld   81, ac
-    ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r67, [x]
+    ld   LINK_LO, x             ; CALL sfx_b
+    ld   lp_r68, [x]
     ld   LINK_HI, x
-    ld   lp_r67 >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
-lp_r67:
+    ld   lp_r68 >> 8, [x]
+    ld   sfx_b >> 8, y
+    jmp  sfx_b
+lp_r68:
 ob_gone:
     clr  ac
     ld   ac, [ob_k]
@@ -2949,55 +3017,6 @@ op_item:
 
 ; a walker: a step every other frame; it turns at a wall and at the end
 ; of its floor
-
-#addr 0x1400
-ob_walk:
-    ld   [fcnt], ac
-    and  1, ac
-    beq  ow_x
-    ld   SPEC >> 8, y
-    ld   [ob_k], ac
-    add  SPEC_H, x
-    ld   [y,x], ac
-    ld   ac, [tmp2]
-    sub  4, ac
-    ld   ac, [tmp3]
-    ld   LINK_LO, x             ; CALL ob_front
-    ld   lp_r68, [x]
-    ld   LINK_HI, x
-    ld   lp_r68 >> 8, [x]
-    ld   ob_front >> 8, y
-    jmp  ob_front
-lp_r68:
-    bne  ow_turn
-    ld   [ob_y], ac             ; (ob_front left ta_x there)
-    add  [tmp2], ac
-    ld   ac, [ta_y]
-    ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r69, [x]
-    ld   LINK_HI, x
-    ld   lp_r69 >> 8, [x]
-    ld   tile_at >> 8, y
-    jmp  tile_at
-lp_r69:
-    beq  ow_turn
-    ld   LINK_LO, x             ; CALL ob_fwd
-    ld   lp_r70, [x]
-    ld   LINK_HI, x
-    ld   lp_r70 >> 8, [x]
-    ld   ob_fwd >> 8, y
-    jmp  ob_fwd
-lp_r70:
-    bra  ow_x
-ow_turn:
-    ld   [ob_d], ac
-    xor  2, ac
-    ld   ac, [ob_d]
-ow_x:
-    ld   ob_spit >> 8, y
-    jmp  ob_spit
-
-; a sitter: it faces Wick
 ob_spit:
     ld   SPEC >> 8, y
     ld   [ob_k], ac
@@ -3136,13 +3155,13 @@ ot_y2:
     ld   [tmp2], ac
     ld   ac, [y,x]
     ld   66, ac
-    ld   LINK_LO, x             ; CALL snd_beep
-    ld   lp_r71, [x]
+    ld   LINK_LO, x             ; CALL sfx_b
+    ld   lp_r72, [x]
     ld   LINK_HI, x
-    ld   lp_r71 >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
-lp_r71:
+    ld   lp_r72 >> 8, [x]
+    ld   sfx_b >> 8, y
+    jmp  sfx_b
+lp_r72:
     ld   ob_enemy >> 8, y
     jmp  ob_enemy
 
@@ -3162,12 +3181,12 @@ ob_bolt:
     add  8, ac
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r72, [x]
+    ld   lp_r73, [x]
     ld   LINK_HI, x
-    ld   lp_r72 >> 8, [x]
+    ld   lp_r73 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r72:
+lp_r73:
     bne  ol_gone
     ld   [ob_y], ac
     add  2, ac
@@ -3177,20 +3196,13 @@ ol_side:
     ld   4, ac
     ld   ac, [tmp3]
     ld   LINK_LO, x             ; CALL ob_front
-    ld   lp_r73, [x]
-    ld   LINK_HI, x
-    ld   lp_r73 >> 8, [x]
-    ld   ob_front >> 8, y
-    jmp  ob_front
-lp_r73:
-    bne  ol_gone
-    ld   LINK_LO, x             ; CALL ob_fwd
     ld   lp_r74, [x]
     ld   LINK_HI, x
     ld   lp_r74 >> 8, [x]
-    ld   ob_fwd >> 8, y
-    jmp  ob_fwd
+    ld   ob_front >> 8, y
+    jmp  ob_front
 lp_r74:
+    bne  ol_gone
     ld   LINK_LO, x             ; CALL ob_fwd
     ld   lp_r75, [x]
     ld   LINK_HI, x
@@ -3198,16 +3210,23 @@ lp_r74:
     ld   ob_fwd >> 8, y
     jmp  ob_fwd
 lp_r75:
+    ld   LINK_LO, x             ; CALL ob_fwd
+    ld   lp_r76, [x]
+    ld   LINK_HI, x
+    ld   lp_r76 >> 8, [x]
+    ld   ob_fwd >> 8, y
+    jmp  ob_fwd
+lp_r76:
 ol_t:
     ld   [touchf], ac
     beq  ol_keep
     ld   LINK_LO, x             ; CALL hurt
-    ld   lp_r76, [x]
+    ld   lp_r77, [x]
     ld   LINK_HI, x
-    ld   lp_r76 >> 8, [x]
+    ld   lp_r77 >> 8, [x]
     ld   hurt >> 8, y
     jmp  hurt
-lp_r76:
+lp_r77:
 ol_gone:
     clr  ac
     ld   ac, [ob_k]
@@ -3255,20 +3274,20 @@ oh_air:
     ld   8, ac
     ld   ac, [tmp3]
     ld   LINK_LO, x             ; CALL ob_front
-    ld   lp_r77, [x]
-    ld   LINK_HI, x
-    ld   lp_r77 >> 8, [x]
-    ld   ob_front >> 8, y
-    jmp  ob_front
-lp_r77:
-    bne  oh_v
-    ld   LINK_LO, x             ; CALL ob_fwd
     ld   lp_r78, [x]
     ld   LINK_HI, x
     ld   lp_r78 >> 8, [x]
+    ld   ob_front >> 8, y
+    jmp  ob_front
+lp_r78:
+    bne  oh_v
+    ld   LINK_LO, x             ; CALL ob_fwd
+    ld   lp_r79, [x]
+    ld   LINK_HI, x
+    ld   lp_r79 >> 8, [x]
     ld   ob_fwd >> 8, y
     jmp  ob_fwd
-lp_r78:
+lp_r79:
     bra  oh_v
 oh_fall:
     ld   4, ac
@@ -3288,12 +3307,12 @@ ob_hop2:
     add  16, ac
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r79, [x]
+    ld   lp_r80, [x]
     ld   LINK_HI, x
-    ld   lp_r79 >> 8, [x]
+    ld   lp_r80 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r79:
+lp_r80:
     beq  oh_e2
     ld   [ta_y], ac
     and  0xF8, ac
@@ -3306,12 +3325,12 @@ oh_up:
     add  [ob_y], ac             ; up, when nothing is in the way
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r80, [x]
+    ld   lp_r81, [x]
     ld   LINK_HI, x
-    ld   lp_r80 >> 8, [x]
+    ld   lp_r81 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r80:
+lp_r81:
     bne  oh_e2
     ld   [ta_y], ac
     ld   ac, [ob_y]
@@ -3339,12 +3358,12 @@ od_fall:
     add  16, ac
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r83, [x]
+    ld   lp_r84, [x]
     ld   LINK_HI, x
-    ld   lp_r83 >> 8, [x]
+    ld   lp_r84 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r83:
+lp_r84:
     bne  od_burst
     ld   [ob_y], ac
     add  3, ac
@@ -3406,20 +3425,20 @@ ov_d:
     ld   8, ac
     ld   ac, [tmp3]
     ld   LINK_LO, x             ; CALL ob_front
-    ld   lp_r81, [x]
-    ld   LINK_HI, x
-    ld   lp_r81 >> 8, [x]
-    ld   ob_front >> 8, y
-    jmp  ob_front
-lp_r81:
-    bne  ov_x
-    ld   LINK_LO, x             ; CALL ob_fwd
     ld   lp_r82, [x]
     ld   LINK_HI, x
     ld   lp_r82 >> 8, [x]
+    ld   ob_front >> 8, y
+    jmp  ob_front
+lp_r82:
+    bne  ov_x
+    ld   LINK_LO, x             ; CALL ob_fwd
+    ld   lp_r83, [x]
+    ld   LINK_HI, x
+    ld   lp_r83 >> 8, [x]
     ld   ob_fwd >> 8, y
     jmp  ob_fwd
-lp_r82:
+lp_r83:
 ov_x:
     ld   ob_spit >> 8, y
     jmp  ob_spit
@@ -3435,20 +3454,20 @@ ob_fly:
     ld   8, ac
     ld   ac, [tmp3]
     ld   LINK_LO, x             ; CALL ob_front
-    ld   lp_r84, [x]
-    ld   LINK_HI, x
-    ld   lp_r84 >> 8, [x]
-    ld   ob_front >> 8, y
-    jmp  ob_front
-lp_r84:
-    bne  of_turn
-    ld   LINK_LO, x             ; CALL ob_fwd
     ld   lp_r85, [x]
     ld   LINK_HI, x
     ld   lp_r85 >> 8, [x]
+    ld   ob_front >> 8, y
+    jmp  ob_front
+lp_r85:
+    bne  of_turn
+    ld   LINK_LO, x             ; CALL ob_fwd
+    ld   lp_r86, [x]
+    ld   LINK_HI, x
+    ld   lp_r86 >> 8, [x]
     ld   ob_fwd >> 8, y
     jmp  ob_fwd
-lp_r85:
+lp_r86:
     bra  of_x
 of_turn:
     ld   [ob_d], ac
@@ -3466,12 +3485,12 @@ of_vert:
     add  16, ac
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r86, [x]
+    ld   lp_r87, [x]
     ld   LINK_HI, x
-    ld   lp_r86 >> 8, [x]
+    ld   lp_r87 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r86:
+lp_r87:
     bne  of_x
     ld   [ob_y], ac
     inc
@@ -3481,12 +3500,12 @@ of_up:
     dec
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r87, [x]
+    ld   lp_r88, [x]
     ld   LINK_HI, x
-    ld   lp_r87 >> 8, [x]
+    ld   lp_r88 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r87:
+lp_r88:
     bne  of_x
     ld   [ob_y], ac
     dec
@@ -3529,12 +3548,12 @@ of_chk:
     add  [tmp3], ac
     ld   ac, [ta_y]
     ld   LINK_LO, x             ; CALL tile_at
-    ld   lp_r88, [x]
+    ld   lp_r89, [x]
     ld   LINK_HI, x
-    ld   lp_r88 >> 8, [x]
+    ld   lp_r89 >> 8, [x]
     ld   tile_at >> 8, y
     jmp  tile_at
-lp_r88:
+lp_r89:
     bra  of_out
 of_edge:
     ld   1, ac
@@ -3601,13 +3620,13 @@ hu_s:
     ld   3, ac
     ld   ac, [R3]
     ld   30, ac
-    ld   LINK_LO, x             ; CALL snd_noise
-    ld   lp_r90, [x]
+    ld   LINK_LO, x             ; CALL sfx_n
+    ld   lp_r91, [x]
     ld   LINK_HI, x
-    ld   lp_r90 >> 8, [x]
-    ld   snd_noise >> 8, y
-    jmp  snd_noise
-lp_r90:
+    ld   lp_r91 >> 8, [x]
+    ld   sfx_n >> 8, y
+    jmp  sfx_n
+lp_r91:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 hu_r:
@@ -3682,26 +3701,26 @@ gd_s:
     ld   ac, [inv]
     ld   M_DEAD, ac
     ld   LINK_LO, x             ; CALL msg_set
-    ld   lp_r91, [x]
-    ld   LINK_HI, x
-    ld   lp_r91 >> 8, [x]
-    ld   msg_set >> 8, y
-    jmp  msg_set
-lp_r91:
-    ld   LINK_LO, x             ; CALL load_room
     ld   lp_r92, [x]
     ld   LINK_HI, x
     ld   lp_r92 >> 8, [x]
-    ld   load_room >> 8, y
-    jmp  load_room
+    ld   msg_set >> 8, y
+    jmp  msg_set
 lp_r92:
-    ld   LINK_LO, x             ; CALL camera
+    ld   LINK_LO, x             ; CALL load_room
     ld   lp_r93, [x]
     ld   LINK_HI, x
     ld   lp_r93 >> 8, [x]
+    ld   load_room >> 8, y
+    jmp  load_room
+lp_r93:
+    ld   LINK_LO, x             ; CALL camera
+    ld   lp_r94, [x]
+    ld   LINK_HI, x
+    ld   lp_r94 >> 8, [x]
     ld   camera >> 8, y
     jmp  camera
-lp_r93:
+lp_r94:
     ld   g_spr >> 8, y
     jmp  g_spr
 
@@ -3749,12 +3768,12 @@ sp_3:
     add  32, ac
     ld   ac, [tmp3]
     ld   LINK_LO, x             ; CALL sl_add
-    ld   lp_r94, [x]
+    ld   lp_r95, [x]
     ld   LINK_HI, x
-    ld   lp_r94 >> 8, [x]
+    ld   lp_r95 >> 8, [x]
     ld   sl_add >> 8, y
     jmp  sl_add
-lp_r94:
+lp_r95:
 sp_4:
     ld   sp_shots >> 8, y
     jmp  sp_shots
@@ -3790,12 +3809,12 @@ sp_sf:
     add  32, ac
     ld   ac, [tmp3]
     ld   LINK_LO, x             ; CALL sl_add
-    ld   lp_r95, [x]
+    ld   lp_r96, [x]
     ld   LINK_HI, x
-    ld   lp_r95 >> 8, [x]
+    ld   lp_r96 >> 8, [x]
     ld   sl_add >> 8, y
     jmp  sl_add
-lp_r95:
+lp_r96:
 sp_nx:
     ld   [o_i], ac
     inc
@@ -3859,12 +3878,12 @@ so_lp:
     add  [tmp], ac
     ld   ac, [tmp]
     ld   LINK_LO, x             ; CALL sl_add
-    ld   lp_r96, [x]
+    ld   lp_r97, [x]
     ld   LINK_HI, x
-    ld   lp_r96 >> 8, [x]
+    ld   lp_r97 >> 8, [x]
     ld   sl_add >> 8, y
     jmp  sl_add
-lp_r96:
+lp_r97:
     ld   SPEC >> 8, y           ; 32 pixels wide: its right half
     ld   [ob_k], ac
     add  SPEC_WIDE, x
@@ -3878,12 +3897,12 @@ lp_r96:
     sub  88, ac
     bcc  so_nx
     ld   LINK_LO, x             ; CALL sl_add
-    ld   lp_r97, [x]
+    ld   lp_r98, [x]
     ld   LINK_HI, x
-    ld   lp_r97 >> 8, [x]
+    ld   lp_r98 >> 8, [x]
     ld   sl_add >> 8, y
     jmp  sl_add
-lp_r97:
+lp_r98:
 so_nx:
     ld   [ob_i], ac
     inc
@@ -3940,23 +3959,23 @@ g_hud:
     ld   ac, [CUR_ROW]
     ld   [energy], ac
     ld   LINK_LO, x             ; CALL con_dec8
-    ld   lp_r98, [x]
+    ld   lp_r99, [x]
     ld   LINK_HI, x
-    ld   lp_r98 >> 8, [x]
+    ld   lp_r99 >> 8, [x]
     ld   con_dec8 >> 8, y
     jmp  con_dec8
-lp_r98:
+lp_r99:
     ld   s_sp & 0xFF, ac
     ld   ac, [R0]
     ld   s_sp >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
-    ld   lp_r99, [x]
+    ld   lp_r100, [x]
     ld   LINK_HI, x
-    ld   lp_r99 >> 8, [x]
+    ld   lp_r100 >> 8, [x]
     ld   con_puts >> 8, y
     jmp  con_puts
-lp_r99:
+lp_r100:
 hu_x:
     ld   g_msg >> 8, y
     jmp  g_msg
@@ -3996,12 +4015,12 @@ hu_1:
     ld   [y,x], ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
-    ld   lp_r100, [x]
+    ld   lp_r101, [x]
     ld   LINK_HI, x
-    ld   lp_r100 >> 8, [x]
+    ld   lp_r101 >> 8, [x]
     ld   con_puts >> 8, y
     jmp  con_puts
-lp_r100:
+lp_r101:
 hu_2:
     ld   frame >> 8, y
     jmp  frame
@@ -4024,23 +4043,23 @@ load_room:
     ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   LINK_LO, x             ; CALL fs_root
-    ld   lp_r101, [x]
+    ld   lp_r102, [x]
     ld   LINK_HI, x
-    ld   lp_r101 >> 8, [x]
+    ld   lp_r102 >> 8, [x]
     ld   fs_root >> 8, y
     jmp  fs_root
-lp_r101:
+lp_r102:
     ld   s_dir & 0xFF, ac
     ld   ac, [R0]
     ld   s_dir >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL fs_open
-    ld   lp_r102, [x]
+    ld   lp_r103, [x]
     ld   LINK_HI, x
-    ld   lp_r102 >> 8, [x]
+    ld   lp_r103 >> 8, [x]
     ld   fs_open >> 8, y
     jmp  fs_open
-lp_r102:
+lp_r103:
     ld   [room], ac
     shr  ac
     shr  ac
@@ -4062,69 +4081,58 @@ lp_r102:
     ld   s_room >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL fs_open
-    ld   lp_r103, [x]
+    ld   lp_r104, [x]
     ld   LINK_HI, x
-    ld   lp_r103 >> 8, [x]
+    ld   lp_r104 >> 8, [x]
     ld   fs_open >> 8, y
     jmp  fs_open
-lp_r103:
+lp_r104:
     beq  lr_ok
     ld   dos_back >> 8, y
     jmp  dos_back
 lr_ok:
+    ld   LINK_LO, x             ; CALL mus_poll
+    ld   lp_r105, [x]
+    ld   LINK_HI, x
+    ld   lp_r105 >> 8, [x]
+    ld   mus_poll >> 8, y
+    jmp  mus_poll
+lp_r105:
     clr  ac
     ld   ac, [R4]
     ld   MAP >> 8, ac
     ld   ac, [R5]
     ld   LINK_LO, x             ; CALL fs_read
-    ld   lp_r104, [x]
+    ld   lp_r106, [x]
     ld   LINK_HI, x
-    ld   lp_r104 >> 8, [x]
+    ld   lp_r106 >> 8, [x]
     ld   fs_read >> 8, y
     jmp  fs_read
-lp_r104:
+lp_r106:
+    ld   LINK_LO, x             ; (R4, R5 kept)
+    ld   lp_r107, [x]
+    ld   LINK_HI, x
+    ld   lp_r107 >> 8, [x]
+    ld   mus_poll >> 8, y
+    jmp  mus_poll
+lp_r107:
     ld   LINK_LO, x             ; CALL fs_read
-    ld   lp_r105, [x]
+    ld   lp_r108, [x]
     ld   LINK_HI, x
-    ld   lp_r105 >> 8, [x]
+    ld   lp_r108 >> 8, [x]
     ld   fs_read >> 8, y
     jmp  fs_read
-lp_r105:
+lp_r108:
+    ld   LINK_LO, x             ; CALL mus_poll
+    ld   lp_r109, [x]
+    ld   LINK_HI, x
+    ld   lp_r109 >> 8, [x]
+    ld   mus_poll >> 8, y
+    jmp  mus_poll
+lp_r109:
     ld   lr_2 >> 8, y
     jmp  lr_2
 
-ls_end:
-    ld   LINK_LO, x             ; CALL seal_check
-    ld   lp_r110, [x]
-    ld   LINK_HI, x
-    ld   lp_r110 >> 8, [x]
-    ld   seal_check >> 8, y
-    jmp  seal_check
-lp_r110:
-    ld   [tmp3], ac             ; (no message while the seal is shut)
-    beq  le_x
-    ld   HDR >> 8, y
-    ld   H_MSG, x
-    ld   [y,x], ac
-    beq  le_x
-    ld   LINK_LO, x             ; CALL msg_set
-    ld   lp_r111, [x]
-    ld   LINK_HI, x
-    ld   lp_r111 >> 8, [x]
-    ld   msg_set >> 8, y
-    jmp  msg_set
-lp_r111:
-le_x:
-    ld   [room], ac
-    xor  END_ROOM, ac
-    bne  le_y
-    ld   ending >> 8, y
-    jmp  ending
-le_y:
-    ld   lib_leave >> 8, y
-    jmp  lib_leave
-
-; the end: the time and the things found on the fourth line; then a key
 
 #addr 0x1C00
 lr_2:
@@ -4136,12 +4144,12 @@ lr_2:
     xor  [area], ac
     ld   ac, [area]
     ld   LINK_LO, x             ; CALL load_area
-    ld   lp_r106, [x]
+    ld   lp_r110, [x]
     ld   LINK_HI, x
-    ld   lp_r106 >> 8, [x]
+    ld   lp_r110 >> 8, [x]
     ld   load_area >> 8, y
     jmp  load_area
-lp_r106:
+lp_r110:
 lr_3:
     ld   HDR >> 8, y
     ld   H_RW, x
@@ -4169,12 +4177,12 @@ lr_3:
     ld   HDR >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
-    ld   lp_r107, [x]
+    ld   lp_r111, [x]
     ld   LINK_HI, x
-    ld   lp_r107 >> 8, [x]
+    ld   lp_r111 >> 8, [x]
     ld   con_puts >> 8, y
     jmp  con_puts
-lp_r107:
+lp_r111:
     clr  ac                     ; row 1: the energy
     ld   ac, [CUR_COL]
     ld   1, ac
@@ -4185,12 +4193,12 @@ lp_r107:
     ld   s_energy >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
-    ld   lp_r108, [x]
+    ld   lp_r112, [x]
     ld   LINK_HI, x
-    ld   lp_r108 >> 8, [x]
+    ld   lp_r112 >> 8, [x]
     ld   con_puts >> 8, y
     jmp  con_puts
-lp_r108:
+lp_r112:
     clr  ac                     ; the room's things
     ld   ac, [ob_i]
 ls_lp:
@@ -4246,12 +4254,12 @@ ls_3:
     ld   ac, [ob_d]
 ls_put:
     ld   LINK_LO, x             ; CALL ob_store
-    ld   lp_r109, [x]
+    ld   lp_r113, [x]
     ld   LINK_HI, x
-    ld   lp_r109 >> 8, [x]
+    ld   lp_r113 >> 8, [x]
     ld   ob_store >> 8, y
     jmp  ob_store
-lp_r109:
+lp_r113:
     ld   [ob_i], ac
     inc
     ld   ac, [ob_i]
@@ -4266,7 +4274,47 @@ ls_x:
 ; the end of a room's reading: its seal, its message
 
 #addr 0x1D00
+ls_end:
+    ld   LINK_LO, x             ; CALL seal_check
+    ld   lp_r114, [x]
+    ld   LINK_HI, x
+    ld   lp_r114 >> 8, [x]
+    ld   seal_check >> 8, y
+    jmp  seal_check
+lp_r114:
+    ld   [tmp3], ac             ; (no message while the seal is shut)
+    beq  le_x
+    ld   HDR >> 8, y
+    ld   H_MSG, x
+    ld   [y,x], ac
+    beq  le_x
+    ld   LINK_LO, x             ; CALL msg_set
+    ld   lp_r115, [x]
+    ld   LINK_HI, x
+    ld   lp_r115 >> 8, [x]
+    ld   msg_set >> 8, y
+    jmp  msg_set
+lp_r115:
+le_x:
+    ld   [room], ac
+    xor  END_ROOM, ac
+    bne  le_y
+    ld   ending >> 8, y
+    jmp  ending
+le_y:
+    ld   lib_leave >> 8, y
+    jmp  lib_leave
+
+; the end: the time and the things found on the fourth line; then a key
 ending:
+    ld   1, ac                  ; the song's subtune 1: the ending's
+    ld   LINK_LO, x             ; CALL mus_start
+    ld   lp_r116, [x]
+    ld   LINK_HI, x
+    ld   lp_r116 >> 8, [x]
+    ld   mus_start >> 8, y
+    jmp  mus_start
+lp_r116:
     ld   GOT >> 8, y
     ld   V_MODE, x
     ld   M_END, [y,x]
@@ -4281,30 +4329,30 @@ ending:
     ld   s_time >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
-    ld   lp_r112, [x]
+    ld   lp_r117, [x]
     ld   LINK_HI, x
-    ld   lp_r112 >> 8, [x]
+    ld   lp_r117 >> 8, [x]
     ld   con_puts >> 8, y
     jmp  con_puts
-lp_r112:
+lp_r117:
     ld   GOT >> 8, y
     ld   V_MIN, x
     ld   [y,x], ac
     ld   LINK_LO, x             ; CALL con_dec8
-    ld   lp_r113, [x]
+    ld   lp_r118, [x]
     ld   LINK_HI, x
-    ld   lp_r113 >> 8, [x]
+    ld   lp_r118 >> 8, [x]
     ld   con_dec8 >> 8, y
     jmp  con_dec8
-lp_r113:
+lp_r118:
     ld   0x3A, ac
     ld   LINK_LO, x             ; CALL con_putc
-    ld   lp_r114, [x]
+    ld   lp_r119, [x]
     ld   LINK_HI, x
-    ld   lp_r114 >> 8, [x]
+    ld   lp_r119 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-lp_r114:
+lp_r119:
     ld   GOT >> 8, y
     ld   V_SEC, x
     ld   [y,x], ac
@@ -4312,26 +4360,35 @@ lp_r114:
     bcc  en_1
     ld   0x30, ac
     ld   LINK_LO, x             ; CALL con_putc
-    ld   lp_r115, [x]
+    ld   lp_r120, [x]
     ld   LINK_HI, x
-    ld   lp_r115 >> 8, [x]
+    ld   lp_r120 >> 8, [x]
     ld   con_putc >> 8, y
     jmp  con_putc
-lp_r115:
+lp_r120:
 en_1:
     ld   GOT >> 8, y
     ld   V_SEC, x
     ld   [y,x], ac
     ld   LINK_LO, x             ; CALL con_dec8
-    ld   lp_r116, [x]
+    ld   lp_r121, [x]
     ld   LINK_HI, x
-    ld   lp_r116 >> 8, [x]
+    ld   lp_r121 >> 8, [x]
     ld   con_dec8 >> 8, y
     jmp  con_dec8
-lp_r116:
+lp_r121:
     ld   ending2 >> 8, y
     jmp  ending2
 
+s_dir:    #d "LAMP", 0x00
+s_room:   #d "R00.RM", 0x00
+s_area:   #d "A0.TS", 0x00
+s_hex:    #d "0123456789ABCDEF"
+s_energy: #d "ENERGY", 0x00
+s_save:   #d "SAVE.DAT", 0x00
+
+
+#addr 0x1E00
 ending2:
     clr  ac                     ; things found: GOT 1-31
     ld   ac, [tmp]
@@ -4356,44 +4413,35 @@ en_n:
     ld   s_found >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
-    ld   lp_r117, [x]
+    ld   lp_r122, [x]
     ld   LINK_HI, x
-    ld   lp_r117 >> 8, [x]
+    ld   lp_r122 >> 8, [x]
     ld   con_puts >> 8, y
     jmp  con_puts
-lp_r117:
+lp_r122:
     ld   [tmp], ac
     ld   LINK_LO, x             ; CALL con_dec8
-    ld   lp_r118, [x]
+    ld   lp_r123, [x]
     ld   LINK_HI, x
-    ld   lp_r118 >> 8, [x]
+    ld   lp_r123 >> 8, [x]
     ld   con_dec8 >> 8, y
     jmp  con_dec8
-lp_r118:
+lp_r123:
     ld   s_of & 0xFF, ac
     ld   ac, [R0]
     ld   s_of >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
-    ld   lp_r119, [x]
+    ld   lp_r124, [x]
     ld   LINK_HI, x
-    ld   lp_r119 >> 8, [x]
+    ld   lp_r124 >> 8, [x]
     ld   con_puts >> 8, y
     jmp  con_puts
-lp_r119:
+lp_r124:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 
 ; the thing that a beaten creature guarded; its keeper is beaten
-s_dir:    #d "LAMP", 0x00
-s_room:   #d "R00.RM", 0x00
-s_area:   #d "A0.TS", 0x00
-s_hex:    #d "0123456789ABCDEF"
-s_energy: #d "ENERGY", 0x00
-s_save:   #d "SAVE.DAT", 0x00
-
-
-#addr 0x1E00
 seal_check:
     ld   1, ac
     ld   ac, [tmp3]
@@ -4453,8 +4501,10 @@ sc_shut:
     ld   [LINK_HI], y
     jmp  [LINK_LO]
 
-; load_area: read LAMP/An.TS (n = area): 4 pages of tables to TS_LO on,
-; the rest to x6000 on
+; load_area: read LAMP/An.TS (n = area): 8 sectors to AREA_BLK on (the
+; song, player code, the tables), one to PCODE_B, the rest to x6000 on
+
+#addr 0x2000
 load_area:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -4468,24 +4518,31 @@ load_area:
     ld   [LINK_LO], ac
     ld   ac, [x]
     ld   [SAVE_AC], ac
-    ld   LINK_LO, x             ; CALL fs_root
-    ld   lp_r121, [x]
+    ld   LINK_LO, x             ; (the player's code is read again)
+    ld   lp_r126, [x]
     ld   LINK_HI, x
-    ld   lp_r121 >> 8, [x]
+    ld   lp_r126 >> 8, [x]
+    ld   mus_quiet >> 8, y
+    jmp  mus_quiet
+lp_r126:
+    ld   LINK_LO, x             ; CALL fs_root
+    ld   lp_r127, [x]
+    ld   LINK_HI, x
+    ld   lp_r127 >> 8, [x]
     ld   fs_root >> 8, y
     jmp  fs_root
-lp_r121:
+lp_r127:
     ld   s_dir & 0xFF, ac
     ld   ac, [R0]
     ld   s_dir >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL fs_open
-    ld   lp_r122, [x]
+    ld   lp_r128, [x]
     ld   LINK_HI, x
-    ld   lp_r122 >> 8, [x]
+    ld   lp_r128 >> 8, [x]
     ld   fs_open >> 8, y
     jmp  fs_open
-lp_r122:
+lp_r128:
     ld   [area], ac
     add  0x30, ac
     ld   s_area >> 8, y
@@ -4496,41 +4553,115 @@ lp_r122:
     ld   s_area >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL fs_open
-    ld   lp_r123, [x]
+    ld   lp_r129, [x]
     ld   LINK_HI, x
-    ld   lp_r123 >> 8, [x]
+    ld   lp_r129 >> 8, [x]
     ld   fs_open >> 8, y
     jmp  fs_open
-lp_r123:
+lp_r129:
     beq  la_ok
     ld   dos_back >> 8, y
     jmp  dos_back
 la_ok:
     clr  ac
     ld   ac, [R4]
-    ld   TS_LO >> 8, ac
+    ld   AREA_BLK >> 8, ac
     ld   ac, [R5]
 la_rd:
     ld   LINK_LO, x             ; CALL fs_read
-    ld   lp_r124, [x]
+    ld   lp_r130, [x]
     ld   LINK_HI, x
-    ld   lp_r124 >> 8, [x]
+    ld   lp_r130 >> 8, [x]
     ld   fs_read >> 8, y
     jmp  fs_read
-lp_r124:
+lp_r130:
     bne  la_done
-    ld   [R5], ac               ; after the tables: the video RAM
-    xor  TABLES_END >> 8, ac
-    bne  la_rd
+    ld   [R5], ac               ; after the block: PCODE_B
+    xor  AREA_END >> 8, ac
+    beq  la_b
+    xor  (AREA_END ^ (PCODE_B + 0x200)) >> 8, ac
+    bne  la_rd                  ; after that: the video RAM
     ld   0x60, ac
     ld   ac, [R5]
     bra  la_rd
+la_b:
+    ld   PCODE_B >> 8, ac
+    ld   ac, [R5]
+    bra  la_rd
 la_done:
+    ld   GOT >> 8, y            ; the song: subtune 1 on the title, else 0
+    ld   V_MODE, x
+    ld   [y,x], ac
+    xor  M_TITLE, ac
+    beq  la_t
+    clr  ac
+    ld   LINK_LO, x             ; CALL mus_start
+    ld   lp_r131, [x]
+    ld   LINK_HI, x
+    ld   lp_r131 >> 8, [x]
+    ld   mus_start >> 8, y
+    jmp  mus_start
+lp_r131:
+    ld   lib_leave >> 8, y
+    jmp  lib_leave
+la_t:
+    ld   1, ac
+    ld   LINK_LO, x             ; CALL mus_start
+    ld   lp_r132, [x]
+    ld   LINK_HI, x
+    ld   lp_r132 >> 8, [x]
+    ld   mus_start >> 8, y
+    jmp  mus_start
+lp_r132:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 
+zswap:
+    ld   0x60, ac
+zs_l:
+    ld   ac, [T1]
+    ld   ac, x
+    ld   [x], ac
+    ld   ac, [T0]
+    ld   ZSAVE >> 8, y
+    ld   [y,x], ac
+    ld   ac, [x]
+    ld   [T0], ac
+    ld   ac, [y,x]
+    ld   [T1], ac
+    inc
+    xor  0x90, ac
+    beq  zs_d
+    xor  0x90, ac
+    bra  zs_l
+zs_d:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
 
-#addr 0x2000
+; mus_tick: (GOTO, map FF after the sprites) the waiting sound effect and
+; mus_frame, then map 07 and the rules
+sfx_b:
+    sub  12, ac                 ; (the player's C-0 is note 0)
+    ld   ZSAVE >> 8, y
+    ld   ZV_SN, x
+    ld   ac, [y,x]
+    ld   ZV_SI, x
+    ld   SFX_BEEP, [y,x]
+    ld   ZV_SF, x
+    ld   12, [y,x]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+sfx_n:
+    sub  12, ac
+    ld   ZSAVE >> 8, y
+    ld   ZV_SN, x
+    ld   ac, [y,x]
+    ld   ZV_SI, x
+    ld   SFX_NOISE, [y,x]
+    ld   ZV_SF, x
+    ld   6, [y,x]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
 s_t0:     #d "LAMPLIGHTER                             ", 0x00
 s_t2:     #d "JUMP: A NEW GAME                        ", 0x00
 s_t3:     #d "FIRE: GO ON FROM THE LAST SAVE LAMP     ", 0x00
@@ -4542,21 +4673,248 @@ s_sp:     #d "  ", 0x00
 s_bits:   #d8 1, 2, 4, 8, 16, 32, 64, 128
 
 
-#addr 0x2100
+#addr 0x2200
 s_m0: #d "                                        ", 0x00
 s_m1: #d "OIL FLASK: THE LANTERN HOLDS MORE       ", 0x00
 s_m2: #d "BURROW RIG: HOLD DOWN TO CRAWL          ", 0x00
 s_m3: #d "UPDRAFT BELLOWS: JUMP AGAIN IN THE AIR  ", 0x00
 s_m4: #d "ASH SAIL: HOLD JUMP TO FALL SLOWLY      ", 0x00
 
-#addr 0x2200
+#addr 0x2300
 s_m5: #d "KILN CHARGE: HOLD FIRE, LET GO: A BLAST ", 0x00
 s_m6: #d "WIDE FLAME: THREE SPARKS AT A TIME      ", 0x00
 s_m7: #d "CINDER COAT: HALF THE HARM, NO HEAT     ", 0x00
 s_m8: #d "BALLAST BOOTS: NO DRAG UNDER WATER      ", 0x00
 s_m9: #d "THE LANTERN WENT OUT                    ", 0x00
 
-#addr 0x2300
+#addr 0x2400
 s_m10: #d "THREE KEEPERS DOWN: THE SEAL IS OPEN    ", 0x00
 s_m11: #d "THE GREAT LAMP BURNS AGAIN              ", 0x00
 s_m12: #d "SAVED AT THE LAMP: THE LANTERN IS FULL  ", 0x00
+
+; ------------------------------------------------------------
+; music: the player (placard_mus.masm, assembled apart by gen_lamp.py:
+; part of its code is in the video RAM and the area block) runs in map FF,
+; with x60-x8F of the zero page its own: zswap trades them with ZSAVE.
+; The game asks for a sound effect with sfx_b / sfx_n (map 07); mus_tick
+; plays it and calls mus_frame once a frame, after the drawing.
+; ------------------------------------------------------------
+ZV_ON  = 0x00                   ; (ZSAVE page) 1: a song is set up
+ZV_SN  = 0x01                   ; a sound effect waiting: its note (0: none)
+ZV_SI  = 0x02                   ;   instrument
+ZV_SF  = 0x03                   ;   frames
+
+; zswap: x60-x8F <-> ZSAVE + x60-x8F.  Changes AC, X, Y, T0, T1.
+mus_tick:
+    ld   ZSAVE >> 8, y
+    ld   ZV_ON, x
+    ld   [y,x], ac
+    beq  mt_x
+    ld   LINK_LO, x             ; CALL zswap
+    ld   lp_r133, [x]
+    ld   LINK_HI, x
+    ld   lp_r133 >> 8, [x]
+    ld   zswap >> 8, y
+    jmp  zswap
+lp_r133:
+    ld   ZSAVE >> 8, y
+    ld   ZV_SI, x
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   ZV_SF, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    ld   ZV_SN, x
+    ld   [y,x], ac
+    beq  mt_f
+    ld   0, [y,x]
+    ld   LINK_LO, x             ; CALL mus_sfx
+    ld   lp_r134, [x]
+    ld   LINK_HI, x
+    ld   lp_r134 >> 8, [x]
+    ld   mus_sfx >> 8, y
+    jmp  mus_sfx
+lp_r134:
+mt_f:
+    ld   LINK_LO, x             ; CALL mus_frame
+    ld   lp_r135, [x]
+    ld   LINK_HI, x
+    ld   lp_r135 >> 8, [x]
+    ld   mus_frame >> 8, y
+    jmp  mus_frame
+lp_r135:
+    ld   LINK_LO, x             ; CALL zswap
+    ld   lp_r136, [x]
+    ld   LINK_HI, x
+    ld   lp_r136 >> 8, [x]
+    ld   zswap >> 8, y
+    jmp  zswap
+lp_r136:
+mt_x:
+    ld   0x50, y                ; map 07 (the library)
+    ld   0x07, [y,x]
+    ld   logic >> 8, y
+    jmp  logic
+
+; mus_start: AC = subtune: the area's song (SONG) from the start
+
+#addr 0x2500
+mus_start:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   ac, [R2]
+    ld   LINK_LO, x             ; CALL zswap
+    ld   lp_r137, [x]
+    ld   LINK_HI, x
+    ld   lp_r137 >> 8, [x]
+    ld   zswap >> 8, y
+    jmp  zswap
+lp_r137:
+    ld   0x50, y                ; map FF: the player
+    ld   0xFF, [y,x]
+    ld   SONG >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL mus_init
+    ld   lp_r138, [x]
+    ld   LINK_HI, x
+    ld   lp_r138 >> 8, [x]
+    ld   mus_init >> 8, y
+    jmp  mus_init
+lp_r138:
+    ld   [R2], ac
+    ld   LINK_LO, x             ; CALL mus_play
+    ld   lp_r139, [x]
+    ld   LINK_HI, x
+    ld   lp_r139 >> 8, [x]
+    ld   mus_play >> 8, y
+    jmp  mus_play
+lp_r139:
+    ld   0x50, y
+    ld   0x07, [y,x]
+    ld   LINK_LO, x             ; CALL zswap
+    ld   lp_r140, [x]
+    ld   LINK_HI, x
+    ld   lp_r140 >> 8, [x]
+    ld   zswap >> 8, y
+    jmp  zswap
+lp_r140:
+    ld   ZSAVE >> 8, y
+    ld   ZV_ON, x
+    ld   1, [y,x]
+    ld   ZV_SN, x
+    ld   0, [y,x]
+    ld   lib_leave >> 8, y
+    jmp  lib_leave
+
+; mus_quiet: silence in the buffer and no more ticks (before the player's
+; code or the song is read again, or a long card write)
+mus_quiet:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   ZSAVE >> 8, y
+    ld   ZV_ON, x
+    ld   [y,x], ac
+    beq  mq_x
+    ld   0, [y,x]
+    ld   LINK_LO, x             ; CALL zswap
+    ld   lp_r141, [x]
+    ld   LINK_HI, x
+    ld   lp_r141 >> 8, [x]
+    ld   zswap >> 8, y
+    jmp  zswap
+lp_r141:
+    ld   0x50, y
+    ld   0xFF, [y,x]
+    ld   SONG >> 8, ac
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL mus_init
+    ld   lp_r142, [x]
+    ld   LINK_HI, x
+    ld   lp_r142 >> 8, [x]
+    ld   mus_init >> 8, y
+    jmp  mus_init
+lp_r142:
+    ld   0x50, y
+    ld   0x07, [y,x]
+    ld   LINK_LO, x             ; CALL zswap
+    ld   lp_r143, [x]
+    ld   LINK_HI, x
+    ld   lp_r143 >> 8, [x]
+    ld   zswap >> 8, y
+    jmp  zswap
+lp_r143:
+mq_x:
+    ld   lib_leave >> 8, y
+    jmp  lib_leave
+
+; mus_poll: mus_frame from the rules (map 07), while the card is read
+
+#addr 0x2600
+mus_poll:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   ZSAVE >> 8, y
+    ld   ZV_ON, x
+    ld   [y,x], ac
+    beq  mp_x
+    ld   LINK_LO, x             ; CALL zswap
+    ld   lp_r144, [x]
+    ld   LINK_HI, x
+    ld   lp_r144 >> 8, [x]
+    ld   zswap >> 8, y
+    jmp  zswap
+lp_r144:
+    ld   0x50, y
+    ld   0xFF, [y,x]
+    ld   LINK_LO, x             ; CALL mus_frame
+    ld   lp_r145, [x]
+    ld   LINK_HI, x
+    ld   lp_r145 >> 8, [x]
+    ld   mus_frame >> 8, y
+    jmp  mus_frame
+lp_r145:
+    ld   0x50, y
+    ld   0x07, [y,x]
+    ld   LINK_LO, x             ; CALL zswap
+    ld   lp_r146, [x]
+    ld   LINK_HI, x
+    ld   lp_r146 >> 8, [x]
+    ld   zswap >> 8, y
+    jmp  zswap
+lp_r146:
+mp_x:
+    ld   lib_leave >> 8, y
+    jmp  lib_leave
+
+; sfx_b: AC = MIDI note: a short fading note.  sfx_n: AC = MIDI note
+; (the noise's pitch): a hit.  The latest asked for in a frame plays.
