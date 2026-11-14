@@ -257,6 +257,11 @@ IT_RIG      = 1
 IT_BELLOWS  = 2
 M_DEAD      = 9
 A_WATER     = 16
+A_SEAL      = 32
+H_SEALN     = 9
+H_SEAL      = 10
+H_MSG       = 14
+G_BEAT      = 32
 WETV_LO     = 0
 WETV_HI     = 253
 ; ============================================================
@@ -2442,15 +2447,8 @@ ob_puff:
     ld   ac, [ob_t]
     bra  ob_keep
 op_item:
-    shr  ac
-    shr  ac
-    shr  ac
-    shr  ac
-    shr  ac
-    ld   ac, [ob_d]
-    ld   S_ITEM, ac
-    ld   ac, [ob_k]
-    bra  ob_keep
+    ld   op_beat >> 8, y
+    jmp  op_beat
 
 ; a walker: a step every other frame; it turns at a wall and at the end
 ; of its floor
@@ -2510,6 +2508,23 @@ ob_spit:
     ld   [y,x], ac
     beq  ot_x
     ld   ac, [tmp]
+    ld   [ob_k], ac             ; wounded (aim bit 1, under half its hits): twice as often
+    add  SPEC_AIM, x
+    ld   [y,x], ac
+    and  2, ac
+    beq  ot_m
+    ld   [ob_k], ac
+    add  SPEC_HP, x
+    ld   [y,x], ac
+    shr  ac
+    ld   ac, [tmp2]
+    ld   [ob_hp], ac
+    sub  [tmp2], ac
+    bcc  ot_m
+    ld   [tmp], ac
+    shr  ac
+    ld   ac, [tmp]
+ot_m:
     ld   [ob_t], ac
     inc
     ld   ac, [ob_t]
@@ -2633,24 +2648,6 @@ lp_r49:
     jmp  ob_enemy
 
 ; a bolt: 2 byte columns a frame until a wall, the room's edge or Wick
-ob_enemy:
-    ld   [touchf], ac
-    beq  on_x
-    ld   LINK_LO, x             ; CALL hurt
-    ld   lp_r67, [x]
-    ld   LINK_HI, x
-    ld   lp_r67 >> 8, [x]
-    ld   hurt >> 8, y
-    jmp  hurt
-lp_r67:
-on_x:
-    ld   ob_save >> 8, y
-    jmp  ob_save
-
-; hurt: thing ob_k's harm off Wick's energy (not again for a second)
-m_lo: #d8 s_m0 & 0xFF, s_m1 & 0xFF, s_m2 & 0xFF, s_m3 & 0xFF, s_m4 & 0xFF, s_m5 & 0xFF, s_m6 & 0xFF, s_m7 & 0xFF, s_m8 & 0xFF, s_m9 & 0xFF
-m_hi: #d8 s_m0 >> 8, s_m1 >> 8, s_m2 >> 8, s_m3 >> 8, s_m4 >> 8, s_m5 >> 8, s_m6 >> 8, s_m7 >> 8, s_m8 >> 8, s_m9 >> 8
-
 
 #addr 0x1200
 ob_bolt:
@@ -2781,6 +2778,24 @@ oh_v:
     ld   ob_hop2 >> 8, y
     jmp  ob_hop2
 
+ob_enemy:
+    ld   [touchf], ac
+    beq  on_x
+    ld   LINK_LO, x             ; CALL hurt
+    ld   lp_r67, [x]
+    ld   LINK_HI, x
+    ld   lp_r67 >> 8, [x]
+    ld   hurt >> 8, y
+    jmp  hurt
+lp_r67:
+on_x:
+    ld   ob_save >> 8, y
+    jmp  ob_save
+
+; hurt: thing ob_k's harm off Wick's energy (not again for a second)
+m_lo: #d8 s_m0 & 0xFF, s_m1 & 0xFF, s_m2 & 0xFF, s_m3 & 0xFF, s_m4 & 0xFF, s_m5 & 0xFF, s_m6 & 0xFF, s_m7 & 0xFF, s_m8 & 0xFF, s_m9 & 0xFF, s_m10 & 0xFF, s_m11 & 0xFF
+m_hi: #d8 s_m0 >> 8, s_m1 >> 8, s_m2 >> 8, s_m3 >> 8, s_m4 >> 8, s_m5 >> 8, s_m6 >> 8, s_m7 >> 8, s_m8 >> 8, s_m9 >> 8, s_m10 >> 8, s_m11 >> 8
+
 
 #addr 0x1300
 ob_hop2:
@@ -2829,7 +2844,22 @@ oh_e2:
 ob_hover:
     ld   [fcnt], ac
     and  1, ac
+    bne  ov_go
+    ld   SPEC >> 8, y           ; (wounded, aim bit 1: every frame)
+    ld   [ob_k], ac
+    add  SPEC_AIM, x
+    ld   [y,x], ac
+    and  2, ac
     beq  ov_x
+    ld   [ob_k], ac
+    add  SPEC_HP, x
+    ld   [y,x], ac
+    shr  ac
+    ld   ac, [tmp]
+    ld   [ob_hp], ac
+    sub  [tmp], ac
+    bcc  ov_x
+ov_go:
     ld   SPEC >> 8, y
     ld   [ob_k], ac
     add  SPEC_W, x
@@ -3342,6 +3372,32 @@ hu_x:
     ld   g_msg >> 8, y
     jmp  g_msg
 
+ls_end:
+    ld   LINK_LO, x             ; CALL seal_check
+    ld   lp_r88, [x]
+    ld   LINK_HI, x
+    ld   lp_r88 >> 8, [x]
+    ld   seal_check >> 8, y
+    jmp  seal_check
+lp_r88:
+    ld   [tmp3], ac             ; (no message while the seal is shut)
+    beq  le_x
+    ld   HDR >> 8, y
+    ld   H_MSG, x
+    ld   [y,x], ac
+    beq  le_x
+    ld   LINK_LO, x             ; CALL msg_set
+    ld   lp_r89, [x]
+    ld   LINK_HI, x
+    ld   lp_r89 >> 8, [x]
+    ld   msg_set >> 8, y
+    jmp  msg_set
+lp_r89:
+le_x:
+    ld   lib_leave >> 8, y
+    jmp  lib_leave
+
+; the thing that a beaten creature guarded; its keeper is beaten
 
 #addr 0x1700
 sp_obj:
@@ -3478,6 +3534,33 @@ hu_2:
 ; load_room: read LAMP/Rnn.RM (nn = room, hex) to MAP and HDR, and its
 ; area's tiles when they are not the ones loaded
 ; ------------------------------------------------------------
+op_beat:
+    ld   [ob_p], ac
+    and  31, ac
+    add  G_BEAT, x
+    ld   GOT >> 8, y
+    ld   1, [y,x]
+    ld   LINK_LO, x             ; CALL seal_check
+    ld   lp_r90, [x]
+    ld   LINK_HI, x
+    ld   lp_r90 >> 8, [x]
+    ld   seal_check >> 8, y
+    jmp  seal_check
+lp_r90:
+    ld   [ob_p], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [ob_d]
+    ld   S_ITEM, ac
+    ld   ac, [ob_k]
+    ld   ob_keep >> 8, y
+    jmp  ob_keep
+
+; seal_check: the room's seal opens (its tiles become empty) when every
+; keeper it names is beaten.  tmp3: 0 when it stays shut
 
 #addr 0x1800
 load_room:
@@ -3609,11 +3692,10 @@ lp_r87:
     ld   ls_lp >> 8, y
     jmp  ls_lp
 ls_x:
-    ld   lib_leave >> 8, y
-    jmp  lib_leave
+    ld   ls_end >> 8, y
+    jmp  ls_end
 
-; load_area: read LAMP/An.TS (n = area): 4 pages of tables to TS_LO on,
-; the rest to x6000 on
+; the end of a room's reading: its seal, its message
 
 #addr 0x1900
 lr_2:
@@ -3703,14 +3785,67 @@ ls_lp:
     ld   ls_2 >> 8, y
     jmp  ls_2
 
-s_dir:    #d "LAMP", 0x00
-s_room:   #d "R00.RM", 0x00
-s_area:   #d "A0.TS", 0x00
-s_hex:    #d "0123456789ABCDEF"
-s_energy: #d "ENERGY", 0x00
-s_sp:     #d "  ", 0x00
-s_bits:   #d8 1, 2, 4, 8, 16, 32, 64, 128
+seal_check:
+    ld   1, ac
+    ld   ac, [tmp3]
+    ld   HDR >> 8, y
+    ld   H_SEALN, x
+    ld   [y,x], ac
+    beq  sc_x
+    ld   ac, [tmp3]
+    ld   H_SEAL, ac
+    ld   ac, [tmp2]
+sc_lp:
+    ld   HDR >> 8, y
+    ld   [tmp2], x
+    ld   [y,x], ac
+    add  G_BEAT, x
+    ld   GOT >> 8, y
+    ld   [y,x], ac
+    beq  sc_shut
+    ld   [tmp2], ac
+    inc
+    ld   ac, [tmp2]
+    ld   [tmp3], ac
+    dec
+    ld   ac, [tmp3]
+    bne  sc_lp
+    ld   MAP >> 8, ac
+    ld   ac, [tmp3]
+    clr  ac
+    ld   ac, [tmp2]
+sc_t:
+    ld   [tmp3], y
+    ld   [tmp2], x
+    ld   [y,x], ac
+    ld   ac, x
+    ld   ATTR >> 8, y
+    ld   [y,x], ac
+    and  A_SEAL, ac
+    beq  sc_n
+    ld   [tmp3], y
+    ld   [tmp2], x
+    ld   0, [y,x]
+sc_n:
+    ld   [tmp2], ac
+    inc
+    ld   ac, [tmp2]
+    bne  sc_t
+    ld   [tmp3], ac
+    inc
+    ld   ac, [tmp3]
+    xor  (MAP >> 8) + 2, ac
+    bne  sc_t
+sc_x:
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+sc_shut:
+    ld   ac, [tmp3]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
 
+; load_area: read LAMP/An.TS (n = area): 4 pages of tables to TS_LO on,
+; the rest to x6000 on
 
 #addr 0x1A00
 load_area:
@@ -3727,23 +3862,23 @@ load_area:
     ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   LINK_LO, x             ; CALL fs_root
-    ld   lp_r88, [x]
+    ld   lp_r91, [x]
     ld   LINK_HI, x
-    ld   lp_r88 >> 8, [x]
+    ld   lp_r91 >> 8, [x]
     ld   fs_root >> 8, y
     jmp  fs_root
-lp_r88:
+lp_r91:
     ld   s_dir & 0xFF, ac
     ld   ac, [R0]
     ld   s_dir >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL fs_open
-    ld   lp_r89, [x]
+    ld   lp_r92, [x]
     ld   LINK_HI, x
-    ld   lp_r89 >> 8, [x]
+    ld   lp_r92 >> 8, [x]
     ld   fs_open >> 8, y
     jmp  fs_open
-lp_r89:
+lp_r92:
     ld   [area], ac
     add  0x30, ac
     ld   s_area >> 8, y
@@ -3754,12 +3889,12 @@ lp_r89:
     ld   s_area >> 8, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL fs_open
-    ld   lp_r90, [x]
+    ld   lp_r93, [x]
     ld   LINK_HI, x
-    ld   lp_r90 >> 8, [x]
+    ld   lp_r93 >> 8, [x]
     ld   fs_open >> 8, y
     jmp  fs_open
-lp_r90:
+lp_r93:
     beq  la_ok
     ld   dos_back >> 8, y
     jmp  dos_back
@@ -3770,12 +3905,12 @@ la_ok:
     ld   ac, [R5]
 la_rd:
     ld   LINK_LO, x             ; CALL fs_read
-    ld   lp_r91, [x]
+    ld   lp_r94, [x]
     ld   LINK_HI, x
-    ld   lp_r91 >> 8, [x]
+    ld   lp_r94 >> 8, [x]
     ld   fs_read >> 8, y
     jmp  fs_read
-lp_r91:
+lp_r94:
     bne  la_done
     ld   [R5], ac               ; after the tables: the video RAM
     xor  TABLES_END >> 8, ac
@@ -3786,6 +3921,14 @@ lp_r91:
 la_done:
     ld   lib_leave >> 8, y
     jmp  lib_leave
+
+s_dir:    #d "LAMP", 0x00
+s_room:   #d "R00.RM", 0x00
+s_area:   #d "A0.TS", 0x00
+s_hex:    #d "0123456789ABCDEF"
+s_energy: #d "ENERGY", 0x00
+s_sp:     #d "  ", 0x00
+s_bits:   #d8 1, 2, 4, 8, 16, 32, 64, 128
 
 
 #addr 0x1B00
@@ -3801,3 +3944,7 @@ s_m6: #d "WIDE FLAME: THREE SPARKS AT A TIME      ", 0x00
 s_m7: #d "CINDER COAT: HALF THE HARM, NO HEAT     ", 0x00
 s_m8: #d "BALLAST BOOTS: NO DRAG UNDER WATER      ", 0x00
 s_m9: #d "THE LANTERN WENT OUT                    ", 0x00
+
+#addr 0x1D00
+s_m10: #d "THREE KEEPERS DOWN: THE SEAL IS OPEN    ", 0x00
+s_m11: #d "THE GREAT LAMP BURNS AGAIN              ", 0x00
