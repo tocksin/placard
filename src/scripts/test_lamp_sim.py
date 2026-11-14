@@ -364,9 +364,11 @@ def main(argv):
         if args.shots:
             ps.render(mem, os.path.join(args.shots, name + '.png'))
 
-    stops = {z[n]: n for n in ('frame', 'frame_go', 'bg_row', 'row_done', 'bg_done', 'ds_next', 'logic')}
+    stops = {z[n]: n for n in ('frame', 'frame_go', 'bg_row', 'row_done', 'bg_done', 'ds_next', 'mus_tick')}
     spare = slack = 999
     in_wait = False
+    slacks = []
+    tuned = 0                   # frames with music in the audio buffer
     while frames < args.max_frames:
         cpu.step()
         what = stops.get(cpu.pc)
@@ -383,6 +385,11 @@ def main(argv):
                         cpu.clocks = nxt
                 continue
             in_wait = True
+            if len(set(mem[0x5DF3:0x6000])) > 4:
+                tuned += 1
+            if os.environ.get('LAMPSLACK') and frames > 2:
+                w = (GO_CLOCK - t % FRAME) % FRAME
+                slacks.append((w, frames, model.room))
             if args.beaten and model.mode == gl.M_PLAY:     # (once the game has begun)
                 for k in args.beaten.split(','):
                     model.got[gl.G_BEAT + int(k)] = mem[gl.GOT + gl.G_BEAT + int(k)] = 1
@@ -431,7 +438,7 @@ def main(argv):
             in_wait = False
             t_go = t
             continue
-        if cpu.map != 0xFF and what != 'logic':
+        if cpu.map != 0xFF:
             continue
         if drawn is None:
             continue
@@ -478,9 +485,7 @@ def main(argv):
                     print('frame %d: background, %d bytes differ, first %04X: %02X, model %02X'
                           % (frames, len(bad), a, mem[a], want[a]))
             continue
-        # logic: the sprites are drawn
-        if cpu.map != 0x07:
-            continue
+        # mus_tick: the sprites are drawn (the music comes next)
         pic = bytearray(65536)
         for a, v in want.items():
             pic[a] = v
@@ -501,6 +506,13 @@ def main(argv):
     if spare < 999:
         print('a sprite drawn after that was done at least %d screen rows before the beam reached it' % spare)
     shot('last')
+    print('music in the audio buffer in %d of %d frames' % (tuned, frames))
+    if tuned < frames * 3 // 4:
+        print('FAIL: too little music')
+        ok = False
+    if slacks:
+        slacks.sort()
+        print('slack: least %s; 1%% %d; median %d clocks' % (slacks[:8], slacks[len(slacks) // 100][0], slacks[len(slacks) // 2][0]))
     for name, n in (('rules', bad_rules), ('background', bad_bg), ('sprites', bad_spr), ('beam', bad_beam)):
         if n:
             print('FAIL: %s: %d frames' % (name, n))

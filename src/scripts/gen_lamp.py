@@ -105,23 +105,36 @@ A_SOLID = A_TOP | A_BOT
 EX_L, EX_R, EX_U, EX_D = 1, 2, 3, 4
 
 # RAM
-TS_LO, TS_HI, ATTR, FR = 0x4000, 0x4100, 0x4200, 0x4300
-SPEC = 0x4400           # the area's kinds of things: what they do, frame, hits, harm
+# the area block (8 sectors of An.TS): the song, player code, the area's tables
+AREA_BLK, AREA_END = 0x3300, 0x4300
+SONG = 0x3300           # 8 pages: the area's song (.SNG); its pages 3-4 (instruments
+SONG_GAP = 0x3600       #   10-1F, custom waves) are not used: player code there
+SONG_END = 0x3B00
+PCODE_A = 0x3B00        # 3 pages: music player code (read with every area)
+TS_LO, TS_HI, ATTR, FR = 0x4000, 0x4100, 0x4200, 0x3E00
+SPEC = 0x3F00           # the area's kinds of things: what they do, frame, hits, harm
+PCODE_B = 0x5800        # 2 pages: music player code, the An.TS sector after the block
+MUS_TABLES = 0x2900     # the music player's 10 pages of tables (in LAMP.PLC)
+MUS_RAM = 0x4300        # its 10 pages of RAM: wave pages x4300-x47FF, voice state
+                        # x4800-x4CFF (x76-x9F of each; the game has the rest)
+PROG2_END = 0x2700      # the program's second part: x2000 up to here
+PCODE_C = 0x2700        # music player code in LAMP.PLC, up to MUS_TABLES
+ZSAVE = 0x5C00          # x60-x8F of the zero page: the other side's copy (game / player)
+SFX_NOISE, SFX_BEEP = 0x0E, 0x0F    # every song's instruments E-F: the sound effects
 SPEC_BEH, SPEC_FRAME, SPEC_HP, SPEC_DMG, SPEC_ANIM = 0x00, 0x10, 0x20, 0x30, 0x40
 SPEC_DIRM, SPEC_W, SPEC_H, SPEC_SPIT, SPEC_WIDE, SPEC_AIM = 0x50, 0x60, 0x70, 0x80, 0x90, 0xA0
-TABLES_END = 0x4600
-MAP = 0x4600            # 2 pages: tile number * 8 of tile (tx, ty) at (ty << 5) | tx
-HDR = 0x4800            # the room's header
-OBJ = 0x5500            # the room's things
+MAP = 0x5400            # 2 pages: tile number * 8 of tile (tx, ty) at (ty << 5) | tx
+HDR = 0x5600            # the room's header (then a spare page: Rnn.RM's second sector)
+OBJ = 0x4A00            # the room's things (x00-x37)
 O_KIND, O_X, O_Y, O_D, O_T, O_HP, O_P = 0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30
-GOT = 0x5600            # item n is found
-V_MSG, V_MSG_T, V_MSG_D = 0x80, 0x81, 0x82      # variables in that page: the message line
-V_MODE = 0x83           # 0 playing, 1 the title, 2 the ending
-V_SAVED, V_SROOM, V_SX, V_SY, V_SITEMS, V_SEMAX = 0x84, 0x85, 0x86, 0x87, 0x88, 0x89   # the last save lamp
-V_FR, V_SEC, V_MIN = 0x8A, 0x8B, 0x8C          # the time played
-V_HASSAVE = 0x8D        # (the title) the card has a saved game
+GOT = 0x4B00            # item n is found (x00-x3F; x76-x9F are the music player's)
+V_MSG, V_MSG_T, V_MSG_D = 0xA0, 0xA1, 0xA2      # variables in that page: the message line
+V_MODE = 0xA3           # 0 playing, 1 the title, 2 the ending
+V_SAVED, V_SROOM, V_SX, V_SY, V_SITEMS, V_SEMAX = 0xA4, 0xA5, 0xA6, 0xA7, 0xA8, 0xA9   # the last save lamp
+V_FR, V_SEC, V_MIN = 0xAA, 0xAB, 0xAC          # the time played
+V_HASSAVE = 0xAD        # (the title) the card has a saved game
 M_PLAY, M_TITLE, M_END = 0, 1, 2
-SL = 0x5400             # the sprite list
+SL = 0x4900             # the sprite list (x00-x3F)
 SL_LO, SL_HI, SL_C, SL_G = 0x00, 0x10, 0x20, 0x30
 MAX_SPR = 16
 SD_OVL = 0x6000
@@ -1822,11 +1835,61 @@ def strip_lines(vals, nxt, loop=None):
     return lines
 
 
+# ---------------------------------------------------------------------------
+# the music player (placard_mus.masm), assembled apart: its code in
+# LAMP.PLC (x2500-x28FF), in every area file (the area block's x3B00-x3DFF,
+# x5800-x59FF and the last N_RESERVE stretches of the video RAM), its
+# tables in LAMP.PLC.  It runs in map FF with its own x60-x8F (lamp_code.masm,
+# "music").
+# ---------------------------------------------------------------------------
+N_RESERVE = 17
+MUS_SYMS = ('mus_init', 'mus_play', 'mus_frame', 'mus_stop', 'mus_sfx')
+_MUS = []
+
+
+def player_regions():
+    vid = []                # (the 16 bytes of a stretch past a page end are left: one
+    for a, b in sd_frags()[-N_RESERVE:]:    # window a page for asm_expand)
+        vid.append((a, min(b, (a & 0xFF00) + 0x100)))
+    return ([(PCODE_C, MUS_TABLES), (SONG_GAP, SONG_GAP + 0x200), (PCODE_A, FR), (PCODE_B, PCODE_B + 0x200)] + vid
+            + [(FR + 0xB0, FR + 0x100), (SPEC + 0xB0, SPEC + 0x100)])   # (FR: 48 frames; SPEC to xAF)
+
+
+def music_module():
+    """the music player, assembled for this memory map -> ({addr: byte}, symbols)"""
+    if not _MUS:
+        src = '''#include "placard.asm"
+#include "zeropage.asm"
+MUS_TABLES = 0x%04X
+MUS_RAM    = 0x%04X
+.prefix lmu
+.region 0x%04X, 0x%04X, 1, ram, pack
+.include "placard_mus.masm"
+''' % (MUS_TABLES, MUS_RAM, PCODE_C, MUS_TABLES)
+        name = os.path.join(HERE, 'lamp_mus.masm')
+        head, chunks = asm_expand.expand(src, name)
+        regs = [(a, b, 1, 0) for a, b in player_regions()]
+        for c in chunks:
+            if c.fixed is None:
+                c.regions, c.region = regs, regs[0]
+        asm_expand.place(chunks, name)
+        mem, syms, _ = ps.assemble(asm_expand.render(head, chunks, name), HERE)
+        own = dict(mem)             # (assembled without the library: every byte is the player's)
+        for ad in own:
+            assert any(a <= ad < b for a, b in player_regions()) or MUS_TABLES <= ad < MUS_TABLES + 0xA00, \
+                'player byte at x%04X' % ad
+        _MUS.append((own, {k: syms[k] for k in MUS_SYMS}))
+    return _MUS[0]
+
+
 def area_file(n):
-    """-> (bytes of An.TS, info): the tables, then the RAM from x6000 (the
-    tile routines and the sprite routines)"""
+    """-> (bytes of An.TS, info): the area block (song, player code, the
+    tables), x5800-x59FF (player code), then the RAM from x6000 (the tile
+    routines and the sprite routines, and the player's code in the last
+    stretches)"""
+    import lamp_music
     ar = Area(n)
-    frags = sd_frags()
+    frags = sd_frags()[:-N_RESERVE]
     free = [f[0] for f in frags]
     state = [0, 0]
     out = ['#include "placard.asm"', ZP, 'ROWX = 0x0100']
@@ -1911,10 +1974,23 @@ def area_file(n):
     for fi, (name, art) in enumerate(ar.frames):
         ad = syms['spr_' + alias.get(name, name)]
         fr[fi], fr[128 + fi] = ad & 255, ad >> 8
-    block = bytes(ts_lo) + bytes(ts_hi) + bytes(ar.attr) + bytes(fr) + ar.spec_page() + bytes(256)
-    assert len(block) == TABLES_END - TS_LO
-    top = SD_OVL + ((max(mem) - SD_OVL) // 512 + 1) * 512
-    image = bytes(mem.get(a, 0) for a in range(SD_OVL, top))
+    blk = bytearray(AREA_END - AREA_BLK)
+    for ad, b in ((FR, fr), (SPEC, ar.spec_page()), (TS_LO, ts_lo), (TS_HI, ts_hi), (ATTR, ar.attr)):
+        blk[ad - AREA_BLK:ad - AREA_BLK + 256] = bytes(b)
+    song = lamp_music.area_song(n)
+    assert len(song) <= SONG_END - SONG, 'area %d: the song is %d bytes' % (n, len(song))
+    assert not any(song[SONG_GAP - SONG:SONG_GAP - SONG + 0x200]), 'area %d: instruments past F or custom waves' % n
+    blk[SONG - AREA_BLK:SONG - AREA_BLK + len(song)] = song
+    pl = music_module()[0]
+    for ad, b in pl.items():
+        if AREA_BLK <= ad < AREA_END:
+            blk[ad - AREA_BLK] = b
+    pb = bytes(pl.get(a, 0) for a in range(PCODE_B, PCODE_B + 0x200))
+    block = bytes(blk) + pb
+    whole = dict(mem)
+    whole.update((ad, b) for ad, b in pl.items() if ad >= SD_OVL)
+    top = SD_OVL + ((max(whole) - SD_OVL) // 512 + 1) * 512
+    image = bytes(whole.get(a, 0) for a in range(SD_OVL, top))
     info = dict(area=ar, used=len(mem), frags_used=state[1] + 1, nfrags=len(frags), strips=nstrip,
                 image=mem, syms=syms, fr=fr)
     return block + image, info
@@ -2506,7 +2582,7 @@ def masm():
                   START_Y=START_Y, START_ENERGY=START_ENERGY, IN_RIGHT=IN_RIGHT, IN_LEFT=IN_LEFT,
                   IN_JUMP=IN_JUMP, IN_FIRE=IN_FIRE, IN_UP=IN_UP, IN_DOWN=IN_DOWN, A_DOOR=A_DOOR,
                   A_DBOT=A_DBOT, EX_L=EX_L, EX_R=EX_R, EX_U=EX_U, EX_D=EX_D, TS_LO=TS_LO, TS_HI=TS_HI,
-                  ATTR=ATTR, FR=FR, TABLES_END=TABLES_END, MAP=MAP, HDR=HDR, SL=SL, SL_LO=SL_LO, SL_HI=SL_HI,
+                  ATTR=ATTR, FR=FR, AREA_BLK=AREA_BLK, AREA_END=AREA_END, PCODE_B=PCODE_B, PROG2_END=PROG2_END, MAP=MAP, HDR=HDR, SL=SL, SL_LO=SL_LO, SL_HI=SL_HI,
                   SL_C=SL_C, SL_G=SL_G, H_AREA=H_AREA, H_RW=H_RW, H_RCY=H_RCY, H_RWX=H_RWX, H_RHY=H_RHY,
                   HX_SIDE=HX_SIDE, HX_LO=HX_LO, HX_HI=HX_HI, HX_DEST=HX_DEST, HX_DELTA=HX_DELTA,
                   H_NAME=H_NAME, T_DT=T_DT, T_DB=T_DB, T_DOT=T_DOT, T_DOB=T_DOB, NPF=NPF, F_RUN1=F_RUN1,
@@ -2526,7 +2602,8 @@ def masm():
                   M_DEAD=len(ITEM_MSG) + 1, A_WATER=A_WATER, A_SEAL=A_SEAL, H_SEALN=H_SEALN, H_SEAL=H_SEAL,
                   H_MSG=H_MSG, G_BEAT=G_BEAT, V_MODE=V_MODE, V_SAVED=V_SAVED, V_SROOM=V_SROOM, V_SX=V_SX, V_SY=V_SY,
                   V_SITEMS=V_SITEMS, V_SEMAX=V_SEMAX, V_FR=V_FR, V_SEC=V_SEC, V_MIN=V_MIN, V_HASSAVE=V_HASSAVE,
-                  M_SAVE=len(ITEM_MSG) + 2 + len(ROOM_MSG), END_ROOM=END_ROOM, N_ITEMS=N_ITEMS, M_TITLE=M_TITLE, M_END=M_END, WETV_LO=(-WETV) & 255, WETV_HI=((-WETV) >> 8) & 255)
+                  M_SAVE=len(ITEM_MSG) + 2 + len(ROOM_MSG), END_ROOM=END_ROOM, N_ITEMS=N_ITEMS, M_TITLE=M_TITLE, M_END=M_END, WETV_LO=(-WETV) & 255, WETV_HI=((-WETV) >> 8) & 255,
+                  SONG=SONG, ZSAVE=ZSAVE, SFX_BEEP=SFX_BEEP, SFX_NOISE=SFX_NOISE)
     assert HURTV & 255 == 0
     msgs = [''] + ITEM_MSG + [MSG_DEAD] + ROOM_MSG + [MSG_SAVE]
     assert all(len(m) <= NAME_W for m in msgs)
@@ -2538,6 +2615,7 @@ def masm():
     for ln in __doc__.strip().split('\n')[1:]:
         head.append(('; ' + ln).rstrip())
     head += ['', '#include "placard.asm"', '#include "placard_lib.asm"', 'dos_back = 0x8008', 'fs_save = 0x8020', ZP]
+    head += ['%-10s = 0x%04X       ; the music player' % (k, v) for k, v in music_module()[1].items()]
     head += ['%-11s = %d' % kv for kv in consts.items()]
     rowt = '\n'.join(('    ld   [rowb], x' if k == 0 else '    ld   [rowb], ac\n    add  %d, x' % k)
                      + '\n    ld   [y,x], ac\n    ld   ac, [ROWT + %d]' % k for k in range(16))
@@ -2573,7 +2651,8 @@ def sd_files():
     lib, _, _ = ps.assemble(open(os.path.join(HERE, 'rom_lib.asm')).read(), HERE)
     own = gen_plc.own_bytes(mem, lib)
     for ad in own:
-        assert 0x0100 <= ad < 0x4000 and not 0x1F00 <= ad < 0x2000, 'LAMP.PLC: a byte at x%04X' % ad
+        assert 0x0100 <= ad < PCODE_C and not 0x1F00 <= ad < 0x2000, 'LAMP.PLC: a byte at x%04X' % ad
+    own.update((ad, b) for ad, b in music_module()[0].items() if ad < AREA_BLK)
     data = bytes(own.get(ad, 0) for ad in range(0x0100, max(own) + 1))
     plc = gen_plc.header(0, 0x0100, len(data), syms['main']) + data
     files = {}
