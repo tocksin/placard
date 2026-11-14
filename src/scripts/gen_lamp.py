@@ -116,6 +116,11 @@ OBJ = 0x5500            # the room's things
 O_KIND, O_X, O_Y, O_D, O_T, O_HP, O_P = 0x00, 0x08, 0x10, 0x18, 0x20, 0x28, 0x30
 GOT = 0x5600            # item n is found
 V_MSG, V_MSG_T, V_MSG_D = 0x80, 0x81, 0x82      # variables in that page: the message line
+V_MODE = 0x83           # 0 playing, 1 the title, 2 the ending
+V_SAVED, V_SROOM, V_SX, V_SY, V_SITEMS, V_SEMAX = 0x84, 0x85, 0x86, 0x87, 0x88, 0x89   # the last save lamp
+V_FR, V_SEC, V_MIN = 0x8A, 0x8B, 0x8C          # the time played
+V_HASSAVE = 0x8D        # (the title) the card has a saved game
+M_PLAY, M_TITLE, M_END = 0, 1, 2
 SL = 0x5400             # the sprite list
 SL_LO, SL_HI, SL_C, SL_G = 0x00, 0x10, 0x20, 0x30
 MAX_SPR = 16
@@ -129,9 +134,9 @@ HX_SIDE, HX_LO, HX_HI, HX_DEST, HX_DELTA = 0x10, 0x18, 0x20, 0x28, 0x30
 HO_KIND, HO_X, HO_Y, HO_P = 0x40, 0x48, 0x50, 0x58
 # what a thing does
 # (B_WALK and above: a shot hurts it)
-B_ITEM, B_EMBER, B_PUFF, B_BOLT, B_WALK, B_FLY, B_SIT, B_DROP, B_HOP, B_HOVER = range(10)
+B_ITEM, B_EMBER, B_PUFF, B_BOLT, B_LAMP, B_WALK, B_FLY, B_SIT, B_DROP, B_HOP, B_HOVER = range(11)
 # the kinds every area has
-S_NONE, S_ITEM, S_EMBER, S_PUFF, S_BOLT = range(5)
+S_NONE, S_ITEM, S_EMBER, S_PUFF, S_BOLT, S_LAMP = range(6)
 # items: the type is the upper 3 bits of a thing's parameter, the item's
 # number (its GOT flag) the lower 5
 I_FLASK, I_RIG, I_BELLOWS, I_SAIL, I_KILN, I_WIDE, I_COAT, I_BOOTS = range(8)
@@ -295,6 +300,7 @@ ITEM_MSG = ["OIL FLASK: THE LANTERN HOLDS MORE", "BURROW RIG: HOLD DOWN TO CRAWL
             "KILN CHARGE: HOLD FIRE, LET GO: A BLAST", "WIDE FLAME: THREE SPARKS AT A TIME",
             "CINDER COAT: HALF THE HARM, NO HEAT", "BALLAST BOOTS: NO DRAG UNDER WATER"]
 MSG_DEAD = "THE LANTERN WENT OUT"
+MSG_SAVE = "SAVED AT THE LAMP: THE LANTERN IS FULL"
 ROOM_MSG = ["THREE KEEPERS DOWN: THE SEAL IS OPEN", "THE GREAT LAMP BURNS AGAIN"]
 EMBER_ART = [
     tall(["......dd........",
@@ -654,6 +660,19 @@ SNUFF_ALT = {14: "....b77777ee7777", 15: "....b7777eeee777", 16: "...b77777eeee7
              25: "1.1.1.1.1.1.1.1.", 26: ".1...1...1...1..", 27: "..1.....1.....1."}
 
 
+# a save lamp: a post with a lantern on it
+SAVE_ART = [
+    ["......bbbb......", ".....b0000b.....", ".....beeeeb.....", ".....bedceb.....", ".....bedceb.....",
+     ".....beeeeb.....", "......bbbb......", ".......bb.......", ".......66.......", ".......66.......",
+     ".......66.......", ".......66.......", ".......66.......", ".......66.......", "......6666......",
+     ".....bbbbbb....."],
+    ["......bbbb......", ".....b0000b.....", ".....beeeeb.....", ".....beddeb.....", ".....bedceb.....",
+     ".....beeeeb.....", "......bbbb......", ".......bb.......", ".......66.......", ".......66.......",
+     ".......66.......", ".......66.......", ".......66.......", ".......66.......", "......6666......",
+     ".....bbbbbb....."],
+]
+
+
 def recolor(art, old, new):
     return [[r.translate(str.maketrans(old, new)) for r in a] for a in art]
 
@@ -697,7 +716,7 @@ def common_frames():
     for i, art in enumerate(ITEM_ART):
         fr.append(('item%d' % i, art))
     fr += [('ember0', EMBER_ART[0]), ('ember1', EMBER_ART[1]), ('puff0', PUFF_ART[0]), ('puff1', PUFF_ART[1]),
-           ('bolt0', BOLT_ART[0]), ('bolt1', BOLT_ART[1])]
+           ('bolt0', BOLT_ART[0]), ('bolt1', BOLT_ART[1]), ('lamp0', SAVE_ART[0]), ('lamp1', SAVE_ART[1])]
     return fr
 
 
@@ -707,6 +726,7 @@ F_ITEM = F_BLAST + 1
 F_EMBER = F_ITEM + len(ITEM_ART)
 F_PUFF = F_EMBER + 2
 F_BOLT = F_PUFF + 2
+F_LAMP = F_BOLT + 2
 # a kind of thing: (name, what it does, frame, hits, harm, animated, the bits
 # of its direction that pick a frame, width in byte columns, height in
 # cells, spits when its timer & this is 0 (0: never), frame offset of its
@@ -716,7 +736,8 @@ K_NAME, K_BEH, K_FRAME, K_HP, K_DMG, K_ANIM, K_DIRM, K_W, K_H, K_SPIT, K_WIDE, K
 COMMON_SPEC = [('none', B_ITEM, 0, 0, 0, 0, 0, 8, 16, 0, 0, 0), ('item', B_ITEM, F_ITEM, 0, 0, 0, 7, 8, 16, 0, 0, 0),
                ('ember', B_EMBER, F_EMBER, 0, 0, 1, 0, 8, 16, 0, 0, 0),
                ('puff', B_PUFF, F_PUFF, 0, 0, 1, 0, 8, 16, 0, 0, 0),
-               ('bolt', B_BOLT, F_BOLT, 0, 6, 1, 0, 4, 8, 0, 0, 0)]
+               ('bolt', B_BOLT, F_BOLT, 0, 6, 1, 0, 4, 8, 0, 0, 0),
+               ('lamp', B_LAMP, F_LAMP, 0, 0, 1, 0, 8, 16, 0, 0, 0)]
 
 # ---------------------------------------------------------------------------
 # tiles (16 x 16, one hex digit a pixel).  Tiles 0-4 are the same in every
@@ -1056,7 +1077,7 @@ ROOMS = [
         "#" * 32]),
     dict(name='THE WELLSHAFT, LOWER', area=0,
          exits=[('U', 4, 5, 1, 0), ('L', 13, 14, 4, -4), ('R', 13, 14, 5, -7), ('D', 4, 5, 14, 0)],
-         objs=[('moth', 4, 7)], rows=[
+         objs=[('moth', 4, 7), ('lamp', 2, 14)], rows=[
         "####  ####",
         "##      ##",
         "##  ##  ##",
@@ -1100,7 +1121,7 @@ ROOMS = [
         "######################"]),
     # ---- the Glasswort Gardens
     dict(name='GLASSWORT GATE', area=1, exits=[('R', 5, 5, 4, 5), ('L', 4, 5, 7, -2), ('R', 1, 2, 4, 0)],
-         objs=[('mossback', 12, 5), ('gnat', 8, 2)], rows=[
+         objs=[('mossback', 12, 5), ('gnat', 8, 2), ('lamp', 3, 5)], rows=[
         "########################",
         "#v    v    ,     v      ",
         "#        ,              ",
@@ -1221,7 +1242,7 @@ ROOMS = [
         "####XX####"]),
     # ---- the Slagworks
     dict(name='SLAG STAIR', area=3, exits=[('L', 6, 7, 5, 0), ('R', 3, 4, 16, -1)],
-         objs=[('cinderhop', 10, 7), ('flue', 20, 4), ('emberwing', 8, 2)], rows=[
+         objs=[('cinderhop', 10, 7), ('flue', 20, 4), ('emberwing', 8, 2), ('lamp', 4, 7)], rows=[
         "########################",
         "#     ,          ,     #",
         "#                      #",
@@ -1303,7 +1324,7 @@ ROOMS = [
         "####################"]),
     # ---- the Brine Vaults
     dict(name='BRINE GATE', area=5, exits=[('L', 4, 5, 14, 9), ('R', 4, 5, 23, -2)],
-         objs=[('shellback', 14, 5), ('drip', 9, 1)], rows=[
+         objs=[('shellback', 14, 5), ('drip', 9, 1), ('lamp', 3, 5)], rows=[
         "####################",
         "#   ,          ,   #",
         "#                  #",
@@ -1387,7 +1408,7 @@ ROOMS = [
         "##      E ",
         "##########"]),
     dict(name='GEAR HALL', area=7, exits=[('L', 4, 5, 28, 9), ('R', 4, 5, 30, -2)],
-         objs=[('cogmite', 12, 5), ('wisp', 20, 2), ('orbit', 26, 5)], rows=[
+         objs=[('cogmite', 12, 5), ('wisp', 20, 2), ('orbit', 26, 5), ('lamp', 3, 5)], rows=[
         "################################",
         "#   o        ,        o        #",
         "#                              #",
@@ -1440,6 +1461,8 @@ ROOMS = [
         "    PQ   #",
         "##########"]),
 ]
+END_ROOM = next(i for i, r in enumerate(ROOMS) if r['name'] == 'THE GREAT LAMP')
+N_ITEMS = sum(1 for r in ROOMS for o in r.get('objs', []) if len(o) == 5)
 SIDES = {'L': EX_L, 'R': EX_R, 'U': EX_U, 'D': EX_D}
 
 
@@ -1902,8 +1925,10 @@ def area_file(n):
 # program with them on every frame
 # ---------------------------------------------------------------------------
 class Model:
-    def __init__(self, rooms):
+    def __init__(self, rooms, title=False):
         self.rooms = rooms
+        self.mode = M_TITLE if title else M_PLAY
+        self.saved = self.card = None     # the last save lamp (room, x, y); what the card holds
         self.room = START_ROOM
         self.px, self.py, self.pyf, self.vy = START_X, START_Y, 0, 0
         self.onground = self.facing = self.moving = self.crawl = 0
@@ -1934,6 +1959,8 @@ class Model:
         self.shots = [[0, 0, 0, 0, 0] for _ in range(3)]
         self.door_t = self.blast = 0
         self.spec = self.rm.area.spec
+        if n == END_ROOM:
+            self.mode = M_END
         if self.seal_check() and 'msg' in self.rm.r:
             self.msg, self.msg_t = len(ITEM_MSG) + 2 + self.rm.r['msg'], MSG_FRAMES
         self.objs = [[0] * 7 for _ in range(MAXOBJ)]    # kind, x, y, d, t, hp, p
@@ -2012,11 +2039,28 @@ class Model:
         return bool(self.solid(fx, o[2] + row)), fx
 
     def restart(self):
-        self.px, self.py, self.pyf, self.vy = START_X, START_Y, 0, 0
+        room, self.px, self.py = self.saved or (START_ROOM, START_X, START_Y)
+        self.pyf = self.vy = 0
         self.crawl = self.inv = 0
         self.energy = START_ENERGY
         self.msg, self.msg_t = len(ITEM_MSG) + 1, MSG_FRAMES
-        self.enter(START_ROOM)
+        self.enter(room)
+        self.camera()
+
+    def again(self, title):
+        """a new game, or the title (the card stays as it is)"""
+        card, inp = self.card, self.inp
+        self.__init__(self.rooms, title)
+        self.card, self.inp = card, inp
+
+    def go_on(self):
+        """the game saved on the card"""
+        self.again(False)
+        room, self.px, self.py, self.items, self.emax, got = self.card
+        self.got = bytearray(got)
+        self.saved = (room, self.px, self.py)
+        self.energy = self.emax
+        self.enter(room)
         self.camera()
 
     def obj_step(self, o):
@@ -2032,6 +2076,14 @@ class Model:
                 self.energy = self.emax
                 self.msg, self.msg_t = o[3] + 1, MSG_FRAMES
                 o[0] = 0
+            return
+        if b == B_LAMP:
+            if touch and not o[4]:          # saved, once a visit
+                o[4] = 1
+                self.saved = (self.room, self.px, self.py)
+                self.energy = self.emax
+                self.msg, self.msg_t = len(ITEM_MSG) + 2 + len(ROOM_MSG), MSG_FRAMES
+                self.card = (self.room, self.px, self.py, self.items, self.emax, bytes(self.got))
             return
         if b == B_EMBER:
             o[4] -= 1
@@ -2215,6 +2267,12 @@ class Model:
     def step(self, inp):
         """one frame with the input bits inp"""
         prev, self.inp = self.inp, inp
+        if self.mode:                       # the title, the ending: wait for a key
+            if inp & IN_JUMP and not prev & IN_JUMP:
+                self.again(self.mode == M_END)
+            elif self.mode == M_TITLE and inp & IN_FIRE and not prev & IN_FIRE and self.card:
+                self.go_on()
+            return
         self.fcnt = (self.fcnt + 1) & 255
         # crawling
         if inp & IN_DOWN and self.onground and self.items & IT_RIG:
@@ -2360,6 +2418,8 @@ class Model:
 
     def sprites(self):
         """the sprite list: [(frame id, SL_C, SL_G)]"""
+        if self.mode == M_TITLE:
+            return []
         if self.crawl:
             f = F_CRAWL
         elif not self.onground:
@@ -2464,9 +2524,11 @@ def masm():
                   O_P=O_P, GOT=GOT, HO_KIND=HO_KIND, HO_X=HO_X, HO_Y=HO_Y, HO_P=HO_P, B_WALK=B_WALK,
                   S_ITEM=S_ITEM, S_EMBER=S_EMBER, S_PUFF=S_PUFF, IT_SAIL=IT_SAIL, SAILV=SAILV, IT_RIG=IT_RIG, IT_BELLOWS=IT_BELLOWS,
                   M_DEAD=len(ITEM_MSG) + 1, A_WATER=A_WATER, A_SEAL=A_SEAL, H_SEALN=H_SEALN, H_SEAL=H_SEAL,
-                  H_MSG=H_MSG, G_BEAT=G_BEAT, WETV_LO=(-WETV) & 255, WETV_HI=((-WETV) >> 8) & 255)
+                  H_MSG=H_MSG, G_BEAT=G_BEAT, V_MODE=V_MODE, V_SAVED=V_SAVED, V_SROOM=V_SROOM, V_SX=V_SX, V_SY=V_SY,
+                  V_SITEMS=V_SITEMS, V_SEMAX=V_SEMAX, V_FR=V_FR, V_SEC=V_SEC, V_MIN=V_MIN, V_HASSAVE=V_HASSAVE,
+                  M_SAVE=len(ITEM_MSG) + 2 + len(ROOM_MSG), END_ROOM=END_ROOM, N_ITEMS=N_ITEMS, M_TITLE=M_TITLE, M_END=M_END, WETV_LO=(-WETV) & 255, WETV_HI=((-WETV) >> 8) & 255)
     assert HURTV & 255 == 0
-    msgs = [''] + ITEM_MSG + [MSG_DEAD] + ROOM_MSG
+    msgs = [''] + ITEM_MSG + [MSG_DEAD] + ROOM_MSG + [MSG_SAVE]
     assert all(len(m) <= NAME_W for m in msgs)
     mtext = '\n'.join(('.chunk\n' if i and i % 5 == 0 else '') + 's_m%d: #d "%s", 0x00' % (i, m.ljust(NAME_W))
                       for i, m in enumerate(msgs))
@@ -2475,7 +2537,7 @@ def masm():
     head = ['; lamp.asm - LAMPLIGHTER, made by gen_lamp.py from lamp_code.masm: do not edit', ';']
     for ln in __doc__.strip().split('\n')[1:]:
         head.append(('; ' + ln).rstrip())
-    head += ['', '#include "placard.asm"', '#include "placard_lib.asm"', 'dos_back = 0x8008', ZP]
+    head += ['', '#include "placard.asm"', '#include "placard_lib.asm"', 'dos_back = 0x8008', 'fs_save = 0x8020', ZP]
     head += ['%-11s = %d' % kv for kv in consts.items()]
     rowt = '\n'.join(('    ld   [rowb], x' if k == 0 else '    ld   [rowb], ac\n    add  %d, x' % k)
                      + '\n    ld   [y,x], ac\n    ld   ac, [ROWT + %d]' % k for k in range(16))
@@ -2485,7 +2547,7 @@ def masm():
            .replace('@@VPG@@', '\n'.join(data_lines(VPG_T)))
            .replace('@@ROWT@@', rowt).replace('@@VPGS@@', vpgs).replace('@@INPUT@@', input_tests())
            .replace('@@MSGS@@', mtext).replace('@@MTAB@@', mtab)
-           .replace('@@HOPDY@@', ', '.join('0x%02X' % (v & 255) for v in HOPDY)))
+           .replace('@@NITEMS@@', str(N_ITEMS)).replace('@@HOPDY@@', ', '.join('0x%02X' % (v & 255) for v in HOPDY)))
     assert '@@' not in src
     return '\n'.join(head) + '\n' + src
 
@@ -2521,6 +2583,7 @@ def sd_files():
         areas.append(ai)
     for rm in rooms:
         files['LAMP/R%02X.RM' % rm.n] = rm.file()
+    files['LAMP/SAVE.DAT'] = bytes(256)     # a blank save: the card's writer never grows a folder
     return plc, files, syms, dict(src=text, top=top, areas=areas, rooms=rooms)
 
 

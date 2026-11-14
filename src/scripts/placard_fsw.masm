@@ -40,7 +40,7 @@
 ; x8010-x8020 (dos.masm, docs/software/DOS.md).  placard_lib.asm's jump table is
 ; unchanged.  asm_expand.py writes placard_fsw.asm from this file.
 ;
-; Date: 11/11/2026
+; Date: 11/14/2026
 ; ============================================================
 
 V_WCLUS   = 0x6D        ; 4: the file's first cluster, 0 = none yet
@@ -226,6 +226,19 @@ fsh_1:
     ld   ac, [T0]
 fsh_0:
     RET
+
+.chunk  fw_prev - T0-T3 = V_SLBA - 1: the sector fs_snext read last
+fw_prev:
+    PUSH_LINK
+    ld   V_SLBA, ac
+    CALL fs_get
+    ld   0xFF, ac
+    ld   ac, [T4]
+    ld   ac, [T5]
+    ld   ac, [T6]
+    ld   ac, [T7]
+    CALL fs_add
+    LEAVE
 
 .chunk  fw_lba - R3:R0 = T0-T3, R5:R4 = FS_BUF: the arguments of sd_read / sd_write
 fw_lba:
@@ -721,8 +734,7 @@ fu_file:
     ld   [IO_T0], x
     ld   [IO_T1], y
     ld   0xE5, [y,x]            ; deleted
-    ld   V_DSEC, ac
-    CALL fs_get
+    CALL fw_prev                ; its sector: the one fw_find read last
     CALL fw_lba
     CALL sd_write
     bne  fu_ret
@@ -887,16 +899,17 @@ fc_free:
     CALL fs_cwd                 ; a free entry: the first 00 or E5
     bne  fc_ret
 fc_sec:
-    ld   V_SLBA, ac             ; the sector about to be read
-    CALL fs_get
-    ld   V_WESEC, ac
-    CALL fs_put
     ld   FSB, ac
     ld   ac, [R5]
     clr  ac
     ld   ac, [R4]
     CALL fs_snext
-    beq  fc_look
+    ld   ac, [IO_T3]
+    ld   FSV, y                 ; FS_BUF holds a folder sector now, not
+    ld   V_FATC + 3, x          ; the FAT sector the next fs_snext would
+    ld   0xFF, [y,x]            ; take a cluster from (11/14/2026)
+    ld   [IO_T3], ac
+    beq  fc_read
     ld   ac, [IO_TMP]
     xor  1, ac
     beq  fc_dfull
@@ -906,6 +919,10 @@ fc_ret:
 fc_dfull:
     ld   E_DIRFULL, ac
     LEAVE
+fc_read:
+    CALL fw_prev                ; the sector just read (a folder's next
+    ld   V_WESEC, ac            ; cluster need not follow its last one)
+    CALL fs_put
 fc_look:
     clr  ac
     ld   ac, [IO_T2]

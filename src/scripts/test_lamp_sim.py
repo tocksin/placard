@@ -51,7 +51,7 @@ HOLD = 4
 # ('item', n, i) take thing i of room n; ('kill', n, i) shoot creature i of room n;
 # ('dead', n, i) let creature i of room n hurt Wick until his energy is gone;
 # ('fight', n, i) the boss, thing i of room n: keep away, jump its low bolts, fire
-ROUTE = [('dead', 0, 0), ('kill', 0, 0), ('room', 1), ('room', 3), ('room', 4), ('kill', 4, 2), ('item', 4, 0),
+ROUTE = [('mode', B, gl.M_PLAY), ('dead', 0, 0), ('kill', 0, 0), ('room', 1), ('room', 3), ('room', 4), ('kill', 4, 2), ('item', 4, 0),
          ('room', 6), ('room', 7), ('room', 8), ('item', 8, 0), ('room', 7), ('room', 9), ('kill', 9, 0),
          ('room', 10), ('item', 10, 0), ('room', 9), ('room', 7), ('room', 11), ('room', 12), ('room', 13),
          ('fight', 13, 0), ('item', 13, 0), ('room', 12), ('room', 11), ('at', 11, 4, 1), ('room', 7),
@@ -72,7 +72,9 @@ ROUTE = [('dead', 0, 0), ('kill', 0, 0), ('room', 1), ('room', 3), ('room', 4), 
          ('at', 3, 5, 8), ('at', 3, 4, 1), ('room', 1), ('room', 2), ('item', 2, 0), ('room', 1),
          # down again, through the open seal: the Orrery, the Snuffer, the Great Lamp
          ('room', 3), ('room', 14), ('room', 28), ('room', 29), ('room', 30), ('room', 31), ('item', 31, 0),
-         ('room', 32), ('fight', 32, 0), ('item', 32, 0), ('room', 33)]
+         ('room', 32), ('fight', 32, 0), ('item', 32, 0), ('room', 33),
+         # the ending; the title; go on from the last save lamp (the Gear Hall's)
+         ('mode', B, gl.M_TITLE), ('mode', Y, gl.M_PLAY), ('room', 29)]
 # every boss can be reached and beaten with nothing collected: these runs,
 # from the start, on the model alone (the long run shows the program and
 # the model agree)
@@ -117,6 +119,8 @@ def bare_runs(rooms):
 
 def target(m, goal):
     """the place (byte column, cell) the goal is at, in the room the model is in"""
+    if goal[0] == 'mode':
+        return m.px, m.py
     if goal[0] in ('at', 'soot') and m.room == goal[1]:
         return goal[2] * 8, goal[3] * 16
     if goal[0] in ('item', 'kill', 'dead', 'fight') and m.room == goal[1]:
@@ -137,6 +141,8 @@ def reached(m, goal):
         return m.room == goal[1] and m.onground and not m.objs[goal[2]][0]
     if goal[0] == 'dead':
         return m.msg == len(gl.ITEM_MSG) + 1 and m.msg_t > gl.MSG_FRAMES - 8
+    if goal[0] == 'mode':
+        return m.mode == goal[2]
     if goal[0] == 'soot':
         return m.room == goal[1] and not m.attr[m.map[goal[3] * gl.MAP_W + goal[2]]] & gl.A_SOOT
     if goal[0] in ('kill', 'fight'):
@@ -154,6 +160,8 @@ def plan(m0, goal, max_nodes=800000, unhurt=True):
     kill = goal[0] == 'kill' and m0.room == goal[1]
     if goal[0] == 'fight':
         return fight(m0, goal)
+    if goal[0] == 'mode':       # a key on the title or the ending
+        return [0, goal[1], 0]
     if goal[0] == 'soot':       # no search: face it, hold the fire key until the charge is full, let go
         c, out = m0.clone(), []
         while not reached(c, goal) and len(out) < 900:
@@ -302,7 +310,7 @@ def read_state(mem, z):
                 facing=mem[z['facing']], sx=mem[z['sx']], sy=mem[z['sy']], door=mem[z['door_t']],
                 shots=[(mem[z['SH_T'] + i], mem[z['SH_X'] + i], mem[z['SH_Y'] + i]) for i in range(3)],
                 energy=mem[z['energy']], emax=mem[z['emax']], items=mem[z['items']], inv=mem[z['inv']],
-                ajump=mem[z['ajump']], chg=mem[z['chg']], blast=mem[z['blast_i']], wet=mem[z['wet']], got=bytes(mem[gl.GOT:gl.GOT + 64]),
+                ajump=mem[z['ajump']], chg=mem[z['chg']], blast=mem[z['blast_i']], wet=mem[z['wet']], mode=mem[gl.GOT + gl.V_MODE], got=bytes(mem[gl.GOT:gl.GOT + 64]),
                 objs=[tuple(mem[gl.OBJ + f + i] for f in (gl.O_KIND, gl.O_X, gl.O_Y, gl.O_D, gl.O_T, gl.O_HP,
                                                           gl.O_P)) if mem[gl.OBJ + i] else None
                       for i in range(gl.MAXOBJ)])
@@ -313,7 +321,7 @@ def model_state(m):
                 facing=m.facing, sx=m.sx, sy=m.sy, door=m.door_t,
                 shots=[(s[0], s[1], s[2]) if s[0] else (0, mem_x, mem_y) for s, (mem_x, mem_y) in
                        zip(m.shots, [(s[1], s[2]) for s in m.shots])],
-                energy=m.energy, emax=m.emax, items=m.items, inv=m.inv, ajump=m.ajump, chg=m.chg, blast=m.blast, wet=m.wet,
+                energy=m.energy, emax=m.emax, items=m.items, inv=m.inv, ajump=m.ajump, chg=m.chg, blast=m.blast, wet=m.wet, mode=m.mode,
                 got=bytes(m.got),
                 objs=[tuple(o) if o[0] else None for o in m.objs])
 
@@ -337,7 +345,7 @@ def main(argv):
     pad = rig.port.pads[0]
     print('started at frame %d' % (cpu.clocks // FRAME))
     rooms = info['rooms']
-    model = gl.Model(rooms)
+    model = gl.Model(rooms, title=True)
     route = (eval(args.route) if args.route else ROUTE)[:args.goals]
     bare_ok = args.route is not None or args.goals < len(ROUTE) or bare_runs(rooms)
     goal_i = 0
@@ -375,9 +383,10 @@ def main(argv):
                         cpu.clocks = nxt
                 continue
             in_wait = True
-            if not frames:
-                for k in (args.beaten.split(',') if args.beaten else []):
+            if args.beaten and model.mode == gl.M_PLAY:     # (once the game has begun)
+                for k in args.beaten.split(','):
                     model.got[gl.G_BEAT + int(k)] = mem[gl.GOT + gl.G_BEAT + int(k)] = 1
+                args.beaten = None
             # ---- a frame's rules are done: compare, then the pad for the next
             got, want = read_state(mem, z), model_state(model)
             for i, s in enumerate(want['shots']):

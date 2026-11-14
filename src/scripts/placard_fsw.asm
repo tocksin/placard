@@ -45,7 +45,7 @@
 ; x8010-x8020 (dos.masm, docs/software/DOS.md).  placard_lib.asm's jump table is
 ; unchanged.  asm_expand.py writes placard_fsw.asm from this file.
 ;
-; Date: 11/11/2026
+; Date: 11/14/2026
 ; ============================================================
 
 V_WCLUS   = 0x6D        ; 4: the file's first cluster, 0 = none yet
@@ -130,6 +130,47 @@ fw_sec:
 
 
 #addr 0xC2AB
+fw_sub:
+    ld   [T0], ac
+    sub  [T4], ac
+    ld   ac, [T0]
+    ld   [T1], ac
+    bcc  fsb_1
+    sub  1, ac
+    bcs  fsb_1z                 ; T1 was 0: T1 = FF - T5, borrow out
+fsb_1:
+    sub  [T5], ac
+    ld   ac, [T1]
+    ld   [T2], ac
+    bcc  fsb_2
+fsb_2c:
+    sub  1, ac
+    bcs  fsb_2z
+fsb_2:
+    sub  [T6], ac
+    ld   ac, [T2]
+    ld   [T3], ac
+    bcc  fsb_3
+fsb_3c:
+    sub  1, ac
+fsb_3:
+    sub  [T7], ac
+    ld   ac, [T3]
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+fsb_1z:
+    sub  [T5], ac
+    ld   ac, [T1]
+    ld   [T2], ac
+    bra  fsb_2c
+fsb_2z:
+    sub  [T6], ac
+    ld   ac, [T2]
+    ld   [T3], ac
+    bra  fsb_3c
+
+
+#addr 0xC3AA
 fw_abort:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -145,12 +186,12 @@ fw_abort:
     ld   [SAVE_AC], ac
     ld   V_WCLUS, ac
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r61, [x]
+    ld   fsw_r63, [x]
     ld   LINK_HI, x
-    ld   fsw_r61 >> 8, [x]
+    ld   fsw_r63 >> 8, [x]
     ld   fs_get >> 8, y
     jmp  fs_get
-fsw_r61:
+fsw_r63:
     ld   FSV, y
     ld   7, ac
 fab_c:
@@ -173,16 +214,16 @@ fab_c:
 ;            clusters freed, times the number of FATs
 ; ============================================================
 
-#addr 0xC3AA
+#addr 0xC5CD
 fcl_fill:
     ld   V_WCLUS, ac
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r101, [x]
+    ld   fsw_r103, [x]
     ld   LINK_HI, x
-    ld   fsw_r101 >> 8, [x]
+    ld   fsw_r103 >> 8, [x]
     ld   fs_get >> 8, y
     jmp  fs_get
-fsw_r101:
+fsw_r103:
     ld   [IO_T0], ac
     add  26, x
     ld   [IO_T1], y
@@ -203,36 +244,6 @@ fsw_r101:
     ld   fcl_size >> 8, y
     jmp  fcl_size
 
-
-#addr 0xC5CD
-fsv_abort:
-    ld   FSV, y
-    ld   V_WBUF, x
-    ld   ac, [y,x]
-    ld   LINK_LO, x             ; CALL fw_abort
-    ld   fsw_r109, [x]
-    ld   LINK_HI, x
-    ld   fsw_r109 >> 8, [x]
-    ld   fw_abort >> 8, y
-    jmp  fw_abort
-fsw_r109:
-    clr  ac
-    ld   ac, [R0]
-    ld   ac, [R1]
-    ld   ac, [R2]
-    ld   ac, [R3]
-    ld   LINK_LO, x             ; CALL fs_close
-    ld   fsw_r110, [x]
-    ld   LINK_HI, x
-    ld   fsw_r110 >> 8, [x]
-    ld   fs_close >> 8, y
-    jmp  fs_close
-fsw_r110:
-    ld   FSV, y
-    ld   V_WBUF, x
-    ld   [y,x], ac
-    ld   lib_leave >> 8, y
-    jmp  lib_leave
 
 #addr 0xC653
 fs_close:
@@ -268,42 +279,42 @@ fcl_open:
     ld   ac, [T3]
     ld   V_UBUF, ac
     ld   LINK_LO, x             ; CALL fs_put
-    ld   fsw_r95, [x]
-    ld   LINK_HI, x
-    ld   fsw_r95 >> 8, [x]
-    ld   fs_put >> 8, y
-    jmp  fs_put
-fsw_r95:
-    ld   LINK_LO, x             ; CALL fw_flush
-    ld   fsw_r96, [x]
-    ld   LINK_HI, x
-    ld   fsw_r96 >> 8, [x]
-    ld   fw_flush >> 8, y
-    jmp  fw_flush
-fsw_r96:
-    bne  fcl_ret
-    ld   V_WESEC, ac            ; the entry's sector
-    ld   LINK_LO, x             ; CALL fs_get
     ld   fsw_r97, [x]
     ld   LINK_HI, x
     ld   fsw_r97 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
+    ld   fs_put >> 8, y
+    jmp  fs_put
 fsw_r97:
-    ld   LINK_LO, x             ; CALL fw_lba
+    ld   LINK_LO, x             ; CALL fw_flush
     ld   fsw_r98, [x]
     ld   LINK_HI, x
     ld   fsw_r98 >> 8, [x]
-    ld   fw_lba >> 8, y
-    jmp  fw_lba
+    ld   fw_flush >> 8, y
+    jmp  fw_flush
 fsw_r98:
-    ld   LINK_LO, x             ; CALL sd_read
+    bne  fcl_ret
+    ld   V_WESEC, ac            ; the entry's sector
+    ld   LINK_LO, x             ; CALL fs_get
     ld   fsw_r99, [x]
     ld   LINK_HI, x
     ld   fsw_r99 >> 8, [x]
+    ld   fs_get >> 8, y
+    jmp  fs_get
+fsw_r99:
+    ld   LINK_LO, x             ; CALL fw_lba
+    ld   fsw_r100, [x]
+    ld   LINK_HI, x
+    ld   fsw_r100 >> 8, [x]
+    ld   fw_lba >> 8, y
+    jmp  fw_lba
+fsw_r100:
+    ld   LINK_LO, x             ; CALL sd_read
+    ld   fsw_r101, [x]
+    ld   LINK_HI, x
+    ld   fsw_r101 >> 8, [x]
     ld   sd_read >> 8, y
     jmp  sd_read
-fsw_r99:
+fsw_r101:
     bne  fcl_ret
     ld   FSV, y
     ld   V_FATC + 3, x          ; FS_BUF holds the folder sector
@@ -311,12 +322,12 @@ fsw_r99:
     ld   V_WENT, x
     ld   [y,x], ac
     ld   LINK_LO, x             ; CALL fw_ebase
-    ld   fsw_r100, [x]
+    ld   fsw_r102, [x]
     ld   LINK_HI, x
-    ld   fsw_r100 >> 8, [x]
+    ld   fsw_r102 >> 8, [x]
     ld   fw_ebase >> 8, y
     jmp  fw_ebase
-fsw_r100:
+fsw_r102:
     ld   fcl_fill >> 8, y
     jmp  fcl_fill
 fcl_ret:
@@ -340,12 +351,12 @@ fw_entry:
     ld   [SAVE_AC], ac
     ld   V_SCLUS, ac
     ld   LINK_LO, x             ; CALL fs_put
-    ld   fsw_r24, [x]
+    ld   fsw_r26, [x]
     ld   LINK_HI, x
-    ld   fsw_r24 >> 8, [x]
+    ld   fsw_r26 >> 8, [x]
     ld   fs_put >> 8, y
     jmp  fs_put
-fsw_r24:
+fsw_r26:
     ld   FSV, y
     ld   V_TYPE, x
     ld   [y,x], ac
@@ -391,12 +402,12 @@ fe_q:
     ld   V_OFFP, x
     ld   ac, [y,x]
     ld   LINK_LO, x             ; sector = cluster >> 7
-    ld   fsw_r25, [x]
+    ld   fsw_r27, [x]
     ld   LINK_HI, x
-    ld   fsw_r25 >> 8, [x]
+    ld   fsw_r27 >> 8, [x]
     ld   fs_shl >> 8, y
     jmp  fs_shl
-fsw_r25:
+fsw_r27:
     ld   [T1], ac
     ld   ac, [T0]
     ld   [T2], ac
@@ -408,39 +419,67 @@ fsw_r25:
     ld   fe_sec >> 8, y
     jmp  fe_sec
 
+fsv_abort:
+    ld   FSV, y
+    ld   V_WBUF, x
+    ld   ac, [y,x]
+    ld   LINK_LO, x             ; CALL fw_abort
+    ld   fsw_r111, [x]
+    ld   LINK_HI, x
+    ld   fsw_r111 >> 8, [x]
+    ld   fw_abort >> 8, y
+    jmp  fw_abort
+fsw_r111:
+    clr  ac
+    ld   ac, [R0]
+    ld   ac, [R1]
+    ld   ac, [R2]
+    ld   ac, [R3]
+    ld   LINK_LO, x             ; CALL fs_close
+    ld   fsw_r112, [x]
+    ld   LINK_HI, x
+    ld   fsw_r112 >> 8, [x]
+    ld   fs_close >> 8, y
+    jmp  fs_close
+fsw_r112:
+    ld   FSV, y
+    ld   V_WBUF, x
+    ld   [y,x], ac
+    ld   lib_leave >> 8, y
+    jmp  lib_leave
 
 #addr 0xCA84
 fmx_count:
     ld   V_PART, ac
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r16, [x]
-    ld   LINK_HI, x
-    ld   fsw_r16 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
-fsw_r16:
-    ld   LINK_LO, x             ; + the volume's first sector
-    ld   fsw_r17, [x]
-    ld   LINK_HI, x
-    ld   fsw_r17 >> 8, [x]
-    ld   fs_add >> 8, y
-    jmp  fs_add
-fsw_r17:
-    ld   V_DATA, ac
-    ld   LINK_LO, x             ; CALL fs_getb
     ld   fsw_r18, [x]
     ld   LINK_HI, x
     ld   fsw_r18 >> 8, [x]
-    ld   fs_getb >> 8, y
-    jmp  fs_getb
+    ld   fs_get >> 8, y
+    jmp  fs_get
 fsw_r18:
-    ld   LINK_LO, x             ; - the data start = data sectors
+    ld   LINK_LO, x             ; + the volume's first sector
     ld   fsw_r19, [x]
     ld   LINK_HI, x
     ld   fsw_r19 >> 8, [x]
+    ld   fs_add >> 8, y
+    jmp  fs_add
+fsw_r19:
+    ld   V_DATA, ac
+    ld   LINK_LO, x             ; CALL fs_getb
+    ld   fsw_r20, [x]
+    ld   LINK_HI, x
+    ld   fsw_r20 >> 8, [x]
+    ld   fs_getb >> 8, y
+    jmp  fs_getb
+fsw_r20:
+    ld   LINK_LO, x             ; - the data start = data sectors
+    ld   fsw_r21, [x]
+    ld   LINK_HI, x
+    ld   fsw_r21 >> 8, [x]
     ld   fw_sub >> 8, y
     jmp  fw_sub
-fsw_r19:
+fsw_r21:
     ld   FSV, y
     ld   V_SHIFT, x
     ld   [y,x], ac
@@ -448,38 +487,38 @@ fmx_sh:
     beq  fmx_2
     ld   ac, [IO_TMP]
     ld   LINK_LO, x             ; CALL fw_shr
-    ld   fsw_r20, [x]
+    ld   fsw_r22, [x]
     ld   LINK_HI, x
-    ld   fsw_r20 >> 8, [x]
+    ld   fsw_r22 >> 8, [x]
     ld   fw_shr >> 8, y
     jmp  fw_shr
-fsw_r20:
+fsw_r22:
     ld   [IO_TMP], ac
     dec
     bra  fmx_sh
 fmx_2:
     ld   LINK_LO, x             ; clusters start at 2
-    ld   fsw_r21, [x]
-    ld   LINK_HI, x
-    ld   fsw_r21 >> 8, [x]
-    ld   fw_inc >> 8, y
-    jmp  fw_inc
-fsw_r21:
-    ld   LINK_LO, x             ; CALL fw_inc
-    ld   fsw_r22, [x]
-    ld   LINK_HI, x
-    ld   fsw_r22 >> 8, [x]
-    ld   fw_inc >> 8, y
-    jmp  fw_inc
-fsw_r22:
-    ld   V_MAXC, ac
-    ld   LINK_LO, x             ; CALL fs_put
     ld   fsw_r23, [x]
     ld   LINK_HI, x
     ld   fsw_r23 >> 8, [x]
+    ld   fw_inc >> 8, y
+    jmp  fw_inc
+fsw_r23:
+    ld   LINK_LO, x             ; CALL fw_inc
+    ld   fsw_r24, [x]
+    ld   LINK_HI, x
+    ld   fsw_r24 >> 8, [x]
+    ld   fw_inc >> 8, y
+    jmp  fw_inc
+fsw_r24:
+    ld   V_MAXC, ac
+    ld   LINK_LO, x             ; CALL fs_put
+    ld   fsw_r25, [x]
+    ld   LINK_HI, x
+    ld   fsw_r25 >> 8, [x]
     ld   fs_put >> 8, y
     jmp  fs_put
-fsw_r23:
+fsw_r25:
     clr  ac
     ld   lib_leave >> 8, y
     jmp  lib_leave
@@ -494,12 +533,12 @@ fsw_r23:
 fw_sec2:
     ld   V_WSECT, ac
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r90, [x]
+    ld   fsw_r92, [x]
     ld   LINK_HI, x
-    ld   fsw_r90 >> 8, [x]
+    ld   fsw_r92 >> 8, [x]
     ld   fs_get >> 8, y
     jmp  fs_get
-fsw_r90:
+fsw_r92:
     ld   [T0], ac
     ld   ac, [R0]
     ld   [T1], ac
@@ -516,36 +555,36 @@ fsw_r90:
     ld   [y,x], ac
     ld   ac, [R5]
     ld   LINK_LO, x             ; CALL sd_write
-    ld   fsw_r91, [x]
-    ld   LINK_HI, x
-    ld   fsw_r91 >> 8, [x]
-    ld   sd_write >> 8, y
-    jmp  sd_write
-fsw_r91:
-    bne  fws_ret
-    ld   V_WSECT, ac
-    ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r92, [x]
-    ld   LINK_HI, x
-    ld   fsw_r92 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
-fsw_r92:
-    ld   LINK_LO, x             ; CALL fw_inc
     ld   fsw_r93, [x]
     ld   LINK_HI, x
     ld   fsw_r93 >> 8, [x]
-    ld   fw_inc >> 8, y
-    jmp  fw_inc
+    ld   sd_write >> 8, y
+    jmp  sd_write
 fsw_r93:
+    bne  fws_ret
     ld   V_WSECT, ac
-    ld   LINK_LO, x             ; CALL fs_put
+    ld   LINK_LO, x             ; CALL fs_get
     ld   fsw_r94, [x]
     ld   LINK_HI, x
     ld   fsw_r94 >> 8, [x]
+    ld   fs_get >> 8, y
+    jmp  fs_get
+fsw_r94:
+    ld   LINK_LO, x             ; CALL fw_inc
+    ld   fsw_r95, [x]
+    ld   LINK_HI, x
+    ld   fsw_r95 >> 8, [x]
+    ld   fw_inc >> 8, y
+    jmp  fw_inc
+fsw_r95:
+    ld   V_WSECT, ac
+    ld   LINK_LO, x             ; CALL fs_put
+    ld   fsw_r96, [x]
+    ld   LINK_HI, x
+    ld   fsw_r96 >> 8, [x]
     ld   fs_put >> 8, y
     jmp  fs_put
-fsw_r94:
+fsw_r96:
     ld   FSV, y
     ld   V_WSLEFT, x
     ld   [y,x], ac
@@ -568,138 +607,6 @@ fws_ret:
 ; ============================================================
 
 #addr 0xD618
-fw_newc:
-    ld   LINK_LO, x             ; T0-T3 = a new cluster
-    ld   fsw_r76, [x]
-    ld   LINK_HI, x
-    ld   fsw_r76 >> 8, [x]
-    ld   fw_alloc >> 8, y
-    jmp  fw_alloc
-fsw_r76:
-    bne  fw_ret
-    ld   V_WSECT, ac             ; parked here
-    ld   LINK_LO, x             ; CALL fs_put
-    ld   fsw_r77, [x]
-    ld   LINK_HI, x
-    ld   fsw_r77 >> 8, [x]
-    ld   fs_put >> 8, y
-    jmp  fs_put
-fsw_r77:
-    ld   V_WCLUS, ac
-    ld   LINK_LO, x             ; CALL fs_getb
-    ld   fsw_r78, [x]
-    ld   LINK_HI, x
-    ld   fsw_r78 >> 8, [x]
-    ld   fs_getb >> 8, y
-    jmp  fs_getb
-fsw_r78:
-    ld   [T4], ac
-    or   [T5], ac
-    or   [T6], ac
-    or   [T7], ac
-    bne  fw_link
-    ld   V_WCLUS, ac            ; the file's first cluster
-    ld   LINK_LO, x             ; CALL fs_put
-    ld   fsw_r79, [x]
-    ld   LINK_HI, x
-    ld   fsw_r79 >> 8, [x]
-    ld   fs_put >> 8, y
-    jmp  fs_put
-fsw_r79:
-    bra  fw_setl
-fw_link:
-    ld   V_WLAST, ac            ; after the last one: FAT[last] = new
-    ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r80, [x]
-    ld   LINK_HI, x
-    ld   fsw_r80 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
-fsw_r80:
-    ld   LINK_LO, x             ; CALL fw_entry
-    ld   fsw_r81, [x]
-    ld   LINK_HI, x
-    ld   fsw_r81 >> 8, [x]
-    ld   fw_entry >> 8, y
-    jmp  fw_entry
-fsw_r81:
-    bne  fw_ret
-    ld   V_WSECT, ac
-    ld   LINK_LO, x             ; CALL fs_getb
-    ld   fsw_r82, [x]
-    ld   LINK_HI, x
-    ld   fsw_r82 >> 8, [x]
-    ld   fs_getb >> 8, y
-    jmp  fs_getb
-fsw_r82:
-    ld   LINK_LO, x             ; CALL fw_fatset
-    ld   fsw_r83, [x]
-    ld   LINK_HI, x
-    ld   fsw_r83 >> 8, [x]
-    ld   fw_fatset >> 8, y
-    jmp  fw_fatset
-fsw_r83:
-    ld   V_WSECT, ac
-    ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r84, [x]
-    ld   LINK_HI, x
-    ld   fsw_r84 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
-fsw_r84:
-fw_setl:
-    ld   V_WLAST, ac
-    ld   LINK_LO, x             ; CALL fs_put
-    ld   fsw_r85, [x]
-    ld   LINK_HI, x
-    ld   fsw_r85 >> 8, [x]
-    ld   fs_put >> 8, y
-    jmp  fs_put
-fsw_r85:
-    ld   LINK_LO, x             ; CALL fw_flush
-    ld   fsw_r86, [x]
-    ld   LINK_HI, x
-    ld   fsw_r86 >> 8, [x]
-    ld   fw_flush >> 8, y
-    jmp  fw_flush
-fsw_r86:
-    bne  fw_ret
-    ld   V_WLAST, ac
-    ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r87, [x]
-    ld   LINK_HI, x
-    ld   fsw_r87 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
-fsw_r87:
-    ld   LINK_LO, x             ; CALL fs_clba
-    ld   fsw_r88, [x]
-    ld   LINK_HI, x
-    ld   fsw_r88 >> 8, [x]
-    ld   fs_clba >> 8, y
-    jmp  fs_clba
-fsw_r88:
-    ld   V_WSECT, ac
-    ld   LINK_LO, x             ; CALL fs_put
-    ld   fsw_r89, [x]
-    ld   LINK_HI, x
-    ld   fsw_r89 >> 8, [x]
-    ld   fs_put >> 8, y
-    jmp  fs_put
-fsw_r89:
-    ld   FSV, y
-    ld   V_SPC, x
-    ld   [y,x], ac
-    ld   V_WSLEFT, x
-    ld   ac, [y,x]
-    ld   fw_sec2 >> 8, y
-    jmp  fw_sec2
-fw_ret:
-    ld   lib_leave >> 8, y
-    jmp  lib_leave
-
-
-#addr 0xD700
 fs_create:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
@@ -724,19 +631,19 @@ fc_m:
     ld   V_WENT, x              ; nothing open while this works
     ld   0, [y,x]
     ld   LINK_LO, x             ; CALL fs_name
-    ld   fsw_r65, [x]
+    ld   fsw_r67, [x]
     ld   LINK_HI, x
-    ld   fsw_r65 >> 8, [x]
+    ld   fsw_r67 >> 8, [x]
     ld   fs_name >> 8, y
     jmp  fs_name
-fsw_r65:
+fsw_r67:
     ld   LINK_LO, x             ; CALL fw_find
-    ld   fsw_r66, [x]
+    ld   fsw_r68, [x]
     ld   LINK_HI, x
-    ld   fsw_r66 >> 8, [x]
+    ld   fsw_r68 >> 8, [x]
     ld   fw_find >> 8, y
     jmp  fw_find
-fsw_r66:
+fsw_r68:
     beq  fc_del
     ld   ac, [IO_TMP]
     xor  2, ac
@@ -746,39 +653,23 @@ fsw_r66:
     jmp  lib_leave
 fc_del:
     ld   LINK_LO, x             ; CALL fw_unlink
-    ld   fsw_r67, [x]
-    ld   LINK_HI, x
-    ld   fsw_r67 >> 8, [x]
-    ld   fw_unlink >> 8, y
-    jmp  fw_unlink
-fsw_r67:
-    bne  fc_ret
-fc_free:
-    ld   LINK_LO, x             ; a free entry: the first 00 or E5
-    ld   fsw_r68, [x]
-    ld   LINK_HI, x
-    ld   fsw_r68 >> 8, [x]
-    ld   fs_cwd >> 8, y
-    jmp  fs_cwd
-fsw_r68:
-    bne  fc_ret
-fc_sec:
-    ld   V_SLBA, ac             ; the sector about to be read
-    ld   LINK_LO, x             ; CALL fs_get
     ld   fsw_r69, [x]
     ld   LINK_HI, x
     ld   fsw_r69 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
+    ld   fw_unlink >> 8, y
+    jmp  fw_unlink
 fsw_r69:
-    ld   V_WESEC, ac
-    ld   LINK_LO, x             ; CALL fs_put
+    bne  fc_ret
+fc_free:
+    ld   LINK_LO, x             ; a free entry: the first 00 or E5
     ld   fsw_r70, [x]
     ld   LINK_HI, x
     ld   fsw_r70 >> 8, [x]
-    ld   fs_put >> 8, y
-    jmp  fs_put
+    ld   fs_cwd >> 8, y
+    jmp  fs_cwd
 fsw_r70:
+    bne  fc_ret
+fc_sec:
     ld   FSB, ac
     ld   ac, [R5]
     clr  ac
@@ -790,7 +681,12 @@ fsw_r70:
     ld   fs_snext >> 8, y
     jmp  fs_snext
 fsw_r71:
-    beq  fc_look
+    ld   ac, [IO_T3]
+    ld   FSV, y                 ; FS_BUF holds a folder sector now, not
+    ld   V_FATC + 3, x          ; the FAT sector the next fs_snext would
+    ld   0xFF, [y,x]            ; take a cluster from (11/14/2026)
+    ld   [IO_T3], ac
+    beq  fc_read
     ld   ac, [IO_TMP]
     xor  1, ac
     beq  fc_dfull
@@ -802,18 +698,34 @@ fc_dfull:
     ld   E_DIRFULL, ac
     ld   lib_leave >> 8, y
     jmp  lib_leave
+fc_read:
+    ld   LINK_LO, x             ; the sector just read (a folder's next
+    ld   fsw_r72, [x]
+    ld   LINK_HI, x
+    ld   fsw_r72 >> 8, [x]
+    ld   fw_prev >> 8, y
+    jmp  fw_prev
+fsw_r72:
+    ld   V_WESEC, ac            ; cluster need not follow its last one)
+    ld   LINK_LO, x             ; CALL fs_put
+    ld   fsw_r73, [x]
+    ld   LINK_HI, x
+    ld   fsw_r73 >> 8, [x]
+    ld   fs_put >> 8, y
+    jmp  fs_put
+fsw_r73:
 fc_look:
     clr  ac
     ld   ac, [IO_T2]
 fc_e:
     ld   [IO_T2], ac
     ld   LINK_LO, x             ; CALL fw_ebase
-    ld   fsw_r72, [x]
+    ld   fsw_r74, [x]
     ld   LINK_HI, x
-    ld   fsw_r72 >> 8, [x]
+    ld   fsw_r74 >> 8, [x]
     ld   fw_ebase >> 8, y
     jmp  fw_ebase
-fsw_r72:
+fsw_r74:
     ld   [IO_T0], x
     ld   [IO_T1], y
     ld   [y,x], ac
@@ -829,6 +741,138 @@ fsw_r72:
 fc_got:
     ld   fc_fill >> 8, y
     jmp  fc_fill
+
+
+#addr 0xD700
+fw_newc:
+    ld   LINK_LO, x             ; T0-T3 = a new cluster
+    ld   fsw_r78, [x]
+    ld   LINK_HI, x
+    ld   fsw_r78 >> 8, [x]
+    ld   fw_alloc >> 8, y
+    jmp  fw_alloc
+fsw_r78:
+    bne  fw_ret
+    ld   V_WSECT, ac             ; parked here
+    ld   LINK_LO, x             ; CALL fs_put
+    ld   fsw_r79, [x]
+    ld   LINK_HI, x
+    ld   fsw_r79 >> 8, [x]
+    ld   fs_put >> 8, y
+    jmp  fs_put
+fsw_r79:
+    ld   V_WCLUS, ac
+    ld   LINK_LO, x             ; CALL fs_getb
+    ld   fsw_r80, [x]
+    ld   LINK_HI, x
+    ld   fsw_r80 >> 8, [x]
+    ld   fs_getb >> 8, y
+    jmp  fs_getb
+fsw_r80:
+    ld   [T4], ac
+    or   [T5], ac
+    or   [T6], ac
+    or   [T7], ac
+    bne  fw_link
+    ld   V_WCLUS, ac            ; the file's first cluster
+    ld   LINK_LO, x             ; CALL fs_put
+    ld   fsw_r81, [x]
+    ld   LINK_HI, x
+    ld   fsw_r81 >> 8, [x]
+    ld   fs_put >> 8, y
+    jmp  fs_put
+fsw_r81:
+    bra  fw_setl
+fw_link:
+    ld   V_WLAST, ac            ; after the last one: FAT[last] = new
+    ld   LINK_LO, x             ; CALL fs_get
+    ld   fsw_r82, [x]
+    ld   LINK_HI, x
+    ld   fsw_r82 >> 8, [x]
+    ld   fs_get >> 8, y
+    jmp  fs_get
+fsw_r82:
+    ld   LINK_LO, x             ; CALL fw_entry
+    ld   fsw_r83, [x]
+    ld   LINK_HI, x
+    ld   fsw_r83 >> 8, [x]
+    ld   fw_entry >> 8, y
+    jmp  fw_entry
+fsw_r83:
+    bne  fw_ret
+    ld   V_WSECT, ac
+    ld   LINK_LO, x             ; CALL fs_getb
+    ld   fsw_r84, [x]
+    ld   LINK_HI, x
+    ld   fsw_r84 >> 8, [x]
+    ld   fs_getb >> 8, y
+    jmp  fs_getb
+fsw_r84:
+    ld   LINK_LO, x             ; CALL fw_fatset
+    ld   fsw_r85, [x]
+    ld   LINK_HI, x
+    ld   fsw_r85 >> 8, [x]
+    ld   fw_fatset >> 8, y
+    jmp  fw_fatset
+fsw_r85:
+    ld   V_WSECT, ac
+    ld   LINK_LO, x             ; CALL fs_get
+    ld   fsw_r86, [x]
+    ld   LINK_HI, x
+    ld   fsw_r86 >> 8, [x]
+    ld   fs_get >> 8, y
+    jmp  fs_get
+fsw_r86:
+fw_setl:
+    ld   V_WLAST, ac
+    ld   LINK_LO, x             ; CALL fs_put
+    ld   fsw_r87, [x]
+    ld   LINK_HI, x
+    ld   fsw_r87 >> 8, [x]
+    ld   fs_put >> 8, y
+    jmp  fs_put
+fsw_r87:
+    ld   LINK_LO, x             ; CALL fw_flush
+    ld   fsw_r88, [x]
+    ld   LINK_HI, x
+    ld   fsw_r88 >> 8, [x]
+    ld   fw_flush >> 8, y
+    jmp  fw_flush
+fsw_r88:
+    bne  fw_ret
+    ld   V_WLAST, ac
+    ld   LINK_LO, x             ; CALL fs_get
+    ld   fsw_r89, [x]
+    ld   LINK_HI, x
+    ld   fsw_r89 >> 8, [x]
+    ld   fs_get >> 8, y
+    jmp  fs_get
+fsw_r89:
+    ld   LINK_LO, x             ; CALL fs_clba
+    ld   fsw_r90, [x]
+    ld   LINK_HI, x
+    ld   fsw_r90 >> 8, [x]
+    ld   fs_clba >> 8, y
+    jmp  fs_clba
+fsw_r90:
+    ld   V_WSECT, ac
+    ld   LINK_LO, x             ; CALL fs_put
+    ld   fsw_r91, [x]
+    ld   LINK_HI, x
+    ld   fsw_r91 >> 8, [x]
+    ld   fs_put >> 8, y
+    jmp  fs_put
+fsw_r91:
+    ld   FSV, y
+    ld   V_SPC, x
+    ld   [y,x], ac
+    ld   V_WSLEFT, x
+    ld   ac, [y,x]
+    ld   fw_sec2 >> 8, y
+    jmp  fw_sec2
+fw_ret:
+    ld   lib_leave >> 8, y
+    jmp  lib_leave
 
 fw_inc:
     ld   [T0], ac
@@ -870,12 +914,12 @@ fw_alloc:
     ld   0, [y,x]
     ld   V_WLAST, ac
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r40, [x]
+    ld   fsw_r42, [x]
     ld   LINK_HI, x
-    ld   fsw_r40 >> 8, [x]
+    ld   fsw_r42 >> 8, [x]
     ld   fs_get >> 8, y
     jmp  fs_get
-fsw_r40:
+fsw_r42:
     ld   [T0], ac
     or   [T1], ac
     or   [T2], ac
@@ -893,12 +937,12 @@ fa_from2:
     ld   ac, [T0]
 fa_scan:
     ld   LINK_LO, x             ; CALL fw_entry
-    ld   fsw_r41, [x]
+    ld   fsw_r43, [x]
     ld   LINK_HI, x
-    ld   fsw_r41 >> 8, [x]
+    ld   fsw_r43 >> 8, [x]
     ld   fw_entry >> 8, y
     jmp  fw_entry
-fsw_r41:
+fsw_r43:
     beq  fa_look
     ld   ac, [IO_TMP]
     xor  E_FULL, ac
@@ -914,12 +958,12 @@ fa_fail:
     jmp  lib_leave
 fa_look:
     ld   LINK_LO, x             ; CALL fw_fatval
-    ld   fsw_r42, [x]
+    ld   fsw_r44, [x]
     ld   LINK_HI, x
-    ld   fsw_r42 >> 8, [x]
+    ld   fsw_r44 >> 8, [x]
     ld   fw_fatval >> 8, y
     jmp  fw_fatval
-fsw_r42:
+fsw_r44:
     ld   [T4], ac
     or   [T5], ac
     or   [T6], ac
@@ -927,19 +971,19 @@ fsw_r42:
     beq  fa_free
     ld   V_SCLUS, ac            ; in use: the next one
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r43, [x]
+    ld   fsw_r45, [x]
     ld   LINK_HI, x
-    ld   fsw_r43 >> 8, [x]
+    ld   fsw_r45 >> 8, [x]
     ld   fs_get >> 8, y
     jmp  fs_get
-fsw_r43:
+fsw_r45:
     ld   LINK_LO, x             ; CALL fw_inc
-    ld   fsw_r44, [x]
+    ld   fsw_r46, [x]
     ld   LINK_HI, x
-    ld   fsw_r44 >> 8, [x]
+    ld   fsw_r46 >> 8, [x]
     ld   fw_inc >> 8, y
     jmp  fw_inc
-fsw_r44:
+fsw_r46:
     bra  fa_scan
 fa_free:
     ld   0xFF, ac               ; end of chain: FFFF or 0FFFFFFF
@@ -949,20 +993,20 @@ fa_free:
     ld   0x0F, ac
     ld   ac, [T7]
     ld   LINK_LO, x             ; CALL fw_fatset
-    ld   fsw_r45, [x]
+    ld   fsw_r47, [x]
     ld   LINK_HI, x
-    ld   fsw_r45 >> 8, [x]
+    ld   fsw_r47 >> 8, [x]
     ld   fw_fatset >> 8, y
     jmp  fw_fatset
-fsw_r45:
+fsw_r47:
     ld   V_SCLUS, ac
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r46, [x]
+    ld   fsw_r48, [x]
     ld   LINK_HI, x
-    ld   fsw_r46 >> 8, [x]
+    ld   fsw_r48 >> 8, [x]
     ld   fs_get >> 8, y
     jmp  fs_get
-fsw_r46:
+fsw_r48:
     clr  ac
     ld   lib_leave >> 8, y
     jmp  lib_leave
@@ -1014,28 +1058,13 @@ fst_d:
 fe_have:
     ld   V_SLBA, ac
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r30, [x]
-    ld   LINK_HI, x
-    ld   fsw_r30 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
-fsw_r30:
-    ld   V_FAT, ac              ; its address on the card
-    ld   LINK_LO, x             ; CALL fs_getb
-    ld   fsw_r31, [x]
-    ld   LINK_HI, x
-    ld   fsw_r31 >> 8, [x]
-    ld   fs_getb >> 8, y
-    jmp  fs_getb
-fsw_r31:
-    ld   LINK_LO, x             ; CALL fs_add
     ld   fsw_r32, [x]
     ld   LINK_HI, x
     ld   fsw_r32 >> 8, [x]
-    ld   fs_add >> 8, y
-    jmp  fs_add
+    ld   fs_get >> 8, y
+    jmp  fs_get
 fsw_r32:
-    ld   V_FATC, ac             ; already in FS_BUF?
+    ld   V_FAT, ac              ; its address on the card
     ld   LINK_LO, x             ; CALL fs_getb
     ld   fsw_r33, [x]
     ld   LINK_HI, x
@@ -1043,6 +1072,21 @@ fsw_r32:
     ld   fs_getb >> 8, y
     jmp  fs_getb
 fsw_r33:
+    ld   LINK_LO, x             ; CALL fs_add
+    ld   fsw_r34, [x]
+    ld   LINK_HI, x
+    ld   fsw_r34 >> 8, [x]
+    ld   fs_add >> 8, y
+    jmp  fs_add
+fsw_r34:
+    ld   V_FATC, ac             ; already in FS_BUF?
+    ld   LINK_LO, x             ; CALL fs_getb
+    ld   fsw_r35, [x]
+    ld   LINK_HI, x
+    ld   fsw_r35 >> 8, [x]
+    ld   fs_getb >> 8, y
+    jmp  fs_getb
+fsw_r35:
     ld   [T0], ac
     xor  [T4], ac
     bne  fe_load
@@ -1061,50 +1105,50 @@ fsw_r33:
 fe_load:
     ld   V_SLBA, ac             ; the sector wanted, while the old one is written
     ld   LINK_LO, x             ; CALL fs_put
-    ld   fsw_r34, [x]
-    ld   LINK_HI, x
-    ld   fsw_r34 >> 8, [x]
-    ld   fs_put >> 8, y
-    jmp  fs_put
-fsw_r34:
-    ld   LINK_LO, x             ; CALL fw_flush
-    ld   fsw_r35, [x]
-    ld   LINK_HI, x
-    ld   fsw_r35 >> 8, [x]
-    ld   fw_flush >> 8, y
-    jmp  fw_flush
-fsw_r35:
-    bne  fe_ret
-    ld   V_SLBA, ac
-    ld   LINK_LO, x             ; CALL fs_get
     ld   fsw_r36, [x]
     ld   LINK_HI, x
     ld   fsw_r36 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
+    ld   fs_put >> 8, y
+    jmp  fs_put
 fsw_r36:
-    ld   V_FATC, ac
-    ld   LINK_LO, x             ; CALL fs_put
+    ld   LINK_LO, x             ; CALL fw_flush
     ld   fsw_r37, [x]
     ld   LINK_HI, x
     ld   fsw_r37 >> 8, [x]
-    ld   fs_put >> 8, y
-    jmp  fs_put
+    ld   fw_flush >> 8, y
+    jmp  fw_flush
 fsw_r37:
-    ld   LINK_LO, x             ; CALL fw_lba
+    bne  fe_ret
+    ld   V_SLBA, ac
+    ld   LINK_LO, x             ; CALL fs_get
     ld   fsw_r38, [x]
     ld   LINK_HI, x
     ld   fsw_r38 >> 8, [x]
-    ld   fw_lba >> 8, y
-    jmp  fw_lba
+    ld   fs_get >> 8, y
+    jmp  fs_get
 fsw_r38:
-    ld   LINK_LO, x             ; CALL sd_read
+    ld   V_FATC, ac
+    ld   LINK_LO, x             ; CALL fs_put
     ld   fsw_r39, [x]
     ld   LINK_HI, x
     ld   fsw_r39 >> 8, [x]
+    ld   fs_put >> 8, y
+    jmp  fs_put
+fsw_r39:
+    ld   LINK_LO, x             ; CALL fw_lba
+    ld   fsw_r40, [x]
+    ld   LINK_HI, x
+    ld   fsw_r40 >> 8, [x]
+    ld   fw_lba >> 8, y
+    jmp  fw_lba
+fsw_r40:
+    ld   LINK_LO, x             ; CALL sd_read
+    ld   fsw_r41, [x]
+    ld   LINK_HI, x
+    ld   fsw_r41 >> 8, [x]
     ld   sd_read >> 8, y
     jmp  sd_read
-fsw_r39:
+fsw_r41:
     beq  fe_ret
     ld   ac, [IO_TMP]
     ld   FSV, y                 ; no FAT sector in the buffer now
@@ -1143,27 +1187,27 @@ fs_delete:
     jmp  lib_leave
 fd_m:
     ld   LINK_LO, x             ; CALL fs_name
-    ld   fsw_r62, [x]
-    ld   LINK_HI, x
-    ld   fsw_r62 >> 8, [x]
-    ld   fs_name >> 8, y
-    jmp  fs_name
-fsw_r62:
-    ld   LINK_LO, x             ; CALL fw_find
-    ld   fsw_r63, [x]
-    ld   LINK_HI, x
-    ld   fsw_r63 >> 8, [x]
-    ld   fw_find >> 8, y
-    jmp  fw_find
-fsw_r63:
-    bne  fd_ret
-    ld   LINK_LO, x             ; CALL fw_unlink
     ld   fsw_r64, [x]
     ld   LINK_HI, x
     ld   fsw_r64 >> 8, [x]
+    ld   fs_name >> 8, y
+    jmp  fs_name
+fsw_r64:
+    ld   LINK_LO, x             ; CALL fw_find
+    ld   fsw_r65, [x]
+    ld   LINK_HI, x
+    ld   fsw_r65 >> 8, [x]
+    ld   fw_find >> 8, y
+    jmp  fw_find
+fsw_r65:
+    bne  fd_ret
+    ld   LINK_LO, x             ; CALL fw_unlink
+    ld   fsw_r66, [x]
+    ld   LINK_HI, x
+    ld   fsw_r66 >> 8, [x]
     ld   fw_unlink >> 8, y
     jmp  fw_unlink
-fsw_r64:
+fsw_r66:
 fd_ret:
     ld   lib_leave >> 8, y
     jmp  lib_leave
@@ -1207,12 +1251,12 @@ fs_save:
     ld   [R5], ac
     ld   ac, [y,x]
     ld   LINK_LO, x             ; CALL fs_create
-    ld   fsw_r106, [x]
+    ld   fsw_r108, [x]
     ld   LINK_HI, x
-    ld   fsw_r106 >> 8, [x]
+    ld   fsw_r108 >> 8, [x]
     ld   fs_create >> 8, y
     jmp  fs_create
-fsw_r106:
+fsw_r108:
     bne  fsv_ret
     ld   FSV, y
     ld   V_WSAVE, x
@@ -1241,12 +1285,12 @@ fsv_loop:
     or   [y,x], ac
     beq  fsv_close
     ld   LINK_LO, x             ; CALL fs_write
-    ld   fsw_r107, [x]
+    ld   fsw_r109, [x]
     ld   LINK_HI, x
-    ld   fsw_r107 >> 8, [x]
+    ld   fsw_r109 >> 8, [x]
     ld   fs_write >> 8, y
     jmp  fs_write
-fsw_r107:
+fsw_r109:
     bne  fsv_bad
     ld   FSV, y
     ld   V_LBUF + 1, x
@@ -1271,12 +1315,12 @@ fsv_close:
     ld   ac, [R2]
     ld   ac, [R3]
     ld   LINK_LO, x             ; CALL fs_close
-    ld   fsw_r108, [x]
+    ld   fsw_r110, [x]
     ld   LINK_HI, x
-    ld   fsw_r108 >> 8, [x]
+    ld   fsw_r110 >> 8, [x]
     ld   fs_close >> 8, y
     jmp  fs_close
-fsw_r108:
+fsw_r110:
 fsv_ret:
     ld   lib_leave >> 8, y
     jmp  lib_leave
@@ -1287,12 +1331,12 @@ fsv_bad:
 fcl_size:
     ld   V_UBUF, ac
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r102, [x]
+    ld   fsw_r104, [x]
     ld   LINK_HI, x
-    ld   fsw_r102 >> 8, [x]
+    ld   fsw_r104 >> 8, [x]
     ld   fs_get >> 8, y
     jmp  fs_get
-fsw_r102:
+fsw_r104:
     ld   [IO_T0], ac
     add  28, x
     ld   [IO_T1], y
@@ -1312,26 +1356,26 @@ fsw_r102:
     ld   ac, [y,x]
     ld   V_WESEC, ac
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r103, [x]
-    ld   LINK_HI, x
-    ld   fsw_r103 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
-fsw_r103:
-    ld   LINK_LO, x             ; CALL fw_lba
-    ld   fsw_r104, [x]
-    ld   LINK_HI, x
-    ld   fsw_r104 >> 8, [x]
-    ld   fw_lba >> 8, y
-    jmp  fw_lba
-fsw_r104:
-    ld   LINK_LO, x             ; CALL sd_write
     ld   fsw_r105, [x]
     ld   LINK_HI, x
     ld   fsw_r105 >> 8, [x]
+    ld   fs_get >> 8, y
+    jmp  fs_get
+fsw_r105:
+    ld   LINK_LO, x             ; CALL fw_lba
+    ld   fsw_r106, [x]
+    ld   LINK_HI, x
+    ld   fsw_r106 >> 8, [x]
+    ld   fw_lba >> 8, y
+    jmp  fw_lba
+fsw_r106:
+    ld   LINK_LO, x             ; CALL sd_write
+    ld   fsw_r107, [x]
+    ld   LINK_HI, x
+    ld   fsw_r107 >> 8, [x]
     ld   sd_write >> 8, y
     jmp  sd_write
-fsw_r105:
+fsw_r107:
     ld   lib_leave >> 8, y
     jmp  lib_leave
 
@@ -1371,35 +1415,35 @@ fw_flush:
     ld   ac, [y,x]
     ld   V_FATC, ac
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r1, [x]
-    ld   LINK_HI, x
-    ld   fsw_r1 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
-fsw_r1:
-    ld   V_REM, ac              ; the sector being written
-    ld   LINK_LO, x             ; CALL fs_put
-    ld   fsw_r2, [x]
-    ld   LINK_HI, x
-    ld   fsw_r2 >> 8, [x]
-    ld   fs_put >> 8, y
-    jmp  fs_put
-fsw_r2:
-ffl_loop:
-    ld   LINK_LO, x             ; CALL fw_lba
     ld   fsw_r3, [x]
     ld   LINK_HI, x
     ld   fsw_r3 >> 8, [x]
-    ld   fw_lba >> 8, y
-    jmp  fw_lba
+    ld   fs_get >> 8, y
+    jmp  fs_get
 fsw_r3:
-    ld   LINK_LO, x             ; CALL sd_write
+    ld   V_REM, ac              ; the sector being written
+    ld   LINK_LO, x             ; CALL fs_put
     ld   fsw_r4, [x]
     ld   LINK_HI, x
     ld   fsw_r4 >> 8, [x]
+    ld   fs_put >> 8, y
+    jmp  fs_put
+fsw_r4:
+ffl_loop:
+    ld   LINK_LO, x             ; CALL fw_lba
+    ld   fsw_r5, [x]
+    ld   LINK_HI, x
+    ld   fsw_r5 >> 8, [x]
+    ld   fw_lba >> 8, y
+    jmp  fw_lba
+fsw_r5:
+    ld   LINK_LO, x             ; CALL sd_write
+    ld   fsw_r6, [x]
+    ld   LINK_HI, x
+    ld   fsw_r6 >> 8, [x]
     ld   sd_write >> 8, y
     jmp  sd_write
-fsw_r4:
+fsw_r6:
     bne  ffl_ret
     ld   FSV, y
     ld   V_TMPT, x
@@ -1409,35 +1453,35 @@ fsw_r4:
     beq  ffl_ok
     ld   V_REM, ac              ; the same sector in the next FAT
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r5, [x]
-    ld   LINK_HI, x
-    ld   fsw_r5 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
-fsw_r5:
-    ld   V_FATSZ, ac
-    ld   LINK_LO, x             ; CALL fs_getb
-    ld   fsw_r6, [x]
-    ld   LINK_HI, x
-    ld   fsw_r6 >> 8, [x]
-    ld   fs_getb >> 8, y
-    jmp  fs_getb
-fsw_r6:
-    ld   LINK_LO, x             ; CALL fs_add
     ld   fsw_r7, [x]
     ld   LINK_HI, x
     ld   fsw_r7 >> 8, [x]
-    ld   fs_add >> 8, y
-    jmp  fs_add
+    ld   fs_get >> 8, y
+    jmp  fs_get
 fsw_r7:
-    ld   V_REM, ac
-    ld   LINK_LO, x             ; CALL fs_put
+    ld   V_FATSZ, ac
+    ld   LINK_LO, x             ; CALL fs_getb
     ld   fsw_r8, [x]
     ld   LINK_HI, x
     ld   fsw_r8 >> 8, [x]
+    ld   fs_getb >> 8, y
+    jmp  fs_getb
+fsw_r8:
+    ld   LINK_LO, x             ; CALL fs_add
+    ld   fsw_r9, [x]
+    ld   LINK_HI, x
+    ld   fsw_r9 >> 8, [x]
+    ld   fs_add >> 8, y
+    jmp  fs_add
+fsw_r9:
+    ld   V_REM, ac
+    ld   LINK_LO, x             ; CALL fs_put
+    ld   fsw_r10, [x]
+    ld   LINK_HI, x
+    ld   fsw_r10 >> 8, [x]
     ld   fs_put >> 8, y
     jmp  fs_put
-fsw_r8:
+fsw_r10:
     bra  ffl_loop
 ffl_ok:
     clr  ac
@@ -1541,54 +1585,53 @@ fu_file:
     ld   [y,x], ac
     dec
     ld   LINK_LO, x             ; CALL fw_ebase
-    ld   fsw_r49, [x]
-    ld   LINK_HI, x
-    ld   fsw_r49 >> 8, [x]
-    ld   fw_ebase >> 8, y
-    jmp  fw_ebase
-fsw_r49:
-    ld   [IO_T0], x
-    ld   [IO_T1], y
-    ld   0xE5, [y,x]            ; deleted
-    ld   V_DSEC, ac
-    ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r50, [x]
-    ld   LINK_HI, x
-    ld   fsw_r50 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
-fsw_r50:
-    ld   LINK_LO, x             ; CALL fw_lba
     ld   fsw_r51, [x]
     ld   LINK_HI, x
     ld   fsw_r51 >> 8, [x]
-    ld   fw_lba >> 8, y
-    jmp  fw_lba
+    ld   fw_ebase >> 8, y
+    jmp  fw_ebase
 fsw_r51:
-    ld   LINK_LO, x             ; CALL sd_write
+    ld   [IO_T0], x
+    ld   [IO_T1], y
+    ld   0xE5, [y,x]            ; deleted
+    ld   LINK_LO, x             ; its sector: the one fw_find read last
     ld   fsw_r52, [x]
     ld   LINK_HI, x
     ld   fsw_r52 >> 8, [x]
-    ld   sd_write >> 8, y
-    jmp  sd_write
+    ld   fw_prev >> 8, y
+    jmp  fw_prev
 fsw_r52:
-    bne  fu_ret
-    ld   V_ENTRY + 26, ac       ; its first cluster, low word
-    ld   LINK_LO, x             ; CALL fs_get
+    ld   LINK_LO, x             ; CALL fw_lba
     ld   fsw_r53, [x]
     ld   LINK_HI, x
     ld   fsw_r53 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
+    ld   fw_lba >> 8, y
+    jmp  fw_lba
 fsw_r53:
-    ld   V_ENTRY + 20, ac       ; and high word (FAT32)
-    ld   LINK_LO, x             ; CALL fs_getb
+    ld   LINK_LO, x             ; CALL sd_write
     ld   fsw_r54, [x]
     ld   LINK_HI, x
     ld   fsw_r54 >> 8, [x]
+    ld   sd_write >> 8, y
+    jmp  sd_write
+fsw_r54:
+    bne  fu_ret
+    ld   V_ENTRY + 26, ac       ; its first cluster, low word
+    ld   LINK_LO, x             ; CALL fs_get
+    ld   fsw_r55, [x]
+    ld   LINK_HI, x
+    ld   fsw_r55 >> 8, [x]
+    ld   fs_get >> 8, y
+    jmp  fs_get
+fsw_r55:
+    ld   V_ENTRY + 20, ac       ; and high word (FAT32)
+    ld   LINK_LO, x             ; CALL fs_getb
+    ld   fsw_r56, [x]
+    ld   LINK_HI, x
+    ld   fsw_r56 >> 8, [x]
     ld   fs_getb >> 8, y
     jmp  fs_getb
-fsw_r54:
+fsw_r56:
     ld   FSV, y
     ld   V_TYPE, x
     ld   [y,x], ac
@@ -1612,36 +1655,36 @@ fu_ret:
 fe_sec:
     ld   V_SLBA, ac             ; the FAT sector, while the cluster is checked
     ld   LINK_LO, x             ; CALL fs_put
-    ld   fsw_r26, [x]
-    ld   LINK_HI, x
-    ld   fsw_r26 >> 8, [x]
-    ld   fs_put >> 8, y
-    jmp  fs_put
-fsw_r26:
-    ld   LINK_LO, x             ; CALL fw_maxc
-    ld   fsw_r27, [x]
-    ld   LINK_HI, x
-    ld   fsw_r27 >> 8, [x]
-    ld   fw_maxc >> 8, y
-    jmp  fw_maxc
-fsw_r27:
-    bne  fe_full
-    ld   V_SCLUS, ac            ; past the data area: the card is full
-    ld   LINK_LO, x             ; CALL fs_get
     ld   fsw_r28, [x]
     ld   LINK_HI, x
     ld   fsw_r28 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
+    ld   fs_put >> 8, y
+    jmp  fs_put
 fsw_r28:
-    ld   V_MAXC, ac
-    ld   LINK_LO, x             ; CALL fs_getb
+    ld   LINK_LO, x             ; CALL fw_maxc
     ld   fsw_r29, [x]
     ld   LINK_HI, x
     ld   fsw_r29 >> 8, [x]
+    ld   fw_maxc >> 8, y
+    jmp  fw_maxc
+fsw_r29:
+    bne  fe_full
+    ld   V_SCLUS, ac            ; past the data area: the card is full
+    ld   LINK_LO, x             ; CALL fs_get
+    ld   fsw_r30, [x]
+    ld   LINK_HI, x
+    ld   fsw_r30 >> 8, [x]
+    ld   fs_get >> 8, y
+    jmp  fs_get
+fsw_r30:
+    ld   V_MAXC, ac
+    ld   LINK_LO, x             ; CALL fs_getb
+    ld   fsw_r31, [x]
+    ld   LINK_HI, x
+    ld   fsw_r31 >> 8, [x]
     ld   fs_getb >> 8, y
     jmp  fs_getb
-fsw_r29:
+fsw_r31:
     ld   [T3], ac
     sub  [T7], ac
     bcs  fe_in
@@ -1718,26 +1761,26 @@ fcf_z:
     ld   ac, [y,x]
     ld   V_WESEC, ac
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r73, [x]
-    ld   LINK_HI, x
-    ld   fsw_r73 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
-fsw_r73:
-    ld   LINK_LO, x             ; CALL fw_lba
-    ld   fsw_r74, [x]
-    ld   LINK_HI, x
-    ld   fsw_r74 >> 8, [x]
-    ld   fw_lba >> 8, y
-    jmp  fw_lba
-fsw_r74:
-    ld   LINK_LO, x             ; CALL sd_write
     ld   fsw_r75, [x]
     ld   LINK_HI, x
     ld   fsw_r75 >> 8, [x]
+    ld   fs_get >> 8, y
+    jmp  fs_get
+fsw_r75:
+    ld   LINK_LO, x             ; CALL fw_lba
+    ld   fsw_r76, [x]
+    ld   LINK_HI, x
+    ld   fsw_r76 >> 8, [x]
+    ld   fw_lba >> 8, y
+    jmp  fw_lba
+fsw_r76:
+    ld   LINK_LO, x             ; CALL sd_write
+    ld   fsw_r77, [x]
+    ld   LINK_HI, x
+    ld   fsw_r77 >> 8, [x]
     ld   sd_write >> 8, y
     jmp  sd_write
-fsw_r75:
+fsw_r77:
     bne  fcf_ret
     ld   FSV, y
     ld   7, ac
@@ -1835,48 +1878,48 @@ fw_freech:
     or   [T3], ac
     beq  fch_done
     ld   LINK_LO, x             ; CALL fw_entry
-    ld   fsw_r55, [x]
-    ld   LINK_HI, x
-    ld   fsw_r55 >> 8, [x]
-    ld   fw_entry >> 8, y
-    jmp  fw_entry
-fsw_r55:
-    bne  fch_ret
-    ld   LINK_LO, x             ; the next cluster
-    ld   fsw_r56, [x]
-    ld   LINK_HI, x
-    ld   fsw_r56 >> 8, [x]
-    ld   fw_fatval >> 8, y
-    jmp  fw_fatval
-fsw_r56:
-    ld   V_SLBA, ac
-    ld   LINK_LO, x             ; CALL fw_putb
     ld   fsw_r57, [x]
     ld   LINK_HI, x
     ld   fsw_r57 >> 8, [x]
+    ld   fw_entry >> 8, y
+    jmp  fw_entry
+fsw_r57:
+    bne  fch_ret
+    ld   LINK_LO, x             ; the next cluster
+    ld   fsw_r58, [x]
+    ld   LINK_HI, x
+    ld   fsw_r58 >> 8, [x]
+    ld   fw_fatval >> 8, y
+    jmp  fw_fatval
+fsw_r58:
+    ld   V_SLBA, ac
+    ld   LINK_LO, x             ; CALL fw_putb
+    ld   fsw_r59, [x]
+    ld   LINK_HI, x
+    ld   fsw_r59 >> 8, [x]
     ld   fw_putb >> 8, y
     jmp  fw_putb
-fsw_r57:
+fsw_r59:
     clr  ac                     ; this one is free
     ld   ac, [T4]
     ld   ac, [T5]
     ld   ac, [T6]
     ld   ac, [T7]
     ld   LINK_LO, x             ; CALL fw_fatset
-    ld   fsw_r58, [x]
+    ld   fsw_r60, [x]
     ld   LINK_HI, x
-    ld   fsw_r58 >> 8, [x]
+    ld   fsw_r60 >> 8, [x]
     ld   fw_fatset >> 8, y
     jmp  fw_fatset
-fsw_r58:
+fsw_r60:
     ld   V_SLBA, ac
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r59, [x]
+    ld   fsw_r61, [x]
     ld   LINK_HI, x
-    ld   fsw_r59 >> 8, [x]
+    ld   fsw_r61 >> 8, [x]
     ld   fs_get >> 8, y
     jmp  fs_get
-fsw_r59:
+fsw_r61:
     ld   FSV, y                 ; the end of the chain?
     ld   V_TYPE, x
     ld   [y,x], ac
@@ -1909,12 +1952,12 @@ fch_low:
     bne  fw_freech
 fch_done:
     ld   LINK_LO, x             ; CALL fw_flush
-    ld   fsw_r60, [x]
+    ld   fsw_r62, [x]
     ld   LINK_HI, x
-    ld   fsw_r60 >> 8, [x]
+    ld   fsw_r62 >> 8, [x]
     ld   fw_flush >> 8, y
     jmp  fw_flush
-fsw_r60:
+fsw_r62:
 fch_ret:
     ld   lib_leave >> 8, y
     jmp  lib_leave
@@ -1924,44 +1967,41 @@ fch_ret:
 ; failed): fs_close then leaves an empty file
 ;   out: AC = 0 or an SD error
 ; ============================================================
-fw_sub:
-    ld   [T0], ac
-    sub  [T4], ac
-    ld   ac, [T0]
-    ld   [T1], ac
-    bcc  fsb_1
-    sub  1, ac
-    bcs  fsb_1z                 ; T1 was 0: T1 = FF - T5, borrow out
-fsb_1:
-    sub  [T5], ac
-    ld   ac, [T1]
-    ld   [T2], ac
-    bcc  fsb_2
-fsb_2c:
-    sub  1, ac
-    bcs  fsb_2z
-fsb_2:
-    sub  [T6], ac
-    ld   ac, [T2]
-    ld   [T3], ac
-    bcc  fsb_3
-fsb_3c:
-    sub  1, ac
-fsb_3:
-    sub  [T7], ac
-    ld   ac, [T3]
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
-fsb_1z:
-    sub  [T5], ac
-    ld   ac, [T1]
-    ld   [T2], ac
-    bra  fsb_2c
-fsb_2z:
-    sub  [T6], ac
-    ld   ac, [T2]
-    ld   [T3], ac
-    bra  fsb_3c
+fw_prev:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   V_SLBA, ac
+    ld   LINK_LO, x             ; CALL fs_get
+    ld   fsw_r1, [x]
+    ld   LINK_HI, x
+    ld   fsw_r1 >> 8, [x]
+    ld   fs_get >> 8, y
+    jmp  fs_get
+fsw_r1:
+    ld   0xFF, ac
+    ld   ac, [T4]
+    ld   ac, [T5]
+    ld   ac, [T6]
+    ld   ac, [T7]
+    ld   LINK_LO, x             ; CALL fs_add
+    ld   fsw_r2, [x]
+    ld   LINK_HI, x
+    ld   fsw_r2 >> 8, [x]
+    ld   fs_add >> 8, y
+    jmp  fs_add
+fsw_r2:
+    ld   lib_leave >> 8, y
+    jmp  lib_leave
 
 fw_lba:
     ld   [T0], ac
@@ -1996,59 +2036,59 @@ fw_maxc:
     ld   [SAVE_AC], ac
     ld   V_MAXC, ac
     ld   LINK_LO, x             ; CALL fs_get
-    ld   fsw_r9, [x]
-    ld   LINK_HI, x
-    ld   fsw_r9 >> 8, [x]
-    ld   fs_get >> 8, y
-    jmp  fs_get
-fsw_r9:
-    ld   [T0], ac
-    or   [T1], ac
-    or   [T2], ac
-    or   [T3], ac
-    bne  fmx_ok
-    ld   LINK_LO, x             ; FS_BUF is about to be reused
-    ld   fsw_r10, [x]
-    ld   LINK_HI, x
-    ld   fsw_r10 >> 8, [x]
-    ld   fw_flush >> 8, y
-    jmp  fw_flush
-fsw_r10:
-    bne  fmx_ret
-    ld   V_PART, ac             ; the boot sector into FS_BUF
-    ld   LINK_LO, x             ; CALL fs_get
     ld   fsw_r11, [x]
     ld   LINK_HI, x
     ld   fsw_r11 >> 8, [x]
     ld   fs_get >> 8, y
     jmp  fs_get
 fsw_r11:
-    ld   LINK_LO, x             ; CALL fw_lba
+    ld   [T0], ac
+    or   [T1], ac
+    or   [T2], ac
+    or   [T3], ac
+    bne  fmx_ok
+    ld   LINK_LO, x             ; FS_BUF is about to be reused
     ld   fsw_r12, [x]
     ld   LINK_HI, x
     ld   fsw_r12 >> 8, [x]
-    ld   fw_lba >> 8, y
-    jmp  fw_lba
+    ld   fw_flush >> 8, y
+    jmp  fw_flush
 fsw_r12:
-    ld   LINK_LO, x             ; CALL sd_read
+    bne  fmx_ret
+    ld   V_PART, ac             ; the boot sector into FS_BUF
+    ld   LINK_LO, x             ; CALL fs_get
     ld   fsw_r13, [x]
     ld   LINK_HI, x
     ld   fsw_r13 >> 8, [x]
+    ld   fs_get >> 8, y
+    jmp  fs_get
+fsw_r13:
+    ld   LINK_LO, x             ; CALL fw_lba
+    ld   fsw_r14, [x]
+    ld   LINK_HI, x
+    ld   fsw_r14 >> 8, [x]
+    ld   fw_lba >> 8, y
+    jmp  fw_lba
+fsw_r14:
+    ld   LINK_LO, x             ; CALL sd_read
+    ld   fsw_r15, [x]
+    ld   LINK_HI, x
+    ld   fsw_r15 >> 8, [x]
     ld   sd_read >> 8, y
     jmp  sd_read
-fsw_r13:
+fsw_r15:
     bne  fmx_ret
     ld   FSV, y
     ld   V_FATC + 3, x          ; no FAT sector in the buffer now
     ld   0xFF, [y,x]
     ld   0x13, ac               ; total sectors, 16 bits ...
     ld   LINK_LO, x             ; CALL fs_bget
-    ld   fsw_r14, [x]
+    ld   fsw_r16, [x]
     ld   LINK_HI, x
-    ld   fsw_r14 >> 8, [x]
+    ld   fsw_r16 >> 8, [x]
     ld   fs_bget >> 8, y
     jmp  fs_bget
-fsw_r14:
+fsw_r16:
     clr  ac
     ld   ac, [T6]
     ld   ac, [T7]
@@ -2057,12 +2097,12 @@ fsw_r14:
     bne  fmx_tot
     ld   0x20, ac               ; ... or 32
     ld   LINK_LO, x             ; CALL fs_bget
-    ld   fsw_r15, [x]
+    ld   fsw_r17, [x]
     ld   LINK_HI, x
-    ld   fsw_r15 >> 8, [x]
+    ld   fsw_r17 >> 8, [x]
     ld   fs_bget >> 8, y
     jmp  fs_bget
-fsw_r15:
+fsw_r17:
 fmx_tot:
     ld   fmx_count >> 8, y
     jmp  fmx_count
@@ -2086,21 +2126,21 @@ fw_find:
     ld   ac, [x]
     ld   [SAVE_AC], ac
     ld   LINK_LO, x             ; CALL fs_cwd
-    ld   fsw_r47, [x]
+    ld   fsw_r49, [x]
     ld   LINK_HI, x
-    ld   fsw_r47 >> 8, [x]
+    ld   fsw_r49 >> 8, [x]
     ld   fs_cwd >> 8, y
     jmp  fs_cwd
-fsw_r47:
+fsw_r49:
     bne  ffd_ret
 ffd_next:
     ld   LINK_LO, x             ; CALL fs_next
-    ld   fsw_r48, [x]
+    ld   fsw_r50, [x]
     ld   LINK_HI, x
-    ld   fsw_r48 >> 8, [x]
+    ld   fsw_r50 >> 8, [x]
     ld   fs_next >> 8, y
     jmp  fs_next
-fsw_r48:
+fsw_r50:
     beq  ffd_cmp
     ld   ac, [IO_TMP]
     xor  1, ac

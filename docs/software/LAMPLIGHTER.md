@@ -10,7 +10,7 @@ goes back), made by `src/scripts/gen_lamp.py` from
 `src/scripts/lamp_code.masm`.  Everything it reads after it starts is in
 the card's `LAMP/` folder.
 
-Date: 11/13/2026
+Date: 11/14/2026
 
 The game, its world, its names, its art and its map are original, written
 for the Placard.  It is in the exploration-platformer genre.
@@ -31,6 +31,11 @@ The hollow moon Cairn carried the great lamp that ships steered by.  The
 lamp has gone dark.  Wick, a beacon keeper, lands on the crust and climbs
 down the Wellshaft to find out why, with a lantern that throws sparks.
 
+- **The title:** jump starts a new game; fire goes on from the last save
+  lamp when the card has a saved game (`LAMP/SAVE.DAT`).  The card comes
+  with a blank `SAVE.DAT` (no save lamp touched yet); copy it with the
+  rest of the `LAMP` folder, since a save only replaces that file and the
+  card writer does not grow a folder that is full.
 - **Controls:** arrow keys or SNES pad 1 Left / Right to walk, Z, Space
   or pad B / A to jump (hold the key for a higher jump), X or pad Y / X to
   fire, with Up held to fire upward, Down to crawl (once the Burrow Rig is
@@ -47,7 +52,15 @@ down the Wellshaft to find out why, with a lantern that throws sparks.
 - **Energy** is the number on the second text line: 30 at the start, of
   the 50 the lantern holds.  A creature's touch or its bolt takes some and
   Wick blinks for a second, safe.  At 0 the lantern goes out and Wick is
-  back on the Landing Ledge with 30, keeping everything he found.
+  back at the last save lamp he touched (or on the Landing Ledge) with
+  30, keeping everything he found.
+- **Save lamps** stand in the hub's lower shaft, the Glasswort Gate, the
+  Slag Stair, the Brine Gate and the Gear Hall.  Touching one (once a
+  visit) fills the lantern and writes the game to the card: everything
+  found, the bosses beaten, the time and the lamp's place.
+- **The end:** in the Great Lamp's room the fourth text line gives the
+  time played and how many of the 14 things were found; jump goes back
+  to the title.
 - **Creatures** take one to four sparks; a blast counts as four.  Every other one leaves an ember
   (5 energy).  They are back when Wick comes into the room again.
 - **Items** stay found.  An Oil Flask makes the lantern hold 25 more, and
@@ -127,7 +140,8 @@ The game is built in stages, each merged when it passes its test.
 | 3a | The deep Wellshaft, the Slagworks, the Kiln Charge and the Cinder Coat, the second boss; a way to every boss that needs no power-up | Done |
 | 3b | The Brine Vaults, water, the Ballast Boots, the Wide Flame, the third boss | Done |
 | 3c | The Orrery, the seal the three bosses open, the last boss, the Great Lamp | Done |
-| 4 | Music, the title and the ending, saving to the card at save lamps | |
+| 4a | The title, save lamps (the game on the card), the ending | Done |
+| 4b | Music | |
 
 The world is a hub, the Wellshaft (a tall shaft of rooms one above the
 other, with passages off it at different depths), and four areas: the
@@ -152,7 +166,7 @@ alone; the power-ups make it much easier.
 | The whole map in the cartridge | A room is a 1 KB file read as Wick enters it (a tenth of a second) | The RAM holds one room; the card is fast |
 | One set of tiles and sprites in the cartridge | A tile set and a sprite set for each area, read when the area changes (about half a second); a boss's den has a set of its own | Tiles and sprites are code (below); a set has 25 KB of free video RAM, enough for the tiles, Wick, the items and four kinds of creature, or a boss |
 | Dozens of sprites, 8 on a line | Wick, 3 sparks and 6 things in a room (creatures, bolts, items, embers); a boss is 2 sprites side by side | The drawing has to be done before the beam is back |
-| A password | Saving to the card (stage 4) | The card can be written |
+| A password | Saving to the card at save lamps | The card can be written (the DOS's FAT writer, `fs_save`) |
 
 ## The screen
 
@@ -209,7 +223,7 @@ and the rules the time the beam spends on the picture.
 | x4800-x48FF | The room's header: size, camera limits, exits, things, name |
 | x5400 | The sprite list |
 | x5500 | The room's 6 things: kind, place, direction, timer, hits left, item |
-| x5600 | The items found (a byte each, 1-31); from x5620 the bosses beaten, by the number of the item each guards |
+| x5600 | The items found (a byte each, 1-31); from x5620 the bosses beaten, by the number of the item each guards; from x5680 the message line, the mode (play, title, ending), the last save lamp and the time played.  This page is the save file |
 | x6000-xFFFF, offsets x040-x17F of each byte column | The area's tile routines and sprite routines (the 4x playfield and the text rows leave these bytes free) |
 
 | File | What |
@@ -276,9 +290,10 @@ routines in the video RAM are unchanged and that Esc brings the DOS back.
 
 First, on the model alone, it shows that every boss can be reached and
 beaten with nothing collected: runs from the Landing Ledge to Bramblejaw
-(2,291 frames, 35 energy left), to Clinker (1,726 frames, 24 left), to
-Old Gulper (2,399 frames, 4 left) and, with the three of them counted as
-beaten so that the seal is open, to the Snuffer (1,680 frames, 18 left),
+(2,291 frames, 50 energy left), to Clinker (1,726 frames, 44 left), to
+Old Gulper (2,399 frames, 24 left) and, with the three of them counted as
+beaten so that the seal is open, to the Snuffer (1,680 frames, 38 left;
+the save lamps on the way fill the lantern),
 in which the search may not pick anything up.
 
 Then the long route in the simulator, through all 34 rooms: the bot first
@@ -291,11 +306,15 @@ it blasts its way to the deep Wellshaft's flask; in the Brine Vaults it
 takes the Ballast Boots and the Drowned Hall's flask, beats Old Gulper
 and takes the Wide Flame; it climbs to the top for the Keeper's Duct's
 flask, goes back down through the open seal into the Orrery, takes its
-flask, beats the Snuffer and walks into the Great Lamp's room.  The
+flask, beats the Snuffer and walks into the Great Lamp's room.  It
+starts from the title (jump: a new game), and at the end it jumps from the
+ending to the title, which must now offer to go on, and fires: the game
+read back from the card puts Wick at the Gear Hall's save lamp with
+everything he found, and he walks on into the next room.  The
 fights are played by rules (Bramblejaw and Old Gulper: stand off, jump a
 bolt that is near and at Wick's height, fire; Clinker and the Snuffer:
 keep just off its middle and fire up), a blast by holding the key; the
-rest is planned.  It is 16,219 frames and takes about 1.5 hours, most of
+rest is planned.  It is 16,199 frames and takes about 1.5 hours, most of
 it the planning.  In it the drawing is never less than 55 screen rows
 behind the beam, and a sprite is done at least 30 screen rows before the
 beam is at it.  `--beaten 5,9,12 --route ...` starts a short run with
