@@ -60,7 +60,8 @@
 #include "placard_lib.asm"
 
 ; ---------------------------------------------------------------------------
-; program variables (zero page x20-x8F)
+; program variables (zero page x20-x5F; the music player has x60-x9F), and
+; the sprite list in the RAM (the medals' page)
 ; ---------------------------------------------------------------------------
 colpage    = 0x20       ; video page of the column being drawn (x61 + 2 * col)
 rl         = 0x21       ; strip return address
@@ -103,30 +104,39 @@ sy         = 0x45
 srl        = 0x46       ; return address for the sprite routines
 srh        = 0x47
 vpg        = 0x48       ; x48-x4F: video page of each of the sprite's 8 columns
-SL_LO      = 0x50       ; x50-x5B: sprite routine address, low
-SL_HI      = 0x5C       ; x5C-x67: high
-SL_C       = 0x68       ; x68-x73: byte column + 8 (0-87)
-SL_G       = 0x74       ; x74-x7F: top cell + 32
-mode       = 0x80       ; 0 playing, 1 waiting for the jump key, 2 course clear (counting down)
-clear_t    = 0x81       ;   frames left of mode 2
-o_i        = 0x82       ; object loop index
-dlo        = 0x83
-dhi        = 0x84
-inv        = 0x85       ; frames of safety after a lost life
-gliding    = 0x86       ; 1: the glider is open this frame
-moved      = 0x87
-tmp3       = 0x88
-n_med      = 0x89       ; medals in this course
-n_en       = 0x8A       ; objects in this course
-ll_lo      = 0x8B       ; lose_life's return address
-ll_hi      = 0x8C
-goal_lo    = 0x8D       ; the course is clear at this byte column
-goal_hi    = 0x8E
-jprev      = 0x8F       ; the jump key last frame (4 = down)
+SL_LO      = 0x49A0     ; 12 bytes each: sprite routine address, low
+SL_HI      = 0x49AC     ;   high
+SL_C       = 0x49B8     ;   byte column + 8 (0-87)
+SL_G       = 0x49C4     ;   top cell + 32
+mode       = 0x50       ; 0 playing, 1 waiting for the jump key, 2 course clear (counting down)
+clear_t    = 0x51       ;   frames left of mode 2
+o_i        = 0x52       ; object loop index
+dlo        = 0x53
+dhi        = 0x54
+inv        = 0x55       ; frames of safety after a lost life
+gliding    = 0x56       ; 1: the glider is open this frame
+moved      = 0x57
+tmp3       = 0x58
+n_med      = 0x59       ; medals in this course
+n_en       = 0x5A       ; objects in this course
+ll_lo      = 0x5B       ; lose_life's return address
+ll_hi      = 0x5C
+goal_lo    = 0x5D       ; the course is clear at this byte column
+goal_hi    = 0x5E
+jprev      = 0x5F       ; the jump key last frame (4 = down)
 ekind      = 0x1E       ; (T6) this object's kind
 jnow       = 0x1F       ; (T7) the jump key this frame
 
-draw_sprites = 0x0300       ; in RAM (the blitter)
+draw_sprites = 0x3600       ; in RAM (the blitter)
+mus_init   = 0x1097       ; the music player
+mus_play   = 0x138B       ; the music player
+mus_frame  = 0x1E56       ; the music player
+mus_stop   = 0x1ADA       ; the music player
+mus_sfx    = 0x1BD3       ; the music player
+SFX_BEEP   = 0
+SFX_JUMP   = 1
+SFX_NOISE  = 2
+SFX_CHIME  = 3
 MODE_PF    = 10
 GRAV       = 56
 JUMPV_LO   = 128
@@ -139,39 +149,44 @@ NROW       = 112
 GLIDE      = 96
 DROWN_G    = 100
 ROOK_SAFE  = 24
-NCOURSE    = 24
-BLOCK_END  = 19456
+NCOURSE    = 33
 FID_MEDAL  = 12
 NPF        = 6
-ENEMY      = 21504
-V_POWER    = 112
-V_GETA     = 113
-V_EMB      = 114
-V_EMXL     = 115
-V_EMG      = 117
-V_EMD      = 118
-V_FPREV    = 119
-V_EMXH     = 123
+ENEMY      = 18944
+V_JING     = 112
+V_KEEP     = 116
+SONG       = 14080
+CLEAR_FRAMES = 250
+DEATH_FRAMES = 164
+FR_HI      = 48
+V_POWER    = 104
+V_GETA     = 105
+V_EMB      = 106
+V_EMXL     = 107
+V_EMG      = 109
+V_EMD      = 110
+V_FPREV    = 111
+V_EMXH     = 115
 EMBER_LIFE = 40
 BOUNCEV_LO = 128
 BOUNCEV_HI = 249
 UPV_LO     = 8
 UPV_HI     = 254
-COIN_GOT   = 21760
+COIN_GOT   = 18688
 COIN_XL    = 128
 COIN_XH    = 168
 COIN_G     = 208
-BS_LO      = 0x4000
-BS_HI      = 0x4100
+BS_LO      = 0x4100
+BS_HI      = 0x4180
 TS_LO      = 0x4200
-TS_HI      = 0x4300
-LVA        = 0x4400
-LVB        = 0x4500
-LVC        = 0x4600
-SOLID      = 0x4700
-OBJ        = 0x4800
-FR         = 0x4900
-TEXT       = 0x4A00
+TS_HI      = 0x5400
+LVA        = 0x5500
+LVB        = 0x5600
+LVC        = 0x5700
+FR         = 0x5780
+OBJ        = 0x5800
+SOLID      = 0x57E0
+TEXT       = 0x5900
 
 ; main
 #addr 0x2000
@@ -185,13 +200,6 @@ main:
     ld   con_clear >> 8, y
     jmp  con_clear
 m_2:
-    ld   LINK_LO, x             ; CALL snd_init
-    ld   m_3, [x]
-    ld   LINK_HI, x
-    ld   m_3 >> 8, [x]
-    ld   snd_init >> 8, y
-    jmp  snd_init
-m_3:
     ld   0x5A, y                ; rows 32-479 (x5A40-x5BFF): 4 bpp 4x
     ld   0x40, ac
 m_mb1:
@@ -206,14 +214,14 @@ m_mb2:
     ld   MODE_PF, [y,x]
     inc
     bne  m_mb2
-    ld   0x20, ac               ; program variables x20-x8F = 0
+    ld   0x20, ac               ; program variables x20-x5F = 0
 m_z:
     ld   ac, x
     ld   0, [x]
     add  1, ac
-    sub  0x90, ac
+    sub  0x60, ac
     beq  m_z1
-    add  0x90, ac
+    add  0x60, ac
     bra  m_z
 m_z1:
     ld   3, ac
@@ -255,6 +263,11 @@ f_w1:
 f_new:
     ld   [FRAME_LO], ac
     ld   ac, [last_frame]
+    ld   [kind], ac             ; a story picture: drawn once, by the loader
+    xor  2, ac
+    bne  frame_go
+    ld   drawn_all >> 8, y
+    jmp  drawn_all
 frame_go:
     ld   0x50, y                ; map FF: the strips are in the video RAM
     ld   0xFF, [y,x]            ; (draw_sprites puts MAP_SHADOW back)
@@ -285,6 +298,8 @@ bC_lp:
     ld   BS_LO >> 8, y
     ld   [y,x], ac
     ld   ac, [tmp]
+    ld   [bw], ac
+    add  BS_HI & 0xFF, x
     ld   BS_HI >> 8, y
     ld   [y,x], ac
     ld   ac, y
@@ -322,6 +337,8 @@ bH_lp:
     ld   BS_LO >> 8, y
     ld   [y,x], ac
     ld   ac, [tmp]
+    ld   [bw], ac
+    add  BS_HI & 0xFF, x
     ld   BS_HI >> 8, y
     ld   [y,x], ac
     ld   ac, y
@@ -486,13 +503,27 @@ hop_2:
     jmp  draw_sprites
 f_spr:
 drawn_all:
-    ld   LINK_LO, x             ; CALL snd_update
+    ld   LINK_LO, x             ; CALL mus_frame
     ld   f_snd, [x]
     ld   LINK_HI, x
     ld   f_snd >> 8, [x]
-    ld   snd_update >> 8, y
-    jmp  snd_update
+    ld   mus_frame >> 8, y
+    jmp  mus_frame
 f_snd:
+    ld   ENEMY >> 8, y          ; after "Oops": the course's song again
+    ld   V_JING, x
+    ld   [y,x], ac
+    beq  f_nj
+    sub  1, ac
+    ld   ac, [y,x]
+    bne  f_nj
+    ld   LINK_LO, x
+    ld   f_nj & 0xFF, [x]
+    ld   LINK_HI, x
+    ld   f_nj >> 8, [x]
+    ld   mus_play >> 8, y
+    jmp  mus_play
+f_nj:
     ld   LINK_LO, x             ; CALL pad_read
     ld   f_pad, [x]
     ld   LINK_HI, x
@@ -596,7 +627,7 @@ f_hud:
     ld   frame >> 8, y
     jmp  frame
 
-; load_course: read SKYWARD/Cn.LVL (n = course): 6 sectors to BS_LO on, the rest to x6000 on
+; load_course: read SKYWARD/Cn.LVL (n = course): 5 sectors to SONG on (the song), 5 of tables, the rest to x6000 on
 load_course:
     ld   [SP], x                ; PUSH_LINK
     ld   [LINK_HI], ac
@@ -608,6 +639,28 @@ load_course:
     ld   ac, [SP]
     ld   [LINK_LO], ac
     ld   ac, [x]
+    ld   hop_3 >> 8, y
+    jmp  hop_3                  ; (to the next page)
+#addr 0x2300
+hop_3:
+    ld   s_keep >> 8, y         ; a story picture after a picture with the same
+    ld   [course], ac           ; song: the song plays on while the card is read
+    add  s_keep & 0xFF, x
+    ld   [y,x], ac
+    ld   ENEMY >> 8, y
+    ld   V_KEEP, x
+    ld   ac, [y,x]
+    bne  lc_k
+    ld   SONG >> 8, ac          ; otherwise silence
+    ld   ac, [R1]
+    ld   LINK_LO, x             ; CALL mus_init
+    ld   lc_m, [x]
+    ld   LINK_HI, x
+    ld   lc_m >> 8, [x]
+    ld   mus_init >> 8, y
+    jmp  mus_init
+lc_m:
+lc_k:
     ld   0x50, y                ; map 07 (the library)
     ld   [MAP_SHADOW], ac
     ld   ac, [y,x]
@@ -629,12 +682,10 @@ lc_0:
     ld   fs_open >> 8, y
     jmp  fs_open
 lc_1:
-    ld   hop_3 >> 8, y
-    jmp  hop_3                  ; (to the next page)
-#addr 0x2300
-hop_3:
-    ld   [course], ac           ; "Cx.LVL", x = A for the title on
-    add  0x41, ac
+    ld   s_fch >> 8, y          ; "Cx.LVL", x = A for the title on
+    ld   [course], ac
+    add  s_fch & 0xFF, x
+    ld   [y,x], ac
     ld   s_file >> 8, y
     ld   (s_file + 1) & 0xFF, x
     ld   ac, [y,x]
@@ -655,7 +706,7 @@ lc_2:
 lc_3:
     clr  ac
     ld   ac, [R4]
-    ld   BS_LO >> 8, ac
+    ld   SONG >> 8, ac
     ld   ac, [R5]
 lc_rd:
     ld   LINK_LO, x             ; CALL fs_read
@@ -666,12 +717,29 @@ lc_rd:
     jmp  fs_read
 lc_4:
     bne  lc_5
-    ld   [R5], ac               ; after the tables: the video RAM
-    sub  BLOCK_END >> 8, ac
+    ld   [R5], ac               ; x3700-x42FF, x5400-x59FF, x6000 on
+    sub  0x43, ac
+    bne  lc_4b
+    ld   0x54, ac
+    ld   ac, [R5]
+lc_4b:
+    ld   [R5], ac
+    sub  0x5A, ac
     bne  lc_4a
     ld   0x60, ac
     ld   ac, [R5]
 lc_4a:
+    ld   ENEMY >> 8, y
+    ld   V_KEEP, x
+    ld   [y,x], ac
+    beq  lc_4d
+    ld   LINK_LO, x             ; CALL mus_frame
+    ld   lc_4d, [x]
+    ld   LINK_HI, x
+    ld   lc_4d >> 8, [x]
+    ld   mus_frame >> 8, y
+    jmp  mus_frame
+lc_4d:
     ld   lc_rd >> 8, y
     jmp  lc_rd
 lc_5:
@@ -714,6 +782,10 @@ lc_6:
     ld   ac, [clear_t]
     ld   ac, [facing]
     ld   ac, [sl_n]             ; (the list's routines were the last course's)
+    ld   hop_4 >> 8, y
+    jmp  hop_4                  ; (to the next page)
+#addr 0x2400
+hop_4:
     ld   ENEMY >> 8, y          ; the title: no power-up; the feather is a glider
     ld   [course], ac
     bne  lc_p1
@@ -722,6 +794,8 @@ lc_6:
     ld   V_GETA, x
     ld   0, [y,x]
 lc_p1:
+    ld   V_JING, x
+    ld   0, [y,x]
     ld   V_EMB, x
     ld   0, [y,x]
     ld   V_POWER, x
@@ -738,6 +812,18 @@ lc_p2:
     ld   respawn >> 8, y
     jmp  respawn
 lc_7:
+    ld   ENEMY >> 8, y
+    ld   V_KEEP, x
+    ld   [y,x], ac
+    bne  lc_mp
+    clr  ac                     ; the course's song (subtune 0)
+    ld   LINK_LO, x             ; CALL mus_play
+    ld   lc_mp, [x]
+    ld   LINK_HI, x
+    ld   lc_mp >> 8, [x]
+    ld   mus_play >> 8, y
+    jmp  mus_play
+lc_mp:
     clr  ac
     ld   ac, [inv]
     ld   [chk_lo], ac           ; the camera, for the first frame
@@ -755,7 +841,7 @@ lc_8:
     ld   ac, [CUR_ROW]
     ld   0x00, ac
     ld   ac, [R0]
-    ld   0x4A, ac
+    ld   0x59, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
     ld   lc_t0, [x]
@@ -768,9 +854,9 @@ lc_t0:
     ld   ac, [CUR_COL]
     ld   2, ac
     ld   ac, [CUR_ROW]
-    ld   0x58, ac
+    ld   0x51, ac
     ld   ac, [R0]
-    ld   0x4A, ac
+    ld   0x59, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
     ld   lc_t1, [x]
@@ -779,17 +865,13 @@ lc_t0:
     ld   con_puts >> 8, y
     jmp  con_puts
 lc_t1:
-    ld   hop_4 >> 8, y
-    jmp  hop_4                  ; (to the next page)
-#addr 0x2400
-hop_4:
     clr  ac
     ld   ac, [CUR_COL]
     ld   3, ac
     ld   ac, [CUR_ROW]
-    ld   0xB0, ac
+    ld   0xA2, ac
     ld   ac, [R0]
-    ld   0x4A, ac
+    ld   0x59, ac
     ld   ac, [R1]
     ld   LINK_LO, x             ; CALL con_puts
     ld   lc_t2, [x]
@@ -827,6 +909,10 @@ lc_fp:
 
 ; tile_at: AC = 0 when cell ta_g of world byte column ta_hi:ta_lo is not solid
 tile_at:
+    ld   hop_5 >> 8, y
+    jmp  hop_5                  ; (to the next page)
+#addr 0x2500
+hop_5:
     ld   [ta_g], ac
     sub  GROUND_G, ac
     bcc  ta_0
@@ -868,7 +954,10 @@ ta_1:
     ld   ac, y
     ld   [dlo], x
     ld   [y,x], ac
-    ld   ac, x
+    shr  ac                     ; (the type of tile 8 n at SOLID + n)
+    shr  ac
+    shr  ac
+    add  SOLID & 0xFF, x
     ld   SOLID >> 8, y
     ld   [y,x], ac
     ld   ac, [tmp3]             ; tmp3 = its type; AC = 1 when it is solid
@@ -935,10 +1024,6 @@ game:
     ld   ac, [SP]
     ld   [LINK_LO], ac
     ld   ac, [x]
-    ld   hop_5 >> 8, y
-    jmp  hop_5                  ; (to the next page)
-#addr 0x2500
-hop_5:
     ld   [inp], ac
     and  4, ac
     ld   ac, [jnow]
@@ -961,12 +1046,12 @@ gm_go:
     clr  ac                     ; a course: play
     ld   ac, [mode]
     ld   76, ac
-    ld   LINK_LO, x             ; CALL snd_beep
+    ld   LINK_LO, x             ; CALL sfx_chime
     ld   gm_gb, [x]
     ld   LINK_HI, x
     ld   gm_gb >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   sfx_chime >> 8, y
+    jmp  sfx_chime
 gm_gb:
 gm_still:
     clr  ac
@@ -982,6 +1067,10 @@ gm_clr:
     jmp  next_course
 
 ; next_course: course + 1 (after the ending: a new game), load it; leaves game
+    ld   hop_6 >> 8, y
+    jmp  hop_6                  ; (to the next page)
+#addr 0x2600
+hop_6:
 next_course:
     ld   [course], ac
     add  1, ac
@@ -1011,10 +1100,6 @@ nc_2:
 
 ; game: the player, sideways
 gm_play:
-    ld   hop_6 >> 8, y
-    jmp  hop_6                  ; (to the next page)
-#addr 0x2600
-hop_6:
     clr  ac
     ld   ac, [moved]
     ld   [inp], ac              ; right
@@ -1118,6 +1203,10 @@ gm_vert_j:
 
 ; game: jumping, gliding and falling
 gm_vert:
+    ld   hop_7 >> 8, y
+    jmp  hop_7                  ; (to the next page)
+#addr 0x2700
+hop_7:
     ld   [pyh], ac              ; in an updraft (the cell at Tobi's middle)?
     add  8, ac
     ld   ac, [ta_g]
@@ -1147,10 +1236,6 @@ gm_u3:
     ld   gm_vert2 >> 8, y
     jmp  gm_vert2
 gm_vert2:
-    ld   hop_7 >> 8, y
-    jmp  hop_7                  ; (to the next page)
-#addr 0x2700
-hop_7:
     clr  ac
     ld   ac, [gliding]
     ld   [jnow], ac             ; jump from the ground, on a new key press
@@ -1164,12 +1249,12 @@ hop_7:
     ld   JUMPV_HI, ac
     ld   ac, [vyh]
     ld   72, ac
-    ld   LINK_LO, x             ; CALL snd_beep
+    ld   LINK_LO, x             ; CALL sfx_jump
     ld   gm_js, [x]
     ld   LINK_HI, x
     ld   gm_js >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   sfx_jump >> 8, y
+    jmp  sfx_jump
 gm_js:
 gm_g0:
     ld   [vyl], ac              ; gravity
@@ -1239,6 +1324,10 @@ gm_top:
     ld   ac, [vyh]
     ld   gm_obj >> 8, y
     jmp  gm_obj
+    ld   hop_8 >> 8, y
+    jmp  hop_8                  ; (to the next page)
+#addr 0x2800
+hop_8:
 gm_head:
     ld   [pyh], ac              ; head in a solid tile?
     ld   ac, [ta_g]
@@ -1295,10 +1384,6 @@ gm_h4:
     ld   ac, [onground]
     ld   gm_obj >> 8, y
     jmp  gm_obj
-    ld   hop_8 >> 8, y
-    jmp  hop_8                  ; (to the next page)
-#addr 0x2800
-hop_8:
 gm_fall:
     ld   [pyh], ac              ; out of the course: a life
     sub  DROWN_G, ac
@@ -1373,6 +1458,10 @@ gm_ld0:
     jmp  gm_obj
 
 ; game: thorns, bounce drums, crates, lifts, a hit
+    ld   hop_9 >> 8, y
+    jmp  hop_9                  ; (to the next page)
+#addr 0x2900
+hop_9:
 gm_special:
     ld   [tmp3], ac
     and  4, ac
@@ -1410,12 +1499,8 @@ gm_bnc:
     ld   LINK_HI, x
     ld   gm_obj >> 8, [x]
     ld   80, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
-    ld   hop_9 >> 8, y
-    jmp  hop_9                  ; (to the next page)
-#addr 0x2900
-hop_9:
+    ld   sfx_jump >> 8, y
+    jmp  sfx_jump
 gm_crate:
     ld   [ta_g], ac             ; the crate becomes a used one (X of this tile
     sub  GROUND_G, ac           ; row, from the course's header)
@@ -1462,8 +1547,8 @@ gm_cr3:
     ld   LINK_HI, x
     ld   gm_bp0 >> 8, [x]
     ld   92, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   sfx_chime >> 8, y
+    jmp  sfx_chime
 hurt:
     ld   ENEMY >> 8, y          ; the geta takes a hit, or the power-up does,
     ld   V_GETA, x              ; or a life is lost; returns via LINK
@@ -1488,8 +1573,12 @@ hr_2:
     ld   1, ac
     ld   ac, [hud_dirty]
     ld   40, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   sfx_beep >> 8, y
+    jmp  sfx_beep
+    ld   hop_10 >> 8, y
+    jmp  hop_10                  ; (to the next page)
+#addr 0x2A00
+hop_10:
 gm_lift:
     clr  ac                     ; not on a tile: on a lift?
     ld   ac, [onground]
@@ -1549,10 +1638,6 @@ gl_n:
     add  1, ac
     ld   ac, [o_i]
     bra  gl_1
-    ld   hop_10 >> 8, y
-    jmp  hop_10                  ; (to the next page)
-#addr 0x2A00
-hop_10:
 gl_on:
     ld   [tmp2], ac             ; stand on it, and ride along when it moves
     sub  16, ac
@@ -1596,25 +1681,22 @@ gl_d:
 
 ; lose_life: a life (none left: the title again), noise, respawn; returns via LINK
 lose_life:
-    ld   [LINK_LO], ac          ; keep the return address over snd_noise
+    ld   [LINK_LO], ac          ; keep the return address over mus_play
     ld   ac, [ll_lo]
     ld   [LINK_HI], ac
     ld   ac, [ll_hi]
     ld   1, ac
     ld   ac, [hud_dirty]
-    ld   8, ac                  ; noise: rumble, 30 frames, fading
-    ld   ac, [R0]
-    ld   30, ac
-    ld   ac, [R2]
-    ld   3, ac
-    ld   ac, [R3]
-    ld   90, ac
-    ld   LINK_LO, x             ; CALL snd_noise
+    ld   2, ac                  ; "Oops" (subtune 2), then the song again
+    ld   ENEMY >> 8, y
+    ld   V_JING, x
+    ld   DEATH_FRAMES, [y,x]
+    ld   LINK_LO, x             ; CALL mus_play
     ld   ll_2, [x]
     ld   LINK_HI, x
     ld   ll_2 >> 8, [x]
-    ld   snd_noise >> 8, y
-    jmp  snd_noise
+    ld   mus_play >> 8, y
+    jmp  mus_play
 ll_2:
     ld   ENEMY >> 8, y          ; the power-up and the geta go with it
     ld   V_POWER, x
@@ -1639,35 +1721,43 @@ ll_1:
     ld   ac, [LINK_HI]
     ld   respawn >> 8, y
     jmp  respawn
+    ld   hop_11 >> 8, y
+    jmp  hop_11                  ; (to the next page)
+#addr 0x2B00
+hop_11:
 sl_add:
     ld   [sl_n], ac
     sub  MAX_SPR, ac
     beq  sa_full
+    ld   SL_C >> 8, y
     ld   [sl_n], ac
-    add  SL_C, x
+    add  SL_C & 0xFF, x
     ld   [dlo], ac
-    ld   ac, [x]
+    ld   ac, [y,x]
     ld   [sl_n], ac
-    add  SL_G, x
+    add  SL_G & 0xFF, x
     ld   [tmp3], ac
-    ld   ac, [x]
-    ld   [tmp], x
-    ld   FR >> 8, y
-    ld   [y,x], ac
-    ld   ac, [tmp2]
-    ld   [sl_n], ac
-    add  SL_LO, x
-    ld   [tmp2], ac
-    ld   ac, [x]
+    ld   ac, [y,x]
     ld   [tmp], ac
-    add  128, x
+    add  FR & 0xFF, x
     ld   FR >> 8, y
     ld   [y,x], ac
     ld   ac, [tmp2]
+    ld   SL_C >> 8, y
     ld   [sl_n], ac
-    add  SL_HI, x
+    add  SL_LO & 0xFF, x
     ld   [tmp2], ac
-    ld   ac, [x]
+    ld   ac, [y,x]
+    ld   [tmp], ac
+    add  (FR & 0xFF) + FR_HI, x
+    ld   FR >> 8, y
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   SL_C >> 8, y
+    ld   [sl_n], ac
+    add  SL_HI & 0xFF, x
+    ld   [tmp2], ac
+    ld   ac, [y,x]
     ld   [sl_n], ac
     add  1, ac
     ld   ac, [sl_n]
@@ -1677,10 +1767,6 @@ sa_full:
 
 ; game: camera, the goal, medals
 gm_obj:
-    ld   hop_11 >> 8, y
-    jmp  hop_11                  ; (to the next page)
-#addr 0x2B00
-hop_11:
     ld   [onground], ac         ; animation: count while running on the ground
     beq  go_a1
     ld   [moved], ac
@@ -1722,15 +1808,18 @@ go_ng:
 go_goal:
     ld   2, ac
     ld   ac, [mode]
-    ld   90, ac
+    ld   CLEAR_FRAMES, ac
     ld   ac, [clear_t]
+    ld   ENEMY >> 8, y
+    ld   V_JING, x
+    ld   0, [y,x]
     ld   LINK_LO, x
     ld   go_c & 0xFF, [x]
     ld   LINK_HI, x
     ld   go_c >> 8, [x]
-    ld   84, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   1, ac                  ; "Gate Reached" (subtune 1)
+    ld   mus_play >> 8, y
+    jmp  mus_play
 go_c:
     ld   [o_i], ac              ; medal o_i (none left: the objects)
     sub  [n_med], ac
@@ -1777,6 +1866,10 @@ go_cn_sc_off:
     ld   go_cn >> 8, y
     jmp  go_cn
 go_cn_sc_on:
+    ld   hop_12 >> 8, y
+    jmp  hop_12                  ; (to the next page)
+#addr 0x2C00
+hop_12:
     ld   OBJ >> 8, y            ; top cell + 32
     ld   [o_i], ac
     add  COIN_G, x
@@ -1813,8 +1906,8 @@ go_cs:
     ld   LINK_HI, x
     ld   go_cn >> 8, [x]
     ld   88, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   sfx_chime >> 8, y
+    jmp  sfx_chime
 go_cadd:
     ld   [FRAME_LO], ac         ; frame: medal 1-4, a step every 8 frames
     shr  ac
@@ -1823,10 +1916,6 @@ go_cadd:
     and  3, ac
     add  FID_MEDAL, ac
     ld   ac, [tmp]
-    ld   hop_12 >> 8, y
-    jmp  hop_12                  ; (to the next page)
-#addr 0x2C00
-hop_12:
     ld   LINK_LO, x             ; CALL sl_add
     ld   go_ca1, [x]
     ld   LINK_HI, x
@@ -1881,12 +1970,12 @@ gm_emb:
     ld   [facing], ac
     ld   ac, [y,x]
     ld   96, ac
-    ld   LINK_LO, x             ; CALL snd_beep
+    ld   LINK_LO, x             ; CALL sfx_beep
     ld   ge_b, [x]
     ld   LINK_HI, x
     ld   ge_b >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   sfx_beep >> 8, y
+    jmp  sfx_beep
 ge_b:
 ge_mv:
     ld   ENEMY >> 8, y
@@ -2533,8 +2622,8 @@ gh_b:
     ld   go_eadd & 0xFF, [x]
     ld   LINK_HI, x
     ld   go_eadd >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   sfx_beep >> 8, y
+    jmp  sfx_beep
 gh_hurt:
     ld   LINK_LO, x
     ld   go_eadd & 0xFF, [x]
@@ -2587,8 +2676,8 @@ go_hs:
     ld   LINK_HI, x
     ld   go_eadd >> 8, [x]
     ld   48, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   sfx_noise >> 8, y
+    jmp  sfx_noise
 go_rook:
     ld   2, ac                  ; beaten: + 1000, the course is clear
     ld   ac, [mode]
@@ -2621,8 +2710,8 @@ go_h1:
     ld   LINK_HI, x
     ld   go_en >> 8, [x]
     ld   60, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   sfx_beep >> 8, y
+    jmp  sfx_beep
 go_hurt:
     ld   LINK_LO, x
     ld   go_eadd & 0xFF, [x]
@@ -2829,3 +2918,29 @@ s_pow3:  #d "FEATHER", 0x00
 s_get:   #d "       ", 0x00
 s_get1:  #d "GETA   ", 0x00
 RUNSEQ:  #d8 1, 2, 3, 2
+s_fch:   #d8 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36
+s_keep:  #d8 0, 0, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2
+
+; sound effects (after draw_sprites): AC = MIDI note; return via LINK
+#addr 0x3690
+sfx_jump:
+    ld   R0, x                  ; a rising sweep
+    ld   SFX_JUMP, [x]
+    bra  sfx_go
+sfx_chime:
+    ld   R0, x                  ; two notes, a fourth apart
+    ld   SFX_CHIME, [x]
+    bra  sfx_go
+sfx_noise:
+    ld   R0, x
+    ld   SFX_NOISE, [x]
+    bra  sfx_go
+sfx_beep:
+    ld   R0, x
+    ld   SFX_BEEP, [x]
+sfx_go:
+    sub  12, ac                 ; the player's notes: C-0 = 0
+    ld   R1, x
+    ld   14, [x]                ; frames
+    ld   mus_sfx >> 8, y
+    jmp  mus_sfx

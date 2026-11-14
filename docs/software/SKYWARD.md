@@ -7,13 +7,15 @@ library program for the SD card (run it from the DOS's file browser; Esc
 goes back), made by `src/scripts/gen_skyward.py`.  Everything it reads
 after it starts is in the card's `SKYWARD/` folder.
 
-Date: 11/13/2026
+Date: 11/14/2026
 
 ![The title, Breezy Meadow, Kite Cliffs and Crow Keep in the simulator](../../reference/skyward_sim.png)
 
 ![Whistling Cave, Gale Fort, Shellback Beach, Skyrail Rise, Thorn Garden and Bouncy Boughs](../../reference/skyward_courses.png)
 
 ![Gusty Mesa: the harbor (the playfield as the model draws it), Sandstone Trail, an ember in Spindle Gulch and Dust Keep in the simulator](../../reference/skyward_world2.png)
+
+![Mark's nine story pictures in the Placard's 16 colors: six open the game, three close it](../../reference/skyward_story.png)
 
 ## The game
 
@@ -25,29 +27,31 @@ flies off with her over the water to Gusty Mesa, and Tobi takes the boat.
 | File | Course | Name | The idea |
 |---|---|---|---|
 | `CA` | title | | The story; the jump key starts the game |
-| `CB` | 1-1 | Breezy Meadow | Running, jumping, the first Bumblers, one gap |
-| `CC` | 1-2 | Bramble Bluffs | Bluffs two blocks high, Buzzbees at head height, more gaps |
-| `CD` | 1-3 | Kite Cliffs | The glider: islands with gaps too wide to jump |
-| `CE` | 1-4 | Whistling Cave | Air vents that carry Tobi over walls and out of pits; Spindles |
-| `CF` | fort | Gale Fort | Thorns, fire pits, a bounce drum, then Captain Squall |
-| `CG` | 1-5 | Shellback Beach | Shellbys and their sliding shells; Snapjaws in their stumps |
-| `CH` | 1-6 | Skyrail Rise | Lifts that run back and forth over the gaps |
-| `CI` | 1-7 | Thorn Garden | The Tengu Geta walks on thorns; bridges for those without it |
-| `CJ` | 1-8 | Bouncy Boughs | Bounce drums: over tall walls and wide gaps |
-| `CK` | bonus | Cloud Cellar | A room of medals and a Glide Feather |
-| `CL` | keep | Crow Keep | Fire pits, then Baron Rook: land on him three times |
-| `CM` | the harbor | | The boat to Gusty Mesa (a picture) |
-| `CN` | 2-1 | Sandstone Trail | Updrafts out of the chasms |
-| `CO` | 2-2 | Thermal Ridge | One updraft after another |
-| `CP` | 2-3 | Updraft Canyon | Lifts and updrafts over a canyon; a Glide Feather |
-| `CQ` | 2-4 | Drywell Cavern | A lift over a well of thorns, a vent over a wall |
-| `CR` | 2-5 | Spindle Gulch | The Ember Pepper, and Spindles to try it on |
-| `CS` | 2-6 | Glider Gorge | A Glide Feather for the gorges; lifts for those without it |
-| `CT` | 2-7 | Tengu Skywalk | Bridges and thorns in the sky, with the Tengu Geta |
-| `CU` | 2-8 | Mirage Mesa | Blocks that cannot be seen; the medals lie along them |
-| `CV` | fort | Squall Fort | Captain Squall again: four landings |
-| `CW` | keep | Dust Keep | Fire pits and a quicker Baron Rook: four landings |
-| `CX` | ending | | Mabel is free |
+| `CB`-`CG` | story | | Six of Mark's story pictures (see "Music and story pictures") |
+| `CH` | 1-1 | Breezy Meadow | Running, jumping, the first Bumblers, one gap |
+| `CI` | 1-2 | Bramble Bluffs | Bluffs two blocks high, Buzzbees at head height, more gaps |
+| `CJ` | 1-3 | Kite Cliffs | The glider: islands with gaps too wide to jump |
+| `CK` | 1-4 | Whistling Cave | Air vents that carry Tobi over walls and out of pits; Spindles |
+| `CL` | fort | Gale Fort | Thorns, fire pits, a bounce drum, then Captain Squall |
+| `CM` | 1-5 | Shellback Beach | Shellbys and their sliding shells; Snapjaws in their stumps |
+| `CN` | 1-6 | Skyrail Rise | Lifts that run back and forth over the gaps |
+| `CO` | 1-7 | Thorn Garden | The Tengu Geta walks on thorns; bridges for those without it |
+| `CP` | 1-8 | Bouncy Boughs | Bounce drums: over tall walls and wide gaps |
+| `CQ` | bonus | Cloud Cellar | A room of medals and a Glide Feather |
+| `CR` | keep | Crow Keep | Fire pits, then Baron Rook: land on him three times |
+| `CS` | the harbor | | The boat to Gusty Mesa (a picture) |
+| `CT` | 2-1 | Sandstone Trail | Updrafts out of the chasms |
+| `CU` | 2-2 | Thermal Ridge | One updraft after another |
+| `CV` | 2-3 | Updraft Canyon | Lifts and updrafts over a canyon; a Glide Feather |
+| `CW` | 2-4 | Drywell Cavern | A lift over a well of thorns, a vent over a wall |
+| `CX` | 2-5 | Spindle Gulch | The Ember Pepper, and Spindles to try it on |
+| `CY` | 2-6 | Glider Gorge | A Glide Feather for the gorges; lifts for those without it |
+| `CZ` | 2-7 | Tengu Skywalk | Bridges and thorns in the sky, with the Tengu Geta |
+| `C0` | 2-8 | Mirage Mesa | Blocks that cannot be seen; the medals lie along them |
+| `C1` | fort | Squall Fort | Captain Squall again: four landings |
+| `C2` | keep | Dust Keep | Fire pits and a quicker Baron Rook: four landings |
+| `C3` | ending | | Mabel is free |
+| `C4`-`C6` | story | | Mark's three closing pictures, then the title again |
 
 - **Controls:** arrow keys or SNES pad 1 Left / Right to run; Up, Space,
   pad B or A to jump; Down or pad Y to throw an ember (with the Ember
@@ -85,10 +89,12 @@ flies off with her over the water to Gusty Mesa, and Tobi takes the boat.
 Used, under its MIT License (Copyright (c) 2026 Mark Szlemko; the notice
 is in `gen_skyward.py`, next to the art): the story, the cast, the course
 names and each course's idea, the Stunt Medals, the glider, the power-ups,
-and the sprite frames of Tobi, the Bumbler, the Buzzbee, the Spindle,
+the sprite frames of Tobi, the Bumbler, the Buzzbee, the Spindle,
 Shellby, the Snapjaw, the Tengu Geta, Captain Squall and Baron Rook
 (`skyward_art.py` holds the newer ones), recolored for the Placard's 16
-colors.
+colors, the nine story pictures (`skyward_story.py`) and the songs
+(`skyward_nes_songs.py` and `skyward_nes_instruments.py` are his
+`music/songs.py` and `music/instruments.py`, unchanged).
 
 Changed or left out:
 
@@ -104,7 +110,11 @@ Changed or left out:
 | Baron Rook takes five hits in Dust Keep | Four, and he moves every frame | A fight the same size as the others |
 | A shell can be carried, and breaks bricks | It slides and knocks out enemies | Kept simple |
 | Captain Squall runs at Tobi and leaps | He runs the hall end to end | Kept simple |
-| Music on seven channels, story pictures | Sound effects only, story as text | To come |
+| Music on seven channels: two pulses, triangle, noise, the MMC5's echo and pad | Four voices: melody, harmony, bass, drums; the echo and pad left out | The four-voice player |
+| Per-frame volume lists, the DPCM drum samples | Attack, decay and sustain envelopes; drums as wave programs (a noise click, then a falling triangle) | The player's instruments |
+| Tempo in 1/256 ticks a frame, hurry mode | A whole number of frames a row ("Above the Clouds" 7 frames instead of 6.74, so 4 % slower); no hurry mode | The player's speed |
+| The map, Starpower, treasure-house and game-over songs | Not used (no map, no star, no treasure houses) | |
+| Story pictures with one line under each, 256 × 240 | The same pictures, 128 × 96 in a white frame on the playfield; the line on the text rows | The Placard's screen |
 | Battery save | None | |
 
 ## The screen
@@ -133,28 +143,47 @@ instead of three and a course read from the card:
 3. Draw the sprites over it with a blitter in the RAM.  Each sprite frame
    is compiled code as well: a store for a solid byte, read / AND / OR /
    write for a byte that is half transparent.
-4. Sound, pads, keyboard, the game's rules, the score line.
+4. Music (`mus_frame`), pads, keyboard, the game's rules, the score line.
 
 The background is finished at about 58 % of the time the beam takes to
 reach the course's first row.  The tile map is in the RAM, so a crate that
 has been opened is one byte changed in it.
 
-## Memory and files
+## Music and story pictures
 
-| Where | What |
-|---|---|
-| x0100-x1EFF | `ROWX` and `VPG` tables, the blitter (`draw_sprites`), 14 of the 16 common sprite frames (Tobi's twelve and the medal) |
-| x2000-x3FFF | The program |
-| x4000-x4BFF | The course's tables (6 sectors of its file): band and tile strip addresses, the tile map (5 × 128), each tile's type, the objects, the sprite routines' addresses, three lines of text |
-| x5400-x55FF | The objects' state, the power-up, the geta and the ember, the medals taken |
-| x6000-xFFFF, offsets x040-x17F of each byte column | The course's strips and the sprite frames that are not in the low RAM (the 4x playfield and the text rows leave these bytes free) |
+The music is the four-voice tracker player (`placard_mus.masm`,
+[MUSIC.md](../sound/MUSIC.md)) playing Mark's songs, arranged for it by
+`src/scripts/skyward_music.py` (`python3 skyward_music.py --wav DIR` renders
+them).  Each course file carries its course's song as subtune 0 and two
+short tunes after it: "Gate Reached" (subtune 1, at the windsock) and
+"Oops" (subtune 2, when a life is lost; the course's song comes back after
+it).  The title plays "Skyward Fanfare", Breezy Isle's courses "Skyward"
+or "Above the Clouds" as on the NES, Whistling Cave and Drywell Cavern the
+cave song, Gusty Mesa "Mesa Wind", the forts and keeps "Crow Keep March",
+the harbor the second map tune and the story pictures and the ending the
+story tune.  Sound effects (jump, crate, stomp, medal, ember and so on)
+play on the player's fifth voice, instruments 0-3 of every song file.
 
-`SKYWARD/CA.LVL` to `CX.LVL` are the title, the 21 courses, the harbor and
-the ending.  A file is the 6 sectors of tables and then a straight image of the
-RAM from x6000, as many whole byte columns (sectors) as the course's strips
-reach: 21 to 34 KB.  `load_course` reads the tables to x4000 and the rest
-to x6000 on (about 0.4 s); the playfield goes black a column at a time as
-the image passes over it, and the first frame draws it again.
+The player takes about 20 % of the CPU with four voices; it runs after the
+sprites are drawn, and the frame still ends well inside its time (see
+Testing).  While the card is read the music is silent (the song is read
+again with the course), except between story pictures, where the story
+tune plays on: `load_course` calls `mus_frame` between sectors.
+
+A story picture (`kind` 2) is a course file whose RAM image holds the
+picture itself, 128 × 96 pixels in a white frame on the night blue,
+written over the playfield as the file is read; the frame loop draws
+nothing over it.  Its line of text is on the text rows; the jump key goes
+on.
+
+`SKYWARD/CA.LVL` to `C6.LVL` are the title, the six opening pictures, the
+21 courses, the harbor, the ending and the three closing pictures.  A file
+is the 5 sectors of the song, 4 sectors of tables and then a straight image
+of the RAM from x6000, as many whole byte columns (sectors) as the course's
+strips (or the picture) reach: 21 to 45 KB.  `load_course` reads them to
+x3700-x42FF, x5400-x59FF and x6000 on (about 0.5 s, 0.8 s for a picture);
+the playfield goes black a column at a time as the image passes over it,
+and the first frame draws it again.
 
 A course is 5 rows of 128 letters in `gen_skyward.py` (`COURSES`).  Tiles:
 `#` ground, `H` `B` `K` `D` blocks, `=` a bridge, `^` thorns, `U` a bounce
@@ -180,9 +209,13 @@ game through pad 1 with a bot.  The bot looks ahead with a Python model of
 the rules (the same file), so the model and the program are compared on
 every frame too.  For every frame the test checks the background and the
 sprites byte for byte against `gen_skyward.py`'s model and that the
-drawing is ahead of the beam; at the end, that every course was cleared in
-order, that the strips are unchanged and that Esc brings the DOS back.
-A whole game is about 23,400 frames and takes about two hours;
+drawing is ahead of the beam (a story picture: byte for byte against the
+picture); that the song is in the sound buffer on at least 3 frames in 4;
+at the end, that every course was cleared in order, that the strips are
+unchanged and that Esc brings the DOS back.  With the music the background
+is done by 66 % of the beam's time and the whole frame's work by about
+48 % of the frame.  A whole game is about 26,200 frames and takes about
+two and a half hours;
 `--course n` starts at course n, `--stop-after n` stops when course n
 loads, `--stomp` has the bot land on every enemy it can (the Shellbys'
 shells, the crates), and `--course 1 --lives 1 --walk --stop-after 0` (a

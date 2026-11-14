@@ -31,7 +31,7 @@ and at the end that the bot cleared every course and the ending came up,
 that the strips in the video RAM are unchanged and that Esc brings the DOS
 back.
 
-Date: 11/13/2026
+Date: 11/14/2026
 """
 
 import argparse
@@ -396,11 +396,11 @@ def model_of(cs, mem, z):
     for i, en in enumerate(m.en):
         en.update(x=mem[e + i] | mem[e + 8 + i] << 8, dir=mem[e + 0x18 + i], alive=mem[e + 0x40 + i],
                   hp=mem[e + 0x58 + i])
-    m.power, m.geta, m.glider = mem[e + 0x70], mem[e + 0x71], mem[z['glider']]
+    m.power, m.geta, m.glider = mem[e + 0x68], mem[e + 0x69], mem[z['glider']]
     m.used = used_crates(cs, mem)
     m.facing = 1 if mem[z['facing']] else 0
-    m.emb, m.emx, m.emg = mem[e + 0x72], mem[e + 0x73] | mem[e + 0x7B] << 8, mem[e + 0x75]
-    m.emd, m.fprev = (1 if mem[e + 0x76] else 0), mem[e + 0x77]
+    m.emb, m.emx, m.emg = mem[e + 0x6A], mem[e + 0x6B] | mem[e + 0x73] << 8, mem[e + 0x6D]
+    m.emd, m.fprev = (1 if mem[e + 0x6E] else 0), mem[e + 0x6F]
     return m
 
 
@@ -434,6 +434,8 @@ def main(argv):
     cur = None
     t0 = 0
     worst_bg = 0
+    pics = {}                   # story picture: [(address, byte)]
+    heard = [0, 0]              # frames of a course with the song in the sound buffer, frames
     held = False
     seen = []
     deaths = 0
@@ -452,6 +454,31 @@ def main(argv):
 
     stops = {z['frame_go']: 'go', z['drawn_bg']: 'bg', z['drawn_all']: 'all', z['f_wait']: 'wait',
              z['lc_5']: 'loaded'}
+    def check_sprites():
+        nonlocal ok
+        heard[1] += 1
+        heard[0] += any(mem[a] != 0x80 for a in range(0x5DF3, 0x6000))
+        want = cs.background(scroll, used_crates(cs, mem))
+        model = bytearray(65536)
+        for a, v in want.items():
+            model[a] = v
+        n = mem[z['sl_n']]
+        ad2id = {}
+        for fi, (nm, _) in enumerate(cs.frames):
+            ad = mem[sk.PAGES['FR'] + fi] | mem[sk.PAGES['FR'] + sk.FR_HI + fi] << 8
+            ad2id.setdefault(ad, fi)
+        lst = []
+        for i in range(n):
+            ad = mem[z['SL_LO'] + i] | mem[z['SL_HI'] + i] << 8
+            lst.append((ad2id[ad], mem[z['SL_C'] + i], mem[z['SL_G'] + i]))
+        sk.draw_sprites_model(model, lst, cs.frames)
+        bad = [a for a in want if mem[a] != model[a]]
+        if bad:
+            a = bad[0]
+            print('frame %d: sprites, %d bytes differ, first %04X: %02X, model %02X (list %s)'
+                  % (frames, len(bad), a, mem[a], model[a], lst))
+            ok = False
+
     poked = False
     while frames < args.max_frames:
         cpu.step()
@@ -500,26 +527,19 @@ def main(argv):
             continue
         # all drawn
         frames += 1
-        want = cs.background(scroll, used_crates(cs, mem))
-        model = bytearray(65536)
-        for a, v in want.items():
-            model[a] = v
-        n = mem[z['sl_n']]
-        ad2id = {}
-        for fi, (nm, _) in enumerate(cs.frames):
-            ad = mem[sk.PAGES['FR'] + fi] | mem[sk.PAGES['FR'] + 128 + fi] << 8
-            ad2id.setdefault(ad, fi)
-        lst = []
-        for i in range(n):
-            ad = mem[z['SL_LO'] + i] | mem[z['SL_HI'] + i] << 8
-            lst.append((ad2id[ad], mem[z['SL_C'] + i], mem[z['SL_G'] + i]))
-        sk.draw_sprites_model(model, lst, cs.frames)
-        bad = [a for a in want if mem[a] != model[a]]
-        if bad:
-            a = bad[0]
-            print('frame %d: sprites, %d bytes differ, first %04X: %02X, model %02X (list %s)'
-                  % (frames, len(bad), a, mem[a], model[a], lst))
-            ok = False
+        if cs.c.get('pic'):
+            # a story picture: the loader drew it, nothing is drawn after
+            key = cs.c['pic']
+            if key not in pics:
+                pix = sk.story_pixels(key)
+                pics[key] = [(0x6100 + 512 * c + sk.row_x(g), pix[(2 * c, g)] | pix[(2 * c + 1, g)] << 4)
+                             for c in range(sk.NCOL) for g in range(sk.NROW)]
+            bad = [a for a, v in pics[key] if mem[a] != v]
+            if bad:
+                print('frame %d: story picture %s, %d bytes differ' % (frames, cs.c['pic'], len(bad)))
+                ok = False
+        else:
+            check_sprites()
         if new and frames > 2:
             new = False
             shot('course%d_start' % cur)
@@ -569,6 +589,10 @@ def main(argv):
         pad.buttons = btn
     if drift:
         print('FAIL: the model and the program disagreed on %d frames' % drift)
+        ok = False
+    print('music: the song in the sound buffer in %d of %d frames of the courses' % tuple(heard))
+    if heard[1] > 100 and heard[0] < heard[1] * 3 // 4:
+        print('FAIL: no music')
         ok = False
     print('%d frames; courses seen %s; lives lost %d; background done at %d %% of the beam\'s time'
           % (frames, seen, deaths, 100 * worst_bg))
