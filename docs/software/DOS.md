@@ -6,7 +6,7 @@ loads memory as files.  The 32K ROM image ([ROM.md](../architecture/ROM.md#the-3
 holds the boot loader, the library, BASIC and a small loader
 (`src/scripts/rom32.masm`) that starts the DOS and runs the programs.
 
-Date: 11/11/2026
+Date: 11/14/2026
 
 The DOS is on the card, so the ROM can hold BASIC, which is useful with no
 card at all.
@@ -170,9 +170,12 @@ Between `fs_create` and `fs_close` only `fs_write` may be called.  Clusters
 are taken from the first free FAT entry after the file's last one, every
 FAT is kept up to date after each cluster, and the folder entry is written
 at create and at close, so a card pulled out early holds an empty file,
-not a broken one.  Folders are not made or grown (error 11 when full);
-FAT32's free-cluster count is left to the PC.  `test_fsw.py` checks the
-files with `fsck.fat` and `mtools`.
+not a broken one.  Folders are not made or grown (error 11 when full),
+but a folder of several clusters, wherever they are on the card, is
+searched to its end for a free entry (fixed 11/14/2026: before, a file
+past a folder's first cluster could not be replaced or added).  FAT32's
+free-cluster count is left to the PC.  `test_fsw.py` checks the files
+with `fsck.fat` and `mtools`.
 
 ## Memory the DOS uses
 

@@ -46,6 +46,11 @@ m_mb2:
     ld   MODE_PF, [y,x]
     inc
     bne  m_mb2
+    GOTO title_go
+
+; reset: the program's variables and the found things as at the start
+.chunk
+reset:
     ld   0x20, ac               ; program variables x20-x8F = 0
 m_z:
     ld   ac, x
@@ -75,9 +80,198 @@ m_g:
     ld   0, [y,x]
     inc
     bne  m_g
+    RET
+
+; the title: the Landing Ledge without Wick, and the keys
+.chunk
+title_go:
+    CALL reset
+    ld   GOT >> 8, y
+    ld   V_MODE, x
+    ld   M_TITLE, [y,x]
+    CALL fs_root                ; a saved game on the card?  (the card
+    ld   s_dir & 0xFF, ac       ; comes with a blank LAMP/SAVE.DAT, as the
+    ld   ac, [R0]               ; writer never grows a folder)
+    ld   s_dir >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    ld   s_save & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_save >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    bne  tg_1
+    clr  ac                     ; (to the tile map: the room is read after)
+    ld   ac, [R4]
+    ld   MAP >> 8, ac
+    ld   ac, [R5]
+    CALL fs_read
+    ld   MAP >> 8, y
+    ld   V_SAVED, x
+    ld   [y,x], ac
+    beq  tg_1
+    ld   GOT >> 8, y
+    ld   V_HASSAVE, x
+    ld   1, [y,x]
+tg_1:
     CALL load_room
     CALL camera
+    GOTO title_txt
+
+.chunk
+title_txt:
+    clr  ac
+    ld   ac, [hud_dirty]
+    ld   ac, [tmp]
+tt_lp:
+    clr  ac
+    ld   ac, [CUR_COL]
+    ld   [tmp], ac
+    ld   ac, [CUR_ROW]
+    add  t_lo & 0xFF, x
+    ld   t_lo >> 8, y
+    ld   [y,x], ac
+    ld   ac, [R0]
+    ld   [tmp], ac
+    add  t_hi & 0xFF, x
+    ld   [y,x], ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [tmp], ac
+    inc
+    ld   ac, [tmp]
+    xor  3, ac
+    bne  tt_lp
+    ld   3, ac
+    ld   ac, [CUR_ROW]
+    clr  ac
+    ld   ac, [CUR_COL]
+    ld   GOT >> 8, y
+    ld   V_HASSAVE, x
+    ld   [y,x], ac
+    bne  tt_s
+    ld   s_blank & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_blank >> 8, ac
+    bra  tt_p
+tt_s:
+    ld   s_t3 & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_t3 >> 8, ac
+tt_p:
+    ld   ac, [R1]
+    CALL con_puts
     GOTO frame
+t_lo: #d8 s_t0 & 0xFF, s_blank & 0xFF, s_t2 & 0xFF
+t_hi: #d8 s_t0 >> 8, s_blank >> 8, s_t2 >> 8
+
+; a new game
+.chunk
+new_game:
+    CALL reset
+    CALL load_room
+    CALL camera
+    GOTO g_spr
+
+; go on from the game saved on the card
+.chunk
+go_on:
+    CALL reset
+    CALL fs_root
+    ld   s_dir & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_dir >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    ld   s_save & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_save >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    beq  gn_rd
+    GOTO new_game
+gn_rd:
+    clr  ac                     ; (to the tile map: the room is read after)
+    ld   ac, [R4]
+    ld   MAP >> 8, ac
+    ld   ac, [R5]
+    CALL fs_read
+    clr  ac
+    ld   ac, [tmp]
+gn_cp:
+    ld   [tmp], x
+    ld   MAP >> 8, y
+    ld   [y,x], ac
+    ld   GOT >> 8, y
+    ld   ac, [y,x]
+    ld   [tmp], ac
+    inc
+    ld   ac, [tmp]
+    bne  gn_cp
+    GOTO go_on2
+
+.chunk
+go_on2:
+    ld   GOT >> 8, y
+    ld   V_SROOM, x
+    ld   [y,x], ac
+    ld   ac, [room]
+    ld   V_SX, x
+    ld   [y,x], ac
+    ld   ac, [px]
+    ld   V_SY, x
+    ld   [y,x], ac
+    ld   ac, [py]
+    ld   V_SITEMS, x
+    ld   [y,x], ac
+    ld   ac, [items]
+    ld   V_SEMAX, x
+    ld   [y,x], ac
+    ld   ac, [emax]
+    ld   ac, [energy]
+    CALL load_room
+    CALL camera
+    GOTO g_spr
+
+; the title and the ending: a key, and no rules
+.chunk
+mode_step:
+    ld   [inp_prev], ac
+    and  IN_JUMP, ac
+    bne  ms_f
+    ld   [inp], ac
+    and  IN_JUMP, ac
+    beq  ms_f
+    ld   GOT >> 8, y
+    ld   V_MODE, x
+    ld   [y,x], ac
+    xor  M_TITLE, ac
+    beq  ms_new
+    GOTO title_go
+ms_new:
+    GOTO new_game
+ms_f:
+    ld   GOT >> 8, y
+    ld   V_MODE, x
+    ld   [y,x], ac
+    xor  M_TITLE, ac
+    bne  ms_end
+    ld   V_HASSAVE, x
+    ld   [y,x], ac
+    beq  ms_t
+    ld   [inp_prev], ac
+    and  IN_FIRE, ac
+    bne  ms_t
+    ld   [inp], ac
+    and  IN_FIRE, ac
+    beq  ms_t
+    GOTO go_on
+ms_t:
+    clr  ac                     ; (the title: no sprites)
+    ld   ac, [sl_n]
+    GOTO frame
+ms_end:
+    GOTO g_spr
 
 ; ------------------------------------------------------------
 ; frame: wait for the beam, then draw behind it
@@ -255,6 +449,36 @@ read_input:
 ; ------------------------------------------------------------
 .chunk
 game:
+    ld   GOT >> 8, y
+    ld   V_MODE, x
+    ld   [y,x], ac
+    beq  gm_1
+    GOTO mode_step
+gm_1:
+    ld   V_FR, x                ; the time played
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    xor  60, ac
+    bne  gm_2
+    ld   ac, [y,x]
+    ld   V_SEC, x
+    ld   [y,x], ac
+    inc
+    ld   ac, [y,x]
+    xor  60, ac
+    bne  gm_2
+    ld   ac, [y,x]
+    ld   V_MIN, x
+    ld   [y,x], ac
+    inc
+    beq  gm_2
+    ld   ac, [y,x]
+gm_2:
+    GOTO game2
+
+.chunk
+game2:
     ld   [fcnt], ac
     inc
     ld   ac, [fcnt]
@@ -1483,8 +1707,8 @@ ob_go:
     jmp  ac
 
 .chunk
-ob_lo: #d8 ob_item & 0xFF, ob_ember & 0xFF, ob_puff & 0xFF, ob_bolt & 0xFF, ob_walk & 0xFF, ob_fly & 0xFF, ob_sit & 0xFF, ob_drop & 0xFF, ob_hop & 0xFF, ob_hover & 0xFF
-ob_hi: #d8 ob_item >> 8, ob_ember >> 8, ob_puff >> 8, ob_bolt >> 8, ob_walk >> 8, ob_fly >> 8, ob_sit >> 8, ob_drop >> 8, ob_hop >> 8, ob_hover >> 8
+ob_lo: #d8 ob_item & 0xFF, ob_ember & 0xFF, ob_puff & 0xFF, ob_bolt & 0xFF, ob_lamp & 0xFF, ob_walk & 0xFF, ob_fly & 0xFF, ob_sit & 0xFF, ob_drop & 0xFF, ob_hop & 0xFF, ob_hover & 0xFF
+ob_hi: #d8 ob_item >> 8, ob_ember >> 8, ob_puff >> 8, ob_bolt >> 8, ob_lamp >> 8, ob_walk >> 8, ob_fly >> 8, ob_sit >> 8, ob_drop >> 8, ob_hop >> 8, ob_hover >> 8
 hopdy: #d8 @@HOPDY@@
 
 ; ob_store: the copy back to thing ob_i
@@ -1560,6 +1784,68 @@ oi_fill:
     inc
     CALL msg_set
     ld   79, ac
+    CALL snd_beep
+    GOTO ob_save
+
+; a save lamp: touched, once a visit: the lantern is filled and the game
+; is written to the card (LAMP/SAVE.DAT: the found-things page)
+.chunk
+ob_lamp:
+    ld   [touchf], ac
+    beq  ol_n
+    ld   [ob_t], ac
+    beq  ol_s
+ol_n:
+    GOTO ob_next
+ol_s:
+    ld   1, ac
+    ld   ac, [ob_t]
+    ld   GOT >> 8, y
+    ld   V_SAVED, x
+    ld   1, [y,x]
+    ld   V_SROOM, x
+    ld   [room], ac
+    ld   ac, [y,x]
+    ld   V_SX, x
+    ld   [px], ac
+    ld   ac, [y,x]
+    ld   V_SY, x
+    ld   [py], ac
+    ld   ac, [y,x]
+    ld   V_SITEMS, x
+    ld   [items], ac
+    ld   ac, [y,x]
+    ld   V_SEMAX, x
+    ld   [emax], ac
+    ld   ac, [y,x]
+    ld   ac, [energy]
+    ld   1, ac
+    ld   ac, [hud_dirty]
+    ld   M_SAVE, ac
+    CALL msg_set
+    GOTO ol_w
+
+.chunk
+ol_w:
+    CALL fs_root
+    ld   s_dir & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_dir >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    ld   s_save & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_save >> 8, ac
+    ld   ac, [R1]
+    clr  ac
+    ld   ac, [R4]
+    ld   ac, [R2]
+    ld   GOT >> 8, ac
+    ld   ac, [R5]
+    ld   1, ac
+    ld   ac, [R3]
+    CALL fs_save
+    ld   88, ac
     CALL snd_beep
     GOTO ob_save
 
@@ -2198,12 +2484,33 @@ gi_1:
 gi_2:
     ld   [energy], ac
     bne  gi_x
+    GOTO g_dead
+gi_x:
+    GOTO g_spr
+
+; the lantern went out: back at the last save lamp, or the start
+.chunk
+g_dead:
     ld   START_ROOM, ac
     ld   ac, [room]
     ld   START_X, ac
     ld   ac, [px]
     ld   START_Y, ac
     ld   ac, [py]
+    ld   GOT >> 8, y
+    ld   V_SAVED, x
+    ld   [y,x], ac
+    beq  gd_s
+    ld   V_SROOM, x
+    ld   [y,x], ac
+    ld   ac, [room]
+    ld   V_SX, x
+    ld   [y,x], ac
+    ld   ac, [px]
+    ld   V_SY, x
+    ld   [y,x], ac
+    ld   ac, [py]
+gd_s:
     ld   START_ENERGY, ac
     ld   ac, [energy]
     clr  ac
@@ -2216,7 +2523,6 @@ gi_2:
     CALL msg_set
     CALL load_room
     CALL camera
-gi_x:
     GOTO g_spr
 
 ; ------------------------------------------------------------
@@ -2642,6 +2948,82 @@ ls_end:
     beq  le_x
     CALL msg_set
 le_x:
+    ld   [room], ac
+    xor  END_ROOM, ac
+    bne  le_y
+    GOTO ending
+le_y:
+    LEAVE
+
+; the end: the time and the things found on the fourth line; then a key
+.chunk
+ending:
+    ld   GOT >> 8, y
+    ld   V_MODE, x
+    ld   M_END, [y,x]
+    ld   V_MSG_T, x             ; (the message stays)
+    ld   0, [y,x]
+    clr  ac
+    ld   ac, [CUR_COL]
+    ld   3, ac
+    ld   ac, [CUR_ROW]
+    ld   s_time & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_time >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   GOT >> 8, y
+    ld   V_MIN, x
+    ld   [y,x], ac
+    CALL con_dec8
+    ld   0x3A, ac
+    CALL con_putc
+    ld   GOT >> 8, y
+    ld   V_SEC, x
+    ld   [y,x], ac
+    sub  10, ac
+    bcc  en_1
+    ld   0x30, ac
+    CALL con_putc
+en_1:
+    ld   GOT >> 8, y
+    ld   V_SEC, x
+    ld   [y,x], ac
+    CALL con_dec8
+    GOTO ending2
+
+.chunk
+ending2:
+    clr  ac                     ; things found: GOT 1-31
+    ld   ac, [tmp]
+    ld   1, ac
+    ld   ac, [tmp2]
+en_lp:
+    ld   GOT >> 8, y
+    ld   [tmp2], x
+    ld   [y,x], ac
+    beq  en_n
+    ld   [tmp], ac
+    inc
+    ld   ac, [tmp]
+en_n:
+    ld   [tmp2], ac
+    inc
+    ld   ac, [tmp2]
+    xor  32, ac
+    bne  en_lp
+    ld   s_found & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_found >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   [tmp], ac
+    CALL con_dec8
+    ld   s_of & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_of >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
     LEAVE
 
 ; the thing that a beaten creature guarded; its keeper is beaten
@@ -2770,6 +3152,16 @@ s_room:   #d "R00.RM", 0x00
 s_area:   #d "A0.TS", 0x00
 s_hex:    #d "0123456789ABCDEF"
 s_energy: #d "ENERGY", 0x00
+s_save:   #d "SAVE.DAT", 0x00
+
+.chunk
+s_t0:     #d "LAMPLIGHTER                             ", 0x00
+s_t2:     #d "JUMP: A NEW GAME                        ", 0x00
+s_t3:     #d "FIRE: GO ON FROM THE LAST SAVE LAMP     ", 0x00
+s_blank:  #d "                                        ", 0x00
+s_time:   #d "TIME ", 0x00
+s_found:  #d "   FOUND ", 0x00
+s_of:     #d " OF @@NITEMS@@   JUMP: THE TITLE", 0x00
 s_sp:     #d "  ", 0x00
 s_bits:   #d8 1, 2, 4, 8, 16, 32, 64, 128
 

@@ -10,7 +10,7 @@ Placard has written to them, the result is checked with the PC's tools:
 fsck.fat finds no errors, mtype reads back the files, mdir lists them.
 Without the tools the tests are skipped.
 
-Date: 10/25/2026
+Date: 11/14/2026
 """
 
 import argparse
@@ -280,6 +280,40 @@ def test_full():
     assert len(card.names()) == 31
     card.done()
     return 'full card 14, full root folder 11'
+
+
+@skip
+def test_folder_clusters():
+    """a folder of three clusters, apart from each other on the card (other
+    files were written between them): a file in its last cluster is
+    replaced, and a new file takes a free entry there"""
+    im = tf.Image(16, 5, 1)
+    im.mkdir('D')
+    for i in range(14):                 # "." and ".." and 14: the first cluster is full
+        im.put('F%02d.BIN' % i, tf.data(100, i), 'D')
+    im.put('GAP1.BIN', tf.data(700, 30))
+    for i in range(14, 30):             # the second cluster
+        im.put('F%02d.BIN' % i, tf.data(100, i), 'D')
+    im.put('GAP2.BIN', tf.data(700, 31))
+    im.put('SAVE.DAT', bytes(256), 'D')  # the third
+    image = im.card()
+    card = Card(image)
+    rig = Rig(image)
+    assert rig.call('fs_mount') == 0
+    assert rig.call('fs_open', **rig.name('D')) == 0
+    d = tf.data(256, 32)
+    assert rig.save('SAVE.DAT', d) == 0, 'replace a file in the last cluster'
+    assert rig.save('NEW.BIN', tf.data(600, 33)) == 0, 'a new file'
+    fsck_ok(card)
+    assert card.read('D/SAVE.DAT') == d, 'D/SAVE.DAT'
+    assert card.read('D/NEW.BIN') == tf.data(600, 33), 'D/NEW.BIN'
+    for i in range(30):
+        assert card.read('D/F%02d.BIN' % i) == tf.data(100, i), 'D/F%02d.BIN' % i
+    assert card.read('GAP1.BIN') == tf.data(700, 30) and card.read('GAP2.BIN') == tf.data(700, 31)
+    names = card.names('D')
+    assert names.count('SAVE.DAT') == 1 and 'NEW.BIN' in names, names
+    card.done()
+    return 'a folder of 3 clusters apart: replace and add'
 
 
 @skip
