@@ -28,19 +28,22 @@ SCREEN
                        16 x 16 tiles
 
 FILES ON THE CARD
-    SKYWARD.PLC         the program: the sprite blitter and Tobi's frames at
-                        x0100, the code from x2000
-    SKYWARD/Cx.LVL      one file a course (x = A-X), read when the course
-                        starts: 6 sectors of tables to x4000-x4BFF (strip
-                        addresses, the tile map, the objects, the sprite
-                        routines' addresses, three lines of text), then a
-                        straight image of the RAM from x6000: the strips
-                        (unrolled code that draws one byte column of a
-                        band or of a tile) and the course's own sprites, in
-                        the video RAM the screen leaves free (offsets
-                        x040-x17F of each 512-byte byte column).
-    CA is the title and the story, CM the boat between the worlds and CX
-    the ending; the others are played.
+    SKYWARD.PLC         the program: tables, the music player (placard_mus.masm)
+                        at x0300-x1EFF, the code from x2000, the sprite
+                        blitter at x3600
+    SKYWARD/Cx.LVL      one file a course (x = A-Z, 0-6), read when the course
+                        starts: 5 sectors of its song (skyward_music.py) to
+                        x3700, 4 sectors of tables to x4100-x42FF and
+                        x5400-x59FF (strip addresses, the tile map, the
+                        objects, the sprite routines' addresses, three lines
+                        of text), then a straight image of the RAM from
+                        x6000: the strips (unrolled code that draws one byte
+                        column of a band or of a tile) and the course's
+                        sprites, in the video RAM the screen leaves free
+                        (offsets x040-x17F of each 512-byte byte column).
+    CA is the title, CB-CG and C4-C6 Mark's story pictures (the picture is
+    in the file's RAM image, over the playfield), CS the boat between the
+    worlds and C3 the ending; the others are played.
 
 THE GAME
     Run right, jump the gaps, land on the Bumblers, Buzzbees and Shellbys
@@ -55,7 +58,7 @@ THE GAME
     or A to jump (hold to glide), Down or pad Y to throw an ember, Esc back
     to the DOS.
 
-Date: 11/13/2026
+Date: 11/14/2026
 """
 
 import argparse
@@ -821,7 +824,7 @@ COURSES = [
             ("................", "....3...........", "................", ".........k......", "################"),
             ("......oo........", "......KK........", "......KK........", "......KK...x....", "#####U##########"),
             ("................", "................", "....ooo...ooo...", "................", "##U.....##U....."),
-            ("................", "....ooo.........", "................", "......j.....e...", "######u#########"),
+            ("................", "....ooo.........", "................", "............e...", "################"),
             ("............KKKK", "............KKKK", "............KKKK", ".........G..KKKK", "################")]),
     course('cellar', 'grass', 0, 0,
            ["BONUS   CLOUD CELLAR",
@@ -984,8 +987,44 @@ COURSES = [
             ] + [("................", "................", "................", "................", "################")] * 5
            + [("............KKKK", "............KKKK", "............KKKK", "............KKKK", "################")]),
 ]
+
+
+def story(key):
+    """a story picture (skyward_story.py): kind 2, the picture drawn once"""
+    from skyward_story import LINES
+    c = course('s_' + key.lower(), 'grass', 2, 0,
+               ['SKYWARD TOBI', LINES[key], 'PRESS JUMP'.rjust(79)],
+               [("KK..............", "KK..............", "KK..............", "KK.S............", "################")]
+               + [("................", "................", "................", "................", "################")] * 6
+               + [("............KKKK", "............KKKK", "............KKKK", "............KKKK", "################")])
+    c['pic'] = key
+    return c
+
+
+COURSES[1:1] = [story(k) for k in ('O1', 'O2', 'O3', 'O4', 'O5', 'O6')]
+COURSES += [story(k) for k in ('E1', 'E2', 'E3')]
 OBJ_CH = set('SoezGRMprxkjQlqV')
 NCOURSE = len(COURSES)
+FILE_CH = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'     # SKYWARD/Cx.LVL
+PIC_X, PIC_G = 16, 8    # a story picture's place on the playfield (pixels, cells)
+
+
+def story_pixels(key):
+    """{(x, cell): color} of the whole playfield for a story picture: a white
+    frame round it on the night blue"""
+    from skyward_story import STORY
+    pic = STORY[key]
+    out = {}
+    for g in range(NROW):
+        for x in range(2 * NCOL):
+            px, py = x - PIC_X, g - PIC_G
+            if 0 <= px < 128 and 0 <= py < 96:
+                out[(x, g)] = int(pic[py][px], 16)
+            elif -3 <= px < 131 and -3 <= py < 99 and (px in (-3, 130) or py in (-3, 98)):
+                out[(x, g)] = 10
+            else:
+                out[(x, g)] = 1
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1222,7 +1261,8 @@ def sprite_rows(name, art):
 
 ZP = '''
 ; ---------------------------------------------------------------------------
-; program variables (zero page x20-x8F)
+; program variables (zero page x20-x5F; the music player has x60-x9F), and
+; the sprite list in the RAM (the medals' page)
 ; ---------------------------------------------------------------------------
 colpage    = 0x20       ; video page of the column being drawn (x61 + 2 * col)
 rl         = 0x21       ; strip return address
@@ -1265,39 +1305,43 @@ sy         = 0x45
 srl        = 0x46       ; return address for the sprite routines
 srh        = 0x47
 vpg        = 0x48       ; x48-x4F: video page of each of the sprite's 8 columns
-SL_LO      = 0x50       ; x50-x5B: sprite routine address, low
-SL_HI      = 0x5C       ; x5C-x67: high
-SL_C       = 0x68       ; x68-x73: byte column + 8 (0-87)
-SL_G       = 0x74       ; x74-x7F: top cell + 32
-mode       = 0x80       ; 0 playing, 1 waiting for the jump key, 2 course clear (counting down)
-clear_t    = 0x81       ;   frames left of mode 2
-o_i        = 0x82       ; object loop index
-dlo        = 0x83
-dhi        = 0x84
-inv        = 0x85       ; frames of safety after a lost life
-gliding    = 0x86       ; 1: the glider is open this frame
-moved      = 0x87
-tmp3       = 0x88
-n_med      = 0x89       ; medals in this course
-n_en       = 0x8A       ; objects in this course
-ll_lo      = 0x8B       ; lose_life's return address
-ll_hi      = 0x8C
-goal_lo    = 0x8D       ; the course is clear at this byte column
-goal_hi    = 0x8E
-jprev      = 0x8F       ; the jump key last frame (4 = down)
+SL_LO      = 0x49A0     ; 12 bytes each: sprite routine address, low
+SL_HI      = 0x49AC     ;   high
+SL_C       = 0x49B8     ;   byte column + 8 (0-87)
+SL_G       = 0x49C4     ;   top cell + 32
+mode       = 0x50       ; 0 playing, 1 waiting for the jump key, 2 course clear (counting down)
+clear_t    = 0x51       ;   frames left of mode 2
+o_i        = 0x52       ; object loop index
+dlo        = 0x53
+dhi        = 0x54
+inv        = 0x55       ; frames of safety after a lost life
+gliding    = 0x56       ; 1: the glider is open this frame
+moved      = 0x57
+tmp3       = 0x58
+n_med      = 0x59       ; medals in this course
+n_en       = 0x5A       ; objects in this course
+ll_lo      = 0x5B       ; lose_life's return address
+ll_hi      = 0x5C
+goal_lo    = 0x5D       ; the course is clear at this byte column
+goal_hi    = 0x5E
+jprev      = 0x5F       ; the jump key last frame (4 = down)
 ekind      = 0x1E       ; (T6) this object's kind
 jnow       = 0x1F       ; (T7) the jump key this frame
 '''
 
-BLOCK = 0x4000          # the course's tables: 12 pages, the first 6 sectors of Cn.LVL
-                        # (x4D00-x4FFF is the file system's)
-PAGES = {n: BLOCK + 0x100 * i for i, n in enumerate(
-    ['BS_LO', 'BS_HI', 'TS_LO', 'TS_HI', 'LVA', 'LVB', 'LVC', 'SOLID', 'OBJ', 'FR', 'TEXT'])}
-BLOCK_END = 0x4C00
-TEXT_OFF = (0x000, 0x058, 0x0B0)
+BLIT_CODE = 0x3600      # draw_sprites, and the sound routines after it
+SONG = 0x3700           # the course's song (.SNG, at most 10 pages): the first 5 sectors of Cn.LVL
+# the course's tables, the next 5 sectors: x4100-x42FF, x5400-x59FF (x4300-x4CFF is the
+# music player's RAM, x4D00-x4FFF the file system's, x5000-x53FF I/O, x5A00-x5BFF the
+# screen's mode bytes, x5D00 the menu block, x5DF3 on the sound buffer)
+PAGES = dict(BS_LO=0x4100, BS_HI=0x4180, TS_LO=0x4200, TS_HI=0x5400, LVA=0x5500, LVB=0x5600,
+             LVC=0x5700, FR=0x5780, OBJ=0x5800, SOLID=0x57E0, TEXT=0x5900)
+FR_HI = 0x30            # FR: a frame's routine address, low bytes; the high bytes FR_HI on; SOLID after
+TEXT_OFF = (0, 81, 162)
 SD_OVL = 0x6000
 SD_FRAG = (0x040, 0x180)
 LOW_END = 0x1F00        # LIB_RAM
+LOW_FRAMES = 0          # common sprite frames in the low RAM (the music player has it now)
 
 
 def sd_frags():
@@ -1330,7 +1374,7 @@ def blitter():
         a.raw('VPG:')
         for i in range(0, 256, 16):
             a.raw('    #d8 ' + ', '.join('0x%02X' % v for v in VPG_T[i:i + 16]))
-        a.org(0x0300, 'draw_sprites: draw the SL_ list (CALL it; maps every section to RAM)')
+        a.org(BLIT_CODE, 'draw_sprites: draw the SL_ list (CALL it; maps every section to RAM)')
         a.raw('draw_sprites:')
         a.g('''
     ld   0x50, y                ; map FF: the video RAM readable, the course's
@@ -1351,13 +1395,14 @@ ds_next:
     ld   [LINK_HI], y           ; RETURN
     jmp  [LINK_LO]
 ds_one:
+    ld   SL_C >> 8, y
     ld   [s_i], ac
-    add  SL_C, x
-    ld   [x], ac
+    add  SL_C & 0xFF, x
+    ld   [y,x], ac
     ld   ac, [sc]
     ld   [s_i], ac
-    add  SL_G, x
-    ld   [x], ac
+    add  SL_G & 0xFF, x
+    ld   [y,x], ac
     ld   ac, [sy]
     ld   VPG >> 8, y''')
         lines = []
@@ -1365,13 +1410,14 @@ ds_one:
             lines.append('    ld   [sc], ac\n    add  %d, x\n    ld   [y,x], ac\n    ld   ac, [vpg + %d]' % (k, k))
         a.g('\n'.join(lines))
         a.g('''
+    ld   SL_C >> 8, y
     ld   [s_i], ac
-    add  SL_HI, x
-    ld   [x], ac
+    add  SL_HI & 0xFF, x
+    ld   [y,x], ac
     ld   ac, [tmp]
     ld   [s_i], ac
-    add  SL_LO, x
-    ld   [x], ac
+    add  SL_LO & 0xFF, x
+    ld   [y,x], ac
     ld   ac, [tmp2]
     ld   [s_i], ac
     add  1, ac
@@ -1388,10 +1434,10 @@ ds_one:
         src = '\n'.join(a.out) + '\n'
         mem, syms, _ = ps.assemble(src, HERE)
         return src, syms, mem
-    n = len(COMMON)
+    n = LOW_FRAMES
     while True:
         src, syms, mem = build(n)
-        if max(mem) < LOW_END:
+        if max(mem) < SONG:
             return src, syms, mem, n
         n -= 1
 
@@ -1501,30 +1547,86 @@ def course_file(n):
             ad = syms[ts[(i, j)]]
             ts_lo[8 * i + j], ts_hi[8 * i + j] = ad & 255, ad >> 8
     lv = [[8 * cs.cid[(r, cs.trows[r][t])] for t in range(LEVEL_W)] for r in range(NTROW)]
-    fr = [0] * 256
+    lvc = lv[4] + [0] * 128
     for fi, (name, art) in enumerate(cs.frames):
+        assert fi < FR_HI
         ad = BLIT_SYMS['spr_' + name] if fi < BLIT_N else syms['spr_' + name]
-        fr[fi], fr[128 + fi] = ad & 255, ad >> 8
-    text = bytearray(512)
+        lvc[128 + fi], lvc[128 + FR_HI + fi] = ad & 255, ad >> 8
+    text = bytearray(256)
     for off, t in zip(TEXT_OFF, cs.c['text']):
+        assert len(t) <= 80
         text[off:off + 80] = t.ljust(80).encode('ascii')
-    block = (page(bs_lo) + page(bs_hi) + page(ts_lo) + page(ts_hi) + page(lv[0] + lv[1]) + page(lv[2] + lv[3])
-             + page(lv[4]) + page(solid) + page(cs.obj_page()) + page(fr) + bytes(text))
-    assert len(block) == BLOCK_END - BLOCK
+    assert not any(bs_lo[128:]) and not any(bs_hi[128:]) and not any(solid[c] for c in range(256) if c % 8)
+    obj = cs.obj_page()
+    assert len(cs.combos) <= 32
+    lvc[PAGES['SOLID'] & 0xFF:] = solid[0:256:8]
+    block = (page(bs_lo[:128] + bs_hi[:128]) + page(ts_lo) + page(ts_hi) + page(lv[0] + lv[1])
+             + page(lv[2] + lv[3]) + page(lvc) + page(obj) + bytes(text))
+    assert len(block) == 8 * 256
+    if cs.c.get('pic'):
+        pix = story_pixels(cs.c['pic'])
+        for col in range(NCOL):
+            for g in range(NROW):
+                ad = 0x6100 + 512 * col + row_x(g)
+                assert ad not in mem
+                mem[ad] = pix[(2 * col, g)] | pix[(2 * col + 1, g)] << 4
     top = SD_OVL + ((max(mem) - SD_OVL) // 512 + 1) * 512      # whole byte columns (sectors)
     image = bytes(mem.get(a, 0) for a in range(SD_OVL, top))
     info = dict(course=cs, used=sum(1 for a in mem), frags_used=state[1], nfrags=len(frags), strips=nstrip[0],
                 image=mem)
-    return block + image, info
+    return song_block(n) + block + image, info
 
 
 # ---------------------------------------------------------------------------
 # the program (x2000 on)
 # ---------------------------------------------------------------------------
 SD_CODE = 0x2000
-CODE_END = 0x4000       # a .PLC ends below x4000 (the DOS)
-ENEMY = 0x5400          # RAM: the objects' state (a copy of the OBJ page's x00-x67)
-COIN_GOT = 0x5500       # RAM: 1 when medal n is taken
+CODE_END = BLIT_CODE    # the program ends below draw_sprites
+MUS_TABLES = 0x0300     # the music player (placard_mus.masm): 10 pages of tables,
+MUS_CODE = 0x0D00       #   its code (to x1EFF),
+MUS_RAM = 0x4300        #   10 pages of RAM (x4300-x4CFF): 5 wave pages, 5 pages of voice state,
+COIN_GOT = MUS_RAM + 0x600      # which use x76-x9F only.  The game has the rest of two of them:
+ENEMY = MUS_RAM + 0x700         #   1 when medal n is taken, and the sprite list (xA0 on);
+                                #   the objects' state (a copy of the OBJ page's x00-x67)
+V_JING = 0x70           # ENEMY page: frames until the course's song starts again
+CLEAR_FRAMES = 250      # the wait at the windsock (the "Gate Reached" tune)
+DEATH_FRAMES = 164      # the length of "Oops"
+MUS_SYMS = ('mus_init', 'mus_play', 'mus_frame', 'mus_stop', 'mus_sfx')
+_MUS = []
+
+
+def music_module():
+    """the music player, assembled for this program's memory map
+    -> ({addr: byte}, symbols)"""
+    if not _MUS:
+        import asm_expand
+        import gen_plc
+        src = '''#include "placard.asm"
+#include "placard_lib.asm"
+MUS_TABLES = 0x%04X
+MUS_RAM    = 0x%04X
+.prefix sm
+.region 0x%04X, 0x1F00, 1, ram, pack
+.include "placard_mus.masm"
+''' % (MUS_TABLES, MUS_RAM, MUS_CODE)
+        name = os.path.join(HERE, 'skyward_mus.masm')
+        head, chunks = asm_expand.expand(src, name)
+        asm_expand.place(chunks, name)
+        mem, syms, _ = ps.assemble(asm_expand.render(head, chunks, name), HERE)
+        lib, _, _ = ps.assemble(open(os.path.join(HERE, 'rom_lib.asm')).read(), HERE)
+        own = gen_plc.own_bytes(mem, lib)
+        for ad in own:
+            assert MUS_TABLES <= ad < 0x1F00, 'player byte at x%04X' % ad
+        _MUS.append((own, {k: syms[k] for k in MUS_SYMS}))
+    return _MUS[0]
+
+
+def song_block(n):
+    """the first 10 pages of Cn.LVL: the course's song"""
+    import skyward_music
+    song = skyward_music.course_song(COURSES[n]['name'])
+    assert len(song) <= 0x4100 - SONG, 'course %d: the song is %d bytes' % (n, len(song))
+    return song.ljust(0x4100 - SONG, b'\0')
 
 
 def gen():
@@ -1539,11 +1641,16 @@ def gen():
     a.raw('#include "placard_lib.asm"')
     a.raw(ZP)
     a.raw('%-10s = 0x%04X       ; in RAM (the blitter)' % ('draw_sprites', BLIT_SYMS['draw_sprites']))
+    for k, v in music_module()[1].items():
+        a.raw('%-10s = 0x%04X       ; the music player' % (k, v))
+    import skyward_music
+    for k, v in skyward_music.SFX_ID.items():
+        a.raw('SFX_%-6s = %d' % (k.upper(), v))
     consts = dict(MODE_PF=MODE_PF, GRAV=GRAV, JUMPV_LO=(-JUMPV) & 0xFF, JUMPV_HI=((-JUMPV) >> 8) & 0xFF,
                   MAXFALL_HI=MAXFALL >> 8, INV_FRAMES=INV_FRAMES, MAX_SPR=MAX_SPR, GROUND_G=GROUND_G,
-                  NROW=NROW, GLIDE=GLIDE, DROWN_G=DROWN_G, ROOK_SAFE=ROOK_SAFE, NCOURSE=NCOURSE, BLOCK_END=BLOCK_END, FID_MEDAL=FID_MEDAL, NPF=NPF,
-                  ENEMY=ENEMY, V_POWER=0x70, V_GETA=0x71, V_EMB=0x72, V_EMXL=0x73, V_EMG=0x75, V_EMD=0x76, V_FPREV=0x77,
-                  V_EMXH=0x7B, EMBER_LIFE=EMBER_LIFE, BOUNCEV_LO=(-BOUNCEV) & 0xFF, BOUNCEV_HI=((-BOUNCEV) >> 8) & 0xFF,
+                  NROW=NROW, GLIDE=GLIDE, DROWN_G=DROWN_G, ROOK_SAFE=ROOK_SAFE, NCOURSE=NCOURSE,  FID_MEDAL=FID_MEDAL, NPF=NPF,
+                  ENEMY=ENEMY, V_JING=V_JING, V_KEEP=0x74, SONG=SONG, CLEAR_FRAMES=CLEAR_FRAMES, DEATH_FRAMES=DEATH_FRAMES, FR_HI=FR_HI, V_POWER=0x68, V_GETA=0x69, V_EMB=0x6A, V_EMXL=0x6B, V_EMG=0x6D, V_EMD=0x6E, V_FPREV=0x6F,
+                  V_EMXH=0x73, EMBER_LIFE=EMBER_LIFE, BOUNCEV_LO=(-BOUNCEV) & 0xFF, BOUNCEV_HI=((-BOUNCEV) >> 8) & 0xFF,
                   UPV_LO=(-UPV - GRAV) & 0xFF, UPV_HI=((-UPV - GRAV) >> 8) & 0xFF, COIN_GOT=COIN_GOT, COIN_XL=0x80, COIN_XH=0xA8, COIN_G=0xD0)
     for k, v in consts.items():
         a.raw('%-10s = %d' % (k, v))
@@ -1572,7 +1679,6 @@ def gen():
     ld   STACK_TOP, ac
     ld   ac, [SP]''')
     call('con_clear', 'm_2')
-    call('snd_init', 'm_3')
     a.g('''
     ld   0x5A, y                ; rows 32-479 (x5A40-x5BFF): 4 bpp 4x
     ld   0x40, ac
@@ -1590,14 +1696,14 @@ m_mb2:
     inc
     bne  m_mb2''')
     a.g('''
-    ld   0x20, ac               ; program variables x20-x8F = 0
+    ld   0x20, ac               ; program variables x20-x5F = 0
 m_z:
     ld   ac, x
     ld   0, [x]
     add  1, ac
-    sub  0x90, ac
+    sub  0x60, ac
     beq  m_z1
-    add  0x90, ac
+    add  0x60, ac
     bra  m_z
 m_z1:
     ld   3, ac
@@ -1624,6 +1730,11 @@ f_wait:''')
 f_new:
     ld   [FRAME_LO], ac
     ld   ac, [last_frame]
+    ld   [kind], ac             ; a story picture: drawn once, by the loader
+    xor  2, ac
+    bne  frame_go
+    ld   drawn_all >> 8, y
+    jmp  drawn_all
 frame_go:
     ld   0x50, y                ; map FF: the strips are in the video RAM
     ld   0xFF, [y,x]            ; (draw_sprites puts MAP_SHADOW back)''')
@@ -1664,6 +1775,8 @@ b{n}_lp:
     ld   BS_LO >> 8, y
     ld   [y,x], ac
     ld   ac, [tmp]
+    ld   [bw], ac
+    add  BS_HI & 0xFF, x
     ld   BS_HI >> 8, y
     ld   [y,x], ac
     ld   ac, y
@@ -1750,7 +1863,22 @@ g_done:''')
     a.raw('drawn_bg:')
     call('draw_sprites', 'f_spr', '(RAM)')
     a.raw('drawn_all:')
-    call('snd_update', 'f_snd')
+    call('mus_frame', 'f_snd')
+    a.g('''
+    ld   ENEMY >> 8, y          ; after "Oops": the course's song again
+    ld   V_JING, x
+    ld   [y,x], ac
+    beq  f_nj
+    sub  1, ac
+    ld   ac, [y,x]
+    bne  f_nj
+    ld   LINK_LO, x
+    ld   f_nj & 0xFF, [x]
+    ld   LINK_HI, x
+    ld   f_nj >> 8, [x]
+    ld   mus_play >> 8, y
+    jmp  mus_play
+f_nj:''')
     call('pad_read', 'f_pad')
     call('kbd_scan', 'f_kbd')
     call('menu_poll', 'f_mp', '(Esc: back to the DOS)')
@@ -1826,9 +1954,22 @@ k_5:''')
     a.jump('frame')
 
     # ------------------------------------------------------------ load_course
-    a.sect('load_course: read SKYWARD/Cn.LVL (n = course): 6 sectors to BS_LO on, the rest to x6000 on')
+    a.sect('load_course: read SKYWARD/Cn.LVL (n = course): 5 sectors to SONG on (the song), 5 of tables, the rest to x6000 on')
     a.raw('load_course:')
     a.g(PUSH_LINK)
+    a.g('''
+    ld   s_keep >> 8, y         ; a story picture after a picture with the same
+    ld   [course], ac           ; song: the song plays on while the card is read
+    add  s_keep & 0xFF, x
+    ld   [y,x], ac
+    ld   ENEMY >> 8, y
+    ld   V_KEEP, x
+    ld   ac, [y,x]
+    bne  lc_k
+    ld   SONG >> 8, ac          ; otherwise silence
+    ld   ac, [R1]''')
+    call('mus_init', 'lc_m')
+    a.raw('lc_k:')
     a.g('''
     ld   0x50, y                ; map 07 (the library)
     ld   [MAP_SHADOW], ac
@@ -1841,8 +1982,10 @@ k_5:''')
     ld   ac, [R1]''')
     call('fs_open', 'lc_1')
     a.g('''
-    ld   [course], ac           ; "Cx.LVL", x = A for the title on
-    add  0x41, ac
+    ld   s_fch >> 8, y          ; "Cx.LVL", x = A for the title on
+    ld   [course], ac
+    add  s_fch & 0xFF, x
+    ld   [y,x], ac
     ld   s_file >> 8, y
     ld   (s_file + 1) & 0xFF, x
     ld   ac, [y,x]
@@ -1858,18 +2001,30 @@ k_5:''')
 lc_3:
     clr  ac
     ld   ac, [R4]
-    ld   BS_LO >> 8, ac
+    ld   SONG >> 8, ac
     ld   ac, [R5]''')
     a.raw('lc_rd:')
     call('fs_read', 'lc_4')
     a.g('''
     bne  lc_5
-    ld   [R5], ac               ; after the tables: the video RAM
-    sub  BLOCK_END >> 8, ac
+    ld   [R5], ac               ; x3700-x42FF, x5400-x59FF, x6000 on
+    sub  0x43, ac
+    bne  lc_4b
+    ld   0x54, ac
+    ld   ac, [R5]
+lc_4b:
+    ld   [R5], ac
+    sub  0x5A, ac
     bne  lc_4a
     ld   0x60, ac
     ld   ac, [R5]
 lc_4a:
+    ld   ENEMY >> 8, y
+    ld   V_KEEP, x
+    ld   [y,x], ac
+    beq  lc_4d''')
+    call('mus_frame', 'lc_4d')
+    a.g('''
     ld   lc_rd >> 8, y
     jmp  lc_rd
 lc_5:''')
@@ -1916,6 +2071,8 @@ lc_5:''')
     ld   V_GETA, x
     ld   0, [y,x]
 lc_p1:
+    ld   V_JING, x
+    ld   0, [y,x]
     ld   V_EMB, x
     ld   0, [y,x]
     ld   V_POWER, x
@@ -1926,6 +2083,13 @@ lc_p1:
     ld   ac, [glider]
 lc_p2:''')
     call('respawn', 'lc_7')
+    a.g('''
+    ld   ENEMY >> 8, y
+    ld   V_KEEP, x
+    ld   [y,x], ac
+    bne  lc_mp
+    clr  ac                     ; the course's song (subtune 0)''')
+    call('mus_play', 'lc_mp')
     a.g('''
     clr  ac
     ld   ac, [inv]
@@ -2010,7 +2174,10 @@ ta_1:
     ld   ac, y
     ld   [dlo], x
     ld   [y,x], ac
-    ld   ac, x
+    shr  ac                     ; (the type of tile 8 n at SOLID + n)
+    shr  ac
+    shr  ac
+    add  SOLID & 0xFF, x
     ld   SOLID >> 8, y
     ld   [y,x], ac
     ld   ac, [tmp3]             ; tmp3 = its type; AC = 1 when it is solid
@@ -2134,7 +2301,7 @@ gm_go:
     clr  ac                     ; a course: play
     ld   ac, [mode]
     ld   76, ac''')
-    call('snd_beep', 'gm_gb')
+    call('sfx_chime', 'gm_gb')
     a.g('''
 gm_still:
     clr  ac
@@ -2307,7 +2474,7 @@ gm_u3:
     ld   JUMPV_HI, ac
     ld   ac, [vyh]
     ld   72, ac''')
-    call('snd_beep', 'gm_js')
+    call('sfx_jump', 'gm_js')
     a.g('''
 gm_g0:
     ld   [vyl], ac              ; gravity
@@ -2533,8 +2700,8 @@ gm_bnc:
     ld   LINK_HI, x
     ld   gm_obj >> 8, [x]
     ld   80, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep''')
+    ld   sfx_jump >> 8, y
+    jmp  sfx_jump''')
     a.end()
     a.begin()
     a.g('''
@@ -2584,8 +2751,8 @@ gm_cr3:
     ld   LINK_HI, x
     ld   gm_bp0 >> 8, [x]
     ld   92, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep''')
+    ld   sfx_chime >> 8, y
+    jmp  sfx_chime''')
     a.end()
     a.begin()
     a.g('''
@@ -2613,8 +2780,8 @@ hr_2:
     ld   1, ac
     ld   ac, [hud_dirty]
     ld   40, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep''')
+    ld   sfx_beep >> 8, y
+    jmp  sfx_beep''')
     a.end()
     a.begin()
     a.g('''
@@ -2725,20 +2892,17 @@ gl_d:
     a.sect('lose_life: a life (none left: the title again), noise, respawn; returns via LINK')
     a.g('''
 lose_life:
-    ld   [LINK_LO], ac          ; keep the return address over snd_noise
+    ld   [LINK_LO], ac          ; keep the return address over mus_play
     ld   ac, [ll_lo]
     ld   [LINK_HI], ac
     ld   ac, [ll_hi]
     ld   1, ac
     ld   ac, [hud_dirty]
-    ld   8, ac                  ; noise: rumble, 30 frames, fading
-    ld   ac, [R0]
-    ld   30, ac
-    ld   ac, [R2]
-    ld   3, ac
-    ld   ac, [R3]
-    ld   90, ac''')
-    call('snd_noise', 'll_2')
+    ld   2, ac                  ; "Oops" (subtune 2), then the song again
+    ld   ENEMY >> 8, y
+    ld   V_JING, x
+    ld   DEATH_FRAMES, [y,x]''')
+    call('mus_play', 'll_2')
     a.g('''
     ld   ENEMY >> 8, y          ; the power-up and the geta go with it
     ld   V_POWER, x
@@ -2770,31 +2934,35 @@ sl_add:
     ld   [sl_n], ac
     sub  MAX_SPR, ac
     beq  sa_full
+    ld   SL_C >> 8, y
     ld   [sl_n], ac
-    add  SL_C, x
+    add  SL_C & 0xFF, x
     ld   [dlo], ac
-    ld   ac, [x]
+    ld   ac, [y,x]
     ld   [sl_n], ac
-    add  SL_G, x
+    add  SL_G & 0xFF, x
     ld   [tmp3], ac
-    ld   ac, [x]
-    ld   [tmp], x
-    ld   FR >> 8, y
-    ld   [y,x], ac
-    ld   ac, [tmp2]
-    ld   [sl_n], ac
-    add  SL_LO, x
-    ld   [tmp2], ac
-    ld   ac, [x]
+    ld   ac, [y,x]
     ld   [tmp], ac
-    add  128, x
+    add  FR & 0xFF, x
     ld   FR >> 8, y
     ld   [y,x], ac
     ld   ac, [tmp2]
+    ld   SL_C >> 8, y
     ld   [sl_n], ac
-    add  SL_HI, x
+    add  SL_LO & 0xFF, x
     ld   [tmp2], ac
-    ld   ac, [x]
+    ld   ac, [y,x]
+    ld   [tmp], ac
+    add  (FR & 0xFF) + FR_HI, x
+    ld   FR >> 8, y
+    ld   [y,x], ac
+    ld   ac, [tmp2]
+    ld   SL_C >> 8, y
+    ld   [sl_n], ac
+    add  SL_HI & 0xFF, x
+    ld   [tmp2], ac
+    ld   ac, [y,x]
     ld   [sl_n], ac
     add  1, ac
     ld   ac, [sl_n]
@@ -2847,15 +3015,18 @@ go_ng:
 go_goal:
     ld   2, ac
     ld   ac, [mode]
-    ld   90, ac
+    ld   CLEAR_FRAMES, ac
     ld   ac, [clear_t]
+    ld   ENEMY >> 8, y
+    ld   V_JING, x
+    ld   0, [y,x]
     ld   LINK_LO, x
     ld   go_c & 0xFF, [x]
     ld   LINK_HI, x
     ld   go_c >> 8, [x]
-    ld   84, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep''')
+    ld   1, ac                  ; "Gate Reached" (subtune 1)
+    ld   mus_play >> 8, y
+    jmp  mus_play''')
     a.g('''
 go_c:
     ld   [o_i], ac              ; medal o_i (none left: the objects)
@@ -2909,8 +3080,8 @@ go_cs:
     ld   LINK_HI, x
     ld   go_cn >> 8, [x]
     ld   88, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   sfx_chime >> 8, y
+    jmp  sfx_chime
 go_cadd:
     ld   [FRAME_LO], ac         ; frame: medal 1-4, a step every 8 frames
     shr  ac
@@ -2970,7 +3141,7 @@ gm_emb:
     ld   [facing], ac
     ld   ac, [y,x]
     ld   96, ac''')
-    call('snd_beep', 'ge_b')
+    call('sfx_beep', 'ge_b')
     a.g('''
 ge_mv:
     ld   ENEMY >> 8, y
@@ -3525,8 +3696,8 @@ gh_b:
     ld   go_eadd & 0xFF, [x]
     ld   LINK_HI, x
     ld   go_eadd >> 8, [x]
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   sfx_beep >> 8, y
+    jmp  sfx_beep
 gh_hurt:
     ld   LINK_LO, x
     ld   go_eadd & 0xFF, [x]
@@ -3582,8 +3753,8 @@ go_hs:
     ld   LINK_HI, x
     ld   go_eadd >> 8, [x]
     ld   48, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   sfx_noise >> 8, y
+    jmp  sfx_noise
 go_rook:
     ld   2, ac                  ; beaten: + 1000, the course is clear
     ld   ac, [mode]
@@ -3616,8 +3787,8 @@ go_h1:
     ld   LINK_HI, x
     ld   go_en >> 8, [x]
     ld   60, ac
-    ld   snd_beep >> 8, y
-    jmp  snd_beep
+    ld   sfx_beep >> 8, y
+    jmp  sfx_beep
 go_hurt:
     ld   LINK_LO, x
     ld   go_eadd & 0xFF, [x]
@@ -3769,7 +3940,46 @@ hu_s:
         txt('s_get' if i == 0 else 's_get%d' % i, t)
     a.raw('RUNSEQ:  #d8 1, 2, 3, 2')
     a.addr += 4
+    import skyward_music
+    if (a.addr & 0xFF) + 2 * NCOURSE > 0x100:
+        a.org((a.addr + 255) & 0xFF00)
+    songs = [skyward_music.COURSE_SONG[c['name']] for c in COURSES]
+    keep = [int(n > 0 and songs[n] == songs[n - 1] and COURSES[n]['kind'] and COURSES[n - 1]['kind'])
+            for n in range(NCOURSE)]
+    a.raw('s_fch:   #d8 ' + ', '.join('0x%02X' % ord(FILE_CH[n]) for n in range(NCOURSE)))
+    a.raw('s_keep:  #d8 ' + ', '.join(str(k) for k in keep))
+    a.addr += 2 * NCOURSE
     assert a.addr <= CODE_END, 'program past x%04X: %04X' % (CODE_END, a.addr)
+    end = a.addr
+
+    # ------------------------------------------------------------ sound effects
+    a.org((max(BLIT_MEM) + 1 + 15) & ~15, 'sound effects (after draw_sprites): AC = MIDI note; return via LINK')
+    a.begin()
+    a.g('''
+sfx_jump:
+    ld   R0, x                  ; a rising sweep
+    ld   SFX_JUMP, [x]
+    bra  sfx_go
+sfx_chime:
+    ld   R0, x                  ; two notes, a fourth apart
+    ld   SFX_CHIME, [x]
+    bra  sfx_go
+sfx_noise:
+    ld   R0, x
+    ld   SFX_NOISE, [x]
+    bra  sfx_go
+sfx_beep:
+    ld   R0, x
+    ld   SFX_BEEP, [x]
+sfx_go:
+    sub  12, ac                 ; the player's notes: C-0 = 0
+    ld   R1, x
+    ld   14, [x]                ; frames
+    ld   mus_sfx >> 8, y
+    jmp  mus_sfx''')
+    a.end()
+    assert a.addr <= SONG, 'sound effects past x%04X' % SONG
+    a.addr = end
     return '\n'.join(a.out) + '\n', dict(end=a.addr)
 
 
@@ -3782,15 +3992,16 @@ def sd_files():
     own = gen_plc.own_bytes(mem, lib)
     body = dict(BLIT_MEM)
     for ad, v in own.items():
-        assert SD_CODE <= ad < CODE_END, 'SKYWARD.PLC: a byte at x%04X' % ad
+        assert SD_CODE <= ad < SONG, 'SKYWARD.PLC: a byte at x%04X' % ad
         body[ad] = v
+    body.update(music_module()[0])
     top = max(body) + 1
     data = bytes(body.get(ad, 0) for ad in range(0x0100, top))
     plc = gen_plc.header(0, 0x0100, len(data), syms['main']) + data
     files = {}
     infos = []
     for n in range(NCOURSE):
-        files['SKYWARD/C%s.LVL' % chr(65 + n)], ci = course_file(n)
+        files['SKYWARD/C%s.LVL' % FILE_CH[n]], ci = course_file(n)
         infos.append(ci)
     info['courses'] = infos
     info['src'] = src
@@ -3858,7 +4069,7 @@ def main(argv):
           % (args.o, len(plc), BLIT_N, len(COMMON), max(BLIT_MEM), info['end']))
     for n, ci in enumerate(info['courses']):
         print('  SKYWARD/C%s.LVL %-7s %d bytes of strips and sprites in %d of %d stretches'
-              % (chr(65 + n), ci['course'].c['name'], ci['used'], ci['frags_used'] + 1, ci['nfrags']))
+              % (FILE_CH[n], ci['course'].c['name'], ci['used'], ci['frags_used'] + 1, ci['nfrags']))
     if args.preview:
         preview(args.preview)
         print('wrote the course pictures to', args.preview)

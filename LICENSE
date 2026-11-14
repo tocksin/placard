@@ -62,7 +62,11 @@ Third-party material, under its owners' terms:
     docs/logo/      lettering outlines from Inter Display, SIL Open Font
                     License 1.1
     src/scripts/gen_skyward.py, src/scripts/skyward_art.py,
+    src/scripts/skyward_story.py, src/scripts/skyward_music.py,
+    src/scripts/skyward_nes_songs.py,
+    src/scripts/skyward_nes_instruments.py,
     sdcard/SKYWARD.PLC, sdcard/SKYWARD/
-                    the story, cast, course ideas and some sprite frames
-                    are from Skyward Tobi 4, Copyright (c) 2026 Mark
+                    the story, cast, course ideas, sprite frames, story
+                    pictures and songs are from Skyward Tobi 4,
+                    Copyright (c) 2026 Mark
                     Szlemko, MIT License (the notice is in gen_skyward.py)
