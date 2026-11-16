@@ -42,10 +42,12 @@
 ; off first (ps2_pause) and let the listened one go again after; the SD
 ; transfers only toggle SCK and MOSI.
 ;
-; Date: 11/11/2026
+; Date: 11/16/2026
 ; ============================================================
 
 PORT      = 0x52        ; the shared port's page
+PORT_CLK  = 0x00        ; x5200: read D5 = the PS/2 clock line of the device listened to (RXCLK)
+RXCLK_BIT = 0x20
 PORT_RX   = 0x02        ; x5202: the PS/2 receiver's byte; a write re-arms it
 PORT_RDY  = 0x03        ; x5203: D7 = a byte is ready; a write re-arms it too
 P_IDLE    = 0xEB        ; latch at rest: both PS/2 clocks held, PS/2 DATA free, /CS low, MOSI 1, SCK 1
