@@ -1,0 +1,705 @@
+\ ============================================================
+\ pinboard.vm - Pinboard, the windowed desktop, in the bytecode of
+\ pinboard.masm's machine
+\ ============================================================
+\
+\ vmc.py compiles this (asm_expand.py does it for pinboard.masm's
+\ .include); docs/software/PINBOARD.md describes the desktop.
+\
+\ The screen is 80 x 60 cells of 8 x 8 pixels.  Rows 0-56 are the board,
+\ rows 57-59 the rail.  A card (a window) is a rectangle of cells: its
+\ title in row 0 (the pin in column 0 takes it down), an edge down each
+\ side and along the bottom.  There is one card for each app:
+\
+\     0 Files   1 Clock   2 Calculator   3 Editor   4 About
+\
+\ WTAB has each card's place (8 bytes: open, x, y, w, h); ZORD lists the
+\ open ones from the back to the front (NZ of them).  Everything is drawn
+\ through the clip rectangle (EMIT, HFILL, GTYPE), so a part of the
+\ screen is redrawn by setting the clip to it and drawing the board, every
+\ card from the back, and the rail (REFRESH).  A card's app draws all of
+\ its inside (its word in DRAWTAB), takes the keys while its card is in
+\ front (KEYTAB) and the clicks on it (CLICKTAB: RC, RR = the cell in the
+\ card).
+\
+\ Date: 11/16/2026
+\ ============================================================
+
+RAMCALLS
+
+\ the primitives (pinboard.masm), in opcode order
+PRIM EXIT p_exit
+PRIM LIT8 p_lit8 1
+PRIM LIT16 p_lit16 2
+PRIM BR p_br 1
+PRIM 0BR p_0br 1
+PRIM LBR p_lbr 2
+PRIM L0BR p_l0br 2
+PRIM SLIT p_slit
+PRIM ZP@ p_zpat 1
+PRIM ZP! p_zpst 1
+PRIM ZPC@ p_zpcat 1
+PRIM ZPC! p_zpcst 1
+PRIM DUP p_dup
+PRIM DROP p_drop
+PRIM SWAP p_swap
+PRIM OVER p_over
+PRIM NIP p_nip
+PRIM ROT p_rot
+PRIM 2DUP p_2dup
+PRIM >R p_tor
+PRIM R> p_rfrom
+PRIM R@ p_rat
+PRIM RDROP p_rdrop
+PRIM @ p_at
+PRIM ! p_store
+PRIM C@ p_cat
+PRIM C! p_cstore
+PRIM + p_add
+PRIM - p_sub
+PRIM AND p_and
+PRIM OR p_or
+PRIM XOR p_xor
+PRIM INVERT p_invert
+PRIM 1+ p_inc
+PRIM 1- p_dec
+PRIM 2* p_2mul
+PRIM 2/ p_2div
+PRIM = p_eq
+PRIM U< p_ult
+PRIM < p_lt
+PRIM 0= p_0eq
+PRIM 0< p_0lt
+PRIM * p_mul
+PRIM U/MOD p_umod
+PRIM EXECUTE p_execute
+PRIM CMOVE p_cmove
+PRIM CMOVE> p_cmoveu
+PRIM FILL p_fill
+PRIM SYS p_sys
+PRIM EMIT p_emit
+PRIM HFILL p_hfill
+PRIM GTYPE p_gtype
+PRIM INVC p_invc
+PRIM PTR p_ptr
+PRIM POLL p_poll
+
+\ zero page: the library's and the drawing primitives'
+CONST R0 0x10
+CONST FRAME_LO 0x08
+CONST MOUSE_B 0xB5
+CONST GX 0x30
+CONST GY 0x31
+CONST CX0 0x32
+CONST CY0 0x33
+CONST CX1 0x34
+CONST CY1 0x35
+CONST INV 0x36
+CONST MOK 0x37
+CONST PX 0x38
+CONST PY 0x3A
+CONST MOVED 0x3C
+\ zero page: the desktop's bytes (x90-x9F: no sound driver here)
+CONST NZ 0x90           \ cards open
+CONST WX 0x91           \ the card being drawn
+CONST WY 0x92
+CONST WW 0x93
+CONST WH 0x94
+CONST MC 0x95           \ the pointer's cell
+CONST MR 0x96
+CONST RC 0x97           \ and its cell in the card clicked
+CONST RR 0x98
+CONST LASTB 0x99        \ the left button at the last look
+CONST LASTF 0x9A        \ FRAME_LO at the last look
+CONST NL 0x9B           \ NAMEBUF's length
+CONST TDIRTY 0x9C       \ 1: the second changed, 2: the minute
+CONST OX 0x9D           \ a card being moved: its outline
+CONST OY 0x9E
+CONST MSEL 0x9F         \ the launcher's item
+
+\ RAM
+CONST ZORD 0x4920       \ 8: the open cards, back to front
+CONST WTAB 0x4940       \ 5 x 8: open, x, y, w, h
+CONST NAMEBUF 0x4970    \ 13: "NAME.EXT", 0
+CONST PAD 0x4980        \ 6: a number's digits
+CONST NP 0x4988
+CONST ACC 0x498A        \ the clock: thousandths of a frame into the second
+CONST HH 0x498C
+CONST MM 0x498D
+CONST SS 0x498E
+CONST F-N 0x4990        \ Files: entries read
+CONST F-SEL 0x4991      \ the chosen one
+CONST F-TOP 0x4992      \ the first one shown
+CONST F-MSG 0x4994      \ a message for the bottom line (0: the count)
+\ the calculator: sign and magnitude, 4 bytes each, low byte first
+CONST K-A 0x49A0        \ the result so far
+CONST K-E 0x49A4        \ the number being typed
+CONST K-T 0x49A8        \ work
+CONST K-U 0x49AC
+CONST K-N 0x49B0
+CONST K-M 0x49B4
+CONST K-AS 0x49B8       \ 1: K-A is negative
+CONST K-ES 0x49B9
+CONST K-OP 0x49BA       \ the operation waiting for its second number (0: none)
+CONST K-NEW 0x49BB      \ 1: K-A is shown, a digit starts a new number
+CONST K-ERR 0x49BC      \ 1: too big, or a division by 0
+CONST K-ND 0x49BD       \ digits typed
+CONST DS 0x49BE         \ D+!'s two numbers
+CONST DD 0x49C0
+CONST K-BUF 0x49C4      \ 12: the number as characters
+CONST DIRBUF 0x5400     \ the folder: 96 x 16 (name 11, attributes, size 4)
+CONST DIRMAX 96
+CONST FS_ENTRY 0x4D40   \ the FAT reader's entry
+CONST DCLUS 0x4D60      \ and its current folder
+CONST MB_MODE 0x5D03    \ the menu block (placard_menu.asm)
+CONST MB_SYNC 0x5D08
+CONST MB_WHY 0x5D09
+CONST MB_MENU 0x5D11
+CONST MB_SEL 0x5D13
+CONST MB_TOP 0x5D14
+CONST MB_T 0x5D15       \ 3: the clock, kept while a program runs
+CONST MB_PARENT 0x5D40
+CONST MB_DCLUS 0x5D50
+CONST MB_FNAME 0x5D60
+
+CONST NAPP 5
+CONST BOARD-H 57        \ the board's rows; the rail is below
+CONST F-ROWS 26         \ Files: rows of the list
+
+BYTES T-FILES c"Files" ;
+BYTES T-CLOCK c"Clock" ;
+BYTES T-CALC c"Calc" ;
+BYTES T-EDIT c"Editor" ;
+BYTES T-ABOUT c"About" ;
+WORDS TITLES T-FILES T-CLOCK T-CALC T-EDIT T-ABOUT ;
+BYTES WINIT 2 1 40 30   46 3 31 11   52 20 23 15   20 10 44 30   18 16 44 13 ;
+BYTES SELF "PINBOARD.PLC" 0 ;
+
+\ ------------------------------------------------------------
+\ drawing
+\ ------------------------------------------------------------
+: TYPE ( ca -- ) DUP 1+ SWAP C@ GTYPE ;
+: GLYPH ( c -- ) INV C@ XOR EMIT ;
+: SPACES ( n -- ) 32 INV C@ XOR SWAP HFILL ;
+: INK ( -- ) 128 INV C! ;               \ black on a card
+: REV ( -- ) 0 INV C! ;                 \ white on black
+: ABS-AT ( col row -- ) GY C! GX C! ;
+: AT ( col row -- ) WY C@ + GY C! WX C@ + GX C! ;      \ in the card
+: ZTYPE ( a -- ) DUP BEGIN DUP C@ WHILE 1+ REPEAT OVER - GTYPE ;
+: U>S ( u -- a n )
+   PAD 6 + NP !
+   BEGIN 10 U/MOD SWAP 48 + NP @ 1- DUP NP ! C! DUP 0= UNTIL DROP
+   NP @ PAD 6 + OVER - ;
+: U.R ( u w -- ) >R U>S R> OVER - SPACES GTYPE ;
+: .2 ( n -- ) 10 U/MOD 48 + GLYPH 48 + GLYPH ;
+: SETCLIP ( x y w h -- ) ROT DUP CY0 C! + CY1 C! OVER + CX1 C! CX0 C! ;
+: NOCLIP ( -- ) 0 0 80 60 SETCLIP ;
+: SYS0 ( a -- ac ) 0 SWAP SYS ;
+
+\ ------------------------------------------------------------
+\ the cards
+\ ------------------------------------------------------------
+: WIN ( id -- a ) 2* 2* 2* WTAB + ;
+: W-RECT ( id -- x y w h ) WIN DUP 1+ C@ SWAP DUP 2 + C@ SWAP DUP 3 + C@ SWAP 4 + C@ ;
+: SETW ( id -- ) WIN DUP 1+ C@ WX C! DUP 2 + C@ WY C! DUP 3 + C@ WW C! 4 + C@ WH C! ;
+: TOPW ( -- id | -1 ) NZ C@ DUP IF 1- ZORD + C@ ELSE DROP -1 THEN ;
+: Z-REMOVE ( id -- )
+   0 BEGIN DUP NZ C@ < WHILE
+      2DUP ZORD + C@ = IF
+         BEGIN DUP 1+ NZ C@ < WHILE DUP 1+ ZORD + C@ OVER ZORD + C! 1+ REPEAT
+         DROP DROP NZ C@ 1- NZ C! EXIT THEN
+   1+ REPEAT DROP DROP ;
+: RAISE ( id -- ) DUP Z-REMOVE NZ C@ ZORD + C! NZ C@ 1+ NZ C! ;
+
+: FRAME ( id -- )
+   0 0 AT
+   DUP TOPW = IF REV 7 ELSE INK 135 THEN EMIT
+   1 SPACES
+   2* TITLES + @ DUP TYPE C@ WW C@ SWAP - 2 - SPACES
+   1 BEGIN DUP WH C@ 1- < WHILE
+      0 OVER AT 2 EMIT 160 WW C@ 2 - HFILL 3 EMIT
+   1+ REPEAT
+   0 SWAP AT 5 EMIT 4 WW C@ 2 - HFILL 6 EMIT ;
+
+\ ------------------------------------------------------------
+\ the clock: frames counted into seconds (59.94 frames a second)
+\ ------------------------------------------------------------
+: SEC+ ( -- )
+   1 TDIRTY C!
+   SS C@ 1+ DUP 60 < IF SS C! EXIT THEN DROP 0 SS C!
+   2 TDIRTY C!
+   MM C@ 1+ DUP 60 < IF MM C! EXIT THEN DROP 0 MM C!
+   HH C@ 1+ DUP 24 = IF DROP 0 THEN HH C! ;
+: TIME-ADV ( -- )
+   FRAME_LO C@ DUP LASTF C@ - 255 AND SWAP LASTF C!
+   BEGIN DUP WHILE
+      ACC @ 1000 + DUP 59940 U< IF ACC ! ELSE 59940 - ACC ! SEC+ THEN
+   1- REPEAT DROP ;
+: RAIL-TIME ( -- ) 74 58 ABS-AT REV HH C@ .2 58 GLYPH MM C@ .2 ;
+
+BYTES DIGS 0x6F 0x7B  0x97 0x2C  0xE7 0x73  0xCF 0x73  0xC9 0x5B
+           0xCF 0x79  0xEF 0x79  0x49 0x72  0xEF 0x7B  0xCF 0x7B ;
+: BIGDIG ( d col -- )                   \ 3 x 5 cells, rows 2-6
+   SWAP 2* DIGS + @
+   0 BEGIN DUP 5 < WHILE
+      >R OVER R@ 2 + AT
+      3 BEGIN DUP WHILE
+         >R DUP 0x4000 AND IF 32 ELSE 160 THEN EMIT 2* R> 1-
+      REPEAT DROP
+   R> 1+ REPEAT DROP DROP DROP ;
+: C-DRAW ( -- )
+   HH C@ 10 U/MOD 2 BIGDIG 6 BIGDIG
+   MM C@ 10 U/MOD 12 BIGDIG 16 BIGDIG
+   SS C@ 10 U/MOD 22 BIGDIG 26 BIGDIG
+   10 3 AT 32 EMIT 10 5 AT 32 EMIT 20 3 AT 32 EMIT 20 5 AT 32 EMIT
+   2 8 AT REV S"  H+ " TYPE INK 1 SPACES REV S"  M+ " TYPE INK 1 SPACES
+   REV S"  :00 " TYPE INK ;
+
+\ ------------------------------------------------------------
+\ the calculator's numbers: 32 bits in memory, low byte first
+\ ------------------------------------------------------------
+: D0! ( a -- ) 0 OVER ! 0 SWAP 2 + ! ;
+: D0= ( a -- f ) DUP @ SWAP 2 + @ OR 0= ;
+: D+! ( src dst -- carry )              \ dst = dst + src
+   DD ! DS !
+   DS @ @ DD @ @ + DUP DS @ @ U< IF 1 ELSE 0 THEN SWAP DD @ !
+   DS @ 2 + @ DD @ 2 + @ + DUP DS @ 2 + @ U< IF 1 ELSE 0 THEN >R
+   SWAP OVER + DUP ROT U< IF 1 ELSE 0 THEN R> OR
+   SWAP DD @ 2 + ! ;
+: D1+! ( a -- ) DUP @ 1+ DUP >R OVER ! R> IF DROP ELSE 2 + DUP @ 1+ SWAP ! THEN ;
+: DU< ( a b -- f )
+   OVER 2 + @ OVER 2 + @ 2DUP = IF DROP DROP SWAP @ SWAP @ U< ELSE U< NIP NIP THEN ;
+: D-! ( src dst -- )                    \ dst = dst - src
+   SWAP K-M 4 CMOVE
+   K-M @ INVERT K-M ! K-M 2 + @ INVERT K-M 2 + ! K-M D1+!
+   K-M SWAP D+! DROP ;
+: D/10! ( a -- rem )                    \ a byte at a time from the top
+   0 4 BEGIN DUP WHILE 1- >R
+      256 * OVER R@ + C@ + 10 U/MOD
+      ROT DUP R@ + ROT SWAP C! SWAP
+   R> REPEAT DROP NIP ;
+: DMUL ( -- over )                      \ K-T = K-A * K-E; K-E is used up
+   K-T D0! 0
+   32 BEGIN DUP WHILE >R
+      K-T DUP D+! OR
+      K-E DUP D+! IF K-A K-T D+! OR THEN
+   R> 1- REPEAT DROP ;
+: DDIV ( -- )                           \ K-A / K-E: K-T and the rest in K-U
+   K-A K-N 4 CMOVE K-T D0! K-U D0!
+   32 BEGIN DUP WHILE >R
+      K-N DUP D+! K-U DUP D+! DROP IF K-U @ 1 OR K-U ! THEN
+      K-T DUP D+! DROP
+      K-U K-E DU< 0= IF K-E K-U D-! K-T @ 1 OR K-T ! THEN
+   R> 1- REPEAT DROP ;
+
+\ ------------------------------------------------------------
+\ Calc: whole numbers to 2,147,483,647 either side of 0
+\ ------------------------------------------------------------
+: K-BAD ( -- ) 1 K-ERR C! ;
+: K-FIN ( -- )                          \ K-A is the answer
+   K-A 3 + C@ 128 AND IF K-BAD THEN
+   K-A D0= IF 0 K-AS C! THEN ;
+: K-ADD ( -- )
+   K-AS C@ K-ES C@ = IF K-E K-A D+! IF K-BAD THEN K-FIN EXIT THEN
+   K-A K-E DU< IF K-A K-E D-! K-E K-A 4 CMOVE K-ES C@ K-AS C!
+   ELSE K-E K-A D-! THEN K-FIN ;
+: K-SIGNS ( -- ) K-AS C@ K-ES C@ XOR K-AS C! ;
+: K-CALC ( op -- )
+   DUP 43 = IF DROP K-ADD EXIT THEN
+   DUP 45 = IF DROP K-ES C@ 1 XOR K-ES C! K-ADD EXIT THEN
+   DUP 42 = IF DROP K-SIGNS DMUL IF K-BAD THEN K-T K-A 4 CMOVE K-FIN EXIT THEN
+   K-E D0= IF DROP K-BAD EXIT THEN
+   DDIV 47 = IF K-SIGNS K-T ELSE K-U THEN K-A 4 CMOVE K-FIN ;
+: K-COMMIT ( -- )                       \ the number typed goes into K-A
+   K-NEW C@ IF EXIT THEN
+   K-OP C@ DUP IF K-CALC ELSE DROP K-E K-A 4 CMOVE K-ES C@ K-AS C! K-FIN THEN
+   1 K-NEW C! ;
+: K-CLR ( -- )
+   K-A 32 0 FILL ;
+: K-DIG ( d -- )
+   K-NEW C@ IF K-E D0! 0 K-ES C! 0 K-ND C! 0 K-NEW C! THEN
+   K-ND C@ 9 < IF
+      K-E K-T 4 CMOVE K-E DUP D+! DROP K-E DUP D+! DROP K-T K-E D+! DROP
+      K-E DUP D+! DROP
+      K-T D0! K-T ! K-T K-E D+! DROP
+      K-E D0= 0= IF K-ND C@ 1+ K-ND C! THEN
+   ELSE DROP THEN ;
+: K>S ( -- a n )                        \ what the display shows
+   K-NEW C@ IF K-A K-AS ELSE K-E K-ES THEN C@ >R
+   DUP D0= IF RDROP 0 >R THEN
+   K-N 4 CMOVE K-BUF 12 +
+   BEGIN 1- K-N D/10! 48 + OVER C! K-N D0= UNTIL
+   R> IF 1- 45 OVER C! THEN
+   K-BUF 12 + OVER - ;
+BYTES K-LBL " C  " " +- " " <- " " /  "
+            " 7  " " 8  " " 9  " " *  "
+            " 4  " " 5  " " 6  " " -  "
+            " 1  " " 2  " " 3  " " +  "
+            " 0  " " 00 " " mod" " =  " ;
+BYTES K-KEYS 99 110 8 47   55 56 57 42   52 53 54 45   49 50 51 43   48 122 109 61 ;
+BYTES K-EMSG c"Error" ;
+: K-DISP ( -- )
+   2 2 AT REV 19 SPACES
+   3 2 AT K-OP C@ DUP IF EMIT ELSE DROP THEN
+   K-ERR C@ IF 15 2 AT K-EMSG TYPE EXIT THEN
+   K>S 20 OVER - 2 AT GTYPE ;
+: K-DRAW ( -- )
+   K-DISP
+   0 BEGIN DUP 20 < WHILE
+      DUP 4 U/MOD 2* 4 + SWAP 5 * 2 + SWAP AT
+      DUP 2* 2* K-LBL + 4 GTYPE
+   1+ REPEAT DROP ;
+
+\ ------------------------------------------------------------
+\ Files
+\ ------------------------------------------------------------
+: ENT ( i -- a ) 2* 2* 2* 2* DIRBUF + ;
+: N+ ( c -- ) NL C@ NAMEBUF + C! NL C@ 1+ NL C! ;
+: COPY-NS ( a n -- )                    \ n characters, the spaces left out
+   BEGIN DUP WHILE
+      OVER C@ DUP 32 = IF DROP ELSE N+ THEN
+      SWAP 1+ SWAP 1-
+   REPEAT DROP DROP ;
+: ENT>NAME ( ent -- )                   \ NAMEBUF = "NAME.EXT", 0
+   0 NL C!
+   DUP 8 COPY-NS
+   DUP 8 + C@ 32 = 0= IF 46 N+ DUP 8 + 3 COPY-NS THEN
+   DROP 0 NL C@ NAMEBUF + C! ;
+: PLC? ( ent -- f ) DUP 8 + C@ 80 = OVER 9 + C@ 76 = AND SWAP 10 + C@ 67 = AND ;
+: DIR? ( ent -- f ) 11 + C@ 16 AND ;
+: ROOT? ( -- f ) DCLUS @ DCLUS 2 + @ OR 0= ;
+: DIR-READ ( -- )
+   0 F-N C!
+   {fs_cwd} SYS0 IF EXIT THEN
+   BEGIN F-N C@ DIRMAX < WHILE
+      {fs_next} SYS0 IF EXIT THEN
+      FS_ENTRY C@ 46 = FS_ENTRY 11 + C@ 8 AND OR 0= IF
+         FS_ENTRY F-N C@ ENT 12 CMOVE
+         FS_ENTRY 28 + F-N C@ ENT 12 + 4 CMOVE
+         F-N C@ 1+ F-N C!
+      THEN
+   REPEAT ;
+: F-SIZE ( ent -- )
+   DUP DIR? IF DROP 15 SPACES S" <DIR>" TYPE EXIT THEN
+   DUP 14 + @ DUP IF
+      64 * SWAP 12 + @ 1024 U/MOD NIP + 19 U.R 75 GLYPH
+   ELSE DROP 12 + @ 20 U.R THEN ;
+: F-ROW ( i -- )                        \ entry i on its row of the list
+   DUP F-TOP C@ - DUP F-ROWS U< 0= IF DROP DROP EXIT THEN
+   1 SWAP 2 + AT
+   DUP F-SEL C@ = IF REV ELSE INK THEN
+   DUP F-N C@ < 0= IF DROP 36 SPACES EXIT THEN
+   ENT DUP DIR? IF 11 ELSE DUP PLC? IF 12 ELSE 13 THEN THEN GLYPH
+   1 SPACES DUP ENT>NAME NAMEBUF NL C@ GTYPE 13 NL C@ - SPACES
+   F-SIZE 1 SPACES ;
+: F-DRAW ( -- )
+   1 1 AT 14 GLYPH 1 SPACES
+   MB_FNAME C@ IF MB_FNAME ZTYPE ELSE 92 GLYPH THEN
+   0 BEGIN DUP F-ROWS < WHILE DUP F-TOP C@ + F-ROW 1+ REPEAT DROP
+   INK 38 2 AT 8 GLYPH
+   3 BEGIN DUP 27 < WHILE 38 OVER AT 15 GLYPH 1+ REPEAT DROP
+   38 27 AT 9 GLYPH
+   F-ROWS F-N C@ < IF
+      38 F-TOP C@ 23 * F-N C@ F-ROWS - U/MOD NIP 3 + AT 17 GLYPH THEN
+   1 28 AT F-MSG @ DUP IF TYPE ELSE DROP F-N C@ U>S GTYPE S"  items" TYPE THEN ;
+
+\ ------------------------------------------------------------
+\ About
+\ ------------------------------------------------------------
+: A-DRAW ( -- )
+   2 2 AT ." PINBOARD"
+   2 4 AT ." A desktop for the PLACARD computer:"
+   2 5 AT ." cards pinned on a board."
+   2 7 AT ." Mouse  drag a title to move a card,"
+   2 8 AT ."        click its pin to take it down"
+   2 9 AT ." Tab    the next card     Esc  launcher"
+   2 10 AT ." Ctrl+W take the front card down" ;
+
+: NOP ( -- ) ;
+WORDS DRAWTAB F-DRAW C-DRAW K-DRAW NOP A-DRAW ;
+
+\ ------------------------------------------------------------
+\ redrawing
+\ ------------------------------------------------------------
+: DRAWWIN ( id -- ) DUP SETW DUP FRAME INK 2* DRAWTAB + @ EXECUTE ;
+: BOARD ( -- )
+   CY0 C@ BEGIN DUP CY1 C@ < OVER BOARD-H < AND WHILE
+      CX0 C@ OVER ABS-AT 1 CX1 C@ CX0 C@ - HFILL
+   1+ REPEAT DROP ;
+: RAIL ( -- )
+   0 57 ABS-AT 16 80 HFILL
+   0 58 ABS-AT 32 80 HFILL
+   0 59 ABS-AT 32 80 HFILL
+   1 58 ABS-AT INK S"  Pinboard " TYPE
+   0 BEGIN DUP NAPP < WHILE
+      DUP WIN C@ IF
+         DUP 11 * 13 + 58 ABS-AT
+         DUP TOPW = IF INK ELSE REV THEN
+         1 SPACES DUP 2* TITLES + @ DUP TYPE C@ 9 SWAP - SPACES
+      THEN
+   1+ REPEAT DROP
+   RAIL-TIME ;
+: REPAINT ( -- )                        \ everything inside the clip
+   BOARD
+   0 BEGIN DUP NZ C@ < WHILE DUP ZORD + C@ DRAWWIN 1+ REPEAT DROP
+   BOARD-H CY1 C@ < IF RAIL THEN ;
+: REFRESH ( x y w h -- ) 0 PTR SETCLIP REPAINT NOCLIP 1 PTR ;
+: REFRESH-ALL ( -- ) 0 0 80 60 REFRESH ;
+: RAIL-UPD ( -- ) 0 BOARD-H 80 3 REFRESH ;
+: UPDATE ( id -- )                      \ a card's inside changed
+   DUP WIN C@ 0= IF DROP EXIT THEN
+   DUP TOPW = IF 0 PTR DUP W-RECT SETCLIP DRAWWIN NOCLIP 1 PTR
+   ELSE W-RECT REFRESH THEN ;
+: RETOP ( -- )                          \ the front card's title, the rail
+   TOPW DUP 0< IF DROP ELSE W-RECT DROP 1 REFRESH THEN RAIL-UPD ;
+: TO-FRONT ( id -- )
+   TOPW SWAP DUP RAISE
+   SWAP DUP 0< IF DROP ELSE W-RECT DROP 1 REFRESH THEN
+   W-RECT REFRESH RAIL-UPD ;
+: OPEN ( id -- ) 1 OVER WIN C! TO-FRONT ;
+: CLOSE ( id -- ) 0 OVER WIN C! DUP Z-REMOVE W-RECT REFRESH RETOP ;
+
+\ ------------------------------------------------------------
+\ Files: keys and clicks
+\ ------------------------------------------------------------
+: F-SHOW ( -- )                         \ the chosen entry on the list, all redrawn
+   F-SEL C@ F-TOP C@ < IF F-SEL C@ F-TOP C! THEN
+   F-SEL C@ F-TOP C@ F-ROWS + < 0= IF F-SEL C@ F-ROWS - 1+ F-TOP C! THEN
+   0 F-MSG ! 0 UPDATE ;
+: F-MOVE ( new -- )                     \ choose entry new
+   F-SEL C@ SWAP F-SEL C!
+   F-MSG @ 0= F-SEL C@ F-TOP C@ - F-ROWS U< AND IF
+      0 PTR 0 SETW F-ROW F-SEL C@ F-ROW INK 1 PTR
+   ELSE DROP F-SHOW THEN ;
+: KEYS-UP ( -- )                       \ wait (2 s at most) until no key is down
+   120 BEGIN DUP WHILE
+      POLL DROP
+      0xA0 @ 0xA2 @ AND 0xA4 @ AND 0xA6 @ AND INVERT 0= IF DROP EXIT THEN
+   1- REPEAT DROP ;
+\ Leaving for a program, BASIC or the DOS: the key that asked for it is let
+\ go first (its release would reach the loader as it sets the keyboard
+\ up again, and be taken for a key), then the screen and the tints go
+: LEAVE-DESK ( -- ) KEYS-UP 0 PTR 0 {con_clear} SYS DROP ;
+: F-CD ( -- )                           \ the folder named in NAMEBUF
+   NAMEBUF R0 ! {fs_open} SYS0 IF S" Can't open it" F-MSG ! 0 UPDATE EXIT THEN
+   DCLUS MB_DCLUS 4 CMOVE
+   ROOT? IF 92 NAMEBUF C! 0 NAMEBUF 1+ C! THEN
+   NAMEBUF MB_FNAME 13 CMOVE
+   0 F-SEL C! 0 F-TOP C! 0 F-MSG ! DIR-READ 0 UPDATE ;
+: F-UP ( -- ) ROOT? IF EXIT THEN 46 NAMEBUF C! 46 NAMEBUF 1+ C! 0 NAMEBUF 2 + C! F-CD ;
+: F-RUN ( -- )                          \ the program named in NAMEBUF
+   F-SEL C@ MB_SEL C! F-TOP C@ MB_TOP C!
+   1 MB_MODE C! 0 MB_WHY C! 0 MB_SYNC C!
+   80 MB_MENU C! HH C@ MB_T C! MM C@ MB_T 1+ C! SS C@ MB_T 2 + C!
+   ROOT? IF SELF MB_PARENT 13 CMOVE THEN
+   LEAVE-DESK NAMEBUF R0 ! 0 0x800C SYS DROP ;
+: F-OPEN ( -- )
+   F-N C@ 0= IF EXIT THEN
+   F-SEL C@ ENT DUP ENT>NAME
+   DUP DIR? IF DROP F-CD EXIT THEN
+   PLC? IF F-RUN EXIT THEN
+   S" Not a program (.PLC)" F-MSG ! 0 UPDATE ;
+: F-KEY ( key -- )
+   DUP 17 = IF F-SEL C@ IF F-SEL C@ 1- F-MOVE THEN THEN
+   DUP 18 = IF F-SEL C@ 1+ F-N C@ < IF F-SEL C@ 1+ F-MOVE THEN THEN
+   DUP 10 = IF F-OPEN THEN
+   8 = IF F-UP THEN ;
+: F-SCROLL ( -- )                       \ a click on the scroll bar
+   F-N C@ F-ROWS - DUP 0< IF DROP 0 THEN
+   RR C@ 15 < IF DROP F-TOP C@ 5 - DUP 0< IF DROP 0 THEN
+   ELSE F-TOP C@ 5 + 2DUP < IF DROP ELSE NIP THEN THEN
+   F-TOP C! 0 UPDATE ;
+: F-CLICK ( -- )
+   RR C@ 1 = IF RC C@ 3 < IF F-UP THEN EXIT THEN
+   RC C@ 38 = IF F-SCROLL EXIT THEN
+   RR C@ 2 - DUP F-ROWS U< IF
+      F-TOP C@ + DUP F-N C@ < IF
+         DUP F-SEL C@ = IF DROP F-OPEN ELSE F-MOVE THEN
+      ELSE DROP THEN
+   ELSE DROP THEN ;
+: F-INIT ( -- )
+   MB_MENU C@ 80 = IF
+      MB_SEL C@ F-SEL C! MB_TOP C@ F-TOP C!
+      MB_T C@ HH C! MB_T 1+ C@ MM C! MB_T 2 + C@ SS C!
+   ELSE 0 F-SEL C! 0 F-TOP C! 0 HH C! 0 MM C! 0 SS C! THEN
+   0 MB_MENU C! 0 F-MSG ! DIR-READ
+   F-SEL C@ F-N C@ < 0= IF 0 F-SEL C! 0 F-TOP C! THEN ;
+
+\ ------------------------------------------------------------
+\ Clock: keys and clicks
+\ ------------------------------------------------------------
+: C-UPD ( -- ) 1 UPDATE 0 PTR RAIL-TIME 1 PTR ;
+: C-H ( -- ) HH C@ 1+ DUP 24 = IF DROP 0 THEN HH C! C-UPD ;
+: C-M ( -- ) MM C@ 1+ DUP 60 = IF DROP 0 THEN MM C! C-UPD ;
+: C-S ( -- ) 0 SS C! 0 ACC ! C-UPD ;
+: C-KEY ( key -- )
+   32 OR DUP 104 = IF C-H THEN DUP 109 = IF C-M THEN
+   DUP 115 = SWAP 48 = OR IF C-S THEN ;
+: C-CLICK ( -- )
+   RR C@ 8 = IF
+      RC C@ DUP 2 - 4 U< IF C-H THEN DUP 7 - 4 U< IF C-M THEN
+      12 - 5 U< IF C-S THEN
+   THEN ;
+
+\ ------------------------------------------------------------
+\ Calc: keys and clicks
+\ ------------------------------------------------------------
+: K-SHOW ( -- )                         \ the display alone when the card is in front
+   2 TOPW = IF 0 PTR 2 SETW K-DISP 1 PTR ELSE 2 UPDATE THEN ;
+: K-DO ( c -- )
+   DUP 99 = IF DROP K-CLR K-SHOW EXIT THEN
+   K-ERR C@ IF DROP EXIT THEN
+   DUP 48 - 10 U< IF 48 - K-DIG K-SHOW EXIT THEN
+   DUP 122 = IF DROP K-NEW C@ 0= IF 0 K-DIG 0 K-DIG K-SHOW THEN EXIT THEN
+   DUP 8 = IF DROP
+      K-NEW C@ 0= IF K-E D/10! DROP K-ND C@ DUP IF 1- THEN K-ND C! K-SHOW THEN EXIT THEN
+   DUP 110 = IF DROP
+      K-NEW C@ IF K-AS ELSE K-ES THEN DUP C@ 1 XOR SWAP C! K-SHOW EXIT THEN
+   DUP 61 = IF DROP K-COMMIT 0 K-OP C! K-SHOW EXIT THEN
+   DUP 43 = OVER 45 = OR OVER 42 = OR OVER 47 = OR OVER 109 = OR
+   IF K-COMMIT K-OP C! K-SHOW ELSE DROP THEN ;
+: K-KEY ( key -- )
+   DUP 10 = IF DROP 61 THEN
+   DUP 127 = IF DROP 99 THEN
+   DUP 37 = IF DROP 109 THEN
+   64 OVER < IF 32 OR THEN K-DO ;
+: K-CLICK ( -- )
+   RR C@ 4 - DUP 1 AND IF DROP EXIT THEN 2/ DUP 5 U< 0= IF DROP EXIT THEN
+   RC C@ 2 - 5 U/MOD SWAP 4 < OVER 4 < AND 0= IF DROP DROP EXIT THEN
+   SWAP 2* 2* + K-KEYS + C@ K-DO ;
+
+: KDROP ( key -- ) DROP ;
+WORDS KEYTAB F-KEY C-KEY K-KEY KDROP KDROP ;
+WORDS CLICKTAB F-CLICK C-CLICK K-CLICK NOP NOP ;
+
+\ ------------------------------------------------------------
+\ moving a card: its outline follows the pointer
+\ ------------------------------------------------------------
+: CELL ( -- ) PX @ 2/ 2/ 2/ MC C! PY @ 2/ 2/ 2/ MR C! ;
+: CLAMP ( v max -- v' ) OVER 0< IF DROP DROP 0 EXIT THEN 2DUP SWAP < IF NIP ELSE DROP THEN ;
+: OUTLINE ( -- )                        \ the cells round OX, OY, WW x WH turned over
+   0 BEGIN DUP WW C@ < WHILE
+      DUP OX C@ + DUP OY C@ ABS-AT INVC OY C@ WH C@ + 1- ABS-AT INVC
+   1+ REPEAT DROP
+   1 BEGIN DUP WH C@ 1- < WHILE
+      DUP OY C@ + DUP OX C@ SWAP ABS-AT INVC OX C@ WW C@ + 1- SWAP ABS-AT INVC
+   1+ REPEAT DROP ;
+: DRAG ( id -- )
+   DUP SETW WX C@ OX C! WY C@ OY C!
+   0 PTR OUTLINE 1 PTR
+   BEGIN POLL DROP TIME-ADV MOUSE_B C@ 1 AND WHILE
+      MOVED C@ IF
+         0 MOVED C! CELL
+         MC C@ RC C@ - 80 WW C@ - CLAMP
+         MR C@ BOARD-H WH C@ - CLAMP
+         2DUP OY C@ = SWAP OX C@ = AND IF DROP DROP ELSE
+            0 PTR OUTLINE OY C! OX C! OUTLINE 1 PTR THEN
+      THEN
+   REPEAT
+   0 PTR OUTLINE 1 PTR
+   WIN DUP 1+ C@ OX C@ = OVER 2 + C@ OY C@ = AND IF DROP EXIT THEN
+   OX C@ OVER 1+ C! OY C@ SWAP 2 + C!
+   REFRESH-ALL ;
+
+\ ------------------------------------------------------------
+\ the launcher: a list above the rail's Pinboard button
+\ ------------------------------------------------------------
+CONST NMENU 6
+CONST MENU-Y 51         \ BOARD-H - NMENU
+BYTES M-FILES c"Files" ;
+BYTES M-CLOCK c"Clock" ;
+BYTES M-CALC c"Calculator" ;
+BYTES M-ABOUT c"About" ;
+BYTES M-BASIC c"BASIC" ;
+BYTES M-DOS c"Back to DOS" ;
+WORDS MITEMS M-FILES M-CLOCK M-CALC M-ABOUT M-BASIC M-DOS ;
+BYTES MACT 0 1 2 4 254 255 ;
+: MENU-DRAW ( -- )
+   0 PTR
+   0 BEGIN DUP NMENU < WHILE
+      1 OVER MENU-Y + ABS-AT
+      DUP MSEL C@ = IF REV ELSE INK THEN
+      1 SPACES DUP 2* MITEMS + @ DUP TYPE C@ 13 SWAP - SPACES
+   1+ REPEAT DROP 1 PTR ;
+: MENU-CLOSE ( -- ) 1 MENU-Y 14 NMENU REFRESH ;
+: MENU-DO ( i -- )
+   MACT + C@ DUP NAPP < IF OPEN EXIT THEN
+   LEAVE-DESK 0 MB_MENU C!
+   254 = IF 0 0x8024 SYS ELSE 0 0x8008 SYS THEN DROP ;
+: MENU-HIT ( -- i | -1 )
+   CELL MC C@ 1- 14 U< MR C@ MENU-Y - NMENU U< AND IF MR C@ MENU-Y - ELSE -1 THEN ;
+: MENU ( -- )
+   0 MSEL C! MENU-DRAW
+   BEGIN
+      POLL TIME-ADV
+      DUP 17 = IF MSEL C@ DUP IF 1- THEN MSEL C! MENU-DRAW THEN
+      DUP 18 = IF MSEL C@ 1+ DUP NMENU = IF 1- THEN MSEL C! MENU-DRAW THEN
+      DUP 27 = IF DROP MENU-CLOSE EXIT THEN
+      10 = IF MENU-CLOSE MSEL C@ MENU-DO EXIT THEN
+      MOK C@ 0= IF
+         MENU-HIT
+         MOVED C@ IF
+            0 MOVED C!
+            DUP 0< 0= IF DUP MSEL C@ = 0= IF DUP MSEL C! MENU-DRAW THEN THEN
+         THEN
+         MOUSE_B C@ 1 AND DUP LASTB C@ SWAP LASTB C! 0= AND IF
+            MENU-CLOSE DUP 0< IF DROP ELSE MENU-DO THEN EXIT THEN
+         DROP
+      THEN
+   AGAIN ;
+
+\ ------------------------------------------------------------
+\ the mouse button and the keys
+\ ------------------------------------------------------------
+: WIN-AT ( -- id | -1 )                 \ the front card under the pointer's cell
+   NZ C@ BEGIN DUP WHILE
+      1- DUP ZORD + C@ W-RECT
+      >R >R MR C@ SWAP - R> SWAP R> U< >R
+      MC C@ ROT - SWAP U< R> AND IF ZORD + C@ EXIT THEN
+   REPEAT DROP -1 ;
+: RAIL-CLICK ( -- )
+   MC C@ 1- 10 U< IF MENU EXIT THEN
+   MC C@ 13 - DUP 0< IF DROP EXIT THEN
+   11 U/MOD DUP NAPP < ROT 10 < AND IF
+      DUP WIN C@ IF TO-FRONT EXIT THEN
+   THEN DROP ;
+: MOUSE-DOWN ( -- )
+   CELL
+   BOARD-H 1- MR C@ < IF RAIL-CLICK EXIT THEN
+   WIN-AT DUP 0< IF DROP EXIT THEN
+   DUP TOPW = 0= IF DUP TO-FRONT THEN
+   DUP WIN DUP 1+ C@ MC C@ SWAP - RC C! 2 + C@ MR C@ SWAP - RR C!
+   RR C@ IF 2* CLICKTAB + @ EXECUTE EXIT THEN
+   RC C@ IF DRAG ELSE CLOSE THEN ;
+: NEXT-WIN ( -- ) NZ C@ 2 < IF EXIT THEN ZORD C@ TO-FRONT ;
+: KEY ( key -- )
+   DUP 9 = IF DROP NEXT-WIN EXIT THEN
+   DUP 27 = IF DROP MENU EXIT THEN
+   DUP 23 = IF DROP TOPW DUP 0< IF DROP ELSE CLOSE THEN EXIT THEN
+   TOPW DUP 0< IF DROP DROP ELSE 2* KEYTAB + @ EXECUTE THEN ;
+: TICK ( -- )
+   TIME-ADV
+   TDIRTY C@ DUP IF
+      0 TDIRTY C!
+      2 = IF 0 PTR RAIL-TIME 1 PTR THEN
+      1 UPDATE
+   ELSE DROP THEN ;
+
+: MAIN ( -- )
+   BEGIN
+      POLL DUP IF KEY ELSE DROP THEN
+      MOK C@ 0= IF
+         MOUSE_B C@ 1 AND DUP LASTB C@ SWAP LASTB C! 0= AND IF MOUSE-DOWN THEN
+      THEN
+      TICK
+   AGAIN ;
+
+: COLD ( -- )
+   NOCLIP 0 NZ C! 0 LASTB C! 0 TDIRTY C! 0 MOVED C!
+   FRAME_LO C@ LASTF C! 0 ACC !
+   WTAB 40 0 FILL
+   0 BEGIN DUP NAPP < WHILE DUP 2* 2* WINIT + OVER WIN 1+ 4 CMOVE 1+ REPEAT DROP
+   F-INIT K-CLR
+   1 0 WIN C! 0 RAISE
+   REFRESH-ALL
+   MAIN ;

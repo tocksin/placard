@@ -8,7 +8,7 @@ the style of Microsoft BASIC: line numbers, `FOR`/`NEXT`, `GOSUB`,
 strings with `LEFT$`, `MID$` and friends, arrays, `DATA`, plus statements
 for the Placard's screen, graphics, sound and SD card.
 
-Date: 11/02/2026
+Date: 11/16/2026
 
 Source: `src/scripts/basic.masm` (the bytecode machine, about 1.5 KB of
 native code) and `src/scripts/basic.vm` (the interpreter, in bytecode,
@@ -270,6 +270,9 @@ compiles (`asm_expand.py` runs it at `.include "basic.vm"`):
 - Each word becomes a `.flow` chunk that `asm_expand.py` places in the free
   space of the ROM regions, so BASIC fills the gaps the loader and FAT
   writer leave.
+- `RAMCALLS` is for a program that runs in RAM with its own copy of the
+  inner interpreter ([Pinboard](PINBOARD.md)): a call's first byte gets bit
+  7 set, so a word below x8000 can't be taken for a primitive's number.
 
 The words fall into the editor (`ACCEPT`, `CRUNCH` tokenizes the line in
 place, `STORELN`), the variables (`FINDVAR`, `NEWVAR`, the string heap and

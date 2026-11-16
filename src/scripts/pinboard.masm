@@ -1,0 +1,1637 @@
+; ============================================================
+; pinboard.masm - Pinboard, the windowed desktop: the native code
+; ============================================================
+;
+; Pinboard (docs/software/PINBOARD.md) is a program on the SD card,
+; PINBOARD.PLC: cards (windows) pinned on a board, a pointer for the PS/2
+; mouse, a rail along the bottom with the launcher and the open cards.
+; Its cards are the file browser (it runs the card's .PLC programs), a
+; clock, a calculator and a note about itself.
+;
+; The desktop itself is written in bytecode (pinboard.vm, compiled by
+; vmc.py when asm_expand.py meets the .include at the end of this file),
+; for the same small stack machine as BASIC's (basic.masm; docs/software/
+; BASIC.md, "The bytecode machine").  This file is that machine, copied
+; from basic.masm with one change, and the primitives that have to be
+; fast or touch the hardware:
+;
+;   the change   the words are in the RAM, below x8000, so a call's first
+;                byte is the word's high byte + x80 (vmc.py: RAMCALLS) and
+;                next takes the x80 off
+;   EMIT HFILL GTYPE   characters at the cell GX, GY, kept inside the clip
+;                rectangle CX0-CX1, CY0-CY1, from Pinboard's own font
+;   INVC         turns the cell at GX, GY over (the outline of a card
+;                being moved)
+;   PTR          shows or hides the pointer (the screen under it is kept)
+;   POLL         a frame's wait, the keyboard and the mouse; the key
+;
+; RAM: the program x0100-x35FF (asm_expand.py pages it), the pointer's
+; tables x3600-x37FF and the font x3800-x3FFF (pinboard_data.asm, made by
+; gen_pinboard.py); zero page x20-x4F and x90-x9F (no sound driver); the
+; data stack x50-x8F; x4800 the return stack, x4900 the pointer's saved
+; screen and the desktop's variables, x4A00-x4CFF the cards' own;
+; x5400-x59FF the folder read; the menu block x5D00 and the FAT reader's
+; x4D00-x4FFF as for every program.
+;
+;     python3 gen_pinboard.py     pinboard_data.asm, pinboard.asm and
+;                                 ../../sdcard/PINBOARD.PLC
+;     python3 test_pinboard.py    runs it from a card in the emulator
+;
+; Date: 11/16/2026
+; ============================================================
+
+#include "placard.asm"
+#include "placard_lib.asm"
+
+PB_PTR    = 0x3600      ; the pointer's tables, 2 pages
+PB_FONT   = 0x3800      ; the font, 8 pages
+PB_TOP    = 0x3600      ; the end of the code
+MAP_RUN   = 0x07        ; sections 0-2 RAM, 3-7 ROM
+#include "pinboard_data.asm"
+
+; the machine's zero page (as basic.masm)
+IPL     = 0x20
+IPH     = 0x21
+TL      = 0x22
+TH      = 0x23
+DSP     = 0x24
+RSP     = 0x25
+W0      = 0x26          ; scratch for the primitives
+W1      = 0x27
+W2      = 0x28
+W3      = 0x29
+W4      = 0x2A
+W5      = 0x2B
+W6      = 0x2C
+W7      = 0x2D
+DS_EMPTY = 0x90         ; the data stack: x50-x8F
+RSTK    = 0x4800        ; the return stack page
+PSAVE   = 0x4900        ; the screen under the pointer: 2 bytes a row
+
+; the drawing primitives' zero page (pinboard.vm knows these too)
+GX      = 0x30          ; the cell the next character goes to
+GY      = 0x31
+CX0     = 0x32          ; the clip rectangle: CX0 <= GX < CX1,
+CY0     = 0x33          ; CY0 <= GY < CY1
+CX1     = 0x34
+CY1     = 0x35
+INV     = 0x36          ; GTYPE: 80 for black ink on a card, 00 white on black
+MOK     = 0x37          ; mouse_init's answer: 0 = a mouse runs
+PXL     = 0x38          ; the pointer: X 0-639
+PXH     = 0x39
+PYL     = 0x3A          ; Y 0-479
+PYH     = 0x3B
+MOVED   = 0x3C          ; POLL sets it when the mouse sent something
+SH_ON   = 0x3D          ; 1: the pointer is on the screen, at:
+SH_C2   = 0x3E          ;   60 + 2 x its byte column
+SH_YL   = 0x3F          ;   its first row
+SH_YH   = 0x40
+SH_TI   = 0x41          ;   its shift << 4
+SH_N    = 0x42          ;   its rows on the screen
+SH_K    = 0x43          ;   1: its right byte is on the screen too
+VH      = 0x44          ; a cell: its column's page
+VL0     = 0x45          ; x45-x4C: the low bytes of its 8 rows
+VPG     = 0x4D          ; 60 or 61: the page of the row in a column
+N_CH    = 0x4E          ; the character
+N_CNT   = 0x4F          ; characters to go
+N_MODE  = 0x50          ; 1: GTYPE (characters from N_PH:N_PL)
+N_PL    = 0x51
+N_PH    = 0x52
+
+.prefix pb
+.region 0x0100, 0x1F00
+.region 0x2000, PB_TOP
+
+; ------------------------------------------------------------
+; macros (basic.masm)
+; ------------------------------------------------------------
+.macro PUSHT                    ; push TOS (TOS stays)
+    ld   [DSP], ac
+    sub  2, ac
+    ld   ac, [DSP]
+    ld   ac, x
+    ld   [TL], ac
+    ld   ac, [x]
+    ld   [DSP], ac
+    add  1, x
+    ld   [TH], ac
+    ld   ac, [x]
+.endm
+.macro POPT                     ; TOS = the cell below it
+    ld   [DSP], x
+    ld   [x], ac
+    ld   ac, [TL]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [TH]
+    ld   [DSP], ac
+    add  2, ac
+    ld   ac, [DSP]
+.endm
+.macro NIP2                     ; drop the cell below TOS
+    ld   [DSP], ac
+    add  2, ac
+    ld   ac, [DSP]
+.endm
+.macro IPBYTE                   ; AC = the byte at IP
+    ld   [IPH], y
+    ld   [IPL], x
+    ld   [y,x], ac
+.endm
+.macro IPINC                    ; IP + 1
+    ld   [IPL], ac
+    inc
+    ld   ac, [IPL]
+    bne  ii\@
+    ld   [IPH], ac
+    inc
+    ld   ac, [IPH]
+ii\@:
+.endm
+.macro NEXT
+    ld   next >> 8, y
+    jmp  next
+.endm
+
+; ============================================================
+; basic - the vector x8024 comes here (power-up with no card, the DOS's
+
+; ============================================================
+; main - the ROM's loader enters here (map 07, the card mounted)
+; ============================================================
+.fixed 0x0100
+main:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    CALL con_clear              ; every row 1 bpp, the screen black
+    ld   0x5B, y                ; the rail: rows 456-479 tinted blue
+    ld   23, ac
+mn_tint:
+    add  0xE8, x
+    ld   0x40, [y,x]
+    sub  1, ac
+    bcc  mn_tint
+    CALL mouse_init
+    ld   ac, [MOK]
+    clr  ac
+    ld   ac, [SH_ON]
+    ld   ac, [MOVED]
+    ld   ac, [PYH]
+    ld   240, ac
+    ld   ac, [PYL]
+    ld   320 & 0xFF, ac
+    ld   ac, [PXL]
+    ld   1, ac
+    ld   ac, [PXH]
+    ld   DS_EMPTY, ac
+    ld   ac, [DSP]
+    ld   0xFF, ac
+    ld   ac, [RSP]
+    ld   w_COLD & 0xFF, ac
+    ld   ac, [IPL]
+    ld   w_COLD >> 8, ac
+    ld   ac, [IPH]
+    NEXT
+
+; ============================================================
+; the inner interpreter and the primitives every program of the
+; machine needs, from basic.masm
+; ============================================================
+.chunk  next, calls, IP + 1 or 2, the branches; DUP DROP LIT8 (the most used: they
+; branch back to next)
+next:
+    ld   [IPH], y               ; Y:X = IP, then IP + 1
+    ld   [IPL], x
+    ld   [IPL], ac
+    inc
+    ld   ac, [IPL]
+    beq  nx_c
+nx_f:
+    ld   [y,x], ac
+    blt  nx_call
+    shl                         ; the primitive: vm_jump + opcode x 4
+    shl
+    ld   vm_jump >> 8, y
+    jmp  ac
+nx_c:
+    ld   [IPH], ac
+    inc
+    ld   ac, [IPH]
+    bra  nx_f
+nx_call:                        ; AC = the word's high byte + x80, IP at its low byte
+    and  0x7F, ac
+    ld   ac, [W0]
+    IPBYTE
+    ld   ac, [W1]
+    ld   [IPL], ac
+    inc
+    ld   ac, [IPL]
+    bne  nx_2
+    ld   [IPH], ac
+    inc
+    ld   ac, [IPH]
+nx_2:
+    ld   [RSP], x               ; push IP on the return stack
+    ld   RSTK >> 8, y
+    ld   [IPH], ac
+    ld   ac, [y,x]
+    ld   [RSP], ac
+    sub  1, x
+    ld   [IPL], ac
+    ld   ac, [y,x]
+    ld   [RSP], ac
+    sub  2, ac
+    ld   ac, [RSP]
+    ld   [W1], ac
+    ld   ac, [IPL]
+    ld   [W0], ac
+    ld   ac, [IPH]
+    bra  next
+ip2:
+    ld   [IPL], ac
+    add  2, ac
+    ld   ac, [IPL]
+    bcc  next
+    ld   [IPH], ac
+    inc
+    ld   ac, [IPH]
+    bra  next
+ip1:
+    ld   [IPL], ac
+    inc
+    ld   ac, [IPL]
+    bne  next
+    ld   [IPH], ac
+    inc
+    ld   ac, [IPH]
+    bra  next
+p_br:                           ; BR n: IP = IP + 1 + n (n signed)
+    IPBYTE
+    ld   ac, [W0]
+    add  [IPL], ac
+    ld   ac, [IPL]
+    bcc  br_nc
+    ld   [W0], ac
+    blt  ip1                    ; back, with a carry: the same page
+    ld   [IPH], ac
+    inc
+    ld   ac, [IPH]
+    bra  ip1
+br_nc:
+    ld   [W0], ac
+    blt  br_dec
+    bra  ip1
+br_dec:
+    ld   [IPH], ac
+    dec
+    ld   ac, [IPH]
+    bra  ip1
+p_0br:                          ; 0BR n: branch if TOS = 0, drop it
+    ld   [TL], ac
+    or   [TH], ac
+    ld   ac, [W2]
+    POPT
+    ld   [W2], ac
+    beq  p_br
+    bra  ip1
+p_dup:
+    PUSHT
+    bra  next
+p_drop:
+    POPT
+    bra  next
+p_lit8:                         ; LIT8 n ( -- n )
+    PUSHT
+    IPBYTE
+    ld   ac, [TL]
+    clr  ac
+    ld   ac, [TH]
+    bra  ip1
+
+
+.chunk  EXIT, LBR, L0BR, EXECUTE, RESET
+p_exit:
+    ld   [RSP], ac
+    add  1, x
+    ld   RSTK >> 8, y
+    ld   [y,x], ac
+    ld   ac, [IPL]
+    ld   [RSP], ac
+    add  2, x
+    ld   [y,x], ac
+    ld   ac, [IPH]
+    ld   [RSP], ac
+    add  2, ac
+    ld   ac, [RSP]
+    NEXT
+p_l0br:                         ; L0BR a: IP = a if TOS = 0, drop it
+    ld   [TL], ac
+    or   [TH], ac
+    ld   ac, [W2]
+    POPT
+    ld   [W2], ac
+    beq  p_lbr
+    ld   ip2 >> 8, y
+    jmp  ip2
+p_lbr:                          ; LBR a: IP = a
+    IPBYTE
+    ld   ac, [W0]
+    ld   [IPL], ac
+    inc
+    ld   ac, x
+    bne  lb_1
+    ld   [IPH], ac
+    inc
+    ld   ac, y
+lb_1:
+    ld   [y,x], ac
+    ld   ac, [IPH]
+    ld   [W0], ac
+    ld   ac, [IPL]
+    NEXT
+p_execute:                      ; EXECUTE ( a -- ): call the word at a
+    ld   [RSP], x
+    ld   RSTK >> 8, y
+    ld   [IPH], ac
+    ld   ac, [y,x]
+    ld   [RSP], ac
+    sub  1, x
+    ld   [IPL], ac
+    ld   ac, [y,x]
+    ld   [RSP], ac
+    sub  2, ac
+    ld   ac, [RSP]
+    ld   [TL], ac
+    ld   ac, [IPL]
+    ld   [TH], ac
+    ld   ac, [IPH]
+    ld   p_drop >> 8, y
+    jmp  p_drop
+
+.chunk  LIT8, LIT16, SLIT
+p_lit16:                        ; LIT16 n ( -- n )
+    PUSHT
+    IPBYTE
+    ld   ac, [TL]
+    IPINC
+    IPBYTE
+    ld   ac, [TH]
+    ld   ip1 >> 8, y
+    jmp  ip1
+p_slit:                         ; SLIT n "..." ( -- a ): a = the length byte's address
+    PUSHT
+    ld   [IPL], ac
+    ld   ac, [TL]
+    ld   [IPH], ac
+    ld   ac, [TH]
+    IPBYTE
+    inc
+    add  [IPL], ac
+    ld   ac, [IPL]
+    bcc  sl_nc
+    ld   [IPH], ac
+    inc
+    ld   ac, [IPH]
+sl_nc:
+    NEXT
+
+.chunk  ZP@ ZP! ZPC@ ZPC!
+p_zpat:                         ; ZP@ n ( -- [n] )
+    PUSHT
+    IPBYTE
+    ld   ac, [W0]
+    ld   ac, x
+    ld   [x], ac
+    ld   ac, [TL]
+    ld   [W0], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [TH]
+    ld   ip1 >> 8, y
+    jmp  ip1
+p_zpcat:                        ; ZPC@ n ( -- [n] ), one byte
+    PUSHT
+    IPBYTE
+    ld   ac, x
+    ld   [x], ac
+    ld   ac, [TL]
+    clr  ac
+    ld   ac, [TH]
+    ld   ip1 >> 8, y
+    jmp  ip1
+p_zpst:                         ; ZP! n ( v -- )
+    IPBYTE
+    ld   ac, [W0]
+    ld   ac, x
+    ld   [TL], ac
+    ld   ac, [x]
+    ld   [W0], ac
+    add  1, x
+    ld   [TH], ac
+    ld   ac, [x]
+    POPT
+    ld   ip1 >> 8, y
+    jmp  ip1
+p_zpcst:                        ; ZPC! n ( v -- ), one byte
+    IPBYTE
+    ld   ac, x
+    ld   [TL], ac
+    ld   ac, [x]
+    POPT
+    ld   ip1 >> 8, y
+    jmp  ip1
+
+.chunk  SWAP OVER NIP 2DUP
+p_nip:
+    NIP2
+    NEXT
+p_swap:
+    ld   [DSP], x
+    ld   [x], ac
+    ld   ac, [W0]
+    ld   [TL], ac
+    ld   ac, [x]
+    ld   [W0], ac
+    ld   ac, [TL]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [W0]
+    ld   [TH], ac
+    ld   ac, [x]
+    ld   [W0], ac
+    ld   ac, [TH]
+    NEXT
+p_over:                         ; ( a b -- a b a )
+    PUSHT
+    ld   [DSP], ac
+    add  2, x
+    ld   [x], ac
+    ld   ac, [TL]
+    ld   [DSP], ac
+    add  3, x
+    ld   [x], ac
+    ld   ac, [TH]
+    NEXT
+p_2dup:                         ; ( a b -- a b a b )
+    ld   [DSP], ac              ; W1:W0 = a
+    ld   ac, x
+    ld   [x], ac
+    ld   ac, [W0]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [W1]
+    ld   [DSP], ac              ; two cells more: b, then a below TOS
+    sub  4, ac
+    ld   ac, [DSP]
+    add  2, x
+    ld   [TL], ac
+    ld   ac, [x]
+    ld   [DSP], ac
+    add  3, x
+    ld   [TH], ac
+    ld   ac, [x]
+    ld   [DSP], x
+    ld   [W0], ac
+    ld   ac, [x]
+    ld   [DSP], ac
+    add  1, x
+    ld   [W1], ac
+    ld   ac, [x]
+    NEXT
+
+.chunk  ROT >R R> R@ RDROP
+p_rot:                          ; ( a b c -- b c a )
+    ld   [DSP], ac              ; W1:W0 = a (at DSP + 2)
+    add  2, x
+    ld   [x], ac
+    ld   ac, [W0]
+    ld   [DSP], ac
+    add  3, x
+    ld   [x], ac
+    ld   ac, [W1]
+    ld   [DSP], x               ; DSP + 2 = b
+    ld   [x], ac
+    ld   ac, [W2]
+    ld   [DSP], ac
+    add  2, x
+    ld   [W2], ac
+    ld   ac, [x]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [W2]
+    ld   [DSP], ac
+    add  3, x
+    ld   [W2], ac
+    ld   ac, [x]
+    ld   [DSP], x               ; DSP = c
+    ld   [TL], ac
+    ld   ac, [x]
+    ld   [DSP], ac
+    add  1, x
+    ld   [TH], ac
+    ld   ac, [x]
+    ld   [W0], ac               ; TOS = a
+    ld   ac, [TL]
+    ld   [W1], ac
+    ld   ac, [TH]
+    NEXT
+p_tor:                          ; >R ( a -- )
+    ld   [RSP], x
+    ld   RSTK >> 8, y
+    ld   [TH], ac
+    ld   ac, [y,x]
+    ld   [RSP], ac
+    sub  1, x
+    ld   [TL], ac
+    ld   ac, [y,x]
+    ld   [RSP], ac
+    sub  2, ac
+    ld   ac, [RSP]
+    ld   p_drop >> 8, y
+    jmp  p_drop
+p_rfrom:                        ; R> ( -- a )
+    PUSHT
+    ld   [RSP], ac
+    add  2, ac
+    ld   ac, [RSP]
+    bra  rf_get
+p_rat:                          ; R@ ( -- a )
+    PUSHT
+    ld   [RSP], ac
+    add  2, ac
+rf_get:                         ; TOS = the return stack entry at AC - 1 (low), AC (high)
+    ld   ac, [W0]
+    ld   ac, x
+    ld   RSTK >> 8, y
+    ld   [y,x], ac
+    ld   ac, [TH]
+    ld   [W0], ac
+    sub  1, x
+    ld   [y,x], ac
+    ld   ac, [TL]
+    NEXT
+p_rdrop:
+    ld   [RSP], ac
+    add  2, ac
+    ld   ac, [RSP]
+    NEXT
+
+.chunk  @ ! C@ C!
+p_at:                           ; @ ( a -- [a] )
+    ld   [TH], y
+    ld   [TL], x
+    ld   [y,x], ac
+    ld   ac, [W0]
+    ld   [TL], ac
+    inc
+    ld   ac, x
+    bne  at_1
+    ld   [TH], ac
+    inc
+    ld   ac, y
+at_1:
+    ld   [y,x], ac
+    ld   ac, [TH]
+    ld   [W0], ac
+    ld   ac, [TL]
+    NEXT
+p_cat:                          ; C@ ( a -- [a] ), one byte
+    ld   [TH], y
+    ld   [TL], x
+    ld   [y,x], ac
+    ld   ac, [TL]
+    clr  ac
+    ld   ac, [TH]
+    NEXT
+p_store:                        ; ! ( v a -- )
+    ld   [DSP], ac              ; W0 = v high
+    add  1, x
+    ld   [x], ac
+    ld   ac, [W0]
+    ld   [DSP], x               ; v low
+    ld   [x], ac
+    ld   [TH], y
+    ld   [TL], x
+    ld   ac, [y,x]
+    ld   [TL], ac
+    inc
+    ld   ac, x
+    bne  st_1
+    ld   [TH], ac
+    inc
+    ld   ac, y
+st_1:
+    ld   [W0], ac
+    ld   ac, [y,x]
+st_pop2:
+    NIP2
+    POPT
+    NEXT
+p_cstore:                       ; C! ( v a -- )
+    ld   [DSP], x
+    ld   [x], ac
+    ld   [TH], y
+    ld   [TL], x
+    ld   ac, [y,x]
+    bra  st_pop2
+
+.chunk  + - AND OR XOR
+p_add:
+    ld   [DSP], x
+    ld   [x], ac
+    add  [TL], ac
+    ld   ac, [TL]
+    bcc  vad_1
+    ld   [TH], ac
+    inc
+    ld   ac, [TH]
+vad_1:
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    add  [TH], ac
+    ld   ac, [TH]
+ad_nip:
+    NIP2
+    NEXT
+p_sub:                          ; - ( a b -- a-b )
+    ld   [DSP], x
+    ld   [x], ac
+    sub  [TL], ac
+    ld   ac, [TL]
+    bcc  sb_1
+    ld   [TH], ac               ; a borrow: take one more from the high byte
+    inc
+    ld   ac, [TH]
+sb_1:
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    sub  [TH], ac
+    ld   ac, [TH]
+    bra  ad_nip
+p_and:
+    ld   [DSP], x
+    ld   [x], ac
+    and  [TL], ac
+    ld   ac, [TL]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    and  [TH], ac
+    ld   ac, [TH]
+    bra  ad_nip
+p_or:
+    ld   [DSP], x
+    ld   [x], ac
+    or   [TL], ac
+    ld   ac, [TL]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    or   [TH], ac
+    ld   ac, [TH]
+    bra  ad_nip
+p_xor:
+    ld   [DSP], x
+    ld   [x], ac
+    xor  [TL], ac
+    ld   ac, [TL]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    xor  [TH], ac
+    ld   ac, [TH]
+    bra  ad_nip
+
+.chunk  INVERT 1+ 1- 2* 2/
+p_invert:
+    ld   [TL], ac
+    not
+    ld   ac, [TL]
+    ld   [TH], ac
+    not
+    ld   ac, [TH]
+    NEXT
+p_inc:
+    ld   [TL], ac
+    inc
+    ld   ac, [TL]
+    bne  in_1
+    ld   [TH], ac
+    inc
+    ld   ac, [TH]
+in_1:
+    NEXT
+p_dec:
+    ld   [TL], ac
+    sub  1, ac
+    ld   ac, [TL]
+    bcc  in_1
+    ld   [TH], ac
+    dec
+    ld   ac, [TH]
+    NEXT
+p_2mul:
+    ld   [TL], ac
+    shl
+    ld   ac, [TL]
+    ld   [TH], ac
+    bcc  m2_1
+    shl
+    or   1, ac
+    ld   ac, [TH]
+    NEXT
+m2_1:
+    shl
+    ld   ac, [TH]
+    NEXT
+p_2div:                         ; arithmetic: the sign stays
+    ld   [TL], ac
+    shr  ac
+    ld   ac, [TL]
+    ld   [TH], ac
+    and  1, ac
+    beq  d2_1
+    ld   [TL], ac
+    or   0x80, ac
+    ld   ac, [TL]
+d2_1:
+    ld   [TH], ac
+    and  0x80, ac
+    ld   ac, [W0]
+    ld   [TH], ac
+    shr  ac
+    or   [W0], ac
+    ld   ac, [TH]
+    NEXT
+
+.chunk  = U< < 0= 0<
+p_eq:
+    ld   [DSP], x
+    ld   [x], ac
+    xor  [TL], ac
+    ld   ac, [W0]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    xor  [TH], ac
+    or   [W0], ac
+    beq  t_true
+    bra  t_false
+p_ult:
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    sub  [TH], ac
+    bcs  t_true
+    bne  t_false
+ult_lo:
+    ld   [DSP], x
+    ld   [x], ac
+    sub  [TL], ac
+    bcs  t_true
+t_false:
+    NIP2
+u_false:
+    clr  ac
+    ld   ac, [TL]
+    ld   ac, [TH]
+    NEXT
+p_lt:                           ; signed: compare with the sign bits flipped
+    ld   [TH], ac
+    xor  0x80, ac
+    ld   ac, [W0]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    xor  0x80, ac
+    sub  [W0], ac
+    bcs  t_true
+    bne  t_false
+    bra  ult_lo
+t_true:
+    NIP2
+u_true:
+    ld   0xFF, ac
+    ld   ac, [TL]
+    ld   ac, [TH]
+    NEXT
+p_0eq:
+    ld   [TL], ac
+    or   [TH], ac
+    beq  u_true
+    bra  u_false
+p_0lt:
+    ld   [TH], ac
+    blt  u_true
+    bra  u_false
+
+.chunk  * ( a b -- a*b )
+p_mul:
+    ld   [DSP], x               ; W1:W0 = a, W3:W2 = 0
+    ld   [x], ac
+    ld   ac, [W0]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [W1]
+    clr  ac
+    ld   ac, [W2]
+    ld   ac, [W3]
+mu_lp:
+    ld   [TL], ac
+    and  1, ac
+    beq  mu_sh
+    ld   [W2], ac
+    add  [W0], ac
+    ld   ac, [W2]
+    bcc  mu_hi
+    ld   [W3], ac
+    inc
+    ld   ac, [W3]
+mu_hi:
+    ld   [W3], ac
+    add  [W1], ac
+    ld   ac, [W3]
+mu_sh:
+    ld   [W0], ac               ; a << 1
+    shl
+    ld   ac, [W0]
+    ld   [W1], ac
+    bcc  mu_a0
+    shl
+    or   1, ac
+    bra  mu_a1
+mu_a0:
+    shl
+mu_a1:
+    ld   ac, [W1]
+    ld   [TL], ac               ; b >> 1
+    shr  ac
+    ld   ac, [TL]
+    ld   [TH], ac
+    and  1, ac
+    beq  mu_b0
+    ld   [TL], ac
+    or   0x80, ac
+    ld   ac, [TL]
+mu_b0:
+    ld   [TH], ac
+    shr  ac
+    ld   ac, [TH]
+    or   [TL], ac
+    bne  mu_lp
+    ld   [W2], ac
+    ld   ac, [TL]
+    ld   [W3], ac
+    ld   ac, [TH]
+    NIP2
+    NEXT
+
+.chunk  U/MOD ( a b -- a mod b  a/b ), unsigned
+p_umod:
+    ld   [DSP], x               ; W1:W0 = a (becomes the quotient)
+    ld   [x], ac
+    ld   ac, [W0]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [W1]
+    clr  ac                     ; W3:W2 = the remainder
+    ld   ac, [W2]
+    ld   ac, [W3]
+    ld   16, ac
+    ld   ac, [W4]
+um_lp:
+    ld   [W0], ac               ; W3:W2:W1:W0 << 1
+    shl
+    ld   ac, [W0]
+    ld   [W1], ac
+    bcc  um_1
+    shl
+    or   1, ac
+    bra  um_2
+um_1:
+    shl
+um_2:
+    ld   ac, [W1]
+    ld   [W2], ac
+    bcc  um_3
+    shl
+    or   1, ac
+    bra  um_4
+um_3:
+    shl
+um_4:
+    ld   ac, [W2]
+    ld   [W3], ac
+    bcc  um_5
+    shl
+    or   1, ac
+    ld   ac, [W3]
+    bra  um_sub                 ; bit 16 set: the remainder is more than b
+um_5:
+    shl
+    ld   ac, [W3]
+    sub  [TH], ac               ; remainder >= b?
+    bcs  um_next
+    bne  um_sub
+    ld   [W2], ac
+    sub  [TL], ac
+    bcs  um_next
+um_sub:
+    ld   [W2], ac               ; remainder - b, quotient bit 1
+    sub  [TL], ac
+    ld   ac, [W2]
+    ld   [W3], ac
+    bcc  um_6
+    dec
+um_6:
+    sub  [TH], ac
+    ld   ac, [W3]
+    ld   [W0], ac
+    or   1, ac
+    ld   ac, [W0]
+um_next:
+    ld   [W4], ac
+    dec
+    ld   ac, [W4]
+    bne  um_lp
+    ld   [DSP], x               ; below: the remainder, TOS: the quotient
+    ld   [W2], ac
+    ld   ac, [x]
+    ld   [DSP], ac
+    add  1, x
+    ld   [W3], ac
+    ld   ac, [x]
+    ld   [W0], ac
+    ld   ac, [TL]
+    ld   [W1], ac
+    ld   ac, [TH]
+    NEXT
+
+.chunk  CMOVE ( from to n -- ): first byte first
+p_cmove:
+    ld   [DSP], x               ; W1:W0 = to, W3:W2 = from, TOS = n
+    ld   [x], ac
+    ld   ac, [W0]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [W1]
+    ld   [DSP], ac
+    add  2, x
+    ld   [x], ac
+    ld   ac, [W2]
+    ld   [DSP], ac
+    add  3, x
+    ld   [x], ac
+    ld   ac, [W3]
+cm_lp:
+    ld   [TL], ac
+    or   [TH], ac
+    beq  cm_done
+    ld   [W3], y
+    ld   [W2], x
+    ld   [y,x], ac
+    ld   [W1], y
+    ld   [W0], x
+    ld   ac, [y,x]
+    ld   [W2], ac
+    inc
+    ld   ac, [W2]
+    bne  cm_1
+    ld   [W3], ac
+    inc
+    ld   ac, [W3]
+cm_1:
+    ld   [W0], ac
+    inc
+    ld   ac, [W0]
+    bne  cm_2
+    ld   [W1], ac
+    inc
+    ld   ac, [W1]
+cm_2:
+    ld   [TL], ac
+    sub  1, ac
+    ld   ac, [TL]
+    bcc  cm_lp
+    ld   [TH], ac
+    dec
+    ld   ac, [TH]
+    bra  cm_lp
+cm_done:
+    NIP2
+    NIP2
+    ld   p_drop >> 8, y
+    jmp  p_drop
+
+.chunk  CMOVE> ( from to n -- ): last byte first
+p_cmoveu:
+    ld   [DSP], x               ; W1:W0 = to + n, W3:W2 = from + n
+    ld   [x], ac
+    add  [TL], ac
+    ld   ac, [W0]
+    ld   [TH], ac
+    bcc  cu_1
+    inc
+cu_1:
+    ld   ac, [W1]
+    ld   [DSP], ac
+    add  1, x
+    ld   [W1], ac
+    add  [x], ac
+    ld   ac, [W1]
+    ld   [DSP], ac
+    add  2, x
+    ld   [x], ac
+    add  [TL], ac
+    ld   ac, [W2]
+    ld   [TH], ac
+    bcc  cu_2
+    inc
+cu_2:
+    ld   ac, [W3]
+    ld   [DSP], ac
+    add  3, x
+    ld   [W3], ac
+    add  [x], ac
+    ld   ac, [W3]
+cu_lp:
+    ld   [TL], ac
+    or   [TH], ac
+    beq  cu_done
+    ld   [W2], ac               ; from - 1
+    sub  1, ac
+    ld   ac, [W2]
+    bcc  cu_3
+    ld   [W3], ac
+    dec
+    ld   ac, [W3]
+cu_3:
+    ld   [W0], ac               ; to - 1
+    sub  1, ac
+    ld   ac, [W0]
+    bcc  cu_4
+    ld   [W1], ac
+    dec
+    ld   ac, [W1]
+cu_4:
+    ld   [W3], y
+    ld   [W2], x
+    ld   [y,x], ac
+    ld   [W1], y
+    ld   [W0], x
+    ld   ac, [y,x]
+    ld   [TL], ac
+    sub  1, ac
+    ld   ac, [TL]
+    bcc  cu_lp
+    ld   [TH], ac
+    dec
+    ld   ac, [TH]
+    bra  cu_lp
+cu_done:
+    NIP2
+    NIP2
+    ld   p_drop >> 8, y
+    jmp  p_drop
+
+.chunk  FILL ( a n c -- )
+p_fill:
+    ld   [TL], ac               ; W4 = c, TOS = n, W1:W0 = a
+    ld   ac, [W4]
+    POPT
+    ld   [DSP], x
+    ld   [x], ac
+    ld   ac, [W0]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [W1]
+fi_lp:
+    ld   [TL], ac
+    or   [TH], ac
+    beq  fi_done
+    ld   [W1], y
+    ld   [W0], x
+    ld   [W4], ac
+    ld   ac, [y,x]
+    ld   [W0], ac
+    inc
+    ld   ac, [W0]
+    bne  fi_1
+    ld   [W1], ac
+    inc
+    ld   ac, [W1]
+fi_1:
+    ld   [TL], ac
+    sub  1, ac
+    ld   ac, [TL]
+    bcc  fi_lp
+    ld   [TH], ac
+    dec
+    ld   ac, [TH]
+    bra  fi_lp
+fi_done:
+    NIP2
+    ld   p_drop >> 8, y
+    jmp  p_drop
+
+.chunk  SYS ( ac a -- ac ): CALL the native routine at a with AC; R0-R7 as set
+p_sys:
+    ld   [TL], ac
+    ld   ac, [W0]
+    ld   [TH], ac
+    ld   ac, [W1]
+    POPT
+    ld   LINK_LO, x
+    ld   sy_back, [x]
+    ld   LINK_HI, x
+    ld   sy_back >> 8, [x]
+    ld   [TL], ac
+    ld   [W1], y
+    jmp  [W0]
+sy_back:
+    ld   ac, [TL]
+    clr  ac
+    ld   ac, [TH]
+    NEXT
+
+; ============================================================
+; EMIT ( c -- )  HFILL ( c n -- )  GTYPE ( a n -- )
+; Characters at the cell GX, GY, GX moving on; nothing is drawn outside
+; the clip rectangle.  GTYPE's characters are XORed with INV.
+; ============================================================
+.chunk  EMIT, HFILL, GTYPE: what to draw
+p_emit:
+    ld   [TL], ac
+    ld   ac, [N_CH]
+    ld   1, ac
+    ld   ac, [N_CNT]
+    clr  ac
+    ld   ac, [N_MODE]
+    GOTO pg_start
+p_hfill:
+    ld   [TL], ac
+    ld   ac, [N_CNT]
+    POPT
+    ld   [TL], ac
+    ld   ac, [N_CH]
+    clr  ac
+    ld   ac, [N_MODE]
+    GOTO pg_start
+p_gtype:
+    ld   [TL], ac
+    ld   ac, [N_CNT]
+    POPT
+    ld   [TL], ac
+    ld   ac, [N_PL]
+    ld   [TH], ac
+    ld   ac, [N_PH]
+    ld   1, ac
+    ld   ac, [N_MODE]
+    GOTO pg_start
+
+.chunk  pg_start: the frame counter kept up, then the row's addresses
+pg_start:
+    ld   [N_MODE], ac
+    CALL frame_poll             ; a long repaint: the frames are counted
+    CALL ps2_poll               ; and the mouse's bytes taken as they come
+    ld   [N_CNT], ac
+    beq  pgs_out
+    ld   [GY], ac
+    sub  [CY0], ac
+    bcs  pgs_out                 ; above the clip
+    ld   [GY], ac
+    sub  [CY1], ac
+    bcc  pgs_out                 ; below it
+    ld   [GY], ac               ; row 8 x GY + x20 of the column
+    shl
+    shl
+    shl
+    add  0x20, ac
+    ld   ac, [VL0]
+    inc
+    ld   ac, [VL0 + 1]
+    inc
+    ld   ac, [VL0 + 2]
+    inc
+    ld   ac, [VL0 + 3]
+    inc
+    ld   ac, [VL0 + 4]
+    inc
+    ld   ac, [VL0 + 5]
+    inc
+    ld   ac, [VL0 + 6]
+    inc
+    ld   ac, [VL0 + 7]
+    ld   [GY], ac
+    sub  28, ac
+    bcs  pgs_p0
+    ld   0x61, ac
+    bra  pgs_p
+pgs_p0:
+    ld   0x60, ac
+pgs_p:
+    ld   ac, [VPG]
+    GOTO pg_loop
+pgs_out:
+    ld   [GX], ac
+    add  [N_CNT], ac
+    ld   ac, [GX]
+    POPT
+    NEXT
+
+.chunk  pg_loop: a character
+pg_loop:
+    ld   [N_MODE], ac
+    beq  pg_ch
+    ld   [N_PH], y
+    ld   [N_PL], x
+    ld   [y,x], ac
+    xor  [INV], ac
+    ld   ac, [N_CH]
+    ld   [N_PL], ac
+    inc
+    ld   ac, [N_PL]
+    bne  pg_ch
+    ld   [N_PH], ac
+    inc
+    ld   ac, [N_PH]
+pg_ch:
+    ld   [GX], ac
+    sub  [CX0], ac
+    bcs  pg_skip
+    ld   [GX], ac
+    sub  [CX1], ac
+    bcc  pg_skip
+    ld   [GX], ac
+    shl
+    add  [VPG], ac
+    ld   ac, [VH]
+    ld   PB_FONT >> 8, y
+    ld   [N_CH], x
+    ld   [y,x], ac
+    ld   [VH], y
+    ld   [VL0], x
+    ld   ac, [y,x]
+    ld   (PB_FONT >> 8) + 1, y
+    ld   [N_CH], x
+    ld   [y,x], ac
+    ld   [VH], y
+    ld   [VL0 + 1], x
+    ld   ac, [y,x]
+    ld   (PB_FONT >> 8) + 2, y
+    ld   [N_CH], x
+    ld   [y,x], ac
+    ld   [VH], y
+    ld   [VL0 + 2], x
+    ld   ac, [y,x]
+    ld   (PB_FONT >> 8) + 3, y
+    ld   [N_CH], x
+    ld   [y,x], ac
+    ld   [VH], y
+    ld   [VL0 + 3], x
+    ld   ac, [y,x]
+    ld   (PB_FONT >> 8) + 4, y
+    ld   [N_CH], x
+    ld   [y,x], ac
+    ld   [VH], y
+    ld   [VL0 + 4], x
+    ld   ac, [y,x]
+    ld   (PB_FONT >> 8) + 5, y
+    ld   [N_CH], x
+    ld   [y,x], ac
+    ld   [VH], y
+    ld   [VL0 + 5], x
+    ld   ac, [y,x]
+    ld   (PB_FONT >> 8) + 6, y
+    ld   [N_CH], x
+    ld   [y,x], ac
+    ld   [VH], y
+    ld   [VL0 + 6], x
+    ld   ac, [y,x]
+    ld   (PB_FONT >> 8) + 7, y
+    ld   [N_CH], x
+    ld   [y,x], ac
+    ld   [VH], y
+    ld   [VL0 + 7], x
+    ld   ac, [y,x]
+pg_skip:
+    ld   [GX], ac
+    inc
+    ld   ac, [GX]
+    ld   [N_CNT], ac
+    dec
+    ld   ac, [N_CNT]
+    bne  pg_loop
+    POPT
+    NEXT
+
+; ============================================================
+; INVC ( -- ): the cell at GX, GY turned over (white <-> black).  The
+; video RAM is read with every section mapped to RAM (this code is in the
+; RAM below x4000, so it runs on).
+; ============================================================
+.chunk  INVC
+p_invc:
+    ld   [GX], ac
+    sub  80, ac
+    bcc  iv_x
+    ld   [GY], ac
+    sub  60, ac
+    bcc  iv_x
+    ld   [GY], ac
+    shl
+    shl
+    shl
+    add  0x20, ac
+    ld   ac, [VL0]
+    ld   [GY], ac
+    sub  28, ac
+    bcs  iv_p0
+    ld   0x61, ac
+    bra  iv_p
+iv_p0:
+    ld   0x60, ac
+iv_p:
+    ld   ac, [VPG]
+    ld   [GX], ac
+    shl
+    add  [VPG], ac
+    ld   ac, [VH]
+    ld   0x50, y
+    ld   0xFF, [y,x]
+    ld   8, ac
+    ld   ac, [N_CNT]
+iv_l:
+    ld   [VH], y
+    ld   [VL0], x
+    ld   [y,x], ac
+    xor  0xFF, ac
+    ld   ac, [y,x]
+    ld   [VL0], ac
+    inc
+    ld   ac, [VL0]
+    ld   [N_CNT], ac
+    dec
+    ld   ac, [N_CNT]
+    bne  iv_l
+    ld   0x50, y
+    ld   MAP_RUN, [y,x]
+iv_x:
+    NEXT
+
+; ============================================================
+; the pointer
+; ============================================================
+.macro PROW                     ; T1 = the low byte, T2 = the page of row T0 of the pointer's left column
+    ld   [SH_YL], ac
+    add  [T0], ac
+    ld   ac, [T1]
+    ld   [SH_YH], ac
+    bcc  pra\@
+    inc
+pra\@:
+    ld   ac, [T2]
+    ld   [T1], ac
+    add  0x20, ac
+    ld   ac, [T1]
+    ld   [T2], ac
+    bcc  prb\@
+    inc
+prb\@:
+    add  [SH_C2], ac
+    ld   ac, [T2]
+.endm
+
+.chunk  ptr_hide - the screen under the pointer put back (CALL it; T0-T3)
+ptr_hide:
+    ld   [SH_ON], ac
+    beq  ph_x
+    clr  ac
+    ld   ac, [SH_ON]
+    ld   ac, [T0]
+ph_l:
+    PROW
+    ld   [T0], ac
+    shl
+    ld   ac, x
+    ld   PSAVE >> 8, y
+    ld   [y,x], ac
+    ld   [T2], y
+    ld   [T1], x
+    ld   ac, [y,x]
+    ld   [SH_K], ac
+    beq  ph_n
+    ld   [T0], ac
+    shl
+    add  1, x
+    ld   PSAVE >> 8, y
+    ld   [y,x], ac
+    ld   ac, [T3]
+    ld   [T2], ac
+    add  2, y
+    ld   [T1], x
+    ld   [T3], ac
+    ld   ac, [y,x]
+ph_n:
+    ld   [T0], ac
+    inc
+    ld   ac, [T0]
+    xor  [SH_N], ac
+    bne  ph_l
+ph_x:
+    RET
+
+.chunk  ptr_show - the pointer drawn at PX, PY (CALL it; T0-T3)
+ptr_show:
+    ld   [SH_ON], ac
+    bne  ps_x
+    ld   [MOK], ac
+    bne  ps_x                   ; no mouse: no pointer
+    ld   1, ac
+    ld   ac, [SH_ON]
+    ld   [PXL], ac
+    and  7, ac
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [SH_TI]
+    ld   [PXL], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [T3]
+    ld   [PXH], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [T3], ac
+    ld   ac, [T3]               ; the byte column
+    xor  79, ac
+    beq  ps_k
+    ld   1, ac
+ps_k:
+    ld   ac, [SH_K]
+    ld   [T3], ac
+    shl
+    add  0x60, ac
+    ld   ac, [SH_C2]
+    ld   [PYL], ac
+    ld   ac, [SH_YL]
+    ld   [PYH], ac
+    ld   ac, [SH_YH]
+    ld   12, ac
+    ld   ac, [SH_N]
+    ld   [PYH], ac
+    beq  ps_go
+    ld   0xE0, ac               ; rows left to 480
+    sub  [PYL], ac
+    ld   ac, [T3]
+    sub  12, ac
+    bcc  ps_go
+    ld   [T3], ac
+    ld   ac, [SH_N]
+ps_go:
+    ld   0x50, y
+    ld   0xFF, [y,x]
+    clr  ac
+    ld   ac, [T0]
+    GOTO ps_l
+ps_x:
+    RET
+
+.chunk  ps_l: a row of the pointer
+ps_l:
+    PROW
+    ld   [T2], y                ; the left byte
+    ld   [T1], x
+    ld   [y,x], ac
+    ld   ac, [T3]
+    ld   [T0], ac
+    shl
+    ld   ac, x
+    ld   PSAVE >> 8, y
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   [SH_TI], ac
+    or   [T0], ac
+    ld   ac, x
+    ld   PB_PTR >> 8, y
+    ld   [T3], ac
+    and  [y,x], ac
+    ld   (PB_PTR >> 8) + 1, y
+    or   [y,x], ac
+    ld   [T2], y
+    ld   [T1], x
+    ld   ac, [y,x]
+    ld   [SH_K], ac
+    beq  ps_n
+    ld   [T2], ac               ; the right byte
+    add  2, y
+    ld   [T1], x
+    ld   [y,x], ac
+    ld   ac, [T3]
+    ld   [T0], ac
+    shl
+    add  1, x
+    ld   PSAVE >> 8, y
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   [SH_TI], ac
+    or   [T0], ac
+    or   0x80, x
+    ld   PB_PTR >> 8, y
+    ld   [T3], ac
+    and  [y,x], ac
+    ld   (PB_PTR >> 8) + 1, y
+    or   [y,x], ac
+    ld   ac, [T3]
+    ld   [T2], ac
+    add  2, y
+    ld   [T1], x
+    ld   [T3], ac
+    ld   ac, [y,x]
+ps_n:
+    ld   [T0], ac
+    inc
+    ld   ac, [T0]
+    xor  [SH_N], ac
+    bne  ps_l
+    ld   0x50, y
+    ld   MAP_RUN, [y,x]
+    RET
+
+.chunk  PTR ( f -- ): show (f not 0) or hide the pointer
+p_ptr:
+    ld   [TL], ac
+    ld   ac, [W2]
+    POPT
+    ld   [W2], ac
+    beq  pp_h
+    CALL ptr_show
+    NEXT
+pp_h:
+    CALL ptr_hide
+    NEXT
+
+; ============================================================
+; POLL ( -- key ): waits for the next frame, then the keyboard and the
+; mouse: the pointer moves with it (PX, PY, and on the screen when it is
+; shown), MOVED = 1 when the mouse sent something (MOUSE_B has its
+; buttons); key = the key pressed or 0
+; ============================================================
+.chunk  POLL
+p_poll:
+    PUSHT
+    ld   1, ac
+    CALL wait_frames_io
+    CALL kbd_scan
+    ld   [MOK], ac
+    bne  pl_k
+    CALL mouse_poll
+    beq  pl_k
+    ld   [PXL], ac
+    ld   ac, [R0]
+    ld   [PXH], ac
+    ld   ac, [R1]
+    ld   [PYL], ac
+    ld   ac, [R2]
+    ld   [PYH], ac
+    ld   ac, [R3]
+    CALL mouse_move
+    ld   1, ac
+    ld   ac, [MOVED]
+    ld   [SH_ON], ac
+    ld   ac, [W2]
+    CALL ptr_hide
+    ld   [R0], ac
+    ld   ac, [PXL]
+    ld   [R1], ac
+    ld   ac, [PXH]
+    ld   [R2], ac
+    ld   ac, [PYL]
+    ld   [R3], ac
+    ld   ac, [PYH]
+    ld   [W2], ac
+    beq  pl_k
+    CALL ptr_show
+pl_k:
+    CALL kbd_getc
+    ld   ac, [TL]
+    clr  ac
+    ld   ac, [TH]
+    NEXT
+
+.include "pinboard.vm"
