@@ -29,7 +29,7 @@ stops if a pin is missing from it); the file is KiCad 7 format.
 
 symbol() is also used by gen_kicad_parts.py for the other project symbols.
 
-Date: 2026-11-03
+Date: 2026-11-16
 """
 
 import os
@@ -120,6 +120,11 @@ LAYOUT = {
         (["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", None, "LOAD_INSTR", "RUN", None, "CLK"],
          ["I0", "I1", "I2", "I3", "I4", "I5", "I6", "I7"]),
         (["nc"], []),
+    ],
+    "ATF22V10_MEMCARD": [
+        # the memory card's page register: the data bus in, the page (the SRAM's A14:A7) out
+        (["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", None, "WE", "EXP", None, "A6", "A5", "A4", "A3"],
+         ["PG0", "PG1", "PG2", "PG3", "PG4", "PG5", "PG6", "PG7"]),
     ],
     "ATF22V10_PC_COUNTER8": [
         (["CIN", None, "D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", None,

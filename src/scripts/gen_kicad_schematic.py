@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Write the Placard KiCad schematic: kicad/*.kicad_sch (main board, root plus
 ten sheets) and kicad/cartridge_64k/ and kicad/cartridge_32k/ (the two ROM
-cartridge boards, one sheet each).
+cartridge boards, one sheet each).  With --memcard it writes and checks only
+kicad/memory_card/ (the 32K memory expansion card, MEMCARD.md) and leaves the
+other sheets alone.
 
 The sheet split follows docs/hardware/SCHEMATIC_PLAN.md.  The connections follow the
 PLD pin lists (src/pld/*.pld), basys_top.vhd and the docs (CHIPS.md, IO.md,
@@ -20,7 +22,7 @@ placard_cartridge_32k.pdf, set to open without the bookmarks panel.
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
 
-Date: 2026-11-03
+Date: 2026-11-16
 """
 import os
 import re
@@ -1365,6 +1367,89 @@ def build_cart(size):
     return s
 
 
+MEMCARD_DIR = os.path.join(KDIR, "memory_card")
+MEMCARD_PART = "PCB PLC-1004, assembly PLC-2004"
+
+
+def build_memcard():
+    """The 32K memory expansion card (docs/architecture/MEMCARD.md, 2026-11-16): U1 the page register
+    PLD, U2 an AS7C256C SRAM wired to the slot as the plain card of EXPANSION.md (/CE = /EXP, /OE = Q0,
+    /WE = /WE).  The fingers take the expansion slot's contacts, so the card works in any slot."""
+    proj = "memory_card"
+    root_uuid = K.det_uuid(proj, "root")
+    s = K.Sheet(proj, proj + ".kicad_sch", "Memory expansion card, 32K", 1, root_uuid, None, "2026-11-16",
+                rev="A", part_no=MEMCARD_PART)
+    s.uid = root_uuid
+    s.comment2 = "Card chips U1, U2 (docs/architecture/MEMCARD.md); decoupling Cn goes with Un"
+    s.names = {"U1": "Page register PLD"}
+    heading(s, "Memory expansion card, 32K",
+            "One SRAM on the slot as the plain card, and a page register for its upper address: 256 pages of 128 bytes")
+    PG = bus("PAGE", 8)
+    n = {"A1": "GND", "A2": "+5V", "A16": "~{EXP}", "A10": "Q0", "B24": "~{WE}"}
+    for i, c in enumerate(["A23", "B13", "B15", "B17", "B19", "B23", "B25", "B29"]):
+        n[c] = D[i]
+    acon = ["A22", "A19", "A17", "A15", "A14", "B9", "B7", "A4", "A8", "A9", "A18", "A13", "B3", "A6", "A3", "A5"]
+    for i, c in enumerate(acon):
+        n[c] = A[i] if i < 7 else None          # the card decodes nothing above A6: the slot's select does
+    for c in ["B16", "A20", "B4", "B20", "A7", "A26", "A28", "B12", "B14", "B8", "B28"]:
+        n[c] = None                              # RW, LOAD_IMM, CLK, /RESET, the video lines and the boot contacts
+    s.part("placard_parts:Expansion_Slot", "J1", 81.28, 160.02, n, value="Card edge (87715-9106 mate)",
+           footprint="placard:Card_Edge_87715-9106", ref_at=(69.28, 121.0), value_at=(69.28, 201.2),
+           in_bom=False)                         # gold fingers on the card's PCB, not a part
+    u1 = {1: "~{WE}", 2: "~{EXP}", 11: A[6], 13: A[5], 14: A[4], 15: A[3]}
+    for i in range(8):
+        u1[3 + i] = D[i]
+        u1[23 - i] = PG[i]
+    s.part("placard:ATF22V10C_MEMCARD", "U1", 215.9, 96.52, pld(u1))
+    decap(s, 1, 190.5, 60.96, lift=0)
+    u2 = {"20": "~{EXP}", "22": "Q0", "27": "~{WE}", "28": "+5V", "14": "GND"}
+    for i, p in enumerate([10, 9, 8, 7, 6, 5, 4, 3, 25, 24, 21, 23, 2, 26, 1]):
+        u2[str(p)] = A[i] if i < 7 else PG[i - 7]
+    for i, p in enumerate([11, 12, 13, 15, 16, 17, 18, 19]):
+        u2[str(p)] = D[i]
+    s.part("placard_parts:AS7C256C", "U2", 340.36, 172.72, u2, value="AS7C256C-15PCN")
+    decap(s, 2, 320.04, 134.62, lift=0)
+    # power flags, each on a short arm of its own
+    s.power("+5V", 160.02, 220.98)
+    path(s, "+5V", (160.02, 220.98), (167.64, 220.98))
+    s.pwr_flag(167.64, 220.98)
+    s.pwr_flag(182.88, 220.98)
+    path(s, "GND", (182.88, 220.98), (182.88, 226.06))
+    s.power("GND", 182.88, 226.06)
+    note(s, 22, 222, ["U2 is on the slot as the plain card: /CE = /EXP, /OE = Q0,",
+                      "/WE = /WE, A6:A0 and the data bus.  U1 is in none of",
+                      "its read or write paths (EXPANSION.md, \"Card timing\").",
+                      "U1 holds U2's A14:A7 as the page, 0-255.  It clocks on",
+                      "the rising edge of /WE and loads the data bus on a write",
+                      "to the card's offsets 78h-7Fh; it clears at power-up.",
+                      "Offsets 00h-77h of each page are memory (30720 bytes);",
+                      "78h-7Fh are reserved (the page write lands there too)."])
+    s.finish(set())
+    return s
+
+
+def memcard_main():
+    """--memcard: write and check only the memory card's sheet (the main board's sheets are Justin's)."""
+    sch = os.path.join(MEMCARD_DIR, "memory_card.kicad_sch")
+    K.keep_uuids(sch)
+    card = build_memcard()
+    write(sch, card.render())
+    for o in card.overlaps():
+        print("overlap", card.filename, o)
+    for r in card.report:
+        print("route", card.filename, r)
+    if "--pdf" in sys.argv:
+        export_pdf(sch, os.path.join(ROOT, "schematics", "placard_memory_card.pdf"))
+    bad = compare(expected_nets([card], set()), kicad_nets(sch), "memory card")
+    for it in erc(sch, "memory card", FLAGGED):
+        print("  ", it)
+        bad += 1
+    for it in check_refs([card], "memory card"):
+        print("  ", it)
+        bad += 1
+    sys.exit(1 if bad else 0)
+
+
 FLAGGED = {"+5V", "GND", "GNDA", "DAC_5V", "+3V3"}
 
 # ---------------------------------------------------------------- write + check
@@ -1487,6 +1572,8 @@ def check_refs(sheets, label):
 
 
 def main():
+    if "--memcard" in sys.argv:
+        memcard_main()
     # keep every symbol's uuid from the files already there (Update PCB from Schematic matches on it)
     for d in (KDIR, *CDIRS.values()):
         for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:

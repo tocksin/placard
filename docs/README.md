@@ -1,6 +1,6 @@
 # Documentation
 
-Date: 2026-11-13
+Date: 2026-11-16
 
 The design documents, grouped by subject.  Drawings sit next to the document that uses them.
 
@@ -11,6 +11,7 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 - [ROM.md](architecture/ROM.md): ROM layout, cartridge loading and boot
 - [IO.md](architecture/IO.md): the shared port (SNES pads, SD card, PS/2 keyboard and mouse)
 - [EXPANSION.md](architecture/EXPANSION.md): expansion slots and the ROM cartridge slot
+- [MEMCARD.md](architecture/MEMCARD.md): the 32K memory expansion card
 - [PLD_USAGE.md](architecture/PLD_USAGE.md): unused pins and product terms in each 22V10
 
 ## [timing/](timing/)

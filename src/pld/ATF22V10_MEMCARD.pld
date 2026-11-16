@@ -1,0 +1,109 @@
+Name     MEMCARD;
+PartNo   00;
+Date     11/16/2026;
+Revision 01;
+Designer Justin;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   MEMORY CARD: PAGE REGISTER   (ATF22V10C)
+   ============================================================
+
+   The page register of the 32K memory expansion card
+   (docs/architecture/MEMCARD.md).  The card is this PLD and one
+   AS7C256C-15 SRAM, and it works in any expansion slot.
+
+   The slot gives a card 128 addresses (A6:A0).  The SRAM is wired
+   as the plain card of EXPANSION.md, straight to the slot:
+        SRAM /CE = /EXP    /OE = Q0    /WE = /WE
+        SRAM A6:A0 = slot A6:A0        I/O7:0 = D7:D0
+   and this PLD holds the SRAM's upper address, A14:A7, as an 8-bit
+   page number: 256 pages of 128 bytes.  The PLD is not in any read
+   or write path of the SRAM, so the card keeps the plain card's
+   timing (EXPANSION.md, "Card timing").
+
+   PAGE REGISTER
+      Pin 1 is /WE.  The registers clock on the rising edge of every
+      /WE, the end of the write, and load D7:D0 only when the write
+      is to the card's last eight addresses (/EXP low and
+      A6:A3 = 1111, offsets 78h-7Fh); on every other /WE each one
+      loads its own value back (a hold term), as the shared port PLD
+      does (ATF22V10_PORT.pld, revision 05).  Software writes the
+      page number to offset 7Fh.
+
+      The SRAM is selected by /EXP alone, so the write that sets the
+      page also stores the byte in the SRAM, at the same offset of
+      the page being left.  Offsets 78h-7Fh of every page are
+      therefore reserved; offsets 00h-77h (120 bytes a page, 30720
+      in all) are the card's memory.  The page outputs change one
+      clock-to-output time (2 to 5.5 ns) after /WE has risen, after
+      the SRAM's write has ended (its address hold is 0 ns); if they
+      ever moved early, the byte would land at the same reserved
+      offset of the new page.
+
+      The registers clear at power-up, so the card starts at page 0.
+      The register cannot be read back; software keeps a copy.
+
+   TIMING
+      Setup 3.5 ns and hold 0 ns at the /WE edge for D7:D0, /EXP and
+      A6:A3, inside the card budget (data 9 ns before /WE rises, the
+      select 13 ns before, hold up to 2 ns after).
+
+   PIN BUDGET
+      Inputs (14): /WE (clock), /EXP, D0-D7, A6, A5 on pin 13, and
+                   A4, A3 on I/O pins 14 and 15
+      Outputs (8):  PG0-PG7 (registered)
+      No spare pins.  Each register is six product terms (the
+      smallest pins here have ten).
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 1  = !WE;          /* slot B24, the write pulse: clocks the registers on its rising edge */
+PIN 2  = !EXP;         /* slot A16, this slot's select, low for any access to the card */
+PIN 3  = D0;           /* data bus, written to the page register */
+PIN 4  = D1;
+PIN 5  = D2;
+PIN 6  = D3;
+PIN 7  = D4;
+PIN 8  = D5;
+PIN 9  = D6;
+PIN 10 = D7;
+PIN 11 = A6;           /* slot address: A6:A3 = 1111 is the page register (offsets 78h-7Fh) */
+PIN 13 = A5;
+PIN 14 = A4;           /* I/O pin used as input */
+PIN 15 = A3;           /* I/O pin used as input */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+PIN 16 = PG7;          /* page bit 7, SRAM A14 */
+PIN 17 = PG6;          /* page bit 6, SRAM A13 */
+PIN 18 = PG5;          /* page bit 5, SRAM A12 */
+PIN 19 = PG4;          /* page bit 4, SRAM A11 */
+PIN 20 = PG3;          /* page bit 3, SRAM A10 */
+PIN 21 = PG2;          /* page bit 2, SRAM A9 */
+PIN 22 = PG1;          /* page bit 1, SRAM A8 */
+PIN 23 = PG0;          /* page bit 0, SRAM A7 */
+
+
+/* ---------------- EQUATIONS ---------------- */
+
+/* A write to the card's offsets 78h-7Fh. */
+PAGE_SEL = EXP & A6 & A5 & A4 & A3;
+
+/* Page register: loads the data bus on a page write, and holds on
+   every other /WE. */
+PG0.D =  PAGE_SEL & D0  #  !PAGE_SEL & PG0;
+PG1.D =  PAGE_SEL & D1  #  !PAGE_SEL & PG1;
+PG2.D =  PAGE_SEL & D2  #  !PAGE_SEL & PG2;
+PG3.D =  PAGE_SEL & D3  #  !PAGE_SEL & PG3;
+PG4.D =  PAGE_SEL & D4  #  !PAGE_SEL & PG4;
+PG5.D =  PAGE_SEL & D5  #  !PAGE_SEL & PG5;
+PG6.D =  PAGE_SEL & D6  #  !PAGE_SEL & PG6;
+PG7.D =  PAGE_SEL & D7  #  !PAGE_SEL & PG7;
