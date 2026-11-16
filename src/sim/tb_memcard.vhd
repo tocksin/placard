@@ -1,11 +1,14 @@
 -- ============================================================
--- tb_memcard: the 32K memory expansion card (memcard_pld
--- revision 01 and an AS7C256C-15 model) on a timed slot
+-- tb_memcard: the 512K memory expansion card (memcard_hi_pld and
+-- memcard_lo_pld revision 01 and an AS7C4096A-12 model) on a timed
+-- slot
 -- Date: 11/16/2026
 --
--- The page register PLD is the real VHDL (zero delay inside; its
--- outputs get the ATF22V10C-7 clock-to-output time here, 2 ns, the
--- shortest, which is the hard case for the SRAM's address hold).
+-- The two page register PLDs are the real VHDL (zero delay inside;
+-- their page outputs get the ATF22V10C-7 clock-to-output time here,
+-- 2 ns, the shortest, which is the hard case for the SRAM's address
+-- hold, and /PGLO its longest pass, 7.5 ns, the hard case for the page
+-- low PLD's setup).
 -- The slot is a behavioural model with the times of
 -- docs/architecture/EXPANSION.md "Card timing", in a 39.72 ns clock:
 --   address, /EXP   valid 13 ns into the clock, held 2 ns past /WE
@@ -15,13 +18,14 @@
 -- The SRAM model stores on the rising edge of /WE while /CE is low,
 -- and fails the run if its address moves while /WE and /CE are low.
 --
--- Checked: the card starts at page 0; a page write (offsets 78h-7Fh)
--- changes the page and nothing else does (a card write below 78h, a
--- write to another address with /EXP high); every one of the 256
--- pages keeps its own 120 bytes; the page write also stores its byte
--- at the same offset of the page being left (the reserved bytes).
+-- Checked: the card starts at page 0; a page write (offsets 7Eh and
+-- 7Fh) changes its half of the page and nothing else does (a card
+-- write below 7Eh, a write to another address with /EXP high); every
+-- one of the 4096 pages keeps its own bytes; the page write also
+-- stores its byte at the same offset of the page being left (the
+-- reserved bytes).
 --
---   ghdl -a --std=08 src/hdl/memcard_pld.vhd src/sim/tb_memcard.vhd
+--   ghdl -a --std=08 src/hdl/memcard_hi_pld.vhd src/hdl/memcard_lo_pld.vhd src/sim/tb_memcard.vhd
 --   ghdl -e --std=08 tb_memcard && ghdl -r --std=08 tb_memcard
 -- ============================================================
 
@@ -43,30 +47,42 @@ architecture sim of tb_memcard is
     signal slotAddr : std_logic_vector(6 downto 0) := (others => '0');
     signal dataBus  : std_logic_vector(7 downto 0) := (others => 'Z');
 
-    signal pgPin    : std_logic_vector(7 downto 0);
-    signal pgDly    : std_logic_vector(7 downto 0) := (others => '0');
-    signal ramAddr  : std_logic_vector(14 downto 0);
+    signal pgPin    : std_logic_vector(11 downto 0);
+    signal pgDly    : std_logic_vector(11 downto 0) := (others => '0');
+    signal pgLoPin  : std_logic;
+    signal pgLoDly  : std_logic := '1';
+    signal ramAddr  : std_logic_vector(18 downto 0);
 
-    type ramType is array (0 to 32767) of std_logic_vector(7 downto 0);
+    type ramType is array (0 to 524287) of std_logic_vector(7 downto 0);
     signal ram      : ramType := (others => x"E5");
     signal writing  : std_logic;
     signal done     : boolean := false;
 
 begin
 
-    dut : entity work.memcard_pld
+    pageHi : entity work.memcard_hi_pld
         port map (
             weN => weN, expN => expN,
+            a0 => slotAddr(0), a1 => slotAddr(1), a2 => slotAddr(2), a3 => slotAddr(3),
+            a4 => slotAddr(4), a5 => slotAddr(5), a6 => slotAddr(6),
+            d0 => dataBus(0), d1 => dataBus(1), d2 => dataBus(2), d3 => dataBus(3),
+            pgLoN => pgLoPin,
+            pg8 => pgPin(8), pg9 => pgPin(9), pg10 => pgPin(10), pg11 => pgPin(11));
+
+    pgLoDly <= transport pgLoPin after 7.5 ns;
+
+    pageLo : entity work.memcard_lo_pld
+        port map (
+            weN => weN, pgLoN => pgLoDly,
             d0 => dataBus(0), d1 => dataBus(1), d2 => dataBus(2), d3 => dataBus(3),
             d4 => dataBus(4), d5 => dataBus(5), d6 => dataBus(6), d7 => dataBus(7),
-            a6 => slotAddr(6), a5 => slotAddr(5), a4 => slotAddr(4), a3 => slotAddr(3),
             pg7 => pgPin(7), pg6 => pgPin(6), pg5 => pgPin(5), pg4 => pgPin(4),
             pg3 => pgPin(3), pg2 => pgPin(2), pg1 => pgPin(1), pg0 => pgPin(0));
 
     pgDly   <= transport pgPin after tCoMin;
     ramAddr <= pgDly & slotAddr;
 
-    -- AS7C256C: /CE = /EXP, /OE = Q0, /WE = /WE
+    -- AS7C4096A: /CE = /EXP, /OE = Q0, /WE = /WE
     writing <= (not weN) and (not expN);
 
     ramWrite : process (weN)
@@ -82,7 +98,7 @@ begin
             report "SRAM address moved during a write" severity failure;
     end process ramHold;
 
-    dataBus <= ram(to_integer(unsigned(ramAddr))) after 15 ns when (expN = '0' and q0 = '0' and weN = '1')
+    dataBus <= ram(to_integer(unsigned(ramAddr))) after 12 ns when (expN = '0' and q0 = '0' and weN = '1')
                else (others => 'Z') after 6 ns;
 
     stim : process
@@ -132,52 +148,66 @@ begin
                 severity failure;
         end procedure expect;
 
+        procedure setPage (page : in integer) is
+        begin
+            busWrite(16#7E#, page mod 256);
+            busWrite(16#7F#, page / 256);
+        end procedure setPage;
+
     begin
         wait for tClk;
 
         -- starts at page 0
         busWrite(0, 16#11#);
-        busWrite(16#7F#, 1);                 -- page 1
+        setPage(1);
         busWrite(0, 16#22#);
         expect(0, 16#22#, "page 1");
-        busWrite(16#7F#, 0);                 -- page 0
+        setPage(0);
         expect(0, 16#11#, "page 0 kept its byte");
 
-        -- the page write stored its byte in the page being left
-        busWrite(16#7F#, 1);
-        expect(16#7F#, 0, "reserved byte of page 1");
-        busWrite(16#7F#, 0);
-        expect(16#7F#, 1, "reserved byte of page 0");
+        -- the page writes stored their bytes in the page being left
+        busWrite(16#7E#, 5);                 -- page 0 -> 5: 05 at page 0, offset 7Eh
+        busWrite(16#7E#, 0);                 -- page 5 -> 0: 00 at page 5, offset 7Eh
+        expect(16#7E#, 5, "reserved byte of page 0");
 
         -- a write somewhere else (/EXP high) with the same low address leaves the page alone
-        busWrite(16#7F#, 16#55#, false);
-        expect(0, 16#11#, "page after a write elsewhere");
+        busWrite(16#7E#, 16#55#, false);
+        busWrite(16#7F#, 16#05#, false);
+        expect(0, 16#11#, "page after writes elsewhere");
 
-        -- a card write just below the register (77h) is memory, not the page
-        busWrite(16#77#, 16#33#);
-        expect(0, 16#11#, "page after a write to 77h");
-        expect(16#77#, 16#33#, "offset 77h");
+        -- a card write just below the registers (7Dh) is memory, not the page
+        busWrite(16#7D#, 16#33#);
+        expect(0, 16#11#, "page after a write to 7Dh");
+        expect(16#7D#, 16#33#, "offset 7Dh");
 
-        -- every register address 78h-7Fh sets the page
-        for k in 16#78# to 16#7F# loop
-            busWrite(k, k);
-            busWrite(1, k + 1);
-        end loop;
-        for k in 16#78# to 16#7F# loop
-            busWrite(16#7F#, k);
-            expect(1, k + 1, "page set through offset " & integer'image(k));
-        end loop;
+        -- the two halves are separate: the high write keeps the low byte and the other way round
+        setPage(16#A5C#);
+        busWrite(2, 16#77#);
+        busWrite(16#7F#, 16#03#);            -- page 35Ch
+        busWrite(2, 16#88#);
+        busWrite(16#7E#, 16#00#);            -- page 300h
+        busWrite(2, 16#99#);
+        setPage(16#A5C#);
+        expect(2, 16#77#, "page A5Ch");
+        setPage(16#35C#);
+        expect(2, 16#88#, "page 35Ch");
+        setPage(16#300#);
+        expect(2, 16#99#, "page 300h");
 
-        -- all 256 pages, first and last free offsets
-        for p in 0 to 255 loop
-            busWrite(16#7F#, p);
+        -- only D3:D0 of the high write count
+        busWrite(16#7F#, 16#F3#);
+        expect(2, 16#99#, "page 300h set with F3h");
+
+        -- all 4096 pages, first and last free offsets
+        for p in 0 to 4095 loop
+            setPage(p);
             busWrite(0, (p * 7 + 3) mod 256);
-            busWrite(16#77#, 255 - p);
+            busWrite(16#7D#, (p / 16 + p) mod 256);
         end loop;
-        for p in 255 downto 0 loop
-            busWrite(16#7F#, p);
+        for p in 4095 downto 0 loop
+            setPage(p);
             expect(0, (p * 7 + 3) mod 256, "page " & integer'image(p) & " offset 0");
-            expect(16#77#, 255 - p, "page " & integer'image(p) & " offset 77h");
+            expect(16#7D#, (p / 16 + p) mod 256, "page " & integer'image(p) & " offset 7Dh");
         end loop;
 
         report "tb_memcard: all checks passed" severity note;

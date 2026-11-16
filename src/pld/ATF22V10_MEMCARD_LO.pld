@@ -1,0 +1,83 @@
+Name     MEMCARD_LO;
+PartNo   00;
+Date     11/16/2026;
+Revision 01;
+Designer Justin;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   MEMORY CARD: PAGE LOW   (ATF22V10C)
+   ============================================================
+
+   One of the two page register PLDs of the 512K memory expansion
+   card (docs/architecture/MEMCARD.md; the card and the page
+   register are described in ATF22V10_MEMCARD_HI.pld).
+
+   THIS PLD
+      holds page bits 7:0, the SRAM's A14:A7.  Pin 1 is /WE: the
+      registers clock on the rising edge of every /WE, the end of
+      the write, and load D7:D0 only while /PGLO is low (the other
+      PLD's decode of a card access at offset 7Eh); on every other
+      /WE each one loads its own value back (a hold term).
+
+      The registers clear at power-up, so the card starts at page
+      0.  They cannot be read back; software keeps a copy.
+
+   TIMING
+      Setup 3.5 ns and hold 0 ns at the /WE edge for D7:D0 and
+      /PGLO.  /PGLO comes one PLD pass (7.5 ns) after the slot's
+      select and address, which the card budget gives 13 ns before
+      /WE rises: 13 - 7.5 - 1 of track leaves 4.5 ns for the
+      3.5 ns setup.  /PGLO goes away 3 ns or more after the
+      address does, so the hold is met.
+
+   PIN BUDGET
+      Inputs (10): /WE (clock), /PGLO, D0-D7
+      Outputs (8):  PG0-PG7 (registered)
+      Spare: input pins 11 and 13, I/O pins 14 and 15 (two cells).
+      Each register is two product terms.
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 1  = !WE;          /* slot B24, the write pulse: clocks the registers on its rising edge */
+PIN 2  = !PGLO;        /* the page high PLD's pin 16: low for an access to offset 7Eh */
+PIN 3  = D0;           /* data bus, written to page bits 7:0 */
+PIN 4  = D1;
+PIN 5  = D2;
+PIN 6  = D3;
+PIN 7  = D4;
+PIN 8  = D5;
+PIN 9  = D6;
+PIN 10 = D7;
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+PIN 16 = PG7;          /* page bit 7, SRAM A14 */
+PIN 17 = PG6;          /* page bit 6, SRAM A13 */
+PIN 18 = PG5;          /* page bit 5, SRAM A12 */
+PIN 19 = PG4;          /* page bit 4, SRAM A11 */
+PIN 20 = PG3;          /* page bit 3, SRAM A10 */
+PIN 21 = PG2;          /* page bit 2, SRAM A9 */
+PIN 22 = PG1;          /* page bit 1, SRAM A8 */
+PIN 23 = PG0;          /* page bit 0, SRAM A7 */
+
+
+/* ---------------- EQUATIONS ---------------- */
+
+/* Page bits 7:0: load the data bus on a write to offset 7Eh, and
+   hold on every other /WE. */
+PG0.D =  PGLO & D0  #  !PGLO & PG0;
+PG1.D =  PGLO & D1  #  !PGLO & PG1;
+PG2.D =  PGLO & D2  #  !PGLO & PG2;
+PG3.D =  PGLO & D3  #  !PGLO & PG3;
+PG4.D =  PGLO & D4  #  !PGLO & PG4;
+PG5.D =  PGLO & D5  #  !PGLO & PG5;
+PG6.D =  PGLO & D6  #  !PGLO & PG6;
+PG7.D =  PGLO & D7  #  !PGLO & PG7;

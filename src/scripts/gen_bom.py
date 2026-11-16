@@ -6,7 +6,7 @@ case parts list (CASE.md), one BOM per assembly (Justin, 2026-10-25):
     docs/bom/BOM_MAIN_PCB.md/.csv   main board assembly: bare PCB + components
     docs/bom/BOM_CART_64K.md/.csv   64K cartridge assembly: PCB, components, shell, screw
     docs/bom/BOM_CART_32K.md/.csv   32K cartridge assembly: the same for the 32K board
-    docs/bom/BOM_MEMORY_CARD.md/.csv  32K memory expansion card assembly: PCB, components, sockets
+    docs/bom/BOM_MEMORY_CARD.md/.csv  512K memory expansion card assembly: PCB, components, sockets
     docs/bom/BOM_CASE.md/.csv       case assembly: the main board assembly as one line,
                                 case parts, standoffs, screws and feet
     docs/bom/BOM.md                 the index: what each BOM covers and their costs
@@ -42,7 +42,7 @@ BOARDS = [
     ("Main board", sorted(glob.glob(os.path.join(KDIR, "*.kicad_sch")))),
     ("Cartridge, 64K", [os.path.join(KDIR, "cartridge_64k", "cartridge_64k.kicad_sch")]),
     ("Cartridge, 32K", [os.path.join(KDIR, "cartridge_32k", "cartridge_32k.kicad_sch")]),
-    ("Memory card, 32K", [os.path.join(KDIR, "memory_card", "memory_card.kicad_sch")]),
+    ("Memory card, 512K", [os.path.join(KDIR, "memory_card", "memory_card.kicad_sch")]),
 ]
 
 # descriptions by value, then by symbol
@@ -55,6 +55,7 @@ DESC_VALUE = {
     "CD74ACT273E": "Octal D flip-flop with clear, 74ACT, DIP-20",
     "SN74HCT574N": "Octal D flip-flop, 3-state, 74HCT, DIP-20",
     "AS7C256C-15PCN": "SRAM, 32K x 8, 15 ns, PDIP-28 0.3\"",
+    "AS7C4096A-12JIN": "SRAM, 512K x 8, 12 ns, SOJ-36 0.4\" (surface mount, 1.27 mm pitch)",
     "AT28C256-15PU": "EEPROM, 32K x 8, 150 ns, PDIP-28 0.6\" (programmed)",
     "MCP1700-3302E/TO": "3.3 V LDO regulator, 250 mA, TO-92",
     "SA5.0A": "TVS diode, 5 V stand-off, 500 W, DO-15 axial (across the fused USB 5 V)",
@@ -85,6 +86,7 @@ NO_VALUE = {"placard_parts:Expansion_Slot",
             "placard_std:Jumper_2_Open"}
 
 NOTES = {
+    "AS7C4096A-12JIN": "The card's one surface-mount part (Justin, 2026-11-16): no 512K SRAM this fast is made in a DIP",
     "MF-RG300-0": "Part number from the footprint (Fuse_Bourns_MF-RG300)",
     "1N5817-TP": "Black DO-41 Schottky, so it is not mixed up with the glass 1N4148s; any 1N5817 (MCC, onsemi, Diodes Inc.)",
     "WP7113ID": "D18 with R59 (1k, about 3 mA); any 5 mm LED fits, pick the color",
@@ -115,6 +117,7 @@ PRICES = {
     "CD74ACT273E": (2.45, "Mouser", ""),
     "SN74F541N": (1.49, "Mouser", ""),
     "AS7C256C-15PCN": (15.21, "Mouser", ""),
+    "AS7C4096A-12JIN": (14.74, "Mouser", ""),      # 264 in stock, 2026-11-16
     "SN74HCT574N": (1.46, "Mouser", ""),
     "MCP1700-3302E/TO": (0.50, "Mouser", ""),
     "AT28C256-15PU": (12.38, "Mouser", ""),
@@ -182,7 +185,7 @@ PLD_JOB = {"STATE": "State", "BRANCH": "Branch", "PC_COUNTER8": "PC", "ALU_SHR":
            "MEM_CTRL": "Memory control", "IO_DECODE": "I/O decode", "HCOUNT": "H counter", "VCOUNT": "V counter",
            "SYNC": "Sync", "COLORDECODER": "Color decoder", "IR": "Instruction register", "AUDIO": "Audio slot",
            "PORT": "Shared port", "PS2": "PS/2 receiver", "CART": "Cartridge loader",
-           "MEMCARD": "Memory card page register"}
+           "MEMCARD_HI": "Memory card page high and decode", "MEMCARD_LO": "Memory card page low"}
 
 # On Shore ED sockets: a 1 after the pin count marks the 0.3" version where both widths exist
 SOCKET = {(14, False): "ED14DT", (20, False): "ED20DT", (24, False): "ED241DT", (28, False): "ED281DT",
@@ -320,7 +323,7 @@ PCB_LINES = {
     "Cartridge, 32K": [mech(1, "PCB, 32K cartridge, 39 x 66.0 mm, 4-layer, ENIG, hard-gold bevelled fingers", 3.50,
                             "JLCPCB/PCBWay typical (smaller than the 64K board)", mpn="PLC-1002 rev B",
                             mfr="(custom PCB)")],
-    "Memory card, 32K": [mech(1, "PCB, 32K memory card, 4-layer, ENIG, hard-gold bevelled fingers", 4.00,
+    "Memory card, 512K": [mech(1, "PCB, 512K memory card, 4-layer, ENIG, hard-gold bevelled fingers", 4.00,
                               "JLCPCB/PCBWay typical; the board is not laid out yet (MEMCARD.md)",
                               mpn="PLC-1004 rev A", mfr="(custom PCB)")],
 }
@@ -362,11 +365,11 @@ CASE_LINES = [
 ]
 
 FILES = {"Main board": "BOM_MAIN_PCB", "Cartridge, 64K": "BOM_CART_64K", "Cartridge, 32K": "BOM_CART_32K",
-         "Memory card, 32K": "BOM_MEMORY_CARD", "Case": "BOM_CASE"}
+         "Memory card, 512K": "BOM_MEMORY_CARD", "Case": "BOM_CASE"}
 # Board part numbers (Justin 2026-10-29): PLC-1xxx bare PCB, PLC-2xxx assembly
 TITLES = {"Main board": "Main board assembly PLC-2001", "Cartridge, 64K": "64K cartridge assembly PLC-2003",
           "Cartridge, 32K": "32K cartridge assembly PLC-2002",
-          "Memory card, 32K": "32K memory card assembly PLC-2004", "Case": "Case assembly"}
+          "Memory card, 512K": "512K memory card assembly PLC-2004", "Case": "Case assembly"}
 SCOPE = {
     "Main board": "The main board, built: the bare PCB, every part on the schematic, and the sockets, "
                   "jumper shunts that are not drawn.  It is one line of the case assembly.",
@@ -374,8 +377,8 @@ SCOPE = {
                       "screw.  A machine takes one cartridge, 64K or 32K.",
     "Cartridge, 32K": "The 32K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and "
                       "screw.  A machine takes one cartridge, 64K or 32K.",
-    "Memory card, 32K": "The 32K memory expansion card ([MEMCARD.md](../architecture/MEMCARD.md)), built: the "
-                        "bare PCB, its two chips and their sockets.  Optional: it goes in any expansion slot, "
+    "Memory card, 512K": "The 512K memory expansion card ([MEMCARD.md](../architecture/MEMCARD.md)), built: the "
+                        "bare PCB, its three chips and the two PLDs' sockets (the SRAM is soldered).  Optional: it goes in any expansion slot, "
                         "which needs that slot's socket fitted on the main board.  No shell is designed for it yet.",
     "Case": "The computer in its case: the main board assembly ([BOM_MAIN_PCB.md](BOM_MAIN_PCB.md)) as one "
             "line, the case parts from [CASE.md](../case/CASE.md), standoffs, screws and feet.  The cartridge is its own "
@@ -449,9 +452,9 @@ def main():
           "|---|---|---|--:|--:|--:|"]
     contents = {"Main board": "Bare PCB, components, sockets", "Cartridge, 64K": "Bare PCB, components, sockets, "
                 "shell, screw", "Cartridge, 32K": "Same, 32K board",
-                "Memory card, 32K": "Bare PCB, components, sockets (optional card)", "Case": "Main board assembly, tray and plates, "
+                "Memory card, 512K": "Bare PCB, components, sockets (optional card)", "Case": "Main board assembly, tray and plates, "
                 "acrylic, printed covers, standoffs, screws, feet"}
-    for name in ("Main board", "Cartridge, 64K", "Cartridge, 32K", "Memory card, 32K", "Case"):
+    for name in ("Main board", "Cartridge, 64K", "Cartridge, 32K", "Memory card, 512K", "Case"):
         t, b, est = totals[name]
         f = FILES[name]
         md.append(f"| {TITLES[name]} | [{f}.md]({f}.md), [.csv]({f}.csv) | {contents[name]} | ${t:,.2f} | "

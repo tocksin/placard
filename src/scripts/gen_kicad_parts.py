@@ -2,6 +2,7 @@
 """
 gen_kicad_parts.py - make kicad/lib/placard_parts.kicad_sym, the project's
 symbols for the parts KiCad's own libraries do not have: the AS7C256C SRAM,
+the memory card's AS7C4096A SRAM,
 the expansion slot, the ROM cartridge slot, the SNES pad socket, the
 stacked dual PS/2 socket and the USB-C power input.  They are drawn like the PLD
 symbols (gen_kicad_symbols.py): pins grouped by bus and function, not by
@@ -14,7 +15,7 @@ The other parts come from KiCad's libraries (kicad/README.md lists which).
 Rerunning this overwrites the library, so make changes here, not in KiCad's
 symbol editor.  The pinouts are from CHIPS.md, EXPANSION.md and IO.md.
 
-Date: 2026-11-03
+Date: 2026-11-16
 """
 
 import os
@@ -41,6 +42,21 @@ def sram():
                   footprint="placard:DIP-28_W7.62mm_Socket_Puller",
                   datasheet="~",
                   vcc=(28, "VCC"), gnd=(14, "GND"))
+
+
+def sram_512k():
+    # AS7C4096A, 512K x 8, 12 ns, 400 mil SOJ-36 (the memory card, MEMCARD.md): the JEDEC center-power
+    # pinout, from the datasheet's pin figure (v1.3).  The datasheet calls the data pins I/O1-I/O8.
+    a = bus("A", [1, 2, 3, 4, 5, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 32, 33, 34, 35], "input")
+    dq = bus("DQ", [7, 8, 11, 12, 25, 26, 29, 30], "tri_state")
+    ctl = [(6, "/CE", "input"), (31, "/OE", "input"), (13, "/WE", "input")]
+    nc = [(19, "NC", "no_connect"), (36, "NC", "no_connect")]
+    return symbol("AS7C4096A", [(a + [None] + ctl, dq + [None] + nc)], "AS7C4096A-12JIN",
+                  "512K x 8 SRAM, 12 ns, 5 V, 400 mil SOJ-36 (center power)",
+                  "SRAM RAM 512K 4M SOJ Placard",
+                  footprint="placard:SOJ-36_10.16x23.495mm_P1.27mm",
+                  datasheet="~",
+                  vcc=[(9, "VCC"), (27, "VCC")], gnd=[(10, "GND"), (28, "GND")])
 
 
 def edge(side, nums):
@@ -164,7 +180,7 @@ def oscillator():
 
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else OUT
-    write_lib(out, [sram(), expansion_slot(), cartridge_slot(), snes_socket(), ps2_dual(), mcp1700(),
+    write_lib(out, [sram(), sram_512k(), expansion_slot(), cartridge_slot(), snes_socket(), ps2_dual(), mcp1700(),
                     oscillator(), usb_c_power()])
 
 

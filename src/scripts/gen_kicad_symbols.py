@@ -121,10 +121,17 @@ LAYOUT = {
          ["I0", "I1", "I2", "I3", "I4", "I5", "I6", "I7"]),
         (["nc"], []),
     ],
-    "ATF22V10_MEMCARD": [
-        # the memory card's page register: the data bus in, the page (the SRAM's A14:A7) out
-        (["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", None, "WE", "EXP", None, "A6", "A5", "A4", "A3"],
+    "ATF22V10_MEMCARD_HI": [
+        # the memory card's register decode and page bits 11:8 (the SRAM's A18:A15)
+        (["EXP", None, "A0", "A1", "A2", "A3", "A4", "A5", "A6", None, "WE", None, "D0", "D1", "D2", "D3"],
+         ["PGLO", None, None, None, None, None, None, None, None, None, None, None, "PG8", "PG9", "PG10", "PG11"]),
+        (["nc"], []),
+    ],
+    "ATF22V10_MEMCARD_LO": [
+        # the memory card's page bits 7:0 (the SRAM's A14:A7)
+        (["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", None, "WE", "PGLO"],
          ["PG0", "PG1", "PG2", "PG3", "PG4", "PG5", "PG6", "PG7"]),
+        (["nc"], []),
     ],
     "ATF22V10_PC_COUNTER8": [
         (["CIN", None, "D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", None,

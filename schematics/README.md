@@ -13,7 +13,7 @@ The real schematic and the PCB layout are the KiCad project in
 | `placard_main.pdf` | the main board, 11 sheets (root and ten), exported from `kicad/placard.kicad_sch` |
 | `placard_cartridge_64k.pdf` | the 64K ROM cartridge, one sheet, from `kicad/cartridge_64k/cartridge_64k.kicad_sch` |
 | `placard_cartridge_32k.pdf` | the 32K ROM cartridge, one sheet, from `kicad/cartridge_32k/cartridge_32k.kicad_sch` |
-| `placard_memory_card.pdf` | the 32K memory expansion card, one sheet, from `kicad/memory_card/memory_card.kicad_sch` |
+| `placard_memory_card.pdf` | the 512K memory expansion card, one sheet, from `kicad/memory_card/memory_card.kicad_sch` |
 
 The PDFs are the rev A schematic, as the boards were ordered
 ([docs/hardware/RELEASES.md](../docs/hardware/RELEASES.md)).  The working
