@@ -49,7 +49,7 @@
 ; (IO_CODE, placard_io.asm), part of the library.  The variables are in
 ; RAM at PS2_RAM (x4D80-x4D9F), next to the FAT reader's.
 ;
-; Date: 11/11/2026
+; Date: 11/16/2026
 ; ============================================================
 
 PS2V      = 0x4D        ; the page of PS2_RAM (x4D80-x4D9F)
@@ -83,6 +83,9 @@ MS_WAITED = 0x40        ; MOUSE_ST bit 6: wait_frames_io polled since mouse_poll
 RETRIES   = 4           ; looks after port_init's, ...
 RETRY_GAP = 32          ; ... one every 32 kbd_scan calls (about 0.5 s)
 STUCK     = 4           ; frames after which a half packet is given up (ps2_turn)
+QUIET_N   = 130         ; ps2_turn, ps2_pause: looks at the clock line (about 0.8 us each) that must
+                        ; all find it high before a device is held: over 100 us, longer than
+                        ; the high part of a bit, so no byte is on its way
 HOLD_N    = 190         ; ps2_pause: loop count of the 100 us hold (PS/2: a device is sure to see an inhibit of 100 us)
 
 
@@ -195,9 +198,15 @@ tk_ret:
 ;            (ps2_take) marks it found.  With both devices the mouse has the even frames
 ;            and the keyboard the odd ones, but the mouse keeps the line
 ;            while a packet is half in; a packet that stays half in for
-;            STUCK frames is given up.
-;   changes: AC, X, Y
-;   clocks:  about 60-100
+;            STUCK frames is given up.  The line changes hands only when
+;            the device that has it is not sending: the write holds its
+;            clock and clears the receiver, and a device held in the last
+;            bit of a byte counts the byte as sent, so it would be lost
+;            (and a mouse packet would come in a byte short).  The clock
+;            line is watched for 100 us first; if it goes low the line
+;            stays as it is and the next poll tries again.
+;   changes: AC, X, Y, T5, T6
+;   clocks:  about 60-100; about 2,800 when the line changes hands
 ;   Take the receiver's byte first (ps2_take): the write loses it.
 ; ------------------------------------------------------------
 ps2_turn:
@@ -231,13 +240,62 @@ tn_set:
     xor  [PS2_LSN], ac
     beq  tn_ret                 ; as it is
     xor  [PS2_LSN], ac
-    ld   ac, [PS2_LSN]
+    ld   ac, [T5]
     ld   PORT, y
+    ld   [PS2_LSN], ac
+    xor  P_IDLE, ac
+    beq  tn_wr                  ; nobody was listened to
+    ld   QUIET_N, ac            ; the device on the line: is it sending?
+    ld   ac, [T6]
+    ld   PORT_CLK, x
+tn_q:
+    ld   [y,x], ac
+    and  RXCLK_BIT, ac
+    beq  tn_ret                 ; yes (or its byte is in): the next poll
+    ld   [T6], ac
+    dec
+    ld   ac, [T6]
+    bne  tn_q
+tn_wr:
+    ld   [T5], ac
+    ld   ac, [PS2_LSN]
     ld   PORT_RX, x
     ld   ac, [y,x]
 tn_ret:
     ld   [LINK_HI], y
     jmp  [LINK_LO]
+
+; ps2_pause's look at the line before it holds (here for the room): on
+; to pz_hold when nobody is listened to or the clock stayed high for
+; 100 us, back to pz_cnt (wait for the byte, take it) when it went low
+pz_quiet:
+    ld   [PS2_LSN], ac
+    xor  P_IDLE, ac
+    beq  pzq_hold
+    xor  P_IDLE ^ P_KFREE, ac
+    bne  pz_qs                  ; the mouse
+    ld   [KBD_FLAGS], ac        ; the keyboard's socket with no keyboard
+    and  KF_PS2, ac             ; found: nothing to watch
+    beq  pzq_hold
+pz_qs:
+    ld   QUIET_N, ac
+    ld   ac, [IO_TMP]
+    ld   PORT, y
+    ld   PORT_CLK, x
+pz_q:
+    ld   [y,x], ac
+    and  RXCLK_BIT, ac
+    beq  pzq_cnt
+    ld   [IO_TMP], ac
+    dec
+    ld   ac, [IO_TMP]
+    bne  pz_q
+pzq_hold:
+    ld   pz_hold >> 8, y
+    jmp  pz_hold
+pzq_cnt:
+    ld   pz_cnt >> 8, y
+    jmp  pz_cnt
 
 
 ; ============================================================
@@ -758,10 +816,10 @@ wi_loop:
     ld   PORT_RDY, x
     ld   [y,x], ac
     blt  wi_line
-    ld   LINK_LO, x             ; CALL ps2_take
-    ld   wi_loop, [x]
+    ld   LINK_LO, x             ; CALL ps2_take, then the turn again (a
+    ld   wi_turn, [x]           ; change that waited for this byte)
     ld   LINK_HI, x
-    ld   wi_loop >> 8, [x]
+    ld   wi_turn >> 8, [x]
     ld   ps2_take >> 8, y
     jmp  ps2_take
 wi_line:
@@ -816,6 +874,10 @@ wi_same:
 ;   when it is let go or held reaches the receiver, so it is held and
 ;   re-armed around them.  The SD data transfers (SCK, MOSI) don't touch
 ;   those bits and need no pause.
+;   The hold waits until the device on the line is not sending (its
+;   clock high for 100 us; a byte on its way is waited for and taken):
+;   a device held in the last bit of a byte counts it as sent, and the
+;   receiver, cleared by the hold, would lose it.
 ;   A device whose clock is held in the middle of a byte gives the byte
 ;   up and sends its whole chunk again later (a mouse: the three-byte
 ;   packet), but only if it sees the hold: PS/2 promises that for a hold
@@ -863,10 +925,14 @@ pz_none:
     ld   PS2V, y                ; the mouse half way through a packet
     ld   V_MPI, x               ; and on the line: wait for its byte
     ld   [y,x], ac
-    beq  pz_hold
+    beq  pz_far
     ld   [PS2_LSN], ac
     xor  P_FREE, ac
-    bne  pz_hold
+    beq  pz_cnt
+pz_far:
+    ld   pz_quiet >> 8, y       ; is the device on the line sending?
+    jmp  pz_quiet               ; (page 0: back at pz_cnt, yes, or pz_hold)
+pz_cnt:
     ld   [T5], ac
     dec
     ld   ac, [T5]

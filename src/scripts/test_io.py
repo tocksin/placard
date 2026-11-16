@@ -17,7 +17,7 @@ into a receiver that isn't armed for it.  The keyboard (placard_ps2.asm)
 is tested alone and with the mouse on the shared DATA line.
 It also checks con_gets (line input) and mouse_move (placard_input.asm).
 
-Date: 10/25/2026
+Date: 11/16/2026
 """
 
 import argparse
@@ -249,6 +249,42 @@ def test_pad_read_with_ps2():
     assert typed == 'aaa', typed
     assert moved == [9, 6], moved
     assert rig.port.collisions == 0
+
+
+def test_pad_read_mid_byte():
+    """the pads are read (ps2_pause holds the PS/2 clocks) at every point
+    of a mouse packet's three bytes: the packet must arrive whole"""
+    mouse = iod.Ps2Mouse(bat_ms=50)
+    rig = Rig(mouse=mouse)
+    assert rig.call('mouse_init', max_steps=20_000_000) == 0
+    rig.port.pads[0].buttons = 0x0123
+    m = rig.cpu.mem
+    lost = []
+    n = 0
+    for d in range(60, 3600, 6):                # us from the packet's start to the read
+        for _ in range(3):
+            frame(rig)
+            rig.call('mouse_poll')              # nothing left over
+        rig.cpu.clocks += iod.us(400)
+        mouse.next_sample = 0
+        mouse.move(3, -2, 0)
+        rig.port.read(0, rig.cpu.clocks)        # the mouse starts
+        rig.cpu.clocks += iod.us(d)
+        rig.call('pad_read')
+        assert m[0x10] | m[0x11] << 8 == 0x0123
+        dx = dy = b = 0
+        for _ in range(8):
+            frame(rig)
+            if rig.call('mouse_poll'):
+                dx += signed(rig.zp('MOUSE_DX'))
+                dy += signed(rig.zp('MOUSE_DY'))
+                b |= rig.zp('MOUSE_B')
+        n += 1
+        if (dx, dy, b) != (3, 2, 0):
+            lost.append((d, dx, dy, b))
+    assert not lost, '%d packets lost or garbled, at %s us: (us, dx, dy, buttons) %s' % (
+        len(lost), sorted(set(x[0] for x in lost)), lost[:4])
+    return '%d packets, the pads read at every point of each' % n
 
 
 # ---------------------------------------------------------------------------
@@ -703,7 +739,9 @@ def test_wait_frames_io():
             kb.release(codes[29 + i // 5 % 4])
         late = max(late, wait_io(rig, 1))
         ac = rig.call('mouse_poll')
-        assert rig.clocks < 500, 'mouse_poll after wait_frames_io %d clocks' % rig.clocks
+        # (3,300 when the line changes hands in it: the turn waited for a byte)
+        assert rig.clocks < 500 or 2800 < rig.clocks < 3600, \
+            'mouse_poll after wait_frames_io %d clocks' % rig.clocks
         if ac:
             moved[0] += signed(rig.zp('MOUSE_DX'))
             moved[1] += signed(rig.zp('MOUSE_DY'))
@@ -726,6 +764,44 @@ def test_wait_frames_io():
     wait_io(rig, 3)
     assert 2 * FRAME < rig.cpu.clocks - t0 <= 3 * FRAME + 1500
     return 'mouse and keys read while waiting; ends at most %d clocks into the frame' % late
+
+
+def test_ps2_turn_mid_byte():
+    """the turn comes round while the mouse is sending the first byte of a
+    packet, at every point of the byte: the packet must arrive whole"""
+    kb = iod.Ps2Keyboard()
+    mouse = iod.Ps2Mouse(bat_ms=50)
+    rig = Rig(kbd=kb, mouse=mouse)
+    assert rig.call('mouse_init', max_steps=20_000_000) == 0
+    m = rig.cpu.mem
+    lost = []
+    n = 0
+    for d in range(60, 1400, 4):                # us from the packet's start to the poll
+        while m[rig.syms['FRAME_LO']] & 1 or rig.zp('PS2_LSN') != P_FREE:
+            frame(rig)
+            rig.call('ps2_poll')
+        rig.call('mouse_poll')                  # nothing left over
+        rig.cpu.clocks += iod.us(400)           # the line has been free a while
+        mouse.next_sample = 0
+        mouse.move(3, -2, 0)
+        rig.port.read(0, rig.cpu.clocks)        # the mouse starts
+        rig.cpu.clocks += iod.us(d)
+        m[rig.syms['FRAME_LO']] = (m[rig.syms['FRAME_LO']] + 1) & 0xFF      # the keyboard's frame
+        rig.call('ps2_poll')
+        dx = dy = b = 0
+        for _ in range(8):
+            frame(rig)
+            rig.call('ps2_poll')
+            if rig.call('mouse_poll'):
+                dx += signed(rig.zp('MOUSE_DX'))
+                dy += signed(rig.zp('MOUSE_DY'))
+                b |= rig.zp('MOUSE_B')
+        n += 1
+        if (dx, dy, b) != (3, 2, 0):
+            lost.append((d, dx, dy, b))
+    assert not lost, '%d packets lost or garbled, at %s us: (us, dx, dy, buttons) %s' % (
+        len(lost), sorted(set(x[0] for x in lost)), lost[:4])
+    return '%d packets, the turn at every point of their first byte' % n
 
 
 # ---------------------------------------------------------------------------

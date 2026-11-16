@@ -1,6 +1,6 @@
 # I/O: SNES pads, SD card, PS/2 keyboard and mouse
 
-Date: 2026-11-11
+Date: 2026-11-16
 
 Both SNES pads, the SD card, a PS/2 mouse and a PS/2 keyboard share one
 port at x5200-x52FF.  They are polled, never used at the same moment, so
@@ -130,7 +130,10 @@ DATA, GND.  The DATA lines have 10k pull-ups and go to the port PLD's
 PAD1 and PAD2 inputs.  The pads' DATA lines are never tri-stated and read
 low after the 16th bit, so they can't share the key rows.
 
-`pad_read` reads both pads in one pass, about 800 clocks: R1:R0 = pad 1,
+`pad_read` reads both pads in one pass, about 1,100 clocks before the PS/2
+driver listens to a device, about 3,700 after (`ps2_pause` holds the PS/2
+clocks for 100 us) and about 6,700 with a PS/2 keyboard or mouse on the
+line (its clock is watched for 100 us first): R1:R0 = pad 1,
 R3:R2 = pad 2, bit n = 1 while button n is down (0 B, 1 Y, 2 Select,
 3 Start, 4 Up, 5 Down, 6 Left, 7 Right, 8 A, 9 X, 10 L, 11 R).  An empty
 socket reads 0000.
@@ -294,7 +297,10 @@ costs one read.  A re-arm while the stop bit is still coming is harmless
 sends its whole chunk again later (a mouse: the three-byte packet), but
 only if it sees the hold, which PS/2 promises for 100 us: `ps2_pause`
 keeps its hold that long, and first takes the byte a mouse is sending
-when part of a packet is already in hand.  While the CPU sends a command
+when part of a packet is already in hand.  A device held in the last bit
+of a byte counts the byte as sent while the receiver is a clock short, so
+a device is only held when its clock has been high for 100 us (`ps2_turn`
+and `ps2_pause`, [below](#turns-who-has-the-line)).  While the CPU sends a command
 (DATA held low, the device clocks), the receiver counts those clocks too,
 so the send routine re-arms it at every bit, and it never reaches 11
 before the device's acknowledge clock; after the send the receiver takes
@@ -384,6 +390,18 @@ turn goes on).  With one device it has the line all the time.  The chosen
 value is kept in `PS2_LSN` and written to x5202, which re-arms the
 receiver in the same write.
 
+The line changes hands only while the device that has it is quiet.  The
+write holds that device's clock and clears the receiver.  A device held
+in the middle of a byte sends it again, but one held in the last bit
+counts the byte as sent, and the receiver, a clock short, would lose it:
+a mouse packet would then come in a byte short, and the next ones out of
+step.  So `ps2_turn` first reads the device's clock (D5 of x5200) for
+100 us, longer than the high part of a bit.  If it goes low, a byte is on
+its way or in the receiver: the line stays as it is and the next poll
+tries again (`wait_frames_io` tries again as soon as it has taken the
+byte).  The look costs about 2,800 clocks in the one poll a frame where
+the line changes hands, and only with both devices plugged in.
+
 - **Once a frame is enough.**  The receiver holds one byte and both
   devices buffer behind it, so a program that calls `kbd_scan` and
   `mouse_poll` once per frame (about 500 clocks together when nothing
@@ -400,7 +418,9 @@ receiver in the same write.
   spread over three frames; not after `wait_frames_io`, which took the
   bytes as they came.
 - **`ps2_pause`** (inside `pad_read`, `sd_init`, `sd_read`, `sd_write`)
-  takes the byte in the receiver, holds both devices for at least 100 us
+  takes the byte in the receiver, waits until the device on the line is
+  quiet as `ps2_turn` does (a byte on its way is waited for and taken),
+  holds both devices for at least 100 us
   (so a device in the middle of a byte is sure to give it up and send
   its chunk again) and re-arms; the routine writes `PS2_LSN` back to
   x5202 when it is done.  With part of a mouse packet in hand it first
