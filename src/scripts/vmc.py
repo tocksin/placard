@@ -23,6 +23,9 @@ THE LANGUAGE
                    name label 1 (one byte) or 2 (two bytes)
   : name ... ;     a word
   CONST name v     name is the number v (a number or {asm expression})
+  RAMCALLS         the words are in the RAM below x8000 (a program on the
+                   card, pinboard.vm): a call's first byte is the address's
+                   high byte + x80, which that machine's next takes off
   BYTES name ... ; bytes in the ROM: numbers, "strings", c"counted
                    strings" (a length byte first), k"keywords" (the last
                    character + x80), {expressions}; name pushes their address
@@ -50,7 +53,7 @@ becomes EXIT.
 Each word becomes a .flow chunk of #d8 lines: asm_expand.py places them in
 the free space of the regions, across pages.
 
-Date: 10/27/2026
+Date: 11/16/2026
 """
 
 import re
@@ -163,6 +166,7 @@ class Compiler:
         self.defs = []              # (label, [Item]) in order
         self.order = []             # primitive names in opcode order
         self.bodies = {}            # word name -> [Item]
+        self.ram = False            # RAMCALLS: words below x8000
 
     # -- pass 1: names ------------------------------------------------
     def collect(self, toks):
@@ -194,6 +198,8 @@ class Compiler:
         return [self.op('LIT16', ln), v & 0xFF, v >> 8]
 
     def call(self, label):
+        if self.ram:
+            return ['(%s >> 8) | 0x80' % label, '%s & 0xFF' % label]
         return ['%s >> 8' % label, '%s & 0xFF' % label]
 
     # -- pass 2: code -------------------------------------------------
@@ -202,6 +208,10 @@ class Compiler:
         i = 0
         while i < len(toks):
             ln, w = toks[i]
+            if w == 'RAMCALLS':
+                self.ram = True
+                i += 1
+                continue
             if w == 'PRIM':
                 name, label = toks[i + 1][1], toks[i + 2][1]
                 inline = 0
