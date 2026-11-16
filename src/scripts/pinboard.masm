@@ -28,8 +28,9 @@
 ; RAM: the program x0100-x35FF (asm_expand.py pages it), the pointer's
 ; tables x3600-x37FF and the font x3800-x3FFF (pinboard_data.asm, made by
 ; gen_pinboard.py); zero page x20-x4F and x90-x9F (no sound driver); the
-; data stack x50-x8F; x4800 the return stack, x4900 the pointer's saved
-; screen and the desktop's variables, x4A00-x4CFF the cards' own;
+; data stack x53-x8F (x50-x52 the drawing's); x4000-x4AFF the Editor's
+; text, x4B00 the pointer's saved screen and the desktop's variables,
+; x4C00 the return stack;
 ; x5400-x59FF the folder read; the menu block x5D00 and the FAT reader's
 ; x4D00-x4FFF as for every program.
 ;
@@ -65,8 +66,8 @@ W5      = 0x2B
 W6      = 0x2C
 W7      = 0x2D
 DS_EMPTY = 0x90         ; the data stack: x50-x8F
-RSTK    = 0x4800        ; the return stack page
-PSAVE   = 0x4900        ; the screen under the pointer: 2 bytes a row
+RSTK    = 0x4C00        ; the return stack page
+PSAVE   = 0x4B00        ; the screen under the pointer: 2 bytes a row
 
 ; the drawing primitives' zero page (pinboard.vm knows these too)
 GX      = 0x30          ; the cell the next character goes to
@@ -1143,6 +1144,48 @@ fi_done:
     NIP2
     ld   p_drop >> 8, y
     jmp  p_drop
+
+.chunk  SCAN ( a n -- a' ): on from a to the first line feed, n bytes at most
+p_scan:
+    ld   [DSP], x               ; TOS = n, W1:W0 = a
+    ld   [x], ac
+    ld   ac, [W0]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [W1]
+pscn_lp:
+    ld   [TL], ac
+    or   [TH], ac
+    beq  pscn_done
+    ld   [W1], y
+    ld   [W0], x
+    ld   [y,x], ac
+    xor  10, ac
+    beq  pscn_done
+    ld   [W0], ac
+    inc
+    ld   ac, [W0]
+    bne  pscn_1
+    ld   [W1], ac
+    inc
+    ld   ac, [W1]
+pscn_1:
+    ld   [TL], ac
+    sub  1, ac
+    ld   ac, [TL]
+    bcc  pscn_lp
+    ld   [TH], ac
+    dec
+    ld   ac, [TH]
+    bra  pscn_lp
+pscn_done:
+    ld   [W0], ac
+    ld   ac, [TL]
+    ld   [W1], ac
+    ld   ac, [TH]
+    NIP2
+    NEXT
 
 .chunk  SYS ( ac a -- ac ): CALL the native routine at a with AC; R0-R7 as set
 p_sys:

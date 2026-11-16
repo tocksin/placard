@@ -83,6 +83,7 @@ PRIM GTYPE p_gtype
 PRIM INVC p_invc
 PRIM PTR p_ptr
 PRIM POLL p_poll
+PRIM SCAN p_scan
 
 \ zero page: the library's and the drawing primitives'
 CONST R0 0x10
@@ -118,35 +119,59 @@ CONST OY 0x9E
 CONST MSEL 0x9F         \ the launcher's item
 
 \ RAM
-CONST ZORD 0x4920       \ 8: the open cards, back to front
-CONST WTAB 0x4940       \ 5 x 8: open, x, y, w, h
-CONST NAMEBUF 0x4970    \ 13: "NAME.EXT", 0
-CONST PAD 0x4980        \ 6: a number's digits
-CONST NP 0x4988
-CONST ACC 0x498A        \ the clock: thousandths of a frame into the second
-CONST HH 0x498C
-CONST MM 0x498D
-CONST SS 0x498E
-CONST F-N 0x4990        \ Files: entries read
-CONST F-SEL 0x4991      \ the chosen one
-CONST F-TOP 0x4992      \ the first one shown
-CONST F-MSG 0x4994      \ a message for the bottom line (0: the count)
+CONST ZORD 0x4B20       \ 8: the open cards, back to front
+CONST WTAB 0x4B40       \ 5 x 8: open, x, y, w, h
+CONST NAMEBUF 0x4B70    \ 13: "NAME.EXT", 0
+CONST PAD 0x4B80        \ 6: a number's digits
+CONST NP 0x4B88
+CONST ACC 0x4B8A        \ the clock: thousandths of a frame into the second
+CONST HH 0x4B8C
+CONST MM 0x4B8D
+CONST SS 0x4B8E
+CONST F-N 0x4B90        \ Files: entries read
+CONST F-SEL 0x4B91      \ the chosen one
+CONST F-TOP 0x4B92      \ the first one shown
+CONST F-MSG 0x4B94      \ a message for the bottom line (0: the count)
 \ the calculator: sign and magnitude, 4 bytes each, low byte first
-CONST K-A 0x49A0        \ the result so far
-CONST K-E 0x49A4        \ the number being typed
-CONST K-T 0x49A8        \ work
-CONST K-U 0x49AC
-CONST K-N 0x49B0
-CONST K-M 0x49B4
-CONST K-AS 0x49B8       \ 1: K-A is negative
-CONST K-ES 0x49B9
-CONST K-OP 0x49BA       \ the operation waiting for its second number (0: none)
-CONST K-NEW 0x49BB      \ 1: K-A is shown, a digit starts a new number
-CONST K-ERR 0x49BC      \ 1: too big, or a division by 0
-CONST K-ND 0x49BD       \ digits typed
-CONST DS 0x49BE         \ D+!'s two numbers
-CONST DD 0x49C0
-CONST K-BUF 0x49C4      \ 12: the number as characters
+CONST K-A 0x4BA0        \ the result so far
+CONST K-E 0x4BA4        \ the number being typed
+CONST K-T 0x4BA8        \ work
+CONST K-U 0x4BAC
+CONST K-N 0x4BB0
+CONST K-M 0x4BB4
+CONST K-AS 0x4BB8       \ 1: K-A is negative
+CONST K-ES 0x4BB9
+CONST K-OP 0x4BBA       \ the operation waiting for its second number (0: none)
+CONST K-NEW 0x4BBB      \ 1: K-A is shown, a digit starts a new number
+CONST K-ERR 0x4BBC      \ 1: too big, or a division by 0
+CONST K-ND 0x4BBD       \ digits typed
+CONST DS 0x4BBE         \ D+!'s two numbers
+CONST DD 0x4BC0
+CONST K-BUF 0x4BC4      \ 12: the number as characters
+\ the editor: the text is E-LEN bytes at EBUF, lines ending in a line feed
+CONST EBUF 0x4000
+CONST E-CAP 2815        \ x4000-x4AFF, less one
+CONST E-MAXF 2560       \ the biggest file: fs_load reads whole 512s
+CONST E-LEN 0x4BD0      \ bytes of text
+CONST E-POS 0x4BD2      \ the cursor: bytes from the start
+CONST E-TOP 0x4BD4      \ the first line shown: its first byte
+CONST E-LS 0x4BD6       \ the cursor's line: its first byte
+CONST E-NL 0x4BD8       \ line feeds in the text
+CONST E-LEFT 0x4BDA     \ the first column shown
+CONST E-MSG 0x4BDC      \ a message for the top line (0: none)
+CONST E-ROW 0x4BDE      \ the cursor's row of the 26
+CONST E-MOD 0x4BDF      \ 1: changed since it was saved
+CONST E-CR 0x4BE0       \ 1: the file's lines end CR LF
+CONST E-WARN 0x4BE1     \ 1: Ctrl+N asked once
+CONST E-FULL 0x4BE2     \ after a key: 1 = all the rows to draw again
+CONST E-LNF 0x4BE3      \                1 = the cursor's row
+CONST E-NAME 0x4BE4     \ 13: the file's name (0: none yet)
+CONST E-DCL 0x4BF2      \ 4: its folder
+CONST E-BAD 0x4BF6      \ 1: the file read was not text
+CONST E-ROWS 26
+CONST E-COLS 42
+CONST R2 0x12
+CONST R4 0x14
 CONST DIRBUF 0x5400     \ the folder: 96 x 16 (name 11, attributes, size 4)
 CONST DIRMAX 96
 CONST FS_ENTRY 0x4D40   \ the FAT reader's entry
@@ -406,6 +431,43 @@ BYTES K-EMSG c"Error" ;
 \ ------------------------------------------------------------
 \ About
 \ ------------------------------------------------------------
+\ ------------------------------------------------------------
+\ Editor: the text on its card (rows 2-27, columns 1-42)
+\ ------------------------------------------------------------
+: E@ ( off -- c ) EBUF + C@ ;
+: E-EOL ( off -- off' ) E-LEN @ OVER - SWAP EBUF + SWAP SCAN EBUF - ;
+: E-BOL ( off -- off' )
+   BEGIN DUP IF DUP 1- E@ 10 = 0= ELSE 0 THEN WHILE 1- REPEAT ;
+: E-COL ( -- col ) E-POS @ E-LS @ - ;
+: UMIN ( a b -- min ) 2DUP U< IF DROP ELSE NIP THEN ;
+: E-LINE ( off row -- off' )            \ the line at off on a row; the next line
+   1 SWAP 2 + AT
+   DUP E-EOL 2DUP SWAP - E-LEFT @ - DUP 0< IF DROP 0 THEN E-COLS UMIN
+   >R SWAP E-LEFT @ + EBUF + R@ GTYPE
+   E-COLS R> - SPACES 1+ ;
+: E-TEXT ( -- )
+   INK E-TOP @ 0 BEGIN DUP E-ROWS < WHILE
+      OVER E-LEN @ SWAP U< IF 1 OVER 2 + AT E-COLS SPACES
+      ELSE SWAP OVER E-LINE SWAP THEN
+   1+ REPEAT DROP DROP ;
+BYTES E-NONE c"(new text)" ;
+: E-INFO ( -- )                         \ the top line: the name, or a message
+   1 1 AT REV
+   E-MSG @ DUP IF DUP TYPE C@ ELSE DROP
+      E-NAME C@ IF E-NAME ZTYPE ELSE E-NONE TYPE THEN
+      E-MOD C@ IF S"  *" TYPE THEN
+      GX C@ WX C@ - 1-
+   THEN E-COLS SWAP - SPACES INK ;
+: IN-CLIP ( -- f )
+   GX C@ DUP CX0 C@ < 0= SWAP CX1 C@ < AND
+   GY C@ DUP CY0 C@ < 0= SWAP CY1 C@ < AND AND ;
+: E-CUR ( -- )                          \ the cursor's cell turned over
+   E-COL E-LEFT @ - 1+ E-ROW C@ 2 + AT IN-CLIP IF INVC THEN ;
+: E-DRAW ( -- )
+   E-INFO E-TEXT
+   1 28 AT S" Ctrl+O save  Ctrl+N new  Ctrl+E line end" TYPE 2 SPACES
+   3 TOPW = IF E-CUR THEN ;
+
 : A-DRAW ( -- )
    2 2 AT ." PINBOARD"
    2 4 AT ." A desktop for the PLACARD computer:"
@@ -416,7 +478,7 @@ BYTES K-EMSG c"Error" ;
    2 10 AT ." Ctrl+W take the front card down" ;
 
 : NOP ( -- ) ;
-WORDS DRAWTAB F-DRAW C-DRAW K-DRAW NOP A-DRAW ;
+WORDS DRAWTAB F-DRAW C-DRAW K-DRAW E-DRAW A-DRAW ;
 
 \ ------------------------------------------------------------
 \ redrawing
@@ -460,6 +522,141 @@ WORDS DRAWTAB F-DRAW C-DRAW K-DRAW NOP A-DRAW ;
 : CLOSE ( id -- ) 0 OVER WIN C! DUP Z-REMOVE W-RECT REFRESH RETOP ;
 
 \ ------------------------------------------------------------
+\ Editor: keys and clicks
+\ ------------------------------------------------------------
+: E-HOME ( -- )
+   0 E-POS ! 0 E-TOP ! 0 E-LS ! 0 E-LEFT ! 0 E-ROW C! 0 E-MSG ! 0 E-WARN C! ;
+: E-NEW ( -- )
+   0 E-LEN ! 0 E-NL ! 0 E-MOD C! 1 E-CR C! 0 E-NAME C! E-HOME ;
+: E-UP1 ( -- )                          \ the cursor is on the line above
+   E-ROW C@ DUP IF 1- E-ROW C! ELSE DROP E-LS @ E-TOP ! 1 E-FULL C! THEN ;
+: E-DN1 ( -- )                          \ on the line below
+   E-ROW C@ 1+ DUP E-ROWS < IF E-ROW C! ELSE
+      DROP E-TOP @ E-EOL 1+ E-TOP ! 1 E-FULL C! THEN ;
+: E-TOCOL ( ls col -- )                 \ the cursor on line ls, at col or its end
+   >R DUP E-EOL OVER - R> UMIN OVER + E-POS ! E-LS ! ;
+: E-LEFTK ( -- )
+   E-POS @ DUP 0= IF DROP EXIT THEN
+   1- DUP E-POS ! E-LS @ U< IF E-POS @ E-BOL E-LS ! E-UP1 THEN ;
+: E-RIGHTK ( -- )
+   E-POS @ DUP E-LEN @ U< 0= IF DROP EXIT THEN
+   DUP 1+ E-POS ! E@ 10 = IF E-POS @ E-LS ! E-DN1 THEN ;
+: E-UPK ( -- )
+   E-LS @ DUP 0= IF DROP EXIT THEN
+   1- E-BOL E-COL E-TOCOL E-UP1 ;
+: E-DOWNK ( -- )
+   E-POS @ E-EOL DUP E-LEN @ U< 0= IF DROP EXIT THEN
+   1+ E-COL E-TOCOL E-DN1 ;
+BYTES E-FULLM c"No room for more" ;
+: E-INS ( c -- )
+   E-LEN @ E-NL @ + 2 + E-CAP U< 0= IF DROP E-FULLM E-MSG ! EXIT THEN
+   E-POS @ EBUF + DUP DUP 1+ E-LEN @ E-POS @ - CMOVE>
+   OVER SWAP C!
+   E-LEN @ 1+ E-LEN ! E-POS @ 1+ E-POS ! 1 E-MOD C!
+   10 = IF E-NL @ 1+ E-NL ! E-POS @ E-LS ! 1 E-FULL C! E-DN1 ELSE 1 E-LNF C! THEN ;
+: E-CUT ( -- )                          \ the byte at the cursor goes
+   E-POS @ E@ 10 = IF E-NL @ 1- E-NL ! 1 E-FULL C! ELSE 1 E-LNF C! THEN
+   E-POS @ EBUF + DUP 1+ SWAP E-LEN @ E-POS @ - 1- CMOVE
+   E-LEN @ 1- E-LEN ! 1 E-MOD C! ;
+: E-BKSP ( -- ) E-POS @ IF E-LEFTK E-CUT THEN ;
+: E-DEL ( -- ) E-POS @ E-LEN @ U< IF E-CUT THEN ;
+: E-HS ( -- )                           \ the cursor's column kept on the card
+   E-COL DUP E-LEFT @ U< IF E-LEFT ! 1 E-FULL C! EXIT THEN
+   DUP E-LEFT @ E-COLS + U< IF DROP EXIT THEN
+   E-COLS - 1+ E-LEFT ! 1 E-FULL C! ;
+: E-STRIP ( n -- )                      \ n bytes as read: CR out, tabs to spaces
+   E-LEN ! 0 E-NL ! 0 E-BAD C! 0 0
+   BEGIN DUP E-LEN @ U< WHILE
+      DUP E@ DUP 9 = IF DROP 32 THEN
+      DUP 13 = IF 1 E-CR C! THEN
+      DUP 10 = IF E-NL @ 1+ E-NL ! THEN
+      DUP 10 = OVER 31 SWAP < OR IF ROT DUP >R EBUF + C! R> 1+ SWAP
+      ELSE 13 = 0= IF 1 E-BAD C! THEN THEN
+   1+ REPEAT DROP E-LEN ! ;
+: E-CRLF ( -- n )                       \ a CR before every line feed; the new length
+   E-LEN @ E-NL @ + DUP NP !
+   E-LEN @ BEGIN DUP NP @ U< WHILE
+      1- NP @ 1- NP !
+      DUP E@ DUP NP @ EBUF + C!
+      10 = IF NP @ 1- DUP NP ! EBUF + 13 SWAP C! THEN
+   REPEAT DROP ;
+BYTES E-ASKM c"Save as: " ;
+: E-ASK ( -- f )                        \ a name typed into E-NAME; 0: Esc
+   0 NL C!
+   BEGIN
+      0 PTR 3 SETW 1 1 AT REV E-ASKM TYPE NAMEBUF NL C@ GTYPE 95 EMIT
+      32 NL C@ - SPACES INK 1 PTR
+      BEGIN POLL TIME-ADV DUP 0= WHILE DROP REPEAT
+      DUP 27 = IF DROP 0 EXIT THEN
+      DUP 10 = NL C@ 0= 0= AND IF DROP 0 NL C@ NAMEBUF + C! NAMEBUF E-NAME 13 CMOVE -1 EXIT THEN
+      DUP 8 = IF NL C@ IF NL C@ 1- NL C! THEN THEN
+      DUP 33 - 94 U< NL C@ 12 < AND IF
+         DUP 97 - 26 U< IF 32 - THEN DUP N+ THEN
+      DROP
+   AGAIN ;
+BYTES E-SAVED c"Saved" ;
+BYTES E-NOSAVE c"Can't save it" ;
+: E-SAVE ( -- )
+   E-NAME C@ 0= IF
+      E-ASK 0= IF 0 PTR 3 SETW E-INFO 1 PTR EXIT THEN
+      DCLUS E-DCL 4 CMOVE
+   THEN
+   E-LEN @ E-CR C@ IF DROP E-CRLF THEN R2 !
+   DCLUS PAD 4 CMOVE E-DCL DCLUS 4 CMOVE
+   E-NAME R0 ! EBUF R4 ! 0 0x8020 SYS
+   PAD DCLUS 4 CMOVE
+   E-CR C@ IF E-LEN @ E-NL @ + E-STRIP THEN
+   IF E-NOSAVE ELSE 0 E-MOD C! E-SAVED THEN E-MSG !
+   DIR-READ 0 UPDATE 3 UPDATE ;
+BYTES E-DROPM c"Not saved: Ctrl+N again drops it" ;
+: E-CLEAR ( -- )
+   E-MOD C@ E-WARN C@ 0= AND IF 1 E-WARN C! E-DROPM E-MSG ! EXIT THEN
+   E-NEW 1 E-FULL C! ;
+: E-KEY ( key -- )
+   DUP 15 = IF DROP E-SAVE EXIT THEN
+   0 PTR 3 SETW E-CUR
+   0 E-FULL C! 0 E-LNF C! 0 E-MSG !
+   DUP 14 = IF E-CLEAR ELSE 0 E-WARN C! THEN
+   DUP 17 = IF E-UPK THEN
+   DUP 18 = IF E-DOWNK THEN
+   DUP 20 = IF E-RIGHTK THEN
+   DUP 19 = IF E-LEFTK THEN
+   DUP 21 = IF E-LS @ E-POS ! THEN
+   DUP 5 = IF E-POS @ E-EOL E-POS ! THEN
+   DUP 8 = IF E-BKSP THEN
+   DUP 127 = IF E-DEL THEN
+   DUP 10 = OVER 32 - 95 U< OR IF DUP E-INS THEN
+   DROP E-HS
+   E-FULL C@ IF E-TEXT ELSE E-LNF C@ IF E-LS @ E-ROW C@ E-LINE DROP THEN THEN
+   E-INFO E-CUR 1 PTR ;
+: E-CLICK ( -- )                        \ the cursor to the cell clicked
+   RR C@ 2 - DUP E-ROWS U< 0= IF DROP EXIT THEN >R
+   0 PTR 3 SETW E-CUR
+   E-TOP @ 0 BEGIN DUP R@ = 0= IF OVER E-EOL E-LEN @ U< ELSE 0 THEN WHILE
+      SWAP E-EOL 1+ SWAP 1+
+   REPEAT RDROP E-ROW C!
+   RC C@ DUP IF 1- THEN E-LEFT @ + E-TOCOL
+   E-CUR 1 PTR ;
+BYTES E-UNSAVED c"Not saved: Ctrl+O, or Ctrl+N twice" ;
+: E-GUARD ( -- f )                      \ leaving: unsaved text stops it
+   E-MOD C@ 0= IF 0 EXIT THEN
+   E-UNSAVED E-MSG ! 3 OPEN 3 UPDATE -1 ;
+BYTES E-BIGM c"Too big for the Editor" ;
+BYTES E-BUSYM c"The Editor's text is not saved" ;
+BYTES E-READM c"Can't read it" ;
+BYTES E-BINM c"Not a text file" ;
+: E-OPEN ( ent -- )                     \ the file named in NAMEBUF, into the Editor
+   E-MOD C@ IF DROP E-BUSYM F-MSG ! 0 UPDATE EXIT THEN
+   DUP 14 + @ SWAP 12 + @ DUP E-MAXF 1+ U< 0= ROT OR IF
+      DROP E-BIGM F-MSG ! 0 UPDATE EXIT THEN
+   NAMEBUF R0 ! EBUF R4 ! {fs_load} SYS0 IF
+      DROP E-NEW E-READM F-MSG ! 0 UPDATE EXIT THEN
+   E-NEW 0 E-CR C! E-STRIP
+   E-BAD C@ IF E-NEW E-BINM F-MSG ! 0 UPDATE EXIT THEN
+   NAMEBUF E-NAME 13 CMOVE DCLUS E-DCL 4 CMOVE
+   3 OPEN 3 UPDATE ;
+
+\ ------------------------------------------------------------
 \ Files: keys and clicks
 \ ------------------------------------------------------------
 : F-SHOW ( -- )                         \ the chosen entry on the list, all redrawn
@@ -488,6 +685,7 @@ WORDS DRAWTAB F-DRAW C-DRAW K-DRAW NOP A-DRAW ;
    0 F-SEL C! 0 F-TOP C! 0 F-MSG ! DIR-READ 0 UPDATE ;
 : F-UP ( -- ) ROOT? IF EXIT THEN 46 NAMEBUF C! 46 NAMEBUF 1+ C! 0 NAMEBUF 2 + C! F-CD ;
 : F-RUN ( -- )                          \ the program named in NAMEBUF
+   E-GUARD IF EXIT THEN
    F-SEL C@ MB_SEL C! F-TOP C@ MB_TOP C!
    1 MB_MODE C! 0 MB_WHY C! 0 MB_SYNC C!
    80 MB_MENU C! HH C@ MB_T C! MM C@ MB_T 1+ C! SS C@ MB_T 2 + C!
@@ -497,8 +695,8 @@ WORDS DRAWTAB F-DRAW C-DRAW K-DRAW NOP A-DRAW ;
    F-N C@ 0= IF EXIT THEN
    F-SEL C@ ENT DUP ENT>NAME
    DUP DIR? IF DROP F-CD EXIT THEN
-   PLC? IF F-RUN EXIT THEN
-   S" Not a program (.PLC)" F-MSG ! 0 UPDATE ;
+   DUP PLC? IF DROP F-RUN EXIT THEN
+   E-OPEN ;
 : F-KEY ( key -- )
    DUP 17 = IF F-SEL C@ IF F-SEL C@ 1- F-MOVE THEN THEN
    DUP 18 = IF F-SEL C@ 1+ F-N C@ < IF F-SEL C@ 1+ F-MOVE THEN THEN
@@ -569,8 +767,8 @@ WORDS DRAWTAB F-DRAW C-DRAW K-DRAW NOP A-DRAW ;
    SWAP 2* 2* + K-KEYS + C@ K-DO ;
 
 : KDROP ( key -- ) DROP ;
-WORDS KEYTAB F-KEY C-KEY K-KEY KDROP KDROP ;
-WORDS CLICKTAB F-CLICK C-CLICK K-CLICK NOP NOP ;
+WORDS KEYTAB F-KEY C-KEY K-KEY E-KEY KDROP ;
+WORDS CLICKTAB F-CLICK C-CLICK K-CLICK E-CLICK NOP ;
 
 \ ------------------------------------------------------------
 \ moving a card: its outline follows the pointer
@@ -604,16 +802,17 @@ WORDS CLICKTAB F-CLICK C-CLICK K-CLICK NOP NOP ;
 \ ------------------------------------------------------------
 \ the launcher: a list above the rail's Pinboard button
 \ ------------------------------------------------------------
-CONST NMENU 6
-CONST MENU-Y 51         \ BOARD-H - NMENU
+CONST NMENU 7
+CONST MENU-Y 50         \ BOARD-H - NMENU
 BYTES M-FILES c"Files" ;
 BYTES M-CLOCK c"Clock" ;
 BYTES M-CALC c"Calculator" ;
+BYTES M-EDIT c"Editor" ;
 BYTES M-ABOUT c"About" ;
 BYTES M-BASIC c"BASIC" ;
 BYTES M-DOS c"Back to DOS" ;
-WORDS MITEMS M-FILES M-CLOCK M-CALC M-ABOUT M-BASIC M-DOS ;
-BYTES MACT 0 1 2 4 254 255 ;
+WORDS MITEMS M-FILES M-CLOCK M-CALC M-EDIT M-ABOUT M-BASIC M-DOS ;
+BYTES MACT 0 1 2 3 4 254 255 ;
 : MENU-DRAW ( -- )
    0 PTR
    0 BEGIN DUP NMENU < WHILE
@@ -624,6 +823,7 @@ BYTES MACT 0 1 2 4 254 255 ;
 : MENU-CLOSE ( -- ) 1 MENU-Y 14 NMENU REFRESH ;
 : MENU-DO ( i -- )
    MACT + C@ DUP NAPP < IF OPEN EXIT THEN
+   E-GUARD IF DROP EXIT THEN
    LEAVE-DESK 0 MB_MENU C!
    254 = IF 0 0x8024 SYS ELSE 0 0x8008 SYS THEN DROP ;
 : MENU-HIT ( -- i | -1 )
@@ -699,7 +899,7 @@ BYTES MACT 0 1 2 4 254 255 ;
    FRAME_LO C@ LASTF C! 0 ACC !
    WTAB 40 0 FILL
    0 BEGIN DUP NAPP < WHILE DUP 2* 2* WINIT + OVER WIN 1+ 4 CMOVE 1+ REPEAT DROP
-   F-INIT K-CLR
+   F-INIT K-CLR E-NEW
    1 0 WIN C! 0 RAISE
    REFRESH-ALL
    MAIN ;
