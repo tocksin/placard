@@ -1,0 +1,7 @@
+Qty,References,Part number,Manufacturer,Description,Value,Unit price USD,Line total USD,Price from,Notes,Footprint,On schematic
+1,,PLC-1004 rev A,(custom PCB),"PCB, 32K memory card, 4-layer, ENIG, hard-gold bevelled fingers",,4.00,4.00,est.: JLCPCB/PCBWay typical; the board is not laid out yet (MEMCARD.md),,,no
+1,U1,ATF22V10C-7PX,Microchip,"PLD, 22V10, 7.5 ns, PDIP-24 0.3"" (programmed)",,2.99,2.99,Mouser,Memory card page register U1,placard:DIP-24_W7.62mm_Socket_Puller,yes
+1,U2,AS7C256C-15PCN,Alliance Memory,"SRAM, 32K x 8, 15 ns, PDIP-28 0.3""",,15.21,15.21,Mouser,,placard:DIP-28_W7.62mm_Socket_Puller,yes
+2,C1 C2,FG28X7R1H104KNT00,TDK,"Ceramic capacitor, 5 mm pitch",100n,0.23,0.46,Mouser: TDK FG28X7R1H104KNT00 (KEMET C320C104K5R5TA is $0.66 at Mouser),,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
+1,U1,ED241DT,On Shore,"IC socket, DIP-24 0.3""",,0.40,0.40,est.: On Shore ED241DT,,,no
+1,U2,ED281DT,On Shore,"IC socket, DIP-28 0.3""",,0.45,0.45,est.: On Shore ED281DT,,,no

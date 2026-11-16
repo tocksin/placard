@@ -13,13 +13,14 @@ The real schematic and the PCB layout are the KiCad project in
 | `placard_main.pdf` | the main board, 11 sheets (root and ten), exported from `kicad/placard.kicad_sch` |
 | `placard_cartridge_64k.pdf` | the 64K ROM cartridge, one sheet, from `kicad/cartridge_64k/cartridge_64k.kicad_sch` |
 | `placard_cartridge_32k.pdf` | the 32K ROM cartridge, one sheet, from `kicad/cartridge_32k/cartridge_32k.kicad_sch` |
+| `placard_memory_card.pdf` | the 32K memory expansion card, one sheet, from `kicad/memory_card/memory_card.kicad_sch` |
 
 The PDFs are the rev A schematic, as the boards were ordered
 ([docs/hardware/RELEASES.md](../docs/hardware/RELEASES.md)).  The working
 sheets in `kicad/` say rev B and have no circuit change since (compared
 2026-11-11), so export again when rev B changes something.
 
-Date: 2026-11-11
+Date: 2026-11-16
 
 Re-export all three with `python3 src/scripts/gen_kicad_schematic.py --pdf`.  It
 runs `kicad-cli sch export pdf` and then drops the bookmarks, so the PDFs open

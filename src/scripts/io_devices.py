@@ -37,7 +37,7 @@ byte it pulls both clock lines low (inhibit) until re-armed.
 The mouse and the PS/2 keyboard share the DATA line: SharedPort counts
 moments both drive it (collisions), which the driver must never cause.
 
-Date: 10/25/2026
+Date: 11/16/2026
 """
 
 CPU_HZ = 25_175_000
@@ -758,6 +758,26 @@ class ExpansionCard:
         self.writes.append((off, v))
         if off >= 0x60:
             self.regs[off - 0x60] = v
+
+
+class MemoryCard:
+    """the 32K memory expansion card (docs/architecture/MEMCARD.md): an SRAM
+    seen through the slot's 128 addresses, 256 pages; a write to offsets
+    78-7F sets the page (and, as on the card, also stores the byte at that
+    offset of the page being left).  The page is 0 at power-up; the SRAM
+    powers up with anything (fill)."""
+
+    def __init__(self, fill=0xE5):
+        self.ram = [fill] * 0x8000
+        self.page = 0
+
+    def read(self, off):
+        return self.ram[self.page << 7 | off]
+
+    def write(self, off, v):
+        self.ram[self.page << 7 | off] = v
+        if off >= 0x78:
+            self.page = v
 
 
 class Slots:

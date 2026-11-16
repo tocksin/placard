@@ -1,6 +1,6 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-11-11
+Date: 2026-11-16
 
 The Placard has four expansion slots and one ROM cartridge slot, all the
 same keyed 2 x 32, 1.0 mm pitch socket (Molex 87715-9106, "ROM cartridge
@@ -193,6 +193,8 @@ board's /WE in EXEC (Q0 = 1, so its outputs are off).  A card with more
 than 128 bytes adds a page register (a 74HC574 written at one of its
 addresses, CP from /EXPn and /WE through a gate, or a card PLD) on the
 upper address pins.  The card timing below is checked with this card.
+The 32K memory card ([MEMCARD.md](MEMCARD.md)) is this card with the page
+register in a PLD.
 
 **Writes.**  A card's write strobe is `/EXP low and /WE low` (plus any
 A6:A0 register select).  Latch D7:D0 on the strobe's rising edge, at the
