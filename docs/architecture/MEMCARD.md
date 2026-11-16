@@ -16,8 +16,10 @@ no 5 V SRAM this fast is made in a DIP above 32K.  Its leads are on a
 1.27 mm pitch and can be soldered by hand.  The schematic is
 `kicad/memory_card/` ([PDF](../../schematics/placard_memory_card.pdf)) and
 the parts list is [BOM_MEMORY_CARD.md](../bom/BOM_MEMORY_CARD.md).  The
-board itself is not laid out yet ("Still to do" below).  The main board
-needs no change.
+board is placed but not routed, and it has a printed shell ("The board" and
+"The shell" below).  The main board needs no change.
+
+![The card](../case/memcard_board_front.png)
 
 ## How it works
 
@@ -143,6 +145,67 @@ bytes, only writes to 7E and 7F move the page, and the SRAM's address
 never moves during a write.  The PLD sources have not been compiled in
 WinCUPL yet.
 
+## The board
+
+`kicad/memory_card/memory_card.kicad_pcb` (PCB PLC-1004) is 72 x 40.1 mm
+with the finger tab, 4 layers, 1.57 mm.  The parts are placed and the nets
+are filled in from the schematic; **no tracks are routed yet**.
+`src/scripts/gen_kicad_memcard_pcb.py` wrote it (KiCad 9) and leaves an
+existing file alone unless run with `--force`.
+
+- U3 lies right above the fingers, so the bus stubs to the SRAM are the
+  shortest on the card.
+- U1 and U2 stand side by side above it in sockets.
+- H1 and H2 are M3 holes 12 mm in from each end and 15.5 mm above the
+  finger edge.  The shell's screws go through them.  They are not on the
+  schematic, so untick "Delete footprints with no symbols" when updating
+  the board from the schematic.
+- Side A's corner at the back end, 7 mm along the card and 9 mm up from the
+  shoulder, is kept clear for the shell's insert block.
+
+![Side B](../case/memcard_board_back.png)
+
+## The shell
+
+Two printed halves round the card and the slot's body, 77 x 22.6 mm
+across as EXPANSION.md's "Shell keepouts" gives an expansion card, and
+45.6 mm tall.  They are split at the card's side B face
+(`src/scripts/gen_memcard_shell.py`, CadQuery; `case/memcard_shell_front`
+and `_back`, .stl and .step).
+
+![The card on the back half, nuts on](../case/memcard_shell_open.png)
+![Apart](../case/memcard_shell_exploded.png)
+![Closed, from the slot side](../case/memcard_shell_closed.png)
+![The back end, with the insert for the case's card screw](../case/memcard_shell_back_end.png)
+
+- **Front half** (side A, over the parts): two bosses reach down to the
+  card at H1 and H2.  Each has a hex pocket in its end for an M3 nut, which
+  the card closes.  A block in the back end holds an M3 x 5.7 heat-set
+  insert, 15 mm above the main board and 5.05 mm from the card's plane,
+  where the case's back plate has its card screw (CASE.md, "Expansion card
+  screws").  Its pad stands 1 mm proud to meet the plate.
+- **Back half** (side B): a shallow lid with two pads and counterbored
+  holes.
+- **Screws.**  Two M3 x 8 pan head screws go through the back half and the
+  card into the nuts, so the same two screws hold the halves together and
+  the card in place.  Plus the two M3 nuts and the one insert.
+
+**Printing** (Ender 3, 0.2 mm layers, no supports).  Print each half with
+its large outside face on the bed; the STL files are already in that
+pose.  Every wall, boss and block stands on the bed face.  The back half's
+screw-head counterbores are on the bed face, so each has a slot layer and
+a square layer under the round hole.  The insert hole lies sideways in the
+front half and is a teardrop with a 1.6 mm flat top.  Checked on the STLs:
+
+| Check | Front half | Back half |
+|---|---|---|
+| Mesh | watertight, one body | watertight, one body |
+| Downward faces above the bed | the insert hole's flat top, a 1.6 mm bridge | the two counterbores' helper layers, bridges up to 6.5 mm |
+| Collision with the card, its parts, the slot, the screws, the back plate | none | none |
+
+The shell is a first design: it has not been printed, and it carries no
+label or grip yet.
+
 ## Why this part
 
 A slot read needs a 15 ns memory, and the fast 5 V SRAMs above 32K come
@@ -155,13 +218,11 @@ four bus writes for each byte stored.
 
 ## Still to do
 
-- **Board.**  PCB PLC-1004 is not laid out.  The fingers are the
-  `Card_Edge_87715-9106` footprint; a card may be up to 72 mm wide.  Keep
-  U3 next to the fingers and the /WE track to U3 no longer than to the
-  PLDs.  Check the U3 pin numbers in the symbol against the pin drawing in
+- **Board.**  PCB PLC-1004 is placed, not routed.  Keep the /WE track to
+  U3 no longer than to the PLDs.  Check the U3 pin numbers in the symbol against the pin drawing in
   the Alliance datasheet first; they were taken from the datasheet's text.
 - **WinCUPL.**  Compile both `.pld` files and keep the .jed files.
-- **Shell.**  None is designed; the card works bare.
+- **Shell.**  Print one and try it on the first card and in the case.
 - **Library.**  No routines yet.  Candidates: find the card, copy a block
   between the card and main memory.
 - **On the first card.**  Scope D7:D0 at the end of a card read (the bus

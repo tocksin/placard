@@ -323,11 +323,18 @@ PCB_LINES = {
     "Cartridge, 32K": [mech(1, "PCB, 32K cartridge, 39 x 66.0 mm, 4-layer, ENIG, hard-gold bevelled fingers", 3.50,
                             "JLCPCB/PCBWay typical (smaller than the 64K board)", mpn="PLC-1002 rev B",
                             mfr="(custom PCB)")],
-    "Memory card, 512K": [mech(1, "PCB, 512K memory card, 4-layer, ENIG, hard-gold bevelled fingers", 4.00,
-                              "JLCPCB/PCBWay typical; the board is not laid out yet (MEMCARD.md)",
+    "Memory card, 512K": [mech(1, "PCB, 512K memory card, 72 x 40.1 mm, 4-layer, ENIG, hard-gold bevelled fingers", 4.00,
+                              "JLCPCB/PCBWay typical; the board is placed, not routed yet (MEMCARD.md)",
                               mpn="PLC-1004 rev A", mfr="(custom PCB)")],
 }
 SHELL_LINES = {
+    "Memory card, 512K": [mech(1, "Memory card shell (front and back halves, case/memcard_shell_*.stl)", 3.50,
+                               "3D print, not quoted", "77 x 22.6 x 45.6 mm outside (MEMCARD.md, \"Shell\")"),
+                          mech(2, "M3 x 8 pan head screw (back half and card to the front half)", 0.10,
+                               "any M3 x 8 machine screw"),
+                          mech(2, "M3 hex nut, ISO 4032 (in the front half's bosses)", 0.05, "any M3 nut"),
+                          mech(1, "M3 heat-set insert, M3 x 5.7, 4.0 mm hole (card screw from the case's back plate)", 0.20,
+                               "any M3 x 5.7 brass heat-set insert")],
     "Cartridge, 64K": [mech(1, "Cartridge shell, 64K height (front and back halves)", 4.00,
                             "3D print or moulding, not quoted", CART_SHELL_NOTE),
                        mech(1, "M3 x 6 pan head screw (card to shell at H1)", 0.10, "any M3 x 6 machine screw")],
@@ -379,7 +386,7 @@ SCOPE = {
                       "screw.  A machine takes one cartridge, 64K or 32K.",
     "Memory card, 512K": "The 512K memory expansion card ([MEMCARD.md](../architecture/MEMCARD.md)), built: the "
                         "bare PCB, its three chips and the two PLDs' sockets (the SRAM is soldered).  Optional: it goes in any expansion slot, "
-                        "which needs that slot's socket fitted on the main board.  No shell is designed for it yet.",
+                        "which needs that slot's socket fitted on the main board.  With its printed shell, the shell's screws and nuts and the insert for the case's card screw.",
     "Case": "The computer in its case: the main board assembly ([BOM_MAIN_PCB.md](BOM_MAIN_PCB.md)) as one "
             "line, the case parts from [CASE.md](../case/CASE.md), standoffs, screws and feet.  The cartridge is its own "
             "assembly.",
@@ -452,7 +459,7 @@ def main():
           "|---|---|---|--:|--:|--:|"]
     contents = {"Main board": "Bare PCB, components, sockets", "Cartridge, 64K": "Bare PCB, components, sockets, "
                 "shell, screw", "Cartridge, 32K": "Same, 32K board",
-                "Memory card, 512K": "Bare PCB, components, sockets (optional card)", "Case": "Main board assembly, tray and plates, "
+                "Memory card, 512K": "Bare PCB, components, sockets, shell, screws (optional card)", "Case": "Main board assembly, tray and plates, "
                 "acrylic, printed covers, standoffs, screws, feet"}
     for name in ("Main board", "Cartridge, 64K", "Cartridge, 32K", "Memory card, 512K", "Case"):
         t, b, est = totals[name]
