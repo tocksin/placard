@@ -2,7 +2,7 @@
 """Write the Placard KiCad schematic: kicad/*.kicad_sch (main board, root plus
 ten sheets) and kicad/cartridge_64k/ and kicad/cartridge_32k/ (the two ROM
 cartridge boards, one sheet each).  With --memcard it writes and checks only
-kicad/memory_card/ (the 32K memory expansion card, MEMCARD.md) and leaves the
+kicad/memory_card/ (the 512K memory expansion card, MEMCARD.md) and leaves the
 other sheets alone.
 
 The sheet split follows docs/hardware/SCHEMATIC_PLAN.md.  The connections follow the
@@ -75,6 +75,7 @@ MPN = {
     "CD74ACT273E": ("Texas Instruments", "CD74ACT273E"),
     "SN74HCT574N": ("Texas Instruments", "SN74HCT574N"),
     "AS7C256C-15PCN": ("Alliance Memory", "AS7C256C-15PCN"),
+    "AS7C4096A-12JIN": ("Alliance Memory", "AS7C4096A-12JIN"),
     "AT28C256-15PU": ("Microchip", "AT28C256-15PU"),
     "MCP1700-3302E/TO": ("Microchip", "MCP1700-3302E/TO"),
     "USB4125-GF-A": ("GCT", "USB4125-GF-A-0190"),
@@ -1369,22 +1370,25 @@ def build_cart(size):
 
 MEMCARD_DIR = os.path.join(KDIR, "memory_card")
 MEMCARD_PART = "PCB PLC-1004, assembly PLC-2004"
+# where the memory card sheet's parts stand (mm)
+MC_J1, MC_U1, MC_U2, MC_U3 = (76.2, 149.86), (195.58, 91.44), (195.58, 198.12), (337.82, 152.4)
 
 
 def build_memcard():
-    """The 32K memory expansion card (docs/architecture/MEMCARD.md, 2026-11-16): U1 the page register
-    PLD, U2 an AS7C256C SRAM wired to the slot as the plain card of EXPANSION.md (/CE = /EXP, /OE = Q0,
-    /WE = /WE).  The fingers take the expansion slot's contacts, so the card works in any slot."""
+    """The 512K memory expansion card (docs/architecture/MEMCARD.md, 2026-11-16): U3 an AS7C4096A-12
+    SRAM (SOJ-36) wired to the slot as the plain card of EXPANSION.md (/CE = /EXP, /OE = Q0, /WE = /WE),
+    U1 and U2 the page register PLDs for its A18:A7.  The fingers take the expansion slot's contacts,
+    so the card works in any slot."""
     proj = "memory_card"
     root_uuid = K.det_uuid(proj, "root")
-    s = K.Sheet(proj, proj + ".kicad_sch", "Memory expansion card, 32K", 1, root_uuid, None, "2026-11-16",
+    s = K.Sheet(proj, proj + ".kicad_sch", "Memory expansion card, 512K", 1, root_uuid, None, "2026-11-16",
                 rev="A", part_no=MEMCARD_PART)
     s.uid = root_uuid
-    s.comment2 = "Card chips U1, U2 (docs/architecture/MEMCARD.md); decoupling Cn goes with Un"
-    s.names = {"U1": "Page register PLD"}
-    heading(s, "Memory expansion card, 32K",
-            "One SRAM on the slot as the plain card, and a page register for its upper address: 256 pages of 128 bytes")
-    PG = bus("PAGE", 8)
+    s.comment2 = "Card chips U1-U3 (docs/architecture/MEMCARD.md); decoupling Cn goes with Un"
+    s.names = {"U1": "Page high PLD", "U2": "Page low PLD"}
+    heading(s, "Memory expansion card, 512K",
+            "One SRAM on the slot as the plain card, and a page register for its upper address: 4096 pages of 128 bytes")
+    PG = bus("PAGE", 12)
     n = {"A1": "GND", "A2": "+5V", "A16": "~{EXP}", "A10": "Q0", "B24": "~{WE}"}
     for i, c in enumerate(["A23", "B13", "B15", "B17", "B19", "B23", "B25", "B29"]):
         n[c] = D[i]
@@ -1393,37 +1397,45 @@ def build_memcard():
         n[c] = A[i] if i < 7 else None          # the card decodes nothing above A6: the slot's select does
     for c in ["B16", "A20", "B4", "B20", "A7", "A26", "A28", "B12", "B14", "B8", "B28"]:
         n[c] = None                              # RW, LOAD_IMM, CLK, /RESET, the video lines and the boot contacts
-    s.part("placard_parts:Expansion_Slot", "J1", 81.28, 160.02, n, value="Card edge (87715-9106 mate)",
-           footprint="placard:Card_Edge_87715-9106", ref_at=(69.28, 121.0), value_at=(69.28, 201.2),
-           in_bom=False)                         # gold fingers on the card's PCB, not a part
-    u1 = {1: "~{WE}", 2: "~{EXP}", 11: A[6], 13: A[5], 14: A[4], 15: A[3]}
+    s.part("placard_parts:Expansion_Slot", "J1", *MC_J1, n, value="Card edge (87715-9106 mate)",
+           footprint="placard:Card_Edge_87715-9106", ref_at=(MC_J1[0] - 12, MC_J1[1] - 39),
+           value_at=(MC_J1[0] - 12, MC_J1[1] + 41.2), in_bom=False)    # gold fingers on the card's PCB, not a part
+    u1 = {1: "~{WE}", 2: "~{EXP}", 10: D[0], 11: D[1], 13: D[2], 14: D[3], 16: "~{PGLO}",
+          19: PG[8], 18: PG[9], 17: PG[10], 20: PG[11], 15: None, 21: None, 22: None, 23: None}
+    for i in range(7):
+        u1[3 + i] = A[i]
+    s.part("placard:ATF22V10C_MEMCARD_HI", "U1", *MC_U1, pld(u1))
+    decap(s, 1, MC_U1[0] - 25.4, MC_U1[1] - 38.1, lift=0)
+    u2 = {1: "~{WE}", 2: "~{PGLO}", 11: None, 13: None, 14: None, 15: None}
     for i in range(8):
-        u1[3 + i] = D[i]
-        u1[23 - i] = PG[i]
-    s.part("placard:ATF22V10C_MEMCARD", "U1", 215.9, 96.52, pld(u1))
-    decap(s, 1, 190.5, 60.96, lift=0)
-    u2 = {"20": "~{EXP}", "22": "Q0", "27": "~{WE}", "28": "+5V", "14": "GND"}
-    for i, p in enumerate([10, 9, 8, 7, 6, 5, 4, 3, 25, 24, 21, 23, 2, 26, 1]):
-        u2[str(p)] = A[i] if i < 7 else PG[i - 7]
-    for i, p in enumerate([11, 12, 13, 15, 16, 17, 18, 19]):
-        u2[str(p)] = D[i]
-    s.part("placard_parts:AS7C256C", "U2", 340.36, 172.72, u2, value="AS7C256C-15PCN")
-    decap(s, 2, 320.04, 134.62, lift=0)
+        u2[3 + i] = D[i]
+        u2[23 - i] = PG[i]
+    s.part("placard:ATF22V10C_MEMCARD_LO", "U2", *MC_U2, pld(u2))
+    decap(s, 2, MC_U2[0] - 25.4, MC_U2[1] - 38.1, lift=0)
+    u3 = {"6": "~{EXP}", "31": "Q0", "13": "~{WE}", "9": "+5V", "27": "+5V", "10": "GND", "28": "GND",
+          "19": None, "36": None}
+    for i, p in enumerate([1, 2, 3, 4, 5, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 32, 33, 34, 35]):
+        u3[str(p)] = A[i] if i < 7 else PG[i - 7]
+    for i, p in enumerate([7, 8, 11, 12, 25, 26, 29, 30]):
+        u3[str(p)] = D[i]
+    s.part("placard_parts:AS7C4096A", "U3", *MC_U3, u3, value="AS7C4096A-12JIN")
+    decap(s, 3, MC_U3[0] - 20.32, MC_U3[1] - 43.18, lift=0)
     # power flags, each on a short arm of its own
-    s.power("+5V", 160.02, 220.98)
-    path(s, "+5V", (160.02, 220.98), (167.64, 220.98))
-    s.pwr_flag(167.64, 220.98)
-    s.pwr_flag(182.88, 220.98)
-    path(s, "GND", (182.88, 220.98), (182.88, 226.06))
-    s.power("GND", 182.88, 226.06)
-    note(s, 22, 222, ["U2 is on the slot as the plain card: /CE = /EXP, /OE = Q0,",
-                      "/WE = /WE, A6:A0 and the data bus.  U1 is in none of",
-                      "its read or write paths (EXPANSION.md, \"Card timing\").",
-                      "U1 holds U2's A14:A7 as the page, 0-255.  It clocks on",
-                      "the rising edge of /WE and loads the data bus on a write",
-                      "to the card's offsets 78h-7Fh; it clears at power-up.",
-                      "Offsets 00h-77h of each page are memory (30720 bytes);",
-                      "78h-7Fh are reserved (the page write lands there too)."])
+    s.power("+5V", 160.02, 259.08)
+    path(s, "+5V", (160.02, 259.08), (167.64, 259.08))
+    s.pwr_flag(167.64, 259.08)
+    s.pwr_flag(182.88, 259.08)
+    path(s, "GND", (182.88, 259.08), (182.88, 264.16))
+    s.power("GND", 182.88, 264.16)
+    note(s, 22, 226, ["U3 is on the slot as the plain card: /CE = /EXP, /OE = Q0,",
+                      "/WE = /WE, A6:A0 and the data bus.  U1 and U2 are in",
+                      "none of its read or write paths (EXPANSION.md, \"Card timing\").",
+                      "They hold U3's A18:A7 as the page, 0-4095, clock on the",
+                      "rising edge of /WE and clear at power-up.  A write to the",
+                      "card's offset 7Eh loads page bits 7:0 (U2, selected by U1's",
+                      "/PGLO) and one to 7Fh loads bits 11:8 (U1, from D3:D0).",
+                      "Offsets 00h-7Dh of each page are memory (516096 bytes);",
+                      "7Eh and 7Fh are reserved (the page write lands there too)."])
     s.finish(set())
     return s
 

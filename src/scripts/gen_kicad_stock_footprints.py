@@ -2,7 +2,7 @@
 """
 gen_kicad_stock_footprints.py - copy the KiCad stock footprints the boards use
 (capacitors, diodes, LED, pin header, oscillator, TO-92, SIP resistor network,
-mounting holes, net tie) into kicad/lib/placard.pretty, and their 3D models,
+mounting holes, net tie, and the memory card's SOJ-36) into kicad/lib/placard.pretty, and their 3D models,
 plus the models of the DIP socket and resistor footprints that
 gen_kicad_kit_footprints.py makes, into kicad/lib/placard.3dshapes.  With every
 part in the project library, KiCad finds them on any PC and DRC has nothing to
@@ -33,7 +33,7 @@ passes 0.09 mm from pad 1's square corner, so it is drawn at r 2.6 (0.19 mm).
 
 Run gen_kicad_kit_footprints.py first (its footprints name the socket models).
 
-Date: 2026-10-29
+Date: 2026-11-16
 """
 
 import os
@@ -58,7 +58,8 @@ STOCK = [("Capacitor_THT", "C_Disc_D5.0mm_W2.5mm_P5.00mm"), ("Capacitor_THT", "C
          ("Diode_THT", "D_DO-15_P10.16mm_Horizontal"), ("Diode_THT", "D_DO-35_SOD27_P7.62mm_Horizontal"),
          ("LED_THT", "LED_D5.0mm"), ("MountingHole", "MountingHole_3.2mm_M3"),
          ("MountingHole", "MountingHole_3.2mm_M3_Pad_Via"), ("NetTie", "NetTie-2_THT_Pad0.3mm"),
-         ("Oscillator", "Oscillator_DIP-14"), ("Package_TO_SOT_THT", "TO-92_Inline"),
+         ("Oscillator", "Oscillator_DIP-14"), ("Package_SO", "SOJ-36_10.16x23.495mm_P1.27mm"),      # the memory card's SRAM (2026-11-16)
+         ("Package_TO_SOT_THT", "TO-92_Inline"),
          ("Resistor_THT", "R_Array_SIP9"), ("TestPoint", "TestPoint_Keystone_5010-5014_Multipurpose")]
 
 # stock footprints whose model KiCad 9.0.6 names but doesn't ship: the model line is dropped

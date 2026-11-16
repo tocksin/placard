@@ -16,7 +16,7 @@ rev B.
 | `power.kicad_sch` ... `expansion.kicad_sch` | the ten sheets (power and clock, control, PC and address mux, ALU and registers, data bus, memory and I/O decode, video timing, video and audio out, shared port, expansion slots), docs/hardware/SCHEMATIC_PLAN.md |
 | `cartridge_64k/` | the 64K ROM cartridge (5 chips), its own project (`cartridge_64k.kicad_pro`, one sheet and a routed 4-layer board), using the same `lib/` |
 | `cartridge_32k/` | the 32K ROM cartridge (3 chips), its own project (`cartridge_32k.kicad_pro`, one sheet and a routed 4-layer board), using the same `lib/`; mounting hole H1 at the same place as on the 64K board |
-| `memory_card/` | the 32K memory expansion card (2 chips, docs/architecture/MEMCARD.md), its own project (`memory_card.kicad_pro`, one sheet; no board yet), using the same `lib/`.  Written by `gen_kicad_schematic.py --memcard`, which leaves the other sheets alone |
+| `memory_card/` | the 512K memory expansion card (3 chips, docs/architecture/MEMCARD.md), its own project (`memory_card.kicad_pro`, one sheet; no board yet), using the same `lib/`.  Written by `gen_kicad_schematic.py --memcard`, which leaves the other sheets alone |
 | `placard.kicad_pcb` | the main board, routed: 4 layers (F.Cu, In1.Cu = GND, In2.Cu = VCC, B.Cu) |
 | `lib/placard.kicad_sym` | PLD symbols: `ATF22V10C` (generic) and one `ATF22V10C_<name>` per `.pld` file, with its pin names |
 | `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `PS2_Dual_Stacked`, `USB_C_Power` |

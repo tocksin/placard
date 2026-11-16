@@ -193,8 +193,8 @@ board's /WE in EXEC (Q0 = 1, so its outputs are off).  A card with more
 than 128 bytes adds a page register (a 74HC574 written at one of its
 addresses, CP from /EXPn and /WE through a gate, or a card PLD) on the
 upper address pins.  The card timing below is checked with this card.
-The 32K memory card ([MEMCARD.md](MEMCARD.md)) is this card with the page
-register in a PLD.
+The 512K memory card ([MEMCARD.md](MEMCARD.md)) is this card with the page
+register in two PLDs.
 
 **Writes.**  A card's write strobe is `/EXP low and /WE low` (plus any
 A6:A0 register select).  Latch D7:D0 on the strobe's rising edge, at the

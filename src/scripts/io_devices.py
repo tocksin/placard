@@ -761,14 +761,15 @@ class ExpansionCard:
 
 
 class MemoryCard:
-    """the 32K memory expansion card (docs/architecture/MEMCARD.md): an SRAM
-    seen through the slot's 128 addresses, 256 pages; a write to offsets
-    78-7F sets the page (and, as on the card, also stores the byte at that
-    offset of the page being left).  The page is 0 at power-up; the SRAM
-    powers up with anything (fill)."""
+    """the 512K memory expansion card (docs/architecture/MEMCARD.md): an
+    SRAM seen through the slot's 128 addresses, 4096 pages; a write to
+    offset 7E sets page bits 7:0 and one to 7F sets bits 11:8 from D3:D0
+    (and, as on the card, also stores the byte at that offset of the page
+    being left).  The page is 0 at power-up; the SRAM powers up with
+    anything (fill)."""
 
     def __init__(self, fill=0xE5):
-        self.ram = [fill] * 0x8000
+        self.ram = bytearray([fill]) * 0x80000
         self.page = 0
 
     def read(self, off):
@@ -776,8 +777,10 @@ class MemoryCard:
 
     def write(self, off, v):
         self.ram[self.page << 7 | off] = v
-        if off >= 0x78:
-            self.page = v
+        if off == 0x7E:
+            self.page = self.page & 0xF00 | v
+        elif off == 0x7F:
+            self.page = self.page & 0x0FF | (v & 0x0F) << 8
 
 
 class Slots:

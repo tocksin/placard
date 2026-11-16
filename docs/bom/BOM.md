@@ -11,7 +11,7 @@ line; each cartridge assembly is complete with its shell and screw.  Accessories
 | Main board assembly PLC-2001 | [BOM_MAIN_PCB.md](BOM_MAIN_PCB.md), [.csv](BOM_MAIN_PCB.csv) | Bare PCB, components, sockets | $199.79 | $188.27 | 29 |
 | 64K cartridge assembly PLC-2003 | [BOM_CART_64K.md](BOM_CART_64K.md), [.csv](BOM_CART_64K.csv) | Bare PCB, components, sockets, shell, screw | $69.62 | $69.62 | 6 |
 | 32K cartridge assembly PLC-2002 | [BOM_CART_32K.md](BOM_CART_32K.md), [.csv](BOM_CART_32K.csv) | Same, 32K board | $39.67 | $39.67 | 6 |
-| 32K memory card assembly PLC-2004 | [BOM_MEMORY_CARD.md](BOM_MEMORY_CARD.md), [.csv](BOM_MEMORY_CARD.csv) | Bare PCB, components, sockets (optional card) | $23.51 | $23.51 | 3 |
+| 512K memory card assembly PLC-2004 | [BOM_MEMORY_CARD.md](BOM_MEMORY_CARD.md), [.csv](BOM_MEMORY_CARD.csv) | Bare PCB, components, sockets (optional card) | $26.21 | $26.21 | 2 |
 | Case assembly | [BOM_CASE.md](BOM_CASE.md), [.csv](BOM_CASE.csv) | Main board assembly, tray and plates, acrylic, printed covers, standoffs, screws, feet | $333.57 | $333.57 | 14 |
 
 A complete machine is the case assembly plus one cartridge: **$403.19** with the 64K cartridge (the case total already holds the main board without its optional slot
