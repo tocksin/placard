@@ -1,0 +1,47 @@
+<!doctype html>
+<!-- render_print.html - draws a list of STL meshes (the 3D-printed case) with three.js.
+     The scene comes in the URL: ?v={"items":[{"f":"mesh/print_x.stl","c":"#333","o":[0,0,0]}],"cam":[..],"look":[..]}
+     Served from src/scripts/case_render/ (see shoot_print.js).  Date: 2026-11-16 -->
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:#f4f5f7;overflow:hidden}</style></head><body>
+<script type="importmap">{"imports":{"three":"./web/node_modules/three/build/three.module.js",
+"three/addons/":"./web/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import {STLLoader} from 'three/addons/loaders/STLLoader.js';
+const V = JSON.parse(new URLSearchParams(location.search).get('v'));
+const W = innerWidth, H = innerHeight;
+const renderer = new THREE.WebGLRenderer({antialias: true, preserveDrawingBuffer: true});
+renderer.setSize(W, H); renderer.setPixelRatio(V.dpr || 2);
+renderer.setClearColor(V.bg || '#f4f5f7');
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
+const cam = new THREE.PerspectiveCamera(V.fov || 28, W / H, 5, 5000);
+cam.up.set(0, 0, 1); cam.position.set(...V.cam); cam.lookAt(...V.look);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x9a9a9a, 1.5));
+for (const [p, i] of [[[-300, -500, 700], 1.6], [[600, 300, 500], 0.9], [[0, 600, -300], 0.5]]) {
+  const d = new THREE.DirectionalLight(0xffffff, i); d.position.set(...p); scene.add(d); }
+const loader = new STLLoader();
+for (const it of V.items) {
+  const geo = await new Promise((res, rej) => loader.load(it.f, res, undefined, rej));
+  geo.computeVertexNormals();
+  const m = new THREE.MeshStandardMaterial({color: it.c || '#3a3d42', metalness: it.m ?? 0.05, roughness: it.r ?? 0.7,
+    transparent: (it.a ?? 1) < 1, opacity: it.a ?? 1, side: THREE.DoubleSide});
+  const mesh = new THREE.Mesh(geo, m);
+  const grp = new THREE.Group(); grp.add(mesh);
+  if (it.e !== false) grp.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo, 28),
+      new THREE.LineBasicMaterial({color: it.ec || '#9aa3ad', transparent: true, opacity: 0.6})));
+  if (it.rot) grp.rotation.set(...it.rot.map(a => a * Math.PI / 180));
+  grp.position.set(...(it.o || [0, 0, 0]));
+  scene.add(grp);
+}
+for (const b of (V.boxes || [])) {
+  const [x0, x1, y0, y1, z0, z1] = b.b;
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0),
+      new THREE.MeshStandardMaterial({color: b.c, roughness: 0.6}));
+  mesh.position.set((x0 + x1) / 2 + (b.o?.[0] || 0), (y0 + y1) / 2 + (b.o?.[1] || 0), (z0 + z1) / 2 + (b.o?.[2] || 0));
+  scene.add(mesh);
+}
+renderer.render(scene, cam);
+window.done = true;
+</script></body></html>

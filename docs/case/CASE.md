@@ -1,6 +1,6 @@
 # Case
 
-Date: 2026-11-02
+Date: 2026-11-16
 
 This is a concept for the PLACARD case. The case is black powder-coated
 aluminium, strong on the bottom and sides, with a clear acrylic top so the
@@ -243,12 +243,14 @@ and the whole cover is one print.
     6.4 x 2.2 mm slot in the acrylic. A rounded bump on the tab clicks past
     the acrylic's underside, standing 0.4 mm past the slot wall. That's
     enough to hold the cover, and a little pull lifts it off, because the
-    bump's round top pushes the tab aside.
+    bump's sloped top pushes the tab aside. The bump's top is a 45 degree
+    ramp, so it prints without support when the cover lies cap down.
   - Slot covers have two tabs in the front lap. The cartridge cover has two
     in the front lap and two in the back lap, 12 mm either side of the
     middle, clear of the thumb notch.
   - At the back, where there is no acrylic, a slot cover's lip has a small
-    dome that clicks into the slot's card screw hole in the back plate. With
+    dome (a blunt cone, so it prints without support) that clicks into the
+    slot's card screw hole in the back plate. With
     a card fitted, the card's screw is in that hole and the cover is off.
   - Everything is put on and taken off from above. Nothing has to be reached
     from under the top.
@@ -320,65 +322,171 @@ bent metal from `gen_case_quote.py --mesh` (views `bends` and `bends_rear`).
 
 ## 3D-printed version
 
-The same case can be printed on a 220 x 220 mm bed (Creality Ender 3).
-`src/scripts/gen_case_print.py` takes the aluminium parts above, unchanged
-in shape, so every cut-out, tab slot and screw hole lands in the same
-place. It then cuts the parts into pieces that fit the bed and writes STL
-files to `case/print/`. The aluminium version stays as it is.
+The whole case can also be printed on a 220 x 220 mm bed (Creality Ender 3)
+and screwed together with M3 screws and nuts. There is no glue, no heat-set
+insert and no thread cut in plastic. `src/scripts/gen_case_print.py` makes it
+from the same board file. It has the same outside size, connector cut-outs,
+top openings and covers as the aluminium case, which stays as it is. Every
+part is designed to print flat, without supports.
 
-![Printed pieces: seams and bowtie keys](case_print_pieces.png)
+![Printed case, assembled](case_print_assembled.png)
 
-| Part | Pieces (STL) | Largest piece |
-|---|---|---|
-| Tray (floor, front and right walls) | `tray_front_left`, `tray_front_right`, `tray_back_left`, `tray_back_right` | 163 x 120 x 36.6 mm |
-| Back plate | `back_plate_left`, `back_plate_right` (seam at x 140, clear of the card screws) | 153 x 36.6 x 8 mm |
-| Left plate | `left_plate_front`, `left_plate_back` | 118 x 36.6 x 8 mm |
-| Top | `top_front_left`, `top_front_right`, `top_back_left`, `top_back_right` | 160 x 120 x 4 mm |
-| Slot cover (print 4) | `slot_cover`: the same printed cover as the metal case (`case/slot_cover.stl`) | 91.2 x 26.3 x 23 mm with its lip |
-| Cartridge cover | `cart_cover` | 62 x 37.2 x 11.2 mm with its tabs |
-| Bowtie keys | `key_2mm` (print 18) for the tray and plates, `key_4mm` (print 9) for the top | 15.7 x 9.7 mm |
+![From the back](case_print_rear.png)
 
-- **Seams and keys.** Each seam is keyed with bowtie (butterfly) keys that
-  go right through the part, 0.15 mm smaller all round than their pockets.
-  Glue the pieces of each part together on a flat surface, with the keys
-  pressed into their pockets. Use CA glue for PLA and PETG. The keys lock
-  the pieces flat and in line, so each part goes together as one piece, as
-  in aluminium.
-  - The tray's seams are at x 132 and y 120, clear of the vents, the
-    standoffs and the parking slots.
-  - The right wall and the left plate both join at y 120. The two side
-    vent slots next to each of those seams are left out, so the bowtie keys
-    in the wall have solid material around them. That leaves 18 slots in
-    the right wall and 10 in the left plate, instead of 20 and 12.
-  - The top's seams are at x 160 and y 100, between the expansion bay and
-    the cartridge cover's lap, so no cover sits across a seam.
-- **Hardware changes.**
-  - The tray has printed bosses under H1-H8 instead of the 6 mm floor
-    standoffs. Each takes an M3 heat-set insert (M3 x 5.7, 4.0 mm hole), set
-    with a soldering iron. The 27 mm standoffs are male-female here, their
-    stud through the board into the insert.
-  - The plates' flange holes are 3.4 mm with an M3 nut on top of the
-    flange, as in the metal case.
-  - The covers, feet and the other screws are as listed above.
-- **Printing.**
-  - Print the tray pieces floor down, and the plates on their outside face
-    with the flange up. No supports are needed.
-  - Print the walls and floor solid (100 % infill, or 5 perimeters), since
-    they are only 2 mm thick.
-  - Use PETG for the tray and plates. PLA works, but it softens from about
-    55 C, and the inside of a closed case gets warm.
-- **A clear top.** No filament prints as clear as acrylic.
-  - Clear (natural) PETG comes closest. With 100 % infill, all lines laid in
-    one direction, a hot, slow print (about 245-250 C, 20-30 mm/s, little
-    fan) and a glass bed, it comes out like frosted glass. You can see the
-    board through it, but not crisply.
-  - The four pieces' seams and the keys will show.
-  - For a really clear top, use a 4 mm cast acrylic sheet, even on a printed
-    case: laser cut from `case/dxf/acrylic_top_4mm.dxf` (about $30 for one,
-    "Cost estimate"). A shop-cut 295 x 220 mm blank, drilled and cut out by
-    hand, works too.
-  - The covers are printed in either version (black PETG to match the
-    metal; clear PETG also looks fine, because they are small and solid).
+![Exploded: floor pieces and straps, wall panels, board, top pieces, covers](case_print_exploded.png)
+
+![Exploded, from the back](case_print_exploded_rear.png)
+
+### How it is joined
+
+![Seams, straps, nut seats, nut lugs and half laps](case_print_pieces.png)
+
+- **Floor.** Four flat pieces, with a boss under each board hole (H1-H8).
+  The seams are at x 160 and y 114, clear of the parked covers. Five straps
+  screw on under the seams, one of them over the middle where all four
+  pieces meet. Each strap has four nut pockets on its top face, so every nut
+  is shut in between the strap and the floor, and the screws go down through
+  the floor from inside.
+- **Walls.** Four flat panels, 2 mm thick, each in two pieces. The front and
+  back walls run the full width and the side walls fit between them. Each
+  panel stands on the floor, and has two kinds of fixing:
+  - A 9 mm flange along the bottom lies on the floor, under the board's
+    edge. It carries open **nut seats**: two ribs and a stop that hold an M3
+    nut so it can't turn. A screw comes up through the floor into each one.
+  - **Nut lugs** under the top edge. A nut slides into a slot in each lug
+    from inside the case, and one of the top's screws comes down into it.
+  - The flange has gaps round the bosses and round the VGA socket's pins,
+    so each panel slides straight in from outside, over its connectors.
+  - A wall's seam is never in line with a floor or top seam, so every seam
+    is bridged by the part next to it. Floor and top screws sit near each
+    wall seam and each corner. The corners themselves have no screw,
+    because the corner standoffs are in the way.
+- **Top.** Four pieces, 4 mm thick, that overlap in 12 mm half laps: along
+  every seam one piece's upper half lies on its neighbour's lower half, and
+  M3 screws with nuts go through both. The seams are at x 160 and y 100,
+  between the expansion bay and the cartridge cover. The top then screws to
+  the walls' nut lugs and to the eight standoffs.
+- **Covers.** The same printed snap covers as the aluminium case.
+
+![Inside the back right corner: nut seats on the flanges, nut lugs under the top edge, a floor boss](case_print_joints.png)
+
+![The same corner with the board in](case_print_inside.png)
+
+![Underside: the five straps, vent slots, parking slots](case_print_underside.png)
+
+### Pieces and print orientation
+
+The STL files in `case/print/` are already turned the way they print, with
+the flat side on the bed at z = 0. None needs supports.
+
+![Every piece as it lies on the bed](case_print_bed.png)
+
+| File | Print | Size on the bed (mm) | Orientation |
+|---|--:|---|---|
+| `floor_front_left` | 1 | 159.9 x 113.9 x 8.0 | Underside down, bosses up |
+| `floor_front_right` | 1 | 134.9 x 113.9 x 8.0 | Underside down, bosses up |
+| `floor_back_left` | 1 | 159.9 x 105.9 x 8.0 | Underside down, bosses up |
+| `floor_back_right` | 1 | 134.9 x 105.9 x 8.0 | Underside down, bosses up |
+| `wall_front_left` | 1 | 124.9 x 34.6 x 12.0 | Outside face down, flange and lugs up |
+| `wall_front_right` | 1 | 169.9 x 34.6 x 12.0 | Outside face down, flange and lugs up |
+| `wall_back_left` | 1 | 189.9 x 34.6 x 12.0 | Outside face down, flange and lugs up |
+| `wall_back_right` | 1 | 104.9 x 34.6 x 12.0 | Outside face down, flange and lugs up |
+| `wall_left_front` | 1 | 34.6 x 127.8 x 12.0 | Outside face down, flange and lugs up |
+| `wall_left_back` | 1 | 34.6 x 87.8 x 12.0 | Outside face down, flange and lugs up |
+| `wall_right_front` | 1 | 34.6 x 87.8 x 12.0 | Outside face down, flange and lugs up |
+| `wall_right_back` | 1 | 34.6 x 127.8 x 12.0 | Outside face down, flange and lugs up |
+| `top_front_left` | 1 | 165.9 x 105.9 x 4.0 | Top face down |
+| `top_front_right` | 1 | 140.9 x 105.9 x 4.0 | Underside down |
+| `top_back_left` | 1 | 165.9 x 125.9 x 4.0 | Underside down |
+| `top_back_right` | 1 | 140.9 x 125.9 x 4.0 | Top face down |
+| `slot_cover` | 4 | 26.0 x 91.2 x 23.0 | Cap face down |
+| `cart_cover` | 1 | 62.0 x 37.2 x 11.2 | Cap face down |
+| `floor_strap` | 5 | 24.0 x 36.0 x 4.2 | Flat, nut pockets up |
+
+- Use a 0.4 mm nozzle and 0.2 mm layers.
+- Print the floor and wall pieces solid (100 % infill, or 5 perimeters).
+  They are only 2 mm thick.
+- Use PETG. PLA works, but it softens from about 55 C, and the inside of a
+  closed case gets warm.
+- Print these slowly: the wall panels' nut seat ribs (2 mm) and the covers'
+  tabs (1.8 mm).
+- The two back wall pieces are 190 and 105 mm long, and the largest piece
+  is 166 x 126 mm, so there is room for a brim on every piece.
+- All the pieces together are about 529 cm3, which is about
+  0.67 kg of PETG.
+- A clear top: clear (natural) PETG at 100 % infill, printed hot and slow,
+  comes out like frosted glass. The half laps and their screws will show.
+
+How the parts were made printable:
+
+- Every hole that lies on its side when printed (the screw holes through
+  the flanges and lugs) is a teardrop with a peaked roof, 39 degrees from
+  vertical.
+- Nut seats and lug slots are open toward the top of the print, so nothing
+  bridges over a nut.
+- No screw head is recessed, except two countersinks on the floor's bed
+  face, where a parked slot cover lies against the floor. A countersink is
+  a 45 degree cone, so it has no ceiling to bridge.
+- The top's two pieces with upper laps print top face down, and the two
+  with lower laps print underside down, so every lap lies on the bed.
+- The covers' bumps now have a 45 degree ramp on the cap side, and the slot
+  cover's back lip has a blunt cone where it had a dome, so nothing on a
+  cover overhangs when it prints cap down.
+
+### Checks
+
+`gen_case_print.py` runs a fit check on the assembled case, and
+`src/scripts/case_print_check.py` checks each STL file as it lies on the bed.
+
+| Check | Result |
+|---|---|
+| Fit: no printed part cuts into the board, any part on it, a standoff or another printed part | Pass |
+| Fit: no nut seat within 1.5 mm of a through-hole pad (a seat's top is 1.6 mm under the board) | Pass |
+| Watertight: every edge shared by exactly two triangles | 21 of 21 files |
+| Bed: footprint within 215 x 215 mm | 21 of 21 files |
+| Overhangs: no downward face above the bed steeper than 45 degrees | 21 of 21 files, none found |
+| Islands: every layer rests on the layer below (sliced every 0.2 mm) | 21 of 21 files, none found |
+
+The 21 files are the 19 in `case/print/` and the two cover files in `case/`.
+The overhang and island checks were tried on two pieces turned upside down,
+and they failed both, as they should.
+
+### Hardware
+
+| Part | Qty | Where |
+|---|--:|---|
+| M3 x 6 button head screw | 38 | 18 up through the floor into the walls' nut seats, 20 down through the floor into the straps |
+| M3 x 6 countersunk screw | 2 | The floor screws under the parked slot covers (back wall), flush |
+| M3 x 8 button head screw | 41 | Top: 21 into the walls' nut lugs, 12 through the half laps, 8 into the standoffs |
+| M3 x 12 button head screw | 8 | Up through the floor bosses and the board into the standoffs |
+| M3 hex nut, ISO 4032 | 73 | One per screw above, except the standoffs' |
+| M3 female-female hex standoff, 27 mm | 8 | Board to the top |
+| Rubber feet, 16 mm across, 10 mm tall, self-adhesive | 4 | As on the aluminium case |
+
+Black screws look best on the top.
+
+### Putting it together
+
+1. **Floor.** Lay the five straps on the table, pockets up, and drop an M3
+   nut into each pocket. Set the four floor pieces on them, and fit the 20
+   M3 x 6 screws down through the floor.
+2. **Board.** Set the board on the eight bosses. Put an M3 x 12 screw up
+   through each boss and the board, and spin a 27 mm standoff onto it.
+3. **Nuts.** Put an M3 nut in every nut seat on the walls' flanges (it
+   drops in from above) and slide one into every lug slot.
+4. **Walls.** Slide each wall piece in from outside, flat on the floor: the
+   back pieces over USB-C, audio, VGA and PS/2, the left pieces over the
+   power switch, reset and SD. Screw each one down from below with M3 x 6
+   screws. The two holes under the expansion bay are countersunk for the
+   flat head screws.
+5. **Top.** On the table, lay down `top_front_right` and `top_back_left`,
+   then `top_front_left` and `top_back_right` on their laps, and fit the 12
+   lap screws (M3 x 8) with a nut under each. Lay the top on the case and
+   fit the 21 screws into the wall lugs and the 8 into the standoffs.
+6. Stick the feet on, fit the VGA jackscrews and click the covers on.
+
+To open the case, take out the top's 29 outer screws and lift the top off
+in one piece.
 
 ## Getting a quote
 
@@ -444,7 +552,9 @@ pip install cadquery
 python3 src/scripts/gen_case.py                       # STEP + DXF + cover STL in case/, drawings in docs/case/
 python3 src/scripts/gen_case.py --pcb other.kicad_pcb # from another copy of the board
 python3 src/scripts/gen_case.py --mesh src/scripts/case_render/mesh   # also STL meshes for the renders
-python3 src/scripts/gen_case_print.py                 # 3D-printed pieces in case/print/, docs/case/case_print_pieces.png
+python3 src/scripts/gen_case_print.py                 # 3D-printed pieces in case/print/, docs/case/case_print_pieces.png, fit check
+python3 src/scripts/case_print_check.py case/print/*.stl   # watertight, bed, overhang and island checks
+python3 src/scripts/gen_case_print.py --mesh src/scripts/case_render/mesh   # also the pieces in place, for the renders
 python3 src/scripts/gen_case_quote.py                 # quote package in case/quote/ and case/quote.zip
 python3 src/scripts/gen_case_quote.py --mesh src/scripts/case_render/mesh   # also the bent metal for the renders
 python3 src/scripts/gen_case_covers.py                # docs/case/case_cover_detents.png
@@ -455,4 +565,6 @@ The renders use three.js in headless Chromium (`src/scripts/case_render/`).
 Make the meshes as above, then run `npm install three@0.160.0` in
 `case_render/web`. Serve `case_render/` on port 8765, then run
 `node shoot_case.js [view ...]`. The views are in `views.json`. The
-cartridge in the renders is the short 32K one (39 x 66 mm board).
+cartridge in the renders is the short 32K one (39 x 66 mm board). The
+printed case's renders come from `node shoot_print.js [view ...]`, which
+needs both scripts' meshes.

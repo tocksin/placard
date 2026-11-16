@@ -34,7 +34,7 @@ Parts (STEP in case/, DXF cutting files for the flat parts in case/dxf/):
 Coordinates (mm): x from the case's left outside face, y from the front
 outside face toward the back, z up from the main board's top face.
 
-Date: 2026-11-02
+Date: 2026-11-16
 """
 
 import argparse
@@ -489,9 +489,14 @@ def tab(x, y, sign):
     """A tab hanging from the cap's underside through its slot, with its two bumps."""
     zt = Z_TOP
     s = box(x - TAB_W / 2, x + TAB_W / 2, y - TAB_T / 2, y + TAB_T / 2, zt - TAB_BELOW, zt + ACRYLIC)
-    for yb, ztop in bumps(y, sign):
+    for (yb, ztop), sd in zip(bumps(y, sign), (sign, -sign)):
         s = s.union(cq.Workplane("YZ").center(yb, ztop - BUMP_R).circle(BUMP_R).extrude(TAB_W)
                     .translate((x - TAB_W / 2, 0, 0)))
+        # the bump's cap side is a 45 degree ramp back to the tab, not a round: the
+        # cover prints cap down, so that side faces the bed and must not overhang
+        k, zc = BUMP_R / math.sqrt(2), ztop - BUMP_R
+        s = s.union(cq.Workplane("YZ").polyline([(yb, zc), (yb + sd * k, zc + k), (yb + sd * (k - BUMP_R), zc + k + BUMP_R)])
+                    .close().extrude(TAB_W).translate((x - TAB_W / 2, 0, 0)))
     return s.intersect(box(x - TAB_W / 2, x + TAB_W / 2, y - 5, y + 5, zt - TAB_BELOW, zt + ACRYLIC))
 
 
@@ -592,10 +597,15 @@ def slot_covers(parts):
         s = plug.union(cap)
         for x, y, sign in spots[2 * i:2 * i + 2]:
             s = s.union(tab(x, y, sign))
-        sx, sz = screws[i]
+        sx, sz = min(screws, key=lambda c: abs(c[0] - (x0 + x1) / 2))   # this cover's own slot, whatever order J9-J12 sit in
         yl = D + LIP_GAP
         s = s.union(box(x0, x1, yl, yl + LIP_T, sz - 4.0, z0 + ACRYLIC))
-        dome = cq.Workplane("XY").sphere(DOME_R).translate((sx, dome_y(), sz))
+        # the dome is a blunt cone: it sits on the hole's rim where a R2.5 ball would, and its
+        # 47 degree flank prints without support when the cover lies cap down
+        tip = DOME_R - (dome_y() - yl)          # how far it stands off the lip
+        rr = lambda d: 1.7 + (LIP_GAP - d) * 1.08
+        dome = cq.Workplane().add(cq.Solid.makeCone(rr(-0.5), rr(tip), tip + 0.5, cq.Vector(sx, yl + 0.5, sz),
+                                                    cq.Vector(0, -1, 0)))
         s = s.union(dome.intersect(box(sx - 3, sx + 3, D - 2, yl + 0.01, sz - 3, sz + 3)))
         out.append(s)
     return out
