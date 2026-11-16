@@ -25,6 +25,7 @@ reads the screen back through Pinboard's font (pinboard_emu.cells).
      back to Pinboard with the same entry chosen and the clock kept
   6. with no mouse: no pointer, the keys work (Esc, the launcher, About)
   7. the launcher's "Back to DOS" starts the DOS
+  8. the calculator, by clicks and by keys
 
 Date: 11/16/2026
 """
@@ -42,6 +43,11 @@ import gen_pinboard           # noqa: E402
 REPO = os.path.join(HERE, '..', '..')
 FONT = gen_pinboard.font_rows()
 K_DOWN, K_UP, K_ENTER, K_BKSP, K_ESC, K_TAB, K_CTRL, K_W = 0x172, 0x175, 0x5A, 0x66, 0x76, 0x0D, 0x14, 0x1D
+K_SHIFT = 0x12
+CALC_KEYS = {'1': 0x16, '2': 0x1E, '3': 0x26, '4': 0x25, '5': 0x2E, '6': 0x36, '7': 0x3D,
+             '8': 0x3E, '9': 0x46, '0': 0x45, '-': 0x4E, '=': 0x55, '/': 0x4A, 'n': 0x31,
+             'c': 0x21, 'm': 0x3A, '\n': K_ENTER, '\b': K_BKSP}
+CALC_SHIFT = {'*': 0x3E, '+': 0x55, '%': 0x2E}
 
 
 class Script:
@@ -72,6 +78,13 @@ class Script:
         self.inp.append((self.t, 'goto', (x, y, self.b)))
         self.x, self.y = x, y
         self.t += 4 * (d // 20 + 6)
+
+    def type(self, text):
+        for ch in text:
+            if ch in CALC_SHIFT:
+                self.chord(K_SHIFT, CALC_SHIFT[ch])
+            else:
+                self.key(CALC_KEYS[ch])
 
     def cell(self, c, r):
         self.move(c * 8 + 4, r * 8 + 4)
@@ -201,7 +214,7 @@ def main(argv):
     s.shot('moved', 5)
     s.click(3, 58)
     s.shot('menu')
-    s.click(5, 53)                      # Clock
+    s.click(5, 52)                      # Clock
     s.shot('clock')
     s.click(49, 11)                     # H+ twice, M+ once (the card is at 46, 3)
     s.click(49, 11)
@@ -227,7 +240,7 @@ def main(argv):
     check('the pointer follows the mouse', (10, 40) in o['moved'].pointer())
     m = o['menu']
     check('the launcher', all(m.has(' ' + t, r) for r, t in
-                              enumerate(('Files', 'Clock', 'About', 'BASIC', 'Back to DOS'), 52)))
+                              enumerate(('Files', 'Clock', 'Calculator', 'About', 'BASIC', 'Back to DOS'), 51)))
     c = o['clock']
     check('the Clock card, in front', c.has('* Clock', 3) and c.has('H+', 11)
           and c.has('Clock', 58) and not c.has(' Back to DOS'))
@@ -254,7 +267,7 @@ def main(argv):
     print('5. a program')
     s = Script()
     s.click(3, 58)
-    s.click(5, 53)                      # Clock
+    s.click(5, 52)                      # Clock
     s.click(49, 11)                     # 01:00
     s.key(K_TAB)
     for _ in range(pi):
@@ -279,21 +292,21 @@ def main(argv):
     s.t = 220                           # mouse_init waits for a mouse first
     s.shot('up', 0)
     s.key(K_ESC)
-    s.key(K_DOWN)
-    s.key(K_DOWN)
+    for _ in range(3):
+        s.key(K_DOWN)
     s.shot('menu', 5)
     s.key(K_ENTER)
     s.shot('about')
     o = s.run(files, mouse=False, png=args.png, tag='6_')
     check('no pointer', o['up'].has('* Files', 1) and not o['up'].pointer())
-    check('Esc: the launcher, Down Down Enter: About',
+    check('Esc: the launcher, Down Down Down Enter: About',
           o['menu'].has(' Back to DOS') and o['about'].has('* About') and o['about'].has('PINBOARD'))
 
     # ---- 7: back to the DOS ---------------------------------------------
     print('7. the DOS')
     s = Script()
     s.key(K_ESC)
-    for _ in range(4):
+    for _ in range(5):
         s.key(K_DOWN)
     s.key(K_ENTER)
     s.shot('dos', 120)
@@ -305,6 +318,32 @@ def main(argv):
             dos_font[k][0x20 + i] = rows[k]
     rows, _ = pe.cells(o['dos'].ram, dos_font)
     check('"Back to DOS" starts the DOS', 'PLACARD DOS' in rows[0] and o['dos'].ram[0x5BE8] == 0)
+
+    # ---- 8: the calculator (its card is at 52, 20) ----------------------
+    print('8. the calculator')
+    s = Script()
+    s.click(3, 58)
+    s.click(5, 53)
+    s.shot('calc')
+    for c, r in ((55, 26), (70, 26), (65, 28), (70, 32)):      # 7 * 6 =
+        s.click(c, r)
+    s.shot('clicks')
+    sums = (('c100-250=', '-150'), ('c7/2=', '3'), ('c22m5=', '2'), ('c99999*99999=', 'Error'),
+            ('c5/0=', 'Error'), ('c123456789*17=', '2098765413'), ('c12\bn+20\n', '19'),
+            ('cn5*n6=', '30'), ('c1000000/7=', '142857'), ('cn17%5=', '-2'), ('c8+', '+'))
+    for i, (keys, _) in enumerate(sums):
+        s.type(keys)
+        s.shot('k%d' % i)
+    o = s.run(files, png=args.png, tag='8_')
+
+    def shows(scr):
+        return scr.rows[22][54:73].split()
+    check('the Calc card', o['calc'].has('* Calc', 20) and shows(o['calc']) == ['0']
+          and o['calc'].has('mod', 32))
+    check('clicks: 7 * 6 = 42', shows(o['clicks']) == ['42'])
+    for i, (keys, want) in enumerate(sums):
+        check('keys: %s  %s' % (keys[1:].replace('\n', '=').replace('\b', '<'), want),
+              shows(o['k%d' % i])[-1 if i < len(sums) - 1 else 0] == want)
 
     print('PASS' if check.ok else 'FAIL')
     return 0 if check.ok else 1

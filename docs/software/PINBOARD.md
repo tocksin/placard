@@ -3,15 +3,15 @@
 Pinboard is a windowed desktop for the Placard: a program on the SD card,
 `PINBOARD.PLC` (`src/scripts/pinboard.masm` and `pinboard.vm`, built by
 `gen_pinboard.py`).  Its windows are **cards** pinned on a board.  A card
-shows the card's files and runs programs from it; another is a clock.  It
-works with the PS/2 mouse, the keyboard, or both.
+shows the card's files and runs programs from it; others are a clock and
+a calculator.  It works with the PS/2 mouse, the keyboard, or both.
 
 Date: 11/16/2026
 
-![Pinboard in the emulator: the Files, Clock and About cards](../../reference/pinboard.png)
+![Pinboard in the emulator: the Files, Clock, Calc and About cards](../../reference/pinboard.png)
 
-Stage 1 is here: the board, the cards, the Files card, the Clock and the
-launcher.  A calculator and a text editor come next.
+The board, the cards, the Files card, the Clock, the calculator and the
+launcher are here.  A text editor comes next.
 
 ## Starting it
 
@@ -44,8 +44,8 @@ up (the front one in white) and the time.
 | Esc | the launcher: Up, Down and Enter, Esc closes it |
 | any other | goes to the front card |
 
-The launcher puts up Files, Clock or About, starts BASIC, or goes back to
-the DOS.
+The launcher puts up Files, Clock, Calculator or About, starts BASIC, or
+goes back to the DOS.
 
 ## Files
 
@@ -79,6 +79,27 @@ second) from 00:00:00 when Pinboard starts, and you set it: **H+** and
 seconds.  The rail shows the hours and minutes.  The time is kept while a
 program runs, but not counted.
 
+## Calc
+
+The calculator works in whole numbers up to 2,147,483,647 either side of
+0.  Click its buttons or type:
+
+| Key | Button | Does |
+|-----|--------|------|
+| 0-9 | 0-9, 00 | the number, up to 9 digits |
+| + - * / | the same | add, subtract, multiply, divide (the whole part) |
+| % or M | mod | what is left over from a division, with the sign of the first number |
+| = or Enter | = | the answer |
+| N | +- | changes the sign |
+| Backspace | <- | takes the last digit back |
+| C or Del | C | clears everything |
+
+The operation that is waiting for its second number shows at the left of
+the display.  An answer that is too big, or a division by 0, shows
+"Error" until C.  The numbers are kept as a sign and 32 bits, and the
+arithmetic is done 16 bits at a time in the bytecode: a multiply or a
+divide is 32 shift and add steps, about a twentieth of a second.
+
 ## How it is built
 
 Pinboard is written in the Forth-like language of BASIC's interpreter
@@ -87,8 +108,8 @@ a stack machine, a copy of BASIC's inner interpreter that `pinboard.masm`
 carries so it does not depend on where BASIC is in the ROM.  A call in the
 bytecode is two bytes; `vmc.py`'s `RAMCALLS` sets bit 7 of the first so
 that addresses in RAM, x0100-x3FFF, can't be taken for a primitive's
-number.  The desktop is about 5.6 KB of bytecode and 1.4 KB of machine
-code, so half the room of a `.PLC` program is still free.
+number.  The desktop is about 7 KB of bytecode and 1.4 KB of machine
+code, so over a third of the room of a `.PLC` program is still free.
 
 Machine code does what has to be quick:
 
@@ -122,7 +143,7 @@ Machine code does what has to be quick:
 | x3600-x37FF | the pointer, shifted 0-7 pixels: mask and picture |
 | x3800-x3FFF | the font, a page per pixel row |
 | x4800-x48FF | the interpreter's return stack |
-| x4900-x49FF | the bytes under the pointer, the cards' table and order, the clock |
+| x4900-x49FF | the bytes under the pointer, the cards' table and order, the clock, the calculator's numbers |
 | x5400-x59FF | the folder: 96 entries of 16 bytes |
 | x5D15-x5D17 | the time, kept in the menu block while a program runs |
 
@@ -137,5 +158,6 @@ key (`KEYTAB`) and take a click (`CLICKTAB`).
 ROM, a card image of `sdcard/`, a PS/2 keyboard and a mouse, and reads the
 screen back as characters: power-up, the keys, the pointer, the launcher,
 setting the clock, dragging, Tab, the pin, Ctrl+W, running `PI.PLC` and
-coming back, running with no mouse, and going back to the DOS.
+coming back, running with no mouse, going back to the DOS, and the
+calculator's sums by clicks and by keys.
 `--png folder` saves each step's screen.

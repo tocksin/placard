@@ -131,6 +131,22 @@ CONST F-N 0x4990        \ Files: entries read
 CONST F-SEL 0x4991      \ the chosen one
 CONST F-TOP 0x4992      \ the first one shown
 CONST F-MSG 0x4994      \ a message for the bottom line (0: the count)
+\ the calculator: sign and magnitude, 4 bytes each, low byte first
+CONST K-A 0x49A0        \ the result so far
+CONST K-E 0x49A4        \ the number being typed
+CONST K-T 0x49A8        \ work
+CONST K-U 0x49AC
+CONST K-N 0x49B0
+CONST K-M 0x49B4
+CONST K-AS 0x49B8       \ 1: K-A is negative
+CONST K-ES 0x49B9
+CONST K-OP 0x49BA       \ the operation waiting for its second number (0: none)
+CONST K-NEW 0x49BB      \ 1: K-A is shown, a digit starts a new number
+CONST K-ERR 0x49BC      \ 1: too big, or a division by 0
+CONST K-ND 0x49BD       \ digits typed
+CONST DS 0x49BE         \ D+!'s two numbers
+CONST DD 0x49C0
+CONST K-BUF 0x49C4      \ 12: the number as characters
 CONST DIRBUF 0x5400     \ the folder: 96 x 16 (name 11, attributes, size 4)
 CONST DIRMAX 96
 CONST FS_ENTRY 0x4D40   \ the FAT reader's entry
@@ -156,7 +172,7 @@ BYTES T-CALC c"Calc" ;
 BYTES T-EDIT c"Editor" ;
 BYTES T-ABOUT c"About" ;
 WORDS TITLES T-FILES T-CLOCK T-CALC T-EDIT T-ABOUT ;
-BYTES WINIT 2 1 40 30   46 3 31 11   52 20 21 17   20 10 44 30   18 16 44 13 ;
+BYTES WINIT 2 1 40 30   46 3 31 11   52 20 23 15   20 10 44 30   18 16 44 13 ;
 BYTES SELF "PINBOARD.PLC" 0 ;
 
 \ ------------------------------------------------------------
@@ -240,6 +256,101 @@ BYTES DIGS 0x6F 0x7B  0x97 0x2C  0xE7 0x73  0xCF 0x73  0xC9 0x5B
    REV S"  :00 " TYPE INK ;
 
 \ ------------------------------------------------------------
+\ the calculator's numbers: 32 bits in memory, low byte first
+\ ------------------------------------------------------------
+: D0! ( a -- ) 0 OVER ! 0 SWAP 2 + ! ;
+: D0= ( a -- f ) DUP @ SWAP 2 + @ OR 0= ;
+: D+! ( src dst -- carry )              \ dst = dst + src
+   DD ! DS !
+   DS @ @ DD @ @ + DUP DS @ @ U< IF 1 ELSE 0 THEN SWAP DD @ !
+   DS @ 2 + @ DD @ 2 + @ + DUP DS @ 2 + @ U< IF 1 ELSE 0 THEN >R
+   SWAP OVER + DUP ROT U< IF 1 ELSE 0 THEN R> OR
+   SWAP DD @ 2 + ! ;
+: D1+! ( a -- ) DUP @ 1+ DUP >R OVER ! R> IF DROP ELSE 2 + DUP @ 1+ SWAP ! THEN ;
+: DU< ( a b -- f )
+   OVER 2 + @ OVER 2 + @ 2DUP = IF DROP DROP SWAP @ SWAP @ U< ELSE U< NIP NIP THEN ;
+: D-! ( src dst -- )                    \ dst = dst - src
+   SWAP K-M 4 CMOVE
+   K-M @ INVERT K-M ! K-M 2 + @ INVERT K-M 2 + ! K-M D1+!
+   K-M SWAP D+! DROP ;
+: D/10! ( a -- rem )                    \ a byte at a time from the top
+   0 4 BEGIN DUP WHILE 1- >R
+      256 * OVER R@ + C@ + 10 U/MOD
+      ROT DUP R@ + ROT SWAP C! SWAP
+   R> REPEAT DROP NIP ;
+: DMUL ( -- over )                      \ K-T = K-A * K-E; K-E is used up
+   K-T D0! 0
+   32 BEGIN DUP WHILE >R
+      K-T DUP D+! OR
+      K-E DUP D+! IF K-A K-T D+! OR THEN
+   R> 1- REPEAT DROP ;
+: DDIV ( -- )                           \ K-A / K-E: K-T and the rest in K-U
+   K-A K-N 4 CMOVE K-T D0! K-U D0!
+   32 BEGIN DUP WHILE >R
+      K-N DUP D+! K-U DUP D+! DROP IF K-U @ 1 OR K-U ! THEN
+      K-T DUP D+! DROP
+      K-U K-E DU< 0= IF K-E K-U D-! K-T @ 1 OR K-T ! THEN
+   R> 1- REPEAT DROP ;
+
+\ ------------------------------------------------------------
+\ Calc: whole numbers to 2,147,483,647 either side of 0
+\ ------------------------------------------------------------
+: K-BAD ( -- ) 1 K-ERR C! ;
+: K-FIN ( -- )                          \ K-A is the answer
+   K-A 3 + C@ 128 AND IF K-BAD THEN
+   K-A D0= IF 0 K-AS C! THEN ;
+: K-ADD ( -- )
+   K-AS C@ K-ES C@ = IF K-E K-A D+! IF K-BAD THEN K-FIN EXIT THEN
+   K-A K-E DU< IF K-A K-E D-! K-E K-A 4 CMOVE K-ES C@ K-AS C!
+   ELSE K-E K-A D-! THEN K-FIN ;
+: K-SIGNS ( -- ) K-AS C@ K-ES C@ XOR K-AS C! ;
+: K-CALC ( op -- )
+   DUP 43 = IF DROP K-ADD EXIT THEN
+   DUP 45 = IF DROP K-ES C@ 1 XOR K-ES C! K-ADD EXIT THEN
+   DUP 42 = IF DROP K-SIGNS DMUL IF K-BAD THEN K-T K-A 4 CMOVE K-FIN EXIT THEN
+   K-E D0= IF DROP K-BAD EXIT THEN
+   DDIV 47 = IF K-SIGNS K-T ELSE K-U THEN K-A 4 CMOVE K-FIN ;
+: K-COMMIT ( -- )                       \ the number typed goes into K-A
+   K-NEW C@ IF EXIT THEN
+   K-OP C@ DUP IF K-CALC ELSE DROP K-E K-A 4 CMOVE K-ES C@ K-AS C! K-FIN THEN
+   1 K-NEW C! ;
+: K-CLR ( -- )
+   K-A 32 0 FILL ;
+: K-DIG ( d -- )
+   K-NEW C@ IF K-E D0! 0 K-ES C! 0 K-ND C! 0 K-NEW C! THEN
+   K-ND C@ 9 < IF
+      K-E K-T 4 CMOVE K-E DUP D+! DROP K-E DUP D+! DROP K-T K-E D+! DROP
+      K-E DUP D+! DROP
+      K-T D0! K-T ! K-T K-E D+! DROP
+      K-E D0= 0= IF K-ND C@ 1+ K-ND C! THEN
+   ELSE DROP THEN ;
+: K>S ( -- a n )                        \ what the display shows
+   K-NEW C@ IF K-A K-AS ELSE K-E K-ES THEN C@ >R
+   DUP D0= IF RDROP 0 >R THEN
+   K-N 4 CMOVE K-BUF 12 +
+   BEGIN 1- K-N D/10! 48 + OVER C! K-N D0= UNTIL
+   R> IF 1- 45 OVER C! THEN
+   K-BUF 12 + OVER - ;
+BYTES K-LBL " C  " " +- " " <- " " /  "
+            " 7  " " 8  " " 9  " " *  "
+            " 4  " " 5  " " 6  " " -  "
+            " 1  " " 2  " " 3  " " +  "
+            " 0  " " 00 " " mod" " =  " ;
+BYTES K-KEYS 99 110 8 47   55 56 57 42   52 53 54 45   49 50 51 43   48 122 109 61 ;
+BYTES K-EMSG c"Error" ;
+: K-DISP ( -- )
+   2 2 AT REV 19 SPACES
+   3 2 AT K-OP C@ DUP IF EMIT ELSE DROP THEN
+   K-ERR C@ IF 15 2 AT K-EMSG TYPE EXIT THEN
+   K>S 20 OVER - 2 AT GTYPE ;
+: K-DRAW ( -- )
+   K-DISP
+   0 BEGIN DUP 20 < WHILE
+      DUP 4 U/MOD 2* 4 + SWAP 5 * 2 + SWAP AT
+      DUP 2* 2* K-LBL + 4 GTYPE
+   1+ REPEAT DROP ;
+
+\ ------------------------------------------------------------
 \ Files
 \ ------------------------------------------------------------
 : ENT ( i -- a ) 2* 2* 2* 2* DIRBUF + ;
@@ -305,7 +416,7 @@ BYTES DIGS 0x6F 0x7B  0x97 0x2C  0xE7 0x73  0xCF 0x73  0xC9 0x5B
    2 10 AT ." Ctrl+W take the front card down" ;
 
 : NOP ( -- ) ;
-WORDS DRAWTAB F-DRAW C-DRAW NOP NOP A-DRAW ;
+WORDS DRAWTAB F-DRAW C-DRAW K-DRAW NOP A-DRAW ;
 
 \ ------------------------------------------------------------
 \ redrawing
@@ -430,9 +541,36 @@ WORDS DRAWTAB F-DRAW C-DRAW NOP NOP A-DRAW ;
       12 - 5 U< IF C-S THEN
    THEN ;
 
+\ ------------------------------------------------------------
+\ Calc: keys and clicks
+\ ------------------------------------------------------------
+: K-SHOW ( -- )                         \ the display alone when the card is in front
+   2 TOPW = IF 0 PTR 2 SETW K-DISP 1 PTR ELSE 2 UPDATE THEN ;
+: K-DO ( c -- )
+   DUP 99 = IF DROP K-CLR K-SHOW EXIT THEN
+   K-ERR C@ IF DROP EXIT THEN
+   DUP 48 - 10 U< IF 48 - K-DIG K-SHOW EXIT THEN
+   DUP 122 = IF DROP K-NEW C@ 0= IF 0 K-DIG 0 K-DIG K-SHOW THEN EXIT THEN
+   DUP 8 = IF DROP
+      K-NEW C@ 0= IF K-E D/10! DROP K-ND C@ DUP IF 1- THEN K-ND C! K-SHOW THEN EXIT THEN
+   DUP 110 = IF DROP
+      K-NEW C@ IF K-AS ELSE K-ES THEN DUP C@ 1 XOR SWAP C! K-SHOW EXIT THEN
+   DUP 61 = IF DROP K-COMMIT 0 K-OP C! K-SHOW EXIT THEN
+   DUP 43 = OVER 45 = OR OVER 42 = OR OVER 47 = OR OVER 109 = OR
+   IF K-COMMIT K-OP C! K-SHOW ELSE DROP THEN ;
+: K-KEY ( key -- )
+   DUP 10 = IF DROP 61 THEN
+   DUP 127 = IF DROP 99 THEN
+   DUP 37 = IF DROP 109 THEN
+   64 OVER < IF 32 OR THEN K-DO ;
+: K-CLICK ( -- )
+   RR C@ 4 - DUP 1 AND IF DROP EXIT THEN 2/ DUP 5 U< 0= IF DROP EXIT THEN
+   RC C@ 2 - 5 U/MOD SWAP 4 < OVER 4 < AND 0= IF DROP DROP EXIT THEN
+   SWAP 2* 2* + K-KEYS + C@ K-DO ;
+
 : KDROP ( key -- ) DROP ;
-WORDS KEYTAB F-KEY C-KEY KDROP KDROP KDROP ;
-WORDS CLICKTAB F-CLICK C-CLICK NOP NOP NOP ;
+WORDS KEYTAB F-KEY C-KEY K-KEY KDROP KDROP ;
+WORDS CLICKTAB F-CLICK C-CLICK K-CLICK NOP NOP ;
 
 \ ------------------------------------------------------------
 \ moving a card: its outline follows the pointer
@@ -466,15 +604,16 @@ WORDS CLICKTAB F-CLICK C-CLICK NOP NOP NOP ;
 \ ------------------------------------------------------------
 \ the launcher: a list above the rail's Pinboard button
 \ ------------------------------------------------------------
-CONST NMENU 5
-CONST MENU-Y 52         \ BOARD-H - NMENU
+CONST NMENU 6
+CONST MENU-Y 51         \ BOARD-H - NMENU
 BYTES M-FILES c"Files" ;
 BYTES M-CLOCK c"Clock" ;
+BYTES M-CALC c"Calculator" ;
 BYTES M-ABOUT c"About" ;
 BYTES M-BASIC c"BASIC" ;
 BYTES M-DOS c"Back to DOS" ;
-WORDS MITEMS M-FILES M-CLOCK M-ABOUT M-BASIC M-DOS ;
-BYTES MACT 0 1 4 254 255 ;
+WORDS MITEMS M-FILES M-CLOCK M-CALC M-ABOUT M-BASIC M-DOS ;
+BYTES MACT 0 1 2 4 254 255 ;
 : MENU-DRAW ( -- )
    0 PTR
    0 BEGIN DUP NMENU < WHILE
@@ -560,7 +699,7 @@ BYTES MACT 0 1 4 254 255 ;
    FRAME_LO C@ LASTF C! 0 ACC !
    WTAB 40 0 FILL
    0 BEGIN DUP NAPP < WHILE DUP 2* 2* WINIT + OVER WIN 1+ 4 CMOVE 1+ REPEAT DROP
-   F-INIT
+   F-INIT K-CLR
    1 0 WIN C! 0 RAISE
    REFRESH-ALL
    MAIN ;
