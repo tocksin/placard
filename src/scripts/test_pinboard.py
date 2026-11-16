@@ -13,7 +13,7 @@ reads the screen back through Pinboard's font (pinboard_emu.cells).
      in the card's order with sizes, the rail with the Pinboard button,
      the Files button and 00:00
   2. keys: Down moves the bar; Enter on a folder opens it, Backspace
-     comes back; Enter on a file that is not a program says so
+     comes back; Enter on a file that is not a program opens it in the Editor
   3. the mouse: the pointer follows it; a click on the rail's Pinboard
      button shows the launcher, a click on Clock opens the Clock card;
      its H+ and M+ buttons set the time, which the rail shows; the
@@ -26,6 +26,10 @@ reads the screen back through Pinboard's font (pinboard_emu.cells).
   6. with no mouse: no pointer, the keys work (Esc, the launcher, About)
   7. the launcher's "Back to DOS" starts the DOS
   8. the calculator, by clicks and by keys
+  9. the Editor: a file opened from Files, typing, the arrows, joining and
+     splitting lines, a click, long lines and long texts, saving (line
+     ends kept as the file had them), a new text saved under a typed name,
+     files it won't open, and unsaved text keeping Pinboard from leaving
 
 Date: 11/16/2026
 """
@@ -44,9 +48,14 @@ REPO = os.path.join(HERE, '..', '..')
 FONT = gen_pinboard.font_rows()
 K_DOWN, K_UP, K_ENTER, K_BKSP, K_ESC, K_TAB, K_CTRL, K_W = 0x172, 0x175, 0x5A, 0x66, 0x76, 0x0D, 0x14, 0x1D
 K_SHIFT = 0x12
+K_LEFT, K_RIGHT, K_HOME, K_DEL = 0x16B, 0x174, 0x16C, 0x171
 CALC_KEYS = {'1': 0x16, '2': 0x1E, '3': 0x26, '4': 0x25, '5': 0x2E, '6': 0x36, '7': 0x3D,
              '8': 0x3E, '9': 0x46, '0': 0x45, '-': 0x4E, '=': 0x55, '/': 0x4A, 'n': 0x31,
              'c': 0x21, 'm': 0x3A, '\n': K_ENTER, '\b': K_BKSP}
+CALC_KEYS.update(zip('abcdefghijklmnopqrstuvwxyz',
+                     (0x1C, 0x32, 0x21, 0x23, 0x24, 0x2B, 0x34, 0x33, 0x43, 0x3B, 0x42, 0x4B, 0x3A,
+                      0x31, 0x44, 0x4D, 0x15, 0x2D, 0x1B, 0x2C, 0x3C, 0x2A, 0x1D, 0x22, 0x35, 0x1A)))
+CALC_KEYS.update({' ': 0x29, '.': 0x49, ',': 0x41})
 CALC_SHIFT = {'*': 0x3E, '+': 0x55, '%': 0x2E}
 
 
@@ -115,6 +124,7 @@ class Script:
             if png:
                 pe.screen_png(rams[t], os.path.join(png, tag + name + '.png'))
             out[name] = Screen(rams[t])
+        self.card = card
         return out
 
 
@@ -205,7 +215,9 @@ def main(argv):
     check('Enter opens the folder', inl.has('{ LAMP', 2) and inl.has(lamp_files[0], 3)
           and inl.chosen() == lamp_files[0])
     check('Backspace goes back up', o['back'].has('{ \\', 2) and o['back'].chosen() == names[0])
-    check('a file that is not a program', o['notprog'].has('Not a program (.PLC)', 29))
+    np = o['notprog']
+    check('a file that is not a program opens in the Editor',
+          np.has('* Editor', 10) and np.has('BOOT.CFG', 11) and np.has('PINBOARD.PLC', 12))
 
     # ---- 3, 4: the mouse ----------------------------------------------
     print('3. the mouse')
@@ -214,7 +226,7 @@ def main(argv):
     s.shot('moved', 5)
     s.click(3, 58)
     s.shot('menu')
-    s.click(5, 52)                      # Clock
+    s.click(5, 51)                      # Clock
     s.shot('clock')
     s.click(49, 11)                     # H+ twice, M+ once (the card is at 46, 3)
     s.click(49, 11)
@@ -240,7 +252,7 @@ def main(argv):
     check('the pointer follows the mouse', (10, 40) in o['moved'].pointer())
     m = o['menu']
     check('the launcher', all(m.has(' ' + t, r) for r, t in
-                              enumerate(('Files', 'Clock', 'Calculator', 'About', 'BASIC', 'Back to DOS'), 51)))
+                              enumerate(('Files', 'Clock', 'Calculator', 'Editor', 'About', 'BASIC', 'Back to DOS'), 50)))
     c = o['clock']
     check('the Clock card, in front', c.has('* Clock', 3) and c.has('H+', 11)
           and c.has('Clock', 58) and not c.has(' Back to DOS'))
@@ -267,7 +279,7 @@ def main(argv):
     print('5. a program')
     s = Script()
     s.click(3, 58)
-    s.click(5, 52)                      # Clock
+    s.click(5, 51)                      # Clock
     s.click(49, 11)                     # 01:00
     s.key(K_TAB)
     for _ in range(pi):
@@ -292,21 +304,21 @@ def main(argv):
     s.t = 220                           # mouse_init waits for a mouse first
     s.shot('up', 0)
     s.key(K_ESC)
-    for _ in range(3):
+    for _ in range(4):
         s.key(K_DOWN)
     s.shot('menu', 5)
     s.key(K_ENTER)
     s.shot('about')
     o = s.run(files, mouse=False, png=args.png, tag='6_')
     check('no pointer', o['up'].has('* Files', 1) and not o['up'].pointer())
-    check('Esc: the launcher, Down Down Down Enter: About',
+    check('Esc: the launcher, Down four times, Enter: About',
           o['menu'].has(' Back to DOS') and o['about'].has('* About') and o['about'].has('PINBOARD'))
 
     # ---- 7: back to the DOS ---------------------------------------------
     print('7. the DOS')
     s = Script()
     s.key(K_ESC)
-    for _ in range(5):
+    for _ in range(6):
         s.key(K_DOWN)
     s.key(K_ENTER)
     s.shot('dos', 120)
@@ -323,7 +335,7 @@ def main(argv):
     print('8. the calculator')
     s = Script()
     s.click(3, 58)
-    s.click(5, 53)
+    s.click(5, 52)
     s.shot('calc')
     for c, r in ((55, 26), (70, 26), (65, 28), (70, 32)):      # 7 * 6 =
         s.click(c, r)
@@ -344,6 +356,101 @@ def main(argv):
     for i, (keys, want) in enumerate(sums):
         check('keys: %s  %s' % (keys[1:].replace('\n', '=').replace('\b', '<'), want),
               shows(o['k%d' % i])[-1 if i < len(sums) - 1 else 0] == want)
+
+    # ---- 9: the Editor (its card is at 20, 10) ---------------------------
+    print('9. the Editor')
+    etch = names.index('ETCH.BAS')
+    s = Script()
+    for _ in range(etch):
+        s.key(K_DOWN)
+    s.key(K_ENTER)
+    s.shot('open', 60)
+    s.key(K_DOWN)
+    s.key(K_DOWN)
+    s.key(K_RIGHT)
+    s.type('abc\nxy')
+    s.shot('typed')
+    s.key(K_UP)
+    s.key(K_HOME)
+    s.key(K_DEL)
+    s.key(K_BKSP)
+    s.shot('joined')
+    s.click(30, 16)                     # row 4 of the text, column 9
+    s.cell(70, 50)
+    s.type('q')
+    s.shot('clicked')
+    s.chord(K_CTRL, CALC_KEYS['e'])     # the line's end
+    s.type(' ' + 'z' * 30)
+    s.shot('wide')
+    s.chord(K_CTRL, CALC_KEYS['o'])
+    s.shot('saved', 150)
+    s.type('k')                         # unsaved text: no leaving
+    s.key(K_ESC)
+    for _ in range(6):
+        s.key(K_DOWN)
+    s.key(K_ENTER)
+    s.shot('guard', 60)
+    s.chord(K_CTRL, CALC_KEYS['n'])
+    s.shot('warn')
+    s.chord(K_CTRL, CALC_KEYS['n'])
+    s.shot('new')
+    s.type('a\n' * 30 + 'end')
+    s.shot('long', 40)
+    s.chord(K_CTRL, CALC_KEYS['o'])
+    s.shot('ask')
+    s.type('note.txt\n')
+    s.shot('named', 200)
+    o = s.run(files, png=args.png, tag='9_')
+    card = s.card
+    src = files['ETCH.BAS'].decode('latin-1').split('\n')
+
+    def text(scr, n=26):
+        return [r[21:63].rstrip() for r in scr.rows[12:12 + n]]
+    check('ETCH.BAS opens in the Editor', o['open'].has('* Editor', 10) and o['open'].has('ETCH.BAS', 11)
+          and text(o['open'], 5) == [l[:42] for l in src[:5]])
+    want = src[:2] + [src[2][:1] + 'abc', 'xy' + src[2][1:]] + src[3:]
+    check('typing and Enter', text(o['typed'], 6) == [l[:42] for l in want[:6]]
+          and o['typed'].has('ETCH.BAS *', 11))
+    want = src[:1] + [src[1] + 'abc', 'xy' + src[2][1:]] + src[3:]
+    check('Up, Home, Del, Backspace join the lines', text(o['joined'], 6) == [l[:42] for l in want[:6]])
+    want[4] = want[4][:9] + 'q' + want[4][9:]
+    check('a click puts the cursor there', text(o['clicked'], 6) == [l[:42] for l in want[:6]])
+    want[4] += ' ' + 'z' * 30
+    shift = len(want[4]) - 41
+    check('a long line scrolls sideways', shift > 0
+          and text(o['wide'], 6) == [l[shift:shift + 42] for l in want[:6]])
+    check('Ctrl+O saves it, line ends as they were', o['saved'].has('Saved', 11)
+          and sdimage.read(card, 'ETCH.BAS') == '\n'.join(want).encode('latin-1'))
+    check('unsaved text keeps Pinboard from leaving',
+          o['guard'].has('Not saved: Ctrl+O, or Ctrl+N twice', 11) and o['guard'].has('* Editor', 10))
+    check('Ctrl+N asks once, then clears', o['warn'].has('Ctrl+N again', 11)
+          and o['new'].has('(new text)', 11) and text(o['new']) == [''] * 26)
+    check('a long text scrolls', text(o['long']) == ['a'] * 25 + ['end'])
+    check('a new text asks for its name', o['ask'].has('Save as: _', 11))
+    check('and is saved under it, with CR LF', sdimage.read(card, 'NOTE.TXT') == b'a\r\n' * 30 + b'end'
+          and o['named'].has('Saved', 11))
+
+    s = Script()
+    for _ in range(boot):
+        s.key(K_DOWN)
+    s.key(K_ENTER)
+    s.chord(K_CTRL, CALC_KEYS['e'])
+    s.type('x')
+    s.chord(K_CTRL, CALC_KEYS['o'])
+    s.shot('cfg', 150)
+    s.key(K_TAB)
+    for _ in range(names.index('DEMO.SNG') - boot):
+        s.key(K_DOWN)
+    s.key(K_ENTER)
+    s.shot('binary', 80)
+    for _ in range(names.index('RAYTEX.OVL') - names.index('DEMO.SNG')):
+        s.key(K_DOWN)
+    s.key(K_ENTER)
+    s.shot('big', 40)
+    o = s.run(files, png=args.png, tag='9b_')
+    check('a CR LF file is saved with CR LF', sdimage.read(s.card, 'BOOT.CFG') == b'PINBOARD.PLCx\r\n')
+    check('a file that is not text', o['binary'].has('Not a text file', 29))
+    check('a file that is too big', o['big'].has('Too big for the Editor', 29))
 
     print('PASS' if check.ok else 'FAIL')
     return 0 if check.ok else 1

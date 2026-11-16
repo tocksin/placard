@@ -3,15 +3,12 @@
 Pinboard is a windowed desktop for the Placard: a program on the SD card,
 `PINBOARD.PLC` (`src/scripts/pinboard.masm` and `pinboard.vm`, built by
 `gen_pinboard.py`).  Its windows are **cards** pinned on a board.  A card
-shows the card's files and runs programs from it; others are a clock and
-a calculator.  It works with the PS/2 mouse, the keyboard, or both.
+shows the card's files and runs programs from it; others are a clock, a
+calculator and a text editor.  It works with the PS/2 mouse, the keyboard, or both.
 
 Date: 11/16/2026
 
-![Pinboard in the emulator: the Files, Clock, Calc and About cards](../../reference/pinboard.png)
-
-The board, the cards, the Files card, the Clock, the calculator and the
-launcher are here.  A text editor comes next.
+![Pinboard in the emulator: the Files, Clock, Calc and Editor cards](../../reference/pinboard.png)
 
 ## Starting it
 
@@ -44,8 +41,8 @@ up (the front one in white) and the time.
 | Esc | the launcher: Up, Down and Enter, Esc closes it |
 | any other | goes to the front card |
 
-The launcher puts up Files, Clock, Calculator or About, starts BASIC, or
-goes back to the DOS.
+The launcher puts up Files, Clock, Calculator, Editor or About, starts
+BASIC, or goes back to the DOS.
 
 ## Files
 
@@ -57,7 +54,7 @@ something did not work.
 | Key | Mouse | Does |
 |-----|-------|------|
 | Up, Down | click a row | moves the bar; the list scrolls |
-| Enter | click the chosen row again | runs the program, or opens the folder; another file says "Not a program (.PLC)" |
+| Enter | click the chosen row again | runs the program, opens the folder, or opens another file in the [Editor](#editor) |
 | Backspace | click the arrow by the folder's name | the folder above |
 | | click the scroll bar, above or below its middle | scrolls 5 rows |
 
@@ -100,6 +97,35 @@ the display.  An answer that is too big, or a division by 0, shows
 arithmetic is done 16 bits at a time in the bytecode: a multiply or a
 divide is 32 shift and add steps, about a twentieth of a second.
 
+## Editor
+
+The Editor holds one text: a file opened from the Files card (Enter on
+any file that is not a program, a BASIC program for one), or a new one.
+
+| Key | Does |
+|-----|------|
+| the arrows | move the cursor; the text scrolls up, down and sideways |
+| Home, Ctrl+E | the start and the end of the line |
+| Enter | a new line |
+| Backspace, Del | take out the character before or under the cursor; at a line's edge they join two lines |
+| Ctrl+O | saves the text (write it Out).  A new text asks for its name first: type it and Enter, or Esc |
+| Ctrl+N | a new, empty text.  With unsaved changes it asks once more |
+
+A click puts the cursor on the character clicked.  The top line shows
+the file's name, with a `*` while there are changes that are not saved.
+
+- The text is in memory, 2,815 characters at most, and a file to open
+  2,560 bytes at most.  A bigger file, or one that is not text, is not
+  opened and the Files card says why.
+- Lines are saved with the ends the file had (CR LF or LF); a new text
+  gets CR LF.  Tabs become spaces.
+- A new text is saved in the folder the Files card shows; an opened one
+  goes back to its own folder.
+- Unsaved text keeps Pinboard from leaving for a program, BASIC or the
+  DOS: the Editor comes to the front and says so.
+- Ctrl+S can't be the save key: the keyboard driver gives the Left arrow
+  the same code (13h).
+
 ## How it is built
 
 Pinboard is written in the Forth-like language of BASIC's interpreter
@@ -108,8 +134,8 @@ a stack machine, a copy of BASIC's inner interpreter that `pinboard.masm`
 carries so it does not depend on where BASIC is in the ROM.  A call in the
 bytecode is two bytes; `vmc.py`'s `RAMCALLS` sets bit 7 of the first so
 that addresses in RAM, x0100-x3FFF, can't be taken for a primitive's
-number.  The desktop is about 7 KB of bytecode and 1.4 KB of machine
-code, so over a third of the room of a `.PLC` program is still free.
+number.  The desktop is about 9 KB of bytecode and 1.5 KB of machine
+code; about 3 KB of a `.PLC` program's room is still free.
 
 Machine code does what has to be quick:
 
@@ -119,6 +145,7 @@ Machine code does what has to be quick:
 | `INVC` | turns a cell over (the outline of a card being dragged) |
 | `PTR` | hides or shows the pointer: it saves the 2 x 12 bytes under it |
 | `POLL` | waits for the next frame, reads the keyboard and the mouse, moves the pointer |
+| `SCAN` | finds the end of a line of the Editor's text |
 
 - **The font** is Pinboard's own table (`gen_pinboard.py`): the library's
   characters at 20-7E, the board, the card edges, the pin, the arrows and
@@ -137,13 +164,14 @@ Machine code does what has to be quick:
 
 | Memory | Holds |
 |--------|-------|
-| zero page x20-x52 | the interpreter, drawing and pointer state |
+| zero page x20-x52 | the interpreter, drawing and pointer state (the data stack is x53-x8F) |
 | zero page x90-x9F | the desktop's variables (the sound driver's bytes: Pinboard makes no sound) |
 | x0100-x35FF | machine code and bytecode |
 | x3600-x37FF | the pointer, shifted 0-7 pixels: mask and picture |
 | x3800-x3FFF | the font, a page per pixel row |
-| x4800-x48FF | the interpreter's return stack |
-| x4900-x49FF | the bytes under the pointer, the cards' table and order, the clock, the calculator's numbers |
+| x4000-x4AFF | the Editor's text |
+| x4B00-x4BFF | the bytes under the pointer, the cards' table and order, the clock, the calculator's numbers, the Editor's state |
+| x4C00-x4CFF | the interpreter's return stack |
 | x5400-x59FF | the folder: 96 entries of 16 bytes |
 | x5D15-x5D17 | the time, kept in the menu block while a program runs |
 
@@ -158,6 +186,10 @@ key (`KEYTAB`) and take a click (`CLICKTAB`).
 ROM, a card image of `sdcard/`, a PS/2 keyboard and a mouse, and reads the
 screen back as characters: power-up, the keys, the pointer, the launcher,
 setting the clock, dragging, Tab, the pin, Ctrl+W, running `PI.PLC` and
-coming back, running with no mouse, going back to the DOS, and the
-calculator's sums by clicks and by keys.
+coming back, running with no mouse, going back to the DOS, the
+calculator's sums by clicks and by keys, and the Editor: opening, typing,
+joining lines, a click, scrolling both ways, saving with the file's line
+ends (read back from the card image), a new text saved under a typed
+name, the files it won't open and the unsaved text that keeps Pinboard
+from leaving.
 `--png folder` saves each step's screen.
