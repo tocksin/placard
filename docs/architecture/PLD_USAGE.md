@@ -1,6 +1,6 @@
 # PLD usage: unused pins and product terms
 
-Date: 2026-11-02. Taken from `src/pld/*.pld` on main.
+Date: 2026-11-16. Taken from `src/pld/*.pld` on main.
 
 The main board has 20 ATF22V10C chips built from 15 PLD sources, and the ROM cartridge one more (`ATF22V10_CART.pld`). Each 22V10 has 12 dedicated inputs (pins 1-11 and 13; pin 1 is also the register clock) and 10 I/O pins (14-23), each with an output macrocell (OLMC) of 8, 10, 12, 14, 16, 16, 14, 12, 10 or 8 product terms. An I/O pin used as an input gives up its cell's terms. Every chip also has one asynchronous reset (AR) and one synchronous preset (SP) term shared by all registers, and each cell has its own output-enable term.
 
@@ -28,7 +28,7 @@ Each output equation was expanded with its intermediate variables (names that ar
 | `ATF22V10_HCOUNT.pld` | #13 | 7, 8, 9, 10, 11, 13, 2* | none | 0 | 10 | 66 / 120 |
 | `ATF22V10_VCOUNT.pld` | #14 | 3, 4, 5, 6, 7, 8, 9, 10, 11, 13 | none | 0 | 10 | 79 / 120 |
 | `ATF22V10_SYNC.pld` | #15 | none | 21, 22 | 0 | 8 | 16 / 98 |
-| `ATF22V10_COLORDECODER.pld` | #16 | none | none | 2 | 8 | 95 / 104 |
+| `ATF22V10_COLORDECODER.pld` | #16 | none | none | 2 | 8 | 98 / 104 |
 | `ATF22V10_IR.pld` | #17 | 13 | 22 (10), 23 (8) | 0 | 8 | 17 / 102 |
 | `ATF22V10_AUDIO.pld` | #35 | none | none | 3 | 7 | 23 / 78 |
 | `ATF22V10_PORT.pld` | #38 | none | 15 (10) | 1 | 8 | 9 / 102 |
@@ -39,7 +39,7 @@ Each output equation was expanded with its intermediate variables (names that ar
 
 Free inputs in total: HCOUNT 7, VCOUNT 10, PORT 0, PS2 6, IR 1 (main board); CART 7. Free I/O cells: IR pins 22 and 23, PORT pin 15, MEM_CTRL pin 16 and SYNC pins 21 and 22.
 
-**Full or tight cells** (0-1 spare): COLORDECODER RED1, RED2, RED3, GRN1, BLU2 (full) and GRN3 (1 spare); MEM_CTRL RAM_OE (full); HCOUNT HSYNC (1 spare); STATE Q1 (1 spare).
+**Full or tight cells** (0-1 spare): COLORDECODER RED1, RED2, RED3, GRN1, BLU2 (full), GRN3 and BLU3 (1 spare); MEM_CTRL RAM_OE (full); HCOUNT HSYNC (1 spare); STATE Q1 (1 spare).
 
 ## Per PLD
 
@@ -215,7 +215,7 @@ Pins 21 and 22 are free. Pin 20 is the RAM /WE (1 term, plus the RUN output enab
 
 ### `ATF22V10_COLORDECODER.pld` (#16)
 
-The fullest PLD. Every pin is used (14 inputs, 8 outputs), and five output cells are **full by this count**: RED1 (pin 15, 10/10), RED2 (pin 16, 12/12), RED3 (pin 21, 12/12), GRN1 (pin 17, 14/14) and BLU2 (pin 22, 10/10). GRN3 has 1 spare. Only BLU3 (4 spare) and GRN2 (4 spare) have room.
+The fullest PLD. Every pin is used (14 inputs, 8 outputs), and five output cells are **full by this count**: RED1 (pin 15, 10/10), RED2 (pin 16, 12/12), RED3 (pin 21, 12/12), GRN1 (pin 17, 14/14) and BLU2 (pin 22, 10/10). GRN3 and BLU3 have 1 spare. Only GRN2 (4 spare) has room. Revision 08 (the 8 bpp blended grays, COLORS.md) added 3 terms to BLU3 and 5 to BLU2, and made room on BLU2 by reading BLU3, GRN1 and GRN2 back in the 2 and 4 bpp terms; BLU2 and BLU3 are counted as written in the source.
 
 | Pin | Terms in cell | Signal | Use | Terms used | Spare |
 |---:|---:|---|---|---:|---:|
@@ -223,7 +223,7 @@ The fullest PLD. Every pin is used (14 inputs, 8 outputs), and five output cells
 | 15 | 10 | RED1 | combinational | 10 | 0 **full** |
 | 16 | 12 | RED2 | combinational | 12 | 0 **full** |
 | 17 | 14 | GRN1 | combinational | 14 | 0 **full** |
-| 18 | 16 | BLU3 | combinational | 12 | 4 |
+| 18 | 16 | BLU3 | combinational | 15 | 1 tight |
 | 19 | 16 | GRN3 | combinational | 15 | 1 tight |
 | 20 | 14 | GRN2 | combinational | 10 | 4 |
 | 21 | 12 | RED3 | combinational | 12 | 0 **full** |

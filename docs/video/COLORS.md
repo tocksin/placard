@@ -1,6 +1,6 @@
 # ATF22V10 VGA Color Decoder
 
-Date: 2026-11-02
+Date: 2026-11-16
 
 ## Overview
 
@@ -166,6 +166,53 @@ GRN1 = D5    GRN2 = D6    GRN3 = D7
 So the byte is `GGGBBRRR` (D7..D0): green in bits 7:5, blue in 4:3, red in
 2:0.
 
+### 8-bit grays
+
+Blue has only two DAC bits, so a plain pass-through has just two exact
+grays (black and white).  From revision 08, five more codes with red equal
+to green are **blended grays**: the decoder switches blue between two
+neighboring DAC levels during the pixel's eight clocks (it uses H2:H0 for
+this), so that the average blue matches red and green.  Use these eight
+bytes for a gray ramp:
+
+| Gray | Byte | R = G | B | Red, green | Blue in clocks H = 0..7 (`BLU3 BLU2`) | Blue average | Blue error |
+|:----:|:----:|:-----:|:-:|-----------:|---------------------------------------|-------------:|-----------:|
+| 0 | `x00` | 0 | 0 | 0 mV | steady `00` | 0 mV | 0 |
+| 1 | `x21` | 1 | 0 | 98 mV | `00 01 00 01 00 01 00 01` | 113 mV | +2.2 % |
+| 2 | `x4A` | 2 | 1 | 202 mV | steady `01` (not blended) | 227 mV | +3.6 % |
+| 3 | `x6B` | 3 | 1 | 300 mV | `01 01 01 10 01 01 01 10` | 284 mV | -2.4 % |
+| 4 | `x8C` | 4 | 1 | 394 mV | `01 10 10 10 01 10 10 10` | 397 mV | +0.4 % |
+| 5 | `xB5` | 5 | 2 | 492 mV | `10 10 10 10 10 10 10 11` | 481 mV | -1.5 % |
+| 6 | `xD6` | 6 | 2 | 596 mV | `10 11 10 11 10 11 10 11` | 567 mV | -4.3 % |
+| 7 | `xFF` | 7 | 3 | 694 mV | steady `11` | 680 mV | -2.0 % |
+
+The error is the blue average minus the red and green level, in percent of
+full scale (694 mV).  Blue's DAC levels are 0, 227, 453 and 680 mV.  Before
+revision 08 the five blended codes were off by 5.6 to 24 %.
+
+The blend is a fine pattern one dot clock wide inside the pixel, so it is
+blue stripes at 640-pixel pitch, one blue step (227 mV) high.  All other 8-bit codes, and
+the 1, 2 and 4-bit modes, are unchanged.
+
+```text
+GRAY1 = M8 & (D7..D0 = x21)     GRAY3 = M8 & (x6B)     GRAY4 = M8 & (x8C)
+GRAY5 = M8 & (xB5)              GRAY6 = M8 & (xD6)
+
+BLU3 = ... # M8 & D4 # GRAY3 & H1 & H0 # GRAY4 & H0 # GRAY4 & H1
+BLU2 = ... # M8 & D3 & D4 # M8 & D3 & !BLU3
+           # GRAY1 & H0 # GRAY5 & H2 & H1 & H0 # GRAY6 & H0
+```
+
+In a code with blue = `01`, BLU2 is the opposite of the BLU3 pin, so a BLU3
+blend term swaps blue between `01` and `10`.
+
+**Room for the terms.**  BLU2's cell has only 10 product terms and was
+full, so BLU2 now reads other output pins back, as every output already
+does with GRN3 in 1-bit mode: in 2-bit mode BLU2 = the BLU3 pin (both are
+C0), and in 4-bit mode indexes 8 and A come from `GRN2 & GRN1 & BLU3`.  BLU2
+then follows those pins by one more gate delay (7.5 ns at most) in the 2
+and 4-bit modes; the 1-bit mode's timing is unchanged.
+
 ---
 
 # ATF22V10 Pinout
@@ -201,7 +248,7 @@ The design uses the 24-pin ATF22V10 package and every non-power pin
 | 24 | `VCC` | +5 V |
 
 This is the fullest PLD in the design: RED1, RED2, RED3, GRN1 and BLU2 use
-every product term of their pins, and GRN3 has one to spare
+every product term of their pins, and GRN3 and BLU3 have one to spare
 ([PLD_USAGE.md](../architecture/PLD_USAGE.md) has the counts).
 
 ---
@@ -285,7 +332,7 @@ A set bit lifts that channel by about 0.2 V for the whole row.  See
 
 | Feature | Configuration |
 |---------|---------------|
-| PLD | ATF22V10C (`ATF22V10_COLORDECODER.pld`, revision 07) |
+| PLD | ATF22V10C (`ATF22V10_COLORDECODER.pld`, revision 08) |
 | Package | 24-pin |
 | Supply | +5 V |
 | Pixel inputs | 8 |
@@ -295,6 +342,7 @@ A set bit lifts that channel by about 0.2 V for the whole row.  See
 | VGA outputs | 8 |
 | Color modes | 1, 2, 4, 8 bit |
 | Maximum colors | 256 |
+| Grays in 8-bit mode | 8 (five blended) |
 | VGA red bits | 3 |
 | VGA green bits | 3 |
 | VGA blue bits | 2 |

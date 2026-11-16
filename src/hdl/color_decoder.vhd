@@ -1,7 +1,7 @@
 -- @file ATF22V10_COLORDECODER.vhd
--- @brief 8-bit pixel-pack color decoder (VHDL conversion of ATF22V10_COLORDECODER.pld, rev 07)
+-- @brief 8-bit pixel-pack color decoder (VHDL conversion of ATF22V10_COLORDECODER.pld, rev 08)
 --
--- Date: 10/16/2026
+-- Date: 11/16/2026
 --
 -- Direct conversion of the PLD equations: equations are not optimized and
 -- every pin is kept as an individual std_logic port.
@@ -21,7 +21,8 @@
 --    1 bpp : H2:H0 -> D0..D7                       (1 clock per pixel)
 --    2 bpp : H2:H1 -> D1:0 / D3:2 / D5:4 / D7:6    (2 clocks per pixel)
 --    4 bpp : H2    -> D3:0 / D7:4                  (4 clocks per pixel)
---    8 bpp : H ignored                             (8 clocks per pixel)
+--    8 bpp : H ignored, except in the five gray  (8 clocks per pixel)
+--            codes below, where H2:H0 blends blue
 --
 -- OUTPUTS (resistor DAC, bit 3 = MSB of each channel)
 --    RED1..RED3 = R LSB..MSB   (3 bits)
@@ -29,6 +30,25 @@
 --    BLU2..BLU3 = B LSB..MSB   (2 bits)
 --
 -- 8 bpp pass-through byte format (D7..D0) = G3 G2 G1 B3 B2 R3 R2 R1
+--
+-- 8 bpp GRAYS (revision 08).  Blue has only two DAC bits, so for five codes
+-- with R = G the decoder switches blue between two neighboring DAC levels
+-- during the pixel's 8 clocks, so that its average matches red and green.
+-- Blue DAC levels (BLU3 BLU2): 00 = 0, 01 = 227, 10 = 453, 11 = 680 mV.
+--
+--    Gray  Byte  R=G  B   R,G mV   Blue per clock H = 0..7        Blue mV
+--     0    x00    0   0      0     steady 00                         0
+--     1    x21    1   0     98     00 01 00 01 00 01 00 01         113
+--     2    x4A    2   1    202     steady 01 (not blended)         227
+--     3    x6B    3   1    300     01 01 01 10 01 01 01 10         284
+--     4    x8C    4   1    394     01 10 10 10 01 10 10 10         397
+--     5    xB5    5   2    492     10 10 10 10 10 10 10 11         481
+--     6    xD6    6   2    596     10 11 10 11 10 11 10 11         567
+--     7    xFF    7   3    694     steady 11                       680
+--
+-- BLU2 reads the BLU3, GRN1 and GRN2 pins back (the PLD's PIN NOTES say why).
+-- In VHDL an output port cannot be read, so blu3Int, grn1Int and grn2Int
+-- carry those values internally, as GRN3_INT does for GRN3.
 --
 -- GRN3 computes the 1 bpp pixel mux itself (in 1 bpp mode GRN3 = the selected
 -- pixel) and the other seven outputs use GRN3.  In VHDL an output port cannot
@@ -98,6 +118,18 @@ architecture rtl of color_decoder is
 
     -- internal copy of GRN3 (output ports cannot be read)
     signal GRN3_INT : std_logic;
+
+    -- 8 bpp blended gray codes
+    signal gray1    : std_logic;
+    signal gray3    : std_logic;
+    signal gray4    : std_logic;
+    signal gray5    : std_logic;
+    signal gray6    : std_logic;
+
+    -- internal copies of BLU3, GRN1 and GRN2 (read back by BLU2)
+    signal blu3Int  : std_logic;
+    signal grn1Int  : std_logic;
+    signal grn2Int  : std_logic;
 
 begin
 
@@ -193,17 +225,45 @@ begin
 
 
     ---------------------------------------------------------------------------
+    -- 8 bpp: blended gray codes
+    ---------------------------------------------------------------------------
+    gray1 <= M8 and (not D7) and (not D6) and (    D5) and (not D4) and (not D3) and (not D2) and (not D1) and (    D0);   -- x21
+    gray3 <= M8 and (not D7) and (    D6) and (    D5) and (not D4) and (    D3) and (not D2) and (    D1) and (    D0);   -- x6B
+    gray4 <= M8 and (    D7) and (not D6) and (not D5) and (not D4) and (    D3) and (    D2) and (not D1) and (not D0);   -- x8C
+    gray5 <= M8 and (    D7) and (not D6) and (    D5) and (    D4) and (not D3) and (    D2) and (not D1) and (    D0);   -- xB5
+    gray6 <= M8 and (    D7) and (    D6) and (not D5) and (    D4) and (not D3) and (    D2) and (    D1) and (not D0);   -- xD6
+
+
+    ---------------------------------------------------------------------------
     -- FINAL OUTPUTS
     ---------------------------------------------------------------------------
     RED1 <= (M1 and GRN3_INT) or (M2 and C1) or (M4 and RED1_4) or (M8 and D0);
     RED2 <= (M1 and GRN3_INT) or (M2 and C1) or (M4 and RED2_4) or (M8 and D1);
     RED3 <= (M1 and GRN3_INT) or (M2 and C1) or (M4 and RED3_4) or (M8 and D2);
 
-    BLU2 <= (M1 and GRN3_INT) or (M2 and C0) or (M4 and BLU2_4) or (M8 and D3);
-    BLU3 <= (M1 and GRN3_INT) or (M2 and C0) or (M4 and BLU3_4) or (M8 and D4);
+    -- BLU3: revision 07 terms, plus the blends up from blue = 01
+    blu3Int <= (M1 and GRN3_INT) or (M2 and C0) or (M4 and BLU3_4) or (M8 and D4)
+            or (gray3 and H1 and H0)                        -- 2 of 8 clocks
+            or (gray4 and H0) or (gray4 and H1);            -- 6 of 8 clocks
 
-    GRN1 <= (M1 and GRN3_INT) or (M2 and C1) or (M2 and C0) or (M4 and GRN1_4) or (M8 and D5);
-    GRN2 <= (M1 and GRN3_INT) or (M2 and C1 and C0) or (M4 and GRN2_4) or (M8 and D6);
+    BLU3 <= blu3Int;
+
+    -- BLU2: reads BLU3, GRN1 and GRN2 back
+    BLU2 <= (M1 and GRN3_INT)
+         or ((not MODE1) and MODE0 and blu3Int)             -- 2 bpp
+         or (M4 and (not X3) and X0)                        -- 4 bpp indexes 1, 3, 5, 7
+         or (MODE1 and (not MODE0) and grn2Int and grn1Int and blu3Int)   -- 4 bpp indexes 8, A
+         or (M8 and D3 and D4)                              -- 8 bpp blue = 11
+         or (M8 and D3 and (not blu3Int))                   -- 8 bpp blue = 01, off while BLU3 blends
+         or (gray1 and H0)                                  -- 4 of 8 clocks
+         or (gray5 and H2 and H1 and H0)                    -- 1 of 8 clocks
+         or (gray6 and H0);                                 -- 4 of 8 clocks
+
+    grn1Int <= (M1 and GRN3_INT) or (M2 and C1) or (M2 and C0) or (M4 and GRN1_4) or (M8 and D5);
+    grn2Int <= (M1 and GRN3_INT) or (M2 and C1 and C0) or (M4 and GRN2_4) or (M8 and D6);
+
+    GRN1 <= grn1Int;
+    GRN2 <= grn2Int;
 
     -- GRN3: 1 bpp 8:1 pixel mux written out (8 terms) + its own terms
     GRN3_INT <= (M1 and D0 and (not H2) and (not H1) and (not H0))
