@@ -3,7 +3,8 @@
 gen_revb_mod.py - the pictures of docs/hardware/REVB_MOD.md
 
 The hand modification that makes a rev A main board work like rev B (the
-160-read lines, docs/video/HIRES.md): five lifted PLD pins and five wires.
+160-read lines, docs/video/HIRES.md): five lifted pins and five wires.  The
+pins are bent on carrier sockets that the PLDs plug into, not on the PLDs.
 Draws, from kicad/placard.kicad_pcb (read as text, never written):
 
     revb_mod_board.png    the whole board, the chips and the wire runs
@@ -245,9 +246,9 @@ def closeup(parts, refs, wires, title, path, k=0.2, margin=(9, 12, 9, 9), others
     for i, (text, col) in enumerate(lines):
         fig.text(0.02, (low - 0.12 - lh * (i + 0.5)) / fh, text, fontsize=10, fontweight='bold', color=col,
                  va='center')
-    fig.text(0.02, 0.12 / fh, 'SOLDER (round end): soldered to the chip pin.   HOLE (square end): stripped 4 mm '
-             'and pushed into the socket contact left empty under a bent pin.   Red ring: pin bent out of the '
-             'socket.', fontsize=8.5, va='center', color='#333333')
+    fig.text(0.02, 0.12 / fh, 'SOLDER (round end): soldered to the carrier socket\'s pin (at U27: the chip\'s pin).   HOLE (square '
+             'end): pushed into the board socket contact left empty under a bent pin.   Red ring: carrier pin '
+             'bent out.', fontsize=8.5, va='center', color='#333333')
     fig.savefig(path, dpi=110)
     plt.close(fig)
     print('wrote', os.path.relpath(path, B.ROOT))
