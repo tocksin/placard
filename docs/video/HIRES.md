@@ -222,6 +222,7 @@ before these get real track delays.
 | Python simulator | `placard_sim.py --rev b`; `test_hires.py` compares the screen and the stall count with the equations |
 | Web emulator | Board: rev B in the options ([EMULATOR.md](../software/EMULATOR.md)) |
 | Library | `vid_addr_hi` ([LIBRARY.md](../software/LIBRARY.md#video-and-system)) |
+| Demo | the text demo `TEXT.PLC`, H key: 640 across in 4 colors, 320 in 16 and 160 in 256 on one screen, with normal rows between ([MENU.md](../software/MENU.md#the-text-demo-on-the-card)) |
 
 Programs that use the blank line for speed on rev A (it shows as a
 160-read row on rev B) have not been changed.

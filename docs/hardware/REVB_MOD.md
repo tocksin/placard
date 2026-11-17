@@ -134,9 +134,12 @@ carrier contacts are in the reading.
    different lines than on rev A, so the picture may sit a little higher
    or lower until the monitor adjusts.
 2. Programs that never set bit 7 of a mode byte look and run as on rev A.
-3. A row with bit 7 set is a 160-read row.  There is no
-   test program for this yet; the emulators show what a screen should look
-   like (`placard_sim.py --rev b`, or Board: rev B on the web page).
+3. A row with bit 7 set is a 160-read row.  Run the text demo
+   (`TEXT.PLC`, Video test in the menu) and press H: it shows 80 column
+   text in 4 colors, 320 across in 16 colors and 160 across in 256
+   ([MENU.md](../software/MENU.md#the-text-demo-on-the-card) has the
+   picture; the emulators show the same with `placard_sim.py --rev b`, or
+   Board: rev B on the web page).
 
 If the screen is wrong:
 

@@ -25,9 +25,11 @@ busiest frame's work is printed.  It also checks the pixel scroller (the
 message row of the 40 column band against the message, the font and the
 frame count), the 256-color ring (every ring pixel against HUE and the
 phase) and the row tints of rows 0-95 (TINTB, with the raster bar BARP at
-BARY[phase / 2]).
+BARY[phase / 2]).  Then it presses H and checks the 160-read screen of a
+rev B board (check_hires; --hires-png saves it), and H again for the normal
+screen.
 
-Date: 11/11/2026
+Date: 11/17/2026
 """
 
 import argparse
@@ -106,6 +108,93 @@ def check_ring(cpu, syms, rom):
     return True
 
 
+def check_hires(rig, syms, rom, png=None):
+    """H: the 160-read screen (rev B) and back.  Checks the mode bytes, the
+    80 column 4-color text against text_h, the 16 color bars, the 256-color
+    rainbow, that the scroller goes on, and that the normal screen comes
+    back as it was."""
+    cpu, mem = rig.cpu, rig.cpu.mem
+    ok = True
+
+    def fail(msg):
+        nonlocal ok
+        ok = False
+        print('FAIL: 160-read screen: ' + msg)
+
+    def modes(want):
+        got = [mem[0x5A20 + r] for r in range(96, 480)]
+        return got == want
+
+    normal = [0x0A] * 128 + [0x05] * 128 + [0x0B] * 128
+    before = bytes(mem[0x6000:0x10000])
+    cpu.rev_b = True
+    rig.key('h')
+    rig.run(40)
+    if mem[syms['hx']] != 1 or not modes([0x85] * 128 + [0x05] * 128 + [0x8A] * 64 + [0x8B] * 64):
+        fail('H did not switch the mode bytes')
+        return False
+    # the 80 column text: every cell of the 8 text rows
+    want = {}
+    a = syms['text_h']
+    while rom[a] != 0xFF:
+        col, row, fg, bg, st = rom[a], rom[a + 1], rom[a + 2], rom[a + 3], rom[a + 4] | rom[a + 5] << 8
+        a += 6
+        while rom[st]:
+            want[(col, row)] = (rom[st], fg, bg)
+            col += 1
+            st += 1
+    bad = 0
+    for row in range(8):
+        for col in range(80):
+            ch, fg, bg = want.get((col, row), (0x20, 0, 0))
+            for fr in range(8):
+                f = rom[ps.LIB_FONT + fr * 256 + ch]
+                off = ps.hires_offset(96 + 16 * row + 2 * fr, 0x85)
+                for k, tab in enumerate(('EXP2_LO', 'EXP2_HI')):
+                    if mem[(0x60 + 2 * col + k) << 8 | off] != (rom[syms[tab] + f] & fg) ^ bg:
+                        bad += 1
+    if bad:
+        fail('%d bytes of the 80 column text wrong' % bad)
+    bad = 0
+    for r in range(8, 16):                  # the 16 colors, 10 bytes each
+        off = ps.hires_offset(352 + 4 * r, 0x8A)
+        bad += sum(mem[(0x60 + c) << 8 | off] != (c // 10) * 0x11 for c in range(160))
+    if bad:
+        fail('%d bytes of the 16 color bars wrong' % bad)
+    bad = 0
+    for r in range(16):                     # the rainbow
+        off = ps.hires_offset(416 + 4 * r, 0x8B)
+        bad += sum(mem[(0x60 + c) << 8 | off] != rom[syms['HUE'] + ((c + 4 * r) & 0xFF)] for c in range(160))
+    if bad:
+        fail('%d bytes of the 256-color rainbow wrong' % bad)
+    if png:
+        ps.render(mem, png, rev_b=True)
+        print('wrote', png)
+    # and back
+    rig.key('h')
+    rig.run(40)
+    cpu.rev_b = False
+    if mem[syms['hx']] != 0 or not modes(normal):
+        fail('H did not switch back')
+        return False
+    ring = {(rom[syms['RING_V'] + k] << 8) | rom[syms['RING_X'] + k] for k in range(syms['RING_N'])}
+    bad = wheel = 0
+    for page in range(0x61, 0x100, 2):
+        for n in range(32):
+            ad = page << 8 | (0x83 + 4 * n)             # the 256 band
+            if ad not in ring and mem[ad] != before[ad - 0x6000]:
+                bad += 1
+            ad = page << 8 | (0x81 + 4 * n)             # the 16-color band
+            wheel += mem[ad] != before[ad - 0x6000]
+        for off in range(0x101, 0x171, 2):              # 40 column rows 0-6
+            bad += mem[page << 8 | off] != before[(page << 8 | off) - 0x6000]
+    if bad or wheel > 64:
+        fail('the normal screen did not come back (%d bytes, %d in the wheel band)' % (bad, wheel))
+    if ok:
+        print('H: the 160-read screen (80 column text, 16 colors, 256 colors) and back')
+    return ok
+
+
 def text_row(cpu, row, font):
     """the 80 characters of 1 bpp text row 0-11, read back from the video
     RAM by matching each 8x8 cell against the library font (? if none)"""
@@ -125,6 +214,7 @@ def main(argv):
     ap.add_argument('--fault', type=lambda s: int(s, 0),
                     help='RAM address whose bit 3 always reads back flipped')
     ap.add_argument('--sd', action='store_true', help='TEXT.PLC from a card')
+    ap.add_argument('--hires-png', help='also save the 160-read screen (H key, rev B)')
     args = ap.parse_args(argv)
     args.sd = True      # the ROM build went on 2026-11-11 (docs/architecture/ROM.md)
     global PAGES, NPAGES
@@ -243,6 +333,9 @@ def main(argv):
     ok = check_ring(cpu, syms, rom) and ok
     ok = check_tint(cpu, syms, rom) and ok
     if args.sd:
+        ok = check_hires(rig, syms, rom, args.hires_png) and ok
+        ok = check_ring(cpu, syms, rom) and ok
+        ok = check_tint(cpu, syms, rom) and ok
         ok = test_dos.esc_to_dos(rig) and ok
     print('OK' if ok else 'FAILED')
     return 0 if ok else 1
