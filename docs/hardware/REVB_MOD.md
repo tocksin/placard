@@ -43,7 +43,7 @@ program one chip from each.  Label them "B".
 | U15 Sync | `ATF22V10_SYNC.pld` | 13 | EBEF |
 | U16 Color decoder | `ATF22V10_COLORDECODER.pld` | 09 | 154A |
 | U17 IR | `ATF22V10_IR.pld` | 02 | 9B03 |
-| U35 Audio slot | `ATF22V10_AUDIO.pld` | 05 | C2AB |
+| U35 Audio slot | `ATF22V10_AUDIO.pld` | 06 | B957 |
 
 All five go in together.  A rev A and a rev B chip do not work side by side.
 
