@@ -77,6 +77,10 @@ contact under a bent pin: that contact is the board's trace.
 | 4 | LC7 | U13 socket contact 6 (hole) | U35 pin 21 (pin) | 15 mm |
 | 5 | /AC_SEL | U17 pin 22 (pin) | U27 pin 19 (pin) | 70 mm |
 
+On the pictures every wire end is tagged **SOLDER** (round end, on the chip
+pin) or **HOLE** (square end, in the empty socket contact), and the list
+under each drawing says the same in words.
+
 ![Wires 1 to 4](revb_mod/revb_mod_video.png)
 
 ![Wire 5](revb_mod/revb_mod_acsel.png)
