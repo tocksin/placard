@@ -8,7 +8,9 @@ Draws, from kicad/placard.kicad_pcb (read as text, never written):
 
     revb_mod_board.png    the whole board, the chips and the wire runs
     revb_mod_video.png    U35, U13 and U15 enlarged: every pin numbered,
-                          the lifted pins and the four wires there
+                          the lifted pins and the four wires there, each
+                          wire end tagged SOLDER (on the chip pin) or HOLE
+                          (in the empty socket contact), and the wire list
     revb_mod_acsel.png    U17 and U27 enlarged: the /AC_SEL wire
 
 The lifts and wires are the tables LIFT and WIRES below; the guide's
@@ -131,7 +133,8 @@ def board(parts, edge, path):
     for name, col, ends in WIRES:
         (ax1, ay1), (ax2, ay2) = [parts[r].pads[n] for r, n, _h in ends]
         ax.plot([ax1, ax2], [ay1, ay2], color=col, lw=2.2, zorder=7, solid_capstyle='round')
-        ax.plot([ax1, ax2], [ay1, ay2], 'o', color=col, ms=4, zorder=7)
+        for (qx, qy), (_r, _n, how) in zip([(ax1, ay1), (ax2, ay2)], ends):
+            ax.plot([qx], [qy], 's' if how == 'hole' else 'o', color=col, ms=4, zorder=7)
     # the names: one box for the four short wires at the video PLDs, one on the long wire
     ax.text(306, 112, 'wires 1-4: T2, T2, /P0, LC7\n(see the close-up)', ha='center', va='center', fontsize=8,
             fontweight='bold', color='#333333', zorder=8, bbox=dict(fc='white', ec='#333333', lw=0.6, pad=2))
@@ -156,8 +159,17 @@ def closeup(parts, refs, wires, title, path, k=0.2, margin=(9, 12, 9, 9), others
     x1 = max(b[2] for b in boxes) + margin[2]
     y1 = max(b[3] for b in boxes) + margin[3]
     w, h = x1 - x0, y1 - y0
-    fig = plt.figure(figsize=(w * k, h * k + 0.5))
-    ax = fig.add_axes([0, 0, 1, h * k / (h * k + 0.5)])
+    lines = []                               # the wire list under the drawing
+    for name, col, es in wires:
+        t = ['%s %s pin %s%s' % ('SOLDER to' if how == 'pin' else 'HOLE: push into the empty socket contact of',
+                                 r, n, ' (bent out)' if how == 'pin' and (r, n) in LIFT else '')
+             for r, n, how in es]
+        lines.append(('Wire %s:   %s   to   %s' % (name.replace('  ', ' '), t[0], t[1]), col))
+    lh = 0.24                                # inches per list line
+    low = lh * (len(lines) + 1) + 0.15
+    fh = h * k + 0.5 + low
+    fig = plt.figure(figsize=(w * k, fh))
+    ax = fig.add_axes([0, low / fh, 1, h * k / fh])
     ax.set_xlim(x0, x1)
     ax.set_ylim(y1, y0)
     ax.set_aspect('equal')
@@ -214,15 +226,28 @@ def closeup(parts, refs, wires, title, path, k=0.2, margin=(9, 12, 9, 9), others
             both = len(set(h for h, _c in ends[(r, n)])) > 1
             pts.append((x, y + (0.55 if how == 'hole' else -0.55) * (1 if both else 0)))
         ax.plot([q[0] for q in pts], [q[1] for q in pts], color=col, lw=3.2, zorder=5, solid_capstyle='round')
-        for (x, y), (_r, _n, how) in zip(pts, es):
+        for (x, y), (r, _n, how) in zip(pts, es):
             ax.plot([x], [y], marker='s' if how == 'hole' else 'o', color=col, ms=7, zorder=5)
+            # the tag: between two pins of a column, or inside the body of a chip that lies flat
+            b = parts[r].box()
+            if (b[3] - b[1]) > (b[2] - b[0]):
+                tx, ty = x, y + (1.4 if how == 'hole' else -1.4)
+            else:
+                tx, ty = x, y + (2.3 if y < (b[1] + b[3]) / 2 else -2.3)
+            ax.text(tx, ty, 'HOLE' if how == 'hole' else 'SOLDER', ha='center', va='center', fontsize=7,
+                    fontweight='bold', color='white', zorder=9,
+                    bbox=dict(fc=col, ec='white', lw=0.6, pad=0.25,
+                              boxstyle='square' if how == 'hole' else 'round'))
         mx, my = (pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2
         ax.text(mx, my, name, ha='center', va='center', fontsize=9, fontweight='bold', color=col, zorder=8,
                 bbox=dict(fc='white', ec=col, lw=1, pad=2))
-    fig.text(0.01, 1 - 0.25 / (h * k + 0.5), title, fontsize=11, fontweight='bold', va='center')
-    fig.text(0.99, 0.012, 'red ring: pin bent out of the socket    round end: soldered to the chip pin    '
-             'square end: pushed into the empty socket contact', fontsize=8.5, ha='right', va='bottom',
-             color='#333333')
+    fig.text(0.01, 1 - 0.25 / fh, title, fontsize=11, fontweight='bold', va='center')
+    for i, (text, col) in enumerate(lines):
+        fig.text(0.02, (low - 0.12 - lh * (i + 0.5)) / fh, text, fontsize=10, fontweight='bold', color=col,
+                 va='center')
+    fig.text(0.02, 0.12 / fh, 'SOLDER (round end): soldered to the chip pin.   HOLE (square end): stripped 4 mm '
+             'and pushed into the socket contact left empty under a bent pin.   Red ring: pin bent out of the '
+             'socket.', fontsize=8.5, va='center', color='#333333')
     fig.savefig(path, dpi=110)
     plt.close(fig)
     print('wrote', os.path.relpath(path, B.ROOT))
