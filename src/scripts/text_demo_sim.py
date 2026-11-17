@@ -24,8 +24,7 @@ The video stall clocks are modeled (placard_sim Cpu.stalls), and the
 busiest frame's work is printed.  It also checks the pixel scroller (the
 message row of the 40 column band against the message, the font and the
 frame count), the 256-color ring (every ring pixel against HUE and the
-phase) and the row tints of rows 0-95 (TINTB, with the raster bar BARP at
-BARY[phase / 2]).  Then it presses H and checks the 160-read screen of a
+phase) and the rolling tint of rows 0-95 (ROLL at tn_pos).  Then it presses H and checks the 160-read screen of a
 rev B board (check_hires; --hires-png saves it), and H again for the normal
 screen.
 
@@ -48,20 +47,22 @@ NPAGES = len(PAGES)
 
 
 def check_tint(cpu, syms, rom):
-    """rows 0-95: mode byte = TINTB[row], but the raster bar's rows, which
-    are BARP from row BARY[phase / 2]"""
-    ph = cpu.mem[0x8B]                      # tn_ph
-    pos = rom[syms['BARY'] + (ph >> 1)]
-    nbar = syms['TN_N']
+    """rows 0-95: the rolling tint.  Row r is at place r + tn_pos of ROLL
+    (no tint from TN_LEN on), over 85 on the 160-read screen; tn_pos is
+    TN_LEN through the rest and then 2 less each frame"""
+    ph, pos, n = cpu.mem[syms['tn_ph']], cpu.mem[syms['tn_pos']], syms['TN_LEN']
+    base = 0x85 if cpu.mem[syms['hx']] else 0
+    if pos != (n - 2 * max(0, ph - syms['TN_REST'])) & 0xFF or ph >= syms['TN_CYC']:
+        print('FAIL: rolling tint at place %d in frame %d of its cycle' % (pos, ph))
+        return False
     bad = []
     for r in range(96):
-        want = rom[syms['TINTB'] + r]
-        if pos <= r < pos + nbar:
-            want = rom[syms['BARP'] + r - pos]
+        i = (r + pos) & 0xFF
+        want = base | (rom[syms['ROLL'] + i] if i < n else 0)
         if cpu.mem[0x5A20 + r] != want:
             bad.append(r)
     if bad:
-        print('FAIL: row tints wrong on rows %s (bar at row %d)' % (bad[:8], pos))
+        print('FAIL: row tints wrong on rows %s (frame %d of the cycle)' % (bad[:8], ph))
         return False
     return True
 
@@ -108,7 +109,7 @@ def check_ring(cpu, syms, rom):
     return True
 
 
-def check_hires(rig, syms, rom, png=None):
+def check_hires(rig, syms, rom, png=None, gif=None, gif_step=3, gif_frames=151):
     """H: the 160-read screen (rev B) and back.  Checks the mode bytes, the
     80 column 4-color text against text_h, "16 COLORS" against SMG, the bars, the wheel's discs, "256" against
     DIGH, the ring against RINGH_R / RINGH_A, and that the normal screen
@@ -143,8 +144,8 @@ def check_hires(rig, syms, rom, png=None):
     def at(col, row, mode):
         return mem[(0x60 + col) << 8 | ps.hires_offset(row, mode)]
 
-    if [mem[0x5A20 + r] for r in range(96)] != [0x85] * 96:
-        fail('rows 0-95 are not 2 bpp 2x 160-read')
+    if not check_tint(cpu, syms, rom):
+        fail('rows 0-95 are not 2 bpp 2x 160-read under the rolling tint')
     # the 80 column 4-color text: every cell of the 6 text rows
     want = {}
     a = syms['text_h']
@@ -217,6 +218,19 @@ def check_hires(rig, syms, rom, png=None):
     if png:
         ps.render(mem, png, rev_b=True)
         print('wrote', png)
+    if gif:
+        from PIL import Image
+        frames = []
+        tmp = os.path.join(HERE, '_td_frame.png')
+        for f in range(1, gif_frames + 1):
+            rig.run(1)
+            if f % gif_step == 0:
+                ps.render(mem, tmp, rev_b=True)
+                frames.append(Image.open(tmp).convert('P', palette=Image.ADAPTIVE, colors=255))
+        os.remove(tmp)
+        frames[0].save(gif, save_all=True, append_images=frames[1:],
+                       duration=int(1000 * gif_step / 60), loop=0)
+        print('wrote', gif, len(frames), 'frames')
     # and back
     rig.key('h')
     rig.run(40)
@@ -264,6 +278,7 @@ def main(argv):
                     help='RAM address whose bit 3 always reads back flipped')
     ap.add_argument('--sd', action='store_true', help='TEXT.PLC from a card')
     ap.add_argument('--hires-png', help='also save the 160-read screen (H key, rev B)')
+    ap.add_argument('--hires-gif', help='and an animated GIF of it (one cycle of the rolling tint)')
     args = ap.parse_args(argv)
     args.sd = True      # the ROM build went on 2026-11-11 (docs/architecture/ROM.md)
     global PAGES, NPAGES
@@ -382,7 +397,7 @@ def main(argv):
     ok = check_ring(cpu, syms, rom) and ok
     ok = check_tint(cpu, syms, rom) and ok
     if args.sd:
-        ok = check_hires(rig, syms, rom, args.hires_png) and ok
+        ok = check_hires(rig, syms, rom, args.hires_png, args.hires_gif, args.gif_step) and ok
         ok = check_ring(cpu, syms, rom) and ok
         ok = check_tint(cpu, syms, rom) and ok
         ok = test_dos.esc_to_dos(rig) and ok

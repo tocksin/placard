@@ -128,8 +128,8 @@ The letters and digits are the font's, doubled with the Scale2x rule
 the diagonals (`gen_text_demo_tables.py`).  The 160-read 16-color band
 uses bytes the normal screen leaves free, so only the 256 band is drawn
 again each way.  The 4-color text uses half of the bytes of the 2-color
-text, so the status lines, the RAM test and the raster bar stop on the H
-screen, and on the way back the text is drawn again and the RAM test
+text, so the status lines and the RAM test stop on the H screen (the
+rolling tint goes on over the 4-color text), and on the way back the text is drawn again and the RAM test
 starts over.  On a rev A board those rows are blank lines, so H shows
 black bands there.
 

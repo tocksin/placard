@@ -7,9 +7,9 @@
 ;                             character set (normal and inverse), the live
 ;                             status lines, a column ruler and a legend.
 ;                             Row tints (mode byte bits 6:4, VIDEO.md "Row
-;                             tint"): the status lines sit on a blue panel
-;                             and a rainbow raster bar bounces up and down
-;                             behind the text, moved only by mode bytes
+;                             tint"): blocks of the 7 tints roll down over
+;                             the text, then it rests untinted for a
+;                             second; only the mode bytes change
 ;   rows  96-223  4 bpp, 4x   16 colors (160 x 32): "16 COLORS" in big
 ;                             letters, the 16 color bars and a spinning wheel
 ;   rows 224-351  2 bpp, 2x   40 column text (320 x 64), 8 rows of 8 x 16
@@ -33,9 +33,8 @@
 ;     read back.  The progress bar fills a block per two pages (an inverse
 ;     E marks a pair with errors); PASS counts full passes and ERRORS counts
 ;     failed checks (a pattern that read back wrong on a page).
-;   - the raster bar, first, while the video is in vertical blanking: the
-;     20 mode bytes it covered get their panel tint back (TINTB) and the
-;     20 at its new place get the bar (BARP, place from BARY)
+;   - the rolling tint, first, while the video is in vertical blanking:
+;     the 96 mode bytes of rows 0-95 (td_tint)
 ;   - the frame counter, the uptime clock (60 frames = 1 s), the text
 ;     spinner, the 16-color wheel (one step every 3 frames), the scrolling
 ;     message (one pixel a frame) and the 256-color ring (a step a frame).
@@ -126,11 +125,13 @@ CH         = 0x5F       ; scroller: the 41 message characters on screen,
 wh_k       = 0x88       ; 256-color ring: pixel
 wh_t       = 0x89       ;   its color
 wh_x       = 0x8A       ;   its row offset
-tn_ph      = 0x8B       ; raster bar: phase (a step every 2 frames)
-tn_pos     = 0x8C       ;   x20 + its first row now (mode byte low address)
+tn_ph      = 0x8B       ; rolling tint: frame of the cycle
+tn_pos     = 0x8C       ;   place in ROLL of row 0
 tn_i       = 0x8D       ;   (row in the bar)
 tn_v       = 0x8E       ;   (its mode byte)
-TN_N       = 20         ;   rows in the bar
+TN_LEN     = 84         ;   rows in the train (7 blocks of 12)
+TN_REST    = 60         ;   frames of rest
+TN_CYC     = 151        ;   frames in a cycle: the rest, then 90 moving
 hx         = 0x8F       ; 1 while the 160-read screen is drawn and shown
                         ;   (td_keys): td_fill_run and td_put_gbuf then
                         ;   use vid_addr_hi and 160 byte columns; else 0
@@ -221,7 +222,7 @@ td_mb3:
     inc
     bne  td_mb3
     ld   LINK_LO, x             ; CALL td_tint_init: rows 0-95 get their
-    ld   td_mb4, [x]            ; tints (TINTB)
+    ld   td_mb4, [x]            ; rolling tint
     ld   LINK_HI, x
     ld   td_mb4 >> 8, [x]
     ld   td_tint_init >> 8, y
@@ -553,7 +554,7 @@ td_l1:
     ld   [FRAME_LO], ac
     ld   ac, [last_frame]
 
-    ld   LINK_LO, x             ; CALL td_tint: the raster bar, while the
+    ld   LINK_LO, x             ; CALL td_tint: the rolling tint, while the
     ld   td_lt, [x]             ; video is still in vertical blanking
     ld   LINK_HI, x
     ld   td_lt >> 8, [x]
@@ -671,8 +672,7 @@ td_l8:
 ;                 byte columns) in place of the 12 rows of 2-color text.
 ;                 Its bytes are the even low bytes x20-x7E of every page,
 ;                 which are the text's in the even pages, so the status
-;                 lines, the RAM test and the raster bar stop on this
-;                 screen (td_loop_h) and the text is drawn
+;                 lines and the RAM test stop on this screen (td_loop_h) and the text is drawn
 ;                 again on the way back (the RAM test starts over)
 ;   rows  96-223  16 colors, 4 bpp: 2x and 160-read (mode byte 86), so
 ;                 320 x 64 pixels of 2 x 2 instead of 160 x 32 of 4 x 4.
@@ -2889,30 +2889,32 @@ s_hint:
     #d "H: 160-READ ROWS (REV B BOARDS, BLANK ROWS ON REV A)", 0x00
 
 ; ===========================================================================
-; td_tint_init - rows 0-95: mode byte = TINTB (1 bpp 1x, with their tint);
-;   the raster bar starts at row 0
+; the rolling tint of rows 0-95 (mode byte bits 6:4, VIDEO.md "Row tint")
+;   A train of 7 blocks of 12 rows, one of each tint (ROLL), rolls down
+;   over the text two rows a frame; then the rows rest untinted for a
+;   second.  A cycle is TN_CYC frames: tn_ph counts them, and tn_pos is
+;   the place in ROLL of row 0 (TN_LEN = the train just above the screen;
+;   places from TN_LEN on are no tint).  On the 160-read screen the mode
+;   bytes keep their 85 (2 bpp, 2x, 160-read) under the tint.
+;
+; td_tint_init - rows 0-95 untinted (1 bpp 1x), the cycle at its start
 ;   changes: AC, X, Y
-; td_tint - move the raster bar: its old 20 rows get TINTB back, then the
-;   bar (BARP) goes to row BARY[phase / 2]; called first thing in a frame,
-;   in the vertical blanking.  About 1,600 clocks.
-;   changes: AC, X, Y
+; td_tint - a frame on: sets the 96 mode bytes; called first thing in a
+;   frame, in the vertical blanking.  About 4,000 clocks.
+;   changes: AC, X, Y, T0, tn_*
 ; ===========================================================================
 #addr 0x6F60
 td_tint_init:
-    ld   95, ac
-    ld   ac, [tn_i]
-tti_l:
-    ld   [tn_i], ac             ; mode byte x5A20 + row = TINTB[row]
-    add  0x20, x                ; (TINTB is at xA220, the same low bytes)
-    ld   TINTB >> 8, y
-    ld   [y,x], ac
     ld   0x5A, y
-    ld   ac, [y,x]
-    ld   [tn_i], ac
-    sub  1, ac
-    ld   ac, [tn_i]
-    bcc  tti_l
     ld   0x20, ac
+tti_l:
+    ld   ac, x
+    ld   0x00, [y,x]
+    inc
+    blt  tti_e
+    bra  tti_l
+tti_e:
+    ld   TN_LEN, ac
     ld   ac, [tn_pos]
     clr  ac
     ld   ac, [tn_ph]
@@ -2920,75 +2922,73 @@ tti_l:
     jmp  [LINK_LO]
 
 td_tint:
-    ld   [hx], ac               ; not on the 160-read screen
-    beq  tt_go
-    ld   [LINK_HI], y           ; RETURN
-    jmp  [LINK_LO]
+    clr  ac                     ; tn_v = the rows' mode without a tint
+    ld   ac, [tn_v]
+    ld   [hx], ac
+    beq  tt_ph
+    ld   0x85, ac
+    ld   ac, [tn_v]
+tt_ph:
+    ld   [tn_ph], ac            ; the next frame of the cycle
+    inc
+    ld   ac, [tn_ph]
+    xor  TN_CYC, ac
+    bne  tt_mv
+    ld   ac, [tn_ph]            ; a new cycle: the train above the screen
+    ld   TN_LEN, ac
+    ld   ac, [tn_pos]
+tt_mv:
+    ld   [tn_ph], ac            ; after the rest it moves 2 rows a frame
+    sub  TN_REST + 1, ac
+    bcc  tt_go
+    bra  tt_draw
 tt_go:
-    ld   TN_N - 1, ac         ; the rows the bar covered: TINTB again
+    ld   [tn_pos], ac
+    sub  2, ac
+    ld   ac, [tn_pos]
+tt_draw:
+    ld   95, ac
     ld   ac, [tn_i]
 tt_r:
-    ld   [tn_i], ac
-    add  [tn_pos], x
-    ld   TINTB >> 8, y
+    ld   [tn_i], ac             ; the row's place in ROLL
+    add  [tn_pos], ac
+    sub  TN_LEN, ac
+    bcc  tt_none                ; off the train
+    add  (ROLL & 0xFF) + TN_LEN, x
+    ld   ROLL >> 8, y
     ld   [y,x], ac
+    or   [tn_v], ac
+    bra  tt_w
+tt_none:
+    ld   [tn_v], ac
+tt_w:
+    ld   ac, [T0]
+    ld   [tn_i], ac             ; mode byte x5A20 + row
+    add  0x20, x
     ld   0x5A, y
+    ld   [T0], ac
     ld   ac, [y,x]
     ld   [tn_i], ac
     sub  1, ac
     ld   ac, [tn_i]
     bcc  tt_r
-    ld   [tn_ph], ac            ; next place: BARY[phase / 2] + x20
-    add  1, ac
-    and  0x7F, ac
-    ld   ac, [tn_ph]
-    shr  ac
-    add  BARY & 0xFF, x
-    ld   BARY >> 8, y
-    ld   [y,x], ac
-    add  0x20, ac
-    ld   ac, [tn_pos]
-    ld   TN_N - 1, ac         ; the bar
-    ld   ac, [tn_i]
-tt_b:
-    ld   [tn_i], ac
-    add  BARP & 0xFF, x
-    ld   BARP >> 8, y
-    ld   [y,x], ac
-    ld   ac, [tn_v]
-    ld   [tn_i], ac
-    add  [tn_pos], x
-    ld   0x5A, y
-    ld   [tn_v], ac
-    ld   ac, [y,x]
-    ld   [tn_i], ac
-    sub  1, ac
-    ld   ac, [tn_i]
-    bcc  tt_b
     ld   [LINK_HI], y           ; RETURN
     jmp  [LINK_LO]
 
 ; ===========================================================================
-; raster bar tables (xA220-xA2FF, after the scroller's page tables)
+; the rolling tint's train (xA220, after the scroller's page tables): 12
+; rows each of gray (all three), magenta, blue, cyan, green, yellow and red,
+; top to bottom (tint bits: 10 red, 20 green, 40 blue)
 ; ===========================================================================
 #addr 0xA220
-TINTB:                          ; tint of rows 0-95 (x20 + row): a blue panel
-    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x40, 0x40, 0x40
-    #d8 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40
-    #d8 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40
-    #d8 0x40, 0x40, 0x40, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-#addr 0xA280                    ;   behind the status lines, rows 44-83
-BARP:                           ; the bar, 20 rows: blue, magenta, red, gold,
-    #d8 0x40, 0x40, 0x50, 0x50, 0x10, 0x10, 0x30, 0x30, 0x70, 0x70, 0x70, 0x70, 0x30, 0x30, 0x10, 0x10
-    #d8 0x50, 0x50, 0x40, 0x40
-#addr 0xA2A0                    ;   grey (all three), and back
-BARY:                           ; its first row, 64 steps of a bounce, 0-76
-    #d8 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x06, 0x09, 0x0B, 0x0E, 0x11, 0x14, 0x17, 0x1B, 0x1F, 0x22
-    #d8 0x26, 0x2A, 0x2D, 0x31, 0x35, 0x38, 0x3B, 0x3E, 0x41, 0x43, 0x46, 0x48, 0x49, 0x4A, 0x4B, 0x4C
-    #d8 0x4C, 0x4C, 0x4B, 0x4A, 0x49, 0x48, 0x46, 0x43, 0x41, 0x3E, 0x3B, 0x38, 0x35, 0x31, 0x2D, 0x2A
-    #d8 0x26, 0x22, 0x1F, 0x1B, 0x17, 0x14, 0x11, 0x0E, 0x0B, 0x09, 0x06, 0x04, 0x03, 0x02, 0x01, 0x00
+ROLL:
+    #d8 0x70, 0x70, 0x70, 0x70, 0x70, 0x70, 0x70, 0x70, 0x70, 0x70, 0x70, 0x70
+    #d8 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50
+    #d8 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40
+    #d8 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60
+    #d8 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20
+    #d8 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30
+    #d8 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10
 
 ; ===========================================================================
 ; small tables (one page, TBL)

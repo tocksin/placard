@@ -408,9 +408,8 @@ A mock-up of the look is in the project files (video/line_tint_mockup.png,
 "strong" column).
 
 **In the programs**: the menu's highlight bar (blue) and title
-band (gold), the text demo's blue status panel and a rainbow raster bar that
-bounces behind its 80 column text (only 40 mode byte writes a frame, no
-pixels), green-bar paper stripes behind the pi digits, and a rainbow of
+band (gold), the text demo's blocks of the 7 tints that roll down over its 80
+column text (96 mode byte writes a frame, no pixels), green-bar paper stripes behind the pi digits, and a rainbow of
 bands behind the Game of Life.
 
 ## Line repeat
