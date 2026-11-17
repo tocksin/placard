@@ -549,7 +549,7 @@ def sheet_control(b):
     s.part("placard:ATF22V10C_IR", "U17", 71.12, y1, pld({
         1: "CLK", 2: "DATABUS0", 3: "DATABUS1", 4: "DATABUS2", 5: "DATABUS3", 6: "DATABUS4", 7: "DATABUS5", 8: "DATABUS6", 9: "DATABUS7",
         10: "~{LOAD_INSTR}", 11: "RUN", 14: "I0", 15: "I1", 16: "I2", 17: "I3", 18: "I4", 19: "I5",
-        20: "I6", 21: "I7"}))
+        20: "I6", 21: "I7", 22: "~{AC_SEL}"}))            # rev B: /AC_SEL from the IR PLD
     decap(s, 17, 91.44, y1 - 33.02, lift=0)
     u1 = s.part("placard:ATF22V10C_STATE", "U1", 172.72, y1, pld({
         1: "CLK", 2: "STALL_OUT", 3: "DATABUS1", 4: "DATABUS0", 5: "I4", 6: "I3", 7: "I2", 8: "BRANCH_BLOCK",
@@ -783,7 +783,7 @@ def sheet_video_timing(b):
     heading(s, "Video timing", "640 x 480 at 60 Hz: H and V counters, Sync (and the RAM /WE), mode and audio slots, line read")
     s.label_nets |= {"CLK", "CLK_E", "RW", "RUN", "~{WE}"}
     u13 = s.part("placard:ATF22V10C_HCOUNT", "U13", 76.2, 99.06, pld({
-        1: "CLK", 2: "GND", 3: "H0", 4: "H1", 5: "H2", 6: "LC7", 14: "H3", 15: "H4", 16: "H5", 17: "H6", 18: "H7",
+        1: "CLK", 2: "GND", 3: "H0", 4: "H1", 5: "H2", 6: "T2", 14: "H3", 15: "H4", 16: "H5", 17: "H6", 18: "H7",
         19: "H8", 20: "H9", 21: "~{HSYNC}", 22: "H_VIDEO_ACTIVE", 23: "H_TC"}), bare=("21", "23"))
     decap(s, 13, 96.52, 63.5, lift=0)
     u14 = s.part("placard:ATF22V10C_VCOUNT", "U14", 76.2, 208.28, pld({
@@ -795,9 +795,9 @@ def sheet_video_timing(b):
     yg = 152.4
     path(s, "H_TC", (ox, oy), (ox + 2.54, oy), (ox + 2.54, yg), (ix - 2.54, yg), (ix - 2.54, iy), (ix, iy))
     u15 = s.part("placard:ATF22V10C_SYNC", "U15", 233.68, 99.06, pld({
-        1: "CLK", 2: "V9", 3: "V5", 4: "V4", 5: "V3", 6: "V2", 7: "V1", 8: "H_VIDEO_ACTIVE",
+        1: "CLK", 2: "V9", 3: "V5", 4: "~{P0}", 5: "V3", 6: "V2", 7: "V1", 8: "H_VIDEO_ACTIVE",
         9: "CLK_E", 10: "RW", 11: "RUN", 13: "BLANK_RD", 14: "H0", 15: "H1", 16: "H2",
-        17: "VIDEN", 18: "~{VSYNC}", 19: "PIXEL_ENABLE", 20: "~{WE}", 21: "~{P0}", 22: "~{MAP_WR}",
+        17: "VIDEN", 18: "~{VSYNC}", 19: "PIXEL_ENABLE", 20: "~{WE}", 21: "T2", 22: "~{MAP_WR}",
         23: None}), bare=("18",))
     decap(s, 15, 254.0, 60.96, lift=0)
     # Sync series resistors, right at the PLD pins: they slow the edges going down the VGA cable (less
@@ -815,8 +815,8 @@ def sheet_video_timing(b):
         name(s, out, rp["2"][0] + 7.62, py)
     s.part("placard:ATF22V10C_AUDIO", "U35", 233.68, 205.74, pld({
         1: "V0", 2: "H9", 3: "H8", 4: "H7", 5: "H6", 6: "H5", 7: "H4", 8: "H3", 9: "V9", 10: "V1",
-        11: "V7", 13: "V8", 14: "LC2", 15: "LC3", 16: "I1", 17: "VA0", 18: "VA1", 19: "VA7", 20: "VA8",
-        22: "~{MODE_LD}", 23: "BLANK_RD", 21: "~{AC_SEL}"}))
+        11: "V7", 13: "V8", 14: "LC2", 15: "LC3", 16: "T2", 17: "VA0", 18: "VA1", 19: "VA7", 20: "VA8",
+        22: "~{MODE_LD}", 23: "BLANK_RD", 21: "LC7"}))      # rev B: T2 (true H2) and LC7 (160-read line)
     decap(s, 35, 254.0, 167.64, lift=0)
     s.part("placard_std:74LS541", "U29", 345.44, 154.94, f541(V[2:10], D, "~{P0}", "Q0"), value="SN74F541N",
            footprint=FP_DIP20)
@@ -834,13 +834,15 @@ def sheet_video_timing(b):
                        "behind the group), into the H counter and",
                        "the color decoder.  H counter pin 2 (RESET)",
                        "is unused: tied low.",
-                       "U35 also makes /AC_SEL (= !I1) for the AC",
-                       "source driver, and remaps video A0, A1, A7, A8",
-                       "for line repeat (VA0, VA1, VA7, VA8).",
+                       "U35 remaps video A0, A1, A7, A8 for line repeat",
+                       "and 160-read lines (VA0, VA1, VA7, VA8), and",
+                       "marks a 160-read line on BLANK_RD.",
                        "V_VIDEO_ACTIVE (U15 pin 23) is internal.",
                        "U29: x5000 read gives V9:V2.",
-                       "LC7 (mode byte bit 7, U23 Q7) blanks the line.",
-                       "Strap S4 goes in U35's socket (BRINGUP.md)."])
+                       "LC7 (mode byte bit 7, U23 Q7) = 160-read line.",
+                       "Strap S4 goes in U35's socket (BRINGUP.md).",
+                       "Nets H2, H1 are S2, S1: H1, H0 on a 160-read",
+                       "line while VIDEN is high.  T2 is the true H2."])
     return s
 
 
@@ -1015,7 +1017,7 @@ def sheet_video_out(b):
     xa = j6["T"][0] - 2.54
     path(s, "AUDIO", (xa, yo), (xa, j6["R1"][1]), j6["R1"])
     name(s, "AUDIO", r957["1"][0] + 2.54, yo)
-    note(s, 15, 258, ["U23 Q1:Q0 = color mode; Q3:Q2 = line repeat to U35 and Q7 = blank line to U13 (sheet 8); Q6:Q4 = row tint.",
+    note(s, 15, 258, ["U23 Q1:Q0 = color mode; Q3:Q2 = line repeat and Q7 = 160-read line to U35 (sheet 8); Q6:Q4 = row tint.",
                       "DAC_5V: U36's own filtered rail (2.2 ohm, 220u, C36).",
                       "Ladder: 2k 1 % per bit + 2k termination, 1k between nodes (LAD7 = out).  AGND (GNDA) joins GND at the power input."],
          size=2.2)

@@ -60,6 +60,13 @@ SEP = "---"                    # in a layout: a dashed line between unrelated fu
 # pins stay where the schematic sheets have them wired (mm)
 KEEP_W = {
     "ATF22V10_PORT": 35.56,    # revision 05: /PORT_WR became /WE
+    "ATF22V10_AUDIO": 30.48,   # rev B (revision 05): /AC_SEL and I1 left
+}
+
+# Box widths held when a new pin name would make a symbol wider (mm); the
+# new name must be on a row whose other side is empty or short
+FIX_W = {
+    "ATF22V10_IR": 30.48,      # rev B (revision 02): /AC_SEL, across from an empty row
 }
 
 # Pin placement per .pld file: a list of blocks, each (left, right) with the
@@ -73,10 +80,8 @@ LAYOUT = {
     ],
     "ATF22V10_AUDIO": [
         (["H3", "H4", "H5", "H6", "H7", "H8", "H9", None,
-          "V0", "V1", "V7", "V8", "V9", None, "LC2", None, "LC3"],
+          "V0", "V1", "V7", "V8", "V9", None, "LC2", None, "LC3", "T2", "LC7"],   # rev B (revision 05): LC7 where I1 was
          ["R0", "R1", "R7", "R8", None, "MODE_LD", None, "BLANK_RD"]),
-        SEP,
-        (["I1"], ["AC_SEL"]),
     ],
     "ATF22V10_BRANCH": [
         (["I7", "I6", "I5", None, "M2", "M1", "M0", None, "Z_LOW", "Z_HIGH", "NEG"],
@@ -90,7 +95,7 @@ LAYOUT = {
          ["RED1", "RED2", "RED3", None, "GRN1", "GRN2", "GRN3", None, "BLU2", "BLU3"]),
     ],
     "ATF22V10_HCOUNT": [
-        (["H0", "H1", "H2", None, "LC7", None, "CLK", "RESET"],
+        (["H0", "S1", "S2", None, "T2", None, "CLK", "RESET"],     # rev B (revision 09): T2 where LC7 was
          ["H3", "H4", "H5", "H6", "H7", "H8", "H9", None, "HSYNC", None, "H_VIDEO_ACTIVE", None, "H_TC"]),
         (["nc"], []),
     ],
@@ -118,8 +123,8 @@ LAYOUT = {
     ],
     "ATF22V10_IR": [
         (["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", None, "LOAD_INSTR", "RUN", None, "CLK"],
-         ["I0", "I1", "I2", "I3", "I4", "I5", "I6", "I7"]),
-        (["nc"], []),
+         ["I0", "I1", "I2", "I3", "I4", "I5", "I6", "I7", None, None, "AC_SEL"]),   # rev B (revision 02): /AC_SEL
+        (["nc:13", None, "nc:23"], []),        # pin 22's row stays empty, so pin 23 keeps its place
     ],
     "ATF22V10_MEMCARD_HI": [
         # the memory card's register decode and page bits 11:8 (the SRAM's A18:A15)
@@ -168,8 +173,9 @@ LAYOUT = {
           "LOAD_INSTR", "LOAD_IMM", "LOAD_AC", "LOAD_X", "LOAD_Y", "MEM_WR"]),
     ],
     "ATF22V10_SYNC": [
-        (["CLK", None, "H_VIDEO_ACTIVE", None, "BLANK_RD", None, "V9", "V5", "V4", "V3", "V2", "V1"],
-         ["H0", "H1", "H2", None, "VIDEN", None, "PIXEL_ENABLE", None, "VSYNC", "V_VIDEO_ACTIVE"]),
+        # rev B (revision 13): V4's row is empty, pin 4 is /P0 (in pin 21's old place) and pin 21 is T2
+        (["CLK", None, "H_VIDEO_ACTIVE", None, "BLANK_RD", None, "V9", "V5", None, "V3", "V2", "V1"],
+         ["H0", "S1", "S2", "T2", "VIDEN", None, "PIXEL_ENABLE", None, "VSYNC", "V_VIDEO_ACTIVE"]),
         SEP,
         (["CLK_E", "RW", "RUN"], ["WE"]),      # revision 10: the RAM write strobe from the early clock tap
         (["P0", "MAP_WR"], []),                # revision 12: on the rows of the nc pins 21 and 22
@@ -249,7 +255,7 @@ def prop(name, value, x, y, effects):
 
 def symbol(sym, blocks, part, desc, keywords, footprint=FOOTPRINT, datasheet=DATASHEET,
            vcc=(24, "VCC"), gnd=(12, "GND"), ref="U", note=None, min_w=MIN_W, pin_len=G,
-           stack_passive=False):
+           stack_passive=False, fix_w=None):
     """Draws one symbol.
 
     blocks: list of (left, right) with entries (number, name, kind), a list of
@@ -280,6 +286,8 @@ def symbol(sym, blocks, part, desc, keywords, footprint=FOOTPRINT, datasheet=DAT
     ends = [p for p in rows_l[:2] + rows_l[-2:] + rows_r[:2] + rows_r[-2:] if p]
     w = max([w] + [2 * (len(entry_name(p)) * CHAR_W + 2) for p in ends])
     w = max(min_w, int(-(-w // (2 * G))) * 2 * G)     # whole 200 mil steps, so the pins are on grid
+    if fix_w:
+        w = fix_w
     h = (n + 1) * G
     x0, x1 = -w / 2, w / 2
     y0 = G * ((n + 1) // 2)                            # top edge, on grid
@@ -351,6 +359,12 @@ def pld_symbol(path):
             elif nm == "nc":
                 out += spare
                 placed.extend(p[0] for p in spare)
+            elif nm.startswith("nc:"):                 # one spare pin by number
+                one = [p for p in spare if p[0] == int(nm[3:])]
+                if not one:
+                    sys.exit("%s: LAYOUT names %s, which is not a spare pin" % (fname, nm))
+                out += one
+                placed.append(one[0][0])
             else:
                 if nm not in by_name:
                     sys.exit("%s: LAYOUT names %s, which is not a pin" % (fname, nm))
@@ -369,7 +383,7 @@ def pld_symbol(path):
         fname, head.get("Name", "").strip())
     part = PART_10 if stem in SLOW_OK else PART
     return sym, symbol(sym, blocks, part, desc, "PLD GAL 22V10 Placard " + stem, note=fname,
-                       min_w=KEEP_W.get(stem, MIN_W))
+                       min_w=KEEP_W.get(stem, MIN_W), fix_w=FIX_W.get(stem))
 
 
 def generic_symbol():
@@ -392,7 +406,9 @@ def main():
     parts = [generic_symbol()]
     for f in sorted(os.listdir(PLD_DIR)):
         if f.lower().endswith(".pld"):
-            name, text = pld_symbol(os.path.join(PLD_DIR, f))
+            # the schematic is the rev B board: where src/pld/rev_b has the file, that is the chip's source
+            rev_b = os.path.join(PLD_DIR, "rev_b", f)
+            name, text = pld_symbol(rev_b if os.path.exists(rev_b) else os.path.join(PLD_DIR, f))
             parts.append(text)
             print(name)
     write_lib(out, parts)

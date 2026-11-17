@@ -79,6 +79,7 @@ set tbFiles {
     tb_cart_load.vhd
     tb_top_load.vhd
     tb_blank_line.vhd
+    tb_hires_lines.vhd
 }
 set tbs {}
 foreach f $tbFiles {

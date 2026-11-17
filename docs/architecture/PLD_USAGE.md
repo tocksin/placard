@@ -1,6 +1,6 @@
 # PLD usage: unused pins and product terms
 
-Date: 2026-11-16. Taken from `src/pld/*.pld` on main.
+Date: 2026-11-17. Taken from `src/pld/*.pld` on main (rev A).  The five rev B sources in `src/pld/rev_b/` are in [Rev B](#rev-b) at the end.
 
 The main board has 20 ATF22V10C chips built from 15 PLD sources, and the ROM cartridge one more (`ATF22V10_CART.pld`). Each 22V10 has 12 dedicated inputs (pins 1-11 and 13; pin 1 is also the register clock) and 10 I/O pins (14-23), each with an output macrocell (OLMC) of 8, 10, 12, 14, 16, 16, 14, 12, 10 or 8 product terms. An I/O pin used as an input gives up its cell's terms. Every chip also has one asynchronous reset (AR) and one synchronous preset (SP) term shared by all registers, and each cell has its own output-enable term.
 
@@ -326,3 +326,16 @@ Clocked by the PS/2 device's clock (RXCLK), not the 25 MHz clock. Six input pins
 | 21 | 12 | !N3 | registered, OE term (1) | 3 | 9 |
 | 22 | 10 | !N2 | registered, OE term (1) | 3 | 7 |
 | 23 | 8 | !N1 | registered, OE term (1) | 3 | 5 |
+
+## Rev B
+
+Five PLDs have a rev B source in `src/pld/rev_b/` for the 160-read lines
+([HIRES.md](../video/HIRES.md)).  Compiled in WinCUPL 2026-11-17, all clean.
+
+| PLD | Revision | Pins that change | Free after the change |
+|---|---|---|---|
+| `ATF22V10_SYNC.pld` (#15) | 13 | 4 = /P0 (was V4), 15 = S1, 16 = S2, 21 = T2 out (was /P0 in) | no pin |
+| `ATF22V10_HCOUNT.pld` (#13) | 09 | 4 = S1, 5 = S2, 6 = T2 (was LC7) | as rev A; HSYNC uses 12 of 12 terms |
+| `ATF22V10_AUDIO.pld` (#35) | 05 | 16 = T2 (was I1), 21 = LC7 in (was /AC_SEL out) | no pin |
+| `ATF22V10_IR.pld` (#17) | 02 | 22 = /AC_SEL out (was unused) | pins 13 and 23 |
+| `ATF22V10_COLORDECODER.pld` (#16) | 09 | none | as rev A |

@@ -14,6 +14,7 @@ library work;           use work.sys_description_pkg.all;
                         use work.tools_pkg.all;
 
 entity basys_top is
+    generic ( boardRevB : boolean := false );   -- false: rev A board PLDs; true: rev B (160-read lines)
     port ( SW           : in  slv (15 downto 0);
            BTN          : in  slv (4 downto 0);
            CLK          : in  sl;
@@ -555,29 +556,57 @@ begin
     -- the 74F377.  It loads the opcode in FETCH and holds 02h (ld ac, ac)
     -- while RUN is low, so the CPU only walks the image while the
     -- cartridge loads.  Its registers power up 00h (no reset pin).
-    irComp : entity work.ir_pld
-    port map(
-        clk          => clkVGA,
-        d0           => dataBus(0),
-        d1           => dataBus(1),
-        d2           => dataBus(2),
-        d3           => dataBus(3),
-        d4           => dataBus(4),
-        d5           => dataBus(5),
-        d6           => dataBus(6),
-        d7           => dataBus(7),
-        load_instr_n => instLoadN,
-        run          => run,
+    irRevA : if not boardRevB generate
+        irComp : entity work.ir_pld
+        port map(
+            clk          => clkVGA,
+            d0           => dataBus(0),
+            d1           => dataBus(1),
+            d2           => dataBus(2),
+            d3           => dataBus(3),
+            d4           => dataBus(4),
+            d5           => dataBus(5),
+            d6           => dataBus(6),
+            d7           => dataBus(7),
+            load_instr_n => instLoadN,
+            run          => run,
 
-        i0           => instReg(0),
-        i1           => instReg(1),
-        i2           => instReg(2),
-        i3           => instReg(3),
-        i4           => instReg(4),
-        i5           => instReg(5),
-        i6           => instReg(6),
-        i7           => instReg(7)
-    );
+            i0           => instReg(0),
+            i1           => instReg(1),
+            i2           => instReg(2),
+            i3           => instReg(3),
+            i4           => instReg(4),
+            i5           => instReg(5),
+            i6           => instReg(6),
+            i7           => instReg(7)
+        );
+    end generate irRevA;
+    irRevB : if boardRevB generate
+        irComp : entity work.ir_pld_revb
+        port map(
+            clk          => clkVGA,
+            d0           => dataBus(0),
+            d1           => dataBus(1),
+            d2           => dataBus(2),
+            d3           => dataBus(3),
+            d4           => dataBus(4),
+            d5           => dataBus(5),
+            d6           => dataBus(6),
+            d7           => dataBus(7),
+            load_instr_n => instLoadN,
+            run          => run,
+
+            i0           => instReg(0),
+            i1           => instReg(1),
+            i2           => instReg(2),
+            i3           => instReg(3),
+            i4           => instReg(4),
+            i5           => instReg(5),
+            i6           => instReg(6),
+            i7           => instReg(7),
+            ac_sel_n     => acSelN
+        );
+    end generate irRevB;
 
     -- All CPU registers process 
     cpuRegProc : process (clkVGA, rstVGA)
@@ -650,34 +679,64 @@ begin
                 subpixelColOut  => open
     );
 */
-    vgaPLDComp: entity work.vga_gen_pld
-    port map(   clkIn           => clkVGA,
-                rstIn           => rstVGA,
-                hSyncOut        => hSync,
-                vSyncOut        => vSync,
-                videnOut        => viden,
-                pixelEnOut      => pixelEn,
-                modeLdNOut      => modeLdN,
-                hVideoActiveOut => hVideoActive,
-                rowA0Out        => rowA0,
-                rowA1Out        => rowA1,
-                rowA7Out        => rowA7,
-                rowA8Out        => rowA8,
-                lc2In           => lineCode(2),
-                lc3In           => lineCode(3),
-                lc7In           => lineCode(7),
-                i1In            => instReg(1),
-                acSelNOut       => acSelN,
-                pixelRowOut     => pixelRow,
-                pixelColOut     => pixelCol,
+    vgaRevA : if not boardRevB generate
+        vgaPLDComp: entity work.vga_gen_pld
+        port map(   clkIn           => clkVGA,
+                    rstIn           => rstVGA,
+                    hSyncOut        => hSync,
+                    vSyncOut        => vSync,
+                    videnOut        => viden,
+                    pixelEnOut      => pixelEn,
+                    modeLdNOut      => modeLdN,
+                    hVideoActiveOut => hVideoActive,
+                    rowA0Out        => rowA0,
+                    rowA1Out        => rowA1,
+                    rowA7Out        => rowA7,
+                    rowA8Out        => rowA8,
+                    lc2In           => lineCode(2),
+                    lc3In           => lineCode(3),
+                    lc7In           => lineCode(7),
+                    i1In            => instReg(1),
+                    acSelNOut       => acSelN,
+                    pixelRowOut     => pixelRow,
+                    pixelColOut     => pixelCol,
 
-                -- RAM /WE (Sync PLD revision 10; the memory control PLD made it before)
-                rwIn            => memRdWr,
-                runIn           => run,
-                weNOut          => ramWeN,
-                p0NIn           => p0N,      -- Sync PLD rev 12: map register strobe
-                mapWrNOut       => mapWrN
-    );
+                    -- RAM /WE (Sync PLD revision 10; the memory control PLD made it before)
+                    rwIn            => memRdWr,
+                    runIn           => run,
+                    weNOut          => ramWeN,
+                    p0NIn           => p0N,      -- Sync PLD rev 12: map register strobe
+                    mapWrNOut       => mapWrN
+        );
+    end generate vgaRevA;
+    vgaRevB : if boardRevB generate
+        vgaPLDComp: entity work.vga_gen_pld_revb
+        port map(   clkIn           => clkVGA,
+                    rstIn           => rstVGA,
+                    hSyncOut        => hSync,
+                    vSyncOut        => vSync,
+                    videnOut        => viden,
+                    pixelEnOut      => pixelEn,
+                    modeLdNOut      => modeLdN,
+                    hVideoActiveOut => hVideoActive,
+                    rowA0Out        => rowA0,
+                    rowA1Out        => rowA1,
+                    rowA7Out        => rowA7,
+                    rowA8Out        => rowA8,
+                    lc2In           => lineCode(2),
+                    lc3In           => lineCode(3),
+                    lc7In           => lineCode(7),
+                    pixelRowOut     => pixelRow,
+                    pixelColOut     => pixelCol,
+
+                    -- RAM /WE (Sync PLD revision 10; the memory control PLD made it before)
+                    rwIn            => memRdWr,
+                    runIn           => run,
+                    weNOut          => ramWeN,
+                    p0NIn           => p0N,      -- Sync PLD rev 12: map register strobe
+                    mapWrNOut       => mapWrN
+        );
+    end generate vgaRevB;
 
     -- Line code:
     -- bit 0: color mode 0
@@ -1194,40 +1253,78 @@ begin
     --   (000 in clock 2, the first pixel of the byte read in clock 1), and
     --   VIDEN is registered to match, so the F574 that delayed H2:H0 and
     --   videoActive by two clocks is gone (see docs/timing/VIDEO_TIMING.md).
-    colorDecoderComp : entity work.color_decoder
-    Port map(
-        -- Input Data
+    decRevA : if not boardRevB generate
+        colorDecoderComp : entity work.color_decoder
+        Port map(
+            -- Input Data
 
-        D0    => pixelBuffer(0),
-        D1    => pixelBuffer(1),
-        D2    => pixelBuffer(2),
-        D3    => pixelBuffer(3),
-        D4    => pixelBuffer(4),
-        D5    => pixelBuffer(5),
-        D6    => pixelBuffer(6),
-        D7    => pixelBuffer(7),
+            D0    => pixelBuffer(0),
+            D1    => pixelBuffer(1),
+            D2    => pixelBuffer(2),
+            D3    => pixelBuffer(3),
+            D4    => pixelBuffer(4),
+            D5    => pixelBuffer(5),
+            D6    => pixelBuffer(6),
+            D7    => pixelBuffer(7),
 
-        -- Mode Selection
-        MODE0 => lineCode(0),
-        MODE1 => lineCode(1),
+            -- Mode Selection
+            MODE0 => lineCode(0),
+            MODE1 => lineCode(1),
 
-        -- Selection Signals
-        H0  => pixelCol(0),
-        H1  => pixelCol(1),
-        H2  => pixelCol(2),
+            -- Selection Signals
+            H0  => pixelCol(0),
+            H1  => pixelCol(1),
+            H2  => pixelCol(2),
         
-        VIDEN => viden,
+            VIDEN => viden,
 
-        -- VGA Outputs
-        RED1  => vRed(1),   -- VGA_RED(1)
-        RED2  => vRed(2),   -- VGA_RED(2)
-        RED3  => vRed(3),   -- VGA_RED(3)
-        BLU2  => vBlue(2),  -- VGA_BLUE(2)
-        BLU3  => vBlue(3),  -- VGA_BLUE(3)
-        GRN1  => vGreen(1), -- VGA_GREEN(1)
-        GRN2  => vGreen(2), -- VGA_GREEN(2)
-        GRN3  => vGreen(3)  -- VGA_GREEN(3)
-    );
+            -- VGA Outputs
+            RED1  => vRed(1),   -- VGA_RED(1)
+            RED2  => vRed(2),   -- VGA_RED(2)
+            RED3  => vRed(3),   -- VGA_RED(3)
+            BLU2  => vBlue(2),  -- VGA_BLUE(2)
+            BLU3  => vBlue(3),  -- VGA_BLUE(3)
+            GRN1  => vGreen(1), -- VGA_GREEN(1)
+            GRN2  => vGreen(2), -- VGA_GREEN(2)
+            GRN3  => vGreen(3)  -- VGA_GREEN(3)
+        );
+    end generate decRevA;
+    decRevB : if boardRevB generate
+        colorDecoderComp : entity work.color_decoder_revb
+        Port map(
+            -- Input Data
+
+            D0    => pixelBuffer(0),
+            D1    => pixelBuffer(1),
+            D2    => pixelBuffer(2),
+            D3    => pixelBuffer(3),
+            D4    => pixelBuffer(4),
+            D5    => pixelBuffer(5),
+            D6    => pixelBuffer(6),
+            D7    => pixelBuffer(7),
+
+            -- Mode Selection
+            MODE0 => lineCode(0),
+            MODE1 => lineCode(1),
+
+            -- Selection Signals
+            H0  => pixelCol(0),
+            H1  => pixelCol(1),
+            H2  => pixelCol(2),
+        
+            VIDEN => viden,
+
+            -- VGA Outputs
+            RED1  => vRed(1),   -- VGA_RED(1)
+            RED2  => vRed(2),   -- VGA_RED(2)
+            RED3  => vRed(3),   -- VGA_RED(3)
+            BLU2  => vBlue(2),  -- VGA_BLUE(2)
+            BLU3  => vBlue(3),  -- VGA_BLUE(3)
+            GRN1  => vGreen(1), -- VGA_GREEN(1)
+            GRN2  => vGreen(2), -- VGA_GREEN(2)
+            GRN3  => vGreen(3)  -- VGA_GREEN(3)
+        );
+    end generate decRevB;
 
     vRed(0) <= vRed(1);
     vBlue(1 downto 0) <= vBlue(2) & vBlue(2);

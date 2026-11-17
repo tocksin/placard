@@ -38,7 +38,7 @@ FRAME = CLOCKS_PER_LINE * LINES
 ARG_AC, OUT_AC, OUT_X = 0x20, 0x21, 0x22
 MAP_SHADOW, MAP_RUN = 0x07, 0x05      # the map while a ROM program runs (docs/architecture/ROM.md)
 
-ROUTINES = ['vid_addr', 'map_set', 'frame_poll', 'wait_frames', 'rand8',
+ROUTINES = ['vid_addr', 'vid_addr_hi', 'map_set', 'frame_poll', 'wait_frames', 'rand8',
             'add16', 'sub16', 'mul8', 'memset', 'div8', 'div16', 'memcpy',
             'vid_clear', 'vid_mode', 'plot1', 'con_scroll', 'con_putc',
             'con_newline', 'con_home', 'con_clear', 'con_puts', 'con_hex8',
@@ -65,6 +65,7 @@ def zset(*names):
 
 CHANGES = {
     'vid_addr': zset('T0', 'T1', 'T4'),
+    'vid_addr_hi': zset('T0', 'T1', 'T4'),
     'map_set': zset('MAP_SHADOW'),
     'frame_poll': zset('T0', 'FRAME_LO', 'FRAME_HI', 'LINE_LAST'),
     'wait_frames': zset('T0', 'T1', 'FRAME_LO', 'FRAME_HI', 'LINE_LAST'),
@@ -344,6 +345,24 @@ def t_memory(lib, n):
         STATS.add('memcpy', k)
         assert [c.mem[dst + j] for j in range(cnt)] == data, 'memcpy'
         assert c.mem[dst + cnt] == 0 and c.mem[dst - 1] == 0, 'memcpy wrote outside'
+
+
+def t_vid_addr_hi(lib, n):
+    """160-read rows (rev B board, mode byte bit 7): byte column 0-159"""
+    for mode in (0x80, 0x84, 0x88, 0x8C, 0x86, 0x8B, 0xF5):
+        rows = 4 if mode & 8 else 2
+        seen = {}
+        for row in list(range(480)) if n else [0, 1, 2, 223, 224, 255, 256, 479]:
+            col = random.choice([0, 1, 158, 159, random.randrange(160)])
+            c = lib.cpu()
+            c.mem[mode_addr(row)] = mode
+            c, k = lib.call('vid_addr_hi', ac=col, cpu=c, zp={'R2': row, 'R3': row >> 8})
+            STATS.add('vid_addr_hi %dx' % rows, k)
+            got = c.ac << 8 | c.x
+            want = 0x6000 + (col >> 1) * 512 + (col & 1) * 256 + ps.hires_offset(row, mode)
+            assert got == want, 'vid_addr_hi mode %02X %d %d: %04X, not %04X' % (mode, col, row, got, want)
+            seen.setdefault(got & 0xFF, set()).add(row // rows)
+        assert all(len(v) == 1 for v in seen.values()), 'vid_addr_hi mode %02X: groups share a byte' % mode
 
 
 def t_vid_addr(lib, n):
@@ -631,7 +650,7 @@ def t_far(lib, n):
 
 
 TESTS = [('add16/sub16', t_add_sub), ('mul8', t_mul8), ('div8', t_div8), ('div16', t_div16),
-         ('rand8', t_rand8), ('memset/memcpy', t_memory), ('vid_addr', t_vid_addr),
+         ('rand8', t_rand8), ('memset/memcpy', t_memory), ('vid_addr', t_vid_addr), ('vid_addr_hi', t_vid_addr_hi),
          ('vid_clear/vid_mode', t_vid_clear), ('plot1', t_plot1), ('console', t_console),
          ('scroll', t_scroll), ('frames', t_frames), ('map_set', t_map_set), ('stack', t_stack), ('lib_far', t_far)]
 

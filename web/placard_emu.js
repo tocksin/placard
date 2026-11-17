@@ -666,15 +666,41 @@ function rowOffset(row, mode) {
 
 const BLACK = rgba(0, 0, 0);
 
-function renderRow(ram, y, fb) {
+// row address A7:A0 on a 160-read line (rev B board, mode byte bit 7):
+// repeat code 00 or 01 is 2x, 10 or 11 is 4x (placard_sim.hires_offset)
+function hiresOffset(row, mode) {
+    const v = 32 + row;
+    const v8 = (v >> 8) & 1, v7 = (v >> 7) & 1;
+    if (mode & 8) return 0x80 | (v & 0x7C) | (v8 << 1) | v7;
+    return (v & 0xFE) | v8;
+}
+
+function renderRow(ram, y, fb, revB) {
     const mbyte = ram[MODE_BASE + y];
     const base = y * 640;
-    if (mbyte & 0x80) {           // blank line: black, no pixel reads
+    if ((mbyte & 0x80) && !revB) {    // rev A blank line: black, no pixel reads
         fb.fill(BLACK, base, base + 640);
         return;
     }
     const pal = palette(mbyte);
     const bpp = 1 << (mbyte & 3);
+    if (mbyte & 0x80) {           // rev B 160-read line: a byte every 4 clocks
+        const off = hiresOffset(y, mbyte);
+        let x = base;
+        for (let col = 0; col < 160; col++) {
+            const byte = ram[0x6000 + (col >> 1) * 512 + (col & 1) * 256 + off];
+            for (let k = 0; k < 4; k++) {   // the color decoder's selects are H1, H0, H0
+                const sel = ((k >> 1) << 2) | ((k & 1) << 1) | (k & 1);
+                let v;
+                if (bpp === 1) v = (byte >> sel) & 1;
+                else if (bpp === 2) v = (byte >> ((sel >> 1) * 2)) & 3;
+                else if (bpp === 4) v = (byte >> ((sel >> 2) * 4)) & 15;
+                else v = byte;
+                fb[x++] = pal[v];
+            }
+        }
+        return;
+    }
     const per = 8 / bpp, w = 8 / per, mask = (1 << bpp) - 1;
     const off = rowOffset(y, mbyte);
     let x = base;
@@ -701,6 +727,7 @@ class Machine {
         this.frames = 0;
         this.onFrame = null;
         this.error = null;
+        this.revB = false;            // rev B board: mode byte bit 7 = 160-read line, not blank line
         this.reset(false);
     }
 
@@ -778,7 +805,7 @@ class Machine {
             return;
         }
         if (this.audio.length < this.audioMax) this.audio.push(this.sample);
-        if (idx >= 45) renderRow(this.ram, idx - 45, this.fb);
+        if (idx >= 45) renderRow(this.ram, idx - 45, this.fb, this.revB);
         this.line++;
         this.evPhase = 0;
         this.nextEvt = this.audioReadClock(this.line);
@@ -876,6 +903,23 @@ class Machine {
     withStalls(n) {
         const t = this.clocks;
         let end = t + n;
+        if (this.revB) {              // a second pixel read at H2:H0 = 011 on a 160-read line
+            let c = t - (t % 4) + 3;
+            while (c < end) {
+                const pos = c % LINE;
+                const g = 28 + (pos >> 3);
+                if (c & 4) {
+                    if (g === 45 || g === 46) end++;
+                    else if (g >= 48 && Math.floor(c / LINE) % LINES >= 45) end++;
+                } else if (g >= 48) {
+                    const line = Math.floor(c / LINE) % LINES;
+                    if (line >= 45 && (this.ram[MODE_BASE + line - 45] & 0x80)) end++;
+                }
+                c += 4;
+            }
+            this.stallClocks += end - t - n;
+            return end - t;
+        }
         let c = t - (t % 8) + 7;
         while (c < end) {
             const pos = c % LINE;

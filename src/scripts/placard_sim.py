@@ -506,6 +506,9 @@ class Cpu:
         # pixel read per group on active lines whose mode byte has bit 7 = 0)
         self.stalls = False
         self.stall_clocks = 0
+        # rev_b: the rev B board's meaning of mode byte bit 7, a 160-read
+        # line (a second pixel read per group) instead of a blank line
+        self.rev_b = False
 
     def read(self, ad):
         """memory read through the ROM/RAM map (8K sections, bit n = 1: RAM)"""
@@ -591,11 +594,30 @@ class Cpu:
         H2:H0 = 111 that the video uses for a read is lost to the CPU.  The
         line starts at pixel 224 (group 28); groups 45 and 46 read the mode
         byte and the audio sample on every line, groups 48-127 read pixels
-        on active lines (V 544-1023) unless the row is blanked (VIDEO.md)"""
+        on active lines (V 544-1023) unless the row is blanked (VIDEO.md).
+        On the rev B board (rev_b) bit 7 of the mode byte does not blank the
+        row: it adds a second pixel read per group, at H2:H0 = 011"""
         t = self.clocks
         end = t + n
-        c = t | 7
         mem = self.mem
+        if self.rev_b:
+            c = t | 3
+            while c < end:
+                pos = c % 800
+                g = 28 + (pos >> 3)
+                if c & 4:                       # H2:H0 = 111
+                    if g == 45 or g == 46:
+                        end += 1
+                    elif g >= 48 and (c // 800) % 525 >= 45:
+                        end += 1
+                elif g >= 48:                   # H2:H0 = 011: the second read
+                    line = (c // 800) % 525
+                    if line >= 45 and mem[MODE_BASE + line - 45] & 0x80:
+                        end += 1
+                c += 4
+            self.stall_clocks += end - t - n
+            return end - t
+        c = t | 7
         while c < end:
             pos = c % 800
             g = 28 + (pos >> 3)
@@ -647,6 +669,17 @@ def row_offset(row, mode):
     return 0x180 | (v & 0x7C) | (v8 << 1) | v7
 
 
+def hires_offset(row, mode):
+    """row address A7:A0 of screen row 0-479 on a 160-read line (rev B board,
+    mode byte bit 7): repeat code 00 or 01 is 2x, 10 or 11 is 4x.  Byte column
+    c (0-159) of the row is at x6000 + (c >> 1) * 512 + (c & 1) * 256 + this"""
+    v = 32 + row
+    v8, v7 = (v >> 8) & 1, (v >> 7) & 1
+    if mode & 8:
+        return 0x80 | (v & 0x7C) | (v8 << 1) | v7
+    return (v & 0xFE) | v8
+
+
 def rgb8(b):
     r = (b & 7) * 255 // 7
     bl = ((b >> 3) & 3) * 255 // 3
@@ -654,7 +687,7 @@ def rgb8(b):
     return (r, g, bl)
 
 
-def render(mem, path):
+def render(mem, path, rev_b=False):
     try:
         from PIL import Image
     except ImportError:
@@ -669,11 +702,29 @@ def render(mem, path):
         (0, 7, 3), (0, 4, 0), (7, 7, 3), (5, 5, 2), (7, 4, 2), (7, 4, 0), (7, 7, 0), (1, 7, 0))]
     for y in range(480):
         mbyte = mem[MODE_BASE + y]
-        if mbyte & 0x80:                # blank line: black, no pixel reads
+        if mbyte & 0x80 and not rev_b:  # blank line: black, no pixel reads
             continue
         # row tint, bits 6:4 = R, G, B: about 0.2 V of 0.7 V on that channel
         tint = [73 if mbyte & (0x10 << k) else 0 for k in range(3)]
         bpp = 1 << (mbyte & 3)
+        if mbyte & 0x80:                # rev B, 160-read line: a byte every 4 clocks
+            off = hires_offset(y, mbyte)
+            for col in range(160):
+                byte = mem[0x6000 + (col >> 1) * 512 + (col & 1) * 256 + off]
+                for k in range(4):      # the color decoder's selects are H1, H0, H0
+                    sel = (k >> 1) << 2 | (k & 1) << 1 | (k & 1)
+                    if bpp == 1:
+                        c = (255, 255, 255) if (byte >> sel) & 1 else (0, 0, 0)
+                    elif bpp == 2:
+                        c = pal2[(byte >> ((sel >> 1) * 2)) & 3]
+                    elif bpp == 4:
+                        c = pal4[(byte >> ((sel >> 2) * 4)) & 15]
+                    else:
+                        c = rgb8(byte)
+                    if mbyte & 0x70:
+                        c = tuple(min(255, c[j] + tint[j]) for j in range(3))
+                    px[col * 4 + k, y] = c
+            continue
         off = row_offset(y, mbyte)
         for col in range(80):
             byte = mem[0x6000 + col * 512 + off]
@@ -847,6 +898,8 @@ def main(argv):
                          'ROM/RAM map, from an empty RAM, as the hardware starts')
     ap.add_argument('--stalls', action='store_true',
                     help='model the video read stall clocks (blanked rows have none)')
+    ap.add_argument('--rev', choices=['a', 'b'], default='a',
+                    help="board revision: on b, mode byte bit 7 is a 160-read line, not a blank line")
     ap.add_argument('--max-steps', type=int, default=20_000_000)
     ap.add_argument('--stop-at', metavar='LABEL', help='stop when the PC reaches LABEL')
     args = ap.parse_args(argv)
@@ -868,10 +921,11 @@ def main(argv):
         else:
             cpu = Cpu(mem, hw_alu=args.hw_alu)
         cpu.stalls = args.stalls
+        cpu.rev_b = args.rev == 'b'
         r = cpu.run(args.max_steps, stop_pc=syms[args.stop_at] if args.stop_at else None)
         print('%s after %d instructions, %d clocks, PC=%04X' % (r, cpu.steps, cpu.clocks, cpu.pc))
         if args.png:
-            render(cpu.mem, args.png)
+            render(cpu.mem, args.png, cpu.rev_b)
         return cpu, syms
     return None, syms
 

@@ -151,7 +151,7 @@
 ; active video) and include the 8-clock RETURN but not the 18-clock CALL.
 ; test_lib.py measures them.
 ;
-; Date: 11/11/2026
+; Date: 11/17/2026
 ; ============================================================
 
 #include "zeropage.asm"
@@ -1359,6 +1359,68 @@ cd_back3:
 
 
 
+; ------------------------------------------------------------
+; vid_addr_hi - address of a screen byte on a 160-read row (rev B board:
+;               the row's mode byte has bit 7 set, docs/video/VIDEO.md)
+;   in:      AC = byte column, 0-159
+;            R3:R2 = row, 0-479
+;   out:     AC = address high byte, X = address low byte
+;            (then: ld ac, y / ld [y,x], ac reads the byte)
+;   changes: T0, T1, T4
+;   clocks:  see docs/software/LIBRARY.md
+;   A 160-read row is always 2x or 4x (repeat code 00 counts as 2x).
+;   With v = row + 32 (9 bits), the byte is in page x60 + column:
+;       2x:  low byte v7:v1, v8
+;       4x:  low byte 1, v6:v2, v8, v7
+;   A byte is 4 clocks wide: one 8 bpp pixel, two 4 bpp pixels (low
+;   nibble first) or four 2 bpp pixels (bits 1:0 first).
+; ------------------------------------------------------------
+vid_addr_hi:
+    add  0x60, ac
+    ld   ac, [T0]               ; T0 = x60 + column
+    ld   [R2], ac
+    add  0x20, ac
+    ld   ac, [T1]               ; T1 = v7:v0
+    ld   ac, x
+    ld   [R3], ac
+    bcc  vh_v8
+    inc                         ; row low + x20 carried
+vh_v8:
+    ld   ac, [T4]               ; T4 = v8
+    add  0x5A, ac
+    ld   ac, y
+    ld   [y,x], ac              ; the row's mode byte, x5A00 + v
+    and  0x08, ac
+    bne  vh_4x
+    ld   [T1], ac               ; 2x: v7:v1, v8
+    and  0xFE, ac
+    or   [T4], ac
+    ld   ac, x
+    ld   [T0], ac
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+vh_4x:
+    ld   [T1], ac               ; 4x: 1, v6:v2, v8, v7
+    blt  vh_4h
+    ld   [T4], ac
+    shl
+    bra  vh_4m
+vh_4h:
+    ld   [T4], ac
+    shl
+    or   1, ac
+vh_4m:
+    or   0x80, ac
+    ld   ac, [T4]
+    ld   [T1], ac
+    and  0x7C, ac
+    or   [T4], ac
+    ld   ac, x
+    ld   [T0], ac
+    ld   [LINK_HI], y
+    jmp  [LINK_LO]
+
+
 ; ============================================================
 ; Jump table (LIB_JT, xFB00-xFBFF): entry n at xFB00 + 4n, in this order for good
 ; ============================================================
@@ -1536,6 +1598,9 @@ jt_wait_frames_io:  ; xFBDC
 jt_ps2_poll:        ; xFBE0
     ld   ps2_poll >> 8, y
     jmp  ps2_poll
+jt_vid_addr_hi:     ; xFBE4
+    ld   vid_addr_hi >> 8, y
+    jmp  vid_addr_hi
 
 
 ; ============================================================

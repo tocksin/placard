@@ -1,6 +1,6 @@
 # VGA Timing Generator
 
-Date: 2026-11-08
+Date: 2026-11-17
 
 ## Overview
 
@@ -256,6 +256,11 @@ color decoder's MODE1:MODE0), bits 3:2 pick the line repeat (see
 | 6:4 | Row tint: red, green, blue (1 = lift that channel) | Q6:Q4 | Tint resistors on the VGA lines, gated by VIDEN |
 | 7 | Blank line (1 = black, no pixel reads) | Q7 | H counter PLD pin 6 |
 
+This page describes rev A.  On rev B, bit 7 is the 160-read line instead of
+the blank line (160 across in 256 colors, 320 in 16, 640 in 4, with 2x or 4x
+repeat), VSYNC is on lines 508-509 and a few PLD pins move:
+[HIRES.md](HIRES.md).
+
 The mode byte is read in horizontal blanking, so it
 takes no screen space: all 80 byte columns (x6020 + column × 512 + row,
 columns 0-79, in 1x) are pixels, 640 pixels across in 1 bpp.
@@ -308,6 +313,8 @@ byte again (the pixel buffer takes the audio sample one edge later).  Its
 outputs are used from group 48 on.
 
 ## Blank line
+
+Rev A only: rev B uses bit 7 for the 160-read line ([HIRES.md](HIRES.md)).
 
 Bit 7 of a row's mode byte blanks every line of that row: the line is black
 and the video makes no pixel reads on it, so the CPU is not stalled for its

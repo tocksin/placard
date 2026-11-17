@@ -14,7 +14,7 @@ with no server and no build step:
   that uploads `web/`).  Nothing is sent anywhere; the files you load stay
   in the browser.
 
-Date: 11/02/2026
+Date: 11/17/2026
 
 ## What it models
 
@@ -37,6 +37,7 @@ simulation; the timing comes from the same rules the Python simulator uses:
 | SNES pads | the browser's game controllers (standard mapping: bottom B, right A, left Y, top X, shoulders L/R, back Select, start Start, D-pad and left stick) |
 | SD card | SPI-mode SDHC card: CMD0/8/55/ACMD41/58/16/17/24, reads and writes |
 | Expansion slots | empty (read FF) |
+| Board revision | rev A unless Board is set to rev B in the options: then bit 7 of a mode byte is the 160-read line instead of the blank line, with its second stall clock per group ([HIRES.md](../video/HIRES.md)); `placard_sim.py --rev b` is the same in Python, and `test_hires.py` checks both |
 
 The video stall clock is placed in clock 7 of its group and the audio stall
 in group 46 on every line, as placard_sim.py does; the hardware's audio
