@@ -1,6 +1,6 @@
 # Board releases
 
-Date: 2026-11-06
+Date: 2026-11-17
 
 Board revisions use letters from A (skipping I, O, Q, S, X, Z). The letter is
 in each board's title block, on its silkscreen ("PLC-100x REV n"), in the
@@ -38,4 +38,13 @@ outputs; regenerate them before ordering rev B.
 
 ### Changes since rev A
 
-- (none yet)
+- 160-read lines (2026-11-17, [HIRES.md](../video/HIRES.md)): mode byte bit 7
+  is 160 reads per line instead of blank line.  Main board nets: new T2
+  (Sync PLD pin 21 to H counter pin 6 and audio slot PLD pin 16); /P0 to
+  Sync pin 4 instead of 21; V4 off the Sync PLD; LC7 to audio slot PLD
+  pin 21 instead of H counter pin 6; /AC_SEL from IR PLD pin 22 instead of
+  audio slot PLD pin 21; I1 off the audio slot PLD.  PLDs from
+  `src/pld/rev_b/`: Sync 13, H counter 09, audio slot 05, IR 02, color
+  decoder 09.  VSYNC moves to lines 508-509.  The schematic sheets (video
+  timing, control) and `schematics/placard_main.pdf` have the new nets; the
+  board file is not yet changed.

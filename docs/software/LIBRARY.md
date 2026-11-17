@@ -6,7 +6,7 @@ page map that every program shares.  `src/scripts/lib_demo.asm` is a short
 example program that uses it, and `src/scripts/test_lib.py` tests every
 routine in the simulator.
 
-Date: 11/11/2026
+Date: 11/17/2026
 
 | File | What it is |
 |------|------------|
@@ -95,7 +95,7 @@ only ever added at the end, never moved or removed, so code built without
 `placard_lib.asm` (a card's boot code, a program loaded from the SD card)
 can CALL a routine at its table address and keep working when the library
 changes.  A program that includes `placard_lib.asm` may call the routines
-directly instead, 4 clocks faster.  64 entries fit; 55 are used:
+directly instead, 4 clocks faster.  64 entries fit; 58 are used:
 
 | Entry | Address | Routines |
 |-------|---------|----------|
@@ -106,6 +106,7 @@ directly instead, 4 clocks faster.  64 entries fit; 55 are used:
 | 54 | xFBD8 | `menu_poll` |
 | 55 | xFBDC | `wait_frames_io` |
 | 56 | xFBE0 | `ps2_poll` |
+| 57 | xFBE4 | `vid_addr_hi` |
 
 Entry n is at xFB00 + 4n.  A CALL through the table:
 
@@ -337,6 +338,7 @@ pointers already point at the next block.
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
 | `vid_addr` | AC = byte column 0-79, R3:R2 = row 0-479 | AC = address high byte, X = low byte, for the row's own line repeat | T0, T1, T4 | 72-76 (1x), 85-89 (2x), 105-109 (4x) |
+| `vid_addr_hi` | AC = byte column 0-159, R3:R2 = row 0-479 | AC = address high byte, X = low byte, on a 160-read row of a rev B board ([HIRES.md](../video/HIRES.md)); repeat bits 00 count as 2x | T0, T1, T4 | 84-88 (2x), 107-111 (4x), with CALL and RETURN |
 | `vid_clear` | AC = mode byte: bits 1:0 = 1, 2, 4, 8 bpp (0-3), bits 3:2 = 1x, 2x, 4x (0-2), bits 6:4 = R, G, B tint, bit 7 = blank | x6000-xFFFF = 0, every mode byte = AC | AC, X, Y, T0, T1 | 505,794 (20.1 ms) |
 | `vid_mode` | AC = mode byte | Every row's mode byte = AC, pixels kept | AC, X, Y, T0 | 11,061 |
 | `plot1` | R1:R0 = x 0-639, R3:R2 = y 0-479, AC = 0 clears, else sets | One pixel of a 1 bpp row (1x, 2x or 4x) | AC, X, Y, T0-T6 | 223-256 |
@@ -369,6 +371,10 @@ pointers already point at the next block.
   mode byte (x5A20 + r) to tint or blank just that row; blanking every row
   while computing gives the CPU about 10 % more clocks per frame
   ([VIDEO.md](../video/VIDEO.md#blank-line)).
+- On a rev B board bit 7 is the 160-read line, not the blank line
+  ([HIRES.md](../video/HIRES.md)).  `vid_addr_hi` gives the address of a
+  byte on such a row (160 byte columns); `vid_addr`, `plot1` and the text
+  console are for normal rows.  Keep mode bytes x5A00-x5A1F at 0.
 - `plot1` became slower when it learned the line repeat (it calls
   `vid_addr`, 148-159 clocks before).  The text console still assumes 1x
   rows.

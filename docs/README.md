@@ -22,6 +22,7 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 ## [video/](video/) and [sound/](sound/)
 
 - [VIDEO.md](video/VIDEO.md): VGA timing, video modes, line repeat, row tint
+- [HIRES.md](video/HIRES.md): rev B's 160-read lines (160 x 256 colors, 320 x 16, 640 x 4)
 - [COLORS.md](video/COLORS.md): the color decoder PLD
 - [SOUND.md](sound/SOUND.md): line-fetched audio, DAC and the sound driver
 - [MUSIC.md](sound/MUSIC.md): music player and tracker

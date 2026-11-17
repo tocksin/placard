@@ -1,6 +1,6 @@
 # ATF22V10 VGA Color Decoder
 
-Date: 2026-11-16
+Date: 2026-11-17
 
 ## Overview
 
@@ -189,6 +189,11 @@ bytes for a gray ramp:
 The error is the blue average minus the red and green level, in percent of
 full scale (694 mV).  Blue's DAC levels are 0, 227, 453 and 680 mV.  Before
 revision 08 the five blended codes were off by 5.6 to 24 %.
+
+Rev B's decoder (revision 09, `src/pld/rev_b/`) blends over H2 and H1 only,
+in quarters, so the grays are the same on its 160-read lines
+([HIRES.md](HIRES.md#what-changes-on-the-board)); gray 5 then has the higher blue level 1/4 of the time
+(+2.6 % instead of -1.5 %).
 
 The blend is a fine pattern one dot clock wide inside the pixel, so it is
 blue stripes at 640-pixel pitch, one blue step (227 mV) high.  All other 8-bit codes, and

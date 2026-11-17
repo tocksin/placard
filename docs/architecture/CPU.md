@@ -194,7 +194,7 @@ two source F541s has two active-low enables:
 | F541 | /OE1 | /OE2 | Drives when |
 |---|---|---|---|
 | D  | /SRC_EN (branch PLD pin 16) | I1 (instruction register bit 1) | EXEC, source 00 or 01 |
-| AC | /SRC_EN (branch PLD pin 16) | /AC_SEL = !I1 (audio PLD pin 21) | EXEC, source 10 or 11 |
+| AC | /SRC_EN (branch PLD pin 16) | /AC_SEL = !I1 (audio PLD pin 21; on rev B a registered copy from IR PLD pin 22, [HIRES.md](../video/HIRES.md)) | EXEC, source 10 or 11 |
 
 The audio slot PLD (revision 04) had two free pins, so it makes the one
 inverter (`AC_SEL = I1`).  A D source always has a LOAD clock before EXEC, so
