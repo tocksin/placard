@@ -11,7 +11,8 @@ reprogrammed and three nets move.
 
 Rev A boards cannot do this with PLD changes: within one line their video
 address depends only on the seven H counter pins, so a line has at most 128
-addresses.  Everything else in the docs describes rev A; this page is the
+addresses.  With five wires and five bent pins they can:
+[REVB_MOD.md](../hardware/REVB_MOD.md).  Everything else in the docs describes rev A; this page is the
 whole difference.
 
 ## Modes

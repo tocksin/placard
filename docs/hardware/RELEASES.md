@@ -47,4 +47,5 @@ outputs; regenerate them before ordering rev B.
   `src/pld/rev_b/`: Sync 13, H counter 09, audio slot 05, IR 02, color
   decoder 09.  VSYNC moves to lines 508-509.  The schematic sheets (video
   timing, control) and `schematics/placard_main.pdf` have the new nets; the
-  board file is not yet changed.
+  board file is not yet changed.  A rev A board can be hand-modified to
+  match: [REVB_MOD.md](REVB_MOD.md).
