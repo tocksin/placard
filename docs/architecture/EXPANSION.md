@@ -1,6 +1,6 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-11-16
+Date: 2026-11-17
 
 The Placard has four expansion slots and one ROM cartridge slot, all the
 same keyed 2 x 32, 1.0 mm pitch socket (Molex 87715-9106, "ROM cartridge
@@ -520,7 +520,13 @@ air and a 2 mm wall each end, and the keepout 1 mm more.
 | Slot | Shell outside | Keepout (courtyard) | From the footprint origin |
 |---|---|---|---|
 | J8 cartridge | 44 x 19.25 mm | 46 x 21.25 mm | x -6.5 to 39.5, y -7.25 (side B) to 14 (side A) |
-| J9-J12 card | 77 x 22.6 mm | 79 x 24.6 mm | x -15.37 to 63.63, y -7.25 (side B) to 17.35 (side A) |
+| J9-J12 card | 78.6 x 24.2 mm | 79 x 24.6 mm | x -15.37 to 63.63, y -7.25 (side B) to 17.35 (side A) |
+
+**An expansion card's shell fills its opening.**  The opening for a slot
+in the case's top is the slot's keepout, so a card's shell is the keepout
+less 0.2 mm all round (Justin, 2026-11-17): 2 mm walls with 1.3 mm of air
+at the card's ends and 0.8 mm more room across than the parts need.  The
+slots are 27 mm apart, so 2.8 mm stays open between two cards side by side.
 
 **Expansion slot pitch.**  A card's keepout is 24.6 mm across, so the
 slots need at least 24.6 mm between centres.  The main board puts them
@@ -531,7 +537,7 @@ covers only the shell over the slot.
 **Card screw.**  The case's back plate has an M3 hole behind each slot,
 15 mm above the main board and centred on the keepout (5.05 mm from the
 card's plane, on side A).  A card shell carries an M3 heat-set insert in its
-back end there, standing 1 mm proud to meet the plate, so a cable plugged
+back end there, on a pad that meets the plate, so a cable plugged
 into the card can't rock it (CASE.md, "Expansion card screws").
 
 ## To check

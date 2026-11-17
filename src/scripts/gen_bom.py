@@ -329,7 +329,7 @@ PCB_LINES = {
 }
 SHELL_LINES = {
     "Memory card, 512K": [mech(1, "Memory card shell (front and back halves, case/memcard_shell_*.stl)", 3.50,
-                               "3D print, not quoted", "77 x 22.6 x 48.2 mm outside (MEMCARD.md, \"Shell\")"),
+                               "3D print, not quoted", "78.6 x 24.2 x 48.2 mm outside (MEMCARD.md, \"Shell\")"),
                           mech(2, "M3 x 8 pan head screw (back half and card to the front half)", 0.10,
                                "any M3 x 8 machine screw"),
                           mech(2, "M3 hex nut, ISO 4032 (in the front half's bosses)", 0.05, "any M3 nut"),

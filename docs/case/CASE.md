@@ -156,8 +156,8 @@ screw on a PC card's bracket. A card that carries its own connector is held
 by it, so plugging and unplugging a cable can't rock the card in its slot.
 
 - The card's shell needs an M3 heat-set insert in its back end at that spot,
-  standing 1 mm proud so it meets the plate's inside face (the keepout leaves
-  1 mm between the shell and the plate).
+  on a pad that meets the plate's inside face (the shell itself stops 0.2 mm
+  short of the plate).
 - The hole is 5.05 mm from the card's plane, on side A, and 12 to 20 mm above
   the main board, so a card keeps its parts clear of the insert at that
   corner.
