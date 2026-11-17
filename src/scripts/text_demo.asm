@@ -42,10 +42,12 @@
 ;   The busiest frame is about 190,000 clocks in placard_sim.
 ;   - the H key (td_keys): the 160-read screen of a rev B board
 ;     (docs/video/HIRES.md) and back.  It is the same picture with the
-;     16-color band 320 x 64 instead of 160 x 32 and the 256-color band
-;     160 across instead of 80: smoothed letters and digits, round wheel
-;     dots and a rounder ring.  See "the 160-read screen" below.  On a
-;     rev A board those rows show black.
+;     80 column text in 4 colors (640 across, 2 bpp), the 16-color band
+;     320 x 64 instead of 160 x 32 and the 256-color band 160 across
+;     instead of 80: smoothed letters and digits, round wheel dots and a
+;     rounder ring.  The status lines and the RAM test stop on that
+;     screen.  See "the 160-read screen" below.  On a rev A board those
+;     rows show black.
 ;
 ; It is a ROM program (docs/architecture/ROM.md): it runs in place from ROM x6000-xAFFF,
 ; uses the standard library (docs/software/LIBRARY.md) and the zero page map, and
@@ -302,6 +304,11 @@ td_m5:
     ld   td_put_range >> 8, y
     jmp  td_put_range
 td_m6:
+    ld   [hx], ac               ; back from the 160-read screen: only the
+    beq  td_m6n                 ; 80 column text is drawn again
+    ld   td_no_fin >> 8, y
+    jmp  td_no_fin
+td_m6n:
     ; ---- 16 colors: 4 bpp, 4x, rows 96-223 ------------------------------
     ld   s_16col, ac            ; "16 COLORS" in rainbow letters
     ld   ac, [R0]
@@ -560,6 +567,11 @@ td_lt:
     ld   menu_poll >> 8, y
     jmp  menu_poll
 td_l0:
+    ld   [hx], ac               ; the 160-read screen: only the wheel,
+    beq  td_l0n                 ; the scroller and the ring
+    ld   td_loop_h >> 8, y
+    jmp  td_loop_h
+td_l0n:
     ld   LINK_LO, x             ; CALL td_ram_page: test one page
     ld   td_l2, [x]
     ld   LINK_HI, x
@@ -654,13 +666,21 @@ td_l8:
 ; H switches rows 96-223 and 352-479 to 160-read rows and back (td_keys).
 ; The picture is the same, at twice the resolution:
 ;
+;   rows   0-95   80 column text in 4 colors: 2 bpp, 2x and 160-read (85),
+;                 640 x 48, 6 rows of 8 x 16 characters (td_char2 with 160
+;                 byte columns) in place of the 12 rows of 2-color text.
+;                 Its bytes are the even low bytes x20-x7E of every page,
+;                 which are the text's in the even pages, so the status
+;                 lines, the RAM test and the raster bar stop on this
+;                 screen (td_loop_h) and the text is drawn
+;                 again on the way back (the RAM test starts over)
 ;   rows  96-223  16 colors, 4 bpp: 2x and 160-read (mode byte 86), so
 ;                 320 x 64 pixels of 2 x 2 instead of 160 x 32 of 4 x 4.
 ;                 "16 COLORS" from 16 x 16 letters (SMG: the font's letters
 ;                 doubled with the diagonals filled in), the same bars, and
 ;                 the wheel's dots as discs on a true circle
 ;   rows 224-351  the 40 column band, unchanged: a 160-read 2x row from
-;                 row 256 on would use the bytes of rows 0-95
+;                 row 256 on would use the odd low bytes x21-x7F
 ;   rows 352-479  256 colors, 8 bpp, 4x and 160-read (8B): 160 x 32 pixels
 ;                 of 4 x 4 instead of 80 x 32 of 8 x 4.  "256" from 24 x 28
 ;                 digits (DIGH) and the ring from 508 pixels instead of 246
@@ -785,19 +805,8 @@ td_nd1:
     ld   td_grid_sub >> 8, y
     jmp  td_grid_sub
 td_nd2:
-    ld   text_ln, ac            ; the legend line
-    ld   ac, [tp_lo]
-    ld   text_ln >> 8, ac
-    ld   ac, [tp_hi]
-    ld   LINK_LO, x             ; CALL td_text_list
-    ld   td_nd3, [x]
-    ld   LINK_HI, x
-    ld   td_nd3 >> 8, [x]
-    ld   td_text_list >> 8, y
-    jmp  td_text_list
-td_nd3:
-    ld   td_k_up >> 8, y
-    jmp  td_k_up
+    ld   td_no_top >> 8, y
+    jmp  td_no_top
 
 ; ---- the 160-read screen ----
 #addr 0x6E6A
@@ -938,19 +947,137 @@ td_hb1:
     ld   td_rect >> 8, y
     jmp  td_rect
 td_hb2:
-    ld   text_lh, ac            ; the legend line
-    ld   ac, [tp_lo]
-    ld   text_lh >> 8, ac
-    ld   ac, [tp_hi]
-    ld   LINK_LO, x             ; CALL td_text_list
-    ld   td_hb3, [x]
+    ld   td_hi_top >> 8, y
+    jmp  td_hi_top
+
+#addr 0x7800
+td_hi_top:
+    ld   0x5A, y                ; rows 0-95: 2 bpp 2x, 160-read, no tint
+    ld   0x20, ac
+td_ht1:
+    ld   ac, x
+    ld   0x85, [y,x]
+    inc
+    blt  td_ht2
+    bra  td_ht1
+td_ht2:
+    ; the 80 column band: black, then its text
+    clr  ac
+    ld   ac, [p_val]
+    clr  ac
+    ld   ac, [p_col]
+    ld   160, ac
+    ld   ac, [p_n]
+    clr  ac
+    ld   ac, [p_rlo]
+    clr  ac
+    ld   ac, [p_rhi]
+    ld   48, ac
+    ld   ac, [p_rows]
+    ld   2, ac
+    ld   ac, [p_step]
+    ld   LINK_LO, x             ; CALL td_rect
+    ld   td_ht3, [x]
     ld   LINK_HI, x
-    ld   td_hb3 >> 8, [x]
-    ld   td_text_list >> 8, y
-    jmp  td_text_list
-td_hb3:
+    ld   td_ht3 >> 8, [x]
+    ld   td_rect >> 8, y
+    jmp  td_rect
+td_ht3:
+    ld   text_h, ac
+    ld   ac, [tp_lo]
+    ld   text_h >> 8, ac
+    ld   ac, [tp_hi]
+    ld   LINK_LO, x             ; CALL td_text2_list
+    ld   td_ht4, [x]
+    ld   LINK_HI, x
+    ld   td_ht4 >> 8, [x]
+    ld   td_text2_list >> 8, y
+    jmp  td_text2_list
+td_ht4:
     ld   td_grid_h >> 8, y
     jmp  td_grid_h
+
+td_no_top:                      ; back: rows 0-95 are 1 bpp 1x again
+    ld   LINK_LO, x             ; CALL td_tint_init
+    ld   td_nt1, [x]
+    ld   LINK_HI, x
+    ld   td_nt1 >> 8, [x]
+    ld   td_tint_init >> 8, y
+    jmp  td_tint_init
+td_nt1:
+    ; black, then the text as at the start
+    clr  ac
+    ld   ac, [p_val]
+    clr  ac
+    ld   ac, [p_col]
+    ld   80, ac
+    ld   ac, [p_n]
+    clr  ac
+    ld   ac, [p_rlo]
+    clr  ac
+    ld   ac, [p_rhi]
+    ld   96, ac
+    ld   ac, [p_rows]
+    ld   1, ac
+    ld   ac, [p_step]
+    ld   LINK_LO, x             ; CALL td_rect
+    ld   td_nt2, [x]
+    ld   LINK_HI, x
+    ld   td_nt2 >> 8, [x]
+    ld   td_rect >> 8, y
+    jmp  td_rect
+td_nt2:
+    clr  ac                     ; the RAM test starts over
+    ld   ac, [rt_idx]
+    ld   ac, [pass_lo]
+    ld   ac, [pass_hi]
+    ld   ac, [err_lo]
+    ld   ac, [err_hi]
+    ld   1, ac                  ; (hx = 1 brings td_m6 back to td_no_fin)
+    ld   ac, [hx]
+    ld   td_mb4 >> 8, y
+    jmp  td_mb4
+td_no_fin:
+    clr  ac
+    ld   ac, [hx]
+    ld   td_k_up >> 8, y
+    jmp  td_k_up
+
+; td_loop_h - the frame loop's work on the 160-read screen
+td_loop_h:
+    ld   [big_div], ac          ; wheel every 3 frames
+    dec
+    ld   ac, [big_div]
+    bne  td_lh1
+    ld   3, ac
+    ld   ac, [big_div]
+    ld   [big_ph], ac
+    inc
+    and  7, ac
+    ld   ac, [big_ph]
+    ld   LINK_LO, x             ; CALL td_wheel
+    ld   td_lh1, [x]
+    ld   LINK_HI, x
+    ld   td_lh1 >> 8, [x]
+    ld   td_wheel >> 8, y
+    jmp  td_wheel
+td_lh1:
+    ld   LINK_LO, x             ; CALL td_scroll
+    ld   td_lh3, [x]
+    ld   LINK_HI, x
+    ld   td_lh3 >> 8, [x]
+    ld   td_scroll >> 8, y
+    jmp  td_scroll
+td_lh3:
+    ld   LINK_LO, x             ; CALL td_ring
+    ld   td_lh2, [x]
+    ld   LINK_HI, x
+    ld   td_lh2 >> 8, [x]
+    ld   td_ring >> 8, y
+    jmp  td_ring
+td_lh2:
+    ld   td_keys >> 8, y
+    jmp  td_keys
 
 ; ---------------------------------------------------------------------------
 ; td_grid_h - "256" on the 160-read 256 band, from DIGH: 24 x 28 pixels a
@@ -2134,6 +2261,17 @@ td_char2:
     clr  ac
     ld   ac, [p_rhi]
 td_c2_hi:
+    ld   [hx], ac               ; the 160-read screen: its 80 column band
+    beq  td_c2_col              ; is rows 0-95, row 16 * text row
+    ld   [c_row], ac
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [p_rlo]
+    clr  ac
+    ld   ac, [p_rhi]
+td_c2_col:
     ld   [c_col], ac            ; 2 byte columns per character
     shl
     ld   ac, [p_col]
@@ -2716,17 +2854,39 @@ msg:
 msg_end:
     #d8 0x00
 
-s_legend_h:                     ; the legend of the 160-read screen
-    #d " 160-READ: 16 COLORS 320 X 64 2X |  40 COLUMNS  2 BPP  2X  | 256 COLORS 160 X 32", 0x00
+; the 160-read screen's 80 column text (in the free ends of the code pages):
+; column, row, fg XOR bg, bg, string
+#addr 0x7678
+text_h:
+    #d8 0, 0, 0xAA, 0x55, s_h0 & 0xFF, s_h0 >> 8
+    #d8 1, 1, 0xAA, 0x00, s_h1 & 0xFF, s_h1 >> 8
+    #d8 1, 2, 0xFF, 0x00, s_h2 & 0xFF, s_h2 >> 8
+    #d8 1, 3, 0xAA, 0x55, s_blue & 0xFF, s_blue >> 8
+    #d8 8, 3, 0xAA, 0xAA, s_gold & 0xFF, s_gold >> 8
+    #d8 15, 3, 0xFF, 0xFF, s_white & 0xFF, s_white >> 8
+    #d8 24, 3, 0x55, 0x00, s_h3 & 0xFF, s_h3 >> 8
+    #d8 1, 4, 0xFF, 0x00, s_h4 & 0xFF, s_h4 >> 8
+    #d8 0, 5, 0xAA, 0xAA, s_h5 & 0xFF, s_h5 >> 8
+    #d8 0xFF
+s_h0:
+    #d " PLACARD COMPUTER  -  VIDEO TEST SCREEN         80 COLUMNS  4 COLORS  160-READ  ", 0x00
+#addr 0x6C8F
+s_h1:
+    #d "The quick brown fox jumps over the lazy dog.  0123456789  !?#$%&*+-=<>()[]{}", 0x00
+#addr 0x6395
+s_h2:
+    #d "640 X 240 PIXELS IN 4 COLORS: A BYTE EVERY 4 CLOCKS ON A 160-READ ROW (REV B)", 0x00
+#addr 0x8381
+s_h4:
+    #d "STATUS AND RAM TEST ARE STOPPED ON THIS SCREEN.  PRESS H FOR THE NORMAL SCREEN", 0x00
+s_h3:
+    #d "THE SAME 4 COLORS, TWICE THE PIXELS ACROSS", 0x00
 #addr 0x9780
+s_h5:
+    #d " BELOW: 16 COLORS  320 X 64  |  40 COLUMNS  2 BPP  2X  |  256 COLORS  160 X 32  ", 0x00
+#addr 0x6DBE
 s_hint:
-    #d "H: 160-READ ROWS (REV B BOARDS; BLANK ROWS ON REV A)", 0x00
-text_ln:                        ; the legend line: column, row, attribute,
-    #d8 0, 11, 0x80, s_legend & 0xFF, s_legend >> 8     ; string
-    #d8 0xFF
-text_lh:
-    #d8 0, 11, 0x80, s_legend_h & 0xFF, s_legend_h >> 8
-    #d8 0xFF
+    #d "H: 160-READ ROWS (REV B BOARDS, BLANK ROWS ON REV A)", 0x00
 
 ; ===========================================================================
 ; td_tint_init - rows 0-95: mode byte = TINTB (1 bpp 1x, with their tint);
@@ -2760,6 +2920,11 @@ tti_l:
     jmp  [LINK_LO]
 
 td_tint:
+    ld   [hx], ac               ; not on the 160-read screen
+    beq  tt_go
+    ld   [LINK_HI], y           ; RETURN
+    jmp  [LINK_LO]
+tt_go:
     ld   TN_N - 1, ac         ; the rows the bar covered: TINTB again
     ld   ac, [tn_i]
 tt_r:
