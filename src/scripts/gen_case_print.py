@@ -7,14 +7,14 @@ and nuts only (no glue, no heat-set inserts, no threads cut in plastic).
 It has the same outside size, connector cut-outs, top openings and covers as
 the aluminium case (gen_case.py), but every part is designed to print flat:
 
-- floor: four flat pieces with the board's standoff bosses, joined by five
-  straps screwed on under the seams;
+- floor: four flat pieces with the board's standoff bosses, locked together
+  by dovetail tabs along the seams (they drop into each other from above);
 - walls: four flat panels (front, back, left, right), each in two pieces,
   printed outside face down.  Each has a flange along the bottom with open
-  nut seats (screwed up through the floor) and nut lugs along the top (the
-  top's screws);
-- top: four pieces that overlap in half laps along the seams, screwed
-  through the laps;
+  nut seats (screwed up through the floor) and a nut lug or two along the top
+  (the top's screws); tabs on the side walls' ends key into the front and
+  back walls at the corners;
+- top: four pieces locked together by dovetail tabs, like the floor;
 - covers: the printed snap covers of gen_case.py, cap face down.
 
     pip install cadquery
@@ -31,7 +31,7 @@ version".  The board file is only read.
 Coordinates (mm) are gen_case.py's: x from the case's left outside face, y
 from the front outside face toward the back, z up from the board's top face.
 
-Date: 2026-11-16
+Date: 2026-11-17
 """
 
 import argparse
@@ -70,13 +70,19 @@ BOSS_D = 8.0                      # boss under each board hole, floor to the boa
 CSK_D, CSK_H = 6.4, 1.5           # 90 degree countersink for an M3 flat head, on the bed face: a 45 degree cone,
                                   # so there is no ceiling to bridge.  Only where a head must be flush.
 VENT_ROWS = [30.0 + 12.0 * i for i in range(6)]            # floor vent slots, y centres
-VENT_SPANS = [(72.5, 146.0), (174.0, 222.5)]               # two groups, a land under the seam for the straps
-# straps under the floor seams: (x, y, long axis); one over the middle joins all four pieces
-STRAP_W, STRAP_L = 24.0, 36.0
-STRAP_T = NUT_H + 0.2 + 1.6       # nut pocket + 1.6 mm under it
-STRAP_DX, STRAP_DY = 7.0, 12.0    # its four screws, from its centre (across, along)
-STRAPS = [(FLOOR_X, FLOOR_Y, "y"), (FLOOR_X, 60.0, "y"), (FLOOR_X, 180.0, "y"),
-          (85.0, FLOOR_Y, "x"), (262.0, FLOOR_Y, "x")]
+VENT_SPANS = [(72.5, 146.0), (174.0, 222.5)]               # two groups, a land along the seam for its dovetails
+
+# dovetail seams: flared tabs on one piece drop into sockets in its neighbour, so the pieces
+# cannot pull apart in the plane.  The flare is in plan, so a tab prints flat with no overhang.
+DOVE = {"floor": (8.0, 12.0, 6.0), "top": (8.0, 13.0, 7.0)}    # tab neck width, tip width, length
+DOVE_CLEAR = 0.2                  # gap all round a tab (case/print/dovetail_test.stl tries it on your printer)
+# where the tabs are: along the x seam (y of each; they belong to the left pieces and reach right)
+# and along the y seam (x of each).  The floor's y seam tabs belong to the back pieces and reach
+# forward, away from the cartridge cover's parking slots; the top's belong to the front pieces.
+FLOOR_TABS_X = [15.0, 50.0, 85.0, 135.0, 170.0, 205.0]
+FLOOR_TABS_Y, FLOOR_Y_DIR = [30.0, 75.0, 120.0, 200.0, 240.0, 272.0], -1
+TOP_TABS_X = [20.0, 60.0, 125.0, 165.0, 205.0]
+TOP_TABS_Y, TOP_Y_DIR = [25.0, 75.0, 125.0, 195.0, 240.0, 270.0], 1
 
 # ---------------------------------------------------------------- walls
 SIDES = ("front", "back", "left", "right")
@@ -90,25 +96,24 @@ BOSS_NOTCH = BOSS_D / 2 + 0.6     # flange notch half width round a boss
 PIN_NOTCH = 2.0        # flange notch this far round the pads of a part whose pins reach down to the flange
 PAD_CLEAR = 1.5        # a nut seat stays this far from every through-hole pad
 # u (x or y in case coordinates) of each wall's floor screws (nut seats on the flange)
-SEATS = {"front": [18.0, 70.0, 118.0, 133.0, 205.0, 277.0],
-         "back": [50.0, 135.0, 184.0, 196.0, 237.0],
+SEATS = {"front": [18.0, 118.0, 133.0, 277.0],       # two per wall piece, one near each end
+         "back": [50.0, 184.0, 196.0, 237.0],
          "left": [22.0, 75.0, 145.0, 162.0],
-         "right": [22.0, 70.0, 96.0, 160.0, 198.0]}
-# and of the top's screws (nut lugs under the top)
-LUGS = {"front": [22.0, 70.0, 116.0, 134.0, 205.0, 273.0],
-        "back": [28.0, 176.0, 197.0, 245.0, 277.0],
-        "left": [30.0, 90.0, 122.0, 138.0, 198.0],
-        "right": [30.0, 82.0, 97.0, 160.0, 198.0]}
+         "right": [22.0, 70.0, 96.0, 198.0]}
+# and of the top's screws (nut lugs under the top): one per wall piece, two on the long back left piece
+LUGS = {"front": [70.0, 205.0],
+        "back": [28.0, 176.0, 245.0],
+        "left": [90.0, 175.0],
+        "right": [45.0, 160.0]}
 LUG_W, LUG_D = 11.0, 10.0          # lug along the wall, and inward from the inside face
 LUG_V = 6.0                        # its screw from the inside face (8 mm from the outside)
 LUG_WEB, LUG_SLOT, LUG_BASE = 1.6, NUT_H + 0.3, 1.8    # top web (under the top), nut slot, under the nut
-CORNER_CHAMFER = 1.5               # front and back walls' outside corners
+CORNER_CHAMFER = 1.5               # the case's outside corners
+CORNER_TAB_Z = (8.0, 18.0)         # a tab on each end of the side walls keys into a notch in the front or back wall
+CORNER_TAB_CLEAR = 0.2
 
 # ---------------------------------------------------------------- top
 TOP_X, TOP_Y = 160.0, 100.0        # seams, between the expansion bay and the cartridge cover's lap
-LAP = 6.0                          # half laps reach this far each side of a seam
-LAP_SCREWS = ([(TOP_X, y) for y in (25.0, 65.0, TOP_Y, 130.0, 170.0, 205.0)] +
-              [(x, TOP_Y) for x in (30.0, 85.0, 135.0, 190.0, 235.0, 272.0)])
 
 NAMES4 = ("front_left", "front_right", "back_left", "back_right")
 
@@ -193,9 +198,46 @@ def flush_seat(parts, side, u):
     return any(x0 - 3 < x < x1 + 3 and y0 - 3 < y < y1 + 3 for x0, x1, y0, y1 in g.parked_boxes(parts).values())
 
 
-def strap_screws(x, y, axis):
-    dx, dy = (STRAP_DX, STRAP_DY) if axis == "y" else (STRAP_DY, STRAP_DX)
-    return [(x + sx * dx, y + sy * dy) for sx in (-1, 1) for sy in (-1, 1)]
+def dove_poly(kind, at, pos, axis, sign, grow=0.0):
+    """Outline of a dovetail tab on the seam at `at`: axis "x" = the seam x = at, the
+    tab at y = pos reaching sign * x; axis "y" likewise.  grow widens it into its socket."""
+    n, t, L = DOVE[kind]
+    n, t, L = n + 2 * grow, t + 2 * grow, L + grow
+    loc = [(-1.0, -n / 2), (0.0, -n / 2), (L, -t / 2), (L, t / 2), (0.0, n / 2), (-1.0, n / 2)]   # (along the tab, across)
+    if axis == "x":
+        return [(at + sign * a, pos + b) for a, b in loc]
+    return [(pos + b, at + sign * a) for a, b in loc]
+
+
+def dovetail_seams(kind, full, pieces, prefix, X, Y, tabs_x, tabs_y, y_dir):
+    """Adds the dovetail tabs to the four pieces of the floor or top (cut square at
+    the seams x = X, y = Y) and cuts their sockets.  Tab material is taken from the
+    uncut part, so holes that cross a tab stay."""
+    joints = [("x", X, y, 1, "front_left" if y < Y else "back_left", "front_right" if y < Y else "back_right")
+              for y in tabs_x]
+    for x in tabs_y:
+        lr = "left" if x < X else "right"
+        own, oth = ("front_", "back_") if y_dir > 0 else ("back_", "front_")
+        joints.append(("y", Y, x, y_dir, own + lr, oth + lr))
+    for axis, at, pos, sign, own, oth in joints:
+        prism = lambda grow: (cq.Workplane("XY").polyline(dove_poly(kind, at, pos, axis, sign, grow)).close()
+                              .extrude(200).translate((0, 0, -100)))
+        pieces[prefix + own] = pieces[prefix + own].union(full.intersect(prism(0.0)))
+        pieces[prefix + oth] = pieces[prefix + oth].cut(prism(DOVE_CLEAR))
+    return pieces
+
+
+def dovetail_test():
+    """A small pair of plates with one floor-size dovetail, to try the fit before
+    printing the big pieces."""
+    full = box(0, 30, 0, 22, 0, T)
+    pieces = {"a": full.intersect(box(-1, 15 - SEAM_GAP, -1, 30, -1, 10)),
+              "b": full.intersect(box(15 + SEAM_GAP, 40, -1, 30, -1, 10))}
+    tab = lambda grow: (cq.Workplane("XY").polyline(dove_poly("floor", 15.0, 11.0, "x", 1, grow)).close()
+                        .extrude(20).translate((0, 0, -5)))
+    a = pieces["a"].union(full.intersect(tab(0.0)))
+    b = pieces["b"].cut(tab(DOVE_CLEAR)).translate((12, 0, 0))
+    return cq.Workplane().add(cq.Compound.makeCompound(a.vals() + b.vals()))
 
 
 # ---------------------------------------------------------------- the parts
@@ -220,27 +262,7 @@ def floor(parts):
             if flush_seat(parts, side, u):
                 cone = cq.Solid.makeCone(CSK_D / 2, M3 / 2, CSK_H, cq.Vector(x, y, zf), cq.Vector(0, 0, 1))
                 s = s.cut(cq.Workplane().add(cone))
-    for st in STRAPS:
-        for x, y in strap_screws(*st):
-            s = s.cut(g.hole(x, y, M3, zf - 1))
     return s
-
-
-def strap():
-    """A strap, as printed: nut pockets up.  It goes under the floor the same way
-    up, so each nut is shut in between the strap and the floor."""
-    s = g.rounded_plate(-STRAP_W / 2, STRAP_W / 2, -STRAP_L / 2, STRAP_L / 2, 0, STRAP_T, 2.0)
-    for x, y in strap_screws(0, 0, "y"):
-        s = s.cut(g.hole(x, y, M3, -1))
-        s = s.cut(hexagon(x, y, NUT_AF, STRAP_T - NUT_H - 0.2, 5))
-    return s
-
-
-def strap_placed(x, y, axis):
-    s = strap().translate((0, 0, g.Z_FLOOR - STRAP_T))
-    if axis == "x":
-        s = s.rotate((0, 0, 0), (0, 0, 1), 90)
-    return s.translate((x, y, 0))
 
 
 def flange_notches(side, parts, pads, models):
@@ -305,9 +327,18 @@ def wall(side, parts, cuts, pads, models):
         for x, z in g.card_screws(parts):
             for zz in (z, g.PARK_HOLE_Z):      # card screw, and the parked slot cover's dome under it
                 s = s.cut(cq.Workplane("XZ").center(x, zz).circle(M3 / 2).extrude(-10).translate((0, g.D - T - 1, 0)))
-    if side in ("front", "back"):
-        c = CORNER_CHAMFER
-        yo, yi = (0.0, c) if side == "front" else (g.D, g.D - c)
+    # corners: a tab on each end of a side wall reaches through a notch in the end of the
+    # front or back wall, so the two walls line up and the side wall's end can't lean in
+    z0, z1 = CORNER_TAB_Z
+    k = CORNER_TAB_CLEAR
+    if side in ("left", "right"):
+        xa, xb = (0.0, T) if side == "left" else (g.W - T, g.W)
+        s = s.union(box(xa, xb, 0.0, T + SEAM_GAP + 0.5, z0, z1)).union(box(xa, xb, g.D - T - SEAM_GAP - 0.5, g.D, z0, z1))
+    else:
+        ya, yb = (-1.0, T + 1.0) if side == "front" else (g.D - T - 1.0, g.D + 1.0)
+        s = s.cut(box(-1.0, T + k, ya, yb, z0 - k, z1 + k)).cut(box(g.W - T - k, g.W + 1.0, ya, yb, z0 - k, z1 + k))
+    c = CORNER_CHAMFER
+    for yo, yi in ((0.0, c), (g.D, g.D - c)):
         for xo, xi in ((0.0, c), (g.W, g.W - c)):
             s = s.cut(cq.Workplane("XY").polyline([(xo, yo), (xi, yo), (xo, yi)]).close().extrude(60)
                       .translate((0, 0, zb - 1)))
@@ -331,43 +362,24 @@ def top(parts):
         for u in LUGS[side]:
             x, y = lug_xy(side, u)
             s = s.cut(g.hole(x, y, M3, g.Z_TOP - 1))
-    for x, y in LAP_SCREWS:
-        s = s.cut(g.hole(x, y, M3, g.Z_TOP - 1))
     return s
 
 
+def quarters(solid, prefix, X, Y):
+    c = SEAM_GAP
+    boxes = [(-50, X - c, -50, Y - c), (X + c, 400, -50, Y - c), (-50, X - c, Y + c, 400), (X + c, 400, Y + c, 400)]
+    return {prefix + n: solid.intersect(box(*b, -100, 100)) for n, b in zip(NAMES4, boxes)}
+
+
 def top_pieces(solid):
-    """The top in four pieces with half laps: along every seam one piece's upper
-    half lies on its neighbour's lower half.  front_left and back_right carry
-    the upper laps (printed top face down), the other two the lower laps."""
-    X, Y, h, c, far = TOP_X, TOP_Y, LAP, SEAM_GAP, 1000.0
-    zm = g.Z_TOP + g.ACRYLIC / 2
-    lower = {"front_right": [(X - h + c, far, -far, Y + h - c)],
-             "front_left": [(-far, X - h - c, -far, Y - h - c)],
-             "back_right": [(X + h + c, far, Y + h + c, far)],
-             "back_left": [(-far, X - h - c, Y - h + c, far), (-far, X + h - c, Y + h + c, far)]}
-    upper = {"front_left": [(-far, X + h - c, -far, Y + h - c)],
-             "front_right": [(X + h + c, far, -far, Y - h - c)],
-             "back_left": [(-far, X - h - c, Y + h + c, far)],
-             "back_right": [(X + h + c, far, Y - h + c, far), (X - h + c, far, Y + h + c, far)]}
-    out = {}
-    for name in NAMES4:
-        m = None
-        for regs, z0, z1 in ((lower[name], g.Z_TOP - 1, zm), (upper[name], zm, g.Z_TOP + g.ACRYLIC + 1)):
-            for x0, x1, y0, y1 in regs:
-                b = box(x0, x1, y0, y1, z0, z1)
-                m = b if m is None else m.union(b)
-        out["top_" + name] = solid.intersect(m)
-    return out
-
-
-TOP_FLIPPED = ("top_front_left", "top_back_right")
+    """The top in four pieces, locked together by dovetail tabs along the seams."""
+    return dovetail_seams("top", solid, quarters(solid, "top_", TOP_X, TOP_Y), "top_", TOP_X, TOP_Y,
+                          TOP_TABS_X, TOP_TABS_Y, TOP_Y_DIR)
 
 
 def floor_pieces(solid):
-    X, Y, c = FLOOR_X, FLOOR_Y, SEAM_GAP
-    boxes = [(-50, X - c, -50, Y - c), (X + c, 400, -50, Y - c), (-50, X - c, Y + c, 400), (X + c, 400, Y + c, 400)]
-    return {"floor_" + n: solid.intersect(box(*b, -100, 100)) for n, b in zip(NAMES4, boxes)}
+    return dovetail_seams("floor", solid, quarters(solid, "floor_", FLOOR_X, FLOOR_Y), "floor_", FLOOR_X, FLOOR_Y,
+                          FLOOR_TABS_X, FLOOR_TABS_Y, FLOOR_Y_DIR)
 
 
 # ---------------------------------------------------------------- print orientation
@@ -386,15 +398,12 @@ def print_pose(name, solid):
         solid = solid.rotate((0, 0, 0), (0, 1, 0), -90)
     elif name.startswith("wall_right"):
         solid = solid.rotate((0, 0, 0), (0, 1, 0), 90)
-    elif name in TOP_FLIPPED:
-        solid = solid.rotate((0, 0, 0), (1, 0, 0), 180)     # top face down
     return to_bed(solid)
 
 
 ORIENT = {"floor": "underside down, bosses up", "wall": "outside face down, flange and lugs up",
-          "top_front_left": "top face down", "top_back_right": "top face down",
-          "top_front_right": "underside down", "top_back_left": "underside down",
-          "floor_strap": "flat, nut pockets up", "slot_cover": "cap face down", "cart_cover": "cap face down"}
+          "top": "underside down", "dovetail": "flat (optional fit test)",
+          "slot_cover": "cap face down", "cart_cover": "cap face down"}
 
 
 def orientation(name):
@@ -448,17 +457,6 @@ def fit_check(parts, pads, placed, model_solids):
                 edge = {"front": d, "back": g.D - d, "left": d, "right": g.W - d}[side]
                 if ref not in holes and abs(pu - u) < half and edge < T + FL_D + PAD_CLEAR:
                     bad.append("%s nut seat at %.0f is under %s's pad" % (side, u, ref))
-    # the straps' screw heads on the floor (1.65 mm tall), and the lap nuts under the top
-    for st in STRAPS:
-        for x, y in strap_screws(*st):
-            for ref, px, py in pads:
-                if math.hypot(px - x, py - y) < 2.85 + PAD_CLEAR and ref in {r for r, b in MODEL_BOXES.items()
-                                                                           if b.zmin < g.Z_FLOOR + T + 2.7}:
-                    bad.append("strap screw at %.0f, %.0f is under %s's long pin" % (x, y, ref))
-    for x, y in LAP_SCREWS:
-        for ref, b in MODEL_BOXES.items():
-            if b.zmax > g.Z_TOP - NUT_H - 2.5 and b.xmin - 4 < x < b.xmax + 4 and b.ymin - 4 < y < b.ymax + 4:
-                bad.append("lap screw at %.0f, %.0f is over %s" % (x, y, ref))
     return bad
 
 
@@ -472,14 +470,11 @@ def hardware(parts):
     lugs = sum(len(v) for v in LUGS.values())
     nh = len(g.board_holes(parts))
     return [
-        ("M3 x 6 button head screw", seats - flush + 4 * len(STRAPS),
-         "%d up through the floor into the walls' nut seats, %d down through the floor into the straps"
-         % (seats - flush, 4 * len(STRAPS))),
-        ("M3 x 6 countersunk screw", flush, "the floor screws under the parked slot covers (back wall), flush"),
-        ("M3 x 8 button head screw", lugs + len(LAP_SCREWS) + nh,
-         "top: %d into the walls' nut lugs, %d through the half laps, %d into the standoffs" % (lugs, len(LAP_SCREWS), nh)),
+        ("M3 x 6 button head screw", seats - flush, "up through the floor into the walls' nut seats"),
+        ("M3 x 6 countersunk screw", flush, "the floor screw under the parked slot covers (back wall), flush"),
+        ("M3 x 8 button head screw", lugs + nh, "top: %d into the walls' nut lugs, %d into the standoffs" % (lugs, nh)),
         ("M3 x 12 button head screw", nh, "up through the floor bosses and the board into the standoffs"),
-        ("M3 hex nut, ISO 4032", seats + 4 * len(STRAPS) + lugs + len(LAP_SCREWS), "one per screw above, except the standoffs'"),
+        ("M3 hex nut, ISO 4032", seats + lugs, "one in each nut seat and nut lug"),
         ("M3 female-female hex standoff, 27 mm", nh, "board to the top"),
     ]
 
@@ -496,11 +491,10 @@ def draw_pieces(path, parts, cuts):
     ax.add_patch(Rectangle((0, 0), W, D, fc="#e4e6ea", ec="#333", lw=1))
     ax.plot([FLOOR_X, FLOOR_X], [0, D], color=seam, lw=1.6)
     ax.plot([0, W], [FLOOR_Y, FLOOR_Y], color=seam, lw=1.6)
-    for x, y, axis in STRAPS:
-        w, l = (STRAP_W, STRAP_L) if axis == "y" else (STRAP_L, STRAP_W)
-        ax.add_patch(Rectangle((x - w / 2, y - l / 2), w, l, fc=strapc, ec="#8a6d1f", lw=0.8, alpha=0.85))
-        for sx, sy in strap_screws(x, y, axis):
-            ax.add_patch(Circle((sx, sy), 1.8, fc=scr, ec="none"))
+    for y in FLOOR_TABS_X:
+        ax.add_patch(Polygon(dove_poly("floor", FLOOR_X, y, "x", 1), fc=strapc, ec="#8a6d1f", lw=0.8))
+    for x in FLOOR_TABS_Y:
+        ax.add_patch(Polygon(dove_poly("floor", FLOOR_Y, x, "y", FLOOR_Y_DIR), fc=strapc, ec="#8a6d1f", lw=0.8))
     for hx, hy in g.board_hole_xys(parts):
         ax.add_patch(Circle((hx, hy), BOSS_D / 2, fc="#d4c08a", ec="#8a7a4a"))
     for side in SIDES:
@@ -517,7 +511,7 @@ def draw_pieces(path, parts, cuts):
     for (cx_, cy_), n in zip(((40, 100), (255, 60), (70, 170), (235, 185)),
                              NAMES4):
         ax.text(cx_, cy_, "floor\n" + n.replace("_", " "), ha="center", va="center", fontsize=10)
-    ax.set_title("Floor and walls from above.  Red = floor seams, yellow = straps under them (4 screws each),\n"
+    ax.set_title("Floor and walls from above.  Red = floor seams, yellow = dovetail tabs across them,\n"
                  "black dots = screws up into the walls' nut seats, blue ticks = wall seams, tan = board bosses",
                  fontsize=10, loc="left")
     # top
@@ -525,22 +519,21 @@ def draw_pieces(path, parts, cuts):
     bay, cart, slot_x = g.openings(parts)
     bx.add_patch(Rectangle((bay[0], bay[2]), bay[1] - bay[0], D - bay[2], fc="white", ec="#333", lw=0.8))
     bx.add_patch(Rectangle((cart[0], cart[2]), cart[1] - cart[0], cart[3] - cart[2], fc="white", ec="#333", lw=0.8))
-    bx.add_patch(Rectangle((TOP_X - LAP, 0), 2 * LAP, D, fc=strapc, ec="none", alpha=0.6))
-    bx.add_patch(Rectangle((0, TOP_Y - LAP), W, 2 * LAP, fc=strapc, ec="none", alpha=0.6))
     bx.plot([TOP_X, TOP_X], [0, D], color=seam, lw=1.2)
     bx.plot([0, W], [TOP_Y, TOP_Y], color=seam, lw=1.2)
-    for x, y in LAP_SCREWS:
-        bx.add_patch(Circle((x, y), 2.2, fc=scr, ec="none"))
+    for y in TOP_TABS_X:
+        bx.add_patch(Polygon(dove_poly("top", TOP_X, y, "x", 1), fc=strapc, ec="#8a6d1f", lw=0.8))
+    for x in TOP_TABS_Y:
+        bx.add_patch(Polygon(dove_poly("top", TOP_Y, x, "y", TOP_Y_DIR), fc=strapc, ec="#8a6d1f", lw=0.8))
     for side in SIDES:
         for u in LUGS[side]:
             bx.add_patch(Circle(lug_xy(side, u), 2.2, fc=lugc, ec="none"))
     for hx, hy in g.board_hole_xys(parts):
         bx.add_patch(Circle((hx, hy), 2.6, fc="#b8860b", ec="none"))
     for (cx_, cy_), n in zip(((70, 45), (230, 45), (20, 175), (235, 185)), NAMES4):
-        bx.text(cx_, cy_, "top\n" + n.replace("_", " ") + ("\n(printed top face down)" if "top_" + n in TOP_FLIPPED else ""),
-                ha="center", va="center", fontsize=10)
-    bx.set_title("Top from above.  Yellow = half laps (one piece's upper half on its neighbour's lower half),\n"
-                 "black = lap screws, blue = screws into the walls' nut lugs, gold = screws into the standoffs",
+        bx.text(cx_, cy_, "top\n" + n.replace("_", " "), ha="center", va="center", fontsize=10)
+    bx.set_title("Top from above.  Red = seams, yellow = dovetail tabs across them,\n"
+                 "blue = screws into the walls' nut lugs, gold = screws into the standoffs",
                  fontsize=10, loc="left")
     for a in (ax, bx):
         a.set_xlim(-12, W + 12)
@@ -573,6 +566,9 @@ def draw_pieces(path, parts, cuts):
         for u in LUGS[side]:
             wx.add_patch(Rectangle((u - LUG_W / 2, zl), LUG_W, zt - zl, fc=lugc, ec="none"))
         wx.plot([WALL_SEAM[side]] * 2, [zb - 3, zt + 3], color=seam, lw=1.6)
+        for ue in (u0, u1):       # corner tabs (side walls) and their notches (front and back walls)
+            wx.add_patch(Rectangle((ue - 2.5, CORNER_TAB_Z[0]), 5, CORNER_TAB_Z[1] - CORNER_TAB_Z[0], fc=strapc,
+                                   ec="#8a6d1f", lw=0.6))
         wx.set_xlim(-5, 300)
         wx.set_ylim(zb - 5, zt + 8)
         wx.set_aspect("equal")
@@ -582,7 +578,7 @@ def draw_pieces(path, parts, cuts):
                      fontsize=10, loc="left")
     fig.suptitle("3D-printed case: every piece prints flat without supports and fits a 220 x 220 mm bed; "
                  "M3 screws and nuts only, no glue\nWalls: black = nut seats on the bottom flange (floor screws), "
-                 "blue = nut lugs under the top (top screws), red = seam", fontsize=12, y=0.975)
+                 "blue = nut lugs under the top (top screws), red = seam, yellow = corner tabs and notches", fontsize=12, y=0.975)
     fig.savefig(path, dpi=100, bbox_inches="tight")
     plt.close(fig)
 
@@ -601,8 +597,6 @@ def build(pcb, out, drawings, mesh=None, fit=True):
 
     placed = {}                                   # every printed part where it sits in the case
     placed.update(floor_pieces(floor(parts)))
-    for i, st in enumerate(STRAPS):
-        placed["floor_strap_%d" % (i + 1)] = strap_placed(*st)
     for side in SIDES:
         placed.update(dict(wall_pieces(side, wall(side, parts, cuts, pads, MODEL_BOXES))))
     placed.update(top_pieces(top(parts)))
@@ -616,14 +610,12 @@ def build(pcb, out, drawings, mesh=None, fit=True):
     # what gets printed, in print orientation
     printed = {}
     for name, sol in placed.items():
-        if name.startswith("floor_strap"):
-            continue
         if name.startswith("slot_cover"):
             if name == "slot_cover_1":
                 printed["slot_cover"] = to_bed(g.print_pose(sol))
             continue
         printed[name] = to_bed(g.print_pose(sol)) if name == "cart_cover" else print_pose(name, sol)
-    printed["floor_strap"] = strap()
+    printed["dovetail_test"] = dovetail_test()
 
     os.makedirs(out, exist_ok=True)
     for f in glob.glob(os.path.join(out, "*.stl")):
@@ -634,11 +626,13 @@ def build(pcb, out, drawings, mesh=None, fit=True):
         if max(b.xlen, b.ylen) > BED - BED_MARGIN:
             raise SystemExit("%s does not fit the bed: %.1f x %.1f" % (name, b.xlen, b.ylen))
         cq.exporters.export(sol, os.path.join(out, name + ".stl"), tolerance=0.02, angularTolerance=0.1)
-        qty = {"slot_cover": len(covers), "floor_strap": len(STRAPS)}.get(name, 1)
+        qty = {"slot_cover": len(covers)}.get(name, 1)
         rows.append(dict(name=name, qty=qty, size=[round(b.xlen, 1), round(b.ylen, 1), round(b.zlen, 1)],
                          orientation=orientation(name), volume_cm3=round(sol.val().Volume() / 1000, 1)))
     info = dict(pieces=rows, hardware=hardware(parts), floor_seams=[FLOOR_X, FLOOR_Y], top_seams=[TOP_X, TOP_Y],
-                wall_seams=WALL_SEAM, seats=SEATS, lugs=LUGS, straps=STRAPS, lap_screws=LAP_SCREWS)
+                wall_seams=WALL_SEAM, seats=SEATS, lugs=LUGS,
+                floor_tabs=dict(x_seam=FLOOR_TABS_X, y_seam=FLOOR_TABS_Y), top_tabs=dict(x_seam=TOP_TABS_X, y_seam=TOP_TABS_Y),
+                dovetail=dict(DOVE, clearance=DOVE_CLEAR))
     with open(os.path.join(out, "print_layout.json"), "w") as f:
         json.dump(info, f, indent=1)
     if drawings:

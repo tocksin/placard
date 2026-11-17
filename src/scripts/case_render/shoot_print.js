@@ -1,6 +1,6 @@
 // shoot_print.js - renders of the 3D-printed case (gen_case_print.py --mesh mesh, gen_case.py --mesh mesh
 // for the board's parts).  Serve this folder on port 8765, then: node shoot_print.js [view ...]
-// Writes out/print_*.png.  Date: 2026-11-16
+// Writes out/print_*.png.  Date: 2026-11-17
 const {chromium} = require('playwright');
 const fs = require('fs');
 const B = JSON.parse(fs.readFileSync('mesh/board.json'));
@@ -15,9 +15,8 @@ function caseItems(o) {              // o: explode distances {floor, straps, wal
   for (const q of ['front_left', 'front_right', 'back_left', 'back_right']) {
     const sx = q.includes('left') ? -1 : 1, sy = q.includes('front') ? -1 : 1;
     add('floor_' + q, BODY, [sx * sp, sy * sp, -(o.floor || 0)]);
-    add('top_' + q, o.topColor || TOP, [sx * sp, sy * sp, o.top || 0], {a: o.topAlpha ?? 0.55, ec: '#4d7fa3', r: 0.25});
+    add('top_' + q, o.topColor || TOP, [sx * sp, sy * sp, o.top || 0], {a: o.topAlpha ?? 0.55, ec: '#2f5f85', r: 0.25});
   }
-  for (let i = 1; i <= L.straps.length; i++) add('floor_strap_' + i, STRAP, [0, 0, -(o.straps || 0)]);
   const w = o.walls || 0;
   for (const [n, off] of [['wall_front_left', [-sp, -w, 0]], ['wall_front_right', [sp, -w, 0]], ['wall_back_left', [-sp, w, 0]],
       ['wall_back_right', [sp, w, 0]], ['wall_left_front', [-w, -sp, 0]], ['wall_left_back', [-w, sp, 0]],
@@ -43,21 +42,27 @@ const views = {
   print_assembled: {cam: [-250, -340, 290], look: ctr, items: [...caseItems({}), ...boardItems()], boxes: board},
   print_assembled_rear: {cam: [520, 560, 300], look: ctr, items: [...caseItems({}), ...boardItems()], boxes: board},
   print_exploded: {cam: [-430, -560, 470], look: [W / 2, D / 2, 0], fov: 32,
-    items: [...caseItems({floor: 55, straps: 95, walls: 55, top: 75, covers: 120, spread: 10, topAlpha: 0.8}), ...boardItems()], boxes: board},
+    items: [...caseItems({floor: 55, walls: 55, top: 75, covers: 120, spread: 10, topAlpha: 0.8}), ...boardItems()], boxes: board},
   print_exploded_rear: {cam: [560, 640, 430], look: [W / 2, D / 2, 0], fov: 32,
-    items: [...caseItems({floor: 55, straps: 95, walls: 55, top: 75, covers: 120, spread: 10, topAlpha: 0.8}), ...boardItems()], boxes: board},
+    items: [...caseItems({floor: 55, walls: 55, top: 75, covers: 120, spread: 10, topAlpha: 0.8}), ...boardItems()], boxes: board},
   print_underside: {cam: [-120, -330, -330], look: [W / 2, D / 2, -5], fov: 30, items: caseItems({coverList: []})},
   print_inside: {cam: [40, -60, 190], look: [215, 185, 0], fov: 34,
     items: [...caseItems({hide: ['top_', 'slot_cover', 'cart_cover']}), ...boardItems()], boxes: board},
   print_joints: {cam: [150, 60, 105], look: [262, 205, 8], fov: 30,
     items: [...caseItems({hide: ['top_', 'slot_cover', 'cart_cover'], wallColor: '#5b616a'})]},
+  print_corner: {cam: [-95, -120, 75], look: [12, 10, 8], fov: 26,
+    items: [...caseItems({hide: ['top_', 'slot_cover', 'cart_cover', 'wall_front'], wallColor: '#5b616a'}),
+            {f: 'mesh/print_wall_front_left.stl', c: '#8a929c', o: [0, -22, 0]}]},
+  print_seams: {cam: [60, -150, 330], look: [160, 105, 0], fov: 30,
+    items: [{f: 'mesh/print_top_front_left.stl', c: '#9fc3dc', o: [-5, -5, 0]}, {f: 'mesh/print_top_front_right.stl', c: '#b9d6ea', o: [5, -5, 0]},
+            {f: 'mesh/print_top_back_left.stl', c: '#b9d6ea', o: [-5, 5, 0]}, {f: 'mesh/print_top_back_right.stl', c: '#9fc3dc', o: [5, 5, 0]}]},
 };
 // every piece as it lies on the bed
 {
   const rows = [['floor_front_left', 'floor_front_right'], ['floor_back_left', 'floor_back_right'],
     ['top_front_left', 'top_front_right'], ['top_back_left', 'top_back_right'],
     ['wall_front_left', 'wall_front_right', 'wall_left_front'], ['wall_back_left', 'wall_back_right', 'wall_left_back'],
-    ['wall_right_front', 'wall_right_back', 'slot_cover', 'cart_cover', 'floor_strap']];
+    ['wall_right_front', 'wall_right_back', 'slot_cover', 'cart_cover', 'dovetail_test']];
   const size = Object.fromEntries(L.pieces.map(p => [p.name, p.size]));
   const it = []; let y = 0;
   const cols = [[0, 1], [2, 3], [4, 5, 6]];
@@ -66,7 +71,7 @@ const views = {
     let yy = 0, wmax = 0;
     for (const r of col) { let x = x0, h = 0;
       for (const n of rows[r]) { const s = size[n];
-        it.push({f: 'mesh/bed/' + n + '.stl', c: n.startsWith('top') ? '#9fc3dc' : n.includes('cover') ? '#4a4d53' : n.includes('strap') ? STRAP : '#5b616a', o: [x, yy, 0]});
+        it.push({f: 'mesh/bed/' + n + '.stl', c: n.startsWith('top') ? '#9fc3dc' : n.includes('cover') ? '#4a4d53' : n.includes('dovetail') ? STRAP : '#5b616a', o: [x, yy, 0]});
         x += s[0] + 12; h = Math.max(h, s[1]); }
       wmax = Math.max(wmax, x - x0); yy += h + 14; }
     x0 += wmax + 10;
