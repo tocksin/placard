@@ -4,10 +4,11 @@ Date: 2026-11-17
 
 A hand modification that gives a rev A main board (PLC-1001 rev A) the
 160-read lines of rev B ([HIRES.md](../video/HIRES.md)): 160 across in 256
-colors, 320 in 16 and 640 in 4.  Five PLD pins are bent out of their sockets,
+colors, 320 in 16 and 640 in 4.  Five PLD pins are kept out of their sockets,
 five wires go in, and five PLDs get the rev B program.  No trace is cut and
-nothing is soldered to the board, so it goes back to rev A by putting the
-rev A chips back.
+nothing is soldered to the board or to a PLD: the bent pins and the solder
+joints are on carrier sockets, so every PLD can still go back in the
+programmer, and the board goes back to rev A by taking the carriers out.
 
 **Do this only on a board that already works as rev A**
 ([BRINGUP.md](BRINGUP.md)), so that anything wrong afterwards is the
@@ -23,15 +24,18 @@ rev B PLDs pass their simulations.  It has not been tried on a board.
 
 | | |
 |---|---|
-| Five ATF22V10C-7PX | a second set for U13, U15, U16, U17 and U35, so the rev A chips stay as they are (bent pins do not go back in a programmer or a socket well) |
+| Four carrier sockets | 24-pin, 0.3 in wide, turned-pin (machined): one each for U13, U15, U17 and U35.  A chip plugs into its carrier and the carrier plugs into the board's socket.  The pins are bent and soldered on the carrier, never on the chip.  Turned-pin sockets because their round pins fit a socket and take solder well |
+| Five ATF22V10C-7PX (optional) | a second set for U13, U15, U16, U17 and U35 lets the rev A set stay programmed, so going back is a swap.  With one set, reprogram the five chips each way |
 | Wire | thin insulated solid wire, 24 to 26 AWG (0.4 to 0.5 mm): it has to hold in a socket contact |
 | Tools | soldering iron, fine pliers, multimeter |
+
+The carriers lift those four chips about 4 mm.  Check the room under the
+case top before closing it.
 
 ## 1. Program the five rev B PLDs
 
 Compile the sources in `src/pld/rev_b/` in WinCUPL (device g22v10) and
-program one chip from each.  Program before bending any pin.  Label them
-"B".
+program one chip from each.  Label them "B".
 
 | Chip | Source | Revision | Checksum of the 2026-11-17 compile |
 |---|---|---|---|
@@ -43,10 +47,11 @@ program one chip from each.  Program before bending any pin.  Label them
 
 All five go in together.  A rev A and a rev B chip do not work side by side.
 
-## 2. Bend out five pins
+## 2. Bend out five carrier pins
 
-On the new chips, bend these pins straight out sideways so they stay out of
-the socket when the chip is pushed in:
+On the empty carrier sockets, bend these pins straight out sideways so they
+stay out of the board's socket when the carrier is pushed in.  Mark each
+carrier with its chip number.
 
 | Chip | Pin | Rev A trace it leaves | What the pin is on rev B |
 |---|---|---|---|
@@ -56,28 +61,38 @@ the socket when the chip is pushed in:
 | U35 Audio slot | 16 | I1 | T2 in |
 | U35 Audio slot | 21 | /AC_SEL | LC7 in |
 
-U16 and U17 keep all their pins.
+U17's carrier keeps all its pins (it is there for the solder joint of wire 5).
+U16 has no carrier.
 
-## 3. Fit the chips and the wires
+## 3. Fit the wires, the carriers and the chips
 
 Power off.  Take out the rev A U13, U15, U16, U17 and U35 and keep them
-together.  Fit the five rev B chips.  Each bent pin now sits over an empty
-socket contact.
+together.
 
-A wire end marked **pin** is soldered to the chip's pin (on the bent pins,
-out at the tip; on U17 and U27, on the pin's shoulder above the socket).  A
-wire end marked **hole** is stripped 4 mm and pushed into the empty socket
-contact under a bent pin: that contact is the board's trace.
+In the tables and pictures, "pin" always means the carrier's pin for U13,
+U15, U17 and U35.
+
+- A wire end marked **pin** (SOLDER on the pictures) is soldered to the
+  carrier's pin: on the bent pins out at the tip, on U17's carrier at the
+  pin's shoulder.  At U27, which is not a PLD, it is soldered to the chip's
+  own pin 19 at the shoulder.
+- A wire end marked **hole** (HOLE on the pictures) is stripped 4 mm and
+  pushed into the board socket's contact that a bent carrier pin leaves
+  empty: that contact is the board's trace.
+
+Order: solder the wires to the carriers on the bench, push the two hole ends
+(wires 3 and 4) into the board's sockets, seat the carriers, then plug the
+rev B chips into the carriers and U16 into its own socket.
 
 | Wire | Signal | From | To | Length |
 |---|---|---|---|---|
 | 1 | T2 | U15 pin 21 (pin) | U13 pin 6 (pin) | 30 mm |
 | 2 | T2 | U13 pin 6 (pin) | U35 pin 16 (pin) | 16 mm |
-| 3 | /P0 | U15 socket contact 21 (hole) | U15 pin 4 (pin) | 8 mm, across the chip |
+| 3 | /P0 | U15 socket contact 21 (hole) | U15 pin 4 (pin) | 25 mm, around the pin 1 end of the carrier (8 mm straight across) |
 | 4 | LC7 | U13 socket contact 6 (hole) | U35 pin 21 (pin) | 15 mm |
 | 5 | /AC_SEL | U17 pin 22 (pin) | U27 pin 19 (pin) | 70 mm |
 
-On the pictures every wire end is tagged **SOLDER** (round end, on the chip
+On the pictures every wire end is tagged **SOLDER** (round end, on the carrier's
 pin) or **HOLE** (square end, in the empty socket contact), and the list
 under each drawing says the same in words.
 
@@ -87,13 +102,15 @@ under each drawing says the same in words.
 
 Notes:
 
-- U15 pin 21 and U13 pin 6 each have a wire on the bent pin and another in
-  the contact below it.  Keep the two apart: they are different signals.
+- U15 pin 21 and U13 pin 6 each have a wire on the bent carrier pin and
+  another in the board contact below it.  Keep the two apart: they are different signals.
 - U17 pin 22 goes to nothing on a rev A board, so it stays in its socket.
 - U27 keeps driving from the same pin 19 (/OE2).  Its old source, U35
   socket contact 21, is left empty.  Solder wire 5 with U27 out of its
   socket if the iron is hard to get in, and keep the joint high on the pin.
-- Lengths are straight-line; add what the routing needs.  Keep wire 5 away
+- Lengths are straight-line; add what the routing needs.  The pictures draw
+  every wire straight; wire 3 really goes around the end of U15's carrier,
+  because the chip sits on top.  Keep wire 5 away
   from the crystal oscillator X1.
 
 ## 4. Check with the meter, power off
@@ -108,8 +125,8 @@ Notes:
 | U13 pin 6 to U35 pin 21 | open (T2 and LC7 apart) |
 | each bent pin to the pins next to it | open |
 
-Measure on the chip pins, not on the wire ends, so the joints are in the
-reading.
+Measure on the chip pins, not on the wire ends, so the joints and the
+carrier contacts are in the reading.
 
 ## 5. Power on
 
@@ -146,9 +163,11 @@ are a little off on 160-read rows.
 
 ## Going back to rev A
 
-Power off, pull wire ends 3 and 4 out of their socket contacts, take out the
-five rev B chips with their wires (unsolder wire 5 at U27, or leave it
-hanging on U17's chip), and put the five rev A chips back.
+Power off.  Pull the chips out of the carriers, pull wire ends 3 and 4 out
+of the board's sockets, lift the four carriers out with their wires
+(unsolder wire 5 at U27, or leave U27 on the end of it), and put the five
+rev A chips straight into the board's sockets.  The carriers and their
+wires stay together as a set for the next time.
 
 The pictures are drawn by `src/scripts/gen_revb_mod.py`, which also checks
 the pin and wire tables against the net changes.
