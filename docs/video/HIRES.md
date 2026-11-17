@@ -224,5 +224,9 @@ before these get real track delays.
 | Library | `vid_addr_hi` ([LIBRARY.md](../software/LIBRARY.md#video-and-system)) |
 | Demo | the text demo `TEXT.PLC`, H key: its 80 column text in 4 colors (640 across), its 16-color band at 320 x 64 and its 256-color band at 160 across, the same picture as on normal rows with smoothed letters, round dots and a rounder ring ([MENU.md](../software/MENU.md#the-text-demo-on-the-card)) |
 
+[Pinboard](../software/PINBOARD.md#display) is the first program that
+uses these rows: its Display card switches the desktop to 640 x 240 in 4
+colors or 320 x 240 in 16.
+
 Programs that use the blank line for speed on rev A (it shows as a
 160-read row on rev B) have not been changed.

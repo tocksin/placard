@@ -1,6 +1,6 @@
 # Documentation
 
-Date: 2026-11-16
+Date: 2026-11-17
 
 The design documents, grouped by subject.  Drawings sit next to the document that uses them.
 
@@ -33,7 +33,7 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 - [BASIC.md](software/BASIC.md): PLACARD BASIC
 - [DOS.md](software/DOS.md): the DOS and `.PLC` program files
 - [MENU.md](software/MENU.md): the demo menu
-- [PINBOARD.md](software/PINBOARD.md): Pinboard, a windowed desktop with a file browser and a clock (`PINBOARD.PLC`)
+- [PINBOARD.md](software/PINBOARD.md): Pinboard, a windowed desktop with a file browser, a clock, a calculator and an editor, in 2, 4 or 16 colors (`PINBOARD.PLC`)
 - [TEST.md](software/TEST.md): the system test on the SD card (`TEST.PLC`)
 - [SCRAP.md](software/SCRAP.md): SCRAPWRIGHT, a ship salvage game (`SCRAP.PLC`, phase 3)
 - [SKYWARD.md](software/SKYWARD.md): Skyward Tobi, a side-scrolling platform game (`SKYWARD.PLC`)

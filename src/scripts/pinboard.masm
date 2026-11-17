@@ -6,7 +6,8 @@
 ; PINBOARD.PLC: cards (windows) pinned on a board, a pointer for the PS/2
 ; mouse, a rail along the bottom with the launcher and the open cards.
 ; Its cards are the file browser (it runs the card's .PLC programs), a
-; clock, a calculator and a note about itself.
+; clock, a calculator, a text editor, a note about itself and the choice
+; of the screen's mode.
 ;
 ; The desktop itself is written in bytecode (pinboard.vm, compiled by
 ; vmc.py when asm_expand.py meets the .include at the end of this file),
@@ -25,138 +26,35 @@
 ;   PTR          shows or hides the pointer (the screen under it is kept)
 ;   POLL         a frame's wait, the keyboard and the mouse; the key
 ;
-; RAM: the program x0100-x35FF (asm_expand.py pages it), the pointer's
-; tables x3600-x37FF and the font x3800-x3FFF (pinboard_data.asm, made by
-; gen_pinboard.py); zero page x20-x4F and x90-x9F (no sound driver); the
+; The drawing itself is the display driver's: x2E00-x3FFF (DRV), one for
+; each mode of the screen, with its font and its pointer.  This file is
+; the core, the same under every driver; pinboard_drv_mono.masm is the
+; 640 x 480, 2-color driver that PINBOARD.PLC starts with, and
+; pinboard_drv_color.masm the two for the rev B board's 4 and 16 colors,
+; which Pinboard reads from the card's PINBOARD folder (pinboard.vm:
+; Display).  pinboard_hdr.masm has what they share.
+;
+; RAM: the core x0100-x2DFF (asm_expand.py pages it), the driver
+; x2E00-x3FFF; zero page x20-x4F and x90-x9F (no sound driver); the
 ; data stack x53-x8F (x50-x52 the drawing's); x4000-x4AFF the Editor's
 ; text, x4B00 the pointer's saved screen and the desktop's variables,
 ; x4C00 the return stack;
 ; x5400-x59FF the folder read; the menu block x5D00 and the FAT reader's
 ; x4D00-x4FFF as for every program.
 ;
-;     python3 gen_pinboard.py     pinboard_data.asm, pinboard.asm and
-;                                 ../../sdcard/PINBOARD.PLC
+;     python3 gen_pinboard.py     the drivers' tables, pinboard.asm,
+;                                 ../../sdcard/PINBOARD.PLC and the
+;                                 drivers in ../../sdcard/PINBOARD
 ;     python3 test_pinboard.py    runs it from a card in the emulator
 ;
-; Date: 11/16/2026
+; Date: 11/17/2026
 ; ============================================================
 
-#include "placard.asm"
-#include "placard_lib.asm"
-
-PB_PTR    = 0x3600      ; the pointer's tables, 2 pages
-PB_FONT   = 0x3800      ; the font, 8 pages
-PB_TOP    = 0x3600      ; the end of the code
-MAP_RUN   = 0x07        ; sections 0-2 RAM, 3-7 ROM
-#include "pinboard_data.asm"
-
-; the machine's zero page (as basic.masm)
-IPL     = 0x20
-IPH     = 0x21
-TL      = 0x22
-TH      = 0x23
-DSP     = 0x24
-RSP     = 0x25
-W0      = 0x26          ; scratch for the primitives
-W1      = 0x27
-W2      = 0x28
-W3      = 0x29
-W4      = 0x2A
-W5      = 0x2B
-W6      = 0x2C
-W7      = 0x2D
-DS_EMPTY = 0x90         ; the data stack: x50-x8F
-RSTK    = 0x4C00        ; the return stack page
-PSAVE   = 0x4B00        ; the screen under the pointer: 2 bytes a row
-
-; the drawing primitives' zero page (pinboard.vm knows these too)
-GX      = 0x30          ; the cell the next character goes to
-GY      = 0x31
-CX0     = 0x32          ; the clip rectangle: CX0 <= GX < CX1,
-CY0     = 0x33          ; CY0 <= GY < CY1
-CX1     = 0x34
-CY1     = 0x35
-INV     = 0x36          ; GTYPE: 80 for black ink on a card, 00 white on black
-MOK     = 0x37          ; mouse_init's answer: 0 = a mouse runs
-PXL     = 0x38          ; the pointer: X 0-639
-PXH     = 0x39
-PYL     = 0x3A          ; Y 0-479
-PYH     = 0x3B
-MOVED   = 0x3C          ; POLL sets it when the mouse sent something
-SH_ON   = 0x3D          ; 1: the pointer is on the screen, at:
-SH_C2   = 0x3E          ;   60 + 2 x its byte column
-SH_YL   = 0x3F          ;   its first row
-SH_YH   = 0x40
-SH_TI   = 0x41          ;   its shift << 4
-SH_N    = 0x42          ;   its rows on the screen
-SH_K    = 0x43          ;   1: its right byte is on the screen too
-VH      = 0x44          ; a cell: its column's page
-VL0     = 0x45          ; x45-x4C: the low bytes of its 8 rows
-VPG     = 0x4D          ; 60 or 61: the page of the row in a column
-N_CH    = 0x4E          ; the character
-N_CNT   = 0x4F          ; characters to go
-N_MODE  = 0x50          ; 1: GTYPE (characters from N_PH:N_PL)
-N_PL    = 0x51
-N_PH    = 0x52
+.include "pinboard_hdr.masm"
 
 .prefix pb
 .region 0x0100, 0x1F00
-.region 0x2000, PB_TOP
-
-; ------------------------------------------------------------
-; macros (basic.masm)
-; ------------------------------------------------------------
-.macro PUSHT                    ; push TOS (TOS stays)
-    ld   [DSP], ac
-    sub  2, ac
-    ld   ac, [DSP]
-    ld   ac, x
-    ld   [TL], ac
-    ld   ac, [x]
-    ld   [DSP], ac
-    add  1, x
-    ld   [TH], ac
-    ld   ac, [x]
-.endm
-.macro POPT                     ; TOS = the cell below it
-    ld   [DSP], x
-    ld   [x], ac
-    ld   ac, [TL]
-    ld   [DSP], ac
-    add  1, x
-    ld   [x], ac
-    ld   ac, [TH]
-    ld   [DSP], ac
-    add  2, ac
-    ld   ac, [DSP]
-.endm
-.macro NIP2                     ; drop the cell below TOS
-    ld   [DSP], ac
-    add  2, ac
-    ld   ac, [DSP]
-.endm
-.macro IPBYTE                   ; AC = the byte at IP
-    ld   [IPH], y
-    ld   [IPL], x
-    ld   [y,x], ac
-.endm
-.macro IPINC                    ; IP + 1
-    ld   [IPL], ac
-    inc
-    ld   ac, [IPL]
-    bne  ii\@
-    ld   [IPH], ac
-    inc
-    ld   ac, [IPH]
-ii\@:
-.endm
-.macro NEXT
-    ld   next >> 8, y
-    jmp  next
-.endm
-
-; ============================================================
-; basic - the vector x8024 comes here (power-up with no card, the DOS's
+.region 0x2000, DRV
 
 ; ============================================================
 ; main - the ROM's loader enters here (map 07, the card mounted)
@@ -165,14 +63,6 @@ ii\@:
 main:
     ld   STACK_TOP, ac
     ld   ac, [SP]
-    CALL con_clear              ; every row 1 bpp, the screen black
-    ld   0x5B, y                ; the rail: rows 456-479 tinted blue
-    ld   23, ac
-mn_tint:
-    add  0xE8, x
-    ld   0x40, [y,x]
-    sub  1, ac
-    bcc  mn_tint
     CALL mouse_init
     ld   ac, [MOK]
     clr  ac
@@ -1220,7 +1110,7 @@ p_emit:
     ld   ac, [N_CNT]
     clr  ac
     ld   ac, [N_MODE]
-    GOTO pg_start
+    GOTO DRV_CELLS
 p_hfill:
     ld   [TL], ac
     ld   ac, [N_CNT]
@@ -1229,7 +1119,7 @@ p_hfill:
     ld   ac, [N_CH]
     clr  ac
     ld   ac, [N_MODE]
-    GOTO pg_start
+    GOTO DRV_CELLS
 p_gtype:
     ld   [TL], ac
     ld   ac, [N_CNT]
@@ -1240,381 +1130,11 @@ p_gtype:
     ld   ac, [N_PH]
     ld   1, ac
     ld   ac, [N_MODE]
-    GOTO pg_start
+    GOTO DRV_CELLS
 
-.chunk  pg_start: the frame counter kept up, then the row's addresses
-pg_start:
-    ld   [N_MODE], ac
-    CALL frame_poll             ; a long repaint: the frames are counted
-    CALL ps2_poll               ; and the mouse's bytes taken as they come
-    ld   [N_CNT], ac
-    beq  pgs_out
-    ld   [GY], ac
-    sub  [CY0], ac
-    bcs  pgs_out                 ; above the clip
-    ld   [GY], ac
-    sub  [CY1], ac
-    bcc  pgs_out                 ; below it
-    ld   [GY], ac               ; row 8 x GY + x20 of the column
-    shl
-    shl
-    shl
-    add  0x20, ac
-    ld   ac, [VL0]
-    inc
-    ld   ac, [VL0 + 1]
-    inc
-    ld   ac, [VL0 + 2]
-    inc
-    ld   ac, [VL0 + 3]
-    inc
-    ld   ac, [VL0 + 4]
-    inc
-    ld   ac, [VL0 + 5]
-    inc
-    ld   ac, [VL0 + 6]
-    inc
-    ld   ac, [VL0 + 7]
-    ld   [GY], ac
-    sub  28, ac
-    bcs  pgs_p0
-    ld   0x61, ac
-    bra  pgs_p
-pgs_p0:
-    ld   0x60, ac
-pgs_p:
-    ld   ac, [VPG]
-    GOTO pg_loop
-pgs_out:
-    ld   [GX], ac
-    add  [N_CNT], ac
-    ld   ac, [GX]
-    POPT
-    NEXT
-
-.chunk  pg_loop: a character
-pg_loop:
-    ld   [N_MODE], ac
-    beq  pg_ch
-    ld   [N_PH], y
-    ld   [N_PL], x
-    ld   [y,x], ac
-    xor  [INV], ac
-    ld   ac, [N_CH]
-    ld   [N_PL], ac
-    inc
-    ld   ac, [N_PL]
-    bne  pg_ch
-    ld   [N_PH], ac
-    inc
-    ld   ac, [N_PH]
-pg_ch:
-    ld   [GX], ac
-    sub  [CX0], ac
-    bcs  pg_skip
-    ld   [GX], ac
-    sub  [CX1], ac
-    bcc  pg_skip
-    ld   [GX], ac
-    shl
-    add  [VPG], ac
-    ld   ac, [VH]
-    ld   PB_FONT >> 8, y
-    ld   [N_CH], x
-    ld   [y,x], ac
-    ld   [VH], y
-    ld   [VL0], x
-    ld   ac, [y,x]
-    ld   (PB_FONT >> 8) + 1, y
-    ld   [N_CH], x
-    ld   [y,x], ac
-    ld   [VH], y
-    ld   [VL0 + 1], x
-    ld   ac, [y,x]
-    ld   (PB_FONT >> 8) + 2, y
-    ld   [N_CH], x
-    ld   [y,x], ac
-    ld   [VH], y
-    ld   [VL0 + 2], x
-    ld   ac, [y,x]
-    ld   (PB_FONT >> 8) + 3, y
-    ld   [N_CH], x
-    ld   [y,x], ac
-    ld   [VH], y
-    ld   [VL0 + 3], x
-    ld   ac, [y,x]
-    ld   (PB_FONT >> 8) + 4, y
-    ld   [N_CH], x
-    ld   [y,x], ac
-    ld   [VH], y
-    ld   [VL0 + 4], x
-    ld   ac, [y,x]
-    ld   (PB_FONT >> 8) + 5, y
-    ld   [N_CH], x
-    ld   [y,x], ac
-    ld   [VH], y
-    ld   [VL0 + 5], x
-    ld   ac, [y,x]
-    ld   (PB_FONT >> 8) + 6, y
-    ld   [N_CH], x
-    ld   [y,x], ac
-    ld   [VH], y
-    ld   [VL0 + 6], x
-    ld   ac, [y,x]
-    ld   (PB_FONT >> 8) + 7, y
-    ld   [N_CH], x
-    ld   [y,x], ac
-    ld   [VH], y
-    ld   [VL0 + 7], x
-    ld   ac, [y,x]
-pg_skip:
-    ld   [GX], ac
-    inc
-    ld   ac, [GX]
-    ld   [N_CNT], ac
-    dec
-    ld   ac, [N_CNT]
-    bne  pg_loop
-    POPT
-    NEXT
-
-; ============================================================
-; INVC ( -- ): the cell at GX, GY turned over (white <-> black).  The
-; video RAM is read with every section mapped to RAM (this code is in the
-; RAM below x4000, so it runs on).
-; ============================================================
-.chunk  INVC
+.chunk  INVC: the driver's
 p_invc:
-    ld   [GX], ac
-    sub  80, ac
-    bcc  iv_x
-    ld   [GY], ac
-    sub  60, ac
-    bcc  iv_x
-    ld   [GY], ac
-    shl
-    shl
-    shl
-    add  0x20, ac
-    ld   ac, [VL0]
-    ld   [GY], ac
-    sub  28, ac
-    bcs  iv_p0
-    ld   0x61, ac
-    bra  iv_p
-iv_p0:
-    ld   0x60, ac
-iv_p:
-    ld   ac, [VPG]
-    ld   [GX], ac
-    shl
-    add  [VPG], ac
-    ld   ac, [VH]
-    ld   0x50, y
-    ld   0xFF, [y,x]
-    ld   8, ac
-    ld   ac, [N_CNT]
-iv_l:
-    ld   [VH], y
-    ld   [VL0], x
-    ld   [y,x], ac
-    xor  0xFF, ac
-    ld   ac, [y,x]
-    ld   [VL0], ac
-    inc
-    ld   ac, [VL0]
-    ld   [N_CNT], ac
-    dec
-    ld   ac, [N_CNT]
-    bne  iv_l
-    ld   0x50, y
-    ld   MAP_RUN, [y,x]
-iv_x:
-    NEXT
-
-; ============================================================
-; the pointer
-; ============================================================
-.macro PROW                     ; T1 = the low byte, T2 = the page of row T0 of the pointer's left column
-    ld   [SH_YL], ac
-    add  [T0], ac
-    ld   ac, [T1]
-    ld   [SH_YH], ac
-    bcc  pra\@
-    inc
-pra\@:
-    ld   ac, [T2]
-    ld   [T1], ac
-    add  0x20, ac
-    ld   ac, [T1]
-    ld   [T2], ac
-    bcc  prb\@
-    inc
-prb\@:
-    add  [SH_C2], ac
-    ld   ac, [T2]
-.endm
-
-.chunk  ptr_hide - the screen under the pointer put back (CALL it; T0-T3)
-ptr_hide:
-    ld   [SH_ON], ac
-    beq  ph_x
-    clr  ac
-    ld   ac, [SH_ON]
-    ld   ac, [T0]
-ph_l:
-    PROW
-    ld   [T0], ac
-    shl
-    ld   ac, x
-    ld   PSAVE >> 8, y
-    ld   [y,x], ac
-    ld   [T2], y
-    ld   [T1], x
-    ld   ac, [y,x]
-    ld   [SH_K], ac
-    beq  ph_n
-    ld   [T0], ac
-    shl
-    add  1, x
-    ld   PSAVE >> 8, y
-    ld   [y,x], ac
-    ld   ac, [T3]
-    ld   [T2], ac
-    add  2, y
-    ld   [T1], x
-    ld   [T3], ac
-    ld   ac, [y,x]
-ph_n:
-    ld   [T0], ac
-    inc
-    ld   ac, [T0]
-    xor  [SH_N], ac
-    bne  ph_l
-ph_x:
-    RET
-
-.chunk  ptr_show - the pointer drawn at PX, PY (CALL it; T0-T3)
-ptr_show:
-    ld   [SH_ON], ac
-    bne  ps_x
-    ld   [MOK], ac
-    bne  ps_x                   ; no mouse: no pointer
-    ld   1, ac
-    ld   ac, [SH_ON]
-    ld   [PXL], ac
-    and  7, ac
-    shl
-    shl
-    shl
-    shl
-    ld   ac, [SH_TI]
-    ld   [PXL], ac
-    shr  ac
-    shr  ac
-    shr  ac
-    ld   ac, [T3]
-    ld   [PXH], ac
-    shl
-    shl
-    shl
-    shl
-    shl
-    or   [T3], ac
-    ld   ac, [T3]               ; the byte column
-    xor  79, ac
-    beq  ps_k
-    ld   1, ac
-ps_k:
-    ld   ac, [SH_K]
-    ld   [T3], ac
-    shl
-    add  0x60, ac
-    ld   ac, [SH_C2]
-    ld   [PYL], ac
-    ld   ac, [SH_YL]
-    ld   [PYH], ac
-    ld   ac, [SH_YH]
-    ld   12, ac
-    ld   ac, [SH_N]
-    ld   [PYH], ac
-    beq  ps_go
-    ld   0xE0, ac               ; rows left to 480
-    sub  [PYL], ac
-    ld   ac, [T3]
-    sub  12, ac
-    bcc  ps_go
-    ld   [T3], ac
-    ld   ac, [SH_N]
-ps_go:
-    ld   0x50, y
-    ld   0xFF, [y,x]
-    clr  ac
-    ld   ac, [T0]
-    GOTO ps_l
-ps_x:
-    RET
-
-.chunk  ps_l: a row of the pointer
-ps_l:
-    PROW
-    ld   [T2], y                ; the left byte
-    ld   [T1], x
-    ld   [y,x], ac
-    ld   ac, [T3]
-    ld   [T0], ac
-    shl
-    ld   ac, x
-    ld   PSAVE >> 8, y
-    ld   [T3], ac
-    ld   ac, [y,x]
-    ld   [SH_TI], ac
-    or   [T0], ac
-    ld   ac, x
-    ld   PB_PTR >> 8, y
-    ld   [T3], ac
-    and  [y,x], ac
-    ld   (PB_PTR >> 8) + 1, y
-    or   [y,x], ac
-    ld   [T2], y
-    ld   [T1], x
-    ld   ac, [y,x]
-    ld   [SH_K], ac
-    beq  ps_n
-    ld   [T2], ac               ; the right byte
-    add  2, y
-    ld   [T1], x
-    ld   [y,x], ac
-    ld   ac, [T3]
-    ld   [T0], ac
-    shl
-    add  1, x
-    ld   PSAVE >> 8, y
-    ld   [T3], ac
-    ld   ac, [y,x]
-    ld   [SH_TI], ac
-    or   [T0], ac
-    or   0x80, x
-    ld   PB_PTR >> 8, y
-    ld   [T3], ac
-    and  [y,x], ac
-    ld   (PB_PTR >> 8) + 1, y
-    or   [y,x], ac
-    ld   ac, [T3]
-    ld   [T2], ac
-    add  2, y
-    ld   [T1], x
-    ld   [T3], ac
-    ld   ac, [y,x]
-ps_n:
-    ld   [T0], ac
-    inc
-    ld   ac, [T0]
-    xor  [SH_N], ac
-    bne  ps_l
-    ld   0x50, y
-    ld   MAP_RUN, [y,x]
-    RET
+    GOTO DRV_INVC
 
 .chunk  PTR ( f -- ): show (f not 0) or hide the pointer
 p_ptr:
@@ -1623,10 +1143,10 @@ p_ptr:
     POPT
     ld   [W2], ac
     beq  pp_h
-    CALL ptr_show
+    CALL DRV_SHOW
     NEXT
 pp_h:
-    CALL ptr_hide
+    CALL DRV_HIDE
     NEXT
 
 ; ============================================================
@@ -1658,7 +1178,7 @@ p_poll:
     ld   ac, [MOVED]
     ld   [SH_ON], ac
     ld   ac, [W2]
-    CALL ptr_hide
+    CALL DRV_HIDE
     ld   [R0], ac
     ld   ac, [PXL]
     ld   [R1], ac
@@ -1669,7 +1189,7 @@ p_poll:
     ld   ac, [PYH]
     ld   [W2], ac
     beq  pl_k
-    CALL ptr_show
+    CALL DRV_SHOW
 pl_k:
     CALL kbd_getc
     ld   ac, [TL]

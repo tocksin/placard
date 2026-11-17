@@ -30,8 +30,14 @@ reads the screen back through Pinboard's font (pinboard_emu.cells).
      splitting lines, a click, long lines and long texts, saving (line
      ends kept as the file had them), a new text saved under a typed name,
      files it won't open, and unsaved text keeping Pinboard from leaving
+ 10. the Display card on a rev B board: 4 colors and 16 colors (their
+     drivers read from the card's PINBOARD folder), kept with Y or a
+     click; the pointer, a click, a drag and the Calc card in them; a
+     mode not kept goes back after 10 seconds; the mode is kept over a
+     program's run; on a rev A board the color rows are blank and the
+     2-color screen comes back
 
-Date: 11/16/2026
+Date: 11/17/2026
 """
 
 import argparse
@@ -46,6 +52,8 @@ import gen_pinboard           # noqa: E402
 
 REPO = os.path.join(HERE, '..', '..')
 FONT = gen_pinboard.font_rows()
+
+
 K_DOWN, K_UP, K_ENTER, K_BKSP, K_ESC, K_TAB, K_CTRL, K_W = 0x172, 0x175, 0x5A, 0x66, 0x76, 0x0D, 0x14, 0x1D
 K_SHIFT = 0x12
 K_LEFT, K_RIGHT, K_HOME, K_DEL = 0x16B, 0x174, 0x16C, 0x171
@@ -66,6 +74,7 @@ class Script:
         self.inp = []
         self.shots = []
         self.x, self.y, self.b = 320, 240, 0
+        self.cw, self.ch = 8, 8         # a cell in the pointer's 640 x 480
 
     def wait(self, n):
         self.t += n
@@ -96,7 +105,7 @@ class Script:
                 self.key(CALC_KEYS[ch])
 
     def cell(self, c, r):
-        self.move(c * 8 + 4, r * 8 + 4)
+        self.move(c * self.cw + self.cw // 2, r * self.ch + self.ch // 2)
 
     def down(self):
         self.b = 1
@@ -113,17 +122,18 @@ class Script:
         self.down()
         self.up()
 
-    def shot(self, name, settle=25):
+    def shot(self, name, settle=25, bpp=1):
         self.t += settle
-        self.shots.append((self.t, name))
+        self.shots.append((self.t, name, bpp))
 
-    def run(self, files, mouse=True, png=None, tag=''):
-        rams, card = pe.run(files, self.inp, [t for t, _ in self.shots], self.t + 5, mouse=mouse)
+    def run(self, files, mouse=True, png=None, tag='', rev_b=False):
+        rams, card = pe.run(files, self.inp, [t for t, _, _ in self.shots], self.t + 5,
+                            mouse=mouse, rev_b=rev_b)
         out = {}
-        for t, name in self.shots:
+        for t, name, bpp in self.shots:
             if png:
-                pe.screen_png(rams[t], os.path.join(png, tag + name + '.png'))
-            out[name] = Screen(rams[t])
+                pe.screen_png(rams[t], os.path.join(png, tag + name + '.png'), rev_b)
+            out[name] = Screen(rams[t]) if bpp == 1 else ColorScreen(rams[t], bpp)
         self.card = card
         return out
 
@@ -153,6 +163,30 @@ class Screen:
 
     def pointer(self):
         return [(c, r) for r in range(60) for c in range(80) if self.rows[r][c] == '?']
+
+
+class ColorScreen(Screen):
+    """a 160-read screen (rev B): 80 x 30 cells in 2 bpp, 40 x 30 in 4 bpp"""
+    def __init__(self, ram, bpp):
+        self.ram = ram
+        self.rows, self.colors = pe.cells_color(ram, bpp, FONT)
+
+    def chosen(self):
+        """the entry on the bar: white on blue"""
+        bar = {(3, 1), (10, 3)}
+        for r, line in enumerate(self.rows):
+            for c in range(len(line) - 2):
+                if line[c] in 'FPf' and self.colors[r][c] in bar and line[c + 1] == ' ':
+                    return line[c + 2:c + 15].strip()
+        return None
+
+    def pointer(self):
+        return [(c, r) for r, line in enumerate(self.rows) for c in range(len(line)) if line[c] == '?']
+
+    def color_of(self, text):
+        """(ink, paper) of the first character of text"""
+        c, r = self.find(text)
+        return self.colors[r][c + len(text) - len(text.lstrip())]
 
 
 class Checks:
@@ -226,7 +260,7 @@ def main(argv):
     s.shot('moved', 5)
     s.click(3, 58)
     s.shot('menu')
-    s.click(5, 51)                      # Clock
+    s.click(5, 50)                      # Clock
     s.shot('clock')
     s.click(49, 11)                     # H+ twice, M+ once (the card is at 46, 3)
     s.click(49, 11)
@@ -252,7 +286,7 @@ def main(argv):
     check('the pointer follows the mouse', (10, 40) in o['moved'].pointer())
     m = o['menu']
     check('the launcher', all(m.has(' ' + t, r) for r, t in
-                              enumerate(('Files', 'Clock', 'Calculator', 'Editor', 'About', 'BASIC', 'Back to DOS'), 50)))
+                              enumerate(('Files', 'Clock', 'Calculator', 'Editor', 'About', 'Display', 'BASIC', 'Back to DOS'), 49)))
     c = o['clock']
     check('the Clock card, in front', c.has('* Clock', 3) and c.has('H+', 11)
           and c.has('Clock', 58) and not c.has(' Back to DOS'))
@@ -279,7 +313,7 @@ def main(argv):
     print('5. a program')
     s = Script()
     s.click(3, 58)
-    s.click(5, 51)                      # Clock
+    s.click(5, 50)                      # Clock
     s.click(49, 11)                     # 01:00
     s.key(K_TAB)
     for _ in range(pi):
@@ -318,7 +352,7 @@ def main(argv):
     print('7. the DOS')
     s = Script()
     s.key(K_ESC)
-    for _ in range(6):
+    for _ in range(7):
         s.key(K_DOWN)
     s.key(K_ENTER)
     s.shot('dos', 120)
@@ -335,7 +369,7 @@ def main(argv):
     print('8. the calculator')
     s = Script()
     s.click(3, 58)
-    s.click(5, 52)
+    s.click(5, 51)
     s.shot('calc')
     for c, r in ((55, 26), (70, 26), (65, 28), (70, 32)):      # 7 * 6 =
         s.click(c, r)
@@ -386,7 +420,7 @@ def main(argv):
     s.shot('saved', 150)
     s.type('k')                         # unsaved text: no leaving
     s.key(K_ESC)
-    for _ in range(6):
+    for _ in range(7):
         s.key(K_DOWN)
     s.key(K_ENTER)
     s.shot('guard', 60)
@@ -434,6 +468,7 @@ def main(argv):
     for _ in range(boot):
         s.key(K_DOWN)
     s.key(K_ENTER)
+    s.wait(60)
     s.chord(K_CTRL, CALC_KEYS['e'])
     s.type('x')
     s.chord(K_CTRL, CALC_KEYS['o'])
@@ -451,6 +486,113 @@ def main(argv):
     check('a CR LF file is saved with CR LF', sdimage.read(s.card, 'BOOT.CFG') == b'PINBOARD.PLCx\r\n')
     check('a file that is not text', o['binary'].has('Not a text file', 29))
     check('a file that is too big', o['big'].has('Too big for the Editor', 29))
+
+    # ---- 10: the Display card (rev B) -----------------------------------
+    print('10. the display modes')
+
+    def launcher(s, n, settle=40):
+        s.key(K_ESC)
+        for _ in range(n):
+            s.key(K_DOWN)
+        s.key(K_ENTER)
+        s.wait(settle)
+
+    s = Script()
+    launcher(s, 5)
+    s.cell(70, 50)                      # the pointer off the cards
+    s.shot('disp', 0)
+    s.type('2')
+    s.shot('ask4', 150, 2)
+    s.type('y')
+    s.shot('kept4', 40, 2)
+    s.cw, s.ch = 8, 16
+    s.cell(10, 20)
+    s.shot('ptr4', 5, 2)
+    s.click(10, 2 + 3)                  # the Files card is at 1, 0: its fourth entry
+    s.cell(70, 25)
+    s.shot('click4', 25, 2)
+    s.cell(45, 10)                      # the Display card (27, 10) by its title to 32, 5
+    s.down()
+    s.cell(50, 5)
+    s.up()
+    s.cell(70, 25)
+    s.shot('drag4', 40, 2)
+    launcher(s, 2)
+    s.type('6*7=')
+    s.shot('calc4', 25, 2)
+    launcher(s, 5)
+    s.cell(70, 25)
+    s.type('3')
+    s.shot('ask16', 150, 4)
+    s.down()                            # a click keeps it
+    s.up()
+    s.shot('kept16', 40, 4)
+    s.cw, s.ch = 16, 16
+    s.cell(30, 25)
+    s.shot('ptr16', 5, 4)
+    s.cell(35, 26)
+    launcher(s, 0)                      # Files to the front, then PI.PLC
+    for _ in range(pi - 3):
+        s.key(K_DOWN)
+    s.shot('files16', 25, 4)
+    s.key(K_ENTER)
+    s.shot('running', 300)
+    s.key(K_ESC, hold=20)
+    s.shot('returned', 300, 4)
+    launcher(s, 5)
+    s.type('1')
+    s.shot('mono', 150)
+    s.type('2')
+    s.shot('ask', 150, 2)
+    s.shot('timeout', 560)
+    o = s.run(files, png=args.png, tag='10_', rev_b=True)
+    d = o['disp']
+    c, r = d.find('1 640 x 480   2 colors')
+    check('the Display card: the three modes, 2 colors in use',
+          d.has('* Display') and not d.inv[r][c] and d.inv[r + 1][c]
+          and d.has('2 640 x 240   4 colors', r + 1) and d.has('3 320 x 240  16 colors', r + 2))
+    a = o['ask4']
+    check('2: 640 x 240 in 4 colors, and it asks', a.ram[0x5A20] == 0x85 and a.ram[0x5BFF] == 0x85
+          and not any(a.ram[0x5A00:0x5A20]) and a.has('Keep? Y or click, 10 s')
+          and a.has('* Files', 0) and a.has(' Pinboard ', 29) and a.rows[27][60:] == ' ' * 20 and a.colors[27][60] == (None, 1))
+    k = o['kept4']
+    check('Y keeps it; black on gold, white on blue, gold on black',
+          k.has('4, 16: rev B boards') and k.color_of('* Display') == (0, 2)
+          and k.color_of('2 640 x 240') == (3, 1) and k.color_of('00:00') == (2, 0)
+          and k.color_of(' Pinboard ') == (0, 2))
+    check('the pointer follows the mouse', (10, 20) in o['ptr4'].pointer())
+    check('a click chooses an entry', o['click4'].chosen() == names[3])
+    check('a dragged title moves the card', o['drag4'].find('* Display') == (32, 5))
+    check('Calc: 6 * 7 = 42', o['calc4'].has('* Calc', 12) and '42' in o['calc4'].rows[14][56:75])
+    a = o['ask16']
+    check('3: 320 x 240 in 16 colors', a.ram[0x5A20] == 0x86 and len(a.rows[0]) == 40
+          and a.has('Keep? Y or click, 10 s') and a.has(' Pinboard ', 29))
+    k = o['kept16']
+    check('a click keeps it; black on cyan, white on blue, yellow on dark blue',
+          k.has('4, 16: rev B boards') and k.color_of('* Display') == (0, 8)
+          and k.color_of('3 320 x 240') == (10, 3) and k.color_of('00:0') == (14, 1))
+    check('the pointer follows the mouse', (30, 25) in o['ptr16'].pointer())
+    check('PI.PLC is chosen in the narrow Files card', o['files16'].chosen() == 'PI.PLC')
+    run = o['running']
+    check('it runs', run.ram[0x5A20] != 0x86 and not run.has('Pinboard'))
+    r = o['returned']
+    check('and Pinboard comes back in 16 colors', r.ram[0x5A20] == 0x86 and r.has(' Pinboard ', 29)
+          and r.chosen() == 'PI.PLC')
+    check('1: 2 colors again, no question', o['mono'].ram[0x5A20] == 0 and o['mono'].ram[0x5BE8] == 0x40
+          and o['mono'].has('* Display') and o['mono'].has('4, 16: rev B boards'))
+    t = o['timeout']
+    check('a mode not kept goes back after 10 seconds', o['ask'].ram[0x5A20] == 0x85
+          and t.ram[0x5A20] == 0 and t.has('* Display') and t.has('4, 16: rev B boards'))
+
+    s = Script()                        # a rev A board: bit 7 blanks the rows
+    launcher(s, 5)
+    s.type('2')
+    s.shot('ask', 150, 2)
+    s.shot('timeout', 560)
+    o = s.run(files, png=args.png, tag='10a_')
+    t = o['timeout']
+    check('rev A: the rows are blank, then 2 colors again', o['ask'].ram[0x5A20] == 0x85
+          and t.ram[0x5A20] == 0 and t.has('* Display') and t.has(' Pinboard ', 58))
 
     print('PASS' if check.ok else 'FAIL')
     return 0 if check.ok else 1

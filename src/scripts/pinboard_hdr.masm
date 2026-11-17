@@ -1,0 +1,126 @@
+; pinboard_hdr.masm - what pinboard.masm (the core) and its display
+; drivers (pinboard_drv_*.masm) share: the constants and the macros.
+; Date: 11/17/2026
+
+#include "placard.asm"
+#include "placard_lib.asm"
+
+PB_PTR    = 0x3600      ; the pointer's tables, 2 pages
+PB_FONT   = 0x3800      ; the font, 8 pages
+DRV       = 0x2E00      ; the display driver: x2E00-x3FFF, a file of its own
+DRV_CELLS = DRV         ;   its entries (GOTO: EMIT, HFILL and GTYPE end there)
+DRV_INVC  = DRV + 4     ;   (GOTO: INVC)
+DRV_HIDE  = DRV + 8     ;   (CALL: the pointer off the screen)
+DRV_SHOW  = DRV + 12    ;   (CALL: the pointer on it)
+DRV_INIT  = DRV + 16    ;   (CALL: the screen cleared, its rows' mode bytes)
+DRV_PENS  = DRV + 0x20  ;   24 pens: FX, BG (pinboard.vm: PEN)
+DRV_PAR   = DRV + 0x50  ;   columns, rows, the board's rows, the pointer's shifts, the board's character
+DRV_WINIT = DRV + 0x58  ;   6 cards: x, y, w, h
+MAP_RUN   = 0x07        ; sections 0-2 RAM, 3-7 ROM
+
+; the machine's zero page (as basic.masm)
+IPL     = 0x20
+IPH     = 0x21
+TL      = 0x22
+TH      = 0x23
+DSP     = 0x24
+RSP     = 0x25
+W0      = 0x26          ; scratch for the primitives
+W1      = 0x27
+W2      = 0x28
+W3      = 0x29
+W4      = 0x2A
+W5      = 0x2B
+W6      = 0x2C
+W7      = 0x2D
+DS_EMPTY = 0x90         ; the data stack: x50-x8F
+RSTK    = 0x4C00        ; the return stack page
+PSAVE   = 0x4B00        ; the screen under the pointer: 2 bytes a row
+
+; the drawing primitives' zero page (pinboard.vm knows these too)
+GX      = 0x30          ; the cell the next character goes to
+GY      = 0x31
+CX0     = 0x32          ; the clip rectangle: CX0 <= GX < CX1,
+CY0     = 0x33          ; CY0 <= GY < CY1
+CX1     = 0x34
+CY1     = 0x35
+CFX     = 0x2E          ; the pen (color drivers): the two colors XORed,
+CBG     = 0x2F          ; and the color of a 0 bit; a whole byte of each
+INV     = 0x36          ; GTYPE: 80 for black ink on a card, 00 white on black
+MOK     = 0x37          ; mouse_init's answer: 0 = a mouse runs
+PXL     = 0x38          ; the pointer: X 0-639
+PXH     = 0x39
+PYL     = 0x3A          ; Y 0-479
+PYH     = 0x3B
+MOVED   = 0x3C          ; POLL sets it when the mouse sent something
+SH_ON   = 0x3D          ; 1: the pointer is on the screen, at:
+SH_C2   = 0x3E          ;   60 + 2 x its byte column
+SH_YL   = 0x3F          ;   its first row
+SH_YH   = 0x40
+SH_TI   = 0x41          ;   its shift << 4
+SH_N    = 0x42          ;   its rows on the screen
+SH_K    = 0x43          ;   1: its right byte is on the screen too
+VH      = 0x44          ; a cell: its column's page
+VL0     = 0x45          ; x45-x4C: the low bytes of its 8 rows
+VPG     = 0x4D          ; 60 or 61: the page of the row in a column
+N_CH    = 0x4E          ; the character
+N_CNT   = 0x4F          ; characters to go
+N_MODE  = 0x50          ; 1: GTYPE (characters from N_PH:N_PL)
+N_PL    = 0x51
+N_PH    = 0x52
+
+; ------------------------------------------------------------
+; macros (basic.masm)
+; ------------------------------------------------------------
+.macro PUSHT                    ; push TOS (TOS stays)
+    ld   [DSP], ac
+    sub  2, ac
+    ld   ac, [DSP]
+    ld   ac, x
+    ld   [TL], ac
+    ld   ac, [x]
+    ld   [DSP], ac
+    add  1, x
+    ld   [TH], ac
+    ld   ac, [x]
+.endm
+.macro POPT                     ; TOS = the cell below it
+    ld   [DSP], x
+    ld   [x], ac
+    ld   ac, [TL]
+    ld   [DSP], ac
+    add  1, x
+    ld   [x], ac
+    ld   ac, [TH]
+    ld   [DSP], ac
+    add  2, ac
+    ld   ac, [DSP]
+.endm
+.macro NIP2                     ; drop the cell below TOS
+    ld   [DSP], ac
+    add  2, ac
+    ld   ac, [DSP]
+.endm
+.macro IPBYTE                   ; AC = the byte at IP
+    ld   [IPH], y
+    ld   [IPL], x
+    ld   [y,x], ac
+.endm
+.macro IPINC                    ; IP + 1
+    ld   [IPL], ac
+    inc
+    ld   ac, [IPL]
+    bne  ii\@
+    ld   [IPH], ac
+    inc
+    ld   ac, [IPH]
+ii\@:
+.endm
+.macro NEXT
+    ld   next >> 8, y
+    jmp  next
+.endm
+
+; ============================================================
+; basic - the vector x8024 comes here (power-up with no card, the DOS's
+
