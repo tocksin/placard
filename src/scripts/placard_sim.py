@@ -671,12 +671,16 @@ def row_offset(row, mode):
 
 def hires_offset(row, mode):
     """row address A7:A0 of screen row 0-479 on a 160-read line (rev B board,
-    mode byte bit 7): repeat code 00 or 01 is 2x, 10 or 11 is 4x.  Byte column
-    c (0-159) of the row is at x6000 + (c >> 1) * 512 + (c & 1) * 256 + this"""
+    mode byte bit 7): repeat code 00 is the fold (one row per line, wrapping
+    every 256 lines: rows 0-223 and 256-479 share their bytes), 01 is 2x, 10
+    or 11 is 4x.  Byte column c (0-159) of the row is at
+    x6000 + (c >> 1) * 512 + (c & 1) * 256 + this"""
     v = 32 + row
     v8, v7 = (v >> 8) & 1, (v >> 7) & 1
     if mode & 8:
         return 0x80 | (v & 0x7C) | (v8 << 1) | v7
+    if not mode & 4:
+        return v & 0xFF
     return (v & 0xFE) | v8
 
 

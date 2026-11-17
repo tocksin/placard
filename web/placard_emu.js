@@ -672,6 +672,7 @@ function hiresOffset(row, mode) {
     const v = 32 + row;
     const v8 = (v >> 8) & 1, v7 = (v >> 7) & 1;
     if (mode & 8) return 0x80 | (v & 0x7C) | (v8 << 1) | v7;
+    if (!(mode & 4)) return v & 0xFF;     // fold: one row per line, wraps every 256 lines
     return (v & 0xFE) | v8;
 }
 
