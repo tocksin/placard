@@ -7,7 +7,7 @@ card: writes text_demo_sd.asm and ../../sdcard/TEXT.PLC
     python3 text_demo_sim.py --sd           boots it from a card and checks it
 
 text_demo.asm is a ROM program: its code and tables run in place from ROM
-x6000-xB4FF (61 pages are used).  A library program loads into RAM
+x6000-xB4FF (62 pages are used).  A library program loads into RAM
 x0100-x3FFF, so this moves every page the demo uses down into that RAM
 and changes nothing else:
   - the used pages are grouped into runs (a page whose last byte is used

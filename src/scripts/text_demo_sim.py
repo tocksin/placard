@@ -109,8 +109,8 @@ def check_ring(cpu, syms, rom):
 
 
 def check_hires(rig, syms, rom, png=None):
-    """H: the 160-read screen (rev B) and back.  Checks the mode bytes,
-    "16 COLORS" against SMG, the bars, the wheel's discs, "256" against
+    """H: the 160-read screen (rev B) and back.  Checks the mode bytes, the
+    80 column 4-color text against text_h, "16 COLORS" against SMG, the bars, the wheel's discs, "256" against
     DIGH, the ring against RINGH_R / RINGH_A, and that the normal screen
     comes back as it was."""
     cpu, mem = rig.cpu, rig.cpu.mem
@@ -125,8 +125,15 @@ def check_hires(rig, syms, rom, png=None):
         got = [mem[0x5A20 + r] for r in range(96, 480)]
         return got == want
 
+    def text_cells():
+        # the 1 bpp text of the rows that never change (title, character
+        # set, RAM AREA, ruler, legend)
+        return [mem[0x6020 + col * 512 + 8 * r + k] for r in (0, 1, 2, 3, 4, 9, 10, 11)
+                for col in range(80) for k in range(8)]
+
     normal = [0x0A] * 128 + [0x05] * 128 + [0x0B] * 128
     before = bytes(mem[0x6000:0x10000])
+    text_before = text_cells()
     cpu.rev_b = True
     rig.key('h')
     rig.run(40)
@@ -135,6 +142,32 @@ def check_hires(rig, syms, rom, png=None):
         return False
     def at(col, row, mode):
         return mem[(0x60 + col) << 8 | ps.hires_offset(row, mode)]
+
+    if [mem[0x5A20 + r] for r in range(96)] != [0x85] * 96:
+        fail('rows 0-95 are not 2 bpp 2x 160-read')
+    # the 80 column 4-color text: every cell of the 6 text rows
+    want = {}
+    a = syms['text_h']
+    while rom[a] != 0xFF:
+        col, row, fg, bg, st = rom[a], rom[a + 1], rom[a + 2], rom[a + 3], rom[a + 4] | rom[a + 5] << 8
+        a += 6
+        while rom[st]:
+            want[(col, row)] = (rom[st], fg, bg)
+            col += 1
+            st += 1
+    if max(c for c, r in want) > 79:
+        fail('a line of the 80 column text is too long')
+    bad = 0
+    for row in range(6):
+        for col in range(80):
+            ch, fg, bg = want.get((col, row), (0x20, 0, 0))
+            for fr in range(8):
+                f = rom[ps.LIB_FONT + fr * 256 + ch]
+                for k, tab in enumerate(('EXP2_LO', 'EXP2_HI')):
+                    bad += at(2 * col + k, 16 * row + 2 * fr, 0x85) != (rom[syms[tab] + f] & fg) ^ bg
+    if bad:
+        fail('%d bytes of the 80 column 4-color text wrong' % bad)
+    frame_h = mem[syms['FRM']:syms['FRM'] + 5]
 
     # "16 COLORS": 16 x 16 letters from SMG, 8 bytes each from byte column 4
     bad = 0
@@ -202,10 +235,12 @@ def check_hires(rig, syms, rom, png=None):
             wheel += mem[ad] != before[ad - 0x6000]
         for off in range(0x101, 0x171, 2):              # 40 column rows 0-6
             bad += mem[page << 8 | off] != before[(page << 8 | off) - 0x6000]
+    if text_cells() != text_before:
+        fail('the 80 column text did not come back')
     if bad or wheel > 64:
         fail('the normal screen did not come back (%d bytes, %d in the wheel band)' % (bad, wheel))
     if ok:
-        print('H: the 160-read screen (letters, bars, wheel, digits, %d ring pixels) and back' % n)
+        print('H: the 160-read screen (80 column 4-color text, letters, bars, wheel, digits, %d ring pixels) and back' % n)
     return ok
 
 
