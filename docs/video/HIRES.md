@@ -30,8 +30,9 @@ whole difference.
 | 10 or 11, 4x | 120 | 160 x 120 = 19,200 bytes |
 | 00, fold | 480, wrapping every 256 | 160 x 256 = 40,960 bytes: rows 0-223 and rows 256-479 are the same bytes ([The fold](#the-fold-480-rows)) |
 
-Row tint (bits 6:4) works as on any row.  Normal rows and 160-read rows can
-be mixed freely down the screen.
+Row tint (bits 6:4) works as on any row.  Every row picks its own mode, so
+normal rows and 160-read rows can share a screen; which ones can do so
+without sharing bytes is in [Mixing row types](#mixing-row-types).
 
 Mode bytes x5A00-x5A1F (lines 512-543, never shown) must stay 0 on rev B:
 bit 7 set there would make reads in the vertical blanking.
@@ -52,6 +53,37 @@ In the fold and in 2x every byte of x6000-xFFFF belongs to the picture, so
 fold rows and 2x rows of one screen share bytes.  In 4x the low 128
 bytes of every 256 are free (20 KB in 128-byte pieces).  The library
 routine `vid_addr_hi` does this sum ([LIBRARY.md](../software/LIBRARY.md#video-and-system)).
+
+## Mixing row types
+
+The color mode (bits 1:0) never changes where a row's bytes are, so 640-wide
+4-color, 320-wide 16-color and 160-wide 256-color rows mix freely.  What
+matters is the repeat and whether the row is a 160-read row.  A 160-read row
+uses the same low byte as a normal row of the same repeat, in both halves
+of the column, so:
+
+| Screen (top / bottom) | Shares bytes? |
+|---|---|
+| 160-read 2x with normal 2x, either order, split anywhere | no |
+| 160-read 4x with normal 4x, either order, split anywhere | no |
+| normal 1x on top (any height to row 96), 160-read 4x below | no |
+| normal 1x on top, 160-read 2x below | no while the 160-read rows end by row 255; a 160-read 2x row from 256 on uses the bytes of an odd 1x row in the top 224 |
+| 160-read rows on top, normal 1x below | yes |
+| 2x on top, 4x below (160-read or normal, any mix) | no only if the split is at row 96 or above it, or at row 352 or below it |
+| 4x on top, 2x below (160-read or normal, any mix) | yes |
+| fold rows with anything | yes, except 4x rows below a fold band that ends by row 96 |
+
+So an 80-column text band of 1x rows over a 160-read picture works with a
+4x picture, or with a 2x picture that stops at row 255 (normal 2x rows can
+go below it).  A 2x text area (640 x 240, 1 bpp) goes with a 160-read 2x
+picture anywhere.  Rows of 4 lines keep one mode for all four, rows of 2
+for both.
+
+Only the 160-read rows cost the extra stall clocks.  Use `vid_addr` for a
+normal row and `vid_addr_hi` for a 160-read row.
+
+(Table made by trying every split of every pair of row types against the
+simulator's row addresses.)
 
 ## The fold: 480 rows
 
