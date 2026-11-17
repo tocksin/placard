@@ -17,7 +17,7 @@ run down the gap between the CPU and the middle panel; the source bus (it
 is also the memory data bus) carries on under the middle panel and up the
 gap to the video panel.
 
-Date: 2026-11-02
+Date: 2026-11-17
 """
 import os
 import sys
@@ -141,7 +141,7 @@ mapr = box(104, 24, 31, 13, "Map register", 1, "ACT273 at x5000:\nROM or RAM per
            fs=15)
 mc = box(139, 24, 30, 13, "Memory control", 1, "PLD: /WE, /RAM_OE,\n/ROM_OE", MEM, "mid", fs=15)
 ram = box(104, 44, 31, 15, "RAM 64 KB", 2, "2 x AS7C256C,\nvideo reads RAM", MEM, "mid", fs=17)
-rom = box(139, 44, 30, 15, "Cartridge slot", 0, "ROM 64 KB, 5 chips:\nstalls the CPU to load",
+rom = box(139, 44, 30, 15, "Cartridge slot", 0, "ROM 32 KB, 3 chips:\nstalls the CPU to load",
           MEM, "mid", fs=15)
 iod = box(104, 72, 31, 14, "I/O decode", 1, "PLD: x5000-x53FF,\n/CE_HI", IO, "mid", fs=15)
 exp = box(139, 72, 30, 17, "4 expansion slots", 0, "x5100-x53FF; a card\nwith a \"PLC\" header\n"
@@ -260,7 +260,7 @@ for name, col in (("Address bus (16 bits)", ADDR),
 ax.text(4, 163, "Control strobes, flags and clocks are not shown.\nSection reads follow the map "
         "register; video\nreads and all writes use RAM.",
         fontsize=12, color="#495057", va="top", linespacing=1.3)
-ax.text(238, 184, "src/scripts/gen_block_diagram.py, 2026-10-23", ha="right", va="center",
+ax.text(238, 184, "src/scripts/gen_block_diagram.py, 2026-11-17", ha="right", va="center",
         fontsize=11, color="#868E96")
 
 out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(

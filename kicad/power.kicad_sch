@@ -4519,7 +4519,7 @@
 				(justify left bottom)
 			)
 		)
-		(property "Value" "J1071CS5VDC.36"
+		(property "Value" "G5LE-1 DC5"
 			(at 194.31 97.536 90)
 			(effects
 				(font
@@ -4554,7 +4554,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "CIT Relay and Switch"
+		(property "Manufacturer" "Omron Electronic Components"
 			(at 173.99 86.36 0)
 			(effects
 				(font
@@ -4563,7 +4563,7 @@
 				(hide yes)
 			)
 		)
-		(property "MPN" "J1071CS5VDC.36"
+		(property "MPN" "G5LE-1 DC5"
 			(at 173.99 86.36 0)
 			(effects
 				(font

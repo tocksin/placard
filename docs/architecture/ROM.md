@@ -9,7 +9,7 @@ cartridge's EEPROM image, and `src/hdl/ram.mem` (the main RAM) and
 cartridge model is `src/hdl/cartridge.vhd`.  Programs and the standard
 library live in the ROM.
 
-Date: 2026-11-11
+Date: 2026-11-17
 
 The ROM that ships is the **32K image** (x8000-xFFFF: boot loader, library,
 card loader, BASIC and the FAT writer, "The 32K image" below).  It is the
@@ -101,15 +101,15 @@ demos needed that and are card programs only now.
 
 ## Cartridge sizes
 
-There are two cartridge boards, and a machine takes either:
+The machine ships with the 32K cartridge; the 64K board is not released.
 
-- **64K** (`kicad/cartridge_64k`, 5 chips): EEPROMs U2 (x0000-x7FFF,
-  `/CE_LO`) and U3 (x8000-xFFFF, `/CE_HI`), SRAMs U4 and U5.  It takes
-  the 32K image twice, or a development ROM.
 - **32K** (`kicad/cartridge_32k`, 3 chips): one EEPROM U2 and one SRAM U3,
   both always selected (/CE tied to GND), so the same 32K appears at
   x0000-x7FFF and again at x8000-xFFFF.  The loader copies it twice (the
   PC walks all 64K), which needs no change to the loader PLD.
+- **64K** (`kicad/cartridge_64k`, 5 chips, not released): EEPROMs U2
+  (x0000-x7FFF, `/CE_LO`) and U3 (x8000-xFFFF, `/CE_HI`), SRAMs U4 and
+  U5.  It takes the 32K image twice, or a development ROM.
 
 ## The 32K image
 

@@ -1,8 +1,8 @@
 # Bill of materials: 64K cartridge assembly PLC-2003
 
-Date: 2026-11-16
+Date: 2026-11-17
 
-The 64K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and screw.  A machine takes one cartridge, 64K or 32K.
+The 64K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and screw.  Not released (the machine ships with the 32K cartridge); kept for a 64K development ROM.
 
 10 lines, 10 parts on the schematic.  Cost: **$69.62** for one assembly at these quantities.  6 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_CART_64K.csv](BOM_CART_64K.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 

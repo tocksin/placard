@@ -1,6 +1,6 @@
 # CPU operations
 
-Date: 2026-11-11
+Date: 2026-11-17
 
 The CPU in this system is made of logic gates and registers.  The CPU 
 interfaces to the memory space (RAM/ROM) by outputting a memory address, and 
@@ -79,11 +79,12 @@ the display shows the RAM.  See the [memory map](../../README.md#memory-map).
   mux's A15 and the upper chip's /CE is /CE_HI from the I/O decode PLD.
   Both chips' /OE is /RAM_OE from the memory control PLD and their /WE is
   /WE from the Sync PLD (see [WE_TIMING.md](../timing/WE_TIMING.md)).
-- ROM: 2 × AS7C256C-15PCN on the ROM cartridge, with their /CE the same
-  way as the RAM (A15 and /CE_HI) and their /OE from /ROM_OE (memory
-  control PLD).  They lose their contents at power-off, so at power-up the
-  cartridge holds the CPU with its STALL line and copies two AT28C256-15PU
-  EEPROMs into them, with the CPU's PC as the address counter
+- ROM: one AS7C256C-15PCN on the 32K ROM cartridge, its /CE tied low so
+  it answers in both halves, and its /OE from /ROM_OE (memory control
+  PLD).  It loses its contents at power-off, so at power-up the cartridge
+  holds the CPU with its STALL line and copies one AT28C256-15PU EEPROM
+  into it, with the CPU's PC as the address counter.  (The unreleased 64K
+  cartridge has two of each, selected by A15 and /CE_HI like the RAM.)
   ([ROM.md](ROM.md#loading-the-cartridge)).
 
 See [TIMING.md](../timing/TIMING.md) for the timing analysis with these parts.

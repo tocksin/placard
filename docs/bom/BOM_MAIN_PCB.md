@@ -1,10 +1,10 @@
 # Bill of materials: main board assembly PLC-2001
 
-Date: 2026-11-16
+Date: 2026-11-17
 
 The main board, built: the bare PCB, every part on the schematic, and the sockets, jumper shunts that are not drawn.  It is one line of the case assembly.
 
-55 lines, 176 parts on the schematic.  Cost: **$199.79** for one assembly at these quantities, **$188.27** without the optional parts (expansion slot sockets J9-J12).  29 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
+55 lines, 176 parts on the schematic.  Cost: **$200.49** for one assembly at these quantities, **$188.97** without the optional parts (expansion slot sockets J9-J12).  29 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_MAIN_PCB.csv](BOM_MAIN_PCB.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 
 | Qty | References | Part number | Manufacturer | Description | Value | Unit $ | Total $ | Price from | Notes |
 |--:|---|---|---|---|---|--:|--:|---|---|
@@ -28,7 +28,7 @@ The main board, built: the bare PCB, every part on the schematic, and the socket
 | 1 | J13 | USB4125-GF-A-0190 | GCT | USB-C receptacle, power only (6 pin), top mount | USB4125-GF-A | 0.61 | 0.61 | Mouser |  |
 | 1 | SW1 | ANT11TFHQE | CIT Relay and Switch | Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing |  | 4.50 | 4.50 | est.: Digi-Key; Mouser has no stock |  |
 | 1 | SW2 | PTS645VL58-2 LFS | C&K | Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil) |  | 0.43 | 0.43 | est.: Digi-Key; Mouser has no stock until 12/23/2026 |  |
-| 1 | K1 | J1071CS5VDC.36 | CIT Relay and Switch | Reset relay: SPDT, 5 V coil (69 ohm, 72 mA), 7 A 30 V DC (NO and NC), through hole, sealed; NC contact carries the 5 V |  | 1.15 | 1.15 | Digi-Key: Justin, 2026-10-25; Mouser does not sell CIT |  |
+| 1 | K1 | G5LE-1 DC5 | Omron Electronic Components | Reset relay: SPDT, 5 V coil (63 ohm, 79 mA), 8 A 30 V DC, through hole, flux protected; NC contact carries the 5 V |  | 1.85 | 1.85 | Mouser: 653-G5LE-1-DC5, bought 2026-11-04 |  |
 | 1 | F1 | MF-RG300-0 | Bourns | Polyfuse, 3 A hold, radial | 3 A hold | 0.73 | 0.73 | Mouser | Part number from the footprint (Fuse_Bourns_MF-RG300) |
 | 11 | D1-D6, D8-D11, D19 | 1N5817-TP | Micro Commercial Co | Schottky diode, 1 A, DO-41 (black) | 1N5817 | 0.15 | 1.65 | est.: MCC 1N5817-TP | Black DO-41 Schottky, so it is not mixed up with the glass 1N4148s; any 1N5817 (MCC, onsemi, Diodes Inc.) |
 | 1 | D7 | SA5.0A | Littelfuse | TVS diode, 5 V stand-off, 500 W, DO-15 axial (across the fused USB 5 V) |  | 0.64 | 0.64 | Mouser |  |

@@ -1,8 +1,8 @@
 # Bill of materials: 32K cartridge assembly PLC-2002
 
-Date: 2026-11-16
+Date: 2026-11-17
 
-The 32K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and screw.  A machine takes one cartridge, 64K or 32K.
+The 32K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and screw.  The machine's cartridge: it holds the released 32K ROM.
 
 10 lines, 6 parts on the schematic.  Cost: **$39.67** for one assembly at these quantities.  6 lines are estimates (*est.*).  Written by `src/scripts/gen_bom.py`; the same list is in [BOM_CART_32K.csv](BOM_CART_32K.csv).  The other BOMs are listed in [BOM.md](BOM.md).
 

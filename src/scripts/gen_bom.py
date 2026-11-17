@@ -23,7 +23,7 @@ shells, screws) are added here.
     python3 src/scripts/gen_kicad_schematic.py    # after a part change
     python3 src/scripts/gen_bom.py
 
-Date: 2026-11-16
+Date: 2026-11-17
 """
 import csv
 import glob
@@ -34,7 +34,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-11-16"
+DATE = "2026-11-17"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 
@@ -74,7 +74,7 @@ DESC_LIB = {
     "placard_std:Jumper_2_Open": "Pin header, 1 x 2, 2.54 mm (bring-up jumper)",
     "placard_std:SW_SPST": "Power on/off: SPDT on-on toggle, 5 A 28 V DC, right-angle PCB, 1/4-40 bushing",
     "placard_std:SW_Push": "Reset button: tactile, SPST momentary, right angle, through hole (drives K1's coil)",
-    "placard_std:G5LE-1": "Reset relay: SPDT, 5 V coil (69 ohm, 72 mA), 7 A 30 V DC (NO and NC), through hole, sealed; NC contact carries the 5 V",
+    "placard_std:G5LE-1": "Reset relay: SPDT, 5 V coil (63 ohm, 79 mA), 8 A 30 V DC, through hole, flux protected; NC contact carries the 5 V",
     "placard_std:D_Schottky": "Schottky diode, 1 A, DO-41 (black)",
     "placard_std:D": "Small-signal diode, DO-35 (glass)",
     "placard_std:LED": "Power LED, 5 mm, red diffused, through hole (on +5V after K1)",
@@ -126,7 +126,7 @@ PRICES = {
     "KMDGX-6S/6S-S4N": (3.72, "Mouser", ""),
     "MF-RG300-0": (0.73, "Mouser", ""),
     "ANT11TFHQE": (4.50, "est.", "Digi-Key; Mouser has no stock"),
-    "J1071CS5VDC.36": (1.15, "Digi-Key", "Justin, 2026-10-25; Mouser does not sell CIT"),
+    "G5LE-1 DC5": (1.85, "Mouser", "653-G5LE-1-DC5, bought 2026-11-04"),
     "PTS645VL58-2 LFS": (0.43, "est.", "Digi-Key; Mouser has no stock until 12/23/2026"),
     "WP7113ID": (0.21, "Mouser", ""),
     "5011": (0.45, "est.", "Digi-Key (Keystone 5011, black)"),
@@ -381,9 +381,9 @@ SCOPE = {
     "Main board": "The main board, built: the bare PCB, every part on the schematic, and the sockets, "
                   "jumper shunts that are not drawn.  It is one line of the case assembly.",
     "Cartridge, 64K": "The 64K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and "
-                      "screw.  A machine takes one cartridge, 64K or 32K.",
+                      "screw.  Not released (the machine ships with the 32K cartridge); kept for a 64K development ROM.",
     "Cartridge, 32K": "The 32K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and "
-                      "screw.  A machine takes one cartridge, 64K or 32K.",
+                      "screw.  The machine's cartridge: it holds the released 32K ROM.",
     "Memory card, 512K": "The 512K memory expansion card ([MEMCARD.md](../architecture/MEMCARD.md)), built: the "
                         "bare PCB, its three chips and the two PLDs' sockets (the SRAM is soldered).  Optional: it goes in any expansion slot, "
                         "which needs that slot's socket fitted on the main board.  With its printed shell, the shell's screws and nuts and the insert for the case's card screw.",
@@ -467,8 +467,8 @@ def main():
         md.append(f"| {TITLES[name]} | [{f}.md]({f}.md), [.csv]({f}.csv) | {contents[name]} | ${t:,.2f} | "
                   f"${b:,.2f} | {est} |")
     md += ["",
-           f"A complete machine is the case assembly plus one cartridge: **${totals['Case'][0] + totals['Cartridge, 64K'][0]:,.2f}**"
-           f" with the 64K cartridge (the case total already holds the main board without its optional slot",
+           f"A complete machine is the case assembly plus the 32K cartridge: **${totals['Case'][0] + totals['Cartridge, 32K'][0]:,.2f}**"
+           f" (the 64K cartridge is not released; the case total already holds the main board without its optional slot",
            "sockets).  Prices are single-unit Mouser (Digi-Key where Mouser has none) for components and",
            "rough single-unit estimates for PCBs, shells and case parts; shipping, tax and tariffs are not",
            "included.  Stock moves, so recheck before ordering.",
