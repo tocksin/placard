@@ -57,6 +57,7 @@ function powerCycle() {
     insertCard(cardImage);
     for (const code of heldKeys) m.io.kbd.press(P.SCANCODES[code]);   // keys held through power-up
     m.reset($('optRandom').checked, m.cartLoadClocks());
+    m.revB = $('optRev').value === 'b';
     m.audio.length = 0;
     clockTarget = 0;
     lastTime = performance.now();
@@ -505,6 +506,9 @@ $('btnPause').addEventListener('click', () => {
     if (paused && actx) actx.suspend();
     else if (actx) actx.resume();
 });
+// board revision: takes effect at once (it only changes what mode byte bit 7 means)
+$('optRev').addEventListener('change', () => { m.revB = $('optRev').value === 'b'; });
+
 $('optMouse').addEventListener('change', () => {
     show($('powerMsg'), 'The mouse change takes effect at the next power cycle (plug PS/2 devices in with the power off).');
 });

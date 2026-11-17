@@ -181,6 +181,7 @@ input[type=range] { width: 140px; accent-color: var(--brass); }
       <div class="row" style="flex-direction:column;align-items:flex-start;gap:6px">
         <label class="check"><input type="checkbox" id="optMouse" checked> PS/2 mouse plugged in</label>
         <label class="check"><input type="checkbox" id="optRandom" checked> Random RAM at power-up</label>
+        <label class="check">Board <select id="optRev"><option value="a" selected>rev A (bit 7 = blank line)</option><option value="b">rev B (bit 7 = 160-read line)</option></select></label>
         <label class="check">Volume <input type="range" id="optVolume" min="0" max="100" value="60"></label>
       </div>
       <p class="pads" id="padStatus">Pad 1: none &middot; Pad 2: none</p>
