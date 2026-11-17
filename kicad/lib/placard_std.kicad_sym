@@ -5261,6 +5261,55 @@
           (effects
             (font
               (size 1.5 1.5)))))))
+  (symbol "MountingHole"
+    (pin_names
+      (offset 1.016))
+    (in_bom yes)
+    (on_board yes)
+    (property "Reference" "H"
+      (at 0 5.08 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Value" "MountingHole"
+      (at 0 3.175 0)
+      (effects
+        (font
+          (size 1.27 1.27))))
+    (property "Footprint" "placard:MountingHole_3.2mm_M3"
+      (at 0 0 0)
+      (effects
+        (font
+          (size 1.27 1.27)) hide))
+    (property "Datasheet" "~"
+      (at 0 0 0)
+      (effects
+        (font
+          (size 1.27 1.27)) hide))
+    (property "ki_keywords" "mounting hole"
+      (at 0 0 0)
+      (effects
+        (font
+          (size 1.27 1.27)) hide))
+    (property "ki_description" "Mounting Hole without connection"
+      (at 0 0 0)
+      (effects
+        (font
+          (size 1.27 1.27)) hide))
+    (property "ki_fp_filters" "MountingHole*"
+      (at 0 0 0)
+      (effects
+        (font
+          (size 1.27 1.27)) hide))
+    (symbol "MountingHole_0_1"
+      (circle
+        (center 0 0)
+        (radius 1.27)
+        (stroke
+          (width 1.27)
+          (type default))
+        (fill
+          (type none)))))
   (symbol "+5V"
     (power)
     (pin_names

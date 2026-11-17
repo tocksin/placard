@@ -22,7 +22,7 @@ placard_cartridge_32k.pdf, set to open without the bookmarks panel.
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
 
-Date: 2026-11-16
+Date: 2026-11-17
 """
 import os
 import re
@@ -1381,7 +1381,7 @@ def build_memcard():
     so the card works in any slot."""
     proj = "memory_card"
     root_uuid = K.det_uuid(proj, "root")
-    s = K.Sheet(proj, proj + ".kicad_sch", "Memory expansion card, 512K", 1, root_uuid, None, "2026-11-16",
+    s = K.Sheet(proj, proj + ".kicad_sch", "Memory expansion card, 512K", 1, root_uuid, None, "2026-11-17",
                 rev="A", part_no=MEMCARD_PART)
     s.uid = root_uuid
     s.comment2 = "Card chips U1-U3 (docs/architecture/MEMCARD.md); decoupling Cn goes with Un"
@@ -1400,26 +1400,31 @@ def build_memcard():
     s.part("placard_parts:Expansion_Slot", "J1", *MC_J1, n, value="Card edge (87715-9106 mate)",
            footprint="placard:Card_Edge_87715-9106", ref_at=(MC_J1[0] - 12, MC_J1[1] - 39),
            value_at=(MC_J1[0] - 12, MC_J1[1] + 41.2), in_bom=False)    # gold fingers on the card's PCB, not a part
-    u1 = {1: "~{WE}", 2: "~{EXP}", 10: D[0], 11: D[1], 13: D[2], 14: D[3], 16: "~{PGLO}",
-          19: PG[8], 18: PG[9], 17: PG[10], 20: PG[11], 15: None, 21: None, 22: None, 23: None}
-    for i in range(7):
-        u1[3 + i] = A[i]
+    # Pin assignments are the board layout's (2026-11-17, PCB PLC-1004 rev A): the PLD pins and the SRAM's
+    # address and data pins were swapped by the router tools (router_v4/placeguide.py pinswap) for the
+    # placement of gen_kicad_memcard_pcb.py.  The PLD pins match the PIN lines of the two .pld files; on
+    # the SRAM any address pin can take any address or page line and any I/O pin any data line.
+    we, exp, pglo = "~{WE}", "~{EXP}", "~{PGLO}"
+    u1 = {1: we, 2: None, 3: A[5], 4: A[4], 5: A[6], 6: A[2], 7: A[3], 8: exp, 9: A[0], 10: D[1], 11: D[0],
+          13: D[2], 14: D[3], 15: A[1], 16: pglo, 17: PG[8], 18: PG[9], 19: PG[10], 20: PG[11],
+          21: None, 22: None, 23: None}
     s.part("placard:ATF22V10C_MEMCARD_HI", "U1", *MC_U1, pld(u1))
     decap(s, 1, MC_U1[0] - 25.4, MC_U1[1] - 38.1, lift=0)
-    u2 = {1: "~{WE}", 2: "~{PGLO}", 11: None, 13: None, 14: None, 15: None}
-    for i in range(8):
-        u2[3 + i] = D[i]
-        u2[23 - i] = PG[i]
+    u2 = {1: we, 2: D[3], 3: D[6], 4: D[0], 5: D[7], 6: D[4], 7: D[1], 8: D[5], 9: None, 10: None, 11: None,
+          13: None, 14: PG[5], 15: pglo, 16: PG[7], 17: PG[6], 18: D[2], 19: PG[4], 20: PG[3], 21: PG[2],
+          22: PG[1], 23: PG[0]}
     s.part("placard:ATF22V10C_MEMCARD_LO", "U2", *MC_U2, pld(u2))
     decap(s, 2, MC_U2[0] - 25.4, MC_U2[1] - 38.1, lift=0)
-    u3 = {"6": "~{EXP}", "31": "Q0", "13": "~{WE}", "9": "+5V", "27": "+5V", "10": "GND", "28": "GND",
-          "19": None, "36": None}
-    for i, p in enumerate([1, 2, 3, 4, 5, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 32, 33, 34, 35]):
-        u3[str(p)] = A[i] if i < 7 else PG[i - 7]
-    for i, p in enumerate([7, 8, 11, 12, 25, 26, 29, 30]):
-        u3[str(p)] = D[i]
-    s.part("placard_parts:AS7C4096A", "U3", *MC_U3, u3, value="AS7C4096A-12JIN")
+    u3 = {1: A[6], 2: A[4], 3: A[5], 4: A[3], 5: A[2], 6: exp, 7: D[1], 8: D[2], 9: "+5V", 10: "GND",
+          11: D[5], 12: D[4], 13: we, 14: A[1], 15: A[0], 16: PG[6], 17: PG[7], 18: PG[5], 19: None,
+          20: PG[4], 21: PG[3], 22: PG[2], 23: PG[0], 24: PG[1], 25: D[7], 26: D[3], 27: "+5V", 28: "GND",
+          29: D[6], 30: D[0], 31: "Q0", 32: PG[8], 33: PG[9], 34: PG[10], 35: PG[11], 36: None}
+    s.part("placard_parts:AS7C4096A", "U3", *MC_U3, {str(k): v for k, v in u3.items()}, value="AS7C4096A-12JIN")
     decap(s, 3, MC_U3[0] - 20.32, MC_U3[1] - 43.18, lift=0)
+    # the two M3 holes that screw the card into its shell: on the sheet so an update of the board keeps them
+    for i, hx in enumerate((335.28, 350.52)):
+        s.part("placard_std:MountingHole", "H%d" % (i + 1), hx, 241.3, {}, value="M3",
+               footprint="placard:MountingHole_3.2mm_M3", in_bom=False)
     # power flags, each on a short arm of its own
     s.power("+5V", 160.02, 259.08)
     path(s, "+5V", (160.02, 259.08), (167.64, 259.08))
@@ -1435,7 +1440,10 @@ def build_memcard():
                       "card's offset 7Eh loads page bits 7:0 (U2, selected by U1's",
                       "/PGLO) and one to 7Fh loads bits 11:8 (U1, from D3:D0).",
                       "Offsets 00h-7Dh of each page are memory (516096 bytes);",
-                      "7Eh and 7Fh are reserved (the page write lands there too)."])
+                      "7Eh and 7Fh are reserved (the page write lands there too).",
+                      "Which U3 address pin and which data pin each net is on was",
+                      "chosen for the layout: any order works, the card just keeps",
+                      "its bytes in another order.  The PLD pins were too."])
     s.finish(set())
     return s
 

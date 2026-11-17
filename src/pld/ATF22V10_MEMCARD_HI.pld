@@ -1,7 +1,7 @@
 Name     MEMCARD_HI;
 PartNo   00;
-Date     11/16/2026;
-Revision 01;
+Date     11/17/2026;
+Revision 02;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -21,7 +21,9 @@ Device   g22v10;
    The slot gives a card 128 addresses (A6:A0).  The SRAM is wired
    as the plain card of EXPANSION.md, straight to the slot:
         SRAM /CE = /EXP    /OE = Q0    /WE = /WE
-        SRAM A6:A0 = slot A6:A0        I/O = D7:D0
+        SRAM address pins = slot A6:A0 and the page, I/O = D7:D0
+        (which address or I/O pin takes which line is the
+        board layout's choice: any order works the same)
    and the two PLDs hold the SRAM's upper address, A18:A7, as a
    12-bit page number: 4096 pages of 128 bytes.  Neither PLD is in
    a read or write path of the SRAM.
@@ -61,39 +63,44 @@ Device   g22v10;
       /PGLO is valid 7.5 ns after /EXP and A6:A0.
 
    PIN BUDGET
-      Inputs (13): /WE (clock), /EXP, A0-A6, D0-D2, and D3 on I/O
-                   pin 14
+      Inputs (13): /WE (clock), /EXP, A0-A6, D0-D3; A1 and D3 are
+                   on I/O pins 15 and 14
       Outputs (5):  PG8-PG11 (registered), /PGLO (combinational)
-      Spare: I/O pins 15, 21, 22, 23 (four cells).  Each register
-      is nine product terms, so they are on pins 17-20 (14 or 16
-      terms each); /PGLO is one.
+      Spare: input pin 2, I/O pins 21, 22, 23 (three cells).  Each
+      register is nine product terms, so they are on pins 17-20
+      (14 or 16 terms each); /PGLO is one.
+
+   REVISIONS
+      02 (11/17/2026): pins assigned for the board layout (PCB
+         PLC-1004 rev A, pin swaps from the router tools).  No
+         equation changed.
    ============================================================ */
 
 
 /* ---------------- INPUTS ---------------- */
 
 PIN 1  = !WE;          /* slot B24, the write pulse: clocks the registers on its rising edge */
-PIN 2  = !EXP;         /* slot A16, this slot's select, low for any access to the card */
-PIN 3  = A0;           /* slot address: A6:A1 = 111111 is the page register, A0 picks its half */
-PIN 4  = A1;
-PIN 5  = A2;
-PIN 6  = A3;
-PIN 7  = A4;
-PIN 8  = A5;
-PIN 9  = A6;
-PIN 10 = D0;           /* data bus, written to page bits 11:8 */
-PIN 11 = D1;
+PIN 3  = A5;           /* slot address: A6:A1 = 111111 is the page register, A0 picks its half */
+PIN 4  = A4;
+PIN 5  = A6;
+PIN 6  = A2;
+PIN 7  = A3;
+PIN 8  = !EXP;         /* slot A16, this slot's select, low for any access to the card */
+PIN 9  = A0;
+PIN 10 = D1;           /* data bus, written to page bits 11:8 */
+PIN 11 = D0;
 PIN 13 = D2;
 PIN 14 = D3;           /* I/O pin used as input */
+PIN 15 = A1;           /* I/O pin used as input */
 
 
 /* ---------------- OUTPUTS ---------------- */
 
-PIN 16 = !PGLO;        /* to the page low PLD's pin 2: low for an access to offset 7Eh */
-PIN 17 = PG10;         /* page bit 10, SRAM A17 */
-PIN 18 = PG9;          /* page bit 9, SRAM A16 */
-PIN 19 = PG8;          /* page bit 8, SRAM A15 */
-PIN 20 = PG11;         /* page bit 11, SRAM A18 */
+PIN 16 = !PGLO;        /* to the page low PLD's pin 15: low for an access to offset 7Eh */
+PIN 17 = PG8;          /* page bit 8 */
+PIN 18 = PG9;          /* page bit 9 */
+PIN 19 = PG10;         /* page bit 10 */
+PIN 20 = PG11;         /* page bit 11 */
 
 
 /* ---------------- EQUATIONS ---------------- */

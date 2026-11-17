@@ -22,6 +22,8 @@ def _has_jumpers(f):
     except Exception: return False
 JUMP=1 if (JNEW or (len(sys.argv)>1 and _has_jumpers(sys.argv[1]))) else 0   # a board that already has jumpers keeps them (third layer known, no new ones)
 LAYS=LAY+[JL] if JUMP else LAY   # LAYS = layers with re-routable copper; index 2 = jumper layer
+VIAJOIN=float(E('VIAJOIN','0'))   # cells taken off a routed via's disk when connectivity is labelled: with 0 a via whose rim is one cell
+#   from a small SMD pad counts as joined to it although the copper is up to 0.18 mm apart; VIAJOIN=2 makes the route enter the pad
 JMUL=float(E('JMUL','4')); JENTRY=float(E('JENTRY','1.0')); JMAX=float(E('JMAX','10')); JSPACE=float(E('JSPACE','5'))
 lib=ctypes.CDLL((os.path.join(TOOLS,'win','astar.dll') if os.name=='nt' else os.path.join(TOOLS,'astar.so'))); lib.astar.restype=ctypes.c_int
 if JUMP: lib.astar3.restype=ctypes.c_int
@@ -373,7 +375,7 @@ class Grid:
             for i,(l,iy,ix) in enumerate(path):
                 cells[l][iy-j0,ix-i0]=True
                 if i and path[i-1][0]!=l: vc[iy-j0,ix-i0]=True
-        if vc.any(): vd=stamp_disks(vc,_disk(VD/2/G)); thru|=vd
+        if vc.any(): vd=stamp_disks(vc,_disk(max(0.0,VD/2/G-VIAJOIN))); thru|=vd
         for l in range(len(LAYS)):   # track cells undilated (8-connectivity joins only touching copper), via pads as disks
             masks[l]|=cells[l]
             if vc.any(): masks[l]|=vd

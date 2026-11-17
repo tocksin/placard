@@ -706,3 +706,60 @@ the routing needs it, not everywhere.
 `pldcheck.py before.kicad_pcb after.kicad_pcb outdir` checks every ATF22V10 pin swap against the chip: product terms of the new pin, input-only pins, the clock pin, and one pin per signal. It also writes one `<Uref>_<design>_pinswap.pld` per chip (only the PIN lines differ) for a WinCUPL compile. On the 388-via pin-swap board all 20 PLDs pass (92 outputs moved, none over its pin's terms; two are now full: U4 Q5 and U14 Q6 at 10/10), and all 20 swapped files compile with WinCUPL (`bench/wbf11_ps_pldchk.md`, `bench/wbf11_ps_pldcheck/`).
 
 Two things the check showed. The whole-board bench board is the netlist from before the expansion redesign (U12, U15, U38, U42 differ from today's board), so swaps must be recomputed on the current board before they are adopted. And chips that share a design (U7-U10 QUAD_MUX, U3/U4 PC_COUNTER8, U5/U6 ALU_SHR) get different swaps, so each would need its own .pld and .jed.
+
+## Memory card (2026-11-17): a small board with surface-mount pads, start to finish
+
+The 512K memory card (`kicad/memory_card/`, docs/architecture/MEMCARD.md) is the first board laid out with
+these tools alone: 3 chips, 31 signal nets, a card-edge connector and one SOJ-36. The flow, from `src/scripts`:
+
+    gen_kicad_memcard_pcb.py --out F.kicad_pcb [--place try.json]     # KiCad 9 python: placement, nets
+    router_v4/powerstubs.py F.kicad_pcb F_s.kicad_pcb                  # plane vias for surface-mount pads
+    SCHDIR=kicad/memory_card router_v4/placeguide.py F_s.kicad_pcb pinswap OUT=ps    # while trying placements
+    VIAJOIN=2 BACKEND=cpu router_v4/mroute4.py F_s.kicad_pcb F_r.kicad_pcb
+    NETS=@F_r.kicad_pcb.nets VIAS="400 800 1600" TRIES=3 WIDE=1 AGAINST=2 WORKERS=1 VIAJOIN=2 \
+        router_v4/ladder.py F_r.kicad_pcb F_l
+    router_v4/conn.py F_l_v1600_wide_c45.kicad_pcb                     # true-geometry connectivity: must print nothing
+    router_v4/snapends.py F_l_v1600_wide_c45.kicad_pcb F_snap.kicad_pcb    # KiCad python
+    finish_memcard_pcb.py F_snap.kicad_pcb kicad/memory_card/memory_card.kicad_pcb    # via-centre joins, planes
+    kicad-cli pcb drc --schematic-parity --severity-all ...            # 0 violations, 0 unconnected
+
+What the board needed that the main board (all through-hole) never did:
+
+- **`powerstubs.py`** (new). The router leaves GND and +5V to the inner planes, which only through-hole pads
+  reach. This gives each surface-mount pad on a plane net a stub and a via: a chip pad along its long axis
+  toward the chip's middle, an edge finger straight in from the edge, the two sides of a finger sharing a via.
+  The via moves along the stub, and the stub sideways inside its pad, until both keep 0.5 mm from the outline
+  and the clearance from other nets: a finger beside the tab's edge or the key notch gets its via up in the
+  card body.
+- **`VIAJOIN=2`** (gridcore.py, default 0). The connectivity labelling counted a via one cell from a
+  surface-mount pad as joined to it, so the tidy could leave a net open by a hair. VIAJOIN shrinks the via's
+  disk by that many cells for the labelling. Use `WORKERS=1` in the tidy on a board this small, and always end
+  with `conn.py`.
+- **mroute4.py / patroute.py**: a net with front-only copper (a finger stub) crashed `fixed_groups`; fixed.
+- **pinswap.py**: swap table for the AS7C4096 (any address pin for another, any data pin for another); the
+  symbol reader no longer runs on into the next symbol.
+- **`finish_memcard_pcb.py`**: the grid lets a track end, or a surface-mount pad, anywhere under a via's
+  copper. Before the planes go in, each such end gets a short piece to the via's centre (8 here) and each such
+  pad a piece from the via's centre to its own (8 here).
+- **Holes.** The hole band only works for a hole within 12 mm of an edge (rules.py NEAR). With the holes at
+  12 mm, tracks looped round their outside; they moved to 11 mm.
+
+Placement trials (pin swaps on, route, one tidy rung VIA 400; `--place` tables):
+
+| placement | track | vias | note |
+|---|---|---|---|
+| A: SRAM on the fingers' shoulder, PLDs side by side above (the first placement) | 1.14 m | 44 | |
+| B: A with the PLDs turned 180 degrees | 1.03 m | 43 | 2 nets open |
+| D0: PLDs upright at the ends, SRAM between them | 1.43 m | 27 | holes end up mid-card |
+| D0 with one or both PLDs turned (3 trials) | 1.31-1.33 m | 37-43 | |
+| E: SRAM raised 2.6 mm, PLDs side by side above | 1.28 m | 32 | |
+| E raised 1.3 mm / 4.0 mm instead | 1.19 / 1.32 m | 44 / 43 | 2.6 mm is the sweet spot |
+| E with the PLDs turned 180 degrees | 1.33 m | 29 | card 2 mm taller |
+| E with the SRAM turned 180 degrees | 1.25 m | 46 | |
+| E with U1 and U2 traded | 1.29 m | 44 | |
+| **Eh: E with the holes at 11 mm (kept)** | 1.24 m | 32 | no track outside a hole |
+
+The kept board after the whole ladder (wide pair rung last): 1.31 m, 23 signal vias plus 14 plane vias, no
+track on the planes. placeguide's score ranked the E family above A, as the routes did; it could not tell the
+E variants apart, which only routing showed.
+

@@ -3,7 +3,7 @@
 A swap group is a list of slots on one part; any two slots of a group may trade places, which moves the pads'
 nets between pin positions without changing what the circuit does:
   * registers 74x377 / 74x273 / 74x574 and buffers 74x541: (D, Q) or (A, Y) pairs, a bit moves with its output;
-  * SRAM AS7C256: address pins among themselves, data pins among themselves (every access goes through the same pins);
+  * SRAM AS7C256 and AS7C4096A: address pins among themselves, data pins among themselves (every access goes through the same pins);
   * ATF22V10C PLDs: pins are programmable. A signal may move to any pin that can carry it: an input to any input
     or I/O pin, an output (or registered output) to an I/O pin whose OLMC has enough product terms
     (14/23: 8, 15/22: 10, 16/21: 12, 17/20: 14, 18/19: 16). Pin 1 (clock / input) and power stay put.
@@ -23,6 +23,8 @@ REG574 = [(2 + k, 19 - k) for k in range(8)]
 BUF541 = [(2 + k, 18 - k) for k in range(8)]                                         # (A, Y)
 SRAM_A = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 21, 23, 24, 25, 26]
 SRAM_D = [11, 12, 13, 15, 16, 17, 18, 19]
+SRAM4M_A = [1, 2, 3, 4, 5, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 32, 33, 34, 35]   # AS7C4096A, SOJ-36
+SRAM4M_D = [7, 8, 11, 12, 25, 26, 29, 30]
 MAXT = 64
 
 # ---------------------------------------------------------------- CUPL equations -> product-term estimate
@@ -146,7 +148,7 @@ def schematic_symbols():
     m = {}
     for f in glob.glob(os.path.join(SCH_DIR, '*.kicad_sch')):
         s = open(f, encoding='utf-8').read()
-        for mm in re.finditer(r'\(lib_id "([^"]+)"\)(.{0,800}?)\(property "Reference" "([A-Z]+\d+)"', s, re.S):
+        for mm in re.finditer(r'\(lib_id "([^"]+)"\)((?:(?!\(lib_id ).){0,800}?)\(property "Reference" "([A-Z]+\d+)"', s, re.S):
             m[mm.group(3)] = mm.group(1).split(':')[-1]
     return m
 
@@ -182,8 +184,9 @@ def table(B):
         if '377' in v or '273' in v: S, kind = REG377, 'register D/Q'
         elif '574' in v: S, kind = REG574, 'register D/Q'
         elif '541' in v: S, kind = BUF541, 'buffer A/Y'
-        elif 'AS7C256' in v or '62256' in v:
-            for nm, L in (('SRAM address', SRAM_A), ('SRAM data', SRAM_D)):
+        elif 'AS7C256' in v or '62256' in v or 'AS7C4096' in v:
+            big = 'AS7C4096' in v
+            for nm, L in (('SRAM address', SRAM4M_A if big else SRAM_A), ('SRAM data', SRAM4M_D if big else SRAM_D)):
                 sl = [pads((k,)) for k in L if pads((k,))]
                 G.append(dict(ref=P.ref, i=i, kind=nm, slots=sl, info=None, pins={s: int(P.pads[s[0]]['num']) for s in sl}))
             continue

@@ -15,7 +15,7 @@ The other parts come from KiCad's libraries (kicad/README.md lists which).
 Rerunning this overwrites the library, so make changes here, not in KiCad's
 symbol editor.  The pinouts are from CHIPS.md, EXPANSION.md and IO.md.
 
-Date: 2026-11-16
+Date: 2026-11-17
 """
 
 import os
@@ -56,7 +56,7 @@ def sram_512k():
                   "SRAM RAM 512K 4M SOJ Placard",
                   footprint="placard:SOJ-36_10.16x23.495mm_P1.27mm",
                   datasheet="~",
-                  vcc=[(9, "VCC"), (27, "VCC")], gnd=[(10, "GND"), (28, "GND")])
+                  vcc=[(9, "VCC"), (27, "VCC")], gnd=[(10, "GND"), (28, "GND")], stack_passive=True)
 
 
 def edge(side, nums):

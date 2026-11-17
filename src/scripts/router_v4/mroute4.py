@@ -93,7 +93,7 @@ S8=np.ones((3,3),bool)
 def fixed_groups(n):
     masks=[(g.cop[L]==n) for L in LAY]
     labs=[label(m,S8)[0] for m in masks]; n0=int(labs[0].max()); labs[1]=np.where(labs[1]>0,labs[1]+n0,0)
-    par=list(range(int(labs[1].max())+1))
+    par=list(range(max(n0,int(labs[1].max()))+1))   # a net with front-side copper only (all-SMD pins) has no B labels
     def f(i):
         while par[i]!=i: par[i]=par[par[i]]; i=par[i]
         return i

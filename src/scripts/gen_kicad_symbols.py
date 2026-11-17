@@ -29,7 +29,7 @@ stops if a pin is missing from it); the file is KiCad 7 format.
 
 symbol() is also used by gen_kicad_parts.py for the other project symbols.
 
-Date: 2026-11-16
+Date: 2026-11-17
 """
 
 import os
@@ -248,7 +248,8 @@ def prop(name, value, x, y, effects):
 
 
 def symbol(sym, blocks, part, desc, keywords, footprint=FOOTPRINT, datasheet=DATASHEET,
-           vcc=(24, "VCC"), gnd=(12, "GND"), ref="U", note=None, min_w=MIN_W, pin_len=G):
+           vcc=(24, "VCC"), gnd=(12, "GND"), ref="U", note=None, min_w=MIN_W, pin_len=G,
+           stack_passive=False):
     """Draws one symbol.
 
     blocks: list of (left, right) with entries (number, name, kind), a list of
@@ -315,7 +316,11 @@ def symbol(sym, blocks, part, desc, keywords, footprint=FOOTPRINT, datasheet=DAT
     for p, y, rot in ((vcc, y0 + pin_len, 270), (gnd, y1 - pin_len, 90)):
         if p:
             stack = p if isinstance(p, list) else [p]
-            s.append(pins_at([(num, name, "power_in") for num, name in stack], px, y, rot, pin_len))
+            # stack_passive: the hidden pins under the first are passive (KiCad's own way); a hidden power
+            # input whose name is not its net's (VCC on +5V) ties that name to the net as a second, global one
+            s.append(pins_at([(num, name, "passive" if j and stack_passive else "power_in")
+                              for j, (num, name) in enumerate(stack)],
+                             px, y, rot, pin_len))
     s.append('    )\n  )\n')
     return "".join(s)
 
