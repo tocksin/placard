@@ -1,6 +1,6 @@
 # Case
 
-Date: 2026-11-16
+Date: 2026-11-17
 
 This is a concept for the PLACARD case. The case is black powder-coated
 aluminium, strong on the bottom and sides, with a clear acrylic top so the
@@ -322,57 +322,66 @@ bent metal from `gen_case_quote.py --mesh` (views `bends` and `bends_rear`).
 
 ## 3D-printed version
 
-The whole case can also be printed on a 220 x 220 mm bed (Creality Ender 3)
-and screwed together with M3 screws and nuts. There is no glue, no heat-set
-insert and no thread cut in plastic. `src/scripts/gen_case_print.py` makes it
-from the same board file. It has the same outside size, connector cut-outs,
-top openings and covers as the aluminium case, which stays as it is. Every
-part is designed to print flat, without supports.
+The whole case can also be printed on a 220 x 220 mm bed (Creality Ender 3).
+It goes together with dovetail seams and 41 M3 screws, 25 of them into
+nuts. There is no glue, no heat-set insert and no thread cut in plastic.
+`src/scripts/gen_case_print.py` makes it from the same board file. It has
+the same outside size, connector cut-outs, top openings and covers as the
+aluminium case, which stays as it is. Every part is designed to print flat,
+without supports.
 
 ![Printed case, assembled](case_print_assembled.png)
 
 ![From the back](case_print_rear.png)
 
-![Exploded: floor pieces and straps, wall panels, board, top pieces, covers](case_print_exploded.png)
+![Exploded: floor pieces, wall panels, board, top pieces, covers](case_print_exploded.png)
 
 ![Exploded, from the back](case_print_exploded_rear.png)
 
 ### How it is joined
 
-![Seams, straps, nut seats, nut lugs and half laps](case_print_pieces.png)
+![Seams, dovetail tabs, nut seats, nut lugs and corner tabs](case_print_pieces.png)
 
 - **Floor.** Four flat pieces, with a boss under each board hole (H1-H8).
-  The seams are at x 160 and y 114, clear of the parked covers. Five straps
-  screw on under the seams, one of them over the middle where all four
-  pieces meet. Each strap has four nut pockets on its top face, so every nut
-  is shut in between the strap and the floor, and the screws go down through
-  the floor from inside.
+  The seams are at x 160 and y 114, clear of the parked covers.
+- **Dovetail seams.** Flared tabs along one piece's edge drop into matching
+  sockets in the next piece, so the pieces can't pull apart sideways. The
+  floor has 12 tabs and the top has 11. There is 0.2 mm of clearance all
+  round each tab. The pieces go together from above, one dropped into the
+  next, and nothing holds them up or down at the seam itself: the wall
+  screws and standoffs do that.
 - **Walls.** Four flat panels, 2 mm thick, each in two pieces. The front and
   back walls run the full width and the side walls fit between them. Each
-  panel stands on the floor, and has two kinds of fixing:
+  panel stands on the floor.
   - A 9 mm flange along the bottom lies on the floor, under the board's
     edge. It carries open **nut seats**: two ribs and a stop that hold an M3
     nut so it can't turn. A screw comes up through the floor into each one.
-  - **Nut lugs** under the top edge. A nut slides into a slot in each lug
-    from inside the case, and one of the top's screws comes down into it.
+    Every wall piece has two, one near each end.
+  - A **nut lug** under the top edge of every wall piece (two on the long
+    back left piece). A nut slides into a slot in the lug from inside the
+    case, and one of the top's screws comes down into it.
   - The flange has gaps round the bosses and round the VGA socket's pins,
     so each panel slides straight in from outside, over its connectors.
+  - **Corner tabs.** Each end of a side wall has a 10 mm tall tab that
+    reaches through a notch in the end of the front or back wall. It lines
+    the two walls up and stops the side wall's end leaning in. The corners
+    have no screw, because the corner standoffs are in the way.
   - A wall's seam is never in line with a floor or top seam, so every seam
-    is bridged by the part next to it. Floor and top screws sit near each
-    wall seam and each corner. The corners themselves have no screw,
-    because the corner standoffs are in the way.
-- **Top.** Four pieces, 4 mm thick, that overlap in 12 mm half laps: along
-  every seam one piece's upper half lies on its neighbour's lower half, and
-  M3 screws with nuts go through both. The seams are at x 160 and y 100,
-  between the expansion bay and the cartridge cover. The top then screws to
-  the walls' nut lugs and to the eight standoffs.
+    is bridged by the part next to it.
+- **Top.** Four pieces, 4 mm thick, with dovetail seams at x 160 and y 100,
+  between the expansion bay and the cartridge cover. The top screws to the
+  walls' nut lugs and to the eight standoffs.
 - **Covers.** The same printed snap covers as the aluminium case.
 
-![Inside the back right corner: nut seats on the flanges, nut lugs under the top edge, a floor boss](case_print_joints.png)
+![The top's four pieces, pulled apart to show the dovetail tabs](case_print_seams.png)
+
+![Front left corner with the front wall pulled away: the side wall's tab and the front wall's notch](case_print_corner.png)
+
+![Inside the back right corner: nut seats on the flanges, a nut lug under the top edge, a floor boss](case_print_joints.png)
 
 ![The same corner with the board in](case_print_inside.png)
 
-![Underside: the five straps, vent slots, parking slots](case_print_underside.png)
+![Underside: dovetail seams, vent slots, parking slots](case_print_underside.png)
 
 ### Pieces and print orientation
 
@@ -383,53 +392,60 @@ the flat side on the bed at z = 0. None needs supports.
 
 | File | Print | Size on the bed (mm) | Orientation |
 |---|--:|---|---|
-| `floor_front_left` | 1 | 159.9 x 113.9 x 8.0 | Underside down, bosses up |
+| `floor_front_left` | 1 | 166.0 x 113.9 x 8.0 | Underside down, bosses up |
 | `floor_front_right` | 1 | 134.9 x 113.9 x 8.0 | Underside down, bosses up |
-| `floor_back_left` | 1 | 159.9 x 105.9 x 8.0 | Underside down, bosses up |
-| `floor_back_right` | 1 | 134.9 x 105.9 x 8.0 | Underside down, bosses up |
+| `floor_back_left` | 1 | 166.0 x 112.0 x 8.0 | Underside down, bosses up |
+| `floor_back_right` | 1 | 134.9 x 112.0 x 8.0 | Underside down, bosses up |
 | `wall_front_left` | 1 | 124.9 x 34.6 x 12.0 | Outside face down, flange and lugs up |
 | `wall_front_right` | 1 | 169.9 x 34.6 x 12.0 | Outside face down, flange and lugs up |
 | `wall_back_left` | 1 | 189.9 x 34.6 x 12.0 | Outside face down, flange and lugs up |
 | `wall_back_right` | 1 | 104.9 x 34.6 x 12.0 | Outside face down, flange and lugs up |
-| `wall_left_front` | 1 | 34.6 x 127.8 x 12.0 | Outside face down, flange and lugs up |
-| `wall_left_back` | 1 | 34.6 x 87.8 x 12.0 | Outside face down, flange and lugs up |
-| `wall_right_front` | 1 | 34.6 x 87.8 x 12.0 | Outside face down, flange and lugs up |
-| `wall_right_back` | 1 | 34.6 x 127.8 x 12.0 | Outside face down, flange and lugs up |
-| `top_front_left` | 1 | 165.9 x 105.9 x 4.0 | Top face down |
-| `top_front_right` | 1 | 140.9 x 105.9 x 4.0 | Underside down |
-| `top_back_left` | 1 | 165.9 x 125.9 x 4.0 | Underside down |
-| `top_back_right` | 1 | 140.9 x 125.9 x 4.0 | Top face down |
+| `wall_left_front` | 1 | 34.6 x 129.9 x 12.0 | Outside face down, flange and lugs up |
+| `wall_left_back` | 1 | 34.6 x 89.9 x 12.0 | Outside face down, flange and lugs up |
+| `wall_right_front` | 1 | 34.6 x 89.9 x 12.0 | Outside face down, flange and lugs up |
+| `wall_right_back` | 1 | 34.6 x 129.9 x 12.0 | Outside face down, flange and lugs up |
+| `top_front_left` | 1 | 167.0 x 107.0 x 4.0 | Underside down |
+| `top_front_right` | 1 | 134.9 x 107.0 x 4.0 | Underside down |
+| `top_back_left` | 1 | 167.0 x 119.9 x 4.0 | Underside down |
+| `top_back_right` | 1 | 134.9 x 119.9 x 4.0 | Underside down |
 | `slot_cover` | 4 | 26.0 x 91.2 x 23.0 | Cap face down |
 | `cart_cover` | 1 | 62.0 x 37.2 x 11.2 | Cap face down |
-| `floor_strap` | 5 | 24.0 x 36.0 x 4.2 | Flat, nut pockets up |
+| `dovetail_test` | 1 | 42.0 x 22.0 x 2.0 | Flat (optional fit test) |
 
+- **Print `dovetail_test` first.** It is a small pair of plates with one
+  floor-size dovetail at the same 0.2 mm clearance. The two halves should
+  press together by hand and not rattle. If they are too tight or too
+  loose, change `DOVE_CLEAR` in `gen_case_print.py` and remake the files.
 - Use a 0.4 mm nozzle and 0.2 mm layers.
 - Print the floor and wall pieces solid (100 % infill, or 5 perimeters).
   They are only 2 mm thick.
 - Use PETG. PLA works, but it softens from about 55 C, and the inside of a
   closed case gets warm.
-- Print these slowly: the wall panels' nut seat ribs (2 mm) and the covers'
-  tabs (1.8 mm).
-- The two back wall pieces are 190 and 105 mm long, and the largest piece
-  is 166 x 126 mm, so there is room for a brim on every piece.
-- All the pieces together are about 529 cm3, which is about
-  0.67 kg of PETG.
+- Print these slowly: the wall panels' nut seat ribs and corner tabs
+  (2 mm) and the covers' tabs (1.8 mm).
+- A first layer that spreads (elephant's foot) tightens the dovetails. If
+  the test piece only binds at the bottom, add elephant's foot
+  compensation in the slicer.
+- The largest piece is 167 x 120 mm, so there is room for a brim on every
+  piece.
+- All the pieces together are about 507 cm3, which is about
+  0.64 kg of PETG.
 - A clear top: clear (natural) PETG at 100 % infill, printed hot and slow,
-  comes out like frosted glass. The half laps and their screws will show.
+  comes out like frosted glass. The seams will show.
 
 How the parts were made printable:
 
+- A dovetail's flare is in the flat direction, so the tabs and sockets
+  have straight vertical sides and no overhang.
 - Every hole that lies on its side when printed (the screw holes through
   the flanges and lugs) is a teardrop with a peaked roof, 39 degrees from
   vertical.
 - Nut seats and lug slots are open toward the top of the print, so nothing
   bridges over a nut.
-- No screw head is recessed, except two countersinks on the floor's bed
+- No screw head is recessed, except one countersink on the floor's bed
   face, where a parked slot cover lies against the floor. A countersink is
   a 45 degree cone, so it has no ceiling to bridge.
-- The top's two pieces with upper laps print top face down, and the two
-  with lower laps print underside down, so every lap lies on the bed.
-- The covers' bumps now have a 45 degree ramp on the cap side, and the slot
+- The covers' bumps have a 45 degree ramp on the cap side, and the slot
   cover's back lip has a blunt cone where it had a dome, so nothing on a
   cover overhangs when it prints cap down.
 
@@ -449,17 +465,18 @@ How the parts were made printable:
 
 The 21 files are the 19 in `case/print/` and the two cover files in `case/`.
 The overhang and island checks were tried on two pieces turned upside down,
-and they failed both, as they should.
+and they failed both, as they should. The case has not been printed yet, so
+the dovetail fit is from the model only.
 
 ### Hardware
 
 | Part | Qty | Where |
 |---|--:|---|
-| M3 x 6 button head screw | 38 | 18 up through the floor into the walls' nut seats, 20 down through the floor into the straps |
-| M3 x 6 countersunk screw | 2 | The floor screws under the parked slot covers (back wall), flush |
-| M3 x 8 button head screw | 41 | Top: 21 into the walls' nut lugs, 12 through the half laps, 8 into the standoffs |
+| M3 x 6 button head screw | 15 | Up through the floor into the walls' nut seats |
+| M3 x 6 countersunk screw | 1 | The floor screw under the parked slot covers (back wall), flush |
+| M3 x 8 button head screw | 17 | Top: 9 into the walls' nut lugs, 8 into the standoffs |
 | M3 x 12 button head screw | 8 | Up through the floor bosses and the board into the standoffs |
-| M3 hex nut, ISO 4032 | 73 | One per screw above, except the standoffs' |
+| M3 hex nut, ISO 4032 | 25 | One in each nut seat and nut lug |
 | M3 female-female hex standoff, 27 mm | 8 | Board to the top |
 | Rubber feet, 16 mm across, 10 mm tall, self-adhesive | 4 | As on the aluminium case |
 
@@ -467,26 +484,25 @@ Black screws look best on the top.
 
 ### Putting it together
 
-1. **Floor.** Lay the five straps on the table, pockets up, and drop an M3
-   nut into each pocket. Set the four floor pieces on them, and fit the 20
-   M3 x 6 screws down through the floor.
+1. **Floor.** On a flat table, drop the four floor pieces into each other
+   along the dovetail seams.
 2. **Board.** Set the board on the eight bosses. Put an M3 x 12 screw up
    through each boss and the board, and spin a 27 mm standoff onto it.
+   This also ties the four floor pieces to the board.
 3. **Nuts.** Put an M3 nut in every nut seat on the walls' flanges (it
    drops in from above) and slide one into every lug slot.
 4. **Walls.** Slide each wall piece in from outside, flat on the floor: the
    back pieces over USB-C, audio, VGA and PS/2, the left pieces over the
-   power switch, reset and SD. Screw each one down from below with M3 x 6
-   screws. The two holes under the expansion bay are countersunk for the
-   flat head screws.
-5. **Top.** On the table, lay down `top_front_right` and `top_back_left`,
-   then `top_front_left` and `top_back_right` on their laps, and fit the 12
-   lap screws (M3 x 8) with a nut under each. Lay the top on the case and
-   fit the 21 screws into the wall lugs and the 8 into the standoffs.
+   power switch, reset and SD. The side walls' corner tabs go into the
+   front and back walls' notches. Screw each piece down from below with
+   two M3 x 6 screws. The one hole under the expansion bay is countersunk
+   for the flat head screw.
+5. **Top.** Drop the four top pieces into each other on the table, then
+   lift the top on in one piece, with a hand under the middle. Fit the 9
+   screws into the wall lugs and the 8 into the standoffs.
 6. Stick the feet on, fit the VGA jackscrews and click the covers on.
 
-To open the case, take out the top's 29 outer screws and lift the top off
-in one piece.
+To open the case, take out the top's 17 screws and lift the top off.
 
 ## Getting a quote
 
