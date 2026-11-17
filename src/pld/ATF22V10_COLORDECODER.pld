@@ -1,7 +1,7 @@
 Name     COLOR_DECODER;
 PartNo   00;
-Date     10/16/2026;
-Revision 07;
+Date     11/16/2026;
+Revision 08;
 Designer "Justin Davis";
 Company  "";
 Assembly "";
@@ -28,7 +28,8 @@ Device   g22v10;
       1 bpp : H2:H0 -> D0..D7                       (1 clock per pixel)
       2 bpp : H2:H1 -> D1:0 / D3:2 / D5:4 / D7:6    (2 clocks per pixel)
       4 bpp : H2    -> D3:0 / D7:4                  (4 clocks per pixel)
-      8 bpp : H ignored                             (8 clocks per pixel)
+      8 bpp : H ignored, except in the five gray  (8 clocks per pixel)
+              codes below, where H2:H0 blends blue
 
    OUTPUTS (resistor DAC, bit 3 = MSB of each channel)
       RED1..RED3 = R LSB..MSB   (3 bits)
@@ -36,6 +37,25 @@ Device   g22v10;
       BLU2..BLU3 = B LSB..MSB   (2 bits)
 
    8 bpp pass-through byte format (D7..D0) = G3 G2 G1 B3 B2 R3 R2 R1
+
+   8 bpp GRAYS (revision 08).  Blue has only two DAC bits (four levels),
+   so only black and white are exact grays.  For five more codes with
+   R = G the decoder switches blue between two neighboring DAC levels
+   during the pixel's 8 clocks, so that its average matches red and
+   green.  Blue DAC levels (BLU3 BLU2): 00 = 0, 01 = 227, 10 = 453,
+   11 = 680 mV.
+
+      Gray  Byte  R=G  B   R,G mV   Blue per clock H = 0..7        Blue mV
+       0    x00    0   0      0     steady 00                         0
+       1    x21    1   0     98     00 01 00 01 00 01 00 01         113
+       2    x4A    2   1    202     steady 01 (not blended)         227
+       3    x6B    3   1    300     01 01 01 10 01 01 01 10         284
+       4    x8C    4   1    394     01 10 10 10 01 10 10 10         397
+       5    xB5    5   2    492     10 10 10 10 10 10 10 11         481
+       6    xD6    6   2    596     10 11 10 11 10 11 10 11         567
+       7    xFF    7   3    694     steady 11                       680
+
+   Every other 8 bpp code, and every other mode, is as in revision 07.
 
    PIN NOTES
       - 14 inputs + 8 outputs = 22 pins = every non-power pin, so the
@@ -45,6 +65,15 @@ Device   g22v10;
       - H2 (pin 14) and VIDEN (pin 23) are on I/O pins used as inputs.
       - VIDEN is folded into M1/M2/M4/M8, so blanking costs no extra
         product terms: with VIDEN = 0 no mode term can be true.
+      - BLU2 (pin 22) has only 10 product terms.  To make room for the
+        gray terms it reads other output pins back, as the 1 bpp pixel
+        already does with GRN3 (all are 0 when VIDEN = 0, so these
+        terms need no VIDEN):
+           2 bpp : BLU2 = BLU3                       (both are C0)
+           4 bpp : indexes 8 and A (X3 & !X2 & !X0) = GRN2 & GRN1 & BLU3
+           8 bpp : in a code with blue = 01, BLU2 = !BLU3, so a BLU3
+                   blend term swaps blue between 01 and 10
+        BLU2 uses 10 of 10 terms, BLU3 15 of 16.
    ============================================================ */
 
 
@@ -179,14 +208,36 @@ GRN3_4 =
       X3;
 
 
+/* ---------------- 8 bpp: blended gray codes ---------------- */
+
+GRAY1 = M8 & !D7 & !D6 &  D5 & !D4 & !D3 & !D2 & !D1 &  D0;   /* x21 */
+GRAY3 = M8 & !D7 &  D6 &  D5 & !D4 &  D3 & !D2 &  D1 &  D0;   /* x6B */
+GRAY4 = M8 &  D7 & !D6 & !D5 & !D4 &  D3 &  D2 & !D1 & !D0;   /* x8C */
+GRAY5 = M8 &  D7 & !D6 &  D5 &  D4 & !D3 &  D2 & !D1 &  D0;   /* xB5 */
+GRAY6 = M8 &  D7 &  D6 & !D5 &  D4 & !D3 &  D2 &  D1 & !D0;   /* xD6 */
+
+
 /* ---------------- FINAL OUTPUTS ---------------- */
 
 RED1 = M1 & GRN3 # M2 & C1        # M4 & RED1_4 # M8 & D0;
 RED2 = M1 & GRN3 # M2 & C1        # M4 & RED2_4 # M8 & D1;
 RED3 = M1 & GRN3 # M2 & C1        # M4 & RED3_4 # M8 & D2;
 
-BLU2 = M1 & GRN3 # M2 & C0        # M4 & BLU2_4 # M8 & D3;
-BLU3 = M1 & GRN3 # M2 & C0        # M4 & BLU3_4 # M8 & D4;
+/* BLU3: revision 07 terms, plus the blends up from blue = 01 */
+BLU3 = M1 & GRN3 # M2 & C0        # M4 & BLU3_4 # M8 & D4
+     # GRAY3 & H1 & H0                       /* 2 of 8 clocks */
+     # GRAY4 & H0 # GRAY4 & H1;              /* 6 of 8 clocks */
+
+/* BLU2: reads BLU3, GRN1 and GRN2 back (see PIN NOTES) */
+BLU2 = M1 & GRN3
+     # !MODE1 & MODE0 & BLU3                 /* 2 bpp */
+     # M4 & !X3 & X0                         /* 4 bpp indexes 1, 3, 5, 7 */
+     # MODE1 & !MODE0 & GRN2 & GRN1 & BLU3   /* 4 bpp indexes 8, A */
+     # M8 & D3 & D4                          /* 8 bpp blue = 11 */
+     # M8 & D3 & !BLU3                       /* 8 bpp blue = 01, off while BLU3 blends */
+     # GRAY1 & H0                            /* 4 of 8 clocks */
+     # GRAY5 & H2 & H1 & H0                  /* 1 of 8 clocks */
+     # GRAY6 & H0;                           /* 4 of 8 clocks */
 
 GRN1 = M1 & GRN3 # M2 & C1 # M2 & C0 # M4 & GRN1_4 # M8 & D5;
 GRN2 = M1 & GRN3 # M2 & C1 & C0   # M4 & GRN2_4 # M8 & D6;
