@@ -4,12 +4,12 @@
    "name": "floor_front_left",
    "qty": 1,
    "size": [
-    159.9,
+    166.0,
     113.9,
     8.0
    ],
    "orientation": "underside down, bosses up",
-   "volume_cm3": 32.5
+   "volume_cm3": 32.6
   },
   {
    "name": "floor_front_right",
@@ -20,25 +20,25 @@
     8.0
    ],
    "orientation": "underside down, bosses up",
-   "volume_cm3": 28.1
+   "volume_cm3": 27.5
   },
   {
    "name": "floor_back_left",
    "qty": 1,
    "size": [
-    159.9,
-    105.9,
+    166.0,
+    112.0,
     8.0
    ],
    "orientation": "underside down, bosses up",
-   "volume_cm3": 33.8
+   "volume_cm3": 34.7
   },
   {
    "name": "floor_back_right",
    "qty": 1,
    "size": [
     134.9,
-    105.9,
+    112.0,
     8.0
    ],
    "orientation": "underside down, bosses up",
@@ -53,7 +53,7 @@
     12.0
    ],
    "orientation": "outside face down, flange and lugs up",
-   "volume_cm3": 10.6
+   "volume_cm3": 9.5
   },
   {
    "name": "wall_front_right",
@@ -64,7 +64,7 @@
     12.0
    ],
    "orientation": "outside face down, flange and lugs up",
-   "volume_cm3": 16.2
+   "volume_cm3": 15.1
   },
   {
    "name": "wall_back_left",
@@ -75,7 +75,7 @@
     12.0
    ],
    "orientation": "outside face down, flange and lugs up",
-   "volume_cm3": 17.1
+   "volume_cm3": 16.9
   },
   {
    "name": "wall_back_right",
@@ -86,95 +86,95 @@
     12.0
    ],
    "orientation": "outside face down, flange and lugs up",
-   "volume_cm3": 9.0
+   "volume_cm3": 7.9
   },
   {
    "name": "wall_left_front",
    "qty": 1,
    "size": [
     34.6,
-    127.8,
+    129.9,
     12.0
    ],
    "orientation": "outside face down, flange and lugs up",
-   "volume_cm3": 11.8
+   "volume_cm3": 10.8
   },
   {
    "name": "wall_left_back",
    "qty": 1,
    "size": [
     34.6,
-    87.8,
+    89.9,
     12.0
    ],
    "orientation": "outside face down, flange and lugs up",
-   "volume_cm3": 8.3
+   "volume_cm3": 7.8
   },
   {
    "name": "wall_right_front",
    "qty": 1,
    "size": [
     34.6,
-    87.8,
+    89.9,
     12.0
    ],
    "orientation": "outside face down, flange and lugs up",
-   "volume_cm3": 8.2
+   "volume_cm3": 7.7
   },
   {
    "name": "wall_right_back",
    "qty": 1,
    "size": [
     34.6,
-    127.8,
+    129.9,
     12.0
    ],
    "orientation": "outside face down, flange and lugs up",
-   "volume_cm3": 11.9
+   "volume_cm3": 10.8
   },
   {
    "name": "top_front_left",
    "qty": 1,
    "size": [
-    165.9,
-    105.9,
+    167.0,
+    107.0,
     4.0
    ],
-   "orientation": "top face down",
-   "volume_cm3": 63.6
+   "orientation": "underside down",
+   "volume_cm3": 65.2
   },
   {
    "name": "top_front_right",
    "qty": 1,
    "size": [
-    140.9,
-    105.9,
+    134.9,
+    107.0,
     4.0
    ],
    "orientation": "underside down",
-   "volume_cm3": 53.7
+   "volume_cm3": 54.1
   },
   {
    "name": "top_back_left",
    "qty": 1,
    "size": [
-    165.9,
-    125.9,
+    167.0,
+    119.9,
     4.0
    ],
    "orientation": "underside down",
-   "volume_cm3": 41.5
+   "volume_cm3": 41.8
   },
   {
    "name": "top_back_right",
    "qty": 1,
    "size": [
-    140.9,
-    125.9,
+    134.9,
+    119.9,
     4.0
    ],
-   "orientation": "top face down",
-   "volume_cm3": 60.0
+   "orientation": "underside down",
+   "volume_cm3": 58.5
   },
   {
    "name": "slot_cover",
@@ -199,32 +199,32 @@
    "volume_cm3": 11.0
   },
   {
-   "name": "floor_strap",
-   "qty": 5,
+   "name": "dovetail_test",
+   "qty": 1,
    "size": [
-    24.0,
-    36.0,
-    4.2
+    42.0,
+    22.0,
+    2.0
    ],
-   "orientation": "flat, nut pockets up",
-   "volume_cm3": 3.3
+   "orientation": "flat (optional fit test)",
+   "volume_cm3": 1.3
   }
  ],
  "hardware": [
   [
    "M3 x 6 button head screw",
-   38,
-   "18 up through the floor into the walls' nut seats, 20 down through the floor into the straps"
+   15,
+   "up through the floor into the walls' nut seats"
   ],
   [
    "M3 x 6 countersunk screw",
-   2,
-   "the floor screws under the parked slot covers (back wall), flush"
+   1,
+   "the floor screw under the parked slot covers (back wall), flush"
   ],
   [
    "M3 x 8 button head screw",
-   41,
-   "top: 21 into the walls' nut lugs, 12 through the half laps, 8 into the standoffs"
+   17,
+   "top: 9 into the walls' nut lugs, 8 into the standoffs"
   ],
   [
    "M3 x 12 button head screw",
@@ -233,8 +233,8 @@
   ],
   [
    "M3 hex nut, ISO 4032",
-   73,
-   "one per screw above, except the standoffs'"
+   25,
+   "one in each nut seat and nut lug"
   ],
   [
    "M3 female-female hex standoff, 27 mm",
@@ -259,15 +259,12 @@
  "seats": {
   "front": [
    18.0,
-   70.0,
    118.0,
    133.0,
-   205.0,
    277.0
   ],
   "back": [
    50.0,
-   135.0,
    184.0,
    196.0,
    237.0
@@ -282,116 +279,74 @@
    22.0,
    70.0,
    96.0,
-   160.0,
    198.0
   ]
  },
  "lugs": {
   "front": [
-   22.0,
    70.0,
-   116.0,
-   134.0,
-   205.0,
-   273.0
+   205.0
   ],
   "back": [
    28.0,
    176.0,
-   197.0,
-   245.0,
-   277.0
+   245.0
   ],
   "left": [
-   30.0,
    90.0,
-   122.0,
-   138.0,
-   198.0
+   175.0
   ],
   "right": [
-   30.0,
-   82.0,
-   97.0,
-   160.0,
-   198.0
+   45.0,
+   160.0
   ]
  },
- "straps": [
-  [
-   160.0,
-   114.0,
-   "y"
-  ],
-  [
-   160.0,
-   60.0,
-   "y"
-  ],
-  [
-   160.0,
-   180.0,
-   "y"
-  ],
-  [
+ "floor_tabs": {
+  "x_seam": [
+   15.0,
+   50.0,
    85.0,
-   114.0,
-   "x"
-  ],
-  [
-   262.0,
-   114.0,
-   "x"
-  ]
- ],
- "lap_screws": [
-  [
-   160.0,
-   25.0
-  ],
-  [
-   160.0,
-   65.0
-  ],
-  [
-   160.0,
-   100.0
-  ],
-  [
-   160.0,
-   130.0
-  ],
-  [
-   160.0,
-   170.0
-  ],
-  [
-   160.0,
+   135.0,
+   170.0,
    205.0
   ],
-  [
+  "y_seam": [
    30.0,
-   100.0
-  ],
-  [
-   85.0,
-   100.0
-  ],
-  [
-   135.0,
-   100.0
-  ],
-  [
-   190.0,
-   100.0
-  ],
-  [
-   235.0,
-   100.0
-  ],
-  [
-   272.0,
-   100.0
+   75.0,
+   120.0,
+   200.0,
+   240.0,
+   272.0
   ]
- ]
+ },
+ "top_tabs": {
+  "x_seam": [
+   20.0,
+   60.0,
+   125.0,
+   165.0,
+   205.0
+  ],
+  "y_seam": [
+   25.0,
+   75.0,
+   125.0,
+   195.0,
+   240.0,
+   270.0
+  ]
+ },
+ "dovetail": {
+  "floor": [
+   8.0,
+   12.0,
+   6.0
+  ],
+  "top": [
+   8.0,
+   13.0,
+   7.0
+  ],
+  "clearance": 0.2
+ }
 }
