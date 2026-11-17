@@ -1,12 +1,12 @@
 --------------------------------------------------------------------------------
 -- Name     MEMCARD_LO
 -- PartNo   00
--- Date     11/16/2026
--- Revision 01
+-- Date     11/17/2026
+-- Revision 02
 -- Designer Justin
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_MEMCARD_LO.pld (Revision 01)
+-- Converted from WinCUPL source ATF22V10_MEMCARD_LO.pld (Revision 02)
 --
 -- Page bits 7:0 of the 512K memory expansion card
 -- (docs/architecture/MEMCARD.md): the SRAM's A14:A7.
@@ -22,24 +22,24 @@
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = WE                (ACTIVE LOW, register clock; slot B24)
---   PIN 2  = PGLO              (ACTIVE LOW, page high PLD pin 16)
---   PIN 3  = D0
---   PIN 4  = D1
---   PIN 5  = D2
---   PIN 6  = D3
---   PIN 7  = D4
+--   PIN 2  = D3
+--   PIN 3  = D6
+--   PIN 4  = D0
+--   PIN 5  = D7
+--   PIN 6  = D4
+--   PIN 7  = D1
 --   PIN 8  = D5
---   PIN 9  = D6
---   PIN 10 = D7
---   PIN 16 = PG7               (register, SRAM A14)
---   PIN 17 = PG6               (register, SRAM A13)
---   PIN 18 = PG5               (register, SRAM A12)
---   PIN 19 = PG4               (register, SRAM A11)
---   PIN 20 = PG3               (register, SRAM A10)
---   PIN 21 = PG2               (register, SRAM A9)
---   PIN 22 = PG1               (register, SRAM A8)
---   PIN 23 = PG0               (register, SRAM A7)
---   Unused: 11, 13, 14, 15
+--   PIN 14 = PG5               (register)
+--   PIN 15 = PGLO              (ACTIVE LOW, page high PLD pin 16)
+--   PIN 16 = PG7               (register)
+--   PIN 17 = PG6               (register)
+--   PIN 18 = D2
+--   PIN 19 = PG4               (register)
+--   PIN 20 = PG3               (register)
+--   PIN 21 = PG2               (register)
+--   PIN 22 = PG1               (register)
+--   PIN 23 = PG0               (register)
+--   Unused: 9, 10, 11, 13
 --------------------------------------------------------------------------------
 
 library ieee;
@@ -48,19 +48,19 @@ use ieee.std_logic_1164.all;
 entity memcard_lo_pld is
     port (
         weN   : in  std_logic;   -- pin 1, active low, register clock
-        pgLoN : in  std_logic;   -- pin 2, active low
-        d0    : in  std_logic;   -- pin 3
-        d1    : in  std_logic;   -- pin 4
-        d2    : in  std_logic;   -- pin 5
-        d3    : in  std_logic;   -- pin 6
-        d4    : in  std_logic;   -- pin 7
+        pgLoN : in  std_logic;   -- pin 15, active low
+        d0    : in  std_logic;   -- pin 4
+        d1    : in  std_logic;   -- pin 7
+        d2    : in  std_logic;   -- pin 18
+        d3    : in  std_logic;   -- pin 2
+        d4    : in  std_logic;   -- pin 6
         d5    : in  std_logic;   -- pin 8
-        d6    : in  std_logic;   -- pin 9
-        d7    : in  std_logic;   -- pin 10
+        d6    : in  std_logic;   -- pin 3
+        d7    : in  std_logic;   -- pin 5
 
         pg7   : out std_logic;   -- pin 16
         pg6   : out std_logic;   -- pin 17
-        pg5   : out std_logic;   -- pin 18
+        pg5   : out std_logic;   -- pin 14
         pg4   : out std_logic;   -- pin 19
         pg3   : out std_logic;   -- pin 20
         pg2   : out std_logic;   -- pin 21

@@ -26,7 +26,7 @@ Frame used here, the card's: x along the fingers from the card's left edge
 (side A view; x = 72 is the case's back), y up from the finger edge, z
 across the card from its mid-plane, +z = side A.
 
-Date: 2026-11-16
+Date: 2026-11-17
 """
 
 import os
@@ -39,13 +39,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.normpath(os.path.join(HERE, "..", "..", "case"))
 
 CARD_W = gc.EXP_W            # 72
-CARD_H = 40.1                # finger edge to the card's top edge (gen_kicad_memcard_pcb.py)
+CARD_H = 42.7                # finger edge to the card's top edge (gen_kicad_memcard_pcb.py)
 CARD_T = 1.6
 EDGE_UP = 3.0                # finger edge above the main board when seated
 WALL = gc.SHELL_WALL         # 2.0
 AIR = gc.SHELL_AIR           # 0.5
 SKIRT_GAP = 0.5              # shell's bottom edge above the main board
-HOLES = ((12.0, 15.5), (60.0, 15.5))   # H1, H2 on the card
+HOLES = ((11.0, 16.5), (61.0, 16.5))   # H1, H2 on the card
 BOSS_R = 4.75
 M3 = 3.4                     # clearance hole
 NUT_AF, NUT_H = 5.7, 2.6     # hex pocket across flats, depth (nut 2.4)

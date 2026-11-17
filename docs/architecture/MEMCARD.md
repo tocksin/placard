@@ -1,6 +1,6 @@
 # Memory expansion card, 512K
 
-Date: 2026-11-16
+Date: 2026-11-17
 
 A card for any expansion slot that adds 512K of RAM for data.  It has three
 chips:
@@ -16,7 +16,7 @@ no 5 V SRAM this fast is made in a DIP above 32K.  Its leads are on a
 1.27 mm pitch and can be soldered by hand.  The schematic is
 `kicad/memory_card/` ([PDF](../../schematics/placard_memory_card.pdf)) and
 the parts list is [BOM_MEMORY_CARD.md](../bom/BOM_MEMORY_CARD.md).  The
-board is placed but not routed, and it has a printed shell ("The board" and
+board is routed and passes KiCad's rule checks, and it has a printed shell ("The board" and
 "The shell" below).  The main board needs no change.
 
 ![The card](../case/memcard_board_front.png)
@@ -147,21 +147,50 @@ WinCUPL yet.
 
 ## The board
 
-`kicad/memory_card/memory_card.kicad_pcb` (PCB PLC-1004) is 72 x 40.1 mm
-with the finger tab, 4 layers, 1.57 mm.  The parts are placed and the nets
-are filled in from the schematic; **no tracks are routed yet**.
-`src/scripts/gen_kicad_memcard_pcb.py` wrote it (KiCad 9) and leaves an
-existing file alone unless run with `--force`.
+`kicad/memory_card/memory_card.kicad_pcb` (PCB PLC-1004) is 72 x 42.7 mm
+with the finger tab, 4 layers (signals on the outside, a GND plane and a
++5V plane inside), 1.57 mm.  It is routed: 31 signal nets, 1.31 m of
+0.3 mm track, 23 signal vias and 14 plane vias.  KiCad 9's design rule
+check, with the schematic parity test, finds no violation and nothing
+unconnected, and the schematic's rule check is clean too.
 
-- U3 lies right above the fingers, so the bus stubs to the SRAM are the
-  shortest on the card.
-- U1 and U2 stand side by side above it in sockets.
-- H1 and H2 are M3 holes 12 mm in from each end and 15.5 mm above the
-  finger edge.  The shell's screws go through them.  They are not on the
-  schematic, so untick "Delete footprints with no symbols" when updating
-  the board from the schematic.
-- Side A's corner at the back end, 7 mm along the card and 9 mm up from the
-  shoulder, is kept clear for the shell's insert block.
+- U3 lies 2.6 mm above the fingers' shoulder, pin 1 at the left, so the
+  bus stubs to the SRAM are short and still have room to fan out.
+- U1 and U2 lie side by side above it in sockets, each with its 100n at
+  the top edge.
+- H1 and H2 are M3 holes 11 mm in from each end and 16.5 mm above the
+  finger edge.  The shell's screws go through them.  No track passes
+  between a hole and the card's edge.
+- Side A's corner at the back end, 5 mm along the card and 8 mm up from
+  the shoulder, is kept clear for the shell's insert block.
+
+![Side A copper](../case/memcard_routing_front.png)
+![Side B copper](../case/memcard_routing_back.png)
+
+**How it was laid out.**  The project's own tools did it
+(`src/scripts/router_v4/`, README section "Memory card"):
+
+1. `gen_kicad_memcard_pcb.py` places the parts from a small table and takes
+   the nets from the schematic.  `placeguide.py` scored thirteen placements
+   and each was routed to check the score.  The one kept needs 32
+   vias after one tidy pass where the first placement (U3 right on the
+   fingers) needed 44; the full tidy brings it to 23.
+2. `placeguide.py pinswap` chose which pin each net uses, where the pins
+   can trade: any SRAM address pin for another, any data pin for another,
+   and the PLDs' inputs and outputs within their own limits.  45 pins
+   moved.  The schematic, the two `.pld` files and their VHDL carry the
+   chosen pins, so the card's byte order inside the SRAM is the layout's
+   choice; software never sees it.
+3. `powerstubs.py` gives the GND and +5V fingers and U3's four power pins
+   a via each to the planes.
+4. `mroute4.py` routes, `ladder.py` trades tracks for fewer vias,
+   `snapends.py` lands every track end on its pad's centre, and
+   `finish_memcard_pcb.py` adds the planes.
+
+/WE reaches U3 after 17 mm of track, U2 after 30 mm and U1 after 67 mm,
+so the SRAM sees the end of a write before the page PLDs clock.  Eight
+signal vias sit half on the end of an SOJ pad; they are covered by solder
+mask.  Pad teardrops are not added yet.
 
 ![Side B](../case/memcard_board_back.png)
 
@@ -169,7 +198,7 @@ existing file alone unless run with `--force`.
 
 Two printed halves round the card and the slot's body, 77 x 22.6 mm
 across as EXPANSION.md's "Shell keepouts" gives an expansion card, and
-45.6 mm tall.  They are split at the card's side B face
+48.2 mm tall.  They are split at the card's side B face
 (`src/scripts/gen_memcard_shell.py`, CadQuery; `case/memcard_shell_front`
 and `_back`, .stl and .step).
 
@@ -218,10 +247,11 @@ four bus writes for each byte stored.
 
 ## Still to do
 
-- **Board.**  PCB PLC-1004 is placed, not routed.  Keep the /WE track to
-  U3 no longer than to the PLDs.  Check the U3 pin numbers in the symbol against the pin drawing in
-  the Alliance datasheet first; they were taken from the datasheet's text.
-- **WinCUPL.**  Compile both `.pld` files and keep the .jed files.
+- **Board.**  Before ordering: check the U3 pin numbers in the symbol
+  against the pin drawing in the Alliance datasheet (they were taken from
+  the datasheet's text), add pad teardrops, and plot the fab files.
+- **WinCUPL.**  Compile both `.pld` files (revision 02, the pins the
+  layout chose) and keep the .jed files.
 - **Shell.**  Print one and try it on the first card and in the case.
 - **Library.**  No routines yet.  Candidates: find the card, copy a block
   between the card and main memory.

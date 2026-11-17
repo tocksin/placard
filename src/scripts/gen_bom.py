@@ -323,13 +323,13 @@ PCB_LINES = {
     "Cartridge, 32K": [mech(1, "PCB, 32K cartridge, 39 x 66.0 mm, 4-layer, ENIG, hard-gold bevelled fingers", 3.50,
                             "JLCPCB/PCBWay typical (smaller than the 64K board)", mpn="PLC-1002 rev B",
                             mfr="(custom PCB)")],
-    "Memory card, 512K": [mech(1, "PCB, 512K memory card, 72 x 40.1 mm, 4-layer, ENIG, hard-gold bevelled fingers", 4.00,
-                              "JLCPCB/PCBWay typical; the board is placed, not routed yet (MEMCARD.md)",
+    "Memory card, 512K": [mech(1, "PCB, 512K memory card, 72 x 42.7 mm, 4-layer, ENIG, hard-gold bevelled fingers", 4.00,
+                              "JLCPCB/PCBWay typical; the board is routed (MEMCARD.md)",
                               mpn="PLC-1004 rev A", mfr="(custom PCB)")],
 }
 SHELL_LINES = {
     "Memory card, 512K": [mech(1, "Memory card shell (front and back halves, case/memcard_shell_*.stl)", 3.50,
-                               "3D print, not quoted", "77 x 22.6 x 45.6 mm outside (MEMCARD.md, \"Shell\")"),
+                               "3D print, not quoted", "77 x 22.6 x 48.2 mm outside (MEMCARD.md, \"Shell\")"),
                           mech(2, "M3 x 8 pan head screw (back half and card to the front half)", 0.10,
                                "any M3 x 8 machine screw"),
                           mech(2, "M3 hex nut, ISO 4032 (in the front half's bosses)", 0.05, "any M3 nut"),

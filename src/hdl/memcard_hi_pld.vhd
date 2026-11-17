@@ -1,12 +1,12 @@
 --------------------------------------------------------------------------------
 -- Name     MEMCARD_HI
 -- PartNo   00
--- Date     11/16/2026
--- Revision 01
+-- Date     11/17/2026
+-- Revision 02
 -- Designer Justin
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source ATF22V10_MEMCARD_HI.pld (Revision 01)
+-- Converted from WinCUPL source ATF22V10_MEMCARD_HI.pld (Revision 02)
 --
 -- Register decode and page bits 11:8 of the 512K memory expansion card
 -- (docs/architecture/MEMCARD.md).  The card's SRAM is wired straight to
@@ -25,24 +25,24 @@
 --
 -- Pin assignments (ATF22V10C, 24-pin DIP; pin 12 = GND, pin 24 = VCC):
 --   PIN 1  = WE                (ACTIVE LOW, register clock; slot B24)
---   PIN 2  = EXP               (ACTIVE LOW, the slot's select; slot A16)
---   PIN 3  = A0
---   PIN 4  = A1
---   PIN 5  = A2
---   PIN 6  = A3
---   PIN 7  = A4
---   PIN 8  = A5
---   PIN 9  = A6
---   PIN 10 = D0
---   PIN 11 = D1
+--   PIN 3  = A5
+--   PIN 4  = A4
+--   PIN 5  = A6
+--   PIN 6  = A2
+--   PIN 7  = A3
+--   PIN 8  = EXP               (ACTIVE LOW, the slot's select; slot A16)
+--   PIN 9  = A0
+--   PIN 10 = D1
+--   PIN 11 = D0
 --   PIN 13 = D2
 --   PIN 14 = D3
+--   PIN 15 = A1
 --   PIN 16 = PGLO              (ACTIVE LOW, combinational)
---   PIN 17 = PG10              (register, SRAM A17)
---   PIN 18 = PG9               (register, SRAM A16)
---   PIN 19 = PG8               (register, SRAM A15)
---   PIN 20 = PG11              (register, SRAM A18)
---   Unused: 15, 21, 22, 23
+--   PIN 17 = PG8               (register)
+--   PIN 18 = PG9               (register)
+--   PIN 19 = PG10              (register)
+--   PIN 20 = PG11              (register)
+--   Unused: 2, 21, 22, 23
 --------------------------------------------------------------------------------
 
 library ieee;
@@ -51,23 +51,23 @@ use ieee.std_logic_1164.all;
 entity memcard_hi_pld is
     port (
         weN   : in  std_logic;   -- pin 1, active low, register clock
-        expN  : in  std_logic;   -- pin 2, active low
-        a0    : in  std_logic;   -- pin 3
-        a1    : in  std_logic;   -- pin 4
-        a2    : in  std_logic;   -- pin 5
-        a3    : in  std_logic;   -- pin 6
-        a4    : in  std_logic;   -- pin 7
-        a5    : in  std_logic;   -- pin 8
-        a6    : in  std_logic;   -- pin 9
-        d0    : in  std_logic;   -- pin 10
-        d1    : in  std_logic;   -- pin 11
+        expN  : in  std_logic;   -- pin 8, active low
+        a0    : in  std_logic;   -- pin 9
+        a1    : in  std_logic;   -- pin 15
+        a2    : in  std_logic;   -- pin 6
+        a3    : in  std_logic;   -- pin 7
+        a4    : in  std_logic;   -- pin 4
+        a5    : in  std_logic;   -- pin 3
+        a6    : in  std_logic;   -- pin 5
+        d0    : in  std_logic;   -- pin 11
+        d1    : in  std_logic;   -- pin 10
         d2    : in  std_logic;   -- pin 13
         d3    : in  std_logic;   -- pin 14
 
         pgLoN : out std_logic;   -- pin 16, active low
-        pg10  : out std_logic;   -- pin 17
+        pg10  : out std_logic;   -- pin 19
         pg9   : out std_logic;   -- pin 18
-        pg8   : out std_logic;   -- pin 19
+        pg8   : out std_logic;   -- pin 17
         pg11  : out std_logic    -- pin 20
     );
 end entity memcard_hi_pld;

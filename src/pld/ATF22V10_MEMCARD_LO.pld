@@ -1,7 +1,7 @@
 Name     MEMCARD_LO;
 PartNo   00;
-Date     11/16/2026;
-Revision 01;
+Date     11/17/2026;
+Revision 02;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -18,7 +18,7 @@ Device   g22v10;
    register are described in ATF22V10_MEMCARD_HI.pld).
 
    THIS PLD
-      holds page bits 7:0, the SRAM's A14:A7.  Pin 1 is /WE: the
+      holds page bits 7:0.  Pin 1 is /WE: the
       registers clock on the rising edge of every /WE, the end of
       the write, and load D7:D0 only while /PGLO is low (the other
       PLD's decode of a card access at offset 7Eh); on every other
@@ -36,37 +36,43 @@ Device   g22v10;
       address does, so the hold is met.
 
    PIN BUDGET
-      Inputs (10): /WE (clock), /PGLO, D0-D7
+      Inputs (10): /WE (clock), /PGLO, D0-D7; /PGLO and D2 are on
+                   I/O pins 15 and 18
       Outputs (8):  PG0-PG7 (registered)
-      Spare: input pins 11 and 13, I/O pins 14 and 15 (two cells).
+      Spare: input pins 9, 10, 11 and 13 (no cell).
       Each register is two product terms.
+
+   REVISIONS
+      02 (11/17/2026): pins assigned for the board layout (PCB
+         PLC-1004 rev A, pin swaps from the router tools).  No
+         equation changed.
    ============================================================ */
 
 
 /* ---------------- INPUTS ---------------- */
 
 PIN 1  = !WE;          /* slot B24, the write pulse: clocks the registers on its rising edge */
-PIN 2  = !PGLO;        /* the page high PLD's pin 16: low for an access to offset 7Eh */
-PIN 3  = D0;           /* data bus, written to page bits 7:0 */
-PIN 4  = D1;
-PIN 5  = D2;
-PIN 6  = D3;
-PIN 7  = D4;
+PIN 2  = D3;           /* data bus, written to page bits 7:0 */
+PIN 3  = D6;
+PIN 4  = D0;
+PIN 5  = D7;
+PIN 6  = D4;
+PIN 7  = D1;
 PIN 8  = D5;
-PIN 9  = D6;
-PIN 10 = D7;
+PIN 15 = !PGLO;        /* the page high PLD's pin 16: low for an access to offset 7Eh; I/O pin used as input */
+PIN 18 = D2;           /* I/O pin used as input */
 
 
 /* ---------------- OUTPUTS ---------------- */
 
-PIN 16 = PG7;          /* page bit 7, SRAM A14 */
-PIN 17 = PG6;          /* page bit 6, SRAM A13 */
-PIN 18 = PG5;          /* page bit 5, SRAM A12 */
-PIN 19 = PG4;          /* page bit 4, SRAM A11 */
-PIN 20 = PG3;          /* page bit 3, SRAM A10 */
-PIN 21 = PG2;          /* page bit 2, SRAM A9 */
-PIN 22 = PG1;          /* page bit 1, SRAM A8 */
-PIN 23 = PG0;          /* page bit 0, SRAM A7 */
+PIN 14 = PG5;          /* page bit 5 */
+PIN 16 = PG7;          /* page bit 7 */
+PIN 17 = PG6;          /* page bit 6 */
+PIN 19 = PG4;          /* page bit 4 */
+PIN 20 = PG3;          /* page bit 3 */
+PIN 21 = PG2;          /* page bit 2 */
+PIN 22 = PG1;          /* page bit 1 */
+PIN 23 = PG0;          /* page bit 0 */
 
 
 /* ---------------- EQUATIONS ---------------- */
