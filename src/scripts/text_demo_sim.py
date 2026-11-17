@@ -109,10 +109,10 @@ def check_ring(cpu, syms, rom):
 
 
 def check_hires(rig, syms, rom, png=None):
-    """H: the 160-read screen (rev B) and back.  Checks the mode bytes, the
-    80 column 4-color text against text_h, the 16 color bars, the 256-color
-    rainbow, that the scroller goes on, and that the normal screen comes
-    back as it was."""
+    """H: the 160-read screen (rev B) and back.  Checks the mode bytes,
+    "16 COLORS" against SMG, the bars, the wheel's discs, "256" against
+    DIGH, the ring against RINGH_R / RINGH_A, and that the normal screen
+    comes back as it was."""
     cpu, mem = rig.cpu, rig.cpu.mem
     ok = True
 
@@ -130,43 +130,57 @@ def check_hires(rig, syms, rom, png=None):
     cpu.rev_b = True
     rig.key('h')
     rig.run(40)
-    if mem[syms['hx']] != 1 or not modes([0x85] * 128 + [0x05] * 128 + [0x8A] * 64 + [0x8B] * 64):
+    if mem[syms['hx']] != 1 or not modes([0x86] * 128 + [0x05] * 128 + [0x8B] * 128):
         fail('H did not switch the mode bytes')
         return False
-    # the 80 column text: every cell of the 8 text rows
-    want = {}
-    a = syms['text_h']
-    while rom[a] != 0xFF:
-        col, row, fg, bg, st = rom[a], rom[a + 1], rom[a + 2], rom[a + 3], rom[a + 4] | rom[a + 5] << 8
-        a += 6
-        while rom[st]:
-            want[(col, row)] = (rom[st], fg, bg)
-            col += 1
-            st += 1
+    def at(col, row, mode):
+        return mem[(0x60 + col) << 8 | ps.hires_offset(row, mode)]
+
+    # "16 COLORS": 16 x 16 letters from SMG, 8 bytes each from byte column 4
     bad = 0
-    for row in range(8):
-        for col in range(80):
-            ch, fg, bg = want.get((col, row), (0x20, 0, 0))
-            for fr in range(8):
-                f = rom[ps.LIB_FONT + fr * 256 + ch]
-                off = ps.hires_offset(96 + 16 * row + 2 * fr, 0x85)
-                for k, tab in enumerate(('EXP2_LO', 'EXP2_HI')):
-                    if mem[(0x60 + 2 * col + k) << 8 | off] != (rom[syms[tab] + f] & fg) ^ bg:
-                        bad += 1
+    for i in range(9):
+        g = syms['SMG'] + 32 * rom[syms['S16H'] + i]
+        fill = rom[syms['RAINBOW'] + i]
+        for k in range(32):
+            for j in range(4):
+                want = rom[syms['EXP4_%d' % j] + rom[g + k]] & fill
+                bad += at(4 + 8 * i + 4 * (k & 1) + j, 96 + 2 * (k >> 1), 0x86) != want
     if bad:
-        fail('%d bytes of the 80 column text wrong' % bad)
+        fail('%d bytes of "16 COLORS" wrong' % bad)
     bad = 0
-    for r in range(8, 16):                  # the 16 colors, 10 bytes each
-        off = ps.hires_offset(352 + 4 * r, 0x8A)
-        bad += sum(mem[(0x60 + c) << 8 | off] != (c // 10) * 0x11 for c in range(160))
+    for row in range(136, 220, 2):          # the 16 colors, 6 bytes each
+        bad += sum(at(4 + c, row, 0x86) != (c // 6) * 0x11 for c in range(96))
     if bad:
         fail('%d bytes of the 16 color bars wrong' % bad)
     bad = 0
-    for r in range(16):                     # the rainbow
-        off = ps.hires_offset(416 + 4 * r, 0x8B)
-        bad += sum(mem[(0x60 + c) << 8 | off] != rom[syms['HUE'] + ((c + 4 * r) & 0xFF)] for c in range(160))
+    ph = mem[syms['big_ph']]
+    for k in range(8):                      # the wheel's discs
+        fill = rom[syms['TAIL'] + ((ph - k) & 7)]
+        for r in range(8):
+            for j in range(4):
+                want = rom[syms['DISC'] + 4 * r + j] & fill
+                bad += at(rom[syms['DOTCH'] + k] + j, rom[syms['DOTRH'] + k] + 2 * r, 0x86) != want
     if bad:
-        fail('%d bytes of the 256-color rainbow wrong' % bad)
+        fail('%d bytes of the wheel wrong' % bad)
+    bad = 0
+    for d in range(3):                      # "256", 24 x 28
+        for r in range(28):
+            bits = sum(rom[syms['DIGH'] + 84 * d + 3 * r + b] << (8 * b) for b in range(3))
+            shade = rom[syms['SHADES'] + 8 * d + r // 4]
+            for c in range(28):
+                want = shade if (bits >> c) & 1 else 0
+                bad += at(4 + 28 * d + c, 352 + 4 * (2 + r), 0x8B) != want
+    if bad:
+        fail('%d bytes of "256" wrong' % bad)
+    bad = n = 0
+    a, ang, ph = syms['RINGH_R'], syms['RINGH_A'], mem[syms['wh_ph']]
+    while rom[a]:                           # the ring
+        for i in range(rom[a + 2]):
+            bad += mem[(rom[a + 1] + i) << 8 | rom[a]] != rom[syms['HUE'] + ((rom[ang + n] + ph) & 0xFF)]
+            n += 1
+        a += 3
+    if bad:
+        fail('%d of %d ring pixels wrong' % (bad, n))
     if png:
         ps.render(mem, png, rev_b=True)
         print('wrote', png)
@@ -180,18 +194,18 @@ def check_hires(rig, syms, rom, png=None):
     ring = {(rom[syms['RING_V'] + k] << 8) | rom[syms['RING_X'] + k] for k in range(syms['RING_N'])}
     bad = wheel = 0
     for page in range(0x61, 0x100, 2):
-        for n in range(32):
-            ad = page << 8 | (0x83 + 4 * n)             # the 256 band
+        for blk in range(32):
+            ad = page << 8 | (0x83 + 4 * blk)             # the 256 band
             if ad not in ring and mem[ad] != before[ad - 0x6000]:
                 bad += 1
-            ad = page << 8 | (0x81 + 4 * n)             # the 16-color band
+            ad = page << 8 | (0x81 + 4 * blk)             # the 16-color band
             wheel += mem[ad] != before[ad - 0x6000]
         for off in range(0x101, 0x171, 2):              # 40 column rows 0-6
             bad += mem[page << 8 | off] != before[(page << 8 | off) - 0x6000]
     if bad or wheel > 64:
         fail('the normal screen did not come back (%d bytes, %d in the wheel band)' % (bad, wheel))
     if ok:
-        print('H: the 160-read screen (80 column text, 16 colors, 256 colors) and back')
+        print('H: the 160-read screen (letters, bars, wheel, digits, %d ring pixels) and back' % n)
     return ok
 
 
