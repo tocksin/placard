@@ -69,7 +69,8 @@ of the column, so:
 | normal 1x on top (any height to row 96), 160-read 4x below | no |
 | normal 1x on top, 160-read 2x below | no while the 160-read rows end by row 255; a 160-read 2x row from 256 on uses the bytes of an odd 1x row in the top 224 |
 | 160-read rows on top, normal 1x below | yes |
-| 2x with 4x (160-read or normal, any mix) | no only if the split is at row 96 or above it, or at row 352 or below it, as for normal rows ([VIDEO.md](VIDEO.md#line-repeat)) |
+| 2x on top, 4x below (160-read or normal, any mix) | no only if the split is at row 96 or above it, or at row 352 or below it |
+| 4x on top, 2x below (160-read or normal, any mix) | yes |
 | fold rows with anything | yes, except 4x rows below a fold band that ends by row 96 |
 
 So an 80-column text band of 1x rows over a 160-read picture works with a
