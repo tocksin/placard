@@ -1,0 +1,273 @@
+Name     COLOR_DECODER;
+PartNo   00;
+Date     11/17/2026;
+Revision 09;
+Designer "Justin Davis";
+Company  "";
+Assembly "";
+Location "";
+Device   g22v10;
+
+
+/* ============================================================
+   8-BIT PIXEL-PACK COLOR DECODER   (ATF22V10C, DIP-24 / PLCC-28)
+   ============================================================
+
+   VIDEN = 0  ->  all outputs forced to BLACK (0), regardless of
+                  every other input.   VIDEN = 1  ->  normal operation.
+
+   MODE1 MODE0   bits/pixel   pixels/byte   colors
+      0     0        1             8            2
+      0     1        2             4            4
+      1     0        4             2           16
+      1     1        8             1          256
+
+   H2:H0 (the pixel clock count within each 8-clock byte, from the Sync
+   PLD) chooses which pixel of the byte is shown.  Each mode uses only the
+   H bits it needs, so a pixel is held for 1, 2, 4 or 8 clocks:
+      1 bpp : H2:H0 -> D0..D7                       (1 clock per pixel)
+      2 bpp : H2:H1 -> D1:0 / D3:2 / D5:4 / D7:6    (2 clocks per pixel)
+      4 bpp : H2    -> D3:0 / D7:4                  (4 clocks per pixel)
+      8 bpp : H ignored, except in the five gray  (8 clocks per pixel)
+              codes below, where H2:H0 blends blue
+
+   OUTPUTS (resistor DAC, bit 3 = MSB of each channel)
+      RED1..RED3 = R LSB..MSB   (3 bits)
+      GRN1..GRN3 = G LSB..MSB   (3 bits)
+      BLU2..BLU3 = B LSB..MSB   (2 bits)
+
+   8 bpp pass-through byte format (D7..D0) = G3 G2 G1 B3 B2 R3 R2 R1
+
+   8 bpp GRAYS (revision 08).  Blue has only two DAC bits (four levels),
+   so only black and white are exact grays.  For five more codes with
+   R = G the decoder switches blue between two neighboring DAC levels
+   during the pixel's 8 clocks, so that its average matches red and
+   green.  Blue DAC levels (BLU3 BLU2): 00 = 0, 01 = 227, 10 = 453,
+   11 = 680 mV.
+
+      Gray  Byte  R=G  B   R,G mV   Blue per clock H = 0..7        Blue mV
+       0    x00    0   0      0     steady 00                         0
+       1    x21    1   0     98     00 01 00 01 00 01 00 01         113
+       2    x4A    2   1    202     steady 01 (not blended)         227
+       3    x6B    3   1    300     01 01 01 10 01 01 01 10         284
+       4    x8C    4   1    394     01 10 10 10 01 10 10 10         397
+       5    xB5    5   2    492     10 10 10 10 10 10 10 11         481
+       6    xD6    6   2    596     10 11 10 11 10 11 10 11         567
+       7    xFF    7   3    694     steady 11                       680
+
+   Every other 8 bpp code, and every other mode, is as in revision 07.
+
+   REVISION 09, REV B BOARD ONLY (the rev A board takes revision 08,
+   src/pld/ATF22V10_COLORDECODER.pld).  On a 160-read line the Sync
+   PLD (revision 13) puts H1 on this chip's H2 pin and H0 on its H1
+   pin, so a byte is shown in 4 clocks: 2 bpp gives 640 pixels
+   across, 4 bpp 320 and 8 bpp 160, with no change to the mode
+   logic.  1 bpp is not used on a 160-read line.  The only change
+   here is that the gray blends use H2 and H1 alone (quarters), so
+   they average right over 8 clocks or over 4:
+
+      Gray  Byte   Blend            Fraction     Blue mV (R,G mV)
+       1    x21    H1               2 of 4       113  (98)
+       3    x6B    H2 & H1          1 of 4       284  (300)
+       4    x8C    H2 # H1          3 of 4       397  (394)
+       5    xB5    H2 & H1          1 of 4       510  (492)   was 1 of 8, 481
+       6    xD6    H1               2 of 4       567  (596)
+
+   PIN NOTES
+      - 14 inputs + 8 outputs = 22 pins = every non-power pin, so the
+        old PIX helper pin is gone.  Instead GRN3 computes the 1-bpp
+        pixel mux itself (in 1 bpp mode GRN3 = the selected pixel)
+        and the other seven outputs feed GRN3 back into the array.
+      - H2 (pin 14) and VIDEN (pin 23) are on I/O pins used as inputs.
+      - VIDEN is folded into M1/M2/M4/M8, so blanking costs no extra
+        product terms: with VIDEN = 0 no mode term can be true.
+      - BLU2 (pin 22) has only 10 product terms.  To make room for the
+        gray terms it reads other output pins back, as the 1 bpp pixel
+        already does with GRN3 (all are 0 when VIDEN = 0, so these
+        terms need no VIDEN):
+           2 bpp : BLU2 = BLU3                       (both are C0)
+           4 bpp : indexes 8 and A (X3 & !X2 & !X0) = GRN2 & GRN1 & BLU3
+           8 bpp : in a code with blue = 01, BLU2 = !BLU3, so a BLU3
+                   blend term swaps blue between 01 and 10
+        BLU2 uses 10 of 10 terms, BLU3 15 of 16.
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 2  = D0;
+PIN 3  = D1;
+PIN 4  = D2;
+PIN 5  = D3;
+PIN 6  = D4;
+PIN 7  = D5;
+PIN 8  = D6;
+PIN 9  = D7;
+
+PIN 10 = MODE0;
+PIN 11 = MODE1;
+
+PIN 13 = H0;
+PIN 1  = H1;
+PIN 14 = H2;
+
+PIN 23 = VIDEN;      /* video enable, active high (low = black) */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+PIN 15 = RED1;
+PIN 16 = RED2;
+PIN 21 = RED3;
+PIN 22 = BLU2;
+PIN 18 = BLU3;
+PIN 17 = GRN1;
+PIN 20 = GRN2;
+PIN 19 = GRN3;       /* also serves as the 1 bpp pixel source */
+
+
+/* ---------------- MODE DECODE (gated by VIDEN) ---------------- */
+
+M1 = VIDEN & !MODE1 & !MODE0;
+M2 = VIDEN & !MODE1 &  MODE0;
+M4 = VIDEN &  MODE1 & !MODE0;
+M8 = VIDEN &  MODE1 &  MODE0;
+
+
+/* ---------------- 2 bpp: 4:1 mux of 2-bit pixel ---------------- */
+
+C0 =  D0 & !H2 & !H1
+    # D2 & !H2 &  H1
+    # D4 &  H2 & !H1
+    # D6 &  H2 &  H1;
+
+C1 =  D1 & !H2 & !H1
+    # D3 & !H2 &  H1
+    # D5 &  H2 & !H1
+    # D7 &  H2 &  H1;
+
+/* 2 bpp palette (high-contrast, color-blind safe, luminance ramp)
+
+   Code  Color   R  G  B    Luminance
+    00   Black   0  0  0      0.00
+    01   Blue    0  1  3      0.09
+    10   Gold    7  5  0      0.55
+    11   White   7  7  3      1.00
+
+   Per output bit (C1 = code bit 1, C0 = code bit 0):
+      RED1..3 = C1              BLU2,3 = C0
+      GRN1    = C1 | C0         GRN2   = C1 & C0  GRN3 = C1        */
+
+
+/* ---------------- 4 bpp: nibble select ---------------- */
+
+X0 = D0 & !H2 # D4 & H2;
+X1 = D1 & !H2 # D5 & H2;
+X2 = D2 & !H2 # D6 & H2;
+X3 = D3 & !H2 # D7 & H2;
+
+/* 4 bpp palette: 16 colors (4 grays, 8 hues, dark/light variants).
+   Black is index 0.  Index order was chosen so that GRN3 = X3 (one
+   term) and every output bit fits its pin's product-term limit.
+   Channel levels: R,G = 0-7, B = 0-3.
+
+   Idx  Color        R  G  B
+    0   Black        0  0  0
+    1   Dark blue    0  0  1
+    2   Purple       4  0  2
+    3   Blue         0  0  3
+    4   Red          7  0  0
+    5   Magenta      7  0  3
+    6   Brown        4  2  0
+    7   Dark gray    2  2  1
+    8   Cyan         0  7  3
+    9   Dark green   0  4  0
+    A   White        7  7  3
+    B   Light gray   5  5  2
+    C   Pink         7  4  2
+    D   Orange       7  4  0
+    E   Yellow       7  7  0
+    F   Green        1  7  0 */
+
+RED1_4 =
+      X2 & !X1
+    # X3 & X1;
+
+RED2_4 =
+      X2 & !X1
+    # !X3 & X2 & X0
+    # X3 & X1 & !X0;
+
+RED3_4 =
+      X1 & !X0
+    # X2 & !X1
+    # X3 & !X2 & X1;
+
+BLU2_4 =
+      !X3 & X0
+    # X3 & !X2 & !X0;
+
+BLU3_4 =
+      !X2 & X1
+    # !X3 & X2 & !X1 & X0
+    # X3 & !X1 & !X0;
+
+GRN1_4 =
+      X3 & !X2 & !X0
+    # X3 & X1;
+
+GRN2_4 =
+      X2 & X1
+    # X3 & !X2 & !X0;
+
+GRN3_4 =
+      X3;
+
+
+/* ---------------- 8 bpp: blended gray codes ---------------- */
+
+GRAY1 = M8 & !D7 & !D6 &  D5 & !D4 & !D3 & !D2 & !D1 &  D0;   /* x21 */
+GRAY3 = M8 & !D7 &  D6 &  D5 & !D4 &  D3 & !D2 &  D1 &  D0;   /* x6B */
+GRAY4 = M8 &  D7 & !D6 & !D5 & !D4 &  D3 &  D2 & !D1 & !D0;   /* x8C */
+GRAY5 = M8 &  D7 & !D6 &  D5 &  D4 & !D3 &  D2 & !D1 &  D0;   /* xB5 */
+GRAY6 = M8 &  D7 &  D6 & !D5 &  D4 & !D3 &  D2 &  D1 & !D0;   /* xD6 */
+
+
+/* ---------------- FINAL OUTPUTS ---------------- */
+
+RED1 = M1 & GRN3 # M2 & C1        # M4 & RED1_4 # M8 & D0;
+RED2 = M1 & GRN3 # M2 & C1        # M4 & RED2_4 # M8 & D1;
+RED3 = M1 & GRN3 # M2 & C1        # M4 & RED3_4 # M8 & D2;
+
+/* BLU3: revision 07 terms, plus the blends up from blue = 01 */
+BLU3 = M1 & GRN3 # M2 & C0        # M4 & BLU3_4 # M8 & D4
+     # GRAY3 & H2 & H1                       /* 1 of 4 */
+     # GRAY4 & H2 # GRAY4 & H1;              /* 3 of 4 */
+
+/* BLU2: reads BLU3, GRN1 and GRN2 back (see PIN NOTES) */
+BLU2 = M1 & GRN3
+     # !MODE1 & MODE0 & BLU3                 /* 2 bpp */
+     # M4 & !X3 & X0                         /* 4 bpp indexes 1, 3, 5, 7 */
+     # MODE1 & !MODE0 & GRN2 & GRN1 & BLU3   /* 4 bpp indexes 8, A */
+     # M8 & D3 & D4                          /* 8 bpp blue = 11 */
+     # M8 & D3 & !BLU3                       /* 8 bpp blue = 01, off while BLU3 blends */
+     # GRAY1 & H1                            /* 2 of 4 */
+     # GRAY5 & H2 & H1                       /* 1 of 4 */
+     # GRAY6 & H1;                           /* 2 of 4 */
+
+GRN1 = M1 & GRN3 # M2 & C1 # M2 & C0 # M4 & GRN1_4 # M8 & D5;
+GRN2 = M1 & GRN3 # M2 & C1 & C0   # M4 & GRN2_4 # M8 & D6;
+
+/* GRN3: 1 bpp 8:1 pixel mux written out (8 terms) + its own terms */
+GRN3 =
+      M1 & D0 & !H2 & !H1 & !H0
+    # M1 & D1 & !H2 & !H1 &  H0
+    # M1 & D2 & !H2 &  H1 & !H0
+    # M1 & D3 & !H2 &  H1 &  H0
+    # M1 & D4 &  H2 & !H1 & !H0
+    # M1 & D5 &  H2 & !H1 &  H0
+    # M1 & D6 &  H2 &  H1 & !H0
+    # M1 & D7 &  H2 &  H1 &  H0
+    # M2 & C1
+    # M4 & GRN3_4
+    # M8 & D7;

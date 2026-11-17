@@ -1,0 +1,241 @@
+Name     VGA_SYNC;
+PartNo   01;
+Date     2026-11-17;
+Revision 13;
+Designer Justin;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   REVISION 13, REV B BOARD ONLY: 160-READ LINES
+   (The rev A board takes revision 12, src/pld/ATF22V10_SYNC.pld.)
+
+   Bit 7 of a row's mode byte makes the video read a byte every 4
+   clocks on that line instead of every 8: 160 reads, so 8 bpp is
+   160 pixels across, 4 bpp 320 and 2 bpp 640.
+
+   COUNT AND PIXEL SELECTS
+      The count within the 8-clock group is T2 t1 H0 (true H2, H1,
+      H0), as before two clocks behind the H counter's group:
+
+          clock of the group   0    1    2    3    4    5    6    7
+          count               110  111  000  001  010  011  100  101
+
+      The color decoder takes its pixel select from pins 16, 15, 14.
+      On a normal line they are the count.  On a 160-read line,
+      while VIDEN is high, pin 16 (S2) carries H1 and pin 15 (S1)
+      carries H0, so the decoder steps through a byte in 4 clocks:
+
+                    normal line     160-read line, VIDEN high
+          S2  16    H2              H1
+          S1  15    H1              H0
+          H0  14    H0              H0
+          T2  21    H2              H2
+
+      VIDEN only changes at the end of count 111, so the count is
+      000 in the first clock of either kind and 111 in the last,
+      and those two counts look the same on the pins both ways.
+      Nothing has to remember which kind the previous clock was.
+
+      M (160-read line, picture on) = VIDEN & BLANK_RD.  The audio
+      slot PLD (revision 05) holds BLANK_RD high through the active
+      groups and group 28 of a 160-read line.
+
+   READS
+      Read A: decoded at count 110, read at 111 (as before).
+      Read B: decoded at count 010, read at 011, only when M and
+      RUN are high (the cartridge loader needs seven clocks between
+      video reads, and the RAM is random while it loads).
+      Blanking reads (mode byte, audio): BLANK_RD while VIDEN is low.
+
+   PINS
+      Pin 21 is T2 (was /P0); /P0 moves to pin 4 (was V4).  VSYNC
+      no longer uses V4: it is lines 508-509 (!V9 & V3 & V2 & !V1),
+      so the vertical porches are 9 front, 2 sync, 34 back (33, 2,
+      10 before; the VGA standard is 10, 2, 33).
+   ============================================================ */
+
+
+/* ============================================================
+   INPUTS
+   ============================================================ */
+
+PIN 1  = CLK;
+
+PIN 2  = V9;
+PIN 3  = V5;
+PIN 4  = !P0;             /* I/O decode PLD pin 17: page 0 select (revision 13: was V4) */
+PIN 5  = V3;
+PIN 6  = V2;
+PIN 7  = V1;
+
+PIN 8  = H_VIDEO_ACTIVE;  /* H counter PLD pin 22 */
+
+PIN 9  = CLK_E;           /* early clock tap */
+PIN 10 = RW;              /* State PLD pin 23, 0 = store */
+PIN 11 = RUN;             /* ROM cartridge: low while it loads */
+
+PIN 13 = BLANK_RD;        /* audio slot PLD pin 23: blanking read slot, and 160-read line marker */
+
+
+/* ============================================================
+   OUTPUTS
+   ============================================================ */
+
+PIN 14 = H0;
+PIN 15 = S1;              /* H1, or H0 on a 160-read line (revision 13; was H1) */
+PIN 16 = S2;              /* H2, or H1 on a 160-read line (revision 13; was H2) */
+
+PIN 17 = VIDEN;
+PIN 18 = !VSYNC;
+PIN 19 = PIXEL_ENABLE;
+PIN 20 = !WE;
+PIN 21 = T2;              /* true H2, to the H counter and the audio slot PLD (revision 13; was /P0) */
+PIN 22 = !MAP_WR;
+PIN 23 = V_VIDEO_ACTIVE;
+
+
+/* ============================================================
+   COUNT WITHIN THE GROUP
+   ============================================================ */
+
+M  = VIDEN & BLANK_RD;            /* 160-read line, picture on */
+
+T1 = M & S2 # !M & S1;            /* true H1 */
+
+H0.D = !H0;
+
+T2.D = T2 $ (T1 & H0);
+
+S1.D = M & !H0                    /* H0 of the next count */
+     # !M & (S1 $ H0);            /* H1 of the next count */
+
+S2.D = M & (S2 $ H0)              /* H1 of the next count */
+     # !M & (T2 $ (S1 & H0));     /* H2 of the next count */
+
+
+/* ============================================================
+   VERTICAL ACTIVE-REGION STATE (unchanged)
+   ============================================================ */
+
+V_VIDEO_ACTIVE.D = V9 & (V5 # V_VIDEO_ACTIVE);
+
+
+/* ============================================================
+   VIDEO ENABLE
+   Loaded at count 111, which is T2 & S2 & S1 & H0 on either kind
+   of line; held on the other seven clocks.
+   ============================================================ */
+
+VIDEN.D =
+      V_VIDEO_ACTIVE & H_VIDEO_ACTIVE & T2 & S2 & S1 & H0
+    # VIDEN & !T2
+    # VIDEN & !S2
+    # VIDEN & !S1
+    # VIDEN & !H0;
+
+
+/* ============================================================
+   PIXEL ENABLE
+   ============================================================ */
+
+PIXEL_ENABLE.D =
+      V_VIDEO_ACTIVE & H_VIDEO_ACTIVE & !M & T2 & S1 & !H0          /* read A, normal line: count 110 */
+    # V_VIDEO_ACTIVE & H_VIDEO_ACTIVE &  M & T2 & S2 & !S1 & !H0    /* read A, 160-read line: count 110 */
+    # V_VIDEO_ACTIVE & H_VIDEO_ACTIVE &  M & RUN & !T2 & S2 & !S1 & !H0   /* read B: count 010 */
+    # BLANK_RD & !VIDEN & T2 & S1 & !H0;                            /* mode byte and audio reads */
+
+
+/* ============================================================
+   VERTICAL SYNC (revision 13)
+   Lines 508-509.  V9 is low only in lines 499-511, where V8:V4
+   are all 1 and V3:V1 run 001 to 111, so V3 V2 V1 = 110 is one
+   pair of lines.  V4 and V_VIDEO_ACTIVE are not needed.
+   ============================================================ */
+
+VSYNC = !V9 & V3 & V2 & !V1;
+
+
+/* ============================================================
+   RAM WRITE STROBE (revision 10)
+   ============================================================ */
+
+/*
+   Revision 10 (docs/timing/FETCH_TIMING.md): the address mux
+   control (ADDR_SEL, ADDR_SEL_HI, ADDR_SEL_LO, from PIXEL_ENABLE,
+   PC_ENABLE, X_ENABLE and Y_ENABLE) is gone.  The four mux PLDs
+   (QUAD_4TO1_MUX revision 02) take PIXEL_ENABLE and the State PLD's
+   enables as their selects directly, which removes one PLD pass
+   from the instruction fetch.  PIXEL_ENABLE keeps the same
+   priority there: it overrides PC_ENABLE, X_ENABLE and Y_ENABLE,
+   and PC_ENABLE overrides X_ENABLE and Y_ENABLE.
+
+   This PLD takes over the RAM write strobe from the memory control
+   PLD (revision 09 there, where the equation was the same but from
+   the normal clock).  A write uses the low half of the clock, on a
+   clock the CPU owns the bus:
+
+       /WE low while CLK_E = 0, RW = 0 and PIXEL_ENABLE = 0
+
+   CLK_E is an early tap of the clock: the clock net runs from the
+   oscillator to this pin first, then through at least 420 mm of
+   track (500 mm nominal, 3 ns) before any other load, pin 1 of
+   this PLD included.  So /WE rises about 3 ns before every other
+   chip sees the edge, and it is back high (tPD max 7.5 - 3 = 4.5
+   ns after the edge the rest of the board sees) before the address
+   or a chip enable can change (tCO min 2 + mux tPD min 3 = 5 ns):
+   docs/timing/WE_TIMING.md.  Without the Sync pass in the address path
+   the normal clock would be too late by 2.5 ns.
+
+   RW and PIXEL_ENABLE settle long before the clock can fall, so
+   /WE never glitches.  The register half of this PLD stays on pin
+   1, the normal clock.
+
+   Revision 11: /WE also waits for CLK (pin 1, which feeds the array
+   as well as the registers):
+
+       /WE low while CLK_E = 0, CLK = 0, RW = 0 and PIXEL_ENABLE = 0
+
+   so it falls on the later edge (CLK) and still rises on the early
+   one (CLK_E).  The end of the write keeps the CLK_E lead above.
+   The start gets about 3 ns more (4.1 ns on the routed board): a
+   zero-page store's address comes from the D register, whose clock
+   is 278 mm past NT2, and was not settled when /WE could fall on
+   CLK_E (-1.5 ns on the board, +2.6 now).  RW also has until the
+   later edge to settle.  The cost is a write pulse about 3 ns
+   shorter (tWP 10 still met at a 50 % clock, about +1.3 ns on the
+   board), see docs/timing/TIMING.md.
+
+   The output enable term is RUN, as in the memory control PLD:
+   /WE floats while RUN is low (10k pull-up on the main board) so a
+   boot card in expansion slot 1 can drive it (docs/architecture/EXPANSION.md).
+   It is a separate term, so WE uses 1 of the pin's product terms.
+*/
+
+WE = !CLK_E & !CLK & !RW & !PIXEL_ENABLE;   /* revision 11: & !CLK */
+WE.OE = RUN;
+
+
+/* ============================================================
+   MAP REGISTER WRITE STROBE (revision 12)
+   ============================================================ */
+
+/*
+   The I/O decode PLD (revision 07) gives address-only selects,
+   decoded from the Y register, and no longer makes /MAP_WR.  This
+   PLD makes it from the page 0 select /P0, with the /WE equation:
+
+       /MAP_WR low while /WE would be low and /P0 is low
+
+   so it has /WE's timing exactly (same pass, same inputs), about
+   7.5 ns earlier than the old IO & /WE strobe.  /P0 is valid at
+   13 ns, long before CLK can fall.  The map register (74ACT273)
+   loads the source bus on the rising edge, at the end of the write.
+   No output enable term: while RUN is low the map register is held
+   clear by its /MR anyway.  MAP_WR uses 1 product term.
+*/
+
+MAP_WR = !CLK_E & !CLK & !RW & !PIXEL_ENABLE & P0;
