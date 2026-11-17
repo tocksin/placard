@@ -5,13 +5,16 @@ case/memcard_shell_front.step/.stl and case/memcard_shell_back.step/.stl.
 
     python3 gen_memcard_shell.py
 
-Two halves round the card and the slot's body, 77 x 22.6 mm outside
-(EXPANSION.md, "Shell keepouts"), split at the card's side B face:
+Two halves round the card and the slot's body, split at the card's side B
+face.  The outside is the slot's shell keepout (EXPANSION.md, "Shell
+keepouts") less FIT all round, 78.6 x 24.2 mm: the opening for the slot in
+the case's top is that keepout, so the shell fills it (Justin, 2026-11-17)
+and its back end stops FIT short of the case's back plate.
 
 - front (side A, the parts side): a box with the long face closed.  Two
   bosses reach the card at H1 and H2, each with an M3 nut in a hex pocket
   that the card closes.  A block in the back end holds the M3 heat-set
-  insert for the case's card screw, with a pad standing 1 mm proud.
+  insert for the case's card screw, with a pad that meets the back plate.
 - back (side B): a shallow lid with two pads and counterbored holes.
 
 Two M3 x 8 pan head screws go through the back half and the card into the
@@ -53,14 +56,16 @@ HEAD_D, HEAD_H = 6.5, 2.8    # pan head counterbore
 LAYER = 0.2
 INSERT_Z = gc.CARD_PCB / 2 + gc.EXP_PARTS + 2 * AIR + WALL + gc.MARGIN - (17.35 - 5.05)   # 5.05 from the card's plane
 INSERT_Y = 15.0 - EDGE_UP    # 15 mm above the main board
-INSERT_D, PROUD = 4.0, 1.0   # hole for an M3 x 5.7 heat-set insert; pad proud of the end wall
+FIT = 0.2                    # shell to the edge of its opening in the case's top (the slot's keepout), each side
+INSERT_D, PROUD = 4.0, FIT   # hole for an M3 x 5.7 heat-set insert; pad proud of the end wall, to the back plate
 BLOCK = 5.0                  # insert block, in from the end wall
 BLOCK_HALF = 4.0             # its half height along y
 
-ZA = CARD_T / 2 + gc.EXP_PARTS + 2 * AIR + WALL                       # 16.35, outside face, side A
-ZB = -(3.75 + AIR + WALL)                                             # -6.25, outside face, side B
+GROW = gc.MARGIN - FIT                                                # 0.8: out to the keepout's edge less FIT
+ZA = CARD_T / 2 + gc.EXP_PARTS + 2 * AIR + WALL + GROW                # 17.15, outside face, side A
+ZB = -(3.75 + AIR + WALL + GROW)                                      # -7.05, outside face, side B
 ZS = -CARD_T / 2                                                      # split plane
-X0, X1 = -AIR - WALL, CARD_W + AIR + WALL                             # -2.5, 74.5
+X0, X1 = -AIR - WALL - GROW, CARD_W + AIR + WALL + GROW               # -3.3, 75.3
 Y0, Y1 = -EDGE_UP + SKIRT_GAP, CARD_H + 2 * AIR + WALL                # -2.5, top outside
 
 

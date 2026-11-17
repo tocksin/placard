@@ -196,9 +196,11 @@ mask.  Pad teardrops are not added yet.
 
 ## The shell
 
-Two printed halves round the card and the slot's body, 77 x 22.6 mm
-across as EXPANSION.md's "Shell keepouts" gives an expansion card, and
-48.2 mm tall.  They are split at the card's side B face
+Two printed halves round the card and the slot's body, 78.6 x 24.2 mm
+across and 48.2 mm tall.  That is the slot's keepout (EXPANSION.md, "Shell
+keepouts") less 0.2 mm all round.  The opening for the slot in the case's
+top is the keepout, so the shell fills it in place of the slot's cover,
+and its back end reaches the back plate.  They are split at the card's side B face
 (`src/scripts/gen_memcard_shell.py`, CadQuery; `case/memcard_shell_front`
 and `_back`, .stl and .step).
 
@@ -212,7 +214,7 @@ and `_back`, .stl and .step).
   the card closes.  A block in the back end holds an M3 x 5.7 heat-set
   insert, 15 mm above the main board and 5.05 mm from the card's plane,
   where the case's back plate has its card screw (CASE.md, "Expansion card
-  screws").  Its pad stands 1 mm proud to meet the plate.
+  screws").  Its pad stands 0.2 mm proud to meet the plate.
 - **Back half** (side B): a shallow lid with two pads and counterbored
   holes.
 - **Screws.**  Two M3 x 8 pan head screws go through the back half and the
