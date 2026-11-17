@@ -57031,7 +57031,7 @@
 				)
 			)
 		)
-		(property "Value" "J1071CS5VDC.36"
+		(property "Value" "G5LE-1 DC5"
 			(at 0 20.95 90)
 			(layer "F.Fab")
 			(uuid "a1d7d702-1427-4c9c-93dc-021897aeb71c")
@@ -57066,7 +57066,7 @@
 				)
 			)
 		)
-		(property "Manufacturer" "CIT Relay and Switch"
+		(property "Manufacturer" "Omron Electronic Components"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")
@@ -57079,7 +57079,7 @@
 				)
 			)
 		)
-		(property "MPN" "J1071CS5VDC.36"
+		(property "MPN" "G5LE-1 DC5"
 			(at 0 0 90)
 			(unlocked yes)
 			(layer "F.Fab")

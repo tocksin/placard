@@ -1,6 +1,6 @@
 # Chip list
 
-Date: 2026-11-11
+Date: 2026-11-17
 
 Every chip in the Placard, one chip per line.  The numbers are the U
 numbers on the schematic and the board; numbers missing from the list are
@@ -72,19 +72,23 @@ Not counted above:
 
 | Part number | Type | Function |
 |---|---|---|
-| AS7C256C-15PCN (2) | SRAM, 32K x 8, 15 ns | The ROM as the CPU sees it; /WE from the cartridge PLD |
-| AT28C256-15PU (2) | EEPROM, 32K x 8, 150 ns | The ROM image, programmed off the board; copied into the SRAMs at power-up |
-| ATF22V10C-7PX | PLD (22V10, 24-pin) | Loader: holds the CPU's STALL at each PC address, makes the EEPROM /OE and SRAM /WE, raises RUN at the PC wrap (`ATF22V10_CART.pld` revision 04) |
+The machine ships with the 32K ROM cartridge (`kicad/cartridge_32k`),
+three chips:
 
-Five chips.
+| # | Part number | Type | Function |
+|--:|---|---|---|
+| 1 | ATF22V10C-7PX | PLD (22V10, 24-pin) | Loader: holds the CPU's STALL at each PC address, makes the EEPROM /OE and SRAM /WE, raises RUN at the PC wrap (`ATF22V10_CART.pld` revision 04) |
+| 2 | AT28C256-15PU | EEPROM, 32K x 8, 150 ns | The ROM image, programmed off the board; copied into the SRAM at power-up |
+| 3 | AS7C256C-15PCN | SRAM, 32K x 8, 15 ns | The ROM as the CPU sees it; /WE from the loader PLD |
 
-**Two cartridge boards.**  The 64K cartridge
-(`kicad/cartridge_64k`) has the five chips above: U1 loader PLD, U2/U3
-EEPROMs (lower/upper), U4/U5 SRAMs (lower/upper).  The 32K cartridge
-(`kicad/cartridge_32k`) is its own, smaller board with three: U1 loader
-PLD, U2 EEPROM, U3 SRAM, both /CE tied to GND, so its 32K is seen in both
-halves of the ROM space.  The case mounting hole H1 is at the same place
-on both.
+Both /CE pins are tied to GND, so the 32K is seen in both halves of the
+ROM space.
+
+**64K cartridge (not released).**  `kicad/cartridge_64k` is a larger
+board with five chips (U1 loader PLD, U2/U3 EEPROMs lower/upper, U4/U5
+SRAMs lower/upper) for a 64K development ROM.  It was not ordered and
+the 64K ROM is not released.  The case mounting hole H1 is at the same
+place on both boards.
 
 ## PLD speed grade
 

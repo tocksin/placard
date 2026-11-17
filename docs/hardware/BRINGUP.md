@@ -1,6 +1,6 @@
 # Bring-up: build order and a test for each chip
 
-Date: 2026-11-12
+Date: 2026-11-17
 
 This is the order to put the chips in, with a quick test after each one.
 Every test needs only a multimeter with DC volts and a frequency counter
@@ -145,7 +145,7 @@ powered up with, so those readings are given as a range.
 | D7 | TVS diode, fused VBUS (VFUSE) to GND | Littelfuse SA5.0A | band (cathode) to VFUSE |
 | SW1 | Toggle switch, on/off | CIT ANT11TFHQE |  |
 | C41 | Electrolytic capacitor, on +5V (after K1) | 220 µF (Rubycon 25YXJ220M6.3X11) | + to +5V, stripe to GND |
-| K1 | Relay | CIT J1071CS5VDC.36 | COM (pin 1) = +5V, NC (pin 4) = VON, NO (pin 3) = R64 |
+| K1 | Relay | Omron G5LE-1 DC5 | COM (pin 1) = +5V, NC (pin 4) = VON, NO (pin 3) = R64 |
 | R64 | Resistor, K1's NO contact to GND | 22 Ω | drains +5V while reset is held |
 | SW2 | Tactile reset button, VON to the coil (KCOIL) | C&K PTS645VL58-2 LFS |  |
 | D8 | Schottky diode, across K1's coil | 1N5817 (black) | band (cathode) to KCOIL |

@@ -22,7 +22,7 @@ The project has some hard-goals to maintain:
 - Native storage capabilities.  Need to be able to save/load programs as you create them on the computer.
 
 ## Block diagram
-Each block shows how many chips it uses (33 and a 3.3 V regulator on the main board; the expansion and cartridge slots add none, the cartridge itself has 5).  See [docs/architecture/CHIPS.md](docs/architecture/CHIPS.md) for the parts.
+Each block shows how many chips it uses (33 and a 3.3 V regulator on the main board; the expansion and cartridge slots add none, the 32K ROM cartridge itself has 3).  See [docs/architecture/CHIPS.md](docs/architecture/CHIPS.md) for the parts.
 
 ![Placard block diagram](reference/placard_block_diagram.png)
 
@@ -51,7 +51,7 @@ The Placard has 64kB of memory arranged in a 16-bit address bus and 8-bit databu
 
 The memory control PLD (`ATF22V10_MEM_CTRL.pld`) makes /ROM_OE and /RAM_OE from the address, the map, RW and PIXEL_ENABLE, using only the low half of each clock.  The RAM's /WE comes from the Sync PLD, off an early tap of the clock ([docs/timing/WE_TIMING.md](docs/timing/WE_TIMING.md)).  The I/O decode PLD (`ATF22V10_IO_DECODE.pld`) makes the upper RAM/ROM chip select (/CE_HI) and the I/O strobes.
 
-The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is two more AS7C256C-15PCN on the ROM cartridge, loaded at power-up from two AT28C256 EEPROMs by the cartridge while it stalls the CPU ([docs/architecture/ROM.md](docs/architecture/ROM.md#loading-the-cartridge)).  See [docs/architecture/CPU.md](docs/architecture/CPU.md#memory-parts) and [docs/timing/TIMING.md](docs/timing/TIMING.md).
+The RAM is two AS7C256C-15PCN (32K × 8, 15 ns) chips.  The ROM is one more AS7C256C-15PCN on the 32K ROM cartridge, loaded at power-up from one AT28C256 EEPROM by the cartridge while it stalls the CPU ([docs/architecture/ROM.md](docs/architecture/ROM.md#loading-the-cartridge)).  See [docs/architecture/CPU.md](docs/architecture/CPU.md#memory-parts) and [docs/timing/TIMING.md](docs/timing/TIMING.md).
 
 | Address | Map bit | Function  |
 |---------|---------|------|

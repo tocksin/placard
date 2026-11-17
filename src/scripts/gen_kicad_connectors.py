@@ -25,7 +25,7 @@ have no edge.
 | SW_Toggle_CIT_ANT11TFHQE | power switch SW1 | 1 on throw, 2 common, 3 unused throw |
 | Jack_3.5mm_Tensility_54-00174_Horizontal | audio line out jack J6 | T (two legs), R1, R2, S |
 | USB_C_Receptacle_GCT_USB4125_6P_HandSolder | USB-C power J13 | A5 A9 A12 B5 B9 B12, S1 |
-| Relay_SPDT_CIT_J107 | reset relay K1 (CIT J1071CS5VDC.36) | 1 COM, 2/5 coil, 3 NO, 4 NC (as the G5LE) |
+| Relay_SPDT_CIT_J107 | reset relay K1 (Omron G5LE-1 DC5 now; drawn for the CIT J107 first, same pads) | 1 COM, 2/5 coil, 3 NO, 4 NC (as the G5LE) |
 
 Copies of KiCad's own footprints, unchanged but for the 3D model path (and,
 for J4 and J7, the silk stopped inside the board edge where they overhang it):

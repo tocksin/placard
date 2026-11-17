@@ -85,7 +85,7 @@ MPN = {
     "1N4148": ("Vishay", "1N4148-TAP"),
     "SA5.0A": ("Littelfuse", "SA5.0A"),
     "WP7113ID": ("Kingbright", "WP7113ID"),
-    "J1071CS5VDC.36": ("CIT Relay and Switch", "J1071CS5VDC.36"),
+    "G5LE-1 DC5": ("Omron Electronic Components", "G5LE-1 DC5"),
     "PTS645VL58-2 LFS": ("C&K", "PTS645VL58-2 LFS"),
     "PS/2 kbd + mouse": ("Kycon", "KMDGX-6S/6S-S4N"),
     "25.175 MHz": ("ECS Inc.", "ECS-100A-251.7"),
@@ -384,11 +384,12 @@ def sheet_power(b):
     # swings COM onto the NO contact, where R64 (22 ohm) empties +5V in a few ms however short the
     # press; C41, the bulk cap, sits on +5V after K1 so it carries the board through the NC
     # contact's bounce when reset lets go (and SW1's at power-on).
-    # K1 is a CIT J1071CS5VDC.36 (Justin, 2026-10-25): same pins as the G5LE, so the G5LE symbol stays; footprint
-    # placard:Relay_SPDT_CIT_J107 (gen_kicad_connectors.py) has the same pads under the smaller body.
+    # K1 is an Omron G5LE-1 DC5 (bought 2026-11-04; the CIT J1071CS5VDC.36 before it has the same pins).  The
+    # footprint placard:Relay_SPDT_CIT_J107 (gen_kicad_connectors.py) has the G5LE's pads; the G5LE body is
+    # 16.5 x 22.5 mm, larger than the J107 outline drawn there, and clears every courtyard on the board.
     xk = 170.18
     k1 = s.part("placard_std:G5LE-1", "K1", xk, yr + 2.54, {"1": "+5V", "4": "VON", "3": "KDISCH", "2": "KCOIL", "5": "GND"},
-                value="J1071CS5VDC.36", footprint="placard:Relay_SPDT_CIT_J107", angle=270, bare=("1", "4", "3", "2", "5"),
+                value="G5LE-1 DC5", footprint="placard:Relay_SPDT_CIT_J107", angle=270, bare=("1", "4", "3", "2", "5"),
                 ref_at=(150.0, yr + 15.5), value_at=(150.0, yr + 18.0))
     xt = 152.4
     sw2 = s.part("placard_std:SW_Push", "SW2", xt + 5.08, yr - 2.54, {"1": "VON", "2": "KCOIL"}, value="PTS645VL58-2 LFS",
