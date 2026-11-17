@@ -43,7 +43,7 @@ program one chip from each.  Label them "B".
 | U15 Sync | `ATF22V10_SYNC.pld` | 13 | EBEF |
 | U16 Color decoder | `ATF22V10_COLORDECODER.pld` | 09 | 154A |
 | U17 IR | `ATF22V10_IR.pld` | 02 | 9B03 |
-| U35 Audio slot | `ATF22V10_AUDIO.pld` | 05 | C2AB |
+| U35 Audio slot | `ATF22V10_AUDIO.pld` | 06 | B957 |
 
 All five go in together.  A rev A and a rev B chip do not work side by side.
 
@@ -134,7 +134,7 @@ carrier contacts are in the reading.
    different lines than on rev A, so the picture may sit a little higher
    or lower until the monitor adjusts.
 2. Programs that never set bit 7 of a mode byte look and run as on rev A.
-3. A row with bit 7 and 2x or 4x repeat set is a 160-read row.  There is no
+3. A row with bit 7 set is a 160-read row.  There is no
    test program for this yet; the emulators show what a screen should look
    like (`placard_sim.py --rev b`, or Board: rev B on the web page).
 

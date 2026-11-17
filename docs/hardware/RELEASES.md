@@ -44,7 +44,7 @@ outputs; regenerate them before ordering rev B.
   Sync pin 4 instead of 21; V4 off the Sync PLD; LC7 to audio slot PLD
   pin 21 instead of H counter pin 6; /AC_SEL from IR PLD pin 22 instead of
   audio slot PLD pin 21; I1 off the audio slot PLD.  PLDs from
-  `src/pld/rev_b/`: Sync 13, H counter 09, audio slot 05, IR 02, color
+  `src/pld/rev_b/`: Sync 13, H counter 09, audio slot 06, IR 02, color
   decoder 09.  VSYNC moves to lines 508-509.  The schematic sheets (video
   timing, control) and `schematics/placard_main.pdf` have the new nets; the
   board file is not yet changed.  A rev A board can be hand-modified to

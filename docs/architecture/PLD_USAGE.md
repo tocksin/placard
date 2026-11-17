@@ -336,6 +336,6 @@ Five PLDs have a rev B source in `src/pld/rev_b/` for the 160-read lines
 |---|---|---|---|
 | `ATF22V10_SYNC.pld` (#15) | 13 | 4 = /P0 (was V4), 15 = S1, 16 = S2, 21 = T2 out (was /P0 in) | no pin |
 | `ATF22V10_HCOUNT.pld` (#13) | 09 | 4 = S1, 5 = S2, 6 = T2 (was LC7) | as rev A; HSYNC uses 12 of 12 terms |
-| `ATF22V10_AUDIO.pld` (#35) | 05 | 16 = T2 (was I1), 21 = LC7 in (was /AC_SEL out) | no pin |
+| `ATF22V10_AUDIO.pld` (#35) | 06 | 16 = T2 (was I1), 21 = LC7 in (was /AC_SEL out) | no pin |
 | `ATF22V10_IR.pld` (#17) | 02 | 22 = /AC_SEL out (was unused) | pins 13 and 23 |
 | `ATF22V10_COLORDECODER.pld` (#16) | 09 | none | as rev A |
