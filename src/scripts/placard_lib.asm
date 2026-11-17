@@ -1368,8 +1368,9 @@ cd_back3:
 ;            (then: ld ac, y / ld [y,x], ac reads the byte)
 ;   changes: T0, T1, T4
 ;   clocks:  see docs/software/LIBRARY.md
-;   A 160-read row is always 2x or 4x (repeat code 00 counts as 2x).
 ;   With v = row + 32 (9 bits), the byte is in page x60 + column:
+;       fold (repeat code 00): low byte v7:v0; rows 0-223 and rows
+;             256-479 are the same bytes
 ;       2x:  low byte v7:v1, v8
 ;       4x:  low byte 1, v6:v2, v8, v7
 ;   A byte is 4 clocks wide: one 8 bpp pixel, two 4 bpp pixels (low
@@ -1390,15 +1391,17 @@ vh_v8:
     add  0x5A, ac
     ld   ac, y
     ld   [y,x], ac              ; the row's mode byte, x5A00 + v
+    and  0x0C, ac
+    beq  vh_fold
     and  0x08, ac
     bne  vh_4x
     ld   [T1], ac               ; 2x: v7:v1, v8
     and  0xFE, ac
     or   [T4], ac
-    ld   ac, x
-    ld   [T0], ac
-    ld   [LINK_HI], y
-    jmp  [LINK_LO]
+    bra  vh_out
+vh_fold:
+    ld   [T1], ac               ; fold: v7:v0
+    bra  vh_out
 vh_4x:
     ld   [T1], ac               ; 4x: 1, v6:v2, v8, v7
     blt  vh_4h
@@ -1415,6 +1418,7 @@ vh_4m:
     ld   [T1], ac
     and  0x7C, ac
     or   [T4], ac
+vh_out:
     ld   ac, x
     ld   [T0], ac
     ld   [LINK_HI], y

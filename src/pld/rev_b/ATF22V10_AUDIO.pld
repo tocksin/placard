@@ -1,7 +1,7 @@
 Name     AUDIO_SLOT;
 PartNo   00;
 Date     2026-11-17;
-Revision 05;
+Revision 06;
 Designer Justin;
 Company  ;
 Assembly ;
@@ -140,7 +140,7 @@ Device   g22v10;
       read is in clock 1.  V changes once per line and LC3:LC2 in
       group 45, both long before.
 
-   REVISION 05, REV B BOARD ONLY: 160-READ LINES
+   REVISIONS 05 AND 06, REV B BOARD ONLY: 160-READ LINES
       (The rev A board takes revision 04, src/pld/ATF22V10_AUDIO.pld.)
       Bit 7 of the mode byte (LC7) makes the video read a byte every
       4 clocks on that line, 160 reads instead of 80 (the Sync PLD,
@@ -151,14 +151,21 @@ Device   g22v10;
       Half column.  The first read of a group is made with T2 = 1
       and the second with T2 = 0, so on a 160-read line A8 = !T2:
       each 512-byte column is two 256-byte half columns.  The row
-      then has 8 bits, so a 160-read line is always 2x or 4x
-      (repeat code 00 gives 2x):
+      then has 8 bits:
 
-          address   2x    4x
-          A0        V8    V7
-          A1        V1    V8
-          A7        V7    1
-          A8        !T2   !T2
+          address   fold  2x    4x
+          A0        V0    V8    V7
+          A1        V1    V1    V8
+          A7        V7    V7    1
+          A8        !T2   !T2   !T2
+
+      Fold (revision 06) is repeat code 00: every line has its own
+      row, V7:V0, and V8 is dropped, so the memory wraps every 256
+      lines.  Rows 0-223 (lines 544-767) and rows 256-479 (lines
+      800-1023) read the same bytes; rows 224-255 have their own.
+      A program that wants the two parts different rewrites the
+      bytes between the two passes of the beam.  (Revision 05 gave
+      2x on this code.)
 
       Marker.  The Sync PLD has no free pin for LC7, so BLANK_RD
       tells it: BLANK_RD is also high through the active groups
@@ -222,9 +229,8 @@ MODE_LD  = !H9 &  H8 & !H7 &  H6 &  H5 & !H4 &  H3;          /* group 45, every 
 RAW      = !H9 & !H7;                                        /* groups 32-47: blanking reads */
 
 R0 = V0 & RAW
-   # V0 & !LC7 & !LC3 & !LC2
+   # V0 & !LC3 & !LC2                                        /* 1x, and fold on a 160-read line (revision 06) */
    # V8 & !RAW & !LC3 &  LC2                                 /* 2x */
-   # V8 & !RAW & !LC3 &  LC7                                 /* 160-read line: 2x at least */
    # V7 & !RAW &  LC3;                                       /* 4x */
 
 R1 = V1 & RAW

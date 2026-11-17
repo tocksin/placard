@@ -349,19 +349,20 @@ def t_memory(lib, n):
 
 def t_vid_addr_hi(lib, n):
     """160-read rows (rev B board, mode byte bit 7): byte column 0-159"""
-    for mode in (0x80, 0x84, 0x88, 0x8C, 0x86, 0x8B, 0xF5):
-        rows = 4 if mode & 8 else 2
+    for mode in (0x80, 0x82, 0x84, 0x88, 0x8C, 0x86, 0x8B, 0xF5):
+        rows = 4 if mode & 8 else 2 if mode & 4 else 1
         seen = {}
         for row in list(range(480)) if n else [0, 1, 2, 223, 224, 255, 256, 479]:
             col = random.choice([0, 1, 158, 159, random.randrange(160)])
             c = lib.cpu()
             c.mem[mode_addr(row)] = mode
             c, k = lib.call('vid_addr_hi', ac=col, cpu=c, zp={'R2': row, 'R3': row >> 8})
-            STATS.add('vid_addr_hi %dx' % rows, k)
+            STATS.add('vid_addr_hi %s' % ('%dx' % rows if rows > 1 else 'fold'), k)
             got = c.ac << 8 | c.x
             want = 0x6000 + (col >> 1) * 512 + (col & 1) * 256 + ps.hires_offset(row, mode)
             assert got == want, 'vid_addr_hi mode %02X %d %d: %04X, not %04X' % (mode, col, row, got, want)
-            seen.setdefault(got & 0xFF, set()).add(row // rows)
+            # fold: one row per line, and rows 256 lines apart are the same byte
+            seen.setdefault(got & 0xFF, set()).add(row // rows if rows > 1 else (row + 32) & 0xFF)
         assert all(len(v) == 1 for v in seen.values()), 'vid_addr_hi mode %02X: groups share a byte' % mode
 
 

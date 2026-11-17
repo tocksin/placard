@@ -338,7 +338,7 @@ pointers already point at the next block.
 | Routine | In | Out | Changes | Clocks |
 |---------|----|-----|---------|--------|
 | `vid_addr` | AC = byte column 0-79, R3:R2 = row 0-479 | AC = address high byte, X = low byte, for the row's own line repeat | T0, T1, T4 | 72-76 (1x), 85-89 (2x), 105-109 (4x) |
-| `vid_addr_hi` | AC = byte column 0-159, R3:R2 = row 0-479 | AC = address high byte, X = low byte, on a 160-read row of a rev B board ([HIRES.md](../video/HIRES.md)); repeat bits 00 count as 2x | T0, T1, T4 | 84-88 (2x), 107-111 (4x), with CALL and RETURN |
+| `vid_addr_hi` | AC = byte column 0-159, R3:R2 = row 0-479 | AC = address high byte, X = low byte, on a 160-read row of a rev B board ([HIRES.md](../video/HIRES.md)); repeat bits 00 are the fold (rows 0-223 and 256-479 give the same address) | T0, T1, T4 | 80-84 (fold), 93-97 (2x), 113-117 (4x), with CALL and RETURN |
 | `vid_clear` | AC = mode byte: bits 1:0 = 1, 2, 4, 8 bpp (0-3), bits 3:2 = 1x, 2x, 4x (0-2), bits 6:4 = R, G, B tint, bit 7 = blank | x6000-xFFFF = 0, every mode byte = AC | AC, X, Y, T0, T1 | 505,794 (20.1 ms) |
 | `vid_mode` | AC = mode byte | Every row's mode byte = AC, pixels kept | AC, X, Y, T0 | 11,061 |
 | `plot1` | R1:R0 = x 0-639, R3:R2 = y 0-479, AC = 0 clears, else sets | One pixel of a 1 bpp row (1x, 2x or 4x) | AC, X, Y, T0-T6 | 223-256 |

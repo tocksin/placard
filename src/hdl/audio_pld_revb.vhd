@@ -1,16 +1,19 @@
 --------------------------------------------------------------------------------
 -- Name     AUDIO_SLOT
 -- Date     2026-11-17
--- Revision 05 (rev B board only; the rev A board is audio_pld.vhd, revision 04)
+-- Revision 06 (rev B board only; the rev A board is audio_pld.vhd, revision 04)
 -- Device   ATF22V10C (CUPL: g22v10)
 --
--- Converted from WinCUPL source src/pld/rev_b/ATF22V10_AUDIO.pld (Revision 05).
+-- Converted from WinCUPL source src/pld/rev_b/ATF22V10_AUDIO.pld (Revision 06).
 -- The equations are translated as written, one signal per pin.
 --
 -- Revision 05: 160-read lines.  /AC_SEL has moved to the IR PLD; pin 16 is
 -- T2 (true H2) and pin 21 is LC7.  On a 160-read line A8 = !T2 (the half
 -- column) and BLANK_RD is also the line marker for the Sync PLD (active
 -- groups and group 28).
+--
+-- Revision 06: repeat code 00 on a 160-read line is the fold: the row is
+-- V7:V0, one row per line, and the memory wraps every 256 lines.
 --------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;
@@ -74,9 +77,8 @@ begin
     RAW <= (not H9) and (not H7);   -- groups 32-47
 
     R0 <= (V0 and RAW)
-       or (V0 and (not LC7) and (not LC3) and (not LC2))
+       or (V0 and (not LC3) and (not LC2))           -- 1x, and fold on a 160-read line (revision 06)
        or (V8 and (not RAW) and (not LC3) and LC2)   -- 2x
-       or (V8 and (not RAW) and (not LC3) and LC7)   -- 160-read line: 2x at least
        or (V7 and (not RAW) and LC3);                -- 4x
 
     R1 <= (V1 and RAW)

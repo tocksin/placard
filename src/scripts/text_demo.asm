@@ -7,9 +7,9 @@
 ;                             character set (normal and inverse), the live
 ;                             status lines, a column ruler and a legend.
 ;                             Row tints (mode byte bits 6:4, VIDEO.md "Row
-;                             tint"): the status lines sit on a blue panel
-;                             and a rainbow raster bar bounces up and down
-;                             behind the text, moved only by mode bytes
+;                             tint"): blocks of the 7 tints roll down over
+;                             the text, then it rests untinted for a
+;                             second; only the mode bytes change
 ;   rows  96-223  4 bpp, 4x   16 colors (160 x 32): "16 COLORS" in big
 ;                             letters, the 16 color bars and a spinning wheel
 ;   rows 224-351  2 bpp, 2x   40 column text (320 x 64), 8 rows of 8 x 16
@@ -33,24 +33,31 @@
 ;     read back.  The progress bar fills a block per two pages (an inverse
 ;     E marks a pair with errors); PASS counts full passes and ERRORS counts
 ;     failed checks (a pattern that read back wrong on a page).
-;   - the raster bar, first, while the video is in vertical blanking: the
-;     20 mode bytes it covered get their panel tint back (TINTB) and the
-;     20 at its new place get the bar (BARP, place from BARY)
+;   - the rolling tint, first, while the video is in vertical blanking:
+;     the 96 mode bytes of rows 0-95 (td_tint)
 ;   - the frame counter, the uptime clock (60 frames = 1 s), the text
 ;     spinner, the 16-color wheel (one step every 3 frames), the scrolling
 ;     message (one pixel a frame) and the 256-color ring (a step a frame).
-;   The busiest frame is about 182,000 clocks in placard_sim.
+;   The busiest frame is about 190,000 clocks in placard_sim.
+;   - the H key (td_keys): the 160-read screen of a rev B board
+;     (docs/video/HIRES.md) and back.  It is the same picture with the
+;     80 column text in 4 colors (640 across, 2 bpp), the 16-color band
+;     320 x 64 instead of 160 x 32 and the 256-color band 160 across
+;     instead of 80: smoothed letters and digits, round wheel dots and a
+;     rounder ring.  The status lines and the RAM test stop on that
+;     screen.  See "the 160-read screen" below.  On a rev A board those
+;     rows show black.
 ;
 ; It is a ROM program (docs/architecture/ROM.md): it runs in place from ROM x6000-xAFFF,
 ; uses the standard library (docs/software/LIBRARY.md) and the zero page map, and
-; keeps its variables in the zero page x20-x8E.  It doesn't use the ROM at
+; keeps its variables in the zero page x20-x8F.  It doesn't use the ROM at
 ; x2000-x3FFF, so it sets map 07 (section 1 reads RAM) to test that RAM too.
 ;
 ;     python3 gen_text_demo_tables.py         (writes text_demo_tables.asm)
 ;     python3 placard_sim.py text_demo.asm --run --max-steps 3000000 --png td.png
 ;     python3 text_demo_sim.py                (checks it; --gif for an animation)
 ;
-; Date: 11/11/2026
+; Date: 11/17/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -118,11 +125,18 @@ CH         = 0x5F       ; scroller: the 41 message characters on screen,
 wh_k       = 0x88       ; 256-color ring: pixel
 wh_t       = 0x89       ;   its color
 wh_x       = 0x8A       ;   its row offset
-tn_ph      = 0x8B       ; raster bar: phase (a step every 2 frames)
-tn_pos     = 0x8C       ;   x20 + its first row now (mode byte low address)
+tn_ph      = 0x8B       ; rolling tint: frame of the cycle
+tn_pos     = 0x8C       ;   place in ROLL of row 0
 tn_i       = 0x8D       ;   (row in the bar)
 tn_v       = 0x8E       ;   (its mode byte)
-TN_N       = 20         ;   rows in the bar
+TN_LEN     = 84         ;   rows in the train (7 blocks of 12)
+TN_REST    = 60         ;   frames of rest
+TN_CYC     = 151        ;   frames in a cycle: the rest, then 90 moving
+hx         = 0x8F       ; 1 while the 160-read screen is drawn and shown
+                        ;   (td_keys): td_fill_run and td_put_gbuf then
+                        ;   use vid_addr_hi and 160 byte columns; else 0
+K_H_BYTE   = KBD_NOW + 4 ; the H key: key 34, column 4 row 2, 0 = down
+K_H_BIT    = 0x04
 
 ; td_scroll's working bytes share the drawing routines' bytes (x49-x53, x58),
 ; which are only used while the screen is drawn
@@ -169,6 +183,8 @@ main:
 td_main:
     ld   STACK_TOP, ac          ; stack first
     ld   ac, [SP]
+    clr  ac                     ; the normal screen
+    ld   ac, [hx]
     ld   0x50, y                ; map 07: sections 0-2 read RAM, so the RAM
     ld   0x07, [y,x]            ; test can use x2000-x3FFF too (this program
     ld   0x07, ac               ; keeps all its code and tables at x6000 up)
@@ -206,7 +222,7 @@ td_mb3:
     inc
     bne  td_mb3
     ld   LINK_LO, x             ; CALL td_tint_init: rows 0-95 get their
-    ld   td_mb4, [x]            ; tints (TINTB)
+    ld   td_mb4, [x]            ; rolling tint
     ld   LINK_HI, x
     ld   td_mb4 >> 8, [x]
     ld   td_tint_init >> 8, y
@@ -289,6 +305,11 @@ td_m5:
     ld   td_put_range >> 8, y
     jmp  td_put_range
 td_m6:
+    ld   [hx], ac               ; back from the 160-read screen: only the
+    beq  td_m6n                 ; 80 column text is drawn again
+    ld   td_no_fin >> 8, y
+    jmp  td_no_fin
+td_m6n:
     ; ---- 16 colors: 4 bpp, 4x, rows 96-223 ------------------------------
     ld   s_16col, ac            ; "16 COLORS" in rainbow letters
     ld   ac, [R0]
@@ -362,8 +383,15 @@ td_bb1:
     ld   td_text2_list >> 8, y
     jmp  td_text2_list
 td_bb2:
-    ld   td_grid >> 8, y
-    jmp  td_grid
+    ld   LINK_LO, x             ; CALL td_grid_sub: the 256 band
+    ld   td_bb3, [x]
+    ld   LINK_HI, x
+    ld   td_bb3 >> 8, [x]
+    ld   td_grid_sub >> 8, y
+    jmp  td_grid_sub
+td_bb3:
+    ld   td_vars >> 8, y
+    jmp  td_vars
 
 ; ---------------------------------------------------------------------------
 #addr 0x6300
@@ -461,8 +489,8 @@ td_g_nb:
     ld   ac, [i0]
     sub  3, ac
     bne  td_g_d
-    ld   td_vars >> 8, y
-    jmp  td_vars
+    ld   lib_leave >> 8, y      ; LEAVE (called through td_grid_sub)
+    jmp  lib_leave
 
 #addr 0x7500
 td_vars:
@@ -526,7 +554,7 @@ td_l1:
     ld   [FRAME_LO], ac
     ld   ac, [last_frame]
 
-    ld   LINK_LO, x             ; CALL td_tint: the raster bar, while the
+    ld   LINK_LO, x             ; CALL td_tint: the rolling tint, while the
     ld   td_lt, [x]             ; video is still in vertical blanking
     ld   LINK_HI, x
     ld   td_lt >> 8, [x]
@@ -540,6 +568,11 @@ td_lt:
     ld   menu_poll >> 8, y
     jmp  menu_poll
 td_l0:
+    ld   [hx], ac               ; the 160-read screen: only the wheel,
+    beq  td_l0n                 ; the scroller and the ring
+    ld   td_loop_h >> 8, y
+    jmp  td_loop_h
+td_l0n:
     ld   LINK_LO, x             ; CALL td_ram_page: test one page
     ld   td_l2, [x]
     ld   LINK_HI, x
@@ -625,8 +658,758 @@ td_l7:
     ld   td_ring >> 8, y
     jmp  td_ring
 td_l8:
+    ld   td_keys >> 8, y        ; the H key, then td_loop
+    jmp  td_keys
+
+; ===========================================================================
+; the 160-read screen (rev B boards, docs/video/HIRES.md)
+;
+; H switches rows 96-223 and 352-479 to 160-read rows and back (td_keys).
+; The picture is the same, at twice the resolution:
+;
+;   rows   0-95   80 column text in 4 colors: 2 bpp, 2x and 160-read (85),
+;                 640 x 48, 6 rows of 8 x 16 characters (td_char2 with 160
+;                 byte columns) in place of the 12 rows of 2-color text.
+;                 Its bytes are the even low bytes x20-x7E of every page,
+;                 which are the text's in the even pages, so the status
+;                 lines and the RAM test stop on this screen (td_loop_h) and the text is drawn
+;                 again on the way back (the RAM test starts over)
+;   rows  96-223  16 colors, 4 bpp: 2x and 160-read (mode byte 86), so
+;                 320 x 64 pixels of 2 x 2 instead of 160 x 32 of 4 x 4.
+;                 "16 COLORS" from 16 x 16 letters (SMG: the font's letters
+;                 doubled with the diagonals filled in), the same bars, and
+;                 the wheel's dots as discs on a true circle
+;   rows 224-351  the 40 column band, unchanged: a 160-read 2x row from
+;                 row 256 on would use the odd low bytes x21-x7F
+;   rows 352-479  256 colors, 8 bpp, 4x and 160-read (8B): 160 x 32 pixels
+;                 of 4 x 4 instead of 80 x 32 of 8 x 4.  "256" from 24 x 28
+;                 digits (DIGH) and the ring from 508 pixels instead of 246
+;
+; A 160-read row has 160 byte columns: column c is page x60 + c, and the
+; row's low byte is the same in every page (vid_addr_hi).  The 16-color
+; band then uses the even low bytes x80-xFE, which nothing on the normal
+; screen uses, so both 16-color bands stay in memory.  The 256-color band
+; uses the low bytes x83 + 4n of every page: in the odd pages those are the
+; normal band's bytes, so each way that band is drawn again.
+;
+; Drawing a screen takes a few frames, in which the frame count and the
+; uptime clock stand still.  On a rev A board bit 7 of a mode byte is the
+; blank line, so there H shows black bands.
+;
+; (This code sits in the free ends of pages the program already had.)
+; ===========================================================================
+#addr 0x7378
+td_grid_sub:                    ; td_grid as a routine
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   td_grid >> 8, y
+    jmp  td_grid
+
+; td_keys - the end of the frame loop: H (down now) switches the screen
+td_keys:
+    ld   [K_H_BYTE], ac
+    and  K_H_BIT, ac
+    beq  td_k_sw
     ld   td_loop >> 8, y
     jmp  td_loop
+td_k_sw:
+    ld   1, ac                  ; the wheel is drawn on the next frame
+    ld   ac, [big_div]
+    ld   [hx], ac
+    bne  td_k_norm
+    ld   td_hi_draw >> 8, y
+    jmp  td_hi_draw
+td_k_norm:
+    ld   td_no_draw >> 8, y
+    jmp  td_no_draw
+td_k_up:
+    ; wait until H is up again (frame_poll and menu_poll keep the library's
+    ; frame count and the keyboard going)
+    ld   LINK_LO, x             ; CALL frame_poll
+    ld   td_ku1, [x]
+    ld   LINK_HI, x
+    ld   td_ku1 >> 8, [x]
+    ld   frame_poll >> 8, y
+    jmp  frame_poll
+td_ku1:
+    ld   LINK_LO, x             ; CALL menu_poll
+    ld   td_ku2, [x]
+    ld   LINK_HI, x
+    ld   td_ku2 >> 8, [x]
+    ld   menu_poll >> 8, y
+    jmp  menu_poll
+td_ku2:
+    ld   [K_H_BYTE], ac
+    and  K_H_BIT, ac
+    beq  td_k_up
+    ld   [FRAME_LO], ac
+    ld   ac, [last_frame]
+    ld   td_loop >> 8, y
+    jmp  td_loop
+
+; ---- back to the normal screen ----
+#addr 0x6A66
+td_no_draw:
+    clr  ac
+    ld   ac, [hx]
+    ld   0x5A, y                ; mode bytes of rows 96-223
+    ld   0x80, ac
+td_nm1:
+    ld   ac, x
+    ld   0x0A, [y,x]
+    inc
+    bne  td_nm1
+    ld   0x5B, y                ; and of rows 352-479
+    ld   0x80, ac
+td_nm2:
+    ld   ac, x
+    ld   0x0B, [y,x]
+    inc
+    bne  td_nm2
+    ; the 256 band: black, then the digits (the ring draws itself)
+    clr  ac
+    ld   ac, [p_val]
+    clr  ac
+    ld   ac, [p_col]
+    ld   80, ac
+    ld   ac, [p_n]
+    ld   0x60, ac
+    ld   ac, [p_rlo]
+    ld   1, ac
+    ld   ac, [p_rhi]
+    ld   32, ac
+    ld   ac, [p_rows]
+    ld   4, ac
+    ld   ac, [p_step]
+    ld   LINK_LO, x             ; CALL td_rect
+    ld   td_nd1, [x]
+    ld   LINK_HI, x
+    ld   td_nd1 >> 8, [x]
+    ld   td_rect >> 8, y
+    jmp  td_rect
+td_nd1:
+    ld   LINK_LO, x             ; CALL td_grid_sub
+    ld   td_nd2, [x]
+    ld   LINK_HI, x
+    ld   td_nd2 >> 8, [x]
+    ld   td_grid_sub >> 8, y
+    jmp  td_grid_sub
+td_nd2:
+    ld   td_no_top >> 8, y
+    jmp  td_no_top
+
+; ---- the 160-read screen ----
+#addr 0x6E6A
+td_hi_draw:
+    ld   1, ac
+    ld   ac, [hx]
+    ld   0x5A, y                ; mode bytes of rows 96-223
+    ld   0x80, ac
+td_hm1:
+    ld   ac, x
+    ld   0x86, [y,x]
+    inc
+    bne  td_hm1
+    ld   0x5B, y                ; and of rows 352-479
+    ld   0x80, ac
+td_hm2:
+    ld   ac, x
+    ld   0x8B, [y,x]
+    inc
+    bne  td_hm2
+    ; the 16-color band: black
+    clr  ac
+    ld   ac, [p_val]
+    clr  ac
+    ld   ac, [p_col]
+    ld   160, ac
+    ld   ac, [p_n]
+    ld   96, ac
+    ld   ac, [p_rlo]
+    clr  ac
+    ld   ac, [p_rhi]
+    ld   64, ac
+    ld   ac, [p_rows]
+    ld   2, ac
+    ld   ac, [p_step]
+    ld   LINK_LO, x             ; CALL td_rect
+    ld   td_hd1, [x]
+    ld   LINK_HI, x
+    ld   td_hd1 >> 8, [x]
+    ld   td_rect >> 8, y
+    jmp  td_rect
+td_hd1:
+    clr  ac                     ; "16 COLORS", 16 x 16 letters, 8 bytes each
+    ld   ac, [i0]               ; from byte column 4
+    ld   ac, [c_bg]
+td_hd_ch:
+    ld   TBL >> 8, y
+    ld   [i0], ac               ; the letter's number in SMG
+    add  S16H & 0xFF, ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [c_ch]
+    ld   [i0], ac               ; its color
+    add  RAINBOW & 0xFF, ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [c_fg]
+    ld   [i0], ac
+    shl
+    shl
+    shl
+    add  4, ac
+    ld   ac, [c_col]
+    ld   LINK_LO, x             ; CALL td_char4h
+    ld   td_hd2, [x]
+    ld   LINK_HI, x
+    ld   td_hd2 >> 8, [x]
+    ld   td_char4h >> 8, y
+    jmp  td_char4h
+td_hd2:
+    ld   [i0], ac
+    inc
+    ld   ac, [i0]
+    sub  9, ac
+    bne  td_hd_ch
+    ld   td_hi_bars >> 8, y
+    jmp  td_hi_bars
+
+#addr 0x6264
+td_hi_bars:
+    clr  ac                     ; the 16 color bars, 6 bytes (12 pixels)
+    ld   ac, [i0]               ; wide, rows 136-219
+td_hb:
+    ld   [i0], ac               ; fill = color * x11
+    shl
+    shl
+    shl
+    shl
+    or   [i0], ac
+    ld   ac, [p_val]
+    ld   [i0], ac               ; byte column 4 + 6 * color
+    shl
+    add  [i0], ac
+    shl
+    add  4, ac
+    ld   ac, [p_col]
+    ld   6, ac
+    ld   ac, [p_n]
+    ld   136, ac
+    ld   ac, [p_rlo]
+    clr  ac
+    ld   ac, [p_rhi]
+    ld   42, ac
+    ld   ac, [p_rows]
+    ld   2, ac
+    ld   ac, [p_step]
+    ld   LINK_LO, x             ; CALL td_rect
+    ld   td_hb1, [x]
+    ld   LINK_HI, x
+    ld   td_hb1 >> 8, [x]
+    ld   td_rect >> 8, y
+    jmp  td_rect
+td_hb1:
+    ld   [i0], ac
+    inc
+    ld   ac, [i0]
+    sub  16, ac
+    bne  td_hb
+    ; the 256 band: black
+    clr  ac
+    ld   ac, [p_val]
+    clr  ac
+    ld   ac, [p_col]
+    ld   160, ac
+    ld   ac, [p_n]
+    ld   0x60, ac
+    ld   ac, [p_rlo]
+    ld   1, ac
+    ld   ac, [p_rhi]
+    ld   32, ac
+    ld   ac, [p_rows]
+    ld   4, ac
+    ld   ac, [p_step]
+    ld   LINK_LO, x             ; CALL td_rect
+    ld   td_hb2, [x]
+    ld   LINK_HI, x
+    ld   td_hb2 >> 8, [x]
+    ld   td_rect >> 8, y
+    jmp  td_rect
+td_hb2:
+    ld   td_hi_top >> 8, y
+    jmp  td_hi_top
+
+#addr 0x7800
+td_hi_top:
+    ld   0x5A, y                ; rows 0-95: 2 bpp 2x, 160-read, no tint
+    ld   0x20, ac
+td_ht1:
+    ld   ac, x
+    ld   0x85, [y,x]
+    inc
+    blt  td_ht2
+    bra  td_ht1
+td_ht2:
+    ; the 80 column band: black, then its text
+    clr  ac
+    ld   ac, [p_val]
+    clr  ac
+    ld   ac, [p_col]
+    ld   160, ac
+    ld   ac, [p_n]
+    clr  ac
+    ld   ac, [p_rlo]
+    clr  ac
+    ld   ac, [p_rhi]
+    ld   48, ac
+    ld   ac, [p_rows]
+    ld   2, ac
+    ld   ac, [p_step]
+    ld   LINK_LO, x             ; CALL td_rect
+    ld   td_ht3, [x]
+    ld   LINK_HI, x
+    ld   td_ht3 >> 8, [x]
+    ld   td_rect >> 8, y
+    jmp  td_rect
+td_ht3:
+    ld   text_h, ac
+    ld   ac, [tp_lo]
+    ld   text_h >> 8, ac
+    ld   ac, [tp_hi]
+    ld   LINK_LO, x             ; CALL td_text2_list
+    ld   td_ht4, [x]
+    ld   LINK_HI, x
+    ld   td_ht4 >> 8, [x]
+    ld   td_text2_list >> 8, y
+    jmp  td_text2_list
+td_ht4:
+    ld   td_grid_h >> 8, y
+    jmp  td_grid_h
+
+td_no_top:                      ; back: rows 0-95 are 1 bpp 1x again
+    ld   LINK_LO, x             ; CALL td_tint_init
+    ld   td_nt1, [x]
+    ld   LINK_HI, x
+    ld   td_nt1 >> 8, [x]
+    ld   td_tint_init >> 8, y
+    jmp  td_tint_init
+td_nt1:
+    ; black, then the text as at the start
+    clr  ac
+    ld   ac, [p_val]
+    clr  ac
+    ld   ac, [p_col]
+    ld   80, ac
+    ld   ac, [p_n]
+    clr  ac
+    ld   ac, [p_rlo]
+    clr  ac
+    ld   ac, [p_rhi]
+    ld   96, ac
+    ld   ac, [p_rows]
+    ld   1, ac
+    ld   ac, [p_step]
+    ld   LINK_LO, x             ; CALL td_rect
+    ld   td_nt2, [x]
+    ld   LINK_HI, x
+    ld   td_nt2 >> 8, [x]
+    ld   td_rect >> 8, y
+    jmp  td_rect
+td_nt2:
+    clr  ac                     ; the RAM test starts over
+    ld   ac, [rt_idx]
+    ld   ac, [pass_lo]
+    ld   ac, [pass_hi]
+    ld   ac, [err_lo]
+    ld   ac, [err_hi]
+    ld   1, ac                  ; (hx = 1 brings td_m6 back to td_no_fin)
+    ld   ac, [hx]
+    ld   td_mb4 >> 8, y
+    jmp  td_mb4
+td_no_fin:
+    clr  ac
+    ld   ac, [hx]
+    ld   td_k_up >> 8, y
+    jmp  td_k_up
+
+; td_loop_h - the frame loop's work on the 160-read screen
+td_loop_h:
+    ld   [big_div], ac          ; wheel every 3 frames
+    dec
+    ld   ac, [big_div]
+    bne  td_lh1
+    ld   3, ac
+    ld   ac, [big_div]
+    ld   [big_ph], ac
+    inc
+    and  7, ac
+    ld   ac, [big_ph]
+    ld   LINK_LO, x             ; CALL td_wheel
+    ld   td_lh1, [x]
+    ld   LINK_HI, x
+    ld   td_lh1 >> 8, [x]
+    ld   td_wheel >> 8, y
+    jmp  td_wheel
+td_lh1:
+    ld   LINK_LO, x             ; CALL td_scroll
+    ld   td_lh3, [x]
+    ld   LINK_HI, x
+    ld   td_lh3 >> 8, [x]
+    ld   td_scroll >> 8, y
+    jmp  td_scroll
+td_lh3:
+    ld   LINK_LO, x             ; CALL td_ring
+    ld   td_lh2, [x]
+    ld   LINK_HI, x
+    ld   td_lh2 >> 8, [x]
+    ld   td_ring >> 8, y
+    jmp  td_ring
+td_lh2:
+    ld   td_keys >> 8, y
+    jmp  td_keys
+
+; ---------------------------------------------------------------------------
+; td_grid_h - "256" on the 160-read 256 band, from DIGH: 24 x 28 pixels a
+;   digit, a byte each, in the place of the normal screen's digits: byte
+;   columns 4 + 28 * digit, block rows 2-29 (low bytes x8B + 4 * row).
+;   Every 4 rows get the next shade (SHADES), as the font rows do there.
+; ---------------------------------------------------------------------------
+#addr 0x7452
+td_grid_h:
+    clr  ac
+    ld   ac, [i0]               ; digit
+    ld   ac, [tb_v]             ; place in DIGH
+    ld   0x64, ac
+    ld   ac, [pr_c]             ; the digit's first page
+td_gh_d:
+    clr  ac
+    ld   ac, [i1]               ; row 0-27
+td_gh_r:
+    ld   TBL2 >> 8, y           ; shade = SHADES[8 * digit + row / 4]
+    ld   [i1], ac
+    shr  ac
+    shr  ac
+    ld   ac, [p_val]
+    ld   [i0], ac
+    shl
+    shl
+    shl
+    add  [p_val], ac
+    add  SHADES & 0xFF, ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [p_val]
+    ld   [i1], ac               ; low byte
+    shl
+    shl
+    add  0x8B, ac
+    ld   ac, [p_cnt]
+    ld   [pr_c], ac
+    ld   ac, [p_hi]
+    ld   3, ac
+    ld   ac, [pz_n]             ; 3 bytes of 8 pixels
+td_gh_byte:
+    ld   [tb_v], x
+    ld   DIGH >> 8, y
+    ld   [y,x], ac
+    ld   ac, [c_fr]
+    ld   8, ac
+    ld   ac, [c_i]
+td_gh_bit:
+    ld   [c_fr], ac
+    and  1, ac
+    beq  td_gh_nb
+    ld   [p_hi], y
+    ld   [p_cnt], x
+    ld   [p_val], ac
+    ld   ac, [y,x]
+td_gh_nb:
+    ld   [c_fr], ac
+    shr  ac
+    ld   ac, [c_fr]
+    ld   [p_hi], ac
+    inc
+    ld   ac, [p_hi]
+    ld   [c_i], ac
+    dec
+    ld   ac, [c_i]
+    bne  td_gh_bit
+    ld   [tb_v], ac
+    inc
+    ld   ac, [tb_v]
+    ld   [pz_n], ac
+    dec
+    ld   ac, [pz_n]
+    bne  td_gh_byte
+    ld   [i1], ac
+    inc
+    ld   ac, [i1]
+    sub  28, ac
+    bne  td_gh_r
+    ld   [pr_c], ac
+    add  28, ac
+    ld   ac, [pr_c]
+    ld   [i0], ac
+    inc
+    ld   ac, [i0]
+    sub  3, ac
+    bne  td_gh_d
+    ld   td_k_up >> 8, y        ; wait for H to come up
+    jmp  td_k_up
+
+; ---------------------------------------------------------------------------
+; td_char4h - one 16 x 16 letter of SMG on the 160-read 16-color band (2x
+;   rows from row 96)
+;   in: c_ch = the letter's number, c_col = byte column 0-152 (8 per
+;       letter), c_fg = foreground fill XOR c_bg, c_bg
+;   changes: AC, X, Y, R2, R3, T0, T1, T4, p_*, gb0-gb3, c_fr
+; ---------------------------------------------------------------------------
+#addr 0x7058
+td_char4h:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    ld   [c_ch], ac             ; c_fr = place in SMG: 32 bytes a letter,
+    shl                         ; the left and the right 8 pixels of each
+    shl                         ; of its 16 rows
+    shl
+    shl
+    shl
+    ld   ac, [c_fr]
+    ld   96, ac
+    ld   ac, [p_rlo]
+    clr  ac
+    ld   ac, [p_rhi]
+td_c4h_k:
+    ld   [c_fr], x
+    ld   SMG >> 8, y
+    ld   [y,x], ac
+    ld   ac, x
+    ld   EXP4_0 >> 8, y         ; pixels 0-1
+    ld   [y,x], ac
+    and  [c_fg], ac
+    xor  [c_bg], ac
+    ld   ac, [gb0]
+    ld   EXP4_1 >> 8, y         ; pixels 2-3
+    ld   [y,x], ac
+    and  [c_fg], ac
+    xor  [c_bg], ac
+    ld   ac, [gb1]
+    ld   EXP4_2 >> 8, y         ; pixels 4-5
+    ld   [y,x], ac
+    and  [c_fg], ac
+    xor  [c_bg], ac
+    ld   ac, [gb2]
+    ld   EXP4_3 >> 8, y         ; pixels 6-7
+    ld   [y,x], ac
+    and  [c_fg], ac
+    xor  [c_bg], ac
+    ld   ac, [gb3]
+    ld   4, ac
+    ld   ac, [p_n]
+    ld   [c_fr], ac             ; the right half is 4 bytes on
+    and  1, ac
+    shl
+    shl
+    add  [c_col], ac
+    ld   ac, [p_col]
+    ld   LINK_LO, x             ; CALL td_put_gbuf
+    ld   td_c4h_1, [x]
+    ld   LINK_HI, x
+    ld   td_c4h_1 >> 8, [x]
+    ld   td_put_gbuf >> 8, y
+    jmp  td_put_gbuf
+td_c4h_1:
+    ld   [c_fr], ac             ; after the right half, the next row pair
+    and  1, ac
+    shl
+    add  [p_rlo], ac
+    ld   ac, [p_rlo]
+    ld   [c_fr], ac
+    inc
+    ld   ac, [c_fr]
+    and  31, ac
+    bne  td_c4h_k
+    ld   lib_leave >> 8, y      ; LEAVE
+    jmp  lib_leave
+
+; ---------------------------------------------------------------------------
+; td_wheel_h - the wheel on the 160-read 16-color band: 8 discs of 8 x 8
+;   pixels (DISC), 4 bytes wide, at DOTCH, DOTRH (a circle of radius 40
+;   screen pixels around the normal wheel's center); colors as td_wheel
+; ---------------------------------------------------------------------------
+#addr 0x7550
+td_wheel_h:
+    ld   ac, [SAVE_AC]          ; PUSH_LINK
+    ld   [SP], x
+    ld   [LINK_HI], ac
+    ld   ac, [x]
+    ld   [SP], ac
+    dec
+    ld   ac, x
+    dec
+    ld   ac, [SP]
+    ld   [LINK_LO], ac
+    ld   ac, [x]
+    ld   [SAVE_AC], ac
+    clr  ac
+    ld   ac, [dot_k]
+td_whh_dot:
+    ld   TBL >> 8, y
+    ld   [big_ph], ac           ; color
+    sub  [dot_k], ac
+    and  7, ac
+    add  TAIL & 0xFF, ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [c_fg]
+    ld   [dot_k], ac            ; place
+    add  DOTCH & 0xFF, ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [p_col]
+    ld   [dot_k], ac
+    add  DOTRH & 0xFF, ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [p_rlo]
+    clr  ac
+    ld   ac, [p_rhi]
+    ld   DISC & 0xFF, ac
+    ld   ac, [tb_v]             ; place in DISC, 4 bytes a row
+td_whh_row:
+    ld   TBL >> 8, y
+    ld   [tb_v], x
+    ld   [y,x], ac
+    and  [c_fg], ac
+    ld   ac, [gb0]
+    ld   [tb_v], ac
+    inc
+    ld   ac, x
+    ld   [y,x], ac
+    and  [c_fg], ac
+    ld   ac, [gb1]
+    ld   [tb_v], ac
+    add  2, ac
+    ld   ac, x
+    ld   [y,x], ac
+    and  [c_fg], ac
+    ld   ac, [gb2]
+    ld   [tb_v], ac
+    add  3, ac
+    ld   ac, x
+    ld   [y,x], ac
+    and  [c_fg], ac
+    ld   ac, [gb3]
+    ld   4, ac
+    ld   ac, [p_n]
+    ld   LINK_LO, x             ; CALL td_put_gbuf
+    ld   td_whh_1, [x]
+    ld   LINK_HI, x
+    ld   td_whh_1 >> 8, [x]
+    ld   td_put_gbuf >> 8, y
+    jmp  td_put_gbuf
+td_whh_1:
+    ld   [p_rlo], ac
+    add  2, ac
+    ld   ac, [p_rlo]
+    ld   [tb_v], ac
+    add  4, ac
+    ld   ac, [tb_v]
+    sub  (DISC & 0xFF) + 32, ac
+    bne  td_whh_row
+    ld   [dot_k], ac
+    inc
+    ld   ac, [dot_k]
+    sub  8, ac
+    bne  td_whh_dot
+    ld   lib_leave >> 8, y      ; LEAVE
+    jmp  lib_leave
+
+; ---------------------------------------------------------------------------
+; td_ring_h - the ring on the 160-read 256 band (td_ring jumps here after
+;   stepping wh_ph): the ring pixels in runs along the block rows
+;   (RINGH_R: low byte, first page, count; text_demo_tables.asm), pixel k
+;   gets HUE[RINGH_A[k] + wh_ph]
+;   (a leaf routine; changes AC, X, Y, i0, i1, p_hi, p_cnt, tp_lo, tp_hi)
+; ---------------------------------------------------------------------------
+#addr 0x726E
+td_ring_h:
+    ld   RINGH_A & 0xFF, ac
+    ld   ac, [tp_lo]
+    ld   RINGH_A >> 8, ac
+    ld   ac, [tp_hi]
+    ld   RINGH_R & 0xFF, ac
+    ld   ac, [i0]
+td_rh_run:
+    ld   [i0], x
+    ld   RINGH_R >> 8, y
+    ld   [y,x], ac
+    beq  td_rh_done
+    ld   ac, [p_cnt]            ; low byte
+    ld   [i0], ac
+    inc
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [p_hi]             ; first page
+    ld   [i0], ac
+    add  2, ac
+    ld   ac, x
+    ld   [y,x], ac
+    ld   ac, [i1]               ; count
+    ld   [i0], ac
+    add  3, ac
+    ld   ac, [i0]
+td_rh_px:
+    ld   [tp_hi], y             ; color
+    ld   [tp_lo], x
+    ld   [y,x], ac
+    add  [wh_ph], ac
+    ld   ac, x
+    ld   HUE >> 8, y
+    ld   [y,x], ac
+    ld   [p_hi], y
+    ld   [p_cnt], x
+    ld   ac, [y,x]
+    ld   [p_hi], ac
+    inc
+    ld   ac, [p_hi]
+    ld   [tp_lo], ac
+    inc
+    ld   ac, [tp_lo]
+    bne  td_rh_1
+    ld   [tp_hi], ac
+    inc
+    ld   ac, [tp_hi]
+td_rh_1:
+    ld   [i1], ac
+    dec
+    ld   ac, [i1]
+    bne  td_rh_px
+    bra  td_rh_run
+td_rh_done:
+    ld   [LINK_HI], y           ; RETURN
+    jmp  [LINK_LO]
 
 ; ===========================================================================
 ; td_ram_page - test one page of the RAM test and show the result
@@ -982,6 +1765,11 @@ td_tc3:
 ; ===========================================================================
 #addr 0x6A00
 td_wheel:
+    ld   [hx], ac               ; the 160-read screen has its own
+    beq  td_wh_go
+    ld   td_wheel_h >> 8, y
+    jmp  td_wheel_h
+td_wh_go:
     ld   ac, [SAVE_AC]          ; PUSH_LINK
     ld   [SP], x
     ld   [LINK_HI], ac
@@ -1225,6 +2013,11 @@ td_ring:
     ld   [wh_ph], ac
     inc
     ld   ac, [wh_ph]
+    ld   [hx], ac               ; the 160-read screen has its own
+    beq  td_rg_go
+    ld   td_ring_h >> 8, y
+    jmp  td_ring_h
+td_rg_go:
     clr  ac
     ld   ac, [wh_k]
 td_rg_px:
@@ -1281,13 +2074,19 @@ td_fill_run:
     ld   ac, [R2]
     ld   [p_rhi], ac
     ld   ac, [R3]
-    ld   [p_col], ac
-    ld   LINK_LO, x             ; CALL vid_addr
-    ld   td_fr1, [x]
+    ld   LINK_LO, x             ; CALL vid_addr, or vid_addr_hi on the
+    ld   td_fr1, [x]            ; 160-read screen
     ld   LINK_HI, x
     ld   td_fr1 >> 8, [x]
+    ld   [hx], ac
+    bne  td_fr_hi
+    ld   [p_col], ac
     ld   vid_addr >> 8, y
     jmp  vid_addr
+td_fr_hi:
+    ld   [p_col], ac
+    ld   vid_addr_hi >> 8, y
+    jmp  vid_addr_hi
 td_fr1:
     ld   ac, [p_hi]
     ld   [p_n], ac
@@ -1296,8 +2095,9 @@ td_fr_loop:
     ld   [p_hi], y
     ld   [p_val], ac
     ld   ac, [y,x]
-    ld   [p_hi], ac             ; next byte column: 2 pages on
-    add  2, ac
+    ld   [p_hi], ac             ; next byte column: 2 pages on (1 on a
+    add  2, ac                  ; 160-read row)
+    sub  [hx], ac
     ld   ac, [p_hi]
     ld   [p_cnt], ac
     dec
@@ -1371,13 +2171,19 @@ td_put_gbuf:
     ld   ac, [R2]
     ld   [p_rhi], ac
     ld   ac, [R3]
-    ld   [p_col], ac
-    ld   LINK_LO, x             ; CALL vid_addr
-    ld   td_pg1, [x]
+    ld   LINK_LO, x             ; CALL vid_addr, or vid_addr_hi on the
+    ld   td_pg1, [x]            ; 160-read screen
     ld   LINK_HI, x
     ld   td_pg1 >> 8, [x]
+    ld   [hx], ac
+    bne  td_pg_hi
+    ld   [p_col], ac
     ld   vid_addr >> 8, y
     jmp  vid_addr
+td_pg_hi:
+    ld   [p_col], ac
+    ld   vid_addr_hi >> 8, y
+    jmp  vid_addr_hi
 td_pg1:
     ld   ac, y
     ld   ac, [p_hi]
@@ -1389,6 +2195,7 @@ td_pg1:
     ld   ac, [p_cnt]
     ld   [p_hi], ac
     add  2, ac
+    sub  [hx], ac
     ld   ac, [p_hi]
     ld   ac, y
     ld   [gb1], ac
@@ -1399,6 +2206,7 @@ td_pg1:
     ld   ac, [p_cnt]
     ld   [p_hi], ac
     add  2, ac
+    sub  [hx], ac
     ld   ac, [p_hi]
     ld   ac, y
     ld   [gb2], ac
@@ -1408,6 +2216,7 @@ td_pg1:
     beq  td_pg_done
     ld   [p_hi], ac
     add  2, ac
+    sub  [hx], ac
     ld   ac, y
     ld   [gb3], ac
     ld   ac, [y,x]
@@ -1452,6 +2261,17 @@ td_char2:
     clr  ac
     ld   ac, [p_rhi]
 td_c2_hi:
+    ld   [hx], ac               ; the 160-read screen: its 80 column band
+    beq  td_c2_col              ; is rows 0-95, row 16 * text row
+    ld   [c_row], ac
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [p_rlo]
+    clr  ac
+    ld   ac, [p_rhi]
+td_c2_col:
     ld   [c_col], ac            ; 2 byte columns per character
     shl
     ld   ac, [p_col]
@@ -1953,6 +2773,7 @@ td_tn_1:
 ; 80 column text: column, row, attribute, string
 text_a:
     #d8 0, 0, 0x80, s_title & 0xFF, s_title >> 8
+    #d8 13, 1, 0, s_hint & 0xFF, s_hint >> 8
     #d8 17, 3, 0, s_fox & 0xFF, s_fox >> 8
     #d8 0, 6, 0, s_cpu & 0xFF, s_cpu >> 8
     #d8 30, 6, 0, s_up & 0xFF, s_up >> 8
@@ -2033,31 +2854,67 @@ msg:
 msg_end:
     #d8 0x00
 
+; the 160-read screen's 80 column text (in the free ends of the code pages):
+; column, row, fg XOR bg, bg, string
+#addr 0x7678
+text_h:
+    #d8 0, 0, 0xAA, 0x55, s_h0 & 0xFF, s_h0 >> 8
+    #d8 1, 1, 0xAA, 0x00, s_h1 & 0xFF, s_h1 >> 8
+    #d8 1, 2, 0xFF, 0x00, s_h2 & 0xFF, s_h2 >> 8
+    #d8 1, 3, 0xAA, 0x55, s_blue & 0xFF, s_blue >> 8
+    #d8 8, 3, 0xAA, 0xAA, s_gold & 0xFF, s_gold >> 8
+    #d8 15, 3, 0xFF, 0xFF, s_white & 0xFF, s_white >> 8
+    #d8 24, 3, 0x55, 0x00, s_h3 & 0xFF, s_h3 >> 8
+    #d8 1, 4, 0xFF, 0x00, s_h4 & 0xFF, s_h4 >> 8
+    #d8 0, 5, 0xAA, 0xAA, s_h5 & 0xFF, s_h5 >> 8
+    #d8 0xFF
+s_h0:
+    #d " PLACARD COMPUTER  -  VIDEO TEST SCREEN         80 COLUMNS  4 COLORS  160-READ  ", 0x00
+#addr 0x6C8F
+s_h1:
+    #d "The quick brown fox jumps over the lazy dog.  0123456789  !?#$%&*+-=<>()[]{}", 0x00
+#addr 0x6395
+s_h2:
+    #d "640 X 240 PIXELS IN 4 COLORS: A BYTE EVERY 4 CLOCKS ON A 160-READ ROW (REV B)", 0x00
+#addr 0x8381
+s_h4:
+    #d "STATUS AND RAM TEST ARE STOPPED ON THIS SCREEN.  PRESS H FOR THE NORMAL SCREEN", 0x00
+s_h3:
+    #d "THE SAME 4 COLORS, TWICE THE PIXELS ACROSS", 0x00
+#addr 0x9780
+s_h5:
+    #d " BELOW: 16 COLORS  320 X 64  |  40 COLUMNS  2 BPP  2X  |  256 COLORS  160 X 32  ", 0x00
+#addr 0x6DBE
+s_hint:
+    #d "H: 160-READ ROWS (REV B BOARDS, BLANK ROWS ON REV A)", 0x00
+
 ; ===========================================================================
-; td_tint_init - rows 0-95: mode byte = TINTB (1 bpp 1x, with their tint);
-;   the raster bar starts at row 0
+; the rolling tint of rows 0-95 (mode byte bits 6:4, VIDEO.md "Row tint")
+;   A train of 7 blocks of 12 rows, one of each tint (ROLL), rolls down
+;   over the text two rows a frame; then the rows rest untinted for a
+;   second.  A cycle is TN_CYC frames: tn_ph counts them, and tn_pos is
+;   the place in ROLL of row 0 (TN_LEN = the train just above the screen;
+;   places from TN_LEN on are no tint).  On the 160-read screen the mode
+;   bytes keep their 85 (2 bpp, 2x, 160-read) under the tint.
+;
+; td_tint_init - rows 0-95 untinted (1 bpp 1x), the cycle at its start
 ;   changes: AC, X, Y
-; td_tint - move the raster bar: its old 20 rows get TINTB back, then the
-;   bar (BARP) goes to row BARY[phase / 2]; called first thing in a frame,
-;   in the vertical blanking.  About 1,600 clocks.
-;   changes: AC, X, Y
+; td_tint - a frame on: sets the 96 mode bytes; called first thing in a
+;   frame, in the vertical blanking.  About 4,000 clocks.
+;   changes: AC, X, Y, T0, tn_*
 ; ===========================================================================
 #addr 0x6F60
 td_tint_init:
-    ld   95, ac
-    ld   ac, [tn_i]
-tti_l:
-    ld   [tn_i], ac             ; mode byte x5A20 + row = TINTB[row]
-    add  0x20, x                ; (TINTB is at xA220, the same low bytes)
-    ld   TINTB >> 8, y
-    ld   [y,x], ac
     ld   0x5A, y
-    ld   ac, [y,x]
-    ld   [tn_i], ac
-    sub  1, ac
-    ld   ac, [tn_i]
-    bcc  tti_l
     ld   0x20, ac
+tti_l:
+    ld   ac, x
+    ld   0x00, [y,x]
+    inc
+    blt  tti_e
+    bra  tti_l
+tti_e:
+    ld   TN_LEN, ac
     ld   ac, [tn_pos]
     clr  ac
     ld   ac, [tn_ph]
@@ -2065,70 +2922,73 @@ tti_l:
     jmp  [LINK_LO]
 
 td_tint:
-    ld   TN_N - 1, ac         ; the rows the bar covered: TINTB again
+    clr  ac                     ; tn_v = the rows' mode without a tint
+    ld   ac, [tn_v]
+    ld   [hx], ac
+    beq  tt_ph
+    ld   0x85, ac
+    ld   ac, [tn_v]
+tt_ph:
+    ld   [tn_ph], ac            ; the next frame of the cycle
+    inc
+    ld   ac, [tn_ph]
+    xor  TN_CYC, ac
+    bne  tt_mv
+    ld   ac, [tn_ph]            ; a new cycle: the train above the screen
+    ld   TN_LEN, ac
+    ld   ac, [tn_pos]
+tt_mv:
+    ld   [tn_ph], ac            ; after the rest it moves 2 rows a frame
+    sub  TN_REST + 1, ac
+    bcc  tt_go
+    bra  tt_draw
+tt_go:
+    ld   [tn_pos], ac
+    sub  2, ac
+    ld   ac, [tn_pos]
+tt_draw:
+    ld   95, ac
     ld   ac, [tn_i]
 tt_r:
-    ld   [tn_i], ac
-    add  [tn_pos], x
-    ld   TINTB >> 8, y
+    ld   [tn_i], ac             ; the row's place in ROLL
+    add  [tn_pos], ac
+    sub  TN_LEN, ac
+    bcc  tt_none                ; off the train
+    add  (ROLL & 0xFF) + TN_LEN, x
+    ld   ROLL >> 8, y
     ld   [y,x], ac
+    or   [tn_v], ac
+    bra  tt_w
+tt_none:
+    ld   [tn_v], ac
+tt_w:
+    ld   ac, [T0]
+    ld   [tn_i], ac             ; mode byte x5A20 + row
+    add  0x20, x
     ld   0x5A, y
+    ld   [T0], ac
     ld   ac, [y,x]
     ld   [tn_i], ac
     sub  1, ac
     ld   ac, [tn_i]
     bcc  tt_r
-    ld   [tn_ph], ac            ; next place: BARY[phase / 2] + x20
-    add  1, ac
-    and  0x7F, ac
-    ld   ac, [tn_ph]
-    shr  ac
-    add  BARY & 0xFF, x
-    ld   BARY >> 8, y
-    ld   [y,x], ac
-    add  0x20, ac
-    ld   ac, [tn_pos]
-    ld   TN_N - 1, ac         ; the bar
-    ld   ac, [tn_i]
-tt_b:
-    ld   [tn_i], ac
-    add  BARP & 0xFF, x
-    ld   BARP >> 8, y
-    ld   [y,x], ac
-    ld   ac, [tn_v]
-    ld   [tn_i], ac
-    add  [tn_pos], x
-    ld   0x5A, y
-    ld   [tn_v], ac
-    ld   ac, [y,x]
-    ld   [tn_i], ac
-    sub  1, ac
-    ld   ac, [tn_i]
-    bcc  tt_b
     ld   [LINK_HI], y           ; RETURN
     jmp  [LINK_LO]
 
 ; ===========================================================================
-; raster bar tables (xA220-xA2FF, after the scroller's page tables)
+; the rolling tint's train (xA220, after the scroller's page tables): 12
+; rows each of gray (all three), magenta, blue, cyan, green, yellow and red,
+; top to bottom (tint bits: 10 red, 20 green, 40 blue)
 ; ===========================================================================
 #addr 0xA220
-TINTB:                          ; tint of rows 0-95 (x20 + row): a blue panel
-    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    #d8 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x40, 0x40, 0x40
-    #d8 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40
-    #d8 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40
-    #d8 0x40, 0x40, 0x40, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-#addr 0xA280                    ;   behind the status lines, rows 44-83
-BARP:                           ; the bar, 20 rows: blue, magenta, red, gold,
-    #d8 0x40, 0x40, 0x50, 0x50, 0x10, 0x10, 0x30, 0x30, 0x70, 0x70, 0x70, 0x70, 0x30, 0x30, 0x10, 0x10
-    #d8 0x50, 0x50, 0x40, 0x40
-#addr 0xA2A0                    ;   grey (all three), and back
-BARY:                           ; its first row, 64 steps of a bounce, 0-76
-    #d8 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x06, 0x09, 0x0B, 0x0E, 0x11, 0x14, 0x17, 0x1B, 0x1F, 0x22
-    #d8 0x26, 0x2A, 0x2D, 0x31, 0x35, 0x38, 0x3B, 0x3E, 0x41, 0x43, 0x46, 0x48, 0x49, 0x4A, 0x4B, 0x4C
-    #d8 0x4C, 0x4C, 0x4B, 0x4A, 0x49, 0x48, 0x46, 0x43, 0x41, 0x3E, 0x3B, 0x38, 0x35, 0x31, 0x2D, 0x2A
-    #d8 0x26, 0x22, 0x1F, 0x1B, 0x17, 0x14, 0x11, 0x0E, 0x0B, 0x09, 0x06, 0x04, 0x03, 0x02, 0x01, 0x00
+ROLL:
+    #d8 0x70, 0x70, 0x70, 0x70, 0x70, 0x70, 0x70, 0x70, 0x70, 0x70, 0x70, 0x70
+    #d8 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50, 0x50
+    #d8 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x40
+    #d8 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60, 0x60
+    #d8 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20
+    #d8 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30
+    #d8 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x10
 
 ; ===========================================================================
 ; small tables (one page, TBL)
@@ -2152,6 +3012,22 @@ CLKLIM:                         ; uptime digit limits: h h : m m : s s
 #addr TBL + 0x40
 RAINBOW:                        ; "16 COLORS"
     #d8 0xCC, 0xEE, 0x00, 0xAA, 0xBB, 0x99, 0xDD, 0xCC, 0xEE
+#addr TBL + 0x50
+DISC:                           ; the 160-read wheel's dot: 8 rows of 4 bytes
+    #d8 0x00, 0xFF, 0xFF, 0x00  ; (2 pixels a byte, the left in the low
+    #d8 0xF0, 0xFF, 0xFF, 0x0F  ; nibble), ANDed with the color
+    #d8 0xFF, 0xFF, 0xFF, 0xFF
+    #d8 0xFF, 0xFF, 0xFF, 0xFF
+    #d8 0xFF, 0xFF, 0xFF, 0xFF
+    #d8 0xFF, 0xFF, 0xFF, 0xFF
+    #d8 0xF0, 0xFF, 0xFF, 0x0F
+    #d8 0x00, 0xFF, 0xFF, 0x00
+DOTCH:                          ; its byte columns (of 160), clockwise from
+    #d8 148, 145, 138, 131, 128, 131, 138, 145  ; 3:00, and first rows
+DOTRH:
+    #d8 152, 180, 192, 180, 152, 124, 112, 124
+S16H:                           ; "16 COLORS" as letters of SMG ("16 COLRS")
+    #d8 0, 1, 2, 3, 4, 5, 4, 6, 7
 #addr TBL + 0x90
 PAT_P:                          ; RAM test patterns: 0-11 fixed values,
                                 ;   12-13 XOR the address

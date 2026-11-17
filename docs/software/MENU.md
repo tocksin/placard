@@ -5,7 +5,7 @@ that the ROM's loader ([DOS.md](DOS.md)) runs at power-up when `BOOT.CFG`
 names it.  It shows the demo programs and runs them in turn, asking the
 loader to load each one from the card.
 
-Date: 11/11/2026
+Date: 11/17/2026
 
 The menu and the demos are files on the card.  The 32K ROM image
 ([ROM.md](../architecture/ROM.md#the-32k-image)) holds the loader, BASIC and the
@@ -100,16 +100,40 @@ too small for them.
 
 `TEXT.PLC` (`python gen_text_demo_sd.py`, which writes `text_demo_sd.asm`
 too) is `text_demo.asm` unchanged but for its addresses and the RAM test.
-The 60 pages the demo uses in ROM x6000-xB0FF move into RAM
-x0100-x3AFF (pages that run on into the next stay together, x1F00 is
-left out), and the RAM test covers only the free RAM: x3B00-x4CFF,
-x5400-x59FF and x5C00-x5CFF (25 pages, 6.25 KB; the "RAM AREA" line says
+The 62 pages the demo uses in ROM x6000-xB4FF move into RAM
+x0100-x3FFF (pages that run on into the next stay together, x1F00 is
+left out), and the RAM test covers only the free RAM: x4000-x4CFF,
+x5400-x59FF and x5C00-x5CFF (20 pages, 5 KB; the "RAM AREA" line says
 so).  It leaves out the program itself, LIB_RAM, the FAT driver's
 variables and sector buffer (x4D00-x4FFF, the DOS's files stay open), the
 I/O window, the mode bytes, the menu block and the audio buffer.
 `text_demo_sim.py --sd` boots it from a card and checks the screen, the
-RAM test passes (and, with `--fault`, a failing bit) and Esc back to the
-DOS.
+RAM test passes (and, with `--fault`, a failing bit), the H key and Esc
+back to the DOS.
+
+H switches the 80 column text, the 16-color and the 256-color band to the
+160-read rows of a
+rev B board ([HIRES.md](../video/HIRES.md)) and back.  The picture is
+the same, at twice the resolution:
+
+| Band | Normal screen | H screen |
+|---|---|---|
+| 80 columns, rows 0-95 | 640 x 96 in 2 colors, 12 text rows (1 bpp, 1x) | 640 x 48 in 4 colors, 6 text rows of 8 x 16 characters (2 bpp, 160-read, 2x) |
+| 16 colors, rows 96-223 | 160 x 32, pixels of 4 x 4 (4x) | 320 x 64, pixels of 2 x 2 (160-read, 2x): "16 COLORS" from 16 x 16 letters, the wheel's dots as discs |
+| 40 columns, rows 224-351 | 320 x 64, 2x | the same rows: a 160-read 2x row from row 256 on would use the bytes of the text rows 0-95 |
+| 256 colors, rows 352-479 | 80 x 32, pixels of 8 x 4 (4x) | 160 x 32, pixels of 4 x 4 (160-read, 4x): "256" from 24 x 28 digits, the ring from 508 pixels instead of 246 |
+
+The letters and digits are the font's, doubled with the Scale2x rule
+(once for the letters, twice for the digits), which fills in the steps of
+the diagonals (`gen_text_demo_tables.py`).  The 160-read 16-color band
+uses bytes the normal screen leaves free, so only the 256 band is drawn
+again each way.  The 4-color text uses half of the bytes of the 2-color
+text, so the status lines and the RAM test stop on the H screen (the
+rolling tint goes on over the 4-color text), and on the way back the text is drawn again and the RAM test
+starts over.  On a rev A board those rows are blank lines, so H shows
+black bands there.
+
+![The text demo's 160-read screen](text_demo_hires.png)
 
 ## How a program is run
 

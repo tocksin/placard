@@ -4,8 +4,8 @@ Date: 2026-11-17
 
 On rev B, bit 7 of a row's mode byte makes the video read a byte every
 4 clocks on that row instead of every 8: 160 bytes per line instead of 80.
-Together with 2x or 4x line repeat (which keeps the screen inside the RAM)
-this gives three new kinds of row.  It replaces the blank line of rev A
+Together with 2x or 4x line repeat, or the fold (each keeps the screen
+inside the RAM), this gives three new kinds of row.  It replaces the blank line of rev A
 ([VIDEO.md](VIDEO.md#blank-line)).  No chip is added; five PLDs are
 reprogrammed and three nets move.
 
@@ -28,10 +28,11 @@ whole difference.
 |---|---|---|
 | 01, 2x | 240 | 160 x 240 = 38,400 bytes (all of x6000-xFFFF used by the picture, as a 1x screen today) |
 | 10 or 11, 4x | 120 | 160 x 120 = 19,200 bytes |
-| 00, 1x | counts as 2x | (1x would need 76,800 bytes) |
+| 00, fold | 480, wrapping every 256 | 160 x 256 = 40,960 bytes: rows 0-223 and rows 256-479 are the same bytes ([The fold](#the-fold-480-rows)) |
 
-Row tint (bits 6:4) works as on any row.  Normal rows and 160-read rows can
-be mixed freely down the screen.
+Row tint (bits 6:4) works as on any row.  Every row picks its own mode, so
+normal rows and 160-read rows can share a screen; which ones can do so
+without sharing bytes is in [Mixing row types](#mixing-row-types).
 
 Mode bytes x5A00-x5A1F (lines 512-543, never shown) must stay 0 on rev B:
 bit 7 set there would make reads in the vertical blanking.
@@ -44,12 +45,78 @@ normal columns is split in two halves of 256 bytes:
     address = x6000 + c * 256 + low byte            (high byte = x60 + c)
 
     v = row + 32                                    (row 0-479, as in VIDEO.md)
-    2x:  low byte = (v & xFE) | v8
-    4x:  low byte = x80 | (v & x7C) | (v8 << 1) | v7
+    fold: low byte = v & xFF
+    2x:   low byte = (v & xFE) | v8
+    4x:   low byte = x80 | (v & x7C) | (v8 << 1) | v7
 
-In 2x every byte of x6000-xFFFF belongs to the picture.  In 4x the low 128
+In the fold and in 2x every byte of x6000-xFFFF belongs to the picture, so
+fold rows and 2x rows of one screen share bytes.  In 4x the low 128
 bytes of every 256 are free (20 KB in 128-byte pieces).  The library
 routine `vid_addr_hi` does this sum ([LIBRARY.md](../software/LIBRARY.md#video-and-system)).
+
+## Mixing row types
+
+The color mode (bits 1:0) never changes where a row's bytes are, so 640-wide
+4-color, 320-wide 16-color and 160-wide 256-color rows mix freely.  What
+matters is the repeat and whether the row is a 160-read row.  A 160-read row
+uses the same low byte as a normal row of the same repeat, in both halves
+of the column, so:
+
+| Screen (top / bottom) | Shares bytes? |
+|---|---|
+| 160-read 2x with normal 2x, either order, split anywhere | no |
+| 160-read 4x with normal 4x, either order, split anywhere | no |
+| normal 1x on top (any height to row 96), 160-read 4x below | no |
+| normal 1x on top, 160-read 2x below | no while the 160-read rows end by row 255; a 160-read 2x row from 256 on uses the bytes of an odd 1x row in the top 224 |
+| 160-read rows on top, normal 1x below | yes |
+| 2x on top, 4x below (160-read or normal, any mix) | no only if the split is at row 96 or above it, or at row 352 or below it |
+| 4x on top, 2x below (160-read or normal, any mix) | yes |
+| fold rows with anything | yes, except 4x rows below a fold band that ends by row 96 |
+
+So an 80-column text band of 1x rows over a 160-read picture works with a
+4x picture, or with a 2x picture that stops at row 255 (normal 2x rows can
+go below it).  A 2x text area (640 x 240, 1 bpp) goes with a 160-read 2x
+picture anywhere.  Rows of 4 lines keep one mode for all four, rows of 2
+for both.
+
+Only the 160-read rows cost the extra stall clocks.  Use `vid_addr` for a
+normal row and `vid_addr_hi` for a 160-read row.
+
+(Table made by trying every split of every pair of row types against the
+simulator's row addresses.)
+
+## The fold: 480 rows
+
+With repeat code 00 a 160-read row is one line tall, as on a normal 1x row:
+640 x 480 in 4 colors, 320 x 480 in 16 or 160 x 480 in 256.  That would be
+76,800 bytes, and there are 40,960, so the row address drops its top bit and
+the memory wraps every 256 lines:
+
+| Rows | Memory |
+|---|---|
+| 0-223 | low bytes x20-xFF |
+| 224-255 | low bytes x00-x1F, their own |
+| 256-479 | low bytes x20-xFF again: the same bytes as rows 0-223 |
+
+Left alone, the screen shows its top 224 rows, a 32-row band, and the top
+224 rows again.  To make the two parts differ, a program rewrites bytes
+between the two passes of the beam (after line r of the top has been shown
+and before line r + 256), twice per frame.
+
+![A 320 x 480, 16-color fold screen](hires_fold_example.png)
+
+How much can differ: a full 160-read screen leaves the CPU about 343,000
+clocks per frame, and the library's fastest store loop takes about 14 clocks
+per byte, so about 24,000 bytes per frame is the ceiling with nothing else
+running.  Two fully different parts would need 71,680 (35,840 shared bytes,
+twice).  At half the CPU that is about 30 to 40 rows of the lower part that
+differ from the upper, plus the 32 rows that have their own memory.  The
+cost is per byte, so it is the same in all three color modes.
+
+Each row still has its own mode byte, so the two parts can differ in tint
+and in color mode without any rewriting.  The mode costs one product term
+less than the 2x it replaced on this code (audio slot PLD revision 06) and
+no wire.
 
 ## CPU cost
 
@@ -100,7 +167,7 @@ the last byte is still on screen for two clocks.  BLANK_RD is otherwise
 only high in blanking, so `VIDEN & BLANK_RD` is "160-read line" for the
 Sync PLD.  The audio slot PLD also makes the half-column address bit:
 A8 = !T2 on a 160-read line (0 for read A, 1 for read B), and A7, A1, A0
-as the layout above.
+as the layout above (in the fold they are simply V7, V1, V0).
 
 ## What changes on the board
 
@@ -121,7 +188,7 @@ path.
 |---|---|---|---|
 | Sync | `ATF22V10_SYNC.pld` | 13 | select shift, T2, read B, VSYNC from V9, V3:V1 |
 | H counter | `ATF22V10_HCOUNT.pld` | 09 | enable from T2, S2, S1, H0; blank line removed |
-| Audio slot | `ATF22V10_AUDIO.pld` | 05 | line marker on BLANK_RD, half-column A8, T2 and LC7 in, /AC_SEL out of it |
+| Audio slot | `ATF22V10_AUDIO.pld` | 06 | line marker on BLANK_RD, half-column A8, T2 and LC7 in, /AC_SEL out of it; revision 06: the fold on repeat code 00 |
 | IR | `ATF22V10_IR.pld` | 02 | makes /AC_SEL on pin 22 |
 | Color decoder | `ATF22V10_COLORDECODER.pld` | 09 | same pins; the blended grays use H2 and H1 only |
 
@@ -155,6 +222,7 @@ before these get real track delays.
 | Python simulator | `placard_sim.py --rev b`; `test_hires.py` compares the screen and the stall count with the equations |
 | Web emulator | Board: rev B in the options ([EMULATOR.md](../software/EMULATOR.md)) |
 | Library | `vid_addr_hi` ([LIBRARY.md](../software/LIBRARY.md#video-and-system)) |
+| Demo | the text demo `TEXT.PLC`, H key: its 80 column text in 4 colors (640 across), its 16-color band at 320 x 64 and its 256-color band at 160 across, the same picture as on normal rows with smoothed letters, round dots and a rounder ring ([MENU.md](../software/MENU.md#the-text-demo-on-the-card)) |
 
 [Pinboard](../software/PINBOARD.md#display) is the first program that
 uses these rows: its Display card switches the desktop to 640 x 240 in 4

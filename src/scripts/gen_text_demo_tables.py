@@ -35,12 +35,29 @@ returns AC OR every byte of the page, rt_and AC AND every byte.  They are unroll
 (ld k, x / ld ac, [y,x] is 6 clocks a byte) and are leaf routines (RETURN
 through LINK_LO/LINK_HI).
 
-Date: 10/20/2026
+The 160-read screen (H key, rev B boards, docs/video/HIRES.md) has the
+same picture at twice the resolution, from these tables:
+  SMG      the letters of "16 COLORS" 16 x 16: the font's 8 x 8 letters
+           doubled with the Scale2x rule, which fills the steps of the
+           diagonals.  32 bytes a letter, two (pixels 0-7, 8-15) per row;
+           S16H in text_demo.asm has the letter numbers
+  DIGH     "256" 24 x 28: font columns 0-5, rows 0-6 doubled twice.  Three
+           bytes per row (pixel 0 is bit 0 of the first), 28 rows a digit
+  RINGH_R  the ring 160 across (pixels of 4 x 4 screen pixels): runs of
+           ring pixels along a block row, (low byte, first page, count)
+           each, ending with 00
+  RINGH_A  the angle of every ring pixel, in the order of the runs
+
+Date: 11/17/2026
 """
 
 import colorsys
 import math
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import placard_sim as ps  # noqa: E402
 
 EXP_BASE = 0x9000       # EXP2_LO, EXP2_HI, EXP4_0-3
 SC_BASE = 0x9800        # scroller tables
@@ -48,6 +65,9 @@ SC_PAGES = 0xA200       # SC_LPAGE, SC_RPAGE
 HUE = 0xA300
 RING = 0xA400           # RING_V, RING_X, RING_A
 RT_CODE = 0xA700
+HI_BASE = 0xB100        # SMG, DIGH, RINGH_A (2 pages)
+HI_RUNS = 0xB040        # RINGH_R, in the page the RAM test code ends in
+SMG_CHARS = '16 COLRS'   # the letters of "16 COLORS"
 
 # the ring: centre and radii in screen pixels, relative to the band's top
 # left corner (8 bpp pixels are 8 x 4 screen pixels)
@@ -119,6 +139,57 @@ def ring_pixels():
     return px
 
 
+def font_glyph(rom, ch, cols=8, rows=8):
+    """the font's character as rows of 0/1 (bit 0 is the left pixel)"""
+    return [[(rom[ps.LIB_FONT + r * 256 + ord(ch)] >> c) & 1 for c in range(cols)]
+            for r in range(rows)]
+
+
+def scale2x(g):
+    """the Scale2x (EPX) rule: each pixel becomes 2 x 2, and a corner takes
+    the color of its two neighbors when they agree and the others don't"""
+    h, w = len(g), len(g[0])
+
+    def at(y, x):
+        return g[y][x] if 0 <= y < h and 0 <= x < w else 0
+    out = [[0] * (2 * w) for _ in range(2 * h)]
+    for y in range(h):
+        for x in range(w):
+            p, a, b, c, d = at(y, x), at(y - 1, x), at(y, x + 1), at(y, x - 1), at(y + 1, x)
+            out[2 * y][2 * x] = a if c == a and c != d and a != b else p
+            out[2 * y][2 * x + 1] = b if a == b and a != c and b != d else p
+            out[2 * y + 1][2 * x] = c if d == c and d != b and c != a else p
+            out[2 * y + 1][2 * x + 1] = d if b == d and b != a and d != c else p
+    return out
+
+
+def pack(row):
+    """a row of 0/1 as bytes, pixel 0 in bit 0 of the first"""
+    return [sum(v << i for i, v in enumerate(row[k:k + 8])) for k in range(0, len(row), 8)]
+
+
+def ring_runs():
+    """the ring on 160-read rows (8 bpp 4x, rows 352-479: byte column c is
+    page x60 + c, block row n low byte x83 + 4n): (runs, angles)"""
+    runs, angles = [], []
+    for n in range(32):
+        run = None
+        for c in range(161):
+            x = 4 * c + 2 - RING_CX
+            y = 4 * n + 2 - RING_CY
+            if c < 160 and RING_RI <= math.hypot(x, y) <= RING_RO:
+                ang = math.atan2(x, -y) % (2 * math.pi)
+                angles.append(int(ang / (2 * math.pi) * 64) % 64)
+                if run is None:
+                    run = [0x83 + 4 * n, 0x60 + c, 0]
+                run[2] += 1
+            elif run is not None:
+                runs.append(run)
+                run = None
+    assert len(runs) * 3 < 255 and len(angles) <= 512, (len(runs), len(angles))
+    return runs, angles
+
+
 def unrolled(out, name, body):
     out.append('%s:' % name)
     out.append('    ld   [rt_page], y           ; the page under test')
@@ -135,7 +206,7 @@ def main():
            '; Font expansion and scroller tables, the 256-color ring and the',
            '; unrolled RAM test routines for text_demo.asm.  See gen_text_demo_tables.py.',
            ';',
-           '; Date: 10/20/2026',
+           '; Date: 11/17/2026',
            '']
     exps = [
         ('EXP2_LO', lambda f: exp(f, 0, 4, 2)),
@@ -208,9 +279,42 @@ def main():
     unrolled(out, 'rt_or', 'or   [y,x], ac')
     unrolled(out, 'rt_and', 'and  [y,x], ac')
 
+    # the 160-read screen
+    lib, _, _ = ps.assemble('#include "placard.asm"\n#include "placard_lib.asm"\n',
+                            os.path.dirname(os.path.abspath(__file__)))
+    rom = ps.build_rom(lib)
+    smg = []
+    for ch in SMG_CHARS:
+        for row in scale2x(font_glyph(rom, ch)):
+            smg += pack(row)
+    out.append('#addr 0x%04X' % HI_BASE)
+    out.append('SMG:                            ; "%s" 16 x 16, 32 bytes each' % SMG_CHARS)
+    byte_list(out, smg)
+    out.append('')
+    digh = []
+    for ch in '256':
+        g = scale2x(scale2x(font_glyph(rom, ch, 6, 7)))
+        for row in g:
+            digh += pack(row)
+    assert len(digh) == 252
+    out.append('#addr 0x%04X' % (HI_BASE + 0x100))
+    out.append('DIGH:                           ; "256" 24 x 28, 3 bytes a row')
+    byte_list(out, digh)
+    out.append('')
+    runs, angles = ring_runs()
+    out.append('#addr 0x%04X' % (HI_BASE + 0x200))
+    out.append('RINGH_A:                        ; the angle of the %d ring pixels' % len(angles))
+    byte_list(out, angles)
+    out.append('')
+    out.append('#addr 0x%04X' % HI_RUNS)
+    out.append('RINGH_R:                        ; %d runs: low byte, first page, count' % len(runs))
+    byte_list(out, [v for run in runs for v in run] + [0])
+    out.append('')
+
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'text_demo_tables.asm')
     open(path, 'w', newline='\n').write('\n'.join(out))
-    print('wrote', path, '(%d ring pixels)' % len(px))
+    print('wrote', path, '(%d ring pixels, %d on the 160-read screen in %d runs)'
+          % (len(px), len(angles), len(runs)))
 
 
 if __name__ == '__main__':
