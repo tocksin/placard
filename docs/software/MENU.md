@@ -5,7 +5,7 @@ that the ROM's loader ([DOS.md](DOS.md)) runs at power-up when `BOOT.CFG`
 names it.  It shows the demo programs and runs them in turn, asking the
 loader to load each one from the card.
 
-Date: 11/11/2026
+Date: 11/17/2026
 
 The menu and the demos are files on the card.  The 32K ROM image
 ([ROM.md](../architecture/ROM.md#the-32k-image)) holds the loader, BASIC and the
@@ -100,7 +100,7 @@ too small for them.
 
 `TEXT.PLC` (`python gen_text_demo_sd.py`, which writes `text_demo_sd.asm`
 too) is `text_demo.asm` unchanged but for its addresses and the RAM test.
-The 60 pages the demo uses in ROM x6000-xB0FF move into RAM
+The 57 pages the demo uses in ROM x6000-xB0FF move into RAM
 x0100-x3AFF (pages that run on into the next stay together, x1F00 is
 left out), and the RAM test covers only the free RAM: x3B00-x4CFF,
 x5400-x59FF and x5C00-x5CFF (25 pages, 6.25 KB; the "RAM AREA" line says
@@ -108,8 +108,18 @@ so).  It leaves out the program itself, LIB_RAM, the FAT driver's
 variables and sector buffer (x4D00-x4FFF, the DOS's files stay open), the
 I/O window, the mode bytes, the menu block and the audio buffer.
 `text_demo_sim.py --sd` boots it from a card and checks the screen, the
-RAM test passes (and, with `--fault`, a failing bit) and Esc back to the
-DOS.
+RAM test passes (and, with `--fault`, a failing bit), the H key and Esc
+back to the DOS.
+
+H switches the two 4x bands to the 160-read rows of a rev B board
+([HIRES.md](../video/HIRES.md)) and back: 80 column text in 4 colors
+(640 across, 2x) on rows 96-223, the 40 column band as it was, then 320
+across in 16 colors and 160 across in 256 colors (4x, 16 block rows
+each).  The 80 column band uses bytes the normal screen leaves free, so
+only the 256 band is drawn again on the way back.  On a rev A board
+those rows are blank lines, so H shows black bands there.
+
+![The text demo's 160-read screen](text_demo_hires.png)
 
 ## How a program is run
 
