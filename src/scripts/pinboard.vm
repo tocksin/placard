@@ -6,12 +6,14 @@
 \ vmc.py compiles this (asm_expand.py does it for pinboard.masm's
 \ .include); docs/software/PINBOARD.md describes the desktop.
 \
-\ The screen is 80 x 60 cells of 8 x 8 pixels.  Rows 0-56 are the board,
-\ rows 57-59 the rail.  A card (a window) is a rectangle of cells: its
+\ The screen is cells of 8 x 8 pixels: 80 x 60 in 2 colors, 80 x 30 in 4
+\ and 40 x 30 in 16 (the display driver in memory says: D-COLS, D-ROWS;
+\ pinboard_drv_*.masm).  The board is the rows above BOARD-H, the rail
+\ the rows below.  A card (a window) is a rectangle of cells: its
 \ title in row 0 (the pin in column 0 takes it down), an edge down each
 \ side and along the bottom.  There is one card for each app:
 \
-\     0 Files   1 Clock   2 Calculator   3 Editor   4 About
+\     0 Files   1 Clock   2 Calculator   3 Editor   4 About   5 Display
 \
 \ WTAB has each card's place (8 bytes: open, x, y, w, h); ZORD lists the
 \ open ones from the back to the front (NZ of them).  Everything is drawn
@@ -22,7 +24,7 @@
 \ front (KEYTAB) and the clicks on it (CLICKTAB: RC, RR = the cell in the
 \ card).
 \
-\ Date: 11/16/2026
+\ Date: 11/17/2026
 \ ============================================================
 
 RAMCALLS
@@ -96,6 +98,7 @@ CONST CY0 0x33
 CONST CX1 0x34
 CONST CY1 0x35
 CONST INV 0x36
+CONST CFX 0x2E          \ the pen: 2 bytes (color drivers)
 CONST MOK 0x37
 CONST PX 0x38
 CONST PY 0x3A
@@ -168,8 +171,8 @@ CONST E-LNF 0x4BE3      \                1 = the cursor's row
 CONST E-NAME 0x4BE4     \ 13: the file's name (0: none yet)
 CONST E-DCL 0x4BF2      \ 4: its folder
 CONST E-BAD 0x4BF6      \ 1: the file read was not text
-CONST E-ROWS 26
-CONST E-COLS 42
+CONST DMODE 0x4BF7      \ the display: 0 = 2 colors, 1 = 4, 2 = 16
+CONST D-MSG 0x4BF8      \ the Display card's bottom line
 CONST R2 0x12
 CONST R4 0x14
 CONST DIRBUF 0x5400     \ the folder: 96 x 16 (name 11, attributes, size 4)
@@ -183,21 +186,29 @@ CONST MB_MENU 0x5D11
 CONST MB_SEL 0x5D13
 CONST MB_TOP 0x5D14
 CONST MB_T 0x5D15       \ 3: the clock, kept while a program runs
+CONST MB_DMODE 0x5D18   \ and the display chosen
 CONST MB_PARENT 0x5D40
 CONST MB_DCLUS 0x5D50
 CONST MB_FNAME 0x5D60
 
-CONST NAPP 5
-CONST BOARD-H 57        \ the board's rows; the rail is below
-CONST F-ROWS 26         \ Files: rows of the list
+CONST NAPP 6
+\ the display driver (pinboard_hdr.masm: DRV): its tables
+CONST D-PENS 0x2E20     \ 24 pens of 2 bytes
+CONST D-COLS 0x2E50     \ the screen's columns
+CONST D-ROWS 0x2E51     \ and rows
+CONST D-BH 0x2E52       \ the board's rows; the rail is below
+CONST D-XSH 0x2E53      \ PX and PY to cells: shifts right
+CONST D-YSH 0x2E54
+CONST D-BCH 0x2E55      \ the board's character
+CONST D-WINIT 0x2E58    \ 6 x 4: the cards' first places
 
 BYTES T-FILES c"Files" ;
 BYTES T-CLOCK c"Clock" ;
 BYTES T-CALC c"Calc" ;
 BYTES T-EDIT c"Editor" ;
 BYTES T-ABOUT c"About" ;
-WORDS TITLES T-FILES T-CLOCK T-CALC T-EDIT T-ABOUT ;
-BYTES WINIT 2 1 40 30   46 3 31 11   52 20 23 15   20 10 44 30   18 16 44 13 ;
+BYTES T-DISP c"Display" ;
+WORDS TITLES T-FILES T-CLOCK T-CALC T-EDIT T-ABOUT T-DISP ;
 BYTES SELF "PINBOARD.PLC" 0 ;
 
 \ ------------------------------------------------------------
@@ -218,7 +229,15 @@ BYTES SELF "PINBOARD.PLC" 0 ;
 : U.R ( u w -- ) >R U>S R> OVER - SPACES GTYPE ;
 : .2 ( n -- ) 10 U/MOD 48 + GLYPH 48 + GLYPH ;
 : SETCLIP ( x y w h -- ) ROT DUP CY0 C! + CY1 C! OVER + CX1 C! CX0 C! ;
-: NOCLIP ( -- ) 0 0 80 60 SETCLIP ;
+: COLS ( -- n ) D-COLS C@ ;
+: BOARD-H ( -- n ) D-BH C@ ;
+: RAIL-Y ( -- row ) BOARD-H 1+ ;        \ the rail's row of words
+: NOCLIP ( -- ) 0 0 COLS D-ROWS C@ SETCLIP ;
+\ The pen: the two colors the color drivers draw with (gen_pinboard.py
+\ has the list).  0 is white and black, as the 2-color screen always is.
+: PEN ( n -- ) 2* D-PENS + @ CFX ! ;
+: UMIN ( a b -- min ) 2DUP U< IF DROP ELSE NIP THEN ;
+: CTYPE ( ca max -- ) >R DUP 1+ SWAP C@ R> UMIN GTYPE ;   \ max characters at most
 : SYS0 ( a -- ac ) 0 SWAP SYS ;
 
 \ ------------------------------------------------------------
@@ -238,9 +257,10 @@ BYTES SELF "PINBOARD.PLC" 0 ;
 
 : FRAME ( id -- )
    0 0 AT
-   DUP TOPW = IF REV 7 ELSE INK 135 THEN EMIT
+   DUP TOPW = IF DUP 8 + PEN REV 7 EMIT ELSE INK 22 PEN 135 EMIT 2 PEN THEN
    1 SPACES
    2* TITLES + @ DUP TYPE C@ WW C@ SWAP - 2 - SPACES
+   0 PEN
    1 BEGIN DUP WH C@ 1- < WHILE
       0 OVER AT 2 EMIT 160 WW C@ 2 - HFILL 3 EMIT
    1+ REPEAT
@@ -260,7 +280,7 @@ BYTES SELF "PINBOARD.PLC" 0 ;
    BEGIN DUP WHILE
       ACC @ 1000 + DUP 59940 U< IF ACC ! ELSE 59940 - ACC ! SEC+ THEN
    1- REPEAT DROP ;
-: RAIL-TIME ( -- ) 74 58 ABS-AT REV HH C@ .2 58 GLYPH MM C@ .2 ;
+: RAIL-TIME ( -- ) 7 PEN COLS 6 - RAIL-Y ABS-AT REV HH C@ .2 58 GLYPH MM C@ .2 0 PEN ;
 
 BYTES DIGS 0x6F 0x7B  0x97 0x2C  0xE7 0x73  0xCF 0x73  0xC9 0x5B
            0xCF 0x79  0xEF 0x79  0x49 0x72  0xEF 0x7B  0xCF 0x7B ;
@@ -272,13 +292,15 @@ BYTES DIGS 0x6F 0x7B  0x97 0x2C  0xE7 0x73  0xCF 0x73  0xC9 0x5B
          >R DUP 0x4000 AND IF 32 ELSE 160 THEN EMIT 2* R> 1-
       REPEAT DROP
    R> 1+ REPEAT DROP DROP DROP ;
+\ rows of the Files list (the card's rows less 4)
+: F-ROWS ( -- n ) 0 WIN 4 + C@ 4 - ;
 : C-DRAW ( -- )
-   HH C@ 10 U/MOD 2 BIGDIG 6 BIGDIG
+   19 PEN HH C@ 10 U/MOD 2 BIGDIG 6 BIGDIG
    MM C@ 10 U/MOD 12 BIGDIG 16 BIGDIG
    SS C@ 10 U/MOD 22 BIGDIG 26 BIGDIG
    10 3 AT 32 EMIT 10 5 AT 32 EMIT 20 3 AT 32 EMIT 20 5 AT 32 EMIT
-   2 8 AT REV S"  H+ " TYPE INK 1 SPACES REV S"  M+ " TYPE INK 1 SPACES
-   REV S"  :00 " TYPE INK ;
+   3 PEN 2 8 AT REV S"  H+ " TYPE INK 1 SPACES REV S"  M+ " TYPE INK 1 SPACES
+   REV S"  :00 " TYPE INK 0 PEN ;
 
 \ ------------------------------------------------------------
 \ the calculator's numbers: 32 bits in memory, low byte first
@@ -363,17 +385,18 @@ BYTES K-LBL " C  " " +- " " <- " " /  "
             " 0  " " 00 " " mod" " =  " ;
 BYTES K-KEYS 99 110 8 47   55 56 57 42   52 53 54 45   49 50 51 43   48 122 109 61 ;
 BYTES K-EMSG c"Error" ;
-: K-DISP ( -- )
+: K-DISP1 ( -- )
    2 2 AT REV 19 SPACES
    3 2 AT K-OP C@ DUP IF EMIT ELSE DROP THEN
    K-ERR C@ IF 15 2 AT K-EMSG TYPE EXIT THEN
    K>S 20 OVER - 2 AT GTYPE ;
+: K-DISP ( -- ) 20 PEN K-DISP1 0 PEN ;
 : K-DRAW ( -- )
    K-DISP
    0 BEGIN DUP 20 < WHILE
       DUP 4 U/MOD 2* 4 + SWAP 5 * 2 + SWAP AT
-      DUP 2* 2* K-LBL + 4 GTYPE
-   1+ REPEAT DROP ;
+      DUP 2* 2* K-LBL + DUP 1+ C@ 48 - 10 U< IF 14 ELSE 15 THEN PEN 4 GTYPE
+   1+ REPEAT DROP 0 PEN ;
 
 \ ------------------------------------------------------------
 \ Files
@@ -404,29 +427,32 @@ BYTES K-EMSG c"Error" ;
          F-N C@ 1+ F-N C!
       THEN
    REPEAT ;
-: F-SIZE ( ent -- )
-   DUP DIR? IF DROP 15 SPACES S" <DIR>" TYPE EXIT THEN
+: F-SIZE ( ent -- )                     \ in the card's width less 20
+   DUP DIR? IF DROP WW C@ 25 - SPACES S" <DIR>" TYPE EXIT THEN
    DUP 14 + @ DUP IF
-      64 * SWAP 12 + @ 1024 U/MOD NIP + 19 U.R 75 GLYPH
-   ELSE DROP 12 + @ 20 U.R THEN ;
+      64 * SWAP 12 + @ 1024 U/MOD NIP + WW C@ 21 - U.R 75 GLYPH
+   ELSE DROP 12 + @ WW C@ 20 - U.R THEN ;
 : F-ROW ( i -- )                        \ entry i on its row of the list
    DUP F-TOP C@ - DUP F-ROWS U< 0= IF DROP DROP EXIT THEN
    1 SWAP 2 + AT
-   DUP F-SEL C@ = IF REV ELSE INK THEN
-   DUP F-N C@ < 0= IF DROP 36 SPACES EXIT THEN
-   ENT DUP DIR? IF 11 ELSE DUP PLC? IF 12 ELSE 13 THEN THEN GLYPH
+   DUP F-SEL C@ = DUP >R IF REV 3 PEN ELSE INK THEN
+   DUP F-N C@ < 0= IF DROP WW C@ 4 - SPACES RDROP 0 PEN EXIT THEN
+   ENT DUP DIR? IF 11 ELSE DUP PLC? IF 12 ELSE 13 THEN THEN
+   R@ 0= IF DUP 5 + PEN THEN GLYPH R> 0= IF 0 PEN THEN
    1 SPACES DUP ENT>NAME NAMEBUF NL C@ GTYPE 13 NL C@ - SPACES
-   F-SIZE 1 SPACES ;
+   F-SIZE 1 SPACES 0 PEN ;
+: SBX ( -- col ) WW C@ 2 - ;             \ the scroll bar's column
 : F-DRAW ( -- )
    1 1 AT 14 GLYPH 1 SPACES
    MB_FNAME C@ IF MB_FNAME ZTYPE ELSE 92 GLYPH THEN
    0 BEGIN DUP F-ROWS < WHILE DUP F-TOP C@ + F-ROW 1+ REPEAT DROP
-   INK 38 2 AT 8 GLYPH
-   3 BEGIN DUP 27 < WHILE 38 OVER AT 15 GLYPH 1+ REPEAT DROP
-   38 27 AT 9 GLYPH
+   INK SBX 2 AT 8 GLYPH
+   3 BEGIN DUP F-ROWS 1+ < WHILE SBX OVER AT 15 GLYPH 1+ REPEAT DROP
+   SBX F-ROWS 1+ AT 9 GLYPH
    F-ROWS F-N C@ < IF
-      38 F-TOP C@ 23 * F-N C@ F-ROWS - U/MOD NIP 3 + AT 17 GLYPH THEN
-   1 28 AT F-MSG @ DUP IF TYPE ELSE DROP F-N C@ U>S GTYPE S"  items" TYPE THEN ;
+      SBX F-TOP C@ F-ROWS 3 - * F-N C@ F-ROWS - U/MOD NIP 3 + AT 17 GLYPH THEN
+   1 F-ROWS 2 + AT F-MSG @ DUP IF WW C@ 3 - CTYPE
+   ELSE DROP F-N C@ U>S GTYPE S"  items" TYPE THEN ;
 
 \ ------------------------------------------------------------
 \ About
@@ -439,7 +465,9 @@ BYTES K-EMSG c"Error" ;
 : E-BOL ( off -- off' )
    BEGIN DUP IF DUP 1- E@ 10 = 0= ELSE 0 THEN WHILE 1- REPEAT ;
 : E-COL ( -- col ) E-POS @ E-LS @ - ;
-: UMIN ( a b -- min ) 2DUP U< IF DROP ELSE NIP THEN ;
+\ the card's rows and columns of text
+: E-ROWS ( -- n ) 3 WIN 4 + C@ 4 - ;
+: E-COLS ( -- n ) 3 WIN 3 + C@ 2 - ;
 : E-LINE ( off row -- off' )            \ the line at off on a row; the next line
    1 SWAP 2 + AT
    DUP E-EOL 2DUP SWAP - E-LEFT @ - DUP 0< IF DROP 0 THEN E-COLS UMIN
@@ -465,49 +493,68 @@ BYTES E-NONE c"(new text)" ;
    E-COL E-LEFT @ - 1+ E-ROW C@ 2 + AT IN-CLIP IF INVC THEN ;
 : E-DRAW ( -- )
    E-INFO E-TEXT
-   1 28 AT S" Ctrl+O save  Ctrl+N new  Ctrl+E line end" TYPE 2 SPACES
+   1 E-ROWS 2 + AT S" Ctrl+O save  Ctrl+N new  Ctrl+E line end" E-COLS CTYPE
+   WX C@ E-COLS + 1+ GX C@ - SPACES
    3 TOPW = IF E-CUR THEN ;
 
 : A-DRAW ( -- )
-   2 2 AT ." PINBOARD"
-   2 4 AT ." A desktop for the PLACARD computer:"
-   2 5 AT ." cards pinned on a board."
-   2 7 AT ." Mouse  drag a title to move a card,"
-   2 8 AT ."        click its pin to take it down"
-   2 9 AT ." Tab    the next card     Esc  launcher"
-   2 10 AT ." Ctrl+W take the front card down" ;
+   1 2 AT ." PINBOARD"
+   1 4 AT ." A desktop for the PLACARD computer:"
+   1 5 AT ." cards pinned on a board."
+   1 7 AT ." Mouse  drag a title to move a card,"
+   1 8 AT ."        click its pin to take it down"
+   1 9 AT ." Tab    the next card     Esc  launcher"
+   1 10 AT ." Ctrl+W take the front card down" ;
+
+BYTES D-M0 c"640 x 480   2 colors" ;
+BYTES D-M1 c"640 x 240   4 colors" ;
+BYTES D-M2 c"320 x 240  16 colors" ;
+WORDS D-ITEMS D-M0 D-M1 D-M2 ;
+: D-DRAW ( -- )                         \ Display: the three, the one in use marked
+   0 BEGIN DUP 3 < WHILE
+      1 OVER 2 + AT
+      DUP DMODE C@ = IF REV 3 PEN ELSE INK THEN
+      1 SPACES DUP 49 + GLYPH 1 SPACES DUP 2* D-ITEMS + @ TYPE 1 SPACES
+      INK 0 PEN
+   1+ REPEAT DROP
+   1 6 AT D-MSG @ TYPE ;
 
 : NOP ( -- ) ;
-WORDS DRAWTAB F-DRAW C-DRAW K-DRAW E-DRAW A-DRAW ;
+WORDS DRAWTAB F-DRAW C-DRAW K-DRAW E-DRAW A-DRAW D-DRAW ;
 
 \ ------------------------------------------------------------
 \ redrawing
 \ ------------------------------------------------------------
 : DRAWWIN ( id -- ) DUP SETW DUP FRAME INK 2* DRAWTAB + @ EXECUTE ;
 : BOARD ( -- )
-   CY0 C@ BEGIN DUP CY1 C@ < OVER BOARD-H < AND WHILE
-      CX0 C@ OVER ABS-AT 1 CX1 C@ CX0 C@ - HFILL
-   1+ REPEAT DROP ;
+   1 PEN CY0 C@ BEGIN DUP CY1 C@ < OVER BOARD-H < AND WHILE
+      CX0 C@ OVER ABS-AT D-BCH C@ CX1 C@ CX0 C@ - HFILL
+   1+ REPEAT DROP 0 PEN ;
+\ The rail: a tab for every card that is up, in the cards' order.  They
+\ share the room between the Pinboard button and the time, 11 cells at most
+: TABW ( -- w ) COLS 18 - NZ C@ DUP 0= IF 1+ THEN U/MOD NIP 11 UMIN ;
 : RAIL ( -- )
-   0 57 ABS-AT 16 80 HFILL
-   0 58 ABS-AT 32 80 HFILL
-   0 59 ABS-AT 32 80 HFILL
-   1 58 ABS-AT INK S"  Pinboard " TYPE
-   0 BEGIN DUP NAPP < WHILE
+   4 PEN 0 BOARD-H ABS-AT 16 COLS HFILL
+   RAIL-Y BEGIN DUP D-ROWS C@ < WHILE 0 OVER ABS-AT 32 COLS HFILL 1+ REPEAT DROP
+   5 PEN 1 RAIL-Y ABS-AT INK S"  Pinboard " TYPE
+   0 0 BEGIN DUP NAPP < WHILE           \ tabs drawn, the card
       DUP WIN C@ IF
-         DUP 11 * 13 + 58 ABS-AT
-         DUP TOPW = IF INK ELSE REV THEN
-         1 SPACES DUP 2* TITLES + @ DUP TYPE C@ 9 SWAP - SPACES
+         OVER TABW * 11 + DUP RAIL-Y ABS-AT >R
+         DUP TOPW = IF INK 0 PEN ELSE REV 6 PEN THEN
+         TABW 8 < 0= IF 1 SPACES THEN   \ narrow tabs: no space before the name
+         DUP 2* TITLES + @ R@ TABW + 1- GX C@ - CTYPE
+         R> TABW + 1- GX C@ - SPACES
+         SWAP 1+ SWAP
       THEN
-   1+ REPEAT DROP
+   1+ REPEAT DROP DROP
    RAIL-TIME ;
 : REPAINT ( -- )                        \ everything inside the clip
    BOARD
    0 BEGIN DUP NZ C@ < WHILE DUP ZORD + C@ DRAWWIN 1+ REPEAT DROP
    BOARD-H CY1 C@ < IF RAIL THEN ;
 : REFRESH ( x y w h -- ) 0 PTR SETCLIP REPAINT NOCLIP 1 PTR ;
-: REFRESH-ALL ( -- ) 0 0 80 60 REFRESH ;
-: RAIL-UPD ( -- ) 0 BOARD-H 80 3 REFRESH ;
+: REFRESH-ALL ( -- ) 0 0 COLS D-ROWS C@ REFRESH ;
+: RAIL-UPD ( -- ) 0 BOARD-H COLS 3 REFRESH ;
 : UPDATE ( id -- )                      \ a card's inside changed
    DUP WIN C@ 0= IF DROP EXIT THEN
    DUP TOPW = IF 0 PTR DUP W-RECT SETCLIP DRAWWIN NOCLIP 1 PTR
@@ -585,7 +632,7 @@ BYTES E-ASKM c"Save as: " ;
    0 NL C!
    BEGIN
       0 PTR 3 SETW 1 1 AT REV E-ASKM TYPE NAMEBUF NL C@ GTYPE 95 EMIT
-      32 NL C@ - SPACES INK 1 PTR
+      E-COLS 10 - NL C@ - SPACES INK 1 PTR
       BEGIN POLL TIME-ADV DUP 0= WHILE DROP REPEAT
       DUP 27 = IF DROP 0 EXIT THEN
       DUP 10 = NL C@ 0= 0= AND IF DROP 0 NL C@ NAMEBUF + C! NAMEBUF E-NAME 13 CMOVE -1 EXIT THEN
@@ -659,10 +706,10 @@ BYTES E-BINM c"Not a text file" ;
 \ ------------------------------------------------------------
 \ Files: keys and clicks
 \ ------------------------------------------------------------
-: F-SHOW ( -- )                         \ the chosen entry on the list, all redrawn
+: F-FIX ( -- )                          \ the chosen entry on the list
    F-SEL C@ F-TOP C@ < IF F-SEL C@ F-TOP C! THEN
-   F-SEL C@ F-TOP C@ F-ROWS + < 0= IF F-SEL C@ F-ROWS - 1+ F-TOP C! THEN
-   0 F-MSG ! 0 UPDATE ;
+   F-SEL C@ F-TOP C@ F-ROWS + < 0= IF F-SEL C@ F-ROWS - 1+ F-TOP C! THEN ;
+: F-SHOW ( -- ) F-FIX 0 F-MSG ! 0 UPDATE ;      \ and all redrawn
 : F-MOVE ( new -- )                     \ choose entry new
    F-SEL C@ SWAP F-SEL C!
    F-MSG @ 0= F-SEL C@ F-TOP C@ - F-ROWS U< AND IF
@@ -704,12 +751,12 @@ BYTES E-BINM c"Not a text file" ;
    8 = IF F-UP THEN ;
 : F-SCROLL ( -- )                       \ a click on the scroll bar
    F-N C@ F-ROWS - DUP 0< IF DROP 0 THEN
-   RR C@ 15 < IF DROP F-TOP C@ 5 - DUP 0< IF DROP 0 THEN
+   RR C@ F-ROWS 2/ 2 + < IF DROP F-TOP C@ 5 - DUP 0< IF DROP 0 THEN
    ELSE F-TOP C@ 5 + 2DUP < IF DROP ELSE NIP THEN THEN
    F-TOP C! 0 UPDATE ;
 : F-CLICK ( -- )
    RR C@ 1 = IF RC C@ 3 < IF F-UP THEN EXIT THEN
-   RC C@ 38 = IF F-SCROLL EXIT THEN
+   RC C@ 0 WIN 3 + C@ 2 - = IF F-SCROLL EXIT THEN
    RR C@ 2 - DUP F-ROWS U< IF
       F-TOP C@ + DUP F-N C@ < IF
          DUP F-SEL C@ = IF DROP F-OPEN ELSE F-MOVE THEN
@@ -766,14 +813,58 @@ BYTES E-BINM c"Not a text file" ;
    RC C@ 2 - 5 U/MOD SWAP 4 < OVER 4 < AND 0= IF DROP DROP EXIT THEN
    SWAP 2* 2* + K-KEYS + C@ K-DO ;
 
+\ ------------------------------------------------------------
+\ Display: the screen's mode.  Each has a driver, a file of the card's
+\ PINBOARD folder that is read over the one in memory (x2E00-x3FFF).
+\ The 4 and 16 color ones need the rev B board (on rev A their rows
+\ are blank), so a change has to be kept with Y, Enter or a click, or
+\ after 10 seconds the old mode comes back.
+\ ------------------------------------------------------------
+BYTES D-DIR "PINBOARD" 0 ;
+BYTES D-F0 "MONO.DRV" 0 ;
+BYTES D-F1 "COLOR4.DRV" 0 ;
+BYTES D-F2 "COLOR16.DRV" 0 ;
+WORDS D-FILES D-F0 D-F1 D-F2 ;
+BYTES D-NOTE c"4, 16: rev B boards" ;
+BYTES D-KEEPM c"Keep? Y or click, 10 s" ;
+BYTES D-NOFILE c"No PINBOARD folder" ;
+: DRV-LOAD ( m -- fail )
+   DCLUS PAD 4 CMOVE DCLUS D0!
+   D-DIR R0 ! {fs_open} SYS0 DUP 0= IF
+      DROP 2* D-FILES + @ R0 ! 0x2E00 R4 ! {fs_load} SYS0
+   ELSE NIP THEN
+   PAD DCLUS 4 CMOVE ;
+: MODE-UP ( -- )                        \ the driver in memory takes the screen
+   0 0x2E10 SYS DROP NOCLIP
+   0 BEGIN DUP NAPP < WHILE DUP 2* 2* D-WINIT + OVER WIN 1+ 4 CMOVE 1+ REPEAT DROP
+   F-FIX E-ROW C@ E-ROWS < 0= IF E-LS @ E-TOP ! 0 E-ROW C! THEN E-HS ;
+: MODE! ( m -- fail )
+   0 PTR DUP DRV-LOAD IF DROP 1 PTR -1 EXIT THEN
+   DUP DMODE C! MB_DMODE C! MODE-UP REFRESH-ALL 0 ;
+: D-SAY ( msg -- ) D-MSG ! 5 UPDATE ;
+: D-SET ( m -- )
+   DUP DMODE C@ = IF DROP EXIT THEN
+   DMODE C@ SWAP DUP MODE! IF DROP DROP D-NOFILE D-SAY EXIT THEN
+   0= IF DROP EXIT THEN
+   D-KEEPM D-SAY
+   600 BEGIN DUP WHILE
+      POLL TIME-ADV 32 OR DUP 121 = SWAP 42 = OR
+      MOUSE_B C@ 1 AND DUP LASTB C@ SWAP LASTB C! 0= AND OR
+      IF DROP DROP D-NOTE D-SAY EXIT THEN
+   1- REPEAT DROP
+   MODE! DROP D-NOTE D-SAY ;
+: D-KEY ( key -- ) 49 - DUP 3 U< IF D-SET ELSE DROP THEN ;
+: D-CLICK ( -- ) RR C@ 2 - DUP 3 U< IF D-SET ELSE DROP THEN ;
+
 : KDROP ( key -- ) DROP ;
-WORDS KEYTAB F-KEY C-KEY K-KEY E-KEY KDROP ;
-WORDS CLICKTAB F-CLICK C-CLICK K-CLICK E-CLICK NOP ;
+WORDS KEYTAB F-KEY C-KEY K-KEY E-KEY KDROP D-KEY ;
+WORDS CLICKTAB F-CLICK C-CLICK K-CLICK E-CLICK NOP D-CLICK ;
 
 \ ------------------------------------------------------------
 \ moving a card: its outline follows the pointer
 \ ------------------------------------------------------------
-: CELL ( -- ) PX @ 2/ 2/ 2/ MC C! PY @ 2/ 2/ 2/ MR C! ;
+: RSH ( v n -- v' ) BEGIN DUP WHILE SWAP 2/ SWAP 1- REPEAT DROP ;
+: CELL ( -- ) PX @ D-XSH C@ RSH MC C! PY @ D-YSH C@ RSH MR C! ;
 : CLAMP ( v max -- v' ) OVER 0< IF DROP DROP 0 EXIT THEN 2DUP SWAP < IF NIP ELSE DROP THEN ;
 : OUTLINE ( -- )                        \ the cells round OX, OY, WW x WH turned over
    0 BEGIN DUP WW C@ < WHILE
@@ -788,7 +879,7 @@ WORDS CLICKTAB F-CLICK C-CLICK K-CLICK E-CLICK NOP ;
    BEGIN POLL DROP TIME-ADV MOUSE_B C@ 1 AND WHILE
       MOVED C@ IF
          0 MOVED C! CELL
-         MC C@ RC C@ - 80 WW C@ - CLAMP
+         MC C@ RC C@ - COLS WW C@ - CLAMP
          MR C@ BOARD-H WH C@ - CLAMP
          2DUP OY C@ = SWAP OX C@ = AND IF DROP DROP ELSE
             0 PTR OUTLINE OY C! OX C! OUTLINE 1 PTR THEN
@@ -802,8 +893,8 @@ WORDS CLICKTAB F-CLICK C-CLICK K-CLICK E-CLICK NOP ;
 \ ------------------------------------------------------------
 \ the launcher: a list above the rail's Pinboard button
 \ ------------------------------------------------------------
-CONST NMENU 7
-CONST MENU-Y 50         \ BOARD-H - NMENU
+CONST NMENU 8
+: MENU-Y ( -- row ) BOARD-H NMENU - ;
 BYTES M-FILES c"Files" ;
 BYTES M-CLOCK c"Clock" ;
 BYTES M-CALC c"Calculator" ;
@@ -811,15 +902,15 @@ BYTES M-EDIT c"Editor" ;
 BYTES M-ABOUT c"About" ;
 BYTES M-BASIC c"BASIC" ;
 BYTES M-DOS c"Back to DOS" ;
-WORDS MITEMS M-FILES M-CLOCK M-CALC M-EDIT M-ABOUT M-BASIC M-DOS ;
-BYTES MACT 0 1 2 3 4 254 255 ;
+WORDS MITEMS M-FILES M-CLOCK M-CALC M-EDIT M-ABOUT T-DISP M-BASIC M-DOS ;
+BYTES MACT 0 1 2 3 4 5 254 255 ;
 : MENU-DRAW ( -- )
    0 PTR
    0 BEGIN DUP NMENU < WHILE
       1 OVER MENU-Y + ABS-AT
-      DUP MSEL C@ = IF REV ELSE INK THEN
+      DUP MSEL C@ = IF REV 3 PEN ELSE INK 0 PEN THEN
       1 SPACES DUP 2* MITEMS + @ DUP TYPE C@ 13 SWAP - SPACES
-   1+ REPEAT DROP 1 PTR ;
+   1+ REPEAT DROP 0 PEN 1 PTR ;
 : MENU-CLOSE ( -- ) 1 MENU-Y 14 NMENU REFRESH ;
 : MENU-DO ( i -- )
    MACT + C@ DUP NAPP < IF OPEN EXIT THEN
@@ -859,10 +950,11 @@ BYTES MACT 0 1 2 3 4 254 255 ;
    REPEAT DROP -1 ;
 : RAIL-CLICK ( -- )
    MC C@ 1- 10 U< IF MENU EXIT THEN
-   MC C@ 13 - DUP 0< IF DROP EXIT THEN
-   11 U/MOD DUP NAPP < ROT 10 < AND IF
-      DUP WIN C@ IF TO-FRONT EXIT THEN
-   THEN DROP ;
+   MC C@ 11 - DUP 0< IF DROP EXIT THEN
+   TABW U/MOD NIP                       \ the tab; then the card it is of
+   0 BEGIN DUP NAPP < WHILE
+      DUP WIN C@ IF OVER 0= IF NIP TO-FRONT EXIT THEN SWAP 1- SWAP THEN
+   1+ REPEAT DROP DROP ;
 : MOUSE-DOWN ( -- )
    CELL
    BOARD-H 1- MR C@ < IF RAIL-CLICK EXIT THEN
@@ -897,9 +989,11 @@ BYTES MACT 0 1 2 3 4 254 255 ;
 : COLD ( -- )
    NOCLIP 0 NZ C! 0 LASTB C! 0 TDIRTY C! 0 MOVED C!
    FRAME_LO C@ LASTF C! 0 ACC !
-   WTAB 40 0 FILL
-   0 BEGIN DUP NAPP < WHILE DUP 2* 2* WINIT + OVER WIN 1+ 4 CMOVE 1+ REPEAT DROP
-   F-INIT K-CLR E-NEW
+   WTAB 48 0 FILL
+   F-INIT K-CLR E-NEW D-NOTE D-MSG !
+   MB_DMODE C@ DUP 3 U< 0= IF DROP 0 THEN
+   DUP IF DUP DRV-LOAD IF DROP 0 THEN THEN
+   DUP DMODE C! MB_DMODE C! MODE-UP
    1 0 WIN C! 0 RAISE
    REFRESH-ALL
    MAIN ;

@@ -14,7 +14,7 @@ returns {frame: RAM bytes (65536)}, and the card image at the end
 screen_png(ram, path) draws a RAM's screen; cells(ram, font) reads the
 80 x 60 characters of a 1 bpp screen back through a font.
 
-Date: 11/16/2026
+Date: 11/17/2026
 """
 
 import json
@@ -37,6 +37,7 @@ const cfg = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));
 const m = new P.Machine();
 m.setRom(new Uint8Array(fs.readFileSync(cfg.rom)));
 m.reset(false, 0);
+m.revB = !!cfg.revB;
 m.audioMax = 0;
 m.io.kbd = new P.Ps2Keyboard();
 if (cfg.mouse) m.io.mouse = new P.Ps2Mouse();
@@ -86,14 +87,14 @@ def rom_image():
     return _rom
 
 
-def run(files, inputs, shots, frames, mouse=True, px=0x38):
+def run(files, inputs, shots, frames, mouse=True, px=0x38, rev_b=False):
     tmp = tempfile.mkdtemp()
     p = lambda n: os.path.join(tmp, n)   # noqa: E731
     open(p('rom.bin'), 'wb').write(rom_image())
     open(p('card.img'), 'wb').write(sdimage.make(files))
     open(p('run.js'), 'w').write(NODE_RUN)
     shots = sorted(set(shots))
-    json.dump({'rom': p('rom.bin'), 'card': p('card.img'), 'frames': frames, 'mouse': mouse, 'px': px,
+    json.dump({'rom': p('rom.bin'), 'card': p('card.img'), 'frames': frames, 'mouse': mouse, 'px': px, 'revB': rev_b,
                'inputs': sorted(inputs, key=lambda i: i[0]), 'shots': shots, 'dir': tmp},
               open(p('cfg.json'), 'w'))
     js = subprocess.run(['node', p('run.js'),
@@ -105,8 +106,8 @@ def run(files, inputs, shots, frames, mouse=True, px=0x38):
     return rams, open(p('card.out'), 'rb').read()
 
 
-def screen_png(ram, path):
-    ps.render(bytearray(ram), path)
+def screen_png(ram, path, rev_b=False):
+    ps.render(bytearray(ram), path, rev_b)
 
 
 def cells(ram, font):
@@ -133,3 +134,50 @@ def cells(ram, font):
         rows.append(line)
         inv.append(iline)
     return rows, inv
+
+
+def cells_color(ram, bpp, font):
+    """the 30 rows of characters of a 160-read screen at 2x (rev B): 80
+    across in 2 bpp, 40 in 4 bpp; font = 8 rows of 256 bytes, 1 bpp, as
+    cells() takes.  Returns the rows and, for every cell, (ink, paper):
+    the color of the character's pixels and of the rest (ink is None for
+    a cell of one color, which reads as a space)."""
+    look = {}
+    for c in range(127, -1, -1):
+        look[tuple(font[k][c] for k in range(8))] = c
+    per = 8 // bpp                       # pixels in a byte
+    cols = 160 * per // 8
+    rows, colors = [], []
+    for r in range(30):
+        line, cline = '', []
+        for c in range(cols):
+            pix = []
+            for k in range(8):
+                p = r * 8 + k
+                low = (2 * p + 32) if p < 112 else (2 * p - 223)
+                row = []
+                for x in range(8):
+                    col, sub = divmod(c * 8 + x, per)
+                    row.append(ram[0x6000 + col * 256 + low] >> (sub * bpp) & ((1 << bpp) - 1))
+                pix.append(row)
+            used = sorted({v for row in pix for v in row})
+            if len(used) == 1:
+                line += ' '
+                cline.append((None, used[0]))
+                continue
+            code = None
+            if len(used) == 2:
+                for ink, paper in (used, used[::-1]):
+                    bits = tuple(sum(1 << x for x in range(8) if row[x] == ink) for row in pix)
+                    if bits in look:
+                        code = look[bits]
+                        cline.append((ink, paper))
+                        break
+            if code is None:
+                line += '?'
+                cline.append((None, None))
+                continue
+            line += chr(code) if 0x20 <= code < 0x7F else LEGEND[code] if code < len(LEGEND) else '?'
+        rows.append(line)
+        colors.append(cline)
+    return rows, colors

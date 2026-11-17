@@ -156,5 +156,9 @@ before these get real track delays.
 | Web emulator | Board: rev B in the options ([EMULATOR.md](../software/EMULATOR.md)) |
 | Library | `vid_addr_hi` ([LIBRARY.md](../software/LIBRARY.md#video-and-system)) |
 
+[Pinboard](../software/PINBOARD.md#display) is the first program that
+uses these rows: its Display card switches the desktop to 640 x 240 in 4
+colors or 320 x 240 in 16.
+
 Programs that use the blank line for speed on rev A (it shows as a
 160-read row on rev B) have not been changed.
