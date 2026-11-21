@@ -24,7 +24,7 @@
 \ front (KEYTAB) and the clicks on it (CLICKTAB: RC, RR = the cell in the
 \ card).
 \
-\ Date: 11/17/2026
+\ Date: 11/21/2026
 \ ============================================================
 
 RAMCALLS
@@ -187,6 +187,10 @@ CONST MB_SEL 0x5D13
 CONST MB_TOP 0x5D14
 CONST MB_T 0x5D15       \ 3: the clock, kept while a program runs
 CONST MB_DMODE 0x5D18   \ and the display chosen
+CONST MB_PHOTO 0x5D19   \ 86 ("V"): the photo viewer shows a picture from Files
+CONST MB_PWIDE 0x5D1A   \ its rows' mode byte (0: it asks which)
+CONST MB_PCLUS 0x5D1B   \ 4: the picture's folder
+CONST MB_PN 0x5D1F      \ and its number among the folder's .PIC files
 CONST MB_PARENT 0x5D40
 CONST MB_DCLUS 0x5D50
 CONST MB_FNAME 0x5D60
@@ -414,6 +418,7 @@ BYTES K-EMSG c"Error" ;
    DUP 8 + C@ 32 = 0= IF 46 N+ DUP 8 + 3 COPY-NS THEN
    DROP 0 NL C@ NAMEBUF + C! ;
 : PLC? ( ent -- f ) DUP 8 + C@ 80 = OVER 9 + C@ 76 = AND SWAP 10 + C@ 67 = AND ;
+: PIC? ( ent -- f ) DUP 8 + C@ 80 = OVER 9 + C@ 73 = AND SWAP 10 + C@ 67 = AND ;
 : DIR? ( ent -- f ) 11 + C@ 16 AND ;
 : ROOT? ( -- f ) DCLUS @ DCLUS 2 + @ OR 0= ;
 : DIR-READ ( -- )
@@ -438,7 +443,9 @@ BYTES K-EMSG c"Error" ;
    DUP F-SEL C@ = DUP >R IF REV 3 PEN ELSE INK THEN
    DUP F-N C@ < 0= IF DROP WW C@ 4 - SPACES RDROP 0 PEN EXIT THEN
    ENT DUP DIR? IF 11 ELSE DUP PLC? IF 12 ELSE 13 THEN THEN
-   R@ 0= IF DUP 5 + PEN THEN GLYPH R> 0= IF 0 PEN THEN
+   R@ 0= IF DUP 5 + PEN THEN
+   DUP 13 = IF OVER PIC? IF DROP 18 THEN THEN
+   GLYPH R> 0= IF 0 PEN THEN
    1 SPACES DUP ENT>NAME NAMEBUF NL C@ GTYPE 13 NL C@ - SPACES
    F-SIZE 1 SPACES 0 PEN ;
 : SBX ( -- col ) WW C@ 2 - ;             \ the scroll bar's column
@@ -731,18 +738,36 @@ BYTES E-BINM c"Not a text file" ;
    NAMEBUF MB_FNAME 13 CMOVE
    0 F-SEL C! 0 F-TOP C! 0 F-MSG ! DIR-READ 0 UPDATE ;
 : F-UP ( -- ) ROOT? IF EXIT THEN 46 NAMEBUF C! 46 NAMEBUF 1+ C! 0 NAMEBUF 2 + C! F-CD ;
-: F-RUN ( -- )                          \ the program named in NAMEBUF
+: F-GO ( -- )                           \ the program named in NAMEBUF
    E-GUARD IF EXIT THEN
    F-SEL C@ MB_SEL C! F-TOP C@ MB_TOP C!
    1 MB_MODE C! 0 MB_WHY C! 0 MB_SYNC C!
    80 MB_MENU C! HH C@ MB_T C! MM C@ MB_T 1+ C! SS C@ MB_T 2 + C!
    ROOT? IF SELF MB_PARENT 13 CMOVE THEN
    LEAVE-DESK NAMEBUF R0 ! 0 0x800C SYS DROP ;
+: F-RUN ( -- ) 0 MB_PHOTO C! F-GO ;
+\ A picture (.PIC): the photo viewer, PHOTO.PLC in the card's root, is run
+\ as a program is.  The menu block tells it the folder and which of the
+\ folder's pictures; it comes back to Pinboard, and F-INIT to the folder
+BYTES P-NAME "PHOTO.PLC" 0 ;
+BYTES P-NONE c"PHOTO.PLC is not on the card" ;
+: F-PIC ( -- )
+   E-GUARD IF EXIT THEN
+   0 0 BEGIN DUP F-SEL C@ < WHILE
+      DUP ENT DUP PIC? SWAP DIR? 0= AND IF SWAP 1+ SWAP THEN
+   1+ REPEAT DROP MB_PN C!
+   DCLUS MB_PCLUS 4 CMOVE
+   {fs_root} SYS0 DROP P-NAME R0 ! {fs_open} SYS0 IF
+      MB_PCLUS DCLUS 4 CMOVE P-NONE F-MSG ! 0 UPDATE EXIT THEN
+   0 MB_DCLUS ! 0 MB_DCLUS 2 + !
+   DMODE C@ IF 0x87 MB_PWIDE C! THEN
+   86 MB_PHOTO C! P-NAME NAMEBUF 10 CMOVE F-GO ;
 : F-OPEN ( -- )
    F-N C@ 0= IF EXIT THEN
    F-SEL C@ ENT DUP ENT>NAME
    DUP DIR? IF DROP F-CD EXIT THEN
    DUP PLC? IF DROP F-RUN EXIT THEN
+   DUP PIC? IF DROP F-PIC EXIT THEN
    E-OPEN ;
 : F-KEY ( key -- )
    DUP 17 = IF F-SEL C@ IF F-SEL C@ 1- F-MOVE THEN THEN
@@ -766,8 +791,10 @@ BYTES E-BINM c"Not a text file" ;
    MB_MENU C@ 80 = IF
       MB_SEL C@ F-SEL C! MB_TOP C@ F-TOP C!
       MB_T C@ HH C! MB_T 1+ C@ MM C! MB_T 2 + C@ SS C!
+      MB_PHOTO C@ 86 = IF              \ back from a picture: its folder
+         MB_PCLUS DCLUS 4 CMOVE MB_PCLUS MB_DCLUS 4 CMOVE THEN
    ELSE 0 F-SEL C! 0 F-TOP C! 0 HH C! 0 MM C! 0 SS C! THEN
-   0 MB_MENU C! 0 F-MSG ! DIR-READ
+   0 MB_PHOTO C! 0 MB_MENU C! 0 F-MSG ! DIR-READ
    F-SEL C@ F-N C@ < 0= IF 0 F-SEL C! 0 F-TOP C! THEN ;
 
 \ ------------------------------------------------------------

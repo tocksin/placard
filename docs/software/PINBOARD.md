@@ -8,7 +8,7 @@ calculator and a text editor.  It works with the PS/2 mouse, the keyboard, or bo
 in 2 colors on any board and in 4 or 16 colors on a rev B board
 ([Display](#display)).
 
-Date: 11/17/2026
+Date: 11/21/2026
 
 ![Pinboard in the emulator: the Files, Clock, Calc and Editor cards](../../reference/pinboard.png)
 
@@ -50,15 +50,15 @@ starts BASIC, or goes back to the DOS.
 
 ## Files
 
-The Files card lists the folder: a picture for a folder, a program
-(`.PLC`) or another file, the name, and the size.  The line under the
+The Files card lists the folder: a mark for a folder, a program
+(`.PLC`), a picture (`.PIC`) or another file, the name, and the size.  The line under the
 title names the folder; the last line counts the entries or says why
 something did not work.
 
 | Key | Mouse | Does |
 |-----|-------|------|
 | Up, Down | click a row | moves the bar; the list scrolls |
-| Enter | click the chosen row again | runs the program, opens the folder, or opens another file in the [Editor](#editor) |
+| Enter | click the chosen row again | runs the program, opens the folder, shows the picture ([below](#pictures)), or opens another file in the [Editor](#editor) |
 | Backspace | click the arrow by the folder's name | the folder above |
 | | click the scroll bar, above or below its middle | scrolls 5 rows |
 
@@ -100,6 +100,27 @@ the display.  An answer that is too big, or a division by 0, shows
 "Error" until C.  The numbers are kept as a sign and 32 bits, and the
 arithmetic is done 16 bits at a time in the bytecode: a multiply or a
 divide is 32 shift and add steps, about a twentieth of a second.
+
+## Pictures
+
+Enter on a `.PIC` file (or a click on the chosen one) runs the photo
+viewer, `PHOTO.PLC` in the card's root folder
+([PHOTOS.md](PHOTOS.md)), on that picture.  The viewer has the whole
+screen: Space, Right or Enter show the folder's next picture, Left or
+Backspace the one before, S starts a slide show, and Esc comes back to
+Pinboard, in the same folder with the same entry chosen and the clock
+kept.  The pictures can be in any folder, not only `PHOTOS`.
+
+A picture is 160 pixels across on a rev B board and 80 across on a rev A
+board.  From a color mode of the [Display](#display) card (which only a
+rev B board shows) the viewer uses 160 with no question.  From the
+2-color screen it asks once, H for 160 or any other key for 80, and uses
+the answer until power-off; H while a picture shows changes it.
+
+Files passes the viewer the folder and the picture's number in the menu
+block (x5D19-x5D1F) and runs it as it runs any program.  With no
+`PHOTO.PLC` on the card the Files card says so.  Unsaved text in the
+Editor keeps Pinboard from leaving for a picture, as for a program.
 
 ## Editor
 
@@ -234,6 +255,7 @@ Machine code does what has to be quick:
 | x4C00-x4CFF | the interpreter's return stack |
 | x5400-x59FF | the folder: 96 entries of 16 bytes |
 | x5D15-x5D18 | the time and the display's mode, kept in the menu block while a program runs |
+| x5D19-x5D1F | for the photo viewer: the mark "V", the rows' mode byte, the picture's folder and its number |
 
 A card is a row of four tables in `pinboard.vm`: its title and the words
 that draw it (`DRAWTAB`), take a key (`KEYTAB`) and take a click
@@ -255,5 +277,8 @@ name, the files it won't open and the unsaved text that keeps Pinboard
 from leaving; and the Display card on a rev B board: both color modes
 (read back by color), the pointer, a click, a drag and a sum in them, a
 mode not kept, the mode kept over a program's run, and a rev A board,
-where the 2-color screen comes back.
+where the 2-color screen comes back; and pictures: the photo viewer run
+from the `PHOTOS` folder and from another folder, its one question, the
+picture's bytes on the screen, the next and the one before, coming back to
+the folder in 2 and in 4 colors, and a card with no `PHOTO.PLC`.
 `--png folder` saves each step's screen.

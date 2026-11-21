@@ -36,8 +36,12 @@ reads the screen back through Pinboard's font (pinboard_emu.cells).
      mode not kept goes back after 10 seconds; the mode is kept over a
      program's run; on a rev A board the color rows are blank and the
      2-color screen comes back
+ 11. pictures: Enter on a .PIC file runs the photo viewer (PHOTO.PLC),
+     which shows that picture and the others of its folder; it asks 160
+     or 80 across once, and not at all from a color mode; Esc comes back
+     to Pinboard in the picture's folder; a card with no PHOTO.PLC
 
-Date: 11/17/2026
+Date: 11/21/2026
 """
 
 import argparse
@@ -157,7 +161,7 @@ class Screen:
         """the Files list's entry on the bar: its row's text, or None"""
         for r, line in enumerate(self.rows):
             for c in range(80):
-                if line[c] in 'FPf' and not self.inv[r][c] and c + 2 < 80 and line[c + 1] == ' ':
+                if line[c] in 'FPfi' and not self.inv[r][c] and c + 2 < 80 and line[c + 1] == ' ':
                     return line[c + 2:c + 15].strip()
         return None
 
@@ -176,7 +180,7 @@ class ColorScreen(Screen):
         bar = {(3, 1), (10, 3)}
         for r, line in enumerate(self.rows):
             for c in range(len(line) - 2):
-                if line[c] in 'FPf' and self.colors[r][c] in bar and line[c + 1] == ' ':
+                if line[c] in 'FPfi' and self.colors[r][c] in bar and line[c + 1] == ' ':
                     return line[c + 2:c + 15].strip()
         return None
 
@@ -593,6 +597,114 @@ def main(argv):
     t = o['timeout']
     check('rev A: the rows are blank, then 2 colors again', o['ask'].ram[0x5A20] == 0x85
           and t.ram[0x5A20] == 0 and t.has('* Display') and t.has(' Pinboard ', 58))
+
+    # ---- 11: pictures ---------------------------------------------------
+    print('11. pictures')
+    photos = [e[0] for e in sdimage.listdir(img, 'PHOTOS') if not e[0].startswith('.')]
+    pics = [n for n in photos if n.endswith('.PIC')]
+    pic = pics[2]
+
+    def screen_is(scr, data):
+        return scr.ram[0x6000:0x10000] == data
+
+    def rows_are(scr, mode):
+        return set(scr.ram[0x5A20:0x5C00]) == {mode}
+
+    s = Script()
+    for _ in range(names.index('PHOTOS')):
+        s.key(K_DOWN)
+    s.key(K_ENTER)
+    s.wait(40)
+    for _ in range(photos.index(pic)):
+        s.key(K_DOWN)
+    s.shot('chosen')
+    s.key(K_ENTER)
+    s.shot('ask', 250)
+    s.type(' ')
+    s.shot('pic', 120)
+    s.key(K_RIGHT)
+    s.shot('next', 120)
+    s.key(K_ESC, hold=20)
+    s.shot('back', 300)
+    s.key(K_ENTER)
+    s.shot('again', 300)
+    s.key(K_ESC, hold=20)
+    s.wait(300)
+    s.key(K_BKSP)
+    s.shot('root', 40)
+    o = s.run(files, png=args.png, tag='11_')
+    c = o['chosen']
+    check('.PIC files have the picture mark', c.has('{ PHOTOS', 2) and c.chosen() == pic
+          and all(c.has('i ' + n) for n in pics))
+    a = o['ask']
+    check('Enter runs the photo viewer, which asks 160 or 80 across',
+          a.has('PLACARD PHOTOS') and a.has('%d pictures in this folder' % len(pics))
+          and a.has('Press H for 160 across') and not a.has('Pinboard'))
+    check('a key: the picture chosen, 80 across',
+          screen_is(o['pic'], files['PHOTOS/' + pic]) and rows_are(o['pic'], 0x07))
+    check('Right: the folder\'s next picture', screen_is(o['next'], files['PHOTOS/' + pics[3]]))
+    b = o['back']
+    check('Esc comes back to Pinboard, in the folder, the picture still chosen',
+          b.has(' Pinboard ', 58) and b.has('{ PHOTOS', 2) and b.chosen() == pic
+          and b.ram[0x5BE8] == 0x40)
+    check('Enter again: the picture with no question',
+          screen_is(o['again'], files['PHOTOS/' + pic]) and rows_are(o['again'], 0x07))
+    check('and back again: Backspace goes up to the root folder',
+          o['root'].has('{ \\', 2) and o['root'].chosen() == names[0])
+
+    art = dict(files)                   # pictures in another folder, a color mode
+    art['ART/NOTE.TXT'] = b'two pictures\r\n'
+    art['ART/ONE.PIC'] = bytes((x * 7 + 1) & 0xFF for x in range(40960))
+    art['ART/TWO.PIC'] = bytes((x * 13 + 5) & 0xFF for x in range(40960))
+    aimg = sdimage.make(art)
+    anames = [e[0] for e in sdimage.listdir(aimg)]
+    alist = [e[0] for e in sdimage.listdir(aimg, 'ART') if not e[0].startswith('.')]
+    s = Script()
+    launcher(s, 5)
+    s.type('2')
+    s.wait(150)
+    s.type('y')
+    s.wait(40)
+    launcher(s, 0)
+    for _ in range(anames.index('ART')):
+        s.key(K_DOWN)
+    s.key(K_ENTER)
+    s.wait(40)
+    for _ in range(alist.index('TWO.PIC')):
+        s.key(K_DOWN)
+    s.shot('chosen', 25, 2)
+    s.key(K_ENTER)
+    s.shot('pic', 300)
+    s.key(K_LEFT)
+    s.shot('prev', 120)
+    s.key(K_ESC, hold=20)
+    s.shot('back', 300, 2)
+    o = s.run(art, png=args.png, tag='11b_', rev_b=True)
+    check('4 colors: TWO.PIC chosen in the ART folder', o['chosen'].chosen() == 'TWO.PIC')
+    check('Enter: the picture at once, 160 across',
+          screen_is(o['pic'], art['ART/TWO.PIC']) and rows_are(o['pic'], 0x87))
+    check('Left: the picture before, of the same folder', screen_is(o['prev'], art['ART/ONE.PIC']))
+    b = o['back']
+    check('Esc: Pinboard again in 4 colors, in the ART folder',
+          b.ram[0x5A20] == 0x85 and b.has('{ ART') and b.chosen() == 'TWO.PIC')
+
+    bare = {k: v for k, v in files.items() if k != 'PHOTO.PLC'}
+    bnames = [e[0] for e in sdimage.listdir(sdimage.make(bare))]
+    s = Script()
+    for _ in range(bnames.index('PHOTOS')):
+        s.key(K_DOWN)
+    s.key(K_ENTER)
+    s.wait(40)
+    s.key(K_ENTER)
+    s.shot('none', 60)
+    s.key(K_DOWN)
+    s.key(K_BKSP)
+    s.shot('root', 40)
+    o = s.run(bare, png=args.png, tag='11c_')
+    n = o['none']
+    check('no PHOTO.PLC on the card: Files says so and stays in the folder',
+          n.has('PHOTO.PLC is not on the card', 29) and n.has('{ PHOTOS', 2) and n.chosen() == photos[0])
+    check('and Backspace still goes up', o['root'].has('{ \\', 2))
 
     print('PASS' if check.ok else 'FAIL')
     return 0 if check.ok else 1

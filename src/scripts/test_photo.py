@@ -84,7 +84,7 @@ def main(argv):
     r.run_until(lambda: cpu.pc == psyms['in_loop'] and cpu.map == 7, 200, 'the question')
     for row in (1, 3, 6, 7, 10, 11):
         print('  row %2d: %r' % (row, r.row(row)))
-    if r.row(3).strip() != '%d pictures in the PHOTOS folder' % len(pics):
+    if r.row(3).strip() != '%d pictures in this folder' % len(pics):
         r.fail('the count')
 
     print('2. H: 160 across')
