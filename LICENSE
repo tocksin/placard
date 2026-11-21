@@ -70,3 +70,9 @@ Third-party material, under its owners' terms:
                     pictures and songs are from Skyward Tobi 4,
                     Copyright (c) 2026 Mark
                     Szlemko, MIT License (the notice is in gen_skyward.py)
+    src/photos/, sdcard/PHOTOS/, docs/software/photos_demo.png,
+    reference/photo_tulips.png
+                    photographs by Michela Simoncini, Tobias Haase, Mike
+                    Mozart and Daniel Büchele, CC BY 2.0, and one by
+                    NASA (public domain); who made which, and the
+                    links, are in docs/software/PHOTOS.md
