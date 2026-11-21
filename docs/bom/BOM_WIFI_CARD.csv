@@ -1,0 +1,11 @@
+Qty,References,Part number,Manufacturer,Description,Value,Unit price USD,Line total USD,Price from,Notes,Footprint,On schematic
+1,,PLC-1005 rev A,(custom PCB),"PCB, WiFi card, 72 x 44.0 mm, 4-layer, ENIG, hard-gold bevelled fingers",,4.00,4.00,"est.: JLCPCB/PCBWay typical; the board is placed, not routed (WIFICARD.md)",,,no
+1,U1,ATF22V10C-7PX,Microchip,"PLD, 22V10, 7.5 ns, PDIP-24 0.3"" (programmed)",,2.99,2.99,Mouser,WiFi card SPI port U1,placard:DIP-24_W7.62mm_Socket_Puller,yes
+1,U2,ESP32-C3-DevKitM-1-N4X,Espressif Systems,"WiFi board, ESP32-C3-MINI-1-N4X module, USB, 3.3 V regulator, two 1 x 15 pin headers fitted",,8.00,8.00,"est.: Mouser 356-ESP32C3DVKTM1N4X, in stock 2026-11-21 (CA$11.52 on mouser.ca; the US price was not read)",,placard:ESP32-C3-DevKitM-1,yes
+3,R1 R2 R3,MFR-25FBF52-1K8,Yageo,"Resistor, metal film 1%, 1/4 W, axial",1.8k,0.10,0.30,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
+3,R4 R5 R6,MFR-25FBF52-3K3,Yageo,"Resistor, metal film 1%, 1/4 W, axial",3.3k,0.10,0.30,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
+2,R7 R8,MFR-25FBF52-10K,Yageo,"Resistor, metal film 1%, 1/4 W, axial",10k,0.10,0.20,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
+1,R9,MFR-25FBF52-470R,Yageo,"Resistor, metal film 1%, 1/4 W, axial",470,0.10,0.10,est.: Yageo MFR-25FBF52 series,,placard:R_Axial_DIN0207_L6.3mm_D2.5mm_P10.16mm_Horizontal_Value,yes
+1,C1,FG28X7R1H104KNT00,TDK,"Ceramic capacitor, 5 mm pitch",100n,0.23,0.23,Mouser: TDK FG28X7R1H104KNT00 (KEMET C320C104K5R5TA is $0.66 at Mouser),,placard:C_Disc_D5.0mm_W2.5mm_P5.00mm,yes
+1,C2,25YXJ220M6.3X11,Rubycon,"Electrolytic capacitor, radial 6.3 mm, 2.50 mm pitch",220u,0.35,0.35,est.: Rubycon YXJ series (Digi-Key; Panasonic EEU-FR1C221 out of stock),,placard:CP_Radial_D6.3mm_P2.50mm,yes
+1,U1,ED241DT,On Shore,"IC socket, DIP-24 0.3""",,0.40,0.40,est.: On Shore ED241DT,,,no

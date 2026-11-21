@@ -1,6 +1,6 @@
 # Bill of materials: 64K cartridge assembly PLC-2003
 
-Date: 2026-11-17
+Date: 2026-11-21
 
 The 64K ROM cartridge, built: the bare PCB, its parts and sockets, and its shell and screw.  Not released (the machine ships with the 32K cartridge); kept for a 64K development ROM.
 

@@ -3,7 +3,8 @@
 ten sheets) and kicad/cartridge_64k/ and kicad/cartridge_32k/ (the two ROM
 cartridge boards, one sheet each).  With --memcard it writes and checks only
 kicad/memory_card/ (the 512K memory expansion card, MEMCARD.md) and leaves the
-other sheets alone.
+other sheets alone; with --wificard the same for kicad/wifi_card/ (the WiFi
+expansion card, WIFICARD.md).
 
 The sheet split follows docs/hardware/SCHEMATIC_PLAN.md.  The connections follow the
 PLD pin lists (src/pld/*.pld), basys_top.vhd and the docs (CHIPS.md, IO.md,
@@ -22,7 +23,7 @@ placard_cartridge_32k.pdf, set to open without the bookmarks panel.
 --check exports the netlist with kicad-cli and compares it with the nets
 listed here, then runs the ERC.
 
-Date: 2026-11-17
+Date: 2026-11-21
 """
 import os
 import re
@@ -76,6 +77,7 @@ MPN = {
     "SN74HCT574N": ("Texas Instruments", "SN74HCT574N"),
     "AS7C256C-15PCN": ("Alliance Memory", "AS7C256C-15PCN"),
     "AS7C4096A-12JIN": ("Alliance Memory", "AS7C4096A-12JIN"),
+    "ESP32-C3-DevKitM-1-N4X": ("Espressif Systems", "ESP32-C3-DevKitM-1-N4X"),
     "AT28C256-15PU": ("Microchip", "AT28C256-15PU"),
     "MCP1700-3302E/TO": ("Microchip", "MCP1700-3302E/TO"),
     "USB4125-GF-A": ("GCT", "USB4125-GF-A-0190"),
@@ -105,7 +107,7 @@ MPN_LIB = {
 # Rubycon YXJ electrolytic for C41 and C44 (25 V, 6.3 x 11 mm, 2.5 mm pitch; Justin, 2026-10-28)
 R_CODE = {"5.1k": "5K1", "10k": "10K", "47": "47R", "3.3k": "3K3", "1.6k": "1K6", "820": "820R",
           "1.43k": "1K43", "715": "715R", "2.2": "2R2", "2k": "2K", "1k": "1K", "1.8k": "1K8",
-          "4.7k": "4K7", "910": "910R", "22k": "22K", "22": "22R"}
+          "4.7k": "4K7", "910": "910R", "22k": "22K", "22": "22R", "470": "470R"}
 MPN_PASSIVE = {
     ("placard_std:R_Network08_US", "10k"): ("Bourns", "4609X-101-103LF"),
     ("placard_std:C", "100n"): ("TDK", "FG28X7R1H104KNT00"),
@@ -1473,6 +1475,116 @@ def memcard_main():
     sys.exit(1 if bad else 0)
 
 
+WIFICARD_DIR = os.path.join(KDIR, "wifi_card")
+WIFICARD_PART = "PCB PLC-1005, assembly PLC-2005"
+WIFI_DATE = "2026-11-21"
+# where the WiFi card sheet's parts stand (mm)
+WF_J1, WF_U1, WF_U2 = (76.2, 149.86), (187.96, 137.16), (332.74, 132.08)
+
+
+def build_wificard():
+    """The WiFi expansion card (docs/architecture/WIFICARD.md, 2026-11-21): U1 the SPI port PLD on the
+    slot, U2 an ESP32-C3-DevKitM-1 board as an SPI slave behind three resistor dividers.  The fingers
+    take the expansion slot's contacts, so the card works in any slot."""
+    proj = "wifi_card"
+    root_uuid = K.det_uuid(proj, "root")
+    s = K.Sheet(proj, proj + ".kicad_sch", "WiFi expansion card", 1, root_uuid, None, WIFI_DATE,
+                rev="A", part_no=WIFICARD_PART)
+    s.uid = root_uuid
+    s.comment2 = "Card chips U1-U2 (docs/architecture/WIFICARD.md); decoupling Cn goes with Un"
+    s.names = {"U1": "WiFi SPI port PLD", "U2": "WiFi module"}
+    heading(s, "WiFi expansion card",
+            "One PLD as an SPI port on the slot, and an ESP32-C3 board as the SPI slave: software clocks it as it does the SD card")
+    n = {"A1": "GND", "A2": "+5V", "A16": "~{EXP}", "A10": "Q0", "B24": "~{WE}"}
+    for i, c in enumerate(["A23", "B13", "B15", "B17", "B19", "B23", "B25", "B29"]):
+        n[c] = D[i]
+    acon = ["A22", "A19", "A17", "A15", "A14", "B9", "B7", "A4", "A8", "A9", "A18", "A13", "B3", "A6", "A3", "A5"]
+    for i, c in enumerate(acon):
+        n[c] = A[i] if i in (0, 5, 6) else None  # A0 picks the read; A6 and A5 are the card's registers, 60h-7Fh
+    for c in ["B16", "A20", "B4", "B20", "A7", "A26", "A28", "B12", "B14", "B8", "B28"]:
+        n[c] = None                              # RW, LOAD_IMM, CLK, /RESET, the video lines and the boot contacts
+    s.part("placard_parts:Expansion_Slot", "J1", *WF_J1, n, value="Card edge (87715-9106 mate)",
+           footprint="placard:Card_Edge_87715-9106", ref_at=(WF_J1[0] - 12, WF_J1[1] - 39),
+           value_at=(WF_J1[0] - 12, WF_J1[1] + 41.2), in_bom=False)    # gold fingers on the card's PCB, not a part
+    # the PLD pins are those of ATF22V10_WIFI.pld
+    we, exp = "~{WE}", "~{EXP}"
+    u1 = {1: we, 2: exp, 3: "Q0", 4: A[0], 5: A[5], 6: A[6], 7: D[0], 8: D[1], 9: "MISO", 10: "READY",
+          11: None, 13: None, 14: "SCK_5V", 15: "MOSI_5V", 16: "~{CS_5V}", 17: "~{RST_PLD}",
+          18: D[2], 19: D[3], 20: D[4], 21: D[5], 22: D[6], 23: D[7]}
+    pins1 = s.part("placard:ATF22V10C_WIFI", "U1", *WF_U1, pld(u1))
+    decap(s, 1, WF_U1[0] - 25.4, WF_U1[1] - 63.5, lift=0)
+    # the module: pins 1-15 its header J1, 16-30 its header J3 (16 = J3 pin 1).  Its 3V3 pins are the
+    # output of its own regulator and stay open; pins 1 and 16 lie beside the antenna and stay open too.
+    u2 = {n: None for n in range(1, 31)}
+    u2.update({13: "+5V", 14: "+5V", 24: "SCK", 23: "MOSI", 11: "~{CS}", 7: "~{RST}", 25: "MISO", 26: "READY"})
+    for g in (6, 8, 12, 15, 19, 22, 27, 30):
+        u2[g] = "GND"
+    pins2 = s.part("placard_parts:ESP32-C3-DevKitM-1", "U2", *WF_U2, {str(k): v for k, v in u2.items()},
+                   value="ESP32-C3-DevKitM-1-N4X", bare=("24", "23", "11"))
+    cap(s, "C2", WF_U2[0] - 20.32, WF_U2[1] - 50.8, "+5V", "GND", "220u", polar=True)
+    return s, pins1, pins2
+
+
+def finish_wificard(s, pins1, pins2):
+    xs, xp = 254.0, 281.94           # the series resistors and the ones to ground
+    for src, net, rs, rp, pin in [("SCK_5V", "SCK", "R1", "R4", "24"), ("MOSI_5V", "MOSI", "R2", "R5", "23"),
+                                  ("~{CS_5V}", "~{CS}", "R3", "R6", "11")]:
+        y = pins2[pin][1]
+        res(s, rs, xs, y, src, net, "1.8k", angle=90, bare=("2",), ref_at=(xs - 3.0, y - 3.2), value_at=(xs + 4.0, y - 3.2))
+        res(s, rp, xp, y + 3.81, net, "GND", "3.3k", bare=("1",))
+        path(s, net, (xs + 3.81, y), (xp, y), pins2[pin])
+        s.junction(xp, y, owner=net)
+    y = pins2["7"][1]
+    res(s, "R9", xs, y, "~{RST_PLD}", "~{RST}", "470", angle=90, ref_at=(xs - 3.0, y - 3.2), value_at=(xs + 4.0, y - 3.2))
+    for k, (net, ref, pin) in enumerate([("MISO", "R7", "25"), ("READY", "R8", "26")]):
+        res(s, ref, 259.08 + 15.24 * k, pins2[pin][1] + 12.7, net, "GND", "10k")
+    # the two M3 holes that screw the card into its shell: on the sheet so an update of the board keeps them
+    for i, hx in enumerate((335.28, 350.52)):
+        s.part("placard_std:MountingHole", "H%d" % (i + 1), hx, 238.76, {}, value="M3",
+               footprint="placard:MountingHole_3.2mm_M3", in_bom=False)
+    s.power("+5V", 160.02, 259.08)
+    path(s, "+5V", (160.02, 259.08), (167.64, 259.08))
+    s.pwr_flag(167.64, 259.08)
+    s.pwr_flag(182.88, 259.08)
+    path(s, "GND", (182.88, 259.08), (182.88, 264.16))
+    s.power("GND", 182.88, 264.16)
+    note(s, 22, 226, ["U1 is the card's SPI port (ATF22V10_WIFI.pld), at the card's",
+                      "offsets 60h-7Fh.  A write there loads bit 0 SCK, bit 1 MOSI,",
+                      "bit 2 /CS, bit 3 run (0 holds U2 in reset); a read gives",
+                      "D7 = MISO, D6 = READY and fixed bits on D5:D2.  It powers up",
+                      "with SCK, MOSI and /CS high and the reset pin off.",
+                      "U2 is a 3.3 V board with its own regulator: SCK, MOSI and /CS",
+                      "come down through 1.8k / 3.3k dividers (as the SD card's),",
+                      "MISO and READY go straight to U1 (TTL inputs).  U1 pin 17",
+                      "only pulls RST low (U2 has the pull-up and a capacitor).",
+                      "U2 is soldered in on its own pin headers.  Flash it through",
+                      "its USB socket with the card out of the machine."])
+    s.finish(set())
+    return s
+
+
+def wificard_main():
+    """--wificard: write and check only the WiFi card's sheet (the main board's sheets are Justin's)."""
+    sch = os.path.join(WIFICARD_DIR, "wifi_card.kicad_sch")
+    K.keep_uuids(sch)
+    card = finish_wificard(*build_wificard())
+    write(sch, card.render())
+    for o in card.overlaps():
+        print("overlap", card.filename, o)
+    for r in card.report:
+        print("route", card.filename, r)
+    if "--pdf" in sys.argv:
+        export_pdf(sch, os.path.join(ROOT, "schematics", "placard_wifi_card.pdf"))
+    bad = compare(expected_nets([card], set()), kicad_nets(sch), "WiFi card")
+    for it in erc(sch, "WiFi card", FLAGGED):
+        print("  ", it)
+        bad += 1
+    for it in check_refs([card], "WiFi card"):
+        print("  ", it)
+        bad += 1
+    sys.exit(1 if bad else 0)
+
+
 FLAGGED = {"+5V", "GND", "GNDA", "DAC_5V", "+3V3"}
 
 # ---------------------------------------------------------------- write + check
@@ -1597,6 +1709,8 @@ def check_refs(sheets, label):
 def main():
     if "--memcard" in sys.argv:
         memcard_main()
+    if "--wificard" in sys.argv:
+        wificard_main()
     # keep every symbol's uuid from the files already there (Update PCB from Schematic matches on it)
     for d in (KDIR, *CDIRS.values()):
         for f in sorted(os.listdir(d)) if os.path.isdir(d) else []:

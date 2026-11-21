@@ -53,7 +53,7 @@ Silkscreen: the body outline in silk is cut back around the pads and holes
 (SILK_PAD_GAP) and stops SILK_EDGE_GAP inside the board edge on an edge
 connector, so DRC's silk-over-mask and silk-to-edge checks pass.
 
-Date: 2026-11-02
+Date: 2026-11-21
 """
 
 import os
@@ -464,6 +464,31 @@ def stock(lib, name, note, edge=None, rename=None):
     print("wrote", name)
 
 
+def wifi_module():
+    # Espressif ESP32-C3-DevKitM-1 (the WiFi card's module, WIFICARD.md), soldered in on its own pin
+    # headers.  From its dimension drawing (DIMENSION_ESP32-C3-DEVKITM-1_V1_20200915AA): 25.40 x
+    # 38.91 mm, two rows of 15 pins at 2.54 mm, 22.86 mm apart.  Pads 1-15 are the board's J1 and
+    # 16-30 its J3 (pad 16 = J3 pin 1, across from pad 1); the antenna is at the pin 1 end (up, -y)
+    # and the USB socket at the pin 15 end.  The drawing's text gives no distance from the board's
+    # end to pin 1: the outline is drawn with the pins centred along the board, so check the outline's
+    # ends against a board before a shell or a neighbour relies on them.
+    pads = [pad(str(n + 1), 0.0, 2.54 * n, 1.7, 1.0) for n in range(15)]
+    pads += [pad(str(n + 16), 22.86, 2.54 * n, 1.7, 1.0) for n in range(15)]
+    over = (38.91 - 35.56) / 2
+    body = (-1.27, -over, 24.13, 35.56 + over)
+    extra = line(-1.27, ANT_END, 24.13, ANT_END, "Dwgs.User", 0.1)
+    extra += text("user", "antenna: no copper", 11.43, ANT_END - 2.2, "Dwgs.User", size=0.8)
+    extra += text("user", "USB", 11.43, 35.56, "F.Fab", size=0.8)
+    footprint("ESP32-C3-DevKitM-1",
+              "Espressif ESP32-C3-DevKitM-1 board on its two 1 x 15 pin headers, rows 22.86 mm apart",
+              body, pads, extra=extra)
+
+
+# the antenna end of the WiFi module: from the board's end to this y of its footprint no copper
+# (gen_kicad_wificard_pcb.py draws the keepout)
+ANT_END = 6.0
+
+
 def main():
     cart_slot()
     card_edge()
@@ -474,6 +499,7 @@ def main():
     audio_jack()
     usb_c()
     relay()
+    wifi_module()
     # J4 (Hirose DM1AA-SF-PEJ(82); the Kyocera 5638 went obsolete 2026-10-25) sits with
     # its card opening 15.45 mm past its origin on the left board edge
     stock("Connector_Card", "SD_Hirose_DM1AA_SF_PEJ82", "a generated 3D model (KiCad has none) and its "

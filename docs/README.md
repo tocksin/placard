@@ -12,6 +12,7 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 - [IO.md](architecture/IO.md): the shared port (SNES pads, SD card, PS/2 keyboard and mouse)
 - [EXPANSION.md](architecture/EXPANSION.md): expansion slots and the ROM cartridge slot
 - [MEMCARD.md](architecture/MEMCARD.md): the 512K memory expansion card
+- [WIFICARD.md](architecture/WIFICARD.md): the WiFi expansion card, its driver and demo (`WIFI.PLC`); designed, not built
 - [PLD_USAGE.md](architecture/PLD_USAGE.md): unused pins and product terms in each 22V10
 
 ## [timing/](timing/)

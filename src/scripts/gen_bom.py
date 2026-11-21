@@ -7,6 +7,7 @@ case parts list (CASE.md), one BOM per assembly (Justin, 2026-10-25):
     docs/bom/BOM_CART_64K.md/.csv   64K cartridge assembly: PCB, components, shell, screw
     docs/bom/BOM_CART_32K.md/.csv   32K cartridge assembly: the same for the 32K board
     docs/bom/BOM_MEMORY_CARD.md/.csv  512K memory expansion card assembly: PCB, components, sockets
+    docs/bom/BOM_WIFI_CARD.md/.csv    WiFi expansion card assembly: PCB, components, socket
     docs/bom/BOM_CASE.md/.csv       case assembly: the main board assembly as one line,
                                 case parts, standoffs, screws and feet
     docs/bom/BOM.md                 the index: what each BOM covers and their costs
@@ -34,7 +35,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import kicad_sch_lib as K  # noqa: E402
 
-DATE = "2026-11-17"
+DATE = "2026-11-21"
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 KDIR = os.path.join(ROOT, "kicad")
 
@@ -43,6 +44,7 @@ BOARDS = [
     ("Cartridge, 64K", [os.path.join(KDIR, "cartridge_64k", "cartridge_64k.kicad_sch")]),
     ("Cartridge, 32K", [os.path.join(KDIR, "cartridge_32k", "cartridge_32k.kicad_sch")]),
     ("Memory card, 512K", [os.path.join(KDIR, "memory_card", "memory_card.kicad_sch")]),
+    ("WiFi card", [os.path.join(KDIR, "wifi_card", "wifi_card.kicad_sch")]),
 ]
 
 # descriptions by value, then by symbol
@@ -56,6 +58,7 @@ DESC_VALUE = {
     "SN74HCT574N": "Octal D flip-flop, 3-state, 74HCT, DIP-20",
     "AS7C256C-15PCN": "SRAM, 32K x 8, 15 ns, PDIP-28 0.3\"",
     "AS7C4096A-12JIN": "SRAM, 512K x 8, 12 ns, SOJ-36 0.4\" (surface mount, 1.27 mm pitch)",
+    "ESP32-C3-DevKitM-1-N4X": "WiFi board, ESP32-C3-MINI-1-N4X module, USB, 3.3 V regulator, two 1 x 15 pin headers fitted",
     "AT28C256-15PU": "EEPROM, 32K x 8, 150 ns, PDIP-28 0.6\" (programmed)",
     "MCP1700-3302E/TO": "3.3 V LDO regulator, 250 mA, TO-92",
     "SA5.0A": "TVS diode, 5 V stand-off, 500 W, DO-15 axial (across the fused USB 5 V)",
@@ -111,6 +114,7 @@ def is_optional(name, d):
 # Key: the part number, or "description start|value" for a line with none.
 PRICES = {
     "ATF22V10C-7PX": (2.99, "Mouser", ""),
+    "ESP32-C3-DevKitM-1-N4X": (8.00, "est.", "Mouser 356-ESP32C3DVKTM1N4X, in stock 2026-11-21 (CA$11.52 on mouser.ca; the US price was not read)"),
     "ATF22V10C-10PU": (2.63, "Mouser", ""),
     "SN74F377AN": (1.54, "Mouser", ""),
     "CD74HCT377E": (1.29, "Mouser", ""),
@@ -185,7 +189,8 @@ PLD_JOB = {"STATE": "State", "BRANCH": "Branch", "PC_COUNTER8": "PC", "ALU_SHR":
            "MEM_CTRL": "Memory control", "IO_DECODE": "I/O decode", "HCOUNT": "H counter", "VCOUNT": "V counter",
            "SYNC": "Sync", "COLORDECODER": "Color decoder", "IR": "Instruction register", "AUDIO": "Audio slot",
            "PORT": "Shared port", "PS2": "PS/2 receiver", "CART": "Cartridge loader",
-           "MEMCARD_HI": "Memory card page high and decode", "MEMCARD_LO": "Memory card page low"}
+           "MEMCARD_HI": "Memory card page high and decode", "MEMCARD_LO": "Memory card page low",
+           "WIFI": "WiFi card SPI port"}
 
 # On Shore ED sockets: a 1 after the pin count marks the 0.3" version where both widths exist
 SOCKET = {(14, False): "ED14DT", (20, False): "ED20DT", (24, False): "ED241DT", (28, False): "ED281DT",
@@ -326,6 +331,9 @@ PCB_LINES = {
     "Memory card, 512K": [mech(1, "PCB, 512K memory card, 72 x 42.7 mm, 4-layer, ENIG, hard-gold bevelled fingers", 4.00,
                               "JLCPCB/PCBWay typical; the board is routed (MEMCARD.md)",
                               mpn="PLC-1004 rev A", mfr="(custom PCB)")],
+    "WiFi card": [mech(1, "PCB, WiFi card, 72 x 44.0 mm, 4-layer, ENIG, hard-gold bevelled fingers", 4.00,
+                      "JLCPCB/PCBWay typical; the board is placed, not routed (WIFICARD.md)",
+                      mpn="PLC-1005 rev A", mfr="(custom PCB)")],
 }
 SHELL_LINES = {
     "Memory card, 512K": [mech(1, "Memory card shell (front and back halves, case/memcard_shell_*.stl)", 3.50,
@@ -372,11 +380,12 @@ CASE_LINES = [
 ]
 
 FILES = {"Main board": "BOM_MAIN_PCB", "Cartridge, 64K": "BOM_CART_64K", "Cartridge, 32K": "BOM_CART_32K",
-         "Memory card, 512K": "BOM_MEMORY_CARD", "Case": "BOM_CASE"}
+         "Memory card, 512K": "BOM_MEMORY_CARD", "WiFi card": "BOM_WIFI_CARD", "Case": "BOM_CASE"}
 # Board part numbers (Justin 2026-10-29): PLC-1xxx bare PCB, PLC-2xxx assembly
 TITLES = {"Main board": "Main board assembly PLC-2001", "Cartridge, 64K": "64K cartridge assembly PLC-2003",
           "Cartridge, 32K": "32K cartridge assembly PLC-2002",
-          "Memory card, 512K": "512K memory card assembly PLC-2004", "Case": "Case assembly"}
+          "Memory card, 512K": "512K memory card assembly PLC-2004",
+          "WiFi card": "WiFi card assembly PLC-2005", "Case": "Case assembly"}
 SCOPE = {
     "Main board": "The main board, built: the bare PCB, every part on the schematic, and the sockets, "
                   "jumper shunts that are not drawn.  It is one line of the case assembly.",
@@ -387,6 +396,9 @@ SCOPE = {
     "Memory card, 512K": "The 512K memory expansion card ([MEMCARD.md](../architecture/MEMCARD.md)), built: the "
                         "bare PCB, its three chips and the two PLDs' sockets (the SRAM is soldered).  Optional: it goes in any expansion slot, "
                         "which needs that slot's socket fitted on the main board.  With its printed shell, the shell's screws and nuts and the insert for the case's card screw.",
+    "WiFi card": "The WiFi expansion card ([WIFICARD.md](../architecture/WIFICARD.md)), built: the bare PCB, its PLD "
+                 "and socket, the WiFi board (soldered in on its own pin headers) and the passives.  Optional: it goes in any "
+                 "expansion slot, which needs that slot's socket fitted on the main board.  No shell yet.",
     "Case": "The computer in its case: the main board assembly ([BOM_MAIN_PCB.md](BOM_MAIN_PCB.md)) as one "
             "line, the case parts from [CASE.md](../case/CASE.md), standoffs, screws and feet.  The cartridge is its own "
             "assembly.",
@@ -405,7 +417,7 @@ def write_bom(name, bom, note_opt):
             opt += (d["unit"] or 0) * d["qty"]
     est = sum(1 for d in bom if d["src"] == "est.")
     parts = sum(d["qty"] for d in bom if not d["extra"])
-    md = [f"# Bill of materials: {TITLES[name][0].lower() + TITLES[name][1:]}\n", f"Date: {DATE}\n", SCOPE[name], "",
+    md = [f"# Bill of materials: {TITLES[name] if name == 'WiFi card' else TITLES[name][0].lower() + TITLES[name][1:]}\n", f"Date: {DATE}\n", SCOPE[name], "",
           f"{len(bom)} lines" + (f", {parts} parts on the schematic" if parts else "") + ".  "
           f"Cost: **${total:,.2f}** for one assembly at these quantities"
           + (f", **${total - opt:,.2f}** without the optional parts ({note_opt})" if opt else "")
@@ -459,9 +471,10 @@ def main():
           "|---|---|---|--:|--:|--:|"]
     contents = {"Main board": "Bare PCB, components, sockets", "Cartridge, 64K": "Bare PCB, components, sockets, "
                 "shell, screw", "Cartridge, 32K": "Same, 32K board",
-                "Memory card, 512K": "Bare PCB, components, sockets, shell, screws (optional card)", "Case": "Main board assembly, tray and plates, "
+                "Memory card, 512K": "Bare PCB, components, sockets, shell, screws (optional card)",
+                "WiFi card": "Bare PCB, PLD and socket, WiFi board, passives (optional card)", "Case": "Main board assembly, tray and plates, "
                 "acrylic, printed covers, standoffs, screws, feet"}
-    for name in ("Main board", "Cartridge, 64K", "Cartridge, 32K", "Memory card, 512K", "Case"):
+    for name in ("Main board", "Cartridge, 64K", "Cartridge, 32K", "Memory card, 512K", "WiFi card", "Case"):
         t, b, est = totals[name]
         f = FILES[name]
         md.append(f"| {TITLES[name]} | [{f}.md]({f}.md), [.csv]({f}.csv) | {contents[name]} | ${t:,.2f} | "

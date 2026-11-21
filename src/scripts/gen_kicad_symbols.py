@@ -29,7 +29,7 @@ stops if a pin is missing from it); the file is KiCad 7 format.
 
 symbol() is also used by gen_kicad_parts.py for the other project symbols.
 
-Date: 2026-11-17
+Date: 2026-11-21
 """
 
 import os
@@ -136,6 +136,14 @@ LAYOUT = {
         # the memory card's page bits 7:0 (the SRAM's A14:A7)
         (["D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7", None, "WE", "PGLO"],
          ["PG0", "PG1", "PG2", "PG3", "PG4", "PG5", "PG6", "PG7"]),
+        (["nc"], []),
+    ],
+    "ATF22V10_WIFI": [
+        # the WiFi card's SPI port: the slot side on the left, the module's lines on the right (MISO and
+        # READY, inputs, with them), a few rows apart so the dividers fit between
+        (["EXP", "Q0", None, "A0", "A5", "A6", None, "WE", None, "D0", "D1", "D2", "D3", "D4", "D5", "D6", "D7"],
+         ["SCKN", None, None, None, None, None, None, "MOSIN", None, None, None, None, None, None, "CSN", None, None, None, None, None, None, "MRST",
+          None, None, "MISO", "READY"]),
         (["nc"], []),
     ],
     "ATF22V10_PC_COUNTER8": [

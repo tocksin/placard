@@ -1,6 +1,6 @@
 # Expansion slots and ROM cartridge slot
 
-Date: 2026-11-17
+Date: 2026-11-21
 
 The Placard has four expansion slots and one ROM cartridge slot, all the
 same keyed 2 x 32, 1.0 mm pitch socket (Molex 87715-9106, "ROM cartridge
@@ -194,7 +194,8 @@ than 128 bytes adds a page register (a 74HC574 written at one of its
 addresses, CP from /EXPn and /WE through a gate, or a card PLD) on the
 upper address pins.  The card timing below is checked with this card.
 The 512K memory card ([MEMCARD.md](MEMCARD.md)) is this card with the page
-register in two PLDs.
+register in two PLDs.  The WiFi card ([WIFICARD.md](WIFICARD.md)) is a
+register card: one PLD as an SPI port to a WiFi module.
 
 **Writes.**  A card's write strobe is `/EXP low and /WE low` (plus any
 A6:A0 register select).  Latch D7:D0 on the strobe's rising edge, at the

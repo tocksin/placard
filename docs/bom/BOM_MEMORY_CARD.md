@@ -1,6 +1,6 @@
 # Bill of materials: 512K memory card assembly PLC-2004
 
-Date: 2026-11-17
+Date: 2026-11-21
 
 The 512K memory expansion card ([MEMCARD.md](../architecture/MEMCARD.md)), built: the bare PCB, its three chips and the two PLDs' sockets (the SRAM is soldered).  Optional: it goes in any expansion slot, which needs that slot's socket fitted on the main board.  With its printed shell, the shell's screws and nuts and the insert for the case's card screw.
 
