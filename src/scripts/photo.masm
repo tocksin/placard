@@ -1,0 +1,492 @@
+; ============================================================
+; photo.masm - PHOTO.PLC: shows the pictures in the card's PHOTOS folder
+; ============================================================
+;
+; A library program the DOS runs from the card (Enter on PHOTO.PLC in the
+; browser, or BOOT.CFG = "PHOTO.PLC").  It opens the folder PHOTOS in the
+; card's root and shows its .PIC files one at a time, in the order they
+; are in the folder.
+;
+; A .PIC file is the video RAM x6000-xFFFF as it is: 40,960 bytes, 80
+; sectors, which fs_read puts straight on the screen (about 0.6 s; the
+; picture comes in from the left).  gen_photos.py makes the files from
+; photographs: 160 x 240 pixels, 256 colors, for a screen of 160-read
+; rows with 2x line repeat on a rev B board (mode byte x87,
+; docs/video/HIRES.md).
+;
+; A rev A board has no 160-read rows (bit 7 of the mode byte is its blank
+; line), so the program asks first.  With mode byte x07 (a normal 8 bpp
+; row, 2x) a board reads the odd byte columns of the same file: the
+; picture 80 pixels across, on either board.
+;
+;     H           at the start: 160 across (rev B).  Any other key: 80
+;                 across.  While a picture shows: change between the two
+;     Space, Right, Enter    the next picture
+;     Left, Backspace        the picture before
+;     S           slide show on or off (a picture about every 9 seconds)
+;     Esc         back to the DOS (menu_poll)
+;
+; RAM: the program at x0100 (asm_expand.py pages it), zero page x20-x3F.
+; The whole video RAM is the picture.
+;
+;     python3 asm_expand.py photo.masm                photo.asm
+;     python3 gen_plc.py photo.asm -o ../../sdcard/PHOTO.PLC
+;     python3 gen_photos.py                           sdcard/PHOTOS/*.PIC
+;     python3 test_photo.py                           runs it in placard_sim
+;
+; Date: 11/21/2026
+; ============================================================
+
+#include "placard.asm"
+#include "placard_lib.asm"
+
+ph_n    = 0x20              ; the picture shown, 0 = the folder's first
+ph_tot  = 0x21              ; pictures in the folder
+ph_k    = 0x22              ; counter
+ph_mode = 0x23              ; the rows' mode byte: MODE_160 or MODE_80
+ph_t    = 0x24              ; scratch
+ph_d    = 0x25              ; scratch
+ph_show = 0x26              ; 1: slide show
+ph_tl   = 0x27              ; frames since the picture came up
+ph_th   = 0x28
+ph_key  = 0x29              ; the key
+ph_name = 0x30              ; the file's name, "NAME.PIC", 00 (13 bytes)
+
+MODE_160  = 0x87            ; 160-read row, 2x, 8 bits per pixel (rev B)
+MODE_80   = 0x07            ; normal row, 2x, 8 bits per pixel
+SECTORS   = 80              ; a picture: x6000-xFFFF
+SHOW_HI   = 2               ; slide show: 2 x 256 frames a picture
+FE_LO     = FS_ENTRY & 0xFF
+
+.prefix ph
+.region 0x0100, 0x1F00
+
+; ============================================================
+; main - the text screen, the folder, how many pictures
+; ============================================================
+.fixed 0x0100
+main:
+    ld   STACK_TOP, ac
+    ld   ac, [SP]
+    CALL con_clear
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    ld   1, ac
+    ld   ac, [CUR_ROW]
+    ld   s_title & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_title >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    clr  ac
+    ld   ac, [ph_n]
+    ld   ac, [ph_tot]
+    ld   ac, [ph_show]
+    CALL fs_mount
+    bne  mn_no
+    ld   s_dir & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_dir >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    bne  mn_no
+    GOTO count
+mn_no:
+    ld   s_nodir & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_nodir >> 8, ac
+    ld   ac, [R1]
+    GOTO fail
+
+; ------------------------------------------------------------
+; count - ph_tot = the .PIC files in the folder
+; ------------------------------------------------------------
+.chunk
+count:
+    CALL fs_next
+    bne  ct_end
+    CALL is_pic
+    bne  count
+    ld   [ph_tot], ac
+    inc
+    ld   ac, [ph_tot]
+    xor  255, ac                ; (255 at most)
+    bne  count
+ct_end:
+    ld   [ph_tot], ac
+    bne  ct_some
+    ld   s_none & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_none >> 8, ac
+    ld   ac, [R1]
+    GOTO fail
+ct_some:
+    GOTO intro
+
+; ------------------------------------------------------------
+; is_pic - AC = 0 when FS_ENTRY is a file named *.PIC (a leaf)
+; ------------------------------------------------------------
+.chunk
+is_pic:
+    ld   FS_ENTRY >> 8, y
+    ld   FE_LO + 11, x
+    ld   [y,x], ac
+    and  0x18, ac               ; a folder, the volume name
+    bne  ip_no
+    ld   FE_LO + 8, x
+    ld   [y,x], ac
+    xor  0x50, ac               ; P
+    bne  ip_no
+    ld   FE_LO + 9, x
+    ld   [y,x], ac
+    xor  0x49, ac               ; I
+    bne  ip_no
+    ld   FE_LO + 10, x
+    ld   [y,x], ac
+    xor  0x43, ac               ; C
+    bne  ip_no
+    RET
+ip_no:
+    ld   1, ac
+    RET
+
+; ------------------------------------------------------------
+; intro - the keys, then H (160 across) or any other key (80 across)
+; ------------------------------------------------------------
+.chunk
+intro:
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    ld   3, ac
+    ld   ac, [CUR_ROW]
+    ld   [ph_tot], ac
+    CALL con_dec8
+    ld   s_found & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_found >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    ld   6, ac
+    ld   ac, [CUR_ROW]
+    ld   s_keys1 & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_keys1 >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    ld   7, ac
+    ld   ac, [CUR_ROW]
+    ld   s_keys2 & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_keys2 >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    GOTO intro2
+
+.chunk
+intro2:
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    ld   10, ac
+    ld   ac, [CUR_ROW]
+    ld   s_ask1 & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_ask1 >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    ld   11, ac
+    ld   ac, [CUR_ROW]
+    ld   s_ask2 & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_ask2 >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+in_loop:
+    ld   1, ac
+    CALL wait_frames
+    CALL kbd_scan
+    CALL menu_poll
+    CALL kbd_getc
+    beq  in_loop
+    or   0x20, ac               ; h or H
+    xor  0x68, ac
+    beq  in_160
+    ld   MODE_80, ac
+    bra  in_go
+in_160:
+    ld   MODE_160, ac
+in_go:
+    ld   ac, [ph_mode]
+    CALL con_clear              ; black under the first picture
+    CALL set_modes
+    GOTO show
+
+; ------------------------------------------------------------
+; set_modes - every row's mode byte (x5A20-x5BFF) = ph_mode (a leaf)
+; ------------------------------------------------------------
+.chunk
+set_modes:
+    ld   0x5A, y
+    ld   0x20, ac
+    ld   ac, [ph_t]
+sm_1:
+    ld   [ph_t], x
+    ld   [ph_mode], ac
+    ld   ac, [y,x]
+    ld   [ph_t], ac
+    inc
+    ld   ac, [ph_t]
+    bne  sm_1
+    ld   0x5B, y
+sm_2:
+    ld   [ph_t], x
+    ld   [ph_mode], ac
+    ld   ac, [y,x]
+    ld   [ph_t], ac
+    inc
+    ld   ac, [ph_t]
+    bne  sm_2
+    RET
+
+; ------------------------------------------------------------
+; show - picture ph_n to the screen: the folder from its start, the
+; ph_n-th .PIC file's name, the file's 80 sectors to x6000
+; ------------------------------------------------------------
+.chunk
+show:
+    CALL fs_root
+    ld   s_dir & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_dir >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    bne  sh_bad
+    ld   [ph_n], ac
+    ld   ac, [ph_k]
+sh_next:
+    CALL fs_next
+    bne  sh_bad
+    CALL is_pic
+    bne  sh_next
+    ld   [ph_k], ac
+    beq  sh_found
+    dec
+    ld   ac, [ph_k]
+    bra  sh_next
+sh_found:
+    GOTO name
+sh_bad:
+    GOTO bad
+
+.chunk
+bad:
+    CALL con_clear
+    ld   s_bad & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_bad >> 8, ac
+    ld   ac, [R1]
+    GOTO fail
+
+; the name: up to 8 characters (to the first space), then ".PIC", 00
+.chunk
+name:
+    ld   FE_LO, ac
+    ld   ac, [ph_t]
+    ld   ph_name, ac
+    ld   ac, [ph_d]
+    ld   8, ac
+    ld   ac, [ph_k]
+nm_ch:
+    ld   [ph_t], x
+    ld   FS_ENTRY >> 8, y
+    ld   [y,x], ac
+    xor  0x20, ac
+    beq  nm_ext
+    xor  0x20, ac
+    ld   [ph_d], x
+    ld   ac, [x]
+    ld   [ph_t], ac
+    inc
+    ld   ac, [ph_t]
+    ld   [ph_d], ac
+    inc
+    ld   ac, [ph_d]
+    ld   [ph_k], ac
+    dec
+    ld   ac, [ph_k]
+    bne  nm_ch
+nm_ext:
+    ld   [ph_d], ac
+    ld   ac, x
+    ld   0x2E, [x]
+    add  1, x
+    ld   0x50, [x]
+    add  2, x
+    ld   0x49, [x]
+    add  3, x
+    ld   0x43, [x]
+    add  4, x
+    ld   0x00, [x]
+    ld   ph_name, ac
+    ld   ac, [R0]
+    clr  ac
+    ld   ac, [R1]
+    CALL fs_open
+    beq  nm_ok
+    GOTO bad
+nm_ok:
+    GOTO load
+
+.chunk
+load:
+    clr  ac
+    ld   ac, [R4]
+    ld   0x60, ac
+    ld   ac, [R5]
+    ld   SECTORS, ac
+    ld   ac, [ph_k]
+ld_sec:
+    CALL fs_read
+    bne  ld_end                 ; a short file: what there is of it
+    ld   [ph_k], ac
+    dec
+    ld   ac, [ph_k]
+    bne  ld_sec
+ld_end:
+    clr  ac
+    ld   ac, [ph_tl]
+    ld   ac, [ph_th]
+    GOTO loop
+
+; ============================================================
+; the frame loop: the keys, the slide show's clock
+; ============================================================
+.chunk
+loop:
+    ld   1, ac
+    CALL wait_frames
+    CALL kbd_scan
+    CALL menu_poll
+    ld   [ph_show], ac
+    beq  lp_key
+    ld   [ph_tl], ac
+    inc
+    ld   ac, [ph_tl]
+    bne  lp_key
+    ld   [ph_th], ac
+    inc
+    ld   ac, [ph_th]
+    xor  SHOW_HI, ac
+    bne  lp_key
+    GOTO next
+lp_key:
+    CALL kbd_getc
+    beq  loop
+    ld   ac, [ph_key]
+    xor  0x20, ac               ; Space
+    beq  lp_next
+    xor  0x20 ^ 0x14, ac        ; Right
+    beq  lp_next
+    xor  0x14 ^ 0x0A, ac        ; Enter
+    beq  lp_next
+    xor  0x0A ^ 0x13, ac        ; Left
+    beq  lp_prev
+    xor  0x13 ^ 0x08, ac        ; Backspace
+    beq  lp_prev
+    GOTO keys2
+lp_next:
+    GOTO next
+lp_prev:
+    GOTO prev
+
+.chunk
+keys2:
+    ld   [ph_key], ac
+    or   0x20, ac
+    xor  0x68, ac               ; H: 160 or 80 across
+    bne  k2_s
+    ld   [ph_mode], ac
+    xor  0x80, ac
+    ld   ac, [ph_mode]
+    CALL set_modes
+    GOTO loop
+k2_s:
+    xor  0x68 ^ 0x73, ac        ; S: slide show
+    bne  k2_no
+    ld   [ph_show], ac
+    xor  1, ac
+    ld   ac, [ph_show]
+    clr  ac
+    ld   ac, [ph_tl]
+    ld   ac, [ph_th]
+k2_no:
+    GOTO loop
+
+.chunk
+next:
+    ld   [ph_n], ac
+    inc
+    ld   ac, [ph_n]
+    xor  [ph_tot], ac
+    bne  nx_go
+    ld   ac, [ph_n]             ; past the last: the first
+nx_go:
+    GOTO show
+
+.chunk
+prev:
+    ld   [ph_n], ac
+    bne  pv_dec
+    ld   [ph_tot], ac           ; before the first: the last
+pv_dec:
+    dec
+    ld   ac, [ph_n]
+    GOTO show
+
+; ------------------------------------------------------------
+; fail - the message at R1:R0 on text row 3, then wait for Esc
+; ------------------------------------------------------------
+.chunk
+fail:
+    ld   2, ac
+    ld   ac, [CUR_COL]
+    ld   3, ac
+    ld   ac, [CUR_ROW]
+    CALL con_puts
+fl_loop:
+    ld   1, ac
+    CALL wait_frames
+    CALL kbd_scan
+    CALL menu_poll
+    bra  fl_loop
+
+; ============================================================
+; data
+; ============================================================
+.chunk
+s_title:
+    #d "PLACARD PHOTOS", 0x00
+s_dir:
+    #d "PHOTOS", 0x00
+s_found:
+    #d " pictures in the PHOTOS folder", 0x00
+s_nodir:
+    #d "There is no PHOTOS folder on the card.  Esc: exit", 0x00
+s_none:
+    #d "There are no .PIC files in the PHOTOS folder.  Esc: exit", 0x00
+s_bad:
+    #d "The card could not be read.  Esc: exit", 0x00
+.chunk
+s_keys1:
+    #d "Space, Right or Enter: next   Left or Backspace: the one before", 0x00
+s_keys2:
+    #d "S: slide show on or off   H: 160 or 80 across   Esc: exit", 0x00
+s_ask1:
+    #d "Press H for 160 across (a rev B board),", 0x00
+s_ask2:
+    #d "or any other key for 80 across (any board).", 0x00

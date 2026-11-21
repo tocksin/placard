@@ -34,6 +34,7 @@ The design documents, grouped by subject.  Drawings sit next to the document tha
 - [DOS.md](software/DOS.md): the DOS and `.PLC` program files
 - [MENU.md](software/MENU.md): the demo menu
 - [PINBOARD.md](software/PINBOARD.md): Pinboard, a windowed desktop with a file browser, a clock, a calculator and an editor, in 2, 4 or 16 colors (`PINBOARD.PLC`)
+- [PHOTOS.md](software/PHOTOS.md): the photo viewer and its picture files, 160 x 240 in 256 colors on rev B (`PHOTO.PLC`)
 - [TEST.md](software/TEST.md): the system test on the SD card (`TEST.PLC`)
 - [SCRAP.md](software/SCRAP.md): SCRAPWRIGHT, a ship salvage game (`SCRAP.PLC`, phase 3)
 - [SKYWARD.md](software/SKYWARD.md): Skyward Tobi, a side-scrolling platform game (`SKYWARD.PLC`)
