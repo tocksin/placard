@@ -2,7 +2,7 @@
 """
 gen_kicad_parts.py - make kicad/lib/placard_parts.kicad_sym, the project's
 symbols for the parts KiCad's own libraries do not have: the AS7C256C SRAM,
-the memory card's AS7C4096A SRAM,
+the memory card's AS7C4096A SRAM, the WiFi card's ESP32-C3-DevKitM-1 board,
 the expansion slot, the ROM cartridge slot, the SNES pad socket, the
 stacked dual PS/2 socket and the USB-C power input.  They are drawn like the PLD
 symbols (gen_kicad_symbols.py): pins grouped by bus and function, not by
@@ -15,7 +15,7 @@ The other parts come from KiCad's libraries (kicad/README.md lists which).
 Rerunning this overwrites the library, so make changes here, not in KiCad's
 symbol editor.  The pinouts are from CHIPS.md, EXPANSION.md and IO.md.
 
-Date: 2026-11-17
+Date: 2026-11-21
 """
 
 import os
@@ -57,6 +57,29 @@ def sram_512k():
                   footprint="placard:SOJ-36_10.16x23.495mm_P1.27mm",
                   datasheet="~",
                   vcc=[(9, "VCC"), (27, "VCC")], gnd=[(10, "GND"), (28, "GND")], stack_passive=True)
+
+
+def wifi_module():
+    # Espressif ESP32-C3-DevKitM-1 (the WiFi card, WIFICARD.md): a board on two 15-pin headers 22.86 mm
+    # apart.  Pins 1-15 are its header J1 and pins 16-30 its header J3, pin 16 = J3 pin 1, across from
+    # pin 1 at the antenna end (the board's user guide, "Header Block").  IO2, IO8 and IO9 are the
+    # chip's strapping pins and stay free; 18 and 19 are its USB lines.
+    b = "bidirectional"
+    gap = [None] * 6                 # room for a divider between two lines on the card's sheet
+    left = [(24, "IO6", "input")] + gap + [(23, "IO7", "input")] + gap + [(11, "IO10", "input")] + gap + [
+            (7, "RST", "input"), None, None,
+            (25, "IO5", "output"), (26, "IO4", "output")]
+    free = [(4, "IO2", b), (5, "IO3", b), (9, "IO0", b), (10, "IO1", b), (17, "TX", b), (18, "RX", b),
+            (20, "IO9", b), (21, "IO8", b), (28, "IO18", b), (29, "IO19", b)]
+    right = free + [None, [(2, "3V3", "passive"), (3, "3V3", "passive")], None,
+                    [(1, "GND_ANT", "passive"), (16, "GND_ANT", "passive")]]     # beside the antenna: left open
+    return symbol("ESP32-C3-DevKitM-1", [(left, right)], "ESP32-C3-DevKitM-1-N4X",
+                  "Espressif ESP32-C3-DevKitM-1 WiFi board, 2 x 15 pins, rows 22.86 mm apart (pins 16-30 = its J3)",
+                  "WiFi ESP32 module Placard",
+                  footprint="placard:ESP32-C3-DevKitM-1",
+                  datasheet="~",
+                  vcc=[(13, "5V"), (14, "5V")],
+                  gnd=[(n, "GND") for n in (6, 8, 12, 15, 19, 22, 27, 30)], stack_passive=True)
 
 
 def edge(side, nums):
@@ -180,7 +203,7 @@ def oscillator():
 
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else OUT
-    write_lib(out, [sram(), sram_512k(), expansion_slot(), cartridge_slot(), snes_socket(), ps2_dual(), mcp1700(),
+    write_lib(out, [sram(), sram_512k(), wifi_module(), expansion_slot(), cartridge_slot(), snes_socket(), ps2_dual(), mcp1700(),
                     oscillator(), usb_c_power()])
 
 

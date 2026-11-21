@@ -1,6 +1,6 @@
 # KiCad project
 
-Date: 2026-11-17
+Date: 2026-11-21
 
 The Placard schematic and PCB layout, one KiCad project for the main board
 and one for each cartridge.  The files are saved by KiCad 9, so open them
@@ -17,6 +17,7 @@ rev B.
 | `cartridge_64k/` | the 64K ROM cartridge (5 chips), its own project (`cartridge_64k.kicad_pro`, one sheet and a routed 4-layer board), using the same `lib/` |
 | `cartridge_32k/` | the 32K ROM cartridge (3 chips), its own project (`cartridge_32k.kicad_pro`, one sheet and a routed 4-layer board), using the same `lib/`; mounting hole H1 at the same place as on the 64K board |
 | `memory_card/` | the 512K memory expansion card (3 chips, docs/architecture/MEMCARD.md), its own project (`memory_card.kicad_pro`, one sheet and a routed board), using the same `lib/`.  The sheet is written by `gen_kicad_schematic.py --memcard`, which leaves the other sheets alone, and the board by `gen_kicad_memcard_pcb.py` (KiCad 9), which keeps an existing board unless run with `--force` |
+| `wifi_card/` | the WiFi expansion card (one PLD and an ESP32-C3-DevKitM-1 board, docs/architecture/WIFICARD.md), its own project (`wifi_card.kicad_pro`, one sheet and a board with the parts placed, not routed), using the same `lib/`.  The sheet is written by `gen_kicad_schematic.py --wificard` and the board by `gen_kicad_wificard_pcb.py` (KiCad 9), which keeps an existing board unless run with `--force` |
 | `placard.kicad_pcb` | the main board, routed: 4 layers (F.Cu, In1.Cu = GND, In2.Cu = VCC, B.Cu) |
 | `lib/placard.kicad_sym` | PLD symbols: `ATF22V10C` (generic) and one `ATF22V10C_<name>` per `.pld` file, with its pin names |
 | `lib/placard_parts.kicad_sym` | other project symbols: `AS7C256C` SRAM, `Expansion_Slot`, `Cartridge_Slot`, `SNES_Pad_Socket`, `PS2_Dual_Stacked`, `USB_C_Power` |

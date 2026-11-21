@@ -783,6 +783,172 @@ class MemoryCard:
             self.page = self.page & 0x0FF | (v & 0x0F) << 8
 
 
+class WifiCard:
+    """the WiFi expansion card (docs/architecture/WIFICARD.md): the SPI
+    port PLD (ATF22V10_WIFI.pld) and a model of the module's firmware
+    (src/firmware/wifi_card/wifi_card.ino), which speaks the card's link over
+    SPI mode 3.
+
+    The PLD: a write to offsets 60-7F loads bit 0 SCK, bit 1 MOSI, bit 2
+    /CS, bit 3 run (0 holds the module in reset); a read there gives D7 =
+    MISO, D6 = READY, D5:D2 = 1010 (even offset) or 0101 (odd), D1:D0 not
+    driven (1 here).  Offsets 00-5F are not driven (FF).  The register
+    powers up as 0F.
+
+    The link: READY is high while the module waits for a transfer (a
+    transfer is /CS low to /CS high).  A request is command, length n, n
+    bytes; the module sends 52 ("R") as its first byte of a request.  The
+    reply is the next transfer: 41 ("A"), status, length, data.  Command
+    00 does nothing and has no reply.
+
+    networks = {name: password}: the networks that can be joined.
+    hosts = {(name, port, tls): f}: f(bytes sent so far) gives the bytes
+    the host has sent back in all (the model hands them out as they are
+    read).  clock = (year - 2000, month, day, hour, minute, second,
+    weekday) or None (the time is not known).  delay = status reads
+    before READY rises after a transfer; join_polls = STATE requests
+    answered "joining" before a join ends."""
+
+    INFO = b'PLACARD WIFI 1.0'
+
+    def __init__(self, networks=None, hosts=None, clock=None, saved=None, delay=2, join_polls=2):
+        self.networks = dict(networks or {})
+        self.hosts = dict(hosts or {})
+        self.clock = clock
+        self.saved = saved                  # (name, password) kept in the module's flash
+        self.delay = delay
+        self.join_polls = join_polls
+        self.latch = 0x0F
+        self.miso = 0
+        self.log = []                       # (command, payload) of every request
+        self.boot()
+
+    def boot(self):
+        """the module's firmware starts (power-up, or its reset line let go)"""
+        self.wait = self.delay * 4          # status reads until READY
+        self.reply = None                   # the reply transfer's bytes, when one is due
+        self.active = False
+        self.state = 0                      # 0 off, 1 joining, 2 joined, 3 failed
+        self.joining = 0
+        self.join_ok = False
+        self.conn = None
+        if self.saved is not None:
+            self.join(*self.saved)
+
+    # ---- the PLD
+    def read(self, off):
+        if off < 0x60:
+            return 0xFF
+        if self.wait:
+            self.wait -= 1
+        ready = 0 if (self.wait or not self.latch & 8) else 1
+        return self.miso << 7 | ready << 6 | (0x14 if off & 1 else 0x28) | 0x03
+
+    def write(self, off, v):
+        if off < 0x60:
+            return
+        old, new = self.latch, v & 0x0F
+        self.latch = new
+        if not new & 8:                     # held in reset
+            self.active = False
+            self.miso = 0
+            self.wait = 1 << 30
+            return
+        if not old & 8:                     # reset let go
+            self.boot()
+        if old & 4 and not new & 4:         # /CS falls
+            self.active = not self.wait
+            self.rx, self.bits, self.sh = [], 0, 0
+            self.tx = list(self.reply) if self.reply is not None else [0x52]
+            self.txbit = 0
+        if self.active and not new & 4:
+            if old & 1 and not new & 1:     # SCK falls: the next MISO bit
+                i, b = divmod(self.txbit, 8)
+                self.miso = (self.tx[i] >> (7 - b)) & 1 if i < len(self.tx) else 0
+                self.txbit += 1
+            elif new & 1 and not old & 1:   # SCK rises: MOSI in
+                self.sh = (self.sh << 1 | (new >> 1 & 1)) & 0xFF
+                self.bits += 1
+                if self.bits == 8:
+                    self.rx.append(self.sh)
+                    self.bits = 0
+        if new & 4 and not old & 4 and self.active:     # /CS rises: the transfer ends
+            self.active = False
+            self.miso = 0
+            self.wait = self.delay
+            if self.reply is not None:
+                self.reply = None           # the reply has gone (or was thrown away)
+            elif self.rx and self.rx[0]:
+                n = self.rx[1] if len(self.rx) > 1 else 0
+                data = bytes(self.rx[2:2 + n])
+                self.log.append((self.rx[0], data))
+                st, out = self.command(self.rx[0], data)
+                self.reply = [0x41, st, len(out)] + list(out)
+
+    # ---- the firmware
+    def join(self, name, password):
+        self.state, self.joining = 1, self.join_polls
+        self.join_ok = self.networks.get(name) == password
+        self.conn = None
+
+    def command(self, c, d):
+        if c == 0x01:
+            return 0, self.INFO
+        if c == 0x02:                       # JOIN name 00 password 00
+            if d:
+                name, _, rest = d.partition(b'\0')
+                self.saved = (name.decode('latin-1'), rest.split(b'\0')[0].decode('latin-1'))
+            if self.saved is None:
+                return 1, b''
+            self.join(*self.saved)
+            return 0, b''
+        if c == 0x03:                       # STATE
+            if self.state == 1:
+                if self.joining:
+                    self.joining -= 1
+                else:
+                    self.state = 2 if self.join_ok else 3
+            ip = bytes([192, 168, 1, 77]) if self.state == 2 else bytes(4)
+            return 0, bytes([self.state]) + ip + bytes([52 if self.state == 2 else 0])
+        if c == 0x04:                       # LEAVE
+            self.state, self.conn = 0, None
+            return 0, b''
+        if c == 0x10:                       # OPEN flags, port high, port low, host
+            if self.state != 2:
+                return 2, b''
+            if len(d) < 4:
+                return 1, b''
+            key = (d[3:].decode('latin-1'), d[1] << 8 | d[2], bool(d[0] & 1))
+            if key not in self.hosts:
+                return 3, b''
+            self.conn = {'f': self.hosts[key], 'sent': b'', 'taken': 0}
+            return 0, b''
+        if c == 0x11:                       # SEND
+            if self.conn is None:
+                return 3, b''
+            self.conn['sent'] += d
+            return 0, b''
+        if c == 0x12:                       # RECV most
+            if self.conn is None:
+                return 3, b''
+            most = d[0] if d and d[0] else 255
+            got = self.conn['f'](self.conn['sent'])
+            part = got[self.conn['taken']:self.conn['taken'] + most]
+            self.conn['taken'] += len(part)
+            if not part and got and self.conn['taken'] >= len(got):
+                self.conn = None            # the host closed and nothing is left
+                return 3, b''
+            return 0, part
+        if c == 0x13:                       # CLOSE
+            self.conn = None
+            return 0, b''
+        if c == 0x20:                       # TIME
+            if self.clock is None or self.state != 2:
+                return 1, b''
+            return 0, bytes(self.clock)
+        return 0xFF, b''
+
+
 class Slots:
     """the four slots: /EXP1 is x51xx (slot 1 at A7 = 0, slot 3 at A7 = 1),
     /EXP2 is x53xx (slots 2 and 4).  An empty slot reads FF (the pull-ups

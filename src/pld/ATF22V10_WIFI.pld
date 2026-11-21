@@ -1,0 +1,152 @@
+Name     WIFI;
+PartNo   00;
+Date     11/21/2026;
+Revision 01;
+Designer Justin;
+Company  ;
+Assembly ;
+Location ;
+Device   g22v10;
+
+
+/* ============================================================
+   WIFI CARD: SPI PORT   (ATF22V10C)
+   ============================================================
+
+   The one chip of the WiFi expansion card
+   (docs/architecture/WIFICARD.md) besides its WiFi module, an
+   Espressif ESP32-C3-DevKitM-1 board on two pin headers.  The card
+   works in any expansion slot.
+
+   The module is an SPI slave.  This PLD is the card's SPI port,
+   built like the main board's shared port (ATF22V10_PORT.pld,
+   revision 05), which clocks the SD card the same way: software
+   writes SCK, MOSI and /CS as bits of a register and reads MISO
+   back on the data bus.
+
+   ADDRESSES
+      The slot gives a card 128 addresses (A6:A0).  Offsets 00h-5Fh
+      are a card's boot area and 60h-7Fh its registers
+      (EXPANSION.md).  This card has no boot area: the PLD answers
+      only at 60h-7Fh (A6 and A5 high), where its one register and
+      its two read addresses repeat.
+
+   OUTPUT REGISTER (write, any offset 60h-7Fh)
+      Pin 1 is /WE: the registers clock on the rising edge of every
+      /WE, the end of the write, and load D3:D0 only when the write
+      is to the card's registers; on every other /WE each one loads
+      its own value back (a hold term).
+          bit 0  SCK
+          bit 1  MOSI
+          bit 2  /CS of the module
+          bit 3  1 = the module runs, 0 = the module is held in reset
+      Bits 7:4 are not stored.  The registers clear at power-up.
+      All four are declared active low, so a cleared register leaves
+      SCK, MOSI and /CS high and the reset line free: the card
+      powers up as if 0Fh had been written, the module running and
+      not selected.
+      SCK, MOSI and /CS go to the module through a resistor divider
+      each (1.8k, 3.3k), as the SD card's lines do.
+
+   MODULE RESET (pin 17)
+      The module's RST pin has its own pull-up to 3.3 V and a
+      capacitor, and its USB port pulls it low too.  So pin 17 only
+      ever pulls low: its output is enabled while bit 3 is 0 and is
+      off (high impedance) otherwise, and 470 ohms in series limit
+      the capacitor's discharge.
+
+   READS (offsets 60h-7Fh)
+      Even offset (A0 = 0):  D7 = MISO  D6 = READY  D5:D2 = 1010
+      Odd offset  (A0 = 1):  D7 = MISO  D6 = READY  D5:D2 = 0101
+      D1 and D0 are not driven; reads must mask them.  READY is the
+      module's handshake line: high when it waits for an SPI
+      transfer.  D5:D2 are fixed so a program can tell this card
+      from an empty slot or another card: the two reads differ in
+      exactly those four bits.  MISO and READY are 3.3 V signals and
+      go straight to pins 9 and 10 (the TTL inputs read 2.0 V as
+      high); each has 10k to ground on the card, so both read 0
+      while the module is in reset or not selected.
+      The outputs drive the bus while /EXP and Q0 are both low and
+      the offset is 60h-7Fh (the LOAD_MEM clock of a read of the
+      card), as the shared port PLD does with /PORT and Q0.
+
+   TIMING (EXPANSION.md, "Card timing")
+      Write: setup 3.5 ns and hold 0 ns at the /WE edge for D3:D0,
+      /EXP, A6 and A5 (the card budget gives the data 9 ns and the
+      select 13 ns before /WE rises, and holds both 2 ns after).
+      Read: the outputs are on 7.5 ns after /EXP, A6, A5 or Q0,
+      whichever is last (the budget gives /EXP and the address
+      16 ns and Q0 8 ns, with the card's track).
+
+   PIN BUDGET
+      Inputs (10):  /WE (clock), /EXP, Q0, A0, A5, A6, D0, D1, MISO,
+                    READY
+      Outputs (10): SCK, MOSI, /CS, reset (registered); D7:D2
+                    (combinational, 3-state).  D3 and D2 are also
+                    read for the register, through their pins.
+      Spare: input pins 11 and 13.  Every output is one or two
+      product terms and one for its output enable.
+   ============================================================ */
+
+
+/* ---------------- INPUTS ---------------- */
+
+PIN 1  = !WE;          /* slot B24, the write pulse: clocks the registers on its rising edge */
+PIN 2  = !EXP;         /* slot A16, this slot's select, low for any access to the card */
+PIN 3  = Q0;           /* slot A10, state bit 0: 0 in LOAD_MEM, the clock of a read */
+PIN 4  = A0;           /* slot address bit 0: picks the fixed bits of a read */
+PIN 5  = A5;           /* slot address: A6 and A5 high are the card's registers, 60h-7Fh */
+PIN 6  = A6;
+PIN 7  = D0;           /* data bus, written to the register */
+PIN 8  = D1;
+PIN 9  = MISO;         /* module IO5, 3.3 V (10k to ground) */
+PIN 10 = READY;        /* module IO4, 3.3 V: high when the module waits for a transfer (10k to ground) */
+
+
+/* ---------------- OUTPUTS ---------------- */
+
+PIN 14 = !SCKN;        /* register bit 0: SCK, pin = D0; high at power-up */
+PIN 15 = !MOSIN;       /* register bit 1: MOSI, pin = D1; high at power-up */
+PIN 16 = !CSN;         /* register bit 2: the module's /CS, pin = D2; high at power-up */
+PIN 17 = !MRST;        /* register bit 3 = 0: pulls the module's RST low; off (3-state) otherwise */
+PIN 18 = D2;           /* data bus bit 2: fixed bit on reads, register data on writes */
+PIN 19 = D3;           /* data bus bit 3: fixed bit on reads, register data on writes */
+PIN 20 = D4;           /* data bus bit 4, 3-state: fixed bit */
+PIN 21 = D5;           /* data bus bit 5, 3-state: fixed bit */
+PIN 22 = D6;           /* data bus bit 6, 3-state: READY */
+PIN 23 = D7;           /* data bus bit 7, 3-state: MISO */
+
+
+/* ---------------- EQUATIONS ---------------- */
+
+/* The card's registers, offsets 60h-7Fh. */
+REG    = EXP & A6 & A5;
+REG_RD = REG & !Q0;       /* LOAD_MEM: a read of the card */
+
+/* Output register: the pin follows the data bit written to the
+   card's registers, and holds on every other /WE. */
+SCKN.D  =  REG & !D0  #  !REG & SCKN;
+MOSIN.D =  REG & !D1  #  !REG & MOSIN;
+CSN.D   =  REG & !D2  #  !REG & CSN;
+MRST.D  =  REG & !D3  #  !REG & MRST;
+
+/* The reset pin only pulls low. */
+MRST.OE = MRST;
+
+D7    = MISO;
+D7.OE = REG_RD;
+
+D6    = READY;
+D6.OE = REG_RD;
+
+D5    = !A0;
+D5.OE = REG_RD;
+
+D4    = A0;
+D4.OE = REG_RD;
+
+D3    = !A0;
+D3.OE = REG_RD;
+
+D2    = A0;
+D2.OE = REG_RD;
