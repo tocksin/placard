@@ -48,7 +48,7 @@ the mask (1 = the screen shows through), and the same in page PB_PTR +
 x100 for the white pixels.  Color: 3 bytes of 2 bpp (shifts 0-3) or 5 of
 4 bpp (shifts 0-1), at byte << 6 (or 5) | shift << 4 | row.
 
-Date: 11/17/2026
+Date: 11/21/2026
 """
 
 import os
@@ -146,6 +146,14 @@ GLYPHS = {
            '.######.',
            '.######.',
            '.######.',
+           '........'],
+    0x12: ['........',      # a picture: a frame, the sun over a hill
+           '#######.',
+           '#...#.#.',
+           '#.....#.',
+           '#..#..#.',
+           '#.###.#.',
+           '#######.',
            '........'],
 }
 
@@ -293,7 +301,7 @@ def write_data(name):
            '; pens, the screen in cells and the cards\' first places; the pointer',
            '; and the font.',
            ';',
-           '; Date: 11/17/2026',
+           '; Date: 11/21/2026',
            '',
            '#addr DRV                   ; the entries (pinboard_hdr.masm: DRV_CELLS ...)']
     for label in ('d_cells', 'd_invc', 'd_hide', 'd_show', 'd_init'):

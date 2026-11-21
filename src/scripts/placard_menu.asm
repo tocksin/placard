@@ -42,7 +42,14 @@
 ;                           1-14, x80 not a .PLC file, x81 a folder
 ;   x5D13-x5D14  MB_SEL, MB_TOP  the DOS's chosen entry and first shown,
 ;                           kept while a program runs
-;   x5D15-x5D1F  free (the ROM loader clears x5D11-x5D1F at power-up)
+;   x5D15-x5D18  Pinboard (pinboard.vm): the clock (3) and the display's
+;                           mode, kept while a program runs
+;   x5D19        MB_PHOTO   "V": Pinboard's Files card runs the photo
+;                           viewer (photo.masm) on a picture
+;   x5D1A        MB_PWIDE   the viewer's rows' mode byte, 0 = not chosen
+;   x5D1B-x5D1E  MB_PCLUS   that picture's folder (its first cluster)
+;   x5D1F        MB_PN      its number among the folder's .PIC files
+;                           (the ROM loader clears x5D11-x5D1F at power-up)
 ;   x5D20-x5D27  MB_EXIT    code: map = 05, then jump to the DOS (x8008)
 ;   x5D28-x5D2F  MB_GO      code: map = FF, then jump to RAM x0000
 ;   x5D30-x5D3C  MB_CHILD   the DOS: the program to run, "NAME.PLC", 0
@@ -59,7 +66,7 @@
 ;
 ; placard_lib.asm includes this file; its code is at MENU_CODE (xEA00).
 ;
-; Date: 11/11/2026
+; Date: 11/21/2026
 ; ============================================================
 
 MENU_BLK  = 0x5D00

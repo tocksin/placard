@@ -14,7 +14,7 @@ returns {frame: RAM bytes (65536)}, and the card image at the end
 screen_png(ram, path) draws a RAM's screen; cells(ram, font) reads the
 80 x 60 characters of a 1 bpp screen back through a font.
 
-Date: 11/17/2026
+Date: 11/21/2026
 """
 
 import json
@@ -73,8 +73,9 @@ console.log(JSON.stringify({pc: m.pc, map: m.map}));
 
 # how cells() shows Pinboard's own characters 00-11: blank, the board, a
 # card's edges and corners, the pin, the arrows, the file pictures (F a
-# folder, P a program, f a file, { the folder above), the scroll bar
-LEGEND = ' .<>_[]*^v?FPf{:-#'
+# folder, P a program, f a file, { the folder above, i a picture), the
+# scroll bar
+LEGEND = ' .<>_[]*^v?FPf{:-#i'
 
 _rom = None
 

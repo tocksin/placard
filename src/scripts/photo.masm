@@ -26,6 +26,14 @@
 ;     S           slide show on or off (a picture about every 9 seconds)
 ;     Esc         back to the DOS (menu_poll)
 ;
+; Pinboard's Files card runs it for a .PIC file in any folder (MB_PHOTO =
+; "V" and a parent to go back to): the pictures are then that folder's
+; (MB_PCLUS), the first one shown is the one chosen (MB_PN: its number
+; among the folder's .PIC files), and Esc goes back to Pinboard.  It asks
+; H or not only until it has been told once (MB_PWIDE keeps the rows' mode
+; byte until power-off; Pinboard sets it in a color mode, which only a
+; rev B board shows).
+;
 ; RAM: the program at x0100 (asm_expand.py pages it), zero page x20-x3F.
 ; The whole video RAM is the picture.
 ;
@@ -50,6 +58,8 @@ ph_show = 0x26              ; 1: slide show
 ph_tl   = 0x27              ; frames since the picture came up
 ph_th   = 0x28
 ph_key  = 0x29              ; the key
+ph_dc   = 0x2A              ; 4: the pictures' folder (its first cluster)
+ph_from = 0x2E              ; 1: Pinboard's Files card asked for a picture
 ph_name = 0x30              ; the file's name, "NAME.PIC", 00 (13 bytes)
 
 MODE_160  = 0x87            ; 160-read row, 2x, 8 bits per pixel (rev B)
@@ -57,6 +67,12 @@ MODE_80   = 0x07            ; normal row, 2x, 8 bits per pixel
 SECTORS   = 80              ; a picture: x6000-xFFFF
 SHOW_HI   = 2               ; slide show: 2 x 256 frames a picture
 FE_LO     = FS_ENTRY & 0xFF
+
+; the menu block's bytes for Pinboard and this program (placard_menu.asm)
+MB_PHOTO  = 0x19            ; "V": Pinboard's Files card asks for a picture
+MB_PWIDE  = 0x1A            ; the rows' mode byte last used, 0: not chosen yet
+MB_PCLUS  = 0x1B            ; 4: the folder of the picture asked for
+MB_PN     = 0x1F            ; its number among the folder's .PIC files
 
 .prefix ph
 .region 0x0100, 0x1F00
@@ -82,16 +98,15 @@ main:
     ld   ac, [ph_n]
     ld   ac, [ph_tot]
     ld   ac, [ph_show]
+    ld   ac, [ph_from]
     CALL fs_mount
     bne  mn_no
-    ld   s_dir & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_dir >> 8, ac
-    ld   ac, [R1]
-    CALL fs_open
-    bne  mn_no
-    GOTO count
+    GOTO whose
 mn_no:
+    GOTO nodir
+
+.chunk
+nodir:
     ld   s_nodir & 0xFF, ac
     ld   ac, [R0]
     ld   s_nodir >> 8, ac
@@ -99,19 +114,105 @@ mn_no:
     GOTO fail
 
 ; ------------------------------------------------------------
+; whose - whose pictures: the folder Pinboard's Files card was in (and the
+; picture chosen there first), or the card's PHOTOS folder
+; ------------------------------------------------------------
+.chunk
+whose:
+    ld   MENU_BLK >> 8, y
+    ld   MB_PHOTO, x
+    ld   [y,x], ac
+    xor  0x56, ac               ; "V"
+    bne  fr_own
+    ld   MB_PARENT, x           ; and Pinboard to go back to
+    ld   [y,x], ac
+    beq  fr_own
+    ld   MB_PCLUS, x
+    ld   [y,x], ac
+    ld   ac, [ph_dc]
+    ld   MB_PCLUS + 1, x
+    ld   [y,x], ac
+    ld   ac, [ph_dc + 1]
+    ld   MB_PCLUS + 2, x
+    ld   [y,x], ac
+    ld   ac, [ph_dc + 2]
+    ld   MB_PCLUS + 3, x
+    ld   [y,x], ac
+    ld   ac, [ph_dc + 3]
+    ld   MB_PN, x
+    ld   [y,x], ac
+    ld   ac, [ph_n]
+    ld   1, ac
+    ld   ac, [ph_from]
+    GOTO count
+fr_own:
+    GOTO own
+
+.chunk
+own:
+    ld   s_dir & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_dir >> 8, ac
+    ld   ac, [R1]
+    CALL fs_open
+    bne  ow_no
+    ld   FSV, y
+    ld   V_DCLUS, x
+    ld   [y,x], ac
+    ld   ac, [ph_dc]
+    ld   V_DCLUS + 1, x
+    ld   [y,x], ac
+    ld   ac, [ph_dc + 1]
+    ld   V_DCLUS + 2, x
+    ld   [y,x], ac
+    ld   ac, [ph_dc + 2]
+    ld   V_DCLUS + 3, x
+    ld   [y,x], ac
+    ld   ac, [ph_dc + 3]
+    GOTO count
+ow_no:
+    GOTO nodir
+
+; ------------------------------------------------------------
+; opendir - the reader at the start of the pictures' folder: AC = 0, or
+; the error
+; ------------------------------------------------------------
+.chunk
+opendir:
+    PUSH_LINK
+    ld   FSV, y
+    ld   V_DCLUS, x
+    ld   [ph_dc], ac
+    ld   ac, [y,x]
+    ld   V_DCLUS + 1, x
+    ld   [ph_dc + 1], ac
+    ld   ac, [y,x]
+    ld   V_DCLUS + 2, x
+    ld   [ph_dc + 2], ac
+    ld   ac, [y,x]
+    ld   V_DCLUS + 3, x
+    ld   [ph_dc + 3], ac
+    ld   ac, [y,x]
+    CALL fs_cwd
+    LEAVE
+
+; ------------------------------------------------------------
 ; count - ph_tot = the .PIC files in the folder
 ; ------------------------------------------------------------
 .chunk
 count:
+    CALL opendir
+    bne  ct_end
+ct_loop:
     CALL fs_next
     bne  ct_end
     CALL is_pic
-    bne  count
+    bne  ct_loop
     ld   [ph_tot], ac
     inc
     ld   ac, [ph_tot]
     xor  255, ac                ; (255 at most)
-    bne  count
+    bne  ct_loop
 ct_end:
     ld   [ph_tot], ac
     bne  ct_some
@@ -121,6 +222,15 @@ ct_end:
     ld   ac, [R1]
     GOTO fail
 ct_some:
+    ld   [ph_from], ac          ; from Pinboard, and the width known: no
+    beq  ct_ask                 ; questions, the picture
+    ld   MENU_BLK >> 8, y
+    ld   MB_PWIDE, x
+    ld   [y,x], ac
+    beq  ct_ask
+    ld   ac, [ph_mode]
+    GOTO begin
+ct_ask:
     GOTO intro
 
 ; ------------------------------------------------------------
@@ -222,15 +332,24 @@ in_160:
     ld   MODE_160, ac
 in_go:
     ld   ac, [ph_mode]
+    GOTO begin
+
+.chunk
+begin:
     CALL con_clear              ; black under the first picture
     CALL set_modes
     GOTO show
 
 ; ------------------------------------------------------------
-; set_modes - every row's mode byte (x5A20-x5BFF) = ph_mode (a leaf)
+; set_modes - every row's mode byte (x5A20-x5BFF) = ph_mode, which
+; MB_PWIDE keeps for the next time Pinboard asks (a leaf)
 ; ------------------------------------------------------------
 .chunk
 set_modes:
+    ld   MENU_BLK >> 8, y
+    ld   MB_PWIDE, x
+    ld   [ph_mode], ac
+    ld   ac, [y,x]
     ld   0x5A, y
     ld   0x20, ac
     ld   ac, [ph_t]
@@ -255,22 +374,18 @@ sm_2:
 
 ; ------------------------------------------------------------
 ; show - picture ph_n to the screen: the folder from its start, the
-; ph_n-th .PIC file's name, the file's 80 sectors to x6000
+; ph_n-th .PIC file's name, the file's 80 sectors to x6000.  A number
+; past the folder's last picture shows the first
 ; ------------------------------------------------------------
 .chunk
 show:
-    CALL fs_root
-    ld   s_dir & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_dir >> 8, ac
-    ld   ac, [R1]
-    CALL fs_open
+    CALL opendir
     bne  sh_bad
     ld   [ph_n], ac
     ld   ac, [ph_k]
 sh_next:
     CALL fs_next
-    bne  sh_bad
+    bne  sh_end
     CALL is_pic
     bne  sh_next
     ld   [ph_k], ac
@@ -280,6 +395,12 @@ sh_next:
     bra  sh_next
 sh_found:
     GOTO name
+sh_end:
+    ld   [ph_n], ac
+    beq  sh_bad
+    clr  ac
+    ld   ac, [ph_n]
+    bra  show
 sh_bad:
     GOTO bad
 
@@ -474,11 +595,11 @@ s_title:
 s_dir:
     #d "PHOTOS", 0x00
 s_found:
-    #d " pictures in the PHOTOS folder", 0x00
+    #d " pictures in this folder", 0x00
 s_nodir:
     #d "There is no PHOTOS folder on the card.  Esc: exit", 0x00
 s_none:
-    #d "There are no .PIC files in the PHOTOS folder.  Esc: exit", 0x00
+    #d "There are no .PIC files in this folder.  Esc: exit", 0x00
 s_bad:
     #d "The card could not be read.  Esc: exit", 0x00
 .chunk

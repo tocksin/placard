@@ -22,12 +22,24 @@ and 2 tall.
 | Space, Right, Enter | the next picture (after the last, the first) |
 | Left, Backspace | the picture before |
 | S | slide show on or off: the next picture by itself about every 9 seconds |
-| Esc | back to the DOS |
+| Esc | back to the DOS, or to Pinboard |
 
 The program asks at the start because a rev A board shows a 160-read row
 as a blank line: the screen would stay black.  With 80 across (mode byte
 x07, a normal 8 bpp row with 2x repeat) the board reads the odd byte
 columns of the same picture, so one file serves both boards.
+
+## From Pinboard
+
+In [Pinboard](PINBOARD.md)'s Files card, Enter on a `.PIC` file runs the
+viewer on that picture.  The pictures are then those of the file's folder,
+which need not be `PHOTOS`, and Esc goes back to Pinboard in that folder.
+The viewer skips its first screen when it knows the width: Pinboard in a
+color mode means a rev B board (160 across), and an answer given once is
+kept until power-off.  Pinboard leaves the folder's first cluster, the
+picture's number among the folder's `.PIC` files and the mark "V" in the
+menu block (x5D19-x5D1F, `placard_menu.asm`); run from the DOS, the viewer
+finds no mark and shows the `PHOTOS` folder as before.
 
 ## Picture files
 
