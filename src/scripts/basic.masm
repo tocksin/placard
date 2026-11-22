@@ -855,9 +855,9 @@ oq_c:                           ; AC = the character XOR each one tried so far
     beq  oq_cmp
     xor  0x02, ac               ; >
     beq  oq_cmp
-    xor  0x93, ac               ; AND
+    xor  0x90, ac               ; AND (xAE)
     beq  oq_and
-    xor  0x03, ac               ; OR
+    xor  0x01, ac               ; OR
     beq  oq_or
     xor  0x1E, ac               ; MOD
     beq  oq_mod

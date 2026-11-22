@@ -44,7 +44,8 @@ reads the screen back through Pinboard's font (pinboard_emu.cells).
  12. Ctrl+B in the Editor saves the text and runs it in BASIC; Ctrl+B at
      BASIC's prompt (or DOS) comes back to the Editor with the text and
      the cursor; a program in a folder; Esc stops a program and stays in
-     BASIC; a new text is named first
+     BASIC; a new text is named first; EXIT in BASIC; the launcher's BASIC
+     comes back to Pinboard too
 
 Date: 11/22/2026
 """
@@ -750,7 +751,7 @@ def main(argv):
     check('Ctrl+B saves the text', o['edited'].has('HELLO.BAS *', 11)
           and sdimage.read(s.card, 'HELLO.BAS') == want)
     check('and BASIC runs it', r.has('PLACARD BASIC', 0) and r.has('HI FROM BASIC') and r.has('43')
-          and r.has('Ready (Ctrl+B: Pinboard)') and not r.has('Pinboard ', 58))
+          and r.has('Ready (EXIT or Ctrl+B: Pinboard)') and not r.has('Pinboard ', 58))
     check('BASIC takes commands after it', o['typed'].has('86'))
     b = o['back']
     check('Ctrl+B in BASIC: the Editor again, with the text',
@@ -782,7 +783,7 @@ def main(argv):
     o = s.run(bas, png=args.png, tag='12b_')
     check('a program in a folder runs', o['loop'].has('LOOPING') and not o['loop'].has('Ready'))
     check('Esc stops it and stays in BASIC', o['break'].has('Break in 20')
-          and o['break'].has('Ready (Ctrl+B: Pinboard)'))
+          and o['break'].has('Ready (EXIT or Ctrl+B: Pinboard)'))
     check('BASIC\'s DIR is the program\'s folder', o['dir'].has('LOOP.BAS') and o['dir'].has('NOTE.TXT')
           and not o['dir'].has('PINBOARD'))
     b = o['back']
@@ -797,13 +798,31 @@ def main(argv):
     s.shot('ask')
     s.type('five.bas\n')
     s.shot('ran', 500)
-    s.chord(K_CTRL, CALC_KEYS['b'])
+    s.type('exit\n')
     s.shot('back', 400)
     o = s.run(bas, png=args.png, tag='12c_')
     check('a new text asks for its name', o['ask'].has('Save as: _', 11))
     check('then it is saved and run', sdimage.read(s.card, 'FIVE.BAS') == b'10 print 5*5\r\n'
-          and o['ran'].has('25') and o['ran'].has('Ready (Ctrl+B: Pinboard)'))
-    check('and comes back', o['back'].has('FIVE.BAS', 11) and text(o['back'], 1) == ['10 print 5*5'])
+          and o['ran'].has('25') and o['ran'].has('Ready (EXIT or Ctrl+B: Pinboard)'))
+    check('EXIT comes back', o['back'].has('FIVE.BAS', 11) and text(o['back'], 1) == ['10 print 5*5'])
+
+    s = Script()                        # the launcher's BASIC: empty, and EXIT comes back
+    for _ in range(bnames.index('ART')):
+        s.key(K_DOWN)
+    s.key(K_ENTER)
+    s.wait(40)
+    s.key(K_DOWN)
+    launcher(s, 6)
+    s.shot('basic', 300)
+    s.type('exit\n')
+    s.shot('back', 400)
+    o = s.run(bas, png=args.png, tag='12d_')
+    check('the launcher\'s BASIC starts with no program',
+          o['basic'].has('PLACARD BASIC', 0) and btext(o['basic'], 3)[2] == 'Ready')
+    b = o['back']
+    check('EXIT: Pinboard again, Files in its folder, no Editor',
+          b.has(' Pinboard ', 58) and b.has('{ ART', 2) and b.chosen() == blist[1]
+          and not b.has('Editor'))
 
     print('PASS' if check.ok else 'FAIL')
     return 0 if check.ok else 1

@@ -20,7 +20,7 @@
 \
 \ A program line: [length][number low][number high][text][00]; length
 \ counts all of it; a length of 0 ends the program.  Keywords are one
-\ byte, x80-xC1 (KWTAB); everything else is kept as typed.
+\ byte, x80-xC2 (KWTAB); everything else is kept as typed.
 \
 \ A string is the address of its length byte, the characters after it.
 \ A string variable holds 0 (empty) or the address of a block in the
@@ -172,26 +172,26 @@ CONST T_GOTO 0x88
 CONST T_GOSUB 0x8C
 CONST T_REM 0x8E
 CONST T_PRINT 0x91
-CONST T_TO 0xAA
-CONST T_STEP 0xAB
-CONST T_THEN 0xAC
-CONST T_AND 0xAD
-CONST T_OR 0xAE
-CONST T_NOT 0xAF
-CONST T_MOD 0xB0
-CONST T_FN 0xB1         \ the first function
-CONST T_TAB 0xC1
+CONST T_TO 0xAB
+CONST T_STEP 0xAC
+CONST T_THEN 0xAD
+CONST T_AND 0xAE
+CONST T_OR 0xAF
+CONST T_NOT 0xB0
+CONST T_MOD 0xB1
+CONST T_FN 0xB2         \ the first function
+CONST T_TAB 0xC2
 
 \ ------------------------------------------------------------
-\ the keywords, in token order: statements x80-xA9, then TO ... MOD,
-\ then the functions from xB1 (a keyword that starts another comes
+\ the keywords, in token order: statements x80-xAA, then TO ... MOD,
+\ then the functions from xB2 (a keyword that starts another comes
 \ after it: MODE before MOD)
 \ ------------------------------------------------------------
 BYTES KWTAB k"END" k"FOR" k"NEXT" k"DATA" k"INPUT" k"DIM" k"READ" k"LET"
   k"GOTO" k"RUN" k"IF" k"RESTORE" k"GOSUB" k"RETURN" k"REM" k"STOP" k"ON"
   k"PRINT" k"LIST" k"CLEAR" k"NEW" k"CONT" k"POKE" k"CALL" k"CLS" k"LOCATE"
   k"TINT" k"TEXT" k"MODE" k"PLOT" k"LINE" k"SCAN" k"BEEP" k"SOUND" k"NOISE"
-  k"WAIT" k"LOAD" k"SAVE" k"DIR" k"DEL" k"DOS" k"GET"
+  k"WAIT" k"LOAD" k"SAVE" k"DIR" k"DEL" k"DOS" k"GET" k"EXIT"
   k"TO" k"STEP" k"THEN" k"AND" k"OR" k"NOT" k"MOD"
   k"ABS" k"RND" k"PEEK" k"SGN" k"FRE" k"INKEY" k"PAD" k"LEN" k"ASC" k"VAL"
   k"CHR$" k"STR$" k"LEFT$" k"MID$" k"RIGHT$" k"HEX$" k"TAB" 0 ;
@@ -552,7 +552,7 @@ WORDS FNTAB F_ABS F_RND F_PEEK F_SGN F_FRE F_INKEY F_PAD F_LEN F_ASC F_VAL
 \ ------------------------------------------------------------
 : WARM
   RESET ' SCREMIT EMITV ! TEXTBACK CURCOL C@ IF CR THEN
-  ." Ready" PB? IF ."  (Ctrl+B: Pinboard)" THEN CR MAIN ;
+  ." Ready" PB? IF ."  (EXIT or Ctrl+B: Pinboard)" THEN CR MAIN ;
 : MAIN
   BEGIN
     ACCEPT CRUNCH LBUF TP !
@@ -822,11 +822,13 @@ WORDS FNTAB F_ABS F_RND F_PEEK F_SGN F_FRE F_INKEY F_PAD F_LEN F_ASC F_VAL
       BEGIN SPACE CURCOL C@ 15 AND 0= UNTIL
     THEN
   REPEAT CURCOL C@ IF CR THEN DUP 1 = IF DROP ELSE FERR THEN ;
-\ DOS.  From Pinboard's Editor MB_PARENT is left as Pinboard set it
-\ (PINBOARD.PLC runs again), once every key is up: a key let go while the
-\ loader sets the keyboard up again would be taken for a key
+\ DOS, and EXIT, the same: back to what started BASIC.  From Pinboard
+\ (its Editor, or its launcher: MB_PHOTO is not 0) MB_PARENT is left as
+\ Pinboard set it (PINBOARD.PLC runs again), once every key is up: a key
+\ let go while the loader sets the keyboard up again would be taken for
+\ a key.  Otherwise the DOS
 : DOS_
-  PB? IF
+  {MENU_BLK + MB_PHOTO} C@ IF
     BEGIN POLL DROP {KBD_NOW} @ {KBD_NOW + 2} @ AND {KBD_NOW + 4} @ AND {KBD_NOW + 6} @ AND INVERT 0= UNTIL
   ELSE 0 {MENU_BLK + MB_PARENT} C! THEN
   0 {dos_back} SYS ;
@@ -834,7 +836,7 @@ WORDS FNTAB F_ABS F_RND F_PEEK F_SGN F_FRE F_INKEY F_PAD F_LEN F_ASC F_VAL
 WORDS STMTAB END_ FOR_ NEXT_ DATA_ INPUT_ DIM_ READ_ LET_ GOTO_ RUN_ IF_
   RESTORE_ GOSUB_ RETURN_ REM_ STOP_ ON_ PRINT_ LIST_ CLEAR_ NEW_ CONT_
   POKE_ CALL_ CLS_ LOCATE_ TINT_ TEXT_ MODE_ PLOT_ LINE_ SCAN_ BEEP_
-  SOUND_ NOISE_ WAIT_ LOAD_ SAVE_ DIR_ DEL_ DOS_ GET_ ;
+  SOUND_ NOISE_ WAIT_ LOAD_ SAVE_ DIR_ DEL_ DOS_ GET_ DOS_ ;
 
 \ ------------------------------------------------------------
 \ COLD: basic.masm starts here

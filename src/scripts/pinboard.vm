@@ -757,13 +757,16 @@ BYTES E-BINM c"Not a text file" ;
 \ BASIC comes back as a program does, and E-BACK1 and E-BACK2 put the
 \ text and the cursor back.  MB_PCLUS keeps the Files card's folder and
 \ Pinboard is run again from the root, as for a picture
+\ B-GO starts BASIC, for it to come back: mark 66 from the Editor, 1 from
+\ the launcher (BASIC starts empty)
+: B-GO ( mark -- )
+   MB_PHOTO C! DCLUS MB_PCLUS 4 CMOVE
+   0 MB_DCLUS ! 0 MB_DCLUS 2 + ! DCLUS D0!
+   F-PREP 0 0x8024 SYS DROP ;
 : E-RUN ( -- )
    E-MOD C@ E-NAME C@ 0= OR IF E-SAVE THEN
    E-MOD C@ E-NAME C@ 0= OR IF EXIT THEN
-   E-LEN RUNBLK 38 CMOVE
-   66 MB_PHOTO C! DCLUS MB_PCLUS 4 CMOVE
-   0 MB_DCLUS ! 0 MB_DCLUS 2 + ! DCLUS D0!
-   F-PREP 0 0x8024 SYS DROP ;
+   E-LEN RUNBLK 38 CMOVE 66 B-GO ;
 \ Back from BASIC.  E-BACK1 reads the file again before anything else is
 \ set up (a file that fills the text's room is read as whole 512s, over
 \ the desktop's variables): n + 1 for n bytes read, 0 for no text to put
@@ -982,8 +985,8 @@ BYTES MACT 0 1 2 3 4 5 254 255 ;
 : MENU-DO ( i -- )
    MACT + C@ DUP NAPP < IF OPEN EXIT THEN
    E-GUARD IF DROP EXIT THEN
-   LEAVE-DESK 0 MB_MENU C!
-   254 = IF 0 0x8024 SYS ELSE 0 0x8008 SYS THEN DROP ;
+   254 = IF 1 B-GO THEN
+   LEAVE-DESK 0 MB_MENU C! 0 0x8008 SYS DROP ;
 : MENU-HIT ( -- i | -1 )
    CELL MC C@ 1- 14 U< MR C@ MENU-Y - NMENU U< AND IF MR C@ MENU-Y - ELSE -1 THEN ;
 : MENU ( -- )
