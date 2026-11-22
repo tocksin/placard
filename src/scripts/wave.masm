@@ -39,11 +39,30 @@
 ; fs_read wants it.
 ;
 ;     Space                   pause, and go on
-;     Right, Enter            the next file
-;     Left, Backspace         the file before
+;     Right, Left             a 64th of the file on, or back
+;     Enter                   the next file
+;     Backspace               the file before
 ;     Esc                     back to the DOS (menu_poll)
 ;
 ; After the folder's last file the program goes back by itself.
+;
+; The screen is a card on a board, in Pinboard's look and with its font
+; and pointer (wave_data.asm, gen_wave_data.py): the file's name, its
+; number and speed; the waveform of the sector being played, 512 samples
+; a pixel each, drawn again every 2nd frame in two halves when there is
+; nothing else to do; a slider of 64 cells with the time under it; three
+; buttons.  The mouse: a click on the slider goes to that place in the
+; file (hold the button and move: it follows), the buttons pause, play the
+; next file and the one before, the pin in the card's title goes back as
+; Esc does.
+;
+; Going to a place (seek): slider cell c is the file's sector
+; ceil(c x sectors / 64).  The reader starts again at the file's first
+; cluster (kept from its folder entry), passes the clusters before that
+; sector (fs_nextc) and is set to the sector (V_SLBA, V_SSEC, V_REM); the
+; samples left, the time and the slider are worked out for it, and the
+; ring is silent until the first piece from there is written.  Cell 0
+; opens the file again.
 ;
 ; Pinboard's Files card runs it for a .WAV file in any folder (MB_PHOTO =
 ; "S" and a parent to go back to): the files are then that folder's
@@ -51,9 +70,13 @@
 ; among the folder's .WAV files), and the end or Esc goes back to
 ; Pinboard.
 ;
-; RAM: the program at x0100 (asm_expand.py pages it), zero page x20-x8F,
-; the sector x4000-x41FF, a page of silence x4200.
+; RAM: the program at x0100 (asm_expand.py pages it), the font
+; x3000-x37FF and the pointer's tables x3800-x39FF, zero page x20-x9F
+; (the sound driver's bytes too: it is not used), the sector x4000-x41FF,
+; a page of silence x4200, the waveform's rows x4300-x44FF, the screen
+; under the pointer x4500.
 ;
+;     python3 gen_wave_data.py                        wave_data.asm
 ;     python3 asm_expand.py wave.masm                 wave.asm
 ;     python3 gen_plc.py wave.asm -o ../../sdcard/WAVE.PLC
 ;     python3 gen_wave.py song.mp3 -o ../../sdcard/SOUNDS/SONG.WAV
@@ -114,44 +137,131 @@ wv_kch  = 0x7E
 wv_rp   = 0x7F              ; copy: wv_rep, or 1 for silence
 wv_tmp  = 0x80              ; 4: wv_rem kept; the reader's cluster kept
 wv_warm = 0x84              ; 1: the reader's next sector is in a new cluster
+wv_dol  = 0x26              ; where the samples start in the file (in its
+wv_doh  = 0x27              ; first sector)
+wv_de   = 0x85              ; 4: the place in the file past the last sample
+wv_wdue = 0x89              ; halves of the waveform still to draw: 2, 1, 0
+wv_wcnt = 0x8A              ; frames (a waveform every 2nd)
+wv_mb   = 0x8B              ; 1: the left button was down at the last packet
+wv_drag = 0x8C              ; 1: the slider is held
+wv_sc   = 0x8D              ; the cell last gone to while it is held
+wv_mok  = 0x8E              ; 0: a mouse runs
+wv_c    = 0x8F              ; seek: the slider cell to go to, 0-63
+wv_pxl  = 0x90              ; the pointer: X 0-639
+wv_pxh  = 0x91
+wv_pyl  = 0x92              ; Y 0-479
+wv_pyh  = 0x93
+wv_son  = 0x94              ; 1: the pointer is on the screen, at:
+wv_sc2  = 0x95              ;   60 + 2 x its byte column
+wv_syl  = 0x96              ;   its first row
+wv_syh  = 0x97
+wv_sti  = 0x98              ;   its shift << 4
+wv_sn   = 0x99              ;   its rows on the screen
+wv_sk   = 0x9A              ;   1: its right byte is on the screen too
+wv_fc   = 0x9C              ; 4: the file's first cluster
+
+; scratch that shares wv_hb (the header is read before the file plays)
+wv_wi   = 0x40              ; wave: the point, 0-255
+wv_wm   = 0x41              ; its bit in the screen byte
+wv_oy   = 0x42              ; the row it was drawn in
+wv_ny   = 0x43              ; the row it goes in
+wv_scr  = 0x44              ; the screen page of its byte column
+wv_spg  = 0x45              ; the page of the samples
+wv_opg  = 0x46              ; the page of the rows drawn
+wv_snl  = 0x47              ; seek: the file's sector to go to
+wv_snh  = 0x48
+wv_p    = 0x49              ; 4: sub4's second number
+wv_q    = 0x4D              ; 4: sub4's first number and the answer
+wv_bw   = 0x51              ; sub4: 1 = a borrow
+wv_skl  = 0x52              ; seek: clusters to pass
+wv_skh  = 0x53
+wv_so   = 0x54              ; the sector in its cluster
 
 SECT      = 0x4000          ; the sector read
 QUIET     = 0x4200          ; 256 bytes of 80h
+OLD       = 0x4300          ; 2 pages: the row each waveform point is drawn in
+PSAVE     = 0x4500          ; the screen under the pointer: 2 bytes a row
+FONT      = 0x3000          ; the font, 8 pages (wave_data.asm)
+PTR       = 0x3800          ; the pointer's mask and white pixels, 2 pages
+MAP_RUN   = 0x07            ; the program's map: RAM to x5FFF, the ROM above
 RING_LO   = 0xF3            ; the ring: x5DF3-x5FFF
 RING_HI   = 0x5D
 FE_LO     = FS_ENTRY & 0xFF
 ROOM      = 67              ; groups free before a piece is written
-BAR_COL   = 3
-BAR_ROW   = 9
+
+; the card: text rows and columns of the 80 x 60 screen
+CARD_L    = 7               ; its left edge; its 64 columns are 8-71
+CARD_R    = 72              ; its right edge
+ROW_T     = 24              ; its title
+ROW_INFO  = 26              ; the name, "n of m", the speed
+ROW_WAVE  = 28              ; the waveform: 8 text rows, pixel rows 224-287
+ROW_BAR   = 37              ; the slider
+ROW_TIME  = 38              ; "m:ss of m:ss"
+ROW_BTN   = 40              ; the buttons
+ROW_B     = 42              ; its bottom edge
+BAR_COL   = 8               ; the slider's 64 cells
+BTN_P     = 27              ; the one before: 6 columns
+BTN_H     = 36              ; pause: 8 columns
+BTN_N     = 47              ; the next: 6 columns
 
 ; the menu block's bytes for Pinboard and this program (placard_menu.asm)
 MB_PHOTO  = 0x19            ; "S": Pinboard's Files card asks for a sound
 MB_PCLUS  = 0x1B            ; 4: the folder of the file asked for
 MB_PN     = 0x1F            ; its number among the folder's .WAV files
 
+#include "wave_data.asm"
+
+.macro PROW                     ; T1 = the low byte, T2 = the page of row T0 of the pointer's left column
+    ld   [wv_syl], ac
+    add  [T0], ac
+    ld   ac, [T1]
+    ld   [wv_syh], ac
+    bcc  pra\@
+    inc
+pra\@:
+    ld   ac, [T2]
+    ld   [T1], ac
+    add  0x20, ac
+    ld   ac, [T1]
+    ld   [T2], ac
+    bcc  prb\@
+    inc
+prb\@:
+    add  [wv_sc2], ac
+    ld   ac, [T2]
+.endm
+
 .prefix wv
 .region 0x0100, 0x1F00
 
 ; ============================================================
-; main - the text screen, the folder, how many files
+; main - the screen, the mouse, the folder, how many files
 ; ============================================================
 .fixed 0x0100
 main:
     ld   STACK_TOP, ac
     ld   ac, [SP]
     CALL con_clear
+    ld   0x5B, y                ; the rail's rows 456-479 tinted blue, as
+    ld   23, ac                 ; Pinboard's
+mn_tint:
+    add  0xE8, x
+    ld   0x40, [y,x]
+    sub  1, ac
+    bcc  mn_tint
+    ld   FONT >> 8, ac
+    ld   ac, [FONT_PG]
     CALL quiet
-    ld   s_title & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_title >> 8, ac
-    ld   ac, [R1]
-    ld   1, ac
-    CALL msg
     clr  ac
     ld   ac, [wv_n]
     ld   ac, [wv_tot]
     ld   ac, [wv_from]
     ld   ac, [wv_hold]
+    ld   ac, [wv_son]
+    ld   ac, [wv_drag]
+    ld   ac, [wv_mb]
+    ld   ac, [wv_wdue]
+    ld   ac, [wv_wcnt]
     ld   0x80, ac               ; the page of silence
     ld   ac, [wv_t]
     clr  ac
@@ -161,12 +271,288 @@ main:
     ld   ac, [R1]
     ld   [wv_t], ac
     CALL memset
+    GOTO main2
+
+; the waveform's rows (any row will do: a point is cleared where it was),
+; the pointer's place, the mouse (Pinboard's runs on)
+.chunk
+main2:
+    ld   32, ac
+    ld   ac, [wv_t]
+    clr  ac
+    ld   ac, [R0]
+    ld   ac, [R2]
+    ld   OLD >> 8, ac
+    ld   ac, [R1]
+    ld   [wv_t], ac
+    CALL memset
+    ld   [wv_t], ac
+    CALL memset
+    ld   320 & 0xFF, ac
+    ld   ac, [wv_pxl]
+    ld   1, ac
+    ld   ac, [wv_pxh]
+    ld   ac, [wv_pyh]
+    ld   368 & 0xFF, ac
+    ld   ac, [wv_pyl]
+    ld   [MOUSE_ST], ac
+    blt  wm_run
+    CALL mouse_init
+    bra  wm_set
+wm_run:
+    clr  ac
+wm_set:
+    ld   ac, [wv_mok]
+    GOTO board
+
+; ------------------------------------------------------------
+; board - the board (rows 0-56), the rail under it with the keys
+; ------------------------------------------------------------
+.chunk
+board:
+    clr  ac
+    ld   ac, [CUR_ROW]
+    ld   ac, [CUR_COL]
+    ld   57, ac
+    ld   ac, [wv_d]
+wbd_row:
+    ld   0x01, ac
+    ld   ac, [wv_t]
+    ld   80, ac
+    ld   ac, [wv_k]
+    CALL fill
+    ld   [wv_d], ac
+    dec
+    ld   ac, [wv_d]
+    bne  wbd_row
+    ld   0x10, ac
+    ld   ac, [wv_t]
+    ld   80, ac
+    ld   ac, [wv_k]
+    CALL fill
+    ld   0x20, ac
+    ld   ac, [wv_t]
+    ld   159, ac                ; (the last cell would scroll the screen)
+    ld   ac, [wv_k]
+    CALL fill
+    ld   s_keys & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_keys >> 8, ac
+    ld   ac, [R1]
+    ld   58, ac
+    ld   ac, [CUR_ROW]
+    ld   1, ac
+    ld   ac, [CUR_COL]
+    CALL con_puts
+    GOTO card
+
+; ------------------------------------------------------------
+; card - the card: the title with its pin, the white rows between the
+; edges, the bottom edge
+; ------------------------------------------------------------
+.chunk
+card:
+    ld   ROW_T, ac
+    ld   ac, [CUR_ROW]
+    ld   CARD_L, ac
+    ld   ac, [CUR_COL]
+    ld   0x07, ac               ; the pin
+    CALL con_putc
+    ld   s_title & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_title >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+wcd_pad:
+    ld   0x20, ac
+    CALL con_putc
+    ld   [CUR_COL], ac
+    xor  CARD_R + 1, ac
+    bne  wcd_pad
+    ld   ROW_T + 1, ac
+    ld   ac, [wv_d]
+wcd_row:
+    ld   [wv_d], ac
+    ld   ac, [CUR_ROW]
+    ld   CARD_L, ac
+    ld   ac, [CUR_COL]
+    ld   0x02, ac
+    CALL con_putc
+    ld   0xA0, ac
+    ld   ac, [wv_t]
+    ld   64, ac
+    ld   ac, [wv_k]
+    CALL fill
+    ld   0x03, ac
+    CALL con_putc
+    ld   [wv_d], ac
+    inc
+    ld   ac, [wv_d]
+    xor  ROW_B, ac
+    bne  wcd_row
+    GOTO card2
+
+; the bottom edge, the waveform's black rows, the buttons
+.chunk
+card2:
+    ld   ROW_B, ac
+    ld   ac, [CUR_ROW]
+    ld   CARD_L, ac
+    ld   ac, [CUR_COL]
+    ld   0x05, ac
+    CALL con_putc
+    ld   0x04, ac
+    ld   ac, [wv_t]
+    ld   64, ac
+    ld   ac, [wv_k]
+    CALL fill
+    ld   0x06, ac
+    CALL con_putc
+    ld   ROW_WAVE, ac
+    ld   ac, [wv_d]
+wc2_row:
+    ld   [wv_d], ac
+    ld   ac, [CUR_ROW]
+    ld   CARD_L + 1, ac
+    ld   ac, [CUR_COL]
+    ld   0x20, ac
+    ld   ac, [wv_t]
+    ld   64, ac
+    ld   ac, [wv_k]
+    CALL fill
+    ld   [wv_d], ac
+    inc
+    ld   ac, [wv_d]
+    xor  ROW_WAVE + 8, ac
+    bne  wc2_row
+    GOTO card3
+
+.chunk
+card3:
+    ld   ROW_BTN, ac
+    ld   ac, [CUR_ROW]
+    ld   BTN_P, ac
+    ld   ac, [CUR_COL]
+    ld   s_prev & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_prev >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
+    ld   BTN_N, ac
+    ld   ac, [CUR_COL]
+    ld   s_next & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_next >> 8, ac
+    ld   ac, [R1]
+    CALL con_puts
     CALL fs_mount
     bne  mn_no
     GOTO whose
 mn_no:
     GOTO nodir
 
+; ------------------------------------------------------------
+; fill - the character wv_t, wv_k times, from the cursor on
+; ------------------------------------------------------------
+.chunk
+fill:
+    PUSH_LINK
+wfi_l:
+    ld   [wv_t], ac
+    CALL con_putc
+    ld   [wv_k], ac
+    dec
+    ld   ac, [wv_k]
+    bne  wfi_l
+    LEAVE
+
+; ------------------------------------------------------------
+; puti - the string at R1:R0 from the cursor on, black on the card
+; ------------------------------------------------------------
+.chunk
+puti:
+    PUSH_LINK
+wpi_l:
+    ld   [R1], y
+    ld   [R0], x
+    ld   [y,x], ac
+    beq  wpi_x
+    or   0x80, ac
+    CALL con_putc
+    ld   [R0], ac
+    inc
+    ld   ac, [R0]
+    bne  wpi_l
+    ld   [R1], ac
+    inc
+    ld   ac, [R1]
+    bra  wpi_l
+wpi_x:
+    LEAVE
+
+; ------------------------------------------------------------
+; numi - AC (0-255) in decimal, black on the card
+; ------------------------------------------------------------
+.chunk
+numi:
+    PUSH_LINK
+    ld   ac, [wv_t]
+    ld   0xB0, ac
+    ld   ac, [wv_d]
+wni_h:
+    ld   [wv_t], ac
+    sub  100, ac
+    bcs  wni_hx
+    ld   ac, [wv_t]
+    ld   [wv_d], ac
+    inc
+    ld   ac, [wv_d]
+    bra  wni_h
+wni_hx:
+    ld   [wv_d], ac
+    xor  0xB0, ac
+    beq  wni_t
+    ld   [wv_d], ac
+    CALL con_putc
+    ld   [wv_t], ac
+    CALL two
+    LEAVE
+wni_t:
+    ld   [wv_t], ac
+    sub  10, ac
+    bcs  wni_o
+    ld   [wv_t], ac
+    CALL two
+    LEAVE
+wni_o:
+    ld   [wv_t], ac
+    add  0xB0, ac
+    CALL con_putc
+    LEAVE
+
+; two - AC (0-99) as two digits
+.chunk
+two:
+    PUSH_LINK
+    ld   ac, [wv_t]
+    ld   0xB0, ac
+    ld   ac, [wv_d]
+wtw_l:
+    ld   [wv_t], ac
+    sub  10, ac
+    bcs  wtw_o
+    ld   ac, [wv_t]
+    ld   [wv_d], ac
+    inc
+    ld   ac, [wv_d]
+    bra  wtw_l
+wtw_o:
+    ld   [wv_d], ac
+    CALL con_putc
+    ld   [wv_t], ac
+    add  0xB0, ac
+    CALL con_putc
+    LEAVE
 .chunk
 nodir:
     ld   s_nodir & 0xFF, ac
@@ -176,17 +562,31 @@ nodir:
     GOTO fail
 
 ; ------------------------------------------------------------
-; msg - the string at R1:R0 on text row AC, from column 2
+; msg - the string at R1:R0 on text row AC of the card
 ; ------------------------------------------------------------
 .chunk
 msg:
     PUSH_LINK
     ld   ac, [CUR_ROW]
-    ld   2, ac
+    ld   CARD_L + 2, ac
     ld   ac, [CUR_COL]
-    CALL con_puts
+    CALL puti
     LEAVE
 
+; clrinfo - the card's name row white again
+.chunk
+clrinfo:
+    PUSH_LINK
+    ld   ROW_INFO, ac
+    ld   ac, [CUR_ROW]
+    ld   CARD_L + 1, ac
+    ld   ac, [CUR_COL]
+    ld   0xA0, ac
+    ld   ac, [wv_t]
+    ld   64, ac
+    ld   ac, [wv_k]
+    CALL fill
+    LEAVE
 ; ------------------------------------------------------------
 ; quiet - the whole sound buffer = 80h
 ; ------------------------------------------------------------
@@ -316,18 +716,6 @@ ct_end:
     ld   ac, [R1]
     GOTO fail
 ct_some:
-    ld   s_keys1 & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_keys1 >> 8, ac
-    ld   ac, [R1]
-    ld   12, ac
-    CALL msg
-    ld   s_keys2 & 0xFF, ac
-    ld   ac, [R0]
-    ld   s_keys2 >> 8, ac
-    ld   ac, [R1]
-    ld   13, ac
-    CALL msg
     GOTO show
 
 ; ------------------------------------------------------------
@@ -445,41 +833,48 @@ nm_ext:
     beq  nm_ok
     GOTO bad
 nm_ok:
+    ld   FS_ENTRY >> 8, y
+    ld   FE_LO + 26, x
+    ld   [y,x], ac
+    ld   ac, [wv_fc]
+    ld   FE_LO + 27, x
+    ld   [y,x], ac
+    ld   ac, [wv_fc + 1]
+    ld   FE_LO + 20, x
+    ld   [y,x], ac
+    ld   ac, [wv_fc + 2]
+    ld   FE_LO + 21, x
+    ld   [y,x], ac
+    ld   ac, [wv_fc + 3]
     GOTO title
 
 ; ------------------------------------------------------------
-; title - row 3: the name, "n of m"; then the file's first sector
+; title - the card's name row: the name, "n of m"; then the file's first
+; sector
 ; ------------------------------------------------------------
 .chunk
 title:
+    CALL p_hide
+    CALL clrinfo
     ld   wv_name, ac
     ld   ac, [R0]
     clr  ac
     ld   ac, [R1]
-    ld   3, ac
+    ld   ROW_INFO, ac
     CALL msg
-tt_pad:
-    ld   0x20, ac
-    CALL con_putc
-    ld   [CUR_COL], ac
-    xor  16, ac
-    bne  tt_pad
+    ld   30, ac
+    ld   ac, [CUR_COL]
     ld   [wv_n], ac
     inc
-    CALL con_dec8
+    CALL numi
     ld   s_of & 0xFF, ac
     ld   ac, [R0]
     ld   s_of >> 8, ac
     ld   ac, [R1]
-    CALL con_puts
+    CALL puti
     ld   [wv_tot], ac
-    CALL con_dec8
-    ld   0x20, ac
-    CALL con_putc
-    ld   0x20, ac
-    CALL con_putc
+    CALL numi
     GOTO first
-
 .chunk
 first:
     clr  ac
@@ -720,6 +1115,51 @@ da_ok:
     inc
     ld   ac, [wv_sh]
 da_1:
+    GOTO dend
+
+; dend - wv_do = the samples' place in the file, wv_de = the place past
+; the last of them (wv_rem + wv_do), for seek
+.chunk
+dend:
+    ld   [wv_sl], ac
+    ld   ac, [wv_dol]
+    ld   [wv_sh], ac
+    sub  SECT >> 8, ac
+    ld   ac, [wv_doh]
+    ld   [wv_rem + 1], ac
+    ld   ac, [wv_de + 1]
+    ld   [wv_rem + 2], ac
+    ld   ac, [wv_de + 2]
+    ld   [wv_rem + 3], ac
+    ld   ac, [wv_de + 3]
+    ld   [wv_rem], ac
+    add  [wv_dol], ac
+    ld   ac, [wv_de]
+    bcc  de_1
+    ld   [wv_de + 1], ac
+    inc
+    ld   ac, [wv_de + 1]
+    bne  de_1
+    ld   [wv_de + 2], ac
+    inc
+    ld   ac, [wv_de + 2]
+    bne  de_1
+    ld   [wv_de + 3], ac
+    inc
+    ld   ac, [wv_de + 3]
+de_1:
+    ld   [wv_de + 1], ac
+    add  [wv_doh], ac
+    ld   ac, [wv_de + 1]
+    bcc  de_2
+    ld   [wv_de + 2], ac
+    inc
+    ld   ac, [wv_de + 2]
+    bne  de_2
+    ld   [wv_de + 3], ac
+    inc
+    ld   ac, [wv_de + 3]
+de_2:
     GOTO sectors
 
 ; sectors - wv_ts = wv_rem / 512 + 1, the bar's whole
@@ -920,41 +1360,57 @@ bg_31:
     ld   s_r31 >> 8, ac
 bg_rate:
     ld   ac, [R1]
-    ld   5, ac
-    CALL msg
+    ld   ROW_INFO, ac
+    ld   ac, [CUR_ROW]
+    ld   50, ac
+    ld   ac, [CUR_COL]
+    CALL puti
     GOTO bar0
 
 .chunk
 bar0:
-    ld   BAR_ROW, ac
-    ld   ac, [CUR_ROW]
-    ld   BAR_COL - 1, ac
-    ld   ac, [CUR_COL]
-    ld   0x5B, ac               ; [
-    CALL con_putc
-    ld   64, ac
-    ld   ac, [wv_k]
-b0_l:
-    ld   0x2D, ac               ; -
-    CALL con_putc
-    ld   [wv_k], ac
-    dec
-    ld   ac, [wv_k]
-    bne  b0_l
-    ld   0x5D, ac               ; ]
-    CALL con_putc
+    CALL slider
+    CALL p_show
     CALL frame_poll
     ld   [FRAME_LO], ac
     ld   ac, [wv_frm]
     GOTO loop
 
+; ------------------------------------------------------------
+; slider - the slider's 64 cells: black up to wv_cell, a line from there
+; ------------------------------------------------------------
+.chunk
+slider:
+    PUSH_LINK
+    ld   ROW_BAR, ac
+    ld   ac, [CUR_ROW]
+    ld   BAR_COL, ac
+    ld   ac, [CUR_COL]
+    ld   0x20, ac
+    ld   ac, [wv_t]
+    ld   [wv_cell], ac
+    beq  wsl_rest
+    ld   ac, [wv_k]
+    CALL fill
+wsl_rest:
+    ld   0xAD, ac               ; "-", black on the card
+    ld   ac, [wv_t]
+    ld   64, ac
+    sub  [wv_cell], ac
+    beq  wsl_x
+    ld   ac, [wv_k]
+    CALL fill
+wsl_x:
+    LEAVE
 ; ============================================================
-; the loop: the keys once a frame, the time line when it changed, the
-; next sector when this one is used up, a piece to the ring when there
-; is room for it
+; the loop: the keys and the mouse once a frame, the time line when it
+; changed, the next sector when this one is used up, a piece to the ring
+; when there is room for it, and a half of the waveform when there is
+; nothing else to do
 ; ============================================================
 .chunk
 loop:
+    CALL ps2_poll               ; the mouse's bytes as they come
     CALL frame_poll
     ld   ac, [wv_g]
     ld   [FRAME_LO], ac
@@ -962,6 +1418,17 @@ loop:
     beq  lp_same
     ld   [FRAME_LO], ac
     ld   ac, [wv_frm]
+    ld   [wv_wcnt], ac          ; every 2nd frame: the waveform
+    inc
+    ld   ac, [wv_wcnt]
+    and  1, ac
+    bne  lp_keys
+    ld   [wv_hold], ac
+    or   [wv_new], ac
+    bne  lp_keys
+    ld   2, ac
+    ld   ac, [wv_wdue]
+lp_keys:
     GOTO keys
 lp_same:
     ld   [wv_draw], ac
@@ -973,7 +1440,6 @@ lp_feed:
     GOTO warmq
 lp_cold:
     GOTO feed
-
 ; feed - the next sector when this one is used up, else a piece when
 ; there is room for it
 .chunk
@@ -997,6 +1463,10 @@ lp_d:
     bcs  lp_wait
     GOTO piece
 lp_wait:
+    ld   [wv_wdue], ac
+    beq  lp_idle
+    GOTO wave
+lp_idle:
     GOTO loop
 lp_new:
     GOTO start
@@ -1079,41 +1549,945 @@ en_ret:
 .chunk
 keys:
     CALL kbd_scan
-    ld   [KBD_NOW + (K_ESC >> 3)], ac   ; Esc: silence before the DOS
-    and  1 << (K_ESC & 7), ac           ; takes over (menu_poll)
-    bne  ky_poll
+    ld   [KBD_NOW + (K_ESC >> 3)], ac   ; Esc: silence and the standard
+    and  1 << (K_ESC & 7), ac           ; font before the DOS takes over
+    bne  ky_poll                        ; (menu_poll)
     CALL quiet
     ld   1, ac
     ld   ac, [wv_new]
+    ld   LIB_FONT >> 8, ac
+    ld   ac, [FONT_PG]
 ky_poll:
     CALL menu_poll
+    ld   FONT >> 8, ac
+    ld   ac, [FONT_PG]
     CALL kbd_getc
     beq  ky_none
     ld   ac, [wv_key]
     xor  0x20, ac               ; Space
     beq  ky_hold
     xor  0x20 ^ 0x14, ac        ; Right
-    beq  ky_next
+    beq  ky_fwd
     xor  0x14 ^ 0x0A, ac        ; Enter
     beq  ky_next
     xor  0x0A ^ 0x13, ac        ; Left
-    beq  ky_prev
+    beq  ky_back
     xor  0x13 ^ 0x08, ac        ; Backspace
     beq  ky_prev
 ky_none:
-    GOTO loop
+    GOTO mouse
 ky_hold:
+    GOTO hold
+ky_next:
+    GOTO next
+ky_prev:
+    GOTO prev
+ky_fwd:
+    GOTO fwd
+ky_back:
+    GOTO back
+
+; hold - pause, or go on
+.chunk
+hold:
     ld   [wv_hold], ac
     xor  1, ac
     ld   ac, [wv_hold]
     ld   1, ac
     ld   ac, [wv_draw]
     GOTO loop
-ky_next:
-    GOTO next
-ky_prev:
-    GOTO prev
 
+; back, fwd - a slider cell (a 64th of the file) back or on
+.chunk
+back:
+    ld   [wv_cell], ac
+    beq  wbk_go
+    dec
+wbk_go:
+    ld   ac, [wv_c]
+    GOTO seek
+
+.chunk
+fwd:
+    ld   [wv_cell], ac
+    inc
+    ld   ac, [wv_c]
+    sub  64, ac
+    bcs  wfw_go
+    GOTO loop
+wfw_go:
+    GOTO seek
+
+; ------------------------------------------------------------
+; mouse - once a frame: the pointer moved by what the mouse sent
+; ------------------------------------------------------------
+.chunk
+mouse:
+    ld   [wv_mok], ac
+    bne  wmo_x
+    ld   [MOUSE_ST], ac         ; the loop has taken its bytes (ps2_poll):
+    or   0x40, ac               ; no waiting for the rest of a packet
+    ld   ac, [MOUSE_ST]
+    CALL mouse_poll
+    beq  wmo_x
+    CALL p_hide
+    ld   [wv_pxl], ac
+    ld   ac, [R0]
+    ld   [wv_pxh], ac
+    ld   ac, [R1]
+    ld   [wv_pyl], ac
+    ld   ac, [R2]
+    ld   [wv_pyh], ac
+    ld   ac, [R3]
+    CALL mouse_move
+    ld   [R0], ac
+    ld   ac, [wv_pxl]
+    ld   [R1], ac
+    ld   ac, [wv_pxh]
+    ld   [R2], ac
+    ld   ac, [wv_pyl]
+    ld   [R3], ac
+    ld   ac, [wv_pyh]
+    CALL p_show
+    GOTO click
+wmo_x:
+    GOTO loop
+
+; click - wv_t, wv_d = the pointer's column and text row; the left button
+.chunk
+click:
+    ld   [wv_pxl], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [wv_t]
+    ld   [wv_pxh], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [wv_t], ac
+    ld   ac, [wv_t]
+    ld   [wv_pyl], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [wv_d]
+    ld   [wv_pyh], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [wv_d], ac
+    ld   ac, [wv_d]
+    ld   [MOUSE_B], ac
+    and  1, ac
+    bne  wck_down
+    ld   ac, [wv_mb]            ; let go
+    ld   ac, [wv_drag]
+    GOTO loop
+wck_down:
+    ld   [wv_mb], ac
+    bne  wck_held
+    ld   1, ac
+    ld   ac, [wv_mb]
+    GOTO press
+wck_held:
+    GOTO drag
+
+; press - the button went down: on the pin, a button, the slider?
+.chunk
+press:
+    ld   [wv_d], ac
+    xor  ROW_T, ac
+    bne  wpr_btn
+    ld   [wv_t], ac
+    sub  CARD_L, ac
+    bcs  wpr_no
+    sub  2, ac
+    bcc  wpr_no
+    GOTO leave
+wpr_btn:
+    xor  ROW_T ^ ROW_BTN, ac
+    bne  wpr_bar
+    ld   [wv_t], ac
+    sub  BTN_P, ac
+    bcs  wpr_no
+    sub  6, ac
+    bcc  wpr_b2
+    GOTO prev
+wpr_b2:
+    ld   [wv_t], ac
+    sub  BTN_H, ac
+    bcs  wpr_no
+    sub  8, ac
+    bcc  wpr_b3
+    GOTO hold
+wpr_b3:
+    ld   [wv_t], ac
+    sub  BTN_N, ac
+    bcs  wpr_no
+    sub  6, ac
+    bcc  wpr_no
+    GOTO next
+wpr_bar:
+    ld   [wv_d], ac
+    sub  ROW_BAR - 1, ac
+    bcs  wpr_no
+    sub  3, ac
+    bcc  wpr_no
+    ld   [wv_t], ac
+    sub  BAR_COL, ac
+    bcs  wpr_no
+    sub  64, ac
+    bcc  wpr_no
+    ld   1, ac
+    ld   ac, [wv_drag]
+    ld   0xFF, ac
+    ld   ac, [wv_sc]
+    GOTO drag
+wpr_no:
+    GOTO loop
+
+; drag - the slider is held: go to the cell under the pointer when it is
+; another than the last
+.chunk
+drag:
+    ld   [wv_drag], ac
+    beq  wdg_no
+    ld   [wv_t], ac
+    sub  BAR_COL, ac
+    bcc  wdg_in
+    clr  ac
+wdg_in:
+    ld   ac, [wv_c]
+    sub  64, ac
+    bcs  wdg_ok
+    ld   63, ac
+    ld   ac, [wv_c]
+wdg_ok:
+    ld   [wv_c], ac
+    xor  [wv_sc], ac
+    beq  wdg_no
+    ld   [wv_c], ac
+    ld   ac, [wv_sc]
+    GOTO seek
+wdg_no:
+    GOTO loop
+
+; leave - the pin: back, as Esc goes
+.chunk
+leave:
+    CALL quiet
+    ld   1, ac
+    ld   ac, [wv_new]
+    ld   MENU_BLK >> 8, y
+    ld   MB_MAGIC, x
+    ld   [y,x], ac
+    xor  0x4D, ac               ; "M"
+    bne  wlv_stay
+    ld   LIB_FONT >> 8, ac
+    ld   ac, [FONT_PG]
+    ld   MB_WHY, x
+    ld   WHY_ESC, ac
+    ld   ac, [y,x]
+    jmp  MB_EXIT
+wlv_stay:
+    GOTO loop
+
+; ============================================================
+; seek - go to slider cell wv_c of the file: the sector there, the time
+; and the slider as they are there, the reader at that sector; the ring
+; silent until the samples come
+; ============================================================
+.chunk
+seek:
+    ld   [wv_c], ac
+    bne  wsk_go
+    CALL quiet                  ; cell 0: the file from its start
+    GOTO show
+wsk_go:
+    CALL p_hide
+    CALL quiet
+    ld   [wv_tsl], ac           ; the file's sectors = 64 q + r
+    and  63, ac
+    ld   ac, [wv_q + 2]
+    ld   [wv_tsl], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [wv_q]
+    ld   [wv_tsh], ac
+    shl
+    shl
+    or   [wv_q], ac
+    ld   ac, [wv_q]
+    ld   [wv_tsh], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [wv_q + 1]
+    clr  ac
+    ld   ac, [wv_p]
+    ld   ac, [wv_p + 1]
+    ld   ac, [wv_p + 2]
+    ld   ac, [wv_p + 3]
+    ld   [wv_c], ac
+    ld   ac, [wv_k]
+wsk_mul:                        ; wv_p = c q, wv_p + 2 = c r
+    ld   [wv_p], ac
+    add  [wv_q], ac
+    ld   ac, [wv_p]
+    ld   [wv_p + 1], ac
+    bcc  wsk_m1
+    inc
+wsk_m1:
+    add  [wv_q + 1], ac
+    ld   ac, [wv_p + 1]
+    ld   [wv_p + 2], ac
+    add  [wv_q + 2], ac
+    ld   ac, [wv_p + 2]
+    bcc  wsk_m2
+    ld   [wv_p + 3], ac
+    inc
+    ld   ac, [wv_p + 3]
+wsk_m2:
+    ld   [wv_k], ac
+    dec
+    ld   ac, [wv_k]
+    bne  wsk_mul
+    GOTO seek2
+
+; the sector: c q + (c r + 63) / 64, the first that shows cell c; the
+; slider's remainder there
+.chunk
+seek2:
+    ld   [wv_p + 2], ac
+    and  63, ac
+    ld   ac, [wv_t]
+    ld   64, ac
+    sub  [wv_t], ac
+    and  63, ac
+    ld   ac, [wv_bal]
+    clr  ac
+    ld   ac, [wv_bah]
+    ld   [wv_c], ac
+    ld   ac, [wv_cell]
+    ld   [wv_p + 2], ac
+    add  63, ac
+    ld   ac, [wv_p + 2]
+    bcc  ws2_1
+    ld   [wv_p + 3], ac
+    inc
+    ld   ac, [wv_p + 3]
+ws2_1:
+    ld   [wv_p + 2], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [wv_t]
+    ld   [wv_p + 3], ac
+    shl
+    shl
+    or   [wv_t], ac
+    add  [wv_p], ac
+    ld   ac, [wv_snl]
+    ld   [wv_p + 1], ac
+    bcc  ws2_2
+    inc
+ws2_2:
+    ld   ac, [wv_snh]
+    GOTO seek3
+
+; wv_p = the sector's place in the file (512 x); what is left of the
+; samples from there (wv_tmp), none: the file is over
+.chunk
+seek3:
+    clr  ac
+    ld   ac, [wv_p]
+    ld   ac, [wv_p + 3]
+    ld   [wv_snl], ac
+    shl
+    ld   ac, [wv_p + 1]
+    ld   [wv_snh], ac
+    shl
+    ld   ac, [wv_p + 2]
+    ld   [wv_snl], ac
+    blt  ws3_a
+    bra  ws3_b
+ws3_a:
+    ld   [wv_p + 2], ac
+    or   1, ac
+    ld   ac, [wv_p + 2]
+ws3_b:
+    ld   [wv_snh], ac
+    blt  ws3_c
+    bra  ws3_d
+ws3_c:
+    ld   1, ac
+    ld   ac, [wv_p + 3]
+ws3_d:
+    ld   [wv_de], ac
+    ld   ac, [wv_q]
+    ld   [wv_de + 1], ac
+    ld   ac, [wv_q + 1]
+    ld   [wv_de + 2], ac
+    ld   ac, [wv_q + 2]
+    ld   [wv_de + 3], ac
+    ld   ac, [wv_q + 3]
+    CALL sub4
+    ld   [wv_bw], ac
+    bne  ws3_end
+    ld   [wv_q], ac
+    or   [wv_q + 1], ac
+    or   [wv_q + 2], ac
+    or   [wv_q + 3], ac
+    beq  ws3_end
+    GOTO seek4
+ws3_end:
+    GOTO seekend
+
+; the time there: the samples before it (the place less where they
+; start), a second's bytes at a time
+.chunk
+seek4:
+    ld   [wv_q], ac
+    ld   ac, [wv_tmp]
+    ld   [wv_q + 1], ac
+    ld   ac, [wv_tmp + 1]
+    ld   [wv_q + 2], ac
+    ld   ac, [wv_tmp + 2]
+    ld   [wv_q + 3], ac
+    ld   ac, [wv_tmp + 3]
+    ld   [wv_p], ac
+    ld   ac, [wv_q]
+    ld   [wv_p + 1], ac
+    ld   ac, [wv_q + 1]
+    ld   [wv_p + 2], ac
+    ld   ac, [wv_q + 2]
+    ld   [wv_p + 3], ac
+    ld   ac, [wv_q + 3]
+    ld   [wv_dol], ac
+    ld   ac, [wv_p]
+    ld   [wv_doh], ac
+    ld   ac, [wv_p + 1]
+    clr  ac
+    ld   ac, [wv_p + 2]
+    ld   ac, [wv_p + 3]
+    CALL sub4
+    ld   [wv_q], ac
+    ld   ac, [wv_rem]
+    ld   [wv_q + 1], ac
+    ld   ac, [wv_rem + 1]
+    ld   [wv_q + 2], ac
+    ld   ac, [wv_rem + 2]
+    ld   [wv_q + 3], ac
+    ld   ac, [wv_rem + 3]
+    clr  ac
+    ld   ac, [wv_sec]
+    ld   ac, [wv_min]
+    GOTO seek5
+
+.chunk
+seek5:
+    ld   [wv_kcl], ac
+    ld   ac, [wv_avl]
+    ld   [wv_kch], ac
+    ld   ac, [wv_avh]
+    CALL take
+    ld   [wv_avl], ac
+    xor  [wv_kcl], ac
+    bne  ws5_end
+    ld   [wv_avh], ac
+    xor  [wv_kch], ac
+    bne  ws5_end
+    ld   [wv_sec], ac
+    inc
+    ld   ac, [wv_sec]
+    xor  60, ac
+    bne  seek5
+    ld   ac, [wv_sec]
+    ld   [wv_min], ac
+    inc
+    ld   ac, [wv_min]
+    bra  seek5
+ws5_end:
+    ld   [wv_avl], ac
+    ld   ac, [wv_acl]
+    ld   [wv_avh], ac
+    ld   ac, [wv_ach]
+    ld   [wv_tmp], ac
+    ld   ac, [wv_rem]
+    ld   [wv_tmp + 1], ac
+    ld   ac, [wv_rem + 1]
+    ld   [wv_tmp + 2], ac
+    ld   ac, [wv_rem + 2]
+    ld   [wv_tmp + 3], ac
+    ld   ac, [wv_rem + 3]
+    GOTO seek6
+
+; the reader: from the file's first cluster, the clusters before the
+; sector's passed (sector >> V_SHIFT of them)
+.chunk
+seek6:
+    ld   [wv_fc], ac
+    ld   ac, [T0]
+    ld   [wv_fc + 1], ac
+    ld   ac, [T1]
+    ld   [wv_fc + 2], ac
+    ld   ac, [T2]
+    ld   [wv_fc + 3], ac
+    ld   ac, [T3]
+    CALL fs_chain
+    ld   FSV, y
+    ld   V_SPC, x
+    ld   [y,x], ac
+    dec
+    and  [wv_snl], ac
+    ld   ac, [wv_so]
+    ld   [wv_snl], ac
+    ld   ac, [wv_skl]
+    ld   [wv_snh], ac
+    ld   ac, [wv_skh]
+    ld   V_SHIFT, x
+    ld   [y,x], ac
+    ld   ac, [wv_k]
+ws6_sh:
+    ld   [wv_k], ac
+    beq  ws6_x
+    dec
+    ld   ac, [wv_k]
+    ld   [wv_skl], ac
+    shr  ac
+    ld   ac, [wv_skl]
+    ld   [wv_skh], ac
+    and  1, ac
+    beq  ws6_n
+    ld   [wv_skl], ac
+    or   0x80, ac
+    ld   ac, [wv_skl]
+ws6_n:
+    ld   [wv_skh], ac
+    shr  ac
+    ld   ac, [wv_skh]
+    bra  ws6_sh
+ws6_x:
+    GOTO seek7
+
+.chunk
+seek7:
+    ld   [wv_skl], ac
+    or   [wv_skh], ac
+    beq  ws7_at
+    CALL fs_nextc
+    bne  ws7_bad
+    ld   [wv_skl], ac
+    dec
+    ld   ac, [wv_skl]
+    xor  0xFF, ac
+    bne  seek7
+    ld   [wv_skh], ac
+    dec
+    ld   ac, [wv_skh]
+    bra  seek7
+ws7_at:
+    GOTO seek8
+ws7_bad:
+    GOTO seekend
+
+; the reader's next sector: the cluster's first + the sector in it; the
+; sectors left in the cluster; the bytes left
+.chunk
+seek8:
+    ld   V_SCLUS, ac
+    CALL fs_get
+    CALL fs_clba
+    ld   [wv_so], ac
+    ld   ac, [T4]
+    clr  ac
+    ld   ac, [T5]
+    ld   ac, [T6]
+    ld   ac, [T7]
+    CALL fs_add
+    ld   V_SLBA, ac
+    CALL fs_put
+    ld   FSV, y
+    ld   V_SPC, x
+    ld   [y,x], ac
+    sub  [wv_so], ac
+    ld   V_SSEC, x
+    ld   ac, [y,x]
+    ld   V_SMODE, x
+    ld   0, [y,x]
+    ld   V_REM, x
+    ld   [wv_rem], ac
+    ld   ac, [y,x]
+    ld   V_REM + 1, x
+    ld   [wv_rem + 1], ac
+    ld   ac, [y,x]
+    ld   V_REM + 2, x
+    ld   [wv_rem + 2], ac
+    ld   ac, [y,x]
+    ld   V_REM + 3, x
+    ld   [wv_rem + 3], ac
+    ld   ac, [y,x]
+    clr  ac
+    ld   ac, [wv_avl]
+    ld   ac, [wv_avh]
+    ld   ac, [wv_warm]
+    ld   1, ac
+    ld   ac, [wv_new]
+    ld   ac, [wv_draw]
+    CALL slider
+    CALL p_show
+    GOTO loop
+
+; seekend - past the file's last sample: the file is over
+.chunk
+seekend:
+    CALL p_show
+    ld   1, ac
+    ld   ac, [wv_new]
+    GOTO finish
+
+; ------------------------------------------------------------
+; sub4 - wv_q = wv_q - wv_p (4 bytes), wv_bw = 1 on a borrow (a leaf)
+; ------------------------------------------------------------
+.chunk
+sub4:
+    ld   [wv_q], ac
+    sub  [wv_p], ac
+    ld   ac, [wv_q]
+    bcs  sb_b0
+    clr  ac
+    bra  sb_s0
+sb_b0:
+    ld   1, ac
+sb_s0:
+    ld   ac, [wv_bw]
+    ld   [wv_q + 1], ac
+    sub  [wv_bw], ac
+    bcs  sb_c1                  ; 00 less the borrow: FF, a borrow on
+    sub  [wv_p + 1], ac
+    ld   ac, [wv_q + 1]
+    bcs  sb_b1
+    clr  ac
+    bra  sb_s1
+sb_c1:
+    sub  [wv_p + 1], ac
+    ld   ac, [wv_q + 1]
+sb_b1:
+    ld   1, ac
+sb_s1:
+    ld   ac, [wv_bw]
+    ld   [wv_q + 2], ac
+    sub  [wv_bw], ac
+    bcs  sb_c2
+    sub  [wv_p + 2], ac
+    ld   ac, [wv_q + 2]
+    bcs  sb_b2
+    clr  ac
+    bra  sb_s2
+sb_c2:
+    sub  [wv_p + 2], ac
+    ld   ac, [wv_q + 2]
+sb_b2:
+    ld   1, ac
+sb_s2:
+    ld   ac, [wv_bw]
+    ld   [wv_q + 3], ac
+    sub  [wv_bw], ac
+    bcs  sb_c3
+    sub  [wv_p + 3], ac
+    ld   ac, [wv_q + 3]
+    bcs  sb_b3
+    clr  ac
+    bra  sb_s3
+sb_c3:
+    sub  [wv_p + 3], ac
+    ld   ac, [wv_q + 3]
+sb_b3:
+    ld   1, ac
+sb_s3:
+    ld   ac, [wv_bw]
+    RET
+
+; ============================================================
+; wave - half of the waveform: the sector's 256 samples of this half, a
+; pixel each, 64 rows for the 256 levels.  A point is cleared in the row
+; it was drawn in (OLD) and set in its new row.  The screen is read and
+; written with every section mapped to RAM (no library call meanwhile).
+; ============================================================
+.chunk
+wave:
+    CALL over                   ; the pointer off the waveform
+    ld   [wv_wdue], ac
+    xor  2, ac
+    beq  ww_a
+    ld   (SECT >> 8) + 1, ac
+    ld   ac, [wv_spg]
+    ld   (OLD >> 8) + 1, ac
+    ld   ac, [wv_opg]
+    ld   0x61 + 2 * (CARD_L + 33), ac
+    bra  ww_go
+ww_a:
+    ld   SECT >> 8, ac
+    ld   ac, [wv_spg]
+    ld   OLD >> 8, ac
+    ld   ac, [wv_opg]
+    ld   0x61 + 2 * (CARD_L + 1), ac
+ww_go:
+    ld   ac, [wv_scr]
+    ld   [wv_wdue], ac
+    dec
+    ld   ac, [wv_wdue]
+    clr  ac
+    ld   ac, [wv_wi]
+    ld   1, ac
+    ld   ac, [wv_wm]
+    ld   0x50, y
+    ld   0xFF, [y,x]
+    GOTO wavel
+
+.chunk
+wavel:
+    ld   [wv_opg], y
+    ld   [wv_wi], x
+    ld   [y,x], ac
+    ld   ac, [wv_oy]
+    ld   [wv_spg], y
+    ld   [y,x], ac
+    shr  ac
+    shr  ac
+    xor  63, ac
+    ld   ac, [wv_ny]
+    ld   [wv_opg], y
+    ld   ac, [y,x]
+    ld   [wv_wm], ac
+    xor  0xFF, ac
+    ld   ac, [wv_t]
+    ld   [wv_scr], y
+    ld   [wv_oy], x
+    ld   [y,x], ac
+    and  [wv_t], ac
+    ld   ac, [y,x]
+    ld   [wv_ny], x
+    ld   [y,x], ac
+    or   [wv_wm], ac
+    ld   ac, [y,x]
+    ld   [wv_wm], ac
+    shl
+    ld   ac, [wv_wm]
+    bne  ww_same
+    ld   1, ac
+    ld   ac, [wv_wm]
+    ld   [wv_scr], ac
+    add  2, ac
+    ld   ac, [wv_scr]
+ww_same:
+    ld   [wv_wi], ac
+    inc
+    ld   ac, [wv_wi]
+    bne  wavel
+    ld   0x50, y
+    ld   MAP_RUN, [y,x]
+    CALL p_show
+    GOTO loop
+
+; over - the pointer taken off the screen when it is on the waveform's
+; rows (213-287 for its 12 rows); p_hide returns
+.chunk
+over:
+    ld   [wv_pyh], ac
+    bne  wov_hi
+    ld   [wv_pyl], ac
+    sub  213, ac
+    bcs  wov_no
+    GOTO p_hide
+wov_hi:
+    ld   [wv_pyl], ac
+    sub  32, ac
+    bcc  wov_no
+    GOTO p_hide
+wov_no:
+    RET
+
+; ============================================================
+; the pointer (Pinboard's, pinboard_drv_mono.masm)
+; ============================================================
+; p_hide - the screen under the pointer put back (T0-T3; a leaf)
+.chunk
+p_hide:
+    ld   [wv_son], ac
+    beq  ph_x
+    clr  ac
+    ld   ac, [wv_son]
+    ld   ac, [T0]
+ph_l:
+    PROW
+    ld   [T0], ac
+    shl
+    ld   ac, x
+    ld   PSAVE >> 8, y
+    ld   [y,x], ac
+    ld   [T2], y
+    ld   [T1], x
+    ld   ac, [y,x]
+    ld   [wv_sk], ac
+    beq  ph_n
+    ld   [T0], ac
+    shl
+    add  1, x
+    ld   PSAVE >> 8, y
+    ld   [y,x], ac
+    ld   ac, [T3]
+    ld   [T2], ac
+    add  2, y
+    ld   [T1], x
+    ld   [T3], ac
+    ld   ac, [y,x]
+ph_n:
+    ld   [T0], ac
+    inc
+    ld   ac, [T0]
+    xor  [wv_sn], ac
+    bne  ph_l
+ph_x:
+    RET
+
+; p_show - the pointer drawn at wv_px, wv_py (T0-T3; a leaf)
+.chunk
+p_show:
+    ld   [wv_son], ac
+    bne  ps_x
+    ld   [wv_mok], ac
+    bne  ps_x                   ; no mouse: no pointer
+    ld   1, ac
+    ld   ac, [wv_son]
+    ld   [wv_pxl], ac
+    and  7, ac
+    shl
+    shl
+    shl
+    shl
+    ld   ac, [wv_sti]
+    ld   [wv_pxl], ac
+    shr  ac
+    shr  ac
+    shr  ac
+    ld   ac, [T3]
+    ld   [wv_pxh], ac
+    shl
+    shl
+    shl
+    shl
+    shl
+    or   [T3], ac
+    ld   ac, [T3]               ; the byte column
+    xor  79, ac
+    beq  ps_k
+    ld   1, ac
+ps_k:
+    ld   ac, [wv_sk]
+    ld   [T3], ac
+    shl
+    add  0x60, ac
+    ld   ac, [wv_sc2]
+    ld   [wv_pyl], ac
+    ld   ac, [wv_syl]
+    ld   [wv_pyh], ac
+    ld   ac, [wv_syh]
+    ld   12, ac
+    ld   ac, [wv_sn]
+    ld   [wv_pyh], ac
+    beq  ps_go
+    ld   0xE0, ac               ; rows left to 480
+    sub  [wv_pyl], ac
+    ld   ac, [T3]
+    sub  12, ac
+    bcc  ps_go
+    ld   [T3], ac
+    ld   ac, [wv_sn]
+ps_go:
+    ld   0x50, y
+    ld   0xFF, [y,x]
+    clr  ac
+    ld   ac, [T0]
+    GOTO ps_l
+ps_x:
+    RET
+
+.chunk
+ps_l:
+    PROW
+    ld   [T2], y                ; the left byte
+    ld   [T1], x
+    ld   [y,x], ac
+    ld   ac, [T3]
+    ld   [T0], ac
+    shl
+    ld   ac, x
+    ld   PSAVE >> 8, y
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   [wv_sti], ac
+    or   [T0], ac
+    ld   ac, x
+    ld   PTR >> 8, y
+    ld   [T3], ac
+    and  [y,x], ac
+    ld   (PTR >> 8) + 1, y
+    or   [y,x], ac
+    ld   [T2], y
+    ld   [T1], x
+    ld   ac, [y,x]
+    ld   [wv_sk], ac
+    beq  ps_n
+    ld   [T2], ac               ; the right byte
+    add  2, y
+    ld   [T1], x
+    ld   [y,x], ac
+    ld   ac, [T3]
+    ld   [T0], ac
+    shl
+    add  1, x
+    ld   PSAVE >> 8, y
+    ld   [T3], ac
+    ld   ac, [y,x]
+    ld   [wv_sti], ac
+    or   [T0], ac
+    or   0x80, x
+    ld   PTR >> 8, y
+    ld   [T3], ac
+    and  [y,x], ac
+    ld   (PTR >> 8) + 1, y
+    or   [y,x], ac
+    ld   ac, [T3]
+    ld   [T2], ac
+    add  2, y
+    ld   [T1], x
+    ld   [T3], ac
+    ld   ac, [y,x]
+ps_n:
+    ld   [T0], ac
+    inc
+    ld   ac, [T0]
+    xor  [wv_sn], ac
+    bne  ps_l
+    ld   0x50, y
+    ld   MAP_RUN, [y,x]
+    RET
 .chunk
 next:
     CALL quiet
@@ -1240,7 +2614,8 @@ br_h:
     ld   [wv_cell], ac
     xor  64, ac
     beq  br_cmp
-    ld   BAR_ROW, ac
+    CALL p_hide
+    ld   ROW_BAR, ac
     ld   ac, [CUR_ROW]
     ld   [wv_cell], ac
     add  BAR_COL, ac
@@ -1248,8 +2623,9 @@ br_h:
     ld   [wv_cell], ac
     inc
     ld   ac, [wv_cell]
-    ld   0xA0, ac               ; a filled cell (an inverse space)
+    ld   0x20, ac               ; a black cell
     CALL con_putc
+    CALL p_show
     bra  br_cmp
 br_done:
     GOTO loop
@@ -1433,26 +2809,28 @@ tc_h:
 tc_no:
     GOTO loop
 
-; time - row 7: "m:ss of m:ss", and "paused" while it is
+; time - the time row: "m:ss of m:ss", and "paused" while it is; the pause
+; button's word
 .chunk
 time:
     clr  ac
     ld   ac, [wv_draw]
-    ld   7, ac
+    CALL p_hide
+    ld   ROW_TIME, ac
     ld   ac, [CUR_ROW]
-    ld   2, ac
+    ld   CARD_L + 2, ac
     ld   ac, [CUR_COL]
     ld   [wv_min], ac
-    CALL con_dec8
+    CALL numi
     ld   [wv_sec], ac
     CALL dec2
     ld   s_of & 0xFF, ac
     ld   ac, [R0]
     ld   s_of >> 8, ac
     ld   ac, [R1]
-    CALL con_puts
+    CALL puti
     ld   [wv_tmin], ac
-    CALL con_dec8
+    CALL numi
     ld   [wv_tsec], ac
     CALL dec2
     ld   [wv_hold], ac
@@ -1467,35 +2845,40 @@ tm_hold:
     ld   s_hold >> 8, ac
 tm_put:
     ld   ac, [R1]
-    CALL con_puts
-    GOTO loop
+    CALL puti
+    GOTO time2
 
+.chunk
+time2:
+    ld   ROW_BTN, ac
+    ld   ac, [CUR_ROW]
+    ld   BTN_H, ac
+    ld   ac, [CUR_COL]
+    ld   [wv_hold], ac
+    bne  t2_hold
+    ld   s_bpause & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_bpause >> 8, ac
+    bra  t2_put
+t2_hold:
+    ld   s_bplay & 0xFF, ac
+    ld   ac, [R0]
+    ld   s_bplay >> 8, ac
+t2_put:
+    ld   ac, [R1]
+    CALL con_puts
+    CALL p_show
+    GOTO loop
 ; dec2 - ":" and AC (0-99) as two digits
 .chunk
 dec2:
     PUSH_LINK
     ld   ac, [wv_t]
-    ld   0x3A, ac
-    CALL con_putc
-    ld   0x30, ac
-    ld   ac, [wv_d]
-d2_l:
-    ld   [wv_t], ac
-    sub  10, ac
-    bcs  d2_o
-    ld   ac, [wv_t]
-    ld   [wv_d], ac
-    inc
-    ld   ac, [wv_d]
-    bra  d2_l
-d2_o:
-    ld   [wv_d], ac
+    ld   0xBA, ac
     CALL con_putc
     ld   [wv_t], ac
-    add  0x30, ac
-    CALL con_putc
+    CALL two
     LEAVE
-
 ; ------------------------------------------------------------
 ; finish - the file's end: a piece of silence after the last samples,
 ; wait until the video is in it, the whole ring silent, the next file or
@@ -1544,6 +2927,8 @@ after:
     beq  af_last
     GOTO show
 af_last:
+    ld   LIB_FONT >> 8, ac
+    ld   ac, [FONT_PG]
     ld   MENU_BLK >> 8, y       ; back, as menu_poll goes (a program that
     ld   MB_MAGIC, x            ; is done)
     ld   [y,x], ac
@@ -1554,6 +2939,8 @@ af_last:
     ld   ac, [y,x]
     jmp  MB_EXIT
 af_stay:
+    ld   FONT >> 8, ac
+    ld   ac, [FONT_PG]
     clr  ac                     ; no DOS to go back to: from the first again
     ld   ac, [wv_n]
     GOTO show
@@ -1561,22 +2948,23 @@ af_stay:
 ; badwav - not a file the program plays: say so for 2.5 s, the next file
 .chunk
 badwav:
+    CALL p_hide
+    CALL clrinfo
     ld   s_not & 0xFF, ac
     ld   ac, [R0]
     ld   s_not >> 8, ac
     ld   ac, [R1]
-    ld   5, ac
+    ld   ROW_INFO, ac
     CALL msg
     ld   150, ac
     CALL wait_frames
     GOTO after
-
 ; ------------------------------------------------------------
-; fail - the message at R1:R0 on text row 3, then wait for Esc
+; fail - the message at R1:R0 on the card, then wait for Esc
 ; ------------------------------------------------------------
 .chunk
 fail:
-    ld   3, ac
+    ld   ROW_INFO, ac
     CALL msg
 fl_loop:
     ld   1, ac
@@ -1590,7 +2978,7 @@ fl_loop:
 ; ============================================================
 .chunk
 s_title:
-    #d "PLACARD SOUND PLAYER", 0x00
+    #d " Sound player", 0x00
 s_dir:
     #d "SOUNDS", 0x00
 s_of:
@@ -1599,23 +2987,29 @@ s_go:
     #d "         ", 0x00
 s_hold:
     #d "   paused", 0x00
-s_nodir:
-    #d "There is no SOUNDS folder on the card.  Esc: exit", 0x00
-s_none:
-    #d "There are no .WAV files in this folder.  Esc: exit", 0x00
-s_bad:
-    #d "The card could not be read.  Esc: exit", 0x00
-.chunk
+s_prev:
+    #d "  <<  ", 0x00
+s_next:
+    #d "  >>  ", 0x00
+s_bpause:
+    #d " Pause  ", 0x00
+s_bplay:
+    #d "  Play  ", 0x00
 s_r31:
-    #d "31.5 kHz                             ", 0x00
+    #d "31.5 kHz", 0x00
 s_r15:
-    #d "15.7 kHz                             ", 0x00
+    #d "15.7 kHz", 0x00
 s_r7:
-    #d "7.9 kHz                              ", 0x00
+    #d "7.9 kHz", 0x00
+.chunk
+s_nodir:
+    #d "There is no SOUNDS folder on the card.  Esc: close", 0x00
+s_none:
+    #d "There are no .WAV files in this folder.  Esc: close", 0x00
+s_bad:
+    #d "The card could not be read.  Esc: close", 0x00
 s_not:
     #d "Not a WAV file with 8 bits, 1 channel", 0x00
 .chunk
-s_keys1:
-    #d "Space: pause   Right or Enter: next   Left or Backspace: the one before", 0x00
-s_keys2:
-    #d "Esc: exit", 0x00
+s_keys:
+    #d "Space: pause   Left, Right: move   Enter: next   Backspace: last   Esc: close", 0x00

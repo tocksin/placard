@@ -128,10 +128,14 @@ picture, as for a program.
 Enter on a `.WAV` file (or a click on the chosen one) runs the sound
 player, `WAVE.PLC` in the card's root folder ([WAVE.md](WAVE.md)), on
 that file: an 8-bit mono recording that it reads from the card while it
-plays.  The player has the whole screen: Space pauses, Right or Enter
-play the folder's next file, Left or Backspace the one before.  When the
-folder's last file ends, or at Esc, Pinboard comes back in the same
-folder with the same entry chosen and the clock kept.
+plays.  The player has the whole screen and draws a card of its own on
+a board in Pinboard's look, with the same pointer: a waveform of what is
+playing, a slider to click or hold and move to another place in the
+file, and buttons to pause and to play the folder's next file or the
+one before (Space, Left and Right, Enter, Backspace on the keys).  When
+the folder's last file ends, or at Esc or a click on the card's pin,
+Pinboard comes back in the same folder with the same entry chosen and
+the clock kept.
 
 Files passes the player the folder and the file's number the way it does
 for a picture (the mark in x5D19 is "S" instead of "V").
