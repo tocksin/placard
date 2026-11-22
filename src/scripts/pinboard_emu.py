@@ -92,7 +92,7 @@ def rom_image():
     return _rom
 
 
-def run(files, inputs, shots, frames, mouse=True, px=0x38, rev_b=False, audio=False, spc=1, size_kb=4096):
+def run(files, inputs, shots, frames, mouse=True, px=0x38, rev_b=False, audio=False, spc=1, size_kb=None):
     tmp = tempfile.mkdtemp()
     p = lambda n: os.path.join(tmp, n)   # noqa: E731
     open(p('rom.bin'), 'wb').write(rom_image())

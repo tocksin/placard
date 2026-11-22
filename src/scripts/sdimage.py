@@ -18,7 +18,7 @@ reserved sector, two FATs, a 512-entry root folder and one sector per
 cluster.  Names are short (8.3) names, upper case; folders are made as
 needed from the path.
 
-Date: 11/06/2026
+Date: 11/22/2026
 """
 
 import os
@@ -42,8 +42,23 @@ def entry(name11, attr, cluster, size, date=(2026, 10, 26)):
                                 0, d, cluster & 0xFFFF, size)
 
 
-def make(files, size_kb=4096, spc=1, label='PLACARD'):
-    """a FAT16 image: files = {'NAME.EXT' or 'DIR/NAME.EXT': bytes}"""
+def make(files, size_kb=None, spc=1, label='PLACARD'):
+    """a FAT16 image: files = {'NAME.EXT' or 'DIR/NAME.EXT': bytes}.  With
+    no size given it is 4096 KB, or the first doubling of that the files
+    fit in"""
+    if size_kb is not None:
+        return make_sized(files, size_kb, spc, label)
+    size_kb = 4096
+    while True:
+        try:
+            return make_sized(files, size_kb, spc, label)
+        except ValueError as e:
+            if str(e) != 'image full' or size_kb >= 1024 * 1024:
+                raise
+            size_kb *= 2
+
+
+def make_sized(files, size_kb, spc=1, label='PLACARD'):
     total = size_kb * 1024 // SECTOR
     reserved, nfats, root_entries = 1, 2, 512
     root_secs = root_entries * 32 // SECTOR

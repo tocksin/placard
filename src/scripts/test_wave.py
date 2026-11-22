@@ -143,7 +143,7 @@ def main(argv):
         s = tp.Script()
         s.t = 100 + 300001 * 60 // 31469 + 40
         s.shot('end', 0)
-        o = s.run(files, mouse=False, audio=True, spc=spc, size_kb=4096 if spc == 1 else 20480)
+        o = s.run(files, mouse=False, audio=True, spc=spc, size_kb=None if spc == 1 else 20480)
         bad = played(s.audio, [('BIG.WAV', big, 1)])
         check('%d sector%s a cluster: whole, no sample lost: %s' % (spc, '' if spc == 1 else 's', bad or 'yes'), not bad)
 

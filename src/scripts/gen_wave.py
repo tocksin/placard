@@ -21,6 +21,12 @@ bits (dither: the rounding becomes a steady hiss instead of a distortion
 that follows the sound; --no-dither leaves it out) and writes the file
 with a 44-byte header.
 
+8 bits have room for about 48 dB between the loudest sound and the hiss,
+so the soft parts of music with loud and soft parts sit close to it.
+--compress brings them up first: the level over a third of a second is
+halved in dB against the loudest part (at most 12 dB up), and the few
+highest peaks are rounded off.
+
 Without this script, ffmpeg alone makes a file the player takes:
 
     ffmpeg -i song.mp3 -ac 1 -ar 31469 -c:a pcm_u8 SONG.WAV
@@ -64,6 +70,19 @@ def to_bytes(x, gain_db=None, dither=True, seed=1):
     return np.clip(np.floor(v + 0.5), 0, 255).astype(np.uint8).tobytes()
 
 
+def compress(x, rate):
+    """quiet parts brought up toward the loud ones, for 8 bits: the level
+    over a third of a second, halved in dB against the loudest (at most
+    12 dB up), then the few highest peaks rounded off"""
+    x = np.asarray(x, dtype=np.float64)
+    n = max(1, int(rate / 3))
+    env = np.sqrt(np.convolve(x * x, np.ones(n) / n, mode='same')) + 1e-9
+    y = x * np.minimum(4.0, np.sqrt(env.max() / env))
+    y = y * (0.8 / np.quantile(np.abs(y), 0.999))
+    a = np.abs(y)
+    return np.where(a > 0.7, np.sign(y) * (0.7 + 0.3 * np.tanh((a - 0.7) / 0.3)), y)
+
+
 def decode(path, rate, start=None, seconds=None):
     """the source as one channel of floats at the rate (ffmpeg)"""
     cmd = ['ffmpeg', '-v', 'error', '-nostdin']
@@ -82,7 +101,9 @@ def decode(path, rate, start=None, seconds=None):
     return np.frombuffer(r.stdout, dtype='<f4')
 
 
-def make(x, rate, gain_db=None, dither=True):
+def make(x, rate, gain_db=None, dither=True, comp=False):
+    if comp:
+        x = compress(x, rate)
     d = to_bytes(x, gain_db, dither)
     return header(rate, len(d)) + d
 
@@ -96,6 +117,8 @@ def main(argv):
     ap.add_argument('--seconds', type=float, help='how much of it')
     ap.add_argument('--gain', type=float, metavar='DB', help='this many dB instead of the loudest sample to 97 %%')
     ap.add_argument('--no-dither', action='store_true')
+    ap.add_argument('--compress', action='store_true',
+                    help='bring quiet parts up (music with loud and soft parts: less hiss in the soft ones)')
     args = ap.parse_args(argv)
     rate = RATES[args.rate]
     out = args.out
@@ -110,7 +133,7 @@ def main(argv):
     x = decode(args.source, rate, args.start, args.seconds)
     if not len(x):
         sys.exit('no sound in ' + args.source)
-    data = make(x, rate, args.gain, not args.no_dither)
+    data = make(x, rate, args.gain, not args.no_dither, args.compress)
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     open(out, 'wb').write(data)
     s = len(x) / rate
