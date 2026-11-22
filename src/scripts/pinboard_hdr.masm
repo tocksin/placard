@@ -1,6 +1,6 @@
 ; pinboard_hdr.masm - what pinboard.masm (the core) and its display
 ; drivers (pinboard_drv_*.masm) share: the constants and the macros.
-; Date: 11/17/2026
+; Date: 11/22/2026
 
 #include "placard.asm"
 #include "placard_lib.asm"
@@ -8,6 +8,7 @@
 PB_PTR    = 0x3600      ; the pointer's tables, 2 pages
 PB_FONT   = 0x3800      ; the font, 8 pages
 DRV       = 0x2E00      ; the display driver: x2E00-x3FFF, a file of its own
+CORE2     = 0x3500      ; x3500-x35FF: more of the core (every driver file has the same bytes here)
 DRV_CELLS = DRV         ;   its entries (GOTO: EMIT, HFILL and GTYPE end there)
 DRV_INVC  = DRV + 4     ;   (GOTO: INVC)
 DRV_HIDE  = DRV + 8     ;   (CALL: the pointer off the screen)

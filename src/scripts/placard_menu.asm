@@ -47,7 +47,10 @@
 ;   x5D19        MB_PHOTO   "V": Pinboard's Files card runs the photo
 ;                           viewer (photo.masm) on a picture; "S": the
 ;                           sound player (wave.masm) on a .WAV file,
-;                           which uses MB_PCLUS and MB_PN the same way
+;                           which uses MB_PCLUS and MB_PN the same way;
+;                           "B": Pinboard's Editor runs its text in BASIC
+;                           (the run block below; MB_PCLUS is the Files
+;                           card's folder meanwhile)
 ;   x5D1A        MB_PWIDE   the viewer's rows' mode byte, 0 = not chosen
 ;   x5D1B-x5D1E  MB_PCLUS   that picture's folder (its first cluster)
 ;   x5D1F        MB_PN      its number among the folder's .PIC files
@@ -65,6 +68,11 @@
 ; up by the 32K ROM's loader (rom32.masm, docs/software/DOS.md), which also runs the
 ; programs; the DOS (DOS.PLC) and the menu (MENU.PLC) are programs on the
 ; SD card.
+;
+; The run block, x5DCC-x5DF1 (pinboard.vm: RUNBLK), is the Editor's state
+; while BASIC runs its text: Pinboard copies it there and takes it back.
+; BASIC (basic.vm) reads the file's name, "NAME.EXT", 0, at x5DE0 and its
+; folder's first cluster (4 bytes) at x5DEE.
 ;
 ; placard_lib.asm includes this file; its code is at MENU_CODE (xEA00).
 ;
@@ -88,6 +96,7 @@ MB_MENU   = 0x11
 MB_ERR    = 0x12
 MB_SEL    = 0x13
 MB_TOP    = 0x14
+MB_PHOTO  = 0x19
 MB_EXIT   = 0x20
 MB_GO     = 0x28
 MB_CHILD  = 0x30

@@ -153,6 +153,7 @@ any file that is not a program, a BASIC program for one), or a new one.
 | Backspace, Del | take out the character before or under the cursor; at a line's edge they join two lines |
 | Ctrl+O | saves the text (write it Out).  A new text asks for its name first: type it and Enter, or Esc |
 | Ctrl+N | a new, empty text.  With unsaved changes it asks once more |
+| Ctrl+B | saves the text and runs it in BASIC ([below](#running-a-basic-program)) |
 
 A click puts the cursor on the character clicked.  The top line shows
 the file's name, with a `*` while there are changes that are not saved.
@@ -168,6 +169,40 @@ the file's name, with a `*` while there are changes that are not saved.
   DOS: the Editor comes to the front and says so.
 - Ctrl+S can't be the save key: the keyboard driver gives the Left arrow
   the same code (13h).
+
+### Running a BASIC program
+
+**Ctrl+B** in the Editor saves the text (a new one asks for its name
+first) and starts BASIC, which loads the file and runs it:
+
+```
+PLACARD BASIC
+7424 bytes free
+HI FROM BASIC
+43
+Ready (Ctrl+B: Pinboard)
+```
+
+BASIC stays up when the program ends or stops with an error, so its
+output can be read and commands typed (`PRINT A`, `LIST`, `RUN`).  Esc
+stops a running program as always.  **Ctrl+B** at BASIC's prompt, or its
+`DOS` command, comes back to Pinboard: the Editor is in front with the
+same text and the cursor where it was, the Files card and the clock as
+for any program.
+
+- BASIC's file commands (`LOAD`, `SAVE`, `DIR`, `DEL`) work in the
+  program's folder while it was started this way.
+- The text comes back as it is on the card.  If the program (or a `SAVE`
+  in BASIC) changed the file's length, the cursor goes to the start; a
+  file that no longer fits the Editor leaves it empty.
+- Ctrl+R can't be the key: the keyboard driver gives the Down arrow the
+  same code (12h).
+- It needs the ROM's BASIC from 11/22/2026 on.  With an older ROM Ctrl+B
+  saves the text and starts BASIC with no program, and `DOS` goes to the
+  DOS.
+- The Editor's state waits in x5DCC-x5DF1 (the run block,
+  `placard_menu.asm`) with the mark "B" in x5D19; BASIC reads the file's
+  name and folder from it.
 
 ## Display
 
@@ -207,14 +242,17 @@ a stack machine, a copy of BASIC's inner interpreter that `pinboard.masm`
 carries so it does not depend on where BASIC is in the ROM.  A call in the
 bytecode is two bytes; `vmc.py`'s `RAMCALLS` sets bit 7 of the first so
 that addresses in RAM, x0100-x3FFF, can't be taken for a primitive's
-number.  The core of the desktop, most of it bytecode, is 10.8 KB of the
-11.3 KB it has; a display driver is another 4.5 KB.
+number.  The core of the desktop, most of it bytecode, is 11.1 KB of the
+11.25 KB it has; a display driver is another 4.25 KB.
 
 **The display driver** is the bytes x2E00-x3FFF: the code that draws
 characters and the pointer for one mode of the screen, with that mode's
 font, pointer, colors and the cards' first places.  The core (the rest)
 is the same bytes under every driver; it reaches the driver through five
-entries at x2E00 and reads its tables.  `PINBOARD.PLC` holds the 2-color
+entries at x2E00 and reads its tables.  One page inside the driver's
+bytes, x3500-x35FF, is bytecode of the core that did not fit below: every
+driver's file has the same bytes there (`gen_pinboard.py` checks), so a
+driver's own code ends at x34FF.  `PINBOARD.PLC` holds the 2-color
 driver.  Choosing a mode reads another driver's file over it
 (`pinboard.vm`: `DRV-LOAD`), calls its `d_init` (the screen cleared, the
 rows' mode bytes set) and draws everything again.
@@ -265,7 +303,8 @@ Machine code does what has to be quick:
 | zero page x20-x52 | the interpreter, drawing and pointer state (the data stack is x53-x8F) |
 | zero page x90-x9F | the desktop's variables (the sound driver's bytes: Pinboard makes no sound) |
 | x0100-x2DFF | the core: machine code and bytecode |
-| x2E00-x35FF | the display driver: entries, pens, sizes, code |
+| x2E00-x34FF | the display driver: entries, pens, sizes, code |
+| x3500-x35FF | more of the core's bytecode, the same in every driver's file |
 | x3600-x37FF | the driver's pointer, shifted: mask and picture |
 | x3800-x3FFF | the driver's font, a page per pixel row |
 | x4000-x4AFF | the Editor's text |
@@ -274,6 +313,7 @@ Machine code does what has to be quick:
 | x5400-x59FF | the folder: 96 entries of 16 bytes |
 | x5D15-x5D18 | the time and the display's mode, kept in the menu block while a program runs |
 | x5D19-x5D1F | for the photo viewer and the sound player: the mark "V" or "S", the viewer's rows' mode byte, the file's folder and its number among the folder's files of its kind |
+| x5DCC-x5DF1 | the Editor's state while BASIC runs its text (the mark is "B") |
 
 A card is a row of four tables in `pinboard.vm`: its title and the words
 that draw it (`DRAWTAB`), take a key (`KEYTAB`) and take a click
@@ -299,5 +339,8 @@ where the 2-color screen comes back; and pictures: the photo viewer run
 from the `PHOTOS` folder and from another folder, its one question, the
 picture's bytes on the screen, the next and the one before, coming back to
 the folder in 2 and in 4 colors, and a card with no `PHOTO.PLC`.
-`test_wave.py` checks `.WAV` files from the Files card.
+`test_wave.py` checks `.WAV` files from the Files card.  And Ctrl+B: the
+text saved and run in BASIC, a command typed there, Ctrl+B and `DOS` back
+to the Editor with the text and the cursor, a program in a folder, Esc
+stopping one, a new text named first.
 `--png folder` saves each step's screen.

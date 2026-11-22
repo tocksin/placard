@@ -9,13 +9,13 @@
 ; every character twice, from x80 up in inverse video.  The pens are not
 ; used: white and black.
 ;
-; Date: 11/17/2026
+; Date: 11/22/2026
 ; ============================================================
 .include "pinboard_hdr.masm"
 ; ---DRIVER---
 
 .prefix pd
-.region DRV + 0x100, PB_PTR
+.region DRV + 0x100, CORE2
 #include "pinboard_data_mono.asm"
 
 ; ============================================================

@@ -30,7 +30,7 @@
 ; In 4 bpp every 4 font bits make 2 bytes, through the tables T16L (the
 ; left 2 pixels' byte of a font byte) and T16H.
 ;
-; Date: 11/17/2026
+; Date: 11/22/2026
 ; ============================================================
 .include "pinboard_hdr.masm"
 ; ---DRIVER---
@@ -51,7 +51,7 @@ T16L    = DRV + 0x100  ; the left two pixels' byte of a font byte
 T16H    = DRV + 0x200  ; the right two
 
 .prefix pd
-.region DRV + 0x300, PB_PTR
+.region DRV + 0x300, CORE2
 #include "pinboard_data_c16.asm"
 
 .macro VLOW                     ; AC = GY: VLB = the low byte of its first row
